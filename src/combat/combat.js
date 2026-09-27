@@ -82,6 +82,7 @@ export class Combat {
     for (const [ent, h] of hitAgg) {
       if (ent.takeHit) ent.takeHit(h);
     }
+    if (shooter.isHuman && hitAgg.size) g.onPlayerHit?.();
     // Effects
     const flashScale = d.kind === 'shotgun' ? 1.6 : d.kind === 'heavy' || d.kind === 'minigun' ? 1.3 : d.kind === 'pistol' ? 0.9 : 1;
     if (!d.silenced) {

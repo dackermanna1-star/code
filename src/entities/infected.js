@@ -231,6 +231,14 @@ export class Common extends Agent {
       this.attackCd = 0.25 + Math.random() * 0.2;
       return;
     }
+    // Off-nav chase: target on a moving platform / we are off the grid
+    const offNav = !!t.phys.groundDyn || this.node < 0;
+    if (offNav && dist < 10) {
+      let sp = this.speed * (this.slowT > 0 ? 0.45 : 1);
+      this.curSpeed = damp(this.curSpeed, sp, 5, dt);
+      this.freeMove(dt, t.pos.x + Math.cos(this.ang) * 0.5, t.pos.y, t.pos.z + Math.sin(this.ang) * 0.5, this.curSpeed);
+      return;
+    }
     // Steering
     let gx = t.pos.x, gz = t.pos.z;
     let useDirect = false;

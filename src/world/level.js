@@ -141,10 +141,11 @@ export class Level {
     for (let i = 0; i < steps; i++) {
       const top = y0 + sh * (i + 1);
       let a, b;
-      if (dir === '+x') { a = x0 + sl * i; b = x0 + sl * (i + 1); this.box(a, y0 - 0.2, z0, b, top, z1, mat, opts); }
-      else if (dir === '-x') { a = x1 - sl * (i + 1); b = x1 - sl * i; this.box(a, y0 - 0.2, z0, b, top, z1, mat, opts); }
-      else if (dir === '+z') { a = z0 + sl * i; b = z0 + sl * (i + 1); this.box(x0, y0 - 0.2, a, x1, top, b, mat, opts); }
-      else { a = z1 - sl * (i + 1); b = z1 - sl * i; this.box(x0, y0 - 0.2, a, x1, top, b, mat, opts); }
+      const bot = opts.thin ? top - 0.42 : y0 - 0.2;
+      if (dir === '+x') { a = x0 + sl * i; b = x0 + sl * (i + 1); this.box(a, bot, z0, b, top, z1, mat, opts); }
+      else if (dir === '-x') { a = x1 - sl * (i + 1); b = x1 - sl * i; this.box(a, bot, z0, b, top, z1, mat, opts); }
+      else if (dir === '+z') { a = z0 + sl * i; b = z0 + sl * (i + 1); this.box(x0, bot, a, x1, top, b, mat, opts); }
+      else { a = z1 - sl * (i + 1); b = z1 - sl * i; this.box(x0, bot, a, x1, top, b, mat, opts); }
     }
   }
   // Arbitrary geometry merged into static batches. collide: [[x0,y0,z0,x1,y1,z1],...] or 'bbox'
@@ -166,6 +167,10 @@ export class Level {
     const geo = kind === 'box' ? unitBox() : kind === 'cyl' ? unitCyl(opts.seg ?? 12) : kind;
     this.mesh(geo, mat, m, { tint: opts.tint, uvScale: opts.uvScale, worldUV: opts.worldUV ?? (kind === 'box' ? materials.scaleOf(mat) : undefined) });
     return m;
+  }
+  // Static decal for level dressing (blood, grime, scorch). frame: see render/decals.js DF
+  decal(x, y, z, nx, ny, nz, size, frame, opts = {}) {
+    this.game.staticDecals.add(x, y, z, nx, ny, nz, size, frame, opts);
   }
   addObject(obj) {
     this.root.add(obj);

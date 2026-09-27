@@ -1,22 +1,55 @@
-import { Game } from './game.js';
+// Entry point: settings, audio engine, session and the frame loop.
+import { Session } from './session.js';
 import { loadSettings } from './config.js';
-import { buildTestLevel } from './levels/testLevel.js';
+import { NullAudio } from './audio/audio.js';
 
 const canvas = document.getElementById('game');
+const ui = document.getElementById('ui');
 const settings = loadSettings();
-const game = new Game(canvas, settings);
-window.game = game;
-game.createSurvivors('bill');
-game.loadLevel(buildTestLevel);
-game.placeSurvivors();
-game.player.giveWeapon('pumpShotgun');
-game.state = 'playing';
-canvas.addEventListener('click', () => game.input.requestLock());
-let last = performance.now();
-function loop(now) {
-  const dt = (now - last) / 1000;
-  last = now;
-  game.frame(dt);
-  requestAnimationFrame(loop);
+
+async function makeAudio() {
+  try {
+    const mod = await import('./audio/audioEngine.js');
+    const a = new mod.AudioEngine(settings);
+    await a.init();
+    return a;
+  } catch (e) {
+    console.warn('Audio engine unavailable, running silent:', e?.message || e);
+    const n = new NullAudio();
+    n.music = { setState() {}, setIntensity() {}, stinger() {} };
+    return n;
+  }
 }
-requestAnimationFrame(loop);
+
+(async () => {
+  const audio = await makeAudio();
+  if (!audio.music) audio.music = { setState() {}, setIntensity() {}, stinger() {} };
+  const session = new Session(canvas, ui, settings, audio);
+  window.session = session;
+  const params = new URLSearchParams(location.search);
+  session.showMainMenu();
+  if (params.has('autostart')) {
+    const ch = parseInt(params.get('autostart')) || 0;
+    session.startCampaign(ch);
+  }
+  // resume audio on first interaction
+  const resume = () => { audio.resume?.(); };
+  window.addEventListener('pointerdown', resume);
+  window.addEventListener('keydown', (e) => {
+    resume();
+    if ((e.code === 'Escape' || e.code === 'KeyP') && session.state === 'playing' && !session.game.paused && session.game.input.locked === false) session.pause();
+  });
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.1, (now - last) / 1000);
+    last = now;
+    const g = session.game;
+    if (session.state === 'menu' && g.level && g.player) {
+      // slow cinematic drift behind the menu
+      g.player.yaw += dt * 0.03;
+    }
+    g.frame(dt);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();

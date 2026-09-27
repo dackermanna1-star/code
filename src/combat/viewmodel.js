@@ -37,7 +37,7 @@ function makeArm(char, side) {
   const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.048, 1, 10).translate(0, 0.5, 0), sleeveMat);
   const lower = new THREE.Group();
   const bare = char.bareArms || char.rolledSleeves;
-  const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.038, 1, 12).translate(0, 0.5, 0), bare ? skin : sleeveMat);
+  const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.034, 1, 12).translate(0, 0.5, 0), bare ? skin : sleeveMat);
   lower.add(fore);
   if (char.rolledSleeves) {
     const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.046, 0.046, 0.08, 12).translate(0, 0.12, 0), sleeveMat);
@@ -478,8 +478,8 @@ export class Viewmodel {
     hand.quaternion.copy(hq).multiply(_q);
     // wrist point (below/behind the grip)
     const wrist = _w.set(0.018 * side, -0.06, 0.028).applyQuaternion(hand.quaternion).add(hand.position);
-    const elbow = _tmpE.set(wrist.x + side * 0.07, wrist.y - 0.22, wrist.z + 0.16);
-    if (spec[6]) elbow.set(wrist.x - 0.06, wrist.y - 0.2, wrist.z + 0.22);
+    const elbow = _tmpE.set(wrist.x + side * 0.08, wrist.y - 0.2, wrist.z + 0.2);
+    if (spec[6]) elbow.set(wrist.x - 0.16, wrist.y - 0.2, wrist.z + 0.26);
     const d = _tmpD.subVectors(wrist, elbow);
     const len = d.length();
     d.normalize();

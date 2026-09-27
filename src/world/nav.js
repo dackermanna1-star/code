@@ -8,7 +8,7 @@ import { F_SOLID, F_NONAV } from './collision.js';
 export const LINK_WALK = 0, LINK_CLIMB = 1, LINK_DROP = 2;
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 const DIAG_ORTHO = { 4: [0, 2], 5: [0, 3], 6: [1, 2], 7: [1, 3] };
-const STEP = 0.55, CLIMB_MAX = 3.4, DROP_MAX = 8, CLEAR_H = 1.75, CLEAR_R = 0.3;
+const STEP = 0.55, CLIMB_MAX = 3.4, DROP_MAX = 8, CLEAR_H = 1.75, CLEAR_R = 0.235;
 
 class Heap {
   constructor(cap = 1 << 16) { this.n = new Int32Array(cap); this.k = new Float32Array(cap); this.size = 0; }
@@ -76,23 +76,35 @@ export class NavGrid {
         const k = col.query(x - 0.02, this.minY, z - 0.02, x + 0.02, this.maxY, z + 0.02, F_SOLID);
         if (k === 0) continue;
         tops.length = 0;
+        const bots = this._bots || (this._bots = []);
+        bots.length = 0;
         for (let j = 0; j < k; j++) {
           const i = col.scratch[j];
+          bots.push(b[i * 6 + 1], b[i * 6 + 4]); // every box through the column (for occlusion)
           if (col.flags[i] & F_NONAV) continue;
           tops.push(b[i * 6 + 4]);
         }
         tops.sort((p, q) => p - q);
-        let last = -1e9;
+        // merge surfaces closer than 8 cm, keeping the highest (stacked finishes / slabs)
+        const merged = this._merged || (this._merged = []);
+        merged.length = 0;
         for (const y of tops) {
-          if (y - last < 0.08) continue;
-          last = y;
-          // clearance
+          if (merged.length && y - merged[merged.length - 1] < 0.08) merged[merged.length - 1] = y;
+          else merged.push(y);
+        }
+        for (const y of merged) {
+          // covered: another box containing the column centre spans through this surface
+          let covered = false;
+          for (let q = 0; q < bots.length; q += 2) if (bots[q] <= y + 0.05 && bots[q + 1] > y + 0.05) { covered = true; break; }
+          if (covered) continue;
+          // head clearance (anything taller than a step within the body radius)
           const kk = col.query(x - CLEAR_R, y + STEP, z - CLEAR_R, x + CLEAR_R, y + CLEAR_H, z + CLEAR_R, F_SOLID);
           if (kk > 0) continue;
-          // also the column centre must be clear of anything starting just above the surface (tables etc.)
-          const k2 = col.query(x - 0.05, y + 0.06, z - 0.05, x + 0.05, y + STEP, z + 0.05, F_SOLID);
-          // anything occupying the space just above the surface means we'd be standing inside it
-          if (k2 > 0) continue;
+          // floating low obstacles right above the surface (bench seats, table rails)
+          const k2 = col.query(x - 0.05, y + 0.08, z - 0.05, x + 0.05, y + STEP, z + 0.05, F_SOLID);
+          let floating = false;
+          for (let j = 0; j < k2; j++) { const i = col.scratch[j]; if (b[i * 6 + 1] > y + 0.05) { floating = true; break; } }
+          if (floating) continue;
           if (n >= cap) {
             cap *= 2;
             const ny = new Float32Array(cap); ny.set(nodeY); nodeY = ny;
@@ -119,24 +131,23 @@ export class NavGrid {
         const ax = cx + DIRS[d][0], az = cz + DIRS[d][1];
         if (ax < 0 || az < 0 || ax >= nx || az >= nz) continue;
         const c2 = az * nx + ax;
-        let best = -1, bestDy = 1e9, bestType = 0;
+        let best = -1, bestDy = 1e9, bestType = -1;
+        const x2 = this.minX + (ax + 0.5) * cs, z2 = this.minZ + (az + 0.5) * cs;
         for (let m = colStart[c2]; m < colStart[c2 + 1]; m++) {
           const dy = this.nodeY[m] - y;
           const ady = Math.abs(dy);
           if (ady <= STEP) {
             if (bestType !== 0 || ady < bestDy) { best = m; bestDy = ady; bestType = 0; }
-          } else if (d < 4 && bestType !== 0) {
+          } else if (d < 4 && bestType !== 0 && ady < bestDy) {
             if (dy > STEP && dy <= CLIMB_MAX) {
-              // climb: need headroom above current column
-              const x2 = this.minX + (ax + 0.5) * cs, z2 = this.minZ + (az + 0.5) * cs;
+              // climb: headroom above the current column and above the target surface
               if (col.query(x - 0.15, y + CLEAR_H, z - 0.15, x + 0.15, this.nodeY[m] + CLEAR_H - 0.2, z + 0.15, F_SOLID) === 0 &&
                   col.query(x2 - 0.15, this.nodeY[m] + 0.1, z2 - 0.15, x2 + 0.15, this.nodeY[m] + CLEAR_H - 0.2, z2 + 0.15, F_SOLID) === 0) {
-                if (best < 0 || (bestType === 1 && ady < bestDy) || bestType === 2) { best = m; bestDy = ady; bestType = 1; }
+                best = m; bestDy = ady; bestType = 1;
               }
             } else if (dy < -STEP && dy >= -DROP_MAX) {
-              const x2 = this.minX + (ax + 0.5) * cs, z2 = this.minZ + (az + 0.5) * cs;
               if (col.query(x2 - 0.15, this.nodeY[m] + CLEAR_H, z2 - 0.15, x2 + 0.15, y + CLEAR_H, z2 + 0.15, F_SOLID) === 0) {
-                if (best < 0 || (bestType === 2 && this.nodeY[m] > this.nodeY[best])) { best = m; bestDy = ady; bestType = 2; }
+                best = m; bestDy = ady; bestType = 2;
               }
             }
           }
@@ -228,34 +239,51 @@ export class NavGrid {
     return dist;
   }
 
-  // Edge cost from a to b (b = neighbour of a in dir d)
+  // Reverse adjacency (incoming edges) in CSR form so distance fields handle one-way links (drops).
+  buildReverse() {
+    const N = this.N, L = this.links, T = this.ltype;
+    const cnt = new Int32Array(N + 1);
+    for (let u = 0; u < N; u++) for (let d = 0; d < 8; d++) { const v = L[u * 8 + d]; if (v >= 0) cnt[v + 1]++; }
+    for (let i = 0; i < N; i++) cnt[i + 1] += cnt[i];
+    const src = new Int32Array(cnt[N]);
+    const typ = new Uint8Array(cnt[N]);
+    const dia = new Uint8Array(cnt[N]);
+    const fill = cnt.slice();
+    for (let u = 0; u < N; u++) for (let d = 0; d < 8; d++) {
+      const v = L[u * 8 + d];
+      if (v < 0) continue;
+      const k = fill[v]++;
+      src[k] = u; typ[k] = T[u * 8 + d]; dia[k] = d >= 4 ? 1 : 0;
+    }
+    this.revStart = cnt; this.revSrc = src; this.revType = typ; this.revDiag = dia;
+  }
+
+  // Multi-source Dijkstra: dist[w] = cost of travelling from w to the nearest source.
   _dijkstra(dist, h, budget, survivorMode, limit) {
-    const links = this.links, lt = this.ltype, Y = this.nodeY;
+    if (!this.revStart) this.buildReverse();
+    const RS = this.revStart, RSrc = this.revSrc, RT = this.revType, RD = this.revDiag, Y = this.nodeY;
+    const cs = this.cs;
     let processed = 0;
     while (h.size > 0) {
       const u = h.pop();
       const du = h.topKey;
       if (du > dist[u]) continue;
       if (du > limit) continue;
-      for (let d = 0; d < 8; d++) {
-        const v = links[u * 8 + d];
-        if (v < 0) continue;
-        const t = lt[u * 8 + d];
-        // Field is "distance to source": we relax reverse edges. Using the link u->v as travel v->u.
-        // For symmetric walk links fine; climb/drop are asymmetric: travelling v->u across a climb link from u means u is higher-lower...
-        let cost = d < 4 ? 1 : 1.414;
+      for (let k = RS[u], e = RS[u + 1]; k < e; k++) {
+        const w = RSrc[k];
+        const t = RT[k];
+        // edge w -> u
+        let cost = RD[k] ? 1.414 : 1;
         if (t === LINK_CLIMB) {
-          // u->v climbs up, so v->u is a drop.
-          if (survivorMode && Y[v] - Y[u] > 3.6) continue;
-          cost += 0.6;
-        } else if (t === LINK_DROP) {
-          // u->v drops, so v->u is a climb.
           if (survivorMode) continue;
-          cost += 1.5 + (Y[u] - Y[v]) * 0.8;
+          cost += 1.5 + (Y[u] - Y[w]) * 0.8;
+        } else if (t === LINK_DROP) {
+          if (survivorMode && Y[w] - Y[u] > 4.2) continue;
+          cost += 0.6;
         }
-        if (this.blocked[v]) cost += 30;
-        const nd = du + cost * this.cs;
-        if (nd < dist[v]) { dist[v] = nd; h.push(v, nd); }
+        if (this.blocked[w]) cost += 30;
+        const nd = du + cost * cs;
+        if (nd < dist[w]) { dist[w] = nd; h.push(w, nd); }
       }
       if (++processed >= budget) return false;
     }
@@ -308,7 +336,7 @@ export class NavGrid {
         if (v < 0) continue;
         const t = this.ltype[u * 8 + d];
         if (t === LINK_CLIMB) continue; // survivors cannot climb high ledges
-        if (t === LINK_DROP && this.nodeY[u] - this.nodeY[v] > 3.6) continue;
+        if (t === LINK_DROP && this.nodeY[u] - this.nodeY[v] > 4.2) continue;
         let cost = (d < 4 ? 1 : 1.414) * this.cs;
         if (t === LINK_DROP) cost += 2;
         if (this.blocked[v]) cost += 20;

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audio Engine Demo</title>
+<style>
+  :root { --bg: #0e0f11; --panel: #17191c; --line: #2a2d33; --text: #d8d4cc; --dim: #8a8780; --accent: #c0392b; --accent2: #e0a040; --ok: #6fbf73; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; background: #0b0c0dee; backdrop-filter: blur(4px); border-bottom: 1px solid var(--line); padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  h1 { font-size: 16px; margin: 0; letter-spacing: .04em; text-transform: uppercase; color: #eee; }
+  h1 span { color: var(--accent); }
+  main { padding: 12px 16px 60px; max-width: 1280px; margin: 0 auto; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 10px 0; }
+  section h2 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); font-weight: 600; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  button { background: #22252a; color: var(--text); border: 1px solid #33373e; border-radius: 5px; padding: 5px 9px; font: inherit; cursor: pointer; }
+  button:hover { background: #2c3036; border-color: #4a4f57; }
+  button.on { background: #4a1d18; border-color: var(--accent); color: #fff; }
+  button.big { padding: 7px 14px; font-weight: 600; background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.loop::after { content: " \27F3"; color: var(--accent2); }
+  label { color: var(--dim); display: inline-flex; gap: 6px; align-items: center; }
+  input[type=range] { width: 120px; accent-color: var(--accent); }
+  select { background: #22252a; color: var(--text); border: 1px solid #33373e; border-radius: 5px; padding: 4px 6px; }
+  #status { color: var(--dim); font-variant-numeric: tabular-nums; }
+  #bar { width: 160px; height: 6px; background: #26292e; border-radius: 3px; overflow: hidden; }
+  #bar > div { height: 100%; width: 0; background: var(--accent); transition: width .1s; }
+  #meter { width: 140px; height: 8px; background: #26292e; border-radius: 3px; overflow: hidden; }
+  #meter > div { height: 100%; width: 0; background: var(--ok); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 10px; }
+  .grid section { margin: 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+  td, th { border-bottom: 1px solid var(--line); padding: 2px 6px; text-align: left; }
+  .warn { color: #ff7b6b; }
+  @media (max-width: 600px) { input[type=range] { width: 90px; } header { gap: 8px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Audio <span>Engine</span></h1>
+  <button id="start" class="big">Start audio</button>
+  <div id="bar"><div></div></div>
+  <span id="status">not started</span>
+  <div id="meter" title="master peak"><div></div></div>
+</header>
+<main>
+  <section>
+    <h2>Mix &amp; environment</h2>
+    <div class="row" id="volumes"></div>
+    <div class="row" style="margin-top:8px"><span style="color:var(--dim)">Reverb</span> <span class="row" id="reverbs"></span></div>
+    <div class="row" style="margin-top:8px"><span style="color:var(--dim)">Ambience</span> <span class="row" id="ambiences"></span></div>
+    <div class="row" style="margin-top:8px">
+      <label>Position <select id="pos">
+        <option value="local">2D / local player</option>
+        <option value="front">front 5 m</option>
+        <option value="left">left 6 m</option>
+        <option value="right">right 6 m</option>
+        <option value="behind">behind 8 m</option>
+        <option value="mid">front 25 m</option>
+        <option value="far">front 60 m</option>
+        <option value="vfar">front 110 m</option>
+      </select></label>
+      <label>Heartbeat <input type="range" id="heart" min="0" max="1" step="0.01" value="0"></label>
+      <button id="stopall">Stop all</button>
+      <button id="barrage">Firefight test</button>
+    </div>
+  </section>
+  <section>
+    <h2>Music</h2>
+    <div class="row" id="states"></div>
+    <div class="row" style="margin-top:8px"><label>Intensity <input type="range" id="intensity" min="0" max="1" step="0.01" value="0.5"></label> <span id="ival">0.50</span></div>
+    <div class="row" style="margin-top:8px" id="stingers"></div>
+  </section>
+  <div class="grid" id="groups"></div>
+  <section>
+    <h2>Rendered buffers <button id="report">refresh</button></h2>
+    <div id="table" style="max-height:340px;overflow:auto"></div>
+  </section>
+</main>
+<script type="module" src="./demo.js"></script>
+</body>
+</html>

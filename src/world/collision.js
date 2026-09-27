@@ -333,7 +333,8 @@ export class CollisionWorld {
         boxOf(cand[j], bx);
         if (!circleOverlap(body.x, body.z, r * 0.92)) continue;
         const top = bx[4];
-        if (top <= body.y + 0.02 && top >= ny - 0.001 && top > land) { land = top; landDyn = cand[j] < 0 ? dyn[-cand[j] - 1] : null; }
+        const tol = cand[j] < 0 ? 0.25 : 0.02; // moving platforms may have risen slightly this frame
+        if (top <= body.y + tol && top >= ny - 0.001 && top > land) { land = top; landDyn = cand[j] < 0 ? dyn[-cand[j] - 1] : null; }
       }
       if (land > -Infinity) {
         ny = land;

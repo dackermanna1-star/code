@@ -143,14 +143,44 @@ export class Agent {
     this.pos.x = c.x0 + (c.x1 - c.x0) * fw;
     this.pos.z = c.z0 + (c.z1 - c.z0) * fw;
     if (k >= 1) {
-      this.node = c.node;
+      this.node = c.node >= 0 ? c.node : (this.nav ? this.nav.nodeAt(this.pos.x, c.y1, this.pos.z) : -1);
       this.targetY = c.y1;
       this.pos.y = c.y1;
       this.climb = null;
+      if (this.fb) { this.fb.onGround = true; this.fb.vy = 0; }
       return true;
     }
     return false;
   }
+  startClimbTo(x, y, z) {
+    const h = y - this.pos.y;
+    this.climb = { x0: this.pos.x, z0: this.pos.z, y0: this.pos.y, x1: x, z1: z, y1: y, t: 0, dur: 0.35 + Math.max(0.3, h) * 0.32, node: -1 };
+    this.yaw = Math.atan2(-(x - this.pos.x), -(z - this.pos.z));
+  }
+  // Physics-based locomotion off the nav grid (moving platforms, tight spots).
+  freeMove(dt, tx, ty, tz, speed) {
+    const g = this.game;
+    const col = g.level.col;
+    const b = this.fb || (this.fb = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, r: this.radius, h: this.height ?? 1.7, onGround: true, step: 0.5 });
+    b.x = this.pos.x; b.y = this.pos.y; b.z = this.pos.z;
+    const dx = tx - b.x, dz = tz - b.z;
+    const dl = Math.hypot(dx, dz) || 1;
+    b.vx = dx / dl * speed; b.vz = dz / dl * speed;
+    b.vy = (b.onGround ? 0 : b.vy) - 16 * dt;
+    if (b.onGround && b.groundDyn && b.groundDyn.vel) { b.x += b.groundDyn.vel[0] * dt; b.y += b.groundDyn.vel[1] * dt; b.z += b.groundDyn.vel[2] * dt; }
+    col.moveBody(b, dt);
+    this.yaw = Math.atan2(-dx, -dz);
+    if (b.hitWall && ty > b.y + 0.4) {
+      const fx = b.x + dx / dl * 0.75, fz = b.z + dz / dl * 0.75;
+      const top = col.groundHeight(fx, b.y + 3.4, fz, 3.4, 0.2);
+      if (top > b.y + 0.45 && top < b.y + 3.3) { this.pos.set(b.x, b.y, b.z); this.startClimbTo(fx, top, fz); this.freeClimb = true; return; }
+    }
+    this.pos.set(b.x, b.y, b.z);
+    this.targetY = b.y;
+    this.node = this.nav ? this.nav.nodeAt(b.x, b.y, b.z) : -1;
+    if (this.node >= 0 && Math.abs(this.nav.nodeY[this.node] - b.y) > 0.35) this.node = -1;
+  }
+
   startDrop(toNode) {
     const nav = this.nav;
     this.falling = true;

@@ -51,6 +51,7 @@ export class Game {
     this.lights = new LightManager(this.scene, this.quality.lights);
     this.fx = new Particles(this.scene, this.quality.particles);
     this.decals = new Decals(this.scene, 700);
+    this.staticDecals = new Decals(this.scene, 600); // level dressing (never recycled by combat)
     this.fx.onBloodHit = (x, y, z, nx, ny, nz, s) => {
       if (Math.random() < 0.6) this.decals.add(x, y, z, nx, ny, nz, 0.15 + Math.random() * 0.35, 4 + Math.floor(Math.random() * 4), { noRoll: Math.abs(ny) < 0.5 });
     };
@@ -95,8 +96,8 @@ export class Game {
     this.vmLight.layers.set(1);
     this.vmLight.position.set(0.3, 0.15, 0.2);
     this.renderer.camera.add(this.vmLight);
-    this.flashlight.position.set(0.28, -0.3, 0.3);
-    this.flashlight.target.position.set(0.2, -1.2, -10);
+    this.flashlight.position.set(0.25, -0.2, 1.1);
+    this.flashlight.target.position.set(0.2, -1.1, -10);
     this.renderer.camera.add(this.flashlight.target);
     // Bot flashlights (no shadows)
     this.botLights = [];
@@ -161,6 +162,7 @@ export class Game {
     this.infected.clear();
     this.combat.reset();
     this.decals.clear();
+    this.staticDecals.clear();
     this.fx.clear();
     this.gibs.clear();
     this.shells.clear();
@@ -300,7 +302,7 @@ export class Game {
   updateLighting(dt) {
     const p = this.player;
     const on = p && !p.dead && p.flashlight;
-    this.flashlight.intensity = on ? 26 * (p.flashFlicker ?? 1) : 0;
+    this.flashlight.intensity = on ? 22 * (p.flashFlicker ?? 1) : 0;
     this.vmLight.intensity = on ? 2.2 : 0.8;
     // bots' flashlights
     let bi = 0;

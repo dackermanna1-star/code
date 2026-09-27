@@ -61,9 +61,12 @@ function boxAt(w, h, d, x, y, z, uvY = 0.95) {
 export function buildPartGeometries(opts = {}) {
   const fat = opts.fat ?? 1; // belly scale
   const bulk = opts.bulk ?? 1; // muscle scale for limbs
+  const armBulk = (opts.armBulk ?? 1) * bulk;
+  const legBulk = (opts.legBulk ?? 1) * bulk;
+  const chest = opts.chest ?? 1;
   const segs = opts.segs ?? 10;
   const torso = lathe([
-    [-0.3, 0.02], [-0.26, 0.12], [-0.12, 0.155], [0.05, 0.15 * (0.9 + 0.1 * fat)], [0.3, 0.14 * fat], [0.5, 0.15 * fat], [0.7, 0.165], [0.88, 0.17], [1.0, 0.155], [1.08, 0.1], [1.16, 0.055], [1.24, 0.05],
+    [-0.3, 0.02], [-0.26, 0.12], [-0.12, 0.155], [0.05, 0.15 * (0.9 + 0.1 * fat)], [0.3, 0.14 * fat], [0.5, 0.15 * Math.max(fat, chest * 0.9)], [0.7, 0.165 * Math.max(chest, fat * 0.85)], [0.88, 0.17 * chest], [1.0, 0.155 * chest], [1.08, 0.1 * (0.5 + chest * 0.5)], [1.16, 0.055], [1.24, 0.05],
   ], segs + 2,
   (y) => (y > 0.75 && y < 1.08 ? 1.35 : y < 0 ? 1.2 : 1.18),
   (y) => (y > 0.1 && y < 0.6 ? 0.78 * fat : 0.7));
@@ -87,12 +90,12 @@ export function buildPartGeometries(opts = {}) {
     for (let i = 0; i < uvn.count; i++) { uvn.setX(i, 0.75); uvn.setY(i, 0.5); }
     return merge([g, nose]);
   })();
-  const uarm = lathe([[-0.12, 0.03], [-0.08, 0.06 * bulk], [0.15, 0.063 * bulk], [0.55, 0.052 * bulk], [0.95, 0.045 * bulk], [1.06, 0.035]], segs);
+  const uarm = lathe([[-0.12, 0.03], [-0.08, 0.06 * armBulk], [0.15, 0.063 * armBulk], [0.55, 0.052 * armBulk], [0.95, 0.045 * armBulk], [1.06, 0.035 * armBulk]], segs);
   const farm = lathe([
-    [-0.06, 0.03], [-0.02, 0.048 * bulk], [0.35, 0.045 * bulk], [0.82, 0.033], [0.88, 0.036], [0.98, 0.045], [1.1, 0.04], [1.2, 0.022], [1.26, 0.008],
+    [-0.06, 0.03], [-0.02, 0.048 * armBulk], [0.35, 0.045 * armBulk], [0.82, 0.033 * armBulk], [0.88, 0.036 * armBulk], [0.98, 0.045 * armBulk], [1.1, 0.04 * armBulk], [1.2, 0.022 * armBulk], [1.26, 0.008],
   ], segs, 1, (y) => (y > 0.86 ? 0.5 : 1));
-  const thigh = lathe([[-0.12, 0.05], [-0.05, 0.09 * bulk], [0.3, 0.085 * bulk], [0.75, 0.066 * bulk], [1.02, 0.056], [1.08, 0.04]], segs);
-  const shinL = lathe([[-0.06, 0.04], [-0.02, 0.058 * bulk], [0.3, 0.06 * bulk], [0.8, 0.042], [0.95, 0.04], [1.0, 0.035]], segs);
+  const thigh = lathe([[-0.12, 0.05], [-0.05, 0.09 * legBulk], [0.3, 0.085 * legBulk], [0.75, 0.066 * legBulk], [1.02, 0.056 * legBulk], [1.08, 0.04]], segs);
+  const shinL = lathe([[-0.06, 0.04], [-0.02, 0.058 * legBulk], [0.3, 0.06 * legBulk], [0.8, 0.042 * legBulk], [0.95, 0.04], [1.0, 0.035]], segs);
   // shoe
   const foot = boxAt(0.095, 0.08, 0.24, 0, 0, 0, 0.97);
   // foot box: attached near ankle; shin geometry y=1 is the ankle joint. In part space Y is scaled by length,

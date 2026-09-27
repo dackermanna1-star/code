@@ -361,7 +361,19 @@ const cache = new Map();
 export function buildModel(type) {
   const fn = BUILD[type];
   if (!fn) return null;
-  return fn();
+  const g = fn();
+  // name referenced parts so clones can re-link them (userData is JSON-cloned by three)
+  for (const k in g.userData) { const v = g.userData[k]; if (v && v.isObject3D && !v.name) v.name = k; }
+  return g;
+}
+function cloneLinked(src) {
+  const ud = src.userData;
+  src.userData = {};
+  const c = src.clone(true);
+  src.userData = ud;
+  const keys = Object.keys(ud);
+  c.traverse((o) => { if (o !== c && o.name && keys.includes(o.name)) c.userData[o.name] = o; });
+  return c;
 }
 // Shared, cloned models (cheap) for pickups / third-person.
 export function cloneModel(type) {
@@ -370,10 +382,7 @@ export function cloneModel(type) {
     if (!m) return null;
     cache.set(type, m);
   }
-  const c = cache.get(type).clone(true);
-  // re-link userData markers in the clone
-  c.traverse((o) => { if (o.name && o !== c) c.userData[o.name] = o; });
-  return c;
+  return cloneLinked(cache.get(type));
 }
 export function modelMats() { return mats(); }
 export function setWeaponEnv(tex, intensity = 0.5) {
