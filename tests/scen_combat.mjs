@@ -1,0 +1,30 @@
+export default async ({ shot, evalg, wait }) => {
+  await wait(5000);
+  const r = await evalg(() => {
+    const g = window.game;
+    const p = g.player;
+    const out = { nav: g.level.nav.N, navMs: g.level.navBuildMs, loadMs: g.loadMs };
+    for (let i = 0; i < 10; i++) g.infected.spawnCommon(p.pos.x + (i % 5 - 2) * 1.2, 0, p.pos.z + 12 + Math.floor(i / 5) * 2, { chase: i % 2 === 0, idle: 'stand' });
+    for (let i = 0; i < 6; i++) g.infected.spawnCommon(-15 + i * 0.8, 0.15, -5 + (i % 2), { idle: ['sit', 'lie', 'eat', 'stand', 'wander', 'sit'][i] });
+    out.commons = g.infected.commons.length;
+    return out;
+  });
+  console.log(JSON.stringify(r));
+  await wait(1500);
+  await shot('c1_approach');
+  await evalg(() => { window.game.testCmd = { fire: true, firePressed: true }; });
+  await wait(300);
+  await evalg(() => { window.game.testCmd = null; });
+  await wait(900);
+  await evalg(() => { window.game.testCmd = { fire: true, firePressed: true }; });
+  await wait(250);
+  await shot('c2_fire');
+  await evalg(() => { window.game.testCmd = null; });
+  await wait(2000);
+  const st = await evalg(() => ({ alive: window.game.infected.commons.length, corpses: window.game.infected.corpses.length, hp: window.game.player.health, fps: window.game.fps, kills: window.game.player.stats.kills, perf: window.game.perf }));
+  console.log(JSON.stringify(st));
+  await shot('c3_after');
+  await evalg(() => { const g = window.game; g.player.yaw = Math.PI * 0.5; g.player.pitch = -0.1; });
+  await wait(800);
+  await shot('c4_room');
+};

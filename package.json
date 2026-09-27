@@ -1,0 +1,21 @@
+{
+  "name": "the-last-four-no-mercy",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "An original first-person co-op survival-horror campaign inspired by the classic No Mercy structure. Built with Three.js.",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "server": "node server/relay.js",
+    "test": "node tests/smoke.mjs"
+  },
+  "dependencies": {
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.1",
+    "vite": "^8.0.0"
+  }
+}
