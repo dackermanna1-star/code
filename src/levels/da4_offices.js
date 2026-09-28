@@ -11,7 +11,7 @@ import { ebsScreen, VisualBatch } from './da_parts.js';
 import { whiteboard, confTable, copier, waterCooler, cardboard, serverRack } from './da2_parts.js';
 import { lightCone } from './props.js';
 import { YU, WING, START, BAL, STAIR } from './da4_layout.js';
-import { rng, NC, interiorGlass, wayfind, notice, curtainMat, panelLight, body, strewLuggage, wallX, wallZ, trail, F_SOLID, F_NONAV } from './da4_parts.js';
+import { rng, NC, interiorGlass, wayfind, curtainMat, panelLight, body, strewLuggage, wallX, wallZ, trail, F_SOLID, F_NONAV, F_SHOOT } from './da4_parts.js';
 
 const H = 3.2;            // wing ceiling height
 const CY = YU + H;        // ceiling underside
@@ -28,7 +28,7 @@ export function buildOffices(L, game, S) {
 // ================================================================ START ROOM
 function startRoom(L, game, S) {
   const { x0, x1, z0, z1 } = START;
-  safeRoom(L, {
+  const sr = safeRoom(L, {
     x0, z0, x1, z1, y: YU, h: H, doorWall: 'n', doorAt: 11, hinge: -1, floor: 'carpetBlue', wall: 'plasterGreen', noWalls: ['s'],
     graffiti: ['THE PLANES ARE\nSTILL FLYING', 'GATE C\nMILITARY\nEVAC', 'DONT TRUST\nTHE ARMY', 'ANNA + J\nMADE IT\nHERE'],
   });
@@ -46,7 +46,6 @@ function startRoom(L, game, S) {
   // radio + dead battery, a sleeping bag, snack wrappers
   P.radioTable(L, 12.2, YU, 38.8, Math.PI);
   P.rug(L, 12.5, YU + 0.012, 42.2, 1.4, 2.2, 0x3a4a3a);
-  for (let i = 0; i < 4; i++) L.item('ammo', 0, -100, 0, { chance: 0 });
   // locked door back onto the skybridge (chapter 3 ends behind it) + glass wall
   const d = new Door(L, 11, YU, 46.15, 'x', { width: 1.1, safe: true, locked: true });
   d.usable.enabled = false;
@@ -55,7 +54,7 @@ function startRoom(L, game, S) {
   interiorGlass(L, 'x', 11.8, 15.6, 46.15, YU + 0.9, YU + 2.6);
   for (let i = 0; i < 4; i++) L.survivorStart.push({ x: 9.8 + i * 1.25, y: YU + 0.02, z: 43.4 - (i % 2) * 0.8, yaw: 0 });
   L.flowStart = [11, YU, 42.5];
-  S.startDoor = L.doors[L.doors.length - 2] || null;
+  S.startDoor = sr.door;
 }
 
 // ================================================================ SKYBRIDGE (visual, behind the locked door)
@@ -92,15 +91,15 @@ function wingShell(L, game) {
   L.ceiling(16, 38, 30, 46, CY, 'ceiling', 0.3);
   L.ceiling(2, 38, 6, 46, CY, 'ceiling', 0.3);
   // exterior walls: west (city side), north (blind), south facade (skybridge side)
-  wallZ(L, z0 - 0.3, z1 + 0.3, x0 - 0.15, 0, CY + 0.3, 'concreteDark', [[9.2, 11.4, 2.4, 0.9 + YU], [14.4, 16.6, 2.4, 0.9 + YU], [23, 27, 2.4, 0.9 + YU], [32, 36, 2.4, 0.9 + YU]].map(([a, b, h, s]) => [a, b, s + h - 0.9 - YU + YU, s]), 0.3);
+  wallZ(L, z0, 46.0, x0 - 0.15, 0, CY + 0.3, 'concreteDark', [[9.2, 11.4], [14.4, 16.6], [23, 27], [32, 36]].map(([a, b]) => [a, b, YU + 2.4, YU + 0.9]), 0.3);
   for (const [a, b] of [[9.2, 11.4], [14.4, 16.6], [23, 27], [32, 36]]) L.box(x0 - 0.17, YU + 0.9, a, x0 - 0.13, YU + 2.4, b, 'glassDirty', { tint: 0x2a3036, flags: F_SOLID });
   L.box(x0 - 0.3, 0, z0 - 0.3, 30.2, CY + 0.3, z0, 'concreteDark');
-  wallX(L, x0 - 0.3, 30.2, 46.15, 0, CY + 0.3, 'concreteDark', [[6.4, 10.2, 2.6 - YU + YU, YU + 0.9], [10.45, 11.55, YU + 2.15, 0], [11.8, 15.6, 2.6 + YU, YU + 0.9], [18, 22, YU + 2.6, YU + 0.9], [24, 28, YU + 2.6, YU + 0.9]].map(([a, b, top, bot]) => [a, b, top, bot]), 0.3);
+  wallX(L, x0 - 0.3, 30.2, 46.15, 0, CY + 0.3, 'concreteDark', [[6.4, 10.2, YU + 2.6, YU + 0.9], [10.45, 11.55, YU + 2.15, YU], [11.8, 15.6, YU + 2.6, YU + 0.9], [18, 22, YU + 2.6, YU + 0.9], [24, 28, YU + 2.6, YU + 0.9]], 0.3);
   interiorGlass(L, 'x', 18, 22, 46.15, YU + 0.9, YU + 2.6);
   interiorGlass(L, 'x', 24, 28, 46.15, YU + 0.9, YU + 2.6);
   // east wall = the lobby's west wall (x 30), full height, with the balcony doorway and
   // interior windows looking over the check-in hall
-  wallZ(L, 0, 46.3, 30, 0, 16.4, 'concrete', [[1, 5, YU + 2.8, YU], [18.8, 29.2, YU + 2.6, YU + 0.95], [30.8, 37.2, YU + 2.6, YU + 0.95], [39.2, 43.4, YU + 2.6, YU + 0.95]], 0.4, { tint: 0xc8c2b6 });
+  wallZ(L, 0, 46.0, 30, 0, 16.4, 'concrete', [[1, 5, YU + 2.8, YU], [18.8, 29.2, YU + 2.6, YU + 0.95], [30.8, 37.2, YU + 2.6, YU + 0.95], [39.2, 43.4, YU + 2.6, YU + 0.95]], 0.4, { tint: 0xc8c2b6 });
   for (const [a, b] of [[18.8, 29.2], [30.8, 37.2], [39.2, 43.4]]) interiorGlass(L, 'z', a, b, 30, YU + 0.95, YU + 2.6);
   // window sills
   for (const [a, b] of [[18.8, 29.2], [30.8, 37.2], [39.2, 43.4]]) L.box(29.7, YU + 0.9, a, 29.8, YU + 0.95, b, 'marble', NC);
@@ -117,13 +116,13 @@ function reception(L, game, S) {
   // north wall with the corridor archway
   wallX(L, 2, 29.8, 30, YU, CY, 'plaster', [[14.1, 16.9, 2.8]]);
   // the conference centre's reception
-  P.receptionDesk(L, 7.4, YU, 34.2, Math.PI / 2, 4);
+  P.receptionDesk(L, 7.4, YU, 34.2, -Math.PI / 2, 4);
   sign(L, 'METRO INTERNATIONAL\nCONFERENCE CENTER', 2.14, YU + 2.25, 34.2, Math.PI / 2, 3.6, 0.8, { fg: '#c8b88a', font: 'Georgia, serif' });
   P.officeChair(L, 6.2, YU, 33.4, -1.2);
   for (const [x, z, r] of [[18.5, 35.5, Math.PI], [21.5, 35.5, Math.PI], [26.8, 31.6, 0]]) P.sofa(L, x, YU, z, r, 0x3a4a5a);
   P.table(L, 20, YU, 33.6, 0, 1.2, 0.6, 'woodDark');
   for (const [x, z] of [[16.4, 31.2], [28.8, 37.2], [3.2, 30.8], [12.8, 37.3]]) { P.planter(L, x, YU, z, 0.4); }
-  P.picture(L, 24, YU + 1.6, 30.12, 0, 1.4, 0.9);
+  P.picture(L, 20.5, YU + 1.6, 30.12, 0, 1.4, 0.9);
   // emergency broadcast on the lounge TV
   ebsScreen(L, game, 24.0, YU + 1.75, 37.86, Math.PI, 1.3, 0.78, { intensity: 4, range: 7, messages: [
     'CIVIL DANGER WARNING: METRO INTERNATIONAL AIRPORT',
@@ -138,18 +137,18 @@ function reception(L, game, S) {
   P.luggageCart(L, 12.5, YU, 32.2, 0.7, true);
   body(L, 26.0, YU, 33.8, 1.1, 0x2a2a34);
   poster(L, 'evac', 2.14, YU + 1.6, 31.6, Math.PI / 2, 0.5, 0.72, { torn: 0.2 });
-  poster(L, 'airline', 29.78, YU + 1.7, 33.2, -Math.PI / 2, 1.2, 0.8, { title: 'SKYLINE AIR' });
+  poster(L, 'airline', 25.6, YU + 1.7, 30.12, 0, 1.2, 0.8, { title: 'SKYLINE AIR' });
   poster(L, 'quarantine', 16.3, YU + 1.5, 30.12, 0, 0.6, 0.85, { wet: 0.3 });
-  wayfind(L, 'CHECK-IN · TERMINAL C  ↑', 15.5, YU + 2.75, 30.12, 0, 2.6, 0.36);
-  wayfind(L, 'SKYBRIDGE · PARKING  ↓', 15.5, YU + 2.75, 29.88, 0, 2.6, 0.36);
+  wayfind(L, 'CHECK-IN · TERMINAL C  ↑', 15.5, YU + 3.0, 30.12, 0, 2.6, 0.34);
+  wayfind(L, 'SKYBRIDGE · PARKING  ↓', 15.5, YU + 3.0, 29.88, 0, 2.6, 0.34);
   for (const [x, z] of [[8, 34], [20, 34], [26, 34]]) panelLight(L, x, CY, z, { intensity: x === 20 ? 9 : 7, flicker: x === 8 ? 0.6 : 0.1, range: 9, on: x !== 26 });
   L.item('pills', 7.6, YU + 1.17, 34.8, { chance: 0.5 });
   L.decal(21, YU + 0.012, 32.5, 0, 1, 0, 1.2, DF.BLOOD2);
   // the business centre (side room)
-  copier(L, 28.8, YU, 40.2, -Math.PI / 2);
-  for (const z of [42.2, 44.4]) P.desk(L, 28.9, YU, z, -Math.PI / 2, true);
+  copier(L, 28.8, YU, 40.2, Math.PI / 2);
+  for (const z of [42.2, 44.4]) P.desk(L, 28.9, YU, z, Math.PI / 2, true);
   P.officeChair(L, 27.6, YU, 42.1, 1.8);
-  P.filingCabinet(L, 16.6, YU, 44.8, Math.PI / 2);
+  P.filingCabinet(L, 16.6, YU, 44.8, -Math.PI / 2);
   cardboard(L, 17.2, YU, 39.2, 0.2, 2);
   L.item('throwable', 28.9, YU + 0.78, 44.2, { chance: 0.7 });
   L.item('pills', 28.9, YU + 0.78, 42.0, { chance: 0.4 });
@@ -190,7 +189,7 @@ function corridorAndRooms(L, game, S) {
   trail(L, 15.4, 28, 15.8, 17, YU, 9);
   // ---- the barricaded corridor: desks, filing cabinets, a sofa (full height clip)
   const bz = 14.6;
-  L.clip(14.1, YU, bz - 0.9, 16.9, CY, bz + 0.9, F_SOLID | F_NONAV | 2);
+  L.clip(14.1, YU, bz - 0.9, 16.9, CY, bz + 0.9, F_SOLID | F_NONAV | F_SHOOT);
   const pile = [
     () => P.desk(L, 15.5, YU, bz - 0.4, 0.2, false), () => P.filingCabinet(L, 14.5, YU, bz + 0.3, 0.4), () => P.filingCabinet(L, 16.5, YU, bz + 0.5, -0.3),
     () => P.sofa(L, 15.4, YU + 0.8, bz + 0.2, 0.15, 0x4a3a3a), () => P.chair(L, 14.8, YU + 1.6, bz - 0.2, 1.1, 'woodDark', true), () => P.officeChair(L, 16.3, YU, bz - 0.7, 2.4),
@@ -201,13 +200,13 @@ function corridorAndRooms(L, game, S) {
   graffiti(L, 'THEY GOT\nIN ANYWAY', 13.88, YU + 1.4, 16.4, -Math.PI / 2, 1.3, 0.6, '#b8201a');
   for (let i = 0; i < 8; i++) L.decal(14.3 + rng() * 2.4, YU + 0.012, bz - 1.2 - rng() * 1.5, 0, 1, 0, 0.3, DF.BLOOD1 + (i % 4));
   // ---- break room (x 2..14, z 20..30)
-  P.counter(L, 2.45, YU, 25, Math.PI / 2, 5.2);
-  P.fridge(L, 2.5, YU, 21.1, Math.PI / 2);
-  P.vending(L, 8.6, YU, 29.5, Math.PI, 0x1a3a7a);
-  P.vending(L, 10.0, YU, 29.5, Math.PI, 0xb02a1a);
+  P.counter(L, 2.45, YU, 25, -Math.PI / 2, 5.2);
+  P.fridge(L, 2.5, YU, 21.1, -Math.PI / 2);
+  P.vending(L, 8.6, YU, 29.5, 0, 0x1a3a7a);
+  P.vending(L, 10.0, YU, 29.5, 0, 0xb02a1a);
   P.table(L, 7.6, YU, 24.2, 0.2, 1.8, 0.9, 'woodPale');
   for (const [x, z, r, t] of [[6.6, 23.4, 0.4, false], [8.8, 25.0, 2.8, false], [9.4, 22.6, 1.4, true]]) P.chair(L, x, YU, z, r, 'plastic', t);
-  P.tv(L, 13.7, YU + 1.2, 22.4, -Math.PI / 2);
+  sign(L, 'OUT OF ORDER', 13.88, YU + 1.7, 22.4, -Math.PI / 2, 0.7, 0.3, { bg: '#e8e2d0', fg: '#1a1a1a' });
   wallMessages(L, 13.88, YU + 1.75, 27.8, -Math.PI / 2, 1.6, 1.05, { lines: ['EVAC BUSES\nNEVER CAME', 'GATE C OR\nNOTHING'], density: 0.8 });
   poster(L, 'flyer', 2.14, YU + 1.5, 28.4, Math.PI / 2, 0.3, 0.42, { lines: ['STAFF NOTICE', 'Break room closed', 'to non-essential', 'personnel'] });
   L.item('pills', 3.0, YU + 0.95, 26.5, { chance: 0.6 });
@@ -225,27 +224,25 @@ function corridorAndRooms(L, game, S) {
   P.papers(L, 8, YU + 0.01, 10, 2.5, 10);
   supplies(L, 3.0, YU, 8.2, Math.PI / 2, [{ type: 'tier2', chance: 0.7 }, { type: 'ammo' }, { type: 'throwable', chance: 0.5 }], { w: 1.8, mat: 'woodDark' });
   ceilingLight(L, 8, CY, 13, { type: 'fluoro', intensity: 7, flicker: 0.4, range: 9 });
-  L.box(12.9, YU + 1.0, 5.9, 13.1, YU + 1.9, 6.0, 'blackMatte', NC);
   // ---- conference room A "SKYLINE ROOM" (x 17..30, z 18..30): projector screen + whiteboard
   confTable(L, 23.2, YU, 24.2, 0, 7.2, true);
   whiteboard(L, 17.13, YU, 22.2, Math.PI / 2, 'EVAC — METRO INTL\n• Flights from CONCOURSE C\n• Military escort ONLY\n• C-130 on the apron — Sgt. REYES\n• NO SICK. NO EXCEPTIONS.', { fg: '#1a2a8a' });
   // projector screen showing the evacuation plan (glowing), projector + beam
-  const scr = sign(L, 'METRO INTERNATIONAL\nEMERGENCY EVACUATION PLAN\n\nCHECK-IN → TRIAGE → SECURITY → GATES C1–C12\nLAST DEPARTURE 06:00', 23.4, YU + 1.8, 29.86, Math.PI, 4.2, 2.1, { bg: '#1a3a7a', fg: '#e8f0ff', glow: 0.8, light: false });
-  void scr;
-  L.box(21.2, YU + 0.72, 29.85, 25.6, YU + 2.88, 29.88, 'paintedWhite', { collide: false, tint: 0xe8e8e8 });
+  sign(L, 'METRO INTERNATIONAL\nEMERGENCY EVACUATION PLAN\n\nCHECK-IN → TRIAGE → SECURITY → GATES C1–C12\nLAST DEPARTURE 06:00', 23.4, YU + 1.8, 29.8, Math.PI, 4.2, 2.1, { bg: '#1a3a7a', fg: '#e8f0ff', glow: 0.8, light: false });
+  L.box(21.1, YU + 0.68, 29.83, 25.7, YU + 2.92, 29.9, 'paintedWhite', { collide: false, tint: 0xe8e8e8 });
   const pj = P.prop(L, 23.4, CY - 0.28, 22.6, 0);
   pj.box(0, 0, 0, 0.45, 0.16, 0.4, 'plastic', 0xd8d8d0).cyl(0, 0.18, 0, 0.02, 0.3, 'metalDark').glow(0, 0, 0.205, 0.08, 0.08, 0.01, 0xd8e8ff);
   const plt = L.light(23.4, YU + 1.8, 28.8, 0x8aa8ff, 5, 7, { flicker: 0.08 });
   lightCone(L, 23.4, CY - 0.28, 22.8, [0, -0.12, 1], 7, 1.6, 0xa8c0ff, plt, 0.6);
-  sign(L, 'SKYLINE AIR · CREW BRIEFING', 29.78, YU + 2.75, 24, -Math.PI / 2, 2.4, 0.3, { bg: '#e8e2d4', fg: '#b01e28', clean: true });
+  sign(L, 'SKYLINE AIR · CREW BRIEFING', 21, YU + 2.5, 18.12, 0, 2.4, 0.3, { bg: '#e8e2d4', fg: '#b01e28', clean: true });
   body(L, 20.2, YU, 20.0, 2.8, 0x1e2a44);
   L.item('health', 26.2, YU + 0.8, 24.6, { chance: 0.35 });
   L.reverb(17, YU, 18, 30, CY, 30, 'room');
   // ---- open office (x 17..30, z 6..18): cubicles, printers, a dead IT guy
-  for (const [x, z, r] of [[20, 9.2, 0], [23.2, 9.2, 0], [26.4, 9.2, 0], [20, 14.2, Math.PI], [23.2, 14.2, Math.PI], [26.4, 14.2, Math.PI]]) P.cubicle(L, x, YU, z, r, { w: 2.8, d: 2.2, h: 1.4, fabric: 0x5a6470 });
-  copier(L, 29.2, YU, 11.6, -Math.PI / 2);
-  serverRack(L, 29.4, YU, 16.9, -Math.PI / 2, game);
-  for (const z of [6.6, 7.3]) P.filingCabinet(L, 18.0, YU, z, Math.PI / 2);
+  for (const [x, z, r] of [[20.6, 9.2, Math.PI], [23.8, 9.2, Math.PI], [27.0, 9.2, Math.PI], [20.6, 14.2, 0], [23.8, 14.2, 0], [27.0, 14.2, 0]]) P.cubicle(L, x, YU, z, r, { w: 2.8, d: 2.2, h: 1.4, fabric: 0x5a6470 });
+  copier(L, 29.2, YU, 11.6, Math.PI / 2);
+  serverRack(L, 29.4, YU, 16.9, Math.PI / 2, game);
+  for (const z of [6.6, 7.3]) P.filingCabinet(L, 18.0, YU, z, -Math.PI / 2);
   body(L, 24.0, YU, 11.6, 1.2, 0x5a6a8a);
   trail(L, 24, 11.6, 18.2, 8.4, YU, 7);
   P.papers(L, 23, YU + 0.01, 12, 3, 16);
@@ -258,16 +255,16 @@ function corridorAndRooms(L, game, S) {
   for (let i = 0; i < 3; i++) {
     const sx = 3.2 + i * 1.5;
     L.box(sx + 0.72, YU, 0, sx + 0.76, YU + 2.0, 1.6, 'paintedBlue', { tint: 0x5a6a7a });
-    P.toilet(L, sx, YU, 0.45, 0);
+    P.toilet(L, sx, YU, 0.45, Math.PI);
   }
-  for (const x of [3.6, 5.2, 6.8]) P.sink(L, x, YU, 5.65, Math.PI);
+  for (const x of [3.6, 5.2, 6.8]) P.sink(L, x, YU, 5.65, 0);
   L.box(3.0, YU + 1.2, 5.88, 7.6, YU + 2.2, 5.9, 'chrome', NC);
   ceilingLight(L, 6, CY, 3, { type: 'fluoro', intensity: 3.5, flicker: 0.9, range: 6 });
   L.witchSpots.push({ x: 6.2, y: YU, z: 2.4 });
   sign(L, 'RESTROOMS', 10.12, YU + 2.3, 3, Math.PI / 2, 0.9, 0.24, { bg: '#16191e', fg: '#f2c230', clean: true });
   // ---- north hallway (x 10..30, z 0..6) towards the balcony
   wayfind(L, 'CHECK-IN HALL · VIEWING GALLERY  →', 22, YU + 2.6, 0.12, 0, 3.4, 0.36);
-  P.bench(L, 21, YU, 0.55, 0);
+  P.bench(L, 21, YU, 0.55, Math.PI);
   P.planter(L, 28.6, YU, 5.3, 0.4);
   P.picture(L, 18, YU + 1.6, 5.88, Math.PI, 1.2, 0.8);
   P.picture(L, 25, YU + 1.6, 5.88, Math.PI, 1.2, 0.8);

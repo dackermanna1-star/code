@@ -350,3 +350,72 @@ export function trail(L, x0, z0, x1, z1, y, n = 7) {
   for (let i = 0; i < n; i++) { const k = i / Math.max(1, n - 1); L.decal(x0 + (x1 - x0) * k + (rng() - 0.5) * 0.3, y + 0.013, z0 + (z1 - z0) * k + (rng() - 0.5) * 0.3, 0, 1, 0, 0.7 + rng() * 0.5, DF.SMEAR); }
 }
 export { F_SOLID, F_SHOOT, F_SIGHT, F_NONAV };
+
+// ---------------------------------------------------------- flight boards --
+// Readable flight-information display (canvas, emissive, one draw call) in a
+// dark frame. kind: 'dep' | 'arr' | 'gate'. o: {title, rows, seed, bright, frame}
+const CITIES = ['RIVERTON', 'BAYPORT', 'LAKEVIEW', 'SPRINGDALE', 'MILLBROOK', 'HARBOR CITY', 'FAIRVIEW', 'WESTON', 'KINGSTON', 'PORT ELLIS', 'GRANITE FALLS', 'CEDAR RAPIDS', 'SALT CREEK', 'NORTHGATE', 'ASHFORD', 'MARLOW', 'DUNMORE', 'CLEARWATER', 'OAK HARBOR', 'EASTON'];
+const CARRIERS = [['SA', '#e8e2d4'], ['FN', '#ffd060'], ['TM', '#9ad8b8'], ['PA', '#ffa050'], ['NS', '#9ac8ff']];
+export function flightBoard(L, x, y, z, ry, w, h, o = {}) {
+  const r = makeRng(o.seed ?? Math.round(x * 13 + z * 7));
+  const W = 1024, Hc = Math.max(128, Math.min(1024, Math.round(1024 * h / w)));
+  const c = document.createElement('canvas'); c.width = W; c.height = Hc;
+  const g = c.getContext('2d');
+  g.fillStyle = '#05070b'; g.fillRect(0, 0, W, Hc);
+  const kind = o.kind ?? 'dep';
+  const title = o.title ?? (kind === 'arr' ? 'ARRIVALS' : kind === 'gate' ? 'GATE ' + (o.gate ?? 'C3') : 'DEPARTURES');
+  const hh = Math.max(34, Math.round(Hc * 0.13));
+  g.fillStyle = kind === 'arr' ? '#1a3a2a' : '#1a2a4a'; g.fillRect(0, 0, W, hh);
+  g.fillStyle = '#f0f0e8'; g.font = `bold ${Math.round(hh * 0.62)}px Arial, sans-serif`; g.textAlign = 'left'; g.textBaseline = 'middle';
+  g.fillText(title, 18, hh / 2);
+  g.textAlign = 'right'; g.fillStyle = '#f2c230'; g.fillText(o.clock ?? '04:17', W - 18, hh / 2);
+  const rows = o.rows ?? Math.max(4, Math.floor((Hc - hh) / 40));
+  const rh = (Hc - hh - 10) / (rows + 1);
+  g.font = `bold ${Math.round(rh * 0.5)}px "Courier New", monospace`; g.textAlign = 'left';
+  g.fillStyle = '#8a8a80';
+  const cols = kind === 'gate' ? null : [18, 150, 330, 700, 820];
+  if (cols) ['TIME', 'FLIGHT', kind === 'arr' ? 'FROM' : 'DESTINATION', 'GATE', 'REMARKS'].forEach((t, i) => g.fillText(t, cols[i], hh + rh * 0.6));
+  if (kind === 'gate') {
+    g.textAlign = 'center';
+    g.fillStyle = '#ffffff'; g.font = `bold ${Math.round((Hc - hh) * 0.2)}px Arial, sans-serif`;
+    g.fillText(o.flight ?? 'SA 212  ·  BAYPORT', W / 2, hh + (Hc - hh) * 0.3);
+    g.fillStyle = '#ff3020'; g.font = `bold ${Math.round((Hc - hh) * 0.26)}px Arial, sans-serif`;
+    g.fillText(o.status ?? 'CANCELLED', W / 2, hh + (Hc - hh) * 0.66);
+    g.fillStyle = '#f2c230'; g.font = `bold ${Math.round((Hc - hh) * 0.1)}px Arial, sans-serif`;
+    g.fillText(o.note ?? 'SEE MILITARY STAFF', W / 2, hh + (Hc - hh) * 0.9);
+  } else {
+    for (let i = 0; i < rows; i++) {
+      const yy = hh + rh * (i + 1.6);
+      if (i % 2) { g.fillStyle = 'rgba(255,255,255,0.03)'; g.fillRect(0, yy - rh * 0.5, W, rh); }
+      const [cc, ccol] = CARRIERS[Math.floor(r() * CARRIERS.length)];
+      const hr = 5 + Math.floor(i * 0.9 + r() * 2), mn = Math.floor(r() * 12) * 5;
+      g.fillStyle = '#f2c230'; g.fillText(`${String(hr).padStart(2, '0')}:${String(mn).padStart(2, '0')}`, cols[0], yy);
+      g.fillStyle = ccol; g.fillText(`${cc} ${100 + Math.floor(r() * 880)}`, cols[1], yy);
+      g.fillStyle = '#e8e8e0'; g.fillText(CITIES[Math.floor(r() * CITIES.length)], cols[2], yy);
+      g.fillStyle = '#f2c230'; g.fillText(`C${1 + Math.floor(r() * 12)}`, cols[3], yy);
+      const q = r();
+      const [st, sc] = o.special && i === o.special[0] ? [o.special[1], '#40ff80'] : q < 0.72 ? ['CANCELLED', '#ff3a24'] : q < 0.85 ? ['DIVERTED', '#ffb030'] : q < 0.93 ? ['CLOSED', '#ff3a24'] : ['SEE AGENT', '#9ac8ff'];
+      g.fillStyle = sc; g.fillText(st, cols[4], yy);
+    }
+  }
+  // dead pixels / burn-in
+  for (let i = 0; i < 6; i++) { g.fillStyle = r() < 0.5 ? 'rgba(0,0,0,0.6)' : 'rgba(40,60,90,0.25)'; g.fillRect(r() * W, r() * Hc, 20 + r() * 120, 3 + r() * 10); }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  const k = o.bright ?? 1.25;
+  const mat = new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(k, k, k), toneMapped: false });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+  const nx = Math.sin(ry), nz = Math.cos(ry);
+  m.position.set(x + nx * 0.02, y, z + nz * 0.02);
+  m.rotation.y = ry;
+  L.addObject(m);
+  if (o.frame !== false) {
+    const p = P.prop(L, x, y, z, ry);
+    p.box(0, 0, -0.08, w + 0.16, h + 0.16, 0.16, 'metalDark', 0x14161a);
+    if (o.hang) for (const s of [-1, 1]) p.cyl(s * w * 0.35, h / 2 + o.hang / 2, -0.08, 0.015, o.hang, 'metalDark', null, null, 6);
+    if (o.back) { const b = P.prop(L, x - nx * 0.32, y, z - nz * 0.32, ry + Math.PI); b.box(0, 0, 0, w + 0.16, h + 0.16, 0.02, 'metalDark', 0x14161a); }
+  }
+  if (o.light !== false) L.light(x + nx * 1.2, y - h * 0.2, z + nz * 1.2, 0x8aa8ff, o.lightIntensity ?? 3.5, o.lightRange ?? Math.max(6, w * 1.4), { flicker: 0.05 });
+  return { mesh: m, mat };
+}
