@@ -173,6 +173,10 @@ export class GlowOutlines {
   // Per-frame game hook: decides who/what glows.
   update(game) {
     this.list.length = 0;
+    if (game.level !== this._lvl) { // drop the previous level's usable outlines
+      this._lvl = game.level;
+      for (const k of [...this.merged.keys()]) if (typeof k !== 'string') { this.merged.get(k)?.dispose(); this.merged.delete(k); }
+    }
     const me = game.player;
     const outlineOn = game.settings?.outlines !== false;
     if (outlineOn && game.state === 'playing') {

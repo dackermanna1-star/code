@@ -112,96 +112,112 @@ export const mirrorQ = (q) => q.set(-q.x, -q.y, q.z, q.w);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function smin(a, b, k) { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * 0.25; }
-function sdRoundCone(qx, qy, qz, r1, r2, h) {
-  const b = (r1 - r2) / h, a = Math.sqrt(1 - b * b);
-  const qr = Math.hypot(qx, qz);
-  const k = -b * qr + a * qy;
-  if (k < 0) return Math.hypot(qr, qy) - r1;
-  if (k > a * h) return Math.hypot(qr, qy - h) - r2;
-  return qr * a + qy * b - r1;
-}
-function sdEll(x, y, z, rx, ry, rz) {
-  const k0 = Math.hypot(x / rx, y / ry, z / rz), k1 = Math.hypot(x / (rx * rx), y / (ry * ry), z / (rz * rz));
-  return k1 < 1e-9 ? -Math.min(rx, ry, rz) : k0 * (k0 - 1) / k1;
-}
 function farmRadii(y, S, k) { // forearm half-thickness (x) and half-width (z) at hand-space y (unscaled)
   const t = Math.min(1, 1 + (y * S) / FA_LEN);
   return [catmull(FARM_KEYS, t, 1) * k / S, catmull(FARM_KEYS, t, 2) * k / S];
 }
+function wristTable(S, k) { // sampled farmRadii for y in [-0.06, 0]
+  const n = 64, tx = new Float32Array(n + 1), tz = new Float32Array(n + 1);
+  for (let i = 0; i <= n; i++) { const r = farmRadii(-0.06 + 0.06 * i / n, S, k); tx[i] = r[0]; tz[i] = r[1]; }
+  return (y, o) => { const f = clamp((y + 0.06) / 0.06, 0, 1) * n, i = Math.min(n - 1, Math.floor(f)), t = f - i; o[0] = tx[i] + (tx[i + 1] - tx[i]) * t; o[1] = tz[i] + (tz[i + 1] - tz[i]) * t; };
+}
 
 function makeSDF(A, S, k) {
-  const segs = []; // phalanx cones in chain frames
-  A.chains.forEach((C, ci) => {
-    for (let i = 0; i < 3; i++) {
-      const L = i === 2 ? C.len[2] : C.len[i];
-      segs.push({ ci, i, o: C.J[i], X: C.X, Y: C.Y, Z: C.Z, h: L, r1: C.r[i], r2: C.r[i + 1] * (i === 2 ? 1 : 1), ex: C.ex, thumb: !!C.thumb });
-    }
-  });
+  // phalanx / metacarpal cones as flat records (local basis + radii)
+  const mk = (o, X, Y, Z, h, r1, r2, ex, ci, i) => {
+    const b = (r1 - r2) / h;
+    return { ox: o.x, oy: o.y, oz: o.z, xx: X.x, xy: X.y, xz: X.z, yx: Y.x, yy: Y.y, yz: Y.z, zx: Z.x, zy: Z.y, zz: Z.z, h, r1, r2, ex, b, a: Math.sqrt(1 - b * b), ci, i,
+      // bounding sphere for early outs
+      cx: o.x + Y.x * h * 0.5, cy: o.y + Y.y * h * 0.5, cz: o.z + Y.z * h * 0.5, br: h * 0.5 + Math.max(r1, r2) };
+  };
+  const segs = [];
+  A.chains.forEach((C, ci) => { for (let i = 0; i < 3; i++) segs.push(mk(C.J[i], C.X, C.Y, C.Z, C.len[i], C.r[i], C.r[i + 1], C.ex, ci, i)); });
   const mc = A.chains.slice(1).map((C) => {
     const d = C.J[0].clone().sub(C.base); const h = d.length(); d.normalize();
     const x = new THREE.Vector3(1, 0, 0); x.addScaledVector(d, -x.dot(d)).normalize();
     const z = new THREE.Vector3().crossVectors(x, d);
-    return { o: C.base, X: x, Y: d, Z: z, h, r1: C.mr[0], r2: C.mr[1] };
+    return mk(C.base, x, d, z, h, C.mr[0], C.mr[1], 0.92, -1, 0);
   });
+  // finger bounding capsules (MCP -> tip) for skipping whole fingers
+  const fb = A.chains.map((C) => ({ a: C.J[0], b: C.J[3], r: C.r[0] + 0.004 }));
   const T = A.chains[0];
   const kn = 0.0055 + 0.0015 * A.knuckles;
-  const local = (s, x, y, z) => { const dx = x - s.o.x, dy = y - s.o.y, dz = z - s.o.z; return [dx * s.X.x + dy * s.X.y + dz * s.X.z, dx * s.Y.x + dy * s.Y.y + dz * s.Y.z, dx * s.Z.x + dy * s.Z.y + dz * s.Z.z]; };
-  const cone = (s, x, y, z) => { const q = local(s, x, y, z); return sdRoundCone(q[0] / s.ex, q[1], q[2], s.r1, s.r2, s.h) * s.ex; };
-  const mcone = (s, x, y, z) => { const q = local(s, x, y, z); return sdRoundCone(q[0] / 0.92, q[1], q[2], s.r1, s.r2, s.h) * 0.92; };
+  const knk = A.chains.slice(1).map((C) => C.J[0]);
+  const wa = T.J[1], wb = A.chains[1].J[0];
+  const W0 = [wa.x - 0.002, wa.y - 0.004, wa.z - 0.003], W1 = [wb.x - 0.002 - W0[0], wb.y - 0.02 - W0[1], wb.z - W0[2]];
+  const W1l = W1[0] * W1[0] + W1[1] * W1[1] + W1[2] * W1[2];
+  let lx = 0, ly = 0, lz = 0;
+  const loc = (s, x, y, z) => { const dx = x - s.ox, dy = y - s.oy, dz = z - s.oz; lx = dx * s.xx + dy * s.xy + dz * s.xz; ly = dx * s.yx + dy * s.yy + dz * s.yz; lz = dx * s.zx + dy * s.zy + dz * s.zz; };
+  const cone = (s, x, y, z) => {
+    loc(s, x, y, z);
+    const qx = lx / s.ex, qr = Math.sqrt(qx * qx + lz * lz);
+    const kk = -s.b * qr + s.a * ly;
+    let d;
+    if (kk < 0) d = Math.sqrt(qr * qr + ly * ly) - s.r1;
+    else if (kk > s.a * s.h) { const yy = ly - s.h; d = Math.sqrt(qr * qr + yy * yy) - s.r2; } else d = qr * s.a + ly * s.b - s.r1;
+    return d * s.ex;
+  };
+  const ell = (x, y, z, rx, ry, rz) => {
+    const ax = x / rx, ay = y / ry, az = z / rz, bx = ax / rx, by = ay / ry, bz = az / rz;
+    const k0 = Math.sqrt(ax * ax + ay * ay + az * az), k1 = Math.sqrt(bx * bx + by * by + bz * bz);
+    return k1 < 1e-9 ? -Math.min(rx, ry, rz) : k0 * (k0 - 1) / k1;
+  };
+  const capD = (c, x, y, z) => {
+    const ux = c.b.x - c.a.x, uy = c.b.y - c.a.y, uz = c.b.z - c.a.z, px = x - c.a.x, py = y - c.a.y, pz = z - c.a.z;
+    const t = clamp((px * ux + py * uy + pz * uz) / (ux * ux + uy * uy + uz * uz), 0, 1);
+    const ex = px - ux * t, ey = py - uy * t, ez = pz - uz * t;
+    return Math.sqrt(ex * ex + ey * ey + ez * ez) - c.r;
+  };
+  const pad = (s, x, y, z, kx, ky) => { loc(s, x, y, z); return ell(lx + s.r1 * kx, ly - s.h * ky, lz, s.r1 * 0.64, s.h * 0.55, s.r1 * 0.9); };
+  const wrist = wristTable(S, k), wr = [0, 0];
   return (x, y, z) => {
     // wrist: the forearm's elliptical section, capped inside the carpus
-    const [wx, wz] = farmRadii(Math.min(y, 0.0), S, k);
-    let d = Math.max((Math.hypot(x / wx, z / wz) - 1) * Math.min(wx, wz), y - 0.006);
-    // carpus and metacarpals (palm), with a slight transverse arch
-    d = smin(d, sdEll(x + 0.0005, y - 0.013, z - 0.001, 0.0158, 0.02, 0.0285), 0.012);
-    let pm = 1;
-    for (const s of mc) pm = smin(pm, mcone(s, x, y, z), 0.011);
-    d = smin(d, pm, 0.012);
-    // hypothenar, central palmar pad, distal palmar pads under each finger
-    d = smin(d, sdEll(x + 0.0105, y - 0.047, z + 0.0245, 0.0095, 0.029, 0.0105), 0.01);
-    d = smin(d, sdEll(x + 0.0115, y - 0.066, z - 0.001, 0.0062, 0.017, 0.026), 0.009);
-    // dorsal knuckles (metacarpal heads)
-    for (let f = 1; f < 5; f++) {
-      const J = A.chains[f].J[0];
-      d = smin(d, Math.hypot(x - J.x - 0.0066, y - J.y + 0.003, z - J.z) - kn, 0.006);
-      d = smin(d, sdEll(x - J.x + 0.0082, y - J.y + 0.0045, z - J.z, 0.0058, 0.0085, 0.0082), 0.006);
+    wrist(y, wr);
+    const wx = wr[0], wz = wr[1];
+    const qe = Math.sqrt((x / wx) * (x / wx) + (z / wz) * (z / wz));
+    let d = Math.max((qe - 1) * Math.min(wx, wz), y - 0.006);
+    // carpus and metacarpals (palm)
+    d = smin(d, ell(x + 0.0005, y - 0.013, z - 0.001, 0.0158, 0.02, 0.0285), 0.012);
+    if (y > -0.02) {
+      let pm = 1;
+      for (const s of mc) pm = smin(pm, cone(s, x, y, z), 0.011);
+      d = smin(d, pm, 0.012);
+      // hypothenar, central palmar pad
+      d = smin(d, ell(x + 0.0105, y - 0.047, z + 0.0245, 0.0095, 0.029, 0.0105), 0.01);
+      d = smin(d, ell(x + 0.0115, y - 0.066, z - 0.001, 0.0062, 0.017, 0.026), 0.009);
+      // knuckles (metacarpal heads) and the distal palmar pads
+      if (y > 0.06) for (const J of knk) {
+        const ax = x - J.x - 0.0066, ay = y - J.y + 0.003, az = z - J.z;
+        d = smin(d, Math.sqrt(ax * ax + ay * ay + az * az) - kn, 0.006);
+        d = smin(d, ell(x - J.x + 0.0082, y - J.y + 0.0045, z - J.z, 0.0058, 0.0085, 0.0082), 0.006);
+      }
     }
     // thumb metacarpal + thenar eminence + first web
-    let th = cone(segs[0], x, y, z);
-    th = smin(th, sdEll(x + 0.0135, y - 0.040, z - 0.0205, 0.0115, 0.0215, 0.0125), 0.011);
-    d = smin(d, th, 0.013);
-    {
-      // thin web from the thumb's MCP to the index metacarpal
-      const a = T.J[1], b = A.chains[1].J[0];
-      const ax = a.x - 0.002, ay = a.y - 0.004, az = a.z - 0.003, bx = b.x - 0.002, by = b.y - 0.02, bz = b.z;
-      const px = x - ax, py = y - ay, pz = z - az, ux = bx - ax, uy = by - ay, uz = bz - az;
-      const t = clamp((px * ux + py * uy + pz * uz) / (ux * ux + uy * uy + uz * uz), 0, 1);
-      const w = Math.hypot(px - ux * t, py - uy * t, pz - uz * t) - 0.0048;
-      d = smin(d, w, 0.009);
+    if (capD(fb[0], x, y, z) < d + 0.02) {
+      let th = cone(segs[0], x, y, z);
+      th = smin(th, ell(x + 0.0135, y - 0.040, z - 0.0205, 0.0115, 0.0215, 0.0125), 0.011);
+      d = smin(d, th, 0.013);
+      const px = x - W0[0], py = y - W0[1], pz = z - W0[2];
+      const t = clamp((px * W1[0] + py * W1[1] + pz * W1[2]) / W1l, 0, 1);
+      const ex = px - W1[0] * t, ey = py - W1[1] * t, ez = pz - W1[2] * t;
+      d = smin(d, Math.sqrt(ex * ex + ey * ey + ez * ez) - 0.0048, 0.009);
+      // thumb phalanges
+      let tp = cone(segs[1], x, y, z);
+      tp = Math.min(tp, smin(cone(segs[2], x, y, z), pad(segs[2], x, y, z, 0.3, 0.6), 0.004));
+      d = smin(d, tp, 0.0075);
     }
     // fingers (hard union between fingers, smooth into the palm)
     let fd = 1;
-    for (let si = 3; si < segs.length; si++) {
-      const s = segs[si];
-      let c = cone(s, x, y, z);
-      if (s.i === 2) { // fingertip pad
-        const q = local(s, x, y, z);
-        c = smin(c, sdEll(q[0] + s.r1 * 0.32, q[1] - s.h * 0.62, q[2], s.r1 * 0.62, s.h * 0.55, s.r1 * 0.9), 0.004);
+    for (let f = 1; f < 5; f++) {
+      if (capD(fb[f], x, y, z) > Math.min(fd, d + 0.0062)) continue;
+      for (let i = 0; i < 3; i++) {
+        const s = segs[f * 3 + i];
+        let c = cone(s, x, y, z);
+        if (i === 2) c = smin(c, pad(s, x, y, z, 0.32, 0.62), 0.004);
+        if (c < fd) fd = c;
       }
-      fd = Math.min(fd, c);
     }
-    d = smin(d, fd, 0.0062);
-    // thumb phalanges
-    let tp = cone(segs[1], x, y, z);
-    {
-      const s = segs[2];
-      let c = cone(s, x, y, z);
-      const q = local(s, x, y, z);
-      c = smin(c, sdEll(q[0] + s.r1 * 0.3, q[1] - s.h * 0.6, q[2], s.r1 * 0.66, s.h * 0.55, s.r1 * 0.9), 0.004);
-      tp = Math.min(tp, c);
-    }
-    d = smin(d, tp, 0.0075);
-    return d;
+    return smin(d, fd, 0.0062);
   };
 }
 
@@ -247,13 +263,18 @@ function surfaceNets(sdf, min, max, h) {
     P.push(min[0] + (i + sx / n) * h, min[1] + (j + sy / n) * h, min[2] + (k + sz / n) * h);
   }
   // project onto the surface; normals from the field gradient
-  const nv = P.length / 3, Nn = new Float32Array(nv * 3), e = h * 0.25;
-  const grad = (x, y, z, o) => { o[0] = sdf(x + e, y, z) - sdf(x - e, y, z); o[1] = sdf(x, y + e, z) - sdf(x, y - e, z); o[2] = sdf(x, y, z + e) - sdf(x, y, z - e); const l = Math.hypot(o[0], o[1], o[2]) || 1; o[0] /= l; o[1] /= l; o[2] /= l; };
+  const nv = P.length / 3, Nn = new Float32Array(nv * 3), e = h * 0.2;
+  // tetrahedral gradient (4 taps)
+  const grad = (x, y, z, o) => {
+    const a = sdf(x + e, y - e, z - e), b = sdf(x - e, y - e, z + e), c = sdf(x - e, y + e, z - e), d = sdf(x + e, y + e, z + e);
+    o[0] = a - b - c + d; o[1] = -a - b + c + d; o[2] = -a + b - c + d;
+    const l = Math.sqrt(o[0] * o[0] + o[1] * o[1] + o[2] * o[2]) || 1; o[0] /= l; o[1] /= l; o[2] /= l;
+  };
   const g = [0, 0, 0];
   for (let v = 0; v < nv; v++) {
     let x = P[v * 3], y = P[v * 3 + 1], z = P[v * 3 + 2];
     const x0 = x, y0 = y, z0 = z;
-    for (let it = 0; it < 3; it++) {
+    for (let it = 0; it < 2; it++) {
       const d = sdf(x, y, z);
       if (Math.abs(d) < 1e-6) break;
       grad(x, y, z, g);
@@ -302,7 +323,8 @@ function segDist(p, a, b) {
   const ux = b.x - a.x, uy = b.y - a.y, uz = b.z - a.z;
   const px = p.x - a.x, py = p.y - a.y, pz = p.z - a.z;
   const t = clamp((px * ux + py * uy + pz * uz) / (ux * ux + uy * uy + uz * uz), 0, 1);
-  return Math.hypot(px - ux * t, py - uy * t, pz - uz * t);
+  const ex = px - ux * t, ey = py - uy * t, ez = pz - uz * t;
+  return Math.sqrt(ex * ex + ey * ey + ez * ez);
 }
 // returns up to 4 [bone, weight] pairs for a bind-pose hand vertex (unscaled)
 function handWeights(A, p, out) {
@@ -434,7 +456,9 @@ function buildArmGeometry(A, S, k, asset, hasWatch) {
   for (const C of A.chains) for (let i = 0; i < 4; i++) grow(C.J[i], C.r[Math.min(i, 3)] + 0.006);
   grow(new THREE.Vector3(0, 0.02, 0), 0.034);
   mn[1] = Y_CUT;
-  const net = surfaceNets(sdf, mn, mx, 0.0017);
+  const _t0 = performance.now();
+  const net = surfaceNets(sdf, mn, mx, 0.0022);
+  const _t1 = performance.now();
   const nv = net.P.length / 3;
   const base = 0;
   const p = new THREE.Vector3(), n = new THREE.Vector3();
@@ -453,6 +477,7 @@ function buildArmGeometry(A, S, k, asset, hasWatch) {
     pushV(p.x * S, p.y * S, p.z * S, n.x, n.y, n.z, wristUV[0], wristUV[1], W, p.x, p.y, p.z, 1, palmar);
   }
   for (const i of net.I) groups[0].push(base + i);
+  if (globalThis.__fphT) globalThis.__fphT.push(['nets', _t1 - _t0], ['weights', performance.now() - _t1]);
   // ---- forearm tube (atlas UVs) up to just past the cut, tucked 0.3 mm inside the hand
   const yCut = Y_CUT * S, tEnd = 1 + (yCut + 0.004) / FA_LEN, tCut = 1 + yCut / FA_LEN;
   const addPiece = (P, gi, o = {}) => {

@@ -112,7 +112,7 @@ const ICON_SET = [
   [['launcher', 'grenadeLauncher'], 44, '<path d="M1 6.4L11 4h3v5.2h-3L2 12.4H1z"/><path d="M14 4h6.4v5.6H14z"/><path d="M20.4 2.6h19.4a1.4 1.4 0 0 1 1.4 1.4v4a1.4 1.4 0 0 1-1.4 1.4H20.4zM41.2 2.1H43v7.8h-1.8zM21 .8h1.2v1.8H21z"/><path d="M15 9.6h4.6l-.5 1.9H15z"/>'],
   [['minigun'], 46, '<path d="M1.6 3.4h15a1.6 1.6 0 0 1 1.6 1.6v5.2a1.6 1.6 0 0 1-1.6 1.6h-15z"/><path d="M18.2 3.8h24.6v1.6H18.2zM18.2 6.8H44v1.6H18.2zM18.2 9.8h24.6v1.6H18.2zM33.4 3.2h1.8V12h-1.8z"/><path d="M4.4 11.8H6l-.8 3.4H3.6zM11 11.8h1.6l-.8 3.4h-1.6z"/>'],
   // ---- melee
-  [['melee', 'fireaxe', 'axe'], 40, '<path d="M2.2 7.3H31v2H2.2a1 1 0 0 1 0-2z"/><path d="M30.2 5.6h4.6V11h-4.6zM31 5.6l1.3-5h1l1.3 5z"/><path d="M30.4 11h4.2l3.6 4.4c-3.4.8-7 .8-10.6-.2z"/>'],
+  [['melee', 'fireaxe', 'axe'], 40, '<path d="M2.2 7.4H30v1.9H2.2a.95.95 0 0 1 0-1.9z"/><path d="M29.6 5.4h5.6v5.4h-5.6zM30 5.6L27 .9c3.6-1.1 7.6-1.1 11.2 0l-3 4.7zM30.4 10.6h4.8l-2.4 5z"/>'],
   [['crowbar'], 40, '<path d="M1.8 12.4l2.4-2.2h26.4c2.6 0 4.2-1.6 4.2-3.8 0-2.2-1.4-3.6-3.4-3.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>'],
   [['machete'], 40, '<path d="M1.4 7.2H11v3.4H1.4a.8.8 0 0 1-.8-.8V8a.8.8 0 0 1 .8-.8zM11 6h1.4v5.8H11z"/><path d="M12.4 6.8h18.8c3.2 0 6 .9 7.6 3.2-2.8 1.5-6.6 2.2-10 2.2H12.4z"/>'],
   [['katana'], 52, '<path d="M1.2 9.4l10.4-1.3.2 2.4-10.4 1.3z"/><path d="M11.6 6.2a.9.9 0 0 1 1.8 0v6a.9.9 0 0 1-1.8 0z"/><path d="M13.4 8.1C24 7.6 38 6.4 50.8 2.4c-.5 1.3-1.6 2.3-3.2 2.9-11.2 3.7-23.2 4.8-34.2 5.1z"/>'],
@@ -120,7 +120,7 @@ const ICON_SET = [
   [['pan', 'fryingPan', 'frying_pan', 'fryingpan'], 40, '<path fill-rule="evenodd" d="M31.4.8a7.2 7.2 0 1 1 0 14.4 7.2 7.2 0 0 1 0-14.4zm0 1.8a5.4 5.4 0 1 0 0 10.8 5.4 5.4 0 0 0 0-10.8z"/><circle cx="31.4" cy="8" r="4.4" opacity=".4"/><path d="M2.6 6.9h19.2l2.6.5v1.2l-2.6.5H2.6a1.1 1.1 0 0 1 0-2.2z"/>'],
   [['chainsaw'], 50, `<path d="M3.4 5.4h13.8a2 2 0 0 1 2 2v5.4a2 2 0 0 1-2 2H5.4a2 2 0 0 1-2-2zM.8 8.2h2.6v4.4H.8z"/><path d="M6.2 5.4V2.8a1.6 1.6 0 0 1 1.6-1.6H15a1.6 1.6 0 0 1 1.6 1.6v2.6H15V2.8H7.8v2.6z"/><path d="M19.2 7.6h25.6a2.5 2.5 0 0 1 0 5H19.2z${TEETH}"/>`],
   // ---- throwables
-  [['pipebomb', 'throwable'], 16, '<path d="M5 5h6v9.4H5zM4.1 3.6h7.8v2H4.1zM4.1 13.4h7.8v2H4.1z"/><path d="M7.4 3.6c0-1.8 1.1-2.8 3.2-3l.2 1c-1.4.2-2.2.8-2.2 2z"/><circle cx="13.3" cy="9.5" r="1.2"/>'],
+  [['pipebomb', 'throwable'], 16, '<path fill-rule="evenodd" d="M5 4.6h6v10H5zM5 7.6v1.2h6V7.6zM5 10.6v1.2h6v-1.2z"/><path d="M4 3.4h8v1.8H4zM4 14.2h8V16H4z"/><path d="M7.4 3.4c0-1.8 1.2-2.9 3.6-3l.1 1.1c-1.8.1-2.5.8-2.5 1.9z"/><circle cx="11.6" cy=".9" r=".9" opacity=".7"/>'],
   [['molotov'], 16, '<path d="M6.4 4.8h3.2v2l2.1 2.1v6.3a.8.8 0 0 1-.8.8H5.1a.8.8 0 0 1-.8-.8V8.9l2.1-2.1z"/><path d="M6.8 4.4C6.2 3 7.6 2.2 8 .2c1.2 1.6 2.4 2.6 1.6 4.2z" opacity=".75"/>'],
   [['bile', 'bilejar', 'vomitjar'], 16, '<path d="M4.6 1.2h6.8v2.6H4.6z"/><path fill-rule="evenodd" d="M4.4 4.4h7.2l1.6 1.9V15a1 1 0 0 1-1 1H3.8a1 1 0 0 1-1-1V6.3zM4.4 8.6V10h7.2V8.6z"/>'],
   // ---- health items (slot 4)
