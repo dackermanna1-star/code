@@ -254,7 +254,7 @@ export class Game {
       this.lights.update(dt, this.renderer.camera);
     }
     const t1 = performance.now();
-    if (!this.noRender) this.renderer.render(dt); // noRender: headless network tests
+    if (!this.noRender) this.renderer.render(dt, this); // noRender: headless network tests
     const t2 = performance.now();
     this.perf = this.perf || { upd: 0, ren: 0 };
     this.perf.upd = this.perf.upd * 0.9 + (t1 - t0) * 0.1;

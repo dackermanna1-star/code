@@ -189,7 +189,7 @@ export class ItemManager {
     if (this.highlight === it) return;
     if (this.highlight && this.highlight.glow) { this.highlight.glow.parent?.remove(this.highlight.glow); this.highlight.glow = null; }
     this.highlight = it;
-    if (!it || !it.mesh) return;
+    if (!it || !it.mesh || this.game.renderer?.glow) return; // the glow-outline pass draws the highlight
     const glow = new THREE.Group();
     it.mesh.updateMatrixWorld(true);
     it.mesh.traverse((o) => {

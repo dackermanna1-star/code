@@ -10,6 +10,52 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
 import { Pass, FullScreenQuad } from 'three/examples/jsm/postprocessing/Pass.js';
+import { GlowOutlines } from './glow.js';
+import { BeamMotes } from './motes.js';
+
+// Procedural blood splatter for the screen (one splat, alpha-premultiplied
+// look: dark wet core, lighter thin rim, radiating droplets and a few runs).
+function bloodTexture() {
+  const N = 256;
+  const c = document.createElement('canvas');
+  c.width = c.height = N;
+  const g = c.getContext('2d');
+  let s = 4711;
+  const r = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  const blob = (x, y, rad, a) => {
+    const gr = g.createRadialGradient(x, y, 0, x, y, rad);
+    gr.addColorStop(0, `rgba(70,4,4,${a})`); gr.addColorStop(0.75, `rgba(95,8,6,${a * 0.9})`); gr.addColorStop(1, 'rgba(120,12,8,0)');
+    g.fillStyle = gr; g.beginPath(); g.arc(x, y, rad, 0, 6.2832); g.fill();
+  };
+  const C = N / 2;
+  for (let i = 0; i < 14; i++) { const a = r() * 6.28, d = r() * 26; blob(C + Math.cos(a) * d, C + Math.sin(a) * d * 0.8, 14 + r() * 26, 0.9); }
+  for (let i = 0; i < 70; i++) { // radiating droplets, smaller further out
+    const a = r() * 6.28, d = 30 + Math.pow(r(), 0.7) * 90, rad = Math.max(1.2, 7 - d / 18 + r() * 3);
+    blob(C + Math.cos(a) * d, C + Math.sin(a) * d, rad, 0.95);
+    if (r() < 0.25) { // streak toward the droplet
+      g.strokeStyle = 'rgba(80,6,5,0.8)'; g.lineWidth = rad * 0.8; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(C + Math.cos(a) * (d - 14), C + Math.sin(a) * (d - 14)); g.lineTo(C + Math.cos(a) * d, C + Math.sin(a) * d); g.stroke();
+    }
+  }
+  for (let i = 0; i < 6; i++) { // runs (downward drips)
+    const x = C + (r() - 0.5) * 70, y = C + r() * 20, len = 20 + r() * 70, w = 2 + r() * 4;
+    g.strokeStyle = 'rgba(75,5,4,0.9)'; g.lineWidth = w; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + (r() - 0.5) * 4, y + len); g.stroke();
+    blob(x, y + len, w * 1.1, 0.95);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.NoColorSpace; // composited in display space: keep authored values
+  return t;
+}
+
+// Per-campaign colour grades (display-linear lift/gamma/gain + split tones).
+export const GRADES = {
+  default: {},
+  // Dead Air: cold blue night, sodium-orange city glow in the highlights
+  deadair: { lift: [0.006, 0.014, 0.034], gamma: [1.0, 1.0, 1.04], gain: [1.05, 0.99, 0.92], shadowTone: [0.8, 0.95, 1.2], highTone: [1.16, 0.98, 0.74], splitAmount: 0.62, saturation: 0.86, contrast: 1.1, vignette: 0.46, grain: 0.04 },
+  nomercy: { lift: [0.012, 0.016, 0.026], gain: [1.03, 1.0, 0.96], shadowTone: [0.9, 0.98, 1.1], highTone: [1.08, 1.0, 0.88], splitAmount: 0.5, saturation: 0.86, contrast: 1.07 },
+};
+const GRADE_BASE = { lift: [0.012, 0.016, 0.026], gamma: [1, 1, 1], gain: [1.03, 1.0, 0.96], shadowTone: [0.88, 0.97, 1.12], highTone: [1.08, 1.0, 0.88], splitAmount: 0.55, saturation: 0.88, contrast: 1.06, vignette: 0.42, grain: 0.035 };
 
 // Procedural lens dirt: soft smudges, specks and a couple of wipe streaks.
 function lensDirtTexture() {
@@ -81,6 +127,9 @@ const GradeShader = {
     blur: { value: 0 },
     resolution: { value: new THREE.Vector2(1, 1) },
     smoke: { value: 0 },
+    tBlood: { value: null },
+    bloodS: { value: [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()] },
+    bloodA: { value: new THREE.Vector4() },
   },
   vertexShader: /* glsl */ `
     varying vec2 vUv;
@@ -89,6 +138,9 @@ const GradeShader = {
   fragmentShader: /* glsl */ `
     uniform sampler2D tDiffuse, tBloom, tDirt;
     uniform float bloomOn, dirtAmount, exposure;
+    uniform sampler2D tBlood;
+    uniform vec4 bloodS[4];
+    uniform vec4 bloodA;
     uniform float time, vignette, grain, saturation, contrast, flash, chroma, lowHealth, bile, bw, fade, blur, smoke, splitAmount, caBase;
     uniform vec3 tint, flashColor, lift, gamma, gain, shadowTone, highTone;
     uniform vec2 resolution;
@@ -163,6 +215,23 @@ const GradeShader = {
         float p = 0.6 + 0.4 * sin(time * 5.0);
         float e = smoothstep(0.08, 0.45, r2);
         col = mix(col, vec3(0.35, 0.0, 0.0), e * lowHealth * p * 0.8);
+      }
+      // blood on the lens: up to four splats (xy centre, scale, rotation)
+      if (bloodA.x + bloodA.y + bloodA.z + bloodA.w > 0.002) {
+        float asp = resolution.x / resolution.y;
+        for (int i = 0; i < 4; i++) {
+          float ba = bloodA[i];
+          if (ba < 0.002) continue;
+          vec4 s = bloodS[i];
+          vec2 p = (vUv - s.xy) * vec2(asp, 1.0) / s.z;
+          float cs = cos(s.w), sn = sin(s.w);
+          p = vec2(cs * p.x - sn * p.y, sn * p.x + cs * p.y) + 0.5;
+          if (p.x < 0.0 || p.y < 0.0 || p.x > 1.0 || p.y > 1.0) continue;
+          vec4 b = texture2D(tBlood, p);
+          // thin film thins out as it fades: edges go first
+          float al = smoothstep(0.0, 1.0, b.a * (0.4 + ba) - (1.0 - ba) * 0.5) * ba;
+          col = mix(col, b.rgb * (0.75 + 0.25 * lum), al * 0.92);
+        }
       }
       col = mix(col, flashColor, flash * smoothstep(0.02, 0.35, r2 + flash*0.1));
       // vignette (slightly elliptical, film-like falloff)
@@ -346,6 +415,7 @@ class ViewmodelPass extends Pass {
   }
 }
 
+const _bv = new THREE.Vector3();
 export class Renderer {
   constructor(canvas, quality) {
     this.canvas = canvas;
@@ -376,18 +446,21 @@ export class Renderer {
       type: THREE.HalfFloatType,
       samples: quality.msaa ? 4 : 0,
     });
-    if (useAO) {
-      rt.depthTexture = new THREE.DepthTexture(size.x, size.y);
-      rt.depthTexture.type = THREE.UnsignedIntType;
-    }
+    // depth texture: AO and the glow outlines' through-wall test read it
+    rt.depthTexture = new THREE.DepthTexture(size.x, size.y);
+    rt.depthTexture.type = THREE.UnsignedIntType;
     this.composer = new EffectComposer(r, rt);
     this.worldPass = new RenderPass(this.scene, this.camera);
     this.composer.addPass(this.worldPass);
+    this.glow = new GlowOutlines(this.camera, quality);
+    this.composer.addPass(this.glow.maskPass);
     if (useAO) {
       this.ao = new AOPass(this.camera, quality.aoScale ?? 0.5);
       if (quality.aoStrength != null) this.ao.compMat.uniforms.strength.value = quality.aoStrength;
       this.composer.addPass(this.ao);
     }
+    this.composer.addPass(this.glow.compPass);
+    this.motes = new BeamMotes(this.scene, quality);
     this.vmPass = new ViewmodelPass(this.scene, this.vmCamera);
     this.composer.addPass(this.vmPass);
     if (quality.bloom) {
@@ -402,6 +475,10 @@ export class Renderer {
     this.composer.addPass(this.grade);
     this.fx = this.grade.uniforms;
     this.fx.tDirt.value = lensDirtTexture();
+    this.fx.tBlood.value = bloodTexture();
+    this.blood = [0, 0, 0, 0]; // per-splat life (s)
+    this.bloodCool = 0;
+    this._gradeKey = null;
     if (this.bloom) {
       this.fx.bloomOn.value = 1;
       this.fx.tBloom.value = this.bloom.renderTargetsHorizontal[0].texture;
@@ -428,9 +505,62 @@ export class Renderer {
       this.fxaa.material.uniforms.resolution.value.set(1 / (w * pr), 1 / (h * pr));
     }
     this.fx.resolution.value.set(w * pr, h * pr);
+    this.glow.setSize(w * pr, h * pr);
   }
-  render(dt) {
+  // Apply a colour grade preset (see GRADES); unspecified fields use the base.
+  setGrade(g) {
+    const G = Object.assign({}, GRADE_BASE, g || {});
+    const f = this.fx;
+    for (const k of ['lift', 'gamma', 'gain', 'shadowTone', 'highTone']) f[k].value.set(...G[k]);
+    for (const k of ['splitAmount', 'saturation', 'contrast', 'vignette', 'grain']) f[k].value = G[k];
+  }
+  // Gore within arm's reach in front of the camera sprays the lens.
+  nearBlood(x, y, z, amount) {
+    const c = this.camera.position;
+    const dx = x - c.x, dy = y - c.y, dz = z - c.z;
+    const d = Math.hypot(dx, dy, dz);
+    if (d > 1.8 || d < 0.05) return;
+    const e = this.camera.matrixWorld.elements; // forward = -Z column
+    if (-(dx * e[8] + dy * e[9] + dz * e[10]) / d < 0.45) return;
+    _bv.set(x, y, z).project(this.camera);
+    const k = Math.min(1, amount * 0.8) * (1.9 - d) / 1.4;
+    if (k < 0.15 || Math.random() > 0.35 + k) return;
+    this.bloodSplat(k, 0.5 + _bv.x * 0.5 + (Math.random() - 0.5) * 0.25, 0.5 + _bv.y * 0.5 + (Math.random() - 0.5) * 0.2);
+  }
+  // Blood sprayed onto the lens (close kills, melee, big hits). strength 0..1.
+  bloodSplat(strength = 1, x, y) {
+    if (this.bloodCool > 0 && strength < 0.9) return;
+    this.bloodCool = 0.35;
+    const L = this.blood, S = this.fx.bloodS.value;
+    let k = 0;
+    for (let i = 1; i < 4; i++) if (L[i] < L[k]) k = i;
+    const R = Math.random;
+    L[k] = 1.4 + 2.2 * Math.min(1, strength);
+    S[k].set(x ?? 0.2 + R() * 0.6, y ?? 0.25 + R() * 0.55, (0.28 + R() * 0.3) * (0.6 + 0.5 * Math.min(1, strength)), R() * 6.28);
+  }
+  render(dt, game) {
     this.fx.time.value += dt;
+    if (game) {
+      const key = game.level;
+      if (key !== this._gradeKey) {
+        this._gradeKey = key;
+        const cid = game.session?.campaign?.id || (typeof window !== 'undefined' && window.session?.campaign?.id);
+        this.setGrade(key?.env?.grade || GRADES[cid] || GRADES.default);
+      }
+      if (game.fx && !game.fx.screenBlood) game.fx.screenBlood = (x, y, z, amount) => this.nearBlood(x, y, z, amount);
+      this.glow.update(game);
+      this.motes.update(dt, game, this.camera, this.fx.resolution.value.y);
+    }
+    // lens blood: hold, then thin out and slide down a little
+    this.bloodCool = Math.max(0, this.bloodCool - dt);
+    const BA = this.fx.bloodA.value, BS = this.fx.bloodS.value;
+    for (let i = 0; i < 4; i++) {
+      const l = this.blood[i];
+      if (l <= 0) { BA.setComponent(i, 0); continue; }
+      this.blood[i] = l - dt;
+      BA.setComponent(i, Math.min(1, l / 1.6));
+      BS[i].y -= dt * 0.006;
+    }
     this.fx.exposure.value = this.r.toneMappingExposure;
     if (this.bloom) this.fx.tBloom.value = this.bloom.renderTargetsHorizontal[0].texture;
     this.vmCamera.position.copy(this.camera.position);

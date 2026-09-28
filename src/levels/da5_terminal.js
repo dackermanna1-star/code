@@ -54,7 +54,7 @@ export function buildTerminal(L, game, S) {
   L.item('pills', -36.8, DEP + 0.02, -5.2, { chance: 0.7 });
   cot(L, -37.4, DEP, -6.2, 0);
   for (let i = 0; i < 4; i++) L.survivorStart.push({ x: -42.2 + i * 1.3, y: DEP, z: -6.4 + (i % 2) * 0.9, yaw: Math.PI });
-  L.flowStart = [-40, DEP, -8];
+  L.flowStart = [-42.6, DEP, -6.2]; // at the survivor spawn so progress starts at 0.000
   sign(L, 'GATE C4\nSTAFF ONLY', -36.12, DEP + 2.2, -7.4, -Math.PI / 2, 0.9, 0.45, { bg: '#e8e4d8', fg: '#1a2a4a' });
 
   // ================================================================ gate C4 lounge

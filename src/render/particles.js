@@ -548,6 +548,7 @@ export class Particles {
   // Blood: dark, glossy droplets (lit so they are near-black in the dark and
   // deep red under light), a few stretched streaks and a thin mist.
   blood(x, y, z, dx, dy, dz, amount = 1, decal = true) {
+    this.screenBlood?.(x, y, z, amount); // lens splatter on close kills (set by the renderer)
     const n = Math.round(6 * amount * this.q) + 2;
     for (let i = 0; i < n; i++) {
       const s = 1.5 + R() * 4 * amount;
