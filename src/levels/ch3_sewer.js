@@ -1423,6 +1423,7 @@ export default {
     const rimT = new Map();
     L.dynamics.push({
       update(dt) {
+        if (game.net?.client) return; // bots are simulated by the co-op host
         for (const s of game.survivors) if (s.brain) patchBrain(s.brain);
         const lead = game.player;
         if (!lead || lead.dead) return;
