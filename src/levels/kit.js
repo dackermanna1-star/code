@@ -289,21 +289,30 @@ export function textTexture(text, o = {}) {
   return t;
 }
 // Place a textured quad. (x,y,z) centre; ry rotation (0 faces -Z... i.e. readable from -Z side).
+// Front quad + a back quad turned around (un-mirrored UVs) in one geometry,
+// so a double-sided sign costs a single draw call.
+function doubleSidedQuad(w, h) {
+  const hw = w / 2, hh = h / 2;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute([
+    -hw, -hh, 0, hw, -hh, 0, hw, hh, 0, -hw, hh, 0, // front (+Z)
+    hw, -hh, 0, -hw, -hh, 0, -hw, hh, 0, hw, hh, 0, // back (-Z), reads left-to-right from behind
+  ], 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1], 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1], 2));
+  geo.setIndex([0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]);
+  return geo;
+}
 export function sign(L, text, x, y, z, ry, w, h, o = {}) {
   const tex = textTexture(text, o);
   const mat = new THREE.MeshStandardMaterial({ map: tex, transparent: !o.bg || !!o.spray, roughness: 0.85, emissive: o.glow ? 0xffffff : 0x000000, emissiveMap: o.glow ? tex : null, emissiveIntensity: o.glow ?? 0, depthWrite: !o.spray && !!o.bg, polygonOffset: true, polygonOffsetFactor: -2 });
   // Readable from both sides: a second quad turned around shows the texture
   // un-mirrored, so a sign reads correctly whichever way ry points (the side
   // against a wall is simply hidden by it).
-  const geo = new THREE.PlaneGeometry(w, h);
-  const m = new THREE.Mesh(geo, mat);
+  const m = new THREE.Mesh(doubleSidedQuad(w, h), mat);
   m.position.set(x, y, z);
   m.rotation.y = ry;
   m.receiveShadow = true;
-  const back = new THREE.Mesh(geo, mat);
-  back.rotation.y = Math.PI;
-  back.receiveShadow = true;
-  m.add(back);
   L.addObject(m);
   if (o.glow && o.light !== false) {
     // light on the open side of the sign (decided once the collision world exists)

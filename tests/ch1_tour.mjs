@@ -7,16 +7,14 @@ export default async ({ page, shot, evalg, wait }) => {
   const pre = process.env.PREFIX || 'c1';
   const spots = process.env.SPOTS ? JSON.parse(process.env.SPOTS) : [
     ['roof_start', 15, 14.4, 13.5, 0.35, -0.08],
-    ['bulkhead', 10.5, 14.4, 8.6, 1.57, -0.05],
     ['f3_corr', 6, 10.8, 10.4, -1.57, -0.05],
-    ['burning', 23.3, 10.8, 12.4, -2.3, -0.2],
-    ['f2_exit', 21.5, 7.2, 10.6, -1.7, 0.05],
-    ['shaft', 25.8, 7.2, 9.0, -2.4, -0.35],
-    ['lobby', 24, 0, 12, 2.3, -0.02],
+    ['burning', 24.3, 10.8, 12.3, -2.24, -0.3],
+    ['f2_exit', 21.5, 7.2, 10.6, -1.57, 0.05],
+    ['shaft', 25.8, 7.2, 9.1, -1.57, -0.12],
+    ['lobby', 21, 0, 14.5, -0.69, 0.05],
     ['street', 22, 0.15, 23, -2.1, 0.05],
-    ['pharmacy', 38, 0, 31, -0.2, 0.05],
-    ['subway', 104, 0.15, 19, 0, -0.1],
-    ['concourse', 104, -6, -12, 3.14, 0.02],
+    ['roadblock', 60, 0, 28.5, -1.57, 0.05],
+    ['grand', 101.5, 0, 50, 0.1, 0.02],
     ['saferoom', 104.5, -6, -20.5, 0, 0.0],
   ];
   for (const [name, x, y, z, yaw, pitch] of spots) {

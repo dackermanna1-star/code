@@ -32,6 +32,8 @@ const ALL = [
   ['c2_walkway', 103, -6.2, 17.5, -1.75, 0.02],
   ['c2_wreck3', 117.5, -6.2, 15.5, -1.45, 0.0],
   ['c2_hall3', 150, -1.6, 60, -2.2, -0.2],
+  ['c2_breakdoor', 164.2, -6.2, 26.5, -0.47, -0.05],
+  ['c2_breakroom', 167.9, -6.2, 23.4, -1.9, -0.1],
 ];
 export default async ({ page, evalg, wait }) => {
   const shot = async (name) => { const t0 = Date.now(); try { await page.screenshot({ path: `tests/out/${name}.png`, timeout: 300000 }); console.log('shot', name, Date.now() - t0, 'ms'); } catch (e) { console.log('shot failed', name, e.message.split('\n')[0]); } };

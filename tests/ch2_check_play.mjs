@@ -60,6 +60,7 @@ export default async ({ page, evalg, wait, logs }) => {
       for (const s of g.survivors) {
         if (s === p || s.dead) continue;
         const bp = L.progressAt(s.pos.x, s.pos.y, s.pos.z);
+        if (bp < 0 || pp < 0) { W.offGrid = (W.offGrid || 0) + 1; continue; } // mid-jump / on a prop
         const lag = pp - bp, d = s.pos.distanceTo(p.pos);
         if (lag > (W.maxLag[s.char.id]?.[0] ?? -1)) W.maxLag[s.char.id] = [+lag.toFixed(3), +s.pos.x.toFixed(1), +s.pos.y.toFixed(1), +s.pos.z.toFixed(1), +g.time.toFixed(1)];
         if (d > (W.maxDist[s.char.id]?.[0] ?? -1)) W.maxDist[s.char.id] = [+d.toFixed(1), +s.pos.x.toFixed(1), +s.pos.y.toFixed(1), +s.pos.z.toFixed(1), +g.time.toFixed(1)];
@@ -128,7 +129,7 @@ export default async ({ page, evalg, wait, logs }) => {
     if (!r) break;
   }
   console.log('real seconds', Math.round((Date.now() - t0) / 1000));
-  console.log('RESULT', JSON.stringify(await evalg(() => { const W = window.__W; return { deaths: W.deaths, incaps: W.incaps, stuckTeleports: W.tps, maxLag: W.maxLag, maxDist: W.maxDist, shots: W.shots, errCount: window.game.errCount || 0 }; })));
+  console.log('RESULT', JSON.stringify(await evalg(() => { const W = window.__W; return { deaths: W.deaths, incaps: W.incaps, stuckTeleports: W.tps, maxLag: W.maxLag, maxDist: W.maxDist, offGridSamples: W.offGrid || 0, shots: W.shots, errCount: window.game.errCount || 0 }; })));
   const bad = logs.filter((l) => l.startsWith('[error]') || l.startsWith('[pageerror]'));
   console.log('ERRORS', bad.length);
 };

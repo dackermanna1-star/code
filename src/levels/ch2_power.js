@@ -27,7 +27,7 @@ function buildMaintenance(L, game, TY) {
   L.box(151.6, TY + H, 20.6, 175.4, TY + H + 0.3, 39.6, 'concrete');
   // corridor walls (x 163.4..167)
   L.wallZ(20.6, 39.6, 163.25, TY, TY + H, wm, 0.3, [{ a: 27.5, b: 28.7, y0: TY, y1: TY + 2.2 }]);
-  L.wallZ(20.6, 39.6, 167.15, TY, TY + H, wm, 0.3, [{ a: 25.4, b: 26.6, y0: TY, y1: TY + 2.2 }, { a: 33.8, b: 35.6, y0: TY, y1: TY + 2.3 }]);
+  L.wallZ(20.6, 39.6, 167.15, TY, TY + H, wm, 0.3, [{ a: 22.1, b: 23.3, y0: TY, y1: TY + 2.2 }, { a: 33.8, b: 35.6, y0: TY, y1: TY + 2.3 }]);
   // electrical room E (x 152..163.1, z 24..33)
   L.box(151.6, TY, 23.6, 163.1, TY + H, 24, 'concreteDark');
   L.box(151.6, TY, 33, 163.1, TY + H, 33.4, 'concreteDark');
@@ -37,7 +37,9 @@ function buildMaintenance(L, game, TY) {
   L.box(167.3, TY, 21.6, 175.4, TY + H, 22, wm);
   L.box(175, TY, 22, 175.4, TY + H, 39.6, wm);
   L.box(167.3, TY, 30, 175, TY + H, 30.3, wm);
-  new Door(L, 167.15, TY, 26, 'z', { width: 1.2, material: 'paintedWhite', hinge: -1 });
+  // doorway in the room's north-west corner, hinged at the north wall: swung into the room, the
+  // leaf lies flat against that wall, so there is no pocket behind it for bots to get stuck in
+  new Door(L, 167.15, TY, 22.7, 'z', { width: 1.2, material: 'paintedWhite', hinge: 1 });
   // --- corridor dressing
   L.box(163.4, TY - 0.02, 20.6, 167, TY + 0.004, 39.6, 'linoleum', { collide: false, tint: 0x8a8a80 });
   P.pipe(L, 163.7, TY + 2.7, 20.8, 163.7, TY + 2.7, 39.4, 0.09, 'rust');
@@ -46,7 +48,7 @@ function buildMaintenance(L, game, TY) {
   ceilingLight(L, 165.2, TY + H, 31, { type: 'fluoro', on: false });
   ceilingLight(L, 165.2, TY + H, 37.5, { type: 'fluoro', intensity: 7, flicker: 0.8, range: 8 });
   sgn(L, 'SUBSTATION 7\nGENERATOR HALL ↓', 166.98, TY + 2.2, 31, Math.PI / 2, 1.4, 0.45, { bg: '#e8c020', fg: '#101010' });
-  sgn(L, 'BREAK ROOM', 166.98, TY + 2.45, 26, Math.PI / 2, 0.8, 0.2, { bg: '#d8d8d0', fg: '#1a1a1a' });
+  sgn(L, 'BREAK ROOM', 166.98, TY + 2.45, 22.7, Math.PI / 2, 0.8, 0.2, { bg: '#d8d8d0', fg: '#1a1a1a' });
   sgn(L, 'ELECTRICAL\nDANGER 13.8kV', 163.42, TY + 2.5, 28.1, -Math.PI / 2, 0.9, 0.3, { bg: '#e8c020', fg: '#101010' });
   P.corpse(L, 165.6, TY + 0.01, 33, 2.8, 0xb08a2a);
   L.decal(165.6, TY + 0.012, 33, 0, 1, 0, 1.8, DF.POOL);
@@ -79,12 +81,14 @@ function buildMaintenance(L, game, TY) {
   P.sofa(L, 170.8, TY, 29.45, 0, 0x4a3a2a);
   crt(L, 170.4, TY + 0.92, 22.4, Math.PI, 0.9, true);
   L.light(170.4, TY + 1.3, 23.2, 0x8aa0ff, 2.5, 4, { flicker: 0.6 });
-  L.item('health', 170.2, TY + 0.8, 26.4, { chance: 0.7 });
-  L.item('pills', 171.6, TY + 0.95, 22.3, { chance: 0.5 });
-  L.item('pipebomb', 174.2, TY + 0.02, 29.2, { chance: 0.4 });
+  // loot kept > 6 m from the Witch spot (bots won't path to items next to an idle Witch and
+  // would otherwise stand frozen in the corridor)
+  L.item('health', 170.1, TY + 0.58, 29.3, { chance: 0.7 });
+  L.item('pills', 171.5, TY + 0.58, 29.3, { chance: 0.5 });
+  L.item('pipebomb', 172.9, TY + 0.02, 29.65, { chance: 0.4 });
   poster(L, 'SAFETY FIRST\n212 DAYS WITHOUT\nAN ACCIDENT', 172.5, TY + 1.8, 29.98, 0, 1.3, 0.8, { bg: '#1a4a2a', fg: '#e8e8d8' });
   L.reverb(167.3, TY, 22, 175, TY + H, 30, 'room');
-  L.witchSpots.push({ x: 171.6, y: TY, z: 24.2 });
+  L.witchSpots.push({ x: 174.3, y: TY, z: 23.5 });
   // --- storage / pump room
   P.pumpMachine(L, 171, TY, 37.6, 0);
   shelving(L, 174.7, TY, 33.5, Math.PI / 2, 2.2);
@@ -308,7 +312,9 @@ function buildGateAndGenerator(L, game, TY, CW) {
   });
   // Infected ignore dynamic colliders (they move on the nav grid), so a hidden,
   // locked "door" marks the gate nodes as blocked until the gate is high enough.
-  const blocker = new Door(L, gx, TY, gz, 'z', { width: GATE_Z1 - GATE_Z0, height: GATE_H, safe: true, locked: true });
+  // (0.1 m taller than the opening so its static frame lintel is buried in the wall above,
+  // not coplanar with the opening's top face)
+  const blocker = new Door(L, gx, TY, gz, 'z', { width: GATE_Z1 - GATE_Z0, height: GATE_H + 0.1, safe: true, locked: true });
   blocker.mesh.visible = false;
   blocker.usable.enabled = false;
   blocker.collider.enabled = false;

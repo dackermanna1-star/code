@@ -106,19 +106,20 @@ function buildOffice(L, game) {
   P.pipe(L, 223.3, OY + 1.05, Z1 + 0.25, 224.7, OY + 1.1, Z1 + 0.25, 0.02, 'chrome');
   for (const [x, r] of [[223, 0.2], [225.2, -0.3]]) P.filingCabinet(L, x, OY, Z1 - 0.5, r);
   P.sofa(L, 224, OY, Z1 - 1.6, Math.PI + 0.1, 0x3a3a4a);
-  // interior partitions
+  // interior partitions (door openings 2.2 m high: the top sits inside the 2.15-2.23 m door-frame
+  // lintel instead of being coplanar with its underside)
   L.wallZ(Z0, 59.925, 206, OY, OY + H, pl, 0.15, [{ a: 54.2, b: 55.8, y0: OY, y1: OY + 2.3 }]);
-  L.wallX(X0, 206 - 0.075, 49, OY, OY + H, pl, 0.15, [{ a: 202.5, b: 203.6, y0: OY, y1: OY + 2.15 }]);
-  new Door(L, 203.05, OY, 49, 'x', { width: 1.1, material: 'woodPale', hinge: -1 });
+  L.wallX(X0, 206 - 0.075, 49, OY, OY + H, pl, 0.15, [{ a: 202.5, b: 203.6, y0: OY, y1: OY + 2.2 }]);
+  new Door(L, 203.05, OY, 49, 'x', { width: 1.1, material: 'woodPale', hinge: 1 }); // leaf swings clear of the ammo side
   L.wallX(X0, 224 - 0.075, 60, OY, OY + H, pl, 0.15, [{ a: 213.2, b: 214.8, y0: OY, y1: OY + 2.3 }]);
-  L.wallZ(Z0, 60 + 0.075, 224, OY, OY + H, pl, 0.15, [{ a: 47.45, b: 48.55, y0: OY, y1: OY + 2.15 }, { a: 55.45, b: 56.55, y0: OY, y1: OY + 2.15 }]);
+  L.wallZ(Z0, 60 + 0.075, 224, OY, OY + H, pl, 0.15, [{ a: 47.45, b: 48.55, y0: OY, y1: OY + 2.2 }, { a: 55.45, b: 56.55, y0: OY, y1: OY + 2.2 }]);
   new Door(L, 224, OY, 48, 'z', { width: 1.1, material: 'woodPale', open: true });
   new Door(L, 224, OY, 56, 'z', { width: 1.1, material: 'woodPale', hinge: -1 });
   L.wallX(224 + 0.075, X1, 52, OY, OY + H, pl, 0.15);
   L.wallX(224 + 0.075, X1, 60, OY, OY + H, pl, 0.15, [{ a: 225, b: 231, y0: OY + 0.95, y1: OY + 2.0 }]);
   L.box(225, OY + 0.95, 59.985, 231, OY + 2.0, 60.015, 'glass', { collide: false, tint: 0xc8dcdc });
   L.clip(225, OY + 0.95, 59.95, 231, OY + 2.0, 60.05, F_SOLID | F_SHOOT);
-  L.wallX(X0, 216 + 0.075, 63, OY, OY + H, pl, 0.15, [{ a: 204.45, b: 205.55, y0: OY, y1: OY + 2.15 }, { a: 212.45, b: 213.55, y0: OY, y1: OY + 2.15 }]);
+  L.wallX(X0, 216 + 0.075, 63, OY, OY + H, pl, 0.15, [{ a: 204.45, b: 205.55, y0: OY, y1: OY + 2.2 }, { a: 212.45, b: 213.55, y0: OY, y1: OY + 2.2 }]);
   new Door(L, 205, OY, 63, 'x', { width: 1.1, material: 'woodPale', open: true });
   new Door(L, 213, OY, 63, 'x', { width: 1.1, material: 'paintedWhite' });
   L.wallZ(63 + 0.075, Z1, 210, OY, OY + H, pl, 0.15);
@@ -323,7 +324,7 @@ function buildPawnShop(L, game) {
   // street wall with barred windows and the red safe door
   const wins = [[250.5, 252.4], [255, 262.8]];
   const zf = z0 - 0.05;
-  L.wallX(x0 - 0.1, x1 + 0.1, zf, y, y + h, 'brickDark', 0.2, [{ a: 252.95, b: 254.05, y0: y, y1: y + 2.15 }, ...wins.map(([a, b]) => ({ a, b, y0: y + 0.95, y1: y + 2.7 }))]);
+  L.wallX(x0 - 0.1, x1 + 0.1, zf, y, y + h, 'brickDark', 0.2, [{ a: 252.95, b: 254.05, y0: y, y1: y + 2.2 }, ...wins.map(([a, b]) => ({ a, b, y0: y + 0.95, y1: y + 2.7 }))]);
   const door = new Door(L, 253.5, y, zf, 'x', { width: 1.1, safe: true, hinge: 1 });
   L.endDoor = door;
   for (const [a, b] of wins) {

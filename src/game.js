@@ -80,7 +80,8 @@ export class Game {
     this.moon.castShadow = this.quality.moonShadow;
     this.moon.shadow.mapSize.set(this.quality.shadowMap * 2, this.quality.shadowMap * 2);
     const sc = this.moon.shadow.camera;
-    sc.left = -45; sc.right = 45; sc.top = 45; sc.bottom = -45; sc.near = 1; sc.far = 220;
+    // 72 m square is plenty inside the fog; fewer casters per shadow pass
+    sc.left = -36; sc.right = 36; sc.top = 36; sc.bottom = -36; sc.near = 1; sc.far = 220;
     this.moon.shadow.bias = -0.0006;
     this.moon.shadow.normalBias = 0.04;
     this.scene.add(this.moon);

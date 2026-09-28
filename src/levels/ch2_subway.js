@@ -119,7 +119,7 @@ function buildStart(L, game) {
   }
   L.box(21, CY, 20.0, 22.3, CY + 1.05, 20.06, 'metalClean', { collide: false });
   sgn(L, 'EMERGENCY EXIT\nALARM WILL SOUND', 20.94, 1.6, 19.3, Math.PI / 2, 0.9, 0.3, { bg: '#b01a14', fg: '#fff' });
-  sgn(L, 'TO ALL TRAINS →', 20.94, 3.0, 11, Math.PI / 2, 2.2, 0.35, { bg: '#1a1a1a', fg: '#fff' });
+  sgn(L, '← TO ALL TRAINS', 20.94, 3.0, 11, Math.PI / 2, 2.2, 0.35, { bg: '#1a1a1a', fg: '#fff' }); // signs read from both sides: arrow set for the concourse (west) approach, stairs are to the left
   for (const z of [10.1, 11.9]) L.box(20.93, 3.17, z - 0.02, 20.97, 4, z + 0.02, 'metalDark', { collide: false });
   // dressing
   P.bench(L, 4, CY, 21.5, 0);
@@ -361,7 +361,7 @@ function buildStation(L, game) {
   for (const [x, z, r] of [[137.6, 12.0, 0.2], [143.5, 15.0, 1.9], [125.5, 12.2, 2.6]]) { P.corpse(L, x, TY + 0.01, z, r, [0x2a2a3a, 0x5a3a2a, 0x3a4a5a][Math.floor(rng() * 3)]); L.decal(x, TY + 0.012, z, 0, 1, 0, 1.5, DF.POOL); }
   for (const [x, z] of [[134, 12.8], [144.8, 16.4], [148, 18.2]]) { const s = P.prop(L, x, TY, z, rng() * 3); s.box(0, 0.25, 0, 0.65, 0.5, 0.26, 'fabric', 0x5a2a2a); }
   L.item('throwable', 138.2, TY + 0.02, 14.6, { chance: 0.5 });
-  L.item('ammo', 152.5, TY + 0.02, 18.9, { chance: 0.5 });
+  L.item('ammo', 139.3, TY + 0.02, 19.5, { chance: 0.5 }); // by the rescue crew's lamp (away from the Witch spot)
   fireSource(L, 139.4, TY + 0.1, 10.6, 0.8);
   fireSource(L, 155.4, TY + 0.1, 12.6, 0.6, { hazard: false });
   L.decal(147, -1.42, NT + 1.5, 0, -1, 0, 5, DF.SCORCH);

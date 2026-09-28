@@ -14,8 +14,8 @@ import { makeRng } from '../core/math.js';
 const F0 = 0, F1 = 3.6, F2 = 7.2, F3 = 10.8, ROOF = 14.4;
 const rng = makeRng(101);
 
-// Floor slab (finish on top + ceiling underneath) with rectangular holes.
-function slab(L, x0, z0, x1, z1, y, holes, floorMat = 'concreteFloor', ceilMat = 'ceiling') {
+// Calls fn(xa, za, xb, zb) for the rectangles tiling x0..x1 / z0..z1 minus the holes.
+function aroundHoles(x0, z0, x1, z1, holes, fn) {
   const xs = [x0, x1], zs = [z0, z1];
   for (const h of holes) { xs.push(h[0], h[2]); zs.push(h[1], h[3]); }
   const ux = [...new Set(xs)].filter((v) => v >= x0 && v <= x1).sort((a, b) => a - b);
@@ -24,10 +24,16 @@ function slab(L, x0, z0, x1, z1, y, holes, floorMat = 'concreteFloor', ceilMat =
     for (let k = 0; k < uz.length - 1; k++) {
       const cx = (ux[i] + ux[i + 1]) / 2, cz = (uz[k] + uz[k + 1]) / 2;
       if (holes.some((h) => cx > h[0] && cx < h[2] && cz > h[1] && cz < h[3])) continue;
-      L.box(ux[i], y - 0.3, uz[k], ux[i + 1], y - 0.06, uz[k + 1], ceilMat);
-      L.box(ux[i], y - 0.06, uz[k], ux[i + 1], y, uz[k + 1], floorMat);
+      fn(ux[i], uz[k], ux[i + 1], uz[k + 1]);
     }
   }
+}
+// Floor slab (finish on top + ceiling underneath) with rectangular holes.
+function slab(L, x0, z0, x1, z1, y, holes, floorMat = 'concreteFloor', ceilMat = 'ceiling') {
+  aroundHoles(x0, z0, x1, z1, holes, (xa, za, xb, zb) => {
+    L.box(xa, y - 0.3, za, xb, y - 0.06, zb, ceilMat);
+    L.box(xa, y - 0.06, za, xb, y, zb, floorMat);
+  });
 }
 
 // Furnished apartment. doorWall: 'n'|'s' (corridor side), win: side with windows.
@@ -38,9 +44,12 @@ function apartment(L, x0, z0, x1, z1, y, o) {
   const walls = { n: {}, s: {}, e: {}, w: {} };
   walls[o.doorWall] = { mat: 'plasterDirty', open: [{ at: o.doorAt, w: 1.0, door: o.door !== false, hinge: o.hinge ?? 1, opened: o.doorOpen, locked: o.locked }] };
   if (o.noWall) for (const k of o.noWall) walls[k] = false;
-  room(L, { x0, z0, x1, z1, y, h, floor: false, ceil: false, wall: wallMat, walls, light: false, reverb: 'room' });
-  // floor finish
-  L.box(x0, y - 0.02, z0, x1, y + 0.005, z1, floorMat, { collide: false });
+  const { doors } = room(L, { x0, z0, x1, z1, y, h, floor: false, ceil: false, wall: wallMat, walls, light: false, reverb: 'room' });
+  // o.swing: -1 turns an initially open leaf the other way (into the apartment instead of
+  // across the corridor, where it blocks bots: the nav grid ignores door leaves)
+  if (o.swing && doors[0]) { doors[0].dirSign = o.swing; doors[0].updateCollider(); }
+  // floor finish (o.holes: leave collapsed parts of the floor open)
+  aroundHoles(x0, z0, x1, z1, o.holes || [], (xa, za, xb, zb) => L.box(xa, y - 0.02, za, xb, y + 0.005, zb, floorMat, { collide: false }));
   // partition between living & bedroom (perpendicular to X), with an opening
   const px = o.partX ?? x0 + (x1 - x0) * 0.58;
   const zc = (z0 + z1) / 2;
@@ -155,13 +164,13 @@ export default {
 
     // ---- roof: bulkhead over the west stairs
     L.box(0.2, ROOF, 0.2, 7, ROOF + 2.8, 0.45, 'brickDark');
-    L.wallZ(0.2, 9.4, 7, ROOF, ROOF + 2.8, 'brickDark', 0.25, [{ a: 7.9, b: 9.1, y0: ROOF, y1: ROOF + 2.2 }]);
+    L.wallZ(0.2, 9.4, 7, ROOF, ROOF + 2.8, 'brickDark', 0.25, [{ a: 7.95, b: 9.05, y0: ROOF, y1: ROOF + 2.2 }]);
     L.box(0.2, ROOF, 9.3, 7.1, ROOF + 2.8, 9.55, 'brickDark');
     L.box(0.2, ROOF, 0.2, 0.45, ROOF + 2.8, 9.4, 'brickDark');
     L.box(0.1, ROOF + 2.8, 0.1, 7.2, ROOF + 3.05, 9.65, 'roof');
     new Door(L, 7, ROOF, 8.5, 'z', { width: 1.0, hinge: -1 });
     ceilingLight(L, 4.5, ROOF + 2.8, 5, { type: 'cage', intensity: 6, flicker: 0.5 });
-    sign(L, 'ROOF ACCESS', 7.14, ROOF + 2.45, 8.5, Math.PI / 2, 1.0, 0.25, { bg: '#b0a888', fg: '#1a1a1a' });
+    sign(L, 'ROOF ACCESS', 7.15, ROOF + 2.45, 8.5, Math.PI / 2, 1.0, 0.25, { bg: '#b0a888', fg: '#1a1a1a' });
     // railing along the stair hole at roof level
     L.box(2.8, ROOF, 0.45, 2.9, ROOF + 1.05, 7.6, 'metalDark', { flags: F_SOLID | F_SHOOT });
     // west stairs: F3 -> roof
@@ -200,21 +209,21 @@ export default {
     L.reverb(0.4, F3, 9.4, 31.6, F3 + 3.3, 11.4, 'room');
     L.ambience(0.4, F3, 0.4, 31.6, F3 + 3.3, 19.6, 'apartments');
     // stair enclosure (west) walls on F3
-    L.wallX(0.4, 7, 9.4, F3, F3 + 3.3, 'plasterDirty', 0.14, [{ a: 4.6, b: 5.8, y1: F3 + 2.15 }]);
+    L.wallX(0.4, 7, 9.4, F3, F3 + 3.3, 'plasterDirty', 0.14, [{ a: 4.65, b: 5.75, y1: F3 + 2.2 }]);
     new Door(L, 5.2, F3, 9.4, 'x', { width: 1.0, open: true });
     L.wallZ(0.4, 9.4, 7, F3, F3 + 3.3, 'plasterDirty', 0.2);
     L.box(0.4, F3 - 0.02, 0.4, 7, F3 + 0.005, 9.4, 'concreteFloor', { collide: false });
-    sign(L, '3', 5.2, F3 + 2.5, 9.33, 0, 0.4, 0.4, { bg: '#2a4a8a', fg: '#fff' });
+    sign(L, '3', 5.2, F3 + 2.5, 9.31, 0, 0.4, 0.4, { bg: '#2a4a8a', fg: '#fff' });
     // apartments F3 north (door on south wall = z 9.4)
-    apartment(L, 7, 0.4, 15.5, 9.4, F3, { doorWall: 's', doorAt: 11.5, noWall: ['w'], items: [{ type: 'pills', x: 9, z: 7.6, chance: 0.4 }] });
-    apartment(L, 15.5, 0.4, 24, 9.4, F3, { doorWall: 's', doorAt: 17.5, doorOpen: true, noWall: ['w'], items: [{ type: 'melee', x: 21, z: 2.5, chance: 0.5 }] });
+    apartment(L, 7, 0.4, 15.5, 9.4, F3, { doorWall: 's', doorAt: 11.5, hinge: -1, noWall: ['w'], items: [{ type: 'pills', x: 9, z: 7.6, chance: 0.4 }] });
+    apartment(L, 15.5, 0.4, 24, 9.4, F3, { doorWall: 's', doorAt: 17.5, doorOpen: true, swing: -1, noWall: ['w'], items: [{ type: 'melee', x: 21, z: 2.5, chance: 0.5 }] });
     apartment(L, 24, 0.4, 31.6, 9.4, F3, { doorWall: 's', doorAt: 26.5, locked: true, lights: false, noWall: ['w', 'e'] });
     // apartments F3 south (door on north wall = z 11.4)
-    apartment(L, 0.4, 11.4, 10.8, 19.6, F3, { doorWall: 'n', doorAt: 5.5, doorOpen: false, noWall: ['s'], items: [{ type: 'throwable', x: 3, z: 17, chance: 0.5 }] });
+    apartment(L, 0.4, 11.4, 10.8, 19.6, F3, { doorWall: 'n', doorAt: 5.5, doorOpen: false, hinge: -1, noWall: ['s'], items: [{ type: 'throwable', x: 3, z: 17, chance: 0.5 }] });
     apartment(L, 10.8, 11.4, 21.2, 19.6, F3, { doorWall: 'n', doorAt: 14.5, doorOpen: true, noWall: ['s', 'w'] });
     // 3F: burning apartment with the collapsed floor
     const hole3 = [27, 14, 29.6, 16.6];
-    apartment(L, 21.2, 11.4, 31.6, 19.6, F3, { doorWall: 'n', doorAt: 23.3, doorOpen: true, empty: true, lights: false, partX: 25.5, noWall: ['s', 'w', 'e'] });
+    apartment(L, 21.2, 11.4, 31.6, 19.6, F3, { doorWall: 'n', doorAt: 23.3, doorOpen: true, empty: true, lights: false, partX: 25.5, noWall: ['s', 'w', 'e'], holes: [hole3] });
     P.sofa(L, 23.5, F3, 18.6, Math.PI, 0x3a2a20);
     P.bed(L, 28.2, F3, 18.2, Math.PI, 0x4a3a30);
     P.debris(L, 28.3, F3, 13, 1.0, 'woodDark', 10);
@@ -239,9 +248,11 @@ export default {
     L.decal(28.3, F2 + 0.02, 15.3, 0, 1, 0, 3, DF.SCORCH, { alpha: 0.7 });
     // ================================================================ F2
     L.box(0.2, F2 - 0.02, 9.4, 31.8, F2 + 0.005, 11.4, 'carpetGray', { collide: false });
-    L.wallX(24.4, 31.6, 9.4, F2, F2 + 3.3, 'concreteDark', 0.2, [{ a: 25.2, b: 26.4, y1: F2 + 2.15 }]);
-    new Door(L, 25.8, F2, 9.4, 'x', { width: 1.1, open: true, material: 'paintedGreen' });
-    sign(L, 'EXIT', 25.8, F2 + 2.55, 9.51, Math.PI, 0.6, 0.2, { bg: '#0a2a0a', fg: '#3aff5a', glow: 1.5, lightColor: 0x30ff50, lightIntensity: 2 });
+    L.wallX(24.4, 31.8, 9.4, F2, F2 + 3.3, 'concreteDark', 0.2, [{ a: 25.2, b: 26.4, y1: F2 + 2.2 }]);
+    const d2 = new Door(L, 25.8, F2, 9.4, 'x', { width: 1.1, open: true, hinge: -1, material: 'paintedGreen' });
+    d2.dirSign = -1; d2.updateCollider();
+    // ry 0: the sign's front faces the corridor, so its glow light lands on that side
+    sign(L, 'EXIT', 25.8, F2 + 2.55, 9.53, 0, 0.6, 0.2, { bg: '#0a2a0a', fg: '#3aff5a', glow: 1.5, lightColor: 0x30ff50, lightIntensity: 2 });
     for (let x = 3; x < 30; x += 6) ceilingLight(L, x, F2 + 3.3, 10.4, { type: 'fluoro', intensity: 9, flicker: 0.3, on: x !== 9 });
     L.reverb(0.4, F2, 9.4, 31.6, F2 + 3.3, 11.4, 'room');
     L.ambience(0.4, F2, 0.4, 31.6, F2 + 3.3, 19.6, 'apartments');
@@ -250,9 +261,9 @@ export default {
     L.box(0.4, F2, 9.45, 2.2, F2 + 2.4, 11.35, 'woodDark', { tint: 0x7a6a5a });
     P.dresser(L, 4.4, F2, 10.4, Math.PI / 2);
     L.box(2.2, F2, 9.45, 5.2, F2 + 1.6, 11.35, 'woodDark', { visible: false });
-    graffiti(L, 'THEY HEAR\nEVERYTHING', 8.5, F2 + 1.6, 11.32, Math.PI, 1.8, 0.9, '#8a1a14');
+    graffiti(L, 'THEY HEAR\nEVERYTHING', 8.5, F2 + 1.6, 11.28, Math.PI, 1.8, 0.9, '#8a1a14');
     apartment(L, 0.4, 0.4, 12, 9.4, F2, { doorWall: 's', doorAt: 7.5, locked: true, lights: false });
-    apartment(L, 12, 0.4, 24.3, 9.4, F2, { doorWall: 's', doorAt: 18, doorOpen: false, noWall: ['w', 'e'], items: [{ type: 'health', x: 14, z: 2, chance: 0.6 }] });
+    apartment(L, 12, 0.4, 24.3, 9.4, F2, { doorWall: 's', doorAt: 18, doorOpen: false, hinge: -1, noWall: ['w', 'e'], items: [{ type: 'health', x: 14, z: 2, chance: 0.6 }] });
     apartment(L, 0.4, 11.4, 10.8, 19.6, F2, { doorWall: 'n', doorAt: 7.5, locked: true, noWall: ['s'] });
     apartment(L, 10.8, 11.4, 21.2, 19.6, F2, { doorWall: 'n', doorAt: 13.5, doorOpen: true, noWall: ['s', 'w'], items: [{ type: 'ammo', x: 12, z: 18.6, chance: 0.5 }] });
     apartment(L, 21.2, 11.4, 31.6, 19.6, F2, { doorWall: 'n', doorAt: 23.4, doorOpen: false, partX: 26, noWall: ['s', 'w', 'e'] });
@@ -268,7 +279,7 @@ export default {
 
     // ================================================================ EAST STAIR SHAFT (F2 -> F0)
     const sm = 'concrete';
-    L.box(24.3, F0, 0.2, 24.5, F2 + 3.3, 7.8, 'concreteDark');
+    L.box(24.3, F0, 0.2, 24.5, F2 + 3.3, 9.3, 'concreteDark');
     for (const [yTop, yMid, yBot] of [[F2, F2 - 1.8, F1], [F1, F1 - 1.8, F0]]) {
       // south landing at yTop (F2 landing is part of slab); F1 landing:
       L.stairs(28.1, 5.1, 31.5, 7.8, yMid, yTop, '+z', sm, { thin: true });
@@ -280,11 +291,11 @@ export default {
     L.box(24.5, F0, 0.2, 31.6, F0 + 0.02, 3.4, sm, { collide: false });
     L.reverb(24.4, F0, 0.2, 31.6, F2 + 3.3, 9.4, 'stairwell');
     // F1 door (locked) on the landing
-    L.wallX(24.4, 31.6, 9.4, F1, F1 + 3.3, 'concreteDark', 0.2, [{ a: 25.2, b: 26.4, y1: F1 + 2.15 }]);
+    L.wallX(24.4, 31.8, 9.4, F1, F1 + 3.3, 'concreteDark', 0.2, [{ a: 25.2, b: 26.4, y1: F1 + 2.2 }]);
     new Door(L, 25.8, F1, 9.4, 'x', { width: 1.1, locked: true, material: 'paintedGreen' });
     sign(L, '2', 25.8, F2 + 2.5, 9.28, 0, 0.35, 0.35, { bg: '#2a4a8a', fg: '#fff' });
     sign(L, '1', 25.8, F1 + 2.5, 9.28, 0, 0.35, 0.35, { bg: '#2a4a8a', fg: '#fff' });
-    graffiti(L, 'DOWN ↓', 30, F2 + 1.4, 7.9, 0, 1.2, 0.6, '#d8d8c8');
+    graffiti(L, 'DOWN ↓', 31.78, F2 + 1.4, 8.6, -Math.PI / 2, 1.2, 0.6, '#d8d8c8');
     L.decal(26, F1 + 1.2, 9.28, 0, 0, -1, 0.7, DF.HAND, { noRoll: true });
     L.decal(29.5, F1 + 0.02, 8.5, 0, 1, 0, 1.4, DF.POOL);
     P.corpse(L, 29.5, F1 + 0.02, 8.5, 0.3);
@@ -298,9 +309,10 @@ export default {
     const lobbyY = F0;
     L.box(0.2, -0.3, 0.2, 31.8, 0, 19.8, 'marble', { ao: 1 });
     L.wallX(8, 24.4, 9.4, F0, F1 - 0.3, 'marble', 0.2);
-    L.wallX(24.4, 31.6, 9.4, F0, F1 - 0.3, 'concreteDark', 0.2, [{ a: 25.2, b: 26.4, y1: 2.15 }]);
-    new Door(L, 25.8, F0, 9.4, 'x', { width: 1.1, open: true, material: 'paintedGreen' });
-    L.wallZ(9.4, 19.6, 8, F0, F1 - 0.3, 'plaster', 0.2, [{ a: 11.5, b: 12.6, y1: 2.15 }]);
+    L.wallX(24.4, 31.8, 9.4, F0, F1 - 0.3, 'concreteDark', 0.2, [{ a: 25.2, b: 26.4, y1: 2.2 }]);
+    const d0 = new Door(L, 25.8, F0, 9.4, 'x', { width: 1.1, open: true, hinge: -1, material: 'paintedGreen' });
+    d0.dirSign = -1; d0.updateCollider();
+    L.wallZ(9.4, 19.6, 8, F0, F1 - 0.3, 'plaster', 0.2, [{ a: 11.5, b: 12.6, y1: 2.2 }]);
     new Door(L, 8, F0, 12.05, 'z', { width: 1.0 });
     L.box(0.4, F0, 0.4, 24.3, F1 - 0.3, 9.3, 'concreteDark', { visible: false }); // closed-off north side
     // lobby furniture
@@ -339,7 +351,7 @@ export default {
     // ================================================================ STREET: HAWTHORNE AVE
     street(L, -30, 20, 96, 37, 'x', { sidewalk: 3 });
     sign(L, 'HAWTHORNE AV', 34.5, 3.2, 21.3, 0, 1.6, 0.35, { bg: '#1a5a2a', fg: '#fff', border: '#fff' });
-    L.box(34.45, 0, 21.2, 34.55, 3.1, 21.4, 'metalDark');
+    L.box(34.45, 0, 21.2, 34.55, 3.02, 21.4, 'metalDark');
     for (const x of [-18, 6, 30, 54]) P.streetLight(L, x, 0.15, 21.6, Math.PI, { flicker: x === 30 ? 0.7 : 0, on: x !== 54 });
     for (const x of [-6, 18, 42, 66]) P.streetLight(L, x, 0.15, 35.4, 0, { on: x !== -6 });
     P.trafficLight(L, 95.5, 0.15, 21.5, Math.PI);
@@ -376,7 +388,7 @@ export default {
     fireSource(L, 76, 3.2, 26.5, 1.6, { hazard: false });
     P.barricade(L, 68.5, 0, 24, Math.PI / 2);
     P.barricade(L, 68.5, 0, 33, Math.PI / 2);
-    sign(L, 'QUARANTINE ZONE\nNO ENTRY', 69.8, 2.2, 28.5, -Math.PI / 2, 2.4, 1.1, { bg: '#d8c030', fg: '#101010', border: '#101010' });
+    sign(L, 'QUARANTINE ZONE\nNO ENTRY', 71.4, 2.2, 28.5, -Math.PI / 2, 2.4, 1.1, { bg: '#d8c030', fg: '#101010', border: '#101010' });
     P.bodyBag(L, 67, 0.01, 27, 0.2);
     P.bodyBag(L, 67.2, 0.01, 29, 0.1);
     P.bodyBag(L, 66.8, 0.01, 31, -0.2);
@@ -384,7 +396,7 @@ export default {
     L.item('tier1', 65.2, 0.15 + 0.78, 21.8, { chance: 0.8 });
     L.item('pipebomb', 66.6, 0.95, 21.6, { chance: 0.5 });
     L.light(66, 2.5, 22, 0xffd0a0, 10, 9, { flicker: 0.2 });
-    burningBarrel(L, 64, 0, 34.5);
+    burningBarrel(L, 64, 0.15, 34.5);
 
     // ================================================================ BUILDINGS AROUND THE STREET
     // north side: building B (x 38..62), east facades
@@ -416,7 +428,7 @@ export default {
     L.box(35, 0.3, 36.8, 39.5, 0.8, 37.2, 'metalDark', { collide: false });
     L.wallZ(37, 47, 34, 0, 3.6, 'plasterBlue', 0.3);
     L.wallZ(37, 47, 48, 0, 3.6, 'plasterBlue', 0.3);
-    L.wallX(34, 48, 47, 0, 3.6, 'plasterBlue', 0.3, [{ a: 45, b: 46.2, y1: 2.2 }]);
+    L.wallX(34, 48, 47, 0, 3.6, 'plasterBlue', 0.3, [{ a: 45, b: 46.2, y1: 2.4 }]);
     new Door(L, 45.6, 0.15, 47, 'x', { width: 1.1, material: 'paintedWhite' });
     sign(L, 'PHARMACY', 41, 3.3, 36.8, 0, 3.4, 0.6, { fg: '#40ff70', glow: 2.2, lightColor: 0x40ff70, lightIntensity: 5 });
     sign(L, '+', 45.5, 3.3, 36.8, 0, 0.6, 0.6, { fg: '#40ff70', glow: 2.2, light: false });
@@ -462,13 +474,14 @@ export default {
     facade(L, 90, -30, 96, 20, 0, 22, { mat: 'concrete', faces: ['e'], lit: 0.04, parapet: false });
     facade(L, 96, -30, 114, -20, 0, 22, { mat: 'concreteDark', faces: ['n'], lit: 0.03 });
     L.box(96, 0, 55, 114, 12, 56, 'brickDark');
-    P.streetLight(L, 99.6, 0.15, 30, -Math.PI / 2, { flicker: 0.4 });
-    P.streetLight(L, 110.4, 0.15, 8, Math.PI / 2);
+    P.streetLight(L, 98.4, 0.15, 37.8, -Math.PI / 2, { flicker: 0.4 });
+    P.streetLight(L, 111.6, 0.15, 8, Math.PI / 2);
     P.car(L, 106, 0, 40, 0.15, { taxi: true, color: 0xd8b020 });
     P.car(L, 103, 0, 20, Math.PI + 0.3, { burnt: true });
     fireSource(L, 103, 0.8, 20, 0.8, { hazard: false });
-    P.bench(L, 111.2, 0.15, 30, Math.PI / 2);
-    sign(L, 'GRAND ST', 99.6, 3.2, 44, Math.PI / 2, 1.3, 0.3, { bg: '#1a5a2a', fg: '#fff', border: '#fff' });
+    P.bench(L, 112.4, 0.15, 41, Math.PI / 2);
+    sign(L, 'GRAND ST', 98.6, 3.2, 44, Math.PI / 2, 1.3, 0.3, { bg: '#1a5a2a', fg: '#fff', border: '#fff' });
+    L.box(98.5, 0, 43.95, 98.7, 3.04, 44.05, 'metalDark');
     // subway entrance: stairs down from z=12.8 (street) to z=3 (y=-6), tunnel to the concourse
     const SY = -6;
     L.stairs(101.7, 3, 106.3, 12.8, SY, 0, '+z', 'tileFloor', { stepH: 0.2 });
@@ -477,7 +490,7 @@ export default {
       L.box(xa, 0, 3, xb, 1.1, 12.8, 'metal', { tint: 0x2a5a3a });
     }
     L.box(101.4, SY + 3.4, -3.2, 106.6, -0.5, 3, 'concrete');
-    sign(L, 'SUBWAY', 104, 2.2, 12.95, Math.PI, 2.6, 0.55, { bg: '#1a3a1a', fg: '#e8f0e8', glow: 1.2, lightColor: 0x80ffa0, lightIntensity: 3 });
+    sign(L, 'SUBWAY', 104, 2.2, 12.95, 0, 2.6, 0.55, { bg: '#1a3a1a', fg: '#e8f0e8', glow: 1.2, lightColor: 0x80ffa0, lightIntensity: 3 });
     sign(L, 'Hawthorne St Station', 104, 1.65, 12.95, Math.PI, 2.6, 0.3, { bg: '#1a3a1a', fg: '#d0d8d0' });
     L.box(102.7, 1.35, 12.85, 105.3, 2.55, 12.9, 'metal', { collide: false, tint: 0x2a5a3a });
     for (const x of [101.55, 106.45]) { L.box(x - 0.08, 0, 12.8, x + 0.08, 2.6, 13.0, 'metal', { tint: 0x2a5a3a }); L.box(x - 0.15, 2.6, 12.75, x + 0.15, 2.9, 13.05, 'emissiveGreen', { collide: false }); }
@@ -504,13 +517,13 @@ export default {
     tb.box(0, 1.5, -1.11, 2.6, 0.9, 0.02, 'glassDirty', 0x303838);
     sign(L, 'TOKENS', 92, SY + 2.55, -15.13, 0, 1.2, 0.3, { bg: '#1a1a1a', fg: '#ffd040' });
     for (let x = 95; x < 110; x += 1.3) if (Math.abs(x - 102.8) > 0.5) P.turnstile(L, x, SY, -14);
-    L.box(94.5, SY, -14.1, 102.2, SY + 1.0, -13.9, 'metalClean', { visible: false, flags: F_SOLID });
-    L.box(103.4, SY, -14.1, 110.5, SY + 1.0, -13.9, 'metalClean', { visible: false, flags: F_SOLID });
+    L.box(94.5, SY, -14.1, 102.0, SY + 1.0, -13.9, 'metalClean', { visible: false, flags: F_SOLID });
+    L.box(103.6, SY, -14.1, 110.5, SY + 1.0, -13.9, 'metalClean', { visible: false, flags: F_SOLID });
     P.debris(L, 102.8, SY, -14.4, 0.4, 'metalClean', 4);
     L.box(110.5, SY, -14.1, 113, SY + 2.5, -13.9, 'metal', { tint: 0x5a5a58 });
     L.box(86, SY, -14.1, 90.5, SY + 2.5, -13.9, 'metal', { tint: 0x5a5a58 });
     // signage & ads
-    sign(L, 'TO TRAINS ↓', 104, SY + 3.2, -3.6, Math.PI, 2.4, 0.4, { bg: '#1a1a1a', fg: '#fff' });
+    sign(L, 'TO TRAINS ↓', 104, SY + 3.68, -3.22, Math.PI, 2.4, 0.4, { bg: '#1a1a1a', fg: '#fff' });
     for (const [z, t] of [[-6, 'VISIT\nMERCY HOSPITAL\nWE CARE'], [-12, 'FAIRVIEW\nTRANSIT'], [-24, 'KEEP CALM\nSTAY INSIDE']]) sign(L, t, cx0 + 0.02, SY + 2, z, Math.PI / 2, 2.4, 1.3, { bg: '#e8e4d8', fg: '#2a2a3a' });
     P.bench(L, 88, SY, -6, Math.PI / 2);
     P.bench(L, 88, SY, -22, Math.PI / 2);
@@ -525,7 +538,7 @@ export default {
     supplies(L, 105, SY, -30.6, 0, ['medkit', 'medkit', 'medkit', 'medkit'], { w: 2.0 });
     supplies(L, 108.2, SY, -27, Math.PI / 2, ['tier1', 'ammo'], { w: 1.4 });
     L.item('pills', 101.2, SY + 0.02, -30.8, { chance: 0.6 });
-    sign(L, 'SAFE ROOM', 103, SY + 2.6, -23.78, Math.PI, 1.3, 0.35, { bg: '#8a1a14', fg: '#fff' });
+    sign(L, 'SAFE ROOM', 103, SY + 2.6, -23.88, Math.PI, 1.3, 0.35, { bg: '#8a1a14', fg: '#fff' });
     L.trigger(96, SY, -24, 110, SY + 3, -3, () => { game.voice.say(game.survivors[2], 'safeRoom', 2); game.session.objective('Get inside the safe room and close the door'); });
     L.flowEnd = [105, SY, -28];
 
