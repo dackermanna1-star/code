@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { SPECIAL_CLASSES } from '../entities/specials.js';
 import { L4D2_SPECIALS } from '../entities/specials2.js';
+import '../entities/uncommon.js';
 import { getCharacterAsset } from '../entities/charlooks.js';
 import { clamp, randRange, pick, shuffle } from '../core/math.js';
 
@@ -44,6 +45,7 @@ export class Director {
       relax: [25, 45],
       outfit: 'civilian',
       noSpawnBoxes: [],
+      uncommon: { ceda: 0.012, riot: 0.01 }, // chance per spawned common (chapters may override / set {})
     }, d);
     this.state = RELAX;
     this.stateT = 0;
@@ -224,7 +226,13 @@ export class Director {
         const v = nav.links[n * 8 + d];
         if (v >= 0 && nav.ltype[n * 8 + d] === 0) n = v;
       }
-      const c = g.infected.spawnCommon(nav.nodeX(n) + (Math.random() - 0.5) * 0.3, nav.nodeY[n], nav.nodeZ(n) + (Math.random() - 0.5) * 0.3, q.opts);
+      let o = q.opts;
+      const U = this.cfg.uncommon;
+      if (U && !o.outfit) {
+        let x = Math.random();
+        for (const k in U) { x -= U[k]; if (x < 0) { o = Object.assign({}, o, { outfit: k }); break; } }
+      }
+      const c = g.infected.spawnCommon(nav.nodeX(n) + (Math.random() - 0.5) * 0.3, nav.nodeY[n], nav.nodeZ(n) + (Math.random() - 0.5) * 0.3, o);
       if (c && q.opts.target) { c.target = q.opts.target; }
     }
   }

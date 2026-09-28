@@ -777,8 +777,8 @@ export const ACTION_SPECS = {
   magnum: { mag: MAG },
   smg: { mag: MAG, charge: { kind: 'over', anchor: 'bolt' } },
   silencedSmg: { mag: MAG, charge: { kind: 'over', anchor: 'bolt' } },
-  rifle: { mag: MAG, charge: { kind: 'side', anchor: 'charge' } },
-  scar: { mag: MAG, charge: { kind: 'side', anchor: 'charge' } },
+  rifle: { mag: MAG, charge: { kind: 'slap', anchor: 'boltCatch' } }, // palm slaps the bolt catch
+  scar: { mag: MAG, charge: { kind: 'pinch', anchor: 'charge' } }, // knob between thumb and index
   huntingRifle: { mag: MAG, charge: { kind: 'over', anchor: 'bolt', right: true } },
   autoShotgun: { charge: { kind: 'over', anchor: 'bolt', right: true }, port: { kind: 'port', anchor: 'port' } },
   pumpShotgun: { port: { kind: 'port', anchor: 'port' } },
@@ -825,13 +825,37 @@ export function solveActions(model, type, A, S, specs = ACTION_SPECS[type]) {
           Pc = new THREE.Vector3((mn[0] + mx[0]) / 2 - (sp.right ? -0.004 : 0.004), mx[1] + 0.001, zc);
           X = new THREE.Vector3(-0.25, 1, 0.15); Y = sp.right ? new THREE.Vector3(0.75, -0.6, -0.25) : new THREE.Vector3(0.85, -0.35, -0.35);
         } else { // pinch a handle on the left side
-          Pc = new THREE.Vector3(mn[0] - 0.001, (mn[1] + mx[1]) / 2, zc);
-          X = new THREE.Vector3(-1, 0.2, 0.1); Y = new THREE.Vector3(0.05, 0.35, -1);
+          Pc = new THREE.Vector3(mn[0] - 0.012, (mn[1] + mx[1]) / 2, zc + 0.035); // behind the knob: the curled fingers hook its front
+          X = new THREE.Vector3(-1, 0.2, 0.1); Y = new THREE.Vector3(0.05, 0.1, -1);
         }
         const q = handQuat(X.toArray(), Y.toArray());
         const palmC = new THREE.Vector3(-0.0135 * S, 0.05 * S, 0.004 * S).applyQuaternion(q);
         s = { pos: Pc.clone().sub(palmC).toArray(), X: X.toArray(), Y: Y.toArray(), settle: 0.03, index: 'wrap', thumb: 'rest',
-          pose: { spread: [0.03, 0.0, -0.03, -0.06], mcp: [0.25, 0.25, 0.25, 0.25], pip: [0.3, 0.3, 0.3, 0.3], dip: [0.15, 0.15, 0.15, 0.15], thumb: [0.1, 0.45, 0.3, 0.1, 0.1], cup: 0.1 } };
+          pose: sp.kind === 'side' // a loose fist hooking the knob
+            ? { spread: [0.03, 0.0, -0.03, -0.06], mcp: [0.7, 0.8, 0.9, 1.0], pip: [0.9, 1.1, 1.2, 1.25], dip: [0.5, 0.65, 0.7, 0.75], thumb: [0.45, 0.55, 0.7, 0.35, 0.35], cup: 0.25 }
+            : { spread: [0.03, 0.0, -0.03, -0.06], mcp: [0.25, 0.25, 0.25, 0.25], pip: [0.3, 0.3, 0.3, 0.3], dip: [0.15, 0.15, 0.15, 0.15], thumb: [0.1, 0.45, 0.3, 0.1, 0.1], cup: 0.1 } };
+      } else if (sp.kind === 'pinch') {
+        // a side knob held between the thumb and index tips (shell pose), from the left
+        col = gunCol || (gunCol = colOf(model));
+        const pc = colOf(part), T = pc.Tf;
+        const mn = [1, 1, 1], mx = [-1, -1, -1];
+        for (let i = 0; i < T.length; i += 3) for (let a = 0; a < 3; a++) { mn[a] = Math.min(mn[a], T[i + a]); mx[a] = Math.max(mx[a], T[i + a]); }
+        const fk = new HandFK(A, S, -1).set(new THREE.Vector3(), new THREE.Quaternion(), HAND_SHELL);
+        const pinchPt = fk.jp[0][3].clone().lerp(fk.jp[1][3], 0.5);
+        const X = [-1, 0.45, 0.1], Y = [0.1, -0.2, -1];
+        const q = handQuat(X, Y);
+        const knob = new THREE.Vector3(mn[0] + 0.004, (mn[1] + mx[1]) / 2, (mn[2] + mx[2]) / 2);
+        s = { pos: knob.sub(pinchPt.applyQuaternion(q)).toArray(), X, Y, poseArr: HAND_SHELL, fingers: 'none', index: 'fixed', thumb: 'fixed' };
+        pose = HAND_SHELL;
+      } else if (sp.kind === 'slap') {
+        // flat palm against the left side at a marker, fingers forward and up
+        col = gunCol || (gunCol = colOf(model));
+        const X = [-1, 0.05, 0.05], Y = [0.05, 0.5, -1];
+        const q = handQuat(X, Y);
+        const palmC = new THREE.Vector3(-0.0135 * S, 0.05 * S, 0.004 * S).applyQuaternion(q);
+        const Pc = new THREE.Vector3().setFromMatrixPosition(M).add(new THREE.Vector3(-0.012, 0, 0));
+        s = { pos: Pc.sub(palmC).toArray(), X, Y, settle: 0.03, index: 'wrap', thumb: 'rest',
+          pose: { spread: [0.06, 0.0, -0.04, -0.08], mcp: [0.12, 0.12, 0.14, 0.16], pip: [0.15, 0.15, 0.15, 0.15], dip: [0.08, 0.08, 0.08, 0.08], thumb: [0.1, 0.3, 0.2, 0.1, 0.1], cup: 0.05 } };
       } else if (sp.kind === 'port') {
         // palm up under the port, the shell (between thumb and index tips) at its mouth
         col = gunCol || (gunCol = colOf(model));

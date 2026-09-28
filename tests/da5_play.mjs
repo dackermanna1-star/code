@@ -22,6 +22,8 @@ export default async ({ page, evalg, wait }) => {
     }
   }, [dirOn, bots]);
   for (let chunk = 0; chunk < 500; chunk++) {
+    const t0 = Date.now();
+    if (process.env.TRACE) console.log('chunk', chunk, 'start');
     const r = await evalg((walkOnly) => {
       const g = window.game, L = g.level, nav = L.nav, p = g.player, W = window.__w, S = L.da5, F = L.finale;
       const f = nav.fields.toExit;
@@ -108,7 +110,7 @@ export default async ({ page, evalg, wait }) => {
         }
         if (F.stage === 'escape') { g.testCmd = { my: 0 }; g.advance(0.1); continue; }
         // the objective points at the crewman's radio (flare-lit): detour to it once it is near
-        if (W.phase === 'walk' && F.stage === 'pre' && S.radio.enabled && p.pos.distanceTo(S.radio.pos) < 24) { W.rf ??= nav.computeStatic('da5TestRadio', [[S.radio.pos.x - 1, 0, S.radio.pos.z]], { survivor: true }); walkStep(W.rf, false); continue; }
+        if (W.phase === 'walk' && F.stage === 'pre' && S.radio.enabled && p.pos.distanceTo(S.radio.pos) < 24) { W.rf ??= nav.computeStatic('da5TestRadio', [[S.radio.pos.x - 1, 0, S.radio.pos.z]], { survivor: true }); W.rT = (W.rT || 0) + 0.1; if (Math.floor(W.rT * 10) % 50 === 0) W.log.push(`t=${W.t.toFixed(0)} to radio: ${fmt(p.pos)} d ${p.pos.distanceTo(S.radio.pos).toFixed(1)} yaw ${p.yaw.toFixed(2)}`); if (W.rT > 60) { W.log.push('RADIO UNREACHABLE'); W.done = true; break; } walkStep(W.rf, false); continue; }
         walkStep();
       }
       g.testCmd = null;

@@ -1,9 +1,10 @@
 // First-person viewmodel: the survivor's articulated arms (fpHands.js: one
 // skinned mesh per arm, grips solved against each weapon in gripPoses.js,
 // driven by fpArms.js) holding the active weapon/item, with procedural sway,
-// bob, sprint pose, recoil springs and animated reloads (magazine swap /
-// shell-by-shell / pump / bolt), shoves, melee swings, throws, healing and
-// pills. Rendered on layer 1 (no clipping).
+// bob, sprint pose, recoil springs and animated reloads (magazine swap;
+// empty: pistol slide stop, rifle bolt-catch slap, SMG/SCAR/sniper handle or
+// bolt pull; shell-by-shell with pump / bolt), shoves, melee swings, throws,
+// healing and pills. Rendered on layer 1 (no clipping).
 import * as THREE from 'three';
 import { buildModel } from './weaponModels.js';
 import { FPArms } from './fpArms.js';
@@ -26,6 +27,7 @@ const POSE = {
   heavy: [0.12, -0.15, -0.26, 0, 0.04, 0],
   launcher: [0.12, -0.135, -0.27, 0, 0.03, 0],
   melee: [0.19, -0.23, -0.36, -0.32, 0.22, -0.32],
+  melee1: [0.16, -0.17, -0.34, -0.55, 0.25, -0.4], // one-handed melee: the hand stays in view
   throwable: [0.15, -0.165, -0.3, 0, 0, 0],
   medkit: [0.06, -0.19, -0.36, 0.25, 0, 0],
   pills: [0.11, -0.16, -0.3, 0, 0, 0.1],
@@ -88,7 +90,7 @@ const SWING = {
 };
 // Where the off hand grabs each action part: [x,y,z] offset in the part's frame + hand euler.
 const CHARGE_GRIP = {
-  rifle: { part: 'charge', p: [0, 0.018, 0.012], e: [0, 0, Math.PI / 2], pull: [0, 0, 0.07] },
+  rifle: { part: 'charge', p: [0, 0.018, 0.012], e: [0, 0, Math.PI / 2], pull: [0, 0, 0.07], slap: true }, // bolt catch slap
   scar: { part: 'charge', p: [-0.022, 0.0, 0.014], e: [0.1, 0, 0], pull: [0, 0, 0.085] },
   smg: { part: 'bolt', p: [0, 0.022, 0.016], e: [0.2, 0, 0], pull: [0, 0, 0.05] },
   silencedSmg: { part: 'bolt', p: [0, 0.022, 0.016], e: [0.2, 0, 0], pull: [0, 0, 0.05] },
@@ -439,7 +441,7 @@ export class Viewmodel {
     const ud = this.model.userData;
     const w = s.weapon && s.weapon.type === this.modelType ? s.weapon : null;
     const def = w?.def;
-    const base = POSE[kind] || POSE.rifle;
+    const base = POSE[kind === 'melee' && this.modelType !== 'fireaxe' ? 'melee1' : kind] || POSE.rifle;
     const t = this.game.time;
     // springs
     this.kickVZ += (-120 * this.kickZ - 16 * this.kickVZ) * dt;
@@ -584,16 +586,14 @@ export class Viewmodel {
           // kit comes in toward the chest and tips its face to the eye; the right
           // hand holds it while the left pulls a bandage out and wraps, over and over
           const hk = eo(a.t, 0, 0.45);
-          const HT = (globalThis.process?.env?.HT || '-0.035,0.07,0.05,0.2,0,0').split(',').map(Number);
-          for (let i = 0; i < 6; i++) T[i] += HT[i] * hk;
+          T[0] -= 0.035 * hk; T[1] += 0.07 * hk; T[2] += 0.05 * hk; T[3] += 0.2 * hk;
           T[5] += Math.sin(a.t * 1.9) * 0.05 * hk; T[1] += Math.sin(a.t * 2.6) * 0.004 * hk;
           const c = Math.max(0, a.t - 0.25) / 1.1, ph = c % 1;
           const reach = ss(a.t, 0.1, 0.4);
           // in (dip into the kit) -> pull up and out -> loop around (wrap) -> back
           const dip = bump(ph, 0.12, 0.12), pull = ss(ph, 0.2, 0.5) * (1 - ss(ph, 0.8, 1));
           const wrap = ph * Math.PI * 2;
-          const HH = (globalThis.process?.env?.HH || '-0.03,0.03,0.1').split(',').map(Number);
-          const hp = _pE.set(HH[0] + 0.06 * pull + 0.025 * Math.sin(wrap) * pull, HH[1] - 0.03 * dip + 0.07 * pull + 0.02 * Math.cos(wrap) * pull, HH[2] + 0.05 * pull);
+          const hp = _pE.set(-0.03 + 0.06 * pull + 0.025 * Math.sin(wrap) * pull, 0.03 - 0.03 * dip + 0.07 * pull + 0.02 * Math.cos(wrap) * pull, 0.1 + 0.05 * pull);
           const hq = qe(_qD, -0.7 + 0.5 * pull, 0.2 * Math.sin(wrap) * pull, -1.35 - 0.5 * pull);
           Viewmodel.blend(LP, LQ, hp, hq, reach, LP, LQ);
           this.grip.L = reach > 0.3 ? 'bandage' : this.grip.L;
@@ -634,7 +634,7 @@ export class Viewmodel {
       this.spinSpeed = damp(this.spinSpeed, s.cmd.fire ? 40 : 0, 3, dt);
       spin.rotation.z += this.spinSpeed * dt;
     }
-    if (ud.flame) ud.flame.scale.setScalar(0.8 + Math.random() * 0.5);
+    if (ud.flame) { const f = ud.flame, r = Math.random(); f.scale.set(0.85 + 0.2 * r, 0.75 + 0.5 * Math.random(), 0.85 + 0.2 * r); f.rotation.y += dt * 3; f.rotation.z = Math.sin(t * 9) * 0.08; }
 
     // smooth the animation pose (eases blends into and out of every anim, incl. interrupts)
     const fast = a && (a.type === 'swing' || a.type === 'shove') && this.anim === a;
@@ -709,6 +709,9 @@ export class Viewmodel {
       a.slideLock = k < 0.84 ? 1 : 0;
       a.thumbK = ss(k, 0.72, 0.8) * (1 - ss(k, 0.86, 0.94));
       T[1] += 0.008 * bump(k, 0.855, 0.04); T[3] += 0.05 * bump(k, 0.86, 0.05); T[5] -= 0.03 * bump(k, 0.86, 0.06);
+    } else if (empty && ch.slap) {
+      // empty rifle: the palm slaps the bolt catch at 84 %, the gun rocks right
+      T[0] += 0.008 * bump(k, 0.85, 0.04); T[5] -= 0.05 * bump(k, 0.86, 0.06); T[1] -= 0.004 * bump(k, 0.85, 0.04);
     } else if (empty) {
       // empty long gun: pull the charging handle / bolt, let it fly home at 84 %
       const part = ud[ch.part];
@@ -716,6 +719,9 @@ export class Viewmodel {
       const lift = ch.lift ? ss(k, 0.6, 0.67) * (1 - ss(k, 0.84, 0.88)) : 0;
       this.setPart(part, 0, 0, pull * ch.pull[2], lift * (ch.lift || 0));
       T[5] += 0.08 * bump(k, 0.78, 0.08); T[1] -= 0.01 * bump(k, 0.84, 0.04);
+      // the gun goes out and down a little so the hand on the handle stays off the eye
+      const ck = ss(k, 0.5, 0.62) * (1 - ss(k, 0.86, 0.97));
+      T[1] -= 0.02 * ck; T[2] -= 0.05 * ck;
     }
     const G = this.grip;
     G.L = k < 0.03 ? G.L : k < 0.3 ? (pistol || k > 0.2 ? 'belt' : 'mag') : k < 0.58 ? 'mag' : empty && !isSlide && k < 0.9 ? 'charge' : G.L;
@@ -727,7 +733,12 @@ export class Viewmodel {
     else if (empty && !isSlide) {
       const cP = _pC, cQ = _qC;
       this.partGrip(ch, cP, cQ);
-      if (k < 0.84) Viewmodel.blend(mP, mQ, cP, cQ, ss(k, 0.5, 0.64), LP, LQ);
+      if (ch.slap) { // hover beside the catch, strike, return to the fore-end
+        const hv = _pE.copy(cP).add(_v.set(-0.04, 0.012, 0.02));
+        if (k < 0.77) Viewmodel.blend(mP, mQ, hv, cQ, ss(k, 0.5, 0.66), LP, LQ);
+        else if (k < 0.845) Viewmodel.blend(hv, cQ, cP, cQ, ei(k, 0.77, 0.845), LP, LQ);
+        else Viewmodel.blend(cP, cQ, RP, RQ, ss(k, 0.86, 0.98), LP, LQ);
+      } else if (k < 0.84) Viewmodel.blend(mP, mQ, cP, cQ, ss(k, 0.5, 0.64), LP, LQ);
       else Viewmodel.blend(cP, cQ, RP, RQ, ss(k, 0.84, 0.97), LP, LQ);
     } else Viewmodel.blend(mP, mQ, RP, RQ, ss(k, 0.5, 0.68), LP, LQ);
   }
@@ -760,7 +771,8 @@ export class Viewmodel {
   animLauncher(a, k, T, LP, LQ, RP, RQ) {
     const ud = this.model.userData, br = ud.breach, rd = ud.round;
     const tilt = ss(k, 0, 0.14) * (1 - ss(k, 0.86, 1));
-    T[3] -= 0.12 * tilt; T[5] += 0.35 * tilt; T[0] -= 0.04 * tilt; T[1] += 0.03 * tilt;
+    // out, down and rolled left so the loading hand works beside the breach, not in front of the eye
+    T[1] -= 0.03 * tilt; T[2] -= 0.12 * tilt; T[3] -= 0.25 * tilt; T[4] -= 0.15 * tilt; T[5] += 0.6 * tilt;
     const open = ss(k, 0.05, 0.16) * (1 - ei(k, 0.8, 0.84));
     if (br) br.rotation.x = br.userData.base.r.x - 0.62 * open;
     T[3] -= 0.06 * bump(k, 0.84, 0.04);
@@ -808,7 +820,8 @@ export class Viewmodel {
     let tilt;
     if (a.phase < 2) tilt = ss(a.t, 0, a.start * 0.9);
     else tilt = 1 - ss(a.endT, a.rack ? 0.35 : 0, (a.rack ? 0.35 : 0) + (a.interrupted ? 0.12 : 0.25));
-    T[5] += 0.42 * tilt; T[3] += 0.18 * tilt; T[0] -= 0.035 * tilt; T[1] += 0.03 * tilt; T[4] -= 0.12 * tilt;
+    // canted clockwise, muzzle up: the loading port turns toward the left hand and the eye
+    T[0] -= 0.05 * tilt; T[1] += 0.05 * tilt; T[3] += 0.3 * tilt; T[4] -= 0.1 * tilt; T[5] -= 0.6 * tilt;
     const jb = bump(a.jolt, 0.03, 0.05); T[1] += 0.006 * jb; T[2] -= 0.006 * jb;
     const port = ud.port;
     const pIn = _pA, pEntry = _pB, pFetch = _pC, qPort = _qA, qFetch = _qC;

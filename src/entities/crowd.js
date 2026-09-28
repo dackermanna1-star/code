@@ -934,3 +934,5 @@ function crowdGeometry() {
 
 export const SKINS = SKIN_BASE, CLOTHS = TEE, PANTS = JEANS, HAIR_COLORS = HAIR;
 export { HAIR_COLORS as HAIR, OUTFIT_SETS };
+// archetype builders + enums, for outfit plug-ins (uncommon infected)
+export { ARCH as CROWD_ARCH, TOP as CROWD_TOP, BOT as CROWD_BOT, OUT as CROWD_OUT, SHOE as CROWD_SHOE };

@@ -28,7 +28,7 @@ export default async ({ page, evalg, wait, shot }) => {
       if (cur < 0 || Math.abs(nav.nodeY[cur] - p.pos.y) > 0.8) cur = nav.nearestNode(p.pos.x, p.pos.y, p.pos.z, 2);
       if (cur < 0) { log.push('OFF NAV at ' + p.pos.toArray().map((v) => v.toFixed(1))); break; }
       let n = cur;
-      for (let k = 0; k < 5; k++) { const m = nav.descend(f, n); if (m < 0) break; n = m; if (Math.abs(nav.nodeY[m] - nav.nodeY[cur]) > 1.0) break; }
+      for (let k = 0, look = stuckT > 1.5 ? 1 : 5; k < look; k++) { const m = nav.descend(f, n); if (m < 0) break; n = m; if (Math.abs(nav.nodeY[m] - nav.nodeY[cur]) > 1.0) break; }
       let dx = nav.nodeX(n) - p.pos.x, dz = nav.nodeZ(n) - p.pos.z;
       if (Math.hypot(dx, dz) < 0.2) { dx = nav.nodeX(n) - nav.nodeX(cur); dz = nav.nodeZ(n) - nav.nodeZ(cur); }
       p.yaw = Math.atan2(-dx, -dz); p.pitch = 0;

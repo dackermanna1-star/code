@@ -209,7 +209,7 @@ function sodium(L, x, y, z, on = true, o = {}) {
   p.rbox(0, -0.3, 0, 0.56, 0.14, 0.56, 0.03, 'metalDark', 0x3a3c3e).frustum(0, -0.42, 0, 0.3, 0.36, 0.1, 'metalClean', 0x9a9a98, null, 4);
   p.glow(0, -0.475, 0, 0.44, 0.02, 0.44, on ? 0xffb060 : 0x2a2622);
   if (!on) return null;
-  const l = gated(L, L.light(x, y - 0.6, z, 0xffa048, (o.intensity ?? 9) * 2.6, (o.range ?? 13) + 5, { flicker: o.flicker ?? 0 }));
+  const l = gated(L, L.light(x, y - 0.6, z, 0xffa048, (o.intensity ?? 9) * 3, (o.range ?? 13) + 6, { flicker: o.flicker ?? 0 }));
   P.lightCone(L, x, y - 0.5, z, [0, -1, 0], 2.6, 1.7, 0xffa048, l, 0.45);
   return l;
 }
@@ -219,7 +219,7 @@ function tubeStrip(L, x, y, z, state = 'on') {
   p.box(0, -0.04, 0, 1.3, 0.07, 0.2, 'metalClean', 0xc8c8c0);
   const lit = state !== 'dead';
   for (const dz of [-0.05, 0.05]) p.cylX(0, -0.1, dz, 0.022, 1.2, 'emissiveTint', lit ? 0xd8ecff : 0x3a3e40, 8);
-  if (state === 'light' || state === 'flicker') gated(L, L.light(x, y - 0.3, z, 0xd8ecff, 11, 9, { flicker: state === 'flicker' ? 0.7 : 0.03, buzz: 1 }));
+  if (state === 'light' || state === 'flicker') gated(L, L.light(x, y - 0.3, z, 0xd8ecff, 12, 10, { flicker: state === 'flicker' ? 0.7 : 0, buzz: 1 }));
 }
 function bays(L, x0, x1, z, dir, y, w = 2.6) {
   // parking stripes perpendicular to an aisle (bays extend from z toward z + dir*5)
@@ -298,13 +298,16 @@ function garage(L, game) {
   // ramp side wall (north) rising through P1 as its upstand
   L.box(288, D1, 12.95, 302, D2 + 1.05, 13.25, 'concrete', { tint: 0xa8a49c });
   L.box(288, D2 + 1.05, 12.95, 302, D2 + 2.6, 13.25, 'concrete', { visible: false, flags: CLIP });
+  // low guard wall along the open foot of the ramp (no side-stepping onto the rising slab)
+  L.box(284.9, D1, 12.95, 288, D1 + 1.05, 13.25, 'concrete', { tint: 0xa8a49c });
+  L.box(284.9, D1 + 0.93, 12.94, 288, D1 + 1.01, 13.26, 'paintedYellow', { collide: false, tint: 0xd8b020 });
   L.box(288, D2 - 0.6, 19.75, 302, D2 - 0.3, 20, 'concrete', { tint: 0x9a968e, collide: false });
   L.box(287.75, D2 - 0.3, 13.25, 288.05, D2 + 1.05, 19.75, 'concrete', { tint: 0xa8a49c });
   L.box(287.75, D2 + 1.05, 13.25, 288.05, D2 + 2.6, 19.75, 'concrete', { visible: false, flags: CLIP });
   // painted ramp arrows
   for (const x of [287, 293, 299]) stencil(L, '→', x, D1 + 0.02 + (x - 284) / 18 * D2 + 0.03, 16.5, 0, 1.2, 0.8, '#e8e8d8');
   sign(L, 'UP ↑ P1 · P2 · SKYBRIDGE', 284.2, 2.4, 12.9, 0, 3.0, 0.4, { bg: '#16191e', fg: '#f2c230', clean: true });
-  for (const [x, z] of [[288, -14.5], [296, -14.5], [304, -14.5], [288, -3], [304, -3], [292, 8], [304, 8], [286, 16.4]]) sodium(L, x, D2 - 0.3, z, !(x === 296 && z === -14.5), { flicker: x === 304 && z === -3 ? 0.4 : 0.05 });
+  for (const [x, z] of [[288, -14.5], [296, -14.5], [304, -14.5], [288, -3], [304, -3], [292, 8], [304, 8], [286, 16.4], [280.5, 1]]) sodium(L, x, D2 - 0.3, z, !(x === 296 && z === -14.5), { flicker: x === 304 && z === -3 ? 0.4 : 0.05 });
   graffiti(L, 'NO FLIGHTS\nNO REFUNDS', 311.7, 1.6, -6, -Math.PI / 2, 2.2, 0.9, '#b8201a');
   P.corpse(L, 294.6, 0.01, -2.0, 0.6, 0x3a3a5a); blood(L, 294.6, 0, -2.0, 1.4, 4);
   L.item('pills', 309.6, 0.02, -7.6, { chance: 0.5 });
@@ -317,7 +320,7 @@ function garage(L, game) {
   const alarm2 = alarmCar(L, 291.6, D2, -17.4, 0.02, 0x8a1a14);
   sign(L, 'PROTECTED BY\nVIPER ALARM', 305.6, D2 + 1.25, -1.2, 0.9, 0.5, 0.2, { bg: '#1a1a1a', fg: '#e02020', clean: true });
   graffiti(L, 'CAR ALARM!\nDONT TOUCH', 311.7, D2 + 1.6, -1.6, -Math.PI / 2, 1.8, 0.8, '#e8c020', { style: 'scrawl' });
-  for (const [x, z] of [[296, -14.5], [304, -14.5], [288, -3], [304, -3], [296, 8], [306, 16.4], [284, -14.5]]) sodium(L, x, D3 - 0.3, z, !(x === 288 && z === -3), { flicker: x === 304 ? 0.3 : 0.05, intensity: 8 });
+  for (const [x, z] of [[296, -14.5], [304, -14.5], [288, -3], [304, -3], [296, 8], [306, 16.4], [284, -14.5], [285, -7], [299, 16.4]]) sodium(L, x, D3 - 0.3, z, !(x === 288 && z === -3), { flicker: x === 304 ? 0.3 : 0.05, intensity: 8 });
   levelSign(L, 'LEVEL P1', 302.2, D2 + 2.4, 13.12, 0);
   levelSign(L, 'STAIRS · P2 ↑\nSKYBRIDGE', 283.13, D2 + 2.2, -9.4, Math.PI / 2);
   P.corpse(L, 299.4, D2 + 0.01, 1.4, 2.2, 0x6a4a2a); blood(L, 299.4, D2, 1.4, 1.6, 5);
@@ -353,7 +356,7 @@ function garage(L, game) {
   bays(L, 284, 304, -20, 1, D3); bays(L, 284, 304, -9, -1, D3);
   bays(L, 284, 304, 6, 1, D3); bays(L, 284, 310, 20, -1, D3);
   for (const [x, z, ry, o] of [[285.3, -17.3, 0.05, {}], [293.1, -17.4, -0.02, { color: 0x2a4a2a }], [298.3, -17.2, 0.06, {}], [290.5, -11.6, Math.PI, {}], [303.5, -11.4, Math.PI + 0.08, { burnt: true }], [287.9, 8.6, 0.02, {}], [298.3, 8.8, -0.1, { color: 0xd8b020, taxi: true }], [306.1, 17.4, Math.PI, {}], [293.1, 17.6, Math.PI + 0.03, {}]]) P.car(L, x, D3, z, ry, o);
-  for (const [x, z] of [[288, -14.5], [296, -14.5], [288, -3], [296, -3], [290, 12], [300, 12]]) sodium(L, x, ROOF - 0.3, z, !(x === 296 && z === -3), { flicker: x === 288 ? 0.3 : 0.05, intensity: 8 });
+  for (const [x, z] of [[288, -14.5], [296, -14.5], [288, -3], [296, -3], [290, 12], [300, 12], [285, -10], [301, -10]]) sodium(L, x, ROOF - 0.3, z, !(x === 296 && z === -3), { flicker: x === 288 ? 0.3 : 0.05, intensity: 8 });
   levelSign(L, 'LEVEL P2', 283.13, D3 + 2.2, -9.4, Math.PI / 2);
   // fluorescent battens between the HID lamps (some dead, one strobing)
   for (const [y, x, z, st] of [
@@ -446,7 +449,7 @@ function skybridge(L, game) {
     const dead = x > 326, loose = Math.abs(x - 322) < 0.1;
     const f = P.prop(L, x, y + 2.95, -1.0, 0);
     f.box(0, -0.02, 0, 1.3, 0.04, 0.7, 'metalClean', 0xd0d0c8, loose ? [0.18, 0, 0.1] : null);
-    f.glow(0, -0.045, 0, 1.18, 0.01, 0.58, dead ? 0x2a2c2e : 0x8c98a8, loose ? [0.18, 0, 0.1] : null);
+    f.glow(0, -0.045, 0, 1.18, 0.01, 0.58, dead ? 0x2a2c2e : 0x5c6674, loose ? [0.18, 0, 0.1] : null);
     for (const dx of [-0.3, 0, 0.3]) f.box(dx, -0.06, 0, 0.015, 0.03, 0.58, 'metalClean', 0xb8b8b0, loose ? [0.18, 0, 0.1] : null);
   }
   L.light(316, y + 2.6, -1, 0xd8ecff, 6, 9, { flicker: 0.3 });
@@ -456,6 +459,10 @@ function skybridge(L, game) {
   P.corpse(L, 329.0, y + 0.01, -0.4, 2.4, 0x3a4a6a);
   L.decal(329.4, y + 0.012, -0.8, 0, 1, 0, 1.6, DF.POOL);
   for (let i = 0; i < 5; i++) L.decal(326 - i * 2, y + 0.012, -1 + Math.sin(i) * 0.4, 0, 1, 0, 0.8, DF.SMEAR);
+  // abandoned luggage carts + bloody hand prints on the glass (someone tried to get out)
+  P.luggageCart(L, 320.6, y, 0.3, 1.35, true); P.luggageCart(L, 325.2, y, -2.4, 2.8, false);
+  P.luggagePile(L, 324.2, y, -1.9, 3, 0.5);
+  for (const [x, yy, zz] of [[317.4, 1.6, 1], [317.9, 1.3, 1], [318.5, 1.7, 1], [328.2, 1.4, -1]]) L.decal(x, y + yy, zz > 0 ? z1 - 0.02 : z0 + 0.02, 0, 0, -zz, 0.35, DF.HAND);
   // a toppled advertising stand
   const ad = P.prop(L, 318.4, y, 0.4, 0.3);
   ad.box(0, 0.12, 0, 1.0, 0.22, 1.6, 'metalDark', 0x22262c).box(0, 0.28, 0, 0.9, 0.04, 1.5, 'emissiveTint', 0x283440);
@@ -511,7 +518,12 @@ function terminalBackdrop(L, game) {
   // west curtain wall: glazing bands, some lit, mullions
   for (let z = -68; z < 58; z += 2.5) {
     if (z > E.z0 - 2 && z < E.z1 + 1) continue;
-    for (const [ya, yb] of [[1.2, 5.6], [7.6, 10.6], [12.4, 16.4]]) B.box(E.x0 - 0.06, ya, z, E.x0 - 0.02, yb, z + 2.3, (Math.abs(z * 7 + ya) % 9) < 1 ? 'emissiveWindow' : 'glassDirty', { tint: (Math.abs(z * 7 + ya) % 9) < 1 ? 0x7a6a4a : 0x1a2024 });
+    for (const [ya, yb] of [[1.2, 5.6], [7.6, 10.6], [12.4, 16.4]]) {
+      const lit = (Math.abs(z * 7 + ya) % 9) < 1;
+      B.box(E.x0 - 0.06, ya, z, E.x0 - 0.02, yb, z + 2.3, lit ? 'emissiveWindow' : 'glassDirty', { tint: lit ? 0x7a6a4a : 0x1a2024 });
+      // half-drawn blinds in the lit offices (slats + a crooked lower edge)
+      if (lit) for (let k = 0, n = Math.floor((yb - ya) / 0.16 * 0.55); k < n; k++) B.box(E.x0 - 0.09, yb - 0.1 - k * 0.16, z + 0.02, E.x0 - 0.065, yb - 0.04 - k * 0.16, z + 2.28 - (k === n - 1 ? 0.9 : 0), 'blackMatte', { tint: 0x2a2620 });
+    }
   }
   B.box(E.x0 - 0.3, 17.2, -70, E.x0, 18.4, 60, 'metalDark', { tint: 0x2a2e34 });
   B.build(L);

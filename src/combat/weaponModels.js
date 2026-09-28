@@ -702,6 +702,7 @@ function buildRifle() {
   marker(g, 'eject', 0.028, 0.045, -0.02);
   marker(g, 'gripL', 0, 0.045, -0.29);
   marker(g, 'trigger', 0, -0.005, 0.0015);
+  marker(g, 'boltCatch', -0.017, 0.006, -0.026); // left-side paddle, slapped on empty reloads
   g.userData.handR = [0, -0.05, 0.071, -0.37, 0, 0];
   return g;
 }
@@ -971,6 +972,25 @@ function buildMachete() {
 }
 
 // ---------------------------------------------------------- throwables etc --
+let _flameTex = null;
+function flameTexture() {
+  if (_flameTex) return _flameTex;
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 128;
+  const x = c.getContext('2d');
+  const gr = x.createRadialGradient(32, 96, 2, 32, 84, 64);
+  gr.addColorStop(0, 'rgba(255,248,215,1)');
+  gr.addColorStop(0.22, 'rgba(255,196,90,0.95)');
+  gr.addColorStop(0.55, 'rgba(236,98,24,0.5)');
+  gr.addColorStop(1, 'rgba(110,20,0,0)');
+  x.fillStyle = gr;
+  x.beginPath(); x.moveTo(32, 2);
+  x.bezierCurveTo(44, 36, 60, 66, 56, 96); x.bezierCurveTo(52, 124, 12, 124, 8, 96); x.bezierCurveTo(4, 66, 20, 36, 32, 2);
+  x.fill();
+  _flameTex = new THREE.CanvasTexture(c);
+  _flameTex.colorSpace = THREE.SRGBColorSpace;
+  return _flameTex;
+}
 function buildMolotov() {
   const g = new THREE.Group();
   const P = new Part();
@@ -982,9 +1002,13 @@ function buildMolotov() {
   P.put('rag', cy(0.009, 0.006, 0.05, 6), 0.008, 0.13, 0, 0, 0, -0.35);
   P.put('tape', latheY([[0.0172, 0.093], [0.0172, 0.1]], 10));
   P.build(g);
-  const fl = new THREE.Mesh(new THREE.SphereGeometry(0.028, 10, 8), mats().flash);
-  fl.position.set(0.02, 0.165, 0);
-  fl.scale.set(0.8, 1.4, 0.8);
+  // burning rag: crossed additive flame cards (teardrop texture) that flicker
+  const fl = new THREE.Group();
+  const card = new THREE.PlaneGeometry(0.055, 0.11);
+  card.translate(0, 0.04, 0);
+  const fm = new THREE.MeshBasicMaterial({ map: flameTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(card, fm); m.rotation.y = (i * Math.PI) / 3; fl.add(m); }
+  fl.position.set(0.02, 0.135, 0);
   g.add(fl);
   g.userData.flame = fl;
   return g;

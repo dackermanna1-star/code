@@ -35,9 +35,14 @@ export default async ({ page, evalg, wait, logs }) => {
   const cells = process.env.CELLS ? JSON.parse(process.env.CELLS) : CELLS;
   const imgs = [];
   let i = 0;
+  // each cell is also saved as it is made (a crashed renderer keeps what was done)
+  const cellDir = fs.mkdtempSync('/tmp/vmanim-cells-');
+  log('cells in ' + cellDir);
   for (const [w, act, k] of cells) {
     const r = await evalg(([w, act, k, i, cw]) => {
       const g = window.game, P = g.player, errs = [];
+      const vm0 = g.viewmodel, oe = vm0.event, evs = [];
+      vm0.event = function (e, d) { evs.push(e); return oe.call(this, e, d); };
       try {
         P.yaw = window.__view.yaw; P.pitch = window.__view.pitch;
         P.sprinting = false; P.cmd.fire = false;
@@ -70,10 +75,10 @@ export default async ({ page, evalg, wait, logs }) => {
         const G = cc.getContext('2d');
         G.drawImage(cv, 0, 0, cw, chh);
         G.fillStyle = '#000a'; G.fillRect(0, 0, 220, 18); G.fillStyle = '#fff'; G.font = '13px sans-serif'; G.fillText(`${w} ${act} ${k}`, 4, 13);
-        return { w: P.activeItem, vm: vm.type, anim: vm.anim?.type || null, img: cc.toDataURL('image/jpeg', 0.9) };
-      } catch (e) { return 'ERR ' + e.message + ' ' + (e.stack || '').split('\n')[1]; }
+        return { w: P.activeItem, vm: vm.type, anim: vm.anim?.type || null, evs: evs.join(' '), img: cc.toDataURL('image/jpeg', 0.9) };
+      } catch (e) { return 'ERR ' + e.message + ' ' + (e.stack || '').split('\n')[1]; } finally { vm0.event = oe; }
     }, [w, act, k, i, CWV]);
-    if (r && r.img) { imgs.push(Buffer.from(r.img.split(',')[1], 'base64')); delete r.img; } else imgs.push(null);
+    if (r && r.img) { imgs.push(Buffer.from(r.img.split(',')[1], 'base64')); delete r.img; fs.writeFileSync(`${cellDir}/${String(i).padStart(3, '0')}.jpg`, imgs[imgs.length - 1]); } else imgs.push(null);
     console.log(i, w, act, k, JSON.stringify(r));
     i++;
   }
@@ -84,6 +89,7 @@ export default async ({ page, evalg, wait, logs }) => {
   const { execSync } = await import('child_process');
   execSync(`python3 -c "import glob,sys;from PIL import Image;fs=sorted(glob.glob('${dir}/*.jpg'));ims=[Image.open(f) for f in fs];w,h=ims[0].size;n=${imgs.length};C=${+(process.env.COLS || 5)};S=Image.new('RGB',(C*w,((n+C-1)//C)*h));[S.paste(im,((int(f[-7:-4])%C)*w,(int(f[-7:-4])//C)*h)) for f,im in zip(fs,ims)];S.save('${out}')"`);
   fs.rmSync(dir, { recursive: true, force: true });
+  fs.rmSync(cellDir, { recursive: true, force: true });
   console.log('wrote', out);
   console.log('errors:', logs.filter((l) => /error/i.test(l) && !/WebGL|GL_INVALID/.test(l)).length);
 };

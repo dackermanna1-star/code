@@ -701,9 +701,9 @@ export function festoon(L, pts, y, o = {}) {
       if (j === 0) continue;
       const dead = (o.dead || []).includes(k);
       const b = P.prop(L, x0, y0, z0, 0);
-      b.box(0, -0.06, 0, 0.05, 0.08, 0.05, 'blackMatte').glowSph(0, -0.16, 0, 0.055, dead ? 0x2a2620 : 0xffc070);
-      b.torus(0, -0.16, 0, 0.07, 0.006, 'metalDark', 0x2a2a2a, [Math.PI / 2, 0, 0], 4, 8);
-      if (!dead && k % every === Math.floor(every / 2)) lights.push(L.light(x0, y0 - 0.3, z0, 0xffb868, o.intensity ?? 8, o.range ?? 9, { flicker: o.flicker ?? 0.04 }));
+      b.box(0, -0.06, 0, 0.05, 0.08, 0.05, 'blackMatte').glowSph(0, -0.17, 0, 0.075, dead ? 0x2a2620 : 0xffd090);
+      b.torus(0, -0.17, 0, 0.09, 0.007, 'metalDark', 0x2a2a2a, [Math.PI / 2, 0, 0], 4, 8);
+      if (!dead && k % every === Math.floor(every / 2)) lights.push(L.light(x0, y0 - 0.3, z0, 0xffb868, o.intensity ?? 11, o.range ?? 10, { flicker: o.flicker ?? 0.04 }));
       k++;
     }
   }

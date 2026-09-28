@@ -14,6 +14,7 @@ import { solveGrips, solveActions, GRIP_SPECS, mkPose, lerpPose, HandFK, HAND_SH
 const OLD_R = { p: new THREE.Vector3(0.03, 0.004, 0.075), q: new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0.05, -1).normalize(), new THREE.Vector3(1, 0, 0).cross(new THREE.Vector3(0, 0.05, -1).normalize()))) };
 const OLD_L = { p: new THREE.Vector3(-0.03, 0.004, 0.075), q: new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 0.05, -1).normalize(), new THREE.Vector3(-1, 0, 0).cross(new THREE.Vector3(0, 0.05, -1).normalize()))) };
 const OLD_Li = { p: OLD_L.p.clone().negate().applyQuaternion(OLD_L.q.clone().invert()), q: OLD_L.q.clone().invert() };
+const OLD_Ri = { p: OLD_R.p.clone().negate().applyQuaternion(OLD_R.q.clone().invert()), q: OLD_R.q.clone().invert() };
 
 // generic hand shapes for animation phases (anatomical angles)
 export const HAND_POSES = {
@@ -108,7 +109,7 @@ export class FPArms {
   // the same, expressed in the legacy grip-hand frame (for the animation code)
   gripHolderLegacy(side, holder, outP, outQ) {
     if (!this.gripHolder(side, holder, outP, outQ)) return false;
-    const T = side === 'R' ? { p: OLD_R.p.clone().negate().applyQuaternion(OLD_R.q.clone().invert()), q: OLD_R.q.clone().invert() } : OLD_Li;
+    const T = side === 'R' ? OLD_Ri : OLD_Li;
     outP.add(_v.copy(T.p).applyQuaternion(outQ));
     outQ.multiply(T.q);
     return true;
@@ -179,6 +180,9 @@ export class FPArms {
     const Q = _qa.copy(hq).multiply(q);
     const Sh = _e.set(side * 0.19, -0.25, 0.08);
     if (elbow) Sh.add(_v.set(elbow[0], elbow[1], elbow[2]));
+    // support hand out on a fore-end: bladed stance, the shoulder comes forward
+    // and in so the arm stays bent with the elbow dropped under the gun
+    if (reach > 0) Sh.add(_v.set(-side * 0.04 * reach, 0, -0.12 * reach));
     const U = 0.29, Fl = 0.3; // upper arm, forearm
     const u = _d.subVectors(P, Sh);
     const dist = Math.min(U + Fl - 1e-3, Math.max(Math.abs(U - Fl) + 1e-3, u.length()));
