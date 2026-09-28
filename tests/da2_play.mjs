@@ -10,6 +10,7 @@ export default async ({ page, evalg, wait, shot }) => {
   await evalg(([dirOn, bots]) => {
     const g = window.game;
     g.director.enabled = dirOn; g.cheats.god = true; if (!dirOn) g.cheats.godAll = true;
+    if (!window.__render) g.noRender = true; // logic-only: skip SwiftShader rendering
     window.session.menu?.clear?.();
     window.__BotBrain = g.survivors.find((s) => s.brain)?.brain.constructor;
     if (!bots) for (const s of g.survivors) if (s !== g.player) s.brain = null;
@@ -86,5 +87,5 @@ export default async ({ page, evalg, wait, shot }) => {
   }
   const fin = await evalg(() => ({ end: window.session.endTriggered, state: window.session.state, errs: window.game.errCount || 0, stats: window.game.director.stats }));
   console.log('final', JSON.stringify(fin));
-  if (process.env.SHOT) await shot('da2_play_end');
+  if (process.env.SHOT) { await evalg(() => { window.game.noRender = false; }); await wait(3000); await shot('da2_play_end'); }
 };
