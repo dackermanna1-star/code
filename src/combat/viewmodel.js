@@ -5,6 +5,8 @@
 import * as THREE from 'three';
 import { buildModel } from './weaponModels.js';
 import { solveIK } from '../entities/body.js';
+import { Piece, tube, sweep, ellipsoid, limbPoint, farmBump, pieceGeometry, FARM_KEYS, RECT, REG } from '../entities/partgeo.js';
+import { getCharacterAsset } from '../entities/charlooks.js';
 import { damp, clamp, lerp, easeOutCubic, easeInOutSine, TAU } from '../core/math.js';
 
 const TYPE_MODEL = {
@@ -30,58 +32,98 @@ const POSE = {
   minigun: [0.0, -0.28, -0.25, 0, 0, 0],
 };
 
+// ------------------------------------------------------------ arm meshes --
+// Forearms and hands reuse the survivor's painted atlases (skin, tattoos,
+// sleeves, nails) so first-person arms match the third-person model: Bill's
+// field-jacket cuff, Zoey's red track-jacket sleeve with white stripes, Louis's
+// rolled white shirt sleeve over a bare forearm, Francis's tattooed arms.
+const WRIST = [0.021, -0.02, 0.072]; // wrist centre in hand (grip) space
+const armGeoCache = new Map();
+function forearmGeometry(bulk) {
+  const key = 'fa' + bulk.toFixed(3);
+  if (armGeoCache.has(key)) return armGeoCache.get(key);
+  const P = new Piece({ region: REG.FARM });
+  const k = bulk * 0.96 + 0.04;
+  tube(P, { ts: [-0.06, 0.0, 0.06, 0.14, 0.24, 0.35, 0.47, 0.6, 0.72, 0.82, 0.9, 0.96, 1.0, 1.05], segs: 22, rect: RECT.farm, aOff: Math.PI / 2, tA: -0.12, tB: 1.04,
+    fn: (t, a, o3) => { limbPoint(FARM_KEYS, t, a, k, k, farmBump(bulk), o3); o3[1] = t; } });
+  const g = pieceGeometry([P]);
+  armGeoCache.set(key, g);
+  return g;
+}
+function sleeveGeometry(L, bulk) {
+  const key = 'sl' + bulk.toFixed(3) + JSON.stringify([L.t0, L.t1, L.off, L.rect, L.hem]);
+  if (armGeoCache.has(key)) return armGeoCache.get(key);
+  const P = new Piece({ region: REG.FARM });
+  const k = bulk * 0.96 + 0.04;
+  const t0 = L.t0 ?? -0.12, t1 = L.t1 ?? 1.04;
+  const ts = [];
+  for (let i = 0; i <= 14; i++) ts.push(t0 + (t1 - t0) * (i / 14));
+  if (L.hem) ts.push(t1 + 0.001);
+  tube(P, { ts, segs: 22, rect: L.rect || RECT.farm, aOff: Math.PI / 2, tA: -0.12, tB: 1.04,
+    fn: (t, a, o3) => { const tt = Math.min(t, t1); limbPoint(FARM_KEYS, tt, a, k, k, null, o3, (L.off ?? 0.01) + (L.bulge ? L.bulge(tt, a) : 0) - (t > t1 ? (L.off ?? 0.01) * 0.9 : 0)); o3[1] = tt; } });
+  P.doubleSided = true;
+  const g = pieceGeometry([P]);
+  armGeoCache.set(key, g);
+  return g;
+}
+// Right hand wrapped around a grip whose axis is local Y (front of the grip -Z):
+// back of the hand faces +X, fingers curl around the front, thumb on the left.
+function gripHandGeometry(scale = 1) {
+  const key = 'hand' + scale.toFixed(3);
+  if (armGeoCache.has(key)) return armGeoCache.get(key);
+  const P = new Piece({ region: REG.HAND });
+  const R = RECT.hand;
+  const sub = (x0, w) => [R[0] + x0 * R[2], R[1], w * R[2], R[3]];
+  // palm: wrist -> knuckles, flattened, widening towards the knuckle line
+  sweep(P, [[WRIST[0], WRIST[1], WRIST[2] + 0.004], [0.023, -0.016, 0.05], [0.026, -0.009, 0.026], [0.028, -0.005, 0.008], [0.029, -0.005, -0.002]],
+    [[0.019, 0.02], [0.016, 0.03], [0.0145, 0.037], [0.0135, 0.04], [0.012, 0.038]], 16, sub(0, 0.45), { up: [1, 0, 0], capStart: true });
+  // thenar pad joining palm and thumb
+  const k0 = P.count;
+  ellipsoid(P, [0.004, -0.014, 0.04], [0.02, 0.024, 0.028], 10, 8, sub(0, 0.45));
+  // fingers wrap around the grip in three phalanges
+  const F = [{ y: 0.024, len: 0.074, r: 0.0098 }, { y: 0.004, len: 0.082, r: 0.0098 }, { y: -0.016, len: 0.077, r: 0.0092 }, { y: -0.035, len: 0.063, r: 0.0082 }];
+  const Rg = 0.0265;
+  F.forEach((f, fi) => {
+    const Ls = [f.len * 0.46, f.len * 0.3, f.len * 0.24];
+    let th = -0.12 - fi * 0.03;
+    const pts = [[0.03 * Math.cos(th) + 0.004, f.y + 0.004, 0.03 * Math.sin(th) + 0.012]], rad = [[f.r * 1.05, f.r * 1.1]];
+    let p = [Rg * 1.08 * Math.cos(th), f.y, Rg * 1.08 * Math.sin(th)];
+    pts.push(p.slice()); rad.push([f.r, f.r * 1.05]);
+    for (let s = 0; s < 3; s++) {
+      const rr = Rg * (1.05 - s * 0.03);
+      th -= Ls[s] / rr;
+      const q = [rr * Math.cos(th), f.y - s * 0.002, rr * Math.sin(th)];
+      // two samples per phalanx: straight chords give visible knuckles
+      pts.push([(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2]);
+      rad.push([f.r * (0.97 - s * 0.08), f.r * (1 - s * 0.08)]);
+      pts.push(q); rad.push([f.r * (0.95 - s * 0.09), f.r * (0.98 - s * 0.09)]);
+      p = q;
+    }
+    sweep(P, pts, rad, 10, sub(0.5 + fi * 0.1, 0.1), { up: [0, 1, 0], capEnd: true });
+  });
+  // thumb along the left side, tip forward
+  sweep(P, [[0.006, -0.012, 0.046], [-0.008, -0.002, 0.034], [-0.019, 0.01, 0.016], [-0.023, 0.018, -0.004], [-0.022, 0.023, -0.022], [-0.019, 0.026, -0.034]],
+    [0.0135, 0.013, 0.0118, 0.011, 0.0102, 0.0095], 10, sub(0.9, 0.1), { up: [-1, 0.6, 0], capEnd: true });
+  if (scale !== 1) for (let i = 0; i < P.p.length; i++) P.p[i] *= scale;
+  const g = pieceGeometry([P]);
+  armGeoCache.set(key, g);
+  return g;
+}
+
 function makeArm(char, side) {
   const g = new THREE.Group();
-  const skin = new THREE.MeshStandardMaterial({ color: char.skin, roughness: 0.62, side: THREE.DoubleSide });
-  const sleeveMat = new THREE.MeshStandardMaterial({ color: char.sleeve, roughness: 0.88, side: THREE.DoubleSide });
-  const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.048, 1, 10).translate(0, 0.5, 0), sleeveMat);
+  const asset = getCharacterAsset({ id: char.look || char.id, skin: char.skin, shirt: char.sleeve, pants: char.body?.pants, hair: char.body?.hair });
+  const [matA, matB] = asset.materials;
+  const upper = new THREE.Group();
   const lower = new THREE.Group();
-  const bare = char.bareArms || char.rolledSleeves;
-  const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.034, 1, 12).translate(0, 0.5, 0), bare ? skin : sleeveMat);
-  lower.add(fore);
-  if (char.rolledSleeves) {
-    const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.046, 0.046, 0.08, 12).translate(0, 0.12, 0), sleeveMat);
-    lower.add(cuff);
-  } else if (!char.bareArms) {
-    // cuff edge + visible wrist skin
-    const wrist = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.026, 0.06, 10).translate(0, 0.97, 0), skin);
-    lower.add(wrist);
-  }
-  if (char.stripe) {
-    const st = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.8, 0.01).translate(0, 0.45, 0.034), new THREE.MeshStandardMaterial({ color: char.stripe, roughness: 0.8 }));
-    lower.add(st);
-  }
-  if (char.tattoo) {
-    const tat = new THREE.Mesh(new THREE.CylinderGeometry(0.0272, 0.0385, 0.45, 12, 1, true).translate(0, 0.45, 0), new THREE.MeshStandardMaterial({ color: 0x1a2838, roughness: 0.7, transparent: true, opacity: 0.6 }));
-    lower.add(tat);
-  }
-  // Hand in a gripping pose (local Y = grip axis, -Z = front of grip). Left hand is mirrored.
+  lower.add(new THREE.Mesh(forearmGeometry(asset.armBulk), matA));
+  for (const L of asset.viewSleeves) lower.add(new THREE.Mesh(sleeveGeometry(L, asset.armBulk), (L.mat ?? 1) === 1 ? matB : matA));
   const hand = new THREE.Group();
-  const gloveMat = char.gloves ? new THREE.MeshStandardMaterial({ color: char.gloves, roughness: 0.7, side: THREE.DoubleSide }) : skin;
-  const palm = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.09, 0.062), gloveMat);
-  palm.position.set(0.024, -0.008, 0.014);
-  palm.rotation.y = 0.45;
-  hand.add(palm);
-  const back = new THREE.Mesh(new THREE.SphereGeometry(0.036, 10, 8), gloveMat);
-  back.scale.set(0.55, 1.25, 0.9);
-  back.position.set(0.03, -0.01, 0.02);
-  hand.add(back);
-  for (let f = 0; f < 4; f++) {
-    const fg = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.0085, 5, 10, Math.PI * 1.15), char.fingerless ? skin : gloveMat);
-    fg.rotation.x = -Math.PI / 2;
-    fg.rotation.z = 0; 
-    fg.position.set(0.0, 0.03 - f * 0.019, -0.001);
-    fg.scale.set(1 + f * 0.02, 1, 1);
-    hand.add(fg);
-  }
-  const th = new THREE.Mesh(new THREE.CapsuleGeometry(0.009, 0.04, 3, 6), skin);
-  th.position.set(-0.012, 0.035, 0.012);
-  th.rotation.set(-0.5, 0, 0.9);
-  hand.add(th);
+  hand.add(new THREE.Mesh(gripHandGeometry(asset.handScale), matA));
   if (side < 0) hand.scale.x = -1;
   g.add(upper); g.add(lower); g.add(hand);
   g.userData = { upper, lower, hand };
-  g.traverse((o) => { o.layers.set(1); o.frustumCulled = false; });
+  g.traverse((o) => { o.layers.set(1); o.frustumCulled = false; if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
   return g;
 }
 
@@ -107,6 +149,7 @@ const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _q = new THREE.Quatern
 const _ik = new Float32Array(3);
 const _yAxis = new THREE.Vector3(0, 1, 0);
 const _tmpE = new THREE.Vector3(), _tmpD = new THREE.Vector3(), _e = new THREE.Euler();
+const _bx = new THREE.Vector3(), _bz = new THREE.Vector3();
 
 export class Viewmodel {
   constructor(game, camera) {
@@ -476,15 +519,21 @@ export class Viewmodel {
     hand.position.copy(_v);
     _q.setFromEuler(spec[6] ? FOREGRIP_ROT : _e.set(spec[3], spec[4], spec[5]));
     hand.quaternion.copy(hq).multiply(_q);
-    // wrist point (below/behind the grip)
-    const wrist = _w.set(0.018 * side, -0.06, 0.028).applyQuaternion(hand.quaternion).add(hand.position);
+    // wrist point (behind the grip, at the heel of the palm)
+    const wrist = _w.set(WRIST[0] * side, WRIST[1], WRIST[2]).applyQuaternion(hand.quaternion).add(hand.position);
     const elbow = _tmpE.set(wrist.x + side * 0.08, wrist.y - 0.2, wrist.z + 0.2);
     if (spec[6]) elbow.set(wrist.x - 0.16, wrist.y - 0.2, wrist.z + 0.26);
     const d = _tmpD.subVectors(wrist, elbow);
     const len = d.length();
     d.normalize();
+    // forearm frame: Y along the forearm, X towards the back of the hand so the
+    // flattened wrist, sleeve seams and tattoos line up with the hand
+    _bx.set(side, 0, 0).applyQuaternion(hand.quaternion);
+    _bx.addScaledVector(d, -_bx.dot(d)).normalize();
+    _bz.crossVectors(_bx, d);
+    _m.makeBasis(_bx, d, _bz);
     lower.position.copy(elbow);
-    lower.quaternion.setFromUnitVectors(_yAxis, d);
+    lower.quaternion.setFromRotationMatrix(_m);
     lower.scale.set(1, len + 0.01, 1);
   }
 

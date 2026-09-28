@@ -242,22 +242,8 @@ export class SpecialInfected extends Agent {
 // ================================================================= HUNTER ==
 export class Hunter extends SpecialInfected {
   constructor(mgr) {
-    super(mgr, 'hunter', {
-      skin: 0x8a8278, shirt: 0x2a3038, pants: 0x1e2230, shoes: 0x151515, hair: null, bald: true, sleeves: 'long',
-      face: { skin: 0x8a8278, hair: null, dirt: true }, bulk: 0.95,
-    }, { hp: 250, speed: 6.2, height: 1.4 });
-    // hood
-    const hood = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.62), skinMat(0x2a3038, 0.9));
-    hood.scale.set(1, 1.15, 1.12);
-    hood.position.set(0, 0.06, 0.015);
-    hood.rotation.x = 0.25;
-    this.rig.parts.head.add(hood);
-    // taped forearms
-    for (const s of ['farmL', 'farmR']) {
-      const tape = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.25, 8), skinMat(0x9a968a, 0.8));
-      tape.position.y = 0.7;
-      this.rig.parts[s].add(tape);
-    }
+    // hoodie with the hood up (face in shadow), duct-taped forearms and shins
+    super(mgr, 'hunter', { id: 'hunter' }, { hp: 250, speed: 6.2, height: 1.4 });
     this.pounceCd = 1.5;
     this.shoveable = true;
     this.airborne = false;
@@ -399,18 +385,8 @@ export class Hunter extends SpecialInfected {
 // ================================================================= SMOKER ==
 export class Smoker extends SpecialInfected {
   constructor(mgr) {
-    super(mgr, 'smoker', {
-      skin: 0x6a7058, shirt: 0x4a3a2a, pants: 0x2e2a24, shoes: 0x1a1612, hair: 0x2a2620, sleeves: 'short',
-      face: { skin: 0x6a7058, hair: 0x2a2620, dirt: true }, bulk: 0.8, fat: 0.85,
-    }, { hp: 250, speed: 4.4, scale: 1.13, build: 0.85, height: 2.0 });
-    // boils on the face/neck
-    const boilMat = skinMat(0x7a6a40, 0.4);
-    for (let i = 0; i < 6; i++) {
-      const b = new THREE.Mesh(new THREE.SphereGeometry(0.02 + Math.random() * 0.02, 6, 5), boilMat);
-      const a = Math.random() * 6.28;
-      b.position.set(Math.cos(a) * 0.09, -0.02 + Math.random() * 0.1, Math.sin(a) * 0.1);
-      this.rig.parts.head.add(b);
-    }
+    // tall and gaunt, tumorous growths over one side of the face, neck and shoulder
+    super(mgr, 'smoker', { id: 'smoker' }, { hp: 250, speed: 4.4, scale: 1.13, build: 0.85, height: 2.0 });
     // tongue (segmented tube rebuilt each frame)
     this.tonguePts = [];
     for (let i = 0; i < 16; i++) this.tonguePts.push(new THREE.Vector3());
@@ -418,7 +394,7 @@ export class Smoker extends SpecialInfected {
     this.tongueGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(16 * 3), 3));
     this.tongueMesh = new THREE.Line(this.tongueGeo, new THREE.LineBasicMaterial({ color: 0x6a2a2a }));
     this.tongueTube = null;
-    this.tongueMat = new THREE.MeshStandardMaterial({ color: 0x7a3434, roughness: 0.4 });
+    this.tongueMat = new THREE.MeshStandardMaterial({ color: 0x8a3a3e, roughness: 0.28, metalness: 0 });
     this.tongueCd = randRange(1, 3);
     this.tongueLen = 0;
     this.tongueEnd = new THREE.Vector3();
@@ -540,7 +516,7 @@ export class Smoker extends SpecialInfected {
       pts[i].y -= Math.sin(t * Math.PI) * sag + Math.sin(g.time * 20 + t * 9) * 0.015;
     }
     const curve = new THREE.CatmullRomCurve3(pts);
-    const geo = new THREE.TubeGeometry(curve, 20, 0.022, 5, false);
+    const geo = new THREE.TubeGeometry(curve, 24, 0.024, 7, false);
     if (!this.tongueTube) {
       this.tongueTube = new THREE.Mesh(geo, this.tongueMat);
       this.tongueTube.frustumCulled = false;
@@ -571,18 +547,8 @@ export class Smoker extends SpecialInfected {
 // ================================================================= BOOMER ==
 export class Boomer extends SpecialInfected {
   constructor(mgr) {
-    const skin = 0x9a9868;
-    super(mgr, 'boomer', {
-      skin, shirt: skin, shirtMat: skinMat(skin, 0.45), pants: 0x3a3428, shoes: 0x1a1612, hair: null, bald: true, sleeves: 'none',
-      face: { skin, hair: null, dirt: true }, fat: 2.1, bulk: 1.5, belt: false,
-    }, { hp: 50, speed: 3.3, build: 1.5, height: 1.75, torsoScale: 1.6 });
-    const boilMat = skinMat(0x8a7040, 0.3);
-    for (let i = 0; i < 14; i++) {
-      const b = new THREE.Mesh(new THREE.SphereGeometry(0.025 + Math.random() * 0.035, 6, 5), boilMat);
-      const a = Math.random() * 6.28;
-      b.position.set(Math.cos(a) * 0.2, 0.1 + Math.random() * 0.8, Math.sin(a) * 0.15);
-      this.rig.parts.torso.add(b);
-    }
+    // grotesquely bloated, pustules over the belly, arms and face
+    super(mgr, 'boomer', { id: 'boomer' }, { hp: 50, speed: 3.3, build: 1.5, height: 1.75, torsoScale: 1.6 });
     this.vomitCd = randRange(0, 2);
     this.shoveable = true;
     this.noRagdoll = true;
@@ -672,11 +638,8 @@ export class Boomer extends SpecialInfected {
 // =================================================================== TANK ==
 export class Tank extends SpecialInfected {
   constructor(mgr) {
-    const skin = 0xa08070;
-    super(mgr, 'tank', {
-      skin, shirt: skin, shirtMat: skinMat(skin, 0.55), pants: 0x2a2a30, shoes: 0x1a1612, hair: null, bald: true, sleeves: 'none',
-      face: { skin, hair: null, dirt: true, scar: true }, armBulk: 2.6, legBulk: 1.4, chest: 1.55, headScale: 0.82, belt: false,
-    }, { hp: mgr.game.difficulty.tankHp, speed: 5.6, scale: 1.3, build: 1.7, height: 2.3, radius: 0.7, hitScale: 1.4, torsoScale: 1.3, headScale: 0.9 });
+    // massive asymmetric arms and shoulders, tiny head sunk into a hunched back
+    super(mgr, 'tank', { id: 'tank' }, { hp: mgr.game.difficulty.tankHp, speed: 5.6, scale: 1.3, build: 1.7, height: 2.3, radius: 0.7, hitScale: 1.4, torsoScale: 1.3, headScale: 0.9 });
     this.burnDps = mgr.game.difficulty.tankHp / 60;
     this.punchCd = 0;
     this.rockCd = 5;
@@ -887,31 +850,8 @@ export class Tank extends SpecialInfected {
 // ================================================================== WITCH ==
 export class Witch extends SpecialInfected {
   constructor(mgr) {
-    const skin = 0xc8c0b8;
-    super(mgr, 'witch', {
-      skin, shirt: 0xb8a8a0, pants: 0x9a8a88, shoes: 0x9a8a88, hair: 0xe8e8e0, sleeves: 'none',
-      face: { skin, hair: 0xe8e8e0, eyeColor: '#ff3010' }, fat: 0.8, bulk: 0.72, belt: false,
-    }, { hp: 1000, speed: 8.5, scale: 0.95, build: 0.78, height: 1.6 });
-    // long hair strands covering the face
-    const hairMat = skinMat(0xe0ddd4, 0.7);
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
-      const len = 0.25 + Math.random() * 0.25;
-      const st = new THREE.Mesh(new THREE.BoxGeometry(0.035, len, 0.015), hairMat);
-      st.position.set(Math.sin(a) * 0.09, 0.08 - len / 2, Math.cos(a) * 0.09 - 0.01);
-      st.rotation.y = a;
-      this.rig.parts.head.add(st);
-    }
-    // claws
-    const clawMat = skinMat(0x3a3028, 0.4);
-    for (const side of ['farmL', 'farmR']) {
-      for (let k = 0; k < 4; k++) {
-        const c = new THREE.Mesh(new THREE.ConeGeometry(0.006, 0.12, 4), clawMat);
-        c.position.set(-0.02 + k * 0.013, 1.3, -0.01);
-        c.scale.y = 1 / 0.3; // counter the part Y scale (~0.3m forearm)
-        this.rig.parts[side].add(c);
-      }
-    }
+    // pale, emaciated, long white hair over the face, long claws, glowing red eyes
+    super(mgr, 'witch', { id: 'witch' }, { hp: 1000, speed: 8.5, scale: 0.95, build: 0.78, height: 1.6 });
     this.rage = 0;
     this.state = 'sit';
     this.enraged = false;

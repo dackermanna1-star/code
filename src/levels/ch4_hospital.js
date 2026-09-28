@@ -16,6 +16,7 @@ import { buildLower } from './ch4_lower.js';
 import { buildElevatorLobby, buildUpperCar, elevatorController, CAR, LOW_Y, TOP_Y } from './ch4_elevator.js';
 import { buildUpper } from './ch4_upper.js';
 import { installCuller } from './ch4_parts.js';
+import { autoClutter } from './clutter.js';
 import { Helicopter } from './helicopter.js';
 
 // Link the two elevator cars in the nav graph so the distance fields (chapter
@@ -72,6 +73,9 @@ export default {
     buildUpperCar(L, game, S);
     buildUpper(L, game, S);
     const E = elevatorController(L, game, S);
+    // clutter & detail (visual only): hospital floors, then the unfinished tower top
+    autoClutter(L, { theme: 'hospital', density: 1.1, seed: 404, yMax: 60, grime: 0.55 });
+    autoClutter(L, { theme: 'industrial', density: 0.9, seed: 405, yMin: 60, connected: false, grime: 0.3 });
     const heli = new Helicopter(game, { color: 0x2a3424, stripe: 0x3a4430 });
     L.dynamics.push(heli);
 

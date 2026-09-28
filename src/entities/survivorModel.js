@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { Body, Poser, Ragdoll, J, PROPS, animateHumanoid, poseLying } from './body.js';
 import { buildHumanoid, RigModel } from './rig.js';
+import { setCharacterDetail } from './charlooks.js';
 import { cloneModel } from '../combat/weaponModels.js';
 import { clamp, damp } from '../core/math.js';
 
@@ -13,24 +14,21 @@ const MODEL_OF = {
   fireaxe: 'fireaxe', crowbar: 'crowbar', machete: 'machete', molotov: 'molotov', pipebomb: 'pipebomb', bile: 'bile', medkit: 'medkit', pills: 'pills', adrenaline: 'adrenaline',
 };
 
+// Look descriptor for a survivor: the id selects the character recipe in
+// charlooks.js (sculpted head, clothing layers, painted atlases); the colour
+// fields remain for any generic / modded characters without a recipe.
 export function lookFor(char) {
-  const b = char.body;
-  const look = {
-    skin: char.skin, shirt: b.shirt, pants: b.pants, shoes: b.shoes, hair: b.hair, bald: b.bald,
-    sleeves: b.bareArms ? 'none' : char.rolledSleeves ? 'short' : 'long',
-    tie: b.tie, vest: b.vest, jacket: b.jacket ? b.shirt : null, under: b.under, ponytail: b.ponytail, hat: b.hat, hatColor: b.hatColor,
-    stripe: char.stripe, tattoo: char.tattoo, beard3d: b.beard && char.id === 'bill' ? b.beard : null,
-    fat: 1, bulk: b.build > 1.1 ? 1.15 : b.female ? 0.85 : 1,
-    face: { skin: char.skin, hair: b.bald ? null : b.hair, beard: b.beard, beardStyle: char.id === 'francis' ? 'full' : 'full', brow: b.hair ?? 0x1a1410, lipColor: b.female ? 'rgba(150,70,70,0.8)' : null, dirt: true },
+  const b = char.body || {};
+  return {
+    id: char.look || char.id, skin: char.skin, shirt: b.shirt, pants: b.pants, shoes: b.shoes, hair: b.hair, female: !!b.female,
   };
-  if (char.id === 'francis') { look.vestMat = new THREE.MeshStandardMaterial({ color: 0x151210, roughness: 0.38, metalness: 0.1 }); look.shirt = 0x1a1816; look.belt = true; }
-  return look;
 }
 
 export class SurvivorModel {
   constructor(game, s) {
     this.game = game;
     this.s = s;
+    setCharacterDetail(game.quality?.texSize >= 512 ? 1024 : 512);
     const look = lookFor(s.char);
     const parts = buildHumanoid(look);
     this.rig = new RigModel(game.scene, parts, { name: 'survivor:' + s.name, xray: s.isHuman ? null : new THREE.Color(0x3a7aff) });

@@ -12,6 +12,7 @@ import { DF } from '../render/decals.js';
 import { track, trainCar, gangway, wreckCar, poster, lockers, sparker, soundEmitter, cableTrayX, rng, sgn, graf } from './ch2_parts.js';
 import { buildPowerStation } from './ch2_power.js';
 import { buildSurface } from './ch2_surface.js';
+import { autoClutter, scatterClutter, edgeGrime } from './clutter.js';
 
 export const Y = { CY: 0, PY: -5, TY: -6.2, CW: -1.6 };
 const { CY, PY, TY } = Y;
@@ -435,6 +436,10 @@ export default {
     buildPowerStation(L, game, Y);
     buildSurface(L, game, Y);
     L.killZone(-100, -60, -100, 400, -22, 250);
+    // clutter & detail (visual only): whole-chapter dressing + the transit offices
+    autoClutter(L, { theme: 'subway', density: 1.1, seed: 202, grime: 0.6 });
+    scatterClutter(L, [200.2, 0, 44.2, 231.8, 1.5, 67.8], { kinds: ['papers', 'papers', 'newspapers', 'trash', 'glass', 'casings', 'bloodtrail'], density: 1.1, alongWalls: 0.6, seed: 203 });
+    edgeGrime(L, 200.2, 44.2, 231.8, 67.8, 0, { strength: 0.6 });
     script(L, game);
     L.script = {
       start() {

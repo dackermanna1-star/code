@@ -9,6 +9,7 @@ import { materials } from '../render/materials.js';
 import { cloneModel } from '../combat/weaponModels.js';
 import * as P from './props.js';
 import { makeRng } from '../core/math.js';
+import { signCanvas, graffitiCanvas, posterCanvas, posterWallCanvas, wallMessagesCanvas, autoGraffitiStyle, artScope, artTexture, artMaterial, hashStr, rngOf } from '../render/wallart.js';
 
 export { P };
 const rng = makeRng(777);
@@ -247,46 +248,12 @@ export function facade(L, x0, z0, x1, z1, y0, y1, o = {}) {
 }
 
 // -------------------------------------------------------------- signage --
-const texCache = new Map();
+// Text / wall-art rendering lives in src/render/wallart.js (canvas drawing,
+// per-level texture + material caches). See LEVEL_GUIDE.md "Wall art".
 export function textTexture(text, o = {}) {
-  const key = text + JSON.stringify(o);
-  if (texCache.has(key)) return texCache.get(key);
-  const W = o.w ?? 512, H = o.h ?? 128;
-  const c = document.createElement('canvas');
-  c.width = W; c.height = H;
-  const g = c.getContext('2d');
-  if (o.bg) { g.fillStyle = o.bg; g.fillRect(0, 0, W, H); }
-  if (o.border) { g.strokeStyle = o.border; g.lineWidth = 8; g.strokeRect(6, 6, W - 12, H - 12); }
-  g.fillStyle = o.fg ?? '#fff';
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  const lines = String(text).split('\n');
-  let size = o.size ?? Math.floor(H * 0.6 / lines.length);
-  g.font = `${o.weight ?? 'bold'} ${size}px ${o.font ?? 'Arial Black, Impact, sans-serif'}`;
-  // shrink to fit
-  for (const l of lines) while (g.measureText(l).width > W * 0.92 && size > 8) { size -= 2; g.font = `${o.weight ?? 'bold'} ${size}px ${o.font ?? 'Arial Black, Impact, sans-serif'}`; }
-  const lh = size * 1.1;
-  lines.forEach((l, i) => {
-    const y = H / 2 + (i - (lines.length - 1) / 2) * lh;
-    if (o.spray) {
-      // graffiti: jittered drips
-      g.save();
-      g.globalAlpha = 0.9;
-      g.translate(W / 2, y);
-      g.rotate((rng() - 0.5) * 0.08);
-      g.fillText(l, 0, 0);
-      g.restore();
-      for (let k = 0; k < l.length * 1.5; k++) {
-        const dx = W / 2 + (rng() - 0.5) * g.measureText(l).width;
-        g.fillRect(dx, y + size * 0.3, 2, rng() * size * 0.8);
-      }
-    } else g.fillText(l, W / 2, y);
-  });
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
-  texCache.set(key, t);
-  return t;
+  const key = 'sign:' + text + JSON.stringify(o);
+  if (o.spray) return artTexture(key, () => graffitiCanvas(text, { w: (o.w ?? 512) / 256, h: (o.h ?? 200) / 256, color: o.fg, style: o.style ?? 'scrawl' }));
+  return artTexture(key, () => signCanvas(text, o));
 }
 // Place a textured quad. (x,y,z) centre; ry rotation (0 faces -Z... i.e. readable from -Z side).
 // Front quad + a back quad turned around (un-mirrored UVs) in one geometry,
@@ -303,9 +270,30 @@ function doubleSidedQuad(w, h) {
   geo.setIndex([0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]);
   return geo;
 }
+function artQuad(L, mat, x, y, z, ry, w, h) {
+  const m = new THREE.Mesh(doubleSidedQuad(w, h), mat);
+  m.position.set(x, y, z);
+  m.rotation.y = ry;
+  m.receiveShadow = true;
+  L.addObject(m);
+  return m;
+}
 export function sign(L, text, x, y, z, ry, w, h, o = {}) {
-  const tex = textTexture(text, o);
-  const mat = new THREE.MeshStandardMaterial({ map: tex, transparent: !o.bg || !!o.spray, roughness: 0.85, emissive: o.glow ? 0xffffff : 0x000000, emissiveMap: o.glow ? tex : null, emissiveIntensity: o.glow ?? 0, depthWrite: !o.spray && !!o.bg, polygonOffset: true, polygonOffsetFactor: -2 });
+  artScope(L);
+  // canvas with the quad's aspect ratio (no stretched lettering) unless given
+  if (o.w == null && o.h == null && !o.spray && w > 0 && h > 0) {
+    const a = w / h;
+    const W = a >= 4 ? 1024 : 512;
+    o = a >= 1 ? { ...o, w: W, h: Math.max(48, Math.min(512, Math.round(W / a))) } : { ...o, w: Math.max(48, Math.round(512 * a)), h: 512 };
+  }
+  const key = 'sign:' + text + JSON.stringify(o);
+  let mat;
+  if (o.spray) {
+    mat = artMaterial(key, textTexture(text, o), 'decal');
+  } else {
+    const tex = textTexture(text, o);
+    mat = artMaterial(key, tex, 'sign', { transparent: !o.bg, glow: o.glow, roughness: o.bg ? 0.5 : 0.62, metalness: o.bg && !o.glow ? 0.15 : 0 });
+  }
   // Readable from both sides: a second quad turned around shows the texture
   // un-mirrored, so a sign reads correctly whichever way ry points (the side
   // against a wall is simply hidden by it).
@@ -325,8 +313,50 @@ export function sign(L, text, x, y, z, ry, w, h, o = {}) {
   }
   return m;
 }
-export function graffiti(L, text, x, y, z, ry, w = 2, h = 0.8, color = '#b8201a') {
-  return sign(L, text, x, y, z, ry, w, h, { fg: color, spray: true, font: 'Impact, Arial Black, sans-serif', w: 512, h: 200 });
+// Spray-painted text. The style is picked from the text unless o.style is given:
+// 'scrawl' (spray handwriting), 'drip', 'marker', 'chalk', 'tag', 'throwup',
+// 'piece', 'stencil'. o: {style, seed, hand, color2 (outline), fill2, drips}.
+// The quad is extended 25% downwards so paint drips have room to run.
+export function graffiti(L, text, x, y, z, ry, w = 2, h = 0.8, color = '#b8201a', o = {}) {
+  artScope(L);
+  const style = o.style ?? autoGraffitiStyle(text, color, o.seed ?? 0);
+  const drip = o.dripSpace ?? (style === 'stencil' ? 0.1 : 0.2);
+  const h2 = h / (1 - drip);
+  const key = `graf:${text}|${color}|${w.toFixed(2)}|${h2.toFixed(2)}|${style}|${JSON.stringify(o)}`;
+  const tex = artTexture(key, () => graffitiCanvas(text, { ...o, w, h: h2, color, style, dripSpace: drip }));
+  return artQuad(L, artMaterial(key, tex, 'decal'), x, y - (h2 - h) / 2, z, ry, w, h2);
+}
+export function stencil(L, text, x, y, z, ry, w = 1.6, h = 0.5, color = '#d8d8c8', o = {}) {
+  return graffiti(L, text, x, y, z, ry, w, h, color, { ...o, style: 'stencil' });
+}
+// Printed poster / flyer / notice. kind: 'movie' | 'concert' | 'airline' |
+// 'evac' | 'quarantine' | 'missing' | 'ad' | 'health' | 'flyer'.
+// o: {seed, title, brand:[name,slogan,bg,fg], lines:[4 flyer lines], wet, fade, torn (0..1), tape, staples, vandal}
+export function poster(L, kind, x, y, z, ry, w = 0.6, h = 0.9, o = {}) {
+  artScope(L);
+  const seed = o.seed ?? ((hashStr(kind) ^ Math.round(x * 131 + y * 17 + z * 71)) >>> 0);
+  const key = `poster:${kind}|${seed}|${w.toFixed(2)}|${h.toFixed(2)}|${JSON.stringify(o)}`;
+  const tex = artTexture(key, () => posterCanvas(kind, { ...o, w, h, seed }));
+  return artQuad(L, artMaterial(key, tex, 'paper', { roughness: kind === 'movie' || kind === 'airline' ? 0.55 : 0.85 }), x, y, z, ry, w, h);
+}
+// A patch of wall covered with overlapping posters, flyers and torn remnants
+// (one texture / draw call). o: {seed, kinds:[...], count}
+export function posterWall(L, x, y, z, ry, w = 2.4, h = 1.6, o = {}) {
+  artScope(L);
+  const seed = o.seed ?? ((Math.round(x * 131 + y * 17 + z * 71) ^ 0x9e37) >>> 0);
+  const key = `pwall:${seed}|${w.toFixed(2)}|${h.toFixed(2)}|${JSON.stringify(o)}`;
+  const tex = artTexture(key, () => posterWallCanvas({ ...o, w, h, seed }));
+  return artQuad(L, artMaterial(key, tex, 'decal', { roughness: 0.8 }), x, y, z, ry, w, h);
+}
+// Survivor wall: many handwritten lines (names, tallies, arrows, crossed-out
+// names, replies...) in different hands, tools and colours around the given
+// `lines`. o: {seed, lines:[...], density (filler amount, 0 = only lines), bigSize (cm)}
+export function wallMessages(L, x, y, z, ry, w = 1.6, h = 1.1, o = {}) {
+  artScope(L);
+  const seed = o.seed ?? ((Math.round(x * 131 + y * 17 + z * 71) ^ 0x51f1) >>> 0);
+  const key = `wmsg:${seed}|${w.toFixed(2)}|${h.toFixed(2)}|${JSON.stringify(o)}`;
+  const tex = artTexture(key, () => wallMessagesCanvas({ ...o, w, h, seed }));
+  return artQuad(L, artMaterial(key, tex, 'decal', { roughness: 0.6 }), x, y, z, ry, w, h);
 }
 
 // --------------------------------------------------------------- safe room --
@@ -345,20 +375,45 @@ export function safeRoom(L, o) {
   if (o.end) { L.endSafe = box; L.endDoor = door; }
   else L.startSafe = box;
   L.ambience(o.x0, y, o.z0, o.x1, y + h, o.z1, 'safe');
-  // "SAFE ROOM" stencil on the outside of the door wall
-  // graffiti messages inside
+  // Survivor wall art inside: handwritten message panels (the given
+  // graffiti lines + filler names, tallies, arrows...) and an official notice.
   const msgs = o.graffiti || [];
-  const cx = (o.x0 + o.x1) / 2, cz = (o.z0 + o.z1) / 2;
-  msgs.forEach((m, i) => {
-    const onWall = ['s', 'e', 'w', 'n'].filter((k) => k !== dw)[i % 3];
-    const colr = ['#b8201a', '#1a2a8a', '#202020', '#3a6a2a'][i % 4];
-    const off = ((i >> 2) - 0.5) * 1.2 + (rng() - 0.5) * 0.8;
-    const gy = y + 1.3 + (rng() - 0.5) * 0.6;
-    if (onWall === 's') graffiti(L, m, cx + off, gy, o.z1 - 0.11, Math.PI, 2.2, 0.8, colr);
-    else if (onWall === 'n') graffiti(L, m, cx + off, gy, o.z0 + 0.11, 0, 2.2, 0.8, colr);
-    else if (onWall === 'e') graffiti(L, m, o.x1 - 0.11, gy, cz + off, -Math.PI / 2, 2.2, 0.8, colr);
-    else graffiti(L, m, o.x0 + 0.11, gy, cz + off, Math.PI / 2, 2.2, 0.8, colr);
-  });
+  const opening = { n: [], s: [], e: [], w: [] };
+  opening[dw].push([o.doorAt - 0.85, o.doorAt + 0.85]);
+  if (o.extraOpen) for (const k in o.extraOpen) for (const op of o.extraOpen[k]) opening[k].push([op.at - (op.w ?? 1.1) / 2 - 0.2, op.at + (op.w ?? 1.1) / 2 + 0.2]);
+  const slots = [];
+  for (const k of ['s', 'e', 'w', 'n']) {
+    if (walls[k] === false) continue;
+    const [a0, a1] = k === 'n' || k === 's' ? [o.x0, o.x1] : [o.z0, o.z1];
+    const len = a1 - a0 - 0.6;
+    const n = Math.max(1, Math.min(2, Math.floor(len / 1.9)));
+    const pw = Math.min(1.7, len / n - 0.2);
+    for (let i = 0; i < n; i++) {
+      const c = a0 + 0.3 + (i + 0.5) * (len / n);
+      if (pw > 0.8 && !opening[k].some(([p, q]) => c + pw / 2 > p && c - pw / 2 < q)) slots.push({ k, c, pw });
+    }
+  }
+  const sr = rngOf(hashStr(`${o.x0},${o.z0},${o.x1},${o.z1},${y}`));
+  for (let i = slots.length - 1; i > 0; i--) { const j = Math.floor(sr() * (i + 1)); [slots[i], slots[j]] = [slots[j], slots[i]]; }
+  const nPanels = Math.min(slots.length, Math.max(3, Math.min(5, msgs.length + 1)));
+  const ph = Math.min(1.25, h - 1.45);
+  const place = (sl, fn) => {
+    const off = 0.11;
+    if (sl.k === 's') fn(sl.c, o.z1 - off, Math.PI);
+    else if (sl.k === 'n') fn(sl.c, o.z0 + off, 0);
+    else if (sl.k === 'e') fn(o.x1 - off, sl.c, -Math.PI / 2);
+    else fn(o.x0 + off, sl.c, Math.PI / 2);
+  };
+  for (let i = 0; i < nPanels; i++) {
+    const sl = slots[i];
+    const lines = msgs.filter((_, j) => j % nPanels === i);
+    const gy = y + 1.12 + ph / 2 + (sr() - 0.5) * 0.12;
+    place(sl, (px, pz, ry) => wallMessages(L, px, gy, pz, ry, sl.pw, ph, { seed: hashStr(`${o.x0},${o.z0},${i}`), lines, density: lines.length ? 0.9 : 1.2 }));
+  }
+  if (slots.length > nPanels && o.notice !== false) {
+    const sl = slots[nPanels];
+    place(sl, (px, pz, ry) => poster(L, sr() < 0.5 ? 'evac' : 'health', (sl.k === 'n' || sl.k === 's') ? px + (sr() - 0.5) * 0.4 : px, y + 1.6, (sl.k === 'e' || sl.k === 'w') ? pz + (sr() - 0.5) * 0.4 : pz, ry, 0.5, 0.72, { torn: 0.3, wet: 0.4 }));
+  }
   return { door, box };
 }
 

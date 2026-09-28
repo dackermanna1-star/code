@@ -10,6 +10,7 @@ import { F_SOLID, F_SHOOT, F_SIGHT, F_DEFAULT } from '../world/collision.js';
 import { DF } from '../render/decals.js';
 import { Helicopter } from './helicopter.js';
 import { makeRng } from '../core/math.js';
+import { scatterClutter, edgeGrime, ceilingPipes, cables } from './clutter.js';
 
 const F0 = 0, F1 = 3.6, F2 = 7.2, F3 = 10.8, ROOF = 14.4;
 const rng = makeRng(101);
@@ -551,6 +552,54 @@ export default {
     sign(L, 'MERCY', -110, 100, -289.6, 0, 26, 7, { fg: '#ff3a2a', glow: 3, lightColor: 0xff3020, lightIntensity: 20 });
     // kill volume below the world
     L.killZone(-200, -60, -400, 300, -30, 200);
+
+    // ================================================================ clutter & detail (visual only)
+    // roof: wind-blown leaves, papers, grit against the parapets
+    scatterClutter(L, [0.6, ROOF, 0.6, 31.4, ROOF + 1.6, 19.4], { kinds: ['leaves', 'papers', 'trash', 'cans', 'rubble', 'grime'], density: 0.55, alongWalls: 0.7, seed: 11 });
+    scatterClutter(L, [12, ROOF, 8, 20, ROOF + 1.6, 11.5], { kinds: ['casings', 'cans', 'papers'], density: 1.2, seed: 12 });
+    // apartment floors: corridors (debris, blood, spent shells) and flats (papers, bottles, glass)
+    for (const [fy, sd] of [[F3, 20], [F2, 30]]) {
+      scatterClutter(L, [0.4, fy, 9.45, 28, fy + 1.4, 11.35], { kinds: ['papers', 'trash', 'rubble', 'casings', 'bloodtrail', 'glass'], density: 1.4, alongWalls: 0.7, seed: sd });
+      scatterClutter(L, [0.4, fy, 0.4, 24.3, fy + 1.3, 9.35], { kinds: ['papers', 'trash', 'bottles', 'cans', 'glass', 'newspapers'], density: 0.7, alongWalls: 0.6, seed: sd + 1 });
+      scatterClutter(L, [0.4, fy, 11.45, 31.6, fy + 1.3, 19.6], { kinds: ['papers', 'trash', 'bottles', 'cans', 'glass', 'bloodtrail'], density: 0.7, alongWalls: 0.6, seed: sd + 2 });
+      edgeGrime(L, 0.4, 9.4, 28, 11.4, fy, { strength: 0.75 });
+    }
+    scatterClutter(L, [21.2, F3, 11.4, 31.6, F3 + 1.3, 19.6], { kinds: ['soot', 'rubble', 'glass'], density: 1.2, seed: 25 });
+    scatterClutter(L, [24.5, F0, 0.3, 31.5, F0 + 1.2, 3.4], { kinds: ['casings', 'rubble', 'papers', 'bloodtrail'], density: 1.2, alongWalls: 0.6, seed: 26 });
+    // lobby + laundry
+    scatterClutter(L, [8.2, 0, 9.8, 31.6, 1.5, 19.6], { kinds: ['papers', 'newspapers', 'glass', 'trash', 'bloodtrail', 'casings'], density: 0.9, alongWalls: 0.6, seed: 31 });
+    scatterClutter(L, [0.5, 0, 9.7, 7.8, 1.2, 19.5], { kinds: ['papers', 'trash', 'water', 'grime'], density: 0.8, alongWalls: 0.7, seed: 32 });
+    edgeGrime(L, 8.2, 9.6, 31.6, 19.6, 0, { strength: 0.6 });
+    edgeGrime(L, 0.5, 9.6, 7.9, 19.5, 0, { strength: 0.8 });
+    // Hawthorne Ave: litter along the facades, gutters full of leaves and trash, glass by the wrecks
+    scatterClutter(L, [-30, 0, 20.2, 70, 1.6, 36.8], { kinds: ['papers', 'newspapers', 'trash', 'cans', 'bottles', 'leaves', 'glass', 'rubble', 'oil'], density: 0.45, alongWalls: 0.55, seed: 41 });
+    for (const [z0, z1] of [[23.0, 23.9], [33.1, 34.0]]) scatterClutter(L, [-30, 0, z0, 70, 1.0, z1], { kinds: ['leaves', 'papers', 'trash', 'cans'], density: 1.6, seed: 42 + z0 });
+    scatterClutter(L, [60, 0, 20.5, 70.4, 1.5, 36.5], { kinds: ['casings', 'bloodtrail', 'papers', 'rubble'], density: 0.9, seed: 44 });
+    for (const [x, z] of [[24, 26.5], [103, 20], [46, 31.8]]) scatterClutter(L, [x - 3, 0, z - 3.5, x + 3, 1.2, z + 3.5], { kinds: ['glass', 'rubble', 'soot'], density: 1.1, seed: 45 + x });
+    scatterClutter(L, [32.2, 0.15, 0.2, 37.8, 1.4, 19.8], { kinds: ['trash', 'papers', 'cans', 'bottles', 'water', 'oil'], density: 1.4, alongWalls: 0.7, seed: 46 });
+    // pharmacy: spilled stock, papers, glass from the smashed window
+    scatterClutter(L, [34.2, 0.15, 37.2, 47.8, 1.4, 46.8], { kinds: ['papers', 'trash', 'glass', 'bottles', 'bloodtrail'], density: 1.2, alongWalls: 0.5, seed: 51 });
+    scatterClutter(L, [34.5, 0.15, 37.2, 40, 1.2, 39], { kinds: ['glass'], density: 3, seed: 52 });
+    edgeGrime(L, 34.2, 37.2, 47.8, 46.8, 0.15, { strength: 0.55 });
+    // back alley: the dirtiest place in town
+    scatterClutter(L, [34.2, 0.15, 47.2, 95.8, 1.5, 54.7], { kinds: ['trash', 'papers', 'cans', 'bottles', 'leaves', 'rubble', 'water', 'oil', 'newspapers'], density: 1.3, alongWalls: 0.75, seed: 61 });
+    edgeGrime(L, 34.2, 47.2, 95.8, 54.8, 0.15, { strength: 0.9, width: 0.6 });
+    // Grand Street + subway concourse
+    scatterClutter(L, [96.2, 0, -19.8, 113.8, 1.6, 54.8], { kinds: ['papers', 'newspapers', 'trash', 'cans', 'leaves', 'glass', 'rubble'], density: 0.45, alongWalls: 0.55, avoid: [[101.2, 2.8, 106.8, 13]], seed: 71 });
+    scatterClutter(L, [86.3, SY, -31.8, 112.8, SY + 1.5, -3.2], { kinds: ['papers', 'newspapers', 'trash', 'cans', 'casings', 'bloodtrail', 'water'], density: 0.8, alongWalls: 0.5, avoid: [[99.6, -32, 110.4, -23.6]], seed: 72 });
+    edgeGrime(L, 86, -32, 113, -3, SY, { strength: 0.7 });
+    ceilingPipes(L, 86.5, -4.2, 112.5, -4.2, SY + 4, { n: 3, seed: 73 });
+    ceilingPipes(L, 86.5, -30.5, 99, -30.5, SY + 4, { n: 2, seed: 74 });
+    // overhead utility wires across Hawthorne Ave and along the alley
+    for (const x of [-12, 12, 38, 58]) cables(L, [x, 7.4, 20.3], [x + 1.5, 7.0, 36.8], 0.9, 0.014);
+    cables(L, [34, 8.5, 47.3], [95, 8.2, 47.3], 1.6, 0.012, 'rubber', 16);
+    cables(L, [34, 9.2, 54.7], [95, 9.4, 54.7], 1.8, 0.012, 'rubber', 16);
+    // extra street furniture on the quiet ends of the avenue (off the route)
+    for (const x of [-24, -20, -16, 2, 6]) P.parkingMeter(L, x, 0.15, 34.4, Math.PI);
+    P.phoneBooth(L, -4, 0.15, 36.3, Math.PI);
+    P.busStop(L, 8, 0.15, 21.2, Math.PI, 3.2);
+    for (const [x, z] of [[43.2, 27.1], [44.6, 29.9], [70, 23], [69.6, 34.8]]) P.trafficCone(L, x, 0, z);
+    P.concreteBarrier(L, 66.5, 0, 25, Math.PI / 2 + 0.1, 2.4);
 
     // ================================================================ script
     const heli = new Helicopter(game, { color: 0x2a3a5a, stripe: 0xe0e0d8 });

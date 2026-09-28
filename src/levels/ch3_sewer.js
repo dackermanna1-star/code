@@ -18,6 +18,7 @@ import { makeRng, damp } from '../core/math.js';
 import * as C from './ch3_props.js';
 import { buildGasStation, buildTanker } from './ch3_gas.js';
 import { buildLift } from './ch3_lift.js';
+import { autoClutter } from './clutter.js';
 
 const rng = makeRng(3301);
 const SW = 0.15; // sidewalk / shop floor height
@@ -1257,6 +1258,9 @@ export default {
     facade(L, 150, -40, 200, 100, 0, 30, { mat: 'concrete', faces: ['w'], lit: 0.05 });
     facade(L, -20, 146, 50, 240, 0, 22, { mat: 'brickDark', faces: ['e', 'n'], lit: 0.04 });
     L.killZone(-200, -60, -200, 400, -25, 400);
+    // clutter & detail (visual only): streets / lots / warehouse above, sewer below
+    autoClutter(L, { theme: 'city', density: 1.0, seed: 303, yMin: -1.5, grime: 0.5 });
+    autoClutter(L, { theme: 'sewer', density: 1.4, seed: 304, yMax: -1.5, grime: 0.8 });
 
     // water for footsteps
     L.waterY = YW;

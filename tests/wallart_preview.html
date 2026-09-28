@@ -1,0 +1,31 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>wall art preview</title>
+<style>body{margin:0;background:#6a6660;font:10px sans-serif;color:#fff}.g{display:flex;flex-wrap:wrap;gap:6px;padding:6px}.c{background:#8a847a url() ;padding:2px}canvas{display:block;max-width:600px}</style></head>
+<body><div class="g" id="g"></div>
+<script type="module">
+import * as W from '/src/render/wallart.js';
+const g = document.getElementById('g');
+window.__times = [];
+const T = (label, fn) => { const t0 = performance.now(); const c = fn(); window.__times.push([label, +(performance.now() - t0).toFixed(1)]); return c; };
+const add = (c, label, bg = '#8f8a80') => { const d = document.createElement('div'); d.className = 'c'; d.style.background = bg; d.appendChild(c); const l = document.createElement('div'); l.textContent = label; d.appendChild(l); g.appendChild(d); };
+const set = new URLSearchParams(location.search).get('set') || 'graffiti';
+window.__done = false;
+if (set === 'graffiti') {
+  const items = [['THEY HEAR\nEVERYTHING', '#8a1a14', 'scrawl'], ['GO TO\nMERCY', '#c8c8c0', 'scrawl'], ['DOWN ↓', '#d8d8c8', null], ['NO MORE\nPILLS', '#1a1a8a', null], ['KESS', '#e0a010', 'tag'], ['ROT', '#c41e16', 'throwup'], ['NOVA', '#18a0a8', 'piece'], ['SAFE ROOM →', '#d8d8c8', 'stencil'], ['DONT GO\nTOWARD THE\nCRYING', '#b8201a', 'drip'], ['WALLS ARE\nPAPER THIN', '#202020', 'marker'], ['CALL THEM\nON CH 9', '#e0e0d0', 'chalk'], ['CEDA LIES', '#141414', 'stencil']];
+  for (const [t, c, st] of items) add(T('graf ' + (st || 'auto'), () => W.graffitiCanvas(t, { w: 2, h: 1.0, color: c, style: st ?? undefined, dripSpace: 0.2 })), `${st || 'auto:' + W.autoGraffitiStyle(t, c, 0)} ${t.replace(/\n/g, ' ')}`);
+} else if (set === 'walls') {
+  add(T('wall1', () => W.wallMessagesCanvas({ w: 1.7, h: 1.25, seed: 3, lines: ['ROOF.\nCHOPPER.\nHOPE.', 'THEY CLIMB\nTHE WALLS'] })), 'wall 1', '#9fae96');
+  add(W.wallMessagesCanvas({ w: 1.7, h: 1.25, seed: 9, lines: ['SAVE A\nSEAT FOR ME'] }), 'wall 2', '#c9d3cf');
+  add(W.wallMessagesCanvas({ w: 1.5, h: 1.2, seed: 21, lines: [] , density: 1.3 }), 'wall 3', '#cfd2c8');
+} else if (set === 'posters') {
+  for (const k of W.POSTER_KINDS) add(T('poster ' + k, () => W.posterCanvas(k, { w: k === 'flyer' || k === 'missing' ? 0.3 : 0.6, h: k === 'flyer' || k === 'missing' ? 0.42 : 0.9, seed: 5 })), k);
+  add(W.posterCanvas('airline', { w: 1.2, h: 0.8, seed: 2, title: 'SKYLINE AIR' }), 'airline wide');
+} else if (set === 'pwall') {
+  add(T('pwall', () => W.posterWallCanvas({ w: 2.4, h: 1.6, seed: 4 })), 'poster wall', '#7a3a2a');
+  add(W.posterWallCanvas({ w: 1.6, h: 1.2, seed: 11, kinds: ['flyer', 'missing', 'evac'] }), 'flyer wall', '#8a8782');
+} else if (set === 'signs') {
+  const S = [['EXIT', { bg: '#0a2a0a', fg: '#3aff5a', glow: 1.5 }], ['HAWTHORNE AV', { bg: '#1a5a2a', fg: '#fff', border: '#fff' }], ['QUARANTINE ZONE\nNO ENTRY', { bg: '#d8c030', fg: '#101010', border: '#101010' }], ['PHARMACY', { fg: '#40ff70', glow: 2.2 }], ['THE ROSEWOOD', { fg: '#d8c890', font: 'Georgia, serif' }], ['OUT OF\nORDER', { bg: '#e8e0c8', fg: '#8a1010' }], ['BURGER BARN', { bg: '#7a1410', fg: '#ffd040', border: '#ffd040', glow: 1.3 }], ['LIQUOR', { fg: '#ff4aa0', glow: 1.6 }], ['MERCY HOSPITAL', { bg: '#16202a', fg: '#eef2f0', font: 'Georgia, serif', glow: 1.1 }], ['SAFE ROOM', { bg: '#8a1a14', fg: '#fff' }], ['DANGER\nHIGH VOLTAGE', { bg: '#d8c030', fg: '#101010', border: '#101010' }], ['WE BUY GOLD', { fg: '#ffd040', glow: 2.0 }]];
+  for (const [t, o] of S) add(T('sign', () => W.signCanvas(t, o)), t.replace(/\n/g, ' '), '#555');
+}
+window.__done = true;
+</script></body></html>

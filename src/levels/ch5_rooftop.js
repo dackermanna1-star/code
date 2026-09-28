@@ -12,6 +12,7 @@ import { DF } from '../render/decals.js';
 import { Helicopter } from './helicopter.js';
 import { MountedGun } from '../combat/mounted.js';
 import { makeRng } from '../core/math.js';
+import { autoClutter, scatterClutter } from './clutter.js';
 
 const rng = makeRng(505);
 const R = 32; // half size of the roof
@@ -171,8 +172,12 @@ export default {
     for (const [x, z] of [[-24, 0], [0, 24], [26, 10], [-6, -6]]) {
       L.box(x - 0.05, 0, z - 0.05, x + 0.05, 3, z + 0.05, 'metalDark', { collide: false });
       L.box(x - 0.3, 3, z - 0.15, x + 0.3, 3.35, z + 0.15, 'emissiveWarm', { collide: false });
-      L.light(x, 2.8, z, 0xfff0d0, 16, 16, { flicker: rng() < 0.3 ? 0.4 : 0 });
+      const lt = L.light(x, 2.8, z, 0xfff0d0, 16, 16, { flicker: rng() < 0.3 ? 0.4 : 0 });
+      P.lightCone(L, x, 2.98, z, [0, -1, 0], 3.0, 2.6, 0xfff0d0, lt, 0.7);
     }
+    // clutter & detail (visual only)
+    autoClutter(L, { theme: 'rooftop', density: 1.3, seed: 505, grime: 0.4 });
+    scatterClutter(L, [-17, 0, -3, -7, 1.4, 4], { kinds: ['casings', 'papers', 'cans', 'bloodtrail'], density: 1.5, seed: 506 });
     // service bulkhead (second stairwell) where infected burst out
     const bx0 = -27, bx1 = -20, bz0 = -6, bz1 = 1;
     L.box(bx0, 0, bz0, bx1, 3.2, bz0 + 0.3, 'brick');

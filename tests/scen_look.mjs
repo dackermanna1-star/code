@@ -26,6 +26,8 @@ export default async ({ page, evalg, wait, shot }) => {
         g.survivors.forEach((s, i) => { if (s !== g.player) s.teleport(nav.nodeX(best) - Math.sin(yaw) * (2 + i) + (i - 2) * 0.8, nav.nodeY[best], nav.nodeZ(best) - Math.cos(yaw) * (2 + i), yaw); });
         g.advance(0.6);
         g.hud?.clearTransient?.();
+        if (g.hud?.title) { g.hud.title.style.opacity = 0; g.hud.titleT = 0; }
+        document.querySelectorAll('.subline').forEach((e) => e.remove());
         return { ch: window.session.chapterIdx, p: w, x: +nav.nodeX(best).toFixed(1), y: +nav.nodeY[best].toFixed(1), z: +nav.nodeZ(best).toFixed(1), yaw: +yaw.toFixed(2), errs: g.errCount || 0 };
       }, pts[k]);
       console.log('SPOT', JSON.stringify(info));

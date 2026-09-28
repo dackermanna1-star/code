@@ -19,7 +19,9 @@ export default async ({ page, evalg, wait, shot }) => {
     g.hud?.show?.(false); if (g.renderer?.vmPass) g.renderer.vmPass.enabled = false;
     return { loadMs: Math.round(g.loadMs), tex: window.__texStats ? { ...window.__texStats } : null, calls: g.renderer?.r?.info?.render?.calls };
   });
+  for (let i = 0; i < 60; i++) { const pend = await evalg(() => window.__texStats?.pending ?? 0); if (!pend) break; await wait(500); }
   console.log('LOAD', JSON.stringify(info));
+  console.log('TEX', JSON.stringify(await evalg(() => { const t = window.__texStats; return t && { mainMs: Math.round(t.ms), workerMs: Math.round(t.workerMs || 0), count: t.count, pending: t.pending }; })));
   const pre = process.env.PREFIX || 'surf';
   const spots = process.env.SPOTS ? JSON.parse(process.env.SPOTS) : DEFAULT[ch] || [];
   for (const [name, x, y, z, yaw, pitch] of spots) {

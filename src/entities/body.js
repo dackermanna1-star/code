@@ -499,3 +499,82 @@ export function partMatrix(body, partIndex, out, widthScale = 1, lenOverride = 0
   out[12] = ax; out[13] = ay; out[14] = az; out[15] = 1;
   return out;
 }
+
+// Foot frame: origin at the ankle, Y blended from the shin direction towards
+// world up (feet stay flat while standing), X = body right, scaled by body.scale.
+export function footMatrix(body, side, out) {
+  const j = body.j;
+  const kn = side === 0 ? J.LKN : J.RKN, ft = side === 0 ? J.LFT : J.RFT;
+  let yx = j[kn * 3] - j[ft * 3], yy = j[kn * 3 + 1] - j[ft * 3 + 1], yz = j[kn * 3 + 2] - j[ft * 3 + 2];
+  const yl = Math.sqrt(yx * yx + yy * yy + yz * yz) || 1;
+  yx /= yl; yy /= yl; yz /= yl;
+  if (!body.ragdoll) { yx *= 0.3; yz *= 0.3; yy = 1; const l = Math.sqrt(yx * yx + yy * yy + yz * yz); yx /= l; yy /= l; yz /= l; }
+  let xx = body.right[0], xy = body.right[1], xz = body.right[2];
+  const d = xx * yx + xy * yy + xz * yz;
+  xx -= yx * d; xy -= yy * d; xz -= yz * d;
+  const xl = Math.sqrt(xx * xx + xy * xy + xz * xz) || 1;
+  xx /= xl; xy /= xl; xz /= xl;
+  const zx = xy * yz - xz * yy, zy = xz * yx - xx * yz, zz = xx * yy - xy * yx;
+  const s = body.scale;
+  out[0] = xx * s; out[1] = xy * s; out[2] = xz * s; out[3] = 0;
+  out[4] = yx * s; out[5] = yy * s; out[6] = yz * s; out[7] = 0;
+  out[8] = zx * s; out[9] = zy * s; out[10] = zz * s; out[11] = 0;
+  out[12] = j[ft * 3]; out[13] = j[ft * 3 + 1]; out[14] = j[ft * 3 + 2]; out[15] = 1;
+  return out;
+}
+
+// Skinning bones: the 10 body parts (PARTS order) followed by the two feet.
+export const NBONES = 12;
+// Write all 12 bone frames (4x4 column-major, 16 floats each) into out.
+// Severed parts (and feet of severed shins) collapse to their root joint so
+// blended joint vertices form a stump.
+const _bm = new Float32Array(16);
+export function boneMatrices(body, out, o = 0) {
+  const sev = body.severed;
+  for (let p = 0; p < 10; p++) {
+    const k = o + p * 16;
+    if (sev & (1 << p)) { collapse(out, k, body, PARTS[p][1]); continue; }
+    partMatrix(body, p, _bm);
+    for (let q = 0; q < 16; q++) out[k + q] = _bm[q];
+  }
+  for (let side = 0; side < 2; side++) {
+    const k = o + (10 + side) * 16;
+    const shin = side === 0 ? 7 : 9;
+    if (sev & (1 << shin)) { collapse(out, k, body, side === 0 ? J.LKN : J.RKN); continue; }
+    footMatrix(body, side, _bm);
+    for (let q = 0; q < 16; q++) out[k + q] = _bm[q];
+  }
+  return out;
+}
+function collapse(out, k, body, joint) {
+  for (let q = 0; q < 16; q++) out[k + q] = 0;
+  out[k + 12] = body.j[joint * 3]; out[k + 13] = body.j[joint * 3 + 1]; out[k + 14] = body.j[joint * 3 + 2]; out[k + 15] = 1;
+}
+
+// Rest pose used to author skinned character meshes (scale 1, build 1):
+// standing straight, arms hanging slightly away from the body.
+export function bindPoseBody() {
+  const b = new Body(1, 1);
+  const P = PROPS;
+  const s = (jn, x, y, z) => b.setJoint(jn, x, y, z);
+  s(J.PELVIS, 0, P.hip, 0);
+  s(J.CHEST, 0, P.chest, 0);
+  s(J.HEAD, 0, P.head, 0);
+  const shY = P.chest - 0.04;
+  const ang = 0.16;
+  for (const sg of [-1, 1]) {
+    const sh = sg < 0 ? J.LSH : J.RSH, el = sg < 0 ? J.LEL : J.REL, ha = sg < 0 ? J.LHA : J.RHA;
+    const x0 = sg * P.shW;
+    s(sh, x0, shY, 0.02);
+    s(el, x0 + sg * Math.sin(ang) * P.uarm, shY - Math.cos(ang) * P.uarm, 0.02);
+    s(ha, x0 + sg * Math.sin(ang) * (P.uarm + P.farm), shY - Math.cos(ang) * (P.uarm + P.farm), 0.02);
+    const hip = sg < 0 ? J.LHIP : J.RHIP, kn = sg < 0 ? J.LKN : J.RKN, ft = sg < 0 ? J.LFT : J.RFT;
+    const hx = sg * P.hipW, hy = P.hip - 0.03;
+    s(hip, hx, hy, 0);
+    s(kn, hx + sg * 0.004, hy - P.thigh, 0);
+    s(ft, hx + sg * 0.008, hy - P.thigh - P.shin, 0);
+  }
+  b.right[0] = 1; b.right[1] = 0; b.right[2] = 0;
+  b.fwd[0] = 0; b.fwd[1] = 0; b.fwd[2] = -1;
+  return b;
+}
