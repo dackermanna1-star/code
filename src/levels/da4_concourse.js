@@ -76,7 +76,7 @@ function shell(L, game, S) {
   // solid mass under the departure level (no nav, no spawns) + apron-side base wall
   L.box(X0, 0, Z0, X1, YD - 0.3, Z1, 'concrete', { visible: false, flags: MASS });
   L.box(X0 - 0.3, 0, Z0 - 0.3, X1, YD - 0.3, Z0, 'concreteDark', { tint: 0x7a766e });
-  L.box(X0 - 0.3, YD - 0.3, Z0 - 0.5, X1, YD + 0.02, Z0 - 0.14, 'metalDark', { tint: 0x2a2c30 });
+  L.box(X0 - 0.3, YD - 0.3, Z0 - 0.5, X1, YD + 0.02, Z0 - 0.14, 'metalDark', { tint: 0x2a2c30, flags: MASS });   // outside ledge: no nav (else drop links over the glass)
   // apron glass (the safe room has its own wall; glass continues above it)
   const doors = Object.values(GATES).map((gx) => [gx - 0.75, gx + 0.75, 2.3]);
   facadeGlass(L, SAFE.x1, X1, Z0, YD, TOP, doors);

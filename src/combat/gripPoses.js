@@ -41,8 +41,7 @@ function ptTri2(px, py, pz, T, o) {
   const qx = apx - abx * v - acx * w, qy = apy - aby * v - acy * w, qz = apz - abz * v - acz * w;
   return qx * qx + qy * qy + qz * qz;
 }
-const CELL = 0.01;
-const key = (i, j, k) => ((i + 1024) * 2048 + (j + 1024)) * 2048 + (k + 1024);
+const CELL = 0.006;
 export class Collider {
   constructor() { this.T = []; this.caps = []; this.map = null; this.stamp = null; this.gen = 0; }
   // add every visible mesh under `obj`; triangles are expressed in `frame`
@@ -73,41 +72,63 @@ export class Collider {
   addCapsule(a, b, r) { this.caps.push([a.x, a.y, a.z, b.x, b.y, b.z, r]); }
   clearCapsules() { this.caps.length = 0; }
   build() {
-    const T = this.T, map = new Map();
-    this.Tf = Float32Array.from(T);
-    const nt = T.length / 9;
+    // dense grid (CSR) over the triangles' bounds; per-triangle AABBs for quick rejects
+    const T = this.T, nt = T.length / 9;
+    const Tf = this.Tf = Float32Array.from(T);
+    const B = this.B = new Float32Array(nt * 6);
+    let mnx = 1e9, mny = 1e9, mnz = 1e9, mxx = -1e9, mxy = -1e9, mxz = -1e9;
     for (let t = 0; t < nt; t++) {
       const o = t * 9;
-      const x0 = Math.floor(Math.min(T[o], T[o + 3], T[o + 6]) / CELL), x1 = Math.floor(Math.max(T[o], T[o + 3], T[o + 6]) / CELL);
-      const y0 = Math.floor(Math.min(T[o + 1], T[o + 4], T[o + 7]) / CELL), y1 = Math.floor(Math.max(T[o + 1], T[o + 4], T[o + 7]) / CELL);
-      const z0 = Math.floor(Math.min(T[o + 2], T[o + 5], T[o + 8]) / CELL), z1 = Math.floor(Math.max(T[o + 2], T[o + 5], T[o + 8]) / CELL);
-      for (let i = x0; i <= x1; i++) for (let j = y0; j <= y1; j++) for (let k = z0; k <= z1; k++) {
-        const kk = key(i, j, k);
-        let l = map.get(kk); if (!l) { l = []; map.set(kk, l); }
-        l.push(o);
-      }
+      const x0 = Math.min(Tf[o], Tf[o + 3], Tf[o + 6]), x1 = Math.max(Tf[o], Tf[o + 3], Tf[o + 6]);
+      const y0 = Math.min(Tf[o + 1], Tf[o + 4], Tf[o + 7]), y1 = Math.max(Tf[o + 1], Tf[o + 4], Tf[o + 7]);
+      const z0 = Math.min(Tf[o + 2], Tf[o + 5], Tf[o + 8]), z1 = Math.max(Tf[o + 2], Tf[o + 5], Tf[o + 8]);
+      B.set([x0, y0, z0, x1, y1, z1], t * 6);
+      if (x0 < mnx) mnx = x0; if (y0 < mny) mny = y0; if (z0 < mnz) mnz = z0;
+      if (x1 > mxx) mxx = x1; if (y1 > mxy) mxy = y1; if (z1 > mxz) mxz = z1;
     }
-    this.map = map;
+    if (!nt) { mnx = mny = mnz = 0; mxx = mxy = mxz = 0.01; }
+    const C = CELL;
+    this.o = [mnx - C, mny - C, mnz - C];
+    const n = this.n = [Math.ceil((mxx - mnx) / C) + 3, Math.ceil((mxy - mny) / C) + 3, Math.ceil((mxz - mnz) / C) + 3];
+    const cellOf = (v, a) => Math.min(n[a] - 1, Math.max(0, Math.floor((v - this.o[a]) / C)));
+    const count = new Int32Array(n[0] * n[1] * n[2] + 1);
+    const each = (t, fn) => {
+      const i0 = cellOf(B[t * 6], 0), i1 = cellOf(B[t * 6 + 3], 0), j0 = cellOf(B[t * 6 + 1], 1), j1 = cellOf(B[t * 6 + 4], 1), k0 = cellOf(B[t * 6 + 2], 2), k1 = cellOf(B[t * 6 + 5], 2);
+      for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) for (let k = k0; k <= k1; k++) fn(i + n[0] * (j + n[1] * k));
+    };
+    for (let t = 0; t < nt; t++) each(t, (c) => count[c + 1]++);
+    for (let c = 1; c < count.length; c++) count[c] += count[c - 1];
+    const fill = count.slice(0, -1), list = new Int32Array(count[count.length - 1]);
+    for (let t = 0; t < nt; t++) each(t, (c) => { list[fill[c]++] = t; });
+    this.start = count; this.list = list;
     this.stamp = new Uint32Array(nt);
+    this.map = true;
     return this;
   }
-  // distance from a point to the nearest surface (searches `reach` around it)
-  dist(x, y, z, reach = 0.012) {
+  // distance from a point to the nearest surface (searches `reach` around it);
+  // with `stopBelow`, returns as soon as something closer than that is found
+  dist(x, y, z, reach = 0.012, stopBelow = -1) {
     if (!this.map) this.build();
     let best = reach * reach;
-    const T = this.Tf, st = this.stamp, g = ++this.gen;
-    const i0 = Math.floor((x - reach) / CELL), i1 = Math.floor((x + reach) / CELL);
-    const j0 = Math.floor((y - reach) / CELL), j1 = Math.floor((y + reach) / CELL);
-    const k0 = Math.floor((z - reach) / CELL), k1 = Math.floor((z + reach) / CELL);
-    for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) for (let k = k0; k <= k1; k++) {
-      const l = this.map.get(key(i, j, k));
-      if (!l) continue;
-      for (let n = 0; n < l.length; n++) {
-        const o = l[n], t = o / 9;
+    const stop = stopBelow > 0 ? stopBelow * stopBelow : -1;
+    const T = this.Tf, Bx = this.B, st = this.stamp, g = ++this.gen, n = this.n, o = this.o, C = CELL;
+    const i0 = Math.max(0, Math.floor((x - reach - o[0]) / C)), i1 = Math.min(n[0] - 1, Math.floor((x + reach - o[0]) / C));
+    const j0 = Math.max(0, Math.floor((y - reach - o[1]) / C)), j1 = Math.min(n[1] - 1, Math.floor((y + reach - o[1]) / C));
+    const k0 = Math.max(0, Math.floor((z - reach - o[2]) / C)), k1 = Math.min(n[2] - 1, Math.floor((z + reach - o[2]) / C));
+    outer: for (let k = k0; k <= k1; k++) for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const c = i + n[0] * (j + n[1] * k);
+      for (let m = this.start[c], e = this.start[c + 1]; m < e; m++) {
+        const t = this.list[m];
         if (st[t] === g) continue;
         st[t] = g;
-        const d = ptTri2(x, y, z, T, o);
-        if (d < best) best = d;
+        // AABB reject
+        const b = t * 6;
+        const dx = x < Bx[b] ? Bx[b] - x : x > Bx[b + 3] ? x - Bx[b + 3] : 0;
+        const dy = y < Bx[b + 1] ? Bx[b + 1] - y : y > Bx[b + 4] ? y - Bx[b + 4] : 0;
+        const dz = z < Bx[b + 2] ? Bx[b + 2] - z : z > Bx[b + 5] ? z - Bx[b + 5] : 0;
+        if (dx * dx + dy * dy + dz * dz >= best) continue;
+        const d = ptTri2(x, y, z, T, t * 9);
+        if (d < best) { best = d; if (d < stop) break outer; }
       }
     }
     let d = Math.sqrt(best);
@@ -120,6 +141,7 @@ export class Collider {
     }
     return d;
   }
+  hit(x, y, z, r) { return this.dist(x, y, z, r + 0.0005, r) < r; }
 }
 
 // ------------------------------------------------------ forward kinematics --
@@ -182,7 +204,7 @@ function chainHit(fk, col, c, from = 0, sq = SQ) {
       const f = s / n;
       _p.copy(J[i]).lerp(J[i + 1], f);
       const r = (C.r[i] + (C.r[i + 1] - C.r[i]) * f) * S * sq * (C.thumb ? 0.95 : 0.93);
-      if (col.dist(_p.x, _p.y, _p.z, r + 0.001) < r) return i;
+      if (col.hit(_p.x, _p.y, _p.z, r)) return i;
     }
   }
   return -1;
@@ -212,7 +234,7 @@ const lim = (i, v) => (v < LIM_LO[i] ? LIM_LO[i] : v > LIM_HI[i] ? LIM_HI[i] : v
 function pushOut(fk, col, c, idx, o = {}) {
   const pose = fk.pose, base = idx.map((i) => pose[i]);
   let d = chainDepth(fk, col, c, 0, SQ, o.skipDistal);
-  for (let it = 0; it < 60 && d < 0; it++) {
+  for (let it = 0; it < 36 && d < 0; it++) {
     let best = null;
     for (let k = 0; k < idx.length; k++) for (const sg of [-1, 1]) {
       const v0 = pose[idx[k]];
@@ -239,7 +261,7 @@ function palmHit(fk, col) {
   for (const p of PALM_PTS) {
     if (p[2] < -0.012) fk.cupPoint(p[0], p[1], p[2], _p); else fk.handPoint(p[0], p[1], p[2], _p);
     const r = 0.0085 * fk.S;
-    if (col.dist(_p.x, _p.y, _p.z, r + 0.001) < r) return true;
+    if (col.hit(_p.x, _p.y, _p.z, r)) return true;
   }
   return false;
 }
@@ -367,15 +389,16 @@ function triggerIK(fk, col, target, o = {}) {
     fk.chain(1);
     fk.local(1, 2, -C.r[2] * 0.72 * S, C.len[2] * 0.52 * S, 0, pad);
     let e = pad.distanceTo(target);
+    if (best && e >= best.e) return e; // cannot win: skip the collision tests
     if (e < 0.03) {
       if (chainHit(fk, col, 1, 0, 0.8) === 0) e += 0.02;
       const h = chainHit(fk, col, 1, 1, 0.8); if (h === 1) e += 0.01;
     } else e += 0.05;
     return e;
   };
-  for (let sp = sp0 - 0.12; sp <= sp0 + 0.121; sp += 0.06)
-    for (let m = 0; m <= 1.2; m += 0.06)
-      for (let p = 0.2; p <= 1.7; p += 0.07) {
+  for (let sp = sp0 - 0.1; sp <= sp0 + 0.101; sp += 0.1)
+    for (let m = 0; m <= 1.2; m += 0.08)
+      for (let p = 0.2; p <= 1.7; p += 0.08) {
         const d = p * 0.45 + 0.05;
         const e = evalAt(sp, m, p, d);
         if (!best || e < best.e) best = { e, v: [sp, m, p, d] };
@@ -404,19 +427,21 @@ function thumbIK(fk, col, target, o = {}) {
   const pose = fk.pose, T = P_T;
   const base = [pose[T], pose[T + 1], pose[T + 2], pose[T + 3], pose[T + 4]];
   const v = base.slice();
+  let best = null;
   const evalAt = (w) => {
     for (let i = 0; i < 5; i++) pose[T + i] = w[i] = lim(T + i, w[i]);
     fk.chain(0);
-    let e = fk.jp[0][3].distanceTo(target);
+    let e = fk.jp[0][3].distanceTo(target) + (o.bend ?? 0.009) * (w[3] * w[3] + w[4] * w[4]) + 0.004 * Math.abs(w[2] - base[2]) + 0.002 * Math.max(0, -w[0]);
+    if (best && e >= best.e) return e; // cannot win: skip the collision test
     const d = chainDepth(fk, col, 0, 1, SQ);
     if (d < 0) e += -d * 4 + 0.004;
-    return e + (o.bend ?? 0.009) * (w[3] * w[3] + w[4] * w[4]) + 0.004 * Math.abs(w[2] - base[2]) + 0.002 * Math.max(0, -w[0]);
+    return e;
   };
-  let best = { e: evalAt(v), w: v.slice() };
-  for (let f = -0.5; f <= 1.21; f += 0.1)
-    for (let a = -0.5; a <= 1.21; a += 0.1)
-      for (const m of [0.05, 0.3, 0.6])
-        for (const ip of [0.05, 0.35, 0.7]) {
+  best = { e: evalAt(v), w: v.slice() };
+  for (let f = -0.5; f <= 1.21; f += 0.12)
+    for (let a = -0.5; a <= 1.21; a += 0.12)
+      for (const m of [0.05, 0.35])
+        for (const ip of [0.05, 0.4]) {
           const w = [f, a, base[2], m, ip];
           const e = evalAt(w);
           if (e < best.e) best = { e, w };
@@ -491,7 +516,23 @@ export function solveHand(spec, col, A, S, side, probe = false) {
   if (idxMode === 'straight') { // along the frame: close with a straight finger until it rests on the side
     closeChain(fk, col, 1, [1, -1, -1], [1, 0, 0], [1.2, 0, 0]);
   }
-  if (spec.thumb === 'over') {
+  if (spec.thumb === 'oppose' && spec.axis) {
+    // power grasp: the thumb wraps the other side of the handle, opposite the
+    // middle finger, a little higher (towards the index); on thin handles it
+    // lands on the curled fingers (they are colliders here)
+    const a0 = new THREE.Vector3().fromArray(spec.axis.c), ad = new THREE.Vector3().fromArray(spec.axis.d).normalize();
+    const c = 2, C = A.chains[c];
+    const Mm = fk.jp[c][1].clone().lerp(fk.jp[c][2], 0.5);
+    const Pa = a0.clone().addScaledVector(ad, Mm.clone().sub(a0).dot(ad));
+    const u = Mm.clone().sub(Pa); const rr = u.length(); u.normalize();
+    const R = Math.max(0.008, rr - C.r[1] * S);
+    const up = fk.jp[1][0].clone().sub(fk.jp[3][0]).dot(ad) > 0 ? 1 : -1; // index side along the axis
+    const tgt = Pa.addScaledVector(u, -(R + A.chains[0].r[3] * S * 0.9)).addScaledVector(ad, up * 0.012 * S);
+    const nCaps = col.caps.length;
+    for (let cc = 1; cc < 5; cc++) for (let i = 0; i < 3; i++) col.addCapsule(fk.jp[cc][i], fk.jp[cc][i + 1], A.chains[cc].r[i] * S * 0.95);
+    info.thumbErr = thumbIK(fk, col, tgt, { bend: 0.004 });
+    col.caps.length = nCaps;
+  } else if (spec.thumb === 'over') {
     // fist grip: the thumb pad rests on the back of the index (or middle, when
     // the index is on the trigger) middle phalanx; the fingers are colliders
     const c = idxMode === 'trigger' ? 2 : 1, C = A.chains[c];
@@ -541,7 +582,7 @@ export function handCapsules(fk, col) {
 // side +X). X = back of the hand, Y = knuckle direction, pos = wrist centre.
 const FWD_THUMB = [0.12, 0.42, 0.25, 0.08, 0.06];
 const R_GRIP = (o = {}) => Object.assign({
-  frame: 'handR', pos: [0.03, 0.004, 0.075], X: [1, 0, 0], Y: [0, 0.05, -1], settle: 0.04, index: 'trigger', thumb: 'over', autoY: true,
+  frame: 'handR', pos: [0.03, 0.004, 0.075], X: [1, 0, 0], Y: [0, 0.05, -1], settle: 0.04, index: 'trigger', thumb: 'oppose', axis: { c: [0, 0, 0], d: [0, 1, 0] }, autoY: true,
   pose: { spread: [0.07, 0.0, -0.04, -0.09], mcp: [0.3, 0.25, 0.25, 0.25], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: [0.25, 0.65, 0.45, 0.15, 0.2], cup: 0.18 },
   fa: [-0.1, 0.35, -1],
 }, o);
@@ -554,7 +595,7 @@ const L_PISTOL = (o = {}) => Object.assign({
 // support hand under a handguard / forend: palm up, thumb along the left side, fingers around the right.
 // The section of the gun at z is measured from the collider (bottom, sides, top).
 const L_GUARD = (z, yb, o = {}) => Object.assign({
-  guard: { z, yb }, pos: [-0.035, yb - 0.03, z + 0.03], X: [-0.4, -0.92, 0.1], Y: [0.7, 0.3, -0.62], settle: 0.04, thumb: 'rest',
+  guard: { z, yb }, reach: 1, pos: [-0.035, yb - 0.03, z + 0.03], X: [-0.4, -0.92, 0.1], Y: [0.7, 0.3, -0.62], settle: 0.04, thumb: 'rest',
   pose: { spread: [0.02, 0.0, -0.03, -0.06], mcp: [0.25, 0.25, 0.25, 0.25], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: [-0.1, 0.35, 0.25, 0.1, 0.1], cup: 0.1 },
   fa: [0.45, 0.25, -1],
 }, o);
@@ -567,9 +608,9 @@ function sectionAt(col, z, yb) {
   return { x0, x1, y0, y1 };
 }
 // vertical handle (melee / throwables / canisters) along +Y through `c`
-const R_HANDLE = (c, o = {}) => Object.assign({ pos: [c[0] + 0.03, c[1] - 0.012, c[2] + 0.075], X: [1, 0, 0], Y: [0, 0.05, -1], settle: 0.05, thumb: 'over', index: 'wrap',
+const R_HANDLE = (c, o = {}) => Object.assign({ pos: [c[0] + 0.03, c[1] - 0.012, c[2] + 0.075], X: [1, 0, 0], Y: [0, 0.05, -1], settle: 0.05, thumb: 'oppose', axis: { c, d: [0, 1, 0] }, index: 'wrap',
   pose: { spread: [0.05, 0.0, -0.04, -0.08], mcp: [0.3, 0.3, 0.3, 0.3], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: [0.25, 0.7, 0.55, 0.15, 0.2], cup: 0.2 }, fa: [-0.1, 0.35, -1] }, o);
-const L_HANDLE = (c, o = {}) => Object.assign({ pos: [c[0] - 0.03, c[1] + 0.012, c[2] + 0.075], X: [-1, 0, 0], Y: [0, -0.05, -1], settle: 0.05, thumb: 'over', index: 'wrap',
+const L_HANDLE = (c, o = {}) => Object.assign({ pos: [c[0] - 0.03, c[1] + 0.012, c[2] + 0.075], X: [-1, 0, 0], Y: [0, -0.05, -1], settle: 0.05, thumb: 'oppose', axis: { c, d: [0, 1, 0] }, index: 'wrap',
   pose: { spread: [0.05, 0.0, -0.04, -0.08], mcp: [0.3, 0.3, 0.3, 0.3], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: [0.25, 0.7, 0.55, 0.15, 0.2], cup: 0.2 }, fa: [0.1, 0.35, -1] }, o);
 
 export const GRIP_SPECS = {
@@ -654,6 +695,7 @@ export function solveGrips(model, type, A, S, specs = GRIP_SPECS[type]) {
     s.X = new THREE.Vector3().fromArray(sp.X).applyQuaternion(rq).toArray();
     s.Y = new THREE.Vector3().fromArray(sp.Y).applyQuaternion(rq).toArray();
     if (sp.trigger) s.trigger = new THREE.Vector3().fromArray(sp.trigger).applyMatrix4(restMatrix(model, host, _m4)).toArray();
+    if (sp.axis) s.axis = { c: new THREE.Vector3().fromArray(sp.axis.c).applyMatrix4(F).toArray(), d: new THREE.Vector3().fromArray(sp.axis.d).applyQuaternion(rq).toArray() };
     if (sp.thumbAt) s.thumbAt = new THREE.Vector3().fromArray(sp.thumbAt).applyMatrix4(restMatrix(model, host, _m4)).toArray();
     const thumbRel = sp.thumbRel;
     const col = colFor(sp.anchor);
@@ -701,7 +743,7 @@ export function solveGrips(model, type, A, S, specs = GRIP_SPECS[type]) {
     const inv = AM.clone().invert();
     out[side] = {
       anchor, pos: r.pos.clone().applyMatrix4(inv), quat: aq.clone().invert().multiply(r.quat), pose: r.pose,
-      poseIdle: r.poseIdle, fa: new THREE.Vector3().fromArray(sp.fa || [0, 0.3, -1]).applyQuaternion(rq).normalize(), info: r.info,
+      poseIdle: r.poseIdle, reach: sp.reach || 0, elbow: sp.elbow || null, info: r.info,
       world: { pos: r.pos, quat: r.quat }, fk: r.fk,
     };
   }

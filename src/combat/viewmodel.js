@@ -127,6 +127,24 @@ function makeArm(char, side) {
   return g;
 }
 
+// ------------------------------------------------ hand attachment contract --
+// (for the articulated hands in fpHands.js / gripPoses.js)
+// Every frame update() ends by calling placeHand(arm, pos, quat, side, hq, fg)
+// once per visible arm; pos/quat are the grip frame in HOLDER space (holder =
+// the weapon transform under the camera) and hq is the holder quaternion. The
+// grip frame is the palm centre of a closed grip: -Z along the barrel, +Y up
+// the gun; WRIST (below) is the wrist centre in that frame. Sources:
+//   right hand: model.userData.handR [x,y,z,rx,ry,rz] in the model's frame
+//               (pistol grip), else HANDS[kind].R in holder space; dual
+//               pistols use handR on each gun (placeGunHand).
+//   left hand : the model's 'gripL' marker (fore-end / pump / hand guard,
+//               rotation FOREGRIP_Q), HANDS[kind].L when it is an array, or
+//               hidden (null). Reload / pump / melee animations move it
+//               through magGrip() / partGrip() / the shell port / the belt.
+// this.grip = { R, L } names what each hand is doing this frame so a hand
+// pose can be picked per state: R 'pistolGrip' | 'melee' | 'item' | 'minigun'
+// | 'dualGrip'; L 'fore' | 'support' (pistol cup) | 'mag' | 'belt' | 'charge'
+// | 'shell' | 'port' | 'round' | 'item' | 'hidden'.
 // Per-kind hand placement in holder space: [x,y,z, rx,ry,rz]
 const HANDS = {
   pistol: { R: [0, -0.035, 0.005, 0.25, 0, 0], L: [-0.012, -0.055, 0.03, 0.35, -0.5, 0.25] },
@@ -226,6 +244,7 @@ export class Viewmodel {
     this.ofs = new Float32Array(6); // smoothed animation pose delta
     this.tgt = new Float32Array(6);
     this.lhP = new THREE.Vector3(); this.lhQ = new THREE.Quaternion(); this.lhFG = 1; this.lhInit = false;
+    this.grip = { R: 'pistolGrip', L: 'fore' }; // what each hand holds this frame (see the contract above)
     this.shell = shellMesh();
     this.shell.visible = false;
   }
@@ -578,6 +597,9 @@ export class Viewmodel {
     else lVis = false;
     const LP = _hp.copy(restP), LQ = _hq.copy(restQ);
     let fgK = lFG;
+    const GR = this.grip;
+    GR.R = kind === 'dual' ? 'dualGrip' : kind === 'melee' ? 'melee' : kind === 'minigun' ? 'minigun' : kind === 'throwable' || kind === 'medkit' || kind === 'pills' ? 'item' : 'pistolGrip';
+    GR.L = !lVis ? 'hidden' : lspec === 'gripL' ? 'fore' : kind === 'pistol' ? 'support' : 'item';
     // fire blowback + slide lock on empty
     const bl = BLOWBACK[this.modelType];
     const blow = (bt) => (bt < 0.018 ? bt / 0.018 : Math.max(0, 1 - (bt - 0.018) / 0.05));
@@ -737,6 +759,8 @@ export class Viewmodel {
       this.setPart(part, 0, 0, Math.max(pull * ch.pull[2], isSlide && k < 0.8 ? 0.03 : 0), lift * (ch.lift || 0));
       T[5] += 0.08 * bump(k, 0.78, 0.08); T[1] -= 0.01 * bump(k, 0.84, 0.04);
     }
+    const G = this.grip;
+    G.L = k < 0.03 ? G.L : k < 0.3 ? (pistol || k > 0.2 ? 'belt' : 'mag') : k < 0.58 ? 'mag' : empty && k < 0.9 ? 'charge' : G.L;
     if (k < 0.3) {
       if (pistol) Viewmodel.blend(RP, RQ, belt, beltQ, ss(k, 0.04, 0.22), LP, LQ);
       else if (k < 0.15) Viewmodel.blend(RP, RQ, mP, mQ, ss(k, 0.04, 0.12), LP, LQ);
@@ -802,6 +826,7 @@ export class Viewmodel {
     }
     if (rp) { rd.visible = true; rd.position.copy(rp); }
     // off hand: to the belt, carries the round in, then closes the barrel
+    this.grip.L = k < 0.14 ? 'fore' : k < 0.38 ? 'belt' : k < 0.66 ? 'round' : 'fore';
     const foreEnd = this.toHolder(br, 0, -0.03, -0.17, _pB);
     const feQ = _qB.copy(FOREGRIP_Q);
     if (k < 0.34) Viewmodel.blend(RP, RQ, belt, qe(_qC, 0.4, 0, 0.3), ss(k, 0.14, 0.3), LP, LQ);
@@ -830,6 +855,7 @@ export class Viewmodel {
     pEntry.copy(pIn).add(_v.set(0, -0.04, 0.045));
     pFetch.copy(pIn).add(_v.set(0.03, -0.24, 0.12));
     qe(qPort, 1.35, 0, 0); qe(qFetch, 0.6, 0, 0.3);
+    this.grip.L = a.phase === 0 ? (a.t > a.start * 0.5 ? 'shell' : 'fore') : a.phase === 1 ? (this.shell.visible || a.cyc / a.period < 0.5 ? 'shell' : 'port') : a.rack && ud.bolt && a.endT < 0.36 ? 'charge' : a.endT > 0.12 ? 'fore' : 'port';
     if (a.phase === 0) Viewmodel.blend(RP, RQ, pFetch, qFetch, ss(a.t, 0, a.start), LP, LQ);
     else if (a.phase === 1) {
       const c = a.cyc / a.period;

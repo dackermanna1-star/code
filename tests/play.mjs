@@ -3,9 +3,9 @@
 import { chromium } from 'playwright';
 import path from 'path';
 import fs from 'fs';
-// Machine-wide browser limit: at most PW_SLOTS (default 4) headless browsers at
+// Machine-wide browser limit: at most PW_SLOTS (default 3) headless browsers at
 // once across every process/agent, so parallel test runs don't overload the box.
-const SLOTS = +(process.env.PW_SLOTS || 4);
+const SLOTS = +(process.env.PW_SLOTS || 3);
 let slotDir = null;
 const alive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
 for (let waited = 0; !slotDir; waited++) {
@@ -31,7 +31,7 @@ page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}\n${(e.stack || '
 await page.addInitScript((q) => { try { const s = JSON.parse(localStorage.getItem('lastfour.settings') || '{}'); s.quality = q; s.tts = false; localStorage.setItem('lastfour.settings', JSON.stringify(s)); } catch (e) {} }, process.env.QUALITY || 'low');
 await page.goto(url);
 const wait = (ms) => page.waitForTimeout(ms);
-const shot = async (name) => { try { await page.screenshot({ path: `tests/out/${name}.png`, timeout: 90000 }); console.log('shot', name); } catch (e) { console.log('shot failed', name, e.message.split('\n')[0]); } };
+const shot = async (name) => { try { await page.screenshot({ path: `tests/out/${name}.png`, timeout: 180000 }); console.log('shot', name); } catch (e) { console.log('shot failed', name, e.message.split('\n')[0]); } };
 const evalg = async (fn, arg) => { try { return await page.evaluate(fn, arg); } catch (e) { console.log('eval error', e.message); return null; } };
 const mod = await import(path.resolve(scen));
 try { await mod.default({ page, shot, evalg, wait, logs }); } catch (e) { console.log('scenario error', e); }

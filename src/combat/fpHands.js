@@ -589,7 +589,9 @@ varying vec4 vBind;
 varying vec4 vSkin;
 float fpHash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
 float fpNoise(vec3 x) {
-  vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+  // quintic fade: continuous slope across cells, so bump detail shows no lattice
+  x = mat3(0.8, -0.36, 0.48, 0.6, 0.48, -0.64, 0.0, 0.8, 0.6) * x;
+  vec3 i = floor(x), f = fract(x); f = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
   return mix(mix(mix(fpHash(i), fpHash(i + vec3(1, 0, 0)), f.x), mix(fpHash(i + vec3(0, 1, 0)), fpHash(i + vec3(1, 1, 0)), f.x), f.y),
              mix(mix(fpHash(i + vec3(0, 0, 1)), fpHash(i + vec3(1, 0, 1)), f.x), mix(fpHash(i + vec3(0, 1, 1)), fpHash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
 }
@@ -615,14 +617,14 @@ float fpSkin(inout vec3 col, inout float rough, inout float skinK) {
       crease += pal * fpG(q.y - 0.0135, 0.0005) * 0.8;
       float dk = length(vec2(q.y + 0.003, q.z * 0.8));
       red += dors * fpG(dk, 0.009) * 0.4;
-      h -= dors * fpG(dk, 0.008) * smoothstep(0.3, 1.0, sin(q.y * 3400.0 + sin(q.z * 700.0))) * (0.00005 + 0.00006 * age);
+      h -= dors * fpG(dk, 0.008) * smoothstep(0.3, 1.0, sin(q.y * 3400.0 + sin(q.z * 700.0))) * (0.00002 + 0.00003 * age);
     } else {
       float big = P.z < 1.5 ? 1.0 : 0.65;
       // dorsal knuckle wrinkles: arcs around the joint
       float d = length(vec2(q.y * 1.05, q.z * 0.5));
       float env = exp(-d * d / (r * r * (0.3 + 0.15 * big))) * dors;
       float w = sin((q.y + 0.0006 * cos(q.z * 500.0)) * (3600.0 + 600.0 * big) + q.z * q.z * 90000.0);
-      h -= env * smoothstep(0.0, 1.0, w) * (0.00008 + 0.0001 * age) * big;
+      h -= env * smoothstep(0.0, 1.0, w) * (0.00003 + 0.00004 * age) * big;
       red += env * 0.45 * big;
       // palmar flexion creases
       crease += pal * (fpG(q.y + 0.0012 * big, 0.00042) + fpG(q.y - 0.0011 * big, 0.00036) * big) * 0.9;
@@ -675,13 +677,13 @@ float fpSkin(inout vec3 col, inout float rough, inout float skinK) {
     vd = min(vd, min(fpSeg(yz, vec2(0.052, -0.024), vec2(0.044, -0.004)), fpSeg(yz, vec2(0.044, -0.004), vec2(0.05, 0.018))));
     vd = min(vd, fpSeg(yz, vec2(0.03, 0.015), vec2(0.028, -0.006)));
     float vein = fpG(vd + (fpNoise(p * 600.0) - 0.5) * 0.001, 0.0011) * back * uLook.w;
-    h += vein * 0.00032;
+    h += vein * 0.00022;
     col = mix(col, col * vec3(0.8, 0.86, 1.04), vein * 0.45);
   }
   // pores and micro relief
   float n1 = fpNoise(p * 2600.0), n2 = fpNoise(p * 950.0 + 7.0), n3 = fpNoise(p * 160.0 + 3.0);
-  h += ((n1 - 0.5) * 0.000012 + (n2 - 0.5) * 0.00002) * (1.0 - nail);
-  h -= crease * (0.00016 + 0.00006 * age);
+  h += ((n1 - 0.5) * 0.000006 + (n2 - 0.5) * 0.00001) * (1.0 - nail);
+  h -= crease * (0.00012 + 0.00005 * age);
   // colour: tone, palm, redness, mottling, age spots, dirt
   col = mix(col, uPalmTone, palmar * 0.9);
   col *= mix(vec3(1.0), vec3(1.07, 0.9, 0.88), clamp(red, 0.0, 1.0) * 0.55);

@@ -222,7 +222,7 @@ function wreckLine(L, game, S) {
   P.baggageCart(L, x - 0.2, 0, -55.4, 0.2, { color: 0x2a4a8a, loaded: false });
   P.airlinerSection(L, x + 0.4, 0, -64.2, 0.12, { len: 11, burnt: true, ground: true, wing: true });
   P.fuelTanker(L, x - 0.3, 0, -76.2, 0.04, { color: 0x2e2a26, cabColor: 0x2a2420, pump: false });
-  L.clip(x - 1.3, 0, -81.0, x + 1.3, 3.2, FZ, F_SOLID);
+  L.clip(x - 1.3, 0, -81.0, x + 1.3, 5.0, FZ, F_SOLID | F_NONAV);   // no nav walkway on top of the wreck line
   // fires + scorched ground, burning debris in the gaps
   S.wreckFires = [
     fireSource(L, x - 0.2, 2.9, -75.2, 1.6, { hazard: true, intensity: 16 }),

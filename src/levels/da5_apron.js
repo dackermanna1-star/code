@@ -138,9 +138,13 @@ export function buildApron(L, game, S) {
   // ================================================================ perimeter T-walls + outside strips
   const tH = TW.h, tT = TW.t;
   const wallRun = (axis, a0, a1, fixed, inner) => {
-    // collider (one box) + visual segments (1.5 m, stem + foot)
-    if (axis === 'z') L.box(fixed - tT / 2, -0.5, a0, fixed + tT / 2, tH, a1, 'concrete', { visible: false });
-    else L.box(a0, -0.5, fixed - tT / 2, a1, tH, fixed + tT / 2, 'concrete', { visible: false });
+    // collider (one box) + visual segments (1.5 m, stem + foot). The collider is
+    // snapped to exactly one 0.5 m nav cell so the wall top gets a node row with
+    // walkable cells right against both faces: infected climb over from the
+    // outside strips (climb link up, drop link down).
+    const c0 = Math.round((fixed - 0.25) * 2) / 2, c1 = c0 + 0.5;
+    if (axis === 'z') L.box(c0, -0.5, a0, c1, tH, a1, 'concrete', { visible: false });
+    else L.box(a0, -0.5, c0, a1, tH, c1, 'concrete', { visible: false });
     for (let a = a0; a < a1 - 0.2; a += 1.52) {
       const b = Math.min(a1, a + 1.5), t = rng() < 0.2 ? 0x8e8a82 : 0xa8a49a;
       if (axis === 'z') {

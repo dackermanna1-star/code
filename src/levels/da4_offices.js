@@ -174,7 +174,7 @@ function corridorAndRooms(L, game, S) {
     brk: new Door(L, 14, YU, 25, 'z', { width: 1.1, hinge: -1, open: true }),
     office: new Door(L, 17, YU, 8.5, 'z', { width: 1.1, hinge: 1 }),
     confA: new Door(L, 17, YU, 27, 'z', { width: 1.1, hinge: -1 }),
-    aToOffice: new Door(L, 26, YU, 18, 'x', { width: 1.1, hinge: 1, open: true }),
+    aToOffice: new Door(L, 26, YU, 18, 'x', { width: 1.1, hinge: -1, open: true }),  // leaf rests against the east jamb, inside the office
     wc: new Door(L, 10, YU, 3, 'z', { width: 1.1, hinge: 1 }),
   };
   S.wingDoors = doors;

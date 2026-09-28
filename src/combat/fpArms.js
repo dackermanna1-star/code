@@ -25,7 +25,7 @@ export const HAND_POSES = {
 };
 
 const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _v = new THREE.Vector3(), _w = new THREE.Vector3(), _m = new THREE.Matrix4();
-const _y = new THREE.Vector3();
+const _y = new THREE.Vector3(), _e = new THREE.Vector3(), _d = new THREE.Vector3(), _pa = new THREE.Vector3(), _qa = new THREE.Quaternion();
 // object -> holder-space transform (walks the parents up to the holder)
 function toHolder(obj, holder, lp, lq, outP, outQ) {
   outP.copy(lp); outQ.copy(lq);
@@ -115,7 +115,7 @@ export class FPArms {
     else this.tgtR.set(o.rPose ? HAND_POSES[o.rPose] : HAND_POSES.fist);
     lerpPose(this.poseR, this.tgtR, k, this.poseR);
     this.R.setPose(this.poseR);
-    this.placeArm(this.R, rp, rq, hm, hq, gR ? gR.fa : _w.set(-0.1, 0.35, -1), 1);
+    this.placeArm(this.R, rp, rq, hm, hq, 1, 0, gR?.elbow);
     // ---- left hand
     const gL = this.grips?.L;
     const showL = !o.hideL && (gL || o.offP);
@@ -131,19 +131,22 @@ export class FPArms {
       else this.tgtL.set(HAND_POSES[o.offPose || 'relax']);
       lerpPose(this.poseL, this.tgtL, k, this.poseL);
       this.L.setPose(this.poseL);
-      const fa = gL ? _w.copy(gL.fa).lerp(_y.set(0.35, 0.3, -1).normalize(), away) : _w.set(0.35, 0.3, -1);
-      this.placeArm(this.L, P, lq, hm, hq, fa, -1);
+      const reach = gL?.reach ?? 0;
+      this.placeArm(this.L, P, lq, hm, hq, -1, reach * (1 - away), gL?.elbow);
     }
     this.init = true;
   }
-  // holder-space wrist pose -> root space; forearm aims along fa (holder space),
-  // pulled towards the hand's own axis so the wrist never bends past ~40 deg
-  placeArm(arm, p, q, hm, hq, fa, side) {
-    const P = _w.copy(p).applyMatrix4(hm);
-    const Q = _q.copy(hq).multiply(q);
+  // holder-space wrist pose -> root (camera) space. The elbow sits below and
+  // behind the wrist, out of view (reach = 1 when the arm stretches forward to
+  // a fore-end); the wrist bend is limited so the forearm stays believable.
+  placeArm(arm, p, q, hm, hq, side, reach = 0, elbow = null) {
+    const P = _pa.copy(p).applyMatrix4(hm);
+    const Q = _qa.copy(hq).multiply(q);
+    const E = _e.set(P.x + side * 0.08 * (1 - reach) - 0.17 * reach, P.y - 0.2 - 0.02 * reach, P.z + 0.2 + 0.07 * reach);
+    if (elbow) E.add(_v.set(elbow[0], elbow[1], elbow[2]));
+    const d = _d.subVectors(P, E).normalize();
     const hy = _y.set(0, 1, 0).applyQuaternion(Q);
-    const d = new THREE.Vector3().copy(fa).applyQuaternion(hq).normalize();
-    const ang = d.angleTo(hy), max = 0.7;
+    const ang = d.angleTo(hy), max = 1.15;
     if (ang > max) d.lerp(hy, 1 - max / ang).normalize();
     arm.place(P, Q, d);
   }

@@ -39,7 +39,7 @@ export default async ({ page, evalg, wait, shot }) => {
         const tk = g.infected.specials.find((s) => s.kind === 'tank' && !s.dead);
         if (tk && !W.tankSeen) { W.tankSeen = true; W.log.push(`t=${W.t.toFixed(0)} TANK at ${fmt(tk.pos)} prog ${prog.toFixed(3)}`); }
         // the van: hotwire it as soon as the player stands next to it (walk mode: side trip from the check-in hall)
-        if (van.phase === 'idle' && W.mode === 'walk' && p.pos.x > 70 && p.pos.x < 99 && p.pos.z > 4 && p.pos.y < 1) { W.back = p.pos.clone(); p.teleport(74.6, 0.05, 36.2, 0); W.log.push(`t=${W.t.toFixed(0)} side trip to the van`); }
+        if (van.phase === 'idle' && p.pos.x > 70 && p.pos.x < 99 && p.pos.z > 4 && p.pos.y < 1) { W.back = p.pos.clone(); p.teleport(74.6, 0.05, 36.2, 0); W.log.push(`t=${W.t.toFixed(0)} side trip to the van`); }
         if (van.phase === 'idle' && Math.hypot(p.pos.x - 76, p.pos.z - 37) < 6 && p.pos.y < 1) { van.start(p); W.log.push(`t=${W.t.toFixed(0)} HOTWIRED VAN prog ${prog.toFixed(3)}`); W.vanT = W.t; if (W.back) { p.teleport(W.back.x, W.back.y + 0.05, W.back.z, p.yaw); W.back = null; } }
         if (W.vanT && !van.broken && W.t - W.vanT > 60) { W.log.push('VAN NEVER BROKE THE BARRICADE phase=' + van.phase); W.done = true; break; }
         if (W.t > 2400) { W.log.push('TIME LIMIT'); W.done = true; break; }
