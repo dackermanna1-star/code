@@ -10,7 +10,8 @@ import { P, sign, graffiti, poster, posterWall, wallMessages, safeRoom, supplies
 import { Door } from '../world/dynamic.js';
 import { DF } from '../render/decals.js';
 import { ebsScreen, neonSign } from './da_parts.js';
-import { shelving, cashRegister, diner_table, drinkMachine, cot, medCrate, tent } from './ch3_props.js';
+import { shelving, cashRegister, diner_table, drinkMachine, cot, medCrate, tent, locker } from './ch3_props.js';
+import { ceilingPipes } from './clutter.js';
 import { YD, CON, GATES, SHUTTER_X, SAFE } from './da4_layout.js';
 import { rng, NC, wayfind, notice, curtainMat, column, body, strewLuggage, flightBoard, trail, panelLight, hangingSign, banner, ADS4, F_SOLID, F_NONAV, F_SHOOT, F_SIGHT } from './da4_parts.js';
 
@@ -396,6 +397,24 @@ function endRoom(L, game, S) {
   P.radioTable(L, -45.6, YD, -41.2, 0);
   cot(L, -48.7, YD, -33.6, Math.PI / 2, false);
   P.papers(L, -45, YD + 0.01, -37, 1.4, 6);
+  // lived-in: the gate crew and a squad held out here (lockers, shelving of supplies, sandbagged windows, bedding, trash)
+  locker(L, x0 + 0.3, YD, -40.3, Math.PI / 2, 3);
+  P.metalShelf(L, -41.3, YD, -32.35, Math.PI, 1.3, 2.0, 0.85);
+  P.sandbags(L, -47.6, YD, -41.45, 0, 2.2, 2);
+  P.crate(L, -42.9, YD, -41.35, 0.25, 1, 'wood');
+  P.crate(L, -42.8, YD + 0.8, -41.4, -0.2, 0.7, 'wood');
+  medCrate(L, -41.4, YD, -38.6, -0.5, 0.8);
+  cot(L, -47.1, YD, -33.1, Math.PI / 2 + 0.06, false);
+  P.chair(L, -44.4, YD, -34.3, Math.PI + 0.3, 'metalDark');
+  P.chair(L, -47.3, YD, -38.2, 1.2, 'metalDark', true);
+  P.cooler(L, -41.2, YD, -34.9, 0.4, 0x2a5a9a, true);
+  P.trashBags(L, -40.9, YD, -33.0, 2);
+  P.gasCan(L, -49.4, YD, -34.8, 0.6);
+  physProp(L, 'bucket', -45.9, YD, -40.6);
+  for (let i = 0; i < 3; i++) physProp(L, 'bottle', -44.2 + i * 0.3, YD + 0.78, -32.85);
+  for (const [x, z, r] of [[-43.5, -36.2, 0.4], [-46.2, -35.2, 2.1], [-42.1, -39.4, 1.3]]) P.papers(L, x, YD + 0.01, z, 0.6 + r * 0.2, 4);
+  ceilingPipes(L, x0 + 0.2, z1 - 0.45, x1 - 0.2, z1 - 0.45, YD + 3.0, { n: 2, r: 0.05, spacing: 0.3 });
+  poster(L, 'evac', x1 - 0.12, YD + 1.7, -34.2, -Math.PI / 2, 0.5, 0.72, { torn: 0.3 });
   L.flowEnd = [-45, YD, -37.2];
   S.endTrigger = [-39.8, YD - 0.5, -40, -34, YD + 3, -33];
 }
@@ -408,8 +427,9 @@ function lighting(L, game) {
   for (const [x, it, fl] of pend) {
     const p = P.prop(L, x, TOP - 3.2, -22, 0);
     p.cyl(0, 1.6, 0, 0.015, 3.2, 'metalDark', null, null, 4).cyl(0, 0, 0, 0.9, 0.18, 'metalDark', 0x2a2c30, null, 20);
-    p.glow(0, -0.1, 0, 1.5, 0.02, 1.5, it > 0 ? 0xfff0d8 : 0x141412);
-    if (it > 0) { const lt = L.light(x, TOP - 3.6, -22, 0xffe6c4, it, 16, { flicker: fl }); P.lightCone(L, x, TOP - 3.3, -22, [0, -1, 0], 5.5, 3.0, 0xffe0b0, lt, 0.4); }
+    p.torus(0, -0.1, 0, 0.62, 0.05, 'metalDark', 0x2a2c30, [Math.PI / 2, 0, 0]);
+    p.glow(0, -0.1, 0, 1.1, 0.02, 1.1, it > 0 ? 0x8a8070 : 0x141412);
+    if (it > 0) { const lt = L.light(x, TOP - 3.6, -22, 0xffe6c4, it, 16, { flicker: fl }); P.lightCone(L, x, TOP - 3.3, -22, [0, -1, 0], 5.5, 2.4, 0xffe0b0, lt, 0.22); }
   }
   for (const [x, it, fl] of [[40, 8, 0.1], [22, 5, 0.5], [6, 9, 0.1], [-12, 7, 0.3], [-30, 6, 0.2]]) {
     L.box(x - 3, TOP - 1.5, -37.2, x + 3, TOP - 1.4, -36.6, it > 0 ? 'emissiveWarm' : 'blackMatte', NC);

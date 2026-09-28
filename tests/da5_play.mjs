@@ -66,7 +66,7 @@ export default async ({ page, evalg, wait }) => {
           g.advance(0.1);
           if (S.pump.enabled) {
             if (walkOnly) { W.phase = 'walk2'; F.stage = 'board'; S.plane.lowerRamp(0.5); W.log.push('(walkonly) ramp lowered'); continue; }
-            W.phase = 'finale'; if (!g.director.enabled) { g.director.enabled = true; g.director.cfg.wanderers = 0; g.director.blockMobs = true; } p.teleport(S.pump.pos.x - 0.6, 0.02, S.pump.pos.z - 1.2, 0); S.pump.onUse(p); W.log.push(`t=${W.t.toFixed(0)} PUMP started, stage ${F.stage}`);
+            W.phase = 'finale'; if (!g.director.enabled) { g.director.enabled = true; g.director.cfg.wanderers = 0; g.director.blockMobs = true; } p.teleport(S.pump.pos.x - 0.6, 0.02, S.pump.pos.z - 1.2, 0); S.pump.onUse(p); W.log.push(`t=${W.t.toFixed(0)} PUMP started, stage ${F.stage}; spawn sides ` + F.sides.map((l) => l.length).join('/') + ` (hall ${F.hallNodes.length} hangar ${F.hangarNodes.length} strip ${F.stripNodes.length} west ${F.westNodes.length})`);
           }
           continue;
         }

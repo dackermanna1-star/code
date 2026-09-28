@@ -136,7 +136,7 @@ export default {
     L.dynamics.push({ t: 0, update(dt) { this.t -= dt; const cp = game.camPos; if (this.t > 0 || (cp.x - CREW.x) ** 2 + (cp.z - CREW.z) ** 2 > 3600) return; this.t = 0.12; game.fx.smokeColumn(CREW.x - 0.66, 0.1, CREW.z + 0.9, 0.35, [0.5, 0.12, 0.1]); if (Math.random() < 0.3) game.fx.sparks(CREW.x - 0.66, 0.05, CREW.z + 0.9, 0, 1, 0, 3, [1, 0.3, 0.2], 2); } });
 
     // ============================================================ finale state
-    const F = { stage: 'pre', t: 0, fuel: 0, cap: 0, rate: 0.45, pumping: false, said: {}, spawnNodes: [], hallNodes: [], hangarNodes: [], stripNodes: [], waitingTank: false, crash: 'idle' };
+    const F = { stage: 'pre', t: 0, fuel: 0, cap: 0, rate: 0.45, pumping: false, said: {}, spawnNodes: [], hallNodes: [], hangarNodes: [], stripNodes: [], westNodes: [], sides: [], waitingTank: false, crash: 'idle' };
     L.finale = F;
     S.F = F; S.plane = plane;
     const hud = fuelHud(game, L, F);
@@ -155,18 +155,26 @@ export default {
       L.after(0.35, () => { for (const p of S.loungePanes) if (!p.broken) p.shatter(dir); game.shake(0.9); });
     };
 
+    // Finale spawn ground, per side: north = the baggage halls, east = Hangar 3 +
+    // the east strip, south / west = the strips outside the T-walls (they climb
+    // over). Every node must be reachable by infected from the pump and close
+    // enough for the horde flow field (raised to 150 m for the finale).
+    const DEF = [PUMP.x, 0, PUMP.z - 1.5], REACH = 128;
     const gatherNodes = () => {
       const nav = L.nav;
-      const add = (list, x, y, z) => { const n = nav.nearestNode(x, y, z, 1.0); if (n >= 0 && Math.abs(nav.nodeY[n] - y) < 0.6) list.push(n); };
+      const dist = nav.computeStatic('da5Def', [DEF], { survivor: false });
+      const add = (list, x, y, z) => { const n = nav.nearestNode(x, y, z, 1.0); if (n >= 0 && Math.abs(nav.nodeY[n] - y) < 0.6 && dist[n] > 22 && dist[n] < REACH) list.push(n); };
       for (const h of S.halls) for (let x = h.x0; x <= h.x1; x += 2) for (let z = h.z0; z <= h.z1; z += 2) add(F.hallNodes, x, 0, z);
       const hb = S.hangarBox;
       for (let x = hb[0]; x <= hb[3]; x += 3) for (let z = hb[2]; z <= hb[5]; z += 3) add(F.hangarNodes, x, 0, z);
-      const sx0 = APRON.x0 - TW.t - STRIP + 1, sz = APRON.z1 + TW.t + 3;
-      for (let x = -20; x <= APRON.x1 + 4; x += 3) add(F.stripNodes, x, 0, sz);
-      for (let z = 20; z <= APRON.z1; z += 3) add(F.stripNodes, sx0 + 2, 0, z);
-      for (let z = HANGAR.z1 + 2; z < APRON.z1; z += 3) add(F.stripNodes, APRON.x1 + TW.t + 3, 0, z);
+      const sx = APRON.x0 - TW.t - STRIP / 2, sz = APRON.z1 + TW.t + STRIP / 2, ex = APRON.x1 + TW.t + 3;
+      for (let x = APRON.x0; x <= APRON.x1 + 4; x += 3) add(F.stripNodes, x, 0, sz);
+      for (let z = 20; z <= APRON.z1; z += 3) add(F.westNodes, sx, 0, z);
+      for (let z = HANGAR.z1 + 2; z < APRON.z1 + 4; z += 3) add(F.stripNodes, ex, 0, z);
+      F.sides = [F.hallNodes, F.hangarNodes, F.stripNodes, F.westNodes].filter((l) => l.length);
     };
-    const allNodes = () => F.hallNodes.concat(F.hangarNodes, F.stripNodes, F.stripNodes);
+    // equal weight per side, whatever its node count
+    const allNodes = () => { const out = []; for (const l of F.sides) for (let i = 0; i < 24; i++) out.push(l[Math.floor(rng() * l.length)]); return out; };
     const tankAlive = () => game.infected.specials.some((sp) => sp.kind === 'tank' && !sp.dead);
     const spawnTank = (from) => {
       const nodes = from.length ? from : allNodes();
@@ -200,6 +208,7 @@ export default {
       F.pumpSnd = game.audio.loop('generator', { pos: new THREE.Vector3(PUMP.x, 1.2, PUMP.z), vol: 2.2 });
       F.pumpSnd2 = game.audio.loop('liftMotor', { pos: new THREE.Vector3(PUMP.x, 1.2, PUMP.z), vol: 0.9 });
       game.audio.play('metalGate', { pos: new THREE.Vector3(PUMP.x, 1.2, PUMP.z), vol: 1.4 });
+      L.nav.flow.limit = 150; // hordes cross the whole apron (halls, Hangar 3, over the T-walls)
       d.finaleMode = true; d.blockMobs = true; d.blockWanderers = true; d.cfg.maxSpecials = 3;
       game.audio.music.stinger('finaleStart');
       say([
@@ -354,6 +363,8 @@ export default {
         // the fuel gauge climbs toward the current stage's cap
         if (F.pumping && F.fuel < F.cap) F.fuel = Math.min(F.cap, F.fuel + F.rate * dt);
         if (F.pumping) {
+          // recycle anything that wandered off the map instead of joining the fight
+          if ((F.cullT = (F.cullT ?? 5) - dt) <= 0) { F.cullT = 5; game.infected.cullFar(150); }
           const k = (game.time * 2.1) % 1;
           cabBeacon.scale.setScalar(k < 0.5 ? 1.8 : 0.3);
           pilotAt(25, [{ who: 'pilot', text: 'Twenty-five percent! Keep them off that truck!', d: 0 }]);
