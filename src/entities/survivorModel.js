@@ -135,6 +135,24 @@ export class SurvivorModel {
       handR = [0.08, pivU + 0.12, 0.12];
       handL = [-0.08, pivU + 0.12, 0.12];
       showWeapon = false;
+    } else if (s.pinned && s.pinType === 'jockey') {
+      // staggering where the Jockey steers, clawing at the thing on their head
+      a.speed = Math.hypot(s.phys.vx, s.phys.vz) * 0.8;
+      a.lean = -0.12 + Math.sin(g.time * 3.1) * 0.08; a.twist = Math.sin(g.time * 2.3) * 0.2;
+      a.headPitch = 0.25; a.twitch = 0.4;
+      const w = Math.sin(g.time * 8) * 0.06;
+      handR = [0.14 + w, 1.62 * scale, 0.02 - w];
+      handL = [-0.14 + w, 1.6 * scale, 0.04 + w];
+      poleL = [-1, 0.3, 0.5]; poleR = [1, 0.3, 0.5];
+      showWeapon = false;
+    } else if (s.pinned && s.pinType === 'charger' && s.pinned.carrying) {
+      // scooped up under the Charger's arm, legs kicking
+      a.legs = 'air'; a.speed = 0; a.lean = 0.35; a.headPitch = 0.3;
+      const t = g.time * 10;
+      handR = [0.3 + Math.sin(t) * 0.1, 1.2 * scale + Math.cos(t * 1.2) * 0.12, 0.2];
+      handL = [-0.3 - Math.cos(t) * 0.1, 1.15 * scale + Math.sin(t * 1.3) * 0.12, 0.25];
+      poleL = [-1, 0, 0.3]; poleR = [1, 0, 0.3];
+      showWeapon = false;
     } else if (s.pinned) {
       poseLying(b, P, this.poser, false, g.time * 4);
       this.finish(dt, false);

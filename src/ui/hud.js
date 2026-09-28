@@ -547,6 +547,8 @@ export class HUD {
     const cam = g.renderer.camera;
     const p = g.player;
     const W = window.innerWidth, H = window.innerHeight;
+    const placed = this._tagXY || (this._tagXY = []);
+    placed.length = 0;
     for (const s of g.survivors) {
       if (s === p) continue;
       let t = this.tagEls.get(s);
@@ -557,7 +559,13 @@ export class HUD {
       v.project(cam);
       if (v.z > 1 || Math.abs(v.x) > 1.1 || Math.abs(v.y) > 1.1 || (d > 25 && !s.incapped && !s.pinned)) { sty(t, 'display', 'none'); continue; }
       sty(t, 'display', 'flex');
-      t.style.transform = `translate(${((v.x + 1) / 2 * W).toFixed(1)}px, ${((1 - v.y) / 2 * H).toFixed(1)}px) translate(-50%, -100%)`;
+      // teammates standing together: stack their tags instead of printing
+      // one name over the other (read as a garbled, doubled tag)
+      const tx = (v.x + 1) / 2 * W, lh = Math.max(12, H * 0.024);
+      let ty = (1 - v.y) / 2 * H;
+      for (let k = 0; k < placed.length; k += 2) if (Math.abs(placed[k] - tx) < W * 0.07 && Math.abs(placed[k + 1] - ty) < lh) { ty = placed[k + 1] - lh; k = -2; }
+      placed.push(tx, ty);
+      t.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) translate(-50%, -100%)`;
       const trouble = s.incapped || s.pinned;
       cls(t, 'tag' + (trouble ? ' trouble' : ''));
       vr(t, '--c', s.char.color);

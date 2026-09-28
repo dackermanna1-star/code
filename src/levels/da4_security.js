@@ -326,7 +326,7 @@ function detectorEvent(L, game, S) {
     game.session.objective('Alarm! Hold them off, then get up the escalators');
     const d = game.director;
     const nodes = nodesAt([[40, YD, -24], [10, YD, -30], [94, 0, -30], [120, 0, -14], [64, 0, -32]]);
-    if (d.panicState) d.spawnMob(18, { where: 'any', minD: 14, maxD: 60 });
+    if (d.panicState) d.spawnMob(11, { where: 'any', minD: 16, maxD: 60 });   // another event still running: one extra rush, not a second stacked panic
     else {
       d.panic('detector', {
         waves: 2, size: [14, 20], interval: 16, where: 'any', minD: 14, maxD: 70, nodes: nodes.length ? nodes : undefined,

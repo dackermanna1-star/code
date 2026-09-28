@@ -27,7 +27,7 @@ export default async ({ page, evalg, wait, shot, logs }) => {
     const fx = ex + dx * (t + 1.3), fz = ez + dz * (t + 1.3);
     bots[0].teleport(fx - px * 0.7, P.pos.y + 0.02, fz - pz * 0.7, 0);
     bots[1].teleport(fx + px * 0.9, P.pos.y + 0.02, fz + pz * 0.9, 0);
-    bots[1].incap?.('test');
+    g.cheats.godAll = false; bots[1].incap?.('test'); g.cheats.godAll = true;
     // third teammate in plain view, 3 m out, facing the camera
     bots[2].teleport(ex + dx * Math.min(2.2, t - 0.6) + px * 0.9, P.pos.y + 0.02, ez + dz * Math.min(2.2, t - 0.6) + pz * 0.9, Math.atan2(dx, dz));
     bots[2].flashlight = true;

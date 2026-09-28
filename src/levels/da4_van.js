@@ -203,7 +203,7 @@ export function buildVanEvent(L, game, S) {
     L.after(1.2, () => {
       game.director.blockWanderers = true;
       game.director.panic('van', {
-        waves: 3, size: [14, 20], interval: 15, nodes: waveNodes(0), where: 'any', minD: 12, maxD: 75, force: true,
+        waves: 3, size: [12, 18], interval: 15, nodes: waveNodes(0), where: 'any', minD: 12, maxD: 75, force: true,
         onWave: (i) => {
           const ps = game.director.panicState;
           if (!ps || ps.name !== 'van') return;

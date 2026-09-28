@@ -15,7 +15,7 @@ import { formStack, concreteHopper, cardboard } from './da2_parts.js';
 import { billboard, adTexture } from './da_parts.js';
 import {
   rng, NC, CLIP, blood, safetySign, hoarding, hardHat, blockPallet, wheelbarrow, timberStack, cableDrum, sandPile,
-  edgeRail, column, shoring, scaffoldStairTower, towerCrane, materialHoist, F_SOLID, F_SHOOT, F_DEFAULT, sign,
+  edgeRail, column, shoring, scaffoldStairTower, towerCrane, materialHoist, festoon, F_SOLID, F_SHOOT, F_DEFAULT, sign,
 } from './da3_parts.js';
 import { SITE, BLD, LV, CORE, TOWER_ST, BAR } from './da3_layout.js';
 
@@ -211,6 +211,8 @@ function frontYard(L, game) {
   // blood trail from the gate toward the office
   for (let i = 0; i < 9; i++) L.decal(71 + i * 1.9, 0.013, -3 - i * 2.4 + Math.sin(i) * 0.6, 0, 1, 0, 0.9, DF.SMEAR);
   L.reverb(68, 0, -34, SEP[0], 30, 30, 'outdoor');
+  // festoon of caged work bulbs strung along the haul road to the frame (the path reads from the gate)
+  festoon(L, [[69.4, 2.9], [78.2, 3.3], [87.0, 2.7], [95.2, 2.3]], 3.3, { dead: [3, 11], every: 5 });
   return { crane };
 }
 

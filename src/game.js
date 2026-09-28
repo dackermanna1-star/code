@@ -362,12 +362,13 @@ export class Game {
       // glare: only when the camera is inside the beam, fading towards the rim
       const tx = cam.x - m.x, ty = cam.y - m.y, tz = cam.z - m.z, tl = Math.hypot(tx, ty, tz) || 1;
       const f = (tx * d.x + ty * d.y + tz * d.z) / tl;
-      const k = THREE.MathUtils.smoothstep(f, 0.84, 0.985);
+      // (kept small: a hot point with a short halo, not a screen-filling bloom)
+      const k = THREE.MathUtils.smoothstep(f, 0.9, 0.99);
       G.visible = k > 0.01 && tl > 0.8;
       if (G.visible) {
-        G.position.set(m.x + d.x * 0.02, m.y + d.y * 0.02, m.z + d.z * 0.02);
-        G.material.opacity = k * 0.9;
-        G.scale.setScalar(0.09 + 0.2 * k + Math.min(0.25, tl * 0.012));
+        G.position.set(m.x + d.x * 0.08, m.y + d.y * 0.08, m.z + d.z * 0.08);
+        G.material.opacity = k * 0.55;
+        G.scale.setScalar(0.05 + 0.07 * k + Math.min(0.12, tl * 0.008));
       }
     }
     for (; bi < this.botLights.length; bi++) { this.botLights[bi].intensity = 0; this.botGlares[bi].visible = false; }

@@ -26,6 +26,7 @@ export default async ({ page, evalg, wait, shot }) => {
     const r = await evalg(() => {
       const g = window.game, L = g.level, nav = L.nav, p = g.player, W = window.__w, van = L.da4.van, det = L.da4.S.det;
       const f = nav.fields.toExit;
+      const sdesc = (n) => { let b = -1, bd = f[n]; for (let d = 0; d < 8; d++) { const v = nav.links[n * 8 + d]; if (v < 0 || nav.ltype[n * 8 + d] === 1) continue; if (f[v] < bd) { bd = f[v]; b = v; } } return b; };
       const fmt = (v) => v.toArray().map((q) => q.toFixed(1)).join(',');
       for (let step = 0; step < 150 && !W.done; step++) {
         W.t += 0.1;
@@ -36,6 +37,7 @@ export default async ({ page, evalg, wait, shot }) => {
         if (pn !== W.lastPanic) { W.log.push(`t=${W.t.toFixed(0)} panic ${W.lastPanic || '-'} -> ${pn || '-'} (wave ${g.director.panicState?.wave ?? '-'}) commons ${g.infected.commons.filter((c) => !c.dead).length}`); W.lastPanic = pn; }
         if (van.phase !== W.vanPhase) { W.log.push(`t=${W.t.toFixed(0)} van ${W.vanPhase || '-'} -> ${van.phase} broken=${van.broken}`); W.vanPhase = van.phase; }
         if (det.state !== W.detState) { W.log.push(`t=${W.t.toFixed(0)} detector ${W.detState || '-'} -> ${det.state} at ${fmt(p.pos)}`); W.detState = det.state; }
+        for (const s of g.survivors) { const st = s.dead ? 'dead' : s.incapped ? 'incap' : s.pinned ? 'pinned' : 'ok'; W.st = W.st || {}; if (W.st[s.char.id] !== st) { if (W.st[s.char.id]) W.log.push(`t=${W.t.toFixed(0)} ${s.char.id} ${W.st[s.char.id]} -> ${st} hp ${s.hp?.toFixed?.(0)} at ${fmt(s.pos)} near ${g.infected.commons.filter((c) => !c.dead && c.pos.distanceTo(s.pos) < 4).length} cm ${g.infected.specials.filter((q) => !q.dead && q.pos.distanceTo(s.pos) < 6).map((q) => q.kind).join(',')}`); W.st[s.char.id] = st; } }
         const tk = g.infected.specials.find((s) => s.kind === 'tank' && !s.dead);
         if (tk && !W.tankSeen) { W.tankSeen = true; W.log.push(`t=${W.t.toFixed(0)} TANK at ${fmt(tk.pos)} prog ${prog.toFixed(3)}`); }
         // the van: hotwire it as soon as the player stands next to it (walk mode: side trip from the check-in hall)
@@ -49,7 +51,9 @@ export default async ({ page, evalg, wait, shot }) => {
           g.testCmd = { my: 0 };
           const alive = g.survivors.filter((s) => !s.dead);
           const inside = alive.filter((s) => L.inBox(L.endSafe, s.pos, 0.1)).length;
-          if ((inside === alive.length || W.t - W.endT > 60 || W.mode === 'walk') && L.endDoor.open && !W.closed) { W.closed = true; L.endDoor.use(p); W.log.push(`t=${W.t.toFixed(0)} closing door; inside ${inside}/${alive.length}`); }
+          // walk mode: the brainless bots are brought along (they have no brain to follow)
+          if (W.mode === 'walk' && !W.botsIn) { W.botsIn = true; let k = 0; for (const s of alive) if (s !== p) s.teleport(L.flowEnd[0] + (k++ - 1) * 0.9, L.flowEnd[1] + 0.05, L.flowEnd[2], 0); }
+          if ((inside === alive.length || W.t - W.endT > 60 || W.mode === 'walk') && L.endDoor.open && L.endDoor.canUse(p)) { if (!W.closed) W.log.push(`t=${W.t.toFixed(0)} closing door; inside ${inside}/${alive.length}`); W.closed = true; L.endDoor.use(p); }
           g.advance(0.1);
           if (window.session.endTriggered) { W.log.push(`t=${W.t.toFixed(0)} CHAPTER COMPLETE (endTriggered)`); W.done = true; }
           if (W.closed && W.t - W.endT > 80) { W.log.push('END TIMEOUT door.open=' + L.endDoor.open + ' state=' + window.session.state); W.done = true; }
@@ -62,7 +66,7 @@ export default async ({ page, evalg, wait, shot }) => {
           if (cur < 0) { W.log.push('OFF NAV at ' + fmt(p.pos)); W.done = true; break; }
           // aim at the furthest of the next 6 field nodes that is in straight walkable reach
           let n = cur, best = -1;
-          for (let k = 0; k < 6; k++) { const m = nav.descend(f, n); if (m < 0) break; n = m; if (Math.abs(nav.nodeY[m] - nav.nodeY[cur]) > 1.0) { if (best < 0) best = m; break; } if (best < 0 || nav.walkable(p.pos.x, nav.nodeY[cur], p.pos.z, nav.nodeX(m), nav.nodeY[m], nav.nodeZ(m))) best = m; }
+          for (let k = 0; k < 6; k++) { const m = sdesc(n); if (m < 0) break; n = m; if (Math.abs(nav.nodeY[m] - nav.nodeY[cur]) > 1.0) { if (best < 0) best = m; break; } if (best < 0 || nav.walkable(p.pos.x, nav.nodeY[cur], p.pos.z, nav.nodeX(m), nav.nodeY[m], nav.nodeZ(m))) best = m; }
           if (best >= 0) n = best;
           let dx = nav.nodeX(n) - p.pos.x, dz = nav.nodeZ(n) - p.pos.z;
           if (Math.hypot(dx, dz) < 0.2) { dx = nav.nodeX(n) - nav.nodeX(cur); dz = nav.nodeZ(n) - nav.nodeZ(cur); }
@@ -93,7 +97,7 @@ export default async ({ page, evalg, wait, shot }) => {
           W.stucks = (W.stucks || 0) + 1;
           // SKIP=1: log it, hop 12 nodes down the field and carry on (finds every problem spot in one run)
           let n = nav.nearestNode(p.pos.x, p.pos.y, p.pos.z, 3);
-          if (W.skip && n >= 0 && W.stucks < 8) { for (let k = 0; k < 12; k++) { const m = nav.descend(f, n); if (m < 0) break; n = m; } p.teleport(nav.nodeX(n), nav.nodeY[n] + 0.05, nav.nodeZ(n), p.yaw); W.stuckT = 0; W.bb = null; }
+          if (W.skip && n >= 0 && W.stucks < 8) { for (let k = 0; k < 12; k++) { const m = sdesc(n); if (m < 0) break; n = m; } p.teleport(nav.nodeX(n), nav.nodeY[n] + 0.05, nav.nodeZ(n), p.yaw); W.stuckT = 0; W.bb = null; }
           else W.done = true;
         }
         if (p.dead) { W.log.push('PLAYER DIED at ' + fmt(p.pos)); W.done = true; }

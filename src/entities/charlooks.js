@@ -966,6 +966,276 @@ function witchHair(C) {
   }
 }
 
+// ----------------------------------------------------- L4D2 specials ----
+// Bony plates welded onto a limb surface: list of [t, a, w, h, thick] with t
+// along the segment (0..1), a the angle (0 posterior, +pi/2 lateral), w/h the
+// plate half-extents (m) and thick its half-thickness. Right-side bones only.
+function limbPlates(C, part, list, rect = RECT.extra0) {
+  const bone = part === 'uarm' ? BONE.UARMR : BONE.FARMR;
+  const keys = part === 'uarm' ? C.UARM_KEYS : C.FARM_KEYS;
+  const len = part === 'uarm' ? 0.29 : 0.3;
+  const k = C.armBulkR * C.armFat * C.thin;
+  const P = C.add(new C.Piece({ region: part === 'uarm' ? REG.UARM : REG.FARM, bone, mat: 0, name: 'plates' }));
+  const o = [0, 0, 0];
+  for (const [t, a, w, h, th] of list) {
+    C.limbPoint(keys, t, a, k, k, null, o, th * 0.3);
+    const cx = o[0], cz = o[2];
+    const nx = Math.sin(a), nz = -Math.cos(a); // outward normal
+    const tx = Math.cos(a), tz = Math.sin(a); // tangent around the limb
+    const k0 = P.count;
+    C.ellipsoid(P, [0, 0, 0], [w, h, th], 9, 7, rect);
+    for (let i = k0; i < P.count; i++) {
+      const x = P.p[i * 3], y = P.p[i * 3 + 1], z = P.p[i * 3 + 2];
+      // ridge: plates bulge more at the centre and curl at the rim
+      const bulge = 1 + 0.35 * Math.max(0, 1 - (x * x) / (w * w) - (y * y) / (h * h));
+      P.p[i * 3] = cx + tx * x + nx * z * bulge;
+      P.p[i * 3 + 1] = t + y / len;
+      P.p[i * 3 + 2] = cz + tz * x + nz * z * bulge;
+    }
+  }
+}
+function chargerShirt(h, a) {
+  const N = noise();
+  const u = a / TAU + 0.5;
+  if (h > 0.2 && a > 0.5 && a < 2.7) return false; // torn away over the big arm's shoulder
+  return N.fbm.at(u * 2.4 + 0.2, h * 2.6) < 0.6;
+}
+SPEC.charger = {
+  spec: () => ({
+    muscle: 0.9, chest: 1.0, hump: 0.6, armBulkR: 2.4, armBulkL: 0.75, legBulk: 1.2, neck: 1.4, eyes: false, handScale: 1.15,
+    headScale: 0.86, headDrop: 0.035,
+    head: { skull: 0.88, brow: 1.6, jaw: 1.5, chin: 1.3, crooked: 1.2, gaunt: 0.3, socket: 1.3, mouthOpen: 0.007, jawDrop: 0.014, neck: 1.4, cheekW: 1.2, swell: 0.6 },
+    hand: { curl: 0.62 }, foot: { boot: true, width: 1.15 },
+    layers: [
+      { kind: 'torso', mat: 1, off: 0.013, h0: 0.02, h1: 0.47, keep: chargerShirt },
+      // bony armour along the outside of the forearm, a knuckle ridge, a plate on the upper arm
+      { custom: (C) => limbPlates(C, 'farm', [
+        [0.28, 1.2, 0.06, 0.075, 0.026], [0.56, 1.3, 0.056, 0.07, 0.025], [0.82, 1.15, 0.05, 0.055, 0.021],
+        [0.42, 0.55, 0.045, 0.06, 0.02], [0.98, 1.55, 0.045, 0.028, 0.02], [0.98, 0.95, 0.04, 0.028, 0.018],
+      ]) },
+      { custom: (C) => limbPlates(C, 'uarm', [[0.45, 1.3, 0.07, 0.085, 0.026], [0.2, 0.9, 0.05, 0.05, 0.02]]) },
+      { custom: (C) => boils(C, 0, [[0.16, 0.44, -0.02, 0.05], [0.19, 0.4, 0.03, 0.045], [0.13, 0.46, 0.05, 0.04]], BONE.TORSO) },
+    ],
+  }),
+  paintA(A, grid) {
+    const N = noise();
+    const t0 = 0x8a806c;
+    paintHead(A, RECT.head, grid, { skin: lin(t0), lips: lin(0x4a2826), decay: 1, veins: 1.1, sunken: 0.7, redness: 0.35, dirt: 0.5, blood: 0.7, scar: true, stubble: 0.3 });
+    const brawn = (c, amp) => { const f = N.fbm.at(c.u * 2.5, c.v * 2); c.col = mul3(c.col, 1 - sstep(0.5, 0.75, f) * amp * 0.5); c.h -= sstep(0.5, 0.75, f) * amp; };
+    A.region(RECT.torso, (c) => {
+      T(c);
+      if (c.hh > 0.03) {
+        zombieSkin(t0, c, { decay: 0.9, veins: 1.3 });
+        brawn(c, 0.3);
+        // raw, split flesh where the shoulder tore open around the mutated arm
+        const raw = sstep(0.5, 0.78, N.blot.at(c.u * 3, c.v * 3)) * sstep(0.18, 0.32, c.hh) * gauss(c.a0 - 1.5, 0.7);
+        c.col = mix3(c.col, [0.34, 0.05, 0.045], raw * 0.8); c.rough = lerp(c.rough, 0.28, raw); c.h += raw * 0.3;
+        applyBlood(c, 0.3, c.u * 2, c.v);
+      } else trouserTorso(N, c, { kind: 'jeans', color: lin(0x3c3c46), belt: true });
+    });
+    for (const part of ['uarm', 'farm']) A.region(RECT[part], (c) => {
+      partCoords(part, c);
+      zombieSkin(t0, c, { decay: 0.9, veins: 1.6 });
+      brawn(c, 0.35);
+      // tendon cords along the limb
+      const cord = Math.pow(Math.abs(Math.sin(c.a * 4 + N.fbm.at(c.u * 2, c.t * 2) * 3)), 12) * 0.5;
+      c.col = mul3(c.col, 1 + cord * 0.2); c.h += cord;
+      applyBlood(c, 0.35, c.u * 2, c.v); applyDirt(c, 0.4, c.u * 2, c.t);
+    });
+    paintHands(A, { tone: lin(0x7a6856), dirt: 0.7, blood: 0.5, nails: [0.13, 0.1, 0.07] });
+    paintTrousers(A, { kind: 'jeans', color: lin(0x3c3c46), dirt: 0.85, blood: 0.3, fade: 0.15 });
+    paintFeet(A, { kind: 'boot', color: lin(0x2c2016), dirt: 0.85 });
+    // bone plates: yellowed, cracked, darker in the seams
+    A.region(RECT.extra0, (c) => {
+      const r = Math.hypot(c.u - 0.5, c.v - 0.5);
+      const crack = sstep(0.9, 0.97, N.ridge.at(c.u * 4, c.v * 4));
+      c.col = mix3([0.5, 0.45, 0.36], [0.24, 0.19, 0.15], sstep(0.2, 0.48, r));
+      c.col = mul3(c.col, 1 - crack * 0.55);
+      c.col = mix3(c.col, [0.3, 0.08, 0.06], sstep(0.42, 0.5, r) * 0.6);
+      c.rough = 0.42; c.skin = 0.15; c.h = 0.6 - r - crack * 0.4;
+      applyDirt(c, 0.5, c.u * 3, c.v * 3); applyBlood(c, 0.25, c.u * 2, c.v * 2);
+    });
+  },
+  paintB(B) {
+    const N = noise();
+    const base = lin(0x5a2e22), line = lin(0x1e1a16);
+    B.region(RECT.torso, (c) => {
+      T(c);
+      fabric(c, base, { su: c.u * 3, sv: c.hh * 4, folds: torsoFolds(N, c) * 1.2, mottle: 0.25 });
+      const a = sstep(0.5, 0.6, Math.abs(Math.sin(c.u * 70))), b = sstep(0.5, 0.6, Math.abs(Math.sin(c.hh * 70)));
+      c.col = mix3(c.col, line, Math.max(a, b) * 0.45); c.col = mul3(c.col, 1 - a * b * 0.3);
+      c.col = mix3(c.col, [0.55, 0.45, 0.25], sstep(0.92, 0.97, Math.abs(Math.sin(c.u * 35 + 1))) * 0.35);
+      applyDirt(c, 0.8, c.u * 3, c.v * 2); applyBlood(c, 0.45, c.u * 2, c.v);
+    });
+  },
+};
+
+// Jockey: tiny, hunched, huge bald head with a lipless grin, cataract eyes,
+// torn ribbed undershirt with suspenders, cords rolled/torn at the shins, barefoot.
+function jockeyTufts(p) {
+  const m = scalpMask(p, { front: 0.05, temple: 0.06, side: 0.07, nape: -0.03 });
+  if (m < 0.02) return -1;
+  const N = noise();
+  if (p[1] > 0.1 || N.fbm.at(p[0] * 14 + 3, p[2] * 14 + p[1] * 7) < 0.52) return -1; // bald crown, patchy fringe
+  return 0.004 * m;
+}
+SPEC.jockey = {
+  spec: () => ({
+    thin: 0.85, fat: -0.3, hump: 1.1, hunchW: 0.5, muscle: 0.15, legBulk: 0.82, armBulk: 0.85, eyes: true, handScale: 1.12,
+    headScale: 1.14,
+    head: { skull: 1.08, gaunt: 0.85, socket: 1.3, jaw: 0.85, chin: 0.8, mouthOpen: 0.006, lips: 0.55, nose: 1.15, noseLen: 1.2, ear: 1.35, crooked: 0.5, brow: 0.85, neck: 0.8 },
+    hand: { curl: 0.3, spread: 0.45, fingerLen: 1.28, claw: 0.012 }, foot: { bare: true, width: 0.95 },
+    layers: [
+      { kind: 'hair', mat: 1, thick: jockeyTufts },
+    ],
+  }),
+  paintA(A, grid) {
+    const N = noise();
+    const t0 = 0x9c8a78;
+    paintHead(A, RECT.head, grid, { skin: lin(t0), lips: lin(0x3a2020), decay: 1, veins: 1, sunken: 1, redness: 0.5, dirt: 0.35, blood: 0.6, hair: lin(0x5a5048), scalp: { front: 0.05 },
+      post: (c, p) => { // blotchy liver spots on the crown
+        const s = sstep(0.62, 0.72, N.blot.at(p[0] * 9 + 2, p[2] * 9 + p[1] * 5)) * sstep(0.02, 0.09, p[1]);
+        c.col = mix3(c.col, [0.32, 0.22, 0.16], s * 0.5);
+      } });
+    paintEye(A, RECT.eye, { iris: [0.62, 0.68, 0.64], sclera: [0.62, 0.56, 0.36], bloodshot: 0.8 });
+    const stripes = (c, u, v) => { const r = Math.abs(Math.sin(v * 180)); fabric(c, lin(0xb8ad92), { su: u * 3, sv: v * 3, folds: 0.2, mottle: 0.3 }); c.col = mul3(c.col, 0.88 + r * 0.12); c.h += r * 0.2; };
+    A.region(RECT.torso, (c) => {
+      T(c);
+      if (c.hh > 0.02) {
+        // torn ribbed undershirt: holes show emaciated skin
+        const hole = sstep(0.58, 0.64, N.blot.at(c.u * 3, c.hh * 3.5)) || c.hh > 0.44;
+        if (hole) { zombieSkin(t0, c, { decay: 1, veins: 1 }); const rib = Math.pow(Math.max(0, Math.sin(c.hh * 95)), 3) * sstep(0.12, 0.2, c.hh) * sstep(0.38, 0.3, c.hh); c.col = mul3(c.col, 1 - rib * 0.3); c.h -= rib * 0.4; }
+        else { stripes(c, c.u, c.hh); applyDirt(c, 0.8, c.u * 3, c.v * 2); applyBlood(c, 0.4, c.u * 2, c.v); }
+        // suspender straps over the shoulders (front and back)
+        const strap = sstep(0.012, 0.006, Math.abs(Math.abs(c.sx) - 0.075 + (c.hh - 0.2) * 0.05)) * sstep(0.04, 0.06, c.hh);
+        c.col = mix3(c.col, [0.2, 0.12, 0.07], strap); c.h += strap * 0.3; c.rough = lerp(c.rough, 0.5, strap);
+      } else trouserTorso(N, c, { kind: 'slacks', color: lin(0x4a3a28) });
+    });
+    A.region(RECT.uarm, (c) => { partCoords('uarm', c); if (c.t < 0.3 + 0.1 * N.fbm.at(c.u * 3, 0.5)) stripes(c, c.u, c.t * 0.3); else zombieSkin(t0, c, { decay: 1 }); });
+    A.region(RECT.farm, (c) => { partCoords('farm', c); zombieSkin(t0, c, { decay: 1, veins: 1.2 }); applyBlood(c, 0.4, c.u * 2, c.v); });
+    paintHands(A, { tone: lin(0x8a7a68), dirt: 0.7, blood: 0.6, nails: [0.14, 0.12, 0.06] });
+    paintTrousers(A, { kind: 'slacks', color: lin(0x4a3a28), dirt: 0.9, blood: 0.2 });
+    // corduroy ribs + torn off below the knee
+    for (const part of ['thigh', 'shin']) A.region(RECT[part], (c) => {
+      partCoords(part, c);
+      const torn = part === 'shin' && c.t > 0.28 + 0.12 * N.fbm.at(c.u * 4, 0.3);
+      if (torn) { zombieSkin(t0, c, { decay: 1 }); applyDirt(c, 0.9, c.u * 2, c.t); return; }
+      fabric(c, lin(0x4a3a28), { su: c.u * 1.5, sv: c.t * 1.5, folds: limbFolds(N, c, part), mottle: 0.2 });
+      applyDirt(c, 0.8, c.u * 2, c.t); applyBlood(c, 0.15, c.u * 2, c.t);
+      const rib = Math.abs(Math.sin(c.a * 40));
+      c.col = mul3(c.col, 0.9 + rib * 0.12); c.h += rib * 0.25;
+    });
+    paintFeet(A, { kind: 'bare', tone: lin(0x8a7866), dirt: 1, blood: 0.3 });
+  },
+  paintB(B) {
+    B.region(RECT.head, (c) => { const N = noise(); const st = strands(N, c.u, c.v, 1.2); c.col = mul3([0.36, 0.32, 0.28], 0.6 + st * 0.5); c.rough = 0.7; c.h = st * 0.4; });
+  },
+};
+
+// Spitter: tall, emaciated, a long neck and a jaw split and distended by the
+// acid she carries; the throat glows green through the gaping mouth. Patchy
+// lank hair, acid-burn lesions, a torn slip dress.
+function spitterRags(h, a) {
+  const N = noise();
+  if (h > 0.3 && Math.abs(Math.abs(a) - 1.57) < 0.5) return false; // arm holes
+  if (h > 0.33 && Math.abs(a) < 0.6) return false; // low neckline
+  return h > -0.3 + N.fbm.at(a / TAU + 0.5, 0.7) * 0.22 && N.blot.at(a / TAU + 0.5, h * 2 + 0.5) < 0.7;
+}
+function spitterScalp(p) {
+  const m = scalpMask(p, { front: 0.11, temple: 0.1, nape: -0.03 });
+  if (m < 0.02) return -1;
+  const N = noise();
+  if (N.fbm.at(p[0] * 16 + 7, p[2] * 16 + p[1] * 9) < 0.4) return -1; // bald patches
+  return m * 0.007;
+}
+function spitterMaw(C) {
+  // glowing acid welling in the throat, visible through the gaping mouth
+  const P = C.add(new C.Piece({ region: REG.HEAD, bone: BONE.HEAD, mat: 0, name: 'maw' }));
+  C.ellipsoid(P, [0, -0.034, -0.068], [0.017, 0.02, 0.022], 10, 8, RECT.extra2);
+  C.ellipsoid(P, [0, -0.05, -0.058], [0.012, 0.012, 0.016], 8, 6, RECT.extra2);
+  // acid drool hanging from the lower lip
+  const r = rng(71);
+  for (let k = 0; k < 3; k++) {
+    const x0 = (k - 1) * 0.008 + (r() - 0.5) * 0.004, len = 0.035 + r() * 0.05;
+    const pts = [], rad = [];
+    for (let i = 0; i <= 5; i++) { const s = i / 5; pts.push([x0 + Math.sin(s * 2 + k) * 0.003, -0.056 - s * len, -0.092 + s * 0.01]); rad.push([0.0017 * (1 - s * 0.5) + (i === 5 ? 0.0012 : 0), 0.0017 * (1 - s * 0.5)]); }
+    C.sweep(P, pts, rad, 6, RECT.extra3, { up: [1, 0, 0], capEnd: true });
+  }
+}
+function spitterHair(C) {
+  const r = rng(47);
+  const P = C.add(new C.Piece({ region: REG.HAIR, bone: BONE.HEAD, mat: 1, name: 'spitterhair' }));
+  for (let i = 0; i < 11; i++) {
+    const a = Math.PI * 0.35 + (i / 10) * Math.PI * 1.3 + (r() - 0.5) * 0.3; // sides and back only
+    const dx = Math.sin(a), dz = -Math.cos(a);
+    const len = 0.2 + r() * 0.18;
+    const pts = [], rad = [];
+    for (let k = 0; k <= 6; k++) {
+      const s = k / 6, rr = 0.082 + 0.015 * s;
+      pts.push([dx * rr + Math.sin(s * 4 + i) * 0.008, 0.1 - s * len, dz * rr * 1.05 + 0.015 * s]);
+      rad.push([(0.018 - 0.014 * s) * (0.7 + r() * 0.5), 0.004 * (1 - s * 0.6)]);
+    }
+    const k0 = P.count;
+    C.sweep(P, pts, rad, 5, RECT.ponytail, { up: [dx, 0, dz], capEnd: true });
+    for (let q = k0; q < P.count; q++) { const y = P.p[q * 3 + 1]; C.setW(P, q, BONE.HEAD, BONE.TORSO, 1 - 0.6 * sstep(0.0, -0.2, y)); }
+  }
+}
+SPEC.spitter = {
+  spec: () => ({
+    female: 1, thin: 1.5, fat: -0.4, bust: 0.25, eyes: true, headDrop: -0.012,
+    head: { gaunt: 0.95, socket: 1.3, jaw: 0.92, chin: 0.9, jawDrop: 0.03, mouthOpen: 0.015, lips: 0.6, nose: 0.9, neck: 0.8, cheekW: 0.95 },
+    hand: { curl: 0.3, spread: 0.35, claw: 0.02, fingerLen: 1.3 }, handScale: 1.05, foot: { bare: true, width: 0.9 },
+    layers: [
+      { kind: 'torso', mat: 1, off: 0.008, h0: -0.12, h1: 0.38, extendBelow: { n: 3, len: 0.22 }, flareFrom: -0.12, flare: 0.3, keep: spitterRags, skirtWeights: true, rect: RECT.torso },
+      { kind: 'hair', mat: 1, thick: spitterScalp },
+      { custom: spitterHair },
+      { custom: spitterMaw },
+    ],
+  }),
+  paintA(A, grid) {
+    const N = noise();
+    const t0 = 0xa09e88;
+    const lesion = (c, u, v, k = 1) => {
+      const l = sstep(0.66, 0.74, N.blot.at(u * 3.5 + 1.7, v * 3.5)) * k;
+      c.col = mix3(c.col, [0.42, 0.52, 0.12], l * 0.75); c.col = mix3(c.col, [0.2, 0.08, 0.04], sstep(0.72, 0.8, N.blot.at(u * 3.5 + 1.7, v * 3.5)) * k * 0.4);
+      c.rough = lerp(c.rough, 0.22, l); c.h -= l * 0.4;
+    };
+    paintHead(A, RECT.head, grid, { skin: lin(t0), lips: lin(0x3c4a1e), decay: 1, veins: 1.3, sunken: 1, redness: 0.15, dirt: 0.3, blood: 0.3, hair: lin(0x2a2620), scalp: { front: 0.11 },
+      post: (c, p) => { // acid-stained, blistered chin and throat
+        const m = Math.exp(-((p[0] / 0.035) ** 2) - (((p[1] + 0.06) / 0.05) ** 2)) * sstep(0.0, -0.06, p[2]);
+        c.col = mix3(c.col, [0.3, 0.55, 0.08], m * 0.7); c.rough = lerp(c.rough, 0.2, m);
+      } });
+    paintEye(A, RECT.eye, { iris: [0.55, 0.6, 0.1], sclera: [0.6, 0.6, 0.35], bloodshot: 0.6 });
+    for (const part of ['torso', 'uarm', 'farm', 'thigh', 'shin']) A.region(RECT[part], (c) => {
+      partCoords(part, c); if (part === 'torso') T(c);
+      zombieSkin(t0, c, { decay: 1, veins: 1.3 });
+      if (part === 'torso') { const rib = Math.pow(Math.max(0, Math.sin(c.hh * 95)), 3) * sstep(0.12, 0.2, c.hh) * sstep(0.38, 0.3, c.hh); c.col = mul3(c.col, 1 - rib * 0.3); c.h -= rib * 0.45; }
+      lesion(c, c.u, c.v, part === 'torso' ? 1 : 0.7);
+      applyDirt(c, 0.4, c.u * 2, c.v * 2);
+    });
+    paintHands(A, { tone: lin(0x8e8c76), dirt: 0.6, blood: 0.2, nails: [0.2, 0.25, 0.06] });
+    paintFeet(A, { kind: 'bare', tone: lin(0x8e8c76), dirt: 0.9 });
+    // glowing throat / drool
+    A.region(RECT.extra2, (c) => { const n = N.fbm.at(c.u * 3, c.v * 3); c.col = mix3([0.3, 0.75, 0.08], [0.6, 1.0, 0.2], n); c.rough = 0.1; c.skin = 0; c.h = n * 0.3; });
+    A.region(RECT.extra3, (c) => { c.col = [0.32, 0.5, 0.1]; c.rough = 0.08; c.skin = 0; c.h = 0; });
+  },
+  paintB(B) {
+    const N = noise();
+    const dress = lin(0x3e5a58);
+    B.region(RECT.torso, (c) => {
+      T(c);
+      fabric(c, dress, { su: c.u * 3, sv: c.hh * 4, folds: torsoFolds(N, c) * 1.4, mottle: 0.35, scale: 1.3 });
+      const stain = sstep(0.6, 0.75, N.blot.at(c.u * 2.5 + 0.3, c.hh * 2 + 0.2));
+      c.col = mix3(c.col, [0.28, 0.4, 0.08], stain * 0.6);
+      applyDirt(c, 0.8, c.u * 3, c.v * 2); applyBlood(c, 0.25, c.u * 2, c.v);
+    });
+    const hair = (c, sc) => { const st = strands(N, c.u, c.v * sc, 1.4); c.col = mul3([0.16, 0.14, 0.11], 0.6 + st * 0.6); c.rough = 0.45; c.h = st * 0.5; };
+    B.region(RECT.head, (c) => hair(c, 1));
+    B.region(RECT.ponytail, (c) => { hair(c, 0.3); applyDirt(c, 0.5, c.u, c.v); });
+  },
+  emissiveA: (E) => { E.region(RECT.extra2, (c) => { c.col = [0.45, 1.0, 0.12]; }); E.region(RECT.extra3, (c) => { c.col = [0.12, 0.3, 0.03]; }); },
+};
+
 // Generic fallback survivor from colours (unknown characters)
 function genericRecipe(look) {
   const tone = lin(look.skin ?? 0xc49a7a);

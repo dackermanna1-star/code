@@ -129,6 +129,11 @@ export class PlayerController {
       yaw += Math.sin(t * 17) * 0.03;
       if (s.pinType === 'hunter') { pitch = lerp(pitch, 0.9, 0.5); eye = 0.4; }
       if (s.pinType === 'smoker') eye = Math.min(eye, 1.2);
+      if (s.pinType === 'jockey') { yaw += Math.sin(t * 2.3) * 0.08; pitch += Math.sin(t * 3.7) * 0.05; eye = Math.min(eye, 1.45); }
+      if (s.pinType === 'charger') {
+        if (s.pinned.carrying) { eye = Math.min(eye, 1.1); pitch = lerp(pitch, -0.35, 0.5); }
+        else { pitch = lerp(pitch, 0.9, 0.5); eye = 0.35; pitch += Math.sin(t * 4.6) * 0.04; }
+      }
     }
     const lx = s.pos.x + rx * bobX, lz = s.pos.z + rz * bobX;
     cam.position.set(lx, s.pos.y + eye, lz);

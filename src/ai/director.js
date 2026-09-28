@@ -7,10 +7,21 @@
 // feeds the dynamic music system.
 import * as THREE from 'three';
 import { SPECIAL_CLASSES } from '../entities/specials.js';
+import { L4D2_SPECIALS } from '../entities/specials2.js';
+import { getCharacterAsset } from '../entities/charlooks.js';
 import { clamp, randRange, pick, shuffle } from '../core/math.js';
 
 const BUILD = 'build', SUSTAIN = 'sustain', FADE = 'fade', RELAX = 'relax';
 const _v = new THREE.Vector3();
+// Special-infected spawn weights per difficulty (L4D2-style mix: the pinners
+// get more common as the difficulty rises; Boomers stay a steady nuisance).
+const SPECIAL_WEIGHTS = {
+  easy: { hunter: 1, smoker: 1, boomer: 1.2, charger: 0.6, jockey: 0.75, spitter: 0.9 },
+  normal: { hunter: 1, smoker: 1, boomer: 1, charger: 0.9, jockey: 0.95, spitter: 1 },
+  advanced: { hunter: 1.05, smoker: 1, boomer: 0.9, charger: 1.1, jockey: 1.1, spitter: 1.1 },
+  expert: { hunter: 1.1, smoker: 1.05, boomer: 0.85, charger: 1.2, jockey: 1.2, spitter: 1.2 },
+};
+const CLASSIC = ['hunter', 'smoker', 'boomer'];
 
 export class Director {
   constructor(game) {
@@ -25,7 +36,7 @@ export class Director {
       wanderers: 22, // target idle population near the survivors
       mobInterval: [70, 120],
       mobSize: [14, 24],
-      specials: ['hunter', 'smoker', 'boomer'],
+      specials: CLASSIC.concat(L4D2_SPECIALS),
       maxSpecials: 3,
       specialInterval: [22, 38],
       tank: 0.6, // chance of a Tank this chapter
@@ -61,7 +72,14 @@ export class Director {
     this.blockWanderers = false;
     this.nearStingT = 0;
     this.stats = { mobs: 0, specials: 0, tanks: 0 };
+    this.game.acid?.clear();
+    // chapters that list only the classic trio still get the L4D2 specials
+    // unless they opt out with director.l4d2Specials = false
+    if (d.l4d2Specials !== false && Array.isArray(this.cfg.specials) && CLASSIC.every((k) => this.cfg.specials.includes(k))) {
+      this.cfg.specials = this.cfg.specials.concat(L4D2_SPECIALS.filter((k) => !this.cfg.specials.includes(k)));
+    }
     if (!level) return;
+    this.prewarmSpecials();
     this.game.infected.outfit = this.cfg.outfit;
     if (Math.random() < this.cfg.tank && !d.noTank) this.tankProgress = d.tankAt ?? randRange(0.35, 0.8);
     // witches
@@ -99,7 +117,7 @@ export class Director {
   // ---------------------------------------------------------- events --
   onSurvivorDamaged(s, amt, type) { this.addIntensity(s, amt * (type === 'claw' ? 1.2 : 2)); }
   onIncap(s) { this.addIntensity(s, 45); }
-  onPinned(s) { this.addIntensity(s, 30); }
+  onPinned(s, sp) { this.addIntensity(s, sp?.kind === 'charger' ? 40 : sp?.kind === 'jockey' ? 25 : 30); }
   onKill(c) {
     for (const s of this.game.survivors) if (!s.dead && s.pos.distanceTo(c.pos) < 5) this.addIntensity(s, 2.5);
   }
@@ -242,7 +260,9 @@ export class Director {
     const g = this.game;
     if (!this.cand.length) this.refreshCandidates();
     const nav = g.level.nav;
-    const n = opts.node ?? this.findSpawnNode(kind === 'tank' ? 25 : 18, kind === 'smoker' ? 50 : 45, opts.where ?? (Math.random() < 0.65 ? 'ahead' : 'any'), { high: kind === 'smoker' });
+    const minD = kind === 'tank' ? 25 : kind === 'jockey' ? 16 : 18;
+    const maxD = kind === 'smoker' || kind === 'spitter' ? 50 : kind === 'charger' ? 40 : 45;
+    const n = opts.node ?? this.findSpawnNode(minD, maxD, opts.where ?? (Math.random() < 0.65 ? 'ahead' : 'any'), { high: kind === 'smoker' || kind === 'spitter' });
     if (n < 0) return null;
     const C = SPECIAL_CLASSES[kind];
     const sp = new C(g.infected);
@@ -252,6 +272,39 @@ export class Director {
     if (kind === 'tank') { this.tankAlive = true; this.stats.tanks++; g.audio.music.stinger('tank'); g.onTankSpawn?.(sp); }
     g.onSpecialSpawn?.(sp);
     return sp;
+  }
+  // Weighted special choice: difficulty mix, and fewer pinners while the team
+  // is already in trouble (someone pinned or down).
+  pickSpecial(kinds) {
+    const g = this.game;
+    const key = String(g.difficulty?.name || 'normal').toLowerCase();
+    const W = SPECIAL_WEIGHTS[key] || SPECIAL_WEIGHTS.normal;
+    const trouble = g.survivors.some((s) => !s.dead && (s.pinned || s.incapped));
+    let tot = 0;
+    const w = kinds.map((k) => {
+      let v = W[k] ?? 1;
+      if (trouble && (k === 'charger' || k === 'jockey' || k === 'hunter' || k === 'smoker')) v *= 0.6;
+      tot += v;
+      return v;
+    });
+    let x = Math.random() * tot;
+    for (let i = 0; i < kinds.length; i++) { x -= w[i]; if (x <= 0) return kinds[i]; }
+    return kinds[kinds.length - 1];
+  }
+  // Build the new specials' character assets in idle time so the first spawn
+  // doesn't hitch (the classic ones are prewarmed with the survivors).
+  prewarmSpecials() {
+    if (this._prewarmed || typeof window === 'undefined') return;
+    this._prewarmed = true;
+    const ids = L4D2_SPECIALS.filter((k) => this.cfg.specials.includes(k));
+    const idle = typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 5000 }) : (f) => setTimeout(f, 300);
+    const step = () => {
+      const id = ids.shift();
+      if (!id) return;
+      try { getCharacterAsset({ id }); } catch (e) { console.warn('prewarm', id, e); }
+      if (ids.length) idle(step);
+    };
+    setTimeout(() => idle(step), 6000);
   }
   spawnWitchAt(x, y, z) {
     const g = this.game;
@@ -313,6 +366,8 @@ export class Director {
   // ------------------------------------------------------------ update --
   update(dt) {
     const g = this.game;
+    // acid pools / spit globs tick even while the director is paused
+    if (g.acid && g.level) g.acid.update(dt);
     if (!this.enabled || !g.level || !g.level.nav) return;
     // intensity decay
     let I = 0;
@@ -385,7 +440,7 @@ export class Director {
         this.specialT = randRange(this.cfg.specialInterval[0], this.cfg.specialInterval[1]) * (1 + this.teamHurt() * 0.4);
         const alive = new Set(g.infected.specials.filter((s) => !s.dead).map((s) => s.kind));
         const opts = this.cfg.specials.filter((k) => !alive.has(k));
-        if (opts.length) this.spawnSpecial(pick(opts));
+        if (opts.length) this.spawnSpecial(this.pickSpecial(opts));
       }
     }
     // tank along the flow

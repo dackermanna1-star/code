@@ -17,18 +17,18 @@ const TYPE_MODEL = {
 };
 // Hip pose per kind: [x,y,z, rx,ry,rz]
 const POSE = {
-  pistol: [0.13, -0.13, -0.32, 0, 0.03, 0],
-  dual: [0.15, -0.14, -0.33, 0, 0, 0],
-  smg: [0.12, -0.13, -0.3, 0, 0.02, 0],
-  shotgun: [0.12, -0.14, -0.26, 0, 0.02, 0],
-  rifle: [0.12, -0.13, -0.24, 0, 0.02, 0],
-  sniper: [0.12, -0.135, -0.24, 0, 0.02, 0],
-  heavy: [0.13, -0.17, -0.24, 0, 0.04, 0],
-  launcher: [0.13, -0.15, -0.26, 0, 0.03, 0],
-  melee: [0.2, -0.3, -0.35, -0.3, 0.2, -0.3],
-  throwable: [0.16, -0.2, -0.32, 0, 0, 0],
-  medkit: [0.08, -0.22, -0.36, 0.2, 0, 0],
-  pills: [0.12, -0.2, -0.32, 0, 0, 0.1],
+  pistol: [0.075, -0.105, -0.36, 0, 0.02, 0],
+  dual: [0.15, -0.13, -0.33, 0, 0, 0],
+  smg: [0.1, -0.11, -0.3, 0, 0.03, 0],
+  shotgun: [0.11, -0.12, -0.27, 0, 0.03, 0],
+  rifle: [0.105, -0.115, -0.26, 0, 0.03, 0],
+  sniper: [0.105, -0.12, -0.26, 0, 0.03, 0],
+  heavy: [0.12, -0.15, -0.26, 0, 0.04, 0],
+  launcher: [0.12, -0.135, -0.27, 0, 0.03, 0],
+  melee: [0.19, -0.23, -0.36, -0.32, 0.22, -0.32],
+  throwable: [0.15, -0.165, -0.3, 0, 0, 0],
+  medkit: [0.06, -0.19, -0.36, 0.25, 0, 0],
+  pills: [0.11, -0.16, -0.3, 0, 0, 0.1],
   minigun: [0.0, -0.28, -0.25, 0, 0, 0],
 };
 
@@ -42,7 +42,8 @@ const POSE = {
 //   R 'pistolGrip' | 'melee' | 'item' | 'minigun' | 'dualGrip'
 //   L 'fore' | 'support' | 'mag' | 'belt' | 'charge' | 'shell' | 'port' | 'round' | 'item' | 'hidden'
 // HANDS[kind] is the fallback placement for items without a solved grip.
-const OFF_POSE = { mag: 'mag', belt: 'relax', charge: 'pinch', shell: 'shell', port: 'shell', round: 'mag' };
+const OFF_POSE = { mag: 'mag', belt: 'relax', charge: 'pinch', shell: 'shell', port: 'shell', round: 'mag', bandage: 'pinch' };
+const OFF_ACTION = { mag: 'mag', charge: 'charge', port: 'port', round: 'round' };
 // Per-kind hand placement in holder space: [x,y,z, rx,ry,rz]
 const HANDS = {
   pistol: { R: [0, -0.035, 0.005, 0.25, 0, 0], L: [-0.012, -0.055, 0.03, 0.35, -0.5, 0.25] },
@@ -165,26 +166,7 @@ export class Viewmodel {
     this.lhInit = false;
     if (!type) return;
     const mt = type === 'pistol' && dual ? 'dualPistols' : TYPE_MODEL[type];
-    // models are built once per type and reused (they are fairly detailed)
-    if (!this.modelCache) this.modelCache = new Map();
-    let m = mt ? this.modelCache.get(mt) : null;
-    if (mt && !m) {
-      m = buildModel(mt);
-      if (m) {
-        m.traverse((o) => { o.layers.set(1); o.castShadow = false; o.frustumCulled = false; });
-        // muzzle flash billboard (two crossed planes)
-        const fm = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ map: flashTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: 0xffc080 }));
-        fm.layers.set(1);
-        const fm2 = fm.clone();
-        fm2.rotation.y = Math.PI / 2;
-        fm.add(fm2);
-        m.userData.muzzle?.add(fm);
-        m.userData._flash = fm;
-        this.recordBases(m);
-        if (m.userData.left) { this.recordBases(m.userData.left); this.recordBases(m.userData.right); }
-        this.modelCache.set(mt, m);
-      }
-    }
+    const m = mt ? this.getModel(mt) : null;
     this.model = m || null;
     this.modelType = type;
     this.modelKey = mt;
@@ -202,6 +184,52 @@ export class Viewmodel {
     this.anim = null;
     this.pumpA = -1;
     this.shell.visible = false;
+  }
+  // models are built once per type and reused (they are fairly detailed)
+  getModel(mt) {
+    if (!this.modelCache) this.modelCache = new Map();
+    let m = this.modelCache.get(mt);
+    if (!m) {
+      m = buildModel(mt);
+      if (m) {
+        m.traverse((o) => { o.layers.set(1); o.castShadow = false; o.frustumCulled = false; });
+        // muzzle flash billboard (two crossed planes)
+        const fm = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ map: flashTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: 0xffc080 }));
+        fm.layers.set(1);
+        const fm2 = fm.clone();
+        fm2.rotation.y = Math.PI / 2;
+        fm.add(fm2);
+        m.userData.muzzle?.add(fm);
+        m.userData._flash = fm;
+        this.recordBases(m);
+        if (m.userData.left) { this.recordBases(m.userData.left); this.recordBases(m.userData.right); }
+        this.modelCache.set(mt, m);
+      }
+    }
+    return m || null;
+  }
+  // Build models and solve grips for what the survivor carries, one per idle
+  // slot, so switching weapons never stalls a frame.
+  prewarm(s) {
+    const now = performance.now();
+    if (this._pwBusy || now < (this._pwNext || 0) || !this.arms.R) return;
+    this._pwNext = now + 700;
+    const inv = s.inv || {};
+    const want = [];
+    if (inv.primary?.type) want.push(TYPE_MODEL[inv.primary.type]);
+    if (inv.secondary?.type) want.push(inv.secondary.type === 'pistol' && inv.secondary.dual ? 'dualPistols' : TYPE_MODEL[inv.secondary.type]);
+    if (inv.throwable) want.push(TYPE_MODEL[inv.throwable]);
+    if (inv.medkit) want.push('medkit');
+    if (inv.pills) want.push(TYPE_MODEL[inv.pills]);
+    const key = this.arms.lookId;
+    const mt = want.find((t) => t && !(this.modelCache?.get(t)?.userData.fpGrips && key in this.modelCache.get(t).userData.fpGrips));
+    if (!mt) return;
+    this._pwBusy = true;
+    const run = () => {
+      this._pwBusy = false;
+      try { const m = this.getModel(mt); if (m && m !== this.model) this.arms.prewarm(m, mt); } catch (e) { console.warn('viewmodel prewarm', mt, e); }
+    };
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 3000 }); else setTimeout(run, 50);
   }
   recordBases(m) {
     const ud = m.userData;
@@ -242,6 +270,7 @@ export class Viewmodel {
     const a = this.anim;
     switch (e) {
       case 'fire': {
+        this.arms.squeeze();
         const k = d ? d.viewKick : 1;
         const shotgun = d && d.kind === 'shotgun';
         this.kickVZ += (1.6 * k + 0.4) * (shotgun ? 1.25 : 1);
@@ -365,6 +394,7 @@ export class Viewmodel {
   }
   // off-hand grab point on a magazine (holder space)
   magGrip(mag, outP, outQ) {
+    if (mag === this.model?.userData.mag && this.arms.actionHolderLegacy('mag', this.holder, outP, outQ)) return;
     const I = this.magInfo(mag);
     this.toHolder(mag, I.cx, I.bot + 0.03, I.cz + 0.004, outP);
     this.quatToHolder(mag, outQ).multiply(qe(_qT, 0.12, 0, 0));
@@ -372,6 +402,7 @@ export class Viewmodel {
   partGrip(spec, outP, outQ) {
     const part = this.model.userData[spec.part];
     if (!part) return false;
+    if (this.arms.actionHolderLegacy('charge', this.holder, outP, outQ)) return true;
     this.toHolder(part, spec.p[0], spec.p[1], spec.p[2], outP);
     this.quatToHolder(part.parent, outQ).multiply(qe(_qT, spec.e[0], spec.e[1], spec.e[2]));
     return true;
@@ -391,6 +422,7 @@ export class Viewmodel {
   update(dt, s, look) {
     if (!s) return;
     this.setCharacter(s.char);
+    this.prewarm(s);
     const item = s.usingMounted ? 'minigun' : s.activeItem;
     const dual = !s.usingMounted && s.slot === 1 && s.inv.secondary.dual;
     const key = item + (dual ? ':dual' : '');
@@ -549,10 +581,20 @@ export class Viewmodel {
           break;
         }
         case 'heal': {
-          const hk = eo(a.t, 0, 0.4);
-          T[1] -= 0.08 * hk; T[3] += 0.5 * hk;
-          T[0] += Math.sin(a.t * 6) * 0.02 * hk; T[5] += Math.sin(a.t * 3.1) * 0.1 * hk;
-          LP.x += Math.sin(a.t * 9) * 0.02; LP.y += Math.cos(a.t * 7) * 0.015;
+          // kit comes in toward the chest and tips its face to the eye; the right
+          // hand holds it while the left pulls a bandage out and wraps, over and over
+          const hk = eo(a.t, 0, 0.45);
+          T[0] -= 0.035 * hk; T[1] += 0.035 * hk; T[2] += 0.03 * hk; T[3] += 0.5 * hk;
+          T[5] += Math.sin(a.t * 1.9) * 0.05 * hk; T[1] += Math.sin(a.t * 2.6) * 0.004 * hk;
+          const c = Math.max(0, a.t - 0.25) / 1.1, ph = c % 1;
+          const reach = ss(a.t, 0.1, 0.4);
+          // in (dip into the kit) -> pull up and out -> loop around (wrap) -> back
+          const dip = bump(ph, 0.12, 0.12), pull = ss(ph, 0.2, 0.5) * (1 - ss(ph, 0.8, 1));
+          const wrap = ph * Math.PI * 2;
+          const hp = _pE.set(-0.03 + 0.06 * pull + 0.025 * Math.sin(wrap) * pull, 0.03 - 0.03 * dip + 0.07 * pull + 0.02 * Math.cos(wrap) * pull, 0.06 + 0.05 * pull);
+          const hq = qe(_qD, -0.7 + 0.5 * pull, 0.2 * Math.sin(wrap) * pull, -1.35 - 0.5 * pull);
+          Viewmodel.blend(LP, LQ, hp, hq, reach, LP, LQ);
+          this.grip.L = reach > 0.3 ? 'bandage' : this.grip.L;
           break;
         }
         case 'pills': {
@@ -621,7 +663,8 @@ export class Viewmodel {
     this.arms.update({
       holder: this.holder, dt, trig: this.trigK, rP, rQ, fast: !!a,
       offP: lVis && kind !== 'dual' ? this.lhP : null, offQ: this.lhQ,
-      offPose: OFF_POSE[this.grip.L] || 'relax', offK, hideL: !lVis && kind !== 'dual',
+      offPose: OFF_POSE[this.grip.L] || 'relax', offAction: OFF_ACTION[this.grip.L], offK, hideL: !lVis && kind !== 'dual',
+      thumbK: (a && a.thumbK) || 0,
     });
   }
 
@@ -656,24 +699,30 @@ export class Viewmodel {
     const ch = CHARGE_GRIP[this.modelType];
     const empty = a.empty && ch && this.model.userData[ch.part];
     a.slideLock = 0;
-    // empty: pull the slide / charging handle / bolt and let it fly home at 85 %
-    if (empty) {
+    a.thumbK = 0;
+    const isSlide = empty && ch.part === 'slide';
+    if (isSlide) {
+      // empty pistol: the slide stays locked back until the right thumb drops
+      // the slide stop at 84 % (after the mag seats); the gun jolts as it slams home
+      a.slideLock = k < 0.84 ? 1 : 0;
+      a.thumbK = ss(k, 0.72, 0.8) * (1 - ss(k, 0.86, 0.94));
+      T[1] += 0.008 * bump(k, 0.855, 0.04); T[3] += 0.05 * bump(k, 0.86, 0.05); T[5] -= 0.03 * bump(k, 0.86, 0.06);
+    } else if (empty) {
+      // empty long gun: pull the charging handle / bolt, let it fly home at 84 %
       const part = ud[ch.part];
       const pull = ss(k, 0.66, 0.8) * (1 - ei(k, 0.8, 0.84));
       const lift = ch.lift ? ss(k, 0.6, 0.67) * (1 - ss(k, 0.84, 0.88)) : 0;
-      const isSlide = ch.part === 'slide';
-      if (isSlide) a.slideLock = k < 0.8 ? 1 : 0;
-      this.setPart(part, 0, 0, Math.max(pull * ch.pull[2], isSlide && k < 0.8 ? 0.03 : 0), lift * (ch.lift || 0));
+      this.setPart(part, 0, 0, pull * ch.pull[2], lift * (ch.lift || 0));
       T[5] += 0.08 * bump(k, 0.78, 0.08); T[1] -= 0.01 * bump(k, 0.84, 0.04);
     }
     const G = this.grip;
-    G.L = k < 0.03 ? G.L : k < 0.3 ? (pistol || k > 0.2 ? 'belt' : 'mag') : k < 0.58 ? 'mag' : empty && k < 0.9 ? 'charge' : G.L;
+    G.L = k < 0.03 ? G.L : k < 0.3 ? (pistol || k > 0.2 ? 'belt' : 'mag') : k < 0.58 ? 'mag' : empty && !isSlide && k < 0.9 ? 'charge' : G.L;
     if (k < 0.3) {
       if (pistol) Viewmodel.blend(RP, RQ, belt, beltQ, ss(k, 0.04, 0.22), LP, LQ);
       else if (k < 0.15) Viewmodel.blend(RP, RQ, mP, mQ, ss(k, 0.04, 0.12), LP, LQ);
       else Viewmodel.blend(mP, mQ, belt, beltQ, ss(k, 0.15, 0.28), LP, LQ);
     } else if (k < 0.5) Viewmodel.blend(belt, beltQ, mP, mQ, ss(k, 0.27, 0.34), LP, LQ);
-    else if (empty) {
+    else if (empty && !isSlide) {
       const cP = _pC, cQ = _qC;
       this.partGrip(ch, cP, cQ);
       if (k < 0.84) Viewmodel.blend(mP, mQ, cP, cQ, ss(k, 0.5, 0.64), LP, LQ);
@@ -734,13 +783,16 @@ export class Viewmodel {
     if (rp) { rd.visible = true; rd.position.copy(rp); }
     // off hand: to the belt, carries the round in, then closes the barrel
     this.grip.L = k < 0.14 ? 'fore' : k < 0.38 ? 'belt' : k < 0.66 ? 'round' : 'fore';
-    const foreEnd = this.toHolder(br, 0, -0.03, -0.17, _pB);
-    const feQ = _qB.copy(FOREGRIP_Q);
+    // the fore-end grip rides the barrel (solved grip anchored to the breach); legacy fallback below it
+    const solvedFore = this.arms.hasGrip('L');
+    const foreEnd = solvedFore ? _pB.copy(RP) : this.toHolder(br, 0, -0.03, -0.17, _pB);
+    const feQ = solvedFore ? _qB.copy(RQ) : _qB.copy(FOREGRIP_Q);
+    const roundGrip = (outP, outQ) => { if (!this.arms.actionHolderLegacy('round', this.holder, outP, outQ)) { outP.copy(rd.position).add(_v.set(0.0, -0.04, 0.06)); qe(outQ, 0.3, 0, 0); } };
     if (k < 0.34) Viewmodel.blend(RP, RQ, belt, qe(_qC, 0.4, 0, 0.3), ss(k, 0.14, 0.3), LP, LQ);
     else if (k < 0.62) {
-      _pE.copy(rd.position).add(_v.set(0.0, -0.04, 0.06));
-      Viewmodel.blend(belt, qe(_qC, 0.4, 0, 0.3), _pE, qe(_qD, 0.3, 0, 0), ss(k, 0.3, 0.4), LP, LQ);
-    } else if (k < 0.86) Viewmodel.blend(_pE.copy(rd.position).add(_v.set(0.0, -0.04, 0.06)), qe(_qD, 0.3, 0, 0), foreEnd, feQ, ss(k, 0.62, 0.74), LP, LQ);
+      roundGrip(_pE, _qD);
+      Viewmodel.blend(belt, qe(_qC, 0.4, 0, 0.3), _pE, _qD, ss(k, 0.3, 0.4), LP, LQ);
+    } else if (k < 0.86) { roundGrip(_pE, _qD); Viewmodel.blend(_pE, _qD, foreEnd, feQ, ss(k, 0.62, 0.74), LP, LQ); }
     else Viewmodel.blend(foreEnd, feQ, RP, RQ, ss(k, 0.86, 0.96), LP, LQ);
   }
   // Shotguns: roll to the loading port, one shell per cycle (pushed home on
@@ -759,9 +811,11 @@ export class Viewmodel {
     const port = ud.port;
     const pIn = _pA, pEntry = _pB, pFetch = _pC, qPort = _qA, qFetch = _qC;
     if (port) this.toHolder(port, 0.0, -0.012, -0.012, pIn); else pIn.set(0, -0.012, -0.08);
+    qe(qPort, 1.35, 0, 0);
+    this.arms.actionHolderLegacy('port', this.holder, pIn, qPort); // solved shell-in-hand pose at the port
     pEntry.copy(pIn).add(_v.set(0, -0.04, 0.045));
     pFetch.copy(pIn).add(_v.set(0.03, -0.24, 0.12));
-    qe(qPort, 1.35, 0, 0); qe(qFetch, 0.6, 0, 0.3);
+    qe(qFetch, 0.6, 0, 0.3);
     this.grip.L = a.phase === 0 ? (a.t > a.start * 0.5 ? 'shell' : 'fore') : a.phase === 1 ? (this.shell.visible || a.cyc / a.period < 0.5 ? 'shell' : 'port') : a.rack && ud.bolt && a.endT < 0.36 ? 'charge' : a.endT > 0.12 ? 'fore' : 'port';
     if (a.phase === 0) Viewmodel.blend(RP, RQ, pFetch, qFetch, ss(a.t, 0, a.start), LP, LQ);
     else if (a.phase === 1) {
@@ -831,3 +885,4 @@ function flashTexture() {
   _flashTex.colorSpace = THREE.SRGBColorSpace;
   return _flashTex;
 }
+export { POSE };

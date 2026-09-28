@@ -210,6 +210,9 @@ export default {
       game.audio.play('metalGate', { pos: new THREE.Vector3(PUMP.x, 1.2, PUMP.z), vol: 1.4 });
       L.nav.flow.limit = 150; // hordes cross the whole apron (halls, Hangar 3, over the T-walls)
       d.finaleMode = true; d.blockMobs = true; d.blockWanderers = true; d.cfg.maxSpecials = 3;
+      // a Witch still crying out by the burning jet slinks off into the dark when the pump roars up
+      for (const w of game.infected.specials) if (w.kind === 'witch' && !w.dead && !w.removed && !w.enraged) w.remove();
+      d.witchPlan.length = 0;
       game.audio.music.stinger('finaleStart');
       say([
         { who: 'francis', text: 'Well. That IS loud.', d: 1.2 },
@@ -292,11 +295,12 @@ export default {
         { who: 'zoey', text: 'Roll credits.', d: 13.2 },
       ]);
       for (const x of game.survivors) { x.model?.setHidden(true); x.cmd.fire = false; }
+      game.renderer.blood?.fill?.(0); // no leftover screen blood over the ending
       if (game.player.usingMounted) game.player.usingMounted.dismount?.();
       game.cheats.godAll = true;
       s.state = 'cutscene';
       s.cinematic(true);
-      game.net?.ev?.(['cam', TANKER.x - 6, 2.2, TANKER.z - 16, 0]); // co-op clients watch the taxi-out too
+      game.net?.ev?.(['cam', 47, 2.4, 44, 0]); // co-op clients watch the taxi-out too
       plane.raiseRamp(3.2);
       plane.setEngines(1);
       plane.setLanding(true);
@@ -312,9 +316,9 @@ export default {
         const t = game.time - t0;
         const p = plane.group.position;
         if (shot === 0) {
-          // from beside the tanker: ramp up, props screaming, she rolls for the gate
-          cam.position.set(TANKER.x - 6, 2.2, TANKER.z - 16);
-          look.set(p.x, 3.2, p.z + 2);
+          // from the staging area behind her: ramp up, props screaming, she rolls for gate 7
+          cam.position.set(47, 2.4, 44);
+          look.set(p.x - 1, 3.4, p.z + 4);
           if (t > 8.6) {
             shot = 1;
             plane.group.rotation.set(0, Math.PI / 2, 0);
@@ -325,8 +329,8 @@ export default {
             plane.group.position.set(150, 0, RUNWAY.z);
           }
         } else {
-          // low on the grass by the burning wreck: Evac 41 thunders past and lifts off
-          cam.position.set(-16, 2.3, 96.5);
+          // low on the grass west of the burning wreck: Evac 41 races out of the fire glow, lifts off and roars overhead
+          cam.position.set(-100, 2.6, 101);
           look.lerp(V.set(p.x, p.y + 3, p.z), Math.min(1, dt * 5));
           if (t < 8.8) look.set(p.x, p.y + 3, p.z);
         }
@@ -387,7 +391,7 @@ export default {
           case 'wavesB':
             if (F.t > 5 && !d.panicState && !F.bStarted) {
               F.bStarted = true;
-              d.panic('da5B', { waves: 2, size: [22, 30], interval: 20, nodes: allNodes(), force: true, onEnd: () => { F.stage = 'tank2'; F.t = 0; F.cap = 86; } });
+              d.panic('da5B', { waves: 2, size: [20, 26], interval: 22, nodes: allNodes(), force: true, onEnd: () => { F.stage = 'tank2'; F.t = 0; F.cap = 86; } });
             }
             break;
           case 'tank2':

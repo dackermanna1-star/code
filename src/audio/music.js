@@ -7,7 +7,7 @@
 import { mtof, noiseBuffers } from './dsp.js';
 
 export const MUSIC_STATES = ['none', 'calm', 'tension', 'combat', 'horde', 'tank', 'witch', 'finale', 'rescue'];
-export const STINGER_NAMES = ['hordeIncoming', 'tank', 'witch', 'hunterNear', 'smokerNear', 'boomerNear', 'pinned', 'incap', 'death',
+export const STINGER_NAMES = ['hordeIncoming', 'tank', 'witch', 'hunterNear', 'smokerNear', 'boomerNear', 'chargerNear', 'jockeyNear', 'spitterNear', 'pinned', 'incap', 'death',
   'safeRoom', 'chapterStart', 'finaleStart', 'rescueArrive', 'escape', 'objective'];
 
 const LOOKAHEAD = 0.35;
@@ -780,6 +780,43 @@ const STINGERS = {
       for (const k of [0, 0.95, 1.7]) I.drum(d, t + k, 'mus_taikoLo', 0.5, 0.7);
       I.strings(d, t, 45, 2.4, 0.25, { att: 0.8, rel: 0.5, bright: 0.2 });
       I.strings(d, t, 46, 2.4, 0.25, { att: 0.8, rel: 0.5, bright: 0.2 });
+    },
+  },
+  chargerNear: {
+    // stampeding low brass + taiko, accelerating into a crash
+    dur: 2.6, gain: 1.4,
+    play(I, d, t) {
+      const hits = [0, 0.5, 0.9, 1.2, 1.42, 1.58, 1.7];
+      hits.forEach((dt, k) => {
+        I.drum(d, t + dt, k % 2 ? 'mus_taikoHi' : 'mus_taikoLo', 0.55 + k * 0.06);
+        I.brass(d, t + dt, k < 4 ? 33 : 34, 0.18, 0.6 + k * 0.04, { att: 0.01, rel: 0.12 });
+      });
+      I.strings(d, t, 40, 1.9, 0.35, { att: 0.2, rel: 0.3, bright: 0.4 });
+      I.strings(d, t, 41, 1.9, 0.35, { att: 0.2, rel: 0.3, bright: 0.4 });
+      I.drum(d, t + 1.85, 'mus_boom', 0.9);
+      I.brass(d, t + 1.85, 28, 0.7, 0.8, { att: 0.01, rel: 0.5 });
+    },
+  },
+  jockeyNear: {
+    // skipping, lopsided pizzicato and a detuned music-box giggle
+    dur: 2.2, gain: 1.4,
+    play(I, d, t) {
+      const run = [72, 75, 73, 77, 74, 79, 76, 81];
+      run.forEach((n, k) => I.spiccato(d, t + k * 0.14 + (k % 2 ? 0.05 : 0), n, 0.75, 0.07, { bright: 10 }));
+      [0.3, 0.62, 0.95, 1.3].forEach((dt, k) => I.bell(d, t + dt, 84 + (k % 2 ? 1 : -1), 0.3, k * 7, 0.8));
+      I.drum(d, t + 1.2, 'mus_rim', 0.6); I.drum(d, t + 1.34, 'mus_rim', 0.5);
+      I.piano(d, t + 1.2, 37, 0.6, 1); I.piano(d, t + 1.2, 43, 0.5, 1);
+    },
+  },
+  spitterNear: {
+    // sliding, sickly strings over a hiss and dripping bells
+    dur: 3.0, gain: 1.6,
+    play(I, d, t) {
+      for (const n of [67, 68, 74]) I.strings(d, t, n, 2.2, 0.35, { att: 0.3, rel: 0.6, bright: 0.6 });
+      I.tremolo(d, t + 0.4, 62, 1.8, 0.25, { rate: 13 });
+      [0.5, 0.95, 1.3, 1.9, 2.2].forEach((dt, k) => I.bell(d, t + dt, 86 - k * 2, 0.25, 12, 0.6));
+      I.whisper(d, t + 0.2, 2.4, 0.35);
+      I.sub(d, t, 31, 2.4, 0.4);
     },
   },
   pinned: {

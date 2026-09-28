@@ -101,7 +101,7 @@ export function buildBarricade(L, game) {
     { v: [6, 8, -12], spin: [6, 1, 2], build: (T) => P.prop(T, 0, 0, 0, 0).box(0, 0, 0, 0.05, 1.4, 1.8, 'metalDark', 0x5a5a58) },
   ]);
   const firePts = [[150.4, 0.1, -1.4, 1.1], [153.6, 0.6, -11.6, 1.0], [148.2, 0.1, 0.4, 0.6], [155.8, 0.1, -3.6, 0.7]];
-  const fireLights = firePts.map(([x, y, z, s]) => L.light(x, y + 0.9, z, 0xff7a30, 0, 10 * s + 4, { on: false, flicker: 0.45 }));
+  const fireLights = firePts.map(([x, y, z, s]) => L.light(x, y + 0.9, z, 0xff7a30, 0, 10 * s + 4, { on: false, flicker: 0.85 }));
   const center = new THREE.Vector3(149, 1.2, -2);
   const d = game.director;
   const say = (lines) => game.voice.script(lines);

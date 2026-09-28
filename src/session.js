@@ -684,8 +684,8 @@ export class Session {
     g.onHeal = (by, t) => { if (by !== t) v().say(t, 'healed', 1); };
     g.onGive = (by, t) => { v().say(by, 'givePills', 1); };
     g.onPinned = (s, sp) => {
-      g.director.onPinned(s);
-      v().say(s, sp.kind === 'hunter' ? 'pinnedHunter' : 'pinnedSmoker', 3);
+      g.director.onPinned(s, sp);
+      v().say(s, 'pinned' + sp.kind[0].toUpperCase() + sp.kind.slice(1), 3);
       if (s.isHuman) S.audio.music?.stinger?.('pinned');
     };
     g.onSpecialSpawn = (sp) => {};

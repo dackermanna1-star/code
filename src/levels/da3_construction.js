@@ -120,6 +120,11 @@ export default {
     L.flowEnd = [338.3, END.y, -1.0];
     L.killZone(-400, -60, -400, 900, -12, 600);
     L.da3Culler = installCuller(L, game, { band: 12, dist: 80 });
+    // The light pool's flicker keeps a light at full power only while its noise
+    // exceeds 1.2 - 1.6*flicker (flicker 0.05 -> ~10 % of the time), so small
+    // "subtle" flicker values read as dead lamps. Lights meant to be steady-ish
+    // (< 0.25) are made steady; real flickerers keep their stutter.
+    for (const l of L.lights) if (l.flicker > 0 && l.flicker < 0.25) l.flicker = 0;
     L.da3 = { S, site, bar, sub, air, SK };
 
     // ------------------------------------------------------------ script

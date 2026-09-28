@@ -12,9 +12,13 @@ const CELLS = [
 export default async ({ page, evalg, wait, logs }) => {
   const ch = +(process.env.CH || 0);
   await page.goto((process.env.TEST_URL || 'http://localhost:5180/') + '?campaign=deadair&autostart=' + ch, { timeout: 180000 });
-  for (let i = 0; i < 150; i++) { await wait(1000); if ((await evalg(() => window.session?.state)) === 'playing') break; }
+  const T0 = Date.now(), log = (m) => console.log(`[${((Date.now() - T0) / 1000).toFixed(0)}s] ${m}`);
+  for (let i = 0; i < 150; i++) { await wait(1000); const st = await evalg(() => window.session?.state); if (i % 10 === 0) log('state ' + st); if (st === 'playing') break; }
+  log('playing');
   const pos = (process.env.POS || '8.9,18,32.6,4,18.4,26.5').split(',').map(Number);
-  await evalg((p) => {
+  const cells0 = process.env.CELLS ? JSON.parse(process.env.CELLS) : CELLS;
+  const CWV = +(process.env.CW || 384);
+  await evalg(([p, cw, nc]) => {
     const g = window.game; g.director.enabled = false; g.cheats.botsIdle = true; g.cheats.godAll = true;
     for (const c of g.infected.commons) c.hp = 0; g.advance(0.3);
     const P = g.player; P.teleport(p[0], p[1] + 0.02, p[2], 0);
@@ -24,19 +28,24 @@ export default async ({ page, evalg, wait, logs }) => {
     P.flashlight = true;
     g.paused = true;
     window.__view = { yaw: P.yaw, pitch: P.pitch };
-    const c = document.createElement('canvas'); c.width = 1920; c.height = 864; window.__grid = c;
-  }, pos);
+    const c = document.createElement('canvas'); c.width = 5 * cw; c.height = Math.ceil(nc / 5) * Math.round(cw * 0.5625); window.__grid = c;
+  }, [pos, CWV, cells0.length]);
+  log('setup done');
   await wait(+(process.env.TITLE_WAIT || 6000));
   const cells = process.env.CELLS ? JSON.parse(process.env.CELLS) : CELLS;
+  const imgs = [];
   let i = 0;
   for (const [w, act, k] of cells) {
-    const r = await evalg(([w, act, k, i]) => {
+    const r = await evalg(([w, act, k, i, cw]) => {
       const g = window.game, P = g.player, errs = [];
       try {
         P.yaw = window.__view.yaw; P.pitch = window.__view.pitch;
         P.sprinting = false; P.cmd.fire = false;
-        if (w === 'dual') { P.giveWeapon('pistol'); if (!P.inv.secondary.dual) P.giveWeapon('pistol'); P.selectSlotForce(1); }
-        else if (w === 'pistol') { P.inv.secondary = null; P.giveWeapon('pistol'); P.selectSlotForce(1); }
+        if (w === 'dual') { P.giveWeapon('machete'); P.giveWeapon('pistol'); P.giveWeapon('pistol'); P.selectSlotForce(1); }
+        else if (w === 'pistol') { P.giveWeapon('machete'); P.giveWeapon('pistol'); P.selectSlotForce(1); }
+        else if (['molotov', 'pipebomb', 'bile'].includes(w)) { P.inv.throwable = w; P.selectSlotForce(2); }
+        else if (w === 'medkit') { P.inv.medkit = true; P.selectSlotForce(3); }
+        else if (w === 'pills' || w === 'adrenaline') { P.inv.pills = w; P.selectSlotForce(4); }
         else if (!P.giveWeapon(w)) return 'no weapon ' + w;
         g.advance(1.0);
         const W = P.weapon, vm = g.viewmodel, d = W?.def;
@@ -47,19 +56,34 @@ export default async ({ page, evalg, wait, logs }) => {
         else if (act === 'fire') { vm.event('fire'); g.advance(k); }
         else if (act === 'swing' || act === 'swing2') { if (act === 'swing2') { vm.event('swing'); g.advance(0.9); } vm.event('swing'); g.advance((d.windup || 0.12) * k); }
         else if (act === 'sprint') { P.sprinting = true; g.advance(0.6); }
+        else if (act === 'windup') { vm.event('throwWindup'); g.advance(k); }
+        else if (act === 'throw') { vm.event('throwWindup'); g.advance(0.4); vm.event('throw'); g.advance(k); }
+        else if (act === 'heal') { vm.event('actionStart', { type: 'heal', dur: 5 }); g.advance(k); }
+        else if (act === 'pillsA') { vm.event('actionStart', { type: 'pills', dur: 1 }); g.advance(k); }
+        else if (act === 'shove') { vm.event('shove'); g.advance(k); }
+        else if (act === 'draw') { vm.event('draw'); g.advance(k); }
+        else if (act === 'reload') { W.clip = Math.max(1, Math.floor(W.maxClip / 2)); W.reserve = Math.max(W.reserve, 100); W.startReload(); g.advance(k * d.reload * (W.dual ? 1.35 : 1)); }
         g.advance(0.0001);
         g.renderer.render(0.0001, g);
-        const cv = g.renderer.r.domElement, G = window.__grid.getContext('2d');
-        const cw = 384, chh = 216, x = (i % 5) * cw, y = Math.floor(i / 5) * chh;
-        G.drawImage(cv, x, y, cw, chh);
-        G.fillStyle = '#000a'; G.fillRect(x, y, 200, 18); G.fillStyle = '#fff'; G.font = '13px sans-serif'; G.fillText(`${w} ${act} ${k}`, x + 4, y + 13);
-        return { w: P.activeItem, vm: vm.type, anim: vm.anim?.type || null };
+        const cv = g.renderer.r.domElement, cc = document.createElement('canvas');
+        const chh = Math.round(cw * 0.5625); cc.width = cw; cc.height = chh;
+        const G = cc.getContext('2d');
+        G.drawImage(cv, 0, 0, cw, chh);
+        G.fillStyle = '#000a'; G.fillRect(0, 0, 220, 18); G.fillStyle = '#fff'; G.font = '13px sans-serif'; G.fillText(`${w} ${act} ${k}`, 4, 13);
+        return { w: P.activeItem, vm: vm.type, anim: vm.anim?.type || null, img: cc.toDataURL('image/jpeg', 0.9) };
       } catch (e) { return 'ERR ' + e.message + ' ' + (e.stack || '').split('\n')[1]; }
-    }, [w, act, k, i]);
+    }, [w, act, k, i, CWV]);
+    if (r && r.img) { imgs.push(Buffer.from(r.img.split(',')[1], 'base64')); delete r.img; } else imgs.push(null);
     console.log(i, w, act, k, JSON.stringify(r));
     i++;
   }
-  const url = await evalg(() => window.__grid.toDataURL('image/png'));
-  if (url) { fs.writeFileSync('tests/out/vm_anim_grid.png', Buffer.from(url.split(',')[1], 'base64')); console.log('wrote tests/out/vm_anim_grid.png'); }
+  // contact sheet (5 columns) via python/PIL
+  const dir = fs.mkdtempSync('/tmp/vmanim-');
+  imgs.forEach((b, j) => { if (b) fs.writeFileSync(`${dir}/${String(j).padStart(3, '0')}.jpg`, b); });
+  const out = `tests/out/${process.env.OUT || 'vm_anim_grid'}.png`;
+  const { execSync } = await import('child_process');
+  execSync(`python3 -c "import glob,sys;from PIL import Image;fs=sorted(glob.glob('${dir}/*.jpg'));ims=[Image.open(f) for f in fs];w,h=ims[0].size;n=${imgs.length};C=${+(process.env.COLS || 5)};S=Image.new('RGB',(C*w,((n+C-1)//C)*h));[S.paste(im,((int(f[-7:-4])%C)*w,(int(f[-7:-4])//C)*h)) for f,im in zip(fs,ims)];S.save('${out}')"`);
+  fs.rmSync(dir, { recursive: true, force: true });
+  console.log('wrote', out);
   console.log('errors:', logs.filter((l) => /error/i.test(l) && !/WebGL|GL_INVALID/.test(l)).length);
 };

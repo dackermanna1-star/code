@@ -679,4 +679,35 @@ export function flyingDebris(L, game, x, y, z, list) {
   return api;
 }
 
+// Construction festoon: a sagging cable of caged work bulbs on scaffold poles
+// through pts [[x,z],...] (poles at every point). Every `every`-th bulb carries a
+// real light; `dead` bulb indices stay dark. Returns the real lights.
+export function festoon(L, pts, y, o = {}) {
+  const sag = o.sag ?? 0.45, step = o.step ?? 1.8, every = o.every ?? 6, lights = [];
+  let k = 0;
+  for (const [x, z] of pts) {
+    const p = P.prop(L, x, 0, z, 0);
+    p.cyl(0, (y + 0.15) / 2, 0, 0.024, y + 0.15, 'metalClean', 0x8a8e8a, null, 8).box(0, 0.02, 0, 0.3, 0.04, 0.3, 'metalDark', 0x3a3a3a);
+    p.box(0, y - 0.05, 0, 0.1, 0.1, 0.1, 'paintedYellow', 0xc8a020); // coupler
+    p.col(0, y / 2, 0, 0.12, y, 0.12, 'metal', F_SOLID | F_SHOOT);
+  }
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, az] = pts[i], [bx, bz] = pts[i + 1];
+    const n = Math.max(2, Math.round(Math.hypot(bx - ax, bz - az) / step));
+    const at = (t) => [ax + (bx - ax) * t, y - Math.sin(t * Math.PI) * sag, az + (bz - az) * t];
+    for (let j = 0; j < n; j++) {
+      const [x0, y0, z0] = at(j / n), [x1, y1, z1] = at((j + 1) / n);
+      P.pipe(L, x0, y0, z0, x1, y1, z1, 0.008, 'blackMatte');
+      if (j === 0) continue;
+      const dead = (o.dead || []).includes(k);
+      const b = P.prop(L, x0, y0, z0, 0);
+      b.box(0, -0.06, 0, 0.05, 0.08, 0.05, 'blackMatte').glowSph(0, -0.16, 0, 0.055, dead ? 0x2a2620 : 0xffc070);
+      b.torus(0, -0.16, 0, 0.07, 0.006, 'metalDark', 0x2a2a2a, [Math.PI / 2, 0, 0], 4, 8);
+      if (!dead && k % every === Math.floor(every / 2)) lights.push(L.light(x0, y0 - 0.3, z0, 0xffb868, o.intensity ?? 8, o.range ?? 9, { flicker: o.flicker ?? 0.04 }));
+      k++;
+    }
+  }
+  return lights;
+}
+
 export { F_SOLID, F_SHOOT, F_SIGHT, F_DEFAULT, F_NONAV, P, sign };

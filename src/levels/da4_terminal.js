@@ -76,7 +76,7 @@ export default {
   title: 'The Terminal',
   def: {
     director: {
-      wanderers: 22, mobInterval: [85, 135], mobSize: [12, 18], specials: ['hunter', 'smoker', 'boomer'], maxSpecials: 3, specialInterval: [22, 36],
+      wanderers: 18, mobInterval: [85, 135], mobSize: [12, 18], specials: ['hunter', 'smoker', 'boomer'], maxSpecials: 3, specialInterval: [22, 36],
       tank: 0.6, tankAt: 0.74, witches: 0, relax: [25, 40], outfit: 'civilian',
     },
     navCell: 0.5,

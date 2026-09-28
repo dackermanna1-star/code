@@ -88,7 +88,11 @@ function walkBridge(L, game, S, name, gx, side) {
     for (let z = zg - 0.6; z > zc0; z -= 1.2) L.box(xw + s * 0.07, fy - 0.8, z - 0.03, xw + s * 0.1, fy + 2.8, z + 0.03, 'metalDark', { tint: 0x6a6e6e, collide: false });
   }
   L.box(gx - 1.4, fy + 2.6, zc0, gx + 1.4, fy + 2.85, zg, 'metal', { tint: 0xa8acac, flags: F_SOLID | F_SHOOT | F_SIGHT | F_NONAV });
-  L.box(gx - 0.18, fy + 2.56, zc0 + 0.6, gx + 0.18, fy + 2.6, zg - 0.6, 'emissiveCool', NC);
+  // recessed ceiling fixtures (discrete panels, a few dead; a continuous strip blooms into a glare tunnel)
+  for (let z = zg - 1.4, k = 0; z > zc0 + 0.8; z -= 2.6, k++) {
+    const on = (k + (name === 'C3' ? 0 : 1)) % 3 !== 2;
+    P.prop(L, gx, fy + 2.56, z, 0).box(0, 0.02, 0, 0.48, 0.04, 1.0, 'metalDark', 0x3a3c40).glow(0, -0.005, 0, 0.36, 0.012, 0.84, on ? 0x7a8894 : 0x101214);
+  }
   L.box(gx - 0.5, fy + 0.002, zc0 + 0.2, gx + 0.5, fy + 0.008, zg - 0.2, 'carpet', { collide: false, tint: 0x3a3a5a });
   const side0 = gx - side * 1.2;
   L.box(side0 - 0.03, fy + 0.9, zc0 + 0.5, side0 + 0.03, fy + 0.95, zg - 0.5, 'chrome', NC);

@@ -10,10 +10,10 @@ import { P, sign, graffiti, poster, posterWall, wallMessages, safeRoom, supplies
 import { Door } from '../world/dynamic.js';
 import { DF } from '../render/decals.js';
 import { ebsScreen, neonSign } from './da_parts.js';
-import { shelving, cashRegister, diner_table, drinkMachine, cot, medCrate, tent, locker } from './ch3_props.js';
+import { shelving, cashRegister, diner_table, drinkMachine, cot, medCrate, tent, locker, stretcherPile } from './ch3_props.js';
 import { ceilingPipes } from './clutter.js';
 import { YD, CON, GATES, SHUTTER_X, SAFE } from './da4_layout.js';
-import { rng, NC, wayfind, notice, curtainMat, column, body, strewLuggage, flightBoard, trail, panelLight, hangingSign, banner, ADS4, F_SOLID, F_NONAV, F_SHOOT, F_SIGHT } from './da4_parts.js';
+import { rng, NC, wayfind, notice, curtainMat, column, body, strewLuggage, flightBoard, trail, panelLight, hangingSign, banner, stanchions, ADS4, F_SOLID, F_NONAV, F_SHOOT, F_SIGHT } from './da4_parts.js';
 
 const { x0: X0, x1: X1, z0: Z0, z1: Z1 } = CON;
 const TOP = YD + 6;              // ceiling underside (12.4)
@@ -39,6 +39,7 @@ export function buildConcourse(L, game, S) {
   foodCourt(L, game);
   shops(L, game);
   westSide(L, game, S);
+  walkway(L, game);
   endRoom(L, game, S);
   lighting(L, game);
 }
@@ -372,6 +373,35 @@ function westSide(L, game, S) {
   hangingSign(L, 'GATES C3 – C1  →', -8, YD + 4.4, -22, Math.PI / 2, 3.0, 0.5, TOP);
   S.westTrigger = [-16, YD - 0.5, -42, -6, YD + 3, -30];
   S.c5Trigger = [-36, YD - 0.5, -42, -26, YD + 3, -26];
+}
+
+// ================================================================ WALKWAY (the evacuation left its mess everywhere)
+function walkway(L, game) {
+  // east stretch (escalators -> food court): the queue for the military gates
+  stanchions(L, [[44.6, -28.6], [38.6, -28.6], [32.4, -28.6]], YD);
+  stanchions(L, [[44.6, -26.8], [38.6, -26.8], [34.2, -26.8]], YD);
+  strewLuggage(L, 32.6, -29.6, 45, -27.2, YD, 7);
+  P.luggageCart(L, 36.4, YD, -15.4, 2.4, true);
+  P.luggagePile(L, 40.2, YD, -14.4, 7, 1.3);
+  P.gurney(L, 43.2, YD, -15.2, 0.35, true);
+  P.ivStand(L, 44.3, YD, -16.1);
+  for (const [x, z, r] of [[46.4, -14.0, 0.05], [47.6, -14.3, -0.1]]) P.bodyBag(L, x, YD, z, r);
+  P.trashBags(L, 31.0, YD, -29.4, 3);
+  P.newsBox(L, 31.4, YD, -12.7, Math.PI);
+  body(L, 38.6, YD, -22.4, 2.0, 0x4a3a2a);
+  trail(L, 38.6, -22.4, 42.6, -25.8, YD, 5);
+  // west stretch (beyond the fire door): evacuees slept on the floor, the army's cones and a barricade
+  for (const [x, b] of [[-31, true], [-29.1, false], [-27.2, false]]) cot(L, x, YD, -27.6, Math.PI / 2 + (x % 2) * 0.04, b);
+  stretcherPile(L, -9.2, YD, -27.6, 0.3);
+  P.barricade(L, -5.6, YD, -20.2, Math.PI / 2);
+  for (const [x, z] of [[-5.2, -23.4], [-5.9, -17.6], [-6.8, -25.2]]) P.trafficCone(L, x, YD, z);
+  P.luggagePile(L, -19, YD, -19.6, 6, 1.1);
+  P.wheelchair(L, -14.4, YD, -24.2, 2.1);
+  P.trashBags(L, -7.4, YD, -16.9, 3);
+  for (const [x, z, r, c] of [[-24.8, -20.6, 0.8, 0x3a2a2a], [-33, -22.4, 2.6, 0x2a3a4a]]) body(L, x, YD, z, r, c);
+  strewLuggage(L, -36, -29, -8, -17, YD, 6);
+  // paper everywhere: boarding passes, CEDA forms, newspapers
+  for (const [x, z, r, n] of [[40, -21, 2.2, 14], [34, -18, 1.6, 10], [47, -20.5, 1.4, 8], [22, -29, 2, 10], [-10, -20, 2, 12], [-28, -19, 2.2, 12], [-16, -33, 1.8, 10], [4, -31, 2, 10]]) P.papers(L, x, YD + 0.01, z, r, n);
 }
 
 // ================================================================ END SAFE ROOM (overlooking the apron)

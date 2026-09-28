@@ -67,6 +67,9 @@ export class BotBrain {
       let score = prio - d * 1.5;
       if (e.target && e.target !== s && e.state === 3) score += 10; // attacking a teammate
       if (e.pinning) score += 60;
+      if (e.kind === 'charger' && e.charging) score += 25; // drop it before it connects
+      else if (e.kind === 'spitter') score += 12;
+      else if (e.kind === 'jockey' && e.state === 'stalk' && d < 10) score += 15;
       if (e === this.target) score += 8; // stickiness
       if (e.kind === 'witch' && !e.enraged) score = -1e9;
       if (score > bestScore) { bestScore = score; best = e; }
@@ -119,7 +122,14 @@ export class BotBrain {
     this.mode = 'follow';
     if (pinnedMate && pinnedMate.pinned) {
       const sp = pinnedMate.pinned;
-      if (sp.shoveable && pinnedMate.pos.distanceTo(s.pos) < 12) { goal = pinnedMate.pos; goalRadius = 1.2; urgent = true; this.mode = 'rescue'; }
+      const md = pinnedMate.pos.distanceTo(s.pos);
+      if (sp.shoveable && md < 12) { goal = pinnedMate.pos; goalRadius = 1.2; urgent = true; this.mode = 'rescue'; }
+      else if (!sp.shoveable && md < 25) {
+        // can't be shoved off (Charger): close to a clear firing range instead
+        s.eye(_e);
+        const los = g.level.col.lineOfSight(_e.x, _e.y, _e.z, sp.pos.x, sp.pos.y + 1.2, sp.pos.z);
+        if (md > 7 || !los) { goal = pinnedMate.pos; goalRadius = los ? 6 : 2; urgent = true; this.mode = 'rescue'; }
+      }
       if (sp && !sp.dead) this.target = sp;
     } else if (downMate && (this.closeCount < 4 || downMate.pos.distanceTo(s.pos) < 3) && !this.otherReviving(downMate)) {
       goal = downMate.pos; goalRadius = 1.1; urgent = true; this.mode = 'revive';
@@ -206,6 +216,39 @@ export class BotBrain {
     }
     // Witch: never walk close
     if (nearWitch && goal && witch.pos.distanceTo(goal) < 6) goal = null;
+    // Charger winding up / charging: sidestep out of its lane
+    for (const ch of g.infected.specials) {
+      if (ch.kind !== 'charger' || ch.dead || !ch.charging) continue;
+      const fx = ch.state === 'charge' ? ch.chargeDir.x : -Math.sin(ch.yaw), fz = ch.state === 'charge' ? ch.chargeDir.z : -Math.cos(ch.yaw);
+      const dx = s.pos.x - ch.pos.x, dz = s.pos.z - ch.pos.z;
+      const along = dx * fx + dz * fz, side = -dx * fz + dz * fx;
+      if (along > 0 && along < 20 && Math.abs(side) < 2.2) {
+        const sg = side >= 0 ? 1 : -1;
+        goal = _t.set(s.pos.x - fz * sg * 3.5, s.pos.y, s.pos.z + fx * sg * 3.5);
+        goalRadius = 0.4; urgent = true; this.mode = 'dodge';
+      }
+    }
+    // Spitter acid: get out of it, and never path into it
+    const acid = g.acid;
+    if (acid && acid.pools.length) {
+      const here = acid.at(s.pos.x, s.pos.y, s.pos.z, 0.6);
+      if (here) {
+        let ex = s.pos.x - here.x, ez = s.pos.z - here.z;
+        const el = Math.hypot(ex, ez);
+        if (el < 0.3) { ex = goal ? goal.x - here.x : 1; ez = goal ? goal.z - here.z : 0; }
+        const k = 1 / (Math.hypot(ex, ez) || 1);
+        goal = _t.set(here.x + ex * k * (here.rMax + 1.5), s.pos.y, here.z + ez * k * (here.rMax + 1.5));
+        goalRadius = 0.6; urgent = true; this.mode = 'acid';
+      } else if (goal) {
+        const p = acid.at(goal.x, goal.y, goal.z, 0.8);
+        if (p) {
+          let ex = goal.x - p.x, ez = goal.z - p.z;
+          if (Math.hypot(ex, ez) < 0.3) { ex = s.pos.x - p.x; ez = s.pos.z - p.z; }
+          const k = 1 / (Math.hypot(ex, ez) || 1);
+          goal = _d.set(p.x + ex * k * (p.rMax + 1.2), goal.y, p.z + ez * k * (p.rMax + 1.2));
+        }
+      }
+    }
 
     this.moving = !!goal;
     if (goal) this.moveTo(goal, goalRadius, dt, urgent);

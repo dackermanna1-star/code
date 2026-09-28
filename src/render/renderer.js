@@ -492,8 +492,13 @@ export class Renderer {
       const hp = this.bloom.materialHighPassFilter;
       const tap = 'vec4 texel = texture2D( tDiffuse, vUv );';
       if (hp.fragmentShader.includes(tap)) {
-        hp.fragmentShader = SANITIZE_GLSL + hp.fragmentShader.replace(tap, tap + ' texel.rgb = sanHDR(texel.rgb);');
+        // knee: only the energy above 1.0 blooms (the stock pass lets the
+        // whole pixel through once it crosses the threshold, so every flashlit
+        // wall or face just over 1.0 smeared a milky haze); lamps, neon and
+        // fire (2-3+) keep about the same bloom, a lit surface at 1.2 almost none
+        hp.fragmentShader = SANITIZE_GLSL + hp.fragmentShader.replace(tap, tap + ' texel.rgb = sanHDR(texel.rgb); { float l0 = dot(texel.rgb, vec3(0.299, 0.587, 0.114)); texel.rgb *= max(0.0, l0 - 1.0) / max(l0, 1e-4) * 1.55; }');
         hp.needsUpdate = true;
+        this.bloom.threshold = 0.0; // gating happens in the knee above
       } else console.warn('bloom high-pass: sanitizer not applied');
       this.composer.addPass(this.bloom);
     }

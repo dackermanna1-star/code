@@ -227,7 +227,7 @@ function chainDepth(fk, col, c, from = 0, sq = SQ, skipDistal = false) {
 // anatomical ranges per pose entry
 const LIM_LO = new Float32Array(POSE_LEN), LIM_HI = new Float32Array(POSE_LEN);
 for (let f = 0; f < 4; f++) { LIM_LO.set([-0.35, -0.25, 0, -0.1], f * 4); LIM_HI.set([0.35, 1.6, 1.9, 1.3], f * 4); }
-LIM_LO.set([-0.6, -0.5, -0.4, -0.15, -0.25], P_T); LIM_HI.set([1.25, 1.25, 1.1, 0.95, 1.35], P_T);
+LIM_LO.set([-0.6, -0.85, -0.4, -0.15, -0.25], P_T); LIM_HI.set([1.25, 1.25, 1.1, 0.95, 1.35], P_T);
 LIM_LO[P_CUP] = 0; LIM_HI[P_CUP] = 0.5;
 const lim = (i, v) => (v < LIM_LO[i] ? LIM_LO[i] : v > LIM_HI[i] ? LIM_HI[i] : v);
 // coordinate descent on the listed pose entries until chain c is out of the collider
@@ -438,11 +438,12 @@ function thumbIK(fk, col, target, o = {}) {
     return e;
   };
   best = { e: evalAt(v), w: v.slice() };
-  for (let f = -0.5; f <= 1.21; f += 0.12)
-    for (let a = -0.5; a <= 1.21; a += 0.12)
-      for (const m of [0.05, 0.35])
-        for (const ip of [0.05, 0.4]) {
-          const w = [f, a, base[2], m, ip];
+  for (let f = -0.5; f <= 1.21; f += 0.15)
+    for (let a = -0.8; a <= 1.21; a += 0.15)
+      for (const r of [base[2] - 0.35, base[2], base[2] + 0.35])
+        for (const m of [0.05, 0.4, 0.75])
+          for (const ip of [0.05, 0.5, 0.95]) {
+          const w = [f, a, r, m, ip];
           const e = evalAt(w);
           if (e < best.e) best = { e, w };
         }
@@ -536,12 +537,23 @@ export function solveHand(spec, col, A, S, side, probe = false) {
     // fist grip: the thumb pad rests on the back of the index (or middle, when
     // the index is on the trigger) middle phalanx; the fingers are colliders
     const c = idxMode === 'trigger' ? 2 : 1, C = A.chains[c];
-    const M = fk.jp[c][1].clone().lerp(fk.jp[c][2], 0.5);
-    const Xb = new THREE.Vector3(1, 0, 0).applyQuaternion(fk.jq[c][1]);
-    const tgt = M.addScaledVector(Xb, (C.r[1] + A.chains[0].r[3] * 0.8) * S);
     const nCaps = col.caps.length;
     for (let cc = 1; cc < 5; cc++) for (let i = 0; i < 3; i++) col.addCapsule(fk.jp[cc][i], fk.jp[cc][i + 1], A.chains[cc].r[i] * S * 0.95);
-    info.thumbErr = thumbIK(fk, col, tgt, { bend: 0.004 });
+    // candidate rests along the finger (middle phalanx, PIP, proximal phalanx); keep the closest fit
+    const start = fk.pose.slice(P_T, P_T + 5);
+    let best = null;
+    for (const [bone, f] of [[1, 0.5], [1, 0.0], [0, 0.7]]) {
+      fk.pose.set(start, P_T); fk.chain(0);
+      const M = fk.jp[c][bone].clone().lerp(fk.jp[c][bone + 1], f);
+      const Xb = new THREE.Vector3(1, 0, 0).applyQuaternion(fk.jq[c][bone]);
+      const tgt = M.addScaledVector(Xb, (C.r[bone + 1] + A.chains[0].r[3] * 0.8) * S);
+      const err = thumbIK(fk, col, tgt, { bend: 0.004 });
+      const pen = Math.min(0, chainDepth(fk, col, 0, 1, SQ));
+      const score = err - pen * 4;
+      if (!best || score < best.score) best = { score, err, pose: fk.pose.slice(P_T, P_T + 5) };
+    }
+    fk.pose.set(best.pose, P_T); fk.chain(0);
+    info.thumbErr = best.err;
     col.caps.length = nCaps;
   } else if (spec.thumbAt) info.thumbErr = thumbIK(fk, col, new THREE.Vector3().fromArray(spec.thumbAt));
   else if (spec.thumb === 'wrap' || typeof spec.thumb === 'object') closeThumb(fk, col, typeof spec.thumb === 'object' ? spec.thumb : {});
@@ -582,7 +594,7 @@ export function handCapsules(fk, col) {
 // side +X). X = back of the hand, Y = knuckle direction, pos = wrist centre.
 const FWD_THUMB = [0.12, 0.42, 0.25, 0.08, 0.06];
 const R_GRIP = (o = {}) => Object.assign({
-  frame: 'handR', pos: [0.03, 0.004, 0.075], X: [1, 0, 0], Y: [0, 0.05, -1], settle: 0.04, index: 'trigger', thumb: 'oppose', axis: { c: [0, 0, 0], d: [0, 1, 0] }, autoY: true,
+  frame: 'handR', pos: [0.03, 0.004, 0.075], X: [1, 0, 0], Y: [0, 0.05, -1], settle: 0.04, index: 'trigger', thumb: 'over', autoY: true,
   pose: { spread: [0.07, 0.0, -0.04, -0.09], mcp: [0.3, 0.25, 0.25, 0.25], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: [0.25, 0.65, 0.45, 0.15, 0.2], cup: 0.18 },
   fa: [-0.1, 0.35, -1],
 }, o);
@@ -629,10 +641,10 @@ export const GRIP_SPECS = {
   scar: { R: R_GRIP({ trigger: [0, -0.007, 0.0015] }), L: L_GUARD(-0.3, 0.018) },
   huntingRifle: { R: R_GRIP({ trigger: [0, -0.015, 0.0245] }), L: L_GUARD(-0.26, 0.004) },
   m60: { R: R_GRIP({ trigger: [0, -0.006, -0.008] }), L: L_GUARD(-0.3, -0.01) },
-  grenadeLauncher: { R: R_GRIP({ trigger: [0, -0.006, -0.008] }), L: L_GUARD(-0.28, 0.0) },
-  fireaxe: { R: R_HANDLE([0, -0.035, 0]), L: L_HANDLE([0, 0.075, 0]) },
-  crowbar: { R: R_HANDLE([0, 0.02, 0]) },
-  machete: { R: R_HANDLE([0, -0.012, 0]) },
+  grenadeLauncher: { R: R_GRIP({ trigger: [0, -0.006, -0.008] }), L: L_GUARD(-0.28, 0.0, { anchor: 'breach' }) },
+  fireaxe: { R: R_HANDLE([0, -0.035, 0], { thumb: 'over' }), L: L_HANDLE([0, 0.075, 0], { thumb: 'over' }) },
+  crowbar: { R: R_HANDLE([0, 0.02, 0], { thumb: 'over' }) },
+  machete: { R: R_HANDLE([0, -0.012, 0], { thumb: 'over' }) },
   pipebomb: { R: R_HANDLE([0, -0.01, 0], { settle: 0.06 }) },
   molotov: { R: R_HANDLE([0, -0.02, 0], { settle: 0.06 }) },
   bile: { R: R_HANDLE([0, -0.01, 0], { settle: 0.06 }) },
@@ -694,7 +706,9 @@ export function solveGrips(model, type, A, S, specs = GRIP_SPECS[type]) {
     s.pos = new THREE.Vector3().fromArray(sp.pos).applyMatrix4(F).toArray();
     s.X = new THREE.Vector3().fromArray(sp.X).applyQuaternion(rq).toArray();
     s.Y = new THREE.Vector3().fromArray(sp.Y).applyQuaternion(rq).toArray();
-    if (sp.trigger) s.trigger = new THREE.Vector3().fromArray(sp.trigger).applyMatrix4(restMatrix(model, host, _m4)).toArray();
+    const trigObj = sp.trigger ? host.userData?.trigger : null; // model marker wins over the table
+    if (trigObj) s.trigger = new THREE.Vector3().setFromMatrixPosition(restMatrix(model, trigObj, _m4)).toArray();
+    else if (sp.trigger) s.trigger = new THREE.Vector3().fromArray(sp.trigger).applyMatrix4(restMatrix(model, host, _m4)).toArray();
     if (sp.axis) s.axis = { c: new THREE.Vector3().fromArray(sp.axis.c).applyMatrix4(F).toArray(), d: new THREE.Vector3().fromArray(sp.axis.d).applyQuaternion(rq).toArray() };
     if (sp.thumbAt) s.thumbAt = new THREE.Vector3().fromArray(sp.thumbAt).applyMatrix4(restMatrix(model, host, _m4)).toArray();
     const thumbRel = sp.thumbRel;
@@ -746,6 +760,92 @@ export function solveGrips(model, type, A, S, specs = GRIP_SPECS[type]) {
       poseIdle: r.poseIdle, reach: sp.reach || 0, elbow: sp.elbow || null, info: r.info,
       world: { pos: r.pos, quat: r.quat }, fk: r.fk,
     };
+  }
+  return out;
+}
+
+// ================================================================ actions ==
+// Off-hand grabs used by the reload animations, solved like the grips and
+// anchored to the moving part: 'mag' (magazine held like a handle near its
+// base), 'charge' (overhand grab of a slide / charging handle / bolt, or a
+// pinch on a side handle), 'port' (a shell held between thumb and index at
+// the loading port), 'round' (the launcher's 40 mm round).
+export const HAND_SHELL = mkPose({ spread: [0.08, 0.0, -0.05, -0.1], mcp: [0.55, 1.2, 1.3, 1.35], pip: [0.7, 1.5, 1.55, 1.55], dip: [0.4, 0.95, 1.0, 1.0], thumb: [0.55, 0.6, 0.8, 0.3, 0.35], cup: 0.3 });
+const MAG = { kind: 'handle', anchor: 'mag' };
+export const ACTION_SPECS = {
+  pistol: { mag: MAG }, // empty pistols drop the slide with the right thumb (slide stop)
+  magnum: { mag: MAG },
+  smg: { mag: MAG, charge: { kind: 'over', anchor: 'bolt' } },
+  silencedSmg: { mag: MAG, charge: { kind: 'over', anchor: 'bolt' } },
+  rifle: { mag: MAG, charge: { kind: 'side', anchor: 'charge' } },
+  scar: { mag: MAG, charge: { kind: 'side', anchor: 'charge' } },
+  huntingRifle: { mag: MAG, charge: { kind: 'over', anchor: 'bolt', right: true } },
+  autoShotgun: { charge: { kind: 'over', anchor: 'bolt', right: true }, port: { kind: 'port', anchor: 'port' } },
+  pumpShotgun: { port: { kind: 'port', anchor: 'port' } },
+  chromeShotgun: { port: { kind: 'port', anchor: 'port' } },
+  grenadeLauncher: { round: { kind: 'handle', anchor: 'round' } },
+};
+function localBox(obj) { // bounding box of obj's meshes in obj's local frame
+  const box = new THREE.Box3(), b2 = new THREE.Box3(), inv = new THREE.Matrix4();
+  obj.updateMatrixWorld(true);
+  inv.copy(obj.matrixWorld).invert();
+  obj.traverse((o) => { if (o.isMesh) { o.geometry.computeBoundingBox(); b2.copy(o.geometry.boundingBox).applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)); box.union(b2); } });
+  return box;
+}
+export function solveActions(model, type, A, S, specs = ACTION_SPECS[type]) {
+  if (!specs) return null;
+  const ud = model.userData, out = {};
+  let gunCol = null;
+  const colOf = (target) => new Collider().addObject(target, null, restMatrix(model, target, _m4).multiply(_m5.copy(target.matrixWorld).invert()).clone()).build();
+  for (const [name, sp] of Object.entries(specs)) {
+    const part = ud[sp.anchor];
+    if (!part) continue;
+    const wasVis = part.visible; part.visible = true;
+    try {
+      const M = restMatrix(model, part, new THREE.Matrix4());
+      const mp = new THREE.Vector3(), mq = new THREE.Quaternion(), ms = new THREE.Vector3();
+      M.decompose(mp, mq, ms);
+      const V = (x, y, z) => new THREE.Vector3(x, y, z).applyQuaternion(mq);
+      let s, col, pose = null;
+      if (sp.kind === 'handle') {
+        // like a vertical handle along the part's Y, near its base
+        col = colOf(part);
+        const b = localBox(part);
+        const c = new THREE.Vector3((b.min.x + b.max.x) / 2, b.min.y + Math.min(0.035, (b.max.y - b.min.y) * 0.35), (b.min.z + b.max.z) / 2).applyMatrix4(M);
+        s = { pos: c.clone().add(V(-0.03, 0.012, 0.075)).toArray(), X: V(-1, 0, 0).toArray(), Y: V(0, -0.05, -1).toArray(), settle: 0.05, index: 'wrap', thumb: 'oppose',
+          axis: { c: c.toArray(), d: V(0, 1, 0).toArray() }, pose: { spread: [0.03, 0.0, -0.03, -0.07], mcp: [0.3, 0.3, 0.3, 0.3], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: [0.25, 0.7, 0.55, 0.15, 0.2], cup: 0.2 } };
+      } else if (sp.kind === 'over' || sp.kind === 'side') {
+        col = gunCol || (gunCol = colOf(model));
+        const pc = colOf(part), T = pc.Tf;
+        const mn = [1, 1, 1], mx = [-1, -1, -1];
+        for (let i = 0; i < T.length; i += 3) for (let a = 0; a < 3; a++) { mn[a] = Math.min(mn[a], T[i + a]); mx[a] = Math.max(mx[a], T[i + a]); }
+        const zc = sp.rear ? mx[2] - 0.025 : (mn[2] + mx[2]) / 2;
+        let X, Y, Pc;
+        if (sp.kind === 'over') { // palm down on top, fingers over the right side
+          Pc = new THREE.Vector3((mn[0] + mx[0]) / 2 - (sp.right ? -0.004 : 0.004), mx[1] + 0.001, zc);
+          X = new THREE.Vector3(-0.25, 1, 0.15); Y = sp.right ? new THREE.Vector3(0.75, -0.6, -0.25) : new THREE.Vector3(0.85, -0.35, -0.35);
+        } else { // pinch a handle on the left side
+          Pc = new THREE.Vector3(mn[0] - 0.001, (mn[1] + mx[1]) / 2, zc);
+          X = new THREE.Vector3(-1, 0.2, 0.1); Y = new THREE.Vector3(0.05, 0.35, -1);
+        }
+        const q = handQuat(X.toArray(), Y.toArray());
+        const palmC = new THREE.Vector3(-0.0135 * S, 0.05 * S, 0.004 * S).applyQuaternion(q);
+        s = { pos: Pc.clone().sub(palmC).toArray(), X: X.toArray(), Y: Y.toArray(), settle: 0.03, index: 'wrap', thumb: 'rest',
+          pose: { spread: [0.03, 0.0, -0.03, -0.06], mcp: [0.25, 0.25, 0.25, 0.25], pip: [0.3, 0.3, 0.3, 0.3], dip: [0.15, 0.15, 0.15, 0.15], thumb: [0.1, 0.45, 0.3, 0.1, 0.1], cup: 0.1 } };
+      } else if (sp.kind === 'port') {
+        // palm up under the port, the shell (between thumb and index tips) at its mouth
+        col = gunCol || (gunCol = colOf(model));
+        const fk = new HandFK(A, S, -1).set(new THREE.Vector3(), new THREE.Quaternion(), HAND_SHELL);
+        const shellPt = fk.jp[0][3].clone().lerp(fk.jp[1][3], 0.5);
+        const q = handQuat([0.1, -1, 0.2], [0.2, 0.3, -1]);
+        const port = new THREE.Vector3().applyMatrix4(M).add(new THREE.Vector3(0, -0.018, 0.012));
+        s = { pos: port.sub(shellPt.applyQuaternion(q)).toArray(), X: [0.1, -1, 0.2], Y: [0.2, 0.3, -1], poseArr: HAND_SHELL, fingers: 'none', index: 'fixed', thumb: 'fixed' };
+        pose = HAND_SHELL;
+      }
+      const r = solveHand(s, col, A, S, -1);
+      const inv = M.clone().invert();
+      out[name] = { anchor: part, pos: r.pos.clone().applyMatrix4(inv), quat: mq.clone().invert().multiply(r.quat), pose: pose || r.pose, info: r.info };
+    } finally { part.visible = wasVis; }
   }
   return out;
 }

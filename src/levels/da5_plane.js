@@ -255,8 +255,8 @@ export class TransportPlane {
     }
     // ---------------------------------------------------------- lights
     const G = (x, y, z, c, s, fog = false) => { const sp = glowSprite(c, s, { fog }); sp.position.set(x, y, z); g.add(sp); return sp; };
-    this.navL = G(-20.1, WY + 0.3, -1.4, 0xff2010, 1.4); // left wing tip: red
-    this.navR = G(20.1, WY + 0.3, -1.4, 0x20ff50, 1.4);
+    this.navL = G(-20.1, WY + 0.3, -1.4, 0xff2010, 0.8); // left wing tip: red
+    this.navR = G(20.1, WY + 0.3, -1.4, 0x20ff50, 0.8);
     this.tailW = G(0, 4.3, 15.15, 0xffffff, 1.0);
     this.beaconTop = G(0, 11.75, 13.4, 0xff2010, 2.2);
     this.beaconBot = G(0, 0.2, -3, 0xff2010, 1.6);

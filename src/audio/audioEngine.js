@@ -14,11 +14,12 @@
 import { Kit, mulberry32, hashStr, finalizeBuffer, makeImpulse, REVERB_PRESETS, limiterCurve, noiseBuffers, bufferStats } from './dsp.js';
 import { WEAPON_SFX } from './sfxWeapons.js';
 import { CREATURE_SFX } from './sfxCreatures.js';
+import { SPECIAL2_SFX } from './sfxSpecials2.js';
 import { WORLD_SFX } from './sfxWorld.js';
 import { Music, MUSIC_KIT, MUSIC_STATES, STINGER_NAMES } from './music.js';
 import { Ambience, AMBIENCES } from './ambience.js';
 
-export const SFX_DEFS = Object.assign({}, WEAPON_SFX, CREATURE_SFX, WORLD_SFX);
+export const SFX_DEFS = Object.assign({}, WEAPON_SFX, CREATURE_SFX, SPECIAL2_SFX, WORLD_SFX);
 const ALL_DEFS = Object.assign({}, SFX_DEFS, MUSIC_KIT);
 /** Public sound names usable with play()/loop(). */
 export const SOUND_NAMES = Object.keys(SFX_DEFS).filter((n) => !n.startsWith('_') && !n.startsWith('amb_'));
