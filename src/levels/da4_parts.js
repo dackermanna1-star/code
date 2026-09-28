@@ -188,7 +188,14 @@ export function escalator(L, x0, x1, zc, y0, y1, w = 1.4, o = {}) {
   // landings (comb plates)
   L.box(x1 - land, y0 - 0.1, zc - hw, x1, y0 + 0.02, zc + hw, 'metalClean', { tint: 0x8a8e90 });
   L.box(x0, y1 - 0.1, zc - hw, x0 + land, y1 + 0.02, zc + hw, 'metalClean', { tint: 0x8a8e90 });
-  L.stairs(sx0, zc - hw, sx1, zc + hw, y0 + 0.02, y1 + 0.02, '-x', 'metalDark', { thin: true, stepH: 0.2, tint: 0x3a3c40 });
+  L.stairs(sx0, zc - hw, sx1, zc + hw, y0 + 0.02, y1 + 0.02, '-x', 'metalDark', { thin: !o.solid, stepH: 0.2, tint: 0x3a3c40 });
+  // o.clad: [sides] -> stainless side cladding from the floor up to the skirt (hides solid steps)
+  for (const s of o.clad || []) {
+    const sh = new THREE.Shape();
+    sh.moveTo(x0, y0); sh.lineTo(x1, y0); sh.lineTo(x1, y0 + 0.12); sh.lineTo(sx1, y0 + 0.12); sh.lineTo(sx0, y1 + 0.12); sh.lineTo(x0, y1 + 0.12); sh.lineTo(x0, y0);
+    const geo = new THREE.ExtrudeGeometry(sh, { depth: 0.03, bevelEnabled: false });
+    L.mesh(geo, 'metalClean', new THREE.Matrix4().makeTranslation(0, 0, zc + s * (hw + 0.235) - 0.015), { tint: 0xa0a4a8 });
+  }
   // step nosings (yellow demarcation)
   const n = Math.round((y1 - y0) / 0.2), run = (sx1 - sx0) / n;
   for (let i = 0; i < n; i++) { const x = sx1 - run * (i + 1); L.box(x, y0 + 0.02 + (i + 1) * (y1 - y0) / n - 0.004, zc - hw + 0.02, x + 0.05, y0 + 0.02 + (i + 1) * (y1 - y0) / n + 0.003, zc + hw - 0.02, 'paintedYellow', { collide: false, tint: 0xc8a020 }); }

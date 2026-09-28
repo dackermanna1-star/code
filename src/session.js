@@ -575,7 +575,8 @@ export class Session {
         if (!w.def.shellReload) {
           this.audio.play('magOut', o);
           setTimeout(() => this.audio.play('magIn', o), w.def.reload * 450);
-          setTimeout(() => this.audio.play(k === 'pistol' ? 'slideRack' : 'boltCycle', o), w.def.reload * 850);
+          // slide / charging handle only on an empty reload (matches the viewmodel)
+          if (w.reloadEmpty !== false) setTimeout(() => this.audio.play(k === 'pistol' ? 'slideRack' : 'boltCycle', o), w.def.reload * 850);
         } else this.audio.play('reloadStart', o);
         if (s.isBot && Math.random() < 0.5) this.game.voice.say(s, 'reload', 1, { cooldown: 15 });
         else if (s.isHuman && Math.random() < 0.3) this.game.voice.say(s, 'reload', 1, { cooldown: 12 });

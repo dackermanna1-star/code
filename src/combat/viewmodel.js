@@ -144,12 +144,54 @@ const HANDS = {
   minigun: { R: [0.14, -0.04, 0.32, 0, 0, 0], L: [-0.14, -0.04, 0.32, 0, 0, 0] },
 };
 const FOREGRIP_ROT = new THREE.Euler(-Math.PI / 2, 0, -Math.PI / 2, 'XYZ');
+const FOREGRIP_Q = new THREE.Quaternion().setFromEuler(FOREGRIP_ROT);
 
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
-const _ik = new Float32Array(3);
-const _yAxis = new THREE.Vector3(0, 1, 0);
 const _tmpE = new THREE.Vector3(), _tmpD = new THREE.Vector3(), _e = new THREE.Euler();
 const _bx = new THREE.Vector3(), _bz = new THREE.Vector3();
+const _pA = new THREE.Vector3(), _pB = new THREE.Vector3(), _pC = new THREE.Vector3(), _pD = new THREE.Vector3(), _pR = new THREE.Vector3();
+const _qA = new THREE.Quaternion(), _qB = new THREE.Quaternion(), _qC = new THREE.Quaternion(), _qD = new THREE.Quaternion(), _qR = new THREE.Quaternion();
+const _hq = new THREE.Quaternion(), _hp = new THREE.Vector3(), _pE = new THREE.Vector3(), _qE = new THREE.Quaternion(), _qT = new THREE.Quaternion();
+const _box = new THREE.Box3(), _box2 = new THREE.Box3();
+const _up = new THREE.Vector3(), _right = new THREE.Vector3();
+
+// easing helpers (k = normalised time)
+const seg = (k, a, b) => clamp((k - a) / (b - a), 0, 1);
+const ss = (k, a, b) => easeInOutSine(seg(k, a, b));
+const eo = (k, a, b) => easeOutCubic(seg(k, a, b));
+const ei = (k, a, b) => { const x = seg(k, a, b); return x * x * x; };
+const bump = (k, c, w) => { const x = (k - c) / w; return x > -1 && x < 1 ? 0.5 + 0.5 * Math.cos(x * Math.PI) : 0; };
+const qe = (out, x, y, z) => out.setFromEuler(_e.set(x, y, z));
+
+// Melee arcs: key poses (deltas on the melee hip pose) [px,py,pz, rx,ry,rz].
+// A = forehand, high right -> low left; B = backhand, left -> right.
+const SWING = {
+  A: { wind: [0.07, 0.13, 0.07, 0.55, -0.35, -0.7], hit: [-0.12, -0.02, -0.16, -0.55, 0.55, 0.75], end: [-0.34, -0.22, -0.02, -1.1, 0.95, 1.25] },
+  B: { wind: [-0.2, 0.05, 0.02, 0.1, 0.65, 1.35], hit: [0.02, -0.04, -0.17, -0.35, -0.15, 0.25], end: [0.3, -0.16, 0.02, -0.65, -0.75, -0.75] },
+};
+// Where the off hand grabs each action part: [x,y,z] offset in the part's frame + hand euler.
+const CHARGE_GRIP = {
+  rifle: { part: 'charge', p: [0, 0.018, 0.012], e: [0, 0, Math.PI / 2], pull: [0, 0, 0.07] },
+  scar: { part: 'charge', p: [-0.022, 0.0, 0.014], e: [0.1, 0, 0], pull: [0, 0, 0.085] },
+  smg: { part: 'bolt', p: [0, 0.022, 0.016], e: [0.2, 0, 0], pull: [0, 0, 0.05] },
+  silencedSmg: { part: 'bolt', p: [0, 0.022, 0.016], e: [0.2, 0, 0], pull: [0, 0, 0.05] },
+  huntingRifle: { part: 'bolt', p: [0.035, 0.0, 0.016], e: [0.1, 0, 0.2], pull: [0, 0, 0.06], lift: 0.9 },
+  autoShotgun: { part: 'bolt', p: [0.018, 0.0, 0.014], e: [0.1, 0, 0], pull: [0, 0, 0.045] },
+  pistol: { part: 'slide', p: [0, 0.05, 0.07], e: [0, 0, Math.PI / 2], pull: [0, 0, 0.032] },
+  magnum: { part: 'slide', p: [0, 0.05, 0.07], e: [0, 0, Math.PI / 2], pull: [0, 0, 0.032] },
+};
+const BLOWBACK = { pistol: ['slide', 0.03], magnum: ['slide', 0.034], smg: ['bolt', 0.022], silencedSmg: ['bolt', 0.022], huntingRifle: ['bolt', 0.035], autoShotgun: ['bolt', 0.03] };
+const PARTS = ['slide', 'bolt', 'charge', 'pump', 'breach', 'round', 'mag'];
+
+function shellMesh() {
+  const g = new THREE.Group();
+  const hull = new THREE.Mesh(new THREE.CylinderGeometry(0.0102, 0.0102, 0.052, 12), new THREE.MeshStandardMaterial({ color: 0x9a1a14, roughness: 0.55, metalness: 0.05 }));
+  const head = new THREE.Mesh(new THREE.CylinderGeometry(0.0112, 0.0108, 0.014, 12), new THREE.MeshStandardMaterial({ color: 0xc49a4c, roughness: 0.3, metalness: 1 }));
+  hull.position.y = 0.019; head.position.y = -0.013;
+  g.add(hull, head);
+  g.traverse((o) => { o.layers.set(1); o.frustumCulled = false; });
+  return g;
+}
 
 export class Viewmodel {
   constructor(game, camera) {
@@ -165,20 +207,27 @@ export class Viewmodel {
     this.char = null;
     this.armL = null; this.armR = null;
     this.swayX = 0; this.swayY = 0;
-    this.kickZ = 0; this.kickVZ = 0; this.kickRX = 0; this.kickVRX = 0; this.kickRZ = 0;
+    this.kickZ = 0; this.kickVZ = 0; this.kickRX = 0; this.kickVRX = 0; this.kickRZ = 0; this.kickRY = 0; this.kickVRY = 0;
     this.bobT = 0;
     this.sprintK = 0;
     this.drawK = 1;
-    this.anim = null; // {type, t, dur}
-    this.pumpT = 0;
-    this.shoveT = 0;
+    this.holsterT = -1;
+    this.pending = null;
+    this.anim = null; // {type, t, dur, ...}
+    this.pumpA = -1; // pump stroke timer
+    this.blowT = [1, 1]; // time since each gun cycled (dual: [right,left])
     this.lowered = 0;
     this.visible = true;
-    this.handLOverride = null;
     this.flashMesh = null;
     this.muzzleWorld = new THREE.Vector3();
     this.landDip = 0;
     this.spinSpeed = 0;
+    this.swingDir = 1;
+    this.ofs = new Float32Array(6); // smoothed animation pose delta
+    this.tgt = new Float32Array(6);
+    this.lhP = new THREE.Vector3(); this.lhQ = new THREE.Quaternion(); this.lhFG = 1; this.lhInit = false;
+    this.shell = shellMesh();
+    this.shell.visible = false;
   }
   setCharacter(char) {
     if (this.char === char) return;
@@ -188,13 +237,16 @@ export class Viewmodel {
     this.armR = makeArm(char, 1);
     this.root.add(this.armL);
     this.root.add(this.armR);
+    this.armL.userData.hand.add(this.shell);
+    this.shell.position.set(0.0, 0.012, -0.004);
   }
   setItem(type, dual = false) {
     const key = type + (dual ? ':dual' : '');
     if (this.type === key) return;
     this.type = key;
-    if (this.model) this.holder.remove(this.model);
+    if (this.model) { this.resetParts(this.model); this.holder.remove(this.model); }
     this.model = null;
+    this.lhInit = false;
     if (!type) return;
     const mt = type === 'pistol' && dual ? 'dualPistols' : TYPE_MODEL[type];
     // models are built once per type and reused (they are fairly detailed)
@@ -212,10 +264,13 @@ export class Viewmodel {
         fm.add(fm2);
         m.userData.muzzle?.add(fm);
         m.userData._flash = fm;
+        this.recordBases(m);
+        if (m.userData.left) { this.recordBases(m.userData.left); this.recordBases(m.userData.right); }
         this.modelCache.set(mt, m);
       }
     }
     this.model = m || null;
+    this.modelType = type;
     if (this.model) {
       this.holder.add(this.model);
       this.flashMesh = this.model.userData._flash || null;
@@ -227,6 +282,29 @@ export class Viewmodel {
     this.kind = this.kindOf(type, dual);
     this.drawK = 0;
     this.anim = null;
+    this.pumpA = -1;
+    this.shell.visible = false;
+  }
+  recordBases(m) {
+    const ud = m.userData;
+    for (const k of PARTS) {
+      const o = ud[k];
+      if (o && !o.userData.base) o.userData.base = { p: o.position.clone(), r: o.rotation.clone() };
+    }
+    if (ud.left) { ud.left.userData.base = { p: ud.left.position.clone(), r: ud.left.rotation.clone() }; ud.right.userData.base = { p: ud.right.position.clone(), r: ud.right.rotation.clone() }; }
+  }
+  resetParts(m) {
+    const list = m.userData.left ? [m, m.userData.left, m.userData.right] : [m];
+    for (const g of list) {
+      for (const k of PARTS) {
+        const o = g.userData[k];
+        const b = o?.userData.base;
+        if (!b) continue;
+        o.position.copy(b.p); o.rotation.copy(b.r);
+        if (k === 'round') o.visible = false; else o.visible = true;
+      }
+      if (g !== m && g.userData.base) { g.position.copy(g.userData.base.p); g.rotation.copy(g.userData.base.r); }
+    }
   }
   kindOf(type, dual) {
     const def = this.game.weaponDef(type);
@@ -242,52 +320,66 @@ export class Viewmodel {
   // events from weapon / survivor
   event(e, data) {
     const w = this.game.player?.weapon;
+    const d = w?.def;
+    const a = this.anim;
     switch (e) {
       case 'fire': {
-        const d = w?.def;
         const k = d ? d.viewKick : 1;
-        this.kickVZ += 1.6 * k + 0.4;
-        this.kickVRX += (2.5 + Math.random()) * k;
+        const shotgun = d && d.kind === 'shotgun';
+        this.kickVZ += (1.6 * k + 0.4) * (shotgun ? 1.25 : 1);
+        this.kickVRX += (2.5 + Math.random()) * k * (shotgun ? 1.2 : 1);
+        this.kickVRY += (Math.random() - 0.5) * 1.6 * k;
         this.kickRZ = (Math.random() - 0.5) * 0.05 * k;
         if (this.flashMesh && !d?.silenced) {
           this.flashMesh.visible = true;
           this.flashMesh.rotation.z = Math.random() * TAU;
           const s = 0.7 + Math.random() * 0.6;
-          this.flashMesh.scale.setScalar(d && d.kind === 'shotgun' ? s * 1.6 : s);
+          this.flashMesh.scale.setScalar(shotgun ? s * 1.6 : s);
           this.flashT = 0.04;
-          if (this.kind === 'dual' && this.model?.userData.left) {
-            // alternate hands
-            const side = w.dualSide ? this.model.userData.left : this.model.userData.right;
-            const mz = side.userData.muzzle || side.children.find((c) => c.name === 'muzzle');
-            if (mz) mz.add(this.flashMesh);
-            this.dualKick = w.dualSide ? -1 : 1;
-          }
         }
-        if (this.model?.userData.slide) this.slideT = 0.07;
+        if (this.kind === 'dual' && this.model?.userData.left) {
+          // alternate hands: w.dualSide was toggled by the shot (1 = right just fired)
+          const side = w.dualSide ? this.model.userData.right : this.model.userData.left;
+          const mz = side.userData.muzzle || side.children.find((c) => c.name === 'muzzle');
+          if (mz && this.flashMesh && !d?.silenced) mz.add(this.flashMesh);
+          this.dualKick = w.dualSide ? 1 : -1;
+          this.blowT[w.dualSide ? 0 : 1] = 0;
+        } else this.blowT[0] = 0;
         this.ejectShell();
         break;
       }
       case 'reload': {
-        const d = w?.def;
         if (!d) break;
-        if (d.shellReload) this.anim = { type: 'shellReload', t: 0, dur: 1e9 };
-        else this.anim = { type: 'reload', t: 0, dur: d.reload * (w.dual ? 1.35 : 1) };
+        const empty = w.clip === 0;
+        if (d.shellReload) this.anim = { type: 'shells', t: 0, dur: 1e9, phase: 0, cyc: 0, endT: 0, empty, period: d.reload, start: d.reloadStart || 0.35 };
+        else if (this.kind === 'dual') this.anim = { type: 'dualReload', t: 0, dur: d.reload * 1.35, R: d.reload, empty };
+        else this.anim = { type: d.kind === 'launcher' ? 'launcherReload' : 'reload', t: 0, dur: d.reload, empty };
         break;
       }
-      case 'shell': this.shellPush = 0.3; break;
+      case 'shellStart': if (a?.type === 'shells') { a.phase = 1; a.cyc = 0; } break;
+      case 'shell': if (a?.type === 'shells') { a.cyc = 0; a.jolt = 0; } break;
       case 'reloadEnd':
-      case 'reloadCancel':
-        if (this.anim && (this.anim.type === 'reload' || this.anim.type === 'shellReload')) {
-          if (this.anim.type === 'shellReload' && e === 'reloadEnd') { this.anim = { type: 'pumpOnly', t: 0, dur: 0.4 }; this.pumpT = 0.4; }
-          else this.anim = null;
-        }
+        if (a?.type === 'shells') {
+          if (a.phase === 2) break; // end phase already running
+          // natural end (weapon went through its end phase) vs. interrupted to fire
+          const interrupted = a.phase === 1 && (w?.reloadPhase ?? 1) === 1;
+          a.phase = 2; a.endT = 0; a.interrupted = interrupted;
+          a.rack = a.empty && !interrupted;
+        } else if (a && (a.type === 'reload' || a.type === 'dualReload' || a.type === 'launcherReload')) a.done = true;
         break;
-      case 'pump': this.pumpT = 0.5; break;
-      case 'swing': this.anim = { type: 'swing', t: 0, dur: (w?.def.interval ?? 0.8) * 0.9, dir: Math.random() < 0.5 ? 1 : -1 }; break;
-      case 'shove': this.anim = { type: 'shove', t: 0, dur: 0.38 }; break;
+      case 'reloadCancel':
+        if (a && ['reload', 'dualReload', 'launcherReload', 'shells'].includes(a.type)) this.anim = null;
+        break;
+      case 'pump': this.pumpA = 0; break;
+      case 'swing': {
+        this.swingDir = -this.swingDir;
+        this.anim = { type: 'swing', t: 0, dur: (d?.interval ?? 0.8) * 0.95, hit: d?.windup ?? 0.12, arc: this.swingDir > 0 ? SWING.A : SWING.B };
+        break;
+      }
+      case 'shove': this.anim = { type: 'shove', t: 0, dur: 0.4 }; break;
       case 'draw': this.drawK = 0; break;
       case 'throwWindup': this.anim = { type: 'windup', t: 0, dur: 1e9 }; break;
-      case 'throw': this.anim = { type: 'throw', t: 0, dur: 0.35 }; break;
+      case 'throw': this.anim = { type: 'throw', t: 0, dur: 0.38 }; break;
       case 'actionStart':
         if (data.type === 'heal') this.anim = { type: 'heal', t: 0, dur: data.dur };
         else if (data.type === 'pills') this.anim = { type: 'pills', t: 0, dur: data.dur };
@@ -298,7 +390,7 @@ export class Viewmodel {
         if (this.anim && ['heal', 'pills', 'lower'].includes(this.anim.type)) this.anim = null;
         break;
       case 'land': this.landDip = Math.min(0.08, 0.02 + (data || 0) * 0.015); break;
-      case 'dry': this.kickVRX -= 0.5; break;
+      case 'dry': this.kickVRX -= 0.5; this.kickVZ -= 0.3; break;
     }
   }
   ejectShell() {
@@ -306,242 +398,486 @@ export class Viewmodel {
     const def = this.game.player?.weapon?.def;
     if (!m || !def || def.shellType === 'none' || def.melee) return;
     let ej = m.userData.eject;
-    if (this.kind === 'dual' && m.userData.left) ej = (this.game.player.weapon.dualSide ? m.userData.left : m.userData.right).userData.eject || ej;
+    if (this.kind === 'dual' && m.userData.left) ej = (this.game.player.weapon.dualSide ? m.userData.right : m.userData.left).userData.eject || ej;
     if (!ej) return;
     ej.getWorldPosition(_v);
-    // convert viewmodel space -> world approx: viewmodel is attached to camera with same transform so world pos is valid
     const cam = this.camera;
-    const right = _w.set(1, 0, 0).applyQuaternion(cam.quaternion);
-    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
+    const right = _right.set(1, 0, 0).applyQuaternion(cam.quaternion);
+    const up = _up.set(0, 1, 0).applyQuaternion(cam.quaternion);
     const pv = this.game.player.phys;
     const vx = right.x * 2.2 + up.x * 1.8 + pv.vx, vy = right.y * 2.2 + up.y * 1.8 + 0.5, vz = right.z * 2.2 + up.z * 1.8 + pv.vz;
     this.game.shells?.spawn(_v.x, _v.y, _v.z, vx, vy, vz, def.shellType);
+  }
+  sound(name) {
+    const p = this.game.player;
+    this.game.audio?.play?.(name, { pos: p?.pos, owner: p, vol: 0.6 });
+  }
+
+  // ------------------------------------------------------------ helpers --
+  // point in an object's local frame -> holder space
+  toHolder(obj, x, y, z, out) {
+    out.set(x, y, z);
+    for (let o = obj; o && o !== this.holder; o = o.parent) { o.updateMatrix(); out.applyMatrix4(o.matrix); }
+    return out;
+  }
+  quatToHolder(obj, out) {
+    out.identity();
+    for (let o = obj; o && o !== this.holder; o = o.parent) out.premultiply(o.quaternion);
+    return out;
+  }
+  // magazine: bottom-centre in its local frame + axis
+  magInfo(mag) {
+    let I = mag.userData.info;
+    if (!I) {
+      _box.makeEmpty();
+      mag.traverse((o) => { if (o.isMesh) { o.geometry.computeBoundingBox(); _box2.copy(o.geometry.boundingBox).applyMatrix4(o.matrix); _box.union(_box2); } });
+      I = mag.userData.info = { bot: _box.min.y, top: _box.max.y, cx: (_box.min.x + _box.max.x) / 2, cz: (_box.min.z + _box.max.z) / 2 };
+    }
+    return I;
+  }
+  // magazine offset along its own axis (d > 0 = out of the well) + tumble
+  setMag(mag, d, tumble = 0, vis = true) {
+    const b = mag.userData.base;
+    if (!b) return;
+    _q.setFromEuler(b.r);
+    _v.set(0, -d, 0).applyQuaternion(_q);
+    mag.position.copy(b.p).add(_v);
+    mag.rotation.set(b.r.x + tumble, b.r.y + tumble * 0.4, b.r.z - tumble * 0.3);
+    mag.visible = vis;
+  }
+  // off-hand grab point on a magazine (holder space)
+  magGrip(mag, outP, outQ) {
+    const I = this.magInfo(mag);
+    this.toHolder(mag, I.cx, I.bot + 0.03, I.cz + 0.004, outP);
+    this.quatToHolder(mag, outQ).multiply(qe(_qT, 0.12, 0, 0));
+  }
+  partGrip(spec, outP, outQ) {
+    const part = this.model.userData[spec.part];
+    if (!part) return false;
+    this.toHolder(part, spec.p[0], spec.p[1], spec.p[2], outP);
+    this.quatToHolder(part.parent, outQ).multiply(qe(_qT, spec.e[0], spec.e[1], spec.e[2]));
+    return true;
+  }
+  setPart(o, dx, dy, dz, rz = 0) {
+    const b = o?.userData.base;
+    if (!b) return;
+    o.position.set(b.p.x + dx, b.p.y + dy, b.p.z + dz);
+    o.rotation.set(b.r.x, b.r.y, b.r.z + rz);
+  }
+  // lerp/slerp the off-hand target between two holder-space poses
+  static blend(pA, qA, pB, qB, t, outP, outQ) {
+    outP.copy(pA).lerp(pB, t);
+    outQ.copy(qA).slerp(qB, t);
   }
 
   update(dt, s, look) {
     if (!s) return;
     this.setCharacter(s.char);
-    const item = s.activeItem;
-    const dual = s.slot === 1 && s.inv.secondary.dual;
-    this.setItem(s.usingMounted ? 'minigun' : item, dual);
+    const item = s.usingMounted ? 'minigun' : s.activeItem;
+    const dual = !s.usingMounted && s.slot === 1 && s.inv.secondary.dual;
+    const key = item + (dual ? ':dual' : '');
+    // holster the old item briefly before drawing the new one
+    if (key !== this.type) {
+      if (this.model && this.holsterT < 0 && !s.usingMounted && this.type && !this.type.startsWith('minigun')) this.holsterT = 0;
+      if (this.holsterT >= 0) { this.holsterT += dt; if (this.holsterT >= 0.11) { this.holsterT = -1; this.setItem(item, dual); } }
+      else this.setItem(item, dual);
+    } else this.holsterT = -1;
     const kind = s.usingMounted ? 'minigun' : this.kind;
     this.root.visible = this.visible && !(s.weapon && s.weapon.zoomed) && !s.dead;
     if (!this.model || !kind) { if (this.armL) { this.armL.visible = this.armR.visible = false; } return; }
     this.armL.visible = this.armR.visible = true;
+    const ud = this.model.userData;
+    const w = s.weapon && s.weapon.type === this.modelType ? s.weapon : null;
+    const def = w?.def;
     const base = POSE[kind] || POSE.rifle;
+    const t = this.game.time;
     // springs
     this.kickVZ += (-120 * this.kickZ - 16 * this.kickVZ) * dt;
     this.kickZ += this.kickVZ * dt;
     this.kickVRX += (-140 * this.kickRX - 15 * this.kickVRX) * dt;
     this.kickRX += this.kickVRX * dt;
+    this.kickVRY += (-160 * this.kickRY - 18 * this.kickVRY) * dt;
+    this.kickRY += this.kickVRY * dt;
     this.kickRZ = damp(this.kickRZ, 0, 10, dt);
-    this.drawK = Math.min(1, this.drawK + dt * 2.6);
+    this.drawK = Math.min(1, this.drawK + dt * 2.9);
     this.landDip = damp(this.landDip, 0, 8, dt);
     if (this.flashT > 0) { this.flashT -= dt; if (this.flashT <= 0 && this.flashMesh) this.flashMesh.visible = false; }
+    this.blowT[0] += dt; this.blowT[1] += dt;
     // sway (lag against look)
-    this.swayX = damp(this.swayX + (look?.dx || 0) * 0.9, 0, 9, dt);
-    this.swayY = damp(this.swayY + (look?.dy || 0) * 0.9, 0, 9, dt);
-    this.swayX = clamp(this.swayX, -0.12, 0.12);
-    this.swayY = clamp(this.swayY, -0.1, 0.1);
+    this.swayX = clamp(damp(this.swayX + (look?.dx || 0) * 0.9, 0, 9, dt), -0.12, 0.12);
+    this.swayY = clamp(damp(this.swayY + (look?.dy || 0) * 0.9, 0, 9, dt), -0.1, 0.1);
     // bob
     const sp = Math.hypot(s.phys.vx, s.phys.vz);
     const ground = s.phys.onGround ? 1 : 0;
     this.bobT += dt * sp * 1.9 * ground;
     const bobK = clamp(sp / 4.4, 0, 1.4) * ground;
     this.sprintK = damp(this.sprintK, s.sprinting ? 1 : 0, 8, dt);
-    const inc = s.incapped ? 1 : 0;
-    this.lowered = damp(this.lowered, inc, 6, dt);
+    this.lowered = damp(this.lowered, s.incapped ? 1 : 0, 6, dt);
 
     let px = base[0], py = base[1], pz = base[2], rx = base[3], ry = base[4], rz = base[5];
-    // bob
-    px += Math.sin(this.bobT) * 0.012 * bobK;
-    py += -Math.abs(Math.cos(this.bobT)) * 0.012 * bobK + Math.sin(this.game.time * 1.6) * 0.003;
-    rz += Math.sin(this.bobT) * 0.012 * bobK;
-    // sway
+    // idle breathing sway
+    const idle = 1 - clamp(bobK, 0, 1) * 0.6;
+    px += Math.sin(t * 0.83) * 0.0022 * idle; py += Math.sin(t * 1.37) * 0.0028 * idle;
+    rz += Math.sin(t * 0.61) * 0.008 * idle; rx += Math.sin(t * 1.37 + 0.6) * 0.006 * idle;
+    // walk bob: figure-8 with a dip on each footfall
+    const bb = this.bobT, amp = 1 + this.sprintK * 0.6;
+    px += Math.sin(bb) * 0.011 * bobK * amp;
+    py += -Math.abs(Math.cos(bb)) * 0.012 * bobK * amp;
+    rz += Math.sin(bb) * 0.014 * bobK * amp; ry += Math.sin(bb) * 0.01 * bobK;
+    rx += (Math.abs(Math.cos(bb)) - 0.5) * 0.012 * bobK;
+    // look sway
     px += this.swayX * 0.12; py -= this.swayY * 0.12;
-    ry += this.swayX * 0.8; rx += this.swayY * 0.8;
-    // sprint
-    const spK = this.sprintK * (kind === 'melee' ? 0.4 : 1);
-    px -= 0.05 * spK; py -= 0.06 * spK; rx -= 0.35 * spK; ry += 0.75 * spK; rz += 0.25 * spK;
-    // crouch
+    ry += this.swayX * 0.8; rx += this.swayY * 0.8; rz += this.swayX * 0.35;
+    // sprint: gun rolled across the chest, muzzle low
+    const spK = this.sprintK * (kind === 'melee' ? 0.4 : kind === 'pistol' || kind === 'dual' ? 0.6 : 1) * (this.anim && this.anim.type !== 'swing' ? 0.3 : 1);
+    px -= 0.05 * spK; py -= 0.055 * spK; pz += 0.02 * spK; rx -= 0.38 * spK; ry += 0.78 * spK; rz += 0.3 * spK;
+    // crouch / incap
     py -= 0.015 * s.crouchT;
-    // incap
     py -= 0.05 * this.lowered; rz += 0.35 * this.lowered;
-    // draw
-    const dk = easeOutCubic(this.drawK);
-    py -= (1 - dk) * 0.3; rx -= (1 - dk) * 0.8;
-    // recoil
-    pz += this.kickZ * 0.05; rx += this.kickRX * 0.06; rz += this.kickRZ;
-    if (this.dualKick && kind === 'dual') { px += this.dualKick * this.kickZ * 0.01; }
+    // draw (eased with a small settle) / holster
+    const dk = this.drawK;
+    const de = dk < 1 ? 1 - Math.pow(1 - dk, 3) + Math.sin(dk * Math.PI) * 0.06 : 1;
+    py -= (1 - de) * 0.28; rx -= (1 - de) * 0.75; rz -= (1 - de) * 0.3; px += (1 - de) * 0.04;
+    if (this.holsterT >= 0) { const h = easeInOutSine(Math.min(1, this.holsterT / 0.11)); py -= h * 0.26; rx -= h * 0.7; rz -= h * 0.2; }
+    // recoil: kick back, muzzle rise, a little yaw
+    pz += this.kickZ * 0.05; rx += this.kickRX * 0.06; rz += this.kickRZ; ry += this.kickRY * 0.03;
+    if (this.dualKick && kind === 'dual') px += this.dualKick * this.kickZ * 0.008;
     // landing
     py -= this.landDip; rx -= this.landDip * 1.5;
 
-    // Animations
-    let handL = null; // left hand target override in holder space
-    let magOff = 0; // magazine drop
+    // ------------------------------------------------ animations
+    const T = this.tgt; T.fill(0);
+    this.shell.visible = false;
+    for (const g of ud.left ? [ud.left, ud.right] : [this.model]) {
+      // parts back to rest; animations below move them
+      for (const k of PARTS) { const o = g.userData[k]; if (o?.userData.base && k !== 'mag' && k !== 'round') { o.position.copy(o.userData.base.p); o.rotation.copy(o.userData.base.r); } }
+      if (g.userData.mag?.userData.base) this.setMag(g.userData.mag, 0);
+      if (g !== this.model && g.userData.base) { g.position.copy(g.userData.base.p); g.rotation.copy(g.userData.base.r); }
+    }
+    if (ud.round) ud.round.visible = false;
+    // pump stroke after a shot (the off hand rides the fore-end)
+    if (ud.pump && this.pumpA >= 0) {
+      this.pumpA += dt;
+      const pt = this.pumpA;
+      const off = pt < 0.08 ? 0 : pt < 0.25 ? eo(pt, 0.08, 0.25) : 1 - ei(pt, 0.25, 0.42);
+      this.setPart(ud.pump, 0, 0, 0.085 * off);
+      T[5] += 0.06 * off; T[1] -= 0.008 * off; T[2] += 0.012 * off; T[3] += 0.03 * off;
+      if (pt > 0.45) this.pumpA = -1;
+    }
+    // rest off-hand pose (holder space)
+    const H = HANDS[kind] || HANDS.rifle;
+    const restP = _pR, restQ = _qR;
+    let lVis = true, lFG = 0;
+    let lspec = H.L;
+    if (lspec === 'gripL') {
+      const gl = ud.gripL;
+      if (gl) { this.toHolder(gl, 0, -0.03, 0, restP); restQ.copy(FOREGRIP_Q); }
+      else { restP.set(-0.02, -0.06, -0.25); restQ.copy(FOREGRIP_Q); }
+      lFG = 1;
+    } else if (lspec) { restP.set(lspec[0], lspec[1], lspec[2]); qe(restQ, lspec[3], lspec[4], lspec[5]); }
+    else lVis = false;
+    const LP = _hp.copy(restP), LQ = _hq.copy(restQ);
+    let fgK = lFG;
+    // fire blowback + slide lock on empty
+    const bl = BLOWBACK[this.modelType];
+    const blow = (bt) => (bt < 0.018 ? bt / 0.018 : Math.max(0, 1 - (bt - 0.018) / 0.05));
+    const lockedEmpty = w && w.clip === 0 && !w.def.shellReload;
+    let slideLock = lockedEmpty ? 1 : 0;
     const a = this.anim;
     if (a) {
       a.t += dt;
       const k = clamp(a.t / a.dur, 0, 1);
       switch (a.type) {
-        case 'reload': {
-          // tilt in, mag out, mag in, tilt back
-          const tilt = k < 0.15 ? easeInOutSine(k / 0.15) : k > 0.85 ? 1 - easeInOutSine((k - 0.85) / 0.15) : 1;
-          if (kind === 'pistol' || kind === 'dual') { rx += 0.35 * tilt; rz -= 0.25 * tilt; py -= 0.03 * tilt; }
-          else { rz += 0.55 * tilt; rx += 0.25 * tilt; px -= 0.04 * tilt; py -= 0.02 * tilt; }
-          if (k > 0.18 && k < 0.45) magOff = easeInOutSine((k - 0.18) / 0.27) * 0.35;
-          else if (k >= 0.45 && k < 0.72) magOff = (1 - easeInOutSine((k - 0.45) / 0.27)) * 0.2;
-          // left hand follows magazine
-          const mag = this.model.userData.mag;
-          if (mag && k > 0.12 && k < 0.8) {
-            const hk = k < 0.3 ? (k - 0.12) / 0.18 : k > 0.7 ? 1 - (k - 0.7) / 0.1 : 1;
-            handL = { onMag: true, k: clamp(hk, 0, 1) };
-          }
-          if (k > 0.78 && k < 0.92 && (kind === 'rifle' || kind === 'smg' || kind === 'sniper')) { pz += Math.sin((k - 0.78) / 0.14 * Math.PI) * 0.03; }
-          if (a.t >= a.dur) this.anim = null;
-          break;
-        }
-        case 'shellReload': {
-          const tk = Math.min(1, a.t / 0.25);
-          rz += 0.5 * tk; rx += 0.2 * tk; py -= 0.02 * tk;
-          handL = { shell: true, k: this.shellPush || 0 };
-          break;
-        }
-        case 'pumpOnly': if (a.t >= a.dur) this.anim = null; break;
+        case 'reload': this.animReload(a, k, T, LP, LQ, kind); slideLock = a.slideLock; break;
+        case 'dualReload': slideLock = this.animDual(a, T); break;
+        case 'launcherReload': this.animLauncher(a, k, T, LP, LQ, restP, restQ); break;
+        case 'shells': this.animShells(a, dt, T, LP, LQ, restP, restQ); break;
         case 'swing': {
-          const d = a.dir;
-          // wind (0-0.25) -> strike (0.25-0.55) -> recover
-          let sw;
-          if (k < 0.2) sw = -easeInOutSine(k / 0.2) * 0.6;
-          else if (k < 0.5) sw = -0.6 + easeOutCubic((k - 0.2) / 0.3) * 2.0;
-          else sw = 1.4 - easeInOutSine((k - 0.5) / 0.5) * 1.4;
-          rz += -sw * 0.9 * d; ry += sw * 0.5 * d; px -= sw * 0.12 * d; rx += (k < 0.2 ? 0.4 * (k / 0.2) : 0.4 - sw * 0.35); py += (k < 0.2 ? 0.08 * k / 0.2 : 0.08 - (sw + 0.6) * 0.06);
-          if (a.t >= a.dur) this.anim = null;
+          const W = a.hit, A = a.arc, tt = a.t;
+          const wK = ss(tt, 0, W * 0.8), hK = ei(tt, W * 0.8, W), eK = eo(tt, W, W + 0.13), rK = ss(tt, W + 0.2, a.dur);
+          for (let i = 0; i < 6; i++) {
+            let v = A.wind[i] * wK;
+            v += (A.hit[i] - A.wind[i]) * hK;
+            v += (A.end[i] - A.hit[i]) * eK;
+            v -= A.end[i] * rK;
+            T[i] += v;
+          }
+          if (tt >= a.dur) this.anim = null;
           break;
         }
         case 'shove': {
-          const sk = k < 0.35 ? easeOutCubic(k / 0.35) : 1 - easeInOutSine((k - 0.35) / 0.65);
-          px -= 0.14 * sk; pz -= 0.1 * sk; rz += 0.9 * sk; ry += 0.4 * sk; py += 0.04 * sk;
+          const sk = k < 0.3 ? eo(k, 0, 0.3) : 1 - ss(k, 0.42, 1);
+          T[0] -= 0.13 * sk; T[1] += 0.035 * sk; T[2] -= 0.12 * sk; T[3] -= 0.12 * sk; T[4] += 0.38 * sk; T[5] += 0.85 * sk;
           if (a.t >= a.dur) this.anim = null;
           break;
         }
         case 'windup': {
-          const wk = Math.min(1, a.t / 0.3);
-          px += 0.05 * wk; py += 0.12 * wk; pz += 0.12 * wk; rx -= 0.6 * wk;
+          const wk = eo(a.t, 0, 0.3);
+          T[0] += 0.05 * wk; T[1] += 0.12 * wk; T[2] += 0.14 * wk; T[3] -= 0.7 * wk; T[5] -= 0.15 * wk;
           break;
         }
         case 'throw': {
-          const tk = easeOutCubic(k);
-          py += 0.12 - tk * 0.3; pz += 0.12 - tk * 0.4; rx -= 0.6 - tk * 1.2;
+          const tk = eo(k, 0, 0.6), rk = ss(k, 0.6, 1);
+          T[1] += 0.12 - tk * 0.32 + rk * 0.2; T[2] += 0.14 - tk * 0.44 + rk * 0.3; T[3] += -0.7 + tk * 1.3 - rk * 0.6;
           if (a.t >= a.dur) this.anim = null;
           break;
         }
         case 'heal': {
-          const hk = Math.min(1, a.t / 0.4);
-          py -= 0.08 * hk; rx += 0.5 * hk;
-          px += Math.sin(a.t * 6) * 0.02 * hk; rz += Math.sin(a.t * 3.1) * 0.1 * hk;
-          handL = { wiggle: a.t };
+          const hk = eo(a.t, 0, 0.4);
+          T[1] -= 0.08 * hk; T[3] += 0.5 * hk;
+          T[0] += Math.sin(a.t * 6) * 0.02 * hk; T[5] += Math.sin(a.t * 3.1) * 0.1 * hk;
+          LP.x += Math.sin(a.t * 9) * 0.02; LP.y += Math.cos(a.t * 7) * 0.015;
           break;
         }
         case 'pills': {
-          const pk = k;
-          rz += Math.sin(pk * 40) * 0.2 * (pk < 0.6 ? 1 : 0);
-          py += pk > 0.6 ? (pk - 0.6) * 0.3 : 0; rx -= pk > 0.6 ? (pk - 0.6) * 2 : 0;
+          T[5] += Math.sin(k * 40) * 0.2 * (k < 0.6 ? 1 : 0);
+          T[1] += k > 0.6 ? (k - 0.6) * 0.3 : 0; T[3] -= k > 0.6 ? (k - 0.6) * 2 : 0;
           if (a.t >= a.dur) this.anim = null;
           break;
         }
         case 'lower': {
-          const lk = Math.min(1, a.t / 0.3);
-          py -= 0.25 * lk; rx -= 0.5 * lk;
+          const lk = ss(a.t, 0, 0.3);
+          T[1] -= 0.25 * lk; T[3] -= 0.5 * lk;
           break;
         }
       }
+      if (a.done && this.anim === a && a.t >= a.dur - 0.02) this.anim = null;
+      if (this.anim === a && a.t > a.dur + 0.3 && a.dur < 100) this.anim = null;
     }
-    if (this.shellPush > 0) this.shellPush -= dt;
-    // pump animation
-    const pump = this.model.userData.pump;
-    if (pump) {
-      if (this.pumpT > 0) {
-        this.pumpT -= dt;
-        const pk = 1 - this.pumpT / 0.5;
-        const off = Math.sin(clamp(pk, 0, 1) * Math.PI) * 0.09;
-        pump.position.z = -0.3 + off;
-        pz += off * 0.15;
-      } else pump.position.z = -0.3;
-    }
-    const slide = this.model.userData.slide;
-    if (slide) {
-      if (this.slideT > 0) { this.slideT -= dt; slide.position.z = -0.06 + 0.03; }
-      else slide.position.z = damp(slide.position.z, -0.06, 30, dt);
-      if (s.weapon && s.weapon.clip === 0) slide.position.z = -0.03;
-    }
-    const mag = this.model.userData.mag;
-    if (mag) {
-      if (mag.userData.baseY == null) mag.userData.baseY = mag.position.y;
-      mag.position.y = mag.userData.baseY - magOff;
+    // elbow reach blends away from the fore-grip as the off hand leaves it
+    fgK = lFG * clamp(1 - LP.distanceTo(restP) / 0.08, 0, 1);
+    // blowback on fire (slide / bolt) and slide lock
+    if (bl) {
+      const gs = ud.left ? [ud.right, ud.left] : [this.model];
+      gs.forEach((g, i) => {
+        const o = g.userData[bl[0]];
+        if (!o) return;
+        const lock = typeof slideLock === 'number' ? slideLock : slideLock[i];
+        const pulled = o.position.z - o.userData.base.p.z;
+        const b = Math.max(blow(this.blowT[i]), bl[0] === 'slide' ? lock : 0);
+        if (b * bl[1] > pulled) this.setPart(o, 0, 0, bl[1] * b);
+      });
     }
     // minigun spin
-    const spin = this.model.userData.spin;
+    const spin = ud.spin;
     if (spin) {
       this.spinSpeed = damp(this.spinSpeed, s.cmd.fire ? 40 : 0, 3, dt);
       spin.rotation.z += this.spinSpeed * dt;
     }
-    if (this.model.userData.flame) this.model.userData.flame.scale.setScalar(0.8 + Math.random() * 0.5);
+    if (ud.flame) ud.flame.scale.setScalar(0.8 + Math.random() * 0.5);
 
-    this.holder.position.set(px, py, pz);
-    this.holder.rotation.set(rx, ry, rz, 'YXZ');
+    // smooth the animation pose (eases blends into and out of every anim, incl. interrupts)
+    const fast = a && (a.type === 'swing' || a.type === 'shove') && this.anim === a;
+    const O = this.ofs, sk = 1 - Math.exp(-(fast ? 80 : 26) * dt);
+    for (let i = 0; i < 6; i++) O[i] += (T[i] - O[i]) * sk;
+    this.holder.position.set(px + O[0], py + O[1], pz + O[2]);
+    this.holder.rotation.set(rx + O[3], ry + O[4], rz + O[5], 'YXZ');
     this.holder.updateMatrix();
     this.root.updateMatrixWorld(true);
 
     // ------------------------------------------------ hands & forearms
-    const H = HANDS[kind] || HANDS.rifle;
     const hq = this.holder.quaternion;
-    // right hand (models carry their own grip placement)
-    const hr = this.model.userData.handR;
+    const hr = ud.handR;
+    if (kind === 'dual' && ud.left && hr) {
+      this.placeGunHand(this.armR, ud.right, hr, 1, hq);
+      this.placeGunHand(this.armL, ud.left, hr, -1, hq);
+      this.armL.visible = true;
+      return;
+    }
     const rspec = hr && kind !== 'minigun' ? hr : H.R;
-    this.placeHand(this.armR, rspec, 1, hq, null);
-    // left hand
-    let lspec = H.L;
-    if (kind === 'dual' && hr) lspec = [hr[0] - 0.3, hr[1], hr[2], hr[3], hr[4], hr[5]];
-    if (lspec === 'gripL') {
-      const gl = this.model.userData.gripL;
-      if (gl) {
-        _w.copy(gl.position);
-        if (gl.parent && gl.parent !== this.model) _w.applyMatrix4(gl.parent.matrix); // rides on the pump
-        lspec = [_w.x, _w.y - 0.03, _w.z, 0, 0, 0, true];
-      } else lspec = [-0.02, -0.03, -0.25, 0, 0, 0, true];
-    }
-    if (handL && lspec) {
-      lspec = lspec.slice();
-      if (handL.onMag && mag) {
-        const mp = mag.position;
-        const t = handL.k;
-        lspec[0] = lerp(lspec[0], mp.x - 0.01, t); lspec[1] = lerp(lspec[1], mp.y - 0.07, t); lspec[2] = lerp(lspec[2], mp.z + 0.01, t);
-        lspec[6] = t < 0.5 && lspec[6];
-        if (t >= 0.5) { lspec[3] = 0.3; lspec[4] = 0; lspec[5] = 0; }
-      } else if (handL.shell) {
-        const k2 = clamp(handL.k / 0.3, 0, 1);
-        lspec[0] = lerp(-0.1, 0.01, k2); lspec[1] = lerp(-0.2, -0.04, k2); lspec[2] = lerp(0.0, -0.06, k2);
-      } else if (handL.wiggle != null) {
-        lspec[0] += Math.sin(handL.wiggle * 9) * 0.02; lspec[1] += Math.cos(handL.wiggle * 7) * 0.015;
-      }
-    }
-    if (lspec) { this.armL.visible = true; this.placeHand(this.armL, lspec, -1, hq, null); }
-    else this.armL.visible = false;
+    _pA.set(rspec[0], rspec[1], rspec[2]); qe(_qA, rspec[3], rspec[4], rspec[5]);
+    this.placeHand(this.armR, _pA, _qA, 1, hq, 0);
+    if (!lVis) { this.armL.visible = false; return; }
+    // off hand: smoothed in holder space so it glides between grips
+    if (!this.lhInit) { this.lhP.copy(LP); this.lhQ.copy(LQ); this.lhFG = fgK; this.lhInit = true; }
+    const hk = 1 - Math.exp(-(a ? 30 : 20) * dt);
+    this.lhP.lerp(LP, hk); this.lhQ.slerp(LQ, hk); this.lhFG += (fgK - this.lhFG) * hk;
+    this.armL.visible = true;
+    this.placeHand(this.armL, this.lhP, this.lhQ, -1, hq, this.lhFG);
   }
 
-  // Place a hand (holder space spec) and stretch its forearm to an off-screen elbow.
-  placeHand(arm, spec, side, hq) {
+  // ------------------------------------------------ magazine reloads
+  // Sound sync (session.js): magOut at 0, magIn at 45 %, slide/bolt at 85 %.
+  animReload(a, k, T, LP, LQ, kind) {
+    const ud = this.model.userData;
+    const mag = ud.mag;
+    const pistol = kind === 'pistol';
+    const tilt = ss(k, 0, 0.13) * (1 - ss(k, 0.86, 1));
+    if (pistol) { T[3] += 0.3 * tilt; T[5] -= 0.38 * tilt; T[0] -= 0.035 * tilt; T[1] += 0.015 * tilt; T[4] += 0.12 * tilt; }
+    else { T[5] += 0.45 * tilt; T[3] += 0.2 * tilt; T[0] -= 0.045 * tilt; T[1] += 0.02 * tilt; T[4] -= 0.1 * tilt; }
+    // seat jolt at magIn
+    const j = bump(k, 0.465, 0.035);
+    T[1] += 0.012 * j; T[3] += 0.05 * j;
+    // magazine: release, drop (gravity), new one rises and seats
+    if (mag) {
+      let d = 0, tum = 0, vis = true;
+      const rel = pistol ? 0.05 : 0.08;
+      if (k < rel) d = 0;
+      else if (k < rel + 0.08) d = 0.022 * ss(k, rel, rel + 0.08);
+      else if (k < 0.3) { const f = seg(k, rel + 0.08, 0.3); d = 0.022 + 0.5 * f * f; tum = 0.7 * f * f; vis = f < 0.92; }
+      else if (k < 0.41) { d = 0.3 * (1 - eo(k, 0.3, 0.41)) + 0.014; vis = true; }
+      else if (k < 0.45) d = 0.014 * (1 - ei(k, 0.41, 0.45));
+      this.setMag(mag, d, tum, vis);
+    }
+    // off hand
+    const belt = _pC.set(pistol ? 0.0 : -0.04, -0.34, 0.1), beltQ = qe(_qC, 0.4, 0, 0.3);
+    const mP = _pD, mQ = _qD;
+    if (mag) this.magGrip(mag, mP, mQ); else { mP.set(0, -0.1, 0); mQ.identity(); }
+    const RP = _pB.copy(LP), RQ = _qB.copy(LQ); // rest pose
+    const ch = CHARGE_GRIP[this.modelType];
+    const empty = a.empty && ch && this.model.userData[ch.part];
+    a.slideLock = 0;
+    // empty: pull the slide / charging handle / bolt and let it fly home at 85 %
+    if (empty) {
+      const part = ud[ch.part];
+      const pull = ss(k, 0.66, 0.8) * (1 - ei(k, 0.8, 0.84));
+      const lift = ch.lift ? ss(k, 0.6, 0.67) * (1 - ss(k, 0.84, 0.88)) : 0;
+      const isSlide = ch.part === 'slide';
+      if (isSlide) a.slideLock = k < 0.8 ? 1 : 0;
+      this.setPart(part, 0, 0, Math.max(pull * ch.pull[2], isSlide && k < 0.8 ? 0.03 : 0), lift * (ch.lift || 0));
+      T[5] += 0.08 * bump(k, 0.78, 0.08); T[1] -= 0.01 * bump(k, 0.84, 0.04);
+    }
+    if (k < 0.3) {
+      if (pistol) Viewmodel.blend(RP, RQ, belt, beltQ, ss(k, 0.04, 0.22), LP, LQ);
+      else if (k < 0.15) Viewmodel.blend(RP, RQ, mP, mQ, ss(k, 0.04, 0.12), LP, LQ);
+      else Viewmodel.blend(mP, mQ, belt, beltQ, ss(k, 0.15, 0.28), LP, LQ);
+    } else if (k < 0.5) Viewmodel.blend(belt, beltQ, mP, mQ, ss(k, 0.27, 0.34), LP, LQ);
+    else if (empty) {
+      const cP = _pC, cQ = _qC;
+      this.partGrip(ch, cP, cQ);
+      if (k < 0.84) Viewmodel.blend(mP, mQ, cP, cQ, ss(k, 0.5, 0.64), LP, LQ);
+      else Viewmodel.blend(cP, cQ, RP, RQ, ss(k, 0.84, 0.97), LP, LQ);
+    } else Viewmodel.blend(mP, mQ, RP, RQ, ss(k, 0.5, 0.68), LP, LQ);
+  }
+  // Dual pistols: mags drop one after the other, both guns dip to pick up
+  // fresh mags, rise seated, then slides drop home one at a time.
+  animDual(a, T) {
+    const ud = this.model.userData, R = a.R, u = a.t / R;
+    const gR = ud.right, gL = ud.left;
+    const tilt = ss(u, 0, 0.12) * (1 - ss(u, 1.15, 1.35));
+    for (const [g, sd] of [[gR, 1], [gL, -1]]) {
+      const b = g.userData.base;
+      g.rotation.set(b.r.x + 0.25 * tilt, b.r.y, b.r.z + 0.35 * tilt * sd);
+      g.position.set(b.p.x - 0.02 * sd * tilt, b.p.y + 0.01 * tilt, b.p.z);
+    }
+    const dip = ss(u, 0.2, 0.3) * (1 - ss(u, 0.33, 0.45));
+    T[1] -= 0.24 * dip; T[3] -= 0.5 * dip; T[2] += 0.05 * dip;
+    const j = bump(u, 0.46, 0.04); T[1] += 0.01 * j;
+    const drop = (g, r0) => {
+      const mag = g.userData.mag; if (!mag) return;
+      if (u < r0) return;
+      if (u < r0 + 0.04) this.setMag(mag, 0.02 * ss(u, r0, r0 + 0.04));
+      else if (u < 0.3) { const f = seg(u, r0 + 0.04, r0 + 0.2); this.setMag(mag, 0.02 + 0.5 * f * f, 0.6 * f * f, f < 0.92); }
+    };
+    drop(gR, 0.04); drop(gL, 0.1);
+    const lock = [0, 0];
+    if (a.empty) { lock[0] = u < 0.85 ? 1 : 0; lock[1] = u < 0.9 ? 1 : 0; }
+    return lock;
+  }
+  // Grenade launcher: break open, spent case out, new round in, snap shut.
+  animLauncher(a, k, T, LP, LQ, RP, RQ) {
+    const ud = this.model.userData, br = ud.breach, rd = ud.round;
+    const tilt = ss(k, 0, 0.14) * (1 - ss(k, 0.86, 1));
+    T[3] -= 0.12 * tilt; T[5] += 0.35 * tilt; T[0] -= 0.04 * tilt; T[1] += 0.03 * tilt;
+    const open = ss(k, 0.05, 0.16) * (1 - ei(k, 0.8, 0.84));
+    if (br) br.rotation.x = br.userData.base.r.x - 0.62 * open;
+    T[3] -= 0.06 * bump(k, 0.84, 0.04);
+    if (!br || !rd) return;
+    // the round pivot lives in model space at the chamber mouth; express the
+    // barrel's chamber in model space so the round follows the tilted barrel
+    const by = rd.userData.base.p.y, cz = rd.userData.base.p.z;
+    const chamber = (dz, out) => { out.set(0, by, cz + dz); out.sub(br.position).applyAxisAngle(_right.set(1, 0, 0), br.rotation.x).add(br.position); return out; };
+    const belt = _pC.set(0.02, -0.36, 0.14);
+    let rp = null;
+    if (k > 0.14 && k < 0.3) { // spent case slides out and falls
+      const f = seg(k, 0.16, 0.3);
+      rp = chamber(0.13 * eo(k, 0.16, 0.22), _pA);
+      rp.y -= 0.4 * f * f;
+      rd.rotation.set(-0.62 * open - 1.2 * f * f, 0, 0);
+    } else if (k >= 0.34 && k < 0.84) { // fresh round: from the belt to the chamber
+      const behind = chamber(0.13, _pD), seat = chamber(0, _pA);
+      if (k < 0.5) rp = _pA.copy(belt).lerp(behind, eo(k, 0.34, 0.5));
+      else rp = seat.lerp(behind, 1 - ss(k, 0.5, 0.6));
+      rd.rotation.set(-0.62 * open, 0, 0);
+    }
+    if (rp) { rd.visible = true; rd.position.copy(rp); }
+    // off hand: to the belt, carries the round in, then closes the barrel
+    const foreEnd = this.toHolder(br, 0, -0.03, -0.17, _pB);
+    const feQ = _qB.copy(FOREGRIP_Q);
+    if (k < 0.34) Viewmodel.blend(RP, RQ, belt, qe(_qC, 0.4, 0, 0.3), ss(k, 0.14, 0.3), LP, LQ);
+    else if (k < 0.62) {
+      _pE.copy(rd.position).add(_v.set(0.0, -0.04, 0.06));
+      Viewmodel.blend(belt, qe(_qC, 0.4, 0, 0.3), _pE, qe(_qD, 0.3, 0, 0), ss(k, 0.3, 0.4), LP, LQ);
+    } else if (k < 0.86) Viewmodel.blend(_pE.copy(rd.position).add(_v.set(0.0, -0.04, 0.06)), qe(_qD, 0.3, 0, 0), foreEnd, feQ, ss(k, 0.62, 0.74), LP, LQ);
+    else Viewmodel.blend(foreEnd, feQ, RP, RQ, ss(k, 0.86, 0.96), LP, LQ);
+  }
+  // Shotguns: roll to the loading port, one shell per cycle (pushed home on
+  // the 'shell' event), then pump / rack if the gun was empty. Interruptible.
+  animShells(a, dt, T, LP, LQ, RP, RQ) {
+    const ud = this.model.userData;
+    const w = this.game.player?.weapon;
+    // last shell in: the weapon waits reloadEnd before finishing; start the end motion now
+    if (a.phase === 1 && w?.reloading && w.reloadPhase === 2) { a.phase = 2; a.endT = 0; a.interrupted = false; a.rack = a.empty; }
+    a.cyc += dt; a.jolt = (a.jolt ?? 1) + dt;
+    let tilt;
+    if (a.phase < 2) tilt = ss(a.t, 0, a.start * 0.9);
+    else tilt = 1 - ss(a.endT, a.rack ? 0.35 : 0, (a.rack ? 0.35 : 0) + (a.interrupted ? 0.12 : 0.25));
+    T[5] += 0.42 * tilt; T[3] += 0.18 * tilt; T[0] -= 0.035 * tilt; T[1] += 0.03 * tilt; T[4] -= 0.12 * tilt;
+    const jb = bump(a.jolt, 0.03, 0.05); T[1] += 0.006 * jb; T[2] -= 0.006 * jb;
+    const port = ud.port;
+    const pIn = _pA, pEntry = _pB, pFetch = _pC, qPort = _qA, qFetch = _qC;
+    if (port) this.toHolder(port, 0.0, -0.012, -0.012, pIn); else pIn.set(0, -0.012, -0.08);
+    pEntry.copy(pIn).add(_v.set(0, -0.04, 0.045));
+    pFetch.copy(pIn).add(_v.set(0.03, -0.24, 0.12));
+    qe(qPort, 1.35, 0, 0); qe(qFetch, 0.6, 0, 0.3);
+    if (a.phase === 0) Viewmodel.blend(RP, RQ, pFetch, qFetch, ss(a.t, 0, a.start), LP, LQ);
+    else if (a.phase === 1) {
+      const c = a.cyc / a.period;
+      if (c < 0.3) Viewmodel.blend(pIn, qPort, pFetch, qFetch, ss(c, 0, 0.3), LP, LQ);
+      else if (c < 0.7) Viewmodel.blend(pFetch, qFetch, pEntry, qPort, ss(c, 0.3, 0.7), LP, LQ);
+      else Viewmodel.blend(pEntry, qPort, pIn, qPort, ss(c, 0.7, 0.95), LP, LQ);
+      this.shell.visible = c > 0.22 && c < 0.97;
+    } else {
+      a.endT += dt;
+      const e = a.endT;
+      if (a.rack && ud.pump) {
+        // back to the fore-end, then chamber a round
+        Viewmodel.blend(pIn, qPort, RP, RQ, ss(e, 0, 0.16), LP, LQ);
+        if (e >= 0.16 && !a.racked) { a.racked = true; this.pumpA = 0; this.sound('pump'); }
+        if (e > 0.7) this.anim = null;
+      } else if (a.rack && ud.bolt) {
+        const ch = CHARGE_GRIP.autoShotgun, cP = _pD, cQ = _qD;
+        this.partGrip(ch, cP, cQ);
+        const pull = ss(e, 0.14, 0.26) * (1 - ei(e, 0.3, 0.33));
+        this.setPart(ud.bolt, 0, 0, ch.pull[2] * pull);
+        if (e < 0.33) Viewmodel.blend(pIn, qPort, cP.add(_v.set(0, 0, ch.pull[2] * pull)), cQ, ss(e, 0, 0.14), LP, LQ);
+        else Viewmodel.blend(cP, cQ, RP, RQ, ss(e, 0.33, 0.5), LP, LQ);
+        if (e >= 0.3 && !a.racked) { a.racked = true; this.sound('boltCycle'); }
+        if (e > 0.6) this.anim = null;
+      } else {
+        Viewmodel.blend(pIn, qPort, RP, RQ, ss(e, 0, a.interrupted ? 0.1 : 0.2), LP, LQ);
+        if (e > 0.3) this.anim = null;
+      }
+    }
+  }
+
+  // hand on one of the dual pistols (spec in that gun's frame)
+  placeGunHand(arm, gun, spec, side, hq) {
+    this.toHolder(gun, spec[0], spec[1], spec[2], _pA);
+    this.quatToHolder(gun, _qA).multiply(qe(_qB, spec[3], spec[4], spec[5]));
+    this.placeHand(arm, _pA, _qA, side, hq, 0);
+  }
+  // Place a hand (holder-space position + rotation) and stretch its forearm to
+  // an off-screen elbow. fg blends the elbow towards a fore-grip reach.
+  placeHand(arm, pos, quat, side, hq, fg = 0) {
     const { upper, lower, hand } = arm.userData;
     upper.visible = false;
-    _v.set(spec[0], spec[1], spec[2]).applyMatrix4(this.holder.matrix);
+    _v.copy(pos).applyMatrix4(this.holder.matrix);
     hand.position.copy(_v);
-    _q.setFromEuler(spec[6] ? FOREGRIP_ROT : _e.set(spec[3], spec[4], spec[5]));
-    hand.quaternion.copy(hq).multiply(_q);
+    hand.quaternion.copy(hq).multiply(quat);
     // wrist point (behind the grip, at the heel of the palm)
     const wrist = _w.set(WRIST[0] * side, WRIST[1], WRIST[2]).applyQuaternion(hand.quaternion).add(hand.position);
-    const elbow = _tmpE.set(wrist.x + side * 0.08, wrist.y - 0.2, wrist.z + 0.2);
-    if (spec[6]) elbow.set(wrist.x - 0.16, wrist.y - 0.2, wrist.z + 0.26);
+    const elbow = _tmpE.set(wrist.x + side * 0.08 * (1 - fg) - 0.16 * fg, wrist.y - 0.2, wrist.z + 0.2 + 0.06 * fg);
     const d = _tmpD.subVectors(wrist, elbow);
     const len = d.length();
     d.normalize();
@@ -561,11 +897,10 @@ export class Viewmodel {
     if (!m || !m.userData.muzzle) return null;
     let mz = m.userData.muzzle;
     if (this.kind === 'dual' && m.userData.left) {
-      const side = this.game.player.weapon?.dualSide ? m.userData.left : m.userData.right;
+      const side = this.game.player.weapon?.dualSide ? m.userData.right : m.userData.left;
       mz = side.userData.muzzle || mz;
     }
     mz.getWorldPosition(out);
-    // viewmodel FOV differs from world FOV; pull muzzle towards the camera axis a bit
     return out;
   }
 }

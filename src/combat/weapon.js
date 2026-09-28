@@ -38,6 +38,7 @@ export class Weapon {
     if (d.melee || d.noReload || this.reloading) return false;
     if (this.clip >= this.maxClip || this.reserve <= 0) return false;
     this.reloading = true;
+    this.reloadEmpty = this.clip === 0; // empty reloads also rack the slide / charging handle
     this.zoomed = false;
     if (d.shellReload) {
       this.reloadPhase = 0;

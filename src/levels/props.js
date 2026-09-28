@@ -687,15 +687,51 @@ export function trashCan(L, x, y, z) {
   p.col(0, 0.45, 0, 0.55, 0.9, 0.55, 'metal', F_SOLID | F_SHOOT);
   return p;
 }
+// Lumpy bin-bag body (unit-ish radius 0.5): noise lumps from the contents,
+// flattened sagging base, crinkle folds and a pinched neck. A few cached variants.
+function bagGeo(v) {
+  return cached('bag' + v, () => {
+    let g = new THREE.IcosahedronGeometry(0.5, 3);
+    g.deleteAttribute('uv'); g.deleteAttribute('normal');
+    g = mergeVertices(g, 1e-4);
+    const br = makeRng(900 + v * 17);
+    const bumps = [];
+    for (let i = 0; i < 9; i++) {
+      const d = new THREE.Vector3(br() - 0.5, br() - 0.35, br() - 0.5).normalize();
+      bumps.push([d, (br() - 0.35) * 0.16, 4 + br() * 8]);
+    }
+    const P = g.attributes.position, n = new THREE.Vector3();
+    for (let i = 0; i < P.count; i++) {
+      n.fromBufferAttribute(P, i).normalize();
+      let r = 0.5;
+      for (const [d, a, k] of bumps) r += a * Math.exp(-(1 - n.dot(d)) * k);
+      r += 0.012 * Math.sin(Math.atan2(n.z, n.x) * 11 + n.y * 7) * (1 - Math.abs(n.y)); // crinkles
+      if (n.y > 0.55) r *= 1 - (n.y - 0.55) * 1.25; // gathered neck
+      let x = n.x * r, y = n.y * r, z = n.z * r;
+      if (y < -0.3) { const k = (y + 0.3); y = -0.3 + k * 0.25; x *= 1 - k * 0.3; z *= 1 - k * 0.3; } // sagging flat base
+      P.setXYZ(i, x, y + 0.3, z); // origin on the floor
+    }
+    g.computeVertexNormals();
+    return g;
+  });
+}
 export function trashBags(L, x, y, z, n = 4) {
   const p = prop(L, x, y, z, rnd() * 6);
   for (let i = 0; i < n; i++) {
     const bx = (rnd() - 0.5) * 1.0, bz = (rnd() - 0.5) * 0.8, r = 0.3 + rnd() * 0.1;
-    const col = drnd() < 0.75 ? 0x131316 : dpick([0x2a3a2a, 0x3a3a3a, 0xa8a8a0]);
-    const sq = 0.65 + drnd() * 0.2;
-    p.sph(bx, r * sq * 0.9, bz, r, 'rubber', col, [1, sq, 0.9 + drnd() * 0.2], 12);
-    // knotted neck
-    p.cone(bx + r * 0.2, r * sq * 1.7, bz, 0.07, 0.16, 'rubber', col, [0.3, 0, -0.5], 6);
+    const col = drnd() < 0.75 ? dpick([0x121215, 0x16171a, 0x0e0f12]) : dpick([0x2a3a2a, 0x3a3a3a, 0xa8a8a0, 0x2a3040]);
+    const sq = 0.7 + drnd() * 0.25, v = Math.floor(drnd() * 4), ry = drnd() * 6.28;
+    const s = r * 2, lean = (drnd() - 0.5) * 0.35;
+    // a bag stacked on others sits higher and tips over
+    const stacked = i >= 3 && n > 3;
+    const by = stacked ? s * 0.45 : 0;
+    p.geo(bagGeo(v), 'plasticGloss', bx, by, bz, [stacked ? 1.1 : lean, ry, stacked ? 0.3 : lean * 0.6], [s, s * sq, s * (0.9 + drnd() * 0.2)], col);
+    // twisted neck + the two tie ears
+    const top = by + s * sq * 0.92;
+    if (!stacked) {
+      p.cone(bx, top + 0.035, bz, 0.05, 0.1, 'plasticGloss', col, [lean, ry, 0], 6);
+      for (const e of [-1, 1]) p.sph(bx + Math.cos(ry) * e * 0.05, top + 0.1, bz - Math.sin(ry) * e * 0.05, 0.035, 'plasticGloss', col, [1.6, 0.5, 0.8], 6);
+    }
   }
   if (n >= 4) for (let i = 0; i < 3; i++) p.box((drnd() - 0.5) * 1.4, 0.004, (drnd() - 0.5) * 1.2, 0.2, 0.004, 0.28, 'paper', 0xc8c4b0, [0, drnd() * 6, 0]);
   return p;
