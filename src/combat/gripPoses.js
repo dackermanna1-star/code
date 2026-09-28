@@ -339,6 +339,44 @@ function triggerIK(fk, col, target, o = {}) {
   return best.e;
 }
 
+// Thumb tip onto a target (e.g. thumbs-forward along the frame), staying out of
+// the collider and close to a natural, lightly bent thumb.
+function thumbIK(fk, col, target, o = {}) {
+  const pose = fk.pose, T = P_T;
+  const base = [pose[T], pose[T + 1], pose[T + 2], pose[T + 3], pose[T + 4]];
+  const v = base.slice();
+  const evalAt = (w) => {
+    for (let i = 0; i < 5; i++) pose[T + i] = w[i];
+    fk.chain(0);
+    let e = fk.jp[0][3].distanceTo(target);
+    const d = chainDepth(fk, col, 0, 1, SQ);
+    if (d < 0) e += -d * 4 + 0.004;
+    return e + 0.0025 * (w[3] * w[3] + w[4] * w[4]) + 0.002 * Math.abs(w[2] - base[2]);
+  };
+  let best = { e: evalAt(v), w: v.slice() };
+  for (let f = -0.5; f <= 1.21; f += 0.1)
+    for (let a = -0.5; a <= 1.21; a += 0.1)
+      for (const m of [0.05, 0.3, 0.6])
+        for (const ip of [0.05, 0.35, 0.7]) {
+          const w = [f, a, base[2], m, ip];
+          const e = evalAt(w);
+          if (e < best.e) best = { e, w };
+        }
+  let step = 0.05;
+  for (let it = 0; it < 60 && step > 0.004; it++) {
+    let imp = false;
+    for (let k = 0; k < 5; k++) for (const sg of [-1, 1]) {
+      const w = best.w.slice(); w[k] += sg * step;
+      const e = evalAt(w);
+      if (e < best.e) { best = { e, w }; imp = true; }
+    }
+    if (!imp) step *= 0.5;
+  }
+  for (let i = 0; i < 5; i++) pose[T + i] = best.w[i];
+  fk.chain(0);
+  return fk.jp[0][3].distanceTo(target);
+}
+
 // ---------------------------------------------------------- pose helpers --
 export function mkPose(o = {}) {
   const p = new Float32Array(POSE_LEN);
@@ -369,7 +407,7 @@ export function handQuat(X, Y, out = new THREE.Quaternion()) {
 //   settle: travel (m) along the palm normal, pose: base mkPose() options
 //   fingers: 'wrap' (index..pinky or listed), index: 'trigger' | 'wrap' | 'straight' | 'fixed',
 //   thumb: 'wrap' | 'fixed' | {idx, ratio, limit}, trigger: [x,y,z]
-export function solveHand(spec, col, A, S, side) {
+export function solveHand(spec, col, A, S, side, probe = false) {
   const fk = new HandFK(A, S, side);
   const q = handQuat(spec.X, spec.Y);
   if (spec.rot) q.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(spec.rot[0], spec.rot[1], spec.rot[2])));
@@ -382,6 +420,10 @@ export function solveHand(spec, col, A, S, side) {
   }
   const fingers = spec.fingers === 'none' ? [] : spec.fingers || [0, 1, 2, 3];
   const idxMode = spec.index || 'wrap';
+  if (probe) { // quick look: can the middle finger wrap below the trigger guard?
+    closeFinger(fk, col, 1, spec.close);
+    return { mcp: fk.pose[5], depth: chainDepth(fk, col, 2) };
+  }
   for (const f of (Array.isArray(fingers) ? fingers : [0, 1, 2, 3])) {
     if (f === 0 && idxMode !== 'wrap') continue;
     closeFinger(fk, col, f, spec.close);
@@ -390,12 +432,26 @@ export function solveHand(spec, col, A, S, side) {
   if (idxMode === 'straight') { // along the frame: close with a straight finger until it rests on the side
     closeChain(fk, col, 1, [1, -1, -1], [1, 0, 0], [1.2, 0, 0]);
   }
-  if (spec.thumb === 'wrap' || typeof spec.thumb === 'object') closeThumb(fk, col, typeof spec.thumb === 'object' ? spec.thumb : {});
+  if (spec.thumbAt) info.thumbErr = thumbIK(fk, col, new THREE.Vector3().fromArray(spec.thumbAt));
+  else if (spec.thumb === 'wrap' || typeof spec.thumb === 'object') closeThumb(fk, col, typeof spec.thumb === 'object' ? spec.thumb : {});
+  else if (spec.thumb === 'rest') closeThumb(fk, col, { idx: [P_T, -1, P_T + 4], ratio: [1, 0, 0.4], limit: [1.1, 0, 0.5] }); // swing in until it lies on the gun
   // resolve any remaining penetration (fixed thumbs, trigger finger, cramped fingers)
   pushOut(fk, col, 0, [P_T, P_T + 1, P_T + 2, P_T + 3, P_T + 4]);
   for (let f = 0; f < 4; f++) pushOut(fk, col, f + 1, [f * 4, f * 4 + 1, f * 4 + 2, f * 4 + 3], { skipDistal: f === 0 && idxMode === 'trigger' });
   info.pen = hits(fk, col);
-  return { pos: fk.hp.clone(), quat: fk.hq.clone(), pose: Float32Array.from(fk.pose), fk, info };
+  const solved = Float32Array.from(fk.pose);
+  // trigger discipline variant: index straight, resting along the frame
+  let poseIdle = null;
+  if (idxMode === 'trigger') {
+    const save = Float32Array.from(fk.pose);
+    fk.pose[0] = save[0] + 0.04; fk.pose[1] = -0.25; fk.pose[2] = 0.1; fk.pose[3] = 0.06;
+    fk.chain(1);
+    closeChain(fk, col, 1, [1, -1, -1], [1, 0, 0], [1.2, 0, 0]);
+    pushOut(fk, col, 1, [0, 1, 2, 3]);
+    poseIdle = Float32Array.from(fk.pose);
+    fk.pose.set(save); fk.chain(1);
+  }
+  return { pos: fk.hp.clone(), quat: fk.hq.clone(), pose: solved, poseIdle, fk, info };
 }
 // Capsules of a solved hand (so the other hand can wrap around it)
 export function handCapsules(fk, col) {
@@ -415,20 +471,20 @@ export function handCapsules(fk, col) {
 // side +X). X = back of the hand, Y = knuckle direction, pos = wrist centre.
 const FWD_THUMB = [0.12, 0.42, 0.25, 0.08, 0.06];
 const R_GRIP = (o = {}) => Object.assign({
-  frame: 'handR', pos: [0.03, 0.004, 0.075], X: [1, 0, 0], Y: [0, 0.05, -1], settle: 0.04, index: 'trigger', thumb: 'wrap', yTrig: -0.042,
+  frame: 'handR', pos: [0.03, 0.004, 0.075], X: [1, 0, 0], Y: [0, 0.05, -1], settle: 0.04, index: 'trigger', thumb: 'wrap', autoY: true,
   pose: { spread: [0.07, 0.0, -0.04, -0.09], mcp: [0.3, 0.25, 0.25, 0.25], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: [0.25, 0.65, 0.45, 0.15, 0.2], cup: 0.18 },
   fa: [-0.1, 0.35, -1],
 }, o);
 // support hand wrapped around the shooting hand (two-handed pistol, thumbs forward)
 const L_PISTOL = (o = {}) => Object.assign({
-  frame: 'handR', pos: [-0.034, -0.04, 0.052], X: [-0.85, -0.1, -0.5], Y: [0.4, -0.35, -0.85], settle: 0.04, wrapOther: true, thumb: 'fixed',
-  pose: { spread: [0.02, 0.0, -0.03, -0.06], mcp: [0.3, 0.3, 0.3, 0.3], pip: [0.3, 0.3, 0.3, 0.3], dip: [0.15, 0.15, 0.15, 0.15], thumb: [0.1, 0.35, 0.2, 0.05, 0.05], cup: 0.1 },
-  fa: [0.35, 0.3, -1],
+  frame: 'handR', pos: [-0.048, -0.016, 0.06], X: [-1, 0.0, -0.25], Y: [0.15, 0.0, -1], rot: [0.3, 0, 0], settle: 0.05, wrapOther: true, thumb: 'rest',
+  pose: { spread: [0.02, 0.0, -0.03, -0.06], mcp: [0.3, 0.3, 0.3, 0.3], pip: [0.3, 0.3, 0.3, 0.3], dip: [0.15, 0.15, 0.15, 0.15], thumb: [0.0, 0.3, 0.2, 0.05, 0.05], cup: 0.1 },
+  fa: [0.3, 0.35, -1],
 }, o);
 // support hand under a handguard / forend: palm up, thumb along the left side, fingers around the right
 const L_GUARD = (z, yb, o = {}) => Object.assign({
-  pos: [-0.035, yb - 0.03, z + 0.03], X: [-0.4, -0.92, 0.1], Y: [0.7, 0.3, -0.62], settle: 0.04, thumb: 'wrap',
-  pose: { spread: [0.02, 0.0, -0.03, -0.06], mcp: [0.25, 0.25, 0.25, 0.25], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: [0.15, 0.55, 0.3, 0.1, 0.1], cup: 0.1 },
+  pos: [-0.035, yb - 0.03, z + 0.03], X: [-0.4, -0.92, 0.1], Y: [0.7, 0.3, -0.62], settle: 0.04, thumb: 'rest',
+  pose: { spread: [0.02, 0.0, -0.03, -0.06], mcp: [0.25, 0.25, 0.25, 0.25], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: [-0.1, 0.35, 0.25, 0.1, 0.1], cup: 0.1 },
   fa: [0.45, 0.25, -1],
 }, o);
 // vertical handle (melee / throwables / canisters) along +Y through `c`
@@ -438,8 +494,8 @@ const L_HANDLE = (c, o = {}) => Object.assign({ pos: [c[0] - 0.03, c[1] + 0.012,
   pose: { spread: [0.05, 0.0, -0.04, -0.08], mcp: [0.3, 0.3, 0.3, 0.3], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: [0.25, 0.7, 0.55, 0.15, 0.2], cup: 0.2 }, fa: [0.1, 0.35, -1] }, o);
 
 export const GRIP_SPECS = {
-  pistol: { R: R_GRIP({ thumb: 'fixed', trigger: [0, 0.001, -0.0575], pose: { spread: [0.07, 0.0, -0.04, -0.09], mcp: [0.3, 0.25, 0.25, 0.25], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: FWD_THUMB, cup: 0.18 } }), L: L_PISTOL() },
-  magnum: { R: R_GRIP({ thumb: 'fixed', trigger: [0, 0.001, -0.0575], pose: { spread: [0.07, 0.0, -0.04, -0.09], mcp: [0.3, 0.25, 0.25, 0.25], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: FWD_THUMB, cup: 0.18 } }), L: L_PISTOL() },
+  pistol: { R: R_GRIP({ thumb: 'fixed', thumbAt: [-0.021, 0.027, -0.06], trigger: [0, 0.001, -0.0575], pose: { spread: [0.07, 0.0, -0.04, -0.09], mcp: [0.3, 0.25, 0.25, 0.25], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: FWD_THUMB, cup: 0.18 } }), L: L_PISTOL({ thumbAt: [-0.03, 0.006, -0.068] }) },
+  magnum: { R: R_GRIP({ thumb: 'fixed', thumbAt: [-0.021, 0.027, -0.06], trigger: [0, 0.001, -0.0575], pose: { spread: [0.07, 0.0, -0.04, -0.09], mcp: [0.3, 0.25, 0.25, 0.25], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: FWD_THUMB, cup: 0.18 } }), L: L_PISTOL({ thumbAt: [-0.03, 0.006, -0.068] }) },
   dualPistols: {
     R: R_GRIP({ anchor: 'right', thumb: 'wrap', trigger: [0, 0.001, -0.0575] }),
     L: R_GRIP({ anchor: 'left', thumb: 'wrap', trigger: [0, 0.001, -0.0575], pos: [-0.03, 0.004, 0.075], X: [-1, 0, 0], fa: [0.1, 0.35, -1] }),
@@ -503,12 +559,6 @@ export function solveGrips(model, type, A, S, specs = GRIP_SPECS[type]) {
       F.compose(new THREE.Vector3(hr[0], hr[1], hr[2]), new THREE.Quaternion().setFromEuler(new THREE.Euler(hr[3], hr[4], hr[5])), new THREE.Vector3(1, 1, 1));
     }
     const host = sp.anchor === 'left' || sp.anchor === 'right' ? ud[sp.anchor] : model;
-    // line the index finger up with the trigger: wrist height along the grip axis
-    if (sp.frame === 'handR' && sp.trigger && sp.yTrig != null) {
-      const tg = new THREE.Vector3().fromArray(sp.trigger).applyMatrix4(F.clone().invert());
-      s.pos = sp.pos.slice(); s.pos[1] = tg.y + sp.yTrig * S;
-      sp = Object.assign({}, sp, { pos: s.pos });
-    }
     F.premultiply(restMatrix(model, host, _m4));
     const rq = new THREE.Quaternion(), sc = new THREE.Vector3(), tp = new THREE.Vector3();
     F.decompose(tp, rq, sc);
@@ -516,7 +566,22 @@ export function solveGrips(model, type, A, S, specs = GRIP_SPECS[type]) {
     s.X = new THREE.Vector3().fromArray(sp.X).applyQuaternion(rq).toArray();
     s.Y = new THREE.Vector3().fromArray(sp.Y).applyQuaternion(rq).toArray();
     if (sp.trigger) s.trigger = new THREE.Vector3().fromArray(sp.trigger).applyMatrix4(restMatrix(model, host, _m4)).toArray();
+    if (sp.thumbAt) s.thumbAt = new THREE.Vector3().fromArray(sp.thumbAt).applyMatrix4(restMatrix(model, host, _m4)).toArray();
     const col = colFor(sp.anchor);
+    // pistol grips: the highest wrist position (index closest to the trigger)
+    // that still lets the middle finger wrap under the trigger guard
+    if (sp.frame === 'handR' && sp.trigger && sp.autoY) {
+      const Fi = F.clone().invert(), axis = new THREE.Vector3(0, 1, 0).applyQuaternion(rq);
+      const tg = new THREE.Vector3().fromArray(s.trigger).applyMatrix4(Fi);
+      const base = new THREE.Vector3().fromArray(s.pos).applyMatrix4(Fi);
+      let chosen = null;
+      for (let y = tg.y - 0.03 * S; y > tg.y - 0.08 * S; y -= 0.004) {
+        const pr = solveHand(Object.assign({}, s, { pos: new THREE.Vector3(base.x, y, base.z).applyMatrix4(F).toArray() }), col, A, S, side === 'R' ? 1 : -1, true);
+        if (pr.mcp > 0.42 && pr.depth > -0.001) { chosen = y; break; }
+      }
+      if (chosen == null) chosen = tg.y - 0.045 * S;
+      s.pos = new THREE.Vector3(base.x, chosen, base.z).applyMatrix4(F).toArray();
+    }
     if (sp.wrapOther && rightFK) handCapsules(rightFK, col);
     const r = solveHand(s, col, A, S, side === 'R' ? 1 : -1);
     col.clearCapsules();
@@ -527,8 +592,8 @@ export function solveGrips(model, type, A, S, specs = GRIP_SPECS[type]) {
     const inv = AM.clone().invert();
     out[side] = {
       anchor, pos: r.pos.clone().applyMatrix4(inv), quat: aq.clone().invert().multiply(r.quat), pose: r.pose,
-      fa: new THREE.Vector3().fromArray(sp.fa || [0, 0.3, -1]).applyQuaternion(rq).normalize(), info: r.info,
-      world: { pos: r.pos, quat: r.quat },
+      poseIdle: r.poseIdle, fa: new THREE.Vector3().fromArray(sp.fa || [0, 0.3, -1]).applyQuaternion(rq).normalize(), info: r.info,
+      world: { pos: r.pos, quat: r.quat }, fk: r.fk,
     };
   }
   return out;

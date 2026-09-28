@@ -225,7 +225,9 @@ function corridorAndRooms(L, game, S) {
   supplies(L, 3.0, YU, 8.2, Math.PI / 2, [{ type: 'tier2', chance: 0.7 }, { type: 'ammo' }, { type: 'throwable', chance: 0.5 }], { w: 1.8, mat: 'woodDark' });
   ceilingLight(L, 8, CY, 13, { type: 'fluoro', intensity: 7, flicker: 0.4, range: 9 });
   // ---- conference room A "SKYLINE ROOM" (x 17..30, z 18..30): projector screen + whiteboard
-  confTable(L, 23.2, YU, 24.2, 0, 7.2, true);
+  // chairs placed by hand: the route runs round the west end and along the north side of the table
+  confTable(L, 23.6, YU, 24.8, 0, 6.4, false);
+  for (const [x, z, r] of [[22.2, 25.85, 0.2], [23.4, 25.9, -0.15], [24.6, 25.8, 0.3], [25.8, 25.95, -0.4], [26.4, 23.75, Math.PI + 0.3], [24.2, 23.8, Math.PI - 0.2], [28.4, 26.6, 2.2]]) P.officeChair(L, x, YU, z, r);
   whiteboard(L, 17.13, YU, 22.2, Math.PI / 2, 'EVAC — METRO INTL\n• Flights from CONCOURSE C\n• Military escort ONLY\n• C-130 on the apron — Sgt. REYES\n• NO SICK. NO EXCEPTIONS.', { fg: '#1a2a8a' });
   // projector screen showing the evacuation plan (glowing), projector + beam
   sign(L, 'METRO INTERNATIONAL\nEMERGENCY EVACUATION PLAN\n\nCHECK-IN → TRIAGE → SECURITY → GATES C1–C12\nLAST DEPARTURE 06:00', 23.4, YU + 1.8, 29.8, Math.PI, 4.2, 2.1, { bg: '#1a3a7a', fg: '#e8f0ff', glow: 0.8, light: false });

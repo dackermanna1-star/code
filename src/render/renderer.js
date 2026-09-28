@@ -57,6 +57,19 @@ export const GRADES = {
 };
 const GRADE_BASE = { lift: [0.012, 0.016, 0.026], gamma: [1, 1, 1], gain: [1.03, 1.0, 0.96], shadowTone: [0.88, 0.97, 1.12], highTone: [1.08, 1.0, 0.88], splitAmount: 0.55, saturation: 0.88, contrast: 1.06, vignette: 0.42, grain: 0.035 };
 
+// HDR sanitizer for full-screen passes. One non-finite pixel (a specular
+// highlight that overflows half-float to Inf, or 0*Inf = NaN in a later pass)
+// is smeared by the bloom mip chain into a huge pure-black disc, so every pass
+// that feeds bloom/tone mapping clamps its input: NaN/negative -> 0, Inf and
+// extreme values -> 64 (far past the tone-map shoulder, visually identical).
+const SANITIZE_GLSL = /* glsl */ `
+    vec3 sanHDR(vec3 c){
+      float s = c.r + c.g + c.b;
+      if (!(s >= 0.0)) return vec3(0.0);
+      return min(max(c, vec3(0.0)), vec3(64.0));
+    }
+`;
+
 // Procedural lens dirt: soft smudges, specks and a couple of wipe streaks.
 function lensDirtTexture() {
   const W = 512, H = 288;
@@ -156,11 +169,12 @@ const GradeShader = {
       c = IM * c; c = RRTAndODTFit(c); c = OM * c;
       return clamp(c, 0.0, 1.0);
     }
+    ${SANITIZE_GLSL}
     vec3 toSRGB(vec3 c){ return mix(c * 12.92, pow(c, vec3(0.41666)) * 1.055 - 0.055, step(0.0031308, c)); }
     vec3 hdrAt(vec2 uv){
-      vec3 c = texture2D(tDiffuse, uv).rgb;
+      vec3 c = sanHDR(texture2D(tDiffuse, uv).rgb);
       if (bloomOn > 0.5) {
-        vec3 b = texture2D(tBloom, uv).rgb;
+        vec3 b = sanHDR(texture2D(tBloom, uv).rgb);
         float d = texture2D(tDirt, uv).r;
         c += b * (1.0 + d * dirtAmount);
       }
@@ -282,7 +296,9 @@ const AOShader = {
       vec3 pu = vpos(vUv + vec2(0.0, px.y)), pd = vpos(vUv - vec2(0.0, px.y));
       vec3 dx = abs(pr.z - P.z) < abs(P.z - pl.z) ? pr - P : P - pl;
       vec3 dy = abs(pu.z - P.z) < abs(P.z - pd.z) ? pu - P : P - pd;
-      vec3 N = normalize(cross(dx, dy));
+      vec3 cN = cross(dx, dy);
+      if (!(dot(cN, cN) > 1e-24)) { gl_FragColor = vec4(1.0); return; } // degenerate / non-finite depth
+      vec3 N = cN * inversesqrt(dot(cN, cN));
       // interleaved gradient noise rotates the spiral per pixel
       float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
       float ssR = radius * projScale / -P.z; // radius in uv units (y)
@@ -326,8 +342,10 @@ const AOCompositeShader = {
     uniform float strength, debug;
     varying vec2 vUv;
     float vz(vec2 uv){ float d = texture2D(tDepth, uv).x; vec4 p = projInv * vec4(uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0); return p.z / p.w; }
+    ${SANITIZE_GLSL}
     void main(){
       vec4 c = texture2D(tDiffuse, vUv);
+      c.rgb = sanHDR(c.rgb); // Inf * ao(0) would be NaN
       float z0 = vz(vUv);
       vec2 px = 1.0 / aoRes;
       float acc = 0.0, wsum = 0.0;
@@ -469,6 +487,14 @@ export class Renderer {
       // surfaces and flashlit skin don't smear into a milky haze
       // the grade pass adds the bloom (with lens dirt); skip the pass's own blend draw
       this.bloom.blendMaterial.visible = false;
+      // sanitize the bloom input: a single Inf/NaN pixel would otherwise spread
+      // through the mip blurs into a screen-sized black disc
+      const hp = this.bloom.materialHighPassFilter;
+      const tap = 'vec4 texel = texture2D( tDiffuse, vUv );';
+      if (hp.fragmentShader.includes(tap)) {
+        hp.fragmentShader = SANITIZE_GLSL + hp.fragmentShader.replace(tap, tap + ' texel.rgb = sanHDR(texel.rgb);');
+        hp.needsUpdate = true;
+      } else console.warn('bloom high-pass: sanitizer not applied');
       this.composer.addPass(this.bloom);
     }
     this.grade = new ShaderPass(GradeShader);

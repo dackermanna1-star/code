@@ -113,7 +113,7 @@ export class Game {
     this.flashlight.position.set(0.25, -0.2, 1.1);
     this.flashlight.target.position.set(0.2, -1.1, -10);
     this.renderer.camera.add(this.flashlight.target);
-    // Bot flashlights (no shadows): mounted just behind the gun muzzle so the
+    // Bot flashlights (no shadows): mounted just ahead of the gun muzzle so the
     // beam starts in front of the bot's own body, softer than the player's lamp
     // so survivors in the beam don't blow out; they don't light the player's
     // viewmodel (layer 0 only). A small lens-glare sprite shows the lamp itself
@@ -354,7 +354,9 @@ export class Game {
       if (s.dead || !s.flashlight || s.model?.hidden) { L.intensity = 0; G.visible = false; continue; }
       const d = s.aimDir(_bd);
       const m = s.model?.muzzleWorld ? s.model.muzzleWorld(_bm) : s.eye(_bm);
-      L.position.set(m.x - d.x * 0.3, m.y - d.y * 0.3, m.z - d.z * 0.3);
+      // just ahead of the muzzle: a spot sitting inside the gun lit the barrel from
+      // ~1 cm (1/d falloff capped at 100x) and its specular overflowed half-float
+      L.position.set(m.x + d.x * 0.06, m.y + d.y * 0.06, m.z + d.z * 0.06);
       L.target.position.set(m.x + d.x * 10, m.y + d.y * 10 - 0.4, m.z + d.z * 10);
       L.intensity = 8.5;
       // glare: only when the camera is inside the beam, fading towards the rim

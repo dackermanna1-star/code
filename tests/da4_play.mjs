@@ -11,7 +11,7 @@ export default async ({ page, evalg, wait, shot }) => {
   await page.goto((process.env.TEST_URL || 'http://localhost:5180/') + '?campaign=deadair&autostart=3', { timeout: 180000 });
   for (let i = 0; i < 180; i++) { await wait(1000); if ((await evalg(() => window.session?.state)) === 'playing') break; }
   const mode = process.env.MODE || 'walk';
-  await evalg(([mode, det]) => {
+  await evalg(([mode, det, skip]) => {
     const g = window.game;
     const dirOn = mode === 'bots';
     g.director.enabled = dirOn; g.cheats.god = true; if (!dirOn) g.cheats.godAll = true;
@@ -19,8 +19,8 @@ export default async ({ page, evalg, wait, shot }) => {
     window.session.menu?.clear?.();
     window.__BotBrain = g.survivors.find((s) => s.brain)?.brain.constructor;
     if (!dirOn) for (const s of g.survivors) if (s !== g.player) s.brain = null;
-    window.__w = { mode, det, t: 0, lastProg: -1, stuckT: 0, useT: 0, log: [], done: false, phase: 'walk', maxProg: 0 };
-  }, [mode, process.env.DET || '']);
+    window.__w = { skip: skip !== '0', mode, det, t: 0, lastProg: -1, stuckT: 0, useT: 0, log: [], done: false, phase: 'walk', maxProg: 0 };
+  }, [mode, process.env.DET || '', process.env.SKIP || '1']);
   const t0 = Date.now();
   for (let chunk = 0; chunk < 500; chunk++) {
     const r = await evalg(() => {
@@ -83,7 +83,14 @@ export default async ({ page, evalg, wait, shot }) => {
         const pr = L.progressAt(p.pos.x, p.pos.y, p.pos.z);
         if (pr > W.lastProg + 0.002) { W.lastProg = pr; W.stuckT = 0; } else W.stuckT += 0.1;
         const vanBusy = !van.broken || (van.phase !== 'done' && van.phase !== 'idle' && W.mode === 'walk');
-        if (W.stuckT > (vanBusy ? 60 : 25)) { W.log.push(`STUCK at ${fmt(p.pos)} prog ${pr.toFixed(3)} van=${van.phase}${W.bb ? ' goal=' + (W.bb.pathGoal ? fmt(W.bb.pathGoal) : '-') + ' mode=' + W.bb.mode : ''}`); W.done = true; }
+        if (W.stuckT > (vanBusy ? 60 : 25)) {
+          W.log.push(`STUCK at ${fmt(p.pos)} prog ${pr.toFixed(3)} van=${van.phase}${W.bb ? ' goal=' + (W.bb.pathGoal ? fmt(W.bb.pathGoal) : '-') + ' mode=' + W.bb.mode : ''}`);
+          W.stucks = (W.stucks || 0) + 1;
+          // SKIP=1: log it, hop 12 nodes down the field and carry on (finds every problem spot in one run)
+          let n = nav.nearestNode(p.pos.x, p.pos.y, p.pos.z, 3);
+          if (W.skip && n >= 0 && W.stucks < 8) { for (let k = 0; k < 12; k++) { const m = nav.descend(f, n); if (m < 0) break; n = m; } p.teleport(nav.nodeX(n), nav.nodeY[n] + 0.05, nav.nodeZ(n), p.yaw); W.stuckT = 0; W.bb = null; }
+          else W.done = true;
+        }
         if (p.dead) { W.log.push('PLAYER DIED at ' + fmt(p.pos)); W.done = true; }
         if (Math.floor(W.t * 10) % 300 === 0) {
           const bs = g.survivors.filter((s) => s !== p).map((s) => `${s.char.id}:${s.dead ? 'DEAD' : s.pos.distanceTo(p.pos).toFixed(0) + 'm' + (s.incapped ? '!' : '')}`).join(' ');
@@ -91,11 +98,11 @@ export default async ({ page, evalg, wait, shot }) => {
         }
       }
       g.testCmd = null;
-      return { out: W.log.splice(0), done: W.done, t: W.t, maxProg: W.maxProg };
+      return { out: W.log.splice(0), done: W.done, t: W.t, maxProg: W.maxProg, stucks: W.stucks || 0 };
     });
     if (!r) { console.log('eval failed'); break; }
     for (const l of r.out) console.log(l);
-    if (r.done) { console.log(`maxProg ${r.maxProg.toFixed(3)} gameTime ${r.t.toFixed(0)}s wall ${((Date.now() - t0) / 1000).toFixed(0)}s`); break; }
+    if (r.done) { console.log(`stucks ${r.stucks} maxProg ${r.maxProg.toFixed(3)} gameTime ${r.t.toFixed(0)}s wall ${((Date.now() - t0) / 1000).toFixed(0)}s`); break; }
   }
   const fin = await evalg(() => ({ end: window.session.endTriggered, state: window.session.state, errs: window.game.errCount || 0, stats: window.game.director.stats }));
   console.log('final', JSON.stringify(fin));

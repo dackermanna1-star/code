@@ -526,15 +526,15 @@ function buildArmGeometry(A, S, k, asset, hasWatch) {
     addPiece(band, 2, { col: [0.05, 0.048, 0.045] });
     const [rx] = [catmull(FARM_KEYS, tW, 1) * k];
     const parts = [];
-    const caseG = new THREE.CylinderGeometry(0.0172, 0.0182, 0.0075, 36); caseG.rotateZ(-Math.PI / 2); caseG.translate(rx + 0.0055, yW, 0);
-    const bez = new THREE.TorusGeometry(0.0158, 0.0016, 8, 36); bez.rotateY(Math.PI / 2); bez.translate(rx + 0.0093, yW, 0);
-    const dial = new THREE.CircleGeometry(0.0152, 36); dial.rotateY(Math.PI / 2); dial.translate(rx + 0.0094, yW, 0);
-    const h1 = new THREE.BoxGeometry(0.0006, 0.0105, 0.0014); h1.translate(0, 0.0045, 0); h1.rotateX(0.8); h1.translate(rx + 0.0097, yW, 0);
-    const h2 = new THREE.BoxGeometry(0.0006, 0.0075, 0.0018); h2.translate(0, 0.0032, 0); h2.rotateX(-2.2); h2.translate(rx + 0.0097, yW, 0);
-    const crown = new THREE.CylinderGeometry(0.0022, 0.0022, 0.004, 10); crown.rotateX(Math.PI / 2); crown.translate(rx + 0.0055, yW, 0.0195);
+    const caseG = new THREE.CylinderGeometry(0.0152, 0.016, 0.0068, 36); caseG.rotateZ(-Math.PI / 2); caseG.translate(rx + 0.005, yW, 0);
+    const bez = new THREE.TorusGeometry(0.014, 0.0014, 8, 36); bez.rotateY(Math.PI / 2); bez.translate(rx + 0.0084, yW, 0);
+    const dial = new THREE.CircleGeometry(0.0134, 36); dial.rotateY(Math.PI / 2); dial.translate(rx + 0.0085, yW, 0);
+    const h1 = new THREE.BoxGeometry(0.0006, 0.0095, 0.0012); h1.translate(0, 0.004, 0); h1.rotateX(0.8); h1.translate(rx + 0.0088, yW, 0);
+    const h2 = new THREE.BoxGeometry(0.0006, 0.0065, 0.0016); h2.translate(0, 0.0028, 0); h2.rotateX(-2.2); h2.translate(rx + 0.0088, yW, 0);
+    const crown = new THREE.CylinderGeometry(0.0022, 0.0022, 0.004, 10); crown.rotateX(Math.PI / 2); crown.translate(rx + 0.005, yW, 0.0172);
     parts.push([caseG, [0.62, 0.6, 0.56]], [bez, [0.7, 0.68, 0.64]], [dial, [0.86, 0.84, 0.78]], [h1, [0.03, 0.03, 0.03]], [h2, [0.03, 0.03, 0.03]], [crown, [0.6, 0.58, 0.54]]);
     for (let m = 0; m < 12; m++) {
-      const tk = new THREE.BoxGeometry(0.0005, m % 3 ? 0.0012 : 0.0028, 0.0008); tk.translate(0, 0.0125, 0); tk.rotateX(m * Math.PI / 6); tk.translate(rx + 0.0097, yW, 0);
+      const tk = new THREE.BoxGeometry(0.0005, m % 3 ? 0.0012 : 0.0028, 0.0008); tk.translate(0, 0.011, 0); tk.rotateX(m * Math.PI / 6); tk.translate(rx + 0.0088, yW, 0);
       parts.push([tk, [0.05, 0.05, 0.05]]);
     }
     for (const [gg, c] of parts) {
