@@ -101,10 +101,13 @@ function makeCrowdMaterial(kind) {
         ${kind === 'shin' ? 'base = mix(base, vec3(0.06,0.05,0.045), step(0.9, vMapUv.y));' : ''}
         base *= mk.r * 0.85;
         float bm = texture2D(bloodMap, vMapUv * vec2(2.0, 1.5)).r;
-        float bl = smoothstep(1.0 - vCut.y, 1.0 - vCut.y + 0.2, bm) * step(0.01, vCut.y);
-        base = mix(base, vec3(0.16, 0.012, 0.008), bl * 0.9);
+        // blood patches: coverage capped so clothes/skin always show through,
+        // dark brownish red rather than a bright wet coat
+        float amt = min(vCut.y, 0.5);
+        float bl = smoothstep(1.0 - amt, 1.0 - amt + 0.25, bm) * step(0.01, vCut.y);
+        base = mix(base, vec3(0.085, 0.014, 0.01), bl * 0.75);
         diffuseColor.rgb = base;
-        float wetBlood = bl;
+        float wetBlood = bl * 0.5;
       `)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
         roughnessFactor = mix(roughnessFactor, 0.3, wetBlood);`);

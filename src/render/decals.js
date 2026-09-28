@@ -67,7 +67,7 @@ function makeAtlas() {
     const cx = x + S / 2, cy = y + S / 2;
     g.save();
     g.beginPath(); g.rect(x, y, S, S); g.clip();
-    const col = () => `rgba(${60 + rnd() * 40 | 0},${2 + rnd() * 6 | 0},${2 + rnd() * 4 | 0},${0.85 + rnd() * 0.15})`;
+    const col = () => `rgba(${38 + rnd() * 26 | 0},${4 + rnd() * 5 | 0},${3 + rnd() * 3 | 0},${0.8 + rnd() * 0.15})`; // dark, slightly brown
     g.fillStyle = col();
     g.beginPath();
     const n = 20;

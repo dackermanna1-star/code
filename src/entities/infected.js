@@ -407,7 +407,7 @@ export class Common extends Agent {
     const dmg = h.damage * mult;
     this.hp -= dmg;
     this.lastHitBy = h.attacker;
-    this.body.bloodAmt = Math.min(1, (this.body.bloodAmt || 0.2) + dmg / 120);
+    this.body.bloodAmt = Math.min(0.6, (this.body.bloodAmt || 0.2) + dmg / 200);
     g.infected.crowd.setBlood(this.slot, this.body.bloodAmt);
     // alert on damage
     if (this.state === S_IDLE || this.state === S_ALERT || this.state === S_GETUP) {

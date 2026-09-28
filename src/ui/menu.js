@@ -244,7 +244,8 @@ export class Menu {
     return (f) => { const b = n.querySelector('.lbar div'); if (b) b.style.width = Math.round(f * 100) + '%'; };
   }
   clickToPlay(onClick) {
-    const n = this.show(h(`<div class="menu center" style="background:rgba(0,0,0,0.25)"><div class="clickhint">CLICK TO PLAY</div></div>`));
+    // invisible catcher: the browser needs one click to capture the mouse
+    const n = this.show(h(`<div class="menu center" style="background:none;cursor:crosshair"></div>`));
     n.addEventListener('click', onClick);
   }
   statsTable(survivors) {
