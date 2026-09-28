@@ -910,10 +910,14 @@ function age(g, W, H, r, a) {
   g.globalCompositeOperation = 'multiply';
   const blobs = Math.round(a.wet * 2.2);
   for (let k = 0; k < blobs; k++) {
-    const x = r() * W, y = r() * H, rad = s * (0.25 + r() * 0.45);
-    const gr = g.createRadialGradient(x, y, rad * 0.1, x, y, rad);
-    gr.addColorStop(0, 'rgba(225,210,170,0.22)'); gr.addColorStop(0.9, 'rgba(215,195,150,0.3)'); gr.addColorStop(0.96, 'rgba(165,130,85,0.4)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = gr; g.beginPath(); g.arc(x, y, rad, 0, Math.PI * 2); g.fill();
+    // irregular stain: a few overlapping lobes, faint tide line
+    const x0 = r() * W, y0 = r() * H, R0 = s * (0.15 + r() * 0.25);
+    for (let q = 0; q < 4; q++) {
+      const x = x0 + (r() - 0.5) * R0 * 1.4, y = y0 + (r() - 0.5) * R0 * 1.4, rad = R0 * (0.5 + r() * 0.6);
+      const gr = g.createRadialGradient(x, y, rad * 0.1, x, y, rad);
+      gr.addColorStop(0, 'rgba(225,210,170,0.14)'); gr.addColorStop(0.9, 'rgba(215,195,150,0.2)'); gr.addColorStop(0.97, 'rgba(165,130,85,0.2)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, rad, rad * (0.7 + r() * 0.5), r() * 3, 0, Math.PI * 2); g.fill();
+    }
   }
   // grime gradient (bottom) and speckles
   const gg = g.createLinearGradient(0, H * 0.5, 0, H);

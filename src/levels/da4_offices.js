@@ -60,7 +60,7 @@ function startRoom(L, game, S) {
 // ================================================================ SKYBRIDGE (visual, behind the locked door)
 function skybridge(L, game) {
   const B = new VisualBatch(L);
-  const x0 = 8.8, x1 = 13.2, y = YU, z0 = 46.3, z1 = 86;
+  const x0 = 8.8, x1 = 13.2, y = YU, z0 = 46.3, z1 = 76;
   B.box(x0, y - 0.35, z0, x1, y, z1, 'carpetBlue', { tint: 0x6a7080 });
   B.box(x0 - 0.1, y - 1.1, z0, x1 + 0.1, y - 0.35, z1, 'concrete', { tint: 0x8a8680 });
   B.box(x0 - 0.2, y + 3.0, z0, x1 + 0.2, y + 3.3, z1, 'metalDark', { tint: 0x3a3e44 });
@@ -69,7 +69,7 @@ function skybridge(L, game) {
   B.box(x1 - 0.02, y + 0.9, z0, x1 + 0.02, y + 2.9, z1, curtainMat());
   for (let z = z0 + 6; z < z1; z += 9) B.box(x0 + 0.6, y + 2.95, z - 0.3, x1 - 0.6, y + 3.0, z + 0.3, z < 62 ? 'emissiveCool' : 'blackMatte');
   // support piers down to the road
-  for (const z of [58, 74]) B.box(9.6, -0.3, z - 0.6, 12.4, y - 1.1, z + 0.6, 'concrete', { tint: 0x7a766e });
+  for (const z of [56, 68]) B.box(9.6, -0.3, z - 0.6, 12.4, y - 1.1, z + 0.6, 'concrete', { tint: 0x7a766e });
   B.build(L);
   for (const [x, z, r] of [[10.2, 49.4, 0.4], [12.3, 53.0, 2.2], [11.0, 57.6, 1.2]]) P.suitcase(L, x, y, z, r, undefined, false);
   P.corpse(L, 11.6, y + 0.01, 51.6, 2.4, 0x3a4a6a);

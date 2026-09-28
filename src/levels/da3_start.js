@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { ceilingLight, graffiti, poster, posterWall, wallMessages, supplies, fireSource, burningBarrel, physProp, street, hittable, P } from './kit.js';
 import { Door } from '../world/dynamic.js';
+import { DF } from '../render/decals.js';
 import { RollupDoor } from './da_parts.js';
 import { cardboard } from './da2_parts.js';
 import { tent, razorWire, jersey } from './ch3_props.js';
@@ -22,8 +23,8 @@ function storage(L, game) {
   // exterior shell (+ the rest of the Stor-Safe building north / south of this wing)
   L.wallZ(SS.z0, SS.z1, 8.0, 0, H, wm, 0.3, [{ a: -0.8, b: 0.4, y0: y, y1: y + 2.2 }], { tint: wt });
   L.wallZ(SS.z0, SS.z1, -12.25, 0, H, wm, 0.3, [], { tint: wt });
-  L.wallX(SS.x0, SS.x1, -7.75, 0, H, wm, 0.3, [], { tint: wt });
-  L.wallX(SS.x0, SS.x1, 7.95, 0, H, wm, 0.3, [], { tint: wt });
+  L.wallX(SS.x0 + 0.3, SS.x1 - 0.3, -7.75, 0, H, wm, 0.3, [], { tint: wt });
+  L.wallX(SS.x0 + 0.3, SS.x1 - 0.3, 7.95, 0, H, wm, 0.3, [], { tint: wt });
   L.box(-30, 0, -12.2, SS.x1, H + 0.3, SS.z0 - 0.02, wm, { tint: 0xc8c4b8 });
   L.box(-30, 0, SS.z1 + 0.02, SS.x1, H + 0.3, YARD.z1 + 0.2, wm, { tint: 0xc8c4b8 });
   L.box(SS.x1 - 0.2, H - 0.8, -12.2, SS.x1 + 0.02, H - 0.3, YARD.z1 + 0.2, 'paintedRed', { collide: false, tint: 0xe86a10 });
@@ -102,7 +103,7 @@ function storage(L, game) {
   // corridor dressing
   for (const [x, z, r] of [[-7.5, 0.3, 0.3], [-2.5, -0.9, 1.3]]) { const cart = P.prop(L, x, y, z, r); cart.box(0, 0.4, 0, 0.7, 0.05, 1.1, 'metalDark').box(0, 0.8, 0.5, 0.7, 0.8, 0.04, 'metalDark').col(0, 0.5, 0, 0.7, 1.0, 1.1, 'metal', F_SOLID | F_SHOOT); cardboard(L, x, y + 0.45, z - 0.1, r, 1); }
   P.corpse(L, -9.4, y + 0.01, -0.8, 1.9, 0x5a3a2a); blood(L, -9.4, y, -0.8, 1.5, 4);
-  for (let i = 0; i < 6; i++) L.decal(-8 + i * 2.2 + (rng() - 0.5), y + 0.013, -0.2 + (rng() - 0.5) * 0.8, 0, 1, 0, 0.7, DFSMEAR());
+  for (let i = 0; i < 6; i++) L.decal(-8 + i * 2.2 + (rng() - 0.5), y + 0.013, -0.2 + (rng() - 0.5) * 0.8, 0, 1, 0, 0.7, DF.SMEAR);
   graffiti(L, 'MOTION\nLIGHTS.\nKEEP\nMOVING', -8.8, y + 1.6, C2.z0 + 0.12, 0, 1.3, 1.0, '#b8201a');
   poster(L, 'missing', 2.6, y + 1.5, C2.z0 + 0.12, 0, 0.35, 0.48, { title: 'RUTH OKAFOR' });
   poster(L, 'evac', -6.8, y + 1.55, C2.z1 - 0.12, Math.PI, 0.5, 0.72, { torn: 0.3 });
@@ -123,7 +124,6 @@ function storage(L, game) {
   L.light(-10.5, H - 0.9, -0.2, 0xffb070, 2.5, 5, { flicker: 0.6 });
   return { exit };
 }
-const DFSMEAR = () => 13; // DF.SMEAR (kept numeric: decal frame index)
 
 // ======================================================== SAFE ROOM C-17
 function safeUnit(L, game) {
@@ -174,8 +174,19 @@ function yard(L, game) {
   L.box(x0, 0, -1.2, 9.4, SY, 0.8, 'concrete', { tint: 0x9a968e });
   // drive-up unit rows (north + south), roll-up doors facing the lane
   const rowH = 3.3;
-  L.box(x0, 0, -20, x1, rowH, z0 - 0.2, 'metal', { tint: 0xb8b8b0 });
-  L.box(x0, 0, z1 + 0.2, x1, rowH, 17, 'metal', { tint: 0xb8b8b0 });
+  // rows as solid blocks with two real open units (recesses 5 m deep)
+  const NR = [21.0, 24.2], SR = [13.4, 16.6];
+  L.box(x0, 0, -20, NR[0], rowH, z0 - 0.2, 'metal', { tint: 0xb8b8b0 });
+  L.box(NR[1], 0, -20, x1, rowH, z0 - 0.2, 'metal', { tint: 0xb8b8b0 });
+  L.box(NR[0], 0, -20, NR[1], rowH, -17.2, 'metal', { tint: 0xb8b8b0 });
+  L.box(NR[0], 2.75, -17.2, NR[1], rowH, z0 - 0.2, 'metal', { tint: 0xb8b8b0 });
+  L.box(NR[0], -0.3, -17.2, NR[1], 0, z0 - 0.2, 'concreteFloor', { tint: 0x6a6660 });
+  L.box(x0, 0, z1 + 0.2, SR[0], rowH, 17, 'metal', { tint: 0xb8b8b0 });
+  L.box(SR[1], 0, z1 + 0.2, x1, rowH, 17, 'metal', { tint: 0xb8b8b0 });
+  L.box(SR[0], 0, 15.2, SR[1], rowH, 17, 'metal', { tint: 0xb8b8b0 });
+  L.box(SR[0], 2.75, z1 + 0.2, SR[1], rowH, 15.2, 'metal', { tint: 0xb8b8b0 });
+  L.box(SR[0], -0.3, z1 + 0.2, SR[1], 0, 15.2, 'concreteFloor', { tint: 0x6a6660 });
+  ceilingLight(L, 22.6, 2.75, -15.2, { type: 'bulb', intensity: 3, flicker: 0.5, range: 5 });
   L.box(x0, rowH, -20.2, x1, rowH + 0.25, z0 - 0.1, 'metal', { collide: false, tint: 0x8a8e8e });
   L.box(x0, rowH, z1 + 0.1, x1, rowH + 0.25, 17.2, 'metal', { collide: false, tint: 0x8a8e8e });
   L.box(x0, rowH - 0.55, z0 - 0.23, x1, rowH - 0.25, z0 - 0.2, 'paintedRed', { collide: false, tint: 0xe86a10 });
@@ -196,17 +207,17 @@ function yard(L, game) {
   xs.forEach((cx, i) => { if (i !== 3) door(cx, z0 - 0.2, -1, 'D-' + (10 + i)); });
   xs.forEach((cx, i) => { if (i !== 1) door(cx, z1 + 0.2, 1, 'D-' + (20 + i), i === 4 ? 0.5 : 0); });
   // open north unit D-13: a classic car under a cover, junk
-  L.box(21.0, 0, -18.4, 24.2, rowH, z0 - 0.2, 'metal', { visible: false }); // (carved below)
-  // (visible unit interior: walls are the row box, so draw a dark recess instead)
-  L.box(21.1, 0.01, z0 - 0.23, 24.1, 2.55, z0 - 0.21, 'blackMatte', { collide: false, tint: 0x0a0a0a });
-  L.box(21.0, 2.6, z0 - 0.5, 24.2, 2.95, z0 - 0.1, 'metal', { collide: false, tint: 0xd06a1a });
+  L.box(20.9, 2.6, z0 - 0.5, 24.3, 2.95, z0 - 0.1, 'metal', { collide: false, tint: 0xd06a1a });
+  P.car(L, 22.6, 0, -14.8, 0.02, { color: 0x6a1a14 });
+  const tarp = P.prop(L, 22.6, 0, -15.2, 0); tarp.box(0.3, 1.05, 0.2, 1.9, 0.9, 3.2, 'fabricBlue', 0x2a4a8a, [0.08, 0, 0.12]);
+  cardboard(L, 23.7, 0, -16.8, 0.2, 3);
   // open south unit D-21: somebody camped here
-  L.box(13.6, 0, z1 + 0.2, 16.4, 0.02, z1 + 0.2, 'metal', NC);
-  const camp = P.prop(L, 15.0, 0, z1 + 1.2, 0);
-  camp.box(-0.7, 0.12, 0.4, 0.9, 0.22, 1.9, 'fabric', 0x6a5a8a).box(0.7, 0.12, 0.3, 0.9, 0.22, 1.9, 'fabric', 0x3a5a3a).box(0, 0.3, -0.5, 0.5, 0.6, 0.4, 'plastic', 0x2a2a2a);
-  L.box(13.5, 0.01, z1 + 0.19, 16.5, 2.55, z1 + 0.21, 'blackMatte', { collide: false, tint: 0x0a0a0a });
-  L.box(13.4, 2.6, z1 + 0.1, 16.6, 2.95, z1 + 0.5, 'metal', { collide: false, tint: 0xd06a1a });
-  // (units are shallow alcoves: the recess reads as depth from the lane)
+  L.box(13.3, 2.6, z1 + 0.1, 16.7, 2.95, z1 + 0.5, 'metal', { collide: false, tint: 0xd06a1a });
+  const camp = P.prop(L, 15.0, 0, 13.6, 0);
+  camp.box(-0.7, 0.12, 0.2, 0.9, 0.22, 1.9, 'fabric', 0x6a5a8a).box(0.7, 0.12, 0.1, 0.9, 0.22, 1.9, 'fabric', 0x3a5a3a).box(0, 0.3, -1.2, 0.5, 0.6, 0.4, 'plastic', 0x2a2a2a).col(0, 0.12, 0.15, 2.3, 0.24, 1.9, 'fabric', F_SOLID | F_SHOOT);
+  const heater = P.prop(L, 16.1, 0, 11.4, 0); heater.cyl(0, 0.3, 0, 0.17, 0.5, 'paintedWhite', 0xd8d8d0, null, 12).glow(0, 0.62, 0, 0.3, 0.06, 0.3, 0xff6a20);
+  L.light(16.1, 0.9, 11.6, 0xff8a40, 4, 5, { flicker: 0.3 });
+  graffiti(L, 'WE WENT\nTO THE\nAIRPORT', 15.0, 1.6, 15.18, Math.PI, 1.3, 0.9, '#1a2a8a');
   // rental truck being loaded in a hurry, ramp down
   P.truck(L, 16.2, 0, -4.0, Math.PI / 2 + 0.06, 0xe8e4d8);
   sign(L, 'HAUL-IT\nRENTALS', 17.7, 2.1, -5.3, 0.06, 3.2, 1.2, { bg: '#e8e4d8', fg: '#e86a10' });
@@ -220,10 +231,10 @@ function yard(L, game) {
   const boot = P.prop(L, 25.5, 0, 5.2, 1.3); boot.box(0, 1.35, 2.25, 1.6, 0.05, 0.9, 'carPaint', 0x2a3a5a, [-1.1, 0, 0]);
   // burnt-out wreck near the gate
   P.car(L, 30.8, 0, -7.2, 0.35, { burnt: true });
-  L.decal(30.8, 0.02, -7.2, 0, 1, 0, 5, 20);
+  L.decal(30.8, 0.02, -7.2, 0, 1, 0, 5, DF.SCORCH);
   // security lights
-  P.streetLight(L, 12.5, 0, 8.6, Math.PI, { on: true, intensity: 18, range: 15, flicker: 0.15 });
-  P.streetLight(L, 28.5, 0, -10.6, 0, { on: true, intensity: 20, range: 16 });
+  P.streetLight(L, 12.5, 0, 8.6, 0, { on: true, intensity: 18, range: 15, flicker: 0.15 });
+  P.streetLight(L, 28.5, 0, -10.6, Math.PI, { on: true, intensity: 20, range: 16 });
   L.box(8.16, 2.9, -0.5, 8.3, 3.1, 0.1, 'emissiveWarm', NC);
   L.light(8.9, 2.8, -0.2, 0xffd8a0, 6, 7, { flicker: 0.2 });
   // dressing
@@ -232,11 +243,12 @@ function yard(L, game) {
   graffiti(L, 'EVAC FLIGHTS\nAT DAWN??', 30.2, 1.5, z0 - 0.22, 0, 1.8, 0.8, '#b8201a');
   poster(L, 'evac', 8.17, 1.6, 3.6, Math.PI / 2, 0.5, 0.72, { torn: 0.3, wet: 0.5 });
   poster(L, 'quarantine', 8.17, 1.6, -4.4, Math.PI / 2, 0.6, 0.85, {});
-  for (let i = 0; i < 10; i++) L.decal(9.6 + i * 2.4, 0.013, -0.3 + Math.sin(i) * 0.9, 0, 1, 0, 0.9, 13);
+  for (let i = 0; i < 10; i++) L.decal(9.6 + i * 2.4, 0.013, -0.3 + Math.sin(i) * 0.9, 0, 1, 0, 0.9, DF.SMEAR);
   P.corpse(L, 20.4, 0.01, 1.8, 0.6, 0x6a5a3a); blood(L, 20.4, 0, 1.8, 1.6, 4);
   P.corpse(L, 12.4, 0.01, -8.4, 2.4, 0x2a2a3a); blood(L, 12.4, 0, -8.4, 1.3, 1);
   P.trashCan(L, 9.2, 0, 7.4);
-  L.item('pipebomb', 15.1, 0.02, z1 + 0.9, { chance: 0.45 });
+  L.item('pipebomb', 14.2, 0.02, 14.6, { chance: 0.45 });
+  L.item('pills', 15.6, 0.02, 14.6, { chance: 0.5 });
   L.item('tier1', 23.5, 0.02, -2.4, { chance: 0.35 });
   // the vehicle gate, pushed off its track
   for (const z of [ALLEY.z0 - 0.2, ALLEY.z1 + 0.2]) L.box(x1 - 0.12, 0, z - 0.12, x1 + 0.12, 2.6, z + 0.12, 'metalDark');
@@ -302,7 +314,6 @@ function cablesOver(L) {
 function kessler(L, game) {
   const { x0, x1, z0, z1 } = KES;
   street(L, x0, z0, x1, z1, 'z', { sidewalk: 2.4, noSidewalk: [[ALLEY.z0, ALLEY.z1]] });
-  L.box(x0, 0, ALLEY.z0, x0 + 2.4, 0.004, ALLEY.z1, 'asphalt', NC);
   // west frontage (beyond the alley corner buildings)
   L.box(40, 0, -34, x0, 14, -22, 'brickDark', { tint: 0x5a4034 });
   L.box(40, 0, 20, x0, 10, 34, 'concrete', { tint: 0x9a968a });
@@ -333,7 +344,7 @@ function kessler(L, game) {
   const board = P.prop(L, 55.2, 0.15, -1.2, Math.PI / 2);
   board.box(0, 1.2, 0, 2.6, 1.4, 0.06, 'wood', 0x6a6a50).box(-1.1, 0.6, 0.05, 0.08, 1.2, 0.08, 'wood', 0x5a5a40).box(1.1, 0.6, 0.05, 0.08, 1.2, 0.08, 'wood', 0x5a5a40);
   sign(L, 'MILITARY CHECKPOINT\nALL CIVILIANS PROCEED TO\nMETRO INTERNATIONAL AIRPORT\nVIA ROUTE 9', 55.24, 1.35, -1.2, Math.PI / 2, 2.4, 1.2, { bg: '#2a3a1a', fg: '#e8e8d0' });
-  P.floodLight(L, 66.4, 0, -15.6, 0.6, { h: 4.8, intensity: 30, range: 22, flicker: 0.35 });
+  P.floodLight(L, 66.4, 0, -15.6, 2.6, { h: 4.8, intensity: 30, range: 22, flicker: 0.35 });
   const fl = P.prop(L, 64.0, 0, 13.2, 1.1); fl.rbox(0, 0.4, 0, 1.2, 0.7, 2.0, 0.05, 'paintedYellow', 0xd8a020, [0, 0, 0.2]).cyl(0.6, 0.5, 1.8, 0.06, 4, 'metalClean', 0x9a9e9e, [Math.PI / 2 - 0.1, 0, 0], 8);
   P.radioTable(L, 62.2, 0, 14.4, Math.PI);
   soundEmitter(L, 62.2, 1.0, 14.4, ['radioStatic', 'radioBeep'], { min: 5, max: 9, vol: 0.5, range: 30 });
