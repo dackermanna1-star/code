@@ -202,6 +202,12 @@ function chainDepth(fk, col, c, from = 0, sq = SQ, skipDistal = false) {
   }
   return d;
 }
+// anatomical ranges per pose entry
+const LIM_LO = new Float32Array(POSE_LEN), LIM_HI = new Float32Array(POSE_LEN);
+for (let f = 0; f < 4; f++) { LIM_LO.set([-0.35, -0.25, 0, -0.1], f * 4); LIM_HI.set([0.35, 1.6, 1.9, 1.3], f * 4); }
+LIM_LO.set([-0.6, -0.5, -0.4, -0.15, -0.25], P_T); LIM_HI.set([1.25, 1.25, 1.1, 0.95, 1.35], P_T);
+LIM_LO[P_CUP] = 0; LIM_HI[P_CUP] = 0.5;
+const lim = (i, v) => (v < LIM_LO[i] ? LIM_LO[i] : v > LIM_HI[i] ? LIM_HI[i] : v);
 // coordinate descent on the listed pose entries until chain c is out of the collider
 function pushOut(fk, col, c, idx, o = {}) {
   const pose = fk.pose, base = idx.map((i) => pose[i]);
@@ -210,7 +216,8 @@ function pushOut(fk, col, c, idx, o = {}) {
     let best = null;
     for (let k = 0; k < idx.length; k++) for (const sg of [-1, 1]) {
       const v0 = pose[idx[k]];
-      pose[idx[k]] = v0 + sg * 0.03;
+      pose[idx[k]] = lim(idx[k], v0 + sg * 0.03);
+      if (pose[idx[k]] === v0) continue;
       fk.chain(c);
       // prefer staying near the authored pose
       const nd = chainDepth(fk, col, c, 0, SQ, o.skipDistal) - Math.abs(pose[idx[k]] - base[k]) * 0.0004;
@@ -356,7 +363,7 @@ function triggerIK(fk, col, target, o = {}) {
   let best = null;
   const sp0 = pose[0];
   const evalAt = (sp, m, p, d) => {
-    pose[0] = sp; pose[1] = m; pose[2] = p; pose[3] = d;
+    pose[0] = lim(0, sp); pose[1] = lim(1, m); pose[2] = lim(2, p); pose[3] = lim(3, d);
     fk.chain(1);
     fk.local(1, 2, -C.r[2] * 0.72 * S, C.len[2] * 0.52 * S, 0, pad);
     let e = pad.distanceTo(target);
@@ -398,7 +405,7 @@ function thumbIK(fk, col, target, o = {}) {
   const base = [pose[T], pose[T + 1], pose[T + 2], pose[T + 3], pose[T + 4]];
   const v = base.slice();
   const evalAt = (w) => {
-    for (let i = 0; i < 5; i++) pose[T + i] = w[i];
+    for (let i = 0; i < 5; i++) pose[T + i] = w[i] = lim(T + i, w[i]);
     fk.chain(0);
     let e = fk.jp[0][3].distanceTo(target);
     const d = chainDepth(fk, col, 0, 1, SQ);
@@ -529,16 +536,25 @@ const R_GRIP = (o = {}) => Object.assign({
 }, o);
 // support hand wrapped around the shooting hand (two-handed pistol, thumbs forward)
 const L_PISTOL = (o = {}) => Object.assign({
-  frame: 'handR', pos: [-0.048, -0.016, 0.06], X: [-1, 0.0, -0.25], Y: [0.15, 0.0, -1], rot: [0.3, 0, 0], settle: 0.05, wrapOther: true, thumb: 'rest',
+  frame: 'handR', pos: [-0.048, -0.006, 0.06], X: [-1, 0.0, -0.25], Y: [0.15, 0.0, -1], rot: [0.3, 0, 0], settle: 0.05, wrapOther: true, thumb: 'rest',
   pose: { spread: [0.02, 0.0, -0.03, -0.06], mcp: [0.3, 0.3, 0.3, 0.3], pip: [0.3, 0.3, 0.3, 0.3], dip: [0.15, 0.15, 0.15, 0.15], thumb: [0.0, 0.3, 0.2, 0.05, 0.05], cup: 0.1 },
   fa: [0.3, 0.35, -1],
 }, o);
-// support hand under a handguard / forend: palm up, thumb along the left side, fingers around the right
+// support hand under a handguard / forend: palm up, thumb along the left side, fingers around the right.
+// The section of the gun at z is measured from the collider (bottom, sides, top).
 const L_GUARD = (z, yb, o = {}) => Object.assign({
-  pos: [-0.035, yb - 0.03, z + 0.03], X: [-0.4, -0.92, 0.1], Y: [0.7, 0.3, -0.62], settle: 0.04, thumb: 'rest',
+  guard: { z, yb }, pos: [-0.035, yb - 0.03, z + 0.03], X: [-0.4, -0.92, 0.1], Y: [0.7, 0.3, -0.62], settle: 0.04, thumb: 'rest',
   pose: { spread: [0.02, 0.0, -0.03, -0.06], mcp: [0.25, 0.25, 0.25, 0.25], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: [-0.1, 0.35, 0.25, 0.1, 0.1], cup: 0.1 },
   fa: [0.45, 0.25, -1],
 }, o);
+// cross-section of the collider at depth z around a bottom point (x=0, y=yb)
+function sectionAt(col, z, yb) {
+  let x0 = 0, x1 = 0, y0 = yb, y1 = yb;
+  for (let y = yb - 0.03; y < yb + 0.12; y += 0.002) for (let x = -0.07; x <= 0.07; x += 0.002) {
+    if (col.dist(x, y, z, 0.003) < 0.0015) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  }
+  return { x0, x1, y0, y1 };
+}
 // vertical handle (melee / throwables / canisters) along +Y through `c`
 const R_HANDLE = (c, o = {}) => Object.assign({ pos: [c[0] + 0.03, c[1] - 0.012, c[2] + 0.075], X: [1, 0, 0], Y: [0, 0.05, -1], settle: 0.05, thumb: 'wrap', index: 'wrap',
   pose: { spread: [0.05, 0.0, -0.04, -0.08], mcp: [0.3, 0.3, 0.3, 0.3], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: [0.25, 0.7, 0.55, 0.15, 0.2], cup: 0.2 }, fa: [-0.1, 0.35, -1] }, o);
@@ -611,7 +627,16 @@ export function solveGrips(model, type, A, S, specs = GRIP_SPECS[type]) {
       F.compose(new THREE.Vector3(hr[0], hr[1], hr[2]), new THREE.Quaternion().setFromEuler(new THREE.Euler(hr[3], hr[4], hr[5])), new THREE.Vector3(1, 1, 1));
     }
     const host = sp.anchor === 'left' || sp.anchor === 'right' ? ud[sp.anchor] : model;
-    F.premultiply(restMatrix(model, host, _m4));
+    // rigid authoring frame: origin through the (possibly scaled) model, axes
+    // rotation only, so offsets stay in metres (the magnum model is scaled)
+    {
+      const H = restMatrix(model, host, _m4);
+      const o = new THREE.Vector3().setFromMatrixPosition(F).applyMatrix4(H);
+      const hq0 = new THREE.Quaternion(), hs = new THREE.Vector3(), hp = new THREE.Vector3();
+      H.decompose(hp, hq0, hs);
+      const fq = new THREE.Quaternion().setFromRotationMatrix(F);
+      F = new THREE.Matrix4().compose(o, hq0.multiply(fq), new THREE.Vector3(1, 1, 1));
+    }
     const rq = new THREE.Quaternion(), sc = new THREE.Vector3(), tp = new THREE.Vector3();
     F.decompose(tp, rq, sc);
     s.pos = new THREE.Vector3().fromArray(sp.pos).applyMatrix4(F).toArray();
@@ -621,6 +646,14 @@ export function solveGrips(model, type, A, S, specs = GRIP_SPECS[type]) {
     if (sp.thumbAt) s.thumbAt = new THREE.Vector3().fromArray(sp.thumbAt).applyMatrix4(restMatrix(model, host, _m4)).toArray();
     const thumbRel = sp.thumbRel;
     const col = colFor(sp.anchor);
+    if (sp.guard) {
+      // wrist below-left-behind the forend; thumb tip along its left side, near the top
+      const g = sp.guard, sec = sectionAt(col, g.z, g.yb);
+      const top = Math.min(sec.y1, sec.y0 + 0.05);
+      s.pos = [sec.x0 - 0.012, sec.y0 - 0.034, g.z + 0.035];
+      s.thumbAt = [sec.x0 - 0.0085 * S, top - 0.006, g.z - 0.04 * S];
+      s.info = sec;
+    }
     // pistol grips: the highest wrist position (index closest to the trigger)
     // that still lets the middle finger wrap under the trigger guard
     if (sp.frame === 'handR' && sp.trigger && sp.autoY) {
