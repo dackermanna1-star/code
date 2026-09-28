@@ -23,7 +23,7 @@ export default async ({ page, evalg, wait, shot }) => {
   for (const name of which) {
     const set = sets[name];
     const r = await evalg(async (set) => {
-      const g = window.game, THREE = await import('/node_modules/.vite/deps/three.js').catch(() => null);
+      const g = window.game;
       const P = await import('/src/levels/props.js');
       const { materials } = await import('/src/render/materials.js');
       const tmp = new (g.level.constructor)(g, {});
@@ -46,7 +46,7 @@ export default async ({ page, evalg, wait, shot }) => {
       g.advance(0.3);
       g.hud?.clearTransient?.(); if (g.hud?.title) { g.hud.title.style.opacity = 0; g.hud.titleT = 0; }
       document.querySelectorAll('.subline').forEach((e) => e.remove());
-      return { meshes: made.length, THREE: !!THREE };
+      return { meshes: made.length };
     }, set);
     console.log('SET', name, JSON.stringify(r));
     await wait(700);

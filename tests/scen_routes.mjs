@@ -1,6 +1,6 @@
 // Route connectivity for each chapter: start -> end distance field finite,
 // nav node count, arrows. CHS=0,1,2,3,4 QUALITY=low node tests/play.mjs tests/scen_routes.mjs
-export default async ({ page, evalg, wait }) => {
+export default async ({ page, evalg, wait, logs }) => {
   const chs = (process.env.CHS || '0,1,2,3,4').split(',').map(Number);
   for (const ch of chs) {
     await page.goto((process.env.TEST_URL || 'http://localhost:5180/') + '?autostart=' + ch, { timeout: 180000 });
@@ -12,8 +12,14 @@ export default async ({ page, evalg, wait }) => {
       let n = s, steps = 0;
       while (steps++ < 60000) { const m = nav.descend(f, n); if (m < 0) break; n = m; }
       const endD = Math.hypot(nav.nodeX(n) - L.flowEnd[0], nav.nodeZ(n) - L.flowEnd[2]);
-      return { ch: window.session.chapterIdx, nodes: nav.N, startDist: Math.round(f[s]), connected: f[s] < 1e8, routeSteps: steps, endReachedWithin: +endD.toFixed(2), arrows: L.guideArrowCount, errs: g.errCount || 0 };
+      let clutter = 0, cones = 0; L.root.traverse((o) => { if (o.name && o.name.startsWith('clutter')) clutter++; if (o.name === 'lightCones') cones++; });
+      g.director.enabled = false;
+      g.advance(2);
+      return { ch: window.session.chapterIdx, loadMs: Math.round(g.loadMs), nodes: nav.N, startDist: Math.round(f[s]), connected: f[s] < 1e8, routeSteps: steps, endReachedWithin: +endD.toFixed(2), arrows: L.guideArrowCount, clutterMeshes: clutter, clutterStats: L.clutterStats, cones, errs: g.errCount || 0 };
     });
     console.log('ROUTE', JSON.stringify(r));
+    const errs = logs.filter((l) => /error/i.test(l));
+    console.log('ERRLOGS', errs.length, errs.slice(0, 3).join(' || ').slice(0, 500));
+    logs.length = 0;
   }
 };

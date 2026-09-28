@@ -19,10 +19,17 @@ export default async ({ page, evalg, wait }) => {
       for (const n of pts) {
         g.player.teleport(nav.nodeX(n), nav.nodeY[n], nav.nodeZ(n), g.player.yaw);
         g.advance(0.2);
-        let calls = 0, tris = 0;
-        for (let k = 0; k < 4; k++) { g.player.yaw += Math.PI / 2; g.advance(0.05); info.reset(); g.renderer.render(0.016); calls = Math.max(calls, info.render.calls); tris = Math.max(tris, info.render.triangles); }
+        let calls = 0, tris = 0, bare = 0;
+        const extra = []; L.root.traverse((o) => { if (o.name && (o.name.startsWith('clutter') || o.name === 'lightCones' || o.name === 'spotCone')) extra.push(o); });
+        for (let k = 0; k < 4; k++) {
+          g.player.yaw += Math.PI / 2; g.advance(0.05);
+          info.reset(); g.renderer.render(0.016); calls = Math.max(calls, info.render.calls); tris = Math.max(tris, info.render.triangles);
+          for (const o of extra) o.visible = false;
+          info.reset(); g.renderer.render(0.016); bare = Math.max(bare, info.render.calls);
+          for (const o of extra) o.visible = true;
+        }
         sum += calls;
-        out.samples.push({ p: +(1 - f[n] / total).toFixed(2), calls, ktris: Math.round(tris / 1000) });
+        out.samples.push({ p: +(1 - f[n] / total).toFixed(2), calls, noClutter: bare, ktris: Math.round(tris / 1000) });
       }
       out.avgCalls = Math.round(sum / pts.length);
       const t0 = performance.now(); g.advance(1); out.updMs = +((performance.now() - t0) / 60).toFixed(2);

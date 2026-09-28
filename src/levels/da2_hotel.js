@@ -598,11 +598,11 @@ function thirdFloor(L, game) {
   // doors (real)
   new Door(L, 39.6, y, CZ1, 'x', { width: 1.1, hinge: 1, open: true });
   new Door(L, 27.6, y, CZ1, 'x', { width: 1.1, hinge: 1 });
-  new Door(L, 25.2, y, CZ1, 'x', { width: 1.1, hinge: -1, open: true });
+  new Door(L, 25.2, y, CZ1, 'x', { width: 1.1, hinge: 1, open: true });
   new Door(L, 15.6, y, CZ1, 'x', { width: 1.1, hinge: 1, open: true });
   new Door(L, 9.6, y, CZ1, 'x', { width: 1.1, hinge: 1 });
   new Door(L, 39.05, y, CZ0, 'x', { width: 1.1, hinge: -1, open: true });
-  new Door(L, 45.6, y, CZ0, 'x', { width: 1.1, hinge: 1, open: true });
+  new Door(L, 45.6, y, CZ0, 'x', { width: 1.1, hinge: -1, open: true });
 }
 
 // Furnished guest room on the south side (corridor at z 10.6, window at 19.8).
@@ -786,7 +786,7 @@ function roof(L, game) {
   for (let i = 0; i < 4; i++) P.pipe(L, 26.5 + i * 1.4, y + 0.3, 1.6, 26.5 + i * 1.4, y + mh, 1.6, 0.015, 'metalDark');
   ceilingLight(L, 29, y + mh, 3.4, { type: 'cage', intensity: 4, flicker: 0.8 });
   sign(L, 'ELEVATOR MACHINE ROOM\nAUTHORIZED PERSONNEL ONLY', 29, y + 2.5, mz1 + 0.17, 0, 1.6, 0.35, { bg: '#e8c020', fg: '#101010' });
-  new Door(L, 29, y, mz1, 'x', { width: 1.2, hinge: 1, material: 'paintedGreen', open: true });
+  new Door(L, 29, y, mz1, 'x', { width: 1.2, hinge: -1, material: 'paintedGreen', open: true });
   L.reverb(mx0, y, mz0, mx1, y + mh, mz1, 'room');
   // water tower
   P.waterTower(L, 12, y, 4.2);
