@@ -35,14 +35,14 @@ export class Menu {
     const n = this.show(h(`<div class="menu">
       <h1>THE LAST FOUR<span>${CAMPAIGNS.map((c) => c.title.toUpperCase()).join(' · ')}</span></h1>
       <div class="sub">Four survivors. Two campaigns. One way out.</div>
-      <button id="m-play">Play Campaign</button>
+      <button id="m-play">Play ${CAMPAIGNS[0].title}</button>
       <button id="m-chapter">Chapter Select</button>
       <button id="m-options">Options</button>
       <button id="m-controls">Controls</button>
       <button id="m-coop">Co-op <small style="opacity:.55;font-size:.55em;letter-spacing:2px">EXPERIMENTAL</small></button>
       <button id="m-about">About</button>
     </div>`));
-    this.btn(n, '#m-play', () => this.campaignSelect((id) => this.survivorSelect(0, id)));
+    this.btn(n, '#m-play', () => this.survivorSelect(0, CAMPAIGNS[0].id));
     this.btn(n, '#m-chapter', () => this.chapterSelect());
     this.btn(n, '#m-options', () => this.options(() => this.main()));
     this.btn(n, '#m-controls', () => this.controls(() => this.main()));

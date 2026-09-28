@@ -3,13 +3,14 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "An original first-person co-op survival-horror campaign inspired by the classic No Mercy structure. Built with Three.js.",
+  "description": "An original first-person co-op survival-horror game with two campaigns (Dead Air, No Mercy), inspired by the classic Left 4 Dead structure. Built with Three.js.",
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
     "preview": "vite preview --host",
     "server": "node server/relay.js",
-    "test": "node tests/smoke.mjs"
+    "test": "node tests/smoke.mjs",
+    "build:single": "node scripts/build-single.mjs"
   },
   "dependencies": {
     "three": "0.186.1"

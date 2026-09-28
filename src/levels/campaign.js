@@ -10,18 +10,19 @@ import da3 from './da3_construction.js';
 import da4 from './da4_terminal.js';
 import da5 from './da5_runway.js';
 
+// Dead Air is listed first: it is the default campaign (Play, ?autostart=N).
 export const CAMPAIGNS = [
-  {
-    id: 'nomercy', title: 'No Mercy', color: '#c8b070',
-    blurb: 'Fight across a burning city — apartments, subway, sewers — to the rooftop of Mercy Hospital and a last helicopter out.',
-    chapters: [ch1, ch2, ch3, ch4, ch5],
-  },
   {
     id: 'deadair', title: 'Dead Air', color: '#8fb0d8',
     blurb: 'Cross the rooftops of Newburg, work a crane across the skyline and fight through the airport to the last plane out.',
     chapters: [da1, da2, da3, da4, da5],
   },
+  {
+    id: 'nomercy', title: 'No Mercy', color: '#c8b070',
+    blurb: 'Fight across a burning city — apartments, subway, sewers — to the rooftop of Mercy Hospital and a last helicopter out.',
+    chapters: [ch1, ch2, ch3, ch4, ch5],
+  },
 ];
 export const campaignById = (id) => CAMPAIGNS.find((c) => c.id === id) || CAMPAIGNS[0];
-// back-compat: the first campaign's chapters
-export const CHAPTERS = CAMPAIGNS[0].chapters;
+// back-compat: No Mercy's chapters
+export const CHAPTERS = campaignById('nomercy').chapters;
