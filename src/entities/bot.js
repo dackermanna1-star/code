@@ -143,9 +143,13 @@ export class BotBrain {
         if (it.pos.distanceTo(s.pos) < 1.6) { g.items.take(it, s); this.itemGoal = null; }
       } else this.itemGoal = null;
     }
-    // Healing
-    if (!goal && !this.threatNear(12) && !s.action) {
-      if (s.inv.medkit && s.totalHealth < 40 && (s.health < 40)) {
+    // Healing. Calm: nothing within 12 m. During sustained fights (finales,
+    // crescendos) bots still pop pills and, when badly hurt, use a kit as soon
+    // as nothing is in arm's reach.
+    const calm = !this.threatNear(12);
+    const clear = calm || !this.threatNear(4.5);
+    if (!goal && !s.action && clear) {
+      if (s.inv.medkit && s.health < 40 && (calm ? s.totalHealth < 40 : s.totalHealth < 25)) {
         if (s.slot !== 3) c.slot = 3; else c.fire = true;
         this.combat(dt, false, true);
         return;
@@ -153,6 +157,8 @@ export class BotBrain {
       if (s.inv.pills && s.totalHealth < 45) {
         if (s.slot !== 4) c.slot = 4; else c.firePressed = true;
       }
+    }
+    if (!goal && calm && !s.action) {
       // share pills
       if (s.inv.pills && s.totalHealth > 60) {
         const needy = g.survivors.find((o) => o !== s && !o.dead && !o.incapped && !o.inv.pills && o.totalHealth < 40 && o.pos.distanceTo(s.pos) < 2);
@@ -172,6 +178,8 @@ export class BotBrain {
         }
       }
     }
+    // abort a heal when infected get into arm's reach (fight first)
+    if (s.action && s.action.type === 'heal' && s.health > 12 && this.threatNear(2.2)) s.cancelAction();
     if (s.action && s.action.type === 'heal' && s.action.hold === 'fire') { c.fire = true; return; }
     if (s.action && s.action.type === 'heal' && s.action.hold === 'shove') { c.shoveHeld = true; return; }
     if (!goal && L && L !== s) {
