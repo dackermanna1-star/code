@@ -24,10 +24,10 @@ export const TW = { h: 2.4, t: 0.6 };  // perimeter T-walls
 export const STRIP = 6;               // outside strip width (infected spawn ground)
 export const SAFE = { x0: -44, z0: -12, x1: -36, z1: FAC_Z };
 export const LOUNGE = { x0: -36, z0: -17, x1: -10, z1: FAC_Z, h: 4.6 };
-export const GATE_X = -24.5;          // jet bridge door (centre x)
-export const BRIDGE = { x0: -26, x1: -23, z0: FAC_Z, z1: 14 };
-export const CAB = { x0: -27.8, x1: -21.2, z0: 14, z1: 18.8 };
-export const STAIR = { x0: -21.2, x1: -12.8, z0: 15.3, z1: 17.3 };
+export const GATE_X = -24.3;          // jet bridge door (centre x; one 2.6 m glass bay)
+export const BRIDGE = { x0: -25.8, x1: -22.8, z0: FAC_Z, z1: 14 };
+export const CAB = { x0: -27.6, x1: -21.0, z0: 14, z1: 18.8 };
+export const STAIR = { x0: -21.0, x1: -12.6, z0: 15.3, z1: 17.3 };
 export const HALLS = [ // ground-level baggage halls (x0, x1): doors in the facade
   { x0: -58, x1: -46, door: [-54.5, -49.5] },
   { x0: 2, x1: 14, door: [5.5, 10.5] },

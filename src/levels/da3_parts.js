@@ -187,13 +187,16 @@ export function scaffoldStairTower(L, T, yLo, yHi) {
   L.stairs(xm, zl, x1, zb, mid, yHi, '-z', 'diamond', { thin: true, stepH: 0.2 });
   // flight 2 (inner, west half): yLo (north) -> mid (south)
   L.stairs(x0, zl, xm, zb, yLo, mid, '+z', 'diamond', { thin: true, stepH: 0.2 });
-  // divider between flights + solid fill under flight 1 (no dead pocket)
+  // divider between flights; boarded-in space under the mid landing and the
+  // flights (no dead pockets under the stairs)
   L.box(xm - 0.04, yLo, zl, xm + 0.04, yHi + 1.1, zb, 'concrete', { visible: false, flags: CLIP });
-  L.box(xm + 0.04, yLo, zl + 0.3, x1, mid - 0.45, zb, 'concrete', { visible: false });
+  L.box(xm + 0.04, yLo, zl, x1, mid - 0.45, zb, 'concrete', { visible: false });
+  L.box(x0, yLo, zb, x1, mid - 0.1, z1, 'woodPale', { tint: 0x2a4a5e, surf: 'wood' });
+  L.box(x0 - 0.06, yLo, zl + 0.6, x0, mid - 0.3, zb, 'woodPale', { tint: 0x2a4a5e, surf: 'wood' });
   // outer clips (east + south), and the open north side of the top landing
   L.box(x1, yLo, z0, x1 + 0.1, yHi + 1.8, z1, 'concrete', { visible: false, flags: CLIP });
   L.box(x0, mid, z1, x1 + 0.1, yHi + 1.8, z1 + 0.1, 'concrete', { visible: false, flags: CLIP });
-  L.box(xm, yHi, z0 - 0.1, x1 + 0.1, yHi + 1.8, z0, 'concrete', { visible: false, flags: CLIP });
+  L.box(x0, yHi, z0 - 0.1, x1 + 0.1, yHi + 1.8, z0, 'concrete', { visible: false, flags: CLIP });
   // tube frame (standards, ledgers, braces), toe boards, netting
   const p = P.prop(L, 0, 0, 0, 0);
   const H = yHi + 2.2 - yLo;
