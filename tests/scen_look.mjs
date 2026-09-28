@@ -1,3 +1,4 @@
+import { quiet, grab } from './fxgrab.mjs';
 // Visual survey: screenshots at fixed points along each chapter's route
 // (progress fractions of the toExit field), looking down the route.
 // CHS=0,1,2,3,4 TAG=before QUALITY=medium node tests/play.mjs tests/scen_look.mjs
@@ -9,6 +10,7 @@ export default async ({ page, evalg, wait, shot }) => {
   for (const ch of chs) {
     await page.goto((process.env.TEST_URL || 'http://localhost:5180/') + '?autostart=' + ch + '&campaign=' + (process.env.CAMP || 'nomercy'), { timeout: 180000 });
     for (let i = 0; i < 150; i++) { await wait(1000); if ((await evalg(() => window.session?.state)) === 'playing') break; }
+    await quiet(evalg);
     for (let k = 0; k < pts.length; k++) {
       const info = await evalg((w) => {
         const g = window.game, L = g.level, nav = L.nav, f = nav.fields.toExit;
@@ -31,8 +33,7 @@ export default async ({ page, evalg, wait, shot }) => {
         return { ch: window.session.chapterIdx, p: w, x: +nav.nodeX(best).toFixed(1), y: +nav.nodeY[best].toFixed(1), z: +nav.nodeZ(best).toFixed(1), yaw: +yaw.toFixed(2), errs: g.errCount || 0 };
       }, pts[k]);
       console.log('SPOT', JSON.stringify(info));
-      await wait(600);
-      await shot(`${tag}_c${ch}_${k}`);
+      await grab(evalg, `${tag}_c${ch}_${k}`);
     }
   }
 };

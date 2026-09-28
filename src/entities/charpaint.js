@@ -373,12 +373,12 @@ export function paintHead(atlas, rect, grid, o) {
     col = mul3(col, 1 - under * (0.12 + (o.sunken ?? 0) * 0.3));
     if (o.sunken) col = mix3(col, [0.03, 0.02, 0.025], sstep(1.1, 0.4, eyeD) * o.sunken * 0.8);
     // lips
-    const lipU = Math.exp(-((x / 0.02) ** 2 + ((y + 0.011) / 0.0055) ** 2)) * (z < -0.09 ? 1 : 0);
-    const lipL = Math.exp(-((x / 0.018) ** 2 + ((y + 0.025) / 0.0065) ** 2)) * (z < -0.088 ? 1 : 0);
+    const lipU = Math.exp(-((x / 0.02) ** 2 + ((y + 0.011) / 0.0055) ** 2)) * (z < -0.084 ? 1 : 0);
+    const lipL = Math.exp(-((x / 0.018) ** 2 + ((y + 0.0235) / 0.0062) ** 2)) * (z < -0.083 ? 1 : 0);
     const lip = clamp((lipU + lipL) * 1.4, 0, 1);
     col = mix3(col, o.lips || mul3([tone[0] * 1.05, tone[1] * 0.72, tone[2] * 0.72], 0.9), lip * 0.85);
-    const mouthLine = Math.exp(-((x / 0.019) ** 2 + ((y + 0.0185) / 0.0016) ** 2)) * (z < -0.09 ? 1 : 0);
-    col = mul3(col, 1 - mouthLine * 0.75);
+    const mouthLine = Math.exp(-((x / 0.0185) ** 2) - (((y + 0.0175) / 0.0012) ** 2)) * (z < -0.088 ? 1 : 0);
+    col = mul3(col, 1 - mouthLine * 0.55);
     c.rough = lerp(c.rough, 0.35, lip * 0.8);
     // nostrils
     const nos = Math.exp(-(((ax - 0.0085) / 0.0045) ** 2 + ((y - 0.006) / 0.003) ** 2 + ((z + 0.108) / 0.01) ** 2));

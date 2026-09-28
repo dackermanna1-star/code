@@ -1,9 +1,11 @@
+import { quiet, grab } from './fxgrab.mjs';
 // Effects showcase on the ch1 street: muzzle flash + tracer fire, molotov fire,
 // explosion (fireball -> smoke), sparks, blood, bullet impacts. Screenshots at
 // several moments. QUALITY=medium node tests/play.mjs tests/scen_fxshow.mjs
 export default async ({ page, evalg, wait, shot }) => {
   await page.goto((process.env.TEST_URL || 'http://localhost:5180/') + '?autostart=' + (process.env.CH || 0), { timeout: 180000 });
   for (let i = 0; i < 150; i++) { await wait(1000); if ((await evalg(() => window.session?.state)) === 'playing') break; }
+  await quiet(evalg);
   const hide = () => { const g = window.game; g.hud?.clearTransient?.(); if (g.hud?.title) { g.hud.title.style.opacity = 0; g.hud.titleT = 0; } document.querySelectorAll('.subline').forEach((e) => e.remove()); };
   await evalg((hs) => {
     const g = window.game;
@@ -18,11 +20,11 @@ export default async ({ page, evalg, wait, shot }) => {
   }, `(${hide.toString()})()`);
   // 1) explosion just after detonation
   await evalg(() => { const g = window.game; g.combat.explode(21, 0.1, 30, 5, 0, null); g.advance(0.08); });
-  await shot('fx_explosion_a');
+  await grab(evalg, 'fx_explosion_a');
   await evalg(() => { window.game.advance(0.35); });
-  await shot('fx_explosion_b');
+  await grab(evalg, 'fx_explosion_b');
   await evalg(() => { window.game.advance(2.5); });
-  await shot('fx_explosion_smoke');
+  await grab(evalg, 'fx_explosion_smoke');
   // 2) molotov fire + sparks + blood
   await evalg(() => {
     const g = window.game;
@@ -32,17 +34,19 @@ export default async ({ page, evalg, wait, shot }) => {
     g.fx.blood(15, 1.2, 26, 1, 0.3, 0, 2.5);
     g.advance(0.06);
   });
-  await shot('fx_fire_sparks');
+  await grab(evalg, 'fx_fire_sparks');
   // 3) muzzle flash while firing at the wrecked car
   await evalg(() => {
     const g = window.game;
     g.player.yaw = Math.PI - 0.25; g.player.pitch = -0.1;
     g.testCmd = { fire: true, firePressed: true };
-    g.advance(0.25);
+    g.advance(0.2);
+    // stop on a frame where a muzzle flash is alive
+    for (let i = 0; i < 40; i++) { g.advance(1 / 60); const A = g.fx.add; let f = false; for (let k = 0; k < A.n; k++) if (A.frame[k] === 7 && A.life[k] > 0.025) f = true; if (f) break; }
   });
-  await shot('fx_muzzle');
+  await grab(evalg, 'fx_muzzle');
   await evalg(() => { const g = window.game; g.advance(0.05); g.testCmd = null; g.advance(0.4); });
-  await shot('fx_impacts');
+  await grab(evalg, 'fx_impacts');
   const r = await evalg(() => ({ add: window.game.fx.add.n, alpha: window.game.fx.alpha.n, errs: window.game.errCount || 0 }));
   console.log('FX', JSON.stringify(r));
 };

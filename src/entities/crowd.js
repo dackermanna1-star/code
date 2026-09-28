@@ -20,7 +20,7 @@ import { patchLighting } from './charshade.js';
 
 export const footMatrix = _footMatrix;
 
-const DATA_W = 52; // 36 bone texels (12 bones x 3 rows) + 16 appearance texels
+const DATA_W = 55; // 36 bone texels (12 bones x 3 rows) + 19 appearance texels
 const LOOK0 = 36;
 
 // Head shape shared by all commons (sunken, gaunt, slack-jawed)
@@ -274,21 +274,19 @@ varying vec2 vLoc;
 vec3 cwP; vec3 cwN;
 vec4 cwFetch( int x ) { return texelFetch( uData, ivec2( x, gl_InstanceID ), 0 ); }
 void crowdSkin() {
-  vec4 L6 = cwFetch( ${LOOK0 + 6} );
-  vec4 L8 = cwFetch( ${LOOK0 + 8} );
-  vec4 L9 = cwFetch( ${LOOK0 + 9} );
-  vec4 L13 = cwFetch( ${LOOK0 + 13} );
+  vec4 V0 = cwFetch( ${LOOK0 + 17} ); // severed bones, accessory flags, female, fat
+  vec4 V1 = cwFetch( ${LOOK0 + 18} ); // coat hem, clothing bulk
   int ireg = int( aSkin.w + 0.5 );
-  vec3 pos = position + aMorphF * L8.z + aMorphB * L8.w;
+  vec3 pos = position + aMorphF * V0.z + aMorphB * V0.w;
   bool hide = false;
   if ( ireg >= 10 ) {
     int acc = ireg - 10;
-    int flags = int( L6.w + 0.5 );
+    int flags = int( V0.y + 0.5 );
     if ( ( ( flags >> acc ) & 1 ) == 0 ) hide = true;
-    if ( acc == 2 && pos.y < 0.97 ) pos.y = 0.97 + ( pos.y - 0.97 ) * L9.w;
+    if ( acc == 2 && pos.y < 0.97 ) pos.y = 0.97 + ( pos.y - 0.97 ) * V1.x;
   }
-  if ( ireg == 0 || ireg == 2 || ireg == 12 ) pos += normal * L13.x;
-  else if ( ireg == 3 ) pos += normal * L13.x * 0.7;
+  if ( ireg == 0 || ireg == 2 || ireg == 12 ) pos += normal * V1.y;
+  else if ( ireg == 3 ) pos += normal * V1.y * 0.7;
   int b0 = int( aSkin.x + 0.5 ), b1 = int( aSkin.y + 0.5 );
   float w = aSkin.z;
   vec4 p4 = vec4( pos, 1.0 );
@@ -303,7 +301,7 @@ void crowdSkin() {
   }
   if ( hide ) P = vec3( 0.0 );
   cwP = P; cwN = normalize( N + vec3( 0.0, 1e-5, 0.0 ) );
-  int sv = int( L6.z + 0.5 );
+  int sv = int( V0.x + 0.5 );
   float st = 0.0;
   if ( ( ( sv >> b0 ) & 1 ) == 1 ) st += w;
   if ( ( ( sv >> b1 ) & 1 ) == 1 ) st += 1.0 - w;
@@ -338,13 +336,24 @@ vec3 cwPattern( int pat, vec3 c1, vec3 c2, vec2 p ) {
   if ( pat == 5 ) { float n = texture2D( uNoiseT, p * 0.9 ).a; return mix( c1, c2, smoothstep( 0.5, 0.56, n ) ); }
   return c1;
 }
+#define L1 cwL( 1 )
+#define L2 cwL( 2 )
+#define L3 cwL( 3 )
+#define L4 cwL( 4 )
+#define L5 cwL( 5 )
+#define L7 cwL( 7 )
+#define L9 cwL( 9 )
+#define L11 cwL( 11 )
+#define L12 cwL( 12 )
+#define L13 cwL( 13 )
+#define L14 cwL( 14 )
+#define L15 cwL( 15 )
 vec3 crowdSurface( vec2 auv ) {
   vec4 D = texture2D( uDetail, auv );
   int reg = int( vReg.x + 0.5 );
   float st = vReg.y, side = vReg.z;
-  vec4 L0 = cwL( 0 ), L1 = cwL( 1 ), L2 = cwL( 2 ), L3 = cwL( 3 ), L4 = cwL( 4 ), L5 = cwL( 5 ), L6 = cwL( 6 ), L7 = cwL( 7 );
-  vec4 L8 = cwL( 8 ), L9 = cwL( 9 ), L10 = cwL( 10 ), L11 = cwL( 11 ), L12 = cwL( 12 ), L13 = cwL( 13 ), L14 = cwL( 14 ), L15 = cwL( 15 );
-  int topS = int( L1.w + 0.5 ), botS = int( L2.w + 0.5 ), outS = int( L3.w + 0.5 ), accS = int( L4.w + 0.5 ), hairS = int( L5.w + 0.5 );
+  vec4 L0 = cwL( 0 ), L6 = cwL( 6 ), L8 = cwL( 8 ), L10 = cwL( 10 ), ST = cwL( 16 ), V0f = cwL( 17 );
+  int topS = int( ST.x + 0.5 ), botS = int( ST.y + 0.5 ), outS = int( ST.z + 0.5 ), accS = int( ST.w + 0.5 );
   int pat = int( L10.x + 0.5 );
   float decay = L0.w;
   vec2 seed = L8.xy;
@@ -458,7 +467,7 @@ vec3 crowdSurface( vec2 auv ) {
       cc = mix( cc, vec3( 0.8, 0.8, 0.78 ), card ); if ( card > 0.5 ) isC = 1.0;
     }
     if ( accS == 2 && h > 0.43 && h < 0.53 ) { cc = L4.rgb * ( 0.85 + 0.15 * sin( a * 12.0 + h * 40.0 ) ); isC = 1.0; }
-    if ( ( ( int( L6.w + 0.5 ) >> 8 ) & 1 ) == 1 && ty != 3.0 ) { // backpack straps
+    if ( ( ( int( V0f.y + 0.5 ) >> 8 ) & 1 ) == 1 && ty != 3.0 ) { // backpack straps
       float strap = smoothstep( 0.04, 0.025, abs( aa - 0.65 - ( 0.45 - h ) * 0.2 ) ) * step( 0.12, h );
       strap = max( strap, smoothstep( 0.05, 0.03, abs( aa - 2.45 ) ) * step( 0.1, h ) );
       cc = mix( cc, L15.rgb * 0.6, strap ); isC = max( isC, strap );
@@ -466,6 +475,7 @@ vec3 crowdSurface( vec2 auv ) {
     bloodBias = 0.25 * smoothstep( 0.25, 0.45, h ) * smoothstep( 1.0, 0.2, aa );
   } else if ( reg == 1 ) {
     // ------------------------------------------------------------- head
+    int hairS = int( L14.z + 0.5 );
     float hf = D.a, hl = L10.z;
     float hm = 0.0;
     if ( hairS == 1 ) hm = smoothstep( hl, hl + 0.05, hf ) * 0.55;
@@ -813,7 +823,7 @@ export class CrowdRenderer {
     const geo = new THREE.InstancedBufferGeometry();
     for (const k in built.geometry.attributes) geo.setAttribute(k, built.geometry.attributes[k]);
     geo.setIndex(built.geometry.index);
-    geo.instanceCount = capacity;
+    geo.instanceCount = 0;
     geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);
     this.geo = geo;
     this.mat = makeCrowdMaterial(assets, this.dataTex);
@@ -838,6 +848,7 @@ export class CrowdRenderer {
     if (this.free.length === 0) return -1;
     const slot = this.free.pop();
     this.slots[slot] = body;
+    if (slot + 1 > this.geo.instanceCount) this.geo.instanceCount = slot + 1;
     const r = rng(Math.floor(rng0() * 4294967295));
     const lk = makeLook(outfit, r);
     const o = lk.o;
@@ -864,6 +875,10 @@ export class CrowdRenderer {
     put(13, o.bulk, o.badge, o.stockings, o.workStripe);
     put(14, o.shoe, o.mask, 0, 0);
     c3(15, o.hatC, 0);
+    put(14, o.shoe, o.mask, o.hair, 0);
+    put(16, o.top, o.bot, o.out, o.accS);
+    put(17, 0, o.acc, o.female ? 1 : 0, o.fat); // shared with the vertex stage (x = severed bones)
+    put(18, o.hem, o.bulk, 0, 0);
     this.writeBody(slot, body);
     return slot;
   }
@@ -877,6 +892,10 @@ export class CrowdRenderer {
     this.slots[slot] = null;
     this.free.push(slot);
     this.data.fill(0, slot * DATA_W * 4, slot * DATA_W * 4 + LOOK0 * 4);
+    // draw only up to the highest live slot
+    let hi = this.geo.instanceCount;
+    while (hi > 0 && !this.slots[hi - 1]) hi--;
+    this.geo.instanceCount = hi;
     this.dataTex.needsUpdate = true;
   }
   // Write the 12 skinning matrices (current bone frame x inverse rest frame) for one body.
@@ -900,7 +919,7 @@ export class CrowdRenderer {
     let sev = body.severed & 0x3ff;
     if (sev & (1 << 7)) sev |= 1 << 10;
     if (sev & (1 << 9)) sev |= 1 << 11;
-    d[base + (LOOK0 + 6) * 4 + 2] = sev;
+    d[base + (LOOK0 + 17) * 4] = sev;
     this.dataTex.needsUpdate = true;
   }
 }

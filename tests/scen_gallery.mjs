@@ -1,8 +1,10 @@
+import { quiet, grab } from './fxgrab.mjs';
 // Prop gallery: builds props at runtime into ch1 (street / lobby) and takes
 // close-up screenshots. QUALITY=medium node tests/play.mjs tests/scen_gallery.mjs
 export default async ({ page, evalg, wait, shot }) => {
   await page.goto((process.env.TEST_URL || 'http://localhost:5180/') + '?autostart=0', { timeout: 180000 });
   for (let i = 0; i < 150; i++) { await wait(1000); if ((await evalg(() => window.session?.state)) === 'playing') break; }
+  await quiet(evalg);
   const sets = {
     vehicles: { cam: [2, 0.2, 21.8, 2.5, -0.12], light: [8, 4, 27], items: [['car', 3, 0, 26.5, 0.3, {}], ['policeCar', 7.5, 0, 27, -0.2, {}], ['car', 12, 0, 26, 0.5, { burnt: true }], ['taxi', 0.5, 0, 31, 1.4, {}], ['van', 9, 0, 32.5, -1.5]] },
     big: { cam: [-6, 0.2, 21.6, 2.3, -0.02], light: [2, 5, 28], items: [['bus', -2, 0, 29, 1.45, {}], ['ambulance', 10, 0, 29.5, -1.2, { lights: true }], ['fuelTanker', 18, 0, 30, -1.6, {}]] },
@@ -48,7 +50,7 @@ export default async ({ page, evalg, wait, shot }) => {
     }, set);
     console.log('SET', name, JSON.stringify(r));
     await wait(700);
-    await shot('gallery_' + name);
+    await grab(evalg, 'gallery_' + name);
     await evalg(() => { for (const m of window.__gal || []) m.parent?.remove(m); });
   }
 };

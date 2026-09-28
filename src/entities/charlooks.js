@@ -454,7 +454,7 @@ function cigarette(C) {
 SURV.zoey = {
   spec: () => ({
     female: 1, bust: 0.85, eyes: true, fat: -0.1,
-    head: { nose: 0.9, noseLen: 0.95, jaw: 0.94, lips: 1.1, cheek: 1.08, ear: 0.92, chin: 0.95 },
+    head: { nose: 0.9, noseLen: 0.95, jaw: 0.94, lips: 1.05, cheek: 1.08, ear: 0.9, chin: 0.95, lidOpen: 1.12 },
     hand: { curl: 0.5 }, foot: { chunky: 0.6 },
     layers: [
       { kind: 'torso', mat: 1, off: 0.011, h0: -0.045, h1: 0.49, open: (h) => (h > 0.4 ? 0.2 + (h - 0.4) * 2.5 : 0.17) },

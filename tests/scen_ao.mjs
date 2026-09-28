@@ -1,8 +1,10 @@
+import { quiet, grab } from './fxgrab.mjs';
 // AO check: same view with AO debug output, AO on, AO off (strength 0).
 // CH=0 SPOT='[x,y,z,yaw,pitch]' QUALITY=medium node tests/play.mjs tests/scen_ao.mjs
 export default async ({ page, evalg, wait, shot }) => {
   await page.goto((process.env.TEST_URL || 'http://localhost:5180/') + '?autostart=' + (process.env.CH || 0), { timeout: 180000 });
   for (let i = 0; i < 150; i++) { await wait(1000); if ((await evalg(() => window.session?.state)) === 'playing') break; }
+  await quiet(evalg);
   const spot = JSON.parse(process.env.SPOT || '[21, 0.05, 15.5, 2.6, -0.25]');
   await evalg((s) => {
     const g = window.game;
@@ -16,11 +18,11 @@ export default async ({ page, evalg, wait, shot }) => {
     if (ao) ao.compMat.uniforms.debug.value = 1;
   }, spot);
   await wait(500);
-  await shot('ao_debug');
+  await grab(evalg, 'ao_debug');
   await evalg(() => { const ao = window.game.renderer.ao; if (ao) ao.compMat.uniforms.debug.value = 0; });
   await wait(400);
-  await shot('ao_on');
+  await grab(evalg, 'ao_on');
   await evalg(() => { const ao = window.game.renderer.ao; if (ao) { ao.saved = ao.compMat.uniforms.strength.value; ao.compMat.uniforms.strength.value = 0; } });
   await wait(400);
-  await shot('ao_off');
+  await grab(evalg, 'ao_off');
 };

@@ -49,7 +49,7 @@ function ensureMaterials() {
   materials.cache.set('chainLink', link);
 }
 
-const UNTEXTURED = new Set(['glass', 'glassDirty', 'emissiveWarm', 'emissiveCool', 'emissiveRed', 'emissiveGreen', 'emissiveWindow', 'emissiveTint', 'plastic', 'plasticGloss', 'chrome', 'carPaint', 'blackMatte', 'paper', 'waterSurface', 'foliage', 'chainLink']);
+const UNTEXTURED = new Set(['glass', 'glassDirty', 'emissiveWarm', 'emissiveCool', 'emissiveRed', 'emissiveGreen', 'emissiveWindow', 'emissiveTint', 'plastic', 'plastic', 'chrome', 'carPaint', 'blackMatte', 'plastic', 'waterSurface', 'foliage', 'chainLink']);
 const meshOpts = (mat, tint) => (UNTEXTURED.has(mat) ? { tint, uvScale: 1 } : { tint, worldUV: materials.scaleOf(mat) });
 
 // cached geometries
@@ -172,7 +172,7 @@ export const prop = (L, x, y, z, ry) => {
   }
   return new P(L, x, y, z, ry);
 };
-const NO_SHADOW = new Set(['chrome', 'paper', 'plasticGloss', 'chainLink', 'emissiveTint', 'glass', 'glassDirty']);
+const NO_SHADOW = new Set(['chrome', 'plastic', 'plastic', 'chainLink', 'emissiveTint', 'glass', 'glassDirty']);
 
 // Volumetric light cone (soft additive beam in fog). dir: world direction the
 // light shines; lightRef: optional virtual light (L.light) whose on/flicker
@@ -563,7 +563,7 @@ export function crate(L, x, y, z, ry = 0, s = 1, mat = 'wood') {
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) p.box(sx * 0.37 * s, h / 2, sz * 0.37 * s, e, h, e, mat, 0xb0a490);
   for (const sy of [e / 2, h - e / 2]) for (const sz of [-1, 1]) p.box(0, sy, sz * 0.405 * s, 0.8 * s, e, 0.02 * s, mat, 0xb0a490);
   p.box(0, h / 2, -0.412 * s, 0.1 * s, 0.9 * s, 0.012, mat, 0xa89878, [0, 0, 0.78]);
-  if (drnd() < 0.5) p.box(0.1 * s, h * 0.55, -0.419 * s, 0.34 * s, 0.12 * s, 0.002, 'paper', 0x1a1a1a); // stencil
+  if (drnd() < 0.5) p.box(0.1 * s, h * 0.55, -0.419 * s, 0.34 * s, 0.12 * s, 0.002, 'plastic', 0x1a1a1a); // stencil
   p.col(0, 0.4 * s, 0, 0.8 * s, 0.8 * s, 0.8 * s, 'wood');
   return p;
 }
@@ -580,7 +580,7 @@ export function pallet(L, x, y, z, ry = 0, boxes = true) {
       const tint = dpick([0x9a8060, 0x8a7050, 0xa89070]);
       p.rbox(ox, h + 0.25, oz, 1.0, 0.5, 1.0, 0.015, 'fabric', tint);
       p.box(ox, h + 0.25, oz, 1.01, 0.05, 1.01, 'plastic', 0xc8b890); // packing tape
-      if (drnd() < 0.5) p.box(ox + 0.2, h + 0.3, oz - 0.506, 0.25, 0.15, 0.003, 'paper', 0xe8e4d8);
+      if (drnd() < 0.5) p.box(ox + 0.2, h + 0.3, oz - 0.506, 0.25, 0.15, 0.003, 'plastic', 0xe8e4d8);
       h += 0.5;
     }
     if (drnd() < 0.5) p.box(0, h / 2 + 0.05, 0, 1.03, h - 0.1, 1.03, 'glassDirty', 0xb8c0c0); // stretch wrap
@@ -782,7 +782,7 @@ export function car(L, x, y, z, ry = 0, opts = {}) {
     pb.rbox(0, 0.86, -0.82, 1.48, 0.2, 0.36, 0.05, 'plastic', 0x1a1a1a);
     pb.torus(-0.4, 0.95, -0.6, 0.17, 0.018, 'plastic', 0x151515, [1.15, 0, 0], 5, 14);
     pb.tube(-0.4, 0.95, -0.6, -0.4, 0.86, -0.78, 0.025, 'plastic', 0x151515);
-    if (dmg) pb.box(0, 1.15, -0.55, 1.2, 0.3, 0.005, 'paper', 0xd8d8d0, [0.5, 0, 0]); // deflated airbag / tarp
+    if (dmg) pb.box(0, 1.15, -0.55, 1.2, 0.3, 0.005, 'plastic', 0xd8d8d0, [0.5, 0, 0]); // deflated airbag / tarp
   }
   // wheels
   const rim = burnt ? 'rust' : 'chrome', rimT = burnt ? 0x3a2a20 : dpick([0x9a9a9a, 0x5a5a5a, 0xb0b0b0]);
@@ -798,7 +798,7 @@ export function car(L, x, y, z, ry = 0, opts = {}) {
     for (let i = 0; i < 3; i++) pb.box(0, 0.6 + i * 0.035, -2.25, 0.66, 0.012, 0.01, 'chrome', 0x9a9a9a);
     const hl = opts.lights ? 0xfff0d0 : 0x3a3830;
     for (const sx of [-1, 1]) {
-      pb.rbox(sx * 0.62, 0.66, -2.2, 0.36, 0.13, 0.08, 0.03, 'plasticGloss', 0xd8d8d8);
+      pb.rbox(sx * 0.62, 0.66, -2.2, 0.36, 0.13, 0.08, 0.03, 'plastic', 0xd8d8d8);
       pb.glow(sx * 0.62, 0.66, -2.245, 0.3, 0.09, 0.01, sx > 0 && dmg ? 0x080808 : hl);
       pb.glow(sx * 0.66, 0.74, 2.225, 0.3, 0.11, 0.012, opts.lights ? 0xff2a18 : 0x4a0a06);
       pb.glow(sx * 0.66, 0.66, 2.225, 0.3, 0.04, 0.012, 0x5a3a10);
@@ -1608,7 +1608,7 @@ export function bodyBag(L, x, y, z, ry = 0) {
   p.rbox(0, 0.11, 0.8, 0.44, 0.18, 0.3, 0.08, 'rubber', c); // feet end
   p.box(0.08, 0.265, 0, 0.012, 0.01, 1.7, 'chrome', 0x8a8a8a); // zipper
   for (const sz of [-0.5, 0.2, 0.7]) for (const sx of [-1, 1]) p.box(sx * 0.3, 0.1, sz, 0.02, 0.05, 0.12, 'rubber', 0x2a2a2a); // handles
-  p.box(0, 0.26, -0.3, 0.12, 0.004, 0.08, 'paper', 0xd8d4c0); // toe tag / label
+  p.box(0, 0.26, -0.3, 0.12, 0.004, 0.08, 'plastic', 0xd8d4c0); // toe tag / label
   return p;
 }
 
@@ -1655,7 +1655,7 @@ export function trafficCone(L, x, y, z) {
   const p = prop(L, x, y, z, drnd() * 6);
   p.box(0, 0.015, 0, 0.36, 0.03, 0.36, 'rubber', 0x1a1a1a);
   p.frustum(0, 0.37, 0, 0.025, 0.14, 0.68, 'plastic', 0xe05010, null, 14);
-  p.frustum(0, 0.45, 0, 0.065, 0.085, 0.12, 'plasticGloss', 0xe8e8e8, null, 14);
+  p.frustum(0, 0.45, 0, 0.065, 0.085, 0.12, 'plastic', 0xe8e8e8, null, 14);
   return p;
 }
 export function phoneBooth(L, x, y, z, ry = 0) {
@@ -2036,7 +2036,7 @@ export function transformer(L, x, y, z, ry = 0, o = {}) {
   for (const sx of [-1, 1]) for (let i = 0; i < 10; i++) p.box(sx * (w / 2 + 0.12), 0.25 + h * 0.45, -d / 2 + 0.12 + i * (d - 0.24) / 9, 0.24, h * 0.8, 0.025, 'paintedGreen', c); // fins
   for (let i = 0; i < 3; i++) {
     const bx = -w / 3 + i * w / 3;
-    for (let k = 0; k < 4; k++) p.cyl(bx, 0.3 + h + k * 0.08, 0.1, 0.07 - k * 0.008, 0.06, 'plasticGloss', 0x8a5a3a, null, 10); // bushings
+    for (let k = 0; k < 4; k++) p.cyl(bx, 0.3 + h + k * 0.08, 0.1, 0.07 - k * 0.008, 0.06, 'plastic', 0x8a5a3a, null, 10); // bushings
     p.tube(bx, h + 0.6, 0.1, bx + 0.1, h + 2.2, 0.8, 0.018, 'blackMatte');
   }
   p.box(0, 0.2 + h * 0.6, -d / 2 - 0.01, 0.5, 0.35, 0.01, 'paintedYellow', 0xd8b020); // DANGER plate
@@ -2089,7 +2089,7 @@ export function checkInDesk(L, x, y, z, ry = 0, n = 2) {
     p.cyl(cx, 1.75, 0.3, 0.025, 1.3, 'metalClean', null, null, 8);
     p.box(cx, 2.4, 0.3, 0.8, 0.35, 0.06, 'metalDark', 0x1a1a1a);
     p.glow(cx, 2.4, 0.265, 0.72, 0.26, 0.01, drnd() < 0.5 ? 0x2a4a8a : 0x0c1018);
-    p.box(cx + 0.55, 0.55, -0.9, 0.35, 0.25, 0.01, 'plasticGloss', 0x0a0c10);
+    p.box(cx + 0.55, 0.55, -0.9, 0.35, 0.25, 0.01, 'plastic', 0x0a0c10);
   }
   // queue stanchions with belt
   for (let i = 0; i < n + 1; i++) {
@@ -2146,7 +2146,7 @@ export function suitcase(L, x, y, z, ry = 0, color, upright = drnd() < 0.5) {
     p.box(0, 0.13, 0, 0.63, 0.02, 0.45, 'plastic', new THREE.Color(c).multiplyScalar(0.6).getHex());
     p.box(0, 0.26, 0, 0.18, 0.02, 0.04, 'plastic', 0x1a1a1a);
   }
-  if (drnd() < 0.4) p.box(0.1, upright ? 0.75 : 0.26, upright ? 0.14 : 0.1, 0.05, 0.08, 0.005, 'paper', 0xe8d890); // tag
+  if (drnd() < 0.4) p.box(0.1, upright ? 0.75 : 0.26, upright ? 0.14 : 0.1, 0.05, 0.08, 0.005, 'plastic', 0xe8d890); // tag
   return p;
 }
 // Scattered pile of luggage (visual; small collider).
