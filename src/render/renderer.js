@@ -1,24 +1,76 @@
 // Renderer + post-processing chain.
-// World pass -> viewmodel pass (depth cleared) -> bloom -> tonemap -> grade (vignette,
-// grain, damage/bile/incap effects, chromatic aberration) -> FXAA.
+// World pass -> ambient occlusion (depth-only SSAO, medium/high) -> viewmodel
+// pass (depth cleared) -> bloom (mips only; blended in the grade) -> grade
+// (ACES tone map, bloom + lens dirt, chromatic aberration, lift/gamma/gain,
+// split toning, vignette, film grain, damage/bile/incap effects) -> FXAA.
 import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
-import { Pass } from 'three/examples/jsm/postprocessing/Pass.js';
+import { Pass, FullScreenQuad } from 'three/examples/jsm/postprocessing/Pass.js';
+
+// Procedural lens dirt: soft smudges, specks and a couple of wipe streaks.
+function lensDirtTexture() {
+  const W = 512, H = 288;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  let s = 9127;
+  const r = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 38; i++) { // large smudges
+    const x = r() * W, y = r() * H, rad = 20 + r() * 70;
+    const gr = g.createRadialGradient(x, y, 0, x, y, rad);
+    const a = 0.05 + r() * 0.12;
+    gr.addColorStop(0, `rgba(255,250,240,${a})`); gr.addColorStop(0.6, `rgba(255,250,240,${a * 0.4})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+  }
+  for (let i = 0; i < 260; i++) { // dust specks
+    const x = r() * W, y = r() * H, rad = 0.6 + r() * r() * 5;
+    const gr = g.createRadialGradient(x, y, 0, x, y, rad);
+    const a = 0.2 + r() * 0.5;
+    gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+  }
+  g.lineCap = 'round';
+  for (let i = 0; i < 5; i++) { // wipe streaks
+    g.strokeStyle = `rgba(255,248,235,${0.03 + r() * 0.04})`;
+    g.lineWidth = 8 + r() * 18;
+    g.beginPath();
+    const x0 = r() * W, y0 = r() * H;
+    g.moveTo(x0, y0);
+    g.quadraticCurveTo(x0 + (r() - 0.5) * 300, y0 + (r() - 0.5) * 120, x0 + (r() - 0.5) * 420, y0 + (r() - 0.5) * 160);
+    g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.NoColorSpace;
+  return t;
+}
 
 const GradeShader = {
   uniforms: {
     tDiffuse: { value: null },
+    tBloom: { value: null },
+    tDirt: { value: null },
+    bloomOn: { value: 0 },
+    dirtAmount: { value: 1.4 },
+    exposure: { value: 1 },
     time: { value: 0 },
-    vignette: { value: 0.45 },
-    grain: { value: 0.06 },
-    saturation: { value: 0.85 },
-    contrast: { value: 1.08 },
+    vignette: { value: 0.42 },
+    grain: { value: 0.035 },
+    saturation: { value: 0.88 },
+    contrast: { value: 1.06 },
     tint: { value: new THREE.Vector3(1, 1, 1) },
+    lift: { value: new THREE.Vector3(0.012, 0.016, 0.026) },
+    gamma: { value: new THREE.Vector3(1.0, 1.0, 1.0) },
+    gain: { value: new THREE.Vector3(1.03, 1.0, 0.96) },
+    shadowTone: { value: new THREE.Vector3(0.88, 0.97, 1.12) },
+    highTone: { value: new THREE.Vector3(1.08, 1.0, 0.88) },
+    splitAmount: { value: 0.55 },
+    caBase: { value: 0.0016 },
     flashColor: { value: new THREE.Vector3(1, 0, 0) },
     flash: { value: 0 },
     chroma: { value: 0.0 },
@@ -35,42 +87,68 @@ const GradeShader = {
     void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
   `,
   fragmentShader: /* glsl */ `
-    uniform sampler2D tDiffuse;
-    uniform float time, vignette, grain, saturation, contrast, flash, chroma, lowHealth, bile, bw, fade, blur, smoke;
-    uniform vec3 tint, flashColor;
+    uniform sampler2D tDiffuse, tBloom, tDirt;
+    uniform float bloomOn, dirtAmount, exposure;
+    uniform float time, vignette, grain, saturation, contrast, flash, chroma, lowHealth, bile, bw, fade, blur, smoke, splitAmount, caBase;
+    uniform vec3 tint, flashColor, lift, gamma, gain, shadowTone, highTone;
     uniform vec2 resolution;
     varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
     float noise(vec2 p){ vec2 i=floor(p); vec2 f=fract(p); f=f*f*(3.0-2.0*f);
       return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }
+    vec3 RRTAndODTFit(vec3 v){ vec3 a = v*(v+0.0245786)-0.000090537; vec3 b = v*(0.983729*v+0.4329510)+0.238081; return a/b; }
+    vec3 aces(vec3 c){
+      const mat3 IM = mat3(vec3(0.59719,0.07600,0.02840), vec3(0.35458,0.90834,0.13383), vec3(0.04823,0.01566,0.83777));
+      const mat3 OM = mat3(vec3(1.60475,-0.10208,-0.00327), vec3(-0.53108,1.10813,-0.07276), vec3(-0.07367,-0.00605,1.07602));
+      c *= exposure / 0.6;
+      c = IM * c; c = RRTAndODTFit(c); c = OM * c;
+      return clamp(c, 0.0, 1.0);
+    }
+    vec3 toSRGB(vec3 c){ return mix(c * 12.92, pow(c, vec3(0.41666)) * 1.055 - 0.055, step(0.0031308, c)); }
+    vec3 hdrAt(vec2 uv){
+      vec3 c = texture2D(tDiffuse, uv).rgb;
+      if (bloomOn > 0.5) {
+        vec3 b = texture2D(tBloom, uv).rgb;
+        float d = texture2D(tDirt, uv).r;
+        c += b * (1.0 + d * dirtAmount);
+      }
+      return c;
+    }
     void main(){
       vec2 uv = vUv;
-      vec2 c = uv - 0.5;
-      float r2 = dot(c,c);
-      // bile / smoke warp
-      if (bile > 0.0) {
-        uv += vec2(noise(uv*6.0 + time*0.6), noise(uv*6.0 - time*0.5)) * 0.012 * bile;
-      }
+      vec2 cc = uv - 0.5;
+      float r2 = dot(cc,cc);
+      if (bile > 0.0) uv += vec2(noise(uv*6.0 + time*0.6), noise(uv*6.0 - time*0.5)) * 0.012 * bile;
+      // chromatic aberration grows toward the frame edges
+      float ca = caBase * (0.35 + r2 * 3.0) + chroma * 0.012;
       vec3 col;
-      float ca = chroma * 0.012 + 0.0012;
-      col.r = texture2D(tDiffuse, uv + c * ca).r;
-      col.g = texture2D(tDiffuse, uv).g;
-      col.b = texture2D(tDiffuse, uv - c * ca).b;
+      if (ca > 0.0004) {
+        col.r = hdrAt(uv + cc * ca).r;
+        col.g = hdrAt(uv).g;
+        col.b = hdrAt(uv - cc * ca).b;
+      } else col = hdrAt(uv);
       if (blur > 0.0) {
         vec3 acc = col;
         for (int i = 0; i < 6; i++) {
           float a = float(i) * 1.047;
-          acc += texture2D(tDiffuse, uv + vec2(cos(a), sin(a)) * blur * 0.01).rgb;
+          acc += hdrAt(uv + vec2(cos(a), sin(a)) * blur * 0.01);
         }
         col = acc / 7.0;
       }
-      // contrast & saturation
+      col = aces(col);
+      // lift / gamma / gain (display-linear)
+      col = pow(max(col * gain + lift * (1.0 - col), 0.0), 1.0 / gamma);
+      // split toning: cool shadows, warm highlights
+      float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+      float hk = smoothstep(0.08, 0.6, lum);
+      vec3 tone = mix(shadowTone, highTone, hk);
+      col = mix(col, col * tone, splitAmount);
+      col = toSRGB(col);
+      // contrast (s-curve around mid grey) & saturation
       col = (col - 0.5) * contrast + 0.5;
       float l = dot(col, vec3(0.299, 0.587, 0.114));
-      float sat = saturation * (1.0 - bw);
-      col = mix(vec3(l), col, sat);
+      col = mix(vec3(l), col, saturation * (1.0 - bw));
       col *= tint;
-      // bile: sickly green overlay with streaks
       if (bile > 0.0) {
         float n = noise(vec2(uv.x*14.0, uv.y*3.0 - time*0.4));
         vec3 g = vec3(0.35, 0.45, 0.08) * (0.6 + n*0.6);
@@ -81,24 +159,167 @@ const GradeShader = {
         float n = noise(uv*4.0 + time*0.2);
         col = mix(col, vec3(0.35,0.36,0.33)*(0.8+n*0.4), smoke*0.8);
       }
-      // low health red pulse on edges
       if (lowHealth > 0.0) {
         float p = 0.6 + 0.4 * sin(time * 5.0);
         float e = smoothstep(0.08, 0.45, r2);
         col = mix(col, vec3(0.35, 0.0, 0.0), e * lowHealth * p * 0.8);
       }
-      // damage flash
       col = mix(col, flashColor, flash * smoothstep(0.02, 0.35, r2 + flash*0.1));
-      // vignette
-      col *= 1.0 - vignette * smoothstep(0.1, 0.75, r2 * 1.6);
-      // film grain
-      float gr = hash(uv * resolution + fract(time * 13.7) * 100.0) - 0.5;
-      col += gr * grain;
+      // vignette (slightly elliptical, film-like falloff)
+      vec2 vc = cc * vec2(1.0, 0.82);
+      col *= 1.0 - vignette * smoothstep(0.12, 0.8, dot(vc, vc) * 1.9);
+      // film grain: luminance-weighted, strongest in the mid-shadows
+      float lg = dot(col, vec3(0.299, 0.587, 0.114));
+      float gr = hash(uv * resolution + fract(time * 13.7) * 100.0) + hash(uv * resolution * 1.7 + fract(time * 7.1) * 50.0) - 1.0;
+      col += gr * grain * (0.55 + 0.9 * (1.0 - lg) * lg * 2.0);
       col *= 1.0 - fade;
       gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
     }
   `,
 };
+
+// ----------------------------------------------------------------------- AO --
+// Screen-space ambient obscurance from the world pass's depth buffer only (no
+// extra scene render, so no extra draw calls): half-res SAO-style spiral taps
+// with reconstructed normals, then a depth-aware blur + composite at full res.
+const AOShader = {
+  uniforms: {
+    tDepth: { value: null },
+    resolution: { value: new THREE.Vector2(1, 1) },
+    projInv: { value: new THREE.Matrix4() },
+    projScale: { value: 1 },
+    radius: { value: 0.55 },
+    bias: { value: 0.02 },
+    intensity: { value: 1.2 },
+    maxDist: { value: 45 },
+    frame: { value: 0 },
+  },
+  vertexShader: /* glsl */ `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+  fragmentShader: /* glsl */ `
+    uniform sampler2D tDepth;
+    uniform vec2 resolution;
+    uniform mat4 projInv;
+    uniform float projScale, radius, bias, intensity, maxDist, frame;
+    varying vec2 vUv;
+    #define TAPS 10
+    vec3 vpos(vec2 uv){ float d = texture2D(tDepth, uv).x; vec4 p = projInv * vec4(uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0); return p.xyz / p.w; }
+    void main(){
+      float d = texture2D(tDepth, vUv).x;
+      if (d >= 0.99999) { gl_FragColor = vec4(1.0); return; }
+      vec3 P = vpos(vUv);
+      if (-P.z > maxDist) { gl_FragColor = vec4(1.0); return; }
+      vec2 px = 1.0 / resolution;
+      vec3 pr = vpos(vUv + vec2(px.x, 0.0)), pl = vpos(vUv - vec2(px.x, 0.0));
+      vec3 pu = vpos(vUv + vec2(0.0, px.y)), pd = vpos(vUv - vec2(0.0, px.y));
+      vec3 dx = abs(pr.z - P.z) < abs(P.z - pl.z) ? pr - P : P - pl;
+      vec3 dy = abs(pu.z - P.z) < abs(P.z - pd.z) ? pu - P : P - pd;
+      vec3 N = normalize(cross(dx, dy));
+      // interleaved gradient noise rotates the spiral per pixel
+      float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+      float ssR = radius * projScale / -P.z; // radius in uv units (y)
+      ssR = min(ssR, 0.12);
+      float aspect = resolution.y / resolution.x;
+      float sum = 0.0;
+      float r2 = radius * radius;
+      for (int i = 0; i < TAPS; i++) {
+        float fi = float(i);
+        float alpha = (fi + 0.5 + ign * 0.5) / float(TAPS);
+        float ang = fi * 2.3999632 + ign * 6.2831853; // golden-angle spiral
+        vec2 o = vec2(cos(ang) * aspect, sin(ang)) * ssR * (alpha * 0.85 + 0.15);
+        vec3 Q = vpos(vUv + o);
+        vec3 v = Q - P;
+        float vv = dot(v, v);
+        float vn = dot(v, N);
+        float f = max(r2 - vv, 0.0);
+        sum += f * f * max((vn - bias - 0.0015 * -P.z) / (0.01 + vv), 0.0);
+      }
+      float ao = max(0.0, 1.0 - sum * intensity * 2.2 / (r2 * r2 * float(TAPS)));
+      ao = mix(ao, 1.0, smoothstep(maxDist * 0.6, maxDist, -P.z));
+      gl_FragColor = vec4(ao, ao, ao, 1.0);
+    }
+  `,
+};
+const AOCompositeShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    tAO: { value: null },
+    tDepth: { value: null },
+    aoRes: { value: new THREE.Vector2(1, 1) },
+    projInv: { value: new THREE.Matrix4() },
+    strength: { value: 0.85 },
+    debug: { value: 0 },
+  },
+  vertexShader: /* glsl */ `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+  fragmentShader: /* glsl */ `
+    uniform sampler2D tDiffuse, tAO, tDepth;
+    uniform vec2 aoRes;
+    uniform mat4 projInv;
+    uniform float strength, debug;
+    varying vec2 vUv;
+    float vz(vec2 uv){ float d = texture2D(tDepth, uv).x; vec4 p = projInv * vec4(uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0); return p.z / p.w; }
+    void main(){
+      vec4 c = texture2D(tDiffuse, vUv);
+      float z0 = vz(vUv);
+      vec2 px = 1.0 / aoRes;
+      float acc = 0.0, wsum = 0.0;
+      for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+        vec2 uv = vUv + vec2(float(x), float(y)) * px * 1.25;
+        float z = vz(uv);
+        float w = 1.0 / (0.002 + abs(z - z0) * 8.0 / max(0.5, -z0));
+        acc += texture2D(tAO, uv).r * w; wsum += w;
+      }
+      float ao = acc / wsum;
+      // bright (emissive / fire / lamp) pixels are not occluded
+      float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
+      ao = mix(ao, 1.0, smoothstep(0.9, 2.5, l));
+      ao = mix(1.0, ao, strength);
+      if (debug > 0.5) { gl_FragColor = vec4(vec3(ao), 1.0); return; }
+      gl_FragColor = vec4(c.rgb * ao, c.a);
+    }
+  `,
+};
+
+class AOPass extends Pass {
+  constructor(camera, scale = 0.5) {
+    super();
+    this.camera = camera;
+    this.scale = scale;
+    this.needsSwap = true;
+    this.aoRT = new THREE.WebGLRenderTarget(1, 1, { type: THREE.UnsignedByteType, depthBuffer: false, magFilter: THREE.LinearFilter, minFilter: THREE.LinearFilter });
+    this.aoMat = new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.clone(AOShader.uniforms), vertexShader: AOShader.vertexShader, fragmentShader: AOShader.fragmentShader, depthTest: false, depthWrite: false });
+    this.compMat = new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.clone(AOCompositeShader.uniforms), vertexShader: AOCompositeShader.vertexShader, fragmentShader: AOCompositeShader.fragmentShader, depthTest: false, depthWrite: false });
+    this.quad = new FullScreenQuad(null);
+    this.frame = 0;
+  }
+  setSize(w, h) {
+    const aw = Math.max(1, Math.round(w * this.scale)), ah = Math.max(1, Math.round(h * this.scale));
+    this.aoRT.setSize(aw, ah);
+    this.aoMat.uniforms.resolution.value.set(aw, ah);
+    this.compMat.uniforms.aoRes.value.set(aw, ah);
+  }
+  render(renderer, writeBuffer, readBuffer) {
+    const cam = this.camera;
+    const depth = readBuffer.depthTexture;
+    if (!depth) return;
+    const u = this.aoMat.uniforms;
+    u.tDepth.value = depth;
+    u.projInv.value.copy(cam.projectionMatrixInverse);
+    u.projScale.value = cam.projectionMatrix.elements[5] * 0.5;
+    u.frame.value = (this.frame++) % 64;
+    renderer.setRenderTarget(this.aoRT);
+    this.quad.material = this.aoMat;
+    this.quad.render(renderer);
+    const c = this.compMat.uniforms;
+    c.tDiffuse.value = readBuffer.texture;
+    c.tAO.value = this.aoRT.texture;
+    c.tDepth.value = depth;
+    c.projInv.value.copy(cam.projectionMatrixInverse);
+    renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
+    this.quad.material = this.compMat;
+    this.quad.render(renderer);
+  }
+  dispose() { this.aoRT.dispose(); this.aoMat.dispose(); this.compMat.dispose(); this.quad.dispose(); }
+}
 
 // Renders the viewmodel layer on top with cleared depth, without re-rendering shadow maps.
 class ViewmodelPass extends Pass {
@@ -134,6 +355,8 @@ export class Renderer {
     r.shadowMap.enabled = quality.shadows;
     r.shadowMap.type = THREE.PCFShadowMap;
     r.shadowMap.autoUpdate = false;
+    // Tone mapping happens in the grade pass (ACES); keep the exposure here so
+    // levels can keep setting renderer.r.toneMappingExposure.
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 1.0;
     r.outputColorSpace = THREE.SRGBColorSpace;
@@ -148,28 +371,43 @@ export class Renderer {
 
     const size = new THREE.Vector2();
     r.getDrawingBufferSize(size);
+    const useAO = quality.ao ?? !!quality.bloom;
     const rt = new THREE.WebGLRenderTarget(size.x, size.y, {
       type: THREE.HalfFloatType,
       samples: quality.msaa ? 4 : 0,
     });
+    if (useAO) {
+      rt.depthTexture = new THREE.DepthTexture(size.x, size.y);
+      rt.depthTexture.type = THREE.UnsignedIntType;
+    }
     this.composer = new EffectComposer(r, rt);
     this.worldPass = new RenderPass(this.scene, this.camera);
     this.composer.addPass(this.worldPass);
+    if (useAO) {
+      this.ao = new AOPass(this.camera, quality.aoScale ?? 0.5);
+      if (quality.aoStrength != null) this.ao.compMat.uniforms.strength.value = quality.aoStrength;
+      this.composer.addPass(this.ao);
+    }
     this.vmPass = new ViewmodelPass(this.scene, this.vmCamera);
     this.composer.addPass(this.vmPass);
     if (quality.bloom) {
-      this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.55, 0.5, 0.82);
+      this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.5, 0.55, 0.85);
+      // the grade pass adds the bloom (with lens dirt); skip the pass's own blend draw
+      this.bloom.blendMaterial.visible = false;
       this.composer.addPass(this.bloom);
     }
-    this.output = new OutputPass();
-    this.composer.addPass(this.output);
     this.grade = new ShaderPass(GradeShader);
     this.composer.addPass(this.grade);
+    this.fx = this.grade.uniforms;
+    this.fx.tDirt.value = lensDirtTexture();
+    if (this.bloom) {
+      this.fx.bloomOn.value = 1;
+      this.fx.tBloom.value = this.bloom.renderTargetsHorizontal[0].texture;
+    }
     if (!quality.msaa) {
       this.fxaa = new ShaderPass(FXAAShader);
       this.composer.addPass(this.fxaa);
     }
-    this.fx = this.grade.uniforms;
     this.resize();
     window.addEventListener('resize', () => this.resize());
   }
@@ -191,6 +429,8 @@ export class Renderer {
   }
   render(dt) {
     this.fx.time.value += dt;
+    this.fx.exposure.value = this.r.toneMappingExposure;
+    if (this.bloom) this.fx.tBloom.value = this.bloom.renderTargetsHorizontal[0].texture;
     this.vmCamera.position.copy(this.camera.position);
     this.vmCamera.quaternion.copy(this.camera.quaternion);
     this.vmCamera.updateMatrixWorld();

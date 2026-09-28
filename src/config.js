@@ -7,9 +7,9 @@ export const DIFFICULTY = {
 };
 
 export const QUALITY = {
-  low: { name: 'Low', pixelRatio: 0.75, shadows: false, bloom: false, msaa: false, lights: 4, particles: 0.5, maxCommons: 55, maxCorpses: 18, maxRagdolls: 8, texSize: 256, flowBudget: 9000, shadowMap: 512, moonShadow: false },
-  medium: { name: 'Medium', pixelRatio: 1, shadows: true, bloom: true, msaa: false, lights: 6, particles: 0.8, maxCommons: 85, maxCorpses: 32, maxRagdolls: 14, texSize: 512, flowBudget: 12000, shadowMap: 1024, moonShadow: true },
-  high: { name: 'High', pixelRatio: 1.5, shadows: true, bloom: true, msaa: true, lights: 8, particles: 1, maxCommons: 110, maxCorpses: 45, maxRagdolls: 20, texSize: 512, flowBudget: 16000, shadowMap: 1024, moonShadow: true },
+  low: { name: 'Low', pixelRatio: 0.75, shadows: false, bloom: false, msaa: false, lights: 4, particles: 0.5, maxCommons: 55, maxCorpses: 18, maxRagdolls: 8, texSize: 256, flowBudget: 9000, shadowMap: 512, moonShadow: false, ao: false, cones: false, clutter: 0.45, skyAnim: false },
+  medium: { name: 'Medium', pixelRatio: 1, shadows: true, bloom: true, msaa: false, lights: 6, particles: 0.8, maxCommons: 85, maxCorpses: 32, maxRagdolls: 14, texSize: 512, flowBudget: 12000, shadowMap: 1024, moonShadow: true, ao: true, aoScale: 0.5, aoStrength: 0.8, cones: true, clutter: 0.85, skyAnim: true },
+  high: { name: 'High', pixelRatio: 1.5, shadows: true, bloom: true, msaa: true, lights: 8, particles: 1, maxCommons: 110, maxCorpses: 45, maxRagdolls: 20, texSize: 512, flowBudget: 16000, shadowMap: 1024, moonShadow: true, ao: true, aoScale: 0.6, aoStrength: 0.9, cones: true, clutter: 1, skyAnim: true },
 };
 
 export const DEFAULT_SETTINGS = {
