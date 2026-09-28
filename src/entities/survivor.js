@@ -1,13 +1,15 @@
 // Survivor: shared state + simulation for human players and bots.
 // Movement physics, health / temporary health / incapacitation / revive,
-// inventory (primary, secondary, throwable, medkit, pills), actions
-// (heal, revive, use, throw, shove) and damage handling.
+// inventory (primary, secondary, throwable, slot 3: medkit / defibrillator /
+// upgrade pack, pills), actions (heal, revive, defib, deploy, use, throw,
+// shove), the chainsaw's engine and damage handling.
 import * as THREE from 'three';
 import { Weapon } from '../combat/weapon.js';
-import { WEAPONS, THROWABLES } from '../combat/weaponDefs.js';
+import { WEAPONS, THROWABLES, ITEMS, slot3Id } from '../combat/weaponDefs.js';
 import { clamp, damp, lerp, randRange, pick } from '../core/math.js';
 
 export const EYE_STAND = 1.62, EYE_CROUCH = 1.05, EYE_INCAP = 0.42;
+const _cp = new THREE.Vector3();
 
 export function newCmd() {
   return {
@@ -109,7 +111,7 @@ export class Survivor {
       case 0: return this.inv.primary ? this.inv.primary.type : null;
       case 1: return this.inv.secondary.type;
       case 2: return this.inv.throwable;
-      case 3: return this.inv.medkit ? 'medkit' : null;
+      case 3: return slot3Id(this.inv.medkit);
       case 4: return this.inv.pills;
     }
     return null;
@@ -118,7 +120,7 @@ export class Survivor {
     if (s === 0) return !!this.inv.primary;
     if (s === 1) return true;
     if (s === 2) return !!this.inv.throwable;
-    if (s === 3) return this.inv.medkit;
+    if (s === 3) return !!this.inv.medkit;
     if (s === 4) return !!this.inv.pills;
     return false;
   }
@@ -204,6 +206,7 @@ export class Survivor {
       }
     }
     this.shoving = Math.max(0, (this.shoving || 0) - dt);
+    this._updateSaw(dt);
     // Recoil recovery
     const w = this.weapon;
     const rr = w ? w.def.recoilRecover ?? 8 : 8;
@@ -353,9 +356,14 @@ export class Survivor {
     if (!held || this.pinned || (this.incapped && a.type !== 'selfRevive')) { this.cancelAction(); return; }
     if (a.target) {
       const t = a.target;
-      const d = t.pos.distanceTo(this.pos);
-      if (d > 2.4 || t.dead || (a.type === 'revive' && !t.incapped) || (a.type !== 'revive' && t.pinned)) { this.cancelAction(); return; }
+      if (a.type === 'defib') { // the target is a body: it must still be dead and in reach
+        if (!t.dead || t.corpsePos(_cp).distanceTo(this.pos) > 2.4) { this.cancelAction(); return; }
+      } else {
+        const d = t.pos.distanceTo(this.pos);
+        if (d > 2.4 || t.dead || (a.type === 'revive' && !t.incapped) || (a.type !== 'revive' && t.pinned)) { this.cancelAction(); return; }
+      }
     }
+    if ((a.type === 'defib' || a.type === 'deploy') && !this.inv.medkit) { this.cancelAction(); return; }
     a.t += dt;
     if (a.t >= a.dur) {
       this.action = null;
@@ -397,8 +405,118 @@ export class Survivor {
         if (a.usable && a.usable.onUse) a.usable.onUse(this);
         break;
       }
+      case 'defib': {
+        const t = a.target;
+        if (!t || !t.dead || this.inv.medkit !== 'defib') break;
+        this.inv.medkit = false;
+        t.beingRevived = null;
+        t.defibRevive(this);
+        this.stats.revives++;
+        g.audio.play('defibZap', { pos: t.pos, owner: this, vol: 1 });
+        g.onDefib?.(this, t);
+        g.onRevive?.(this, t);
+        if (this.slot === 3) this.selectSlot(this.bestSlot());
+        break;
+      }
+      case 'deploy': {
+        const type = ITEMS[slot3Id(this.inv.medkit)]?.upgrade;
+        if (!type) break;
+        const yaw = this.yaw;
+        const x = this.pos.x - Math.sin(yaw) * 0.75, z = this.pos.z - Math.cos(yaw) * 0.75;
+        if (g.items.deployUpgrade(type, x, this.pos.y, z, yaw, this)) {
+          this.inv.medkit = false;
+          g.onDeploy?.(this, type);
+          if (this.slot === 3) this.selectSlot(this.bestSlot());
+        }
+        break;
+      }
     }
     this.onEvent?.('actionDone', a);
+  }
+  // Where this survivor's body lies (the ragdoll's pelvis once dead).
+  corpsePos(out = new THREE.Vector3()) {
+    const b = this.model?.ragdoll && this.model.body;
+    if (this.dead && b) return out.set(b.jx(0), this.pos.y, b.jz(0));
+    return out.copy(this.pos);
+  }
+  // Start shocking a dead teammate back (hold fire with the defib out, or hold
+  // use on the body while carrying one).
+  startDefib(t, hold = 'fire') {
+    if (!t || !t.dead || this.inv.medkit !== 'defib' || this.action) return false;
+    if (this.slot !== 3) { const w = this.weapon; if (w) { w.cancelReload(); w.zoomed = false; } this.selectSlotForce(3); this.onEvent?.('draw', 3); }
+    this.startAction('defib', 3, { hold, immobile: true, target: t, label: 'Defibrillating ' + t.name, icon: 'defib' });
+    t.beingRevived = this;
+    this.game.audio.play('defibCharge', { pos: this.pos, owner: this, vol: 0.9 });
+    return true;
+  }
+  // nearest dead teammate whose body is within reach (and roughly in view)
+  deadMateNear(r = 1.9) {
+    let best = null, bd = r;
+    for (const o of this.game.survivors) {
+      if (o === this || !o.dead) continue;
+      const d = o.corpsePos(_cp).distanceTo(this.pos);
+      if (d < bd) { bd = d; best = o; }
+    }
+    return best;
+  }
+  // Brought back by a defibrillator: back on their feet where the body lay,
+  // 50 permanent health, no longer black-and-white (L4D2 rules).
+  defibRevive(by) {
+    const p = this.corpsePos(_cp);
+    const g = this.game;
+    const gy = g.level?.col.groundHeight(p.x, this.pos.y + 1, p.z, 3);
+    this.dead = false;
+    this.incapped = false;
+    this.pinned = null;
+    this.ledge = null;
+    this.health = 50;
+    this.temp = 0;
+    this.incapCount = 0;
+    this.incapHP = 300;
+    this.burning = 0;
+    this.bile = 0;
+    this.action = null;
+    this.beingRevived = null;
+    this.beingHealed = null;
+    this.stunT = 0.6;
+    this.teleport(p.x, gy > -1e8 ? gy : this.pos.y, p.z, this.yaw);
+    if (!this.inv.secondary) this.inv.secondary = new Weapon('pistol');
+    this.slot = this.inv.primary ? 0 : 1;
+    this.lastSlot = 1;
+    this.onEvent?.('defibbed', by);
+    this.onEvent?.('revived');
+  }
+  // Chainsaw engine: idles while it is out, screams while cutting; out of fuel
+  // it is dropped for a pistol (L4D2).
+  _updateSaw(dt) {
+    const w = this.inv?.secondary;
+    const on = !!(w && w.def.chainsaw && this.slot === 1 && !this.dead && !this.incapped && !this.usingMounted && w.fuel > 0);
+    const g = this.game;
+    if (on && !this._saw) {
+      g.audio.play('chainsawStart', { pos: this.pos, owner: this, vol: 0.9 });
+      this._saw = g.audio.loop('chainsawIdle', { pos: this.isHuman ? null : this.pos, vol: this.isHuman ? 0.55 : 0.8 });
+      this._sawCut = null;
+    } else if (!on && this._saw) this.stopSaw();
+    if (this._saw) {
+      const cut = w.cutting;
+      if (cut && !this._sawCut) this._sawCut = g.audio.loop('chainsawCut', { pos: this.isHuman ? null : this.pos, vol: this.isHuman ? 0.7 : 1 });
+      else if (!cut && this._sawCut) { this._sawCut.stop(0.15); this._sawCut = null; g.audio.play('chainsawWind', { pos: this.pos, owner: this, vol: 0.5 }); }
+      this._saw.set({ vol: (this.isHuman ? 0.55 : 0.8) * (cut ? 0.45 : 1), rate: cut ? 1.25 : 1, pos: this.isHuman ? undefined : this.pos });
+      if (this._sawCut && !this.isHuman) this._sawCut.set({ pos: this.pos });
+    }
+    if (w && w.def.chainsaw && w.fuel <= 0 && !this.dead) {
+      // out of gas: toss it, back to a pistol
+      this.stopSaw();
+      g.audio.play('chainsawStop', { pos: this.pos, owner: this, vol: 0.8 });
+      this.inv.secondary = new Weapon('pistol');
+      this.inv.secondary.drawT = 0.5;
+      if (this.slot === 1) this.onEvent?.('draw', 1);
+      if (this.isHuman) g.hud?.toast('The chainsaw is out of fuel');
+    }
+  }
+  stopSaw() {
+    if (this._saw) { this._saw.stop(0.25); this._saw = null; }
+    if (this._sawCut) { this._sawCut.stop(0.1); this._sawCut = null; }
   }
   // Items in slots 2..4
   _updateItemUse(dt) {
@@ -420,6 +538,12 @@ export class Survivor {
           this.selectSlot(this.bestSlot());
         }
       }
+    } else if (this.slot === 3 && this.inv.medkit === 'defib') {
+      // shock a dead teammate's body back to life (hold fire within reach of it)
+      if (c.fire) { const t = this.deadMateNear(1.9); if (t) this.startDefib(t, 'fire'); }
+    } else if (this.slot === 3 && ITEMS[this.inv.medkit]?.upgrade) {
+      // set the ammo crate down in front (hold fire)
+      if (c.fire) this.startAction('deploy', 1.3, { hold: 'fire', immobile: true, label: 'Deploying ' + ITEMS[this.inv.medkit].name, icon: this.inv.medkit });
     } else if (this.slot === 3 && this.inv.medkit) {
       if (c.fire) {
         if (this.health >= 100) return;
@@ -521,6 +645,7 @@ export class Survivor {
     this.health = 0;
     this.temp = 0;
     this.cancelAction();
+    this.stopSaw();
     if (this.pinned && this.pinned.release) this.pinned.release();
     this.pinned = null;
     this.onEvent?.('death', cause);

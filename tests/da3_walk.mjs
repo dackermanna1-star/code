@@ -37,11 +37,12 @@ export default async ({ page, evalg, wait, shot }) => {
       const use = door && useT <= 0;
       if (use) { useT = 1; if (door.locked) log.push('LOCKED DOOR on path at ' + door.cx + ',' + door.cy + ',' + door.cz); }
       if (!bar.isBlown() && p.pos.x > 130 && !bar.shot) { bar.shot = true; const c = bar.cans[0]; c.hit(c.x, c.y + 0.8, c.z, p.pos.clone().set(1, 0, 0), p); log.push(`t=${t.toFixed(0)} shot canister`); }
-      g.testCmd = { my: 1, usePressed: use, jump: stuckT > 0.8 && stuckT < 0.9 };
+      // unstick like a player would: hop, then side-step alternately while pushing on
+      g.testCmd = { my: 1, mx: stuckT > 2.5 ? (Math.floor(stuckT / 1.5) % 2 ? 1 : -1) : 0, usePressed: use, jump: stuckT > 0.8 && stuckT < 0.9 };
       g.advance(0.1);
       const prog = L.progressAt(p.pos.x, p.pos.y, p.pos.z);
       if (prog > lastProg + 0.002) { lastProg = prog; stuckT = 0; } else stuckT += 0.1;
-      if (stuckT > 10) { log.push(`STUCK at ${p.pos.toArray().map((v) => v.toFixed(1))} prog ${prog.toFixed(3)} blown=${bar.isBlown()} door=${door ? door.cx + ',' + door.cz + (door.locked ? ' locked' : '') : '-'}`); break; }
+      if (stuckT > 16) { log.push(`STUCK at ${p.pos.toArray().map((v) => v.toFixed(1))} prog ${prog.toFixed(3)} blown=${bar.isBlown()} door=${door ? door.cx + ',' + door.cz + (door.locked ? ' locked' : '') : '-'}`); break; }
       if (L.endSafe && L.inBox(L.endSafe, p.pos, 0)) { log.push(`REACHED END at t=${t.toFixed(0)}s prog ${prog.toFixed(3)}`); break; }
       if (Math.floor(t * 10) % 200 === 0) log.push(`t=${t.toFixed(0)} pos ${p.pos.toArray().map((v) => v.toFixed(1))} prog ${prog.toFixed(3)} hp ${p.hp | 0}`);
     }

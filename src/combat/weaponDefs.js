@@ -97,6 +97,25 @@ export const WEAPONS = {
     name: 'Machete', slot: 1, kind: 'melee', melee: true, damage: 200, interval: 0.62, windup: 0.1, range: 1.9, arc: 80,
     maxTargets: 4, knockback: 2.6, sound: 'machete', decap: 0.45, viewKick: 1.0, moveMult: 1,
   },
+  // swing: viewmodel swing set (viewmodel.js SWINGS); hit / wall: impact sounds (combat.melee)
+  katana: {
+    name: 'Katana', slot: 1, kind: 'melee', melee: true, damage: 250, interval: 0.56, windup: 0.08, range: 2.05, arc: 88,
+    maxTargets: 4, knockback: 2.4, sound: 'katana', decap: 0.7, viewKick: 0.8, moveMult: 1, swing: 'katana', hit: 'katanaHit', wall: 'meleeWallSharp',
+  },
+  baseballBat: {
+    name: 'Baseball Bat', slot: 1, kind: 'melee', melee: true, damage: 200, interval: 0.8, windup: 0.15, range: 1.95, arc: 95,
+    maxTargets: 4, knockback: 4.6, sound: 'bat', decap: 0.2, blunt: true, viewKick: 1.2, moveMult: 1, swing: 'bat', hit: 'batHit', wall: 'batWall',
+  },
+  fryingPan: {
+    name: 'Frying Pan', slot: 1, kind: 'melee', melee: true, damage: 175, interval: 0.7, windup: 0.12, range: 1.75, arc: 75,
+    maxTargets: 3, knockback: 3.6, sound: 'pan', decap: 0.1, blunt: true, viewKick: 1.1, moveMult: 1, swing: 'pan', hit: 'panClang', wall: 'panClang',
+  },
+  // Chainsaw: held fire revs and cuts continuously (a hit every `interval` s)
+  // while burning fuel; the engine idles while drawn. Empty -> dropped for a pistol.
+  chainsaw: {
+    name: 'Chainsaw', slot: 1, kind: 'melee', melee: true, chainsaw: true, auto: true, damage: 60, interval: 0.1, windup: 0, range: 1.75,
+    arc: 70, maxTargets: 6, knockback: 1.4, sound: 'chainsaw', decap: 0.5, viewKick: 0.25, moveMult: 0.95, fuel: 100, fuelBurn: 6.5,
+  },
 };
 
 export const THROWABLES = {
@@ -105,8 +124,13 @@ export const THROWABLES = {
   bile: { name: 'Bile Jar', slot: 2, kind: 'throwable', fuse: 0, sound: 'glass' },
 };
 
+// Slot 3 holds one of: first aid kit, defibrillator, or an upgrade pack
+// (inv.medkit === true for the kit, else the item id string).
 export const ITEMS = {
   medkit: { name: 'First Aid Kit', slot: 3 },
+  defib: { name: 'Defibrillator', slot: 3 },
+  upgradeIncendiary: { name: 'Incendiary Ammo', slot: 3, upgrade: 'incendiary' },
+  upgradeExplosive: { name: 'Explosive Ammo', slot: 3, upgrade: 'explosive' },
   pills: { name: 'Pain Pills', slot: 4 },
   adrenaline: { name: 'Adrenaline', slot: 4 },
 };
@@ -114,7 +138,12 @@ export const ITEMS = {
 // Tier-based weapon groups for random spawns.
 export const TIER1 = ['smg', 'pumpShotgun', 'silencedSmg', 'chromeShotgun'];
 export const TIER2 = ['rifle', 'autoShotgun', 'huntingRifle', 'scar'];
-export const MELEE = ['fireaxe', 'crowbar', 'machete'];
+export const MELEE = ['fireaxe', 'crowbar', 'machete', 'katana', 'baseballBat', 'fryingPan'];
+export const MELEE_RARE = ['chainsaw']; // rolled separately (see items.js spawnFromDesc)
+export const SLOT3 = ['medkit', 'defib', 'upgradeIncendiary', 'upgradeExplosive'];
+// World upgrades (not carried): laser sight box, deployed ammo crates
+export const UPGRADE_CRATE = { incendiary: 'crateIncendiary', explosive: 'crateExplosive' };
+export const slot3Id = (v) => (v === true ? 'medkit' : v || null);
 
 export function isWeapon(t) { return !!WEAPONS[t]; }
 export function isThrowable(t) { return !!THROWABLES[t]; }

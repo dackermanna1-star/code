@@ -74,7 +74,10 @@ export class Combat {
       this.noise(_eye.x, _eye.y, _eye.z, 40);
       return;
     }
-    // Pellets
+    // Pellets (upgrade rounds: incendiary sets infected alight, explosive rounds
+    // burst on impact; at most two blasts per shot so shotguns stay sane)
+    this._up = weapon.shotUp || null;
+    this._blasts = 0;
     const hitAgg = new Map(); // ent -> {dmg, part, zone, point, dir, n}
     for (let p = 0; p < d.pellets; p++) {
       coneSpread(_aim, spreadRad, _dir);
@@ -82,7 +85,9 @@ export class Combat {
     }
     for (const [ent, h] of hitAgg) {
       if (ent.takeHit) ent.takeHit(h);
+      if (this._up === 'incendiary' && ent.ignite && !ent.dead) ent.ignite(shooter);
     }
+    this._up = null;
     if (shooter.isHuman && hitAgg.size) g.onPlayerHit?.();
     // Effects
     const flashScale = d.kind === 'shotgun' ? 1.6 : d.kind === 'heavy' || d.kind === 'minigun' ? 1.3 : d.kind === 'pistol' ? 0.9 : 1;
@@ -159,6 +164,8 @@ export class Combat {
       // keep most severe part (head > limbs)
       if (h.zone === 'head' || (a.zone === 'torso' && h.zone !== 'torso')) { a.part = h.part; a.zone = h.zone; a.x = px; a.y = py; a.z = pz; }
       shooter.stats.hits++;
+      if (this._up === 'explosive' && this._blasts < 2 && !h.ent.isCorpse) { this._blasts++; this.miniBlast(px - dir.x * 0.15, py - dir.y * 0.15, pz - dir.z * 0.15, shooter, dir); }
+      else if (this._up === 'incendiary') g.fx.fire(px, py, pz, 0.35);
       // blood per pellet
       g.fx.blood(px, py, pz, dir.x * 0.6, dir.y * 0.6 + 0.1, dir.z * 0.6, d.kind === 'shotgun' ? 0.6 : 1);
       // exit wound splatter onto nearby wall behind
@@ -170,6 +177,8 @@ export class Combat {
     }
     if (pen > 0 && wallHit) {
       this.impactFx(wallHit, dir, true, true);
+      if (this._up === 'explosive' && this._blasts < 2) { this._blasts++; this.miniBlast(wallHit.x + wallHit.nx * 0.08, wallHit.y + wallHit.ny * 0.08, wallHit.z + wallHit.nz * 0.08, shooter, dir); }
+      else if (this._up === 'incendiary') { g.fx.sparks(wallHit.x, wallHit.y, wallHit.z, wallHit.nx, wallHit.ny, wallHit.nz, 5, [1, 0.55, 0.2], 4); g.fx.fire(wallHit.x, wallHit.y, wallHit.z, 0.25); }
       if (wallHit.owner && wallHit.owner.onShot) wallHit.owner.onShot(wallHit.x, wallHit.y, wallHit.z, dir, shooter);
       endT = wallT;
     }
@@ -249,6 +258,7 @@ export class Combat {
   melee(s, weapon) {
     const g = this.game;
     const d = weapon.def;
+    if (d.chainsaw) return this.sawCut(s, weapon);
     s.eye(_eye);
     s.aimDir(_aim);
     const arc = Math.cos(THREE.MathUtils.degToRad(d.arc / 2));
@@ -293,15 +303,90 @@ export class Combat {
       const h = g.level.col.raycast(_eye.x, _eye.y, _eye.z, _aim.x, _aim.y, _aim.z, d.range, F_SHOOT);
       if (h) {
         this.impactFx(h, _aim, false, false);
-        g.audio.play(d.blunt ? 'meleeWall' : 'meleeWallSharp', { pos: _v.set(h.x, h.y, h.z), vol: 0.8 });
+        g.audio.play(d.wall || (d.blunt ? 'meleeWall' : 'meleeWallSharp'), { pos: _v.set(h.x, h.y, h.z), vol: 0.8 });
+        if (d.wall === 'panClang' || !d.blunt) g.fx.sparks(h.x, h.y, h.z, h.nx, h.ny, h.nz, d.blunt ? 5 : 7, [1, 0.8, 0.5], 4);
         s.punchP += 0.03;
       }
     } else {
       g.audio.play(d.blunt ? 'meleeHitBlunt' : 'meleeHit', { pos: s.pos, vol: 1 });
+      if (d.hit) g.audio.play(d.hit, { pos: s.pos, vol: 1 });
       s.punchY += (Math.random() - 0.5) * 0.04;
     }
-    g.audio.play('swing', { pos: s.pos, vol: 0.6, owner: s });
+    g.audio.play(d.swing === 'katana' ? 'swingBlade' : d.swing === 'bat' || d.swing === 'pan' ? 'swingHeavy' : 'swing', { pos: s.pos, vol: 0.6, owner: s });
     this.noise(s.pos.x, s.pos.y, s.pos.z, 6);
+  }
+
+  // Chainsaw: called every def.interval while revved. Chews through everything
+  // in a short cone in front (limbs fly, heads come off), throws blood around,
+  // grinds sparks off walls. The engine sound is run by the survivor (survivor.js).
+  sawCut(s, weapon) {
+    const g = this.game;
+    const d = weapon.def;
+    s.eye(_eye);
+    s.aimDir(_aim);
+    const arc = Math.cos(THREE.MathUtils.degToRad(d.arc / 2));
+    let n = 0;
+    g.infected.forEachNear(s.pos.x, s.pos.z, d.range + 0.8, (e) => {
+      if (n >= d.maxTargets) return;
+      const cx = e.pos.x, cy = e.pos.y + (e.special ? e.height * 0.55 : 1.1), cz = e.pos.z;
+      const dx = cx - _eye.x, dy = cy - _eye.y, dz = cz - _eye.z;
+      const dl = Math.hypot(dx, dy, dz) || 1;
+      if (dl > d.range + (e.radius || 0.3)) return;
+      if ((dx * _aim.x + dy * _aim.y * 0.4 + dz * _aim.z) / dl < arc - 0.12) return;
+      if (e.dead) { e.ragdoll?.impulseAll(_aim.x * 1.5, 0.6, _aim.z * 1.5); return; }
+      if (!g.level.col.lineOfSight(_eye.x, _eye.y, _eye.z, cx, cy, cz)) return;
+      n++;
+      const hy = _eye.y + _aim.y * dl;
+      const headY = e.body ? e.body.jy(2) : e.pos.y + 1.6;
+      const head = Math.abs(hy - headY) < 0.3 && Math.random() < d.decap;
+      e.takeHit({
+        damage: d.damage * (e.special ? 0.8 : 1), part: head ? 1 : pick([0, 2, 3, 4, 5]), zone: head ? 'head' : 'torso', x: cx, y: hy, z: cz,
+        dir: _aim.clone(), attacker: s, weapon, kind: 'melee', knockback: d.knockback, decap: head, chainsaw: true,
+      });
+      g.fx.blood(cx - _aim.x * 0.2, hy, cz - _aim.z * 0.2, -_aim.x * 0.4 + (Math.random() - 0.5), 0.5 + Math.random() * 0.6, -_aim.z * 0.4 + (Math.random() - 0.5), 1.4);
+      if (Math.random() < 0.5) g.fx.bloodSpurt?.(cx, hy, cz, (Math.random() - 0.5) * 2, 1.2, (Math.random() - 0.5) * 2);
+      if (Math.random() < 0.3) this.bloodBehind(cx, hy, cz, _aim, 0.4 + Math.random() * 0.4);
+    });
+    const now = g.time;
+    if (n) {
+      if (now - (s._sawHitT || -9) > 0.22) { s._sawHitT = now; g.audio.play('chainsawFlesh', { pos: s.pos, owner: s, vol: 0.9 }); }
+      s.punchP += (Math.random() - 0.3) * 0.012; s.punchY += (Math.random() - 0.5) * 0.02;
+      if (s.isHuman) g.shake?.(0.08);
+    } else {
+      const h = g.level.col.raycast(_eye.x, _eye.y, _eye.z, _aim.x, _aim.y, _aim.z, d.range * 0.9, F_SHOOT);
+      if (h) {
+        g.fx.sparks(h.x, h.y, h.z, h.nx, h.ny, h.nz, 10, [1, 0.75, 0.35], 7);
+        if (Math.random() < 0.3) this.impactFx(h, _aim, Math.random() < 0.3, false);
+        if (now - (s._sawHitT || -9) > 0.25) { s._sawHitT = now; g.audio.play('chainsawGrind', { pos: _v.set(h.x, h.y, h.z), vol: 0.8 }); }
+        s.punchP += (Math.random() - 0.5) * 0.01;
+      }
+    }
+    this.noise(s.pos.x, s.pos.y, s.pos.z, 16, 'gun');
+  }
+  // Explosive round burst: kills / knocks down commons in a small radius,
+  // staggers specials, never hurts survivors.
+  miniBlast(x, y, z, owner, dir) {
+    const g = this.game;
+    g.fx.explosion(x, y, z, 0.22);
+    g.fx.sparks(x, y, z, -dir.x, -dir.y, -dir.z, 7, [1, 0.72, 0.35], 5);
+    g.lights.flash(x, y, z, 0xffa050, 14, 5, 0.08);
+    g.audio.play('explosiveRound', { pos: _v.set(x, y, z), vol: 0.9 });
+    const R = 1.7;
+    g.infected.forEachNear(x, z, R + 0.6, (e) => {
+      const ey = e.pos.y + (e.special ? (e.height || 1.7) * 0.5 : 1);
+      const dd = Math.hypot(e.pos.x - x, ey - y, e.pos.z - z);
+      if (dd > R) return;
+      const k = 1 - dd / R;
+      const dx = (e.pos.x - x) / (dd || 1), dz = (e.pos.z - z) / (dd || 1);
+      if (e.dead) { e.ragdoll?.impulseAll(dx * 5 * k, 3 * k, dz * 5 * k); return; }
+      e.takeHit({
+        damage: (e.special ? 30 : 45) * (0.45 + 0.55 * k), part: 0, zone: 'torso', x: e.pos.x, y: ey, z: e.pos.z,
+        dir: new THREE.Vector3(dx, 0.5, dz).normalize(), attacker: owner, kind: 'explosion', knockback: 3 + 6 * k, explosion: true, gib: k > 0.75 && Math.random() < 0.25,
+      });
+    });
+    const pd = g.player ? Math.hypot(g.player.pos.x - x, g.player.pos.z - z) : 99;
+    if (pd < 6) g.shake?.(0.12 * (1 - pd / 6) + 0.04);
+    this.noise(x, y, z, 22);
   }
 
   // ------------------------------------------------------ friendly helpers --

@@ -452,6 +452,14 @@ export class Common extends Agent {
       }
     } else if (h.zone === 'head' && (dmg >= 100 || h.decap || (h.kind === 'bullet' && h.weapon && h.weapon.def.kind === 'shotgun' && h.pellets >= 3))) {
       this.sever(PART.head, dir, 4, true);
+    } else if (h.chainsaw) {
+      // chainsaw: torn apart (head and / or a couple of limbs, sometimes everything)
+      if (Math.random() < 0.12) { this.gibAll(dir, 5); gibbed = true; }
+      else {
+        if (h.decap || Math.random() < 0.35) this.sever(PART.head, dir, 2.5, Math.random() < 0.5);
+        const limbs = [PART.uarmL, PART.uarmR, PART.farmL, PART.farmR, PART.thighL, PART.thighR];
+        for (let i = 0, n = 1 + (Math.random() * 2 | 0); i < n; i++) this.sever(pick(limbs), dir, 3);
+      }
     } else if (h.kind === 'melee' && h.decap && Math.random() < 0.7) {
       this.sever(PART.head, dir, 3, true);
     } else if (h.kind === 'melee' && Math.random() < 0.45) {

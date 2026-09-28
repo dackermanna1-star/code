@@ -1,17 +1,24 @@
-// World pickups (weapons, ammo piles, medkits, pills, throwables, melee) and
-// the generic "usable" interaction system (doors, buttons, radios, items).
+// World pickups (weapons, ammo piles, medkits, defibrillators, upgrade packs,
+// pills, throwables, melee), world upgrades (laser sight boxes, deployed
+// incendiary / explosive ammo crates) and the generic "usable" interaction
+// system (doors, buttons, radios, items, defibrillating a body).
 import * as THREE from 'three';
 import { cloneModel } from '../combat/weaponModels.js';
-import { WEAPONS, THROWABLES, TIER1, TIER2, MELEE } from '../combat/weaponDefs.js';
+import { WEAPONS, THROWABLES, ITEMS, TIER1, TIER2, MELEE, MELEE_RARE, UPGRADE_CRATE, slot3Id } from '../combat/weaponDefs.js';
 import { materials } from '../render/materials.js';
 import { pick, rand } from '../core/math.js';
 
 const NAMES = {
   ammo: 'Ammo', medkit: 'First Aid Kit', pills: 'Pain Pills', adrenaline: 'Adrenaline', molotov: 'Molotov', pipebomb: 'Pipe Bomb', bile: 'Bile Jar',
+  defib: 'Defibrillator', upgradeIncendiary: 'Incendiary Ammo', upgradeExplosive: 'Explosive Ammo', laserSight: 'Laser Sights',
+  crateIncendiary: 'Incendiary Ammo', crateExplosive: 'Explosive Ammo',
 };
+const CRATE_KIND = { crateIncendiary: 'incendiary', crateExplosive: 'explosive' };
 export function itemName(type) {
-  return NAMES[type] || WEAPONS[type]?.name || type;
+  return NAMES[type] || WEAPONS[type]?.name || ITEMS[type]?.name || type;
 }
+// random melee weapon for a 'melee' / 'secondary' spot (the chainsaw is rare)
+const meleeRoll = () => (Math.random() < 0.08 ? pick(MELEE_RARE) : pick(MELEE));
 
 function ammoPileModel() {
   const g = new THREE.Group();
@@ -53,16 +60,21 @@ export class ItemManager {
     const def = WEAPONS[type];
     const yaw = opts.yaw ?? Math.random() * 6.28;
     // lay weapons on their side
-    if (def && !def.melee) { mesh.rotation.set(0, yaw, Math.PI / 2); mesh.position.set(x, y + 0.035, z); }
-    else if (def && def.melee) { mesh.rotation.set(Math.PI / 2, yaw, 0); mesh.position.set(x, y + 0.03, z); }
-    else if (type === 'medkit') { mesh.rotation.set(-Math.PI / 2, 0, yaw); mesh.position.set(x, y + 0.045, z); }
+    if (def && def.chainsaw) { mesh.rotation.set(0, yaw, 0); mesh.position.set(x, y + 0.1, z); }
+    else if (def && !def.melee) { mesh.rotation.set(0, yaw, Math.PI / 2); mesh.position.set(x, y + 0.035, z); }
+    else if (type === 'katana' || type === 'fryingPan') { mesh.rotation.set(0, yaw, Math.PI / 2); mesh.position.set(x, y + (type === 'katana' ? 0.016 : 0.022), z); }
+    else if (def && def.melee) { mesh.rotation.set(Math.PI / 2, yaw, 0); mesh.position.set(x, y + (type === 'baseballBat' ? 0.035 : 0.03), z); }
+    else if (type === 'medkit' || ITEMS[type]) { mesh.rotation.set(-Math.PI / 2, 0, yaw); mesh.position.set(x, y + (type === 'medkit' ? 0.045 : 0.055), z); }
+    else if (CRATE_KIND[type] || type === 'laserSight') { mesh.rotation.set(0, yaw, 0); mesh.position.set(x, y + 0.005, z); }
     else if (type === 'pills' || type === 'adrenaline') { mesh.rotation.set(0, yaw, 0); mesh.position.set(x, y + 0.05, z); }
     else if (THROWABLES[type]) { mesh.rotation.set(0, yaw, 0); mesh.position.set(x, y + (type === 'pipebomb' ? 0.03 : 0.07), z); if (type === 'pipebomb') mesh.rotation.z = Math.PI / 2; }
     else mesh.position.set(x, y, z);
     g.level.addObject(mesh);
     const it = {
-      type, pos: new THREE.Vector3(x, y + 0.1, z), mesh, taken: false, infinite: type === 'ammo' || !!opts.infinite, count: opts.count ?? 1,
-      weapon: def ? { clip: opts.clip, reserve: opts.reserve } : null,
+      type, pos: new THREE.Vector3(x, y + (CRATE_KIND[type] || type === 'laserSight' ? 0.25 : 0.1), z), mesh, taken: false,
+      infinite: type === 'ammo' || type === 'laserSight' || !!opts.infinite, count: opts.count ?? 1,
+      weapon: def ? (opts.weapon || { clip: opts.clip, reserve: opts.reserve }) : null,
+      crate: CRATE_KIND[type] ? { kind: CRATE_KIND[type], took: new Set() } : null,
     };
     this.items.push(it);
     return it;
@@ -89,11 +101,48 @@ export class ItemManager {
     else if (type === 'tier1') type = pick(TIER1);
     else if (type === 'tier2') type = pick(TIER2);
     else if (type === 'throwable') type = pick(['molotov', 'pipebomb', 'pipebomb', 'molotov', 'bile']);
-    else if (type === 'melee') type = pick(MELEE);
-    else if (type === 'secondary') type = Math.random() < 0.6 ? pick(MELEE) : Math.random() < 0.5 ? 'pistol' : 'magnum';
+    else if (type === 'melee') type = meleeRoll();
+    else if (type === 'secondary') type = Math.random() < 0.6 ? meleeRoll() : Math.random() < 0.5 ? 'pistol' : 'magnum';
+    // L4D2 item mix: a kit spot sometimes holds a defibrillator or an upgrade pack
+    if (type === 'medkit' && sp.type === 'health') {
+      const r = Math.random();
+      if (r < 0.14) type = 'defib';
+      else if (r < 0.24) type = Math.random() < 0.5 ? 'upgradeIncendiary' : 'upgradeExplosive';
+    }
     if (Math.random() > chance) return;
     const n = sp.count || 1;
     for (let i = 0; i < n; i++) this.spawn(type, sp.x + (n > 1 ? (i - (n - 1) / 2) * 0.35 : 0), sp.y, sp.z + (n > 1 ? Math.sin(i * 1.7) * 0.08 : 0), { yaw: sp.yaw });
+    // laser sights turn up beside some ammo piles and weapon caches
+    if ((sp.type === 'ammo' || sp.type === 'tier2') && Math.random() < (sp.type === 'ammo' ? 0.16 : 0.12) && !this.laserCount) this.spawnBeside('laserSight', sp);
+  }
+  // spawn next to a spot on the same surface (probes a few offsets for level, open floor)
+  spawnBeside(type, sp) {
+    const col = this.game.level?.col;
+    if (!col) return null;
+    for (let i = 0; i < 8; i++) {
+      const a = (sp.yaw || 0) + Math.PI / 2 + i * Math.PI / 4, r = 0.55 + (i % 2) * 0.15;
+      const x = sp.x + Math.cos(a) * r, z = sp.z - Math.sin(a) * r;
+      const gy = col.groundHeight(x, sp.y + 0.4, z, 1);
+      if (!(Math.abs(gy - sp.y) < 0.04)) continue;
+      // footprint must be flat too (not hanging off a table edge)
+      let flat = true;
+      for (const [ox, oz] of [[0.14, 0.1], [-0.14, 0.1], [0.14, -0.1], [-0.14, -0.1]]) if (!(Math.abs(col.groundHeight(x + ox, sp.y + 0.4, z + oz, 1) - sp.y) < 0.04)) flat = false;
+      if (!flat || !col.lineOfSight(sp.x, sp.y + 0.2, sp.z, x, sp.y + 0.2, z)) continue;
+      const it = this.spawn(type, x, gy, z, { yaw: a });
+      if (it && type === 'laserSight') this.laserCount = (this.laserCount || 0) + 1;
+      return it;
+    }
+    return null;
+  }
+  // an upgrade pack set down: an open crate every survivor may load from once
+  deployUpgrade(kind, x, y, z, yaw, by) {
+    const col = this.game.level?.col;
+    let gy = col ? col.groundHeight(x, y + 0.5, z, 1.5) : y;
+    if (!(gy > -1e8) || Math.abs(gy - y) > 0.6) { x = by?.pos.x ?? x; z = by?.pos.z ?? z; gy = y; } // no floor ahead: at the feet
+    const it = this.spawn(UPGRADE_CRATE[kind], x, gy, z, { yaw: yaw + Math.PI });
+    if (!it) return null;
+    this.game.audio.play('upgradeDeploy', { pos: it.pos, vol: 1 });
+    return it;
   }
   near(pos, r) {
     const out = [];

@@ -10,16 +10,16 @@ export default async ({ page, evalg, wait, shot }) => {
   let views = [
     ['a_safe', 6.6, 0.3, 6.6, P * 0.75, -0.05],
     ['b_kessler', 57, 0, 2, -P / 2, 0.02],
-    ['c_frontyard', 72, 0, -2, -P / 2 - 0.35, 0.05],
-    ['d_level2', 112, 4.4, -18, -P / 2 - 0.2, 0.0],
-    ['e_barricade', 134, 0, -1, -P / 2, 0.02],
+    ['c_frontyard', 71, 0, 5.5, -1.4, 0.05],
+    ['d_level2', 104, 4.4, -16, -1.2, 0.0],
+    ['e_barricade', 139, 0, -1.5, -1.45, 0.05],
     ['g_alley', 163.5, 0, -3, -P / 2, 0.0],
     ['h_workshop', 201.2, 0.15, 12.2, -P / 2 - 0.2, 0.0],
     ['i_plant', 234, 0, 14, -P / 2 + 0.35, 0.08],
     ['j_garage', 279, 0, 2, -P * 0.75, 0.0],
     ['k_alarm', 307, 3.4, 12, 0.05, 0.0],
     ['l_p2', 283, 6.8, -11, -P / 2 - 0.3, 0.0],
-    ['m_skybridge', 312.6, 6.8, -1, -P / 2, 0.0],
+    ['m_skybridge', 314, 6.8, -1, -P / 2, 0.0],
     ['n_end', 335.4, 6.8, 2.2, -P * 0.62, -0.05],
   ];
   if (process.env.VIEWS) views = process.env.VIEWS.split(';').map((v) => { const a = v.split(','); return [a[0], ...a.slice(1).map(Number)]; });
