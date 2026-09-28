@@ -190,7 +190,7 @@ export class HUD {
     }
     mates.forEach((s, i) => {
       const r = this.teamRows[i];
-      r.nameEl.textContent = s.name;
+      r.nameEl.textContent = s.netName ? s.name + " · " + s.netName : s.name;
       r.nameEl.style.color = s.char.color;
       const tot = s.health + s.temp;
       const col = s.incapped ? '#d02020' : tot > 39 ? '#4ec04e' : tot > 24 ? '#e0c030' : '#d02020';
@@ -209,6 +209,7 @@ export class HUD {
     if (w) {
       this.wname.textContent = w.name;
       if (w.def.melee) this.wammo.innerHTML = '';
+      else if (p.usingMounted) { const m = p.usingMounted; this.wammo.innerHTML = `<div style="width:160px;height:10px;border:1px solid #aaa;display:inline-block;background:#111"><div style="height:100%;width:${Math.round(m.heat * 100)}%;background:${m.overheated > 0 ? '#e03020' : 'linear-gradient(90deg,#e0c030,#e05020)'}"></div></div><span style="font-size:13px">HEAT</span>`; }
       else if (w.def.noReload) this.wammo.innerHTML = `<b>${w.clip}</b>`;
       else this.wammo.innerHTML = `<b class="${w.clip === 0 ? 'empty' : w.clip <= w.maxClip * 0.25 ? 'low' : ''}">${w.clip}</b><span>/ ${w.reserve === Infinity ? '∞' : w.reserve}</span>`;
     } else {

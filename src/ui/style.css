@@ -118,3 +118,15 @@ canvas#game { display: block; position: fixed; inset: 0; width: 100vw; height: 1
 @keyframes roll { to { top: -220%; } }
 .credits h3 { font-family: Impact, 'Arial Black', sans-serif; font-size: 36px; letter-spacing: 6px; margin: 60px 0 12px; }
 .credits p { font-size: 16px; opacity: 0.8; margin: 6px; }
+
+/* cutscene letterbox */
+.letterbox { position: absolute; inset: 0; pointer-events: none; z-index: 40; }
+.letterbox > div { position: absolute; left: 0; right: 0; height: 0; background: #000; transition: height 1.2s ease; }
+.letterbox > div:first-child { top: 0; }
+.letterbox > div:last-child { bottom: 0; }
+.letterbox.on > div { height: 11vh; }
+.hud.cine > *:not(.subs) { display: none !important; }
+.hud.cine { z-index: 41; }
+.hud.cine .subs { bottom: 13vh; }
+.chapters button.sel { color: #fff; text-shadow: 0 0 10px rgba(240,192,64,.7); }
+.chapters button.sel::before { content: '▸ '; color: #f0c040; }

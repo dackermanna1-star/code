@@ -23,6 +23,10 @@ export function dampAngle(a, b, lambda, dt) {
 }
 
 // Deterministic PRNG (mulberry32) so procedural content is stable between runs.
+// Every generator is registered so level builds can rewind them (resetRngs)
+// and produce identical worlds on every build / every co-op peer.
+const RNGS = [];
+export function resetRngs() { for (const f of RNGS) f.reset(); }
 export function makeRng(seed = 1) {
   let s = seed >>> 0;
   const f = () => {
@@ -37,10 +41,12 @@ export function makeRng(seed = 1) {
   f.pick = (arr) => arr[Math.floor(f() * arr.length)];
   f.chance = (p) => f() < p;
   f.sign = () => (f() < 0.5 ? -1 : 1);
+  f.reset = () => { s = seed >>> 0; };
+  if (RNGS.length < 256) RNGS.push(f);
   return f;
 }
 
-export const rand = Math.random;
+export const rand = () => Math.random();
 export const randRange = (a, b) => a + (b - a) * Math.random();
 export const randInt = (a, b) => Math.floor(a + (b - a + 1) * Math.random());
 export const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];

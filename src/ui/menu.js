@@ -1,7 +1,9 @@
 // Menu screens (DOM). All callbacks are provided by the session.
 import { CHARACTERS, ORDER } from '../entities/characters.js';
 import { DIFFICULTY, QUALITY } from '../config.js';
+import { defaultRelayUrl } from '../net/link.js';
 
+const escapeHtml = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const h = (html) => { const d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstElementChild; };
 
 const TIPS = [
@@ -141,22 +143,74 @@ export class Menu {
     this.btn(n, '#m-back', back);
   }
   coop() {
+    const st = this.s.settings;
+    const inp = 'style="width:280px;background:#111;color:#ddd;border:1px solid #444;padding:5px"';
     const n = this.show(h(`<div class="menu">
       <h2>CO-OP</h2>
-      <div class="help">Online co-op uses a lightweight relay server shipped with the game (<span class="key">npm run server</span>).<br>
-      One player hosts the simulation; up to three friends join and replace AI survivors. Empty slots are always filled by AI bots.<br><br>
-      <div class="row"><label>Relay server</label><input id="c-url" style="width:260px;background:#111;color:#ddd;border:1px solid #444;padding:4px" value="${this.s.settings.relay || 'ws://localhost:8787'}"></div>
-      <div class="row"><label>Room code</label><input id="c-room" style="width:120px;background:#111;color:#ddd;border:1px solid #444;padding:4px" value="${Math.random().toString(36).slice(2, 7).toUpperCase()}"></div>
-      <div id="c-status" style="opacity:.8"></div>
+      <div class="help">One player hosts the game; up to three friends join with the room code and take over AI survivors.
+      Empty slots are always filled by bots, and a bot steps in if a player drops.<br>
+      The relay runs inside <span class="key">npm run dev</span> / <span class="key">npm run preview</span>, or standalone with <span class="key">npm run server</span>.<br><br>
+      <div class="row"><label>Your name</label><input id="c-name" ${inp} maxlength="24" value="${escapeHtml(st.netName || 'Survivor')}"></div>
+      <div class="row"><label>Relay server</label><input id="c-url" ${inp} value="${escapeHtml(st.relay || defaultRelayUrl())}"></div>
+      <div class="row"><label>Room code</label><input id="c-room" ${inp.replace('280px', '120px')} maxlength="4" placeholder="ABCD" style="text-transform:uppercase"></div>
+      <div id="c-status" style="opacity:.85;min-height:1.4em;color:#e0b060"></div>
       </div>
       <button id="c-host">Host game</button>
       <button id="c-join">Join game</button>
       <button id="m-back">Back</button>
     </div>`));
     const status = n.querySelector('#c-status');
-    this.btn(n, '#c-host', () => this.s.coopHost(n.querySelector('#c-url').value, n.querySelector('#c-room').value, (t) => (status.textContent = t)));
-    this.btn(n, '#c-join', () => this.s.coopJoin(n.querySelector('#c-url').value, n.querySelector('#c-room').value, (t) => (status.textContent = t)));
+    const v = (id) => n.querySelector(id).value.trim();
+    this.btn(n, '#c-host', () => this.s.coopHost(v('#c-url'), v('#c-name') || 'Host', (t) => (status.textContent = t)));
+    this.btn(n, '#c-join', () => this.s.coopJoin(v('#c-url'), v('#c-room').toUpperCase(), v('#c-name') || 'Player', (t) => (status.textContent = t)));
     this.btn(n, '#m-back', () => this.main());
+  }
+  coopLobby(host) {
+    const st = this.s.settings;
+    let chapter = 0;
+    const render = () => {
+      if (this.s.net !== host || this.s.state !== 'menu') return;
+      const players = [{ name: host.name + ' (host)', char: st.character }, ...[...host.peers.values()].map((p) => ({ name: p.name, char: p.char }))];
+      const rows = ORDER.map((id) => {
+        const pl = players.find((x) => x.char === id);
+        const c = CHARACTERS[id];
+        return `<tr><td style="color:${c.color}">${c.name}</td><td>${pl ? escapeHtml(pl.name) : '<span style="opacity:.5">AI bot</span>'}</td></tr>`;
+      }).join('');
+      const n = this.show(h(`<div class="menu">
+        <h2>CO-OP LOBBY</h2>
+        <div class="sub">Room code</div>
+        <div style="font:bold 64px Impact,'Arial Black',sans-serif;letter-spacing:12px;color:#e8d8a0;margin:4px 0 10px">${host.code}</div>
+        <table class="stats" style="width:420px">${rows}</table>
+        <div class="chapters" style="margin-top:14px">${this.s.chapters.map((c, i) => `<button data-i="${i}" class="${i === chapter ? 'sel' : ''}">${i + 1}. ${c.title}</button>`).join('')}</div>
+        <div class="diffs" style="margin-top:10px">${Object.entries(DIFFICULTY).map(([k, d]) => `<button class="btn ${st.difficulty === k ? 'sel' : ''}" data-d="${k}">${d.name}</button>`).join('')}</div>
+        <button id="l-start">Start</button>
+        <button id="l-leave" class="danger">Close room</button>
+      </div>`));
+      n.querySelectorAll('[data-i]').forEach((b) => b.addEventListener('click', () => { this.s.uiClick(); chapter = +b.dataset.i; render(); }));
+      n.querySelectorAll('.diffs .btn').forEach((b) => b.addEventListener('click', () => { this.s.uiClick(); st.difficulty = b.dataset.d; this.s.saveSettings(); render(); }));
+      this.btn(n, '#l-start', () => { host.onChange = null; this.s.coopStart(chapter); });
+      this.btn(n, '#l-leave', () => { host.onChange = null; this.s.leaveNet(); this.coop(); });
+    };
+    host.onChange = render;
+    render();
+  }
+  coopWaiting(client) {
+    const draw = (info) => {
+      if (this.s.net !== client || this.s.state !== 'menu') return;
+      const c = client.char ? CHARACTERS[client.char] : null;
+      const n = this.show(h(`<div class="menu">
+        <h2>JOINED ${client.code}</h2>
+        <div class="help" style="text-align:center">${c ? `You are playing as <b style="color:${c.color}">${c.name}</b>.<br>` : ''}Waiting for ${escapeHtml(info?.host || 'the host')} to start the game…</div>
+        <button id="w-leave" class="danger">Leave</button>
+      </div>`));
+      this.btn(n, '#w-leave', () => { this.s.leaveNet(); this.coop(); });
+    };
+    client.onStatus = draw;
+    draw(null);
+  }
+  notice(title, msg) {
+    const n = this.show(h(`<div class="menu"><h2>${escapeHtml(title)}</h2><div class="help" style="text-align:center">${escapeHtml(msg || '')}</div><button id="n-ok">OK</button></div>`));
+    this.btn(n, '#n-ok', () => this.main());
   }
   about() {
     const n = this.show(h(`<div class="menu">
@@ -175,8 +229,8 @@ export class Menu {
       <button id="p-resume">Resume</button>
       <button id="p-options">Options</button>
       <button id="p-controls">Controls</button>
-      <button id="p-restart">Restart Chapter</button>
-      <button id="p-quit" class="danger">Quit to Main Menu</button>
+      ${this.s.net?.client ? '' : '<button id="p-restart">Restart Chapter</button>'}
+      <button id="p-quit" class="danger">${this.s.net ? 'Leave co-op game' : 'Quit to Main Menu'}</button>
     </div>`));
     this.btn(n, '#p-resume', () => this.s.resume());
     this.btn(n, '#p-options', () => this.options(() => this.pause()));
@@ -195,25 +249,25 @@ export class Menu {
   }
   statsTable(survivors) {
     return `<table class="stats"><tr><th>Survivor</th><th>Kills</th><th>Headshots</th><th>Specials</th><th>Friendly fire</th><th>Incaps</th><th>Revives</th><th>Accuracy</th></tr>
-      ${survivors.map((s) => `<tr><td style="color:${s.char.color}">${s.name}${s.isHuman ? ' (you)' : ''}${s.dead ? ' †' : ''}</td><td>${s.stats.kills}</td><td>${s.stats.headshots}</td><td>${s.stats.specials}</td><td>${Math.round(s.stats.ffDealt)}</td><td>${s.stats.incaps}</td><td>${s.stats.revives}</td><td>${s.stats.shots ? Math.round(s.stats.hits / s.stats.shots * 100) : 0}%</td></tr>`).join('')}</table>`;
+      ${survivors.map((s) => `<tr><td style="color:${s.char.color}">${s.name}${s.isHuman ? ' (you)' : s.netName ? ' (' + escapeHtml(s.netName) + ')' : ''}${s.dead ? ' †' : ''}</td><td>${s.stats.kills}</td><td>${s.stats.headshots}</td><td>${s.stats.specials}</td><td>${Math.round(s.stats.ffDealt)}</td><td>${s.stats.incaps}</td><td>${s.stats.revives}</td><td>${s.stats.shots ? Math.round(s.stats.hits / s.stats.shots * 100) : 0}%</td></tr>`).join('')}</table>`;
   }
   chapterComplete(title, survivors, time, onNext) {
     const n = this.show(h(`<div class="menu center">
       <h2>${title.toUpperCase()} — COMPLETE</h2>
       <div style="opacity:.75">Time: ${Math.floor(time / 60)}:${String(Math.floor(time % 60)).padStart(2, '0')}</div>
       ${this.statsTable(survivors)}
-      <button id="n-next">Continue</button>
+      ${onNext ? '<button id="n-next">Continue</button>' : '<div style="opacity:.7;margin-top:18px">Waiting for the host to continue…</div>'}
     </div>`));
-    this.btn(n, '#n-next', onNext);
+    if (onNext) this.btn(n, '#n-next', onNext);
   }
   failed(onRetry, onQuit) {
     const n = this.show(h(`<div class="menu center">
       <h2 style="color:#c83a2a;font-size:64px">YOU HAVE FAILED</h2>
       <div style="opacity:.7;margin-bottom:26px">All survivors are down.</div>
-      <button id="f-retry">Try Again</button>
+      ${onRetry ? '<button id="f-retry">Try Again</button>' : '<div style="opacity:.7;margin-bottom:14px">Waiting for the host to retry…</div>'}
       <button id="f-quit" class="danger">Quit to Main Menu</button>
     </div>`));
-    this.btn(n, '#f-retry', onRetry);
+    if (onRetry) this.btn(n, '#f-retry', onRetry);
     this.btn(n, '#f-quit', onQuit);
   }
   victory(survivors, time, onDone) {
@@ -229,7 +283,7 @@ export class Menu {
         <h3>BUILT WITH</h3><p>Three.js · Web Audio · procedural everything</p>
         <p style="margin-top:60px;opacity:.5">An original fan tribute to the co-op survival genre.</p>
       </div>
-      <button id="v-done" style="position:absolute;bottom:30px;right:40px">Main Menu</button>
+      <button id="v-done" style="position:absolute;bottom:30px;right:40px;background:rgba(0,0,0,.75);padding:8px 18px">Main Menu</button>
     </div>`));
     this.btn(n, '#v-done', onDone);
   }

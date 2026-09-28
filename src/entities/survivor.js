@@ -45,6 +45,7 @@ export class Survivor {
     this.incapHP = 300;
     this.incapCount = 0;
     this.dead = false;
+    this.usingMounted = null;
     this.pinned = null;
     this.pinType = null;
     this.action = null;
@@ -98,6 +99,7 @@ export class Survivor {
     return out.set(-Math.sin(y) * cp, Math.sin(p), -Math.cos(y) * cp);
   }
   get weapon() {
+    if (this.usingMounted) return this.usingMounted.weapon;
     if (this.slot === 0) return this.inv.primary;
     if (this.slot === 1) return this.inv.secondary;
     return null;
@@ -158,7 +160,8 @@ export class Survivor {
     this.crouchT = damp(this.crouchT, wantCrouch ? 1 : 0, 12, dt);
     this.phys.h = this.incapped ? 0.7 : lerp(1.8, 1.2, this.crouchT);
 
-    if (this.incapped) this._updateIncap(dt);
+    const netLocal = this.netLocal && g.net?.client; // co-op client: host owns health/actions
+    if (this.incapped && !netLocal) this._updateIncap(dt);
     if (this.burning > 0) {
       this.burning -= dt;
       this.takeDamage(dt * 8, null, 'fire', true);
@@ -167,12 +170,25 @@ export class Survivor {
     this._move(dt);
 
     if (this.dead) return;
+    // Mounted gun: all input goes to the turret
+    if (this.usingMounted) {
+      const m = this.usingMounted;
+      const canFire = m.control(this, dt);
+      if (this.usingMounted) {
+        const fire = c.fire;
+        c.fire = canFire;
+        m.weapon.update(dt, this, c, (wp) => g.combat.fireWeapon(this, wp));
+        c.fire = fire;
+        this.aimPitchOff *= 0.9;
+        return;
+      }
+    }
     // Actions & weapons
     if (!this.pinned && this.stunT <= 0) {
       if (c.flashlight) { this.flashlight = !this.flashlight; this.onEvent?.('flashlight'); }
       if (c.slot >= 0 && !this.action) this.selectSlot(c.slot);
       if (c.lastWeapon && !this.action) this.selectSlot(this.lastSlot);
-      this._updateAction(dt);
+      if (!netLocal) this._updateAction(dt);
       if (!this.action) {
         if (c.shove && !this.incapped) this.shove();
         const w = this.weapon;
@@ -182,7 +198,7 @@ export class Survivor {
             if (kind === 'melee') g.combat.melee(this, wp);
             else g.combat.fireWeapon(this, wp);
           });
-        } else if (!w && !this.incapped && this.slot >= 2) {
+        } else if (!w && !this.incapped && this.slot >= 2 && !netLocal) {
           this._updateItemUse(dt);
         }
       }
@@ -217,7 +233,7 @@ export class Survivor {
     const P = this.phys;
     let maxSpeed = 4.4;
     let wantX = 0, wantZ = 0;
-    const canMove = !this.incapped && !this.pinned && this.stunT <= 0 && !(this.action && this.action.immobile);
+    const canMove = !this.incapped && !this.pinned && this.stunT <= 0 && !(this.action && this.action.immobile) && !this.usingMounted;
     if (canMove) {
       const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);
       const rx = Math.cos(this.yaw), rz = -Math.sin(this.yaw);
@@ -439,7 +455,7 @@ export class Survivor {
   }
   takeDamage(amount, attacker = null, type = 'generic', silent = false) {
     if (this.dead || amount <= 0) return;
-    if (this.game.cheats?.god && this.isHuman) return;
+    if (this.game.cheats?.godAll || (this.game.cheats?.god && this.isHuman)) return;
     this.lastDamageTime = this.game.time;
     this.lastHurtBy = attacker;
     this.stats.dmgTaken += amount;

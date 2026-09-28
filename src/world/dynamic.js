@@ -204,6 +204,7 @@ export class WindowPane {
     level.addObject(this.mesh);
     this.collider = level.col.addDynamic([this.box[0], this.box[1], this.box[2]], [this.box[3], this.box[4], this.box[5]], { flags: F_SOLID | F_SHOOT, surf: 'glass', owner: this });
     this.broken = false;
+    (level.windows || (level.windows = [])).push(this);
   }
   onShot(x, y, z, dir) { this.shatter(dir); }
   shatter(dir = _v.set(0, 0, 1)) {

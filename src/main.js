@@ -52,4 +52,18 @@ async function makeAudio() {
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
+  // Co-op: requestAnimationFrame stops in hidden tabs, which would freeze the
+  // host's simulation for everyone (or starve a client). Keep ticking without
+  // rendering while the tab is hidden.
+  setInterval(() => {
+    if (!document.hidden || !session.net) return;
+    const now = performance.now();
+    const dt = Math.min(0.1, (now - last) / 1000);
+    last = now;
+    const g = session.game;
+    const nr = g.noRender;
+    g.noRender = true;
+    g.frame(dt);
+    g.noRender = nr;
+  }, 50);
 })();

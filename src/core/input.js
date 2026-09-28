@@ -127,7 +127,7 @@ export class Input {
     this.pad.prevButtons = this.pad.buttons;
     this.pad.buttons = gp.buttons.map((b) => b.pressed || b.value > 0.5);
     // Map pad buttons to virtual codes
-    const map = { 0: 'Space', 1: 'ControlLeft', 2: 'KeyR', 3: 'lastWeaponPad', 4: 'KeyV', 5: 'KeyE', 6: 'Mouse2', 7: 'Mouse0', 10: 'ShiftLeft', 12: 'KeyF', 9: 'Escape', 14: 'KeyQ', 15: 'Digit4', 13: 'Digit3' };
+    const map = { 0: 'Space', 1: 'ControlLeft', 2: 'KeyR', 3: 'KeyQ', 4: 'KeyV', 5: 'KeyE', 6: 'Mouse1', 7: 'Mouse0', 10: 'ShiftLeft', 12: 'KeyF', 9: 'Escape', 14: 'Digit5', 15: 'Digit4', 13: 'Digit3' };
     for (const [idx, code] of Object.entries(map)) {
       const now = this.pad.buttons[idx];
       const was = this.pad.prevButtons[idx];

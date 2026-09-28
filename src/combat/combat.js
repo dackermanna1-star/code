@@ -60,8 +60,9 @@ export class Combat {
     const muzzle = shooter.muzzlePos ? shooter.muzzlePos(weapon) : _v.copy(_eye).addScaledVector(_aim, 0.6);
     const mx = muzzle.x, my = muzzle.y, mz = muzzle.z;
     // Recoil for the shooter
-    const kickP = THREE.MathUtils.degToRad(d.recoilPitch) * randRange(0.75, 1.15);
-    const kickY = THREE.MathUtils.degToRad(d.recoilYaw) * randRange(-1, 1);
+    const braced = shooter.usingMounted ? 0.12 : 1; // tripod soaks up most of the kick
+    const kickP = THREE.MathUtils.degToRad(d.recoilPitch) * randRange(0.75, 1.15) * braced;
+    const kickY = THREE.MathUtils.degToRad(d.recoilYaw) * randRange(-1, 1) * braced;
     shooter.aimPitchOff = clamp(shooter.aimPitchOff + kickP * (shooter.crouching ? 0.6 : 1), -0.4, 0.35);
     shooter.aimYawOff = clamp(shooter.aimYawOff + kickY, -0.2, 0.2);
     shooter.punchP += kickP * 0.6 * (d.viewKick ?? 1);
@@ -346,9 +347,11 @@ export class Combat {
   update(dt) {
     const g = this.game;
     const col = g.level.col;
+    const client = !!g.net?.client; // co-op client: projectiles are visual; the host detonates them
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
       p.t += dt;
+      if (client && p.t > 12) { if (p.mesh) p.mesh.parent?.remove(p.mesh); this.projectiles.splice(i, 1); continue; }
       if (!p.rest) {
         p.vy -= 16 * dt;
         const sp = Math.hypot(p.vx, p.vy, p.vz);
@@ -362,7 +365,7 @@ export class Combat {
             g.infected.traceBodies(p.x, p.y, p.z, p.vx / sp, p.vy / sp, p.vz / sp, step + 0.1, hits);
             if (hits.length && hits[0].t < (h ? h.t : 1e9) && !hits[0].ent.dead) hitEnt = hits[0];
           }
-          if (hitEnt) {
+          if (hitEnt && !client) {
             p.x += p.vx / sp * hitEnt.t; p.y += p.vy / sp * hitEnt.t; p.z += p.vz / sp * hitEnt.t;
             this.detonate(p, { nx: 0, ny: 1, nz: 0 });
             this.projectiles.splice(i, 1);
@@ -371,6 +374,7 @@ export class Combat {
           if (h) {
             p.x = h.x + h.nx * 0.05; p.y = h.y + h.ny * 0.05; p.z = h.z + h.nz * 0.05;
             if (p.type === 'molotov' || p.type === 'bile' || p.type === 'grenade') {
+              if (client) { p.rest = true; p.vx = p.vy = p.vz = 0; continue; }
               this.detonate(p, h);
               this.projectiles.splice(i, 1);
               continue;
@@ -397,12 +401,12 @@ export class Combat {
         const rate = p.fuse - p.t < 1.5 ? 0.12 : p.fuse - p.t < 3 ? 0.25 : 0.5;
         if (p.beepT <= 0) {
           p.beepT = rate;
-          g.audio.play('beep', { pos: _v.set(p.x, p.y, p.z), vol: 0.8 });
+          if (!client) g.audio.play('beep', { pos: _v.set(p.x, p.y, p.z), vol: 0.8 });
           g.lights.flash(p.x, p.y + 0.1, p.z, 0xff2010, 2, 3, 0.08);
         }
-        g.infected.lure(p.x, p.y, p.z, 35);
+        if (!client) g.infected.lure(p.x, p.y, p.z, 35);
       }
-      if (p.t >= p.fuse) {
+      if (p.t >= p.fuse && !client) {
         this.detonate(p, { nx: 0, ny: 1, nz: 0 });
         this.projectiles.splice(i, 1);
       }
@@ -427,7 +431,7 @@ export class Combat {
       if (f.light) f.light.intensity = 14 * Math.min(1, k * 3) * (0.8 + Math.random() * 0.4);
       // damage
       f.tick = (f.tick || 0) - dt;
-      if (f.tick <= 0) {
+      if (f.tick <= 0 && !client) {
         f.tick = 0.2;
         g.infected.forEachNear(f.x, f.z, f.r + 0.5, (e) => {
           if (e.dead) return;

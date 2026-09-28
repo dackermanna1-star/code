@@ -49,6 +49,11 @@ export class Helicopter {
     this.navRed = add(new THREE.SphereGeometry(0.08, 6, 4), new THREE.MeshBasicMaterial({ color: 0xff2010 }), -1.2, 1.3, -0.5);
     this.navGreen = add(new THREE.SphereGeometry(0.08, 6, 4), new THREE.MeshBasicMaterial({ color: 0x20ff40 }), 1.2, 1.3, -0.5);
     this.beacon = add(new THREE.SphereGeometry(0.1, 6, 4), new THREE.MeshBasicMaterial({ color: 0xff3020 }), 0, 3.3, 1.0);
+    // landing lights + lit cabin so the chopper reads at night
+    const lamp = new THREE.MeshBasicMaterial({ color: 0xfff4d8 });
+    this.lamps = [add(new THREE.SphereGeometry(0.14, 8, 6), lamp, -0.5, 0.75, -2.3), add(new THREE.SphereGeometry(0.14, 8, 6), lamp, 0.5, 0.75, -2.3)];
+    add(new THREE.BoxGeometry(2.2, 0.9, 1.6), new THREE.MeshBasicMaterial({ color: 0x6a7058 }), 0, 1.65, 0.4).scale.set(1, 1, 1);
+    for (const sx of [-1.21, 1.21]) add(new THREE.PlaneGeometry(1.5, 0.7), new THREE.MeshBasicMaterial({ color: 0xc8c090, side: THREE.DoubleSide }), sx, 1.85, 0.1, 0, Math.PI / 2, 0);
     // searchlight
     this.spot = new THREE.SpotLight(0xf0f4ff, 0, 90, 0.22, 0.4, 1.0);
     this.spot.position.set(0, 0.6, -2.6);
@@ -100,6 +105,7 @@ export class Helicopter {
   }
   hide() {
     this.group.visible = false;
+    if (this.vLight) this.vLight.on = false;
     this.path = null;
     if (this.sound) { this.sound.stop(2); this.sound = null; }
   }
@@ -140,7 +146,14 @@ export class Helicopter {
       this.beamPivot.rotateX(-Math.PI / 2);
     }
     if (this.sound) this.sound.set({ pos: this.group.position });
+    // level virtual light following the airframe (see attachLight)
+    if (this.vLight) {
+      const p = this.group.position;
+      this.vLight.x = p.x; this.vLight.y = p.y - 0.5; this.vLight.z = p.z;
+      this.vLight.on = true;
+    }
   }
+  attachLight(v) { this.vLight = v; v.on = false; }
   dispose() {
     this.hide();
     this.game.scene.remove(this.group);

@@ -22,6 +22,7 @@ export class SpecialInfected extends Agent {
     super(mgr);
     this.kind = kind;
     this.special = true;
+    this.nid = mgr.nidSeq = (mgr.nidSeq || 0) + 1;
     this.body = new Body(opts.scale ?? 1, opts.build ?? 1);
     this.rig = new RigModel(mgr.game.scene, buildHumanoid(look), { name: kind });
     this.hp = this.maxHp = opts.hp ?? 250;
@@ -649,10 +650,12 @@ export class Boomer extends SpecialInfected {
     g.fx.cloud(x, y - 0.6, z, 2.5, [0.35, 0.42, 0.1], 18, 3);
     g.fx.bileSpray(x, y, z, 0, 1, 0);
     g.decals.add(this.pos.x, this.pos.y + 0.02, this.pos.z, 0, 1, 0, 3.5, DF.BILE);
-    for (const s of this.mgr.targets) {
-      const d = Math.hypot(s.pos.x - x, s.pos.z - z);
-      if (d < 3.6 && Math.abs(s.pos.y - this.pos.y) < 2 && s.bile <= 0) this.biled(s);
-      if (d < 3) s.knock = { x: (s.pos.x - x) / (d || 1) * 3, y: 1.5, z: (s.pos.z - z) / (d || 1) * 3 };
+    if (!g.net?.client) {
+      for (const s of this.mgr.targets) {
+        const d = Math.hypot(s.pos.x - x, s.pos.z - z);
+        if (d < 3.6 && Math.abs(s.pos.y - this.pos.y) < 2 && s.bile <= 0) this.biled(s);
+        if (d < 3) s.knock = { x: (s.pos.x - x) / (d || 1) * 3, y: 1.5, z: (s.pos.z - z) / (d || 1) * 3 };
+      }
     }
     g.infected.corpseImpulse(x, y, z, 4, 6);
     this.body.visible = false;

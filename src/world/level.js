@@ -279,7 +279,7 @@ export class Level {
       let who = null;
       for (const s of survivors) {
         if (s.dead) continue;
-        if (t.humanOnly && !s.isHuman) continue;
+        if (t.humanOnly && !s.isHuman && s.remote == null) continue;
         alive++;
         const b = t.box;
         if (s.pos.x >= b[0] && s.pos.x <= b[3] && s.pos.y + 0.5 >= b[1] && s.pos.y <= b[4] && s.pos.z >= b[2] && s.pos.z <= b[5]) {

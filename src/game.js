@@ -35,6 +35,8 @@ export class Game {
     this.paused = false;
     this.uiBlocking = false;
     this.cheats = {};
+    this.net = null; // CoopHost / CoopClient
+    this.noFwd = 0; // >0: sounds played now are reproduced locally by clients
     this.camPos = new THREE.Vector3();
     this.ambientK = 0.6;
     this.survivors = [];
@@ -215,7 +217,7 @@ export class Game {
     this.fpsAcc += dtRaw; this.fpsN++;
     if (this.fpsAcc > 0.5) { this.fps = this.fpsN / this.fpsAcc; this.fpsAcc = 0; this.fpsN = 0; }
     const t0 = performance.now();
-    if (this.state === 'playing' && !this.paused) {
+    if (this.state === 'playing' && (!this.paused || this.net?.client)) {
       this.update(dt);
     } else if (this.level) {
       // keep rendering (menus over the scene)
@@ -223,7 +225,7 @@ export class Game {
       this.lights.update(dt, this.renderer.camera);
     }
     const t1 = performance.now();
-    this.renderer.render(dt);
+    if (!this.noRender) this.renderer.render(dt); // noRender: headless network tests
     const t2 = performance.now();
     this.perf = this.perf || { upd: 0, ren: 0 };
     this.perf.upd = this.perf.upd * 0.9 + (t1 - t0) * 0.1;
@@ -238,13 +240,17 @@ export class Game {
   }
 
   update(dt) {
+    if (this.net?.client) { this.net.clientUpdate(dt); return; }
     this.time += dt;
     this.frameNo++;
     this.stats.time += dt;
     const L = this.level;
     // player input
     this.ctrl.buildCmd(dt);
+    if (this.hooks.cutscene) { const c = this.player.cmd; for (const k in c) if (typeof c[k] === 'boolean') c[k] = false; else if (typeof c[k] === 'number') c[k] = 0; c.slot = -1; }
+    this.net?.hostPre(dt);
     this.hooks.beforeSurvivors?.(dt);
+    this.noFwd++;
     for (const s of this.survivors) {
       const wasWeapon = s.weapon;
       s.update(dt);
@@ -257,6 +263,7 @@ export class Game {
         }
       }
     }
+    this.noFwd--;
     this.separateSurvivors();
     L.update(dt, this.survivors);
     this.hooks.afterSurvivors?.(dt);
@@ -269,10 +276,12 @@ export class Game {
     this.decals.update(dt);
     // camera + viewmodel
     this.ctrl.updateCamera(dt);
+    if (this.hooks.cutscene) { this.hooks.cutscene(dt); this.camPos.copy(this.renderer.camera.position); this.viewmodel.visible = false; }
     this.viewmodel.update(dt, this.player, this.ctrl.look);
     this.updateLighting(dt);
     this.sky.update(this.camPos);
     this.hooks.afterUpdate?.(dt);
+    this.net?.hostPost(dt);
   }
 
   separateSurvivors() {

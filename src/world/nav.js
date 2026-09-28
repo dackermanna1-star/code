@@ -152,6 +152,26 @@ export class NavGrid {
             }
           }
         }
+        // vault: nothing reachable in the adjacent column (thin wall top, clearance
+        // gap beside a parapet) -> drop to a surface two columns away if the
+        // column in between is empty below us and clear above us.
+        if (best < 0 && d < 4) {
+          const bx = cx + DIRS[d][0] * 2, bz = cz + DIRS[d][1] * 2;
+          let pit = false;
+          for (let m = colStart[c2]; m < colStart[c2 + 1]; m++) if (this.nodeY[m] < y + STEP) { pit = true; break; }
+          if (!pit && bx >= 0 && bz >= 0 && bx < nx && bz < nz &&
+              col.query(x2 - 0.15, y + 0.1, z2 - 0.15, x2 + 0.15, y + CLEAR_H, z2 + 0.15, F_SOLID) === 0) {
+            const c3 = bz * nx + bx;
+            const x3 = this.minX + (bx + 0.5) * cs, z3 = this.minZ + (bz + 0.5) * cs;
+            for (let m = colStart[c3]; m < colStart[c3 + 1]; m++) {
+              const dy = this.nodeY[m] - y;
+              if (dy < -STEP && dy >= -DROP_MAX && -dy < bestDy &&
+                  col.query(x3 - 0.15, this.nodeY[m] + CLEAR_H, z3 - 0.15, x3 + 0.15, y + CLEAR_H, z3 + 0.15, F_SOLID) === 0) {
+                best = m; bestDy = -dy; bestType = 2;
+              }
+            }
+          }
+        }
         if (best >= 0) {
           links[i * 8 + d] = best;
           ltype[i * 8 + d] = bestType;

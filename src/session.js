@@ -14,8 +14,18 @@ import { CHAPTERS } from './levels/campaign.js';
 import { saveSettings, QUALITY, DIFFICULTY } from './config.js';
 import { F_SOLID } from './world/collision.js';
 import { clamp, pick } from './core/math.js';
+import { NetLink } from './net/link.js';
+import { CoopHost, CoopClient, withSeed } from './net/coop.js';
 
 const STEP_SURF = { concrete: 'stepConcrete', plaster: 'stepConcrete', brick: 'stepConcrete', tile: 'stepTile', wood: 'stepWood', carpet: 'stepCarpet', metal: 'stepMetal', dirt: 'stepDirt', fabric: 'stepCarpet', rubber: 'stepConcrete', glass: 'stepTile', water: 'stepWater' };
+
+// Compact, JSON-safe survivor event payloads for co-op clients.
+function liteEventData(e, d) {
+  if (d == null || typeof d !== 'object') return d ?? null;
+  if (e === 'hurt') return { a: Math.round(d.amount * 10) / 10, t: d.type, x: d.attacker?.pos ? Math.round(d.attacker.pos.x * 10) / 10 : null, z: d.attacker?.pos ? Math.round(d.attacker.pos.z * 10) / 10 : null };
+  if (d.type) return { type: d.type, dur: d.dur, target: d.target?.char?.id || null };
+  return null;
+}
 
 export class Session {
   constructor(canvas, uiRoot, settings, audio) {
@@ -57,6 +67,7 @@ export class Session {
     g.props = new PropManager(g);
     g.hittables = [];
     this.installGameEvents(g);
+    if (this.net) this.net.attach(g);
     g.input.onLockChange = (locked) => {
       if (!locked && this.state === 'playing' && !g.paused && !this.lockGrace) this.pause();
     };
@@ -116,7 +127,7 @@ export class Session {
     this.game.createSurvivors(this.settings.character);
     await this.loadChapter(chapter);
   }
-  async loadChapter(i, retry = false) {
+  async loadChapter(i, retry = false, netLoad = null) {
     const g = this.game;
     const ch = this.chapters[i];
     this.chapterIdx = i;
@@ -130,7 +141,9 @@ export class Session {
     this.audio.stopAll?.();
     prog(0.3);
     await new Promise((r) => setTimeout(r, 30));
-    this.buildChapter(i, false, retry);
+    this.buildChapter(i, false, retry, netLoad ? netLoad.seed : undefined);
+    if (netLoad) g.net?.levelReady(netLoad.items);
+    else if (g.net?.host) g.net.chapterLoaded(i, retry);
     prog(0.9);
     await new Promise((r) => setTimeout(r, 30));
     // warm up shaders
@@ -148,34 +161,47 @@ export class Session {
     setTimeout(() => { this.lockGrace = false; }, 800);
     g.hud.titleCard(ch.title, 'No Mercy · ' + (i + 1) + ' / ' + this.chapters.length, 6);
     this.audio.music?.stinger?.('chapterStart');
-    ch.onStart?.(g, this);
+    if (!g.net?.client) ch.onStart?.(g, this);
     if (!g.input.locked) this.menu.clickToPlay(() => { this.menu.clear(); g.input.requestLock(); });
   }
-  buildChapter(i, backdrop = false, retry = false) {
+  buildChapter(i, backdrop = false, retry = false, seed) {
     const g = this.game;
     const ch = this.chapters[i];
+    const client = !!g.net?.client;
+    // level builds are seeded so co-op peers construct identical worlds
+    this.levelSeed = seed ?? ((Math.random() * 2147483647) | 0);
     g.props.clear();
     g.items.clear();
     g.hittables = [];
+    g.hooks.cutscene = null;
+    g.cheats.godAll = false;
+    if (this.lbEl) this.lbEl.classList.remove('on');
+    g.hud.root.classList.remove('cine');
+    g.viewmodel.visible = true;
     for (const s of g.survivors) s.model?.dispose();
-    const level = g.loadLevel((L, game) => ch.build(L, game), { def: ch.def || {} });
+    const level = withSeed(this.levelSeed, () => g.loadLevel((L, game) => ch.build(L, game), { def: ch.def || {} }));
     level.chapter = ch;
     // survivors
     for (const s of g.survivors) {
-      if (!backdrop) {
+      if (!backdrop && !client) {
         if (retry && this.savedInventories) this.restoreSurvivor(s);
         else if (i > 0 || s.dead) s.respawnForChapter();
       }
       new SurvivorModel(g, s);
       s.model.setHidden(s === g.player);
-      s.brain = s.isBot ? new BotBrain(g, s, g.survivors.indexOf(s)) : null;
+      s.brain = s.isBot && !client && s.remote == null ? new BotBrain(g, s, g.survivors.indexOf(s)) : null;
       s.cancelAction();
+      s.usingMounted = null;
     }
     g.placeSurvivors();
-    if (!backdrop) {
+    if (client) {
+      g.director.reset(null);
+    } else if (!backdrop) {
       this.saveInventories();
       g.director.reset(level);
+      if (g.net) g.net.building = true;
       g.items.populate(level, g.director);
+      if (g.net) g.net.building = false;
     } else {
       g.director.reset(null);
       g.items.populate(level, null);
@@ -188,7 +214,7 @@ export class Session {
     this.audio.setReverb?.(level.env.reverb || 'outdoor');
     this.audio.setAmbience?.(level.env.ambience || null);
     g.time = 0;
-    level.script?.start?.();
+    if (!client) level.script?.start?.();
   }
   saveInventories() {
     this.savedInventories = this.game.survivors.map((s) => ({
@@ -216,6 +242,7 @@ export class Session {
   }
   quitToMenu() {
     const g = this.game;
+    this.leaveNet();
     g.paused = false;
     g.voice.reset();
     this.audio.stopAll?.();
@@ -247,6 +274,18 @@ export class Session {
     f.style.transition = `opacity ${dur}s`;
     f.style.opacity = to;
   }
+  // letterboxed cutscene presentation (HUD hidden)
+  cinematic(on) {
+    const g = this.game;
+    if (!this.lbEl) {
+      this.lbEl = document.createElement('div');
+      this.lbEl.className = 'letterbox';
+      this.lbEl.innerHTML = '<div></div><div></div>';
+      this.fadeEl.parentNode.insertBefore(this.lbEl, this.fadeEl);
+    }
+    this.lbEl.classList.toggle('on', !!on);
+    g.hud.root.classList.toggle('cine', !!on);
+  }
   objective(text, sub = 'Objective') {
     this.game.hud.setObjective(`<small>${sub}</small>${text}`, 8);
     this.audio.play('objective', { vol: 0.5 });
@@ -255,6 +294,7 @@ export class Session {
     if (this.endTriggered) return;
     this.endTriggered = true;
     const g = this.game;
+    if (g.net?.host) g.net.sendEnd('complete');
     const ch = this.chapters[this.chapterIdx];
     this.campaignTime += this.chapterTime;
     this.audio.play('chapterComplete', { vol: 0.8 });
@@ -275,6 +315,7 @@ export class Session {
   victory() {
     const g = this.game;
     if (this.state === 'victory') return;
+    if (g.net?.host) g.net.sendEnd('victory');
     this.state = 'victory';
     g.state = 'menu';
     g.input.exitLock();
@@ -286,6 +327,7 @@ export class Session {
   failed() {
     if (this.state !== 'playing') return;
     const g = this.game;
+    if (g.net?.host) g.net.sendEnd('failed');
     this.state = 'failed';
     this.audio.music?.stinger?.('death');
     this.fade(0, 0.7, 2);
@@ -302,12 +344,18 @@ export class Session {
     const g = this.game;
     // bots think
     for (const s of g.survivors) if (s.brain) s.brain.update(dt);
-    // human interaction (use key)
-    const p = g.player;
-    if (!p.dead && !p.incapped && !p.pinned) {
+    // human interaction (use key): local player + co-op players
+    this.interact(g.player, true);
+    for (const s of g.survivors) if (s.remote != null && s !== g.player) this.interact(s, false);
+  }
+  interact(p, local) {
+    const g = this.game;
+    if (!p.dead && !p.incapped && !p.pinned && !p.usingMounted) {
       const u = g.items.findUsable(p);
-      g.currentUsable = u;
-      g.items.setHighlight(u && u.item ? u.item : null);
+      if (local) {
+        g.currentUsable = u;
+        g.items.setHighlight(u && u.item ? u.item : null);
+      }
       const c = p.cmd;
       if (u && c.usePressed && !p.action) {
         if (u.item) g.items.take(u.item, p);
@@ -317,7 +365,7 @@ export class Session {
           else u.usable.onUse(p);
         }
       }
-    } else { g.currentUsable = null; g.items.setHighlight(null); }
+    } else if (local) { g.currentUsable = null; g.items.setHighlight(null); }
   }
   afterSurvivors(dt) {
     const g = this.game;
@@ -327,7 +375,7 @@ export class Session {
     }
     g.props.update(dt);
     g.items.update(dt);
-    for (const h of g.hittables) h.update?.(dt);
+    if (!g.net?.client) for (const h of g.hittables) h.update?.(dt);
   }
   afterInfected(dt) {
     const g = this.game;
@@ -345,6 +393,23 @@ export class Session {
     const up = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
     this.audio.setListener?.(cam.position, fwd, up);
     this.audio.update?.(dt);
+    if (!g.net?.client) this.checkEnd(dt);
+    // low health chatter
+    for (const s of g.survivors) {
+      if (!s.dead && !s.incapped && s.totalHealth < 25 && Math.random() < dt * 0.02) g.voice.say(s, 'lowHealth', 1, { cooldown: 40 });
+    }
+    // occasional idle chatter in quiet times
+    if (g.director.state === 'relax' && Math.random() < dt * 0.004) {
+      const s = pick(g.survivors.filter((x) => !x.dead && !x.incapped));
+      if (s) g.voice.say(s, 'idle', 0, { cooldown: 90, teamCooldown: 45 });
+    }
+    // smoke clouds (smoker death) cough/obscure
+    if (g.smokeClouds) {
+      for (let i = g.smokeClouds.length - 1; i >= 0; i--) { g.smokeClouds[i].t -= dt; if (g.smokeClouds[i].t <= 0) g.smokeClouds.splice(i, 1); }
+    }
+  }
+  checkEnd(dt) {
+    const g = this.game;
     // end-of-chapter check (end safe room with door closed)
     const L = g.level;
     if (L.endSafe && !this.endTriggered && L.endDoor && !L.endDoor.open) {
@@ -359,20 +424,6 @@ export class Session {
       this.failT += dt;
       if (this.failT > 3.5 || g.survivors.every((s) => s.dead)) this.failed();
     } else this.failT = 0;
-    // low health chatter
-    for (const s of g.survivors) {
-      if (!s.dead && !s.incapped && s.totalHealth < 25 && Math.random() < dt * 0.02) g.voice.say(s, 'lowHealth', 1, { cooldown: 40 });
-    }
-    // occasional idle chatter in quiet times
-    if (g.director.state === 'relax' && Math.random() < dt * 0.004) {
-      const s = pick(g.survivors.filter((x) => !x.dead && !x.incapped));
-      if (s) g.voice.say(s, 'idle', 0, { cooldown: 90, teamCooldown: 45 });
-    }
-    // smoke clouds (smoker death) cough/obscure
-    if (g.smokeClouds) {
-      for (let i = g.smokeClouds.length - 1; i >= 0; i--) { g.smokeClouds[i].t -= dt; if (g.smokeClouds[i].t <= 0) g.smokeClouds.splice(i, 1); }
-    }
-    // menu backdrop camera drift handled in frame when not playing
   }
   footsteps(s, dt) {
     const g = this.game;
@@ -386,7 +437,9 @@ export class Session {
       const h = g.level.col.raycast(s.pos.x, s.pos.y + 0.3, s.pos.z, 0, -1, 0, 0.8, F_SOLID);
       const inWater = g.level.waterY != null && s.pos.y < g.level.waterY + 0.05 && g.level.inWater?.(s.pos);
       const name = inWater ? 'stepWater' : STEP_SURF[h ? h.surf : 'concrete'] || 'stepConcrete';
+      g.noFwd++;
       g.audio.play(name, { pos: s.pos, vol: s.isHuman ? (s.crouching ? 0.25 : 0.5) : 0.35, owner: s });
+      g.noFwd--;
       if (inWater) g.fx.splash(s.pos.x, s.pos.y + 0.05, s.pos.z, 3);
     }
     this.stepAcc.set(s, acc);
@@ -421,6 +474,16 @@ export class Session {
 
   // ------------------------------------------------------------ events --
   onSurvivorEvent(s, e, d) {
+    const g = this.game;
+    if (g.net?.host) {
+      g.net.ev(['se', s.char.id, e, liteEventData(e, d)]);
+      g.noFwd++;
+      try { this._onSurvivorEvent(s, e, d); } finally { g.noFwd--; }
+      return;
+    }
+    this._onSurvivorEvent(s, e, d);
+  }
+  _onSurvivorEvent(s, e, d) {
     const g = this.game;
     s.model?.onEvent?.(e, d);
     const v = g.voice;
@@ -479,6 +542,16 @@ export class Session {
     }
   }
   onWeaponEvent(s, w, e) {
+    const g = this.game;
+    if (g.net?.host) {
+      g.net.ev(['we', s.char.id, e]);
+      g.noFwd++;
+      try { this._onWeaponEvent(s, w, e); } finally { g.noFwd--; }
+      return;
+    }
+    this._onWeaponEvent(s, w, e);
+  }
+  _onWeaponEvent(s, w, e) {
     const pos = s.pos;
     const o = { pos, owner: s, vol: s.isHuman ? 0.7 : 0.45 };
     const k = w.def.kind;
@@ -498,6 +571,90 @@ export class Session {
       case 'fire':
         if (k === 'sniper') setTimeout(() => this.audio.play('boltCycle', o), 150);
         break;
+    }
+  }
+
+  // ------------------------------------------------------------- co-op --
+  async coopHost(url, name, status) {
+    status('Connecting to relay…');
+    const link = new NetLink(url);
+    try {
+      await link.connect();
+      await link.host(name);
+    } catch (e) { link.close(); status(e.message); return; }
+    this.settings.relay = url; this.settings.netName = name; this.saveSettings();
+    this.net = new CoopHost(this, link, name);
+    this.menu.coopLobby(this.net);
+  }
+  async coopJoin(url, code, name, status) {
+    if (!code) { status('Enter the room code shown on the host\'s screen.'); return; }
+    status('Connecting to relay…');
+    const link = new NetLink(url);
+    try {
+      await link.connect();
+      await link.join(code, name);
+    } catch (e) { link.close(); status(e.message); return; }
+    this.settings.relay = url; this.settings.netName = name; this.saveSettings();
+    this.net = new CoopClient(this, link, name);
+    this.menu.coopWaiting(this.net);
+  }
+  coopStart(chapter) {
+    if (!this.net?.host) return;
+    this.startCampaign(chapter);
+  }
+  leaveNet() {
+    const n = this.net;
+    if (!n) return;
+    this.net = null;
+    n.close();
+    if (this.game) this.game.net = null;
+  }
+  netLost(msg) {
+    if (!this.net) return;
+    const wasClient = this.net.client;
+    this.leaveNet();
+    if (wasClient || this.state !== 'playing') {
+      this.quitToMenu();
+      this.menu.notice('Co-op session ended', msg);
+    } else this.game.hud?.toast(msg + ' Continuing offline with bots.', 5);
+  }
+  async clientLoad(m) {
+    const g = this.game;
+    this.menu.clear();
+    g.difficulty = DIFFICULTY[m.diff] || g.difficulty;
+    g.createSurvivors(m.char);
+    this.campaignTime = this.campaignTime || 0;
+    this.endTriggered = false;
+    await this.loadChapter(m.ch, false, m);
+  }
+  clientEnd(d) {
+    const g = this.game;
+    for (const [id, st, dead] of d.stats || []) {
+      const s = g.survivors.find((x) => x.char.id === id);
+      if (s) { s.stats = st; s.dead = !!dead; }
+    }
+    this.campaignTime = d.ctime || 0;
+    const ch = this.chapters[this.chapterIdx];
+    const show = () => {
+      g.state = 'menu';
+      this.state = 'stats';
+      g.input.exitLock();
+      g.hud.show(false);
+    };
+    if (d.type === 'complete') {
+      this.audio.play('chapterComplete', { vol: 0.8 });
+      this.fade(0, 1, 1.5);
+      setTimeout(() => { show(); this.menu.chapterComplete(ch.title, g.survivors, d.time, null); this.fade(1, 0, 0.6); }, 1800);
+    } else if (d.type === 'failed') {
+      this.fade(0, 0.7, 2);
+      setTimeout(() => { show(); this.menu.failed(null, () => { this.fade(1, 0, 0.1); this.quitToMenu(); }); }, 2500);
+    } else if (d.type === 'victory') {
+      this.state = 'victory';
+      g.hooks.cutscene = null;
+      this.cinematic(false);
+      show();
+      this.audio.music?.setState('rescue');
+      this.menu.victory(g.survivors, this.campaignTime, () => this.quitToMenu());
     }
   }
 

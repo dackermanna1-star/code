@@ -282,6 +282,12 @@ export class Common extends Agent {
         this.state = S_BREAK; this.stateT = 0; this.breakDoor = this.blockedByDoor; this.attackT = 0;
       }
       this.stuckT = moved ? 0 : (this.stuckT || 0) + dt;
+      // wedged off the grid (pushed by the crowd): ease back onto the current node
+      if (this.stuckT > 1.5 && this.node >= 0) {
+        const nav = this.nav;
+        this.pos.x = damp(this.pos.x, nav.nodeX(this.node), 4, dt);
+        this.pos.z = damp(this.pos.z, nav.nodeZ(this.node), 4, dt);
+      }
     }
   }
 
@@ -616,6 +622,7 @@ export class InfectedManager {
     this.lureField = null;
     this.killCount = 0;
     this.maxCorpses = game.quality.maxCorpses;
+    this.nidSeq = 0; // network ids (commons + specials)
   }
   get aliveCount() { return this.commons.length; }
   clear() {
@@ -635,6 +642,9 @@ export class InfectedManager {
     if (this.corpses.length + this.commons.length >= this.crowd.cap - 2) this.removeOldestCorpse();
     const c = this.pool.pop() || new Common(this);
     if (!c.spawn(x, y, z, opts)) { this.pool.push(c); return null; }
+    c.nid = ++this.nidSeq;
+    c.puppet = false;
+    c.net = null;
     this.commons.push(c);
     return c;
   }
@@ -817,6 +827,7 @@ export class InfectedManager {
 
   update(dt) {
     const g = this.game;
+    if (g.net?.client) { this.updatePuppets(dt); return; }
     const nav = g.level.nav;
     // targets (survivors that can be attacked)
     this.targets.length = 0;
@@ -849,7 +860,33 @@ export class InfectedManager {
       s.update(dt);
       if (s.removed) this.specials.splice(i, 1);
     }
-    // corpses
+    this.updateCorpses(dt);
+    // separation + survivor blocking
+    this.separate(dt);
+    this.writeBodies();
+  }
+
+  // Co-op client: infected are puppets driven by host snapshots.
+  updatePuppets(dt) {
+    const g = this.game;
+    this.targets.length = 0;
+    for (const s of g.survivors) if (!s.dead) this.targets.push(s);
+    this.buildHash();
+    for (let i = this.commons.length - 1; i >= 0; i--) this.commons[i].puppetUpdate(dt);
+    for (let i = this.specials.length - 1; i >= 0; i--) {
+      const s = this.specials[i];
+      s.puppetUpdate(dt);
+      if (s.removed) this.specials.splice(i, 1);
+    }
+    this.updateCorpses(dt);
+    this.writeBodies();
+  }
+  writeBodies() {
+    for (const c of this.commons) if (c.dirty) { this.crowd.writeBody(c.slot, c.body); c.dirty = false; }
+    for (const c of this.corpses) if (c.dirty && c.slot >= 0) { this.crowd.writeBody(c.slot, c.body); c.dirty = false; }
+  }
+  updateCorpses(dt) {
+    const g = this.game;
     let active = 0;
     for (let i = this.corpses.length - 1; i >= 0; i--) {
       const c = this.corpses[i];
@@ -871,11 +908,6 @@ export class InfectedManager {
       if (c.gibbed && c.deadT > 3) { this.crowd.release(c.slot); c.slot = -1; this.corpses.splice(i, 1); this.pool.push(c); continue; }
     }
     while (this.corpses.length > this.maxCorpses) this.removeOldestCorpse();
-    // separation + survivor blocking
-    this.separate(dt);
-    // write render matrices
-    for (const c of this.commons) if (c.dirty) { this.crowd.writeBody(c.slot, c.body); c.dirty = false; }
-    for (const c of this.corpses) if (c.dirty && c.slot >= 0) { this.crowd.writeBody(c.slot, c.body); c.dirty = false; }
   }
 
   separate(dt) {

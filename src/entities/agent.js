@@ -39,6 +39,8 @@ export class Agent {
     if (this.node >= 0) {
       this.pos.y = nav.nodeY[this.node];
       this.targetY = this.pos.y;
+      // off-grid spawn position (clearance margin) -> snap onto the node
+      if (nav.nodeAt(x, this.pos.y, z) !== this.node) { this.pos.x = nav.nodeX(this.node); this.pos.z = nav.nodeZ(this.node); }
     }
   }
 

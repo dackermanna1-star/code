@@ -295,7 +295,8 @@ export class Director {
       const waveDone = p.waves && p.wave >= p.waves && !p.endless;
       if (waveDone) {
         // wait until most infected are dead then end
-        if (this.game.infected.commons.filter((c) => c.horde).length < 6) this.stopPanic();
+        p.doneT = (p.doneT || 0) + 2;
+        if (this.game.infected.commons.filter((c) => c.horde).length < 6 || p.doneT > 40) this.stopPanic();
         else p.t = 2;
         return;
       }
