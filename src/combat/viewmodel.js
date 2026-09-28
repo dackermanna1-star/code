@@ -584,14 +584,16 @@ export class Viewmodel {
           // kit comes in toward the chest and tips its face to the eye; the right
           // hand holds it while the left pulls a bandage out and wraps, over and over
           const hk = eo(a.t, 0, 0.45);
-          T[0] -= 0.035 * hk; T[1] += 0.035 * hk; T[2] += 0.03 * hk; T[3] += 0.5 * hk;
+          const HT = (globalThis.process?.env?.HT || '-0.035,0.07,0.05,0.2,0,0').split(',').map(Number);
+          for (let i = 0; i < 6; i++) T[i] += HT[i] * hk;
           T[5] += Math.sin(a.t * 1.9) * 0.05 * hk; T[1] += Math.sin(a.t * 2.6) * 0.004 * hk;
           const c = Math.max(0, a.t - 0.25) / 1.1, ph = c % 1;
           const reach = ss(a.t, 0.1, 0.4);
           // in (dip into the kit) -> pull up and out -> loop around (wrap) -> back
           const dip = bump(ph, 0.12, 0.12), pull = ss(ph, 0.2, 0.5) * (1 - ss(ph, 0.8, 1));
           const wrap = ph * Math.PI * 2;
-          const hp = _pE.set(-0.03 + 0.06 * pull + 0.025 * Math.sin(wrap) * pull, 0.03 - 0.03 * dip + 0.07 * pull + 0.02 * Math.cos(wrap) * pull, 0.06 + 0.05 * pull);
+          const HH = (globalThis.process?.env?.HH || '-0.03,0.03,0.1').split(',').map(Number);
+          const hp = _pE.set(HH[0] + 0.06 * pull + 0.025 * Math.sin(wrap) * pull, HH[1] - 0.03 * dip + 0.07 * pull + 0.02 * Math.cos(wrap) * pull, HH[2] + 0.05 * pull);
           const hq = qe(_qD, -0.7 + 0.5 * pull, 0.2 * Math.sin(wrap) * pull, -1.35 - 0.5 * pull);
           Viewmodel.blend(LP, LQ, hp, hq, reach, LP, LQ);
           this.grip.L = reach > 0.3 ? 'bandage' : this.grip.L;
