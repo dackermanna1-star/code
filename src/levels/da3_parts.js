@@ -313,6 +313,7 @@ export class GasCanister {
     this.pos = new THREE.Vector3(x, y + 0.7, z);
     this.dead = false; this.fuse = -1; this.hits = 0;
     this.onDetonate = o.onDetonate || null;
+    this.survivorDamage = o.survivorDamage ?? 30;
     this.group = buildGroup(L, (T) => {
       const p = P.prop(T, x, y, z, ry);
       p.cyl(0, 0.62, 0, 0.19, 1.14, 'paintedRed', 0xc01a12, null, 16);
@@ -367,7 +368,7 @@ export class GasCanister {
     this.hiss?.stop(0.1);
     this.light.on = false;
     const who = by || this.lastAttacker || null;
-    g.combat.explode(this.x, this.y + 0.6, this.z, 6.5, 1500, who, { survivorDamage: 30, scale: 1.3 });
+    g.combat.explode(this.x, this.y + 0.6, this.z, 6.5, 1500, who, { survivorDamage: this.survivorDamage, scale: 1.3 });
     g.audio.play('propaneExplode', { pos: this.pos, vol: 1.3 });
     this.onDetonate?.(this, who);
   }

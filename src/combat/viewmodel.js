@@ -197,21 +197,33 @@ export class Viewmodel {
     this.model = null;
     if (!type) return;
     const mt = type === 'pistol' && dual ? 'dualPistols' : TYPE_MODEL[type];
-    this.model = mt ? buildModel(mt) : null;
-    if (this.model) {
-      this.model.traverse((o) => { o.layers.set(1); o.castShadow = false; o.frustumCulled = false; });
-      this.holder.add(this.model);
-      // muzzle flash billboard
-      const fm = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ map: flashTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: 0xffc080 }));
-      fm.layers.set(1);
-      fm.visible = false;
-      this.flashMesh = fm;
-      const mz = this.model.userData.muzzle;
-      if (mz) mz.add(fm);
-      const fm2 = fm.clone();
-      fm2.rotation.y = Math.PI / 2;
-      fm.add(fm2);
+    // models are built once per type and reused (they are fairly detailed)
+    if (!this.modelCache) this.modelCache = new Map();
+    let m = mt ? this.modelCache.get(mt) : null;
+    if (mt && !m) {
+      m = buildModel(mt);
+      if (m) {
+        m.traverse((o) => { o.layers.set(1); o.castShadow = false; o.frustumCulled = false; });
+        // muzzle flash billboard (two crossed planes)
+        const fm = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ map: flashTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: 0xffc080 }));
+        fm.layers.set(1);
+        const fm2 = fm.clone();
+        fm2.rotation.y = Math.PI / 2;
+        fm.add(fm2);
+        m.userData.muzzle?.add(fm);
+        m.userData._flash = fm;
+        this.modelCache.set(mt, m);
+      }
     }
+    this.model = m || null;
+    if (this.model) {
+      this.holder.add(this.model);
+      this.flashMesh = this.model.userData._flash || null;
+      if (this.flashMesh) {
+        this.flashMesh.visible = false;
+        if (this.model.userData.muzzle && this.flashMesh.parent !== this.model.userData.muzzle) this.model.userData.muzzle.add(this.flashMesh);
+      }
+    } else this.flashMesh = null;
     this.kind = this.kindOf(type, dual);
     this.drawK = 0;
     this.anim = null;
@@ -484,13 +496,20 @@ export class Viewmodel {
     // ------------------------------------------------ hands & forearms
     const H = HANDS[kind] || HANDS.rifle;
     const hq = this.holder.quaternion;
-    // right hand
-    this.placeHand(this.armR, H.R, 1, hq, null);
+    // right hand (models carry their own grip placement)
+    const hr = this.model.userData.handR;
+    const rspec = hr && kind !== 'minigun' ? hr : H.R;
+    this.placeHand(this.armR, rspec, 1, hq, null);
     // left hand
     let lspec = H.L;
+    if (kind === 'dual' && hr) lspec = [hr[0] - 0.3, hr[1], hr[2], hr[3], hr[4], hr[5]];
     if (lspec === 'gripL') {
       const gl = this.model.userData.gripL;
-      lspec = gl ? [gl.position.x, gl.position.y - 0.03, gl.position.z, 0, 0, 0, true] : [-0.02, -0.03, -0.25, 0, 0, 0, true];
+      if (gl) {
+        _w.copy(gl.position);
+        if (gl.parent && gl.parent !== this.model) _w.applyMatrix4(gl.parent.matrix); // rides on the pump
+        lspec = [_w.x, _w.y - 0.03, _w.z, 0, 0, 0, true];
+      } else lspec = [-0.02, -0.03, -0.25, 0, 0, 0, true];
     }
     if (handL && lspec) {
       lspec = lspec.slice();

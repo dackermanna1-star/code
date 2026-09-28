@@ -142,9 +142,8 @@ function buildA(L, game, S) {
   P.table(L, 16.2, YA, 37.6, 0.2, 1.0, 0.7, 'plastic');
   for (let i = 0; i < 4; i++) physProp(L, 'bottle', 15.9 + i * 0.18, YA + 0.76, 37.5 + (i % 2) * 0.12);
   L.item('pills', 16.5, YA + 0.78, 37.8, { chance: 0.5 });
-  const grill = P.prop(L, 19.6, YA, 38.8, 0);
-  grill.sph(0, 0.75, 0, 0.3, 'blackMatte', null, [1, 0.8, 1]).box(0, 0.35, 0, 0.04, 0.7, 0.04, 'metalDark').box(0, 0.05, 0, 0.5, 0.03, 0.5, 'metalDark').col(0, 0.5, 0, 0.6, 1, 0.6, 'metal');
-  P.prop(L, 21, YA, 37.6, 0.3).box(0, 0.22, 0, 0.7, 0.44, 0.45, 'plastic', 0x2a5ab8).box(0, 0.46, 0, 0.72, 0.05, 0.47, 'plastic', 0xe8e8e8).col(0, 0.24, 0, 0.7, 0.48, 0.45, 'plastic');
+  P.kettleGrill(L, 19.6, YA, 38.8, 0.4);
+  P.cooler(L, 21, YA, 37.6, 0.3, 0x2a5ab8);
   for (const x of [11.5, 22.5]) L.box(x - 0.05, YA, 39.95, x + 0.05, YA + 2.6, 40.05, 'metalDark', NC);
   stringLights(L, [[11.5, 40], [17, 36.3], [22.5, 40]], YA + 2.55);
   L.light(17, YA + 2.1, 37.8, 0xffc080, 6, 9, { flicker: 0.08 });
@@ -157,7 +156,7 @@ function buildA(L, game, S) {
   // lumber (where the plank came from), sawhorses, rope, tools by the bridge
   for (let i = 0; i < 5; i++) L.box(27.8, YA + i * 0.07, 40.2 + i * 0.02, 31.3, YA + 0.06 + i * 0.07, 40.5 + i * 0.02, 'woodPale', { tint: 0x9a8a70 });
   for (let i = 0; i < 3; i++) L.box(27.8, YA, 40.7 + i * 0.35, 31.3, YA + 0.06, 41 + i * 0.35, 'woodPale', { tint: 0x8a7a60, collide: false });
-  for (const x of [28.4, 30.6]) { const sh = P.prop(L, x, YA, 38.9, Math.PI / 2); sh.box(0, 0.7, 0, 1.0, 0.08, 0.1, 'woodPale').box(-0.4, 0.35, 0, 0.06, 0.7, 0.5, 'woodPale', null, [0.3, 0, 0]).box(0.4, 0.35, 0, 0.06, 0.7, 0.5, 'woodPale', null, [0.3, 0, 0]); }
+  for (const x of [28.4, 30.6]) P.sawhorse(L, x, YA, 38.9, Math.PI / 2, 1.0, 0xc8b08a, false);
   P.prop(L, 30.8, YA, 42.6, 0).cyl(0, 0.08, 0, 0.35, 0.16, 'fabric', 0x8a7a5a, null, 12);
   P.prop(L, 29.2, YA, 42.8, 0.3).box(0, 0.12, 0, 0.5, 0.24, 0.22, 'paintedRed', 0xb02020).col(0, 0.12, 0, 0.5, 0.24, 0.22, 'metal');
   L.item('ammo', 29.2, YA + 0.26, 42.8, { chance: 0.35 });
@@ -445,7 +444,7 @@ function buildBRoof(L, game, S) {
   P.fenceChain(L, 39.35, 31.2, 57.6, 31.2, YA, 2.4);
   P.fenceChain(L, 60.6, 31.2, 65.65, 31.2, YA, 2.4);
   for (const x of [57.6, 60.6]) L.box(x - 0.06, YA, 31.14, x + 0.06, YA + 2.5, 31.26, 'metalDark');
-  P.prop(L, 58.1, YA, 32.2, -1.2).box(0, 1.15, 0, 1.4, 2.2, 0.05, 'metal', 0x8a8a86).col(0, 1.15, 0, 1.4, 2.2, 0.08, 'metal', F_SOLID | F_SHOOT);
+  P.fenceGate(L, 57.85, YA, 31.55, -1.2, 1.4, 2.2); // gate leaf swung open (chain-link, see props.fenceGate)
   sign(L, 'RESIDENTS ONLY\nKEEP GATE CLOSED', 55.5, YA + 1.5, 31.3, 0, 1.3, 0.5, { bg: '#e8e0c8', fg: '#1a1a1a', border: '#1a1a1a' });
   graffiti(L, 'GATE →', 50, YA + 0.9, 31.32, 0, 1.4, 0.6, '#f0e0a0');
   P.pipe(L, 48, YA + 1.25, 19, 48, YA + 1.25, 17, 0.18, 'metal');

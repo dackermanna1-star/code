@@ -1173,7 +1173,7 @@ export function artTexture(key, draw, o = {}) {
   const c = draw();
   t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = o.anisotropy ?? 4;
+  t.anisotropy = o.anisotropy ?? 8;
   t.generateMipmaps = true;
   t.minFilter = THREE.LinearMipmapLinearFilter;
   texCache.set(key, t);

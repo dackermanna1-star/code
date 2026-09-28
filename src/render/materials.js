@@ -36,7 +36,7 @@ const DEFS = {
   tileSubway: { tex: ['tiles', { cols: 13, rows: 26, color: 0xcfd2c8, offset: 0.5, grout: 0.0045, gloss: 0.12, stain: 0.6, groutColor: 0x6a675e }], scale: 2, surf: 'tile', fx: 'tile' },
   tileGreen: { tex: ['tiles', { cols: 13, rows: 26, color: 0x6e8a74, offset: 0.5, grout: 0.0045, gloss: 0.12, stain: 0.5, seed: 52 }], scale: 2, surf: 'tile', fx: 'tile' },
   tileChecker: { tex: ['tiles', { cols: 8, rows: 8, color: 0xd6d2c6, color2: 0x2a2a2c, checker: true, grout: 0.003, gloss: 0.3, seed: 53 }], scale: 2.4, surf: 'tile', fx: 'floor' },
-  tileFloor: { tex: ['tiles', { cols: 6, rows: 6, color: 0x9a968a, grout: 0.005, gloss: 0.35, seed: 54, groutColor: 0x7a766c, film: 0.9 }], scale: 2.4, surf: 'tile', fx: 'floor' },
+  tileFloor: { tex: ['tiles', { cols: 6, rows: 6, color: 0x9a968a, grout: 0.005, gloss: 0.35, seed: 54, groutColor: 0x7a766c, film: 1.1, cushion: 0.035, tileVar: 0.2 }], scale: 2.4, surf: 'tile', fx: 'floor' },
   woodFloor: { tex: ['woodfloor', { paint: true, seed: 61 }], paint: 0x6b4a2e, scale: 3, surf: 'wood', fx: 'floor' },
   woodFloorDark: { tex: ['woodfloor', { paint: true, seed: 61 }], paint: 0x4a3020, scale: 3, surf: 'wood', fx: 'floor' },
   wood: { tex: ['wood', { paint: true, seed: 71 }], paint: 0x8a6a44, scale: 1.2, surf: 'wood', fx: 'prop' },

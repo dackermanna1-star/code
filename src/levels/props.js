@@ -29,24 +29,70 @@ function ensureMaterials() {
   const glow = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.6, 2.6, 2.6), vertexColors: true });
   glow.name = 'emissiveTint';
   materials.cache.set('emissiveTint', glow);
-  // chain-link fence mesh (alpha-tested diamond wire pattern, 2 m per tile)
-  const c = document.createElement('canvas');
-  c.width = c.height = 256;
-  const g = c.getContext('2d');
-  g.clearRect(0, 0, 256, 256);
-  g.strokeStyle = 'rgba(200,200,195,1)';
-  g.lineWidth = 2.2;
-  const n = 28, s = 256 / n;
-  for (let i = -n; i <= n * 2; i++) {
-    g.beginPath(); g.moveTo(i * s, 0); g.lineTo(i * s + 256, 256); g.stroke();
-    g.beginPath(); g.moveTo(i * s, 256); g.lineTo(i * s + 256, 0); g.stroke();
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.anisotropy = 4;
-  const link = new THREE.MeshStandardMaterial({ color: 0x9a9a96, map: tex, alphaTest: 0.35, side: THREE.DoubleSide, metalness: 0.7, roughness: 0.5, vertexColors: true });
+  // chain-link fence mesh: analytic woven diamond wire (2 m per tile, ~6 cm
+  // diamonds). Colour+alpha, normal and roughness maps are generated per pixel.
+  // Rendered alpha-blended (depthWrite off) instead of alpha-tested: with
+  // mipmapping an alpha-tested fine mesh turns into an opaque grey slab at
+  // distance; blended, the far mips fade to a see-through haze like real wire.
+  const link = new THREE.MeshStandardMaterial({ color: 0xa4a6a2, metalness: 0.85, roughness: 1, vertexColors: true, transparent: true, depthWrite: false, alphaTest: 0.02 });
+  // FrontSide on purpose: the mesh is a thin box, so each side of the fence
+  // shows exactly one correctly-lit wire layer (DoubleSide would stack 2-4).
+  link.side = THREE.FrontSide;
+  const maps = chainLinkMaps();
+  Object.assign(link, maps);
+  link.normalScale.set(1.2, 1.2);
   link.name = 'chainLink';
   materials.cache.set('chainLink', link);
+}
+function chainLinkMaps() {
+  const N = 1024, s = 32, r = 1.75; // texels per tile, diamond period, wire radius (texels)
+  const col = new Uint8Array(N * N * 4), nrm = new Uint8Array(N * N * 4), rgh = new Uint8Array(N * N * 4);
+  const R2 = Math.SQRT1_2;
+  // low-frequency rust/zinc variation
+  const lf = new Float32Array(64 * 64);
+  for (let i = 0; i < lf.length; i++) lf[i] = drnd();
+  const lfAt = (x, y) => {
+    const fx = (x / N) * 64, fy = (y / N) * 64, ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy;
+    const a = (i, j) => lf[((j & 63) << 6) | (i & 63)];
+    return (a(ix, iy) * (1 - tx) + a(ix + 1, iy) * tx) * (1 - ty) + (a(ix, iy + 1) * (1 - tx) + a(ix + 1, iy + 1) * tx) * ty;
+  };
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    // signed distance to the nearest wire of each diagonal family
+    let a = (((x - y) % s) + s) % s; if (a > s / 2) a -= s;
+    let b = (x + y) % s; if (b > s / 2) b -= s;
+    const dA = a * R2, dB = b * R2;
+    // weave: which family is on top alternates per crossing
+    const cA = Math.floor((x - y + s * 64 + s / 2) / s), cB = Math.floor((x + y + s / 2) / s);
+    const topA = ((cA + cB) & 1) === 0;
+    let d, nx, ny, lift;
+    if (Math.abs(dA) < Math.abs(dB) || (Math.abs(dA) < r && topA && Math.abs(dB) < r)) { d = dA; nx = R2; ny = -R2; lift = topA ? 1 : 0.6; }
+    else { d = dB; nx = R2; ny = R2; lift = topA ? 0.6 : 1; }
+    const ad = Math.abs(d), i = (y * N + x) * 4;
+    const alpha = Math.max(0, Math.min(1, r + 0.6 - ad));
+    const t = Math.min(1, ad / r), h = Math.sqrt(Math.max(0, 1 - t * t));
+    const px = Math.sign(d) * t;
+    // normal (tangent space): wire cross-section curvature across the wire
+    let vx = px * nx, vy = px * ny, vz = Math.max(0.15, h);
+    const L = Math.hypot(vx, vy, vz); vx /= L; vy /= L; vz /= L;
+    nrm[i] = (vx * 0.5 + 0.5) * 255; nrm[i + 1] = (-vy * 0.5 + 0.5) * 255; nrm[i + 2] = (vz * 0.5 + 0.5) * 255; nrm[i + 3] = 255;
+    const n = lfAt(x, y), rust = Math.max(0, n - 0.62) * 2.6 * (0.6 + 0.4 * drnd());
+    const shade = (0.62 + 0.38 * h * lift) * (0.9 + 0.2 * drnd());
+    col[i] = Math.min(255, (205 * (1 - rust) + 150 * rust) * shade);
+    col[i + 1] = Math.min(255, (208 * (1 - rust) + 92 * rust) * shade);
+    col[i + 2] = Math.min(255, (204 * (1 - rust) + 55 * rust) * shade);
+    col[i + 3] = alpha * 255;
+    rgh[i] = rgh[i + 2] = 0; rgh[i + 1] = Math.min(255, (0.38 + 0.25 * n + rust * 0.4) * 255); rgh[i + 3] = 255;
+  }
+  const mk = (data, srgb) => {
+    const t = new THREE.DataTexture(data, N, N, THREE.RGBAFormat);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true;
+    t.anisotropy = 8;
+    if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+    t.needsUpdate = true;
+    return t;
+  };
+  return { map: mk(col, true), normalMap: mk(nrm, false), roughnessMap: mk(rgh, false) };
 }
 
 const UNTEXTURED = new Set(['glass', 'glassDirty', 'emissiveWarm', 'emissiveCool', 'emissiveRed', 'emissiveGreen', 'emissiveWindow', 'emissiveTint', 'plastic', 'plasticGloss', 'chrome', 'carPaint', 'blackMatte', 'paper', 'waterSurface', 'foliage', 'chainLink']);
@@ -1194,9 +1240,16 @@ export function fenceChain(L, x0, z0, x1, z1, y = 0, h = 3) {
   const n = Math.max(1, Math.round(len / 2.5));
   for (let i = 0; i <= n; i++) {
     const px = -len / 2 + (len / n) * i;
-    p.cyl(px, h / 2, 0, 0.035, h, 'metal', 0x8a8a86, null, 8);
-    p.sph(px, h + 0.02, 0, 0.04, 'metal', 0x8a8a86, [1, 0.6, 1], 6);
+    const end = i === 0 || i === n;
+    p.cyl(px, h / 2, 0, end ? 0.045 : 0.035, h, 'metal', 0x8a8a86, null, 8);
+    p.sph(px, h + 0.02, 0, end ? 0.05 : 0.04, 'metal', 0x8a8a86, [1, 0.6, 1], 6);
     p.cyl(px, 0.05, 0, 0.1, 0.1, 'concrete', null, null, 8);
+    if (end) {
+      // terminal post: flat tension bar threaded through the mesh + bolted bands
+      const bx = px + (i === 0 ? 0.07 : -0.07);
+      p.box(bx, h / 2, 0.012, 0.018, h - 0.2, 0.006, 'metal', 0x7e7e7a);
+      for (let k = 0; k < 4; k++) { const by = 0.3 + k * (h - 0.6) / 3; p.box(px + (bx - px) / 2, by, 0.012, 0.13, 0.025, 0.012, 'metal', 0x9a9a96); p.cyl(bx, by, 0.022, 0.007, 0.012, 'metalDark', null, [Math.PI / 2, 0, 0], 6); }
+    } else p.torus(px, h - 0.05, 0, 0.04, 0.008, 'metal', 0x9a9a96, [Math.PI / 2, 0, 0], 4, 10); // rail clamp
   }
   p.cyl(0, h - 0.05, 0, 0.022, len, 'metal', 0x8a8a86, [0, 0, Math.PI / 2], 6);
   p.cyl(0, 0.1, 0, 0.012, len, 'metal', 0x8a8a86, [0, 0, Math.PI / 2], 6);
@@ -1206,6 +1259,120 @@ export function fenceChain(L, x0, z0, x1, z1, y = 0, h = 3) {
   for (const dy of [0.12, 0.24]) p.cyl(0, h + dy, -0.08, 0.004, len, 'metalDark', null, [0, 0, Math.PI / 2], 4);
   for (let i = 0; i <= n; i++) p.box(-len / 2 + (len / n) * i, h + 0.12, -0.05, 0.03, 0.3, 0.03, 'metal', 0x8a8a86, [0.5, 0, 0]);
   p.col(0, h / 2, 0, len, h, 0.1, 'metal', F_SOLID | F_SHOOT);
+  return p;
+}
+// Chain-link gate leaf: welded tube frame with mid brace, wire mesh infill,
+// hinge knuckles on the -X edge and a fork latch + padlock on the +X edge.
+// (x, y, z) is the floor point under the hinge; the leaf extends along local
+// +X by w (ry swings it). Collision is one thin slab.
+export function fenceGate(L, x, y, z, ry = 0, w = 1.4, h = 2.2, locked = false) {
+  const p = prop(L, x, y, z, ry);
+  const t = 0x8a8a86, cx = w / 2, cy = 0.08 + h / 2;
+  for (const sx of [0.03, w - 0.03]) p.cyl(sx, cy, 0, 0.022, h, 'metal', t, null, 8);
+  for (const sy of [0.08, 0.08 + h / 2, 0.08 + h]) p.cyl(cx, sy, 0, 0.02, w - 0.04, 'metal', t, [0, 0, Math.PI / 2], 8);
+  p.tube(0.05, 0.1, 0, w - 0.05, 0.06 + h / 2, 0, 0.012, 'metal', t, 6); // diagonal brace
+  p.box(cx, cy, 0, w - 0.06, h - 0.04, 0.004, 'chainLink');
+  for (const hy of [0.35, h - 0.2]) { p.cyl(-0.02, hy, 0, 0.03, 0.12, 'metalDark', null, null, 8); p.box(0.0, hy, 0, 0.06, 0.03, 0.02, 'metalDark'); }
+  p.box(w + 0.01, 0.08 + h * 0.55, 0, 0.08, 0.05, 0.05, 'metalDark');
+  if (locked) {
+    p.tube(w - 0.02, 0.08 + h * 0.5, 0.02, w + 0.04, 0.08 + h * 0.5, 0.02, 0.006, 'metalDark', null, 5);
+    p.rbox(w + 0.05, 0.08 + h * 0.47, 0.03, 0.05, 0.06, 0.025, 0.006, 'metalClean', 0xc0a050);
+    p.torus(w + 0.05, 0.08 + h * 0.5 + 0.01, 0.03, 0.018, 0.004, 'chrome', null, [0, 0, 0], 4, 10, Math.PI);
+  }
+  p.col(cx, cy, 0, w, h, 0.08, 'metal', F_SOLID | F_SHOOT);
+  return p;
+}
+// Picnic / fishing cooler: moulded tub with rounded corners, hinged white lid,
+// latch tabs, fold-down handles on the ends, drain plug and a maker's label.
+// open=true props the lid up.
+export function cooler(L, x, y, z, ry = 0, color = 0x2a5a9a, open = false) {
+  const p = prop(L, x, y, z, ry);
+  const W = 0.62, D = 0.38, H = 0.36;
+  p.rbox(0, H / 2 + 0.01, 0, W, H, D, 0.04, 'plasticGloss', color, null, 2);
+  p.rbox(0, 0.012, 0, W - 0.04, 0.024, D - 0.04, 0.01, 'plastic', 0x2a2a2a); // base skid
+  p.box(0, 0.3, -D / 2 - 0.002, W - 0.08, 0.012, 0.004, 'plastic', new THREE.Color(color).multiplyScalar(0.7).getHex()); // moulded rib
+  // lid
+  if (open) p.rbox(0, H + 0.2, D / 2 + 0.02, W + 0.01, 0.4, 0.05, 0.02, 'plastic', 0xe8e6e0, [-0.25, 0, 0]);
+  else {
+    p.rbox(0, H + 0.035, 0, W + 0.01, 0.06, D + 0.01, 0.025, 'plastic', 0xe8e6e0, null, 2);
+    p.box(-0.12, H + 0.066, 0.02, 0.07, 0.006, 0.05, 'plastic', 0xc8c6c0); // cup holders
+    p.box(0.12, H + 0.066, 0.02, 0.07, 0.006, 0.05, 'plastic', 0xc8c6c0);
+    for (const sx of [-0.2, 0.2]) p.box(sx, H + 0.01, -D / 2 - 0.012, 0.06, 0.05, 0.016, 'plastic', 0xd8d6d0); // latches
+  }
+  if (open) { p.box(0, H - 0.02, 0, W - 0.06, 0.02, D - 0.06, 'waterSurface', 0x6a8088); p.cyl(0.12, H - 0.02, 0.02, 0.033, 0.12, 'metalClean', 0xb02020, [0.3, 0, 1.3], 10); }
+  // end handles
+  for (const sx of [-1, 1]) {
+    p.box(sx * (W / 2 + 0.012), H - 0.06, 0, 0.02, 0.03, 0.2, 'plastic', 0xd8d6d0);
+    p.box(sx * (W / 2 + 0.006), H - 0.03, -0.09, 0.012, 0.06, 0.02, 'plastic', 0xd8d6d0);
+    p.box(sx * (W / 2 + 0.006), H - 0.03, 0.09, 0.012, 0.06, 0.02, 'plastic', 0xd8d6d0);
+  }
+  p.cyl(W / 2 - 0.08, 0.05, -D / 2 - 0.004, 0.018, 0.012, 'plastic', 0x1a1a1a, [Math.PI / 2, 0, 0], 8); // drain plug
+  p.box(-0.1, 0.19, -D / 2 - 0.004, 0.24, 0.07, 0.003, 'paper', 0xe8e4d8); // label
+  p.box(-0.1, 0.205, -D / 2 - 0.0065, 0.2, 0.018, 0.002, 'plastic', 0xb02020);
+  p.box(-0.13, 0.172, -D / 2 - 0.0065, 0.14, 0.008, 0.002, 'plastic', 0x2a2a2a);
+  p.col(0, (H + 0.06) / 2, 0, W, H + 0.07, D, 'plastic', F_SOLID | F_SHOOT);
+  return p;
+}
+// Plywood sheet leaning against a wall: face-grain veneer, splintered edge,
+// a spray-painted mark and a batten screwed across. (x, z) is the foot of the
+// sheet, the wall is behind it along local +Z at distance lean*h.
+export function plywood(L, x, y, z, ry = 0, w = 1.2, h = 2.2, lean = 0.12, mark = true) {
+  const p = prop(L, x, y, z, ry);
+  const a = Math.asin(Math.min(0.5, lean));
+  const cz = Math.sin(a) * h / 2, cy = Math.cos(a) * h / 2;
+  p.box(0, cy, cz, w, h, 0.018, 'woodPale', 0xc8b08a, [-a, 0, 0]);
+  p.box(0, cy, cz - 0.0095 * Math.cos(a), w - 0.02, h - 0.02, 0.002, 'wood', 0xd8c09a, [-a, 0, 0]);
+  p.box(0, cy * 0.9, cz * 0.9 - 0.02, w - 0.1, 0.07, 0.02, 'woodDark', 0x8a7a60, [-a, 0, 0]);
+  for (const sx of [-0.4, 0.4]) p.cyl(sx * w, cy * 0.9, cz * 0.9 - 0.032, 0.006, 0.006, 'metalDark', null, [Math.PI / 2 - a, 0, 0], 6);
+  if (mark) p.box(0.1, cy * 1.2, cz * 1.2 - 0.011, w * 0.5, 0.04, 0.001, 'plastic', 0xd83a1a, [-a, 0, 0.35]);
+  p.box(w / 2 - 0.08, 0.06, 0.01, 0.12, 0.1, 0.02, 'woodDark', 0x6a5a40, [0, 0.4, 0.2]); // broken-off chunk
+  p.col(0, h / 2, cz, w, h, 2 * cz + 0.04, 'wood', F_SOLID | F_SHOOT);
+  return p;
+}
+// Sawhorse: 2x4 top beam on splayed legs with gusset plates and a lower
+// cross-brace; long axis along local X.
+export function sawhorse(L, x, y, z, ry = 0, len = 1.0, tint = 0xc8b08a, collide = true) {
+  const p = prop(L, x, y, z, ry);
+  const h = 0.72, sp = 0.2;
+  p.box(0, h - 0.045, 0, len, 0.09, 0.045, 'woodPale', tint);
+  for (const sx of [-1, 1]) {
+    const lx = sx * (len / 2 - 0.12);
+    for (const sz of [-1, 1]) p.box(lx, h / 2 - 0.03, sz * sp / 2, 0.07, h - 0.02, 0.035, 'woodPale', tint, [sz * -0.27, 0, 0]);
+    p.box(lx, h - 0.16, 0, 0.012, 0.14, 0.24, 'woodPale', 0xa89070); // gusset
+    p.box(lx, 0.22, 0, 0.04, 0.06, sp + 0.15, 'woodPale', 0xb09878); // spreader
+  }
+  p.box(0, 0.26, sp / 2 + 0.04, len - 0.3, 0.06, 0.02, 'woodPale', 0xb09878, [0.27, 0, 0]);
+  for (const sx of [-1, 1]) p.cyl(sx * (len / 2 - 0.12), h - 0.16, 0.125, 0.006, 0.01, 'metalDark', null, [Math.PI / 2, 0, 0], 6);
+  if (collide) p.col(0, h / 2, 0, len, h, 0.5, 'wood', F_SOLID | F_SHOOT);
+  return p;
+}
+// Kettle barbecue grill: enamelled bowl + lid with handle and vents, grate,
+// three legs with wheels, ash catcher, side hook with tongs.
+export function kettleGrill(L, x, y, z, ry = 0, color = 0x1a1a1c, lidOff = false) {
+  const p = prop(L, x, y, z, ry);
+  const R = 0.29, by = 0.72;
+  p.sph(0, by, 0, R, 'plasticGloss', color, [1, 0.72, 1], 14); // bowl (lower half hidden by lid or showing coals)
+  p.torus(0, by, 0, R, 0.012, 'metal', 0x8a8a86, [Math.PI / 2, 0, 0], 4, 22);
+  if (lidOff) {
+    p.cyl(0, by + 0.02, 0, R - 0.02, 0.005, 'metalDark', 0x4a4a48, null, 16);
+    for (let i = -3; i <= 3; i++) p.box(i * 0.07, by + 0.03, 0, 0.008, 0.008, 2 * Math.sqrt(Math.max(0.01, (R - 0.03) ** 2 - (i * 0.07) ** 2)), 'metal', 0x9a9a96);
+    p.sph(0.45, 0.2, -0.1, R, 'plasticGloss', color, [1, 0.72, 1], 12); // lid on the floor
+  } else {
+    p.sph(0, by + 0.02, 0, R + 0.005, 'plasticGloss', color, [1, 0.62, 1], 14);
+    p.box(0, by + 0.23, 0, 0.16, 0.025, 0.035, 'wood', 0x3a2618);
+    for (const sx of [-1, 1]) p.box(sx * 0.07, by + 0.205, 0, 0.012, 0.035, 0.012, 'chrome');
+    p.cyl(0.12, by + 0.18, 0.05, 0.035, 0.008, 'chrome', null, [0.35, 0, -0.35], 10); // vent
+  }
+  for (let i = 0; i < 3; i++) {
+    const a = i * Math.PI * 2 / 3 + 0.5, ex = Math.cos(a) * 0.26, ez = Math.sin(a) * 0.26;
+    p.tube(Math.cos(a) * 0.16, by - 0.12, Math.sin(a) * 0.16, ex, 0.04, ez, 0.012, 'metal', 0x8a8a86);
+    if (i < 2) p.cylX(ex, 0.045, ez, 0.045, 0.03, 'rubber', 0x1a1a1a, 10);
+  }
+  p.cyl(0, 0.3, 0, 0.18, 0.01, 'metal', 0x6a6a66, null, 14); // ash-catcher tray
+  p.cyl(0, 0.36, 0, 0.1, 0.12, 'metal', 0x8a8a86, null, 12); // ash pan
+  p.box(R + 0.02, by - 0.05, 0, 0.06, 0.012, 0.012, 'chrome');
+  p.tube(R + 0.05, by - 0.05, 0, R + 0.08, by - 0.36, 0.02, 0.006, 'chrome'); // tongs
+  p.col(0, 0.5, 0, 0.62, 1.0, 0.62, 'metal');
   return p;
 }
 export function barricade(L, x, y, z, ry = 0) {

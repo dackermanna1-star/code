@@ -391,7 +391,9 @@ export class Renderer {
     this.vmPass = new ViewmodelPass(this.scene, this.vmCamera);
     this.composer.addPass(this.vmPass);
     if (quality.bloom) {
-      this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.5, 0.55, 0.85);
+      this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.45, 0.5, 1.0);
+      // threshold 1.0 (scene-linear): lamps, neon, fire and emissives (HDR > 1) glow, lit
+      // surfaces and flashlit skin don't smear into a milky haze
       // the grade pass adds the bloom (with lens dirt); skip the pass's own blend draw
       this.bloom.blendMaterial.visible = false;
       this.composer.addPass(this.bloom);

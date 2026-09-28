@@ -112,7 +112,7 @@ export function buildTerminal(L, game, S) {
   P.luggageCart(L, -12.2, DEP, -6.6, 0.6, true);
   P.wheelchair(L, -34.2, DEP, -14.8, 1.1);
   P.vending(L, -11.0, DEP, -15.6, -Math.PI / 2, 0x1a4a8a);
-  P.trashCan(L, -35.2, DEP, -9.6);
+  P.trashCan(L, -35.45, DEP, -13.4);
   P.corpse(L, -27.6, DEP + 0.01, -7.2, 1.2, 0x2a3a5a);
   L.decal(-27.4, DEP + 0.012, -7.4, 0, 1, 0, 2.2, DF.POOL);
   P.corpse(L, -13.5, DEP + 0.01, -9.8, 2.6, 0x6a2a2a);

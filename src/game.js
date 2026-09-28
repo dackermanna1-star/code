@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { Renderer } from './render/renderer.js';
 import { Input } from './core/input.js';
-import { LightManager } from './render/lights.js';
+import { LightManager, flashGlareMaterial } from './render/lights.js';
 import { Particles } from './render/particles.js';
 import { Decals } from './render/decals.js';
 import { Sky } from './render/sky.js';
@@ -22,6 +22,7 @@ import { NullAudio } from './audio/audio.js';
 import { DIFFICULTY, QUALITY } from './config.js';
 import { Level } from './world/level.js';
 import { clamp } from './core/math.js';
+const _bd = new THREE.Vector3(), _bm = new THREE.Vector3();
 
 export class Game {
   constructor(canvas, settings, hooks = {}) {
@@ -94,22 +95,42 @@ export class Game {
     this.flashlight.shadow.bias = -0.0004;
     this.flashlight.shadow.normalBias = 0.03;
     this.renderer.camera.add(this.flashlight);
-    // Viewmodel-only fill light (layer 1) so hands/guns read in the dark without blowing out
-    this.vmLight = new THREE.PointLight(0xfff0dc, 2.0, 4, 0);
+    // Viewmodel-only lights (layer 1). The world flashlight never touches the
+    // viewmodel (it would burn a white hot spot into the hands); instead a soft
+    // key from above/behind the shoulder and a dim warm bounce from the lit
+    // scene ahead model the flashlight spill, so skin, gloves and gun metal
+    // keep their colour.
+    this.vmLight = new THREE.DirectionalLight(0xffeedd, 1.0);
     this.vmLight.layers.set(1);
-    this.vmLight.position.set(0.3, 0.15, 0.2);
+    this.vmLight.position.set(0.5, 1.0, 0.7);
     this.renderer.camera.add(this.vmLight);
+    this.renderer.camera.add(this.vmLight.target);
+    this.vmFill = new THREE.DirectionalLight(0xffd6b0, 0.3);
+    this.vmFill.layers.set(1);
+    this.vmFill.position.set(-0.2, -0.5, -1);
+    this.renderer.camera.add(this.vmFill);
+    this.renderer.camera.add(this.vmFill.target);
     this.flashlight.position.set(0.25, -0.2, 1.1);
     this.flashlight.target.position.set(0.2, -1.1, -10);
     this.renderer.camera.add(this.flashlight.target);
-    // Bot flashlights (no shadows)
+    // Bot flashlights (no shadows): mounted just behind the gun muzzle so the
+    // beam starts in front of the bot's own body, softer than the player's lamp
+    // so survivors in the beam don't blow out; they don't light the player's
+    // viewmodel (layer 0 only). A small lens-glare sprite shows the lamp itself
+    // when a bot looks at the camera.
     this.botLights = [];
+    this.botGlares = [];
     for (let i = 0; i < 3; i++) {
-      const L = new THREE.SpotLight(0xfff1dc, 0, 30, 0.45, 0.6, 1.0);
-      L.layers.enable(1);
+      const L = new THREE.SpotLight(0xfff0dc, 0, 26, 0.42, 0.7, 1.0);
+      L.userData.coneK = 0.8;
       this.scene.add(L);
       this.scene.add(L.target);
       this.botLights.push(L);
+      const gl = new THREE.Sprite(flashGlareMaterial());
+      gl.visible = false;
+      gl.renderOrder = 16;
+      this.scene.add(gl);
+      this.botGlares.push(gl);
     }
     this.fogColor = new THREE.Color(0x0a0c10);
     this.scene.fog = new THREE.FogExp2(0x0a0c10, 0.03);
@@ -320,20 +341,34 @@ export class Game {
     const p = this.player;
     const on = p && !p.dead && p.flashlight;
     this.flashlight.intensity = on ? 22 * (p.flashFlicker ?? 1) : 0;
-    this.vmLight.intensity = on ? 2.2 : 0.8;
+    this.vmLight.intensity = on ? 1.05 : 0.45;
+    this.vmFill.intensity = on ? 0.32 : 0.1;
     // bots' flashlights
     let bi = 0;
+    const cam = this.renderer.camera.position;
     for (const s of this.survivors) {
       if (s === this.player) continue;
-      const L = this.botLights[bi++];
+      const L = this.botLights[bi], G = this.botGlares[bi];
+      bi++;
       if (!L) break;
-      if (s.dead || !s.flashlight || s.model?.hidden) { L.intensity = 0; continue; }
-      const e = s.eye(new THREE.Vector3());
-      const d = s.aimDir(new THREE.Vector3());
-      L.position.set(e.x + d.x * 0.3, e.y - 0.25, e.z + d.z * 0.3);
-      L.target.position.set(e.x + d.x * 10, e.y + d.y * 10 - 0.5, e.z + d.z * 10);
-      L.intensity = 18;
+      if (s.dead || !s.flashlight || s.model?.hidden) { L.intensity = 0; G.visible = false; continue; }
+      const d = s.aimDir(_bd);
+      const m = s.model?.muzzleWorld ? s.model.muzzleWorld(_bm) : s.eye(_bm);
+      L.position.set(m.x - d.x * 0.3, m.y - d.y * 0.3, m.z - d.z * 0.3);
+      L.target.position.set(m.x + d.x * 10, m.y + d.y * 10 - 0.4, m.z + d.z * 10);
+      L.intensity = 8.5;
+      // glare: only when the camera is inside the beam, fading towards the rim
+      const tx = cam.x - m.x, ty = cam.y - m.y, tz = cam.z - m.z, tl = Math.hypot(tx, ty, tz) || 1;
+      const f = (tx * d.x + ty * d.y + tz * d.z) / tl;
+      const k = THREE.MathUtils.smoothstep(f, 0.84, 0.985);
+      G.visible = k > 0.01 && tl > 0.8;
+      if (G.visible) {
+        G.position.set(m.x + d.x * 0.02, m.y + d.y * 0.02, m.z + d.z * 0.02);
+        G.material.opacity = k * 0.9;
+        G.scale.setScalar(0.09 + 0.2 * k + Math.min(0.25, tl * 0.012));
+      }
     }
+    for (; bi < this.botLights.length; bi++) { this.botLights[bi].intensity = 0; this.botGlares[bi].visible = false; }
     if (this.moon.intensity > 0 && this.moonDir) {
       const c = this.camPos;
       // snap to texel grid to reduce shimmer

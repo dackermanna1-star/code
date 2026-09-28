@@ -466,6 +466,124 @@ export function burningBarrel(L, x, y, z) {
 }
 
 // ------------------------------------------------------ dynamic helpers --
+// ---- detailed physics-prop models: parts merged into ONE vertex-coloured
+// mesh per prop (1 draw call), geometry cached per type, materials shared.
+const _ppGeo = new Map(), _ppMat = new Map();
+function ppMat(rough, metal, extra) {
+  const k = rough + ',' + metal + (extra ? ',t' : '');
+  let m = _ppMat.get(k);
+  if (!m) {
+    m = new THREE.MeshStandardMaterial(Object.assign({ color: 0xffffff, vertexColors: true, roughness: rough, metalness: metal }, extra || {}));
+    _ppMat.set(k, m);
+  }
+  return m;
+}
+// parts: [geometry, colorHex, [x,y,z], [rx,ry,rz]?, [sx,sy,sz]?]
+function ppBuild(key, parts) {
+  let g = _ppGeo.get(key);
+  if (g) return g;
+  const e = new THREE.Euler(), q = new THREE.Quaternion(), mtx = new THREE.Matrix4(), c = new THREE.Color();
+  const geos = parts.map(([geo, col, pos, rot, sc]) => {
+    let pg = geo.index ? geo.toNonIndexed() : geo.clone();
+    pg.deleteAttribute('uv');
+    mtx.compose(new THREE.Vector3(...pos), q.setFromEuler(e.set(...(rot || [0, 0, 0]))), new THREE.Vector3(...(sc || [1, 1, 1])));
+    pg.applyMatrix4(mtx);
+    c.setHex(col).convertSRGBToLinear();
+    const n = pg.attributes.position.count, arr = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { arr[i * 3] = c.r; arr[i * 3 + 1] = c.g; arr[i * 3 + 2] = c.b; }
+    pg.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+    return pg;
+  });
+  // manual merge (all non-indexed, same attributes)
+  let total = 0;
+  for (const pg of geos) total += pg.attributes.position.count;
+  const pos = new Float32Array(total * 3), nor = new Float32Array(total * 3), colA = new Float32Array(total * 3);
+  let o = 0;
+  for (const pg of geos) { pos.set(pg.attributes.position.array, o); nor.set(pg.attributes.normal.array, o); colA.set(pg.attributes.color.array, o); o += pg.attributes.position.count * 3; }
+  g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(colA, 3));
+  g.computeBoundingSphere();
+  _ppGeo.set(key, g);
+  return g;
+}
+const cylG = (rt, rb, h, s = 14, open = false) => new THREE.CylinderGeometry(rt, rb, h, s, 1, open);
+const boxG = (x, y, z) => new THREE.BoxGeometry(x, y, z);
+const torG = (R, r, ts = 18, arc = Math.PI * 2) => new THREE.TorusGeometry(R, r, 4, ts, arc);
+const HX = [Math.PI / 2, 0, 0];
+function physModel(type) {
+  switch (type) {
+    case 'trashcan': { // galvanised can: ribbed body, rolled rim, side handles, domed lid
+      const body = 0x6e6e68, rib = 0x5c5c56, lid = 0x7c7c76;
+      const parts = [[cylG(0.26, 0.24, 0.78, 16), body, [0, 0.4, 0]], [cylG(0.235, 0.235, 0.02, 14), 0x3a3a36, [0, 0.015, 0]]];
+      for (let i = 0; i < 4; i++) parts.push([torG(0.255 - i * 0.004, 0.012), rib, [0, 0.14 + i * 0.19, 0], HX]);
+      parts.push([torG(0.262, 0.018), lid, [0, 0.79, 0], HX]);
+      for (const sx of [-1, 1]) parts.push([torG(0.05, 0.009, 8, Math.PI), rib, [sx * 0.27, 0.62, 0], [0, Math.PI / 2, sx > 0 ? -Math.PI / 2 : Math.PI / 2]]);
+      parts.push([new THREE.SphereGeometry(0.27, 16, 5, 0, Math.PI * 2, 0, 0.45), lid, [0, 0.72, 0]]);
+      parts.push([boxG(0.14, 0.03, 0.035), rib, [0, 0.855, 0]]);
+      return [ppBuild(type, parts), ppMat(0.55, 0.6)];
+    }
+    case 'bucket': { // steel pail: tapered, rolled rim, ears + wire bail
+      const c = 0x8a8a86;
+      const parts = [[cylG(0.15, 0.12, 0.3, 14, true), c, [0, 0.15, 0]], [cylG(0.12, 0.12, 0.01, 14), 0x6a6a66, [0, 0.005, 0]],
+        [torG(0.152, 0.008, 18), 0x9a9a96, [0, 0.3, 0], HX], [torG(0.138, 0.005, 18), 0x7a7a76, [0, 0.18, 0], HX],
+        [torG(0.15, 0.004, 16, Math.PI), 0x4a4a48, [0, 0.29, 0], [0, 0, 0]]];
+      for (const sx of [-1, 1]) parts.push([boxG(0.012, 0.04, 0.03), 0x7a7a76, [sx * 0.148, 0.27, 0]]);
+      // cylinder is open-topped: add the inside so it doesn't look hollow-backfaced
+      parts.push([cylG(0.146, 0.116, 0.29, 14, true), 0x5a5a56, [0, 0.155, 0], [Math.PI, 0, 0]]);
+      return [ppBuild(type, parts), ppMat(0.5, 0.65)];
+    }
+    case 'cone': { // traffic cone: square base, cone, two reflective collars
+      const o = 0xe05a10;
+      const parts = [[boxG(0.36, 0.03, 0.36), 0x1a1a1a, [0, 0.015, 0]], [cylG(0.035, 0.15, 0.58, 14), o, [0, 0.32, 0]],
+        [cylG(0.098, 0.121, 0.1, 14), 0xe8e8e0, [0, 0.3, 0]], [cylG(0.068, 0.085, 0.06, 14), 0xe8e8e0, [0, 0.45, 0]]];
+      return [ppBuild(type, parts), ppMat(0.55, 0)];
+    }
+    case 'box': { // cardboard carton: taped seam, flap lines, shipping label
+      const k = 0xa07a50;
+      const parts = [[boxG(1, 1, 1), k, [0, 0.5, 0]], [boxG(0.2, 0.004, 1.004), 0xc8b088, [0, 1.001, 0]],
+        [boxG(0.2, 0.3, 0.004), 0xc8b088, [0, 0.85, 0.5]], [boxG(0.2, 0.3, 0.004), 0xc8b088, [0, 0.85, -0.5]],
+        [boxG(1.002, 0.006, 0.006), 0x7a5a38, [0, 0.99, 0.498]], [boxG(0.3, 0.22, 0.004), 0xe8e4d8, [-0.22, 0.45, -0.501]],
+        [boxG(0.22, 0.03, 0.005), 0x2a2a2a, [-0.22, 0.5, -0.502]], [boxG(0.16, 0.12, 0.004), 0x2a2a2a, [0.28, 0.72, -0.501]]];
+      return [ppBuild(type, parts), ppMat(0.9, 0)];
+    }
+    case 'chair': { // wooden side chair: seat, splayed legs, stretchers, slatted back
+      const w = 0x4a3222, d = 0x3a2618;
+      const parts = [[boxG(0.44, 0.045, 0.42), w, [0, 0.45, 0]]];
+      for (const sx of [-1, 1]) {
+        parts.push([boxG(0.035, 0.45, 0.035), d, [sx * 0.19, 0.22, -0.18]]);
+        parts.push([boxG(0.035, 0.98, 0.035), d, [sx * 0.19, 0.49, 0.19], [-0.06, 0, 0]]);
+      }
+      for (let i = 0; i < 3; i++) parts.push([boxG(0.025, 0.36, 0.02), w, [-0.1 + i * 0.1, 0.72, 0.205], [-0.06, 0, 0]]);
+      parts.push([boxG(0.42, 0.07, 0.03), w, [0, 0.93, 0.215], [-0.06, 0, 0]]);
+      parts.push([boxG(0.36, 0.02, 0.02), d, [0, 0.12, 0]], [boxG(0.02, 0.02, 0.36), d, [0, 0.12, 0]]);
+      return [ppBuild(type, parts), ppMat(0.7, 0)];
+    }
+    case 'bottle': { // beer bottle: body, shoulder, neck, cap, label
+      const gcol = 0x2a5a2a;
+      const parts = [[cylG(0.035, 0.035, 0.15, 10), gcol, [0, 0.075, 0]], [cylG(0.014, 0.035, 0.05, 10), gcol, [0, 0.175, 0]],
+        [cylG(0.013, 0.014, 0.07, 8), gcol, [0, 0.235, 0]], [cylG(0.015, 0.015, 0.012, 8), 0xb09030, [0, 0.274, 0]],
+        [cylG(0.0355, 0.0355, 0.06, 10, true), 0xd8c8a0, [0, 0.08, 0]]];
+      return [ppBuild(type, parts), ppMat(0.12, 0.1)];
+    }
+    case 'propane': { // BBQ cylinder: body, dome, foot ring, collar with handle cut-outs, valve
+      const c = 0xd8d8d0;
+      const parts = [[cylG(0.17, 0.17, 0.46, 16), c, [0, 0.3, 0]], [new THREE.SphereGeometry(0.17, 16, 6, 0, Math.PI * 2, 0, Math.PI / 2), c, [0, 0.53, 0]],
+        [new THREE.SphereGeometry(0.17, 16, 4, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), c, [0, 0.07, 0]], [cylG(0.15, 0.15, 0.07, 14, true), 0xc8c8c0, [0, 0.035, 0]],
+        [cylG(0.1, 0.1, 0.13, 12, true), c, [0, 0.72, 0]], [torG(0.1, 0.008, 14), 0xc8c8c0, [0, 0.785, 0], HX],
+        [cylG(0.022, 0.028, 0.1, 8), 0xb09040, [0, 0.72, 0]], [new THREE.CylinderGeometry(0.035, 0.035, 0.015, 8), 0x2a4aa0, [0, 0.77, 0]],
+        [boxG(0.12, 0.06, 0.004), 0xd83020, [0, 0.36, 0.171]], [cylG(0.172, 0.172, 0.02, 16, true), 0x9a9a92, [0, 0.14, 0]]];
+      return [ppBuild(type, parts), ppMat(0.4, 0.3)];
+    }
+    case 'oxygen': {
+      const parts = [[cylG(0.1, 0.1, 1.0, 12), 0x3a7a3a, [0, 0.5, 0]], [new THREE.SphereGeometry(0.1, 12, 5, 0, Math.PI * 2, 0, Math.PI / 2), 0xd8d8d0, [0, 1.0, 0]],
+        [cylG(0.025, 0.03, 0.08, 8), 0xb09040, [0, 1.12, 0]], [boxG(0.08, 0.03, 0.03), 0xb09040, [0.04, 1.13, 0]], [boxG(0.1, 0.14, 0.004), 0xe8e4d8, [0, 0.6, 0.101]]];
+      return [ppBuild(type, parts), ppMat(0.4, 0.3)];
+    }
+  }
+  return null;
+}
 export function physProp(L, type, x, y, z, o = {}) {
   const g = L.game;
   let obj, opts = {};
@@ -473,20 +591,12 @@ export function physProp(L, type, x, y, z, o = {}) {
   const std = (c, r = 0.6, mt = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: mt });
   switch (type) {
     case 'propane': {
-      obj = new THREE.Group();
-      const body = m(new THREE.CylinderGeometry(0.17, 0.17, 0.5, 14), std(0xd8d8d0, 0.4, 0.3));
-      body.position.y = 0.3; obj.add(body);
-      const top = m(new THREE.SphereGeometry(0.17, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), std(0xd8d8d0, 0.4, 0.3)); top.position.y = 0.55; obj.add(top);
-      const v = m(new THREE.CylinderGeometry(0.03, 0.03, 0.12, 8), std(0x8a7a3a, 0.3, 0.8)); v.position.y = 0.75; obj.add(v);
-      const ring = m(new THREE.CylinderGeometry(0.15, 0.15, 0.06, 12), std(0xd8d8d0, 0.4, 0.3)); ring.position.y = 0.03; obj.add(ring);
+      { const [pg, pmt] = physModel('propane'); obj = new THREE.Mesh(pg, pmt); }
       opts = { radius: 0.2, mass: 2, explosive: 'propane', hp: 15, bottom: 0.2 };
       break;
     }
     case 'oxygen': {
-      obj = new THREE.Group();
-      const body = m(new THREE.CylinderGeometry(0.1, 0.1, 1.1, 12), std(0x3a7a3a, 0.4, 0.3));
-      body.position.y = 0.55; obj.add(body);
-      const cap = m(new THREE.SphereGeometry(0.1, 10, 6), std(0xd8d8d0, 0.4)); cap.position.y = 1.1; obj.add(cap);
+      { const [pg, pmt] = physModel('oxygen'); obj = new THREE.Mesh(pg, pmt); }
       opts = { radius: 0.15, mass: 2, explosive: 'oxygen', hp: 10, bottom: 0.15 };
       break;
     }
@@ -496,42 +606,33 @@ export function physProp(L, type, x, y, z, o = {}) {
       break;
     }
     case 'bucket': {
-      obj = m(new THREE.CylinderGeometry(0.15, 0.12, 0.3, 10), std(0x8a8a86, 0.5, 0.6));
-      obj.geometry.translate(0, 0.15, 0);
+      { const [pg, pmt] = physModel('bucket'); obj = new THREE.Mesh(pg, pmt); }
       opts = { radius: 0.16, mass: 0.6, bottom: 0.16, surf: 'metal' };
       break;
     }
     case 'box': {
       const s = o.size ?? 0.45;
-      obj = m(new THREE.BoxGeometry(s, s, s), std(0x8a7050, 0.9));
-      obj.geometry.translate(0, s / 2, 0);
+      { const [pg, pmt] = physModel('box'); obj = new THREE.Mesh(pg, pmt); obj.scale.setScalar(s); }
       opts = { radius: s * 0.55, mass: 0.8, bottom: s * 0.55, surf: 'wood', upright: false };
       break;
     }
     case 'chair': {
-      obj = new THREE.Group();
-      const wm = std(0x4a3222, 0.7);
-      const seat = m(new THREE.BoxGeometry(0.44, 0.05, 0.44), wm); seat.position.y = 0.45; obj.add(seat);
-      const back = m(new THREE.BoxGeometry(0.44, 0.5, 0.04), wm); back.position.set(0, 0.72, 0.2); obj.add(back);
-      for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const l = m(new THREE.BoxGeometry(0.04, 0.45, 0.04), wm); l.position.set(sx * 0.19, 0.22, sz * 0.19); obj.add(l); }
+      { const [pg, pmt] = physModel('chair'); obj = new THREE.Mesh(pg, pmt); }
       opts = { radius: 0.3, mass: 1.5, bottom: 0.3, surf: 'wood', upright: false };
       break;
     }
     case 'trashcan': {
-      obj = m(new THREE.CylinderGeometry(0.26, 0.24, 0.8, 12), std(0x5a5a56, 0.6, 0.5));
-      obj.geometry.translate(0, 0.4, 0);
+      { const [pg, pmt] = physModel('trashcan'); obj = new THREE.Mesh(pg, pmt); }
       opts = { radius: 0.3, mass: 2, bottom: 0.3, surf: 'metal' };
       break;
     }
     case 'cone': {
-      obj = m(new THREE.ConeGeometry(0.18, 0.6, 10), std(0xe06010, 0.6));
-      obj.geometry.translate(0, 0.3, 0);
+      { const [pg, pmt] = physModel('cone'); obj = new THREE.Mesh(pg, pmt); }
       opts = { radius: 0.18, mass: 0.4, bottom: 0.18, surf: 'rubber' };
       break;
     }
     case 'bottle': {
-      obj = m(new THREE.CylinderGeometry(0.035, 0.04, 0.26, 8), new THREE.MeshStandardMaterial({ color: 0x2a5a2a, roughness: 0.1, transparent: true, opacity: 0.8 }));
-      obj.geometry.translate(0, 0.13, 0);
+      { const [pg, pmt] = physModel('bottle'); obj = new THREE.Mesh(pg, pmt); }
       opts = { radius: 0.06, mass: 0.2, bottom: 0.06, surf: 'glass', upright: false };
       break;
     }

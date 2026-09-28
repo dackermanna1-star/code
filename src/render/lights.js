@@ -234,7 +234,7 @@ export class LightManager {
       mesh.quaternion.copy(_q);
       mesh.scale.set(rad, len, rad);
       const u = mesh.material.uniforms;
-      u.intens.value[0] = Math.min(4, L.intensity / 18);
+      u.intens.value[0] = L.userData.coneK != null ? L.userData.coneK : Math.min(4, L.intensity / 18);
       u.strength.value = L.intensity > 60 ? 0.035 : 0.05;
       u.tint.value.copy(L.color);
     }
@@ -306,4 +306,39 @@ export class LightManager {
     }
     this.updateSpotCones(dt, camera);
   }
+}
+
+// Lens glare for hand-held flashlights seen from inside the beam: a small hot
+// core with a soft warm halo and a faint horizontal streak (reads as a torch,
+// not a sun). One material per sprite (opacity is animated per lamp).
+let _glareTex = null;
+function glareTexture() {
+  if (_glareTex) return _glareTex;
+  const S = 128, c = document.createElement('canvas');
+  c.width = c.height = S;
+  const g = c.getContext('2d');
+  const h = S / 2;
+  let gr = g.createRadialGradient(h, h, 0, h, h, h);
+  gr.addColorStop(0, 'rgba(255,250,240,0.55)');
+  gr.addColorStop(0.18, 'rgba(255,236,205,0.22)');
+  gr.addColorStop(0.5, 'rgba(255,215,170,0.05)');
+  gr.addColorStop(1, 'rgba(255,200,150,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, S, S);
+  // streak
+  gr = g.createLinearGradient(0, h, S, h);
+  gr.addColorStop(0, 'rgba(255,230,200,0)');
+  gr.addColorStop(0.5, 'rgba(255,240,220,0.35)');
+  gr.addColorStop(1, 'rgba(255,230,200,0)');
+  g.fillStyle = gr; g.fillRect(0, h - 1.5, S, 3);
+  // hot core
+  gr = g.createRadialGradient(h, h, 0, h, h, S * 0.07);
+  gr.addColorStop(0, 'rgba(255,255,255,1)');
+  gr.addColorStop(1, 'rgba(255,248,235,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, S, S);
+  _glareTex = new THREE.CanvasTexture(c);
+  _glareTex.colorSpace = THREE.SRGBColorSpace;
+  return _glareTex;
+}
+export function flashGlareMaterial() {
+  return new THREE.SpriteMaterial({ map: glareTexture(), color: 0xfff2e2, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
 }

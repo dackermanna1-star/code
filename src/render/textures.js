@@ -785,7 +785,8 @@ const GEN = {
     const brickOff = o.offset ?? 0;
     const gHalf = Math.max(0.6, (o.grout ?? 0.006) * S * 0.5);
     const tw = S / cu, th = S / cv;
-    const cushion = Math.min(tw, th) * 0.12;
+    const cushion = Math.min(tw, th) * (o.cushion ?? 0.12); // edge roll-off (floor tiles: small)
+    const tVar = o.tileVar ?? 0.08; // per-tile shade variation (fired-clay batches)
     const glaze = fbm(S, sd + 1, 12, 12, 4);
     const sand = fbm(S, sd + 2, 128, 128, 2);
     const chipN = fbm(S, sd + 3, 32, 32, 3, 0.5, true);
@@ -833,13 +834,14 @@ const GEN = {
             td.rough[i] = 0.95;
           }
         } else {
-          const tint = 0.95 + (hb - 0.5) * 0.08;
+          const tint = 0.95 + (hb - 0.5) * tVar;
           let t = tint + (glaze[i] - 0.5) * 0.06;
           const e = ss(0, cushion, d);
           // grime creeping in from the grout
           const edgeDirt = Math.exp(-d / (2.5 * P)) * groutDirt * 0.25;
           t *= 1 - edgeDirt;
-          td.set(i, chk[0] * t * (1 + (hb2 - 0.5) * 0.03), chk[1] * t, chk[2] * t * (1 - (hb2 - 0.5) * 0.03));
+          const hue = (hb2 - 0.5) * (0.03 + (tVar - 0.08) * 0.25);
+          td.set(i, chk[0] * t * (1 + hue), chk[1] * t, chk[2] * t * (1 - hue));
           const tiltX = (hb - 0.5) * 0.2, tiltY = (hb3 - 0.5) * 0.2;
           td.h[i] = 0.55 + e * 0.3 + (lu - 0.5) * tiltX + (lv - 0.5) * tiltY + (glaze[i] - 0.5) * 0.04;
           td.rough[i] = gloss + (glaze[i] - 0.5) * 0.12 + edgeDirt * 0.6;
