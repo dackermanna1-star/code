@@ -196,8 +196,13 @@ export function wreckCar(L, cx, y, cz, ry, o = {}) {
   }
   p.box(0, 3.3, 0, len, 0.2, W, body, bc);
   for (const s of [-1, 1]) {
-    p.box(s * (len / 2 - 0.04), 2.15, 0, 0.08, 2.4, W, body, bc);
-    p.box(s * (len / 2 - 0.02), 2.3, 0, 0.06, 0.7, W - 0.6, 'glassDirty', 0x1c2224);
+    const ex = s * (len / 2 - 0.04), ox = s * (len / 2 + 0.005);
+    p.box(ex, 2.15, 0, 0.08, 2.4, W, 'metal', o.burnt ? 0x2a2420 : 0x5a5e60);
+    p.box(ox, 1.95, 0, 0.012, 2.0, 1.0, 'metalDark', 0x2a2c2e);
+    p.box(ox + s * 0.004, 2.45, 0, 0.012, 0.55, 0.6, 'glassDirty', 0x101416);
+    for (const z of [-1.05, 1.05]) p.box(ox + s * 0.004, 2.45, z, 0.012, 0.5, 0.5, 'glassDirty', 0x101416);
+    for (const z of [-1.15, 1.15]) p.box(ox, 1.2, z, 0.02, 0.14, 0.22, o.burnt ? 'blackMatte' : 'emissiveRed', o.burnt ? 0x111111 : 0x331010);
+    p.box(ox, 1.05, 0, 0.3, 0.3, 0.9, 'metalDark', 0x3a3a3a);
   }
   for (const bx of [-len / 2 + 2.6, len / 2 - 2.6]) for (const wx of [-0.75, 0.75]) for (const s of [-1, 1]) p.cyl(bx + wx, 0.4, s * 0.72, 0.4, 0.12, 'metalDark', 0x333333, [Math.PI / 2, 0, 0], 12);
   orientedCol(L, cx, cz, len, W, ry, y, y + 3.4, o.segs ?? 10);

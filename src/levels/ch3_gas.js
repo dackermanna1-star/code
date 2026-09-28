@@ -62,10 +62,10 @@ export function fuelTarget(L, x, y, z, r, o = {}) {
 }
 
 // Long-lived burning debris / flames with a light, used after the explosions.
-function burner(L, x, y, z, size, life) {
+function burner(L, x, y, z, size, life, withLight = true) {
   const g = L.game;
-  const light = L.light(x, y + 1, z, 0xff7a30, 14 * size, 9 + 5 * size, { flicker: 0.5, priority: 1 });
-  const snd = g.audio.loop('fireLoop', { pos: new THREE.Vector3(x, y, z), vol: Math.min(1, 0.5 + size * 0.3) });
+  const light = withLight ? L.light(x, y + 1, z, 0xff7a30, 14 * size, 9 + 5 * size, { flicker: 0.5, priority: 1 }) : { on: false, intensity: 0 };
+  const snd = withLight ? g.audio.loop('fireLoop', { pos: new THREE.Vector3(x, y, z), vol: Math.min(1, 0.5 + size * 0.3) }) : null;
   const b = {
     t: 0,
     update(dt) {
@@ -147,8 +147,8 @@ export function buildGasStation(L, game, c) {
     pm.wreck.visible = true;
     g.combat.explode(pm.x, 1.0, pm.z, 7, 1300, by, { scale: 1.7, survivorDamage: 35 });
     g.audio.play('propaneExplode', { pos: _v.set(pm.x, 1, pm.z), vol: 1 });
-    g.combat.startFire(pm.x + (Math.random() - 0.5), 0.2, pm.z + (Math.random() - 0.5), 3.4, 40, by);
-    burner(L, pm.x, 0.3, pm.z, 1.3, 75);
+    g.combat.startFire(pm.x + (Math.random() - 0.5), 0.2, pm.z + (Math.random() - 0.5), 3.4, 55, by);
+    burner(L, pm.x, 0.3, pm.z, 1.3, 80, false);
     if (!state.gone) {
       state.gone = true;
       c.onBoom?.();
@@ -160,7 +160,7 @@ export function buildGasStation(L, game, c) {
         g.audio.play('explosion', { pos: _v.set(cx, 3, cz), vol: 1.5 });
         g.shake(0.8);
         for (const l of state.lights) l.on = false;
-        for (let k = 0; k < 4; k++) g.combat.startFire(c.x0 + 2 + Math.random() * (c.x1 - c.x0 - 4), 0, c.z0 + 2 + Math.random() * (c.z1 - c.z0 - 4), 3.2, 45, by);
+        for (let k = 0; k < 3; k++) g.combat.startFire(c.x0 + 2 + Math.random() * (c.x1 - c.x0 - 4), 0, c.z0 + 2 + Math.random() * (c.z1 - c.z0 - 4), 3.2, 45, by);
         canopy.visible = false; canopyBurnt.visible = true;
         burner(L, c.x0 + 4, c.h + 0.6, cz - 2, 1.6, 90);
         burner(L, c.x1 - 6, c.h + 0.6, cz + 3, 1.4, 90);
@@ -197,8 +197,8 @@ export function buildTanker(L, game, x, z, onBoom) {
     L.after(0.25, () => g.combat.explode(x - 3.5, 2.0, z, 7, 900, by, { scale: 2.2, survivorDamage: 25 }));
     L.after(0.45, () => g.combat.explode(x + 3.5, 2.0, z, 7, 900, by, { scale: 2.2, survivorDamage: 25 }));
     L.after(0.2, () => g.fx.explosion(x, 6, z, 2.8));
-    for (let k = 0; k < 6; k++) {
-      const a = k / 6 * Math.PI * 2;
+    for (let k = 0; k < 5; k++) {
+      const a = k / 5 * Math.PI * 2;
       g.combat.startFire(x + Math.cos(a) * 4.5, 0, z + Math.sin(a) * 3.2, 3.4, 50, by);
     }
     burner(L, x - 2, 2.6, z, 2.0, 100);

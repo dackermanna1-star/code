@@ -16,6 +16,7 @@ export default async ({ page, evalg, wait }) => {
   for (const [x, y, z] of ROUTE) {
     const r = await evalg(([x, y, z, step]) => {
       const g = window.game, p = g.player;
+      { const nn = g.level.nav.nearestNode(x, y, z, 2); if (nn >= 0) y = g.level.nav.nodeY[nn]; }
       p.teleport(x, y, z, Math.atan2(-(x - p.pos.x), -(z - p.pos.z)));
       g.advance(step);
       return { at: [x, z], p: [+p.pos.x.toFixed(1), +p.pos.y.toFixed(1), +p.pos.z.toFixed(1)], bots: g.survivors.filter((s) => s !== p).map((s) => [+s.pos.x.toFixed(1), +s.pos.y.toFixed(1), +s.pos.z.toFixed(1), +s.brain?.stuckT?.toFixed(1)]) };
@@ -31,7 +32,7 @@ export default async ({ page, evalg, wait }) => {
     const n = inside();
     if (L.endDoor.open) L.endDoor.use(g.player);
     g.advance(4);
-    return { waited: t, inside: n, doorOpen: L.endDoor.open, state: window.session.state };
+    return { waited: t, inside: n, doorOpen: L.endDoor.open, playerDead: g.player.dead, endTriggered: window.session.endTriggered, state: window.session.state };
   });
   console.log('END', JSON.stringify(end));
 };

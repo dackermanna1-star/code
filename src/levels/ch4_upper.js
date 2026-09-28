@@ -43,7 +43,7 @@ class Collector {
   constructor(L) { this.L = L; this.list = []; }
   mesh(...a) { this.L.mesh(...a); }
   box(x0, y0, z0, x1, y1, z1, mat, o = {}) { if (x0 > x1) [x0, x1] = [x1, x0]; if (y0 > y1) [y0, y1] = [y1, y0]; if (z0 > z1) [z0, z1] = [z1, z0]; this.list.push([x0, y0, z0, x1, y1, z1, mat, o.tint, o.ao ?? 0.72]); }
-  build(L) { const g = boxMesh(this.list); g.traverse((m) => { if (m.isMesh) { m.castShadow = false; if (m.material.name?.startsWith('emissive')) m.receiveShadow = false; } }); L.addObject(g); return g; }
+  build(L) { const g = boxMesh(this.list); g.userData.noCull = true; g.traverse((m) => { if (m.isMesh) { m.castShadow = false; if (m.material.name?.startsWith('emissive')) m.receiveShadow = false; } }); L.addObject(g); return g; }
 }
 
 // Visual-only city block (no collision -> stays out of nav bounds). Only lit
@@ -293,6 +293,16 @@ export function buildUpper(L, game, S) {
   L.flowEnd = [38, y2, 6.8];
 
   // =============================================================== KILL + SKY
+  // Lethal edges stay visually open, but invisible movement-only clips (1.6 m,
+  // above jump + step height) keep survivors and bots from walking off them;
+  // only a hard knock (Tank punch) can still send someone over.
+  const edgeClip = (x0, z0, x1, z1) => L.clip(x0, y, z0, x1, y + 1.6, z1, F_SOLID);
+  edgeClip(TX0, 41.9, NOTCH[0], 42.1);            // south edge
+  edgeClip(TX0 - 0.1, 30, TX0 + 0.1, 42);          // west edge
+  edgeClip(NOTCH[0], 31.9, TX1, 32.1);             // collapsed corner (north side)
+  edgeClip(NOTCH[0] - 0.1, 32, NOTCH[0] + 0.1, 42); // collapsed corner (west side)
+  edgeClip(TX1 - 0.1, 31.9, sx1 + 0.1, 32.1);      // floor edge beside the scaffold end
+  edgeClip(sx1 - 0.1, 12.9, sx1 + 0.1, 15.7);      // torn scaffold rail
   L.killZone(-400, 20, -400, 500, 104, 500);
   L.killZone(-400, -120, -400, 500, -30, 500);
   plastic.build(L);

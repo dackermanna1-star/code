@@ -63,7 +63,9 @@ export class LightManager {
       }
       if (L.buzz) k *= 0.92 + 0.08 * Math.sin(t * 120 + L.phase);
       L.cur = k;
-      const score = (L.intensity * (L.range + 4)) / (1 + d * d * 0.06) * (vis ? 1 : 0.35) + (L.priority || 0) * 100;
+      // priority boosts relevance but stays distance-aware so a few priority
+      // lights can't starve the whole (small) pool
+      const score = (L.intensity * (L.range + 4)) / (1 + d * d * 0.06) * (vis ? 1 : 0.35) * (1 + (L.priority || 0));
       cand.push({ L, score, k });
     }
     for (let i = this.temp.length - 1; i >= 0; i--) {

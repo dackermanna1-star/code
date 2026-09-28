@@ -481,6 +481,7 @@ export class Survivor {
   }
   incap(cause) {
     if (this.incapped || this.dead) return;
+    if (this.game.cheats?.godAll || (this.game.cheats?.god && this.isHuman)) return;
     if (this.incapCount >= 2) { this.die(cause); return; }
     this.incapped = true;
     this.incapHP = 300;

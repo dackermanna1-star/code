@@ -4,8 +4,14 @@ import { boot, snap } from './ch4_util.mjs';
 import { ROUTE } from './ch4_route.mjs';
 export default async ({ page, shot, evalg, wait }) => {
   await boot(page, evalg, wait);
-  await evalg(() => { const g = window.game; g.cheats.godAll = true; window.session.menu.clear(); g.player.giveWeapon('autoShotgun'); });
-  const pts = ROUTE.filter((p) => p[0] !== 'upperCar');
+  const START = process.env.START || 'start';
+  const all = ROUTE.filter((p) => p[0] !== 'upperCar');
+  const pts = all.slice(Math.max(0, all.findIndex((p) => p[0] === START)));
+  await evalg(({ p0, witch }) => { const g = window.game; g.cheats.godAll = true; window.session.menu.clear(); g.player.giveWeapon('autoShotgun');
+    window.__deaths = []; if (!witch) { g.director.witchPlan.length = 0; for (const sp of g.infected.specials) if (sp.kind === 'witch') sp.remove(); }
+    for (const s of g.survivors) { const od = s.die.bind(s); s.die = (c) => { window.__deaths.push(s.name + ':' + c + '@' + s.pos.x.toFixed(1) + ',' + s.pos.y.toFixed(1) + ',' + s.pos.z.toFixed(1) + ' t=' + g.time.toFixed(1)); od(c); }; }
+    if (p0[0] !== 'start') g.survivors.forEach((s, i) => s.teleport(p0[1] + (i % 2) * 0.8, p0[2] + 0.05, p0[3] + (i >> 1) * 0.8, 0));
+  }, { p0: pts[0], witch: !!process.env.WITCH });
   let worst = 0;
   for (let i = 0; i < pts.length - 1; i++) {
     const [name, x0, y0, z0] = pts[i], [, x1, y1, z1] = pts[i + 1];
@@ -44,6 +50,7 @@ export default async ({ page, shot, evalg, wait }) => {
     console.log(pts[i + 1][0].padEnd(12), JSON.stringify(r));
   }
   console.log('worst bot distance', worst.toFixed(1));
+  console.log('deaths', JSON.stringify(await evalg(() => window.__deaths)));
   const end = await evalg(() => { const g = window.game; return { session: window.session.state, endDoorOpen: g.level.endDoor.open, inSafe: g.survivors.map((s) => g.level.inBox(g.level.endSafe, s.pos, 0.1)).join(',') }; });
   console.log('END', JSON.stringify(end));
 };

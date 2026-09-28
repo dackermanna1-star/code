@@ -292,12 +292,28 @@ export function textTexture(text, o = {}) {
 export function sign(L, text, x, y, z, ry, w, h, o = {}) {
   const tex = textTexture(text, o);
   const mat = new THREE.MeshStandardMaterial({ map: tex, transparent: !o.bg || !!o.spray, roughness: 0.85, emissive: o.glow ? 0xffffff : 0x000000, emissiveMap: o.glow ? tex : null, emissiveIntensity: o.glow ?? 0, depthWrite: !o.spray && !!o.bg, polygonOffset: true, polygonOffsetFactor: -2 });
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+  // Readable from both sides: a second quad turned around shows the texture
+  // un-mirrored, so a sign reads correctly whichever way ry points (the side
+  // against a wall is simply hidden by it).
+  const geo = new THREE.PlaneGeometry(w, h);
+  const m = new THREE.Mesh(geo, mat);
   m.position.set(x, y, z);
   m.rotation.y = ry;
   m.receiveShadow = true;
+  const back = new THREE.Mesh(geo, mat);
+  back.rotation.y = Math.PI;
+  back.receiveShadow = true;
+  m.add(back);
   L.addObject(m);
-  if (o.glow && o.light !== false) L.light(x - Math.sin(ry) * 0.5, y, z - Math.cos(ry) * 0.5, o.lightColor ?? 0xff4030, o.lightIntensity ?? 4, 6);
+  if (o.glow && o.light !== false) {
+    // light on the open side of the sign (decided once the collision world exists)
+    const nx = Math.sin(ry), nz = Math.cos(ry);
+    const lt = L.light(x + nx * 0.5, y, z + nz * 0.5, o.lightColor ?? 0xff4030, o.lightIntensity ?? 4, 6);
+    (L.postBuild || (L.postBuild = [])).push(() => {
+      const f = L.col.raycast(x, y, z, nx, 0, nz, 3, F_SOLID), b = L.col.raycast(x, y, z, -nx, 0, -nz, 3, F_SOLID);
+      if ((b ? b.t : 3) > (f ? f.t : 3)) { lt.x = x - nx * 0.5; lt.z = z - nz * 0.5; }
+    });
+  }
   return m;
 }
 export function graffiti(L, text, x, y, z, ry, w = 2, h = 0.8, color = '#b8201a') {
@@ -313,7 +329,7 @@ export function safeRoom(L, o) {
   let door = null;
   const dw = o.doorWall ?? 'n';
   walls[dw] = { open: [{ at: o.doorAt, w: 1.1, door: true, safe: true, hinge: o.hinge ?? 1, opened: !o.end && o.opened !== false ? false : false, onDoor: (d) => (door = d) }] };
-  if (o.extraOpen) for (const k in o.extraOpen) walls[k] = { open: o.extraOpen[k] };
+  if (o.extraOpen) for (const k in o.extraOpen) walls[k] = { open: [...(walls[k].open || []), ...o.extraOpen[k]] };
   if (o.noWalls) for (const k of o.noWalls) walls[k] = false;
   room(L, { x0: o.x0, z0: o.z0, x1: o.x1, z1: o.z1, y, h, floor: o.floor ?? 'concreteFloor', ceil: o.ceil ?? 'ceiling', wall: o.wall ?? 'plasterGreen', walls, light: { type: 'cage', intensity: 9, range: 9, color: 0xffe2b0 }, reverb: 'safe' });
   const box = [o.x0, y - 0.2, o.z0, o.x1, y + h, o.z1];

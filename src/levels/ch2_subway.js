@@ -368,7 +368,7 @@ function buildStation(L, game) {
   sparker(L, 136.4, TY + 3.6, 15.6, { ny: -1, min: 0.4, max: 2, vol: 0.2 });
   P.pipe(L, 136.4, TY + 3.6, 15.6, 136.1, TY + 1.8, 15.9, 0.02, 'rubber', 0x1a1a1a);
   ceilingLight(L, 131, -1.4, 14.2, { type: 'cage', intensity: 5, flicker: 0.9, range: 9, color: 0xffc080 });
-  L.light(129.5, TY + 2.3, 18.0, 0xd8f0ff, 5, 7, { flicker: 0.85 });
+  L.light(129.5, TY + 2.3, 18.0, 0x9ab8d8, 2.2, 5.5, { flicker: 0.85 });
   // rescue crew's abandoned work lamp at the crossing
   const wl = P.prop(L, 138.2, TY, 18.6, 0.6);
   for (let i = 0; i < 3; i++) wl.box(Math.cos(i * 2.1) * 0.3, 0.9, Math.sin(i * 2.1) * 0.3, 0.04, 1.9, 0.04, 'metalDark', null, [Math.sin(i * 2.1) * 0.25, 0, -Math.cos(i * 2.1) * 0.25]);

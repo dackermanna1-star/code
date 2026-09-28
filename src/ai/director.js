@@ -212,6 +212,7 @@ export class Director {
   }
   spawnMob(size, opts = {}) {
     const g = this.game;
+    if (!this.enabled) return 0;
     if (!this.cand.length) this.refreshCandidates();
     size = Math.round(size * g.difficulty.hordeMul);
     // split into 1-3 groups from different directions

@@ -239,6 +239,8 @@ export class Level {
     }
     this.buckets.clear();
     this.col.build();
+    // deferred build steps that need the collision world (e.g. sign glow lights)
+    for (const f of this.postBuild || []) f();
     const bb = this.bounds;
     const t0 = performance.now();
     this.nav = new NavGrid(this.col, {

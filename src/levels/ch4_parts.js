@@ -570,6 +570,7 @@ export class PlasticSheets {
     const mat = new THREE.MeshStandardMaterial({ color: 0x8a9290, roughness: 0.3, metalness: 0, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide, vertexColors: true });
     const g = boxMesh(this.list, mat);
     g.traverse((m) => { if (m.isMesh) { m.castShadow = false; m.renderOrder = 2; } });
+    g.userData.noCull = true;
     L.addObject(g);
   }
 }
@@ -605,4 +606,44 @@ export function safeBox(L, o) {
   if (axis === 'x') sign(L, 'SAFE ROOM', out[0], y + 2.55, out[1], out[2], 1.3, 0.32, { bg: '#8a1a14', fg: '#fff' });
   else sign(L, 'SAFE ROOM', out[0], y + 2.55, out[1], out[2], 1.3, 0.32, { bg: '#8a1a14', fg: '#fff' });
   return { door, box };
+}
+
+// ------------------------------------------------------------ culling --
+// The hospital stacks many floors, so frustum culling alone draws signs,
+// doors, props and items of every floor behind the walls. Every 0.25 s this
+// disables render layer 0 on non-merged level objects that are far from the
+// camera or on another floor band (layers are used instead of `visible`, so it
+// never fights game code that shows/hides things). Mark objects with
+// userData.noCull to exempt them.
+export function installCuller(L, game, o = {}) {
+  const band = o.band ?? 9, dist = o.dist ?? 60;
+  const box = new THREE.Box3(), c = new THREE.Vector3();
+  const list = [];
+  for (const obj of L.root.children) {
+    if (L.meshes.includes(obj) || obj.userData.noCull) continue;
+    box.setFromObject(obj, false);
+    if (box.isEmpty()) continue;
+    box.getCenter(c);
+    const r = box.getSize(new THREE.Vector3()).length() / 2;
+    if (r > 25) continue;
+    const meshes = [];
+    obj.traverse((m) => { if (m.isMesh || m.isLine || m.isPoints) meshes.push(m); });
+    list.push({ obj, x: c.x, y: c.y, z: c.z, r, meshes, on: true });
+  }
+  let t = 0;
+  const api = {
+    count: list.length,
+    update(dt) {
+      t -= dt; if (t > 0) return; t = 0.25;
+      const cp = game.camPos;
+      for (const e of list) {
+        const on = Math.abs(e.y - cp.y) < band + e.r && Math.hypot(e.x - cp.x, e.z - cp.z) < dist + e.r;
+        if (on === e.on) continue;
+        e.on = on;
+        for (const m of e.meshes) { if (on) m.layers.enable(0); else m.layers.disable(0); }
+      }
+    },
+  };
+  L.dynamics.push(api);
+  return api;
 }

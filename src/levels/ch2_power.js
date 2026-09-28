@@ -292,9 +292,9 @@ function buildGateAndGenerator(L, game, TY, CW) {
   L.box(HX1 - 0.7, TY + GATE_H, GATE_Z0 - 0.5, HX1, TY + GATE_H + 0.9, GATE_Z1 + 0.5, 'metalDark');
   L.box(HX1 - 0.72, TY + GATE_H + 0.3, GATE_Z0 - 0.3, HX1 - 0.7, TY + GATE_H + 0.6, GATE_Z1 + 0.3, 'paintedYellow', { collide: false, tint: 0xc8a020 });
   const beacons = [];
-  for (const [x, y, z] of [[HX1 - 0.35, TY + GATE_H + 1.05, GATE_Z0 - 0.2], [HX1 - 0.35, TY + GATE_H + 1.05, GATE_Z1 + 0.2], [HX0 + 0.3, CW + 2.6, 50], [HX0 + 0.3, CW + 2.6, 62], [164, CW + 2.6, HZ0 + 0.3]]) {
+  for (const [x, y, z, lit] of [[HX1 - 0.35, TY + GATE_H + 1.05, GATE_Z0 - 0.2, 1], [HX1 - 0.35, TY + GATE_H + 1.05, GATE_Z1 + 0.2, 1], [HX0 + 0.3, CW + 2.6, 50, 0], [HX0 + 0.3, CW + 2.6, 62, 1], [164, CW + 2.6, HZ0 + 0.3, 1]]) {
     L.box(x - 0.1, y - 0.15, z - 0.1, x + 0.1, y + 0.1, z + 0.1, 'plastic', { collide: false, tint: 0x6a1a14 });
-    beacons.push(L.light(x, y, z, 0xff2010, 0, 14, { on: false, priority: 1 }));
+    if (lit) beacons.push(L.light(x - (x > 170 ? 0.4 : -0.4), y, z, 0xff2010, 0, 14, { on: false }));
   }
   // the gate itself: a moving slab that rises into the wall
   const grp = gateMesh(L, game, GATE_Z1 - GATE_Z0 + 0.1, GATE_H);
@@ -314,17 +314,20 @@ function buildGateAndGenerator(L, game, TY, CW) {
   blocker.collider.enabled = false;
   blocker.blocksInfected = () => gap < 1.9;
   blocker.use = () => {};
+  // Survivors (and bots running on progress navigation) may not slip under the half-open
+  // gate: a movement-only blocker holds until the gate is fully up.
+  const hold = L.col.addDynamic([gx - 0.2, TY, GATE_Z0 - 0.05], [gx + 0.2, TY + GATE_H, GATE_Z1 + 0.05], { flags: F_SOLID });
 
   // work lights (off until the generator runs)
   const lampMat = new THREE.MeshStandardMaterial({ color: 0x222222, emissive: 0xffb060, emissiveIntensity: 0 });
   const work = [];
   for (const x of [153, 165, 177]) for (const z of [47.5, 64.5]) {
-    L.box(x - 0.03, 2.6, z - 0.03, x + 0.03, 3.2, z + 0.03, 'metalDark', { collide: false });
-    L.box(x - 0.35, 2.45, z - 0.35, x + 0.35, 2.6, z + 0.35, 'metalDark', { collide: false });
+    L.box(x - 0.02, -0.15, z - 0.02, x + 0.02, 3.2, z + 0.02, 'metalDark', { collide: false });
+    L.box(x - 0.35, -0.3, z - 0.35, x + 0.35, -0.15, z + 0.35, 'metalDark', { collide: false });
     const lens = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.04, 0.56), lampMat);
-    lens.position.set(x, 2.43, z);
+    lens.position.set(x, -0.32, z);
     L.addObject(lens);
-    work.push({ light: L.light(x, 2.2, z, 0xffb060, 18, 20, { on: false, flicker: 0.05 }), pos: new THREE.Vector3(x, 2.4, z) });
+    work.push({ light: L.light(x, -0.6, z, 0xffb060, 26, 20, { on: false, flicker: 0.05 }), pos: new THREE.Vector3(x, -0.4, z) });
   }
 
   // generator control console (usable)
@@ -393,6 +396,7 @@ function buildGateAndGenerator(L, game, TY, CW) {
     },
     opened() {
       this.open = true;
+      hold.enabled = false;
       this.alarm?.stop(2.5);
       this.alarm = null;
       this.alarmOn = false;
@@ -412,7 +416,7 @@ function buildGateAndGenerator(L, game, TY, CW) {
       beacons.forEach((b, i) => {
         if (!on) { b.on = false; return; }
         const k = Math.max(0, Math.sin(this.t * 7 + i * 1.3));
-        b.intensity = 16 * k * k;
+        b.intensity = 14 * k * k;
         b.on = b.intensity > 0.5;
       });
       if (gate.moving) {
@@ -423,7 +427,7 @@ function buildGateAndGenerator(L, game, TY, CW) {
   };
   L.dynamics.push(ev);
   const u = usable(L, cx, TY + 1.25, cz - 0.45, 'Start the generator', (s) => ev.start(s), { hold: 2.5, holdLabel: 'Starting generator...', radius: 2.0 });
-  L.ch2Generator = { ev, usable: u, gate, blocker };
+  L.ch2Generator = { ev, usable: u, gate, blocker, hold };
 
   // triggers: discovering the closed gate & the console
   L.trigger(163.4, TY - 0.5, HZ0, 167, TY + 3, HZ0 + 3, () => {
