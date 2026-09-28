@@ -91,7 +91,10 @@ and left the pills. Start pauses.
 - **Audio**: fully synthesized Web Audio sound effects with occlusion-free spatial
   panning, indoor/outdoor reverb zones, ambience beds and adaptive music stingers.
 
-## Co-op
+## Co-op (experimental)
+
+Online co-op works in principle but has not been play-tested end to end yet; the
+single-player campaign with AI teammates is the supported way to play.
 
 One player hosts. The host's browser runs the authoritative simulation. Up to three
 friends join with a four-letter room code, and each one takes over an AI survivor. If a

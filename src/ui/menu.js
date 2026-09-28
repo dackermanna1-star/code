@@ -38,7 +38,7 @@ export class Menu {
       <button id="m-chapter">Chapter Select</button>
       <button id="m-options">Options</button>
       <button id="m-controls">Controls</button>
-      <button id="m-coop">Co-op</button>
+      <button id="m-coop">Co-op <small style="opacity:.55;font-size:.55em;letter-spacing:2px">EXPERIMENTAL</small></button>
       <button id="m-about">About</button>
     </div>`));
     this.btn(n, '#m-play', () => this.survivorSelect(0));
@@ -146,7 +146,7 @@ export class Menu {
     const st = this.s.settings;
     const inp = 'style="width:280px;background:#111;color:#ddd;border:1px solid #444;padding:5px"';
     const n = this.show(h(`<div class="menu">
-      <h2>CO-OP</h2>
+      <h2>CO-OP <small style="opacity:.55;font-size:.45em;letter-spacing:3px">EXPERIMENTAL</small></h2>
       <div class="help">One player hosts the game; up to three friends join with the room code and take over AI survivors.
       Empty slots are always filled by bots, and a bot steps in if a player drops.<br>
       The relay runs inside <span class="key">npm run dev</span> / <span class="key">npm run preview</span>, or standalone with <span class="key">npm run server</span>.<br><br>
