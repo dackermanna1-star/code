@@ -1,6 +1,7 @@
 // Menu screens (DOM). All callbacks are provided by the session.
 import { CHARACTERS, ORDER } from '../entities/characters.js';
 import { DIFFICULTY, QUALITY } from '../config.js';
+import { CAMPAIGNS } from '../levels/campaign.js';
 import { defaultRelayUrl } from '../net/link.js';
 
 const escapeHtml = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -32,8 +33,8 @@ export class Menu {
 
   main() {
     const n = this.show(h(`<div class="menu">
-      <h1>THE LAST FOUR<span>NO MERCY</span></h1>
-      <div class="sub">A four-player co-op survival horror campaign</div>
+      <h1>THE LAST FOUR<span>${CAMPAIGNS.map((c) => c.title.toUpperCase()).join(' · ')}</span></h1>
+      <div class="sub">Four survivors. Two campaigns. One way out.</div>
       <button id="m-play">Play Campaign</button>
       <button id="m-chapter">Chapter Select</button>
       <button id="m-options">Options</button>
@@ -41,14 +42,14 @@ export class Menu {
       <button id="m-coop">Co-op <small style="opacity:.55;font-size:.55em;letter-spacing:2px">EXPERIMENTAL</small></button>
       <button id="m-about">About</button>
     </div>`));
-    this.btn(n, '#m-play', () => this.survivorSelect(0));
+    this.btn(n, '#m-play', () => this.campaignSelect((id) => this.survivorSelect(0, id)));
     this.btn(n, '#m-chapter', () => this.chapterSelect());
     this.btn(n, '#m-options', () => this.options(() => this.main()));
     this.btn(n, '#m-controls', () => this.controls(() => this.main()));
     this.btn(n, '#m-coop', () => this.coop());
     this.btn(n, '#m-about', () => this.about());
   }
-  survivorSelect(chapter) {
+  survivorSelect(chapter, campaignId) {
     const st = this.s.settings;
     const n = this.show(h(`<div class="menu">
       <h2>CHOOSE YOUR SURVIVOR</h2>
@@ -74,18 +75,28 @@ export class Menu {
       this.s.saveSettings();
     }));
     n.querySelectorAll('canvas[data-sil]').forEach((cv) => drawSilhouette(cv, cv.dataset.sil));
-    this.btn(n, '#m-start', () => this.s.startCampaign(chapter));
+    this.btn(n, '#m-start', () => this.s.startCampaign(chapter, campaignId));
     this.btn(n, '#m-back', () => this.main());
   }
-  chapterSelect() {
-    const ch = this.s.chapters;
+  campaignSelect(onPick) {
     const n = this.show(h(`<div class="menu">
-      <h2>NO MERCY</h2>
-      <div class="chapters">${ch.map((c, i) => `<button data-i="${i}">${i + 1}. ${c.title}</button>`).join('')}</div>
+      <h2>CHOOSE A CAMPAIGN</h2>
+      <div class="cards">${CAMPAIGNS.map((c) => `<div class="card campaign" data-id="${c.id}" style="width:320px"><div class="cname" style="color:${c.color};font-size:34px">${c.title.toUpperCase()}</div><div class="cbio">${c.blurb}</div><div class="cbio" style="opacity:.6;margin-top:10px">${c.chapters.map((x, i) => (i + 1) + '. ' + x.title).join('<br>')}</div></div>`).join('')}</div>
+      <button id="m-back" style="margin-top:18px">Back</button>
+    </div>`));
+    n.querySelectorAll('.card.campaign').forEach((c) => c.addEventListener('click', () => { this.s.uiClick(); onPick(c.dataset.id); }));
+    this.btn(n, '#m-back', () => this.main());
+  }
+  chapterSelect(campaignId) {
+    if (!campaignId) { this.campaignSelect((id) => this.chapterSelect(id)); return; }
+    const camp = CAMPAIGNS.find((c) => c.id === campaignId) || CAMPAIGNS[0];
+    const n = this.show(h(`<div class="menu">
+      <h2>${camp.title.toUpperCase()}</h2>
+      <div class="chapters">${camp.chapters.map((c, i) => `<button data-i="${i}">${i + 1}. ${c.title}</button>`).join('')}</div>
       <button id="m-back" style="margin-top:22px">Back</button>
     </div>`));
-    n.querySelectorAll('[data-i]').forEach((b) => b.addEventListener('click', () => { this.s.uiClick(); this.survivorSelect(+b.dataset.i); }));
-    this.btn(n, '#m-back', () => this.main());
+    n.querySelectorAll('[data-i]').forEach((b) => b.addEventListener('click', () => { this.s.uiClick(); this.survivorSelect(+b.dataset.i, camp.id); }));
+    this.btn(n, '#m-back', () => this.chapterSelect());
   }
   options(back) {
     const st = this.s.settings;
@@ -238,9 +249,9 @@ export class Menu {
     this.btn(n, '#p-restart', () => this.s.restartChapter());
     this.btn(n, '#p-quit', () => this.s.quitToMenu());
   }
-  loading(title, idx) {
+  loading(title, idx, campTitle = 'No Mercy') {
     const tip = TIPS[Math.floor(Math.random() * TIPS.length)];
-    const n = this.show(h(`<div class="loading"><div class="ls">No Mercy — Chapter ${idx + 1}</div><div class="lt">${title}</div><div class="tip">${tip}</div><div class="lbar"><div></div></div></div>`));
+    const n = this.show(h(`<div class="loading"><div class="ls">${campTitle} — Chapter ${idx + 1}</div><div class="lt">${title}</div><div class="tip">${tip}</div><div class="lbar"><div></div></div></div>`));
     return (f) => { const b = n.querySelector('.lbar div'); if (b) b.style.width = Math.round(f * 100) + '%'; };
   }
   clickToPlay(onClick) {
@@ -279,8 +290,8 @@ export class Menu {
         <p>${escaped.map((s) => s.name).join(' · ')}</p>
         <p>Campaign time ${Math.floor(time / 60)}:${String(Math.floor(time % 60)).padStart(2, '0')}</p>
         ${this.statsTable(survivors)}
-        <h3>THE LAST FOUR</h3><p>No Mercy</p>
-        <h3>IN MEMORY OF</h3><p>Fairview, and everyone who didn't make it to the roof.</p>
+        <h3>THE LAST FOUR</h3><p>${this.s.campaign?.title || ''}</p>
+        <h3>IN MEMORY OF</h3><p>${this.s.campaign?.id === 'deadair' ? 'Newburg, and everyone who missed the last flight.' : 'Fairview, and everyone who didn\'t make it to the roof.'}</p>
         <h3>BUILT WITH</h3><p>Three.js · Web Audio · procedural everything</p>
         <p style="margin-top:60px;opacity:.5">An original fan tribute to the co-op survival genre.</p>
       </div>

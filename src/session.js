@@ -10,7 +10,7 @@ import { ItemManager } from './world/items.js';
 import { PropManager } from './world/dynamic.js';
 import { BotBrain } from './entities/bot.js';
 import { SurvivorModel } from './entities/survivorModel.js';
-import { CHAPTERS } from './levels/campaign.js';
+import { CAMPAIGNS, campaignById } from './levels/campaign.js';
 import { saveSettings, QUALITY, DIFFICULTY } from './config.js';
 import { F_SOLID } from './world/collision.js';
 import { clamp, pick } from './core/math.js';
@@ -33,7 +33,7 @@ export class Session {
     this.ui = uiRoot;
     this.settings = settings;
     this.audio = audio;
-    this.chapters = CHAPTERS;
+    this.setCampaign(CAMPAIGNS[0].id);
     this.game = null;
     this.chapterIdx = 0;
     this.campaignTime = 0;
@@ -112,7 +112,12 @@ export class Session {
       this.menuCamT = 0;
     } catch (e) { console.error(e); }
   }
-  async startCampaign(chapter = 0) {
+  setCampaign(id) {
+    this.campaign = campaignById(id);
+    this.chapters = this.campaign.chapters;
+  }
+  async startCampaign(chapter = 0, campaignId) {
+    if (campaignId) this.setCampaign(campaignId);
     this.campaignTime = 0;
     this.chapterIdx = chapter;
     this.savedInventories = null;
@@ -134,7 +139,7 @@ export class Session {
     this.state = 'loading';
     g.state = 'loading';
     g.hud.show(false);
-    const prog = this.menu.loading(ch.title, i);
+    const prog = this.menu.loading(ch.title, i, this.campaign.title);
     prog(0.1);
     await new Promise((r) => setTimeout(r, 60));
     g.voice.reset();
@@ -160,7 +165,7 @@ export class Session {
     this.lockGrace = true;
     g.input.requestLock();
     setTimeout(() => { this.lockGrace = false; }, 800);
-    g.hud.titleCard(ch.title, 'No Mercy · ' + (i + 1) + ' / ' + this.chapters.length, 6);
+    g.hud.titleCard(ch.title, this.campaign.title + ' · ' + (i + 1) + ' / ' + this.chapters.length, 6);
     this.audio.music?.stinger?.('chapterStart');
     if (!g.net?.client) ch.onStart?.(g, this);
     if (!g.input.locked) this.menu.clickToPlay(() => { this.menu.clear(); g.input.requestLock(); });

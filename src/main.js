@@ -30,7 +30,7 @@ async function makeAudio() {
   session.showMainMenu();
   if (params.has('autostart')) {
     const ch = parseInt(params.get('autostart')) || 0;
-    session.startCampaign(ch);
+    session.startCampaign(ch, params.get('campaign') || undefined);
   }
   // resume audio on first interaction
   const resume = () => { audio.resume?.(); };
