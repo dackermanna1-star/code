@@ -11,6 +11,7 @@
 // drawn. Both passes are disabled on frames with nothing to outline.
 import * as THREE from 'three';
 import { Pass, FullScreenQuad } from 'three/examples/jsm/postprocessing/Pass.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 const MASK_VS = /* glsl */ `
   #include <common>
@@ -97,6 +98,7 @@ export class GlowOutlines {
     });
     this.quad = new FullScreenQuad(this.compMat);
     this.proxies = new WeakMap(); // source mesh -> proxy
+    this.merged = new Map(); // item type -> one position-only geometry (1 mask draw per item)
     this.list = [];
     const self = this;
     // mask render: runs right after the world pass (its depth texture is live)
@@ -148,6 +150,26 @@ export class GlowOutlines {
       L.push(p);
     });
   }
+  // Rigid multi-part model drawn as one merged proxy (cached per key).
+  addMerged(root, key, color, mode = 0, fill = 0, k = 1) {
+    let g = this.merged.get(key);
+    if (g === undefined) { g = buildMerged(root); this.merged.set(key, g); }
+    if (!g) return this.add(root, color, mode, fill, k);
+    let p = this.proxies.get(root);
+    if (!p) {
+      p = new THREE.Mesh(g, this.maskMat);
+      p.matrixAutoUpdate = false;
+      p.matrixWorldAutoUpdate = false;
+      p.userData.col = new THREE.Vector3();
+      p.onBeforeRender = onProxy;
+      this.proxies.set(root, p);
+    }
+    p.matrixWorld.copy(root.matrixWorld);
+    p.userData.col.set(color[0] * k, color[1] * k, color[2] * k);
+    p.userData.mode = mode;
+    p.userData.fill = fill;
+    this.list.push(p);
+  }
   // Per-frame game hook: decides who/what glows.
   update(game) {
     this.list.length = 0;
@@ -171,8 +193,8 @@ export class GlowOutlines {
         for (const it of items) {
           if (it.taken || !it.mesh) continue;
           const d = Math.hypot(it.pos.x - ex, (it.pos.y - ey) * 1.5, it.pos.z - ez);
-          if (it === hi) this.add(it.mesh, GLOW.target, 0, 0, 1);
-          else if (d < 4.5 && !me.incapped) this.add(it.mesh, GLOW.item, 0, 0, Math.min(1, (4.5 - d) / 1.5) * 0.8);
+          if (it === hi) this.addMerged(it.mesh, 'item:' + it.type, GLOW.target, 0, 0, 1);
+          else if (d < 4.5 && !me.incapped) this.addMerged(it.mesh, 'item:' + it.type, GLOW.item, 0, 0, Math.min(1, (4.5 - d) / 1.5) * 0.8);
         }
       }
     }
@@ -203,7 +225,25 @@ export class GlowOutlines {
   }
 }
 
-const _cc = new THREE.Color();
+const _cc = new THREE.Color(), _inv = new THREE.Matrix4(), _rel = new THREE.Matrix4();
+function buildMerged(root) {
+  root.updateMatrixWorld(true);
+  _inv.copy(root.matrixWorld).invert();
+  const parts = [];
+  root.traverse((o) => {
+    if (!o.isMesh || o.isSkinnedMesh || o.isInstancedMesh) return;
+    let g = new THREE.BufferGeometry();
+    g.setAttribute('position', o.geometry.attributes.position.clone());
+    if (o.geometry.index) g.setIndex(o.geometry.index.clone());
+    if (g.index) g = g.toNonIndexed();
+    g.applyMatrix4(_rel.multiplyMatrices(_inv, o.matrixWorld));
+    parts.push(g);
+  });
+  if (!parts.length) return null;
+  const m = mergeGeometries(parts);
+  m?.computeBoundingSphere();
+  return m;
+}
 function onProxy(renderer, scene, camera, geometry, material) {
   const u = material.uniforms;
   u.color.value.copy(this.userData.col);
