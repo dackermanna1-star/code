@@ -168,7 +168,10 @@ export class ItemManager {
       if (dot < 0.82 && d > 0.9) return;
       const score = dot * 3 - d;
       if (score > bs) {
-        if (!g.level.col.lineOfSight(eye.x, eye.y, eye.z, pos.x, pos.y + 0.05, pos.z)) return;
+        // stop the sight check 0.35 m short: a door's use point sits inside
+        // the door's own collider, which would otherwise always block it
+        const k = Math.max(0, d - 0.35) / (d || 1);
+        if (!g.level.col.lineOfSight(eye.x, eye.y, eye.z, eye.x + dx * k, eye.y + (dy + 0.05) * k, eye.z + dz * k)) return;
         bs = score; best = obj;
       }
     };

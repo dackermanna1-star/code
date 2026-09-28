@@ -8,6 +8,30 @@ import { NavGrid } from './nav.js';
 
 const SECTOR = 28;
 
+// Spray-paint arrow (points to the top of the canvas = +v).
+let _arrowTex = null;
+function arrowTexture() {
+  if (_arrowTex) return _arrowTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#fff';
+  g.shadowColor = '#fff';
+  g.shadowBlur = 6;
+  g.beginPath();
+  g.moveTo(64, 6); g.lineTo(118, 62); g.lineTo(84, 62); g.lineTo(84, 122); g.lineTo(44, 122); g.lineTo(44, 62); g.lineTo(10, 62);
+  g.closePath();
+  g.fill();
+  // speckle the edges like spray paint
+  g.shadowBlur = 0;
+  g.globalCompositeOperation = 'destination-out';
+  let r = 12345; const rnd = () => ((r = (r * 1103515245 + 12345) >>> 0) / 4294967296); // no Math.random: builds are seeded
+  for (let i = 0; i < 260; i++) { g.globalAlpha = rnd() * 0.5; g.beginPath(); g.arc(rnd() * 128, rnd() * 128, rnd() * 2.5, 0, 7); g.fill(); }
+  _arrowTex = new THREE.CanvasTexture(c);
+  _arrowTex.colorSpace = THREE.SRGBColorSpace;
+  return _arrowTex;
+}
+
 export class Level {
   constructor(game, def = {}) {
     this.game = game;
@@ -253,9 +277,58 @@ export class Level {
     // Flow distances from start and to exit
     if (this.flowStart) this.nav.computeStatic('fromStart', [this.flowStart], { survivor: false });
     if (this.flowEnd) this.nav.computeStatic('toExit', [this.flowEnd]);
+    if (this.flowStart && this.flowEnd && this.def.guideArrows !== false) this.placeGuideArrows();
   }
 
   // Progress 0..1 of a world position along the chapter.
+  // Spray-painted arrows on the ground along the survivor route (start safe
+  // room -> exit), following the toExit distance field. One merged mesh.
+  placeGuideArrows(spacing = 11) {
+    if (this._arrowMesh) { this.root.remove(this._arrowMesh); this._arrowMesh.geometry.dispose(); this._arrowMesh = null; }
+    const nav = this.nav, f = nav.fields.toExit;
+    let n = nav.nearestNode(this.flowStart[0], this.flowStart[1], this.flowStart[2], 3);
+    if (n < 0 || f[n] >= 1e8) return;
+    const route = [n];
+    for (let i = 0; i < 40000; i++) { const m = nav.descend(f, n); if (m < 0) break; route.push(m); n = m; }
+    const pos = [], uv = [], idx = [];
+    let acc = spacing - 4, px = nav.nodeX(route[0]), pz = nav.nodeZ(route[0]);
+    for (let i = 1; i < route.length - 8; i++) {
+      const a = route[i];
+      const ax = nav.nodeX(a), az = nav.nodeZ(a), ay = nav.nodeY[a];
+      acc += Math.hypot(ax - px, az - pz);
+      px = ax; pz = az;
+      if (acc < spacing) continue;
+      // direction ~3 m ahead; only on flat ground (no stairs / drops)
+      const b = route[i + 6];
+      let dx = nav.nodeX(b) - ax, dz = nav.nodeZ(b) - az;
+      const dl = Math.hypot(dx, dz);
+      let flat = dl > 1.5;
+      for (let k = i; k <= i + 6 && flat; k++) if (Math.abs(nav.nodeY[route[k]] - ay) > 0.12) flat = false;
+      if (!flat) continue;
+      acc = 0;
+      dx /= dl; dz /= dl;
+      const rx = -dz, rz = dx, L = 0.75, W = 0.5, y = ay + 0.025;
+      const base = pos.length / 3;
+      // corners: back-left, back-right, front-right, front-left (tip at v=1)
+      pos.push(ax - dx * L - rx * W, y, az - dz * L - rz * W, ax - dx * L + rx * W, y, az - dz * L + rz * W,
+        ax + dx * L + rx * W, y, az + dz * L + rz * W, ax + dx * L - rx * W, y, az + dz * L - rz * W);
+      uv.push(0, 0, 1, 0, 1, 1, 0, 1);
+      idx.push(base, base + 2, base + 1, base, base + 3, base + 2);
+    }
+    if (!pos.length) return;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    geo.setIndex(idx);
+    const mat = new THREE.MeshBasicMaterial({ map: arrowTexture(), color: 0xf0b830, transparent: true, opacity: 0.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, side: THREE.DoubleSide });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = 2;
+    mesh.name = 'guideArrows';
+    this.root.add(mesh);
+    this._arrowMesh = mesh;
+    this.guideArrowCount = pos.length / 12;
+  }
+
   progressAt(x, y, z) {
     if (!this.nav || !this.nav.fields.toExit) return 0;
     const n = this.nav.nodeAt(x, y, z);

@@ -16,7 +16,7 @@ export default async ({ page, evalg, wait, shot, logs }) => {
         ch: S.chapterIdx, title: S.chapters[S.chapterIdx].title, state: S.state,
         prog: +L.progressAt(p.pos.x, p.pos.y, p.pos.z).toFixed(3), inStart,
         inv: g.survivors.map((s) => `${s.name}:${s.inv.primary ? s.inv.primary.type : '-'}/${s.inv.secondary.type}${s.inv.medkit ? '+kit' : ''} hp${Math.round(s.totalHealth)}${s.dead ? ' DEAD' : ''}`).join(' '),
-        commons: g.infected.commons.length, errs: g.errCount || 0,
+        commons: g.infected.commons.length, errs: g.errCount || 0, arrows: L.guideArrowCount || 0,
       };
     });
     console.log('CHAPTER', JSON.stringify(r));

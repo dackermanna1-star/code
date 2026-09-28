@@ -146,7 +146,7 @@ export default {
     }
     // roof slab + parapet + coping
     const skylight = [18, 3, 19.8, 4.8];
-    slab(L, 0, 0, 32, 20, ROOF, [[0.2, 0.2, 2.8, 7.6], skylight], 'roof', 'ceiling');
+    slab(L, 0, 0, 32, 20, ROOF, [[0.2, 0.2, 2.8, 7.6]], 'roof', 'ceiling'); // skylight is decorative (the way down is the roof door)
     L.box(-0.2, ROOF, -0.2, 32.2, ROOF + 1.1, 0.25, 'brickTan');
     L.box(-0.2, ROOF, 19.75, 32.2, ROOF + 1.1, 20.2, 'brickTan');
     L.box(-0.2, ROOF, 0, 0.25, ROOF + 1.1, 20, 'brickTan');
@@ -160,7 +160,7 @@ export default {
     L.box(skylight[0] - 0.15, ROOF, skylight[3], skylight[2] + 0.15, ROOF + 0.35, skylight[3] + 0.15, 'metalDark');
     L.box(skylight[0] - 0.15, ROOF, skylight[1], skylight[0], ROOF + 0.35, skylight[3], 'metalDark');
     L.box(skylight[2], ROOF, skylight[1], skylight[2] + 0.15, ROOF + 0.35, skylight[3], 'metalDark');
-    new WindowPane(L, skylight[0], ROOF + 0.3, skylight[1], skylight[2], ROOF + 0.34, skylight[3], { dirty: true });
+    L.box(skylight[0], ROOF + 0.3, skylight[1], skylight[2], ROOF + 0.34, skylight[3], 'glassDirty', { collide: false });
 
     // ---- roof: bulkhead over the west stairs
     L.box(0.2, ROOF, 0.2, 7, ROOF + 2.8, 0.45, 'brickDark');

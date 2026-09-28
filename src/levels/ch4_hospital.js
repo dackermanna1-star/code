@@ -108,6 +108,7 @@ export default {
     L.script = {
       start() {
         linkElevator(L);
+        L.placeGuideArrows(); // the tower is only connected once the shaft is linked
         L.ch4.culler = installCuller(L, game);
         L.after(1.2, () => game.session.objective('Find the elevator'));
       },
@@ -117,6 +118,7 @@ export default {
       // co-op clients: nav link (for progress) + draw-call culler only
       clientStart() {
         linkElevator(L);
+        L.placeGuideArrows(); // the tower is only connected once the shaft is linked
         L.ch4.culler = installCuller(L, game);
       },
     };
