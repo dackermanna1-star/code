@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { Body, Poser, Ragdoll, J, PROPS, animateHumanoid, poseLying } from './body.js';
 import { buildHumanoid, RigModel } from './rig.js';
-import { setCharacterDetail } from './charlooks.js';
+import { setCharacterDetail, prewarmCharacters } from './charlooks.js';
 import { cloneModel } from '../combat/weaponModels.js';
 import { clamp, damp } from '../core/math.js';
 
@@ -31,6 +31,8 @@ export class SurvivorModel {
     setCharacterDetail(game.quality?.texSize >= 512 ? 1024 : 512);
     const look = lookFor(s.char);
     const parts = buildHumanoid(look);
+    // build the special infected assets in idle time so first spawns don't hitch
+    prewarmCharacters(['hunter', 'smoker', 'boomer', 'witch', 'tank']);
     this.rig = new RigModel(game.scene, parts, { name: 'survivor:' + s.name, xray: s.isHuman ? null : new THREE.Color(0x3a7aff) });
     this.body = new Body(s.char.body.scale ?? 1, s.char.body.build ?? 1);
     this.poser = new Poser();

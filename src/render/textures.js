@@ -569,7 +569,7 @@ const GEN = {
     const grimeF = mask(S, sd + 6, 3, 5, { warp: 50 });
     const sk = streakMask(S, sd + 7, 1, 0.45);
     const tide = mask(S, sd + 9, 2, 5, { warp: 60 });
-    const grime = o.grime ?? 0.55, stain = o.stain ?? 0.25, peel = o.peel ?? 0.07;
+    const grime = o.grime ?? 0.5, stain = o.stain ?? 0.22, peel = o.peel ?? 0.05;
     const t1 = 1 - peel, t2 = 1 - peel * 0.45;
     const rough0 = o.gloss ?? 0.82;
     const gc = [0.34, 0.3, 0.24], dc = [0.42, 0.37, 0.29], ring = [0.44, 0.35, 0.22];
@@ -589,14 +589,14 @@ const GEN = {
       }
       const lk = 1 + lip * 0.05; r *= lk; g *= lk; b *= lk;
       td.set(i, r, g, b);
-      const gk = ss(0.5, 0.98, grimeF[i]) * grime * 0.42;
+      const gk = ss(0.68, 1.0, grimeF[i]) * grime * 0.32;
       if (gk > 0) td.mix(i, gc, gk);
       const dk = sk[i] * grime * 0.4;
       if (dk > 0) td.mix(i, dc, dk);
       const tv = tide[i];
-      if (tv > 0.8 && stain > 0) {
-        const inside = ss(0.83, 0.86, tv) * stain * 1.3;
-        const rg = ss(0.815, 0.84, tv) * ss(0.875, 0.85, tv) * stain * 1.5;
+      if (tv > 0.86 && stain > 0) {
+        const inside = ss(0.89, 0.91, tv) * stain * 1.1;
+        const rg = ss(0.875, 0.895, tv) * ss(0.925, 0.905, tv) * stain * 1.2;
         td.r[i] *= 1 - inside * 0.06; td.g[i] *= 1 - inside * 0.13; td.b[i] *= 1 - inside * 0.3;
         td.mix(i, ring, Math.min(1, rg));
         if (td.a) td.a[i] *= 1 - Math.min(1, rg * 1.4 + inside * 0.3);

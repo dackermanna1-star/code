@@ -143,7 +143,7 @@ export class Atlas {
   }
   albedoTexture() {
     const S = this.S, d = new Uint8Array(S * S * 4);
-    const enc = (v) => { v = clamp(v, 0, 1); return Math.round((v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055) * 255); };
+    const enc = (v) => SRGB_LUT[(v <= 0 ? 0 : v >= 1 ? 4095 : (v * 4095) | 0)];
     const A = this.alpha;
     for (let i = 0; i < S * S; i++) { d[i * 4] = enc(this.r[i]); d[i * 4 + 1] = enc(this.g[i]); d[i * 4 + 2] = enc(this.b[i]); d[i * 4 + 3] = A ? clamp(A[i], 0, 1) * 255 : 255; }
     return tex(d, S, THREE.SRGBColorSpace);
@@ -172,6 +172,8 @@ export class Atlas {
     return tex(d, S, THREE.NoColorSpace);
   }
 }
+const SRGB_LUT = new Uint8Array(4096);
+for (let i = 0; i < 4096; i++) { const v = i / 4095; SRGB_LUT[i] = Math.round((v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055) * 255); }
 function tex(data, S, cs) {
   const t = new THREE.DataTexture(data, S, S, THREE.RGBAFormat, THREE.UnsignedByteType);
   t.colorSpace = cs;
@@ -189,10 +191,10 @@ function tex(data, S, cs) {
 // t = tA + v * (tB - tA). Values must match partgeo.
 export const PARTMAP = {
   torso: { tA: -0.155 / TORSO_LEN, tB: 0.6 / TORSO_LEN, aOff: 0 },
-  uarm: { tA: -0.16, tB: 1.12, aOff: Math.PI / 2 },
-  farm: { tA: -0.12, tB: 1.04, aOff: Math.PI / 2 },
-  thigh: { tA: -0.2, tB: 1.15, aOff: Math.PI / 2 },
-  shin: { tA: -0.1, tB: 1.06, aOff: Math.PI / 2 },
+  uarm: { tA: -0.2, tB: 1.12, aOff: Math.PI / 2 },
+  farm: { tA: -0.15, tB: 1.04, aOff: Math.PI / 2 },
+  thigh: { tA: -0.24, tB: 1.15, aOff: Math.PI / 2 },
+  shin: { tA: -0.13, tB: 1.06, aOff: Math.PI / 2 },
 };
 export function partCoords(name, c) {
   const m = PARTMAP[name];

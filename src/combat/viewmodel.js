@@ -44,7 +44,7 @@ function forearmGeometry(bulk) {
   if (armGeoCache.has(key)) return armGeoCache.get(key);
   const P = new Piece({ region: REG.FARM });
   const k = bulk * 0.96 + 0.04;
-  tube(P, { ts: [-0.06, 0.0, 0.06, 0.14, 0.24, 0.35, 0.47, 0.6, 0.72, 0.82, 0.9, 0.96, 1.0, 1.05], segs: 22, rect: RECT.farm, aOff: Math.PI / 2, tA: -0.12, tB: 1.04,
+  tube(P, { ts: [-0.06, 0.0, 0.06, 0.14, 0.24, 0.35, 0.47, 0.6, 0.72, 0.82, 0.9, 0.96, 1.0, 1.05], segs: 22, rect: RECT.farm, aOff: Math.PI / 2, tA: -0.15, tB: 1.04,
     fn: (t, a, o3) => { limbPoint(FARM_KEYS, t, a, k, k, farmBump(bulk), o3); o3[1] = t; } });
   const g = pieceGeometry([P]);
   armGeoCache.set(key, g);
@@ -59,7 +59,7 @@ function sleeveGeometry(L, bulk) {
   const ts = [];
   for (let i = 0; i <= 14; i++) ts.push(t0 + (t1 - t0) * (i / 14));
   if (L.hem) ts.push(t1 + 0.001);
-  tube(P, { ts, segs: 22, rect: L.rect || RECT.farm, aOff: Math.PI / 2, tA: -0.12, tB: 1.04,
+  tube(P, { ts, segs: 22, rect: L.rect || RECT.farm, aOff: Math.PI / 2, tA: -0.15, tB: 1.04,
     fn: (t, a, o3) => { const tt = Math.min(t, t1); limbPoint(FARM_KEYS, tt, a, k, k, null, o3, (L.off ?? 0.01) + (L.bulge ? L.bulge(tt, a) : 0) - (t > t1 ? (L.off ?? 0.01) * 0.9 : 0)); o3[1] = tt; } });
   P.doubleSided = true;
   const g = pieceGeometry([P]);

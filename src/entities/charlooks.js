@@ -877,18 +877,18 @@ SPEC.boomer = {
 
 SPEC.tank = {
   spec: () => ({
-    muscle: 2.2, chest: 1.45, hump: 1.5, hunchW: 1.3, armBulkR: 2.85, armBulkL: 2.45, legBulk: 1.35, neck: 2.0, eyes: false, handScale: 1.85,
+    muscle: 1.0, chest: 1.2, hump: 1.1, armBulkR: 2.75, armBulkL: 2.35, legBulk: 1.35, neck: 2.0, eyes: false, handScale: 1.85,
     headScale: 0.84, headDrop: 0.035,
     head: { skull: 0.95, brow: 1.5, jaw: 1.3, gaunt: 0.2, socket: 1.2, nose: 0.9, neck: 2.2, mouthOpen: 0.002 },
     hand: { curl: 0.72 }, foot: { bare: true, width: 1.25 },
     layers: [
-      { kind: 'leg', part: 'thigh', mat: 0, off: 0.01, t0: -0.2, t1: 0.75, rect: RECT.extra1, keep: (t, a) => t < 0.55 + 0.15 * Math.sin(a * 5) },
+      { kind: 'leg', part: 'thigh', mat: 0, off: 0.01, t0: -0.2, t1: 0.75, rect: RECT.extra1, keep: (t, a) => t < 0.5 + 0.05 * Math.sin(a * 9) },
     ],
   }),
   paintA(A, grid) {
     const N = noise();
     const t0 = 0xa07e6c;
-    const muscleShade = (c, amp) => { const f = N.ridge.at(c.u * 3, c.v * 2.5); c.col = mul3(c.col, 1 - sstep(0.7, 0.9, f) * amp); c.h -= sstep(0.7, 0.9, f) * amp; };
+    const muscleShade = (c, amp) => { const f = N.fbm.at(c.u * 2, c.v * 1.5); c.col = mul3(c.col, 1 - sstep(0.45, 0.75, f) * amp * 0.6); c.h -= sstep(0.45, 0.75, f) * amp; };
     paintHead(A, RECT.head, grid, { skin: lin(t0), lips: lin(0x5a3a30), decay: 0.8, veins: 1, sunken: 0.6, redness: 0.4, dirt: 0.5, blood: 0.5, scar: true });
     A.region(RECT.torso, (c) => {
       T(c);
@@ -995,7 +995,7 @@ export function getCharacterAsset(look) {
   const R = SURV[id] || SPEC[id] || genericRecipe(look || {});
   const spec = Object.assign({ lod: 'hi' }, R.spec());
   const built = buildBody(spec, { skinned: true });
-  const grid = headGrid(Object.assign({}, spec.head, { female: spec.female || 0 }), 96, 72);
+  const grid = headGrid(Object.assign({}, spec.head, { female: spec.female || 0 }), 80, 60);
   const S = TEX_SIZE;
   const A = new Atlas(S);
   R.paintA(A, grid);
@@ -1020,6 +1020,20 @@ export function getCharacterAsset(look) {
   };
   cache.set(key, asset);
   return asset;
+}
+// Build assets for ids in browser idle time (one per idle slot).
+let prewarmQueue = null;
+export function prewarmCharacters(ids) {
+  if (prewarmQueue) { for (const id of ids) if (!prewarmQueue.includes(id)) prewarmQueue.push(id); return; }
+  prewarmQueue = ids.slice();
+  const idle = typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 4000 }) : (f) => setTimeout(f, 200);
+  const step = () => {
+    const id = prewarmQueue.shift();
+    if (id == null) return;
+    try { getCharacterAsset({ id }); } catch (e) { console.warn('prewarm', id, e); }
+    if (prewarmQueue.length) idle(step);
+  };
+  setTimeout(() => idle(step), 2500);
 }
 function emissiveTex(fn) {
   const E = new Atlas(128);

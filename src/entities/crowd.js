@@ -34,7 +34,7 @@ function sharedAssets() {
   const atlas = paintCrowdAtlas(1024);
   SHARED = {
     detail: atlas.rawTexture(),
-    normal: atlas.normalTexture(1.1),
+    normal: atlas.normalTexture(0.6),
     noise: crowdNoise(),
   };
   SHARED.ms = performance.now() - t0;
@@ -129,8 +129,8 @@ function paintCrowdAtlas(S) {
     return Math.max(ring * 0.8, core);
   };
   const clothFolds = (su, sv, k = 1) => {
-    const f1 = N.ridge.at(su * 1.1, sv * 2.2), f2 = N.fbm.at(su * 1.7, sv * 1.2);
-    return Math.max(0, (f1 - 0.55) * 1.6) * 0.6 * k + (f2 - 0.5) * 0.2;
+    const f1 = N.ridge.at(su * 0.6, sv * 1.2), f2 = N.fbm.at(su * 0.9, sv * 0.8);
+    return Math.max(0, (f1 - 0.68) * 2.2) * 0.35 * k + (f2 - 0.5) * 0.25;
   };
   A.region(RECT.torso, (c) => {
     const m = PARTMAP.torso;
@@ -139,8 +139,8 @@ function paintCrowdAtlas(S) {
     const su = c.u * 3, sv = c.v * 2;
     // folds: waist bunching, armpit diagonals, back drape
     let fold = clothFolds(su, sv);
-    fold += 0.35 * Math.max(0, Math.sin(h * 110 + N.fbm.at(su, sv) * 4)) * sstep(0.2, 0.08, Math.abs(h - 0.1));
-    fold += 0.3 * Math.max(0, Math.sin((h * 60 + aa * 3) + N.fbm.at(su * 2, sv) * 3)) * sstep(0.12, 0.0, Math.abs(h - 0.33)) * sstep(0.5, 0.9, aa) * sstep(1.6, 1.2, aa);
+    fold += 0.2 * Math.max(0, Math.sin(h * 70 + N.fbm.at(su, sv) * 7)) * sstep(0.16, 0.05, Math.abs(h - 0.1)) * N.blot.at(su, sv);
+    fold += 0.18 * Math.max(0, Math.sin((h * 45 + aa * 3) + N.fbm.at(su * 2, sv) * 5)) * sstep(0.12, 0.0, Math.abs(h - 0.33)) * sstep(0.5, 0.9, aa) * sstep(1.6, 1.2, aa);
     const seam = sstep(0.018, 0.004, Math.abs(aa - Math.PI / 2) * 0.16) + sstep(0.005, 0.001, Math.abs(h - 0.445)) * sstep(0.8, 1.2, aa);
     const weave = N.fine.at(su * 8, sv * 8);
     const cloth = 0.8 * (1 - fold * 0.35) * (1 - seam * 0.25) * (0.94 + weave * 0.1);
@@ -171,7 +171,7 @@ function paintCrowdAtlas(S) {
     const su = c.u * 2, sv = c.v * 2.5;
     let fold = clothFolds(su, sv, 0.8);
     const joint = part === 'uarm' ? sstep(0.25, 0.0, Math.abs(t - 1.0)) : part === 'farm' ? sstep(0.2, 0.0, Math.abs(t)) : part === 'thigh' ? sstep(0.2, 0.0, Math.abs(t - 1.0)) + sstep(0.12, 0, Math.abs(t)) * 0.5 : sstep(0.2, 0, Math.abs(t)) + sstep(0.15, 0, Math.abs(t - 0.95)) * 0.8;
-    fold += joint * 0.5 * Math.max(0, Math.sin(t * 90 + N.fbm.at(su, sv) * 5));
+    fold += joint * 0.3 * Math.max(0, Math.sin(t * 55 + N.fbm.at(su, sv) * 6)) * (0.5 + N.blot.at(su, sv));
     const seamD = Math.min(Math.abs(Math.sin(a / 2)), Math.abs(Math.cos(a / 2))) * 0.05; // at a = 0 / pi
     const seam = sstep(0.004, 0.001, Math.abs(Math.sin((a + Math.PI / 2) / 1)) * 0.05) ;
     const weave = N.fine.at(su * 8, sv * 8);
@@ -486,7 +486,7 @@ vec3 crowdSurface( vec2 auv ) {
     // eyes
     float e = D.r;
     col = mix( col, vec3( 0.28, 0.25, 0.16 ), e );
-    emis += vec3( 1.0, 0.78, 0.42 ) * L10.w * e * e * 0.9;
+    emis += vec3( 0.9, 0.72, 0.32 ) * L10.w * e * e * 0.55;
     skinM *= 1.0 - e; rough = mix( rough, 0.12, e );
     // surgical mask
     if ( L14.y > 0.5 ) {
@@ -566,7 +566,7 @@ vec3 crowdSurface( vec2 auv ) {
   }
   // ------------------------------------------------------ tears, wounds
   if ( isC > 0.5 ) {
-    float thr = 1.0 - L6.y * 0.5;
+    float thr = 1.0 - L6.y * 0.34;
     float tf = NZ.r;
     float inBody = reg <= 7 ? 1.0 : 0.0;
     float torn = smoothstep( thr, thr + 0.015, tf ) * inBody;
@@ -783,8 +783,10 @@ function makeLook(outfit, r) {
   if (!o.pat2) o.pat2 = mulC(o.topC, 0.6);
   // zombified skin
   const human = pick(SKIN_BASE), tint = pick(ZOMBIE_TINTS);
-  const zk = 0.38 + r() * 0.3;
-  let skin = human.map((v, i) => (v * (1 - zk) + tint[i] * zk) * (0.72 + r() * 0.2));
+  const zk = 0.5 + r() * 0.3;
+  let skin = human.map((v, i) => (v * (1 - zk) + tint[i] * zk) * (0.62 + r() * 0.22));
+  const grey = (skin[0] + skin[1] + skin[2]) / 3;
+  skin = skin.map((v) => v * 0.7 + grey * 0.3);
   const decay = Math.min(1, 0.35 + r() * 0.6 + (o.decayX || 0));
   // sleeve asymmetry from torn clothing
   const tear = 0.1 + r() * 0.75;
