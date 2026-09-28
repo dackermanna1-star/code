@@ -3,9 +3,9 @@
 import { chromium } from 'playwright';
 import path from 'path';
 import fs from 'fs';
-// Machine-wide browser limit: at most PW_SLOTS (default 2) headless browsers at
+// Machine-wide browser limit: at most PW_SLOTS (default 3) headless browsers at
 // once across every process/agent, so parallel test runs don't overload the box.
-const SLOTS = +(process.env.PW_SLOTS || 2);
+const SLOTS = +(process.env.PW_SLOTS || 3);
 let slotDir = null;
 const alive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
 for (let waited = 0; !slotDir; waited++) {

@@ -162,6 +162,11 @@ export class HandFK {
   // point in bone i of chain c's local frame (x dorsal, y along, z side), metres
   local(c, i, x, y, z, out) { return out.set(x, y, z * (this.side < 0 ? -1 : 1)).applyQuaternion(this.jq[c][i]).add(this.jp[c][i]); }
   handPoint(x, y, z, out) { return out.set(x * this.S, y * this.S, z * this.S * (this.side < 0 ? -1 : 1)).applyQuaternion(this.hq).add(this.hp); }
+  // a point of the ulnar palm (moves with the cup bone)
+  cupPoint(x, y, z, out) {
+    const A = this.A, mz = this.side < 0 ? -1 : 1;
+    return out.set((x - A.cup.x) * this.S, (y - A.cup.y) * this.S, (z - A.cup.z) * this.S * mz).applyQuaternion(this.cq).add(this.cp);
+  }
 }
 
 // ------------------------------------------------------------- queries --
@@ -225,7 +230,7 @@ const PALM_PTS = [[-0.005, 0.03, 0.0], [-0.005, 0.03, -0.018], [-0.006, 0.05, 0.
 export function __palmHit(fk, col) { return palmHit(fk, col); }
 function palmHit(fk, col) {
   for (const p of PALM_PTS) {
-    fk.handPoint(p[0], p[1], p[2], _p);
+    if (p[2] < -0.012) fk.cupPoint(p[0], p[1], p[2], _p); else fk.handPoint(p[0], p[1], p[2], _p);
     const r = 0.0085 * fk.S;
     if (col.dist(_p.x, _p.y, _p.z, r + 0.001) < r) return true;
   }
@@ -518,7 +523,7 @@ export function handCapsules(fk, col) {
 // side +X). X = back of the hand, Y = knuckle direction, pos = wrist centre.
 const FWD_THUMB = [0.12, 0.42, 0.25, 0.08, 0.06];
 const R_GRIP = (o = {}) => Object.assign({
-  frame: 'handR', pos: [0.03, 0.004, 0.075], X: [1, 0, 0], Y: [0, 0.05, -1], settle: 0.04, index: 'trigger', thumb: 'wrap', autoY: true,
+  frame: 'handR', pos: [0.03, 0.004, 0.075], X: [1, 0, 0], Y: [0, 0.05, -1], settle: 0.04, index: 'trigger', thumb: 'wrap', autoY: true, thumbRel: [-0.05, 0.036, -0.078],
   pose: { spread: [0.07, 0.0, -0.04, -0.09], mcp: [0.3, 0.25, 0.25, 0.25], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: [0.25, 0.65, 0.45, 0.15, 0.2], cup: 0.18 },
   fa: [-0.1, 0.35, -1],
 }, o);
@@ -541,8 +546,8 @@ const L_HANDLE = (c, o = {}) => Object.assign({ pos: [c[0] - 0.03, c[1] + 0.012,
   pose: { spread: [0.05, 0.0, -0.04, -0.08], mcp: [0.3, 0.3, 0.3, 0.3], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: [0.25, 0.7, 0.55, 0.15, 0.2], cup: 0.2 }, fa: [0.1, 0.35, -1] }, o);
 
 export const GRIP_SPECS = {
-  pistol: { R: R_GRIP({ thumb: 'fixed', thumbAt: [-0.021, 0.027, -0.06], trigger: [0, 0.001, -0.0575], pose: { spread: [0.07, 0.0, -0.04, -0.09], mcp: [0.3, 0.25, 0.25, 0.25], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: FWD_THUMB, cup: 0.18 } }), L: L_PISTOL({ thumbAt: [-0.03, 0.006, -0.068] }) },
-  magnum: { R: R_GRIP({ thumb: 'fixed', thumbAt: [-0.021, 0.027, -0.06], trigger: [0, 0.001, -0.0575], pose: { spread: [0.07, 0.0, -0.04, -0.09], mcp: [0.3, 0.25, 0.25, 0.25], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: FWD_THUMB, cup: 0.18 } }), L: L_PISTOL({ thumbAt: [-0.03, 0.006, -0.068] }) },
+  pistol: { R: R_GRIP({ thumb: 'fixed', thumbRel: [-0.047, 0.052, -0.1], trigger: [0, 0.001, -0.0575], pose: { spread: [0.07, 0.0, -0.04, -0.09], mcp: [0.3, 0.25, 0.25, 0.25], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: FWD_THUMB, cup: 0.18 } }), L: L_PISTOL({ thumbAt: [-0.03, 0.006, -0.068] }) },
+  magnum: { R: R_GRIP({ thumb: 'fixed', thumbRel: [-0.047, 0.052, -0.1], trigger: [0, 0.001, -0.0575], pose: { spread: [0.07, 0.0, -0.04, -0.09], mcp: [0.3, 0.25, 0.25, 0.25], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: FWD_THUMB, cup: 0.18 } }), L: L_PISTOL({ thumbAt: [-0.03, 0.006, -0.068] }) },
   dualPistols: {
     R: R_GRIP({ anchor: 'right', thumb: 'wrap', trigger: [0, 0.001, -0.0575] }),
     L: R_GRIP({ anchor: 'left', thumb: 'wrap', trigger: [0, 0.001, -0.0575], pos: [-0.03, 0.004, 0.075], X: [-1, 0, 0], fa: [0.1, 0.35, -1] }),
@@ -614,6 +619,7 @@ export function solveGrips(model, type, A, S, specs = GRIP_SPECS[type]) {
     s.Y = new THREE.Vector3().fromArray(sp.Y).applyQuaternion(rq).toArray();
     if (sp.trigger) s.trigger = new THREE.Vector3().fromArray(sp.trigger).applyMatrix4(restMatrix(model, host, _m4)).toArray();
     if (sp.thumbAt) s.thumbAt = new THREE.Vector3().fromArray(sp.thumbAt).applyMatrix4(restMatrix(model, host, _m4)).toArray();
+    const thumbRel = sp.thumbRel;
     const col = colFor(sp.anchor);
     // pistol grips: the highest wrist position (index closest to the trigger)
     // that still lets the middle finger wrap under the trigger guard
@@ -629,6 +635,7 @@ export function solveGrips(model, type, A, S, specs = GRIP_SPECS[type]) {
       if (chosen == null) chosen = tg.y - 0.045 * S;
       s.pos = new THREE.Vector3(base.x, chosen, base.z).applyMatrix4(F).toArray();
     }
+    if (thumbRel) s.thumbAt = new THREE.Vector3().fromArray(s.pos).applyMatrix4(F.clone().invert()).add(new THREE.Vector3().fromArray(thumbRel).multiplyScalar(S)).applyMatrix4(F).toArray();
     if (sp.wrapOther && rightFK) handCapsules(rightFK, col);
     const r = solveHand(s, col, A, S, side === 'R' ? 1 : -1);
     col.clearCapsules();
