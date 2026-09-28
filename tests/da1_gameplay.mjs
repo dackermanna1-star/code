@@ -15,7 +15,7 @@ export default async ({ page, evalg, wait, shot, logs }) => {
   await page.goto((process.env.TEST_URL || 'http://localhost:5180/') + '?campaign=deadair&autostart=0', { timeout: 180000 });
   for (let i = 0; i < 150; i++) { await wait(1000); if ((await evalg(() => window.session?.state)) === 'playing') break; }
   await evalg(() => { const g = window.game; g.director.enabled = false; g.cheats.botsIdle = true; g.cheats.godAll = true; for (const c of g.infected.commons) c.hp = 0; g.advance(0.5); });
-  for (const [name, x, y, z, lx, ly, lz, n] of V) {
+  for (const [name, x, y, z, lx, ly, lz, n] of V.filter((v) => !process.env.SHOTS || process.env.SHOTS.split(',').includes(v[0]))) {
     const info = await evalg(([x, y, z, lx, ly, lz, n]) => {
       const g = window.game, P = g.player, nav = g.level.nav;
       for (const c of g.infected.commons) c.hp = 0;
