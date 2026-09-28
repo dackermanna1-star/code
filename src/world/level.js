@@ -283,7 +283,7 @@ export class Level {
   // Progress 0..1 of a world position along the chapter.
   // Spray-painted arrows on the ground along the survivor route (start safe
   // room -> exit), following the toExit distance field. One merged mesh.
-  placeGuideArrows(spacing = 11) {
+  placeGuideArrows(spacing = 15) {
     if (this._arrowMesh) { this.root.remove(this._arrowMesh); this._arrowMesh.geometry.dispose(); this._arrowMesh = null; }
     const nav = this.nav, f = nav.fields.toExit;
     let n = nav.nearestNode(this.flowStart[0], this.flowStart[1], this.flowStart[2], 3);
@@ -320,10 +320,12 @@ export class Level {
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     geo.setIndex(idx);
-    const mat = new THREE.MeshBasicMaterial({ map: arrowTexture(), color: 0xf0b830, transparent: true, opacity: 0.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, side: THREE.DoubleSide });
+    // lit like real spray paint (dim in the dark, bright in a flashlight beam) with a faint glow so it stays findable
+    const mat = new THREE.MeshStandardMaterial({ map: arrowTexture(), color: 0xe0a838, emissive: 0x3a2508, emissiveMap: null, roughness: 0.85, metalness: 0, transparent: true, opacity: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, side: THREE.DoubleSide });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.renderOrder = 2;
     mesh.name = 'guideArrows';
+    mesh.visible = this.game?.session?.settings?.guideArrows !== false;
     this.root.add(mesh);
     this._arrowMesh = mesh;
     this.guideArrowCount = pos.length / 12;

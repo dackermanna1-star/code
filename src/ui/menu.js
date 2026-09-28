@@ -111,6 +111,7 @@ export class Menu {
       <div class="row"><label>Voice volume</label><input type="range" min="0" max="1" step="0.05" id="o-voice" value="${st.voice}"></div>
       <div class="row"><label>Spoken dialogue (TTS)</label><input type="checkbox" id="o-tts" ${st.tts ? 'checked' : ''}></div>
       <div class="row"><label>Graphics quality</label><select id="o-q">${Object.entries(QUALITY).map(([k, q]) => `<option value="${k}" ${st.quality === k ? 'selected' : ''}>${q.name}</option>`).join('')}</select><span style="opacity:.6;font-size:13px">(applies on next chapter load)</span></div>
+      <div class="row"><label>Route arrows on the ground</label><input type="checkbox" id="o-arrows" ${st.guideArrows !== false ? 'checked' : ''}></div>
       <div class="row"><label>Show FPS</label><input type="checkbox" id="o-fps" ${st.showFps ? 'checked' : ''}></div>
       <button id="m-back" style="margin-top:18px">Back</button>
     </div>`));
@@ -134,6 +135,7 @@ export class Menu {
     bind('#o-tts', 'tts');
     bind('#o-q', 'quality', (v) => v);
     bind('#o-fps', 'showFps');
+    bind('#o-arrows', 'guideArrows');
     this.btn(n, '#m-back', () => { this.s.saveSettings(); back(); });
   }
   controls(back) {

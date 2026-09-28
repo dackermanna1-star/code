@@ -86,6 +86,7 @@ export class Session {
     g.input.sensitivity = s.sensitivity;
     g.input.invertY = s.invertY;
     this.audio.setVolumes?.({ master: s.master, music: s.music, sfx: s.sfx, voice: s.voice });
+    if (g.level?._arrowMesh) g.level._arrowMesh.visible = s.guideArrows !== false;
   }
 
   // ------------------------------------------------------------- flow --

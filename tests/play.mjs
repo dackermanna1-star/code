@@ -2,6 +2,25 @@
 // scenario exports default async ({page, shot, evalg, wait}) => {}
 import { chromium } from 'playwright';
 import path from 'path';
+import fs from 'fs';
+// Machine-wide browser limit: at most PW_SLOTS (default 2) headless browsers at
+// once across every process/agent, so parallel test runs don't overload the box.
+const SLOTS = +(process.env.PW_SLOTS || 2);
+let slotDir = null;
+const alive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
+for (let waited = 0; !slotDir; waited++) {
+  for (let i = 0; i < SLOTS && !slotDir; i++) {
+    const d = `/tmp/lastfour-pw-slot-${i}`;
+    try { fs.mkdirSync(d); fs.writeFileSync(d + '/pid', String(process.pid)); slotDir = d; } catch (e) {
+      let pid = 0; try { pid = +fs.readFileSync(d + '/pid', 'utf8'); } catch (e2) {}
+      let age = 0; try { age = Date.now() - fs.statSync(d).mtimeMs; } catch (e2) {}
+      if ((pid && !alive(pid)) || (!pid && age > 30000)) fs.rmSync(d, { recursive: true, force: true });
+    }
+  }
+  if (!slotDir) { if (waited % 30 === 0) console.log('[play] waiting for a free browser slot...'); await new Promise((r) => setTimeout(r, 2000)); }
+}
+const release = () => { try { if (slotDir) fs.rmSync(slotDir, { recursive: true, force: true }); } catch (e) {} slotDir = null; };
+process.on('exit', release);
 const scen = process.argv[2];
 const url = process.argv[3] || 'http://localhost:5180/';
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
@@ -18,3 +37,4 @@ const mod = await import(path.resolve(scen));
 try { await mod.default({ page, shot, evalg, wait, logs }); } catch (e) { console.log('scenario error', e); }
 console.log('--- logs ---\n' + logs.slice(0, 80).join('\n'));
 await browser.close();
+release();

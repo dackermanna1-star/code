@@ -25,6 +25,7 @@ export const DEFAULT_SETTINGS = {
   quality: 'medium',
   difficulty: 'normal',
   showFps: false,
+  guideArrows: true,
   character: 'bill',
   tempDecay: 1,
   bleedRate: 3,
