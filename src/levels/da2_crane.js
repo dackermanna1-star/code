@@ -225,6 +225,7 @@ export default {
     });
 
     let t = 0;
+    const hiddenArrows = [];
     L.script = {
       start() {
         ev.disableNavBridge();
@@ -235,7 +236,10 @@ export default {
           for (let q = 0; q + 3 < pa.count; q += 4) {
             let cx = 0, cz = 0;
             for (let k = 0; k < 4; k++) { cx += pa.getX(q + k) / 4; cz += pa.getZ(q + k) / 4; }
-            if (cx > 33.5 && cx < 38.5 && cz > 17.5 && cz < 27.5) for (let k = 1; k < 4; k++) pa.setXYZ(q + k, pa.getX(q), pa.getY(q), pa.getZ(q));
+            if (cx > 33.5 && cx < 38.5 && cz > 17.5 && cz < 27.5) {
+              hiddenArrows.push([q, [0, 1, 2, 3].map((k) => [pa.getX(q + k), pa.getY(q + k), pa.getZ(q + k)])]);
+              for (let k = 1; k < 4; k++) pa.setXYZ(q + k, pa.getX(q), pa.getY(q), pa.getZ(q));
+            }
           }
           pa.needsUpdate = true;
         }
@@ -245,6 +249,13 @@ export default {
       clientStart() { ev.disableNavBridge(); },
       update(dt) {
         t += dt;
+        if (hiddenArrows.length && ev.bridged && L._arrowMesh) {
+          // the skip is down: the painted arrows over the bridge come back
+          const pa = L._arrowMesh.geometry.attributes.position;
+          for (const [q, pts] of hiddenArrows) pts.forEach((v, k) => pa.setXYZ(q + k, v[0], v[1], v[2]));
+          pa.needsUpdate = true;
+          hiddenArrows.length = 0;
+        }
         if (alarm) { const k = Math.max(0, Math.sin(t * 7)); for (const l of alarmLights) l.intensity = 12 * k * k; }
       },
     };

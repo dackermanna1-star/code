@@ -485,7 +485,7 @@ export class Particles {
           const a = R() * 6.283, d = 2 + Math.sqrt(R()) * 16;
           const g = 0.5 + R() * 0.12;
           this.alpha.spawn({ x: cx + Math.cos(a) * d - wx * 4, y: cy + 4 + R() * 9, z: cz + Math.sin(a) * d - wz * 4, vx: wx + rs(0.3), vy: -0.35 - R() * 0.45, vz: wz + rs(0.3),
-            life: 7 + R() * 5, size: 0.022 + R() * 0.022, frame: FR.CHUNK, color: [g, g * 0.97, g * 0.94], alpha: 0.85, alpha1: 0.6, fadeIn: 0.1, rv: rs(5), lit: 0.9, collide: true });
+            life: 7 + R() * 5, size: 0.022 + R() * 0.022, frame: FR.CHUNK, color: [g, g * 0.97, g * 0.94], alpha: 0.85, alpha1: 0.6, fadeIn: 0.1, rv: rs(5), lit: 0.9 });
         }
       }
       if (A.embers > 0 && room(this.add)) {

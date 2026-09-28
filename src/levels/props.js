@@ -49,7 +49,7 @@ function ensureMaterials() {
   materials.cache.set('chainLink', link);
 }
 
-const UNTEXTURED = new Set(['glass', 'glassDirty', 'emissiveWarm', 'emissiveCool', 'emissiveRed', 'emissiveGreen', 'emissiveWindow', 'emissiveTint', 'plastic', 'plastic', 'chrome', 'carPaint', 'blackMatte', 'plastic', 'waterSurface', 'foliage', 'chainLink']);
+const UNTEXTURED = new Set(['glass', 'glassDirty', 'emissiveWarm', 'emissiveCool', 'emissiveRed', 'emissiveGreen', 'emissiveWindow', 'emissiveTint', 'plastic', 'plasticGloss', 'chrome', 'carPaint', 'blackMatte', 'paper', 'waterSurface', 'foliage', 'chainLink']);
 const meshOpts = (mat, tint) => (UNTEXTURED.has(mat) ? { tint, uvScale: 1 } : { tint, worldUV: materials.scaleOf(mat) });
 
 // cached geometries
@@ -172,7 +172,7 @@ export const prop = (L, x, y, z, ry) => {
   }
   return new P(L, x, y, z, ry);
 };
-const NO_SHADOW = new Set(['chrome', 'plastic', 'plastic', 'chainLink', 'emissiveTint', 'glass', 'glassDirty']);
+const NO_SHADOW = new Set(['chrome', 'paper', 'plasticGloss', 'chainLink', 'emissiveTint', 'glass', 'glassDirty']);
 
 // Volumetric light cone (soft additive beam in fog). dir: world direction the
 // light shines; lightRef: optional virtual light (L.light) whose on/flicker

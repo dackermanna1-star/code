@@ -61,6 +61,7 @@ export default async ({ page, evalg, wait, shot }) => {
         // drive the player with the game's own bot brain (A*, smoothing, doors, combat)
         if (!W.bb) { const B = g.survivors.find((s) => s.brain)?.brain.constructor || window.__BotBrain; window.__BotBrain = B; W.bb = new B(g, p, 3); }
         const openBefore = L.doors.filter((d) => d.open).length;
+        if (!process.env.LOOT) W.bb.itemT = 1e9;
         W.bb.update(0.1);
         const c = p.cmd;
         g.testCmd = { mx: c.mx, my: c.my, sprint: c.sprint, jump: c.jump || (W.stuckT > 1.5 && W.stuckT < 1.6), fire: c.fire, firePressed: c.firePressed, shove: c.shove, shoveHeld: c.shoveHeld, reload: c.reload, slot: c.slot, use: c.use, usePressed: c.usePressed, crouch: c.crouch };

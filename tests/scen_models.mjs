@@ -33,7 +33,7 @@ export default async ({ page, evalg, wait, shot, logs }) => {
       g.advance(0.6);
     });
     await snap('lineup');
-    for (let k = 0; k < 4; k++) {
+    for (let k = 0; k < (process.env.FACES ? 4 : 0); k++) {
       const id = await evalg((k) => {
         const g = window.game;
         g.survivors.forEach((x, i) => { if (i !== k) window.__place(x, 8 + i, 8, 0); });
@@ -122,8 +122,10 @@ export default async ({ page, evalg, wait, shot, logs }) => {
         g.advance(0.5);
       }, kind);
       await snap('sp_' + kind);
-      await evalg((kind) => { const h = kind === 'tank' ? 2.4 : 1.55; window.__cam(0.3, h + 0.05, -3 + 0.9 + (kind === 'tank' ? 0.6 : 0), 0, h - 0.05, -3); window.game.advance(0.1); }, kind);
-      await snap('sp_' + kind + '_face');
+      if (process.env.SPFACE) {
+        await evalg((kind) => { const h = kind === 'tank' ? 2.4 : 1.55; window.__cam(0.3, h + 0.05, -3 + 0.9 + (kind === 'tank' ? 0.6 : 0), 0, h - 0.05, -3); window.game.advance(0.1); }, kind);
+        await snap('sp_' + kind + '_face');
+      }
     }
     await evalg(() => { const g = window.game; for (const s of [...g.infected.specials]) s.remove(); g.infected.specials.length = 0; });
   }

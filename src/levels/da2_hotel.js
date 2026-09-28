@@ -161,7 +161,7 @@ function kitchen(L, game) {
   // linings / partition walls
   L.box(18.1, y, 0.2, 42.9, HC, 0.35, 'tileWhite');
   L.box(18.1, y, Z1 - 0.35, 42.9, HC, Z1 - 0.2, 'tileWhite');
-  L.wallZ(0.2, 11.7, 43, y, HC, 'tileWhite', 0.2, [{ a: 2.4, b: 3.6, y0: y, y1: y + 2.2 }, { a: 8.1, b: 9.3, y0: y, y1: y + 2.2 }]);
+  L.wallZ(0.2, 11.7, 43, y, HC, 'tileWhite', 0.2, [{ a: 4.7, b: 5.8, y0: y, y1: y + 2.2 }, { a: 8.1, b: 9.3, y0: y, y1: y + 2.2 }]);
   L.box(18.1, y - 0.01, 0.35, 42.9, y + 0.005, Z1 - 0.35, 'tileFloor', { collide: false, tint: 0x8a5a44 });
   for (const x of [18.4, 42.6]) L.box(x - 0.3, y, 0.35, x + 0.3, y + 0.1, Z1 - 0.35, 'metalDark', { collide: false });
   L.box(18.1, y + 1.3, 0.36, 42.9, y + 1.36, 0.37, 'tileGreen', NC);
@@ -261,14 +261,14 @@ function coolerAndOffice(L, game) {
   L.box(43.1, y - 0.01, 0.3, X1 - 0.3, y + 0.005, 5.9, 'diamond', { collide: false, tint: 0x9a9e9e });
   ceilingLight(L, 47.4, HC, 3.1, { type: 'fluoro', intensity: 6, flicker: 0.35, color: 0xb8d8ff });
   for (const x of [45.2, 46.6, 48, 49.4]) meatHook(L, x, HC - 0.3, 2.2);
-  for (const x of [44.6, 47.2, 50]) canShelf(L, x, y, 5.5, Math.PI, 2.2, 0.7);
+  for (const x of [45.6, 48.0, 50.4]) canShelf(L, x, y, 5.5, Math.PI, 2.0, 0.7);
   shelving(L, 51.3, y, 2.4, Math.PI / 2, 2.2, 2.0, 0.8);
   L.box(43.4, y + 2.0, 0.4, 51.4, y + 2.03, 0.45, 'metalClean', NC);
   P.corpse(L, 46.5, y + 0.01, 3.6, 1.2, 0xe8e8e0); blood(L, 46.5, y, 3.6, 2, 4);
   L.item('health', 50.2, y + 0.02, 1.0, { chance: 0.6 });
   L.item('pills', 44.3, y + 1.03, 5.5, { chance: 0.4 });
   sign(L, 'WALK-IN\n2°C  KEEP CLOSED', 42.88, y + 2.3, 3, Math.PI / 2, 0.9, 0.4, { bg: '#e8e8e0', fg: '#1a3a6a' });
-  const cooler = new Door(L, 43, y, 3.0, 'z', { width: 1.2, hinge: 1, material: 'metalClean' });
+  const cooler = new Door(L, 43, y, 5.25, 'z', { width: 1.1, hinge: -1, material: 'metalClean' });
   L.reverb(43, y, 0.2, X1, HC, 6, 'room');
   // chef's office (x 43..51.8, z 6..11.8)
   room(L, { x0: 43, z0: 6, x1: X1 - 0.2, z1: 11.8, y, h: HC - HG, floor: false, ceil: false, wall: 'plasterDirty', walls: { n: false, s: false, w: false, e: {} }, light: { type: 'fluoro', intensity: 7, flicker: 0.6 } });
@@ -292,7 +292,7 @@ function serviceAndDock(L, game) {
   const y = HG;
   // --- service hall (x 14..18)
   room(L, { x0: 14, z0: 0.2, x1: 18, z1: Z1 - 0.2, y, h: HC - HG, floor: false, ceil: false, wall: 'plasterBlue', trimMat: 'metalDark',
-    walls: { n: {}, s: {}, w: { open: [{ at: 6.1, w: 1.3 }, { at: 15.6, w: 1.2 }] }, e: { open: [{ at: 9.2, w: 1.3 }] } }, light: false });
+    walls: { n: {}, s: {}, w: { open: [{ at: 6.1, w: 1.3 }, { at: 12.8, w: 1.1 }] }, e: { open: [{ at: 9.2, w: 1.3 }] } }, light: false });
   L.box(14.1, y - 0.01, 0.3, 17.9, y + 0.005, Z1 - 0.3, 'linoleum', { collide: false, tint: 0x7a8088 });
   ceilingLight(L, 16, HC, 4.5, { type: 'fluoro', intensity: 8, flicker: 0.4 });
   ceilingLight(L, 16, HC, 14, { type: 'fluoro', intensity: 7, flicker: 0.8 });
@@ -316,7 +316,7 @@ function serviceAndDock(L, game) {
   trail(L, 16, 7.6, 12.6, 5.4, y, 5);
   L.reverb(14, y, 0.2, 18, HC, Z1, 'room');
   new Door(L, 14, y, 6.1, 'z', { width: 1.2, hinge: 1, material: 'metalDark', open: true });
-  new Door(L, 14, y, 15.6, 'z', { width: 1.1, hinge: -1, material: 'woodDark' });
+  new Door(L, 14, y, 12.8, 'z', { width: 1.1, hinge: 1, material: 'woodDark' });
 
   // --- loading dock (x 0.2..14, z 0.2..12)
   L.wallX(0.2, 14, 12, y, HC, 'concrete', 0.2, []);
@@ -354,7 +354,7 @@ function serviceAndDock(L, game) {
   L.item('health', 0.8, y + 1.0, 13.6, { chance: 0.6 });
   L.item('ammo', 8.2, y + 0.02, 18.9, { chance: 0.7 });
   L.item('tier2', 12.6, y + 0.02, 18.6, { chance: 0.25 });
-  sign(L, 'LAUNDRY', 13.82, y + 2.5, 15.6, Math.PI / 2, 0.9, 0.25, { bg: '#e8e8e0', fg: '#1a2a4a' });
+  sign(L, 'LAUNDRY', 14.12, y + 2.5, 12.8, Math.PI / 2, 0.9, 0.25, { bg: '#e8e8e0', fg: '#1a2a4a' });
   L.reverb(0.2, y, 12, 14, HC, Z1, 'room');
   L.ambience(0.2, y, 0.2, 18, HC, Z1, 'apartments');
 }
@@ -597,10 +597,10 @@ function thirdFloor(L, game) {
   guestRoom(L, game, { x0: 8.4, x1: 14.4, side: 's', door: 9.6, variant: 'barricade' });
   // doors (real)
   new Door(L, 39.6, y, CZ1, 'x', { width: 1.1, hinge: 1, open: true });
-  new Door(L, 27.6, y, CZ1, 'x', { width: 1.1, hinge: 1 });
+  new Door(L, 27.6, y, CZ1, 'x', { width: 1.1, hinge: -1 });
   new Door(L, 25.2, y, CZ1, 'x', { width: 1.1, hinge: 1, open: true });
   new Door(L, 15.6, y, CZ1, 'x', { width: 1.1, hinge: 1, open: true });
-  new Door(L, 9.6, y, CZ1, 'x', { width: 1.1, hinge: 1 });
+  new Door(L, 9.6, y, CZ1, 'x', { width: 1.1, hinge: -1 });
   new Door(L, 39.05, y, CZ0, 'x', { width: 1.1, hinge: -1, open: true });
   new Door(L, 45.6, y, CZ0, 'x', { width: 1.1, hinge: -1, open: true });
 }
@@ -675,7 +675,8 @@ function guestRoom(L, game, o) {
     L.item('health', cx + 0.6, y + 0.02, 18.9, { chance: 0.4 });
   } else if (v === 'barricade') {
     // somebody's last stand: furniture piled against the door (from inside) — the door is closed
-    P.dresser(L, o.door + 0.1, y, z0 + 0.8, 0.2); P.chair(L, o.door + 0.9, y, z0 + 1.3, 1.2, 'woodDark', true);
+    P.dresser(L, x0 + 0.45, y, z0 + 3.4, 1.4); P.chair(L, o.door - 0.4, y, z0 + 3.6, 1.2, 'woodDark', true);
+    P.debris(L, o.door, y, z0 + 1.0, 0.5, 'woodDark', 6);
     P.corpse(L, cx, y + 0.01, 16.6, 0.9, 0x2a3a2a); blood(L, cx, y, 16.6, 2, 4);
     L.item('huntingRifle', cx - 0.4, y + 0.02, 18.4, { chance: 0.5 });
     L.item('ammo', cx + 0.6, y + 0.02, 18.7, {});
