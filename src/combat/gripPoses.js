@@ -410,7 +410,7 @@ function thumbIK(fk, col, target, o = {}) {
     let e = fk.jp[0][3].distanceTo(target);
     const d = chainDepth(fk, col, 0, 1, SQ);
     if (d < 0) e += -d * 4 + 0.004;
-    return e + 0.0025 * (w[3] * w[3] + w[4] * w[4]) + 0.002 * Math.abs(w[2] - base[2]);
+    return e + (o.bend ?? 0.009) * (w[3] * w[3] + w[4] * w[4]) + 0.004 * Math.abs(w[2] - base[2]) + 0.002 * Math.max(0, -w[0]);
   };
   let best = { e: evalAt(v), w: v.slice() };
   for (let f = -0.5; f <= 1.21; f += 0.1)
@@ -647,12 +647,23 @@ export function solveGrips(model, type, A, S, specs = GRIP_SPECS[type]) {
     const thumbRel = sp.thumbRel;
     const col = colFor(sp.anchor);
     if (sp.guard) {
-      // wrist below-left-behind the forend; thumb tip along its left side, near the top
+      // Cradle: treat the lower forend as a cylinder (radius = half its width,
+      // tangent to its bottom). The palm meets it below-left (angle th from the
+      // bottom), knuckles run round it towards the right side, angled forward
+      // by phi; the thumb tip lies along the left side near the top.
       const g = sp.guard, sec = sectionAt(col, g.z, g.yb);
-      const top = Math.min(sec.y1, sec.y0 + 0.05);
-      s.pos = [sec.x0 - 0.012, sec.y0 - 0.034, g.z + 0.035];
-      s.thumbAt = [sec.x0 - 0.0085 * S, top - 0.006, g.z - 0.04 * S];
-      s.info = sec;
+      const R = (sec.x1 - sec.x0) / 2, xc = (sec.x0 + sec.x1) / 2, yc = sec.y0 + R;
+      const th = sp.cradle ?? 0.6, phi = sp.phi ?? 0.55;
+      const n = new THREE.Vector3(Math.sin(th), Math.cos(th), 0);
+      const t = new THREE.Vector3(Math.cos(th), -Math.sin(th), 0);
+      const Y = t.clone().multiplyScalar(Math.cos(phi)).add(new THREE.Vector3(0, 0, -Math.sin(phi)));
+      const q = handQuat(n.clone().negate().toArray(), Y.toArray());
+      const contact = new THREE.Vector3(xc, yc, g.z).addScaledVector(n, -(R + 0.001));
+      const palmC = new THREE.Vector3(-0.0135 * S, 0.05 * S, 0.004 * S).applyQuaternion(q);
+      s.pos = contact.sub(palmC).toArray();
+      s.X = n.clone().negate().toArray(); s.Y = Y.toArray(); s.rot = null;
+      const top = Math.min(sec.y1, sec.y0 + 0.055);
+      s.thumbAt = [sec.x0 - 0.0085 * S, Math.min(top - 0.01, yc + 0.012), g.z - 0.06 * S];
     }
     // pistol grips: the highest wrist position (index closest to the trigger)
     // that still lets the middle finger wrap under the trigger guard
