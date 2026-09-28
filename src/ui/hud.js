@@ -88,6 +88,13 @@ export class HUD {
     this.objective.style.opacity = text ? 1 : 0;
     this.objT = dur;
   }
+  // chapter change: drop the previous chapter's objective, subtitles, toasts
+  clearTransient() {
+    this.setObjective('', 0);
+    this.subs.innerHTML = '';
+    this.toastEl.style.opacity = 0;
+    this.toastT = 0;
+  }
   titleCard(big, small, dur = 5) {
     this.title.innerHTML = `<div class="tc-small">${small}</div><div class="tc-big">${big}</div>`;
     this.title.style.opacity = 1;

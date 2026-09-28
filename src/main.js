@@ -48,6 +48,7 @@ async function makeAudio() {
       // slow cinematic drift behind the menu
       g.player.yaw += dt * 0.03;
     }
+    session.tickFade();
     g.frame(dt);
     requestAnimationFrame(loop);
   }

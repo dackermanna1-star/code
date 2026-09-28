@@ -138,6 +138,7 @@ export class Session {
     prog(0.1);
     await new Promise((r) => setTimeout(r, 60));
     g.voice.reset();
+    g.hud.clearTransient?.();
     this.audio.stopAll?.();
     prog(0.3);
     await new Promise((r) => setTimeout(r, 30));
@@ -267,13 +268,20 @@ export class Session {
     setTimeout(() => { this.lockGrace = false; }, 500);
     try { window.speechSynthesis?.resume(); } catch (e) { /* */ }
   }
+  // Screen fade, animated from the frame loop by wall-clock time (tickFade) so
+  // it can never get stuck mid-way the way a CSS transition can when frames
+  // are delayed by a long synchronous level build.
   fade(from, to, dur = 1.2) {
-    const f = this.fadeEl;
-    f.style.transition = 'none';
-    f.style.opacity = from;
-    void f.offsetWidth;
-    f.style.transition = `opacity ${dur}s`;
-    f.style.opacity = to;
+    this.fadeAnim = { from, to, dur: Math.max(0.01, dur), t0: performance.now() };
+    this.fadeEl.style.transition = 'none';
+    this.fadeEl.style.opacity = from;
+  }
+  tickFade() {
+    const a = this.fadeAnim;
+    if (!a) return;
+    const k = Math.min(1, (performance.now() - a.t0) / 1000 / a.dur);
+    this.fadeEl.style.opacity = a.from + (a.to - a.from) * k;
+    if (k >= 1) this.fadeAnim = null;
   }
   // letterboxed cutscene presentation (HUD hidden)
   cinematic(on) {

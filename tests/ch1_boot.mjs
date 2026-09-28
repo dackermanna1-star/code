@@ -1,6 +1,7 @@
 // Chapter 1 boot check: load, stats, then ~20 s of simulated play with director + bots on.
 // Reports page errors / console errors (incl. "[frame]") collected by play.mjs.
 export default async ({ page, evalg, wait, logs }) => {
+  page.on("crash", () => console.log("PAGE CRASHED")); page.on("close", () => console.log("PAGE CLOSED"));
   await page.goto((process.env.TEST_URL || 'http://localhost:5180/') + '?autostart=0');
   let st;
   for (let i = 0; i < 90; i++) { await wait(1000); st = await evalg(() => window.session?.state); if (st === 'playing') break; }
