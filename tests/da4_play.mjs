@@ -38,8 +38,11 @@ export default async ({ page, evalg, wait, shot }) => {
         if (det.state !== W.detState) { W.log.push(`t=${W.t.toFixed(0)} detector ${W.detState || '-'} -> ${det.state} at ${fmt(p.pos)}`); W.detState = det.state; }
         const tk = g.infected.specials.find((s) => s.kind === 'tank' && !s.dead);
         if (tk && !W.tankSeen) { W.tankSeen = true; W.log.push(`t=${W.t.toFixed(0)} TANK at ${fmt(tk.pos)} prog ${prog.toFixed(3)}`); }
-        // the van: hotwire it as soon as the player stands next to it
-        if (van.phase === 'idle' && Math.hypot(p.pos.x - 76, p.pos.z - 37) < 6 && p.pos.y < 1) { van.start(p); W.log.push(`t=${W.t.toFixed(0)} HOTWIRED VAN prog ${prog.toFixed(3)}`); W.vanT = W.t; }
+        // the van: hotwire it as soon as the player stands next to it (walk mode: side trip from the check-in hall)
+        if (van.phase === 'idle' && W.mode === 'walk' && p.pos.x > 70 && p.pos.x < 99 && p.pos.z > 4 && p.pos.y < 1) { W.back = p.pos.clone(); p.teleport(74.6, 0.05, 36.2, 0); W.log.push(`t=${W.t.toFixed(0)} side trip to the van`); }
+        if (van.phase === 'idle' && Math.hypot(p.pos.x - 76, p.pos.z - 37) < 6 && p.pos.y < 1) { van.start(p); W.log.push(`t=${W.t.toFixed(0)} HOTWIRED VAN prog ${prog.toFixed(3)}`); W.vanT = W.t; if (W.back) { p.teleport(W.back.x, W.back.y + 0.05, W.back.z, p.yaw); W.back = null; } }
+        if (W.vanT && !van.broken && W.t - W.vanT > 60) { W.log.push('VAN NEVER BROKE THE BARRICADE phase=' + van.phase); W.done = true; break; }
+        if (W.t > 2400) { W.log.push('TIME LIMIT'); W.done = true; break; }
         if (W.det === 'shoot' && !det.broken && Math.hypot(p.pos.x - 86, p.pos.z + 19) < 6) { det.break(p); W.log.push(`t=${W.t.toFixed(0)} SHOT DETECTOR`); }
         if (L.endSafe && L.inBox(L.endSafe, p.pos, 0) && W.phase === 'walk') { W.phase = 'end'; W.endT = W.t; W.log.push(`t=${W.t.toFixed(0)} REACHED END ROOM prog ${prog.toFixed(3)}`); }
         if (W.phase === 'end') {
@@ -57,8 +60,10 @@ export default async ({ page, evalg, wait, shot }) => {
           let cur = nav.nodeAt(p.pos.x, p.pos.y, p.pos.z);
           if (cur < 0 || Math.abs(nav.nodeY[cur] - p.pos.y) > 0.8) cur = nav.nearestNode(p.pos.x, p.pos.y, p.pos.z, 2);
           if (cur < 0) { W.log.push('OFF NAV at ' + fmt(p.pos)); W.done = true; break; }
-          let n = cur;
-          for (let k = 0; k < 5; k++) { const m = nav.descend(f, n); if (m < 0) break; n = m; if (Math.abs(nav.nodeY[m] - nav.nodeY[cur]) > 1.0) break; }
+          // aim at the furthest of the next 6 field nodes that is in straight walkable reach
+          let n = cur, best = -1;
+          for (let k = 0; k < 6; k++) { const m = nav.descend(f, n); if (m < 0) break; n = m; if (Math.abs(nav.nodeY[m] - nav.nodeY[cur]) > 1.0) { if (best < 0) best = m; break; } if (best < 0 || nav.walkable(p.pos.x, nav.nodeY[cur], p.pos.z, nav.nodeX(m), nav.nodeY[m], nav.nodeZ(m))) best = m; }
+          if (best >= 0) n = best;
           let dx = nav.nodeX(n) - p.pos.x, dz = nav.nodeZ(n) - p.pos.z;
           if (Math.hypot(dx, dz) < 0.2) { dx = nav.nodeX(n) - nav.nodeX(cur); dz = nav.nodeZ(n) - nav.nodeZ(cur); }
           p.yaw = Math.atan2(-dx, -dz); p.pitch = 0;
@@ -92,7 +97,7 @@ export default async ({ page, evalg, wait, shot }) => {
           else W.done = true;
         }
         if (p.dead) { W.log.push('PLAYER DIED at ' + fmt(p.pos)); W.done = true; }
-        if (Math.floor(W.t * 10) % 300 === 0) {
+        if (Math.floor(W.t * 10) % 300 === 0 && (!W.lastPos || W.lastPos.distanceTo(p.pos) > 1 || W.mode === 'bots')) { W.lastPos = p.pos.clone();
           const bs = g.survivors.filter((s) => s !== p).map((s) => `${s.char.id}:${s.dead ? 'DEAD' : s.pos.distanceTo(p.pos).toFixed(0) + 'm' + (s.incapped ? '!' : '')}`).join(' ');
           W.log.push(`t=${W.t.toFixed(0)} pos ${fmt(p.pos)} prog ${pr.toFixed(3)} | ${bs} | inf ${g.infected.commons.filter((c) => !c.dead).length} sp ${g.infected.specials.filter((s) => !s.dead).map((s) => s.kind).join(',')} | errs ${g.errCount || 0}`);
         }
