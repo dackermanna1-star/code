@@ -731,7 +731,7 @@ export function hittable(L, kind, x, y, z, ry = 0, o = {}) {
 
 // Player-usable button / lever / radio with a hold duration.
 export function usable(L, x, y, z, prompt, onUse, o = {}) {
-  const u = { pos: new THREE.Vector3(x, y, z), radius: o.radius ?? 2, prompt, hold: o.hold ?? 0, holdLabel: o.holdLabel, enabled: o.enabled !== false, onUse: (s) => { if (!u.enabled) return; if (o.once !== false) u.enabled = false; L.game.audio.play(o.sound ?? 'buttonPress', { pos: u.pos, vol: 1 }); onUse(s); } };
+  const u = { pos: new THREE.Vector3(x, y, z), radius: o.radius ?? 2, prompt, hold: o.hold ?? 0, holdLabel: o.holdLabel, glow: o.glow, enabled: o.enabled !== false, onUse: (s) => { if (!u.enabled) return; if (o.once !== false) u.enabled = false; L.game.audio.play(o.sound ?? 'buttonPress', { pos: u.pos, vol: 1 }); onUse(s); } };
   L.game.usables.push(u);
   return u;
 }

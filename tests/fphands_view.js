@@ -20,6 +20,7 @@ const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 scene.environment = env; scene.environmentIntensity = 0.08;
 setWeaponEnv(env, 0.55);
 const camera = new THREE.PerspectiveCamera(58, W / H, 0.01, 20);
+camera.layers.enableAll();
 scene.add(camera);
 // game-like viewmodel lighting (camera-attached key + warm fill + dim hemi)
 const hemi = new THREE.HemisphereLight(0x303848, 0x141210, 0.35 * (+(Q.get('amb') || 1)));
