@@ -119,8 +119,8 @@ canvas#game { display: block; position: fixed; inset: 0; width: 100vw; height: 1
 .cbar i { display: block; height: 100%; background: var(--ink); transform-origin: 100% 50%; transition: transform .12s; }
 .cbar.rl i { background: var(--acc); transform-origin: 0 50%; transition: transform .08s linear; }
 .slots { display: flex; align-items: flex-end; gap: calc(16px * var(--k)); padding-bottom: calc(2px * var(--k)); }
-.slot { position: relative; opacity: .24; color: var(--ink); transition: opacity .7s ease, color .3s; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.75)); }
-.slot .si { display: flex; align-items: center; justify-content: center; height: calc(22px * var(--k)); }
+.slot { position: relative; color: var(--ink); transition: color .3s; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.75)); }
+.slot .si { display: flex; align-items: center; justify-content: center; height: calc(22px * var(--k)); opacity: .26; transition: opacity .7s ease; }
 .slot.s0 .si { width: calc(68px * var(--k)); }
 .slot.s1 .si { width: calc(44px * var(--k)); }
 .slot.s2 .si, .slot.s3 .si, .slot.s4 .si { width: calc(20px * var(--k)); height: calc(19px * var(--k)); }
@@ -130,14 +130,14 @@ canvas#game { display: block; position: fixed; inset: 0; width: 100vw; height: 1
 .slot .scap { position: absolute; left: -50%; right: -50%; top: 100%; margin-top: calc(3px * var(--k)); text-align: center; white-space: nowrap; font-size: max(8px, calc(9.5px * var(--k))); font-weight: 600; letter-spacing: .04em; color: var(--dim); transition: opacity .3s; }
 .slot .scap i { font-style: normal; margin: 0 .2em; color: var(--faint); }
 .slot::after { content: ''; position: absolute; left: 22%; right: 22%; bottom: calc(-8px * var(--k)); height: max(1px, calc(2px * var(--k))); border-radius: 2px; background: var(--acc); opacity: 0; transform: scaleX(.3); transition: opacity .3s, transform .3s; }
-.slot.sel { opacity: .78; }
+.slot.sel .si { opacity: .8; }
 .slot.sel::after { opacity: 1; transform: none; }
 .slot.sel .scap { opacity: 0; }
 .slot.dry { color: var(--bad); }
-.slots.show .slot { opacity: .62; transition-duration: .2s; }
-.slots.show .slot.sel { opacity: 1; }
+.slots.show .slot .si { opacity: .62; transition-duration: .2s; }
+.slots.show .slot.sel .si { opacity: 1; }
 .slots.show .sk { opacity: 1; }
-.slot.empty, .slots.show .slot.empty { opacity: .16; }
+.slot.empty .si, .slots.show .slot.empty .si { opacity: .16; }
 
 /* use prompt + hold / revive / heal progress pill */
 .useprompt { position: absolute; left: 50%; top: 61%; display: flex; align-items: center; gap: calc(10px * var(--k)); padding: calc(5px * var(--k)) calc(28px * var(--k)) calc(5px * var(--k)) calc(14px * var(--k));

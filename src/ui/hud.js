@@ -77,6 +77,7 @@ export function registerIcon(ids, icon, opts = {}) {
 }
 export const hasIcon = (id) => ICONS.has(id);
 export const iconHTML = (id) => ICONS.get(id) || '';
+export const iconIds = () => [...ICONS.keys()];
 
 const PISTOL = '<path d="M4 3.2h22v4.2H4zM4.6 2.3h1.8v1H4.6zM23.8 2.3h1.4v1h-1.4z"/><path d="M5 7.4h19.4v1.7H5z"/><path d="M5.3 9.1h6.3L10.2 15H3.9z"/><path d="M11.6 9.1h5.4l-.8 3.1h-4.9v-1.1h3.8l.3-.9h-3.8z"/>';
 const SMG_BODY = '<path d="M9 3.6h19.4v5H9zM26.6 2.4h1.4v1.2h-1.4z"/><path d="M1.2 4.2H9v1.4H2.6V7H9v1.4H1.2z"/><path d="M12.4 8.6h3.8l-.5 7h-3.8z"/><path d="M16.2 8.6h4.6l-.7 2.8h-4.1v-1h3.2l.2-.8h-3.2zM22.6 8.6H25l.9 3.4h-2.3z"/>';
