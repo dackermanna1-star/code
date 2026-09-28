@@ -490,10 +490,12 @@ function fireEscape(L) {
   // counterweighted bottom section + drop ladder
   L.box(35.8, GY, zo0 + 0.1, 35.9, GY + 1.0, zm - 0.1, 'metalDark', NC);
   // gooseneck ladder: landing C -> roof (infected climb; survivors may drop down it)
-  L.box(48.2, HR - 1.6 - 0.1, -1.1, 49.4, HR - 1.6, zi1, grate, { tint: gt });
-  for (const x of [48.3, 49.3]) P.pipe(L, x, H3 + 0.1, -1.05, x, PAR + 1.0, -0.3, 0.025, 'metalDark');
-  for (let yy = H3 + 0.4; yy < HR; yy += 0.3) L.box(48.3, yy, -1.08, 49.3, yy + 0.03, -1.04, 'metalDark', NC);
-  for (const x of [48.2, 49.4]) L.clip(x - 0.04, HR - 1.6, -1.1, x + 0.04, PAR + 1.2, zi1, F_SOLID);
+  // (a 0.5 m steel step in the parapet gap, 5 cm below the roof: infected climb
+  // up from landing C; survivors can only drop down it)
+  L.box(48.2, HR - 0.25, -0.7, 49.4, HR - 0.05, 0.2, grate, { tint: gt });
+  for (const x of [48.3, 49.3]) P.pipe(L, x, H3 + 0.1, -0.62, x, PAR + 1.0, -0.62, 0.025, 'metalDark');
+  for (let yy = H3 + 0.4; yy < HR - 0.3; yy += 0.3) L.box(48.3, yy, -0.64, 49.3, yy + 0.03, -0.6, 'metalDark', NC);
+  for (const x of [48.15, 49.45]) L.clip(x - 0.05, HR - 0.05, -0.75, x + 0.05, PAR + 1.4, 0.2, F_SOLID);
   L.light(45.5, H3 + 2.6, -1.2, 0xffc080, 6, 8, { flicker: 0.4 });
   L.box(45.3, H3 + 2.7, -0.23, 45.7, H3 + 2.95, -0.2, 'emissiveWarm', NC);
   sign(L, 'FIRE ESCAPE', 47.2, H3 + 2.6, -0.24, 0, 1.0, 0.25, { bg: '#1a6a2a', fg: '#fff' });
