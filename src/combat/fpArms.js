@@ -157,7 +157,8 @@ export class FPArms {
     const a = fk.jp[0][3], b = fk.jp[1][3];
     this.L.bones[B.HAND].add(obj);
     obj.position.copy(a).lerp(b, 0.5);
-    obj.layers.set(1);
+    obj.rotation.set(-Math.PI / 2, 0, 0); // shell axis towards the thumb side (the old grip axis)
+    obj.traverse((o) => o.layers.set(1));
   }
   setVisible(v) { if (this.R) { this.R.root.visible = v; this.L.root.visible = v; } }
 }

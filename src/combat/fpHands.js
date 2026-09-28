@@ -318,6 +318,109 @@ function surfaceNets(sdf, min, max, h) {
   return { P, N: Nn, I };
 }
 
+// -------------------------------------------------------- simplification --
+// Quadric-error half-edge collapse (Garland & Heckbert) down to `target`
+// triangles. Open-boundary vertices stay put; collapses that would flip or
+// sliver a triangle or break the manifold (link condition) are refused.
+// Returns {I, keep}: new triangles over compacted vertices, keep[i] = old index.
+function decimate(P, I, target) {
+  const nv = P.length / 3, T = Int32Array.from(I);
+  let nt = T.length / 3;
+  const alive = new Uint8Array(nt).fill(1), dead = new Uint8Array(nv), locked = new Uint8Array(nv), ver = new Uint32Array(nv);
+  const adj = Array.from({ length: nv }, () => []);
+  for (let t = 0; t < nt; t++) for (let k = 0; k < 3; k++) adj[T[t * 3 + k]].push(t);
+  const Q = new Float64Array(nv * 10);
+  const nrm = (a, b, c, o) => {
+    const ux = P[b * 3] - P[a * 3], uy = P[b * 3 + 1] - P[a * 3 + 1], uz = P[b * 3 + 2] - P[a * 3 + 2];
+    const wx = P[c * 3] - P[a * 3], wy = P[c * 3 + 1] - P[a * 3 + 1], wz = P[c * 3 + 2] - P[a * 3 + 2];
+    o[0] = uy * wz - uz * wy; o[1] = uz * wx - ux * wz; o[2] = ux * wy - uy * wx;
+    return Math.sqrt(o[0] * o[0] + o[1] * o[1] + o[2] * o[2]);
+  };
+  const n0 = [0, 0, 0], n1 = [0, 0, 0];
+  for (let t = 0; t < nt; t++) {
+    const a = T[t * 3], b = T[t * 3 + 1], c = T[t * 3 + 2];
+    const len = nrm(a, b, c, n0);
+    if (len < 1e-14) continue;
+    const x = n0[0] / len, y = n0[1] / len, z = n0[2] / len, d = -(x * P[a * 3] + y * P[a * 3 + 1] + z * P[a * 3 + 2]), w = len * 0.5;
+    const q = [x * x, x * y, x * z, x * d, y * y, y * z, y * d, z * z, z * d, d * d];
+    for (const v of [a, b, c]) for (let i = 0; i < 10; i++) Q[v * 10 + i] += q[i] * w;
+  }
+  // boundary edges (one triangle) lock their vertices
+  const ek = new Map();
+  for (let t = 0; t < nt; t++) for (let k = 0; k < 3; k++) {
+    const a = T[t * 3 + k], b = T[t * 3 + (k + 1) % 3], key = a < b ? a * nv + b : b * nv + a;
+    ek.set(key, (ek.get(key) || 0) + 1);
+  }
+  for (const [key, c] of ek) if (c === 1) { locked[Math.floor(key / nv)] = 1; locked[key % nv] = 1; }
+  const err = (u, v) => { // (Qu + Qv) evaluated at v
+    const x = P[v * 3], y = P[v * 3 + 1], z = P[v * 3 + 2];
+    let e = 0;
+    for (const o of [u * 10, v * 10]) e += Q[o] * x * x + 2 * Q[o + 1] * x * y + 2 * Q[o + 2] * x * z + 2 * Q[o + 3] * x + Q[o + 4] * y * y + 2 * Q[o + 5] * y * z + 2 * Q[o + 6] * y + Q[o + 7] * z * z + 2 * Q[o + 8] * z + Q[o + 9];
+    return e;
+  };
+  // binary min-heap of (cost, u -> v, versions)
+  let hc = new Float64Array(1 << 16), hu = new Int32Array(1 << 16), hv = new Int32Array(1 << 16), hvu = new Uint32Array(1 << 16), hvv = new Uint32Array(1 << 16), hn = 0;
+  const grow = () => { const n = hc.length * 2; const c = new Float64Array(n); c.set(hc); hc = c; const a = new Int32Array(n); a.set(hu); hu = a; const b = new Int32Array(n); b.set(hv); hv = b; const d = new Uint32Array(n); d.set(hvu); hvu = d; const e = new Uint32Array(n); e.set(hvv); hvv = e; };
+  const swap = (i, j) => { let t = hc[i]; hc[i] = hc[j]; hc[j] = t; t = hu[i]; hu[i] = hu[j]; hu[j] = t; t = hv[i]; hv[i] = hv[j]; hv[j] = t; t = hvu[i]; hvu[i] = hvu[j]; hvu[j] = t; t = hvv[i]; hvv[i] = hvv[j]; hvv[j] = t; };
+  const push = (u, v) => {
+    if (locked[u] || dead[u] || dead[v]) return;
+    if (hn >= hc.length) grow();
+    let i = hn++;
+    hc[i] = err(u, v); hu[i] = u; hv[i] = v; hvu[i] = ver[u]; hvv[i] = ver[v];
+    while (i > 0) { const p = (i - 1) >> 1; if (hc[p] <= hc[i]) break; swap(i, p); i = p; }
+  };
+  const pop = () => {
+    hn--; swap(0, hn);
+    let i = 0;
+    for (;;) { const l = i * 2 + 1, r = l + 1; let m = i; if (l < hn && hc[l] < hc[m]) m = l; if (r < hn && hc[r] < hc[m]) m = r; if (m === i) break; swap(i, m); i = m; }
+    return hn;
+  };
+  for (const key of ek.keys()) { const a = Math.floor(key / nv), b = key % nv; push(a, b); push(b, a); }
+  const nbrs = (u, out) => { out.clear(); for (const t of adj[u]) if (alive[t]) for (let k = 0; k < 3; k++) { const w = T[t * 3 + k]; if (w !== u) out.add(w); } return out; };
+  const Nu = new Set(), Nv = new Set();
+  while (nt > target && hn > 0) {
+    const e = pop();
+    const u = hu[e], v = hv[e];
+    if (dead[u] || dead[v] || hvu[e] !== ver[u] || hvv[e] !== ver[v]) continue;
+    // link condition
+    nbrs(u, Nu); nbrs(v, Nv);
+    if (!Nu.has(v)) continue;
+    let common = 0; for (const w of Nu) if (Nv.has(w)) common++;
+    let shared = 0; for (const t of adj[u]) if (alive[t] && (T[t * 3] === v || T[t * 3 + 1] === v || T[t * 3 + 2] === v)) shared++;
+    if (common !== shared || shared === 0) continue;
+    // flips / slivers around u
+    let ok = true;
+    for (const t of adj[u]) {
+      if (!alive[t]) continue;
+      const a = T[t * 3], b = T[t * 3 + 1], c = T[t * 3 + 2];
+      if (a === v || b === v || c === v) continue;
+      const l0 = nrm(a, b, c, n0);
+      const l1 = nrm(a === u ? v : a, b === u ? v : b, c === u ? v : c, n1);
+      if (l1 < l0 * 0.08 || n0[0] * n1[0] + n0[1] * n1[1] + n0[2] * n1[2] < 0.35 * l0 * l1) { ok = false; break; }
+    }
+    if (!ok) continue;
+    for (const t of adj[u]) {
+      if (!alive[t]) continue;
+      if (T[t * 3] === v || T[t * 3 + 1] === v || T[t * 3 + 2] === v) { alive[t] = 0; nt--; continue; }
+      for (let k = 0; k < 3; k++) if (T[t * 3 + k] === u) T[t * 3 + k] = v;
+      adj[v].push(t);
+    }
+    dead[u] = 1;
+    for (let i = 0; i < 10; i++) Q[v * 10 + i] += Q[u * 10 + i];
+    ver[v]++;
+    nbrs(v, Nv);
+    for (const w of Nv) { push(w, v); push(v, w); }
+  }
+  // compact
+  const remap = new Int32Array(nv).fill(-1), keep = [];
+  const out = [];
+  for (let t = 0; t < T.length / 3; t++) {
+    if (!alive[t]) continue;
+    for (let k = 0; k < 3; k++) { const v = T[t * 3 + k]; if (remap[v] < 0) { remap[v] = keep.length; keep.push(v); } out.push(remap[v]); }
+  }
+  return { I: out, keep };
+}
+
 // ------------------------------------------------------------- weights --
 function segDist(p, a, b) {
   const ux = b.x - a.x, uy = b.y - a.y, uz = b.z - a.z;
@@ -419,7 +522,7 @@ export function armLook(char) {
   const spec = R ? R.spec() : {};
   const S = asset.handScale;
   const k = asset.armBulk * 0.96 + 0.04;
-  const A = handAnatomy({ female: spec.female || 0, knuckles: (LOOKS[id]?.age ?? 0.4) });
+  const A = handAnatomy({ female: spec.female || 0, knuckles: 0.5 });
   const L = Object.assign({ age: 0.3, veins: 0.5, dirt: 0.3, polish: 0 }, LOOKS[id]);
   const texA = asset.textures.A.albedo;
   const tone = atlasAvg(texA, RECT.farm, 0.3, 0.7, (0.9 + 0.15) / 1.19, (0.97 + 0.15) / 1.19, true);
@@ -435,6 +538,38 @@ export function armLook(char) {
 }
 
 // -------------------------------------------------------------- geometry --
+// The sculpted hand (unscaled, generic wrist), polygonised once per anatomy
+// variant and simplified to HAND_TRIS triangles, with skin weights.
+const HAND_TRIS = 11000;
+const handMeshCache = new Map();
+function handMesh(A) {
+  const key = A.fem > 0.5 ? 'f' : 'm';
+  if (handMeshCache.has(key)) return handMeshCache.get(key);
+  const sdf = makeSDF(A, 1, 1);
+  const mn = [1, 1, 1], mx = [-1, -1, -1];
+  const grow = (p, r) => { for (let i = 0; i < 3; i++) { mn[i] = Math.min(mn[i], p.getComponent(i) - r); mx[i] = Math.max(mx[i], p.getComponent(i) + r); } };
+  for (const C of A.chains) for (let i = 0; i < 4; i++) grow(C.J[i], C.r[Math.min(i, 3)] + 0.006);
+  grow(new THREE.Vector3(0, 0.02, 0), 0.034);
+  mn[1] = Y_CUT;
+  const net = surfaceNets(sdf, mn, mx, 0.002);
+  const dec = decimate(net.P, net.I, HAND_TRIS);
+  const n = dec.keep.length;
+  const P = new Float32Array(n * 3), N = new Float32Array(n * 3), palmar = new Float32Array(n), W = [];
+  const p = new THREE.Vector3(), nn = new THREE.Vector3(), wtmp = [];
+  for (let i = 0; i < n; i++) {
+    const v = dec.keep[i];
+    p.set(net.P[v * 3], net.P[v * 3 + 1], net.P[v * 3 + 2]); nn.set(net.N[v * 3], net.N[v * 3 + 1], net.N[v * 3 + 2]);
+    P.set([p.x, p.y, p.z], i * 3); N.set([nn.x, nn.y, nn.z], i * 3);
+    const info = handWeights(A, p, wtmp);
+    W.push(wtmp.map((e) => e.slice()));
+    const X = info.chain >= 0 ? A.chains[info.chain].X : AX;
+    palmar[i] = sstep(0.25, -0.55, nn.dot(X));
+  }
+  const out = { P, N, I: dec.I, W, palmar, rawTris: net.I.length / 3 };
+  handMeshCache.set(key, out);
+  return out;
+}
+
 // Returns {R, L}: right- and left-arm skinned geometries.
 function buildArmGeometry(A, S, k, asset, hasWatch) {
   const pos = [], nor = [], uv = [], si = [], sw = [], bind = [], skin = [], col = [];
@@ -449,35 +584,25 @@ function buildArmGeometry(A, S, k, asset, hasWatch) {
     bind.push(bx, by, bz, handK); skin.push(palmar, 0, 0, 0); col.push(c[0], c[1], c[2]);
     return pos.length / 3 - 1;
   };
-  // ---- hand (surface nets)
-  const sdf = makeSDF(A, S, k);
-  let mn = [1, 1, 1], mx = [-1, -1, -1];
-  const grow = (p, r) => { for (let i = 0; i < 3; i++) { mn[i] = Math.min(mn[i], p.getComponent(i) - r); mx[i] = Math.max(mx[i], p.getComponent(i) + r); } };
-  for (const C of A.chains) for (let i = 0; i < 4; i++) grow(C.J[i], C.r[Math.min(i, 3)] + 0.006);
-  grow(new THREE.Vector3(0, 0.02, 0), 0.034);
-  mn[1] = Y_CUT;
-  const _t0 = performance.now();
-  const net = surfaceNets(sdf, mn, mx, 0.0022);
-  const _t1 = performance.now();
-  const nv = net.P.length / 3;
-  const base = 0;
-  const p = new THREE.Vector3(), n = new THREE.Vector3();
+  // ---- hand (cached per anatomy; the wrist is fitted to this survivor's forearm)
+  const H = handMesh(A);
+  const nv = H.P.length / 3;
+  const r1 = [0, 0], rs = [0, 0];
   for (let v = 0; v < nv; v++) {
-    p.set(net.P[v * 3], net.P[v * 3 + 1], net.P[v * 3 + 2]);
-    n.set(net.N[v * 3], net.N[v * 3 + 1], net.N[v * 3 + 2]);
-    const info = handWeights(A, p, wtmp);
-    const ka = armW(p.y * S);
-    const W = wtmp.map(([b, w]) => [b, w * ka]);
+    let x = H.P[v * 3], y = H.P[v * 3 + 1], z = H.P[v * 3 + 2];
+    if (y < 0.006) {
+      const w = sstep(0.006, -0.012, y);
+      const a1 = farmRadii(y, 1, 1), as = farmRadii(y, S, k);
+      x *= 1 + (as[0] / a1[0] - 1) * w; z *= 1 + (as[1] / a1[1] - 1) * w;
+    }
+    const ka = armW(y * S);
+    const W = H.W[v].map(([b, w]) => [b, w * ka]);
     if (ka < 0.999) W.push([B.FOREARM, 1 - ka]);
     W.sort((a, b) => b[1] - a[1]); W.length = Math.min(W.length, 4);
-    const ws = W.reduce((s, e) => s + e[1], 0); for (const e of W) e[1] /= ws;
-    const X = info.chain >= 0 ? A.chains[info.chain].X : AX;
-    const dors = n.dot(X);
-    const palmar = sstep(0.25, -0.55, dors);
-    pushV(p.x * S, p.y * S, p.z * S, n.x, n.y, n.z, wristUV[0], wristUV[1], W, p.x, p.y, p.z, 1, palmar);
+    const ws = W.reduce((s2, e) => s2 + e[1], 0); for (const e of W) e[1] /= ws;
+    pushV(x * S, y * S, z * S, H.N[v * 3], H.N[v * 3 + 1], H.N[v * 3 + 2], wristUV[0], wristUV[1], W, x, y, z, 1, H.palmar[v]);
   }
-  for (const i of net.I) groups[0].push(base + i);
-  if (globalThis.__fphT) globalThis.__fphT.push(['nets', _t1 - _t0], ['weights', performance.now() - _t1]);
+  for (const i of H.I) groups[0].push(i);
   // ---- forearm tube (atlas UVs) up to just past the cut, tucked 0.3 mm inside the hand
   const yCut = Y_CUT * S, tEnd = 1 + (yCut + 0.004) / FA_LEN, tCut = 1 + yCut / FA_LEN;
   const addPiece = (P, gi, o = {}) => {
@@ -575,7 +700,7 @@ function buildArmGeometry(A, S, k, asset, hasWatch) {
     g.computeBoundingSphere();
     return g;
   };
-  return { R: make(false), L: make(true), handVerts: nv, handTris: net.I.length / 3 };
+  return { R: make(false), L: make(true), handVerts: nv, handTris: H.I.length / 3 };
 }
 
 // -------------------------------------------------------------- material --

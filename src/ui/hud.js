@@ -564,5 +564,10 @@ export class HUD {
       htm(t, trouble ? `${iconHTML(s.pinned ? 'pinned' : 'down')}<span>${s.name}</span>` : `<span>${s.name}</span>`);
       sty(t, 'opacity', Math.max(0.35, 1 - d / 30).toFixed(2));
     }
+    // survivors are recreated per chapter/restart: drop the stale tags (they
+    // stayed on screen at their last spot, doubling the live one)
+    if (this.tagEls.size >= g.survivors.length) {
+      for (const [s, t] of this.tagEls) if (!g.survivors.includes(s)) { t.remove(); this.tagEls.delete(s); }
+    }
   }
 }

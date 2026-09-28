@@ -24,17 +24,23 @@ const MASK_VS = /* glsl */ `
   }
 `;
 // mode 0: always drawn; mode 1: only where hidden behind world geometry.
-// alpha carries the fill weight so teammates get a faint body tint, items none.
+// The mask has its own depth buffer, so only the outlined model's nearest
+// surface counts: an arm in front of the torso or the far side of the body is
+// never "hidden" (that self-occlusion drew cel-shaded internal edges). Visible
+// fragments write transparent black instead of discarding so they still win
+// the depth test. alpha carries the fill weight (faint inner tint).
 const MASK_FS = /* glsl */ `
   uniform vec3 color;
-  uniform float mode, fill, hasDepth, cNear, cFar;
+  uniform float mode, fill, vis, hasDepth, cNear, cFar;
   uniform vec2 invRes;
   uniform sampler2D tDepth;
   float linZ(float d) { return cNear * cFar / (cFar - d * (cFar - cNear)); }
   void main() {
     if (hasDepth > 0.5 && mode > 0.5) {
       float sd = texture2D(tDepth, gl_FragCoord.xy * invRes).r;
-      if (linZ(gl_FragCoord.z) < linZ(sd) + 0.18) discard; // visible: no glow
+      float z = linZ(gl_FragCoord.z);
+      // visible: no glow, or a dimmer one (vis) for far / downed teammates
+      if (z < linZ(sd) + 0.14 + z * 0.004) { gl_FragColor = vec4(color * vis, vis > 0.001 ? 0.35 : 0.0); return; }
     }
     gl_FragColor = vec4(color, 0.35 + fill);
   }
@@ -83,13 +89,13 @@ export class GlowOutlines {
     this.quality = quality;
     this.maskScene = new THREE.Scene();
     this.maskScene.matrixWorldAutoUpdate = false; // proxies carry copied world matrices
-    this.maskRT = new THREE.WebGLRenderTarget(1, 1, { type: THREE.UnsignedByteType, depthBuffer: false, magFilter: THREE.LinearFilter, minFilter: THREE.LinearFilter });
+    this.maskRT = new THREE.WebGLRenderTarget(1, 1, { type: THREE.UnsignedByteType, depthBuffer: true, magFilter: THREE.LinearFilter, minFilter: THREE.LinearFilter });
     this.maskMat = new THREE.ShaderMaterial({
       uniforms: {
-        color: { value: new THREE.Vector3(1, 1, 1) }, mode: { value: 0 }, fill: { value: 0 }, hasDepth: { value: 0 },
+        color: { value: new THREE.Vector3(1, 1, 1) }, mode: { value: 0 }, fill: { value: 0 }, vis: { value: 0 }, hasDepth: { value: 0 },
         cNear: { value: 0.04 }, cFar: { value: 600 }, invRes: { value: new THREE.Vector2(1, 1) }, tDepth: { value: null },
       },
-      vertexShader: MASK_VS, fragmentShader: MASK_FS, depthTest: false, depthWrite: false, side: THREE.DoubleSide,
+      vertexShader: MASK_VS, fragmentShader: MASK_FS, depthTest: true, depthWrite: true, side: THREE.DoubleSide,
     });
     this.compMat = new THREE.ShaderMaterial({
       uniforms: { tMask: { value: this.maskRT.texture }, texel: { value: new THREE.Vector2(1, 1) }, radius: { value: 3 } },
@@ -126,7 +132,7 @@ export class GlowOutlines {
     this.compMat.uniforms.radius.value = Math.max(2.5, h / 210);
   }
   // Queue one object (and its visible descendants) for this frame.
-  add(root, color, mode = 0, fill = 0, k = 1) {
+  add(root, color, mode = 0, fill = 0, k = 1, vis = 0) {
     if (!root) return;
     const L = this.list;
     root.traverseVisible((o) => {
@@ -147,6 +153,7 @@ export class GlowOutlines {
       p.userData.col.set(color[0] * k, color[1] * k, color[2] * k);
       p.userData.mode = mode;
       p.userData.fill = fill;
+      p.userData.vis = vis;
       L.push(p);
     });
   }
@@ -168,6 +175,7 @@ export class GlowOutlines {
     p.userData.col.set(color[0] * k, color[1] * k, color[2] * k);
     p.userData.mode = mode;
     p.userData.fill = fill;
+    p.userData.vis = 0;
     this.list.push(p);
   }
   // Per-frame game hook: decides who/what glows.
@@ -186,9 +194,15 @@ export class GlowOutlines {
         // retire the old translucent x-ray silhouette: the outline replaces it
         if (rig.xray) for (const x of rig.xray) if (x.layers.mask !== 0x80000000) x.layers.set(31);
         if (s === me || s.dead || m.hidden || !rig.mesh) continue;
-        const c = s.pinned ? GLOW.pinned : (s.incapped || s.hanging) ? GLOW.incap : s.blackAndWhite ? GLOW.teamBW : GLOW.team;
-        this.add(rig.root, c, 1, 0.1);
-        if (m.weaponObj && m.weaponObj.parent !== rig.root) this.add(m.weaponObj, c, 1, 0.1);
+        const trouble = s.pinned || s.incapped || s.hanging;
+        const c = s.pinned ? GLOW.pinned : trouble ? GLOW.incap : s.blackAndWhite ? GLOW.teamBW : GLOW.team;
+        // L4D2: a silhouette rim only where the teammate is hidden; in plain
+        // view nothing, except a faint rim once they are far off (or down)
+        const cp = this.camera.position;
+        const d = Math.hypot(s.pos.x - cp.x, s.pos.y + 1 - cp.y, s.pos.z - cp.z);
+        const vis = trouble ? 0.55 * sat((d - 7) / 8) : 0.4 * sat((d - 20) / 14);
+        this.add(rig.root, c, 1, 0, 1, vis);
+        if (m.weaponObj && m.weaponObj.parent !== rig.root) this.add(m.weaponObj, c, 1, 0, 1, vis);
       }
       const items = game.items?.items;
       if (items && me && !me.dead) {
@@ -261,7 +275,7 @@ export class GlowOutlines {
     renderer.getClearColor(_cc);
     renderer.setRenderTarget(this.maskRT);
     renderer.setClearColor(0x000000, 0);
-    renderer.clear(true, false, false);
+    renderer.clear(true, true, false);
     renderer.autoClear = false;
     renderer.render(S, this.camera);
     renderer.autoClear = auto;
@@ -271,6 +285,7 @@ export class GlowOutlines {
   }
 }
 
+const sat = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const _cc = new THREE.Color(), _inv = new THREE.Matrix4(), _rel = new THREE.Matrix4(), _sv = new THREE.Vector3();
 function buildMerged(root) {
   root.updateMatrixWorld(true);
@@ -295,5 +310,6 @@ function onProxy(renderer, scene, camera, geometry, material) {
   u.color.value.copy(this.userData.col);
   u.mode.value = this.userData.mode;
   u.fill.value = this.userData.fill;
+  u.vis.value = this.userData.vis;
   material.uniformsNeedUpdate = true;
 }

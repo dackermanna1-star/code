@@ -1,12 +1,12 @@
-// First-person viewmodel: character-specific arms (2-bone IK) holding the
-// active weapon/item, with procedural sway, bob, sprint pose, recoil springs
-// and animated reloads (magazine swap / shell-by-shell / pump / bolt), shoves,
-// melee swings, throws, healing and pills. Rendered on layer 1 (no clipping).
+// First-person viewmodel: the survivor's articulated arms (fpHands.js: one
+// skinned mesh per arm, grips solved against each weapon in gripPoses.js,
+// driven by fpArms.js) holding the active weapon/item, with procedural sway,
+// bob, sprint pose, recoil springs and animated reloads (magazine swap /
+// shell-by-shell / pump / bolt), shoves, melee swings, throws, healing and
+// pills. Rendered on layer 1 (no clipping).
 import * as THREE from 'three';
 import { buildModel } from './weaponModels.js';
-import { solveIK } from '../entities/body.js';
-import { Piece, tube, sweep, ellipsoid, limbPoint, farmBump, pieceGeometry, FARM_KEYS, RECT, REG } from '../entities/partgeo.js';
-import { getCharacterAsset } from '../entities/charlooks.js';
+import { FPArms } from './fpArms.js';
 import { damp, clamp, lerp, easeOutCubic, easeInOutSine, TAU } from '../core/math.js';
 
 const TYPE_MODEL = {
@@ -32,119 +32,17 @@ const POSE = {
   minigun: [0.0, -0.28, -0.25, 0, 0, 0],
 };
 
-// ------------------------------------------------------------ arm meshes --
-// Forearms and hands reuse the survivor's painted atlases (skin, tattoos,
-// sleeves, nails) so first-person arms match the third-person model: Bill's
-// field-jacket cuff, Zoey's red track-jacket sleeve with white stripes, Louis's
-// rolled white shirt sleeve over a bare forearm, Francis's tattooed arms.
-const WRIST = [0.021, -0.02, 0.072]; // wrist centre in hand (grip) space
-const armGeoCache = new Map();
-function forearmGeometry(bulk) {
-  const key = 'fa' + bulk.toFixed(3);
-  if (armGeoCache.has(key)) return armGeoCache.get(key);
-  const P = new Piece({ region: REG.FARM });
-  const k = bulk * 0.96 + 0.04;
-  tube(P, { ts: [-0.06, 0.0, 0.06, 0.14, 0.24, 0.35, 0.47, 0.6, 0.72, 0.82, 0.9, 0.96, 1.0, 1.05], segs: 22, rect: RECT.farm, aOff: Math.PI / 2, tA: -0.15, tB: 1.04,
-    fn: (t, a, o3) => { limbPoint(FARM_KEYS, t, a, k, k, farmBump(bulk), o3); o3[1] = t; } });
-  const g = pieceGeometry([P]);
-  armGeoCache.set(key, g);
-  return g;
-}
-function sleeveGeometry(L, bulk) {
-  const key = 'sl' + bulk.toFixed(3) + JSON.stringify([L.t0, L.t1, L.off, L.rect, L.hem]);
-  if (armGeoCache.has(key)) return armGeoCache.get(key);
-  const P = new Piece({ region: REG.FARM });
-  const k = bulk * 0.96 + 0.04;
-  const t0 = L.t0 ?? -0.12, t1 = L.t1 ?? 1.04;
-  const ts = [];
-  for (let i = 0; i <= 14; i++) ts.push(t0 + (t1 - t0) * (i / 14));
-  if (L.hem) ts.push(t1 + 0.001);
-  tube(P, { ts, segs: 22, rect: L.rect || RECT.farm, aOff: Math.PI / 2, tA: -0.15, tB: 1.04,
-    fn: (t, a, o3) => { const tt = Math.min(t, t1); limbPoint(FARM_KEYS, tt, a, k, k, null, o3, (L.off ?? 0.01) + (L.bulge ? L.bulge(tt, a) : 0) - (t > t1 ? (L.off ?? 0.01) * 0.9 : 0)); o3[1] = tt; } });
-  P.doubleSided = true;
-  const g = pieceGeometry([P]);
-  armGeoCache.set(key, g);
-  return g;
-}
-// Right hand wrapped around a grip whose axis is local Y (front of the grip -Z):
-// back of the hand faces +X, fingers curl around the front, thumb on the left.
-function gripHandGeometry(scale = 1) {
-  const key = 'hand' + scale.toFixed(3);
-  if (armGeoCache.has(key)) return armGeoCache.get(key);
-  const P = new Piece({ region: REG.HAND });
-  const R = RECT.hand;
-  const sub = (x0, w) => [R[0] + x0 * R[2], R[1], w * R[2], R[3]];
-  // palm: wrist -> knuckles, flattened, widening towards the knuckle line
-  sweep(P, [[WRIST[0], WRIST[1], WRIST[2] + 0.004], [0.023, -0.016, 0.05], [0.026, -0.009, 0.026], [0.028, -0.005, 0.008], [0.029, -0.005, -0.002]],
-    [[0.019, 0.02], [0.016, 0.03], [0.0145, 0.037], [0.0135, 0.04], [0.012, 0.038]], 16, sub(0, 0.45), { up: [1, 0, 0], capStart: true });
-  // thenar pad joining palm and thumb
-  const k0 = P.count;
-  ellipsoid(P, [0.004, -0.014, 0.04], [0.02, 0.024, 0.028], 10, 8, sub(0, 0.45));
-  // fingers wrap around the grip in three phalanges
-  const F = [{ y: 0.024, len: 0.074, r: 0.0098 }, { y: 0.004, len: 0.082, r: 0.0098 }, { y: -0.016, len: 0.077, r: 0.0092 }, { y: -0.035, len: 0.063, r: 0.0082 }];
-  const Rg = 0.0265;
-  F.forEach((f, fi) => {
-    const Ls = [f.len * 0.46, f.len * 0.3, f.len * 0.24];
-    let th = -0.12 - fi * 0.03;
-    const pts = [[0.03 * Math.cos(th) + 0.004, f.y + 0.004, 0.03 * Math.sin(th) + 0.012]], rad = [[f.r * 1.05, f.r * 1.1]];
-    let p = [Rg * 1.08 * Math.cos(th), f.y, Rg * 1.08 * Math.sin(th)];
-    pts.push(p.slice()); rad.push([f.r, f.r * 1.05]);
-    for (let s = 0; s < 3; s++) {
-      const rr = Rg * (1.05 - s * 0.03);
-      th -= Ls[s] / rr;
-      const q = [rr * Math.cos(th), f.y - s * 0.002, rr * Math.sin(th)];
-      // two samples per phalanx: straight chords give visible knuckles
-      pts.push([(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2]);
-      rad.push([f.r * (0.97 - s * 0.08), f.r * (1 - s * 0.08)]);
-      pts.push(q); rad.push([f.r * (0.95 - s * 0.09), f.r * (0.98 - s * 0.09)]);
-      p = q;
-    }
-    sweep(P, pts, rad, 10, sub(0.5 + fi * 0.1, 0.1), { up: [0, 1, 0], capEnd: true });
-  });
-  // thumb along the left side, tip forward
-  sweep(P, [[0.006, -0.012, 0.046], [-0.008, -0.002, 0.034], [-0.019, 0.01, 0.016], [-0.023, 0.018, -0.004], [-0.022, 0.023, -0.022], [-0.019, 0.026, -0.034]],
-    [0.0135, 0.013, 0.0118, 0.011, 0.0102, 0.0095], 10, sub(0.9, 0.1), { up: [-1, 0.6, 0], capEnd: true });
-  if (scale !== 1) for (let i = 0; i < P.p.length; i++) P.p[i] *= scale;
-  const g = pieceGeometry([P]);
-  armGeoCache.set(key, g);
-  return g;
-}
-
-function makeArm(char, side) {
-  const g = new THREE.Group();
-  const asset = getCharacterAsset({ id: char.look || char.id, skin: char.skin, shirt: char.sleeve, pants: char.body?.pants, hair: char.body?.hair });
-  const [matA, matB] = asset.materials;
-  const upper = new THREE.Group();
-  const lower = new THREE.Group();
-  lower.add(new THREE.Mesh(forearmGeometry(asset.armBulk), matA));
-  for (const L of asset.viewSleeves) lower.add(new THREE.Mesh(sleeveGeometry(L, asset.armBulk), (L.mat ?? 1) === 1 ? matB : matA));
-  const hand = new THREE.Group();
-  hand.add(new THREE.Mesh(gripHandGeometry(asset.handScale), matA));
-  if (side < 0) hand.scale.x = -1;
-  g.add(upper); g.add(lower); g.add(hand);
-  g.userData = { upper, lower, hand };
-  g.traverse((o) => { o.layers.set(1); o.frustumCulled = false; if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
-  return g;
-}
-
-// ------------------------------------------------ hand attachment contract --
-// (for the articulated hands in fpHands.js / gripPoses.js)
-// Every frame update() ends by calling placeHand(arm, pos, quat, side, hq, fg)
-// once per visible arm; pos/quat are the grip frame in HOLDER space (holder =
-// the weapon transform under the camera) and hq is the holder quaternion. The
-// grip frame is the palm centre of a closed grip: -Z along the barrel, +Y up
-// the gun; WRIST (below) is the wrist centre in that frame. Sources:
-//   right hand: model.userData.handR [x,y,z,rx,ry,rz] in the model's frame
-//               (pistol grip), else HANDS[kind].R in holder space; dual
-//               pistols use handR on each gun (placeGunHand).
-//   left hand : the model's 'gripL' marker (fore-end / pump / hand guard,
-//               rotation FOREGRIP_Q), HANDS[kind].L when it is an array, or
-//               hidden (null). Reload / pump / melee animations move it
-//               through magGrip() / partGrip() / the shell port / the belt.
-// this.grip = { R, L } names what each hand is doing this frame so a hand
-// pose can be picked per state: R 'pistolGrip' | 'melee' | 'item' | 'minigun'
-// | 'dualGrip'; L 'fore' | 'support' (pistol cup) | 'mag' | 'belt' | 'charge'
-// | 'shell' | 'port' | 'round' | 'item' | 'hidden'.
+// ------------------------------------------------------------------ hands --
+// Each hand holds its solved grip (fpArms / gripPoses): the right hand is
+// anchored to the weapon (or to each gun of the dual pistols), the off hand to
+// its fore-end / support grip. Animations below move the off hand in HOLDER
+// space using the legacy grip-hand frame (grip axis +Y, front -Z; restP/restQ
+// are the solved grip in that frame), and this.grip names what each hand is
+// doing so the fingers can take the matching shape:
+//   R 'pistolGrip' | 'melee' | 'item' | 'minigun' | 'dualGrip'
+//   L 'fore' | 'support' | 'mag' | 'belt' | 'charge' | 'shell' | 'port' | 'round' | 'item' | 'hidden'
+// HANDS[kind] is the fallback placement for items without a solved grip.
+const OFF_POSE = { mag: 'mag', belt: 'relax', charge: 'pinch', shell: 'shell', port: 'shell', round: 'mag' };
 // Per-kind hand placement in holder space: [x,y,z, rx,ry,rz]
 const HANDS = {
   pistol: { R: [0, -0.035, 0.005, 0.25, 0, 0], L: [-0.012, -0.055, 0.03, 0.35, -0.5, 0.25] },
@@ -244,20 +142,19 @@ export class Viewmodel {
     this.ofs = new Float32Array(6); // smoothed animation pose delta
     this.tgt = new Float32Array(6);
     this.lhP = new THREE.Vector3(); this.lhQ = new THREE.Quaternion(); this.lhFG = 1; this.lhInit = false;
-    this.grip = { R: 'pistolGrip', L: 'fore' }; // what each hand holds this frame (see the contract above)
+    this.grip = { R: 'pistolGrip', L: 'fore' }; // what each hand holds this frame (see 'hands' above)
+    this.arms = new FPArms(this.root);
+    this.trigK = 1; // index finger on the trigger (0 = resting along the frame)
     this.shell = shellMesh();
     this.shell.visible = false;
   }
   setCharacter(char) {
     if (this.char === char) return;
     this.char = char;
-    if (this.armL) { this.root.remove(this.armL); this.root.remove(this.armR); }
-    this.armL = makeArm(char, -1);
-    this.armR = makeArm(char, 1);
-    this.root.add(this.armL);
-    this.root.add(this.armR);
-    this.armL.userData.hand.add(this.shell);
-    this.shell.position.set(0.0, 0.012, -0.004);
+    this.arms.setCharacter(char);
+    this.armR = this.arms.R.root; this.armL = this.arms.L.root;
+    this.arms.attachToLeft(this.shell);
+    if (this.model) this.arms.setModel(this.model, this.modelKey);
   }
   setItem(type, dual = false) {
     const key = type + (dual ? ':dual' : '');
@@ -290,8 +187,10 @@ export class Viewmodel {
     }
     this.model = m || null;
     this.modelType = type;
+    this.modelKey = mt;
     if (this.model) {
       this.holder.add(this.model);
+      this.arms.setModel(this.model, mt);
       this.flashMesh = this.model.userData._flash || null;
       if (this.flashMesh) {
         this.flashMesh.visible = false;
@@ -588,7 +487,12 @@ export class Viewmodel {
     const restP = _pR, restQ = _qR;
     let lVis = true, lFG = 0;
     let lspec = H.L;
-    if (lspec === 'gripL') {
+    const solved = this.arms.grips && kind !== 'dual';
+    if (solved) {
+      lVis = this.arms.gripHolderLegacy('L', this.holder, restP, restQ);
+      lFG = this.arms.grips.L?.reach || 0;
+      lspec = !lVis ? null : lFG ? 'gripL' : 'solved';
+    } else if (lspec === 'gripL') {
       const gl = ud.gripL;
       if (gl) { this.toHolder(gl, 0, -0.03, 0, restP); restQ.copy(FOREGRIP_Q); }
       else { restP.set(-0.02, -0.06, -0.25); restQ.copy(FOREGRIP_Q); }
@@ -698,24 +602,27 @@ export class Viewmodel {
     this.root.updateMatrixWorld(true);
 
     // ------------------------------------------------ hands & forearms
-    const hq = this.holder.quaternion;
-    const hr = ud.handR;
-    if (kind === 'dual' && ud.left && hr) {
-      this.placeGunHand(this.armR, ud.right, hr, 1, hq);
-      this.placeGunHand(this.armL, ud.left, hr, -1, hq);
-      this.armL.visible = true;
-      return;
-    }
-    const rspec = hr && kind !== 'minigun' ? hr : H.R;
-    _pA.set(rspec[0], rspec[1], rspec[2]); qe(_qA, rspec[3], rspec[4], rspec[5]);
-    this.placeHand(this.armR, _pA, _qA, 1, hq, 0);
-    if (!lVis) { this.armL.visible = false; return; }
     // off hand: smoothed in holder space so it glides between grips
-    if (!this.lhInit) { this.lhP.copy(LP); this.lhQ.copy(LQ); this.lhFG = fgK; this.lhInit = true; }
-    const hk = 1 - Math.exp(-(a ? 30 : 20) * dt);
-    this.lhP.lerp(LP, hk); this.lhQ.slerp(LQ, hk); this.lhFG += (fgK - this.lhFG) * hk;
-    this.armL.visible = true;
-    this.placeHand(this.armL, this.lhP, this.lhQ, -1, hq, this.lhFG);
+    if (lVis && kind !== 'dual') {
+      if (!this.lhInit) { this.lhP.copy(LP); this.lhQ.copy(LQ); this.lhFG = fgK; this.lhInit = true; }
+      const hk = 1 - Math.exp(-(a ? 30 : 20) * dt);
+      this.lhP.lerp(LP, hk); this.lhQ.slerp(LQ, hk); this.lhFG += (fgK - this.lhFG) * hk;
+    }
+    // trigger discipline: the index leaves the trigger to reload, sprint, draw or lower the gun
+    const reloading = a && (a.type === 'reload' || a.type === 'dualReload' || a.type === 'launcherReload' || a.type === 'shells' || a.type === 'lower');
+    const offTrig = Math.max(reloading ? 1 : 0, clamp(this.sprintK * 1.4 - 0.2, 0, 1), this.lowered, 1 - this.drawK, this.holsterT >= 0 ? 1 : 0);
+    this.trigK = 1 - offTrig;
+    let rP = null, rQ = null;
+    if (!this.arms.hasGrip('R')) { // no solved grip: legacy placement
+      const hr = ud.handR, rspec = hr && kind !== 'minigun' ? hr : H.R;
+      rP = _pA.set(rspec[0], rspec[1], rspec[2]); rQ = qe(_qA, rspec[3], rspec[4], rspec[5]);
+    }
+    const offK = lVis && kind !== 'dual' ? clamp(this.lhP.distanceTo(restP) / 0.03, 0, 1) : 0;
+    this.arms.update({
+      holder: this.holder, dt, trig: this.trigK, rP, rQ, fast: !!a,
+      offP: lVis && kind !== 'dual' ? this.lhP : null, offQ: this.lhQ,
+      offPose: OFF_POSE[this.grip.L] || 'relax', offK, hideL: !lVis && kind !== 'dual',
+    });
   }
 
   // ------------------------------------------------ magazine reloads
@@ -885,37 +792,6 @@ export class Viewmodel {
         if (e > 0.3) this.anim = null;
       }
     }
-  }
-
-  // hand on one of the dual pistols (spec in that gun's frame)
-  placeGunHand(arm, gun, spec, side, hq) {
-    this.toHolder(gun, spec[0], spec[1], spec[2], _pA);
-    this.quatToHolder(gun, _qA).multiply(qe(_qB, spec[3], spec[4], spec[5]));
-    this.placeHand(arm, _pA, _qA, side, hq, 0);
-  }
-  // Place a hand (holder-space position + rotation) and stretch its forearm to
-  // an off-screen elbow. fg blends the elbow towards a fore-grip reach.
-  placeHand(arm, pos, quat, side, hq, fg = 0) {
-    const { upper, lower, hand } = arm.userData;
-    upper.visible = false;
-    _v.copy(pos).applyMatrix4(this.holder.matrix);
-    hand.position.copy(_v);
-    hand.quaternion.copy(hq).multiply(quat);
-    // wrist point (behind the grip, at the heel of the palm)
-    const wrist = _w.set(WRIST[0] * side, WRIST[1], WRIST[2]).applyQuaternion(hand.quaternion).add(hand.position);
-    const elbow = _tmpE.set(wrist.x + side * 0.08 * (1 - fg) - 0.16 * fg, wrist.y - 0.2, wrist.z + 0.2 + 0.06 * fg);
-    const d = _tmpD.subVectors(wrist, elbow);
-    const len = d.length();
-    d.normalize();
-    // forearm frame: Y along the forearm, X towards the back of the hand so the
-    // flattened wrist, sleeve seams and tattoos line up with the hand
-    _bx.set(side, 0, 0).applyQuaternion(hand.quaternion);
-    _bx.addScaledVector(d, -_bx.dot(d)).normalize();
-    _bz.crossVectors(_bx, d);
-    _m.makeBasis(_bx, d, _bz);
-    lower.position.copy(elbow);
-    lower.quaternion.setFromRotationMatrix(_m);
-    lower.scale.set(1, len + 0.01, 1);
   }
 
   muzzleWorldPos(out) {
