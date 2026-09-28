@@ -222,6 +222,7 @@ function pushOut(fk, col, c, idx, o = {}) {
 // palm contact samples (unscaled hand space, just inside the palmar skin)
 const PALM_PTS = [[-0.005, 0.03, 0.0], [-0.005, 0.03, -0.018], [-0.006, 0.05, 0.012], [-0.006, 0.05, -0.012], [-0.005, 0.07, 0.018], [-0.005, 0.07, -0.004],
   [-0.005, 0.068, -0.022], [-0.009, 0.042, 0.024], [-0.007, 0.045, -0.025], [-0.004, 0.012, 0.0], [0.0, 0.08, 0.026], [-0.002, 0.075, -0.03]];
+export function __palmHit(fk, col) { return palmHit(fk, col); }
 function palmHit(fk, col) {
   for (const p of PALM_PTS) {
     fk.handPoint(p[0], p[1], p[2], _p);
@@ -256,12 +257,13 @@ function settle(fk, col, dir, travel) {
 }
 // Close joints of chain c together (synergy ratios); each joint freezes when
 // its phalanx (or any distal one) touches.
-function closeChain(fk, col, c, idx, ratio, limit, sq = SQ) {
+function closeChain(fk, col, c, idx, ratio, limit, sq = SQ, o_open = true) {
   const pose = fk.pose, active = [1, 1, 1];
-  // start from a free pose: open the joints until nothing touches
-  for (let it = 0; it < 25 && chainHit(fk, col, c, 0, sq) >= 0; it++) {
-    for (let j = 0; j < 3; j++) if (idx[j] >= 0) pose[idx[j]] -= 0.05 * (j === 0 ? 1 : 0.6);
-    fk.chain(c);
+  if (o_open) { // start from a free pose: open the joints until nothing touches
+    for (let it = 0; it < 25 && chainHit(fk, col, c, 0, sq) >= 0; it++) {
+      for (let j = 0; j < 3; j++) if (idx[j] >= 0) pose[idx[j]] -= 0.05 * (j === 0 ? 1 : 0.6);
+      fk.chain(c);
+    }
   }
   const step = 0.035;
   const save = new Float32Array(3);
@@ -290,9 +292,54 @@ function closeChain(fk, col, c, idx, ratio, limit, sq = SQ) {
   }
   fk.chain(c);
 }
-const FINGER_RATIO = [1.0, 1.15, 0.72], FINGER_LIMIT = [1.55, 1.9, 1.25];
+const FINGER_RATIO = [0.55, 1.0, 0.55], FINGER_LIMIT = [1.55, 1.9, 1.25];
+// How well chain c holds on: phalanges resting on the collider, then total wrap.
+function gripScore(fk, col, c) {
+  const C = fk.A.chains[c], S = fk.S, J = fk.jp[c];
+  let touch = 0;
+  for (let i = 0; i < 3; i++) {
+    let d = 1;
+    const n = i === 2 ? 4 : 3;
+    for (let s = 1; s <= n; s++) {
+      _p.copy(J[i]).lerp(J[i + 1], s / n);
+      const r = (C.r[i] + (C.r[i + 1] - C.r[i]) * s / n) * S * SQ * 0.93;
+      d = Math.min(d, col.dist(_p.x, _p.y, _p.z, r + 0.004) - r);
+    }
+    if (d < -0.0015) return -10; // still inside
+    if (d < 0.0025) touch += i === 0 ? 0.8 : 1;
+  }
+  return touch;
+}
+// Close a finger around the collider. Two strategies (all joints together, or
+// hook first: curl PIP/DIP, then close the MCP so the hook swings round the
+// grip), each from the first collision-free start; the one resting on more
+// phalanges wins. Extending a blocked finger would only make it longer, so
+// curled starts are tried before opening.
 function closeFinger(fk, col, f, o = {}) {
-  closeChain(fk, col, f + 1, [f * 4 + 1, f * 4 + 2, f * 4 + 3], o.ratio || FINGER_RATIO, o.limit || FINGER_LIMIT, o.sq);
+  const c = f + 1, idx = [f * 4 + 1, f * 4 + 2, f * 4 + 3];
+  const ratio = o.ratio || FINGER_RATIO, limit = o.limit || FINGER_LIMIT;
+  const start = Float32Array.from(fk.pose);
+  const tryStart = (m, pp, d) => { fk.pose.set(start); fk.pose[idx[0]] = m; fk.pose[idx[1]] = pp; fk.pose[idx[2]] = d; fk.chain(c); return chainHit(fk, col, c, 0, o.sq) < 0; };
+  const results = [];
+  const run = (strategy) => {
+    if (strategy === 'hook') {
+      closeChain(fk, col, c, [-1, idx[1], idx[2]], [0, 1, 0.6], [0, 1.45, 0.85], o.sq, false);
+    }
+    closeChain(fk, col, c, idx, ratio, limit, o.sq, false);
+    const sc = gripScore(fk, col, c) + 0.05 * (fk.pose[idx[0]] + fk.pose[idx[1]] + fk.pose[idx[2]]);
+    results.push({ sc, pose: Float32Array.from(fk.pose) });
+  };
+  const m0 = start[idx[0]], p0 = start[idx[1]], d0 = start[idx[2]];
+  if (tryStart(m0, p0, d0)) run('syn');
+  for (const [pp, d] of [[p0, d0], [0.8, 0.45], [1.2, 0.7]]) if (tryStart(Math.min(m0, 0.1), pp, d)) { run('hook'); break; }
+  if (!results.length) { // everything touches: open until free, then close
+    fk.pose.set(start); fk.chain(c);
+    closeChain(fk, col, c, idx, ratio, limit, o.sq, true);
+    results.push({ sc: 0, pose: Float32Array.from(fk.pose) });
+  }
+  results.sort((a, b) => b.sc - a.sc);
+  fk.pose.set(results[0].pose);
+  fk.chain(c);
 }
 function closeThumb(fk, col, o = {}) {
   closeChain(fk, col, 0, o.idx || [P_T, P_T + 3, P_T + 4], o.ratio || [1.0, 0.7, 0.9], o.limit || [1.1, 1.0, 1.35], o.sq);
