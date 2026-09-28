@@ -1,7 +1,7 @@
 // First-person weapon / flashlight check in Dead Air ch1 (saferoom).
 // QUALITY=medium node tests/play.mjs tests/vm_weapons.mjs
 // env: WEAPONS=pistol,smg,...  GLARE=1 (bot flashlight facing camera shots)  CH=0
-const ALL = ['pistol', 'dual', 'magnum', 'smg', 'silencedSmg', 'pumpShotgun', 'chromeShotgun', 'autoShotgun', 'rifle', 'scar', 'huntingRifle', 'fireaxe', 'molotov', 'pipebomb', 'medkit'];
+const ALL = ['pistol', 'dual', 'magnum', 'smg', 'silencedSmg', 'pumpShotgun', 'chromeShotgun', 'autoShotgun', 'rifle', 'scar', 'huntingRifle', 'fireaxe', 'crowbar', 'machete', 'molotov', 'pipebomb', 'medkit'];
 export default async ({ page, evalg, wait, shot, logs }) => {
   const ch = +(process.env.CH || 0);
   await page.goto((process.env.TEST_URL || 'http://localhost:5180/') + '?campaign=deadair&autostart=' + ch, { timeout: 180000 });

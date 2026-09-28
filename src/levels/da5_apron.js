@@ -105,6 +105,10 @@ export function buildApron(L, game, S) {
   B.box(PLANE.x - 0.1, 0, LANE_Z + cR, PLANE.x + 0.1, markY, 50.5, 'paintedYellow', { tint: 0xd8b020 });
   B.box(PLANE.x - 3, 0, 50.5, PLANE.x + 3, markY, 50.8, 'paintedYellow', { tint: 0xd8b020 });
   groundText(L, '41', PLANE.x, 47.5, Math.PI, 2.4, 1.8, '#e8c030');
+  // stand 41 docking guidance board on a post (dead) + stand number plate
+  const dg = P.prop(L, PLANE.x + 7.5, 0, 41.5, Math.PI);
+  dg.box(0, 2.0, 0, 0.25, 4.0, 0.25, 'metalDark').box(0, 4.6, 0, 2.2, 1.4, 0.35, 'metalDark', 0x2a2c30).glow(0, 4.75, -0.18, 1.8, 0.5, 0.01, 0x301008).col(0, 2.0, 0, 0.3, 4.0, 0.3, 'metal');
+  sign(L, 'STAND 41', PLANE.x + 7.5, 4.05, 41.5 + 0.19, 0, 1.8, 0.4, { bg: '#e8c020', fg: '#101010', clean: true });
   groundText(L, 'EVAC 41', PLANE.x + 3.8, 43.5, Math.PI / 2, 4, 1.1, '#e8c030');
   groundText(L, 'TWY C', -30, LANE_Z - 2.6, 0, 3.2, 1.2, '#e8c030');
   groundText(L, 'TWY C', 20, LANE_Z - 2.6, 0, 3.2, 1.2, '#e8c030');

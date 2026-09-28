@@ -53,6 +53,14 @@ export function buildBarricade(L, game) {
   });
   L.addObject(pile);
   const plyTxt = graffiti(L, 'DANGER\nGAS - DO\nNOT SHOOT', 146.84, 1.55, -0.3, -Math.PI / 2, 1.2, 0.8, '#b8201a', { style: 'marker' });
+  // army work light on the pile: the rigged canisters sit in a hard pool of light
+  const wl = P.prop(L, 145.2, 0, -7.2, 0.7);
+  wl.box(0, 1.4, 0, 0.08, 2.8, 0.08, 'metalDark', 0x2a2a2a).box(0, 0.05, 0, 0.9, 0.1, 0.9, 'metalDark', 0x2a2a2a);
+  wl.rbox(0, 2.9, 0.1, 0.5, 0.36, 0.22, 0.03, 'paintedYellow', 0xd8a820).glow(0, 2.9, 0.22, 0.42, 0.28, 0.01, 0xfff4e0);
+  wl.col(0, 1.4, 0, 0.3, 2.8, 0.3, 'metal');
+  const wlight = L.light(145.8, 2.6, -5.8, 0xfff0d8, 26, 12, { flicker: 0.05, priority: 1 });
+  P.lightCone(L, 145.4, 2.9, -6.8, [0.35, -0.55, 0.75], 6, 1.6, 0xfff0d8, wlight, 0.8);
+  L.light(146.2, 1.2, -1.8, 0xff3020, 5, 5, { flicker: 0.1 }); // red glow off the tanks
   // blocking collider (survivors / bullets / props) + nav blocker for infected
   const hold = L.col.addDynamic([GX0, 0, GZ0], [GX1, 3.6, GZ1], { flags: F_SOLID | F_SHOOT, surf: 'metal' });
   const blocker = new Door(L, bx, 0, (GZ0 + GZ1) / 2, 'z', { width: GZ1 - GZ0, height: 3.2, safe: true, locked: true });

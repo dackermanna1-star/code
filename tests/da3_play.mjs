@@ -24,6 +24,7 @@ export default async ({ page, evalg, wait, shot }) => {
       const fmt = (v) => v.toArray().map((q) => q.toFixed(1)).join(',');
       for (let step = 0; step < 150 && !W.done; step++) {
         W.t += 0.1;
+        if (!g.director.enabled) { for (const c of g.infected.commons) if (!c.dead) c.hp = 0; for (const q of g.infected.specials) if (!q.dead) q.takeHit({ damage: 1e5, part: 0, zone: 'torso', x: q.pos.x, y: q.pos.y + 1, z: q.pos.z, dir: q.pos.clone().set(0, 1, 0), attacker: null, kind: 'bullet' }); }
         const prog = L.progressAt(p.pos.x, p.pos.y, p.pos.z);
         if (prog > W.maxProg) W.maxProg = prog;
         const pn = g.director.panicState?.name || null;

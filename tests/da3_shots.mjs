@@ -5,6 +5,7 @@ export default async ({ page, evalg, wait, shot }) => {
   for (let i = 0; i < 150; i++) { await wait(1000); if ((await evalg(() => window.session?.state)) === 'playing') break; }
   await evalg(() => { const g = window.game; g.director.enabled = false; g.cheats.botsIdle = true; g.cheats.god = true; g.cheats.godAll = true; for (const c of g.infected.commons) c.hp = 0; window.session.menu?.clear?.(); });
   for (let i = 0; i < 60; i++) { await wait(1000); if ((await evalg(() => window.__texStats?.pending ?? 0)) === 0) break; }
+  await evalg(() => { window.game.voice.script = () => {}; const st = document.createElement('style'); st.textContent = 'body *:not(canvas){visibility:hidden !important} canvas{visibility:visible !important}'; document.head.appendChild(st); });
   const P = Math.PI;
   let views = [
     ['a_safe', 6.6, 0.3, 6.6, P * 0.75, -0.05],

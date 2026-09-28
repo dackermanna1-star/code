@@ -26,8 +26,8 @@ export default async ({ page, evalg, wait, shot, logs }) => {
   for (let i = 0; i < 150; i++) { await wait(1000); if ((await evalg(() => window.session?.state)) === 'playing') break; }
   await evalg(() => { const g = window.game; g.director.enabled = false; g.cheats.botsIdle = true; g.cheats.god = true; g.cheats.godAll = true; window.session.menu?.clear?.(); for (const c of g.infected.commons) c.hp = 0; g.hud?.show?.(false); });
   const only = process.env.SHOTS ? process.env.SHOTS.split(',') : null;
-  for (const [name, x, y, z, lx, ly, lz] of V) {
-    if (only && !only.includes(name)) continue;
+  const list = only ? only.map((n) => V.find((v) => v[0] === n)).filter(Boolean) : V;
+  for (const [name, x, y, z, lx, ly, lz] of list) {
     await evalg(([x, y, z, lx, ly, lz]) => {
       const g = window.game, P = g.player;
       P.teleport(x, y + 0.02, z, 0);

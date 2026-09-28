@@ -140,7 +140,14 @@ export default {
     const hud = fuelHud(game, L, F);
     const crash = buildCrash(L, game, S);
     S.crashApi = crash;
+    // burning debris thrown over the south wall by the fuel blast (lit on the blast)
+    const debrisF = [[-34, 91.5, 3, 3.5], [-12, 93, 4, 4.5], [8, 90.8, 2.6, 3], [26, 93.6, 3.4, 4], [-50, 93, 2.4, 2.6]].map(([x, z, w, h]) => ({ f: S.flames.add(x, 0.05, z, w, h, { intensity: 0, on: false, flicker: 0.25 }), x, z, w }));
+    const debrisL = [L.light(-22, 2.5, 92, 0xff7030, 18, 20, { on: false, flicker: 0.5 }), L.light(16, 2.5, 92, 0xff7030, 16, 18, { on: false, flicker: 0.5 })];
     S.onFuelBlast = () => {
+      L.after(1.4, () => {
+        for (const e of debrisF) { if (e.f) { e.f.target = 0.9; e.f.rate = 1.2; } game.fx.explosion(e.x, 1, e.z, 1.2); game.decals.add(e.x, 0.02, e.z, 0, 1, 0, e.w * 2.2, DF.SCORCH); S.fires.push([e.x, 0.05, e.z, e.w]); }
+        for (const l of debrisL) l.on = true;
+      });
       // shockwave: the lounge glass blows in, alarms, the EBS screen dies
       const dir = new THREE.Vector3(0, 0, -1);
       L.after(0.35, () => { for (const p of S.loungePanes) if (!p.broken) p.shatter(dir); game.shake(0.9); });
@@ -372,7 +379,7 @@ export default {
             }
             if (F.waitingTank && !tankAlive() && F.t > 8) {
               F.waitingTank = false; F.stage = 'final'; F.t = 0; F.cap = 100;
-              say([{ who: 'pilot', text: 'Last push! I need ninety seconds and she\'s full!', d: 0.5 }]);
+              say([{ who: 'pilot', text: 'Last push! Thirty more seconds and she\'s full!', d: 0.5 }]);
               s.objective('Final wave — keep the fuel flowing!', 'Finale');
               d.panic('da5F', { endless: true, size: [18, 26], interval: 15, nodes: allNodes(), force: true, stingEvery: true });
             }

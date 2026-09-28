@@ -16,6 +16,7 @@ import { SkyLights, skyAircraft, airportLandmark, smokePlumes, cloudDeck, Visual
 import { makeRng } from '../core/math.js';
 import { cityBlock } from './da2_parts.js';
 import { installCuller } from './ch4_parts.js';
+import { autoClutter } from './clutter.js';
 import { buildStart } from './da3_start.js';
 import { buildSite } from './da3_site.js';
 import { buildBarricade } from './da3_barricade.js';
@@ -113,6 +114,8 @@ export default {
     const sub = buildSubstation(L, game);
     const air = buildAirport(L, game);
     backdrop(L, game);
+    // floor litter / grime along the whole route (runs after the nav grid exists)
+    for (const [theme, box, density] of [['city', [-14, -36, 68, 36], 1.0], ['industrial', [68, -36, 148, 32], 1.1], ['city', [148, -36, 162, 36], 1.2], ['industrial', [162, -36, 268, 36], 0.9], ['city', [268, -36, 345, 36], 1.0]]) autoClutter(L, { theme, box, density, seed: 300 + box[0] });
     const SK = skyAndTraffic(L, game);
     L.flowEnd = [338.3, END.y, -1.0];
     L.killZone(-400, -60, -400, 900, -12, 600);

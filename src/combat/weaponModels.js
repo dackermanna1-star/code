@@ -48,9 +48,12 @@ const WEAR_FRAG = /* glsl */ `
       vec3 r1 = cross(sy, normal), r2 = cross(normal, sx);
       float det = dot(sx, r1) * faceDirection;
       vec3 grad = sign(det) * (dh.x * r1 + dh.y * r2);
-      normal = normalize(abs(det) * normal - grad);
+      vec3 nn = abs(det) * normal - grad;
+      // guard: degenerate derivatives must never produce NaN (bloom spreads it)
+      if (dot(nn, nn) > 1e-24 && abs(det) > 1e-14) normal = normalize(nn);
     }
   }
+  if (any(isnan(normal)) || any(isinf(normal))) normal = vec3(0.0, 0.0, 1.0);
 }
 `;
 function wearMat(o) {
@@ -67,7 +70,7 @@ function wearMat(o) {
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + WEAR_PARS)
       .replace('#include <lights_physical_fragment>', WEAR_FRAG + '\n#include <lights_physical_fragment>');
   };
-  m.customProgramCacheKey = () => 'wpnwear2';
+  m.customProgramCacheKey = () => 'wpnwear3';
   return m;
 }
 

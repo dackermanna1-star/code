@@ -11,6 +11,7 @@ import { Door, WindowPane } from '../world/dynamic.js';
 import { DF } from '../render/decals.js';
 import { jersey, tent } from './ch3_props.js';
 import { cardboard } from './da2_parts.js';
+import { ceilingPipes } from './clutter.js';
 import { VisualBatch } from './da_parts.js';
 import {
   rng, NC, CLIP, blood, safetySign, hardHat, ammoCrate, jerryCans, cableDrum, breaker, transformerHum, pipeRack, bigPipe, smokeStack, coolingTower, ramp, F_SOLID, F_SHOOT,
@@ -199,7 +200,7 @@ function sodium(L, x, y, z, on = true, o = {}) {
   const p = P.prop(L, x, y, z, 0);
   p.box(0, -0.06, 0, 0.35, 0.12, 0.9, 'metalDark', 0x2a2a2a);
   p.glow(0, -0.13, 0, 0.26, 0.02, 0.8, on ? 0xffa050 : 0x2a2a2a);
-  if (on) L.light(x, y - 0.4, z, 0xffa048, o.intensity ?? 9, o.range ?? 13, { flicker: o.flicker ?? 0 });
+  if (on) L.light(x, y - 0.4, z, 0xffa048, (o.intensity ?? 9) * 2.4, (o.range ?? 13) + 5, { flicker: o.flicker ?? 0 });
 }
 function bays(L, x0, x1, z, dir, y, w = 2.6) {
   // parking stripes perpendicular to an aisle (bays extend from z toward z + dir*5)
@@ -219,7 +220,7 @@ function garage(L, game) {
   const { x0, x1, z0, z1 } = GAR;
   // slabs
   L.box(x0, -0.3, z0, x1, D1, z1, 'concreteFloor', { tint: 0x7a7872 });
-  floorWithHoles(L, x0, z0, x1, z1, D2, 0.3, 'concreteFloor', [[290, 13.1, 302, 19.9]], { tint: 0x8a8680 });
+  floorWithHoles(L, x0, z0, x1, z1, D2, 0.3, 'concreteFloor', [[288, 13.1, 302, 19.9]], { tint: 0x8a8680 });
   floorWithHoles(L, x0, z0, x1, z1, D3, 0.3, 'concreteFloor', [[277, -19.8, 283, -12.95]], { tint: 0x8a8680 });
   L.box(x0, ROOF - 0.3, z0, x1, ROOF, z1, 'concrete', { tint: 0x8a8680 });
   // roof deck parapet + a few light poles on it (silhouettes)
@@ -276,11 +277,11 @@ function garage(L, game) {
   hittable(L, 'car', 303.2, 0, 3.6, 0.02, { color: 0x2a4a6a });
   ramp(L, 'x', 284, 302, 13.3, 19.75, D1, D2, { mat: 'concreteFloor', tint: 0x7a7872 });
   // ramp side wall (north) rising through P1 as its upstand
-  L.box(290, D1, 12.95, 302, D2 + 1.05, 13.25, 'concrete', { tint: 0xa8a49c });
-  L.box(290, D2 + 1.05, 12.95, 302, D2 + 2.6, 13.25, 'concrete', { visible: false, flags: CLIP });
-  L.box(290, D2 - 0.6, 19.75, 302, D2 - 0.3, 20, 'concrete', { tint: 0x9a968e, collide: false });
-  L.box(289.75, D2 - 0.3, 13.25, 290.05, D2 + 1.05, 19.75, 'concrete', { tint: 0xa8a49c });
-  L.box(289.75, D2 + 1.05, 13.25, 290.05, D2 + 2.6, 19.75, 'concrete', { visible: false, flags: CLIP });
+  L.box(288, D1, 12.95, 302, D2 + 1.05, 13.25, 'concrete', { tint: 0xa8a49c });
+  L.box(288, D2 + 1.05, 12.95, 302, D2 + 2.6, 13.25, 'concrete', { visible: false, flags: CLIP });
+  L.box(288, D2 - 0.6, 19.75, 302, D2 - 0.3, 20, 'concrete', { tint: 0x9a968e, collide: false });
+  L.box(287.75, D2 - 0.3, 13.25, 288.05, D2 + 1.05, 19.75, 'concrete', { tint: 0xa8a49c });
+  L.box(287.75, D2 + 1.05, 13.25, 288.05, D2 + 2.6, 19.75, 'concrete', { visible: false, flags: CLIP });
   // painted ramp arrows
   for (const x of [287, 293, 299]) stencil(L, '→', x, D1 + 0.02 + (x - 284) / 18 * D2 + 0.03, 16.5, 0, 1.2, 0.8, '#e8e8d8');
   sign(L, 'UP ↑ P1 · P2 · SKYBRIDGE', 284.2, 2.4, 12.9, 0, 3.0, 0.4, { bg: '#16191e', fg: '#f2c230', clean: true });
@@ -359,6 +360,19 @@ function garage(L, game) {
   P.suitcase(L, 305.6, D3 + 0.02, 2.4, 0.4);
   wallMessages(L, 304.12, D3 + 1.55, -4.4, -Math.PI / 2, 1.3, 0.9, { lines: ['TERMINAL IS\nOVERRUN', 'PLANES STILL\nLEAVING — GATE C'], density: 0.5 });
   L.reverb(lx0, D3, lz0, x1, D3 + 3, lz1, 'room');
+  // ---- dressing on every deck: conduit + sprinkler runs, exit signs, wall art
+  for (const [y, top] of [[D1, D2 - 0.3], [D2, D3 - 0.3], [D3, ROOF - 0.3]]) {
+    for (const z of [-8.2, 8.2]) ceilingPipes(L, x0 + 1, z, x1 - 0.5, z, top - 0.25, { n: 2, r: 0.05, spacing: 0.3 });
+    ceilingPipes(L, 296, z0 + 0.5, 296, z1 - 0.5, top - 0.18, { n: 1, r: 0.035, mat: 'paintedRed' });
+    for (const x of [288, 304]) { L.box(x - 0.2, top - 0.25, -0.1, x + 0.2, top, 0.1, 'metalDark', { collide: false, tint: 0x2a2a2a }); }
+  }
+  for (const [x, y, z, ry, t] of [[283.13, D2 + 2.7, -15.5, Math.PI / 2, 'EXIT ↑'], [311.72, D1 + 2.5, 10, -Math.PI / 2, '← EXIT'], [311.72, D3 + 2.5, -8, -Math.PI / 2, 'SKYBRIDGE →']]) sign(L, t, x, y, z, ry, 1.1, 0.3, { bg: '#0e5a2a', fg: '#e8ffe8', glow: 0.6, light: false, clean: true });
+  posterWall(L, 296, 1.3, z1 - 0.27, Math.PI, 3.2, 1.4, { kinds: ['airline', 'evac', 'missing', 'flyer'] });
+  graffiti(L, 'THEY COME UP\nTHE RAMPS', 300, D2 + 0.7, z0 + 0.27, 0, 2.2, 0.5, '#b8201a', { style: 'drip' });
+  graffiti(L, 'SKYLINE AIR\nLEFT US', 311.72, D3 + 1.6, 12, -Math.PI / 2, 2.0, 0.8, '#e8e8d8', { style: 'marker' });
+  graffiti(L, 'FLY', 311.72, D1 + 1.3, -14, -Math.PI / 2, 1.6, 0.8, '#3aa0d8', { style: 'throwup', color2: '#101010' });
+  sign(L, 'ALL LEVELS\nFULL', 278.4, 1.9, 9.6, Math.PI / 2, 1.0, 0.6, { bg: '#16191e', fg: '#e02020', glow: 0.5, light: false, clean: true });
+  sign(L, 'PARKING GUIDANCE\nP1  ░░ FULL\nP2  ░░ FULL', 283.8, D1 + 2.5, 13.1, 0, 1.6, 0.6, { bg: '#16191e', fg: '#40e060', clean: true });
   L.reverb(x0, D1, z0, x1, ROOF, z1, 'hall');
   return { alarm1, alarm2 };
 }
@@ -447,7 +461,7 @@ function terminalBackdrop(L, game) {
   // west curtain wall: glazing bands, some lit, mullions
   for (let z = -68; z < 58; z += 2.5) {
     if (z > E.z0 - 2 && z < E.z1 + 1) continue;
-    for (const [ya, yb] of [[1.2, 5.6], [7.6, 10.6], [12.4, 16.4]]) B.box(E.x0 - 0.06, ya, z, E.x0 - 0.02, yb, z + 2.3, (Math.abs(z * 7 + ya) % 5) < 1 ? 'emissiveWindow' : 'glassDirty', { tint: (Math.abs(z * 7 + ya) % 5) < 1 ? 0xd8c8a0 : 0x1a2024 });
+    for (const [ya, yb] of [[1.2, 5.6], [7.6, 10.6], [12.4, 16.4]]) B.box(E.x0 - 0.06, ya, z, E.x0 - 0.02, yb, z + 2.3, (Math.abs(z * 7 + ya) % 9) < 1 ? 'emissiveWindow' : 'glassDirty', { tint: (Math.abs(z * 7 + ya) % 9) < 1 ? 0x7a6a4a : 0x1a2024 });
   }
   B.box(E.x0 - 0.3, 17.2, -70, E.x0, 18.4, 60, 'metalDark', { tint: 0x2a2e34 });
   B.build(L);

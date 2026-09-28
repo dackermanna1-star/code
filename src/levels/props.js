@@ -45,12 +45,13 @@ function ensureMaterials() {
   materials.cache.set('chainLink', link);
 }
 function chainLinkMaps() {
+  const crnd = makeRng(777); // own stream: keeps the props' visual rng sequence unchanged
   const N = 1024, s = 32, r = 1.75; // texels per tile, diamond period, wire radius (texels)
   const col = new Uint8Array(N * N * 4), nrm = new Uint8Array(N * N * 4), rgh = new Uint8Array(N * N * 4);
   const R2 = Math.SQRT1_2;
   // low-frequency rust/zinc variation
   const lf = new Float32Array(64 * 64);
-  for (let i = 0; i < lf.length; i++) lf[i] = drnd();
+  for (let i = 0; i < lf.length; i++) lf[i] = crnd();
   const lfAt = (x, y) => {
     const fx = (x / N) * 64, fy = (y / N) * 64, ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy;
     const a = (i, j) => lf[((j & 63) << 6) | (i & 63)];
@@ -74,9 +75,10 @@ function chainLinkMaps() {
     // normal (tangent space): wire cross-section curvature across the wire
     let vx = px * nx, vy = px * ny, vz = Math.max(0.15, h);
     const L = Math.hypot(vx, vy, vz); vx /= L; vy /= L; vz /= L;
-    nrm[i] = (vx * 0.5 + 0.5) * 255; nrm[i + 1] = (-vy * 0.5 + 0.5) * 255; nrm[i + 2] = (vz * 0.5 + 0.5) * 255; nrm[i + 3] = 255;
-    const n = lfAt(x, y), rust = Math.max(0, n - 0.62) * 2.6 * (0.6 + 0.4 * drnd());
-    const shade = (0.62 + 0.38 * h * lift) * (0.9 + 0.2 * drnd());
+    // DataTexture rows run +v (no flipY), so +y is +v (OpenGL normal-map convention)
+    nrm[i] = (vx * 0.5 + 0.5) * 255; nrm[i + 1] = (vy * 0.5 + 0.5) * 255; nrm[i + 2] = (vz * 0.5 + 0.5) * 255; nrm[i + 3] = 255;
+    const n = lfAt(x, y), rust = Math.max(0, n - 0.62) * 2.6 * (0.6 + 0.4 * crnd());
+    const shade = (0.62 + 0.38 * h * lift) * (0.9 + 0.2 * crnd());
     col[i] = Math.min(255, (205 * (1 - rust) + 150 * rust) * shade);
     col[i + 1] = Math.min(255, (208 * (1 - rust) + 92 * rust) * shade);
     col[i + 2] = Math.min(255, (204 * (1 - rust) + 55 * rust) * shade);

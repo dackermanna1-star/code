@@ -182,6 +182,14 @@ function substation(L, game) {
   P.corpse(L, 182, 0.01, 17, 1.0, 0x3a3a3a);
   // conductors from the Grid Road poles over the fence into the gantries
   for (const dz of [-1.0, 0, 1.0]) P.pipe(L, 160.9, 10.5, -12 + dz, 171, 9.2, -12.5 + dz * 3, 0.012, 'metalDark', 0x2a2a2a);
+  // yard lights on poles over the alleys (sodium, one dying)
+  for (const [x, z, fl] of [[171, -1.4, 0.05], [179.6, 3.5, 0.5], [190, 13.6, 0.1]]) {
+    const p = P.prop(L, x, 0, z, 0);
+    p.cyl(0, 3.5, 0, 0.08, 7, 'metalDark', 0x4a4a48, null, 8).box(0, 7, 0, 0.3, 0.14, 0.7, 'metalDark', 0x3a3a3a).glow(0, 6.92, 0, 0.22, 0.02, 0.55, 0xffb060);
+    p.col(0, 3.5, 0, 0.2, 7, 0.2, 'metal');
+    const l = L.light(x, 6.6, z, 0xffa850, 22, 18, { flicker: fl });
+    P.lightCone(L, x, 6.9, z, [0, -1, 0], 6.5, 2.2, 0xffa850, l, 0.5);
+  }
   // hum + arcs
   const hum = transformerHum(L, game, [[168, 2, -12.5], [180, 2, -12.5], [192, 2, -12.5], [169, 2, 4.5], [169, 2, 16], [188, 2, -1], [188, 2, 6]], { vol: 0.9 });
   const arcs = [
