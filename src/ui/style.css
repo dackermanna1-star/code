@@ -49,12 +49,12 @@ canvas#game { display: block; position: fixed; inset: 0; width: 100vw; height: 1
   background: radial-gradient(circle, rgba(0,0,0,.34), rgba(0,0,0,.12)); transition: border-color .3s, color .3s, opacity .3s; }
 .pav { width: calc(40px * var(--k)); height: calc(40px * var(--k)); font-size: max(13px, calc(17px * var(--k))); }
 .pav svg, .tav svg { width: 56%; height: auto; }
-.pmain { width: calc(214px * var(--k)); padding-bottom: calc(3px * var(--k)); }
+.pmain { position: relative; width: calc(214px * var(--k)); padding-bottom: calc(3px * var(--k)); }
 .phead, .thead { display: flex; align-items: center; gap: calc(8px * var(--k)); }
 .phead { justify-content: space-between; margin-bottom: calc(7px * var(--k)); }
 .pname { font-size: max(10px, calc(12.5px * var(--k))); font-weight: 600; letter-spacing: .22em; text-transform: uppercase; }
 .pstate, .tstat { display: flex; align-items: center; gap: .45em; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; white-space: nowrap; color: var(--bad); }
-.pstate { font-size: max(8.5px, calc(10px * var(--k))); }
+.pstate { position: absolute; left: 0; bottom: 100%; margin-bottom: calc(7px * var(--k)); font-size: max(8.5px, calc(10px * var(--k))); }
 .pstate svg, .tstat svg { height: 1.3em; width: auto; }
 .pbar, .tbar { position: relative; height: max(3px, calc(5px * var(--k))); background: rgba(255,255,255,.15); border-radius: 99px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
 .pbar > div, .tbar > div { position: absolute; inset: 0; transform-origin: 0 50%; transform: scaleX(0); }
@@ -73,13 +73,14 @@ canvas#game { display: block; position: fixed; inset: 0; width: 100vw; height: 1
 .pblock.m-incap .pstate, .pblock.m-pinned .pstate { animation: blink .7s ease-in-out infinite alternate; }
 @keyframes glowRed { 50% { box-shadow: 0 0 calc(12px * var(--k)) rgba(255,70,50,.55); } }
 @keyframes beat { 0%, 45%, 100% { transform: scale(1); } 15% { transform: scale(1.1); } 28% { transform: scale(.97); } }
-.team { position: absolute; left: calc(34px * var(--k)); bottom: calc(94px * var(--k)); display: flex; flex-direction: column; gap: calc(12px * var(--k)); }
+.team { position: absolute; left: calc(34px * var(--k)); bottom: calc(108px * var(--k)); display: flex; flex-direction: column; gap: calc(12px * var(--k)); }
 .trow { display: flex; align-items: flex-end; gap: calc(12px * var(--k)); transition: opacity .3s; }
 .tav { width: calc(24px * var(--k)); height: calc(24px * var(--k)); margin: 0 calc(8px * var(--k)); font-size: max(9px, calc(11px * var(--k))); border-width: 1px; }
 .tmain { width: calc(172px * var(--k)); }
 .thead { min-height: calc(14px * var(--k)); margin-bottom: calc(5px * var(--k)); }
-.tname { font-size: max(9px, calc(11px * var(--k))); font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tstat { font-size: max(8px, calc(9.5px * var(--k))); }
+.tname { flex: none; font-size: max(9px, calc(11px * var(--k))); font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
+.tstat { min-width: 0; overflow: hidden; font-size: max(8px, calc(9.5px * var(--k))); }
+.trow.st-incap .ticons, .trow.st-pinned .ticons, .trow.st-ledge .ticons, .trow.st-dead .ticons { display: none; }
 .ticons { margin-left: auto; display: flex; align-items: center; gap: calc(6px * var(--k)); color: var(--dim); filter: drop-shadow(0 1px 1px rgba(0,0,0,.6)); }
 .ic { display: block; height: max(9px, calc(12px * var(--k))); }
 .ic svg, .ic .icm { height: 100%; width: auto; }

@@ -62,6 +62,7 @@ const DEFS = {
   fabricRed: { tex: ['fabric', FB], paint: 0x6a2a26, scale: 1, surf: 'fabric', fx: 'prop' },
   fabricGreen: { tex: ['fabric', FB], paint: 0x3a4a32, scale: 1, surf: 'fabric', fx: 'prop' },
   fabricBlue: { tex: ['fabric', FB], paint: 0x2c3a5a, scale: 1, surf: 'fabric', fx: 'prop' },
+  cardboard: { tex: ['cardboard', { paint: true, seed: 231 }], paint: 0xa07a50, scale: 0.9, surf: 'wood', fx: 'prop' },
   marble: { tex: ['marble', {}], scale: 3, surf: 'tile', fx: 'floor' },
   paintedRed: { tex: ['paintedMetal', PM], paint: 0x8a2a20, scale: 2, surf: 'metal', fx: 'metal' },
   paintedYellow: { tex: ['paintedMetal', PM], paint: 0xb8942a, scale: 2, surf: 'metal', fx: 'metal' },

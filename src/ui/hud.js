@@ -293,7 +293,7 @@ export class HUD {
   // resolution-independent sizing: every HUD length is calc(N * var(--k)), tuned at 1080p
   resize(W, H) {
     this._W = W; this._H = H;
-    const k = Math.max(0.55, Math.min(2, Math.min(H / 1080, W / 1700)));
+    const k = Math.max(0.62, Math.min(2, Math.min(H / 1080, W / 1700)));
     this.k = k;
     this.root.style.setProperty('--k', k.toFixed(3));
     const cw = H >= 900 ? 2 : 1;

@@ -99,6 +99,8 @@ export default {
     const d = game.director;
     const s = game.session;
     const say = (lines) => game.voice.script(lines);
+    const obj = (text, sub) => { F0.objAt = game.time; s.objective(text, sub); };
+    const F0 = { objAt: 0 };
 
     // ============================================================ Evac 41 + tanker
     const plane = new TransportPlane(L, game, { x: PLANE.x, z: PLANE.z, yaw: PLANE.yaw, sky: S.sky });
@@ -185,7 +187,7 @@ export default {
         { who: 'pilot', text: 'Fair warning — that pump is LOUD. Every one of those things out there is going to hear it. Dig in first.', d: 19.8 },
         { who: 'louis', text: 'Guns on the sandbags, supplies in the tents. We can do this!', d: 25.2 },
       ]);
-      L.after(25, () => { pump.enabled = true; s.objective('Get ready, then start the fuel pump on the tanker', 'Evac 41'); });
+      L.after(25, () => { pump.enabled = true; obj('Get ready, then start the fuel pump on the tanker', 'Evac 41'); });
     }, { hold: 1.2, holdLabel: 'Picking up the radio', radius: 2.2, sound: 'radioBeep', enabled: false });
     const pump = usable(L, PUMP.x, PUMP.y, PUMP.z - 0.4, 'Start the fuel pump (starts the finale)', () => startFinale(), { hold: 3, holdLabel: 'Priming the pump', radius: 2.0, sound: 'buttonPress', enabled: false });
     S.radio = radio; S.pump = pump;
@@ -205,7 +207,7 @@ export default {
         { who: 'pilot', text: 'Fuel is flowing! I need that pump running until she\'s full, you hear me? Keep them off the truck!', d: 3.2 },
         { who: 'bill', text: 'Here they come — every direction! Hold the line!', d: 8.5 },
       ]);
-      s.objective('Defend the tanker until Evac 41 is fuelled', 'Finale');
+      obj('Defend the tanker until Evac 41 is fuelled', 'Finale');
       L.after(7, () => d.panic('da5A', { waves: 3, size: [16, 24], interval: 20, nodes: allNodes(), stingEvery: true, force: true, onEnd: () => { F.stage = 'tank1'; F.t = 0; F.cap = 48; } }));
     }
 
@@ -220,7 +222,7 @@ export default {
       plane.setEngines(0.55);
       plane.audio(true, 1);
       game.audio.music.stinger('rescueArrive');
-      s.objective('Get on the plane!', 'Evac 41');
+      obj('Get on the plane!', 'Evac 41');
       d.panic('da5End', { endless: true, size: [16, 24], interval: 12, nodes: allNodes(), force: true });
     }
 
@@ -262,7 +264,7 @@ export default {
             { who: 'zoey', text: 'That was SkyLine two-twelve. Nobody was flying it.', d: 2.6 },
             { who: 'bill', text: 'Then let\'s make damn sure ours has a pilot. Through the jet bridge — down to the tarmac!', d: 5.6 },
           ]);
-          s.objective('Get down to the apron through the C4 jet bridge');
+          obj('Get down to the apron through the C4 jet bridge');
           radio.enabled = true;
           L.after(3, () => d.spawnMob(10, { where: 'ahead' }));
         }
@@ -285,6 +287,7 @@ export default {
       game.cheats.godAll = true;
       s.state = 'cutscene';
       s.cinematic(true);
+      game.net?.ev?.(['cam', TANKER.x - 6, 2.2, TANKER.z - 16, 0]); // co-op clients watch the taxi-out too
       plane.raiseRamp(3.2);
       plane.setEngines(1);
       plane.setLanding(true);
@@ -333,7 +336,7 @@ export default {
         L.trigger(LOUNGE.x0 + 0.4, DEP - 0.5, LOUNGE.z0, LOUNGE.x1, DEP + 3, LOUNGE.z1, () => { if (F.crash === 'idle') crashCine(); }, {});
         // onto the apron
         L.trigger(STAIR.x1, -0.5, 10, STAIR.x1 + 8, 3, 24, () => {
-          s.objective('Follow the taxi lights toward the transport');
+          obj('Follow the taxi lights toward the transport');
           say([
             { who: 'louis', text: 'Army set up a checkpoint by the transport. Doesn\'t look like it held.', d: 0.4 },
             { who: 'bill', text: 'Somebody\'s got a flare burning out there. Let\'s have a look.', d: 4.2 },
@@ -342,7 +345,7 @@ export default {
         L.trigger(CREW.x - 7, -0.5, CREW.z - 7, CREW.x + 7, 3, CREW.z + 7, () => {
           if (F.stage !== 'pre') return;
           say([{ who: 'zoey', text: 'Flight suit. He\'s one of the crew... and he\'s got a radio.', d: 0.2 }]);
-          s.objective('Use the crewman\'s radio');
+          obj('Use the crewman\'s radio');
         }, {});
       },
       update(dt) {
@@ -357,11 +360,17 @@ export default {
           pilotAt(50, [{ who: 'pilot', text: 'Halfway there! Starting engines two and three — stay out of the props!', d: 0 }]);
           pilotAt(75, [{ who: 'pilot', text: 'Seventy-five! Almost there, almost there...', d: 0 }]);
           pilotAt(90, [{ who: 'pilot', text: 'Ninety percent — come on, come on...', d: 0 }]);
+          // objective line mirrors the gauge ("FUEL 45%") between scripted objectives
+          const p5 = Math.floor(F.fuel / 5) * 5;
+          if (p5 !== F.objP && game.time - F0.objAt > 7 && F.fuel < 100) {
+            F.objP = p5;
+            game.hud.setObjective(`<small>Evac 41</small>FUEL ${p5}% — ${F.fuel >= F.cap - 0.01 && F.fuel < 100 ? 'pump pressure dropping, hold on!' : 'keep them off the tanker'}`, 9);
+          }
           if (F.fuel >= 50 && !F.engines) { F.engines = true; plane.setEngine(1, 0.35); plane.setEngine(2, 0.35); plane.audio(true, 0.6); }
         }
         switch (F.stage) {
           case 'tank1':
-            if (F.t > 4 && !F.waitingTank && !F.t1) { F.t1 = true; spawnTank(F.hangarNodes); say([{ who: 'pilot', text: 'Something BIG just came out of Hangar Three!', d: 0 }, { who: 'zoey', text: 'TANK!', d: 2.4 }]); s.objective('TANK! Protect the pump!', 'Finale'); }
+            if (F.t > 4 && !F.waitingTank && !F.t1) { F.t1 = true; spawnTank(F.hangarNodes); say([{ who: 'pilot', text: 'Something BIG just came out of Hangar Three!', d: 0 }, { who: 'zoey', text: 'TANK!', d: 2.4 }]); obj('TANK! Protect the pump!', 'Finale'); }
             if (F.waitingTank && !tankAlive() && F.t > 8) { F.waitingTank = false; F.stage = 'wavesB'; F.t = 0; F.cap = 76; say([{ who: 'bill', text: 'It\'s down! Reload and get ready!', d: 0.3 }]); }
             break;
           case 'wavesB':
@@ -375,12 +384,12 @@ export default {
               F.t2 = true; spawnTank(F.stripNodes);
               d.panic('da5T2', { waves: 1, size: [14, 20], interval: 30, nodes: F.hallNodes.length ? F.hallNodes : allNodes(), force: true });
               say([{ who: 'louis', text: 'Another Tank?! Over the wall!', d: 0.3 }]);
-              s.objective('Another Tank! Hold on!', 'Finale');
+              obj('Another Tank! Hold on!', 'Finale');
             }
             if (F.waitingTank && !tankAlive() && F.t > 8) {
               F.waitingTank = false; F.stage = 'final'; F.t = 0; F.cap = 100;
               say([{ who: 'pilot', text: 'Last push! Thirty more seconds and she\'s full!', d: 0.5 }]);
-              s.objective('Final wave — keep the fuel flowing!', 'Finale');
+              obj('Final wave — keep the fuel flowing!', 'Finale');
               d.panic('da5F', { endless: true, size: [18, 26], interval: 15, nodes: allNodes(), force: true, stingEvery: true });
             }
             break;

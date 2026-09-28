@@ -197,10 +197,52 @@ export class GlowOutlines {
           else if (d < 4.5 && !me.incapped) this.addMerged(it.mesh, 'item:' + it.type, GLOW.item, 0, 0, Math.min(1, (4.5 - d) / 1.5) * 0.8);
         }
       }
+      // usable objects (event buttons, radios, generators...): amber outline
+      // when targeted, built once from the prop parts around the use point
+      const cu = game.currentUsable, u = cu?.usable;
+      if (u && !u.door && !me?.dead) {
+        const obj = u.glow || this.usableProxy(game.level, u);
+        if (obj) this.addMerged(obj, obj, GLOW.target, 0, 0, 1);
+      }
     }
     const on = this.list.length > 0;
     this.maskPass.enabled = on;
     this.compPass.enabled = on;
+  }
+  // Merge the logged prop parts (props.js) that sit around a usable's use
+  // point into one object for the outline pass. Cached on the usable; null
+  // when nothing small enough is there (the use point is then just a spot).
+  usableProxy(level, u) {
+    if (u._glowObj !== undefined) return u._glowObj;
+    u._glowObj = null;
+    const G = level?._partG, Mv = level?._partM;
+    if (!G) return null;
+    const r = Math.min(0.6, (u.radius || 2) * 0.35), px = u.pos.x, py = u.pos.y, pz = u.pos.z;
+    const parts = [];
+    for (let i = 0, n = G.length; i < n; i++) {
+      const o = i * 16;
+      const dx = Mv[o + 12] - px, dy = Mv[o + 13] - py, dz = Mv[o + 14] - pz;
+      if (dx * dx + dy * dy + dz * dz > r * r) continue;
+      _rel.fromArray(Mv, o);
+      _sv.setFromMatrixScale(_rel);
+      if (Math.max(_sv.x, _sv.y, _sv.z) > 1.4) continue; // walls / big slabs are not the device
+      let g = new THREE.BufferGeometry();
+      g.setAttribute('position', G[i].attributes.position.clone());
+      if (G[i].index) g.setIndex(G[i].index.clone());
+      if (g.index) g = g.toNonIndexed();
+      g.applyMatrix4(_rel);
+      parts.push(g);
+      if (parts.length > 60) break;
+    }
+    if (!parts.length) return null;
+    const m = mergeGeometries(parts);
+    if (!m) return null;
+    m.computeBoundingSphere();
+    const obj = new THREE.Object3D(); // identity transform: geometry is in world space
+    obj.updateMatrixWorld(true);
+    this.merged.set(obj, m);
+    u._glowObj = obj;
+    return obj;
   }
   renderMask(renderer, readBuffer) {
     const u = this.maskMat.uniforms;
@@ -225,7 +267,7 @@ export class GlowOutlines {
   }
 }
 
-const _cc = new THREE.Color(), _inv = new THREE.Matrix4(), _rel = new THREE.Matrix4();
+const _cc = new THREE.Color(), _inv = new THREE.Matrix4(), _rel = new THREE.Matrix4(), _sv = new THREE.Vector3();
 function buildMerged(root) {
   root.updateMatrixWorld(true);
   _inv.copy(root.matrixWorld).invert();

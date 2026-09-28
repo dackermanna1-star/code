@@ -43,6 +43,118 @@ function ensureMaterials() {
   link.normalScale.set(1.2, 1.2);
   link.name = 'chainLink';
   materials.cache.set('chainLink', link);
+  // newsprint: 2x2 atlas of original, text-free page layouts (see newsprintMap)
+  const news = new THREE.MeshStandardMaterial({ map: newsprintMap(), roughness: 0.93, metalness: 0, vertexColors: true, side: THREE.DoubleSide });
+  news.name = 'newsprint';
+  materials.cache.set('newsprint', news);
+}
+// Four newspaper pages drawn as layout only (masthead bar, headline blocks,
+// photos, justified "text" lines, ad boxes) on yellowed stock, with fold
+// crease and edge ageing. Nothing legible: it reads as newsprint at a glance.
+function newsprintMap() {
+  const N = 512, H = N / 2;
+  const c = document.createElement('canvas');
+  c.width = c.height = N;
+  const g = c.getContext('2d');
+  const r = makeRng(4242);
+  const page = (ox, oy, v) => {
+    g.save(); g.translate(ox, oy);
+    g.fillStyle = ['#dcd6c4', '#d6cfba', '#e0dccd', '#d2c9b2'][v]; g.fillRect(0, 0, H, H);
+    const M = 12, W = H - M * 2;
+    let y = M;
+    if (v !== 3) { // masthead: rule, blocky title glyphs, rule
+      g.fillStyle = '#1c1b1a'; g.fillRect(M, y, W, 2); y += 6;
+      let x = M + 18;
+      while (x < H - M - 26) { const w = 7 + r() * 9; g.fillRect(x, y, w, 18); x += w + 3 + (r() < 0.2 ? 6 : 0); }
+      y += 22; g.fillRect(M, y, W, 1); y += 2; g.fillRect(M, y + 2, W, 3); y += 10;
+    }
+    const text = (x0, y0, w, h, dens = 1) => { // justified body copy
+      g.fillStyle = 'rgba(40,38,36,0.62)';
+      for (let yy = y0; yy < y0 + h - 2; yy += 4) {
+        if (r() < 0.06) continue; // paragraph break
+        const end = r() < 0.12 ? w * (0.3 + r() * 0.6) : w;
+        let xx = x0;
+        while (xx < x0 + end - 2) { const ww = Math.min(x0 + end - xx, 3 + r() * 11 * dens); g.fillRect(xx, yy, ww, 2); xx += ww + 1.5; }
+      }
+    };
+    const photo = (x0, y0, w, h) => {
+      const gr = g.createLinearGradient(x0, y0, x0 + w * 0.6, y0 + h);
+      gr.addColorStop(0, `rgb(${90 + r() * 60 | 0},${90 + r() * 55 | 0},${85 + r() * 50 | 0})`); gr.addColorStop(1, '#2c2a28');
+      g.fillStyle = gr; g.fillRect(x0, y0, w, h);
+      for (let k = 0; k < 6; k++) { g.fillStyle = `rgba(${r() < 0.5 ? '20,20,20' : '200,196,186'},${0.2 + r() * 0.3})`; g.beginPath(); g.ellipse(x0 + r() * w, y0 + r() * h, 4 + r() * w * 0.25, 3 + r() * h * 0.2, r() * 3, 0, 6.28); g.fill(); }
+      g.strokeStyle = '#1c1b1a'; g.lineWidth = 1; g.strokeRect(x0 + 0.5, y0 + 0.5, w - 1, h - 1);
+      text(x0, y0 + h + 3, w, 7, 0.7); // caption
+    };
+    const head = (x0, y0, w, rows, hgt) => { g.fillStyle = '#161514'; for (let k = 0; k < rows; k++) { let xx = x0; const lim = x0 + w * (k === rows - 1 ? 0.55 + r() * 0.4 : 1); while (xx < lim - 4) { const ww = Math.min(lim - xx, 5 + r() * 16); g.fillRect(xx, y0 + k * (hgt + 3), ww, hgt); xx += ww + 4; } } return rows * (hgt + 3); };
+    const cols = v === 2 ? 4 : 3, cw = (W - (cols - 1) * 6) / cols;
+    if (v === 0) { // front page: banner headline, lead photo, three columns
+      y += head(M, y, W, 2, 13) + 4;
+      photo(M, y, cw * 2 + 6, 86); text(M + cw * 2 + 12, y, cw, 96);
+      y += 100;
+      for (let k = 0; k < cols; k++) text(M + k * (cw + 6), y, cw, H - M - y);
+    } else if (v === 1) { // inside page: two stories and an ad box
+      y += head(M, y, W * 0.8, 1, 10) + 3;
+      for (let k = 0; k < cols; k++) text(M + k * (cw + 6), y, cw, 80);
+      y += 84; g.fillStyle = '#1c1b1a'; g.fillRect(M, y, W, 1); y += 5;
+      y += head(M, y, cw * 2, 2, 8) + 2;
+      photo(M + (cw + 6) * 2, y - 20, cw, 60);
+      text(M, y, cw * 2 + 6, H - M - y);
+      g.strokeStyle = '#1c1b1a'; g.lineWidth = 2; g.strokeRect(M + (cw + 6) * 2 + 1, y + 52, cw - 2, H - M - y - 54);
+      g.fillStyle = '#161514'; g.fillRect(M + (cw + 6) * 2 + 8, y + 60, cw - 16, 10); text(M + (cw + 6) * 2 + 8, y + 76, cw - 16, H - M - y - 84, 0.6);
+    } else if (v === 2) { // classifieds grid
+      y += head(M, y, W * 0.5, 1, 9) + 4;
+      for (let k = 0; k < cols; k++) {
+        let yy = y;
+        while (yy < H - M - 12) { const bh = 14 + r() * 30; g.fillStyle = '#161514'; g.fillRect(M + k * (cw + 6), yy, cw * (0.4 + r() * 0.5), 4); text(M + k * (cw + 6), yy + 6, cw, Math.min(bh, H - M - yy - 6), 0.8); yy += bh + 6; }
+        if (k) { g.fillStyle = 'rgba(28,27,26,0.8)'; g.fillRect(M + k * (cw + 6) - 3.5, y, 1, H - M - y); }
+      }
+    } else { // sports / back page: big photo, bold head, scores table
+      photo(M, y, W, 110); y += 122;
+      y += head(M, y, W, 2, 11) + 3;
+      text(M, y, cw * 2 + 6, H - M - y);
+      for (let yy = y; yy < H - M - 6; yy += 7) { g.fillStyle = (yy / 7 | 0) % 2 ? 'rgba(40,38,36,0.12)' : 'rgba(0,0,0,0)'; g.fillRect(M + (cw + 6) * 2, yy, cw, 7); g.fillStyle = 'rgba(40,38,36,0.7)'; g.fillRect(M + (cw + 6) * 2 + 2, yy + 2, cw * 0.55, 2); g.fillRect(M + (cw + 6) * 2 + cw - 14, yy + 2, 10, 2); }
+    }
+    // ageing: centre fold crease, yellowed edges, a coffee ring or dirt smear
+    const cr = g.createLinearGradient(H / 2 - 6, 0, H / 2 + 6, 0);
+    cr.addColorStop(0, 'rgba(0,0,0,0)'); cr.addColorStop(0.5, 'rgba(60,50,30,0.22)'); cr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = cr; g.fillRect(H / 2 - 6, 0, 12, H);
+    const eg = g.createRadialGradient(H / 2, H / 2, H * 0.35, H / 2, H / 2, H * 0.75);
+    eg.addColorStop(0, 'rgba(140,110,50,0)'); eg.addColorStop(1, 'rgba(140,110,50,0.35)');
+    g.fillStyle = eg; g.fillRect(0, 0, H, H);
+    if (v % 2) { g.strokeStyle = 'rgba(110,70,30,0.3)'; g.lineWidth = 3; g.beginPath(); g.arc(H * (0.3 + r() * 0.4), H * (0.3 + r() * 0.4), 18, 0, 6.28); g.stroke(); }
+    g.fillStyle = 'rgba(60,50,40,0.18)'; g.beginPath(); g.ellipse(H * r(), H * r(), 30, 12, r() * 3, 0, 6.28); g.fill();
+    g.restore();
+  };
+  for (let v = 0; v < 4; v++) page((v % 2) * H, (v >> 1) * H, v);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+// Newspaper geometry (unit page, origin at floor): v = page variant (atlas
+// quadrant), kind 0 = folded in half (two leaves, slight tent), 1 = open
+// spread lying flat with a crease ridge, 2 = crumpled. UVs address the atlas.
+function newsGeo(v, kind) {
+  return cached(`news${v},${kind}`, () => {
+    const u0 = (v % 2) * 0.5, v0 = 0.5 - (v >> 1) * 0.5; // canvas row 0 is the top (flipY)
+    const nx = kind === 2 ? 8 : 6, ny = kind === 2 ? 8 : 2;
+    const g = new THREE.PlaneGeometry(1, 1, nx, ny).rotateX(-Math.PI / 2);
+    const P = g.attributes.position, U = g.attributes.uv;
+    const cr = makeRng(700 + v * 13 + kind * 101);
+    const bumps = kind === 2 ? Array.from({ length: 7 }, () => [cr() - 0.5, cr() - 0.5, 0.02 + cr() * 0.05]) : [];
+    for (let i = 0; i < P.count; i++) {
+      const x = P.getX(i), z = P.getZ(i);
+      let y = 0.002;
+      if (kind === 0) y += (0.5 - Math.abs(x)) * 0.05; // tented at the fold (x = 0)
+      else if (kind === 1) y += Math.max(0, 0.03 - Math.abs(x) * 0.12) + (Math.abs(z) > 0.45 ? 0.008 : 0);
+      else { for (const [bx, bz, a] of bumps) y += a * Math.exp(-((x - bx) ** 2 + (z - bz) ** 2) * 30); y += (cr() - 0.5) * 0.02; }
+      P.setY(i, y);
+      U.setXY(i, u0 + U.getX(i) * 0.5, v0 + U.getY(i) * 0.5);
+    }
+    if (kind === 2) { const sc = 0.55; g.scale(sc, 1, sc); }
+    g.computeVertexNormals();
+    return g;
+  });
 }
 function chainLinkMaps() {
   const crnd = makeRng(777); // own stream: keeps the props' visual rng sequence unchanged
@@ -97,7 +209,7 @@ function chainLinkMaps() {
   return { map: mk(col, true), normalMap: mk(nrm, false), roughnessMap: mk(rgh, false) };
 }
 
-const UNTEXTURED = new Set(['glass', 'glassDirty', 'emissiveWarm', 'emissiveCool', 'emissiveRed', 'emissiveGreen', 'emissiveWindow', 'emissiveTint', 'plastic', 'plasticGloss', 'chrome', 'carPaint', 'blackMatte', 'paper', 'waterSurface', 'foliage', 'chainLink']);
+const UNTEXTURED = new Set(['glass', 'glassDirty', 'emissiveWarm', 'emissiveCool', 'emissiveRed', 'emissiveGreen', 'emissiveWindow', 'emissiveTint', 'plastic', 'plasticGloss', 'chrome', 'carPaint', 'blackMatte', 'paper', 'waterSurface', 'foliage', 'chainLink', 'newsprint']);
 const meshOpts = (mat, tint) => (UNTEXTURED.has(mat) ? { tint, uvScale: 1 } : { tint, worldUV: materials.scaleOf(mat) });
 
 // cached geometries
@@ -131,44 +243,55 @@ class P {
     this.base = trs(x, y, z, 0, ry, 0);
     this.x = x; this.y = y; this.z = z; this.ry = ry;
   }
+  // every part goes through here: the level merges it into its material batch,
+  // and a light (geometry, matrix) log lets the glow pass outline a usable
+  // prop (event button, radio, generator...) later without per-prop meshes
+  _mesh(geo, mat, m, opts) {
+    const L = this.L;
+    if (!L._partG) { L._partG = []; L._partM = []; }
+    L._partG.push(geo);
+    const e = m.elements;
+    for (let i = 0; i < 16; i++) L._partM.push(e[i]);
+    return L.mesh(geo, mat, m, opts);
+  }
   _m(cx, cy, cz, rot, sx, sy, sz) {
     return trs(cx, cy, cz, rot?.[0] || 0, rot?.[1] || 0, rot?.[2] || 0, sx, sy, sz).premultiply(this.base);
   }
   // box centred at local (cx, cy, cz) with size (sx, sy, sz)
   box(cx, cy, cz, sx, sy, sz, mat, tint, rot) {
-    this.L.mesh(unitBox(), mat, this._m(cx, cy, cz, rot, sx, sy, sz), { tint, worldUV: materials.scaleOf(mat) });
+    this._mesh(unitBox(), mat, this._m(cx, cy, cz, rot, sx, sy, sz), { tint, worldUV: materials.scaleOf(mat) });
     return this;
   }
   cyl(cx, cy, cz, r, h, mat, tint, rot, seg = 12) {
-    this.L.mesh(unitCyl(seg), mat, this._m(cx, cy, cz, rot, r * 2, h, r * 2), r > 0.25 ? meshOpts(mat, tint) : { tint, uvScale: 1 });
+    this._mesh(unitCyl(seg), mat, this._m(cx, cy, cz, rot, r * 2, h, r * 2), r > 0.25 ? meshOpts(mat, tint) : { tint, uvScale: 1 });
     return this;
   }
   cylX(cx, cy, cz, r, len, mat, tint, seg = 12) { return this.cyl(cx, cy, cz, r, len, mat, tint, [0, 0, Math.PI / 2], seg); }
   cylZ(cx, cy, cz, r, len, mat, tint, seg = 12) { return this.cyl(cx, cy, cz, r, len, mat, tint, [Math.PI / 2, 0, 0], seg); }
   // truncated cone (r0 top radius, r1 bottom radius)
   frustum(cx, cy, cz, r0, r1, h, mat, tint, rot, seg = 12) {
-    this.L.mesh(frustumGeo(r0, r1, seg), mat, this._m(cx, cy, cz, rot, 1, h, 1), { tint, uvScale: 1 });
+    this._mesh(frustumGeo(r0, r1, seg), mat, this._m(cx, cy, cz, rot, 1, h, 1), { tint, uvScale: 1 });
     return this;
   }
   cone(cx, cy, cz, r, h, mat, tint, rot, seg = 12) {
-    this.L.mesh(unitCone(seg), mat, this._m(cx, cy, cz, rot, r * 2, h, r * 2), { tint, uvScale: 1 });
+    this._mesh(unitCone(seg), mat, this._m(cx, cy, cz, rot, r * 2, h, r * 2), { tint, uvScale: 1 });
     return this;
   }
   sph(cx, cy, cz, r, mat, tint, sc = [1, 1, 1], seg = 10) {
-    this.L.mesh(unitSphere(seg), mat, this._m(cx, cy, cz, null, r * 2 * sc[0], r * 2 * sc[1], r * 2 * sc[2]), { tint, uvScale: 1 });
+    this._mesh(unitSphere(seg), mat, this._m(cx, cy, cz, null, r * 2 * sc[0], r * 2 * sc[1], r * 2 * sc[2]), { tint, uvScale: 1 });
     return this;
   }
   geo(g, mat, cx, cy, cz, rot = [0, 0, 0], sc = [1, 1, 1], tint) {
-    this.L.mesh(g, mat, this._m(cx, cy, cz, rot, sc[0], sc[1], sc[2]), meshOpts(mat, tint));
+    this._mesh(g, mat, this._m(cx, cy, cz, rot, sc[0], sc[1], sc[2]), meshOpts(mat, tint));
     return this;
   }
   // rounded box (true radius, cached geometry per size)
   rbox(cx, cy, cz, sx, sy, sz, r, mat, tint, rot, seg = 1) {
-    this.L.mesh(rboxGeo(sx, sy, sz, r, seg), mat, this._m(cx, cy, cz, rot, 1, 1, 1), meshOpts(mat, tint));
+    this._mesh(rboxGeo(sx, sy, sz, r, seg), mat, this._m(cx, cy, cz, rot, 1, 1, 1), meshOpts(mat, tint));
     return this;
   }
   torus(cx, cy, cz, R, r, mat, tint, rot, rs = 6, ts = 16, arc) {
-    this.L.mesh(torusGeo(R, r, rs, ts, arc), mat, this._m(cx, cy, cz, rot, 1, 1, 1), { tint, uvScale: 1 });
+    this._mesh(torusGeo(R, r, rs, ts, arc), mat, this._m(cx, cy, cz, rot, 1, 1, 1), { tint, uvScale: 1 });
     return this;
   }
   // cylinder between two local points
@@ -178,12 +301,12 @@ class P {
     if (len < 1e-4) return this;
     Q.setFromUnitVectors(UPY, V.multiplyScalar(1 / len));
     M4.compose(V2.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2), Q, S.set(r * 2, len, r * 2)).premultiply(this.base);
-    this.L.mesh(unitCyl(seg), mat, M4, { tint, uvScale: 1 });
+    this._mesh(unitCyl(seg), mat, M4, { tint, uvScale: 1 });
     return this;
   }
   // unlit coloured light surface (lamps, LEDs, screens). tint = colour & brightness.
   glow(cx, cy, cz, sx, sy, sz, tint = 0xffd9a0, rot) {
-    this.L.mesh(unitBox(), 'emissiveTint', this._m(cx, cy, cz, rot, sx, sy, sz), { tint, uvScale: 1 });
+    this._mesh(unitBox(), 'emissiveTint', this._m(cx, cy, cz, rot, sx, sy, sz), { tint, uvScale: 1 });
     return this;
   }
   glowSph(cx, cy, cz, r, tint = 0xffd9a0) { return this.sph(cx, cy, cz, r, 'emissiveTint', tint, [1, 1, 1], 8); }
@@ -220,7 +343,7 @@ export const prop = (L, x, y, z, ry) => {
   }
   return new P(L, x, y, z, ry);
 };
-const NO_SHADOW = new Set(['chrome', 'paper', 'plasticGloss', 'chainLink', 'emissiveTint', 'glass', 'glassDirty']);
+const NO_SHADOW = new Set(['chrome', 'paper', 'newsprint', 'plasticGloss', 'chainLink', 'emissiveTint', 'glass', 'glassDirty']);
 
 // Volumetric light cone (soft additive beam in fog). dir: world direction the
 // light shines; lightRef: optional virtual light (L.light) whose on/flicker
@@ -615,23 +738,44 @@ export function crate(L, x, y, z, ry = 0, s = 1, mat = 'wood') {
   p.col(0, 0.4 * s, 0, 0.8 * s, 0.8 * s, 0.8 * s, 'wood');
   return p;
 }
+// Shipping carton (local origin at its base centre): cardboard body, taped
+// top seam running over the edges, flap split lines, crushed corner, label.
+function carton(p, ox, oy, oz, w, h, d, tint, rot = 0) {
+  const c = Math.cos(rot), sn = Math.sin(rot);
+  const at = (lx, lz) => [ox + lx * c + lz * sn, oz - lx * sn + lz * c];
+  let q = at(0, 0);
+  p.rbox(q[0], oy + h / 2, q[1], w, h, d, 0.008, 'cardboard', tint, [0, rot, 0]);
+  p.box(q[0], oy + h + 0.001, q[1], 0.06, 0.003, d + 0.004, 'plasticGloss', 0xc8b48a, [0, rot, 0]); // tape over the top seam
+  for (const sz of [-1, 1]) { q = at(0, sz * (d / 2 + 0.0015)); p.box(q[0], oy + h - 0.06, q[1], 0.06, 0.12, 0.003, 'plasticGloss', 0xc8b48a, [0, rot, 0]); }
+  q = at(0, 0); p.box(q[0], oy + h + 0.0005, q[1], 0.004, 0.002, d - 0.01, 'blackMatte', 0x3a2a1a, [0, rot, 0]); // flap gap
+  q = at(-w * 0.2, -d / 2 - 0.002); p.box(q[0], oy + h * 0.55, q[1], Math.min(0.16, w * 0.4), Math.min(0.1, h * 0.35), 0.002, 'paper', 0xe8e4d8, [0, rot, 0]); // shipping label
+  q = at(w * 0.22, -d / 2 - 0.002); p.box(q[0], oy + h * 0.7, q[1], Math.min(0.12, w * 0.3), 0.012, 0.002, 'blackMatte', 0x2a2a2a, [0, rot, 0]); // stencil
+  if (drnd() < 0.4) { q = at(w / 2 - 0.03, -d / 2 + 0.03); p.box(q[0], oy + h - 0.02, q[1], 0.07, 0.05, 0.07, 'cardboard', new THREE.Color(tint).multiplyScalar(0.8).getHex(), [0.35, rot + 0.6, 0.2]); } // crushed corner
+}
+// Stringer pallet: 7 top deck boards, 3 notched stringers, 3 bottom boards,
+// nail heads; optional stacked cartons with stretch wrap.
 export function pallet(L, x, y, z, ry = 0, boxes = true) {
   const p = prop(L, x, y, z, ry);
-  for (let i = 0; i < 5; i++) p.box(-0.5 + i * 0.25, 0.12, 0, 0.12, 0.02, 1.2, 'wood', 0xbbaa88);
-  for (const sz of [-0.5, 0, 0.5]) p.box(0, 0.055, sz, 1.1, 0.11, 0.1, 'wood', 0xa89878);
-  for (let i = 0; i < 3; i++) p.box(-0.45 + i * 0.45, 0.01, 0, 0.12, 0.02, 1.2, 'wood', 0x9a8a70);
-  let h = 0.13;
+  const wt = [0xbba27e, 0xa8916c, 0xc4ae88, 0x9c8664];
+  for (let i = 0; i < 7; i++) p.box(-0.525 + i * 0.175, 0.125, 0, 0.1 + (i % 3 === 0 ? 0.03 : 0), 0.018, 1.2, 'woodPale', dpick(wt));
+  for (const sz of [-0.53, 0, 0.53]) {
+    p.box(0, 0.08, sz, 1.1, 0.07, 0.07, 'woodPale', dpick(wt));
+    for (const sx of [-0.55, 0, 0.55]) p.box(sx, 0.03, sz, 0.12, 0.05, 0.07, 'woodPale', dpick(wt)); // blocks between the fork notches
+    for (let i = 0; i < 7; i++) p.cyl(-0.525 + i * 0.175, 0.135, sz, 0.006, 0.002, 'metalDark', null, null, 5); // nail heads
+  }
+  for (const sx of [-0.5, 0, 0.5]) p.box(sx, 0.004, 0, 0.12, 0.008, 1.2, 'woodPale', dpick(wt));
+  if (drnd() < 0.3) p.box(0.35, 0.128, 0.4, 0.1, 0.02, 0.35, 'woodPale', 0x8a7454, [0.12, 0.3, 0]); // cracked, lifted board end
+  let h = 0.134;
   if (boxes) {
     const n = 1 + Math.floor(rnd() * 3);
     for (let k = 0; k < n; k++) {
       const ox = (rnd() - 0.5) * 0.1, oz = (rnd() - 0.5) * 0.1;
-      const tint = dpick([0x9a8060, 0x8a7050, 0xa89070]);
-      p.rbox(ox, h + 0.25, oz, 1.0, 0.5, 1.0, 0.015, 'fabric', tint);
-      p.box(ox, h + 0.25, oz, 1.01, 0.05, 1.01, 'plastic', 0xc8b890); // packing tape
-      if (drnd() < 0.5) p.box(ox + 0.2, h + 0.3, oz - 0.506, 0.25, 0.15, 0.003, 'plastic', 0xe8e4d8);
+      const tint = dpick([0xffffff, 0xe8dcc8, 0xd8c8b0]);
+      if (drnd() < 0.5) carton(p, ox, h, oz, 1.0, 0.5, 1.0, tint);
+      else for (const [cx, cz] of [[-0.25, -0.25], [0.25, -0.25], [-0.25, 0.25], [0.25, 0.25]]) carton(p, ox + cx, h, oz + cz, 0.48, 0.5, 0.48, tint, (drnd() - 0.5) * 0.08);
       h += 0.5;
     }
-    if (drnd() < 0.5) p.box(0, h / 2 + 0.05, 0, 1.03, h - 0.1, 1.03, 'glassDirty', 0xb8c0c0); // stretch wrap
+    if (drnd() < 0.5) p.box(0, (h + 0.134) / 2, 0, 1.03, h - 0.14, 1.03, 'glassDirty', 0xb8c0c0); // stretch wrap
   }
   p.col(0, h / 2, 0, 1.15, h, 1.2, 'wood');
   return p;
@@ -761,11 +905,20 @@ export function papers(L, x, y, z, r = 2, n = 10) {
   const p = prop(L, x, y, z, 0);
   for (let i = 0; i < n; i++) {
     const px = (rnd() - 0.5) * r * 2, pz = (rnd() - 0.5) * r * 2, a = rnd() * 6;
-    const fold = drnd() < 0.3;
+    const kind = drnd();
+    const hy = i * 0.0006;
+    if (kind < 0.42) { // newspaper: folded, opened out flat, or balled up
+      const v = Math.floor(drnd() * 4), f = drnd(), yel = dpick([0xffffff, 0xf4efe0, 0xe8e0c8]);
+      if (f < 0.5) p.geo(newsGeo(v, 0), 'newsprint', px, hy, pz, [0, a, 0], [0.3, 1, 0.4], yel);
+      else if (f < 0.82) p.geo(newsGeo(v, 1), 'newsprint', px, hy, pz, [0, a, 0], [0.6, 1, 0.4], yel);
+      else p.geo(newsGeo(v, 2), 'newsprint', px, hy, pz, [0, a, 0], [0.4, 1.6, 0.4], yel);
+      continue;
+    }
+    const fold = kind > 0.8;
     const tint = dpick([0xd8d4c8, 0xe0dcd0, 0xc8c4b0, 0xd8d0a8, 0xe8e8e0]);
     if (fold) { p.box(px, 0.02, pz, 0.21, 0.003, 0.15, 'paper', tint, [0.25, a, 0]); p.box(px, 0.02, pz + 0.07, 0.21, 0.003, 0.15, 'paper', tint, [-0.25, a, 0]); }
-    else p.box(px, 0.004 + i * 0.0006, pz, 0.21, 0.003, 0.29, 'paper', tint, [0, a, 0]);
-    if (drnd() < 0.25) p.box(px, 0.005 + i * 0.0006, pz, 0.15, 0.002, 0.01, 'blackMatte', 0x333333, [0, a, 0]); // printed line
+    else p.box(px, 0.004 + hy, pz, 0.21, 0.003, 0.29, 'paper', tint, [0, a, 0]);
+    if (drnd() < 0.35) for (let k = 0; k < 3; k++) { const o = (k - 1) * 0.035 - 0.06; p.box(px + Math.sin(a) * o, 0.0056 + hy, pz + Math.cos(a) * o, 0.15, 0.001, 0.006, 'blackMatte', 0x333333, [0, a, 0]); } // printed lines
   }
   return p;
 }
@@ -1957,7 +2110,7 @@ export function metalShelf(L, x, y, z, ry = 0, w = 1.8, h = 2.0, fill = 0.7) {
       const bw = 0.2 + drnd() * 0.35, bh = 0.15 + drnd() * 0.25;
       if (drnd() < fill) {
         const kind = drnd();
-        if (kind < 0.55) p.rbox(bx + bw / 2, sy + bh / 2 + 0.015, (drnd() - 0.5) * 0.1, bw * 0.95, bh, 0.45, 0.01, 'fabric', dpick([0x9a8060, 0x8a7050, 0xa89070]));
+        if (kind < 0.55) p.rbox(bx + bw / 2, sy + bh / 2 + 0.015, (drnd() - 0.5) * 0.1, bw * 0.95, bh, 0.45, 0.01, 'cardboard', dpick([0xffffff, 0xe8dcc8, 0xd0c0a8]));
         else if (kind < 0.8) p.rbox(bx + bw / 2, sy + 0.1, 0, bw * 0.9, 0.18, 0.4, 0.02, 'plastic', dpick([0x2a4a8a, 0x8a2a1a, 0x3a3a3a, 0xc8a020]));
         else p.cyl(bx + bw / 2, sy + 0.14, 0, 0.1, 0.26, 'metal', dpick([0x8a2a1a, 0x2a4a6a, 0x9a9a9a]), null, 10);
       }

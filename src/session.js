@@ -510,6 +510,8 @@ export class Session {
           g.renderer.fx.flash.value = Math.min(0.5, g.renderer.fx.flash.value + d.amount * 0.03);
           g.renderer.fx.flashColor.value.set(0.55, 0, 0);
           g.renderer.fx.chroma.value = Math.min(1, g.renderer.fx.chroma.value + d.amount * 0.05);
+          // L4D2: infected claws / pounces smear blood across the lens
+          if (type === 'claw' || type === 'hunter' || type === 'hittable' || type === 'explosion') g.renderer.bloodSplat?.(Math.min(1, 0.35 + d.amount * 0.06));
           if (d.attacker && d.attacker.pos) g.hud.damageFrom(d.attacker.pos.x, d.attacker.pos.z);
           s.punchP += (Math.random() - 0.3) * 0.02 * Math.min(4, d.amount);
           s.punchY += (Math.random() - 0.5) * 0.03 * Math.min(4, d.amount);

@@ -1409,6 +1409,30 @@ const GEN = {
       }
     }
   },
+  // Corrugated kraft board: flute ridges showing through the liner, fibre
+  // mottle, scuffed/crushed patches and water rings (paint-masked for tints).
+  cardboard(td, o) {
+    const S = td.size, sd = o.seed ?? 231;
+    const base = paintBase(td, o, 0xa07a50, 0.9);
+    const fib = fbm(S, sd, S >> 2, S >> 3, 2);
+    const mott = mask(S, sd + 1, 4, 5);
+    const scuff = mask(S, sd + 2, 6, 5, { warp: 30 });
+    const wet = mask(S, sd + 3, 3, 4, { warp: 60 });
+    const period = Math.max(3, Math.round(S / 96)); // flute pitch
+    for (let y = 0, i = 0; y < S; y++) {
+      for (let x = 0; x < S; x++, i++) {
+        const fl = 0.5 + 0.5 * Math.cos((x / period) * Math.PI * 2);
+        const sc = ss(0.72, 0.9, scuff[i]);
+        const t = (0.86 + fl * 0.05 + (fib[i] - 0.5) * 0.12 + (mott[i] - 0.5) * 0.14) * (1 + sc * 0.18);
+        td.set(i, base[0] * t, base[1] * t, base[2] * t);
+        const w = ss(0.8, 0.86, wet[i]) - ss(0.86, 0.95, wet[i]) * 0.5; // ring-edged water stain
+        if (w > 0) { td.mix(i, scl(base, 0.62), w * 0.55); if (td.a) td.a[i] = 1 - w * 0.4; }
+        if (sc > 0 && td.a) td.a[i] = Math.min(td.a[i], 1 - sc * 0.5); // scuffs expose unpainted fibre
+        td.h[i] = fl * 0.22 + fib[i] * 0.08 - sc * 0.08;
+        td.rough[i] = 0.9 - w * 0.1;
+      }
+    }
+  },
   marble(td, o) {
     const S = td.size, N = S * S, P = S / 512, sd = o.seed ?? 201;
     const base = hex(o.color ?? 0xd8d4cc);
