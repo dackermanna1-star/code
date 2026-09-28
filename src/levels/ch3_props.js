@@ -446,7 +446,7 @@ export function jersey(L, x, y, z, ry, len = 2.0, tint = 0xb8b4a8) {
 export function floodlight(L, x, y, z, ry, o = {}) {
   const p = prop(L, x, y, z, ry);
   const on = o.on !== false;
-  p.box(0, 0.45, 0, 1.2, 0.5, 2.2, 'paintedYellow', 0xa88a20);
+  p.box(0, 0.45, 0, 1.2, 0.5, 2.2, 'paintedYellow', 0xe8d8a0);
   for (const sz of [-0.8, 0.8]) p.cyl(0, 0.3, sz, 0.3, 1.3, 'rubber', 0x151515, [0, 0, Math.PI / 2], 12);
   p.cyl(0, 0.8 + 3.2, 0.5, 0.08, 6.4, 'metalDark', null, null, 8);
   p.box(0, 7.1, 0.5, 1.8, 0.1, 0.1, 'metalDark');

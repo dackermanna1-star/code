@@ -159,10 +159,12 @@ export class NavGrid {
           const bx = cx + DIRS[d][0] * 2, bz = cz + DIRS[d][1] * 2;
           let pit = false;
           for (let m = colStart[c2]; m < colStart[c2 + 1]; m++) if (this.nodeY[m] < y + STEP) { pit = true; break; }
+          const x3 = this.minX + (bx + 0.5) * cs, z3 = this.minZ + (bz + 0.5) * cs;
+          // probe the whole hop (this column's centre to the landing column's
+          // centre) so thin railings anywhere along it block the vault
           if (!pit && bx >= 0 && bz >= 0 && bx < nx && bz < nz &&
-              col.query(x2 - 0.15, y + 0.1, z2 - 0.15, x2 + 0.15, y + CLEAR_H, z2 + 0.15, F_SOLID) === 0) {
+              col.query(Math.min(x, x3) - 0.15, y + 0.1, Math.min(z, z3) - 0.15, Math.max(x, x3) + 0.15, y + CLEAR_H, Math.max(z, z3) + 0.15, F_SOLID) === 0) {
             const c3 = bz * nx + bx;
-            const x3 = this.minX + (bx + 0.5) * cs, z3 = this.minZ + (bz + 0.5) * cs;
             for (let m = colStart[c3]; m < colStart[c3 + 1]; m++) {
               const dy = this.nodeY[m] - y;
               if (dy < -STEP && dy >= -DROP_MAX && -dy < bestDy &&
@@ -405,7 +407,8 @@ export class NavGrid {
       y = this.nodeY[n];
       prev = n;
     }
-    return true;
+    // must end on the target's own surface (not a floor above/below it)
+    return Math.abs(y - by) < 0.6;
   }
 }
 

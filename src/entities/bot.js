@@ -294,7 +294,7 @@ export class BotBrain {
       while (this.pathI < this.path.length - 1) {
         const n = this.path[this.pathI];
         const d = Math.hypot(nav.nodeX(n) - s.pos.x, nav.nodeZ(n) - s.pos.z);
-        if (d < 0.6) this.pathI++;
+        if (d < 0.6 && Math.abs(nav.nodeY[n] - s.pos.y) < 1.2) this.pathI++;
         else break;
       }
       let best = this.pathI;
@@ -305,6 +305,14 @@ export class BotBrain {
       this.pathI = best;
       const n = this.path[best];
       tx = nav.nodeX(n); tz = nav.nodeZ(n);
+      // next node is a drop below us and we're already over it: keep walking
+      // along the drop direction instead of hovering on the lip
+      if (s.pos.y - nav.nodeY[n] > 1.0 && Math.hypot(tx - s.pos.x, tz - s.pos.z) < 0.8 && best > 0) {
+        const p = this.path[best - 1];
+        const ddx = tx - nav.nodeX(p), ddz = tz - nav.nodeZ(p);
+        const dd = Math.hypot(ddx, ddz);
+        if (dd > 0.1) { tx += ddx / dd * 0.8; tz += ddz / dd * 0.8; }
+      }
       // doors on the way
       const door = g.level.doors.find((d) => !d.open && !d.broken && Math.hypot(d.cx - s.pos.x, d.cz - s.pos.z) < 1.8 && Math.abs(d.cy - s.pos.y) < 2);
       if (door && door.canUse(s)) door.use(s);

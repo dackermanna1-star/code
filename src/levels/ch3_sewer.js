@@ -78,7 +78,8 @@ function bloodTrail(L, x0, z0, x1, z1, y, n = 6) {
 function railing(L, x0, z0, x1, z1, y, h = 1.0, collide = true) {
   railSegment(L, x0, y + h, z0, x1, y + h, z1);
   P.pipe(L, x0, y + h * 0.5, z0, x1, y + h * 0.5, z1, 0.02, 'metalDark');
-  if (collide) L.box(Math.min(x0, x1) - 0.03, y, Math.min(z0, z1) - 0.03, Math.max(x0, x1) + 0.03, y + h, Math.max(z0, z1) + 0.03, 'metal', { visible: false, flags: F_SOLID });
+  // collider is 0.24 m thick so the nav's 2-cell 'vault' drop links can't hop over it
+  if (collide) L.box(Math.min(x0, x1) - 0.12, y, Math.min(z0, z1) - 0.12, Math.max(x0, x1) + 0.12, y + h, Math.max(z0, z1) + 0.12, 'metal', { visible: false, flags: F_SOLID });
 }
 
 // Water regions for splashy footsteps [x0,z0,x1,z1]
@@ -143,7 +144,7 @@ function tunnel(L, axis, a0, a1, w0, w1, o = {}) {
     const [nx, nz] = axis === 'x' ? [0, n] : [n, 0];
     L.box(lx - 0.12, YC + 2.7, lz - 0.12, lx + 0.12, YC + 2.95, lz + 0.12, 'metalDark', { collide: false });
     L.box(lx - 0.07 + nx * 0.12, YC + 2.72, lz - 0.07 + nz * 0.12, lx + 0.07 + nx * 0.12, YC + 2.86, lz + 0.07 + nz * 0.12, 'emissiveWarm', { collide: false });
-    L.light(lx + nx * 0.5, YC + 2.6, lz + nz * 0.5, 0xffc27a, 9, 10, { flicker: rng() < 0.4 ? 0.6 : 0.1 });
+    L.light(lx + nx * 0.5, YC + 2.6, lz + nz * 0.5, 0xffc27a, 11, 11, { flicker: rng() < 0.4 ? 0.6 : 0.1 });
   }
   const [rx0, rz0] = X(a0, w0 - 0.5), [rx1, rz1] = X(a1, w1 + 0.5);
   L.reverb(Math.min(rx0, rx1), YC - 0.5, Math.min(rz0, rz1), Math.max(rx0, rx1), top, Math.max(rz0, rz1), 'sewer');
@@ -682,10 +683,13 @@ function warehouse(L, game) {
   floorWithHoles(L, X0 + 0.4, Z0 + 0.4, X1 - 0.4, Z1 - 0.4, ROOF, 0.3, 'roof', holes);
   for (const h of holes) {
     const [a, b, c, d] = h;
-    L.box(a - 0.15, ROOF, b - 0.15, c + 0.15, ROOF + 0.25, b, 'metalDark');
-    L.box(a - 0.15, ROOF, d, c + 0.15, ROOF + 0.25, d + 0.15, 'metalDark');
-    L.box(a - 0.15, ROOF, b, a, ROOF + 0.25, d, 'metalDark');
-    L.box(c, ROOF, b, c + 0.15, ROOF + 0.25, d, 'metalDark');
+    // the broken skylight's frame is bent flat: no lip for bodies to rest on
+    const fo = h === sky ? { collide: false } : {};
+    const fy = h === sky ? ROOF + 0.06 : ROOF + 0.25;
+    L.box(a - 0.15, ROOF, b - 0.15, c + 0.15, fy, b, 'metalDark', fo);
+    L.box(a - 0.15, ROOF, d, c + 0.15, fy, d + 0.15, 'metalDark', fo);
+    L.box(a - 0.15, ROOF, b, a, fy, d, 'metalDark', fo);
+    L.box(c, ROOF, b, c + 0.15, fy, d, 'metalDark', fo);
     if (h !== sky) {
       L.box(a, ROOF + 0.18, b, c, ROOF + 0.22, d, 'glassDirty', { flags: GLASS });
       for (let x = a + 0.6; x < c - 0.1; x += 0.62) L.box(x - 0.02, ROOF + 0.2, b, x + 0.02, ROOF + 0.24, d, 'metalDark', { collide: false });
@@ -696,7 +700,7 @@ function warehouse(L, game) {
     const t = rng();
     const side = i % 4;
     const [x, z] = side === 0 ? [sky[0] + t * 2.5, sky[1] + 0.1] : side === 1 ? [sky[0] + t * 2.5, sky[3] - 0.1] : side === 2 ? [sky[0] + 0.1, sky[1] + t * 2.5] : [sky[2] - 0.1, sky[1] + t * 2.5];
-    L.box(x - 0.12, ROOF + 0.12, z - 0.02, x + 0.12, ROOF + 0.24, z + 0.02, 'glass', { collide: false });
+    L.box(x - 0.12, ROOF + 0.02, z - 0.02, x + 0.12, ROOF + 0.14, z + 0.02, 'glass', { collide: false });
   }
   L.decal(58.2, ROOF + 0.01, 119.5, 0, 1, 0, 1.4, DF.SMEAR);
   bodyWithBlood(L, 60.6, ROOF, 119.8, 2.2, 0x4a4a3a);
@@ -846,7 +850,7 @@ function sewer(L, game) {
   P.pipe(L, 90.9, YC + 1.2, 141.5, 91.8, YC + 1.2, 141.5, 0.28, 'concrete');
   const inflow = { t: 0, update(dt) { const cp = game.camPos; if ((cp.x - 91.9) ** 2 + (cp.z - 141.5) ** 2 > 900) return; if (Math.random() < 0.6) game.fx.splash(92.1 + Math.random() * 0.4, YW + 0.02, 141.5 + (Math.random() - 0.5) * 0.4, 2); } };
   L.dynamics.push(inflow);
-  L.box(91.8, YC + 0.4, 141.35, 92.3, YC + 1.2, 141.65, 'waterSurface', { collide: false });
+  L.box(91.85, YW, 141.38, 92.25, YC + 1.2, 141.62, 'glass', { collide: false, tint: 0xb8c8b0 });
 
   // ---- pump station x 86..106, z 150..168 (dry floor)
   const PX0 = 86, PX1 = 106, PZ0 = 150, PZ1 = 168, PC = -1.2;
@@ -893,8 +897,8 @@ function sewer(L, game) {
   L.item('bile', 104.9, BY + 0.94, 153.8, { chance: 0.3 });
   const alarmLights = [L.light(103, PC - 0.4, 157.5, 0xff2010, 0, 12, { priority: 1 }), L.light(92, PC - 0.4, 158, 0xff2010, 0, 12, { priority: 1 })];
   for (const [x, z] of [[103, 157.5], [92, 158]]) L.box(x - 0.1, PC - 0.3, z - 0.1, x + 0.1, PC, z + 0.1, 'emissiveRed', { collide: false });
-  ceilingLight(L, 90, PC, 155, { type: 'cage', intensity: 10, flicker: 0.2 });
-  ceilingLight(L, 96, PC, 165, { type: 'cage', intensity: 8, flicker: 0.6 });
+  ceilingLight(L, 90, PC, 155, { type: 'cage', intensity: 14, range: 12, flicker: 0.2 });
+  ceilingLight(L, 96, PC, 165, { type: 'cage', intensity: 12, range: 12, flicker: 0.6 });
   ceilingLight(L, 103.3, PC, 153, { type: 'fluoro', intensity: 8, flicker: 0.3 });
   bodyWithBlood(L, 97.5, YD, 157.5, 2.4, 0x3a5a7a);
   bodyWithBlood(L, 88.5, YD, 164.5, 0.7, 0x6a4a1a);
@@ -998,10 +1002,10 @@ function sewer(L, game) {
   for (const [x, z, ax] of falls) {
     if (ax === 0) {
       P.pipe(L, x, YC + 2.8, JZ0 - 0.2, x, YC + 2.8, JZ0 + 1.2, 0.55, 'concrete');
-      L.box(x - 0.45, YW, JZ0 + 1.1, x + 0.45, YC + 2.6, JZ0 + 1.25, 'waterSurface', { collide: false });
+      L.box(x - 0.45, YW, JZ0 + 1.12, x + 0.45, YC + 2.6, JZ0 + 1.22, 'glass', { collide: false, tint: 0xb8c8b0 });
     } else {
       P.pipe(L, JX1 + 0.2, YC + 2.8, z, JX1 - 1.2, YC + 2.8, z, 0.55, 'concrete');
-      L.box(JX1 - 1.25, YW, z - 0.45, JX1 - 1.1, YC + 2.6, z + 0.45, 'waterSurface', { collide: false });
+      L.box(JX1 - 1.22, YW, z - 0.45, JX1 - 1.12, YC + 2.6, z + 0.45, 'glass', { collide: false, tint: 0xb8c8b0 });
     }
   }
   L.dynamics.push({
@@ -1015,7 +1019,8 @@ function sewer(L, game) {
   // storm grate shaft in the ceiling
   for (let x = 159.8; x < 162.2; x += 0.3) L.box(x, JC - 0.02, 157.2, x + 0.06, JC, 158.8, 'metalDark', { collide: false });
   L.light(161, JC - 0.6, 158, 0x9aaccc, 12, 12, {});
-  ceilingLight(L, 153, JC, 148.5, { type: 'cage', intensity: 9, flicker: 0.5 });
+  ceilingLight(L, 153, JC, 148.5, { type: 'cage', intensity: 12, range: 13, flicker: 0.5 });
+  ceilingLight(L, 170, JC, 151, { type: 'cage', intensity: 11, range: 12, flicker: 0.15 });
   ceilingLight(L, 169, JC, 167.5, { type: 'cage', intensity: 7, flicker: 0.8 });
   bodyWithBlood(L, 152, YD, 150.5, 0.2, 0x3a3a3a);
   P.corpse(L, 163.5, YC + 0.02, 156, 1.9, 0x5a5a4a);
@@ -1153,9 +1158,9 @@ function hospital(L, game) {
   sign(L, 'MAIN ENTRANCE CLOSED\nUSE EMERGENCY ENTRANCE', 164, 2.0, 204.93, 0, 3.8, 0.8, { bg: '#e8e8e0', fg: '#8a1010', border: '#8a1010' });
   for (const x of [160, 164, 168]) P.barricade(L, x, 0, 204.2, 0);
   // Mercy Hospital landmark signs
-  landmarkSign(L, 'MERCY HOSPITAL', 164, 42, 204.85, Math.PI, 26, 4.2, { fg: '#ff3a2a', font: 'Arial Black, Impact, sans-serif', w: 1024, h: 164, bright: 1.8 });
+  landmarkSign(L, 'MERCY HOSPITAL', 165, 41, 204.85, Math.PI, 31, 5.0, { fg: '#ff4a36', font: 'Arial Black, Impact, sans-serif', w: 1024, h: 164, bright: 2.4 });
   sign(L, 'MERCY HOSPITAL', 132, 4.78, 195.97, 0, 7, 0.8, { fg: '#e8f0f0', glow: 1.2, light: false });
-  landmarkSign(L, '+', 148.8, 42, 204.85, Math.PI, 4.2, 4.2, { fg: '#ff3a2a', w: 256, h: 256, bright: 2 });
+  landmarkSign(L, '+', 147.6, 41, 204.85, Math.PI, 4.6, 4.6, { fg: '#ff3a2a', w: 256, h: 256, bright: 2 });
   // lobby interior
   L.box(118.3, y, 196.3, 118.32, y + 1.2, 209.7, 'tileWhite', { collide: false });
   L.box(145.68, y, 196.3, 145.7, y + 1.2, 209.7, 'tileWhite', { collide: false });
@@ -1199,8 +1204,8 @@ function hospital(L, game) {
   L.endSafe = [S.x0 + 0.2, y - 0.2, S.z0, S.x1 - 0.2, y + S.h, S.z1 - 0.2];
   L.endDoor = endDoor;
   sign(L, 'SAFE ROOM', 137, y + 2.62, 209.68, 0, 1.3, 0.35, { bg: '#8a1a14', fg: '#fff' });
-  C.cctvDesk(L, 134.2, y, 216.2, Math.PI);
-  P.officeChair(L, 134.2, y, 215.2, 0.3);
+  C.cctvDesk(L, 134.2, y, 216.3, 0);
+  P.officeChair(L, 134.2, y, 215.4, 0.3);
   C.locker(L, 141.5, y, 214.3, -Math.PI / 2, 4);
   P.gurney(L, 139.6, y, 215.9, Math.PI / 2, true);
   P.medCabinet(L, 132.45, y, 212.5, Math.PI / 2);
@@ -1387,6 +1392,54 @@ export default {
     };
     L.lift = lift;
     L.gas = lot;
+    // Bots following a leader who dropped through a hole can hover on the lip
+    // (their body is still supported by the edge while the goal is right below).
+    // Nudge a bot that lingers on the rim of a drop hole into it.
+    const dropHoles = [[57, 116, 59.5, 118.5, ROOF], [100, 127, 101.5, 128.5, WF]];
+    // Engine workaround: NavGrid.walkable() (bot path shortcutting) ignores the
+    // target node's height, so when a path drops through a hole and continues
+    // underneath the floor a bot stands on, the bot 'shortcuts' to a node below
+    // and hovers above it. While a bot is above one of our drop holes and its
+    // goal is on the level below, steer it to the hole centre on its own level.
+    const holeGoal = dropHoles.map((h) => new THREE.Vector3((h[0] + h[2]) / 2, h[4], (h[1] + h[3]) / 2));
+    const below = [
+      (p) => p.y < ROOF - 2 && p.y > WF - 0.5 && p.x > 50 && p.x < 110.4 && p.z > 96 && p.z < 136.4, // roof -> warehouse
+      (p) => p.y < -1, // warehouse -> sewer
+    ];
+    const above = [
+      (p) => Math.abs(p.y - ROOF) < 0.8 && p.x > 50 && p.x < 110.4 && p.z > 96 && p.z < 136.4,
+      (p) => Math.abs(p.y - WF) < 0.8 && p.x > 50 && p.x < 110.4 && p.z > 96 && p.z < 136.4,
+    ];
+    const patchBrain = (b) => {
+      if (!b || b._ch3drop) return;
+      b._ch3drop = true;
+      const orig = b.moveTo.bind(b);
+      b.moveTo = (goal, radius, dt, urgent) => {
+        const p = b.s.pos;
+        for (let i = 0; i < dropHoles.length; i++) if (goal && above[i](p) && below[i](goal)) return orig(holeGoal[i], 0.25, dt, urgent);
+        return orig(goal, radius, dt, urgent);
+      };
+    };
+    const rimT = new Map();
+    L.dynamics.push({
+      update(dt) {
+        for (const s of game.survivors) if (s.brain) patchBrain(s.brain);
+        const lead = game.player;
+        if (!lead || lead.dead) return;
+        for (const s of game.survivors) {
+          if (!s.isBot || s.dead || s.incapped || s.pinned) { rimT.delete(s); continue; }
+          const h = dropHoles.find((q) => s.pos.x > q[0] - 0.6 && s.pos.x < q[2] + 0.6 && s.pos.z > q[1] - 0.6 && s.pos.z < q[3] + 0.6 && Math.abs(s.pos.y - q[4]) < 0.5);
+          if (!h || lead.pos.y > h[4] - 2) { rimT.delete(s); continue; }
+          const t = (rimT.get(s) || 0) + dt;
+          rimT.set(s, t);
+          if (t > 1.2) {
+            rimT.delete(s);
+            const nx = Math.min(h[2] - 0.45, Math.max(h[0] + 0.45, s.pos.x)), nz = Math.min(h[3] - 0.45, Math.max(h[1] + 0.45, s.pos.z));
+            s.teleport(nx, s.pos.y, nz, s.yaw);
+          }
+        }
+      },
+    });
   },
   onStart(game, session) {
     game.voice.script('ch3Start');

@@ -10,6 +10,7 @@ export default async ({ page, shot, evalg, wait }) => {
     await evalg(([x, y, z, yaw, pitch, adv]) => { const g = window.game; g.player.teleport(x, y, z, yaw); g.player.pitch = pitch; g.advance(adv ?? 0.6); if (g.player.flashlight !== undefined && y < -1) g.player.flashlight = true; }, [x, y, z, yaw, pitch, adv]);
     await wait(900);
     await shot('ch3_' + name);
+    console.log(name, JSON.stringify(await evalg(() => { const g = window.game; g.renderer.render(0.016); const i = g.renderer.r.info.render; return { calls: i.calls, tris: i.triangles }; })));
   }
   console.log(JSON.stringify(await evalg(() => ({ fps: window.game.fps, calls: window.game.renderer.r.info.render.calls, tris: window.game.renderer.r.info.render.triangles }))));
 };

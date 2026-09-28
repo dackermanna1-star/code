@@ -11,6 +11,8 @@ export default async ({ page, evalg, wait }) => {
     const r = await evalg(([name, x, y, z, adv]) => {
       const g = window.game, L = g.level;
       const P = g.player;
+      if (name === '!lift') { P.teleport(108.8, 0.45, 93.2, 0); g.advance(1.5); L.lift.ctrl.onUse(P); g.advance(adv ?? 56); return 'lift ' + L.lift.state.phase + ' | ' + g.survivors.filter((s) => s !== P).map((b) => `${b.char.id}:y${b.pos.y.toFixed(1)}${L.lift.onDeck(b.pos) ? 'L' : ''}`).join(' '); }
+      if (name === '!end') { const d = L.endDoor; if (d.open) d.use(P); g.advance(adv ?? 3); const inside = g.survivors.filter((s) => !s.dead).map((s) => L.inBox(L.endSafe, s.pos, 0.1)); return 'end door open=' + d.open + ' inside=' + inside.join(',') + ' session=' + window.session.state + ' endTriggered=' + window.session.endTriggered; }
       if (name === '!release') { const u = g.usables.find((u) => u.prompt === 'Pull emergency release'); u.onUse(P); g.advance(adv ?? 6); return 'released door; open=' + L.doors.find((d) => d.cx > 106 && d.cx < 106.4).open; }
       // walk the player there gradually (teleport in small hops so bots can follow)
       const sx = P.pos.x, sy = P.pos.y, sz = P.pos.z;
