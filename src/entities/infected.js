@@ -98,7 +98,7 @@ export class Common extends Agent {
       this.burning -= dt;
       this.hp -= dt * 30;
       if (Math.random() < 0.6) g.fx.fire(this.pos.x + (Math.random() - 0.5) * 0.3, this.pos.y + 0.5 + Math.random(), this.pos.z + (Math.random() - 0.5) * 0.3, 0.5);
-      if (this.hp <= 0) { this.die({ dir: _v.set(0, 0, 0), kind: 'fire', attacker: this.burnBy, knockback: 0 }); return; }
+      if (this.hp <= 0) { this.die({ dir: _v.set(0, 0, 0), kind: 'fire', attacker: this.burnBy, knockback: 0, part: 0, zone: 'torso' }); return; }
     }
 
     // vocalisations
@@ -430,6 +430,9 @@ export class Common extends Agent {
 
   die(h, dmg = 50) {
     const g = this.game;
+    // hits without a body part (fire, scripted kills) count as torso hits
+    if (h.part == null) h.part = 0;
+    if (!h.zone) h.zone = 'torso';
     this.dead = true;
     this.isCorpse = true;
     this.deadT = 0;
@@ -477,7 +480,7 @@ export class Common extends Agent {
   }
 
   sever(part, dir, power = 4, headExplode = false) {
-    if (part < 0) return;
+    if (!(part >= 0)) return; // also rejects undefined (hits without a body part)
     const g = this.game;
     const parts = SEVER_CHILDREN[part] || [part];
     let any = false;

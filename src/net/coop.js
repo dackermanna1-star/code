@@ -481,6 +481,12 @@ export class CoopHost {
     for (const x of g.usables) u += x.enabled !== false ? '1' : '0';
     snap.u = u;
     if (full) snap.up = g.usables.map((x) => x.prompt);
+    if (full) {
+      // scripted environment changes (fog, moon, exposure) for clients
+      const sc = g.scene;
+      snap.env = [sc.fog.color.getHex(), r3(sc.fog.density), g.hemi.color.getHex(), g.hemi.groundColor.getHex(), r2(g.hemi.intensity), r2(g.moon.intensity), g.moon.color.getHex(), r2(g.renderer.r.toneMappingExposure), r3(sc.environmentIntensity ?? 0.08)];
+      if (g.moonDir) snap.env.push(r3(g.moonDir.x), r3(g.moonDir.y), r3(g.moonDir.z));
+    }
     snap.lp = [];
     for (const l of this.loops.values()) snap.lp.push([l.id, l.name, l.pos ? r2(l.pos.x) : null, l.pos ? r2(l.pos.y) : 0, l.pos ? r2(l.pos.z) : 0, r2(l.vol), l.owner]);
     return snap;
@@ -679,6 +685,17 @@ export class CoopClient {
       } else if (pos) l.h?.set?.({ pos, vol });
     }
     for (const [id, l] of this.loops) if (!seen.has(id)) { l.h?.stop?.(0.3); this.loops.delete(id); }
+    if (s.env) {
+      const [fc, fd, hc, hg, hi, mi, mc, ex, ei, mx, my, mz] = s.env;
+      const sc = g.scene;
+      sc.fog.color.setHex(fc); sc.fog.density = fd;
+      if (sc.background?.isColor) sc.background.setHex(fc);
+      g.hemi.color.setHex(hc); g.hemi.groundColor.setHex(hg); g.hemi.intensity = hi;
+      g.moon.intensity = mi; g.moon.color.setHex(mc);
+      g.renderer.r.toneMappingExposure = ex;
+      sc.environmentIntensity = ei;
+      if (mx != null && g.moonDir) g.moonDir.set(mx, my, mz);
+    }
     // stats (full snapshots)
     for (const e of s.sv) { if (e && e.length > 43) { const sv = survivorByChar(g, e[0]); if (sv) sv.stats = e[43]; } }
   }

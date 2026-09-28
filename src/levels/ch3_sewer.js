@@ -55,6 +55,7 @@ function storefront(L, x0, x1, z, nz, name, col, o = {}) {
   sign(L, name, (x0 + x1) / 2, 3.45, z + nz * 0.04, nz > 0 ? Math.PI : 0, Math.min(6, x1 - x0 - 1), 0.55, { fg: col, glow: o.glow ?? 1.4, light: false });
 }
 // Big landmark sign that ignores fog (visible from across the city).
+// Single-sided: PlaneGeometry's front is +Z, so ry = PI faces -Z.
 function landmarkSign(L, text, x, y, z, ry, w, h, o) {
   const tex = textTexture(text, o);
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, transparent: true, fog: false, depthWrite: false, color: new THREE.Color(o.bright ?? 1.6, o.bright ?? 1.6, o.bright ?? 1.6) }));
@@ -576,6 +577,11 @@ function freightLot(L, game) {
   L.item('throwable', 103.2, 0.02, 88.8, { chance: 0.8 });
   L.item('medkit', 99.7, 0.02, 86.4, { chance: 0.5 });
   L.item('grenadeLauncher', 102.2, 0.79, 87.5, { chance: 0.12 });
+  // light the crescendo stage: flood tower aimed at the lift + wall pack above it
+  C.floodlight(L, 95.5, 0, 81.5, -2.356, { intensity: 34, range: 28, flicker: 0.05 });
+  wallPack(L, 107.8, 7.6, 95.85, 0, -1, { intensity: 16, range: 14, flicker: 0.1 });
+  L.light(101.4, 1.6, 87.2, 0xffd8a0, 6, 6, {});
+  P.lamp(L, 100.6, 0.77, 87.9);
   // extra lot dressing
   for (const [x, z] of [[33, 88], [33.9, 88.4], [33.4, 89.2]]) P.barrel(L, x, 0, z, rng.pick([0x3a4a6a, 0x6a2a1a, 0x3a3a2a]));
   for (let i = 0; i < 4; i++) P.prop(L, 44 + (i % 2) * 0.75, 0.13 * Math.floor(i / 2) * 2, 92.5, 0).cyl(0, 0.13, 0, 0.36, 0.26, 'rubber', 0x151515, null, 14);
@@ -703,6 +709,12 @@ function warehouse(L, game) {
   P.pipe(L, 66, ROOF + 0.35, 133, 96, ROOF + 0.35, 133, 0.1, 'rust');
   for (let i = 0; i < 6; i++) L.decal(60 + rng() * 45, ROOF + 0.012, 100 + rng() * 32, 0, 1, 0, 1.5 + rng() * 2, DF.POOL, { alpha: 0.25 });
   wallPack(L, 107.8, ROOF + 2.4, 106.9 + 0.35, 0, 1, { intensity: 9, flicker: 0.3 });
+  // rooftop stair bulkhead (locked) with a lamp: a landmark between the lift and the skylight
+  L.box(82, ROOF, 118, 86, ROOF + 2.8, 121, 'brickDark');
+  L.box(81.9, ROOF + 2.8, 117.9, 86.1, ROOF + 3.0, 121.1, 'roof');
+  new Door(L, 84, ROOF, 117.9, 'x', { width: 1.0, locked: true, material: 'paintedGreen' });
+  wallPack(L, 84, ROOF + 2.55, 117.85, 0, -1, { intensity: 10, range: 11, flicker: 0.2 });
+  sign(L, 'ROOF ACCESS\nNO ENTRY', 85.5, ROOF + 1.7, 117.88, 0, 0.8, 0.4, { bg: '#e8e0c8', fg: '#8a1010' });
   L.box(107.6, ROOF + 2.2, 106.9, 108.0, ROOF + 2.6, 107.2, 'metalDark', { collide: false });
   L.reverb(X0, ROOF, Z0, X1, ROOF + 12, Z1, 'outdoor');
   L.ambience(X0, ROOF - 0.2, Z0, X1, ROOF + 12, Z1, 'rooftop');
@@ -779,7 +791,7 @@ function warehouse(L, game) {
   L.light(101.5, WF + 1.8, 127.8, 0xfff0d0, 12, 9, { flicker: 0.1 });
   bloodTrail(L, 96, 122, 100.3, 127.3, WF, 6);
   // lights
-  for (const [x, z, fl, on] of [[80, 106, 0.2, true], [96, 106, 0.6, true], [80, 114, 0.1, false], [96, 114, 0.2, true], [80, 124, 0.4, true], [70, 116, 0.7, true]]) ceilingLight(L, x, ROOF - 0.3, z, { type: 'cage', intensity: 12, range: 14, flicker: fl, on });
+  for (const [x, z, fl, on] of [[80, 106, 0.2, true], [96, 106, 0.6, true], [80, 114, 0.1, false], [96, 114, 0.2, true], [80, 124, 0.4, true], [70, 116, 0.7, true]]) ceilingLight(L, x, ROOF - 0.3, z, { type: 'cage', intensity: 20, range: 17, flicker: fl, on });
   L.light(108.5, WF + 3.5, 116, 0xff2010, 5, 8, { flicker: 0.8 });
   L.box(109.55, WF + 3.3, 115.8, 109.6, WF + 3.6, 116.2, 'emissiveRed', { collide: false });
   bodyWithBlood(L, 86, WF, 106.5, 0.4, 0x6a4a1a);
@@ -1141,9 +1153,9 @@ function hospital(L, game) {
   sign(L, 'MAIN ENTRANCE CLOSED\nUSE EMERGENCY ENTRANCE', 164, 2.0, 204.93, 0, 3.8, 0.8, { bg: '#e8e8e0', fg: '#8a1010', border: '#8a1010' });
   for (const x of [160, 164, 168]) P.barricade(L, x, 0, 204.2, 0);
   // Mercy Hospital landmark signs
-  landmarkSign(L, 'MERCY HOSPITAL', 164, 42, 204.85, 0, 26, 4.2, { fg: '#ff3a2a', font: 'Arial Black, Impact, sans-serif', w: 1024, h: 164, bright: 1.8 });
+  landmarkSign(L, 'MERCY HOSPITAL', 164, 42, 204.85, Math.PI, 26, 4.2, { fg: '#ff3a2a', font: 'Arial Black, Impact, sans-serif', w: 1024, h: 164, bright: 1.8 });
   sign(L, 'MERCY HOSPITAL', 132, 4.78, 195.97, 0, 7, 0.8, { fg: '#e8f0f0', glow: 1.2, light: false });
-  landmarkSign(L, '+', 148.8, 42, 204.85, 0, 4.2, 4.2, { fg: '#ff3a2a', w: 256, h: 256, bright: 2 });
+  landmarkSign(L, '+', 148.8, 42, 204.85, Math.PI, 4.2, 4.2, { fg: '#ff3a2a', w: 256, h: 256, bright: 2 });
   // lobby interior
   L.box(118.3, y, 196.3, 118.32, y + 1.2, 209.7, 'tileWhite', { collide: false });
   L.box(145.68, y, 196.3, 145.7, y + 1.2, 209.7, 'tileWhite', { collide: false });

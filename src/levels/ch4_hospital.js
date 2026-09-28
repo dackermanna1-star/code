@@ -17,70 +17,6 @@ import { buildElevatorLobby, buildUpperCar, elevatorController, CAR, LOW_Y, TOP_
 import { buildUpper } from './ch4_upper.js';
 import { installCuller } from './ch4_parts.js';
 import { Helicopter } from './helicopter.js';
-import { Common } from '../entities/infected.js';
-
-// Engine workaround (Common.die): a common that burns to death calls
-// die({kind:'fire'}) without part/zone; die() then may call sever(undefined),
-// which throws (PARTS[undefined] destructure) inside the frame loop and freezes
-// the game. While this chapter is loaded, fill in a torso hit for such deaths.
-if (!Common.prototype.__ch4dieGuard) {
-  const origDie = Common.prototype.die;
-  Common.prototype.die = function (h, dmg) {
-    if (h && h.part == null && this.game?.level?.chapter?.id === 'hospital') h = Object.assign({}, h, { part: 0, zone: 'torso' });
-    return origDie.call(this, h, dmg);
-  };
-  Common.prototype.__ch4dieGuard = true;
-}
-
-// Engine workaround (BotBrain.findItem): bots pick any item within 12 m in 3D
-// and only give up beyond 14 m, never checking reachability, so in a stacked
-// building they freeze under items on the floor above/below instead of
-// following the leader. Restrict each bot's item choice to its own floor band.
-// Also (BotBrain.moveTo): formation spots are offset 1.6 m sideways from the
-// leader without checking the ground, so on a scaffold or near an open edge
-// the goal hangs in mid-air and bots overshoot the edge. Snap such goals onto
-// the nearest walkable nav node.
-function sameFloorItemsForBots(game) {
-  const nav = () => game.level.nav;
-  const V = new THREE.Vector3();
-  for (const s of game.survivors) {
-    const b = s.brain;
-    if (!b || b.__ch4items || typeof b.findItem !== 'function') continue;
-    b.__ch4items = true;
-    const orig = b.findItem;
-    b.findItem = function () {
-      const it = orig.call(this);
-      return it && Math.abs(it.pos.y - this.s.pos.y) > 1.6 ? null : it;
-    };
-    const origMove = b.moveTo;
-    if (typeof origMove === 'function') {
-      b.moveTo = function (goal, radius, dt, urgent) {
-        const nv = nav();
-        if (goal && nv) {
-          const n = nv.nodeAt(goal.x, goal.y, goal.z);
-          if (n < 0 || Math.abs(nv.nodeY[n] - goal.y) > 0.8) {
-            const m = nv.nearestNode(goal.x, goal.y, goal.z, 3);
-            if (m >= 0) goal = V.set(nv.nodeX(m), nv.nodeY[m], nv.nodeZ(m));
-          }
-        }
-        return origMove.call(this, goal, radius, dt, urgent);
-      };
-    }
-  }
-}
-
-// Engine workaround (Witch.hearNoise): the Witch measures noise distance in XZ
-// only, so gunfire on any floor within 12 m horizontally enrages her. Here the
-// 28F Witch would be startled by fights on the ground floor directly below.
-// Wrap each Witch instance so only noise from her own floor counts.
-function sameFloorWitches(game) {
-  for (const sp of game.infected.specials) {
-    if (sp.kind !== 'witch' || sp.__ch4noise || typeof sp.hearNoise !== 'function') continue;
-    sp.__ch4noise = true;
-    const orig = sp.hearNoise;
-    sp.hearNoise = function (x, y, z, r) { if (Math.abs(y - this.pos.y) < 3) orig.call(this, x, y, z, r); };
-  }
-}
 
 // Link the two elevator cars in the nav graph so the distance fields (chapter
 // progress, bot exit-seeking, director "ahead/behind") flow through the shaft.
@@ -172,14 +108,16 @@ export default {
     L.script = {
       start() {
         linkElevator(L);
-        sameFloorItemsForBots(game);
         L.ch4.culler = installCuller(L, game);
         L.after(1.2, () => game.session.objective('Find the elevator'));
       },
       update(dt) {
         E.update(dt);
-        if (game.survivors.some((x) => x.brain && !x.brain.__ch4items)) sameFloorItemsForBots(game);
-        sameFloorWitches(game);
+      },
+      // co-op clients: nav link (for progress) + draw-call culler only
+      clientStart() {
+        linkElevator(L);
+        L.ch4.culler = installCuller(L, game);
       },
     };
     L.ch4 = { S, E }; // test / debug handle

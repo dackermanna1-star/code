@@ -928,6 +928,7 @@ export class Witch extends SpecialInfected {
   }
   hearNoise(x, y, z, r) {
     if (this.enraged) return;
+    if (Math.abs(y - this.pos.y) > 3) return; // other floors don't disturb her
     const d = Math.hypot(this.pos.x - x, this.pos.z - z);
     if (d < Math.min(12, r * 0.5)) this.rage += 0.12 * (1 - d / 12);
   }

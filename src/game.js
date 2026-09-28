@@ -218,7 +218,14 @@ export class Game {
     if (this.fpsAcc > 0.5) { this.fps = this.fpsN / this.fpsAcc; this.fpsAcc = 0; this.fpsN = 0; }
     const t0 = performance.now();
     if (this.state === 'playing' && (!this.paused || this.net?.client)) {
-      this.update(dt);
+      try {
+        this.update(dt);
+      } catch (e) {
+        // never freeze the whole game on one bad frame; report (rate limited)
+        this.noFwd = 0;
+        this.errCount = (this.errCount || 0) + 1;
+        if (this.errCount < 20 || this.errCount % 600 === 0) console.error('[frame]', e);
+      }
     } else if (this.level) {
       // keep rendering (menus over the scene)
       this.ctrl?.updateCamera(0);

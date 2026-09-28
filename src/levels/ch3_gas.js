@@ -112,7 +112,7 @@ export function buildGasStation(L, game, c) {
   // canopy: intact and charred versions (swapped when the station blows)
   const canopyGeo = (T, burnt) => {
     const white = burnt ? 'rust' : 'paintedWhite', red = burnt ? 'rust' : 'paintedRed';
-    const wt = burnt ? 0x2a2622 : 0xd8d8d4, rt = burnt ? 0x3a2a20 : 0xb81810;
+    const wt = burnt ? 0x2a2622 : 0xd8d8d4, rt = burnt ? 0x3a2a20 : 0xe83a28;
     if (burnt) {
       // roof panels with blown-out holes
       const hx0 = cx - 4, hx1 = cx + 3, hz0 = cz - 3, hz1 = cz + 2;

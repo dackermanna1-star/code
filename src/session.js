@@ -215,6 +215,7 @@ export class Session {
     this.audio.setAmbience?.(level.env.ambience || null);
     g.time = 0;
     if (!client) level.script?.start?.();
+    else level.script?.clientStart?.(); // co-op clients: visual-only setup
   }
   saveInventories() {
     this.savedInventories = this.game.survivors.map((s) => ({

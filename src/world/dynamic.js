@@ -69,14 +69,15 @@ export class Door {
     level.addObject(g);
     // frame (static)
     const fm = 'woodDark';
+    const FD = 0.115; // frame half-depth: proud of 0.2 m walls (no z-fighting)
     if (axis === 'x') {
-      level.box(x - this.w / 2 - 0.08, y, z - 0.1, x - this.w / 2, y + this.h + 0.08, z + 0.1, fm, { collide: false });
-      level.box(x + this.w / 2, y, z - 0.1, x + this.w / 2 + 0.08, y + this.h + 0.08, z + 0.1, fm, { collide: false });
-      level.box(x - this.w / 2, y + this.h, z - 0.1, x + this.w / 2, y + this.h + 0.08, z + 0.1, fm, { collide: false });
+      level.box(x - this.w / 2 - 0.08, y, z - FD, x - this.w / 2, y + this.h + 0.08, z + FD, fm, { collide: false });
+      level.box(x + this.w / 2, y, z - FD, x + this.w / 2 + 0.08, y + this.h + 0.08, z + FD, fm, { collide: false });
+      level.box(x - this.w / 2, y + this.h, z - FD, x + this.w / 2, y + this.h + 0.08, z + FD, fm, { collide: false });
     } else {
-      level.box(x - 0.1, y, z - this.w / 2 - 0.08, x + 0.1, y + this.h + 0.08, z - this.w / 2, fm, { collide: false });
-      level.box(x - 0.1, y, z + this.w / 2, x + 0.1, y + this.h + 0.08, z + this.w / 2 + 0.08, fm, { collide: false });
-      level.box(x - 0.1, y + this.h, z - this.w / 2, x + 0.1, y + this.h + 0.08, z + this.w / 2, fm, { collide: false });
+      level.box(x - FD, y, z - this.w / 2 - 0.08, x + FD, y + this.h + 0.08, z - this.w / 2, fm, { collide: false });
+      level.box(x - FD, y, z + this.w / 2, x + FD, y + this.h + 0.08, z + this.w / 2 + 0.08, fm, { collide: false });
+      level.box(x - FD, y + this.h, z - this.w / 2, x + FD, y + this.h + 0.08, z + this.w / 2, fm, { collide: false });
     }
     this.collider = level.col.addDynamic([0, 0, 0], [0, 0, 0], { flags: F_DEFAULT, surf: this.safe ? 'metal' : 'wood', owner: this });
     this.updateCollider();

@@ -247,6 +247,7 @@ export class BotBrain {
     let best = null, bs = 0;
     for (const it of g.items.near(s.pos, 12)) {
       if (it.taken) continue;
+      if (Math.abs(it.pos.y - s.pos.y) > 1.6) continue; // other floor: not reachable directly
       let v = 0;
       const t = it.type;
       if (TIER[t] != null && t !== 'pistol') {
@@ -271,6 +272,13 @@ export class BotBrain {
     const g = this.game;
     const s = this.s;
     const nav = g.level.nav;
+    // goals hanging off an edge (formation offsets beside a scaffold, a ledge)
+    // are snapped onto the nearest walkable node so bots don't walk off
+    const gn = nav.nodeAt(goal.x, goal.y, goal.z);
+    if (gn < 0 || Math.abs(nav.nodeY[gn] - goal.y) > 0.8) {
+      const m = nav.nearestNode(goal.x, goal.y, goal.z, 3);
+      if (m >= 0) goal = (this._snapGoal || (this._snapGoal = new THREE.Vector3())).set(nav.nodeX(m), nav.nodeY[m], nav.nodeZ(m));
+    }
     const dist = Math.hypot(goal.x - s.pos.x, goal.z - s.pos.z);
     if (dist < radius && Math.abs(goal.y - s.pos.y) < 1.5) { this.path = null; return; }
     this.pathT -= dt;

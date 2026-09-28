@@ -17,7 +17,8 @@ export default async ({ page, shot, evalg, wait }) => {
   await boot(page, evalg, wait);
   await evalg(() => { const g = window.game; g.director.enabled = false; g.cheats.botsIdle = true; g.cheats.god = true; window.session.menu.clear(); g.hud.title.style.display = 'none'; g.hud.subs.style.display = 'none'; g.advance(1, 1 / 20); });
   const [a, b] = (process.env.SPOTS || '0,99').split(',').map(Number);
-  for (const [name, x, y, z, yaw, pitch] of SPOTS.slice(a, b + 1)) {
+  const only = process.env.NAMES ? process.env.NAMES.split(',') : null;
+  for (const [name, x, y, z, yaw, pitch] of (only ? SPOTS.filter((sp) => only.some((n) => sp[0].startsWith(n))) : SPOTS.slice(a, b + 1))) {
     await evalg(([x, y, z, yaw, pitch, top]) => {
       const g = window.game;
       if (top && !g._ch4top) { g._ch4top = true; g.level.ch4.S.onTop(); }
