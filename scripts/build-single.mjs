@@ -1,6 +1,6 @@
 // Build the whole game into one self-contained HTML file: the-last-four.html
 // (all JS, CSS and assets inlined; open it straight from disk, no server).
-// Usage: npm run build:single
+// Usage: npm run build:single  [-- optional/output/path.html]
 import { build } from 'vite';
 import fs from 'fs';
 import os from 'os';
@@ -25,7 +25,7 @@ const js = files.filter((f) => f.endsWith('.js')).map((f) => fs.readFileSync(pat
 html = html.replace(/<link rel="stylesheet"[^>]*>/g, '').replace(/<script type="module"[^>]*><\/script>/g, '');
 html = html.replace('</head>', () => `<style>${css}</style>\n</head>`);
 html = html.replace('</body>', () => `<script type="module">${js.replace(/<\/script/gi, '<\\/script')}</script>\n</body>`);
-const out = path.join(root, 'the-last-four.html');
+const out = process.argv[2] ? path.resolve(process.argv[2]) : path.join(root, 'the-last-four.html');
 fs.writeFileSync(out, html);
 fs.rmSync(outDir, { recursive: true, force: true });
 console.log(`wrote ${out} (${(html.length / 1e6).toFixed(1)} MB)`);
