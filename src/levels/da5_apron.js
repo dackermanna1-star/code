@@ -373,7 +373,7 @@ function checkpoint(L, B, S) {
   const runs = [[-4, 20.5], [23.5, 51], [65, 91.5]];
   for (const [a, b] of runs) {
     for (let x = a + 1; x < b - 0.9; x += 2.05) {
-      const knocked = rng() < 0.12;
+      const knocked = rng() < 0.12 && !(x > 8 && x < 30); // keep the pedestrian gap approach clean
       jersey(L, x, 0, z + (knocked ? (rng() - 0.5) * 1.6 : 0), knocked ? (rng() - 0.5) * 0.8 : 0, 2.0);
     }
   }
