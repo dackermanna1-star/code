@@ -406,7 +406,7 @@ function buildBRoof(L, game, S) {
   L.wallZ(16.3, 27.2, 43.8, YA, YA + 3, 'brick', 0.2, [{ a: 24.8, b: 25.9, y0: YA, y1: YA + 2.2 }]);
   L.box(39.3, YA, 27, 43.7, YA + 3, 27.2, 'brick');
   L.box(38.9, YA + 3, 15.9, 44.1, YA + 3.25, 27.4, 'roof');
-  const bdoor = new Door(L, 43.8, YA, 25.35, 'z', { width: 1.0, hinge: 1, material: 'paintedGreen', hp: 200 });
+  const bdoor = new Door(L, 43.8, YA, 25.35, 'z', { width: 1.0, hinge: -1, material: 'paintedGreen', hp: 200 });
   S.bulkDoor = bdoor;
   sign(L, 'STAIR B\nNO ROOF ACCESS\nAFTER 10PM', 43.93, YA + 2.45, 25.35, Math.PI / 2, 0.8, 0.4, { bg: '#d8d0b0', fg: '#1a1a1a' });
   ceilingLight(L, 44.25, YA + 2.8, 25.35, { type: 'cage', intensity: 6, range: 7, flicker: 0.35 });

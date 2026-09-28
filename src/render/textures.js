@@ -793,6 +793,8 @@ const GEN = {
     const gloss = o.gloss ?? 0.25;
     const sub = [0.78, 0.75, 0.68];
     const groutDirt = o.groutDirt ?? 0.6;
+    const gdN = mask(S, sd + 13, 8, 4);
+    const gdirtAt = (i) => gdN[i];
     const cracksT = new Float32Array(N);
     const r0 = mulberry(sd * 3 + 1);
     const rTiles = [];
@@ -825,8 +827,9 @@ const GEN = {
             td.h[i] = 0.05 + ridge * 0.08;
             td.rough[i] = 0.95;
           } else {
-            td.set(i, g[0] * t, g[1] * t, g[2] * t);
-            td.h[i] = 0.12 + sand[i] * 0.06;
+            const gd = 1 - ss(0.3, 1, gdirtAt(i)) * groutDirt * 0.5;
+            td.set(i, g[0] * t * gd, g[1] * t * gd, g[2] * t * gd);
+            td.h[i] = 0.3 + sand[i] * 0.06;
             td.rough[i] = 0.95;
           }
         } else {
@@ -868,6 +871,14 @@ const GEN = {
       }
     }
     applyCracks(td, cracksT, 0.5, 0.3, false);
+    // dirt film + grime settled in the grout (varies across the sheet)
+    const film = mask(S, sd + 11, 3, 5, { warp: 50 });
+    const fa = o.film ?? 0.6;
+    for (let i = 0; i < N; i++) {
+      const f = ss(0.35, 1, film[i]) * fa;
+      td.mix(i, [0.3, 0.27, 0.22], f * 0.22);
+      td.rough[i] += (0.75 - td.rough[i]) * f * 0.35;
+    }
     stains(td, sd, (o.stain ?? 0.45) * 0.6, 3, [0.5, 0.43, 0.3]);
     const sk = streakMask(S, sd + 9, (o.stain ?? 0.45) * 0.5, 0.35);
     for (let i = 0; i < N; i++) if (sk[i] > 0) { td.mix(i, [0.45, 0.38, 0.26], sk[i] * 0.3); td.rough[i] += sk[i] * 0.2; }
@@ -1070,7 +1081,7 @@ const GEN = {
       if (sk > 0) { r += (0.035 - r) * sk; g += (0.035 - g) * sk; b += (0.038 - b) * sk; h = h * (1 - sk) + 0.42 * sk; rough += (0.4 - rough) * sk; }
       // damp patches (world-space puddles are added in the material shader)
       const dk = ss(0.78, 0.9, damp[i]) * wetAmt;
-      if (dk > 0) { r *= 1 - dk * 0.28; g *= 1 - dk * 0.28; b *= 1 - dk * 0.26; rough += (0.32 - rough) * dk; }
+      if (dk > 0) { r *= 1 - dk * 0.28; g *= 1 - dk * 0.28; b *= 1 - dk * 0.26; rough += (0.45 - rough) * dk; h = h * (1 - dk * 0.4) + 0.3 * dk * 0.4; }
       td.set(i, r, g, b);
       td.h[i] = h;
       td.rough[i] = rough;
@@ -1094,7 +1105,7 @@ const GEN = {
         const fx = (x + 0.5) / sp, sc = Math.floor(fx), lu = fx - sc;
         const d = Math.min(Math.min(lu, 1 - lu), Math.min(lv, 1 - lv)) * sp;
         const hb = ih(sr, sc, sd);
-        const joint = ss(1.6 * P, 0.6 * P, d);
+        const joint = ss(2.4 * P, 0.8 * P, d);
         const tooled = ss(7 * P, 5.5 * P, d) * (1 - joint);
         const br = ((sr + sc) & 1) ? broomA[i] : broomB[i];
         let t = (0.86 + (hb - 0.5) * 0.14) * (0.9 + (mott[i] - 0.5) * 0.2 + (mid[i] - 0.5) * 0.12 + (fine[i] - 0.5) * 0.1);
@@ -1105,7 +1116,7 @@ const GEN = {
         let rough = 0.88 - tooled * 0.12 + (fine[i] - 0.5) * 0.08;
         if (joint > 0) {
           const moss = ih(sc, sr, 5) > 0.6 ? ss(0.5, 0.8, mid[i]) : 0;
-          r = r * (1 - joint * 0.6) + joint * moss * 0.02; g = g * (1 - joint * 0.6) + joint * moss * 0.05; b = b * (1 - joint * 0.6);
+          r = r * (1 - joint * 0.72) + joint * moss * 0.02; g = g * (1 - joint * 0.72) + joint * moss * 0.05; b = b * (1 - joint * 0.72);
         }
         // chewing gum spots
         const gk = Math.max(gumD[i], gumL[i]);
@@ -1594,7 +1605,7 @@ function floralSDF(x, y, rr) {
 
 // per-kind normal strength / albedo cavity baking defaults
 const NSTR = { brick: 4.5, sewer: 4.5, tiles: 3.5, concrete: 2.6, plaster: 2.2, wallpaper: 1.6, woodfloor: 2.5, wood: 2.0, carpet: 3.0, asphalt: 2.4, sidewalk: 2.8, metal: 1.6, diamond: 5.0, rooftar: 4.0, ceiling: 2.5, linoleum: 1.6, dirt: 3.0, fabric: 2.0, marble: 1.5, paintedMetal: 2.0, rubber: 1.5, zombieCloth: 3.0, glass: 0.5 };
-const BAKE = { brick: 0.6, sewer: 0.6, rooftar: 0.6, asphalt: 0.5, tiles: 0.5, carpet: 0.35, ceiling: 0.5, glass: 0 };
+const BAKE = { brick: 0.6, sewer: 0.6, rooftar: 0.6, asphalt: 0.5, tiles: 0.3, carpet: 0.35, ceiling: 0.5, glass: 0 };
 
 function generate(kind, opts, size) {
   const gen = GEN[kind];

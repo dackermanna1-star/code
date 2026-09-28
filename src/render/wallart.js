@@ -265,7 +265,9 @@ function ink(g, strokes, t, r) {
       g.shadowBlur = w * 0.5;
       g.shadowColor = rgba(col, 0.5);
       g.strokeStyle = rgba(col, 0.82);
-      for (const s1 of strokes) { g.lineWidth = w * (0.8 + r() * 0.4); pathStrokes(g, [s1]); g.stroke(); }
+      // pressure variation: strokes in three width groups (3 blurred draws, not one per stroke)
+      const off = Math.floor(r() * 3);
+      for (let q = 0; q < 3; q++) { g.lineWidth = w * (0.82 + q * 0.18); pathStrokes(g, strokes.filter((_, k) => (k + off) % 3 === q)); g.stroke(); }
       g.shadowBlur = 0;
       // paint builds up along the middle of the line
       g.strokeStyle = rgba(col, 0.55);
@@ -1028,6 +1030,12 @@ export function posterWallCanvas(o = {}) {
 // Replacement renderer for kit.textTexture: printed/metal signs with rounded
 // corners, inset borders, bolts, rust and dirt; illuminated channel letters
 // for glowing text; painted lettering for plain text; legacy spray text.
+// Light, unsaturated backgrounds read as printed paper notices.
+export function isPaperColor(bg) {
+  if (!bg) return false;
+  const c = parseColor(bg);
+  return lum(c) > 0.62 && Math.max(...c) - Math.min(...c) < 70;
+}
 export function signCanvas(text, o = {}) {
   const W = o.w ?? 512, H = o.h ?? 128;
   const c = canvas(W, H), g = c.getContext('2d');
@@ -1095,6 +1103,10 @@ export function signCanvas(text, o = {}) {
   });
   if ('letterSpacing' in g) g.letterSpacing = '0px';
   if (o.clean) return c;
+  if (o.paper) {
+    age(g, W, H, r, { wet: r() * 0.6, fade: r() * 0.4, torn: 0.25 + r() * 0.1, tape: r() < 0.6, staples: true, grime: 0.25 + r() * 0.3, creases: r() < 0.7, vandal: false });
+    return c;
+  }
   // weathering
   g.save();
   if (bg) { roundRect(g, 1, 1, W - 2, H - 2, rad); g.clip(); }

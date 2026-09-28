@@ -249,7 +249,7 @@ function buildF3(L, game, S) {
   const cart = P.prop(L, 63.8, y, 28.9, 0.2);
   cart.box(0, 0.55, 0, 0.9, 0.5, 0.55, 'fabric', 0x6a6a6a).box(0, 0.25, 0, 0.9, 0.04, 0.55, 'metalDark').col(0, 0.4, 0, 0.9, 0.8, 0.55, 'metal');
   sign(L, 'FIRE ESCAPE', 65.53, y + 2.5, 28.2, -Math.PI / 2, 0.9, 0.25, { bg: '#0a2a0a', fg: '#3aff5a', glow: 1.4, lightColor: 0x30ff50, lightIntensity: 2 });
-  S.fireEscDoor = new Door(L, BX1 - 0.15, y, 28.2, 'z', { width: 1.1, hinge: -1, material: 'paintedRed' });
+  S.fireEscDoor = new Door(L, BX1 - 0.15, y, 28.2, 'z', { width: 1.1, hinge: 1, material: 'paintedRed' });
   // 4D: the landing under the hole
   const [hx0, hz0, hx1, hz1] = HOLE;
   P.debris(L, (hx0 + hx1) / 2, y, (hz0 + hz1) / 2, 1.6, 'woodDark', 14);

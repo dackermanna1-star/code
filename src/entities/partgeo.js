@@ -318,46 +318,60 @@ export const HEAD_DEFAULT = {
 export function headSDF(x, y, z, h) {
   const f = h.female;
   const ax = Math.abs(x);
-  const sk = h.skull * (1 - f * 0.04);
-  let d = sdEll(x, y, z, 0, 0.068, 0.012, 0.073 * sk, 0.089 * sk, 0.097 * sk);
-  d = smin(d, sdEll(x, y, z, 0, 0.022, -0.03, 0.064 * h.cheekW * (1 - f * 0.05), 0.074, 0.074), 0.02);
+  const sk = h.skull * (1 - f * 0.035);
+  // cranium + forehead
+  let d = sdEll(x, y, z, 0, 0.066, 0.012, 0.0705 * sk, 0.092 * sk, 0.098 * sk);
+  d = smin(d, sdEll(x, y, z, 0, 0.09, -0.035, 0.062 * sk, 0.06, 0.062), 0.02);
+  // mid face (cheekbone mass) and cheeks
+  const cw = h.cheekW * (1 - f * 0.04);
+  d = smin(d, sdEll(x, y, z, 0, 0.02, -0.038, 0.066 * cw, 0.072, 0.061), 0.02);
+  d = smin(d, sdEll(ax, y, z, 0.037, 0.022, -0.072, 0.022, 0.018, 0.016), 0.015);
+  const full = 1 - clamp(h.gaunt, 0, 1);
+  d = smin(d, sdEll(ax, y, z, 0.04 * cw, -0.004, -0.056, 0.025, 0.026, 0.03 * (0.6 + 0.4 * full)), 0.02);
+  // jaw, jaw angles, chin
   const jd = h.jawDrop;
-  const jw = h.jaw * (1 - f * 0.12);
-  d = smin(d, sdEll(x, y - (-0.028 - jd), z, 0, 0, -0.03, 0.054 * jw, 0.046, 0.066), 0.024);
-  d = smin(d, sdEll(ax, y, z, 0.046 * jw, -0.026 - jd * 0.5, 0.004, 0.016 * jw, 0.027, 0.026), 0.02);
-  d = smin(d, sdEll(x, y, z, 0, -0.058 - jd, -0.072, 0.021 * h.chin * (1 - f * 0.15), 0.019, 0.017 * h.chin), 0.016);
+  const jw = h.jaw * (1 - f * 0.1);
+  d = smin(d, sdEll(x, y + 0.022 + jd, z, 0, 0, -0.03, 0.056 * jw, 0.042, 0.064), 0.024);
+  d = smin(d, sdEll(ax, y, z, 0.049 * jw, -0.022 - jd * 0.5, 0.0, 0.017 * jw, 0.026, 0.024), 0.02);
+  d = smin(d, sdEll(x, y, z, 0, -0.043 - jd, -0.067, 0.021 * h.chin * (1 - f * 0.15), 0.019, 0.017 * h.chin), 0.016);
   // cheekbones
-  d = smin(d, sdEll(ax, y, z, 0.046, 0.036, -0.071, 0.02, 0.012 * h.cheek, 0.018), 0.014);
+  d = smin(d, sdEll(ax, y, z, 0.049, 0.036, -0.066, 0.021, 0.012 * h.cheek, 0.018), 0.014);
   // brow ridge
   const br = 0.0105 * h.brow * (1 - f * 0.45);
-  d = smin(d, sdCap(x, y, z, -0.033, 0.08, -0.088, 0.033, 0.08, -0.088, br), 0.014);
+  d = smin(d, sdCap(x, y, z, -0.032, 0.079, -0.087, 0.032, 0.079, -0.087, br), 0.014);
   // nose: bridge, tip, wings
   const nl = h.noseLen, ns = h.nose * (1 - f * 0.15);
-  d = smin(d, sdCap(x, y, z, 0, 0.071, -0.098, h.crooked * 0.004, 0.022, -0.097 - 0.02 * nl, 0.0082 * ns), 0.008);
-  d = smin(d, sdEll(x, y, z, h.crooked * 0.004, 0.015, -0.098 - 0.019 * nl, 0.0125 * ns, 0.0115 * ns, 0.0115 * ns), 0.008);
-  d = smin(d, sdEll(ax, y, z, 0.0115 * ns, 0.0125, -0.105 - 0.008 * nl, 0.0085 * ns, 0.007 * ns, 0.008 * ns), 0.007);
+  d = smin(d, sdCap(x, y, z, 0, 0.07, -0.095, h.crooked * 0.004, 0.025, -0.096 - 0.017 * nl, 0.0078 * ns), 0.008);
+  d = smin(d, sdEll(x, y, z, h.crooked * 0.004, 0.0145, -0.097 - 0.016 * nl, 0.0112 * ns, 0.0105 * ns, 0.0106 * ns), 0.008);
+  d = smin(d, sdEll(ax, y, z, 0.0118 * ns, 0.0105, -0.1 - 0.006 * nl, 0.0082 * ns, 0.0064 * ns, 0.0075 * ns), 0.007);
   // lips
-  const lp = h.lips * (1 + f * 0.25);
-  d = smin(d, sdEll(x, y, z, 0, -0.0105, -0.1005, 0.021, 0.0066 * lp, 0.0105), 0.006);
-  d = smin(d, sdEll(x, y, z, 0, -0.0245 - jd * 0.7, -0.0975, 0.0185, 0.0072 * lp, 0.0105), 0.006);
+  const lp = h.lips * (1 + f * 0.2);
+  d = smin(d, sdEll(x, y, z, 0, -0.0115, -0.0905, 0.0195, 0.0058 * lp, 0.0078 * lp), 0.006);
+  d = smin(d, sdEll(x, y, z, 0, -0.0235 - jd * 0.7, -0.0895, 0.0175, 0.0062 * lp, 0.008 * lp), 0.006);
   // mouth slit / open mouth
-  d = smax(d, -sdEll(x, y, z, 0, -0.018 - jd * 0.35, -0.105, 0.0195, 0.0013 + h.mouthOpen, 0.014 + h.mouthOpen), 0.002);
-  // eye sockets
+  d = smax(d, -sdEll(x, y, z, 0, -0.0175 - jd * 0.35, -0.0985, 0.019, 0.0009 + h.mouthOpen, 0.0055 + h.mouthOpen * 2), 0.0012);
+  // eye sockets (almond, lids cover part of the eyeball)
   const ey = 0.056 + h.eyeY;
-  d = smax(d, -sdEll(ax, y, z, 0.032, ey, -0.094 + 0.002 * (h.socket - 1), 0.0165, 0.0115, 0.012 * h.socket), 0.009);
-  // gaunt cheeks (push the surface inwards under the cheekbones, temples)
+  d = smax(d, -sdEll(ax, y, z, 0.032, ey, -0.093 + 0.002 * (h.socket - 1), 0.0165, 0.0092 + 0.002 * (h.socket - 1), 0.012 * h.socket), 0.008);
+  // eyelids: thin shells over the top and bottom of the eyeball -> almond opening
+  const ex = ax - 0.0318, eyy = y - ey, ez = z + 0.0795;
+  const er0 = Math.hypot(ex, eyy, ez);
+  const lidOpen = h.lidOpen ?? 1;
+  const up = smax(er0 - 0.0128, 0.003 * lidOpen - eyy + ex * ex * 8, 0.0012);
+  const lo = smax(er0 - 0.0124, eyy + 0.0046 * lidOpen + ex * ex * 6, 0.0012);
+  d = smin(d, Math.min(up, lo), 0.0035);
   if (h.gaunt) {
-    d += h.gaunt * 0.007 * Math.exp(-(((ax - 0.05) / 0.018) ** 2 + ((y - 0.0) / 0.022) ** 2 + ((z + 0.068) / 0.03) ** 2));
-    d += h.gaunt * 0.004 * Math.exp(-(((ax - 0.064) / 0.015) ** 2 + ((y - 0.075) / 0.02) ** 2 + ((z + 0.045) / 0.025) ** 2));
+    d += h.gaunt * 0.007 * Math.exp(-(((ax - 0.05) / 0.018) ** 2) - (((y - 0.0) / 0.022) ** 2) - (((z + 0.068) / 0.03) ** 2));
+    d += h.gaunt * 0.004 * Math.exp(-(((ax - 0.064) / 0.015) ** 2) - (((y - 0.075) / 0.02) ** 2) - (((z + 0.045) / 0.025) ** 2));
   }
-  if (h.swell) d -= h.swell * 0.008 * Math.exp(-(((x - 0.045) / 0.035) ** 2 + ((y - 0.0) / 0.04) ** 2 + ((z + 0.05) / 0.05) ** 2));
-  // ears
+  if (h.swell) d -= h.swell * 0.008 * Math.exp(-(((x - 0.045) / 0.035) ** 2) - ((y / 0.04) ** 2) - (((z + 0.05) / 0.05) ** 2));
+  // ears: thin flap with a hollow
   const er = h.ear;
-  d = smin(d, sdEll(ax, y, z, 0.0735, 0.046, 0.013, 0.0105 * er, 0.03 * er, 0.019 * er), 0.005);
-  d = smax(d, -sdEll(ax, y, z, 0.0835, 0.047, 0.011, 0.004, 0.017 * er, 0.01 * er), 0.003);
+  d = smin(d, sdEll(ax, y, z, 0.0725, 0.044, 0.019, 0.0078 * er, 0.029 * er, 0.0165 * er), 0.005);
+  d = smax(d, -sdEll(ax, y, z, 0.0795, 0.044, 0.019, 0.0035, 0.016 * er, 0.009 * er), 0.003);
   // neck
-  const nk = h.neck * (1 - f * 0.12);
-  d = smin(d, sdCap(x, y, z, 0, -0.012, 0.022, 0, -0.165, 0.032, 0.05 * nk), 0.03);
+  const nk = h.neck * (1 - f * 0.1);
+  d = smin(d, sdCap(x, y, z, 0, -0.012, 0.022, 0, -0.165, 0.03, 0.057 * nk), 0.03);
   return d;
 }
 
@@ -509,14 +523,14 @@ const TORSO_KEYS = [
   [0.21, 0.152, 0.105, 0.095, 2.5],
   [0.29, 0.162, 0.113, 0.1, 2.6],
   [0.35, 0.171, 0.116, 0.1, 2.6],
-  [0.385, 0.178, 0.107, 0.097, 2.5],
-  [0.415, 0.172, 0.09, 0.089, 2.4],
+  [0.385, 0.172, 0.107, 0.097, 2.5],
+  [0.415, 0.163, 0.09, 0.089, 2.4],
   [0.44, 0.15, 0.072, 0.078, 2.3],
   [0.462, 0.118, 0.062, 0.069, 2.2],
   [0.482, 0.088, 0.056, 0.062, 2.1],
-  [0.5, 0.066, 0.053, 0.057, 2.0],
-  [0.53, 0.057, 0.051, 0.053, 2.0],
-  [0.57, 0.054, 0.049, 0.051, 2.0],
+  [0.5, 0.07, 0.055, 0.059, 2.0],
+  [0.53, 0.061, 0.053, 0.056, 2.0],
+  [0.57, 0.057, 0.051, 0.054, 2.0],
   [0.6, 0.04, 0.036, 0.04, 2.0],
 ];
 const TORSO_H_HI = [-0.155, -0.145, -0.13, -0.115, -0.095, -0.075, -0.05, -0.025, 0, 0.03, 0.065, 0.1, 0.14, 0.18, 0.22, 0.26, 0.29, 0.32, 0.35, 0.37, 0.39, 0.405, 0.42, 0.435, 0.45, 0.465, 0.48, 0.495, 0.515, 0.54, 0.57, 0.6];
@@ -581,9 +595,9 @@ function torsoPoint(h, a, s, out, off = 0) {
 
 // Limb cross-section: radius keys per t, plus muscle bumps. Local a: 0 =
 // posterior (-Z), pi = anterior (+Z), +pi/2 = lateral (+X) for the right side.
-const UARM_KEYS = [[-0.16, 0.03, 0.03], [-0.1, 0.055, 0.052], [-0.03, 0.063, 0.058], [0.05, 0.064, 0.06], [0.15, 0.06, 0.058], [0.3, 0.052, 0.052], [0.45, 0.048, 0.05], [0.6, 0.046, 0.047], [0.75, 0.043, 0.043], [0.9, 0.04, 0.041], [1.0, 0.039, 0.04], [1.08, 0.033, 0.034], [1.12, 0.02, 0.02]];
+const UARM_KEYS = [[-0.16, 0.026, 0.026], [-0.1, 0.046, 0.045], [-0.03, 0.054, 0.052], [0.05, 0.057, 0.055], [0.15, 0.055, 0.054], [0.3, 0.05, 0.05], [0.45, 0.048, 0.05], [0.6, 0.046, 0.047], [0.75, 0.043, 0.043], [0.9, 0.04, 0.041], [1.0, 0.039, 0.04], [1.08, 0.033, 0.034], [1.12, 0.02, 0.02]];
 const FARM_KEYS = [[-0.12, 0.028, 0.03], [-0.06, 0.038, 0.04], [0.0, 0.042, 0.043], [0.1, 0.046, 0.044], [0.22, 0.045, 0.042], [0.38, 0.039, 0.037], [0.55, 0.033, 0.032], [0.72, 0.026, 0.029], [0.88, 0.021, 0.029], [1.0, 0.02, 0.03], [1.04, 0.018, 0.028]];
-const THIGH_KEYS = [[-0.2, 0.05, 0.05], [-0.13, 0.082, 0.082], [-0.06, 0.092, 0.09], [0.04, 0.093, 0.09], [0.16, 0.088, 0.086], [0.3, 0.082, 0.08], [0.45, 0.075, 0.074], [0.6, 0.068, 0.068], [0.74, 0.061, 0.062], [0.86, 0.056, 0.058], [0.95, 0.054, 0.056], [1.03, 0.051, 0.052], [1.1, 0.045, 0.046], [1.15, 0.035, 0.035]];
+const THIGH_KEYS = [[-0.2, 0.055, 0.055], [-0.13, 0.088, 0.088], [-0.06, 0.098, 0.095], [0.04, 0.097, 0.094], [0.16, 0.091, 0.089], [0.3, 0.082, 0.08], [0.45, 0.075, 0.074], [0.6, 0.068, 0.068], [0.74, 0.061, 0.062], [0.86, 0.056, 0.058], [0.95, 0.054, 0.056], [1.03, 0.051, 0.052], [1.1, 0.045, 0.046], [1.15, 0.035, 0.035]];
 const SHIN_KEYS = [[-0.1, 0.042, 0.045], [-0.04, 0.05, 0.052], [0.03, 0.05, 0.052], [0.12, 0.05, 0.054], [0.22, 0.05, 0.058], [0.32, 0.047, 0.056], [0.45, 0.042, 0.048], [0.6, 0.036, 0.04], [0.75, 0.031, 0.034], [0.88, 0.029, 0.031], [0.96, 0.031, 0.032], [1.02, 0.031, 0.033], [1.06, 0.028, 0.03]];
 
 function limbPoint(keys, t, a, kx, kz, bumpFn, out, off = 0) {
@@ -598,7 +612,7 @@ function limbPoint(keys, t, a, kx, kz, bumpFn, out, off = 0) {
 }
 const uarmBump = (bulk) => (t, a) => {
   const lat = gauss(a - Math.PI / 2, 0.9), ant = gauss(Math.abs(a) - Math.PI, 0.7), post = gauss(a, 0.8);
-  return bulk * (0.008 * gauss(t - 0.08, 0.14) * (lat + 0.5 * ant) + 0.007 * gauss(t - 0.55, 0.18) * ant + 0.005 * gauss(t - 0.4, 0.22) * post);
+  return bulk * (0.005 * gauss(t - 0.1, 0.14) * (lat + 0.5 * ant) + 0.007 * gauss(t - 0.55, 0.18) * ant + 0.005 * gauss(t - 0.4, 0.22) * post);
 };
 const farmBump = (bulk) => (t, a) => bulk * (0.006 * gauss(t - 0.15, 0.14) * gauss(a - 2.2, 0.8) + 0.004 * gauss(t - 0.2, 0.15) * gauss(a + 2.0, 0.8) + 0.003 * gauss(t + 0.02, 0.05) * gauss(a, 0.5));
 const thighBump = (bulk) => (t, a) => bulk * (0.008 * gauss(t - 0.35, 0.25) * gauss(Math.abs(a) - Math.PI, 0.9) + 0.006 * gauss(t - 0.1, 0.2) * gauss(a - Math.PI / 2, 0.8)) + 0.006 * gauss(t - 1.0, 0.06) * gauss(Math.abs(a) - Math.PI, 0.45);
@@ -890,7 +904,7 @@ function buildPieces(spec) {
     for (const sx of [-1, 1]) {
       const P = add(new Piece({ region: REG.EYE, bone: BONE.HEAD, name: 'eye' }));
       const ey = 0.056 + (spec.head?.eyeY || 0);
-      ellipsoid(P, [sx * 0.0318 + e[0], ey + e[1], -0.0842 + e[2]], [0.0122, 0.0122, 0.0122], 12, 10, RECT.eye);
+      ellipsoid(P, [sx * 0.0318 + e[0], ey + e[1], -0.0795 + e[2]], [0.0118, 0.0118, 0.0118], 14, 12, RECT.eye);
     }
   }
   // ---------------------------------------------------------- limbs (right side, mirrored)
@@ -1007,7 +1021,8 @@ function buildLayer(C, L) {
         ts, segs: C.segL, rect: L.rect || RECT[part], aOff: Math.PI / 2, tA, tB, keep: L.keep,
         fn: (t, a, out) => {
           const tt = Math.min(t, t1);
-          limbPoint(keys, tt, a, k, k, bumpF(part === 'shin' || part === 'thigh' ? 1 : bulk), out, (L.off ?? 0.01) + (L.bulge ? L.bulge(tt, a) : 0) - (t > t1 ? (L.off ?? 0.01) * 0.9 : 0));
+          const taper = part === 'uarm' && (L.t0 ?? -1) < -0.05 ? sstep(-0.17, -0.02, tt) : 1;
+          limbPoint(keys, tt, a, k, k, bumpF(part === 'shin' || part === 'thigh' ? 1 : bulk), out, ((L.off ?? 0.01) + (L.bulge ? L.bulge(tt, a) : 0)) * taper - (t > t1 ? (L.off ?? 0.01) * 0.9 : 0));
           out[1] = tt;
         },
       });

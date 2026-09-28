@@ -11,6 +11,7 @@ export default async ({ page, evalg, wait, shot }) => {
     const g = window.game;
     g.director.enabled = dirOn; g.cheats.god = true; if (!dirOn) g.cheats.godAll = true;
     window.session.menu?.clear?.();
+    window.__BotBrain = g.survivors.find((s) => s.brain)?.brain.constructor;
     if (!bots) for (const s of g.survivors) if (s !== g.player) s.brain = null;
     window.__w = { t: 0, lastProg: -1, stuckT: 0, useT: 0, log: [], done: false, phase: 'walk', waitT: 0, maxProg: 0 };
   }, [dirOn, bots]);
@@ -24,6 +25,11 @@ export default async ({ page, evalg, wait, shot }) => {
         W.t += 0.1;
         const prog = L.progressAt(p.pos.x, p.pos.y, p.pos.z);
         if (prog > W.maxProg) W.maxProg = prog;
+        const pn = g.director.panicState?.name || null;
+        if (pn !== W.lastPanic) { W.log.push(`t=${W.t.toFixed(0)} panic ${W.lastPanic || '-'} -> ${pn || '-'} (wave ${g.director.panicState?.wave ?? '-'}) commons ${g.infected.commons.filter((c) => !c.dead).length}`); W.lastPanic = pn; }
+        const tk = g.infected.specials.find((s) => s.kind === 'tank' && !s.dead);
+        if (tk && !W.tankSeen) { W.tankSeen = true; W.log.push(`t=${W.t.toFixed(0)} TANK spawned at ${fmt(tk.pos)} (player prog ${prog.toFixed(3)})`); }
+        if (W.tankSeen && !tk && !W.tankDead) { W.tankDead = true; W.log.push(`t=${W.t.toFixed(0)} tank dead`); }
         // crane: start it from the remote, then hold near the bay until the skip lands
         if (!ev.bridged && W.phase === 'walk' && p.pos.y > 11 && p.pos.z > 13 && p.pos.z < 19 && p.pos.x > 30 && p.pos.x < 46) {
           W.phase = 'crane'; p.teleport(ev.usable.pos.x, 12.02, ev.usable.pos.z - 0.9, 0); ev.usable.onUse(p); W.log.push(`t=${W.t.toFixed(0)} crane started (prog ${prog.toFixed(3)})`); W.craneT = W.t;
@@ -51,23 +57,19 @@ export default async ({ page, evalg, wait, shot }) => {
           W.crossLogged = true;
           W.log.push(`t=${W.t.toFixed(0)} CROSSED; panic=${g.director.panicState?.name || '-'} gates ${ev.gates.gN.k.toFixed(2)}/${ev.gates.gS.k.toFixed(2)} | ` + g.survivors.filter((s) => s !== p).map((s) => `${s.char.id}:${s.dead ? 'DEAD' : (s.pos.z > 26 ? 'across' : 'hotel') + '@' + fmt(s.pos)}`).join(' '));
         }
-        let cur = nav.nodeAt(p.pos.x, p.pos.y, p.pos.z);
-        if (cur < 0 || Math.abs(nav.nodeY[cur] - p.pos.y) > 0.8) cur = nav.nearestNode(p.pos.x, p.pos.y, p.pos.z, 2);
-        if (cur < 0) { W.log.push('OFF NAV at ' + fmt(p.pos)); W.done = true; break; }
-        let n = cur;
-        for (let k = 0; k < 5; k++) { const m = nav.descend(f, n); if (m < 0) break; n = m; if (Math.abs(nav.nodeY[m] - nav.nodeY[cur]) > 1.0) break; }
-        let dx = nav.nodeX(n) - p.pos.x, dz = nav.nodeZ(n) - p.pos.z;
-        if (Math.hypot(dx, dz) < 0.2) { dx = nav.nodeX(n) - nav.nodeX(cur); dz = nav.nodeZ(n) - nav.nodeZ(cur); }
-        p.yaw = Math.atan2(-dx, -dz); p.pitch = 0;
-        const door = L.doors.find((d) => !d.open && !d.broken && d.usable.enabled && Math.hypot(d.cx - p.pos.x, d.cz - p.pos.z) < 1.8 && Math.abs(d.cy - p.pos.y) < 2);
-        W.useT -= 0.1;
-        const use = door && W.useT <= 0;
-        if (use) { W.useT = 1; if (door.locked) W.log.push('LOCKED DOOR on path at ' + door.cx + ',' + door.cy + ',' + door.cz); else W.log.push(`t=${W.t.toFixed(0)} door ${door.cx.toFixed(1)},${door.cy.toFixed(1)},${door.cz.toFixed(1)}`); }
-        g.testCmd = { my: 1, usePressed: use, jump: W.stuckT > 0.8 && W.stuckT < 0.9 };
+        // drive the player with the game's own bot brain (A*, smoothing, doors, combat)
+        if (!W.bb) { const B = g.survivors.find((s) => s.brain)?.brain.constructor || window.__BotBrain; window.__BotBrain = B; W.bb = new B(g, p, 3); }
+        const openBefore = L.doors.filter((d) => d.open).length;
+        W.bb.update(0.1);
+        const c = p.cmd;
+        g.testCmd = { mx: c.mx, my: c.my, sprint: c.sprint, jump: c.jump || (W.stuckT > 1.5 && W.stuckT < 1.6), fire: c.fire, firePressed: c.firePressed, shove: c.shove, shoveHeld: c.shoveHeld, reload: c.reload, slot: c.slot, use: c.use, usePressed: c.usePressed, crouch: c.crouch };
+        const door = null;
         g.advance(0.1);
+        const openAfter = L.doors.filter((d) => d.open).length;
+        if (openAfter > openBefore) W.log.push(`t=${W.t.toFixed(0)} opened a door near ${fmt(p.pos)}`);
         const pr = L.progressAt(p.pos.x, p.pos.y, p.pos.z);
         if (pr > W.lastProg + 0.002) { W.lastProg = pr; W.stuckT = 0; } else W.stuckT += 0.1;
-        if (W.stuckT > 10) { W.log.push(`STUCK at ${fmt(p.pos)} prog ${pr.toFixed(3)} door=${door ? door.cx + ',' + door.cz : '-'}`); W.done = true; }
+        if (W.stuckT > 20) { W.log.push(`STUCK at ${fmt(p.pos)} prog ${pr.toFixed(3)} goal=${W.bb.pathGoal ? fmt(W.bb.pathGoal) : '-'} mode=${W.bb.mode}`); W.done = true; }
         if (p.dead) { W.log.push('PLAYER DIED at ' + fmt(p.pos)); W.done = true; }
         if (Math.floor(W.t * 10) % 300 === 0) {
           const bs = g.survivors.filter((s) => s !== p).map((s) => `${s.char.id}:${s.dead ? 'DEAD' : s.pos.distanceTo(p.pos).toFixed(0) + 'm' + (s.incapped ? '!' : '')}`).join(' ');

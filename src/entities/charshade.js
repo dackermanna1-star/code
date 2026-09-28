@@ -39,6 +39,7 @@ export function characterMaterial(tex, o = {}) {
     roughness: 1, metalness: 0, side: o.side ?? THREE.FrontSide,
   });
   m.normalScale.set(o.normalScale ?? 1, o.normalScale ?? 1);
+  if (o.alphaTest) m.alphaTest = o.alphaTest;
   if (o.emissiveMap) { m.emissiveMap = o.emissiveMap; m.emissive = new THREE.Color(o.emissive ?? 0xffffff); m.emissiveIntensity = o.emissiveIntensity ?? 1; }
   m.onBeforeCompile = (sh) => {
     patchLighting(sh);

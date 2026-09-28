@@ -33,10 +33,10 @@ const DEFS = {
   brickDark: { tex: ['brick', { paint: true, seed: 41 }], paint: 0x4e2a22, scale: 2.2, surf: 'brick', fx: 'brick' },
   brickTan: { tex: ['brick', { color: 0x9a7a58, mortarColor: 0x7a746a, seed: 44, soot: 0.5, efflo: 0.3 }], scale: 2.2, surf: 'brick', fx: 'brick' },
   tileWhite: { tex: ['tiles', { cols: 10, rows: 20, color: 0xdcdad0, offset: 0.5, grout: 0.004, gloss: 0.12 }], scale: 2, surf: 'tile', fx: 'tile' },
-  tileSubway: { tex: ['tiles', { cols: 13, rows: 26, color: 0xcfd2c8, offset: 0.5, grout: 0.0045, gloss: 0.12, stain: 0.6, groutColor: 0x5a5850 }], scale: 2, surf: 'tile', fx: 'tile' },
+  tileSubway: { tex: ['tiles', { cols: 13, rows: 26, color: 0xcfd2c8, offset: 0.5, grout: 0.0045, gloss: 0.12, stain: 0.6, groutColor: 0x6a675e }], scale: 2, surf: 'tile', fx: 'tile' },
   tileGreen: { tex: ['tiles', { cols: 13, rows: 26, color: 0x6e8a74, offset: 0.5, grout: 0.0045, gloss: 0.12, stain: 0.5, seed: 52 }], scale: 2, surf: 'tile', fx: 'tile' },
   tileChecker: { tex: ['tiles', { cols: 8, rows: 8, color: 0xd6d2c6, color2: 0x2a2a2c, checker: true, grout: 0.003, gloss: 0.3, seed: 53 }], scale: 2.4, surf: 'tile', fx: 'floor' },
-  tileFloor: { tex: ['tiles', { cols: 6, rows: 6, color: 0x9a968a, grout: 0.005, gloss: 0.35, seed: 54 }], scale: 2.4, surf: 'tile', fx: 'floor' },
+  tileFloor: { tex: ['tiles', { cols: 6, rows: 6, color: 0x9a968a, grout: 0.005, gloss: 0.35, seed: 54, groutColor: 0x7a766c, film: 0.9 }], scale: 2.4, surf: 'tile', fx: 'floor' },
   woodFloor: { tex: ['woodfloor', { paint: true, seed: 61 }], paint: 0x6b4a2e, scale: 3, surf: 'wood', fx: 'floor' },
   woodFloorDark: { tex: ['woodfloor', { paint: true, seed: 61 }], paint: 0x4a3020, scale: 3, surf: 'wood', fx: 'floor' },
   wood: { tex: ['wood', { paint: true, seed: 71 }], paint: 0x8a6a44, scale: 1.2, surf: 'wood', fx: 'prop' },
@@ -75,13 +75,13 @@ const DEFS = {
 // detail = micro-detail strength, rough = macro roughness variation,
 // wet = world-space puddles on up-facing faces, ds = detail repeats per tile.
 const FX = {
-  concrete: { amt: 0.32, hue: 0.05, detail: 0.55, rough: 0.35, wet: 0, ds: 9.3 },
+  concrete: { amt: 0.32, hue: 0.05, detail: 0.55, rough: 0.35, wet: 0, ds: 9.3, st: 0.28 },
   floor: { amt: 0.26, hue: 0.04, detail: 0.45, rough: 0.45, wet: 0, ds: 9.3 },
-  wall: { amt: 0.22, hue: 0.04, detail: 0.35, rough: 0.25, wet: 0, ds: 7.1 },
-  brick: { amt: 0.34, hue: 0.07, detail: 0.5, rough: 0.2, wet: 0, ds: 5.3 },
+  wall: { amt: 0.22, hue: 0.04, detail: 0.35, rough: 0.25, wet: 0, ds: 7.1, st: 0.1 },
+  brick: { amt: 0.34, hue: 0.07, detail: 0.5, rough: 0.2, wet: 0, ds: 5.3, st: 0.3 },
   tile: { amt: 0.16, hue: 0.03, detail: 0.25, rough: 0.5, wet: 0, ds: 7.7 },
   ground: { amt: 0.36, hue: 0.05, detail: 0.6, rough: 0.35, wet: 1, ds: 11.3 },
-  metal: { amt: 0.25, hue: 0.05, detail: 0.35, rough: 0.35, wet: 0, ds: 5.7 },
+  metal: { amt: 0.25, hue: 0.05, detail: 0.35, rough: 0.35, wet: 0, ds: 5.7, st: 0.15 },
   ceiling: { amt: 0.22, hue: 0.04, detail: 0.25, rough: 0.1, wet: 0, ds: 7.1 },
   prop: { amt: 0.14, hue: 0.03, detail: 0.3, rough: 0.2, wet: 0, ds: 3.9 },
 };
@@ -103,7 +103,7 @@ const MACRO_FRAG_PARS = /* glsl */`
 varying vec3 vMacroPos;
 varying vec3 vMacroNrm;
 uniform vec4 uMacro;   // amt, hue, detail, roughVar
-uniform vec4 uMacro2;  // wet, detail scale, -, -
+uniform vec4 uMacro2;  // wet, detail scale, wall streaks, -
 uniform vec3 uPaint;
 uniform sampler2D tDetail;
 float mHash( vec2 p ) { p = fract( p * vec2( 123.34, 456.21 ) ); p += dot( p, p + 45.32 ); return fract( p.x * p.y ); }
@@ -118,13 +118,24 @@ const MACRO_FRAG_MAP = /* glsl */`
 	vec2 mQ = mAN.y > 0.5 ? vMacroPos.xz : ( mAN.x > mAN.z ? vMacroPos.zy : vMacroPos.xy );
 	float mLo = mNoise( mQ * 0.21 + 3.1 ) * 0.5 + mNoise( mQ * 0.63 + 7.7 ) * 0.25 + mNoise( mQ * 0.071 + 1.3 ) * 0.25;
 	float mHue = ( mNoise( mQ * 0.13 + 11.0 ) - 0.5 ) * 2.0 * uMacro.y;
-	vec4 mDet = texture2D( tDetail, vMapUv * uMacro2.y );
+	#ifdef USE_MAP
+		vec4 mDet = texture2D( tDetail, vMapUv * uMacro2.y );
+	#else
+		vec4 mDet = vec4( 0.5 );
+	#endif
 	#ifdef USE_MAP
 		diffuseColor.rgb *= mix( vec3( 1.0 ), uPaint, sampledDiffuseColor.a );
 		diffuseColor.a = opacity;
 	#endif
 	diffuseColor.rgb *= ( 1.0 - uMacro.x + uMacro.x * 1.55 * mLo ) * ( 1.0 + ( mDet.b - 0.5 ) * uMacro.z * 0.5 );
 	diffuseColor.rgb *= vec3( 1.0 + mHue, 1.0 + mHue * 0.25, 1.0 - mHue );
+	if ( uMacro2.z > 0.0 && mAN.y < 0.3 ) {
+		// world-space rain / grime streaks running down walls
+		float mH = mAN.x > mAN.z ? vMacroPos.z : vMacroPos.x;
+		float mSt = mNoise( vec2( mH * 7.0, vMacroPos.y * 0.3 ) ) * 0.7 + mNoise( vec2( mH * 23.0, vMacroPos.y * 0.9 ) ) * 0.3;
+		mSt = smoothstep( 0.55, 0.9, mSt ) * smoothstep( 0.35, 0.7, mNoise( vec2( mH * 0.5, vMacroPos.y * 0.12 ) + 3.0 ) );
+		diffuseColor.rgb *= 1.0 - mSt * uMacro2.z;
+	}
 	float mWet = 0.0, mDamp = 0.0;
 	if ( uMacro2.x > 0.0 && vMacroNrm.y > 0.7 ) {
 		float pn = mNoise( vMacroPos.xz * 0.17 + 5.0 ) * 0.6 + mNoise( vMacroPos.xz * 0.55 + 9.0 ) * 0.3 + mNoise( vMacroPos.xz * 2.1 ) * 0.1;
@@ -135,14 +146,25 @@ const MACRO_FRAG_MAP = /* glsl */`
 `;
 const MACRO_FRAG_ROUGH = /* glsl */`
 	roughnessFactor = clamp( roughnessFactor * ( 1.0 + ( mLo - 0.5 ) * uMacro.w ) + ( mDet.a - 0.5 ) * 0.14 * uMacro.z, 0.04, 1.0 );
-	roughnessFactor = mix( roughnessFactor, roughnessFactor * 0.55, mDamp );
+	roughnessFactor = mix( roughnessFactor, roughnessFactor * 0.7, mDamp );
 	roughnessFactor = mix( roughnessFactor, 0.035, mWet );
 `;
 const MACRO_FRAG_NORMAL = /* glsl */`
 	mapN.xy *= normalScale;
 	mapN.xy += ( mDet.rg - 0.5 ) * uMacro.z * 0.35;
-	mapN.xy *= 1.0 - mWet;
+	mapN.xy *= 1.0 - mWet - mDamp * 0.35;
 `;
+// Screen-space specular anti-aliasing: widen roughness where the shading
+// normal varies within a pixel (kills sparkle on bumpy, glossy surfaces).
+const MACRO_FRAG_SAA = /* glsl */`
+	{
+		vec3 mNdx = dFdx( normal ), mNdy = dFdy( normal );
+		float mVar = 0.25 * ( dot( mNdx, mNdx ) + dot( mNdy, mNdy ) );
+		float mKr = min( 2.0 * mVar, 0.25 );
+		roughnessFactor = sqrt( clamp( roughnessFactor * roughnessFactor + mKr, 0.0, 1.0 ) );
+	}
+`;
+const NORMAL_MAPS_CHUNK = THREE.ShaderChunk.normal_fragment_maps.replace('mapN.xy *= normalScale;', MACRO_FRAG_NORMAL);
 function macroCompile(shader) {
   const u = this.userData.macro;
   shader.uniforms.uMacro = { value: u.v1 };
@@ -156,7 +178,7 @@ function macroCompile(shader) {
     .replace('#include <common>', '#include <common>\n' + MACRO_FRAG_PARS)
     .replace('#include <map_fragment>', '#include <map_fragment>\n' + MACRO_FRAG_MAP)
     .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n' + MACRO_FRAG_ROUGH)
-    .replace('mapN.xy *= normalScale;', MACRO_FRAG_NORMAL);
+    .replace('#include <normal_fragment_maps>', NORMAL_MAPS_CHUNK + MACRO_FRAG_SAA);
 }
 function macroKey() { return MACRO_KEY; }
 function installMacro(m, d, gain = 1) {
@@ -165,7 +187,7 @@ function installMacro(m, d, gain = 1) {
   if (d.paint != null) paint.set(d.paint).multiplyScalar(gain); // THREE.Color stores linear values
   m.userData.macro = {
     v1: new THREE.Vector4(fx.amt, fx.hue, fx.detail, fx.rough),
-    v2: new THREE.Vector4(fx.wet, fx.ds, 0, 0),
+    v2: new THREE.Vector4(fx.wet, fx.ds, fx.st ?? 0, 0),
     paint,
   };
   m.onBeforeCompile = macroCompile;

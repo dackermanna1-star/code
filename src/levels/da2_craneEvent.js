@@ -102,8 +102,10 @@ function site(L, game) {
   // tarp-covered pile
   const tp = P.prop(L, 50.4, y, 31.2, 0.2); tp.box(0, 0.6, 0, 3.0, 1.2, 2.2, 'fabricBlue', 0x2a4a8a).col(0, 0.6, 0, 3.0, 1.2, 2.2, 'fabric');
   // lights
-  workLight(L, 17.0, y, 26.4, Math.PI, { intensity: 12, range: 14, flicker: 0.05 });
-  workLight(L, 54.2, y, 53.8, 0.8, { intensity: 14, range: 15 });
+  P.floodLight(L, 45.2, y, 29.6, 0.95, { h: 4.2, intensity: 34, range: 24 });
+  P.floodLight(L, 16.6, y, 50.5, -2.3, { h: 4.0, intensity: 28, range: 22, flicker: 0.04 });
+  P.cementMixer(L, 40.6, y, 52.2, 0.6);
+  P.rebarBundle(L, 20.4, y, 38.4, 1.3, 4, 16);
   workLight(L, 26.4, y, 54.4, 0.0, { intensity: 12, range: 13, flicker: 0.2 });
   sign(L, 'HARD HAT AREA', 17.2, y + 1.6, 55.72, 0, 1.3, 0.35, { bg: '#1a6a2a', fg: '#fff' });
   sign(L, 'NO UNAUTHORIZED ACCESS\nMERIDIAN PHASE II', 14.3, y + 1.4, 40, Math.PI / 2, 1.8, 0.45, { bg: '#e8e0c8', fg: '#1a2a3a' });

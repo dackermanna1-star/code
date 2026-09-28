@@ -12,7 +12,7 @@ import { F_SOLID, F_SHOOT, F_DEFAULT } from '../world/collision.js';
 import { DF } from '../render/decals.js';
 import { bus, ambulance, jersey, razorWire, tent } from './ch3_props.js';
 import { shelving } from './ch2_parts.js';
-import { rng, RollupDoor, cardboard, rotXZ, VisualBatch, cityBlock } from './da2_parts.js';
+import { rng, RollupDoor, cardboard, rotXZ } from './da2_parts.js';
 import { OT, STREET, SS } from './da2_layout.js';
 
 const NC = { collide: false };

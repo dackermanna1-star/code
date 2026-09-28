@@ -9,7 +9,7 @@ import { materials } from '../render/materials.js';
 import { cloneModel } from '../combat/weaponModels.js';
 import * as P from './props.js';
 import { makeRng } from '../core/math.js';
-import { signCanvas, graffitiCanvas, posterCanvas, posterWallCanvas, wallMessagesCanvas, autoGraffitiStyle, artScope, artTexture, artMaterial, hashStr, rngOf } from '../render/wallart.js';
+import { signCanvas, graffitiCanvas, posterCanvas, posterWallCanvas, wallMessagesCanvas, autoGraffitiStyle, artScope, artTexture, artMaterial, hashStr, rngOf, isPaperColor } from '../render/wallart.js';
 
 export { P };
 const rng = makeRng(777);
@@ -252,7 +252,7 @@ export function facade(L, x0, z0, x1, z1, y0, y1, o = {}) {
 // per-level texture + material caches). See LEVEL_GUIDE.md "Wall art".
 export function textTexture(text, o = {}) {
   const key = 'sign:' + text + JSON.stringify(o);
-  if (o.spray) return artTexture(key, () => graffitiCanvas(text, { w: (o.w ?? 512) / 256, h: (o.h ?? 200) / 256, color: o.fg, style: o.style ?? 'scrawl' }));
+  if (o.spray) return artTexture(key, () => graffitiCanvas(text, { w: (o.w ?? 512) / 256, h: (o.h ?? 200) / 256, color: o.fg, style: o.style, dripSpace: 0.1 }));
   return artTexture(key, () => signCanvas(text, o));
 }
 // Place a textured quad. (x,y,z) centre; ry rotation (0 faces -Z... i.e. readable from -Z side).
@@ -286,10 +286,13 @@ export function sign(L, text, x, y, z, ry, w, h, o = {}) {
     const W = a >= 4 ? 1024 : 512;
     o = a >= 1 ? { ...o, w: W, h: Math.max(48, Math.min(512, Math.round(W / a))) } : { ...o, w: Math.max(48, Math.round(512 * a)), h: 512 };
   }
+  if (o.paper == null && !o.spray && !o.glow && isPaperColor(o.bg) && w * h >= 0.25 && w * h <= 2.2 && h >= 0.3) o = { ...o, paper: true };
   const key = 'sign:' + text + JSON.stringify(o);
   let mat;
   if (o.spray) {
     mat = artMaterial(key, textTexture(text, o), 'decal');
+  } else if (o.paper) {
+    mat = artMaterial(key, textTexture(text, o), 'paper', { roughness: 0.85 });
   } else {
     const tex = textTexture(text, o);
     mat = artMaterial(key, tex, 'sign', { transparent: !o.bg, glow: o.glow, roughness: o.bg ? 0.5 : 0.62, metalness: o.bg && !o.glow ? 0.15 : 0 });
@@ -395,6 +398,11 @@ export function safeRoom(L, o) {
   }
   const sr = rngOf(hashStr(`${o.x0},${o.z0},${o.x1},${o.z1},${y}`));
   for (let i = slots.length - 1; i > 0; i--) { const j = Math.floor(sr() * (i + 1)); [slots[i], slots[j]] = [slots[j], slots[i]]; }
+  // spread over the walls: round-robin, one slot per wall at a time
+  const byWall = {};
+  for (const sl of slots) (byWall[sl.k] || (byWall[sl.k] = [])).push(sl);
+  slots.length = 0;
+  for (let more = true; more;) { more = false; for (const k in byWall) { const sl = byWall[k].shift(); if (sl) { slots.push(sl); more = true; } } }
   const nPanels = Math.min(slots.length, Math.max(3, Math.min(5, msgs.length + 1)));
   const ph = Math.min(1.25, h - 1.45);
   const place = (sl, fn) => {

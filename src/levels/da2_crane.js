@@ -23,7 +23,8 @@ import { buildHotel } from './da2_hotel.js';
 import { buildCraneEvent } from './da2_craneEvent.js';
 import { buildTower } from './da2_tower.js';
 import { buildStreetAndStorage } from './da2_street.js';
-import { VisualBatch, cityBlock } from './da2_parts.js';
+import { VisualBatch } from './da_parts.js';
+import { cityBlock } from './da2_parts.js';
 import { installCuller } from './ch4_parts.js';
 import { HG, H3, HR, LR, OL1, OL2, OT, STREET } from './da2_layout.js';
 

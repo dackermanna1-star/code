@@ -838,3 +838,11 @@ export function plankBridge(L, x0, x1, zc, y, o = {}) {
 }
 
 // Wall clock / small decal helpers could go here; keep additions below.
+
+// ------------------------------------------------ added for chapter 2 (The Crane) --
+// RollupDoor: storage-unit roll-up door that is a full Door (nav blocking, bots,
+// infected bashing, safe-room door: L.endDoor = new RollupDoor(L, x, y, z, 'x',
+// {width, height, safe:true, label:'SAFE ROOM', open:true})). Chapter 3 starts
+// behind one (Stor-Safe unit C-17). neonLetters: per-letter neon sign with
+// flickering / dead letters, sparks and a glow light.
+export { RollupDoor, neonLetters } from './da2_parts.js';

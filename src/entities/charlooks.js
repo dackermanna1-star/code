@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { buildBody, headGrid, sampleHead, RECT, REG, BONE, TORSO_LEN, torsoPoint, headDir } from './partgeo.js';
 import {
   Atlas, noise, lin, mix3, mul3, fabric, denim, leather, skin, paintHead, paintEye, applyDirt, applyBlood,
-  rectMask, partCoords, adiff, sstep, rng,
+  rectMask, partCoords, adiff, sstep, rng, scalpMask, beardMask,
 } from './charpaint.js';
 import { characterMaterial } from './charshade.js';
 
@@ -20,40 +20,10 @@ let TEX_SIZE = 1024;
 export function setCharacterDetail(size) { TEX_SIZE = size; }
 
 // ================================================================ masks ==
-// Scalp coverage in head space (p = head-local surface point).
-function scalpLine(p, o = {}) {
-  const x = p[0], z = p[2], ax = Math.abs(x);
-  const back = sstep(0.0, 0.065, z);
-  const side = sstep(0.04, 0.068, ax);
-  let line = lerp(o.front ?? 0.098, o.temple ?? 0.078, side * (1 - back));
-  if (o.part) line -= o.part * sstep(0.02, -0.03, x) * (1 - back) * sstep(-0.02, -0.08, z) * 0.01;
-  line = lerp(line, o.nape ?? -0.025, back);
-  // around the ears
-  const ear = sstep(0.058, 0.07, ax) * sstep(-0.03, -0.01, z) * sstep(0.055, 0.035, z);
-  line = lerp(line, Math.max(line, 0.094), ear);
-  return line;
-}
-function scalpMask(p, o) { const l = scalpLine(p, o); return sstep(l - 0.004, l + 0.006, p[1]); }
-function beardMask(p, o = {}) {
-  const x = p[0], y = p[1], z = p[2], ax = Math.abs(x);
-  if (z > 0.035) return 0;
-  const width = o.width ?? 1;
-  let m = sstep(0.036, 0.02, y + (ax > 0.05 ? (ax - 0.05) * 0.8 : 0)) * sstep(-0.118, -0.09, y + (z > -0.02 ? 0.03 : 0));
-  m *= sstep(0.03, 0.0, z); // front half
-  if (o.goatee) m *= sstep(0.032 * width, 0.024 * width, ax);
-  // sideburns up to the scalp
-  const sb = sstep(0.058, 0.068, ax) * sstep(-0.02, 0.0, z) * sstep(0.035, 0.018, z) * sstep(0.02, 0.04, y) * sstep(0.1, 0.08, y);
-  if (!o.goatee) m = Math.max(m, sb * (o.sideburns ?? 1));
-  // lips cut out, mustache kept
-  const lip = sstep(0.024, 0.019, ax) * sstep(-0.036, -0.03, y) * sstep(-0.004, -0.01, y) * (z < -0.08 ? 1 : 0);
-  m *= 1 - lip;
-  const must = sstep(0.034, 0.026, ax) * sstep(-0.008, -0.004, y) * sstep(0.008, 0.002, y) * (z < -0.08 ? 1 : 0);
-  if (o.mustache !== false) m = Math.max(m, must);
-  return clamp(m, 0, 1);
-}
 // Hair strands luminance along the flow direction
 function strands(N, u, v, k = 1) {
-  return 0.55 + 0.45 * (N.fine.at(u * 26 * k, v * 3) * 0.6 + N.fine.at(u * 55 * k, v * 5 + 0.3) * 0.4);
+  const a = Math.round(26 * k), b = Math.round(55 * k);
+  return 0.55 + 0.45 * (N.fine.at(u * a, v * 3) * 0.6 + N.fine.at(u * b, v * 5 + 0.3) * 0.4);
 }
 
 // =========================================================== painters ==
@@ -63,8 +33,8 @@ const ant = (a) => Math.abs(adiff(a, Math.PI)); // 0 at the anterior side
 const post = (a) => Math.abs(adiff(a, 0));
 
 function foldField(N, su, sv, k = 1) {
-  const f1 = N.ridge.at(su * 1.1, sv * 2.1), f2 = N.fbm.at(su * 1.6, sv * 1.2);
-  return (Math.max(0, (f1 - 0.55) * 1.6) * 0.55 + (f2 - 0.5) * 0.25) * k;
+  const f1 = N.ridge.at(su * 0.6, sv * 1.1), f2 = N.fbm.at(su * 0.9, sv * 0.8);
+  return (Math.max(0, (f1 - 0.68) * 2.2) * 0.35 + (f2 - 0.5) * 0.3) * k;
 }
 function torsoFolds(N, c) {
   const h = c.hh, aa = c.aa;
@@ -305,11 +275,26 @@ function paintHeadHair(B, grid, o) {
     const sm = o.scalp ? scalpMask(p, o.scalp) : 0;
     const bm = o.beard ? beardMask(p, o.beard) : 0;
     let col = [0.05, 0.04, 0.03];
+    // coverage (alpha-tested): strand-noisy edges instead of mesh steps
+    const edgeN = N.fine.at(c.u * 60, c.v * 14) * 0.6 + N.fine.at(c.u * 140, c.v * 30) * 0.4; // integer u multipliers: seamless
+    const covOf = (m) => clamp(m + (edgeN - 0.5) * 0.9 * (1 - Math.abs(2 * m - 1)), 0, 1);
+    if (o.hat && p[1] > o.hat.line(p) - 0.003) {
+      c.alpha = 1;
+      const f = N.fine.at(c.u * 20, c.v * 10), l = o.hat.line(p);
+      if (p[1] < l + 0.011) { c.col = mul3(o.hat.band, 0.85 + f * 0.2); c.rough = 0.55; c.h = -sstep(0.002, 0, Math.abs(p[1] - l - 0.011)) * 0.2; }
+      else {
+        c.col = mul3(o.hat.color, 0.82 + f * 0.3); c.rough = 0.95; c.h = f * 0.15;
+        if (o.hat.flash) { const d = Math.hypot(p[0] + 0.03, p[1] - l - 0.03); if (d < 0.017 && p[2] < -0.04) { c.col = d < 0.011 ? [0.5, 0.42, 0.18] : [0.06, 0.08, 0.05]; c.rough = d < 0.011 ? 0.35 : 0.8; c.h = 0.3; } }
+      }
+      c.ao = 0.6 + 0.4 * ao; c.skin = 0;
+      return;
+    }
+    c.alpha = covOf(Math.max(sm, bm));
     if (bm > sm && o.beard) {
-      const curl = N.fine.at(c.u * 40, c.v * 22) * 0.6 + N.fine.at(c.u * 90, c.v * 45) * 0.4;
+      const curl = N.fine.at(c.u * 24, c.v * 9) * 0.55 + N.fine.at(c.u * 60, c.v * 20) * 0.25 + N.blot.at(c.u * 6, c.v * 4) * 0.2;
       const bc = o.beard.color;
-      col = mul3(mix3(bc, o.beard.color2 || bc, N.blot.at(c.u * 4, c.v * 3)), 0.6 + curl * 0.6);
-      c.h = curl * 0.5;
+      col = mul3(mix3(bc, o.beard.color2 || bc, sstep(0.35, 0.75, N.blot.at(c.u * 5, c.v * 3))), 0.72 + curl * 0.4);
+      c.h = curl * 0.25;
       c.rough = 0.75;
     } else {
       const st = strands(N, c.u, c.v, o.scalp?.fine ?? 1);
@@ -337,26 +322,26 @@ SURV.bill = {
     hand: { curl: 0.52 }, foot: { boot: true, width: 1.03 },
     layers: [
       { kind: 'torso', mat: 1, off: 0.017, h0: -0.2, h1: 0.49, offFn: billPockets },
-      { kind: 'sleeve', part: 'uarm', mat: 1, off: 0.016, bulge: (t, a) => 0.004 * gauss(t - 0.25, 0.1) * gauss(lat(a), 0.5) },
-      { kind: 'sleeve', part: 'farm', mat: 1, off: 0.014, t1: 0.93, hem: true, bulge: (t) => 0.004 * sstep(0.8, 0.9, t) },
+      { kind: 'sleeve', part: 'uarm', mat: 1, off: 0.012, bulge: (t, a) => 0.003 * gauss(t - 0.3, 0.1) * gauss(lat(a), 0.5) },
+      { kind: 'sleeve', part: 'farm', mat: 1, off: 0.012, t1: 0.93, hem: true, bulge: (t) => 0.004 * sstep(0.8, 0.9, t) },
       { kind: 'collar', mat: 1, h: 0.475, height: 0.055, off: 0.021, open: 0.16, flare: 0.01, roll: 0.004 },
       { kind: 'leg', part: 'shin', mat: 0, off: 0.013, t0: 0.66, rect: RECT.boot },
       { kind: 'leg', part: 'thigh', mat: 0, off: 0.008, t0: 0.28, t1: 0.66, keep: (t, a) => lat(a) < 0.62 },
       { kind: 'hair', mat: 1, thick: (p) => { const m = scalpMask(p, BILL_SCALP); return m > 0.02 ? 0.0035 * m : -1; } },
-      { kind: 'hair', mat: 1, thick: (p) => { const m = beardMask(p, BILL_BEARD); return m > 0.02 ? m * (0.004 + 0.009 * sstep(0.0, -0.08, p[1])) : -1; } },
-      { custom: beret },
+      { kind: 'hair', mat: 1, thick: (p) => { const m = beardMask(p, BILL_BEARD); return m > 0.01 ? 0.0012 + m * (0.003 + 0.008 * sstep(0.0, -0.07, p[1])) : -1; } },
+      { kind: 'hair', mat: 1, thick: beretThick, warp: beretWarp, minOff: 0.003 },
       { custom: cigarette },
     ],
   }),
   paintA(A, grid) {
     const tone = lin(0xc09070);
-    paintHead(A, RECT.head, grid, { skin: tone, lips: lin(0x9a6a5a), brow: lin(0x9a948a), browThick: 1.4, stubble: 0.6, stubbleCol: lin(0x8a867e), wrinkles: 1, redness: 1.35, hair: lin(0x9a968e), hairline: 0.094, dirt: 0.25, scar: true });
+    paintHead(A, RECT.head, grid, { skin: tone, lips: lin(0x9a6a5a), brow: lin(0x9a948a), browThick: 1.4, stubble: 0.6, stubbleCol: lin(0x8a867e), wrinkles: 1, redness: 1.35, hair: lin(0x9a968e), scalp: BILL_SCALP, beardShape: BILL_BEARD, dirt: 0.25, scar: true });
     paintEye(A, RECT.eye, { iris: lin(0x5a7080), bloodshot: 0.4 });
     const N = noise();
     const olive = lin(0x5a5c3c), cargo = lin(0x6a6048);
     A.region(RECT.torso, (c) => {
       T(c);
-      if (c.hh > 0.05) { topTorso(N, c, { color: olive, neck: 'crew' }); applyDirt(c, 0.3, c.u * 3, c.v * 2); }
+      if (c.hh > 0.05) { const nk = topTorso(N, c, { color: olive, neck: 'crew' }); if (c.hh > nk) skin(c, tone, { su: c.u * 3, sv: c.v * 2, red: 0.1 }); applyDirt(c, 0.3, c.u * 3, c.v * 2); }
       else trouserTorso(N, c, { kind: 'cargo', color: cargo });
     });
     A.region(RECT.uarm, (c) => { partCoords('uarm', c); if (c.t < 0.35) fabric(c, olive, { su: c.u, sv: c.t, folds: limbFolds(N, c, 'uarm') }); else armSkin(c, { tone, hair: 0.5 }, 'uarm'); });
@@ -421,22 +406,16 @@ SURV.bill = {
     });
     sleeve('uarm'); sleeve('farm');
     B.region(RECT.collar, (c) => { fabric(c, mul3(jacket, 0.95), { su: c.u * 3, sv: c.v, folds: 0.1 }); c.col = mul3(c.col, 1 - sstep(0.1, 0.0, c.v) * 0.3); });
-    paintHeadHair(B, grid, { scalp: Object.assign({ color: lin(0xb8b4aa), color2: lin(0x8a867e), fine: 1.5 }, BILL_SCALP), beard: Object.assign({ color: lin(0xc8c4ba), color2: lin(0x9a968c) }, BILL_BEARD) });
-    // beret: felt + leather band + flash
-    B.region(RECT.hat, (c) => {
-      const f = N.fine.at(c.u * 8, c.v * 8);
-      c.col = mul3(lin(0x2c3a22), 0.85 + f * 0.25);
-      c.h = f * 0.2; c.rough = 0.95;
-      if (c.v < 0.14) { c.col = mul3([0.03, 0.025, 0.02], 1 + f * 0.3); c.rough = 0.5; }
-      const fl = Math.hypot((c.u - 0.42) * 2.2, (c.v - 0.45) * 1.6);
-      if (fl < 0.12 && c.v > 0.14) { c.col = fl < 0.07 ? [0.55, 0.45, 0.2] : [0.08, 0.1, 0.06]; c.rough = fl < 0.07 ? 0.35 : 0.8; c.h = 0.3; }
+    paintHeadHair(B, grid, {
+      scalp: Object.assign({ color: lin(0xb8b4aa), color2: lin(0x8a867e), fine: 1.5 }, BILL_SCALP), beard: Object.assign({ color: lin(0xc8c4ba), color2: lin(0x9a968c) }, BILL_BEARD),
+      hat: { line: beretLine, color: lin(0x2e3c24), band: lin(0x1a1410), flash: true },
     });
     // cigarette: filter, paper, ember
     B.region(RECT.extra0, (c) => { const v = c.v; c.col = v < 0.3 ? [0.55, 0.38, 0.2] : v > 0.93 ? [0.12, 0.1, 0.09] : [0.82, 0.8, 0.76]; c.rough = 0.8; c.skin = 0; });
   },
   emissive: (E) => { E.region(RECT.extra0, (c) => { c.col = c.v > 0.95 ? [1.0, 0.35, 0.05] : [0, 0, 0]; }); },
 };
-const BILL_SCALP = { front: 0.075, temple: 0.07, nape: -0.02 };
+const BILL_SCALP = { front: 0.14, temple: 0.12, side: 0.08, nape: -0.025 };
 const BILL_BEARD = { sideburns: 1 };
 function billPockets(h, a) {
   const sx = a * 0.15;
@@ -447,31 +426,20 @@ function billPockets(h, a) {
   }
   return o + 0.003 * gauss(h - 0.08, 0.01);
 }
-// Beret: felt disc tilted to the right, leather headband
-function beret(C) {
-  const P = C.add(new C.Piece({ region: REG.HAIR, bone: BONE.HEAD, mat: 1, name: 'beret' }));
-  const rect = RECT.hat;
-  C.ellipsoid(P, [0, 0, 0], [0.108, 0.04, 0.113], 20, 10, [rect[0], rect[1] + rect[3] * 0.15, rect[2], rect[3] * 0.85], {
-    v0: 0.25, v1: 1,
-    shape: (x, y, z) => 1 + 0.08 * Math.max(0, y) * Math.max(0, x),
-  });
-  const rz = -0.24, rx = 0.08;
-  const cz = Math.cos(rz), sz = Math.sin(rz), cx = Math.cos(rx), sx2 = Math.sin(rx);
-  for (let i = 0; i < P.count; i++) {
-    let x = P.p[i * 3], y = P.p[i * 3 + 1], z = P.p[i * 3 + 2];
-    if (y < -0.005) y = -0.005 + (y + 0.005) * 0.3; // flatten underside
-    let x2 = x * cz - y * sz, y2 = x * sz + y * cz;
-    let y3 = y2 * cx - z * sx2, z3 = y2 * sx2 + z * cx;
-    P.p[i * 3] = x2 + 0.018; P.p[i * 3 + 1] = y3 + 0.142; P.p[i * 3 + 2] = z3 + 0.006;
-  }
-  // band hugging the head
-  const pts = [], rad = [];
-  for (let i = 0; i <= 24; i++) {
-    const a = (i / 24) * TAU;
-    pts.push([Math.sin(a) * 0.08 + 0.002, 0.113 + Math.cos(a) * 0.008 - Math.sin(a) * 0.012, -Math.cos(a) * 0.1 + 0.012]);
-    rad.push([0.006, 0.009]);
-  }
-  C.sweep(P, pts, rad, 6, [rect[0], rect[1], rect[2], rect[3] * 0.12], { up: [0, 1, 0] });
+// Beret: a felt shell over the skull, band hugging the head, crown pulled
+// over to the right side.
+const beretLine = (p) => 0.104 - 0.014 * sstep(-0.07, 0.07, p[0]) + 0.006 * sstep(-0.02, 0.06, p[2]);
+function beretThick(p) {
+  const y = p[1], l = beretLine(p);
+  if (y < l) return -1;
+  return 0.0045 + 0.018 * sstep(l + 0.01, l + 0.05, y);
+}
+function beretWarp(p, n, u, v, t) {
+  if (t <= 0) return;
+  const l = beretLine(p);
+  const k = sstep(l + 0.012, l + 0.05, p[1]);
+  p[0] += 0.03 * k * (0.35 + 0.65 * sstep(-0.06, 0.07, p[0]));
+  p[1] = Math.min(p[1], 0.172 - 0.01 * sstep(-0.05, 0.08, p[0])) - 0.006 * k * sstep(0.0, 0.08, p[0]);
 }
 function cigarette(C) {
   const P = C.add(new C.Piece({ region: REG.HAIR, bone: BONE.HEAD, mat: 1, name: 'cig' }));
@@ -493,13 +461,13 @@ SURV.zoey = {
       { kind: 'sleeve', part: 'uarm', mat: 1, off: 0.011 },
       { kind: 'sleeve', part: 'farm', mat: 1, off: 0.01, t1: 0.95, hem: true },
       { kind: 'collar', mat: 1, h: 0.47, height: 0.05, off: 0.019, open: 0.4, flare: 0.012 },
-      { kind: 'hair', mat: 1, thick: (p) => { const m = scalpMask(p, ZOEY_SCALP); return m > 0.02 ? m * (0.007 + 0.006 * sstep(0.0, 0.1, p[1]) + 0.005 * sstep(0.02, 0.07, p[2])) : -1; }, warp: zoeyFringe },
+      { kind: 'hair', mat: 1, thick: (p) => { const m = scalpMask(p, ZOEY_SCALP); return m > 0.02 ? m * (0.004 + 0.004 * sstep(0.06, 0.14, p[1]) + 0.004 * sstep(0.02, 0.08, p[2])) : -1; }, warp: zoeyFringe },
       { custom: ponytail },
     ],
   }),
   paintA(A, grid) {
     const tone = lin(0xe6bfa0);
-    paintHead(A, RECT.head, grid, { skin: tone, lips: lin(0xb86a6a), brow: lin(0x3a2418), browThick: 0.8, freckles: 0.35, makeup: 0.7, redness: 0.9, hair: lin(0x3a2214), hairline: 0.092, dirt: 0.12 });
+    paintHead(A, RECT.head, grid, { skin: tone, lips: lin(0xb86a6a), brow: lin(0x3a2418), browThick: 0.8, freckles: 0.35, makeup: 0.7, redness: 0.9, hair: lin(0x3a2214), scalp: ZOEY_SCALP, dirt: 0.12 });
     paintEye(A, RECT.eye, { iris: lin(0x6a4a2a) });
     const N = noise();
     const top = lin(0xdcd8d0), jeans = lin(0x34466a);
@@ -558,7 +526,7 @@ SURV.zoey = {
     });
   },
 };
-const ZOEY_SCALP = { front: 0.092, temple: 0.074, nape: -0.015, part: 1 };
+const ZOEY_SCALP = { front: 0.124, temple: 0.106, side: 0.08, nape: -0.02, peak: 0.006 };
 function zoeyFringe(p, n, u, v, t) {
   // swept fringe: pull front hair down and to the side
   if (p[2] < -0.05 && p[1] > 0.07 && t > 0) {
@@ -584,7 +552,7 @@ SURV.louis = {
     head: { skull: 1.03, nose: 1.12, noseLen: 0.95, lips: 1.2, jaw: 1.02, brow: 1.05, cheekW: 1.03, ear: 1.02 },
     hand: { curl: 0.5 }, foot: {},
     layers: [
-      { kind: 'collar', mat: 0, h: 0.478, height: 0.043, off: 0.011, open: 0.32, flare: 0.018, drop: 0.012, rect: RECT.collar },
+      { kind: 'collar', mat: 0, h: 0.48, height: 0.036, off: 0.009, open: 0.3, flare: 0.008, drop: 0.006, rect: RECT.collar },
       { kind: 'tie', mat: 0, h0: 0.452, h1: 0.12, loose: true, rect: RECT.tie },
       { kind: 'sleeve', part: 'uarm', mat: 0, off: 0.011, t1: 1.04, bulge: (t, a) => 0.004 * gauss(post(a), 1.0) * sstep(0.4, 0.9, t) },
       { kind: 'sleeve', part: 'farm', mat: 0, off: 0.012, t0: -0.1, t1: 0.2, rect: RECT.cuff, bulge: (t) => 0.007 * Math.sin(clamp((t + 0.1) / 0.3, 0, 1) * Math.PI) },
@@ -593,14 +561,15 @@ SURV.louis = {
   }),
   paintA(A, grid) {
     const tone = lin(0x6a4430);
-    paintHead(A, RECT.head, grid, { skin: tone, lips: lin(0x4a2a24), brow: lin(0x0e0a08), stubble: 0.35, stubbleCol: lin(0x100c0a), redness: 0.4, shaved: 1, hairline: 0.094, dirt: 0.12, wrinkles: 0.3 });
+    paintHead(A, RECT.head, grid, { skin: tone, lips: lin(0x4a2a24), brow: lin(0x0e0a08), stubble: 0.35, stubbleCol: lin(0x100c0a), redness: 0.4, shaved: 1, scalp: { front: 0.13, temple: 0.112 }, dirt: 0.12, wrinkles: 0.3 });
     paintEye(A, RECT.eye, { iris: lin(0x3a2214) });
     const N = noise();
     const shirt = lin(0xe2e0da), slacks = lin(0x34353c);
     A.region(RECT.torso, (c) => {
       T(c);
       if (c.hh > 0.07) {
-        topTorso(N, c, { color: shirt, neck: 'crew', placket: true, pocket: true, pen: true, sweat: 0.6, fine: true });
+        const nk = topTorso(N, c, { color: shirt, neck: 'crew', placket: true, pocket: true, pen: true, sweat: 0.6, fine: true });
+        if (c.hh > nk + 0.02) skin(c, tone, { su: c.u * 3, sv: c.v * 2 });
         // open collar V showing skin at the throat
         if (c.hh > 0.44 && c.aa < 0.3 * (c.hh - 0.44) / 0.06 + 0.02) skin(c, tone, { su: c.u * 3, sv: c.v * 2 });
         // yoke seam at the back
@@ -646,18 +615,18 @@ SURV.francis = {
       { kind: 'sleeve', part: 'uarm', mat: 0, off: 0.006, t0: -0.14, t1: 0.36, hem: true },
       { kind: 'leg', part: 'shin', mat: 0, off: 0.014, t0: 0.7, rect: RECT.boot },
       { kind: 'hair', mat: 1, thick: (p) => { const m = scalpMask(p, FRANCIS_SCALP); return m > 0.02 ? 0.0028 * m : -1; } },
-      { kind: 'hair', mat: 1, thick: (p) => { const m = beardMask(p, FRANCIS_BEARD); return m > 0.05 ? m * (0.003 + 0.006 * sstep(-0.04, -0.09, p[1])) : -1; } },
+      { kind: 'hair', mat: 1, thick: (p) => { const m = beardMask(p, FRANCIS_BEARD); return m > 0.01 ? 0.001 + m * (0.0015 + 0.005 * sstep(-0.035, -0.07, p[1])) : -1; } },
     ],
   }),
   paintA(A, grid) {
     const tone = lin(0xc8966e);
-    paintHead(A, RECT.head, grid, { skin: tone, lips: lin(0x8a5a4a), brow: lin(0x1a120c), browThick: 1.5, stubble: 0.85, stubbleCol: lin(0x1a1410), wrinkles: 0.55, redness: 1.1, hair: lin(0x1e1610), hairline: 0.09, dirt: 0.3, scar: true });
+    paintHead(A, RECT.head, grid, { skin: tone, lips: lin(0x8a5a4a), brow: lin(0x1a120c), browThick: 1.5, stubble: 0.85, stubbleCol: lin(0x1a1410), wrinkles: 0.55, redness: 1.1, hair: lin(0x1e1610), scalp: FRANCIS_SCALP, beardShape: FRANCIS_BEARD, dirt: 0.3, scar: true });
     paintEye(A, RECT.eye, { iris: lin(0x4a3018), bloodshot: 0.45 });
     const N = noise();
     const tee = lin(0xd6d2c8), jeans = lin(0x2c3850);
     A.region(RECT.torso, (c) => {
       T(c);
-      if (c.hh > 0.06) { topTorso(N, c, { color: tee, neck: 'crew' }); applyDirt(c, 0.45, c.u * 3, c.v * 2); applyBlood(c, 0.16, c.u * 2, c.v); }
+      if (c.hh > 0.06) { const nk = topTorso(N, c, { color: tee, neck: 'crew' }); if (c.hh > nk) skin(c, tone, { su: c.u * 3, sv: c.v * 2, red: 0.1 }); applyDirt(c, 0.45, c.u * 3, c.v * 2); applyBlood(c, 0.16, c.u * 2, c.v); }
       else trouserTorso(N, c, { kind: 'jeans', color: jeans, beltColor: lin(0x140e0a), bigBuckle: true });
     });
     const tat = francisTattoo;
@@ -710,10 +679,10 @@ SURV.francis = {
       c.col = mix3(c.col, [0.7, 0.62, 0.3], fp[1] * 0.8);
       applyDirt(c, 0.35, c.u * 3, c.v * 2);
     });
-    paintHeadHair(B, grid, { scalp: Object.assign({ color: lin(0x1e1610), fine: 2 }, FRANCIS_SCALP), beard: Object.assign({ color: lin(0x241a12), color2: lin(0x3a2c20) }, FRANCIS_BEARD) });
+    paintHeadHair(B, grid, { scalp: Object.assign({ color: lin(0x1e1610), fine: 2 }, FRANCIS_SCALP), beard: Object.assign({ color: lin(0x2e2218), color2: lin(0x4a3828) }, FRANCIS_BEARD) });
   },
 };
-const FRANCIS_SCALP = { front: 0.09, temple: 0.078, nape: -0.01 };
+const FRANCIS_SCALP = { front: 0.13, temple: 0.112, side: 0.082, nape: -0.02 };
 const FRANCIS_BEARD = { goatee: true, width: 1.05 };
 function francisTattoo(c, part) {
   const N = noise();
@@ -947,14 +916,14 @@ SPEC.witch = {
     hand: { curl: 0.28, spread: 0.3, claw: 0.075, fingerLen: 1.38 }, handScale: 1.05, foot: { bare: true, width: 0.9 },
     layers: [
       { kind: 'torso', mat: 1, off: 0.008, h0: -0.12, h1: 0.4, extendBelow: { n: 5, len: 0.34 }, flareFrom: -0.12, flare: 0.5, keep: witchHem, skirtWeights: true, rect: RECT.torso },
-      { kind: 'hair', mat: 1, thick: (p) => { const m = scalpMask(p, { front: 0.09, temple: 0.07, nape: -0.03 }); return m > 0.02 ? m * 0.012 : -1; } },
+      { kind: 'hair', mat: 1, thick: (p) => { const m = scalpMask(p, { front: 0.12, temple: 0.1, nape: -0.03 }); return m > 0.02 ? m * 0.012 : -1; } },
       { custom: witchHair },
     ],
   }),
   paintA(A, grid) {
     const N = noise();
     const t0 = 0xc8c2ba;
-    paintHead(A, RECT.head, grid, { skin: lin(t0), lips: lin(0x6a4a50), decay: 0.6, veins: 1.2, sunken: 0.8, redness: 0.1, dirt: 0.25, blood: 0.6, hair: lin(0xd8d6ce), hairline: 0.09 });
+    paintHead(A, RECT.head, grid, { skin: lin(t0), lips: lin(0x6a4a50), decay: 0.6, veins: 1.2, sunken: 0.8, redness: 0.1, dirt: 0.25, blood: 0.6, hair: lin(0xd8d6ce), scalp: { front: 0.12 } });
     paintEye(A, RECT.eye, { iris: [0.9, 0.12, 0.05], sclera: [0.6, 0.45, 0.4], bloodshot: 1, glow: [1, 0.2, 0.05] });
     for (const part of ['torso', 'uarm', 'farm', 'thigh', 'shin']) A.region(RECT[part], (c) => { partCoords(part, c); if (part === 'torso') T(c); zombieSkin(t0, c, { decay: 0.6, veins: 1.2 }); applyBlood(c, part === 'farm' ? 0.5 : 0.15, c.u * 2, c.v); });
     paintHands(A, { tone: lin(0xb8b2aa), blood: 0.6, nails: [0.08, 0.06, 0.05] });
@@ -1032,14 +1001,15 @@ export function getCharacterAsset(look) {
   R.paintA(A, grid);
   A.dilate(4);
   const B = new Atlas(S);
+  B.alpha = new Float32Array(S * S);
   R.paintB(B, grid);
   B.dilate(4);
   const emisA = R.emissiveA ? emissiveTex(R.emissiveA) : null;
   const emisB = R.emissive ? emissiveTex(R.emissive) : null;
-  const texA = { albedo: A.albedoTexture(), normal: A.normalTexture(1.0), orm: A.ormTexture() };
-  const texB = { albedo: B.albedoTexture(), normal: B.normalTexture(1.0), orm: B.ormTexture() };
+  const texA = { albedo: A.albedoTexture(), normal: A.normalTexture(0.75), orm: A.ormTexture() };
+  const texB = { albedo: B.albedoTexture(), normal: B.normalTexture(0.75), orm: B.ormTexture() };
   const matA = characterMaterial(texA, { emissiveMap: emisA, emissiveIntensity: 2.5 });
-  const matB = characterMaterial(texB, { emissiveMap: emisB, emissiveIntensity: 3, clothWrap: 0.3 });
+  const matB = characterMaterial(texB, { emissiveMap: emisB, emissiveIntensity: 3, clothWrap: 0.3, alphaTest: 0.5 });
   const asset = {
     id, geometry: built.geometry, materials: [matA, matB], bindInv: built.bind.inv, textures: { A: texA, B: texB },
     radius: (spec.hump ? 1.5 : spec.fat > 1 ? 1.3 : 1),

@@ -104,13 +104,14 @@ export class Atlas {
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         c.u = (x + 0.5) / w; c.v = (y + 0.5) / h;
-        c.h = 0; c.rough = 0.9; c.skin = 0; c.ao = 1; c.a4 = 0;
+        c.h = 0; c.rough = 0.9; c.skin = 0; c.ao = 1; c.a4 = 0; c.alpha = 1;
         c.col = [0.5, 0.5, 0.5];
         fn(c);
         const i = (y0 + y) * S + x0 + x;
         this.r[i] = c.col[0]; this.g[i] = c.col[1]; this.b[i] = c.col[2];
         this.h[i] = c.h; this.rough[i] = c.rough; this.skin[i] = c.skin; this.ao[i] = c.ao;
         if (this.a4) this.a4[i] = c.a4;
+        if (this.alpha) this.alpha[i] = c.alpha;
         this.painted[i] = 1;
       }
     }
@@ -122,6 +123,7 @@ export class Atlas {
     for (let i = 0; i < S * S; i++) if (!P[i]) todo.push(i);
     const ch = [this.r, this.g, this.b, this.h, this.rough, this.skin, this.ao];
     if (this.a4) ch.push(this.a4);
+    if (this.alpha) ch.push(this.alpha);
     for (let p = 0; p < passes && todo.length; p++) {
       const src = P.slice();
       const next = [];
@@ -142,7 +144,8 @@ export class Atlas {
   albedoTexture() {
     const S = this.S, d = new Uint8Array(S * S * 4);
     const enc = (v) => { v = clamp(v, 0, 1); return Math.round((v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055) * 255); };
-    for (let i = 0; i < S * S; i++) { d[i * 4] = enc(this.r[i]); d[i * 4 + 1] = enc(this.g[i]); d[i * 4 + 2] = enc(this.b[i]); d[i * 4 + 3] = 255; }
+    const A = this.alpha;
+    for (let i = 0; i < S * S; i++) { d[i * 4] = enc(this.r[i]); d[i * 4 + 1] = enc(this.g[i]); d[i * 4 + 2] = enc(this.b[i]); d[i * 4 + 3] = A ? clamp(A[i], 0, 1) * 255 : 255; }
     return tex(d, S, THREE.SRGBColorSpace);
   }
   normalTexture(strength = 1) {
@@ -249,6 +252,7 @@ export function skin(c, tone, o = {}) {
   const N = noise();
   const su = o.su ?? c.u, sv = o.sv ?? c.v;
   const fine = N.fine.at(su * 3, sv * 3), blot = N.blot.at(su * 2, sv * 2), fb = N.fbm.at(su * 1.5, sv * 1.5);
+  c.h = 0;
   let col = mul3(tone, 0.95 + (fb - 0.5) * 0.14 + (fine - 0.5) * 0.05);
   const red = (o.red ?? 0) + (blot - 0.5) * 0.12;
   col = [col[0] * (1 + red * 0.35), col[1] * (1 - red * 0.12), col[2] * (1 - red * 0.15)];
@@ -262,7 +266,7 @@ export function skin(c, tone, o = {}) {
   }
   if (o.veins) { const v = sstep(0.83, 0.93, N.ridge.at(su * 3.1, sv * 2.7)); col = mix3(col, [col[0] * 0.75, col[1] * 0.8, col[2] * 1.05], v * o.veins); c.h += v * 0.15 * o.veins; }
   c.col[0] = col[0]; c.col[1] = col[1]; c.col[2] = col[2];
-  c.h += (fine - 0.5) * 0.05 * (o.pores ?? 1) + (fb - 0.5) * 0.06;
+  c.h += (fine - 0.5) * 0.02 * (o.pores ?? 1) + (fb - 0.5) * 0.04;
   c.rough = o.rough ?? (0.5 + (1 - fine) * 0.12);
   c.skin = o.sss ?? 1;
 }
@@ -298,6 +302,50 @@ export function applyBlood(c, amt, su, sv, o = {}) {
   c.h += k * 0.05;
 }
 
+// ======================================================= hair masks ==
+// Head-space (metres) hairline: forehead `front`, receding `temple` corners,
+// hair down to the ear tops at the sides, `nape` at the back.
+export function scalpLine(p, o = {}) {
+  const x = p[0], z = p[2], ax = Math.abs(x);
+  const front = o.front ?? 0.128, temple = o.temple ?? 0.108, side = o.side ?? 0.078, nape = o.nape ?? -0.03;
+  const back = sstep(0.01, 0.07, z);
+  const lat = sstep(0.035, 0.068, ax);
+  // forehead -> temple corners -> above the ears
+  let line = lerp(front - (o.peak ?? 0.004) * sstep(0.012, 0.0, ax), temple, sstep(0.015, 0.05, ax));
+  line = lerp(line, side, lat * sstep(-0.06, -0.02, z));
+  if (o.part) line += o.part * 0.004 * Math.exp(-(((x - 0.025) / 0.006) ** 2)) * sstep(-0.02, -0.06, z);
+  line = lerp(line, nape, back);
+  // keep the ears free
+  const ear = sstep(0.06, 0.07, ax) * sstep(-0.012, 0.0, z) * sstep(0.048, 0.035, z);
+  line = Math.max(line, lerp(line, 0.082, ear));
+  return line;
+}
+export function scalpMask(p, o) { const l = scalpLine(p, o); return sstep(l - 0.004, l + 0.006, p[1]); }
+export function beardMask(p, o = {}) {
+  const x = p[0], y = p[1], z = p[2], ax = Math.abs(x);
+  if (z > 0.035) return 0;
+  const width = o.width ?? 1;
+  const top = lerp(-0.001, 0.03, sstep(0.02, 0.058, ax));
+  let m = sstep(top + 0.004, top - 0.004, y);
+  const bottom = lerp(-0.118, -0.06, sstep(-0.06, 0.005, z));
+  m *= sstep(bottom - 0.006, bottom + 0.008, y);
+  m *= sstep(0.03, 0.005, z);
+  if (o.goatee) {
+    // mustache joined to a rounded chin beard along the mouth corners
+    const must = sstep(0.028 * width, 0.022 * width, ax) * sstep(-0.004, 0.0, -y) * sstep(0.003, -0.001, y);
+    const side = sstep(0.0165, 0.0205, ax) * sstep(0.029 * width, 0.024 * width, ax) * sstep(-0.042, -0.034, y) * sstep(0.002, -0.004, y);
+    const chin = sstep(1.05, 0.85, Math.hypot(x / (0.023 * width), (y + 0.046) / 0.024)) * sstep(-0.026, -0.031, y);
+    m = Math.max(must, side, chin) * sstep(0.02, 0.0, z);
+  }
+  if (!o.goatee) {
+    const sb = sstep(0.056, 0.064, ax) * sstep(-0.03, -0.018, z) * sstep(0.012, 0.0, z) * sstep(top - 0.01, top + 0.005, y) * sstep(0.09, 0.08, y);
+    m = Math.max(m, sb * (o.sideburns ?? 1));
+  }
+  const lip = sstep(0.0235, 0.0195, ax) * sstep(-0.032, -0.028, y) * sstep(-0.004, -0.007, y) * (z < -0.082 ? 1 : 0);
+  m *= 1 - lip;
+  return clamp(m, 0, 1);
+}
+
 // ====================================================== face painting ==
 // Paint a head (region rect) from the sculpted head grid. o: {
 //  skin, lips, brow, eye (iris unused here), hair (scalp colour), hairline,
@@ -310,7 +358,7 @@ export function paintHead(atlas, rect, grid, o) {
   atlas.region(rect, (c) => {
     const ao = sampleHead(grid, c.u, c.v, p, n);
     const x = p[0], y = p[1], z = p[2], ax = Math.abs(x);
-    const su = c.u * 2.2, sv = c.v * 1.4;
+    const su = c.u * 2, sv = c.v * 1.4;
     // base skin
     const red = 0.35 * Math.exp(-(((ax - 0.042) / 0.022) ** 2 + ((y - 0.018) / 0.02) ** 2)) // cheeks
       + 0.5 * Math.exp(-((x / 0.014) ** 2 + ((y - 0.014) / 0.014) ** 2 + ((z + 0.115) / 0.02) ** 2)) // nose tip
@@ -335,12 +383,11 @@ export function paintHead(atlas, rect, grid, o) {
     col = mul3(col, 1 - nos * 0.8);
     // stubble / beard shadow
     if (o.stubble) {
-      const jawZone = sstep(0.028, 0.0, y) * sstep(-0.1, -0.075, y) * sstep(0.02, -0.03, z) * (1 - lip * 1.2) * (1 - sstep(0.07, 0.078, ax));
-      const must = Math.exp(-((x / 0.024) ** 2 + ((y + 0.003) / 0.006) ** 2)) * (z < -0.08 ? 1 : 0);
+      const bm = beardMask(p, o.beardShape || {});
       const dots = N.fine.at(su * 6, sv * 6);
-      const s = clamp((jawZone + must) * (0.55 + dots * 0.6), 0, 1) * o.stubble;
-      col = mix3(col, o.stubbleCol || [0.05, 0.04, 0.035], s * 0.7);
-      c.h += s * dots * 0.12;
+      const s = clamp(bm * (0.5 + dots * 0.6), 0, 1) * o.stubble;
+      col = mix3(col, o.stubbleCol || [0.05, 0.04, 0.035], s * 0.72);
+      c.h += s * dots * 0.05;
     }
     // eyebrows
     {
@@ -352,9 +399,13 @@ export function paintHead(atlas, rect, grid, o) {
     }
     // eyelid crease + lash line around the eyeball
     {
-      const ed = Math.hypot((ax - 0.0318) / 0.0155, (y - 0.056) / 0.0115);
-      const lash = sstep(1.05, 0.85, ed) * sstep(0.55, 0.8, ed) * (y > 0.05 ? 1 : 0.5) * (z < -0.08 ? 1 : 0);
-      col = mix3(col, [0.02, 0.015, 0.012], lash * (0.5 + (o.makeup ?? 0) * 0.5));
+      const ex = ax - 0.0318, eyy = y - 0.056;
+      const inEye = Math.abs(ex) < 0.0125 && z < -0.082;
+      const upLine = inEye ? sstep(0.0022, 0.0006, Math.abs(eyy - 0.0027 + ex * ex * 8)) * sstep(0.0125, 0.008, Math.abs(ex)) : 0;
+      const loLine = inEye ? sstep(0.0018, 0.0005, Math.abs(eyy + 0.0042 - ex * ex * 6)) * sstep(0.0125, 0.006, Math.abs(ex)) : 0;
+      col = mix3(col, [0.02, 0.015, 0.012], upLine * (0.75 + (o.makeup ?? 0) * 0.25));
+      col = mix3(col, mul3(tone, 0.75), loLine * 0.5);
+      c.h -= upLine * 0.1;
       const crease = Math.exp(-(((ax - 0.032) / 0.016) ** 2 + ((y - 0.07) / 0.0025) ** 2)) * (z < -0.075 ? 1 : 0);
       col = mul3(col, 1 - crease * 0.25);
       if (o.makeup) col = mix3(col, [col[0] * 0.8, col[1] * 0.7, col[2] * 0.75], Math.exp(-(((ax - 0.034) / 0.014) ** 2 + ((y - 0.064) / 0.006) ** 2)) * o.makeup * 0.5);
@@ -362,22 +413,20 @@ export function paintHead(atlas, rect, grid, o) {
     // wrinkles
     if (o.wrinkles) {
       const w = o.wrinkles;
-      const fore = sstep(0.085, 0.1, y) * sstep(0.14, 0.12, y) * (z < -0.05 ? 1 : 0) * sstep(0.05, 0.03, ax);
-      const lines = Math.pow(Math.abs(Math.sin(y * 420 + N.fbm.at(su, sv) * 3)), 6);
-      const crow = Math.exp(-(((ax - 0.055) / 0.008) ** 2 + ((y - 0.055) / 0.012) ** 2)) * Math.pow(Math.abs(Math.sin(Math.atan2(y - 0.055, ax - 0.05) * 7)), 4);
-      const nl = Math.exp(-((((ax - 0.018 - (0.02 - y) * 0.45) / 0.0035) ** 2) + ((y + 0.0) / 0.02) ** 2)) * (z < -0.08 ? 1 : 0);
-      const k = clamp(fore * lines + crow + nl * 0.8, 0, 1) * w;
-      col = mul3(col, 1 - k * 0.3);
-      c.h -= k * 0.4;
+      const fore = sstep(0.092, 0.1, y) * sstep(0.122, 0.112, y) * (z < -0.07 ? 1 : 0) * sstep(0.045, 0.025, ax);
+      const lines = Math.pow(Math.abs(Math.sin(y * 330 + N.fbm.at(su, sv) * 2)), 10) * (0.5 + 0.5 * N.blot.at(su * 3, sv));
+      const crow = Math.exp(-(((ax - 0.052) / 0.006) ** 2) - (((y - 0.054) / 0.01) ** 2)) * Math.pow(Math.abs(Math.sin(Math.atan2(y - 0.054, ax - 0.046) * 5)), 8) * 0.5;
+      const nl = Math.exp(-(((ax - 0.019 - (0.012 - y) * 0.5) / 0.003) ** 2) - (((y + 0.002) / 0.014) ** 2)) * (z < -0.08 ? 1 : 0);
+      const k = clamp(fore * lines + crow + nl * 0.6, 0, 1) * w;
+      col = mul3(col, 1 - k * 0.22);
+      c.h -= k * 0.25;
     }
     // ambient occlusion from the sculpt
     c.ao = 0.35 + 0.65 * ao;
     col = mul3(col, 0.55 + 0.45 * ao);
     // scalp hair colour (under hair meshes) / shaved scalp
     if (o.hair || o.shaved) {
-      const back = sstep(0.02, 0.07, z);
-      const line = (o.hairline ?? 0.09) - 0.05 * sstep(0.0, 0.06, z + 0.03) - 0.07 * back - 0.012 * sstep(0.055, 0.07, ax) * (1 - back);
-      const m = sstep(line - 0.006, line + 0.004, y) * (1 - sstep(0.072, 0.082, ax) * sstep(0.08, 0.02, y) * (1 - back));
+      const m = scalpMask(p, o.scalp || {});
       if (o.hair) {
         const str = 0.7 + 0.3 * N.fine.at(su * 18, sv * 2);
         col = mix3(col, mul3(o.hair, str), m * (o.hairCover ?? 1));
@@ -386,7 +435,7 @@ export function paintHead(atlas, rect, grid, o) {
       }
       if (o.shaved) {
         const dots = N.fine.at(su * 7, sv * 7);
-        col = mix3(col, [0.04, 0.03, 0.025], m * (0.18 + dots * 0.16) * o.shaved);
+        col = mix3(col, [0.04, 0.03, 0.025], m * (0.16 + dots * 0.14) * o.shaved);
         c.rough = lerp(c.rough, 0.42, m);
       }
     }

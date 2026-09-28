@@ -12,7 +12,8 @@ import { DF } from '../render/decals.js';
 import { cubicle, officeDesk, seatRow, wallTV } from './ch4_parts.js';
 import { tent } from './ch3_props.js';
 import { crt, shelving } from './ch2_parts.js';
-import { rng, VisualBatch, copier, serverRack, whiteboard, waterCooler, confTable, cardboard, rotXZ } from './da2_parts.js';
+import { VisualBatch } from './da_parts.js';
+import { rng, copier, serverRack, whiteboard, waterCooler, confTable, cardboard, rotXZ } from './da2_parts.js';
 import { LR, OL1, OL2, OL3, LB, OT, STREET } from './da2_layout.js';
 import { CBS_BRIDGE_Z1 } from './da2_craneEvent.js';
 

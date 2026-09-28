@@ -8,12 +8,10 @@ import { F_SOLID, F_SHOOT, F_DEFAULT } from '../world/collision.js';
 import { materials } from '../render/materials.js';
 import { P, sign, ceilingLight } from './kit.js';
 import { boxMesh } from './ch4_parts.js';
-import { VisualBatch } from './da_parts.js';
 import { makeRng } from '../core/math.js';
 
 export const rng = makeRng(2402);
 const NC = { collide: false };
-export { VisualBatch };
 
 // =====================================================================
 // SKYLINE
@@ -50,36 +48,6 @@ export function cityBlock(B, x0, z0, x1, z1, h, o = {}) {
     const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
     for (let i = 0; i < 5; i++) B.box(cx - 3 + r() * 6, h, cz - 3 + r() * 6, cx - 2 + r() * 6, h + 0.6 + r() * 2.2, cz - 2 + r() * 6, 'emissiveWarm', { tint: r.pick([0xff6a20, 0xff4a10, 0xffa040]) });
   }
-}
-
-// Ring of skyline blocks around a keep-out rectangle [x0,z0,x1,z1]. Blocks in
-// the `lowAz` bearing (radians, atan2(dx,dz) from `center`) stay low so the
-// airport landmark is visible over them.
-export function skyline(L, o) {
-  const r = makeRng(o.seed ?? 77);
-  const near = new VisualBatch(L), far = new VisualBatch(L);
-  const [kx0, kz0, kx1, kz1] = o.keep;
-  const [cx, cz] = o.center;
-  const step = o.step ?? 38;
-  for (let x = o.minX ?? -260; x < (o.maxX ?? 380); x += step) {
-    for (let z = o.minZ ?? -260; z < (o.maxZ ?? 420); z += step) {
-      const bx0 = x + 5, bz0 = z + 5, bx1 = x + step - 5 + r() * 2, bz1 = z + step - 5 + r() * 2;
-      if (bx1 > kx0 && bx0 < kx1 && bz1 > kz0 && bz0 < kz1) continue;
-      const mx = (bx0 + bx1) / 2, mz = (bz0 + bz1) / 2;
-      const d = Math.hypot(mx - cx, mz - cz);
-      if (d > (o.maxD ?? 330)) continue;
-      let az = Math.atan2(mx - cx, mz - cz) - (o.lowAz ?? 99);
-      az = Math.atan2(Math.sin(az), Math.cos(az));
-      const low = Math.abs(az) < 0.28 && d > 90;
-      const tall = r() < 0.2;
-      let h = d < 120 ? 14 + r() * (tall ? 60 : 32) : 22 + r() * (tall ? 100 : 46);
-      if (low) h = Math.min(h, 10 + r() * 8);
-      const faces = [];
-      if (mz > kz1) faces.push('n'); if (mz < kz0) faces.push('s'); if (mx > kx1) faces.push('w'); if (mx < kx0) faces.push('e');
-      cityBlock(d < 130 ? near : far, bx0, bz0, bx1, bz1, h, { rng: r, faces, lit: d < 150 ? 0.075 : 0.05, fire: r() < 0.14 ? 0.05 : 0, roofFire: r() < 0.08 });
-    }
-  }
-  return { near: near.build(L), far: far.build(L) };
 }
 
 // =====================================================================
