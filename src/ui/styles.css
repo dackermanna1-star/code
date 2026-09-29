@@ -1953,7 +1953,8 @@ input:focus-visible {
   }
   .station-bar {
     bottom: 8px;
-    scale: 0.74;
+    /* scale inside the centring transform so it stays centred */
+    transform: translateX(-50%) scale(0.74);
     transform-origin: bottom center;
   }
   .build-ticket {
@@ -1986,8 +1987,8 @@ input:focus-visible {
   /* the ticket rail drops below the clock and money */
   .rail {
     top: 66px;
-    max-width: calc(100vw - 20px);
-    scale: 0.8;
+    max-width: calc(125vw - 25px);
+    transform: translateX(-50%) scale(0.8);
     transform-origin: top center;
   }
 }
