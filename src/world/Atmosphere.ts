@@ -106,14 +106,14 @@ export const PRESETS: Record<string, AtmoPreset> = {
   },
   rain: {
     ...base, name: 'rain', label: 'Rain', sunElev: 40, sunAzim: 30, sunColor: 0xc8ccd4, sunIntensity: 0.5, skyTop: 0x5d6168, skyHorizon: 0x7f848a,
-    hemiSky: 0x8f959e, hemiGround: 0x3e4032, hemiIntensity: 2.2, fogColor: 0x6f757c, fogDensity: 0.012, cloudColor: 0x8a8f96, cloudShade: 0x55595f,
+    hemiSky: 0x959ba4, hemiGround: 0x44463a, hemiIntensity: 2.4, fogColor: 0x7a8087, fogDensity: 0.011, cloudColor: 0x8a8f96, cloudShade: 0x55595f,
     cloudCover: 1.0, mountainNear: 0x4a5448, mountainFar: 0x6c7278, treeColor: 0x283426, grassTint: 0xd0d8d0, haze: 0.7, exposure: 1.12, saturation: 0.78,
     sunVisible: 0, rain: 1,
   },
   storm: {
-    ...base, name: 'storm', label: 'Thunderstorm', sunElev: 40, sunAzim: 30, sunColor: 0xb0b8d0, sunIntensity: 0.5, skyTop: 0x33373f, skyHorizon: 0x565b64,
-    hemiSky: 0x6c7280, hemiGround: 0x2a2c24, hemiIntensity: 2.9, fogColor: 0x4c5159, fogDensity: 0.014, cloudColor: 0x5e636b, cloudShade: 0x30343a,
-    cloudCover: 1.0, mountainNear: 0x363e36, mountainFar: 0x4c5159, treeColor: 0x1c241c, grassTint: 0xb8c4c0, haze: 0.75, exposure: 1.3, saturation: 0.72,
+    ...base, name: 'storm', label: 'Thunderstorm', sunElev: 40, sunAzim: 30, sunColor: 0xb0b8d0, sunIntensity: 0.65, skyTop: 0x3c4049, skyHorizon: 0x646a74,
+    hemiSky: 0x7a8090, hemiGround: 0x34362c, hemiIntensity: 3.2, fogColor: 0x5a6068, fogDensity: 0.013, cloudColor: 0x5e636b, cloudShade: 0x30343a,
+    cloudCover: 1.0, mountainNear: 0x363e36, mountainFar: 0x4c5159, treeColor: 0x1c241c, grassTint: 0xb8c4c0, haze: 0.75, exposure: 1.42, saturation: 0.76,
     contrast: 1.06, sunVisible: 0, rain: 1, storm: 1,
   },
   night: {

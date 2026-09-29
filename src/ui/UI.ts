@@ -455,7 +455,7 @@ export class UI {
         <div class="grid">${grid}</div>
         <div class="detail">${this.detailHtml()}</div>
       </div>
-      <div class="foot"><span>Money only comes from kills. Day ${d.day} · ${wavesForDay(d.day)} waves</span><button class="btn primary" data-a="close">Done  (B)</button></div>
+      <div class="foot"><span>Money only comes from kills. Day ${d.day} · ${wavesForDay(d.day)} waves</span><button class="btn primary" data-a="close">Done (Esc)</button></div>
     </div>`;
   }
 

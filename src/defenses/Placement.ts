@@ -59,7 +59,7 @@ export class Placement {
     if (!this.canBuild()) return;
     const items = this.items();
     if (items.length === 0) {
-      G.hud?.toast('No defenses in inventory — buy some in the shop (B)');
+      G.hud?.toast('No defenses left: buy more in the shop when the day ends');
       return;
     }
     this.active = true;
