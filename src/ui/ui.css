@@ -1,0 +1,30 @@
+:root {
+  --blood: #b3121b;
+  --blood-dark: #6d070d;
+  --ink: #0d0d0f;
+  --paper: #f3eee2;
+  --gold: #ffd23f;
+  --green: #8fe36b;
+  --panel: rgba(16, 14, 14, 0.86);
+  --panel-edge: rgba(255, 255, 255, 0.08);
+  --muted: #a69f92;
+  --font-pixel: 'Silkscreen', 'Pixelify Sans', monospace;
+  --font-body: 'Pixelify Sans', 'Silkscreen', system-ui, sans-serif;
+  --font-num: 'VT323', 'Pixelify Sans', monospace;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #0b0b0c;
+  color: var(--paper);
+  font-family: var(--font-body);
+  user-select: none;
+  -webkit-user-select: none;
+}
+#app { position: fixed; inset: 0; }
+#game { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; image-rendering: pixelated; }
+#ui { position: absolute; inset: 0; pointer-events: none; }
+#ui .interactive, #ui button, #ui input, #ui .panel { pointer-events: auto; }
+.fatal { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--font-pixel); color: #ff6b6b; padding: 16px; text-align: center; }
