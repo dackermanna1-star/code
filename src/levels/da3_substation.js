@@ -290,7 +290,7 @@ function workshop(L, game) {
   poster(L, 'evac', 200.18, y + 1.6, 5.2, Math.PI / 2, 0.5, 0.72, {});
   safetySign(L, 'LOCK OUT\nTAG OUT', 200.18, y + 1.8, 9.2, Math.PI / 2, 0.6, 0.6, 'warning');
   safetySign(L, 'FIRE EXIT →', x1 - 0.16, y + 2.5, 6.4, -Math.PI / 2, 0.9, 0.3, 'safe');
-  L.witchSpots.push({ x: 204.6, y, z: 19.2 });
+  L.witchSpots.push({ x: 205.4, y, z: 20.4 }); // back corner: the route (z 6-13) passes > 7 m away
   L.reverb(x0, y, z0, x1, y + H, z1, 'room');
   L.ambience(x0, y, z0, x1, y + H, z1, 'apartments');
   return { room: r };

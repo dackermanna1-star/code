@@ -24,8 +24,8 @@ export default async ({ page, evalg, wait, shot }) => {
   if (process.env.WATCHDOG) {
     const cdp = await page.context().newCDPSession(page);
     await cdp.send('Debugger.enable');
-    cdp.on('Debugger.paused', (e) => { console.log('[hang] stack:\n' + e.callFrames.slice(0, 14).map((f) => `  ${f.functionName || '(anon)'} ${f.url.split('/').slice(-2).join('/')}:${f.location.lineNumber + 1}`).join('\n')); cdp.send('Debugger.resume').catch(() => {}); });
-    wd = { cdp, arm() { clearTimeout(this.h); this.h = setTimeout(() => cdp.send('Debugger.pause').catch(() => {}), 60000); }, off() { clearTimeout(this.h); } };
+    cdp.on('Debugger.paused', (e) => { console.log('[hang] stack:\n' + e.callFrames.slice(0, 14).map((f) => `  ${f.functionName || '(anon)'} ${(f.url || '').split('/').pop().split('?')[0]}:${f.location.lineNumber + 1}`).join('\n')); cdp.send('Debugger.resume').catch(() => {}); if (wd && wd.n++ < 3) wd.arm(); });
+    wd = { n: 0, cdp, arm() { clearTimeout(this.h); this.h = setTimeout(() => cdp.send('Debugger.pause').catch(() => {}), +(process.env.WATCHDOG) * 1000 || 60000); }, off() { clearTimeout(this.h); } };
   }
   for (let chunk = 0; chunk < 400; chunk++) {
     wd?.arm();

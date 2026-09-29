@@ -25,6 +25,24 @@ function callout(g, sp, cat, prio = 2, cooldown = 6, exclude = null) {
     return;
   }
 }
+// Keep custom hand targets within arm's reach (an unreachable IK target would
+// stretch the skinned arm). Shoulder estimated from the pose parameters the
+// same way animateHumanoid builds the spine.
+function clampReach(a, body) {
+  if (a.arms !== 'custom') return;
+  const sc = body.scale, bw = body.build;
+  const crouch = a.crouch || 0;
+  const hip = (0.97 - crouch * 0.42 - (a.sink || 0)) * sc;
+  const lean = (a.lean || 0) + crouch * 0.35 + (a.hunch || 0);
+  const up = hip + Math.cos(lean) * 0.43 * sc - 0.04 * sc, fw = Math.sin(lean) * 0.43 * sc - 0.02;
+  const reach = (0.29 + 0.3) * sc * 0.97;
+  for (const [h, sg] of [[a.handL, -1], [a.handR, 1]]) {
+    if (!h) continue;
+    const dx = h[0] - sg * 0.19 * sc * bw, dy = h[1] - up, dz = h[2] - fw;
+    const d = Math.hypot(dx, dy, dz);
+    if (d > reach) { const k = reach / d; h[0] = sg * 0.19 * sc * bw + dx * k; h[1] = up + dy * k; h[2] = fw + dz * k; }
+  }
+}
 function shakeNear(g, pos, amt, range) {
   const p = g.player;
   if (!p || p.dead) return;
@@ -177,7 +195,7 @@ export class Charger extends SpecialInfected {
     // commons are ploughed out of the way
     g.infected.forEachNear(this.pos.x + fx * 0.8, this.pos.z + fz * 0.8, 1.4, (e) => {
       if (e.special || e.dead) return;
-      e.takeHit({ damage: 60, part: 0, zone: 'torso', x: e.pos.x, y: e.pos.y + 1, z: e.pos.z, dir: _v.set(fx + rx * (Math.random() - 0.5), 0.6, fz + rz * (Math.random() - 0.5)), kind: 'explosion', knockback: 9, attacker: this });
+      e.takeHit({ damage: 150, part: 0, zone: 'torso', x: e.pos.x, y: e.pos.y + 1, z: e.pos.z, dir: _v.set(fx + rx * (Math.random() - 0.5), 0.6, fz + rz * (Math.random() - 0.5)), kind: 'explosion', knockback: 9, attacker: null });
     });
     // carried victim rides in the big arm
     const v = this.pinning;
@@ -299,12 +317,12 @@ export class Charger extends SpecialInfected {
     // withered left arm clutched to the chest; the huge right arm drags low
     a.handL = [-0.1 * sc, 1.12 * sc, 0.26 * sc];
     const sw = Math.sin(ph) * Math.min(1, this.curSpeed / 3);
-    a.handR = [0.4 * sc, 0.28 * sc + Math.abs(sw) * 0.08, 0.3 * sc + sw * 0.28];
+    a.handR = [0.36 * sc, 0.72 * sc + Math.abs(sw) * 0.06, 0.34 * sc + sw * 0.3];
     switch (this.state) {
       case 'windup': {
         const k = clamp(this.stateT / 0.75, 0, 1);
         a.crouch = 0.25 * k; a.lean = 0.1 + 0.5 * k; a.speed = 0;
-        a.handR = [0.45 * sc, (0.5 + Math.sin(this.stateT * 14) * 0.08) * sc, (0.2 + 0.3 * k) * sc];
+        a.handR = [0.42 * sc, (0.75 + Math.sin(this.stateT * 14) * 0.08) * sc, (0.25 + 0.3 * k) * sc];
         a.headPitch = -0.35 * (1 - k);
         a.twitch = 0.4;
         break;
@@ -319,7 +337,7 @@ export class Charger extends SpecialInfected {
         const k = clamp(1 - this.slamT / 1.35, 0, 1);
         const up = k < 0.25 ? k / 0.25 : k < 0.31 ? 1 - (k - 0.25) / 0.06 : 0;
         a.legs = 'wide'; a.speed = 0; a.lean = 0.45 + (1 - up) * 0.25; a.crouch = 0.2;
-        a.handR = [0.1 * sc, (0.35 + up * 1.8) * sc, (0.85 - up * 0.45) * sc];
+        a.handR = [0.12 * sc, (0.6 + up * 1.4) * sc, (0.8 - up * 0.4) * sc];
         a.poleR = [1, -0.2, -0.6];
         a.twitch = 0.3;
         break;
@@ -332,6 +350,8 @@ export class Charger extends SpecialInfected {
       }
       case 'stunned': a.arms = 'flail'; a.lean = -0.1; a.twitch = 0.6; break;
     }
+    a.handL = a.handL.slice(); a.handR = a.handR.slice();
+    clampReach(a, this.body);
   }
 }
 
@@ -401,15 +421,30 @@ export class Jockey extends SpecialInfected {
     const g = this.game;
     const col = g.level.col;
     this.vel.y -= GRAV * dt;
+    // light mid-air homing on the chosen victim (it can still be sidestepped)
+    const t = this.target;
+    if (t && !t.dead && this.stateT < 0.6) {
+      const dx = t.pos.x - this.pos.x, dz = t.pos.z - this.pos.z, dl = Math.hypot(dx, dz) || 1;
+      const hs = Math.hypot(this.vel.x, this.vel.z);
+      const k = Math.min(1, dt * 4);
+      this.vel.x += (dx / dl * hs - this.vel.x) * k;
+      this.vel.z += (dz / dl * hs - this.vel.z) * k;
+    }
+    const tryMount = () => {
+      for (const s of this.mgr.targets) {
+        if (s.pinned || s.dead || s.incapped) continue;
+        const dh = Math.hypot(s.pos.x - this.pos.x, s.pos.z - this.pos.z), dy = this.pos.y - s.pos.y;
+        if (dh < 0.95 && dy > -0.3 && dy < 2.2) { this.mount(s); return true; }
+      }
+      return false;
+    };
+    if (tryMount()) return;
     const sp = this.vel.length() || 1;
     const h = col.raycast(this.pos.x, this.pos.y + 0.5, this.pos.z, this.vel.x / sp, this.vel.y / sp, this.vel.z / sp, sp * dt + 0.25);
-    if (h && h.ny < 0.5) { this.vel.x *= -0.15; this.vel.z *= -0.15; }
+    // bounce off real walls only (not the survivor it's about to land on)
+    if (h && h.ny < 0.5 && !(t && Math.hypot(h.x - t.pos.x, h.z - t.pos.z) < 1.2)) { this.vel.x *= -0.15; this.vel.z *= -0.15; }
     this.pos.addScaledVector(this.vel, dt);
-    for (const s of this.mgr.targets) {
-      if (s.pinned || s.dead || s.incapped) continue;
-      const d = Math.hypot(s.pos.x - this.pos.x, s.pos.y + 1.1 - (this.pos.y + 0.4), s.pos.z - this.pos.z);
-      if (d < 1.05) { this.mount(s); return; }
-    }
+    if (tryMount()) return;
     const gy = col.groundHeight(this.pos.x, this.pos.y + 0.5, this.pos.z, 30, 0.2);
     if ((this.vel.y < 0 && this.pos.y <= gy + 0.02) || this.stateT > 3 || this.pos.y < -100) {
       if (gy > -1e8) this.pos.y = Math.max(this.pos.y, gy);
@@ -554,6 +589,7 @@ export class Jockey extends SpecialInfected {
       a.handR = [0.11 * sc, (0.86 - b) / 0.74 * sc, 0.46 * sc];
       a.poleL = [-1, 0, -0.4]; a.poleR = [1, 0, -0.4];
       a.twitch = 0.8;
+      clampReach(a, this.body);
     }
   }
 }
@@ -659,7 +695,7 @@ export class Spitter extends SpecialInfected {
     a.arms = this.curSpeed > 1 ? 'swing' : 'hang';
     if (this.state === 'spit') {
       const k = this.stateT;
-      if (k < 0.85) { a.headPitch = -0.2 - 0.7 * clamp(k / 0.85, 0, 1); a.lean = -0.1 * clamp(k / 0.5, 0, 1); a.arms = 'custom'; a.handL = [-0.35, 1.0, 0.1]; a.handR = [0.35, 1.0, 0.1]; }
+      if (k < 0.85) { a.headPitch = -0.2 - 0.7 * clamp(k / 0.85, 0, 1); a.lean = -0.1 * clamp(k / 0.5, 0, 1); a.arms = 'custom'; a.handL = [-0.38, 1.05, 0.12]; a.handR = [0.38, 1.05, 0.12]; clampReach(a, this.body); }
       else { a.headPitch = 0.6; a.lean = 0.45; a.arms = 'hang'; }
       a.speed = 0;
     }

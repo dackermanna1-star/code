@@ -23,6 +23,8 @@ export default async ({ page, evalg, wait, shot }) => {
     let lastProg = -1, stuckT = 0, useT = 0;
     const bar = L.da3.bar;
     for (let t = 0; t < 900; t += 0.1) {
+      for (const c of g.infected.commons) if (!c.dead) c.hp = 0; // idle wanderers would body-block the walker
+      for (const q of g.infected.specials) if (!q.dead) q.takeHit({ damage: 1e5, part: 0, zone: 'torso', x: q.pos.x, y: q.pos.y + 1, z: q.pos.z, dir: q.pos.clone().set(0, 1, 0), attacker: null, kind: 'bullet' }); // scripted smokers/hunters would pin it
       const f = nav.fields.toExit;
       let cur = nav.nodeAt(p.pos.x, p.pos.y, p.pos.z);
       if (cur < 0 || Math.abs(nav.nodeY[cur] - p.pos.y) > 0.8) cur = nav.nearestNode(p.pos.x, p.pos.y, p.pos.z, 2);
@@ -42,7 +44,7 @@ export default async ({ page, evalg, wait, shot }) => {
       g.advance(0.1);
       const prog = L.progressAt(p.pos.x, p.pos.y, p.pos.z);
       if (prog > lastProg + 0.002) { lastProg = prog; stuckT = 0; } else stuckT += 0.1;
-      if (stuckT > 16) { log.push(`STUCK at ${p.pos.toArray().map((v) => v.toFixed(1))} prog ${prog.toFixed(3)} blown=${bar.isBlown()} door=${door ? door.cx + ',' + door.cz + (door.locked ? ' locked' : '') : '-'}`); break; }
+      if (stuckT > 16) { log.push(`STUCK at ${p.pos.toArray().map((v) => v.toFixed(1))} prog ${prog.toFixed(3)} blown=${bar.isBlown()} door=${door ? door.cx + ',' + door.cz + (door.locked ? ' locked' : '') : '-'} cur=${nav.nodeX(cur).toFixed(1)},${nav.nodeZ(cur).toFixed(1)} tgt=${nav.nodeX(n).toFixed(1)},${nav.nodeZ(n).toFixed(1)} yaw=${p.yaw.toFixed(2)} vel=${p.vel ? p.vel.toArray().map((v) => v.toFixed(2)) : '-'} ground=${p.onGround}`); break; }
       if (L.endSafe && L.inBox(L.endSafe, p.pos, 0)) { log.push(`REACHED END at t=${t.toFixed(0)}s prog ${prog.toFixed(3)}`); break; }
       if (Math.floor(t * 10) % 200 === 0) log.push(`t=${t.toFixed(0)} pos ${p.pos.toArray().map((v) => v.toFixed(1))} prog ${prog.toFixed(3)} hp ${p.hp | 0}`);
     }

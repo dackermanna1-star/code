@@ -569,7 +569,9 @@ export class HUD {
       // one name over the other (read as a garbled, doubled tag)
       const tx = (v.x + 1) / 2 * W, lh = Math.max(12, H * 0.024);
       let ty = (1 - v.y) / 2 * H;
-      for (let k = 0; k < placed.length; k += 2) if (Math.abs(placed[k] - tx) < W * 0.07 && Math.abs(placed[k + 1] - ty) < lh) { ty = placed[k + 1] - lh; k = -2; }
+      // (lh - 0.5: with a bare `< lh`, float rounding of P - (P - lh) can re-match
+      // the same tag forever when three teammates stand together -> frozen game)
+      for (let k = 0, guard = 0; k < placed.length && guard < 64; k += 2) if (Math.abs(placed[k] - tx) < W * 0.07 && Math.abs(placed[k + 1] - ty) < lh - 0.5) { ty = placed[k + 1] - lh; k = -2; guard++; }
       placed.push(tx, ty);
       t.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) translate(-50%, -100%)`;
       const trouble = s.incapped || s.pinned;

@@ -77,7 +77,7 @@ const SPECIAL = {
   boomer: { scale: 1, build: 1.5, a: { lean: -0.12, legs: 'wide', arms: 'hang' } },
   tank: { scale: 1.3, build: 1.7, a: { lean: 0.3, hunch: 0.3, arms: 'hang', legs: 'wide' } },
   witch: { scale: 0.95, build: 0.78, a: { crouch: 0.3, lean: 0.4, arms: 'reach', hunch: 0.3 } },
-  charger: { scale: 1.08, build: 1.3, a: { lean: 0.32, hunch: 0.3, arms: 'custom', handL: [-0.11, 1.21, 0.28], handR: [0.43, 0.45, 0.3], poleR: [1, -0.4, -1], poleL: [-1, -1, 0.3], footS: 0.05 } },
+  charger: { scale: 1.08, build: 1.3, a: { lean: 0.32, hunch: 0.3, arms: 'custom', handL: [-0.11, 1.21, 0.28], handR: [0.39, 0.78, 0.37], poleR: [1, -0.4, -1], poleL: [-1, -1, 0.3], footS: 0.05 } },
   jockey: { scale: 0.74, build: 0.85, a: { crouch: 0.32, lean: 0.5, hunch: 0.35, arms: 'reach', headPitch: -0.25 } },
   spitter: { scale: 1.1, build: 0.8, a: { lean: 0.18, hunch: 0.22, arms: 'hang', headPitch: 0.25 } },
 };

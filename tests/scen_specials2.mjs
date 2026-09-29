@@ -5,6 +5,7 @@
 //   SHOTS=1 QUALITY=medium node tests/play.mjs tests/scen_specials2.mjs   (adds screenshots)
 export default async ({ page, evalg, wait, shot, logs }) => {
   const CH = process.env.CH || 0;
+  page.on('crash', () => { console.log('PAGE CRASH'); process.exit(3); });
   await page.goto((process.env.TEST_URL || 'http://localhost:5180/') + '?campaign=deadair&autostart=' + CH, { timeout: 180000 });
   for (let i = 0; i < 150; i++) { await wait(1000); if ((await evalg(() => window.session?.state)) === 'playing') break; }
   const setup = await evalg(([sx, sy, sz]) => {
@@ -27,12 +28,21 @@ export default async ({ page, evalg, wait, shot, logs }) => {
         if (!best || sc > best.sc) best = { sc, x: px, y: py, z: pz, dx, dz, L };
       }
     };
-    tryAt(sx, sy, sz);
-    const P = g.player;
-    if (!best || best.L < 16) tryAt(P.pos.x, P.pos.y, P.pos.z);
+    if (sx) tryAt(sx, sy, sz);
+    // otherwise scan the chapter for an open, door-free stretch outside the safe room
+    const N = nav.nodeY.length;
+    const doorFree = (b) => { for (let d = 0; d <= 22; d += 1) { const n = nav.nearestNode(b.x + b.dx * d, b.y, b.z + b.dz * d, 1); if (n >= 0 && nav.doorOf[n] >= 0) return false; } return true; };
+    for (let i = 0; i < 500 && (!best || best.L < 22 || best.sc < 28); i++) {
+      const n = (Math.random() * N) | 0;
+      const pr = g.level.progressAt(nav.nodeX(n), nav.nodeY[n], nav.nodeZ(n));
+      if (!(pr > 0.08 && pr < 0.7)) continue;
+      const prev = best;
+      tryAt(nav.nodeX(n), nav.nodeY[n], nav.nodeZ(n));
+      if (best !== prev && !doorFree(best)) best = prev;
+    }
     window.__site = best;
     return best;
-  }, [+(process.env.SX || 96), +(process.env.SY || 0), +(process.env.SZ || 52)]);
+  }, [+(process.env.SX || 0), +(process.env.SY || 0), +(process.env.SZ || 0)]);
   console.log('site', JSON.stringify(setup));
 
   // shared helpers installed in the page
@@ -66,6 +76,7 @@ export default async ({ page, evalg, wait, shot, logs }) => {
   });
 
   const results = {};
+  if (!process.env.ONLYSHOTS) {
   // ------------------------------------------------------------ CHARGER --
   results.charger = await evalg(() => {
     const g = window.game; window.__reset();
@@ -92,15 +103,18 @@ export default async ({ page, evalg, wait, shot, logs }) => {
 
   // ------------------------------------------------------------- JOCKEY --
   const jockeyRun = (humanTarget) => evalg((humanTarget) => {
-    const g = window.game; window.__reset();
-    const j = window.__spawn('jockey', 9, humanTarget ? 0 : 3);
+    const g = window.game; window.__reset(2.4);
+    const j = window.__spawn('jockey', 9, 0);
     j.leapCd = 0;
-    if (humanTarget) { j.pickTarget = () => g.player; j.target = g.player; }
+    const want = humanTarget ? g.player : g.survivors[3];
+    j.pickTarget = () => want; j.target = want;
     const R = { states: [], rideT: -1, victim: null, moved: 0, released: -1, how: null, rideDur: 0, shoves: 0 };
     let last = '', p0 = null, v = null;
     for (let t = 0; t < 25; t += 0.05) {
       g.advance(0.05);
-      if (j.state !== last) { R.states.push(j.state + '@' + t.toFixed(1)); last = j.state; }
+      if (j.state !== last) { R.states.push(j.state + '@' + t.toFixed(1) + (j.state === 'stalk' && R.minD != null ? '(miss ' + R.minD.toFixed(2) + ')' : '')); last = j.state; R.minD = null; }
+      if (j.state === 'leap') for (const s of g.survivors) { const d = Math.hypot(s.pos.x - j.pos.x, s.pos.y + 1.1 - (j.pos.y + 0.4), s.pos.z - j.pos.z); R.minD = Math.min(R.minD ?? 99, d); }
+      if (j.dead && !R.deadT) R.deadT = +t.toFixed(1);
       if (j.state === 'ride' && !v) { v = j.pinning; R.victim = v.char.id; R.rideT = +t.toFixed(1); p0 = v.pos.clone(); }
       if (v && j.state === 'ride') { R.moved = Math.max(R.moved, +p0.distanceTo(v.pos).toFixed(2)); R.rideDur = +(t - R.rideT).toFixed(1); }
       if (v && j.state !== 'ride' && R.released < 0) { R.released = +t.toFixed(1); R.how = j.dead ? 'killed' : 'shoved'; R.victimFree = !v.pinned; break; }
@@ -175,7 +189,7 @@ export default async ({ page, evalg, wait, shot, logs }) => {
     // live director with specials enabled for 60 s
     for (const s of g.infected.specials) s.remove();
     g.infected.specials.length = 0;
-    d.enabled = true; d.state = 'build'; d.specialT = 0; d.stats.specials = 0;
+    d.enabled = true; d.leftSafe = true; d.blockSpecials = false; d.state = 'build'; d.specialT = 0; d.stats.specials = 0;
     const seen = new Set();
     for (let t = 0; t < 60; t += 0.5) { g.advance(0.5); for (const s of g.infected.specials) seen.add(s.kind); if (d.state !== 'build' && d.state !== 'sustain') { d.state = 'build'; } d.specialT = Math.min(d.specialT, 3); }
     d.enabled = false;
@@ -185,9 +199,12 @@ export default async ({ page, evalg, wait, shot, logs }) => {
   });
   console.log('DIRECTOR', JSON.stringify(results.director));
 
+  }
   // -------------------------------------------------------- screenshots --
   if (process.env.SHOTS) {
+    const want = (process.env.SHOTLIST || 'sp2_charger_pummel,sp2_jockey_ride,sp2_spitter_pool,sp2_charger_look').split(',');
     const frame = async (name, fn, settle = 0) => {
+      if (!want.includes(name)) return;
       const info = await evalg(fn);
       console.log(name, JSON.stringify(info));
       if (settle) await wait(settle);

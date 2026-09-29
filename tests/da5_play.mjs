@@ -47,12 +47,12 @@ export default async ({ page, evalg, wait }) => {
         if (use) { W.useT = 1; if (door.locked) W.log.push('LOCKED DOOR ' + door.cx + ',' + door.cz); }
         const [inf, idist] = nearestInf();
         g.testCmd = { my: 1, usePressed: use, jump: W.stuckT > 0.8 && W.stuckT < 0.9, fire: !!inf && idist < 9 };
-        if (inf && idist < 9) { const yw = p.yaw; aim(inf); g.advance(0.05); p.yaw = yw; p.pitch = 0; g.advance(0.05); } else g.advance(0.1);
+        if (inf && idist < 9) { const yw = p.yaw; aim(inf); g.testCmd.my = 0; g.advance(0.05); p.yaw = yw; p.pitch = 0; g.testCmd = { my: 1 }; g.advance(0.05); } else g.advance(0.1);
         const prog = L.progressAt(p.pos.x, p.pos.y, p.pos.z);
         if (prog < 0 && !W.negLogged) { W.negLogged = true; W.log.push('NEG PROG at ' + fmt(p.pos)); }
         if (prog > W.lastProg + 0.002) { W.lastProg = prog; W.stuckT = 0; } else W.stuckT += 0.1;
         if (prog > W.maxProg) W.maxProg = prog;
-        if (W.stuckT > 12) { W.log.push(`STUCK at ${fmt(p.pos)} prog ${prog.toFixed(3)} phase ${W.phase} pinned ${p.pinned?.kind || '-'} incap ${p.incapped} stun ${p.stunT?.toFixed(1)} mounted ${!!p.usingMounted}`); W.done = true; }
+        if (W.stuckT > 12) { W.log.push(`STUCK at ${fmt(p.pos)} prog ${prog.toFixed(3)} phase ${W.phase} pinned ${p.pinned?.kind || '-'} incap ${p.incapped} stun ${p.stunT?.toFixed(1)} mounted ${!!p.usingMounted} nearest ${(() => { const [i, d] = nearestInf(); return i ? (i.kind || 'common') + '@' + fmt(i.pos) + ' d' + d.toFixed(1) + ' hp' + i.hp : '-'; })()}`); W.done = true; }
         if (Math.floor(W.t * 10) % 300 === 0) W.log.push(`t=${W.t.toFixed(0)} pos ${fmt(p.pos)} prog ${prog.toFixed(3)} phase ${W.phase}`);
       };
       for (let step = 0; step < 150 && !W.done; step++) {

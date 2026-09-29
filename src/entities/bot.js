@@ -457,7 +457,8 @@ export class BotBrain {
     if (this.targetT < this.reaction) return;
     // shove if close commons (or pinned teammate)
     if (!incapped && !t.special && dist < 1.3 && this.closeCount >= 1 && s.shoveFatigue < 3) { c.shove = true; }
-    if (t.special && t.pinning && t.pinning.pos.distanceTo(s.pos) < 1.8 && t.shoveable) c.shove = true;
+    // shove a pinner off a teammate (after a beat to react: the pin has to register first)
+    if (t.special && t.pinning && t.pinning.pos.distanceTo(s.pos) < 1.8 && t.shoveable && (t.stateT ?? 1) > this.reaction * 0.8 + 0.25) c.shove = true;
     if (!w) return;
     if (w.clip === 0) { if (w.reserve > 0) c.reload = true; else if (s.slot === 0) c.slot = 1; return; }
     // friendly fire check

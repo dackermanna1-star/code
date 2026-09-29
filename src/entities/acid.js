@@ -54,7 +54,7 @@ void main() {
   float bub = smoothstep(0.78, 0.92, vn(vP * 11.0 + vec2(uT * 0.9, uSeed)));
   float pulse = 0.85 + 0.15 * sin(uT * 4.0 + r * 5.0);
   vec3 deep = vec3(0.05, 0.28, 0.015);
-  vec3 hot = vec3(0.55, 1.45, 0.12);
+  vec3 hot = vec3(0.42, 1.12, 0.1);
   vec3 c = mix(deep, hot, clamp(n1 * 0.7 + n2 * 0.5 - 0.1, 0.0, 1.0)) * pulse * (0.7 + 0.6 * uHeat);
   c += bub * vec3(0.9, 1.6, 0.4);
   // bright meniscus at the rim
@@ -242,7 +242,7 @@ export class AcidField {
           if (g.time - st.last > 0.6) st.t = 0;
           st.last = g.time;
           st.t += 0.25;
-          const dps = (1.2 + 7 * Math.min(1, st.t / 1.8)) * (g.difficulty?.siDmg ?? 1) * (p.small ? 0.6 : 1) * fade;
+          const dps = (2 + 12 * Math.min(1, st.t / 1.5)) * (g.difficulty?.siDmg ?? 1) * (p.small ? 0.6 : 1) * fade;
           const loud = st.t < 0.3 || ((st.t * 4) | 0) % 4 === 0;
           s.takeDamage(dps * 0.25, p.owner, 'acid', !loud);
           if (s.isHuman && g.renderer?.fx) {
