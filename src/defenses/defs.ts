@@ -48,7 +48,7 @@ const WOOD_L = 0xa87444;
 
 export const DEFENSES: DefenseDef[] = [
   {
-    id: 'woodBarrier', name: 'Wooden Barrier', category: 'basic', cost: 120, unlockDay: 0, hp: 260, kind: 'barrier',
+    id: 'woodBarrier', name: 'Wooden Barrier', category: 'basic', cost: 120, unlockDay: 0, hp: 400, kind: 'barrier',
     hw: 1.3, hd: 0.22, height: 1.15, material: 'wood',
     desc: 'Cheap plank barrier. Zombies will tear it apart — but it buys time.',
     build(mb) {
@@ -62,7 +62,7 @@ export const DEFENSES: DefenseDef[] = [
     },
   },
   {
-    id: 'woodWall', name: 'Wooden Wall', category: 'basic', cost: 260, unlockDay: 2, hp: 520, kind: 'barrier',
+    id: 'woodWall', name: 'Wooden Wall', category: 'basic', cost: 260, unlockDay: 2, hp: 800, kind: 'barrier',
     hw: 1.6, hd: 0.2, height: 2.1, material: 'wood',
     desc: 'Tall plank wall. Blocks the view and the horde.',
     build(mb) {
@@ -78,7 +78,7 @@ export const DEFENSES: DefenseDef[] = [
     },
   },
   {
-    id: 'woodBarricade', name: 'Wooden Barricade', category: 'basic', cost: 360, unlockDay: 4, hp: 480, kind: 'barrier',
+    id: 'woodBarricade', name: 'Wooden Barricade', category: 'basic', cost: 360, unlockDay: 4, hp: 720, kind: 'barrier',
     hw: 1.4, hd: 0.55, height: 1.3, material: 'wood', thorns: 3,
     desc: 'Cross-braced spiked barricade. Hurts zombies that attack it.',
     build(mb) {
@@ -92,7 +92,7 @@ export const DEFENSES: DefenseDef[] = [
     },
   },
   {
-    id: 'sandbags', name: 'Sandbags', category: 'basic', cost: 420, unlockDay: 3, hp: 1100, kind: 'barrier',
+    id: 'sandbags', name: 'Sandbags', category: 'basic', cost: 420, unlockDay: 3, hp: 1500, kind: 'barrier',
     hw: 1.5, hd: 0.42, height: 0.95, material: 'sand',
     desc: 'Heavy, low and tough. Absorbs a lot of punishment.',
     build(mb) {
@@ -159,7 +159,7 @@ export const DEFENSES: DefenseDef[] = [
     },
   },
   {
-    id: 'spikeBarrier', name: 'Spike Barrier', category: 'trap', cost: 600, unlockDay: 9, hp: 700, kind: 'barrier',
+    id: 'spikeBarrier', name: 'Spike Barrier', category: 'trap', cost: 600, unlockDay: 9, hp: 900, kind: 'barrier',
     hw: 1.4, hd: 0.5, height: 1.2, material: 'wood', thorns: 10,
     trap: { type: 'spikes', dps: 10 },
     desc: 'Sharpened stakes angled at the horde. Blocks and impales.',

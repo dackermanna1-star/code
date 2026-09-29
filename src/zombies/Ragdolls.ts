@@ -562,7 +562,8 @@ export class RagdollSystem {
         if (d > radius) continue;
         const f = force * (1 - d / radius) * b.mass();
         const inv = 1 / Math.max(0.3, d);
-        b.applyImpulse({ x: dx * inv * f, y: (Math.max(0.2, dy * inv) + 0.9) * f, z: dz * inv * f }, true);
+        // mostly outward, with enough lift to tumble bodies a few meters up
+        b.applyImpulse({ x: dx * inv * f, y: (Math.max(0.15, dy * inv) * 0.5 + 0.6) * f, z: dz * inv * f }, true);
         b.applyTorqueImpulse({ x: rand(-1, 1) * f * 0.02, y: rand(-1, 1) * f * 0.02, z: rand(-1, 1) * f * 0.02 }, true);
       }
     }

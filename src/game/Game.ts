@@ -125,7 +125,7 @@ export class Game {
 
     this.canvas.addEventListener('click', () => {
       G.audio?.unlock();
-      if (this.mode === 'play' && !this.uiBlocking) G.input.requestLock();
+      if (this.mode === 'play' && !this.uiBlocking) G.input.requestLock(true);
     });
     G.input.onLockError = () => {
       G.ui.toast('Mouse capture is blocked here — open the game in its own tab for full mouse look', 6);
@@ -138,6 +138,8 @@ export class Game {
       if (e.code === 'Escape') {
         if (G.ui.shopOpen) G.ui.closeShop();
         else if (this.paused) this.resume();
+        // free-look fallback has no pointer lock to lose, so Escape pauses directly
+        else if (!G.input.requireLock && this.mode === 'play' && !this.uiBlocking && G.player.alive) this.pause();
       }
     });
   }
@@ -296,10 +298,10 @@ export class Game {
     G.ui.showPause();
   }
 
-  resume() {
+  resume(fromClick = false) {
     G.ui.closeOverlay();
     this.paused = false;
-    G.input.requestLock();
+    G.input.requestLock(fromClick);
   }
 
   quitToMenu(fromSummary = false) {

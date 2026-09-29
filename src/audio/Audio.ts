@@ -12,6 +12,8 @@ export interface PlayOpts {
   voices?: number;
   reverb?: number;
   weapon?: boolean;
+  /** When the voice pool is full, skip this sound instead of cutting the oldest. */
+  dropIfFull?: boolean;
 }
 
 const DEFAULT_VOICES: Record<string, number> = { casing: 8, shell: 6, casingBig: 6, footstep: 2, hitFlesh: 8, bodyFall: 6, gib: 6, explosion: 6, groan: 8 };
@@ -221,6 +223,7 @@ export class AudioEngine {
       this.active.set(key, list);
     }
     if (list.length >= limit) {
+      if (o.dropIfFull) return;
       const old = list.shift();
       try {
         old?.stop();
@@ -276,8 +279,14 @@ export class AudioEngine {
     void vol;
   }
 
+  private debrisNext = new Map<string, number>();
+  /** Debris landings: rate-limited per kind so a shower of gibs stays cheap. */
   debris(kind: string, x: number, y: number, z: number, speed: number) {
-    this.play(kind, { x, y, z, volume: Math.min(1, speed / 5) * 0.7, pitchVar: 0.12 });
+    if (!this.ctx || speed < 1.2) return;
+    const now = this.ctx.currentTime;
+    if (now < (this.debrisNext.get(kind) ?? 0)) return;
+    this.debrisNext.set(kind, now + (kind === 'casing' || kind === 'shell' ? 0.02 : 0.045));
+    this.play(kind, { x, y, z, volume: Math.min(1, speed / 5) * 0.7, pitchVar: 0.12, dropIfFull: true });
   }
 
   explosion(x: number, y: number, z: number, radius: number) {

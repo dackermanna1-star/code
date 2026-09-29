@@ -6,6 +6,8 @@ import { DEFENSES, DEFENSE_MAP, DefenseDef, turretCost } from '../defenses/defs'
 import { Icons } from './Icons';
 import { wavesForDay } from '../game/Progress';
 
+const _pv = new THREE.Vector3();
+
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', html = ''): HTMLElementTagNameMap[K] {
@@ -167,7 +169,7 @@ export class UI {
         <button class="btn" data-a="quit">Quit to Menu</button></div>`,
       '',
       (a) => {
-        if (a === 'resume') G.game.resume();
+        if (a === 'resume') G.game.resume(true);
         else if (a === 'settings') this.showSettings(true);
         else if (a === 'help') this.showHelp(true);
         else if (a === 'quit') G.game.quitToMenu();
@@ -572,15 +574,28 @@ export class UI {
     this.hmT = kind === 'hit' ? 0.12 : 0.25;
   }
 
-  private popups: { e: HTMLDivElement; p: THREE.Vector3; t: number }[] = [];
+  private popups: { e: HTMLDivElement; p: THREE.Vector3; t: number; amount: number; count: number }[] = [];
   moneyPopup(amount: number, x: number, y: number, z: number, head: boolean) {
+    // kills landing together (explosions, penetration, pellets) merge into one bigger popup
+    for (const p of this.popups) {
+      if (p.t > 0.4 || p.p.distanceToSquared(_pv.set(x, y, z)) > 25) continue;
+      p.amount += amount;
+      p.count++;
+      p.p.lerp(_pv, 1 / p.count);
+      p.t = Math.min(p.t, 0.08);
+      p.e.textContent = `+$${p.amount}`;
+      p.e.classList.add('multi');
+      if (head) p.e.classList.add('head');
+      p.e.style.setProperty('--pop', String(Math.min(1.9, 1 + Math.log2(p.count) * 0.22)));
+      return;
+    }
     if (this.popups.length > 24) {
       const old = this.popups.shift()!;
       old.e.remove();
     }
     const e = el('div', 'popup' + (head ? ' head' : ''), `+$${amount}`);
     this.hudEl.appendChild(e);
-    this.popups.push({ e, p: new THREE.Vector3(x, y, z), t: 0 });
+    this.popups.push({ e, p: new THREE.Vector3(x, y, z), t: 0, amount, count: 1 });
   }
 
   damageDir(angle: number) {

@@ -243,7 +243,8 @@ html, body {
 #toasts { position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 4px; align-items: center; }
 #toasts div { font-family: var(--font-pixel); font-size: 13px; background: rgba(0, 0, 0, 0.7); padding: 5px 12px; box-shadow: 0 0 0 2px #000; animation: toastIn 0.2s; }
 @keyframes toastIn { from { transform: translateY(8px); opacity: 0; } }
-.popup { position: absolute; font-family: var(--font-num); font-size: 26px; color: var(--gold); text-shadow: 2px 2px 0 #000; pointer-events: none; white-space: nowrap; transform: translate(-50%, -50%); }
+.popup { --pop: 1; position: absolute; font-family: var(--font-num); font-size: 26px; color: var(--gold); text-shadow: 2px 2px 0 #000; pointer-events: none; white-space: nowrap; transform: translate(-50%, -50%) scale(var(--pop)); transition: transform 0.12s ease-out; }
+.popup.multi { color: #ffd23a; text-shadow: 2px 2px 0 #000, 0 0 12px rgba(255, 180, 40, 0.55); }
 .popup.head { color: #fff26a; font-size: 30px; }
 #killfeed { position: absolute; top: 70px; right: 16px; display: flex; flex-direction: column; gap: 3px; align-items: flex-end; }
 #killfeed div { font-family: var(--font-pixel); font-size: 11px; background: rgba(0, 0, 0, 0.5); padding: 2px 8px; }

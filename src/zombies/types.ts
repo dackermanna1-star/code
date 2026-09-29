@@ -42,7 +42,7 @@ export interface ZombieType {
 export const ZTYPES: Record<string, ZombieType> = {
   walker: {
     id: 'walker', name: 'Walker', body: HUMAN, hp: 10, speed: [1.2, 1.85], scale: [0.94, 1.06], damage: 8, attackTime: 1.1, attackRange: 0.95,
-    structDamage: 7, reward: 10, armor: 0, armorParts: [], toughness: 45, knockResist: 0, mass: 70, skins: SKINS.walker, smart: false,
+    structDamage: 6, reward: 10, armor: 0, armorParts: [], toughness: 45, knockResist: 0, mass: 70, skins: SKINS.walker, smart: false,
     gait: 'shamble', firstDay: 1, groan: 'normal',
   },
   runner: {

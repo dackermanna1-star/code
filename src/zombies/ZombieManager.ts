@@ -395,7 +395,7 @@ export class ZombieManager {
         pl.damage(t.damage * this.damageScale, new THREE.Vector3(z.x, z.y + 1, z.z));
       }
     } else if (tgt && tgt.alive) {
-      tgt.damage?.(t.structDamage * this.damageScale, z);
+      G.structures.damage(tgt, t.structDamage * this.damageScale, z);
       G.fx?.structureHit?.(tgt, z);
     }
   }

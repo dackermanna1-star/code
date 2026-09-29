@@ -36,7 +36,7 @@ export class Explosions {
       }
     }
     G.zombies.explode(x, y, z, radius, damage, o.gore ?? 0.6, o.weapon ?? 'explosion');
-    G.ragdolls.blast(x, y, z, radius * 1.35, (o.force ?? 1) * (7 + radius * 1.3), o.big ? 22 : 14);
+    G.ragdolls.blast(x, y, z, radius * 1.35, (o.force ?? 1) * (4 + radius * 0.8), o.big ? 22 : 14);
     if (o.structures) G.structures?.explosionDamage(x, z, radius, damage);
     if (o.fire) G.fx.addFirePatch(x, z, radius * 0.45, 6, 10, o.weapon ?? 'fire');
   }

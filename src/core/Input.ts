@@ -25,6 +25,8 @@ export class Input {
   enabled = true;
   onLockChange: ((locked: boolean) => void) | null = null;
   onLockError: (() => void) | null = null;
+  private gestureAttempt = false;
+  private lockFailures = 0;
 
   constructor(private canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', (e) => {
@@ -76,13 +78,18 @@ export class Input {
     );
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     document.addEventListener('pointerlockerror', () => {
-      // Embedded without pointer-lock permission: fall back to free-mouse look.
-      if (!this.requireLock) return;
+      // Requests without a user gesture (Escape-resume, too soon after an
+      // exit) fail transiently. Only repeated failures of click-driven
+      // requests mean the page is embedded without pointer-lock permission.
+      if (!this.requireLock || !this.gestureAttempt) return;
+      this.gestureAttempt = false;
+      if (++this.lockFailures < 2) return;
       this.requireLock = false;
       this.onLockError?.();
     });
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === canvas;
+      if (this.locked) this.lockFailures = 0;
       if (!this.locked) {
         this.mouseHeld = [false, false, false];
         this.swallowed = [false, false, false];
@@ -91,8 +98,10 @@ export class Input {
     });
   }
 
-  requestLock() {
+  /** `gesture`: called from a click handler (failures then count toward the fallback). */
+  requestLock(gesture = false) {
     if (this.locked) return;
+    this.gestureAttempt = gesture;
     try {
       const p = this.canvas.requestPointerLock({ unadjustedMovement: true } as any) as unknown as Promise<void> | undefined;
       if (p && typeof (p as any).catch === 'function') {
