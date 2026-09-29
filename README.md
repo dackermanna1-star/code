@@ -1,9 +1,10 @@
-# The Last Four — No Mercy
+# The Last Four — Dead Air & No Mercy
 
 A first-person, four-player co-op survival-horror campaign for the browser, built on
-Three.js. It is an original fan tribute to the classic co-op zombie formula and follows
-the five-chapter structure of the No Mercy campaign: fight from the apartments, through
-the subway, the sewers and the hospital, to a helicopter extraction on the hospital roof.
+Three.js. It is an original fan tribute to the classic co-op zombie formula with two
+five-chapter campaigns: **Dead Air** (the default) crosses the rooftops of Newburg to
+the airport and the last plane out; **No Mercy** fights from the apartments to a
+helicopter on the hospital roof.
 
 All code, geometry, textures, sounds, music and dialogue are generated procedurally at
 runtime. The game contains no assets from any commercial game. Not affiliated with or
@@ -14,6 +15,13 @@ endorsed by Valve Corporation; "Left 4 Dead" is a trademark of Valve.
 ```bash
 npm install
 npm run dev          # http://localhost:5173 (the co-op relay is mounted at /net)
+```
+
+Single-file build (the whole game in one offline HTML file, `the-last-four.html`;
+open it directly in the browser, no server needed):
+
+```bash
+npm run build:single
 ```
 
 Production build:
@@ -38,7 +46,7 @@ preset under **Options** (Low / Medium / High).
 | Jump / crouch / sprint | Space / Ctrl or C / Shift |
 | Use, pick up, revive, open doors (hold for radios and panels) | E |
 | Reload | R |
-| Weapon slots: primary, secondary, throwable, first-aid kit, pills | 1 – 5 |
+| Weapon slots: primary, secondary, throwable, first-aid kit / defibrillator / upgrade pack, pills / adrenaline | 1 – 5 |
 | Last weapon | Q |
 | Flashlight | F |
 | Heal a teammate (first-aid kit or pills selected) | Right mouse while looking at them |
@@ -50,7 +58,26 @@ shoves and RB uses. A jumps, B crouches, X reloads, Y switches to the last weapo
 sprints. On the D-pad, up is the flashlight, down the throwable, right the first-aid kit
 and left the pills. Start pauses.
 
-## The campaign
+## The campaigns
+
+### Dead Air (default)
+
+1. **The Greenhouse**: from a rooftop greenhouse across plank bridges and apartment
+   roofs, down a fire escape and onto a semi truck, into the Harborview Hotel kitchen.
+2. **The Crane**: up through the hotel to its roof, work a construction crane to
+   swing a dumpster across the gap while the horde pours in, then through an office
+   tower to the Stor-Safe self-storage safe room.
+3. **The Construction Site**: an unfinished high-rise; blow the barricade rigged with
+   gas canisters, then transformer yards, a power station, the airport parking garage
+   and the skybridge.
+4. **The Terminal**: conference wing, check-in hall, hotwire a crashed shuttle through
+   the barricade, baggage handling, a security checkpoint with a live metal detector,
+   the concourse and gates.
+5. **Runway Finale**: an airliner crashes on the runway as you leave; radio the pilot,
+   run the fuel pump and hold the apron through waves and Tanks until the transport
+   is fuelled, then board for the takeoff.
+
+### No Mercy
 
 1. **The Apartments**: start on a rooftop, fight down through burning apartments and
    the streets, then go into the subway station safe room.
@@ -66,14 +93,18 @@ and left the pills. Start pauses.
 
 ## Features
 
-- **Combat**: 15 weapons (pistols, magnum, SMGs, shotguns, assault rifles, hunting
-  rifle, M60, grenade launcher, mounted minigun, melee) with recoil, spread bloom,
-  shell ejection, reloads, penetration and friendly fire. Throwables are Molotovs,
-  pipe bombs and bile jars.
+- **Combat**: pistols, magnum, SMGs, shotguns, assault rifles, hunting rifle, M60,
+  grenade launcher, mounted minigun and melee (fire axe, crowbar, machete, katana,
+  baseball bat, frying pan, chainsaw) with recoil, spread bloom, shell ejection,
+  per-weapon reload animations, penetration and friendly fire. Throwables are
+  Molotovs, pipe bombs and bile jars. Items: first-aid kits, defibrillators,
+  incendiary/explosive ammo packs, laser sights, pills and adrenaline.
+- **First person**: articulated hands (18-bone arms per survivor) with a grip pose for
+  every weapon and item; hands follow magazines, pumps and bolts during reloads.
 - **Infected**: large hordes (instanced rendering) that climb, vault, drop, break doors
   and flow around obstacles on a layered navigation grid. They have hit reactions,
   dismemberment, gibs, ragdolls and burning. The special infected are the Hunter,
-  Smoker, Boomer, Tank and Witch.
+  Smoker, Boomer, Charger, Jockey, Spitter, Tank and Witch, plus uncommon infected.
 - **AI Director**: tracks intensity, health, ammo, progress and incaps. It paces
   build-up, peak, fade and relax phases, and controls wandering infected, mobs from
   several directions, special-infected timers, Tanks, Witches, item placement,
@@ -85,9 +116,13 @@ and left the pills. Start pauses.
 - **AI teammates**: follow the leader, fight, revive and heal teammates, free pinned
   survivors, pick up items and use doors.
 - **Co-op**: up to four players, with AI bots filling empty slots (see below).
-- **Rendering**: procedural PBR materials, dynamic lights mapped onto a fixed light
-  pool, shadows, fog, bloom, color grading and screen effects, persistent blood and
-  scorch decals, and particle fire, smoke, sparks and blood.
+- **Rendering**: procedural PBR materials and wall art (graffiti, posters, signs),
+  detailed props and clutter, dynamic lights mapped onto a fixed light pool, shadows,
+  ambient occlusion, fog, bloom, film grain and per-campaign color grading, teammate
+  and item outlines, blood on the screen, persistent blood and scorch decals, and
+  particle fire, smoke, sparks and blood.
+- **HUD**: minimal, with teammate status (down, pinned, black-and-white, dead),
+  inventory, hold-to-use progress and optional route arrows on the ground.
 - **Audio**: fully synthesized Web Audio sound effects with occlusion-free spatial
   panning, indoor/outdoor reverb zones, ambience beds and adaptive music stingers.
 

@@ -9,6 +9,7 @@ import { Door, WindowPane } from '../world/dynamic.js';
 import { F_SOLID, F_SHOOT, F_SIGHT } from '../world/collision.js';
 import { DF } from '../render/decals.js';
 import { parapet, ebsScreen, neonSign } from './da_parts.js';
+import { chopperWreck } from './da1_dress.js';
 import { YA, F4, F3, YC, ZS, ZN, rng, rot, windowGrid, fireEscapeDeco, deadPlant, pot, roofVent, lawnChair, stringLights, bloodTrail, scatterBlood } from './da1_common.js';
 
 const NC = { collide: false };
@@ -129,7 +130,6 @@ function buildF4(L, game, S) {
   P.corpse(L, 44, y + 0.01, 28.5, 1.2, 0x5a2a2a);
   L.decal(44, y + 0.012, 28.5, 0, 1, 0, 1.6, DF.POOL);
   bloodTrail(L, 44.5, 28.4, 49.5, 28.0, y, 6);
-  P.prop(L, 53.8, y, 28.6, 0.4).box(0, 0.45, 0, 0.9, 0.6, 0.55, 'plastic', 0x3a5a8a).box(0, 0.1, 0, 0.8, 0.05, 0.5, 'metalDark').col(0, 0.4, 0, 0.9, 0.8, 0.55, 'plastic');
   P.papers(L, 51, y + 0.01, 28.2, 1.2, 8);
   physProp(L, 'trashcan', 42.5, y, 28.6);
   // burning corridor end (blocked): rubble, fire, collapsed ceiling
@@ -349,19 +349,7 @@ function buildC(L, game, S) {
 
   // ---------------------------------------------------- the crashed news chopper
   const hx = 74, hz = 38.8;
-  const hel = P.prop(L, hx, YC, hz, 0.35);
-  // fuselage rolled onto its left side, nose crumpled against D's wall side
-  hel.box(0, 1.25, 0, 4.4, 2.1, 2.2, 'carPaint', 0x2a3a5a, [0, 0, 1.2]);
-  hel.box(1.9, 1.0, 0, 1.4, 1.5, 1.9, 'glassDirty', 0x1a2024, [0, 0.1, 1.2]);
-  hel.box(-0.4, 1.35, 0, 3.6, 0.35, 2.25, 'paintedWhite', 0xd8d8d0, [0, 0, 1.2]);
-  hel.box(-4.3, 0.95, 0.3, 5.2, 0.5, 0.5, 'carPaint', 0x2a3a5a, [0, -0.25, 0.25]);
-  hel.box(-6.8, 1.3, 0.95, 0.12, 1.4, 0.9, 'carPaint', 0x2a3a5a, [0.4, -0.25, 0.25]);
-  hel.box(0.6, 2.3, -0.9, 0.35, 0.6, 0.35, 'metalDark', null, [0.9, 0, 0.6]);
-  for (const [a, l] of [[0.3, 4.5], [1.9, 3.2]]) hel.box(0.6 + Math.cos(a) * l / 2, 2.2, -1.2 + Math.sin(a) * l / 2, l, 0.05, 0.28, 'blackMatte', null, [0.15, -a, 0.2]);
-  for (const sx of [-1, 1]) hel.box(0.2, 0.25 + (sx > 0 ? 1.1 : 0), sx * 1.1, 3.4, 0.08, 0.08, 'metalDark', null, [0, 0, 1.2]);
-  hel.col(0, 1.2, 0, 4.6, 2.4, 2.6, 'metal');
-  hel.col(-4.2, 0.9, 0.3, 4.8, 1.0, 0.8, 'metal');
-  sign(L, 'SKY 9 NEWS', hx + 0.2, YC + 1.9, hz - 1.05, 0.35 + Math.PI, 2.2, 0.5, { fg: '#e8e8e0', bg: '#1a3a7a' });
+  chopperWreck(L, hx, YC, hz, 0.35);
   // a blade buried in D's wall, another hanging over the street parapet
   P.prop(L, 79.7, YC + 2.2, 35.2, 0).box(0, 0, 0, 0.3, 0.05, 4.2, 'blackMatte', null, [0.5, 0.2, 0.4]);
   L.decal(79.98, YC + 2.4, 35.4, -1, 0, 0, 1.4, DF.CRACK);
@@ -484,7 +472,8 @@ function buildD(L, game, S) {
   // barricade of desks across the direct way
   for (let k = 0; k < 3; k++) P.desk(L, 92 + k * 1.5, y, 33.6, 0.1 * k + Math.PI, false);
   P.filingCabinet(L, 97.2, y, 33.8, 0.3);
-  P.prop(L, 94.3, y + 0.76, 33.6, 0.5).box(0, 0.3, 0, 1.3, 0.6, 0.6, 'woodDark').col(0, 0.3, 0, 1.3, 0.6, 0.6, 'wood');
+  P.filingCabinet(L, 94.3, y, 34.05, Math.PI + 0.4);
+  P.crate(L, 92.6, y + 0.76, 33.6, 0.5, 0.6);
   // printers, water cooler, plants, lights
   const pr = P.prop(L, 102.8, y, 29, -Math.PI / 2);
   pr.box(0, 0.5, 0, 1.2, 1.0, 0.7, 'plastic', 0xc8c8c0).box(0, 1.05, 0.1, 1.0, 0.1, 0.4, 'plastic', 0x3a3a3a).col(0, 0.5, 0, 1.2, 1.0, 0.7, 'plastic');

@@ -20,6 +20,7 @@ import { buildRoofs, GH, SHAFT } from './da1_roofs.js';
 import { buildBlock } from './da1_block.js';
 import { buildStreetAndHotel } from './da1_street.js';
 import { buildSky } from './da1_sky.js';
+import { buildDressing } from './da1_dress.js';
 import { YA, F4, F3, YC, HY } from './da1_common.js';
 
 // helper: survivor voice by name if alive
@@ -48,6 +49,7 @@ export default {
     buildBlock(L, game, S);
     buildStreetAndHotel(L, game, S);
     buildSky(L, game, S);
+    buildDressing(L, game, S);
     L.witchSpots.push({ x: 68.3, y: YC + 0.04, z: 18.4 }, { x: 70.5, y: 0.15, z: 61 }, { x: 121, y: HY, z: 76.8 });
     L.killZone(-400, -60, -400, 600, -25, 600);
 
