@@ -69,6 +69,10 @@ export class Restaurant {
     minute.rotation.z = -((h % 1) * Math.PI * 2);
   }
 
+  get doorAmount() {
+    return this.doorOpen;
+  }
+
   /** Swing the front door open for a moment and ring the bell. */
   openDoor(hold = 1.2) {
     if (this.doorTarget < 1) this.onDoorOpen?.();

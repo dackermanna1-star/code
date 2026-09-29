@@ -160,10 +160,10 @@ export class PostFX {
     this.composer.addPass(this.heatPass);
 
     this.dof = new DepthOfFieldEffect(camera, {
-      focusDistance: 0.02,
-      focalLength: 0.05,
-      bokehScale: 3.0,
-      height: 480,
+      focusDistance: 1.2,
+      focusRange: 0.9,
+      bokehScale: 2.6,
+      resolutionScale: 0.5,
     });
     this.dofPass = new EffectPass(camera, this.dof);
     this.dofPass.enabled = false;

@@ -53,6 +53,8 @@ export class Lighting {
   readonly kitchenFill = new THREE.PointLight(0xf2f6ff, 14, 10, 1.4);
   readonly pickupLamp = new THREE.PointLight(0xff6a2a, 2.2, 1.6, 2);
   readonly grillGlow = new THREE.PointLight(0xff6a1a, 0, 1.8, 2);
+  readonly facadeWash = new THREE.SpotLight(0xffb870, 0, 16, 0.75, 0.7, 1.2);
+  readonly streetFill = new THREE.PointLight(0xffcf96, 0, 14, 1.5);
   readonly sunDir = new THREE.Vector3(0.3, 0.6, 0.5).normalize();
   hour = 11;
   night = 0;
@@ -116,6 +118,12 @@ export class Lighting {
     scene.add(this.pickupLamp);
     this.grillGlow.position.set(GRILL.center.x, GRILL.center.y + 0.12, GRILL.center.z);
     scene.add(this.grillGlow);
+    // exterior night lighting: the sign washes the facade, street lamps fill the sidewalk
+    this.facadeWash.position.set(0.3, 6.5, 10.5);
+    this.facadeWash.target.position.set(0.3, 1.8, 6.3);
+    scene.add(this.facadeWash, this.facadeWash.target);
+    this.streetFill.position.set(-1.5, 3.8, 9.2);
+    scene.add(this.streetFill);
 
     // God rays through the windows
     this.godRays.addWindow(new THREE.Vector3(-3.425, 1.75, ROOM.maxZ), new THREE.Vector3(1, 0, 0), 5.9, 1.6, new THREE.Vector3(0, 0, -1));
@@ -237,6 +245,8 @@ export class Lighting {
     for (const m of ext.windowMats) m.emissiveIntensity = clamp(dusk) * 1.4;
     ext.signMat.emissiveIntensity = 0.25 + clamp(dusk) * 1.2;
     ext.signNeon.color.setScalar(0.3 + clamp(dusk) * 1.8);
+    this.facadeWash.intensity = clamp(dusk) * 55;
+    this.streetFill.intensity = clamp(dusk) * 18;
 
     // --- god rays
     const rayInt = sunUp * (0.18 + 0.22 * smoothstep(0.9, 0.3, this.sunDir.y));

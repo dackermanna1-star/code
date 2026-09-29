@@ -60,11 +60,13 @@ export class Sky {
             vec3 cc = mix(uCloudTint, uCloudTint * 0.7, smoothstep(0.4, 0.8, shade));
             cc += uSunColor * pow(sd, 4.0) * 0.25;
             col = mix(col, cc, c * smoothstep(0.0, 0.18, y) * 0.85);
-            // stars
-            vec2 sp = d.xz / (y + 0.05) * 60.0;
-            float st = step(0.996, h21(floor(sp))) * smoothstep(0.1, 0.4, y);
-            float tw = 0.6 + 0.4 * sin(uTime * 3.0 + h21(floor(sp)) * 50.0);
-            col += vec3(st * tw * uNight * (1.0 - c));
+            // stars (3D cell hash -> round points)
+            vec3 cell = floor(d * 220.0);
+            vec3 fc = fract(d * 220.0) - 0.5;
+            float hs = fract(sin(dot(cell, vec3(12.9898, 78.233, 45.164))) * 43758.5453);
+            float st = step(0.9965, hs) * smoothstep(0.35, 0.0, length(fc)) * smoothstep(0.08, 0.35, y);
+            float tw = 0.6 + 0.4 * sin(uTime * 3.0 + hs * 60.0);
+            col += vec3(st * tw * uNight * (1.0 - c) * 1.6);
           }
           gl_FragColor = vec4(col, 1.0);
           #include <tonemapping_fragment>

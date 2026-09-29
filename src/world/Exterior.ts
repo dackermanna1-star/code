@@ -389,7 +389,7 @@ export function buildExterior(root: THREE.Object3D, mats: MaterialLib): Exterior
   }
 
   // ------------------------------------------------------------ parked car
-  parkedCar(b, mats, -3.4, 10.25, 0xf2c14e, 0);
+  parkedCar(b, mats, -10.5, 10.25, 0xf2c14e, 0);
   parkedCar(b, mats, 13.5, 10.25, 0x4fa3d1, 0);
   return refs;
 }
