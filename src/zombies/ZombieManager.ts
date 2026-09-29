@@ -819,6 +819,15 @@ export class ZombieManager {
     }
   }
 
+  /** Silently removes one zombie (no ragdoll, no reward). */
+  clearOne(z: Zombie) {
+    this.dropBody(z);
+    if (z.ragdoll) this.ragdolls.destroy(z.ragdoll);
+    z.ragdoll = null;
+    z.alive = false;
+    this.remove(z);
+  }
+
   /** Removes every zombie (new day / reset). */
   clear() {
     for (const z of this.list) {

@@ -89,6 +89,7 @@ export class Player {
     const w = G.physics.world;
     try {
       if (this.kcc) w.removeCharacterController(this.kcc);
+      if (this.body) w.removeRigidBody(this.body);
     } catch {
       /* world already reset */
     }
