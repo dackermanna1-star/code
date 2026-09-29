@@ -207,6 +207,11 @@ export class FX {
     for (let i = 0; i < 2; i++) this.emitBlood(x, y, z, rand(-0.8, 0.8), rand(1.5, 3.5) * strength, rand(-0.8, 0.8), rand(0.02, 0.045), rand(0.5, 1), Math.random() < 0.3);
   }
 
+  /** A single drop falling from a wound. */
+  drip(x: number, y: number, z: number) {
+    this.emitBlood(x, y, z, rand(-0.15, 0.15), rand(-0.3, 0), rand(-0.15, 0.15), rand(0.012, 0.022), 0.9, Math.random() < 0.6);
+  }
+
   bloodDrip(x: number, z: number, size: number) {
     this.stains.blood(x, z, 0.05 + size * 0.07, 0, 0.8);
   }

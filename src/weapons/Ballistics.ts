@@ -3,6 +3,7 @@ import { G } from '../core/G';
 import { clamp } from '../core/math';
 import { GROUPS } from '../physics/Physics';
 import type { HitKind, ZombieHit } from '../zombies/ZombieManager';
+import { woundKindFor } from '../fx/Wounds';
 import type { PartHit } from '../zombies/Ragdolls';
 import type { Zombie } from '../zombies/Zombie';
 import { P } from '../zombies/skeleton';
@@ -113,8 +114,10 @@ export class Ballistics {
             a.y = hy;
             a.zz = hz;
           }
-          if (!pf.armored) G.fx.bloodHit(hx, hy, hz, dx, dy, dz, 0.35, 'pellet');
-          else G.fx.sparks(hx, hy, hz, -dx, -dy, -dz, 4);
+          if (!pf.armored) {
+            G.fx.bloodHit(hx, hy, hz, dx, dy, dz, 0.35, 'pellet');
+            G.zombies.addWound(z, { damage: dmg, part: h.zh.part, x: hx, y: hy, z: hz, dx, dy, dz, stopping: stop, pen: budget, kind: p.kind }, dmg);
+          } else G.fx.sparks(hx, hy, hz, -dx, -dy, -dz, 4);
         } else {
           const wasAlive = z.alive;
           const killed = G.zombies.damage(z, {
@@ -129,6 +132,10 @@ export class Ballistics {
         dmgMul *= 0.85;
         passedThrough++;
         if (pf.armored) budget -= z.type.armor * 0.5;
+        // the round punched through: ragged exit wound on the far side
+        if (budget > 0 && !pf.armored && p.kind === 'bullet') {
+          G.zombies.addWound(z, { damage: dmg, part: h.zh.part, x: hx, y: hy, z: hz, dx, dy, dz, stopping: stop, pen: budget, kind: p.kind }, dmg, true);
+        }
         if (budget <= 0) {
           endT = h.t + 0.15;
           stopped = true;
@@ -178,6 +185,8 @@ export class Ballistics {
       }
       G.ragdolls.applyImpulse(r, h.part, dx * imp * 0.5, dy * imp * 0.5 + imp * 0.1, dz * imp * 0.5, hx, hy, hz);
       r.fx.blood = Math.min(1, r.fx.blood + 0.1);
+      const wk = !r.zombie ? woundKindFor(p.kind, p.damage, p.stopping) : null;
+      if (wk && r.has(h.part)) G.wounds?.add(r.wounds, r.type.body, r.partPos, r.partQuat, r.partScale, h.part, hx, hy, hz, dx, dy, dz, wk);
     } else if (h.corpse) {
       const c = h.corpse;
       c.fx.blood = Math.min(1, c.fx.blood + 0.1);
@@ -205,7 +214,7 @@ export class Ballistics {
       const wasAlive = a.z.alive;
       const killed = G.zombies.damage(a.z, {
         damage: a.dmg, part: a.part, x: a.x, y: a.y, z: a.zz, dx: dir.x, dy: dir.y, dz: dir.z, stopping: Math.min(a.stopping, p.stopping * 1.4),
-        pen: p.pen, kind: p.kind, weapon: p.weapon, premult: true, armoredHit: a.armored, gore: (p.gore ?? 0) + a.count * 0.06, noBlood: true,
+        pen: p.pen, kind: p.kind, weapon: p.weapon, premult: true, armoredHit: a.armored, gore: (p.gore ?? 0) + a.count * 0.06, noBlood: true, noWound: true,
       });
       if (wasAlive) this.onHitZombie?.(a.z, killed, a.part === P.Head);
     }

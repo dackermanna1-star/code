@@ -1,3 +1,4 @@
+import type { Wound } from '../fx/Wounds';
 import type RAPIER from '@dimforge/rapier3d-simd-compat';
 import { clamp, lerp } from '../core/math';
 import { qFromEuler, qMul, qRot, qSlerp, qYaw } from '../core/qmath';
@@ -32,6 +33,8 @@ export class Zombie {
   maxHp: number;
   /** Rolled extra toughness (needs more hits). */
   hardy = false;
+  /** Bullet wounds in part-local frames (shared with its ragdoll/corpse). */
+  wounds: Wound[] = [];
   x = 0;
   y = 0;
   z = 0;

@@ -11,6 +11,7 @@ import { BodyRenderer } from '../zombies/BodyRenderer';
 import { RagdollSystem } from '../zombies/Ragdolls';
 import { ZombieManager } from '../zombies/ZombieManager';
 import { FX } from '../fx/FX';
+import { WoundSystem } from '../fx/Wounds';
 import { Explosions } from '../fx/Explosions';
 import { AudioEngine } from '../audio/Audio';
 import { Ballistics } from '../weapons/Ballistics';
@@ -91,6 +92,7 @@ export class Game {
     ui.loading(0.55, 'Mixing blood');
     await nextFrame();
     G.fx = new FX(G.scene, G.renderer.renderer);
+    G.wounds = new WoundSystem(G.scene);
     G.explosions = new Explosions();
     G.postKick = (k: number) => {
       G.renderer.post.flash = Math.max(G.renderer.post.flash, k * 0.35);
@@ -248,6 +250,7 @@ export class Game {
   private resetWorld() {
     G.zombies.clear();
     G.ragdolls.clear();
+    G.wounds.clear();
     G.structures.clear();
     G.projectiles.clear();
     G.airstrike.clear();
@@ -499,6 +502,7 @@ export class Game {
     G.bodyRenderer.beginDynamic();
     G.zombies.render();
     G.ragdolls.render(G.bodyRenderer);
+    G.zombies.renderWounds();
     G.bodyRenderer.endDynamic();
     G.bodyRenderer.flushStatic();
     G.audio?.update?.(dt);

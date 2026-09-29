@@ -4,6 +4,7 @@ import { GROUPS, RAPIER } from '../physics/Physics';
 import { angleLerp, chance, clamp, rand, raySphere, wrapAngle } from '../core/math';
 import { qRot } from '../core/qmath';
 import { ARENA } from '../world/config';
+import { woundKindFor } from '../fx/Wounds';
 import { BodyRenderer } from './BodyRenderer';
 import { FlowField } from './FlowField';
 import { ALL_PARTS, Ragdoll, RagdollSystem, pushBody } from './Ragdolls';
@@ -35,6 +36,8 @@ export interface HitInfo {
   /** Damage already includes part/armor multipliers (aggregated pellets). */
   premult?: boolean;
   armoredHit?: boolean;
+  /** Skip the wound decal (pellets place their own per pellet). */
+  noWound?: boolean;
 }
 
 export interface ZombieHit {
@@ -47,6 +50,7 @@ const PART_MUL = [1, 1, 2.5, 0.65, 0.6, 0.65, 0.6, 0.75, 0.7, 0.75, 0.7];
 const TMP = new Float32Array(3);
 const V3 = new Float32Array(3);
 const _dir = { x: 0, z: 0 };
+const _wp = new THREE.Vector3();
 
 const CELL = 2;
 const GMINX = -18;
@@ -214,11 +218,15 @@ export class ZombieManager {
       }
 
       // wounded: blood drips
-      if (z.hp < z.maxHp * 0.6 && z.state !== 'down') {
+      if ((z.hp < z.maxHp * 0.6 || z.wounds.length > 0) && z.state !== 'down') {
         z.dripT -= dt;
         if (z.dripT <= 0) {
-          z.dripT = rand(0.25, 0.6);
-          G.fx?.bloodDrip(z.x + rand(-0.2, 0.2), z.z + rand(-0.2, 0.2), 0.5 + (1 - z.hp / z.maxHp));
+          z.dripT = rand(0.25, 0.6) / Math.min(3, 1 + z.wounds.length * 0.35);
+          const w = z.wounds.length ? z.wounds[Math.floor(Math.random() * z.wounds.length)] : null;
+          if (w && G.wounds && !(z.missing & (1 << w.part))) {
+            G.wounds.worldPos(w, z.partPos, z.partQuat, _wp);
+            G.fx?.drip(_wp.x, _wp.y, _wp.z);
+          } else G.fx?.bloodDrip(z.x + rand(-0.2, 0.2), z.z + rand(-0.2, 0.2), 0.5 + (1 - z.hp / z.maxHp));
         }
       }
       // groans
@@ -481,6 +489,7 @@ export class ZombieManager {
     }
     const dmg = h.damage * mul;
     z.hp -= dmg;
+    if (!h.noWound && !armored) this.addWound(z, h, dmg);
     z.lastHitBy = h.weapon ?? h.kind;
     z.lastHitT = this.time;
     z.fx.flash = 1;
@@ -491,7 +500,8 @@ export class ZombieManager {
       if (armored) G.fx?.sparks(h.x, h.y, h.z, -h.dx, -h.dy, -h.dz, 8);
       else if (h.kind !== 'fire') G.fx?.bloodHit(h.x, h.y, h.z, h.dx, h.dy, h.dz, clamp(dmg / 6, 0.35, 2.5), h.kind);
     }
-    if (h.kind !== 'fire') z.fx.blood = Math.min(1, z.fx.blood + 0.06 + dmg * 0.025);
+    // body-wide blood builds slowly and stays patchy; wounds carry the per-hit detail
+    if (h.kind !== 'fire') z.fx.blood = Math.min(0.45, z.fx.blood + 0.025 + dmg * 0.01);
 
     if (z.hp <= 0) {
       this.kill(z, { ...h, damage: dmg });
@@ -506,6 +516,8 @@ export class ZombieManager {
     const ldz = -h.dx * sy + h.dz * cy;
     switch (h.part) {
       case P.Head:
+        // a head wound leaves the head lolling
+        z.headTilt = clamp(z.headTilt + (Math.random() < 0.5 ? -1 : 1) * 0.18, -0.75, 0.75);
         z.kickSpring(S.HeadPitch, ldz * 14 * power);
         z.kickSpring(S.HeadRoll, -ldx * 10 * power);
         z.kickSpring(S.HeadYaw, rand(-4, 4) * power);
@@ -534,6 +546,8 @@ export class ZombieManager {
         z.legDamage += dmg;
         break;
       default:
+        // gut shots hunch them over
+        z.hunch = Math.min(0.6, z.hunch + 0.04 + dmg * 0.01);
         z.kickSpring(S.TorsoPitch, ldz * 9 * power);
         z.kickSpring(S.TorsoRoll, -ldx * 6 * power);
         z.kickSpring(S.TorsoYaw, rand(-3, 3) * power);
@@ -603,6 +617,7 @@ export class ZombieManager {
     const mask = ALL_PARTS & ~z.missing;
     const r = this.ragdolls.spawn(z.type, z.skin, z.fx, z.partPos, z.partQuat, z.partScale, mask, (p, out) => this.partVel(z, p, out));
     r.zombie = z;
+    r.wounds = z.wounds;
     z.ragdoll = r;
     if (h) this.applyHitImpulse(r, h, impulseScale);
   }
@@ -654,6 +669,19 @@ export class ZombieManager {
     if (r.has(P.Pelvis)) this.ragdolls.applyImpulse(r, P.Pelvis, ix * 0.25, iy * 0.2, iz * 0.25);
   }
 
+  /** Pins a wound decal where a projectile struck (entry, or exit when it passes through). */
+  addWound(z: Zombie, h: HitInfo, dmg: number, exit = false) {
+    if (!G.wounds) return;
+    const kind = exit ? (h.kind === 'bullet' ? 'exit' : null) : woundKindFor(h.kind, dmg, h.stopping);
+    if (!kind) return;
+    const down = z.state === 'down' && z.ragdoll;
+    const r: Ragdoll | null = down ? z.ragdoll : null;
+    const pos = r ? r.partPos : z.partPos;
+    const quat = r ? r.partQuat : z.partQuat;
+    const scl = r ? r.partScale : z.partScale;
+    G.wounds.add(z.wounds, z.type.body, pos, quat, scl, h.part, h.x, h.y, h.z, h.dx, h.dy, h.dz, kind);
+  }
+
   kill(z: Zombie, h: HitInfo) {
     if (!z.alive) return;
     z.alive = false;
@@ -672,6 +700,7 @@ export class ZombieManager {
       const mask = ALL_PARTS & ~z.missing;
       r = this.ragdolls.spawn(z.type, z.skin, z.fx, z.partPos, z.partQuat, z.partScale, mask, (p, out) => this.partVel(z, p, out));
     }
+    r.wounds = z.wounds;
     z.deathRagdoll = r;
     if (z.burning > 0) r.fireT = Math.max(r.fireT, 3 + Math.random() * 3);
     // gore
@@ -806,6 +835,20 @@ export class ZombieManager {
         this.bump(z, v.x / sp, v.z / sp, sp * 0.45);
       }
     }
+  }
+
+  /** Draws wounds on living zombies and fresh ragdolls (corpses are baked). */
+  renderWounds() {
+    const W = G.wounds;
+    if (!W) return;
+    W.beginFrame();
+    for (const z of this.list) {
+      if (!z.alive || z.wounds.length === 0) continue;
+      if (z.state === 'down' && z.ragdoll) W.push(z.wounds, z.ragdoll.partPos, z.ragdoll.partQuat, z.ragdoll.mask);
+      else W.push(z.wounds, z.partPos, z.partQuat, ALL_PARTS & ~z.missing);
+    }
+    for (const r of this.ragdolls.active) if (!r.zombie) W.push(r.wounds, r.partPos, r.partQuat, r.mask);
+    W.endFrame();
   }
 
   render() {

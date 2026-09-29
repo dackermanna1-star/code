@@ -6,6 +6,7 @@ import { BodyDef, P, PART_COUNT, PART_PARENT, PART_SIDE, PART_TO_TYPE, PT, partD
 import { BodyRenderer, FxState, InstBatch, bodyIndex, writeTRS } from './BodyRenderer';
 import type { ZombieType } from './types';
 import type { Zombie } from './Zombie';
+import type { Wound } from '../fx/Wounds';
 
 const TMP = new Float32Array(3);
 const TMP2 = new Float32Array(3);
@@ -49,6 +50,7 @@ export class Ragdoll {
   minY = 0;
   /** Corpse this ragdoll froze into (for attached props). */
   corpse: Corpse | null = null;
+  wounds: Wound[] = [];
   constructor(readonly type: ZombieType, readonly skin: number) {
     this.fx = { blood: 0, flash: 0, burn: 0, eyes: 0, fire: 0 };
   }
@@ -398,6 +400,7 @@ export class RagdollSystem {
     if (r.zombie) return;
     if (r.mask === 0) return;
     r.corpse = this.addCorpse(r.type, r.skin, r.fx, r.partPos, r.partQuat, r.partScale, r.mask, r.fireT > 0 ? r.fireT : 0);
+    if (r.wounds.length) G.wounds?.bake(r.wounds, r.partPos, r.partQuat, r.mask);
   }
 
   addCorpse(type: ZombieType, skin: number, fx: FxState, partPos: Float32Array, partQuat: Float32Array, partScale: Float32Array, mask: number, burnT = 0) {
