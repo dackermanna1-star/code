@@ -11,6 +11,8 @@ export interface WeaponModel {
   mb: ModelBuilder;
   /** Hip position of the model root in camera space. */
   hip: V3;
+  /** Hip rotation (pitch, yaw, roll): angles the gun so its side profile shows. */
+  hipRot: V3;
   /** Eye relief distance for ADS. */
   eye: number;
   /** Two-handed? (pistols use a cupped support hand). */
@@ -105,39 +107,54 @@ function grip(mb: ModelBuilder, pos: V3 = [0, -0.03, 0.012], rot: V3 = [0.3, 0, 
 // ---------------------------------------------------------------- models
 const MODELS: Record<string, Builder> = {
   m686(mb) {
-    const col = C.CHROME;
-    mb.box([0.03, 0.045, 0.085], [0, 0.01, -0.035], col); // frame
-    mb.box([0.03, 0.02, 0.03], [0, 0.028, -0.005], col);
-    const bar = mb.part('barrel', [0, 0.0, -0.08]);
-    mb.box([0.018, 0.02, 0.105], [0, 0.028, -0.052], col, bar); // barrel
-    mb.box([0.016, 0.018, 0.1], [0, 0.009, -0.05], col, bar); // underlug
-    mb.box([0.006, 0.006, 0.1], [0, 0.04, -0.05], col, bar); // rib
-    mb.box([0.005, 0.012, 0.012], [0, 0.046, -0.098], C.RED, bar); // front sight insert
-    mb.cyl(0.006, 0.004, [0, 0.028, -0.106], C.BLACK, bar, 'z', 8);
-    // crane + cylinder swing out to the left
-    const crane = mb.part('crane', [-0.012, 0.004, -0.05]);
-    const cyl = mb.part('cylinder', [0.012, 0.016, 0.0], crane);
-    mb.cyl(0.021, 0.042, [0, 0, 0], C.STEEL, cyl, 'z', 6);
+    const S = C.CHROME;
+    // frame: rear block, top strap, front post and bottom rail make a window around the cylinder
+    mb.box([0.03, 0.058, 0.036], [0, 0.019, -0.006], S); // rear frame / recoil shield
+    mb.box([0.022, 0.009, 0.058], [0, 0.0465, -0.052], S); // top strap
+    mb.box([0.028, 0.05, 0.012], [0, 0.02, -0.08], S); // front of frame
+    mb.box([0.026, 0.012, 0.08], [0, -0.006, -0.046], S); // bottom rail
+    mb.box([0.03, 0.022, 0.02], [0, 0.002, 0.018], S); // grip frame hump
+    const bar = mb.part('barrel', [0, 0, -0.086]);
+    mb.cyl(0.0095, 0.1, [0, 0.028, -0.05], S, bar, 'z', 10);
+    mb.box([0.018, 0.022, 0.1], [0, 0.012, -0.05], S, bar); // full underlug
+    mb.box([0.0085, 0.006, 0.1], [0, 0.039, -0.05], S, bar); // vent rib
+    mb.box([0.006, 0.006, 0.016], [0, 0.043, -0.09], S, bar); // ramp base
+    mb.box([0.004, 0.01, 0.012], [0, 0.046, -0.092], C.RED, bar, undefined, 0x300000); // red ramp insert
+    mb.cyl(0.0045, 0.004, [0, 0.028, -0.1005], C.BLACK, bar, 'z', 8); // bore
+    // crane pivots below-left of the cylinder axis and swings it out to the left
+    const crane = mb.part('crane', [-0.012, 0.004, -0.052]);
+    const cyl = mb.part('cylinder', [0.012, 0.016, 0], crane);
+    mb.cyl(0.021, 0.044, [0, 0, 0], C.STEEL, cyl, 'z', 12);
     for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
-      mb.cyl(0.004, 0.044, [Math.cos(a) * 0.013, Math.sin(a) * 0.013, 0], C.DARK, cyl, 'z', 5);
+      const a = (i / 6) * Math.PI * 2;
+      mb.box([0.007, 0.006, 0.03], [Math.cos(a) * 0.0192, Math.sin(a) * 0.0192, 0], C.DARK, cyl, [0, 0, a]); // flutes
+      mb.cyl(0.0042, 0.002, [Math.cos(a + Math.PI / 6) * 0.012, Math.sin(a + Math.PI / 6) * 0.012, 0.022], C.BRASS, cyl, 'z', 6); // case heads
     }
-    // speedloader rounds (shown in the cylinder when loaded)
-    mb.box([0.004, 0.02, 0.004], [-0.016, -0.002, 0.018], col, crane);
-    mb.box([0.012, 0.012, 0.012], [0, 0.034, -0.002], col); // top strap
-    const hammer = mb.part('hammer', [0, 0.03, 0.008]);
-    mb.box([0.008, 0.02, 0.008], [0, 0.008, 0.004], C.STEEL, hammer, [-0.4, 0, 0]);
-    rearSight(mb, -0.001, 0.037);
-    triggerGuard(mb, 0.0, col, 0.035);
-    pistolGrip(mb, 0.012, C.RUBBER, 16, 0.075, 0.03, 0.04);
-    mb.box([0.028, 0.02, 0.03], [0, -0.004, 0.01], col);
-    grip(mb);
-    mb.anchor('support', [-0.012, -0.045, 0.012], undefined, [0.3, 0, 0]);
+    mb.cyl(0.0035, 0.052, [0.012, 0.003, -0.048], S, crane, 'z', 6); // ejector rod
+    // hammer spur stays below the sight line (0.052)
+    const hammer = mb.part('hammer', [0, 0.034, 0.008]);
+    mb.box([0.008, 0.02, 0.01], [0, 0.004, 0.004], C.STEEL, hammer, [-0.45, 0, 0]);
+    mb.box([0.011, 0.006, 0.013], [0, 0.01, 0.013], C.STEEL, hammer, [-0.3, 0, 0]); // spur
+    rearSight(mb, -0.022, 0.044);
+    // trigger guard and trigger
+    mb.box([0.008, 0.006, 0.04], [0, -0.034, -0.03], S);
+    mb.box([0.008, 0.028, 0.006], [0, -0.021, -0.049], S);
+    mb.box([0.008, 0.016, 0.006], [0, -0.026, -0.011], S, undefined, [0.5, 0, 0]);
+    const tr = mb.part('trigger', [0, -0.012, -0.032]);
+    mb.box([0.006, 0.018, 0.007], [0, -0.008, 0], C.STEEL, tr, [0.25, 0, 0]);
+    // rubber grip with finger grooves
+    const gp = mb.part('gripPanel', [0, -0.006, 0.02]);
+    gp.rotation.x = 18 * R;
+    mb.box([0.034, 0.082, 0.042], [0, -0.041, 0.004], C.RUBBER, gp);
+    for (let i = 0; i < 3; i++) mb.box([0.031, 0.011, 0.008], [0, -0.019 - i * 0.021, -0.019], C.RUBBER, gp);
+    mb.box([0.036, 0.012, 0.045], [0, -0.083, 0.004], C.RUBBER, gp);
+    grip(mb, [0, -0.034, 0.009], [0.31, 0, 0]);
+    mb.anchor('support', [-0.017, -0.05, 0.0], undefined, [0.31, 0, 0]);
     mb.anchor('muzzle', [0, 0.028, -0.19]);
     mb.anchor('eject', [0, 0.016, -0.05]);
-    mb.anchor('sight', [0, 0.043, 0.02]);
-    mb.anchor('magwell', [-0.03, 0.02, -0.02]);
-    return { hip: [0.12, -0.11, -0.3], eye: 0.2, twoHand: true };
+    mb.anchor('sight', [0, 0.052, 0.02]);
+    mb.anchor('magwell', [-0.027, 0.02, -0.026]);
+    return { hip: [0.136, -0.125, -0.303], hipRot: [0.03, 0.24, -0.08], eye: 0.2, twoHand: true };
   },
   m500(mb) {
     const r = MODELS.m686(mb, []);
@@ -232,25 +249,43 @@ const MODELS: Record<string, Builder> = {
   },
   // ---------------------------------------------------------- shotguns
   shorty(mb) {
-    mb.box([0.042, 0.06, 0.16], [0, 0.025, -0.05], C.DARK); // receiver
-    mb.box([0.043, 0.012, 0.05], [0, 0.03, -0.03], C.BLACK); // port
-    barrel(mb, 0.013, 0.2, -0.13, 0.042, C.BLACK);
-    barrel(mb, 0.011, 0.14, -0.13, 0.014, C.DARK); // mag tube
-    frontSight(mb, -0.32, 0.056);
-    const pump = mb.part('pump', [0, 0.012, -0.2]);
-    mb.box([0.04, 0.036, 0.09], [0, 0, 0], C.POLY, pump);
-    for (let i = 0; i < 5; i++) mb.box([0.042, 0.038, 0.004], [0, 0, -0.035 + i * 0.017], C.BLACK, pump);
-    mb.box([0.026, 0.07, 0.03], [0, -0.05, 0.01], C.POLY, pump, [-0.2, 0, 0]); // vertical grip
-    triggerGuard(mb, 0.01, C.BLACK, 0.05);
-    pistolGrip(mb, 0.03, C.POLY, 20, 0.1, 0.034, 0.05);
-    mb.box([0.036, 0.03, 0.03], [0, -0.005, 0.035], C.POLY);
-    grip(mb, [0, -0.04, 0.035]);
-    mb.anchor('support', [0, -0.072, 0.01], 'pump', [0.2, 0, 0]);
-    mb.anchor('muzzle', [0, 0.042, -0.34]);
-    mb.anchor('eject', [0.024, 0.035, -0.04]);
-    mb.anchor('sight', [0, 0.065, 0.02]);
-    mb.anchor('magwell', [0, -0.005, -0.06]);
-    return { hip: [0.14, -0.13, -0.36], eye: 0.22, twoHand: true };
+    const RCV = 0x2c3036; // anodized receiver
+    const FURN = 0x8f7a58; // FDE polymer furniture
+    const FURN_D = 0x6e5d43;
+    mb.box([0.042, 0.064, 0.17], [0, 0.026, -0.045], RCV); // receiver
+    mb.box([0.036, 0.008, 0.15], [0, 0.061, -0.05], RCV); // top rib
+    mb.box([0.0025, 0.02, 0.056], [0.0215, 0.034, -0.05], C.BLACK); // ejection port
+    mb.box([0.002, 0.012, 0.044], [0.0225, 0.034, -0.05], C.STEEL); // bolt face in the port
+    mb.box([0.03, 0.004, 0.07], [0, -0.0065, -0.062], C.BLACK); // loading port
+    mb.box([0.012, 0.006, 0.014], [0, 0.063, 0.024], C.STEEL); // tang safety
+    // barrel + magazine tube, clamped at the muzzle
+    barrel(mb, 0.0125, 0.18, -0.13, 0.044, C.GUNMETAL, undefined, 10);
+    barrel(mb, 0.0115, 0.13, -0.13, 0.015, C.GUNMETAL, undefined, 10);
+    mb.box([0.03, 0.046, 0.014], [0, 0.03, -0.268], C.BLACK); // barrel clamp
+    mb.cyl(0.0085, 0.006, [0, 0.044, -0.311], C.BLACK, undefined, 'z', 8); // bore
+    mb.box([0.004, 0.008, 0.006], [0, 0.06, -0.302], C.BLACK); // raised bead post
+    mb.box([0.006, 0.006, 0.006], [0, 0.066, -0.302], C.BRASS, undefined, undefined, 0x201400); // bead
+    // pump with vertical foregrip
+    const pump = mb.part('pump', [0, 0.014, -0.195]);
+    mb.box([0.044, 0.038, 0.09], [0, 0, 0], FURN, pump);
+    for (let i = 0; i < 5; i++) mb.box([0.046, 0.04, 0.004], [0, 0, -0.034 + i * 0.017], FURN_D, pump);
+    mb.box([0.028, 0.076, 0.032], [0, -0.052, 0.006], FURN, pump, [-0.14, 0, 0]);
+    for (let i = 0; i < 3; i++) mb.box([0.03, 0.006, 0.034], [0, -0.03 - i * 0.02, 0.009], FURN_D, pump, [-0.14, 0, 0]);
+    // trigger group + pistol grip
+    mb.box([0.034, 0.02, 0.06], [0, -0.013, 0.012], RCV);
+    triggerGuard(mb, 0.02, C.BLACK, 0.05);
+    const gp = mb.part('gripPanel', [0, -0.012, 0.034]);
+    gp.rotation.x = 20 * R;
+    mb.box([0.034, 0.1, 0.048], [0, -0.05, 0.004], FURN, gp);
+    for (let i = 0; i < 3; i++) mb.box([0.036, 0.006, 0.05], [0, -0.03 - i * 0.022, 0.004], FURN_D, gp);
+    mb.box([0.036, 0.01, 0.05], [0, -0.1, 0.004], FURN_D, gp);
+    grip(mb, [0, -0.044, 0.03], [0.35, 0, 0]);
+    mb.anchor('support', [0, -0.058, 0.01], 'pump', [-0.14, 0, 0]);
+    mb.anchor('muzzle', [0, 0.044, -0.31]);
+    mb.anchor('eject', [0.024, 0.035, -0.05]);
+    mb.anchor('sight', [0, 0.067, 0.02]);
+    mb.anchor('magwell', [0, -0.012, -0.07]);
+    return { hip: [0.145, -0.125, -0.348], hipRot: [0.03, 0.24, -0.08], eye: 0.22, twoHand: true };
   },
   r870(mb) {
     mb.box([0.042, 0.062, 0.2], [0, 0.025, -0.06], C.DARK);
@@ -1035,7 +1070,7 @@ export function buildWeaponModel(id: string, visual: string[] = []): WeaponModel
   const h = r.hip ?? [0.14, -0.14, -0.33];
   // push the weapon further from the eye for a less claustrophobic viewmodel
   const hip: V3 = [h[0] * 1.1, h[1] * 1.12, h[2] * 1.32];
-  return { mb, hip, eye: (r.eye ?? 0.26) * 1.55, twoHand: r.twoHand ?? true };
+  return { mb, hip, hipRot: r.hipRot ?? [0, 0.1, -0.04], eye: (r.eye ?? 0.26) * 1.55, twoHand: r.twoHand ?? true };
 }
 
 export const MODEL_IDS = Object.keys(MODELS);

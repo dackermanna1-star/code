@@ -102,6 +102,7 @@ export class Placement {
     if (this.selected >= items.length) this.selected = items.length - 1;
     for (let i = 0; i < 9; i++) if (input.pressed('Digit' + (i + 1)) && i < items.length) this.select(i);
     if (input.pressed('KeyF') || input.mousePress(2) || input.pressed('Escape')) {
+      if (input.mousePress(2)) input.swallowMouse(2);
       this.exit();
       return;
     }
@@ -137,7 +138,7 @@ export class Placement {
     const s = Math.sin(this.yaw);
     const ex = Math.abs(c) * hw + Math.abs(s) * hd;
     const ez = Math.abs(s) * hw + Math.abs(c) * hd;
-    if (Math.abs(this.pos.x) + ex > ARENA.halfWidth - 0.1 || this.pos.z - ez < ARENA.zMin + 1.5 || this.pos.z + ez > 95) {
+    if (Math.abs(this.pos.x) + ex > ARENA.halfWidth - 0.1 || this.pos.z - ez < ARENA.zMin + 1.5 || this.pos.z + ez > ARENA.buildZMax) {
       this.valid = false;
       this.reason = 'Out of bounds';
     }
@@ -187,6 +188,8 @@ export class Placement {
       G.structures.holoMaterial(this.valid);
     }
     if (input.mousePress(0)) {
+      // the click belongs to build mode, never to the weapon
+      input.swallowMouse(0);
       if (!this.valid) {
         G.audio?.play('uiError', {});
         G.hud?.toast(this.reason || 'Cannot place here');

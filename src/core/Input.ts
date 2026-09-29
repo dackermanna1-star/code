@@ -9,13 +9,22 @@ export class Input {
   private mouseHeld = [false, false, false];
   private mousePressed = [false, false, false];
   private mouseReleased = [false, false, false];
+  /** Buttons whose current press was consumed (UI / build mode / lock click). */
+  private swallowed = [false, false, false];
   mouseDX = 0;
   mouseDY = 0;
   wheel = 0;
   locked = false;
+  /**
+   * When true, a click on the canvas while the pointer is not locked only
+   * requests the lock (it never reaches the weapon). Cleared when pointer lock
+   * is unavailable and the game falls back to free-mouse look.
+   */
+  requireLock = true;
   /** When false, gameplay input is ignored (menus open). */
   enabled = true;
   onLockChange: ((locked: boolean) => void) | null = null;
+  onLockError: (() => void) | null = null;
 
   constructor(private canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', (e) => {
@@ -33,21 +42,24 @@ export class Input {
     window.addEventListener('blur', () => {
       this.held.clear();
       this.mouseHeld = [false, false, false];
+      this.swallowed = [false, false, false];
     });
     canvas.addEventListener('mousedown', (e) => {
       if (e.button < 3) {
         this.mouseHeld[e.button] = true;
         this.mousePressed[e.button] = true;
+        if (!this.locked && this.requireLock) this.swallowMouse(e.button);
       }
     });
     window.addEventListener('mouseup', (e) => {
       if (e.button < 3) {
         if (this.mouseHeld[e.button]) this.mouseReleased[e.button] = true;
         this.mouseHeld[e.button] = false;
+        this.swallowed[e.button] = false;
       }
     });
     window.addEventListener('mousemove', (e) => {
-      if (!this.locked) return;
+      if (!this.locked && this.requireLock) return;
       // Guard against the occasional huge spike some browsers emit on lock
       const mx = Math.abs(e.movementX) > 400 ? 0 : e.movementX;
       const my = Math.abs(e.movementY) > 400 ? 0 : e.movementY;
@@ -63,10 +75,17 @@ export class Input {
       { passive: false },
     );
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    document.addEventListener('pointerlockerror', () => {
+      // Embedded without pointer-lock permission: fall back to free-mouse look.
+      if (!this.requireLock) return;
+      this.requireLock = false;
+      this.onLockError?.();
+    });
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === canvas;
       if (!this.locked) {
         this.mouseHeld = [false, false, false];
+        this.swallowed = [false, false, false];
       }
       this.onLockChange?.(this.locked);
     });
@@ -112,10 +131,15 @@ export class Input {
     return this.releasedSet.has(code);
   }
   mouse(btn: number) {
-    return this.enabled && this.mouseHeld[btn];
+    return this.enabled && this.mouseHeld[btn] && !this.swallowed[btn];
   }
   mousePress(btn: number) {
-    return this.enabled && this.mousePressed[btn];
+    return this.enabled && this.mousePressed[btn] && !this.swallowed[btn];
+  }
+  /** Consume the current press: the button reads as up until it is released. */
+  swallowMouse(btn: number) {
+    this.swallowed[btn] = true;
+    this.mousePressed[btn] = false;
   }
   mouseRelease(btn: number) {
     return this.mouseReleased[btn];
@@ -148,6 +172,7 @@ export class Input {
     } else {
       if (this.mouseHeld[btn]) this.mouseReleased[btn] = true;
       this.mouseHeld[btn] = false;
+      this.swallowed[btn] = false;
     }
   }
   endFrame() {

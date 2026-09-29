@@ -62,7 +62,7 @@ export class Player {
     this.pos.set(ARENA.playerStart.x, 0, ARENA.playerStart.z);
     this.vel.set(0, 0, 0);
     this.yaw = Math.PI;
-    this.pitch = 0;
+    this.pitch = -0.045;
     this.recoilPitch = 0;
     this.recoilYaw = 0;
     this.hp = this.maxHp;

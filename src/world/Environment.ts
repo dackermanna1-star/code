@@ -141,7 +141,9 @@ export class Environment {
     const len = 1400;
     const road = new THREE.PlaneGeometry(ROAD_TEX_WIDTH_M, len, 2, 70);
     road.rotateX(-Math.PI / 2);
-    road.translate(0, 0, 300);
+    // vertex rows sit at z = 10 + 20k: never exactly under the spawn camera
+    // (a vertex on the camera plane, w = 0, breaks clipping on some rasterizers)
+    road.translate(0, 0, 310);
     const uv = road.getAttribute('uv') as THREE.BufferAttribute;
     for (let i = 0; i < uv.count; i++) uv.setY(i, uv.getY(i) * (len / ROAD_TEX_LENGTH_M));
     const roadMesh = new THREE.Mesh(road, this.roadMat);

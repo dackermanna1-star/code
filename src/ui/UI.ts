@@ -550,10 +550,10 @@ export class UI {
     this.hudEl.classList.toggle('hidden', !v);
   }
 
-  toast(msg: string) {
+  toast(msg: string, sec = 2.6) {
     const t = el('div', '', esc(msg));
     this.refs.toasts.appendChild(t);
-    setTimeout(() => t.remove(), 2600);
+    setTimeout(() => t.remove(), sec * 1000);
     while (this.refs.toasts.children.length > 4) this.refs.toasts.firstChild?.remove();
   }
 

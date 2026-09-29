@@ -95,7 +95,8 @@ export class Stains {
 
     const w = this.maxX - this.minX;
     const d = this.maxZ - this.minZ;
-    const og = new THREE.PlaneGeometry(w, d, 8, 32);
+    // odd row count keeps vertex rows off z = 0 (player spawn, see Environment road)
+    const og = new THREE.PlaneGeometry(w, d, 8, 31);
     og.rotateX(-Math.PI / 2);
     // PlaneGeometry after rotateX(-90): uv.y = 1 at z = -d/2 ... fix uvs to world mapping
     const pos = og.getAttribute('position') as THREE.BufferAttribute;

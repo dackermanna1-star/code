@@ -23,8 +23,10 @@ export const C = {
   GLASS: 0x3a6a8a,
   RUBBER: 0x1e1e1e,
   SKIN: 0xd6a078,
-  SLEEVE: 0x55657c,
-  GLOVE: 0x2f2a25,
+  SLEEVE: 0x6b7648,
+  SLEEVE_D: 0x4c5433,
+  GLOVE: 0x7a6549,
+  GLOVE_L: 0x5a4a36,
 };
 
 let noiseTex: THREE.Texture | null = null;

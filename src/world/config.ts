@@ -7,10 +7,14 @@ export const ARENA = {
   /** Far end of the play area. */
   zMax: 150,
   /** Zombie spawn band. */
-  spawnZMin: 96,
-  spawnZMax: 122,
+  spawnZMin: 112,
+  spawnZMax: 136,
+  /** Beyond this z zombies close in faster (they are specks at that range). */
+  approachZ: 64,
   spawnHalfWidth: 11.5,
   roadHalfWidth: 5.0,
+  /** Structures may not be placed beyond this z (keeps the spawn band clear). */
+  buildZMax: 54,
   playerStart: { x: 0, z: 0 },
   /** Area covered by the persistent ground stain (blood) map. */
   stainMinX: -16,

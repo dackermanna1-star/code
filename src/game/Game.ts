@@ -127,6 +127,10 @@ export class Game {
       G.audio?.unlock();
       if (this.mode === 'play' && !this.uiBlocking) G.input.requestLock();
     });
+    G.input.onLockError = () => {
+      G.ui.toast('Mouse capture is blocked here — open the game in its own tab for full mouse look', 6);
+      this.canvas.classList.add('freelook');
+    };
     G.input.onLockChange = (locked) => {
       if (!locked && this.mode === 'play' && !this.paused && !G.ui.shopOpen && !G.ui.overlayOpen && G.player.alive && !this.manual) this.pause();
     };
@@ -472,6 +476,7 @@ export class Game {
     const freeze = this.mode === 'play' && (this.paused || G.ui.shopOpen || (G.ui.overlayOpen && G.ui.overlayOpen !== 'dead'));
     G.input.enabled = !this.uiBlocking || this.deathT >= 0;
     if (!freeze && dt > 0) this.simulate(dt);
+    else if (freeze) G.input.consumeMouse(); // no camera jump when a menu closes
     if (this.mode === 'menu') this.updateMenuCamera(dt);
     // death sequence
     if (this.deathT >= 0 && this.mode === 'play') {
@@ -544,7 +549,7 @@ export class Game {
       if (z.z < 10) {
         z.alive = false;
         G.zombies.clearOne?.(z);
-        this.spawnMenuZombie(rand(80, 110));
+        this.spawnMenuZombie(rand(70, 100));
       }
     }
   }

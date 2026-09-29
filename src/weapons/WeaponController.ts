@@ -1048,8 +1048,7 @@ export class WeaponController {
 
     if (anim === 'revolver') {
       const open = smoothstep(0.02, 0.14, k) - smoothstep(0.84, 0.92, k);
-      if (P.crane) P.crane.rotation.z -= open * 1.35;
-      if (P.crane) P.crane.position.x -= open * 0.012;
+      if (P.crane) P.crane.rotation.z += open * 1.45;
       const tilt = ramp4(k, 0, 0.14, 0.86, 1);
       vm.animRot.z += tilt * 0.75;
       vm.animRot.x += tilt * 0.3 + bump(k, 0.14, 0.32) * 0.95;

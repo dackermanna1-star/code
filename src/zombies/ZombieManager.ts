@@ -325,6 +325,8 @@ export class ZombieManager {
       if (z.legDamage > 0) speed *= clamp(1 - (z.legDamage / z.maxHp) * 0.7, 0.35, 1);
       if (z.burning > 0) speed *= 1.25;
       if (z.spawnT < 1) speed *= z.spawnT;
+      // far-off stragglers hurry up so waves arrive as a front, not a trickle
+      if (z.z > ARENA.approachZ && z.speed < 3.5) speed *= 1 + Math.min(1, (z.z - ARENA.approachZ) / 30) * 1.6;
       const desiredYaw = Math.atan2(dirX, dirZ);
       const turn = t.gait === 'run' || t.gait === 'dog' ? 9 : 4.5;
       const dy = wrapAngle(desiredYaw - z.yaw);
