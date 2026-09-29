@@ -47,10 +47,10 @@ export class Lighting {
   readonly godRays = new GodRays();
   readonly hemi = new THREE.HemisphereLight(0xdcecff, 0x5a4636, 0.8);
   readonly sun = new THREE.DirectionalLight(0xfff1d8, 3);
-  readonly kitchenSpot = new THREE.SpotLight(0xfff4e2, 30, 8, 1.05, 0.6, 1.5);
+  readonly kitchenSpot = new THREE.SpotLight(0xfff4e2, 17, 8, 1.05, 0.6, 1.5);
   readonly counterSpot = new THREE.SpotLight(0xffe2b8, 16, 7, 0.9, 0.6, 1.6);
   readonly dining: THREE.PointLight[] = [];
-  readonly kitchenFill = new THREE.PointLight(0xf2f6ff, 14, 10, 1.4);
+  readonly kitchenFill = new THREE.PointLight(0xf2f6ff, 6, 10, 1.4);
   readonly pickupLamp = new THREE.PointLight(0xff6a2a, 2.2, 1.6, 2);
   readonly grillGlow = new THREE.PointLight(0xff6a1a, 0, 1.8, 2);
   readonly facadeWash = new THREE.SpotLight(0xffb870, 0, 16, 0.75, 0.7, 1.2);
@@ -114,7 +114,7 @@ export class Lighting {
     }
     this.kitchenFill.position.set(-1.2, 2.9, -4.2);
     scene.add(this.kitchenFill);
-    this.pickupLamp.position.set(PICKUP.tray.x, PICKUP.tray.y + 0.5, PICKUP.tray.z - 0.1);
+    this.pickupLamp.position.set(PICKUP.tray.x, PICKUP.tray.y + 0.8, PICKUP.tray.z - 0.1);
     scene.add(this.pickupLamp);
     this.grillGlow.position.set(GRILL.center.x, GRILL.center.y + 0.12, GRILL.center.z);
     scene.add(this.grillGlow);
@@ -236,7 +236,7 @@ export class Lighting {
     const warm = 0.8 + this.night * 0.6;
     for (const l of this.dining) l.intensity = 7 * warm;
     this.counterSpot.intensity = 18 * (0.85 + this.night * 0.35);
-    this.kitchenSpot.intensity = 30;
+    this.kitchenSpot.intensity = 17;
     for (const m of this.bulbMats) m.emissiveIntensity = 4 + this.night * 4;
 
     const ext = this.refs.exterior;

@@ -94,7 +94,7 @@ export class Gauges {
         }
       },
       place(x, y, visible) {
-        root.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+        root.style.translate = `${x.toFixed(1)}px ${y.toFixed(1)}px`;
         root.style.opacity = visible ? '1' : '0';
       },
       remove() {

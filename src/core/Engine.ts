@@ -58,6 +58,8 @@ export class Engine {
   private frameTimes: number[] = [];
   private dynamicScale = 1;
   autoQuality = true;
+  /** When set, every frame advances by this many seconds (deterministic tests). */
+  fixedStep: number | null = null;
   private lowFpsTime = 0;
   private highFpsTime = 0;
 
@@ -134,7 +136,7 @@ export class Engine {
   }
 
   private frame(now: number): void {
-    const rawDt = Math.min(0.05, Math.max(0, (now - this.last) / 1000));
+    const rawDt = this.fixedStep ?? Math.min(0.05, Math.max(0, (now - this.last) / 1000));
     this.last = now;
     this.trackPerformance(rawDt);
     const dt = this.paused ? 0 : rawDt * this.timeScale;

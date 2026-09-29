@@ -94,7 +94,7 @@ export class UI {
     const project = (v: THREE.Vector3) => this.project(v);
     this.gauges = new Gauges(this.world);
     this.speech = new Speech(this.world, icons, project);
-    this.serveLayer = h('div', {});
+    this.serveLayer = h('div', { style: { display: 'none' } });
     this.world.append(this.serveLayer);
 
     this.takeOrderEl = h('div', { class: 'anchored take-order hidden' }, h('button', { class: 'btn yellow', onclick: () => host.onTakeOrder() }, '🧾 Take Order'));
@@ -284,7 +284,7 @@ export class UI {
       this.takeOrderEl.classList.toggle('hidden', !show || !anchor);
       if (show && anchor) {
         const s = this.project(anchor);
-        this.takeOrderEl.style.transform = `translate3d(${s.x.toFixed(1)}px, ${s.y.toFixed(1)}px, 0)`;
+        this.takeOrderEl.style.translate = `${s.x.toFixed(1)}px ${s.y.toFixed(1)}px`;
       }
     },
   };
@@ -296,7 +296,7 @@ export class UI {
     place: (orderId: number, x: number, y: number, visible: boolean) => {
       const el = this.serveEls.get(orderId);
       if (!el) return;
-      el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+      el.style.translate = `${x.toFixed(1)}px ${y.toFixed(1)}px`;
       el.style.opacity = visible ? '1' : '0';
     },
   };

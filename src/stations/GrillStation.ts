@@ -10,9 +10,10 @@ import { Geo } from '../world/Builder';
 import { Ease, clamp, noise, rand } from '../core/math';
 import type { Gauge } from '../ui/Gauges';
 
-interface GrillPatty {
+export interface GrillPatty {
   piece: FoodPiece;
   kind: PattyId;
+  target?: Doneness;
   slot: number;
   a: number;
   b: number;
@@ -34,7 +35,7 @@ const BASE_RATE = 0.062;
 
 export class GrillStation extends Station {
   readonly id = 'grill' as const;
-  readonly shot = shot([-3.05, 2.02, -4.28], [-3.05, 0.92, -5.62], 46);
+  readonly shot = shot([-3.12, 1.78, -4.56], [-3.12, 0.98, -5.7], 46);
   private patties: GrillPatty[] = [];
   private trays: { kind: PattyId; group: THREE.Group; interactive: Interactive; stack: THREE.Group }[] = [];
   private glowMat: THREE.MeshStandardMaterial;
@@ -70,13 +71,12 @@ export class GrillStation extends Station {
     const kinds: PattyId[] = ['patty_beef', 'patty_chicken', 'patty_veggie'];
     kinds.forEach((kind, i) => {
       const g = new THREE.Group();
-      g.position.set(-4.12 - (i % 2) * 0.0 - Math.floor(i / 1) * 0.0, SURFACE - 0.02, -5.3 - i * 0.29);
-      g.position.set(-4.2, SURFACE - 0.015, -5.92 + i * 0.3);
+      g.position.set(-3.87, SURFACE - 0.015, -5.46 - i * 0.27);
       this.root.add(g);
-      const pan = new THREE.Mesh(Geo.rbox(0.26, 0.03, 0.26, 0.012), mats.steel);
+      const pan = new THREE.Mesh(Geo.rbox(0.22, 0.03, 0.24, 0.012), mats.steel);
       pan.castShadow = pan.receiveShadow = true;
       g.add(pan);
-      const paper = new THREE.Mesh(Geo.box(0.22, 0.002, 0.22), mats.paper);
+      const paper = new THREE.Mesh(Geo.box(0.19, 0.002, 0.2), mats.paper);
       paper.position.y = 0.016;
       g.add(paper);
       const stack = new THREE.Group();
@@ -84,14 +84,16 @@ export class GrillStation extends Station {
       g.add(stack);
       for (let k = 0; k < 4; k++) {
         const p = ctx.food.patty(kind);
-        p.obj.scale.setScalar(0.85);
+        p.obj.scale.setScalar(0.78);
         p.obj.position.set(rand(-0.004, 0.004), 0.009 + k * 0.019, rand(-0.004, 0.004));
         p.obj.rotation.y = rand(0, 6);
         stack.add(p.obj);
-        const sheet = new THREE.Mesh(Geo.box(0.15, 0.001, 0.15), mats.paper);
-        sheet.position.y = 0.019 * (k + 1);
-        sheet.rotation.y = rand(0, 1);
-        stack.add(sheet);
+        if (k < 3) {
+          const sheet = new THREE.Mesh(Geo.box(0.15, 0.001, 0.15), mats.paper);
+          sheet.position.y = 0.019 * (k + 1) - 0.0005;
+          sheet.rotation.y = rand(0, 1);
+          stack.add(sheet);
+        }
       }
       const it: Interactive = {
         object: g,
@@ -135,7 +137,7 @@ export class GrillStation extends Station {
     const n = this.ctx.progress.grillSlots;
     const cols = n === 4 ? 2 : 3;
     const rows = n === 9 ? 3 : 2;
-    const sx = n === 4 ? 0.36 : 0.33;
+    const sx = n === 4 ? 0.3 : 0.3;
     const sz = rows === 3 ? 0.2 : 0.26;
     const out: THREE.Vector3[] = [];
     for (let r = 0; r < rows; r++)
@@ -254,12 +256,12 @@ export class GrillStation extends Station {
     });
   }
 
-  private placeOnGrill(piece: FoodPiece, kind: PattyId, slot: number, fly: boolean) {
+  private placeOnGrill(piece: FoodPiece, kind: PattyId, slot: number, fly: boolean, goal?: Doneness) {
     const target = this.slotPositions()[slot];
     const from = piece.obj.position.clone();
     const gauge = this.ctx.ui.gauges.create();
     const gp: GrillPatty = {
-      piece, kind, slot, a: 0, b: 0, flipped: false, busy: true, gauge, sizzle: 0, warned: false,
+      piece, kind, target: goal, slot, a: 0, b: 0, flipped: false, busy: true, gauge, sizzle: 0, warned: false,
       chimed: new Set(), smokeT: 0, sparkT: 0, flareT: rand(3, 8), hover: 0,
     };
     this.patties.push(gp);
@@ -453,7 +455,7 @@ export class GrillStation extends Station {
       obj.scale.setScalar(1 + (warmer.scale - 1) * e);
     }).done.then(() => {
       obj.rotation.set(gp.flipped ? Math.PI : 0, obj.rotation.y, 0);
-      warmer.add({ piece: gp.piece, kind: gp.kind, a: gp.a, b: gp.b }, slot);
+      warmer.add({ piece: gp.piece, kind: gp.kind, a: gp.a, b: gp.b, target: gp.target }, slot);
       this.ctx.audio.play('plate', { volume: 0.7 });
       this.ctx.fx.burst('steam', to.clone().setY(to.y + 0.02), 4);
       const avg = (gp.a + gp.b) / 2;
@@ -655,14 +657,22 @@ export class GrillStation extends Station {
   }
 
   /** Test helpers used by the automated playtest bot. */
-  botPlace(kind: PattyId) {
+  botPlace(kind: PattyId, target?: Doneness) {
     const free = this.freeSlots();
     if (!free.length) return false;
     const piece = this.ctx.food.patty(kind);
     this.root.add(piece.obj);
     piece.obj.position.copy(this.slotPositions()[free[0]]).setY(REST + 0.08);
-    this.placeOnGrill(piece, kind, free[0], true);
+    this.placeOnGrill(piece, kind, free[0], true, target);
     return true;
+  }
+  botPatties(): GrillPatty[] {
+    return this.patties;
+  }
+  botMoveToWarmer(gp: GrillPatty) {
+    if (gp.busy || this.ctx.warmer.freeSlot() < 0) return;
+    gp.busy = true;
+    this.moveToWarmer(gp, this.ctx.warmer.slotWorld(this.ctx.warmer.freeSlot()));
   }
   botFlip(i: number) {
     const gp = this.patties[i];

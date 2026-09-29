@@ -102,7 +102,7 @@ export class Speech {
       const s = this.project(b.c.bubbleAnchor(tmp));
       const w = b.el.offsetWidth;
       const hgt = b.el.offsetHeight;
-      b.el.style.transform = `translate3d(${(s.x - 30).toFixed(1)}px, ${(s.y - hgt - 14).toFixed(1)}px, 0)`;
+      b.el.style.translate = `${(s.x - 30).toFixed(1)}px ${(s.y - hgt - 14).toFixed(1)}px`;
       b.el.style.visibility = s.behind ? 'hidden' : 'visible';
       void w;
     }
@@ -131,7 +131,7 @@ export class Speech {
       }
       const hasBubble = this.bubbles.some((b) => b.c === c);
       const s = this.project(c.bubbleAnchor(tmp));
-      el.style.transform = `translate3d(${s.x.toFixed(1)}px, ${(s.y - 4).toFixed(1)}px, 0)`;
+      el.style.translate = `${s.x.toFixed(1)}px ${(s.y - 4).toFixed(1)}px`;
       el.style.opacity = s.behind || hasBubble ? '0' : '1';
       const m = c.mood;
       const arc = el.querySelector('.arc') as SVGCircleElement;

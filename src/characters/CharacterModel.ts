@@ -583,6 +583,7 @@ export class CharacterModel {
           const x = Math.sin(ph) * Math.cos(th) * r;
           const z = Math.sin(ph) * Math.sin(th) * r - 0.02;
           const y = Math.cos(ph) * r - 0.01;
+          if (z > R * 0.25 && y < R * 0.75) continue;
           mesh(Geo.sphere(0.042, 10, 8), mat, head, x, y, z);
         }
         break;

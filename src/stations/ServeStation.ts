@@ -23,8 +23,8 @@ export interface ServeResult {
 
 export class ServeStation extends Station {
   readonly id = 'serve' as const;
-  readonly shot = shot([2.2, 1.6, -2.28], [2.2, 1.18, 0.15], 46);
-  private closeShot = shot([2.02, 1.52, -1.35], [2.25, 1.42, -0.3], 34);
+  readonly shot = shot([2.2, 1.52, -2.3], [2.2, 1.22, 0.2], 46);
+  private closeShot = shot([1.72, 1.46, -1.95], [2.62, 1.3, -0.3], 40);
   private bell: THREE.Group;
   serving = false;
   onServed?: (r: ServeResult) => void;
@@ -35,7 +35,7 @@ export class ServeStation extends Station {
     const top = COUNTER.height;
     // heat lamp housing over the pickup window
     const lamp = new THREE.Group();
-    lamp.position.set(2.2, 1.72, -1.2);
+    lamp.position.set(2.2, 2.02, -1.2);
     this.root.add(lamp);
     const housing = new THREE.Mesh(Geo.rbox(1.6, 0.07, 0.24, 0.02), mats.steel);
     lamp.add(housing);
@@ -43,8 +43,8 @@ export class ServeStation extends Station {
     glow.position.y = -0.04;
     lamp.add(glow);
     for (const x of [-0.72, 0.72]) {
-      const rod = new THREE.Mesh(Geo.cyl(0.01, 0.01, 1.6, 8), mats.chrome);
-      rod.position.set(x, 0.8, 0);
+      const rod = new THREE.Mesh(Geo.cyl(0.01, 0.01, 1.3, 8), mats.chrome);
+      rod.position.set(x, 0.65, 0);
       lamp.add(rod);
     }
     // order-up bell

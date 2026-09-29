@@ -69,7 +69,7 @@ export function makeTray(mats: GameContext['world']['mats']): THREE.Group {
 
 export class BuildStation extends Station {
   readonly id = 'build' as const;
-  readonly shot = shot([-0.2, 1.86, -4.42], [-0.2, 0.93, -5.62], 47);
+  readonly shot = shot([-0.2, 1.76, -4.62], [-0.2, 0.95, -5.72], 50);
   stack: BurgerStack | null = null;
   tray: THREE.Group;
   private sources: Source[] = [];
@@ -162,7 +162,8 @@ export class BuildStation extends Station {
     const step = (x1 - x0) / (RAIL_ORDER.length - 1);
     RAIL_ORDER.forEach((id, i) => {
       const g = new THREE.Group();
-      g.position.set(x0 + i * step, 1.02, -5.97);
+      g.position.set(x0 + i * step, 1.03, -5.95);
+      g.rotation.x = 0.32;
       this.root.add(g);
       const pan = new THREE.Mesh(Geo.box(step - 0.012, 0.012, 0.25), mats.steel);
       pan.position.y = -0.03;
@@ -218,20 +219,43 @@ export class BuildStation extends Station {
       crown.obj.scale.setScalar(0.92);
       crown.obj.position.set(0.02, 0.04, 0.015);
       crown.obj.rotation.set(0.05, rand(0, 6), 0);
+      crown.obj.userData.content = true;
       g.add(crown.obj);
       const heel = ctx.food.bunPart(id, 'bottom');
       heel.obj.scale.setScalar(0.85);
       heel.obj.position.set(-0.045, 0.04, -0.05);
       heel.obj.rotation.set(-0.12, 0, 0.2);
+      heel.obj.userData.content = true;
       g.add(heel.obj);
-      const lid = new THREE.Mesh(Geo.rbox(0.215, 0.012, 0.205, 0.006), mats.cardboard);
-      lid.position.y = 0.1;
+      const lid = new THREE.Group();
+      const lidBox = new THREE.Mesh(Geo.rbox(0.215, 0.014, 0.205, 0.006), mats.cardboard);
+      lid.add(lidBox);
+      const lockTex = canvasTexture(128, 128, (c, w, h) => {
+        c.fillStyle = 'rgba(0,0,0,0)';
+        c.clearRect(0, 0, w, h);
+        c.fillStyle = '#2a1d16';
+        c.beginPath();
+        c.arc(w / 2, h / 2, 46, 0, Math.PI * 2);
+        c.fill();
+        c.fillStyle = '#ffd35a';
+        c.font = `700 30px ${FONT_DISPLAY}`;
+        c.textAlign = 'center';
+        c.textBaseline = 'middle';
+        c.fillText('🔒', w / 2, h / 2 - 8);
+        c.font = `700 20px ${FONT_DISPLAY}`;
+        c.fillText(`RANK ${INGREDIENTS[id].unlockRank}`, w / 2, h / 2 + 22);
+      });
+      const lockMesh = new THREE.Mesh(Geo.plane(0.12, 0.12), new THREE.MeshStandardMaterial({ map: lockTex, transparent: true, roughness: 0.6 }));
+      lockMesh.rotation.x = -Math.PI / 2;
+      lockMesh.position.y = 0.0085;
+      lid.add(lockMesh);
+      lid.position.y = 0.043;
       g.add(lid);
       const glow = new THREE.Mesh(new THREE.CircleGeometry(0.1, 32), new THREE.MeshBasicMaterial({ color: 0xfff1a8, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
       glow.rotation.x = -Math.PI / 2;
       glow.position.y = 0.04;
       g.add(glow);
-      const src: Source = { id, group: g, home: g.position.clone(), kind: 'bun', lid, glow, interactive: null! };
+      const src: Source = { id, group: g, home: g.position.clone(), kind: 'bun', lid: lid as unknown as THREE.Mesh, glow, interactive: null! };
       src.interactive = this.sourceInteractive(src);
       this.sources.push(src);
     });
@@ -295,6 +319,7 @@ export class BuildStation extends Station {
       p.obj.scale.setScalar(s);
       p.obj.position.set(x, y, z);
       p.obj.rotation.set(rx, ry, 0);
+      p.obj.userData.content = true;
       g.add(p.obj);
       return p;
     };
@@ -310,8 +335,8 @@ export class BuildStation extends Station {
     const n = id === 'lettuce' ? 3 : id === 'egg' ? 2 : id === 'onion_rings' ? 3 : id === 'bacon' ? 3 : 3;
     for (let k = 0; k < n; k++) {
       const p = food.topping(id);
-      const s = id === 'lettuce' ? 0.8 : id === 'bacon' ? 0.75 : id === 'egg' ? 0.85 : 0.9;
-      add(p, rand(-0.01, 0.01), -0.018 + k * 0.012, -0.07 + k * 0.07, s * (w / 0.16), rand(0, 6), rand(-0.25, 0.1));
+      const s = id === 'lettuce' ? 0.85 : id === 'bacon' ? 0.8 : id === 'egg' ? 0.9 : 1.0;
+      add(p, rand(-0.008, 0.008), -0.016 + k * 0.012, -0.07 + k * 0.07, s * (w / 0.155), rand(0, 6), rand(-0.2, 0.1));
     }
   }
 
@@ -321,9 +346,7 @@ export class BuildStation extends Station {
       const locked = INGREDIENTS[s.id].unlockRank > rank;
       if (s.lid) s.lid.visible = locked;
       s.group.visible = s.kind === 'sauce' ? !locked : true;
-      s.group.children.forEach((c) => {
-        if (c !== s.lid && s.kind !== 'bin' && s.kind !== 'bun') return;
-      });
+      for (const c of s.group.children) if (c.userData.content) c.visible = !locked;
     }
   }
 
@@ -356,7 +379,7 @@ export class BuildStation extends Station {
   }
 
   private dragFromSource(src: Source, ray: THREE.Ray): DragHandler | void {
-    if (this.ctx.busy || !this.stack) return;
+    if (this.ctx.busy || this.completing || !this.stack) return;
     const order = this.ctx.orders.activeBuild;
     if (!order) {
       this.ctx.ui.toastWorld('No ticket to build!', this.plateCenter().setY(1.2), 'bad');
@@ -387,7 +410,7 @@ export class BuildStation extends Station {
   }
 
   private dragFromWarmer(slot: number, ray: THREE.Ray): DragHandler | void {
-    if (this.ctx.busy || !this.stack) return;
+    if (this.ctx.busy || this.completing || !this.stack) return;
     if (!this.ctx.orders.activeBuild) {
       this.ctx.ui.toastWorld('No ticket to build!', this.plateCenter().setY(1.2), 'bad');
       return;
@@ -704,10 +727,11 @@ export class BuildStation extends Station {
   }
 
   // ------------------------------------------------------------------ completion
+  private completing = false;
   private complete() {
     const stack = this.stack!;
     const order = this.ctx.orders.activeBuild;
-    this.ctx.busy = true;
+    this.completing = true;
     const flag = this.flagProto.clone();
     const topY = stack.height + 0.055;
     flag.position.set(stack.items[stack.items.length - 1].dx, topY + 0.25, stack.items[stack.items.length - 1].dz);
@@ -746,14 +770,14 @@ export class BuildStation extends Station {
         return this.ctx.engine.tweens.run(0.35, (e) => (this.tray.position.x = BUILD.plate.x - 1.2 + 1.2 * e), { ease: Ease.outBack }).done;
       });
     }).then(() => {
-      this.ctx.busy = false;
+      this.completing = false;
       this.ctx.ui.refreshBuildTicket();
     });
   }
 
   /** Throw away the burger in progress. */
   trashBurger() {
-    if (!this.stack || !this.stack.items.length || this.ctx.busy) return;
+    if (!this.stack || !this.stack.items.length || this.completing) return;
     const s = this.stack;
     this.ctx.audio.play('trash');
     this.ctx.engine.tweens.run(0.35, (e) => {
@@ -822,7 +846,8 @@ export class BuildStation extends Station {
   }
 
   /** Bot helpers for automated tests. */
-  botAdd(id: IngredientId): boolean {
+  botAdd(id: IngredientId, doneness?: string): boolean {
+    if (this.completing) return false;
     if (!this.stack || this.stack.complete) return false;
     const c = this.plateCenter();
     if (INGREDIENTS[id].category === 'sauce') {
@@ -837,7 +862,8 @@ export class BuildStation extends Station {
       piece = this.ctx.food.bunPart(id as BunId, kind === 'top' ? 'top' : 'bottom');
     } else if (isPatty(id)) {
       const w = this.ctx.warmer;
-      const slot = w.items.findIndex((x) => x && x.kind === id);
+      let slot = w.items.findIndex((x) => x && x.kind === id && (!doneness || x.target === doneness));
+      if (slot < 0) slot = w.items.findIndex((x) => x && x.kind === id);
       if (slot < 0) return false;
       const wp = w.take(slot)!;
       piece = wp.piece;

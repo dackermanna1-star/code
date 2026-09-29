@@ -11,7 +11,7 @@ import type { Customer } from '../game/Customer';
 
 export class OrderStation extends Station {
   readonly id = 'order' as const;
-  readonly shot = shot([-1.05, 1.66, -2.25], [-0.45, 1.2, 2.4], 50);
+  readonly shot = shot([-1.0, 1.56, -1.82], [-0.5, 1.22, 2.4], 50);
   private printerPaper: THREE.Mesh;
   private drawer: THREE.Group;
   private display: THREE.CanvasTexture;

@@ -54,7 +54,7 @@ export interface CustomOption {
 export const UPGRADES: UpgradeDef[] = [
   { id: 'grill_size', name: 'Bigger Grill', icon: '🔥', desc: ['6 grill spots', '9 grill spots'], costs: [120, 380], ranks: [2, 7] },
   { id: 'grill_heat', name: 'Turbo Burners', icon: '⚡', desc: ['Cooks 20% faster', 'Cooks 40% faster'], costs: [160, 460], ranks: [3, 9] },
-  { id: 'smart_meter', name: 'Smart Thermometer', icon: '🌡️', desc: ['Gauges show doneness labels & ticket targets'], costs: [70], ranks: [2] },
+  { id: 'smart_meter', name: 'Smart Thermometer', icon: '🌡️', desc: ['Gauges show doneness labels & ticket targets'], costs: [45], ranks: [1] },
   { id: 'patty_bell', name: 'Doneness Chime', icon: '🔔', desc: ['Rings when a side hits a ticket’s doneness'], costs: [110], ranks: [4] },
   { id: 'topping_guide', name: 'Topping Guide', icon: '🧭', desc: ['Highlights the next ingredient to add'], costs: [90], ranks: [3] },
   { id: 'fast_printer', name: 'Express Printer', icon: '🧾', desc: ['Take orders 40% faster'], costs: [120], ranks: [5] },
@@ -63,7 +63,7 @@ export const UPGRADES: UpgradeDef[] = [
 ];
 
 export const DECOR: DecorDef[] = [
-  { id: 'plants', name: 'Potted Palms', icon: '🌴', desc: 'A little greenery calms hungry nerves.', cost: 60, rank: 2, comfort: 1 },
+  { id: 'plants', name: 'Potted Palms', icon: '🌴', desc: 'A little greenery calms hungry nerves.', cost: 40, rank: 1, comfort: 1 },
   { id: 'gumball', name: 'Gumball Machine', icon: '🍬', desc: 'Kids love it. Adults secretly love it more.', cost: 80, rank: 2, comfort: 1 },
   { id: 'neon_burger', name: 'Neon Burger Sign', icon: '🍔', desc: 'A buzzing neon glow for the brick wall.', cost: 120, rank: 3, comfort: 2 },
   { id: 'string_lights', name: 'String Lights', icon: '💡', desc: 'Warm twinkling bulbs across the ceiling.', cost: 150, rank: 4, comfort: 2 },

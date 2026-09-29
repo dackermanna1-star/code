@@ -78,11 +78,17 @@ export class Game implements UIHost {
       /* fonts optional */
     }
     const s = this.progress.data.settings;
-    const quality: QualityLevel = s.quality === 'auto' ? this.detectQuality() : s.quality;
+    const testMode = new URLSearchParams(location.search).has('test');
+    const quality: QualityLevel = testMode ? 'low' : s.quality === 'auto' ? this.detectQuality() : s.quality;
     const canvas = document.getElementById('game') as HTMLCanvasElement;
     this.engine = new Engine(canvas, quality);
-    this.engine.autoQuality = s.quality === 'auto';
+    this.engine.autoQuality = s.quality === 'auto' && !testMode;
     this.engine.paused = false;
+    if (testMode) {
+      this.engine.fixedStep = 1 / 15;
+      (this.engine.quality as any).pixelRatio = 0.6;
+      this.engine.resize();
+    }
     await step(0.08, 'Baking textures…');
     this.baker = new TextureBaker(this.engine.renderer);
     this.mats = new MaterialLib(this.baker);
@@ -301,7 +307,7 @@ export class Game implements UIHost {
     const sched = this.progress.scheduleDay(this.progress.data.day);
     this.schedule = sched.map((s) => ({ ...s, spawned: false }));
     const last = sched.length ? sched[sched.length - 1].at : 60;
-    this.dayLength = last + 75;
+    this.dayLength = Math.max(240, last + 150);
     this.dayStats = { served: 0, total: 0, tips: 0, sales: 0, perfect: 0, best: null, xpBefore: this.progress.data.xp, rankBefore: this.progress.rank };
   }
 
@@ -434,6 +440,11 @@ export class Game implements UIHost {
     this.progress.save();
   }
 
+  async startBot(skill = 1) {
+    const { Bot } = await import('../debug/Bot');
+    return new Bot(this, skill);
+  }
+
   refreshHud() {
     const d = this.progress.data;
     this.ui.setMoney(d.money);
@@ -444,7 +455,7 @@ export class Game implements UIHost {
   // ------------------------------------------------------------------ stations
   goStation(id: StationId) {
     if (this.state !== 'day' && this.state !== 'closing') return;
-    if (id === this.station || this.transitioning || this.ctx.busy) return;
+    if (id === this.station || this.transitioning || this.stations.serve.serving) return;
     const prev = this.stations[this.station];
     const next = this.stations[id];
     this.input.cancel();
@@ -635,7 +646,7 @@ export class Game implements UIHost {
 
   private setupTutorialTargets() {
     const t = this.ui.tutorial.targets;
-    t.place = () => new THREE.Vector3(-4.2, 1.02, -5.92);
+    t.place = () => new THREE.Vector3(-3.87, 1.02, -5.46);
     t.flip = () => null;
     t.done = () => this.warmer.root.position.clone().setY(1.05);
     t.build = () => null;

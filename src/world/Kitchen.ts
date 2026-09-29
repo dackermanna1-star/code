@@ -105,10 +105,10 @@ export function buildKitchen(root: THREE.Object3D, mats: MaterialLib): KitchenRe
   }
 
   // ------------------------------------------------------------ backline counters
-  counterSegment(b, mats, -5.95, -3.82, 'drawers');
   // grill cabinet
   const gx0 = GRILL.center.x - GRILL.width / 2 - 0.06;
   const gx1 = GRILL.center.x + GRILL.width / 2 + 0.06;
+  counterSegment(b, mats, -5.95, gx0 - 0.02, 'drawers');
   {
     const gw = gx1 - gx0;
     const gcx = GRILL.center.x;

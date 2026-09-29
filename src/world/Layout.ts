@@ -30,7 +30,7 @@ export const BACKLINE = {
 
 export const GRILL = {
   center: new THREE.Vector3(-3.0, 0.94, -5.72),
-  width: 1.5,
+  width: 1.16,
   depth: 0.64,
 };
 

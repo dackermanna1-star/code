@@ -350,7 +350,7 @@ body {
 }
 .ticket {
   position: relative;
-  width: 74px;
+  width: 84px;
   margin-top: 6px;
   background: var(--paper);
   border: 2.5px solid var(--char);
@@ -452,8 +452,8 @@ body {
   gap: 0;
 }
 .ticket .stackmini img {
-  width: 34px;
-  height: 22px;
+  width: 42px;
+  height: 27px;
   object-fit: contain;
   margin: -4px 0;
   filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.25));
@@ -668,10 +668,10 @@ body {
 @keyframes floaty {
   0%,
   100% {
-    translate: 0 0;
+    transform: translateY(0);
   }
   50% {
-    translate: 0 -6px;
+    transform: translateY(-6px);
   }
 }
 .pop-in {
@@ -1098,17 +1098,17 @@ body {
 /* ---------------------------------------------------------------- rating panel */
 .rating {
   position: absolute;
-  left: 50%;
-  bottom: 40px;
-  width: min(560px, calc(100vw - 32px));
-  transform: translate(-50%, calc(100% + 120px));
+  right: 3vw;
+  top: 50%;
+  width: min(500px, calc(100vw - 32px));
+  transform: translate(calc(100% + 80px), -50%) rotate(4deg);
   visibility: hidden;
   transition: transform 0.5s var(--spring), visibility 0s 0.5s;
   padding: 18px 22px 16px;
   pointer-events: auto;
 }
 .rating.show {
-  transform: translate(-50%, 0);
+  transform: translate(0, -50%);
   visibility: visible;
   transition: transform 0.5s var(--spring), visibility 0s;
 }
@@ -1852,6 +1852,15 @@ body {
 
 /* responsive */
 @media (max-width: 900px) {
+  .rating {
+    right: 50%;
+    top: auto;
+    bottom: 110px;
+    transform: translate(50%, calc(100% + 140px));
+  }
+  .rating.show {
+    transform: translate(50%, 0);
+  }
   .rail {
     max-width: calc(100vw - 20px);
     top: 74px;

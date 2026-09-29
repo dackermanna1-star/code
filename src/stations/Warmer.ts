@@ -8,6 +8,7 @@ import type { MaterialLib } from '../world/Materials';
 export interface WarmPatty {
   piece: FoodPiece;
   kind: PattyId;
+  target?: string;
   /** cook value of the two physical sides (a = initially bottom) */
   a: number;
   b: number;

@@ -99,11 +99,11 @@ export class Face {
       const lid = new THREE.Group();
       root.add(lid);
       const lidMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 10, 0, Math.PI * 2, 0, Math.PI * 0.52), lidMat);
-      lidMesh.scale.set(0.034 * es, 0.043 * es, 0.026);
+      lidMesh.scale.set(0.0322 * es, 0.0405 * es, 0.0232);
       lid.add(lidMesh);
       // lash line along the lid rim
       const lash = new THREE.Mesh(Geo.torus(1, 0.09, 5, 20, Math.PI), lashMat);
-      lash.scale.set(0.034 * es, 0.034 * es, 0.026 * 1.0);
+      lash.scale.set(0.0322 * es, 0.0322 * es, 0.0232);
       lash.rotation.x = Math.PI / 2;
       lash.rotation.z = Math.PI;
       lash.position.y = -0.0005;
@@ -120,7 +120,7 @@ export class Face {
       const lower = new THREE.Group();
       root.add(lower);
       const lowMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 10, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5), lidMat);
-      lowMesh.scale.set(0.033 * es, 0.042 * es, 0.025);
+      lowMesh.scale.set(0.0318 * es, 0.04 * es, 0.023);
       lower.add(lowMesh);
       this.eyes.push({ root, iris, lid, lower, x: ex });
     }
@@ -291,9 +291,9 @@ export class Face {
     for (const [i, eye] of this.eyes.entries()) {
       const open = Math.max(0, Math.min(1.25, c.eyeOpen * (1 - blinkAmt) * (1 - c.happyEyes * 0.75)));
       // closed = +PI/2 (lid faces forward), open = -0.45
-      eye.lid.rotation.x = THREE.MathUtils.lerp(Math.PI / 2 + 0.05, -0.55, Math.min(1, open)) - Math.max(0, open - 1) * 0.6;
+      eye.lid.rotation.x = THREE.MathUtils.lerp(Math.PI / 2 + 0.05, -1.05, Math.min(1, open)) - Math.max(0, open - 1) * 0.4;
       // lower lid rises for happy "^^" eyes and squints
-      eye.lower.rotation.x = -THREE.MathUtils.lerp(-0.2, Math.PI / 2 - 0.25, c.happyEyes * 0.9 + (1 - Math.min(1, c.eyeOpen)) * 0.2);
+      eye.lower.rotation.x = -THREE.MathUtils.lerp(-0.9, Math.PI / 2 - 0.3, c.happyEyes * 0.9 + (1 - Math.min(1, c.eyeOpen)) * 0.15);
       eye.iris.rotation.y = this.look.x * 0.45;
       eye.iris.rotation.x = -this.look.y * 0.3;
       const s = 1 + Math.max(0, c.eyeOpen - 1) * 0.6;

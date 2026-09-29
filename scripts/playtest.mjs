@@ -4,7 +4,7 @@
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
 
-const url = process.argv[2] || 'http://localhost:5173/';
+const url = process.argv[2] || 'http://localhost:5173/?test=1';
 const out = process.argv[3] || 'test-output/play';
 const scenario = process.argv[4] || 'full';
 const W = +(process.env.W || 1280);
@@ -58,15 +58,15 @@ await shot('day-start');
 await g(() => (window.__game.engine.timeScale = 3));
 
 // wait for a customer at the counter
-const waitFor = async (fn, timeout = 120000, step = 500) => {
+const waitFor = async (fn, timeout = 120000, step = 500, arg) => {
   const start = Date.now();
   while (Date.now() - start < timeout) {
-    if (await g(fn)) return true;
+    if (await g(fn, arg)) return true;
     await wait(step);
   }
   return false;
 };
-const ok1 = await waitFor(() => !!window.__game.customers.atCounter);
+const ok1 = await waitFor(() => !!window.__game.customers.atCounter, 240000);
 console.log('customer at counter:', ok1);
 await g(() => (window.__game.engine.timeScale = 1));
 await wait(1500);
@@ -94,7 +94,7 @@ const target = { rare: 0.4, medium: 0.6, well: 0.8 };
 await g(() => (window.__game.engine.timeScale = 3));
 for (let i = 0; i < patties.length; i++) {
   const tgt = target[patties[i].doneness];
-  await waitFor((a) => window.__game.stations.grill.debugState()[a.i]?.a >= a.t - 0.01, 90000, 200).then(() => 0);
+  await waitFor((a) => window.__game.stations.grill.debugState()[a.i]?.a >= a.t - 0.01, 180000, 200, { i, t: tgt });
   await g((a) => {
     const st = window.__game.stations.grill.debugState();
     return st;
@@ -107,7 +107,7 @@ await shot('grill-flipped');
 await g(() => (window.__game.engine.timeScale = 3));
 for (let i = 0; i < patties.length; i++) {
   const tgt = target[patties[i].doneness];
-  await waitFor((a) => (window.__game.stations.grill.debugState()[a.i]?.b ?? 9) >= a.t - 0.01, 90000, 200);
+  await waitFor((a) => (window.__game.stations.grill.debugState()[a.i]?.b ?? 9) >= a.t - 0.01, 180000, 200, { i, t: tgt });
 }
 await g(() => (window.__game.engine.timeScale = 1));
 console.log('grill state', JSON.stringify(await g(() => window.__game.stations.grill.debugState())));

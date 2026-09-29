@@ -488,7 +488,7 @@ export const paper: SurfaceRecipe = {
   void surface(vec2 uv, out vec3 color, out float height, out float rough, out float metal, out float ao){
     float n = pfbm(uv * 16.0, vec2(16.0), 4) * 0.5 + 0.5;
     float fib = pfbm(uv * 90.0, vec2(90.0), 2) * 0.5 + 0.5;
-    color = vec3(0.97, 0.95, 0.9) * (0.96 + n * 0.04);
+    color = vec3(0.86, 0.84, 0.79) * (0.96 + n * 0.04);
     height = fib * 0.1 + n * 0.05;
     rough = 0.92;
     metal = 0.0;
