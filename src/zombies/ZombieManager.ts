@@ -221,7 +221,7 @@ export class ZombieManager {
       if ((z.hp < z.maxHp * 0.6 || z.wounds.length > 0) && z.state !== 'down') {
         z.dripT -= dt;
         if (z.dripT <= 0) {
-          z.dripT = rand(0.25, 0.6) / Math.min(3, 1 + z.wounds.length * 0.35);
+          z.dripT = rand(0.55, 1.2) / Math.min(2, 1 + z.wounds.length * 0.2);
           const w = z.wounds.length ? z.wounds[Math.floor(Math.random() * z.wounds.length)] : null;
           if (w && G.wounds && !(z.missing & (1 << w.part))) {
             G.wounds.worldPos(w, z.partPos, z.partQuat, _wp);
@@ -562,13 +562,26 @@ export class ZombieManager {
       z.state = 'walk';
       z.attackCd = 0.3;
     }
-    // arm severing on living zombies
+    // blowing limbs off living zombies
+    const tearing = h.kind === 'pellet' || h.kind === 'bullet' || h.kind === 'laser' || h.kind === 'explosion';
+    const human = t.body.id !== 'dog' && t.id !== 'boss';
     const isArm = h.part === P.UArmL || h.part === P.UArmR || h.part === P.LArmL || h.part === P.LArmR;
-    if (isArm && (h.kind === 'pellet' || h.kind === 'bullet' || h.kind === 'laser' || h.kind === 'explosion') && dmg >= Math.max(3.5, z.maxHp * 0.3) && Math.random() < 0.55 + (h.gore ?? 0)) {
+    const rip = (dmg / z.maxHp) * 0.5 + (h.gore ?? 0);
+    if (isArm && human && tearing && dmg >= Math.max(2.5, z.maxHp * 0.22) && Math.random() < 0.35 + rip) {
       this.severLiving(z, h.part, h);
     }
-    // knockdown
+    // shot-off legs: down they go, and they come back crawling
     const legHit = h.part >= P.ULegL;
+    if (legHit && human && tearing && !z.crawling && z.has(h.part) && t.knockResist < 0.9 &&
+      (dmg >= Math.max(2.5, z.maxHp * 0.22) || z.legDamage > z.maxHp * 0.55) && Math.random() < 0.2 + rip + (z.legDamage > z.maxHp * 0.55 ? 0.5 : 0)) {
+      this.severLiving(z, h.part, h);
+      z.crawling = true;
+      z.speed = Math.min(z.speed, rand(0.85, 1.35));
+      z.legDamage = 0;
+      this.knockdown(z, h, 0.6);
+      return false;
+    }
+    // knockdown
     const kd = h.kind === 'explosion' ? power * 0.6 : (power - 1.4) * 0.45 + (legHit && z.legDamage > z.maxHp * 0.45 ? 0.35 : 0);
     if (t.knockResist < 0.9 && Math.random() < kd) this.knockdown(z, h);
     return false;

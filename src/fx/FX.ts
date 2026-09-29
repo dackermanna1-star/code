@@ -209,7 +209,7 @@ export class FX {
 
   /** A single drop falling from a wound. */
   drip(x: number, y: number, z: number) {
-    this.emitBlood(x, y, z, rand(-0.15, 0.15), rand(-0.3, 0), rand(-0.15, 0.15), rand(0.012, 0.022), 0.9, Math.random() < 0.6);
+    this.emitBlood(x, y, z, rand(-0.15, 0.15), rand(-0.3, 0), rand(-0.15, 0.15), rand(0.01, 0.018), 0.9, Math.random() < 0.3);
   }
 
   bloodDrip(x: number, z: number, size: number) {
