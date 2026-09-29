@@ -294,6 +294,12 @@ export class WeaponController {
       this.state = 'idle';
     }
 
+    // ran dry: start reloading on its own once the trigger is let go
+    if (this.state === 'idle' && w.ammo <= 0 && s.reloadType !== 'none' && !held && this.fireT > 0.3 && this.cooldown <= 0) {
+      this.startReload();
+      return;
+    }
+
     // special continuous modes
     if (mode === 'spin') {
       if (held && this.state === 'idle') this.spin = Math.min(1, this.spin + dt / 0.85);

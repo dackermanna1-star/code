@@ -36,14 +36,15 @@ Click the game to capture the mouse. If the page is embedded somewhere that bloc
 3. **Survive every wave of the day.** Days 1–10 have 3 waves, days 11–20 have 4, days 21–30 have 5, and so on up to 10.
 4. **Shop.** The shop opens only when the day is over (or after you die): buy weapons, upgrades, defenses and grenades, and set your loadout for the next day.
 
-There is no repair: a broken barricade is gone. Structures still standing at the end of the day go back into your inventory with their current damage. Your health and ammo refill at the start of each wave.
+The road fades into a fog wall about 50 m out (closer in bad weather), and the horde walks out of it. There is no repair: a broken barricade is gone. Structures still standing at the end of the day go back into your inventory with their current damage. Your health and ammo refill at the start of each wave.
 
 You start with an M686 revolver, a Super Shorty shotgun, one grenade and one wooden barrier. The shop has 49 weapons across 12 categories: pistols, shotguns, SMGs, assault rifles, machine guns, marksman rifles, snipers, launchers, bows, energy weapons, flamethrowers and particle weapons. Several weapons have upgrade paths, and turret-capable weapons can be mounted on turrets.
 
 ## Tech
 
 - **Three.js** rendering into a low-resolution target that is upscaled with nearest-neighbour filtering (the pixel look), plus a custom bloom chain and a tone-mapping/grading pass. The first-person viewmodel is drawn in its own pass.
-- **Rapier** (WASM) physics: the character controller, per-limb ragdolls with joint limits, physical grenades and structure debris. Settled ragdolls freeze into cheap static corpses that wake up again when hit or caught in a blast, so bodies never disappear.
+- **Rapier** (WASM) physics: the character controller, per-limb ragdolls with joint limits, physical grenades and structure debris. About 2.5 seconds after death a ragdoll settles into static scenery that stays for the whole day. You and the zombies walk through it, and bullets and explosions leave it alone.
+- **Wounds**: every bullet or pellet leaves a hole pinned to the body part it hit (plus exit wounds for rounds that pass through). Wounds follow the limb through ragdolls into the corpse, and wounded zombies drip blood.
 - **Instanced voxel zombies** with box-unwrapped skins in one texture atlas, procedural animation and spring-based hit reactions. Smart zombies use a flow field; the rest walk straight at you and tear through whatever blocks them.
 - **GPU particles**, a persistent blood/scorch stain map, pooled lights, tracers, casings and gibs.
 - **WebAudio** synthesis of every sound, with positional voices, distance filtering and reverb.
