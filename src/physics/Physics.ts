@@ -22,10 +22,11 @@ export const GROUPS = {
   world: groups(CG.WORLD, 0xffff),
   bounds: groups(CG.BOUNDS, CG.ZOMBIE | CG.PLAYER | CG.RAGDOLL | CG.DEBRIS | CG.PROJ),
   struct: groups(CG.STRUCT, CG.ZOMBIE | CG.PLAYER | CG.RAGDOLL | CG.DEBRIS | CG.PROJ | CG.CORPSE),
-  zombie: groups(CG.ZOMBIE, CG.WORLD | CG.BOUNDS | CG.STRUCT | CG.ZOMBIE | CG.RAGDOLL | CG.CORPSE | CG.PLAYER | CG.PROJ),
-  ragdoll: groups(CG.RAGDOLL, CG.WORLD | CG.BOUNDS | CG.STRUCT | CG.ZOMBIE | CG.RAGDOLL | CG.CORPSE | CG.DEBRIS | CG.PROJ),
+  // zombies and the player walk through bodies (ragdolls knock zombies via ZombieManager.ragdollCollisions)
+  zombie: groups(CG.ZOMBIE, CG.WORLD | CG.BOUNDS | CG.STRUCT | CG.ZOMBIE | CG.PLAYER | CG.PROJ),
+  ragdoll: groups(CG.RAGDOLL, CG.WORLD | CG.BOUNDS | CG.STRUCT | CG.RAGDOLL | CG.DEBRIS | CG.PROJ),
   corpse: groups(CG.CORPSE, CG.WORLD | CG.STRUCT | CG.ZOMBIE | CG.RAGDOLL | CG.DEBRIS | CG.PLAYER | CG.PROJ),
-  player: groups(CG.PLAYER, CG.WORLD | CG.BOUNDS | CG.STRUCT | CG.ZOMBIE | CG.CORPSE),
+  player: groups(CG.PLAYER, CG.WORLD | CG.BOUNDS | CG.STRUCT | CG.ZOMBIE),
   debris: groups(CG.DEBRIS, CG.WORLD | CG.BOUNDS | CG.STRUCT | CG.RAGDOLL | CG.CORPSE | CG.DEBRIS),
   proj: groups(CG.PROJ, CG.WORLD | CG.BOUNDS | CG.STRUCT | CG.ZOMBIE | CG.RAGDOLL | CG.CORPSE),
   /** Filter for ray queries hitting only static world + structures. */

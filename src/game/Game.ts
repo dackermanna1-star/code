@@ -311,17 +311,6 @@ export class Game {
     this.enterMenu();
   }
 
-  openShop() {
-    if (G.waves.phase !== 'prep') {
-      G.ui.toast('The shop opens between waves');
-      return;
-    }
-    G.placement.exit();
-    G.input.exitLock();
-    G.ui.openShop();
-    G.audio?.play('shopOpen', {});
-  }
-
   onShopClosed(returnTo: 'game' | 'summary') {
     this.refreshLoadout();
     G.weapons.grenades = G.progress.data.grenades;
@@ -363,7 +352,7 @@ export class Game {
       G.audio?.play('waveStart', {});
       G.atmosphere.setProgress(W.total > 1 ? (W.wave - 1) / (W.total - 1) : 1);
     } else if (p === 'prep' && W.wave > 0) {
-      ui.banner('WAVE CLEARED', `Next: wave ${W.wave + 1} of ${W.total} — shop with B`, 2.6);
+      ui.banner('WAVE CLEARED', `Next: wave ${W.wave + 1} of ${W.total} — press Enter when ready`, 2.6);
       G.audio?.play('waveClear', {});
     } else if (p === 'dayEnd') {
       const sum = this.summary();
@@ -440,10 +429,6 @@ export class Game {
   private handleKeys() {
     const input = G.input;
     if (this.mode !== 'play') return;
-    if ((input.pressedRaw('KeyB') || input.pressedRaw('Tab')) && !this.paused && !G.ui.overlayOpen) {
-      if (G.ui.shopOpen) G.ui.closeShop();
-      else if (G.player.alive) this.openShop();
-    }
     if (this.uiBlocking) return;
     if (input.pressed('Enter') && G.waves.phase === 'prep') {
       G.placement.exit();

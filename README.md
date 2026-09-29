@@ -27,18 +27,18 @@ Click the game to capture the mouse. If the page is embedded somewhere that bloc
 | Build mode | `F`, then left mouse to place, `Q`/`E`/wheel to rotate, `R` to turn 90°, `1`–`9` to pick a defense, right mouse to exit |
 | Pack up a defense (between waves) | Look at it and hold `E` (keeps its current damage) |
 | Start the next wave | `Enter` |
-| Shop (between waves) | `B` or `Tab` |
 | Pause | `Esc` or `P` |
 
 ## How a day works
 
-1. **Prepare.** Place your defenses and visit the shop.
+1. **Prepare.** Place the defenses you own (`F`).
 2. **Fight.** Press `Enter` to start the wave. Money comes *only* from kills. Special zombies pay more (walker < runner < fatty < riot < brute < abomination).
 3. **Survive every wave of the day.** Days 1–10 have 3 waves, days 11–20 have 4, days 21–30 have 5, and so on up to 10.
+4. **Shop.** The shop opens only when the day is over (or after you die): buy weapons, upgrades, defenses and grenades, and set your loadout for the next day.
 
 There is no repair: a broken barricade is gone. Structures still standing at the end of the day go back into your inventory with their current damage. Your health and ammo refill at the start of each wave.
 
-You start with an M686 revolver, a Super Shorty shotgun, one grenade and one wooden barrier. The shop has 49 weapons across 12 categories: pistols, shotguns, SMGs, assault rifles, machine guns, marksman rifles, snipers, launchers, bows, energy weapons, flamethrowers and particle weapons. Each weapon has upgrades, and turret-capable weapons can be mounted on turrets.
+You start with an M686 revolver, a Super Shorty shotgun, one grenade and one wooden barrier. The shop has 49 weapons across 12 categories: pistols, shotguns, SMGs, assault rifles, machine guns, marksman rifles, snipers, launchers, bows, energy weapons, flamethrowers and particle weapons. Several weapons have upgrade paths, and turret-capable weapons can be mounted on turrets.
 
 ## Tech
 

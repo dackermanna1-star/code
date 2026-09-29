@@ -30,6 +30,8 @@ export class Zombie {
   alive = true;
   hp: number;
   maxHp: number;
+  /** Rolled extra toughness (needs more hits). */
+  hardy = false;
   x = 0;
   y = 0;
   z = 0;
@@ -104,7 +106,9 @@ export class Zombie {
   crawling = false;
 
   constructor(readonly type: ZombieType, hpScale: number) {
-    this.maxHp = type.hp * hpScale;
+    // ~35% are hardy: a single M686 headshot (10 dmg) no longer drops them
+    this.hardy = Math.random() < 0.35;
+    this.maxHp = type.hp * hpScale * (this.hardy ? lerp(1.12, 1.6, Math.random()) : lerp(0.85, 1.0, Math.random()));
     this.hp = this.maxHp;
     this.speed = lerp(type.speed[0], type.speed[1], Math.random());
     this.scale = lerp(type.scale[0], type.scale[1], Math.random());

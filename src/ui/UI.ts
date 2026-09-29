@@ -202,13 +202,13 @@ export class UI {
         <div><span>Build mode</span><span class="kbd">F</span></div>
         <div><span>Rotate structure</span><span><span class="kbd">Q</span><span class="kbd">E</span><span class="kbd">Wheel</span></span></div>
         <div><span>Pick up structure (prep)</span><span>hold <span class="kbd">E</span></span></div>
-        <div><span>Shop (between waves)</span><span><span class="kbd">B</span><span class="kbd">Tab</span></span></div>
+        <div><span>Shop</span><span>after each day</span></div>
         <div><span>Start next wave</span><span class="kbd">Enter</span></div>
         <div><span>Crouch</span><span class="kbd">C</span></div>
         <div><span>Pause</span><span class="kbd">Esc</span></div>
       </div>
       <div class="help-note">Every dollar comes from killing zombies. Survive all waves of a day to unlock the next —
-      days 1–10 have 3 waves, 11–20 have 4, and so on up to 10. Buy guns, build barricades and traps between waves.
+      days 1–10 have 3 waves, 11–20 have 4, and so on up to 10. The shop opens when a day ends (or after you die): buy guns, barricades and traps there, then place them with F between waves.
       Destroyed defenses are gone for good: there is no repair, so place them wisely.</div>
       <div style="margin-top:16px;text-align:right"><button class="btn primary" data-a="back">Back</button></div>`,
       '',
@@ -662,7 +662,7 @@ export class UI {
       this.refs.wavebarw.style.display = '';
       this.refs.wavebar.style.width = `${clamp(1 - left / Math.max(1, W.waveSize), 0, 1) * 100}%`;
     } else if (W.phase === 'prep') {
-      this.set('wavebox', `PREPARE — <span class="kbd">Enter</span> start wave ${W.wave + 1}/${W.total} &nbsp; <span class="kbd">B</span> shop &nbsp; <span class="kbd">F</span> build`);
+      this.set('wavebox', `PREPARE — <span class="kbd">Enter</span> start wave ${W.wave + 1}/${W.total} &nbsp; <span class="kbd">F</span> build`);
       this.refs.wavebarw.style.display = 'none';
     } else {
       this.set('wavebox', '');
@@ -747,7 +747,7 @@ export class UI {
     if (G.placement.active && !G.placement.valid && G.placement.reason) prompt = `<span style="color:#ff8a80">${esc(G.placement.reason)}</span>`;
     this.set('prompt', prompt);
     let help = '';
-    if (W.phase === 'prep' && W.wave === 0 && W.day <= 2) help = `Place your barricade with <span class="kbd">F</span>, check the shop with <span class="kbd">B</span>,<br>then press <span class="kbd">Enter</span> when you are ready.`;
+    if (W.phase === 'prep' && W.wave === 0 && W.day <= 2) help = `Place your barricade with <span class="kbd">F</span>, then press <span class="kbd">Enter</span> when you are ready.<br>The shop opens when the day is over.`;
     this.set('help', help);
     // world-space money popups
     const cam = G.camera;

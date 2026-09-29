@@ -90,6 +90,9 @@ export interface Corpse {
   woke?: Ragdoll | null;
 }
 
+/** Seconds after death when a grounded ragdoll turns into static scenery. */
+const FREEZE_AFTER = 2.5;
+const FREEZE_MAX = 4;
 const CELL = 2;
 const GMINX = -18;
 const GMINZ = -16;
@@ -106,7 +109,9 @@ export class RagdollSystem {
   corpses: Corpse[] = [];
   maxActive = 42;
   maxCorpses = 2400;
-  corpseColliders = true;
+  /** Frozen corpses are scenery: no colliders, never woken, not shootable. */
+  corpseColliders = false;
+  corpsesShootable = false;
   private grid: number[][] = [];
   private cid = 1;
   maxCorpseTop = 0.5;
@@ -363,7 +368,8 @@ export class RagdollSystem {
           if ((r.restT > 0.45 || asleep || r.age > 4) && r.age > 0.8) {
             G.zombies?.beginGetup(r.zombie, r);
           }
-        } else if ((r.restT > 0.6 || asleep || r.age > 14) && r.age > 1.0) {
+        } else if (((r.restT > 0.45 || asleep) && r.age > 1.0) || (r.age > FREEZE_AFTER && r.minY < 0.7) || r.age > FREEZE_MAX) {
+          // becomes part of the world a couple of seconds after death
           this.freeze(r);
         }
       }
@@ -542,14 +548,7 @@ export class RagdollSystem {
 
   /** Radial blast: pushes ragdolls, wakes corpses (budgeted). */
   blast(x: number, y: number, z: number, radius: number, force: number, wakeBudget = 14) {
-    const near: Corpse[] = [];
-    this.corpsesNear(x, z, radius, near);
-    near.sort((a, b) => (a.x - x) ** 2 + (a.z - z) ** 2 - ((b.x - x) ** 2 + (b.z - z) ** 2));
-    let woke = 0;
-    for (const c of near) {
-      if (woke >= wakeBudget) break;
-      if (this.unfreeze(c)) woke++;
-    }
+    void wakeBudget; // settled corpses are part of the world; only fresh ragdolls react
     for (const r of this.active) {
       for (let i = 0; i < PART_COUNT; i++) {
         const b = r.bodies[i];
@@ -578,7 +577,8 @@ export class RagdollSystem {
         if (t >= 0) out.push({ t, part: i, kind: 'ragdoll', ragdoll: r });
       }
     }
-    // corpses: only along the part of the ray inside the corpse height slab
+    // settled corpses are scenery: bullets pass through them
+    if (!this.corpsesShootable) return;
     const top = this.maxCorpseTop + 0.3;
     let t0 = 0;
     let t1 = maxT;

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ARENA } from './config';
 import { clamp, lerp, mulberry32, smoothstep } from '../core/math';
 
 export interface AtmoPreset {
@@ -291,7 +292,8 @@ export class Atmosphere {
   readonly state = new AtmoState();
   readonly sun: THREE.DirectionalLight;
   readonly hemi: THREE.HemisphereLight;
-  readonly fog: THREE.FogExp2;
+  /** Linear fog wall: the road fades out before the zombie spawn band (mountains keep their own haze). */
+  readonly fog: THREE.Fog;
   readonly sky: THREE.Mesh;
   private skyMat: THREE.ShaderMaterial;
   private a: AtmoPreset = PRESETS.day;
@@ -325,7 +327,7 @@ export class Atmosphere {
     this.hemi.layers.enableAll();
     scene.add(this.hemi);
 
-    this.fog = new THREE.FogExp2(0xaaaaaa, 0.005);
+    this.fog = new THREE.Fog(0xaaaaaa, ARENA.fogFar * 0.35, ARENA.fogFar);
     scene.fog = this.fog;
 
     this.skyMat = new THREE.ShaderMaterial({
@@ -462,7 +464,10 @@ export class Atmosphere {
     this.hemi.groundColor.copy(s.hemiGround);
     this.hemi.intensity = s.hemiIntensity + l * 3.0;
     this.fog.color.copy(s.fogColor);
-    this.fog.density = s.fogDensity;
+    // thicker weather pulls the wall in; clear days see out to ARENA.fogFar
+    const far = clamp(ARENA.fogFar - (s.fogDensity - 0.0042) * 1500, 24, ARENA.fogFar);
+    this.fog.far = far;
+    this.fog.near = far * 0.34;
 
     // Shadow frustum follows the player, biased ahead; snapped to texels to avoid shimmer
     const center = new THREE.Vector3(focus.x + forward.x * (this.shadowSize * 0.55), 0, focus.z + forward.z * (this.shadowSize * 0.55));
