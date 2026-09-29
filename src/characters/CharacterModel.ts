@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { Geo } from '../world/Builder';
+import { Geo, isSharedGeometry } from '../world/Builder';
 import { Appearance } from './Appearance';
 import { Face } from './Face';
 import { canvasTexture, FONT_DISPLAY } from '../render/CanvasTex';
@@ -372,9 +372,14 @@ export class CharacterModel {
     rig.root.add(blob);
     rig.root.userData.blob = blob;
     this.mergeJoints();
+    // everything under the rig now is this model's own (held items come later)
+    rig.root.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) this.owned.push(o as THREE.Mesh);
+    });
   }
 
   private geometries: THREE.BufferGeometry[] = [];
+  private owned: THREE.Mesh[] = [];
 
   /**
    * Each joint's meshes are rigid relative to it, so meshes sharing a
@@ -804,9 +809,22 @@ export class CharacterModel {
     }
   }
 
+  /**
+   * Free the GPU resources this character created: its unique geometries
+   * (torso, hair, lids, mouth…) and all of its materials. Shared `Geo`
+   * geometries, cached pattern textures and anything the character was
+   * holding are left alone.
+   */
   dispose() {
-    for (const m of this.materials) m.dispose();
+    const mats = new Set<THREE.Material>(this.materials);
+    for (const m of this.owned) {
+      if (!isSharedGeometry(m.geometry)) m.geometry.dispose();
+      for (const mat of Array.isArray(m.material) ? m.material : [m.material]) mats.add(mat);
+    }
+    for (const m of mats) m.dispose();
     for (const g of this.geometries) g.dispose();
+    this.owned = [];
+    this.geometries = [];
   }
 }
 

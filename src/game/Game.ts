@@ -156,6 +156,8 @@ export class Game implements UIHost {
       /* ignore */
     }
     this.baker.disposeTargets();
+    // baked textures are on the GPU now; their JS copies are dead weight
+    this.baker.releaseCpuPixels();
     await step(1, 'Done!');
     (window as any).__game = this;
     if (new URLSearchParams(location.search).has('stats')) this.statsOverlay();
@@ -309,6 +311,11 @@ export class Game implements UIHost {
     el.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:99;padding:6px 10px;border-radius:8px;background:rgba(0,0,0,.72);color:#9fe39a;font:600 12px/1.45 ui-monospace,monospace;pointer-events:none;white-space:pre';
     document.body.append(el);
     let t = 0;
+    // Chrome-only; other browsers just omit it
+    const heap = () => {
+      const m = (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory;
+      return m ? Math.round(m.usedJSHeapSize / 1048576) : 0;
+    };
     this.engine.onUpdate((dt) => {
       t += dt;
       if (t < 0.5) return;
@@ -319,7 +326,8 @@ export class Game implements UIHost {
       el.textContent =
         `${this.engine.fps.toFixed(0)} fps  ${this.engine.quality.level}  ${size.x}×${size.y}\n` +
         `${st.calls} calls  ${(st.triangles / 1000).toFixed(0)}k tris\n` +
-        `${r.info.memory.geometries} geo  ${r.info.memory.textures} tex  ${r.info.programs?.length ?? 0} prog`;
+        `${r.info.memory.geometries} geo  ${r.info.memory.textures} tex  ${r.info.programs?.length ?? 0} prog` +
+        (heap() ? `  ${heap()} MB heap` : '');
     }, 100, true);
   }
 
@@ -373,6 +381,7 @@ export class Game implements UIHost {
   }
 
   private resetDayState() {
+    this.baker.releaseCpuPixels(); // surfaces re-baked by customisation
     this.customers.clear();
     this.orders.clear();
     this.warmer.clear();

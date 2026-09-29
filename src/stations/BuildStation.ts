@@ -61,7 +61,9 @@ export function makeTray(mats: GameContext['world']['mats']): THREE.Group {
     lip.castShadow = true;
     g.add(lip);
   }
-  const liner = new THREE.Mesh(Geo.box(0.225, 0.002, 0.186), new THREE.MeshStandardMaterial({ map: linerTexture(), roughness: 0.85 }));
+  const linerMat = new THREE.MeshStandardMaterial({ map: linerTexture(), roughness: 0.85 });
+  linerMat.userData.perInstance = true;
+  const liner = new THREE.Mesh(Geo.box(0.225, 0.002, 0.186), linerMat);
   liner.position.y = 0.0195;
   liner.rotation.y = (Math.random() - 0.5) * 0.1;
   liner.receiveShadow = true;

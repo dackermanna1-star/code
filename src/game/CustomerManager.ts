@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { discard } from '../world/Builder';
 import { Customer, CustomerContext } from './Customer';
 import { CustomerDef } from '../characters/Roster';
 import { NavGrid } from './NavGrid';
@@ -239,7 +240,7 @@ export class CustomerManager {
       c.tray = null;
       // tray lingers on the table for a moment, then gets bussed
       this.ctx.later(9, () => {
-        tray?.removeFromParent();
+        if (tray) discard(tray);
         seat.occupied = false;
       });
     }

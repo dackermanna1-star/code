@@ -18,13 +18,33 @@ export interface PlaceOpts {
 }
 
 const geoCache = new Map<string, THREE.BufferGeometry>();
+const cachedSet = new WeakSet<THREE.BufferGeometry>();
 function cached(key: string, make: () => THREE.BufferGeometry): THREE.BufferGeometry {
   let g = geoCache.get(key);
   if (!g) {
     g = make();
     geoCache.set(key, g);
+    cachedSet.add(g);
   }
   return g;
+}
+
+/**
+ * Remove a transient prop (a served tray) and free what it owns: materials
+ * tagged `userData.perInstance`; shared materials and geometries stay.
+ */
+export function discard(o: THREE.Object3D): void {
+  o.removeFromParent();
+  o.traverse((c) => {
+    const m = c as THREE.Mesh;
+    if (!m.isMesh) return;
+    for (const mat of Array.isArray(m.material) ? m.material : [m.material]) if (mat.userData.perInstance) mat.dispose();
+  });
+}
+
+/** Shared geometries from `Geo` live for the whole session: never dispose them. */
+export function isSharedGeometry(g: THREE.BufferGeometry): boolean {
+  return cachedSet.has(g);
 }
 
 export const Geo = {

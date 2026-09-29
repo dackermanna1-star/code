@@ -7,6 +7,7 @@ import { clamp, dampAngle, pick, rand } from '../core/math';
 import type { Order } from './Order';
 import type { Seat } from '../world/Layout';
 import type { BurgerStack } from '../food/BurgerStack';
+import { discard } from '../world/Builder';
 
 export type CState =
   | 'outside'
@@ -274,6 +275,11 @@ export class Customer {
 
   dispose() {
     this.root.removeFromParent();
+    // cleared mid-meal (closing time): the food and tray go too
+    this.burger?.dispose();
+    this.burger = null;
+    if (this.tray) discard(this.tray);
+    this.tray = null;
     this.model.dispose();
   }
 }

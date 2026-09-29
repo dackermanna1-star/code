@@ -46,6 +46,8 @@ export class TextureBaker {
   private maxAniso: number;
   private cache = new Map<string, BakedSurface>();
   private rts = new Map<number, THREE.WebGLRenderTarget>();
+  /** baked textures still holding their pixels in JS memory */
+  private pending: THREE.DataTexture[] = [];
 
   constructor(private renderer: THREE.WebGLRenderer) {
     this.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
@@ -143,7 +145,27 @@ export class TextureBaker {
     tex.magFilter = THREE.LinearFilter;
     tex.anisotropy = this.maxAniso;
     tex.needsUpdate = true;
+    this.pending.push(tex);
     return tex;
+  }
+
+  /**
+   * Upload every baked texture now and drop its CPU-side pixels (tens of MB
+   * of JS heap). Baked surfaces never change, so they are never re-uploaded;
+   * clones made for repeats share the same GPU texture.
+   */
+  releaseCpuPixels(): number {
+    let bytes = 0;
+    for (const t of this.pending) {
+      this.renderer.initTexture(t);
+      const img = t.image as { data: Uint8Array | null };
+      if (img.data) {
+        bytes += img.data.byteLength;
+        img.data = null;
+      }
+    }
+    this.pending = [];
+    return bytes;
   }
 
   /** Free intermediate render targets once loading is complete. */
