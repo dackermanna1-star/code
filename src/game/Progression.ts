@@ -166,7 +166,8 @@ export interface SaveData {
   seenUnlocks: string[];
 }
 
-const KEY = 'sizzle-and-stack-save-v1';
+export const SAVE_KEY = 'sizzle-and-stack-save-v1';
+const KEY = SAVE_KEY;
 
 export function pointsForRank(r: number): number {
   const k = r - 1;
@@ -218,7 +219,7 @@ export function defaultSave(): SaveData {
     owned: [],
     customers: {},
     stats: { served: 0, perfect: 0, tips: 0, burnt: 0, bestDay: 0, totalEarned: 0 },
-    settings: { master: 0.85, music: 0.6, sfx: 0.9, quality: 'auto', shake: true, motion: true, hints: true },
+    settings: { master: 0.85, music: 0.6, sfx: 0.9, quality: 'auto', shake: !prefersReducedMotion(), motion: !prefersReducedMotion(), hints: true },
     tutorialDone: false,
     seenUnlocks: [],
   };
@@ -370,5 +371,13 @@ export class Progression {
     r.best = Math.max(r.best, total);
     r.stars += stars;
     this.data.customers[customerId] = r;
+  }
+}
+
+function prefersReducedMotion(): boolean {
+  try {
+    return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
   }
 }

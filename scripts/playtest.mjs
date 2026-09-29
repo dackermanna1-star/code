@@ -4,7 +4,7 @@
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
 
-const url = process.argv[2] || 'http://localhost:5173/?test=1';
+const url = process.argv[2] || 'http://localhost:4173/?test=1';
 const out = process.argv[3] || 'test-output/play';
 const scenario = process.argv[4] || 'full';
 const W = +(process.env.W || 1280);

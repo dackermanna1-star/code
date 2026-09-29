@@ -2,11 +2,30 @@ import '@fontsource-variable/fredoka';
 import '@fontsource-variable/nunito';
 import './ui/styles.css';
 import { Game } from './game/Game';
+import { SAVE_KEY } from './game/Progression';
 
-const params = new URLSearchParams(location.search);
-if (params.has('view')) {
-  import('./debug/viewer').then((m) => m.bootViewer());
-} else {
+/** Optional hot-update hook when hosted in an artifact viewer. */
+interface HotHook {
+  data?: { save?: string };
+  ready?: (start: (data?: { save?: string }) => void) => void;
+  snapshot?: (fn: () => unknown) => void;
+}
+const hot = (window as unknown as { claude?: { hot?: HotHook } }).claude?.hot;
+
+function start(data: { save?: string } = {}) {
+  // a republish hands back the snapshot below; restore the save if storage lost it
+  if (data.save) {
+    try {
+      if (!localStorage.getItem(SAVE_KEY)) localStorage.setItem(SAVE_KEY, data.save);
+    } catch {
+      /* storage unavailable */
+    }
+  }
+  const params = new URLSearchParams(location.search);
+  if (params.has('view')) {
+    import('./debug/viewer').then((m) => m.bootViewer());
+    return;
+  }
   const game = new Game();
   game.boot().catch((e) => {
     console.error(e);
@@ -16,3 +35,13 @@ if (params.has('view')) {
     document.body.append(el);
   });
 }
+
+hot?.snapshot?.(() => {
+  try {
+    return { save: localStorage.getItem(SAVE_KEY) ?? undefined };
+  } catch {
+    return {};
+  }
+});
+if (hot?.ready) hot.ready(start);
+else start(hot?.data ?? {});

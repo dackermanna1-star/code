@@ -60,6 +60,21 @@ export class CameraRig {
     this.applyBase();
   }
 
+  /**
+   * Shots are composed for 16:9. On narrower screens (tablets, phones) widen
+   * the vertical FOV so the horizontal view keeps what the shot framed,
+   * capped before the perspective distorts too much.
+   */
+  private fitAspect(fov: number): number {
+    const aspect = this.camera.aspect;
+    const design = 16 / 9;
+    if (aspect >= design) return fov;
+    const half = THREE.MathUtils.degToRad(fov / 2);
+    const hHalf = Math.atan(Math.tan(half) * design);
+    const wanted = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(hHalf) / aspect));
+    return Math.min(wanted, Math.max(fov, 78));
+  }
+
   get transitioning(): boolean {
     return this.to !== null;
   }
@@ -177,7 +192,7 @@ export class CameraRig {
     cam.quaternion.multiply(this.tmpQ);
 
     const punch = this.fovPunch.update(dt);
-    const fov = this.currentFov + punch;
+    const fov = this.fitAspect(this.currentFov) + punch;
     if (Math.abs(cam.fov - fov) > 1e-4) {
       cam.fov = fov;
       cam.updateProjectionMatrix();

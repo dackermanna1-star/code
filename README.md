@@ -20,7 +20,8 @@ npm run dev          # http://localhost:5173
 | --- | --- |
 | `npm run dev` | Vite dev server with hot reload |
 | `npm run build` | Type-check, then build a production bundle into `dist/` |
-| `npm run build:single` | Build a single self-contained `dist-single/index.html` |
+| `npm run build:single` | Build with every asset inlined into `dist-single/` |
+| `npm run build:artifact` | Build one hostable page, `dist-artifact/sizzle-and-stack.html`, that loads three.js, postprocessing and n8ao from jsDelivr and embeds the fonts |
 | `npm run preview` | Serve the production build |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Unit tests for order generation and scoring (`node:test`) |
@@ -121,13 +122,30 @@ scripts/       headless-browser playtests and screenshot tools
 
 ## Development tools
 
-- `?view=<name>` opens a free camera on a part of the scene
+URL parameters:
+
+- `?station=grill` (or `order`, `build`, `serve`) skips the title and opens a
+  day at that station. Add `&fill=1` for food already on the go, `&rank=9` to
+  unlock ingredients, `&hour=19.5` for evening light, `&decor=all` for every
+  decoration and `&cam=px,py,pz,tx,ty,tz[,fov]` to park the camera.
+- `?stats=1` shows frame rate, draw calls, triangles and GPU memory objects.
+- `?view=<name>` opens a free camera on a part of the scene without the game
   (`order`, `grill`, `build`, `serve`, `kitchen`, `dining`, `exterior`,
-  `overview`, `food`, `chars`, …).
+  `overview`, `food`, `chars`, …); `&cam=` works here too.
 - `?test=1` runs a fixed-timestep, low-quality mode for automated tests.
   `window.__game` exposes the game instance and `__game.startBot()` starts
   the autopilot.
-- `scripts/playtest.mjs`, `scripts/dayflow.mjs` and `scripts/inputtest.mjs`
-  drive the game in headless Chromium through the autopilot, a full day and
-  real mouse input respectively. They save screenshots to `test-output/`.
-  They expect the dev server on port 5173.
+
+Scripts (headless Chromium; screenshots go to `test-output/`):
+
+| Script | What it checks |
+| --- | --- |
+| `scripts/inputtest.mjs` | Plays the tutorial with real mouse drags and clicks: order, grill, flip, holding tray, build, serve |
+| `scripts/dayflow.mjs` | A full day with the autopilot, the summary, the shop and GPU memory before and after |
+| `scripts/playtest.mjs` | Step-by-step autopilot run with screenshots |
+| `scripts/perfprobe.mjs` | Draw calls, triangles and shadow casters, grouped by scene object |
+| `scripts/artifacttest.mjs` | Boots the hostable page, serving the jsDelivr imports from local `node_modules` |
+| `scripts/shot.mjs` | One screenshot of any URL |
+
+They default to a production build served by `npm run preview` on port 4173
+(the dev server's hot reload would restart a long test).

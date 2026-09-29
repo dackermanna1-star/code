@@ -658,10 +658,18 @@ export class Game implements UIHost {
       },
       back,
       () => {
-        if (confirm('Erase all progress?')) {
-          this.progress.reset();
-          location.reload();
+        // erase the save and start fresh from the title screen
+        this.progress.reset();
+        this.progress.save();
+        if (this.state === 'day' || this.state === 'closing') {
+          if (this.paused) this.togglePause(false);
+          this.resetDayState();
         }
+        this.world.applyCustomization({ ...defaultsFor(this.progress.data.custom) });
+        this.decor.apply([]);
+        this.applySettings();
+        this.ui.showHud(false);
+        this.toTitle();
       },
     );
   }
@@ -730,6 +738,7 @@ export class Game implements UIHost {
 
   private setupTutorialTargets() {
     this.ui.tutorial.satisfied = (until) => until === `at-${this.station}` && !this.transitioning;
+    this.ui.tutorial.suppressed = () => this.stations.serve.serving;
     const t = this.ui.tutorial.targets;
     t.place = () => this.stations.grill.trayPos('patty_beef');
     t.flip = () => null;

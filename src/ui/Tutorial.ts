@@ -33,6 +33,8 @@ export class Tutorial {
   private arrow: HTMLElement;
   active = false;
   onDone?: () => void;
+  /** while true the coach steps aside (e.g. during the serving close-up) */
+  suppressed?: () => boolean;
   /** reports goals that are already met, e.g. `at-serve` while at the serve station */
   satisfied?: (until: string) => boolean;
   /** values for {placeholders} in step text (set by the game) */
@@ -164,9 +166,15 @@ export class Tutorial {
         x = 16;
         y = H - ch - 16;
     }
+    if (W < 760 && s.at !== 'center') {
+      // narrow screens: a full-width bubble under the HUD
+      x = 12;
+      y = 118;
+      this.coach.style.maxWidth = `${W - 24}px`;
+    }
     // never cover the station bar at the bottom centre
     const bar = document.querySelector('.station-bar') as HTMLElement | null;
-    if (bar && s.at === 'corner') {
+    if (bar && s.at === 'corner' && W >= 760) {
       const r = bar.getBoundingClientRect();
       if (x + cw > r.left - 8) this.coach.style.maxWidth = `${Math.max(220, r.left - 8 - x)}px`;
     }
@@ -175,6 +183,10 @@ export class Tutorial {
   }
 
   update() {
-    if (this.active) this.place();
+    if (!this.active) return;
+    const hide = !!this.suppressed?.();
+    this.coach.style.visibility = hide ? 'hidden' : '';
+    this.arrow.style.visibility = hide ? 'hidden' : '';
+    this.place();
   }
 }

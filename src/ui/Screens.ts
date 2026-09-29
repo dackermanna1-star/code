@@ -269,12 +269,37 @@ export class Screens {
         h(
           'div',
           { class: 'actions' },
-          onReset ? h('button', { class: 'btn ghost small', onclick: () => onReset() }, 'Reset save') : null,
+          onReset ? this.armedButton('Reset save', 'Tap again to erase everything', onReset) : null,
           h('button', { class: 'btn yellow', onclick: () => this.click(onBack) }, 'Done'),
         ),
       ),
     );
     this.open(el);
+  }
+
+  /** A destructive button that needs a second tap within 3 s (no native dialogs). */
+  private armedButton(label: string, armedLabel: string, action: () => void): HTMLElement {
+    let armed = 0;
+    const b = h('button', { class: 'btn ghost small' }, label) as HTMLButtonElement;
+    b.addEventListener('click', () => {
+      if (armed && performance.now() - armed < 3000) {
+        this.audio.play('trash');
+        action();
+        return;
+      }
+      armed = performance.now();
+      this.audio.play('error', { volume: 0.5 });
+      b.textContent = armedLabel;
+      b.classList.add('danger');
+      setTimeout(() => {
+        if (performance.now() - armed >= 3000) {
+          b.textContent = label;
+          b.classList.remove('danger');
+          armed = 0;
+        }
+      }, 3050);
+    });
+    return b;
   }
 
   credits(onBack: () => void) {
