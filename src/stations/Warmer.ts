@@ -46,12 +46,19 @@ export class Warmer {
       wall.receiveShadow = true;
       this.root.add(wall);
     }
-    const rim = new THREE.Mesh(Geo.rbox(w + 0.03, 0.01, d + 0.03, 0.005), mats.chrome);
-    rim.position.y = 0.017;
-    rim.scale.set(1, 1, 1);
-    this.root.add(rim);
+    // rolled rim: a frame around the opening (not a lid!)
+    for (const [rx, rz, rw, rd] of [
+      [0, d / 2 + 0.008, w + 0.03, 0.014],
+      [0, -d / 2 - 0.008, w + 0.03, 0.014],
+      [w / 2 + 0.008, 0, 0.014, d + 0.002],
+      [-w / 2 - 0.008, 0, 0.014, d + 0.002],
+    ] as const) {
+      const rim = new THREE.Mesh(Geo.rbox(rw, 0.01, rd, 0.004), mats.chrome);
+      rim.position.set(rx, 0.017, rz);
+      this.root.add(rim);
+    }
     // perforated liner glow (heat)
-    const liner = new THREE.Mesh(Geo.box(w - 0.02, 0.002, d - 0.02), new THREE.MeshStandardMaterial({ color: 0x3a1a0a, emissive: 0xff4a10, emissiveIntensity: 0.25, roughness: 0.6 }));
+    const liner = new THREE.Mesh(Geo.box(w - 0.02, 0.002, d - 0.02), new THREE.MeshStandardMaterial({ color: 0x2c2522, emissive: 0xff5a1c, emissiveIntensity: 0.13, roughness: 0.55, metalness: 0.4 }));
     liner.position.y = -0.026;
     this.root.add(liner);
     this.hitArea = new THREE.Mesh(Geo.box(w, 0.08, d), new THREE.MeshBasicMaterial({ visible: false }));
@@ -63,8 +70,8 @@ export class Warmer {
   setSlots(n: number) {
     this.slots = n;
     this.slotPos = [];
-    const rows = n > 6 ? 3 : 2;
-    const cols = 3;
+    const rows = 3;
+    const cols = n > 6 ? 3 : 2;
     const sx = WARMER.width / cols;
     const sz = WARMER.depth / rows;
     for (let r = 0; r < rows; r++)
@@ -80,7 +87,7 @@ export class Warmer {
     return this.items.filter(Boolean).length;
   }
   get scale() {
-    return this.slots > 6 ? 0.82 : 0.95;
+    return this.slots > 6 ? 0.74 : 0.95;
   }
 
   slotWorld(i: number, out = new THREE.Vector3()): THREE.Vector3 {

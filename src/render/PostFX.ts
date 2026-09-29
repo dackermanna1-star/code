@@ -5,6 +5,7 @@ import {
   BrightnessContrastEffect,
   DepthOfFieldEffect,
   Effect,
+  EffectAttribute,
   EffectComposer,
   EffectPass,
   HueSaturationEffect,
@@ -16,6 +17,8 @@ import {
   VignetteEffect,
 } from 'postprocessing';
 import { N8AOPostPass } from 'n8ao';
+
+const clampNum = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 /** Screen-space heat shimmer masked to a rectangle (projected grill area). */
 export class HeatHazeEffect extends Effect {
@@ -57,6 +60,68 @@ export class HeatHazeEffect extends Effect {
   }
   get rect(): THREE.Vector4 {
     return this.uniforms.get('uRect')!.value as THREE.Vector4;
+  }
+}
+
+/**
+ * Camera motion blur: reprojects each pixel's depth into the previous frame's
+ * view and smears along the screen-space velocity. Only camera motion is
+ * captured (the game's fast moments are camera moves), so there is no
+ * velocity buffer. Its pass is switched on only while the camera moves fast.
+ */
+export class MotionBlurEffect extends Effect {
+  private prevVP = new THREE.Matrix4();
+  private currVP = new THREE.Matrix4();
+  private hasPrev = false;
+  /** blur length as a fraction of the frame's motion (shutter), 0 = off */
+  intensity = 0;
+
+  constructor(private cam: THREE.PerspectiveCamera) {
+    super(
+      'MotionBlurEffect',
+      /* glsl */ `
+      uniform mat4 uReproject;
+      uniform float uStrength;
+      void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth, out vec4 outputColor) {
+        vec4 prev = uReproject * vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
+        vec2 prevUv = prev.xy / prev.w * 0.5 + 0.5;
+        vec2 vel = (uv - prevUv) * uStrength;
+        float len = length(vel);
+        if (len < 0.0008) { outputColor = inputColor; return; }
+        vel *= min(1.0, 0.045 / len);
+        // 9 taps centred on the pixel, jittered per pixel to hide banding
+        float j = fract(sin(dot(uv, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
+        vec4 acc = inputColor;
+        for (int i = 0; i < 8; i++) {
+          float t = (float(i) + 0.5 + j * 0.8) / 8.0 - 0.5;
+          acc += texture2D(inputBuffer, clamp(uv + vel * t, vec2(0.001), vec2(0.999)));
+        }
+        outputColor = acc / 9.0;
+      }`,
+      {
+        attributes: EffectAttribute.DEPTH | EffectAttribute.CONVOLUTION,
+        blendFunction: BlendFunction.NORMAL,
+        uniforms: new Map<string, THREE.Uniform>([
+          ['uReproject', new THREE.Uniform(new THREE.Matrix4())],
+          ['uStrength', new THREE.Uniform(0)],
+        ]),
+      },
+    );
+  }
+
+  /** Track the camera every frame (even while the pass is off). */
+  track(): void {
+    this.currVP.multiplyMatrices(this.cam.projectionMatrix, this.cam.matrixWorldInverse);
+    if (!this.hasPrev) this.prevVP.copy(this.currVP);
+    const reproj = this.uniforms.get('uReproject')!.value as THREE.Matrix4;
+    reproj.copy(this.currVP).invert().premultiply(this.prevVP);
+    this.uniforms.get('uStrength')!.value = this.intensity;
+    this.prevVP.copy(this.currVP);
+    this.hasPrev = true;
+  }
+
+  reset(): void {
+    this.hasPrev = false;
   }
 }
 
@@ -114,6 +179,7 @@ export interface PostSettings {
   smaa: boolean;
   heatHaze: boolean;
   dof: boolean;
+  motionBlur: boolean;
 }
 
 export class PostFX {
@@ -129,6 +195,13 @@ export class PostFX {
   bc: BrightnessContrastEffect;
   dof: DepthOfFieldEffect;
   smaa: SMAAEffect;
+  motion: MotionBlurEffect;
+  /** player preference (reduce motion turns it off) */
+  motionAllowed = true;
+  private motionPass: EffectPass;
+  private camPos = new THREE.Vector3();
+  private camQuat = new THREE.Quaternion();
+  private motionT = 0;
   private heatPass: EffectPass;
   private mainPass: EffectPass;
   private dofPass: EffectPass;
@@ -158,6 +231,11 @@ export class PostFX {
     this.heat = new HeatHazeEffect();
     this.heatPass = new EffectPass(camera, this.heat);
     this.composer.addPass(this.heatPass);
+
+    this.motion = new MotionBlurEffect(camera);
+    this.motionPass = new EffectPass(camera, this.motion);
+    this.motionPass.enabled = false;
+    this.composer.addPass(this.motionPass);
 
     this.dof = new DepthOfFieldEffect(camera, {
       focusDistance: 1.2,
@@ -225,6 +303,29 @@ export class PostFX {
   }
 
   render(dt: number): void {
+    this.updateMotion(dt);
     this.composer.render(dt);
+  }
+
+  /** Enable the blur pass only while the camera is moving fast. */
+  private updateMotion(dt: number): void {
+    const cam = this.camera;
+    cam.updateMatrixWorld();
+    const moved = cam.position.distanceTo(this.camPos);
+    const turned = 2 * Math.acos(Math.min(1, Math.abs(cam.quaternion.dot(this.camQuat))));
+    this.camPos.copy(cam.position);
+    this.camQuat.copy(cam.quaternion);
+    // rough screen fraction swept per second
+    const speed = dt > 0 ? (turned / THREE.MathUtils.degToRad(cam.fov) + moved / 2.5) / dt : 0;
+    const want = this.settings.motionBlur && this.motionAllowed && speed > 0.35;
+    this.motionT = want ? 0.25 : Math.max(0, this.motionT - dt);
+    // shutter: blur covers ~1/90 s of motion regardless of frame rate
+    this.motion.intensity = dt > 0 ? clampNum((1 / 90) / dt, 0, 1) * (want ? 1 : this.motionT * 4) : 0;
+    this.motion.track();
+    const on = this.motionT > 0;
+    if (on !== this.motionPass.enabled) {
+      this.motionPass.enabled = on;
+      this.fixRenderToScreen();
+    }
   }
 }

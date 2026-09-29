@@ -7,6 +7,7 @@ import { Geo } from '../world/Builder';
 import { canvasTexture, FONT_DISPLAY } from '../render/CanvasTex';
 import { Ease, pick, rand } from '../core/math';
 import { generateOrder } from '../game/Order';
+import { DONENESS } from '../food/Ingredients';
 import type { Customer } from '../game/Customer';
 
 export class OrderStation extends Station {
@@ -216,6 +217,12 @@ export class OrderStation extends Station {
     ctx.customers.sendToWait(c);
     this.setDisplay('WELCOME!');
     this.taking = false;
+    // the tutorial's grilling tips name this ticket's doneness
+    const firstPatty = layers.find((l) => l.doneness);
+    if (firstPatty?.doneness && ctx.ui.tutorial.step?.id === 'order') {
+      ctx.ui.tutorial.vars.DONENESS = DONENESS[firstPatty.doneness].label.toUpperCase();
+      ctx.ui.tutorial.vars.zone = { rare: 'red', medium: 'orange', well: 'brown' }[firstPatty.doneness];
+    }
     ctx.ui.tutorialEvent('order-taken');
   }
 

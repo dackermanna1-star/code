@@ -34,15 +34,20 @@ export const GRILL = {
   depth: 0.64,
 };
 
+// The holding tray sits right beside the grill so both the grill and the
+// build cameras can reach it; the build station is packed tight around it.
 export const WARMER = {
-  center: new THREE.Vector3(-1.72, 0.97, -5.62),
-  width: 0.62,
-  depth: 0.46,
+  center: new THREE.Vector3(-2.13, 0.97, -5.72),
+  width: 0.34,
+  depth: 0.62,
 };
 
 export const BUILD = {
-  center: new THREE.Vector3(-0.28, 0.935, -5.5),
-  plate: new THREE.Vector3(-0.28, 0.935, -5.48),
+  center: new THREE.Vector3(-1.325, 0.935, -5.53),
+  plate: new THREE.Vector3(-1.325, 0.935, -5.52),
+  /** x range of the two-tier topping rail */
+  railX0: -1.84,
+  railX1: -0.72,
 };
 
 export const PICKUP = {

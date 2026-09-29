@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Geo } from '../world/Builder';
 import { Appearance } from './Appearance';
 import { Face } from './Face';
@@ -296,11 +297,18 @@ export class CharacterModel {
       if (sleeveLong) mesh(Geo.cyl(armR * 1.08, armR * 1.12, 0.03, 14), armUpperMat === top ? top2 : top, el, 0, -dims.forearm + 0.02, 0);
       el.add(hd);
       hd.position.y = -dims.forearm - 0.01;
-      // mitten hand + thumb
-      const palm = mesh(Geo.sphere(1, 14, 10), skin, hd, 0, -0.035, 0);
-      palm.scale.set(0.035, 0.048, 0.03);
-      const thumb = mesh(Geo.capsule(0.012, 0.022, 3, 8), skin, hd, side * -0.0, -0.025, 0.028);
-      thumb.rotation.x = 0.9;
+      // mitten hand: slim wrist, flat palm (normal along x, toward the body),
+      // a rounded finger block and a thumb angled forward so it reads as a hand
+      const hs = kid ? 0.86 : 1;
+      const wrist = mesh(Geo.sphere(1, 12, 8), skin, hd, 0, 0.004, 0);
+      wrist.scale.set(armR * 0.66, armR * 0.5, armR * 0.72);
+      const palm = mesh(Geo.sphere(1, 16, 12), skin, hd, 0, -0.03 * hs, 0.002);
+      palm.scale.set(0.02 * hs, 0.034 * hs, 0.037 * hs);
+      const fingers = mesh(Geo.sphere(1, 16, 12), skin, hd, side * 0.003, -0.061 * hs, -0.003);
+      fingers.scale.set(0.018 * hs, 0.028 * hs, 0.033 * hs);
+      fingers.rotation.x = -0.12;
+      const thumb = mesh(Geo.capsule(0.0105 * hs, 0.02 * hs, 4, 10), skin, hd, side * 0.006, -0.028 * hs, 0.032 * hs);
+      thumb.rotation.set(0.7, 0, side * 0.35);
       const hold = side > 0 ? this.holdL : this.holdR;
       hold.position.set(0, -0.07, 0.035);
       hd.add(hold);
@@ -363,6 +371,48 @@ export class CharacterModel {
     blob.renderOrder = 1;
     rig.root.add(blob);
     rig.root.userData.blob = blob;
+    this.mergeJoints();
+  }
+
+  private geometries: THREE.BufferGeometry[] = [];
+
+  /**
+   * Each joint's meshes are rigid relative to it, so meshes sharing a
+   * material collapse into one (a hand is wrist+palm+fingers+thumb). The face
+   * is a Group and keeps its individually animated parts.
+   */
+  private mergeJoints() {
+    for (const joint of Object.values(this.rig) as THREE.Object3D[]) {
+      const byMat = new Map<THREE.Material, THREE.Mesh[]>();
+      for (const c of joint.children) {
+        const m = c as THREE.Mesh;
+        if (!m.isMesh || Array.isArray(m.material) || m.children.length || m.userData.keep) continue;
+        m.updateMatrix();
+        if (m.matrix.determinant() <= 0) continue;
+        const list = byMat.get(m.material) ?? [];
+        list.push(m);
+        byMat.set(m.material, list);
+      }
+      for (const [mat, list] of byMat) {
+        if (list.length < 2) continue;
+        const common = Object.keys(list[0].geometry.attributes).filter((k) => list.every((m) => k in m.geometry.attributes));
+        const geos = list.map((m) => {
+          const g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
+          for (const k of Object.keys(g.attributes)) if (!common.includes(k)) g.deleteAttribute(k);
+          g.morphAttributes = {};
+          return g.applyMatrix4(m.matrix);
+        });
+        const merged = mergeGeometries(geos, false);
+        geos.forEach((g) => g.dispose());
+        if (!merged) continue;
+        const one = new THREE.Mesh(merged, mat);
+        one.castShadow = list.some((m) => m.castShadow);
+        one.receiveShadow = list.some((m) => m.receiveShadow);
+        for (const m of list) joint.remove(m);
+        joint.add(one);
+        this.geometries.push(merged);
+      }
+    }
   }
 
   private addTopDetails(
@@ -756,6 +806,7 @@ export class CharacterModel {
 
   dispose() {
     for (const m of this.materials) m.dispose();
+    for (const g of this.geometries) g.dispose();
   }
 }
 

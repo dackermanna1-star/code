@@ -52,7 +52,7 @@ export class Lighting {
   readonly dining: THREE.PointLight[] = [];
   readonly kitchenFill = new THREE.PointLight(0xf2f6ff, 6, 10, 1.4);
   readonly pickupLamp = new THREE.PointLight(0xff6a2a, 2.2, 1.6, 2);
-  readonly grillGlow = new THREE.PointLight(0xff6a1a, 0, 1.8, 2);
+  readonly grillGlow = new THREE.PointLight(0xff6a1a, 0, 1.1, 2);
   readonly facadeWash = new THREE.SpotLight(0xffb870, 0, 16, 0.75, 0.7, 1.2);
   readonly streetFill = new THREE.PointLight(0xffcf96, 0, 14, 1.5);
   readonly sunDir = new THREE.Vector3(0.3, 0.6, 0.5).normalize();
@@ -80,8 +80,9 @@ export class Lighting {
     this.sun.target.position.set(0, 0, 1.5);
 
     // Kitchen station spotlight (crisp food shadows)
-    this.kitchenSpot.position.set(-1.6, 3.15, -4.35);
-    this.kitchenSpot.target.position.set(-1.6, 0.9, -5.6);
+    // centred between the grill and the build station
+    this.kitchenSpot.position.set(-2.2, 3.15, -4.35);
+    this.kitchenSpot.target.position.set(-2.2, 0.9, -5.6);
     this.kitchenSpot.castShadow = true;
     this.kitchenSpot.shadow.bias = -0.0002;
     this.kitchenSpot.shadow.normalBias = 0.01;
@@ -112,11 +113,13 @@ export class Lighting {
       scene.add(l);
       this.dining.push(l);
     }
-    this.kitchenFill.position.set(-1.2, 2.9, -4.2);
+    this.kitchenFill.position.set(-1.8, 2.9, -4.2);
     scene.add(this.kitchenFill);
     this.pickupLamp.position.set(PICKUP.tray.x, PICKUP.tray.y + 0.8, PICKUP.tray.z - 0.1);
     scene.add(this.pickupLamp);
-    this.grillGlow.position.set(GRILL.center.x, GRILL.center.y + 0.12, GRILL.center.z);
+    // down in the firebox: warms the grates and the guards' lower edges without
+    // a specular hot spot high on the (shiny) back guard
+    this.grillGlow.position.set(GRILL.center.x, GRILL.center.y - 0.06, GRILL.center.z + 0.08);
     scene.add(this.grillGlow);
     // exterior night lighting: the sign washes the facade, street lamps fill the sidewalk
     this.facadeWash.position.set(0.3, 6.5, 10.5);
@@ -141,6 +144,20 @@ export class Lighting {
     this.bulbMats.push(mat);
   }
 
+  private shadowFrame = 0;
+  /**
+   * Stagger shadow-map refreshes: the sun barely moves and customers at the
+   * counter are slow, so those maps re-render every 3rd / 2nd frame. The
+   * kitchen spot (food being dragged and flipped) stays every frame.
+   */
+  tickShadows() {
+    const f = ++this.shadowFrame;
+    this.sun.shadow.autoUpdate = false;
+    this.counterSpot.shadow.autoUpdate = false;
+    if (f % 3 === 0) this.sun.shadow.needsUpdate = true;
+    if (f % 2 === 0) this.counterSpot.shadow.needsUpdate = true;
+  }
+
   applyQuality(q: QualityPreset) {
     const size = q.shadowMapSize;
     this.sun.shadow.mapSize.set(size, size);
@@ -149,6 +166,7 @@ export class Lighting {
     for (const l of [this.sun, this.kitchenSpot, this.counterSpot]) {
       l.shadow.map?.dispose();
       (l.shadow as any).map = null;
+      l.shadow.needsUpdate = true;
     }
   }
 

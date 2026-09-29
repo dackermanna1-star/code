@@ -9,6 +9,7 @@ import { BURNT_AT, DONENESS, Doneness, INGREDIENTS, PATTY_COOK, PattyId } from '
 import { Geo } from '../world/Builder';
 import { Ease, clamp, noise, rand } from '../core/math';
 import type { Gauge } from '../ui/Gauges';
+import { lockDecal } from './Locks';
 
 export interface GrillPatty {
   piece: FoodPiece;
@@ -35,9 +36,10 @@ const BASE_RATE = 0.062;
 
 export class GrillStation extends Station {
   readonly id = 'grill' as const;
-  readonly shot = shot([-3.12, 1.78, -4.56], [-3.12, 0.98, -5.7], 46);
+  // frames the raw trays, the grill and the holding tray on its right
+  readonly shot = shot([-2.97, 2.37, -4.61], [-2.97, 0.95, -5.72], 42);
   private patties: GrillPatty[] = [];
-  private trays: { kind: PattyId; group: THREE.Group; interactive: Interactive; stack: THREE.Group }[] = [];
+  private trays: { kind: PattyId; group: THREE.Group; interactive: Interactive; stack: THREE.Group; lid: THREE.Object3D }[] = [];
   private glowMat: THREE.MeshStandardMaterial;
   private slotMarkers: THREE.Mesh[] = [];
   private spatula: THREE.Group;
@@ -71,7 +73,7 @@ export class GrillStation extends Station {
     const kinds: PattyId[] = ['patty_beef', 'patty_chicken', 'patty_veggie'];
     kinds.forEach((kind, i) => {
       const g = new THREE.Group();
-      g.position.set(-3.87, SURFACE - 0.015, -5.46 - i * 0.27);
+      g.position.set(-3.86, SURFACE - 0.015, -5.46 - i * 0.27);
       this.root.add(g);
       const pan = new THREE.Mesh(Geo.rbox(0.22, 0.03, 0.24, 0.012), mats.steel);
       pan.castShadow = pan.receiveShadow = true;
@@ -95,14 +97,27 @@ export class GrillStation extends Station {
           stack.add(sheet);
         }
       }
+      // steel cover with a rank sticker while the patty type is locked
+      const lid = new THREE.Group();
+      const cover = new THREE.Mesh(Geo.rbox(0.225, 0.014, 0.245, 0.006), mats.steelDark);
+      cover.castShadow = true;
+      lid.add(cover);
+      const sticker = lockDecal(INGREDIENTS[kind].unlockRank, 0.11);
+      sticker.position.y = 0.0075;
+      lid.add(sticker);
+      lid.position.y = 0.022;
+      g.add(lid);
       const it: Interactive = {
         object: g,
         cursor: 'grab',
         enabled: () => ctx.progress.rank >= INGREDIENTS[kind].unlockRank,
-        onHover: (h) => this.hoverTray(g, h),
+        onHover: (h) => {
+          this.hoverTray(g, h);
+          ctx.ui.hoverLabel(h ? INGREDIENTS[kind].name : null);
+        },
         onDown: (_hit, ray) => this.startNewPatty(kind, ray),
       };
-      this.trays.push({ kind, group: g, interactive: it, stack });
+      this.trays.push({ kind, group: g, interactive: it, stack, lid });
       this.interactives.push(it);
     });
 
@@ -129,6 +144,7 @@ export class GrillStation extends Station {
       priority: -1,
     });
     this.buildSlotMarkers();
+    this.refreshLocks();
     ctx.world.root.add(this.root);
   }
 
@@ -585,7 +601,7 @@ export class GrillStation extends Station {
     // glow + light flicker + haze
     const flick = noise.noise2(this.time * 6, 1.3) * 0.15 + noise.noise2(this.time * 17, 4.4) * 0.06;
     this.glowMat.emissiveIntensity = (0.9 + flick) * (0.8 + heat * 0.25);
-    this.ctx.world.lighting.grillGlow.intensity = (1.4 + flick * 3 + this.patties.length * 0.1) * heat;
+    this.ctx.world.lighting.grillGlow.intensity = (0.8 + flick * 1.8 + this.patties.length * 0.06) * heat;
     this.ctx.audio.setSizzle(Math.min(1.4, sizzleLevel * 0.35));
     this.ctx.ui.stationAlert('grill', burning ? 2 : flipReady ? 1 : 0);
     if (visible) this.updateHaze(heat);
@@ -635,6 +651,7 @@ export class GrillStation extends Station {
   exit() {
     super.exit();
     for (const gp of this.patties) gp.gauge.place(0, 0, false);
+    this.ctx.ui.hoverLabel(null);
   }
 
   /** Remove everything (end of day). */
@@ -645,6 +662,15 @@ export class GrillStation extends Station {
       gp.piece.dispose();
     }
     this.buildSlotMarkers();
+    this.refreshLocks();
+  }
+
+  refreshLocks() {
+    for (const t of this.trays) {
+      const locked = this.ctx.progress.rank < INGREDIENTS[t.kind].unlockRank;
+      t.lid.visible = locked;
+      t.stack.visible = !locked;
+    }
   }
 
   get activeCount() {
@@ -665,6 +691,9 @@ export class GrillStation extends Station {
     piece.obj.position.copy(this.slotPositions()[free[0]]).setY(REST + 0.08);
     this.placeOnGrill(piece, kind, free[0], true, target);
     return true;
+  }
+  trayPos(kind: PattyId): THREE.Vector3 {
+    return this.trays.find((t) => t.kind === kind)!.group.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.06, 0));
   }
   botPatties(): GrillPatty[] {
     return this.patties;

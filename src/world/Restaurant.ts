@@ -105,6 +105,7 @@ export class Restaurant {
   }
 
   update(dt: number, time: number) {
+    this.lighting.tickShadows();
     this.time = time;
     // Door
     if (this.doorHold > 0) this.doorHold -= dt;

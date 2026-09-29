@@ -126,10 +126,27 @@ export class Builder {
  * Merge all static meshes below `root` into one mesh per (material, shadow
  * flags) bucket. Dramatically reduces draw calls for the environment.
  */
+/**
+ * Untextured, opaque, non-emissive standard materials differ only by colour:
+ * such meshes are re-coloured through a vertex colour attribute and share one
+ * material per roughness/metalness, which collapses dozens of draw calls.
+ */
+function plainColour(mat: THREE.Material): mat is THREE.MeshStandardMaterial {
+  const m = mat as THREE.MeshStandardMaterial;
+  return (
+    m.type === 'MeshStandardMaterial' &&
+    !m.map && !m.normalMap && !m.roughnessMap && !m.metalnessMap && !m.aoMap && !m.emissiveMap && !m.alphaMap && !m.bumpMap &&
+    !m.transparent && m.opacity === 1 && !m.vertexColors && !m.flatShading &&
+    m.emissive.getHex() === 0 && !m.userData.noBatch
+  );
+}
+const vcMats = new Map<string, THREE.MeshStandardMaterial>();
+
 export function mergeStatic(root: THREE.Object3D): THREE.Group {
   root.updateMatrixWorld(true);
   const buckets = new Map<string, { mat: THREE.Material; cast: boolean; receive: boolean; geos: THREE.BufferGeometry[] }>();
   const remove: THREE.Mesh[] = [];
+  const centre = new THREE.Vector3();
   root.traverse((o) => {
     const m = o as THREE.Mesh;
     if (!m.isMesh || !m.userData.static || Array.isArray(m.material)) return;
@@ -139,16 +156,46 @@ export function mergeStatic(root: THREE.Object3D): THREE.Group {
       if (p.userData.dynamic) return;
       p = p.parent;
     }
-    const mat = m.material as THREE.Material;
+    let mat = m.material as THREE.Material;
     let g = m.geometry;
+    const vc = plainColour(mat);
     const attrs = Object.keys(g.attributes).sort().join(',');
-    const key = `${mat.uuid}|${m.castShadow}|${m.receiveShadow}|${attrs}`;
+    let key: string;
+    if (vc) {
+      const sm = mat as THREE.MeshStandardMaterial;
+      // three coarse zones (kitchen / dining / outside) keep frustum culling
+      // useful without fragmenting the batches
+      if (!g.boundingSphere) g.computeBoundingSphere();
+      centre.copy(g.boundingSphere!.center).applyMatrix4(m.matrixWorld);
+      const cell = centre.z < -1.5 ? 'k' : centre.z < 6.2 ? 'd' : 'x';
+      const mk = `${sm.roughness}|${sm.metalness}|${sm.envMapIntensity}|${sm.side}`;
+      let shared = vcMats.get(mk);
+      if (!shared) {
+        shared = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: sm.roughness, metalness: sm.metalness, envMapIntensity: sm.envMapIntensity, side: sm.side });
+        shared.name = `vc_${mk}`;
+        vcMats.set(mk, shared);
+      }
+      key = `vc|${mk}|${cell}|${m.castShadow}|${attrs}`;
+      mat = shared;
+    } else key = `${mat.uuid}|${m.castShadow}|${m.receiveShadow}|${attrs}`;
     let b = buckets.get(key);
     if (!b) {
       b = { mat, cast: m.castShadow, receive: m.receiveShadow, geos: [] };
       buckets.set(key, b);
     }
+    b.receive ||= m.receiveShadow;
     g = g.index ? g.toNonIndexed() : g.clone();
+    if (vc) {
+      const c = (m.material as THREE.MeshStandardMaterial).color;
+      const n = g.attributes.position.count;
+      const col = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) {
+        col[i * 3] = c.r;
+        col[i * 3 + 1] = c.g;
+        col[i * 3 + 2] = c.b;
+      }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    }
     g.applyMatrix4(m.matrixWorld);
     // flip winding for mirrored transforms
     if (m.matrixWorld.determinant() < 0) {

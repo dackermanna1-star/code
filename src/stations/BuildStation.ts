@@ -10,13 +10,15 @@ import { BunId, BUNS, CHEESES, INGREDIENTS, IngredientId, LayerId, SauceId, SAUC
 import { Geo } from '../world/Builder';
 import { Ease, clamp, rand } from '../core/math';
 import { canvasTexture, FONT_DISPLAY } from '../render/CanvasTex';
+import { lockDecal } from './Locks';
 import type { Order } from '../game/Order';
 
 const PLATE_Y = BUILD.plate.y + 0.028;
-const RAIL_ORDER: IngredientId[] = [
-  'lettuce', 'tomato', 'onion', 'pickles', 'cheese_american', 'cheese_swiss', 'cheese_cheddar', 'cheese_pepperjack',
-  'bacon', 'jalapenos', 'mushrooms', 'avocado', 'egg', 'onion_rings',
-];
+// Two tiers of pans, like a real sandwich prep rail: everyday toppings in
+// front, the fancier unlocks behind them. Cheeses sit at the right end.
+const RAIL_FRONT: IngredientId[] = ['lettuce', 'tomato', 'onion', 'pickles', 'bacon', 'cheese_american', 'cheese_swiss'];
+const RAIL_BACK: IngredientId[] = ['jalapenos', 'mushrooms', 'onion_rings', 'avocado', 'egg', 'cheese_cheddar', 'cheese_pepperjack'];
+const PAN_DEPTH = 0.17;
 
 interface Source {
   id: IngredientId;
@@ -49,17 +51,17 @@ function linerTexture(): THREE.Texture {
 export function makeTray(mats: GameContext['world']['mats']): THREE.Group {
   const g = new THREE.Group();
   const plastic = mats.phys('trayRed', { color: 0xc4262e, roughness: 0.35, clearcoat: 0.6, clearcoatRoughness: 0.3 });
-  const base = new THREE.Mesh(Geo.rbox(0.36, 0.018, 0.28, 0.008), plastic);
+  const base = new THREE.Mesh(Geo.rbox(0.26, 0.018, 0.22, 0.008), plastic);
   base.position.y = 0.009;
   base.castShadow = base.receiveShadow = true;
   g.add(base);
-  for (const [x, z, w, d] of [[0, 0.135, 0.36, 0.012], [0, -0.135, 0.36, 0.012], [0.175, 0, 0.012, 0.28], [-0.175, 0, 0.012, 0.28]] as const) {
+  for (const [x, z, w, d] of [[0, 0.105, 0.26, 0.012], [0, -0.105, 0.26, 0.012], [0.125, 0, 0.012, 0.22], [-0.125, 0, 0.012, 0.22]] as const) {
     const lip = new THREE.Mesh(Geo.rbox(w, 0.022, d, 0.005), plastic);
     lip.position.set(x, 0.02, z);
     lip.castShadow = true;
     g.add(lip);
   }
-  const liner = new THREE.Mesh(Geo.box(0.31, 0.002, 0.24), new THREE.MeshStandardMaterial({ map: linerTexture(), roughness: 0.85 }));
+  const liner = new THREE.Mesh(Geo.box(0.225, 0.002, 0.186), new THREE.MeshStandardMaterial({ map: linerTexture(), roughness: 0.85 }));
   liner.position.y = 0.0195;
   liner.rotation.y = (Math.random() - 0.5) * 0.1;
   liner.receiveShadow = true;
@@ -69,7 +71,7 @@ export function makeTray(mats: GameContext['world']['mats']): THREE.Group {
 
 export class BuildStation extends Station {
   readonly id = 'build' as const;
-  readonly shot = shot([-0.2, 1.76, -4.62], [-0.2, 0.95, -5.72], 50);
+  readonly shot = shot([-1.3, 2.27, -4.49], [-1.3, 0.97, -5.66], 42);
   stack: BurgerStack | null = null;
   tray: THREE.Group;
   private sources: Source[] = [];
@@ -156,102 +158,92 @@ export class BuildStation extends Station {
   private buildSources() {
     const ctx = this.ctx;
     const mats = ctx.world.mats;
-    // ---- ingredient bins in the cold rail
-    const x0 = -1.24;
-    const x1 = 0.93;
-    const step = (x1 - x0) / (RAIL_ORDER.length - 1);
-    RAIL_ORDER.forEach((id, i) => {
-      const g = new THREE.Group();
-      g.position.set(x0 + i * step, 1.03, -5.95);
-      g.rotation.x = 0.32;
-      this.root.add(g);
-      const pan = new THREE.Mesh(Geo.box(step - 0.012, 0.012, 0.25), mats.steel);
-      pan.position.y = -0.03;
-      g.add(pan);
-      for (const s of [-1, 1]) {
-        const wall = new THREE.Mesh(Geo.box(0.004, 0.05, 0.25), mats.steel);
-        wall.position.set((s * (step - 0.012)) / 2, -0.008, 0);
-        g.add(wall);
-      }
-      this.fillBin(id, g, step);
-      // label
-      const label = canvasTexture(256, 64, (c, w, h) => {
-        c.fillStyle = '#fffaf0';
-        c.fillRect(0, 0, w, h);
-        c.fillStyle = INGREDIENTS[id].color;
-        c.fillRect(0, 0, 18, h);
-        c.fillStyle = '#2a211c';
-        c.font = `700 30px ${FONT_DISPLAY}`;
-        c.textAlign = 'center';
-        c.textBaseline = 'middle';
-        const name = INGREDIENTS[id].name.replace(' Cheese', '').replace('Sharp ', '');
-        c.fillText(name, w / 2 + 8, h / 2 + 2, w - 30);
+    // ---- ingredient pans in the two-tier cold rail
+    const step = (BUILD.railX1 - BUILD.railX0) / RAIL_FRONT.length;
+    const tiers: [IngredientId[], number, number][] = [
+      [RAIL_FRONT, 1.03, -5.8],
+      [RAIL_BACK, 1.11, -5.995],
+    ];
+    for (const [ids, y, z] of tiers)
+      ids.forEach((id, i) => {
+        const g = new THREE.Group();
+        g.position.set(BUILD.railX0 + step * (i + 0.5), y, z);
+        g.rotation.x = 0.3;
+        this.root.add(g);
+        const pan = new THREE.Mesh(Geo.box(step - 0.012, 0.012, PAN_DEPTH), mats.steel);
+        pan.position.y = -0.03;
+        g.add(pan);
+        for (const s of [-1, 1]) {
+          const wall = new THREE.Mesh(Geo.box(0.004, 0.05, PAN_DEPTH), mats.steel);
+          wall.position.set((s * (step - 0.012)) / 2, -0.008, 0);
+          g.add(wall);
+        }
+        this.fillBin(id, g, step);
+        // label
+        const label = canvasTexture(256, 64, (c, w, h) => {
+          c.fillStyle = '#fffaf0';
+          c.fillRect(0, 0, w, h);
+          c.fillStyle = INGREDIENTS[id].color;
+          c.fillRect(0, 0, 18, h);
+          c.fillStyle = '#2a211c';
+          c.font = `700 30px ${FONT_DISPLAY}`;
+          c.textAlign = 'center';
+          c.textBaseline = 'middle';
+          const name = INGREDIENTS[id].name.replace(' Cheese', '').replace('Sharp ', '');
+          c.fillText(name, w / 2 + 8, h / 2 + 2, w - 30);
+        });
+        const lab = new THREE.Mesh(Geo.plane(step - 0.02, 0.034), new THREE.MeshStandardMaterial({ map: label, roughness: 0.6 }));
+        lab.position.set(0, -0.032, PAN_DEPTH / 2 + 0.007);
+        lab.rotation.x = -0.35;
+        g.add(lab);
+        // lid (with a rank sticker) for locked pans
+        const lid = new THREE.Mesh(Geo.rbox(step - 0.01, 0.012, PAN_DEPTH, 0.004), mats.steelDark);
+        lid.position.y = 0.022;
+        const sticker = lockDecal(INGREDIENTS[id].unlockRank, Math.min(0.1, step - 0.03));
+        sticker.position.y = 0.0065;
+        lid.add(sticker);
+        g.add(lid);
+        const glow = new THREE.Mesh(Geo.box(step - 0.01, 0.002, PAN_DEPTH), new THREE.MeshBasicMaterial({ color: 0xfff1a8, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+        glow.position.y = 0.03;
+        g.add(glow);
+        const src: Source = { id, group: g, home: g.position.clone(), kind: 'bin', lid, glow, interactive: null! };
+        src.interactive = this.sourceInteractive(src);
+        this.sources.push(src);
       });
-      const lab = new THREE.Mesh(Geo.plane(step - 0.02, 0.034), new THREE.MeshStandardMaterial({ map: label, roughness: 0.6 }));
-      lab.position.set(0, -0.032, 0.132);
-      lab.rotation.x = -0.35;
-      g.add(lab);
-      // lid for locked bins
-      const lid = new THREE.Mesh(Geo.rbox(step - 0.01, 0.012, 0.25, 0.004), mats.steelDark);
-      lid.position.y = 0.022;
-      g.add(lid);
-      const glow = new THREE.Mesh(Geo.box(step - 0.01, 0.002, 0.25), new THREE.MeshBasicMaterial({ color: 0xfff1a8, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
-      glow.position.y = 0.03;
-      g.add(glow);
-      const src: Source = { id, group: g, home: g.position.clone(), kind: 'bin', lid, glow, interactive: null! };
-      src.interactive = this.sourceInteractive(src);
-      this.sources.push(src);
-    });
 
     // ---- bun boxes (2x2) left of the plate
     BUNS.forEach((id, i) => {
       const g = new THREE.Group();
-      g.position.set(-1.2 + (i % 2) * 0.23, BUILD.plate.y + 0.003, -5.45 - Math.floor(i / 2) * 0.22);
+      g.position.set(-1.78 + (i % 2) * 0.175, BUILD.plate.y + 0.003, -5.47 - Math.floor(i / 2) * 0.2);
       this.root.add(g);
-      const box = new THREE.Mesh(Geo.rbox(0.21, 0.035, 0.2, 0.01), mats.cardboard);
+      const box = new THREE.Mesh(Geo.rbox(0.16, 0.035, 0.18, 0.01), mats.cardboard);
       box.position.y = 0.017;
       box.castShadow = box.receiveShadow = true;
       g.add(box);
-      const paper = new THREE.Mesh(Geo.box(0.19, 0.002, 0.18), mats.paper);
+      const paper = new THREE.Mesh(Geo.box(0.145, 0.002, 0.165), mats.paper);
       paper.position.y = 0.036;
       g.add(paper);
+      const heel = ctx.food.bunPart(id, 'bottom');
+      heel.obj.scale.setScalar(0.8);
+      heel.obj.position.set(-0.018, 0.039, -0.04);
+      heel.obj.rotation.set(-0.14, 0, 0.12);
+      heel.obj.userData.content = true;
+      g.add(heel.obj);
       const crown = ctx.food.bunPart(id, 'top');
-      crown.obj.scale.setScalar(0.92);
-      crown.obj.position.set(0.02, 0.04, 0.015);
+      crown.obj.scale.setScalar(0.86);
+      crown.obj.position.set(0.008, 0.04, 0.02);
       crown.obj.rotation.set(0.05, rand(0, 6), 0);
       crown.obj.userData.content = true;
       g.add(crown.obj);
-      const heel = ctx.food.bunPart(id, 'bottom');
-      heel.obj.scale.setScalar(0.85);
-      heel.obj.position.set(-0.045, 0.04, -0.05);
-      heel.obj.rotation.set(-0.12, 0, 0.2);
-      heel.obj.userData.content = true;
-      g.add(heel.obj);
       const lid = new THREE.Group();
-      const lidBox = new THREE.Mesh(Geo.rbox(0.215, 0.014, 0.205, 0.006), mats.cardboard);
+      const lidBox = new THREE.Mesh(Geo.rbox(0.165, 0.014, 0.185, 0.006), mats.cardboard);
       lid.add(lidBox);
-      const lockTex = canvasTexture(128, 128, (c, w, h) => {
-        c.fillStyle = 'rgba(0,0,0,0)';
-        c.clearRect(0, 0, w, h);
-        c.fillStyle = '#2a1d16';
-        c.beginPath();
-        c.arc(w / 2, h / 2, 46, 0, Math.PI * 2);
-        c.fill();
-        c.fillStyle = '#ffd35a';
-        c.font = `700 30px ${FONT_DISPLAY}`;
-        c.textAlign = 'center';
-        c.textBaseline = 'middle';
-        c.fillText('🔒', w / 2, h / 2 - 8);
-        c.font = `700 20px ${FONT_DISPLAY}`;
-        c.fillText(`RANK ${INGREDIENTS[id].unlockRank}`, w / 2, h / 2 + 22);
-      });
-      const lockMesh = new THREE.Mesh(Geo.plane(0.12, 0.12), new THREE.MeshStandardMaterial({ map: lockTex, transparent: true, roughness: 0.6 }));
-      lockMesh.rotation.x = -Math.PI / 2;
+      const lockMesh = lockDecal(INGREDIENTS[id].unlockRank, 0.11);
       lockMesh.position.y = 0.0085;
       lid.add(lockMesh);
       lid.position.y = 0.043;
       g.add(lid);
-      const glow = new THREE.Mesh(new THREE.CircleGeometry(0.1, 32), new THREE.MeshBasicMaterial({ color: 0xfff1a8, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+      const glow = new THREE.Mesh(new THREE.CircleGeometry(0.085, 32), new THREE.MeshBasicMaterial({ color: 0xfff1a8, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
       glow.rotation.x = -Math.PI / 2;
       glow.position.y = 0.04;
       g.add(glow);
@@ -261,13 +253,13 @@ export class BuildStation extends Station {
     });
 
     // ---- squeeze bottles (2 rows of 3) right of the plate
-    const caddy = new THREE.Mesh(Geo.rbox(0.6, 0.03, 0.44, 0.01), mats.steel);
-    caddy.position.set(0.52, BUILD.plate.y + 0.016, -5.55);
+    const caddy = new THREE.Mesh(Geo.rbox(0.36, 0.03, 0.38, 0.01), mats.steel);
+    caddy.position.set(-0.895, BUILD.plate.y + 0.016, -5.53);
     caddy.castShadow = caddy.receiveShadow = true;
     this.root.add(caddy);
     SAUCES.forEach((id, i) => {
       const g = this.makeBottle(id);
-      g.position.set(0.34 + (i % 3) * 0.18, BUILD.plate.y + 0.03, -5.45 - Math.floor(i / 3) * 0.2);
+      g.position.set(-1.005 + (i % 3) * 0.11, BUILD.plate.y + 0.03, -5.44 - Math.floor(i / 3) * 0.18);
       this.root.add(g);
       const glow = new THREE.Mesh(new THREE.CircleGeometry(0.06, 24), new THREE.MeshBasicMaterial({ color: 0xfff1a8, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
       glow.rotation.x = -Math.PI / 2;
@@ -283,17 +275,17 @@ export class BuildStation extends Station {
     const g = new THREE.Group();
     const col = new THREE.Color(INGREDIENTS[id].color);
     const body = new THREE.Mesh(
-      Geo.lathe('squeeze', [[0, 0], [0.034, 0], [0.037, 0.01], [0.037, 0.13], [0.03, 0.155], [0.014, 0.165], [0.0, 0.166]], 24),
+      Geo.lathe('squeeze', [[0, 0], [0.034, 0], [0.037, 0.01], [0.037, 0.1], [0.03, 0.12], [0.014, 0.128], [0.0, 0.129]], 24),
       new THREE.MeshPhysicalMaterial({ color: col, roughness: 0.25, clearcoat: 0.8, clearcoatRoughness: 0.2, transmission: 0 }),
     );
     body.castShadow = body.receiveShadow = true;
     body.name = 'body';
     g.add(body);
     const cap = new THREE.Mesh(Geo.cyl(0.02, 0.022, 0.03, 16), this.ctx.world.mats.std(id === 'mayo' ? 0x3a7bd5 : 0xf6f1e4, 0.4));
-    cap.position.y = 0.175;
+    cap.position.y = 0.137;
     g.add(cap);
     const nozzle = new THREE.Mesh(Geo.cone(0.009, 0.05, 12), this.ctx.world.mats.std(id === 'mayo' ? 0x3a7bd5 : 0xf6f1e4, 0.4));
-    nozzle.position.y = 0.214;
+    nozzle.position.y = 0.176;
     g.add(nozzle);
     const label = canvasTexture(256, 128, (c, w, h) => {
       c.fillStyle = '#fffaf0';
@@ -308,7 +300,7 @@ export class BuildStation extends Station {
       c.fillText(INGREDIENTS[id].name.toUpperCase(), w / 2, h / 2 + 2, w - 12);
     });
     const lab = new THREE.Mesh(Geo.cyl(0.0375, 0.0375, 0.055, 24, true), new THREE.MeshStandardMaterial({ map: label, roughness: 0.5 }));
-    lab.position.y = 0.07;
+    lab.position.y = 0.055;
     g.add(lab);
     return g;
   }
@@ -476,8 +468,8 @@ export class BuildStation extends Station {
           return;
         }
         const c = this.plateCenter();
-        let dx = piece.obj.position.x - c.x;
-        let dz = piece.obj.position.z - c.z;
+        let dx = target.x - c.x;
+        let dz = target.z - c.z;
         if (clicked) {
           // quick-drop: auto-center with a tiny human wobble
           dx = rand(-0.006, 0.006);
@@ -638,7 +630,7 @@ export class BuildStation extends Station {
       if (busy) return;
       // bottle hangs upside down, nozzle tip at the pointer
       const tip = new THREE.Vector3(target.x, target.y, target.z);
-      const pos = tip.clone().add(new THREE.Vector3(0, 0.24, 0));
+      const pos = tip.clone().add(new THREE.Vector3(0, 0.2, 0));
       bottle.position.lerp(pos, 1 - Math.exp(-dt * 20));
       bottle.rotation.x += (Math.PI - bottle.rotation.x) * (1 - Math.exp(-dt * 14));
       bottle.rotation.z = clamp((pos.x - bottle.position.x) * 4, -0.4, 0.4);
@@ -671,7 +663,7 @@ export class BuildStation extends Station {
         }
         busy = true;
         // move bottle over the drop point then squeeze
-        const over = new THREE.Vector3(c.x + dx, PLATE_Y + stack.height + 0.27, c.z + dz);
+        const over = new THREE.Vector3(c.x + dx, PLATE_Y + stack.height + 0.23, c.z + dz);
         this.ctx.engine.tweens.to(bottle.position, { x: over.x, y: over.y, z: over.z }, 0.12);
         this.ctx.engine.tweens.to(bottle.rotation, { x: Math.PI, z: 0 }, 0.12).done.then(() => {
           this.squirt(src.id as SauceId, bottle, dx, dz).then(() => {
@@ -708,7 +700,7 @@ export class BuildStation extends Station {
         const sq = Math.sin(Math.min(1, raw * 1.3) * Math.PI);
         body.scale.set(1 + sq * 0.12, 1 - sq * 0.08, 1 + sq * 0.12);
         // stream from nozzle to the current sauce head
-        bottle.localToWorld(nozzle.set(0, 0.235, 0));
+        bottle.localToWorld(nozzle.set(0, 0.197, 0));
         const len = Math.max(0.01, nozzle.y - top);
         this.stream.position.set(nozzle.x, top + len / 2, nozzle.z);
         this.stream.scale.set(1, len, 1);
@@ -754,20 +746,26 @@ export class BuildStation extends Station {
       const out = tray;
       const from = out.position.clone();
       this.ctx.audio.play('slide');
-      return this.ctx.engine.tweens.run(0.4, (e) => {
-        out.position.x = from.x + e * 1.6;
-        out.position.y = from.y + Math.sin(e * Math.PI) * 0.03;
-      }, { ease: Ease.inCubic }).done.then(() => {
+      // lift clear of the bottles, then whisk off toward the pass
+      return this.ctx.engine.tweens.run(0.5, (e, raw) => {
+        const up = Ease.outCubic(Math.min(1, raw * 2.2));
+        const across = Ease.inCubic(Math.max(0, (raw - 0.25) / 0.75));
+        out.position.set(from.x + across * 1.9, from.y + up * 0.3, from.z + across * 0.25);
+        out.rotation.z = -Math.sin(raw * Math.PI) * 0.08;
+      }).done.then(() => {
         out.removeFromParent();
+        out.rotation.set(0, 0, 0);
         this.onComplete?.(order, stack, out);
-        // new tray slides in
+        // a fresh tray drops into place
         this.tray = makeTray(this.ctx.world.mats);
-        this.tray.position.copy(BUILD.plate).setX(BUILD.plate.x - 1.2);
+        this.tray.position.copy(BUILD.plate).setY(BUILD.plate.y + 0.35);
         this.root.add(this.tray);
         this.stack = null;
         this.newStack();
         this.stack!.group.visible = true;
-        return this.ctx.engine.tweens.run(0.35, (e) => (this.tray.position.x = BUILD.plate.x - 1.2 + 1.2 * e), { ease: Ease.outBack }).done;
+        return this.ctx.engine.tweens.run(0.32, (e) => (this.tray.position.y = BUILD.plate.y + 0.35 * (1 - e)), { ease: Ease.outBounce }).done.then(() => {
+          this.ctx.audio.play('plate', { volume: 0.55, rate: 1.1 });
+        });
       });
     }).then(() => {
       this.completing = false;
@@ -843,6 +841,12 @@ export class BuildStation extends Station {
     this.stack?.dispose();
     this.newStack();
     this.refreshLocks();
+  }
+
+  /** World position of an ingredient source (tests). */
+  sourcePos(id: IngredientId): THREE.Vector3 | null {
+    const s = this.sources.find((x) => x.id === id);
+    return s ? s.group.getWorldPosition(new THREE.Vector3()) : null;
   }
 
   /** Bot helpers for automated tests. */

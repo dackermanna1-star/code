@@ -13,7 +13,7 @@ import { IconRenderer } from '../ui/Icons';
 import { Screens, DaySummary, weekday } from '../ui/Screens';
 import { CustomerManager } from './CustomerManager';
 import { OrderBook } from './OrderBook';
-import { Progression, UPGRADES, DECOR, UpgradeId, DecorId, RANK_TITLES } from './Progression';
+import { Progression, UPGRADES, DECOR, UpgradeId, DecorId, RANK_TITLES, pointsForRank } from './Progression';
 import { Warmer } from '../stations/Warmer';
 import { OrderStation } from '../stations/OrderStation';
 import { GrillStation } from '../stations/GrillStation';
@@ -28,6 +28,7 @@ import { CustomerDef } from '../characters/Roster';
 import { DOOR, ROOM } from '../world/Layout';
 import { Ease, clamp, rand } from '../core/math';
 import type { Customization } from '../world/Structure';
+import type { IngredientId } from '../food/Ingredients';
 
 type GameState = 'boot' | 'title' | 'intro' | 'day' | 'closing' | 'summary' | 'shop';
 
@@ -157,6 +158,13 @@ export class Game implements UIHost {
     this.baker.disposeTargets();
     await step(1, 'Done!');
     (window as any).__game = this;
+    if (new URLSearchParams(location.search).has('stats')) this.statsOverlay();
+    const debugStation = new URLSearchParams(location.search).get('station') as StationId | null;
+    if (debugStation && this.stations[debugStation]) {
+      loading.remove();
+      this.debugStart(debugStation);
+      return;
+    }
     loading.ready(async () => {
       await this.audio.unlock();
       this.applySettings();
@@ -223,7 +231,9 @@ export class Game implements UIHost {
       goStation: (id: StationId) => self.goStation(id),
       busy: false,
       haptic: (ms = 10) => {
-        if (navigator.vibrate && self.progress.data.settings.shake) navigator.vibrate(ms);
+        // browsers reject vibration before the first user gesture
+        const active = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation?.hasBeenActive ?? true;
+        if (navigator.vibrate && active && self.progress.data.settings.shake) navigator.vibrate(ms);
       },
     } as GameContext;
   }
@@ -291,6 +301,67 @@ export class Game implements UIHost {
       d.tutorialDone = true;
       this.progress.save();
     };
+  }
+
+  /** `?stats=1`: frame rate and renderer counters in the corner. */
+  private statsOverlay() {
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:99;padding:6px 10px;border-radius:8px;background:rgba(0,0,0,.72);color:#9fe39a;font:600 12px/1.45 ui-monospace,monospace;pointer-events:none;white-space:pre';
+    document.body.append(el);
+    let t = 0;
+    this.engine.onUpdate((dt) => {
+      t += dt;
+      if (t < 0.5) return;
+      t = 0;
+      const r = this.engine.renderer;
+      const st = this.engine.stats;
+      const size = r.getDrawingBufferSize(new THREE.Vector2());
+      el.textContent =
+        `${this.engine.fps.toFixed(0)} fps  ${this.engine.quality.level}  ${size.x}×${size.y}\n` +
+        `${st.calls} calls  ${(st.triangles / 1000).toFixed(0)}k tris\n` +
+        `${r.info.memory.geometries} geo  ${r.info.memory.textures} tex  ${r.info.programs?.length ?? 0} prog`;
+    }, 100, true);
+  }
+
+  /**
+   * Dev shortcut (`?station=grill&rank=6&fill=1`): open straight onto a
+   * station mid-day, optionally with food already on the go, for screenshots.
+   */
+  private debugStart(id: StationId) {
+    const params = new URLSearchParams(location.search);
+    const d = this.progress.data;
+    d.tutorialDone = true;
+    const rank = parseInt(params.get('rank') ?? '', 10);
+    if (rank > 0) d.xp = pointsForRank(rank);
+    this.resetDayState();
+    this.world.setHour(parseFloat(params.get('hour') ?? '13'), 0);
+    this.dayHour = this.world.hour;
+    this.state = 'day';
+    this.station = id;
+    this.rig.go(this.stations[id].shot, 0);
+    this.stations[id].enter();
+    this.ui.setStation(id);
+    this.ui.showHud(true);
+    this.refreshHud();
+    this.audio.setMusicMode('off');
+    if (params.has('fill')) {
+      const kinds = ['patty_beef', 'patty_beef', 'patty_chicken', 'patty_veggie'] as const;
+      kinds.forEach((kind, i) => {
+        const cook = [0.42, 0.6, 0.8, 0.95][i];
+        const p = this.food.patty(kind);
+        p.setCook?.(cook, cook * 0.9);
+        this.warmer.add({ piece: p, kind, a: cook, b: cook * 0.9 });
+      });
+      this.stations.grill.botPlace('patty_beef', 'medium');
+      this.stations.grill.botPlace('patty_beef', 'rare');
+      const stack = this.stations.build.stack!;
+      const layers: [IngredientId, 'bottom' | 'layer'][] = [['bun_sesame', 'bottom'], ['ketchup', 'layer'], ['lettuce', 'layer'], ['patty_beef', 'layer'], ['cheese_american', 'layer'], ['tomato', 'layer']];
+      for (const [lid, kind] of layers) {
+        const piece = lid === 'bun_sesame' ? this.food.bunPart('bun_sesame', 'bottom') : lid === 'ketchup' ? this.food.sauce('ketchup') : this.food.make(lid);
+        if (lid === 'patty_beef') piece.setCook?.(0.6, 0.6);
+        stack.land(piece, 0, 0, kind, 0.1);
+      }
+    }
   }
 
   private resetDayState() {
@@ -438,6 +509,10 @@ export class Game implements UIHost {
     }
     this.refreshHud();
     this.progress.save();
+  }
+
+  screenOf(x: number, y: number, z: number) {
+    return this.ui.project(new THREE.Vector3(x, y, z));
   }
 
   async startBot(skill = 1) {
@@ -591,6 +666,7 @@ export class Game implements UIHost {
     this.rig.motionScale = s.motion ? 1 : 0.2;
     this.rig.parallax = s.motion ? 1 : 0;
     this.rig.sway = s.motion ? 1 : 0;
+    this.engine.post.motionAllowed = s.motion;
     const q = s.quality === 'auto' ? this.engine.quality.level : s.quality;
     this.engine.autoQuality = s.quality === 'auto';
     if (this.appliedQuality && q !== this.appliedQuality) this.engine.applyQuality(q as QualityLevel);
@@ -646,7 +722,7 @@ export class Game implements UIHost {
 
   private setupTutorialTargets() {
     const t = this.ui.tutorial.targets;
-    t.place = () => new THREE.Vector3(-3.87, 1.02, -5.46);
+    t.place = () => this.stations.grill.trayPos('patty_beef');
     t.flip = () => null;
     t.done = () => this.warmer.root.position.clone().setY(1.05);
     t.build = () => null;

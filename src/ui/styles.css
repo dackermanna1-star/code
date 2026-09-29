@@ -1800,7 +1800,8 @@ body {
   font-weight: 800;
   font-size: 16px;
   line-height: 1.3;
-  pointer-events: auto;
+  /* the scene stays interactive through the bubble; only its buttons take clicks */
+  pointer-events: none;
   animation: popIn 0.4s var(--spring);
   transition: left 0.4s var(--smooth), top 0.4s var(--smooth);
 }
@@ -1819,6 +1820,15 @@ body {
   cursor: pointer;
   margin-top: 8px;
   text-decoration: underline;
+  display: inline-block;
+}
+.coach .btn,
+.coach .skip {
+  pointer-events: auto;
+}
+.coach.corner {
+  max-width: 300px;
+  font-size: 15px;
 }
 .pointer-arrow {
   position: absolute;

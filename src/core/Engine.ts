@@ -16,19 +16,19 @@ export interface QualityPreset extends PostSettings {
 export const QUALITY: Record<QualityLevel, QualityPreset> = {
   low: {
     level: 'low', pixelRatio: 0.8, shadows: true, shadowMapSize: 1024, softShadows: false,
-    ao: false, aoHalfRes: true, bloom: true, smaa: false, heatHaze: false, dof: false, particles: 0.5,
+    ao: false, aoHalfRes: true, bloom: true, smaa: false, heatHaze: false, dof: false, motionBlur: false, particles: 0.5,
   },
   medium: {
     level: 'medium', pixelRatio: 1, shadows: true, shadowMapSize: 2048, softShadows: true,
-    ao: 'Performance', aoHalfRes: true, bloom: true, smaa: true, heatHaze: true, dof: false, particles: 0.8,
+    ao: 'Performance', aoHalfRes: true, bloom: true, smaa: true, heatHaze: true, dof: false, motionBlur: true, particles: 0.8,
   },
   high: {
     level: 'high', pixelRatio: 1.5, shadows: true, shadowMapSize: 2048, softShadows: true,
-    ao: 'Medium', aoHalfRes: true, bloom: true, smaa: true, heatHaze: true, dof: true, particles: 1,
+    ao: 'Medium', aoHalfRes: true, bloom: true, smaa: true, heatHaze: true, dof: true, motionBlur: true, particles: 1,
   },
   ultra: {
     level: 'ultra', pixelRatio: 2, shadows: true, shadowMapSize: 4096, softShadows: true,
-    ao: 'High', aoHalfRes: false, bloom: true, smaa: true, heatHaze: true, dof: true, particles: 1.2,
+    ao: 'High', aoHalfRes: false, bloom: true, smaa: true, heatHaze: true, dof: true, motionBlur: true, particles: 1.2,
   },
 };
 
@@ -53,6 +53,8 @@ export class Engine {
   width = 1;
   height = 1;
   fps = 60;
+  /** renderer counters for the last whole frame (all passes) */
+  readonly stats = { calls: 0, triangles: 0, points: 0 };
   private updaters: { fn: Updater; prio: number; always: boolean }[] = [];
   private last = 0;
   private frameTimes: number[] = [];
@@ -79,6 +81,8 @@ export class Engine {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.setClearColor(0x16110e, 1);
+    // count draw calls across every pass of a frame, not just the last one
+    this.renderer.info.autoReset = false;
 
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.05, 250);
     this.scene.add(this.camera);
@@ -136,9 +140,10 @@ export class Engine {
   }
 
   private frame(now: number): void {
-    const rawDt = this.fixedStep ?? Math.min(0.05, Math.max(0, (now - this.last) / 1000));
+    const realDt = Math.max(0, (now - this.last) / 1000);
+    const rawDt = this.fixedStep ?? Math.min(0.05, realDt);
     this.last = now;
-    this.trackPerformance(rawDt);
+    this.trackPerformance(Math.min(realDt, 0.1));
     const dt = this.paused ? 0 : rawDt * this.timeScale;
     this.time += dt;
     this.uiTweens.update(rawDt);
@@ -148,6 +153,11 @@ export class Engine {
       u.fn(u.always ? rawDt : dt, this.time);
     }
     this.post.render(rawDt);
+    const info = this.renderer.info;
+    this.stats.calls = info.render.calls;
+    this.stats.triangles = info.render.triangles;
+    this.stats.points = info.render.points;
+    info.reset();
   }
 
   private trackPerformance(dt: number): void {

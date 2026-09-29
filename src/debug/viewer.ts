@@ -43,7 +43,9 @@ export async function bootViewer() {
   }
   const charUpdates: ((dt: number) => void)[] = [];
   if (params.get('chars')) buildCharGallery(engine.scene, (fn) => charUpdates.push(fn), new THREE.Vector3(-0.5, 1.5, -2.2));
-  const view = VIEWS[params.get('view') || 'order'];
+  // ?cam=px,py,pz,tx,ty,tz[,fov] overrides the named view
+  const cam = params.get('cam')?.split(',').map(Number);
+  const view = cam && cam.length >= 6 ? shot([cam[0], cam[1], cam[2]], [cam[3], cam[4], cam[5]], cam[6] || 40) : VIEWS[params.get('view') || 'order'];
   const rig = new CameraRig(engine.camera, view);
   const hour = parseFloat(params.get('hour') || '12');
   r.setHour(hour, 0);

@@ -61,7 +61,7 @@ export function buildKitchen(root: THREE.Object3D, mats: MaterialLib): KitchenRe
     fryerOil: [],
     fryerBaskets: [],
     hoodLights: [],
-    heatLampWarmer: new THREE.Vector3(WARMER.center.x, 1.75, WARMER.center.z),
+    heatLampWarmer: new THREE.Vector3(WARMER.center.x, 2.4, WARMER.center.z),
     dishSteam: new THREE.Vector3(3.55, 1.2, -5.6),
     clockHands: { hour: new THREE.Object3D(), minute: new THREE.Object3D() },
     radio: new THREE.Vector3(5.2, 1.7, -6.0),
@@ -123,10 +123,12 @@ export function buildKitchen(root: THREE.Object3D, mats: MaterialLib): KitchenRe
     }
     // grease trough at the front of the grill
     b.box(gw - 0.1, 0.035, 0.07, mats.steel, gcx, GRILL.center.y - 0.04, GRILL.center.z + GRILL.depth / 2 + 0.06);
-    // side + back guards
-    b.box(0.03, 0.18, GRILL.depth + 0.12, mats.steel, gx0 + 0.015, GRILL.center.y + 0.05, GRILL.center.z);
-    b.box(0.03, 0.18, GRILL.depth + 0.12, mats.steel, gx1 - 0.015, GRILL.center.y + 0.05, GRILL.center.z);
-    b.box(gw, 0.34, 0.03, mats.steel, gcx, GRILL.center.y + 0.13, GRILL.center.z - GRILL.depth / 2 - 0.05);
+    // side + back guards: seasoned, heat-darkened steel (a polished finish
+    // mirrors the firebox glow into a hot spot)
+    const seasoned = mats.std(0x4b4c50, 0.62, 0.85);
+    b.box(0.03, 0.18, GRILL.depth + 0.12, seasoned, gx0 + 0.015, GRILL.center.y + 0.05, GRILL.center.z);
+    b.box(0.03, 0.18, GRILL.depth + 0.12, seasoned, gx1 - 0.015, GRILL.center.y + 0.05, GRILL.center.z);
+    b.box(gw, 0.34, 0.03, seasoned, gcx, GRILL.center.y + 0.13, GRILL.center.z - GRILL.depth / 2 - 0.05);
     // firebox walls (dark, below grates)
     b.box(gw - 0.06, 0.12, GRILL.depth, mats.std(0x151312, 0.9), gcx, GRILL.center.y - 0.1, GRILL.center.z, { cast: false });
     // cast iron grates: bars running front-to-back
@@ -153,10 +155,41 @@ export function buildKitchen(root: THREE.Object3D, mats: MaterialLib): KitchenRe
   const bx0 = WARMER.center.x + WARMER.width / 2 + 0.1;
   const bx1 = 1.02;
   counterSegment(b, mats, bx0, bx1, 'drawers');
-  b.tbox(1.0, 0.03, 0.46, 0.63, mats.butcherBlock, BUILD.center.x, h + 0.001, BUILD.center.z + 0.02, { receive: true });
-  // cold rail riser behind the assembly area (bins sit in it)
-  b.box(bx1 - bx0, 0.1, 0.34, mats.steel, (bx0 + bx1) / 2, h + 0.05, -5.97);
-  b.box(bx1 - bx0, 0.012, 0.3, mats.std(0xcfe8f2, 0.2, 0, { transparent: true, opacity: 0.85 }), (bx0 + bx1) / 2, h + 0.098, -5.97, { cast: false });
+  b.tbox(0.46, 0.03, 0.4, 0.63, mats.butcherBlock, BUILD.center.x, h + 0.001, BUILD.center.z + 0.02, { receive: true });
+  // two-tier cold rail behind the assembly area (topping pans sit in it)
+  {
+    const rx0 = BUILD.railX0 - 0.03;
+    const rx1 = BUILD.railX1 + 0.03;
+    const rcx = (rx0 + rx1) / 2;
+    const rw = rx1 - rx0;
+    b.box(rw, 0.08, 0.2, mats.steel, rcx, h + 0.04, -5.8);
+    b.box(rw, 0.16, 0.2, mats.steel, rcx, h + 0.08, -5.995);
+    // chilled wells (dark, frosty) under the pans
+    b.box(rw - 0.03, 0.004, 0.18, mats.std(0xcfe8f2, 0.3), rcx, h + 0.081, -5.8, { cast: false });
+    b.box(rw - 0.03, 0.004, 0.18, mats.std(0xcfe8f2, 0.3), rcx, h + 0.161, -5.995, { cast: false });
+    // rolled front edges
+    b.box(rw + 0.01, 0.018, 0.02, mats.chrome, rcx, h + 0.078, -5.7, { cast: false });
+    b.box(rw + 0.01, 0.018, 0.02, mats.chrome, rcx, h + 0.158, -5.895, { cast: false });
+  }
+  // prep corner right of the sauces: tray stack, cutting board, wrap box
+  {
+    const tray = mats.phys('trayRed', { color: 0xc4262e, roughness: 0.35, clearcoat: 0.6, clearcoatRoughness: 0.3 });
+    for (let i = 0; i < 6; i++) b.rbox(0.26, 0.016, 0.22, 0.008, tray, -0.44 + rng.range(-0.004, 0.004), h + 0.008 + i * 0.017, -5.6 + rng.range(-0.004, 0.004), { ry: rng.range(-0.04, 0.04) });
+    b.tbox(0.42, 0.025, 0.3, 0.63, mats.butcherBlock, 0.02, h + 0.013, -5.6, { ry: 0.12 });
+    // chef's knife
+    b.box(0.2, 0.003, 0.035, mats.chrome, 0.0, h + 0.028, -5.52, { ry: -0.35 });
+    b.rbox(0.1, 0.018, 0.022, 0.008, mats.blackPlastic, 0.14, h + 0.034, -5.57, { ry: -0.35 });
+    // tomato halves
+    const tom = mats.std(0xd8321f, 0.35);
+    const tomIn = mats.std(0xf06a4a, 0.6);
+    // one half cut-side down, one cut-side up showing the flesh
+    b.mesh(new THREE.SphereGeometry(0.036, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), tom, 0.08, h + 0.025, -5.66);
+    b.mesh(new THREE.SphereGeometry(0.036, 18, 10, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), tom, 0.16, h + 0.061, -5.6);
+    b.cyl(0.0355, 0.0355, 0.002, tomIn, 0.16, h + 0.0605, -5.6, { seg: 18, cast: false });
+    // deli paper box
+    b.rbox(0.3, 0.07, 0.2, 0.01, mats.cardboard, 0.52, h + 0.035, -5.72, { ry: -0.08 });
+    b.box(0.26, 0.002, 0.16, mats.paper, 0.52, h + 0.072, -5.72, { ry: -0.08, cast: false });
+  }
 
   // fryer
   {
@@ -350,8 +383,8 @@ export function buildKitchen(root: THREE.Object3D, mats: MaterialLib): KitchenRe
   }
   // shelf above build station with spice jars & containers
   {
-    const sx0 = -1.4;
-    const sx1 = 1.0;
+    const sx0 = -1.9;
+    const sx1 = 0.5;
     const sy = 1.95;
     b.box(sx1 - sx0, 0.03, 0.34, mats.steel, (sx0 + sx1) / 2, sy, ROOM.minZ + 0.17);
     for (const bx of [sx0 + 0.1, sx1 - 0.1]) b.box(0.03, 0.2, 0.3, mats.steel, bx, sy - 0.1, ROOM.minZ + 0.16);
@@ -374,11 +407,15 @@ export function buildKitchen(root: THREE.Object3D, mats: MaterialLib): KitchenRe
   }
   // heat lamp over warmer
   {
+    // hung high so it stays above the grill and build cameras
     const lx = WARMER.center.x;
-    b.box(0.72, 0.06, 0.26, mats.steel, lx, 1.78, WARMER.center.z - 0.02);
-    b.box(0.62, 0.015, 0.14, mats.emissive(0xff4a1c, 2.5, 'heatLamp'), lx, 1.748, WARMER.center.z - 0.02, { cast: false });
-    b.cyl(0.012, 0.012, 1.5, mats.chrome, lx - 0.3, 2.55, WARMER.center.z - 0.02, { seg: 8 });
-    b.cyl(0.012, 0.012, 1.5, mats.chrome, lx + 0.3, 2.55, WARMER.center.z - 0.02, { seg: 8 });
+    const lw = WARMER.width + 0.1;
+    const ly = 2.44;
+    b.box(0.3, 0.06, lw, mats.steel, lx, ly, WARMER.center.z);
+    b.box(0.18, 0.015, lw - 0.1, mats.emissive(0xff4a1c, 2.5, 'heatLamp'), lx, ly - 0.032, WARMER.center.z, { cast: false });
+    const rod = ROOM.height - ly;
+    b.cyl(0.012, 0.012, rod, mats.chrome, lx, ly + rod / 2, WARMER.center.z - lw / 2 + 0.05, { seg: 8 });
+    b.cyl(0.012, 0.012, rod, mats.chrome, lx, ly + rod / 2, WARMER.center.z + lw / 2 - 0.05, { seg: 8 });
   }
 
   // ------------------------------------------------------------ left wall: walk-in cooler + dry storage

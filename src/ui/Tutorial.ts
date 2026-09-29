@@ -9,7 +9,7 @@ export interface TutStep {
   /** where to point: a DOM selector, a 3D point or nothing */
   target?: string | (() => THREE.Vector3 | null);
   /** coach bubble placement */
-  at?: 'top' | 'center' | 'left' | 'right' | 'bottom';
+  at?: 'top' | 'center' | 'left' | 'right' | 'bottom' | 'corner';
   station?: string;
 }
 
@@ -17,11 +17,11 @@ export const STEPS: TutStep[] = [
   { id: 'welcome', text: "Welcome to Sizzle & Stack! Grandpa Gus just handed you the keys. Let's make someone's day — one burger at a time.", until: 'ok', at: 'center' },
   { id: 'order', text: 'A customer is at the counter! Click TAKE ORDER to hear what they want.', until: 'order-taken', target: '.take-order', at: 'left' },
   { id: 'to-grill', text: 'Their ticket is pinned on the rail. Now head to the GRILL.', until: 'at-grill', target: '[data-station="grill"]', at: 'bottom' },
-  { id: 'place', text: 'Drag a raw patty from the tray onto the grill. (Quick tip: a simple click on the tray works too!)', until: 'patty-placed', at: 'right' },
-  { id: 'flip', text: 'The gauge needle shows the side touching the grill. The ticket wants MEDIUM — when the needle reaches the orange zone, click the patty to flip it!', until: 'patty-flipped', at: 'right' },
-  { id: 'done', text: 'Cook the other side to orange too (the yellow dot is the top side). Then drag the patty onto the holding tray to the right.', until: 'patty-done', at: 'right' },
+  { id: 'place', text: 'Drag a raw patty from the tray onto the grill. (Quick tip: a simple click on the tray works too!)', until: 'patty-placed', at: 'corner' },
+  { id: 'flip', text: 'The gauge needle shows the side touching the grill. The ticket wants {DONENESS} — when the needle reaches the {zone} zone, click the patty to flip it!', until: 'patty-flipped', at: 'corner' },
+  { id: 'done', text: 'Cook the other side to {zone} too (the yellow dot is the top side). Then drag the patty onto the holding tray to the right.', until: 'patty-done', at: 'corner' },
   { id: 'to-build', text: 'Perfectly grilled! Now go to the BUILD station.', until: 'at-build', target: '[data-station="build"]', at: 'bottom' },
-  { id: 'build', text: 'Build from the bottom up, following the ticket on the right. Drag each ingredient onto the tray — drop it dead-center for full marks. The glowing bin is next!', until: 'burger-done', at: 'left' },
+  { id: 'build', text: 'Build from the bottom up, following the ticket on the right. Drag each ingredient onto the tray — drop it dead-center for full marks. The glowing bin is next!', until: 'burger-done', at: 'corner' },
   { id: 'to-serve', text: 'Order up! Head to the SERVE station.', until: 'at-serve', target: '[data-station="serve"]', at: 'bottom' },
   { id: 'serve', text: 'When your customer reaches the pickup window, click SERVE and watch their reaction!', until: 'served', target: '.serve-btn', at: 'left' },
   { id: 'finish', text: "That's the whole loop! Take orders, grill, build and serve until closing time. Juggle stations with keys 1–4. Good luck, chef!", until: 'ok', at: 'center' },
@@ -33,6 +33,8 @@ export class Tutorial {
   private arrow: HTMLElement;
   active = false;
   onDone?: () => void;
+  /** values for {placeholders} in step text (set by the game) */
+  vars: Record<string, string> = { DONENESS: 'MEDIUM', zone: 'orange' };
 
   constructor(
     private layer: HTMLElement,
@@ -68,9 +70,11 @@ export class Tutorial {
       return;
     }
     const s = STEPS[this.idx];
-    this.coach.className = 'coach';
+    this.coach.className = s.at === 'corner' ? 'coach corner' : 'coach';
+    this.coach.style.maxWidth = '';
     this.coach.innerHTML = '';
-    this.coach.append(h('div', { class: 'who' }, '👨‍🍳 Grandpa Gus'), h('div', {}, s.text));
+    const text = s.text.replace(/\{(\w+)\}/g, (_m, k: string) => this.vars[k] ?? k);
+    this.coach.append(h('div', { class: 'who' }, '👨‍🍳 Grandpa Gus'), h('div', {}, text));
     if (s.until === 'ok') {
       const b = h('button', { class: 'btn yellow small', style: { marginTop: '10px' } }, this.idx === STEPS.length - 1 ? "Let's go!" : 'Okay!');
       b.addEventListener('click', () => {
@@ -150,6 +154,17 @@ export class Tutorial {
         break;
       case 'center':
         y = H / 2 - ch / 2 - 40;
+        break;
+      case 'corner':
+        // bottom-left, beside the station bar and clear of the work surface
+        x = 16;
+        y = H - ch - 16;
+    }
+    // never cover the station bar at the bottom centre
+    const bar = document.querySelector('.station-bar') as HTMLElement | null;
+    if (bar && s.at === 'corner') {
+      const r = bar.getBoundingClientRect();
+      if (x + cw > r.left - 8) this.coach.style.maxWidth = `${Math.max(220, r.left - 8 - x)}px`;
     }
     this.coach.style.left = `${Math.max(12, x)}px`;
     this.coach.style.top = `${Math.max(90, y)}px`;

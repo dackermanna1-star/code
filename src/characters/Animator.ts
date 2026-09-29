@@ -251,6 +251,8 @@ export class Animator {
       case 'wave': {
         set('shoulderR', -0.3, 0, -2.5);
         set('elbowR', -0.5 + Math.sin(t * 10) * 0.45, 0, 0);
+        // twist the wrist so the palm faces whoever we're waving at
+        set('handR', 0, -1.25, Math.sin(t * 10 + 0.6) * 0.2);
         add('head', 0, 0, 0.08);
         break;
       }

@@ -531,9 +531,42 @@ export class FoodKit {
   private makeGroup(id: IngredientId, meshes: THREE.Object3D[], radius: number): FoodPiece {
     const obj = new THREE.Group();
     obj.name = id;
-    for (const m of meshes) obj.add(m);
+    // collapse sub-meshes that share a material into one draw call
+    const byMat = new Map<THREE.Material, THREE.Mesh[]>();
+    const owned: THREE.BufferGeometry[] = [];
+    for (const m of meshes) {
+      const mesh = m as THREE.Mesh;
+      if (mesh.isMesh && !Array.isArray(mesh.material) && m.children.length === 0) {
+        const list = byMat.get(mesh.material) ?? [];
+        list.push(mesh);
+        byMat.set(mesh.material, list);
+      } else obj.add(m);
+    }
+    for (const [mat, list] of byMat) {
+      if (list.length === 1) {
+        obj.add(list[0]);
+        continue;
+      }
+      // keep only the attributes every part has (mergeGeometries needs a common set)
+      const common = Object.keys(list[0].geometry.attributes).filter((k) => list.every((mesh) => k in mesh.geometry.attributes));
+      const geos = list.map((mesh) => {
+        mesh.updateMatrix();
+        const g = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone();
+        for (const k of Object.keys(g.attributes)) if (!common.includes(k)) g.deleteAttribute(k);
+        g.morphAttributes = {};
+        return g.applyMatrix4(mesh.matrix);
+      });
+      const merged = mergeGeometries(geos, false);
+      geos.forEach((g) => g.dispose());
+      if (!merged) {
+        list.forEach((mesh) => obj.add(mesh));
+        continue;
+      }
+      owned.push(merged);
+      obj.add(new THREE.Mesh(merged, mat));
+    }
     shadowAll(obj);
-    return { id, obj, thickness: INGREDIENTS[id].thickness, radius, dispose: () => {} };
+    return { id, obj, thickness: INGREDIENTS[id].thickness, radius, dispose: () => owned.forEach((g) => g.dispose()) };
   }
 
   topping(id: IngredientId): FoodPiece {
