@@ -205,6 +205,7 @@ export class UI {
         <div><span>Reload</span><span class="kbd">R</span></div>
         <div><span>Weapons</span><span><span class="kbd">1-4</span><span class="kbd">Wheel</span><span class="kbd">Q</span></span></div>
         <div><span>Grenade (hold to aim)</span><span class="kbd">G</span></div>
+        <div><span>Kick</span><span><span class="kbd">V</span><span class="kbd">MMB</span></span></div>
         <div><span>Build mode</span><span class="kbd">F</span></div>
         <div><span>Rotate structure</span><span><span class="kbd">Q</span><span class="kbd">E</span><span class="kbd">Wheel</span></span></div>
         <div><span>Pick up structure (prep)</span><span>hold <span class="kbd">E</span></span></div>

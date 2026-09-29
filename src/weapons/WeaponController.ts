@@ -4,6 +4,7 @@ import { bump, clamp, damp, easeInOutCubic, easeOutCubic, lerp, rand, ramp4, smo
 import { GRENADE, WEAPON_MAP, WeaponDef, statsFor } from './defs';
 import { buildGrenade, buildWeaponModel, WeaponModel } from './models';
 import { Viewmodel } from './Viewmodel';
+import { Kick } from './Kick';
 import { randomCone } from './Ballistics';
 import { C, mat } from './ModelBuilder';
 
@@ -75,8 +76,11 @@ export class WeaponController {
   moveMul = 1;
   private scopeHideT = 0;
 
+  readonly kick: Kick;
+
   constructor() {
     this.vm = new Viewmodel();
+    this.kick = new Kick(G.vmScene);
     const lg = new THREE.BufferGeometry();
     lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3 * 64), 3));
     this.arcLine = new THREE.Line(lg, new THREE.LineDashedMaterial({ color: 0xfff2a0, dashSize: 0.25, gapSize: 0.18, transparent: true, opacity: 0.85, depthTest: true }));
@@ -233,6 +237,7 @@ export class WeaponController {
       if (input.pressed('KeyQ')) this.switchTo(this.prevSlot);
       if (input.pressed('KeyR')) this.startReload();
       if (input.pressed('KeyG') && this.grenades > 0 && this.state !== 'reload') this.beginThrow();
+      if ((input.pressed('KeyV') || input.mousePress(1)) && !G.game?.uiBlocking) this.kick.tryStart();
     }
 
     // ---- state machine
@@ -275,6 +280,7 @@ export class WeaponController {
 
     // ---- animation
     this.animate(dt);
+    this.kick.update(dt, this.vm);
     const [mdx, mdy] = [G.input.mouseDX, G.input.mouseDY];
     this.vm.update(dt, mdx, mdy, pl.moving ? Math.min(1, Math.hypot(pl.vel.x, pl.vel.z) / 4.7) : 0, pl.sprinting && this.sprintBlock <= 0 && this.ads < 0.2, pl.onGround);
     void this.scopeHideT;

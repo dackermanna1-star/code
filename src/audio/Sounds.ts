@@ -605,6 +605,15 @@ reg('zombieAttack', 4, (v) => zombieAttack(v));
 reg('zombieHitStruct', 3, (v) => structHit('wood', v));
 reg('playerHurt', 4, (v) => playerHurt(v));
 reg('playerDeath', 1, () => playerDeath());
+// kick: cloth/leg whoosh, then a heavy boot-to-body thud
+reg('kickSwing', 2, () => normalize(biquad(env(pink(0.3), ad(0.06, 0.07)), 'bp', sweep(350, 1400, 0.16), 1.1), 0.5));
+reg('kickHit', 3, () => {
+  const o = buf(0.4);
+  mix(o, env(osc(0.25, sweep(95, 42, 0.09)), ad(0.001, 0.07)), 1.3);
+  mix(o, biquad(env(white(0.2), ad(0.001, 0.035)), 'lp', 900), 1.0);
+  mix(o, fleshHit(), 0.55, 0.004);
+  return normalize(drive(o, 2.2), 0.85);
+});
 reg('footstep', 5, (v) => footstep(v));
 reg('land', 1, () => bodyFall());
 for (const m of ['wood', 'metal', 'concrete', 'sand']) {

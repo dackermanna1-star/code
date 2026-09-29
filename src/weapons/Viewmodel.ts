@@ -106,7 +106,7 @@ function makeArm(side: 1 | -1): Arm {
 }
 
 /** Solve 2-bone IK; returns elbow position. */
-function solveIK(s: THREE.Vector3, t: THREE.Vector3, a: number, b: number, pole: THREE.Vector3, out: THREE.Vector3) {
+export function solveIK(s: THREE.Vector3, t: THREE.Vector3, a: number, b: number, pole: THREE.Vector3, out: THREE.Vector3) {
   const d = _v.subVectors(t, s);
   let len = d.length();
   const maxL = a + b - 0.001;
