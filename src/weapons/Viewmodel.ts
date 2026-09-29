@@ -10,6 +10,7 @@ const _v3 = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 const _m = new THREE.Matrix4();
 const _e = new THREE.Euler();
+const _white = new THREE.Color(1, 1, 1);
 /** Distance from the gripped handle to the wrist joint. */
 const WRIST = 0.08;
 
@@ -143,6 +144,7 @@ export class Viewmodel {
   private fill: THREE.PointLight;
   /** Soft camera-side key so the gun and hands always read, even against the sun. */
   private camKey: THREE.DirectionalLight;
+  private ambient: THREE.AmbientLight;
   model: WeaponModel | null = null;
   private armR = makeArm(1);
   private armL = makeArm(-1);
@@ -181,7 +183,10 @@ export class Viewmodel {
     this.fill = new THREE.PointLight(0xffc070, 0, 2, 1);
     this.fill.position.set(0.1, -0.05, -0.5);
     this.camKey = new THREE.DirectionalLight(0xffffff, 0.6);
-    this.camKey.position.set(-0.4, 0.5, 1);
+    // a gun held right of the eye and angled at the crosshair shows its left side
+    this.camKey.position.set(-0.6, 0.5, 0.9);
+    this.ambient = new THREE.AmbientLight(0xffffff, 0.5);
+    this.scene.add(this.ambient);
     this.scene.add(this.sun, this.sun.target, this.hemi, this.fill, this.camKey, this.camKey.target);
     for (const a of [this.armR, this.armL]) this.scene.add(a.upper, a.fore, a.hand);
     this.armL.hand.add(this.leftProp);
@@ -245,9 +250,12 @@ export class Viewmodel {
     this.hemi.position.set(0, 1, 0).applyQuaternion(inv);
     this.hemi.color.copy(s.hemiSky);
     this.hemi.groundColor.copy(s.hemiGround);
-    this.hemi.intensity = s.hemiIntensity * 1.1 + G.atmosphere.lightning * 3;
+    // the viewmodel gets its own, brighter light rig so dark guns keep their detail
+    this.hemi.intensity = s.hemiIntensity * 1.35 + G.atmosphere.lightning * 3;
     this.camKey.color.copy(s.hemiSky).lerp(s.sunColor, 0.5);
-    this.camKey.intensity = 0.35 + s.sunIntensity * 0.12;
+    this.camKey.intensity = 0.75 + s.sunIntensity * 0.18;
+    this.ambient.color.copy(s.hemiSky).lerp(_white, 0.5);
+    this.ambient.intensity = 0.35 + s.hemiIntensity * 0.25;
     this.fill.intensity = damp(this.fill.intensity, 0, 30, dt);
 
     // sway (lagging mouse)

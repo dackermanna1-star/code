@@ -204,7 +204,7 @@ html, body {
 #hud .gauge { width: 180px; height: 6px; margin: 6px 0 0 auto; background: rgba(0, 0, 0, 0.6); box-shadow: 0 0 0 2px #000; }
 #hud .gauge i { display: block; height: 100%; background: var(--cyan); }
 #hud .slots { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
-#hud .slot { width: 64px; height: 38px; background: rgba(0, 0, 0, 0.55); box-shadow: 0 0 0 2px #000; position: relative; opacity: 0.75; }
+#hud .slot { width: 54px; height: 30px; background: rgba(0, 0, 0, 0.45); box-shadow: 0 0 0 2px #000; position: relative; opacity: 0.55; }
 #hud .slot.on { opacity: 1; box-shadow: 0 0 0 2px #000, 0 0 0 4px var(--gold); background: rgba(40, 30, 10, 0.7); }
 #hud .slot img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
 #hud .slot span { position: absolute; top: 1px; left: 3px; font-family: var(--font-pixel); font-size: 10px; text-shadow: 1px 1px 0 #000; }
@@ -220,7 +220,8 @@ html, body {
 #hud .prompt { position: absolute; top: 60%; left: 50%; transform: translateX(-50%); font-family: var(--font-pixel); font-size: 14px; text-shadow: 2px 2px 0 #000; text-align: center; }
 #hud .prompt .pbar { width: 140px; height: 5px; background: #000; margin: 6px auto 0; }
 #hud .prompt .pbar i { display: block; height: 100%; background: var(--gold); }
-#hud .center-help { position: absolute; top: 18%; left: 50%; transform: translateX(-50%); text-align: center; font-family: var(--font-pixel); font-size: 15px; text-shadow: 2px 2px 0 #000; line-height: 1.8; }
+#hud .center-help { position: absolute; top: 18%; left: 50%; transform: translateX(-50%); text-align: center; font-family: var(--font-pixel); font-size: clamp(11px, 1.3vw, 15px); text-shadow: 2px 2px 0 #000; line-height: 1.8; transition: opacity 0.3s; width: max-content; max-width: 92vw; }
+#hud.banner-on .center-help { opacity: 0; }
 
 /* crosshair */
 #xh { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }

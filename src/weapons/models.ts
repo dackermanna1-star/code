@@ -314,7 +314,7 @@ const MODELS: Record<string, Builder> = {
     mb.box([0.05, 0.03, 0.18], [0.013, -0.012, -0.12], C.WOOD, brk); // fore-end
     frontSight(mb, -0.49, 0.02, 'break');
     brk.position.x = -0.013;
-    mb.box([0.05, 0.05, 0.1], [0, 0.02, -0.05], C.CHROME); // receiver
+    mb.box([0.05, 0.05, 0.1], [0, 0.02, -0.05], 0x7d8188); // case-hardened receiver
     triggerGuard(mb, 0.0, C.BLUED, 0.05);
     pistolGrip(mb, 0.04, C.WOOD, 40, 0.07, 0.034, 0.05);
     stockSolid(mb, 0.05, 0.3, C.WOOD, 0.07, 0.065);
@@ -1070,7 +1070,9 @@ export function buildWeaponModel(id: string, visual: string[] = []): WeaponModel
   const h = r.hip ?? [0.14, -0.14, -0.33];
   // push the weapon further from the eye for a less claustrophobic viewmodel
   const hip: V3 = [h[0] * 1.1, h[1] * 1.12, h[2] * 1.32];
-  return { mb, hip, hipRot: r.hipRot ?? [0, 0.1, -0.04], eye: (r.eye ?? 0.26) * 1.55, twoHand: r.twoHand ?? true };
+  // default hip angle turns the gun so its right side shows (bows stay upright)
+  const hipRot: V3 = r.hipRot ?? (id === 'bow' || id === 'rambo' || id === 'sunstrike' ? [0, 0.06, -0.02] : [0.03, 0.2, -0.07]);
+  return { mb, hip, hipRot, eye: (r.eye ?? 0.26) * 1.55, twoHand: r.twoHand ?? true };
 }
 
 export const MODEL_IDS = Object.keys(MODELS);

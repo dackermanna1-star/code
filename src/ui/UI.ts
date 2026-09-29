@@ -563,6 +563,7 @@ export class UI {
     this.refs.bannerBig.textContent = big;
     this.refs.bannerSub.textContent = sub;
     this.refs.banner.classList.add('show');
+    this.hudEl.classList.add('banner-on');
     this.bannerT = dur;
   }
 
@@ -722,7 +723,10 @@ export class UI {
     // banner
     if (this.bannerT > 0) {
       this.bannerT -= dt;
-      if (this.bannerT <= 0) this.refs.banner.classList.remove('show');
+      if (this.bannerT <= 0) {
+        this.refs.banner.classList.remove('show');
+        this.hudEl.classList.remove('banner-on');
+      }
     }
     // prompts
     let prompt = '';
