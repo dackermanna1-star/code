@@ -24,7 +24,8 @@ export interface ServeResult {
 export class ServeStation extends Station {
   readonly id = 'serve' as const;
   readonly shot = shot([2.2, 1.52, -2.3], [2.2, 1.22, 0.2], 46);
-  private closeShot = shot([1.72, 1.46, -1.95], [2.62, 1.3, -0.3], 40);
+  // customer framed in the left third; the rating panel slides in on the right
+  private closeShot = shot([2.3, 1.46, -1.95], [1.85, 1.3, -0.3], 40);
   private bell: THREE.Group;
   serving = false;
   onServed?: (r: ServeResult) => void;

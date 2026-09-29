@@ -83,6 +83,9 @@ export class Engine {
     this.renderer.setClearColor(0x16110e, 1);
     // count draw calls across every pass of a frame, not just the last one
     this.renderer.info.autoReset = false;
+    // shadow maps render once per frame (the first scene render), not again
+    // for every extra render call (icons, post passes)
+    this.renderer.shadowMap.autoUpdate = false;
 
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.05, 250);
     this.scene.add(this.camera);
@@ -152,6 +155,7 @@ export class Engine {
       if (this.paused && !u.always) continue;
       u.fn(u.always ? rawDt : dt, this.time);
     }
+    this.renderer.shadowMap.needsUpdate = true;
     this.post.render(rawDt);
     const info = this.renderer.info;
     this.stats.calls = info.render.calls;

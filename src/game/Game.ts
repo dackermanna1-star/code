@@ -334,11 +334,19 @@ export class Game implements UIHost {
     const rank = parseInt(params.get('rank') ?? '', 10);
     if (rank > 0) d.xp = pointsForRank(rank);
     this.resetDayState();
-    this.world.setHour(parseFloat(params.get('hour') ?? '13'), 0);
-    this.dayHour = this.world.hour;
+    // ?hour=19.5 jumps the clock (customers due earlier are skipped)
+    const hour = clamp(parseFloat(params.get('hour') ?? `${OPEN_HOUR}`), OPEN_HOUR, CLOSE_HOUR);
+    this.dayTime = ((hour - OPEN_HOUR) / (CLOSE_HOUR - OPEN_HOUR)) * this.dayLength;
+    for (const sc of this.schedule) if (sc.at < this.dayTime) sc.spawned = true;
+    this.world.setHour(hour, 0);
+    this.dayHour = hour;
+    // ?decor=all shows every purchasable decoration
+    if (params.get('decor') === 'all') this.decor.apply(DECOR.map((x) => x.id));
     this.state = 'day';
     this.station = id;
-    this.rig.go(this.stations[id].shot, 0);
+    // ?cam=px,py,pz,tx,ty,tz[,fov] parks the camera anywhere
+    const cam = params.get('cam')?.split(',').map(Number);
+    this.rig.go(cam && cam.length >= 6 ? shot([cam[0], cam[1], cam[2]], [cam[3], cam[4], cam[5]], cam[6] || 45) : this.stations[id].shot, 0);
     this.stations[id].enter();
     this.ui.setStation(id);
     this.ui.showHud(true);
@@ -721,6 +729,7 @@ export class Game implements UIHost {
   }
 
   private setupTutorialTargets() {
+    this.ui.tutorial.satisfied = (until) => until === `at-${this.station}` && !this.transitioning;
     const t = this.ui.tutorial.targets;
     t.place = () => this.stations.grill.trayPos('patty_beef');
     t.flip = () => null;

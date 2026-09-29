@@ -36,7 +36,22 @@ const r = await page.evaluate(() => {
   const top = Object.entries(groups).sort((a, b) => b[1].n - a[1].n).slice(0, 25);
   const lights = [];
   scene.traverse((o) => { if (o.isLight && o.castShadow && o.visible && o.intensity > 0) lights.push(o.type + ':' + (o.shadow.mapSize.x)); });
-  return { meshes, casters, instanced, materials: mats.size, tris: Math.round(tris), stats: g.engine.stats, lights, top };
+  return { meshes, casters, instanced, materials: mats.size, tris: Math.round(tris), lights, top };
 });
+// average renderer counters over a dozen frames (shadow maps update on a stagger)
+const frames = await page.evaluate(() => new Promise((resolve) => {
+  const out = [];
+  const tick = () => {
+    const st = window.__game.engine.stats;
+    out.push({ calls: st.calls, tris: st.triangles });
+    if (out.length < 12) requestAnimationFrame(tick);
+    else resolve(out);
+  };
+  requestAnimationFrame(tick);
+}));
+const avg = (k) => Math.round(frames.reduce((a, f) => a + f[k], 0) / frames.length);
+r.avgCalls = avg('calls');
+r.avgTris = avg('tris');
+r.maxCalls = Math.max(...frames.map((f) => f.calls));
 console.log(JSON.stringify(r, null, 1));
 await browser.close();

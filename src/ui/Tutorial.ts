@@ -33,6 +33,8 @@ export class Tutorial {
   private arrow: HTMLElement;
   active = false;
   onDone?: () => void;
+  /** reports goals that are already met, e.g. `at-serve` while at the serve station */
+  satisfied?: (until: string) => boolean;
   /** values for {placeholders} in step text (set by the game) */
   vars: Record<string, string> = { DONENESS: 'MEDIUM', zone: 'orange' };
 
@@ -64,6 +66,8 @@ export class Tutorial {
 
   private next() {
     this.idx++;
+    // skip steps whose goal the player has already reached
+    while (this.idx < STEPS.length && STEPS[this.idx].until !== 'ok' && this.satisfied?.(STEPS[this.idx].until)) this.idx++;
     if (this.idx >= STEPS.length) {
       this.stop();
       this.onDone?.();

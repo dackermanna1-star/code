@@ -103,7 +103,7 @@ await shot('in-warmer');
 await station('3');
 console.log('tutorial step:', await tut());
 await shot('build-start');
-const plate = { x: -0.28, y: 0.97, z: -5.48 };
+const plate = await g(() => { const p = window.__game.stations.build.stack.group.position; return { x: p.x, y: p.y, z: p.z }; });
 const seq = [order.bun, ...order.layers.map((l) => l.id), order.bun];
 for (const id of seq) {
   let from;
@@ -113,7 +113,7 @@ for (const id of seq) {
     from = await g((id) => { const p = window.__game.stations.build.sourcePos(id); return { x: p.x, y: p.y + 0.04, z: p.z }; }, id);
   }
   const top = await g(() => window.__game.stations.build.stack?.height ?? 0);
-  await drag(await scr(from), await scr({ x: plate.x, y: plate.y + top + 0.09, z: plate.z }), 6);
+  await drag(await scr(from), await scr({ x: plate.x, y: plate.y + top + 0.085, z: plate.z }), 6);
   await wait(id.startsWith('ketchup') || id.startsWith('mustard') || id.startsWith('mayo') ? 1500 : 800);
   console.log('placed', id, 'layers', await g(() => window.__game.stations.build.stack?.items.length ?? -1));
 }
@@ -127,10 +127,17 @@ await waitFor(() => !!document.querySelector('.serve-btn .btn'), 120000);
 await g(() => (window.__game.engine.timeScale = 1));
 await wait(1000);
 await shot('serve-button');
+console.log('tutorial step before serve:', await tut());
 await page.click('.serve-btn .btn', { force: true });
 await wait(6000);
 await shot('rating');
-await wait(6000);
+// dismiss the rating panel, then the tutorial's closing bubble
+await waitFor(() => !window.__game.stations.serve.serving, 120000);
+await wait(1500);
+console.log('tutorial step after serve:', await tut());
+const done = await page.$('.coach:not(.hidden) .btn');
+if (done) await done.click({ force: true });
+await wait(1000);
 console.log('money', await g(() => window.__game.progress.data.money));
 console.log('tutorial step:', await tut());
 await shot('after');

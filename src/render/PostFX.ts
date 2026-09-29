@@ -88,7 +88,7 @@ export class MotionBlurEffect extends Effect {
         vec2 vel = (uv - prevUv) * uStrength;
         float len = length(vel);
         if (len < 0.0008) { outputColor = inputColor; return; }
-        vel *= min(1.0, 0.045 / len);
+        vel *= min(1.0, 0.032 / len);
         // 9 taps centred on the pixel, jittered per pixel to hide banding
         float j = fract(sin(dot(uv, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
         vec4 acc = inputColor;
@@ -226,6 +226,10 @@ export class PostFX {
     this.ao.configuration.intensity = 2.2;
     this.ao.configuration.color = new THREE.Color(0x1a0f0a);
     this.ao.configuration.gammaCorrection = false;
+    // Transparency-aware mode (auto-enabled when any material is transparent)
+    // re-renders the whole scene twice more per frame; not worth it here.
+    (this.ao as unknown as { autoDetectTransparency: boolean }).autoDetectTransparency = false;
+    this.ao.configuration.transparencyAware = false;
     this.composer.addPass(this.ao);
 
     this.heat = new HeatHazeEffect();
@@ -319,8 +323,8 @@ export class PostFX {
     const speed = dt > 0 ? (turned / THREE.MathUtils.degToRad(cam.fov) + moved / 2.5) / dt : 0;
     const want = this.settings.motionBlur && this.motionAllowed && speed > 0.35;
     this.motionT = want ? 0.25 : Math.max(0, this.motionT - dt);
-    // shutter: blur covers ~1/90 s of motion regardless of frame rate
-    this.motion.intensity = dt > 0 ? clampNum((1 / 90) / dt, 0, 1) * (want ? 1 : this.motionT * 4) : 0;
+    // shutter: blur covers ~1/120 s of motion regardless of frame rate
+    this.motion.intensity = dt > 0 ? clampNum((1 / 120) / dt, 0, 1) * (want ? 1 : this.motionT * 4) : 0;
     this.motion.track();
     const on = this.motionT > 0;
     if (on !== this.motionPass.enabled) {

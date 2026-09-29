@@ -136,7 +136,8 @@ function plainColour(mat: THREE.Material): mat is THREE.MeshStandardMaterial {
   return (
     m.type === 'MeshStandardMaterial' &&
     !m.map && !m.normalMap && !m.roughnessMap && !m.metalnessMap && !m.aoMap && !m.emissiveMap && !m.alphaMap && !m.bumpMap &&
-    !m.transparent && m.opacity === 1 && !m.vertexColors && !m.flatShading &&
+    !m.transparent && m.opacity === 1 && !m.vertexColors && !m.flatShading && !m.wireframe && !m.alphaTest &&
+    !m.polygonOffset && m.depthWrite && m.depthTest && m.colorWrite && !m.clippingPlanes?.length &&
     m.emissive.getHex() === 0 && !m.userData.noBatch
   );
 }

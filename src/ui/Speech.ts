@@ -102,9 +102,11 @@ export class Speech {
       const s = this.project(b.c.bubbleAnchor(tmp));
       const w = b.el.offsetWidth;
       const hgt = b.el.offsetHeight;
-      b.el.style.translate = `${(s.x - 30).toFixed(1)}px ${(s.y - hgt - 14).toFixed(1)}px`;
+      // keep clear of the HUD strip at the top and inside the screen sides
+      const x = Math.min(Math.max(12, s.x - 30), window.innerWidth - w - 12);
+      const y = Math.max(96, s.y - hgt - 14);
+      b.el.style.translate = `${x.toFixed(1)}px ${y.toFixed(1)}px`;
       b.el.style.visibility = s.behind ? 'hidden' : 'visible';
-      void w;
     }
     for (const e of [...this.emotes]) {
       if (this.time > e.until) {

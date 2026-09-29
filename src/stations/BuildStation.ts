@@ -152,6 +152,21 @@ export class BuildStation extends Station {
     this.stack = new BurgerStack();
     this.stack.group.position.set(BUILD.plate.x, PLATE_Y, BUILD.plate.z);
     this.root.add(this.stack.group);
+    this.pendingBottom = this.pendingTop = false;
+    this.landChain = Promise.resolve();
+  }
+
+  // Pieces still falling onto the tray count as placed, so a quick player can
+  // grab the next ingredient immediately; landings are chained to keep order.
+  private pendingBottom = false;
+  private pendingTop = false;
+  private landChain: Promise<void> = Promise.resolve();
+
+  private get hasBottom(): boolean {
+    return !!this.stack && (this.stack.hasBottom || this.pendingBottom);
+  }
+  private get stackClosed(): boolean {
+    return !this.stack || this.stack.complete || this.pendingTop;
   }
 
   // ------------------------------------------------------------------ sources
@@ -378,11 +393,11 @@ export class BuildStation extends Station {
       this.ctx.audio.play('error');
       return;
     }
-    if (this.stack.complete) return;
+    if (this.stackClosed) return;
     let piece: FoodPiece;
     let kind: 'bottom' | 'top' | 'layer' = 'layer';
     if (src.kind === 'bun') {
-      kind = this.stack.hasBottom ? 'top' : 'bottom';
+      kind = this.hasBottom ? 'top' : 'bottom';
       piece = this.ctx.food.bunPart(src.id as BunId, kind === 'top' ? 'top' : 'bottom');
     } else if (src.kind === 'sauce') {
       return this.dragSauce(src, ray);
@@ -390,7 +405,7 @@ export class BuildStation extends Station {
       piece = this.ctx.food.make(src.id);
       if (piece.setMelt) piece.setMelt(0, 0.07);
     }
-    if (!this.stack.hasBottom && kind !== 'bottom') {
+    if (!this.hasBottom && kind !== 'bottom') {
       this.ctx.ui.toastWorld('Start with a bottom bun!', this.plateCenter().setY(1.2), 'bad');
       this.ctx.audio.play('error');
       piece.dispose();
@@ -407,12 +422,12 @@ export class BuildStation extends Station {
       this.ctx.ui.toastWorld('No ticket to build!', this.plateCenter().setY(1.2), 'bad');
       return;
     }
-    if (!this.stack.hasBottom) {
+    if (!this.hasBottom) {
       this.ctx.ui.toastWorld('Start with a bottom bun!', this.plateCenter().setY(1.2), 'bad');
       this.ctx.audio.play('error');
       return;
     }
-    if (this.stack.complete) return;
+    if (this.stackClosed) return;
     const wp = this.ctx.warmer.take(slot);
     if (!wp) return;
     const piece = wp.piece;
@@ -510,6 +525,8 @@ export class BuildStation extends Station {
       dx = clamp(dx, -0.05, 0.05);
       dz = clamp(dz, -0.05, 0.05);
     }
+    if (kind === 'bottom') this.pendingBottom = true;
+    if (kind === 'top') this.pendingTop = true;
     const startY = piece.obj.position.y;
     const localTarget = stack.topY() + (isPatty(piece.id) ? 0.0105 : 0);
     const worldTarget = PLATE_Y + localTarget;
@@ -519,20 +536,25 @@ export class BuildStation extends Station {
     const rotX0 = piece.obj.rotation.x;
     const rotZ0 = piece.obj.rotation.z;
     const flipped = Math.abs(rotX0) > 1.5 ? Math.PI : 0;
-    this.ctx.engine.tweens
-      .run(dur, (e) => {
-        piece.obj.position.set(from.x + (this.plateCenter().x + dx - from.x) * Math.min(1, e * 1.4), from.y + (worldTarget - from.y) * e, from.z + (this.plateCenter().z + dz - from.z) * Math.min(1, e * 1.4));
-        piece.obj.rotation.x = flipped + (rotX0 - flipped) * (1 - e);
-        piece.obj.rotation.z = rotZ0 * (1 - e);
-      }, { ease: Ease.inQuad })
-      .done.then(() => {
-        piece.obj.rotation.x = flipped;
-        piece.obj.rotation.z = 0;
-        const item = stack.land(piece, dx, dz, kind, clamp(fall / 0.1, 0.4, 1.3));
-        void item;
-        this.landFeedback(piece, dx, dz, kind);
-        if (kind === 'top') this.complete();
-      });
+    const fell = this.ctx.engine.tweens.run(dur, (e) => {
+      piece.obj.position.set(from.x + (this.plateCenter().x + dx - from.x) * Math.min(1, e * 1.4), from.y + (worldTarget - from.y) * e, from.z + (this.plateCenter().z + dz - from.z) * Math.min(1, e * 1.4));
+      piece.obj.rotation.x = flipped + (rotX0 - flipped) * (1 - e);
+      piece.obj.rotation.z = rotZ0 * (1 - e);
+    }, { ease: Ease.inQuad }).done;
+    this.landChain = Promise.all([fell, this.landChain]).then(() => {
+      if (this.stack !== stack) {
+        // the burger was trashed while this piece was falling
+        piece.obj.removeFromParent();
+        piece.dispose();
+        return;
+      }
+      piece.obj.rotation.x = flipped;
+      piece.obj.rotation.z = 0;
+      stack.land(piece, dx, dz, kind, clamp(fall / 0.1, 0.4, 1.3));
+      if (kind === 'bottom') this.pendingBottom = false;
+      this.landFeedback(piece, dx, dz, kind);
+      if (kind === 'top') this.complete();
+    }).catch((err) => console.error('landing failed', err)); // never break the chain
   }
 
   private landFeedback(piece: FoodPiece, dx: number, dz: number, kind: 'bottom' | 'top' | 'layer') {
@@ -610,7 +632,7 @@ export class BuildStation extends Station {
   // ------------------------------------------------------------------ sauces
   private dragSauce(src: Source, ray: THREE.Ray): DragHandler | void {
     const stack = this.stack!;
-    if (!stack.hasBottom) {
+    if (!this.hasBottom) {
       this.ctx.ui.toastWorld('Start with a bottom bun!', this.plateCenter().setY(1.2), 'bad');
       this.ctx.audio.play('error');
       return;
@@ -656,7 +678,7 @@ export class BuildStation extends Station {
           dz = rand(-0.006, 0.006);
         }
         this.marker.visible = false;
-        if (stack.complete || Math.hypot(dx, dz) > 0.11) {
+        if (this.stackClosed || Math.hypot(dx, dz) > 0.11) {
           updater();
           goHome();
           return;
@@ -665,12 +687,13 @@ export class BuildStation extends Station {
         // move bottle over the drop point then squeeze
         const over = new THREE.Vector3(c.x + dx, PLATE_Y + stack.height + 0.23, c.z + dz);
         this.ctx.engine.tweens.to(bottle.position, { x: over.x, y: over.y, z: over.z }, 0.12);
-        this.ctx.engine.tweens.to(bottle.rotation, { x: Math.PI, z: 0 }, 0.12).done.then(() => {
-          this.squirt(src.id as SauceId, bottle, dx, dz).then(() => {
+        this.ctx.engine.tweens.to(bottle.rotation, { x: Math.PI, z: 0 }, 0.12).done
+          .then(() => this.landChain) // anything still falling lands first
+          .then(() => (this.stack === stack ? this.squirt(src.id as SauceId, bottle, dx, dz) : undefined))
+          .then(() => {
             updater();
             goHome();
           });
-        });
       },
       cancel: () => {
         updater();
@@ -852,17 +875,18 @@ export class BuildStation extends Station {
   /** Bot helpers for automated tests. */
   botAdd(id: IngredientId, doneness?: string): boolean {
     if (this.completing) return false;
-    if (!this.stack || this.stack.complete) return false;
+    if (this.stackClosed) return false;
     const c = this.plateCenter();
     if (INGREDIENTS[id].category === 'sauce') {
       const src = this.sources.find((s) => s.id === id)!;
-      this.squirt(id as SauceId, src.group, 0.002, -0.002);
+      const stack = this.stack;
+      this.landChain.then(() => (this.stack === stack ? this.squirt(id as SauceId, src.group, 0.002, -0.002) : undefined));
       return true;
     }
     let piece: FoodPiece;
     let kind: 'bottom' | 'top' | 'layer' = 'layer';
     if (INGREDIENTS[id].category === 'bun') {
-      kind = this.stack.hasBottom ? 'top' : 'bottom';
+      kind = this.hasBottom ? 'top' : 'bottom';
       piece = this.ctx.food.bunPart(id as BunId, kind === 'top' ? 'top' : 'bottom');
     } else if (isPatty(id)) {
       const w = this.ctx.warmer;

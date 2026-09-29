@@ -22,6 +22,8 @@ await wait(3000);
 await g(() => { window.__game.progress.data.tutorialDone = true; });
 await page.click('.title-btns .btn.yellow');
 await wait(8000);
+const mem = () => g(() => { const r = window.__game.engine.renderer; return { geo: r.info.memory.geometries, tex: r.info.memory.textures, prog: r.info.programs?.length ?? 0, heapMB: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : -1 }; });
+console.log('memory at day start', JSON.stringify(await mem()));
 await g(() => window.__game.startBot(1));
 await g(() => (window.__game.engine.timeScale = 4));
 for (let d = 0; d < days; d++) {
@@ -36,6 +38,7 @@ for (let d = 0; d < days; d++) {
   await wait(5000);
   await shot(`day${d + 1}-summary`);
   console.log('money', await g(() => window.__game.progress.data.money), 'xp', await g(() => window.__game.progress.data.xp), 'rank', await g(() => window.__game.progress.rank));
+  console.log('memory at day end', JSON.stringify(await mem()));
   // shop
   const shopBtn = await page.$('.btn.teal');
   if (shopBtn) { await shopBtn.click(); await wait(1500); await shot(`day${d + 1}-shop`);
