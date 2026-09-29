@@ -34,9 +34,11 @@ Click the game to capture the mouse. If the page is embedded somewhere that bloc
 1. **Prepare.** Place the defenses you own (`F`).
 2. **Fight.** Press `Enter` to start the wave. Money comes *only* from kills. Special zombies pay more (walker < runner < fatty < riot < brute < abomination).
 3. **Survive every wave of the day.** Days 1–10 have 3 waves, days 11–20 have 4, days 21–30 have 5, and so on up to 10.
-4. **Shop.** The shop opens only when the day is over (or after you die): buy weapons, upgrades, defenses and grenades, and set your loadout for the next day.
+4. **Shop.** The shop opens only when the day is over: buy weapons, upgrades, defenses, grenades and a medkit, and set your loadout for the next day.
 
-The road fades into a fog wall about 50 m out (closer in bad weather), and the horde walks out of it. There is no repair: a broken barricade is gone. Structures still standing at the end of the day go back into your inventory with their current damage. Your health and ammo refill at the start of each wave.
+The road fades into a fog wall about 50 m out (closer in bad weather), and the horde walks out of it. There is no repair: a broken barricade is gone. Structures still standing at the end of the day go back into your inventory with their current damage. Ammo refills at the start of each wave, but health never refills on its own: buy a medkit in the shop to start the next day with +50 health.
+
+**Death is permanent.** When you die the run is wiped: money, weapons, defenses and days are gone, and you start over on Day 1 with the starting gear. Only your lifetime records (best day, total kills) are kept.
 
 You start with an M686 revolver, a Super Shorty shotgun, one grenade and one wooden barrier. The shop has 49 weapons across 12 categories: pistols, shotguns, SMGs, assault rifles, machine guns, marksman rifles, snipers, launchers, bows, energy weapons, flamethrowers and particle weapons. Several weapons have upgrade paths, and turret-capable weapons can be mounted on turrets.
 

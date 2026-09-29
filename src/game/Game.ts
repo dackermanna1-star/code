@@ -21,12 +21,12 @@ import { WEAPONS, WEAPON_MAP } from '../weapons/defs';
 import { Structures } from '../defenses/Structures';
 import { Placement } from '../defenses/Placement';
 import { DEFENSES } from '../defenses/defs';
-import { Progress, wavesForDay } from './Progress';
+import { MEDKIT, Progress, wavesForDay } from './Progress';
 import { Waves, rewardScale } from './Waves';
 import { AirStrike } from './AirStrike';
 import { UI, DaySummary } from '../ui/UI';
 import { P } from '../zombies/skeleton';
-import { rand } from '../core/math';
+import { clamp, rand } from '../core/math';
 
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
 
@@ -161,6 +161,7 @@ export class Game {
       G.waves.onKill();
       G.waves.dayMoney += reward;
       G.progress.data.stats.kills++;
+      G.progress.data.runKills = (G.progress.data.runKills ?? 0) + 1;
       if (head) {
         G.progress.data.stats.headshots++;
         G.waves.dayHeadshots++;
@@ -271,6 +272,16 @@ export class Game {
     this.dayStartMoney = G.progress.data.money;
     G.player.despawn();
     G.player.spawn();
+    // health carries over between days; a medkit bought last night patches you up
+    const pd = G.progress.data;
+    let medkitUsed = false;
+    if (pd.medkit) {
+      pd.hp = Math.min(G.player.maxHp, (pd.hp ?? G.player.maxHp) + MEDKIT.heal);
+      pd.medkit = false;
+      medkitUsed = true;
+      G.progress.save(true);
+    }
+    G.player.hp = clamp(pd.hp ?? G.player.maxHp, 1, G.player.maxHp);
     G.atmosphere.setDay(day);
     G.waves.startDay(day);
     this.refreshLoadout();
@@ -279,6 +290,7 @@ export class Game {
     G.weapons.strength = G.progress.strength;
     G.ui.showHud(true);
     G.ui.banner(`DAY ${day}`, `${G.atmosphere.state.label} · ${wavesForDay(day)} waves`, 3);
+    if (medkitUsed) G.ui.toast(`Medkit used: +${MEDKIT.heal} health`, 4);
     G.audio?.setAmbience?.('play');
     G.audio?.play('dayStart', {});
     G.input.requestLock();
@@ -342,6 +354,8 @@ export class Game {
       waves: W.total,
       unlocks: [],
       nextWaves: wavesForDay(W.day + 1),
+      hp: Math.max(0, Math.round(G.player.hp)),
+      runKills: G.progress.data.runKills ?? 0,
     };
   }
 
@@ -349,7 +363,7 @@ export class Game {
     const W = G.waves;
     const ui = G.ui as UI;
     if (p === 'wave') {
-      G.player.hp = G.player.maxHp;
+      // ammo is restocked each wave; health is not
       G.weapons.refillAll();
       ui.banner(`WAVE ${W.wave}`, W.wave === W.total ? 'FINAL WAVE' : `${W.waveSize} zombies incoming`, 2.2);
       G.audio?.play('waveStart', {});
@@ -369,6 +383,7 @@ export class Game {
       for (const w of WEAPONS) for (const L of w.levels ?? []) if (L.unlockDay > oldDay && L.unlockDay <= d.day) sum.unlocks.push(`Upgrade: ${L.name}`);
       for (const def of DEFENSES) if (def.unlockDay > oldDay && def.unlockDay <= d.day) sum.unlocks.push(`${def.name} (defense)`);
       this.packStructures();
+      d.hp = Math.max(1, Math.round(G.player.hp));
       G.progress.save(true);
       G.audio?.play('dayComplete', {});
       setTimeout(() => {
@@ -473,8 +488,8 @@ export class Game {
       this.deathT += dt;
       if (this.deathT > 2.2 && !G.ui.overlayOpen) {
         const sum = this.summary();
-        this.packStructures();
-        G.progress.save(true);
+        // permadeath: money, weapons, defenses and days are gone
+        G.progress.resetRun();
         G.input.exitLock();
         G.ui.showDeath(sum);
       }

@@ -1053,6 +1053,17 @@ export function buildGrenade(): ModelBuilder {
   return mb;
 }
 
+/** First-aid kit (shop icon). */
+export function buildMedkit(): ModelBuilder {
+  const mb = new ModelBuilder();
+  mb.box([0.16, 0.1, 0.06], [0, 0, 0], 0xc8201c);
+  mb.box([0.165, 0.012, 0.064], [0, 0.03, 0], 0x8e1210);
+  mb.box([0.05, 0.02, 0.03], [0, 0.058, 0], 0x2a2a2a); // handle
+  mb.box([0.05, 0.016, 0.004], [0, -0.01, 0.031], 0xf2f2f2, undefined, undefined, 0x222222);
+  mb.box([0.016, 0.05, 0.004], [0, -0.01, 0.031], 0xf2f2f2, undefined, undefined, 0x222222);
+  return mb;
+}
+
 export function buildWeaponModel(id: string, visual: string[] = []): WeaponModel {
   const mb = new ModelBuilder();
   const b = MODELS[id] ?? MODELS.glock17;

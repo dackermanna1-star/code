@@ -4,7 +4,7 @@ import { clamp, formatMoney } from '../core/math';
 import { CATEGORIES, GRENADE, WEAPONS, WEAPON_MAP, WeaponDef, statsFor } from '../weapons/defs';
 import { DEFENSES, DEFENSE_MAP, DefenseDef, turretCost } from '../defenses/defs';
 import { Icons } from './Icons';
-import { wavesForDay } from '../game/Progress';
+import { MEDKIT, wavesForDay } from '../game/Progress';
 
 const _pv = new THREE.Vector3();
 
@@ -29,6 +29,8 @@ export interface DaySummary {
   waves: number;
   unlocks: string[];
   nextWaves: number;
+  hp?: number;
+  runKills?: number;
 }
 
 export class UI {
@@ -153,6 +155,10 @@ export class UI {
   // ------------------------------------------------------------------ overlays
   private overlay(html: string, cls = '', onClick?: (a: string, e: MouseEvent) => void) {
     this.closeOverlay();
+    // panels replace any day/wave banner still on screen
+    this.refs.banner?.classList.remove('show');
+    this.hudEl.classList.remove('banner-on');
+    this.bannerT = 0;
     const o = el('div', 'overlay', `<div class="panel ${cls}">${html}</div>`);
     o.addEventListener('click', (e) => {
       const a = (e.target as HTMLElement).closest('[data-a]') as HTMLElement | null;
@@ -208,7 +214,7 @@ export class UI {
         <div><span>Pause</span><span class="kbd">Esc</span></div>
       </div>
       <div class="help-note">Every dollar comes from killing zombies. Survive all waves of a day to unlock the next —
-      days 1–10 have 3 waves, 11–20 have 4, and so on up to 10. The shop opens when a day ends (or after you die): buy guns, barricades and traps there, then place them with F between waves.
+      days 1–10 have 3 waves, 11–20 have 4, and so on up to 10. The shop opens when a day ends: buy guns, barricades, traps and medkits there, then place defenses with F between waves. Health never refills on its own, and death wipes the whole run back to Day 1.
       Destroyed defenses are gone for good: there is no repair, so place them wisely.</div>
       <div style="margin-top:16px;text-align:right"><button class="btn primary" data-a="back">Back</button></div>`,
       '',
@@ -264,7 +270,10 @@ export class UI {
           <div><span>Headshots</span><b>${sum.headshots}</b></div>
           <div><span>Money earned</span><b>${formatMoney(sum.money)}</b></div>
           <div><span>Total money</span><b>${formatMoney(sum.total)}</b></div>
+          <div><span>Health</span><b class="${(sum.hp ?? 100) < 50 ? 'low' : ''}">${sum.hp ?? 100} / 100</b></div>
+          <div><span>Kills this run</span><b>${sum.runKills ?? sum.kills}</b></div>
         </div>
+        ${(sum.hp ?? 100) < 100 ? `<div class="help-note" style="margin:0 auto 10px">Health does not refill. Buy a medkit in the shop (Equipment) to start tomorrow with +${MEDKIT.heal}.</div>` : ''}
         <div class="unlocks"><h4>DAY ${sum.day + 1}: ${sum.nextWaves} WAVES${sum.nextWaves > sum.waves ? ' (+1 wave!)' : ''}</h4>
           ${sum.unlocks.length ? `<h4 style="margin-top:8px">NEW IN THE SHOP</h4>${sum.unlocks.map((u) => `<div>• ${esc(u)}</div>`).join('')}` : '<div>The horde grows stronger…</div>'}
         </div>
@@ -290,17 +299,16 @@ export class UI {
         <div class="stats">
           <div><span>Zombies killed</span><b>${sum.kills}</b></div>
           <div><span>Headshots</span><b>${sum.headshots}</b></div>
-          <div><span>Money earned (kept)</span><b>${formatMoney(sum.money)}</b></div>
-          <div><span>Total money</span><b>${formatMoney(sum.total)}</b></div>
+          <div><span>Money earned</span><b>${formatMoney(sum.money)}</b></div>
+          <div><span>Days survived</span><b>${sum.day - 1}</b></div>
         </div>
-        <div class="help-note" style="margin:0 auto 14px">Your money, weapons and unplaced defenses are kept. Spend them and try again.</div>
-        <div class="actions"><button class="btn" data-a="shop">Shop</button><button class="btn primary" data-a="retry">Retry Day ${sum.day}</button><button class="btn" data-a="menu">Main Menu</button></div>
+        <div class="help-note" style="margin:0 auto 14px">The road took everything: money, weapons and defenses are gone. You start over on Day 1 with a revolver, a shotgun, one grenade and one barrier. Best day so far: ${G.progress.data.stats.bestDay}.</div>
+        <div class="actions"><button class="btn primary" data-a="retry">Start Over — Day 1</button><button class="btn" data-a="menu">Main Menu</button></div>
       </div>`,
       'summary',
       (a) => {
-        if (a === 'retry') G.game.startDay(G.progress.data.day);
+        if (a === 'retry') G.game.startDay(1);
         else if (a === 'menu') G.game.quitToMenu(true);
-        else if (a === 'shop') this.openShop(true);
       },
     );
     this.overlayOpen = 'dead';
@@ -395,17 +403,19 @@ export class UI {
     } else if (a === 'buygren') {
       ok = P.buyGrenade();
       if (ok) G.weapons.grenades = P.data.grenades;
+    } else if (a === 'buymed') {
+      ok = P.buyMedkit();
     } else if (a === 'close') {
       this.closeShop();
       return;
     }
-    if (a === 'buy' || a === 'upgrade' || a === 'buydef' || a === 'buygren') G.audio?.play(ok ? 'buy' : 'uiError', {});
+    if (a === 'buy' || a === 'upgrade' || a === 'buydef' || a === 'buygren' || a === 'buymed') G.audio?.play(ok ? 'buy' : 'uiError', {});
     this.renderShop();
   }
 
   private itemsFor(cat: string): string[] {
     if (cat === 'defense') return DEFENSES.slice().sort((a, b) => a.unlockDay - b.unlockDay || a.cost - b.cost).map((d) => d.id);
-    if (cat === 'equipment') return ['grenade'];
+    if (cat === 'equipment') return ['grenade', 'medkit'];
     return WEAPONS.filter((w) => w.category === cat).sort((a, b) => a.unlockDay - b.unlockDay || a.cost - b.cost).map((w) => w.id);
   }
 
@@ -433,6 +443,10 @@ export class UI {
             ${locked ? `<div class="tag lock">DAY ${def.unlockDay}</div>` : cnt ? `<div class="tag own">x${cnt}</div>` : ''}
             <img src="${this.defenseIcon(id)}" alt=""><div class="nm">${esc(def.name)}</div>
             <div class="pr ${d.money >= def.cost ? 'can' : 'cant'}">${price}</div></div>`;
+        }
+        if (this.shopCat === 'equipment' && id === 'medkit') {
+          return `<div class="item${this.shopSel === id ? ' on' : ''}" data-a="sel" data-v="medkit">${d.medkit ? '<div class="tag own">READY</div>' : ''}
+            <img src="${this.icons.get('m:medkit')}" alt=""><div class="nm">${MEDKIT.name}</div><div class="pr ${d.money >= MEDKIT.cost ? 'can' : 'cant'}">${formatMoney(MEDKIT.cost)}</div></div>`;
         }
         if (this.shopCat === 'equipment') {
           return `<div class="item${this.shopSel === id ? ' on' : ''}" data-a="sel" data-v="grenade"><div class="tag own">x${d.grenades}</div>
@@ -469,6 +483,14 @@ export class UI {
     const P = G.progress;
     const d = P.data;
     const id = this.shopSel;
+    if (this.shopCat === 'equipment' && id === 'medkit') {
+      const full = d.hp >= 100;
+      return `<img src="${this.icons.get('m:medkit')}"><h3>${MEDKIT.name}</h3>
+        <div class="desc">Patches you up at the start of the next day: +${MEDKIT.heal} health. Health never refills on its own, and you can only carry one.</div>
+        ${this.statRow('Health now', d.hp, 100, `${d.hp} / 100`)}
+        <div class="special">${d.medkit ? 'Bought: it will be used when the next day starts.' : full ? 'You are at full health.' : `Tomorrow you would start with ${Math.min(100, d.hp + MEDKIT.heal)} health.`}</div>
+        <div class="acts"><button class="btn gold" data-a="buymed" ${d.medkit || full || d.money < MEDKIT.cost ? 'disabled' : ''}>${d.medkit ? 'Ready for tomorrow' : `Buy — ${formatMoney(MEDKIT.cost)}`}</button></div>`;
+    }
     if (this.shopCat === 'equipment') {
       return `<img src="${this.icons.get('g:grenade')}"><h3>${GRENADE.name}</h3>
         <div class="desc">Pull the pin, hold <span class="kbd">G</span> to aim the arc, release to throw. Huge blast, launches bodies. Carry up to ${GRENADE.max}.</div>

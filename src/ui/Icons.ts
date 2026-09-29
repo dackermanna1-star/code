@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { G } from '../core/G';
-import { buildWeaponModel, buildGrenade } from '../weapons/models';
+import { buildWeaponModel, buildGrenade, buildMedkit } from '../weapons/models';
 import { ModelBuilder } from '../weapons/ModelBuilder';
 import { DEFENSE_MAP } from '../defenses/defs';
 
@@ -77,6 +77,7 @@ export class Icons {
       return { obj: m.mb.root, view: 'side' };
     }
     if (kind === 'g') return { obj: buildGrenade().root, view: 'side' };
+    if (kind === 'm') return { obj: buildMedkit().root, view: 'front' };
     const def = DEFENSE_MAP[id];
     const mb = new ModelBuilder();
     def.build(mb);

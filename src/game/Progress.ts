@@ -34,7 +34,15 @@ export interface SaveData {
   stats: Stats;
   settings: Settings;
   seenIntro: boolean;
+  /** Health carried into the next day (no free healing). */
+  hp: number;
+  /** A medkit bought in the shop, used at the start of the next day. */
+  medkit: boolean;
+  /** Kills since the last death (lifetime count lives in stats). */
+  runKills: number;
 }
+
+export const MEDKIT = { id: 'medkit', name: 'Medkit', cost: 200, heal: 50 };
 
 const KEY = 'bloodroad.save.v1';
 
@@ -64,6 +72,9 @@ function fresh(): SaveData {
     stats: { kills: 0, headshots: 0, daysSurvived: 0, moneyEarned: 0, deaths: 0, bestDay: 1 },
     settings: { ...DEFAULT_SETTINGS },
     seenIntro: false,
+    hp: 100,
+    medkit: false,
+    runKills: 0,
   };
 }
 
@@ -119,6 +130,25 @@ export class Progress {
     }
     clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(write, 400);
+  }
+
+  /** Permadeath: the run is wiped back to Day 1; lifetime records and settings stay. */
+  resetRun() {
+    const { settings, stats, seenIntro } = this.data;
+    this.data = fresh();
+    this.data.settings = settings;
+    this.data.stats = stats;
+    this.data.seenIntro = seenIntro;
+    this.save(true);
+    this.onChange?.();
+  }
+
+  buyMedkit() {
+    if (this.data.medkit || this.data.hp >= 100) return false;
+    if (!this.spend(MEDKIT.cost)) return false;
+    this.data.medkit = true;
+    this.changed();
+    return true;
   }
 
   reset() {
@@ -240,6 +270,7 @@ export class Progress {
 
   /** Strength grows with experience; scales bow damage. */
   get strength() {
-    return 1 + Math.min(3, (this.data.bestDay - 1) * 0.035 + this.data.stats.kills * 0.00004);
+    // earned within the current run: permadeath takes it away too
+    return 1 + Math.min(3, (this.data.day - 1) * 0.035 + (this.data.runKills ?? 0) * 0.00004);
   }
 }

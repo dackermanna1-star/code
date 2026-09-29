@@ -311,3 +311,4 @@ html, body {
 }
 
 .btn.danger { background: #7a0d12; color: #fff; box-shadow: 0 0 0 2px #000, 0 0 0 4px #e0342f; }
+.summary .stats b.low { color: var(--red); }
