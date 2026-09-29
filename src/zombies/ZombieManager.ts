@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { G } from '../core/G';
 import { GROUPS, RAPIER } from '../physics/Physics';
-import { angleLerp, chance, clamp, rand, raySphere, wrapAngle } from '../core/math';
+import { angleLerp, chance, clamp, rand, rayOBB, raySphere, wrapAngle } from '../core/math';
 import { qRot } from '../core/qmath';
 import { ARENA } from '../world/config';
 import { woundKindFor } from '../fx/Wounds';
@@ -44,6 +44,8 @@ export interface ZombieHit {
   t: number;
   z: Zombie;
   part: number;
+  /** The round meets the zombie's riot shield first. */
+  shield?: boolean;
 }
 
 const PART_MUL = [1, 1, 2.5, 0.65, 0.6, 0.65, 0.6, 0.75, 0.7, 0.75, 0.7];
@@ -454,6 +456,14 @@ export class ZombieManager {
           bestPart = p;
         }
       }
+      // a riot shield in the way takes the round first
+      if (z.shieldHp > 0) {
+        const st = this.rayShield(z, ox, oy, oz, dx, dy, dz, maxT);
+        if (st >= 0 && st < best) {
+          out.push({ t: st, z, part: bestPart >= 0 ? bestPart : P.Torso, shield: true });
+          continue;
+        }
+      }
       if (bestPart >= 0) out.push({ t: best, z, part: bestPart });
     }
   }
@@ -631,6 +641,7 @@ export class ZombieManager {
     const r = this.ragdolls.spawn(z.type, z.skin, z.fx, z.partPos, z.partQuat, z.partScale, mask, (p, out) => this.partVel(z, p, out));
     r.zombie = z;
     r.wounds = z.wounds;
+    r.accHidden = z.accHidden;
     z.ragdoll = r;
     if (h) this.applyHitImpulse(r, h, impulseScale);
   }
@@ -682,6 +693,61 @@ export class ZombieManager {
     if (r.has(P.Pelvis)) this.ragdolls.applyImpulse(r, P.Pelvis, ix * 0.25, iy * 0.2, iz * 0.25);
   }
 
+  private shieldIndex(z: Zombie) {
+    return z.type.accessories?.findIndex((a) => a.acc === 'shield') ?? -1;
+  }
+
+  /** Shield-local ray test: returns hit distance or -1. */
+  rayShield(z: Zombie, ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxT: number) {
+    if (z.shieldHp <= 0) return -1;
+    const pos = z.state === 'down' && z.ragdoll ? z.ragdoll.partPos : z.partPos;
+    const quat = z.state === 'down' && z.ragdoll ? z.ragdoll.partQuat : z.partQuat;
+    const i = P.Torso;
+    const qx = quat[i * 4], qy = quat[i * 4 + 1], qz = quat[i * 4 + 2], qw = quat[i * 4 + 3];
+    const x2 = qx + qx, y2 = qy + qy, z2 = qz + qz;
+    const xx = qx * x2, xy = qx * y2, xz = qx * z2, yy = qy * y2, yz = qy * z2, zz = qz * z2, wx = qw * x2, wy = qw * y2, wz = qw * z2;
+    const r00 = 1 - (yy + zz), r10 = xy + wz, r20 = xz - wy;
+    const r01 = xy - wz, r11 = 1 - (xx + zz), r21 = yz + wx;
+    const r02 = xz + wy, r12 = yz - wx, r22 = 1 - (xx + yy);
+    const px = pos[i * 3], py = pos[i * 3 + 1], pz = pos[i * 3 + 2];
+    const m = this._sm;
+    m[0] = r00; m[1] = r01; m[2] = r02;
+    m[4] = r10; m[5] = r11; m[6] = r12;
+    m[8] = r20; m[9] = r21; m[10] = r22;
+    m[12] = -(r00 * px + r10 * py + r20 * pz);
+    m[13] = -(r01 * px + r11 * py + r21 * pz);
+    m[14] = -(r02 * px + r12 * py + r22 * pz);
+    const sc = z.scale;
+    return rayOBB(ox, oy, oz, dx, dy, dz, m, 0, 0.33 * sc, 0.54 * sc, 0.045 * sc, -0.05 * sc, 0.16 * sc, 0.36 * sc, maxT);
+  }
+  private _sm = new Float32Array(16);
+
+  /** A round struck the shield. Returns penetration left after it (<= 0: stopped). */
+  hitShield(z: Zombie, dmg: number, pen: number, x: number, y: number, zz: number, dx: number, dz: number) {
+    const sh = z.type.shield!;
+    z.shieldHp -= dmg * (pen >= sh.armor ? 0.6 : 1.4);
+    G.fx?.sparks(x, y, zz, -dx, 0.2, -dz, pen >= sh.armor ? 6 : 12);
+    G.audio?.play('hitArmor', { x, y, z: zz, volume: 0.9, pitch: 0.8 });
+    z.kickSpring(S.TorsoPitch, 1.5);
+    if (z.shieldHp <= 0) this.dropShield(z, dx * 3, dz * 3);
+    return pen - sh.armor;
+  }
+
+  /** Shield breaks off / falls away as a physical piece. */
+  dropShield(z: Zombie, vx: number, vz: number) {
+    const k = this.shieldIndex(z);
+    z.shieldHp = 0;
+    if (k < 0 || z.accHidden & (1 << k)) return;
+    z.accHidden |= 1 << k;
+    const i = P.Torso;
+    const x = z.partPos[i * 3], y = z.partPos[i * 3 + 1] + 0.15, zz = z.partPos[i * 3 + 2];
+    const fwx = Math.sin(z.yaw), fwz = Math.cos(z.yaw);
+    G.fx?.splinters?.spawn(x + fwx * 0.35, y, zz + fwz * 0.35, vx + fwx, rand(1, 2.5), vz + fwz, 0.6, 1.0, 0.05, 0x6d8090);
+    G.fx?.sparks(x + fwx * 0.35, y, zz + fwz * 0.35, fwx, 0.5, fwz, 14);
+    G.audio?.play('structBreak_metal', { x, y, z: zz, volume: 0.8 });
+    if (z.armPose === 4) z.armPose = 0; // now it reaches for you
+  }
+
   /** Pins a wound decal where a projectile struck (entry, or exit when it passes through). */
   addWound(z: Zombie, h: HitInfo, dmg: number, exit = false) {
     if (!G.wounds) return;
@@ -714,6 +780,8 @@ export class ZombieManager {
       r = this.ragdolls.spawn(z.type, z.skin, z.fx, z.partPos, z.partQuat, z.partScale, mask, (p, out) => this.partVel(z, p, out));
     }
     r.wounds = z.wounds;
+    if (z.shieldHp > 0) this.dropShield(z, h.dx * 2, h.dz * 2);
+    r.accHidden = z.accHidden;
     z.deathRagdoll = r;
     if (z.burning > 0) r.fireT = Math.max(r.fireT, 3 + Math.random() * 3);
     // gore
@@ -870,9 +938,9 @@ export class ZombieManager {
       if (!z.alive) continue;
       if (z.state === 'down' && z.ragdoll) {
         const r: Ragdoll = z.ragdoll;
-        pushBody(rend, z.type, z.skin, z.fx, r.partPos, r.partQuat, r.partScale, r.mask);
+        pushBody(rend, z.type, z.skin, z.fx, r.partPos, r.partQuat, r.partScale, r.mask, z.accHidden);
       } else {
-        pushBody(rend, z.type, z.skin, z.fx, z.partPos, z.partQuat, z.partScale, ALL_PARTS & ~z.missing);
+        pushBody(rend, z.type, z.skin, z.fx, z.partPos, z.partQuat, z.partScale, ALL_PARTS & ~z.missing, z.accHidden);
       }
     }
   }

@@ -94,6 +94,17 @@ export class Ballistics {
       if (h.zh) {
         const z = h.zh.z;
         if (!z.alive) continue;
+        if (h.zh.shield) {
+          // riot shield: only high-penetration rounds punch through, and lose a lot doing it
+          const left = G.zombies.hitShield(z, p.damage * dmgMul * fall, budget, hx, hy, hz, dx, dz);
+          if (left <= 0) {
+            endT = h.t;
+            stopped = true;
+            break;
+          }
+          budget = left;
+          dmgMul *= 0.6;
+        }
         const pf = G.zombies.partFactor(z, h.zh.part, p.kind, budget, p.headMul, p.eliteMul);
         const dmg = p.damage * dmgMul * fall * pf.mul;
         const stop = p.stopping * dmgMul * fall;

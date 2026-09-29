@@ -51,6 +51,8 @@ export class Ragdoll {
   /** Corpse this ragdoll froze into (for attached props). */
   corpse: Corpse | null = null;
   wounds: Wound[] = [];
+  /** Accessories no longer carried (dropped shield...). */
+  accHidden = 0;
   constructor(readonly type: ZombieType, readonly skin: number) {
     this.fx = { blood: 0, flash: 0, burn: 0, eyes: 0, fire: 0 };
   }
@@ -90,6 +92,7 @@ export interface Corpse {
   burnT: number;
   /** Ragdoll this corpse was woken into (for attached props). */
   woke?: Ragdoll | null;
+  accHidden: number;
 }
 
 /** Seconds after death when a grounded ragdoll turns into static scenery. */
@@ -399,11 +402,11 @@ export class RagdollSystem {
     this.destroy(r);
     if (r.zombie) return;
     if (r.mask === 0) return;
-    r.corpse = this.addCorpse(r.type, r.skin, r.fx, r.partPos, r.partQuat, r.partScale, r.mask, r.fireT > 0 ? r.fireT : 0);
+    r.corpse = this.addCorpse(r.type, r.skin, r.fx, r.partPos, r.partQuat, r.partScale, r.mask, r.fireT > 0 ? r.fireT : 0, r.accHidden);
     if (r.wounds.length) G.wounds?.bake(r.wounds, r.partPos, r.partQuat, r.mask);
   }
 
-  addCorpse(type: ZombieType, skin: number, fx: FxState, partPos: Float32Array, partQuat: Float32Array, partScale: Float32Array, mask: number, burnT = 0) {
+  addCorpse(type: ZombieType, skin: number, fx: FxState, partPos: Float32Array, partQuat: Float32Array, partScale: Float32Array, mask: number, burnT = 0, accHidden = 0) {
     if (this.corpses.length >= this.maxCorpses) this.removeCorpse(this.corpses[0]);
     const c: Corpse = {
       id: this.cid++,
@@ -422,6 +425,7 @@ export class RagdollSystem {
       cell: 0,
       alive: true,
       burnT,
+      accHidden,
     };
     // position (pelvis or any part)
     let anchor = P.Pelvis;
@@ -456,7 +460,7 @@ export class RagdollSystem {
     const acc = c.type.accessories;
     if (acc) {
       acc.forEach((a, k) => {
-        if (!(c.mask & (1 << a.part))) return;
+        if (!(c.mask & (1 << a.part)) || c.accHidden & (1 << k)) return;
         const batch = this.renderer.statAcc[a.acc];
         const key = PART_COUNT + k;
         const slot = batch.alloc(c, key);
@@ -649,7 +653,7 @@ export class RagdollSystem {
   render(renderer: BodyRenderer) {
     for (const r of this.active) {
       if (r.zombie) continue; // knocked-down zombies render through the zombie path
-      pushBody(renderer, r.type, r.skin, r.fx, r.partPos, r.partQuat, r.partScale, r.mask);
+      pushBody(renderer, r.type, r.skin, r.fx, r.partPos, r.partQuat, r.partScale, r.mask, r.accHidden);
     }
   }
 
@@ -687,7 +691,7 @@ export class RagdollSystem {
 }
 
 /** Writes a posed body into the dynamic batches. */
-export function pushBody(renderer: BodyRenderer, type: ZombieType, skin: number, fx: FxState, partPos: Float32Array, partQuat: Float32Array, partScale: Float32Array, mask: number) {
+export function pushBody(renderer: BodyRenderer, type: ZombieType, skin: number, fx: FxState, partPos: Float32Array, partQuat: Float32Array, partScale: Float32Array, mask: number, accHidden = 0) {
   const bi = bodyIndex(type.body);
   for (let i = 0; i < PART_COUNT; i++) {
     if (!(mask & (1 << i))) continue;
@@ -699,8 +703,9 @@ export function pushBody(renderer: BodyRenderer, type: ZombieType, skin: number,
   }
   const acc = type.accessories;
   if (acc) {
-    for (const a of acc) {
-      if (!(mask & (1 << a.part))) continue;
+    for (let k = 0; k < acc.length; k++) {
+      const a = acc[k];
+      if (!(mask & (1 << a.part)) || accHidden & (1 << k)) continue;
       const batch = renderer.dynAcc[a.acc];
       if (batch.count >= batch.capacity) continue;
       const slot = batch.count++;

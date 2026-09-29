@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { PixelCanvas, RGB, toTexture } from '../render/textures';
-import { mulberry32 } from '../core/math';
+import { hash2, mulberry32 } from '../core/math';
 import { BodyDef, DOG, HUMAN, PT, SKIN_H, SKIN_W } from './skeleton';
 
 export const ATLAS_COLS = 8;
@@ -19,6 +19,7 @@ export const SKINS = {
   dog: [96, 102] as [number, number],
   boss: [102, 104] as [number, number],
   crawler: [104, 112] as [number, number],
+  military: [112, 120] as [number, number],
 };
 
 type Face = 'top' | 'bottom' | 'right' | 'front' | 'left' | 'back';
@@ -145,6 +146,14 @@ interface HumanStyle {
   ribs: boolean;
   bloat: boolean;
   veins: boolean;
+  /** Woodland camo palette for shirt and pants (military). */
+  camo?: RGB[];
+}
+
+/** Blotchy 4-colour camo, deterministic per texel. */
+function camoAt(pal: RGB[], x: number, y: number, salt: number): RGB {
+  const v = hash2(Math.floor((x + salt * 3) / 2) + salt * 17, Math.floor((y + salt) / 3) + salt * 31);
+  return v < 0.38 ? pal[0] : v < 0.66 ? pal[1] : v < 0.86 ? pal[2] : pal[3];
 }
 
 function paintHuman(p: Painter, s: HumanStyle) {
@@ -197,6 +206,7 @@ function paintHuman(p: Painter, s: HumanStyle) {
 
   // ---- torso
   const shirtColor = (f: Face, x: number, y: number, fx: number): RGB => {
+    if (s.camo) return noisy(camoAt(s.camo, x, y, f.length), r, 5);
     let c = s.shirt;
     switch (s.shirtStyle) {
       case 'stripes':
@@ -248,7 +258,7 @@ function paintHuman(p: Painter, s: HumanStyle) {
   // ---- pelvis (pants + belt)
   paintBox(p, PT.Pelvis, 0, ALL, (f, x, y) => {
     if (f === 'top') return shade(s.shirt, 0.9);
-    let c = noisy(s.pants, r, 8);
+    let c = s.camo ? noisy(camoAt(s.camo, x, y, 7), r, 5) : noisy(s.pants, r, 8);
     if (y === 0 && f !== 'bottom') c = [44, 32, 24];
     if (y === 0 && f === 'front' && (x === 5 || x === 6)) c = [180, 170, 130];
     return c;
@@ -278,12 +288,12 @@ function paintHuman(p: Painter, s: HumanStyle) {
   // ---- legs
   for (const side of [0, 1]) {
     paintBox(p, PT.ULeg, side, ALL, (f, x, y) => {
-      let c = noisy(shade(s.pants, f === 'back' ? 0.9 : 1), r, 9);
+      let c = s.camo ? noisy(camoAt(s.camo, x, y, 11 + side), r, 5) : noisy(shade(s.pants, f === 'back' ? 0.9 : 1), r, 9);
       if (r() < 0.03) c = shade(c, 1.3);
       return c;
     });
     paintBox(p, PT.LLeg, side, ALL, (f, x, y) => {
-      let c = noisy(shade(s.pants, f === 'back' ? 0.9 : 1), r, 9);
+      let c = s.camo ? noisy(camoAt(s.camo, x, y, 13 + side), r, 5) : noisy(shade(s.pants, f === 'back' ? 0.9 : 1), r, 9);
       if (y >= 12) c = noisy(s.shoes, r, 8);
       if (r() < 0.04) c = skin(f, x, y); // torn
       return c;
@@ -451,6 +461,16 @@ export function buildSkinAtlas(): SkinAtlas {
       style.bloat = true;
       style.blood = 0.3;
       style.eye = [255, 180, 60];
+    } else if (inRange('military')) {
+      style.camo = [[86, 96, 60], [60, 68, 44], [112, 102, 74], [38, 36, 30]];
+      style.shirt = [70, 78, 50];
+      style.shirtStyle = 'uniform';
+      style.sleeves = 'long';
+      style.pants = [66, 72, 48];
+      style.shoes = [34, 28, 22];
+      style.hairStyle = pickc(['short', 'bald', 'short'] as const, rnd);
+      style.blood = 0.35 + rnd() * 0.45;
+      style.skin = pickc([[150, 176, 132], [130, 160, 120], [164, 180, 140]] as RGB[], rnd);
     } else if (inRange('boss')) {
       style.skin = [96, 104, 92];
       style.shirtStyle = 'none';

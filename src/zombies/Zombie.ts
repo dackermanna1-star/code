@@ -35,6 +35,10 @@ export class Zombie {
   hardy = false;
   /** Bullet wounds in part-local frames (shared with its ragdoll/corpse). */
   wounds: Wound[] = [];
+  /** Riot shield integrity (0 = none/broken). */
+  shieldHp = 0;
+  /** Bitmask of type.accessories indices no longer carried. */
+  accHidden = 0;
   x = 0;
   y = 0;
   z = 0;
@@ -118,6 +122,10 @@ export class Zombie {
     this.skin = type.skins[0] + Math.floor(Math.random() * (type.skins[1] - type.skins[0]));
     const r = Math.random();
     this.armPose = r < 0.45 ? 0 : r < 0.7 ? 1 : r < 0.9 ? 2 : 3;
+    if (type.shield) {
+      this.shieldHp = type.shield.hp;
+      this.armPose = 4; // holds the shield up in front
+    }
     this.hunch = 0.1 + Math.random() * 0.3;
     this.headTilt = (Math.random() - 0.5) * 0.7;
     if (Math.random() < 0.3) {
@@ -293,7 +301,13 @@ export function animateZombie(z: Zombie, dt: number, time: number) {
       const reachR = z.armPose === 0;
       const w1 = Math.sin(ph * 0.5 + 0.3) * 0.1;
       const w2 = Math.sin(ph * 0.5 + 1.9) * 0.1;
-      if (z.armPose === 3) {
+      if (z.armPose === 4) {
+        // left arm braces the riot shield, right arm hangs ready
+        setL(P.UArmL, -0.7 + Math.sin(ph) * 0.03, 0.25, 0.25);
+        setL(P.LArmL, -1.35, 0, 0);
+        setL(P.UArmR, -s * 0.3 * moveAmt - 0.1, 0, -0.12);
+        setL(P.LArmR, -0.5, 0, 0);
+      } else if (z.armPose === 3) {
         setL(P.UArmL, -1.9 + Math.sin(time * 5 + z.id) * 0.4, 0, 0.4);
         setL(P.LArmL, -0.9 + Math.sin(time * 6 + z.id) * 0.4, 0, 0);
         setL(P.UArmR, -1.9 + Math.sin(time * 5.3 + z.id + 1) * 0.4, 0, -0.4);

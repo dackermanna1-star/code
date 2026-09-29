@@ -72,7 +72,7 @@ function partGeometry(def: PartDef, side: number) {
 }
 
 /** Accessory meshes (armor etc.) attached to a part. */
-export const ACCESSORIES = ['helmet', 'vest', 'plate'] as const;
+export const ACCESSORIES = ['helmet', 'vest', 'plate', 'shield', 'camoHelmet', 'carrier'] as const;
 export type AccessoryId = (typeof ACCESSORIES)[number];
 
 function accessoryGeometry(id: AccessoryId) {
@@ -86,6 +86,26 @@ function accessoryGeometry(id: AccessoryId) {
     parts.push({ size: [0.16, 0.08, 0.02], pos: [-0.1, 0.36, 0.14], color: 0x3c4352 });
     parts.push({ size: [0.16, 0.08, 0.02], pos: [0.1, 0.36, 0.14], color: 0x3c4352 });
     parts.push({ size: [0.3, 0.06, 0.02], pos: [0, 0.22, 0.14], color: 0xd8d8d8 });
+  } else if (id === 'shield') {
+    // riot shield carried in front of the chest (torso frame, +Z forward)
+    parts.push({ size: [0.62, 1.04, 0.05], pos: [-0.05, 0.16, 0.36], color: 0x6d8090 });
+    parts.push({ size: [0.66, 0.05, 0.07], pos: [-0.05, 0.69, 0.36], color: 0x1b1d22 });
+    parts.push({ size: [0.66, 0.05, 0.07], pos: [-0.05, -0.37, 0.36], color: 0x1b1d22 });
+    parts.push({ size: [0.05, 1.08, 0.07], pos: [-0.37, 0.16, 0.36], color: 0x1b1d22 });
+    parts.push({ size: [0.05, 1.08, 0.07], pos: [0.27, 0.16, 0.36], color: 0x1b1d22 });
+    parts.push({ size: [0.5, 0.09, 0.02], pos: [-0.05, 0.36, 0.39], color: 0xe6e6e6 });
+    parts.push({ size: [0.36, 0.04, 0.021], pos: [-0.05, 0.36, 0.395], color: 0x1d3a8a });
+    parts.push({ size: [0.12, 0.2, 0.12], pos: [-0.05, 0.18, 0.29], color: 0x202024 }); // grip
+  } else if (id === 'camoHelmet') {
+    parts.push({ size: [0.36, 0.18, 0.37], pos: [0, 0.24, -0.005], color: 0x4f5a36 });
+    parts.push({ size: [0.39, 0.05, 0.4], pos: [0, 0.15, 0], color: 0x3e4729 });
+    parts.push({ size: [0.08, 0.05, 0.03], pos: [0, 0.3, 0.19], color: 0x1a1a1a }); // NVG mount
+  } else if (id === 'carrier') {
+    parts.push({ size: [0.46, 0.4, 0.29], pos: [0, 0.29, 0], color: 0x59603f });
+    parts.push({ size: [0.12, 0.12, 0.04], pos: [-0.13, 0.2, 0.155], color: 0x474d31 });
+    parts.push({ size: [0.12, 0.12, 0.04], pos: [0, 0.2, 0.155], color: 0x474d31 });
+    parts.push({ size: [0.12, 0.12, 0.04], pos: [0.13, 0.2, 0.155], color: 0x474d31 });
+    parts.push({ size: [0.2, 0.08, 0.03], pos: [0.08, 0.4, 0.155], color: 0x3a3f28 });
   } else {
     parts.push({ size: [0.2, 0.08, 0.2], pos: [0, 0.02, 0], color: 0x4a4a4e });
     parts.push({ size: [0.04, 0.1, 0.04], pos: [0.03, 0.1, 0.02], color: 0xb0b0b0 });

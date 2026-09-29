@@ -36,6 +36,8 @@ export interface ZombieType {
   /** First day this type can appear. */
   firstDay: number;
   groan: 'normal' | 'runner' | 'brute' | 'dog' | 'bloat' | 'boss';
+  /** Riot shield carried in front: soaks `armor` penetration and breaks after `hp` damage. */
+  shield?: { hp: number; armor: number };
   eyeColor?: number;
 }
 
@@ -84,6 +86,19 @@ export const ZTYPES: Record<string, ZombieType> = {
     id: 'crawler', name: 'Crawler', body: HUMAN, hp: 9, speed: [1.15, 1.7], scale: [0.95, 1.02], damage: 9, attackTime: 1.0, attackRange: 0.9,
     structDamage: 5, reward: 12, armor: 0, armorParts: [], toughness: 35, knockResist: 0.1, mass: 45, skins: SKINS.crawler, smart: false,
     gait: 'crawl', firstDay: 5, groan: 'normal',
+  },
+  shield: {
+    id: 'shield', name: 'Riot Shield', body: HUMAN, hp: 34, speed: [1.5, 1.95], scale: [1.0, 1.07], damage: 16, attackTime: 1.05, attackRange: 1.05,
+    structDamage: 12, reward: 55, armor: 120, armorParts: [P.Head, P.Torso, P.Pelvis], toughness: 170, knockResist: 0.55, mass: 105,
+    skins: SKINS.armored, accessories: [{ acc: 'helmet', part: P.Head }, { acc: 'vest', part: P.Torso }, { acc: 'shield', part: P.Torso }],
+    shield: { hp: 420, armor: 220 }, smart: false, gait: 'shamble', firstDay: 16, groan: 'normal',
+  },
+  military: {
+    id: 'military', name: 'Soldier', body: HUMAN, hp: 36, speed: [4.3, 5.4], scale: [0.98, 1.06], damage: 16, attackTime: 0.8, attackRange: 1.0,
+    structDamage: 14, reward: 70, armor: 150, armorParts: [P.Head, P.Torso, P.Pelvis, P.UArmL, P.UArmR, P.ULegL, P.ULegR], toughness: 200,
+    knockResist: 0.35, mass: 95, skins: SKINS.military,
+    accessories: [{ acc: 'camoHelmet', part: P.Head }, { acc: 'carrier', part: P.Torso }, { acc: 'plate', part: P.UArmL }, { acc: 'plate', part: P.UArmR }],
+    smart: true, gait: 'run', firstDay: 22, groan: 'runner',
   },
   boss: {
     id: 'boss', name: 'Abomination', body: HUMAN, hp: 2600, speed: [1.8, 2.0], scale: [2.15, 2.25],

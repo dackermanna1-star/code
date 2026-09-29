@@ -5,11 +5,12 @@ import { wavesForDay } from './Progress';
 
 export type Phase = 'menu' | 'prep' | 'wave' | 'dayEnd' | 'dead';
 
+// gentle early, steep after day 20: late days need real weapons and defenses
 export function hpScale(day: number) {
-  return 1 + 0.022 * (day - 1);
+  return 1 + 0.022 * (day - 1) + 0.0009 * Math.max(0, day - 20) ** 2;
 }
 export function dmgScale(day: number) {
-  return 1 + 0.012 * (day - 1);
+  return 1 + 0.012 * (day - 1) + 0.0004 * Math.max(0, day - 20) ** 2;
 }
 export function rewardScale(day: number) {
   return 1 + 0.012 * (day - 1);
@@ -20,7 +21,7 @@ export function waveComposition(day: number, wave: number, total: number, seed =
   const rnd = mulberry32(day * 1009 + wave * 31 + seed);
   const base = 9 + 1.5 * (day - 1) + 0.012 * (day - 1) ** 2;
   let count = Math.round(base * (1 + 0.38 * (wave - 1)) * (wave === total ? 1.25 : 1));
-  const weights: [string, number][] = [['walker', 100]];
+  const weights: [string, number][] = [['walker', Math.max(30, 100 - (day - 1) * 2)]];
   const late = (wave - 1) / Math.max(1, total - 1);
   if (day >= 2) weights.push(['runner', Math.min(30, 8 + day * 0.6) * (0.7 + late * 0.6)]);
   if (day >= 3) weights.push(['tough', Math.min(18, 5 + day * 0.3)]);
@@ -28,6 +29,8 @@ export function waveComposition(day: number, wave: number, total: number, seed =
   if (day >= 5) weights.push(['crawler', 6]);
   if (day >= 6) weights.push(['armored', Math.min(22, 4 + day * 0.35) * (0.6 + late * 0.8)]);
   if (day >= 8) weights.push(['exploder', Math.min(12, 3 + day * 0.2)]);
+  if (day >= 16) weights.push(['shield', Math.min(16, 3 + (day - 16) * 0.8)]);
+  if (day >= 22) weights.push(['military', Math.min(34, 4 + (day - 22) * 1.6) * (0.6 + late * 0.8)]);
   const out: string[] = [];
   // day 1 teaches the basics
   if (day === 1) {
