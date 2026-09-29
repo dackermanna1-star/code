@@ -309,3 +309,5 @@ html, body {
   #hud .money { font-size: 36px; }
   #hud .ammo { font-size: 44px; }
 }
+
+.btn.danger { background: #7a0d12; color: #fff; box-shadow: 0 0 0 2px #000, 0 0 0 4px #e0342f; }

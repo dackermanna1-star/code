@@ -124,7 +124,19 @@ export class UI {
       const act = a.dataset.a;
       if (act === 'continue') G.game.startDay(G.progress.data.day);
       else if (act === 'new') {
-        if (has && !confirm('Start over from Day 1? Your progress, weapons and money will be lost.')) return;
+        // two-step confirm in the page itself (embedded frames block confirm())
+        if (has && a.dataset.armed !== '1') {
+          a.dataset.armed = '1';
+          a.textContent = 'Click again to erase your save';
+          a.classList.add('danger');
+          setTimeout(() => {
+            if (!a.isConnected) return;
+            a.dataset.armed = '';
+            a.textContent = 'New Game';
+            a.classList.remove('danger');
+          }, 3500);
+          return;
+        }
         G.progress.reset();
         G.game.startDay(1);
       } else if (act === 'help') this.showHelp();
