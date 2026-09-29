@@ -492,9 +492,11 @@ export class Survivor {
     const w = this.inv?.secondary;
     const on = !!(w && w.def.chainsaw && this.slot === 1 && !this.dead && !this.incapped && !this.usingMounted && w.fuel > 0);
     const g = this.game;
+    if (this._saw && this._sawLive && this._saw.playing === false) { this._saw = null; this._sawCut = null; } // audio was reset (level load)
     if (on && !this._saw) {
       g.audio.play('chainsawStart', { pos: this.pos, owner: this, vol: 0.9 });
       this._saw = g.audio.loop('chainsawIdle', { pos: this.isHuman ? null : this.pos, vol: this.isHuman ? 0.55 : 0.8 });
+      this._sawLive = this._saw.playing !== false; // (a muted engine hands out a dead dummy)
       this._sawCut = null;
     } else if (!on && this._saw) this.stopSaw();
     if (this._saw) {

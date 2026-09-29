@@ -4,15 +4,15 @@ export default async ({ page, evalg, wait }) => {
   await page.goto('http://localhost:5187/?campaign=deadair&autostart=0', { timeout: 180000 });
   for (let i = 0; i < 150; i++) { await wait(1000); const st = await evalg(() => window.session?.state); if (i % 5 === 0) console.log('DBG boot', i, st); if (st === 'playing') break; }
   console.log('DBG booted');
-  await evalg((nr) => {
+  await evalg(([nr, kind]) => {
     const g = window.game; g.director.enabled = false; g.paused = true; g.noRender = nr;
     const nav = g.level.nav;
     for (const [i, s] of g.survivors.entries()) { const k = nav.nearestNode(96 - i, 0, 52 + i, 3); s.teleport(nav.nodeX(k), nav.nodeY[k] + 0.02, nav.nodeZ(k), 0); }
     const k = nav.nearestNode(110, 0, 58, 4);
     console.log('DBG teleported', k);
-    window.__ch = g.director.spawnSpecial('charger', { node: k }); window.__ch.chargeCd = 0;
+    window.__ch = g.director.spawnSpecial(kind, { node: k }); window.__ch.chargeCd = 0;
     console.log('DBG spawned', window.__ch.pos.x);
-  }, !!process.env.NR);
+  }, [!!process.env.NR, process.env.KIND || 'charger']);
   for (let c = 0; c < 300; c++) {
     const r = await evalg(() => {
       const g = window.game, ch = window.__ch;

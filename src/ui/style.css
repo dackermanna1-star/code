@@ -111,6 +111,12 @@ canvas#game { display: block; position: fixed; inset: 0; width: 100vw; height: 1
 .heat { display: block; align-self: center; width: calc(130px * var(--k)); height: max(3px, calc(4px * var(--k))); background: rgba(255,255,255,.15); border-radius: 99px; overflow: hidden; }
 .heat i { display: block; height: 100%; transform-origin: 0 50%; background: linear-gradient(90deg, var(--acc), #ff6a3a); transition: transform .15s; }
 .heat.over i { background: var(--bad); animation: blink .3s infinite alternate; }
+.heat.fuel { width: calc(90px * var(--k)); }
+.heat.fuel i { background: linear-gradient(90deg, #c8a040, #ffd060); }
+.wammo em.upg { padding: 0 calc(4px * var(--k)); border-radius: 3px; letter-spacing: .12em; }
+.wammo em.upg.inc { color: #ff8c42; background: rgba(255,120,40,.12); }
+.wammo em.upg.exp { color: #b6e36a; background: rgba(150,220,80,.1); }
+.wammo em.upg.las { color: #ff5a4a; }
 .wclip { margin-top: calc(7px * var(--k)); }
 .pips { display: flex; gap: max(2px, calc(3px * var(--k))); }
 .pips i { width: max(3px, calc(5px * var(--k))); height: max(2px, calc(3px * var(--k))); border-radius: 1px; background: rgba(255,255,255,.2); transition: background-color .15s; }

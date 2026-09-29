@@ -428,7 +428,10 @@ export class HUD {
     let ammo = '', clip = '', state = '', name = '';
     if (w) {
       name = w.name;
-      if (w.def.melee) ammo = '';
+      if (w.def.chainsaw) { // fuel gauge
+        const f = clamp01(w.fuel / w.def.fuel);
+        ammo = `<b class="${f <= 0.2 ? 'low' : ''}">${Math.ceil(f * 100)}</b><span class="heat fuel${f <= 0.2 ? ' over' : ''}"><i style="transform:scaleX(${f.toFixed(3)})"></i></span><em>Fuel</em>`;
+      } else if (w.def.melee) ammo = '';
       else if (p.usingMounted) {
         const m = p.usingMounted;
         ammo = `<span class="heat${m.overheated > 0 ? ' over' : ''}"><i style="transform:scaleX(${clamp01(m.heat).toFixed(3)})"></i></span><em>${m.overheated > 0 ? 'Overheated' : 'Heat'}</em>`;
@@ -446,6 +449,9 @@ export class HUD {
         } else clip = `<div class="cbar"><i style="transform:scaleX(${clamp01(w.clip / mc).toFixed(3)})"></i></div>`;
         if (w.reloading) state = 'reloading';
         else if (w.clip === 0) state = 'empty';
+        // special rounds loaded from an upgrade crate, laser sight fitted
+        if (w.upgrade) ammo += `<em class="upg ${w.upgrade.type === 'incendiary' ? 'inc' : 'exp'}">${w.upgrade.type === 'incendiary' ? 'Incendiary' : 'Explosive'} ${w.upgrade.rounds}</em>`;
+        if (w.laser) ammo += '<em class="upg las">Laser</em>';
       }
       if (state === 'reloading') name = 'Reloading';
     } else name = item ? itemName(item) : '';

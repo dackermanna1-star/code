@@ -340,6 +340,221 @@ export const WEAPON_SFX = {
     },
   },
 
+  // --- L4D2 melee extras
+  swingBlade: { // katana: thin, fast, high whistle
+    v: 4, dur: 0.35, sr: 44100, level: 0.55, cat: 'foley', crit: true,
+    build(K) {
+      const d = K.r(0.16, 0.22);
+      K.whoosh(0, d, { f0: K.r(900, 1200), f1: K.r(3800, 5200), f2: 1800, q: 3.2, amp: 1, peakAt: K.r(0.5, 0.62) });
+      K.whoosh(0, d * 0.9, { f0: 400, f1: 1500, f2: 600, q: 1.2, amp: 0.35, peakAt: 0.55 });
+    },
+  },
+  swingHeavy: { // bat / pan: slower, lower, more air moved
+    v: 4, dur: 0.5, sr: 32000, level: 0.6, cat: 'foley', crit: true,
+    build(K) {
+      const d = K.r(0.28, 0.36);
+      K.whoosh(0, d, { f0: K.r(180, 260), f1: K.r(800, 1100), f2: 260, q: 1.1, amp: 1, color: 'pink', peakAt: K.r(0.5, 0.6) });
+      K.whoosh(0, d, { f0: 900, f1: 2200, f2: 900, q: 1.8, amp: 0.25, peakAt: 0.58 });
+    },
+  },
+  katanaHit: { // clean slice through flesh + bone tick
+    v: 5, dur: 0.5, sr: 44100, level: 0.85, cat: 'impact', crit: true, ref: 4,
+    build(K) {
+      K.burst(0.001, { d: 0.05, amp: 0.9, f: [['highpass', 2500], ['bandpass', K.r(4200, 5600), 1.2]] });
+      scrape(K, 0.002, K.r(0.07, 0.11), K.r(3500, 4500), 0.55, K.out, 3);
+      K.squelch(0.006, K.r(0.12, 0.2), { f: K.r(900, 1300), q: 3.5, amp: 0.7, rate: 70 });
+      K.thump(0.002, { f0: 190, f1: 90, d: 0.07, amp: 0.45 });
+      if (K.chance(0.6)) K.click(K.r(0.015, 0.04), { f: K.r(2600, 3400), q: 3, d: 0.01, amp: 0.4 });
+    },
+  },
+  batHit: { // hollow wooden crack + meaty thud
+    v: 5, dur: 0.6, sr: 32000, level: 0.9, cat: 'impact', crit: true, ref: 4,
+    build(K) {
+      const sat = K.shaper(2.2, K.out);
+      const f = K.r(420, 520);
+      K.modal(0.001, [[f, 0.09, 0.6], [f * 2.31, 0.06, 0.35], [f * 3.9, 0.04, 0.2]], sat);
+      K.burst(0.001, { d: 0.025, amp: 0.8, f: [['bandpass', K.r(1400, 1900), 1.4]], dest: sat });
+      K.thump(0.001, { f0: K.r(110, 135), f1: 55, sweep: 0.07, d: 0.2, amp: 1.1, dest: sat });
+      K.burst(0.002, { color: 'pink', d: 0.1, amp: 0.7, f: [['lowpass', 800]] });
+      K.crackle(0.004, 0.06, 600, { len: [0.3, 2], dest: K.bp(2300, 0.9), amp: 0.5 });
+    },
+  },
+  batWall: {
+    v: 3, dur: 0.6, sr: 32000, level: 0.75, cat: 'impact', crit: true,
+    build(K) {
+      const f = K.r(380, 470);
+      K.modal(0.001, [[f, 0.16, 0.7], [f * 2.4, 0.1, 0.35], [f * 4.1, 0.05, 0.2]]);
+      K.burst(0.001, { d: 0.03, amp: 0.9, f: [['bandpass', 1600, 1.2]] });
+      K.thump(0.001, { f0: 160, f1: 80, d: 0.08, amp: 0.5 });
+    },
+  },
+  panClang: { // the comedic cast-iron BONG: loud strike, long wobbly ring
+    v: 4, dur: 1.9, sr: 44100, level: 0.95, cat: 'impact', crit: true, ref: 5,
+    build(K) {
+      const f = K.r(520, 640), wob = K.r(0.985, 0.995);
+      K.burst(0.001, { d: 0.02, amp: 1, f: [['bandpass', 3200, 1.1]] });
+      K.thump(0.001, { f0: 240, f1: 120, d: 0.08, amp: 0.6 });
+      const ring = K.modal(0.001, [[f, 1.6, 0.55], [f * wob, 1.5, 0.45], [f * 1.593, 1.1, 0.35], [f * 2.137, 0.8, 0.3], [f * 2.92, 0.55, 0.22], [f * 3.87, 0.35, 0.15], [f * 5.21, 0.2, 0.1]], K.out, { glide: 0.992, glideT: 0.8 });
+      K.lfo(0.001, 1.8, K.r(5, 7), 0.25, ring.gain);
+      K.crackle(0.003, 0.05, 900, { len: [0.2, 1], dest: K.hp(3000), amp: 0.4 });
+    },
+  },
+  // --- chainsaw
+  chainsawStart: { // pull cord zip, sputter, catch
+    v: 2, dur: 1.2, sr: 32000, level: 0.75, cat: 'foley', crit: true,
+    build(K) {
+      scrape(K, 0.0, 0.22, 1800, 0.6, K.out, 1.6);
+      K.whoosh(0, 0.22, { f0: 600, f1: 2400, f2: 900, q: 2, amp: 0.4 });
+      const sat = K.shaper(3, K.out);
+      for (let i = 0; i < 7; i++) {
+        const t = 0.28 + i * K.r(0.045, 0.065);
+        K.thump(t, { f0: 140, f1: 70, d: 0.05, amp: 0.5 + i * 0.05, dest: sat });
+        K.burst(t, { color: 'pink', d: 0.04, amp: 0.4, f: [['bandpass', 700, 1.5]], dest: sat });
+      }
+      const g = K.gain(0, K.lp(1400, 0.8, sat));
+      K.env(g.gain, 0.62, [[0, 0], [0.08, 0.7], [0.55, 0.5]]);
+      const o = K.osc('sawtooth', 58, 0.62, 0.58, g);
+      o.frequency.setValueAtTime(95, 0.62); o.frequency.exponentialRampToValueAtTime(52, 1.1);
+    },
+  },
+  chainsawIdle: { // two-stroke idle putter + chain slap
+    v: 1, dur: 2.4, sr: 32000, level: 0.62, cat: 'loop', loop: true, xfade: 0.25,
+    build(K) {
+      const d = 2.4, f = 50;
+      const sat = K.shaper(2.8, K.out);
+      const eg = K.gain(0.5, K.lp(900, 0.9, sat));
+      const o = K.osc('sawtooth', f, 0, d, eg);
+      K.rand(0, d, 9, 3.5, o.frequency);
+      const o2 = K.osc('square', f * 0.5, 0, d, K.gain(0.18, K.lp(300, 0.7, sat)));
+      K.rand(0, d, 9, 1.8, o2.frequency);
+      // exhaust chuff: pink noise gated at the firing rate
+      const ng = K.gain(0.0, K.bp(1100, 0.9, sat));
+      K.lfo(0, d, f, 0.35, ng.gain, 'square');
+      K.noise(0, d, 'pink', ng);
+      K.crackle(0, d, 45, { len: [0.2, 0.8], dest: K.gain(0.5, K.bp(3200, 1.2)), amp: 0.6 });
+    },
+  },
+  chainsawCut: { // full-throttle scream + chain whine
+    v: 1, dur: 2.2, sr: 44100, level: 0.8, cat: 'loop', loop: true, xfade: 0.25,
+    build(K) {
+      const d = 2.2, f = 148;
+      const sat = K.shaper(3.4, K.out, true);
+      const o = K.osc('sawtooth', f, 0, d, K.gain(0.55, K.bp(1500, 0.7, sat)));
+      K.rand(0, d, 6, 6, o.frequency);
+      const o2 = K.osc('sawtooth', f * 2.01, 0, d, K.gain(0.3, K.bp(2600, 1.5, sat)));
+      K.rand(0, d, 6, 10, o2.frequency);
+      K.osc('square', f * 0.5, 0, d, K.gain(0.2, K.lp(500, 0.8, sat)));
+      const ng = K.gain(0.35, K.hp(2400, 0.7));
+      K.rand(0, d, 30, 0.2, ng.gain);
+      K.noise(0, d, 'white', ng);
+      K.crackle(0, d, 420, { len: [0.2, 1], dest: K.gain(0.7, K.bp(4200, 1.4)), amp: 0.7 });
+    },
+  },
+  chainsawWind: { // throttle released: pitch falls back to idle
+    v: 2, dur: 0.6, sr: 32000, level: 0.55, cat: 'foley',
+    build(K) {
+      const sat = K.shaper(2.5, K.out);
+      const g = K.gain(0, K.bp(1300, 0.8, sat));
+      K.env(g.gain, 0, [[0, 0.7], [0.5, 0.0001, 'e']]);
+      const o = K.osc('sawtooth', 150, 0, 0.55, g);
+      o.frequency.exponentialRampToValueAtTime(55, 0.45);
+    },
+  },
+  chainsawStop: { // out of gas: sputter and die
+    v: 2, dur: 1.3, sr: 32000, level: 0.6, cat: 'foley', crit: true,
+    build(K) {
+      const sat = K.shaper(2.6, K.out);
+      let t = 0.02;
+      for (let i = 0; i < 9; i++) {
+        t += 0.05 + i * i * 0.006;
+        K.thump(t, { f0: 120, f1: 60, d: 0.06, amp: 0.7 - i * 0.06, dest: sat });
+        K.burst(t, { color: 'pink', d: 0.05, amp: 0.4 - i * 0.03, f: [['bandpass', 800, 1.4]], dest: sat });
+      }
+      metalClick(K, t + 0.12, 1900, 0.3);
+    },
+  },
+  chainsawFlesh: { // wet tearing chew
+    v: 4, dur: 0.5, sr: 32000, level: 0.8, cat: 'impact', crit: true, ref: 4,
+    build(K) {
+      K.squelch(0.001, K.r(0.3, 0.4), { f: K.r(700, 1000), q: 2.5, amp: 1, rate: 90, depth: 0.6 });
+      K.crackle(0.002, 0.3, 700, { len: [0.3, 1.8], dest: K.bp(1800, 0.8), amp: 0.8 });
+      K.burst(0.001, { color: 'pink', d: 0.2, amp: 0.6, f: [['lowpass', 1200]] });
+      if (K.chance(0.6)) K.click(K.r(0.03, 0.12), { f: K.r(2200, 3000), q: 3, d: 0.01, amp: 0.5 });
+    },
+  },
+  chainsawGrind: { // chain on concrete / metal
+    v: 3, dur: 0.5, sr: 44100, level: 0.7, cat: 'impact',
+    build(K) {
+      scrape(K, 0.001, K.r(0.25, 0.35), K.r(3800, 5200), 1, K.out, 2);
+      K.crackle(0.001, 0.3, 900, { len: [0.2, 0.8], dest: K.hp(3000), amp: 0.8 });
+      metalClick(K, 0.004, K.r(2600, 3400), 0.4);
+    },
+  },
+  // --- defibrillator / upgrades
+  defibCharge: { // capacitor whine rising, ready beeps
+    v: 2, dur: 3.1, sr: 44100, level: 0.6, cat: 'foley', crit: true,
+    build(K) {
+      const g = K.gain(0, K.bp(3000, 0.8));
+      K.env(g.gain, 0, [[0, 0], [0.2, 0.5], [2.6, 0.8], [2.9, 0.0001, 'e']]);
+      const o = K.osc('sawtooth', 700, 0, 2.9, g);
+      o.frequency.setValueAtTime(700, 0); o.frequency.exponentialRampToValueAtTime(4200, 2.6);
+      const o2 = K.osc('sine', 1400, 0, 2.9, K.gain(0.3, g));
+      o2.frequency.setValueAtTime(1400, 0); o2.frequency.exponentialRampToValueAtTime(8400, 2.6);
+      for (const t of [0.05, 0.12]) K.modal(t, [[1850, 0.08, 0.4]]);
+      for (const t of [2.62, 2.8]) K.modal(t, [[2350, 0.1, 0.5], [4700, 0.06, 0.2]]);
+      K.burst(0, { d: 0.05, amp: 0.3, f: [['bandpass', 1200, 2]] });
+    },
+  },
+  defibZap: { // discharge thump + arc crackle + monitor beep
+    v: 3, dur: 1.4, sr: 44100, level: 0.9, cat: 'impact', crit: true,
+    build(K) {
+      const sat = K.shaper(3, K.out);
+      K.thump(0.001, { f0: 160, f1: 45, sweep: 0.1, d: 0.3, amp: 1.2, dest: sat });
+      K.burst(0.001, { d: 0.09, amp: 1, f: [['highpass', 1500]], dest: sat });
+      K.crackle(0.001, 0.22, [[0, 2500], [0.22, 80]], { len: [0.3, 2], dest: K.hp(1800), amp: 0.9 });
+      const g = K.gain(0.35, K.bp(1000, 2));
+      K.osc('square', 1000, 0.52, 0.16, g);
+      K.modal(0.52, [[2000, 0.2, 0.15]]);
+    },
+  },
+  upgradeDeploy: { // pack dropped, latches flipped, lid swung open
+    v: 2, dur: 1.0, sr: 32000, level: 0.7, cat: 'foley', crit: true,
+    build(K) {
+      K.thump(0.001, { f0: 140, f1: 70, d: 0.12, amp: 0.8 });
+      K.burst(0.002, { color: 'pink', d: 0.08, amp: 0.6, f: [['lowpass', 900]] });
+      metalClick(K, 0.16, 2400, 0.6); metalClick(K, 0.24, 2600, 0.6);
+      scrape(K, 0.32, 0.22, 1400, 0.4);
+      K.thump(0.56, { f0: 200, f1: 100, d: 0.08, amp: 0.5 });
+      rustle(K, 0.6, 0.3, 0.4);
+    },
+  },
+  upgradeTake: { // rummaging through rounds, mag clicked in
+    v: 3, dur: 0.9, sr: 32000, level: 0.7, cat: 'foley', crit: true,
+    build(K) {
+      rustle(K, 0, 0.35, 0.6);
+      for (let i = 0; i < 6; i++) metalClick(K, 0.05 + i * K.r(0.04, 0.07), K.r(3000, 4200), 0.35, K.out, 0.03);
+      metalClick(K, 0.58, 1800, 0.8); metalClick(K, 0.62, 2600, 0.5);
+    },
+  },
+  laserAttach: { // rail clamp + switch on chirp
+    v: 2, dur: 0.6, sr: 44100, level: 0.6, cat: 'foley', crit: true,
+    build(K) {
+      scrape(K, 0, 0.1, 2800, 0.5);
+      metalClick(K, 0.12, 2200, 0.8); metalClick(K, 0.2, 3100, 0.6);
+      K.modal(0.32, [[3400, 0.08, 0.35]]);
+    },
+  },
+  explosiveRound: { // small high-explosive pop
+    v: 4, dur: 0.9, sr: 32000, level: 0.8, cat: 'explosion', ref: 6,
+    build(K) {
+      const sat = K.shaper(2.8, K.out);
+      K.thump(0.001, { f0: K.r(110, 140), f1: 45, sweep: 0.08, d: 0.25, amp: 1, dest: sat });
+      K.burst(0.001, { d: 0.12, amp: 0.9, f: [['lowpass', 2600]], dest: sat, fenv: [[0, 2600], [0.1, 500]] });
+      K.burst(0.003, { color: 'pink', a: 0.01, d: 0.5, amp: 0.3, f: [['lowpass', 700]] });
+      K.crackle(0.01, 0.2, 300, { len: [0.2, 1], dest: K.hp(1500), amp: 0.4 });
+    },
+  },
+
   // --- explosives
   explosion: {
     v: 3, dur: 4.5, sr: 32000, level: 0.97, cat: 'explosion', crit: true,

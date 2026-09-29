@@ -507,7 +507,7 @@ export class CoopHost {
       (s.weapon?.reloading ? 64 : 0) | (s.weapon?.zoomed ? 128 : 0) | (s.isBot ? 256 : 0);
     const out = [s.char.id, r2(P.x), r2(P.y), r2(P.z), r2(P.vx), r2(P.vy), r2(P.vz), r3(s.yaw), r3(s.pitch), flags,
       Math.round(s.health), r2(s.temp), Math.round(s.incapHP), s.incapCount, s.slot,
-      w ? w.type : '', w ? w.clip : 0, w ? w.reserve : 0, sec.type, sec.dual ? 1 : 0, sec.clip, s.inv.throwable || '', s.inv.medkit ? 1 : 0, s.inv.pills || '',
+      w ? w.type : '', w ? w.clip : 0, w ? w.reserve : 0, sec.type, sec.dual ? 1 : 0, sec.clip, s.inv.throwable || '', s.inv.medkit === true ? 1 : s.inv.medkit || 0, s.inv.pills || '',
       a ? a.type : '', a ? r2(a.t) : 0, a ? r2(a.dur) : 0, charOf(a?.target), a?.label || '',
       s.pinType || '', s.pinned ? s.pinned.nid ?? -1 : -1, r2(s.bile), r2(s.burning), s.tpSeq || 0, s.fireSeq || 0, s.meleeSeq || 0, mg,
       r2(s.crouchT), charOf(s.beingRevived), charOf(s.beingHealed), r3(s.aimPitchOff || 0), s.remote ?? -1, s.throwing ? 1 : 0];
@@ -782,7 +782,7 @@ export class CoopClient {
     if (!pt) inv.primary = null;
     else if (!inv.primary || inv.primary.type !== pt) inv.primary = new Weapon(pt, { clip: e[16], reserve: e[17] });
     if (inv.secondary.type !== e[18] || !!inv.secondary.dual !== !!e[19]) inv.secondary = new Weapon(e[18], { dual: !!e[19] });
-    inv.throwable = e[21] || null; inv.medkit = !!e[22]; inv.pills = e[23] || null;
+    inv.throwable = e[21] || null; inv.medkit = e[22] === 1 ? true : e[22] || false; inv.pills = e[23] || null;
     const w = s.weapon;
     if (mine) {
       // ammo from the host when our local weapon is idle

@@ -227,8 +227,8 @@ export class Session {
   saveInventories() {
     this.savedInventories = this.game.survivors.map((s) => ({
       health: s.health, temp: s.temp, incapCount: s.incapCount, dead: s.dead,
-      primary: s.inv.primary ? { type: s.inv.primary.type, clip: s.inv.primary.clip, reserve: s.inv.primary.reserve } : null,
-      secondary: { type: s.inv.secondary.type, dual: s.inv.secondary.dual },
+      primary: s.inv.primary ? { type: s.inv.primary.type, ...s.inv.primary.state() } : null,
+      secondary: { type: s.inv.secondary.type, dual: s.inv.secondary.dual, fuel: s.inv.secondary.def.chainsaw ? s.inv.secondary.fuel : undefined },
       throwable: s.inv.throwable, medkit: s.inv.medkit, pills: s.inv.pills,
     }));
   }
@@ -238,8 +238,8 @@ export class Session {
     s.dead = false;
     s.health = d.health || 50; s.temp = d.temp; s.incapCount = d.incapCount;
     s.inv.primary = null;
-    if (d.primary) { s.giveWeapon(d.primary.type, { clip: d.primary.clip, reserve: d.primary.reserve }); }
-    s.giveWeapon(d.secondary.type);
+    if (d.primary) { s.giveWeapon(d.primary.type, d.primary); }
+    s.giveWeapon(d.secondary.type, { fuel: d.secondary.fuel });
     s.inv.secondary.dual = d.secondary.dual;
     s.inv.throwable = d.throwable; s.inv.medkit = d.medkit; s.inv.pills = d.pills;
     s.slot = s.inv.primary ? 0 : 1;
@@ -375,6 +375,7 @@ export class Session {
       if (u && c.usePressed && !p.action) {
         if (u.item) g.items.take(u.item, p);
         else if (u.revive) { p.startAction('revive', 5, { hold: 'use', immobile: true, target: u.revive }); u.revive.beingRevived = p; }
+        else if (u.defib) p.startDefib(u.defib, 'use');
         else if (u.usable) {
           if (u.usable.hold) p.startAction('use', u.usable.hold, { hold: 'use', usable: u.usable, label: u.usable.holdLabel || u.usable.prompt, immobile: true });
           else u.usable.onUse(p);

@@ -92,7 +92,8 @@ function mats() {
     od: wearMat({ color: 0x3a3e2c, metal: 0.1, rough: 0.6, wear: 0.45, wearCol: 0x70735f, wearRough: 0.45, wearMetal: 0.2, grain: 0.00004, grainScale: 900 }),
     wood: wearMat({ color: 0xc09070, map: wood.map, metal: 0, rough: 0.5, wear: 0.35, wearCol: 0xa57a50, wearRough: 0.42, wearMetal: 0 }),
     rubber: wearMat({ color: 0x101011, metal: 0, rough: 0.9, wear: 0.1, wearCol: 0x2a2a2b, wearRough: 0.8, grain: 0.00012, grainScale: 1600 }),
-    chrome: wearMat({ color: 0xdadee2, metal: 1, rough: 0.1, wear: 0.2, wearCol: 0xa8aeb4, wearRough: 0.22, wearMetal: 1, env: 1 }),
+    // polished but not mirror: brushed nickel sheen (the old 0.1 roughness flared white under the flashlight)
+    chrome: wearMat({ color: 0xb9bdc2, metal: 1, rough: 0.27, wear: 0.25, wearCol: 0x9aa0a6, wearRough: 0.34, wearMetal: 1, env: 0.5, grain: 0.00003, grainScale: 2600 }),
     brass: wearMat({ color: 0xc49a4c, metal: 1, rough: 0.28, wear: 0.2, wearCol: 0xe3c68a, wearRough: 0.18, wearMetal: 1, env: 0.8 }),
     copper: wearMat({ color: 0xb06a40, metal: 1, rough: 0.3, wear: 0.1, wearCol: 0xd09060, env: 0.8 }),
     strap: wearMat({ color: 0x2c2e25, metal: 0, rough: 0.9, wear: 0.2, wearCol: 0x4a4c40, grain: 0.00016, grainScale: 1200 }),
@@ -104,7 +105,29 @@ function mats() {
     // melee / items
     red: wearMat({ color: 0x8c1611, metal: 0.25, rough: 0.42, wear: 0.9, wearCol: 0x6f7378, wearRough: 0.3, wearMetal: 1 }),
     yellow: wearMat({ color: 0xb08a18, metal: 0.2, rough: 0.5, wear: 0.7, wearCol: 0x5a5c60, wearRough: 0.35, wearMetal: 0.9 }),
-    blade: wearMat({ color: 0x5e6268, metal: 1, rough: 0.38, wear: 0.8, wearCol: 0xc4c8cc, wearRough: 0.14, wearMetal: 1, env: 0.8 }),
+    blade: wearMat({ color: 0x575b61, metal: 1, rough: 0.48, wear: 0.6, wearCol: 0xa9adb2, wearRough: 0.3, wearMetal: 1, env: 0.45, grain: 0.00004, grainScale: 2000 }),
+    edge: wearMat({ color: 0x8a8f95, metal: 1, rough: 0.36, wear: 0.3, wearCol: 0xb4b8bc, wearRough: 0.3, wearMetal: 1, env: 0.45 }),
+    // L4D2 melee / items
+    katanaSteel: wearMat({ color: 0x7c8187, metal: 1, rough: 0.3, wear: 0.35, wearCol: 0xb0b5ba, wearRough: 0.24, wearMetal: 1, env: 0.55, grain: 0.00002, grainScale: 3000 }),
+    hamon: wearMat({ color: 0xa4a9ae, metal: 1, rough: 0.4, wear: 0.2, wearCol: 0xc0c4c8, wearRough: 0.34, wearMetal: 1, env: 0.5 }),
+    samegawa: wearMat({ color: 0xcfc6b0, metal: 0, rough: 0.8, wear: 0.4, wearCol: 0x8f8672, wearRough: 0.9, grain: 0.0005, grainScale: 2600 }),
+    ito: wearMat({ color: 0x1b1a1f, metal: 0, rough: 0.85, wear: 0.3, wearCol: 0x3a3840, wearRough: 0.9, grain: 0.00025, grainScale: 1800 }),
+    ironDark: wearMat({ color: 0x2a2724, metal: 0.8, rough: 0.62, wear: 0.5, wearCol: 0x6c655c, wearRough: 0.45, wearMetal: 1, grain: 0.0001, grainScale: 900 }),
+    gilt: wearMat({ color: 0xa88a48, metal: 1, rough: 0.34, wear: 0.4, wearCol: 0xd4b878, wearRough: 0.24, wearMetal: 1, env: 0.6 }),
+    ash: wearMat({ color: 0xd8b98c, map: null, metal: 0, rough: 0.55, wear: 0.55, wearCol: 0x8a6a44, wearRough: 0.7, grain: 0.00008, grainScale: 700 }),
+    castIron: wearMat({ color: 0x232222, metal: 0.55, rough: 0.72, wear: 0.45, wearCol: 0x5e5a56, wearRough: 0.5, wearMetal: 0.9, grain: 0.00018, grainScale: 1500 }),
+    gore: wearMat({ color: 0x3a0806, metal: 0.1, rough: 0.35, wear: 0.3, wearCol: 0x1c0403, wearRough: 0.5, grain: 0.0002, grainScale: 900 }),
+    sawBody: wearMat({ color: 0xb6431a, metal: 0.05, rough: 0.5, wear: 0.55, wearCol: 0x5a2a1a, wearRough: 0.7, grain: 0.00005, grainScale: 1100 }),
+    sawBar: wearMat({ color: 0x6d7176, metal: 0.9, rough: 0.46, wear: 0.6, wearCol: 0xaeb2b6, wearRough: 0.3, wearMetal: 1, env: 0.45, grain: 0.00005, grainScale: 1800 }),
+    chain: wearMat({ color: 0x4a4c4f, metal: 1, rough: 0.42, wear: 0.7, wearCol: 0x9ca0a4, wearRough: 0.28, wearMetal: 1, env: 0.5 }),
+    defibYellow: wearMat({ color: 0xd49a1a, metal: 0.05, rough: 0.45, wear: 0.45, wearCol: 0x7a6a50, wearRough: 0.7, grain: 0.00006, grainScale: 1000 }),
+    greyPlastic: wearMat({ color: 0x4a4d52, metal: 0.05, rough: 0.55, wear: 0.35, wearCol: 0x7a7e84, wearRough: 0.6, grain: 0.00005, grainScale: 1000 }),
+    padMetal: wearMat({ color: 0x9aa0a6, metal: 1, rough: 0.42, wear: 0.3, wearCol: 0x6a6e72, wearRough: 0.6, wearMetal: 1, env: 0.4 }),
+    caseRed: wearMat({ color: 0x8e2616, metal: 0.05, rough: 0.55, wear: 0.5, wearCol: 0x4a2a22, wearRough: 0.75, grain: 0.00008, grainScale: 1100 }),
+    caseGreen: wearMat({ color: 0x3f4a2a, metal: 0.05, rough: 0.6, wear: 0.5, wearCol: 0x6e7258, wearRough: 0.7, grain: 0.00008, grainScale: 1100 }),
+    hazard: wearMat({ color: 0xd8b020, metal: 0.05, rough: 0.5, wear: 0.5, wearCol: 0x5a5040, wearRough: 0.7 }),
+    screen: std({ color: 0x0a1a10, metalness: 0.2, roughness: 0.15, emissive: 0x1a6a2a, emissiveIntensity: 0.9 }),
+    laserLens: new THREE.MeshBasicMaterial({ color: 0xff2a1a }),
     gunDark: wearMat({ color: 0x1c1e21, metal: 0.7, rough: 0.45, wear: 0.4, wearCol: 0x7a7e84, wearRough: 0.3, wearMetal: 1 }),
     gun: wearMat({ color: 0x3c4046, metal: 0.85, rough: 0.38, wear: 0.4, wearCol: 0x9a9ea4, wearRough: 0.25, wearMetal: 1 }),
     polymer: wearMat({ color: 0x151617, metal: 0.05, rough: 0.62, wear: 0.3, wearCol: 0x38393b, wearRough: 0.45 }),
@@ -965,7 +988,7 @@ function buildMachete() {
   // blade (flat, curved spine) + ground edge
   const bl = [[-0.02, 0.055], [0.022, 0.055], [0.034, 0.3, 0.02], [0.04, 0.46, 0.02], [0.0, 0.53, 0.01], [-0.022, 0.44], [-0.02, 0.2]];
   P.put('blade', prof(bl, 0.0045, 0.0012));
-  P.put('steel', prof([[0.02, 0.06], [0.03, 0.3, 0.02], [0.036, 0.46, 0.02], [0.0, 0.527], [0.034, 0.44], [0.026, 0.3], [0.017, 0.06]], 0.0052, 0.0006));
+  P.put('edge', prof([[0.02, 0.06], [0.03, 0.3, 0.02], [0.036, 0.46, 0.02], [0.0, 0.527], [0.034, 0.44], [0.026, 0.3], [0.017, 0.06]], 0.0052, 0.0006));
   P.build(g);
   marker(g, 'tip', 0, 0.5, 0);
   return g;

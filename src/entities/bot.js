@@ -5,9 +5,9 @@
 // kiting tanks, and falling back to chapter-progress navigation.
 import * as THREE from 'three';
 import { clamp, wrapAngle, randRange, rayCapsule } from '../core/math.js';
-import { TIER1, TIER2 } from '../combat/weaponDefs.js';
+import { TIER1, TIER2, ITEMS, WEAPONS } from '../combat/weaponDefs.js';
 
-const _e = new THREE.Vector3(), _d = new THREE.Vector3(), _t = new THREE.Vector3();
+const _e = new THREE.Vector3(), _d = new THREE.Vector3(), _t = new THREE.Vector3(), _t2 = new THREE.Vector3();
 const TIER = { pistol: 0, magnum: 0.5, smg: 1, silencedSmg: 1, pumpShotgun: 1, chromeShotgun: 1, rifle: 2, autoShotgun: 2, huntingRifle: 2, scar: 2, m60: 3, grenadeLauncher: 1.5 };
 
 export class BotBrain {
@@ -142,8 +142,24 @@ export class BotBrain {
         c.use = true;
         if (s.action && s.action.type === 'revive') return;
       }
+    } else if (s.inv.medkit === 'defib' && !this.threatNear(6)) {
+      // defibrillator: go to a dead teammate's body and shock them back
+      const dead = g.survivors.filter((o) => o !== s && o.dead && !(o.beingRevived && o.beingRevived !== s)).map((o) => [o, o.corpsePos(_t2)]).filter(([, p]) => p.distanceTo(s.pos) < 30 && Math.abs(p.y - s.pos.y) < 2)
+        .sort((a, b) => a[1].distanceTo(s.pos) - b[1].distanceTo(s.pos))[0];
+      if (dead) {
+        const [o, p] = dead;
+        goal = p.clone(); goalRadius = 1.0; urgent = true; this.mode = 'defib';
+        if (p.distanceTo(s.pos) < 1.5) {
+          this.face(p.x, p.y + 0.2, p.z, dt, 8);
+          if (!s.action) s.startDefib(o, 'fire');
+          c.fire = true;
+          if (s.action && s.action.type === 'defib') return;
+        }
+      }
     }
     if (s.action && s.action.type === 'revive' && this.mode !== 'revive') s.cancelAction();
+    if (s.action && s.action.type === 'defib') { if (this.mode !== 'defib' || this.threatNear(2)) s.cancelAction(); else { c.fire = true; return; } }
+    if (s.action && s.action.type === 'deploy') { if (this.threatNear(3)) s.cancelAction(); else { c.fire = true; return; } }
     // Items
     if (!goal && this.itemT <= 0) { this.itemT = 0.8; this.itemGoal = this.findItem(); }
     if (!goal && this.itemGoal && !this.threatNear(4)) {
@@ -159,7 +175,7 @@ export class BotBrain {
     const calm = !this.threatNear(12);
     const clear = calm || !this.threatNear(4.5);
     if (!goal && !s.action && clear) {
-      if (s.inv.medkit && s.health < 40 && (calm ? s.totalHealth < 40 : s.totalHealth < 25)) {
+      if (s.inv.medkit === true && s.health < 40 && (calm ? s.totalHealth < 40 : s.totalHealth < 25)) {
         if (s.slot !== 3) c.slot = 3; else c.fire = true;
         this.combat(dt, false, true);
         return;
@@ -174,9 +190,15 @@ export class BotBrain {
         const needy = g.survivors.find((o) => o !== s && !o.dead && !o.incapped && !o.inv.pills && o.totalHealth < 40 && o.pos.distanceTo(s.pos) < 2);
         if (needy) { needy.inv.pills = s.inv.pills; s.inv.pills = null; if (s.slot === 4) c.slot = s.bestSlot(); g.onGive?.(s, needy, 'pills'); }
       }
+      // set down an upgrade pack for the team once things are quiet
+      if (ITEMS[s.inv.medkit]?.upgrade && !goal && g.survivors.filter((o) => !o.dead && o.inv.primary && !o.inv.primary.upgrade).length >= 2) {
+        if (s.slot !== 3) c.slot = 3; else c.fire = true;
+        this.combat(dt, false, true);
+        return;
+      }
       // heal a badly hurt teammate if they have no kit
-      if (s.inv.medkit && s.totalHealth > 50) {
-        const mate = g.survivors.find((o) => o !== s && !o.dead && !o.incapped && !o.inv.medkit && o.health < 30 && o.pos.distanceTo(s.pos) < 6);
+      if (s.inv.medkit === true && s.totalHealth > 50) {
+        const mate = g.survivors.find((o) => o !== s && !o.dead && !o.incapped && o.inv.medkit !== true && o.health < 30 && o.pos.distanceTo(s.pos) < 6);
         if (mate) {
           goal = mate.pos; goalRadius = 1.2;
           if (mate.pos.distanceTo(s.pos) < 1.6) {
@@ -299,7 +321,12 @@ export class BotBrain {
         if (TIER[t] + pref > cur + 0.2 && t !== 'grenadeLauncher' && t !== 'm60') v = 5 + TIER[t];
       } else if (t === 'pistol' && !s.inv.secondary.dual && s.inv.secondary.type === 'pistol') v = 3;
       else if (t === 'ammo' && s.inv.primary && s.inv.primary.reserve < s.inv.primary.def.reserve * 0.5) v = 6;
-      else if (t === 'medkit' && !s.inv.medkit) v = 7;
+      else if (t === 'medkit' && s.inv.medkit !== true) v = s.inv.medkit ? (s.inv.medkit === 'defib' ? 0 : 4) : 7; // a kit beats an upgrade pack
+      else if (t === 'defib' && !s.inv.medkit) v = g.survivors.some((o) => o.dead) ? 8 : 4;
+      else if (ITEMS[t]?.upgrade && !s.inv.medkit) v = 3;
+      else if (it.crate && s.inv.primary && !s.inv.primary.upgrade && !it.crate.took.has(s)) v = 6;
+      else if (t === 'laserSight' && s.inv.primary && !s.inv.primary.laser) v = 5;
+      else if (WEAPONS[t]?.melee && s.inv.secondary.type === 'pistol' && !s.inv.secondary.dual && s.inv.primary && s.inv.primary.reserve > s.inv.primary.def.reserve * 0.4) v = t === 'chainsaw' ? 2.5 : 2;
       else if (t === 'pills' && !s.inv.pills) v = 5;
       else if ((t === 'molotov' || t === 'pipebomb' || t === 'bile') && !s.inv.throwable) v = 3;
       // don't grab if the human is right next to it and lacks it (be polite)
@@ -395,9 +422,18 @@ export class BotBrain {
     const w = s.weapon;
     // weapon choice
     if (!incapped && !healing && !s.action) {
-      if (s.slot > 1) { if (!(s.slot === 3 && s.inv.medkit && s.totalHealth < 40) && !(s.slot === 4 && s.inv.pills)) c.slot = s.bestSlot(); }
-      else if (s.slot === 1 && s.inv.primary && (s.inv.primary.clip > 0 || s.inv.primary.reserve > 0) && !s.inv.secondary.melee) c.slot = 0;
-      else if (s.slot === 0 && s.inv.primary && s.inv.primary.clip === 0 && s.inv.primary.reserve === 0) c.slot = 1;
+      const sec = s.inv.secondary, pw = s.inv.primary;
+      const pOk = !!pw && (pw.clip > 0 || pw.reserve > 0);
+      // melee (chainsaw included) for crowds in arm's reach, the gun for everything else
+      const tgtD = t && !t.dead ? t.pos.distanceTo(s.pos) : 99;
+      const big = t && t.special && (t.kind === 'tank' || t.kind === 'witch' || t.kind === 'charger');
+      const wantMelee = sec.melee && !(big && tgtD > 1.5) && (!pOk || this.closeCount >= 2 || (t && !t.special && tgtD < 1.7) || (sec.def.chainsaw && this.closeCount >= 1 && tgtD < 2.4));
+      if (s.slot > 1) { if (!(s.slot === 3 && s.inv.medkit === true && s.totalHealth < 40) && !(s.slot === 4 && s.inv.pills)) c.slot = sec.melee ? (wantMelee || !pOk ? 1 : 0) : s.bestSlot(); }
+      else if (sec.melee) {
+        if (s.slot === 0 && (wantMelee || !pOk)) c.slot = 1;
+        else if (s.slot === 1 && pOk && !wantMelee && this.closeCount === 0) c.slot = 0;
+      } else if (s.slot === 1 && pOk) c.slot = 0;
+      else if (s.slot === 0 && pw && !pOk) c.slot = 1;
     }
     if (healing) return;
     if (!t || t.dead || t.removed) {

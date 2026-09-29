@@ -49,6 +49,7 @@ export class ItemManager {
   clear() {
     for (const it of this.items) it.mesh?.parent?.remove(it.mesh);
     this.items = [];
+    this.laserCount = 0;
   }
   spawn(type, x, y, z, opts = {}) {
     const g = this.game;
@@ -144,6 +145,11 @@ export class ItemManager {
     this.game.audio.play('upgradeDeploy', { pos: it.pos, vol: 1 });
     return it;
   }
+  // crate contents go down as survivors load from it
+  markCrate(it) {
+    const n = it.crate.took.size;
+    for (let i = 0; i < 4; i++) { const o = it.mesh.userData['stack' + i]; if (o) o.visible = i >= n; }
+  }
   near(pos, r) {
     const out = [];
     for (const it of this.items) if (!it.taken && it.pos.distanceTo(pos) < r) out.push(it);
@@ -162,31 +168,60 @@ export class ItemManager {
       if (ok) g.onPickup?.(s, it);
       return ok;
     }
+    // laser sight box (infinite): fits the survivor's primary weapon
+    if (t === 'laserSight') {
+      const w = s.inv.primary;
+      if (!w) { if (s.isHuman) g.hud?.toast('You need a primary weapon'); return false; }
+      if (w.laser) { if (s.isHuman) g.hud?.toast('You already have a laser sight'); return false; }
+      w.laser = true;
+      g.audio.play('laserAttach', { pos: it.pos, owner: s, vol: 0.9 });
+      g.onUpgrade?.(s, 'laser');
+      g.onPickup?.(s, it);
+      return true;
+    }
+    // deployed ammo crate: one magazine of special rounds per survivor
+    if (it.crate) {
+      const w = s.inv.primary;
+      if (it.crate.took.has(s)) { if (s.isHuman) g.hud?.toast('You already took ammo from this'); return false; }
+      if (!w || !w.loadUpgrade(it.crate.kind)) { if (s.isHuman) g.hud?.toast('You need a primary weapon'); return false; }
+      it.crate.took.add(s);
+      g.audio.play('upgradeTake', { pos: it.pos, owner: s, vol: 0.9 });
+      g.onUpgrade?.(s, it.crate.kind);
+      g.onPickup?.(s, it);
+      // gone once everyone still standing has loaded up
+      if (g.survivors.every((o) => o.dead || it.crate.took.has(o))) { it.taken = true; it.mesh.parent?.remove(it.mesh); }
+      else this.markCrate(it);
+      return true;
+    }
     const def = WEAPONS[t];
+    let droppedState = null;
     if (def) {
       if (def.slot === 0) {
         if (s.inv.primary && s.inv.primary.type === t) {
           ok = s.inv.primary.refill() || true;
         } else {
           dropped = s.inv.primary ? s.inv.primary.type : null;
-          s.giveWeapon(t);
+          droppedState = s.inv.primary ? s.inv.primary.state() : null;
+          s.giveWeapon(t, it.weapon || {});
           ok = true;
         }
       } else if (def.slot === 1) {
         const cur = s.inv.secondary;
         if (t === 'pistol' && cur.type === 'pistol' && cur.dual) { ok = false; }
         else {
-          if (!(t === 'pistol' && cur.type === 'pistol')) dropped = cur.type === 'pistol' ? null : cur.type;
-          if (cur.type === 'pistol' && t !== 'pistol' && cur.dual) dropped = 'pistol';
-          s.giveWeapon(t);
+          if (!(t === 'pistol' && cur.type === 'pistol')) { dropped = cur.type === 'pistol' ? null : cur.type; droppedState = cur.state(); }
+          if (cur.type === 'pistol' && t !== 'pistol' && cur.dual) { dropped = 'pistol'; droppedState = null; }
+          s.giveWeapon(t, t === 'pistol' ? {} : it.weapon || {});
           ok = true;
         }
       }
       if (ok) g.audio.play('weaponPickup', { pos: it.pos, owner: s });
     } else if (THROWABLES[t]) {
       if (s.inv.throwable !== t) { dropped = s.inv.throwable; s.inv.throwable = t; ok = true; }
-    } else if (t === 'medkit') {
-      if (!s.inv.medkit) { s.inv.medkit = true; ok = true; }
+    } else if (t === 'medkit' || ITEMS[t]?.slot === 3) {
+      // one slot for kit / defibrillator / upgrade pack: swap what is there
+      const cur = slot3Id(s.inv.medkit);
+      if (cur !== t) { dropped = cur; s.inv.medkit = t === 'medkit' ? true : t; ok = true; }
     } else if (t === 'pills' || t === 'adrenaline') {
       if (!s.inv.pills) { s.inv.pills = t; ok = true; }
     }
@@ -196,8 +231,8 @@ export class ItemManager {
       it.mesh.parent?.remove(it.mesh);
     }
     if (dropped && dropped !== t) {
-      // swap: drop the old item where the new one was
-      this.spawn(dropped, it.pos.x, it.pos.y - 0.1, it.pos.z);
+      // swap: drop the old item where the new one was (weapons keep their ammo, fuel, laser)
+      this.spawn(dropped, it.pos.x, it.pos.y - 0.1, it.pos.z, droppedState ? { weapon: droppedState } : {});
     }
     if (!def) g.audio.play('pickup', { pos: it.pos, owner: s });
     g.onPickup?.(s, it);
@@ -224,13 +259,21 @@ export class ItemManager {
         bs = score; best = obj;
       }
     };
-    for (const it of this.items) if (!it.taken) consider(it.pos, 2.1, { item: it, pos: it.pos, prompt: (it.type === 'ammo' ? 'Refill ammo' : 'Pick up ' + itemName(it.type)) });
+    for (const it of this.items) {
+      if (it.taken || (it.crate && it.crate.took.has(s))) continue;
+      consider(it.pos, 2.1, { item: it, pos: it.pos, prompt: it.type === 'ammo' ? 'Refill ammo' : it.crate ? 'Take ' + itemName(it.type) : it.type === 'laserSight' ? 'Take laser sight' : 'Pick up ' + itemName(it.type) });
+    }
     for (const u of g.usables) if (u.enabled !== false) consider(u.pos, u.radius || 2, { usable: u, pos: u.pos, prompt: u.prompt, hold: u.hold });
     // revive target
     for (const o of g.survivors) {
       if (o === s || o.dead || !o.incapped || o.pinned) continue;
       const d = o.pos.distanceTo(s.pos);
       if (d < 1.8) { best = { revive: o, pos: o.pos, prompt: 'Help ' + o.name + ' up', hold: 5 }; break; }
+    }
+    // defibrillator: hold use on a dead teammate's body
+    if (s.inv.medkit === 'defib') {
+      const o = s.deadMateNear?.(1.9);
+      if (o) best = { defib: o, pos: o.corpsePos(), prompt: 'Defibrillate ' + o.name, hold: 3 };
     }
     return best;
   }

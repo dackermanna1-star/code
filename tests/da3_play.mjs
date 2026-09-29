@@ -7,6 +7,7 @@ export default async ({ page, evalg, wait, shot }) => {
   await page.goto((process.env.TEST_URL || 'http://localhost:5180/') + '?campaign=deadair&autostart=2', { timeout: 180000 });
   for (let i = 0; i < 150; i++) { await wait(1000); if ((await evalg(() => window.session?.state)) === 'playing') break; }
   const dirOn = process.env.DIRECTOR === '1', bots = process.env.BOTS === '1';
+  if (process.env.CHUNK) await evalg((c) => { window.__chunk = c; }, +process.env.CHUNK);
   await evalg(([dirOn, bots]) => {
     const g = window.game;
     g.director.enabled = dirOn; g.cheats.god = true; if (!dirOn) g.cheats.godAll = true;
@@ -14,7 +15,7 @@ export default async ({ page, evalg, wait, shot }) => {
     window.session.menu?.clear?.();
     window.__BotBrain = g.survivors.find((s) => s.brain)?.brain.constructor;
     if (!bots) for (const s of g.survivors) if (s !== g.player) s.brain = null;
-    window.__w = { loot: bots, t: 0, lastProg: -1, stuckT: 0, useT: 0, log: [], done: false, phase: 'walk', waitT: 0, maxProg: 0 };
+    window.__w = { chunk: +(window.__chunk || 0) || 0, loot: bots, t: 0, lastProg: -1, stuckT: 0, useT: 0, log: [], done: false, phase: 'walk', waitT: 0, maxProg: 0 };
   }, [dirOn, bots]);
   const t0 = Date.now();
   for (let chunk = 0; chunk < 400; chunk++) {
@@ -22,7 +23,7 @@ export default async ({ page, evalg, wait, shot }) => {
       const g = window.game, L = g.level, nav = L.nav, p = g.player, W = window.__w, bar = L.da3.bar;
       const f = nav.fields.toExit;
       const fmt = (v) => v.toArray().map((q) => q.toFixed(1)).join(',');
-      for (let step = 0; step < 150 && !W.done; step++) {
+      for (let step = 0; step < (W.chunk || 150) && !W.done; step++) {
         W.t += 0.1;
         if (!g.director.enabled) { for (const c of g.infected.commons) if (!c.dead) c.hp = 0; for (const q of g.infected.specials) if (!q.dead) q.takeHit({ damage: 1e5, part: 0, zone: 'torso', x: q.pos.x, y: q.pos.y + 1, z: q.pos.z, dir: q.pos.clone().set(0, 1, 0), attacker: null, kind: 'bullet' }); }
         const prog = L.progressAt(p.pos.x, p.pos.y, p.pos.z);
@@ -70,9 +71,10 @@ export default async ({ page, evalg, wait, shot }) => {
       }
       g.testCmd = null;
       const out = W.log.splice(0);
-      return { out, done: W.done, t: W.t, maxProg: W.maxProg };
+      return { out, done: W.done, t: W.t, maxProg: W.maxProg, pos: fmt(p.pos) + ' inf ' + g.infected.commons.filter((c) => !c.dead).length };
     });
     if (!r) { console.log('eval failed'); break; }
+    if (process.env.VERBOSE) console.log(`[v] t=${r.t.toFixed(1)} wall=${((Date.now() - t0) / 1000).toFixed(0)}s ${r.pos || ''}`);
     for (const l of r.out) console.log(l);
     if (r.done) { console.log(`maxProg ${r.maxProg.toFixed(3)} gameTime ${r.t.toFixed(0)}s wall ${((Date.now() - t0) / 1000).toFixed(0)}s`); break; }
   }
