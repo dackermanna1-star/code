@@ -220,7 +220,7 @@ export default {
         { who: 'bill', text: 'Here they come — every direction! Hold the line!', d: 8.5 },
       ]);
       obj('Defend the tanker until Evac 41 is fuelled', 'Finale');
-      L.after(7, () => d.panic('da5A', { waves: 3, size: [12, 18], interval: 22, nodes: allNodes(), stingEvery: true, force: true, onEnd: () => { F.stage = 'tank1'; F.t = 0; F.cap = 48; } }));
+      L.after(7, () => d.panic('da5A', { waves: 3, size: [9, 13], interval: 24, nodes: allNodes(), stingEvery: true, force: true, onEnd: () => { F.stage = 'tank1'; F.t = 0; F.cap = 48; } }));
     }
 
     const pilotAt = (k, lines) => { if (F.fuel >= k && !F.said[k]) { F.said[k] = true; say(lines); } };
@@ -235,7 +235,7 @@ export default {
       plane.audio(true, 1);
       game.audio.music.stinger('rescueArrive');
       obj('Get on the plane!', 'Evac 41');
-      d.panic('da5End', { endless: true, size: [12, 18], interval: 14, nodes: allNodes(), force: true });
+      d.panic('da5End', { endless: true, size: [10, 14], interval: 16, nodes: allNodes(), force: true });
     }
 
     // ============================================================ crash cinematic
@@ -391,13 +391,13 @@ export default {
           case 'wavesB':
             if (F.t > 5 && !d.panicState && !F.bStarted) {
               F.bStarted = true;
-              d.panic('da5B', { waves: 2, size: [14, 20], interval: 25, nodes: allNodes(), force: true, onEnd: () => { F.stage = 'tank2'; F.t = 0; F.cap = 86; } });
+              d.panic('da5B', { waves: 2, size: [10, 15], interval: 26, nodes: allNodes(), force: true, onEnd: () => { F.stage = 'tank2'; F.t = 0; F.cap = 86; } });
             }
             break;
           case 'tank2':
             if (F.t > 3 && !F.waitingTank && !F.t2) {
               F.t2 = true; spawnTank(F.stripNodes);
-              d.panic('da5T2', { waves: 1, size: [10, 14], interval: 30, nodes: F.hallNodes.length ? F.hallNodes : allNodes(), force: true });
+              d.panic('da5T2', { waves: 1, size: [8, 11], interval: 30, nodes: F.hallNodes.length ? F.hallNodes : allNodes(), force: true });
               say([{ who: 'louis', text: 'Another Tank?! Over the wall!', d: 0.3 }]);
               obj('Another Tank! Hold on!', 'Finale');
             }
@@ -405,7 +405,7 @@ export default {
               F.waitingTank = false; F.stage = 'final'; F.t = 0; F.cap = 100;
               say([{ who: 'pilot', text: 'Last push! Thirty more seconds and she\'s full!', d: 0.5 }]);
               obj('Final wave — keep the fuel flowing!', 'Finale');
-              d.panic('da5F', { endless: true, size: [14, 20], interval: 17, nodes: allNodes(), force: true, stingEvery: true });
+              d.panic('da5F', { endless: true, size: [10, 14], interval: 18, nodes: allNodes(), force: true, stingEvery: true });
             }
             break;
           case 'final':
