@@ -994,6 +994,297 @@ function buildMachete() {
   return g;
 }
 
+// Katana: handle along +Y (hand centre at the origin), blade in the YZ plane
+// with the edge on -Z, curving back (sori) towards the tip; ray-skin handle
+// with a diamond cord wrap, iron guard, gilt collar and a wavy temper line.
+function buildKatana() {
+  const g = new THREE.Group();
+  const P = new Part();
+  const ZS = 1.3; // oval handle section (deeper edge-to-spine than side-to-side)
+  P.put('samegawa', latheY([[0, -0.168], [0.0116, -0.168], [0.0124, -0.12], [0.0129, -0.05], [0.0126, 0.02], [0.0121, 0.074], [0, 0.074]], 18), 0, 0, 0, 0, 0, 0, 1, 1, ZS);
+  // cord wrap: crossing ribbons on both flats, wrapped round the edge and spine
+  for (let i = 0; i < 8; i++) {
+    const y = -0.152 + i * 0.0285;
+    for (const sd of [1, -1]) {
+      P.put('ito', rb(0.0022, 0.0088, 0.036, 0.0009), sd * 0.0122, y, 0, 0.66, 0, 0);
+      P.put('ito', rb(0.0022, 0.0088, 0.036, 0.0009), sd * 0.0126, y + 0.0005, 0, -0.66, 0, 0);
+      P.put('ito', rb(0.024, 0.0105, 0.0035, 0.001), 0, y, sd * 0.0162);
+    }
+  }
+  P.pair('gilt', () => rb(0.002, 0.012, 0.022, 0.001), 0.0134, -0.035, 0.002);
+  // kashira (pommel cap) + fuchi (collar)
+  P.put('ironDark', latheY([[0, -0.186], [0.0105, -0.186], [0.0128, -0.18], [0.0132, -0.168], [0.0126, -0.162], [0, -0.162]], 18), 0, 0, 0, 0, 0, 0, 1, 1, ZS);
+  P.put('ironDark', latheY([[0, 0.072], [0.0132, 0.072], [0.0134, 0.084], [0, 0.084]], 18), 0, 0, 0, 0, 0, 0, 1, 1, ZS);
+  // seppa washers + tsuba (oval iron guard with openwork) + habaki
+  P.put('gilt', cy(0.0205, 0.0205, 0.0022, 20), 0, 0.0852, 0, 0, 0, 0, 1, 1, 1.25);
+  const tsuba = [];
+  for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2; tsuba.push([Math.cos(a) * 0.036, Math.sin(a) * 0.04, 0.004]); }
+  const holes = [[[-0.004, 0.02], [0.004, 0.02], [0.006, 0.03], [-0.006, 0.03]], [[-0.004, -0.02], [0.004, -0.02], [0.006, -0.03], [-0.006, -0.03]]];
+  P.put('ironDark', plate(tsuba.map(([x, y, r]) => [x, y, r]), 0.0055, 0.0012), 0, 0.0905, 0);
+  for (const h of holes) P.put('dark', plate(h, 0.0058, 0.0004), 0, 0.0905, 0);
+  P.put('ironDark', lathe([[0.037, 0.001], [0.0385, 0.0], [0.037, -0.001]], 28).rotateX(Math.PI / 2), 0, 0.0905, 0, 0, 0, 0, 1, 1, 1.08);
+  P.put('gilt', cy(0.0205, 0.0205, 0.0022, 20), 0, 0.0955, 0, 0, 0, 0, 1, 1, 1.25);
+  P.put('gilt', prof([[-0.0165, 0.097, 0.002], [0.0175, 0.097, 0.002], [0.0165, 0.128, 0.002], [-0.0158, 0.128, 0.002]], 0.0105, 0.0014));
+  // blade: curved profile sampled along its length, kissaki at the tip
+  const N = 14, L0 = 0.1, L1 = 0.74, SORI = 0.019;
+  const zc = (t) => SORI * t * t, wd = (t) => 0.0305 - 0.0062 * t;
+  const edgeS = [], spineS = [], hamonS = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N, y = L0 + (L1 - L0) * t;
+    edgeS.push([zc(t) - wd(t) / 2, y]);
+    spineS.push([zc(t) + wd(t) / 2, y]);
+    // temper line: gently wavy (notare) about 35 % of the width back from the edge
+    hamonS.push([zc(t) - wd(t) / 2 + wd(t) * (0.33 + 0.07 * Math.sin(t * 23 + 1.3)), y]);
+  }
+  const zt = zc(1), wt = wd(1);
+  const tip = [[zt - wt / 2 + 0.003, L1 + 0.03], [zt - wt / 2 + 0.011, L1 + 0.052], [zt + wt / 2 - 0.004, L1 + 0.066]];
+  const bladePts = [...edgeS, ...tip, ...spineS.slice().reverse()];
+  P.put('katanaSteel', prof(bladePts, 0.0058, 0.0012));
+  // hamon band (hardened edge) slightly proud of the flats, reads as a lighter wavy strip
+  P.put('hamon', prof([...edgeS, ...tip.slice(0, 2), [zt - wt / 2 + 0.013, L1 + 0.04], ...hamonS.slice().reverse()], 0.0061, 0.0005));
+  // bo-hi: fuller groove along the spine side of each flat
+  const hi = [];
+  for (let i = 1; i <= N - 3; i++) { const t = i / N; hi.push([zc(t) + wd(t) * 0.12, L0 + (L1 - L0) * t]); }
+  for (let i = N - 3; i >= 1; i--) { const t = i / N; hi.push([zc(t) + wd(t) * 0.3, L0 + (L1 - L0) * t]); }
+  P.put('ironDark', prof(hi, 0.0061, 0.0003));
+  P.build(g);
+  marker(g, 'tip', 0, L1 + 0.06, zt);
+  return g;
+}
+// Baseball bat: handle along +Y, knob at the bottom, taped handle, a worn
+// brand oval and blood worked into the grain of the barrel.
+function buildBat() {
+  const g = new THREE.Group();
+  const P = new Part();
+  const prf = [[0, -0.152], [0.019, -0.152], [0.0242, -0.146], [0.0246, -0.136], [0.0172, -0.126], [0.0131, -0.11], [0.0128, 0.02], [0.0134, 0.12], [0.0152, 0.2],
+    [0.0192, 0.29], [0.0248, 0.38], [0.0296, 0.47], [0.0328, 0.56], [0.0336, 0.62], [0.0328, 0.655], [0.0292, 0.672], [0.018, 0.682], [0, 0.684]];
+  P.put('ash', latheY(prf, 26));
+  // grip tape: overlapping spiral turns
+  P.put('ito', latheY([[0.0137, -0.118], [0.0136, 0.12], [0.0132, 0.121], [0.0132, -0.117]], 18));
+  for (let i = 0; i < 12; i++) P.put('ito', new THREE.TorusGeometry(0.0137, 0.0011, 5, 18), 0, -0.11 + i * 0.02, 0, Math.PI / 2 + 0.14, 0, 0);
+  // brand oval + two blood smears (partial lathe patches just proud of the barrel)
+  const patch = (y0, y1, a0, da, mat, lift = 0.0004) => {
+    const pts = [];
+    for (let i = 0; i <= 6; i++) {
+      const y = y0 + (y1 - y0) * i / 6;
+      let r = 0; for (let k = 1; k < prf.length; k++) if (y <= prf[k][1]) { const [ra, ya] = prf[k - 1], [rb2, yb] = prf[k]; r = ra + (rb2 - ra) * (y - ya) / (yb - ya); break; }
+      pts.push(new THREE.Vector2(r + lift, y));
+    }
+    P.put(mat, crease(new THREE.LatheGeometry(pts, 10, a0, da)));
+  };
+  patch(0.42, 0.5, 0.2, 0.75, 'dark');
+  patch(0.52, 0.65, 2.1, 1.3, 'gore', 0.0006);
+  patch(0.57, 0.62, 3.9, 0.9, 'gore', 0.0006);
+  patch(0.3, 0.36, 4.6, 0.6, 'gore', 0.0005);
+  P.build(g);
+  marker(g, 'tip', 0, 0.66, 0);
+  return g;
+}
+// Cast-iron frying pan: handle along +Y, the dish opening towards +X (its
+// bottom does the hitting on a forehand swing).
+function buildPan() {
+  const g = new THREE.Group();
+  const P = new Part();
+  const R = 0.122, cyD = 0.36;
+  const dish = latheY([[0, 0], [0.098, 0], [0.11, 0.0035], [0.118, 0.016], [0.1215, 0.036], [0.1238, 0.0435], [0.1205, 0.0448], [0.1162, 0.037], [0.1125, 0.018], [0.105, 0.0072], [0.094, 0.0052], [0, 0.0052]], 40);
+  dish.rotateZ(-Math.PI / 2);
+  P.put('castIron', dish, -0.022, cyD, 0);
+  // heat ring under the bottom + pour spouts
+  P.put('castIron', new THREE.TorusGeometry(0.085, 0.0022, 6, 40), -0.0226, cyD, 0, 0, Math.PI / 2, 0);
+  P.pair('castIron', () => rb(0.006, 0.018, 0.012, 0.003), 0.019, cyD, 0.119, 0, 0, 0);
+  // handle (tapered flat bar, raised rib, hang hole) + helper lug opposite
+  P.put('castIron', prof([[-0.0105, -0.108, 0.009], [0.0105, -0.108, 0.009], [0.0122, 0.08], [0.0142, 0.2], [0.021, 0.244], [-0.021, 0.244], [-0.0142, 0.2], [-0.0122, 0.08]], 0.0125, 0.003,
+    [[[-0.0045, -0.098, 0.004], [0.0045, -0.098, 0.004], [0.0045, -0.078, 0.004], [-0.0045, -0.078, 0.004]]]), 0.014, 0, 0);
+  P.put('castIron', prof([[-0.004, -0.07], [0.004, -0.07], [0.005, 0.22], [-0.005, 0.22]], 0.004, 0.0012), 0.0215, 0, 0);
+  P.put('castIron', prof([[-0.022, cyD + R - 0.004], [0.022, cyD + R - 0.004], [0.016, cyD + R + 0.022, 0.008], [-0.016, cyD + R + 0.022, 0.008]], 0.009, 0.0025,
+    [[[-0.009, cyD + R + 0.004, 0.004], [0.009, cyD + R + 0.004, 0.004], [0.006, cyD + R + 0.014, 0.004], [-0.006, cyD + R + 0.014, 0.004]]]), 0.018, 0, 0);
+  P.build(g);
+  marker(g, 'tip', 0, cyD + R, 0);
+  return g;
+}
+// Chainsaw: bar along -Z like a gun. Right hand on the rear D-handle
+// (userData.handR, throttle trigger), left hand across the top of the front
+// handle hoop; the chain runs round the bar in two animated runs.
+function buildChainsaw() {
+  const g = new THREE.Group();
+  const P = new Part();
+  const bx = 0.066; // bar plane (right of the engine)
+  // engine housing + top cover with intake slots
+  P.put('sawBody', prof([[0.03, -0.095, 0.02], [0.035, 0.045, 0.03], [-0.01, 0.082, 0.03], [-0.17, 0.086, 0.035], [-0.232, 0.035, 0.03], [-0.236, -0.095, 0.02]], 0.13, 0.012), -0.006, 0, 0);
+  P.put('poly', prof([[0.012, 0.07], [-0.018, 0.1, 0.02], [-0.15, 0.104, 0.024], [-0.198, 0.074, 0.02], [-0.19, 0.062], [0.0, 0.062]], 0.112, 0.01), -0.006, 0, 0);
+  for (let i = 0; i < 7; i++) P.put('dark', rb(0.07, 0.003, 0.006, 0.001), -0.006, 0.1035, -0.035 - i * 0.017);
+  P.put('dark', rb(0.136, 0.022, 0.25, 0.008), -0.006, -0.1, -0.105);
+  // starter (left): round cover, grille, pull handle
+  P.put('sawBody', cx(0.056, 0.012, 32), -0.077, -0.012, -0.11);
+  P.put('dark', cx(0.036, 0.013, 24), -0.078, -0.012, -0.11);
+  for (let i = 0; i < 6; i++) P.put('sawBody', rb(0.014, 0.003, 0.07, 0.001), -0.079, -0.012 + (i - 2.5) * 0.011, -0.11);
+  P.put('poly', rb(0.016, 0.014, 0.054, 0.005), -0.086, 0.058, -0.176);
+  P.put('dark', cy(0.0012, 0.0012, 0.03, 6), -0.082, 0.04, -0.176);
+  // fuel & oil caps, spark plug boot, decals
+  P.put('poly', cy(0.013, 0.013, 0.012, 16), -0.05, 0.08, 0.005, 0.5, 0, 0);
+  P.put('poly', cy(0.011, 0.011, 0.012, 16), 0.03, -0.06, -0.2, 0, 0, 1.2);
+  P.put('rubber', cy(0.009, 0.009, 0.03, 12), 0.03, 0.09, -0.08, 0, 0, 0.9);
+  P.put('dark', rb(0.002, 0.03, 0.12, 0.0008), 0.0595, 0.0, -0.1);
+  P.put('hazard', rb(0.0024, 0.008, 0.12, 0.0008), 0.0598, 0.03, -0.1);
+  // muffler (front, perforated) + bucking spikes
+  P.put('ironDark', rb(0.06, 0.05, 0.028, 0.006), -0.01, -0.035, -0.247);
+  for (let i = 0; i < 4; i++) P.put('dark', rb(0.04, 0.003, 0.004, 0.001), -0.01, -0.052 + i * 0.011, -0.2615);
+  for (let i = 0; i < 3; i++) P.put('ironDark', prof([[-0.234, -0.055 + i * 0.03], [-0.252, -0.05 + i * 0.03], [-0.234, -0.04 + i * 0.03]], 0.004, 0.0006), bx - 0.008, 0, 0);
+  // clutch / sprocket cover (right) with bar nuts
+  P.put('poly', prof([[-0.06, 0.04, 0.01], [-0.06, -0.085, 0.02], [-0.225, -0.085, 0.02], [-0.25, -0.035, 0.02], [-0.232, 0.038, 0.02]], 0.026, 0.006), bx + 0.012, 0, 0);
+  for (const z of [-0.17, -0.2]) P.put('steel', cx(0.0075, 0.012, 6), bx + 0.03, -0.02, z);
+  // guide bar: rounded nose, rivets, nose sprocket, stripe
+  P.put('sawBar', prof([[-0.2, 0.016], [-0.64, 0.011, 0.028], [-0.64, -0.051, 0.028], [-0.2, -0.056]], 0.0052, 0.0012), bx, 0, 0);
+  P.put('dark', rb(0.0058, 0.006, 0.33, 0.001), bx, -0.02, -0.4);
+  for (let i = 0; i < 5; i++) P.pair('steel', () => cx(0.0026, 0.0062, 8), 0.0, -0.02 + (i % 2 ? 0.012 : -0.012), -0.3 - i * 0.06);
+  P.put('steel', cx(0.017, 0.0062, 16), bx, -0.02, -0.615);
+  // chain round the nose (static part)
+  for (let i = 0; i <= 8; i++) {
+    const a = -Math.PI / 2 + i / 8 * Math.PI, zz = -0.614 - Math.cos(a) * 0.0355, yy = -0.02 + Math.sin(a) * 0.0355;
+    P.put('chain', rb(0.0072, 0.006, 0.011, 0.0012), bx + (i % 2 ? 0.0022 : -0.0022), yy, zz, -a, 0, 0);
+  }
+  // front handle hoop (rubber over tube) + chain-brake hand guard
+  const hoop = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.076, -0.07, -0.15), new THREE.Vector3(-0.085, 0.04, -0.15), new THREE.Vector3(-0.07, 0.132, -0.142),
+    new THREE.Vector3(-0.02, 0.15, -0.138), new THREE.Vector3(0.035, 0.144, -0.14), new THREE.Vector3(0.058, 0.11, -0.146), new THREE.Vector3(0.06, 0.07, -0.15)]);
+  P.put('poly', new THREE.TubeGeometry(hoop, 40, 0.0118, 12, false));
+  P.put('rubber', new THREE.TubeGeometry(new THREE.CatmullRomCurve3(hoop.getPoints(40).slice(12, 32)), 24, 0.0132, 12, false));
+  P.put('poly', prof([[-0.18, 0.06], [-0.19, 0.19, 0.01], [-0.205, 0.19, 0.006], [-0.2, 0.06]], 0.14, 0.004), -0.008, 0, 0, 0, 0, 0);
+  P.put('dark', rb(0.12, 0.004, 0.003, 0.001), -0.008, 0.17, -0.2);
+  // rear D-handle: the grip leans back like a steep pistol grip (see handR)
+  const H = [0, 0.02, 0.1, -0.95];
+  const hr = (y, z) => new THREE.Vector3(0, H[1] + y * Math.cos(H[3]) - z * Math.sin(H[3]), H[2] + y * Math.sin(H[3]) + z * Math.cos(H[3]));
+  const dcurve = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0.07, 0.02), hr(0.062, 0.0), hr(0.02, 0.0), hr(-0.03, 0.0), hr(-0.064, 0.0), new THREE.Vector3(0, -0.058, 0.135), new THREE.Vector3(0, -0.085, 0.03)]);
+  P.put('poly', new THREE.TubeGeometry(dcurve, 48, 0.0125, 12, false), 0, 0, 0, 0, 0, 0, 1.15, 1, 1);
+  // grip section: oval rubber overmould along the handR axis
+  const grip = latheY([[0.0, -0.058], [0.0145, -0.058], [0.0158, -0.04], [0.0162, 0.0], [0.0156, 0.04], [0.0142, 0.058], [0, 0.058]], 18);
+  grip.scale(1, 1, 1.15);
+  grip.rotateX(H[3]); grip.translate(0, H[1], H[2]);
+  P.put('rubber', grip);
+  // throttle trigger (under the front of the grip) + lockout lever on top
+  const tp = hr(0.02, -0.018);
+  P.put('sawBody', prof([[0.0, 0.0], [-0.006, -0.018, 0.004], [0.012, -0.024, 0.004], [0.016, -0.004]], 0.008, 0.0015), 0, tp.y, tp.z, H[3] + 0.9, 0, 0);
+  const lp = hr(0.03, 0.017);
+  P.put('poly', rb(0.01, 0.006, 0.03, 0.002), 0, lp.y, lp.z, H[3] + Math.PI / 2, 0, 0);
+  P.build(g);
+  // chain runs (animated: the top run travels forward, the bottom run back)
+  const pitch = 0.0175;
+  const run = (name, y, dir) => {
+    const grp = pivot(g, name, 0, 0, 0);
+    const C = new Part();
+    for (let z = -0.2 - pitch * 0.5; z > -0.61; z -= pitch) {
+      const k = Math.round((z + 0.2) / pitch) & 1;
+      C.put('chain', rb(0.0072, 0.0062, 0.0112, 0.0012), bx + (k ? 0.0024 : -0.0024), y, z);
+      C.put('chain', rb(0.0058, 0.0055, 0.004, 0.0008), bx + (k ? 0.0026 : -0.0026), y + dir * 0.0045, z - 0.003);
+      C.put('steel', rb(0.0026, 0.007, 0.006, 0.0006), bx, y - dir * 0.004, z + pitch * 0.5);
+    }
+    C.build(grp);
+    grp.userData.pitch = pitch;
+    return grp;
+  };
+  run('chainTop', 0.0195, 1);
+  run('chainBot', -0.0595, -1);
+  marker(g, 'tip', bx, -0.02, -0.65);
+  marker(g, 'muzzle', bx, -0.02, -0.4);
+  marker(g, 'trigger', 0, tp.y, tp.z);
+  marker(g, 'frontGrip', -0.02, 0.15, -0.138);
+  g.userData.handR = [0, H[1], H[2], H[3], 0, 0];
+  return g;
+}
+
+// Defibrillator unit (upright like the kit: thin along Z, handle on top) with
+// both paddles docked on its face; upgrade packs (hard cases with an emblem);
+// deployed ammo crates (open, four stacks of rounds: userData.stack0..3);
+// laser sight box.
+function buildDefib() {
+  const g = new THREE.Group();
+  const P = new Part();
+  P.put('defibYellow', rb(0.24, 0.17, 0.09, 0.016));
+  P.put('greyPlastic', rb(0.2, 0.125, 0.006, 0.004), 0, -0.004, 0.044);
+  P.put('screen', rb(0.066, 0.042, 0.003, 0.001), -0.05, 0.028, 0.047);
+  P.put('led', cz(0.005, 0.005, 0.004, 10), 0.012, 0.035, 0.047);
+  P.put('white', prof([[0.0, 0.02], [-0.008, 0.0], [0.0, 0.0], [-0.006, -0.02], [0.012, 0.006], [0.004, 0.006], [0.01, 0.02]], 0.004, 0.0006), 0.06, 0.03, 0.047, 0, Math.PI / 2, 0);
+  for (const sx of [-1, 1]) {
+    P.put('padMetal', rb(0.07, 0.05, 0.006, 0.006), sx * 0.052, -0.036, 0.049);
+    P.put('greyPlastic', rb(0.075, 0.055, 0.016, 0.01), sx * 0.052, -0.036, 0.056);
+    P.put('defibYellow', cy(0.012, 0.012, 0.05, 12), sx * 0.052, -0.036, 0.074, 0, 0, Math.PI / 2);
+    P.put('red', cy(0.005, 0.005, 0.006, 10), sx * 0.08, -0.036, 0.074, 0, 0, Math.PI / 2);
+  }
+  P.put('poly', new THREE.TorusGeometry(0.036, 0.008, 8, 18, Math.PI), 0, 0.085, 0);
+  P.pair('poly', () => rb(0.016, 0.012, 0.03, 0.003), 0.036, 0.088, 0);
+  P.build(g);
+  return g;
+}
+function buildUpgradePack(kind) {
+  const g = new THREE.Group();
+  const P = new Part();
+  const body = kind === 'incendiary' ? 'caseRed' : 'caseGreen';
+  P.put(body, rb(0.27, 0.19, 0.1, 0.014));
+  for (const y of [-0.05, 0.05]) P.put(body, rb(0.274, 0.008, 0.104, 0.003), 0, y, 0);
+  P.put('hazard', rb(0.2, 0.026, 0.004, 0.002), 0, -0.068, 0.051);
+  for (let i = 0; i < 6; i++) P.put('dark', rb(0.008, 0.03, 0.0045, 0.001), -0.085 + i * 0.034, -0.068, 0.0515, 0, 0, 0.6);
+  // emblem: flame (incendiary) or burst (explosive)
+  const em = kind === 'incendiary'
+    ? [[0, 0.05], [0.012, 0.024], [0.026, 0.012], [0.022, -0.018, 0.01], [0, -0.03, 0.012], [-0.022, -0.018, 0.01], [-0.026, 0.006], [-0.012, 0.004], [-0.008, 0.026]]
+    : Array.from({ length: 16 }, (_, i) => { const a = i / 16 * Math.PI * 2, r = i % 2 ? 0.016 : 0.034; return [Math.cos(a) * r, Math.sin(a) * r]; });
+  const eg = extrude(shapeOf(em), 0.003, 0.0006);
+  P.put(kind === 'incendiary' ? 'orange' : 'hazard', eg, 0, 0.02, 0.05);
+  P.pair('steel', () => rb(0.02, 0.014, 0.012, 0.003), 0.09, 0.092, 0.042);
+  P.put('poly', new THREE.TorusGeometry(0.04, 0.008, 8, 18, Math.PI), 0, 0.095, 0);
+  P.pair('poly', () => rb(0.016, 0.012, 0.03, 0.003), 0.04, 0.098, 0);
+  P.build(g);
+  return g;
+}
+function buildCrate(kind) {
+  const g = new THREE.Group();
+  const P = new Part();
+  const body = kind === 'incendiary' ? 'caseRed' : 'caseGreen', tipM = kind === 'incendiary' ? 'orange' : 'hazard';
+  const W = 0.44, D = 0.3, H = 0.12, t = 0.012;
+  P.put(body, rb(W, t, D, 0.004), 0, t / 2, 0);
+  P.put(body, rb(W, H, t, 0.004), 0, H / 2, D / 2 - t / 2);
+  P.put(body, rb(W, H, t, 0.004), 0, H / 2, -D / 2 + t / 2);
+  P.pair(body, () => rb(t, H, D, 0.004), W / 2 - t / 2, H / 2, 0);
+  P.put('hazard', rb(W * 0.9, 0.02, 0.003, 0.001), 0, H * 0.55, -D / 2 - 0.001);
+  // lid hinged at the back, swung open
+  const lid = new THREE.Group(); lid.position.set(0, H, D / 2); lid.rotation.x = -1.95; g.add(lid);
+  const LP = new Part();
+  LP.put(body, rb(W, 0.014, D, 0.004), 0, 0, -D / 2);
+  LP.put(tipM, extrude(shapeOf(Array.from({ length: 12 }, (_, i) => { const a = i / 12 * Math.PI * 2, r = i % 2 ? 0.03 : 0.06; return [Math.cos(a) * r, Math.sin(a) * r]; })), 0.003, 0.0006), 0, -0.01, -D / 2, Math.PI / 2, 0, 0);
+  LP.build(lid);
+  P.build(g);
+  // four stacks of rounds (disappear as survivors load up)
+  for (let i = 0; i < 4; i++) {
+    const st = pivot(g, 'stack' + i, -0.15 + i * 0.1, t, 0);
+    const S = new Part();
+    S.put('od', rb(0.085, 0.05, 0.24, 0.004), 0, 0.025, 0);
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 6; c++) {
+      S.put('brass', cy(0.006, 0.006, 0.04, 8), -0.025 + r * 0.025, 0.07, -0.09 + c * 0.036);
+      S.put(tipM, cy(0.0005, 0.006, 0.014, 8), -0.025 + r * 0.025, 0.097, -0.09 + c * 0.036);
+    }
+    S.build(st);
+  }
+  return g;
+}
+function buildLaserBox() {
+  const g = new THREE.Group();
+  const P = new Part();
+  const W = 0.34, D = 0.24, H = 0.09, t = 0.01;
+  P.put('greyPlastic', rb(W, t, D, 0.003), 0, t / 2, 0);
+  P.put('greyPlastic', rb(W, H, t, 0.003), 0, H / 2, D / 2 - t / 2);
+  P.put('greyPlastic', rb(W, H, t, 0.003), 0, H / 2, -D / 2 + t / 2);
+  P.pair('greyPlastic', () => rb(t, H, D, 0.003), W / 2 - t / 2, H / 2, 0);
+  P.put('rubber', rb(W - 0.02, 0.03, D - 0.02, 0.004), 0, 0.025, 0);
+  for (let i = 0; i < 3; i++) {
+    const x = -0.1 + i * 0.1;
+    P.put('poly', rb(0.032, 0.03, 0.1, 0.004), x, 0.055, 0);
+    P.put('laserLens', cz(0.007, 0.007, 0.002, 12), x, 0.058, -0.051);
+    P.put('steel', rb(0.034, 0.008, 0.02, 0.002), x, 0.074, 0.02);
+  }
+  P.put('hazard', rb(0.2, 0.02, 0.003, 0.001), 0, H * 0.6, -D / 2 - 0.001);
+  P.build(g);
+  return g;
+}
+
 // ---------------------------------------------------------- throwables etc --
 let _flameTex = null;
 function flameTexture() {
@@ -1146,6 +1437,16 @@ const BUILD = {
   fireaxe: buildAxe,
   crowbar: buildCrowbar,
   machete: buildMachete,
+  katana: buildKatana,
+  baseballBat: buildBat,
+  fryingPan: buildPan,
+  chainsaw: buildChainsaw,
+  defib: buildDefib,
+  upgradeIncendiary: () => buildUpgradePack('incendiary'),
+  upgradeExplosive: () => buildUpgradePack('explosive'),
+  crateIncendiary: () => buildCrate('incendiary'),
+  crateExplosive: () => buildCrate('explosive'),
+  laserSight: buildLaserBox,
   molotov: buildMolotov,
   pipebomb: buildPipebomb,
   bile: buildBile,

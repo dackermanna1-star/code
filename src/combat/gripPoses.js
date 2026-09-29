@@ -654,11 +654,24 @@ export const GRIP_SPECS = {
     R: { pos: [0.16, -0.05, 0.07], X: [0.9, -0.3, 0.3], Y: [-0.3, 0.1, -1], settle: 0.06, thumb: 'wrap', index: 'wrap', pose: { thumb: [0.1, 0.3, 0.2, 0.1, 0.1] }, fa: [-0.2, 0.3, -1] },
     L: { pos: [-0.16, -0.05, 0.07], X: [-0.9, -0.3, 0.3], Y: [0.3, 0.1, -1], settle: 0.06, thumb: 'wrap', index: 'wrap', pose: { thumb: [0.1, 0.3, 0.2, 0.1, 0.1] }, fa: [0.2, 0.3, -1] },
   },
+  katana: { R: R_HANDLE([0, 0.0, 0], { thumb: 'over' }) },
+  baseballBat: { R: R_HANDLE([0, 0.0, 0], { thumb: 'over' }) },
+  fryingPan: { R: R_HANDLE([0.014, 0.0, 0], { thumb: 'over' }) },
+  // chainsaw: right hand on the rear D-handle (steep pistol-grip frame, index on
+  // the throttle), left hand over the top of the front hoop, thumb wrapped under
+  chainsaw: {
+    R: R_GRIP({ trigger: [0, 0.0154, 0.0721] }),
+    L: { pos: [-0.03, 0.196, -0.1], X: [0, 0.87, 0.5], Y: [0, -0.5, -0.87], settle: 0.06, thumb: 'oppose', index: 'wrap', axis: { c: [-0.02, 0.15, -0.138], d: [1, 0, 0] },
+      pose: { spread: [0.04, 0.0, -0.04, -0.08], mcp: [0.3, 0.3, 0.3, 0.3], pip: [0.2, 0.2, 0.2, 0.2], dip: [0.1, 0.1, 0.1, 0.1], thumb: [0.25, 0.7, 0.55, 0.15, 0.2], cup: 0.2 }, fa: [0.3, 0.3, -1] },
+  },
   minigun: {
     R: R_HANDLE([0.14, -0.045, 0.32], { settle: 0.05 }),
     L: L_HANDLE([-0.14, -0.045, 0.32], { settle: 0.05 }),
   },
 };
+
+// slot-3 cases are carried like the first aid kit
+GRIP_SPECS.defib = GRIP_SPECS.upgradeIncendiary = GRIP_SPECS.upgradeExplosive = GRIP_SPECS.medkit;
 
 // Build a solved grip set for a weapon model. Returns {R, L} with
 // {anchor (Object3D), pos, quat (in the anchor's frame), pose, fa (forearm dir, model frame), info}.

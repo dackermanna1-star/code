@@ -15,7 +15,11 @@ const TYPE_MODEL = {
   autoShotgun: 'autoShotgun', rifle: 'rifle', scar: 'scar', huntingRifle: 'huntingRifle', m60: 'm60', grenadeLauncher: 'grenadeLauncher',
   fireaxe: 'fireaxe', crowbar: 'crowbar', machete: 'machete', molotov: 'molotov', pipebomb: 'pipebomb', bile: 'bile',
   medkit: 'medkit', pills: 'pills', adrenaline: 'adrenaline', minigun: 'minigun',
+  katana: 'katana', baseballBat: 'baseballBat', fryingPan: 'fryingPan', chainsaw: 'chainsaw',
+  defib: 'defib', upgradeIncendiary: 'upgradeIncendiary', upgradeExplosive: 'upgradeExplosive',
 };
+// turn a model about its own handle axis in first person (shows a blade's flat / the pan's face)
+const VM_TWIST = { katana: 1.2, fryingPan: -0.9 };
 // Hip pose per kind: [x,y,z, rx,ry,rz]
 const POSE = {
   pistol: [0.075, -0.105, -0.36, 0, 0.02, 0],
@@ -32,6 +36,7 @@ const POSE = {
   medkit: [0.06, -0.19, -0.36, 0.25, 0, 0],
   pills: [0.11, -0.16, -0.3, 0, 0, 0.1],
   minigun: [0.0, -0.28, -0.25, 0, 0, 0],
+  saw: [0.13, -0.2, -0.3, 0.12, 0.1, 0.05], // chainsaw: low right, bar angled in and up
 };
 
 // ------------------------------------------------------------------ hands --
@@ -173,6 +178,7 @@ export class Viewmodel {
     this.modelType = type;
     this.modelKey = mt;
     if (this.model) {
+      this.model.rotation.y = VM_TWIST[type] || 0;
       this.holder.add(this.model);
       this.arms.setModel(this.model, mt);
       this.flashMesh = this.model.userData._flash || null;
@@ -221,7 +227,7 @@ export class Viewmodel {
     if (inv.primary?.type) want.push(TYPE_MODEL[inv.primary.type]);
     if (inv.secondary?.type) want.push(inv.secondary.type === 'pistol' && inv.secondary.dual ? 'dualPistols' : TYPE_MODEL[inv.secondary.type]);
     if (inv.throwable) want.push(TYPE_MODEL[inv.throwable]);
-    if (inv.medkit) want.push('medkit');
+    if (inv.medkit) want.push(TYPE_MODEL[inv.medkit === true ? 'medkit' : inv.medkit]);
     if (inv.pills) want.push(TYPE_MODEL[inv.pills]);
     const key = this.arms.lookId;
     const mt = want.find((t) => t && !(this.modelCache?.get(t)?.userData.fpGrips && key in this.modelCache.get(t).userData.fpGrips));
@@ -257,10 +263,11 @@ export class Viewmodel {
   kindOf(type, dual) {
     const def = this.game.weaponDef(type);
     if (!def) {
-      if (type === 'medkit') return 'medkit';
+      if (type === 'medkit' || type === 'defib' || type === 'upgradeIncendiary' || type === 'upgradeExplosive') return 'medkit';
       if (type === 'pills' || type === 'adrenaline') return 'pills';
       return 'throwable';
     }
+    if (def.chainsaw) return 'saw';
     if (def.melee) return 'melee';
     if (def.kind === 'pistol') return dual ? 'dual' : 'pistol';
     return def.kind;
@@ -634,6 +641,20 @@ export class Viewmodel {
       this.spinSpeed = damp(this.spinSpeed, s.cmd.fire ? 40 : 0, 3, dt);
       spin.rotation.z += this.spinSpeed * dt;
     }
+    // chainsaw: engine shake (hard while cutting, pushing into the target) + running chain
+    if (ud.chainTop) {
+      const cut = !!(w && w.cutting), on = !!w && w.fuel > 0;
+      const amp = on ? (cut ? 1 : 0.3) : 0;
+      this.sawCut = damp(this.sawCut || 0, cut ? 1 : 0, 10, dt);
+      const j = () => (Math.random() - 0.5) * 2;
+      px += j() * 0.0022 * amp; py += j() * 0.0022 * amp - 0.012 * this.sawCut; pz -= 0.05 * this.sawCut;
+      rx += j() * 0.008 * amp + 0.06 * this.sawCut; rz += j() * 0.006 * amp;
+      const pc = ud.chainTop.userData.pitch || 0.0175;
+      this.chainPh = ((this.chainPh || 0) + dt * (cut ? 14 : on ? 1.5 : 0)) % pc;
+      ud.chainTop.position.z = -this.chainPh; ud.chainBot.position.z = this.chainPh;
+    }
+    // laser sight: module under the muzzle + a fading beam
+    this.updateLaser(ud, w);
     if (ud.flame) { const f = ud.flame, r = Math.random(); f.scale.set(0.85 + 0.2 * r, 0.75 + 0.5 * Math.random(), 0.85 + 0.2 * r); f.rotation.y += dt * 3; f.rotation.z = Math.sin(t * 9) * 0.08; }
 
     // smooth the animation pose (eases blends into and out of every anim, incl. interrupts)
@@ -863,6 +884,34 @@ export class Viewmodel {
     }
   }
 
+  // Laser sight on the first-person gun: a small module under the muzzle and a
+  // thin additive beam (layer 1) that fades out ahead of the gun.
+  updateLaser(ud, w) {
+    const want = !!(w && w.laser && ud.muzzle && !w.def.melee);
+    if (!this.laser) {
+      if (!want) return;
+      const grp = new THREE.Group();
+      const mod = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.02, 0.05), new THREE.MeshStandardMaterial({ color: 0x1a1b1d, roughness: 0.55, metalness: 0.4 }));
+      mod.position.set(0, 0, 0.03);
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.005, 12), new THREE.MeshBasicMaterial({ color: 0xff3020 }));
+      lens.position.set(0, 0, 0.0045); lens.rotation.y = Math.PI;
+      const beamG = new THREE.CylinderGeometry(0.0009, 0.0016, 3, 6, 1, true).rotateX(Math.PI / 2).translate(0, 0, -1.5);
+      const col = new Float32Array(beamG.attributes.position.count * 3);
+      for (let i = 0; i < beamG.attributes.position.count; i++) { const k = Math.max(0, 1 + beamG.attributes.position.getZ(i) / 3); col[i * 3] = k; col[i * 3 + 1] = k * 0.12; col[i * 3 + 2] = k * 0.08; }
+      beamG.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      const beam = new THREE.Mesh(beamG, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+      grp.add(mod, lens, beam);
+      grp.traverse((o) => { o.layers.set(1); o.frustumCulled = false; });
+      this.laser = grp;
+    }
+    const L = this.laser;
+    if (!want) { L.visible = false; return; }
+    if (L.parent !== ud.muzzle) ud.muzzle.add(L);
+    // sit under the barrel, a little behind the muzzle (undo any model scale)
+    const sc = ud.muzzle.parent?.scale?.x || 1;
+    L.position.set(0.0, -0.026 / sc, 0.1 / sc);
+    L.visible = true;
+  }
   muzzleWorldPos(out) {
     const m = this.model;
     if (!m || !m.userData.muzzle) return null;

@@ -18,7 +18,17 @@ export default async ({ page, evalg, wait, shot }) => {
     window.__w = { chunk: +(window.__chunk || 0) || 0, loot: bots, t: 0, lastProg: -1, stuckT: 0, useT: 0, log: [], done: false, phase: 'walk', waitT: 0, maxProg: 0 };
   }, [dirOn, bots]);
   const t0 = Date.now();
+  page.on('crash', () => { console.log('[crash] renderer crashed (OOM?) at wall ' + ((Date.now() - t0) / 1000).toFixed(0) + 's'); process.exit(3); });
+  // WATCHDOG=1: if one chunk takes > 60 s, pause the page via CDP and print the JS stack (hang hunting)
+  let wd = null;
+  if (process.env.WATCHDOG) {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Debugger.enable');
+    cdp.on('Debugger.paused', (e) => { console.log('[hang] stack:\n' + e.callFrames.slice(0, 14).map((f) => `  ${f.functionName || '(anon)'} ${f.url.split('/').slice(-2).join('/')}:${f.location.lineNumber + 1}`).join('\n')); cdp.send('Debugger.resume').catch(() => {}); });
+    wd = { cdp, arm() { clearTimeout(this.h); this.h = setTimeout(() => cdp.send('Debugger.pause').catch(() => {}), 60000); }, off() { clearTimeout(this.h); } };
+  }
   for (let chunk = 0; chunk < 400; chunk++) {
+    wd?.arm();
     const r = await evalg(() => {
       const g = window.game, L = g.level, nav = L.nav, p = g.player, W = window.__w, bar = L.da3.bar;
       const f = nav.fields.toExit;
@@ -71,10 +81,11 @@ export default async ({ page, evalg, wait, shot }) => {
       }
       g.testCmd = null;
       const out = W.log.splice(0);
-      return { out, done: W.done, t: W.t, maxProg: W.maxProg, pos: fmt(p.pos) + ' inf ' + g.infected.commons.filter((c) => !c.dead).length };
+      return { out, done: W.done, t: W.t, maxProg: W.maxProg, pos: fmt(p.pos) + ' inf ' + g.infected.commons.filter((c) => !c.dead).length + ' heap ' + ((performance.memory?.usedJSHeapSize || 0) / 1048576).toFixed(0) + 'MB' };
     });
+    wd?.off();
     if (!r) { console.log('eval failed'); break; }
-    if (process.env.VERBOSE) console.log(`[v] t=${r.t.toFixed(1)} wall=${((Date.now() - t0) / 1000).toFixed(0)}s ${r.pos || ''}`);
+    if (process.env.VERBOSE && Math.round(r.t) % 10 === 0) console.log(`[v] t=${r.t.toFixed(1)} wall=${((Date.now() - t0) / 1000).toFixed(0)}s ${r.pos || ''}`);
     for (const l of r.out) console.log(l);
     if (r.done) { console.log(`maxProg ${r.maxProg.toFixed(3)} gameTime ${r.t.toFixed(0)}s wall ${((Date.now() - t0) / 1000).toFixed(0)}s`); break; }
   }

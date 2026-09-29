@@ -12,6 +12,7 @@ const MODEL_OF = {
   pistol: 'pistol', magnum: 'magnum', smg: 'smg', silencedSmg: 'silencedSmg', pumpShotgun: 'pumpShotgun', chromeShotgun: 'chromeShotgun',
   autoShotgun: 'autoShotgun', rifle: 'rifle', scar: 'scar', huntingRifle: 'huntingRifle', m60: 'm60', grenadeLauncher: 'grenadeLauncher',
   fireaxe: 'fireaxe', crowbar: 'crowbar', machete: 'machete', molotov: 'molotov', pipebomb: 'pipebomb', bile: 'bile', medkit: 'medkit', pills: 'pills', adrenaline: 'adrenaline',
+  katana: 'katana', baseballBat: 'baseballBat', fryingPan: 'fryingPan', chainsaw: 'chainsaw', defib: 'defib', upgradeIncendiary: 'upgradeIncendiary', upgradeExplosive: 'upgradeExplosive',
 };
 
 // Look descriptor for a survivor: the id selects the character recipe in
