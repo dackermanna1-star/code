@@ -896,7 +896,7 @@ export class WeaponController {
       const hk = this.fireT < 0.05 ? 0 : clamp((this.fireT - 0.05) / 0.12, 0, 1);
       P.hammer.rotation.x = -0.5 * hk + (anim === 'revolver' && this.fireT < 0.05 ? 0.2 : 0);
     }
-    if (P.trigger) P.trigger.rotation.x = this.fireT < 0.08 ? 0.4 : 0;
+    if (P.trigger) P.trigger.rotation.x = this.fireT < 0.08 ? -0.35 : 0;
     // slide/bolt kick on fire
     const slideK = this.fireT < 0.09 ? bump(this.fireT, 0, 0.09) : 0;
     if (P.slide) P.slide.position.z += (w.lockedBack ? 0.035 : slideK * 0.035);

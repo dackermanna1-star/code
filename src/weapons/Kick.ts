@@ -3,7 +3,7 @@ import { G } from '../core/G';
 import { clamp, easeInOutCubic, easeOutCubic, lerp } from '../core/math';
 import { P } from '../zombies/skeleton';
 import type { Zombie } from '../zombies/Zombie';
-import { C, mat } from './ModelBuilder';
+import { C, chamferBox, gunMat } from './ModelBuilder';
 import { solveIK } from './Viewmodel';
 import type { Viewmodel } from './Viewmodel';
 
@@ -15,10 +15,10 @@ const CONE = Math.cos((55 * Math.PI) / 180);
 const THIGH = 0.5;
 const SHIN = 0.5;
 
-const PANTS = 0x77704f;
-const PANTS_D = 0x5a5439;
-const BOOT = 0x5a3d27;
-const SOLE = 0x2a2420;
+const PANTS = 0x5d5c4e;
+const PANTS_D = 0x46463a;
+const BOOT = 0x4a3526;
+const SOLE = 0x262220;
 
 // foot path in camera space (the camera dips during the kick so the boot shows)
 const HIP = new THREE.Vector3(0.12, -0.78, 0.2);
@@ -37,11 +37,11 @@ const _fwd = new THREE.Vector3();
 
 function segment(len: number, w: number, color: number, cuff?: number) {
   const g = new THREE.Group();
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, w, len), mat(color));
+  const m = new THREE.Mesh(chamferBox(w, w, len, 0.012), gunMat(color, 0, 'fabric'));
   m.position.z = -len / 2;
   g.add(m);
   if (cuff) {
-    const c = new THREE.Mesh(new THREE.BoxGeometry(w * 1.08, w * 1.08, 0.05), mat(cuff));
+    const c = new THREE.Mesh(chamferBox(w * 1.08, w * 1.08, 0.05, 0.008), gunMat(cuff, 0, 'fabric'));
     c.position.z = -len + 0.03;
     g.add(c);
   }
@@ -63,7 +63,7 @@ export class Kick {
   constructor(scene: THREE.Scene) {
     // boot: origin at the ankle, toes along -Z, sole on -Y
     const add = (size: [number, number, number], pos: [number, number, number], color: number) => {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(...size), mat(color));
+      const m = new THREE.Mesh(chamferBox(...size), gunMat(color, 0, color === SOLE || color === 0x4a403a ? 'rubber' : 'leather'));
       m.position.set(...pos);
       this.boot.add(m);
     };

@@ -120,6 +120,7 @@ export class Game {
     ui.loading(1, 'Ready');
     await nextFrame();
     (window as any).__G = G;
+    if (import.meta.env.DEV) (window as any).__THREE = THREE;
     this.ready = true;
     ui.hideLoading();
     this.enterMenu();
