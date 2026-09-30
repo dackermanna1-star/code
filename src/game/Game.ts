@@ -369,7 +369,7 @@ export class Game {
       G.audio?.play('waveStart', {});
       G.atmosphere.setProgress(W.total > 1 ? (W.wave - 1) / (W.total - 1) : 1);
     } else if (p === 'prep' && W.wave > 0) {
-      ui.banner('WAVE CLEARED', `Next: wave ${W.wave + 1} of ${W.total} — press Enter when ready`, 2.6);
+      ui.banner('WAVE CLEARED', `Wave ${W.wave + 1} of ${W.total} starts in ${Math.round(W.prepTotal)} seconds`, 2.6);
       G.audio?.play('waveClear', {});
     } else if (p === 'dayEnd') {
       const sum = this.summary();
@@ -448,10 +448,8 @@ export class Game {
     const input = G.input;
     if (this.mode !== 'play') return;
     if (this.uiBlocking) return;
-    if (input.pressed('Enter') && G.waves.phase === 'prep') {
-      G.placement.exit();
-      G.waves.startWave();
-    }
+    // waves start on a timer; Enter just skips the rest of the break
+    if (input.pressed('Enter') && G.waves.phase === 'prep') G.waves.startWave();
     if (input.pressed('KeyP')) this.pause();
   }
 

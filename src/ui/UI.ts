@@ -210,7 +210,7 @@ export class UI {
         <div><span>Rotate structure</span><span><span class="kbd">Q</span><span class="kbd">E</span><span class="kbd">Wheel</span></span></div>
         <div><span>Pick up structure (prep)</span><span>hold <span class="kbd">E</span></span></div>
         <div><span>Shop</span><span>after each day</span></div>
-        <div><span>Start next wave</span><span class="kbd">Enter</span></div>
+        <div><span>Skip the break (waves start on a timer)</span><span class="kbd">Enter</span></div>
         <div><span>Crouch</span><span class="kbd">C</span></div>
         <div><span>Pause</span><span class="kbd">Esc</span></div>
       </div>
@@ -683,10 +683,14 @@ export class UI {
       const left = W.remaining;
       this.set('wavebox', `ZOMBIES LEFT: <span class="num" style="font-size:22px">${left}</span>`);
       this.refs.wavebarw.style.display = '';
+      this.refs.wavebarw.classList.remove('prep');
       this.refs.wavebar.style.width = `${clamp(1 - left / Math.max(1, W.waveSize), 0, 1) * 100}%`;
     } else if (W.phase === 'prep') {
-      this.set('wavebox', `PREPARE — <span class="kbd">Enter</span> start wave ${W.wave + 1}/${W.total} &nbsp; <span class="kbd">F</span> build`);
-      this.refs.wavebarw.style.display = 'none';
+      const sec = Math.max(0, Math.ceil(W.prepT));
+      this.set('wavebox', `WAVE ${W.wave + 1}/${W.total} IN <span class="num${sec <= 5 ? ' urgent' : ''}" style="font-size:22px">${sec}</span> &nbsp;<span class="skip"><span class="kbd">Enter</span> now</span>`);
+      this.refs.wavebarw.style.display = '';
+      this.refs.wavebarw.classList.add('prep');
+      this.refs.wavebar.style.width = `${clamp(1 - W.prepT / Math.max(1, W.prepTotal), 0, 1) * 100}%`;
     } else {
       this.set('wavebox', '');
       this.refs.wavebarw.style.display = 'none';
@@ -770,7 +774,7 @@ export class UI {
     if (G.placement.active && !G.placement.valid && G.placement.reason) prompt = `<span style="color:#ff8a80">${esc(G.placement.reason)}</span>`;
     this.set('prompt', prompt);
     let help = '';
-    if (W.phase === 'prep' && W.wave === 0 && W.day <= 2) help = `Place your barricade with <span class="kbd">F</span>, then press <span class="kbd">Enter</span> when you are ready.<br>The shop opens when the day is over.`;
+    if (W.phase === 'prep' && W.wave === 0 && W.day <= 2) help = `Place your barricade with <span class="kbd">F</span> before the timer runs out.<br>The shop opens when the day is over.`;
     this.set('help', help);
     // world-space money popups
     const cam = G.camera;

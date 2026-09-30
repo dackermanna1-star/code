@@ -27,13 +27,13 @@ Click the game to capture the mouse. If the page is embedded somewhere that bloc
 | Kick | `V` or middle mouse: shoves zombies back; wounded ones often go down |
 | Build mode | `F`, then left mouse to place, `Q`/`E`/wheel to rotate, `R` to turn 90°, `1`–`9` to pick a defense, right mouse to exit |
 | Pack up a defense (between waves) | Look at it and hold `E` (keeps its current damage) |
-| Start the next wave | `Enter` |
+| Skip the countdown to the next wave | `Enter` |
 | Pause | `Esc` or `P` |
 
 ## How a day works
 
-1. **Prepare.** Place the defenses you own (`F`).
-2. **Fight.** Press `Enter` to start the wave. Money comes *only* from kills. Special zombies pay more (walker < runner < fatty < riot < brute < abomination).
+1. **Prepare.** Place the defenses you own (`F`) before the countdown runs out: 20 seconds plus a little extra per defense you own (up to 45) before the first wave, 15 seconds between waves. `Enter` skips the rest of the countdown.
+2. **Fight.** The wave starts on its own. Money comes *only* from kills. Special zombies pay more (walker < runner < fatty < riot < brute < abomination).
 3. **Survive every wave of the day.** Days 1–10 have 3 waves, days 11–20 have 4, days 21–30 have 5, and so on up to 10.
 4. **Shop.** The shop opens only when the day is over: buy weapons, upgrades, defenses, grenades and a medkit, and set your loadout for the next day.
 

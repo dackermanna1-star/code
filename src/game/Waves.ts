@@ -72,6 +72,10 @@ export function waveComposition(day: number, wave: number, total: number, seed =
   return out;
 }
 
+export const PREP_BETWEEN = 15;
+const PREP_FIRST = 20;
+const PREP_FIRST_MAX = 45;
+
 export class Waves {
   phase: Phase = 'menu';
   day = 1;
@@ -88,6 +92,9 @@ export class Waves {
   waveTime = 0;
   lastKillT = 0;
   maxAliveCap = 240;
+  /** Countdown to the next wave (prep phase only). */
+  prepT = 0;
+  prepTotal = 0;
   onPhase: ((p: Phase) => void) | null = null;
 
   get remaining() {
@@ -109,7 +116,23 @@ export class Waves {
 
   setPhase(p: Phase) {
     this.phase = p;
+    if (p === 'prep') {
+      this.prepTotal = this.prepTime();
+      this.prepT = this.prepTotal;
+    }
     this.onPhase?.(p);
+  }
+
+  /**
+   * Waves start on their own. Between waves the break is short; the first
+   * wave of a day waits longer because every defense has to be placed again.
+   */
+  prepTime() {
+    if (this.wave > 0) return PREP_BETWEEN;
+    const inv: Record<string, number[]> = G.progress.data.inventory;
+    let items = 0;
+    for (const k in inv) items += inv[k].length;
+    return Math.min(PREP_FIRST_MAX, PREP_FIRST + Math.round(items * 1.5));
   }
 
   startWave() {
@@ -149,6 +172,14 @@ export class Waves {
   }
 
   update(dt: number) {
+    if (this.phase === 'prep') {
+      const before = Math.ceil(this.prepT);
+      this.prepT -= dt;
+      const now = Math.ceil(this.prepT);
+      if (now !== before && now >= 1 && now <= 3) G.audio?.play('countTick', {});
+      if (this.prepT <= 0) this.startWave();
+      return;
+    }
     if (this.phase !== 'wave') return;
     this.waveTime += dt;
     const alive = G.zombies.list.length;

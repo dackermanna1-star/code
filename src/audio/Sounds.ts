@@ -515,6 +515,7 @@ function tone(f: number, len: number, type: 'sine' | 'saw' | 'square' | 'tri' = 
 }
 const ui = {
   uiClick: () => normalize(biquad(tone(1200, 0.05, 'square', 0.015), 'lp', 5000), 0.3),
+  countTick: () => normalize(biquad(mix(tone(988, 0.12, 'square', 0.05), tone(494, 0.12, 'tri', 0.05), 0.5), 'lp', 3500), 0.32),
   uiError: () => normalize(biquad(mix(tone(160, 0.25, 'square', 0.08), tone(154, 0.25, 'square', 0.08), 1), 'lp', 2000), 0.35),
   buy: () => {
     const o = buf(0.7);
