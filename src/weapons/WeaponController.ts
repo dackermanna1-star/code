@@ -5,6 +5,7 @@ import { GRENADE, WEAPON_MAP, WeaponDef, statsFor } from './defs';
 import { buildGrenade, buildWeaponModel, WeaponModel } from './models';
 import { Viewmodel } from './Viewmodel';
 import { Kick } from './Kick';
+import { Emote, Pee } from './Gestures';
 import { randomCone } from './Ballistics';
 import { C, mat } from './ModelBuilder';
 
@@ -77,10 +78,13 @@ export class WeaponController {
   private scopeHideT = 0;
 
   readonly kick: Kick;
+  readonly emote: Emote;
+  readonly pee = new Pee();
 
   constructor() {
     this.vm = new Viewmodel();
     this.kick = new Kick(G.vmScene);
+    this.emote = new Emote(G.vmScene);
     const lg = new THREE.BufferGeometry();
     lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3 * 64), 3));
     this.arcLine = new THREE.Line(lg, new THREE.LineDashedMaterial({ color: 0xfff2a0, dashSize: 0.25, gapSize: 0.18, transparent: true, opacity: 0.85, depthTest: true }));
@@ -221,11 +225,20 @@ export class WeaponController {
     this.sprintBlock = Math.max(0, this.sprintBlock - dt);
     this.stateT += dt;
 
+    // ---- gestures: K toggles pee mode, hold T to flip off the horde
+    const gestureOk = pl.alive && !G.game?.uiBlocking && !G.placement?.active;
+    if (!pl.alive && this.pee.on) this.pee.reset();
+    if (gestureOk && input.pressed('KeyK') && this.state !== 'throw') this.pee.toggle();
+    const peeing = this.pee.on;
+    const wantEmote = gestureOk && !peeing && !!w && input.down('KeyT') && (this.state === 'idle' || this.state === 'cycle');
+    // only a held T blocks switching/reloading; the hand drops back while the next action starts
+    const emoting = wantEmote;
+
     // ---- slot switching
-    if (pl.alive && this.state !== 'throw' && !G.placement?.active) {
-      for (let i = 0; i < 4; i++) if (input.pressed('Digit' + (i + 1))) this.switchTo(i);
+    if (pl.alive && this.state !== 'throw' && !G.placement?.active && !peeing) {
       const wheel = input.consumeWheel();
-      if (wheel !== 0) {
+      if (!emoting) for (let i = 0; i < 4; i++) if (input.pressed('Digit' + (i + 1))) this.switchTo(i);
+      if (wheel !== 0 && !emoting) {
         for (let k = 1; k <= 4; k++) {
           const i = (this.cur + (wheel > 0 ? k : -k) + 8) % 4;
           if (this.slots[i]) {
@@ -234,9 +247,11 @@ export class WeaponController {
           }
         }
       }
-      if (input.pressed('KeyQ')) this.switchTo(this.prevSlot);
-      if (input.pressed('KeyR')) this.startReload();
-      if (input.pressed('KeyG') && this.grenades > 0 && this.state !== 'reload') this.beginThrow();
+      if (!emoting) {
+        if (input.pressed('KeyQ')) this.switchTo(this.prevSlot);
+        if (input.pressed('KeyR')) this.startReload();
+        if (input.pressed('KeyG') && this.grenades > 0 && this.state !== 'reload') this.beginThrow();
+      }
       if ((input.pressed('KeyV') || input.mousePress(1)) && !G.game?.uiBlocking) this.kick.tryStart();
     }
 
@@ -256,21 +271,21 @@ export class WeaponController {
     }
 
     // ---- ADS
-    const canAds = pl.alive && w && this.state !== 'throw' && this.state !== 'holster' && !(this.state === 'reload' && w.def.category !== 'bow') && !G.placement?.active;
+    const canAds = pl.alive && w && this.state !== 'throw' && this.state !== 'holster' && !(this.state === 'reload' && w.def.category !== 'bow') && !G.placement?.active && !peeing && !emoting && !this.emote.active;
     const wantAds = canAds && input.mouse(2);
     this.ads = damp(this.ads, wantAds ? 1 : 0, wantAds ? 13 : 16, dt);
     this.vm.ads = w?.def.scope ? Math.min(1, this.ads * 1.6) : this.ads;
     const scoped = !!w?.def.scope && this.ads > 0.85;
     G.renderer.post.scope = scoped ? clamp((this.ads - 0.85) / 0.1, 0, 1) : 0;
-    this.vm.holder.visible = !scoped;
+    this.vm.hideWeapon = scoped;
     this.vm.hideArms = scoped;
     const adsFov = w ? w.s.adsFov ?? w.def.adsFov : 1;
     pl.fovMul = lerp(1, adsFov, this.ads);
     this.moveMul = 1 - this.ads * 0.35 - (this.spin > 0.2 ? 0.25 : 0) - this.draw * 0.3;
-    pl.moveMul = this.moveMul;
+    pl.moveMul = this.moveMul * (peeing ? 0.55 : 1);
 
     // ---- firing
-    if (w && pl.alive && this.state !== 'throw' && !G.placement?.active && !G.game?.uiBlocking) this.updateTrigger(w, dt);
+    if (w && pl.alive && this.state !== 'throw' && !G.placement?.active && !G.game?.uiBlocking && !peeing) this.updateTrigger(w, dt);
     else {
       this.spin = Math.max(0, this.spin - dt * 1.2);
       this.heat = Math.max(0, this.heat - dt * 1.5);
@@ -281,6 +296,8 @@ export class WeaponController {
     // ---- animation
     this.animate(dt);
     this.kick.update(dt, this.vm);
+    this.pee.update(dt, this.vm, pl.alive && !G.game?.uiBlocking && input.mouse(0));
+    this.emote.update(dt, this.vm, wantEmote, w?.def.category === 'bow');
     const [mdx, mdy] = [G.input.mouseDX, G.input.mouseDY];
     this.vm.update(dt, mdx, mdy, pl.moving ? Math.min(1, Math.hypot(pl.vel.x, pl.vel.z) / 4.7) : 0, pl.sprinting && this.sprintBlock <= 0 && this.ads < 0.2, pl.onGround);
     void this.scopeHideT;
@@ -840,6 +857,7 @@ export class WeaponController {
     vm.lhTarget = null;
     vm.rhTarget = null;
     vm.lhObj = null;
+    vm.rhObj = null;
     vm.lhVisible = true;
     vm.rhVisible = true;
     vm.lower = 0;

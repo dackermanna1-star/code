@@ -91,7 +91,7 @@ export class Placement {
     const input = G.input;
     this.updatePickup(dt);
     if (!this.active) {
-      if (input.pressed('KeyF') && G.player.alive) this.enter();
+      if (input.pressed('KeyF') && G.player.alive && !G.weapons?.pee?.on) this.enter();
       return;
     }
     const items = this.items();

@@ -615,6 +615,63 @@ reg('kickHit', 3, () => {
   mix(o, fleshHit(), 0.55, 0.004);
   return normalize(drive(o, 2.2), 0.85);
 });
+/** Crossfade the tail into the head so a buffer loops without a seam. */
+function seamless(x: Float32Array, fade = 0.3) {
+  const n = Math.round(fade * SR);
+  const out = new Float32Array(x.length - n);
+  out.set(x.subarray(0, out.length));
+  for (let i = 0; i < n; i++) {
+    const k = i / n;
+    out[i] = out[i] * k + x[out.length + i] * (1 - k);
+  }
+  return out;
+}
+// liquid stream on dry ground: a fluctuating hiss with splatter ticks
+reg('peeGround', 1, () => {
+  const L = 3.3;
+  const hiss = biquad(pink(L), 'bp', 2600, 0.7);
+  let a = 0.7;
+  let tgt = 0.7;
+  env(hiss, () => {
+    if (rnd() < 0.004) tgt = 0.45 + rnd() * 0.55;
+    a += (tgt - a) * 0.004;
+    return a;
+  });
+  const body = biquad(brown(L), 'lp', 520);
+  env(body, (t) => 0.6 + 0.4 * Math.sin(t * Math.PI * 2 * 7.3) * Math.sin(t * Math.PI * 2 * 3.1));
+  const o = buf(L);
+  mix(o, hiss, 1);
+  mix(o, body, 0.5);
+  for (let k = 0; k < 160; k++) mix(o, click(0.01, rr(1800, 4500), 3, 0.002), rr(0.1, 0.3), rr(0, L - 0.02));
+  return normalize(seamless(o), 0.5);
+});
+// stream into standing liquid: bubble chirps over a soft trickle
+reg('peeWater', 1, () => {
+  const L = 3.3;
+  const o = buf(L);
+  for (let k = 0; k < 520; k++) {
+    const f0 = rr(450, 1500);
+    const d = rr(0.012, 0.04);
+    const b = osc(d, (t) => f0 * (1 + (t / d) * 1.3), 'sine');
+    env(b, (t) => Math.exp(-t / (d * 0.35)) * Math.min(1, t / 0.0015));
+    mix(o, b, rr(0.08, 0.35), rr(0, L - d));
+  }
+  mix(o, biquad(pink(L), 'bp', 1300, 1.2), 0.25);
+  return normalize(seamless(o), 0.5);
+});
+function zipper(up: boolean) {
+  const o = buf(0.42);
+  const n = 18;
+  for (let i = 0; i < n; i++) {
+    const k = i / (n - 1);
+    const t = 0.02 + k * 0.3 + rr(-0.004, 0.004);
+    mix(o, click(0.012, (up ? 2600 + k * 2200 : 4600 - k * 2200) * rr(0.9, 1.1), 4, 0.0015), rr(0.5, 1), t);
+    mix(o, biquad(env(white(0.008), ad(0.0005, 0.003)), 'hp', 3000), 0.3, t);
+  }
+  return normalize(o, 0.6);
+}
+reg('zipDown', 2, () => zipper(false));
+reg('zipUp', 2, () => zipper(true));
 reg('footstep', 5, (v) => footstep(v));
 reg('land', 1, () => bodyFall());
 for (const m of ['wood', 'metal', 'concrete', 'sand']) {

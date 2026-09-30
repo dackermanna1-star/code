@@ -196,6 +196,30 @@ export class AudioEngine {
     }
   }
 
+  private sfxLoops: Record<string, { src: AudioBufferSourceNode; gain: GainNode }> = {};
+  /** Continuous sound effect, started on first use; its gain eases toward `v`. */
+  loop(name: string, v: number, rate = 1) {
+    const ctx = this.ctx;
+    if (!ctx || !this.ready || ctx.state !== 'running') return;
+    let l = this.sfxLoops[name];
+    if (!l) {
+      if (v <= 0.001) return;
+      const b = this.buffers.get(name)?.[0];
+      if (!b) return;
+      const src = ctx.createBufferSource();
+      src.buffer = b;
+      src.loop = true;
+      const gn = ctx.createGain();
+      gn.gain.value = 0;
+      src.connect(gn);
+      gn.connect(this.sfx);
+      src.start();
+      l = this.sfxLoops[name] = { src, gain: gn };
+    }
+    l.gain.gain.setTargetAtTime(Math.max(0, v), ctx.currentTime, 0.06);
+    l.src.playbackRate.setTargetAtTime(rate, ctx.currentTime, 0.1);
+  }
+
   setVolumes(master: number, sfx: number, music: number) {
     this.vol = { master, sfx, music };
     if (!this.ctx) return;

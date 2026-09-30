@@ -12,6 +12,7 @@ import { RagdollSystem } from '../zombies/Ragdolls';
 import { ZombieManager } from '../zombies/ZombieManager';
 import { FX } from '../fx/FX';
 import { WoundSystem } from '../fx/Wounds';
+import { Liquid } from '../fx/Liquid';
 import { Explosions } from '../fx/Explosions';
 import { AudioEngine } from '../audio/Audio';
 import { Ballistics } from '../weapons/Ballistics';
@@ -93,6 +94,7 @@ export class Game {
     await nextFrame();
     G.fx = new FX(G.scene, G.renderer.renderer);
     G.wounds = new WoundSystem(G.scene);
+    G.liquid = new Liquid(G.scene);
     G.explosions = new Explosions();
     G.postKick = (k: number) => {
       G.renderer.post.flash = Math.max(G.renderer.post.flash, k * 0.35);
@@ -253,6 +255,8 @@ export class Game {
     G.zombies.clear();
     G.ragdolls.clear();
     G.wounds.clear();
+    G.liquid.clear();
+    G.weapons?.pee?.reset();
     G.structures.clear();
     G.projectiles.clear();
     G.airstrike.clear();
@@ -472,6 +476,7 @@ export class Game {
     G.ragdolls.update(dt);
     G.ragdolls.updateCorpses(dt);
     G.zombies.ragdollCollisions();
+    G.liquid.update(dt);
   }
 
   update(dt: number, render = true) {
@@ -480,7 +485,10 @@ export class Game {
     const freeze = this.mode === 'play' && (this.paused || G.ui.shopOpen || (G.ui.overlayOpen && G.ui.overlayOpen !== 'dead'));
     G.input.enabled = !this.uiBlocking || this.deathT >= 0;
     if (!freeze && dt > 0) this.simulate(dt);
-    else if (freeze) G.input.consumeMouse(); // no camera jump when a menu closes
+    else if (freeze) {
+      G.input.consumeMouse(); // no camera jump when a menu closes
+      G.weapons?.pee?.silence();
+    }
     if (this.mode === 'menu') this.updateMenuCamera(dt);
     // death sequence
     if (this.deathT >= 0 && this.mode === 'play') {
@@ -512,6 +520,7 @@ export class Game {
     amb.b = Math.min(1.4, amb.b + 0.05);
     G.fx.setAmbient(amb);
     G.fx.update(dt, G.time);
+    G.liquid.render();
     G.bodyRenderer.uniforms.time.value = G.time;
     G.bodyRenderer.beginDynamic();
     G.zombies.render();

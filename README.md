@@ -25,6 +25,8 @@ Click the game to capture the mouse. If the page is embedded somewhere that bloc
 | Weapons | `1`–`4`, mouse wheel, `Q` (last weapon) |
 | Grenade | Hold `G` to aim (shows the throw arc), release to throw |
 | Kick | `V` or middle mouse: shoves zombies back; wounded ones often go down |
+| Middle finger | Hold `T` (the gun stays up one-handed and still fires) |
+| Pee | `K` to unzip, hold left mouse to go, `K` again to zip up |
 | Build mode | `F`, then left mouse to place, `Q`/`E`/wheel to rotate, `R` to turn 90°, `1`–`9` to pick a defense, right mouse to exit |
 | Pack up a defense (between waves) | Look at it and hold `E` (keeps its current damage) |
 | Skip the countdown to the next wave | `Enter` |

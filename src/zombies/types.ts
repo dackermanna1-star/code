@@ -101,7 +101,7 @@ export const ZTYPES: Record<string, ZombieType> = {
     smart: true, gait: 'run', firstDay: 22, groan: 'runner',
   },
   boss: {
-    id: 'boss', name: 'Abomination', body: HUMAN, hp: 2600, speed: [1.8, 2.0], scale: [2.15, 2.25],
+    id: 'boss', name: 'Abomination', body: HUMAN, hp: 440, speed: [1.8, 2.0], scale: [2.15, 2.25],
     partScale: { [PT.Torso]: [1.35, 1.0, 1.3], [PT.UArm]: [1.6, 1.1, 1.6], [PT.LArm]: [1.7, 1.15, 1.7], [PT.ULeg]: [1.3, 1, 1.3], [PT.LLeg]: [1.3, 1, 1.3] },
     damage: 55, attackTime: 1.7, attackRange: 2.1, structDamage: 220, reward: 1500, armor: 80, armorParts: [P.Torso, P.Head], toughness: 900,
     knockResist: 0.97, mass: 900, skins: SKINS.boss, accessories: [{ acc: 'plate', part: P.UArmL }, { acc: 'plate', part: P.UArmR }, { acc: 'plate', part: P.Head }],

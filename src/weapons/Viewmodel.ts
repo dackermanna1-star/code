@@ -176,12 +176,42 @@ function makeCupPose(kit: HandKit) {
   return g;
 }
 
+/**
+ * Middle finger: fist with the middle finger up. Frame: back of the hand
+ * faces +Z, fingers point +Y, the wrist is at -Y (the emote turns the back
+ * of the hand toward the horde).
+ */
+function makeBirdPose(kit: HandKit) {
+  const s = kit.side;
+  const g = new THREE.Group();
+  kit.box([0.07, 0.074, 0.028], [0, -0.008, 0], C.PALM, undefined, g);
+  kit.box([0.068, 0.06, 0.012], [0, -0.01, 0.016], C.GLOVE, undefined, g); // back of the hand
+  // fingers from the thumb side: index, middle, ring, pinky
+  const xs = [0.024, 0.008, -0.009, -0.025].map((x) => -s * x);
+  for (let i = 0; i < 4; i++) {
+    const x = xs[i];
+    kit.seg(V(x, -0.036, 0.021), V(x, 0.022, 0.021), 0.0145, 0.01, C.GLOVE, g); // metacarpal ridge
+    kit.box([0.014, 0.012, 0.012], [x, 0.03, 0.013], C.GLOVE_D, undefined, g); // knuckle pad
+    const w = i === 3 ? 0.0145 : 0.0165;
+    if (i === 1) kit.finger([V(x, 0.028, 0.004), V(x, 0.074, 0.006), V(x, 0.104, 0.006), V(x, 0.127, 0.003)], 0.0172, g);
+    else kit.finger([V(x, 0.028, 0.004), V(x, 0.046, -0.018), V(x, 0.03, -0.038), V(x, 0.008, -0.032)], w, g);
+  }
+  // thumb folded across the front of the curled fingers
+  kit.box([0.022, 0.036, 0.03], [-s * 0.034, -0.014, -0.004], C.GLOVE, [0, 0, -s * 0.2], g);
+  kit.finger([V(-s * 0.036, -0.004, -0.012), V(-s * 0.03, 0.012, -0.034), V(-s * 0.008, 0.018, -0.046)], 0.016, g);
+  kit.box([0.066, 0.034, 0.044], [0, -0.058, 0.004], C.GLOVE_D, undefined, g); // cuff
+  kit.box([0.068, 0.014, 0.046], [0, -0.05, 0.005], C.GLOVE_L, undefined, g);
+  g.userData.wrist = V(0, -0.074, 0.006);
+  g.userData.watchUp = V(0, 0, 1);
+  return g;
+}
+
 function makeArm(side: 1 | -1): Arm {
   const upper = new THREE.Mesh(sleeveGeo(0.046, 0.04, 0.88, [0.35, 0.7]), gunMat(C.SLEEVE, 0, 'fabric'));
   const fore = new THREE.Mesh(sleeveGeo(0.04, 0.031, 0.85, [0.3, 0.62]), gunMat(C.SLEEVE, 0, 'fabric'));
   const hand = new THREE.Group();
   const kit = new HandKit(side);
-  const poses: Record<string, THREE.Group> = { grip: makeGripPose(kit, side > 0) };
+  const poses: Record<string, THREE.Group> = { grip: makeGripPose(kit, side > 0), bird: makeBirdPose(kit) };
   if (side < 0) poses.cup = makeCupPose(kit);
   for (const k in poses) hand.add(poses[k]);
   // rolled sleeve cuff and (left) wristwatch ride on each pose's wrist
@@ -308,6 +338,8 @@ export class Viewmodel {
   readonly leftProp = new THREE.Group();
   readonly rightProp = new THREE.Group();
   hideArms = false;
+  /** Hide the gun itself (scoped in, or put away while peeing). */
+  hideWeapon = false;
   private bowMode = false;
 
   constructor() {
@@ -425,7 +457,7 @@ export class Viewmodel {
       for (const a of [this.armL, this.armR]) a.upper.visible = a.fore.visible = a.hand.visible = false;
       return;
     }
-    this.holder.visible = true;
+    this.holder.visible = !this.hideWeapon;
     const hip = m.hip;
     const sight = m.mb.anchors.sight.position;
     const ads = this.ads;
@@ -474,7 +506,8 @@ export class Viewmodel {
     const solve = (arm: Arm, target: THREE.Vector3, visible: boolean, handObj: THREE.Object3D | null, side: number, fingerOnTrigger: boolean) => {
       arm.upper.visible = arm.fore.visible = arm.hand.visible = visible && !this.hideArms;
       if (!visible || this.hideArms) return;
-      const pose = handObj?.userData.pose === 'cup' && arm.poses.cup ? 'cup' : 'grip';
+      const want = handObj?.userData.pose as string | undefined;
+      const pose = want && arm.poses[want] ? want : 'grip';
       for (const k in arm.poses) arm.poses[k].visible = k === pose;
       const P = arm.poses[pose];
       const wristLocal: THREE.Vector3 = P.userData.wrist;
@@ -508,7 +541,8 @@ export class Viewmodel {
         _a.copy(wristLocal).addScaledVector(dir, -0.012);
         _b.copy(_a).add(dir);
         // face toward the back of the wrist (outer side)
-        _m.lookAt(_a, _b, pose === 'cup' ? _v.set(-0.8, -0.6, 0) : _v.set(-0.9, 0.45, 0));
+        const hint = P.userData.watchUp as THREE.Vector3 | undefined;
+        _m.lookAt(_a, _b, hint ? _v.copy(hint) : pose === 'cup' ? _v.set(-0.8, -0.6, 0) : _v.set(-0.9, 0.45, 0));
         watch.position.copy(_a);
         watch.quaternion.setFromRotationMatrix(_m);
         watch.rotateX(-Math.PI / 2);
@@ -538,9 +572,10 @@ export class Viewmodel {
     };
     const gripName = this.bowMode ? 'support' : 'grip';
     const supName = this.bowMode ? 'grip' : 'support';
-    const rt = this.rhTarget ?? m.mb.anchors[gripName].getWorldPosition(new THREE.Vector3());
+    const rObj = this.rhObj ?? m.mb.anchors[gripName];
+    const rt = this.rhTarget ?? rObj.getWorldPosition(new THREE.Vector3());
     const lt = this.lhTarget ?? (this.lhObj ?? m.mb.anchors[supName]).getWorldPosition(new THREE.Vector3());
-    solve(this.armR, rt, this.rhVisible, this.rhTarget ? null : m.mb.anchors[gripName], 1, !this.bowMode);
+    solve(this.armR, rt, this.rhVisible, this.rhTarget ? null : rObj, 1, !this.bowMode && !this.rhObj);
     solve(this.armL, lt, this.lhVisible, this.lhTarget ? null : this.lhObj ?? m.mb.anchors[supName], -1, false);
   }
 }

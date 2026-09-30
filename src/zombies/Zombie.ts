@@ -1,5 +1,6 @@
 import type { Wound } from '../fx/Wounds';
 import type RAPIER from '@dimforge/rapier3d-simd-compat';
+import { G } from '../core/G';
 import { clamp, lerp } from '../core/math';
 import { qFromEuler, qMul, qRot, qSlerp, qYaw } from '../core/qmath';
 import { FxState } from './BodyRenderer';
@@ -114,8 +115,11 @@ export class Zombie {
 
   constructor(readonly type: ZombieType, hpScale: number) {
     // ~35% are hardy: a single M686 headshot (10 dmg) no longer drops them
-    this.hardy = Math.random() < 0.35;
-    this.maxHp = type.hp * hpScale * (this.hardy ? lerp(1.12, 1.6, Math.random()) : lerp(0.85, 1.0, Math.random()));
+    const boss = type.id === 'boss';
+    this.hardy = !boss && Math.random() < 0.35;
+    this.maxHp = type.hp * hpScale * (this.hardy ? lerp(1.12, 1.6, Math.random()) : boss ? 1 : lerp(0.85, 1.0, Math.random()));
+    // bosses (every 5th day from 10) climb faster than the horde: ~530 HP on day 10, ~3000 on day 40
+    if (boss) this.maxHp *= 1 + Math.max(0, (G.waves?.day ?? 10) - 10) * 0.07;
     this.hp = this.maxHp;
     this.speed = lerp(type.speed[0], type.speed[1], Math.random());
     this.scale = lerp(type.scale[0], type.scale[1], Math.random());

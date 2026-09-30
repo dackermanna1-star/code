@@ -65,7 +65,7 @@ export class UI {
     this.hudEl.innerHTML = `
       <div id="vignette-low"></div>
       <div class="tl"><div class="money num" data-r="money">$0</div><div class="daywave" data-r="daywave"></div><div class="weather" data-r="weather"></div></div>
-      <div class="tc"><div class="wavebox" data-r="wavebox"></div><div class="wavebar" data-r="wavebarw"><i data-r="wavebar"></i></div></div>
+      <div class="tc"><div class="wavebox" data-r="wavebox"></div><div class="wavebar" data-r="wavebarw"><i data-r="wavebar"></i></div><div class="bossbar" data-r="bossw" style="display:none"><b data-r="bossname">ABOMINATION</b><div class="bb"><i data-r="boss"></i></div></div></div>
       <div class="tr"><div class="kills" data-r="kills"></div><div class="fps" data-r="fps"></div></div>
       <div id="killfeed"></div>
       <div class="bl"><div class="hp"><i data-r="hpbar"></i><b data-r="hptext"></b></div><div class="gren" data-r="gren"></div></div>
@@ -206,6 +206,8 @@ export class UI {
         <div><span>Weapons</span><span><span class="kbd">1-4</span><span class="kbd">Wheel</span><span class="kbd">Q</span></span></div>
         <div><span>Grenade (hold to aim)</span><span class="kbd">G</span></div>
         <div><span>Kick</span><span><span class="kbd">V</span><span class="kbd">MMB</span></span></div>
+        <div><span>Middle finger</span><span>hold <span class="kbd">T</span></span></div>
+        <div><span>Unzip / zip up (then hold LMB)</span><span class="kbd">K</span></div>
         <div><span>Build mode</span><span class="kbd">F</span></div>
         <div><span>Rotate structure</span><span><span class="kbd">Q</span><span class="kbd">E</span><span class="kbd">Wheel</span></span></div>
         <div><span>Pick up structure (prep)</span><span>hold <span class="kbd">E</span></span></div>
@@ -695,6 +697,11 @@ export class UI {
       this.set('wavebox', '');
       this.refs.wavebarw.style.display = 'none';
     }
+    // boss health: the strongest boss still standing
+    let boss: any = null;
+    for (const z of G.zombies.list) if (z.alive && z.type.id === 'boss' && (!boss || z.hp > boss.hp)) boss = z;
+    this.refs.bossw.style.display = boss ? '' : 'none';
+    if (boss) this.refs.boss.style.width = `${clamp(boss.hp / boss.maxHp, 0, 1) * 100}%`;
     this.set('kills', `☠ ${W.dayKills}`);
     this.set('fps', P.settings.showFps ? `${this.fps} FPS · ${G.zombies.list.length} Z · ${G.ragdolls.active.length}/${G.ragdolls.corpses.length} R/C` : '');
     // health
@@ -772,6 +779,10 @@ export class UI {
     const pt = G.placement.pickTarget;
     if (pt) prompt = `Hold <span class="kbd">E</span> to pack up ${esc(pt.def.name)} (${Math.round((pt.hp / pt.maxHp) * 100)}%)` + (G.placement.pickT > 0 ? `<div class="pbar"><i style="width:${(G.placement.pickT / 0.6) * 100}%"></i></div>` : '');
     if (G.placement.active && !G.placement.valid && G.placement.reason) prompt = `<span style="color:#ff8a80">${esc(G.placement.reason)}</span>`;
+    const pee = G.weapons.pee;
+    this.refs.prompt.style.top = pee?.on ? '80%' : '';
+    if (pee?.on && !prompt)
+      prompt = `Hold <span class="kbd">LMB</span> to go &nbsp; <span class="kbd">K</span> zip up<div class="pbar"><i style="width:${Math.round(pee.bladder * 100)}%"></i></div><small>BLADDER</small>`;
     this.set('prompt', prompt);
     let help = '';
     if (W.phase === 'prep' && W.wave === 0 && W.day <= 2) help = `Place your barricade with <span class="kbd">F</span> before the timer runs out.<br>The shop opens when the day is over.`;
