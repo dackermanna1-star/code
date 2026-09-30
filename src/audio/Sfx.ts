@@ -241,6 +241,19 @@ export class Synth {
 
 export type SfxFn = (s: Synth, out: AudioNode, t: number, rate: number) => void;
 
+let driveCurve: Float32Array<ArrayBuffer> | null = null;
+/** Soft-clipping curve: gives the gunshot a hot, saturated crack. */
+function drive(): Float32Array<ArrayBuffer> {
+  if (driveCurve) return driveCurve;
+  const n = 1024;
+  driveCurve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1;
+    driveCurve[i] = Math.tanh(x * 2.6) / Math.tanh(2.6);
+  }
+  return driveCurve;
+}
+
 const note = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
 
 export const SFX = {
@@ -424,6 +437,135 @@ export const SFX = {
   chop: (s, o, t, r) => {
     s.nz(o, t, 0.03, { type: 'bandpass', f: 2600 * r, q: 2, gain: 0.3, attack: 0.001 });
     s.tone(o, t, 0.08, { f: 420 * r, f2: 300, gain: 0.2 });
+  },
+
+  // ------------------------------------------------------------------ revolver
+  gunshot: (s, o, t, r) => {
+    const ctx = s.ctx;
+    const pre = ctx.createGain();
+    pre.gain.value = 2.2;
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = drive();
+    shaper.oversample = '2x';
+    const post = ctx.createGain();
+    post.gain.value = 0.62;
+    pre.connect(shaper).connect(post).connect(o);
+    // supersonic crack: a very short broadband transient
+    s.nz(pre, t, 0.02, { type: 'highpass', f: 1700, q: 0.5, gain: 1, attack: 0.0004 });
+    // the blast: dark noise whose cutoff collapses
+    s.nz(pre, t, 0.32, { kind: 'brown', type: 'lowpass', f: 2600 * r, f2: 170, q: 0.8, gain: 1.15, attack: 0.0008 });
+    s.nz(pre, t, 0.13, { kind: 'pink', type: 'bandpass', f: 950 * r, f2: 280, q: 0.7, gain: 0.9, attack: 0.0008 });
+    // chest thump
+    s.tone(pre, t, 0.24, { f: 125 * r, f2: 36, gain: 1, attack: 0.0008 });
+    // the diner rings: slapback off the walls and a short room tail
+    s.nz(o, t + 0.05, 0.3, { kind: 'pink', type: 'lowpass', f: 1500, f2: 260, gain: 0.2, attack: 0.002 });
+    s.nz(o, t + 0.02, 1.1, { kind: 'pink', type: 'bandpass', f: 650, f2: 220, q: 0.6, gain: 0.14, attack: 0.01 });
+    // the faint ringing ears afterwards
+    s.tone(o, t + 0.03, 2.4, { f: 3900, gain: 0.01, attack: 0.1 });
+    setTimeout(() => {
+      pre.disconnect();
+      shaper.disconnect();
+      post.disconnect();
+    }, 3000);
+  },
+  dryFire: (s, o, t, r) => {
+    s.nz(o, t, 0.012, { type: 'highpass', f: 3500 * r, gain: 0.5, attack: 0.0005 });
+    s.tone(o, t, 0.03, { f: 2400 * r, f2: 1800 * r, gain: 0.07 });
+    s.nz(o, t + 0.004, 0.03, { type: 'bandpass', f: 1200 * r, q: 3, gain: 0.16 });
+  },
+  hammerCock: (s, o, t, r) => {
+    s.nz(o, t, 0.01, { type: 'bandpass', f: 3200 * r, q: 4, gain: 1.4, attack: 0.0005 });
+    s.tone(o, t, 0.02, { f: 1900 * r, gain: 0.2 });
+    s.nz(o, t + 0.07, 0.014, { type: 'bandpass', f: 2600 * r, q: 5, gain: 1.8, attack: 0.0005 });
+    s.bell(o, t + 0.07, 4200 * r, { gain: 0.1, decay: 0.08, partials: [1, 2.3] });
+  },
+  craneOpen: (s, o, t) => {
+    s.nz(o, t, 0.012, { type: 'bandpass', f: 2400, q: 3, gain: 1.6, attack: 0.0005 });
+    s.nz(o, t + 0.02, 0.18, { type: 'bandpass', f: 1800, f2: 900, q: 4, gain: 0.48, attack: 0.01 });
+    s.bell(o, t + 0.14, 2900, { gain: 0.12, decay: 0.2, partials: [1, 2.6] });
+  },
+  craneClose: (s, o, t) => {
+    s.nz(o, t, 0.015, { type: 'bandpass', f: 2000, q: 2, gain: 1.1, attack: 0.0005 });
+    s.tone(o, t, 0.05, { f: 520, f2: 300, gain: 0.24 });
+    s.bell(o, t + 0.005, 3300, { gain: 0.08, decay: 0.15, partials: [1, 2.4, 4.1] });
+    // the cylinder freewheels to a stop
+    for (let i = 0; i < 5; i++) s.nz(o, t + 0.05 + i * 0.035 * (1 + i * 0.3), 0.006, { type: 'bandpass', f: 4300, q: 6, gain: 0.32 / (1 + i * 0.4) });
+  },
+  ejectRod: (s, o, t) => {
+    s.nz(o, t, 0.07, { type: 'bandpass', f: 1500, f2: 2600, q: 3, gain: 1.1, attack: 0.004 });
+    s.grains(o, t + 0.03, 6, 0.05, { f: 5200, q: 4, gain: 0.6, len: 0.006 });
+  },
+  roundIn: (s, o, t, r) => {
+    s.nz(o, t, 0.01, { type: 'bandpass', f: 3600 * r, q: 5, gain: 1.32, attack: 0.0005 });
+    s.bell(o, t, 5200 * r, { gain: 0.12, decay: 0.06, partials: [1, 2.2] });
+  },
+  casing: (s, o, t, r) => {
+    // brass on a hard floor: a bright ping and a bounce or two
+    const f = (4200 + Math.random() * 1800) * r;
+    s.bell(o, t, f, { gain: 0.125, decay: 0.35, partials: [1, 2.74, 5.1, 7.3] });
+    s.bell(o, t + 0.09 + Math.random() * 0.03, f * 1.02, { gain: 0.0625, decay: 0.2, partials: [1, 2.74, 5.1] });
+    s.bell(o, t + 0.16 + Math.random() * 0.04, f * 0.99, { gain: 0.03, decay: 0.12, partials: [1, 2.74] });
+  },
+  gunDraw: (s, o, t) => {
+    s.nz(o, t, 0.22, { kind: 'pink', type: 'bandpass', f: 1500, f2: 700, q: 1.1, gain: 1.28, attack: 0.03 });
+    s.nz(o, t + 0.2, 0.01, { type: 'bandpass', f: 2800, q: 4, gain: 2 });
+  },
+  gunHolster: (s, o, t) => {
+    s.nz(o, t, 0.25, { kind: 'pink', type: 'bandpass', f: 800, f2: 1500, q: 1.1, gain: 0.56, attack: 0.05 });
+    s.nz(o, t + 0.22, 0.04, { kind: 'pink', type: 'lowpass', f: 600, gain: 0.88 });
+  },
+  fleshHit: (s, o, t, r) => {
+    s.nz(o, t, 0.09, { kind: 'pink', type: 'lowpass', f: 900 * r, f2: 200, q: 1.4, gain: 0.75, attack: 0.001 });
+    s.tone(o, t, 0.1, { f: 95 * r, f2: 45, gain: 0.45 });
+    s.nz(o, t + 0.01, 0.15, { kind: 'pink', type: 'bandpass', f: 1500 * r, f2: 400, q: 3, gain: 0.32, attack: 0.002 });
+  },
+  headHit: (s, o, t, r) => {
+    s.nz(o, t, 0.02, { type: 'bandpass', f: 2600 * r, q: 1.2, gain: 0.65, attack: 0.0005 });
+    s.grains(o, t, 10, 0.05, { f: 2200 * r, q: 1, gain: 0.4, len: 0.012 });
+    s.nz(o, t + 0.005, 0.24, { kind: 'pink', type: 'bandpass', f: 1300 * r, f2: 260, q: 2.5, gain: 0.65, attack: 0.002 });
+    s.tone(o, t, 0.12, { f: 140 * r, f2: 60, gain: 0.35 });
+  },
+  gibSplat: (s, o, t, r) => s.nz(o, t, 0.09, { kind: 'pink', type: 'bandpass', f: 1700 * r, f2: 500 * r, q: 3, gain: 1.8, attack: 0.001 }),
+  bodyFall: (s, o, t, r) => {
+    s.nz(o, t, 0.24, { kind: 'brown', type: 'lowpass', f: 380 * r, f2: 110, gain: 0.8, attack: 0.002 });
+    s.tone(o, t, 0.2, { f: 78 * r, f2: 40, gain: 0.48 });
+    s.nz(o, t + 0.01, 0.2, { kind: 'pink', type: 'bandpass', f: 900, q: 0.8, gain: 0.096, attack: 0.02 });
+  },
+  limbThud: (s, o, t, r) => {
+    s.nz(o, t, 0.09, { kind: 'brown', type: 'lowpass', f: 600 * r, f2: 200, gain: 0.5, attack: 0.001 });
+    s.tone(o, t, 0.09, { f: 120 * r, f2: 70, gain: 0.22 });
+  },
+  headThud: (s, o, t, r) => {
+    s.nz(o, t, 0.06, { kind: 'pink', type: 'lowpass', f: 900 * r, f2: 250, gain: 0.55, attack: 0.001 });
+    s.tone(o, t, 0.12, { f: 180 * r, f2: 95, gain: 0.35 });
+  },
+  ricochet: (s, o, t, r) => {
+    s.nz(o, t, 0.03, { type: 'bandpass', f: 3000 * r, q: 1.5, gain: 1.1, attack: 0.0005 });
+    s.tone(o, t + 0.01, 0.45, { f: (2600 + Math.random() * 1200) * r, f2: (700 + Math.random() * 400) * r, gain: 0.154, glide: 0.42, vibrato: 40 });
+  },
+  woodHit: (s, o, t, r) => {
+    s.nz(o, t, 0.05, { type: 'bandpass', f: 1400 * r, q: 1.5, gain: 0.6, attack: 0.0005 });
+    s.tone(o, t, 0.09, { f: 260 * r, f2: 140, gain: 0.3 });
+    s.grains(o, t + 0.01, 6, 0.06, { f: 3000, gain: 0.2 });
+  },
+  plasterHit: (s, o, t, r) => {
+    s.nz(o, t, 0.04, { type: 'bandpass', f: 2200 * r, q: 1.2, gain: 1.5, attack: 0.0005 });
+    s.grains(o, t + 0.01, 14, 0.25, { f: 2600 * r, q: 1, gain: 0.55, len: 0.01 });
+  },
+  metalHit: (s, o, t, r) => {
+    s.nz(o, t, 0.02, { type: 'highpass', f: 2500, gain: 0.5, attack: 0.0005 });
+    s.bell(o, t, (900 + Math.random() * 500) * r, { gain: 0.16, decay: 0.9, partials: [1, 2.76, 5.4, 8.9], rev: 0.5 });
+  },
+  glassCrack: (s, o, t) => {
+    s.nz(o, t, 0.03, { type: 'highpass', f: 3000, gain: 0.6, attack: 0.0005 });
+    s.grains(o, t, 24, 0.35, { f: 5200, q: 2, gain: 0.28, len: 0.01 });
+    s.bell(o, t, 3100, { gain: 0.05, decay: 0.5, partials: [1, 2.3, 4.1, 6.2], rev: 0.6 });
+  },
+  drip: (s, o, t, r) => s.tone(o, t, 0.05, { f: (900 + Math.random() * 500) * r, f2: (1900 + Math.random() * 700) * r, gain: 0.15, glide: 0.04 }),
+  recordScratch: (s, o, t) => {
+    s.nz(o, t, 0.3, { type: 'bandpass', f: 500, f2: 2800, q: 5, gain: 2.7, attack: 0.005 });
+    s.nz(o, t + 0.31, 0.22, { type: 'bandpass', f: 2400, f2: 300, q: 5, gain: 2.4, attack: 0.004 });
+    s.tone(o, t, 0.3, { type: 'sawtooth', f: 180, f2: 620, gain: 0.3 });
   },
 } satisfies Record<string, SfxFn>;
 

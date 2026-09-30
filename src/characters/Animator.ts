@@ -21,7 +21,9 @@ export type Gesture =
   | 'think'
   | 'point'
   | 'handsHips'
-  | 'dance';
+  | 'dance'
+  | 'panic'
+  | 'handsUp';
 
 type JointKey = Exclude<keyof Rig, 'root' | 'hatGroup'>;
 const JOINTS: JointKey[] = [
@@ -97,8 +99,10 @@ export class Animator {
     this.sitCur = damp(this.sitCur, this.sit, 6, dt);
     const sit = this.sitCur;
     const walkW = clamp(this.speed / 1.0) * (1 - sit);
+    // blends the walk into a sprint above ~1.7 m/s
+    const run = clamp((this.speed - 1.7) / 1.3) * (1 - sit);
     const hs = d.thigh / 0.36;
-    this.phase += (dt * this.speed) / (1.2 * hs) * Math.PI * 2;
+    this.phase += (dt * this.speed) / (1.2 * hs * (1 + run * 0.55)) * Math.PI * 2;
     const ph = this.phase;
     const s = Math.sin(ph);
     const c = Math.cos(ph);
@@ -139,6 +143,19 @@ export class Animator {
       P.r.elbowR.x += (-0.25 - Math.max(0, s) * 0.3) * w;
       P.r.head.y += s * 0.08 * w;
       P.r.head.x += Math.abs(c) * 0.03 * w;
+      if (run > 0.001) {
+        P.r.hipL.x += -s * 0.42 * run;
+        P.r.hipR.x += s * 0.42 * run;
+        P.r.kneeL.x += Math.max(0, c) * 0.9 * run + 0.2 * run;
+        P.r.kneeR.x += Math.max(0, -c) * 0.9 * run + 0.2 * run;
+        P.pelvisPos.y += (Math.abs(c) * 0.05 - 0.035) * run;
+        P.r.spine.x += 0.2 * run;
+        P.r.head.x -= 0.14 * run;
+        P.r.shoulderL.x += s * 0.35 * run;
+        P.r.shoulderR.x += -s * 0.35 * run;
+        P.r.elbowL.x += -1.0 * run;
+        P.r.elbowR.x += -1.0 * run;
+      }
       const stepSign = Math.sign(s);
       if (stepSign !== this.lastStepSign && walkW > 0.3) {
         this.onFootstep?.(stepSign);
@@ -391,6 +408,33 @@ export class Animator {
       case 'point': {
         set('shoulderR', -1.45, 0, -0.1);
         set('elbowR', -0.1, 0, 0);
+        break;
+      }
+      case 'panic': {
+        // hands clutching the head, flailing
+        const f = Math.sin(t * 13) * 0.18;
+        const f2 = Math.sin(t * 11 + 1.3) * 0.18;
+        set('shoulderL', -2.1 + f, 0.75, 0.35);
+        set('shoulderR', -2.1 + f2, -0.75, -0.35);
+        set('elbowL', -2.0 + f2 * 0.6, 0, 0);
+        set('elbowR', -2.0 + f * 0.6, 0, 0);
+        add('head', -0.12, Math.sin(t * 7) * 0.12, 0);
+        add('spine', 0.1, 0, 0);
+        break;
+      }
+      case 'handsUp': {
+        // "whoa, easy!" — palms up by the head, leaning away, trembling
+        const tr = Math.sin(t * 31) * 0.035 + Math.sin(t * 23) * 0.02;
+        set('shoulderL', -1.35 + tr, 0.75, 0.2);
+        set('shoulderR', -1.35 - tr, -0.75, -0.2);
+        set('elbowL', -1.75 - tr, 0, 0);
+        set('elbowR', -1.75 + tr, 0, 0);
+        add('spine', -0.12, 0, 0);
+        add('head', 0.1, 0, Math.sin(t * 2.3) * 0.05);
+        add('hipL', -0.08, 0, 0);
+        add('hipR', -0.08, 0, 0);
+        add('kneeL', 0.16, 0, 0);
+        add('kneeR', 0.16, 0, 0);
         break;
       }
     }

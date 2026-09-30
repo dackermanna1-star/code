@@ -24,7 +24,7 @@ npm run dev          # http://localhost:5173
 | `npm run build:artifact` | Build one hostable page, `dist-artifact/sizzle-and-stack.html`, that loads three.js, postprocessing and n8ao from jsDelivr and embeds the fonts |
 | `npm run preview` | Serve the production build |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm test` | Unit tests for order generation and scoring (`node:test`) |
+| `npm test` | Unit tests for order generation, scoring, the order book and the ragdoll (`node:test`) |
 
 A WebGL2-capable browser is required. Graphics quality defaults to *Auto*,
 which picks a preset for your device. You can also choose Low, Medium, High or
@@ -56,7 +56,30 @@ Each day brings more customers, arriving closer together.
    placement, then tip according to the result and their personality.
 
 Shortcuts: `1`–`4` switch stations, `Space` takes an order or serves,
-`Esc` pauses, `M` mutes.
+`G` draws or holsters the revolver, `Esc` pauses, `M` mutes.
+
+### The revolver
+
+At the order counter, press `G` (or the gun button in the bottom-left corner)
+to draw a six-shot revolver. The chef leans over the counter and the view
+follows the cursor: aim with the mouse, push the cursor to a screen edge to
+look around (down over the counter, too), click to fire and press `R` to
+reload. `G` again holsters it, and leaving the counter puts it away.
+
+- Whoever the gun points at puts their hands up. Children are off limits: the
+  crosshair turns into a no-entry sign and the gun won't fire.
+- A hit drops the customer as a ragdoll (a position-based Verlet skeleton that
+  collides with the floor, counter, tables and walls). Headshots throw the
+  hat, blow a spray of blood and brains out of the exit wound, paint the
+  surface behind and play in slow motion; the body bleeds, pools blood once
+  it comes to rest and fades away after a while.
+- Every gunshot sends the rest of the diner screaming for the door. Their
+  tickets are torn up and any finished burgers binned. Nobody new walks in
+  until the bodies are gone, and the music stops dead for a while.
+- Misses leave bullet holes with dust, splinters, sparks and ricochets, or
+  cracks in glass. Reloading swings out the cylinder and ejects six brass
+  casings that bounce on the floor.
+- Settings has switches for the revolver and for the blood.
 
 ### Progression
 
@@ -99,7 +122,9 @@ title screen resumes it.
   that follows the number of patties, placement sounds matched to each
   ingredient, sauce squirts, the door bell, register, coins, footsteps,
   murmured customer voices, room ambience and a generative lounge
-  soundtrack that picks up as the restaurant gets busier.
+  soundtrack that picks up as the restaurant gets busier. The revolver adds
+  a saturated gunshot with a room tail, hammer, cylinder and brass sounds,
+  flesh, wood, plaster, metal and glass impacts, body falls and screams.
 
 ## Project layout
 
@@ -112,11 +137,13 @@ src/
   characters/  appearance generator, faces, procedural animation, roster
   game/        game state machine, orders, scoring, customers, nav grid, progression
   stations/    order, grill, build and serve stations and the holding tray
-  fx/          particle system (smoke, steam, grease, crumbs, sparkles)
+  fx/          particle system (smoke, steam, grease, crumbs, sparkles), blood and bullet decals
+  physics/     Verlet ragdoll for customers who get shot
+  weapons/     the revolver model, viewmodel, firing, reloading and hit handling
   audio/       synthesiser, sound effect recipes, generative music
   ui/          DOM HUD, tickets, speech bubbles, gauges, screens, tutorial, 3D icons
   debug/       asset viewers and the autopilot bot used by automated playtests
-tests/         unit tests (order generation, scoring)
+tests/         unit tests (order generation, scoring, order book, ragdoll)
 scripts/       headless-browser playtests and screenshot tools
 ```
 
@@ -143,6 +170,7 @@ Scripts (headless Chromium; screenshots go to `test-output/`):
 | `scripts/inputtest.mjs` | Plays the tutorial with real mouse drags and clicks: order, grill, flip, holding tray, build, serve |
 | `scripts/dayflow.mjs` | A full day with the autopilot, the summary, the shop and GPU memory before and after |
 | `scripts/playtest.mjs` | Step-by-step autopilot run with screenshots |
+| `scripts/guntest.mjs` | The revolver: draw, aim reaction, kid refusal, headshot and ragdoll, panic, bullet holes, reload, holster, body clean-up |
 | `scripts/perfprobe.mjs` | Draw calls, triangles and shadow casters, grouped by scene object |
 | `scripts/artifacttest.mjs` | Boots the hostable page, serving the jsDelivr imports from local `node_modules` |
 | `scripts/shot.mjs` | One screenshot of any URL |

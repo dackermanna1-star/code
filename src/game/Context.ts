@@ -34,5 +34,7 @@ export interface GameContext {
   goStation(id: StationId): void;
   /** true while a scripted sequence owns the camera / input */
   busy: boolean;
+  /** the revolver is drawn at the order counter */
+  readonly armed: boolean;
   haptic(ms?: number): void;
 }

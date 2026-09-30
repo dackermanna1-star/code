@@ -380,6 +380,75 @@ export class CharacterModel {
 
   private geometries: THREE.BufferGeometry[] = [];
   private owned: THREE.Mesh[] = [];
+  private ownedSet: Set<THREE.Object3D> | null = null;
+  private fadeWarm: THREE.Material[] | null = null;
+  private fading = false;
+
+  /** Is this one of the character's own meshes (not a held item or an effect)? */
+  owns(o: THREE.Object3D): boolean {
+    this.ownedSet ??= new Set(this.owned);
+    return this.ownedSet.has(o);
+  }
+
+  private opaqueMaterials(): THREE.Material[] {
+    const set = new Set<THREE.Material>();
+    for (const m of this.owned) for (const mat of Array.isArray(m.material) ? m.material : [m.material]) if (!mat.transparent) set.add(mat);
+    return [...set];
+  }
+
+  /**
+   * Compile see-through variants of this character's materials in the
+   * background, so fading the body out later doesn't stall a frame on
+   * shader compilation. The clones stay alive (holding the programs) until
+   * the fade starts.
+   */
+  prepareFade(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene) {
+    if (this.fadeWarm || this.fading) return;
+    const group = new THREE.Group();
+    const clones = new Map<THREE.Material, THREE.Material>();
+    for (const m of this.owned) {
+      if (Array.isArray(m.material) || m.material.transparent) continue;
+      let c = clones.get(m.material);
+      if (!c) {
+        c = m.material.clone();
+        c.transparent = true;
+        clones.set(m.material, c);
+      }
+      const d = new THREE.Mesh(m.geometry, c);
+      d.receiveShadow = m.receiveShadow;
+      d.castShadow = m.castShadow;
+      group.add(d);
+    }
+    this.fadeWarm = [...clones.values()];
+    renderer.compileAsync(group, camera, scene).catch(() => undefined);
+  }
+
+  /** Fade the whole character (1 = solid). */
+  setOpacity(o: number) {
+    if (!this.fading) {
+      this.fading = true;
+      for (const mat of this.opaqueMaterials()) {
+        mat.transparent = true;
+        mat.needsUpdate = true;
+      }
+      // wounds and anything else stuck to the body would hang in the air
+      this.rig.root.traverse((o) => {
+        if ((o as THREE.Mesh).isMesh && !this.owns(o)) o.visible = false;
+      });
+      // the warm-up clones handed their programs over; release them next frame
+      const warm = this.fadeWarm;
+      this.fadeWarm = null;
+      if (warm) requestAnimationFrame(() => requestAnimationFrame(() => warm.forEach((m) => m.dispose())));
+    }
+    for (const m of this.owned) {
+      const mats = Array.isArray(m.material) ? m.material : [m.material];
+      for (const mat of mats) {
+        if (mat.userData.baseOpacity === undefined) mat.userData.baseOpacity = mat.opacity;
+        mat.opacity = mat.userData.baseOpacity * o;
+      }
+      m.castShadow = o > 0.5 && m.castShadow;
+    }
+  }
 
   /**
    * Each joint's meshes are rigid relative to it, so meshes sharing a
@@ -823,6 +892,9 @@ export class CharacterModel {
     }
     for (const m of mats) m.dispose();
     for (const g of this.geometries) g.dispose();
+    this.fadeWarm?.forEach((m) => m.dispose());
+    this.fadeWarm = null;
+    this.ownedSet = null;
     this.owned = [];
     this.geometries = [];
   }

@@ -170,7 +170,7 @@ export class OrderStation extends Station {
 
   update(dt: number) {
     const c = this.ctx.customers.atCounter;
-    const show = !!c && !this.taking;
+    const show = !!c && !this.taking && !this.ctx.armed;
     this.ctx.ui.takeOrder.set(show, c ? c.bubbleAnchor() : null);
     this.ctx.ui.stationAlert('order', show ? 1 : 0);
     void dt;
@@ -179,7 +179,7 @@ export class OrderStation extends Station {
   /** Customer at the counter tells us their order; a ticket prints. */
   async takeOrder(): Promise<void> {
     const c = this.ctx.customers.atCounter;
-    if (!c || this.taking) return;
+    if (!c || this.taking || this.ctx.armed) return;
     this.taking = true;
     const ctx = this.ctx;
     const fast = ctx.progress.level('fast_printer') > 0 ? 0.6 : 1;
@@ -195,6 +195,8 @@ export class OrderStation extends Station {
     ctx.ui.speech.say(c, pick(c.def.lines.hello), { duration: 1.6 * fast });
     ctx.audio.voice(c.def.p, 'neutral', 1.1 * fast);
     await ctx.engine.tweens.wait(1.25 * fast);
+    // (the customer can bolt, or be shot, mid-order)
+    if (c.state !== 'ordering') return this.abortOrder();
     // order reveal + ticket printing
     const items = [bun + ':bottom', ...layers.map((l) => l.id + (l.doneness ? ':' + l.doneness : '')), bun + ':top'];
     ctx.ui.speech.order(c, bun, layers, 0.2 * fast);
@@ -204,6 +206,7 @@ export class OrderStation extends Station {
     await ctx.engine.tweens.run(items.length * 0.2 * fast + 0.25, (e) => {
       this.printerPaper.scale.y = 0.001 + e * 0.12;
     }).done;
+    if (c.state !== 'ordering') return this.abortOrder();
     ctx.audio.play('tear', { volume: 0.8 });
     const order = ctx.orders.create(c, bun, layers, ctx.now());
     // ticket flies to the rail
@@ -212,6 +215,7 @@ export class OrderStation extends Station {
     this.printerPaper.scale.y = 0.001;
     ctx.rig.setNudge(null);
     await ctx.engine.tweens.wait(0.35 * fast);
+    if (c.state !== 'ordering') return this.abortOrder();
     ctx.ui.speech.say(c, pick(['Thanks!', 'Cheers!', "Can't wait!", 'Yum!', 'Thank you!']), { duration: 1.2 });
     c.gesture('thumbsUp', 1.2);
     ctx.customers.sendToWait(c);
@@ -224,6 +228,13 @@ export class OrderStation extends Station {
       ctx.ui.tutorial.vars.zone = { rare: 'red', medium: 'orange', well: 'brown' }[firstPatty.doneness];
     }
     ctx.ui.tutorialEvent('order-taken');
+  }
+
+  private abortOrder() {
+    this.printerPaper.scale.y = 0.001;
+    this.ctx.rig.setNudge(null);
+    this.setDisplay('WELCOME!');
+    this.taking = false;
   }
 
   /** Coins drop into the tip jar. */

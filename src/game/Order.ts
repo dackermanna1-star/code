@@ -30,7 +30,7 @@ export interface Order {
   /** game seconds when the customer reached the counter */
   arrivedAt: number;
   orderedAt: number;
-  status: 'waiting' | 'building' | 'ready' | 'served';
+  status: 'waiting' | 'building' | 'ready' | 'served' | 'void';
 }
 
 export interface OrderContext {

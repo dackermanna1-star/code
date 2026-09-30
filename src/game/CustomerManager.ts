@@ -231,7 +231,10 @@ export class CustomerManager {
     };
   }
 
-  leave(c: Customer) {
+  private vacate(c: Customer) {
+    const qi = this.queue.indexOf(c);
+    if (qi >= 0) this.queue.splice(qi, 1);
+    c.queueSlot = -1;
     this.freeWait(c);
     if (c.seat) {
       const seat = c.seat;
@@ -244,6 +247,12 @@ export class CustomerManager {
         seat.occupied = false;
       });
     }
+  }
+
+  leave(c: Customer) {
+    // a body on the floor doesn't get up and walk out
+    if (c.state === 'dead' || c.state === 'gone') return;
+    this.vacate(c);
     c.state = 'leaving';
     c.anim.sit = 0;
     c.lookAt = null;
@@ -252,6 +261,31 @@ export class CustomerManager {
     c.goTo(out, () => {
       c.state = 'gone';
     });
+  }
+
+  /** A customer was shot: out of the line, the waiting spots and their seat. */
+  killed(c: Customer) {
+    const inLine = this.queue.includes(c);
+    this.vacate(c);
+    if (inLine) this.refreshQueue();
+    this.onChange?.();
+  }
+
+  /** Gunfire: drop everything and sprint for the door. */
+  flee(c: Customer) {
+    if (c.state === 'dead' || c.state === 'gone' || c.panic) return;
+    const inLine = this.queue.includes(c);
+    c.panic = true;
+    c.walkSpeed = rand(3.1, 3.7) * (c.def.app.kid ? 0.85 : 1);
+    this.leave(c);
+    c.gesture('panic', 999);
+    c.setExpression('terrified');
+    if (inLine) this.refreshQueue();
+  }
+
+  /** Bodies still on the floor. */
+  get bodies(): Customer[] {
+    return this.list.filter((c) => c.state === 'dead');
   }
 
   update(dt: number) {
@@ -268,7 +302,7 @@ export class CustomerManager {
   }
 
   get inRestaurant(): number {
-    return this.list.filter((c) => c.state !== 'gone' && c.state !== 'leaving').length;
+    return this.list.filter((c) => c.state !== 'gone' && c.state !== 'leaving' && c.state !== 'dead').length;
   }
 
   clear() {

@@ -36,6 +36,9 @@ export class AudioEngine {
   muted = false;
   private lastPlay = new Map<string, number>();
   private duck = 1;
+  /** 0 while the music is cut dead (after a gunshot) */
+  private cut = 1;
+  private cutTimer = 0;
   started = false;
 
   /** Must be called from a user gesture. */
@@ -123,7 +126,8 @@ export class AudioEngine {
     const t = this.ctx.currentTime;
     const m = this.muted ? 0 : this.volumes.master;
     this.master.gain.setTargetAtTime(m, t, 0.05);
-    this.musicBus.gain.setTargetAtTime(this.volumes.music * 0.55 * this.duck, t, 0.1);
+    // a cut is instant; the music creeps back in afterwards
+    this.musicBus.gain.setTargetAtTime(this.volumes.music * 0.55 * this.duck * this.cut, t, this.cut < 1 ? 0.015 : this.cutRecover ? 1.6 : 0.1);
     this.sfxBus.gain.setTargetAtTime(this.volumes.sfx, t, 0.05);
     this.voiceBus.gain.setTargetAtTime(this.volumes.sfx * 0.95, t, 0.05);
     this.ambBus.gain.setTargetAtTime(this.volumes.sfx * 0.75, t, 0.05);
@@ -282,6 +286,84 @@ export class AudioEngine {
       this.duck = 1;
       this.applyVolumes();
     }, duration * 1000 + 250);
+  }
+
+  private cutRecover = false;
+  /** Record scratch, then silence for a while (the first shot in the diner). */
+  musicCut(seconds: number) {
+    if (!this.ctx || !this.started) return;
+    if (this.cut === 1) this.play('recordScratch', { volume: 0.45 });
+    this.cut = 0;
+    this.cutRecover = false;
+    this.applyVolumes();
+    clearTimeout(this.cutTimer);
+    this.cutTimer = window.setTimeout(() => {
+      this.cut = 1;
+      this.cutRecover = true;
+      this.applyVolumes();
+      this.cutRecover = false;
+    }, seconds * 1000);
+  }
+
+  /** Restore the music straight away (new day, back to the title). */
+  musicRestore() {
+    clearTimeout(this.cutTimer);
+    this.cut = 1;
+    this.applyVolumes();
+  }
+
+  /**
+   * A scream: a buzzy source pitched well above the character's speaking
+   * voice, through open-vowel "aah" formants, with a rise, a wavering
+   * vibrato and a falling tail.
+   */
+  scream(p: Personality, o: { pan?: number; volume?: number; delay?: number } = {}) {
+    if (!this.ctx || !this.started) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime + 0.01 + (o.delay ?? 0);
+    const base = { bright: 210, warm: 170, deep: 105, squeaky: 290, raspy: 150 }[p.voiceType] * p.voice;
+    const f0 = base * (2 + Math.random() * 0.45);
+    const dur = 0.8 + Math.random() * 0.7;
+    const out = ctx.createGain();
+    out.gain.value = o.volume ?? 0.5;
+    const pan = ctx.createStereoPanner();
+    pan.pan.value = Math.max(-1, Math.min(1, o.pan ?? 0));
+    out.connect(pan).connect(this.voiceBus);
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(f0 * 0.78, t);
+    osc.frequency.exponentialRampToValueAtTime(f0 * 1.12, t + 0.1);
+    osc.frequency.exponentialRampToValueAtTime(f0 * 0.96, t + dur * 0.7);
+    osc.frequency.exponentialRampToValueAtTime(f0 * 0.62, t + dur);
+    const vib = ctx.createOscillator();
+    vib.frequency.value = 6 + Math.random() * 3;
+    const vg = ctx.createGain();
+    vg.gain.value = f0 * 0.04;
+    vib.connect(vg).connect(osc.frequency);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.linearRampToValueAtTime(1, t + 0.04);
+    env.gain.setValueAtTime(0.85, t + dur * 0.75);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    const mix = ctx.createGain();
+    mix.gain.value = 0.9;
+    for (const [f, q] of [[950, 5], [1450, 6], [2950, 8]] as const) {
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = f * (f0 > 500 ? 1.12 : 1);
+      bp.Q.value = q;
+      osc.connect(bp).connect(env);
+    }
+    env.connect(mix).connect(out);
+    this.synth.nz(out, t, dur, { type: 'bandpass', f: 2600, q: 0.9, gain: 0.05, attack: 0.03 });
+    osc.start(t);
+    vib.start(t);
+    osc.stop(t + dur + 0.05);
+    vib.stop(t + dur + 0.05);
+    setTimeout(() => {
+      out.disconnect();
+      pan.disconnect();
+    }, (dur + (o.delay ?? 0) + 0.5) * 1000);
   }
 
   setMusicMode(mode: 'title' | 'day' | 'summary' | 'off') {

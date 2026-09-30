@@ -147,6 +147,10 @@ export interface Settings {
   shake: boolean;
   motion: boolean;
   hints: boolean;
+  /** the revolver at the order counter */
+  revolver: boolean;
+  /** blood effects when a customer is shot */
+  gore: boolean;
 }
 
 export interface SaveData {
@@ -219,7 +223,7 @@ export function defaultSave(): SaveData {
     owned: [],
     customers: {},
     stats: { served: 0, perfect: 0, tips: 0, burnt: 0, bestDay: 0, totalEarned: 0 },
-    settings: { master: 0.85, music: 0.6, sfx: 0.9, quality: 'auto', shake: !prefersReducedMotion(), motion: !prefersReducedMotion(), hints: true },
+    settings: { master: 0.85, music: 0.6, sfx: 0.9, quality: 'auto', shake: !prefersReducedMotion(), motion: !prefersReducedMotion(), hints: true, revolver: true, gore: true },
     tutorialDone: false,
     seenUnlocks: [],
   };

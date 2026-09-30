@@ -60,7 +60,21 @@ export class OrderBook {
   }
 
   get visible(): Order[] {
-    return this.orders.filter((o) => o.status !== 'served');
+    return this.orders.filter((o) => o.status !== 'served' && o.status !== 'void');
+  }
+
+  /** The customer is gone for good (shot, or fled): tear up the ticket and bin any finished burger. */
+  cancel(o: Order) {
+    if (o.status === 'served' || o.status === 'void') return;
+    o.status = 'void';
+    const i = this.ready.findIndex((r) => r.order === o);
+    if (i >= 0) {
+      const r = this.ready.splice(i, 1)[0];
+      r.stack.dispose();
+      r.tray.removeFromParent();
+    }
+    if (this.activeBuildId === o.id) this.advanceBuild();
+    this.onChange?.();
   }
 
   selectForBuild(id: number) {

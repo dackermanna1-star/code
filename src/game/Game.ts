@@ -29,6 +29,7 @@ import { DOOR, ROOM } from '../world/Layout';
 import { Ease, clamp, rand } from '../core/math';
 import type { Customization } from '../world/Structure';
 import type { IngredientId } from '../food/Ingredients';
+import { Gunplay } from '../weapons/Gunplay';
 
 type GameState = 'boot' | 'title' | 'intro' | 'day' | 'closing' | 'summary' | 'shop';
 
@@ -53,6 +54,7 @@ export class Game implements UIHost {
   warmer!: Warmer;
   decor!: Decor;
   stations!: { order: OrderStation; grill: GrillStation; build: BuildStation; serve: ServeStation };
+  gun!: Gunplay;
   ctx!: GameContext;
   state: GameState = 'boot';
   station: StationId = 'order';
@@ -65,6 +67,8 @@ export class Game implements UIHost {
   private dayHour = OPEN_HOUR;
   private transitioning = false;
   private pendingRankUp: number[] = [];
+  /** after a shooting nobody new walks in until the bodies are gone */
+  private crimeHold = 0;
 
   async boot() {
     const loading = Screens.loading();
@@ -137,6 +141,8 @@ export class Game implements UIHost {
       this.ui.tutorialEvent('burger-done');
     };
     this.stations.serve.onServed = (r) => this.onServed(r);
+    // before the shader warm-up: the muzzle-flash light must be in the scene
+    this.gun = new Gunplay(this);
     this.decor = new Decor(this.world, this.mats, this.customers);
     this.decor.apply(this.progress.data.decor);
     this.world.onDoorOpen = () => this.audio.play('doorBell', { volume: 0.8 });
@@ -232,6 +238,9 @@ export class Game implements UIHost {
       },
       goStation: (id: StationId) => self.goStation(id),
       busy: false,
+      get armed() {
+        return self.gun?.armed ?? false;
+      },
       haptic: (ms = 10) => {
         // browsers reject vibration before the first user gesture
         const active = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation?.hasBeenActive ?? true;
@@ -248,6 +257,7 @@ export class Game implements UIHost {
 
   toTitle() {
     this.state = 'title';
+    this.gun?.reset();
     this.ui.showHud(false);
     this.ui.clearWorld();
     this.audio.setMusicMode('title');
@@ -389,6 +399,8 @@ export class Game implements UIHost {
     this.stations.grill.reset();
     this.stations.build.reset();
     this.stations.order.resetDay();
+    this.gun.reset();
+    this.crimeHold = 0;
     this.ui.clearWorld();
     this.ui.refreshTickets();
     this.dayTime = 0;
@@ -414,8 +426,10 @@ export class Game implements UIHost {
     }
     if (this.state === 'day' || this.state === 'closing') {
       this.dayTime += dt;
+      if (this.customers.bodies.length) this.crimeHold = 6;
+      else this.crimeHold = Math.max(0, this.crimeHold - dt);
       for (const s of this.schedule) {
-        if (!s.spawned && this.dayTime >= s.at) {
+        if (!s.spawned && this.dayTime >= s.at && this.crimeHold <= 0) {
           s.spawned = true;
           this.spawn(s.def);
         }
@@ -770,6 +784,8 @@ export class Game implements UIHost {
       if (this.paused || this.state !== 'day') return;
       const map: Record<string, StationId> = { '1': 'order', '2': 'grill', '3': 'build', '4': 'serve' };
       if (map[k]) this.onStation(map[k]);
+      if (k === 'g') this.gun.toggle();
+      if (k === 'r' && this.gun.armed) this.gun.reload();
       if (k === ' ') {
         e.preventDefault();
         if (this.station === 'order') this.onTakeOrder();

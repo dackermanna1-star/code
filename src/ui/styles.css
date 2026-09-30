@@ -2010,3 +2010,210 @@ input:focus-visible {
     flex-direction: column;
   }
 }
+
+/* ---------------------------------------------------------------- revolver */
+#game.aiming {
+  cursor: none;
+}
+.gun-dock {
+  position: absolute;
+  left: 18px;
+  bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: auto;
+  opacity: 0;
+  translate: 0 14px;
+  visibility: hidden;
+  transition: opacity 0.25s, translate 0.3s var(--spring), visibility 0s 0.3s;
+}
+.gun-dock.show {
+  opacity: 1;
+  translate: 0 0;
+  visibility: visible;
+  transition: opacity 0.25s, translate 0.3s var(--spring);
+}
+.gun-btn {
+  position: relative;
+  width: 60px;
+  height: 52px;
+  color: var(--char);
+}
+.gun-btn svg {
+  width: 42px;
+  height: 28px;
+}
+.gun-btn .key {
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  font-size: 10px;
+  font-weight: 900;
+  font-family: var(--body);
+  color: var(--ink-3);
+}
+.gun-dock.armed .gun-btn {
+  background: var(--ketchup);
+  color: #fff;
+}
+.gun-dock.armed .gun-btn .key {
+  color: rgba(255, 255, 255, 0.75);
+}
+.gun-ammo {
+  position: relative;
+  display: none;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 3px solid var(--char);
+  background: radial-gradient(circle, #6b707a 0 14%, #3a3e46 15% 100%);
+  box-shadow: 0 4px 0 var(--char), inset 0 2px 5px rgba(255, 255, 255, 0.18);
+  transition: rotate 0.12s;
+}
+.gun-dock.armed .gun-ammo {
+  display: block;
+}
+.gun-ammo i {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  margin: -6.5px 0 0 -6.5px;
+  border-radius: 50%;
+  background: #15171a;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.9);
+  transition: background 0.15s;
+}
+.gun-ammo i.full {
+  background: radial-gradient(circle at 40% 35%, #fff3c4, #e0b050 45%, #9a6a1c);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+.gun-dock.reloading .gun-ammo {
+  animation: gunSpin 0.9s linear infinite;
+}
+.gun-dock.empty .gun-ammo {
+  animation: gunShake 0.4s;
+}
+.gun-hint {
+  display: none;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--glass);
+  color: #fff;
+  font: 800 12px/1.3 var(--body);
+  white-space: nowrap;
+}
+.gun-dock.armed .gun-hint {
+  display: block;
+}
+@keyframes gunSpin {
+  to {
+    rotate: 360deg;
+  }
+}
+@keyframes gunShake {
+  25% {
+    translate: -3px 0;
+  }
+  75% {
+    translate: 3px 0;
+  }
+}
+.crosshair {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 64px;
+  height: 64px;
+  margin: -32px 0 0 -32px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
+}
+.crosshair.on {
+  opacity: 1;
+}
+.crosshair svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transition: scale 0.15s var(--spring);
+}
+.crosshair svg * {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  transition: stroke 0.1s, fill 0.1s;
+}
+.crosshair svg .dot {
+  fill: #fff;
+  stroke: none;
+}
+.crosshair.target svg {
+  scale: 0.82;
+}
+.crosshair.target svg * {
+  stroke: #ff5a47;
+}
+.crosshair.target svg .dot {
+  fill: #ff5a47;
+}
+.crosshair .nogo {
+  display: none;
+}
+.crosshair.nogo .nogo {
+  display: inline;
+}
+.crosshair.nogo svg * {
+  stroke: var(--mustard);
+}
+.crosshair.nogo svg .dot {
+  fill: none;
+}
+.crosshair .mark {
+  opacity: 0;
+  stroke-width: 3;
+}
+.crosshair.hit .mark {
+  animation: hitMark 0.3s ease-out;
+}
+.crosshair.kill .mark {
+  stroke: #ff3b2a;
+}
+.crosshair.reload svg {
+  opacity: 0.45;
+  animation: gunSpin 0.8s linear infinite;
+}
+@keyframes hitMark {
+  0% {
+    opacity: 1;
+    scale: 1.6;
+  }
+  100% {
+    opacity: 0;
+    scale: 1;
+  }
+}
+.float-text.headshot {
+  color: #ff3b2a;
+  font-size: 36px;
+  letter-spacing: 1px;
+}
+@media (max-width: 760px), (max-height: 520px) {
+  .gun-dock {
+    left: 10px;
+    bottom: 10px;
+    scale: 0.8;
+    transform-origin: bottom left;
+  }
+  .gun-hint {
+    display: none !important;
+  }
+}
+@media (max-width: 760px) {
+  .gun-dock {
+    bottom: 86px;
+  }
+}

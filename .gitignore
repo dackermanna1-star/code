@@ -6,3 +6,4 @@ dist-single/
 test-output/
 dist-perf
 dist-artifact
+dist-gun

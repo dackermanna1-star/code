@@ -44,6 +44,13 @@ export class Speech {
     for (const b of this.bubbles.filter((b) => b.c === c)) this.kill(b);
   }
 
+  /** Drop every bubble and emote tied to a customer. */
+  clearFor(c: Customer) {
+    this.removeFor(c);
+    for (const e of this.emotes.filter((e) => e.c === c)) e.el.remove();
+    this.emotes = this.emotes.filter((e) => e.c !== c);
+  }
+
   private kill(b: Bubble) {
     b.el.classList.add('out');
     setTimeout(() => b.el.remove(), 260);

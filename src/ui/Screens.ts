@@ -214,7 +214,8 @@ export class Screens {
         row('🔥', 'Grill', 'Drag patties onto the grill. Click a patty to flip it. The gauge needle shows the side on the grill — match the ticket’s doneness (R / M / W) on both sides, then drag it to the holding tray.'),
         row('🍔', 'Build', 'Drag the bottom bun, then each layer in the ticket’s order (bottom to top). Drop layers dead-center for full marks. Finish with the top bun.'),
         row('🛎️', 'Serve', 'When the customer walks up to the pickup window, click Serve. They rate waiting, grilling and building — and tip accordingly!'),
-        row('⌨️', 'Shortcuts', '1–4 switch stations · Space takes orders / serves · Esc pauses'),
+        row('🤠', 'Revolver', 'At the order counter, G draws it. Aim with the mouse (push to a screen edge to look around), click to fire, R reloads, G holsters. Kids are off limits. Switch it off, or the blood, in Settings.'),
+        row('⌨️', 'Shortcuts', '1–4 switch stations · Space takes orders / serves · G revolver · Esc pauses'),
         h('div', { class: 'actions' }, h('button', { class: 'btn yellow', onclick: () => this.click(onBack) }, 'Got it!')),
       ),
     );
@@ -249,7 +250,7 @@ export class Screens {
       render();
       return h('div', { class: 'set-row' }, h('span', {}, label), wrap);
     };
-    const toggle = (key: 'shake' | 'motion' | 'hints', label: string) =>
+    const toggle = (key: 'shake' | 'motion' | 'hints' | 'revolver' | 'gore', label: string) =>
       seg(label, [['on', 'On'], ['off', 'Off']], () => (s[key] ? 'on' : 'off'), (v) => (s[key] = v === 'on'));
     const el = h(
       'div',
@@ -266,6 +267,8 @@ export class Screens {
         toggle('shake', '📳 Screen shake'),
         toggle('motion', '🎥 Camera motion'),
         toggle('hints', '💡 Hints & guides'),
+        toggle('revolver', '🤠 Revolver at the counter'),
+        toggle('gore', '🩸 Blood'),
         h(
           'div',
           { class: 'actions' },

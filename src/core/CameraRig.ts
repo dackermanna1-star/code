@@ -39,6 +39,22 @@ export class CameraRig {
 
   private trauma = 0;
   private fovPunch = new Spring(0, 260, 16);
+  private recoilPitch = new Spring(0, 230, 17);
+  private recoilYaw = new Spring(0, 230, 17);
+  /** FOV multiplier (aiming zooms in a touch) */
+  zoom = 1;
+  private zoomCur = 1;
+  /** aiming: pushing the cursor to a screen edge turns the view (0 = off, 1 = on) */
+  aimLook = 0;
+  private aimLookCur = 0;
+  /** accumulated aim-look turn (radians) */
+  lookYaw = 0;
+  lookPitch = 0;
+  /** edge-scrolling needs a hovering mouse; touch screens only get the direct lean */
+  edgeScroll = true;
+  /** world-space lean while aiming (over the counter) */
+  readonly lean = new THREE.Vector3();
+  private leanCur = new THREE.Vector3();
   private nudge = new THREE.Vector3();
   private nudgeTarget = new THREE.Vector3();
   pointer = new THREE.Vector2();
@@ -125,6 +141,13 @@ export class CameraRig {
     this.fovPunch.kick(-amount * 60 * this.shakeScale);
   }
 
+  /** Weapon recoil: the view snaps up (radians/s impulse) and springs back. */
+  kick(pitch: number, yaw = 0): void {
+    const k = 0.35 + 0.65 * this.shakeScale;
+    this.recoilPitch.kick(pitch * k);
+    this.recoilYaw.kick(yaw * k);
+  }
+
   /** Small reframing offset (world space) that eases in/out. */
   setNudge(v: THREE.Vector3 | null): void {
     if (v) this.nudgeTarget.copy(v);
@@ -164,14 +187,36 @@ export class CameraRig {
     this.nudge.z = damp(this.nudge.z, this.nudgeTarget.z, 4, dt);
     cam.position.add(this.nudge);
 
+    // Leaning in to aim
+    this.leanCur.x = damp(this.leanCur.x, this.lean.x, 5, dt);
+    this.leanCur.y = damp(this.leanCur.y, this.lean.y, 5, dt);
+    this.leanCur.z = damp(this.leanCur.z, this.lean.z, 5, dt);
+    cam.position.add(this.leanCur);
+    this.aimLookCur = damp(this.aimLookCur, this.aimLook, 5, dt);
+    const al = this.aimLookCur;
+
     // Pointer parallax in camera space
-    this.pointerSmooth.x = damp(this.pointerSmooth.x, this.pointer.x, 3, dt);
-    this.pointerSmooth.y = damp(this.pointerSmooth.y, this.pointer.y, 3, dt);
+    this.pointerSmooth.x = damp(this.pointerSmooth.x, this.pointer.x, 3 + al * 3, dt);
+    this.pointerSmooth.y = damp(this.pointerSmooth.y, this.pointer.y, 3 + al * 3, dt);
     const p = this.parallax * this.motionScale;
     this.tmpV.set(this.pointerSmooth.x * 0.03 * p, this.pointerSmooth.y * 0.018 * p, 0).applyQuaternion(cam.quaternion);
     cam.position.add(this.tmpV);
-    const yaw = -this.pointerSmooth.x * 0.012 * p;
-    const pitch = this.pointerSmooth.y * 0.008 * p;
+    // aiming: the cursor near an edge keeps turning the view that way (stable in the middle,
+    // so the crosshair stays put on a target); a little direct lean toward the cursor on top
+    if (this.aimLook > 0) {
+      const edge = (v: number) => {
+        if (!this.edgeScroll) return 0;
+        const a = Math.abs(v);
+        return a < 0.7 ? 0 : Math.sign(v) * Math.min(1, (a - 0.7) / 0.28) ** 2;
+      };
+      this.lookYaw = clamp(this.lookYaw - edge(this.pointer.x) * 1.15 * dt, -0.6, 0.6);
+      this.lookPitch = clamp(this.lookPitch + edge(this.pointer.y) * 0.95 * dt, -0.62, 0.14);
+    } else {
+      this.lookYaw = damp(this.lookYaw, 0, 5, dt);
+      this.lookPitch = damp(this.lookPitch, 0, 5, dt);
+    }
+    const yaw = -this.pointerSmooth.x * (0.012 * p + 0.05 * al) + this.lookYaw;
+    const pitch = this.pointerSmooth.y * (0.008 * p + 0.04 * al) + this.lookPitch;
 
     // Idle sway
     const s = this.sway * this.motionScale;
@@ -187,12 +232,15 @@ export class CameraRig {
     const shPitch = noise.noise2(t * 22, 5.3) * 0.02 * sh;
     const shRoll = noise.noise2(t * 22, 8.8) * 0.03 * sh;
 
-    this.tmpE.set(pitch + swayPitch + shPitch, yaw + swayYaw + shYaw, swayRoll + shRoll, 'YXZ');
+    const rp = this.recoilPitch.update(dt);
+    const ry = this.recoilYaw.update(dt);
+    this.tmpE.set(pitch + swayPitch + shPitch + rp, yaw + swayYaw + shYaw + ry, swayRoll + shRoll, 'YXZ');
     this.tmpQ.setFromEuler(this.tmpE);
     cam.quaternion.multiply(this.tmpQ);
 
     const punch = this.fovPunch.update(dt);
-    const fov = this.fitAspect(this.currentFov) + punch;
+    this.zoomCur = damp(this.zoomCur, this.zoom, 6, dt);
+    const fov = this.fitAspect(this.currentFov) * this.zoomCur + punch;
     if (Math.abs(cam.fov - fov) > 1e-4) {
       cam.fov = fov;
       cam.updateProjectionMatrix();

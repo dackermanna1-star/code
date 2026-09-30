@@ -8,6 +8,7 @@ import type { Order } from './Order';
 import type { Seat } from '../world/Layout';
 import type { BurgerStack } from '../food/BurgerStack';
 import { discard } from '../world/Builder';
+import { Ragdoll } from '../physics/Ragdoll';
 
 export type CState =
   | 'outside'
@@ -22,6 +23,7 @@ export type CState =
   | 'toSeat'
   | 'eating'
   | 'leaving'
+  | 'dead'
   | 'gone';
 
 export type EmoteKind = 'heart' | 'star' | 'angry' | 'dots' | 'sweat' | 'exclaim' | 'music' | 'note' | 'happy' | 'sad' | 'yum';
@@ -70,6 +72,15 @@ export class Customer {
   mood = 1;
   private wasInside = false;
   private outsideTarget: THREE.Vector3 | null = null;
+  /** running for the door after a gunshot */
+  panic = false;
+  ragdoll: Ragdoll | null = null;
+  /** seconds since death / since the body came to rest / into the fade-out */
+  deadTime = 0;
+  restTime = 0;
+  private fadeTime = 0;
+  /** things knocked off the body (a hat) that should vanish with it */
+  readonly debris: THREE.Object3D[] = [];
 
   constructor(readonly def: CustomerDef, private ctx: CustomerContext) {
     this.model = new CharacterModel(def.app);
@@ -148,6 +159,10 @@ export class Customer {
   }
 
   update(dt: number) {
+    if (this.state === 'dead') {
+      this.updateDead(dt);
+      return;
+    }
     // --- locomotion
     if (this.path.length) {
       const target = this.path[0];
@@ -273,8 +288,64 @@ export class Customer {
   }
   onDoneEating: (() => void) | null = null;
 
+  /**
+   * Shot: the character goes limp and a ragdoll takes over the rig, keeping
+   * whatever momentum the body had (a running customer tumbles forward).
+   * Shooting a body that is already down just knocks it about again.
+   */
+  die(point: THREE.Vector3, dir: THREE.Vector3, force: number) {
+    if (this.ragdoll) {
+      this.ragdoll.hit(point, dir, force);
+      this.restTime = 0;
+      return;
+    }
+    const carry = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)).multiplyScalar(this.moving ? this.speed * 0.8 : 0);
+    this.state = 'dead';
+    this.path = [];
+    this.onArrive = null;
+    this.finalYaw = null;
+    this.speed = 0;
+    this.gestureTimer = 0;
+    this.onDoneEating = null;
+    this.lookAt = null;
+    this.anim.setGesture('none');
+    const face = this.model.face;
+    face.setExpression('dead');
+    face.frozen = true;
+    face.talk = 0;
+    face.chew = 0;
+    face.look.set(0.18, 0.6);
+    const blob = this.root.userData.blob as THREE.Object3D | undefined;
+    if (blob) blob.visible = false;
+    this.root.updateMatrixWorld(true);
+    this.ragdoll = new Ragdoll(this.model, carry);
+    this.ragdoll.hit(point, dir, force);
+  }
+
+  /** How long a body stays on the floor before it fades away. */
+  static BODY_STAY = 18;
+
+  private updateDead(dt: number) {
+    const rd = this.ragdoll!;
+    this.deadTime += dt;
+    const wasAsleep = rd.sleeping;
+    rd.step(dt);
+    if (!wasAsleep) rd.apply();
+    if (this.deadTime < 3) this.model.face.update(dt);
+    if (!rd.sleeping) return;
+    this.restTime += dt;
+    if (this.restTime < Customer.BODY_STAY) return;
+    this.fadeTime += dt;
+    const o = Math.max(0, 1 - this.fadeTime / 2.4);
+    this.model.setOpacity(o);
+    for (const d of this.debris) d.visible = o > 0.35;
+    if (o <= 0) this.state = 'gone';
+  }
+
   dispose() {
     this.root.removeFromParent();
+    for (const d of this.debris) d.removeFromParent();
+    this.debris.length = 0;
     // cleared mid-meal (closing time): the food and tray go too
     this.burger?.dispose();
     this.burger = null;

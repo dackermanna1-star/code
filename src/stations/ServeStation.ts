@@ -75,7 +75,8 @@ export class ServeStation extends Station {
   /** Place a finished burger (with its tray) on the pickup counter. */
   addReady(order: Order | null, stack: BurgerStack, tray: THREE.Group) {
     const ctx = this.ctx;
-    if (!order) {
+    // no ticket, or its customer is no longer around to eat it
+    if (!order || order.status === 'void') {
       stack.dispose();
       tray.removeFromParent();
       return;

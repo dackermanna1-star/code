@@ -28,6 +28,8 @@ export const EXPRESSIONS: Record<string, Expression> = {
   bored: { browAngle: 0.05, browRaise: -0.15, eyeOpen: 0.5, smile: -0.1, open: 0, blush: 0, happyEyes: 0, asym: 0.2 },
   hungry: { browAngle: -0.2, browRaise: 0.45, eyeOpen: 1.05, smile: 0.6, open: 0.2, blush: 0.2, happyEyes: 0, asym: 0 },
   chewing: { browAngle: -0.05, browRaise: 0.1, eyeOpen: 0.8, smile: 0.4, open: 0, blush: 0.25, happyEyes: 0.35, asym: 0 },
+  terrified: { browAngle: -0.75, browRaise: 1, eyeOpen: 1.25, smile: -0.8, open: 0.9, blush: 0, happyEyes: 0, asym: 0.15 },
+  dead: { browAngle: -0.1, browRaise: -0.2, eyeOpen: 0.32, smile: -0.25, open: 0.45, blush: 0, happyEyes: 0, asym: 0.35 },
 };
 
 const N = 14; // mouth samples
@@ -50,6 +52,8 @@ export class Face {
   private talkPhase = Math.random() * 10;
   look = new THREE.Vector2(); // -1..1 eye look direction
   chew = 0;
+  /** no blinking, eyes fixed (a body on the floor) */
+  frozen = false;
   private baseBlush: number;
   private mouthY = -0.064;
   private mouthW = 0.042;
@@ -280,6 +284,7 @@ export class Face {
 
     // blinking
     this.blinkT -= dt;
+    if (this.frozen) this.blinkT = 1;
     if (this.blinkT <= 0) {
       this.blink = 1;
       this.blinkT = 1.8 + Math.random() * 3.5;
