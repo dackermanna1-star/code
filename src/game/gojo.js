@@ -271,7 +271,7 @@
         const v = f.grab;
         if (!v) return;
         const p = f.anchor('fh');
-        if (mf < 16) { v.x = f.x + f.facing * 42; v.y = 0; v.facing = -f.facing; v.setAnim('grabbed'); }
+        if (mf < 16) { v.x = f.x + f.facing * 54; v.y = 0; v.facing = -f.facing; v.setAnim('grabbed'); }
         if (mf === 16) {
           JJK.Combat.throwRelease(m, f, v, { lx: 9, lv: 5, dir: f.facing, h: { dmg: 105, wb: true, spark: BLUE2 } });
           blueSpiral(p[0], p[1], 50, 14);
@@ -286,11 +286,11 @@
       tick(f, m, mf) {
         const v = f.grab;
         if (!v) return;
-        if (mf < 12) { v.x = f.x + f.facing * 40; v.y = 0; v.facing = -f.facing; }
+        if (mf < 12) { v.x = f.x + f.facing * 54; v.y = 0; v.facing = -f.facing; }
         if (mf === 12) {
           // Blue drags them through to the other side
           teleportFx(m, v, v.x, v.y);
-          v.x = f.x - f.facing * 44;
+          v.x = f.x - f.facing * 56;
           v.facing = f.facing;
           f.facing = -f.facing;
           teleportFx(m, v, v.x, v.y);
@@ -989,6 +989,12 @@
       // Purple charge orbs
       if (f.st === 'move' && f.move && f.move.id === 'purple' && f.moveData.bx != null) {
         const d = f.moveData;
+        // the whole screen brightens as the charge builds
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = `rgba(120,60,200,${(d.k || 0) * (0.08 + 0.04 * d.lvl)})`;
+        ctx.fillRect(0, 0, JJK.W, JJK.H);
+        ctx.restore();
         const rB = d.rB * z, rR = d.rR * z;
         m.distort(d.bx, d.by, d.rB * 2.5, 0.8);
         m.distort(d.rx, d.ry, d.rR * 2.5, 1.2);

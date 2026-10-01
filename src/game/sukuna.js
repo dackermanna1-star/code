@@ -239,7 +239,7 @@
       tick(f, m, mf) {
         const v = f.grab;
         if (!v) return;
-        if (mf < 18) { v.x = f.x + f.facing * 40; v.y = Math.min(30, mf * 2.4); v.facing = -f.facing; }
+        if (mf < 18) { v.x = f.x + f.facing * 54; v.y = Math.min(30, mf * 2.4); v.facing = -f.facing; }
         if (mf === 18) {
           JJK.Combat.throwRelease(m, f, v, { lx: 3, lv: 2, dir: f.facing, h: { dmg: 115, gb: true, spark: CRIM2 } });
           v.vy = -8;
@@ -255,8 +255,8 @@
       tick(f, m, mf) {
         const v = f.grab;
         if (!v) return;
-        if (mf < 14) { v.x = f.x + f.facing * 40; v.facing = -f.facing; }
-        if (mf === 14) { v.x = f.x - f.facing * 46; v.facing = f.facing; f.facing = -f.facing; }
+        if (mf < 14) { v.x = f.x + f.facing * 54; v.facing = -f.facing; }
+        if (mf === 14) { v.x = f.x - f.facing * 56; v.facing = f.facing; f.facing = -f.facing; }
         if (mf === 20) {
           JJK.Combat.throwRelease(m, f, v, { lx: 7, lv: 6, dir: f.facing, h: { dmg: 110, spark: CRIM2 } });
           slashFx(v.x, v.y + 90, 80, 0.7, '#fff', 10);
@@ -444,7 +444,7 @@
       tick(f, m, mf) {
         const v = f.grab;
         if (!v) return;
-        if (mf < 24) { const h = f.anchor('nh'); v.x = f.x + f.facing * 38; v.y = Math.max(0, Math.min(36, mf * 3)); v.facing = -f.facing; v.setAnim('grabbed'); }
+        if (mf < 24) { const h = f.anchor('nh'); v.x = f.x + f.facing * 54; v.y = Math.max(0, Math.min(26, mf * 2.5)); v.facing = -f.facing; v.setAnim('grabbed'); }
         if (mf === 12 || mf === 16 || mf === 20) {
           slashFx(v.x, v.y + 90, 50, R(-1, 1), '#ffffff', 6);
           snd('cleave', { pan: f.pan(), pitch: 1.1 });
@@ -609,6 +609,7 @@
       FX.spawn('flame', U.lerp(n[0], h[0], t) + R(-4, 4), U.lerp(n[1], h[1], t) + R(-4, 4), { vx: R(-0.5, 0.5), vy: R(0.5, 2), life: R(10, 20), size: R(2, 4) * (1 + k * 1.5), size2: 1, color: FIRE, color2: '#a01800', add: true });
     }
     if (d.charge % 3 === 0) FX.spawn('px', f.x + R(-200, 200), R(10, 220), { vy: R(0.5, 1.5), vx: R(-0.5, 0.5), life: 40, size: 1, color: FIRE2, add: true }); // embers
+    if (d.charge % 5 === 0) FX.spawn('smoke', f.x + R(-260, 260), R(0, 20), { vx: R(-0.4, 0.4), vy: R(0.2, 0.6), drag: 0.98, life: 90, size: R(6, 10), size2: R(18, 30), color: '#2a1612', alpha: 0.35 * k + 0.1, layer: 'back' }); // smoke fills the arena
     m.cam.shake(0.01 + k * 0.03);
     if (m.stage) m.stage.darken = Math.max(m.stage.darken || 0, k * 0.25);
     if (f.cs.fugaSnd) f.cs.fugaSnd.setLevel(k);
@@ -810,6 +811,12 @@
         ctx.stroke();
         ctx.restore();
         FX.glow(ctx, bx, by, (30 + k * 60) * z, FIRE, 0.8);
+        // the arena takes on the furnace's orange light
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = `rgba(255,90,10,${k * 0.12})`;
+        ctx.fillRect(0, 0, JJK.W, JJK.H);
+        ctx.restore();
       }
       // World Cutting Slash aim line (visible to both players)
       if (f.cs.wcsAim) {

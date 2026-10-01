@@ -76,7 +76,7 @@
   P.slashB1 = { hip: [8, 63], lean: 22, bend: 8, head: -6, nh: [44, -14], fh: [6, -18], nf: [-20, 0], ff: [28, 0], nhs: 'chop', fhs: 'claw', face: 'shout' };
   P.cleave0 = { hip: [-6, 62], lean: 0, bend: -4, head: 0, nh: [-14, 10], fh: [-10, 16], nf: [-26, 0], ff: [16, 0], nhs: 'chop', fhs: 'chop', nha: 60, fha: 60, face: 'shout' };
   P.cleave1 = { hip: [10, 60], lean: 28, bend: 10, head: -6, nh: [40, -24], fh: [42, -8], nf: [-18, 0], ff: [32, 0], nhs: 'chop', fhs: 'chop', face: 'shout' };
-  P.cleave2 = { hip: [10, 60], lean: 26, bend: 8, head: -4, nh: [42, 6], fh: [36, -26], nf: [-18, 0], ff: [32, 0], nhs: 'chop', fhs: 'chop', face: 'grin' };
+  P.cleave2 = { hip: [12, 59], lean: 30, bend: 10, head: -2, nh: [30, 22], fh: [46, -30], nf: [-18, 0], ff: [33, 0], nhs: 'chop', fhs: 'chop', nha: -40, fha: 50, face: 'grin' };
   P.cross0 = { hip: [-2, 64], lean: 4, bend: 0, head: -2, nh: [-6, 22], fh: [4, 26], nf: [-22, 0], ff: [18, 0], nhs: 'chop', fhs: 'chop', face: 'grin' };
   P.cross1 = { hip: [8, 62], lean: 20, bend: 6, head: -6, nh: [40, -24], fh: [42, -26], nf: [-20, 0], ff: [26, 0], nhs: 'chop', fhs: 'chop', face: 'shout' };
   P.lunge0 = { hip: [-4, 58], lean: 20, bend: 6, head: -4, nh: [-10, -20], fh: [10, -18], nf: [-24, 0], ff: [16, 0], nhs: 'claw', fhs: 'claw', face: 'grin' };
