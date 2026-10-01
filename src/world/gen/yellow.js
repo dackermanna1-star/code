@@ -1,5 +1,6 @@
 // The classic yellow rooms: endless mono-yellow wallpaper, damp carpet, buzzing panels.
 import { defineZone } from '../zonetypes.js';
+import { RNG, hash3 } from '../../core/rng.js';
 import { W, CF, M, pmod, ceilingLight, lightLattice, openCell, freeCell, findWallSpots, scatter, floorDecal, facing, env, propOnWall, wallFace } from './common.js';
 
 export const SPAWN = [14, 30];
@@ -28,12 +29,28 @@ export function yellowParams(zone, rng, ctx) {
     // some stretches quietly rearrange themselves once you have left them
     mutable: !start && ctx.dist > 150 && ['maze', 'rooms', 'classic', 'corridors'].includes(variant) && rng.chance(0.18),
   };
+  // deja vu: zones of a few common sizes sometimes reuse one of a handful of template layouts,
+  // so the exact same room turns up again somewhere else (with one small difference)
+  if (!start && !p.mutable && ctx.dist > 100 && ctx.w <= 40 && ctx.d <= 40 && rng.chance(0.22)) {
+    const tpl = rng.int(0, 3);
+    const t = new RNG(hash3(ctx.w, ctx.d, tpl, 0xd3ad));
+    p.dejavu = hash3(ctx.w, ctx.d, tpl, 0xd3ae);
+    p.variant = t.pick(['pillars', 'maze', 'rooms', 'classic']);
+    p.wallMat = t.pick([M.wp_stripe, M.wp_plain, M.wp_damask]);
+    p.floorMat = M.carpet_y; p.ceilMat = M.ceil_tile; p.ceilH = t.pick([2.8, 3.0, 3.3]);
+    p.lightKind = 'panel'; p.lsx = 3; p.lsz = 3; p.fail = 0.04; p.flicker = 0.03; p.dark = false;
+    p.ambient = [0.27, 0.25, 0.17];
+  }
   p.env = env({ fog: dark ? [0.08, 0.07, 0.035] : [0.42, 0.38, 0.2], fogNear: dark ? 2 : 5, fogFar: dark ? 22 : 34, hum: dark ? 0.25 : 0.7, hvac: 0.5, reverb: variant === 'open' || variant === 'halls' ? 'hall' : 'room' });
   return p;
 }
 
 function genYellow(zb) {
-  const p = zb.params, r = zb.rng;
+  const p = zb.params;
+  // deja-vu zones lay out from the template seed, in zone-local coordinates
+  const own = zb.rng;
+  if (p.dejavu) { zb.rng = new RNG(p.dejavu); zb.localLattice = true; }
+  const r = zb.rng;
   const { x0, z0, x1, z1 } = zb;
   const wm = p.wallMat;
   switch (p.variant) {
@@ -68,7 +85,8 @@ function genYellow(zb) {
     }
   }
   // lights
-  lightLattice(zb, x0, z0, x1, z1, p.lsx, p.lsz, p.lightKind, { fail: p.fail, flicker: p.flicker, rot: r.chance(0.5) ? 1 : 0, ox: p.start ? 1 : r.int(0, 3), oz: p.start ? 1 : r.int(0, 3) });
+  const lox = p.start ? 1 : r.int(0, 3) + (zb.localLattice ? x0 : 0), loz = p.start ? 1 : r.int(0, 3) + (zb.localLattice ? z0 : 0);
+  lightLattice(zb, x0, z0, x1, z1, p.lsx, p.lsz, p.lightKind, { fail: p.fail, flicker: p.flicker, rot: r.chance(0.5) ? 1 : 0, ox: lox, oz: loz });
   if (p.dark) {
     // a couple of survivors in the dark
     for (let k = 0; k < r.int(1, 3); k++) {
@@ -77,6 +95,17 @@ function genYellow(zb) {
     }
   }
   dressing(zb, r);
+  if (p.dejavu) {
+    // ...but never exactly the same
+    zb.rng = own;
+    const u = own.next();
+    if (u < 0.3 && zb.fixtures.length) { const f = own.pick(zb.fixtures); f.on = false; zb.lights = zb.lights.filter((l) => Math.hypot(l.x - f.x, l.z - f.z) > 0.2); }
+    else if (u < 0.55 && zb.props.length) zb.props.splice(own.int(0, zb.props.length - 1), 1);
+    else if (u < 0.8) { const x = own.int(zb.x0 + 2, zb.x1 - 3), z = own.int(zb.z0 + 2, zb.z1 - 3); if (openCell(zb, x, z)) zb.prop(own.pick(['chair_office', 'box', 'umbrella', 'bag']), x + 0.5, 0, z + 0.5, own.range(0, 6.28)); }
+    else { const f = findWallSpots(zb, zb.x0, zb.z0, zb.x1, zb.z1, 1, own)[0]; if (f) zb.decal(f.x, 1.4, f.z, f.face, 0.5, 0.65, 'calendar'); }
+  }
+  crawlspaces(zb, own);
+  angledWall(zb, own);
 }
 
 // ------------------------------------------------------------------ layouts
@@ -84,7 +113,8 @@ function pillars(zb, r, wm) {
   const { x0, z0, x1, z1 } = zb;
   const P = zb.params.start ? 5 : r.pick([4, 5, 5, 6, 7]);
   const s = zb.params.start ? 1 : r.chance(0.3) ? 2 : 1;
-  const ox = r.int(0, P - 1), oz = r.int(0, P - 1);
+  let ox = r.int(0, P - 1), oz = r.int(0, P - 1);
+  if (zb.localLattice) { ox += x0; oz += z0; }
   const keepClear = (x, z) => zb.params.start && Math.abs(x - SPAWN[0]) < 3 && Math.abs(z - SPAWN[1]) < 3;
   for (let z = z0 + pmod(oz - z0, P); z < z1; z += P) {
     for (let x = x0 + pmod(ox - x0, P); x < x1; x += P) {
@@ -108,7 +138,8 @@ function maze(zb, r, wm) {
   const { x0, z0, x1, z1 } = zb;
   const S = r.pick([3, 4, 4, 5]);
   const pw = r.range(0.32, 0.5);
-  const ox = r.int(0, S - 1), oz = r.int(0, S - 1);
+  let ox = r.int(0, S - 1), oz = r.int(0, S - 1);
+  if (zb.localLattice) { ox += x0; oz += z0; }
   for (let z = z0 + pmod(oz - z0, S); z < z1; z += S) {
     for (let x = x0 + pmod(ox - x0, S); x < x1; x += S) {
       if (r.chance(pw)) {
@@ -133,7 +164,8 @@ function maze(zb, r, wm) {
 function rooms(zb, r, wm) {
   const { x0, z0, x1, z1 } = zb;
   const S = r.pick([6, 7, 8, 9, 10]);
-  const ox = r.int(0, S - 1), oz = r.int(0, S - 1);
+  let ox = r.int(0, S - 1), oz = r.int(0, S - 1);
+  if (zb.localLattice) { ox += x0; oz += z0; }
   const seg = (horiz, line, a, b) => {
     if (r.chance(0.22)) return;
     const len = b - a;
@@ -306,6 +338,15 @@ function dressing(zb, r) {
   if (!zb.params.start && zb.w >= 24 && zb.d >= 24 && r.chance(0.07)) nestedRooms(zb, r);
   // a lit hallway behind a doorway that is only there from a distance
   if (!zb.params.start && zb.zone.ctx && zb.zone.ctx.dist > 120 && r.chance(0.09)) mirageDoor(zb, r);
+  // things that have no business being here
+  if (!zb.params.start && r.chance(0.08)) {
+    for (let k = 0; k < 20; k++) {
+      const x = r.int(zb.x0 + 1, zb.x1 - 2), z = r.int(zb.z0 + 1, zb.z1 - 2);
+      if (!openCell(zb, x, z) || !openCell(zb, x + 1, z) || !openCell(zb, x, z + 1)) continue;
+      zb.prop(r.pick(['shopping_cart', 'traffic_cone', 'mailbox', 'bathtub', 'piano', 'umbrella', 'bag', 'coat_rack']), x + 0.8, 0, z + 0.8, r.range(0, 6.28));
+      break;
+    }
+  }
   // rare landmark: a car where no car could have come from
   if (!zb.params.start && (zb.params.variant === 'open' || zb.params.variant === 'pillars' || zb.params.variant === 'halls') && r.chance(0.05)) crashedCar(zb, r);
 }
@@ -388,6 +429,42 @@ function mirageDoor(zb, r) {
     zb.light(nx + 0.5 - dx * (L / 2), 2.2, nz + 0.5 - dz * (L / 2), { rad: 5, int: 0.6 });
     return;
   }
+}
+
+// a low tunnel through a thick wall that you have to crouch through
+function crawlspaces(zb, r) {
+  if (zb.params.start || !r.chance(0.12)) return;
+  const wm = zb.params.wallMat;
+  const gate = new Set(zb.gates.map((g) => g.x + ',' + g.z));
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const len = r.int(4, 9);
+    const horiz = r.chance(0.5);
+    const x = r.int(zb.x0 + 2, zb.x1 - (horiz ? len : 1) - 2), z = r.int(zb.z0 + 2, zb.z1 - (horiz ? 1 : len) - 2);
+    const cells = [];
+    for (let k = 0; k < len; k++) cells.push(horiz ? [x + k, z] : [x, z + k]);
+    const ends = horiz ? [[x - 1, z], [x + len, z]] : [[x, z - 1], [x, z + len]];
+    if (cells.some(([cx, cz]) => gate.has(cx + ',' + cz)) || ends.some(([cx, cz]) => !zb.in(cx, cz) || zb.isSolid(cx, cz))) continue;
+    // a thick block around the tunnel
+    for (const [cx, cz] of cells) for (const d of [-1, 1]) {
+      const sx = horiz ? cx : cx + d, sz = horiz ? cz + d : cz;
+      if (zb.in(sx, sz) && !gate.has(sx + ',' + sz)) { zb.setSolid(sx, sz, wm); zb.setFlag(sx, sz, CF.KEEP); }
+    }
+    zb.clearEntities(Math.min(x, x) - 1, z - 1, x + (horiz ? len : 1) + 1, z + (horiz ? 1 : len) + 1);
+    for (const [cx, cz] of cells) {
+      const i = zb.i(cx, cz);
+      zb.solid[i] = 0; zb.floor[i] = 0; zb.ceil[i] = 1.05; zb.flags[i] |= CF.KEEP | CF.NOPROPS;
+      zb.wallW[i] = 0; zb.wallN[i] = 0;
+    }
+    if (r.chance(0.5)) ceilingLight(zb, cells[len >> 1][0] + 0.5, cells[len >> 1][1] + 0.5, 'bulb', 'on', { hang: 0.05, rad: 3, int: 0.4 });
+    return;
+  }
+}
+
+// a wall slab at a strange angle, cutting through whatever is there
+function angledWall(zb, r) {
+  if (zb.params.start || !r.chance(0.06)) return;
+  const x = r.range(zb.x0 + 6, zb.x1 - 6), z = r.range(zb.z0 + 6, zb.z1 - 6);
+  zb.prop('slab_wall', x, 0, z, r.pick([0.4, 0.6, 0.79, 1.0, 2.1, 2.6]), { len: r.int(5, 10), h: zb.params.ceilH, mat: matName(zb.params.wallMat) });
 }
 
 function matName(id) {
