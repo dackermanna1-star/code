@@ -102,6 +102,7 @@ as a CPU. You can record and play back inputs, and reset positions.
 ## Development
 
 ```
+node tools/bundle.js               # build dist/cursed-arts.html (single self-contained file)
 node tools/sim.js 20 hard          # headless CPU-vs-CPU balance & crash test
 node tools/motion-test.js          # deterministic input / motion recognition tests
 node tools/combo-test.js           # verifies core combo routes connect
