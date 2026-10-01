@@ -1,0 +1,43 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>body{margin:0;background:#222}canvas{image-rendering:pixelated;display:block}</style></head><body>
+<canvas id="c"></canvas>
+<script src="../src/engine/util.js"></script>
+<script src="../src/engine/raster.js"></script>
+<script src="../src/engine/rig.js"></script>
+<script src="../src/engine/input.js"></script>
+<script src="../src/engine/font.js"></script>
+<script src="../src/engine/fx.js"></script>
+<script src="../src/engine/camera.js"></script>
+<script src="../src/game/body.js"></script>
+<script src="../src/game/art-gojo.js"></script>
+<script src="../src/game/art-sukuna.js"></script>
+<script src="../src/game/charkit.js"></script>
+<script src="../src/game/gojo-poses.js"></script>
+<script src="../src/game/sukuna-poses.js"></script>
+<script src="../src/game/fighter.js"></script>
+<script src="../src/game/combat.js"></script>
+<script src="../src/game/projectiles.js"></script>
+<script src="../src/game/gojo.js"></script>
+<script src="../src/game/sukuna.js"></script>
+<script>
+// Renders every N-th frame of a move's animation side by side.
+const q=new URLSearchParams(location.search);
+const id=q.get('id')||'gojo', mv=q.get('move')||'5H', step=+(q.get('step')||2), cols=+(q.get('cols')||12);
+const def=JJK.Chars[id], m=def.moves[mv] || {anim:def.anims[mv], total:+(q.get('len')||40)};
+const total=m.total>200?120:m.total;
+const n=Math.ceil(total/step)+1;
+const W=cols*90, rows=Math.ceil(n/cols), H=rows*200;
+const cv=document.getElementById('c'); cv.width=W; cv.height=H; cv.style.width=W+'px'; cv.style.height=H+'px';
+const ctx=cv.getContext('2d'); ctx.fillStyle='#3a1818'; ctx.fillRect(0,0,W,H);
+const r=new JJK.Raster(W,H);
+for(let i=0;i<n;i++){
+  const f=Math.min(total,i*step);
+  const pose=JJK.Rig.sample(m.anim,f,def.poses);
+  const J=JJK.Rig.solve(pose,def.art.dims);
+  const x=(i%cols)*90+40, y=((i/cols)|0)*200+185;
+  const xf=new JJK.Rig.Xform().set(x,y,1,1,pose.rot||0,[0,70],pose.sx||1,pose.sy||1);
+  r.begin(); def.art.draw(r,J,xf,{pose,pal:0,sec:new JJK.Rig.Secondary()}); r.outline(def.art.outline,0,true); r.flush(); r.drawTo(ctx);
+  let ph=m.s?(f<m.s?'S':f<m.s+m.a?'A':'R'):'';
+  ctx.fillStyle=ph==='A'?'#ff6060':ph==='S'?'#60ff90':'#9090ff'; ctx.font='10px monospace'; ctx.fillText(f+ph,x-30,y+12);
+}
+</script></body></html>

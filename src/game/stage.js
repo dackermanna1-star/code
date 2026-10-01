@@ -1720,7 +1720,7 @@
     for (const k in PROP_KINDS) A.props[k] = PROP_KINDS[k]();
     A.rocks = spriteRocks();
     A.smoke = [8, 12, 18, 26].map((r, i) => spritePuff(r, ramp(['#0e0709', '#170c0f', '#211216', '#2c181b', '#3a2022', '#4a2a28']), 701 + i));
-    A.dust = [5, 8, 12, 18].map((r, i) => spritePuff(r, ramp(['#1a110f', '#2a1c17', '#3c2a20', '#52392a', '#6a4a34', '#845e42']), 711 + i));
+    A.dust = [5, 8, 12, 18].map((r, i) => spritePuff(r, ramp(['#1c1213', '#2c1e1d', '#3e2c29', '#543c36', '#6c4e45', '#886254']), 711 + i));
     A.plume = [6, 9, 13, 18].map((r, i) => spritePuff(r, ramp(['#12070a', '#1a0b0e', '#231013', '#2e1517', '#3b1b1b', '#4c231f', '#622d24']), 741 + i));
     A.flames = [];
     for (let f = 0; f < 8; f++) A.flames.push(spriteFlame(f, 10, 18, 731), spriteFlame(f, 16, 30, 732), spriteFlame(f, 22, 44, 733));
@@ -1882,6 +1882,7 @@
       this.rubble.length = 0; this.chunks.length = 0; this.fires.length = 0; this.pulls.length = 0;
       this.holes.length = 0; this.seams.length = 0; this.rings.length = 0; this.slashes.length = 0; this.gashes.length = 0; this.cuts.length = 0;
       if (this.scorch) this.scorch.length = 0;
+      if (this.splitQ) this.splitQ.length = 0;
       this.mode = 'normal'; this.tr = null; this.darken = 0; this.fl = 0; this.rumble = 0;
       this.cl.split = this.cl.tsplit = 0.5;
       for (const p of this.props) { p.hp = p.maxHp; p.state = 0; p.wob = p.wobV = 0; p.char = p.charDrawn = 0; p.cut = false; }
@@ -1949,6 +1950,7 @@
         const p = this._spawn(K_SPARK, X, Y, 1, (Math.random() - 0.5) * 6, (Math.random() - 0.3) * 5, 10 + Math.random() * 12, 1, WA);
         if (p) p.cs = Math.random() < 0.5 ? KIND_COL.blue : KIND_COL.red;
       }
+      if (this.splitQ && this.splitQ.length) this._splitNext();
       this._updFires();
       this._updPulls();
       this._updParts();
@@ -3314,12 +3316,17 @@
       let nx = dy, ny = -dx;
       if (ny > 0 || (ny === 0 && nx > 0)) { nx = -nx; ny = -ny; }
       const seam = { heat: 1, decay: 0.982, lines: [] };
-      for (const L of this.cutLayers) {
+      // layers are split one per tick (nearest first) to spread the cost; the
+      // bright cut glow hides the delay
+      const q = this.splitQ || (this.splitQ = []);
+      for (let i = this.cutLayers.length - 1; i >= 0; i--) {
+        const L = this.cutLayers[i];
         this._layerPrep(L);
-        this._splitLayer(L, ax, ay, dx, dy, nx, ny);
         const lx = (ax - L.dx) / L.e, ly = (ay - L.dy) / L.e;
+        q.push({ L, px0: lx, py0: ly, uc: (W / 2 - L.dx) / L.e, dx, dy, nx, ny });
         seam.lines.push({ L, x: L.tile ? ((lx % L.w) + L.w) % L.w : lx, y: ly, dx, dy });
       }
+      this._splitNext();
       this.seams.push(seam);
       if (this.seams.length > 4) this.seams.shift();
       for (const p of this.props) this._cleaveProp(p, ax, ay, dx, dy, nx, ny);
@@ -3523,16 +3530,19 @@
     }
     // Split a layer along a screen line: the upper side slides along the cut,
     // leaving a dark seam with a cooled ember lip.
-    _splitLayer(L, ax, ay, dx, dy, nx, ny) {
-      const e = L.e, w = L.w, h = L.h, d = L.pix, src = d.slice();
-      const px0 = (ax - L.dx) / e, py0 = (ay - L.dy) / e;
+    _splitNext() {
+      const j = this.splitQ.shift();
+      if (j) this._splitLayer(j.L, j.px0, j.py0, j.uc, j.dx, j.dy, j.nx, j.ny);
+    }
+    _splitLayer(L, px0, py0, uc, dx, dy, nx, ny) {
+      const w = L.w, h = L.h, d = L.pix, src = d.slice();
       const isSky = L === this.L.sky;
       const sh = SPLIT_SH[L.s] || 4;
       const ox = Math.round(dx * sh + nx * 2), oy = Math.round(dy * sh + ny * 2);
       const dsd = ox * nx + oy * ny; // signed-distance shift of the sample point
       const seam = hx('#0a0204'), ember = hx('#8a2414');
       // canvas x <-> unwrapped layer coordinate u (tile copy nearest the screen center)
-      const u0 = L.tile ? Math.ceil((W / 2 - L.dx) / e - w / 2) : 0;
+      const u0 = L.tile ? Math.ceil(uc - w / 2) : 0, tile = L.tile;
       let yMax = -1;
       for (let y = 0; y < h; y++) {
         const B = (0.5 - px0) * nx + (y + 0.5 - py0) * ny; // sd = u * nx + B
@@ -3544,12 +3554,14 @@
         yMax = y;
         const sy = U.clamp(y - oy, 0, h - 1), so = sy * w, ro = y * w;
         let sd = ua * nx + B;
-        for (let u = ua; u <= ub; u++, sd += nx) {
-          const x = L.tile ? ((u % w) + w) % w : u, k = ro + x;
+        let x = tile ? ((ua % w) + w) % w : ua;
+        for (let u = ua; u <= ub; u++, sd += nx, x++) {
+          if (x === w) x = 0;
+          const k = ro + x;
           if (sd < -1) { if (d[k] >>> 24) d[k] = mixp(d[k], ember, sd < -1.8 ? 0.3 : 0.6); continue; }
           if (sd < 1.2 || sd - dsd < 1) { d[k] = isSky || src[k] >>> 24 ? seam : 0; continue; }
           let sx = x - ox;
-          sx = L.tile ? ((sx % w) + w) % w : sx < 0 ? 0 : sx >= w ? w - 1 : sx;
+          if (sx < 0) sx = tile ? sx + w : 0; else if (sx >= w) sx = tile ? sx - w : w - 1;
           d[k] = src[so + sx];
         }
       }

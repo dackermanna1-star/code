@@ -30,7 +30,21 @@
     if (typeof m.anim === 'function') m.anim = m.anim(m);
     if (Array.isArray(m.anim)) m.anim = { keys: m.anim };
     if (!m.anim) m.anim = { keys: [[0, 'idle']] };
+    m.anim.keys = Kit.anticipate(m.anim.keys);
     return m;
+  };
+
+  // Strike timing: hold the wind-up pose and snap into the strike only in the last
+  // 2 frames before it lands, instead of easing out over the whole startup.
+  Kit.anticipate = function (keys) {
+    const out = [];
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i];
+      const prev = out[out.length - 1];
+      if (prev && k[2] === 'snap' && k[0] - prev[0] > 3) out.push([k[0] - 2, prev[1], 'inOut']);
+      out.push(k);
+    }
+    return out;
   };
 
   Kit.build = function (defs) {
@@ -48,8 +62,8 @@
     hitLow: { hip: [-3, 56], lean: 16, bend: 6, head: 4, nh: [10, -30], fh: [16, -28], nf: [-14, 0], ff: [18, 6], fk: 1, face: 'hurt', nhs: 'open', fhs: 'open' },
     juggleUp: { hip: [0, 66], lean: -26, bend: -16, head: -26, nh: [-12, 8], fh: [8, 12], nf: [-22, 18], ff: [12, 26], rot: -22, face: 'hurt', nhs: 'open', fhs: 'open' },
     juggleDown: { hip: [0, 62], lean: -46, bend: -10, head: -20, nh: [-18, -6], fh: [4, 6], nf: [-6, 26], ff: [22, 30], rot: -58, face: 'hurt', nhs: 'open', fhs: 'open' },
-    down: { hip: [-6, 9], lean: -82, bend: -4, head: -16, nh: [-4, -10], fh: [6, -8], nf: [34, 0], ff: [44, 3], nk: 1, fk: 1, face: 'hurt', nhs: 'open', fhs: 'open' },
-    downHard: { hip: [-6, 9], lean: -86, bend: -2, head: -24, nh: [-14, 4], fh: [10, -10], nf: [38, 0], ff: [30, 6], face: 'hurt', nhs: 'open', fhs: 'open' },
+    down: { hip: [-6, 9], lean: -84, bend: -4, head: -16, nh: [-6, -12], fh: [8, -10], nf: [63, 0], ff: [57, 8], nk: 1, fk: 1, face: 'hurt', nhs: 'open', fhs: 'open' },
+    downHard: { hip: [-6, 9], lean: -86, bend: -2, head: -24, nh: [-14, 4], fh: [10, -10], nf: [64, 0], ff: [50, 16], face: 'hurt', nhs: 'open', fhs: 'open' },
     wake1: { hip: [-4, 26], lean: 30, bend: 10, head: 10, nh: [10, -20], fh: [26, -38], nf: [-6, 0], ff: [20, 0], nk: 1, fk: 1, face: 'calm' },
     wake2: { hip: [-2, 50], lean: 22, bend: 8, head: 4, nh: [14, -22], fh: [20, -16], nf: [-14, 0], ff: [16, 0], face: 'calm' },
     roll1: { hip: [0, 30], lean: 60, bend: 30, head: 40, nh: [20, -20], fh: [24, -16], nf: [10, 8], ff: [18, 14], rot: -90, face: 'calm' },
@@ -62,7 +76,7 @@
     techPush: { hip: [-6, 62], lean: -8, bend: -4, head: -4, nh: [20, -10], fh: [24, -6], nf: [-20, 0], ff: [12, 0], face: 'shout', nhs: 'open', fhs: 'open' },
     dizzy: { hip: [0, 60], lean: 12, bend: 14, head: 30, nh: [2, -40], fh: [8, -40], nf: [-12, 0], ff: [10, 0], face: 'hurt', nhs: 'open', fhs: 'open' },
     dizzy2: { hip: [2, 61], lean: 6, bend: 12, head: 22, nh: [6, -40], fh: [4, -41], nf: [-12, 0], ff: [10, 0], face: 'hurt', nhs: 'open', fhs: 'open' },
-    ko: { hip: [-6, 9], lean: -84, bend: -2, head: -30, nh: [-18, 12], fh: [12, -14], nf: [36, 0], ff: [44, 6], face: 'hurt', nhs: 'open', fhs: 'open' },
+    ko: { hip: [-6, 9], lean: -86, bend: -2, head: -30, nh: [-20, 10], fh: [14, -12], nf: [64, 0], ff: [60, 6], face: 'hurt', nhs: 'open', fhs: 'open' },
   };
 
   // ------------------------------------------------------------ anims
