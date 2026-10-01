@@ -4,6 +4,7 @@ import { ZoneBuilder, W, CF, W_BLOCKS } from './zonebuilder.js';
 import { ZT } from './zonetypes.js';
 import { LEVEL_H } from '../config.js';
 import { applyVerticalFeatures } from './vertical.js';
+import { applyPortals } from './portals.js';
 export { applyVerticalFeatures };
 
 export function generateZone(world, zone) {
@@ -29,6 +30,7 @@ export function generateZone(world, zone) {
   applyBorders(zb, segs);
   if (zone.type !== 'claimed') {
     try { applyVerticalFeatures(world, zb); } catch (e) { console.error('[gen] vertical features failed', zone.key, e); }
+    try { applyPortals(world, zb); } catch (e) { console.error('[gen] portals failed', zone.key, e); }
     if (!zb.noConnectivity) ensureConnectivity(zb);
   }
   return zb;

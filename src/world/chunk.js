@@ -542,7 +542,7 @@ export function buildChunkData(world, dim, level, cx, cz) {
       while (e < bx && win.solid[win.idx(e, z)]) e++;
       let top = 0;
       for (let k = x; k < e; k++) { const c = win.ceil[win.idx(k, z)]; top = Math.max(top, isNum(c) ? c : H); }
-      addBox(x, y0 - 2.5, z, e, y0 + top + 0.4, z + 1, 255);
+      addBox(x, y0 - 2.5, z, e, y0 + top, z + 1, 255);
       x = e;
     }
   }

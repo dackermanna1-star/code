@@ -130,6 +130,11 @@ mat('water_black', 'water_black', { s: 3, surf: 'water', flags: VF.WOBBLE });
 mat('water_dark', 'water_dark', { s: 2, surf: 'water', flags: VF.WOBBLE | VF.SCROLL });
 mat('water_pool', 'water_pool', { s: 2, surf: 'water', flags: VF.WOBBLE | VF.SCROLL });
 
+// --- portal vestibules: 1m texture repeats and no stains so every copy looks identical
+mat('vest_wall', 'paint_cream', { s: 1, surf: 'drywall' });
+mat('vest_floor', 'carpet_gray', { s: 1, surf: 'carpet' });
+mat('vest_ceil', 'ceil_tile_white', { s: 1, surf: 'drywall' });
+
 // Other modules may register extra materials before resolveMaterials() runs at boot.
 export const defineMaterial = mat;
 

@@ -4,6 +4,7 @@ import { generateZone } from './generate.js';
 import { buildChunkData } from './chunk.js';
 import { CHUNK, LEVEL_H } from '../config.js';
 import { aabbVisible } from '../core/math.js';
+import { POCKETS } from './pockets.js';
 
 const MAX_BUILDERS = 180;
 
@@ -24,7 +25,7 @@ export class World {
     this.modelM = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
   }
 
-  dimDef(dim) { return this.dimDefs.get(dim) || null; }
+  dimDef(dim) { return this.dimDefs.get(dim) || POCKETS[dim] || null; }
 
   zoneAt(dim, level, x, z) { return this.zones.zoneAt(dim, level, x, z); }
 
@@ -100,12 +101,26 @@ export class World {
 
   levelOf(y) { return Math.floor((y + 0.05) / LEVEL_H); }
 
-  // Stream chunks around a position. Returns number built.
-  update(dim, px, py, pz, budgetMs = 6, force = false) {
+  // Stream chunks around a position. Returns number built. `extra` is a list of
+  // {dim, x, y, z, r} areas to keep loaded too (the far side of a portal).
+  update(dim, px, py, pz, budgetMs = 6, force = false, extra = null) {
     const level = this.levelOf(py);
     const pcx = Math.floor(px / CHUNK), pcz = Math.floor(pz / CHUNK);
     const R = this.radius, VR = this.vradius;
     const want = [];
+    const keep = new Set();
+    if (extra) {
+      for (const e of extra) {
+        const L = this.levelOf(e.y);
+        const ecx = Math.floor(e.x / CHUNK), ecz = Math.floor(e.z / CHUNK);
+        const r = e.r || 1;
+        for (let dl = -1; dl <= 1; dl++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+          const k = this.ckey(e.dim, L + dl, ecx + dx, ecz + dz);
+          keep.add(k);
+          if (!this.chunks.has(k)) want.push([20 + Math.hypot(dx, dz) * 16 + Math.abs(dl) * 16, e.dim, L + dl, ecx + dx, ecz + dz]);
+        }
+      }
+    }
     for (let dl = -1; dl <= 1; dl++) {
       const L = level + dl;
       const r = dl === 0 ? R : VR;
@@ -130,6 +145,7 @@ export class World {
     }
     // unload
     for (const ch of this.chunks.values()) {
+      if (keep.has(ch.key)) continue;
       if (ch.dim !== dim) { this.unloadChunk(ch); continue; }
       const dl = Math.abs(ch.level - level);
       if (dl > 2) { this.unloadChunk(ch); continue; }

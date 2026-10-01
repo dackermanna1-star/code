@@ -10,6 +10,7 @@ import { UI } from '../ui/ui.js';
 import { TouchUI } from '../ui/touch.js';
 import { Events } from './events.js';
 import { loadSave, writeSave, loadSettings, writeSettings } from './save.js';
+import { vestibuleTrigger, portalTarget } from '../world/portals.js';
 
 export const DEFAULT_SEED = 0x5eed0001;
 const DEFAULT_ENV = { fog: [0.42, 0.38, 0.2], fogNear: 5, fogFar: 34, hum: 0.6, hvac: 0.5, reverb: 'room', tone: 'yellow' };
@@ -39,6 +40,9 @@ export class Game {
     this.audioCtx = { emitters: [], lights: [], flicker: this.flicker, occluded: null };
     this.target = null;
     this.titleCamT = 0;
+    this.portalArmed = true;
+    this.portalReturn = null;
+    this.prefetch = null;
   }
 
   // ------------------------------------------------------------------ boot
@@ -151,6 +155,7 @@ export class Game {
     this.player.pitch = this.player.tpitch = s.pitch || 0;
     this.player.distance = s.distance || 0;
     this.stats = { time: s.time || 0, levels: s.levels || {} };
+    this.portalReturn = s.portalReturn || null;
     this.events.reset();
     this.state = 'play';
     this.input.lock();
@@ -163,6 +168,7 @@ export class Game {
     const ok = writeSave({
       v: 1, seed: this.seed, dim: p.dim, x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch,
       distance: p.distance, time: this.stats.time, levels: this.stats.levels, kind, date: Date.now(),
+      portalReturn: this.portalReturn,
     });
     if (ok && kind === 'auto') this.ui.saveIcon = 1.6;
     return ok;
@@ -285,7 +291,8 @@ export class Game {
       this.findTarget();
       if (inp.use && this.target) this.interact(this.target);
     }
-    this.world.update(p.dim, p.x, p.y, p.z, 5);
+    this.checkPortals();
+    this.world.update(p.dim, p.x, p.y, p.z, 5, false, this.prefetch);
     this.stats.time += dt;
     this.stats.levels[p.dim + ':' + p.level()] = 1;
     // fell into nothing
@@ -307,6 +314,62 @@ export class Game {
     this.updateAudio(dt);
     this.autosaveT += dt;
     if (this.autosaveT > 75) { this.autosaveT = 0; this.saveGame('auto'); }
+  }
+
+  // Seamless portals: swap the player into the vestibule's twin while they stand in its middle.
+  checkPortals() {
+    const p = this.player;
+    let inside = false;
+    let near = null, nearD = 1e9;
+    const lv = p.level();
+    for (const ch of this.world.chunksNear(p.dim, p.x, p.z, 20)) {
+      if (ch.level !== lv) continue;
+      for (const s of ch.data.specials) {
+        if (s.kind !== 'vestibule') continue;
+        const v = s.v;
+        const d = Math.hypot(s.x - p.x, s.z - p.z);
+        if (d < nearD) { nearD = d; near = v; }
+        const [x0, z0, x1, z1] = vestibuleTrigger(v);
+        const y0 = v.level * LEVEL_H;
+        if (p.x >= x0 && p.x <= x1 && p.z >= z0 && p.z <= z1 && p.y > y0 - 0.5 && p.y < y0 + 1.5) {
+          inside = true;
+          if (this.portalArmed) { this.teleport(v); return; }
+        }
+      }
+    }
+    if (!inside) this.portalArmed = true;
+    // keep the far side of a nearby portal loaded
+    this.prefetch = null;
+    if (near && nearD < 18 && near.kind !== 'loop') {
+      const t = portalTarget(near, this);
+      if (t && !t.respawn) this.prefetch = [{ dim: t.dim, x: p.x + (t.dx || 0), y: p.y + (t.dy || 0), z: p.z + (t.dz || 0), r: 1 }];
+    }
+  }
+
+  teleport(v) {
+    const p = this.player;
+    const t = portalTarget(v, this);
+    if (!t) return;
+    this.portalArmed = false;
+    if (t.respawn) {
+      this.spawnAt(0, SPAWN[0] + 0.5, 0, SPAWN[1] + 0.5, p.yaw);
+      this.portalReturn = null;
+      return;
+    }
+    if (t.rot180) {
+      const cx = v.ox + 1.5, cz = v.oz + v.Lg + 0.5;
+      p.x = 2 * cx - p.x; p.z = 2 * cz - p.z;
+      p.vx = -p.vx; p.vz = -p.vz;
+      p.yaw += Math.PI; p.tyaw += Math.PI;
+      return;
+    }
+    if (t.enterPocket) this.portalReturn = { dim: v.dim, level: v.level, ox: v.ox, oz: v.oz };
+    if (t.leavePocket) this.portalReturn = null;
+    p.dim = t.dim;
+    p.x += t.dx; p.y += t.dy; p.z += t.dz;
+    if (p.lastSafe) p.lastSafe = [p.x, p.y, p.z];
+    // the far side should already be prefetched; make sure the immediate chunks exist
+    this.world.update(p.dim, p.x, p.y, p.z, 0, 24);
   }
 
   findTarget() {

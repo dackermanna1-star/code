@@ -119,7 +119,7 @@ export class ZoneBuilder {
     const l = {
       x, y, z,
       r: opts.color ? opts.color[0] : 1.0, g: opts.color ? opts.color[1] : 0.95, b: opts.color ? opts.color[2] : 0.82,
-      rad: opts.rad ?? 6, int: opts.int ?? 0.62, ch: opts.ch ?? 0,
+      rad: opts.rad ?? 6, int: opts.int ?? 0.62, ch: opts.ch ?? 0, local: !!opts.local,
     };
     this.lights.push(l);
     return l;

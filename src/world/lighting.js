@@ -68,6 +68,7 @@ export function segmentClear(win, ax, ay, az, bx, by, bz) {
 }
 
 const KNEE = 0.85, KMAX = 1.32;
+const AMB_ISOLATED = [0.2, 0.19, 0.17];
 function knee(v) { return KNEE + (KMAX - KNEE) * (1 - Math.exp(-(v - KNEE) / (KMAX - KNEE))); }
 
 // Bake per-vertex light into col/flk arrays (0..2 range). ctx: {win, lights, y0, ambient(x,z)->[r,g,b]}
@@ -95,6 +96,7 @@ export function bakeMesh(mb, ctx) {
   const stainSeed = ctx.stainSeed || 7;
   const wrap = ctx.wrap ?? 0.4;
   const ambBoost = ctx.ambBoost || 0;
+  const NOBLEED = 4; // CF.NOLIGHTBLEED
   for (let i = 0; i < n; i++) {
     const p3 = i * 3;
     if (!mb.lit[i]) {
@@ -106,7 +108,10 @@ export function bakeMesh(mb, ctx) {
     const px = mb.pos[p3] + nx * 0.06 + mb.nudge[p3];
     const py = mb.pos[p3 + 1] + ny * 0.06 + mb.nudge[p3 + 1];
     const pz = mb.pos[p3 + 2] + nz * 0.06 + mb.nudge[p3 + 2];
-    const amb = ctx.ambient(px, pz);
+    // cells flagged NOLIGHTBLEED (portal vestibules) only see their own 'local' lights
+    const sxi = Math.floor(px), szi = Math.floor(pz);
+    const isolated = win.inside(sxi, szi) && (win.flags[win.idx(sxi, szi)] & NOBLEED) !== 0;
+    const amb = isolated ? AMB_ISOLATED : ctx.ambient(px, pz);
     let r = amb[0] * (1 + ambBoost), g = amb[1] * (1 + ambBoost), b = amb[2] * (1 + ambBoost);
     let fr = 0, fg = 0, fb = 0, fch = 0, fbest = 0;
     const k = Math.floor(px / B) * 73856093 ^ Math.floor(pz / B) * 19349663;
@@ -114,6 +119,7 @@ export function bakeMesh(mb, ctx) {
     if (arr) {
       for (let a = 0; a < arr.length; a++) {
         const L = lights[arr[a]];
+        if (isolated && !L.local) continue;
         const dx = L.x - px, dy = (L.y + y0) - py, dz = L.z - pz;
         const d2 = dx * dx + dy * dy + dz * dz;
         const rad = L.rad;
