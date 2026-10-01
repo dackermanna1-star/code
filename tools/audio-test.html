@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Alley Audio Test Bench</title>
+<style>
+  :root { --bg: #0d1117; --panel: #161b22; --line: #2b3440; --text: #d6dde6; --dim: #8b97a6; --acc: #6fb3ff; --warn: #ffb36f; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; }
+  header { padding: 14px 18px; border-bottom: 1px solid var(--line); display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  header h1 { font-size: 15px; margin: 0 12px 0 0; font-weight: 600; letter-spacing: .02em; }
+  main { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; padding: 12px 18px 40px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); margin: 0 0 8px; font-weight: 600; }
+  button { background: #1f2630; color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 5px 9px; margin: 2px; cursor: pointer; font: inherit; }
+  button:hover { border-color: var(--acc); }
+  button.on { background: #1d3550; border-color: var(--acc); }
+  button.big { padding: 8px 16px; font-weight: 600; background: #20446b; border-color: var(--acc); }
+  button:disabled { opacity: .45; cursor: default; }
+  label { color: var(--dim); display: inline-flex; align-items: center; gap: 6px; margin: 3px 8px 3px 0; }
+  input[type=range] { width: 140px; }
+  #status { color: var(--dim); }
+  #status b { color: var(--acc); font-weight: 600; }
+  pre { margin: 0; white-space: pre-wrap; color: var(--dim); font: 11px/1.4 ui-monospace, Menlo, Consolas, monospace; max-height: 220px; overflow: auto; }
+  canvas { width: 100%; height: 90px; background: #0b0f14; border: 1px solid var(--line); border-radius: 4px; display: block; }
+  .kbd { color: var(--dim); font-size: 11px; }
+  .row { margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Alley procedural audio: test bench</h1>
+  <button id="init" class="big">Init audio</button>
+  <button id="pause" disabled>Pause</button>
+  <label>Volume <input id="vol" type="range" min="0" max="1.5" step="0.01" value="1" /></label>
+  <span id="status">not initialized</span>
+</header>
+<main>
+  <section>
+    <h2>Footsteps (heel + toe)</h2>
+    <div id="fs" class="row"></div>
+    <div class="row">
+      <label>Part <select id="part"><option value="pair">heel+toe</option><option>heel</option><option>toe</option><option>scuff</option></select></label>
+      <label>Intensity <input id="inten" type="range" min="0" max="1" step="0.01" value="0.75" /></label>
+    </div>
+    <div class="kbd">Keys 1-0: surfaces, S: scuff</div>
+  </section>
+  <section>
+    <h2>Walk simulation</h2>
+    <div class="row">
+      <button id="walk">Start walk</button>
+      <label>Speed <input id="spd" type="range" min="0.6" max="2" step="0.05" value="1.25" /></label>
+      <label>Steps/s <input id="cad" type="range" min="1.2" max="2.4" step="0.05" value="1.9" /></label>
+    </div>
+    <div class="row">
+      <label><input type="checkbox" id="walkEmitters" checked /> place alley emitters</label>
+      <label><input type="checkbox" id="mapSurf" checked /> surface map</label>
+    </div>
+    <pre id="walkInfo">z = 0</pre>
+  </section>
+  <section>
+    <h2>One-shots (around listener)</h2>
+    <div id="os" class="row"></div>
+  </section>
+  <section>
+    <h2>Emitters (toggle near listener)</h2>
+    <div id="em" class="row"></div>
+    <div class="row"><label>Lamp flicker <input type="checkbox" id="flicker" /></label></div>
+  </section>
+  <section>
+    <h2>Ambience / distant events</h2>
+    <div id="amb" class="row"></div>
+    <div class="row">
+      <label><input type="checkbox" id="bed" checked /> bed</label>
+      <label><input type="checkbox" id="auto" checked /> auto events</label>
+    </div>
+    <canvas id="wind" width="600" height="90"></canvas>
+    <div class="kbd">windAt(t), last 60 s (shared with visuals)</div>
+  </section>
+  <section>
+    <h2>Acoustics overrides</h2>
+    <div class="row">
+      <label><input type="checkbox" id="ovr" /> override</label>
+      <label>distFront <input id="dF" type="range" min="2" max="150" step="1" value="40" /><span id="dFv">40</span></label>
+      <label>distBack <input id="dB" type="range" min="2" max="150" step="1" value="8" /><span id="dBv">8</span></label>
+      <label>enclosure <input id="enc" type="range" min="0" max="1" step="0.01" value="1" /><span id="encv">1</span></label>
+      <label>yaw <input id="yaw" type="range" min="-180" max="180" step="1" value="0" /><span id="yawv">0</span></label>
+    </div>
+  </section>
+  <section>
+    <h2>Offline render (WAV)</h2>
+    <div class="row">
+      <select id="scen"><option>walk</option><option>steps</option><option>slap</option><option>emitters</option><option>ambience</option><option>events</option><option>oneshots</option></select>
+      <button id="render">Render &amp; download</button>
+    </div>
+    <pre id="renderInfo"></pre>
+  </section>
+  <section>
+    <h2>Debug</h2>
+    <pre id="debug"></pre>
+  </section>
+</main>
+<script type="module">
+import { AudioEngine, SURFACES } from '../src/audio/AudioEngine.js';
+import { SCENARIOS, renderOffline, encodeWav, surfaceAtZ, WORLD } from '../src/audio/dev/scenario.js';
+
+const $ = (id) => document.getElementById(id);
+const engine = new AudioEngine({ seed: 1337 });
+window.__audio = { engine, SCENARIOS, renderOffline, encodeWav };
+
+const L = { x: 0, z: 0, yaw: 0 };
+let walking = false;
+let nextStep = 0;
+let foot = 'L';
+let lamp = null;
+const emitterHandles = {};
+let alleyEmitters = [];
+let lastFrame = performance.now();
+let t0 = performance.now();
+
+function fwd() { const a = (L.yaw * Math.PI) / 180; return { x: Math.sin(a), y: 0, z: -Math.cos(a) }; }
+function listenerPos() { return { x: L.x, y: WORLD.eye, z: L.z }; }
+
+$('init').onclick = async () => {
+  $('init').disabled = true;
+  $('status').textContent = 'synthesizing...';
+  const t = performance.now();
+  await engine.init();
+  const ms = performance.now() - t;
+  if (!engine.ready) { $('status').textContent = 'init failed (see console)'; return; }
+  $('status').innerHTML = `ready in <b>${ms.toFixed(0)} ms</b> (engine ${engine.initMs} ms) @ ${engine.context.sampleRate} Hz`;
+  $('pause').disabled = false;
+  engine.whenFullyLoaded().then(() => { $('status').innerHTML += `; background synthesis done (${engine.debug.backgroundMs} ms)`; });
+  engine.registerDumpster({ x: -2.0, y: 0.6, z: -22 });
+  requestAnimationFrame(loop);
+};
+
+let paused = false;
+$('pause').onclick = () => { paused = !paused; engine.setPaused(paused); $('pause').textContent = paused ? 'Resume' : 'Pause'; };
+$('vol').oninput = (e) => engine.setVolume(+e.target.value);
+
+// ---- footsteps
+SURFACES.forEach((s, i) => {
+  const b = document.createElement('button');
+  b.textContent = `${(i + 1) % 10} ${s}`;
+  b.onclick = () => playStep(s);
+  $('fs').appendChild(b);
+});
+function playStep(surface, part = $('part').value) {
+  const inten = +$('inten').value;
+  const pos = { x: L.x + (foot === 'L' ? -0.1 : 0.1), y: 0, z: L.z };
+  const now = engine.context ? engine.context.currentTime : 0;
+  if (part === 'pair') {
+    engine.footstep({ foot, part: 'heel', surface, intensity: inten, position: pos });
+    engine.footstep({ foot, part: 'toe', surface, intensity: inten * 0.9, position: pos, when: now + 0.1 });
+  } else engine.footstep({ foot, part, surface, intensity: inten, position: pos });
+  foot = foot === 'L' ? 'R' : 'L';
+}
+window.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  const k = '1234567890'.indexOf(e.key);
+  if (k >= 0) playStep(SURFACES[k]);
+  if (e.key === 's' || e.key === 'S') playStep('asphalt', 'scuff');
+});
+
+// ---- one-shots
+const near = (dx, dz, y = 0) => ({ x: L.x + dx, y, z: L.z + dz });
+const ONESHOTS = {
+  'drip water': () => engine.oneShot('drip', { position: near(-1.5, -2), surface: 'water' }),
+  'drip metal': () => engine.oneShot('drip', { position: near(2, -1.5, 1), surface: 'metal' }),
+  'drip ground': () => engine.oneShot('drip', { position: near(1, -3), surface: 'ground' }),
+  'drip plastic': () => engine.oneShot('drip', { position: near(-2, -1), surface: 'plastic' }),
+  canKick: () => engine.oneShot('canKick', { position: near(0.3, -0.6), strength: 0.9 }),
+  canRoll: () => engine.oneShot('canRoll', { position: near(1, -3), duration: 3 }),
+  bottleKick: () => engine.oneShot('bottleKick', { position: near(-0.3, -0.6), strength: 0.8 }),
+  paperRustle: () => engine.oneShot('paperRustle', { position: near(-1.5, -2), strength: 0.8 }),
+  plasticRustle: () => engine.oneShot('plasticRustle', { position: near(2, -2, 0.4), strength: 0.8 }),
+  garbageShift: () => engine.oneShot('garbageShift', { position: near(-2.2, -3, 0.6) }),
+  doorRattle: () => engine.oneShot('doorRattle', { position: near(2.8, -4, 1.2) }),
+  wireCreak: () => engine.oneShot('wireCreak', { position: near(0, -3, 7) }),
+  'car pass (behind)': () => engine.oneShot('carPass', { from: { x: -45, y: 0.5, z: 14 }, to: { x: 45, y: 0.5, z: 14 }, duration: 6 }),
+  'car pass (far end)': () => engine.oneShot('carPass', { from: { x: 40, y: 0.5, z: -100 }, to: { x: -40, y: 0.5, z: -100 }, duration: 7 }),
+};
+for (const [name, fn] of Object.entries(ONESHOTS)) {
+  const b = document.createElement('button');
+  b.textContent = name;
+  b.onclick = fn;
+  $('os').appendChild(b);
+}
+
+// ---- emitters
+const EM_OFFSETS = { hvac: [2.5, -4, 2.4], exhaust: [2, -8, 13], transformer: [-2.6, -3, 3], lampBuzz: [-2.6, -3, 4.5], trickle: [2.6, -3, 0.1], drain: [0.6, -4, 0], tv: [-2.8, -5, 3.5], voices: [2.8, -6, 4], radio: [-2.8, -8, 7] };
+for (const type of Object.keys(EM_OFFSETS)) {
+  const b = document.createElement('button');
+  b.textContent = type;
+  b.onclick = () => {
+    if (emitterHandles[type]) { emitterHandles[type].stop(); delete emitterHandles[type]; b.classList.remove('on'); if (type === 'lampBuzz') lamp = null; return; }
+    const [dx, dz, y] = EM_OFFSETS[type];
+    const h = engine.addEmitter({ type, position: { x: dx, y, z: L.z + dz } });
+    emitterHandles[type] = h;
+    if (type === 'lampBuzz') lamp = h;
+    b.classList.add('on');
+  };
+  $('em').appendChild(b);
+}
+
+// ---- ambience
+for (const type of ['siren', 'train', 'distantCar', 'streetVoices', 'dog', 'garbage', 'ambientDrip']) {
+  const b = document.createElement('button');
+  b.textContent = type;
+  b.onclick = () => engine.triggerAmbient(type);
+  $('amb').appendChild(b);
+}
+const syncAmb = () => engine.setAmbienceEnabled($('bed').checked, $('auto').checked);
+$('bed').onchange = syncAmb;
+$('auto').onchange = syncAmb;
+
+// ---- overrides
+for (const [id, out] of [['dF', 'dFv'], ['dB', 'dBv'], ['enc', 'encv'], ['yaw', 'yawv']]) $(id).oninput = (e) => { $(out).textContent = e.target.value; if (id === 'yaw') L.yaw = +e.target.value; };
+
+// ---- walk
+$('walk').onclick = () => {
+  walking = !walking;
+  $('walk').textContent = walking ? 'Stop walk' : 'Start walk';
+  $('walk').classList.toggle('on', walking);
+  if (walking) {
+    L.z = 1.5; L.x = 0;
+    nextStep = engine.context.currentTime + 0.3;
+    if ($('walkEmitters').checked && !alleyEmitters.length) {
+      const P = [['hvac', 2.5, 2.4, -10], ['lampBuzz', -2.6, 4.5, -4], ['trickle', 2.65, 0.1, -17], ['tv', -2.8, 3.5, -13], ['drain', 0.6, 0, -24], ['transformer', -2.6, 3, -30], ['exhaust', 2, 13, -36], ['voices', 2.8, 4, -42], ['radio', -2.8, 7, -50], ['lampBuzz', 2.6, 4.5, -60], ['hvac', -2.5, 3, -70], ['trickle', -2.65, 0.1, -80]];
+      alleyEmitters = P.map(([type, x, y, z]) => engine.addEmitter({ type, position: { x, y, z } }));
+      lamp = alleyEmitters[1];
+    }
+  } else {
+    for (const h of alleyEmitters) h.stop();
+    alleyEmitters = [];
+    lamp = emitterHandles.lampBuzz || null;
+  }
+};
+
+// ---- wind plot
+const windHist = [];
+function drawWind(t) {
+  windHist.push([t, engine.windAt(t)]);
+  while (windHist.length && windHist[0][0] < t - 60) windHist.shift();
+  const c = $('wind'); const g = c.getContext('2d');
+  g.clearRect(0, 0, c.width, c.height);
+  g.strokeStyle = '#2b3440'; g.beginPath(); g.moveTo(0, c.height * 0.4); g.lineTo(c.width, c.height * 0.4); g.stroke();
+  g.strokeStyle = '#6fb3ff'; g.beginPath();
+  windHist.forEach(([tt, w], i) => { const x = ((tt - (t - 60)) / 60) * c.width; const y = c.height - w * (c.height - 4) - 2; i ? g.lineTo(x, y) : g.moveTo(x, y); });
+  g.stroke();
+}
+
+// ---- frame loop
+function loop() {
+  const nowMs = performance.now();
+  const dt = Math.min(0.1, (nowMs - lastFrame) / 1000);
+  lastFrame = nowMs;
+  const t = (nowMs - t0) / 1000;
+  const ctx = engine.context;
+  const speed = +$('spd').value;
+  if (walking && !paused) {
+    L.z -= speed * dt;
+    if (L.z < -94) L.z = 1.5;
+    const period = 1 / +$('cad').value;
+    while (nextStep < ctx.currentTime + 0.06) {
+      const surf = $('mapSurf').checked ? surfaceAtZ(L.z) : 'asphalt';
+      const inten = 0.65 + 0.12 * Math.random();
+      const pos = { x: L.x + (foot === 'L' ? -0.1 : 0.1), y: 0, z: L.z };
+      engine.footstep({ foot, part: 'heel', surface: surf, intensity: inten, position: pos, when: nextStep });
+      engine.footstep({ foot, part: 'toe', surface: surf, intensity: inten * 0.9, position: pos, when: nextStep + 0.1 });
+      if (Math.random() < 0.04) engine.footstep({ foot, part: 'scuff', surface: surf, intensity: 0.4, position: pos, when: nextStep + 0.2 });
+      foot = foot === 'L' ? 'R' : 'L';
+      nextStep += period * (0.97 + 0.06 * Math.random());
+    }
+    $('walkInfo').textContent = `z = ${L.z.toFixed(1)}  surface = ${surfaceAtZ(L.z)}  distFront = ${WORLD.distFront(L.z).toFixed(1)}  distBack = ${WORLD.distBack(L.z).toFixed(1)}  enclosure = ${WORLD.enclosure(L.z)}`;
+  }
+  const f = fwd();
+  engine.setListener(listenerPos(), { x: f.x, y: 0, z: f.z }, { x: 0, y: 1, z: 0 });
+  const ovr = $('ovr').checked;
+  engine.update(dt, {
+    time: t, playerPos: { x: L.x, y: 0, z: L.z }, playerVel: { x: 0, y: 0, z: walking ? -speed : 0 }, speed: walking ? speed : 0,
+    distFront: ovr ? +$('dF').value : WORLD.distFront(L.z), distBack: ovr ? +$('dB').value : WORLD.distBack(L.z),
+    enclosure: ovr ? +$('enc').value : WORLD.enclosure(L.z),
+  });
+  if (lamp) {
+    let v = 1;
+    if ($('flicker').checked || walking) {
+      const burst = Math.sin(t * 0.7) > 0.6;
+      v = burst ? (Math.random() < 0.5 ? 1 : 0.03) : 0.93 + 0.07 * Math.sin(t * 17);
+    }
+    lamp.setIntensity(v);
+  }
+  drawWind(t);
+  if ((nowMs | 0) % 10 === 0) $('debug').textContent = JSON.stringify(engine.getDebugInfo(), null, 1);
+  requestAnimationFrame(loop);
+}
+
+// ---- offline render
+$('render').onclick = async () => {
+  const name = $('scen').value;
+  $('renderInfo').textContent = 'rendering ' + name + '...';
+  const res = await renderOffline(SCENARIOS[name](), { sampleRate: 48000 });
+  const wav = encodeWav(res.channels, res.sampleRate, false);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([wav], { type: 'audio/wav' }));
+  a.download = `alley-${name}.wav`;
+  a.click();
+  $('renderInfo').textContent = `${name}: init ${res.meta.initMs.toFixed(0)} ms, render ${res.meta.renderMs.toFixed(0)} ms`;
+};
+</script>
+</body>
+</html>
