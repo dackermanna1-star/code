@@ -98,8 +98,8 @@ export function electricMeter(rng, opts = {}) {
   const boxC = rgbJitter(rng, rng.pick(GREY_BOX), 0.05);
   const M = {
     box: mat.paint(P, 'box', boxC, { cls: MCLS.GENERIC, rough: 0.55, metal: 0.4 }),
-    glass: mat.glass(P, 'glass', [172, 182, 184]),
-    dial: mat.generic(P, 'dial', [210, 208, 200], { rough: 0.4 }),
+    glass: mat.glass(P, 'glass', [70, 76, 78]),
+    dial: mat.generic(P, 'dial', [150, 146, 136], { rough: 0.4 }),
     ring: mat.galv(P, 'ring', [150, 152, 150]),
     dark: mat.plastic(P, 'dark', [36, 36, 38]),
   };
@@ -141,8 +141,8 @@ export function meterBank(rng, opts = {}) {
   const boxC = rgbJitter(rng, rng.pick(GREY_BOX), 0.05);
   const M = {
     box: mat.paint(P, 'box', boxC, { cls: MCLS.GENERIC, rough: 0.55, metal: 0.4 }),
-    glass: mat.glass(P, 'glass', [172, 182, 184]),
-    dial: mat.generic(P, 'dial', [210, 208, 200], { rough: 0.4 }),
+    glass: mat.glass(P, 'glass', [70, 76, 78]),
+    dial: mat.generic(P, 'dial', [150, 146, 136], { rough: 0.4 }),
     ring: mat.galv(P, 'ring', [150, 152, 150]),
     dark: mat.plastic(P, 'dark', [36, 36, 38]),
   };

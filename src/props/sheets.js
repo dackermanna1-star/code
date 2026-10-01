@@ -55,5 +55,5 @@ export function cardboardSheet(rng, opts = {}) {
       if (wn < wet * 0.75 - 0.05) v = wetC;
       b.set(x, h, z, v);
     }
-  return { model: b.model(), meta: { size: b.sizeM(), footprint: [w, d], kind: 'cardboardSheet' } };
+  return { model: b.model(), meta: { size: b.sizeM(), footprint: [w, d], mount: 'floor', kind: 'cardboardSheet' } };
 }

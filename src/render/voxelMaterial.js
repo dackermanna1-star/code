@@ -156,7 +156,7 @@ const VOXEL_SURFACE = /* glsl */ `
   } else if (cls == 8) {
     rough = 0.06;
     porosity = 0.0;
-    sSSS = base * 0.35 * skyVisibility(vWPos, sN);
+    sSSS = base * 0.12 * skyVisibility(vWPos, sN);
   } else if (cls == 11) {
     sEmit = base * uEmissiveColor * uEmissive;
     porosity = 0.0;
@@ -188,6 +188,12 @@ const VOXEL_SURFACE = /* glsl */ `
     porosity = 0.9;
   } else if (cls == 16) {
     porosity = 0.1;
+  }
+
+  // nothing in an alley stays white: soft-knee the albedo above ~0.28 (linear)
+  {
+    float aL = dot(alb, vec3(0.2126, 0.7152, 0.0722));
+    alb *= (aL < 0.28 ? aL : 0.28 + (aL - 0.28) * 0.4) / max(aL, 1e-4);
   }
 
   // wetness: up-facing surfaces hold water, everything is a little damp

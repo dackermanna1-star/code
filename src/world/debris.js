@@ -77,11 +77,31 @@ export class Debris {
     spawn('bottle', 12, path);
     spawn('paperScrap', 16, (rr) => (rr.chance(0.5) ? path(rr) : walls(rr)));
     spawn('plasticBag', 3, path);
+    // a bag snagged low on the chain-link fence, flapping in the gusts
+    const g = this.geo('plasticBag', 2);
+    if (g) {
+      const mesh = new THREE.Mesh(g, this.material);
+      mesh.receiveShadow = true;
+      this.engine.scene.add(mesh);
+      this.snag = { mesh, x: 1.35, y: 0.55, z: 6.93, phase: 1.7, last: -10 };
+    }
     this.update(0, 0);
     return this;
   }
 
   update(dt, t) {
+    if (this.snag) {
+      const sn = this.snag;
+      const w = this.world.windAt ? this.world.windAt(t) : 0.3;
+      const flap = Math.sin(t * (5 + w * 7) + sn.phase) * (0.15 + w * 0.6) + Math.sin(t * 13.1 + sn.phase) * 0.1 * w;
+      sn.mesh.position.set(sn.x, sn.y, sn.z);
+      sn.mesh.rotation.set(-0.5 + flap * 0.5, 0.4 + flap * 0.3, 1.2 + flap * 0.25);
+      sn.mesh.scale.set(1, 1 + 0.15 * flap, 1 - 0.1 * flap);
+      if (w > 0.55 && t - sn.last > 2.5 && Math.random() < dt * 1.5) {
+        sn.last = t;
+        this.engine.audio?.oneShot?.('plasticRustle', { position: { x: sn.x, y: sn.y, z: sn.z }, strength: Math.min(1, w) });
+      }
+    }
     const pl = this.engine.player;
     const wind = this.world.windAt ? this.world.windAt(t) : 0.3;
     const windDir = { x: 0.18 * Math.sin(t * 0.05), z: -1 }; // gusts run down the alley

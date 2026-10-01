@@ -160,6 +160,7 @@ export class Engine {
     this.frames = (this.frames ?? 0) + 1;
     this.time += dt;
     shared.uTime.value = this.time;
+    shared.uFrame.value = (shared.uFrame.value + 1) % 65536;
     if (!this.params.shot || this.params.walk) {
       this.player.update(dt);
       this.body.update(dt, this.player);

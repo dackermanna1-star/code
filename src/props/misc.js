@@ -1,9 +1,10 @@
+import * as THREE from 'three';
 // Misc alley clutter and storytelling props: shopping cart, buckets, paint cans, tires,
 // chairs, grease bin, rubble, milk crates, mop bucket, newspaper box, bike frame, shoes on a wire.
 import {
   VB, mat, V, MCLS, VS_FINE, VS_MED, VS_XFINE, COL, rgbMul, rgbMix, rgbJitter, valueNoise2, valueNoise3, fbm2, clamp,
   recolor, grime, mottle, rust, streaks, chips, vrand, emptyModel, addProp, eachSurface, F_PY, textMask, rot, restPos,
-  rotate90, lathe, latheX, latheZ, torusY, torusX, torusZ, projectFace, applyPaint, paintFor, famSet, crop, dent,
+  rotate90, lathe, latheX, latheZ, torusY, torusX, torusZ, projectFace, applyPaint, paintFor, famSet, crop, dent, repivot,
 } from './kit.js';
 import { cardboardSheet } from './sheets.js';
 
@@ -874,6 +875,7 @@ export function bicycleFrame(rng, opts = {}) {
 // ───────────────────────────── shoes on a wire ─────────────────────────────
 
 function sneaker(rng, vs, colors) {
+  // sole along -y, toe toward +z; ~28 cm long
   const L = 21, Wd = 8, Hh = 9;
   const b = new VB(Wd + 2, Hh + 2, L + 2, vs, 'corner');
   const P = b.P;
@@ -881,59 +883,70 @@ function sneaker(rng, vs, colors) {
   const upper = mat.fabric(P, 'upper', colors.upper, { rough: 0.7 });
   const accent = mat.fabric(P, 'accent', colors.accent, { rough: 0.6 });
   const lace = mat.fabric(P, 'lace', colors.lace);
+  const dark = mat.fabric(P, 'opening', [24, 22, 22]);
+  const cx = (Wd + 2) / 2;
   b.fill(0, 0, 0, Wd + 2, Hh + 2, L + 2, (px, py, pz) => {
     const t = (pz - 1) / L; // 0 heel -> 1 toe
     if (t < 0 || t > 1) return undefined;
-    const hw = (Wd / 2) * (0.75 + 0.25 * Math.sin(Math.PI * clamp(t * 1.1, 0, 1)));
-    if (Math.abs(px - (Wd + 2) / 2) > hw) return undefined;
-    const top = t < 0.35 ? Hh : Hh - (t - 0.35) * Hh * 0.9;
+    const hw = (Wd / 2) * (0.78 + 0.22 * Math.sin(Math.PI * clamp(t * 1.15, 0, 1)));
+    if (Math.abs(px - cx) > hw) return undefined;
+    // profile: high collar at the heel, sloping vamp, rounded toe
+    const top = t < 0.32 ? Hh : t < 0.85 ? Hh - (t - 0.32) * Hh * 0.75 : Hh * 0.6 * Math.sqrt(Math.max(0, (1 - t) / 0.15));
     if (py < 1 || py > top + 1) return undefined;
-    if (py < 2.5) return sole;
-    if (t > 0.35 && t < 0.75 && Math.abs(px - (Wd + 2) / 2) < 1.5 && py > top - 0.5) return lace;
-    if (Math.abs(py - 4) < 0.7 && t > 0.2 && t < 0.8) return accent;
+    if (py < 2.6) return sole;
+    if (t < 0.3 && py > top - 0.5 && Math.abs(px - cx) < hw - 1.2) return dark; // collar opening
+    if (t > 0.32 && t < 0.72 && Math.abs(px - cx) < 1.6 && py > top - 0.6) return lace;
+    if (Math.abs(py - (3.5 + t * 2)) < 0.8 && t > 0.15 && t < 0.85 && Math.abs(px - cx) > hw - 1.2) return accent; // side stripe
     return upper;
   });
   return b;
 }
 
 /**
- * Pair of sneakers tied together by the laces, hanging over an overhead wire.
+ * Pair of sneakers tied together by the laces, hanging over an overhead wire. opts.scheme picks
+ * the colourway (0 white, 1 black, 2 red, 3 blue; random by default).
  * Origin = contact point on the wire. Parts: 'shoes' (animate 'sway', pivot at the wire).
  */
 export function shoesOnWire(rng, opts = {}) {
   const vs = VS_FINE;
-  const scheme = rng.pick([
+  const schemes = [
     { upper: [210, 208, 200], accent: [30, 30, 32], sole: [220, 218, 210], lace: [214, 212, 206] },
     { upper: [30, 30, 32], accent: [200, 200, 196], sole: [230, 228, 220], lace: [40, 40, 42] },
     { upper: [150, 36, 34], accent: [214, 212, 206], sole: [220, 218, 210], lace: [210, 208, 200] },
     { upper: [60, 90, 150], accent: [220, 220, 216], sole: [40, 40, 40], lace: [220, 218, 212] },
-  ]);
-  const drop = [rng.range(0.32, 0.45), rng.range(0.28, 0.42)];
-  const g = new VB(36, 72, 26, vs, 'corner');
-  const P = g.P;
-  const lace = mat.fabric(P, 'lace', scheme.lace);
-  const top = [18, 70, 13];
+  ];
+  const scheme = opts.scheme != null ? schemes[opts.scheme % schemes.length] : rng.pick(schemes);
   const parts = [];
-  const shoeTops = [];
+  const g = new VB(4, 40, 4, vs, [-2 * vs, -40 * vs + vs, -2 * vs]);
+  const lace = mat.fabric(g.P, 'lace', scheme.lace);
+  // lace loop over the wire + two strands
+  g.box(1, 38, 1, 3, 40, 3, lace);
+  const strands = [];
   for (const [i, s] of [-1, 1].entries()) {
+    const drop = rng.range(0.24, 0.42);
     const sh = sneaker(rng, vs, scheme);
-    const off = Math.round(drop[i] / vs);
-    const sx = 18 + s * 6, sy = 70 - off;
-    // laces from the wire down to the shoe collar
-    g.g.line(top[0], top[1], top[2], sx, sy, 13, 0.55, lace);
-    shoeTops.push([sx, sy]);
-    // blit the shoe hanging toe-down-ish
-    const rb = rotate90(sh, 'x', 1);
-    const ox = sx - Math.floor(rb.nx / 2), oy = sy - rb.ny, oz = 13 - Math.floor(rb.nz / 2) + (i ? 2 : -2);
-    rb.g.forEach((v, x, y, z) => {
-      if (!v) return;
-      const e = rb.P.entries[v];
-      g.set(x + ox, y + oy, z + oz, P.add(`s_${e.name}`, { color: e.color, rough: e.rough, metal: e.metal, cls: e.cls, vari: e.vari }));
-    });
+    const model = sh.model([-(sh.nx * vs) / 2, -(sh.ny * vs), -(4 * vs)]);
+    // shoe hangs from its collar: toe down, sole facing sideways-out, slight random twist
+    // Rx(+90deg): toe points down, shoe top faces +z; then turn about the vertical long axis and sway a bit
+    const r = rot(['x', Math.PI / 2 + rng.range(-0.2, 0.2)], ['y', s * rng.range(0.5, 1.3) + rng.range(-0.3, 0.3)], ['z', rng.range(-0.15, 0.15)]);
+    const top = [s * rng.range(0.025, 0.06), -drop, rng.range(-0.02, 0.02)];
+    parts.push({ name: `shoe${i}`, model, position: top, rotation: r, animate: 'sway' });
+    strands.push(top);
   }
-  // the lace loop over the wire
-  g.g.line(top[0] - 2, top[1], top[2], top[0] + 2, top[1], top[2], 0.6, lace);
-  const model = g.model([-18 * vs, -71 * vs, -13 * vs]);
-  parts.push({ name: 'shoes', model, position: [0, 0, 0], rotation: [0, rng.range(-0.4, 0.4), 0], animate: 'sway' });
-  return { model: emptyModel(vs), parts, meta: { size: [0.5, 1.0, 0.35], mount: 'wire', kind: 'shoesOnWire', previewY: 2.6, anchors: { wire: [0, 0, 0] } } };
+  for (const [i, t] of strands.entries()) {
+    const n = Math.max(2, Math.round(Math.hypot(t[0], t[1], t[2]) / vs));
+    const sb = new VB(1, n, 1, vs, [-vs / 2, 0, -vs / 2]);
+    sb.box(0, 0, 0, 1, n, 1, sb.P.add('lace', { color: scheme.lace, rough: 0.9, metal: 0, cls: MCLS.FABRIC, vari: 0.05 }));
+    const dir = new THREE.Vector3(-t[0], -t[1], -t[2]).normalize();
+    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    const e = new THREE.Euler().setFromQuaternion(q, 'XYZ');
+    parts.push({ name: `lace${i}`, model: sb.model(), position: t, rotation: [e.x, e.y, e.z], animate: 'sway' });
+  }
+  // every swaying part pivots about the wire contact point (the prop origin)
+  for (const p of parts) repivot(p, [0, 0, 0]);
+  return {
+    model: g.model(),
+    parts,
+    meta: { size: [0.4, 0.75, 0.3], mount: 'wire', kind: 'shoesOnWire', previewY: 2.6, anchors: { wire: [0, 0, 0] }, note: 'all parts share the pivot at the wire (origin) for the sway animation' },
+  };
 }

@@ -10,8 +10,11 @@ import { createVoxelMaterial } from '../render/voxelMaterial.js';
 import { RNG } from '../core/rng.js';
 import { FACADES, LAMPS, POLES, FACE_ROT, facadeById, facadeToWorld, facadeNormal } from './layout.js';
 import { LAYER_REFLECT } from './units.js';
+import { ChainLinkMesh } from './chainLink.js';
 
 const DOOR_COLORS = [[58, 66, 60], [92, 40, 34], [44, 50, 62], [70, 66, 58], [30, 30, 32], [96, 84, 60]];
+/** Crossarms sit this far out from the pole toward the alley so they clear the wall behind it. */
+const POLE_ARM_OFFSET = 0.75;
 const SASH_COLORS = [[150, 146, 136], [86, 70, 54], [70, 80, 70], [130, 120, 100], [52, 50, 48]];
 
 export class PropWorld {
@@ -30,6 +33,7 @@ export class PropWorld {
     this.count = 0;
     this.lampAnchors = new Map();
     this.surfaceIndex = new Map(); // 10 cm cell -> footstep surface for litter underfoot
+    this.chainLink = new ChainLinkMesh();
   }
 
   markSurface(x, z, r, surface) {
@@ -57,6 +61,7 @@ export class PropWorld {
     let e = this.cache.get(key);
     if (!e) {
       let res;
+      const tg = performance.now();
       try {
         res = g(new RNG(1000 + variant * 7919 + name.length * 31), opts);
       } catch (err) {
@@ -70,6 +75,8 @@ export class PropWorld {
         parts: (res.parts ?? []).map((p) => ({ ...p, geo: meshModel(p.model) })),
       };
       this.cache.set(key, e);
+      this.genTimes = this.genTimes ?? {};
+      this.genTimes[name] = (this.genTimes[name] ?? 0) + (performance.now() - tg);
     }
     return e;
   }
@@ -131,8 +138,10 @@ export class PropWorld {
    * Options with graffiti on every paintable face (dumpsters, carts, doors...).
    * Dry-runs the generator once to learn the face sizes it reports.
    */
-  paintedOpts(name, opts, { kind, density = 0.7, seed = 1, variant = 0, baseTone } = {}) {
-    const dry = this.gen(name, opts, variant);
+  paintedOpts(name, opts, { kind, density = 0.7, seed = 1, variant = 0, baseTone, dry: dryOpts = {} } = {}) {
+    // face sizes do not depend on colours/contents: one dry run per prop type
+    // (props whose faces scale with their options pass those options as `dry`)
+    const dry = this.gen(name, dryOpts, 0);
     const faces = dry?.res.meta?.paintSurfaces;
     if (!faces) return opts;
     const paint = {};
@@ -162,17 +171,25 @@ export class PropWorld {
     return this.place(name, genOpts, { pos, yaw: FACE_ROT[f.face] + (opts.yaw ?? 0) }, { ...opts, collide: false });
   }
 
-  build(fixtures) {
+  async build(fixtures, progress = () => {}) {
     const t0 = performance.now();
+    const step = () => new Promise((r) => setTimeout(r, 0));
     this.placeFixtures(fixtures);
+    progress(0.25);
+    await step();
     this.placeLamps();
     this.placeInfrastructure();
+    progress(0.5);
+    await step();
     this.placeClutter();
+    progress(0.75);
+    await step();
     this.placeDebris();
     const g1 = this.batch.build(this.material, { castShadow: true, receiveShadow: true });
     g1.traverse((o) => o.isMesh && o.layers.enable(LAYER_REFLECT));
     const g2 = this.batchNoRefl.build(this.material, { castShadow: true, receiveShadow: true });
     this.engine.scene.add(g1, g2);
+    this.chainLink.build(this.engine.scene);
     this.ms = Math.round(performance.now() - t0);
     if (this.missing.size) console.info('props not yet available:', [...this.missing].join(', '));
     return this;
@@ -190,11 +207,12 @@ export class PropWorld {
           continue;
         }
         const style = fx.sub === 'fe' ? 'fe' : fx.sub === 'steel' ? 'steel' : fx.sub === 'small' ? 'small' : r.chance(0.25) ? 'alu' : 'dh';
+        // quantized choices so identical sashes share one generated model
         const res = this.onFacade(f, cu, fx.y, -fx.recess, 'windowSash', {
           w: +fx.w.toFixed(3), h: +fx.h.toFixed(3), style,
-          color: r.pick(SASH_COLORS), raised: r.chance(0.15) ? +r.range(0.05, 0.3).toFixed(2) : 0,
-          broken: r.chance(0.08) ? [r.int(0, 3)] : [],
-        }, { variant: r.int(0, 3) });
+          color: SASH_COLORS[r.int(0, 2)], raised: r.pick([0, 0, 0, 0, 0, 0.12, 0.25]),
+          broken: r.chance(0.06) ? [1] : [],
+        }, { variant: r.int(0, 1) });
         if (res?.meta?.panes) this.panes.set(fx, res.meta.panes);
         if (fx.bars) this.onFacade(f, cu, fx.y - 0.05, 0.0, 'windowBars', { w: +(fx.w + 0.12).toFixed(2), h: +(fx.h + 0.1).toFixed(2) }, { variant: r.int(0, 2) });
         if (fx.ac) this.onFacade(f, cu, fx.y + 0.02, -fx.recess + 0.06, 'acUnit', {}, { variant: r.int(0, 3) });
@@ -277,16 +295,37 @@ export class PropWorld {
       this.onFacade(f, fe.u, y0, 0.0, 'fireEscape', { width: 4.4, platformYs: fe.ys.map((y) => +(y + 0.32 - y0).toFixed(2)), depth: 1.1, dropLadder: true }, { variant: 1 });
     }
     // utility poles
+    this.poleAnchors = new Map();
     for (const P of POLES) {
-      const res = this.place('utilityPole', { height: P.height, transformers: P.transformer, streetlight: P.light ? 'cobra' : null, meterBox: !!P.meterBox, side: P.x > 0 ? 1 : -1 },
-        { pos: new THREE.Vector3(P.x, 0, P.z), yaw: P.x > 0 ? Math.PI / 2 : -Math.PI / 2 }, { collide: false, variant: POLES.indexOf(P) });
+      const i = POLES.indexOf(P);
+      const base = {
+        height: P.height, transformers: P.transformer, meterBox: !!P.meterBox, armOffset: POLE_ARM_OFFSET,
+        streetlight: P.light ? 'cobra' : null, streetlightY: P.light?.height, reach: P.light?.reach,
+      };
+      // tags, stickers and stapled flyers wrapped around the lower pole
+      const po = this.paintedOpts('utilityPole', base, { kind: 'pole', density: 0.85, seed: 70 + i });
+      if (po.paint?.wrap) po.paint = po.paint.wrap;
+      // local +Z (streetlight arm, crossarm offset) faces the alley centre; wires run along local X
+      const res = this.place('utilityPole', po,
+        { pos: new THREE.Vector3(P.x, 0, P.z), yaw: P.x > 0 ? -Math.PI / 2 : Math.PI / 2 },
+        { collide: false, variant: i, lampId: P.light ? P.id : null, lightColor: 0xff9440 });
+      const A = res?.meta.anchors;
+      if (A) {
+        const w = (a) => new THREE.Vector3(...a).applyMatrix4(res.matrix);
+        this.poleAnchors.set(P.id, {
+          primary: (A.primary ?? []).map(w),
+          wires: (A.wires ?? []).map(w),
+          light: A.light ? w(A.light) : null,
+          guy: A.guy ? w(A.guy) : null,
+        });
+      }
       this.world.collision?.addCircle(P.x, P.z, 0.2);
     }
     // downspouts
     const spouts = [['L0', 23.7], ['L1', 22.6], ['L2', 15.7], ['L3', 0.35], ['R0', 21.7], ['R2', 16.15], ['R4', 0.3], ['R5', 11.7], ['E', 21.0], ['E', 29.8]];
     for (const [id, u] of spouts) {
       const f = facadeById(id);
-      this.onFacade(f, u, 0, 0, 'downspout', { height: +(f.height - 0.5).toFixed(2) }, { variant: r.int(0, 3) });
+      this.onFacade(f, u, 0, 0, 'downspout', { height: Math.round((f.height - 0.5) * 2) / 2 }, { variant: r.int(0, 1) });
     }
     // meters, gas, junction boxes, conduits
     const L0 = facadeById('L0');
@@ -329,19 +368,24 @@ export class PropWorld {
       const back = name === 'satelliteDish' || name === 'antenna' ? 0.1 : name === 'chimney' ? -1.2 : -2.4;
       this.onFacade(f, u, f.height - (name === 'chimney' ? 1.4 : 0.6), back, name, {}, { variant: r.int(0, 3) });
     }
-    // fences
-    this.place('chainLinkFence', { length: 5.6, height: 2.4, gate: true }, { pos: new THREE.Vector3(0, 0, 7.0), yaw: Math.PI }, { collide: false });
+    // fences (chain-link frames get their woven mesh as alpha-tested panels)
+    const link = (res) => res?.meta.meshPanels && this.chainLink.addPanels(res.meta.meshPanels, res.matrix);
+    link(this.place('chainLinkFence', { length: 5.6, height: 2.4, gate: true }, { pos: new THREE.Vector3(0, 0, 7.0), yaw: Math.PI }, { collide: false }));
     this.world.collision?.addRect(0, 7.0, 2.9, 0.05, 0, 0.02);
-    this.place('woodFence', { length: 6.5, height: 2.05, gate: true }, { pos: new THREE.Vector3(2.8, 0, -11.25), yaw: -Math.PI / 2 }, { collide: false });
+    const fence = { length: 6.5, height: 2.05, gate: true, color: [84, 78, 70] };
+    this.place('woodFence', this.paintedOpts('woodFence', fence, { kind: 'fence', density: 0.9, seed: 91, dry: fence }),
+      { pos: new THREE.Vector3(2.8, 0, -11.25), yaw: -Math.PI / 2 }, { collide: false });
     this.world.collision?.addRect(2.8, -11.25, 0.06, 3.3, 0, 0.02);
-    this.place('chainLinkFence', { length: 5.5, height: 2.6, gate: false }, { pos: new THREE.Vector3(-21.8, 0, -76.75), yaw: Math.PI / 2 }, { collide: false, variant: 1 });
+    link(this.place('chainLinkFence', { length: 5.5, height: 2.6, gate: false }, { pos: new THREE.Vector3(-21.8, 0, -76.75), yaw: Math.PI / 2 }, { collide: false, variant: 1 }));
     this.world.collision?.addRect(-21.8, -76.75, 0.06, 2.8, 0, 0.02);
-    // wooden rear porches
-    this.place('rearPorch', { width: 11.6, depth: 2.1, levels: [0.0, 3.6, 7.0] }, { pos: new THREE.Vector3(5.6, 0, -38.7), yaw: -Math.PI / 2 }, { collide: false });
+    // wooden rear porches (grey deck paint gone dark with weather)
+    const porch = { paintColor: [96, 94, 90], bareColor: [92, 84, 72] };
+    this.place('rearPorch', { width: 11.6, depth: 2.1, levels: [0.0, 3.6, 7.0], ...porch }, { pos: new THREE.Vector3(5.6, 0, -38.7), yaw: -Math.PI / 2 }, { collide: false });
     for (const z of [-44.3, -38.7, -33.1]) this.world.collision?.addCircle(3.6, z, 0.12);
-    this.place('rearPorch', { width: 5.2, depth: 2.0, levels: [0.0, 3.4, 6.6] }, { pos: new THREE.Vector3(9.2, 0, -11.25), yaw: -Math.PI / 2 }, { collide: false, variant: 1 });
+    this.place('rearPorch', { width: 5.2, depth: 2.0, levels: [0.0, 3.4, 6.6], ...porch }, { pos: new THREE.Vector3(9.2, 0, -11.25), yaw: -Math.PI / 2 }, { collide: false, variant: 1 });
     // shoes on a wire, between L1 and R2
-    this.place('shoesOnWire', {}, { pos: new THREE.Vector3(0.4, 7.25, -19.6), yaw: 0.3 }, { collide: false });
+    // (the shoes straddle local Z; Wires.layout strings the matching cable across the alley)
+    this.place('shoesOnWire', { scheme: 2 }, { pos: new THREE.Vector3(0.4, 7.25, -19.6), yaw: Math.PI / 2 + 0.3 }, { collide: false });
   }
 
   // ───────────────────────── clutter ─────────────────────────
@@ -384,12 +428,11 @@ export class PropWorld {
     // trash bags around dumpsters and carts
     const bags = [[1.5, -21.6], [1.7, -23.4], [1.25, -22.8], [-1.75, -35.8], [-1.6, -36.3], [2.0, -46.8], [-2.0, 5.0], [-2.1, 2.9], [17.2, -78.0], [17.0, -79.0], [-1.9, -62.2], [3.0, -37.0], [-2.25, -66.8]];
     bags.forEach(([x, z], i) => P('trashBag', { color: i % 5 === 0 ? 'white' : 'black' }, x + r.range(-0.1, 0.1), z, r.range(0, 6.28), { variant: i }));
-    // kitchen door: milk-crate seat, cigarette can, grease bin, bucket + mop
+    // kitchen door: milk-crate seat, cigarette can, grease bin, mop bucket
     P('milkCrate', {}, -2.25, -46.9, 0.3);
     P('cigaretteCan', {}, -2.5, -46.4, 0.0, { collide: false });
     P('greaseBin', {}, -2.3, -48.2, Math.PI / 2);
-    P('bucket', {}, -2.45, -45.3, 0.4);
-    P('mop', {}, -2.55, -45.1, Math.PI / 2, { collide: false });
+    P('mopBucket', {}, -2.35, -45.2, 0.4);
     // misc storytelling
     P('shoppingCart', { tipped: true }, -1.6, -63.4, 0.9);
     P('tire', { leaning: true }, -2.55, -55.4, Math.PI / 2, { collide: false });

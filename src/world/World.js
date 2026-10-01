@@ -79,13 +79,6 @@ export class World {
     progress(0.45);
     await yieldFrame();
 
-    // ── overhead wires ──
-    t0 = performance.now();
-    this.wires = new Wires(this.engine);
-    this.wires.layout();
-    this.wires.build();
-    T('wires', t0);
-
     // ── collision ──
     t0 = performance.now();
     this.collision = new CollisionGrid();
@@ -128,8 +121,25 @@ export class World {
 
     // ── props ──
     t0 = performance.now();
-    this.props = new PropWorld(this.engine).build(fac.fixtures);
+    this.props = await new PropWorld(this.engine).build(fac.fixtures, (k) => progress(0.55 + 0.07 * k));
     T('props', t0);
+
+    // cobra lights sit just under their lens, so the head stays out of its own shadow map
+    for (const l of this.lamps) {
+      const a = l.def.kind === 'cobra' && this.props.poleAnchors?.get(l.def.id)?.light;
+      if (!a) continue;
+      const dx = l.light.target.position.x - l.light.position.x;
+      l.light.position.set(a.x, a.y - 0.04, a.z);
+      l.light.target.position.set(a.x + dx, 0, a.z);
+      l.pos.copy(l.light.position);
+    }
+
+    // ── overhead wires (strung to the poles' insulators) ──
+    t0 = performance.now();
+    this.wires = new Wires(this.engine);
+    this.wires.layout(this.props.poleAnchors);
+    this.wires.build();
+    T('wires', t0);
     progress(0.62);
     await yieldFrame();
 

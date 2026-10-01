@@ -6,6 +6,8 @@
 import * as THREE from 'three';
 import { PAINT_LAYER_W, PAINT_LAYER_H } from '../world/units.js';
 
+export const MAX_FACADES = 40;
+
 export class PaintAtlas {
   constructor({ colorPPM = 48, propsPPM = 24, grimePPM = 16 } = {}) {
     this.colorPPM = colorPPM;
@@ -105,7 +107,7 @@ export class PaintAtlas {
   /** Per-facade uniform: (layer, uOffset, vShift, 0) indexed by facade index. */
   facadeUniform(facades) {
     const arr = [];
-    for (let i = 0; i < 64; i++) arr.push(new THREE.Vector4(-1, 0, 0, 0));
+    for (let i = 0; i < MAX_FACADES; i++) arr.push(new THREE.Vector4(-1, 0, 0, 0));
     facades.forEach((f, i) => {
       const e = this.entries.get(f.id);
       if (!e) return;

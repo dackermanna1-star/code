@@ -20,6 +20,7 @@ export const shared = {
   uCapsuleLights: { value: [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()] }, // nearby lights for capsule shadows (xyz, strength)
   uWind: { value: 0 },
   uExposure: { value: 1 },
+  uFrame: { value: 0 }, // frame counter (stochastic alpha decorrelation under TAA)
 };
 
 export const GLSL_COMMON = /* glsl */ `

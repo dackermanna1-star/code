@@ -937,6 +937,21 @@ export function restPos(model, rotation, { x = 0, yMin = 0, zMin = null, z = 0 }
   return [x - (mn[0] + mx[0]) / 2, yMin - mn[1], zMin != null ? zMin - mn[2] : z - (mn[2] + mx[2]) / 2];
 }
 
+/**
+ * Move a part's pivot (its position) to `pivot` (parent frame) without moving its geometry:
+ * the model origin is shifted by R^-1 (oldPos - pivot). Used for animated parts whose
+ * rotation must happen about a specific point (e.g. shoes swaying about the wire).
+ */
+export function repivot(part, pivot = [0, 0, 0]) {
+  const R = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(...(part.rotation ?? [0, 0, 0]), 'XYZ'));
+  const inv = R.clone().invert();
+  const d = new THREE.Vector3(part.position[0] - pivot[0], part.position[1] - pivot[1], part.position[2] - pivot[2]).applyMatrix4(inv);
+  const o = part.model.origin;
+  part.model.origin = [o[0] + d.x, o[1] + d.y, o[2] + d.z];
+  part.position = pivot.slice();
+  return part;
+}
+
 /** Transform anchors of a sub-prop into the parent frame. */
 export function xformAnchors(anchors, position, rotation, prefix = '') {
   const out = {};

@@ -14,7 +14,7 @@ import {
 } from './wall.js';
 import { cageLamp, rlmLamp, wallPack, bulkhead, fluoroFixture, cobraHead } from './lamps.js';
 import { windowSash, windowBars, boardedWindow, door, rollupDoor, garageDoor, slidingDoor, stoop, bollard } from './openings.js';
-import { fireEscape, utilityPole } from './structures.js';
+import { fireEscape, utilityPole, rearPorch, woodFence, chainLinkFence, rooftopHVAC, ventStack, chimney, satelliteDish, antenna } from './structures.js';
 import { can, bottle, glassShard, cup, foodBox, paperScrap, cigaretteButt, bottleCap, leaf } from './debris.js';
 
 export const PROPS = {
@@ -82,6 +82,14 @@ export const PROPS = {
   // F. large structures
   fireEscape,
   utilityPole,
+  rearPorch,
+  woodFence,
+  chainLinkFence,
+  rooftopHVAC,
+  ventStack,
+  chimney,
+  satelliteDish,
+  antenna,
   // G. storytelling extras
   shoesOnWire,
   bicycleFrame,

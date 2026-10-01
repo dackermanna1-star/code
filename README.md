@@ -44,12 +44,13 @@ any static host.
 
 | Parameter | Effect |
 | --- | --- |
-| `q=low\|medium\|high` | Quality preset (fog steps, reflection resolution, TAA) |
+| `q=low\|medium\|high` | Quality preset: fog steps, reflection resolution, brick relief. By default it is picked from the GPU class |
 | `dpr=1` | Cap the device pixel ratio (default 1.5) |
 | `fixedRes` | Disable dynamic resolution scaling |
 | `exp=10` | Exposure override |
 
-Resolution scales between 50% and 100% to hold the frame rate.
+Resolution scales between 50% and 100% to hold the frame rate. Graffiti is
+generated in a pool of Web Workers while the rest of the world is built.
 
 ## How it is made
 

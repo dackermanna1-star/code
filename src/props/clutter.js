@@ -314,7 +314,7 @@ export function palletStack(rng, opts = {}) {
     if (i === 0) {
       base = p;
       for (const sp of p.parts ?? []) parts.push(sp);
-    } else addProp(parts, `pallet${i}`, p, [rng.range(-0.04, 0.04), y, rng.range(-0.04, 0.04)], [0, rng.range(-0.06, 0.06) + (rng.chance(0.15) ? Math.PI / 2 * 0 : 0), 0]);
+    } else addProp(parts, `pallet${i}`, p, [rng.range(-0.04, 0.04), y, rng.range(-0.04, 0.04)], [0, rng.range(-0.06, 0.06), 0]);
     y += p.meta.height + 0.002;
   }
   if (opts.leaning) {

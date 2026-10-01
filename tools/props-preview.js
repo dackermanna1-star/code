@@ -14,6 +14,8 @@
 //   cams=a;b;c       several "x,y,z,yaw,pitch" cameras rendered as tiles (tcols=N columns)
 //   parts=0          hide parts;  lamps=0  no preview lights at lamp anchors;  panes=0  hide pane stand-ins
 //   cam=auto:yaw,pitch[,zoom[,index]]  auto-frame all props (or prop #index); works inside cams= too
+//   layout=<json>    [{p: name, o: opts, at: [x,y,z], r: yawDeg, s: seed}] explicit placements (props= ignored)
+//   wall2z=<z>       second wall facing -Z with its front face at z (alley scenes)
 // Wall / opening props (meta.mount 'wall'|'opening') are placed on the wall face automatically,
 // at height meta.previewY (default 0).
 import * as THREE from 'three';
@@ -23,9 +25,12 @@ import { meshModel } from '../src/voxel/mesher.js';
 import { Post } from '../src/render/Post.js';
 import { RNG } from '../src/core/rng.js';
 import { PROPS } from '../src/props/catalog.js';
+import { makeChainLinkTexture } from '../src/props/chainlink.js';
 
 const q = new URLSearchParams(location.search);
-const names = (q.get('props') ?? Object.keys(PROPS).slice(0, 6).join(',')).split(',').filter(Boolean);
+// layout=<json> [{p: name, o: opts, at: [x,y,z], r: yawDeg, s: seed}] places props explicitly
+const layout = q.get('layout') ? JSON.parse(q.get('layout')) : null;
+const names = layout ? layout.map((l) => l.p) : (q.get('props') ?? Object.keys(PROPS).slice(0, 6).join(',')).split(',').filter(Boolean);
 const seed = parseInt(q.get('seed') ?? '1', 10);
 const spacing = parseFloat(q.get('spacing') ?? '2.6');
 const exposure = parseFloat(q.get('exp') ?? '9');
@@ -97,6 +102,13 @@ if (showWall) {
   wall.receiveShadow = true;
   scene.add(wall);
 }
+// optional second wall facing -Z (front face at z = wall2z) to fake an alley in layout scenes
+if (q.has('wall2z')) {
+  const wall2 = new THREE.Mesh(new THREE.BoxGeometry(200, 30, 0.5), new THREE.MeshStandardMaterial({ color: 0x4a3a30, roughness: 0.9 }));
+  wall2.position.set(0, 15, parseFloat(q.get('wall2z')) + 0.25);
+  wall2.receiveShadow = true;
+  scene.add(wall2);
+}
 if (q.get('ref') === '1') {
   const fig = new THREE.Group();
   const m2 = new THREE.MeshStandardMaterial({ color: 0x303236, roughness: 0.8 });
@@ -162,14 +174,14 @@ names.forEach((name, i) => {
     return;
   }
   const k = (occ[name] = (occ[name] ?? -1) + 1);
-  let o = optsJson[name] ?? {};
+  let o = layout ? layout[i].o ?? {} : optsJson[name] ?? {};
   if (Array.isArray(o)) o = o[k % o.length] ?? {};
   o = { ...o };
   if (paintCanvas && !o.paint) o.paint = paintCanvas;
   const t0 = performance.now();
   let res;
   try {
-    res = gen(new RNG(seed * 1000 + i), o);
+    res = gen(new RNG(layout && layout[i].s != null ? layout[i].s : seed * 1000 + i), o);
   } catch (e) {
     console.error(`prop ${name} failed: ${e.stack}`);
     return;
@@ -201,6 +213,30 @@ names.forEach((name, i) => {
       nparts++;
     }
   const meshMs = performance.now() - t1;
+  // chain-link mesh panels (alpha-tested texture), as the world is expected to render them
+  if (res.meta?.meshPanels?.length) {
+    const canvas = makeChainLinkTexture({ seed });
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 8;
+    // thin wires vanish with alphaTest + mipmaps: no mipmaps + alpha-to-coverage (MSAA)
+    tex.generateMipmaps = false;
+    tex.minFilter = THREE.LinearFilter;
+    const tile = canvas.metersPerTile;
+    for (const pn of res.meta.meshPanels) {
+      const w = pn.x1 - pn.x0, h = pn.y1 - pn.y0;
+      const t2 = tex.clone();
+      t2.repeat.set(w / tile, h / tile);
+      t2.needsUpdate = true;
+      const m = new THREE.MeshStandardMaterial({ map: t2, alphaTest: 0.35, alphaToCoverage: true, side: THREE.DoubleSide, roughness: 0.45, metalness: 0.6 });
+      const pm = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m);
+      pm.position.set(pn.x0 + w / 2, pn.y0 + h / 2, pn.z);
+      if (pn.ajar) pm.rotation.y = -pn.ajar;
+      pm.castShadow = true;
+      group.add(pm);
+    }
+  }
   // preview-only stand-in for the game's glass renderer: meta.panes as simple planes
   if (q.get('panes') !== '0')
     for (const pn of res.meta?.panes ?? []) {
@@ -220,6 +256,10 @@ names.forEach((name, i) => {
   const z = mount === 'wall' || mount === 'opening' ? wallZ : -row * rowGap;
   group.position.set(-rowW / 2 + col * spacing, res.meta?.previewY ?? 0, z);
   group.rotation.y = THREE.MathUtils.degToRad(rots[i] ?? rotAll);
+  if (layout) {
+    group.position.set(...layout[i].at);
+    group.rotation.y = THREE.MathUtils.degToRad(layout[i].r ?? 0);
+  }
   group.userData.prop = name;
   scene.add(group);
   // light the lamps

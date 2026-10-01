@@ -282,10 +282,13 @@ function insulator(rng, vs, kind) {
 
 /**
  * Wooden utility pole (alley). opts: height (m, 11-12), transformers (0-3), crossarms (count, 1-2),
- * streetlight null|'cobra' (with streetlightY, reach), meterBox (bool), guy (bool), paint (canvas,
- * wraps around the lower 2.6 m). Local frame: wires run along X; +Z faces the alley centre (the
- * streetlight arm points to +Z). Origin: pole base centre at ground.
- * meta.anchors: wires (list of attachment points), streetlight light + lightDir, guy attach.
+ * armOffset (m, default 0: crossarms shifted toward +Z; when > 0 their -Z end is clamped to
+ * -0.35 m), streetlight null|'cobra' (with streetlightY, reach), meterBox (bool), paint (canvas,
+ * wraps around the lower 2.6 m). Local frame: wires run along X; crossarms span Z on the +X / -X
+ * faces; +Z faces the alley centre (streetlight arm and secondary rack on +Z); nothing on the -Z
+ * side extends beyond 0.35 m from the axis. Origin: pole base centre at ground.
+ * meta.anchors: primary (crossarm insulator tops sorted by z ascending), wires (primary + secondary
+ * rack spools), light + lightDir (with streetlight), guy (eye bolt).
  */
 export function utilityPole(rng, opts = {}) {
   const vs = VS_MED;
@@ -317,29 +320,49 @@ export function utilityPole(rng, opts = {}) {
 
   const anchors = { wires: [] };
   const hwSpec = { color: [96, 98, 96], rough: 0.5, metal: 0.7, cls: MCLS.GENERIC, vari: 0.06 };
-  // crossarms (along X, wires run along X? no: arms span X; conductors attach on top)
+  // crossarms: span local Z (perpendicular to the wire run along X), bolted alternately to the
+  // +X / -X faces of the pole; opts.armOffset shifts them toward +Z (away from a wall on -Z)
+  const BACK = 0.35; // nothing on -Z may extend further than this from the axis (wall clearance)
+  const armOffset = opts.armOffset ?? 0;
   const nArms = opts.crossarms ?? rng.int(1, 2);
+  anchors.primary = [];
+  const armInfo = [];
   for (let i = 0; i < nArms; i++) {
     const y = Hm - 0.35 - i * 0.75;
     const L = rng.range(2.0, 2.45);
-    const ab = new VB(Math.round(L / vs), 4, 3, vs, [-(L / 2), -2 * vs, -1.5 * vs]);
+    let z0 = armOffset - L / 2;
+    const z1 = armOffset + L / 2;
+    if (armOffset > 0) z0 = Math.max(z0, -BACK);
+    const nz = Math.max(4, Math.round((z1 - z0) / vs));
+    const ab = new VB(3, 4, nz, vs, [-1.5 * vs, -2 * vs, z0]);
     const armWood = mat.wood(ab.P, 'arm', rgbJitter(rng, [96, 86, 74], 0.05));
-    ab.box(0, 0, 0, ab.nx, 4, 3, armWood);
+    ab.box(0, 0, 0, 3, 4, nz, armWood);
     recolor(ab, [armWood], (v, x, yy, z, n) => (n > 0.66 ? V.dark(ab.P, armWood, 0.7) : undefined), { freq: 0.1, seed: rng.int(1, 1e5) });
-    const zOff = rAt(y) + 1.5 * vs;
     const side = i % 2 === 0 ? 1 : -1;
-    parts.push({ name: `crossarm${i}`, model: ab.model(), position: [0, y, side * zOff], rotation: [0, rng.range(-0.02, 0.02), rng.range(-0.025, 0.025)] });
-    // diagonal braces from the arm to the pole
-    for (const sx of [-1, 1]) parts.push(barPart(`armbrace${i}${sx}`, [sx * 0.55, y - 0.04, side * (zOff)], [0, y - 0.55, side * (rAt(y) + vs / 2)], vs, hwSpec, { sx: 1, sy: 1 }));
-    // insulators
+    const xArm = side * (rAt(y) + 1.5 * vs);
+    parts.push({ name: `crossarm${i}`, model: ab.model(), position: [xArm, y, 0], rotation: [0, 0, 0] });
+    armInfo.push({ y, xArm, z0, z1: z0 + nz * vs });
+    // diagonal braces from the arm underside down to the pole face
+    for (const sz of [-1, 1]) {
+      const zb = Math.max(armOffset + sz * 0.55, -BACK + 0.05);
+      parts.push(barPart(`armbrace${i}${sz}`, [xArm, y - 2 * vs, zb], [side * (rAt(y - 0.55) + vs / 2), y - 0.55, 0], vs, hwSpec, { sx: 1, sy: 1 }));
+    }
+    // pin insulators along the arm (never right against the pole)
     const kind = rng.pick(['glass', 'porcelain']);
-    const xs = [-L / 2 + 0.12, -0.35, 0.35, L / 2 - 0.12];
-    for (const [j, x] of xs.entries()) {
-      if (rng.chance(0.15)) continue;
-      parts.push({ name: `ins${i}_${j}`, model: insulator(rng, VS_FINE, kind), position: [x, y + 2 * vs, side * zOff], rotation: [0, 0, 0] });
-      anchors.wires.push([+x.toFixed(3), +(y + 2 * vs + 4 * VS_FINE).toFixed(3), +(side * zOff).toFixed(3)]);
+    const zl = z0 + nz * vs;
+    let zs = [z0 + 0.12, z0 + (zl - z0) * 0.36, z0 + (zl - z0) * 0.64, zl - 0.12];
+    zs = zs.map((z) => (Math.abs(z) < 0.22 ? Math.sign(z || 1) * 0.22 : z));
+    let kept = 0;
+    for (const [j, z] of zs.entries()) {
+      if (kept + (zs.length - j) > 2 && rng.chance(0.15)) continue; // occasionally missing, keep >= 2
+      kept++;
+      parts.push({ name: `ins${i}_${j}`, model: insulator(rng, VS_FINE, kind), position: [xArm, y + 2 * vs, z], rotation: [0, 0, 0] });
+      const top = [+xArm.toFixed(3), +(y + 2 * vs + 4 * VS_FINE).toFixed(3), +z.toFixed(3)];
+      anchors.wires.push(top);
+      anchors.primary.push(top);
     }
   }
+  anchors.primary.sort((a, b) => a[2] - b[2] || b[1] - a[1]);
   // secondary rack: spool insulators on a vertical bracket lower down (service drops)
   const rackY = Hm - 2.2 - rng.range(0, 0.6);
   const rk = new VB(3, Math.round(0.9 / vs), 5, vs, [-1.5 * vs, 0, 0]);
@@ -355,24 +378,44 @@ export function utilityPole(rng, opts = {}) {
   // transformers
   const nT = clamp(opts.transformers ?? rng.int(0, 2), 0, 3);
   const tY = Hm - rng.range(2.6, 3.2);
-  const tAngles = [Math.PI / 2, -Math.PI / 2, Math.PI].slice(0, nT);
+  // cans hang on the +X / -X faces (a third one lower on +X): a can on the -Z face would reach
+  // the wall, everything on -Z stays within BACK of the axis
+  const tAngles = [Math.PI / 2, -Math.PI / 2, Math.PI / 2].slice(0, nT);
+  const arm0 = armInfo[0];
   tAngles.forEach((a, i) => {
     const m = transformerCan(rng.fork(`t${i}`), vs);
-    const rr = rAt(tY);
-    parts.push({ name: `transformer${i}`, model: m, position: [Math.sin(a) * rr, tY - i * 0.05, Math.cos(a) * rr], rotation: [0, a, 0] });
-    // cutout fuse on the arm + drop lead
-    parts.push(barPart(`lead${i}`, [Math.sin(a) * (rr + 0.25), tY + 0.95, Math.cos(a) * (rr + 0.25)], [Math.sin(a) * 0.5, Hm - 0.35, 0.1], VS_FINE, { color: [30, 30, 30], rough: 0.5, metal: 0, cls: MCLS.WIRE, vari: 0.02 }, { sx: 1, sy: 1 }));
+    const ty = tY - (i === 2 ? 0.95 : i * 0.05);
+    const rr = rAt(ty);
+    parts.push({ name: `transformer${i}`, model: m, position: [Math.sin(a) * rr, ty, Math.cos(a) * rr], rotation: [0, a, 0] });
+    // drop lead from the bushings up to the crossarm level
+    const ly = arm0 ? arm0.y - 2 * vs : Hm - 0.4;
+    const lz = clamp(armOffset * 0.5 + 0.1, -BACK + 0.05, 1.0);
+    parts.push(barPart(`lead${i}`, [Math.sin(a) * (rr + 0.25), ty + 0.95, 0], [Math.sign(Math.sin(a)) * (rAt(ly) + 0.05), ly, lz], VS_FINE, { color: [30, 30, 30], rough: 0.5, metal: 0, cls: MCLS.WIRE, vari: 0.02 }, { sx: 1, sy: 1 }));
   });
   // ground wire molding running down the pole (on the -Z side, facing the wall)
   const gm = new VB(2, Math.round((Hm - 0.6) / vs), 2, vs, [-vs, 0, 0]);
   gm.box(0, 0, 0, 2, gm.ny, 2, mat.wood(gm.P, 'molding', [80, 74, 64]));
   parts.push({ name: 'groundMolding', model: gm.model(), position: [0, 0, -rBase + vs * 0.2], rotation: rot(['x', taper], ['y', Math.PI]) });
-  // pole steps (alternating), from ~2.4 m up
-  const stepSpec = { color: [126, 128, 124], rough: 0.4, metal: 0.8, cls: MCLS.GENERIC, vari: 0.05 };
-  for (let y = rng.range(2.3, 2.6), k = 0; y < Hm - 1.2; y += 0.46, k++) {
-    const a = k % 2 ? Math.PI / 2 + 0.25 : -Math.PI / 2 - 0.25;
-    const r0 = rAt(y);
-    parts.push(barPart(`step${k}`, [Math.sin(a) * (r0 - 0.02), y, Math.cos(a) * (r0 - 0.02)], [Math.sin(a) * (r0 + 0.15), y + 0.02, Math.cos(a) * (r0 + 0.15)], VS_FINE, stepSpec, { sx: 1, sy: 1 }));
+  // pole steps (galvanized step bolts on two opposite sides, alternating), one part
+  {
+    const sv = VS_FINE;
+    const y0 = rng.range(2.3, 2.6);
+    const nSteps = Math.floor((Hm - 1.2 - y0) / 0.46);
+    const span = Math.round((rBase + 0.18) / sv);
+    const sb = new VB(span * 2 + 2, Math.round((Hm - 1.0) / sv), 3, sv, [-(span + 1) * sv, 0, -1.5 * sv]);
+    const sm = mat.galv(sb.P, 'step', [126, 128, 124]);
+    for (let k = 0; k < nSteps; k++) {
+      const y = y0 + k * 0.46;
+      const r0 = rAt(y);
+      const yi = Math.round(y / sv);
+      const xa = Math.round((r0 - 0.03) / sv), xb = Math.round((r0 + 0.15) / sv);
+      if (k % 2) sb.box(span + 1 + xa, yi, 1, span + 1 + xb, yi + 1, 2, sm);
+      else sb.box(span + 1 - xb, yi, 1, span + 1 - xa, yi + 1, 2, sm);
+      // upturned tip
+      const tip = k % 2 ? span + xb : span + 2 - xb;
+      sb.box(tip, yi + 1, 1, tip + 1, yi + 3, 2, sm);
+    }
+    parts.push({ name: 'steps', model: sb.model(), position: [0, 0, 0], rotation: [0, rng.range(-0.2, 0.2), 0] });
   }
   // aluminium ID tags around 1.8 m
   const tg = new VB(6, 4, 1, VS_FINE, [-3 * VS_FINE, 0, 0]);
@@ -425,7 +468,8 @@ function lumber(name, sx, sy, sz, vs, spec, pos, { origin = null, decorate = nul
  * Chicago-style wooden back porch: posts, beams, joists, plank decks, railings with balusters,
  * switchback stairs between levels and down to the ground; weathered grey paint.
  * opts: width (m, 5), depth (m, 2.6), levels (deck heights, default [1.2, 4.3, 7.4]),
- * stairSide 'left'|'right'. Origin: wall surface at ground, centred on x; extends +Z.
+ * stairSide 'left'|'right', paintColor / bareColor (rgb). Origin: wall surface at ground, centred
+ * on x; extends +Z.
  */
 export function rearPorch(rng, opts = {}) {
   const vs = VS_MED;
@@ -433,8 +477,8 @@ export function rearPorch(rng, opts = {}) {
   const levels = (opts.levels ?? [1.2, 4.3, 7.4]).slice().sort((a, b) => a - b);
   const W = Math.round(Wm / vs), D = Math.round(Dm / vs);
   const parts = [];
-  const paintC = rgbJitter(rng, rng.pick([[150, 148, 142], [136, 134, 128], [120, 112, 100], [96, 100, 92]]), 0.04);
-  const bare = [118, 108, 94];
+  const paintC = rgbJitter(rng, opts.paintColor ?? rng.pick([[150, 148, 142], [136, 134, 128], [120, 112, 100], [96, 100, 92]]), 0.04);
+  const bare = opts.bareColor ?? [118, 108, 94];
   const spec = (k, tone = 1) => {
     const r = vrand(k, 7, 3, 11);
     const c = r < 0.25 ? rgbMix(bare, paintC, 0.3) : r < 0.32 ? [154, 138, 104] : rgbMul(paintC, tone * (0.94 + 0.12 * vrand(k, 1, 2, 3)));
@@ -543,8 +587,8 @@ export function rearPorch(rng, opts = {}) {
 // ───────────────────────────── fences ─────────────────────────────
 
 /**
- * Tall wooden board fence. opts: length (m, 6), height (m, 1.9), gate (bool), paint (canvas ->
- * front face). Runs along X centred on the origin (ground); boards face +Z, rails/posts behind.
+ * Tall wooden board fence. opts: length (m, 6), height (m, 1.9), gate (bool), color (rgb),
+ * paint (canvas -> front face). Runs along X centred on the origin (ground); boards face +Z, rails/posts behind.
  */
 export function woodFence(rng, opts = {}) {
   const vs = VS_MED;
@@ -552,7 +596,7 @@ export function woodFence(rng, opts = {}) {
   const L = Math.round(Lm / vs), H = Math.round(Hm / vs);
   const b = new VB(L, H + 3, 8, vs, 'floor');
   const P = b.P;
-  const base = rgbJitter(rng, rng.pick([[118, 110, 98], [104, 96, 84], [132, 120, 100], [96, 88, 76]]), 0.05);
+  const base = rgbJitter(rng, opts.color ?? rng.pick([[118, 110, 98], [104, 96, 84], [132, 120, 100], [96, 88, 76]]), 0.05);
   const postM = mat.wood(P, 'post', rgbMul(base, 0.85));
   const railM = mat.wood(P, 'rail', rgbMul(base, 0.9));
   const boardMs = Array.from({ length: 6 }, (_, k) => mat.wood(P, `board${k}`, rgbJitter(rng, rgbMul(base, 0.9 + 0.04 * k), 0.05, 0.03)));
@@ -613,4 +657,354 @@ export function woodFence(rng, opts = {}) {
     parts,
     meta: { size: [Lm, Hm, 8 * vs], footprint: [Lm, 8 * vs], mount: 'floor', kind: 'woodFence', paintSurfaces: { front: { w: Lm, h: Hm, face: '+z' } }, gate: gate ? { x0: b.mx(gateX0), x1: b.mx(gateX0 + gateW) } : null },
   };
+}
+
+/**
+ * Chain-link fence frame: square posts (terminal posts heavier), top rail through loop caps,
+ * bottom tension wire, tension bars + bands, wire ties, optional gate with padlocked chain,
+ * barbed wire arms, trash caught at the bottom. The diamond mesh itself is NOT voxelized:
+ * meta.meshPanels = [{x0, x1, y0, y1, z, gate?}] (local meters) are the rectangles to fill with
+ * an alpha-tested chain-link texture (see src/props/chainlink.js makeChainLinkTexture()).
+ * opts: length (m, 8), height (m, 2.0), gate (bool), barbed (bool), trash (bool).
+ * Runs along X centred on the origin at ground; mesh plane faces +Z.
+ */
+export function chainLinkFence(rng, opts = {}) {
+  const vs = VS_FINE;
+  const Lm = opts.length ?? 8, Hm = opts.height ?? 2.0;
+  const L = Math.round(Lm / vs), H = Math.round(Hm / vs);
+  const barbed = opts.barbed ?? rng.chance(0.4);
+  const armUp = barbed ? Math.round(0.42 / vs) : 0;
+  const b = new VB(L + 8, H + armUp + 6, 12 + (barbed ? 24 : 0), vs, 'corner');
+  const zc = 6; // post centre z
+  b.setMount([-(L / 2 + 4) * vs, 0, -zc * vs]);
+  const P = b.P;
+  const galv = mat.galv(P, 'galv', rgbJitter(rng, [150, 152, 150], 0.04));
+  const galvD = mat.galv(P, 'galvD', [120, 122, 120]);
+  const tie = mat.galv(P, 'tie', [170, 172, 170]);
+  const ox = 4;
+  const gate = opts.gate ?? rng.chance(0.35);
+  const gateW = Math.round(1.2 / vs);
+  const gateX0 = gate ? ox + Math.round(L * rng.range(0.3, 0.6)) : -1;
+  // posts
+  const posts = [{ x: ox, term: true }, { x: ox + L, term: true }];
+  for (let x = ox + Math.round(3 / vs); x < ox + L - 40; x += Math.round(3 / vs)) {
+    if (gate && Math.abs(x - gateX0) < 50) continue;
+    posts.push({ x, term: false });
+  }
+  if (gate) posts.push({ x: gateX0, term: true }, { x: gateX0 + gateW + 6, term: true });
+  for (const p of posts) {
+    const s = p.term ? 3 : 2;
+    b.box(p.x - s, 0, zc - s, p.x + s, H + 3, zc + s, galv);
+    // loop / dome cap
+    b.box(p.x - s - 1, H + 1, zc - s - 1, p.x + s + 1, H + 4, zc + s + 1, galvD);
+    if (p.term) for (let y = 12; y < H; y += 30) b.box(p.x - s - 1, y, zc - s - 1, p.x + s + 1, y + 2, zc + s + 2, galvD); // tension bands
+  }
+  // top rail through the caps, bottom tension wire (sagging), mesh plane in front of the posts
+  const zm = zc + 3;
+  const segs = [];
+  const xs = posts.map((p) => p.x).sort((a, c) => a - c);
+  for (let i = 0; i + 1 < xs.length; i++) {
+    const a = xs[i], c = xs[i + 1];
+    if (gate && a === gateX0) continue; // gate gap
+    segs.push([a, c]);
+  }
+  for (const [a, c] of segs) {
+    b.box(a, H + 1, zc - 1, c, H + 3, zc + 1, galv);
+    for (let x = a; x < c; x++) {
+      const t = (x - a) / (c - a);
+      b.set(x, Math.round(5 - Math.sin(t * Math.PI) * 2), zm, galvD);
+      if ((x - a) % 30 === 15) b.box(x, H, zm - 1, x + 1, H + 2, zm + 1, tie);
+    }
+  }
+  // barbed wire arms + strands
+  if (barbed) {
+    const barb = mat.galv(P, 'barb', [130, 132, 128]);
+    for (const p of posts) {
+      if (gate && (p.x === gateX0 || p.x === gateX0 + gateW + 6)) continue;
+      b.g.line(p.x, H + 3, zc, p.x, H + 3 + armUp * 0.7, zc + armUp * 0.7, 1.0, galvD);
+    }
+    for (let k = 1; k <= 3; k++) {
+      const y = H + 3 + (armUp * 0.7 * k) / 3, z = zc + (armUp * 0.7 * k) / 3;
+      for (let x = ox; x < ox + L; x++) {
+        if (gate && x > gateX0 && x < gateX0 + gateW + 6) continue;
+        b.set(x, Math.round(y), Math.round(z), barb);
+        if (x % 9 === 0) {
+          b.set(x, Math.round(y) + 1, Math.round(z), barb);
+          b.set(x, Math.round(y) - 1, Math.round(z), barb);
+          b.set(x, Math.round(y), Math.round(z) + 1, barb);
+        }
+      }
+    }
+  }
+  const panels = [];
+  for (const [a, c] of segs) panels.push({ x0: +b.mx(a + 2).toFixed(3), x1: +b.mx(c - 2).toFixed(3), y0: 0.03, y1: +((H + 1) * vs).toFixed(3), z: +((zm - zc + 0.5) * vs).toFixed(3) });
+  const parts = [];
+  if (gate) {
+    // gate frame (part, hinged at the left terminal post) + chain and padlock at the latch side
+    const gb = new VB(gateW, H - 4, 3, vs, [0, 0, -1.5 * vs]);
+    const gm = gb.P.add('frame', { ...P.entries[galv] });
+    gb.shell(0, 0, 0, gateW, H - 4, 3, 3, gm, { nz: true, pz: true });
+    gb.box(0, Math.round((H - 4) / 2), 0, gateW, Math.round((H - 4) / 2) + 2, 3, gm);
+    const ajar = rng.chance(0.3) ? rng.range(0.1, 0.5) : 0;
+    const gpos = [b.mx(gateX0 + 4), 0.08, (zm - zc - 1) * vs];
+    parts.push({ name: 'gate', model: gb.model(), position: gpos, rotation: [0, -ajar, 0] });
+    panels.push({ x0: +(gpos[0] + 3 * vs).toFixed(3), x1: +(gpos[0] + (gateW - 3) * vs).toFixed(3), y0: +(0.08 + 3 * vs).toFixed(3), y1: +(0.08 + (H - 7) * vs).toFixed(3), z: +gpos[2].toFixed(3), gate: true, ajar });
+    if (!ajar) {
+      const chain = mat.steel(P, 'chain', [90, 88, 84], { metal: 0.8 });
+      const lock = mat.steel(P, 'lock', [150, 120, 60], { metal: 0.9, rough: 0.3 });
+      const cx = gateX0 + gateW + 6, cy = Math.round(H * 0.55);
+      for (let k = 0; k < 10; k++) {
+        const a = (k / 10) * TAU;
+        b.set(Math.round(cx - 3 + Math.cos(a) * 5), cy + (k % 2), Math.round(zc + Math.sin(a) * 5), chain);
+      }
+      for (let k = 0; k < 6; k++) b.set(cx - 6 + (k % 2), cy - k, zm + 1, chain);
+      b.box(cx - 8, cy - 11, zm + 1, cx - 4, cy - 6, zm + 3, lock);
+    }
+  }
+  // trash pressed against the bottom of the mesh
+  if (opts.trash ?? rng.chance(0.7)) {
+    const tm = [mat.paper(P, 'paper', [200, 196, 184]), mat.bag(P, 'bag'), mat.plastic(P, 'wrap', [180, 60, 50]), mat.organic(P, 'leaves', [92, 66, 40])];
+    for (let i = 0, n = rng.int(3, 8); i < n; i++) {
+      const x = rng.int(ox + 10, ox + L - 20), w = rng.int(4, 14), h = rng.int(2, 9);
+      const m = rng.pick(tm);
+      for (let xx = x; xx < x + w; xx++) for (let y = 0; y < h - Math.abs(xx - x - w / 2) * 0.6; y++) if (vrand(xx, y, i, 5) < 0.85) b.set(xx, y, zm + 1 + (y % 2), m);
+    }
+  }
+  recolor(b, [galv, galvD], (v, x, y, z, n) => (n > 0.7 ? V.rust(P, v, 1.0) : n < 0.2 ? V.tone(P, v, 0.8, 0) : undefined), { freq: 0.05, seed: rng.int(1, 1e5) });
+  grime(b, [galv, galvD], { h: 14, amount: 0.5, seed: 7 });
+  return {
+    model: b.model(),
+    parts,
+    meta: { size: [Lm, Hm + armUp * vs, (12 + (barbed ? 24 : 0)) * vs], footprint: [Lm, 0.1], mount: 'floor', kind: 'chainLinkFence', meshPanels: panels, meshTexture: 'makeChainLinkTexture' },
+  };
+}
+
+// ───────────────────────────── rooftop equipment ─────────────────────────────
+
+/** Packaged rooftop HVAC unit on a curb with fan grilles (spinning parts), louvers, disconnect. */
+export function rooftopHVAC(rng, opts = {}) {
+  const vs = VS_MED;
+  const W = Math.round(rng.range(1.8, 2.4) / vs), D = Math.round(rng.range(1.0, 1.3) / vs), H = Math.round(rng.range(0.9, 1.2) / vs);
+  const curb = 6;
+  const b = new VB(W + 6, H + curb + 3, D + 6, vs, 'floor');
+  const P = b.P;
+  const casing = mat.paint(P, 'casing', rgbJitter(rng, rng.pick([[170, 166, 152], [150, 150, 146], [130, 132, 128]]), 0.04), { cls: MCLS.GENERIC, rough: 0.5, metal: 0.45 });
+  const seam = mat.paint(P, 'seam', [100, 100, 96], { cls: MCLS.GENERIC, rough: 0.6, metal: 0.4 });
+  const dark = mat.generic(P, 'dark', [26, 26, 26]);
+  const curbM = mat.galv(P, 'curb', [130, 132, 128]);
+  const x0 = 3, z0 = 3, y0 = curb;
+  b.box(x0 + 2, 0, z0 + 2, x0 + W - 2, curb, z0 + D - 2, curbM);
+  b.box(x0, y0, z0, x0 + W, y0 + H, z0 + D, casing);
+  // panel seams (colour) and louvered hood on one end
+  for (let x = x0 + 12; x < x0 + W - 4; x += 14) b.box(x, y0, z0 + D - 1, x + 1, y0 + H, z0 + D, seam);
+  for (let y = y0 + 4; y < y0 + H - 4; y += 3) b.box(x0 - 2, y, z0 + 3, x0, y + 1, z0 + D - 3, seam);
+  b.box(x0 - 2, y0 + 3, z0 + 3, x0 - 1, y0 + H - 3, z0 + D - 3, dark);
+  // condenser coil section (fin stripes) on the other end
+  for (let x = x0 + W - 18; x < x0 + W; x++) b.box(x, y0 + 3, z0 + D - 1, x + 1, y0 + H - 3, z0 + D, x % 2 ? dark : seam);
+  // fan openings on top + spinning blades
+  const parts = [];
+  const fans = W > 70 ? 2 : 1;
+  for (let f = 0; f < fans; f++) {
+    const cx = x0 + W - 10 - f * 20, cz = z0 + D / 2;
+    lathe(b, cx, cz, y0 + H - 2, y0 + H, () => [7.5, -1], dark);
+    lathe(b, cx, cz, y0 + H, y0 + H + 1, () => [8.5, 7.2], seam);
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * TAU;
+      b.g.line(cx, y0 + H + 0.5, cz, cx + Math.cos(a) * 7.6, y0 + H + 0.5, cz + Math.sin(a) * 7.6, 0.5, seam);
+    }
+    const fb = new VB(15, 2, 15, vs, 'center');
+    const fm = mat.galv(fb.P, 'blade', [80, 80, 78]);
+    fb.fill(0, 0, 0, 15, 2, 15, (px, py, pz) => {
+      const dx = px - 7.5, dz = pz - 7.5, r = Math.hypot(dx, dz);
+      if (r > 7 || r < 0.5) return r < 1.5 ? fm : undefined;
+      const a = Math.atan2(dz, dx);
+      return Math.abs(Math.sin(a * 2)) > 0.75 ? fm : undefined;
+    });
+    parts.push({ name: `fan${f}`, model: fb.model(), position: [b.mx(cx), b.my(y0 + H - 3), b.mz(cz)], rotation: [0, rng.range(0, TAU), 0], animate: 'spin-y' });
+  }
+  // disconnect box + conduit
+  b.box(x0 + 20, y0 + 8, z0 + D, x0 + 26, y0 + 18, z0 + D + 3, mat.paint(P, 'disc', [120, 122, 120], { cls: MCLS.GENERIC, metal: 0.4 }));
+  b.box(x0 + 22, 0, z0 + D + 1, x0 + 24, y0 + 8, z0 + D + 2, curbM);
+  streaks(b, rng, [casing], { count: rng.int(6, 12), len: [6, 24], kind: 'rust', t: 0.35 });
+  recolor(b, [casing], (v, x, y, z, n) => (n > 0.66 ? V.dirt(P, casing, 0.8) : undefined), { freq: 0.05, seed: rng.int(1, 1e5) });
+  return { model: b.model(), parts, meta: { size: [(W + 4) * vs, (H + curb) * vs, (D + 4) * vs], footprint: [W * vs, D * vs], mount: 'floor', kind: 'rooftopHVAC' } };
+}
+
+/** Roof vent stack. opts: kind 'pipe'|'turbine'|'mushroom', height (m). Turbine head spins ('spin-y'). */
+export function ventStack(rng, opts = {}) {
+  const vs = VS_FINE;
+  const kind = opts.kind ?? rng.pick(['pipe', 'turbine', 'mushroom']);
+  const Hm = opts.height ?? (kind === 'pipe' ? rng.range(0.4, 0.9) : rng.range(0.5, 0.8));
+  const H = Math.round(Hm / vs);
+  const R = kind === 'pipe' ? 3.6 : kind === 'turbine' ? 9 : 11;
+  const n = Math.ceil(R * 2 + 12);
+  const b = new VB(n, H + 4, n, vs, 'floor');
+  const P = b.P;
+  const pipe = kind === 'pipe' ? mat.paint(P, 'pipe', [60, 56, 52], { cls: MCLS.METAL_PAINTED, rough: 0.7, metal: 0.3 }) : mat.galv(P, 'duct', [150, 152, 150]);
+  const flash = mat.generic(P, 'flashing', rgbJitter(rng, [90, 90, 92], 0.05), { rough: 0.6, metal: 0.4 });
+  const c = n / 2;
+  // flashing boot at the base
+  lathe(b, c, c, 0, 3, (y) => [R + 5 - y * 1.5, -1], flash);
+  lathe(b, c, c, 0, H, () => [R, R - 1.2], pipe);
+  const parts = [];
+  if (kind === 'turbine') {
+    const tb = new VB(26, 22, 26, vs, 'floor');
+    const vane = mat.galv(tb.P, 'vane', [168, 170, 168]);
+    const tc = 13;
+    tb.fill(0, 0, 0, 26, 22, 26, (px, py, pz) => {
+      const dx = px - tc, dz = pz - tc;
+      const t = py / 22;
+      const r = 12.5 * Math.sin(Math.PI * (0.18 + 0.64 * t));
+      const d = Math.hypot(dx, dz);
+      if (d > r || d < r - 1.3) return py > 20 && d < 3 ? vane : undefined;
+      const a = Math.atan2(dz, dx) + t * 1.2;
+      return Math.sin(a * 14) > -0.2 ? vane : undefined;
+    });
+    lathe(tb, tc, tc, 20, 22, () => [4, -1], vane);
+    parts.push({ name: 'turbine', model: tb.model(), position: [0, H * vs, 0], rotation: [0, rng.range(0, TAU), 0], animate: 'spin-y' });
+  } else if (kind === 'mushroom') {
+    lathe(b, c, c, H, H + 4, (y) => [R + 4 - (y - H) * 0.8, -1], pipe);
+    lathe(b, c, c, H - 6, H, () => [R + 0.5, R - 0.5], mat.generic(P, 'screen', [40, 40, 40]));
+  } else {
+    lathe(b, c, c, H - 1, H, () => [R + 0.4, R - 1.5], pipe);
+  }
+  rust(b, [pipe], { amount: 0.5, seed: rng.int(1, 1e5), bottom: 3, edges: true });
+  streaks(b, rng, [pipe], { count: 3, len: [4, 14], kind: 'rust' });
+  return { model: b.model(), parts, meta: { size: b.sizeM(), footprint: [(R * 2 + 10) * vs, (R * 2 + 10) * vs], mount: 'floor', kind: 'ventStack', ventKind: kind } };
+}
+
+const BRICK_SETS = [[[118, 60, 46], [130, 68, 50], [102, 54, 42], [140, 78, 58]], [[176, 146, 104], [188, 158, 114], [164, 128, 92], [146, 116, 84]], [[88, 60, 50], [98, 66, 54], [76, 52, 44], [108, 74, 60]]];
+
+/**
+ * Brick chimney: running-bond bricks with mortar, concrete crown, clay flue liners, soot.
+ * opts: height (m, 1.6-2.6), w (m, 0.7), bricks [[r,g,b],...]. Origin: base centre (roof surface).
+ */
+export function chimney(rng, opts = {}) {
+  const vs = VS_FINE;
+  const Wm = opts.w ?? rng.range(0.6, 0.85), Hm = opts.height ?? rng.range(1.6, 2.6);
+  const W = Math.round(Wm / vs), H = Math.round(Hm / vs);
+  const b = new VB(W + 6, H + 14, W + 6, vs, 'floor');
+  const P = b.P;
+  const set = opts.bricks ?? rng.pick(BRICK_SETS);
+  const bricks = set.map((c, i) => mat.brick(P, `brick${i}`, rgbJitter(rng, c, 0.04)));
+  const mortar = mat.concrete(P, 'mortar', [132, 126, 116]);
+  const soot = mat.generic(P, 'soot', [30, 28, 26], { rough: 0.95 });
+  const crown = mat.concrete(P, 'crown', [128, 126, 120]);
+  const clay = mat.generic(P, 'clay', [150, 84, 56], { rough: 0.7 });
+  const x0 = 3, z0 = 3;
+  const bl = 15, bh = 5; // brick + joint (14 x 4 brick, 1 mortar)
+  for (let y = 0; y < H; y++)
+    for (let x = x0; x < x0 + W; x++)
+      for (let z = z0; z < z0 + W; z++) {
+        const edge = x === x0 || x === x0 + W - 1 || z === z0 || z === z0 + W - 1;
+        if (!edge) continue;
+        const row = Math.floor(y / bh), off = (row % 2) * 7;
+        const u = x === x0 || x === x0 + W - 1 ? z : x;
+        const joint = y % bh === bh - 1 || (u + off) % bl === bl - 1;
+        const bi = Math.floor(vrand(Math.floor((u + off) / bl), row, x === x0 ? 1 : x === x0 + W - 1 ? 2 : z === z0 ? 3 : 4, 7) * bricks.length);
+        b.set(x, y, z, joint ? mortar : bricks[bi]);
+      }
+  // concrete crown, flue liners
+  b.box(x0 - 2, H, z0 - 2, x0 + W + 2, H + 4, z0 + W + 2, crown);
+  for (let k = 0; k < (W > 50 ? 2 : 1); k++) {
+    const fx = x0 + 6 + k * 22, fz = z0 + Math.round(W / 2) - 8;
+    b.shell(fx, H + 4, fz, fx + 16, H + 12, fz + 16, 2, clay, { py: true, ny: true });
+  }
+  // soot near the top, cracks in the crown, efflorescence
+  recolor(b, null, (v, x, y, z, n) => {
+    if (y > H - 30 + n * 20 && P.entries[v].name.startsWith('brick') && n > 0.45) return soot;
+    if (P.entries[v] === P.entries[crown] && n > 0.7) return V.dark(P, crown, 0.7);
+    return undefined;
+  }, { freq: 0.08, seed: rng.int(1, 1e5) });
+  return { model: b.model(), meta: { size: [(W + 4) * vs, (H + 12) * vs, (W + 4) * vs], footprint: [W * vs, W * vs], mount: 'floor', kind: 'chimney' } };
+}
+
+/**
+ * Offset satellite dish on a wall bracket with LNB arm, aimed up toward the sky.
+ * opts: dia (m, 0.6-0.8), aim (rad elevation), color. Origin: wall surface, bottom centre of the bracket.
+ */
+export function satelliteDish(rng, opts = {}) {
+  const vs = VS_FINE;
+  const Dm = opts.dia ?? rng.range(0.55, 0.8);
+  const R = Dm / 2 / vs;
+  const col = opts.color ?? rgbJitter(rng, rng.pick([[200, 200, 196], [150, 152, 150], [60, 60, 62]]), 0.04);
+  // dish shell in local frame facing +z (paraboloid), built centred
+  const n = Math.ceil(R * 2 + 4);
+  const db = new VB(n, n, 10, vs, 'center');
+  const dish = mat.paint(db.P, 'dish', col, { cls: MCLS.GENERIC, rough: 0.5, metal: 0.3 });
+  const c = n / 2;
+  db.fill(0, 0, 0, n, n, 10, (px, py, pz) => {
+    const dx = (px - c) / R, dy = (py - c) / (R * 0.92);
+    const r2 = dx * dx + dy * dy;
+    if (r2 > 1) return undefined;
+    const zs = 1 + r2 * 6;
+    return Math.abs(pz - zs) < 0.8 || (r2 > 0.9 && Math.abs(pz - zs) < 1.4) ? dish : undefined;
+  });
+  recolor(db, [dish], (v, x, y, z, nn) => (nn > 0.62 ? V.dirt(db.P, dish, 0.8) : undefined), { freq: 0.1, seed: rng.int(1, 1e5) });
+  // bracket + arm (main model)
+  const b = new VB(12, 40, 40, vs, 'wall');
+  const P = b.P;
+  const steel = mat.paint(P, 'bracket', rgbMul(col, 0.8), { cls: MCLS.GENERIC, rough: 0.55, metal: 0.5 });
+  const lnb = mat.plastic(P, 'lnb', [190, 190, 186]);
+  b.box(3, 0, 0, 9, 14, 1, steel); // wall plate
+  b.box(5, 6, 1, 7, 8, 16, steel); // standoff arm
+  b.box(5, 6, 15, 7, 22, 17, steel); // mast
+  rust(b, [steel], { amount: 0.4, seed: rng.int(1, 1e5), bottom: 0, edges: true });
+  const aim = opts.aim ?? rng.range(0.18, 0.36);
+  const yaw = rng.range(-0.6, 0.6);
+  const parts = [];
+  const r = rot(['x', -aim], ['y', yaw]);
+  const dishPos = [0, 22 * vs, 16 * vs];
+  parts.push({ name: 'dish', model: db.model(), position: dishPos, rotation: r });
+  // LNB arm from the dish's lower edge to the focus
+  const armA = xform([0, -R * 0.85 * vs, 2 * vs], dishPos, r);
+  const focus = xform([0, -R * 0.15 * vs, R * 1.15 * vs], dishPos, r);
+  parts.push(barPart('lnbArm', armA, focus, vs, { color: rgbMul(col, 0.8), rough: 0.55, metal: 0.5, cls: MCLS.GENERIC, vari: 0.05 }, { sx: 2, sy: 1 }));
+  const lb = new VB(3, 3, 5, vs, 'center');
+  lb.box(0, 0, 0, 3, 3, 5, lb.P.add('lnb', { ...P.entries[lnb] }));
+  parts.push({ name: 'lnb', model: lb.model(), position: focus, rotation: r });
+  // coax cable down the wall
+  parts.push(barPart('coax', [0, 6 * vs, 2 * vs], [0, -1.2, 0.01], VS_FINE, { color: [30, 30, 30], rough: 0.5, metal: 0, cls: MCLS.WIRE, vari: 0.02 }, { sx: 1, sy: 1 }));
+  return { model: b.model(), parts, meta: { size: [Dm, Dm + 0.3, Dm], mount: 'wall', kind: 'satelliteDish', previewY: 2.0 } };
+}
+
+/**
+ * Old TV antenna (VHF/UHF yagi) on a mast with a roof tripod. opts: height (m mast). Origin: base centre.
+ */
+export function antenna(rng, opts = {}) {
+  const vs = VS_FINE;
+  const Hm = opts.height ?? rng.range(2.0, 3.2);
+  const H = Math.round(Hm / vs);
+  const boomL = Math.round(rng.range(1.2, 1.8) / vs);
+  const b = new VB(boomL + 10, H + 12, Math.round(1.4 / vs), vs, 'corner');
+  const P = b.P;
+  const alu = mat.galv(P, 'alu', [150, 152, 150]);
+  const dull = mat.galv(P, 'dull', [110, 112, 108]);
+  const cx = Math.round(boomL / 2 + 5), cz = Math.round(b.nz / 2);
+  b.setMount([-cx * vs, 0, -cz * vs]);
+  // mast + tripod
+  b.box(cx - 1, 0, cz - 1, cx + 1, H, cz + 1, dull);
+  for (let k = 0; k < 3; k++) {
+    const a = (k / 3) * TAU + 0.4;
+    b.g.line(cx + Math.cos(a) * 30, 0, cz + Math.sin(a) * 30, cx, 45, cz, 0.7, dull);
+  }
+  // boom with elements of decreasing length (some bent / missing)
+  const by = H - 4;
+  b.box(cx - Math.round(boomL / 2), by, cz, cx + Math.round(boomL / 2), by + 1, cz + 1, alu);
+  const ne = Math.round(boomL / 9);
+  for (let i = 0; i < ne; i++) {
+    const x = cx - Math.round(boomL / 2) + 2 + i * 9;
+    const half = Math.round((1 - i / ne) * 26 + 10);
+    if (rng.chance(0.1)) continue;
+    const bend = rng.chance(0.15) ? rng.int(2, 6) : 0;
+    b.g.line(x, by, cz - half, x, by - bend, cz + half, 0.5, alu);
+  }
+  // UHF bowtie section on top
+  b.box(cx - 1, by, cz - 1, cx + 1, by + 10, cz + 1, dull);
+  for (const s of [-1, 1]) {
+    b.g.line(cx, by + 8, cz, cx + 12, by + 8 + s * 6, cz, 0.5, alu);
+    b.g.line(cx, by + 8, cz, cx - 12, by + 8 + s * 6, cz, 0.5, alu);
+  }
+  recolor(b, [alu, dull], (v, x, y, z, n) => (n > 0.7 ? V.rust(P, v, 1) : undefined), { freq: 0.1, seed: rng.int(1, 1e5) });
+  return { model: b.model(), meta: { size: b.sizeM(), footprint: [0.8, 0.8], mount: 'floor', kind: 'antenna' } };
 }

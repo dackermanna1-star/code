@@ -73,9 +73,8 @@ export class Traffic {
     // two pooled car rigs (headlight spot + tail glow)
     for (let i = 0; i < 2; i++) {
       const head = new THREE.SpotLight(0xfff0d8, 0, 34, 0.55, 0.5, 2);
-      const tail = new THREE.PointLight(0xff2010, 0, 8, 2);
-      scene.add(head, head.target, tail);
-      this.lights.push({ head, tail });
+      scene.add(head, head.target);
+      this.lights.push({ head });
     }
     return this.lights.map((l) => ({ light: l.head, def: { id: 'car' } }));
   }
@@ -124,10 +123,9 @@ export class Traffic {
       this.next = this.rng.range(18, 75);
     }
     for (const car of this.cars) {
-      const { head, tail } = car.rig;
+      const { head } = car.rig;
       if (!car.active) {
         head.intensity = 0;
-        tail.intensity = 0;
         continue;
       }
       car.x += car.dir * car.speed * dt;
@@ -136,8 +134,6 @@ export class Traffic {
       head.position.set(car.x + car.dir * 2.25, 0.7, car.lane);
       head.target.position.set(car.x + car.dir * 14, 0.0, car.lane + (car.dir > 0 ? -1.2 : 1.2));
       head.intensity = 26;
-      tail.position.set(car.x - car.dir * 2.3, 0.75, car.lane);
-      tail.intensity = 0.6;
       if (Math.abs(car.x) > 56) {
         car.active = false;
         car.group.visible = false;

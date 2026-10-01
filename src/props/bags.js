@@ -297,12 +297,17 @@ export function plasticBag(rng, opts = {}) {
         const edge = Math.max(Math.abs(u), Math.abs(w)) + (valueNoise3(x * 0.25, 0, z * 0.25, seed) - 0.5) * 0.3;
         if (edge > 0.95) continue;
         if (u > 0.55 && Math.abs(w) < 0.3 && variant !== 2) continue; // handle opening
-        const h = Math.max(0, Math.min(ny - 1, Math.round(valueNoise3(x * 0.12, 0, z * 0.12, seed + 5) * amp)));
+        // folds: ridged height field (crumpled film) + a lifted handle loop end
+        const fn = valueNoise3(x * 0.16, 0, z * 0.16, seed + 5);
+        const ridge = 1 - Math.abs(valueNoise3(x * 0.22, 1, z * 0.22, seed + 6) * 2 - 1);
+        const h = Math.max(0, Math.min(ny - 1, Math.round(fn * amp + ridge * 1.2 + (u > 0.6 ? 1 : 0))));
         let m = film;
         if (Math.abs(valueNoise3(x * 0.1, 1, z * 0.1, seed + 2) - 0.5) < 0.03) m = crease;
-        if (variant !== 2 && Math.abs(u) < 0.25 && Math.abs(w + 0.1) < 0.18) m = print;
+        // printed logo: a ring / blob, partly hidden by folds
+        const pr = Math.hypot(u * 1.2, w + 0.1);
+        if (variant !== 2 && pr < 0.3 && pr > (variant === 1 ? 0 : 0.17) && valueNoise3(x * 0.5, 2, z * 0.5, seed + 4) > 0.3) m = print;
         b.set(x, h, z, m);
       }
   }
-  return { model: b.model(), meta: { size: b.sizeM(), footprint: [L, Wd], kind: 'plasticBag' } };
+  return { model: b.model(), meta: { size: b.sizeM(), footprint: [L, Wd], mount: 'floor', kind: 'plasticBag' } };
 }

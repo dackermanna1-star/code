@@ -100,7 +100,7 @@ const FACADE_PARS = /* glsl */ `
 uniform vec3 uBrickCols[48];
 uniform vec3 uBrickAvg[6];
 uniform vec3 uMortarCols[6];
-uniform vec4 uFacPaint[64];
+uniform vec4 uFacPaint[40];
 uniform highp sampler2DArray uPaint;
 uniform highp sampler2DArray uPaintProps;
 uniform highp sampler2DArray uGrime;

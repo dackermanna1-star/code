@@ -8,15 +8,37 @@ import { GLSL_COMMON, shared, patch } from '../render/shaderlib.js';
 import { POLES } from './layout.js';
 import { LAYER_REFLECT } from './units.js';
 
-/** Attachment heights per pole (relative to its height). */
-export function poleAnchors(P) {
+/**
+ * Attachment points per pole. `real` holds the pole prop's own anchors in world
+ * space (crossarm insulator tops and rack spools), so the conductors land on the
+ * hardware; without it the points are estimated from the pole height.
+ * primary is a list of crossarms (top first), each ordered from the wall outward.
+ */
+export function poleAnchors(P, real = null) {
   const top = P.height;
   const dir = P.x > 0 ? -1 : 1; // toward the alley centre
-  return {
-    primary: [0, 1, 2].map((k) => new THREE.Vector3(P.x + dir * (0.2 + k * 0.62), top - 0.75, P.z)),
+  const est = {
+    primary: [[0, 1, 2].map((k) => new THREE.Vector3(P.x + dir * (0.2 + k * 0.62), top - 0.75, P.z))],
     neutral: [0, 1].map((k) => new THREE.Vector3(P.x + dir * (0.15 + k * 0.3), top - 2.65, P.z)),
     secondary: new THREE.Vector3(P.x + dir * 0.18, top - 2.9, P.z),
-    telecom: [0, 1].map((k) => new THREE.Vector3(P.x + dir * (0.12 + k * 0.1), top - 4.9 - k * 0.32, P.z)),
+    // telecom cables are lashed to the pole face below the power space
+    telecom: [0, 1].map((k) => new THREE.Vector3(P.x + dir * 0.15, top - 4.9 - k * 0.32, P.z + (k ? 0.04 : -0.04))),
+  };
+  if (!real?.primary?.length) return est;
+  const arms = [];
+  for (const p of [...real.primary].sort((a, b) => b.y - a.y)) {
+    const arm = arms.find((a) => Math.abs(a[0].y - p.y) < 0.25);
+    if (arm) arm.push(p);
+    else arms.push([p]);
+  }
+  for (const a of arms) a.sort((p, q) => dir * (p.x - q.x));
+  const isPrimary = (p) => real.primary.some((q) => q.distanceToSquared(p) < 1e-6);
+  const rack = (real.wires ?? []).filter((p) => !isPrimary(p)).sort((a, b) => b.y - a.y);
+  return {
+    primary: arms,
+    neutral: [rack[0] ?? est.neutral[0], rack[1] ?? est.neutral[1]],
+    secondary: rack.length ? rack[rack.length - 1] : est.secondary,
+    telecom: est.telecom,
   };
 }
 
@@ -36,23 +58,26 @@ export class Wires {
     this.list.push({ a: a.clone(), b: null, len, curl: opts.curl ?? 0.3, thick: opts.thick ?? 0.012, sway: opts.sway ?? 2.5, color: opts.color ?? [14, 14, 15], dangle: true });
   }
 
-  /** Lay out the alley's wire network. */
-  layout() {
+  /** Lay out the alley's wire network. `real`: pole id -> the pole prop's world-space anchors. */
+  layout(real = null) {
     const r = this.rng;
-    const A = POLES.map((P) => ({ P, a: poleAnchors(P) }));
-    // pole-to-pole runs along the alley
+    const A = POLES.map((P) => ({ P, a: poleAnchors(P, real?.get(P.id)) }));
+    // pole-to-pole runs along the alley, crossarm to crossarm
     for (let i = 0; i < A.length - 1; i++) {
       const p = A[i].a, q = A[i + 1].a;
-      for (let k = 0; k < 3; k++) this.add(p.primary[k], q.primary[k], { sag: 0.018 + r.range(0, 0.008), thick: 0.016 });
+      for (let arm = 0; arm < Math.min(p.primary.length, q.primary.length); arm++) {
+        const pa = p.primary[arm], qa = q.primary[arm];
+        for (let k = 0; k < Math.min(pa.length, qa.length); k++) this.add(pa[k], qa[k], { sag: 0.018 + r.range(0, 0.008), thick: 0.016 });
+      }
       for (let k = 0; k < 2; k++) this.add(p.neutral[k], q.neutral[k], { sag: 0.025 + r.range(0, 0.01), thick: 0.013 });
       for (let k = 0; k < 2; k++) this.add(p.telecom[k], q.telecom[k], { sag: 0.04 + r.range(0, 0.02), thick: k === 0 ? 0.034 : 0.022 });
     }
     // beyond the ends (fade into the distance)
     const p0 = A[0].a;
-    for (let k = 0; k < 3; k++) this.add(p0.primary[k], p0.primary[k].clone().add(new THREE.Vector3(0, 0.6, 26)), { sag: 0.02, thick: 0.016 });
+    for (const c of p0.primary[0]) this.add(c, c.clone().add(new THREE.Vector3(0, 0.6, 26)), { sag: 0.02, thick: 0.016 });
     this.add(p0.telecom[0], p0.telecom[0].clone().add(new THREE.Vector3(-14, 1.0, 16)), { sag: 0.035, thick: 0.03 });
     const p3 = A[3].a;
-    for (let k = 0; k < 3; k++) this.add(p3.primary[k], new THREE.Vector3(p3.primary[k].x - 26, p3.primary[k].y + 0.4, p3.primary[k].z - 1.2), { sag: 0.02, thick: 0.016 });
+    for (const c of p3.primary[0]) this.add(c, new THREE.Vector3(c.x - 26, c.y + 0.4, c.z - 1.2), { sag: 0.02, thick: 0.016 });
     for (let k = 0; k < 2; k++) this.add(p3.telecom[k], new THREE.Vector3(p3.telecom[k].x + 21, p3.telecom[k].y - 0.5, p3.telecom[k].z - 0.3), { sag: 0.04, thick: 0.026 });
 
     // service drops from pole secondaries to building weatherheads
@@ -77,6 +102,8 @@ export class Wires {
       const a = new THREE.Vector3(-2.72, ya, z), b = new THREE.Vector3(2.72, Math.max(4.8, yb), z2);
       this.add(a, b, { sag: r.range(0.04, 0.12), thick: r.range(0.008, 0.016), sway: 1.4 });
     }
+    // the cable the sneakers hang from (shoesOnWire at 0.4, 7.25, -19.6; sags 0.11 m there)
+    this.add(new THREE.Vector3(-2.72, 7.36, -18.635), new THREE.Vector3(2.72, 7.36, -20.317), { sag: 0.02, thick: 0.012, sway: 0.4 });
     // long cables running down the alley along/near the walls
     for (const side of [-1, 1]) {
       let z = 12;

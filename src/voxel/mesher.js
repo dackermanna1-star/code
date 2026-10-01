@@ -208,6 +208,16 @@ export function greedyMesh(grid, palette, opts = {}) {
                 for (let k = 0; k < w; k++) if (mask[row + k] !== key) break outer;
                 h++;
               }
+            } else {
+              // AO that only varies along one axis interpolates exactly when the
+              // quad is stretched along the other one (curved steps, ribs)
+              const ab = (key >>> 1) & 0xff;
+              const b0 = ab & 3, b1 = (ab >> 2) & 3, b2 = (ab >> 4) & 3, b3 = (ab >> 6) & 3;
+              if (b0 === b1 && b3 === b2) {
+                while (iu + w < du && mask[iv * du + iu + w] === key) w++;
+              } else if (b0 === b3 && b1 === b2) {
+                while (iv + h < dv && mask[(iv + h) * du + iu] === key) h++;
+              }
             }
             // emit quad
             const m = key >>> 9;

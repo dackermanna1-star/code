@@ -283,8 +283,8 @@ export function windowBars(rng, opts = {}) {
   chips(b, rng, [steel], { density: col[0] > 150 ? 0.03 : 0.01, kinds: ['rust', 'rust', 'bare'] });
   rust(b, [steel], { amount: 0.5, seed: rng.int(1, 1e5), bottom: 6, edges: true });
   streaks(b, rng, [steel], { count: 4, len: [4, 14], kind: 'rust' });
-  b.setMount([-(b.W / 2 + ov) * vs, -ov * vs, -zr * vs + (opts.recess ? (opts.recess - zr * vs) : 0)]);
-  b.origin[2] = 0;
+  // tabs' back face lands exactly on z = recess (the wall face) when recess is given, else z = 0
+  b.setMount([-(b.W / 2 + ov) * vs, -ov * vs, (opts.recess ?? 0) - zr * vs]);
   return { model: b.model(), meta: { size: [W * vs, H * vs, (zr + 4) * vs], mount: opts.recess ? 'opening' : 'wall', kind: 'windowBars', previewY: 1.0 } };
 }
 
@@ -613,7 +613,8 @@ export function garageDoor(rng, opts = {}) {
 export function slidingDoor(rng, opts = {}) {
   const vs = VS_FINE;
   const w = opts.w ?? 4.4, h = opts.h ?? 3.6;
-  const zr = Math.round((opts.recess ?? 0.135) / vs);
+  const recessM = opts.recess ?? 0.135;
+  const zr = 0; // grid starts at the wall face (origin z shifted by the recess below)
   const open = Math.round((opts.open ?? rng.range(0, 0.6)) / vs);
   const over = 8; // leaf overlap past the jambs
   const trackUp = 14;
@@ -660,8 +661,9 @@ export function slidingDoor(rng, opts = {}) {
   grime(b, [leafM, leafD, leafL, frameM], { h: 26, amount: 0.55, seed: seed + 1, k: 0.75, freq: 0.04 });
   const src = paintFor(opts.paint, 'front');
   if (src) applyPaint(b, src, '+z', { u0: lx0, v0: 1, u1: lx1, v1: H }, { depthLimit: 3 });
-  const panes = open > 0 ? [{ ...pane(b, ox, 0, ox + open, H, 1), open: true }] : [];
-  return { model: b.model(), meta: { size: [(W + 2 * over + open) * vs, (H + trackUp) * vs, (zr + 10) * vs], mount: 'opening', kind: 'slidingDoor', panes, paintSurfaces: { front: { w: (lx1 - lx0) * vs, h: H * vs, face: '+z' } } } };
+  b.origin[2] = recessM;
+  const panes = open > 0 ? [{ ...pane(b, ox, 0, ox + open, H, 1), z: 0.02, open: true }] : [];
+  return { model: b.model(), meta: { size: [(W + 2 * over + open) * vs, (H + trackUp) * vs, recessM + 10 * vs], mount: 'opening', kind: 'slidingDoor', panes, paintSurfaces: { front: { w: (lx1 - lx0) * vs, h: H * vs, face: '+z' } } } };
 }
 
 // ───────────────────────────── stoop / bollard ─────────────────────────────
