@@ -823,7 +823,7 @@ P('coat_rack', {
     mb.cyl(0, 0, 0, 0.2, 0.03, 6, w, 1);
     mb.cyl(0, 0.03, 0, 0.025, 1.7, 5, w, 0);
     for (let k = 0; k < 4; k++) withXf(mb, xfRotY(k * Math.PI / 2), () => mb.rod(0, 1.6, 0, 0, 1.68, -0.18, 0.012, 4, w));
-    if (p.opts.coat !== false && r.chance(0.6)) {
+    if (p.opts.coat === true || (p.opts.coat !== false && r.chance(0.6))) {
       const coat = S('fabric_brown', { tint: r.pick([[1, 1, 1], [0.6, 0.6, 0.7], [0.5, 0.5, 0.45]]) });
       mb.box(-0.2, 0.75, -0.24, 0.2, 1.62, -0.12, coat);
     }

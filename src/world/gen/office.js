@@ -153,14 +153,23 @@ function workstation(zb, x, z, rot, r, opts = {}) {
   const fx = Math.sin(rot), fz = -Math.cos(rot);
   zb.prop('desk', x, 0, z, rot, { side: opts.side });
   const abandoned = zb.params.abandoned;
-  if (r.chance(0.9)) zb.prop('crt', x - fz * 0.25 * 0 + fx * 0.1, 0.75, z + fz * 0.1, rot + Math.PI + r.range(-0.15, 0.15), { screen: r.chance(abandoned ? 0.06 : 0.18) ? r.pick(['crt_blue', 'crt_green']) : 'crt_off' });
-  if (r.chance(0.8)) zb.prop('keyboard', x + fx * 0.22, 0.75, z + fz * 0.22, rot + Math.PI + r.range(-0.2, 0.2));
+  // a desk someone seems to have just stepped away from
+  const recent = opts.recent || (!abandoned && r.chance(0.04));
+  const sx = Math.cos(rot), sz = Math.sin(rot);
+  if (r.chance(0.9)) zb.prop('crt', x - fx * 0.06, 0.75, z - fz * 0.06, rot + r.range(-0.15, 0.15), { screen: r.chance(recent ? 0.8 : abandoned ? 0.06 : 0.18) ? r.pick(['crt_blue', 'crt_green']) : 'crt_off' });
+  if (r.chance(recent ? 0.85 : abandoned ? 0.05 : 0.14)) {
+    const s = r.sign();
+    zb.prop('mug', x + sx * s * r.range(0.42, 0.6) + fx * r.range(0.05, 0.25), 0.75, z + sz * s * r.range(0.42, 0.6) + fz * r.range(0.05, 0.25), r.range(0, 6.28));
+  }
+  if (r.chance(recent ? 0.35 : 0.05)) zb.prop('photo_frame', x + sx * 0.62 - fx * 0.25, 0.75, z + sz * 0.62 - fz * 0.25, rot + r.range(-0.4, 0.4));
+  if (r.chance(recent ? 0.3 : 0.03)) zb.prop('bag', x + sx * 1.0 + fx * 0.35, 0, z + sz * 1.0 + fz * 0.35, rot + r.range(-0.8, 0.8));
+  if (r.chance(0.8)) zb.prop('keyboard', x + fx * 0.26, 0.75, z + fz * 0.26, rot + Math.PI + r.range(-0.2, 0.2));
   if (r.chance(0.14)) zb.prop('phone', x + Math.cos(rot) * 0.5 + fx * 0.15, 0.75, z + Math.sin(rot) * 0.5 + fz * 0.15, rot + Math.PI + r.range(-0.4, 0.4), { useY: 0.1 });
   if (r.chance(0.3)) zb.prop('papers', x - Math.cos(rot) * 0.4, 0.75, z - Math.sin(rot) * 0.4, 0, { n: r.int(1, 3) });
   if (r.chance(0.05)) zb.prop('note', x + Math.cos(rot) * 0.3 + fx * 0.25, 0.755, z + Math.sin(rot) * 0.3 + fz * 0.25, r.range(0, 6), { text: r.int(0, 999) });
-  if (r.chance(0.12)) zb.prop('lamp_desk', x - Math.cos(rot) * 0.55 - fx * 0.1, 0.75, z - Math.sin(rot) * 0.55 - fz * 0.1, rot, { on: r.chance(0.5) });
-  if (r.chance(abandoned ? 0.6 : 0.85)) {
-    const cd = 0.75 + r.range(-0.1, 0.3);
+  if (r.chance(recent ? 0.4 : 0.12)) zb.prop('lamp_desk', x - Math.cos(rot) * 0.55 - fx * 0.1, 0.75, z - Math.sin(rot) * 0.55 - fz * 0.1, rot, { on: recent || r.chance(0.5) });
+  if (recent || r.chance(abandoned ? 0.6 : 0.85)) {
+    const cd = (recent ? 1.0 : 0.75) + r.range(-0.1, 0.3);
     const tilt = abandoned && r.chance(0.12);
     zb.prop(r.chance(0.85) ? 'chair_office' : 'chair_folding', x + fx * cd + r.range(-0.2, 0.2), 0, z + fz * cd + r.range(-0.2, 0.2), rot + Math.PI + r.range(-0.7, 0.7), tilt ? { roll: Math.PI / 2, collide: true } : {});
   }
@@ -227,7 +236,13 @@ function furnish(zb, rm, r) {
     case 'office': {
       // desk facing the door side, chair behind it, cabinet & shelf on walls
       const rot = r.pick([0, Math.PI / 2, Math.PI, -Math.PI / 2]);
-      workstation(zb, cx, cz, rot, r);
+      const recent = !p.abandoned && r.chance(0.18);
+      workstation(zb, cx, cz, rot, r, { recent });
+      if (r.chance(recent ? 0.8 : 0.25)) {
+        const cxs = [[x0 + 0.45, z0 + 0.45], [x1 - 0.45, z0 + 0.45], [x0 + 0.45, z1 - 0.45], [x1 - 0.45, z1 - 0.45]];
+        const c = cxs[r.int(0, 3)];
+        if (!nearDoor(rm, Math.floor(c[0]), Math.floor(c[1]))) zb.prop('coat_rack', c[0], 0, c[1], r.range(0, 6.28), { coat: recent || undefined });
+      }
       const spots = findWallSpots(zb, x0, z0, x1, z1, 4, r);
       spots.forEach((f, k) => {
         if (nearDoor(rm, Math.floor(f.x - f.dx * 0.5), Math.floor(f.z - f.dz * 0.5))) return;
