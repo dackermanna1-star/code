@@ -270,10 +270,10 @@ function createWindowMaterial(stateTex, count) {
           tvF = 0.45 + 0.9 * f1 * f2;
           lampCol = mix(lampCol * 0.35, vec3(0.55, 0.7, 1.0) * tvF, 0.8);
         }
-        vec3 lit = lampCol * (1.6 / (0.6 + dist2)) * level;
+        vec3 lit = lampCol * (0.75 / (0.6 + dist2)) * level;
         vec3 roomRad = col * (lit + 0.0025);
         // ceiling hot-spot near the lamp
-        if (surf == 3) roomRad += lampCol * level * 0.6 * exp(-dot(L.xz, L.xz) * 3.0);
+        if (surf == 3) roomRad += lampCol * level * 0.25 * exp(-dot(L.xz, L.xz) * 3.0);
 
         // curtains / blinds just behind the glass
         vec3 outRad = roomRad;
@@ -284,7 +284,7 @@ function createWindowMaterial(stateTex, count) {
           float cover = step(abs(u01 - 0.5), 0.5) * (1.0 - step(abs(u01 - 0.5 - (fract(seed * 7.1) - 0.5) * 0.2), gap * 0.5));
           float folds = 0.75 + 0.25 * sin(vUv.x * 38.0 + sin(vUv.y * 3.0) * 0.6);
           vec3 fab = mix(vec3(0.6, 0.45, 0.3), vec3(0.55, 0.52, 0.45), fract(seed * 5.3));
-          vec3 curtainRad = fab * folds * (lampCol * 0.55 * level + 0.003);
+          vec3 curtainRad = fab * folds * (lampCol * 0.17 * level + 0.003);
           // silhouette of someone walking past, cast onto the curtain
           vec2 sp = vec2(vUv.x - W * 0.5 - silX, vUv.y + sill);
           float person = min(length(sp - vec2(0.0, 1.62)) - 0.12, sdCapsule(sp, vec2(0.0, 0.3), vec2(0.0, 1.38), 0.2));
@@ -297,13 +297,13 @@ function createWindowMaterial(stateTex, count) {
           float openness = 0.25 + 0.5 * fract(seed * 9.3);
           float raised = step(0.82 - 0.3 * fract(seed * 2.9), v01);
           float blind = (1.0 - raised) * step(openness, slat);
-          vec3 slatCol = vec3(0.55, 0.52, 0.47) * (lampCol * 0.45 * level + 0.003) * (0.8 + 0.2 * slat);
+          vec3 slatCol = vec3(0.55, 0.52, 0.47) * (lampCol * 0.14 * level + 0.003) * (0.8 + 0.2 * slat);
           outRad = mix(roomRad, slatCol, blind);
         } else if (style == 3.0) {
-          vec3 sheet = vec3(0.65, 0.6, 0.55) * (lampCol * 0.5 * level + 0.003);
+          vec3 sheet = vec3(0.65, 0.6, 0.55) * (lampCol * 0.15 * level + 0.003);
           outRad = mix(roomRad, sheet, 0.85);
         } else if (style == 4.0) {
-          vec3 paper = vec3(0.5, 0.47, 0.4) * (0.75 + 0.25 * texture2D(uNoise2, vUv * 3.0).r) * (lampCol * 0.25 * level + 0.002);
+          vec3 paper = vec3(0.5, 0.47, 0.4) * (0.75 + 0.25 * texture2D(uNoise2, vUv * 3.0).r) * (lampCol * 0.08 * level + 0.002);
           outRad = mix(roomRad, paper, 0.95);
         }
 

@@ -56,10 +56,10 @@ export class Post {
     this.q = opts.quality ?? 'high';
     this.fogScale = this.q === 'low' ? 0.25 : 0.5;
     this.fogSteps = this.q === 'low' ? 16 : this.q === 'medium' ? 22 : 28;
-    this.exposure = opts.exposure ?? 9.0;
+    this.exposure = opts.exposure ?? 10.5;
     this.fade = 1;
     this.bloomStrength = 0.055;
-    this.fogLightScale = 0.38;
+    this.fogLightScale = 0.3;
     this.size = new THREE.Vector2(1, 1);
   }
 
@@ -116,10 +116,10 @@ export class Post {
         uNear: { value: 0.04 },
         uFar: { value: 700 },
         uFrame: { value: 0 },
-        uMaxDist: { value: 110 },
-        uDensity: { value: 0.022 },
-        uHeightFalloff: { value: 0.22 },
-        uFogAmbient: { value: new THREE.Vector3(0.0045, 0.0065, 0.011) },
+        uMaxDist: { value: 95 },
+        uDensity: { value: 0.008 },
+        uHeightFalloff: { value: 0.3 },
+        uFogAmbient: { value: new THREE.Vector3(0.0035, 0.005, 0.0088) },
         uBounceScale: { value: 0.05 },
         uWindOffset: { value: new THREE.Vector3() },
         uIrrA: shared.uIrrA,
@@ -127,7 +127,8 @@ export class Post {
         uIrrInvSize: shared.uIrrInvSize,
         uNoise3: shared.uNoise3,
         uTime: shared.uTime,
-        uSteam: { value: [] },
+        uSteam: { value: [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()] },
+        uWind: shared.uWind,
         ...lightUniforms,
       },
       vertexShader: FS_VERT.replace(/varying/g, 'out'),
@@ -144,6 +145,8 @@ export class Post {
         uniform highp sampler3D uIrrA;
         uniform highp sampler3D uNoise3;
         uniform vec3 uIrrMin, uIrrInvSize;
+        uniform vec4 uSteam[5];
+        uniform float uWind;
         ${N > 0 ? `uniform vec3 uLPos[${N}]; uniform vec3 uLDir[${N}]; uniform vec3 uLCol[${N}]; uniform vec4 uLCone[${N}];` : ''}
         ${S > 0 ? `uniform mat4 uShadowMat[${S}];` : ''}
         ${shadowLights.map((_, i) => `uniform sampler2DShadow uShadow${i};`).join('\n')}
@@ -155,13 +158,32 @@ export class Post {
           return (1.0 - g2) / (12.566 * pow(1.0 + g2 - 2.0 * g * c, 1.5)) * 12.566 * 0.35 + 0.65;
         }
         float n3(vec3 p) { return textureLod(uNoise3, p * (1.0 / 64.0), 0.0).r; }
+        float steam(vec3 p) {
+          float s = 0.0;
+          for (int i = 0; i < 5; i++) {
+            vec4 e = uSteam[i];
+            if (e.w <= 0.0) continue;
+            vec3 d = p - e.xyz;
+            if (d.y < -0.15 || d.y > 3.8) continue;
+            float h = max(d.y, 0.0);
+            vec2 drift = vec2(0.22, -0.32) * h * (0.35 + uWind);
+            float r = 0.1 + h * 0.3;
+            float rr = length(d.xz - drift);
+            if (rr > r * 2.0) continue;
+            float n = n3(p * 2.1 - vec3(uTime * 0.12, uTime * 0.85, 0.0));
+            float n2 = n3(p * 4.7 - vec3(0.0, uTime * 1.4, uTime * 0.2));
+            float core = exp(-rr * rr / (r * r)) * exp(-h * 0.75);
+            s += e.w * core * smoothstep(0.2, 0.8, n * 0.7 + n2 * 0.3 + 0.3 * core);
+          }
+          return s;
+        }
         float density(vec3 p) {
           float h = exp(-max(p.y, 0.0) * uHeightFalloff);
           float n = n3(p * 0.21 + uWindOffset);
           float n2 = n3(p * 0.63 + uWindOffset * 1.9 + 31.0);
           float mist = smoothstep(0.3, 0.85, n * 0.65 + n2 * 0.35);
-          float ground = 1.0 + 1.6 * exp(-max(p.y, 0.0) * 2.2);
-          return uDensity * (0.25 + 0.75 * h) * (0.35 + 1.3 * mist) * ground;
+          float ground = 1.0 + 1.1 * exp(-max(p.y, 0.0) * 2.5);
+          return uDensity * (0.25 + 0.75 * h) * (0.35 + 1.3 * mist) * ground + steam(p);
         }
         void main() {
           float d = textureLod(tDepth, vUv, 0.0).r;
@@ -331,6 +353,10 @@ export class Post {
           color = (color - minEv) / (maxEv - minEv);
           color = clamp(color, 0.0, 1.0);
           color = agxContrast(color);
+          // look: a little punchier than base AgX (deeper shadows, slightly richer colour)
+          float lumL = dot(color, vec3(0.2126, 0.7152, 0.0722));
+          color = mix(vec3(lumL), color, 1.12);
+          color = pow(max(color, 0.0), vec3(1.18));
           color = outset * color;
           color = pow(max(vec3(0.0), color), vec3(2.2));
           color = LIN_REC2020_TO_LIN_SRGB * color;
@@ -355,7 +381,7 @@ export class Post {
           // restrained grade: cool lifted shadows, faintly warm highlights, slight desaturation
           float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
           c = mix(vec3(l), c, 0.9);
-          vec3 shadowTint = vec3(0.86, 0.95, 1.12);
+          vec3 shadowTint = vec3(0.9, 0.96, 1.08);
           vec3 highTint = vec3(1.04, 1.0, 0.94);
           c *= mix(shadowTint, highTint, smoothstep(0.02, 0.5, l));
           c = c * 0.985 + vec3(0.0035, 0.0048, 0.0068);
@@ -377,18 +403,102 @@ export class Post {
       depthWrite: false,
     });
     this.finalPass = new FullscreenPass(this.finalMat);
+
+    // temporal AA: static-world reprojection from depth + neighbourhood clamp
+    this.taaMat = new THREE.ShaderMaterial({
+      uniforms: {
+        tCur: { value: null },
+        tHist: { value: null },
+        tDepth: { value: null },
+        uInvProj: { value: new THREE.Matrix4() },
+        uCamWorld: { value: new THREE.Matrix4() },
+        uPrevVP: { value: new THREE.Matrix4() },
+        uTexel: { value: new THREE.Vector2() },
+        uAlpha: { value: 0.1 },
+        uReset: { value: 1 },
+      },
+      vertexShader: FS_VERT,
+      fragmentShader: /* glsl */ `
+        uniform sampler2D tCur, tHist, tDepth;
+        uniform mat4 uInvProj, uCamWorld, uPrevVP;
+        uniform vec2 uTexel;
+        uniform float uAlpha, uReset;
+        varying vec2 vUv;
+        vec3 toYC(vec3 c) { return vec3(0.25 * c.r + 0.5 * c.g + 0.25 * c.b, 0.5 * c.r - 0.5 * c.b, -0.25 * c.r + 0.5 * c.g - 0.25 * c.b); }
+        vec3 fromYC(vec3 y) { return vec3(y.x + y.y - y.z, y.x + y.z, y.x - y.y - y.z); }
+        vec3 tm(vec3 c) { return c / (1.0 + dot(c, vec3(0.2126, 0.7152, 0.0722))); }
+        vec3 itm(vec3 c) { return c / max(1e-4, 1.0 - dot(c, vec3(0.2126, 0.7152, 0.0722))); }
+        void main() {
+          vec3 cur = tm(texture2D(tCur, vUv).rgb);
+          float d = texture2D(tDepth, vUv).r;
+          vec4 ndc = vec4(vUv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
+          vec4 vp = uInvProj * ndc;
+          vp /= vp.w;
+          vec4 wp = uCamWorld * vec4(vp.xyz, 1.0);
+          vec4 pc = uPrevVP * wp;
+          vec2 huv = pc.xy / pc.w * 0.5 + 0.5;
+          // neighbourhood min/max in YCoCg (tonemapped)
+          vec3 mn = vec3(1e9), mx = vec3(-1e9), m1 = vec3(0.0), m2 = vec3(0.0);
+          for (int y = -1; y <= 1; y++)
+            for (int x = -1; x <= 1; x++) {
+              vec3 c = toYC(tm(texture2D(tCur, vUv + vec2(float(x), float(y)) * uTexel).rgb));
+              mn = min(mn, c); mx = max(mx, c); m1 += c; m2 += c * c;
+            }
+          m1 /= 9.0;
+          vec3 sd = sqrt(max(m2 / 9.0 - m1 * m1, 0.0));
+          mn = max(mn, m1 - sd * 1.25);
+          mx = min(mx, m1 + sd * 1.25);
+          vec3 hist = toYC(tm(texture2D(tHist, huv).rgb));
+          hist = clamp(hist, mn, mx);
+          bool off = huv.x < 0.0 || huv.y < 0.0 || huv.x > 1.0 || huv.y > 1.0 || uReset > 0.5;
+          vec3 res = off ? toYC(cur) : mix(hist, toYC(cur), uAlpha);
+          gl_FragColor = vec4(itm(fromYC(res)), 1.0);
+        }
+      `,
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.taaPass = new FullscreenPass(this.taaMat);
+    this.prevVP = new THREE.Matrix4();
+    this.taaReset = true;
+    this.jitterIndex = 0;
+    this.taa = this.q !== 'low';
+  }
+
+  /** Halton(2,3) subpixel jitter applied to the camera projection. */
+  applyJitter(camera) {
+    if (!this.taa) return;
+    const halton = (i, b) => {
+      let f = 1, r = 0;
+      while (i > 0) {
+        f /= b;
+        r += f * (i % b);
+        i = Math.floor(i / b);
+      }
+      return r;
+    };
+    this.jitterIndex = (this.jitterIndex % 8) + 1;
+    const jx = (halton(this.jitterIndex, 2) - 0.5) * 2 / this.size.x;
+    const jy = (halton(this.jitterIndex, 3) - 0.5) * 2 / this.size.y;
+    camera.updateProjectionMatrix();
+    camera.projectionMatrix.elements[8] += jx;
+    camera.projectionMatrix.elements[9] += jy;
+    camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
   }
 
   setSize(w, h, dpr) {
     const W = Math.round(w * dpr), H = Math.round(h * dpr);
     this.size.set(W, H);
-    const samples = this.q === 'low' ? 0 : 4;
+    const samples = this.q === 'ultra' ? 4 : 0;
     this.dispose();
     this.depthTex = new THREE.DepthTexture(W, H, THREE.UnsignedIntType);
     this.mainRT = rt(W, H, { depthBuffer: true, samples, depthTexture: this.depthTex });
     const fw = Math.round(W * this.fogScale), fh = Math.round(H * this.fogScale);
     this.fogRT = rt(fw, fh);
     this.compRT = rt(W, H);
+    this.histA = rt(W, H);
+    this.histB = rt(W, H);
+    this.taaReset = true;
     this.bloomRTs = [];
     let bw = Math.round(W / 2), bh = Math.round(H / 2);
     for (let i = 0; i < 6; i++) {
@@ -397,11 +507,12 @@ export class Post {
       bh = Math.max(1, Math.round(bh / 2));
     }
     this.compMat.uniforms.uFogTexel.value.set(1 / fw, 1 / fh);
+    this.taaMat.uniforms.uTexel.value.set(1 / W, 1 / H);
     this.finalMat.uniforms.uRes.value.set(W, H);
   }
 
   dispose() {
-    const all = [this.mainRT, this.fogRT, this.compRT];
+    const all = [this.mainRT, this.fogRT, this.compRT, this.histA, this.histB];
     for (const r of all) r?.dispose();
     for (const b of this.bloomRTs ?? []) {
       b.down.dispose();
@@ -444,6 +555,7 @@ export class Post {
   render(scene, camera, dt, t) {
     const r = this.renderer;
     this.frame++;
+    this.applyJitter(camera);
     for (const h of this.preHooks) h(r, scene, camera);
 
     // main pass
@@ -463,8 +575,26 @@ export class Post {
     this.compMat.uniforms.tDepth.value = this.depthTex;
     this.compPass.render(r, this.compRT);
 
+    // temporal resolve
+    let hdr = this.compRT.texture;
+    if (this.taa) {
+      const tu = this.taaMat.uniforms;
+      tu.tCur.value = this.compRT.texture;
+      tu.tHist.value = this.histA.texture;
+      tu.tDepth.value = this.depthTex;
+      tu.uInvProj.value.copy(camera.projectionMatrixInverse);
+      tu.uCamWorld.value.copy(camera.matrixWorld);
+      tu.uPrevVP.value.copy(this.prevVP);
+      tu.uReset.value = this.taaReset ? 1 : 0;
+      this.taaPass.render(r, this.histB);
+      [this.histA, this.histB] = [this.histB, this.histA];
+      hdr = this.histA.texture;
+      this.prevVP.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      this.taaReset = false;
+    }
+
     // bloom chain
-    let src = this.compRT.texture;
+    let src = hdr;
     let sw = this.size.x, sh = this.size.y;
     this.bloomRTs.forEach((b, i) => {
       this.bloomDown.uniforms.tSrc.value = src;
@@ -488,7 +618,7 @@ export class Post {
 
     // final
     const fu = this.finalMat.uniforms;
-    fu.tHDR.value = this.compRT.texture;
+    fu.tHDR.value = hdr;
     fu.tBloom.value = up;
     fu.uExposure.value = this.exposure;
     fu.uBloom.value = this.bloomStrength;

@@ -51,11 +51,12 @@ async function main() {
         engine.step(1 / 60);
       }
     } else {
+      engine.body.group.visible = false;
       engine.camera.position.set(c[0], c[1], c[2]);
       engine.camera.rotation.set(THREE.MathUtils.degToRad(c[4] ?? 0), THREE.MathUtils.degToRad(c[3] ?? 0), 0, 'YXZ');
       engine.camera.updateMatrixWorld();
       // a couple of frames so shadow maps and mip chains settle
-      for (let i = 0; i < 3; i++) engine.step(1 / 60);
+      for (let i = 0; i < (q.has("frames") ? +q.get("frames") : 8); i++) engine.step(1 / 60);
     }
     window.__shotReady = true;
     return;

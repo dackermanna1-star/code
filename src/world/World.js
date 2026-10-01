@@ -15,6 +15,9 @@ import { Ground } from './ground.js';
 import { Windows } from './windows.js';
 import { CollisionGrid } from './collision.js';
 import { GMAT } from './groundData.js';
+import { Wires } from './wires.js';
+import { PropWorld } from './propPlacement.js';
+import { Traffic } from './traffic.js';
 
 const yieldFrame = () => new Promise((r) => setTimeout(r, 0));
 
@@ -78,10 +81,12 @@ export class World {
     progress(0.45);
     await yieldFrame();
 
-    // ── windows ──
+    // ── overhead wires ──
     t0 = performance.now();
-    this.windows = new Windows(this.engine).build(fac.fixtures, this.engine.paneProvider);
-    T('windows', t0);
+    this.wires = new Wires(this.engine);
+    this.wires.layout();
+    this.wires.build();
+    T('wires', t0);
 
     // ── collision ──
     t0 = performance.now();
@@ -105,8 +110,28 @@ export class World {
     shared.uSkyIrrSide.value.copy(si.side);
     shared.uGroundIrr.value.setRGB(0.012, 0.012, 0.014);
 
-    // ── lamps ──
+    // ── lamps (+ street lights and car light rigs behind the fence) ──
     this.buildLamps();
+    this.traffic = new Traffic(this.engine);
+    this.extraFogLights = this.traffic.buildLights(this.scene, this.lamps);
+    this.traffic.build();
+
+    // ── props ──
+    t0 = performance.now();
+    this.props = new PropWorld(this.engine).build(fac.fixtures);
+    T('props', t0);
+    progress(0.62);
+    await yieldFrame();
+
+    // ── windows (glass panes follow the sash models) ──
+    t0 = performance.now();
+    const panes = this.props.panes;
+    const provider = this.engine.paneProvider ?? ((fx) => {
+      const p = panes.get(fx);
+      return p && p.length ? p : null;
+    });
+    this.windows = new Windows(this.engine).build(fac.fixtures, (fx) => provider(fx) ?? [{ x: -fx.w / 2 + 0.05, y: 0.05, w: fx.w - 0.1, h: fx.h - 0.1, z: 0.03 }]);
+    T('windows', t0);
 
     // ── irradiance bake ──
     t0 = performance.now();
@@ -209,8 +234,19 @@ export class World {
     return 'asphalt';
   }
 
+  /** Deterministic gust function (replaced by the audio engine's windAt when available). */
+  windAt(t) {
+    if (this.engine.audio?.windAt) return this.engine.audio.windAt(t);
+    const g = 0.5 + 0.5 * Math.sin(t * 0.21) * Math.sin(t * 0.077 + 1.3);
+    const gust = Math.max(0, Math.sin(t * 0.13 + 2.0)) ** 6;
+    return Math.min(1, 0.15 + 0.45 * g + 0.5 * gust);
+  }
+
   update(dt, t) {
+    shared.uWind.value = this.windAt(t);
     this.windows?.update(dt, t);
+    this.props?.update(dt, t);
+    this.traffic?.update(dt, t);
     // lamp flicker
     for (const l of this.lamps) {
       const fl = l.def.flicker ?? 0;

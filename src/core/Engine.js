@@ -6,6 +6,8 @@ import { Post } from '../render/Post.js';
 import { Player } from '../player/Player.js';
 import { Body } from '../player/Body.js';
 import { captureEnvironment, applyEnvironment } from '../render/envCapture.js';
+import { Ambient } from '../world/ambient.js';
+import { Debris } from '../world/debris.js';
 import { LAYER_REFLECT } from '../world/units.js';
 
 export class Engine {
@@ -15,6 +17,8 @@ export class Engine {
     this.timer = new THREE.Timer();
     this.time = params.t ?? 0;
     this.frameHooks = [];
+    this.renderScale = 1;
+    this.perf = { acc: 0, n: 0, since: 0, lastAdjust: 0 };
   }
 
   async init(progress = () => {}) {
@@ -27,7 +31,8 @@ export class Engine {
       preserveDrawingBuffer: !!this.params.shot,
     });
     this.renderer = renderer;
-    this.pixelRatio = Math.min(window.devicePixelRatio || 1, this.params.dpr ?? 1.5);
+    this.basePixelRatio = Math.min(window.devicePixelRatio || 1, this.params.dpr ?? 1.5);
+    this.pixelRatio = this.basePixelRatio;
     renderer.setPixelRatio(this.pixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight, false);
     renderer.shadowMap.enabled = true;
@@ -57,8 +62,10 @@ export class Engine {
     this.body.group.visible = true;
     applyEnvironment(this.scene, this.envMap, 1.0);
     this.post = new Post(this, { quality: this.params.quality, exposure: this.params.exposure });
-    this.post.init(this.world.lamps);
+    this.post.init([...this.world.lamps, ...(this.world.extraFogLights ?? [])]);
     this.post.preHooks.push((r, s, c) => this.world.ground.reflection.render(r, s, c));
+    this.ambient = new Ambient(this).build();
+    this.debris = new Debris(this, this.world.props.material).build();
 
     window.addEventListener('resize', () => this.resize());
     this.resize();
@@ -66,6 +73,8 @@ export class Engine {
 
   resize() {
     const w = window.innerWidth, h = window.innerHeight;
+    this.pixelRatio = this.basePixelRatio * this.renderScale;
+    this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
@@ -82,10 +91,34 @@ export class Engine {
     const loop = (ts) => {
       this.raf = requestAnimationFrame(loop);
       this.timer.update(ts);
-      const dt = Math.min(0.05, this.timer.getDelta());
+      const raw = this.timer.getDelta();
+      this.adaptResolution(raw);
+      const dt = Math.min(0.05, raw);
       this.step(dt);
     };
     requestAnimationFrame(loop);
+  }
+
+  /** Dynamic resolution: keep frame time near the target by scaling the render resolution. */
+  adaptResolution(frameTime) {
+    if (this.params.fixedRes || !this.post) return;
+    const p = this.perf;
+    if (frameTime <= 0 || frameTime > 0.25) return; // ignore stalls (tab switches, shader compiles)
+    p.acc += frameTime;
+    p.n++;
+    p.since += frameTime;
+    if (p.since < 1.25) return;
+    const avg = p.acc / p.n;
+    p.acc = p.n = p.since = 0;
+    const now = this.time;
+    let next = this.renderScale;
+    if (avg > 1 / 48 && this.renderScale > 0.5) next = Math.max(0.5, this.renderScale - (avg > 1 / 30 ? 0.15 : 0.08));
+    else if (avg < 1 / 72 && this.renderScale < 1 && now - p.lastAdjust > 4) next = Math.min(1, this.renderScale + 0.05);
+    if (next !== this.renderScale) {
+      this.renderScale = next;
+      p.lastAdjust = now;
+      this.resize();
+    }
   }
 
   step(dt) {
@@ -98,6 +131,8 @@ export class Engine {
     }
     for (const h of this.frameHooks) h(dt, this.time);
     this.world.update(dt, this.time);
+    this.ambient?.update(dt, this.time);
+    this.debris?.update(dt, this.time);
     this.render(dt);
   }
 
@@ -115,11 +150,11 @@ export class Engine {
     const arr = shared.uCapsuleLights.value;
     for (let i = 0; i < 3; i++) {
       const c = cands[i];
-      if (!c || c.e < 0.15) {
+      if (!c || c.e < 0.012) {
         arr[i].set(0, 0, 0, 0);
         continue;
       }
-      arr[i].set(c.L.position.x, c.L.position.y, c.L.position.z, Math.min(0.75, c.e * 0.35));
+      arr[i].set(c.L.position.x, c.L.position.y, c.L.position.z, Math.min(0.75, c.e * 4.0));
     }
   }
 

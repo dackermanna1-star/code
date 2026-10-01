@@ -553,8 +553,8 @@ const GROUND_SURFACE = /* glsl */ `
   alb = mix(alb, vec3(0.085, 0.072, 0.058), silt * 0.55);
 
   // wetness: everything is wet after rain; puddle beds darkest, dirt patches less glossy
-  float wetFilm = clamp(0.72 + 0.28 * nz2.r - 0.25 * silt + 0.4 * pud, 0.0, 1.0) * uWetness;
-  alb *= mix(1.0, 0.55, wetFilm * porosity);
+  float wetFilm = clamp(0.5 + 0.7 * smoothstep(0.25, 0.75, nz2.r) - 0.35 * silt + 0.5 * pud, 0.0, 1.0) * uWetness;
+  alb *= mix(1.0, 0.45, wetFilm * porosity);
   // water sits between aggregate stones: rough stones poke through
   float filmRough = mix(0.1, 0.3, stone * (1.0 - pud));
   rough = mix(rough, filmRough, wetFilm);

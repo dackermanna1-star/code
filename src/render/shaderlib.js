@@ -12,6 +12,7 @@ export const shared = {
   uSkyIrr: { value: new THREE.Color(0.2, 0.25, 0.35) }, // irradiance from an open sky on an up-facing surface
   uSkyIrrSide: { value: new THREE.Color(0.12, 0.14, 0.2) },
   uGroundIrr: { value: new THREE.Color(0.02, 0.02, 0.025) },
+  uCanyonFill: { value: new THREE.Color(0.024, 0.022, 0.024) }, // light bounced between the alley walls
   uNoise3: { value: null }, // tiling 3D value noise (R8)
   uNoise2: { value: null }, // tiling 2D noise RGBA (independent channels)
   uWetness: { value: 1.0 },
@@ -30,6 +31,7 @@ uniform vec3 uIrrInvSize;
 uniform vec3 uSkyIrr;
 uniform vec3 uSkyIrrSide;
 uniform vec3 uGroundIrr;
+uniform vec3 uCanyonFill;
 uniform highp sampler3D uNoise3;
 uniform sampler2D uNoise2;
 uniform float uWetness;
@@ -82,6 +84,9 @@ vec3 sampleIrradiance(vec3 wp, vec3 n) {
   E += uSkyIrrSide * (sx * nn.x + sz * nn.z);
   E += uGroundIrr * (0.35 + 0.65 * skyUp) * (n.y < 0.0 ? nn.y : 0.0);
   E += uGroundIrr * 0.5 * (nn.x + nn.z) * (0.5 + 0.5 * skyUp);
+  // inter-reflection between the facing walls: where the sky is hidden you see a sky-lit wall
+  float sideVis = sx * nn.x + sz * nn.z + skyUp * max(n.y, 0.0) * nn.y;
+  E += uCanyonFill * (1.0 - clamp(sideVis, 0.0, 1.0)) * (0.35 + 0.65 * skyUp) * 1.5;
   E += A.rgb;
   return E;
 }

@@ -7,5 +7,6 @@ export default defineConfig({
     assetsInlineLimit: 0,
     chunkSizeWarningLimit: 4000,
   },
-  server: { host: true },
+  // NO_HMR=1 serves without live reload (stable headless screenshots while files change)
+  server: { host: true, hmr: process.env.NO_HMR ? false : undefined },
 });

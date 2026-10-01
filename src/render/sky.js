@@ -4,11 +4,11 @@ import * as THREE from 'three';
 import { shared } from './shaderlib.js';
 
 export const SKY = {
-  zenith: new THREE.Color(0.016, 0.03, 0.07),
-  horizon: new THREE.Color(0.05, 0.075, 0.13),
-  glow: new THREE.Color(0.045, 0.03, 0.02),
-  cloudLit: new THREE.Color(0.06, 0.07, 0.1),
-  cloudDark: new THREE.Color(0.02, 0.028, 0.05),
+  zenith: new THREE.Color(0.011, 0.026, 0.082),
+  horizon: new THREE.Color(0.04, 0.068, 0.14),
+  glow: new THREE.Color(0.03, 0.02, 0.014),
+  cloudLit: new THREE.Color(0.05, 0.065, 0.11),
+  cloudDark: new THREE.Color(0.018, 0.028, 0.058),
 };
 
 export function createSky() {
