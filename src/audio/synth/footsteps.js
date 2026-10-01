@@ -12,40 +12,71 @@ export const PARTS = ['heel', 'toe', 'scuff'];
 
 // Per-surface parameters of the shared heel/toe cores.
 const P = {
-  asphalt:  { lp: [6200, 8200], click: 1.0, body: 0.95, decay: 0.85, f1: [1500, 2250], tock: 0.34, thump: 0.3, toeLP: [1300, 2200], toeAmp: 1, toeThump: 0.35, toeScrape: 0.10, len: 0.2 },
-  concrete: { lp: [10500, 14500], click: 1.1, body: 1.05, decay: 1.15, f1: [1750, 2600], tock: 0.3, thump: 0.2, toeLP: [2000, 3200], toeAmp: 1, toeThump: 0.25, toeScrape: 0.16, len: 0.2 },
+  asphalt:  { lp: [6200, 8200], click: 1.0, body: 0.95, decay: 0.85, f1: [1650, 2450], tock: 0.34, thump: 0.3, toeLP: [1300, 2200], toeAmp: 1, toeThump: 0.35, toeScrape: 0.10, len: 0.2 },
+  concrete: { lp: [10500, 14500], click: 1.1, body: 1.05, decay: 1.15, f1: [1900, 2800], tock: 0.3, thump: 0.2, toeLP: [2000, 3200], toeAmp: 1, toeThump: 0.25, toeScrape: 0.16, len: 0.2 },
   metal:    { lp: [8500, 12000], click: 0.85, body: 0.55, decay: 0.9, f1: [1600, 2400], tock: 0.22, thump: 0.1, toeLP: [1500, 2600], toeAmp: 0.8, toeThump: 0.2, toeScrape: 0.1, len: 0.75 },
   grate:    { lp: [8000, 11000], click: 0.85, body: 0.5, decay: 0.85, f1: [1600, 2400], tock: 0.22, thump: 0.12, toeLP: [1500, 2500], toeAmp: 0.8, toeThump: 0.2, toeScrape: 0.1, len: 0.6 },
   puddle:   { lp: [2300, 3300], click: 0.42, body: 0.3, decay: 0.5, f1: [1400, 2000], tock: 0.3, thump: 0.38, toeLP: [800, 1300], toeAmp: 0.6, toeThump: 0.4, toeScrape: 0.0, len: 0.5 },
-  wet:      { lp: [4800, 6400], click: 0.85, body: 0.8, decay: 0.75, f1: [1500, 2200], tock: 0.34, thump: 0.3, toeLP: [1100, 1900], toeAmp: 0.9, toeThump: 0.35, toeScrape: 0.05, len: 0.32 },
+  wet:      { lp: [4800, 6400], click: 0.85, body: 0.8, decay: 0.75, f1: [1600, 2400], tock: 0.34, thump: 0.3, toeLP: [1100, 1900], toeAmp: 0.9, toeThump: 0.35, toeScrape: 0.05, len: 0.32 },
   debris:   { lp: [7500, 9500], click: 0.8, body: 0.65, decay: 0.8, f1: [1500, 2300], tock: 0.3, thump: 0.25, toeLP: [1500, 2600], toeAmp: 0.8, toeThump: 0.3, toeScrape: 0.15, len: 0.3 },
   glass:    { lp: [8000, 10500], click: 0.75, body: 0.55, decay: 0.8, f1: [1500, 2300], tock: 0.28, thump: 0.25, toeLP: [1600, 2800], toeAmp: 0.75, toeThump: 0.3, toeScrape: 0.15, len: 0.35 },
   wood:     { lp: [6500, 9000], click: 0.8, body: 0.5, decay: 0.8, f1: [1400, 2100], tock: 0.25, thump: 0.12, toeLP: [1200, 2000], toeAmp: 0.85, toeThump: 0.2, toeScrape: 0.08, len: 0.32 },
   cardboard:{ lp: [2800, 4000], click: 0.35, body: 0.22, decay: 0.45, f1: [1300, 1900], tock: 0.2, thump: 0.3, toeLP: [900, 1500], toeAmp: 0.7, toeThump: 0.35, toeScrape: 0.04, len: 0.3 },
 };
 
+// Energy weights of the heel-click components per surface: contact click, resonant body noise,
+// heel-tip modes, boot-block "tock", ground thump. (Mixing by energy keeps the click broadband with
+// resonant emphasis instead of a set of pure tones.)
+const W_HEEL = {
+  asphalt: [0.32, 0.33, 0.15, 0.12, 0.08], concrete: [0.36, 0.3, 0.2, 0.1, 0.04], metal: [0.4, 0.2, 0.15, 0.15, 0.1],
+  grate: [0.4, 0.2, 0.15, 0.15, 0.1], puddle: [0.25, 0.25, 0.1, 0.2, 0.2], wet: [0.3, 0.32, 0.13, 0.15, 0.1],
+  debris: [0.32, 0.33, 0.15, 0.12, 0.08], glass: [0.32, 0.33, 0.15, 0.12, 0.08], wood: [0.35, 0.25, 0.1, 0.2, 0.1],
+  cardboard: [0.25, 0.2, 0.05, 0.25, 0.25],
+};
+
 // ---------------------------------------------------------------- shared cores
-function heelCore(out, sr, r, p, s0) {
+function energyOf(b) { let e = 0; for (let i = 0; i < b.length; i++) e += b[i] * b[i]; return e; }
+
+function heelCore(out, sr, r, p, s0, surf) {
   const lp = r.range(p.lp[0], p.lp[1]);
-  // 1) contact transient: extremely short broadband burst
-  addNoiseBurst(out, s0, sr, {
-    dur: 0.005, attack: r.range(0.00004, 0.0001), tau: r.range(0.0002, 0.0005),
-    hp: r.range(650, 1100), lp, lp2: lp * 1.4, amp: p.click * r.range(0.85, 1.1), seed: r.seed32(),
+  const n = Math.min(out.length, Math.round(0.09 * sr));
+  const comps = [new Float32Array(n), new Float32Array(n), new Float32Array(n), new Float32Array(n), new Float32Array(n)];
+  // 1) contact transient: very short broadband burst
+  addNoiseBurst(comps[0], s0, sr, {
+    dur: 0.006, attack: r.range(0.00004, 0.0001), tau: r.range(0.0003, 0.0008),
+    hp: r.range(350, 650), lp, lp2: lp * 1.4, amp: 1, seed: r.seed32(),
   });
-  // 2) heel-tip / boot resonances (inharmonic, 1.5-4.5 kHz)
+  // 2) resonant body noise of heel tip + boot shell: broad emphasis around 1.5-4 kHz
   const f1 = r.range(p.f1[0], p.f1[1]);
-  const ratios = [1, r.range(1.3, 1.5), r.range(1.76, 2.05), r.range(2.3, 2.75), r.range(2.9, 3.4)];
+  const fb = f1 * r.range(1.0, 1.35);
+  addNoiseBurst(comps[1], s0, sr, { dur: 0.06, attack: r.range(0.0001, 0.0003), tau: r.range(0.003, 0.007) * p.decay, bp: fb, bpQ: r.range(1.2, 2.2), lp, amp: 1, seed: r.seed32() });
+  addNoiseBurst(comps[1], s0, sr, { dur: 0.05, attack: 0.0002, tau: r.range(0.002, 0.005) * p.decay, bp: Math.min(lp, fb * r.range(1.6, 2.1)), bpQ: r.range(1.5, 2.5), lp, amp: 0.55, seed: r.seed32() });
+  // 3) heel-tip modes (inharmonic, moderately damped)
+  const ratios = [1, r.range(1.3, 1.5), r.range(1.76, 2.05)];
   for (let k = 0; k < ratios.length; k++) {
     const f = f1 * ratios[k];
     const att = 1 / (1 + Math.pow(f / (lp * 0.9), 4));
-    const tau = r.range(0.0035, 0.0085) * p.decay * Math.pow(f1 / f, 0.5);
-    const amp = p.body * (k === 0 ? r.range(0.3, 0.46) : r.range(0.07, 0.26)) * att;
-    addMode(out, s0, f, tau, amp, sr, r.range(0, 0.3));
+    const tau = r.range(0.0025, 0.006) * p.decay * Math.pow(f1 / f, 0.5);
+    addMode(comps[2], s0, f, tau, (k === 0 ? 1 : r.range(0.3, 0.6)) * att, sr, r.range(0, 0.3));
   }
-  // 3) heel block "tock" (lower boot body)
-  addMode(out, s0, r.range(650, 1150), r.range(0.0035, 0.0075) * p.decay, p.tock * r.range(0.6, 1.0), sr, 0);
-  // 4) ground/body thump with falling pitch (weight transfer)
-  addGlideMode(out, s0, r.range(130, 190), r.range(70, 100), 0.01, r.range(0.006, 0.012), p.thump * r.range(0.7, 1.0), sr);
+  // 4) heel block "tock" (lower boot body)
+  addMode(comps[3], s0, r.range(650, 1150), r.range(0.0035, 0.0075) * p.decay, 1, sr, 0);
+  // 5) ground/body thump with falling pitch (weight transfer)
+  addGlideMode(comps[4], s0, r.range(140, 200), r.range(80, 110), 0.008, r.range(0.004, 0.008), 1, sr);
+  const w = W_HEEL[surf] || W_HEEL.asphalt;
+  const core = new Float32Array(n);
+  for (let k = 0; k < 5; k++) {
+    const e = energyOf(comps[k]);
+    if (e <= 0) continue;
+    const g = Math.sqrt((w[k] * r.range(0.75, 1.25)) / e);
+    const c = comps[k];
+    for (let i = 0; i < n; i++) core[i] += c[i] * g;
+  }
+  // scale the core so its peak matches the surface's click level (layers are added on top)
+  let pk = 0;
+  for (let i = 0; i < n; i++) pk = Math.max(pk, Math.abs(core[i]));
+  const g = pk > 0 ? (p.click * r.range(0.9, 1.1)) / pk : 0;
+  for (let i = 0; i < n; i++) out[i] += core[i] * g;
 }
 
 function toeCore(out, sr, r, p, s0) {
@@ -54,7 +85,7 @@ function toeCore(out, sr, r, p, s0) {
     dur: 0.09, attack: r.range(0.0008, 0.002), tau: r.range(0.006, 0.013),
     hp: r.range(130, 240), lp: r.range(p.toeLP[0], p.toeLP[1]), amp: p.toeAmp * r.range(0.8, 1.1), seed: r.seed32(),
   });
-  addGlideMode(out, s0, r.range(110, 150), r.range(62, 88), 0.012, r.range(0.009, 0.016), p.toeThump * r.range(0.7, 1), sr);
+  addGlideMode(out, s0, r.range(110, 150), r.range(62, 88), 0.012, r.range(0.007, 0.012), p.toeThump * 0.7 * r.range(0.7, 1), sr);
   for (let k = 0; k < 2; k++) {
     addMode(out, s0 + Math.round(r.range(0, 0.001) * sr), r.range(380, 950), r.range(0.002, 0.005), p.toeAmp * r.range(0.08, 0.2), sr, 0);
   }
@@ -193,7 +224,7 @@ function addPlate(out, sr, r, s0, o) {
     addMode(out, s0, f, tau, amp, sr, 0);
     if (r.chance(0.4)) addMode(out, s0, f * (1 + r.range(0.002, 0.008)), tau * r.range(0.8, 1.1), amp * r.range(0.4, 0.8), sr, 0);
   }
-  if (o.hollow) addMode(out, s0, r.range(140, 320), r.range(0.02, 0.045), o.hollow, sr, 0);
+  if (o.hollow) addMode(out, s0, r.range(160, 340), r.range(0.012, 0.025), o.hollow * 0.55, sr, 0);
 }
 
 function addRattle(out, sr, r, s0, o) {
@@ -232,7 +263,7 @@ function addGlass(out, sr, r, s0, amount) {
     const a = Math.pow(r.next(), 1.5) * 0.5 * (1 - t / 0.25);
     addNoiseBurst(out, st, sr, { dur: 0.003, attack: 0.00005, tau: 0.0003, hp: 3000, lp: 12000, amp: a * 0.6, seed: r.seed32() });
     const parts = r.int(1, 3);
-    for (let k = 0; k < parts; k++) addMode(out, st, r.logRange(3000, 9500), r.range(0.004, 0.02), a * r.range(0.15, 0.4), sr, 0);
+    for (let k = 0; k < parts; k++) addMode(out, st, r.logRange(3000, 9500), r.range(0.0015, 0.006), a * r.range(0.15, 0.4), sr, 0);
   }
   addCrackle(out, s0, sr, r, { dur: r.range(0.04, 0.1), rate: 900, amp: 0.3 * amount, hp: 3000, lp: 12000, shape: (u) => 1 - u });
 }
@@ -283,7 +314,7 @@ function buildHeel(surf, r, sr) {
   const p = P[surf];
   const out = new Float32Array(Math.round(p.len * sr));
   const s0 = 2;
-  heelCore(out, sr, r, p, s0);
+  heelCore(out, sr, r, p, s0, surf);
   switch (surf) {
     case 'asphalt': addWetTsk(out, sr, r, s0, r.range(0.09, 0.15)); break;
     case 'concrete':

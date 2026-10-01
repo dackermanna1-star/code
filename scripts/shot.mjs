@@ -11,7 +11,7 @@ const page = await browser.newPage({ viewport: { width: +w, height: +h }, device
 const logs = [];
 page.on('console', (m) => logs.push(`[${m.type()}] ${m.text()}`));
 page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}`));
-const url = `${base}?shot&dpr=1&cam=${encodeURIComponent(cam)}${extra ? '&' + extra : ''}`;
+const url = `${base}?shot&dpr=1${extra.includes('q=') ? '' : '&q=high'}&cam=${encodeURIComponent(cam)}${extra ? '&' + extra : ''}`;
 const t0 = Date.now();
 await page.goto(url);
 try {

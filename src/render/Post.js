@@ -462,7 +462,7 @@ export class Post {
     this.prevVP = new THREE.Matrix4();
     this.taaReset = true;
     this.jitterIndex = 0;
-    this.taa = this.q !== 'low';
+    this.taa = true;
   }
 
   /** Halton(2,3) subpixel jitter applied to the camera projection. */

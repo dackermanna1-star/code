@@ -129,9 +129,9 @@ export class Ambience {
   }
 
   modulateBed(now) {
-    glide(this.rumbleG.gain, 0.15 * rand(0.75, 1.15), now, rand(2, 5));
+    glide(this.rumbleG.gain, 0.1 * rand(0.75, 1.15), now, rand(2, 5));
     glide(this.rumbleLP.frequency, rand(220, 420), now, rand(2, 5));
-    glide(this.hissG.gain, 0.06 * rand(0.6, 1.2), now, rand(2, 5));
+    glide(this.hissG.gain, 0.07 * rand(0.6, 1.2), now, rand(2, 5));
     glide(this.hissF.frequency, rand(3500, 6500), now, rand(2, 5));
     glide(this.humG.gain, 0.006 * rand(0.5, 1.2), now, rand(3, 7));
   }
@@ -224,17 +224,17 @@ export class Ambience {
       case 'distantCar': {
         const buf = b.distantCars[Math.floor(Math.random() * b.distantCars.length)];
         const from = rand(0.3, 0.9) * side;
-        return this.playDistant(buf, { type, db: rand(-33, -27), rate: rand(0.9, 1.1), panFrom: from, panTo: -from * rand(0.4, 1), dry: 0.55, wet: 0.65, lp: rand(1800, 3200) });
+        return this.playDistant(buf, { type, db: rand(-35, -30), rate: rand(0.9, 1.1), panFrom: from, panTo: -from * rand(0.4, 1), dry: 0.55, wet: 0.65, lp: rand(1800, 3200) });
       }
       case 'siren': {
         const buf = b.sirens[Math.floor(Math.random() * b.sirens.length)];
         const from = rand(0.2, 0.8) * side;
-        return this.playDistant(buf, { type, db: rand(-24, -20), rate: rand(0.97, 1.03), panFrom: from, panTo: -from * rand(0.2, 0.8), dry: 0.3, wet: 0.9, lp: 2600 });
+        return this.playDistant(buf, { type, db: rand(-38, -34), rate: rand(0.97, 1.03), panFrom: from, panTo: -from * rand(0.2, 0.8), dry: 0.3, wet: 0.9, lp: 2600 });
       }
       case 'train': {
         const buf = b.trains[Math.floor(Math.random() * b.trains.length)];
         const from = rand(0.4, 0.8) * side;
-        return this.playDistant(buf, { type, db: rand(-20, -17), rate: rand(0.96, 1.04), panFrom: from, panTo: -from, dry: 0.5, wet: 0.75, lp: 3000 });
+        return this.playDistant(buf, { type, db: rand(-29, -26), rate: rand(0.96, 1.04), panFrom: from, panTo: -from, dry: 0.5, wet: 0.75, lp: 3000 });
       }
       case 'streetVoices': {
         const buf = b.streetBabble;
@@ -242,14 +242,14 @@ export class Ambience {
         const A = this.engine.alley;
         const pos = opt.position || { x: rand(-14, 14), y: 1.6, z: A.zFront - rand(6, 12) };
         return this.playDistant(buf, {
-          type, db: rand(-12, -8), position: pos, ref: 12, dur, offset: Math.random() * (buf.duration - dur - 0.2),
+          type, db: rand(-22, -18), position: pos, ref: 12, dur, offset: Math.random() * (buf.duration - dur - 0.2),
           dry: 0.6, wet: 0.55, lp: 2600, alley: 0.06,
         });
       }
       case 'dog': {
         const n = 1 + Math.floor(Math.random() * 3);
         const from = rand(-0.8, 0.8);
-        const db = rand(-32, -27);
+        const db = rand(-36, -32);
         let t = 0;
         for (let k = 0; k < n; k++) {
           const buf = b.barks[Math.floor(Math.random() * b.barks.length)];

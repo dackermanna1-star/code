@@ -59,7 +59,7 @@ export const BRICK_SCHEMES = [
   {
     name: 'tan common',
     bricks: [[176, 146, 104], [188, 158, 114], [164, 128, 92], [196, 168, 124], [146, 116, 84], [180, 134, 100], [136, 102, 76], [170, 150, 112]],
-    mortar: [146, 138, 124],
+    mortar: [158, 150, 136],
   },
   {
     name: 'red brown',
@@ -344,6 +344,20 @@ export const FACADES = [
     lit: ['1:9', '2:10', '1:12', '2:7', '1:5', '2:14', '1:16'],
     ground: [{ type: 'storefront', u: 24, w: 12, h: 3.2 }],
   },
+  // backdrops seen through the far-left fence (across a vacant lot) and over the low wall at the right end
+  {
+    id: 'WB', face: '+x', plane: -36, start: -58, width: 42, height: 9.6, scheme: 2, bond: 'running',
+    floors: [0, 4.6], seed: 233, wallDepth: 0.4, cornice: 'none', coping: 'stone', backdrop: true,
+    bays: [4, 9, 14, 19, 24, 29, 34, 39], upper: [1], win: { w: 1.4, h: 1.6, sill: 0.9, type: 'steel' },
+    lit: ['1:3'],
+    ground: [{ type: 'rollup', u: 17.0, w: 3.6, h: 3.6 }],
+  },
+  {
+    id: 'XB', face: '-x', plane: 31, start: -100, width: 44, height: 12.8, scheme: 3, bond: 'running',
+    floors: [0, 4.2, 8.4], seed: 239, wallDepth: 0.4, cornice: 'corbel', coping: 'stone', backdrop: true,
+    bays: [3, 6.5, 10, 13.5, 17, 20.5, 24, 27.5, 31, 34.5, 38, 41.5], upper: [1, 2], win: STD_WIN,
+    lit: ['1:6', '2:7', '2:4'],
+  },
   { id: 'L0st', face: '+z', plane: 14, start: -14, width: 11.2, height: 14.2, scheme: 0, bond: 'common', seed: 211, wallDepth: 0.4, blank: true, coping: 'stone', backdrop: true },
   { id: 'R0st', face: '+z', plane: 14, start: 2.8, width: 11.2, height: 11.0, scheme: 1, bond: 'common', seed: 223, wallDepth: 0.4, blank: true, coping: 'stone', backdrop: true },
 ];
@@ -363,11 +377,11 @@ export const POLES = [
 // Hero light sources (positions in world space). Spot lights cast static shadows.
 export const LAMPS = [
   // warm caged bulb over L0 door
-  { id: 'L0door', kind: 'cage', facade: 'L0', u: 12.27, y: 2.52, color: 0xffb46a, intensity: 0.66, spot: { angle: 1.15, penumbra: 0.85, dist: 9 }, shadow: true, flicker: 0.02 },
+  { id: 'L0door', kind: 'cage', facade: 'L0', u: 12.27, y: 2.52, color: 0xffb46a, intensity: 1.12, spot: { angle: 1.15, penumbra: 0.85, dist: 9 }, shadow: true, flicker: 0.02 },
   // hero industrial gooseneck lamp on L1 (flickers, buzzes)
   { id: 'L1rlm', kind: 'rlm', facade: 'L1', u: 11.2, y: 4.55, out: 0.62, color: 0xffc27a, intensity: 10.20, spot: { angle: 1.05, penumbra: 0.7, dist: 22 }, shadow: true, flicker: 1.0 },
   // kitchen bulkhead on L2
-  { id: 'L2kitchen', kind: 'bulkhead', facade: 'L2', u: 13.48, y: 2.45, color: 0xffd9a8, intensity: 0.48, spot: { angle: 1.2, penumbra: 0.9, dist: 8 }, shadow: false, flicker: 0.0 },
+  { id: 'L2kitchen', kind: 'bulkhead', facade: 'L2', u: 13.48, y: 2.45, color: 0xffd9a8, intensity: 0.82, spot: { angle: 1.2, penumbra: 0.9, dist: 8 }, shadow: false, flicker: 0.0 },
   // sodium wall pack under the L2 dock soffit
   { id: 'L2dock', kind: 'wallpack', facade: 'L2', u: 8.0, y: 3.55, out: -1.9, color: 0xff9a40, intensity: 1.68, spot: { angle: 1.25, penumbra: 0.6, dist: 12 }, shadow: true, flicker: 0.05 },
   // wall pack over L3 door
@@ -375,13 +389,13 @@ export const LAMPS = [
   // greenish fluorescent over R2 door
   { id: 'R2fluoro', kind: 'fluoro', facade: 'R2', u: 5.47, y: 2.62, color: 0xd8ffe0, intensity: 0.84, spot: { angle: 1.3, penumbra: 0.9, dist: 10 }, shadow: false, flicker: 0.35 },
   // bulkhead at R0 door
-  { id: 'R0door', kind: 'bulkhead', facade: 'R0', u: 4.57, y: 2.55, color: 0xffcf96, intensity: 0.50, spot: { angle: 1.2, penumbra: 0.9, dist: 8 }, shadow: false, flicker: 0.0 },
+  { id: 'R0door', kind: 'bulkhead', facade: 'R0', u: 4.57, y: 2.55, color: 0xffcf96, intensity: 0.85, spot: { angle: 1.2, penumbra: 0.9, dist: 8 }, shadow: false, flicker: 0.0 },
   // cage at R4 door
-  { id: 'R4door', kind: 'cage', facade: 'R4', u: 3.47, y: 2.6, color: 0xffb060, intensity: 0.50, spot: { angle: 1.2, penumbra: 0.9, dist: 8 }, shadow: false, flicker: 0.0 },
+  { id: 'R4door', kind: 'cage', facade: 'R4', u: 3.47, y: 2.6, color: 0xffb060, intensity: 0.85, spot: { angle: 1.2, penumbra: 0.9, dist: 8 }, shadow: false, flicker: 0.0 },
   // wallpack on R5
   { id: 'R5door', kind: 'wallpack', facade: 'R5', u: 9.47, y: 2.75, color: 0xff9b45, intensity: 0.96, spot: { angle: 1.2, penumbra: 0.7, dist: 11 }, shadow: false, flicker: 0.0 },
   // cage at far end door (E)
-  { id: 'Edoor', kind: 'cage', facade: 'E', u: 24.07, y: 2.6, color: 0xffb468, intensity: 0.60, spot: { angle: 1.2, penumbra: 0.9, dist: 9 }, shadow: false, flicker: 0.0 },
+  { id: 'Edoor', kind: 'cage', facade: 'E', u: 24.07, y: 2.6, color: 0xffb468, intensity: 1.02, spot: { angle: 1.2, penumbra: 0.9, dist: 9 }, shadow: false, flicker: 0.0 },
 ];
 
 // The alley's walkable region, described as axis-aligned rectangles (x0,z0,x1,z1).
@@ -410,6 +424,8 @@ export const BLOCKS = [
   [-22, -91.5, 22, -79.5, 11.6], // E
   [22, -79.5, 30, -74, 3.4], // Xend
   [-30, 26, 30, 38, 12.4], // across the street
+  [-48, -100, -36, -58, 9.6], // WB backdrop beyond the lot
+  [31, -100, 43, -56, 12.8], // XB backdrop
   [-30, -110, 30, -91.5, 10.0], // beyond E
   [14.8, -74, 30, 14, 10.0], // far right fillers
   [-30, -74, -14.8, 14, 11.0], // far left fillers

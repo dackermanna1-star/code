@@ -12,7 +12,7 @@ export const shared = {
   uSkyIrr: { value: new THREE.Color(0.2, 0.25, 0.35) }, // irradiance from an open sky on an up-facing surface
   uSkyIrrSide: { value: new THREE.Color(0.12, 0.14, 0.2) },
   uGroundIrr: { value: new THREE.Color(0.02, 0.02, 0.025) },
-  uCanyonFill: { value: new THREE.Color(0.024, 0.022, 0.024) }, // light bounced between the alley walls
+  uCanyonFill: { value: new THREE.Color(0.042, 0.038, 0.04) }, // light bounced between the alley walls
   uNoise3: { value: null }, // tiling 3D value noise (R8)
   uNoise2: { value: null }, // tiling 2D noise RGBA (independent channels)
   uWetness: { value: 1.0 },

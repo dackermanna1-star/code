@@ -6,6 +6,8 @@ import {
 import { deriveRng, noiseGen } from '../lib/rng.js';
 import { addSine } from './emitterSounds.js';
 
+const NOY = async () => {};
+
 function fin(x, sr, peak = 0.9, hp = 30) {
   dcBlock(x, sr, hp);
   const y = trimTail(x, sr, 1.5e-4);
@@ -273,7 +275,7 @@ function wireCreak(r, sr) {
 }
 
 // ------------------------------------------------------------------ car-pass loops
-export function synthCarEngine(seed, idx, sr = 24000) {
+export async function synthCarEngine(seed, idx, sr = 24000, y = NOY) {
   const r = deriveRng(seed, 'car-engine' + idx);
   const L = 4;
   const N = Math.round(L * sr), X = Math.round(0.4 * sr);
@@ -286,44 +288,63 @@ export function synthCarEngine(seed, idx, sr = 24000) {
     addSine(tone, fk, w * r.range(0.6, 1.2), r.range(0, TAU), sr);
     addSine(tone, fk - f / 2, w * 0.2 * r.range(0.3, 1), r.range(0, TAU), sr);
   }
+  await y();
   const nz = new Float32Array(N + X);
   fillBrown(nz, r.seed32(), 1, 0.995);
+  await y();
   filt(nz, 'lowpass', 500, 0.7, sr);
+  await y();
   const loopN = makeLoop(nz, N, X);
+  await y();
   normalizeRms(tone, 0.1);
+  await y();
   normalizeRms(loopN, 0.05);
+  await y();
   for (let i = 0; i < N; i++) tone[i] += loopN[i];
   filt(tone, 'lowpass', 1600, 0.7, sr);
+  await y();
   normalizeRms(tone, 0.12);
+  await y();
   return tone;
 }
-export function synthCarTires(seed, idx, sr) {
+export async function synthCarTires(seed, idx, sr, y = NOY) {
   const r = deriveRng(seed, 'car-tires' + idx);
   const L = 5;
   const N = Math.round(L * sr), X = Math.round(0.5 * sr);
   const w = new Float32Array(N + X);
   fillWhite(w, r.seed32(), 1);
+  await y();
   const roar = w.slice();
   filt(roar, 'bandpass', r.range(600, 900), 0.6, sr);
+  await y();
   const hiss = w.slice();
   filt(hiss, 'bandpass', r.range(3000, 4200), 0.7, sr);
+  await y();
   filt(hiss, 'lowpass', 9000, 0.7, sr);
+  await y();
   const spray = new Float32Array(N + X);
   addCrackle(spray, 0, sr, r, { dur: (N + X) / sr, rate: r.range(600, 1200), amp: 1, hp: 2500, lp: 11000, shape: () => 1, ampPow: 2 });
   const burst = smoothRandom(N + X, sr, 4, r);
+  await y();
   const rot = r.range(6, 8);
   const x = new Float32Array(N + X);
   const rum = new Float32Array(N + X);
   fillBrown(rum, r.seed32(), 1, 0.99);
+  await y();
   filt(rum, 'lowpass', 220, 0.7, sr);
+  await y();
   for (let i = 0; i < x.length; i++) {
     const t = i / sr;
     const am = 1 + 0.05 * Math.sin(TAU * rot * t);
     x[i] = (roar[i] * 1.0 + hiss[i] * 0.85 + spray[i] * 0.35 * (0.5 + 0.5 * Math.max(0, burst[i])) + rum[i] * 0.4) * am;
   }
+  await y();
   filt(x, 'highpass', 70, 0.7, sr);
+  await y();
   const loop = makeLoop(x, N, X);
+  await y();
   normalizeRms(loop, 0.12);
+  await y();
   return loop;
 }
 

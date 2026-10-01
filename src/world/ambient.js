@@ -122,7 +122,27 @@ export class Ambient {
     }
   }
 
+  /** Strong gusts rattle the chain-link gate and a loose boarded door, and make wires creak. */
+  windEvents(dt, t) {
+    const audio = this.engine.audio;
+    if (!audio?.ready) return;
+    const w = this.world.windAt(t);
+    if (w < 0.6) return;
+    const k = (w - 0.6) * 2.5 * dt;
+    if (Math.random() < k * 0.35) audio.oneShot('doorRattle', { position: { x: 0.9, y: 1.0, z: 7.0 } });
+    if (Math.random() < k * 0.2) {
+      const L0 = facadeById('L0');
+      const p = facadeToWorld(L0, 21.9, 1.0, 0.05);
+      audio.oneShot('doorRattle', { position: { x: p.x, y: p.y, z: p.z } });
+    }
+    if (Math.random() < k * 0.25) {
+      const z = this.engine.player.pos.z + this.rng.range(-12, 6);
+      audio.oneShot('wireCreak', { position: { x: this.rng.range(-2, 2.3), y: 8.5, z } });
+    }
+  }
+
   update(dt, t) {
+    this.windEvents(dt, t);
     // steam → fog uniforms (gently pulsing)
     const su = this.engine.post?.fogMat?.uniforms.uSteam.value;
     if (su) {

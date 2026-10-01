@@ -8,13 +8,16 @@ import {
 import { deriveRng, noiseGen } from '../lib/rng.js';
 import { makeSpeaker, renderPhones } from './voice.js';
 
+const NOY = async () => {};
+
 // ------------------------------------------------------------------ city bed
-export function synthCityRumble(seed, sr = 8000) {
+export async function synthCityRumble(seed, sr = 8000, y = NOY) {
   const r = deriveRng(seed, 'city-rumble');
   const L = 24;
   const N = Math.round(L * sr), X = Math.round(1.5 * sr);
   const common = new Float32Array(N + X);
   fillBrown(common, r.seed32(), 1, 0.998);
+  await y();
   const chs = [];
   for (let c = 0; c < 2; c++) {
     const x = new Float32Array(N + X);
@@ -29,9 +32,10 @@ export function synthCityRumble(seed, sr = 8000) {
     }
     filt(x, 'lowpass', 220, 0.7, sr);
     filt(x, 'lowpass', 600, 0.7, sr);
-    filt(x, 'highpass', 24, 0.7, sr);
+    filt(x, 'highpass', 35, 0.7, sr);
     chs.push(makeLoop(x, N, X));
   }
+  await y();
   const g = 0.1 / Math.max(1e-9, Math.hypot(rms(chs[0]), rms(chs[1])) / Math.SQRT2);
   for (const c of chs) for (let i = 0; i < c.length; i++) c[i] *= g;
   return chs;
@@ -39,7 +43,7 @@ export function synthCityRumble(seed, sr = 8000) {
 
 function rms(x) { let s = 0; for (let i = 0; i < x.length; i++) s += x[i] * x[i]; return Math.sqrt(s / x.length); }
 
-export function synthCityHiss(seed, sr) {
+export async function synthCityHiss(seed, sr, y = NOY) {
   const r = deriveRng(seed, 'city-hiss');
   const L = 14;
   const N = Math.round(L * sr), X = Math.round(1 * sr);
@@ -56,6 +60,7 @@ export function synthCityHiss(seed, sr) {
     for (let i = i0; i < i1; i++) { const u = (i / sr - c) / w; env[i] += a * Math.exp(-0.5 * u * u); }
     t += r.range(2, 6);
   }
+  await y();
   const chs = [];
   for (let ch = 0; ch < 2; ch++) {
     const x = new Float32Array(N + X);
@@ -67,18 +72,20 @@ export function synthCityHiss(seed, sr) {
     filt(x, 'highpass', 900, 0.7, sr);
     chs.push(makeLoop(x, N, X));
   }
+  await y();
   const g = 0.1 / Math.max(1e-9, Math.hypot(rms(chs[0]), rms(chs[1])) / Math.SQRT2);
   for (const c of chs) for (let i = 0; i < c.length; i++) c[i] *= g;
   return chs;
 }
 
 // ------------------------------------------------------------------ wind
-export function synthWindNoise(seed, sr = 24000) {
+export async function synthWindNoise(seed, sr = 24000, y = NOY) {
   const r = deriveRng(seed, 'wind');
   const L = 16;
   const N = Math.round(L * sr), X = Math.round(1 * sr);
   const common = new Float32Array(N + X);
   fillPink(common, r.seed32());
+  await y();
   const chs = [];
   for (let c = 0; c < 2; c++) {
     const x = new Float32Array(N + X);
@@ -89,13 +96,14 @@ export function synthWindNoise(seed, sr = 24000) {
     filt(x, 'highpass', 35, 0.7, sr);
     chs.push(makeLoop(x, N, X));
   }
+  await y();
   const g = 0.15 / Math.max(1e-9, Math.hypot(rms(chs[0]), rms(chs[1])) / Math.SQRT2);
   for (const c of chs) for (let i = 0; i < c.length; i++) c[i] *= g;
   return chs;
 }
 
 // ------------------------------------------------------------------ distant car (several streets away)
-export function synthDistantCar(seed, idx, sr = 22050) {
+export async function synthDistantCar(seed, idx, sr = 22050, y = NOY) {
   const r = deriveRng(seed, 'dcar' + idx);
   const dur = r.range(7, 10);
   const n = Math.round(dur * sr);
@@ -110,6 +118,7 @@ export function synthDistantCar(seed, idx, sr = 22050) {
   let ph = 0;
   const BL = 32;
   const rough = smoothRandom(Math.ceil(n / BL) + 2, sr / BL, 18, r);
+  await y();
   for (let b = 0; b < n; b += BL) {
     const t = b / sr;
     const u = (t - tc) / (t < tc ? sA : sB);
@@ -131,17 +140,22 @@ export function synthDistantCar(seed, idx, sr = 22050) {
       x[b + i] = env * (bandA.bp + bandB.bp * 0.45) + pulse * pe;
     }
   }
+  await y();
   filt(x, 'lowpass', 1800, 0.7, sr);
+  await y();
   filt(x, 'lowpass', 2400, 0.7, sr);
+  await y();
   filt(x, 'highpass', 55, 0.7, sr);
+  await y();
   fadeIn(x, Math.round(0.2 * sr));
   fadeOut(x, Math.round(0.3 * sr));
   normalizePeak(x, 0.9);
+  await y();
   return x;
 }
 
 // ------------------------------------------------------------------ siren (wail/yelp, Doppler, distant)
-export function synthSiren(seed, idx, sr = 16000) {
+export async function synthSiren(seed, idx, sr = 16000, y = NOY) {
   const r = deriveRng(seed, 'siren' + idx);
   const dur = r.range(22, 28);
   const n = Math.round(dur * sr);
@@ -154,11 +168,13 @@ export function synthSiren(seed, idx, sr = 16000) {
     prog.push({ mode, t0: t, t1: t + d, period: mode === 'wail' ? r.range(3.8, 5.2) : r.range(0.26, 0.32) });
     t += d;
   }
+  await y();
   const tc = dur * r.range(0.4, 0.6);
   const dt = r.range(2, 4);
   const dop = r.range(0.02, 0.035);
   const BL = 16;
   const occl = smoothRandom(Math.ceil(n / BL) + 2, sr / BL, 0.35, r);
+  await y();
   const x = new Float32Array(n);
   let re = 1, im = 0;
   let p = 0;
@@ -193,24 +209,32 @@ export function synthSiren(seed, idx, sr = 16000) {
     const mag = Math.sqrt(re * re + im * im) || 1;
     re /= mag; im /= mag;
   }
+  await y();
   filt(x, 'highpass', 320, 0.7, sr);
+  await y();
   filt(x, 'peaking', 1100, 0.9, sr, 4);
+  await y();
   filt(x, 'lowpass', 1700, 0.7, sr);
+  await y();
   filt(x, 'lowpass', 2300, 0.7, sr);
+  await y();
   // baked building echoes (one darker copy, several delays)
   const e = x.slice();
   filt(e, 'lowpass', 900, 0.7, sr);
+  await y();
   for (const [d, g] of [[0.11, 0.45], [0.23, 0.32], [0.37, 0.24], [0.56, 0.15], [0.81, 0.09]]) {
     const off = Math.round(d * r.range(0.85, 1.15) * sr);
     for (let i = n - 1; i >= off; i--) x[i] += e[i - off] * g;
   }
+  await y();
   fadeOut(x, Math.round(0.5 * sr));
   normalizePeak(x, 0.9);
+  await y();
   return x;
 }
 
 // ------------------------------------------------------------------ elevated train ("L")
-export function synthTrain(seed, idx, sr = 22050) {
+export async function synthTrain(seed, idx, sr = 22050, y = NOY) {
   const r = deriveRng(seed, 'train' + idx);
   const dur = r.range(26, 32);
   const n = Math.round(dur * sr);
@@ -233,20 +257,22 @@ export function synthTrain(seed, idx, sr = 22050) {
     const m = Math.min(64, n - i);
     for (let k = 0; k < m; k++) E[i + k] = e0 + ((e1 - e0) * k) / 64;
   }
+  await y();
   // wheel clacks over rail joints
   const axles = [];
   for (let c = 0; c < nCars; c++) {
     const base = c * carLen;
     for (const tr of [carLen / 2 - 4.9, carLen / 2 + 4.9]) { axles.push(base + tr - 1.05); axles.push(base + tr + 1.05); }
   }
+  await y();
   const joints = [[-11.9, 0.45], [0, 1], [11.9, 0.55], [23.8, 0.25]];
   const tFront0 = tc - passHalf;
   for (const [xj, wj] of joints) {
     for (const o of axles) {
       const tt = tFront0 + (xj + o) / v + r.range(-0.004, 0.004);
       if (tt < 0 || tt >= dur - 0.05) continue;
-      const a = envAt(tt) * wj * r.range(0.7, 1.2);
-      if (a < 0.01) continue;
+      const a = envAt(tt) * wj * r.range(0.7, 1.2) * 2.5;
+      if (a < 0.02) continue;
       const st = Math.round(tt * sr);
       addNoiseBurst(x, st, sr, { dur: 0.008, attack: 0.0002, tau: r.range(0.0015, 0.003), bp: r.range(600, 2400), bpQ: 0.8, amp: a * 0.5, seed: r.seed32() });
       addMode(x, st, r.range(280, 520), r.range(0.012, 0.02), a * 0.5, sr, 0);
@@ -254,38 +280,52 @@ export function synthTrain(seed, idx, sr = 22050) {
       addMode(x, st, r.range(90, 130), r.range(0.025, 0.04), a * 0.45, sr, 0);
     }
   }
+  await y();
   // rumble + wheel roar + structure resonance
   const rum = new Float32Array(n);
   fillBrown(rum, r.seed32(), 0.9, 0.997);
+  await y();
   const roar = new Float32Array(n);
   fillPink(roar, r.seed32(), 1.3);
+  await y();
   filt(roar, 'bandpass', r.range(450, 750), 0.7, sr);
+  await y();
   const BL = 64;
   const slow = smoothRandom(Math.ceil(n / BL) + 2, sr / BL, 1.2, r);
+  await y();
   for (let i = 0; i < n; i++) rum[i] = (rum[i] + roar[i]) * E[i] * (1 + 0.2 * slow[(i / BL) | 0]);
   filt(rum, 'lowpass', 420, 0.7, sr);
+  await y();
   filt(rum, 'peaking', r.range(60, 85), 2, sr, 6);
-  for (let i = 0; i < n; i++) x[i] += rum[i] * 0.55;
+  await y();
+  for (let i = 0; i < n; i++) x[i] += rum[i] * 0.4;
   // traction motor whine
   const fw = r.range(380, 520);
   const ea = (t) => E[Math.min(n - 1, Math.round(t * sr))];
-  addOsc(x, 0, n, sr, (t) => fw * (1 + 0.02 * Math.tanh((tc - t) / 3)), (t) => ea(t) * 0.012, 0, 64);
-  addOsc(x, 0, n, sr, (t) => 2 * fw * (1 + 0.02 * Math.tanh((tc - t) / 3)), (t) => ea(t) * 0.005, 0, 64);
+  addOsc(x, 0, n, sr, (t) => fw * (1 + 0.02 * Math.tanh((tc - t) / 3)), (t) => ea(t) * 0.004, 0, 64);
+  await y();
+  addOsc(x, 0, n, sr, (t) => 2 * fw * (1 + 0.02 * Math.tanh((tc - t) / 3)), (t) => ea(t) * 0.0017, 0, 64);
+  await y();
   // faint metallic squeal on a curve
   if (r.chance(0.8)) {
-    const fs = r.range(3000, 4200);
+    const fs = r.range(2400, 3400);
     const t0 = dur * r.range(0.3, 0.45), t1 = dur * r.range(0.6, 0.8);
     const gate = smoothRandom(Math.ceil(((t1 - t0) * sr) / BL) + 2, sr / BL, 1.5, r);
-    const g = (t) => Math.max(0, gate[Math.min(gate.length - 1, ((t * sr) / BL) | 0)] - 0.15) * ea(t0 + t) * clamp(t / 1.5, 0, 1) * clamp((t1 - t0 - t) / 1.5, 0, 1) * 0.05;
+    const g = (t) => Math.max(0, gate[Math.min(gate.length - 1, ((t * sr) / BL) | 0)] - 0.15) * ea(t0 + t) * clamp(t / 1.5, 0, 1) * clamp((t1 - t0 - t) / 1.5, 0, 1) * 0.08;
     const fv = (k) => (t) => fs * k * (1 + 0.006 * Math.sin(TAU * 6.2 * t));
     addOsc(x, Math.round(t0 * sr), (t1 - t0) * sr, sr, fv(1), g, 0, 32);
     addOsc(x, Math.round(t0 * sr), (t1 - t0) * sr, sr, fv(1.48), (t) => g(t) * 0.5, 0, 32);
   }
+  await y();
   filt(x, 'lowpass', 1700, 0.7, sr);
+  await y();
   filt(x, 'lowpass', 2600, 0.7, sr);
+  await y();
   filt(x, 'highpass', 30, 0.7, sr);
+  await y();
   fadeOut(x, Math.round(0.6 * sr));
   normalizePeak(x, 0.9);
+  await y();
   return x;
 }
 

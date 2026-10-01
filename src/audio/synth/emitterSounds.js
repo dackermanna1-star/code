@@ -20,42 +20,58 @@ export function addSine(out, f, amp, phase, sr) {
     re = t;
   }
 }
+const NOY = async () => {};
 const periodic = (f, L) => Math.max(1, Math.round(f * L)) / L;
 
 // ------------------------------------------------------------------ HVAC condenser
-export function synthHvac(seed, sr = 24000) {
+export async function synthHvac(seed, sr = 24000, y = NOY) {
   const r = deriveRng(seed, 'hvac');
   const L = 10;
   const N = Math.round(L * sr), X = Math.round(0.6 * sr);
   const fan = new Float32Array(N + X);
   fillPink(fan, r.seed32());
+  await y();
   const fRot = r.range(12.5, 15.5);
   const turb = smoothRandom(N + X, sr, 0.7, r);
+  await y();
   const flut = smoothRandom(N + X, sr, 9, r);
+  await y();
   for (let i = 0; i < fan.length; i++) {
     const t = i / sr;
     fan[i] *= 1 + 0.16 * Math.sin(TAU * fRot * t) + 0.06 * Math.sin(TAU * 2 * fRot * t + 1.3) + 0.12 * turb[i] + 0.05 * flut[i];
   }
+  await y();
   filt(fan, 'lowpass', 1500, 0.7, sr);
+  await y();
   filt(fan, 'peaking', 420, 1.2, sr, 5);
+  await y();
   filt(fan, 'highpass', 50, 0.7, sr);
+  await y();
   const loop = makeLoop(fan, N, X);
+  await y();
   normalizeRms(loop, 0.1);
+  await y();
   const tone = new Float32Array(N);
   const fm = periodic(r.range(29.2, 29.8), L);
   for (let k = 1; k <= 16; k++) {
     const f = fm * k;
-    const bump = 1 + 2.2 * Math.exp(-Math.pow(Math.log(f / 180), 2) / 0.18);
+    const bump = 1 + 1.2 * Math.exp(-Math.pow(Math.log(f / 180), 2) / 0.18);
     addSine(tone, f, (bump / Math.pow(k, 1.05)) * r.range(0.5, 1.2), r.range(0, TAU), sr);
   }
+  await y();
   addSine(tone, periodic(120, L), 0.5, r.range(0, TAU), sr);
+  await y();
   addSine(tone, periodic(240, L), 0.2, r.range(0, TAU), sr);
+  await y();
   addSine(tone, periodic(360, L), 0.1, r.range(0, TAU), sr);
+  await y();
   const fb = periodic(fRot * 3, L);
   for (let k = 1; k <= 3; k++) addSine(tone, fb * k, 0.18 / k, r.range(0, TAU), sr);
   normalizeRms(tone, 0.07);
+  await y();
   for (let i = 0; i < N; i++) loop[i] += tone[i];
   normalizeRms(loop, 0.18);
+  await y();
   return loop;
 }
 
@@ -86,36 +102,51 @@ export function synthHvacRattles(seed, sr = 24000, count = 6) {
 }
 
 // ------------------------------------------------------------------ rooftop kitchen exhaust fan
-export function synthExhaust(seed, sr = 24000) {
+export async function synthExhaust(seed, sr = 24000, y = NOY) {
   const r = deriveRng(seed, 'exhaust');
   const L = 12;
   const N = Math.round(L * sr), X = Math.round(0.8 * sr);
   const a = new Float32Array(N + X);
   const b = new Float32Array(N + X);
   fillBrown(a, r.seed32(), 1, 0.997);
+  await y();
   fillPink(b, r.seed32());
+  await y();
   const fr = r.range(9, 12);
   const sw = smoothRandom(N + X, sr, 0.25, r);
+  await y();
   const whoosh = smoothRandom(N + X, sr, 0.08, r);
+  await y();
   const fast = smoothRandom(N + X, sr, 6, r);
+  await y();
   for (let i = 0; i < a.length; i++) {
     const t = i / sr;
     const am = 1 + 0.1 * Math.sin(TAU * fr * t) + 0.28 * sw[i] + 0.2 * whoosh[i] + 0.06 * fast[i];
     a[i] = (a[i] * 0.6 + b[i] * 0.5) * am;
   }
+  await y();
   filt(a, 'lowpass', 2200, 0.7, sr);
-  filt(a, 'peaking', 240, 1.3, sr, 7);
+  await y();
+  filt(a, 'peaking', 240, 1.3, sr, 4);
+  await y();
   filt(a, 'peaking', 900, 1.0, sr, 2);
+  await y();
   filt(a, 'highpass', 45, 0.7, sr);
+  await y();
   const loop = makeLoop(a, N, X);
+  await y();
   normalizeRms(loop, 0.12);
+  await y();
   const tone = new Float32Array(N);
   const bpf = periodic(fr * 6, L);
   for (let k = 1; k <= 4; k++) addSine(tone, bpf * k, 0.25 / k, r.range(0, TAU), sr);
   addSine(tone, periodic(120, L), 0.08, r.range(0, TAU), sr);
+  await y();
   normalizeRms(tone, 0.03);
+  await y();
   for (let i = 0; i < N; i++) loop[i] += tone[i];
   normalizeRms(loop, 0.16);
+  await y();
   return loop;
 }
 
@@ -152,23 +183,29 @@ export function ballastWave(seed) {
 }
 
 /** Mains-synchronous arc sizzle loop (noise bursts at 120 Hz). */
-export function synthSizzle(seed, sr) {
+export async function synthSizzle(seed, sr, y = NOY) {
   const r = deriveRng(seed, 'sizzle');
   const L = 4;
   const N = Math.round(L * sr), X = Math.round(0.3 * sr);
   const x = new Float32Array(N + X);
   const nz = noiseGen(r.seed32());
   const wob = smoothRandom(N + X, sr, 3, r);
+  await y();
   for (let i = 0; i < x.length; i++) {
     const t = i / sr;
     const s = Math.abs(Math.sin(TAU * 60 * t));
     const g = Math.pow(s, 6) * 0.8 + 0.2;
     x[i] = nz() * g * (0.8 + 0.2 * wob[i]);
   }
+  await y();
   filt(x, 'highpass', 3000, 0.7, sr);
+  await y();
   filt(x, 'lowpass', 10000, 0.7, sr);
+  await y();
   const loop = makeLoop(x, N, X);
+  await y();
   normalizeRms(loop, 0.1);
+  await y();
   return loop;
 }
 
@@ -206,7 +243,7 @@ export function synthLampTicks(seed, sr, count = 4) {
 }
 
 // ------------------------------------------------------------------ downspout trickle
-export function synthTrickle(seed, sr) {
+export async function synthTrickle(seed, sr, y = NOY) {
   const r = deriveRng(seed, 'trickle');
   const L = 11;
   const N = Math.round(L * sr), X = Math.round(0.5 * sr);
@@ -214,12 +251,16 @@ export function synthTrickle(seed, sr) {
   // fizzy flow bed
   const nz = noiseGen(r.seed32());
   const am = smoothRandom(N + X, sr, 25, r);
+  await y();
   const slow = smoothRandom(N + X, sr, 0.35, r);
+  await y();
   for (let i = 0; i < x.length; i++) {
     const a = Math.max(0, am[i]);
     x[i] = nz() * a * a * (0.7 + 0.3 * slow[i]) * 0.5;
   }
+  await y();
   filt(x, 'bandpass', 2600, 0.6, sr);
+  await y();
   const total = (N + X) / sr;
   // bubbles from the stream hitting the puddle
   let t = 0;
@@ -229,6 +270,7 @@ export function synthTrickle(seed, sr) {
     t += r.exp(1 / Math.max(4, rate));
     addBubble(x, Math.round(t * sr), r.logRange(600, 2800), r.range(1.15, 1.6), r.range(0.002, 0.009), 0.04 + r.exp(0.06), sr);
   }
+  await y();
   // drips from the spout lip
   t = r.range(0.1, 0.5);
   while (t < total) {
@@ -237,24 +279,29 @@ export function synthTrickle(seed, sr) {
     addNoiseBurst(x, st, sr, { dur: 0.004, attack: 0.0001, tau: 0.0006, bp: 3000, bpQ: 1, amp: 0.15, seed: r.seed32() });
     t += r.range(0.35, 1.6);
   }
+  await y();
   // hollow downspout resonance
   const res = x.slice();
   const fp = r.range(350, 450);
-  const y = new Float32Array(x.length);
+  const res2 = new Float32Array(x.length);
   for (const [m, q, g] of [[1, 12, 1], [2.05, 12, 0.6], [3.1, 10, 0.35]]) {
     const z = res.slice();
     filt(z, 'bandpass', fp * m, q, sr);
-    for (let i = 0; i < y.length; i++) y[i] += z[i] * g;
+    for (let i = 0; i < res2.length; i++) res2[i] += z[i] * g;
   }
-  for (let i = 0; i < x.length; i++) x[i] += y[i] * 1.2;
+  await y();
+  for (let i = 0; i < x.length; i++) x[i] += res2[i] * 1.2;
   dcBlock(x, sr, 120);
+  await y();
   const loop = makeLoop(x, N, X);
+  await y();
   normalizeRms(loop, 0.12);
+  await y();
   return loop;
 }
 
 // ------------------------------------------------------------------ storm drain gurgle
-export function synthDrain(seed, sr = 24000) {
+export async function synthDrain(seed, sr = 24000, y = NOY) {
   const r = deriveRng(seed, 'drain');
   const L = 13;
   const N = Math.round(L * sr), X = Math.round(0.8 * sr);
@@ -271,24 +318,37 @@ export function synthDrain(seed, sr = 24000) {
     }
     t += r.range(0.25, 1.5);
   }
+  await y();
   const flow = new Float32Array(N + X);
   fillBrown(flow, r.seed32(), 1, 0.996);
+  await y();
   filt(flow, 'lowpass', 900, 0.7, sr);
+  await y();
   const slow = smoothRandom(N + X, sr, 0.5, r);
+  await y();
   const fall = new Float32Array(N + X);
   fillWhite(fall, r.seed32(), 1);
+  await y();
   filt(fall, 'bandpass', 1200, 0.7, sr);
+  await y();
   for (let i = 0; i < dry.length; i++) dry[i] += flow[i] * 0.25 * (0.7 + 0.3 * slow[i]) + fall[i] * 0.03 * (0.6 + 0.4 * slow[i]);
   const c1 = combLP(dry, sr, 0.023, 0.6, 1500);
+  await y();
   const c2 = combLP(dry, sr, 0.037, 0.5, 1200);
+  await y();
   const res = dry.slice();
   filt(res, 'bandpass', r.range(150, 200), 4, sr);
+  await y();
   const x = new Float32Array(N + X);
-  for (let i = 0; i < x.length; i++) x[i] = dry[i] * 0.35 + (c1[i] + c2[i]) * 0.35 + res[i] * 0.6;
+  for (let i = 0; i < x.length; i++) x[i] = dry[i] * 0.35 + (c1[i] + c2[i]) * 0.35 + res[i] * 0.35;
   filt(x, 'lowpass', 3500, 0.7, sr);
+  await y();
   dcBlock(x, sr, 50);
+  await y();
   const loop = makeLoop(x, N, X);
+  await y();
   normalizeRms(loop, 0.12);
+  await y();
   return loop;
 }
 
@@ -320,12 +380,14 @@ function addPadChord(out, sr, r, t0, dur, freqs, amp) {
 }
 
 // ------------------------------------------------------------------ muffled TV
-export function synthTV(seed, sr = 16000) {
+export async function synthTV(seed, sr = 16000, y = NOY) {
   const r = deriveRng(seed, 'tv');
   const dur = 32;
   const spk = [makeSpeaker(r, 'male'), makeSpeaker(r, 'female')];
-  const x = renderConversation(r, sr, dur, spk, { turnProb: 0.45, laughProb: 0, uttMin: 1.2, uttMax: 4.5, gapMin: 0.08, gapMax: 0.45, overlapProb: 0.05 });
+  const x = await renderConversation(r, sr, dur, spk, { turnProb: 0.45, laughProb: 0, uttMin: 1.2, uttMax: 4.5, gapMin: 0.08, gapMax: 0.45, overlapProb: 0.05 }, y);
+  await y();
   normalizeRms(x, 0.1);
+  await y();
   // music swells
   const swells = r.int(2, 3);
   const chords = [[220, 261.6, 329.6], [174.6, 220, 261.6], [196, 246.9, 293.7], [164.8, 207.7, 246.9]];
@@ -336,6 +398,7 @@ export function synthTV(seed, sr = 16000) {
     addPadChord(pad, sr, r, t0, d, r.pick(chords).map((f) => f * r.pick([1, 0.5])), 0.05);
     for (let i = 0; i < x.length; i++) x[i] += pad[i];
   }
+  await y();
   // laugh track bursts
   if (r.chance(0.8)) {
     const t0 = r.range(5, dur - 6);
@@ -347,46 +410,62 @@ export function synthTV(seed, sr = 16000) {
     }
     for (let i = 0; i < x.length; i++) x[i] += crowd[i] * 0.6;
   }
+  await y();
   muffle(x, sr, 780, { hp: 120, boom: 240, boomDb: 4 });
-  let y = addRoom(x, sr, { rt60: 0.45, damp: 2500, size: 0.6, wet: 0.35, tail: 0.3 });
-  y = y.slice(0, x.length);
-  dcBlock(y, sr, 60);
-  normalizeRms(y, 0.12);
-  return y;
+  await y();
+  let outv = addRoom(x, sr, { rt60: 0.45, damp: 2500, size: 0.6, wet: 0.35, tail: 0.3 });
+  await y();
+  outv = outv.slice(0, x.length);
+  dcBlock(outv, sr, 60);
+  await y();
+  normalizeRms(outv, 0.12);
+  await y();
+  return outv;
 }
 
 // ------------------------------------------------------------------ muffled conversation behind a window
-export function synthVoices(seed, sr = 16000) {
+export async function synthVoices(seed, sr = 16000, y = NOY) {
   const r = deriveRng(seed, 'voices');
   const dur = 30;
   const spk = [makeSpeaker(r, 'male'), makeSpeaker(r, 'female'), makeSpeaker(r, r.chance(0.5) ? 'male' : 'female')];
   spk[2].gain = 0.7;
-  const x = renderConversation(r, sr, dur, spk, { turnProb: 0.65, laughProb: 0.16, uttMin: 0.5, uttMax: 2.8, gapMin: 0.12, gapMax: 0.9, overlapProb: 0.2 });
+  const x = await renderConversation(r, sr, dur, spk, { turnProb: 0.65, laughProb: 0.16, uttMin: 0.5, uttMax: 2.8, gapMin: 0.12, gapMax: 0.9, overlapProb: 0.2 }, y);
+  await y();
   muffle(x, sr, 900, { hp: 130, boom: 200, boomDb: 3 });
-  let y = addRoom(x, sr, { rt60: 0.5, damp: 2500, size: 0.7, wet: 0.4, tail: 0.3 });
-  y = y.slice(0, x.length);
-  dcBlock(y, sr, 60);
-  normalizeRms(y, 0.12);
-  return y;
+  await y();
+  let outv = addRoom(x, sr, { rt60: 0.5, damp: 2500, size: 0.7, wet: 0.4, tail: 0.3 });
+  await y();
+  outv = outv.slice(0, x.length);
+  dcBlock(outv, sr, 60);
+  await y();
+  normalizeRms(outv, 0.12);
+  await y();
+  return outv;
 }
 
 // ------------------------------------------------------------------ distant street babble (outdoors)
-export function synthStreetBabble(seed, sr = 16000) {
+export async function synthStreetBabble(seed, sr = 16000, y = NOY) {
   const r = deriveRng(seed, 'street-babble');
   const dur = 22;
   const spk = [makeSpeaker(r, 'male'), makeSpeaker(r, 'female'), makeSpeaker(r, 'female'), makeSpeaker(r, 'male')];
   spk[2].gain = 0.8; spk[3].gain = 0.75;
-  const x = renderConversation(r, sr, dur, spk, { turnProb: 0.7, laughProb: 0.22, uttMin: 0.4, uttMax: 2.2, gapMin: 0.1, gapMax: 0.7, overlapProb: 0.3, excite: 1.15 });
+  const x = await renderConversation(r, sr, dur, spk, { turnProb: 0.7, laughProb: 0.22, uttMin: 0.4, uttMax: 2.2, gapMin: 0.1, gapMax: 0.7, overlapProb: 0.3, excite: 1.15 }, y);
+  await y();
   filt(x, 'highpass', 160, 0.7, sr);
+  await y();
   filt(x, 'lowpass', 2300, 0.7, sr);
+  await y();
   filt(x, 'lowpass', 3000, 0.7, sr);
+  await y();
   dcBlock(x, sr, 60);
+  await y();
   normalizeRms(x, 0.12);
+  await y();
   return x;
 }
 
 // ------------------------------------------------------------------ muffled radio (2 songs + DJ)
-function renderSong(r, sr, o) {
+async function renderSong(r, sr, o, y = NOY) {
   const beat = 60 / o.bpm;
   const bars = 8;
   const len = Math.round(bars * 4 * beat * sr);
@@ -441,11 +520,12 @@ function renderSong(r, sr, o) {
       }
     }
   }
+  await y();
   return x;
 }
 
 /** Returns { songs: [Float32Array, ...], barSec: [..], dj: Float32Array, sr } */
-export function synthRadio(seed, sr = 12000) {
+export async function synthRadio(seed, sr = 12000, y = NOY) {
   const r = deriveRng(seed, 'radio');
   const songs = [];
   const barSec = [];
@@ -454,14 +534,17 @@ export function synthRadio(seed, sr = 12000) {
     { bpm: r.range(70, 76), key: 146.8, prog: [[0, 0], [8, 1], [5, 0], [7, 1]] }, // Dm Bb Gm A
   ];
   for (const d of defs) {
-    const x = renderSong(r, sr, d);
+    const x = await renderSong(r, sr, d, y);
     muffle(x, sr, 430, { hp: 45, lp2: 1.6, boom: 85, boomDb: 4 });
-    const y = addRoom(x, sr, { rt60: 0.5, damp: 900, size: 0.8, wet: 0.3, tail: 0.0 }).slice(0, x.length);
-    dcBlock(y, sr, 30);
-    normalizeRms(y, 0.12);
-    songs.push(y);
+    await y();
+    const outv = addRoom(x, sr, { rt60: 0.5, damp: 900, size: 0.8, wet: 0.3, tail: 0.0 }).slice(0, x.length);
+    await y();
+    dcBlock(outv, sr, 30);
+    normalizeRms(outv, 0.12);
+    songs.push(outv);
     barSec.push((4 * 60) / d.bpm);
   }
+  await y();
   // DJ talk
   const dj = makeSpeaker(r, 'male');
   dj.rate *= 1.15;
@@ -472,9 +555,13 @@ export function synthRadio(seed, sr = 12000) {
     renderPhones(djx, sr, r, dj, U.phones, 1);
     t = U.end + r.range(0.1, 0.3);
   }
+  await y();
   muffle(djx, sr, 600, { hp: 120, boom: 220 });
+  await y();
   dcBlock(djx, sr, 60);
+  await y();
   normalizeRms(djx, 0.1);
+  await y();
   fadeIn(djx, Math.round(0.05 * sr));
   fadeOut(djx, Math.round(0.3 * sr));
   return { songs, barSec, dj: djx, sr };

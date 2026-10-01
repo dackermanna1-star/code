@@ -10,9 +10,10 @@ const params = {
   exposure: num('exp', undefined),
   dpr: num('dpr', 1.5),
   walk: num('walk', 0), // shot mode: seconds of simulated walking before the capture
-  quality: q.get('q') ?? 'high',
+  quality: q.get('q') ?? 'auto',
   fixedRes: q.has('fixedRes'),
   nopaint: q.has('nopaint'),
+  noworkers: q.has('noworkers'),
   debug: q.has('debug'),
 };
 
@@ -76,6 +77,7 @@ async function main() {
   engine.post.fade = 0;
   for (let i = 0; i < 2; i++) engine.step(1 / 60);
   gate.classList.add('ready');
+  window.__readyMs = Math.round(performance.now());
   engine.player.update(0.016);
   engine.post.fade = 0;
   engine.start();

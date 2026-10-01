@@ -1,7 +1,7 @@
 // Alley acoustics: flutter-echo convolver (width follows head yaw vs. the corridor axis),
 // diffuse-tail convolver, enclosure scaling, and a dynamic slap-back network (front wall / back fence)
 // with crossfaded twin delay lines so large distance jumps never glide audibly.
-import { glide, jump, makePanner, setPannerPos, finite, SPEED_OF_SOUND } from './spatial.js';
+import { glide, jump, hold, makePanner, setPannerPos, finite, SPEED_OF_SOUND } from './spatial.js';
 
 function monoIn(ctx, gain = 1) {
   const g = ctx.createGain();
@@ -54,9 +54,9 @@ class SlapLine {
         const a = this.active;
         const b = 1 - a;
         jump(this.dl[b].delayTime, delay, now);
-        this.g[a].gain.cancelScheduledValues(now);
+        hold(this.g[a].gain, now);
         this.g[a].gain.setTargetAtTime(0, now, 0.045);
-        this.g[b].gain.cancelScheduledValues(now);
+        hold(this.g[b].gain, now);
         this.g[b].gain.setTargetAtTime(1, now, 0.045);
         this.active = b;
         this.lastSwitch = now;
@@ -157,7 +157,8 @@ export class Acoustics {
   static echoParams(d) {
     // distance to wall -> slap delay (s), level, low-pass cutoff
     const dd = Math.min(400, Math.max(1, finite(d, 200)));
-    const delay = Math.min(0.5, Math.max(0.04, (2 * dd) / SPEED_OF_SOUND));
+    // (HRTF panner + filters add ~4 ms of latency; compensate so the echo lands at 2d/c)
+    const delay = Math.min(0.5, Math.max(0.036, (2 * dd) / SPEED_OF_SOUND - 0.004));
     // corridor channels sound: falls slower than 1/r; distant walls further attenuated
     let level = 0.62 * Math.pow(8 / (8 + 2 * dd), 0.85);
     if ((2 * dd) / SPEED_OF_SOUND > 0.5) level *= Math.pow(0.5 / ((2 * dd) / SPEED_OF_SOUND), 2); // beyond clamp: fade

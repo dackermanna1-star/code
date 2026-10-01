@@ -20,10 +20,10 @@ const FS_SURF = {
   asphalt: 1.0, concrete: 1.0, metal: 0.78, grate: 0.78, puddle: 0.92, wet: 0.95, debris: 0.85, glass: 0.78, wood: 0.9, cardboard: 0.95,
 };
 const MIX = {
-  footsteps: 0.5, emitters: 1, oneShots: 1, ambience: 1, reverb: 1,
-  fsFlutter: 0.5, fsDiffuse: 0.42, fsSlap: 0.85,
-  emFlutter: 0.45, emDiffuse: 0.75, emSlap: 0.1,
-  osFlutter: 0.55, osDiffuse: 0.75, osSlap: 0.25,
+  footsteps: 0.75, emitters: 1, oneShots: 1, ambience: 1, reverb: 1,
+  fsFlutter: 0.85, fsDiffuse: 0.22, fsSlap: 0.85,
+  emFlutter: 0.3, emDiffuse: 0.4, emSlap: 0.08,
+  osFlutter: 0.5, osDiffuse: 0.45, osSlap: 0.25,
   cloth: 0.045,
 };
 
@@ -129,11 +129,11 @@ export class AudioEngine {
     };
 
     // ---------------- phase 1: what the first seconds need (init resolves after this)
-    await job('ir', () => {
+    await job('ir', async () => {
       const f = flutterIR(seed, sr);
       B.flutterIR = mk([f.L, f.R], sr);
       this.debug.flutterArrivals = f.arrivals;
-      const d = diffuseIR(seed, sr);
+      const d = await diffuseIR(seed, sr, {}, y);
       B.diffuseIR = mk([d.L, d.R], sr);
     });
     this._buildAcoustics();
@@ -148,21 +148,21 @@ export class AudioEngine {
       B.footsteps = out;
     });
     await job('oneshots-1', () => addOneShots(['drip.water', 'drip.metal', 'drip.ground', 'drip.plastic', 'canKick', 'paperRustle', 'plasticRustle']));
-    await job('bed', () => {
-      B.cityRumble = mk(AS.synthCityRumble(seed, 8000), 8000);
-      B.cityHiss = mk(AS.synthCityHiss(seed, r24), r24);
-      B.wind = mk(AS.synthWindNoise(seed, r16), r16);
+    await job('bed', async () => {
+      B.cityRumble = mk(await AS.synthCityRumble(seed, 8000, y), 8000);
+      B.cityHiss = mk(await AS.synthCityHiss(seed, r24, y), r24);
+      B.wind = mk(await AS.synthWindNoise(seed, r16, y), r16);
       W.cityHum = pw({ real: new Float32Array([0, 0, 0, 0, 0, 0, 0]), imag: new Float32Array([0, 1, 0.55, 0.3, 0.18, 0.1, 0.05]) });
     });
-    await job('electrics', () => {
+    await job('electrics', async () => {
       W.transformer = pw(ES.transformerWave(seed));
       W.ballast = pw(ES.ballastWave(seed));
-      B.sizzle = mk1(ES.synthSizzle(seed, sr), sr);
+      B.sizzle = mk1(await ES.synthSizzle(seed, sr, y), sr);
       B.lampCrackle = ES.synthLampCrackles(seed, sr).map((x) => mk1(x, sr));
       B.lampTick = ES.synthLampTicks(seed, sr).map((x) => mk1(x, sr));
     });
-    await job('hvac', () => {
-      B.hvac = mk1(ES.synthHvac(seed, r24), r24);
+    await job('hvac', async () => {
+      B.hvac = mk1(await ES.synthHvac(seed, r24, y), r24);
       B.hvacRattle = ES.synthHvacRattles(seed, r24).map((x) => mk1(x, r24));
     });
 
@@ -180,40 +180,47 @@ export class AudioEngine {
     if (!this._paused) this.masterGain.gain.linearRampToValueAtTime(this.volume, now + (this.opts.fadeInSec ?? 1.2));
     this.initMs = Math.round(nowMs() - t0);
     this.debug.initMs = this.initMs;
+    this.debug.initYieldStats = { ...y.stats };
 
     // ---------------- phase 2: cooperative background synthesis (emitters/one-shots/events whose banks
     // are not ready yet attach automatically as soon as they are; distant events are skipped until then)
     this._fullyLoaded = (async () => {
       const tb = nowMs();
       await job('oneshots-2', () => addOneShots(['garbageShift', 'doorRattle', 'wireCreak', 'canRoll', 'bottleKick']));
-      await job('trickle', () => { B.trickle = mk1(ES.synthTrickle(seed, r32), r32); });
-      await job('drain', () => { B.drain = mk1(ES.synthDrain(seed, r24), r24); });
-      await job('cars', () => {
-        B.carEngine = [0, 1].map((k) => mk1(synthCarEngine(seed, k, r24), r24));
-        B.carTires = [0, 1].map((k) => mk1(synthCarTires(seed, k, sr), sr));
+      await job('trickle', async () => { B.trickle = mk1(await ES.synthTrickle(seed, r32, y), r32); });
+      await job('drain', async () => { B.drain = mk1(await ES.synthDrain(seed, r24, y), r24); });
+      await job('cars', async () => {
+        const eng = [], tir = [];
+        for (let k = 0; k < 2; k++) {
+          eng.push(mk1(await synthCarEngine(seed, k, r24, y), r24));
+          tir.push(mk1(await synthCarTires(seed, k, sr, y), sr));
+        }
+        B.carEngine = eng;
+        B.carTires = tir;
       });
       this._instantiatePending();
-      await job('exhaust', () => { B.exhaust = mk1(ES.synthExhaust(seed, r24), r24); });
-      await job('tv', () => { B.tv = mk1(ES.synthTV(seed, r16), r16); });
-      await job('voices', () => { B.voices = mk1(ES.synthVoices(seed, r16), r16); });
-      await job('radio', () => {
-        const R = ES.synthRadio(seed, Math.min(12000, sr));
+      await job('exhaust', async () => { B.exhaust = mk1(await ES.synthExhaust(seed, r24, y), r24); });
+      await job('tv', async () => { B.tv = mk1(await ES.synthTV(seed, r16, y), r16); });
+      await job('voices', async () => { B.voices = mk1(await ES.synthVoices(seed, r16, y), r16); });
+      await job('radio', async () => {
+        const R = await ES.synthRadio(seed, Math.min(12000, sr), y);
         B.radio = { songs: R.songs.map((x) => mk1(x, R.sr)), barSec: R.barSec, dj: mk1(R.dj, R.sr) };
       });
       this._instantiatePending();
-      await job('ir-city', () => {
-        const c = cityIR(seed, sr);
+      await job('ir-city', async () => {
+        const c = await cityIR(seed, sr, {}, y);
         B.cityIR = mk([c.L, c.R], sr);
         if (this.ambience) this.ambience.setCityIR(B.cityIR);
       });
-      await job('distant-cars', () => { B.distantCars = [0, 1, 2, 3].map((k) => mk1(AS.synthDistantCar(seed, k, r22), r22)); });
-      await job('sirens', () => { B.sirens = [0, 1].map((k) => mk1(AS.synthSiren(seed, k, r16), r16)); });
-      await job('train', () => { B.trains = [0, 1].map((k) => mk1(AS.synthTrain(seed, k, r16), r16)); });
-      await job('street', () => {
-        B.streetBabble = mk1(ES.synthStreetBabble(seed, r16), r16);
+      await job('distant-cars', async () => { const a = []; for (let k = 0; k < 4; k++) a.push(mk1(await AS.synthDistantCar(seed, k, r22, y), r22)); B.distantCars = a; });
+      await job('sirens', async () => { const a = []; for (let k = 0; k < 2; k++) a.push(mk1(await AS.synthSiren(seed, k, r16, y), r16)); B.sirens = a; });
+      await job('train', async () => { const a = []; for (let k = 0; k < 2; k++) a.push(mk1(await AS.synthTrain(seed, k, r16, y), r16)); B.trains = a; });
+      await job('street', async () => {
+        B.streetBabble = mk1(await ES.synthStreetBabble(seed, r16, y), r16);
         B.barks = AS.synthBarks(seed, r16).map((x) => mk1(x, r16));
       });
       y.close();
+      this.debug.yieldStats = { ...y.stats };
       this._instantiatePending();
       this.debug.backgroundMs = Math.round(nowMs() - tb);
       this.debug.totalSynthMs = Math.round(nowMs() - t0);
@@ -321,16 +328,25 @@ export class AudioEngine {
       this.acoustics = new Acoustics(ctx, { flutter: B.flutterIR, diffuse: B.diffuseIR }, this.busReverb, { hrtf: true });
       const A = this.acoustics;
       const send = (from, to, g) => { const n = ctx.createGain(); n.gain.value = g; from.connect(n); n.connect(to); return n; };
+      // footstep reverb sends are high-passed: the heel's weight stays dry, the tail stays clean
+      this.fsSendHP = ctx.createBiquadFilter();
+      this.fsSendHP.type = 'highpass';
+      this.fsSendHP.frequency.value = 200;
+      this.fsSendHP.Q.value = 0.6;
+      this.busFootsteps.connect(this.fsSendHP);
+      const hp = (from, f) => { const n = ctx.createBiquadFilter(); n.type = 'highpass'; n.frequency.value = f; n.Q.value = 0.6; from.connect(n); return n; };
+      this.emSendHP = hp(this.emitterSendIn, 160);
+      this.osSendHP = hp(this.oneShotSendIn, 140);
       this.sends = {
-        fsF: send(this.busFootsteps, A.flutterIn, MIX.fsFlutter),
-        fsD: send(this.busFootsteps, A.diffuseIn, MIX.fsDiffuse),
-        fsS: send(this.busFootsteps, A.slapIn, MIX.fsSlap),
-        emF: send(this.emitterSendIn, A.flutterIn, MIX.emFlutter),
-        emD: send(this.emitterSendIn, A.diffuseIn, MIX.emDiffuse),
-        emS: send(this.emitterSendIn, A.slapIn, MIX.emSlap),
-        osF: send(this.oneShotSendIn, A.flutterIn, MIX.osFlutter),
-        osD: send(this.oneShotSendIn, A.diffuseIn, MIX.osDiffuse),
-        osS: send(this.oneShotSendIn, A.slapIn, MIX.osSlap),
+        fsF: send(this.fsSendHP, A.flutterIn, MIX.fsFlutter),
+        fsD: send(this.fsSendHP, A.diffuseIn, MIX.fsDiffuse),
+        fsS: send(this.fsSendHP, A.slapIn, MIX.fsSlap),
+        emF: send(this.emSendHP, A.flutterIn, MIX.emFlutter),
+        emD: send(this.emSendHP, A.diffuseIn, MIX.emDiffuse),
+        emS: send(this.emSendHP, A.slapIn, MIX.emSlap),
+        osF: send(this.osSendHP, A.flutterIn, MIX.osFlutter),
+        osD: send(this.osSendHP, A.diffuseIn, MIX.osDiffuse),
+        osS: send(this.osSendHP, A.slapIn, MIX.osSlap),
       };
     } catch (e) {
       console.warn('[audio] acoustics failed', e);

@@ -505,11 +505,15 @@ export function makeYielder(budgetMs = 12) {
     });
   const fn = async () => {
     const t = now();
-    if (t - last > budgetMs) {
+    const blocked = t - last;
+    if (blocked > budgetMs) {
+      if (blocked > fn.stats.maxBlock) fn.stats.maxBlock = blocked;
+      fn.stats.yields++;
       await yieldNow();
       last = now();
     }
   };
+  fn.stats = { maxBlock: 0, yields: 0 };
   fn.close = () => { if (chan) { chan.port1.onmessage = null; chan.port1.close(); chan.port2.close(); } };
   return fn;
 }

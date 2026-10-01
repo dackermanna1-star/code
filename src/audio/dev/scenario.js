@@ -183,6 +183,9 @@ export const SCENARIOS = {
       duration: dur,
       engineOpts: { autoEvents: false, ...(opts.engineOpts || {}) },
       setup(engine) {
+        if (opts.solo) {
+          for (const b of ['footsteps', 'emitters', 'oneShots', 'ambience', 'reverb']) if (!opts.solo.split('+').includes(b)) engine.setBusGain(b, 0);
+        }
         engine.addEmitter({ type: 'hvac', position: { x: 2.5, y: 2.4, z: -10 } });
         lamp = engine.addEmitter({ type: 'lampBuzz', position: { x: -2.6, y: 4.5, z: -4 } });
         engine.addEmitter({ type: 'trickle', position: { x: 2.65, y: 0.1, z: -17 } });
@@ -316,8 +319,20 @@ export const SCENARIOS = {
     return {
       duration: dur,
       engineOpts: { autoEvents: false, ambientDripRate: 0.0001 },
-      setup(engine) { look(engine, { x: 0, y: WORLD.eye, z: -30 }); },
-      frame(t, dt, engine) { engine.update(dt, stateAt(-30, t + (opts.windOffset ?? 0))); },
+      setup(engine, api) {
+        look(engine, { x: 0, y: WORLD.eye, z: -30 });
+        api.meta.wind = [];
+        if (opts.windOnly) {
+          const A = engine.ambience;
+          A.modulateBed = () => {};
+          for (const g of [A.rumbleG, A.hissG, A.humG]) { g.gain.cancelScheduledValues(0); g.gain.value = 0; }
+        }
+      },
+      frame(t, dt, engine, api) {
+        const tw = t + (opts.windOffset ?? 0);
+        engine.update(dt, stateAt(-30, tw));
+        api.meta.wind.push([t, engine.windAt(tw)]);
+      },
       actions: [],
     };
   },
@@ -336,6 +351,55 @@ export const SCENARIOS = {
       },
       frame(t, dt, engine) { engine.update(dt, stateAt(-60, t)); },
       actions: list.map(([type, t]) => [t, (e) => e.triggerAmbient(type)]),
+    };
+  },
+
+  /** Flickering lamp: steady, rapid flicker, off, strike, slow dim. Intensity log in meta. */
+  lamp() {
+    const pattern = (t) => {
+      if (t < 2) return 1;
+      if (t < 2.6) return Math.floor(t * 23) % 3 === 0 ? 0.02 : 1;
+      if (t < 4) return 0;
+      if (t < 6) return 1;
+      if (t < 7.5) return 1 - (t - 6) / 1.5;
+      if (t < 9) return 0;
+      return 1;
+    };
+    let lamp = null;
+    return {
+      duration: 11,
+      engineOpts: { ambience: false, autoEvents: false },
+      setup(engine, api) {
+        lamp = engine.addEmitter({ type: 'lampBuzz', position: { x: 0.5, y: 3.5, z: -2 } });
+        api.meta.intensity = [];
+        look(engine, { x: 0, y: WORLD.eye, z: 0 });
+      },
+      frame(t, dt, engine, api) {
+        const v = pattern(t);
+        lamp.setIntensity(v);
+        api.meta.intensity.push([t, v]);
+        engine.update(dt, stateAt(0, t));
+      },
+      actions: [],
+    };
+  },
+
+  /** Car passes behind the alley mouth with the listener near the fence, then deep in the alley. */
+  carpass() {
+    let z = 2;
+    return {
+      duration: 18,
+      engineOpts: { ambience: false, autoEvents: false },
+      setup(engine, api) { api.meta.marks = [{ t: 0.5, type: 'car z=2' }, { t: 9.5, type: 'car z=-25' }]; },
+      frame(t, dt, engine) {
+        z = t < 9 ? 2 : -25;
+        look(engine, { x: 0, y: WORLD.eye, z });
+        engine.update(dt, stateAt(z, t));
+      },
+      actions: [
+        [0.5, (e) => e.oneShot('carPass', { from: { x: -50, y: 0.5, z: 14 }, to: { x: 50, y: 0.5, z: 14 }, duration: 7 })],
+        [9.5, (e) => e.oneShot('carPass', { from: { x: 50, y: 0.5, z: 14 }, to: { x: -50, y: 0.5, z: 14 }, duration: 7 })],
+      ],
     };
   },
 
@@ -373,7 +437,7 @@ export async function getImpulseResponses(o = {}) {
   const OAC = globalThis.OfflineAudioContext;
   const ctx = new OAC({ numberOfChannels: 2, length: 128, sampleRate: o.sampleRate ?? 48000 });
   const engine = new AudioEngine({ context: ctx, seed: o.seed ?? 1337, autoEvents: false });
-  await engine.init();
+  await engine.whenFullyLoaded();
   const B = engine.buffers;
   const ch = (b) => [b.getChannelData(0), b.getChannelData(1)];
   return { sampleRate: ctx.sampleRate, flutter: ch(B.flutterIR), diffuse: ch(B.diffuseIR), city: ch(B.cityIR), arrivals: engine.debug.flutterArrivals };

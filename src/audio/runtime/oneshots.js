@@ -1,21 +1,31 @@
 // One-shot voice pool (persistent panners, a few HRTF ones for nearby events) and the car-pass mover.
 import {
-  glide, jump, makePanner, setPannerPos, dist, airCutoff, inverseGain, dbToGain, rand, pickIndexNoRepeat, finite,
+  glide, jump, hold, makePanner, setPannerPos, dist, airCutoff, inverseGain, dbToGain, rand, pickIndexNoRepeat, finite,
   autoCleanup, SPEED_OF_SOUND,
 } from './spatial.js';
 
 // type -> bank selection, level and acoustics
 export const ONESHOT_TYPES = {
-  drip: { db: { water: -13, metal: -17, ground: -17, plastic: -15 }, ref: 1.0, send: 0.55, rate: 0.07 },
-  canKick: { bank: 'canKick', db: -6, ref: 1.5, send: 0.45, rate: 0.05 },
-  canRoll: { bank: 'canRoll', db: -10, ref: 1.5, send: 0.45, rate: 0.04 },
-  bottleKick: { bank: 'bottleKick', db: -7, ref: 1.5, send: 0.45, rate: 0.04 },
-  paperRustle: { bank: 'paperRustle', db: -19, ref: 1.0, send: 0.3, rate: 0.08 },
-  plasticRustle: { bank: 'plasticRustle', db: -19, ref: 1.0, send: 0.3, rate: 0.08 },
-  garbageShift: { bank: 'garbageShift', db: -11, ref: 1.5, send: 0.45, rate: 0.06 },
-  doorRattle: { bank: 'doorRattle', db: -10, ref: 1.5, send: 0.45, rate: 0.05 },
-  wireCreak: { bank: 'wireCreak', db: -22, ref: 2.0, send: 0.4, rate: 0.08 },
+  drip: { db: { water: -13, metal: -13, ground: -13, plastic: -13 }, ref: 1.0, send: 0.55, rate: 0.07 },
+  canKick: { bank: 'canKick', db: -3, ref: 1.5, send: 0.45, rate: 0.05 },
+  canRoll: { bank: 'canRoll', db: -9, ref: 1.5, send: 0.45, rate: 0.04 },
+  bottleKick: { bank: 'bottleKick', db: -8, ref: 1.5, send: 0.45, rate: 0.04 },
+  paperRustle: { bank: 'paperRustle', db: -9, ref: 1.0, send: 0.3, rate: 0.08 },
+  plasticRustle: { bank: 'plasticRustle', db: -6, ref: 1.0, send: 0.3, rate: 0.08 },
+  garbageShift: { bank: 'garbageShift', db: -14, ref: 1.5, send: 0.45, rate: 0.06 },
+  doorRattle: { bank: 'doorRattle', db: -12, ref: 1.5, send: 0.45, rate: 0.05 },
+  wireCreak: { bank: 'wireCreak', db: -20, ref: 2.0, send: 0.4, rate: 0.08 },
 };
+
+/** Map any surface name onto the four drip banks (water | metal | ground | plastic). */
+export function dripSurface(s) {
+  const k = String(s || 'water').toLowerCase();
+  if (k === 'water' || k === 'metal' || k === 'ground' || k === 'plastic') return k;
+  if (/puddle|water|pool|wet/.test(k)) return 'water';
+  if (/metal|grate|steel|iron|tin|manhole|dumpster|can|sheet|roof/.test(k)) return 'metal';
+  if (/plastic|bag|tarp|bin|bucket|crate/.test(k)) return 'plastic';
+  return 'ground';
+}
 
 class Voice {
   constructor(ctx, out, sendBus, hrtf) {
@@ -74,13 +84,14 @@ export class OneShotPool {
     let t = now + (o.delay ?? 0);
     if (v.busyUntil > now && v.src) {
       // steal: quick fade
-      v.gain.gain.cancelScheduledValues(now);
+      hold(v.gain.gain, now);
       v.gain.gain.setTargetAtTime(0, now, 0.004);
       try { v.src.stop(now + 0.025); } catch (e) { /* ignore */ }
       t = Math.max(t, now + 0.03);
     }
     const g = o.gain ?? 1;
-    v.gain.gain.cancelScheduledValues(t);
+    if (t <= now) hold(v.gain.gain, t);
+    else v.gain.gain.cancelScheduledValues(t);
     if (o.fadeIn) {
       v.gain.gain.setValueAtTime(0, t);
       v.gain.gain.linearRampToValueAtTime(g, t + o.fadeIn);
@@ -127,7 +138,7 @@ export class OneShotPool {
     let bankName = cfg.bank;
     let db = cfg.db;
     if (type === 'drip') {
-      const surf = ['water', 'metal', 'ground', 'plastic'].includes(params.surface) ? params.surface : 'water';
+      const surf = dripSurface(params.surface);
       bankName = 'drip.' + surf;
       db = cfg.db[surf];
     }
@@ -211,7 +222,7 @@ export class CarPass {
     this.air.connect(engine.busOneShots);
     this.vol.connect(this.send);
     this.send.connect(engine.emitterSendIn);
-    this.level = dbToGain(params.db ?? 2) * finite(params.gain, 1);
+    this.level = dbToGain(params.db ?? -4) * finite(params.gain, 1);
     this.tire.start(now, Math.random() * this.tire.buffer.duration);
     this.eng.start(now, Math.random() * this.eng.buffer.duration);
     this.prevPath = null;

@@ -9,7 +9,11 @@ import { DRAINS } from '../world/groundData.js';
 export class Soundscape {
   constructor(engine) {
     this.engine = engine;
-    this.audio = null;
+    // constructed up front (no AudioContext yet) so the wind gusts shared with
+    // the visuals come from the same function from the very first frame
+    this.audio = new AudioEngine({ seed: 7, alley: { halfWidth: 2.8, zBack: 14, zFront: -74 } });
+    this.engine.audio = this.audio;
+    this.started = false;
     this.buzz = [];
     this._fwd = new THREE.Vector3();
     this._up = new THREE.Vector3();
@@ -18,10 +22,9 @@ export class Soundscape {
 
   /** Must be called from a user gesture. */
   async start() {
-    if (this.audio) return;
-    const audio = new AudioEngine({ seed: 7 });
-    this.audio = audio;
-    this.engine.audio = audio;
+    if (this.started) return;
+    this.started = true;
+    const audio = this.audio;
     try {
       await audio.init();
     } catch (e) {
@@ -62,17 +65,22 @@ export class Soundscape {
       const p = facadeToWorld(facadeById(id), u, 0.12, 0.25);
       a.addEmitter({ type: 'trickle', position: v(p.x, p.y, p.z), gain: 0.7 });
     }
-    // life behind lit windows: a couple of TVs, muffled voices, one radio
-    let radio = false;
-    const lit = w.windows?.windows.filter((x) => x.lit && !x.fx.backdrop) ?? [];
-    lit.forEach((win, i) => {
+    // life behind a few lit windows: one or two TVs, a couple of muffled voices, one radio
+    const lit = (w.windows?.windows.filter((x) => x.lit && !x.fx.backdrop) ?? []).sort((p, q) => q.center.z - p.center.z);
+    let tvs = 0, voices = 0, radio = 0;
+    for (const win of lit) {
       const p = win.center;
-      if (win.tv) a.addEmitter({ type: 'tv', position: v(p.x, p.y, p.z), gain: 0.8 });
-      else if (!radio && i % 5 === 2) {
-        radio = true;
-        a.addEmitter({ type: 'radio', position: v(p.x, p.y, p.z), gain: 0.6 });
-      } else if (i % 3 === 0) a.addEmitter({ type: 'voices', position: v(p.x, p.y, p.z), gain: 0.7 });
-    });
+      if (win.tv && tvs < 2) {
+        tvs++;
+        a.addEmitter({ type: 'tv', position: v(p.x, p.y, p.z), gain: 0.7 });
+      } else if (radio < 1 && win.fx.facade.id === 'R2') {
+        radio++;
+        a.addEmitter({ type: 'radio', position: v(p.x, p.y, p.z), gain: 0.5 });
+      } else if (voices < 2 && (win.fx.facade.id === 'L1' || win.fx.facade.id === 'E')) {
+        voices++;
+        a.addEmitter({ type: 'voices', position: v(p.x, p.y, p.z), gain: 0.6 });
+      }
+    }
     // dumpsters for garbage-shift events
     const dumpsters = [v(2.1, 0.8, -22.2), v(-2.15, 0.8, -34.9), v(18.6, 0.8, -78.6)];
     if (a.setDumpsters) a.setDumpsters(dumpsters);
@@ -84,7 +92,7 @@ export class Soundscape {
 
   update(dt, t) {
     const a = this.audio;
-    if (!a || !a.ready) return;
+    if (!this.started || !a || !a.ready) return;
     const cam = this.engine.camera;
     cam.getWorldDirection(this._fwd);
     this._up.set(0, 1, 0).applyQuaternion(cam.quaternion);
@@ -111,6 +119,7 @@ export class Soundscape {
       distFront,
       distBack,
       enclosure,
+      corridorDir: p.z > -74 ? { x: 0, y: 0, z: 1 } : { x: 1, y: 0, z: 0 },
     });
     for (const b of this.buzz) {
       const l = b.lamp;

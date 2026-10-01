@@ -322,7 +322,7 @@ const FACADE_SURFACE = /* glsl */ `
     float flash = fract(uid * 3.17) > 0.6 ? mix(0.78, 1.0, inU.x) : 1.0;
     if (pid == P_HEADER || (pid == P_COMMON && fract(uid * 5.1) > 0.55 && mort < 0.5 && fract(uid * 9.7) > 0.4)) flash *= 0.86;
     bc *= flash * (0.9 + 0.2 * vn);
-    vec3 mc = uMortarCols[sch] * (0.82 + 0.3 * vn);
+    vec3 mc = uMortarCols[sch] * (0.95 + 0.3 * vn);
     alb = mix(bc, mc, mort);
     if (pid == P_SPALL) alb = bc * vec3(1.12, 1.0, 0.92) * (0.85 + 0.25 * vn);
     if (cls == 30) {
@@ -423,7 +423,7 @@ const FACADE_SURFACE = /* glsl */ `
   rough = mix(rough, mix(rough, 0.22, 0.85), wet * (sN.y > 0.6 ? 1.0 : 0.45));
 
   // ---------- occlusion ----------
-  float reliefAO = mix(1.0, 0.5, clamp(-hitH / 1.8, 0.0, 1.0));
+  float reliefAO = mix(1.0, mort > 0.5 ? 0.74 : 0.55, clamp(-hitH / 1.8, 0.0, 1.0));
   if (hitType != 0) reliefAO *= 0.85;
   reliefAO = mix(1.0, reliefAO, detail);
   float sAO = vMat.a * reliefAO;

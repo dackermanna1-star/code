@@ -28,9 +28,9 @@ function downscale(src, k) {
   return c;
 }
 
-export async function paintFacades(atlas, facades, fixtures) {
-  const stats = { facades: 0, ms: 0 };
-  const t0 = performance.now();
+/** Build one generator spec per facade that wants paint. */
+export function buildPaintJobs(atlas, facades, fixtures) {
+  const jobs = [];
   for (const f of facades) {
     const e = atlas.entries.get(f.id);
     if (!e) continue;
@@ -46,7 +46,6 @@ export async function paintFacades(atlas, facades, fixtures) {
     const fe = FE_LANDINGS[f.id];
     if (fe) for (const y of fe.ys) hotspots.push({ x: fe.u, y: y - v0 + 0.9, r: 1.8, density: 0.85 });
     for (const u of DUMPSTER_SPOTS[f.id] ?? []) hotspots.push({ x: u, y: 1.7, r: 1.5, density: 1 });
-    // a "heaven spot" under the roofline of tall walls
     if (f.height - v0 < PAINT_LAYER_H - 0.4 && !f.blank) hotspots.push({ x: f.width * 0.6, y: f.height - v0 - 1.2, r: 2.0, density: 0.5 });
     const sc = BRICK_SCHEMES[f.scheme] ?? BRICK_SCHEMES[0];
     const tone = sc.bricks.reduce((a, c) => [a[0] + c[0], a[1] + c[1], a[2] + c[2]], [0, 0, 0]).map((v) => Math.round(v / sc.bricks.length));
@@ -57,7 +56,7 @@ export async function paintFacades(atlas, facades, fixtures) {
       heightM: PAINT_LAYER_H,
       pxPerMeter: atlas.colorPPM,
       wallTone: tone,
-      density: p.density ?? (f.blank ? 0.15 : 0.35),
+      density: (p.density ?? (f.blank ? 0.15 : 0.35)) * (f.backdrop ? 0.4 : 1),
       bands: (p.bands ?? [{ y0: 0, y1: 3.2, density: 0.6 }]).map((b) => ({ y0: b.y0 - v0, y1: b.y1 - v0, density: b.density })),
       hotspots,
       holes,
@@ -65,21 +64,87 @@ export async function paintFacades(atlas, facades, fixtures) {
       ageYears: 6 + ((f.seed ?? 3) % 12),
       style: { ...(p.style ?? {}), ghostSign: !!f.ghost },
     };
-    if (f.backdrop) spec.density *= 0.4;
-    let res;
+    jobs.push({ id: f.id, spec, cost: f.width * (p.density ?? 0.3) });
+  }
+  return jobs;
+}
+
+function runOnMain(job, atlas) {
+  const res = generateWallPaint(job.spec);
+  atlas.blitFacade('color', job.id, res.color);
+  atlas.blitFacade('props', job.id, downscale(res.props, atlas.propsPPM / atlas.colorPPM));
+}
+
+/**
+ * Generate all facade paint. Uses a pool of module workers (OffscreenCanvas)
+ * so it overlaps with the rest of world generation; falls back to the main thread.
+ */
+export async function paintFacades(atlas, facades, fixtures, { workerFactory } = {}) {
+  const t0 = performance.now();
+  const jobs = buildPaintJobs(atlas, facades, fixtures).sort((a, b) => b.cost - a.cost);
+  const canWork = workerFactory && typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined';
+  let done = 0;
+  if (canWork) {
+    const n = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
+    const workers = [];
     try {
-      res = generateWallPaint(spec);
+      for (let i = 0; i < n; i++) workers.push(workerFactory());
     } catch (err) {
-      console.warn('graffiti failed for', f.id, err);
-      continue;
+      console.warn('paint workers unavailable, using main thread', err);
     }
-    atlas.blitFacade('color', f.id, res.color);
-    atlas.blitFacade('props', f.id, downscale(res.props, atlas.propsPPM / atlas.colorPPM));
-    stats.facades++;
+    if (workers.length) {
+      const queue = jobs.slice();
+      const failed = [];
+      await Promise.all(workers.map((w) => new Promise((resolve) => {
+        const next = () => {
+          const job = queue.shift();
+          if (!job) {
+            w.terminate();
+            resolve();
+            return;
+          }
+          w.onmessage = (e) => {
+            const m = e.data;
+            if (m.ok) {
+              atlas.blitFacade('color', m.id, m.color);
+              atlas.blitFacade('props', m.id, m.props);
+              done++;
+            } else {
+              console.warn('paint worker failed for', m.id, m.error);
+              failed.push(job);
+            }
+            next();
+          };
+          w.onerror = (err) => {
+            console.warn('paint worker error', err.message);
+            failed.push(job);
+            next();
+          };
+          w.postMessage({ id: job.id, spec: job.spec, propsScale: atlas.propsPPM / atlas.colorPPM });
+        };
+        next();
+      })));
+      for (const job of failed) {
+        try {
+          runOnMain(job, atlas);
+          done++;
+        } catch (err) {
+          console.warn('graffiti failed for', job.id, err);
+        }
+      }
+      return { facades: done, ms: Math.round(performance.now() - t0), workers: workers.length };
+    }
+  }
+  for (const job of jobs) {
+    try {
+      runOnMain(job, atlas);
+      done++;
+    } catch (err) {
+      console.warn('graffiti failed for', job.id, err);
+    }
     await yieldFrame();
   }
-  stats.ms = Math.round(performance.now() - t0);
-  return stats;
+  return { facades: done, ms: Math.round(performance.now() - t0), workers: 0 };
 }
 
 export { FACE_ROT };

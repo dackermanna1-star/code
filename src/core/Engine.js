@@ -10,6 +10,7 @@ import { Ambient } from '../world/ambient.js';
 import { Debris } from '../world/debris.js';
 import { Soundscape } from './soundscape.js';
 import { paintFacades } from '../textures/paintFacades.js';
+import PaintWorker from '../textures/paintWorker.js?worker&inline';
 import { LAYER_REFLECT } from '../world/units.js';
 
 export class Engine {
@@ -21,7 +22,7 @@ export class Engine {
     this.frameHooks = [];
     this.renderScale = 1;
     this.perf = { acc: 0, n: 0, since: 0, lastAdjust: 0 };
-    this.paintFacades = params.nopaint ? null : paintFacades;
+    this.paintFacades = params.nopaint ? null : (atlas, facades, fixtures) => paintFacades(atlas, facades, fixtures, { workerFactory: params.noworkers ? null : () => new PaintWorker() });
   }
 
   async init(progress = () => {}) {
@@ -34,7 +35,24 @@ export class Engine {
       preserveDrawingBuffer: !!this.params.shot,
     });
     this.renderer = renderer;
-    this.basePixelRatio = Math.min(window.devicePixelRatio || 1, this.params.dpr ?? 1.5);
+    // quality: explicit ?q=, otherwise guess from the GPU and device class
+    if (!this.params.quality || this.params.quality === 'auto') {
+      let q = 'high';
+      try {
+        const gl = renderer.getContext();
+        const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+        const name = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '';
+        if (/Intel(?!.*Arc)|UHD|Iris|Mali|Adreno|PowerVR|Apple GPU|SwiftShader|llvmpipe/i.test(name)) q = 'medium';
+        this.gpuName = name;
+      } catch {
+        /* ignore */
+      }
+      const mobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || (matchMedia?.('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820);
+      if (mobile) q = 'low';
+      this.params.quality = q;
+    }
+    const dprCap = { high: 1.5, medium: 1.0, low: 0.85 }[this.params.quality] ?? 1.25;
+    this.basePixelRatio = Math.min(window.devicePixelRatio || 1, this.params.dpr ?? dprCap);
     this.pixelRatio = this.basePixelRatio;
     renderer.setPixelRatio(this.pixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -52,6 +70,7 @@ export class Engine {
     this.scene.add(this.camera);
 
     createNoiseTextures();
+    this.sound = new Soundscape(this);
     this.world = new World(this);
     await this.world.build(progress);
 
@@ -70,13 +89,13 @@ export class Engine {
     this.post.preHooks.push((r, s, c) => this.world.ground.reflection.render(r, s, c));
     this.ambient = new Ambient(this).build();
     this.debris = new Debris(this, this.world.props.material).build();
-    this.sound = new Soundscape(this);
     this.onStart = () => this.sound.start();
     this.onPause = () => this.sound.setPaused(true);
     this.onResume = () => this.sound.setPaused(false);
 
     window.addEventListener('resize', () => this.resize());
     this.resize();
+    if (this.params.quality === 'low') this.world.facadeMaterial.userData.uniforms.uReliefOn.value = 0;
     progress(1);
   }
 

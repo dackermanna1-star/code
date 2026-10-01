@@ -2,21 +2,21 @@
 // and level -> send -> alley reverb. Panning model switches between HRTF/equalpower (nearest few get HRTF)
 // behind a short gain dip. Per-type slow random modulation keeps long loops from sounding like loops.
 import {
-  glide, jump, makePanner, setPannerPos, dist, airCutoff, inverseGain, dbToGain, rand, randExp, loopSource,
+  glide, jump, hold, makePanner, setPannerPos, dist, airCutoff, inverseGain, dbToGain, rand, randExp, loopSource,
   autoCleanup, pickIndexNoRepeat, finite,
 } from './spatial.js';
 
 // Calibrated type levels (dB at refDistance for gain=1) and acoustic parameters.
 export const EMITTER_TYPES = {
-  hvac: { db: -9, ref: 2.0, rolloff: 1.0, send: 0.32 },
-  exhaust: { db: -6, ref: 3.0, rolloff: 1.0, send: 0.25 },
-  transformer: { db: -23, ref: 1.5, rolloff: 1.0, send: 0.2 },
-  lampBuzz: { db: -26, ref: 1.0, rolloff: 1.0, send: 0.25 },
-  trickle: { db: -12, ref: 1.0, rolloff: 1.0, send: 0.45 },
-  drain: { db: -11, ref: 1.5, rolloff: 1.0, send: 0.5 },
-  tv: { db: -15, ref: 2.0, rolloff: 1.0, send: 0.3 },
-  voices: { db: -15, ref: 2.0, rolloff: 1.0, send: 0.3 },
-  radio: { db: -14, ref: 3.0, rolloff: 1.0, send: 0.3 },
+  hvac: { db: -18, ref: 2.0, rolloff: 1.0, send: 0.32 },
+  exhaust: { db: -17, ref: 3.0, rolloff: 1.0, send: 0.25 },
+  transformer: { db: -28, ref: 1.5, rolloff: 1.0, send: 0.2 },
+  lampBuzz: { db: -17, ref: 1.0, rolloff: 1.0, send: 0.25 },
+  trickle: { db: -11, ref: 1.0, rolloff: 1.0, send: 0.45 },
+  drain: { db: -16, ref: 1.5, rolloff: 1.0, send: 0.5 },
+  tv: { db: -16, ref: 2.0, rolloff: 1.0, send: 0.3 },
+  voices: { db: -17, ref: 2.0, rolloff: 1.0, send: 0.3 },
+  radio: { db: -18, ref: 3.0, rolloff: 1.0, send: 0.3 },
 };
 
 /** Plays random segments of a long buffer with crossfades (no audible loop). */
@@ -41,8 +41,10 @@ export class ShufflePlayer {
     if (!seg) { this.next = t + 1; return; }
     if (seg.gap) { this.next = t + seg.gap; return; }
     const xf = o.xfade ?? 0.25;
+    const rate = o.rate ?? 1;
     const src = this.ctx.createBufferSource();
     src.buffer = seg.buffer;
+    src.playbackRate.value = rate;
     const g = this.ctx.createGain();
     const lvl = seg.gain ?? 1;
     g.gain.setValueAtTime(0, t);
@@ -51,8 +53,8 @@ export class ShufflePlayer {
     g.gain.linearRampToValueAtTime(0, t + seg.dur + xf);
     src.connect(g);
     g.connect(this.dest);
-    const maxOff = Math.max(0, seg.buffer.duration - seg.dur - xf - 0.01);
-    src.start(t, Math.min(seg.offset, maxOff), seg.dur + xf + 0.02);
+    const maxOff = Math.max(0, seg.buffer.duration - (seg.dur + xf) * rate - 0.01);
+    src.start(t, Math.min(seg.offset, maxOff), (seg.dur + xf + 0.02) * rate);
     const rec = { src, g };
     this.live.add(rec);
     autoCleanup(src, [g], () => this.live.delete(rec));
@@ -61,7 +63,7 @@ export class ShufflePlayer {
   stop(now) {
     this.stopped = true;
     for (const { src, g } of this.live) {
-      try { g.gain.cancelScheduledValues(now); g.gain.setTargetAtTime(0, now, 0.05); src.stop(now + 0.3); } catch (e) { /* ignore */ }
+      try { hold(g.gain, now); g.gain.setTargetAtTime(0, now, 0.05); src.stop(now + 0.4); } catch (e) { /* ignore */ }
     }
   }
 }
@@ -84,10 +86,14 @@ export class Emitter {
     this.nextSpatial = 0;
     const now = ctx.currentTime;
 
+    // optional per-instance params: refDistance, rolloff, reverb (send multiplier), lowpass (Hz, extra muffling)
+    this.ref = Math.max(0.1, finite(this.params.refDistance, this.cfg.ref));
+    this.rolloff = Math.max(0, finite(this.params.rolloff, this.cfg.rolloff));
+    this.sendMul = Math.max(0, finite(this.params.reverb, 1));
     this.voice = ctx.createGain();
     this.level = ctx.createGain();
     this.level.gain.value = 0;
-    this.panner = makePanner(ctx, 'equalpower', this.cfg.ref, this.cfg.rolloff);
+    this.panner = makePanner(ctx, 'equalpower', this.ref, this.rolloff);
     this.air = ctx.createBiquadFilter();
     this.air.type = 'lowpass';
     this.air.Q.value = 0.5;
@@ -95,7 +101,16 @@ export class Emitter {
     this.dry = ctx.createGain();
     this.send = ctx.createGain();
     this.send.gain.value = 0;
-    this.voice.connect(this.level);
+    if (Number.isFinite(this.params.lowpass)) {
+      this.muffle = ctx.createBiquadFilter();
+      this.muffle.type = 'lowpass';
+      this.muffle.frequency.value = Math.max(80, this.params.lowpass);
+      this.muffle.Q.value = 0.6;
+      this.voice.connect(this.muffle);
+      this.muffle.connect(this.level);
+    } else {
+      this.voice.connect(this.level);
+    }
     this.level.connect(this.panner);
     this.panner.connect(this.air);
     this.air.connect(this.dry);
@@ -104,6 +119,7 @@ export class Emitter {
     this.send.connect(engine.emitterSendIn);
     setPannerPos(this.panner, this.pos, now, 0);
     this.nodes = [this.voice, this.level, this.panner, this.air, this.dry, this.send];
+    if (this.muffle) this.nodes.push(this.muffle);
     this.sources = [];
     this.build(now);
     glide(this.level.gain, this.targetLevel(), now, 0.4);
@@ -132,8 +148,8 @@ export class Emitter {
     if (this.pendingModel !== null) { this.pendingModel = on ? 'HRTF' : 'equalpower'; return; }
     if (on === this.hrtf) return;
     this.pendingModel = on ? 'HRTF' : 'equalpower';
-    this.switchAt = now + 0.045;
-    this.dry.gain.cancelScheduledValues(now);
+    this.switchAt = now + 0.075;
+    hold(this.dry.gain, now);
     this.dry.gain.setTargetAtTime(0, now, 0.01);
   }
 
@@ -143,7 +159,7 @@ export class Emitter {
       this.panner.panningModel = this.pendingModel;
       this.hrtf = this.pendingModel === 'HRTF';
       this.pendingModel = null;
-      this.dry.gain.cancelScheduledValues(now);
+      hold(this.dry.gain, now);
       this.dry.gain.setTargetAtTime(1, now, 0.02);
     }
     if (now >= this.nextSpatial) {
@@ -152,8 +168,8 @@ export class Emitter {
       this.distance = d;
       glide(this.air.frequency, airCutoff(d), now, 0.15);
       // reverb send falls slower than the direct sound -> distance cue
-      const g = inverseGain(d, this.cfg.ref, this.cfg.rolloff);
-      glide(this.send.gain, this.cfg.send * Math.sqrt(g), now, 0.15);
+      const g = inverseGain(d, this.ref, this.rolloff);
+      glide(this.send.gain, this.cfg.send * this.sendMul * Math.sqrt(g), now, 0.15);
     }
     if (now >= this.nextMod) {
       this.nextMod = now + rand(2, 6);
@@ -168,7 +184,7 @@ export class Emitter {
     if (this.stopped) return;
     this.stopped = true;
     const now = this.ctx.currentTime;
-    this.level.gain.cancelScheduledValues(now);
+    hold(this.level.gain, now);
     this.level.gain.setTargetAtTime(0, now, 0.08);
     for (const s of this.sources) { try { s.stop(now + 0.6); } catch (e) { /* ignore */ } }
     if (this.player) this.player.stop(now);
@@ -199,7 +215,7 @@ class Hvac extends Emitter {
     glide(this.mod.gain, rand(0.85, 1.1), now, 2);
   }
   tick(now) {
-    if (now < this.nextRattle) return;
+    if (now < this.nextRattle || this.params.rattle === false) return;
     const wind = this.engine.currentWind ?? 0.2;
     this.nextRattle = now + 3 + randExp(14 / (0.6 + wind));
     const bank = this.engine.buffers.hvacRattle;
@@ -376,8 +392,11 @@ class Behind extends Emitter {
     this.mod = this.add(this.ctx.createGain());
     this.mod.connect(this.voice);
     const isTv = this.type === 'tv';
+    // per-instance playback-rate offset: different windows sound like different people / programmes
+    const rate = isTv ? rand(0.94, 1.06) : rand(0.88, 1.12);
     this.player = new ShufflePlayer(this.ctx, this.mod, {
       xfade: isTv ? 0.2 : 0.3,
+      rate,
       pick: () => {
         if (!isTv && Math.random() < 0.12) return { gap: rand(1, 5) };
         const dur = isTv ? rand(3.5, 9) : rand(3, 8);

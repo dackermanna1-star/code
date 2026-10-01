@@ -209,7 +209,7 @@ export function renderPhones(out, sr, r, spk, phones, gain = 1) {
  * Render a multi-speaker conversation (turn-taking, back-channels, laughter) of `dur` seconds.
  * o: { turnProb, laughProb, uttMin, uttMax, gapMin, gapMax, overlapProb }
  */
-export function renderConversation(r, sr, dur, speakers, o = {}) {
+export async function renderConversation(r, sr, dur, speakers, o = {}, y = async () => {}) {
   const out = new Float32Array(Math.round(dur * sr));
   let t = r.range(0.1, 0.4);
   let cur = 0;
@@ -228,6 +228,7 @@ export function renderConversation(r, sr, dur, speakers, o = {}) {
         renderPhones(out, sr, r, other, L2.phones, other.gain ?? 1);
       }
       t = L.end + r.range(0.2, 0.6);
+      await y();
       continue;
     }
     const U = makeUtterance(r, spk, t, r.range(o.uttMin ?? 0.6, o.uttMax ?? 3.0), o);
@@ -240,6 +241,7 @@ export function renderConversation(r, sr, dur, speakers, o = {}) {
     let gap = r.range(o.gapMin ?? 0.15, o.gapMax ?? 0.8);
     if (r.chance(0.12)) gap *= 3;
     t = U.end + gap;
+    await y();
   }
   return out;
 }

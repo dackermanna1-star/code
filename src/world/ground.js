@@ -305,7 +305,7 @@ export class GroundReflection {
     this.camera.layers.set(LAYER_REFLECT);
     this.textureMatrix = new THREE.Matrix4();
     this.size = new THREE.Vector2(1, 1);
-    this.scale = engine.params?.quality === 'low' ? 0.35 : 0.5;
+    this.scale = { low: 0.35, medium: 0.42 }[engine.params?.quality] ?? 0.5;
     this.target = new THREE.WebGLRenderTarget(16, 16, {
       type: THREE.HalfFloatType,
       minFilter: THREE.LinearMipmapLinearFilter,

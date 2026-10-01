@@ -55,12 +55,10 @@ export class World {
     progress(0.3);
     await yieldFrame();
 
-    // paint hook (graffiti module plugs in here)
-    if (this.engine.paintFacades) {
-      t0 = performance.now();
-      await this.engine.paintFacades(atlas, FACADES, fac.fixtures);
-      T('paint', t0);
-    }
+    // paint (graffiti) runs in workers while the rest of the world is built
+    let paintDone = Promise.resolve(null);
+    const tPaint = performance.now();
+    if (this.engine.paintFacades) paintDone = this.engine.paintFacades(atlas, FACADES, fac.fixtures);
 
     // ── facade meshes ──
     t0 = performance.now();
@@ -100,6 +98,18 @@ export class World {
     T('ground', t0);
     progress(0.55);
     await yieldFrame();
+
+    // ── vacant gravel lot beyond the far-left fence ──
+    {
+      const lot = new THREE.Mesh(new THREE.PlaneGeometry(14, 42).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x17161a, roughness: 0.75 }));
+      lot.position.set(-29.2, 0.0, -79);
+      lot.receiveShadow = true;
+      lot.layers.enable(LAYER_REFLECT);
+      this.scene.add(lot);
+      const yard = new THREE.Mesh(new THREE.PlaneGeometry(9, 42).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x141416, roughness: 0.6 }));
+      yard.position.set(26.5, 0.0, -79);
+      this.scene.add(yard);
+    }
 
     // ── sky ──
     const sky = createSky();
@@ -144,6 +154,9 @@ export class World {
     this.blockHeightAt = irr.heightAt;
     T('irradiance', t0);
     progress(0.7);
+    const ps = await paintDone;
+    this.timings.paint = Math.round(performance.now() - tPaint);
+    this.timings.paintWorkers = ps?.workers ?? 0;
   }
 
   buildLamps() {

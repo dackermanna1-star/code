@@ -8,6 +8,8 @@ import { filt, TAU } from '../lib/dsp.js';
 import { deriveRng, noiseGen } from '../lib/rng.js';
 
 const C = 343;
+const NOY = async () => {};
+
 
 function onePole(x, fc, sr) {
   const a = Math.exp((-TAU * fc) / sr);
@@ -34,12 +36,12 @@ function normEnergy(chs, target = 1) {
 export function flutterIR(seed, sr, o = {}) {
   const r = deriveRng(seed, 'ir-flutter');
   const W = o.width ?? 5.6;
-  const xl = o.listenerX ?? -0.55; // listener slightly off-centre -> alternating sides
+  const xl = o.listenerX ?? -1.2; // listener off-centre -> L, R, L+R arrivals repeating every 2W/c
   const xs = o.sourceX ?? xl + 0.08; // footsteps under the listener
   const h = o.height ?? 1.55; // feet -> ears
-  const R = o.reflect ?? 0.93; // wet brick, broadband
-  const scatter = o.scatter ?? 0.13; // fraction of amplitude scattered per bounce
-  const maxOrder = o.maxOrder ?? 44;
+  const R = o.reflect ?? 0.96; // wet brick, broadband
+  const scatter = o.scatter ?? 0.05; // fraction of amplitude scattered per bounce
+  const maxOrder = o.maxOrder ?? 54;
   const len = Math.round((o.length ?? 0.95) * sr);
   const L = new Float32Array(len);
   const Rr = new Float32Array(len);
@@ -62,7 +64,8 @@ export function flutterIR(seed, sr, o = {}) {
     const t = (dn - d0) / C + jitter;
     const i0 = Math.round(t * sr);
     if (i0 >= len - clusterLen) continue;
-    const amp = (d0 / dn) * Math.pow(R, order);
+    // spreading slightly softer than 1/r: facade features keep energy in the corridor
+    const amp = Math.pow(d0 / dn, 0.7) * Math.pow(R, order) * (order === 1 ? 0.7 : 1);
     const spec = Math.pow(1 - scatter, order);
     // build the arrival cluster: specular tap + scattered taps spread wider with order
     tmp.fill(0);
@@ -76,7 +79,7 @@ export function flutterIR(seed, sr, o = {}) {
       if (off >= 0 && off < clusterLen) tmp[off] += scatAmp * nz() * 1.4;
     }
     // progressive low-pass: brick scattering + air
-    const fc = 13000 / (1 + 0.42 * order);
+    const fc = 16000 / (1 + 0.22 * order);
     onePole(tmp, fc, sr);
     onePole(tmp, fc * 1.6, sr);
     // ears: near ear direct, far ear delayed + head-shadowed
@@ -100,12 +103,13 @@ export function flutterIR(seed, sr, o = {}) {
   const nf = Math.round(0.08 * sr);
   for (let i = 0; i < nf; i++) { const g = i / nf; L[len - 1 - i] *= g; Rr[len - 1 - i] *= g; }
   const physicalEnergy = energy([L, Rr]);
+  normEnergy([L, Rr], 1);
   arrivals.sort((a, b) => a.t - b.t);
   return { L, R: Rr, arrivals, physicalEnergy };
 }
 
 /** Banded exponential-decay noise tail. rt: [[freq, rt60], ...] */
-function bandedTail(r, sr, len, rt, onset, build, shapeFn) {
+async function bandedTail(r, sr, len, rt, onset, build, damp, y = NOY) {
   const chs = [new Float32Array(len), new Float32Array(len)];
   const band = new Float32Array(len);
   for (let c = 0; c < 2; c++) {
@@ -122,6 +126,7 @@ function bandedTail(r, sr, len, rt, onset, build, shapeFn) {
       const nf = Math.min(blen, Math.round(0.02 * sr));
       for (let i = 0; i < nf; i++) band[blen - 1 - i] *= i / nf;
       for (let i = 0; i < blen; i++) out[i] += band[i];
+      await y();
     }
     // onset: silence until `onset`, raised-cosine build-up
     const i0 = Math.round(onset * sr);
@@ -130,10 +135,25 @@ function bandedTail(r, sr, len, rt, onset, build, shapeFn) {
       let g = 0;
       if (i >= i1) g = 1;
       else if (i > i0) g = 0.5 - 0.5 * Math.cos((Math.PI * (i - i0)) / (i1 - i0));
-      if (shapeFn) g *= shapeFn(i / sr);
       out[i] *= g;
     }
+    // progressive HF damping: two one-pole low-passes whose cutoff falls with time
+    if (damp) {
+      let y1 = 0, y2 = 0;
+      for (let b = 0; b < len; b += 64) {
+        const t = b / sr;
+        const fc = damp.f1 + (damp.f0 - damp.f1) * Math.exp(-t / damp.tau);
+        const a = Math.exp((-TAU * fc) / sr);
+        const m = Math.min(64, len - b);
+        for (let i = b; i < b + m; i++) {
+          y1 = out[i] + a * (y1 - out[i]);
+          y2 = y1 + a * (y2 - y1);
+          out[i] = y2;
+        }
+      }
+    }
   }
+  await y();
   return chs;
 }
 
@@ -154,11 +174,11 @@ function addEchoTap(ch, sr, r, t, amp, lpHz, spreadMs) {
   for (let k = 0; k < n; k++) { const a = i0 + k; if (a >= 0 && a < ch.length) ch[a] += tmp[k]; }
 }
 
-export function diffuseIR(seed, sr, o = {}) {
+export async function diffuseIR(seed, sr, o = {}, y = NOY) {
   const r = deriveRng(seed, 'ir-diffuse');
   const len = Math.round((o.length ?? 2.3) * sr);
-  const rt = o.rt ?? [[90, 1.55], [180, 1.6], [360, 1.5], [720, 1.4], [1400, 1.2], [2800, 0.85], [5600, 0.55], [11000, 0.32]];
-  const [L, R] = bandedTail(r, sr, len, rt, o.onset ?? 0.006, o.build ?? 0.06);
+  const rt = o.rt ?? [[90, 1.45], [180, 1.5], [360, 1.45], [720, 1.35], [1400, 1.15], [2800, 0.8], [5600, 0.5], [11000, 0.3]];
+  const [L, R] = await bandedTail(r, sr, len, rt, o.onset ?? 0.012, o.build ?? 0.12, { f0: 18000, f1: 1300, tau: 0.22 }, y);
   normEnergy([L, R], 1);
   // sparse late reflections: facade features, fire escapes, far buildings
   const nTaps = 14;
@@ -169,17 +189,18 @@ export function diffuseIR(seed, sr, o = {}) {
     const ch = r.chance(0.5) ? L : R;
     addEchoTap(ch, sr, r, t, amp * 6, 5000 / (1 + t * 6), 0.6 + t * 4);
   }
+  await y();
   const nf = Math.round(0.1 * sr);
   for (let i = 0; i < nf; i++) { const g = i / nf; L[len - 1 - i] *= g; R[len - 1 - i] *= g; }
   normEnergy([L, R], 1);
   return { L, R };
 }
 
-export function cityIR(seed, sr, o = {}) {
+export async function cityIR(seed, sr, o = {}, y = NOY) {
   const r = deriveRng(seed, 'ir-city');
   const len = Math.round((o.length ?? 3.4) * sr);
   const rt = [[90, 2.6], [180, 2.7], [360, 2.5], [720, 2.2], [1400, 1.7], [2800, 1.1], [5600, 0.6], [11000, 0.3]];
-  const [L, R] = bandedTail(r, sr, len, rt, 0.015, 0.18);
+  const [L, R] = await bandedTail(r, sr, len, rt, 0.015, 0.18, { f0: 7000, f1: 700, tau: 0.35 }, y);
   normEnergy([L, R], 1);
   // discrete echoes bouncing between buildings
   const echoes = 11;
@@ -190,6 +211,7 @@ export function cityIR(seed, sr, o = {}) {
     addEchoTap(r.chance(0.5) ? L : R, sr, r, t, amp * 4, 3500 / (1 + t * 2), 1 + t * 5);
     addEchoTap(r.chance(0.5) ? L : R, sr, r, t + r.range(0.002, 0.012), amp * 2, 3000 / (1 + t * 2), 1 + t * 5);
   }
+  await y();
   const nf = Math.round(0.2 * sr);
   for (let i = 0; i < nf; i++) { const g = i / nf; L[len - 1 - i] *= g; R[len - 1 - i] *= g; }
   normEnergy([L, R], 1);
