@@ -12,24 +12,31 @@ export const SPRAY_TILES_PER_ROW = 4; // 4 x 4 tiles per array layer
 export const SPRAY_TILE = 512; // texels per canvas side
 export const SPRAY_SIZE = 2.0; // metres per canvas side
 
+// Two samplers only: wall shaders are already close to the 16 texture units
+// most GPUs allow (irradiance, noise, graffiti layers, five spot shadows, IBL).
 Object.assign(shared, {
   uSprayOn: { value: 0 },
-  uSprayGrid: { value: null },
-  uSprayCanvas: { value: null },
-  uSprayColor: { value: null },
-  uSprayMat: { value: null },
+  uSprayData: { value: null }, // float 3D: lookup grid + a slice of canvas parameters
+  uSprayAtlas: { value: null }, // array: colour layers, then material layers (quadrants)
+  uSprayMatLayer: { value: 0 },
+  uSprayDims: { value: new THREE.Vector3(1, 1, 1) },
   uSprayGridMin: { value: new THREE.Vector3() },
   uSprayGridInv: { value: new THREE.Vector3(1, 1, 1) },
 });
 
 export const SPRAY_PARS = /* glsl */ `
 uniform float uSprayOn;
-uniform highp sampler3D uSprayGrid;
-uniform highp sampler2D uSprayCanvas;
-uniform highp sampler2DArray uSprayColor;
-uniform highp sampler2DArray uSprayMat;
+uniform highp sampler3D uSprayData;
+uniform highp sampler2DArray uSprayAtlas;
+uniform float uSprayMatLayer;
+uniform vec3 uSprayDims;
 uniform vec3 uSprayGridMin;
 uniform vec3 uSprayGridInv;
+
+vec4 sprayParam(int t) {
+  int nx = int(uSprayDims.x);
+  return texelFetch(uSprayData, ivec3(t - (t / nx) * nx, t / nx, int(uSprayDims.z)), 0);
+}
 
 // Paint covering world point wp (geometric normal gn). Returns premultiplied
 // linear colour + coverage; m = premultiplied (metal, smoothness, wetness, coverage).
@@ -40,15 +47,15 @@ vec4 sprayPaint(vec3 wp, vec3 gn, vec3 dPdx, vec3 dPdy, out vec4 m) {
   if (uSprayOn < 0.5) return acc;
   vec3 gc = (wp - uSprayGridMin) * uSprayGridInv;
   if (any(lessThan(gc, vec3(0.0))) || any(greaterThan(gc, vec3(1.0)))) return acc;
-  vec4 ids = textureLod(uSprayGrid, gc, 0.0) * 255.0;
+  vec4 ids = texelFetch(uSprayData, ivec3(clamp(floor(gc * uSprayDims), vec3(0.0), uSprayDims - 1.0)), 0);
   for (int k = 0; k < 4; k++) {
     float idf = ids[k];
     if (idf < 0.5) break;
-    int ci = int(idf + 0.5) - 1;
-    vec4 r0 = texelFetch(uSprayCanvas, ivec2(0, ci), 0); // origin, slab back
-    vec4 r1 = texelFetch(uSprayCanvas, ivec2(1, ci), 0); // U, slab front
-    vec4 r2 = texelFetch(uSprayCanvas, ivec2(2, ci), 0); // V, layer
-    vec4 r3 = texelFetch(uSprayCanvas, ivec2(3, ci), 0); // N, tile
+    int t = (int(idf + 0.5) - 1) * 4;
+    vec4 r0 = sprayParam(t);     // origin, slab back
+    vec4 r1 = sprayParam(t + 1); // U, slab front
+    vec4 r2 = sprayParam(t + 2); // V, layer
+    vec4 r3 = sprayParam(t + 3); // N, tile
     vec3 d = wp - r0.xyz;
     float dn = dot(d, r3.xyz);
     if (dn < r0.w || dn > r1.w || dot(gn, r3.xyz) < 0.2) continue;
@@ -61,10 +68,12 @@ vec4 sprayPaint(vec3 wp, vec3 gn, vec3 dPdx, vec3 dPdy, out vec4 m) {
     vec2 gy = vec2(dot(dPdy, r1.xyz), dot(dPdy, r2.xyz)) * S;
     float fp = max(length(gx), length(gy)) * ${(SPRAY_TILE * SPRAY_TILES_PER_ROW).toFixed(1)};
     if (fp > 16.0) { gx *= 16.0 / fp; gy *= 16.0 / fp; fp = 16.0; }
-    float margin = 0.5 * max(fp, 1.0) / ${SPRAY_TILE.toFixed(1)};
+    float margin = 0.5 * max(fp, 2.0) / ${SPRAY_TILE.toFixed(1)};
     vec2 auv = (tile + clamp(uv, vec2(margin), vec2(1.0 - margin))) * ${(1 / SPRAY_TILES_PER_ROW).toFixed(6)};
-    vec4 c = textureGrad(uSprayColor, vec3(auv, r2.w), gx, gy);
-    vec4 mm = textureGrad(uSprayMat, vec3(auv, r2.w), gx, gy);
+    vec4 c = textureGrad(uSprayAtlas, vec3(auv, r2.w), gx, gy);
+    float q = mod(r2.w, 4.0);
+    vec2 qo = vec2(mod(q, 2.0), floor(q * 0.5)) * 0.5;
+    vec4 mm = textureGrad(uSprayAtlas, vec3(qo + auv * 0.5, uSprayMatLayer + floor(r2.w * 0.25)), gx * 0.5, gy * 0.5);
     acc = c + acc * (1.0 - c.a);
     m = mm + m * (1.0 - mm.a);
   }

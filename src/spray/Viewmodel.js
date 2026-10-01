@@ -30,26 +30,26 @@ const sstep = (a, b, x) => {
 const wrapPi = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
 /** How the hand sits on the can (can frame: origin at the bottom centre, +Y up, nozzle toward -Z). */
-const GRIP = {
+export const GRIP = {
   pivotY: 0.165, // rig pivot on the can axis
-  palmAngle: 0.38, // palm contact direction around the can (rad from +X toward -Z, the nozzle side)
+  palmAngle: -0.3, // palm contact direction around the can (rad from +X toward -Z, the nozzle side): back-right, so the dorsum faces the eye
   palmY: 0.155, // palm contact height
   knuckleTilt: 0.16, // knuckle line tilted from the can axis (power grip runs obliquely across the palm)
   palmLean: 0.05, // palm normal tilted (rad, + tips the dorsum up)
   palmContact: [0.004, 0.05, -0.0128], // hand-frame point of the palmar skin that touches the can
   squash: 0.0012, // soft tissue compression at contacts
-  thumb: { angle: -0.62, y: 0.176, out: 0.0118 }, // thumb MCP target around the can
+  thumb: { angle: -1.3, y: 0.176, out: 0.0118 }, // thumb MCP target around the can
   indexDip: 0.42, // DIP/PIP coupling for the index on the actuator
 };
 
 /** Rest framing (camera space) for 16:9; x moves toward the centre on tall screens. */
-const REST = {
-  nozzle: [0.1, -0.052, -0.4],
+export const REST = {
+  nozzle: [0.112, -0.058, -0.4],
   narrowX: 0.058,
   pitch: 0.06, // + tips the can top toward the camera
   yaw: 0.09, // + turns the nozzle left (toward the view axis)
   roll: 0.1, // + leans the can top left (toward the screen centre)
-  elbowDir: [0.4, -0.58, 0.71], // from the wrist toward the elbow
+  elbowDir: [0.3, -0.84, 0.45], // from the wrist toward the elbow: the forearm rises from below
   forearm: 0.26,
 };
 
@@ -745,6 +745,8 @@ export class Viewmodel {
     // tall screens: move toward the centre so the can stays in frame
     const narrow = 1 - sstep(0.62, 1.25, aspect);
     px += this.restNarrowDX * narrow;
+    // ultrawide: keep the can out toward the right instead of drifting to the centre
+    px += Math.min(0.045, Math.max(0, (aspect - 1.78) * 0.06));
 
     // ── compose ──
     const rig = this.rig;
