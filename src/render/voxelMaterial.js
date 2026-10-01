@@ -38,6 +38,8 @@ export function createVoxelMaterial(opts = {}) {
     // TINT class: linear paint colour, and its finish (metal, roughness)
     uTint: { value: new THREE.Color(opts.tint ?? 0xffffff) },
     uTintFinish: { value: new THREE.Vector2(0, 0.45) },
+    // breathing (sleepers): vertices move along their normal by breath * uBreath metres
+    uBreath: { value: 0 },
   };
   const mat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
@@ -52,6 +54,8 @@ export function createVoxelMaterial(opts = {}) {
   // shadow, and it writes alpha 0 so TAA keeps it camera-locked.
   const vm = !!opts.viewmodel;
   if (vm) mat.defines = { ...(mat.defines ?? {}), VIEWMODEL: 1 };
+  const br = !!opts.breathe;
+  if (br) mat.defines = { ...(mat.defines ?? {}), BREATHE: 1 };
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, shared, uniforms);
     let vs = shader.vertexShader;
@@ -65,6 +69,15 @@ export function createVoxelMaterial(opts = {}) {
       varying vec3 vWPos;
       varying vec3 vWNrm;
       varying vec3 vONrm;
+      #ifdef BREATHE
+        attribute float breath;
+        uniform float uBreath;
+      #endif
+    `, 'after');
+    vs = patch(vs, '#include <begin_vertex>', /* glsl */ `
+      #ifdef BREATHE
+        transformed += objectNormal * (breath * uBreath);
+      #endif
     `, 'after');
     vs = patch(vs, '#include <skinning_vertex>', /* glsl */ `
       vCol = vcol; vMat = vmat; vVox = vox;
@@ -113,7 +126,7 @@ export function createVoxelMaterial(opts = {}) {
     `, 'before');
     shader.fragmentShader = fs;
   };
-  mat.customProgramCacheKey = () => (vm ? 'voxel-v2-vm' : 'voxel-v2');
+  mat.customProgramCacheKey = () => (vm ? 'voxel-v2-vm' : br ? 'voxel-v2-br' : 'voxel-v2');
   return mat;
 }
 

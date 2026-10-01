@@ -54,6 +54,22 @@ heavy line that runs if you linger. Further back the line is wide and soft,
 with overspray. A fast pass is translucent. Slow down or go over it again to
 make it solid. Your paint is saved in the browser and comes back on reload.
 
+### Litter
+
+| Input | Action |
+| --- | --- |
+| Q | Crouch and pick up the can, bottle or cup you are looking at; Q again sets it down |
+| Left mouse or Space, while holding something | Hold to wind up, let go to throw |
+| Gamepad | X picks up and sets down, the right trigger throws |
+| Touch | The pick and throw buttons |
+
+Cans, bottles and cups are rigid bodies. Walk into them and your boots kick
+them along; they roll, bounce off the walls and props, and settle. A bottle
+that hits something hard enough breaks into pieces of its own glass, which
+crunch underfoot afterwards.
+
+Three people are asleep in the alley's sheltered corners. Walk quietly.
+
 ### Build
 
 ```bash
@@ -163,6 +179,36 @@ side of a dumpster.
 - **Mist.** A spray of lit particles leaves the nozzle and hangs at the wall
   as overspray. It scatters the light of the nearest lamps.
 
+**Litter physics.** Loose cans, bottles and cups are rigid bodies
+(`src/world/litter.js`). Each has a hull that comes from its own mesh:
+- Rings along the axis give round things, so a can rolls smoothly and a cup
+  rolls in a circle. Crushed cans, flasks and shards are boxes.
+- Contacts come from the ground heightfield, from the facade voxels
+  themselves (so door recesses, sills and the loading dock count), and from
+  the oriented boxes of solid props.
+- A sequential-impulse solver handles friction cones, restitution and rolling
+  resistance. Each body takes as many sub-steps as its speed needs and sleeps
+  when at rest.
+- The walker's boots are moving spheres, so a swinging foot kicks harder than
+  a planted one.
+- A bottle that breaks is cut into a base, a neck and curved wall shards from
+  its own voxels. They are simulated as boxes and skinned into one mesh.
+  Impacts, rolls, splashes and the break itself are synthesized sounds.
+
+**Carrying.** Picking something up crouches the walker (the leg IK folds the
+knees) and hands the rigid body to the first-person arm. In the hand it is a
+high-resolution twin, rebuilt at about 2 mm from the generator's dimensions
+and the world model's colours, in the body's own frame. A throw therefore
+hands it back to the world without a jump, with the hand's velocity and spin
+(`src/player/Carry.js`, `src/spray/heldItems.js`).
+
+**Sleepers.** The three figures are signed distance fields (bodies, puffer
+parka, mummy bag, blankets draped as heightfields over the body, cardboard,
+bags, boots) voxelized at 6 to 14 mm with smoothed normals
+(`src/world/sleepers.js`). Each figure is one mesh whose chest swells with a
+slow vertex displacement. Close by you hear each breath, synthesized with a
+soft palate flutter on some of them.
+
 **Graffiti.** A stroke font is turned into handstyles, throw-ups, pieces, and
 rollers. These are layered over years of eras with buffs, posters, stickers,
 drips, and fading, then sampled by the facade shader. Paint thins in mortar
@@ -186,9 +232,10 @@ joints (`src/textures/graffiti/`).
 src/core      engine, frame loop, soundscape bridge, RNG/noise
 src/voxel     voxel grid, greedy mesher, static batching
 src/world     layout, facades, ground, irradiance, windows, wires, props
-              placement, collision, ambient life, traffic, debris
+              placement, collision, ambient life, traffic, debris, litter
+              physics, sleepers
 src/render    materials (facade relief, voxel props), sky, post pipeline
-src/player    first-person walker and the procedurally animated body
+src/player    first-person walker, the procedurally animated body, carrying
 src/props     voxel prop generators (dumpsters, fire escapes, poles, ...)
 src/textures  graffiti generator, weathering maps, paint atlas
 src/audio     procedural audio engine

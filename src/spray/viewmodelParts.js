@@ -42,7 +42,7 @@ function sdRoundConeY(x, y, z, r1, r2, h) {
 }
 
 /** Round cone between arbitrary points a (radius r1) and b (radius r2). */
-function sdRoundCone(px, py, pz, ax, ay, az, bx, by, bz, r1, r2) {
+export function sdRoundCone(px, py, pz, ax, ay, az, bx, by, bz, r1, r2) {
   const bax = bx - ax, bay = by - ay, baz = bz - az;
   const l2 = bax * bax + bay * bay + baz * baz;
   const rr = r1 - r2;
@@ -62,14 +62,14 @@ function sdRoundCone(px, py, pz, ax, ay, az, bx, by, bz, r1, r2) {
 }
 
 /** Approximate ellipsoid distance (axis aligned, centered at the origin). */
-function sdEllipsoid(x, y, z, rx, ry, rz) {
+export function sdEllipsoid(x, y, z, rx, ry, rz) {
   const k0 = sqrt((x / rx) ** 2 + (y / ry) ** 2 + (z / rz) ** 2);
   const k1 = sqrt((x / (rx * rx)) ** 2 + (y / (ry * ry)) ** 2 + (z / (rz * rz)) ** 2);
   return k1 > 0 ? (k0 * (k0 - 1)) / k1 : -min(rx, ry, rz);
 }
 
 /** Rounded box (half extents hx,hy,hz, corner radius r), centered at the origin. */
-function sdRoundBox(x, y, z, hx, hy, hz, r) {
+export function sdRoundBox(x, y, z, hx, hy, hz, r) {
   const qx = abs(x) - hx + r, qy = abs(y) - hy + r, qz = abs(z) - hz + r;
   const ox = max(qx, 0), oy = max(qy, 0), oz = max(qz, 0);
   return sqrt(ox * ox + oy * oy + oz * oz) + min(max(qx, max(qy, qz)), 0) - r;
@@ -90,7 +90,7 @@ function sdEllipse2(x, y, rx, ry) {
 }
 
 /** Smooth 3D value noise in [0,1] (lattice spacing 1). */
-function vnoise3(x, y, z, seed) {
+export function vnoise3(x, y, z, seed) {
   const xi = floor(x), yi = floor(y), zi = floor(z);
   let u = x - xi, v = y - yi, w = z - zi;
   u = u * u * (3 - 2 * u);

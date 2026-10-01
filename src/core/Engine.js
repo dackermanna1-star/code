@@ -9,6 +9,7 @@ import { captureEnvironment, applyEnvironment } from '../render/envCapture.js';
 import { Ambient } from '../world/ambient.js';
 import { Debris } from '../world/debris.js';
 import { Litter } from '../world/litter.js';
+import { Sleepers } from '../world/sleepers.js';
 import { Passerby } from '../world/passerby.js';
 import { SprayTool } from '../spray/SprayTool.js';
 import { Viewmodel } from '../spray/Viewmodel.js';
@@ -87,6 +88,12 @@ export class Engine {
       this.litter = new Litter(this).build();
     } catch (e) {
       console.warn('litter failed', e);
+    }
+    // people asleep in the alley's sheltered corners
+    try {
+      this.sleepers = await new Sleepers(this).build();
+    } catch (e) {
+      console.warn('sleepers failed', e);
     }
 
     // static shadows + one-time environment capture for image-based specular
@@ -209,6 +216,7 @@ export class Engine {
     this.ambient?.update(dt, this.time);
     this.debris?.update(dt, this.time);
     this.passerby?.update(dt, this.time);
+    this.sleepers?.update(dt, this.time);
     this.sound?.update(dt, this.time);
     this.render(dt);
   }

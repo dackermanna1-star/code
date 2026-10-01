@@ -11,6 +11,7 @@ import { RNG } from '../core/rng.js';
 import { FACADES, LAMPS, POLES, FACE_ROT, facadeById, facadeToWorld, facadeNormal } from './layout.js';
 import { LAYER_REFLECT } from './units.js';
 import { ChainLinkMesh } from './chainLink.js';
+import { inSleeperZone } from './sleepers.js';
 
 const DOOR_COLORS = [[58, 66, 60], [92, 40, 34], [44, 50, 62], [70, 66, 58], [30, 30, 32], [96, 84, 60]];
 // props the spray raycast ignores: open frames, things set into openings, litter, rooftop kit
@@ -493,7 +494,7 @@ export class PropWorld {
     P('tire', { leaning: true }, -2.55, -55.4, Math.PI / 2, { collide: false });
     P('brokenChair', {}, 3.9, -41.5, 2.2);
     P('bicycleFrame', {}, 3.75, -33.3, -0.3);
-    P('paintCan', {}, 4.2, -42.5, 0.3);
+    P('paintCan', {}, 3.85, -41.0, 0.3);
     P('rubble', {}, -2.5, -23.2, 0.4, { collide: false });
     P('rubble', {}, -2.45, -0.2, 1.3, { variant: 2, collide: false });
     this.markSurface(-2.5, -23.2, 0.4, 'debris');
@@ -539,7 +540,7 @@ export class PropWorld {
             z = r.range(-79.2, -74.2);
           }
         }
-        if (this.world.collision?.circleBlocked(x, z, 0.06)) continue;
+        if (this.world.collision?.circleBlocked(x, z, 0.06) || inSleeperZone(x, z, 0.1)) continue;
         const water = ground ? ground.water(x, z) : 0;
         if (water > 0.006 && name !== 'leaf' && name !== 'paperScrap' && name !== 'cigaretteButt') continue;
         const y = this.world.groundHeight(x, z) + (water > 0 ? water * 0.5 : 0);
