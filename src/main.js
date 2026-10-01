@@ -33,7 +33,10 @@ async function boot() {
   // world generation runs in a worker when possible (falls back to the main thread)
   let worker = null;
   if (!new URLSearchParams(location.search).has('noworker')) {
-    try { worker = new Worker(new URL('./world/worker.js', import.meta.url), { type: 'module' }); } catch (e) { console.warn('no worker', e); }
+    try {
+      // the single-file build provides its own worker factory (see tools/build.mjs)
+      worker = globalThis.__makeWorldWorker ? globalThis.__makeWorldWorker() : new Worker(new URL('./world/worker.js', import.meta.url), { type: 'module' });
+    } catch (e) { console.warn('no worker', e); }
   }
   const game = new Game({ renderer, glc, uic, input, texIndex: index, World, Player, Flicker, worker });
   game.texMs = performance.now() - t0;

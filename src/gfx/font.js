@@ -41,7 +41,10 @@ const G = {
   '°': [12, 18, 12, 0, 0, 0, 0],
 };
 
-export const FONT_W = 5, FONT_H = 7, FONT_ADV = 6, FONT_LINE = 9;
+export const FONT_W = 5;
+export const FONT_H = 7;
+export const FONT_ADV = 6;
+export const FONT_LINE = 9;
 
 export function glyph(ch) { return G[ch] || G['?']; }
 
