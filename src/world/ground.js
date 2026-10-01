@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { buildGroundData, makeSampler, GMAT, G, DRAINS, MANHOLES } from './groundData.js';
 import { GLSL_COMMON, shared, patch } from '../render/shaderlib.js';
+import { SPRAY_PARS, sprayApply } from '../spray/sprayGLSL.js';
 import { RNG } from '../core/rng.js';
 import { fbm2, valueNoise2 } from '../core/noise.js';
 import { LAYER_REFLECT } from './units.js';
@@ -443,7 +444,7 @@ function createGroundMaterial(u) {
     `, 'after');
     shader.vertexShader = vs;
     let fs = shader.fragmentShader;
-    fs = patch(fs, '#include <common>', GLSL_COMMON + REFL_PARS + /* glsl */ `
+    fs = patch(fs, '#include <common>', GLSL_COMMON + SPRAY_PARS + REFL_PARS + /* glsl */ `
       flat varying vec4 vGd;
       varying vec3 vWPos;
       varying vec3 vWNrm;
@@ -470,7 +471,7 @@ function createGroundMaterial(u) {
     `, 'before');
     shader.fragmentShader = fs;
   };
-  mat.customProgramCacheKey = () => 'ground-v1';
+  mat.customProgramCacheKey = () => 'ground-v2';
   return mat;
 }
 
@@ -551,6 +552,9 @@ const GROUND_SURFACE = /* glsl */ `
   // stains and dirt
   alb *= 1.0 - 0.55 * oil;
   alb = mix(alb, vec3(0.085, 0.072, 0.058), silt * 0.55);
+
+  // the player's spray paint
+  ${sprayApply('vWPos', 'normalize(vWNrm)')}
 
   // wetness: everything is wet after rain; puddle beds darkest, dirt patches less glossy
   float wetFilm = clamp(0.5 + 0.7 * smoothstep(0.25, 0.75, nz2.r) - 0.35 * silt + 0.5 * pud, 0.0, 1.0) * uWetness;

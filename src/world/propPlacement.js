@@ -13,6 +13,14 @@ import { LAYER_REFLECT } from './units.js';
 import { ChainLinkMesh } from './chainLink.js';
 
 const DOOR_COLORS = [[58, 66, 60], [92, 40, 34], [44, 50, 62], [70, 66, 58], [30, 30, 32], [96, 84, 60]];
+// props the spray raycast ignores: open frames, things set into openings, litter, rooftop kit
+const SPRAY_SKIP = new Set([
+  'fireEscape', 'rearPorch', 'chainLinkFence', 'shoppingCart', 'bicycleFrame', 'shoesOnWire', 'satelliteDish', 'antenna',
+  'ventStack', 'chimney', 'rooftopHVAC', 'cobraHead', 'windowSash', 'windowBars', 'boardedWindow', 'door', 'rollupDoor',
+  'garageDoor', 'cageLamp', 'rlmLamp', 'wallPack', 'bulkhead', 'fluoroFixture', 'conduitRun', 'leaf', 'paperScrap', 'can',
+  'bottle', 'cup', 'foodBox', 'cigaretteButt', 'bottleCap', 'glassShard', 'plasticBag', 'rubble', 'flatCardboard', 'cardboardSheet',
+]);
+
 /** Crossarms sit this far out from the pole toward the alley so they clear the wall behind it. */
 const POLE_ARM_OFFSET = 0.75;
 const SASH_COLORS = [[150, 146, 136], [86, 70, 54], [70, 80, 70], [130, 120, 100], [52, 50, 48]];
@@ -35,6 +43,7 @@ export class PropWorld {
     this.surfaceIndex = new Map(); // 10 cm cell -> footstep surface for litter underfoot
     this.chainLink = new ChainLinkMesh();
     this.triStats = {}; // prop name -> { n placed, tris }
+    this.sprayTargets = []; // oriented boxes the spray can can hit
   }
 
   markSurface(x, z, r, surface) {
@@ -83,6 +92,36 @@ export class PropWorld {
   }
 
   /**
+   * Solid props the spray can can hit (oriented boxes). Open structures, recessed
+   * openings (the facade plane covers those) and litter are left out.
+   */
+  addSprayTarget(name, e, m) {
+    if (SPRAY_SKIP.has(name)) return;
+    let box = e.sprayBox;
+    if (box === undefined) {
+      if (name === 'utilityPole') box = new THREE.Box3(new THREE.Vector3(-0.17, 0, -0.17), new THREE.Vector3(0.17, 3.2, 0.17));
+      else {
+        box = new THREE.Box3();
+        e.geo.computeBoundingBox();
+        if (e.geo.boundingBox && !e.geo.boundingBox.isEmpty()) box.union(e.geo.boundingBox);
+        const pm = new THREE.Matrix4();
+        for (const p of e.parts) {
+          if (p.animate) continue;
+          p.geo.computeBoundingBox();
+          if (!p.geo.boundingBox || p.geo.boundingBox.isEmpty()) continue;
+          pm.compose(new THREE.Vector3(...(p.position ?? [0, 0, 0])), new THREE.Quaternion().setFromEuler(new THREE.Euler(...(p.rotation ?? [0, 0, 0]))), new THREE.Vector3(1, 1, 1));
+          box.union(p.geo.boundingBox.clone().applyMatrix4(pm));
+        }
+        const size = box.getSize(new THREE.Vector3());
+        if (box.isEmpty() || Math.max(size.x, size.y, size.z) < 0.22) box = null;
+      }
+      e.sprayBox = box;
+    }
+    if (!box) return;
+    this.sprayTargets.push({ name, box, m: m.clone(), inv: m.clone().invert() });
+  }
+
+  /**
    * Place a prop. where = { pos: Vector3, yaw?, pitch?, roll? } or Matrix4.
    * opts.reflect: include in planar reflections; opts.collide: add footprint.
    */
@@ -126,6 +165,7 @@ export class PropWorld {
         target.add(p.geo, wm, { seed });
       }
     }
+    this.addSprayTarget(name, e, m);
     const tris = (e.geo.index ? e.geo.index.count : 0) / 3 + e.parts.reduce((a, p) => a + (p.geo.index ? p.geo.index.count : 0) / 3, 0);
     const ts = (this.triStats[name] = this.triStats[name] ?? { n: 0, tris: 0 });
     ts.n++;

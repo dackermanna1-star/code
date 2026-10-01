@@ -9,6 +9,8 @@ import { captureEnvironment, applyEnvironment } from '../render/envCapture.js';
 import { Ambient } from '../world/ambient.js';
 import { Debris } from '../world/debris.js';
 import { Passerby } from '../world/passerby.js';
+import { SprayTool } from '../spray/SprayTool.js';
+import { Viewmodel } from '../spray/Viewmodel.js';
 import { Soundscape } from './soundscape.js';
 import { paintFacades } from '../textures/paintFacades.js';
 import PaintWorker from '../textures/paintWorker.js?worker&inline';
@@ -98,6 +100,12 @@ export class Engine {
     this.ambient = new Ambient(this).build();
     this.debris = new Debris(this, this.world.props.material).build();
     this.passerby = new Passerby(this).build();
+    this.spray = await new SprayTool(this).init();
+    try {
+      this.spray.attachViewmodel(new Viewmodel(this));
+    } catch (e) {
+      console.warn('viewmodel failed', e);
+    }
     this.onStart = () => this.sound.start();
     this.onPause = () => this.sound.setPaused(true);
     this.onResume = () => this.sound.setPaused(false);
@@ -182,6 +190,7 @@ export class Engine {
       this.body.update(dt, this.player);
       this.updateCapsuleLights();
     }
+    this.spray?.update(dt);
     for (const h of this.frameHooks) h(dt, this.time);
     this.world.update(dt, this.time);
     this.ambient?.update(dt, this.time);

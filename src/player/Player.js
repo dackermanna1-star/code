@@ -132,7 +132,9 @@ export class Player {
   update(dt) {
     this.time += dt;
     const world = this.engine.world;
-    const inp = this.enabled ? this.readInput() : { f: 0, s: 0, brisk: false };
+    // inputLocked: an overlay (the paint menu) has the mouse and keyboard
+    const inp = this.enabled && !this.inputLocked ? this.readInput() : { f: 0, s: 0, brisk: false };
+    if (this.inputLocked) this.lookDX = this.lookDY = 0;
 
     // ── look (slightly weighted) ──
     const sens = 0.0019;
@@ -189,7 +191,9 @@ export class Player {
     // ── gait ──
     // small natural irregularity in rhythm
     this.rhythm += (1 + 0.06 * Math.sin(this.time * 0.37) * Math.sin(this.time * 0.11) - this.rhythm) * dt;
-    const stepLen = (0.54 + 0.12 * smooth01(0.6, 1.7, this.speed)) * this.rhythm;
+    // side-steps are shorter and quicker than forward strides
+    const latC = this.speed > 0.05 ? Math.abs(this.vel.x * Math.cos(this.feetYaw) - this.vel.z * Math.sin(this.feetYaw)) / this.speed : 0;
+    const stepLen = (0.54 + 0.12 * smooth01(0.6, 1.7, this.speed)) * this.rhythm * (1 - 0.32 * latC);
     const prevPhase = this.phase;
     if (this.speed > 0.07) {
       this.phase += (this.speed * dt) / stepLen;
@@ -213,6 +217,7 @@ export class Player {
       if (Math.floor(this.phase) > Math.floor(prevPhase)) this.shuffle--;
     }
     if (Math.floor(this.phase) > Math.floor(prevPhase)) this.heelStrike(stepLen);
+    this.planFeet(dt);
 
     // scheduled toe contacts
     for (let i = this.pending.length - 1; i >= 0; i--) {
@@ -262,16 +267,105 @@ export class Player {
     this.gait.bobY = bobY;
   }
 
+  /** A foot of the step plan read by Body.js (ground point under the ankle, world). */
+  newFoot() {
+    return { pos: new THREE.Vector3(), from: new THREE.Vector3(), yaw: this.feetYaw, swing: 0, style: 1, stride: 0, load: 1, contact: 0 };
+  }
+
+  /**
+   * Plan where the next foot lands, as it lifts off: under the body's predicted position
+   * at contact, led in the direction of travel, kept on its own side of the standing foot
+   * (side-steps close in instead of crossing over). Body.js poses the legs from this.
+   */
+  planStep(F, O, side, tl) {
+    const g = this.gait;
+    const yaw = this.feetYaw;
+    const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+    const sp = this.speed;
+    const mvx = sp > 0.05 ? this.vel.x / sp : 0, mvz = sp > 0.05 ? this.vel.z / sp : 0;
+    const fwdC = mvx * fx + mvz * fz, latC = mvx * rx + mvz * rz;
+    const bx = this.pos.x + this.vel.x * tl, bz = this.pos.z + this.vel.z * tl;
+    const lead = sp > 0.07 ? g.stepLen * 0.4 * (0.45 + 0.55 * Math.abs(fwdC)) : 0;
+    const w = 0.055 + 0.05 * Math.abs(latC);
+    let tx = bx + mvx * lead + rx * side * w, tz = bz + mvz * lead + rz * side * w;
+    const sep = ((tx - O.pos.x) * rx + (tz - O.pos.z) * rz) * side;
+    const minSep = 0.1 + 0.035 * Math.abs(latC);
+    if (sep < minSep) {
+      tx += rx * side * (minSep - sep);
+      tz += rz * side * (minSep - sep);
+    }
+    const dx = tx - F.pos.x, dz = tz - F.pos.z, d = Math.hypot(dx, dz);
+    if (d > 0.8) {
+      tx = F.pos.x + (dx * 0.8) / d;
+      tz = F.pos.z + (dz * 0.8) / d;
+    }
+    F.from.copy(F.pos);
+    const world = this.engine.world;
+    F.pos.set(tx, world?.groundHeight ? world.groundHeight(tx, tz) : this.groundY, tz);
+    F.yaw = yaw + side * 0.05;
+    F.stride = Math.hypot(F.pos.x - F.from.x, F.pos.z - F.from.z);
+    F.style = sp > 0.07 ? fwdC : 1;
+  }
+
+  planFeet(dt) {
+    const g = this.gait;
+    const DS = 0.2; // double support after each contact (steps); must match Body.js
+    if (!g.L) {
+      g.L = this.newFoot();
+      g.R = this.newFoot();
+      const rx = Math.cos(this.feetYaw), rz = -Math.sin(this.feetYaw);
+      for (const [F, side] of [[g.L, -1], [g.R, 1]]) {
+        F.pos.set(this.pos.x + rx * side * 0.085, this.groundY, this.pos.z + rz * side * 0.085);
+        F.from.copy(F.pos);
+        F.contact = Math.floor(this.phase) - 1;
+      }
+      g.planned = -1;
+      g.active = 0;
+    }
+    const stepping = this.speed > 0.07 || this.settling || this.shuffle > 0;
+    const s = this.phase - Math.floor(this.phase);
+    const nextIdx = this.stepIndex + 1;
+    const next = nextIdx % 2 === 0 ? 'L' : 'R';
+    g.next = next;
+    const F = g[next], O = g[next === 'L' ? 'R' : 'L'];
+    const q = stepping ? Math.min(1, Math.max(0, (s - DS) / (1 - DS))) : 0;
+    if (q > 0 && g.planned !== nextIdx) {
+      const tl = ((1 - s) * g.stepLen) / Math.max(this.speed, 0.15);
+      this.planStep(F, O, next === 'L' ? -1 : 1, tl);
+      g.planned = nextIdx;
+    }
+    F.swing = q > 0 && g.planned === nextIdx ? Math.max(q, 1e-3) : 0;
+    O.swing = 0;
+    for (const X of [g.L, g.R]) X.load = Math.min(1, Math.max(0, (this.phase - X.contact) / 0.25));
+    g.active += ((stepping ? 1 : 0) - g.active) * (1 - Math.exp(-dt / 0.25));
+    g.weight = 0.55 * Math.sin(this.time * 0.23) * Math.sin(this.time * 0.11 + 1.3);
+    const sp = this.speed;
+    const latC = sp > 0.05 ? (this.vel.x * Math.cos(this.feetYaw) - this.vel.z * Math.sin(this.feetYaw)) / sp : 0;
+    g.heading = Math.max(-0.3, Math.min(0.3, latC * 0.3)) * g.active;
+  }
+
   heelStrike(stepLen) {
     this.stepIndex++;
     const foot = this.stepIndex % 2 === 0 ? 'L' : 'R';
+    const g = this.gait;
+    // the foot lands where it was planned at lift-off (plan it now if it never lifted)
+    if (g.L) {
+      const F = g[foot], O = g[foot === 'L' ? 'R' : 'L'];
+      if (g.planned !== this.stepIndex) {
+        this.planStep(F, O, foot === 'L' ? -1 : 1, 0);
+        g.planned = this.stepIndex;
+      }
+      F.swing = 0;
+      F.contact = Math.floor(this.phase);
+    }
     const side = foot === 'L' ? -1 : 1;
     const fwdX = -Math.sin(this.feetYaw), fwdZ = -Math.cos(this.feetYaw);
     const rx = Math.cos(this.feetYaw), rz = -Math.sin(this.feetYaw);
     // the planted foot lands roughly half a step ahead of the hips
     const ahead = this.speed > 0.07 ? stepLen * 0.45 : 0.05;
-    const px = this.pos.x + fwdX * ahead + rx * side * 0.085;
-    const pz = this.pos.z + fwdZ * ahead + rz * side * 0.085;
+    const P = g.L ? g[foot].pos : null;
+    const px = P ? P.x : this.pos.x + fwdX * ahead + rx * side * 0.085;
+    const pz = P ? P.z : this.pos.z + fwdZ * ahead + rz * side * 0.085;
     const surface = this.engine.world.surfaceAt ? this.engine.world.surfaceAt(px, pz) : 'asphalt';
     const intensity = Math.min(1, 0.35 + this.speed * 0.5) * (this.shuffle > 0 || !this.speed ? 0.55 : 1);
     const position = { x: px, y: this.groundY, z: pz };

@@ -16,7 +16,10 @@
         letter-spacing: 0.42em; text-transform: lowercase; color: #8a8f99; opacity: 0;
         transition: opacity 2.5s ease 0.6s; user-select: none;
       }
+      #gate .hints { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+      #gate .keys { font: 300 10px/1 ui-sans-serif, system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; letter-spacing: 0.3em; color: #8a8f99; opacity: 0; transition: opacity 2.5s ease 1.4s; user-select: none; }
       #gate.ready .hint { opacity: 0.55; }
+      #gate.ready .keys { opacity: 0.3; }
       #gate.hidden { opacity: 0; pointer-events: none; }
       #load { position: fixed; left: 50%; bottom: 22%; width: 120px; height: 1px; margin-left: -60px; background: #1a1c20; transition: opacity 1.5s ease; }
       #load i { display: block; height: 100%; width: 0%; background: #5b616c; transition: width 0.4s ease; }
@@ -27,7 +30,7 @@
   </head>
   <body>
     <canvas id="view"></canvas>
-    <div id="gate"><span class="hint">click to walk</span><div id="load"><i></i></div></div>
+    <div id="gate"><div class="hints"><span class="hint">click to walk</span><span class="keys">e spray can · tab colours · z undo</span></div><div id="load"><i></i></div></div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

@@ -7,20 +7,22 @@ import { flutterIR, diffuseIR, cityIR } from './synth/reverb.js';
 import * as ES from './synth/emitterSounds.js';
 import * as AS from './synth/ambienceSounds.js';
 import { synthOneShots, synthCarEngine, synthCarTires } from './synth/oneShotSounds.js';
+import { synthSpray } from './synth/spraySounds.js';
 import { Acoustics } from './runtime/acoustics.js';
 import { EmitterHandle, EMITTER_TYPES, emitterBuffersReady } from './runtime/emitters.js';
 import { OneShotPool, CarPass, ONESHOT_TYPES } from './runtime/oneshots.js';
 import { Ambience } from './runtime/ambience.js';
+import { SprayCan, SPRAY_CAP_NAMES } from './runtime/spray.js';
 import { glide, hold, dbToGain, rand, pickIndexNoRepeat, finite, dist, autoCleanup } from './runtime/spatial.js';
 
-export { SURFACES, PARTS, EMITTER_TYPES, ONESHOT_TYPES };
+export { SURFACES, PARTS, EMITTER_TYPES, ONESHOT_TYPES, SPRAY_CAP_NAMES };
 
 const FS_PART = { heel: 1.0, toe: 0.5, scuff: 0.3 };
 const FS_SURF = {
   asphalt: 1.0, concrete: 1.0, metal: 0.78, grate: 0.78, puddle: 0.92, wet: 0.95, debris: 0.85, glass: 0.78, wood: 0.9, cardboard: 0.95,
 };
 const MIX = {
-  footsteps: 0.75, emitters: 1, oneShots: 1, ambience: 1, reverb: 1,
+  footsteps: 0.75, emitters: 1, oneShots: 1, ambience: 1, reverb: 1, spray: 1,
   fsFlutter: 0.85, fsDiffuse: 0.22, fsSlap: 0.85,
   emFlutter: 0.3, emDiffuse: 0.4, emSlap: 0.08,
   osFlutter: 0.5, osDiffuse: 0.45, osSlap: 0.25,
@@ -168,6 +170,7 @@ export class AudioEngine {
 
     // runtime systems
     try { this.pool = new OneShotPool(this, 12, 3); } catch (e) { console.warn('[audio] one-shot pool failed', e); }
+    try { this.can = new SprayCan(this); } catch (e) { console.warn('[audio] spray voice failed', e); }
     try {
       this.ambience = new Ambience(this, { bed: this.opts.ambience !== false, events: this.opts.autoEvents !== false, dripRate: this.opts.ambientDripRate });
     } catch (e) { console.warn('[audio] ambience failed', e); }
@@ -186,6 +189,16 @@ export class AudioEngine {
     // are not ready yet attach automatically as soon as they are; distant events are skipped until then)
     this._fullyLoaded = (async () => {
       const tb = nowMs();
+      // spray can first: the player can take it out right away (calls are no-ops until it is ready)
+      await job('spray', async () => {
+        const S = await synthSpray(seed, sr, y);
+        const out = {};
+        for (const k of Object.keys(S)) {
+          if (k === 'rates') continue;
+          out[k] = Array.isArray(S[k]) ? S[k].map((x) => mk1(x, S.rates[k])) : mk1(S[k], S.rates[k]);
+        }
+        B.spray = out;
+      });
       await job('oneshots-2', () => addOneShots(['garbageShift', 'doorRattle', 'wireCreak', 'canRoll', 'bottleKick']));
       await job('trickle', async () => { B.trickle = mk1(await ES.synthTrickle(seed, r32, y), r32); });
       await job('drain', async () => { B.drain = mk1(await ES.synthDrain(seed, r24, y), r24); });
@@ -282,6 +295,7 @@ export class AudioEngine {
     this.busOneShots = bus(MIX.oneShots);
     this.busAmbience = bus(MIX.ambience);
     this.busReverb = bus(MIX.reverb);
+    this.busSpray = bus(MIX.spray);
     this.emitterSendIn = ctx.createGain();
     this.oneShotSendIn = ctx.createGain();
   }
@@ -359,6 +373,7 @@ export class AudioEngine {
     if (paused === this._paused) return;
     this._paused = paused;
     if (!this._ready) return;
+    if (this.can) this.can.setPaused(paused);
     const ctx = this._ctx;
     const now = ctx.currentTime;
     if (this._suspendTimer) { clearTimeout(this._suspendTimer); this._suspendTimer = null; }
@@ -387,9 +402,9 @@ export class AudioEngine {
     if (this._ready && !this._paused) glide(this.masterGain.gain, this.volume, this._ctx.currentTime, 0.05);
   }
 
-  /** Mixer helper: name in footsteps|emitters|oneShots|ambience|reverb */
+  /** Mixer helper: name in footsteps|emitters|oneShots|ambience|reverb|spray */
   setBusGain(name, v) {
-    const map = { footsteps: this.busFootsteps, emitters: this.busEmitters, oneShots: this.busOneShots, ambience: this.busAmbience, reverb: this.busReverb };
+    const map = { footsteps: this.busFootsteps, emitters: this.busEmitters, oneShots: this.busOneShots, ambience: this.busAmbience, reverb: this.busReverb, spray: this.busSpray };
     const n = map[name];
     if (n) glide(n.gain, Math.max(0, finite(v, 1)) * (MIX[name] ?? 1), this._ctx.currentTime, 0.05);
   }
@@ -444,6 +459,7 @@ export class AudioEngine {
     this.currentWind = w;
     if (this.ambience && !this._paused) this.ambience.update(now, dt, s, w);
     for (const h of this._handles) if (h.em) h.em.update(now, this._lis, dt);
+    if (this.can) this.can.tick(now, dt);
     if (!this._complete && now >= (this._nextPending ?? 0)) { this._nextPending = now + 0.25; this._instantiatePending(); }
     if (now >= this._nextHrtf) { this._nextHrtf = now + 0.5; this._assignHrtf(now); }
     for (const m of this._movers) {
@@ -455,7 +471,9 @@ export class AudioEngine {
   _assignHrtf(now) {
     const used = (this.acoustics ? this.acoustics.hrtfCount : 0) + (this.pool ? this.pool.hrtfCount : 0);
     const movers = [...this._movers].filter((m) => m.hrtf && !m.done).length;
-    const budget = Math.max(0, this.maxHrtf - used - Math.max(1, movers));
+    // the spray-can voice takes the slot kept free for movers while it sounds
+    const can = this.can && this.can.hrtfActive ? 1 : 0;
+    const budget = Math.max(0, this.maxHrtf - used - Math.max(1, movers + can));
     const lis = this._lis.pos;
     const arr = [];
     for (const h of this._handles) if (h.em && !h.em.stopped) arr.push([h.em, dist(h.em.pos, lis)]);
@@ -467,6 +485,7 @@ export class AudioEngine {
     let n = (this.acoustics ? this.acoustics.hrtfCount : 0) + (this.pool ? this.pool.hrtfCount : 0);
     for (const h of this._handles) if (h.em && (h.em.hrtf || h.em.pendingModel === 'HRTF')) n++;
     for (const m of this._movers) if (m.hrtf && !m.done) n++;
+    if (this.can && this.can.hrtfActive) n++;
     return n;
   }
 
@@ -563,6 +582,37 @@ export class AudioEngine {
     }
   }
 
+  // ------------------------------------------------------------------ spray can (graffiti)
+  // All of these are no-ops (returning false) before init(), until the spray bank is synthesized (early in
+  // phase 2) and, except sprayStop/sprayUpdate, while paused. Safe to call every frame.
+
+  /** Trigger pressed: o { cap: 'skinny'|'standard'|'fat'|'calligraphy', flow?, distance?, position? }.
+   *  The valve opens (onset "pfft") on the next sprayUpdate, which carries the flow. */
+  sprayStart(o) { return this._canCall('start', o); }
+  /** Every frame while spraying: { flow 0..1, cap, distance (m, Infinity = into the air), position {x,y,z} }. */
+  sprayUpdate(o) { this._canCall('update', o); }
+  /** Trigger released: quick tail with a little sputter. */
+  sprayStop() { this._canCall('stop'); }
+  /** One mixing-ball clack (strength 0..1), in sync with the shake animation. */
+  canRattle(strength) { return this._canCall('rattle', strength); }
+  /** Take the can out (rustle, lid pop) / put it away (clink, rustle). */
+  canEquip() { return this._canCall('equip'); }
+  canHolster() { return this._canCall('holster'); }
+  /** Actuator cap swapped: small plastic click/snap. */
+  capChange() { return this._canCall('capChange'); }
+  /** Very soft, non-spatial UI tick when the spray menu opens/closes (edge-triggered). */
+  menuOpen(open) { return this._canCall('menu', open); }
+
+  _canCall(fn, arg) {
+    if (!this.can) return false;
+    try {
+      return this.can[fn](arg);
+    } catch (e) {
+      if (!this._canErr) { this._canErr = true; console.warn('[audio] spray voice error', fn, e); }
+      return false;
+    }
+  }
+
   /** Register dumpster positions: occasional garbage settling + gust rustles happen there. */
   registerDumpster(position) {
     if (position && Number.isFinite(position.x)) this._dumpsters.push({ x: position.x, y: finite(position.y, 0.6), z: finite(position.z) });
@@ -606,11 +656,13 @@ export class AudioEngine {
       wind: this.currentWind,
       slap: this.acoustics ? { front: this.acoustics.lastFront, back: this.acoustics.lastBack } : null,
       makeupComp: this.debug.makeupComp,
+      spray: this.can ? this.can.debug() : null,
     };
   }
 
   dispose() {
     for (const h of [...this._handles]) h.stop();
+    if (this.can) this.can.dispose();
     this._ready = false;
     if (this._ctx && !this._offline && this._ctx.close) this._ctx.close().catch(() => {});
   }

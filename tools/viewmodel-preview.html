@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Viewmodel preview</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+      #view { display: block; margin: 0 auto; }
+      #hud {
+        position: fixed; left: 10px; top: 8px; color: #9aa3ad; font: 11px/1.45 ui-monospace, Menlo, monospace;
+        white-space: pre; pointer-events: none; text-shadow: 0 1px 2px #000;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="view"></canvas>
+    <div id="hud"></div>
+    <script type="module" src="./viewmodel-preview.js"></script>
+  </body>
+</html>

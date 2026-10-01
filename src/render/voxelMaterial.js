@@ -4,6 +4,7 @@
 // glass, fabric, leather, sheer nylon...), wetness, baked irradiance + AO.
 import * as THREE from 'three';
 import { GLSL_COMMON, shared, patch } from './shaderlib.js';
+import { SPRAY_PARS, sprayApply } from '../spray/sprayGLSL.js';
 
 export const MCLS = {
   GENERIC: 0,
@@ -26,6 +27,7 @@ export const MCLS = {
   TRASHBAG: 17,
   ORGANIC: 18,
   WIRE: 19,
+  TINT: 20, // albedo = uTint scaled by the voxel's grey value (128 = 1x): paint-coloured parts
 };
 
 export function createVoxelMaterial(opts = {}) {
@@ -33,6 +35,9 @@ export function createVoxelMaterial(opts = {}) {
     uEmissive: { value: opts.emissive ?? 0 },
     uEmissiveColor: { value: new THREE.Color(opts.emissiveColor ?? 0xffc080) },
     uWetScale: { value: opts.wetScale ?? 1 },
+    // TINT class: linear paint colour, and its finish (metal, roughness)
+    uTint: { value: new THREE.Color(opts.tint ?? 0xffffff) },
+    uTintFinish: { value: new THREE.Vector2(0, 0.45) },
   };
   const mat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
@@ -42,6 +47,11 @@ export function createVoxelMaterial(opts = {}) {
   });
   mat.name = opts.name ?? 'voxel';
   mat.userData.uniforms = uniforms;
+  // viewmodel: first-person hand and can. Depth is squeezed into the nearest 2%
+  // of the range so it never sinks into walls, it skips the walker's capsule
+  // shadow, and it writes alpha 0 so TAA keeps it camera-locked.
+  const vm = !!opts.viewmodel;
+  if (vm) mat.defines = { ...(mat.defines ?? {}), VIEWMODEL: 1 };
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, shared, uniforms);
     let vs = shader.vertexShader;
@@ -68,11 +78,21 @@ export function createVoxelMaterial(opts = {}) {
       vWNrm = normalize(mat3(modelMatrix) * wn3);
       vONrm = normal;
     `, 'after');
+    vs = patch(vs, '#include <project_vertex>', /* glsl */ `
+      #ifdef VIEWMODEL
+        gl_Position.z = gl_Position.z * 0.02 - 0.98 * gl_Position.w;
+      #endif
+    `, 'after');
     shader.vertexShader = vs;
 
     let fs = shader.fragmentShader;
-    fs = patch(fs, '#include <common>', GLSL_COMMON + VOXEL_PARS, 'after');
+    fs = patch(fs, '#include <common>', GLSL_COMMON + SPRAY_PARS + VOXEL_PARS, 'after');
     fs = patch(fs, '#include <map_fragment>', VOXEL_SURFACE);
+    fs = patch(fs, '#include <opaque_fragment>', /* glsl */ `
+      #ifdef VIEWMODEL
+        gl_FragColor.a = 0.0;
+      #endif
+    `, 'after');
     fs = patch(fs, '#include <roughnessmap_fragment>', 'float roughnessFactor = sRough;');
     fs = patch(fs, '#include <metalnessmap_fragment>', 'float metalnessFactor = sMetal;');
     fs = patch(fs, '#include <normal_fragment_maps>', 'normal = normalize((viewMatrix * vec4(sN, 0.0)).xyz);');
@@ -85,13 +105,15 @@ export function createVoxelMaterial(opts = {}) {
       #endif
     `, 'after');
     fs = patch(fs, '#include <aomap_fragment>', /* glsl */ `
+      #ifndef VIEWMODEL
       float pShadow = playerShadow(vWPos + sN * 0.02);
       reflectedLight.directDiffuse *= pShadow;
       reflectedLight.directSpecular *= pShadow;
+      #endif
     `, 'before');
     shader.fragmentShader = fs;
   };
-  mat.customProgramCacheKey = () => 'voxel-v1';
+  mat.customProgramCacheKey = () => (vm ? 'voxel-v2-vm' : 'voxel-v2');
   return mat;
 }
 
@@ -99,6 +121,8 @@ const VOXEL_PARS = /* glsl */ `
 uniform float uEmissive;
 uniform vec3 uEmissiveColor;
 uniform float uWetScale;
+uniform vec3 uTint;
+uniform vec2 uTintFinish;
 varying vec4 vCol;
 varying vec4 vMat;
 varying vec3 vVox;
@@ -188,6 +212,12 @@ const VOXEL_SURFACE = /* glsl */ `
     porosity = 0.9;
   } else if (cls == 16) {
     porosity = 0.1;
+  } else if (cls == 20) {
+    // paint-coloured: the voxel's grey sets the shade of the current paint
+    alb = uTint * (vCol.g * 2.0) * (1.0 + vari * (hv.x * 2.0 - 1.0));
+    metal = uTintFinish.x;
+    rough = mix(uTintFinish.y, rough, 0.3);
+    porosity = 0.0;
   }
 
   // nothing in an alley stays white: soft-knee the albedo above ~0.28 (linear)
@@ -195,6 +225,10 @@ const VOXEL_SURFACE = /* glsl */ `
     float aL = dot(alb, vec3(0.2126, 0.7152, 0.0722));
     alb *= (aL < 0.28 ? aL : 0.28 + (aL - 0.28) * 0.4) / max(aL, 1e-4);
   }
+
+  #ifndef VIEWMODEL
+  ${sprayApply('vWPos', 'normalize(vWNrm)')}
+  #endif
 
   // wetness: up-facing surfaces hold water, everything is a little damp
   float up = smoothstep(0.35, 0.85, sN.y);

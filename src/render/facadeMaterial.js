@@ -8,6 +8,7 @@
 // grazing angles, lit with axis-aligned voxel normals.
 import * as THREE from 'three';
 import { GLSL_COMMON, shared, patch } from './shaderlib.js';
+import { SPRAY_PARS, sprayApply } from '../spray/sprayGLSL.js';
 import { BRICK_SCHEMES } from '../world/layout.js';
 import { PAINT_LAYER_W, PAINT_LAYER_H } from '../world/units.js';
 
@@ -73,7 +74,7 @@ export function createFacadeMaterial(opts) {
     shader.vertexShader = vs;
 
     let fs = shader.fragmentShader;
-    fs = patch(fs, '#include <common>', GLSL_COMMON + FACADE_PARS, 'after');
+    fs = patch(fs, '#include <common>', GLSL_COMMON + SPRAY_PARS + FACADE_PARS, 'after');
     fs = patch(fs, '#include <map_fragment>', FACADE_SURFACE);
     fs = patch(fs, '#include <roughnessmap_fragment>', 'float roughnessFactor = sRough;');
     fs = patch(fs, '#include <metalnessmap_fragment>', 'float metalnessFactor = sMetal;');
@@ -92,7 +93,7 @@ export function createFacadeMaterial(opts) {
     `, 'before');
     shader.fragmentShader = fs;
   };
-  mat.customProgramCacheKey = () => 'facade-relief-v1';
+  mat.customProgramCacheKey = () => 'facade-relief-v2';
   return mat;
 }
 
@@ -415,6 +416,9 @@ const FACADE_SURFACE = /* glsl */ `
     porosity = mix(porosity, 0.25 + pp.b * 0.8, cover);
     paintA = cover;
   }
+
+  // ---------- the player's spray paint (thinner in recessed joints) ----------
+  ${sprayApply('vWPos', 'normalize(vWNrm)', "(mort > 0.5 ? 0.86 : 1.0) * (hitType != 0 ? 0.92 : 1.0)")}
 
   // ---------- wetness ----------
   float wet = uWetness * clamp(0.28 + 0.72 * damp, 0.0, 1.0);

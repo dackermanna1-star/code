@@ -128,6 +128,38 @@ const stateAt = (z, t, extra = {}) => ({
   distFront: WORLD.distFront(z), distBack: WORLD.distBack(z), enclosure: WORLD.enclosure(z), ...extra,
 });
 
+/**
+ * Spray strokes driven like the game's SprayTool: sprayStart + sprayUpdate in the same frame, the pressure
+ * ramping up over ~70 ms, sprayStop when the trigger is released. strokes: [{ t0, t1, cap, flow(u, t), dist(u, t) }]
+ * (u = 0..1 through the stroke). The nozzle sits ~0.4 m ahead/right of the listener and sweeps slowly.
+ */
+function sprayDriver(strokes, lis) {
+  const st = strokes.map(() => ({ on: false, done: false, pressure: 0 }));
+  return (t, dt, engine) => {
+    strokes.forEach((s, i) => {
+      const k = st[i];
+      if (k.done || t < s.t0) return;
+      if (t >= s.t1) {
+        if (k.on) engine.sprayStop();
+        k.on = false;
+        k.done = true;
+        return;
+      }
+      const u = (t - s.t0) / (s.t1 - s.t0);
+      k.pressure = Math.min(1, k.pressure + dt / 0.07);
+      if (!k.on) engine.sprayStart({ cap: s.cap });
+      k.on = true;
+      const sweep = 0.1 * Math.sin(2 * Math.PI * 0.6 * t);
+      engine.sprayUpdate({
+        flow: (s.flow ? s.flow(u, t) : 1) * k.pressure,
+        cap: s.cap,
+        distance: s.dist ? s.dist(u, t) : 0.25,
+        position: { x: lis.x + 0.22 + sweep, y: lis.y - 0.25, z: lis.z - 0.32 },
+      });
+    });
+  };
+}
+
 /** heel + toe pair at time t */
 function stepActions(t, surface, foot, intensity, z) {
   const pos = (zz) => ({ x: foot === 'L' ? -0.1 : 0.1, y: 0, z: zz });
@@ -400,6 +432,118 @@ export const SCENARIOS = {
         [0.5, (e) => e.oneShot('carPass', { from: { x: -50, y: 0.5, z: 14 }, to: { x: 50, y: 0.5, z: 14 }, duration: 7 })],
         [9.5, (e) => e.oneShot('carPass', { from: { x: 50, y: 0.5, z: 14 }, to: { x: -50, y: 0.5, z: 14 }, duration: 7 })],
       ],
+    };
+  },
+
+  /**
+   * Spray can, one or more caps in sequence: start, `hold` s at full flow, flow ramp down to feathering
+   * (0.08) over `ramp` s, `feather` s of sputter, stop. opts: { caps, cap, hold, ramp, feather, gap, distance, dry }
+   */
+  spray(opts = {}) {
+    const caps = opts.caps ?? [opts.cap ?? 'standard'];
+    const hold = opts.hold ?? 1.5, ramp = opts.ramp ?? 1.5, feather = opts.feather ?? 0.5, gap = opts.gap ?? 1.4;
+    const per = hold + ramp + feather + gap;
+    const t0 = 0.4;
+    const lis = { x: 0, y: WORLD.eye, z: -20 };
+    const marks = [];
+    const strokes = caps.map((cap, i) => {
+      const a = t0 + i * per;
+      marks.push({ t: a, type: cap }, { t: a + hold, type: 'ramp' }, { t: a + hold + ramp, type: 'feather' }, { t: a + hold + ramp + feather, type: 'stop' });
+      const T = hold + ramp + feather;
+      return {
+        t0: a, t1: a + T, cap,
+        flow: (u) => { const s = u * T; return s < hold ? 1 : s < hold + ramp ? 1 - (0.92 * (s - hold)) / ramp : 0.08; },
+        dist: () => opts.distance ?? 0.25,
+      };
+    });
+    const drive = sprayDriver(strokes, lis);
+    return {
+      duration: t0 + caps.length * per,
+      engineOpts: { ambience: false, autoEvents: false },
+      setup(engine, api) { api.meta.marks = marks; if (opts.dry) engine.setBusGain('reverb', 0); look(engine, lis); },
+      frame(t, dt, engine) { engine.update(dt, stateAt(lis.z, t)); drive(t, dt, engine); },
+      actions: [],
+    };
+  },
+
+  /** Distance cues (standard cap, full flow, one stroke): 25 cm -> 6 cm (splatter) -> into the air -> 25 cm. */
+  sprayDistance(opts = {}) {
+    const lis = { x: 0, y: WORLD.eye, z: -20 };
+    const cap = opts.cap ?? 'standard';
+    const seg = 1.2;
+    const t0 = 0.4;
+    const dists = [0.25, 0.06, Infinity, 0.25];
+    const marks = dists.map((d, i) => ({ t: t0 + i * seg, type: String(d) }));
+    const drive = sprayDriver([{ t0, t1: t0 + dists.length * seg, cap, dist: (u) => dists[Math.min(dists.length - 1, Math.floor(u * dists.length))] }], lis);
+    return {
+      duration: t0 + dists.length * seg + 1.2,
+      engineOpts: { ambience: false, autoEvents: false },
+      setup(engine, api) { api.meta.marks = marks; if (opts.dry) engine.setBusGain('reverb', 0); look(engine, lis); },
+      frame(t, dt, engine) { engine.update(dt, stateAt(lis.z, t)); drive(t, dt, engine); },
+      actions: [],
+    };
+  },
+
+  /** Shaking the can: one canRattle per stroke reversal (~7/s) for `len` s, strength rising then easing. */
+  rattle(opts = {}) {
+    const len = opts.len ?? 1.2;
+    const t0 = 0.4;
+    const lis = { x: 0, y: WORLD.eye, z: -20 };
+    let rs = opts.seed ?? 777;
+    const rnd = () => ((rs = (rs * 1664525 + 1013904223) >>> 0) / 4294967296);
+    const actions = [];
+    const marks = [];
+    for (let t = t0; t < t0 + len; t += (1 / 7) * (0.85 + 0.3 * rnd())) {
+      const u = (t - t0) / len;
+      const s = Math.min(1, 0.45 + 0.9 * u) * (u > 0.8 ? 0.85 : 1) * (0.85 + 0.15 * rnd());
+      actions.push([t, (e) => e.canRattle(s)]);
+      marks.push({ t, type: s.toFixed(2) });
+    }
+    return {
+      duration: t0 + len + (opts.tail ?? 1.0),
+      engineOpts: { ambience: false, autoEvents: false },
+      setup(engine, api) { api.meta.marks = marks; if (opts.dry) engine.setBusGain('reverb', 0); look(engine, lis); },
+      frame(t, dt, engine) { engine.update(dt, stateAt(lis.z, t)); },
+      actions,
+    };
+  },
+
+  /** Handling: equip, cap swap, menu open/close, holster (or opts.list = [[method, t, arg], ...]). */
+  canfx(opts = {}) {
+    const list = opts.list ?? [['canEquip', 0.3], ['capChange', 1.6], ['menuOpen', 2.4, true], ['menuOpen', 3.0, false], ['canHolster', 3.7]];
+    const lis = { x: 0, y: WORLD.eye, z: -20 };
+    const last = Math.max(...list.map((a) => a[1]));
+    return {
+      duration: opts.duration ?? last + 1.3,
+      engineOpts: { ambience: false, autoEvents: false },
+      setup(engine, api) { api.meta.marks = list.map(([fn, t, arg]) => ({ t, type: fn + (arg === undefined ? '' : '(' + arg + ')') })); if (opts.dry) engine.setBusGain('reverb', 0); look(engine, lis); },
+      frame(t, dt, engine) { engine.update(dt, stateAt(lis.z, t)); },
+      actions: list.map(([fn, t, arg]) => [t, (e) => e[fn](arg)]),
+    };
+  },
+
+  /** In context (levels): bed, a lamp, a few steps, then equip, shake, two strokes, holster. */
+  sprayMix(opts = {}) {
+    const lis = { x: 0, y: WORLD.eye, z: -20 };
+    const actions = [];
+    for (let k = 0; k < 4; k++) actions.push(...stepActions(0.5 + k * 0.53, 'asphalt', k % 2 ? 'R' : 'L', 0.7, -20));
+    actions.push([2.8, (e) => e.canEquip()]);
+    for (let k = 0; k < 9; k++) actions.push([3.7 + k * 0.14, (e) => e.canRattle(0.6 + 0.04 * k)]);
+    actions.push([9.6, (e) => e.canHolster()]);
+    const drive = sprayDriver([
+      { t0: 5.3, t1: 6.9, cap: opts.cap ?? 'standard', flow: () => 0.8 },
+      { t0: 7.3, t1: 8.9, cap: opts.cap ?? 'standard', flow: () => 0.8, dist: (u) => 0.3 - 0.22 * u },
+    ], lis);
+    return {
+      duration: 11,
+      engineOpts: { autoEvents: false },
+      setup(engine, api) {
+        api.meta.marks = [{ t: 0.5, type: 'steps' }, { t: 2.8, type: 'equip' }, { t: 3.7, type: 'shake' }, { t: 5.3, type: 'spray' }, { t: 7.3, type: 'spray (closer)' }, { t: 9.6, type: 'holster' }];
+        engine.addEmitter({ type: 'lampBuzz', position: { x: -2.6, y: 4.5, z: -23 } });
+        look(engine, lis);
+      },
+      frame(t, dt, engine) { engine.update(dt, stateAt(lis.z, t)); drive(t, dt, engine); },
+      actions,
     };
   },
 

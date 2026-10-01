@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Engine } from './core/Engine.js';
+import { PaintMenu, TouchSprayControls } from './ui/PaintMenu.js';
 
 const q = new URLSearchParams(location.search);
 const num = (k, d) => (q.has(k) ? parseFloat(q.get(k)) : d);
@@ -28,6 +29,25 @@ async function main() {
     if (bar) bar.style.width = `${Math.round(k * 100)}%`;
   });
   engine.bakeShadows();
+
+  // spray paint UI (the menu opens with Tab; touch devices get round buttons)
+  const sp = engine.spray;
+  const menu = new PaintMenu({
+    settings: { ...sp.settings },
+    onChange: (s) => sp.setSettings(s, 'menu'),
+    onAction: (a) => (a === 'undo' ? sp.undo() : a === 'clear' ? sp.clearAll() : a === 'close' ? sp.closeMenu() : null),
+  });
+  sp.attachMenu(menu);
+  let touchUI = null;
+  if (!params.shot && matchMedia?.('(pointer: coarse)').matches) {
+    touchUI = new TouchSprayControls({
+      onToggleCan: () => sp.toggle(),
+      onSprayStart: () => (sp.btn.touch = true),
+      onSprayEnd: () => (sp.btn.touch = false),
+      onMenu: () => sp.openMenu(),
+    });
+    sp.attachTouch(touchUI);
+  }
 
   if (params.shot) {
     gate.style.display = 'none';
@@ -117,6 +137,7 @@ async function main() {
     gate.classList.remove('paused');
     lock();
     engine.player.enabled = true;
+    touchUI?.show();
     if (!started) {
       started = true;
       engine.onStart?.();
@@ -129,29 +150,34 @@ async function main() {
       };
       fade();
     } else engine.onResume?.();
+    engine.spray?.onResume();
   });
+  const pause = () => {
+    engine.player.enabled = false;
+    gate.classList.remove('hidden');
+    gate.classList.add('paused');
+    engine.spray?.onPause();
+    engine.onPause?.();
+  };
   document.addEventListener('pointerlockchange', () => {
     if (document.pointerLockElement === view) {
       hadLock = true;
       return;
     }
+    // the paint menu releases the mouse on purpose
+    if (engine.spray?.menuOpen) {
+      hadLock = false;
+      return;
+    }
     // only treat it as a pause if we actually had the lock (Esc pressed)
     if (started && hadLock) {
       hadLock = false;
-      engine.player.enabled = false;
-      gate.classList.remove('hidden');
-      gate.classList.add('paused');
-      engine.onPause?.();
+      pause();
     }
   });
-  // without pointer lock, Escape still pauses
+  // without pointer lock, Escape still pauses (unless it is closing the paint menu)
   addEventListener('keydown', (e) => {
-    if (e.code === 'Escape' && started && !hadLock && engine.player.enabled) {
-      engine.player.enabled = false;
-      gate.classList.remove('hidden');
-      gate.classList.add('paused');
-      engine.onPause?.();
-    }
+    if (e.code === 'Escape' && started && !hadLock && engine.player.enabled && !engine.spray?.menuOpen) pause();
   });
 }
 

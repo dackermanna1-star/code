@@ -257,7 +257,8 @@ export class Post {
               wsum += w;
             }
           vec4 fog = acc / max(wsum, 1e-4);
-          gl_FragColor = vec4(sc.rgb * fog.a + fog.rgb, 1.0);
+          // alpha carries the viewmodel mask (0 = first-person hand/can) to TAA
+          gl_FragColor = vec4(sc.rgb * fog.a + fog.rgb, sc.a);
         }
       `,
       depthTest: false,
@@ -429,14 +430,16 @@ export class Post {
         vec3 tm(vec3 c) { return c / (1.0 + dot(c, vec3(0.2126, 0.7152, 0.0722))); }
         vec3 itm(vec3 c) { return c / max(1e-4, 1.0 - dot(c, vec3(0.2126, 0.7152, 0.0722))); }
         void main() {
-          vec3 cur = tm(texture2D(tCur, vUv).rgb);
+          vec4 curS = texture2D(tCur, vUv);
+          vec3 cur = tm(curS.rgb);
           float d = texture2D(tDepth, vUv).r;
           vec4 ndc = vec4(vUv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
           vec4 vp = uInvProj * ndc;
           vp /= vp.w;
           vec4 wp = uCamWorld * vec4(vp.xyz, 1.0);
           vec4 pc = uPrevVP * wp;
-          vec2 huv = pc.xy / pc.w * 0.5 + 0.5;
+          // the first-person viewmodel moves with the camera: no reprojection
+          vec2 huv = curS.a < 0.5 ? vUv : pc.xy / pc.w * 0.5 + 0.5;
           // neighbourhood min/max in YCoCg (tonemapped)
           vec3 mn = vec3(1e9), mx = vec3(-1e9), m1 = vec3(0.0), m2 = vec3(0.0);
           for (int y = -1; y <= 1; y++)

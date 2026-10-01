@@ -27,9 +27,32 @@ lock). Then:
 | Gamepad | Left stick walks, right stick looks, L1/LB is a brisk walk |
 | Touch | Left half of the screen walks, right half looks |
 
-Look down to see your boots and the hem of your skirt. Headphones help: the
+Look down to see your boots and the hem of your skirt. The steps follow
+where you are going:
+- Planted feet stay put and roll from the stiletto onto the ball.
+- Strafing gives side-steps that close in rather than cross.
+- Walking backwards lands toe first.
+
+Headphones help: the
 heel clicks echo between the walls, and the slap-back from the far end shortens
 as you approach it.
+
+### Spray paint
+
+| Input | Action |
+| --- | --- |
+| E | Take the can out / put it away |
+| Left mouse or Space | Spray (hold). A gamepad's right trigger is pressure-sensitive |
+| Right mouse | Shake the can |
+| Mouse wheel / Shift + wheel | Spray width / paint flow |
+| 1 2 3 4 | Skinny, standard, fat or calligraphy cap |
+| Tab | Paint menu: colour wheel, presets, caps, width, flow, finish, drips |
+| Z | Undo the last stroke |
+
+Distance matters as it does with a real can. Up close you get a thin, hard,
+heavy line that runs if you linger. Further back the line is wide and soft,
+with overspray. A fast pass is translucent. Slow down or go over it again to
+make it solid. Your paint is saved in the browser and comes back on reload.
 
 ### Build
 
@@ -111,6 +134,34 @@ Puddles reflect sharply and ripple under drips and heels
 - Cars pass on the street behind you, sweeping their headlights through the mist.
 - Now and then a stranger crosses the far end under the streetlight. The figure's shadow
   re-renders that light's shadow map only while it walks through the cone.
+
+**Spray paint** (`src/spray/`). Paint lands on *canvases*, which are
+2 x 2 m projectors laid on a grid over whatever you hit: a wall, the ground, the
+side of a dumpster.
+- **Storage.** Each canvas owns a 512 x 512 tile of an array render target, so
+  paint is about 4 mm per texel. The tile stores premultiplied colour and
+  coverage, plus a half-resolution layer for metalness, gloss and wetness.
+  Facade, prop and ground shaders find nearby canvases through a 1 m lookup
+  grid and composite the paint over the surface. The paint follows the brick
+  relief and is slightly thinner in the mortar joints.
+- **Deposit.** Each frame of spraying becomes a chain of stamps. A stamp is an
+  elliptical Gaussian stretched by the angle of the can, with a grainy core
+  and sparse overspray droplets. The stamps are spaced finely enough that fast
+  strokes stay continuous.
+  - Coverage follows film thickness, so a quick pass is translucent and
+    lingering goes solid.
+  - The cap and the distance set the width: skinny, standard, fat, or a flat
+    calligraphy fan.
+- **Drips.** A coarse CPU copy of the wet film feeds the drips. Where too much
+  paint sits, a run breaks loose, slides down under gravity, picks up wet
+  paint on the way, slows as it skins over and ends in a bead.
+- **Wetness.** Fresh paint stays glossy for about half a minute.
+- **Undo and saving.** Every change goes through an event log stored as
+  float32 values, so replaying it rebuilds the walls exactly, drips included.
+  Undo truncates the log and replays it, and the log is what is saved in
+  IndexedDB.
+- **Mist.** A spray of lit particles leaves the nozzle and hangs at the wall
+  as overspray. It scatters the light of the nearest lamps.
 
 **Graffiti.** A stroke font is turned into handstyles, throw-ups, pieces, and
 rollers. These are layered over years of eras with buffs, posters, stickers,
