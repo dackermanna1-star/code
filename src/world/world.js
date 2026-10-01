@@ -20,6 +20,8 @@ export class World {
     this.vradius = 2;
     this.stats = { built: 0, buildMs: 0, genMs: 0 };
     this.dimDefs = new Map();
+    this.time = 0;
+    this.modelM = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
   }
 
   dimDef(dim) { return this.dimDefs.get(dim) || null; }
@@ -56,6 +58,13 @@ export class World {
       if (data.props) ch.meshes.props = this.gpu.createMesh(data.props.data, data.props.idx);
       if (data.trans) ch.meshes.trans = this.gpu.createMesh(data.trans.data, data.trans.idx);
     }
+    ch.dyn = [];
+    if (this.gpu) {
+      for (const d of data.dynamics) {
+        ch.dyn.push({ mesh: this.gpu.createMesh(d.packed.data, d.packed.idx), x: d.x, y: d.y, z: d.z, rot: d.rot, anim: d.anim, phase: (d.x * 7.13 + d.z * 3.7) % 6.28 });
+        d.packed = null;
+      }
+    }
     ch.archBounds = data.archBounds;
     ch.propBounds = data.propBounds;
     // drop CPU-side vertex data
@@ -85,6 +94,7 @@ export class World {
 
   unloadChunk(ch) {
     if (this.gpu) for (const k in ch.meshes) this.gpu.deleteMesh(ch.meshes[k]);
+    if (this.gpu && ch.dyn) for (const d of ch.dyn) this.gpu.deleteMesh(d.mesh);
     this.chunks.delete(ch.key);
   }
 
@@ -213,8 +223,21 @@ export class World {
         if (aabbVisible(pl, pb[0], pb[1], pb[2], pb[3], pb[4], pb[5])) r.draw(ch.meshes.props);
       }
     }
-    // dynamic objects
-    if (this.drawDynamics) this.drawDynamics(r, vis);
+    // animated props
+    let any = false;
+    for (const [d, ch] of vis) {
+      if (!ch.dyn || !ch.dyn.length || d > propDist) continue;
+      for (const dy of ch.dyn) {
+        const a = dy.rot + (dy.anim.spin || 0) * this.time + (dy.anim.osc ? dy.anim.osc[0] * Math.sin(this.time * dy.anim.osc[1] * 6.2832 + (dy.anim.osc[2] ?? dy.phase)) : 0);
+        const c = Math.cos(a), s = Math.sin(a);
+        const m = this.modelM;
+        m[0] = c; m[2] = s; m[8] = -s; m[10] = c; m[12] = dy.x; m[13] = dy.y; m[14] = dy.z;
+        r.setModel(m);
+        r.draw(dy.mesh);
+        any = true;
+      }
+    }
+    if (any) r.setModel(null);
     // transparent pass, back to front
     r.blend('alpha');
     for (let i = vis.length - 1; i >= 0; i--) {

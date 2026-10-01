@@ -136,3 +136,28 @@ export function env(o) {
 }
 
 export { W, CF, M };
+
+// Straight flight of solid steps filling the cell rect [x0,x1) x [z0,z1), rising from h0 at the
+// start to h1 at the end of the run. dir: '+x' '-x' '+z' '-z' (direction of travel going UP if
+// h1 > h0). Cells become CF.STAIRS (their floor mesh/collision is replaced by the step boxes).
+export function stairs(zb, x0, z0, x1, z1, dir, h0, h1, mat, opts = {}) {
+  const alongX = dir === '+x' || dir === '-x';
+  const run = alongX ? x1 - x0 : z1 - z0;
+  const rise = h1 - h0;
+  const n = Math.max(1, Math.round(Math.abs(rise) / (opts.riser || 0.18)));
+  const tread = run / n;
+  const low = Math.min(h0, h1);
+  zb.fill(x0, z0, x1, z1, (x, z, i) => { zb.flags[i] |= CF.STAIRS; zb.floor[i] = low; zb.solid[i] = 0; });
+  for (let k = 0; k < n; k++) {
+    const top = h0 + (rise * (k + 1)) / n;
+    const a = k * tread, b = (k + 1) * tread;
+    let bx0 = x0, bx1 = x1, bz0 = z0, bz1 = z1;
+    if (dir === '+x') { bx0 = x0 + a; bx1 = x0 + b; }
+    else if (dir === '-x') { bx1 = x1 - a; bx0 = x1 - b; }
+    else if (dir === '+z') { bz0 = z0 + a; bz1 = z0 + b; }
+    else { bz1 = z1 - a; bz0 = z1 - b; }
+    // descending flights: step k is the k-th step down from h0
+    const yTop = rise >= 0 ? top : h0 + (rise * k) / n;
+    zb.box(bx0, low - 0.02, bz0, bx1, Math.max(yTop, low + 0.02), bz1, mat, { sub: 0 });
+  }
+}

@@ -402,6 +402,19 @@ export function buildChunkData(world, dim, level, cx, cz) {
       if (res.dynamic) dynamics.push(res.dynamic);
       if (res.light) chunkLights.push(res.light);
     }
+    for (const dp of zb.dynamics) {
+      if (!inChunk(dp.x, dp.z)) continue;
+      // built at rot 0 around its pivot; the renderer applies the animated rotation
+      const mbD = new MeshBuilder(256);
+      const res = buildProp(mbD, trans, { ...dp, rot: 0 }, y0, tex);
+      if (!res || !mbD.n) continue;
+      for (const bxs of res.boxes) {
+        // collision: a square that encloses any rotation of the footprint
+        const hw = Math.max(Math.abs(bxs[0] - dp.x), Math.abs(bxs[3] - dp.x), Math.abs(bxs[2] - dp.z), Math.abs(bxs[5] - dp.z)) * 0.8;
+        addBox(dp.x - hw, bxs[1], dp.z - hw, dp.x + hw, bxs[4], dp.z + hw, 255);
+      }
+      dynamics.push({ mb: mbD, x: dp.x, y: y0 + (dp.y || 0), z: dp.z, rot: dp.rot || 0, anim: dp.anim || {} });
+    }
     for (const f of zb.fixtures) if (inChunk(f.x, f.z)) emitFixture(f);
     for (const d of zb.decals) if (inChunk(d.x, d.z)) emitDecal(d);
     for (const e of zb.emitters) if (inChunk(e.x, e.z)) emitters.push({ x: e.x, y: e.y + y0, z: e.z, snd: e.snd, vol: e.vol, rad: e.rad });
@@ -557,6 +570,13 @@ export function buildChunkData(world, dim, level, cx, cz) {
   const bA = bakeMesh(arch, ctx);
   const bP = bakeMesh(props, { ...ctx, wrap: 0.75, ambBoost: 0.35 });
   const bT = bakeMesh(trans, ctx);
+  for (const dy of dynamics) {
+    const b = bakeMesh(dy.mb, { ...ctx, wrap: 0.75, ambBoost: 0.35 });
+    // move to pivot-local coordinates for the model matrix
+    for (let v = 0; v < dy.mb.n; v++) { dy.mb.pos[v * 3] -= dy.x; dy.mb.pos[v * 3 + 1] -= dy.y; dy.mb.pos[v * 3 + 2] -= dy.z; }
+    dy.packed = dy.mb.pack(b.col, b.flk);
+    dy.mb = null;
+  }
 
   // per-cell info for the chunk (footsteps fallback, zone env)
   const zoneIdx = new Uint8Array(CHUNK * CHUNK);

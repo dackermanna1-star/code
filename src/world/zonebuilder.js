@@ -40,6 +40,7 @@ export class ZoneBuilder {
     this.decals = [];
     this.emitters = [];
     this.specials = [];
+    this.dynamics = [];
     this.gates = [];
     this.rng = new RNG(zone.seed);
     this.params = p;
@@ -108,6 +109,12 @@ export class ZoneBuilder {
     if (L) this.light(L.x, L.y, L.z, { color: L.color, rad: L.rad, int: L.int, ch: opts.ch || 0 });
     return p;
   }
+  // Animated prop. anim: {spin: rad/s about y} and/or {osc: [amplitude rad, freq Hz, phase]}.
+  dynamic(type, x, y, z, rot = 0, opts = {}, anim = {}) {
+    const d = { type, x, y, z, rot, opts, anim, seed: this.rng.int(0, 0x7fffffff) };
+    this.dynamics.push(d);
+    return d;
+  }
   light(x, y, z, opts = {}) {
     const l = {
       x, y, z,
@@ -145,6 +152,7 @@ export class ZoneBuilder {
     this.decals = this.decals.filter((d) => !inside(d.x, d.z));
     this.emitters = this.emitters.filter((e) => !inside(e.x, e.z));
     this.brushes = this.brushes.filter((b) => !(b.x0 < x1 && b.x1 > x0 && b.z0 < z1 && b.z1 > z0));
+    this.dynamics = this.dynamics.filter((p) => !inside(p.x, p.z));
   }
 
   // walkability between adjacent cells (used by connectivity checks)

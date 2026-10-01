@@ -144,6 +144,7 @@ export class Game {
     r.snapScale = this.settings.jitter;
     r.dither = this.settings.dither;
     r.begin(cam, { fogColor: this.env.fog, fogNear: this.env.fogNear, fogFar: this.env.fogFar, time: this.time, flick: this.flicker.v, bright: 1 });
+    this.world.time = this.time;
     const n = this.world.draw(r, cam.dim, cam, this.env.fogFar, this.env.fogFar * 0.8);
     r.end();
     this.drawUI(n);

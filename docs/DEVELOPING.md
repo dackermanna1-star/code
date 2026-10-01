@@ -128,7 +128,9 @@ lintel & frame · `BIGDOOR` 2.45 m opening · `ARCH` 2.6 m opening · `LOW` 1.0 
 ceiling. Consecutive `DOOR`/`ARCH` edges make one wide opening.
 
 Floors may differ between neighbouring cells: risers are generated automatically. The player
-steps up ≤ 0.42 m, can climb (Space) ledges ≤ 1.45 m. Use `zb.box()` steps for real stairs.
+steps up ≤ 0.42 m, can climb (Space) ledges ≤ 1.45 m. For real stairs use
+`stairs(zb, x0, z0, x1, z1, dir, h0, h1, mat)` from common.js (solid step boxes, cells marked
+`CF.STAIRS`); the cells beyond each end should have floors at `h0` / `h1`.
 
 Entities (x/z absolute, y relative to the level base):
 
@@ -137,6 +139,9 @@ Entities (x/z absolute, y relative to the level base):
   `facing(dx, dz)` from common.js to make the front face a direction. `opts.flip` hangs it
   upside down from height `y` (ceiling). `opts.tilt / roll` rotate it. `opts.flags` e.g.
   `VF.VIBRATE`. `opts.collide:false`.
+* `zb.dynamic(type, x, y, z, rot, opts, {spin, osc})` – an animated prop rotating about its
+  vertical axis: `spin` rad/s, `osc: [amplitudeRad, freqHz, phase]` swings back and forth.
+  Lighting is baked once, so keep these few (≤ ~10 per chunk).
 * `zb.light(x, y, z, {color, rad, int, ch})` – baked point light. Prefer `ceilingLight()`.
 * `zb.fixture(...)` – light fitting visual; use `ceilingLight(zb, x, z, kind, state, opts)`
   which adds both. kinds: `panel troffer tube bulb cage highbay`; states:
