@@ -19,10 +19,10 @@
   P.walkB1 = X('idle', { hip: [-3, 67], nf: [-30, 6], ff: [17, 0], lean: 10 });
   P.walkB2 = X('idle2', { hip: [-3, 67], nf: [-24, 0], ff: [10, 6], lean: 10 });
   P.walkB3 = X('idle', { nf: [-22, 0], ff: [19, 0] });
-  P.run0 = { hip: [4, 60], lean: 40, bend: 10, head: -16, nh: [-18, -26], fh: [-10, -30], nf: [-26, 6], ff: [22, 0], nhs: 'claw', fhs: 'claw', face: 'grin' };
-  P.run1 = { hip: [4, 62], lean: 42, bend: 10, head: -16, nh: [-14, -28], fh: [-16, -26], nf: [-6, 14], ff: [8, 0], nhs: 'claw', fhs: 'claw', face: 'grin' };
-  P.run2 = { hip: [4, 60], lean: 40, bend: 10, head: -16, nh: [-10, -30], fh: [-18, -26], nf: [22, 0], ff: [-26, 6], nhs: 'claw', fhs: 'claw', face: 'grin' };
-  P.run3 = { hip: [4, 62], lean: 42, bend: 10, head: -16, nh: [-16, -26], fh: [-14, -28], nf: [8, 0], ff: [-6, 14], nhs: 'claw', fhs: 'claw', face: 'grin' };
+  P.run0 = { hip: [4, 57], lean: 40, bend: 10, head: -16, nh: [-18, -26], fh: [-10, -30], nf: [-26, 6], ff: [22, 0], nhs: 'claw', fhs: 'claw', face: 'grin' };
+  P.run1 = { hip: [4, 64], lean: 42, bend: 10, head: -16, nh: [-14, -28], fh: [-16, -26], nf: [-6, 14], ff: [8, 0], nhs: 'claw', fhs: 'claw', face: 'grin' };
+  P.run2 = { hip: [4, 57], lean: 40, bend: 10, head: -16, nh: [-10, -30], fh: [-18, -26], nf: [22, 0], ff: [-26, 6], nhs: 'claw', fhs: 'claw', face: 'grin' };
+  P.run3 = { hip: [4, 64], lean: 42, bend: 10, head: -16, nh: [-16, -26], fh: [-14, -28], nf: [8, 0], ff: [-6, 14], nhs: 'claw', fhs: 'claw', face: 'grin' };
   P.crouchIn = { hip: [0, 52], lean: 18, bend: 8, head: 4, nh: [12, -14], fh: [24, -6], nf: [-24, 0], ff: [20, 0], nhs: 'claw', fhs: 'claw', face: 'grin' };
   P.crouch = { hip: [-2, 40], lean: 26, bend: 8, head: -6, nh: [12, -10], fh: [24, -8], nf: [-26, 0], ff: [20, 0], nhs: 'claw', fhs: 'claw', face: 'grin' };
   P.crouch2 = X('crouch', { hip: [-2, 39], lean: 27 });

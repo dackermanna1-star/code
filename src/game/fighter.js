@@ -333,6 +333,11 @@
         if (this.burnout <= 0) this.dg = Math.min(100, this.dg + 100 / (48 * 60));
       }
       if (this.afterT > 0) this.afterT--;
+      // footsteps
+      if ((this.st === 'walkF' || this.st === 'walkB' || this.st === 'run') && JJK.Audio) {
+        const every = this.st === 'run' ? 10 : 16;
+        if (this.af % every === 0) JJK.Audio.play('step', { vol: this.st === 'run' ? 0.45 : 0.25, pitch: 0.9 + Math.random() * 0.2, pan: this.pan() });
+      }
       // visible breathing when badly hurt
       if (this.hp < this.maxHp * 0.25 && NEUTRAL[this.st] && this.sf % 46 === 0 && JJK.FX && !JJK.HEADLESS) {
         const h = this.anchor('head');
