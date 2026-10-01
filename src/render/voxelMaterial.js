@@ -40,6 +40,8 @@ export function createVoxelMaterial(opts = {}) {
     uTintFinish: { value: new THREE.Vector2(0, 0.45) },
     // breathing (sleepers): vertices move along their normal by breath * uBreath metres
     uBreath: { value: 0 },
+    // rim (the walker): light from behind her wraps her silhouette, so black on black still reads
+    uRim: { value: opts.rim ?? 0 },
   };
   const mat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
@@ -56,6 +58,8 @@ export function createVoxelMaterial(opts = {}) {
   if (vm) mat.defines = { ...(mat.defines ?? {}), VIEWMODEL: 1 };
   const br = !!opts.breathe;
   if (br) mat.defines = { ...(mat.defines ?? {}), BREATHE: 1 };
+  const rim = !!opts.rim;
+  if (rim) mat.defines = { ...(mat.defines ?? {}), RIM: 1 };
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, shared, uniforms);
     let vs = shader.vertexShader;
@@ -126,7 +130,7 @@ export function createVoxelMaterial(opts = {}) {
     `, 'before');
     shader.fragmentShader = fs;
   };
-  mat.customProgramCacheKey = () => (vm ? 'voxel-v2-vm' : br ? 'voxel-v2-br' : 'voxel-v2');
+  mat.customProgramCacheKey = () => (vm ? 'voxel-v2-vm' : br ? 'voxel-v2-br' : rim ? 'voxel-v2-rim' : 'voxel-v2');
   return mat;
 }
 
@@ -136,6 +140,9 @@ uniform vec3 uEmissiveColor;
 uniform float uWetScale;
 uniform vec3 uTint;
 uniform vec2 uTintFinish;
+#ifdef RIM
+  uniform float uRim;
+#endif
 varying vec4 vCol;
 varying vec4 vMat;
 varying vec3 vVox;
@@ -251,6 +258,15 @@ const VOXEL_SURFACE = /* glsl */ `
 
   float sAO = vMat.a;
   float sSpecOcc = sAO * clamp(skyVisibility(vWPos, sN) * 1.5, 0.12, 1.0);
+  #ifdef RIM
+  {
+    // grazing light from what lies behind her, toward the eye
+    vec3 Vr = normalize(cameraPosition - vWPos);
+    float fr = 1.0 - clamp(dot(sN, Vr), 0.0, 1.0);
+    fr *= fr;
+    sEmit += sampleIrradiance(vWPos, -Vr) * (fr * fr) * uRim * sAO;
+  }
+  #endif
   float sRough = clamp(rough, 0.04, 1.0);
   float sMetal = metal;
   diffuseColor.rgb = alb;

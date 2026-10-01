@@ -1,7 +1,8 @@
 # Alley
 
-A cinematic first-person walking game set in a narrow, wet, graffiti-covered
-service alley at blue hour. No HUD, no UI, no crosshair, no combat. You walk.
+A cinematic walking game set in a narrow, wet, graffiti-covered service alley
+at blue hour, played over her shoulder or through her eyes. No HUD, no UI, no
+crosshair, no combat. You walk.
 
 Everything is procedural and built at load time from code: the voxel
 architecture, brick relief, graffiti, props, lighting, and all of the sound.
@@ -19,16 +20,24 @@ lock). Then:
 
 | Input | Action |
 | --- | --- |
-| Mouse | Look (drag to look if pointer lock is unavailable) |
+| Mouse | Look / swing the camera round her (drag to look if pointer lock is unavailable) |
 | W A S D / arrow keys | Walk |
 | Shift | Brisk walk |
+| V | Switch between the over-the-shoulder camera and her eyes |
 | F | Fullscreen |
 | Esc | Pause |
-| Gamepad | Left stick walks, right stick looks, L1/LB is a brisk walk |
-| Touch | Left half of the screen walks, right half looks |
+| Gamepad | Left stick walks, right stick looks, L1/LB is a brisk walk, R3 switches the camera |
+| Touch | Left half of the screen walks, right half looks, a double tap switches the camera |
 
-Look down to see your boots and the hem of your skirt. The steps follow
-where you are going:
+The camera starts behind her right shoulder. She walks wherever you steer and
+turns to face it, and the camera trails her with a little lag. Walls and
+props push it in, and it eases back out. While she has the can out or is
+winding up a throw, she faces where you look and side-steps instead, and the
+camera closes in while she sprays. Swing the camera round in front of her and
+she meets your eye.
+
+In first person, look down to see your boots and the hem of your skirt. The
+steps follow where you are going:
 - Planted feet stay put and roll from the stiletto onto the ball.
 - Strafing gives side-steps that close in rather than cross.
 - Walking backwards lands toe first.
@@ -87,6 +96,7 @@ any static host.
 | `dpr=1` | Cap the device pixel ratio (default 1.5) |
 | `fixedRes` | Disable dynamic resolution scaling |
 | `exp=10` | Exposure override |
+| `fp` | Start in first person |
 
 Resolution scales between 50% and 100% to hold the frame rate. Graffiti is
 generated in a pool of Web Workers while the rest of the world is built.
@@ -97,8 +107,34 @@ generated in a pool of Web Workers while the rest of the world is built.
 greedy mesher that bakes per-vertex ambient occlusion (`src/voxel/`). The
 mesher also merges faces whose occlusion varies along only one axis. That
 merge is exact and removes about a third of the prop triangles. Architecture
-snaps to one brick course (6.77 cm). Props use 1.35 cm and 2.7 cm voxels, and
-the walker's body uses 0.9 cm voxels.
+snaps to one brick course (6.77 cm). Props use 1.35 cm and 2.7 cm voxels.
+
+**The walker.** She is modelled as signed distance fields in her bind pose
+(`src/player/character/`). The parts are:
+- Skin and face: eyes, lids, winged lashes, brows, nose, lips and gold hoops.
+- Hair: sleek dark hair in a high ponytail, with face-framing strands.
+- Clothes: a cropped leather biker jacket over a wine satin top, a mini skirt,
+  sheer black tights and knee-high stiletto boots.
+
+A worker voxelizes each part at 2.4 to 5.5 mm while the alley loads. Normals
+and occlusion are taken from the field, not from the voxel staircase. Every
+vertex gets weights for a 50-bone skeleton (fingers, eyes, lids and a
+ponytail chain) from anatomical rules.
+
+The animation is procedural (`animate.js`):
+- Feet land on the step planner's footholds. The planner steers each swing
+  so the foot comes down where the hips will be.
+- The pelvis drops to keep both feet in reach, sways over the stance foot,
+  and leans into starts, stops and turns.
+- The spine counter-rotates and breathes. The arms swing, and the head stays
+  level and looks where the camera looks.
+- The ponytail is a verlet chain that collides with her head, neck and back.
+- Idle, she shifts her weight, glances around, sometimes puts a hand on her
+  hip or tucks her hair behind her ear, and blinks.
+- Spraying, picking up, winding up and throwing are IK poses blended on top.
+
+A faint rim of the light behind her keeps the black clothes readable against
+the dark.
 
 **Props.** There are 73 prop generators (`src/props/`), covering dumpsters,
 carts, bags, fire escapes, utility poles, porches, fences, doors, windows,
@@ -196,7 +232,8 @@ side of a dumpster.
   Impacts, rolls, splashes and the break itself are synthesized sounds.
 
 **Carrying.** Picking something up crouches the walker (the leg IK folds the
-knees) and hands the rigid body to the first-person arm. In the hand it is a
+knees, the spine bends, the hand reaches for it) and hands the rigid body to
+her hand. In the hand it is a
 high-resolution twin, rebuilt at about 2 mm from the generator's dimensions
 and the world model's colours, in the body's own frame. A throw therefore
 hands it back to the world without a jump, with the hand's velocity and spin
@@ -235,7 +272,8 @@ src/world     layout, facades, ground, irradiance, windows, wires, props
               placement, collision, ambient life, traffic, debris, litter
               physics, sleepers
 src/render    materials (facade relief, voxel props), sky, post pipeline
-src/player    first-person walker, the procedurally animated body, carrying
+src/player    walker (input, gait, both cameras), carrying, and character/:
+              the SDF model, its build worker, the procedural animation
 src/props     voxel prop generators (dumpsters, fire escapes, poles, ...)
 src/textures  graffiti generator, weathering maps, paint atlas
 src/audio     procedural audio engine

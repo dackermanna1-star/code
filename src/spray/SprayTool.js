@@ -408,10 +408,14 @@ export class SprayTool {
     const cItem = carry?.item ?? null;
     const carrying = !!cItem;
 
-    // what the view centre is pointing at
+    // what the view centre is pointing at (in third person the camera sits back
+    // over her shoulder, so the view reaches that much further)
+    const third = pl?.view === 'third' && !!e.body?.nozzle;
+    const extra = third ? (pl.camReach ?? 0) : 0;
     const fwd = cam.getWorldDirection(this._f);
-    const hit = (this.equipped || carrying) && this.ray ? this.ray.cast(cam.position, fwd, AIM_RANGE, this.hit) : null;
-    this.aimPoint.copy(cam.position).addScaledVector(fwd, hit ? hit.dist : 3);
+    const hit = (this.equipped || carrying) && this.ray ? this.ray.cast(cam.position, fwd, AIM_RANGE + extra, this.hit) : null;
+    this.aimHit = !!hit;
+    this.aimPoint.copy(cam.position).addScaledVector(fwd, hit ? hit.dist : 3 + extra);
 
     const raised = this.equipped && this.equipT > 0.38;
     this.shaking = raised && !this.menuOpen && (this.btn.shake || this.btn.padShake);
@@ -446,6 +450,17 @@ export class SprayTool {
     } else {
       this.nozzle.set(0.12, -0.09, -0.36).applyMatrix4(cam.matrixWorld);
       if (e.body) e.body.rightArmHidden = false;
+    }
+    // third person: no viewmodel; the paint comes from the can in her hand
+    if (third) {
+      if (this.vm) this.vm.group.visible = false;
+      e.body.nozzle(this.nozzle, this.nozzleDir);
+    }
+    // she faces where you aim while the can is out; the camera closes in while spraying
+    if (pl) {
+      const busy = carry && (carry.state === 'charge' || carry.state === 'throw');
+      pl.aiming = (this.equipped && !carrying) || busy;
+      pl.aimZoom = (want && !carrying) || (busy && carry.state === 'charge');
     }
 
     // paint

@@ -4,7 +4,8 @@ import { createNoiseTextures, shared } from '../render/shaderlib.js';
 import { World } from '../world/World.js';
 import { Post } from '../render/Post.js';
 import { Player } from '../player/Player.js';
-import { Body } from '../player/Body.js';
+import { Character } from '../player/character/Character.js';
+import { buildCharacterAsync } from '../player/character/build.js';
 import { captureEnvironment, applyEnvironment } from '../render/envCapture.js';
 import { Ambient } from '../world/ambient.js';
 import { Debris } from '../world/debris.js';
@@ -33,6 +34,8 @@ export class Engine {
   }
 
   async init(progress = () => {}) {
+    // her meshes take a few seconds to voxelize: start that in a worker now
+    const charBuild = this.params.noworkers ? null : buildCharacterAsync();
     const renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
       antialias: false,
@@ -81,8 +84,8 @@ export class Engine {
     this.world = new World(this);
     await this.world.build(progress);
 
-    this.player = new Player(this);
-    this.body = new Body(this);
+    this.player = new Player(this, { view: this.params.view });
+    this.body = new Character(this, charBuild ? await charBuild : null);
     // loose cans, bottles and cups (before the shadow bake: they cast shadows)
     try {
       this.litter = new Litter(this).build();
@@ -123,6 +126,7 @@ export class Engine {
       console.warn('viewmodel failed', e);
     }
     this.carry = new Carry(this);
+    if (this.spray?.vm) this.body.attachCan(this.spray.vm);
     if (this.litter && !this.params.shot) prebuildTwins(this.litter.shapes.values());
     this.onStart = () => this.sound.start();
     this.onPause = () => this.sound.setPaused(true);

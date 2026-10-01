@@ -1,9 +1,15 @@
-// First-person walker: slow, deliberate movement with eased acceleration,
-// gait phase driving head bob / sway / roll, heel+toe footstep events placed
-// at the planted foot, collision sliding, mouse / keyboard / gamepad / touch.
+// The walker: slow, deliberate movement with eased acceleration, gait phase
+// driving head bob / sway / roll, heel+toe footstep events placed at the
+// planted foot, collision sliding, mouse / keyboard / gamepad / touch.
+// Two cameras (V, R3 or a double tap toggles): first person from her eyes, or
+// third person over her right shoulder, where she turns to walk wherever you
+// steer and faces where you look while she has something to aim.
 import * as THREE from 'three';
 
 const TAU = Math.PI * 2;
+const wrapPi = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+// third-person camera: distance behind the shoulder pivot, its offset to her right
+const TP = { dist: 2.45, aimDist: 1.5, side: 0.42, aimSide: 0.5, height: 1.5 };
 const smooth01 = (a, b, x) => {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
   return t * t * (3 - 2 * t);
@@ -41,7 +47,19 @@ export class Player {
     this.crouchV = 0;
     this.crouchTarget = 0;
     this.gait = { phase: 0, speed: 0, stepLen: 0.6, plantL: new THREE.Vector3(), plantR: new THREE.Vector3(), bodyYaw: this.yaw };
-    this.touch = { move: null, look: null };
+    this.touch = { move: null, look: null, lastTap: 0 };
+    // camera: 'third' (over the shoulder) or 'first' (her eyes); viewK blends 0 first .. 1 third
+    this.view = opts.view ?? 'third';
+    this.viewK = this.view === 'third' ? 1 : 0;
+    this.bodyYaw = this.yaw; // which way she faces (third person: where she walks)
+    this.aiming = false; // set by the tools: face where the camera looks and strafe
+    this.aimZoom = false; // set by the tools: pull the camera in over the shoulder
+    this.aimK = 0;
+    this.padR3 = false;
+    this.tp = { pivot: new THREE.Vector3(), pv: new THREE.Vector3(), dist: TP.dist, side: TP.side, init: false, hit: { point: new THREE.Vector3(), normal: new THREE.Vector3(), dist: 0, kind: '' } };
+    this._f = new THREE.Vector3();
+    this._r = new THREE.Vector3();
+    this._o = new THREE.Vector3();
     this.bindInput();
   }
 
@@ -53,10 +71,31 @@ export class Player {
     for (const l of this.listeners) l(e);
   }
 
+  /** Switch between her eyes and the over-the-shoulder camera. */
+  setView(v) {
+    if (v !== 'first' && v !== 'third') return;
+    if (v === this.view) return;
+    this.view = v;
+    if (v === 'third') {
+      this.tp.init = false;
+      this.bodyYaw = this.feetYaw;
+    }
+    for (const cb of this.viewListeners ?? []) cb(v);
+  }
+
+  toggleView() {
+    this.setView(this.view === 'third' ? 'first' : 'third');
+  }
+
+  onView(cb) {
+    (this.viewListeners ??= []).push(cb);
+  }
+
   bindInput() {
     const el = this.engine.canvas;
     addEventListener('keydown', (e) => {
       this.keys.add(e.code);
+      if (e.code === 'KeyV' && this.enabled && !e.repeat && !this.inputLocked) this.toggleView();
       if (e.code === 'KeyF' && this.enabled) {
         if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
         else document.exitFullscreen?.();
@@ -79,7 +118,7 @@ export class Player {
     el.addEventListener('touchstart', (e) => {
       for (const t of e.changedTouches) {
         if (t.clientX < innerWidth * 0.45 && !this.touch.move) this.touch.move = { id: t.identifier, x0: t.clientX, y0: t.clientY, x: t.clientX, y: t.clientY };
-        else if (!this.touch.look) this.touch.look = { id: t.identifier, x: t.clientX, y: t.clientY };
+        else if (!this.touch.look) this.touch.look = { id: t.identifier, x: t.clientX, y: t.clientY, x0: t.clientX, y0: t.clientY, t0: performance.now() };
       }
       e.preventDefault();
     }, { passive: false });
@@ -100,7 +139,17 @@ export class Player {
     const end = (e) => {
       for (const t of e.changedTouches) {
         if (this.touch.move?.id === t.identifier) this.touch.move = null;
-        if (this.touch.look?.id === t.identifier) this.touch.look = null;
+        if (this.touch.look?.id === t.identifier) {
+          // a double tap on the look side switches the camera
+          const L = this.touch.look, now = performance.now();
+          if (now - L.t0 < 250 && Math.hypot(t.clientX - L.x0, t.clientY - L.y0) < 14) {
+            if (now - this.touch.lastTap < 380 && this.enabled) {
+              this.toggleView();
+              this.touch.lastTap = 0;
+            } else this.touch.lastTap = now;
+          }
+          this.touch.look = null;
+        }
       }
     };
     el.addEventListener('touchend', end);
@@ -129,6 +178,9 @@ export class Player {
       this.lookDX += dz(p.axes[2] ?? 0) * 14;
       this.lookDY += dz(p.axes[3] ?? 0) * 10;
       if (p.buttons[10]?.pressed || p.buttons[4]?.pressed) brisk = true;
+      const r3 = !!p.buttons[11]?.pressed;
+      if (r3 && !this.padR3) this.toggleView();
+      this.padR3 = r3;
     }
     return { f: Math.max(-1, Math.min(1, f)), s: Math.max(-1, Math.min(1, s)), brisk };
   }
@@ -145,7 +197,10 @@ export class Player {
     this.yawT -= this.lookDX * sens;
     this.pitchT -= this.lookDY * sens;
     this.lookDX = this.lookDY = 0;
-    this.pitchT = Math.max(-1.32, Math.min(1.25, this.pitchT));
+    const third = this.view === 'third';
+    this.viewK += ((third ? 1 : 0) - this.viewK) * (1 - Math.exp(-dt / 0.14));
+    if (Math.abs((third ? 1 : 0) - this.viewK) < 1e-3) this.viewK = third ? 1 : 0;
+    this.pitchT = Math.max(third ? -1.12 : -1.32, Math.min(third ? 0.95 : 1.25, this.pitchT));
     const lk = 1 - Math.exp(-dt / 0.045);
     const prevYaw = this.yaw;
     this.yaw += (this.yawT - this.yaw) * lk;
@@ -158,16 +213,41 @@ export class Player {
     // ── movement ──
     const len = Math.hypot(inp.f, inp.s);
     const fwdSpeed = inp.brisk ? 1.65 : 1.18;
+    // third person: she walks wherever you steer and turns to face it, unless
+    // she is aiming something (then she faces the view and side-steps)
+    this.aimK += ((this.aimZoom && third ? 1 : 0) - this.aimK) * (1 - Math.exp(-dt / 0.22));
+    const free = third && !this.aiming;
     let wishX = 0, wishZ = 0;
     if (len > 0.01) {
       const nf = inp.f / Math.max(1, len), ns = inp.s / Math.max(1, len);
-      const sp = nf >= 0 ? fwdSpeed : 0.72;
       const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);
       const rx = Math.cos(this.yaw), rz = -Math.sin(this.yaw);
-      // walking backwards / sideways is slower and more careful
-      const spd = sp * (Math.abs(ns) > Math.abs(nf) ? 0.72 : 1) * Math.min(1, len);
+      let spd;
+      if (free) {
+        // slow while the body is still coming round to the new heading
+        const dirYaw = Math.atan2(-(fx * nf + rx * ns), -(fz * nf + rz * ns));
+        const off = Math.abs(wrapPi(dirYaw - this.bodyYaw));
+        spd = fwdSpeed * Math.min(1, len) * (0.35 + 0.65 * smooth01(2.4, 0.6, off));
+      } else {
+        // walking backwards / sideways is slower and more careful
+        const sp = nf >= 0 ? fwdSpeed : 0.72;
+        spd = sp * (Math.abs(ns) > Math.abs(nf) ? 0.72 : 1) * Math.min(1, len);
+      }
       wishX = (fx * nf + rx * ns) * spd;
       wishZ = (fz * nf + rz * ns) * spd;
+    }
+    // which way she faces
+    {
+      let faceT = this.yaw;
+      if (free) {
+        faceT = this.bodyYaw;
+        const wl = Math.hypot(wishX, wishZ);
+        if (wl > 0.05) faceT = Math.atan2(-wishX, -wishZ);
+      }
+      const d = wrapPi(faceT - this.bodyYaw);
+      const rate = !third ? 30 : free ? 3.6 + 3 * Math.min(1, this.speed) : 7;
+      this.bodyYaw += Math.max(-rate * dt, Math.min(rate * dt, d * (1 - Math.exp(-dt * (third ? 9 : 30)))));
+      this.bodyYaw = wrapPi(this.bodyYaw);
     }
     // crouching: a critically damped spring; she barely moves while down
     {
@@ -180,6 +260,10 @@ export class Player {
     }
     const accel = Math.hypot(wishX, wishZ) > this.speed ? 0.5 : 0.36;
     const a = 1 - Math.exp(-dt / accel);
+    // kept for the step planner: where the body will be when a foot comes down
+    this.wishX = wishX;
+    this.wishZ = wishZ;
+    this.accelTau = accel;
     this.vel.x += (wishX - this.vel.x) * a;
     this.vel.z += (wishZ - this.vel.z) * a;
     const coll = world.collision;
@@ -218,12 +302,20 @@ export class Player {
       else this.settling = false;
     }
     // turning on the spot: shuffle steps
-    let yawDiff = this.yaw - this.feetYaw;
+    let yawDiff = this.bodyYaw - this.feetYaw;
     yawDiff = Math.atan2(Math.sin(yawDiff), Math.cos(yawDiff));
-    if (this.speed > 0.2) this.feetYaw = this.yaw;
+    if (this.speed > 0.2) this.feetYaw = this.bodyYaw;
     else if (Math.abs(yawDiff) > 0.7 && !this.settling) {
       this.feetYaw += yawDiff * 0.55;
       this.shuffle = 2;
+    }
+    // standing with a foot left out wide or ahead (stopped short, bumped a wall): step it back in
+    if (this.speed < 0.07 && !this.settling && this.shuffle === 0 && this.gait.L) {
+      const rx = Math.cos(this.feetYaw), rz = -Math.sin(this.feetYaw);
+      for (const [F, side] of [[this.gait.L, -1], [this.gait.R, 1]]) {
+        const d = Math.hypot(F.pos.x - (this.pos.x + rx * side * 0.085), F.pos.z - (this.pos.z + rz * side * 0.085));
+        if (d > 0.24) this.shuffle = 2;
+      }
     }
     if (this.shuffle > 0 && !this.settling) {
       this.phase += dt * 2.4;
@@ -272,6 +364,7 @@ export class Player {
       this.pos.z - sinY * lat + (-ox * sinY + oz * cosY),
     );
     cam.rotation.set(pitch, this.yaw, roll + (this.lean ?? 0), 'YXZ');
+    if (this.viewK > 0) this.thirdPersonCamera(dt, bobY);
     cam.updateMatrixWorld();
 
     this.gait.phase = this.phase;
@@ -281,7 +374,73 @@ export class Player {
     this.gait.bobY = bobY;
   }
 
-  /** A foot of the step plan read by Body.js (ground point under the ankle, world). */
+  /**
+   * Over-the-shoulder camera: orbits a pivot above her shoulders that follows
+   * her with a little lag, sits off to her right, pulls in when aiming, and is
+   * kept out of walls and props (snapping in at once, easing back out).
+   * Blends from the first-person camera by viewK.
+   */
+  thirdPersonCamera(dt, bobY) {
+    const cam = this.camera, tp = this.tp;
+    const ray = this.engine.spray?.ray;
+    const cr = Math.max(0, this.crouch);
+    // pivot: critically damped follow, quicker sideways than up and down
+    const tx = this.pos.x, ty = this.groundY + TP.height - 0.5 * cr + bobY * 0.35, tz = this.pos.z;
+    if (!tp.init) {
+      tp.pivot.set(tx, ty, tz);
+      tp.pv.set(0, 0, 0);
+      tp.dist = TP.dist;
+      tp.side = TP.side;
+      tp.init = true;
+    }
+    const n = Math.max(1, Math.ceil(dt * 120));
+    const h = dt / n;
+    for (let i = 0; i < n; i++) {
+      const wH = 11, wV = 8;
+      tp.pv.x += ((tx - tp.pivot.x) * wH * wH - 2 * wH * tp.pv.x) * h;
+      tp.pv.z += ((tz - tp.pivot.z) * wH * wH - 2 * wH * tp.pv.z) * h;
+      tp.pv.y += ((ty - tp.pivot.y) * wV * wV - 2 * wV * tp.pv.y) * h;
+      tp.pivot.addScaledVector(tp.pv, h);
+    }
+    const ak = this.aimK;
+    const brisk = smooth01(1.2, 1.65, this.speed);
+    const pitch = this.pitch;
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const f = this._f.set(-Math.sin(this.yaw) * cp, sp, -Math.cos(this.yaw) * cp);
+    const r = this._r.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
+    // shoulder point, kept out of the wall on her right
+    let side = TP.side + (TP.aimSide - TP.side) * ak;
+    if (ray) {
+      const hit = ray.cast(tp.pivot, r, side + 0.25, tp.hit);
+      if (hit) side = Math.max(0, hit.dist - 0.25);
+    }
+    tp.side += (side - tp.side) * (side < tp.side ? 1 : 1 - Math.exp(-dt * 4));
+    const o = this._o.copy(tp.pivot).addScaledVector(r, tp.side);
+    o.y += 0.06;
+    // back along the view, short of anything in the way and above the ground
+    let want = TP.dist + (TP.aimDist - TP.dist) * ak + 0.25 * brisk;
+    if (sp > 0.05) want = Math.min(want, Math.max(0.45, (o.y - this.groundY - 0.22) / sp));
+    let dist = want;
+    if (ray) {
+      f.negate();
+      const hit = ray.cast(o, f, want + 0.22, tp.hit);
+      f.negate();
+      if (hit) dist = Math.max(0.3, hit.dist - 0.22);
+    }
+    tp.dist = dist < tp.dist ? dist : tp.dist + (dist - tp.dist) * (1 - Math.exp(-dt * 3));
+    const k = this.viewK * this.viewK * (3 - 2 * this.viewK);
+    const x = o.x - f.x * tp.dist, y = o.y - f.y * tp.dist, z = o.z - f.z * tp.dist;
+    cam.position.set(cam.position.x + (x - cam.position.x) * k, cam.position.y + (y - cam.position.y) * k, cam.position.z + (z - cam.position.z) * k);
+    // level out here: no walking roll or nod
+    cam.rotation.set(pitch + (cam.rotation.x - pitch) * (1 - k), this.yaw, cam.rotation.z * (1 - k), 'YXZ');
+  }
+
+  /** Distance from the camera to her head (how much further the view centre must reach). */
+  get camReach() {
+    return this.view === 'third' ? this.tp.dist + 0.3 : 0;
+  }
+
+  /** A foot of the step plan read by the walker's animation (ground point under the ankle, world). */
   newFoot() {
     return { pos: new THREE.Vector3(), from: new THREE.Vector3(), yaw: this.feetYaw, swing: 0, style: 1, stride: 0, load: 1, contact: 0 };
   }
@@ -289,17 +448,28 @@ export class Player {
   /**
    * Plan where the next foot lands, as it lifts off: under the body's predicted position
    * at contact, led in the direction of travel, kept on its own side of the standing foot
-   * (side-steps close in instead of crossing over). Body.js poses the legs from this.
+   * (side-steps close in instead of crossing over). The animation (character/animate.js) poses the legs from this.
    */
-  planStep(F, O, side, tl) {
+  planStep(F, O, side, tl, liftoff = true) {
     const g = this.gait;
+    if (liftoff) F.from.copy(F.pos);
     const yaw = this.feetYaw;
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
     const sp = this.speed;
     const mvx = sp > 0.05 ? this.vel.x / sp : 0, mvz = sp > 0.05 ? this.vel.z / sp : 0;
     const fwdC = mvx * fx + mvz * fz, latC = mvx * rx + mvz * rz;
-    const bx = this.pos.x + this.vel.x * tl, bz = this.pos.z + this.vel.z * tl;
-    const lead = sp > 0.07 ? g.stepLen * 0.4 * (0.45 + 0.55 * Math.abs(fwdC)) : 0;
+    // body position at contact: velocity easing toward the wish (exponential, time constant tau)
+    const tau = this.accelTau ?? 0.5, ek = tau * (1 - Math.exp(-tl / tau));
+    const wx = this.wishX ?? this.vel.x, wz = this.wishZ ?? this.vel.z;
+    let bx = this.pos.x + wx * tl + (this.vel.x - wx) * ek, bz = this.pos.z + wz * tl + (this.vel.z - wz) * ek;
+    // ...but not through a wall she is walking into
+    const coll = this.engine.world?.collision;
+    if (coll && tl > 0) {
+      const np = coll.move(this.pos.x, this.pos.z, bx - this.pos.x, bz - this.pos.z, this.radius);
+      bx = np.x;
+      bz = np.z;
+    }
+    const lead = sp > 0.07 ? g.stepLen * 0.5 * (0.45 + 0.55 * Math.abs(fwdC)) : 0;
     const w = 0.055 + 0.05 * Math.abs(latC);
     let tx = bx + mvx * lead + rx * side * w, tz = bz + mvz * lead + rz * side * w;
     const sep = ((tx - O.pos.x) * rx + (tz - O.pos.z) * rz) * side;
@@ -308,12 +478,13 @@ export class Player {
       tx += rx * side * (minSep - sep);
       tz += rz * side * (minSep - sep);
     }
-    const dx = tx - F.pos.x, dz = tz - F.pos.z, d = Math.hypot(dx, dz);
-    if (d > 0.8) {
-      tx = F.pos.x + (dx * 0.8) / d;
-      tz = F.pos.z + (dz * 0.8) / d;
+    // a foot travels a whole stride (two steps) per swing; cap it a little beyond that
+    const dx = tx - F.from.x, dz = tz - F.from.z, d = Math.hypot(dx, dz);
+    const maxD = Math.max(0.8, 2.3 * g.stepLen);
+    if (d > maxD) {
+      tx = F.from.x + (dx * maxD) / d;
+      tz = F.from.z + (dz * maxD) / d;
     }
-    F.from.copy(F.pos);
     const world = this.engine.world;
     F.pos.set(tx, world?.groundHeight ? world.groundHeight(tx, tz) : this.groundY, tz);
     F.yaw = yaw + side * 0.05;
@@ -323,7 +494,7 @@ export class Player {
 
   planFeet(dt) {
     const g = this.gait;
-    const DS = 0.2; // double support after each contact (steps); must match Body.js
+    const DS = 0.12; // double support after each contact (steps)
     if (!g.L) {
       g.L = this.newFoot();
       g.R = this.newFoot();
@@ -343,9 +514,11 @@ export class Player {
     g.next = next;
     const F = g[next], O = g[next === 'L' ? 'R' : 'L'];
     const q = stepping ? Math.min(1, Math.max(0, (s - DS) / (1 - DS))) : 0;
-    if (q > 0 && g.planned !== nextIdx) {
+    if (q > 0 && (g.planned !== nextIdx || q < 0.7)) {
+      // planned at lift-off, then steered through most of the swing as the body
+      // speeds up or slows down, so it still lands where the hips will be
       const tl = ((1 - s) * g.stepLen) / Math.max(this.speed, 0.15);
-      this.planStep(F, O, next === 'L' ? -1 : 1, tl);
+      this.planStep(F, O, next === 'L' ? -1 : 1, tl, g.planned !== nextIdx);
       g.planned = nextIdx;
     }
     F.swing = q > 0 && g.planned === nextIdx ? Math.max(q, 1e-3) : 0;

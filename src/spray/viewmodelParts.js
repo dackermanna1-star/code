@@ -184,7 +184,7 @@ export const TINT_SHADES = [56, 80, 104, 128, 152, 176, 200];
 export function createPalette() {
   const P = new Palette();
   const S = MCLS.SKIN;
-  // skin (Body.js skin [196,150,128]) with a few anatomical shade shifts
+  // skin [196,150,128] with a few anatomical shade shifts
   P.add('skin', { color: [196, 150, 128], rough: 0.55, cls: S, vari: 0.03 });
   P.add('skinDorsal', { color: [192, 144, 122], rough: 0.5, cls: S, vari: 0.035 });
   P.add('skinKnuckle', { color: [189, 133, 116], rough: 0.52, cls: S, vari: 0.04 });
@@ -196,7 +196,7 @@ export function createPalette() {
   P.add('nailHi', { color: [104, 28, 34], rough: 0.2, cls: MCLS.GENERIC, vari: 0.02 });
   P.add('nailWorn', { color: [206, 176, 164], rough: 0.4, cls: MCLS.GENERIC, vari: 0.04 });
   P.add('ring', { color: [206, 206, 210], rough: 0.18, metal: 1, cls: MCLS.GENERIC, vari: 0.0 });
-  // black leather jacket (Body.js values)
+  // black leather jacket
   P.add('leather', { color: [27, 25, 26], rough: 0.32, cls: MCLS.LEATHER, vari: 0.08 });
   P.add('leatherCrease', { color: [14, 13, 14], rough: 0.45, cls: MCLS.LEATHER, vari: 0.05 });
   P.add('leatherEdge', { color: [36, 33, 33], rough: 0.36, cls: MCLS.LEATHER, vari: 0.06 });

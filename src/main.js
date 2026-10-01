@@ -16,6 +16,7 @@ const params = {
   nopaint: q.has('nopaint'),
   noworkers: q.has('noworkers'),
   debug: q.has('debug'),
+  view: q.has('fp') ? 'first' : q.get('view') ?? 'third', // camera: first (her eyes) or third (over the shoulder)
 };
 
 const canvas = document.getElementById('view');
@@ -56,7 +57,7 @@ async function main() {
     if (params.walk) {
       const pl = engine.player;
       pl.pos.set(c[0], 0, c[2]);
-      pl.yaw = pl.yawT = pl.feetYaw = THREE.MathUtils.degToRad(c[3] ?? 0);
+      pl.yaw = pl.yawT = pl.feetYaw = pl.bodyYaw = THREE.MathUtils.degToRad(c[3] ?? 0);
       pl.pitch = pl.pitchT = THREE.MathUtils.degToRad(c[4] ?? 0);
       pl.enabled = true;
       pl.keys.add('KeyW');
@@ -109,7 +110,7 @@ async function main() {
       const pl = engine.player;
       pl.pos.x = d.x;
       pl.pos.z = d.z;
-      pl.yaw = pl.yawT = pl.feetYaw = d.yaw ?? pl.yaw;
+      pl.yaw = pl.yawT = pl.feetYaw = pl.bodyYaw = d.yaw ?? pl.yaw;
       pl.pitch = pl.pitchT = d.pitch ?? pl.pitch;
     }
   };

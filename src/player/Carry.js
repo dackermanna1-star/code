@@ -58,11 +58,30 @@ export class Carry {
     else if (this.state === 'hold') this.startPlace();
   }
 
+  get third() {
+    return this.engine.player?.view === 'third' && !!this.engine.body?.setHeld;
+  }
+
   tryPick() {
     const e = this.engine;
     const cam = e.camera;
+    const pl = e.player;
     const dir = cam.getWorldDirection(this._d);
-    const b = e.litter.pickTarget(cam.position, dir, 2.5, e.player.pos);
+    let b = e.litter.pickTarget(cam.position, dir, 2.5 + (this.third ? pl.camReach : 0), pl.pos);
+    // third person: otherwise whatever lies nearest in front of her feet
+    if (!b && this.third) {
+      const fx = -Math.sin(pl.bodyYaw), fz = -Math.cos(pl.bodyYaw);
+      let best = Infinity;
+      for (const c of e.litter.bodies) {
+        if (!c.k.pick || c.cluster) continue;
+        const dx = c.p.x - pl.pos.x, dz = c.p.z - pl.pos.z, d = Math.hypot(dx, dz);
+        if (d > 1.1 || c.p.y - pl.groundY > 0.5) continue;
+        const ahead = d > 1e-3 ? (dx * fx + dz * fz) / d : 1;
+        if (ahead < 0.2) continue;
+        const score = d * (1.6 - ahead);
+        if (score < best) (best = score), (b = c);
+      }
+    }
     if (!b) return false;
     if (e.spray?.equipped) e.spray.toggle(false);
     this.target = b;
@@ -107,6 +126,7 @@ export class Carry {
 
   finish() {
     this.engine.spray?.touch?.setCarrying?.(false);
+    this.engine.body?.setHeld?.(null);
     this.body = null;
     this.target = null;
     this.state = 'idle';
@@ -121,7 +141,10 @@ export class Carry {
   handPose(pos, quat) {
     const e = this.engine;
     const cam = e.camera;
-    const held = this.vm?.held;
+    const third = this.third;
+    const held = third ? e.body.held : this.vm?.held;
+    // the hand reaches out from the eye (first person) or her chest (third)
+    const from = third ? e.body.anim.wp.get('spine2') : cam.position;
     if (held && held.parent) {
       held.updateWorldMatrix(true, false);
       held.matrixWorld.decompose(pos, quat, this._s);
@@ -132,12 +155,12 @@ export class Carry {
     // the hand reaches past the eye: never let it start inside a wall or a prop
     const ray = e.spray?.ray;
     if (ray) {
-      const d = this._r.subVectors(pos, cam.position);
+      const d = this._r.subVectors(pos, from);
       const len = d.length();
       if (len > 1e-4) {
         d.divideScalar(len);
-        const hit = ray.cast(cam.position, d, len + 0.12);
-        if (hit) pos.copy(cam.position).addScaledVector(d, Math.max(0.05, hit.dist - 0.13));
+        const hit = ray.cast(from, d, len + 0.12);
+        if (hit) pos.copy(from).addScaledVector(d, Math.max(0.05, hit.dist - 0.13));
       }
     }
     return pos;
@@ -171,7 +194,9 @@ export class Carry {
           }
           e.litter.take(b);
           this.body = b;
-          this.vm?.setHeld(heldTwin(b.shape) ?? b.shape.geo, b.shape.grip, Math.random() * Math.PI * 2);
+          const geo = heldTwin(b.shape) ?? b.shape.geo, spin = Math.random() * Math.PI * 2;
+          this.vm?.setHeld(geo, b.shape.grip, spin);
+          e.body?.setHeld?.(geo, b.shape.grip, spin);
           this.item = 'held';
           this.vmEquipped = true;
           e.audio?.oneShot?.(b.k.snd, { position: { x: b.p.x, y: b.p.y, z: b.p.z }, strength: 0.12 });
@@ -195,7 +220,7 @@ export class Carry {
           this.state = 'throw';
           this.power = 0.2 + 0.8 * this.charge;
           this.t = 0;
-          e.audio?.oneShot?.('throwWhoosh', { position: e.camera.position, strength: 0.3 + 0.7 * this.power });
+          e.audio?.oneShot?.('throwWhoosh', { position: this.third ? pl.pos : e.camera.position, strength: 0.3 + 0.7 * this.power });
         }
         break;
       case 'throw':
@@ -221,6 +246,7 @@ export class Carry {
           this._v.y = -0.3;
           this._w.set(0, 0, 0);
           e.litter.release(this.body, this._p, this._q, this._v, this._w);
+          e.body?.setHeld?.(null);
           this.body = null;
           this.vmEquipped = false;
           this.item = 'none';
@@ -242,6 +268,12 @@ export class Carry {
     this.handPose(this._p, this._q);
     const pw = this.power ?? 0.6;
     const fwd = cam.getWorldDirection(this._d);
+    if (this.third) {
+      // from her hand toward whatever the view centre is on (or far down the alley)
+      const hit = e.spray?.ray?.cast(cam.position, fwd, 40);
+      const far = this._s.copy(cam.position).addScaledVector(fwd, hit ? hit.dist : 30);
+      fwd.subVectors(far, this._p).normalize();
+    }
     const speed = 3 + 11.5 * pw;
     this._v.copy(fwd).multiplyScalar(speed);
     this._v.y += 0.6 + 1.4 * pw;
@@ -254,6 +286,7 @@ export class Carry {
     this._w.y += (Math.random() - 0.5) * 3;
     this._w.z += (Math.random() - 0.5) * 3;
     e.litter.release(b, this._p, this._q, this._v, this._w);
+    e.body?.setHeld?.(null);
     this.body = null;
     this.vmEquipped = false;
     this.item = 'none';
