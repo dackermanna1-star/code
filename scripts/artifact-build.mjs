@@ -11,7 +11,10 @@ const head = html.slice(html.indexOf('<head>') + 6, html.indexOf('</head>'));
 const headScripts = [...head.matchAll(/<script type="module"[\s\S]*?<\/script>/g)].map((m) => m[0]).join('\n');
 const page = `${title}
 <style>
+  /* the alley is always night: both themes resolve to the same dark tokens */
   :root { --bg: #000; --fg: #8a8f99; color-scheme: dark; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #000; --fg: #8a8f99; } }
+  :root[data-theme="dark"] { --bg: #000; --fg: #8a8f99; }
   html, body { background: var(--bg); color: var(--fg); height: 100%; }
 </style>
 ${styles}

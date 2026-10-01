@@ -37,7 +37,7 @@ as you approach it.
 npm run build        # dist/index.html + dist/assets, and dist/alley.html
 ```
 
-`dist/alley.html` is a single self-contained file (about 0.9 MB) that runs from
+`dist/alley.html` is a single self-contained file (about 1.2 MB) that runs from
 any static host.
 
 ### URL parameters
