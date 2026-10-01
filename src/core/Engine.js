@@ -8,6 +8,7 @@ import { Body } from '../player/Body.js';
 import { captureEnvironment, applyEnvironment } from '../render/envCapture.js';
 import { Ambient } from '../world/ambient.js';
 import { Debris } from '../world/debris.js';
+import { Passerby } from '../world/passerby.js';
 import { Soundscape } from './soundscape.js';
 import { paintFacades } from '../textures/paintFacades.js';
 import PaintWorker from '../textures/paintWorker.js?worker&inline';
@@ -78,7 +79,7 @@ export class Engine {
     this.body = new Body(this);
 
     // static shadows + one-time environment capture for image-based specular
-    renderer.shadowMap.needsUpdate = true;
+    this.bakeShadows();
     this.body.group.visible = false;
     this.envMap = captureEnvironment(renderer, this.scene);
     this.body.group.visible = true;
@@ -96,6 +97,7 @@ export class Engine {
     });
     this.ambient = new Ambient(this).build();
     this.debris = new Debris(this, this.world.props.material).build();
+    this.passerby = new Passerby(this).build();
     this.onStart = () => this.sound.start();
     this.onPause = () => this.sound.setPaused(true);
     this.onResume = () => this.sound.setPaused(false);
@@ -117,8 +119,22 @@ export class Engine {
     this.world?.ground?.reflection.setSize(w * this.pixelRatio, h * this.pixelRatio);
   }
 
-  /** Renders static shadow maps once (the world never moves). */
+  /**
+   * Renders every shadow map once (the world never moves). Lights then only
+   * re-render on request (refreshShadow), e.g. while someone walks through one.
+   */
   bakeShadows() {
+    this.scene.traverse((o) => {
+      if (!o.isLight || !o.shadow) return;
+      o.shadow.autoUpdate = false;
+      o.shadow.needsUpdate = true;
+    });
+    this.renderer.shadowMap.needsUpdate = true;
+  }
+
+  /** Re-render one light's shadow map on the next frame. */
+  refreshShadow(light) {
+    light.shadow.needsUpdate = true;
     this.renderer.shadowMap.needsUpdate = true;
   }
 
@@ -170,6 +186,7 @@ export class Engine {
     this.world.update(dt, this.time);
     this.ambient?.update(dt, this.time);
     this.debris?.update(dt, this.time);
+    this.passerby?.update(dt, this.time);
     this.sound?.update(dt, this.time);
     this.render(dt);
   }

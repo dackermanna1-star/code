@@ -107,6 +107,7 @@ export async function paintFacades(atlas, facades, fixtures, { workerFactory } =
       const queue = jobs.slice();
       const failed = [];
       await Promise.all(workers.map((w) => new Promise((resolve) => {
+        let first = true;
         const next = () => {
           const job = queue.shift();
           if (!job) {
@@ -114,7 +115,16 @@ export async function paintFacades(atlas, facades, fixtures, { workerFactory } =
             resolve();
             return;
           }
+          // a worker blocked by the host page may never answer: give up on it
+          const timer = setTimeout(() => {
+            console.warn('paint worker timed out on', job.id);
+            w.terminate();
+            failed.push(job);
+            resolve();
+          }, first ? 25000 : 40000);
           w.onmessage = (e) => {
+            clearTimeout(timer);
+            first = false;
             const m = e.data;
             if (m.ok) {
               atlas.blitFacade('color', m.id, m.color);
@@ -127,6 +137,7 @@ export async function paintFacades(atlas, facades, fixtures, { workerFactory } =
             next();
           };
           w.onerror = (err) => {
+            clearTimeout(timer);
             console.warn('paint worker error', err.message);
             failed.push(job);
             next();
@@ -135,6 +146,7 @@ export async function paintFacades(atlas, facades, fixtures, { workerFactory } =
         };
         next();
       })));
+      failed.push(...queue.splice(0)); // left over if every worker gave up
       for (const job of failed) {
         try {
           runOnMain(job, atlas);

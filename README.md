@@ -55,9 +55,20 @@ generated in a pool of Web Workers while the rest of the world is built.
 ## How it is made
 
 **Voxel world.** Every surface is built on voxel grids and meshed with a
-greedy mesher that bakes per-vertex ambient occlusion
-(`src/voxel/`). Architecture snaps to one brick course (6.77 cm). Props use
-1.35 cm and 2.7 cm voxels, and the walker's body uses 0.9 cm voxels.
+greedy mesher that bakes per-vertex ambient occlusion (`src/voxel/`). The
+mesher also merges faces whose occlusion varies along only one axis. That
+merge is exact and removes about a third of the prop triangles. Architecture
+snaps to one brick course (6.77 cm). Props use 1.35 cm and 2.7 cm voxels, and
+the walker's body uses 0.9 cm voxels.
+
+**Props.** There are 73 prop generators (`src/props/`), covering dumpsters,
+carts, bags, fire escapes, utility poles, porches, fences, doors, windows,
+meters, lamps, rooftop units and litter. Each is seeded and takes options:
+- Painted props (dumpsters, poles, fences) report their faces and get graffiti
+  and flyers sized to those faces.
+- The overhead conductors are strung to the poles' actual insulators.
+- The woven chain-link is an alpha-tested texture resolved stochastically
+  under TAA, so it fades with distance instead of shimmering.
 
 **Brick relief.** Facade faces are flat in geometry. In the fragment shader,
 each face is treated as a heightfield on a 1.35 cm grid: bricks, recessed
@@ -89,6 +100,17 @@ Puddles reflect sharply and ripple under drips and heels
 4. Bloom.
 5. AgX tone mapping with a restrained grade, vignette, grain, slight chromatic
    aberration, and dither.
+
+**Life.** The alley moves even when you stand still:
+- Lamps flicker in bursts that the buzz follows.
+- Windows switch on and off, TVs flicker, and someone occasionally walks past a curtain.
+- Steam rolls out of vents and through the fog light.
+- Drips fall from fire escapes and ripple the puddles.
+- Wind gusts lift plastic bags and litter. A bag snagged on the fence keeps flapping.
+- Cans and bottles skitter when you kick them.
+- Cars pass on the street behind you, sweeping their headlights through the mist.
+- Now and then a stranger crosses the far end under the streetlight. The figure's shadow
+  re-renders that light's shadow map only while it walks through the cone.
 
 **Graffiti.** A stroke font is turned into handstyles, throw-ups, pieces, and
 rollers. These are layered over years of eras with buffs, posters, stickers,

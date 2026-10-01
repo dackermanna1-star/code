@@ -34,6 +34,7 @@ export class PropWorld {
     this.lampAnchors = new Map();
     this.surfaceIndex = new Map(); // 10 cm cell -> footstep surface for litter underfoot
     this.chainLink = new ChainLinkMesh();
+    this.triStats = {}; // prop name -> { n placed, tris }
   }
 
   markSurface(x, z, r, surface) {
@@ -125,6 +126,10 @@ export class PropWorld {
         target.add(p.geo, wm, { seed });
       }
     }
+    const tris = (e.geo.index ? e.geo.index.count : 0) / 3 + e.parts.reduce((a, p) => a + (p.geo.index ? p.geo.index.count : 0) / 3, 0);
+    const ts = (this.triStats[name] = this.triStats[name] ?? { n: 0, tris: 0 });
+    ts.n++;
+    ts.tris += tris;
     const meta = e.res.meta ?? {};
     if (opts.collide !== false && meta.footprint && !where.isMatrix4) {
       const [w, d] = meta.footprint;
