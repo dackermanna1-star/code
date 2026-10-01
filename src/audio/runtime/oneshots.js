@@ -15,6 +15,15 @@ export const ONESHOT_TYPES = {
   garbageShift: { bank: 'garbageShift', db: -14, ref: 1.5, send: 0.45, rate: 0.06 },
   doorRattle: { bank: 'doorRattle', db: -12, ref: 1.5, send: 0.45, rate: 0.05 },
   wireCreak: { bank: 'wireCreak', db: -20, ref: 2.0, send: 0.4, rate: 0.08 },
+  canClank: { bank: 'canClank', db: -5, ref: 1.5, send: 0.45, rate: 0.06, impact: true },
+  glassClink: { bank: 'glassClink', db: -7, ref: 1.5, send: 0.45, rate: 0.04, impact: true },
+  glassBreak: { bank: 'glassBreak', db: -1, ref: 2.0, send: 0.6, rate: 0.05, impact: true },
+  shardTinkle: { bank: 'shardTinkle', db: -15, ref: 1.0, send: 0.4, rate: 0.08, impact: true },
+  cupTap: { bank: 'cupTap', db: -12, ref: 1.0, send: 0.35, rate: 0.08, impact: true },
+  splash: { bank: 'splash', db: -11, ref: 1.2, send: 0.4, rate: 0.06, impact: true },
+  bottleRoll: { bank: 'bottleRoll', db: -11, ref: 1.5, send: 0.45, rate: 0.04, roll: true },
+  throwWhoosh: { bank: 'throwWhoosh', db: -16, ref: 1.0, send: 0.2, rate: 0.06, impact: true },
+  sleepBreath: { bank: 'sleepBreath', db: -24, ref: 0.8, send: 0.3, rate: 0.03 },
 };
 
 /** Map any surface name onto the four drip banks (water | metal | ground | plastic). */
@@ -150,10 +159,11 @@ export class OneShotPool {
     const strength = Math.min(1.5, Math.max(0.05, finite(params.strength, 0.7)));
     let gain = dbToGain(db + rand(-2, 2)) * (params.gain ?? 1);
     if (type === 'canKick' || type === 'bottleKick' || type === 'paperRustle' || type === 'plasticRustle') gain *= 0.35 + 0.65 * strength;
+    else if (cfg.impact) gain *= 0.12 + 0.88 * strength;
     if (params.ambient) gain *= 0.5;
     const rate = 1 + rand(-cfg.rate, cfg.rate);
     const o = { gain, rate, ref: cfg.ref, send: cfg.send * (params.ambient ? 1.6 : 1) };
-    if (type === 'canRoll') {
+    if (type === 'canRoll' || cfg.roll) {
       const want = Math.max(0.3, finite(params.duration, 2));
       const full = buf.duration / rate;
       if (want < full) { o.offset = (full - want) * rate; o.fadeIn = 0.06; }

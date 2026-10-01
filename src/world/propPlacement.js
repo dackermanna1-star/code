@@ -21,6 +21,11 @@ const SPRAY_SKIP = new Set([
   'bottle', 'cup', 'foodBox', 'cigaretteButt', 'bottleCap', 'glassShard', 'plasticBag', 'rubble', 'flatCardboard', 'cardboardSheet',
 ]);
 
+// skipped by the spray but solid enough to stop a thrown bottle
+const PHYS_EXTRA = new Set(['chainLinkFence', 'shoppingCart']);
+// loose litter simulated as rigid bodies (world/litter.js) instead of baked into the batches
+const LOOSE = new Set(['can', 'bottle', 'cup']);
+
 /** Crossarms sit this far out from the pole toward the alley so they clear the wall behind it. */
 const POLE_ARM_OFFSET = 0.75;
 const SASH_COLORS = [[150, 146, 136], [86, 70, 54], [70, 80, 70], [130, 120, 100], [52, 50, 48]];
@@ -44,6 +49,8 @@ export class PropWorld {
     this.chainLink = new ChainLinkMesh();
     this.triStats = {}; // prop name -> { n placed, tris }
     this.sprayTargets = []; // oriented boxes the spray can can hit
+    this.physTargets = []; // ...plus a few open structures, for thrown litter
+    this.litterSpots = []; // where loose cans, bottles and cups start out
   }
 
   markSurface(x, z, r, surface) {
@@ -96,7 +103,8 @@ export class PropWorld {
    * openings (the facade plane covers those) and litter are left out.
    */
   addSprayTarget(name, e, m) {
-    if (SPRAY_SKIP.has(name)) return;
+    const skip = SPRAY_SKIP.has(name);
+    if (skip && !PHYS_EXTRA.has(name)) return;
     let box = e.sprayBox;
     if (box === undefined) {
       if (name === 'utilityPole') box = new THREE.Box3(new THREE.Vector3(-0.17, 0, -0.17), new THREE.Vector3(0.17, 3.2, 0.17));
@@ -118,7 +126,9 @@ export class PropWorld {
       e.sprayBox = box;
     }
     if (!box) return;
-    this.sprayTargets.push({ name, box, m: m.clone(), inv: m.clone().invert() });
+    const T = { name, box, m: m.clone(), inv: m.clone().invert() };
+    if (!skip) this.sprayTargets.push(T);
+    this.physTargets.push(skip ? { ...T, soft: true } : T);
   }
 
   /**
@@ -535,8 +545,13 @@ export class PropWorld {
         const y = this.world.groundHeight(x, z) + (water > 0 ? water * 0.5 : 0);
         const variant = r.int(0, variants - 1);
         const lying = name === 'can' || name === 'bottle' || name === 'cup' ? r.chance(0.8) : false;
+        if (LOOSE.has(name)) {
+          this.litterSpots.push({ name, variant, x, z, lying });
+          placed++;
+          continue;
+        }
         this.place(name, { variant }, { pos: new THREE.Vector3(x, y, z), yaw: r.range(0, 6.28), roll: lying ? Math.PI / 2 : 0 }, { variant, collide: false, reflect: false });
-        const surf = { glassShard: 'glass', leaf: 'debris', paperScrap: 'debris', foodBox: 'debris', cup: 'debris', can: 'debris', bottle: 'glass', plasticBag: 'debris' }[name];
+        const surf = { glassShard: 'glass', leaf: 'debris', paperScrap: 'debris', foodBox: 'debris', plasticBag: 'debris' }[name];
         if (surf) this.markSurface(x, z, name === 'glassShard' ? 0.12 : 0.08, surf);
         placed++;
       }

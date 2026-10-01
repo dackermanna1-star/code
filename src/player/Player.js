@@ -36,6 +36,10 @@ export class Player {
     this.lookDY = 0;
     this.stride = { L: new THREE.Vector3(), R: new THREE.Vector3() };
     this.rhythm = 1;
+    // crouch (picking things up off the ground): 0 standing .. 1 down
+    this.crouch = 0;
+    this.crouchV = 0;
+    this.crouchTarget = 0;
     this.gait = { phase: 0, speed: 0, stepLen: 0.6, plantL: new THREE.Vector3(), plantR: new THREE.Vector3(), bodyYaw: this.yaw };
     this.touch = { move: null, look: null };
     this.bindInput();
@@ -165,6 +169,15 @@ export class Player {
       wishX = (fx * nf + rx * ns) * spd;
       wishZ = (fz * nf + rz * ns) * spd;
     }
+    // crouching: a critically damped spring; she barely moves while down
+    {
+      const w = 12.5;
+      this.crouchV += ((this.crouchTarget - this.crouch) * w * w - 2 * w * this.crouchV) * dt;
+      this.crouch = Math.max(-0.05, Math.min(1.05, this.crouch + this.crouchV * dt));
+      const k = 1 - 0.85 * Math.max(0, Math.min(1, this.crouch));
+      wishX *= k;
+      wishZ *= k;
+    }
     const accel = Math.hypot(wishX, wishZ) > this.speed ? 0.5 : 0.36;
     const a = 1 - Math.exp(-dt / accel);
     this.vel.x += (wishX - this.vel.x) * a;
@@ -244,10 +257,11 @@ export class Player {
     const cam = this.camera;
     const pitch = this.pitch + nod;
     // neck pivot: eyes sit forward/above the pivot, so looking down moves them forward
-    const neckY = this.groundY + this.eyeHeight - 0.11 + bobY;
+    const cr = this.crouch;
+    const neckY = this.groundY + this.eyeHeight - 0.11 + bobY - 0.6 * cr;
     // looking down, the head also tilts forward on the neck, bringing the eyes past the chest
     const down = Math.max(0, -Math.sin(pitch));
-    const eyeFwd = 0.085 + 0.11 * down * down, eyeUp = 0.11;
+    const eyeFwd = 0.085 + 0.11 * down * down + 0.13 * Math.max(0, cr), eyeUp = 0.11;
     const cy = Math.cos(pitch), sy = Math.sin(pitch);
     const ox = 0, oy = eyeUp * cy + eyeFwd * sy, oz = -eyeFwd * cy + eyeUp * sy;
     const sinY = Math.sin(this.yaw), cosY = Math.cos(this.yaw);

@@ -158,6 +158,142 @@ function bottleKick(r, sr) {
   return fin(x, sr);
 }
 
+// ------------------------------------------------------------------ loose litter (rigid bodies)
+function canClank(r, sr) {
+  const x = new Float32Array(Math.round(0.6 * sr));
+  const modes = canModes(r);
+  canHit(x, sr, r, 2, modes, 1);
+  // it lands on one rim, then the other
+  if (r.chance(0.6)) canHit(x, sr, r, Math.round(r.range(0.012, 0.045) * sr), modes, r.range(0.25, 0.5), 0.6);
+  addMode(x, 2, r.range(380, 620), r.range(0.01, 0.02), 0.2, sr, 0);
+  return fin(x, sr);
+}
+function glassClink(r, sr) {
+  const x = new Float32Array(Math.round(0.9 * sr));
+  const modes = bottleModes(r);
+  // the heavy glass body: a low knock under the ring
+  addNoiseBurst(x, 2, sr, { dur: 0.012, attack: 0.0002, tau: 0.002, lp: 1800, hp: 120, amp: 0.5, seed: r.seed32() });
+  addMode(x, 2, r.range(180, 320), 0.012, 0.25, sr, 0);
+  glassHit(x, sr, r, 2, modes, 1);
+  if (r.chance(0.5)) glassHit(x, sr, r, Math.round(r.range(0.02, 0.06) * sr), modes, r.range(0.2, 0.4), 0.7);
+  return fin(x, sr);
+}
+function glassBreak(r, sr) {
+  const x = new Float32Array(Math.round(1.8 * sr));
+  // the crack: a hard broadband transient over the bottle's body knock
+  addNoiseBurst(x, 2, sr, { dur: 0.006, attack: 0.00003, tau: 0.0008, hp: 1200, lp: 15000, amp: 1.0, seed: r.seed32() });
+  addNoiseBurst(x, 2, sr, { dur: 0.03, attack: 0.0002, tau: 0.005, lp: 1500, hp: 90, amp: 0.55, seed: r.seed32() });
+  addMode(x, 2, r.range(150, 260), 0.02, 0.3, sr, 0);
+  // the burst of fragments: dense bright rings within the first 35 ms
+  const nb = r.int(45, 70);
+  for (let i = 0; i < nb; i++) {
+    const st = 2 + Math.round(Math.pow(r.next(), 2) * 0.035 * sr);
+    addMode(x, st, r.logRange(1800, 11000), r.range(0.004, 0.04), r.range(0.05, 0.22) * (1 - st / sr / 0.05), sr, r.range(0, 6.28));
+  }
+  // a hiss of glass grit
+  addNoiseBurst(x, 2, sr, { dur: 0.25, attack: 0.0005, tau: 0.06, hp: 3500, lp: 12000, amp: 0.25, seed: r.seed32() });
+  // shards raining down and skittering away, thinning out
+  addCrackle(x, Math.round(0.03 * sr), sr, r, {
+    dur: 1.2, rate: 90, amp: 0.55, hp: 2500, lp: 13000, grainMin: 0.0001, grainMax: 0.0006,
+    shape: (u) => Math.pow(1 - u, 2.2), ring: [2500, 9000], ringProb: 0.8, ringTau: [0.003, 0.025], ringAmp: 0.9, bigProb: 0.08,
+  });
+  // the bigger pieces (neck, base) landing
+  const modes = bottleModes(r);
+  const nk = r.int(2, 4);
+  for (let k = 0; k < nk; k++) glassHit(x, sr, r, Math.round(r.range(0.12, 0.7) * sr), modes, r.range(0.15, 0.35), 0.6);
+  return fin(x, sr, 0.95, 60);
+}
+function shardTinkle(r, sr) {
+  const x = new Float32Array(Math.round(0.35 * sr));
+  const n = r.int(2, 5);
+  let t = 2;
+  for (let i = 0; i < n; i++) {
+    addNoiseBurst(x, t, sr, { dur: 0.002, attack: 0.00003, tau: 0.0002, hp: 4000, lp: 15000, amp: 0.3, seed: r.seed32() });
+    for (let k = 0; k < 3; k++) addMode(x, t, r.logRange(3000, 10000), r.range(0.004, 0.02), r.range(0.1, 0.3), sr, 0);
+    t += Math.round(r.range(0.015, 0.08) * sr);
+  }
+  return fin(x, sr, 0.9, 400);
+}
+function cupTap(r, sr) {
+  const x = new Float32Array(Math.round(0.25 * sr));
+  addNoiseBurst(x, 2, sr, { dur: 0.02, attack: 0.0002, tau: 0.003, bp: r.range(700, 1600), bpQ: 0.9, amp: 1, seed: r.seed32() });
+  addMode(x, 2, r.range(260, 520), r.range(0.006, 0.014), 0.35, sr, 0);
+  addMode(x, 2, r.range(900, 1600), r.range(0.003, 0.008), 0.15, sr, 0);
+  if (r.chance(0.5)) addNoiseBurst(x, Math.round(r.range(0.02, 0.05) * sr), sr, { dur: 0.015, attack: 0.0002, tau: 0.003, bp: 1200, bpQ: 0.7, amp: 0.35, seed: r.seed32() });
+  return fin(x, sr, 0.9, 120);
+}
+function splash(r, sr) {
+  const x = new Float32Array(Math.round(0.6 * sr));
+  addNoiseBurst(x, 2, sr, { dur: 0.08, attack: 0.0004, tau: 0.018, lp: 4500, hp: 300, amp: 0.8, seed: r.seed32() });
+  const nb = r.int(4, 9);
+  for (let i = 0; i < nb; i++) addBubble(x, 2 + Math.round(r.range(0, 0.12) * sr), r.logRange(700, 3200), r.range(1.2, 2.0), r.range(0.004, 0.014), r.range(0.15, 0.5), sr);
+  addCrackle(x, Math.round(0.02 * sr), sr, r, { dur: 0.35, rate: 120, amp: 0.3, hp: 2000, lp: 9000, shape: (u) => Math.pow(1 - u, 2) });
+  return fin(x, sr, 0.9, 120);
+}
+function bottleRoll(r, sr) {
+  const dur = 5;
+  const x = new Float32Array(Math.round((dur + 0.3) * sr));
+  const modes = bottleModes(r);
+  rollSegment(x, sr, r, 0.02, dur, r.range(3, 5), r.range(0.8, 1.5), 0.55, (st, e) => glassHit(x, sr, r, st, modes, e * 0.22, 0.5), {
+    hollowF: r.range(250, 450), hollowQ: 2.5, gritHP: 1200, gritAmp: 0.3, hitProb: 0.5,
+  });
+  return fin(x, sr);
+}
+function throwWhoosh(r, sr) {
+  const dur = r.range(0.32, 0.45);
+  const n = Math.round(dur * sr);
+  const x = new Float32Array(n + Math.round(0.04 * sr));
+  // the arm through the air: overlapping bands peaking one after another read as a sweep
+  for (const [f, q, peak, amp] of [[r.range(450, 650), 0.7, 0.42, 1], [r.range(1300, 1900), 0.9, 0.52, 0.5], [r.range(3000, 4200), 1.0, 0.6, 0.18]]) {
+    const w = new Float32Array(n);
+    fillWhite(w, r.seed32(), 1);
+    filt(w, 'bandpass', f, q, sr);
+    for (let i = 0; i < n; i++) {
+      const u = i / n;
+      x[i] += w[i] * Math.exp(-0.5 * ((u - peak) / 0.15) ** 2) * amp;
+    }
+  }
+  // the sleeve
+  addCrackle(x, 0, sr, r, { dur: dur * 0.8, rate: 160, amp: 0.15, bp: 2500, bpQ: 0.6, shape: (u) => Math.sin(Math.PI * u) });
+  return fin(x, sr, 0.9, 120);
+}
+
+// ------------------------------------------------------------------ sleepers
+/** One breath of someone asleep: a nasal inhale (often a soft snore), a pause, a long sigh out. */
+function sleepBreath(r, sr) {
+  const inh = r.range(1.3, 1.8), pause = r.range(0.1, 0.25), exh = r.range(1.6, 2.2);
+  const n = Math.round((inh + pause + exh + 0.2) * sr);
+  const x = new Float32Array(n);
+  const snore = r.chance(0.6);
+  const ni = Math.round(inh * sr);
+  const nas = new Float32Array(ni), thr = new Float32Array(ni);
+  fillPink(nas, r.seed32(), 1);
+  fillPink(thr, r.seed32(), 1);
+  filt(nas, 'bandpass', r.range(900, 1400), 0.8, sr);
+  filt(thr, 'bandpass', r.range(320, 520), 1.4, sr);
+  // the soft palate flutters at 20-35 Hz: pulses of throat noise
+  const fl = r.range(22, 34), depth = r.range(0.5, 0.9);
+  for (let i = 0; i < ni; i++) {
+    const u = i / ni;
+    const env = Math.pow(Math.sin(Math.PI * Math.min(1, u * 1.05)), 1.5);
+    const k = snore ? Math.sin(Math.PI * Math.min(1, u * 1.2)) : 0;
+    const pulse = Math.pow(Math.max(0, Math.sin((2 * Math.PI * fl * i) / sr)), 3);
+    x[i] += (nas[i] * 0.45 + thr[i] * (0.25 + k * depth * 2.2 * pulse)) * env;
+  }
+  // exhale: long, low, through the mouth
+  const s0 = Math.round((inh + pause) * sr), ne = Math.min(n - s0, Math.round(exh * sr));
+  const e = new Float32Array(ne);
+  fillPink(e, r.seed32(), 1);
+  filt(e, 'lowpass', r.range(700, 1100), 0.7, sr);
+  filt(e, 'highpass', 120, 0.7, sr);
+  for (let i = 0; i < ne; i++) {
+    const u = i / ne;
+    x[s0 + i] += e[i] * Math.min(1, u * 8) * Math.pow(1 - u, 1.8) * 0.8;
+  }
+  if (r.chance(0.35)) addNoiseBurst(x, s0, sr, { dur: 0.03, attack: 0.001, tau: 0.006, lp: 900, amp: 0.35, seed: r.seed32() });
+  return fin(x, sr, 0.8, 80);
+}
+
 // ------------------------------------------------------------------ rustles
 function bumpEnv(len, sr, r, n) {
   const BL = 32;
@@ -362,6 +498,15 @@ const ONESHOT_DEFS = {
   garbageShift: [6, garbageShift, 'lo'],
   doorRattle: [5, doorRattle, 'lo'],
   wireCreak: [5, wireCreak, 'lo'],
+  canClank: [6, canClank, 'lo'],
+  glassClink: [5, glassClink, 'lo'],
+  glassBreak: [4, glassBreak, 'lo'],
+  shardTinkle: [6, shardTinkle, 'lo'],
+  cupTap: [4, cupTap, 'lo'],
+  splash: [4, splash, 'lo'],
+  bottleRoll: [2, bottleRoll, 'lo'],
+  throwWhoosh: [3, throwWhoosh, 'lo'],
+  sleepBreath: [6, sleepBreath, 'lo'],
 };
 export const ONESHOT_BANKS = Object.keys(ONESHOT_DEFS);
 

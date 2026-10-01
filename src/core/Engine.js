@@ -8,9 +8,12 @@ import { Body } from '../player/Body.js';
 import { captureEnvironment, applyEnvironment } from '../render/envCapture.js';
 import { Ambient } from '../world/ambient.js';
 import { Debris } from '../world/debris.js';
+import { Litter } from '../world/litter.js';
 import { Passerby } from '../world/passerby.js';
 import { SprayTool } from '../spray/SprayTool.js';
 import { Viewmodel } from '../spray/Viewmodel.js';
+import { Carry } from '../player/Carry.js';
+import { prebuildTwins } from '../spray/heldItems.js';
 import { Soundscape } from './soundscape.js';
 import { paintFacades } from '../textures/paintFacades.js';
 import PaintWorker from '../textures/paintWorker.js?worker&inline';
@@ -79,6 +82,12 @@ export class Engine {
 
     this.player = new Player(this);
     this.body = new Body(this);
+    // loose cans, bottles and cups (before the shadow bake: they cast shadows)
+    try {
+      this.litter = new Litter(this).build();
+    } catch (e) {
+      console.warn('litter failed', e);
+    }
 
     // static shadows + one-time environment capture for image-based specular
     this.bakeShadows();
@@ -106,6 +115,8 @@ export class Engine {
     } catch (e) {
       console.warn('viewmodel failed', e);
     }
+    this.carry = new Carry(this);
+    if (this.litter && !this.params.shot) prebuildTwins(this.litter.shapes.values());
     this.onStart = () => this.sound.start();
     this.onPause = () => this.sound.setPaused(true);
     this.onResume = () => this.sound.setPaused(false);
@@ -190,7 +201,9 @@ export class Engine {
       this.body.update(dt, this.player);
       this.updateCapsuleLights();
     }
+    this.carry?.update(dt);
     this.spray?.update(dt);
+    this.litter?.update(dt, this.time);
     for (const h of this.frameHooks) h(dt, this.time);
     this.world.update(dt, this.time);
     this.ambient?.update(dt, this.time);

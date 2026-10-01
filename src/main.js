@@ -45,6 +45,7 @@ async function main() {
       onSprayStart: () => (sp.btn.touch = true),
       onSprayEnd: () => (sp.btn.touch = false),
       onMenu: () => sp.openMenu(),
+      onPick: () => engine.carry?.usable() && engine.carry.interact(),
     });
     sp.attachTouch(touchUI);
   }

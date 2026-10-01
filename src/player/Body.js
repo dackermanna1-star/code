@@ -307,10 +307,12 @@ export class Body {
     const strideP = ((Math.floor(phase) % 2) + s) / 2; // 0 = left heel strike
     const bob = -0.022 * amp * Math.cos(TAU * s) - 0.004 * amp;
     const lateral = 0.018 * amp * Math.cos(TAU * strideP);
-    this.pelvis.position.set(-lateral, 0.905 + bob + (1 - amp) * 0.012, 0.0);
-    this.pelvis.rotation.set(0.04 * amp, 0.07 * amp * Math.sin(TAU * strideP), -0.035 * amp * Math.cos(TAU * strideP), 'YXZ');
+    // crouch: hips drop and go back, the knees fold forward (leg IK), the torso leans over
+    const cr = Math.max(0, Math.min(1.05, player.crouch ?? 0));
+    this.pelvis.position.set(-lateral, 0.905 + bob + (1 - amp) * 0.012 - 0.43 * cr, 0.1 * cr);
+    this.pelvis.rotation.set(0.04 * amp - 0.25 * cr, 0.07 * amp * Math.sin(TAU * strideP), -0.035 * amp * Math.cos(TAU * strideP), 'YXZ');
     // counter-rotate the torso to the pelvis, slight breathing
-    this.torso.rotation.set(0.0, -0.06 * amp * Math.sin(TAU * strideP), 0.025 * amp * Math.cos(TAU * strideP));
+    this.torso.rotation.set(-0.3 * cr, -0.06 * amp * Math.sin(TAU * strideP), 0.025 * amp * Math.cos(TAU * strideP));
     this.torso.scale.set(1, 1, 1 + 0.008 * Math.sin(player.time * 1.55));
     this.skirt.rotation.set(-0.03 * amp, 0.03 * amp * Math.sin(TAU * strideP), 0);
     this.root.updateMatrixWorld(true);
@@ -417,7 +419,7 @@ export class Body {
       const arm = this.arms[side];
       const p = side === 'L' ? (strideP + 0.5) % 1 : strideP;
       const swing = 0.2 * amp * Math.cos(TAU * p);
-      arm.shoulder.rotation.set(-swing - 0.02, 0, arm.sx * (0.07 + 0.02 * amp), 'XZY');
+      arm.shoulder.rotation.set(-swing - 0.02 - 0.7 * cr, 0, arm.sx * (0.07 + 0.02 * amp + 0.12 * cr), 'XZY');
       arm.elbow.rotation.set(-(0.18 + 0.12 * amp * (0.5 + 0.5 * Math.cos(TAU * p))), 0, 0);
       arm.wrist.rotation.set(-0.08, 0, -arm.sx * 0.05);
     }

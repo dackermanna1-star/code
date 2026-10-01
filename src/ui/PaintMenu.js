@@ -444,7 +444,7 @@ export class PaintMenu {
 
 /** Round buttons for touch devices: can in/out, spray (hold), palette. */
 export class TouchSprayControls {
-  constructor({ parent = document.body, onToggleCan = () => {}, onSprayStart = () => {}, onSprayEnd = () => {}, onMenu = () => {} } = {}) {
+  constructor({ parent = document.body, onToggleCan = () => {}, onSprayStart = () => {}, onSprayEnd = () => {}, onMenu = () => {}, onPick = () => {} } = {}) {
     injectStyle();
     this.root = el('div', 'pm-touch');
     const mk = (cls, label) => {
@@ -455,21 +455,32 @@ export class TouchSprayControls {
     this.menuB = mk('', 'colour');
     this.sprayB = mk('pm-spray', 'spray');
     this.canB = mk('', 'can');
+    this.pickB = mk('', 'pick');
     const stop = (e) => {
       e.preventDefault();
       e.stopPropagation();
     };
     this.canB.addEventListener('touchstart', (e) => (stop(e), onToggleCan()), { passive: false });
     this.menuB.addEventListener('touchstart', (e) => (stop(e), onMenu()), { passive: false });
+    this.pickB.addEventListener('touchstart', (e) => (stop(e), onPick()), { passive: false });
     this.sprayB.addEventListener('touchstart', (e) => (stop(e), onSprayStart()), { passive: false });
     for (const t of ['touchend', 'touchcancel']) this.sprayB.addEventListener(t, (e) => (stop(e), onSprayEnd()), { passive: false });
     parent.appendChild(this.root);
     this.setEquipped(false);
   }
   setEquipped(on) {
+    this.equipped = on;
     this.canB.classList.toggle('pm-on', on);
-    this.sprayB.style.display = on ? '' : 'none';
+    this.sprayB.style.display = on || this.carrying ? '' : 'none';
+    this.sprayB.textContent = this.carrying ? 'throw' : 'spray';
     this.menuB.style.display = on ? '' : 'none';
+  }
+  /** Something picked up: the big button throws it, the pick button puts it down. */
+  setCarrying(on) {
+    this.carrying = on;
+    this.pickB.textContent = on ? 'drop' : 'pick';
+    this.pickB.classList.toggle('pm-on', on);
+    this.setEquipped(!!this.equipped);
   }
   show() {
     this.root.classList.add('pm-vis');

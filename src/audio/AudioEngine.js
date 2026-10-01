@@ -200,6 +200,7 @@ export class AudioEngine {
         B.spray = out;
       });
       await job('oneshots-2', () => addOneShots(['garbageShift', 'doorRattle', 'wireCreak', 'canRoll', 'bottleKick']));
+      await job('oneshots-3', () => addOneShots(['canClank', 'glassClink', 'glassBreak', 'shardTinkle', 'cupTap', 'splash', 'bottleRoll', 'throwWhoosh', 'sleepBreath']));
       await job('trickle', async () => { B.trickle = mk1(await ES.synthTrickle(seed, r32, y), r32); });
       await job('drain', async () => { B.drain = mk1(await ES.synthDrain(seed, r24, y), r24); });
       await job('cars', async () => {

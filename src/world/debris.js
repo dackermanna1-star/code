@@ -1,14 +1,13 @@
-// Reactive debris: cans and bottles that get kicked and roll away, paper
-// scraps and plastic bags pushed along by gusts. Simple 2D physics against the
-// collision grid, with sounds from the audio engine.
+// Reactive debris: paper scraps and plastic bags pushed along by gusts and
+// scuffed by the walker's feet. Simple 2D physics against the collision grid,
+// with sounds from the audio engine. (Cans, bottles and cups are rigid bodies:
+// see litter.js.)
 import * as THREE from 'three';
 import { PROPS } from '../props/catalog.js';
 import { meshModel } from '../voxel/mesher.js';
 import { RNG } from '../core/rng.js';
 
 const KINDS = {
-  can: { radius: 0.035, friction: 0.55, kick: 2.4, sound: 'canKick', roll: true },
-  bottle: { radius: 0.04, friction: 0.9, kick: 1.6, sound: 'bottleKick', roll: true },
   paperScrap: { radius: 0.06, friction: 3.5, kick: 0.6, sound: 'paperRustle', wind: 1.0 },
   plasticBag: { radius: 0.14, friction: 2.2, kick: 0.8, sound: 'plasticRustle', wind: 1.8, lift: true },
 };
@@ -72,9 +71,6 @@ export class Debris {
     };
     const path = (rr) => ({ x: rr.normal(0, 0.9), z: rr.range(-72, 5) });
     const walls = (rr) => ({ x: rr.sign() * rr.range(1.4, 2.5), z: rr.range(-72, 5) });
-    spawn('can', 26, path);
-    spawn('can', 10, walls);
-    spawn('bottle', 12, path);
     spawn('paperScrap', 16, (rr) => (rr.chance(0.5) ? path(rr) : walls(rr)));
     spawn('plasticBag', 3, path);
     // a bag snagged low on the chain-link fence, flapping in the gusts

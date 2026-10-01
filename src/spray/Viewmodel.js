@@ -215,6 +215,8 @@ export class Viewmodel {
     this.sAimYaw = new Spring(0, 12, 0.9);
     this.sAimPitch = new Spring(0, 12, 0.9);
     this.sAspect = new Spring(1, 6, 1);
+    this.sCharge = new Spring(0, 10, 0.8);
+    this.held = null;
     this.shakePhase = 0;
     this.shakeCount = 0;
     this.wasSpraying = false;
@@ -255,6 +257,32 @@ export class Viewmodel {
 
   onShakeClick(cb) {
     this.clickCbs.push(cb);
+  }
+
+  /**
+   * Something picked up off the ground in place of the can (or null). grip: the
+   * litter shape's { flip, gy, r }: its axis runs along the can's, the widest part
+   * at the palm, bottles neck up; thinner things sit against the palm.
+   */
+  setHeld(geo, grip = null, spin = 0) {
+    if (this.held) {
+      this.rig.remove(this.held);
+      this.held = null;
+    }
+    if (!geo) return;
+    const m = new THREE.Mesh(geo, this.material);
+    m.name = 'held';
+    m.castShadow = false;
+    m.receiveShadow = true;
+    m.frustumCulled = false;
+    const flip = !!grip?.flip;
+    m.rotation.set(flip ? Math.PI : 0, spin, 0);
+    const gy = (grip?.gy ?? 0) * (flip ? -1 : 1);
+    const push = Math.max(0, CAN.R - (grip?.r ?? CAN.R)) * 0.9;
+    const pa = GRIP.palmAngle;
+    m.position.set(Math.cos(pa) * push, GRIP.palmY - 0.004 - GRIP.pivotY - gy, -Math.sin(pa) * push);
+    this.rig.add(m);
+    this.held = m;
   }
 
   get visible() {
@@ -624,7 +652,10 @@ export class Viewmodel {
     this.wasSpraying = spraying;
     const recoil = this.sRecoil.step(0, dt);
     const A = this.sShake.step(shaking ? 1 : 0, dt);
-    const lift = clamp(this.sLift.step(shaking || menu ? 1 : !equipped ? 0.5 : 0, dt), 0, 1);
+    const hold = s.item === 'held' || s.item === 'none';
+    const lift = clamp(this.sLift.step(shaking || menu || hold ? 1 : !equipped ? 0.5 : 0, dt), 0, 1);
+    const charge = this.sCharge.step(clamp(s.charge ?? 0, 0, 1), dt);
+    const thr = clamp(s.throwK ?? 0, 0, 1);
     const reach = this.sReach.step(clamp(s.reach ?? 1, 0, 1), dt);
     const m = this.sMenu.step(menu ? 1 : 0, dt);
     const wa = this.sWalk.step(clamp(s.walkAmp ?? 0, 0, 1), dt);
@@ -635,7 +666,7 @@ export class Viewmodel {
 
     // aim: yaw/pitch of the requested spray direction relative to the rest direction, soft-clamped
     let dyT = 0, dpT = 0;
-    const aim = s.aim;
+    const aim = hold ? null : s.aim;
     if (aim && aim.lengthSq() > 1e-6) {
       const len = Math.sqrt(aim.lengthSq());
       dyT = wrapPi(Math.atan2(-aim.x, -aim.z) - this.restYaw);
@@ -735,6 +766,22 @@ export class Viewmodel {
     // aim: small arm translation toward where the can points
     px += -0.05 * ay;
     py += 0.035 * ap;
+    // wind-up: drawn back and up beside the head, the top tipped back over the shoulder
+    px += 0.045 * charge;
+    py += 0.11 * charge;
+    pz += 0.13 * charge;
+    rx += 0.85 * charge;
+    rz += -0.25 * charge;
+    ry += -0.12 * charge;
+    // throw: whipped forward and across, then down out of view
+    if (thr > 0) {
+      const a = Math.sin(Math.PI * Math.min(1, thr * 1.7));
+      pz += -0.2 * a;
+      py += 0.07 * a - 0.32 * thr * thr;
+      px += -0.07 * thr;
+      rx += -1.3 * Math.min(1, thr * 1.5);
+      rz += 0.2 * thr;
+    }
     // equip: rise from below the screen with a slight overshoot
     const ue = 1 - eq.x;
     px += 0.04 * ue;
@@ -793,6 +840,10 @@ export class Viewmodel {
     this._m.makeBasis(Xf, Yf, Zf);
     this.forearm.quaternion.setFromRotationMatrix(this._m);
     this.forearm.position.copy(wrist);
+
+    // ── what is in the hand ──
+    this.can.visible = !hold;
+    if (this.held) this.held.visible = s.item === 'held';
 
     // ── visibility ──
     const hidden = !equipped && eq.x < 0.02 && Math.abs(eq.v) < 0.2;

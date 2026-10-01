@@ -144,7 +144,7 @@ export function buildPart(P, { vs, min: bmin, max: bmax, sdf, mat, deep = 0, smo
 }
 
 /** Blend the SDF gradient into the mesher's flat normals (Int8 attribute). */
-function smoothNormals(geo, sdf, k, eps) {
+export function smoothNormals(geo, sdf, k, eps) {
   const pa = geo.attributes.position.array;
   const na = geo.attributes.normal.array;
   const nv = pa.length / 3;

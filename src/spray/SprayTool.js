@@ -223,6 +223,7 @@ export class SprayTool {
   toggle(force) {
     const on = force ?? !this.equipped;
     if (on === this.equipped) return;
+    if (on) this.engine.carry?.cancel?.();
     this.equipped = on;
     this.equipT = 0;
     if (on) {
@@ -402,9 +403,14 @@ export class SprayTool {
       this.prevPitch = pl.pitch;
     }
 
+    // litter in the hand (picked up, being thrown) borrows the arm
+    const carry = e.carry;
+    const cItem = carry?.item ?? null;
+    const carrying = !!cItem;
+
     // what the view centre is pointing at
     const fwd = cam.getWorldDirection(this._f);
-    const hit = this.equipped && this.ray ? this.ray.cast(cam.position, fwd, AIM_RANGE, this.hit) : null;
+    const hit = (this.equipped || carrying) && this.ray ? this.ray.cast(cam.position, fwd, AIM_RANGE, this.hit) : null;
     this.aimPoint.copy(cam.position).addScaledVector(fwd, hit ? hit.dist : 3);
 
     const raised = this.equipped && this.equipT > 0.38;
@@ -417,7 +423,10 @@ export class SprayTool {
     // viewmodel (its nozzle is where the paint comes from)
     if (this.vm) {
       const s = this.vmState;
-      s.equipped = this.equipped;
+      s.equipped = this.equipped || !!carry?.vmEquipped;
+      s.item = carrying ? cItem : 'can';
+      s.charge = carry?.charge ?? 0;
+      s.throwK = carry?.throwK ?? 0;
       s.spraying = want;
       s.pressure = this.pressure;
       s.shaking = this.shaking;
@@ -433,7 +442,7 @@ export class SprayTool {
       if (!isFinite(s.aim.x) || s.aim.lengthSq() < 1e-6) s.aim.set(0, 0, -1);
       this.vm.update(dt, s);
       this.vm.nozzle(this.nozzle, this.nozzleDir);
-      if (e.body) e.body.rightArmHidden = this.equipped && this.vm.visible !== false;
+      if (e.body) e.body.rightArmHidden = (this.equipped || carrying) && this.vm.visible !== false;
     } else {
       this.nozzle.set(0.12, -0.09, -0.36).applyMatrix4(cam.matrixWorld);
       if (e.body) e.body.rightArmHidden = false;
