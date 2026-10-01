@@ -148,10 +148,10 @@ export function bakeMesh(mb, ctx) {
     const tr = mb.tint[p3] * m, tg = mb.tint[p3 + 1] * m, tb = mb.tint[p3 + 2] * m;
     // soft knee: keeps overlapping fixtures from blowing bright paint out to white
     const tot = Math.max(r, g, b) + Math.max(fr, fg, fb);
-    const k = tot > KNEE ? knee(tot) / tot : 1;
-    col[p3] = r * tr * k; col[p3 + 1] = g * tg * k; col[p3 + 2] = b * tb * k;
+    const kn = tot > KNEE ? knee(tot) / tot : 1;
+    col[p3] = r * tr * kn; col[p3 + 1] = g * tg * kn; col[p3 + 2] = b * tb * kn;
     if (fch) {
-      flk[p3] = fr * tr * k; flk[p3 + 1] = fg * tg * k; flk[p3 + 2] = fb * tb * k;
+      flk[p3] = fr * tr * kn; flk[p3 + 1] = fg * tg * kn; flk[p3 + 2] = fb * tb * kn;
       mb.chan[i] = fch;
     }
   }

@@ -1,6 +1,7 @@
 // Abandoned office floors: corridors, private offices, cubicle farms, meeting rooms, kitchens.
 import { defineZone } from '../zonetypes.js';
 import { W, CF, M, pmod, ceilingLight, freeCell, openCell, wallFace, findWallSpots, floorDecal, facing, env, propOnWall, DIRS4 } from './common.js';
+import { tryRoomPiece } from '../roompieces.js';
 
 function officeParams(zone, rng, ctx) {
   const abandoned = rng.chance(0.35 + Math.min(0.4, ctx.dist / 3000));
@@ -73,10 +74,14 @@ function genOffice(zb) {
     rm.type = pickRoomType(r, area, p.layout, rm);
     doors(zb, rm, isCorr, r);
   });
-  rooms.forEach((rm) => furnish(zb, rm, r));
+  rooms.forEach((rm) => {
+    // occasionally a room is something else entirely
+    if (rm.type !== 'restroom' && (rm.doors || []).length && tryRoomPiece(zb, rm, r, 0.06)) { rm.type = 'piece'; return; }
+    furnish(zb, rm, r);
+  });
   corridorDressing(zb, isCorr, r);
   // lights
-  rooms.forEach((rm) => roomLights(zb, rm, r));
+  rooms.forEach((rm) => { if (rm.type !== 'piece') roomLights(zb, rm, r); });
   zb.fill(zb.x0, zb.z0, zb.x1, zb.z1, (x, z) => {
     if (!isCorr(x, z)) return;
     // one troffer every 3 cells along corridors, centred

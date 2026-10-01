@@ -120,6 +120,11 @@ export class ZoneMap {
     const ctx = this.typeContext(dim, level, x0, z0, x1, z1);
     zone.ctx = ctx;
     let type = lf.type;
+    // debug hook (?force=<type>): every zone that can hold the type becomes it, except the start area
+    if (!type && this.forceType && ZT[this.forceType] && dim === 0 && !(level === 0 && ctx.flatDist < 95)) {
+      const t = ZT[this.forceType];
+      if (ctx.w >= t.minW && ctx.d >= t.minD && ctx.w <= t.maxW && ctx.d <= t.maxD && (!t.tall || level % 2 === 0)) type = this.forceType;
+    }
     if (!type) type = this.pickType(ctx, rng);
     zone.type = type;
     const def = ZT[type];

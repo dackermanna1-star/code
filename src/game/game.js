@@ -42,6 +42,8 @@ export class Game {
     if (this.world) this.world.unloadAll();
     this.seed = seed;
     this.world = new this.World(seed, this.texIndex, this.renderer);
+    if (this.params.has('force')) this.world.zones.forceType = this.params.get('force');
+    if (this.params.has('piece')) this.world.zones.forcePiece = this.params.get('piece');
     this.player = new this.Player(this.world);
     this.spawnAt(0, SPAWN[0] + 0.5, 0, SPAWN[1] + 0.5, 0);
   }
