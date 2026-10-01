@@ -808,6 +808,122 @@ P('house_small', {
   boxes: [[-2.8, 0, -2.4, 2.8, 6.2, 2.4]],
 });
 
+// ------------------------------------------------------------------ personal effects / out of place
+P('mug', {
+  build(mb, p, r) {
+    const c = S('plastic_white', { tint: r.pick([[1, 1, 1], [1.1, 0.6, 0.5], [0.6, 0.7, 1.1]]) });
+    mb.cyl(0, 0, 0, 0.045, 0.1, 6, c, 2);
+    mb.box(0.045, 0.03, -0.008, 0.07, 0.075, 0.008, c);
+    mb.cyl(0, 0.085, 0, 0.038, 0.004, 6, S('wood_dark'), 1);
+  },
+});
+P('coat_rack', {
+  build(mb, p, r) {
+    const w = S('wood_dark');
+    mb.cyl(0, 0, 0, 0.2, 0.03, 6, w, 1);
+    mb.cyl(0, 0.03, 0, 0.025, 1.7, 5, w, 0);
+    for (let k = 0; k < 4; k++) withXf(mb, xfRotY(k * Math.PI / 2), () => mb.rod(0, 1.6, 0, 0, 1.68, -0.18, 0.012, 4, w));
+    if (p.opts.coat !== false && r.chance(0.6)) {
+      const coat = S('fabric_brown', { tint: r.pick([[1, 1, 1], [0.6, 0.6, 0.7], [0.5, 0.5, 0.45]]) });
+      mb.box(-0.2, 0.75, -0.24, 0.2, 1.62, -0.12, coat);
+    }
+  },
+  boxes: [[-0.2, 0, -0.2, 0.2, 1.75, 0.2]],
+});
+P('bag', {
+  build(mb, p, r) {
+    const st = S(r.pick(['fabric_brown', 'plastic_black', 'fabric_blue']));
+    mb.box(-0.2, 0, -0.08, 0.2, 0.3, 0.08, st);
+    mb.rod(-0.08, 0.3, 0, -0.04, 0.36, 0, 0.012, 4, st);
+    mb.rod(-0.04, 0.36, 0, 0.04, 0.36, 0, 0.012, 4, st);
+    mb.rod(0.04, 0.36, 0, 0.08, 0.3, 0, 0.012, 4, st);
+  },
+});
+P('umbrella', {
+  build(mb, p) {
+    const st = S('plastic_black', { tint: p.opts.tint || [0.7, 0.8, 1.6] });
+    withXf(mb, xfRotZ(1.35), () => {
+      mb.cyl(0, 0, 0, 0.07, 0.75, 6, st, 0);
+      mb.rod(0, 0.75, 0, 0, 0.92, 0, 0.012, 4, S('wood_dark'));
+    });
+  },
+});
+P('photo_frame', {
+  build(mb) {
+    withXf(mb, xfRotX(-0.25), () => mb.box(-0.09, 0, -0.01, 0.09, 0.22, 0.01, [S('wood_dark'), S('wood_dark'), S('wood_dark'), S('wood_dark'), S('wood_dark'), T('frame_empty')], { uv: ['world', 'world', 'world', 'world', 'world', FIT] }));
+  },
+});
+P('shopping_cart', {
+  build(mb) {
+    const m = S('chrome');
+    mb.box(-0.28, 0.45, -0.45, 0.28, 0.48, 0.45, S('grate'));
+    for (const sx of [-1, 1]) {
+      mb.box(sx * 0.28 - 0.01, 0.45, -0.45, sx * 0.28 + 0.01, 0.95, 0.45, S('grate'));
+      mb.rod(sx * 0.25, 0.08, -0.4, sx * 0.25, 0.45, -0.4, 0.012, 4, m);
+      mb.rod(sx * 0.25, 0.08, 0.4, sx * 0.25, 0.45, 0.4, 0.012, 4, m);
+    }
+    mb.box(-0.28, 0.45, 0.43, 0.28, 0.95, 0.45, S('grate'));
+    mb.rod(-0.3, 1.05, 0.5, 0.3, 1.05, 0.5, 0.018, 5, S('plastic_orange', { tint: [1.2, 0.4, 0.3] }));
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) mb.cyl(sx * 0.25, 0.0, sz * 0.4, 0.05, 0.08, 5, S('rubber'), 3);
+  },
+  boxes: [[-0.3, 0, -0.46, 0.3, 1.05, 0.5]],
+});
+P('traffic_cone', {
+  build(mb) {
+    const o = S('plastic_orange', { tint: [1.15, 0.85, 0.75] });
+    mb.box(-0.2, 0, -0.2, 0.2, 0.04, 0.2, o);
+    mb.cyl(0, 0.04, 0, 0.13, 0.25, 6, o, 0);
+    mb.cyl(0, 0.29, 0, 0.09, 0.2, 6, S('plastic_white'), 0);
+    mb.cyl(0, 0.49, 0, 0.05, 0.16, 6, o, 1);
+  },
+  boxes: [[-0.2, 0, -0.2, 0.2, 0.65, 0.2]],
+});
+P('mailbox', {
+  build(mb) {
+    const b = S('metal', { tint: [0.45, 0.55, 1.1] });
+    mb.box(-0.25, 0, -0.25, 0.25, 0.08, 0.25, b);
+    mb.box(-0.22, 0.08, -0.22, 0.22, 1.0, 0.22, b);
+    mb.cyl(0, 0.95, 0, 0.22, 0.12, 8, b, 1, null, 0);
+    mb.box(-0.15, 0.75, -0.225, 0.15, 0.82, -0.22, S('plastic_black'));
+  },
+  boxes: [[-0.25, 0, -0.25, 0.25, 1.1, 0.25]],
+});
+P('bathtub', {
+  build(mb) {
+    const c = S('porcelain');
+    mb.box(-0.38, 0.05, -0.8, 0.38, 0.55, -0.72, c);
+    mb.box(-0.38, 0.05, 0.72, 0.38, 0.55, 0.8, c);
+    mb.box(-0.38, 0.05, -0.72, -0.3, 0.55, 0.72, c);
+    mb.box(0.3, 0.05, -0.72, 0.38, 0.55, 0.72, c);
+    mb.box(-0.3, 0.05, -0.72, 0.3, 0.12, 0.72, c);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) mb.box(sx * 0.3 - 0.03, 0, sz * 0.65 - 0.03, sx * 0.3 + 0.03, 0.05, sz * 0.65 + 0.03, S('chrome'));
+  },
+  boxes: [[-0.38, 0, -0.8, 0.38, 0.55, 0.8]],
+});
+P('piano', {
+  build(mb) {
+    const w = S('wood_dark');
+    mb.box(-0.75, 0, -0.1, 0.75, 1.25, 0.32, w);
+    mb.box(-0.72, 0.62, -0.32, 0.72, 0.72, -0.1, w);
+    mb.box(-0.68, 0.72, -0.3, 0.68, 0.75, -0.12, T('keyboard'), { uv: 'fit' });
+    for (const s2 of [-1, 1]) mb.box(s2 * 0.7 - 0.04, 0, -0.3, s2 * 0.7 + 0.04, 0.62, -0.26, w);
+  },
+  boxes: [[-0.75, 0, -0.32, 0.75, 1.25, 0.32]],
+});
+// A wall slab standing at an odd angle (rot); collision approximated by short segments.
+P('slab_wall', {
+  build(mb, p) {
+    const L = p.opts.len || 6, h = p.opts.h || 3;
+    mb.box(-0.1, 0, -L / 2, 0.1, h, L / 2, S(p.opts.mat || 'wp_stripe'), { sub: 1.5 });
+  },
+  boxes: (p) => {
+    const L = p.opts.len || 6, h = p.opts.h || 3, out = [];
+    for (let z = -L / 2; z < L / 2; z += 0.5) out.push([-0.1, 0, z, 0.1, h, Math.min(L / 2, z + 0.5)]);
+    return out;
+  },
+  segmented: true,
+});
+
 // ------------------------------------------------------------------ mirages
 // A lit hallway seen through a doorway; drawn only from a distance (see zb.dynamic showFar).
 // Local: the doorway plane is z = 0, the hallway runs toward +z for opts.len metres.
@@ -835,7 +951,7 @@ P('mirage_wall', {
 // ------------------------------------------------------------------ assembly
 const ROT_EPS = 1e-4;
 
-function rotBox(b, a) {
+function rotBox(b, a, noShrink = false) {
   const c = Math.cos(a), s = Math.sin(a);
   // xfRotY: x' = c*x - s*z ; z' = s*x + c*z
   const pts = [[b[0], b[2]], [b[3], b[2]], [b[0], b[5]], [b[3], b[5]]];
@@ -845,7 +961,7 @@ function rotBox(b, a) {
     x0 = Math.min(x0, X); x1 = Math.max(x1, X); z0 = Math.min(z0, Z); z1 = Math.max(z1, Z);
   }
   const axisAligned = Math.abs(Math.sin(2 * a)) < ROT_EPS;
-  if (!axisAligned) {
+  if (!axisAligned && !noShrink) {
     // shrink enclosing boxes of rotated props a little so they don't feel bloated
     const shx = (x1 - x0) * 0.1, shz = (z1 - z0) * 0.1;
     x0 += shx; x1 -= shx; z0 += shz; z1 -= shz;
@@ -883,7 +999,7 @@ export function buildProp(mb, trans, p, y0, tex) {
     const bl = typeof def.boxes === 'function' ? def.boxes(p) : def.boxes;
     if (bl) {
       for (const b of bl) {
-        const r = rotBox(b, p.rot || 0);
+        const r = rotBox(b, p.rot || 0, !!def.segmented);
         res.boxes.push([p.x + r[0], y0 + (p.y || 0) + r[1], p.z + r[2], p.x + r[3], y0 + (p.y || 0) + r[4], p.z + r[5], 255]);
       }
     }

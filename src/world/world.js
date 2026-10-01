@@ -58,7 +58,7 @@ export class World {
     this.workerGen = (this.workerGen || 0) + 1;
     this.workerReady = false;
     const init = () => {
-      worker.postMessage({ type: 'init', gen: this.workerGen, seed: this.seed, forceType: this.zones.forceType, forcePiece: this.zones.forcePiece, mutation: [...this.mutation] });
+      worker.postMessage({ type: 'init', gen: this.workerGen, seed: this.seed, texIndex: this.tex, forceType: this.zones.forceType, forcePiece: this.zones.forcePiece, mutation: [...this.mutation] });
       this.workerReady = true;
     };
     if (worker.helloed) init();

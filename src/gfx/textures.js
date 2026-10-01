@@ -1085,16 +1085,25 @@ T('dec_ceiling_hole', decal((p) => {
 
 export const TEX_DEFS = DEFS;
 
-// name -> layer mapping without painting anything (used by the world worker)
+// Modules register textures in whatever order their (possibly async) imports finish, so the
+// layer order is made deterministic by sorting on name. (Animated sets like static0..3 stay
+// consecutive.)
+function ordered() {
+  const seen = new Map();
+  for (const d of DEFS) seen.set(d.name, d);
+  return [...seen.values()].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+}
+
+// name -> layer mapping without painting anything
 export function textureIndex() {
   const index = {};
-  DEFS.forEach((d, i) => { index[d.name] = i; });
+  ordered().forEach((d, i) => { index[d.name] = i; });
   return index;
 }
 
 export function generateTextures() {
   const layers = [], index = {};
-  for (const d of DEFS) {
+  for (const d of ordered()) {
     const p = new Painter(strHash(d.name));
     d.fn(p, p.rng);
     index[d.name] = layers.length;

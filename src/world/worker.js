@@ -14,7 +14,8 @@ if (scope) scope.onmessage = (e) => {
   const m = e.data;
   try {
     if (m.type === 'init') {
-      const index = textureIndex();
+      // use exactly the layer mapping the main thread uploaded to the GPU
+      const index = m.texIndex || textureIndex();
       resolveMaterials(index);
       setPropTextures(index);
       gen = m.gen;
