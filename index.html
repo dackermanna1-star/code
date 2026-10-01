@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Backrooms</title>
+<style>
+  :root { --bg: #000; --fg: #d8cfa0; }
+  html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; touch-action: none; }
+  body { color: var(--fg); font-family: monospace; }
+  #stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #screen { position: relative; aspect-ratio: 4 / 3; height: min(100vh, 75vw); max-width: 100vw; }
+  #screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+  #err { display: none; position: fixed; left: 16px; right: 16px; top: 16px; padding: 12px; background: #300; color: #fcc; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div id="stage"><div id="screen"><canvas id="gl"></canvas><canvas id="ui"></canvas></div></div>
+<div id="err"></div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
