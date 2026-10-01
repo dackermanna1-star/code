@@ -116,16 +116,23 @@ snaps to one brick course (6.77 cm). Props use 1.35 cm and 2.7 cm voxels.
 - Clothes: a cropped leather biker jacket over a wine satin top, a mini skirt,
   sheer black tights and knee-high stiletto boots.
 
-A worker voxelizes each part at 2.4 to 5.5 mm while the alley loads. Normals
-and occlusion are taken from the field, not from the voxel staircase. Every
-vertex gets weights for a 50-bone skeleton (fingers, eyes, lids and a
-ponytail chain) from anatomical rules.
+A worker meshes each part while the alley loads:
+- Surface nets at 2.2 to 5 mm put one vertex per crossed cell, projected onto
+  the surface.
+- A quadric-error simplifier then cuts the result to about 68,000 triangles.
+  It never collapses across a material boundary, so the iris, lips and zips
+  keep their edges.
+- Normals and occlusion come from the field.
+- Every vertex gets weights for a 50-bone skeleton (fingers, eyes, lids and a
+  ponytail chain) from anatomical rules.
+- Each part is culled against a sphere that follows the pose.
 
 The animation is procedural (`animate.js`):
 - Feet land on the step planner's footholds. The planner steers each swing
   so the foot comes down where the hips will be.
-- The pelvis drops to keep both feet in reach, sways over the stance foot,
-  and leans into starts, stops and turns.
+- The pelvis rises gently over each stance (about 2 cm), drops smoothly to
+  keep both feet in reach, sways over the stance foot, and leans into
+  starts, stops and turns.
 - The spine counter-rotates and breathes. The arms swing, and the head stays
   level and looks where the camera looks.
 - The ponytail is a verlet chain that collides with her head, neck and back.

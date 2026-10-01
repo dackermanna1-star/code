@@ -34,7 +34,7 @@ export class Engine {
   }
 
   async init(progress = () => {}) {
-    // her meshes take a few seconds to voxelize: start that in a worker now
+    // her meshes take a few seconds to build: start that in a worker now
     const charBuild = this.params.noworkers ? null : buildCharacterAsync();
     const renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,

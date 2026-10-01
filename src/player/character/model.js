@@ -2,13 +2,14 @@
 // face (eyes, lids, lashes, brows, nose, lips), sleek dark hair pulled into a
 // high ponytail with face-framing strands, a cropped black leather biker
 // jacket over a wine satin top, a black mini skirt, sheer black tights and
-// knee-high stiletto boots. Each mesh is voxelized at 2.5-6 mm with smoothed
-// normals and gets per-vertex bone weights from simple anatomical rules.
+// knee-high stiletto boots. Each part is meshed smooth from its field at 2-5 mm
+// (surface nets), simplified to a few thousand triangles where its shape and
+// materials allow, and gets per-vertex bone weights from anatomical rules.
 import * as THREE from 'three';
 import { Palette } from '../../voxel/VoxelGrid.js';
 import { MCLS } from '../../render/voxelMaterial.js';
 import {
-  voxelize, sdfAO, smin, smax, sstep, cone, ell, sph, ell2, sdRoundBox, n3, clamp, mix,
+  surfaceNets, simplify, sdfAO, smin, smax, sstep, cone, ell, sph, ell2, sdRoundBox, n3, clamp, mix,
   abs, min, max, sin, cos, sqrt, atan2, PI, hypot, exp,
 } from './sdf.js';
 import { J, ARM, armToWorld, worldToArm, FINGERS, fingerJoints, thumbJoints, WRIST_Y, KNUCKLE_Y, PONY, ARM_A } from './rig.js';
@@ -105,7 +106,7 @@ function legsField(P) {
     // stiletto heel and its top-lift
     d = min(d, cone(fx, fy, fz, [0, -0.072, 0.045], [0, -0.1155, 0.053], 0.0105, 0.0042));
     // a rolled edge at the boot top
-    d = min(d, max(abs(y - bootTop(x, z) + 0.002) - 0.003, legSkin(x, y, z) - 0.0095));
+    d = min(d, smax(abs(y - bootTop(x, z) + 0.002) - 0.0042, legSkin(x, y, z) - 0.0105, 0.002));
     return d;
   };
   const sdf = (x, y, z) => {
@@ -151,11 +152,11 @@ function jacketField(x, y, z) {
   // lapels fold back along the opening's edge
   const o = jacketOpen(x, y, z);
   d -= 0.0055 * exp(-((o + 0.016) ** 2) / 0.00012) * sstep(1.14, 1.2, y);
-  d = max(d, o);
+  d = smax(d, o, 0.004);
   // collar standing round the neck at the back, falling into the lapels
   const nr = hypot(x, z - 0.012);
-  const collar = max(abs(nr - 0.069) - 0.006, max(1.35 - y, y - (1.418 - 0.03 * sstep(0.0, -0.06, z))));
-  d = min(d, max(collar, -z - 0.035 + 0.0001 + (abs(x) < 0.05 ? 1 : 0)));
+  const collar = smax(abs(nr - 0.07) - 0.0075, max(1.35 - y, y - (1.418 - 0.03 * sstep(0.0, -0.06, z))), 0.006);
+  d = smin(d, smax(collar, -z - 0.035, 0.006), 0.004);
   return d;
 }
 function skirtField(x, y, z) {
@@ -166,8 +167,8 @@ function skirtField(x, y, z) {
   const a = atan2(z - zc, x);
   const fold = 0.0035 * t * t * sin(a * 9 + 1.3 + 2 * n3(a * 2, 0, 0, 9));
   let d = min(ell2(x, z - zc, rx + fold, rz + fold), torsoSkin(x, y, z) - 0.006);
-  d = abs(d + 0.0045) - 0.0045;
-  return max(d, max(0.637 - y, y - 1.047));
+  d = abs(d + 0.006) - 0.006;
+  return smax(d, max(0.637 - y, y - 1.047), 0.004);
 }
 function topField(x, y, z) {
   const neck = z < 0 ? 1.338 - 0.055 * exp(-((x / 0.075) ** 2)) : 1.37;
@@ -176,7 +177,7 @@ function topField(x, y, z) {
 
 function torsoField(P) {
   const M = (n) => P.get(n);
-  const sdf = (x, y, z) => min(min(torsoSkin(x, y, z), topField(x, y, z)), min(jacketField(x, y, z), skirtField(x, y, z)));
+  const sdf = (x, y, z) => smin(min(torsoSkin(x, y, z), topField(x, y, z)), smin(jacketField(x, y, z), skirtField(x, y, z), 0.003), 0.003);
   const mat = (x, y, z) => {
     const ax = abs(x);
     if (jacketField(x, y, z) < 0.0008) {
@@ -191,7 +192,6 @@ function torsoField(P) {
     }
     if (skirtField(x, y, z) < 0.0008) {
       if (y > 1.02) return M('skirtBand');
-      if (abs(x) < 0.004 && z > 0.05 && y > 0.82) return M('zip');
       return M('skirt');
     }
     if (topField(x, y, z) < 0.0008) return M('top');
@@ -345,7 +345,6 @@ function headSkin(x, y, z) {
   d = smin(d, cone(x, y, z, [0, 0.083, -0.08], [0, 0.0525, -0.0942], 0.0064, 0.0086), 0.008);
   d = smin(d, sph(x, y, z, [0, 0.0487, -0.0948], 0.009), 0.007);
   d = smin(d, ell(ax, y, z, [0.0105, 0.0432, -0.0872], [0.0068, 0.0056, 0.0066]), 0.005);
-  d = smax(d, -ell(ax, y, z, [0.0056, 0.0392, -0.0912], [0.0032, 0.0022, 0.0042]), 0.002);
   // lips: full, not pouting; cupid's bow on the upper lip
   const bow = 0.0009 * exp(-((ax - 0.0045) ** 2) / 0.000016);
   d = smin(d, ell(x, y - bow, z, UPPER_LIP, UPPER_LIP_R), 0.005);
@@ -400,7 +399,8 @@ function earringField(x, y, z) {
 }
 function headField(P) {
   const M = (n) => P.get(n);
-  const sdf = (x, y, z) => min(min(min(headSkin(x, y, z), eyeField(x, y, z)), lowerLidField(x, y, z)), min(min(lidField(x, y, z), lashField(x, y, z)), earringField(x, y, z)));
+  // the lashes and nostrils are painted on (too fine for the mesh); the hoops are a touch thicker
+  const sdf = (x, y, z) => min(min(min(headSkin(x, y, z), eyeField(x, y, z)), lowerLidField(x, y, z)), min(lidField(x, y, z), earringField(x, y, z) - 0.0006));
   const mat = (x, y, z, d) => {
     const ax = abs(x);
     if (earringField(x, y, z) < 0.0008) return M('gold');
@@ -435,7 +435,7 @@ function headField(P) {
     // eye shadow on the lids and up to the crease, blush on the cheekbones
     if (z < -0.062 && ax > 0.018 && ax < 0.049 && y > EYE[1] + 0.0045 && y < EYE[1] + 0.0125) return M('shadow');
     if (z < -0.05 && hypot((ax - 0.045) * 0.8, y - 0.057) < 0.011) return M('blush');
-    if (ell(ax, y, z, [0.0056, 0.0392, -0.0912], [0.0053, 0.0034, 0.006]) < 0) return M('skinShade');
+    if (ell(ax, y, z, [0.0056, 0.0392, -0.0912], [0.0053, 0.0034, 0.006]) < 0) return M('shadow');
     if (y < -0.075 || d < -0.004) return M('skin');
     return M('skin');
   };
@@ -491,7 +491,7 @@ function hairField(P) {
     const w = 0.009 * (1 - 0.55 * t), th = 0.0042 * (1 - 0.4 * t);
     // ribbon cross-section: wide along the face, thin across it
     const du = (z - cz), dv = (ax - cx);
-    return max(max(abs(du) - w, abs(dv) - th) - 0.0015, max(y - 0.14, -0.006 - y));
+    return smax(max(abs(du) - w, abs(dv) - th) - 0.0015, max(y - 0.14, -0.006 - y), 0.005);
   };
   const sdf = (x, y, z) => {
     // sleek over the sides, a soft lift over the crown, pulled back to the tie
@@ -606,8 +606,8 @@ export function buildCharacterMeshes(boneIndex) {
   // legs and boots
   time('legs', () => {
     const f = legsField(P);
-    const vs = 0.0055;
-    const geo = voxelize(P, { ...f, vs, smooth: 1 });
+    const vs = 0.0045;
+    const geo = simplify(surfaceNets(P, { ...f, vs }), 12000, { colTol: 30 });
     sdfAO(geo, f.sdf, 0.007);
     skin(geo, boneIndex, legWeights, vs);
     parts.push({ name: 'legs', geo });
@@ -615,8 +615,8 @@ export function buildCharacterMeshes(boneIndex) {
   // torso: skin, top, jacket, skirt
   time('torso', () => {
     const f = torsoField(P);
-    const vs = 0.0055;
-    const geo = voxelize(P, { ...f, vs, smooth: 1 });
+    const vs = 0.005;
+    const geo = simplify(surfaceNets(P, { ...f, vs }), 17000, { colTol: 30 });
     sdfAO(geo, f.sdf, 0.008);
     skin(geo, boneIndex, torsoWeights, vs);
     parts.push({ name: 'torso', geo });
@@ -625,8 +625,8 @@ export function buildCharacterMeshes(boneIndex) {
   time('arms', () => {
     for (const [S, s] of [['L', -1], ['R', 1]]) {
       const f = armField(P, s);
-      const vs = 0.0038;
-      const geo = voxelize(P, { ...f, vs, smooth: 1 });
+      const vs = 0.004;
+      const geo = simplify(surfaceNets(P, { ...f, vs }), 6000, { colTol: 30 });
       sdfAO(geo, f.sdf, 0.005);
       skin(geo, boneIndex, (x, y, z, out) => armWeights(x, y, z, S, out), vs);
       // arm frame -> bind-pose world
@@ -649,8 +649,8 @@ export function buildCharacterMeshes(boneIndex) {
   // head: skin, eyes, lids, lashes, earrings (head-local, moved to the head joint)
   time('head', () => {
     const f = headField(P);
-    const vs = 0.0024;
-    const geo = voxelize(P, { ...f, vs, smooth: 1 });
+    const vs = 0.0022;
+    const geo = simplify(surfaceNets(P, { ...f, vs }), 11000, { colTol: 10 });
     sdfAO(geo, f.sdf, 0.004, 0.5);
     skin(geo, boneIndex, headWeights, vs);
     geo.translate(J.head[0], J.head[1], J.head[2]);
@@ -658,8 +658,8 @@ export function buildCharacterMeshes(boneIndex) {
   });
   time('hair', () => {
     const f = hairField(P);
-    const vs = 0.0032;
-    const geo = voxelize(P, { ...f, vs, smooth: 0.9 });
+    const vs = 0.003;
+    const geo = simplify(surfaceNets(P, { ...f, vs }), 10000, { colTol: 80 });
     sdfAO(geo, f.sdf, 0.005);
     skin(geo, boneIndex, hairWeights, vs);
     geo.translate(J.head[0], J.head[1], J.head[2]);

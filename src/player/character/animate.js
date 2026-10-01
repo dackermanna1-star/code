@@ -107,6 +107,8 @@ export class Animator {
     this.twistS = new Spring(0, 15);
     this.chestS = new Spring(0, 12);
     this.reachS = new Spring(0, 9);
+    // the pelvis drop that keeps both feet in reach, smoothed so it never snaps
+    this.dropS = new Spring(0, 15);
     this.windup = 0;
     this.act = { spray: 0, fire: 0, carry: 0, twist: 0, chest: 0, reach: 0 };
     this.pony = null;
@@ -260,7 +262,7 @@ export class Animator {
           p.copy(F.pos);
           // heel lifts as the body passes ahead of the planted foot; toe a little up just after landing
           const behind = -((p.x - pl.pos.x) * fwdX + (p.z - pl.pos.z) * fwdZ);
-          pitch = -0.62 * sstep(0.1, 0.36, behind) * moving + 0.1 * sstep(0.05, 0.3, -behind) * moving;
+          pitch = -0.75 * sstep(0.08, 0.38, behind) * moving + 0.1 * sstep(0.05, 0.3, -behind) * moving;
           yawF = F.yaw;
         }
       } else {
@@ -285,7 +287,8 @@ export class Animator {
     const hipYaw = clamp(-(fL - fR) * 0.2, -0.14, 0.14) * amp;
     const hipRoll = (0.075 * swingL - 0.075 * swingR) * amp + 0.065 * wsh * idle;
     const sway = (0.022 * (swingR - swingL)) * amp * 0 + 0.03 * cos(2 * PI * strideP) * amp;
-    const bob = -0.016 * cos(4 * PI * strideP) * amp - 0.022 * amp;
+    // a gentle rise over each stance, knees a touch soft the whole time
+    const bob = -0.0065 * cos(4 * PI * strideP) * amp - 0.03 * amp;
     const hipX = sway + 0.034 * wsh * idle;
     const hips = this.B.get('hips');
     const hipPos = new THREE.Vector3(hipX, J.hips[1] - 0.012 + bob - 0.43 * crouch, 0.1 * crouch + 0.01 * lean);
@@ -302,7 +305,7 @@ export class Animator {
       const maxY = ay + sqrt(max(0, reach * reach - hz * hz));
       if (f.lift < 0.02) drop = max(drop, hj.y - maxY);
     }
-    hipPos.y -= min(drop, 0.14) * 0.9;
+    hipPos.y -= this.dropS.step(min(drop, 0.1), dt) * 0.85;
     hips.position.copy(hipPos);
     this.e.set(-(lean * 0.6 + 0.04 * amp) - 0.32 * crouch - 0.38 * act.reach, hipYaw + act.twist * 0.3, hipRoll + bank * 0.5, 'YXZ');
     hips.quaternion.setFromEuler(this.e);
@@ -412,7 +415,8 @@ export class Animator {
       const phi = S === 'L' ? sw : -sw;
       const abd = 0.1 + 0.05 * crouch;
       const upper = W(side * Math.sin(abd), -Math.cos(abd), 0, this.v[0]).applyAxisAngle(this.v[1].set(1, 0, 0).applyQuaternion(rootQ), phi + 0.06 + 0.5 * crouch);
-      const bendA = 0.22 + 0.32 * max(0, phi) + 0.06 * amp + 0.6 * crouch;
+      // relaxed elbows: a little more bend as the arm swings forward
+      const bendA = 0.16 + 0.24 * max(0, phi) + 0.03 * amp + 0.6 * crouch;
       let target = null;
       const shoulder = this.wp.get('arm' + S);
       // reconstruct a hand target from the swing pose (so actions can blend with IK)

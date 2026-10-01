@@ -290,7 +290,8 @@ export class Player {
     this.rhythm += (1 + 0.06 * Math.sin(this.time * 0.37) * Math.sin(this.time * 0.11) - this.rhythm) * dt;
     // side-steps are shorter and quicker than forward strides
     const latC = this.speed > 0.05 ? Math.abs(this.vel.x * Math.cos(this.feetYaw) - this.vel.z * Math.sin(this.feetYaw)) / this.speed : 0;
-    const stepLen = (0.54 + 0.12 * smooth01(0.6, 1.7, this.speed)) * this.rhythm * (1 - 0.32 * latC);
+    // in heels: shortish steps, quicker rather than longer as she speeds up
+    const stepLen = (0.5 + 0.11 * smooth01(0.6, 1.7, this.speed)) * this.rhythm * (1 - 0.32 * latC);
     const prevPhase = this.phase;
     if (this.speed > 0.07) {
       this.phase += (this.speed * dt) / stepLen;
@@ -364,7 +365,7 @@ export class Player {
       this.pos.z - sinY * lat + (-ox * sinY + oz * cosY),
     );
     cam.rotation.set(pitch, this.yaw, roll + (this.lean ?? 0), 'YXZ');
-    if (this.viewK > 0) this.thirdPersonCamera(dt, bobY);
+    if (this.viewK > 0) this.thirdPersonCamera(dt);
     cam.updateMatrixWorld();
 
     this.gait.phase = this.phase;
@@ -380,12 +381,12 @@ export class Player {
    * kept out of walls and props (snapping in at once, easing back out).
    * Blends from the first-person camera by viewK.
    */
-  thirdPersonCamera(dt, bobY) {
+  thirdPersonCamera(dt) {
     const cam = this.camera, tp = this.tp;
     const ray = this.engine.spray?.ray;
     const cr = Math.max(0, this.crouch);
     // pivot: critically damped follow, quicker sideways than up and down
-    const tx = this.pos.x, ty = this.groundY + TP.height - 0.5 * cr + bobY * 0.35, tz = this.pos.z;
+    const tx = this.pos.x, ty = this.groundY + TP.height - 0.5 * cr, tz = this.pos.z;
     if (!tp.init) {
       tp.pivot.set(tx, ty, tz);
       tp.pv.set(0, 0, 0);
@@ -494,7 +495,7 @@ export class Player {
 
   planFeet(dt) {
     const g = this.gait;
-    const DS = 0.12; // double support after each contact (steps)
+    const DS = 0.08; // double support after each contact (steps)
     if (!g.L) {
       g.L = this.newFoot();
       g.R = this.newFoot();

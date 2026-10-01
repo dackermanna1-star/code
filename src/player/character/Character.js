@@ -69,9 +69,10 @@ export class Character {
       m.name = 'character-' + name;
       m.castShadow = false;
       m.receiveShadow = true;
-      m.frustumCulled = false;
       this.group.add(m);
       m.bind(this.skeleton, new THREE.Matrix4());
+      // culled against a sphere round the part, moved with her every frame
+      m.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1);
       this.meshes[name] = m;
     }
     engine.scene.add(this.group);
@@ -120,7 +121,7 @@ export class Character {
     if (M.armR) M.armR.visible = !this._rightArmHidden;
     this.grip.visible = !fp;
     // her reflection in the wet ground (third person only: in first person she has no head)
-    const refl = !fp && this.engine.params?.quality !== 'low';
+    const refl = !fp && this.engine.params?.quality === 'high';
     this.group.traverse((o) => {
       if (o.isMesh) refl ? o.layers.enable(LAYER_REFLECT) : o.layers.disable(LAYER_REFLECT);
     });
@@ -143,7 +144,6 @@ export class Character {
       const m = new THREE.Mesh(geo, mat);
       m.name = name;
       m.receiveShadow = true;
-      m.frustumCulled = false;
       return m;
     };
     const can = new THREE.Group();
@@ -178,7 +178,6 @@ export class Character {
     const m = new THREE.Mesh(geo, this.propMat);
     m.name = 'held-3p';
     m.receiveShadow = true;
-    m.frustumCulled = false;
     const flip = !!grip?.flip;
     m.rotation.set(flip ? Math.PI : 0, spin, 0);
     const gy = (grip?.gy ?? 0) * (flip ? -1 : 1);
@@ -198,6 +197,24 @@ export class Character {
     outPos.setFromMatrixPosition(c.tip.matrixWorld);
     if (outDir) outDir.set(0, 0, -1).transformDirection(c.tip.matrixWorld);
     return outPos;
+  }
+
+  /** Culling spheres of the parts from the current pose (generous: hands reach, the ponytail swings). */
+  updateBounds() {
+    const wp = (n) => this.anim.wp.get(n);
+    const M = this.meshes;
+    const set = (m, c, r) => {
+      if (!m) return;
+      m.boundingSphere.center.copy(c);
+      m.boundingSphere.radius = r;
+    };
+    const c = this._v.copy(wp('hips')).add(wp('footL')).add(wp('footR')).multiplyScalar(1 / 3);
+    set(M.legs, c, 0.66);
+    set(M.torso, wp('spine1'), 0.5);
+    set(M.armL, wp('foreL'), 0.5);
+    set(M.armR, wp('foreR'), 0.5);
+    set(M.head, wp('head'), 0.26);
+    set(M.hair, wp('pony1'), 0.4);
   }
 
   /** What the animation needs to know this frame: view, facing, gaze, tools. */
@@ -270,6 +287,7 @@ export class Character {
     }
     if (this.held) this.held.visible = third && ctx.carry.hasItem;
     this.group.updateMatrixWorld(true);
+    this.updateBounds();
     // her soft capsule shadow: chest and knees
     const a = this.anim.wp.get('spine2'), kL = this.anim.wp.get('shinL'), kR = this.anim.wp.get('shinR');
     shared.uCapsule.value[0].set(a.x, a.y + 0.1, a.z, 0.19);

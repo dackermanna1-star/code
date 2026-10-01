@@ -67,6 +67,7 @@ export function createVoxelMaterial(opts = {}) {
       attribute vec4 vcol;
       attribute vec4 vmat;
       attribute vec3 vox;
+      flat varying float vCls;
       varying vec4 vCol;
       varying vec4 vMat;
       varying vec3 vVox;
@@ -84,7 +85,7 @@ export function createVoxelMaterial(opts = {}) {
       #endif
     `, 'after');
     vs = patch(vs, '#include <skinning_vertex>', /* glsl */ `
-      vCol = vcol; vMat = vmat; vVox = vox;
+      vCol = vcol; vMat = vmat; vVox = vox; vCls = vmat.b;
       vec4 wp4 = vec4(transformed, 1.0);
       vec3 wn3 = objectNormal;
       #ifdef USE_INSTANCING
@@ -145,6 +146,7 @@ uniform vec2 uTintFinish;
 #endif
 varying vec4 vCol;
 varying vec4 vMat;
+flat varying float vCls; // material class, never interpolated (smooth meshes blend colours, not classes)
 varying vec3 vVox;
 varying vec3 vWPos;
 varying vec3 vWNrm;
@@ -152,7 +154,7 @@ varying vec3 vONrm;
 `;
 
 const VOXEL_SURFACE = /* glsl */ `
-  int cls = int(vMat.b * 255.0 + 0.5);
+  int cls = int(vCls * 255.0 + 0.5);
   ivec3 vc = ivec3(floor(vVox));
   vec3 hv = h33(vc);
   vec3 base = srgbToLinear(vCol.rgb);
