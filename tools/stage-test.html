@@ -1,0 +1,161 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Stage test</title>
+<style>
+  html, body { margin: 0; background: #0b0b0e; color: #b8b0a8; font: 12px/1.45 monospace; }
+  canvas { display: block; width: 1280px; height: 720px; image-rendering: pixelated; }
+  #hud { padding: 6px 8px; white-space: pre; }
+</style>
+</head>
+<body>
+<canvas id="c" width="640" height="360"></canvas>
+<div id="hud"></div>
+<script src="../src/engine/util.js"></script>
+<script src="../src/engine/camera.js"></script>
+<script src="../src/game/stage.js"></script>
+<script>
+(function () {
+  'use strict';
+  const auto = /auto/.test(location.search);
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  const hud = document.getElementById('hud');
+  const t0 = performance.now();
+  const stage = new JJK.Stage();
+  const buildMs = performance.now() - t0;
+  const cam = new JJK.Camera();
+  const keys = {};
+  let darken = 0, last = 0, fps = 0, frames = 0, drawMs = 0, split = 0.5;
+
+  // placeholder fighters: dark capsules with bright rim (judge readability)
+  function fighter(x, face) {
+    const amb = stage.getAmbient();
+    const z = cam.ez, sx = cam.sx(x), sy = cam.sy(0);
+    const w = 34 * z, h = 150 * z;
+    const rim = 'rgb(' + amb.rim.map((v) => v | 0).join(',') + ')';
+    const body = 'rgb(' + [40 * amb.mul[0], 44 * amb.mul[1], 60 * amb.mul[2]].map((v) => v | 0).join(',') + ')';
+    ctx.save();
+    ctx.fillStyle = '#05040a';
+    ctx.beginPath(); ctx.roundRect(sx - w / 2 - 1, sy - h + 22 * z - 1, w + 2, h - 22 * z + 2, 10 * z); ctx.fill();
+    ctx.beginPath(); ctx.arc(sx, sy - h + 12 * z, 13 * z, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.roundRect(sx - w / 2, sy - h + 22 * z, w, h - 22 * z, 9 * z); ctx.fill();
+    ctx.fillStyle = 'rgb(' + [210 * amb.mul[0], 180 * amb.mul[1], 160 * amb.mul[2]].map((v) => v | 0).join(',') + ')';
+    ctx.beginPath(); ctx.arc(sx, sy - h + 12 * z, 12 * z, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = rim;
+    ctx.fillRect(sx + face * (w / 2 - 3 * z), sy - h + 30 * z, 3 * z, h - 40 * z);
+    ctx.fillStyle = '#e8ecff';
+    ctx.fillRect(sx - w / 2 + 6 * z, sy - h + 40 * z, w - 12 * z, 10 * z);
+    ctx.restore();
+  }
+  function render() {
+    stage.darken = darken;
+    const a = performance.now();
+    stage.drawBack(ctx, cam);
+    const b = performance.now();
+    fighter(-100, 1); fighter(100, -1);
+    const c = performance.now();
+    stage.drawFront(ctx, cam);
+    const d = performance.now();
+    return b - a + (d - c);
+  }
+  function step() {
+    // camera input
+    if (keys.ArrowLeft) cam.x -= 4;
+    if (keys.ArrowRight) cam.x += 4;
+    if (keys.ArrowUp) cam.y += 3;
+    if (keys.ArrowDown) cam.y -= 3;
+    cam.t++;
+    cam._post();
+    stage.update(cam);
+  }
+  const center = () => cam.x;
+  const ACTIONS = {
+    '1': () => stage.impact(center(), 60, 0.9, 'hit'),
+    '2': () => { stage.blast(center(), 30, 90, 1); cam.shake(0.6); },
+    '3': () => stage.pull(center(), 70, 140, 1.2, 90),
+    '4': () => { stage.erase(center() - 400, center() + 400, 60, 34); cam.shake(0.8); },
+    '5': () => { stage.worldCut(center() - 500, -40, center() + 500, 190); cam.shake(0.7); },
+    '6': () => stage.slashMark(center() - 60, 4, center() + 70, 30),
+    '7': () => stage.burn(center(), 90, 360),
+    '8': () => stage.crater(center(), 40),
+    '9': () => { stage.impact(JJK.WALL * (cam.x >= 0 ? 1 : -1), 80, 0.9, 'wall'); },
+    '0': () => stage.shakeProps(1),
+    v: () => stage.setMode('void', { originX: -100 }),
+    s: () => stage.setMode('shrine', { originX: 100, shrineX: 100 }),
+    c: () => stage.setMode('clash', { originX: 0, split, leftMode: 'void', rightMode: 'shrine', shrineX: 160 }),
+    n: () => stage.setMode('normal'),
+    d: () => (darken = darken ? 0 : 0.6),
+    r: () => { stage.reset(); cam.reset(); },
+    '[': () => stage.setSplit((split = Math.max(0.05, split - 0.05))),
+    ']': () => stage.setSplit((split = Math.min(0.95, split + 0.05))),
+    '=': () => (cam.zoom = Math.min(3.5, cam.zoom * 1.1)),
+    '+': () => (cam.zoom = Math.min(3.5, cam.zoom * 1.1)),
+    '-': () => (cam.zoom = Math.max(0.6, cam.zoom / 1.1)),
+    z: () => (cam.zoom = 1),
+    t: () => cam.shake(0.8),
+  };
+  addEventListener('keydown', (e) => {
+    keys[e.key] = true;
+    const f = ACTIONS[e.key.toLowerCase()];
+    if (f) { f(); e.preventDefault(); }
+    if (e.key.startsWith('Arrow')) e.preventDefault();
+  });
+  addEventListener('keyup', (e) => (keys[e.key] = false));
+  function loop(now) {
+    step();
+    drawMs = drawMs * 0.95 + render() * 0.05;
+    frames++;
+    if (now - last > 500) { fps = (frames * 1000) / (now - last); frames = 0; last = now; }
+    hud.textContent =
+      'arrows pan  +/- zoom  z reset zoom  1 hit 2 blast(Red) 3 pull(Blue) 4 erase(Purple) 5 worldCut 6 slash 7 burn 8 crater 9 wall 0 rumble\n' +
+      'v void  s shrine  c clash  [ ] split  n normal  d darken  t shake  r reset\n' +
+      `cam x ${cam.x.toFixed(0)} y ${cam.y.toFixed(0)} ez ${cam.ez.toFixed(2)}  mode ${stage.mode}${stage.tr ? ' -> ' + stage.tr.to : ''}  ` +
+      `parts ${stage.parts.length}  draw ${drawMs.toFixed(2)} ms  fps ${fps.toFixed(0)}  build ${buildMs.toFixed(0)} ms`;
+    if (!auto) requestAnimationFrame(loop);
+  }
+  // automation hooks for tools/stage-shots.js
+  window.T = {
+    stage, cam, ready: true, buildMs,
+    set(o) {
+      if (o.x != null) cam.x = o.x;
+      if (o.y != null) cam.y = o.y;
+      if (o.zoom != null) cam.zoom = o.zoom;
+      cam.trauma = 0; cam.shakeX = cam.shakeY = 0;
+      cam._post();
+      cam.shakeX = cam.shakeY = 0;
+    },
+    act(k) { ACTIONS[k](); },
+    step(n) { for (let i = 0; i < n; i++) { step(); if (i >= n - 2) render(); } cam.trauma = 0; cam.shakeX = cam.shakeY = 0; render(); },
+    draw() { render(); },
+    perf(n) {
+      // per-frame CPU cost of drawBack + drawFront (command recording), plus the
+      // amortized wall time including one GPU flush at the end
+      let tot = 0, back = 0, worst = 0;
+      const w0 = performance.now();
+      for (let i = 0; i < n; i++) {
+        step();
+        stage.darken = darken;
+        const a = performance.now();
+        stage.drawBack(ctx, cam);
+        const b = performance.now();
+        fighter(-100, 1); fighter(100, -1);
+        const c = performance.now();
+        stage.drawFront(ctx, cam);
+        const d = performance.now();
+        const ms = b - a + (d - c);
+        tot += ms; back += b - a; worst = Math.max(worst, ms);
+      }
+      ctx.getImageData(0, 0, 1, 1);
+      const wall = (performance.now() - w0) / n;
+      return { avg: tot / n, back: back / n, worst, wallPerFrame: wall, parts: stage.parts.length };
+    },
+    darken(v) { darken = v; },
+  };
+  if (auto) render(); else requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audio Test Bench</title>
+<style>
+  :root {
+    --bg: #0e0f14; --panel: #171922; --line: #2a2d3a; --text: #e6e6ee; --dim: #9094a6;
+    --accent: #7c5cff; --accent2: #ff4d6d; --ok: #3ecf8e; --warn: #ffb020; --bad: #ff4d6d;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, -apple-system, Segoe UI, sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; background: #0e0f14ee; border-bottom: 1px solid var(--line); padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+  header h1 { font-size: 15px; margin: 0; letter-spacing: .02em; }
+  main { padding: 12px 16px 40px; max-width: 1280px; margin: 0 auto; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 12px 0; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); margin: 0 0 8px; }
+  h3 { font-size: 12px; color: var(--dim); margin: 10px 0 6px; font-weight: 600; }
+  .grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  button { background: #232634; color: var(--text); border: 1px solid #343849; border-radius: 6px; padding: 5px 9px; font: inherit; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:active { transform: translateY(1px); }
+  button.on { background: var(--accent); border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); }
+  button.danger { border-color: var(--accent2); color: #ffb3c0; }
+  label { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); }
+  input[type=range] { width: 120px; accent-color: var(--accent); }
+  .row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 6px 0; }
+  .loop { display: inline-flex; align-items: center; gap: 6px; background: #1d2030; border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+  #status { color: var(--dim); }
+  #meter { width: 160px; height: 10px; background: #222; border-radius: 5px; overflow: hidden; position: relative; }
+  #meterFill { height: 100%; width: 0; background: linear-gradient(90deg, var(--ok), var(--warn) 75%, var(--bad)); }
+  #caption { min-height: 22px; font-size: 14px; color: #fff; }
+  #caption b { color: var(--accent); }
+  #zoom canvas { display: block; max-width: 100%; margin: 8px 0; border-radius: 4px; cursor: zoom-out; }
+  td canvas { cursor: zoom-in; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { color: var(--dim); font-weight: 600; }
+  td canvas { display: block; border-radius: 3px; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+  @media (max-width: 640px) { input[type=range] { width: 90px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Cursed Arts · Audio Test Bench</h1>
+  <button id="unlock" class="primary">Unlock audio</button>
+  <span id="status">locked</span>
+  <label>Music <input id="musicVol" type="range" min="0" max="1" step="0.01" value="0.55"></label>
+  <label>SFX <input id="sfxVol" type="range" min="0" max="1" step="0.01" value="0.8"></label>
+  <label>Out <span id="meter"><span id="meterFill"></span></span> <span id="peak">-</span></label>
+</header>
+<main>
+  <section>
+    <h2>Global controls</h2>
+    <div class="row">
+      <label>Pitch <input id="pitch" type="range" min="0.5" max="2" step="0.01" value="1"> <span id="pitchV">1.00</span></label>
+      <label>Pan <input id="pan" type="range" min="-1" max="1" step="0.01" value="0"> <span id="panV">0.00</span></label>
+      <label>Vol <input id="vol" type="range" min="0" max="1" step="0.01" value="1"></label>
+      <label>Muffle (lowpass) <input id="muffle" type="range" min="0" max="1" step="0.01" value="0"></label>
+    </div>
+    <div class="row">
+      <button id="wcsSeq" class="danger">WCS sequence (hush 1.5s → wcs_tear bypass)</button>
+      <button id="hush">hush(2)</button>
+      <button id="unhush">unhush()</button>
+      <button id="rumble">rumble pad 0</button>
+      <button id="stopAll">Stop all loops</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>One-shot SFX</h2>
+    <div id="sfx"></div>
+  </section>
+
+  <section>
+    <h2>Loops</h2>
+    <div id="loops" class="grid"></div>
+  </section>
+
+  <section>
+    <h2>Music</h2>
+    <div id="tracks" class="grid"></div>
+    <div class="row">
+      <label>Intensity <input id="intensity" type="range" min="0" max="1" step="0.01" value="0"> <span id="intensityV">0.00</span></label>
+      <button id="mCut" class="danger">cut()</button>
+      <button id="mStop">stop()</button>
+      <button id="mPause">pause()</button>
+      <button id="mResume">resume()</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Voice</h2>
+    <div class="row">
+      <label><input id="voiceOn" type="checkbox" checked> voice enabled</label>
+      <label><input id="voiceJa" type="checkbox"> Japanese (voiceLang 'ja')</label>
+      <button id="vStop">Voice.stop()</button>
+    </div>
+    <div id="caption">&nbsp;</div>
+    <div id="voices"></div>
+  </section>
+
+  <section>
+    <h2>Offline analysis</h2>
+    <div class="row">
+      <button id="analyze" class="primary">Render &amp; analyze everything</button>
+      <span id="anStatus" style="color:var(--dim)">Renders every SFX, loop (levels 0 / 0.5 / 1), music track and grunt offline; flags silent (&lt; 0.05) or clipping (&gt; 1.0) raw peaks.</span>
+    </div>
+    <div id="zoom"></div>
+    <table id="anTable"><thead><tr><th>kind</th><th>name</th><th>raw peak</th><th>master peak</th><th>RMS (loudest 100ms)</th><th>length</th><th>status</th><th>spectrogram (log f, 30 Hz – 16 kHz)</th></tr></thead><tbody></tbody></table>
+  </section>
+</main>
+
+<script src="../src/engine/util.js"></script>
+<script src="../src/engine/audio.js"></script>
+<script src="../src/engine/music.js"></script>
+<script src="../src/engine/voice.js"></script>
+<script>
+(function () {
+  'use strict';
+  const A = JJK.Audio, M = JJK.Music, V = JJK.Voice;
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, props, kids) => {
+    const e = document.createElement(tag);
+    Object.assign(e, props || {});
+    (kids || []).forEach((k) => e.appendChild(typeof k === 'string' ? document.createTextNode(k) : k));
+    return e;
+  };
+  const T = (window.AudioTest = { maxOut: 0, errors: [] });
+
+  // ---- unlock on first gesture (like the game)
+  const unlock = () => {
+    A.unlock();
+    setTimeout(updateStatus, 50);
+  };
+  ['keydown', 'pointerdown'].forEach((ev) => window.addEventListener(ev, unlock, { capture: true }));
+  $('unlock').onclick = unlock;
+  function updateStatus() {
+    $('status').textContent = A.ctx ? A.ctx.state + ' @ ' + A.ctx.sampleRate + ' Hz' : 'locked';
+    attachMeter();
+  }
+  setInterval(updateStatus, 1000);
+
+  // ---- output meter (taps the master bus)
+  let analyser = null, tbuf = null;
+  function attachMeter() {
+    if (analyser || !A._E || !A._E.master) return;
+    analyser = A.ctx.createAnalyser();
+    analyser.fftSize = 2048;
+    tbuf = new Float32Array(analyser.fftSize);
+    A._E.master.connect(analyser);
+    let hold = 0;
+    const loop = () => {
+      analyser.getFloatTimeDomainData(tbuf);
+      let p = 0;
+      for (let i = 0; i < tbuf.length; i++) p = Math.max(p, Math.abs(tbuf[i]));
+      T.maxOut = Math.max(T.maxOut, p);
+      hold = Math.max(p, hold * 0.95);
+      $('meterFill').style.width = Math.min(100, hold * 100) + '%';
+      $('peak').textContent = hold.toFixed(2) + ' (max ' + T.maxOut.toFixed(2) + ')';
+      requestAnimationFrame(loop);
+    };
+    loop();
+  }
+
+  // ---- global controls
+  const vols = () => A.setVolumes(+$('musicVol').value, +$('sfxVol').value);
+  $('musicVol').oninput = $('sfxVol').oninput = vols;
+  const opts = () => ({ pitch: +$('pitch').value, pan: +$('pan').value, vol: +$('vol').value });
+  $('pitch').oninput = () => ($('pitchV').textContent = (+$('pitch').value).toFixed(2));
+  $('pan').oninput = () => ($('panV').textContent = (+$('pan').value).toFixed(2));
+  $('muffle').oninput = () => A.lowpass(+$('muffle').value, 0.2);
+  $('hush').onclick = () => A.hush(2);
+  $('unhush').onclick = () => A.unhush();
+  $('rumble').onclick = () => A.rumble(0, 1, 0.6, 300);
+  $('wcsSeq').onclick = () => {
+    V.say('sukuna', 'wcs');
+    A.hush(1.5);
+    setTimeout(() => A.play('wcs_tear', { bypassHush: true }), 1500);
+  };
+
+  // ---- SFX buttons, grouped
+  const GROUPS = {
+    UI: ['ui_move', 'ui_select', 'ui_back', 'ui_start', 'ui_error'],
+    Movement: ['step', 'jump', 'land', 'dash', 'teleport', 'airdash'],
+    Whiffs: ['whiff_l', 'whiff_m', 'whiff_h'],
+    Impacts: ['hit_l', 'hit_m', 'hit_h', 'hit_counter', 'hit_super', 'block', 'block_heavy', 'perfect_guard', 'parry', 'guard_break', 'throw_grab', 'throw_tech', 'throw_slam', 'knockdown', 'wall_bounce', 'ground_bounce', 'black_flash', 'ko_hit'],
+    Gojo: ['infinity_on', 'infinity_off', 'infinity_stop', 'infinity_break', 'blue_cast', 'blue_pull', 'red_charge', 'red_shot', 'red_burst', 'max_red', 'purple_fire', 'purple_impact', 'void_open'],
+    Sukuna: ['dismantle', 'dismantle_hit', 'cleave', 'cleave_hit', 'fuga_fire', 'fuga_explode', 'wcs_tear', 'shrine_open', 'shrine_slash', 'da_on', 'da_off', 'counter_stance', 'chant_tick'],
+  };
+  const all = A.list().sfx, used = new Set();
+  Object.keys(GROUPS).forEach((g) => GROUPS[g].forEach((n) => used.add(n)));
+  GROUPS.Shared = all.filter((n) => !used.has(n));
+  Object.keys(GROUPS).forEach((g) => {
+    const grid = el('div', { className: 'grid' });
+    GROUPS[g].forEach((n) => grid.appendChild(el('button', { textContent: n, onclick: () => A.play(n, opts()) })));
+    $('sfx').appendChild(el('h3', { textContent: g }));
+    $('sfx').appendChild(grid);
+  });
+
+  // ---- loops
+  const loops = {};
+  A.list().loops.forEach((n) => {
+    const btn = el('button', { textContent: n });
+    const lvl = el('input', { type: 'range', min: 0, max: 1, step: 0.01, value: 0.3 });
+    btn.onclick = () => {
+      if (loops[n]) {
+        loops[n].stop();
+        delete loops[n];
+        btn.classList.remove('on');
+      } else {
+        loops[n] = A.loop(n, { level: +lvl.value });
+        btn.classList.add('on');
+      }
+    };
+    lvl.oninput = () => loops[n] && loops[n].setLevel(+lvl.value);
+    $('loops').appendChild(el('span', { className: 'loop' }, [btn, lvl]));
+  });
+  $('stopAll').onclick = () => {
+    Object.keys(loops).forEach((n) => loops[n].stop(0.3));
+    document.querySelectorAll('#loops button.on').forEach((b) => b.classList.remove('on'));
+    Object.keys(loops).forEach((n) => delete loops[n]);
+  };
+
+  // ---- music
+  M.tracks().forEach((t) => $('tracks').appendChild(el('button', {
+    textContent: t,
+    onclick: () => {
+      M.play(t);
+      document.querySelectorAll('#tracks button').forEach((b) => b.classList.toggle('on', b.textContent === t));
+    },
+  })));
+  $('intensity').oninput = () => {
+    M.setIntensity(+$('intensity').value);
+    $('intensityV').textContent = (+$('intensity').value).toFixed(2);
+  };
+  const clearTrack = () => document.querySelectorAll('#tracks button').forEach((b) => b.classList.remove('on'));
+  $('mCut').onclick = () => { M.cut(); clearTrack(); };
+  $('mStop').onclick = () => { M.stop(); clearTrack(); };
+  $('mPause').onclick = () => M.pause();
+  $('mResume').onclick = () => M.resume();
+
+  // ---- voice
+  $('voiceOn').onchange = () => (JJK.settings.voice = $('voiceOn').checked);
+  $('voiceJa').onchange = () => (JJK.settings.voiceLang = $('voiceJa').checked ? 'ja' : 'en');
+  $('vStop').onclick = () => V.stop();
+  let capTimer = 0;
+  V.onCaption((who, text, info) => {
+    $('caption').innerHTML = '';
+    $('caption').appendChild(el('b', { textContent: who + ': ' }));
+    $('caption').appendChild(document.createTextNode(text + (info && info.ja ? '  ·  ' + info.ja : '')));
+    clearTimeout(capTimer);
+    capTimer = setTimeout(() => ($('caption').innerHTML = '&nbsp;'), 3500);
+  });
+  const lines = V.lines();
+  Object.keys(lines).forEach((c) => {
+    const grid = el('div', { className: 'grid' });
+    lines[c].forEach((id) => grid.appendChild(el('button', { textContent: id, onclick: () => V.say(c, id) })));
+    $('voices').appendChild(el('h3', { textContent: c + ' lines' }));
+    $('voices').appendChild(grid);
+    const g2 = el('div', { className: 'grid' });
+    V.gruntTypes.forEach((t) => g2.appendChild(el('button', { textContent: t, onclick: () => V.grunt(c, t) })));
+    $('voices').appendChild(el('h3', { textContent: c + ' grunts' }));
+    $('voices').appendChild(g2);
+  });
+  const ann = el('div', { className: 'grid' });
+  ['Round One', 'Final Round', 'Fight!', 'K.O.', 'Gojo Wins', 'Perfect', 'Domain Clash'].forEach((t) =>
+    ann.appendChild(el('button', { textContent: t, onclick: () => V.announce(t) })));
+  $('voices').appendChild(el('h3', { textContent: 'announcer' }));
+  $('voices').appendChild(ann);
+
+  // ---- offline analysis
+  function fft(re, im) {
+    const n = re.length;
+    for (let i = 1, j = 0; i < n; i++) {
+      let bit = n >> 1;
+      for (; j & bit; bit >>= 1) j ^= bit;
+      j ^= bit;
+      if (i < j) {
+        [re[i], re[j]] = [re[j], re[i]];
+        [im[i], im[j]] = [im[j], im[i]];
+      }
+    }
+    for (let len = 2; len <= n; len <<= 1) {
+      const ang = (-2 * Math.PI) / len, wr = Math.cos(ang), wi = Math.sin(ang);
+      for (let i = 0; i < n; i += len) {
+        let cr = 1, ci = 0;
+        for (let k = 0; k < len / 2; k++) {
+          const a = i + k, b = a + len / 2;
+          const tr = re[b] * cr - im[b] * ci, ti = re[b] * ci + im[b] * cr;
+          re[b] = re[a] - tr; im[b] = im[a] - ti;
+          re[a] += tr; im[a] += ti;
+          const nr = cr * wr - ci * wi;
+          ci = cr * wi + ci * wr;
+          cr = nr;
+        }
+      }
+    }
+  }
+  function stats(buf) {
+    const chs = [];
+    for (let c = 0; c < buf.numberOfChannels; c++) chs.push(buf.getChannelData(c));
+    const n = buf.length, sr = buf.sampleRate, win = Math.floor(sr * 0.1);
+    let peak = 0, nan = false, last = 0;
+    const mono = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      let s = 0;
+      for (let c = 0; c < chs.length; c++) {
+        const x = chs[c][i];
+        if (x !== x) nan = true;
+        const ax = Math.abs(x);
+        if (ax > peak) peak = ax;
+        s += x;
+      }
+      mono[i] = s / chs.length;
+    }
+    const thr = peak * 0.001;
+    for (let i = n - 1; i >= 0; i--) {
+      if (Math.abs(mono[i]) > thr) { last = i; break; }
+    }
+    let best = 0, acc = 0;
+    for (let i = 0; i < n; i++) {
+      acc += mono[i] * mono[i];
+      if (i >= win) acc -= mono[i - win] * mono[i - win];
+      if (i >= win - 1) best = Math.max(best, acc);
+    }
+    return { peak, rms: Math.sqrt(Math.max(0, best) / win), len: last / sr, nan, mono, sr };
+  }
+  function spectrogram(st, w, h) {
+    const cv = el('canvas', { width: w, height: h });
+    cv.style.width = w + 'px';
+    cv.style.height = h + 'px';
+    const g = cv.getContext('2d'), img = g.createImageData(w, h);
+    const N = 1024, span = Math.max(st.len + 0.25, 0.3), total = Math.min(st.mono.length, Math.floor(span * st.sr));
+    const re = new Float32Array(N), im = new Float32Array(N), hann = new Float32Array(N);
+    for (let i = 0; i < N; i++) hann[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (N - 1));
+    const rows = [];
+    for (let y = 0; y < h; y++) {
+      const f = 30 * Math.pow(16000 / 30, 1 - y / (h - 1));
+      rows.push(Math.min(N / 2 - 1, Math.round((f * N) / st.sr)));
+    }
+    for (let x = 0; x < w; x++) {
+      const start = Math.floor((x / w) * total) - N / 2;
+      for (let i = 0; i < N; i++) {
+        const j = start + i;
+        re[i] = j >= 0 && j < st.mono.length ? st.mono[j] * hann[i] : 0;
+        im[i] = 0;
+      }
+      fft(re, im);
+      for (let y = 0; y < h; y++) {
+        const k = rows[y], mag = Math.sqrt(re[k] * re[k] + im[k] * im[k]) / (N / 4);
+        const db = 20 * Math.log10(mag + 1e-9), v = Math.max(0, Math.min(1, (db + 90) / 90));
+        const o = (y * w + x) * 4;
+        img.data[o] = 255 * Math.min(1, v * 1.6);
+        img.data[o + 1] = 255 * Math.max(0, v * 1.6 - 0.6);
+        img.data[o + 2] = 255 * Math.min(1, v * 2) * (1 - v * 0.6);
+        img.data[o + 3] = 255;
+      }
+    }
+    g.putImageData(img, 0, 0);
+    return cv;
+  }
+  function zoom(name, st) {
+    const z = $('zoom');
+    z.innerHTML = '';
+    z.appendChild(el('div', { textContent: name + ' (click to close)', style: 'color:var(--dim)' }));
+    const cv = spectrogram(st, Math.min(1200, z.clientWidth || 1000), 220);
+    cv.onclick = () => (z.innerHTML = '');
+    z.appendChild(cv);
+    z.scrollIntoView({ block: 'nearest' });
+  }
+  // Large spectrogram -> canvas in #zoom. name: sfx / loop (opts.level),
+  // 'music:<track>' (opts.intensity, opts.seconds) or 'grunt:<char>:<type>'.
+  T.zoom = async (name, opts) => {
+    opts = opts || {};
+    const p = name.split(':');
+    const buf = await (p[0] === 'music' ? M._render(p[1], opts.seconds || 8, opts.intensity || 0)
+      : p[0] === 'grunt' ? V._renderGrunt(p[1], p[2]) : A._render(name, opts, 6, true));
+    if (buf) zoom(name, stats(buf));
+    return !!buf;
+  };
+  const fmt = (x) => (x == null ? '-' : x.toFixed(3));
+  async function analyzeOne(kind, name, render, renderMaster) {
+    const buf = await render();
+    const st = buf ? stats(buf) : null;
+    const mbuf = renderMaster ? await renderMaster() : null;
+    const mst = mbuf ? stats(mbuf) : null;
+    const r = { kind, name, peak: st ? st.peak : 0, rms: st ? st.rms : 0, len: st ? st.len : 0, masterPeak: mst ? mst.peak : null, nan: st ? st.nan : true };
+    r.status = !st || r.nan ? 'error' : r.peak < 0.05 ? 'silent' : r.peak > 1.0 ? 'clips' : 'ok';
+    const tr = el('tr', {}, [
+      el('td', { textContent: kind }), el('td', { textContent: name }),
+      el('td', { textContent: fmt(r.peak) }), el('td', { textContent: fmt(r.masterPeak) }),
+      el('td', { textContent: fmt(r.rms) }), el('td', { textContent: r.len.toFixed(2) + 's' }),
+      el('td', { textContent: r.status, className: r.status === 'ok' ? 'ok' : 'bad' }),
+      el('td', {}, st ? [spectrogram(st, 300, 56)] : []),
+    ]);
+    if (st) tr.lastChild.firstChild.onclick = () => zoom(name, st);
+    $('anTable').tBodies[0].appendChild(tr);
+    return r;
+  }
+  T.analyze = async function (only) {
+    $('anTable').tBodies[0].innerHTML = '';
+    const out = [];
+    const kinds = only || ['sfx', 'loop', 'music', 'grunt'];
+    const step = (msg) => ($('anStatus').textContent = msg);
+    if (kinds.includes('sfx')) {
+      for (const n of A.list().sfx) {
+        step('sfx ' + n);
+        out.push(await analyzeOne('sfx', n, () => A._render(n, {}, 6, true), () => A._render(n, {}, 6, false)));
+      }
+    }
+    if (kinds.includes('loop')) {
+      for (const n of A.list().loops) {
+        for (const lv of [0, 0.5, 1]) {
+          step('loop ' + n + ' @' + lv);
+          out.push(await analyzeOne('loop', n + ' @' + lv, () => A._render(n, { level: lv }, 3, true), () => A._render(n, { level: lv }, 3, false)));
+        }
+      }
+    }
+    if (kinds.includes('music')) {
+      for (const t of M.tracks()) {
+        const ivs = t === 'battle' ? [0, 1] : [0];
+        for (const iv of ivs) {
+          step('music ' + t);
+          out.push(await analyzeOne('music', t + (t === 'battle' ? ' @' + iv : ''), () => M._render(t, 14, iv)));
+        }
+      }
+    }
+    if (kinds.includes('grunt')) {
+      for (const c of ['gojo', 'sukuna']) {
+        for (const g of V.gruntTypes) {
+          step('grunt ' + c + ' ' + g);
+          out.push(await analyzeOne('grunt', c + ' ' + g, () => V._renderGrunt(c, g)));
+        }
+      }
+    }
+    const bad = out.filter((r) => r.status !== 'ok');
+    step('done: ' + out.length + ' renders, ' + bad.length + ' flagged' + (bad.length ? ' (' + bad.map((b) => b.name + ' ' + b.status).join(', ') + ')' : ''));
+    T.results = out;
+    return out;
+  };
+  $('analyze').onclick = () => T.analyze();
+  window.addEventListener('error', (e) => T.errors.push(String(e.message)));
+  window.addEventListener('unhandledrejection', (e) => T.errors.push(String(e.reason)));
+})();
+</script>
+</body>
+</html>

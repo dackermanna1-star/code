@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cursed Arts: Gojo vs Sukuna</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #screen { image-rendering: pixelated; image-rendering: crisp-edges; display: block; background: #000; }
+  #crt {
+    position: absolute; pointer-events: none;
+    background:
+      radial-gradient(ellipse at center, rgba(0,0,0,0) 62%, rgba(0,0,0,0.38) 100%),
+      repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,0.11) 3px, rgba(0,0,0,0.11) 4px);
+    mix-blend-mode: multiply;
+  }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="screen" width="640" height="360"></canvas><div id="crt"></div></div>
+<!-- engine -->
+<script src="src/engine/util.js"></script>
+<script src="src/engine/raster.js"></script>
+<script src="src/engine/rig.js"></script>
+<script src="src/engine/input.js"></script>
+<script src="src/engine/font.js"></script>
+<script src="src/engine/fx.js"></script>
+<script src="src/engine/camera.js"></script>
+<script src="src/engine/audio.js"></script>
+<script src="src/engine/music.js"></script>
+<script src="src/engine/voice.js"></script>
+<!-- game -->
+<script src="src/game/body.js"></script>
+<script src="src/game/art-gojo.js"></script>
+<script src="src/game/art-sukuna.js"></script>
+<script src="src/game/charkit.js"></script>
+<script src="src/game/gojo-poses.js"></script>
+<script src="src/game/sukuna-poses.js"></script>
+<script src="src/game/fighter.js"></script>
+<script src="src/game/combat.js"></script>
+<script src="src/game/projectiles.js"></script>
+<script src="src/game/gojo.js"></script>
+<script src="src/game/sukuna.js"></script>
+<script src="src/game/domain.js"></script>
+<script src="src/game/hud.js"></script>
+<script src="src/game/ai.js"></script>
+<script src="src/game/training.js"></script>
+<script src="src/game/stage.js"></script>
+<script src="src/game/battle.js"></script>
+<!-- ui -->
+<script src="src/ui/menus.js"></script>
+<script src="src/main.js"></script>
+</body>
+</html>

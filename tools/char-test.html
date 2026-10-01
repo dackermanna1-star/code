@@ -1,0 +1,46 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>char test</title>
+<style>body{margin:0;background:#222}canvas{image-rendering:pixelated;display:block}</style>
+</head><body>
+<canvas id="c"></canvas>
+<script src="../src/engine/util.js"></script>
+<script src="../src/engine/raster.js"></script>
+<script src="../src/engine/rig.js"></script>
+<script src="../src/game/body.js"></script>
+<script src="../src/game/charkit.js"></script>
+<script src="../src/game/art-gojo.js"></script>
+<script src="../src/game/art-sukuna.js"></script>
+<script src="../src/game/gojo-poses.js"></script>
+<script src="../src/game/sukuna-poses.js"></script>
+<script>
+const params=new URLSearchParams(location.search);
+const W=+(params.get('w')||640),H=+(params.get('h')||360), SC=+(params.get('s')||2);
+const cv=document.getElementById('c'); cv.width=W; cv.height=H; cv.style.width=(W*SC)+'px'; cv.style.height=(H*SC)+'px';
+const ctx=cv.getContext('2d');
+const r=new JJK.Raster(W,H);
+const scene=params.get('scene')||'grid';
+function bg(){const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#3a0d10');g.addColorStop(0.7,'#8a3a1c');g.addColorStop(1,'#2a1d1a');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
+function drawChar(id, pose, sx, sy, f, z, pal, extra){
+  const art=JJK.Art[id];
+  const P=JJK.Rig.full(pose);
+  const J=JJK.Rig.solve(P, art.dims);
+  const xf=new JJK.Rig.Xform().set(sx,sy,f,z,P.rot||0,[0,70],P.sx||1,P.sy||1);
+  r.begin();
+  if(extra&&extra.lights) for(const l of extra.lights) r.lights.push(l);
+  const sec=new JJK.Rig.Secondary();
+  art.draw(r,J,xf,{pose:P,pal:pal||0,sec, eyesOpen: extra&&extra.eyes});
+  r.outline(art.outline, 0, true);
+  r.flush(); r.drawTo(ctx);
+  // ground line
+  ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.fillRect(sx-40,sy,80,1);
+}
+bg();
+const id=params.get('id')||'gojo'; const P=JJK.Poses[id];
+const list=(params.get('poses')||'idle').split(',');
+const cols=+(params.get('cols')||6); const cw=W/cols; const rows=Math.ceil(list.length/cols); const rh=H/rows;
+const z=+(params.get('z')||1.2);
+list.forEach((n,i)=>{const col=i%cols,row=(i/cols)|0; const x=cw*col+cw/2, y=rh*row+rh-14;
+  drawChar(id,P[n]||{},x,y,1,z,+(params.get('pal')||0),{});
+  ctx.fillStyle='#fff';ctx.font='10px monospace';ctx.fillText(n+(P[n]?'':'(?)'),cw*col+4,rh*row+rh-2);});
+window.DONE=true;
+</script></body></html>
