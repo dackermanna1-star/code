@@ -72,13 +72,6 @@
     return null;
   };
 
-  // Which way is the attack coming from (world x sign relative to defender)
-  function attackSide(def, src) {
-    const sx = src.x != null ? src.x : def.x;
-    if (Math.abs(sx - def.x) < 1) return -def.facing * -1;
-    return sx > def.x ? 1 : -1;
-  }
-
   C.canBlock = function (def, h, srcX, fromAir) {
     if (h.guard === 'unblockable' || h.throw) return false;
     const st = def.st;

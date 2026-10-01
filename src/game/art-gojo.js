@@ -40,7 +40,6 @@
   const C_IRIS = U.pack(70, 200, 255);
   const C_IRIS2 = U.pack(20, 110, 230);
   const C_PUPIL = U.pack(10, 30, 80);
-  const C_FOLD = U.pack(110, 112, 132);
   const C_SHIRTLINE = U.pack(52, 56, 80);
 
   // Hair (head-local u forward, v up, w = spring weight for tips).
