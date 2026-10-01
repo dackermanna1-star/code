@@ -285,6 +285,7 @@ function dressing(zb, r) {
     else if (u < 0.62) zb.prop('chair_folding', px, y, pz, r.range(0, 6.28));
     else if (u < 0.66) zb.prop('plant', px, y, pz, 0);
     else if (u < 0.7) zb.prop('wet_sign', px, y, pz, r.range(0, 6.28));
+    else if (u < 0.74) zb.prop('note', px, y, pz, r.range(0, 6.28), { text: r.int(0, 999) });
   });
   // telephones on the floor (save points)
   if (r.chance(zb.params.start ? 1 : 0.14)) {

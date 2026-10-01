@@ -78,7 +78,8 @@ export class Game {
       }
     } else {
       this.state = 'title';
-      this.ui.fade = 1; this.ui.fadeTarget = 0;
+      this.ui.fade = 1; this.ui.fadeTarget = 1;
+      this.titleWaiting = true;
     }
     requestAnimationFrame((t) => this.frame(t));
   }
@@ -304,6 +305,8 @@ export class Game {
     p.pitch = p.tpitch = 0.03;
     p.dim = 0;
     this.world.update(0, p.x, p.y, p.z, 4);
+    // fade in once the first hall has streamed in
+    if (this.titleWaiting && (this.world.areaReady(0, p.x, p.y, p.z, 1) || this.titleCamT > 12)) { this.titleWaiting = false; this.ui.fadeTarget = 0; }
     this.updateEnv(dt);
     this.updateAudio(dt);
   }

@@ -144,6 +144,9 @@ export class UI {
     this.updateCard(dt);
     const g = this.game;
     if (g.state === 'title') this.drawTitle(dt);
+    if (g.state === 'play' && !this.active && !g.input.locked && !g.input.isTouch && !g.input.usingPad && !this.loading && !g.params.has('play')) {
+      drawTextCentered(c, 'CLICK TO LOOK AROUND', W / 2, H / 2 + 30, C.dim, 1, C.shadow);
+    }
     if (g.state === 'play' || g.state === 'pause') {
       if (this.prompt && !this.active) {
         const t = this.prompt;
