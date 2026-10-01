@@ -176,6 +176,29 @@ export class World {
     return missing;
   }
 
+  // Is the straight segment a->b blocked by collision geometry? (sound occlusion)
+  segmentBlocked(dim, ax, ay, az, bx, by, bz, tmp = []) {
+    this.queryBoxes(dim, Math.min(ax, bx) - 0.1, Math.min(ay, by) - 0.1, Math.min(az, bz) - 0.1, Math.max(ax, bx) + 0.1, Math.max(ay, by) + 0.1, Math.max(az, bz) + 0.1, tmp);
+    const dx = bx - ax, dy = by - ay, dz = bz - az;
+    for (let k = 0; k < tmp.length; k += 7) {
+      const x0 = tmp[k], y0 = tmp[k + 1], z0 = tmp[k + 2], x1 = tmp[k + 3], y1 = tmp[k + 4], z1 = tmp[k + 5];
+      // ignore boxes that contain an endpoint (floors under the listener, the emitter's own prop)
+      if (ax > x0 && ax < x1 && ay > y0 && ay < y1 && az > z0 && az < z1) continue;
+      if (bx > x0 && bx < x1 && by > y0 && by < y1 && bz > z0 && bz < z1) continue;
+      let t0 = 0.02, t1 = 0.98;
+      const slab = (o, d, lo, hi) => {
+        if (Math.abs(d) < 1e-9) return o > lo && o < hi;
+        let ta = (lo - o) / d, tb = (hi - o) / d;
+        if (ta > tb) { const t = ta; ta = tb; tb = t; }
+        if (ta > t0) t0 = ta;
+        if (tb < t1) t1 = tb;
+        return t0 <= t1;
+      };
+      if (slab(ax, dx, x0, x1) && slab(ay, dy, y0, y1) && slab(az, dz, z0, z1)) return true;
+    }
+    return false;
+  }
+
   // zone at the player's position (for ambience)
   zoneInfoAt(dim, x, y, z) {
     const level = this.levelOf(y);

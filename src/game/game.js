@@ -1,10 +1,19 @@
-// Game state machine, main loop, environment blending and rendering.
-import { RES_W, RES_H, LEVEL_H, CHUNK, PLAYER_R, PLAYER_H } from '../config.js';
+// Game state machine: title screen, exploration, pause; plus interactions, saving, events,
+// ambience and rendering.
+import { RES_W, RES_W_WIDE, RES_H, LEVEL_H, CHUNK, PLAYER_R, PLAYER_H } from '../config.js';
 import { strHash } from '../core/rng.js';
 import { drawText } from '../gfx/font.js';
 import { SPAWN } from '../world/gen/yellow.js';
+import { SURF } from '../world/chunk.js';
+import { noteText } from '../world/notes.js';
+import { UI } from '../ui/ui.js';
+import { TouchUI } from '../ui/touch.js';
+import { Events } from './events.js';
+import { loadSave, writeSave, loadSettings, writeSettings } from './save.js';
 
-const DEFAULT_ENV = { fog: [0.34, 0.3, 0.155], fogNear: 5, fogFar: 34, hum: 0.6, hvac: 0.5, reverb: 'room', tone: 'yellow' };
+export const DEFAULT_SEED = 0x5eed0001;
+const DEFAULT_ENV = { fog: [0.42, 0.38, 0.2], fogNear: 5, fogFar: 34, hum: 0.6, hvac: 0.5, reverb: 'room', tone: 'yellow' };
+const USE_LABEL = { save: 'USE TELEPHONE', note: 'READ', locked: 'OPEN', cooler: 'DRINK', vending: 'USE', typewriter: 'USE TYPEWRITER' };
 
 export class Game {
   constructor(o) {
@@ -17,53 +26,168 @@ export class Game {
     this.lastRender = 0;
     this.flicker = new this.Flicker();
     this.env = { ...DEFAULT_ENV, fog: [...DEFAULT_ENV.fog] };
-    this.settings = { fps30: false, fov: 56, sens: 1, invertY: false, jitter: 1, dither: true, volume: 0.8, wide: false };
+    this.settings = Object.assign({ sens: 1, invertY: false, fov: 56, fps30: false, jitterMode: 1, dither: true, wide: false, bright: 1, volume: 0.8 }, loadSettings() || {});
     this.debug = false;
     this.params = new URLSearchParams(location.search);
+    this.ui = new UI(this);
+    this.events = new Events(this);
+    this.stats = { time: 0, levels: {} };
+    this.audio = null;
+    this.audioReady = false;
+    this.autosaveT = 0;
+    this.gatherT = 0;
+    this.audioCtx = { emitters: [], lights: [], flicker: this.flicker, occluded: null };
+    this.target = null;
+    this.titleCamT = 0;
   }
 
+  // ------------------------------------------------------------------ boot
   start() {
     const p = this.params;
-    const seed = p.has('seed') ? (Number(p.get('seed')) >>> 0 || strHash(p.get('seed'))) : 0x5eed0001;
-    this.newGame(seed);
-    if (p.has('x')) {
-      const dim = Number(p.get('dim') || 0);
-      this.spawnAt(dim, Number(p.get('x')), Number(p.get('y') || 0), Number(p.get('z')), Number(p.get('yaw') || 0));
-      if (p.has('pitch')) { this.player.pitch = this.player.tpitch = Number(p.get('pitch')); }
-    }
-    this.state = 'play';
-    this.input.onUnlock = () => {};
+    this.applyScreen();
+    if (('ontouchstart' in window || navigator.maxTouchPoints > 0) && !p.has('notouch')) this.touchUI = new TouchUI(this, this.glc.parentElement.parentElement);
+    const seed = p.has('seed') ? (Number(p.get('seed')) >>> 0 || strHash(p.get('seed'))) : DEFAULT_SEED;
+    this.createWorld(seed);
     window.addEventListener('keydown', (e) => { if (e.code === 'F3') { this.debug = !this.debug; e.preventDefault(); } });
-    this.glc.parentElement.addEventListener('click', () => { if (this.state === 'play' && !this.input.locked) this.input.lock(); });
+    const gesture = () => this.initAudio();
+    window.addEventListener('pointerdown', gesture);
+    window.addEventListener('keydown', gesture);
+    window.addEventListener('touchstart', gesture, { passive: true });
+    this.glc.parentElement.addEventListener('click', () => {
+      if (this.state === 'play' && !this.input.locked && !this.ui.active) this.input.lock();
+    });
+    this.input.onUnlock = () => { if (this.state === 'play' && !this.ui.active && !this.input.isTouch) this.pause(); };
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && this.state === 'play') { this.pause(); }
+      if (document.hidden && this.audio) this.audioCall('suspend');
+      else if (!document.hidden && this.audio) this.audioCall('resume');
+    });
+    window.addEventListener('beforeunload', () => { if (this.state === 'play' || this.state === 'pause') this.saveGame('auto'); });
+    if (p.has('x') || p.has('play')) {
+      // development: jump straight in
+      this.state = 'play';
+      if (p.has('x')) {
+        this.spawnAt(Number(p.get('dim') || 0), Number(p.get('x')), Number(p.get('y') || 0), Number(p.get('z')), Number(p.get('yaw') || 0));
+        if (p.has('pitch')) this.player.pitch = this.player.tpitch = Number(p.get('pitch'));
+      }
+    } else {
+      this.state = 'title';
+      this.ui.fade = 1; this.ui.fadeTarget = 0;
+    }
     requestAnimationFrame((t) => this.frame(t));
   }
 
-  newGame(seed) {
+  createWorld(seed) {
     if (this.world) this.world.unloadAll();
     this.seed = seed;
     this.world = new this.World(seed, this.texIndex, this.renderer);
     if (this.params.has('force')) this.world.zones.forceType = this.params.get('force');
     if (this.params.has('piece')) this.world.zones.forcePiece = this.params.get('piece');
     this.player = new this.Player(this.world);
+    this.hookPlayer();
     this.spawnAt(0, SPAWN[0] + 0.5, 0, SPAWN[1] + 0.5, 0);
   }
 
-  // direction with the longest unobstructed view at eye height
-  bestYaw() {
-    const p = this.player, tmp = [];
-    let best = 0, bestD = -1;
-    for (let k = 0; k < 16; k++) {
-      const a = (k / 16) * Math.PI * 2;
-      const fx = Math.sin(a), fz = -Math.cos(a);
-      let d = 0;
-      for (; d < 40; d += 0.5) {
-        const x = p.x + fx * d, z = p.z + fz * d, y = p.y + 1.4;
-        this.world.queryBoxes(p.dim, x - 0.1, y - 0.1, z - 0.1, x + 0.1, y + 0.1, z + 0.1, tmp);
-        if (tmp.length) break;
-      }
-      if (d > bestD) { bestD = d; best = a; }
-    }
-    return best;
+  hookPlayer() {
+    const p = this.player;
+    p.onStep = (surf, speed, crouched) => this.audioCall('footstep', surf, speed, crouched);
+    p.onLand = (speed, surf) => this.audioCall('land', speed, surf);
+    p.onClimb = () => this.audioCall('play', 'climb', p.x, p.y + 1, p.z, {});
+  }
+
+  initAudio() {
+    if (this.audioStarted) { this.audioCall('resume'); return; }
+    this.audioStarted = true;
+    import('../audio/audio.js').then(async (m) => {
+      this.audio = new m.AudioEngine();
+      await this.audio.init();
+      this.audioReady = true;
+      this.applyVolume();
+    }).catch((e) => { console.warn('audio unavailable', e); });
+  }
+
+  audioCall(method, ...args) {
+    if (!this.audioReady || !this.audio || typeof this.audio[method] !== 'function') return undefined;
+    try { return this.audio[method](...args); } catch (e) { console.warn('audio', method, e); return undefined; }
+  }
+  sfx(name) { this.audioCall('ui', name); }
+  applyVolume() { this.audioCall('setVolume', this.settings.volume); }
+
+  applyScreen() {
+    const w = this.settings.wide ? RES_W_WIDE : RES_W;
+    this.renderer.setResolution(w, RES_H);
+    this.uic.width = w; this.uic.height = RES_H;
+    this.ctx.imageSmoothingEnabled = false;
+    const scr = this.glc.parentElement;
+    scr.style.aspectRatio = this.settings.wide ? '16 / 9' : '4 / 3';
+    scr.style.height = this.settings.wide ? 'min(100vh, 56.25vw)' : 'min(100vh, 75vw)';
+  }
+
+  saveSettings() { writeSettings(this.settings); }
+
+  // ------------------------------------------------------------------ flow
+  startNew() {
+    this.ui.stack.length = 0;
+    this.ui.fade = 1; this.ui.fadeTarget = 0;
+    if (this.seed !== DEFAULT_SEED && !this.params.has('seed')) this.createWorld(DEFAULT_SEED);
+    else this.spawnAt(0, SPAWN[0] + 0.5, 0, SPAWN[1] + 0.5, 0);
+    this.player.distance = 0;
+    this.stats = { time: 0, levels: {} };
+    this.events.reset();
+    this.state = 'play';
+    this.input.lock();
+    this.sfx('start');
+  }
+
+  hasSave() { return !!loadSave(); }
+
+  continueGame() {
+    const s = loadSave();
+    if (!s) { this.startNew(); return; }
+    this.ui.stack.length = 0;
+    this.ui.fade = 1; this.ui.fadeTarget = 0;
+    if (s.seed !== this.seed) this.createWorld(s.seed);
+    this.spawnAt(s.dim || 0, s.x, s.y, s.z, s.yaw || 0);
+    this.player.pitch = this.player.tpitch = s.pitch || 0;
+    this.player.distance = s.distance || 0;
+    this.stats = { time: s.time || 0, levels: s.levels || {} };
+    this.events.reset();
+    this.state = 'play';
+    this.input.lock();
+    this.sfx('start');
+  }
+
+  saveGame(kind) {
+    const p = this.player;
+    if (!p || this.state === 'title') return false;
+    const ok = writeSave({
+      v: 1, seed: this.seed, dim: p.dim, x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch,
+      distance: p.distance, time: this.stats.time, levels: this.stats.levels, kind, date: Date.now(),
+    });
+    if (ok && kind === 'auto') this.ui.saveIcon = 1.6;
+    return ok;
+  }
+
+  pause() {
+    if (this.state !== 'play') return;
+    this.state = 'pause';
+    this.ui.stack.length = 0;
+    this.ui.note = null;
+    this.ui.open('pause');
+    this.input.unlock();
+    this.saveGame('auto');
+  }
+  resume() {
+    this.ui.stack.length = 0;
+    this.state = 'play';
+    this.input.lock();
+  }
+  quitToTitle() {
+    this.saveGame('auto');
+    this.ui.stack.length = 0;
+    this.state = 'title';
+    this.ui.fade = 1; this.ui.fadeTarget = 0;
+    this.input.unlock();
   }
 
   // Load the area and place the player on a free floor spot near (x, z).
@@ -73,24 +197,22 @@ export class Game {
     w.update(dim, x, y, z, 0, 40);
     const level = Math.floor((y + 0.05) / LEVEL_H);
     const tmp = [];
-    for (let r = 0; r < 12; r++) {
+    for (let r = 0; r < 14; r++) {
       for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
         const cx = Math.floor(x) + dx + 0.5, cz = Math.floor(z) + dz + 0.5;
         const y0 = level * LEVEL_H;
-        w.queryBoxes(dim, cx - PLAYER_R, y0 - 3, cz - PLAYER_R, cx + PLAYER_R, y0 + 4, cz + PLAYER_R, tmp);
-        // find highest floor top <= y0 + 1.5 with free headroom above it
+        w.queryBoxes(dim, cx - PLAYER_R, y0 - 3, cz - PLAYER_R, cx + PLAYER_R, y0 + 4.5, cz + PLAYER_R, tmp);
         let best = null;
         for (let k = 0; k < tmp.length; k += 7) {
           const top = tmp[k + 4];
-          if (top > y0 + 1.5 || top < y0 - 3) continue;
-          if (best === null || top > best) {
-            let blocked = false;
-            for (let j = 0; j < tmp.length; j += 7) {
-              if (tmp[j + 1] < top + PLAYER_H && tmp[j + 4] > top + 0.01) { blocked = true; break; }
-            }
-            if (!blocked) best = top;
+          if (top > y + 1.5 || top < y - 3) continue;
+          if (best !== null && Math.abs(top - y) >= Math.abs(best - y)) continue;
+          let blocked = false;
+          for (let j = 0; j < tmp.length; j += 7) {
+            if (tmp[j + 1] < top + PLAYER_H && tmp[j + 4] > top + 0.01) { blocked = true; break; }
           }
+          if (!blocked) best = top;
         }
         if (best !== null) {
           this.player.setPos(cx, best + 0.001, cz, yaw);
@@ -102,6 +224,17 @@ export class Game {
     return false;
   }
 
+  // drop the player onto a random spot some levels down (fell into nothing)
+  fellThrough() {
+    const p = this.player;
+    const down = 1 + Math.floor(Math.random() * 3);
+    const lvl = p.level() - down;
+    const a = Math.random() * Math.PI * 2;
+    this.ui.fadeTarget = 1;
+    this.pendingTeleport = { t: 1.4, dim: p.dim, x: p.x + Math.cos(a) * 40, y: lvl * LEVEL_H, z: p.z + Math.sin(a) * 40 };
+  }
+
+  // ------------------------------------------------------------------ main loop
   frame(now) {
     requestAnimationFrame((t) => this.frame(t));
     const tsec = now / 1000;
@@ -112,16 +245,123 @@ export class Game {
     this.last = tsec;
     this.time += dt;
     const inp = this.input.poll();
-    if (this.state === 'play') this.updatePlay(dt, inp);
+    if (this.touchUI) this.touchUI.update();
+    if (this.state === 'title') this.updateTitle(dt, inp);
+    else if (this.state === 'play') this.updatePlay(dt, inp);
+    else if (this.state === 'pause') this.ui.input(inp);
     this.render(dt);
+  }
+
+  updateTitle(dt, inp) {
+    if (!this.ui.top()) {
+      if (inp.menuOk || inp.click || inp.use || inp.pause) { this.ui.open('title'); }
+    } else this.ui.input(inp);
+    // slow drift through the first hall
+    this.titleCamT += dt;
+    const t = this.titleCamT;
+    const p = this.player;
+    p.x = SPAWN[0] + 0.5 + Math.sin(t * 0.021) * 3;
+    p.z = SPAWN[1] + 0.5 - ((t * 0.32) % 22);
+    p.y = 0;
+    p.yaw = p.tyaw = Math.sin(t * 0.05) * 0.5 - 0.15;
+    p.pitch = p.tpitch = 0.03;
+    p.dim = 0;
+    this.world.update(0, p.x, p.y, p.z, 4);
+    this.updateEnv(dt);
+    this.updateAudio(dt);
   }
 
   updatePlay(dt, inp) {
     const p = this.player;
-    p.sens = 0.0023 * this.settings.sens;
-    p.update(dt, inp);
+    const ui = this.ui;
+    if (ui.active) {
+      ui.input(inp);
+      p.update(dt, { mx: 0, mz: 0, turn: 0, lookX: 0, lookY: 0 });
+    } else {
+      if (inp.pause) { this.pause(); return; }
+      p.sens = 0.0023 * this.settings.sens;
+      p.invertY = this.settings.invertY;
+      p.update(dt, inp);
+      this.findTarget();
+      if (inp.use && this.target) this.interact(this.target);
+    }
     this.world.update(p.dim, p.x, p.y, p.z, 5);
+    this.stats.time += dt;
+    this.stats.levels[p.dim + ':' + p.level()] = 1;
+    // fell into nothing
+    if (p.airTime > 2.6 && p.vy < -14 && !this.pendingTeleport) this.fellThrough();
+    if (this.pendingTeleport) {
+      const pt = this.pendingTeleport;
+      pt.t -= dt;
+      p.frozen = true;
+      if (pt.t <= 0) {
+        this.pendingTeleport = null;
+        this.spawnAt(pt.dim, pt.x, pt.y, pt.z, p.yaw);
+        p.frozen = false;
+        this.ui.fadeTarget = 0;
+        this.audioCall('land', 6, p.surface);
+      }
+    }
     this.updateEnv(dt);
+    this.events.update(dt);
+    this.updateAudio(dt);
+    this.autosaveT += dt;
+    if (this.autosaveT > 75) { this.autosaveT = 0; this.saveGame('auto'); }
+  }
+
+  findTarget() {
+    const p = this.player;
+    const cam = p.camera(this.time);
+    const fx = Math.sin(cam.yaw) * Math.cos(cam.pitch), fy = Math.sin(cam.pitch), fz = -Math.cos(cam.yaw) * Math.cos(cam.pitch);
+    let best = null, bd = 1e9;
+    for (const ch of this.world.chunksNear(p.dim, p.x, p.z, 3)) {
+      for (const it of ch.data.interact) {
+        const dx = it.x - cam.x, dy = it.y - cam.y, dz = it.z - cam.z;
+        const along = dx * fx + dy * fy + dz * fz;
+        if (along < 0.1 || along > 1.9) continue;
+        const px = cam.x + fx * along, py = cam.y + fy * along, pz = cam.z + fz * along;
+        const off = Math.hypot(it.x - px, (it.y - py) * 0.7, it.z - pz);
+        if (off > (it.r || 0.6)) continue;
+        if (along + off < bd) { bd = along + off; best = it; }
+      }
+    }
+    this.target = best;
+    this.ui.prompt = best ? '[' + (this.input.isTouch ? 'USE' : this.input.usingPad ? 'X' : 'E') + '] ' + (USE_LABEL[best.prop && best.prop.type === 'typewriter' ? 'typewriter' : best.kind] || 'USE') : null;
+  }
+
+  interact(it) {
+    const p = this.player;
+    switch (it.kind) {
+      case 'save':
+        if (it.prop && (it.prop.type === 'phone' || it.prop.type === 'payphone')) {
+          const answered = this.events.answered(it);
+          this.audioCall('play', 'phone_pickup', it.x, it.y, it.z, {});
+          if (answered) this.ui.say('...', 2);
+        } else this.audioCall('play', 'typewriter', it.x, it.y, it.z, {});
+        this.ui.openSaveDialog();
+        break;
+      case 'note': {
+        const idx = it.prop && it.prop.opts && it.prop.opts.text !== undefined ? it.prop.opts.text : Math.floor(it.x * 13 + it.z * 7);
+        this.audioCall('play', 'paper', it.x, it.y, it.z, {});
+        this.ui.showNote(noteText(idx));
+        break;
+      }
+      case 'locked':
+        this.audioCall('play', 'locked_rattle', it.x, it.y, it.z, {});
+        this.ui.say(Math.random() < 0.85 ? 'It is locked.' : 'It will not open.');
+        break;
+      case 'cooler':
+        this.audioCall('play', 'cooler_glug', it.x, it.y, it.z, {});
+        this.ui.say('The water is room temperature.');
+        break;
+      case 'vending':
+        this.audioCall('play', 'vending_clunk', it.x, it.y, it.z, {});
+        this.ui.say(Math.random() < 0.7 ? 'Nothing comes out.' : 'SOLD OUT');
+        break;
+      default:
+        break;
+    }
+    void p;
   }
 
   updateEnv(dt) {
@@ -133,39 +373,73 @@ export class Game {
     for (let i = 0; i < 3; i++) this.env.fog[i] += (target.fog[i] - this.env.fog[i]) * k;
     this.env.fogNear += (target.fogNear - this.env.fogNear) * k;
     this.env.fogFar += (target.fogFar - this.env.fogFar) * k;
-    this.env.hum = target.hum; this.env.hvac = target.hvac; this.env.reverb = target.reverb;
+    this.env.hum = target.hum; this.env.hvac = target.hvac; this.env.reverb = target.reverb; this.env.tone = target.tone;
   }
 
-  render() {
-    const r = this.renderer;
+  updateAudio(dt) {
+    if (!this.audioReady) return;
+    const p = this.player;
+    this.gatherT -= dt;
+    if (this.gatherT <= 0) {
+      this.gatherT = 0.25;
+      const em = [], li = [];
+      const lv = p.level();
+      for (const ch of this.world.chunksNear(p.dim, p.x, p.z, 26)) {
+        if (Math.abs(ch.level - lv) > 1) continue;
+        for (const e of ch.data.emitters) if (Math.hypot(e.x - p.x, e.z - p.z) < (e.rad || 12) + 4) em.push(e);
+        if (ch.level === lv) for (const L of ch.data.lights) if (Math.hypot(L.x - p.x, L.z - p.z) < 14) li.push(L);
+      }
+      this.audioCtx.emitters = em;
+      this.audioCtx.lights = li;
+      if (!this.audioCtx.occluded) {
+        const tmp = [];
+        this.audioCtx.occluded = (x, y, z) => {
+          const c = this.player.camera(this.time);
+          return this.world.segmentBlocked(this.player.dim, c.x, c.y, c.z, x, y, z, tmp);
+        };
+      }
+    }
+    const cam = p.camera(this.time);
+    this.audioCall('update', dt, { x: cam.x, y: cam.y, z: cam.z, yaw: cam.yaw }, this.env, this.audioCtx);
+  }
+
+  mouseUI() {
+    if (this.input.locked || !this.input.mouse.moved) return null;
+    const rect = this.uic.getBoundingClientRect();
+    const x = ((this.input.mouse.x - rect.left) / rect.width) * this.uic.width;
+    const y = ((this.input.mouse.y - rect.top) / rect.height) * this.uic.height;
+    return { x, y };
+  }
+
+  // ------------------------------------------------------------------ render
+  render(dt) {
+    const r = this.renderer, s = this.settings;
     this.flicker.update(this.time);
     const cam = this.player.camera(this.time);
-    cam.fov = (this.settings.fov * Math.PI) / 180;
-    r.snapScale = this.settings.jitter;
-    r.dither = this.settings.dither;
-    r.begin(cam, { fogColor: this.env.fog, fogNear: this.env.fogNear, fogFar: this.env.fogFar, time: this.time, flick: this.flicker.v, bright: 1 });
+    cam.fov = (s.fov * Math.PI) / 180;
+    r.snapScale = s.jitterMode === 0 ? 0.001 : s.jitterMode === 2 ? 2.4 : 1;
+    r.dither = s.dither;
+    r.begin(cam, { fogColor: this.env.fog, fogNear: this.env.fogNear, fogFar: this.env.fogFar, time: this.time, flick: this.flicker.v, bright: s.bright });
     this.world.time = this.time;
-    const n = this.world.draw(r, cam.dim, cam, this.env.fogFar, this.env.fogFar * 0.8);
+    this.world.draw(r, cam.dim, cam, this.env.fogFar, this.env.fogFar * 0.8);
     r.end();
-    this.drawUI(n);
+    this.ui.draw(dt);
+    if (this.debug) this.drawDebug();
   }
 
-  drawUI(n) {
-    const c = this.ctx;
-    c.clearRect(0, 0, RES_W, RES_H);
-    if (this.debug) {
-      const p = this.player, w = this.world;
-      const lines = [
-        `pos ${p.x.toFixed(1)} ${p.y.toFixed(2)} ${p.z.toFixed(1)} L${p.level()} d${p.dim}`,
-        `zone ${this.zone ? this.zone.type + ':' + (this.zone.params.variant || '') : '-'}`,
-        `chunks ${w.chunks.size} tris ${Math.round(r_tris(this))} draws ${this.renderer.stats.draws}`,
-        `build ${w.stats.built} ${(w.stats.buildMs / Math.max(1, w.stats.built)).toFixed(1)}ms gen ${w.stats.genMs.toFixed(0)}ms`,
-      ];
-      lines.forEach((l, i) => drawText(c, l, 2, 2 + i * 9, '#ff0', 1, '#000'));
-    }
-    void n;
+  drawDebug() {
+    const c = this.ctx, p = this.player, w = this.world;
+    const lines = [
+      `pos ${p.x.toFixed(1)} ${p.y.toFixed(2)} ${p.z.toFixed(1)} L${p.level()} d${p.dim}`,
+      `zone ${this.zone ? this.zone.type + ':' + (this.zone.params.variant || this.zone.params.layout || '') : '-'}`,
+      `chunks ${w.chunks.size} tris ${Math.round(this.renderer.stats.tris)} draws ${this.renderer.stats.draws}`,
+      `build ${w.stats.built} avg ${(w.stats.buildMs / Math.max(1, w.stats.built)).toFixed(1)}ms pending ${w.pendingCount || 0}`,
+    ];
+    lines.forEach((l, i) => {
+      c.fillStyle = 'rgba(0,0,0,0.55)';
+      c.fillRect(0, 1 + i * 9, l.length * 6 + 3, 9);
+      drawText(c, l, 2, 2 + i * 9, '#ff0');
+    });
   }
 }
-
-function r_tris(g) { return g.renderer.stats.tris; }
-void CHUNK;
+void CHUNK; void SURF;

@@ -3,15 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Backrooms</title>
+<title>Level Zero</title>
 <style>
-  :root { --bg: #000; --fg: #d8cfa0; }
-  html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; touch-action: none; }
-  body { color: var(--fg); font-family: monospace; }
+  :root { --bg: #000; --fg: #d8cfa0; --btn: rgba(216, 207, 160, 0.16); --btn-on: rgba(216, 207, 160, 0.38); --btn-line: rgba(216, 207, 160, 0.45); }
+  html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+  body { color: var(--fg); font-family: ui-monospace, Menlo, Consolas, monospace; }
   #stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
-  #screen { position: relative; aspect-ratio: 4 / 3; height: min(100vh, 75vw); max-width: 100vw; }
+  #screen { position: relative; aspect-ratio: 4 / 3; height: min(100vh, 75vw); max-width: 100vw; cursor: crosshair; }
   #screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
   #err { display: none; position: fixed; left: 16px; right: 16px; top: 16px; padding: 12px; background: #300; color: #fcc; white-space: pre-wrap; }
+  #touch { position: absolute; inset: 0; pointer-events: none; display: none; }
+  .tbtn { position: absolute; pointer-events: auto; width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: var(--btn); border: 2px solid var(--btn-line); color: var(--fg); font-size: 12px; letter-spacing: 1px; touch-action: none; }
+  .tbtn.on { background: var(--btn-on); }
+  .b-use { right: 24px; bottom: 120px; width: 76px; height: 76px; }
+  .b-climb { right: 112px; bottom: 40px; }
+  .b-crouch { right: 24px; bottom: 30px; }
+  .b-run { left: 24px; bottom: 30px; width: 56px; height: 56px; }
+  .b-menu { right: 16px; top: 16px; width: 44px; height: 44px; font-size: 14px; }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg: #000; } }
 </style>
 </head>
 <body>
