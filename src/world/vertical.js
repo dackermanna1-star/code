@@ -70,9 +70,14 @@ export class VerticalMap {
       } else if (u < 0.5) {
         s.push(this.makeStair(dim, i, j, L, L + 1, rng.fork('s' + L), false));
         L += 2;
-      } else if (u < 0.62) {
-        s.push(this.makeHole(dim, i, j, L, rng.fork('h' + L)));
+      } else if (u < 0.6) {
+        s.push(this.makeHole(dim, i, j, L, L + 1, rng.fork('h' + L)));
         L += 1;
+      } else if (u < 0.635 && end - L >= 4) {
+        // a deep shaft through several floors
+        const n = rng.int(2, Math.min(5, end - 1 - L));
+        s.push(this.makeHole(dim, i, j, L, L + n, rng.fork('sh' + L), true));
+        L += n;
       } else L += 1;
     }
     // validate against zone types (deterministic)
@@ -94,12 +99,12 @@ export class VerticalMap {
     return f;
   }
 
-  makeHole(dim, i, j, L, rng) {
-    const w = rng.int(2, 5), d = rng.int(2, 5);
-    const f = { kind: 'hole', dim, L, T: L + 1, w, d, rot: 0, ox: 0, oz: 0 };
+  makeHole(dim, i, j, L, T, rng, shaft = false) {
+    const w = shaft ? rng.int(3, 7) : rng.int(2, 5), d = shaft ? rng.int(3, 7) : rng.int(2, 5);
+    const f = { kind: 'hole', dim, L, T, w, d, rot: 0, ox: 0, oz: 0, shaft };
     f.ox = i * SLOT + 32 + rng.int(-24, 24 - w);
     f.oz = j * SLOT + 32 + rng.int(-24, 24 - d);
-    f.rails = rng.chance(0.75);
+    f.rails = shaft ? rng.chance(0.9) : rng.chance(0.75);
     f.id = hash4(i, j, L, dim, 99);
     return f;
   }
@@ -297,6 +302,7 @@ function lampOnWall(zb, f, lx, lz, y) {
 // ------------------------------------------------------------------ holes / light wells
 function stampHole(zb, f, Mlev) {
   const lower = Mlev === f.L;
+  const upper = Mlev === f.T;
   zb.clearEntities(f.ox - (lower ? 0 : 1), f.oz - (lower ? 0 : 1), f.ox + f.w + (lower ? 0 : 1), f.oz + f.d + (lower ? 0 : 1));
   zb.fill(f.ox, f.oz, f.ox + f.w, f.oz + f.d, (x, z, i) => {
     zb.solid[i] = 0;
@@ -306,6 +312,7 @@ function stampHole(zb, f, Mlev) {
       if (Number.isNaN(zb.floor[i])) zb.floor[i] = 0;
     } else {
       zb.floor[i] = NaN;
+      if (!upper) zb.ceil[i] = NaN;
       // clear internal walls inside the hole
       if (x > f.ox) zb.wallW[i] = 0;
       if (z > f.oz) zb.wallN[i] = 0;

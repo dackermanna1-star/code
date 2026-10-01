@@ -22,6 +22,7 @@ export class World {
     this.stats = { built: 0, buildMs: 0, genMs: 0 };
     this.dimDefs = new Map();
     this.time = 0;
+    this.mutation = new Map();
     this.modelM = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
   }
 
@@ -159,6 +160,19 @@ export class World {
 
   unloadAll() { for (const ch of [...this.chunks.values()]) this.unloadChunk(ch); }
 
+  // A mutable zone gets a new interior: bump its counter, forget its builder and any chunk that
+  // could show it (they rebuild when needed).
+  mutate(zone) {
+    this.mutation.set(zone.key, (this.mutation.get(zone.key) || 0) + 1);
+    this.builders.delete(zone.key);
+    for (const ch of [...this.chunks.values()]) {
+      if (ch.dim !== zone.dim || Math.abs(ch.level - zone.level) > 0) continue;
+      const x0 = ch.cx * CHUNK - 8, z0 = ch.cz * CHUNK - 8, x1 = x0 + CHUNK + 16, z1 = z0 + CHUNK + 16;
+      if (x1 <= zone.x0 || x0 >= zone.x1 || z1 <= zone.z0 || z0 >= zone.z1) continue;
+      this.unloadChunk(ch);
+    }
+  }
+
   // Collect collision boxes overlapping the AABB into out (flat array of 7-tuples).
   // Missing chunks on the query's own level are reported as solid so nothing falls out of the world.
   queryBoxes(dim, x0, y0, z0, x1, y1, z1, out) {
@@ -243,6 +257,7 @@ export class World {
 
   draw(r, dim, cam, fogFar, propDist) {
     const pl = r.planes;
+    this.camX = cam.x; this.camZ = cam.z;
     const vis = [];
     for (const ch of this.chunks.values()) {
       if (ch.dim !== dim) continue;
@@ -265,8 +280,14 @@ export class World {
     // animated props
     let any = false;
     for (const [d, ch] of vis) {
-      if (!ch.dyn || !ch.dyn.length || d > propDist) continue;
+      if (!ch.dyn || !ch.dyn.length || d > fogFar) continue;
       for (const dy of ch.dyn) {
+        // distance-conditional objects (mirages)
+        if (dy.anim.showFar !== undefined || dy.anim.showNear !== undefined) {
+          const dd = Math.hypot(dy.x - this.camX, dy.z - this.camZ);
+          if (dy.anim.showFar !== undefined && dd < dy.anim.showFar) continue;
+          if (dy.anim.showNear !== undefined && dd >= dy.anim.showNear) continue;
+        }
         const a = dy.rot + (dy.anim.spin || 0) * this.time + (dy.anim.osc ? dy.anim.osc[0] * Math.sin(this.time * dy.anim.osc[1] * 6.2832 + (dy.anim.osc[2] ?? dy.phase)) : 0);
         const c = Math.cos(a), s = Math.sin(a);
         const m = this.modelM;

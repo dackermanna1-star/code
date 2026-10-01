@@ -8,7 +8,9 @@ import { applyPortals } from './portals.js';
 export { applyVerticalFeatures };
 
 export function generateZone(world, zone) {
-  const zb = new ZoneBuilder(zone);
+  // mutable zones re-roll their interior each time the player has left them
+  const mut = zone.params && zone.params.mutable ? world.mutation.get(zone.key) || 0 : 0;
+  const zb = new ZoneBuilder(zone, mut ? (zone.seed ^ Math.imul(mut, 0x9e3779b1)) >>> 0 : undefined);
   zb.world = world;
   if (zone.type === 'claimed') {
     zb.floor.fill(NaN); zb.ceil.fill(NaN);

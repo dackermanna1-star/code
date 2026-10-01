@@ -43,6 +43,8 @@ export class Game {
     this.portalArmed = true;
     this.portalReturn = null;
     this.prefetch = null;
+    this.mutableVisited = new Map();
+    this.mutT = 0;
   }
 
   // ------------------------------------------------------------------ boot
@@ -310,10 +312,28 @@ export class Game {
       }
     }
     this.updateEnv(dt);
+    this.updateMutations(dt);
     this.events.update(dt);
     this.updateAudio(dt);
     this.autosaveT += dt;
     if (this.autosaveT > 75) { this.autosaveT = 0; this.saveGame('auto'); }
+  }
+
+  // Mutable zones rearrange once the player has been inside and wandered well away.
+  updateMutations(dt) {
+    this.mutT -= dt;
+    if (this.mutT > 0) return;
+    this.mutT = 1;
+    const p = this.player;
+    if (this.zone && this.zone.params && this.zone.params.mutable) this.mutableVisited.set(this.zone.key, this.zone);
+    for (const [k, z] of this.mutableVisited) {
+      if (z.dim !== p.dim) { this.mutableVisited.delete(k); continue; }
+      const dx = Math.max(z.x0 - p.x, 0, p.x - z.x1), dz = Math.max(z.z0 - p.z, 0, p.z - z.z1);
+      if (Math.hypot(dx, dz) > 60 || Math.abs(p.level() - z.level) > 0) {
+        this.world.mutate(z);
+        this.mutableVisited.delete(k);
+      }
+    }
   }
 
   // Seamless portals: swap the player into the vestibule's twin while they stand in its middle.

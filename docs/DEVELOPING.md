@@ -141,7 +141,8 @@ Entities (x/z absolute, y relative to the level base):
   `VF.VIBRATE`. `opts.collide:false`.
 * `zb.dynamic(type, x, y, z, rot, opts, {spin, osc})` – an animated prop rotating about its
   vertical axis: `spin` rad/s, `osc: [amplitudeRad, freqHz, phase]` swings back and forth.
-  Lighting is baked once, so keep these few (≤ ~10 per chunk).
+  Lighting is baked once, so keep these few (≤ ~10 per chunk). `{showFar: r}` draws it only
+  while the camera is more than r metres away, `{showNear: r}` only while closer (mirages).
 * `zb.light(x, y, z, {color, rad, int, ch})` – baked point light. Prefer `ceilingLight()`.
 * `zb.fixture(...)` – light fitting visual; use `ceilingLight(zb, x, z, kind, state, opts)`
   which adds both. kinds: `panel troffer tube bulb cage highbay`; states:

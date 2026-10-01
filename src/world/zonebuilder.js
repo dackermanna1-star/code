@@ -14,7 +14,7 @@ export const W_BLOCKS = new Set([W.WALL, W.HALF, W.WINDOW, W.RAIL, W.GLASS, W.FU
 export const CF = { STAIRS: 1, VOID: 2, NOLIGHTBLEED: 4, WET: 8, NOPROPS: 16, GATE: 32, KEEP: 64, ROOMWALL: 128, HOLE_CEIL: 256 };
 
 export class ZoneBuilder {
-  constructor(zone) {
+  constructor(zone, seedOverride) {
     this.zone = zone;
     this.x0 = zone.x0; this.z0 = zone.z0;
     this.x1 = zone.x1; this.z1 = zone.z1;
@@ -42,7 +42,7 @@ export class ZoneBuilder {
     this.specials = [];
     this.dynamics = [];
     this.gates = [];
-    this.rng = new RNG(zone.seed);
+    this.rng = new RNG(seedOverride ?? zone.seed);
     this.params = p;
   }
 

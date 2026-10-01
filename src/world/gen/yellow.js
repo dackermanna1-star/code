@@ -25,6 +25,8 @@ export function yellowParams(zone, rng, ctx) {
     dark,
     ambient: dark ? [0.08, 0.072, 0.05] : [0.27, 0.25, 0.17],
     start,
+    // some stretches quietly rearrange themselves once you have left them
+    mutable: !start && ctx.dist > 150 && ['maze', 'rooms', 'classic', 'corridors'].includes(variant) && rng.chance(0.18),
   };
   p.env = env({ fog: dark ? [0.08, 0.07, 0.035] : [0.42, 0.38, 0.2], fogNear: dark ? 2 : 5, fogFar: dark ? 22 : 34, hum: dark ? 0.25 : 0.7, hvac: 0.5, reverb: variant === 'open' || variant === 'halls' ? 'hall' : 'room' });
   return p;
@@ -141,7 +143,15 @@ function rooms(zb, r, wm) {
     const type = r.chance(0.15) ? W.HALF : W.WALL;
     for (let t = a; t < b; t++) {
       const isOpen = openings.some(([o, w]) => t >= o && t < o + w);
-      if (isOpen) { if (r.chance(0.25) && type === W.WALL) { horiz ? zb.setWall(t, line, 'N', W.DOOR, wm, wm) : zb.setWall(line, t, 'W', W.DOOR, wm, wm); } continue; }
+      if (isOpen) {
+        if (type === W.WALL) {
+          const u = r.next();
+          // doorways that are too small, or far too tall
+          const dt = u < 0.22 ? W.DOOR : u < 0.27 ? W.LOW : u < 0.33 ? W.ARCH : 0;
+          if (dt) horiz ? zb.setWall(t, line, 'N', dt, wm, wm) : zb.setWall(line, t, 'W', dt, wm, wm);
+        }
+        continue;
+      }
       horiz ? zb.setWall(t, line, 'N', type, wm, wm) : zb.setWall(line, t, 'W', type, wm, wm);
     }
     void len;
@@ -291,8 +301,97 @@ function dressing(zb, r) {
       break;
     }
   }
+  // rooms inside rooms
+  if (!zb.params.start && zb.w >= 24 && zb.d >= 24 && r.chance(0.07)) nestedRooms(zb, r);
+  // a lit hallway behind a doorway that is only there from a distance
+  if (!zb.params.start && zb.zone.ctx && zb.zone.ctx.dist > 120 && r.chance(0.09)) mirageDoor(zb, r);
   // rare landmark: a car where no car could have come from
   if (!zb.params.start && (zb.params.variant === 'open' || zb.params.variant === 'pillars' || zb.params.variant === 'halls') && r.chance(0.05)) crashedCar(zb, r);
+}
+
+function nestedRooms(zb, r) {
+  const S = r.pick([13, 15]);
+  const wm = zb.params.wallMat;
+  const gate = new Set(zb.gates.map((g) => g.x + ',' + g.z));
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const x = r.int(zb.x0 + 3, zb.x1 - S - 3), z = r.int(zb.z0 + 3, zb.z1 - S - 3);
+    let bad = false;
+    for (let zz = z - 1; zz <= z + S && !bad; zz++) for (let xx = x - 1; xx <= x + S; xx++) if (gate.has(xx + ',' + zz)) { bad = true; break; }
+    if (bad) continue;
+    zb.clearEntities(x - 1, z - 1, x + S + 1, z + S + 1);
+    zb.fill(x - 1, z - 1, x + S + 1, z + S + 1, (cx, cz, i) => {
+      zb.solid[i] = 0; zb.floor[i] = 0; zb.ceil[i] = zb.params.ceilH;
+      zb.flags[i] &= ~(CF.HOLE_CEIL); zb.flags[i] |= CF.NOPROPS;
+      if (cx > x - 1) zb.wallW[i] = 0;
+      if (cz > z - 1) zb.wallN[i] = 0;
+    });
+    const sides = r.shuffle([0, 1, 2, 3]);
+    for (let k = 0; k < 3; k++) {
+      const n = S - 4 * k, x0 = x + 2 * k, z0 = z + 2 * k;
+      if (n < 3) break;
+      zb.roomWalls(x0, z0, x0 + n, z0 + n, W.WALL, wm, wm);
+      const mid = Math.floor(n / 2), side = sides[k];
+      if (side === 0) zb.setWall(x0 + mid, z0, 'N', W.DOOR, wm, wm);
+      else if (side === 1) zb.setWall(x0 + mid, z0 + n, 'N', W.DOOR, wm, wm);
+      else if (side === 2) zb.setWall(x0, z0 + mid, 'W', W.DOOR, wm, wm);
+      else zb.setWall(x0 + n, z0 + mid, 'W', W.DOOR, wm, wm);
+      ceilingLight(zb, x0 + 0.5 + (k === 2 ? mid : 0), z0 + 0.5 + (k === 2 ? mid : 0), zb.params.lightKind, r.chance(0.8) ? 'on' : 'flicker');
+    }
+    const c = x + S / 2, cz2 = z + S / 2;
+    const u = r.next();
+    if (u < 0.4) zb.prop('chair_folding', c, 0, cz2, r.range(0, 6.28), { dent: true });
+    else if (u < 0.7) zb.prop('phone', c, 0, cz2, r.range(0, 6.28), { useY: 0.1 });
+    else zb.prop('note', c, 0, cz2, r.range(0, 6.28), { text: r.int(0, 999) });
+    return;
+  }
+}
+
+function mirageDoor(zb, r) {
+  const wm = zb.params.wallMat;
+  const L = r.int(9, 14);
+  const gate = new Set(zb.gates.map((g) => g.x + ',' + g.z));
+  for (let attempt = 0; attempt < 16; attempt++) {
+    const [dx, dz] = r.pick([[0, 1], [0, -1], [1, 0], [-1, 0]]);
+    // niche cell and the block behind it (3 wide, L+1 deep, away from dir)
+    const nx = r.int(zb.x0 + L + 3, zb.x1 - L - 4), nz = r.int(zb.z0 + L + 3, zb.z1 - L - 4);
+    if (nx < zb.x0 + 3 || nz < zb.z0 + 3) continue;
+    const px = -dz, pz = dx; // perpendicular
+    const cells = [];
+    for (let k = 0; k <= L + 1; k++) for (let s2 = -1; s2 <= 1; s2++) cells.push([nx - dx * k + px * s2, nz - dz * k + pz * s2]);
+    if (cells.some(([x, z]) => !zb.in(x, z) || gate.has(x + ',' + z) || x < zb.x0 + 2 || z < zb.z0 + 2 || x > zb.x1 - 3 || z > zb.z1 - 3)) continue;
+    // the approach in front of the niche must be open floor
+    const fx = nx + dx, fz = nz + dz;
+    if (!zb.in(fx, fz) || zb.isSolid(fx, fz)) continue;
+    let minx = 1e9, minz = 1e9, maxx = -1e9, maxz = -1e9;
+    for (const [x, z] of cells) { minx = Math.min(minx, x); minz = Math.min(minz, z); maxx = Math.max(maxx, x); maxz = Math.max(maxz, z); }
+    zb.clearEntities(minx, minz, maxx + 1, maxz + 1);
+    for (const [x, z] of cells) {
+      const i = zb.i(x, z);
+      zb.solid[i] = wm; zb.flags[i] |= CF.KEEP | CF.NOPROPS;
+      zb.wallW[i] = 0; zb.wallN[i] = 0;
+      zb.floor[i] = 0; zb.ceil[i] = zb.params.ceilH;
+    }
+    // the niche (open) and the hidden hallway cells (void) behind it
+    const ni = zb.i(nx, nz);
+    zb.solid[ni] = 0; zb.ceil[ni] = Math.min(2.5, zb.params.ceilH);
+    for (let k = 1; k <= L; k++) {
+      const i = zb.i(nx - dx * k, nz - dz * k);
+      zb.solid[i] = 0; zb.flags[i] |= CF.VOID; zb.floor[i] = NaN; zb.ceil[i] = NaN;
+    }
+    // back of the niche: collision always, wall drawn only up close, hallway only from afar
+    const bx = nx + 0.5 - dx * 0.5, bz = nz + 0.5 - dz * 0.5;
+    const rot = facing(dx, dz);
+    zb.box(bx - Math.abs(pz) * 0.5 - (dx ? 0.02 : 0), 0, bz - Math.abs(px) * 0.5 - (dz ? 0.02 : 0), bx + Math.abs(pz) * 0.5 + (dx ? 0.02 : 0), 2.5, bz + Math.abs(px) * 0.5 + (dz ? 0.02 : 0), wm, { render: false });
+    zb.dynamic('mirage_hall', bx, 0, bz, rot, { len: L, wall: matName(wm), floor: matName(zb.params.floorMat) }, { showFar: 6.5 });
+    zb.dynamic('mirage_wall', bx, 0, bz, rot, { wall: matName(wm) }, { showNear: 6.5 });
+    zb.light(nx + 0.5 - dx * (L / 2), 2.2, nz + 0.5 - dz * (L / 2), { rad: 5, int: 0.6 });
+    return;
+  }
+}
+
+function matName(id) {
+  for (const k in M) if (M[k] === id) return k;
+  return 'wp_stripe';
 }
 
 function crashedCar(zb, r) {

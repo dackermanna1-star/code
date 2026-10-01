@@ -808,6 +808,30 @@ P('house_small', {
   boxes: [[-2.8, 0, -2.4, 2.8, 6.2, 2.4]],
 });
 
+// ------------------------------------------------------------------ mirages
+// A lit hallway seen through a doorway; drawn only from a distance (see zb.dynamic showFar).
+// Local: the doorway plane is z = 0, the hallway runs toward +z for opts.len metres.
+P('mirage_hall', {
+  build(mb, p) {
+    const L = p.opts.len || 10, hw = 0.5, h = 2.5;
+    const wall = S(p.opts.wall || 'wp_stripe'), floor = S(p.opts.floor || 'carpet_y'), ceil = S('ceil_tile');
+    mb.grid(-hw, 0, L, 2 * hw, 0, 0, 0, 0, -L, 1, Math.ceil(L / 2), [0, 1, 0], floor, 'world', floor.su, floor.sv);
+    mb.grid(hw, h, L, -2 * hw, 0, 0, 0, 0, -L, 1, Math.ceil(L / 2), [0, -1, 0], ceil, 'world', ceil.su, ceil.sv);
+    mb.grid(-hw, 0, 0, 0, 0, L, 0, h, 0, Math.ceil(L / 2), 2, [1, 0, 0], wall, 'world', wall.su, wall.sv);
+    mb.grid(hw, 0, L, 0, 0, -L, 0, h, 0, Math.ceil(L / 2), 2, [-1, 0, 0], wall, 'world', wall.su, wall.sv);
+    mb.grid(-hw, 0, L, 2 * hw, 0, 0, 0, h, 0, 1, 2, [0, 0, -1], wall, 'world', wall.su, wall.sv);
+    for (let z = 1.5; z < L - 0.5; z += 2.5) {
+      mb.grid(0.3, h - 0.01, z + 0.3, -0.6, 0, 0, 0, 0, -0.6, 1, 1, [0, -1, 0], glow('light_panel', 1.05), FIT);
+    }
+  },
+});
+P('mirage_wall', {
+  build(mb, p) {
+    const wall = S(p.opts.wall || 'wp_stripe');
+    mb.grid(0.5, 0, 0.001, -1, 0, 0, 0, 2.5, 0, 1, 2, [0, 0, -1], wall, 'world', wall.su, wall.sv);
+  },
+});
+
 // ------------------------------------------------------------------ assembly
 const ROT_EPS = 1e-4;
 
