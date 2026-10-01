@@ -551,7 +551,7 @@
         this.hud.draw(ctx);
         ctx.globalAlpha = 1;
       }
-      if (this.training && !this.cine) JJK.Training.draw(ctx, this);
+      if (this.training && !this.cine && !this.clash) JJK.Training.draw(ctx, this);
     }
 
     drawDanger(ctx, k) {

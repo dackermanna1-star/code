@@ -41,6 +41,8 @@
     },
   });
   game.applyCrt();
+  // build the shared arena art up front so the first battle doesn't stall
+  if (JJK.Stage && JJK.Stage.preload) { try { JJK.Stage.preload(); } catch (e) { console.warn(e); } }
   if (JJK.Audio && JJK.Audio.setVolumes) JJK.Audio.setVolumes(S.musicVol, S.sfxVol);
 
   // URL shortcuts for quick testing: ?play=versus|arcade|training|watch&p1=gojo&p2=sukuna&level=hard

@@ -16,6 +16,15 @@
 // (no anti-aliasing, ramp shading, ordered dithering) and blitted with
 // nearest-neighbour sampling. Without a DOM (headless sim) every method stays
 // cheap and only plain data (prop HP, modes, timers) is updated.
+//
+// API (world coords, y up, ground y = 0):
+//   new JJK.Stage(), reset(), update(cam), drawBack(ctx, cam), drawFront(ctx, cam),
+//   getAmbient() -> { mul, rim, rimK }, impact(x, y, power, kind), blast(x, y, r, power),
+//   pull(x, y, r, strength, frames), erase(x0, x1, y, r), worldCut(x0, y0, x1, y1),
+//   slashMark(x0, y0, x1, y1), burn(x, r, frames), crater(x, r),
+//   setMode('normal' | 'void' | 'shrine' | 'clash', opts), setSplit(0..1),
+//   shakeProps(amount), .darken (0..1), .mode, .tr (current transition or null).
+//   JJK.Stage.preload() builds the shared art up front (~1 s, cached).
 (function () {
   'use strict';
   const JJK = (typeof window !== 'undefined' ? window : globalThis).JJK;
@@ -1725,7 +1734,7 @@
     A.flames = [];
     for (let f = 0; f < 8; f++) A.flames.push(spriteFlame(f, 10, 18, 731), spriteFlame(f, 16, 30, 732), spriteFlame(f, 22, 44, 733));
     A.glows = {
-      orange: spriteGlow(32, '#ff7a30', 0.9), fire: spriteGlow(48, '#ff5a1a', 0.7),
+      orange: spriteGlow(32, '#ff7a30', 0.9), fire: spriteGlow(48, '#ff5a1a', 0.7), curse: spriteGlow(12, '#8a3ae0', 1),
       blue: spriteGlow(32, '#4aa8ff', 1), red: spriteGlow(32, '#ff2a1a', 1), white: spriteGlow(24, '#ffffff', 1), sun: spriteGlow(90, '#ff9a40', 0.45),
       lantern: spriteGlow(14, '#ffa040', 0.9), crimson: spriteGlow(90, '#ff2010', 0.5),
     };
@@ -1786,7 +1795,10 @@
       this.fl = 0; this.flCol = [1, 1, 1]; this.rumble = 0;
       this.amb = { mul: [1, 1, 1], rim: [255, 136, 70], rimK: 0.55 };
       this.props = PROP_LAYOUT.map(([kind, X, s, flip]) => ({ kind, X, s, flip, hp: 1, maxHp: 1, state: 0, wob: 0, wobV: 0, char: 0, charDrawn: 0, T: null, cv: null }));
-      for (const p of this.props) p.maxHp = p.hp = { lantern: 70, post: 120, pillar: 150, statue: 140, wall: 100, torii: 160, jizo: 40, stele: 50 }[p.kind];
+      for (const p of this.props) {
+        p.maxHp = p.hp = { lantern: 70, post: 120, pillar: 150, statue: 140, wall: 100, torii: 160, jizo: 40, stele: 50 }[p.kind];
+        p.sway = { lantern: 1, post: 0.2, pillar: 0.25, statue: 0.15, wall: 0.12, torii: 0.6, jizo: 0.5, stele: 0.4 }[p.kind]; // how much it rocks
+      }
       if (this.gfx) this._initGfx();
       this.reset();
     }
@@ -1857,6 +1869,25 @@
       for (let i = 0; i < 150; i++) this.vs.push(this._newStreak({}, true));
       this.vm = [];
       for (let i = 0; i < 46; i++) this.vm.push({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - 0.5) * 0.3, vy: -0.1 - Math.random() * 0.3, ph: Math.random() * 7, sz: Math.random() < 0.2 ? 2 : 1 });
+      this._warm();
+    }
+    // Touch every canvas once (texture upload) and build both domain caches so
+    // the first domain expansion does not hitch mid-fight.
+    _warm() {
+      const c = mkCanvas(4, 4), x = c.getContext('2d');
+      const touch = (cv) => { if (cv && cv.width) x.drawImage(cv, 0, 0, 1, 1); };
+      for (const k in this.L) touch(this.L[k].cv);
+      touch(this.F.cv);
+      for (const k in this.cv) {
+        const v = this.cv[k];
+        if (Array.isArray(v)) for (const q of v) Array.isArray(q) ? q.forEach(touch) : touch(q);
+        else if (v && v.width) touch(v);
+        else if (v) for (const g in v) touch(v[g]);
+      }
+      for (const p of this.props) touch(p.cv);
+      this._voidCache();
+      this._shrineCache();
+      x.getImageData(0, 0, 1, 1);
     }
     _mkFade() {
       // dithered black fade (alpha ramp) used to darken the void mirror with distance
@@ -1926,7 +1957,7 @@
       this.cl.split += (this.cl.tsplit - this.cl.split) * 0.35;
       this.rumble *= 0.93; this.fl *= 0.86;
       for (const p of this.props) {
-        if (this.rumble > 0.05 && p.state < 2 && Math.random() < 0.3) p.wobV += (Math.random() - 0.5) * 0.004 * this.rumble;
+        if (this.rumble > 0.05 && p.state < 2 && Math.random() < 0.3) p.wobV += (Math.random() - 0.5) * 0.004 * this.rumble * p.sway;
         p.wobV += -p.wob * 0.07; p.wobV *= 0.9; p.wob += p.wobV;
       }
       for (let i = this.fires.length - 1; i >= 0; i--) {
@@ -1937,7 +1968,7 @@
       for (let i = this.pulls.length - 1; i >= 0; i--) {
         const q = this.pulls[i];
         if (--q.life <= 0) { this.pulls.splice(i, 1); continue; }
-        for (const p of this.props) if (p.state < 2 && Math.abs(p.X - q.x) < q.r * 1.6) p.wobV += Math.sign(q.x - p.X) * 0.0012 * q.str + (Math.random() - 0.5) * 0.002 * q.str;
+        for (const p of this.props) if (p.state < 2 && Math.abs(p.X - q.x) < q.r * 1.6) p.wobV += (Math.sign(q.x - p.X) * 0.0012 * q.str + (Math.random() - 0.5) * 0.002 * q.str) * p.sway;
       }
       if (!this.gfx) return;
       const vis = this._visible();
@@ -2228,7 +2259,7 @@
         const d = Math.abs(p.X - x);
         if (d > radius) continue;
         const f = 1 - d / radius;
-        if (p.state < 2) p.wobV += (p.X > x ? 1 : -1) * 0.02 * power * f;
+        if (p.state < 2) p.wobV += (p.X > x ? 1 : -1) * 0.02 * power * f * p.sway;
         if (dmg > 0) { p.hp -= dmg * f; this._propState(p); }
       }
     }
@@ -2563,8 +2594,13 @@
         const sx = this.px(f.X, f.s), sy = this.py(f.Y + Math.sin(t * 0.021 + f.ph) * 6, f.s);
         if (sx < -20 || sx > W + 20) continue;
         const cv = R[f.si][(f.v + ((t * 0.02 + f.ph) | 0)) & 3];
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.3 + 0.2 * Math.sin(t * 0.05 + f.ph);
+        ctx.drawImage(this.cv.glow.curse, Math.round(sx - 12), Math.round(sy - 8));
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
         ctx.drawImage(cv, Math.round(sx - cv.width / 2), Math.round(sy - cv.height / 2));
-        if ((t + f.ph * 10) % 90 < 45) { ctx.fillStyle = '#7a3ac0'; ctx.fillRect(Math.round(sx), Math.round(sy + cv.height / 2 + 2 + Math.sin(t * 0.1 + f.ph) * 1.5), 1, 1); }
+        if ((t + f.ph * 10) % 90 < 45) { ctx.fillStyle = '#b070ff'; ctx.fillRect(Math.round(sx + Math.sin(t * 0.07 + f.ph) * 4), Math.round(sy + cv.height / 2 + 3 + Math.sin(t * 0.1 + f.ph) * 1.5), 1, 1); }
       }
     }
     _floorFX(ctx) {
@@ -3185,9 +3221,9 @@
       if (kind === 'wall' || power > 0.8) this.rumble = Math.max(this.rumble, power * 0.6);
       if (!this.gfx) return;
       const cols = KIND_COL[kind] || KIND_COL.hit;
-      this._sparks(x, y, Math.round(4 + power * 14), 2 + power * 6, cols);
+      this._sparks(x, y, Math.round(3 + power * 10), 2 + power * 6, cols);
       if (y < 40) {
-        this._dustBurst(x, 0, Math.round(2 + power * 5), 0.5 + power);
+        this._dustBurst(x, 0, Math.round(1 + power * 3), 0.5 + power);
         if (power > 0.4) this._rocksAt(x, 1, 1, Math.round(power * 6), 2 + power * 3);
       }
       if (kind === 'wall') {
@@ -3621,7 +3657,7 @@
     shakeProps(amount = 0.5) {
       amount = U.clamp(num(amount, 0.5), 0, 2);
       this.rumble = Math.max(this.rumble, amount);
-      for (const p of this.props) if (p.state < 2) p.wobV += (Math.random() - 0.5) * 0.03 * amount;
+      for (const p of this.props) if (p.state < 2) p.wobV += (Math.random() - 0.5) * 0.03 * amount * p.sway;
       if (!this.gfx) return;
       const c = this.c, hw = this._viewHalf(SB);
       for (let i = 0; i < 6 * amount; i++) {
@@ -3668,5 +3704,6 @@
   const SKULLS = [[-250, 0.62, 2], [-150, 0.75, 0], [210, 0.68, 3], [330, 0.85, 1], [-420, 0.95, 4], [470, 0.98, 2], [120, 1.12, 0], [-330, 1.2, 1], [60, 0.58, 1]];
 
   JJK.Stage = Stage;
-  JJK.Stage.art = getArt; // exposed for tools (prerender timing)
+  JJK.Stage.preload = getArt; // build the shared art early (e.g. on the title screen)
+  JJK.Stage.art = getArt;
 })();
