@@ -209,3 +209,33 @@ A 16 m chunk should build in < 25 ms in Node (`tools/zones.mjs` prints zone gene
 chunk build time shows in `shots.mjs` output as `avgChunkMs`). Keep zone generation < 20 ms
 for a 64x64 zone, keep visible triangles per chunk modest (< 6k), and avoid thousands of props
 in one chunk.
+
+## Portals and pocket dimensions
+
+`src/world/portals.js` places **vestibules** on a global lattice in the main building: short
+S-shaped corridors (3 cells wide, `2*Lg+1` deep, entry door on the south side at local x=0,
+exit door on the north side at local x=2). From the middle of the centre row neither doorway
+is visible, so when the player crosses the trigger there the game swaps them into an identical
+copy elsewhere with no visible cut. Vestibule materials (`vest_wall/floor/ceil`) use 1 m texture
+repeats, cells are flagged `CF.NOLIGHTBLEED` (only the vestibule's own `local` light reaches
+them), so every copy renders identically. Kinds: `loop` (rotated copy of itself — you come out
+where you went in), `pair` (two vestibules far apart), `pocket` (into a pocket dimension) and
+`return` (inside a pocket: back to where the player came from).
+
+Pocket dimensions are registered in `src/world/pockets.js`:
+
+```js
+definePocket(ID, { name, zoneType, entry: { level: 0, ox, oz }, sign: 'texName', low: false });
+defineZone(zoneType, { dims: [ID], border: 'open', weight: () => 0, allowStairs: false, allowPortals: false, params, gen });
+```
+
+* The default partition tiles the pocket with 64 m zones (aligned to multiples of 64) of
+  `zoneType`; supply `partition(level, sbx, sbz)` to do something else.
+* The zone generator must stamp the arrival/return vestibule exactly at `entry`:
+  `if (zb.in(entry.ox, entry.oz)) stampVestibule(zb, { kind: 'return', dim: ID, level: entry.level, ox: entry.ox, oz: entry.oz, Lg: 3, low })`.
+  Its footprint (`ox-1..ox+4`, `oz-1..oz+8`) must lie inside one zone. Both of its doors must
+  open into the pocket (the player leaves through whichever end they were walking toward).
+* Pocket spaces can be enormous or endless; generation must be coordinate-based so every zone
+  computes its own part. Geometry may extend below/above a level's 6 m band with brushes
+  (`zb.box`) – mark cells `CF.VOID` where the band has nothing. See `src/world/pocket/lecture.js`.
+* `sign` is shown above the vestibule doors in the main building (a 64x64 texture name).

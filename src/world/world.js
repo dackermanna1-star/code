@@ -6,7 +6,7 @@ import { CHUNK, LEVEL_H } from '../config.js';
 import { aabbVisible } from '../core/math.js';
 import { POCKETS } from './pockets.js';
 
-const MAX_BUILDERS = 180;
+const MAX_BUILDERS = 140;
 
 export class World {
   constructor(seed, tex, gpu) {
