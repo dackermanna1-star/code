@@ -12,7 +12,7 @@ Open `index.html` in a desktop browser (Chrome, Edge or Firefox). You don't need
 build step. Double-clicking the file works.
 
 - Keyboard for one or two players. Gamepads are supported too (standard mapping).
-- Press **F3** in game to show the FPS counter.
+- Press **F4** for fullscreen and **F3** to show the FPS counter.
 - Voice lines use your browser's speech synthesis, so they need system voices. Subtitles are always
   shown. You can switch voices off, or change the language to Japanese, under **Options**.
 
@@ -105,6 +105,7 @@ as a CPU. You can record and play back inputs, and reset positions.
 node tools/sim.js 20 hard          # headless CPU-vs-CPU balance & crash test
 node tools/motion-test.js          # deterministic input / motion recognition tests
 node tools/combo-test.js           # verifies core combo routes connect
+node tools/domain-test.js          # domain activation / burnout / interruption / clash
 node tools/reach.js                # move reach & frame data table
 node tools/scenario.js purple out  # browser screenshots of a scripted scenario (Playwright)
 ```

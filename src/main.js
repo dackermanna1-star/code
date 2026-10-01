@@ -68,6 +68,12 @@
     let steps = 0;
     while (acc >= STEP && steps < 4) {
       if (JJK.keyPressed('F3')) game.showFps = !game.showFps;
+      if (JJK.keyPressed('F4')) {
+        try {
+          if (document.fullscreenElement) document.exitFullscreen();
+          else document.documentElement.requestFullscreen();
+        } catch (e) {}
+      }
       game.scene.tick(game);
       JJK.endInputFrame();
       acc -= STEP;

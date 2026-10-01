@@ -600,6 +600,7 @@
         ['PARRY (M+H)', 'Y', 'NUM .', 'LT'],
         ['DASH', 'SPACE / →→', 'R-SHIFT / →→', 'L3 / →→'],
         ['PAUSE', 'ESC / ENTER', 'NUM ENTER', 'START'],
+        ['FULLSCREEN', 'F4', 'F4', ''],
       ];
       let y = 46;
       for (const r of rows) {
