@@ -4,6 +4,7 @@ import { ZoneBuilder, W, CF, W_BLOCKS } from './zonebuilder.js';
 import { ZT } from './zonetypes.js';
 import { LEVEL_H } from '../config.js';
 import { applyVerticalFeatures } from './vertical.js';
+export { applyVerticalFeatures };
 
 export function generateZone(world, zone) {
   const zb = new ZoneBuilder(zone);
@@ -17,13 +18,28 @@ export function generateZone(world, zone) {
   zb.gates = gateCells(zb, segs);
   if (zone.type !== 'claimed') {
     const def = ZT[zone.type];
-    def.gen(zb, world);
+    try {
+      def.gen(zb, world);
+    } catch (e) {
+      // a broken generator must not take the world down: fall back to an empty room
+      console.error('[gen] zone generator failed:', zone.type, zone.key, e);
+      return fallbackZone(world, zone, segs);
+    }
   }
   applyBorders(zb, segs);
   if (zone.type !== 'claimed') {
-    applyVerticalFeatures(world, zb);
+    try { applyVerticalFeatures(world, zb); } catch (e) { console.error('[gen] vertical features failed', zone.key, e); }
     if (!zb.noConnectivity) ensureConnectivity(zb);
   }
+  return zb;
+}
+
+function fallbackZone(world, zone, segs) {
+  const zb = new ZoneBuilder(zone);
+  zb.world = world;
+  zb.segs = segs;
+  zb.gates = gateCells(zb, segs);
+  applyBorders(zb, segs);
   return zb;
 }
 
