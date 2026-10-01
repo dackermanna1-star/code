@@ -172,12 +172,6 @@
         }
       }
     }
-    blit(s, dx, dy, flip) {
-      for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
-        const c = s.d[y * s.w + (flip ? s.w - 1 - x : x)];
-        if (c >>> 24) this.put(dx + x, dy + y, c);
-      }
-    }
     clone() {
       const p = new Pix(this.w, this.h, this.wrap);
       p.d.set(this.d);
@@ -1728,11 +1722,10 @@
     A.smoke = [8, 12, 18, 26].map((r, i) => spritePuff(r, ramp(['#0e0709', '#170c0f', '#211216', '#2c181b', '#3a2022', '#4a2a28']), 701 + i));
     A.dust = [5, 8, 12, 18].map((r, i) => spritePuff(r, ramp(['#1a110f', '#2a1c17', '#3c2a20', '#52392a', '#6a4a34', '#845e42']), 711 + i));
     A.plume = [6, 9, 13, 18].map((r, i) => spritePuff(r, ramp(['#12070a', '#1a0b0e', '#231013', '#2e1517', '#3b1b1b', '#4c231f', '#622d24']), 741 + i));
-    A.ash = [6, 10, 16].map((r, i) => spritePuff(r, ramp(['#06030a', '#0e0814', '#180e20', '#24142e', '#30183c']), 721 + i));
     A.flames = [];
     for (let f = 0; f < 8; f++) A.flames.push(spriteFlame(f, 10, 18, 731), spriteFlame(f, 16, 30, 732), spriteFlame(f, 22, 44, 733));
     A.glows = {
-      orange: spriteGlow(32, '#ff7a30', 0.9), fire: spriteGlow(48, '#ff5a1a', 0.7), purple: spriteGlow(32, '#b04cff', 1),
+      orange: spriteGlow(32, '#ff7a30', 0.9), fire: spriteGlow(48, '#ff5a1a', 0.7),
       blue: spriteGlow(32, '#4aa8ff', 1), red: spriteGlow(32, '#ff2a1a', 1), white: spriteGlow(24, '#ffffff', 1), sun: spriteGlow(90, '#ff9a40', 0.45),
       lantern: spriteGlow(14, '#ffa040', 0.9), crimson: spriteGlow(90, '#ff2010', 0.5),
     };
@@ -1762,6 +1755,7 @@
     void: { mul: [0.88, 0.95, 1.12], rim: [170, 215, 255], rimK: 0.72 },
     shrine: { mul: [0.9, 0.62, 0.6], rim: [255, 44, 34], rimK: 0.78 },
   };
+  const FIRE_MUL = [0.14, 0.05, -0.03], FIRE_RIM = [255, 176, 90];
   const KIND_DMG = { hit: 0.22, blue: 0.7, red: 1.1, purple: 1.6, fire: 0.5, slash: 0.9, wall: 1.3 };
   const KIND_COL = {
     hit: ['#fffbe8', '#ffd27a', '#ff9a40'], blue: ['#f0fbff', '#7ad0ff', '#2a7aff'], red: ['#fff0e0', '#ff7a5a', '#ff2a1a'],
@@ -1840,7 +1834,7 @@
       // canvases for sprites
       const cv = (this.cv = {});
       cv.rocks = A.rocks.map((row) => row.map(toCanvas));
-      cv.smoke = A.smoke.map(toCanvas); cv.dust = A.dust.map(toCanvas); cv.plume = A.plume.map(toCanvas); cv.ash = A.ash.map(toCanvas);
+      cv.smoke = A.smoke.map(toCanvas); cv.dust = A.dust.map(toCanvas); cv.plume = A.plume.map(toCanvas);
       cv.flames = A.flames.map(toCanvas);
       cv.glow = {};
       for (const k in A.glows) cv.glow[k] = toCanvas(A.glows[k]);
@@ -1858,8 +1852,6 @@
       }
       // offscreen buffers for shatter snapshots and the shrine reflection source
       this.snap = mkCanvas(W, H); this.snapCtx = this.snap.getContext('2d');
-      this.up = mkCanvas(W, H); this.upCtx = this.up.getContext('2d');
-      this.tmp = mkCanvas(64, 64); this.tmpCtx = this.tmp.getContext('2d');
       // void streaks / motes
       this.vs = [];
       for (let i = 0; i < 150; i++) this.vs.push(this._newStreak({}, true));
@@ -1889,6 +1881,7 @@
       this.parts.length = 0; this.pool.length = 0; this.cnt.fill(0);
       this.rubble.length = 0; this.chunks.length = 0; this.fires.length = 0; this.pulls.length = 0;
       this.holes.length = 0; this.seams.length = 0; this.rings.length = 0; this.slashes.length = 0; this.gashes.length = 0; this.cuts.length = 0;
+      if (this.scorch) this.scorch.length = 0;
       this.mode = 'normal'; this.tr = null; this.darken = 0; this.fl = 0; this.rumble = 0;
       this.cl.split = this.cl.tsplit = 0.5;
       for (const p of this.props) { p.hp = p.maxHp; p.state = 0; p.wob = p.wobV = 0; p.char = p.charDrawn = 0; p.cut = false; }
@@ -1907,11 +1900,11 @@
     _cam(cam) {
       const c = this.c;
       if (cam) {
-        c.x = cam.x || 0;
-        c.y = cam.y != null ? cam.y : 142;
-        c.ez = U.clamp(cam.ez || cam.zoom || 1, 0.2, 10);
-        c.shx = U.clamp(cam.shakeX || 0, -36, 36);
-        c.shy = U.clamp(cam.shakeY || 0, -26, 26);
+        c.x = U.clamp(num(cam.x), -1e5, 1e5);
+        c.y = U.clamp(num(cam.y, JJK.CAM_BASE_Y || 142), -1e4, 1e4);
+        c.ez = U.clamp(num(cam.ez, 0) || num(cam.zoom, 1) || 1, 0.2, 10);
+        c.shx = U.clamp(num(cam.shakeX), -36, 36);
+        c.shy = U.clamp(num(cam.shakeY), -26, 26);
       }
       c.hgt = c.y + OFF / c.ez;
       return c;
@@ -1965,14 +1958,15 @@
       for (const p of this.props) if (p.char - p.charDrawn > 0.08) this._propRefresh(p);
     }
     _visible() {
-      const v = { n: false, v: false, s: false, c: false };
-      const add = (m) => {
-        if (m === 'normal') v.n = true; else if (m === 'void') v.v = true; else if (m === 'shrine') v.s = true;
-        else if (m === 'clash') { v.c = true; add(this.cl.left); add(this.cl.right); }
-      };
-      add(this.mode);
-      if (this.tr) { add(this.tr.from); add(this.tr.to); }
+      const v = this._vis || (this._vis = { n: false, v: false, s: false, c: false });
+      v.n = v.v = v.s = v.c = false;
+      this._visAdd(v, this.mode);
+      if (this.tr) { this._visAdd(v, this.tr.from); this._visAdd(v, this.tr.to); }
       return v;
+    }
+    _visAdd(v, m) {
+      if (m === 'normal') v.n = true; else if (m === 'void') v.v = true; else if (m === 'shrine') v.s = true;
+      else if (m === 'clash') { v.c = true; this._visAdd(v, this.cl.left); this._visAdd(v, this.cl.right); }
     }
     _toWorld(sx, sy) {
       const c = this.c;
@@ -1981,7 +1975,8 @@
 
     // --------------------------------------------------------- particles
     _spawn(k, x, y, s, vx, vy, life, sz, w) {
-      if (this.parts.length >= MAXP) return null;
+      const n = this.parts.length;
+      if (n >= MAXP || (n > 560 && k !== K_COL && Math.random() < (n - 560) / (MAXP - 560))) return null;
       const p = this.pool.pop() || {};
       p.k = k; p.x = x; p.y = y; p.s = s; p.vx = vx; p.vy = vy; p.vs = 0; p.life = p.max = Math.max(1, life | 0);
       p.sz = sz == null ? 1 : sz; p.w = w || 0; p.rot = 0; p.vr = 0; p.ph = Math.random() * 6.28; p.v = (Math.random() * 4) | 0; p.cs = null; p.a = 1;
@@ -2207,7 +2202,7 @@
       if (st === 2 && was < 2) this._breakProp(p);
     }
     _breakProp(p, dir) {
-      const T = p.T, e = 1;
+      const T = p.T;
       const k = p.flip ? 1 : 0;
       if (!T.topCv) T.topCv = [];
       if (!T.topCv[k]) {
@@ -2263,6 +2258,7 @@
     _floorArea(X, Z, rx, rz, fn) {
       const G = this.art.floor, F = this.F, TW = G.TW;
       const rowOf = (z) => Math.floor(HY + EYE * (ZF / z) - ROW0);
+      rx = Math.min(rx, PER * 0.55); // the floor wraps; never loop past one period
       const r0 = Math.max(0, rowOf(Math.min(ZB - 0.5, Z + rz))), r1 = Math.min(G.NR - 1, rowOf(Math.max(G.zLo + 1, Z - rz)));
       let x0 = TW, x1 = -1;
       for (let r = r0; r <= r1; r++) {
@@ -2330,11 +2326,6 @@
       if (!(x1 >= x0 && y1 >= y0)) return;
       const d = L.dirty;
       L.dirty = d && d !== 'clean' && d !== 'used' ? [Math.min(d[0], x0), Math.min(d[1], y0), Math.max(d[2], x1), Math.max(d[3], y1)] : [x0, y0, x1, y1];
-    }
-    // layer canvas coordinate of a screen point, using the layer's last blit
-    // (the tile copy nearest the screen center for tiled layers)
-    _layerXY(L, sx, sy) {
-      return [(sx - L.dx) / L.e, (sy - L.dy) / L.e];
     }
     _layerPrep(L) {
       // compute the layer transform for the current camera (same as _blit)
@@ -2612,7 +2603,7 @@
         const a = r.life / (r.max || (r.max = r.life + 1));
         ctx.beginPath();
         ctx.ellipse(sx, sy, Math.max(0.5, r.r * k), Math.max(0.5, r.r * k * 0.17), 0, 0, Math.PI * 2);
-        ctx.strokeStyle = w === WV ? '#9ad0ff' : w === WS ? '#ff4a3a' : '#ffe0b0';
+        ctx.strokeStyle = r.col || (w === WV ? '#9ad0ff' : w === WS ? '#ff4a3a' : '#ffe0b0');
         ctx.globalAlpha = a * (w === WA ? 0.8 : 0.45);
         ctx.lineWidth = w === WA ? 2 : 1;
         ctx.stroke();
@@ -2650,7 +2641,7 @@
       for (const r of this.rubble) {
         if ((r.s > 1) !== front) continue;
         const sx = this.px(r.x, r.s), sy = this.py(0, r.s);
-        if (sx < -12 || sx > W + 12) continue;
+        if (sx < -12 || sx > W + 12 || sy > H + 12) continue;
         const cv = R[r.si][r.v];
         ctx.drawImage(cv, Math.round(sx - cv.width / 2), Math.round(sy - cv.height + 2));
       }
@@ -2676,10 +2667,11 @@
         const p = P[i];
         if (p.w !== wd) continue;
         if (pass === -1 ? p.k !== K_COL : p.k === K_COL || (p.s < SB ? 0 : p.s <= 1 ? 1 : 2) !== pass) continue;
-        const k = this.kS(p.s);
+        let k = this.kS(p.s);
+        if (p.s > 1 && k > c.ez * 1.5) k = c.ez * 1.5; // near the lens: keep motes sane at high zoom
         const sx = W / 2 + c.shx + (p.x - c.x) * k, sy = HY + c.shy + (c.hgt - p.y) * k;
         if (sx < -70 || sx > W + 70 || sy < -70 || sy > H + 70) continue;
-        const e = k / p.s, life = p.life / p.max;
+        const e = Math.min(k / p.s, Math.max(1, c.ez)), life = p.life / p.max;
         switch (p.k) {
           case K_EMBER: {
             if (((p.ph * 13 + t) | 0) % 13 === 0) break;
@@ -2787,18 +2779,21 @@
     // is composed into a cached canvas every other frame, without shake.
     _voidCache() {
       const t = this.t, c = this.c, cv = this.cv;
-      if (!this.vsky) { this.vsky = mkCanvas(W + 80, H + 60); this.vskyCtx = this.vsky.getContext('2d'); this.vskyT = -99; }
+      if (!this.vsky) {
+        this.vsky = mkCanvas(W + 80, H + 60); this.vskyCtx = this.vsky.getContext('2d');
+        this.vskyA = mkCanvas(W + 80, H + 60); this.vskyACtx = this.vskyA.getContext('2d'); this.vskyT = -99;
+      }
       const [gx, gy] = this._voidCenter(true);
-      if (t - this.vskyT < 2 && t >= this.vskyT && Math.abs(gx - this.vskyX) < 1 && Math.abs(gy - this.vskyY) < 1) return;
+      if (t - this.vskyT < (this.mode === 'clash' ? 5 : 3) && t >= this.vskyT && Math.abs(gx - this.vskyX) < 1 && Math.abs(gy - this.vskyY) < 1) return;
       this.vskyT = t; this.vskyX = gx; this.vskyY = gy;
-      const v = this.vskyCtx, L = this.L, sx = c.shx, sy = c.shy;
+      const v = this.vskyACtx, L = this.L, sx = c.shx, sy = c.shy;
       c.shx = c.shy = 0;
       v.save();
       v.imageSmoothingEnabled = false;
       v.translate(40, 30);
-      this._blit(v, L.vbase);
-      this._blit(v, L.vstar1, t * 0.04);
-      this._blit(v, L.vstar2, t * 0.11);
+      this._blit(v, L.vbase, 0, H + 30);
+      this._blit(v, L.vstar1, t * 0.04, H + 30);
+      this._blit(v, L.vstar2, t * 0.11, H + 30);
       v.globalCompositeOperation = 'lighter';
       v.imageSmoothingEnabled = true;
       v.save();
@@ -2812,9 +2807,9 @@
         v.lineTo(Math.cos(a + 0.04) * 700, Math.sin(a + 0.04) * 420);
         v.fill();
       }
-      v.save(); v.scale(1.55, 0.5); v.rotate(t * 0.0021); v.globalAlpha = 0.9;
+      v.save(); v.scale(1.55, 0.5); v.rotate(t * 0.0014); v.globalAlpha = 0.9;
       v.drawImage(cv.galaxy, -220, -220); v.restore();
-      v.save(); v.scale(1.0, 0.34); v.rotate(-t * 0.0012 + 1.3); v.globalAlpha = 0.35;
+      v.save(); v.scale(1.0, 0.34); v.rotate(-t * 0.0008 + 1.3); v.globalAlpha = 0.35;
       v.drawImage(cv.galaxy, -220, -220); v.restore();
       v.globalAlpha = 0.5 + 0.15 * Math.sin(t * 0.05);
       v.drawImage(cv.glow.blue, -120, -60, 240, 120);
@@ -2830,6 +2825,24 @@
       v.globalAlpha = 0.55 + 0.2 * Math.sin(t * 0.09);
       v.drawImage(cv.glow.white, gx - 110, gy - 8, 220, 16);
       v.restore();
+      // compose with the black mirror floor reflecting the sky
+      const f = this.vskyCtx, hy = HY + 30;
+      f.save();
+      f.imageSmoothingEnabled = false;
+      f.globalCompositeOperation = 'copy';
+      f.drawImage(this.vskyA, 0, 0);
+      f.globalCompositeOperation = 'source-over';
+      f.drawImage(cv.voidFloor, 40, hy);
+      f.fillStyle = '#010103'; f.fillRect(0, hy + 240, W + 80, 60);
+      f.beginPath(); f.rect(0, hy, W + 80, H + 60 - hy); f.clip();
+      f.translate(0, hy); f.scale(1, -0.55); f.translate(0, -hy);
+      f.globalAlpha = 0.5;
+      f.imageSmoothingEnabled = true;
+      f.drawImage(this.vskyA, 0, 0);
+      f.restore();
+      f.drawImage(cv.floorFade, 40, hy);
+      f.drawImage(cv.floorFade, 0, hy, 40, 220);
+      f.drawImage(cv.floorFade, W + 40, hy, 40, 220);
       c.shx = sx; c.shy = sy;
     }
     _drawVoid(ctx) {
@@ -2837,7 +2850,10 @@
       this._voidCache();
       ctx.drawImage(this.vsky, Math.round(c.shx - 40), Math.round(c.shy - 30));
       const [gx, gy] = this._voidCenter();
+      const hy = Math.round(HY + c.shy);
+      ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, hy); ctx.clip();
       this._voidStreaks(ctx, gx, gy, 1, 0);
+      ctx.restore();
       this._voidFloor(ctx, gx, gy);
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -2871,24 +2887,15 @@
       }
       ctx.restore();
     }
+    // dynamic parts of the mirror floor (the floor itself is in the cache)
     _voidFloor(ctx, gx, gy) {
-      const c = this.c, t = this.t, hy = Math.round(HY + c.shy);
+      const c = this.c, hy = Math.round(HY + c.shy);
       if (hy >= H) return;
-      ctx.drawImage(this.cv.voidFloor, 0, hy);
-      if (hy + 240 < H) { ctx.fillStyle = '#010103'; ctx.fillRect(0, hy + 240, W, H); }
-      ctx.save();
-      ctx.beginPath(); ctx.rect(0, hy, W, H - hy); ctx.clip();
-      ctx.translate(0, hy); ctx.scale(1, -0.55); ctx.translate(0, -hy);
-      ctx.globalAlpha = 0.5;
-      ctx.imageSmoothingEnabled = true;
-      ctx.drawImage(this.vsky, c.shx - 40, c.shy - 30);
-      ctx.restore();
       ctx.save();
       ctx.beginPath(); ctx.rect(0, hy, W, H - hy); ctx.clip();
       ctx.translate(0, hy); ctx.scale(1, -0.55); ctx.translate(0, -hy);
       this._voidStreaks(ctx, gx, gy, 0.45, 60);
       ctx.restore();
-      ctx.drawImage(this.cv.floorFade, 0, hy);
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       // faint perspective lines converging on the singularity's reflection
@@ -2917,46 +2924,72 @@
     }
 
     // ----------------------------------------------------------- shrine
-    _drawShrine(ctx) {
-      const L = this.L, c = this.c, t = this.t, cv = this.cv, u = this.upCtx, Sh = this.art.shrine;
+    _shrineCache() {
+      const c = this.c, t = this.t, L = this.L, cv = this.cv, Sh = this.art.shrine;
+      if (!this.scv) {
+        this.scv = mkCanvas(W + 80, H + 60); this.sctx = this.scv.getContext('2d');
+        this.scvA = mkCanvas(W + 80, H + 60); this.sctxA = this.scvA.getContext('2d'); this.scvT = -99;
+      }
+      const key = Math.round(c.x * 4) + ',' + Math.round(c.y * 4) + ',' + Math.round(c.ez * 500) + ',' + this.shrineX;
+      if (key === this.scvK && t - this.scvT < (this.mode === 'clash' ? 3 : 2) && t >= this.scvT) return;
+      this.scvK = key; this.scvT = t;
+      const shx = c.shx, shy = c.shy;
+      c.shx = c.shy = 0;
+      const u = this.sctxA, s = SHRINE_S, k = this.kS(s), e = k / s;
+      const sx = this.px(this.shrineX, s) + 40, yb = this.py(0, s) + 30;
+      u.save();
       u.imageSmoothingEnabled = false;
-      this._blit(u, L.ssky);
-      this._blit(u, L.smount);
-      const s = SHRINE_S, k = this.kS(s), e = k / s;
-      const sx = this.px(this.shrineX, s), yb = this.py(0, s);
+      u.translate(40, 30);
+      this._blit(u, L.ssky, 0, H + 30);
+      this._blit(u, L.smount, 0, H + 30);
+      u.restore();
       u.save();
       u.globalCompositeOperation = 'lighter';
       u.globalAlpha = 0.55 + 0.1 * Math.sin(t * 0.05);
       u.drawImage(cv.glow.crimson, sx - 200 * e, yb - 270 * e, 400 * e, 330 * e);
       u.restore();
-      ctx.drawImage(this.up, 0, 0);
+      const p = this.sctx, HH = H + 60;
+      p.save();
+      p.imageSmoothingEnabled = false;
+      p.globalCompositeOperation = 'copy';
+      p.drawImage(this.scvA, 0, 0);
+      p.globalCompositeOperation = 'source-over';
       // blood pool: mirror of the far world plus the shrine's own reflection
-      const ym = Math.max(0, Math.ceil(this.py(0, 0.12)));
-      if (ym < H) {
-        ctx.fillStyle = '#0a0102';
-        ctx.fillRect(0, ym, W, H - ym);
-        ctx.globalAlpha = 0.55;
-        for (let y = ym; y < H; y += 2) {
+      const ym = Math.max(0, Math.ceil(this.py(0, 0.12) + 30));
+      if (ym < HH) {
+        p.fillStyle = '#0a0102';
+        p.fillRect(0, ym, W + 80, HH - ym);
+        p.globalAlpha = 0.55;
+        for (let y = ym; y < HH; y += 2) {
           const src = 2 * ym - y - 2;
           if (src < 0) break;
           const amp = 0.6 + (y - ym) * 0.025;
-          ctx.drawImage(this.up, 0, src, W, 2, Math.round(Math.sin(y * 0.31 + t * 0.07) * amp), y, W, 2);
+          p.drawImage(this.scvA, 0, src, W + 80, 2, Math.round(Math.sin(y * 0.31 + t * 0.07) * amp), y, W + 80, 2);
         }
         const dw = Sh.w * e, dxs = sx - Sh.ax * e;
-        ctx.globalAlpha = 0.6;
-        for (let y = Math.max(ym, Math.ceil(yb)); y < H; y += 2) {
+        p.globalAlpha = 0.6;
+        for (let y = Math.max(ym, Math.ceil(yb)); y < HH; y += 2) {
           const sr = Sh.h - (y - yb) / e - 2;
           if (sr < 0) break;
           const amp = 0.8 + (y - yb) * 0.03;
-          ctx.drawImage(cv.shrine, 0, sr, Sh.w, 2 / e, Math.round(dxs + Math.sin(y * 0.29 + t * 0.08) * amp), y, dw, 2);
+          p.drawImage(cv.shrine, 0, sr, Sh.w, 2 / e, Math.round(dxs + Math.sin(y * 0.29 + t * 0.08) * amp), y, dw, 2);
         }
-        ctx.globalAlpha = 1;
-        ctx.fillStyle = 'rgba(60,0,6,0.38)';
-        ctx.fillRect(0, ym, W, H - ym);
-        // mist line hiding the far mirror seam
-        ctx.fillStyle = 'rgba(90,8,10,0.5)';
-        ctx.fillRect(0, ym - 1, W, 3);
+        p.globalAlpha = 1;
+        p.fillStyle = 'rgba(60,0,6,0.38)';
+        p.fillRect(0, ym, W + 80, HH - ym);
+        p.fillStyle = 'rgba(90,8,10,0.5)';
+        p.fillRect(0, ym - 1, W + 80, 3);
       }
+      p.restore();
+      c.shx = shx; c.shy = shy;
+    }
+    _drawShrine(ctx) {
+      const c = this.c, t = this.t, cv = this.cv, Sh = this.art.shrine;
+      this._shrineCache();
+      ctx.drawImage(this.scv, Math.round(c.shx - 40), Math.round(c.shy - 30));
+      const s = SHRINE_S, k = this.kS(s), e = k / s;
+      const sx = this.px(this.shrineX, s), yb = this.py(0, s);
+      const ym = Math.max(0, Math.ceil(this.py(0, 0.12)));
       // the shrine
       let dxs = sx - Sh.ax * e, dys = yb - Sh.h * e;
       if (Math.abs(e - 1) < 0.002) { dxs = Math.round(dxs); dys = Math.round(dys); }
@@ -3225,6 +3258,8 @@
         }
       }
       if (!this.gfx) return;
+      x0 = Math.max(x0, this.c.x - 1500); x1 = Math.min(x1, this.c.x + 1500);
+      if (x1 < x0) return;
       const sy = this.py(y, 1), sr = radius * this.kS(1), sxa = this.px(x0, 1), sxb = this.px(x1, 1);
       // nearer layers get the full tunnel; farther ones a narrower bore, so the
       // hole reads as a tunnel receding into the distance
@@ -3494,25 +3529,31 @@
       const isSky = L === this.L.sky;
       const sh = SPLIT_SH[L.s] || 4;
       const ox = Math.round(dx * sh + nx * 2), oy = Math.round(dy * sh + ny * 2);
-      const uc = (W / 2 - L.dx) / e;
+      const dsd = ox * nx + oy * ny; // signed-distance shift of the sample point
       const seam = hx('#0a0204'), ember = hx('#8a2414');
+      // canvas x <-> unwrapped layer coordinate u (tile copy nearest the screen center)
+      const u0 = L.tile ? Math.ceil((W / 2 - L.dx) / e - w / 2) : 0;
+      let yMax = -1;
       for (let y = 0; y < h; y++) {
-        const yy = y + 0.5 - py0;
-        for (let x = 0; x < w; x++) {
-          const u = L.tile ? x + w * Math.round((uc - x) / w) : x;
-          const sd = (u + 0.5 - px0) * nx + yy * ny;
-          if (sd < -2.6) continue;
-          const k = y * w + x;
+        const B = (0.5 - px0) * nx + (y + 0.5 - py0) * ny; // sd = u * nx + B
+        let ua = u0, ub = u0 + w - 1;
+        if (nx > 1e-6) ua = Math.max(ua, Math.ceil((-2.6 - B) / nx));
+        else if (nx < -1e-6) ub = Math.min(ub, Math.floor((-2.6 - B) / nx));
+        else if (B < -2.6) continue;
+        if (ub < ua) continue;
+        yMax = y;
+        const sy = U.clamp(y - oy, 0, h - 1), so = sy * w, ro = y * w;
+        let sd = ua * nx + B;
+        for (let u = ua; u <= ub; u++, sd += nx) {
+          const x = L.tile ? ((u % w) + w) % w : u, k = ro + x;
           if (sd < -1) { if (d[k] >>> 24) d[k] = mixp(d[k], ember, sd < -1.8 ? 0.3 : 0.6); continue; }
-          if (sd < 1.2) { d[k] = isSky || src[k] >>> 24 ? seam : 0; continue; }
-          const syy = y - oy < 0 ? 0 : y - oy >= h ? h - 1 : y - oy;
+          if (sd < 1.2 || sd - dsd < 1) { d[k] = isSky || src[k] >>> 24 ? seam : 0; continue; }
           let sx = x - ox;
           sx = L.tile ? ((sx % w) + w) % w : sx < 0 ? 0 : sx >= w ? w - 1 : sx;
-          const ssd = (u - ox + 0.5 - px0) * nx + (syy + 0.5 - py0) * ny;
-          d[k] = ssd >= 1 ? src[syy * w + sx] : isSky || src[k] >>> 24 ? seam : 0;
+          d[k] = src[so + sx];
         }
       }
-      this._markLayer(L, 0, 0, w - 1, h - 1);
+      if (yMax >= 0) this._markLayer(L, 0, 0, w - 1, yMax);
     }
     _cleaveProp(p, ax, ay, dx, dy, nx, ny) {
       if (p.cut && p.state >= 3) return;
@@ -3562,7 +3603,7 @@
       const n = o.frames != null ? U.clamp(num(o.frames, 40) | 0, 0, 600) : mode === 'normal' ? 30 : 40;
       if (n <= 1 || this.mode === mode) { this.mode = mode; return; }
       this.tr = { type: mode === 'normal' ? 'shatter' : 'expand', from: this.mode, to: mode, t: 0, n, ox: this.originX, seed: (Math.random() * 1000) | 0, shards: null };
-      if (this.gfx && mode !== 'normal') this.rings.push({ x: this.originX, r: 4, vr: 14, life: 30, w: WA });
+      if (this.gfx && mode !== 'normal') this.rings.push({ x: this.originX, r: 4, vr: 14, life: 30, w: WA, col: RIM_OF[mode] });
     }
     setSplit(split) { this.cl.tsplit = U.clamp(num(split, 0.5), 0.02, 0.98); }
     shakeProps(amount = 0.5) {
@@ -3578,29 +3619,34 @@
       }
     }
     getAmbient() {
-      const a = this.amb, tr = this.tr;
-      const of = (m) => {
-        if (m === 'clash') {
+      const a = this.amb, tr = this.tr, m = this._ambM || (this._ambM = [0, 0, 0, 0, 0, 0, 0]);
+      const of = (mode, o) => { // write mode ambient into m[o..]: mul(3), rim(3) at o, o+3 and rimK at 6
+        if (mode === 'clash') {
           const l = AMB[this.cl.left] || AMB.normal, r = AMB[this.cl.right] || AMB.normal;
-          return { mul: U.mix(l.mul, r.mul, 0.5), rim: U.mix(l.rim, r.rim, 0.5), rimK: (l.rimK + r.rimK) / 2 };
+          for (let i = 0; i < 3; i++) { m[i] = (l.mul[i] + r.mul[i]) / 2; m[3 + i] = (l.rim[i] + r.rim[i]) / 2; }
+          m[6] = (l.rimK + r.rimK) / 2;
+        } else {
+          const q = AMB[mode] || AMB.normal;
+          for (let i = 0; i < 3; i++) { m[i] = q.mul[i]; m[3 + i] = q.rim[i]; }
+          m[6] = q.rimK;
         }
-        return AMB[m] || AMB.normal;
       };
-      let A = of(this.mode);
+      of(tr ? tr.from : this.mode);
       if (tr) {
-        const f = of(tr.from), g = of(tr.to), k = U.ease.inOut(Math.min(1, tr.t / tr.n));
-        A = { mul: U.mix(f.mul, g.mul, k), rim: U.mix(f.rim, g.rim, k), rimK: U.lerp(f.rimK, g.rimK, k) };
+        const f0 = m.slice(0, 7), k = U.ease.inOut(Math.min(1, tr.t / tr.n));
+        of(tr.to);
+        for (let i = 0; i < 7; i++) m[i] = U.lerp(f0[i], m[i], k);
       }
       let fire = 0;
       for (const f of this.fires) fire += Math.min(1, f.life / 40) * Math.min(1, f.r / 80);
       fire = Math.min(1, fire);
       const dk = 1 - U.clamp(this.darken || 0, 0, 1) * 0.28, fl = this.fl, fc = this.flCol;
       for (let i = 0; i < 3; i++) {
-        let m = A.mul[i] + [0.14, 0.05, -0.03][i] * fire + fl * 0.35 * (fc[i] - 1);
-        a.mul[i] = U.clamp(m * dk, 0.45, 1.4);
-        a.rim[i] = Math.round(U.lerp(A.rim[i], [255, 176, 90][i], fire * 0.45));
+        const mm = m[i] + FIRE_MUL[i] * fire + fl * 0.35 * (fc[i] - 1);
+        a.mul[i] = U.clamp(mm * dk, 0.45, 1.4);
+        a.rim[i] = Math.round(U.lerp(m[3 + i], FIRE_RIM[i], fire * 0.45));
       }
-      a.rimK = U.clamp(A.rimK + fire * 0.15 + fl * 0.2, 0, 1);
+      a.rimK = U.clamp(m[6] + fire * 0.15 + fl * 0.2, 0, 1);
       return a;
     }
   }

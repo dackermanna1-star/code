@@ -329,6 +329,7 @@
     }
     if (JJK.Audio && h.str !== 'l') JJK.Audio.rumble(def.side, h.str === 'x' ? 1 : 0.5, 0.6, h.str === 'x' ? 300 : 120);
     if (blackFlash) C.blackFlash(m, att, def, pt);
+    else if (ch && (h.tier || 1) >= 3 && !proj) m.impact(2, 0xffffffff); // anime impact frame on big counters
     if (ch) m.popText(att, 'COUNTER', '#ff4a3a', true);
     else if (pc) m.popText(att, 'PUNISH', '#ffb03a', true);
     m.onHit(att, def, h, { dmg, ch, pc, pt, proj });

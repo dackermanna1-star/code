@@ -251,6 +251,10 @@
       if (this.done[0] && this.done[1] && !this.go) {
         this.go = this.t;
       }
+      if (this.go && this.t - this.go > 30 && this.o.mode === 'arcade') {
+        g.set(new VsScreen(UI.arcadeStage(Object.assign({}, this.o, { p1: { char: this.chars[this.cur[0]], pal: this.pal[0] } }), 1)));
+        return;
+      }
       if (this.go && this.t - this.go > 30) {
         const p1 = { char: this.chars[this.cur[0]], pal: this.pal[0] };
         const p2 = { char: this.chars[this.cur[1]], pal: this.cur[0] === this.cur[1] && this.pal[0] === this.pal[1] ? 1 - this.pal[0] : this.pal[1] };
@@ -320,6 +324,11 @@
         const s = this.t < 30 ? 1 + (30 - this.t) * 0.1 : 1;
         ctx.drawImage(vs, W / 2 - vs.width * s / 2, 140 - vs.height * s / 2, vs.width * s, vs.height * s);
       }
+      if (o.stage) {
+        const label = o.final ? 'FINAL BATTLE' : 'STAGE ' + o.stage;
+        Font.draw(ctx, label, W / 2, 26, { color: o.final ? '#ff5040' : '#ffd23a', align: 'center', scale: 3, outline: '#000' });
+        Font.draw(ctx, 'CPU ' + (o.level || '').toUpperCase(), W / 2, 56, { color: '#c0a8a0', align: 'center', outline: '#000' });
+      }
       Font.draw(ctx, JJK.Chars[o.p1.char].full, 30, 320, { color: '#ffffff', scale: 2, outline: '#000' });
       Font.draw(ctx, JJK.Chars[o.p2.char].full, W - 30, 320, { color: '#ffffff', scale: 2, align: 'right', outline: '#000' });
       Font.draw(ctx, JJK.Chars[o.p1.char].title, 30, 340, { color: JJK.Chars[o.p1.char].color, outline: '#000' });
@@ -327,6 +336,71 @@
     }
   }
   UI.VsScreen = VsScreen;
+
+  // ------------------------------------------------------------ arcade ladder
+  // Stage 1: the rival. Stage 2: mirror match (one tier harder). Stage 3: FINAL BATTLE vs Boss AI.
+  const TIERS = ['easy', 'normal', 'hard', 'extreme', 'boss'];
+  UI.arcadeStage = function (o, stage) {
+    const me = o.p1.char;
+    const rival = me === 'gojo' ? 'sukuna' : 'gojo';
+    const base = o.baseLevel || o.level || 'normal';
+    const bi = TIERS.indexOf(base);
+    const st = Object.assign({}, o, { stage, baseLevel: base });
+    if (stage === 1) { st.p2 = { char: rival, pal: 0 }; st.level = base; }
+    else if (stage === 2) { st.p2 = { char: me, pal: 1 - (o.p1.pal || 0) }; st.level = TIERS[Math.min(3, bi + 1)]; }
+    else { st.p2 = { char: rival, pal: 0 }; st.level = 'boss'; st.final = true; }
+    return st;
+  };
+
+  class Continue {
+    constructor(o, m) { this.o = o; this.t = 0; this.count = 10; this.char = o.p1.char; this.pal = o.p1.pal; }
+    tick(g) {
+      this.t++;
+      const ev = UI.input.poll();
+      if (this.t % 60 === 0) { this.count--; snd('timer_tick'); }
+      if (this.t > 20 && (ev.ok || ev.start)) { snd('ui_start'); g.set(new VsScreen(this.o)); return; }
+      if (this.t > 20 && ev.back) this.count = Math.min(this.count, 0);
+      if (this.count < 0) { if (JJK.Music) JJK.Music.play('title'); g.set(new MainMenu()); }
+      FX.update();
+    }
+    render(ctx) {
+      UI.drawBackdrop(ctx, this.t + 5000, 0.82);
+      UI.drawFighterBig(ctx, this.char, this.pal, 'lose', 200, 350, 1, 1.5, { slot: 'cont' });
+      const b = Font.banner('CONTINUE?', { scale: 5, top: '#ffffff', mid: '#ff9080', mid2: '#e02010', bot: '#500000' });
+      if (b) ctx.drawImage(b, Math.round(440 - b.width / 2), 70);
+      const c = Font.banner(String(Math.max(0, this.count)), { scale: 10 });
+      if (c) ctx.drawImage(c, Math.round(440 - c.width / 2), 140);
+      Font.draw(ctx, 'PRESS START TO RETRY STAGE ' + this.o.stage, 440, 260, { color: '#ffd23a', align: 'center', outline: '#000' });
+    }
+  }
+  UI.Continue = Continue;
+
+  class Ending {
+    constructor(o, m) { this.o = o; this.t = 0; this.char = o.p1.char; this.pal = o.p1.pal; if (JJK.Music) JJK.Music.play('victory'); }
+    tick(g) {
+      this.t++;
+      const ev = UI.input.poll();
+      if (this.t > 90 && (ev.ok || ev.back)) { snd('ui_select'); if (JJK.Music) JJK.Music.play('title'); g.set(new MainMenu()); }
+      FX.update();
+    }
+    render(ctx) {
+      UI.drawBackdrop(ctx, this.t + 6000, 0.55);
+      const def = JJK.Chars[this.char];
+      UI.drawFighterBig(ctx, this.char, this.pal, null, 180, 360, 1, 1.7, { anim: 'win', t: Math.min(this.t, 90), slot: 'end', eyes: this.char === 'gojo' });
+      const k = Math.min(1, this.t / 40);
+      ctx.globalAlpha = k;
+      const b = Font.banner(this.char === 'gojo' ? 'THE STRONGEST' : 'KING OF CURSES', { scale: 4 });
+      if (b) ctx.drawImage(b, Math.round(Math.min(440, W - 8 - b.width / 2) - b.width / 2), 56);
+      const lines = this.char === 'gojo'
+        ? ['THE KING OF CURSES HAS FALLEN.', 'BUT THE STRONGEST STANDS ALONE.', '', '"THROUGHOUT HEAVEN AND EARTH,', 'I ALONE AM THE HONORED ONE."']
+        : ['THE STRONGEST SORCERER OF THE MODERN ERA', 'LIES CLEAVED IN TWO.', '', '"STAND PROUD, SATORU GOJO.', 'YOU WERE STRONG."'];
+      lines.forEach((l, i) => Font.draw(ctx, l, 440, 120 + i * 13, { color: i >= 3 ? def.color : '#e8d8d0', align: 'center', outline: '#000' }));
+      Font.draw(ctx, 'ARCADE CLEAR  •  CPU ' + (this.o.baseLevel || 'normal').toUpperCase(), 440, 210, { color: '#ffd23a', align: 'center', outline: '#000' });
+      ctx.globalAlpha = 1;
+      if (this.t > 90 && this.t % 60 < 40) Font.draw(ctx, 'PRESS START', 440, 300, { color: '#ffffff', align: 'center', scale: 2, outline: '#000' });
+    }
+  }
+  UI.Ending = Ending;
 
   // ------------------------------------------------------------ battle scene
   class BattleScene {
@@ -366,7 +440,13 @@
       m.tick();
       if (m.phase === 'over' && m.pt > 60) {
         m.destroy();
-        g.set(new Results(this.o, m.result, m));
+        const o = this.o;
+        if (o.mode === 'arcade' && o.stage) {
+          const won = m.result && m.result.winner === m.fighters[0];
+          if (!won) g.set(new Continue(o, m));
+          else if (o.stage >= 3) g.set(new Ending(o, m));
+          else g.set(new VsScreen(UI.arcadeStage(o, o.stage + 1)));
+        } else g.set(new Results(this.o, m.result, m));
       }
     }
     padStart() {

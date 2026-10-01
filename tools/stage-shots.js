@@ -83,6 +83,26 @@ const ONLY = process.argv[3] || '';
       T.act('c'); T.step(60); o.clash = T.jsCost(300);
       return o;
     });
+    res.stress = await ev(() => {
+      T.act('r'); T.set({ x: 0, y: 142, zoom: 1 });
+      const st = T.stage;
+      let worst = 0, tot = 0, upd = 0;
+      for (let i = 0; i < 300; i++) {
+        const x = -500 + i * 3.5, a = performance.now();
+        if (i % 2 === 0) st.erase(x - 10, x + 10, 60 + Math.sin(i * 0.1) * 10, 32);
+        if (i % 6 === 0) st.pull(x * 0.5, 70, 120, 1.2, 30);
+        if (i % 6 === 3) st.burn(-200 + (i % 60) * 2, 70, 90);
+        st.impact(Math.random() * 400 - 200, Math.random() * 120, Math.random(), ['hit', 'blue', 'red', 'purple', 'fire', 'slash', 'wall'][i % 7]);
+        if (i % 50 === 0) st.slashMark(x - 40, 2, x + 60, 40);
+        if (i === 150) { st.worldCut(-1269.7, 96.3, 1500.2, 96.3); st.erase(NaN, Infinity, 'x', -5); st.blast(1e9, NaN, -3, 7); st.worldCut(0, 0, 0, 0); st.impact(undefined, null, NaN, 'nope'); st.setSplit(NaN); st.crater(Infinity, NaN); }
+        const b = performance.now();
+        T.step(1);
+        const d = performance.now() - b;
+        upd += b - a;
+        tot += d; worst = Math.max(worst, d + b - a);
+      }
+      return { avgFrame: tot / 300, avgApiCalls: upd / 300, worstFrame: worst, parts: st.parts.length, holes: st.holes.length, fires: st.fires.length };
+    });
     for (const k in res) console.log('perf', k, JSON.stringify(res[k], (key, v) => (typeof v === 'number' ? +v.toFixed(3) : v)));
   }
   console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no console errors');

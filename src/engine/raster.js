@@ -38,6 +38,7 @@
       this.L = [L[0] / ll, L[1] / ll, L[2] / ll];
       this.rim = { x: 0.8, y: -0.25, c: [255, 120, 60], k: 0.55 };
       this.ambient = [1, 1, 1];
+      this.ambKey = 1001001000;
       this.lights = [];
       this.override = 0;
       this.flash = 0;
@@ -63,6 +64,13 @@
       this.flash = 0;
       this.tint = null;
       this.lights.length = 0;
+      this.ambKey = -1;
+    }
+
+    // Must be called after changing `ambient` (done lazily by shade via ambKey).
+    setAmbient(a) {
+      this.ambient = a;
+      this.ambKey = Math.round(a[0] * 1000) * 1e6 + Math.round(a[1] * 1000) * 1e3 + Math.round(a[2] * 1000);
     }
 
     _grow(x0, y0, x1, y1) {
@@ -76,7 +84,7 @@
     shade(mat, nx, ny, nz, x, y) {
       if (this.override) return this.override;
       const L = this.L;
-      let lum = nx * L[0] + ny * L[1] + nz * L[2];
+      const lum = nx * L[0] + ny * L[1] + nz * L[2];
       const t = this.thr;
       // ordered dither across band edges
       const dz = this.ditherAmt;
@@ -86,36 +94,50 @@
       else if (lum < t[1]) band = lum > t[1] - dz && chk > 0 ? 2 : lum < t[0] + dz && chk < 0 ? 0 : 1;
       else if (lum < t[2]) band = lum > t[2] - dz && chk > 0 ? 3 : lum < t[1] + dz && chk < 0 ? 1 : 2;
       else band = lum < t[2] + dz && chk < 0 ? 2 : 3;
-      const c = mat.tones[band];
-      let r = c[0], g = c[1], b = c[2];
+      // fast path: no rim, no light in range, no tint/flash -> cached packed tone
+      const rim = this.rim;
+      const rd = nx * rim.x + ny * rim.y;
+      const rimHit = !mat.emissive && rim.k > 0 && rd > 0.66 && nz < 0.5;
+      let lightHit = false;
       if (!mat.emissive) {
-        // rim light from the burning sky behind
-        const rim = this.rim;
-        if (rim.k > 0) {
-          const rd = nx * rim.x + ny * rim.y;
-          if (rd > 0.66 && nz < 0.5) {
-            const k = rim.k * (rd > 0.84 && nz < 0.35 ? 0.62 : 0.3);
-            r += (rim.c[0] - r) * k;
-            g += (rim.c[1] - g) * k;
-            b += (rim.c[2] - b) * k;
-          }
-        }
-        // dynamic point lights (posterized)
         const lights = this.lights;
         for (let i = 0; i < lights.length; i++) {
           const li = lights[i];
           const dx = li.x - x, dy = li.y - y;
-          const d2 = dx * dx + dy * dy;
-          if (d2 >= li.r2) continue;
-          const d = Math.sqrt(d2) + 0.001;
-          let ndl = (nx * dx + ny * dy) / d * 0.85 + nz * 0.35;
-          if (ndl <= 0) continue;
-          let k = ndl * (1 - d / li.r) * li.i;
-          k = Math.round(k * 4) / 4; // posterize into steps
-          if (k <= 0) continue;
-          r += li.c[0] * k;
-          g += li.c[1] * k;
-          b += li.c[2] * k;
+          if (dx * dx + dy * dy < li.r2) { lightHit = true; break; }
+        }
+      }
+      if (!rimHit && !lightHit && !this.tint && this.flash <= 0) {
+        if (mat._ak !== this.ambKey) this.cacheMat(mat);
+        return mat._pk[band];
+      }
+      const c = mat.tones[band];
+      let r = c[0], g = c[1], b = c[2];
+      if (!mat.emissive) {
+        if (rimHit) {
+          const k = rim.k * (rd > 0.84 && nz < 0.35 ? 0.62 : 0.3);
+          r += (rim.c[0] - r) * k;
+          g += (rim.c[1] - g) * k;
+          b += (rim.c[2] - b) * k;
+        }
+        if (lightHit) {
+          // dynamic point lights (posterized)
+          const lights = this.lights;
+          for (let i = 0; i < lights.length; i++) {
+            const li = lights[i];
+            const dx = li.x - x, dy = li.y - y;
+            const d2 = dx * dx + dy * dy;
+            if (d2 >= li.r2) continue;
+            const d = Math.sqrt(d2) + 0.001;
+            const ndl = (nx * dx + ny * dy) / d * 0.85 + nz * 0.35;
+            if (ndl <= 0) continue;
+            let k = ndl * (1 - d / li.r) * li.i;
+            k = Math.round(k * 4) / 4;
+            if (k <= 0) continue;
+            r += li.c[0] * k;
+            g += li.c[1] * k;
+            b += li.c[2] * k;
+          }
         }
         const a = this.ambient;
         r *= a[0]; g *= a[1]; b *= a[2];
@@ -130,7 +152,17 @@
         const f = this.flash;
         r += (255 - r) * f; g += (255 - g) * f; b += (255 - b) * f;
       }
-      return U.pack(r, g, b, 255);
+      r = r > 255 ? 255 : r < 0 ? 0 : r | 0;
+      g = g > 255 ? 255 : g < 0 ? 0 : g | 0;
+      b = b > 255 ? 255 : b < 0 ? 0 : b | 0;
+      return ((255 << 24) | (b << 16) | (g << 8) | r) >>> 0;
+    }
+
+    // Pre-pack a material's tones under the current ambient light.
+    cacheMat(mat) {
+      const a = mat.emissive ? [1, 1, 1] : this.ambient;
+      mat._pk = mat.tones.map((c) => U.pack(c[0] * a[0], c[1] * a[1], c[2] * a[2], 255));
+      mat._ak = this.ambKey;
     }
 
     // Tapered limb: axis from (ax,ay) to (bx,by). prof: [[t, wBack, wFront], ...]
@@ -165,10 +197,26 @@
       if (x1 < x0 || y1 < y0) return;
       const w = this.w, px = this.px, grp = this.grp;
       let any = false;
+      const maxR = Math.max(maxW, rA, rB);
       for (let y = y0; y <= y1; y++) {
         const ry = y + 0.5 - ay;
-        let o = y * w + x0;
-        for (let x = x0; x <= x1; x++, o++) {
+        // tight x-interval for this row: |perp| <= maxR and -rA <= along <= len + rB
+        let xa = x0, xb = x1;
+        if (Math.abs(pX) > 1e-4) {
+          const c0 = (-maxR - ry * pY) / pX, c1 = (maxR - ry * pY) / pX;
+          const lo = Math.min(c0, c1) + ax - 0.5, hi = Math.max(c0, c1) + ax - 0.5;
+          if (lo > xa) xa = Math.floor(lo);
+          if (hi < xb) xb = Math.ceil(hi);
+        } else if (Math.abs(ry * pY) > maxR) continue;
+        if (Math.abs(ux) > 1e-4) {
+          const c0 = (-rA - ry * uy) / ux, c1 = (len + rB - ry * uy) / ux;
+          const lo = Math.min(c0, c1) + ax - 0.5, hi = Math.max(c0, c1) + ax - 0.5;
+          if (lo > xa) xa = Math.floor(lo);
+          if (hi < xb) xb = Math.ceil(hi);
+        }
+        if (xb < xa) continue;
+        let o = y * w + xa;
+        for (let x = xa; x <= xb; x++, o++) {
           const rx = x + 0.5 - ax;
           const along = rx * ux + ry * uy;
           const s = rx * pX + ry * pY;

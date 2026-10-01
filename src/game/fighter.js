@@ -836,8 +836,9 @@
       r.begin();
       // lighting
       const amb = m && m.stage && m.stage.getAmbient ? m.stage.getAmbient() : null;
+      if (!amb) r.setAmbient([1, 1, 1]);
       if (amb) {
-        r.ambient = amb.mul;
+        r.setAmbient(amb.mul);
         r.rim.c = amb.rim;
         r.rim.k = amb.rimK;
         r.rim.x = this.facing > 0 ? 0.8 : -0.8;
