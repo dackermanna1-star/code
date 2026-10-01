@@ -3,6 +3,7 @@
 // emissive lamp lenses and animated parts stay separate meshes.
 import * as THREE from 'three';
 import { PROPS } from '../props/catalog.js';
+import { generatePropPaint } from '../textures/graffiti/index.js';
 import { meshModel } from '../voxel/mesher.js';
 import { StaticBatcher } from '../voxel/batch.js';
 import { createVoxelMaterial } from '../render/voxelMaterial.js';
@@ -50,7 +51,9 @@ export class PropWorld {
       this.missing.add(name);
       return null;
     }
-    const key = `${name}|${JSON.stringify(opts)}|${variant}`;
+    // canvases do not serialize: painted props carry a paintKey instead
+    const keyOpts = opts.paint ? { ...opts, paint: opts.paintKey ?? 'painted' } : opts;
+    const key = `${name}|${JSON.stringify(keyOpts)}|${variant}`;
     let e = this.cache.get(key);
     if (!e) {
       let res;
@@ -122,6 +125,35 @@ export class PropWorld {
     }
     this.count++;
     return { meta, matrix: m };
+  }
+
+  /**
+   * Options with graffiti on every paintable face (dumpsters, carts, doors...).
+   * Dry-runs the generator once to learn the face sizes it reports.
+   */
+  paintedOpts(name, opts, { kind, density = 0.7, seed = 1, variant = 0, baseTone } = {}) {
+    const dry = this.gen(name, opts, variant);
+    const faces = dry?.res.meta?.paintSurfaces;
+    if (!faces) return opts;
+    const paint = {};
+    for (const [face, f] of Object.entries(faces)) {
+      try {
+        const res = generatePropPaint({
+          seed: seed * 131 + face.length * 17,
+          kind,
+          widthM: f.w,
+          heightM: f.h,
+          pxPerMeter: 64,
+          density: density * (face === 'back' ? 0.4 : 1),
+          baseTone,
+          poolSeed: 'alley',
+        });
+        paint[face] = res.color;
+      } catch (err) {
+        console.warn('prop paint failed', name, err);
+      }
+    }
+    return { ...opts, paint, paintKey: `${kind}-${seed}` };
   }
 
   /** Place on a facade in its local frame (u along the wall, y up, zOut out of the wall). */
@@ -319,12 +351,17 @@ export class PropWorld {
     const g = (x, z) => this.world.groundHeight(x, z);
     const P = (name, opts, x, z, yaw, extra = {}) => this.place(name, opts, { pos: v3(x, g(x, z) + (extra.y ?? 0), z), yaw, pitch: extra.pitch ?? 0, roll: extra.roll ?? 0 }, { variant: extra.variant ?? r.int(0, 5), collide: extra.collide, reflect: extra.reflect });
     // dumpsters
-    P('dumpster', { color: 'brown', lidOpen: true, overflow: 0.85 }, 2.1, -22.2, -Math.PI / 2 + 0.05);
-    P('dumpster', { color: 'green', lidOpen: false, overflow: 0.4 }, -2.15, -34.9, Math.PI / 2 - 0.04, { variant: 2 });
-    P('dumpster', { color: 'blue', lidOpen: true, overflow: 0.6 }, 18.6, -78.6, 0.02, { variant: 3 });
+    const dOpts = (o, seed, tone) => this.paintedOpts('dumpster', o, { kind: 'dumpster', density: 0.85, seed, baseTone: tone, variant: 0 });
+    P('dumpster', dOpts({ color: 'brown', lidOpen: true, overflow: 0.85 }, 11, [74, 52, 38]), 2.1, -22.2, -Math.PI / 2 + 0.05, { variant: 0 });
+    P('dumpster', dOpts({ color: 'green', lidOpen: false, overflow: 0.4 }, 12, [52, 66, 52]), -2.15, -34.9, Math.PI / 2 - 0.04, { variant: 0 });
+    P('dumpster', dOpts({ color: 'blue', lidOpen: true, overflow: 0.6 }, 13, [44, 58, 84]), 18.6, -78.6, 0.02, { variant: 0 });
     // trash carts
     const carts = [[-2.35, 4.2, 1.5], [-2.3, 3.4, 1.62], [2.4, -47.6, -1.6], [2.35, -48.5, -1.45], [3.2, -36.0, -1.4], [3.15, -35.2, -1.75], [-2.35, -60.6, 1.5], [-2.4, -61.4, 1.7], [-10.0, -79.0, 0.2]];
-    carts.forEach(([x, z, yaw], i) => P('trashCart', { color: ['black', 'green', 'black', 'grey'][i % 4], lidOpen: i % 3 === 0 }, x, z, yaw, { variant: i }));
+    carts.forEach(([x, z, yaw], i) => {
+      const o = { color: ['black', 'green', 'black', 'grey'][i % 4], lidOpen: i % 3 === 0 };
+      const painted = i % 3 === 1 ? this.paintedOpts('trashCart', o, { kind: 'box', density: 0.5, seed: 40 + i, baseTone: [30, 32, 30], variant: 0 }) : o;
+      P('trashCart', painted, x, z, yaw, { variant: i % 3 === 1 ? 0 : i });
+    });
     P('trashCart', { color: 'black', lidOpen: true }, -14.5, -76.0, 0.4, { variant: 9, roll: Math.PI / 2, y: 0.33, collide: true });
     // metal & plastic cans
     P('metalCan', {}, -2.4, -16.2, 0.3);

@@ -12,7 +12,8 @@
 //   fog=0            disable volumetric fog
 //   paint=fake|gen   pass a test paint canvas as opts.paint ('gen' uses the graffiti module)
 //   cams=a;b;c       several "x,y,z,yaw,pitch" cameras rendered as tiles (tcols=N columns)
-//   parts=0          hide parts;  lamps=0  no preview lights at lamp anchors
+//   parts=0          hide parts;  lamps=0  no preview lights at lamp anchors;  panes=0  hide pane stand-ins
+//   cam=auto:yaw,pitch[,zoom[,index]]  auto-frame all props (or prop #index); works inside cams= too
 // Wall / opening props (meta.mount 'wall'|'opening') are placed on the wall face automatically,
 // at height meta.previewY (default 0).
 import * as THREE from 'three';
@@ -200,6 +201,18 @@ names.forEach((name, i) => {
       nparts++;
     }
   const meshMs = performance.now() - t1;
+  // preview-only stand-in for the game's glass renderer: meta.panes as simple planes
+  if (q.get('panes') !== '0')
+    for (const pn of res.meta?.panes ?? []) {
+      if (pn.broken) continue;
+      const m = new THREE.MeshStandardMaterial({
+        color: pn.open ? 0x050505 : pn.screen ? 0x2a2c2e : pn.frosted ? 0x8a9496 : 0x1c262c,
+        roughness: pn.open ? 1 : pn.frosted ? 0.5 : 0.06, metalness: 0, transparent: !!pn.screen, opacity: pn.screen ? 0.75 : 1,
+      });
+      const pm = new THREE.Mesh(new THREE.PlaneGeometry(pn.w, pn.h), m);
+      pm.position.set(pn.x + pn.w / 2, pn.y + pn.h / 2, pn.z);
+      group.add(pm);
+    }
   const col = i % cols, row = Math.floor(i / cols);
   const rowCount = Math.min(cols, names.length - row * cols);
   const rowW = (rowCount - 1) * spacing;
@@ -207,6 +220,7 @@ names.forEach((name, i) => {
   const z = mount === 'wall' || mount === 'opening' ? wallZ : -row * rowGap;
   group.position.set(-rowW / 2 + col * spacing, res.meta?.previewY ?? 0, z);
   group.rotation.y = THREE.MathUtils.degToRad(rots[i] ?? rotAll);
+  group.userData.prop = name;
   scene.add(group);
   // light the lamps
   const L = res.meta?.anchors?.light;
@@ -256,7 +270,35 @@ renderer.shadowMap.needsUpdate = true;
 
 const defaultCam = `0,1.7,${Math.max(4, ((Math.min(cols, names.length) - 1) * spacing) * 0.55 + 3)},0,-12`;
 const camList = (q.get('cams') ?? q.get('cam') ?? defaultCam).split(';').filter(Boolean);
+// auto framing: "auto:yaw,pitch[,zoom[,index]]" fits the bounds of all props (or prop #index)
+function propBounds(index) {
+  const box = new THREE.Box3();
+  const groups = scene.children.filter((o) => o.isGroup && o.userData.prop);
+  groups.forEach((g, i) => {
+    if (index != null && i !== index) return;
+    g.updateMatrixWorld(true);
+    box.expandByObject(g);
+  });
+  return box;
+}
 function setCam(s) {
+  if (s.startsWith('auto')) {
+    const a = (s.split(':')[1] ?? '').split(',').filter((v) => v !== '').map(Number);
+    const yaw = THREE.MathUtils.degToRad(a[0] ?? 0), pitch = THREE.MathUtils.degToRad(a[1] ?? -15);
+    const zoom = a[2] ?? 1;
+    const box = propBounds(a.length > 3 ? a[3] : null);
+    const c = box.getCenter(new THREE.Vector3());
+    const sz = box.getSize(new THREE.Vector3());
+    const r = Math.max(0.15, 0.5 * Math.hypot(sz.x, sz.y, sz.z));
+    const fov = THREE.MathUtils.degToRad(camera.fov);
+    const fit = Math.max(r / Math.sin(fov / 2), r / Math.sin(Math.atan(Math.tan(fov / 2) * camera.aspect)));
+    const d = (fit * 1.02) / zoom;
+    const dir = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
+    camera.position.copy(c).addScaledVector(dir, d);
+    camera.rotation.set(pitch, yaw, 0, 'YXZ');
+    camera.updateMatrixWorld();
+    return;
+  }
   const c = s.split(',').map(Number);
   camera.position.set(c[0], c[1], c[2]);
   camera.rotation.set(THREE.MathUtils.degToRad(c[4] ?? 0), THREE.MathUtils.degToRad(c[3] ?? 0), 0, 'YXZ');

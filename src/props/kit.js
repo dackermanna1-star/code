@@ -10,10 +10,76 @@ import * as THREE from 'three';
 import { VoxelGrid, Palette, VoxelModel } from '../voxel/VoxelGrid.js';
 import { MCLS } from '../render/voxelMaterial.js';
 import { VS_FINE, VS_MED } from '../world/units.js';
-import { valueNoise2, valueNoise3, fbm2, fbm3, smoothstep, clamp, lerp } from '../core/noise.js';
+import { smoothstep, clamp, lerp } from '../core/noise.js';
 import { hash3i } from '../core/rng.js';
 
-export { VoxelGrid, Palette, VoxelModel, MCLS, VS_FINE, VS_MED, valueNoise2, valueNoise3, fbm2, fbm3, smoothstep, clamp, lerp };
+export { VoxelGrid, Palette, VoxelModel, MCLS, VS_FINE, VS_MED, smoothstep, clamp, lerp };
+
+// ───────────────────────────── fast value noise ─────────────────────────────
+// Permutation-table value noise (period 256), ~10x faster than the hash-based
+// noise in core/noise.js; same call signatures (output in [0,1]).
+const PERM = new Uint8Array(512);
+const VAL = new Float32Array(256);
+{
+  let s = 0x2545f491;
+  const r = () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296);
+  const p = [...Array(256).keys()];
+  for (let i = 255; i > 0; i--) {
+    const j = Math.floor(r() * (i + 1));
+    [p[i], p[j]] = [p[j], p[i]];
+  }
+  for (let i = 0; i < 512; i++) PERM[i] = p[i & 255];
+  for (let i = 0; i < 256; i++) VAL[i] = r();
+}
+const fade = (t) => t * t * (3 - 2 * t);
+function seedOff(seed) {
+  const h = Math.imul((seed | 0) ^ 0x9e3779b9, 0x85ebca6b) >>> 0;
+  return [h & 255, (h >>> 8) & 255, (h >>> 16) & 255];
+}
+const _so = new Map();
+const so = (seed) => {
+  let r = _so.get(seed);
+  if (!r) {
+    r = seedOff(seed);
+    if (_so.size > 4096) _so.clear();
+    _so.set(seed, r);
+  }
+  return r;
+};
+
+export function valueNoise3(x, y, z, seed = 0) {
+  const o = so(seed);
+  const xf = Math.floor(x), yf = Math.floor(y), zf = Math.floor(z);
+  const xi = (xf + o[0]) & 255, yi = (yf + o[1]) & 255, zi = (zf + o[2]) & 255;
+  const u = fade(x - xf), v = fade(y - yf), w = fade(z - zf);
+  const a = PERM[xi] + yi, b = PERM[xi + 1] + yi;
+  const aa = PERM[a & 511] + zi, ab = PERM[(a + 1) & 511] + zi, ba = PERM[b & 511] + zi, bb = PERM[(b + 1) & 511] + zi;
+  const x00 = VAL[PERM[aa & 511]] + (VAL[PERM[ba & 511]] - VAL[PERM[aa & 511]]) * u;
+  const x10 = VAL[PERM[ab & 511]] + (VAL[PERM[bb & 511]] - VAL[PERM[ab & 511]]) * u;
+  const x01 = VAL[PERM[(aa + 1) & 511]] + (VAL[PERM[(ba + 1) & 511]] - VAL[PERM[(aa + 1) & 511]]) * u;
+  const x11 = VAL[PERM[(ab + 1) & 511]] + (VAL[PERM[(bb + 1) & 511]] - VAL[PERM[(ab + 1) & 511]]) * u;
+  const y0 = x00 + (x10 - x00) * v, y1 = x01 + (x11 - x01) * v;
+  return y0 + (y1 - y0) * w;
+}
+
+export function valueNoise2(x, y, seed = 0) {
+  return valueNoise3(x, y, 0.5, seed);
+}
+
+export function fbm3(x, y, z, octaves = 3, seed = 0) {
+  let sum = 0, amp = 0.5, norm = 0, f = 1;
+  for (let i = 0; i < octaves; i++) {
+    sum += amp * valueNoise3(x * f, y * f, z * f, seed + i * 131);
+    norm += amp;
+    amp *= 0.5;
+    f *= 2;
+  }
+  return sum / norm;
+}
+
+export function fbm2(x, y, octaves = 3, seed = 0) {
+  return fbm3(x, y, 0.5, octaves, seed);
+}
 
 /** Extra-fine voxel size for tiny debris (cigarette butts, caps, cans, shards, leaves, sign faces). */
 export const VS_XFINE = VS_FINE / 2;
@@ -68,7 +134,9 @@ export const COL = {
 export const mat = {
   paint: (P, name, color, o = {}) => P.add(name, { color, rough: 0.62, metal: 0.25, cls: MCLS.METAL_PAINTED, vari: 0.07, ...o }),
   rust: (P, name = 'rust', color = COL.rust, o = {}) => P.add(name, { color, rough: 0.92, metal: 0.2, cls: MCLS.RUST, vari: 0.14, ...o }),
-  galv: (P, name = 'galv', color = COL.galv, o = {}) => P.add(name, { color, rough: 0.42, metal: 0.82, cls: MCLS.GALV, vari: 0.08, ...o }),
+  // galvanized steel: GENERIC metal by default (the GALV shader class mottles strongly; pass
+  // { cls: MCLS.GALV } explicitly for large galvanized surfaces seen from afar)
+  galv: (P, name = 'galv', color = COL.galv, o = {}) => P.add(name, { color, rough: 0.45, metal: 0.7, cls: (globalThis.__propsGalvCls ?? MCLS.GENERIC), vari: 0.08, ...o }),
   steel: (P, name = 'steel', color = COL.steelDark, o = {}) => P.add(name, { color, rough: 0.5, metal: 0.7, cls: MCLS.GENERIC, vari: 0.08, ...o }),
   plastic: (P, name, color, o = {}) => P.add(name, { color, rough: 0.5, metal: 0, cls: MCLS.PLASTIC, vari: 0.05, ...o }),
   rubber: (P, name = 'rubber', color = COL.rubber, o = {}) => P.add(name, { color, rough: 0.85, metal: 0, cls: MCLS.RUBBER, vari: 0.06, ...o }),
@@ -102,8 +170,10 @@ export const V = {
   dark: (P, i, k = 0.75) => variant(P, i, `dark${k}`, (e) => ({ ...e, color: rgbMul(e.color, k) })),
   light: (P, i, k = 1.18) => variant(P, i, `light${k}`, (e) => ({ ...e, color: rgbMul(e.color, k) })),
   faded: (P, i, t = 0.25) => variant(P, i, `fade${t}`, (e) => ({ ...e, color: rgbMix(desat(e.color, t * 1.6), [150, 150, 146], t), rough: Math.min(1, e.rough + 0.1) })),
-  rust: (P, i, shade = 1) => variant(P, i, `rust${shade}`, (e) => ({ color: rgbMul(COL.rust, shade), rough: 0.92, metal: 0.15, cls: MCLS.RUST, vari: 0.16 })),
-  rustStreak: (P, i, t = 0.45) => variant(P, i, `rstreak${t}`, (e) => ({ ...e, color: rgbMix(e.color, [92, 46, 22], t), rough: Math.min(1, e.rough + 0.1) })),
+  rust: (P, i, shade = 1) => variant(P, i, `rust${shade}`, (e) => ({ color: rgbMix(rgbMul([84, 44, 26], shade), e.color, 0.15), rough: 0.9, metal: 0.12, cls: MCLS.GENERIC, vari: 0.14 })),
+  rustHeavy: (P, i) => variant(P, i, 'rustH', (e) => ({ color: [70, 38, 24], rough: 0.92, metal: 0.15, cls: MCLS.RUST, vari: 0.16 })),
+  rustStreak: (P, i, t = 0.45) => variant(P, i, `rstreak${t}`, (e) => ({ ...e, color: rgbMix(e.color, [84, 44, 24], t), rough: Math.min(1, e.rough + 0.1) })),
+  tone: (P, i, k = 1.05, sat = 0) => variant(P, i, `tone${k}_${sat}`, (e) => ({ ...e, color: rgbMul(sat ? desat(e.color, sat) : e.color, k) })),
   wetDark: (P, i, k = 0.7) => variant(P, i, `wet${k}`, (e) => ({ ...e, color: rgbMul(e.color, k), rough: Math.max(0.15, e.rough * 0.55) })),
   primer: (P, i) => variant(P, i, 'primer', (e) => ({ ...e, color: [112, 58, 46], cls: MCLS.GENERIC, metal: 0.1, rough: 0.8 })),
   bare: (P, i) => variant(P, i, 'bare', (e) => ({ ...e, color: [96, 96, 98], cls: MCLS.GENERIC, metal: 0.75, rough: 0.45 })),
@@ -360,6 +430,52 @@ export function blob(b, bbox, shapeFn, v, { bumps = [], noiseAmp = 0.06, noiseFr
   return count;
 }
 
+/**
+ * Fill from a smooth scalar field sampled on a coarse lattice (every `step` voxels) and
+ * trilinearly interpolated - ~step³ cheaper for smooth organic shapes. field(px,py,pz)
+ * (voxel-space centre coords) returns < 1 inside. val(x,y,z,r) -> index | undefined.
+ */
+export function fieldFill(b, x0, y0, z0, x1, y1, z1, field, val, step = 2) {
+  const g = b.g;
+  x0 = Math.max(0, Math.floor(x0));
+  y0 = Math.max(0, Math.floor(y0));
+  z0 = Math.max(0, Math.floor(z0));
+  x1 = Math.min(g.nx, Math.ceil(x1));
+  y1 = Math.min(g.ny, Math.ceil(y1));
+  z1 = Math.min(g.nz, Math.ceil(z1));
+  if (step <= 1) {
+    b.fill(x0, y0, z0, x1, y1, z1, (px, py, pz, x, y, z) => {
+      const r = field(px, py, pz);
+      return r < 1.25 ? val(x, y, z, r) : undefined;
+    });
+    return;
+  }
+  const lx = Math.ceil((x1 - x0) / step) + 2, ly = Math.ceil((y1 - y0) / step) + 2, lz = Math.ceil((z1 - z0) / step) + 2;
+  const F = new Float32Array(lx * ly * lz);
+  for (let k = 0; k < lz; k++)
+    for (let j = 0; j < ly; j++)
+      for (let i = 0; i < lx; i++) F[i + lx * (j + ly * k)] = field(x0 + i * step, y0 + j * step, z0 + k * step);
+  const { nx, ny, data } = g;
+  for (let z = z0; z < z1; z++) {
+    const fz = (z + 0.5 - z0) / step, k = Math.floor(fz), tz = fz - k;
+    for (let y = y0; y < y1; y++) {
+      const fy = (y + 0.5 - y0) / step, j = Math.floor(fy), ty = fy - j;
+      for (let x = x0; x < x1; x++) {
+        const fx = (x + 0.5 - x0) / step, i = Math.floor(fx), tx = fx - i;
+        const o = i + lx * (j + ly * k);
+        const a00 = F[o] + (F[o + 1] - F[o]) * tx;
+        const a10 = F[o + lx] + (F[o + lx + 1] - F[o + lx]) * tx;
+        const a01 = F[o + lx * ly] + (F[o + lx * ly + 1] - F[o + lx * ly]) * tx;
+        const a11 = F[o + lx * ly + lx] + (F[o + lx * ly + lx + 1] - F[o + lx * ly + lx]) * tx;
+        const r = (a00 + (a10 - a00) * ty) * (1 - tz) + (a01 + (a11 - a01) * ty) * tz;
+        if (r >= 1.25) continue;
+        const v = val(x, y, z, r);
+        if (v !== undefined) data[x + nx * (y + ny * z)] = v;
+      }
+    }
+  }
+}
+
 /** 2D point-in-polygon (even-odd). poly: [[u,v],...] */
 export function inPoly(u, v, poly) {
   let inside = false;
@@ -462,27 +578,50 @@ const bitCount = (m) => ((m & 1) + ((m >> 1) & 1) + ((m >> 2) & 1) + ((m >> 3) &
 
 // ───────────────────────────── weathering ─────────────────────────────
 
-const toSet = (mats) => (mats instanceof Set ? mats : new Set(Array.isArray(mats) ? mats : [mats]));
+/**
+ * Material family filter: matches the given palette indices and every variant derived
+ * from them (entries named "base~tag..."). Passing null matches everything.
+ */
+export function famSet(P, mats) {
+  if (mats == null) return null;
+  if (mats.isFam) return mats;
+  const base = mats instanceof Set ? mats : new Set(Array.isArray(mats) ? mats : [mats]);
+  const names = new Set([...base].map((i) => P.entries[i]?.name).filter(Boolean));
+  const cache = new Map();
+  return {
+    isFam: true,
+    has(i) {
+      let r = cache.get(i);
+      if (r === undefined) {
+        const e = P.entries[i];
+        r = !!e && (base.has(i) || names.has(e.name.split('~')[0]));
+        cache.set(i, r);
+      }
+      return r;
+    },
+  };
+}
 
 /**
  * Darken / dirty surface voxels near the bottom. h = height (voxels) of the dirt band.
  * amount 0..1. Patchy via noise.
  */
-export function grime(b, mats, { h = 10, amount = 0.6, seed = 1, k = 0.62, freq = 0.12, y0 = 0 } = {}) {
-  const only = toSet(mats);
+export function grime(b, mats, { h = 10, amount = 0.6, seed = 1, k = 0.62, freq = 0.08, y0 = 0 } = {}) {
+  const only = famSet(b.P, mats);
   const set = [];
   eachSurface(b.g, (v, x, y, z) => {
     const t = 1 - (y - y0) / h;
     if (t <= 0) return;
-    const n = fbm3(x * freq, y * freq * 1.8, z * freq, 2, seed);
-    if (n * 0.75 + t * amount > 0.72) set.push(x, y, z, V.dirt(b.P, v, k * (0.92 + 0.16 * n)));
+    const n = fbm3(x * freq, y * freq * 1.5, z * freq, 2, seed);
+    const s = n * 0.75 + t * amount;
+    if (s > 0.72) set.push(x, y, z, V.dirt(b.P, v, s > 0.95 ? k * 0.85 : k));
   }, only);
   for (let i = 0; i < set.length; i += 4) b.g.set(set[i], set[i + 1], set[i + 2], set[i + 3]);
 }
 
 /** Generic noise-driven recolour of surface voxels: pick(v, x,y,z, n, mask) -> new index or undefined. */
 export function recolor(b, mats, fn, { freq = 0.15, seed = 3, octaves = 2 } = {}) {
-  const only = mats ? toSet(mats) : null;
+  const only = famSet(b.P, mats);
   const set = [];
   eachSurface(b.g, (v, x, y, z, m) => {
     const n = fbm3(x * freq, y * freq, z * freq, octaves, seed);
@@ -493,19 +632,34 @@ export function recolor(b, mats, fn, { freq = 0.15, seed = 3, octaves = 2 } = {}
 }
 
 /**
- * Rust on painted metal: concentrated on edges, bottoms and noise patches.
- * amount ~0..1 (0.3 = light, 0.7 = heavy).
+ * Rust on painted metal, physically placed: a ragged band along the bottom (height
+ * `bottom` voxels above y0), rust on exposed edges, and optional blotches. amount ~0..1.
+ * Coarse patches (low-frequency noise) keep greedy meshing efficient; the shader adds
+ * per-voxel variation.
  */
-export function rust(b, mats, { amount = 0.4, seed = 5, bottom = 8, freq = 0.16 } = {}) {
+export function rust(b, mats, { amount = 0.4, seed = 5, bottom = 3, y0 = 0, freq = 0.08, edges = true, blotch = false } = {}) {
   recolor(b, mats, (v, x, y, z, n, m) => {
-    const edge = bitCount(m) >= 2 ? 0.12 : 0;
-    const low = bottom > 0 ? Math.max(0, 1 - y / bottom) * 0.25 : 0;
-    const s = n + edge + low + (hash3i(x, y, z, seed) / 4294967296 - 0.5) * 0.06;
-    const th = 0.78 - amount * 0.3;
-    if (s > th + 0.08) return V.rust(b.P, v, 0.8);
-    if (s > th) return V.rust(b.P, v, 1.05);
+    const n2 = valueNoise3(x * freq * 2.7, y * freq * 2.7, z * freq * 2.7, seed + 17);
+    if (bottom > 0) {
+      const top = y0 + bottom * (0.3 + 1.1 * n) * (0.5 + amount);
+      if (y < top) return V.rust(b.P, v, y < y0 + (top - y0) * 0.5 ? 0.85 : 1.1);
+    }
+    if (edges && bitCount(m) >= 3 && n2 > 0.82 - amount * 0.3) return V.rust(b.P, v, 1.0);
+    if (blotch && n > 0.86 - amount * 0.12 && n2 > 0.5) return V.rust(b.P, v, n2 > 0.72 ? 0.85 : 1.1);
     return undefined;
-  }, { freq, seed });
+  }, { freq, seed, octaves: 2 });
+}
+
+/**
+ * Low-frequency tonal variation of paint (uneven fading / old repaints): mixes two subtle
+ * variants in large soft patches.
+ */
+export function mottle(b, mats, { freq = 0.04, seed = 9, k = [0.92, 1.07], sat = 0.1, cover = 0.33 } = {}) {
+  recolor(b, mats, (v, x, y, z, n) => {
+    if (n < cover) return V.tone(b.P, v, k[0], 0);
+    if (n > 1 - cover) return V.tone(b.P, v, k[1], sat);
+    return undefined;
+  }, { freq, seed, octaves: 1 });
 }
 
 /**
@@ -514,7 +668,7 @@ export function rust(b, mats, { amount = 0.4, seed = 5, bottom = 8, freq = 0.16 
  */
 export function streaks(b, rng, mats, { count = 8, len = [6, 30], width = 1, kind = 'rust', t = 0.45, sources = null, yMin = 0, yMax = null } = {}) {
   const g = b.g;
-  const only = toSet(mats);
+  const only = famSet(b.P, mats) ?? { has: () => true };
   const cand = [];
   if (!sources) {
     eachSurface(g, (v, x, y, z, m) => {
@@ -536,7 +690,7 @@ export function streaks(b, rng, mats, { count = 8, len = [6, 30], width = 1, kin
       for (let w = 0; w < wv; w++) {
         const xx = x + (alongX ? w : 0), zz = z + (alongX ? 0 : w);
         const cur = g.get(xx, yy, zz);
-        if (!cur || !only.has(cur) && !isVariantOf(b.P, cur, only)) continue;
+        if (!cur || !only.has(cur)) continue;
         if (!(exposure(g, xx, yy, zz) & faceBits)) continue;
         if (rng.next() > 0.35 + 0.65 * fade) continue;
         let nv;
@@ -562,13 +716,10 @@ function baseOf(P, idx) {
   return P.byName.get(e.name.slice(0, k)) ?? idx;
 }
 
-function isVariantOf(P, idx, only) {
-  return only.has(baseOf(P, idx));
-}
 
 /** Small paint chips revealing primer / bare metal / rust (single voxels and tiny clusters). */
 export function chips(b, rng, mats, { density = 0.01, kinds = ['rust', 'primer', 'bare'], edgeBias = 4 } = {}) {
-  const only = toSet(mats);
+  const only = famSet(b.P, mats) ?? { has: () => true };
   const set = [];
   eachSurface(b.g, (v, x, y, z, m) => {
     const p = density * (bitCount(m) >= 2 ? edgeBias : 1);
@@ -744,6 +895,46 @@ export function addProp(parts, name, res, position = [0, 0, 0], rotation = [0, 0
     added.push(p);
   }
   return added;
+}
+
+/**
+ * Compose rotations applied in order (first op first): rot(['x', a], ['y', b]) = Ry(b)·Rx(a).
+ * Returns Euler XYZ [rx, ry, rz] for parts.
+ */
+export function rot(...ops) {
+  const q = new THREE.Quaternion();
+  const t = new THREE.Quaternion();
+  const ax = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) };
+  for (const [a, ang] of ops) {
+    t.setFromAxisAngle(ax[a], ang);
+    q.premultiply(t);
+  }
+  const e = new THREE.Euler().setFromQuaternion(q, 'XYZ');
+  return [e.x, e.y, e.z];
+}
+
+/** Axis-aligned bounds [min, max] of a model's grid after rotation (local meters, before translation). */
+export function rotatedBounds(model, rotation) {
+  const [sx, sy, sz] = model.size;
+  const o = model.origin;
+  const m = partMatrix([0, 0, 0], rotation);
+  const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
+  const v = new THREE.Vector3();
+  for (let i = 0; i < 8; i++) {
+    v.set(o[0] + (i & 1 ? sx : 0), o[1] + (i & 2 ? sy : 0), o[2] + (i & 4 ? sz : 0)).applyMatrix4(m);
+    mn[0] = Math.min(mn[0], v.x); mn[1] = Math.min(mn[1], v.y); mn[2] = Math.min(mn[2], v.z);
+    mx[0] = Math.max(mx[0], v.x); mx[1] = Math.max(mx[1], v.y); mx[2] = Math.max(mx[2], v.z);
+  }
+  return [mn, mx];
+}
+
+/**
+ * Position for a rotated model so that its rotated bounding box rests at y = yMin and, if given,
+ * its back (min z) touches zMin / its centre x is at x.
+ */
+export function restPos(model, rotation, { x = 0, yMin = 0, zMin = null, z = 0 } = {}) {
+  const [mn, mx] = rotatedBounds(model, rotation);
+  return [x - (mn[0] + mx[0]) / 2, yMin - mn[1], zMin != null ? zMin - mn[2] : z - (mn[2] + mx[2]) / 2];
 }
 
 /** Transform anchors of a sub-prop into the parent frame. */
