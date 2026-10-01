@@ -86,7 +86,14 @@ export class Engine {
     progress(0.85);
     this.post = new Post(this, { quality: this.params.quality, exposure: this.params.exposure });
     this.post.init([...this.world.lamps, ...(this.world.extraFogLights ?? [])]);
-    this.post.preHooks.push((r, s, c) => this.world.ground.reflection.render(r, s, c));
+    this.post.preHooks.push((r, s, c) => {
+      // reflections are blurred: skip the facade relief ray-march in that pass
+      const relief = this.world.facadeMaterial.userData.uniforms.uReliefOn;
+      const prev = relief.value;
+      relief.value = 0;
+      this.world.ground.reflection.render(r, s, c);
+      relief.value = prev;
+    });
     this.ambient = new Ambient(this).build();
     this.debris = new Debris(this, this.world.props.material).build();
     this.onStart = () => this.sound.start();

@@ -15,7 +15,7 @@
 <div id="log"></div>
 <div id="out"></div>
 <script type="module">
-import { generateWallPaint, generatePropPaint, generatePaintBatch } from '/src/textures/graffiti/index.js';
+import { generateWallPaint, generatePropPaint, generatePaintBatch, generatePaintBatchParallel } from '/src/textures/graffiti/index.js';
 import { Rng } from '/src/textures/graffiti/core/rng.js';
 import { getGlyph, glyphVariantCount } from '/src/textures/graffiti/font/font.js';
 import { GLYPH_SRC } from '/src/textures/graffiti/font/glyphs.js';
@@ -54,9 +54,15 @@ function vn(x, y, s) {
   return a + (b - a) * sx + (c - a + (a - b - c + d) * sx) * sy;
 }
 const TONES = {
-  tan: { base: [168, 142, 102], var: [[150, 118, 84], [182, 158, 112], [128, 96, 70], [160, 128, 92], [190, 168, 126]], mortar: [146, 134, 112] },
-  red: { base: [112, 60, 46], var: [[96, 50, 40], [126, 70, 52], [84, 46, 38], [118, 64, 50], [100, 62, 52]], mortar: [118, 108, 98] },
+  tan: { var: [[152, 134, 102], [160, 142, 108], [146, 126, 96], [166, 150, 114], [156, 136, 100], [138, 112, 86], [170, 156, 118], [124, 98, 78]], w: [3, 3, 3, 2, 3, 1, 1, 0.5], mortar: [128, 120, 104] },
+  red: { var: [[104, 56, 44], [112, 62, 48], [98, 52, 42], [118, 68, 52], [92, 50, 42], [108, 64, 54]], w: [3, 3, 2, 2, 1, 1], mortar: [112, 102, 92] },
 };
+function pickVar(T, r) {
+  let tot = 0; for (const x of T.w) tot += x;
+  let k = r * tot;
+  for (let i = 0; i < T.w.length; i++) { k -= T.w[i]; if (k <= 0) return T.var[i]; }
+  return T.var[0];
+}
 function brickAt(u, vUp, tone, seed) {
   // vUp: meters above segment bottom
   const row = Math.floor(vUp / PITCH_Y);
@@ -71,9 +77,9 @@ function brickAt(u, vUp, tone, seed) {
     c = [T.mortar[0] * n, T.mortar[1] * n, T.mortar[2] * n];
   } else {
     const r = h2(col, row, seed);
-    const v = T.var[Math.floor(r * T.var.length)];
-    const k = 0.9 + 0.2 * h2(col, row, seed + 1);
-    const tex = 0.92 + 0.16 * vn(u * 90, vUp * 90, seed + 2) + 0.06 * (h2(Math.floor(u * 300), Math.floor(vUp * 300), seed) - 0.5);
+    const v = pickVar(T, r);
+    const k = 0.95 + 0.1 * h2(col, row, seed + 1);
+    const tex = 0.94 + 0.12 * vn(u * 90, vUp * 90, seed + 2) + 0.05 * (h2(Math.floor(u * 300), Math.floor(vUp * 300), seed) - 0.5);
     const edge = Math.min(lx, BRICK_W - lx, ly * 2, (BRICK_H - ly) * 2);
     const ed = edge < 0.006 ? 0.88 + edge / 0.006 * 0.12 : 1;
     c = [v[0] * k * tex * ed, v[1] * k * tex * ed, v[2] * k * tex * ed];
@@ -83,13 +89,30 @@ function brickAt(u, vUp, tone, seed) {
 
 /** Composite a paint result over brick like the game shader does. */
 function compositeWall(res, opts) {
+  const ss = opts.ss ?? (opts.dppm < 120 ? 2 : 1);
+  if (ss > 1) {
+    const big = compositeWallRaw(res, { ...opts, dppm: opts.dppm * ss, detached: true });
+    const W = Math.round((opts.w ?? opts.widthM) * opts.dppm), H = Math.round((opts.h ?? opts.heightM) * opts.dppm);
+    const c = mk(W, H, opts.id);
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(big, 0, 0, W, H);
+    return c;
+  }
+  return compositeWallRaw(res, opts);
+}
+
+function compositeWallRaw(res, opts) {
   const { widthM, heightM, ppm, dppm, tone, seed = 7, x0 = 0, y0 = 0, w = widthM, h = heightM, grade = false, grime = true } = opts;
   const W = Math.round(w * dppm), H = Math.round(h * dppm);
-  const c = mk(W, H, opts.id);
+  let c;
+  if (opts.detached) { c = document.createElement('canvas'); c.width = W; c.height = H; } else c = mk(W, H, opts.id);
   const g = c.getContext('2d');
   const img = g.createImageData(W, H);
   const d = img.data;
   const P = res.colorImage.data, PW = res.colorImage.width, PH = res.colorImage.height;
+  const PR = res.propsImage.data;
   for (let y = 0; y < H; y++) {
     const vM = y0 + (y + 0.5) / dppm; // meters from top
     const vUp = heightM - vM;
@@ -108,13 +131,17 @@ function compositeWall(res, opts) {
       const i00 = (iy * PW + ix) * 4, i10 = i00 + 4, i01 = i00 + PW * 4, i11 = i01 + 4;
       const lerp = (k) => (P[i00 + k] * (1 - fx) + P[i10 + k] * fx) * (1 - fy) + (P[i01 + k] * (1 - fx) + P[i11 + k] * fx) * fy;
       let a = lerp(3) / 255;
+      const paperV = PR[(Math.max(0, Math.min(PH - 1, Math.round(py))) * PW + Math.max(0, Math.min(PW - 1, Math.round(px)))) * 4 + 2] / 255;
       if (a > 0.001) {
-        // per-voxel coverage noise (1 cm voxels) + mortar thinning
+        // per-voxel coverage noise (1 cm voxels) + mortar thinning; paper (props.b)
+        // bridges the mortar joints and covers uniformly
+        const paper = paperV;
         const vox = 0.68 + 0.32 * h2(Math.floor(u / 0.01), Math.floor(vUp / 0.01), 5) * 0.6 + 0.32 * 0.4;
-        a *= vox * (b.inMortar ? 0.55 : 1);
+        const k = vox * (b.inMortar ? 0.55 : 1);
+        a *= k + (1 - k) * paper;
         r += (lerp(0) - r) * a; gg += (lerp(1) - gg) * a; bb += (lerp(2) - bb) * a;
       }
-      if (b.inMortar) { r *= 0.8; gg *= 0.8; bb *= 0.8; }
+      if (b.inMortar) { const sh = 0.8 + 0.2 * Math.min(1, a * 1.2 * paperV); r *= sh; gg *= sh; bb *= sh; }
       if (grade) {
         // blue-hour photo look: lower exposure, cool shadows, desaturate
         const l = 0.3 * r + 0.59 * gg + 0.11 * bb;
@@ -125,6 +152,26 @@ function compositeWall(res, opts) {
     }
   }
   g.putImageData(img, 0, 0);
+  // occluders (dumpsters) drawn as a translucent dark box in front of the wall
+  if (opts.occluders) {
+    for (const o of opts.occluders) {
+      g.fillStyle = 'rgba(30,36,32,0.55)';
+      g.fillRect((o.x - x0) * dppm, (heightM - o.h - y0) * dppm, o.w * dppm, o.h * dppm);
+    }
+  }
+  // draw holes for context: windows/glass/vents/meters dark, doors/shutters as frames
+  if (opts.holes) {
+    for (const hole of opts.holes) {
+      const hx = (hole.x - x0) * dppm, hy = (heightM - hole.y - hole.h - y0) * dppm, hw = hole.w * dppm, hh = hole.h * dppm;
+      if (['window', 'glass', 'vent', 'meter'].includes(hole.kind)) {
+        g.fillStyle = hole.kind === 'window' || hole.kind === 'glass' ? 'rgba(28,34,40,0.92)' : 'rgba(70,72,74,0.95)';
+        g.fillRect(hx, hy, hw, hh);
+      }
+      g.strokeStyle = 'rgba(20,20,20,0.6)';
+      g.lineWidth = Math.max(1, dppm * 0.03);
+      g.strokeRect(hx, hy, hw, hh);
+    }
+  }
   return c;
 }
 
@@ -150,6 +197,10 @@ function showLayers(res, scale = 1, id) {
 
 // ---------------------------------------------------------------------------
 const SEGMENTS = {
+  S: { // small test wall
+    seed: 'small-1', widthM: 8, heightM: 3.5, pxPerMeter: 96, wallTone: [160, 134, 98], density: 0.9,
+    bands: [{ y0: 0, y1: 3.5, density: 1 }], hotspots: [], holes: [{ x: 5.5, y: 0, w: 1, h: 2.1, kind: 'door' }], groundLine: 0, ageYears: 10,
+  },
   A: { // tan Chicago common brick, like the reference's left wall
     seed: 'alleyA-1', widthM: 32, heightM: 12, pxPerMeter: 48, wallTone: [160, 134, 98], density: 0.85,
     bands: [{ y0: 0, y1: 3.6, density: 1 }, { y0: 3.6, y1: 8, density: 0.22 }, { y0: 8, y1: 12, density: 0.06 }],
@@ -164,6 +215,7 @@ const SEGMENTS = {
     bands: [{ y0: 0, y1: 3.4, density: 1 }, { y0: 3.4, y1: 9, density: 0.15 }],
     hotspots: [{ x: 4, y: 1.4, r: 1.2, density: 0.9 }, { x: 16, y: 5.2, r: 1.5, density: 0.6 }],
     holes: [{ x: 9, y: 0, w: 1.0, h: 2.1, kind: 'door' }, { x: 18, y: 3.5, w: 1.2, h: 1.6, kind: 'window' }, { x: 3, y: 4, w: 1.2, h: 1.6, kind: 'window' }],
+    occluders: [{ x: 13, w: 1.9, h: 1.25, kind: 'dumpster' }],
     groundLine: 0, ageYears: 12, style: { rollers: 0.8 },
   },
 };
@@ -174,6 +226,8 @@ function wallSpecFromParams(base) {
   if (params.get('ppm')) s.pxPerMeter = +params.get('ppm');
   if (params.get('density')) s.density = +params.get('density');
   if (params.get('age')) s.ageYears = +params.get('age');
+  if (params.get('style')) s.style = { ...(s.style || {}), ...JSON.parse(params.get('style')) };
+  if (params.get('profile')) s._profile = true;
   return s;
 }
 
@@ -190,18 +244,18 @@ async function main() {
       const t0 = performance.now();
       res = generateWallPaint(spec);
       ms = performance.now() - t0;
-      if (reps > 1) log(`run ${r}: ${ms.toFixed(0)} ms ` + JSON.stringify(res.stats.timings));
+      if (reps > 1) log(`run ${r}: ${ms.toFixed(0)} ms ` + JSON.stringify(res.stats.timings) + (res.stats.profile ? ' prof ' + JSON.stringify(res.stats.profile) : ''));
     }
     log(`segment ${segKey} ${res.stats.width}x${res.stats.height}: ${ms.toFixed(0)} ms  ` + JSON.stringify(res.stats.counts) + ' cov ' + res.stats.coverage);
     log('timings ' + JSON.stringify(res.stats.timings) + ' eras ' + JSON.stringify(res.stats.eras));
     const tone = segKey === 'B' ? 'red' : 'tan';
     const grade = params.get('grade') === '1';
     if (mode === 'wall') {
-      compositeWall(res, { widthM: spec.widthM, heightM: spec.heightM, ppm: spec.pxPerMeter, dppm: +(params.get('dppm') || 50), tone, id: 'shot', grade });
+      compositeWall(res, { widthM: spec.widthM, heightM: spec.heightM, ppm: spec.pxPerMeter, dppm: +(params.get('dppm') || 50), tone, id: 'shot', grade, holes: spec.holes, occluders: spec.occluders });
       if (params.get('layers') === '1') showLayers(res, 1, 'layers');
     } else {
       const cx = +(params.get('cx') || 6), cy = +(params.get('cy') || 10.5), cw = +(params.get('cw') || 4), ch = +(params.get('ch') || 2.4);
-      compositeWall(res, { widthM: spec.widthM, heightM: spec.heightM, ppm: spec.pxPerMeter, dppm: +(params.get('dppm') || 300), tone, x0: cx - cw / 2, y0: cy - ch / 2, w: cw, h: ch, id: 'shot', grade });
+      compositeWall(res, { widthM: spec.widthM, heightM: spec.heightM, ppm: spec.pxPerMeter, dppm: +(params.get('dppm') || 300), tone, x0: cx - cw / 2, y0: cy - ch / 2, w: cw, h: ch, id: 'shot', grade, holes: spec.holes });
     }
     window.__done = true;
     return;
@@ -239,94 +293,291 @@ async function main() {
   }
 
   if (mode === 'suite') return suite();
-  if (mode === 'bench') return bench();
+  if (mode === 'alley') return alley();
+  if (mode === 'det') return detTest();
+  if (mode === 'edge') return edgeTest();
+  if (mode === 'pole') {
+    const ppm = +(params.get('ppm') || 160);
+    const r = generatePropPaint({ seed: params.get('seed') || 'pole-1', kind: 'pole', widthM: 0.95, heightM: 3.2, pxPerMeter: ppm, density: 0.85 });
+    const W = r.colorImage.width, H = r.colorImage.height;
+    const c = mk(W * 2, H, 'shot');
+    const g = c.getContext('2d');
+    g.fillStyle = 'rgb(92,76,60)'; g.fillRect(0, 0, W * 2, H);
+    for (let x = 0; x < W * 2; x += 3) { g.fillStyle = `rgba(0,0,0,${0.05 + 0.08 * Math.abs(Math.sin(x * 0.37))})`; g.fillRect(x, 0, 2, H); }
+    const tmp = document.createElement('canvas'); tmp.width = W; tmp.height = H;
+    tmp.getContext('2d').putImageData(r.colorImage, 0, 0);
+    g.drawImage(tmp, 0, 0); g.drawImage(tmp, W, 0);
+    log('pole ' + JSON.stringify(r.stats.counts));
+    window.__done = true;
+    return;
+  }
+  if (mode === 'throws' || mode === 'pieces') return elementSheet(mode);
 }
 
-function bench() {
-  const W = 1536, H = 576;
-  {
-    const dst = new OffscreenCanvas(W, H), dg = dst.getContext('2d', { willReadFrequently: true });
-    for (const sz of [32, 64, 128, 256, 512]) {
-      const s = new OffscreenCanvas(sz, sz), sg = s.getContext('2d', { willReadFrequently: true });
-      let t = performance.now();
-      for (let i = 0; i < 300; i++) { sg.clearRect(0, 0, 30, 30); sg.fillRect(i % 10, 0, 20, 20); dg.drawImage(s, 0, 0, 30, 30, (i * 13) % W, (i * 7) % H, 30, 30); }
-      dg.getImageData(0, 0, 1, 1);
-      log(`scratch ${sz}: ${((performance.now() - t) / 300 * 1000).toFixed(0)} us per drawImage`);
+
+function diffStats(a, b) {
+  const d1 = a.data, d2 = b.data;
+  let n = 0, maxd = 0, first = -1;
+  for (let i = 0; i < d1.length; i++) { const d = Math.abs(d1[i] - d2[i]); if (d) { n++; if (first < 0) first = i; } if (d > maxd) maxd = d; }
+  const W = a.width;
+  return `${n} diffs, max ${maxd}` + (first >= 0 ? ` first at (${(first >> 2) % W}, ${Math.floor((first >> 2) / W)}) ch ${first & 3}` : '');
+}
+async function detTest() {
+  const A = { ...SEGMENTS.S, seed: params.get('seed') || 'det-1', pxPerMeter: 48 };
+  const r1 = generateWallPaint(A);
+  const r2 = generateWallPaint(A);
+  log('A vs A (back to back): color ' + diffStats(r1.colorImage, r2.colorImage) + ' | props ' + diffStats(r1.propsImage, r2.propsImage));
+  generateWallPaint({ ...SEGMENTS.B, seed: 'other' });
+  generatePropPaint({ seed: 3, kind: 'shutter', widthM: 2.8, heightM: 2.6, pxPerMeter: 64 });
+  const r3 = generateWallPaint(A);
+  log('A vs A (after others): color ' + diffStats(r1.colorImage, r3.colorImage) + ' | props ' + diffStats(r1.propsImage, r3.propsImage));
+  const { generateWallPaintAsync } = await import('/src/textures/graffiti/index.js');
+  const r4 = await generateWallPaintAsync(A);
+  log('A vs A (async): color ' + diffStats(r1.colorImage, r4.colorImage) + ' | props ' + diffStats(r1.propsImage, r4.propsImage));
+  const { setCanvasFactory } = await import('/src/textures/graffiti/index.js');
+  setCanvasFactory((w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; });
+  const r5 = generateWallPaint(A);
+  setCanvasFactory(null);
+  log('A vs A (DOM canvases): color ' + diffStats(r1.colorImage, r5.colorImage) + ' | output is ' + r5.color.constructor.name);
+  window.__done = true;
+}
+
+function edgeTest() {
+  const base = { seed: 'edge', widthM: 10, heightM: 6, pxPerMeter: 48, wallTone: [150, 120, 90] };
+  const cases = [
+    ['tiny wall', { ...base, widthM: 0.5, heightM: 0.5 }],
+    ['no options', { seed: 3, widthM: 6, heightM: 3 }],
+    ['density 0', { ...base, density: 0 }],
+    ['density 1', { ...base, density: 1 }],
+    ['very young', { ...base, ageYears: 0.2 }],
+    ['very old', { ...base, ageYears: 60, style: { ghostSign: true } }],
+    ['upper segment (ground 4 m below)', { ...base, groundLine: -4, bands: [{ y0: 0, y1: 3.6, density: 1 }, { y0: 3.6, y1: 12, density: 0.2 }], hotspots: [{ x: 5, y: 6, r: 1.5, density: 1 }] }],
+    ['segment below ground start', { ...base, groundLine: 1 }],
+    ['all windows', { ...base, holes: [{ x: 0, y: 0, w: 10, h: 6, kind: 'window' }] }],
+    ['all door', { ...base, holes: [{ x: 0, y: 0, w: 10, h: 6, kind: 'door' }] }],
+    ['many holes', { ...base, holes: Array.from({ length: 20 }, (_, i) => ({ x: (i % 5) * 2 + 0.3, y: Math.floor(i / 5) * 1.5, w: 0.8, h: 0.9, kind: i % 3 ? 'window' : 'vent' })) }],
+    ['low ppm 8', { ...base, pxPerMeter: 8 }],
+    ['high ppm 200', { ...base, widthM: 4, heightM: 3, pxPerMeter: 200 }],
+    ['style all zero', { ...base, style: { pieces: 0, throwups: 0, tags: 0, buffs: 0, posters: 0, stickers: 0, rollers: 0, scribbles: 0 } }],
+    ['style all max', { ...base, style: { pieces: 1, throwups: 1, tags: 1, buffs: 1, posters: 1, stickers: 1, rollers: 1, scribbles: 1, ghostSign: true }, heightM: 10 }],
+    ['string seed + poolSeed', { ...base, seed: 'x y z', poolSeed: 'other-city' }],
+  ];
+  for (const [name, spec] of cases) {
+    try {
+      const t = performance.now();
+      const r = generateWallPaint(spec);
+      const ok = r.colorImage.width === Math.max(1, Math.round((spec.widthM ?? 8) * (spec.pxPerMeter ?? 48)));
+      let nan = false;
+      for (let i = 0; i < r.colorImage.data.length; i += 997) if (Number.isNaN(r.colorImage.data[i])) nan = true;
+      log(`OK  ${name}: ${(performance.now() - t).toFixed(0)} ms, ${r.stats.width}x${r.stats.height}, cov ${r.stats.coverage}, tags ${r.stats.counts.tags}${ok ? '' : ' SIZE MISMATCH'}${nan ? ' NaN!' : ''}`);
+    } catch (e) {
+      log(`ERR ${name}: ${e.message}\n${e.stack}`);
     }
-    // path raster cost: wide halo strokes vs thin
-    for (const lw of [2, 8, 30]) {
-      let t = performance.now();
-      for (let i = 0; i < 200; i++) { dg.lineWidth = lw; dg.strokeStyle = 'rgba(0,0,0,0.1)'; dg.beginPath(); dg.moveTo(i * 7 % W, 100); for (let k = 0; k < 20; k++) dg.lineTo((i * 7 + k * 5) % W, 100 + (k % 2) * 40); dg.stroke(); }
-      dg.getImageData(0, 0, 1, 1);
-      log(`stroke lw ${lw}: ${((performance.now() - t) / 200 * 1000).toFixed(0)} us per 20-seg stroke`);
-    }
-    let t = performance.now();
-    for (let i = 0; i < 200; i++) { const p = new Path2D(); for (let k = 0; k < 60; k++) { p.moveTo(k * 3 + 2, 300); p.arc(k * 3, 300 + (i % 50), 1, 0, 6.28, true); } dg.fill(p); }
-    dg.getImageData(0, 0, 1, 1);
-    log(`60 dots fill: ${((performance.now() - t) / 200 * 1000).toFixed(0)} us`);
   }
-  const variants = {
-    offscreenWRF: () => { const c = new OffscreenCanvas(W, H); return [c, c.getContext('2d', { willReadFrequently: true })]; },
-    offscreen: () => { const c = new OffscreenCanvas(W, H); return [c, c.getContext('2d')]; },
-    domWRF: () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return [c, c.getContext('2d', { willReadFrequently: true })]; },
-    dom: () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return [c, c.getContext('2d')]; },
-  };
-  for (const [name, f] of Object.entries(variants)) {
-    const [c, g] = f();
-    let t = performance.now();
-    for (let i = 0; i < 400; i++) { g.fillStyle = `rgba(${i % 255},40,40,0.8)`; g.beginPath(); g.arc((i * 37) % W, (i * 17) % H, 20, 0, 6.28); g.fill(); }
-    const tDraw = performance.now() - t;
-    t = performance.now();
-    for (let i = 0; i < 4; i++) g.getImageData(0, 0, W, H);
-    const tGet = (performance.now() - t) / 4;
-    // small scratch drawImage
-    const [s, sg] = name.startsWith('offscreen') ? [new OffscreenCanvas(256, 256), null] : [document.createElement('canvas'), null];
-    if (!name.startsWith('offscreen')) { s.width = 256; s.height = 256; }
-    const sctx = s.getContext('2d', name.includes('WRF') ? { willReadFrequently: true } : undefined);
-    t = performance.now();
-    for (let i = 0; i < 300; i++) { sctx.fillRect(i % 50, 0, 20, 20); g.drawImage(s, 0, 0, 100, 100, (i * 13) % W, (i * 7) % H, 100, 100); }
-    const tBlit = (performance.now() - t) / 300;
-    t = performance.now();
-    const id = g.getImageData(0, 0, W, H);
-    for (let i = 0; i < 4; i++) g.putImageData(id, 0, 0);
-    const tPut = (performance.now() - t) / 4;
-    log(`${name}: draw400 ${tDraw.toFixed(1)}ms  getImageData ${tGet.toFixed(1)}ms  drawImage(scratch) ${(tBlit * 1000).toFixed(0)}us  put ${tPut.toFixed(1)}ms`);
+  for (const kind of ['dumpster', 'door', 'box', 'pole', 'fence', 'shutter', 'bogus']) {
+    for (const [w, h] of [[0.2, 0.3], [1, 2], [6, 3]]) {
+      try {
+        const r = generatePropPaint({ seed: 1, kind, widthM: w, heightM: h, pxPerMeter: 64 });
+        log(`OK  prop ${kind} ${w}x${h}: ${r.stats.ms} ms cov ${r.stats.coverage}`);
+      } catch (e) {
+        log(`ERR prop ${kind} ${w}x${h}: ${e.message}\n${e.stack}`);
+      }
+    }
   }
   window.__done = true;
 }
 
 async function suite() {
-  // Full verification: 12 wall segments + 10 prop surfaces, timed; composites of a few.
+  // Full verification: 12 wall segments + 10 prop surfaces.
   const jobs = [];
-  const walls = [];
   for (let i = 0; i < 12; i++) {
     const base = i % 2 === 0 ? SEGMENTS.A : SEGMENTS.B;
-    const spec = { ...base, seed: base.seed + ':' + i, widthM: i % 2 === 0 ? 32 : 24, style: { ...base.style, ghostSign: i % 4 === 0 } };
-    walls.push(spec);
-    jobs.push({ type: 'wall', spec });
+    jobs.push({ type: 'wall', spec: { ...base, seed: base.seed + ':' + i, style: { ...base.style, ghostSign: i % 4 === 0 } } });
   }
   const propKinds = ['dumpster', 'door', 'pole', 'box', 'shutter', 'fence', 'dumpster', 'door', 'pole', 'box'];
   const dims = { dumpster: [1.85, 1.25], door: [1.0, 2.15], pole: [0.95, 4.0], box: [0.6, 0.85], shutter: [2.8, 2.6], fence: [2.4, 1.8] };
   propKinds.forEach((kind, i) => jobs.push({ type: 'prop', spec: { seed: 'prop' + i, kind, widthM: dims[kind][0], heightM: dims[kind][1], pxPerMeter: 64, density: 0.7 } }));
+
+  // 1) synchronous timing
   const t0 = performance.now();
+  const results = [];
   const times = [];
-  let last = t0;
-  const results = await generatePaintBatch(jobs, { onProgress: (n) => { const t = performance.now(); times.push(t - last); last = t; } });
+  for (const j of jobs) {
+    const t = performance.now();
+    results.push(j.type === 'wall' ? generateWallPaint(j.spec) : generatePropPaint(j.spec));
+    times.push(performance.now() - t);
+  }
   const total = performance.now() - t0;
-  const wallMs = results.slice(0, 12).map((r) => r.stats.ms);
-  const propMs = results.slice(12).map((r) => r.stats.ms);
-  log(`TOTAL ${total.toFixed(0)} ms for 12 walls + 10 props (async incl. yields)`);
-  log('wall ms: ' + wallMs.join(' ') + '   mean ' + (wallMs.reduce((a, b) => a + b) / wallMs.length).toFixed(0));
-  log('prop ms: ' + propMs.join(' '));
-  title('Segment 0 (tan brick, 32 x 12 m)');
-  compositeWall(results[0], { widthM: 32, heightM: 12, ppm: 48, dppm: 50, tone: 'tan', id: 'suiteA' });
-  title('Segment 1 (dark red-brown brick, 24 x 9 m)');
-  compositeWall(results[1], { widthM: 24, heightM: 9, ppm: 48, dppm: 50, tone: 'red', id: 'suiteB' });
+  const wallMs = times.slice(0, 12), propMs = times.slice(12);
+  const sum = (a) => a.reduce((x, y) => x + y, 0);
+  log(`SYNC total ${total.toFixed(0)} ms for 12 walls + 10 props`);
+  log('  walls (ms): ' + wallMs.map((x) => x.toFixed(0)).join(' ') + `  sum ${sum(wallMs).toFixed(0)}`);
+  log('  props (ms): ' + propMs.map((x) => x.toFixed(0)).join(' ') + `  sum ${sum(propMs).toFixed(0)}`);
+  const sizes = results.slice(0, 2).map((r) => r.stats.width + 'x' + r.stats.height).join(', ');
+  log('  wall sizes: ' + sizes);
+
+  // 2) async batch: measure the longest main-thread block
+  let maxGap = 0, last = performance.now(), running = true;
+  const beat = () => { const n = performance.now(); maxGap = Math.max(maxGap, n - last); last = n; if (running) setTimeout(beat, 0); };
+  setTimeout(beat, 0);
+  const ta = performance.now();
+  const asyncRes = await generatePaintBatch(jobs);
+  running = false;
+  log(`ASYNC batch ${(performance.now() - ta).toFixed(0)} ms, longest main-thread block ${maxGap.toFixed(0)} ms`);
+
+  // 2b) parallel workers
+  const tp = performance.now();
+  const parRes = await generatePaintBatchParallel(jobs, { workers: +(params.get('workers') || 4) });
+  log(`PARALLEL (${+(params.get('workers') || 4)} workers) batch ${(performance.now() - tp).toFixed(0)} ms`);
+  // 3) determinism: sync vs async results must be identical
+  const hash = (img) => { let h = 2166136261; const d = img.data; for (let i = 0; i < d.length; i += 7) { h ^= d[i]; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
+  const same = results.every((r, i) => hash(r.colorImage) === hash(asyncRes[i].colorImage) && hash(r.propsImage) === hash(asyncRes[i].propsImage));
+  log('deterministic (sync == async, all 22 surfaces): ' + same);
+  const sameP = results.every((r, i) => hash(r.colorImage) === hash(parRes[i].colorImage) && hash(r.propsImage) === hash(parRes[i].propsImage));
+  log('deterministic (sync == parallel workers): ' + sameP);
+  log('counts seg0: ' + JSON.stringify(results[0].stats.counts) + '  writers: ' + results[0].stats.writers.slice(0, 12).join(' '));
+
+  title('Segment 0 (tan brick, 32 x 12 m, 48 px/m)');
+  compositeWall(results[0], { widthM: 32, heightM: 12, ppm: 48, dppm: 50, tone: 'tan', id: 'suiteA', holes: SEGMENTS.A.holes });
+  title('Segment 1 (dark red-brown brick, 24 x 9 m, 48 px/m)');
+  compositeWall(results[1], { widthM: 24, heightM: 9, ppm: 48, dppm: 50, tone: 'red', id: 'suiteB', holes: SEGMENTS.B.holes, occluders: SEGMENTS.B.occluders });
+  title('Props: dumpster, door, pole (unrolled), box, shutter, fence (64 px/m)');
+  const row = document.createElement('div'); row.className = 'row'; row.id = 'suiteProps'; out.appendChild(row);
+  const tones = { dumpster: [58, 66, 60], door: [66, 70, 72], pole: [92, 76, 60], box: [120, 124, 118], shutter: [128, 130, 132], fence: [104, 90, 74] };
+  for (let i = 12; i < 18; i++) {
+    const r = results[i], k = jobs[i].spec, dp = 110;
+    const c = mk(k.widthM * dp, k.heightM * dp, null, row);
+    const g = c.getContext('2d');
+    g.fillStyle = `rgb(${tones[k.kind]})`; g.fillRect(0, 0, c.width, c.height);
+    const tmp = document.createElement('canvas'); tmp.width = r.colorImage.width; tmp.height = r.colorImage.height;
+    tmp.getContext('2d').putImageData(r.colorImage, 0, 0);
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(tmp, 0, 0, c.width, c.height);
+  }
   window.__results = results.map((r) => r.stats);
   window.__done = true;
 }
 
 // ---------------------------------------------------------------------------
+// One-point perspective alley view (two walls) for judging the look from a distance.
+function buildMips(canvas) {
+  const levels = [];
+  let w = canvas.width, h = canvas.height;
+  let data = canvas.getContext('2d').getImageData(0, 0, w, h).data;
+  levels.push({ w, h, d: data });
+  while (w > 8 && h > 8) {
+    const nw = w >> 1, nh = h >> 1;
+    const nd = new Uint8ClampedArray(nw * nh * 4);
+    for (let y = 0; y < nh; y++) for (let x = 0; x < nw; x++) {
+      for (let k = 0; k < 4; k++) {
+        const i0 = ((y * 2) * w + x * 2) * 4 + k, i1 = i0 + 4, i2 = i0 + w * 4, i3 = i2 + 4;
+        nd[(y * nw + x) * 4 + k] = (data[i0] + data[i1] + data[i2] + data[i3]) >> 2;
+      }
+    }
+    levels.push({ w: nw, h: nh, d: nd });
+    data = nd; w = nw; h = nh;
+  }
+  return levels;
+}
+function sampleMip(levels, u, v, lod, out) {
+  // u, v in level-0 pixels; trilinear-ish (nearest level, bilinear)
+  const L = Math.max(0, Math.min(levels.length - 1, Math.round(lod)));
+  const lv = levels[L], s = 1 / (1 << L);
+  const x = u * s - 0.5, y = v * s - 0.5;
+  const ix = Math.max(0, Math.min(lv.w - 2, Math.floor(x))), iy = Math.max(0, Math.min(lv.h - 2, Math.floor(y)));
+  const fx = Math.max(0, Math.min(1, x - ix)), fy = Math.max(0, Math.min(1, y - iy));
+  const i00 = (iy * lv.w + ix) * 4, i10 = i00 + 4, i01 = i00 + lv.w * 4, i11 = i01 + 4, d = lv.d;
+  for (let k = 0; k < 3; k++) out[k] = (d[i00 + k] * (1 - fx) + d[i10 + k] * fx) * (1 - fy) + (d[i01 + k] * (1 - fx) + d[i11 + k] * fx) * fy;
+}
+async function alley() {
+  const specA = wallSpecFromParams(SEGMENTS.A), specB = { ...SEGMENTS.B, seed: params.get('seedB') || SEGMENTS.B.seed };
+  const resA = generateWallPaint(specA), resB = generateWallPaint(specB);
+  log('A ' + JSON.stringify(resA.stats.counts) + '  B ' + JSON.stringify(resB.stats.counts));
+  const dppm = 80;
+  const texA = compositeWallRaw(resA, { widthM: specA.widthM, heightM: specA.heightM, ppm: specA.pxPerMeter, dppm, tone: 'tan', detached: true, grade: true });
+  const texB = compositeWallRaw(resB, { widthM: specB.widthM, heightM: specB.heightM, ppm: specB.pxPerMeter, dppm, tone: 'red', detached: true, grade: true });
+  const mA = buildMips(texA), mB = buildMips(texB);
+  const W = 900, H = 1300, f = 560, cx = W / 2 + 10, cy = H * 0.56, eye = 1.65, hwL = 2.6, hwR = 2.4;
+  const c = mk(W, H, 'shot');
+  const g = c.getContext('2d');
+  const img = g.createImageData(W, H);
+  const out = [0, 0, 0], acc = [0, 0, 0];
+  const SS = 3;
+  for (let Y = 0; Y < H; Y++) {
+    for (let X = 0; X < W; X++) {
+      acc[0] = acc[1] = acc[2] = 0;
+      for (let sx = 0; sx < SS; sx++) {
+        const px = X + (sx + 0.5) / SS;
+        const dx = (px - cx) / f, dy = -(Y + 0.5 - cy) / f;
+        let col = null;
+        // left wall plane x = -hwL (texture u runs along +z from z = 0.5)
+        if (dx < 0) {
+          const t = -hwL / dx, y = eye + dy * t, z = t;
+          const u = (z - 0.5) * dppm, v = (specA.heightM - y) * dppm;
+          if (y >= 0 && y <= specA.heightM && u >= 0 && u < texA.width) {
+            const fu = (hwL * f / ((px - cx) * (px - cx))) * dppm, fv = (z / f) * dppm;
+            sampleMip(mA, u, v, Math.log2(Math.max(1, Math.sqrt(fu * fv) * 0.9)), out);
+            const fog = Math.min(0.6, z / 70);
+            col = [out[0] * (1 - fog) + 40 * fog, out[1] * (1 - fog) + 46 * fog, out[2] * (1 - fog) + 62 * fog];
+          }
+        } else if (dx > 0) {
+          const t = hwR / dx, y = eye + dy * t, z = t;
+          const u = (texB.width - 1) - (z - 0.5) * dppm, v = (specB.heightM - y) * dppm;
+          if (y >= 0 && y <= specB.heightM && u >= 0 && u < texB.width) {
+            const fu = (hwR * f / ((px - cx) * (px - cx))) * dppm, fv = (z / f) * dppm;
+            sampleMip(mB, u, v, Math.log2(Math.max(1, Math.sqrt(fu * fv) * 0.9)), out);
+            const fog = Math.min(0.6, z / 70);
+            col = [out[0] * (1 - fog) + 40 * fog, out[1] * (1 - fog) + 46 * fog, out[2] * (1 - fog) + 62 * fog];
+          }
+        }
+        if (!col) {
+          if (dy < 0) { // wet asphalt ground
+            const t = -eye / dy, z = t;
+            const n = 0.85 + 0.3 * h2(Math.floor(px * 0.7 / Math.max(1, z * 0.2)), Math.floor(z * 6), 3);
+            const k = Math.max(0.25, 1 - z / 60) * n;
+            col = [38 * k + 10, 40 * k + 10, 44 * k + 12];
+          } else { // dusk sky
+            const k = Math.min(1, (cy - Y) / H * 2.5);
+            col = [70 - 30 * k, 92 - 30 * k, 128 - 20 * k];
+          }
+        }
+        acc[0] += col[0]; acc[1] += col[1]; acc[2] += col[2];
+      }
+      const o = (Y * W + X) * 4;
+      img.data[o] = acc[0] / SS; img.data[o + 1] = acc[1] / SS; img.data[o + 2] = acc[2] / SS; img.data[o + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  window.__done = true;
+}
+
+async function elementSheet(kind) {
+  const { renderThrowup } = await import('/src/textures/graffiti/elements/throwup.js');
+  const { renderPiece } = await import('/src/textures/graffiti/elements/piece.js');
+  const ppm = +(params.get('ppm') || 100);
+  const Wm = kind === 'throws' ? 12 : 16, Hm = kind === 'throws' ? 6 : 9;
+  const c = mk(Wm * ppm, Hm * ppm, 'shot');
+  const g = c.getContext('2d');
+  g.fillStyle = '#9a7a5c'; g.fillRect(0, 0, c.width, c.height);
+  const P = new Painter({ ctx: g, pctx: null, ppm, widthM: Wm, heightM: Hm, wallTone: [160, 130, 95] });
+  const pool = getWriterPool('alley');
+  const rng = new Rng(params.get('seed') || 1);
+  let i = 0;
+  if (kind === 'throws') {
+    const ws = pool.writers.filter((w) => w.throw);
+    for (let row = 0; row < 4; row++) for (let col = 0; col < 4; col++) {
+      const w = ws[i % ws.length]; i++;
+      renderThrowup(P, rng.fork(i), { writer: w, h: 0.7 + 0.4 * rng.next(), x: 1.5 + col * 3, y: 0.8 + row * 1.45 });
+    }
+  } else {
+    for (let row = 0; row < 3; row++) for (let col = 0; col < 3; col++) {
+      const w = pool.writers[(i * 7 + 3) % pool.writers.length]; i++;
+      renderPiece(P, rng.fork(i), { writer: w, h: 1.0 + 0.5 * rng.next(), x: 2.7 + col * 5.3, y: 1.5 + row * 3, maxW: 4.6 });
+    }
+  }
+  window.__done = true;
+}
+
 function glyphSheet() {
   const keys = Object.keys(GLYPH_SRC);
   const cell = 70, cols = 18;

@@ -44,8 +44,8 @@ export class Windows {
         silhouette: lit && style === STYLE.CURTAIN && r.chance(0.45),
         silX: -10,
         silV: 0,
-        nextEvent: r.range(20, 140),
-        canToggle: !fx.backdrop && fx.floor > 0 && r.chance(0.35),
+        nextEvent: r.range(25, 240),
+        canToggle: fx.floor > 0 && r.chance(fx.backdrop ? 0.1 : 0.13),
         seed: r.next(),
         center: fx.center.clone(),
         normal: N,
@@ -119,7 +119,7 @@ export class Windows {
         w.nextEvent -= dt;
         if (w.nextEvent <= 0) {
           w.target = w.target > 0.5 ? 0 : 1;
-          w.nextEvent = 40 + Math.random() * 160;
+          w.nextEvent = 70 + Math.random() * 260;
           w.flickerOn = w.target > 0.5 ? 0.35 : 0;
         }
       }

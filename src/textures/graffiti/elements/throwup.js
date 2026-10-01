@@ -21,6 +21,7 @@ export function renderThrowup(P, rng, o) {
     // visual overlap of neighbouring fat letters = fat - track
     track: t.fat - (t.hollow ? t.overlap * 0.4 : t.overlap),
     slant: rng.range(-0.04, 0.16),
+    variant: (ch) => (t.variants && t.variants[ch]) || 0,
     scale: (i, n) => (i === 0 ? rng.range(1, 1.12) : rng.range(0.9, 1.06)),
     rot: () => rng.gauss() * t.rot,
     bounce: () => rng.gauss() * 0.05 * h,
@@ -37,7 +38,7 @@ export function renderThrowup(P, rng, o) {
     };
   });
   const F = t.fat * h;
-  const oW = h * rng.range(0.05, 0.085);
+  const oW = h * rng.range(0.055, 0.1);
   let fill = PAINT[t.fill] || PAINT.silver;
   let outline = PAINT[t.outline] || PAINT.black;
   fill = jitter(fill, rng, 5);

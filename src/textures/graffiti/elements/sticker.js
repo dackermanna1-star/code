@@ -5,6 +5,7 @@ import { rgba, PAINT, mix, jitter, weather } from '../core/color.js';
 import { addPolygon, addCircle, plainStrokes } from '../paint/spray.js';
 import { buildTagGeometry } from './tag.js';
 import { rotateAround, jaggedLine } from '../core/geom.js';
+import { Rng } from '../core/rng.js';
 
 const PAPER_WHITE = [238, 236, 228];
 
@@ -93,7 +94,9 @@ export function renderSticker(P, rng, o) {
   ctx.fillStyle = rgba(age(base), 0.98);
   ctx.fill(path);
   const detail = P.ppm * w > 10; // skip print details when the sticker is only a few pixels
+  const dr = new Rng(rng.u32()); // keeps the main stream resolution-independent
   if (detail) {
+    const rng = dr;
     ctx.save();
     ctx.clip(path);
     ctx.translate(o.x, o.y);

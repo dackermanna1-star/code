@@ -77,6 +77,31 @@ export function buildFields(S, W, H, rng) {
 
 const grainCache = new Map();
 const GT = 512;
+
+/** Periodic value noise over a GT x GT tile with k lattice cells per side (fast path). */
+function latticeTile(k, seed, out, weight) {
+  const L = new Float32Array(k * k);
+  for (let j = 0; j < k; j++) for (let i = 0; i < k; i++) L[j * k + i] = hashf(i, j, seed);
+  const s = k / GT;
+  const sx = new Float32Array(GT), ix0 = new Int32Array(GT), ix1 = new Int32Array(GT);
+  for (let x = 0; x < GT; x++) {
+    const f = x * s, i = f | 0, t = f - i;
+    sx[x] = t * t * (3 - 2 * t);
+    ix0[x] = i % k;
+    ix1[x] = (i + 1) % k;
+  }
+  for (let y = 0; y < GT; y++) {
+    const r0 = ix0[y] * k, r1 = ix1[y] * k, ty = sx[y];
+    const row = y * GT;
+    for (let x = 0; x < GT; x++) {
+      const a = L[r0 + ix0[x]], b = L[r0 + ix1[x]], c = L[r1 + ix0[x]], d = L[r1 + ix1[x]];
+      const tx = sx[x];
+      const ab = a + (b - a) * tx, cd = c + (d - c) * tx;
+      out[row + x] += (ab + (cd - ab) * ty) * weight;
+    }
+  }
+}
+
 /**
  * Tileable GT x GT erosion detail: chips (value noise at `fine` px), mid-scale flaking
  * (value noise at `mid` px) and pixel jitter. Values 0..255, mean ~128.
@@ -86,30 +111,22 @@ function grainTile(fine, mid) {
   const key = kf + ':' + km;
   let g = grainCache.get(key);
   if (g) return g;
+  const acc = new Float32Array(GT * GT);
+  latticeTile(kf, 4242, acc, 0.42);
+  latticeTile(km, 5151, acc, 0.38);
+  latticeTile(Math.min(GT, km * 2), 5152, acc, 0.1);
   g = new Uint8Array(GT * GT);
-  const sf = kf / GT, sm = km / GT;
   for (let y = 0; y < GT; y++) {
     for (let x = 0; x < GT; x++) {
-      const v = vnoise(x * sf, y * sf, 4242, kf, kf) * 0.42
-        + vnoise(x * sm, y * sm, 5151, km, km) * 0.38
-        + vnoise(x * sm * 2, y * sm * 2, 5152, km * 2, km * 2) * 0.1
-        + hashf(x, y, 4243) * 0.1;
-      g[y * GT + x] = (v * 255) | 0;
+      const i = y * GT + x;
+      g[i] = ((acc[i] + hashf(x, y, 4243) * 0.1) * 255) | 0;
     }
   }
   grainCache.set(key, g);
   return g;
 }
 
-/** Bilinear sample of a quarter-res field at full-res pixel (x, y). */
-function sampleQ(f, F, x, y) {
-  const fx = x / F.q, fy = y / F.q;
-  const ix = fx | 0, iy = fy | 0;
-  const tx = fx - ix, ty = fy - iy;
-  const i0 = iy * F.qW + ix;
-  const a = f[i0], b = f[i0 + 1], c = f[i0 + F.qW], d = f[i0 + F.qW + 1];
-  return a + (b - a) * tx + (c - a + (a - b - c + d) * tx) * ty;
-}
+let accCache = null;
 
 export class Accumulator {
   constructor(W, H) {
@@ -121,6 +138,18 @@ export class Accumulator {
     this.paper = new Float32Array(n);
   }
 
+  /** Reuse the buffers of the previous surface when the size matches (less GC). */
+  static get(W, H) {
+    if (accCache && accCache.W === W && accCache.H === H) {
+      accCache.c.fill(0);
+      accCache.m.fill(0);
+      accCache.paper.fill(0);
+      return accCache;
+    }
+    accCache = new Accumulator(W, H);
+    return accCache;
+  }
+
   /**
    * Age an era layer and composite it.
    * img: color ImageData data, pimg: props ImageData data, t: age in years.
@@ -130,54 +159,77 @@ export class Accumulator {
     const W = this.W, H = this.H;
     // props layer may be rendered at half resolution (pshift = 1)
     const pshift = opts.pshift ?? 0;
-    const pW = pshift ? Math.ceil(W / 2) : W;
+    // optional sub-region (px): img covers [rx0, rx0+rw) x [ry0, ry0+rh); pimg covers
+    // the matching props region starting at (prx0, pry0) with width prw
+    const R = opts.region || { x0: 0, y0: 0, w: W, h: H, px0: 0, py0: 0, pw: pshift ? Math.ceil(W / 2) : W };
+    const rx0 = R.x0, ry0 = R.y0, rw = R.w, rh = R.h;
+    const prx0 = R.px0, pry0 = R.py0, pW = R.pw;
     const c = this.c, m = this.m, paper = this.paper;
     const wt = opts.wallTone;
-    const fadeT = 0.78 * (1 - Math.exp(-t / 11)) * (opts.fadeMul ?? 1);
-    const thr = 1.28 - 0.62 * (1 - Math.exp(-t / 12)) - 0.3 * Math.min(1, t / 80);
+    const fadeT = 0.85 * (1 - Math.exp(-t / 8)) * (opts.fadeMul ?? 1);
+    const thr = 1.12 - 0.5 * (1 - Math.exp(-t / 9)) - 0.12 * Math.min(1, t / 60);
     const thrPaper = thr - 0.28 - 0.25 * (1 - Math.exp(-t / 3));
     const soft = 0.09;
     const ero = opts.erosion ?? 1;
-    const thin = 0.28 * (1 - Math.exp(-t / 14));
+    const thin = 0.4 * (1 - Math.exp(-t / 10));
     const glossK = Math.exp(-t / 3.5);
+    const defGloss = 38 + (150 - 38) * glossK;
     const metalK = Math.exp(-t / 10);
-    const grimeK = Math.min(0.55, t * 0.03);
+    const grimeK = Math.min(0.6, t * 0.035);
     const dirt0 = wt[0] * 0.42, dirt1 = wt[1] * 0.4, dirt2 = wt[2] * 0.38;
+    const wl = 0.299 * wt[0] + 0.587 * wt[1] + 0.114 * wt[2];
     const gx = ((opts.eraIndex * 73) % 97) * 7, gy = ((opts.eraIndex * 41) % 89) * 5;
     const grain = F.grain;
-    for (let y = 0; y < H; y++) {
+    const invQ = 1 / F.q, qW = F.qW;
+    const eroF = F.ero, fadeF = F.fade, grimeF = F.grime;
+    for (let y = ry0; y < ry0 + rh; y++) {
+      const fy = y * invQ, iy = fy | 0, ty = fy - iy;
+      const qrow = iy * qW;
       const row = y * W;
-      const prow = (y >> pshift) * pW;
+      const lrow = (y - ry0) * rw - rx0;
+      const prow = ((y >> pshift) - pry0) * pW - prx0;
       const gyy = ((y + gy) & 511) << 9;
-      for (let x = 0; x < W; x++) {
+      for (let x = rx0; x < rx0 + rw; x++) {
         const i = row + x;
-        const a8 = img[i * 4 + 3];
+        const li = (lrow + x) * 4;
+        const a8 = img[li + 3];
         if (a8 === 0) continue;
         let a = a8 / 255;
-        let r = img[i * 4], g = img[i * 4 + 1], b = img[i * 4 + 2];
+        let r = img[li], g = img[li + 1], b = img[li + 2];
         const pi4 = (prow + (x >> pshift)) * 4;
         const pa = pimg[pi4 + 3] / 255;
         const isPaper = pimg[pi4 + 2] > 128 && pa > 0.3;
+        // shared bilinear setup for the three coarse weathering fields
+        const fx = x * invQ, ix = fx | 0, tx = fx - ix;
+        const q0 = qrow + ix, q1 = q0 + qW;
+        const E0 = eroF[q0] + (eroF[q0 + 1] - eroF[q0]) * tx, E1 = eroF[q1] + (eroF[q1 + 1] - eroF[q1]) * tx;
         // erosion
-        const E = sampleQ(F.ero, F, x, y) + (grain[gyy + ((x + gx) & 511)] / 255 - 0.5) * 0.5;
+        const E = E0 + (E1 - E0) * ty + (grain[gyy + ((x + gx) & 511)] / 255 - 0.5) * 0.5;
         const th = isPaper ? thrPaper : thr;
         let k = smooth(th - soft, th + soft, E) * ero;
         if (k > 1) k = 1;
         a *= (1 - k) * (1 - thin * (isPaper ? 0.3 : 1));
         if (a < 0.003) continue;
-        // fade toward chalky wall-tinted color
+        // fade: colored pigments lose chroma (chalking), blacks lift only slightly
+        // toward grey, everything picks up a little wall tint
         if (fadeT > 0) {
-          let f = fadeT * sampleQ(F.fade, F, x, y);
+          const f0 = fadeF[q0] + (fadeF[q0 + 1] - fadeF[q0]) * tx, f1 = fadeF[q1] + (fadeF[q1 + 1] - fadeF[q1]) * tx;
+          let f = fadeT * (f0 + (f1 - f0) * ty);
           if (f > 0.95) f = 0.95;
           const l = 0.299 * r + 0.587 * g + 0.114 * b;
-          const chalk = l * 0.9 + 20;
-          const tr = chalk * 0.65 + wt[0] * 0.35, tg = chalk * 0.65 + wt[1] * 0.35, tb = chalk * 0.65 + wt[2] * 0.35;
-          r += (tr - r) * f;
-          g += (tg - g) * f;
-          b += (tb - b) * f;
+          const dk = f * 0.85;
+          r = l + (r - l) * (1 - dk);
+          g = l + (g - l) * (1 - dk);
+          b = l + (b - l) * (1 - dk);
+          const lift = (wl * 0.55 + 40 - l) * f * (l < 90 ? 0.32 : 0.18);
+          const tint = f * 0.2;
+          r += lift + (wt[0] - r) * tint;
+          g += lift + (wt[1] - g) * tint;
+          b += lift + (wt[2] - b) * tint;
         }
         if (grimeK > 0) {
-          const gk = grimeK * sampleQ(F.grime, F, x, y);
+          const g0 = grimeF[q0] + (grimeF[q0 + 1] - grimeF[q0]) * tx, g1 = grimeF[q1] + (grimeF[q1 + 1] - grimeF[q1]) * tx;
+          const gk = grimeK * (g0 + (g1 - g0) * ty);
           r += (dirt0 - r) * gk;
           g += (dirt1 - g) * gk;
           b += (dirt2 - b) * gk;
@@ -188,20 +240,20 @@ export class Accumulator {
         c[ci + 1] = g * a + c[ci + 1] * ia;
         c[ci + 2] = b * a + c[ci + 2] * ia;
         c[ci + 3] = a + c[ci + 3] * ia;
-        // props
-        const w = a < pa ? a : pa;
-        if (w > 0) {
+        // props: explicit material where the props layer was drawn, default spray
+        // paint (metal 0, gloss 150) for the rest of the coverage
+        {
           const mi = i * 3;
-          const metal = pimg[pi4] * metalK;
-          const gloss = 38 + (pimg[pi4 + 1] - 38) * glossK;
-          const iw = 1 - w;
-          m[mi] = metal * w + m[mi] * iw;
-          m[mi + 1] = gloss * w + m[mi + 1] * iw;
-          m[mi + 2] = w + m[mi + 2] * iw;
-          if (isPaper) {
-            const p = a;
-            if (p > paper[i]) paper[i] = p;
+          let metal = 0, gloss = defGloss;
+          if (pa > 0.004) {
+            const k = pa >= a ? 1 : pa / a;
+            metal = pimg[pi4] * metalK * k;
+            gloss = (38 + (pimg[pi4 + 1] - 38) * glossK) * k + defGloss * (1 - k);
           }
+          m[mi] = metal * a + m[mi] * ia;
+          m[mi + 1] = gloss * a + m[mi + 1] * ia;
+          m[mi + 2] = a + m[mi + 2] * ia;
+          if (isPaper && a > paper[i]) paper[i] = a;
         }
       }
     }
@@ -230,39 +282,47 @@ export class Accumulator {
     const c = this.c, m = this.m, paper = this.paper;
     const col = new Uint8ClampedArray(n * 4);
     const pr = new Uint8ClampedArray(n * 4);
+    const col32 = new Uint32Array(col.buffer);
+    const pr32 = new Uint32Array(pr.buffer);
     // smooth color estimate at half resolution for low-coverage texels so that
     // linear filtering / mipmapping of the straight-alpha texture has no fringes
-    const fill = pullPushHalf(c, 4, W, H, [0, 1, 2], 3, 2);
-    const pfill = pullPushHalf(m, 3, W, H, [0, 1], 2, 4);
-    const hw = fill.w, qw = pfill.w;
+    const fill = pullPushHalf(c, W, H);
+    const fd = fill.d;
+    const hw = fill.w;
     let cov = 0;
+    const clampB = (v) => (v <= 0 ? 0 : v >= 255 ? 255 : (v + 0.5) | 0);
+    const DEF_PROPS = 150 << 8;
     for (let y = 0; y < H; y++) {
       const hy = (y >> 1) * hw;
-      const qy = (y >> 2) * qw;
+      const row = y * W;
       for (let x = 0; x < W; x++) {
-        const i = y * W + x;
-        const a = c[i * 4 + 3];
-        cov += a;
+        const i = row + x;
+        const ci = i * 4;
+        const a = c[ci + 3];
         const hi = (hy + (x >> 1)) * 3;
+        if (a < 0.0005) {
+          col32[i] = clampB(fd[hi]) | (clampB(fd[hi + 1]) << 8) | (clampB(fd[hi + 2]) << 16);
+          pr32[i] = DEF_PROPS; // default spray material where no paint (props.a = 0)
+          continue;
+        }
+        cov += a;
         let r, g, b;
         if (a >= 0.06) {
-          r = c[i * 4] / a; g = c[i * 4 + 1] / a; b = c[i * 4 + 2] / a;
+          const ia = 1 / a;
+          r = c[ci] * ia; g = c[ci + 1] * ia; b = c[ci + 2] * ia;
         } else {
-          const k = a / 0.06;
-          const ia = a > 1e-6 ? 1 / a : 0;
-          r = c[i * 4] * ia * k + fill.d[hi] * (1 - k);
-          g = c[i * 4 + 1] * ia * k + fill.d[hi + 1] * (1 - k);
-          b = c[i * 4 + 2] * ia * k + fill.d[hi + 2] * (1 - k);
+          const k = a / 0.06, ia = 1 / a;
+          r = c[ci] * ia * k + fd[hi] * (1 - k);
+          g = c[ci + 1] * ia * k + fd[hi + 1] * (1 - k);
+          b = c[ci + 2] * ia * k + fd[hi + 2] * (1 - k);
         }
-        const o = i * 4;
-        col[o] = r; col[o + 1] = g; col[o + 2] = b;
-        col[o + 3] = a * 255 + 0.5;
-        const pw = m[i * 3 + 2];
-        if (pw > 0.05) { pr[o] = m[i * 3] / pw; pr[o + 1] = m[i * 3 + 1] / pw; }
-        else { const qi = (qy + (x >> 2)) * 2; pr[o] = pfill.d[qi]; pr[o + 1] = pfill.d[qi + 1]; }
+        col32[i] = (clampB(r) | (clampB(g) << 8) | (clampB(b) << 16) | (clampB(a * 255) << 24)) >>> 0;
+        const mi = i * 3;
+        const pw = m[mi + 2];
+        let mr = 0, mg = 150;
+        if (pw > 0.005) { mr = m[mi] / pw; mg = m[mi + 1] / pw; }
         const pp = paper[i];
-        pr[o + 2] = pp > 0.25 ? 255 : pp * 1020;
-        pr[o + 3] = a > 0.012 ? 255 : 0;
+        pr32[i] = (clampB(mr) | (clampB(mg) << 8) | (clampB(pp > 0.25 ? 255 : pp * 1020) << 16) | ((a > 0.012 ? 255 : 0) << 24)) >>> 0;
       }
     }
     const colorImage = new ImageData(col, W, H);
@@ -279,41 +339,36 @@ export class Accumulator {
 }
 
 /**
- * Pull-push hole filling on a premultiplied buffer, starting at 1/f resolution
- * (f = 2 or 4). src: interleaved floats with `stride`; channels c0..c(nc-1) are
- * premultiplied by the weight channel `ai`. Returns un-premultiplied filled values
- * { d: Float32Array(w*h*nc), w, h, f }.
+ * Pull-push hole filling on the premultiplied color accumulator (rgb + alpha,
+ * stride 4), starting at half resolution. Returns un-premultiplied filled colors
+ * { d: Float32Array(w*h*3), w, h }.
  */
-function pullPushHalf(src, stride, W, H, chans, ai, f = 2) {
-  const nc = chans.length;
-  const S = 4; // packed: up to 3 channels + weight
-  const w0 = Math.max(1, Math.ceil(W / f)), h0 = Math.max(1, Math.ceil(H / f));
-  const cur = new Float32Array(w0 * h0 * S);
-  const c0 = chans[0], c1 = chans[1], c2 = nc > 2 ? chans[2] : -1;
-  const inv = 1 / (f * f);
+function pullPushHalf(src, W, H) {
+  const w0 = Math.max(1, (W + 1) >> 1), h0 = Math.max(1, (H + 1) >> 1);
+  const cur = new Float32Array(w0 * h0 * 4);
   for (let y = 0; y < H; y++) {
-    const row = ((y / f) | 0) * w0;
-    for (let x = 0; x < W; x++) {
-      const si = (y * W + x) * stride;
-      const a = src[si + ai];
+    const row = (y >> 1) * w0;
+    let si = y * W * 4;
+    for (let x = 0; x < W; x++, si += 4) {
+      const a = src[si + 3];
       if (a <= 0) continue;
-      const di = (row + ((x / f) | 0)) * S;
-      cur[di] += src[si + c0] * inv;
-      cur[di + 1] += src[si + c1] * inv;
-      if (c2 >= 0) cur[di + 2] += src[si + c2] * inv;
-      cur[di + 3] += a * inv;
+      const di = (row + (x >> 1)) * 4;
+      cur[di] += src[si] * 0.25;
+      cur[di + 1] += src[si + 1] * 0.25;
+      cur[di + 2] += src[si + 2] * 0.25;
+      cur[di + 3] += a * 0.25;
     }
   }
   const levels = [{ d: cur, w: w0, h: h0 }];
   let w = w0, h = h0, prev = cur;
   while (w > 1 || h > 1) {
     const nw = Math.max(1, (w + 1) >> 1), nh = Math.max(1, (h + 1) >> 1);
-    const nd = new Float32Array(nw * nh * S);
+    const nd = new Float32Array(nw * nh * 4);
     for (let y = 0; y < h; y++) {
       const drow = (y >> 1) * nw;
-      for (let x = 0; x < w; x++) {
-        const si = (y * w + x) * S;
-        const di = (drow + (x >> 1)) * S;
+      let si = y * w * 4;
+      for (let x = 0; x < w; x++, si += 4) {
+        const di = (drow + (x >> 1)) * 4;
         nd[di] += prev[si] * 0.25;
         nd[di + 1] += prev[si + 1] * 0.25;
         nd[di + 2] += prev[si + 2] * 0.25;
@@ -325,29 +380,31 @@ function pullPushHalf(src, stride, W, H, chans, ai, f = 2) {
   }
   for (let L = levels.length - 2; L >= 0; L--) {
     const { d, w: lw, h: lh } = levels[L];
-    const P = levels[L + 1];
+    const P = levels[L + 1], pd = P.d;
     for (let y = 0; y < lh; y++) {
       const prow = (y >> 1) * P.w;
-      for (let x = 0; x < lw; x++) {
-        const i = (y * lw + x) * S;
+      let i = y * lw * 4;
+      for (let x = 0; x < lw; x++, i += 4) {
         const a = d[i + 3];
         if (a >= 1) continue;
         const ia = 1 - a;
-        const pi = (prow + (x >> 1)) * S;
-        d[i] += P.d[pi] * ia;
-        d[i + 1] += P.d[pi + 1] * ia;
-        d[i + 2] += P.d[pi + 2] * ia;
-        d[i + 3] += P.d[pi + 3] * ia;
+        const pi = (prow + (x >> 1)) * 4;
+        d[i] += pd[pi] * ia;
+        d[i + 1] += pd[pi + 1] * ia;
+        d[i + 2] += pd[pi + 2] * ia;
+        d[i + 3] += pd[pi + 3] * ia;
       }
     }
   }
-  const out = new Float32Array(w0 * h0 * nc);
-  for (let i = 0; i < w0 * h0; i++) {
-    const a = cur[i * S + 3];
-    const k = a > 1e-6 ? 1 / a : 0;
-    out[i * nc] = a > 1e-6 ? cur[i * S] * k : 128;
-    out[i * nc + 1] = a > 1e-6 ? cur[i * S + 1] * k : 128;
-    if (nc > 2) out[i * nc + 2] = a > 1e-6 ? cur[i * S + 2] * k : 128;
+  const out = new Float32Array(w0 * h0 * 3);
+  for (let i = 0, j = 0, k = 0; i < w0 * h0; i++, j += 4, k += 3) {
+    const a = cur[j + 3];
+    if (a > 1e-6) {
+      const ia = 1 / a;
+      out[k] = cur[j] * ia; out[k + 1] = cur[j + 1] * ia; out[k + 2] = cur[j + 2] * ia;
+    } else {
+      out[k] = out[k + 1] = out[k + 2] = 128;
+    }
   }
-  return { d: out, w: w0, h: h0, f };
+  return { d: out, w: w0, h: h0 };
 }

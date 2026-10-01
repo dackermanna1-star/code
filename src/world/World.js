@@ -241,7 +241,8 @@ export class World {
     if (m === GMAT.MANHOLE) return 'metal';
     if (w > 0.004) return 'puddle';
     if (w > 0.0008) return 'wet';
-    if (this.debrisAt && this.debrisAt(x, z)) return this.debrisAt(x, z);
+    const litter = this.props?.surfaceAt(x, z);
+    if (litter) return litter;
     if (m === GMAT.CONCRETE || m === GMAT.SIDEWALK || m === GMAT.BRICK || m === GMAT.CURB) return 'concrete';
     if (m === GMAT.GRAVEL) return 'debris';
     return 'asphalt';

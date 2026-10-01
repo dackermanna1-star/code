@@ -3,7 +3,7 @@
 import { placeSymbol, layoutText } from '../font/font.js';
 import { bboxOf, translate, rotateAround, wobble, resample, chaikin } from '../core/geom.js';
 import { sprayStrokes, plainStrokes } from '../paint/spray.js';
-import { rgba, pickMarkerColor, PAINT } from '../core/color.js';
+import { rgba, pickMarkerColor } from '../core/color.js';
 
 function scrawlPath(rng, x, y, len, hgt) {
   const p = [x, y];
@@ -117,5 +117,3 @@ export function renderScratches(P, rng, o) {
   }
   return bboxOf(strokes, 0.01);
 }
-
-export { PAINT };

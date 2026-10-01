@@ -1,91 +1,151 @@
 // Wheat-paste posters (grids/repeats, torn remnants, layers, faded) and stapled
 // flyer remnants. No legible text: fake text bars and shapes only.
 
-import { rgba, PAINT, mix, weather, jitter, lighten, darken } from '../core/color.js';
-import { addPolygon, addCircle } from '../paint/spray.js';
+import { rgba, PAINT, mix, weather, jitter } from '../core/color.js';
+import { addPolygon } from '../paint/spray.js';
 import { jaggedLine, rotateAround } from '../core/geom.js';
 import { Rng } from '../core/rng.js';
 
 const PAPER = [234, 230, 218];
 
 export function makePosterDesign(rng) {
-  const type = rng.pickW([['event', 4], ['bold', 3], ['photo', 2], ['type', 2], ['split', 2]]);
+  const type = rng.pickW([['event', 4], ['bold', 3], ['photo', 2.5], ['type', 1.5], ['split', 2], ['pattern', 1]]);
   const bg = type === 'event'
-    ? rng.pick([[24, 24, 28], [40, 30, 60], [90, 20, 28], [20, 40, 70], [30, 30, 30]])
+    ? rng.pick([[24, 24, 28], [40, 30, 60], [90, 20, 28], [20, 40, 70], [30, 30, 30], [16, 52, 44]])
     : type === 'bold'
       ? rng.pick([PAINT.red, PAINT.yellow, [240, 236, 226], PAINT.orange, PAINT.skyBlue, PAINT.pink, PAINT.mint])
-      : type === 'photo' ? [226, 224, 216] : type === 'type' ? [240, 238, 230] : rng.pick([PAINT.yellow, PAINT.white, PAINT.paleBlue, PAINT.pink]);
+      : type === 'photo' ? [226, 224, 216] : type === 'type' ? [240, 238, 230] : rng.pick([PAINT.yellow, PAINT.white, PAINT.paleBlue, PAINT.pink, [30, 30, 32]]);
   const ink = type === 'event' ? rng.pick([PAINT.white, PAINT.yellow, PAINT.pink, PAINT.skyBlue, PAINT.red]) : rng.pick([PAINT.black, PAINT.black, PAINT.red, PAINT.navy, PAINT.purple]);
-  const ink2 = rng.pick([PAINT.red, PAINT.black, PAINT.white, PAINT.blue, PAINT.yellow, PAINT.pink]);
+  const ink2 = rng.pick([PAINT.red, PAINT.black, PAINT.white, PAINT.blue, PAINT.yellow, PAINT.pink, PAINT.teal]);
   return { type, bg: jitter(bg, rng, 6), ink, ink2, seed: rng.int(0, 1e9) };
 }
 
-function bars(ctx, x, y, w, h, rows, rng, gapF = 0.7) {
+/** Rows of fake words (illegible text). */
+function bars(ctx, x, y, w, h, rows, rng, gapF = 0.7, align = 'left') {
   const rh = h / (rows + (rows - 1) * gapF);
   for (let r = 0; r < rows; r++) {
-    let cx = x;
     const yy = y + r * rh * (1 + gapF);
-    const lineW = w * rng.range(0.55, 1);
-    while (cx < x + lineW) {
-      const ww = Math.min(x + lineW - cx, rh * rng.range(1.2, 5));
+    const lineW = w * (r === rows - 1 ? rng.range(0.3, 0.8) : rng.range(0.75, 1));
+    let cx = align === 'center' ? x + (w - lineW) / 2 : x;
+    const end = cx + lineW;
+    while (cx < end) {
+      const ww = Math.min(end - cx, rh * rng.range(1.2, 4.5));
       ctx.fillRect(cx, yy, ww, rh);
-      cx += ww + rh * rng.range(0.4, 0.9);
+      cx += ww + rh * rng.range(0.45, 0.8);
     }
   }
+}
+
+/** Big display "letters": chunky blocks with gaps (title lines). */
+function titleBlocks(ctx, x, y, w, h, rng) {
+  const n = rng.int(4, 9);
+  const gw = w / n;
+  for (let i = 0; i < n; i++) {
+    const cw = gw * rng.range(0.6, 0.9);
+    const kind = rng.int(0, 3);
+    const lx = x + i * gw;
+    if (kind === 0) ctx.fillRect(lx, y, cw, h);
+    else if (kind === 1) { ctx.fillRect(lx, y, cw * 0.3, h); ctx.fillRect(lx, y, cw, h * 0.25); ctx.fillRect(lx, y + h * 0.75, cw, h * 0.25); }
+    else if (kind === 2) { ctx.beginPath(); ctx.ellipse(lx + cw / 2, y + h / 2, cw / 2, h / 2, 0, 0, Math.PI * 2); ctx.fill(); }
+    else { ctx.fillRect(lx, y, cw * 0.3, h); ctx.fillRect(lx + cw * 0.7, y, cw * 0.3, h); ctx.fillRect(lx, y + h * 0.4, cw, h * 0.22); }
+  }
+}
+
+function portrait(ctx, x, y, w, h, col, bgc) {
+  ctx.fillStyle = rgba(col, 0.92);
+  ctx.beginPath();
+  ctx.ellipse(x + w * 0.5, y + h * 0.36, w * 0.2, h * 0.24, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(x + w * 0.08, y + h);
+  ctx.bezierCurveTo(x + w * 0.12, y + h * 0.62, x + w * 0.88, y + h * 0.62, x + w * 0.92, y + h);
+  ctx.fill();
+  ctx.fillStyle = rgba(bgc, 0.75);
+  ctx.fillRect(x + w * 0.4, y + h * 0.3, w * 0.07, h * 0.035);
+  ctx.fillRect(x + w * 0.53, y + h * 0.3, w * 0.07, h * 0.035);
 }
 
 /** Draw the printed design in local poster space (0..w, 0..h). */
 function drawDesign(ctx, d, w, h, age, wall) {
   const r = new Rng(d.seed);
   const f = (c) => weather(c, age, wall);
-  ctx.fillStyle = rgba(f(d.bg), 1);
+  const bg = f(d.bg), ink = f(d.ink), ink2 = f(d.ink2);
+  ctx.fillStyle = rgba(bg, 1);
   ctx.fillRect(0, 0, w, h);
-  const ink = f(d.ink), ink2 = f(d.ink2);
+  const m = w * 0.07;
   if (d.type === 'event') {
-    ctx.fillStyle = rgba(ink, 0.95);
-    bars(ctx, w * 0.08, h * 0.06, w * 0.84, h * 0.16, 2, r, 0.35);
-    ctx.fillStyle = rgba(ink2, 0.9);
-    ctx.beginPath();
-    ctx.arc(w * 0.5, h * 0.5, w * r.range(0.22, 0.32), 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = rgba(f(d.bg), 0.85);
-    ctx.beginPath();
-    ctx.ellipse(w * 0.5, h * 0.47, w * 0.09, w * 0.11, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillRect(w * 0.36, h * 0.55, w * 0.28, h * 0.12);
-    ctx.fillStyle = rgba(ink, 0.85);
-    bars(ctx, w * 0.1, h * 0.76, w * 0.8, h * 0.16, 4, r, 0.8);
-  } else if (d.type === 'bold') {
-    ctx.fillStyle = rgba(ink, 0.95);
-    bars(ctx, w * 0.06, h * 0.08, w * 0.88, h * 0.4, 3, r, 0.25);
-    ctx.fillStyle = rgba(ink2, 0.9);
-    ctx.fillRect(w * 0.06, h * 0.56, w * 0.88, h * 0.18);
     ctx.fillStyle = rgba(ink, 0.8);
-    bars(ctx, w * 0.06, h * 0.8, w * 0.7, h * 0.1, 2, r, 0.8);
-  } else if (d.type === 'photo') {
-    ctx.fillStyle = rgba(f([60, 58, 56]), 0.9);
-    ctx.beginPath();
-    ctx.ellipse(w * 0.5, h * 0.38, w * 0.22, h * 0.17, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(w * 0.12, h * 0.8);
-    ctx.quadraticCurveTo(w * 0.5, h * 0.42, w * 0.88, h * 0.8);
-    ctx.fill();
-    ctx.fillStyle = rgba(f([120, 118, 114]), 0.6);
-    ctx.fillRect(w * 0.06, h * 0.06, w * 0.88, h * 0.1);
+    bars(ctx, m, h * 0.04, w - 2 * m, h * 0.025, 1, r, 0.5, 'center');
+    ctx.fillStyle = rgba(ink, 0.95);
+    titleBlocks(ctx, m, h * 0.09, w - 2 * m, h * 0.1, r);
+    titleBlocks(ctx, m + w * 0.08, h * 0.21, w - 2 * m - w * 0.16, h * 0.07, r);
+    // duotone photo block
+    const g = ctx.createLinearGradient(0, h * 0.32, 0, h * 0.72);
+    g.addColorStop(0, rgba(mix(ink2, bg, 0.2), 0.95));
+    g.addColorStop(1, rgba(mix(ink2, [0, 0, 0], 0.45), 0.95));
+    ctx.fillStyle = g;
+    ctx.fillRect(m, h * 0.32, w - 2 * m, h * 0.4);
+    portrait(ctx, m + w * 0.1, h * 0.36, w - 2 * m - w * 0.2, h * 0.36, mix(bg, [0, 0, 0], 0.3), ink2);
     ctx.fillStyle = rgba(ink, 0.9);
-    bars(ctx, w * 0.1, h * 0.84, w * 0.8, h * 0.1, 2, r, 0.5);
-  } else if (d.type === 'type') {
-    ctx.fillStyle = rgba(ink, 0.9);
-    bars(ctx, w * 0.08, h * 0.06, w * 0.84, h * 0.1, 1, r);
-    bars(ctx, w * 0.08, h * 0.22, w * 0.84, h * 0.7, 14, r, 0.9);
-  } else {
+    bars(ctx, m, h * 0.76, w - 2 * m, h * 0.06, 2, r, 0.5, 'center');
+    ctx.fillStyle = rgba(ink2, 0.9);
+    ctx.fillRect(0, h * 0.86, w, h * 0.07);
+    ctx.fillStyle = rgba(bg, 0.9);
+    bars(ctx, m, h * 0.875, w - 2 * m, h * 0.04, 1, r, 0.5, 'center');
+  } else if (d.type === 'bold') {
+    ctx.fillStyle = rgba(ink, 0.96);
+    titleBlocks(ctx, m, h * 0.06, w - 2 * m, h * 0.14, r);
+    titleBlocks(ctx, m, h * 0.23, w - 2 * m, h * 0.14, r);
     ctx.fillStyle = rgba(ink2, 0.92);
+    ctx.beginPath();
+    const cx = w * 0.5, cy = h * 0.6, R = w * 0.3;
+    for (let k = 0; k < 24; k++) {
+      const a = (k / 24) * Math.PI * 2, rr = k % 2 ? R * 0.78 : R;
+      if (k === 0) ctx.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); else ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = rgba(bg, 0.95);
+    bars(ctx, cx - R * 0.55, cy - R * 0.25, R * 1.1, R * 0.5, 3, r, 0.4, 'center');
+    ctx.fillStyle = rgba(ink, 0.85);
+    bars(ctx, m, h * 0.86, w - 2 * m, h * 0.08, 3, r, 0.6);
+  } else if (d.type === 'photo') {
+    ctx.fillStyle = rgba(f([200, 198, 192]), 1);
+    ctx.fillRect(m * 0.6, m * 0.6, w - m * 1.2, h * 0.72);
+    portrait(ctx, m, h * 0.08, w - 2 * m, h * 0.62, f([46, 44, 42]), f([210, 208, 200]));
+    // photocopy toner noise
+    ctx.fillStyle = rgba(f([60, 58, 56]), 0.35);
+    for (let k = 0; k < 40; k++) ctx.fillRect(r.range(0, w), r.range(0, h * 0.75), w * r.range(0.005, 0.03), h * 0.004);
+    ctx.fillStyle = rgba(ink, 0.92);
+    titleBlocks(ctx, m, h * 0.8, w - 2 * m, h * 0.07, r);
+    bars(ctx, m, h * 0.9, w - 2 * m, h * 0.05, 2, r, 0.6);
+  } else if (d.type === 'type') {
+    ctx.fillStyle = rgba(ink, 0.92);
+    titleBlocks(ctx, m, h * 0.05, w - 2 * m, h * 0.08, r);
+    const colW = (w - 3 * m) / 2;
+    bars(ctx, m, h * 0.18, colW, h * 0.74, 18, r, 0.9);
+    bars(ctx, 2 * m + colW, h * 0.18, colW, h * 0.74, 18, r, 0.9);
+  } else if (d.type === 'split') {
+    ctx.fillStyle = rgba(ink2, 0.94);
     ctx.fillRect(0, h * 0.5, w, h * 0.5);
     ctx.fillStyle = rgba(ink, 0.95);
-    bars(ctx, w * 0.08, h * 0.1, w * 0.84, h * 0.3, 2, r, 0.3);
-    ctx.fillStyle = rgba(f(d.bg), 0.9);
-    bars(ctx, w * 0.08, h * 0.6, w * 0.84, h * 0.3, 5, r, 0.7);
+    titleBlocks(ctx, m, h * 0.12, w - 2 * m, h * 0.12, r);
+    titleBlocks(ctx, m, h * 0.28, w - 2 * m, h * 0.12, r);
+    ctx.fillStyle = rgba(bg, 0.92);
+    bars(ctx, m, h * 0.58, w - 2 * m, h * 0.3, 6, r, 0.7);
+  } else {
+    // repeated motif pattern with a label strip
+    ctx.fillStyle = rgba(ink2, 0.9);
+    const n = r.int(3, 5), s = w / n;
+    for (let iy = 0; iy < Math.ceil(h / s); iy++) for (let ix = 0; ix < n; ix++) {
+      ctx.beginPath();
+      ctx.arc(ix * s + s / 2 + (iy % 2) * s * 0.25, iy * s + s / 2, s * 0.28, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = rgba(bg, 0.95);
+    ctx.fillRect(0, h * 0.4, w, h * 0.18);
+    ctx.fillStyle = rgba(ink, 0.95);
+    titleBlocks(ctx, m, h * 0.43, w - 2 * m, h * 0.12, r);
   }
 }
 
@@ -236,5 +296,3 @@ export function renderFlyers(P, rng, o) {
   P.matStroke(staples, 0.0016, 210, 120, 0, 0.95, 'butt');
   return box;
 }
-
-export { addCircle, lighten, darken, mix };

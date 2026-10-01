@@ -405,8 +405,8 @@ const FACADE_SURFACE = /* glsl */ `
   if (inLayer && faceKind == 0) {
     vec4 pc = textureGrad(uPaint, vec3(puv, lyr), puvDx, puvDy);
     vec4 pp = textureGrad(uPaintProps, vec3(puv, lyr), puvDx, puvDy);
-    float cover = pc.a * (mort > 0.5 ? 0.42 : 1.0) * (hitType != 0 ? 0.65 : 1.0) * (pid == P_SPALL ? 0.35 : 1.0);
-    cover *= 0.82 + 0.18 * vn;
+    float cover = pc.a * (mort > 0.5 ? mix(0.42, 1.0, pp.b) : 1.0) * (hitType != 0 ? mix(0.65, 1.0, pp.b) : 1.0) * (pid == P_SPALL ? 0.35 : 1.0);
+    cover *= mix(0.82 + 0.18 * vn, 1.0, pp.b);
     cover = clamp(cover * 1.08, 0.0, 1.0);
     vec3 pcol = srgbToLinear(pc.rgb);
     alb = mix(alb, pcol * (1.0 - 0.4 * soot * 0.5), cover);

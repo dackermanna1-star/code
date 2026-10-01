@@ -5,6 +5,9 @@
 import { rgba } from '../core/color.js';
 import { resample } from '../core/geom.js';
 import { noise1 } from '../core/noise.js';
+import { Rng } from '../core/rng.js';
+
+const hyp = (x, y) => Math.sqrt(x * x + y * y);
 
 const TAU = Math.PI * 2;
 
@@ -42,7 +45,7 @@ export function addVarStroke(path, pts, hw, cornerCircles = true) {
   for (let i = 0; i < n; i++) {
     const i0 = i > 0 ? i - 1 : 0, i1 = i < n - 1 ? i + 1 : n - 1;
     let tx = pts[i1 * 2] - pts[i0 * 2], ty = pts[i1 * 2 + 1] - pts[i0 * 2 + 1];
-    const l = Math.hypot(tx, ty) || 1;
+    const l = hyp(tx, ty) || 1;
     tx /= l; ty /= l;
     nx[i] = -ty; ny[i] = tx;
   }
@@ -61,10 +64,10 @@ export function addVarStroke(path, pts, hw, cornerCircles = true) {
     for (let i = 1; i < n - 1; i++) {
       const ax = pts[i * 2] - pts[i * 2 - 2], ay = pts[i * 2 + 1] - pts[i * 2 - 1];
       const bx = pts[i * 2 + 2] - pts[i * 2], by = pts[i * 2 + 3] - pts[i * 2 + 1];
-      const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+      const la = hyp(ax, ay), lb = hyp(bx, by);
       if (la < 1e-9 || lb < 1e-9) continue;
       const c = (ax * bx + ay * by) / (la * lb);
-      if (c < 0.8) addCircle(path, pts[i * 2], pts[i * 2 + 1], hw[i]);
+      if (c < 0.35) addCircle(path, pts[i * 2], pts[i * 2 + 1], hw[i]);
     }
   }
 }
@@ -75,7 +78,7 @@ function turnAngles(pts) {
   for (let i = 1; i < n - 1; i++) {
     const ax = pts[i * 2] - pts[i * 2 - 2], ay = pts[i * 2 + 1] - pts[i * 2 - 1];
     const bx = pts[i * 2 + 2] - pts[i * 2], by = pts[i * 2 + 3] - pts[i * 2 + 1];
-    const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+    const la = hyp(ax, ay), lb = hyp(bx, by);
     if (la < 1e-9 || lb < 1e-9) continue;
     let c = (ax * bx + ay * by) / (la * lb);
     if (c > 1) c = 1; else if (c < -1) c = -1;
@@ -104,7 +107,9 @@ export function addDrip(dripPath, bulbPath, x, y, len, w, rng) {
  */
 export function sprayStrokes(P, strokes, o) {
   const ctx = P.ctx;
-  const rng = o.rng;
+  // private generator: internal draws depend on pixel size (speckle, drip candidates),
+  // the caller's stream must advance identically at every resolution
+  const rng = new Rng(o.rng.u32());
   const w = o.w;
   const color = o.color;
   const alpha = o.alpha ?? 0.92;
@@ -115,7 +120,7 @@ export function sprayStrokes(P, strokes, o) {
   const lod = o.lod ?? 0;
   const marker = tool === 'marker' || tool === 'mop';
   const pressure = o.pressure ?? (marker ? 0.05 : 0.3);
-  const ds = Math.max(w * 0.6, 0.8 / ppm);
+  const ds = Math.max(w * 0.7, 1.0 / ppm);
   const seed = rng.int(0, 1e6);
   const halos = new Path2D();
   const coreA = new Path2D();
@@ -128,7 +133,7 @@ export function sprayStrokes(P, strokes, o) {
   const dripLen = o.dripLen ?? 0.07;
   const dripMax = o.dripMax ?? 0.25;
   const speckle = marker || lod > 0 || pw < 2.5 ? 0 : (o.speckle ?? 1);
-  const blobAmt = o.blob ?? (marker ? 0.25 : 0.6);
+  const blobAmt = lod > 0 ? 0 : (o.blob ?? (marker ? 0.25 : 0.6));
   const dotsPerM = speckle * 160 * Math.min(1, (ppm / 140) ** 2);
   const dotR = Math.max(0.0007, 0.45 / ppm);
   const dotA = Math.min(1, (0.0007 / dotR) ** 2 * 2.2);
@@ -148,7 +153,7 @@ export function sprayStrokes(P, strokes, o) {
     let L = 0;
     const sArr = new Float32Array(n);
     for (let i = 1; i < n; i++) {
-      L += Math.hypot(pts[i * 2] - pts[i * 2 - 2], pts[i * 2 + 1] - pts[i * 2 - 1]);
+      L += hyp(pts[i * 2] - pts[i * 2 - 2], pts[i * 2 + 1] - pts[i * 2 - 1]);
       sArr[i] = L;
     }
     const taperLen = Math.min(L * 0.35, w * 6);
@@ -191,7 +196,7 @@ export function sprayStrokes(P, strokes, o) {
         const idx = rng.int(0, n - 1);
         const i0 = Math.max(0, idx - 1), i1 = Math.min(n - 1, idx + 1);
         let tx = pts[i1 * 2] - pts[i0 * 2], ty = pts[i1 * 2 + 1] - pts[i0 * 2 + 1];
-        const tl = Math.hypot(tx, ty) || 1;
+        const tl = hyp(tx, ty) || 1;
         tx /= tl; ty /= tl;
         const off = (w * 0.55 + Math.abs(rng.gauss()) * w * 1.1) * (rng.chance(0.5) ? 1 : -1);
         addCircle(dots, pts[idx * 2] - ty * off + tx * rng.range(-w, w), pts[idx * 2 + 1] + tx * off + ty * rng.range(-w, w), dotR * rng.range(0.6, 1.4));
@@ -200,9 +205,10 @@ export function sprayStrokes(P, strokes, o) {
   }
 
   ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
+  // soft halos: bevel joins are much cheaper to stroke and look the same
+  ctx.lineJoin = 'bevel';
   // overspray halo + edge fuzz, adapted to the stroke's pixel width
-  if (halo > 0) {
+  if (halo > 0 && lod < 2) {
     if (marker) {
       if (pw > 1.5) {
         ctx.strokeStyle = rgba(color, 0.07 * halo);
@@ -213,6 +219,10 @@ export function sprayStrokes(P, strokes, o) {
       ctx.strokeStyle = rgba(color, alpha * 0.13 * halo);
       ctx.lineWidth = w * 2.3;
       ctx.stroke(halos);
+    } else if (pw < 4) {
+      ctx.strokeStyle = rgba(color, alpha * 0.1 * halo);
+      ctx.lineWidth = w * 2.6;
+      ctx.stroke(halos);
     } else {
       ctx.strokeStyle = rgba(color, alpha * 0.055 * halo);
       ctx.lineWidth = w * 3.4;
@@ -221,13 +231,14 @@ export function sprayStrokes(P, strokes, o) {
       ctx.lineWidth = w * 2.0;
       ctx.stroke(halos);
       const fz = o.fuzz ?? 1;
-      if (fz > 0 && pw > 2.5) {
+      if (fz > 0 && pw > 6) {
         ctx.strokeStyle = rgba(color, alpha * 0.22 * fz);
         ctx.lineWidth = w * 1.28;
         ctx.stroke(halos);
       }
     }
   }
+  ctx.lineJoin = 'round';
   const a1 = Math.min(1, alpha * (marker ? 1 : rng.range(0.92, 1.0)));
   ctx.fillStyle = rgba(color, a1);
   ctx.fill(coreA);
@@ -248,7 +259,8 @@ export function sprayStrokes(P, strokes, o) {
     ctx.fillStyle = rgba(color, alpha * dotA);
     ctx.fill(dots);
   }
-  if (P.wantProps && !o.noProps) {
+  const defaultMat = !o.metal && Math.abs((o.gloss ?? 150) - 150) < 35;
+  if (P.wantProps && !o.noProps && !defaultMat) {
     const all = new Path2D();
     all.addPath(coreA);
     if (anyB) all.addPath(coreB);
@@ -279,7 +291,7 @@ export function zigzagFill(ctx, box, color, alpha, sw, rng, opts = {}) {
   const ang = opts.angle ?? rng.range(-0.35, 0.35); // 0 = vertical strokes
   const passes = opts.passes ?? 2;
   const cx = (box.x0 + box.x1) / 2, cy = (box.y0 + box.y1) / 2;
-  const R = Math.hypot(box.x1 - box.x0, box.y1 - box.y0) / 2 + sw;
+  const R = hyp(box.x1 - box.x0, box.y1 - box.y0) / 2 + sw;
   const cs = Math.cos(ang), sn = Math.sin(ang);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';

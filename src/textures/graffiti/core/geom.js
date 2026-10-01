@@ -2,9 +2,11 @@
 
 import { noise1 } from './noise.js';
 
+const hyp = (x, y) => Math.sqrt(x * x + y * y);
+
 export function polyLen(p) {
   let L = 0;
-  for (let i = 2; i < p.length; i += 2) L += Math.hypot(p[i] - p[i - 2], p[i + 1] - p[i - 1]);
+  for (let i = 2; i < p.length; i += 2) L += hyp(p[i] - p[i - 2], p[i + 1] - p[i - 1]);
   return L;
 }
 
@@ -19,13 +21,13 @@ export function resample(p, ds, maxPts = 400) {
   const out = [p[0], p[1]];
   let seg = 0;
   let segStart = 0;
-  let segLen = Math.hypot(p[2] - p[0], p[3] - p[1]);
+  let segLen = hyp(p[2] - p[0], p[3] - p[1]);
   for (let k = 1; k < cnt - 1; k++) {
     const target = k * step;
     while (segStart + segLen < target && seg < n - 2) {
       segStart += segLen;
       seg++;
-      segLen = Math.hypot(p[seg * 2 + 2] - p[seg * 2], p[seg * 2 + 3] - p[seg * 2 + 1]);
+      segLen = hyp(p[seg * 2 + 2] - p[seg * 2], p[seg * 2 + 3] - p[seg * 2 + 1]);
     }
     const t = segLen > 1e-12 ? (target - segStart) / segLen : 0;
     out.push(
@@ -67,7 +69,7 @@ export function rdp(p, eps) {
     const [a, b] = stack.pop();
     const ax = p[a * 2], ay = p[a * 2 + 1], bx = p[b * 2], by = p[b * 2 + 1];
     const dx = bx - ax, dy = by - ay;
-    const L = Math.hypot(dx, dy) || 1e-12;
+    const L = hyp(dx, dy) || 1e-12;
     let best = -1, bi = -1;
     for (let i = a + 1; i < b; i++) {
       const d = Math.abs((p[i * 2] - ax) * dy - (p[i * 2 + 1] - ay) * dx) / L;
@@ -142,10 +144,10 @@ export function wobble(p, amp, freq, seed, tangentAmp = 0) {
   const out = new Array(p.length);
   let s = 0;
   for (let i = 0; i < n; i++) {
-    if (i > 0) s += Math.hypot(p[i * 2] - p[i * 2 - 2], p[i * 2 + 1] - p[i * 2 - 1]);
+    if (i > 0) s += hyp(p[i * 2] - p[i * 2 - 2], p[i * 2 + 1] - p[i * 2 - 1]);
     const i0 = Math.max(0, i - 1), i1 = Math.min(n - 1, i + 1);
     let tx = p[i1 * 2] - p[i0 * 2], ty = p[i1 * 2 + 1] - p[i0 * 2 + 1];
-    const tl = Math.hypot(tx, ty) || 1;
+    const tl = hyp(tx, ty) || 1;
     tx /= tl; ty /= tl;
     const d = (noise1(s * freq, seed) * 2 - 1) * amp;
     const dt = tangentAmp ? (noise1(s * freq + 37.1, seed + 7) * 2 - 1) * tangentAmp : 0;
@@ -162,7 +164,7 @@ export function sampleAt(p, t) {
   const n = p.length >> 1;
   for (let i = 0; i < n - 1; i++) {
     const dx = p[i * 2 + 2] - p[i * 2], dy = p[i * 2 + 3] - p[i * 2 + 1];
-    const l = Math.hypot(dx, dy);
+    const l = hyp(dx, dy);
     if (target <= l || i === n - 2) {
       const u = l > 1e-12 ? Math.min(1, target / l) : 0;
       return { x: p[i * 2] + dx * u, y: p[i * 2 + 1] + dy * u, tx: l ? dx / l : 1, ty: l ? dy / l : 0 };
@@ -212,7 +214,7 @@ export function blobPoly(cx, cy, rx, ry, rng, irregularity = 0.25, n = 18) {
 
 /** Jagged polyline between two points (for torn paper edges etc.). */
 export function jaggedLine(x0, y0, x1, y1, rng, amp, step, out = []) {
-  const L = Math.hypot(x1 - x0, y1 - y0);
+  const L = hyp(x1 - x0, y1 - y0);
   const n = Math.max(1, Math.ceil(L / step));
   const nx = -(y1 - y0) / (L || 1), ny = (x1 - x0) / (L || 1);
   let off = 0;

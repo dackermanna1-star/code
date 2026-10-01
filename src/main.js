@@ -76,6 +76,25 @@ async function main() {
   }
   engine.post.fade = 0;
   for (let i = 0; i < 2; i++) engine.step(1 / 60);
+  // artifact viewers: keep the walker's place across a republish
+  const hot = window.claude?.hot;
+  try {
+    hot?.snapshot?.(() => ({ x: engine.player.pos.x, z: engine.player.pos.z, yaw: engine.player.yaw, pitch: engine.player.pitch }));
+  } catch {
+    /* not in a viewer */
+  }
+  const restore = (d) => {
+    if (d && Number.isFinite(d.x) && Number.isFinite(d.z)) {
+      const pl = engine.player;
+      pl.pos.x = d.x;
+      pl.pos.z = d.z;
+      pl.yaw = pl.yawT = pl.feetYaw = d.yaw ?? pl.yaw;
+      pl.pitch = pl.pitchT = d.pitch ?? pl.pitch;
+    }
+  };
+  if (hot?.ready) hot.ready(restore);
+  else restore(hot?.data ?? {});
+
   gate.classList.add('ready');
   window.__readyMs = Math.round(performance.now());
   engine.player.update(0.016);

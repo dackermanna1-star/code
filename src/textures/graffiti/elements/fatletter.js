@@ -7,18 +7,19 @@
 //   piece mode (opaque fill): gradient fill -> textures/patterns 'source-atop' ->
 //     cuts -> outline, 3D extrusion, 2nd outline, overspray all 'destination-over'.
 
-import { rgba, PAINT, lighten, darken, mix } from '../core/color.js';
-import { bboxOf, translate, resample, chaikin, wobble } from '../core/geom.js';
+import { rgba, darken } from '../core/color.js';
+import { bboxOf, translate, resample, chaikin, wobble, rdp } from '../core/geom.js';
 import { addPolyline, addCircle, addDrip } from '../paint/spray.js';
 import { createCanvas, get2d } from '../core/canvas.js';
 
 export function smoothSkeleton(strokes, h, rng, round = 2, wob = 0.012) {
   const seed = rng.int(0, 1e6);
   return strokes.map((p, i) => {
-    let q = resample(p, h / 14, 80);
+    let q = resample(p, h / 9, 60);
     if (round) q = chaikin(q, round, 0.25);
     if (wob) q = wobble(q, wob * h, 1 / (h * 0.7), seed + i * 17);
-    return q;
+    // fat round-joined strokes cost per vertex: drop vertices that add nothing
+    return rdp(q, h * 0.004);
   });
 }
 
@@ -40,41 +41,66 @@ function strokeP(ctx, path, width, style, cap, join) {
 // ---------------------------------------------------------------------------
 // Streaky spray-fill pattern tiles (seamless), cached per color/alpha bucket.
 
-const TILE = 64;
+const TILE = 128;
 const tileCache = new Map();
 
 /**
- * Pattern tile of quick zig-zag spray passes in `color` over a thinner base coat.
- * Returns a canvas TILE x TILE (seamless).
+ * Seamless pattern tile of quick spray passes in `color` over a thinner base coat:
+ * wavy passes of uneven width/pressure plus patchy extra coats. Cached per
+ * color/alpha bucket and variant.
  */
 export function streakTile(color, varColor, alpha, variant) {
-  const key = [color.map((v) => v >> 3).join(','), varColor ? varColor.map((v) => v >> 3).join(',') : '-', Math.round(alpha * 10), variant & 7].join('|');
+  // quantize first and build the tile from the quantized values, so a cached tile
+  // is a pure function of its key (results never depend on generation history)
+  const q = (v) => Math.min(255, Math.round(v / 12) * 12);
+  color = color.map(q);
+  if (varColor) varColor = varColor.map(q);
+  alpha = Math.round(alpha * 10) / 10;
+  const key = color.join(',') + '|' + (varColor ? varColor.join(',') : '-') + '|' + alpha + '|' + (variant & 7);
   let t = tileCache.get(key);
   if (t) return t;
+  if (tileCache.size > 256) tileCache.clear();
   const c = createCanvas(TILE, TILE);
   const g = get2d(c);
-  const base = alpha * (0.5 + 0.08 * (variant % 3));
+  let s = 1234 + variant * 977;
+  const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+  const base = alpha * (0.5 + 0.1 * rnd());
   g.fillStyle = rgba(color, base);
   g.fillRect(0, 0, TILE, TILE);
   g.lineCap = 'round';
-  // pseudo-random but deterministic per variant
-  let s = 1234 + variant * 97;
-  const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
-  const n = 4 + (variant % 3);
-  for (let pass = 0; pass < 2; pass++) {
-    for (let i = 0; i < n; i++) {
-      const x = ((i + rnd() * 0.6) / n) * TILE;
-      const w = TILE / n * (0.55 + rnd() * 0.5);
-      const col = pass === 1 && varColor ? varColor : color;
-      const a = Math.min(1, alpha * (pass === 1 && varColor ? 0.35 + rnd() * 0.25 : 0.45 + rnd() * 0.35));
-      for (const ox of [-TILE, 0, TILE]) {
-        g.strokeStyle = rgba(col, a * 0.35);
-        g.lineWidth = w * 1.8;
-        g.beginPath(); g.moveTo(x + ox, -4); g.lineTo(x + ox + (rnd() - 0.5) * 6, TILE + 4); g.stroke();
-        g.strokeStyle = rgba(col, a);
-        g.lineWidth = w;
-        g.beginPath(); g.moveTo(x + ox, -4); g.lineTo(x + ox, TILE + 4); g.stroke();
+  g.lineJoin = 'round';
+  // patchy heavier coats (wrapped soft blobs)
+  for (let i = 0; i < 5; i++) {
+    const x = rnd() * TILE, y = rnd() * TILE, r = TILE * (0.12 + rnd() * 0.25);
+    for (const ox of [-TILE, 0, TILE]) for (const oy of [-TILE, 0, TILE]) {
+      const gr = g.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, r);
+      gr.addColorStop(0, rgba(color, alpha * (0.25 + 0.2 * rnd())));
+      gr.addColorStop(1, rgba(color, 0));
+      g.fillStyle = gr;
+      g.fillRect(x + ox - r, y + oy - r, r * 2, r * 2);
+    }
+  }
+  // wavy passes, periodic in y so the tile stays seamless
+  const n = 6 + (variant % 4);
+  for (let i = 0; i < n; i++) {
+    const x0 = rnd() * TILE;
+    const w = TILE * (0.04 + rnd() * 0.15);
+    const amp = TILE * (0.003 + rnd() * 0.012), ph = rnd() * 6.283, cyc = 1;
+    const col = varColor && rnd() < 0.35 ? varColor : color;
+    const a = Math.min(1, alpha * (0.16 + rnd() * 0.28));
+    for (const ox of [-TILE, 0, TILE]) {
+      g.beginPath();
+      for (let k = 0; k <= 16; k++) {
+        const y = (k / 16) * TILE;
+        const x = x0 + ox + amp * Math.sin((y / TILE) * 6.283 * cyc + ph);
+        if (k === 0) g.moveTo(x, y - 2); else g.lineTo(x, y + (k === 16 ? 2 : 0));
       }
+      g.strokeStyle = rgba(col, a * 0.45);
+      g.lineWidth = w * 2.3;
+      g.stroke();
+      g.strokeStyle = rgba(col, a);
+      g.lineWidth = w;
+      g.stroke();
     }
   }
   tileCache.set(key, c);
@@ -112,6 +138,7 @@ export function renderFatLetter(P, rng, L, s) {
   const t = T.ctx;
   const main = pathOf(L.strokes);
   const oj = o * 0.22;
+  const opx = o * P.ppm;
   const outlineA = pathOf(L.strokes, oj * rng.range(-1, 1), oj * rng.range(0, 1.2));
   const outlineB = pathOf(L.strokes, oj * rng.range(-1, 1), -oj * rng.range(0, 1));
   const lb = bboxOf(L.strokes, F / 2);
@@ -127,10 +154,10 @@ export function renderFatLetter(P, rng, L, s) {
     // 3. everything behind, front-to-back
     t.globalCompositeOperation = 'destination-over';
     strokeP(t, outlineA, F + 2 * o, rgba(s.outline, 0.97), cap, join);
-    strokeP(t, outlineB, F + 2 * o * 0.85, rgba(s.outline, 0.97), cap, join);
-    strokeP(t, main, F + 2 * o + o * 0.9, rgba(s.outline, 0.22), cap, join);
+    if (opx > 3) strokeP(t, outlineB, F + 2 * o * 0.85, rgba(s.outline, 0.97), cap, join);
+    if (opx > 3.5) strokeP(t, main, F + 2 * o + o * 0.9, rgba(s.outline, 0.22), cap, join);
     if (s.extrude) {
-      const steps = s.extrude.steps || 6;
+      const steps = Math.max(2, Math.min(s.extrude.steps || 6, Math.ceil((ext * P.ppm) / 1.5)));
       const pl = [];
       for (let k = 1; k <= steps; k++) pl.push(pathOf(L.strokes, (s.extrude.dx * k) / steps, (s.extrude.dy * k) / steps));
       const ec = s.extrude.color;
@@ -145,20 +172,21 @@ export function renderFatLetter(P, rng, L, s) {
       if (s.extrude) strokeP(t, pathOf(L.strokes, s.extrude.dx, s.extrude.dy), w2, rgba(s.second.color, 0.95), cap, join);
       strokeP(t, main, w2 + s.second.w * 0.6, rgba(s.second.color, 0.25), cap, join);
     }
-    if (s.halo > 0) strokeP(t, main, F + 2 * o + 2 * s.halo, rgba(s.fill, 0.08), cap, join);
+    if (s.halo * P.ppm > 1.5) strokeP(t, main, F + 2 * o + 2 * s.halo, rgba(s.fill, 0.08), cap, join);
     t.globalCompositeOperation = 'source-over';
   } else {
     // ---- throw-up mode
-    if (s.halo > 0 && s.fillAlpha > 0.05) strokeP(t, main, F + 2 * o + 2 * s.halo, rgba(s.fill, 0.07 + 0.05 * rng.next()), cap, join);
+    const haloA = 0.07 + 0.05 * rng.next();
+    if (s.halo * P.ppm > 1.5 && s.fillAlpha > 0.05) strokeP(t, main, F + 2 * o + 2 * s.halo, rgba(s.fill, haloA), cap, join);
     if (s.second) {
       const w2 = F + 2 * o + 2 * s.second.w;
       strokeP(t, main, w2 + s.second.w * 0.6, rgba(s.second.color, 0.25), cap, join);
       strokeP(t, main, w2, rgba(s.second.color, 0.95), cap, join);
     }
     if (s.shadow) strokeP(t, pathOf(L.strokes, s.shadow.dx, s.shadow.dy), F + 2 * o, rgba(s.shadow.color, s.shadow.alpha ?? 0.9), cap, join);
-    strokeP(t, main, F + 2 * o + o * 0.9, rgba(s.outline, 0.22), cap, join);
+    if (opx > 3.5) strokeP(t, main, F + 2 * o + o * 0.9, rgba(s.outline, 0.22), cap, join);
     strokeP(t, outlineA, F + 2 * o, rgba(s.outline, 0.97), cap, join);
-    strokeP(t, outlineB, F + 2 * o * 0.85, rgba(s.outline, 0.97), cap, join);
+    if (opx > 3) strokeP(t, outlineB, F + 2 * o * 0.85, rgba(s.outline, 0.97), cap, join);
     // clear interior
     t.globalCompositeOperation = 'destination-out';
     strokeP(t, main, F, '#000', cap, join);
@@ -173,7 +201,7 @@ export function renderFatLetter(P, rng, L, s) {
     if (s.fillAlpha > 0.01) {
       const st = s.streak || {};
       const tile = streakTile(s.fill, s.fillVar || null, s.fillAlpha, st.variant ?? 0);
-      const pat = makePattern(t, tile, (st.sw ?? F * 0.3) * 4.5, (st.angle ?? 0), lb.x0, lb.y0);
+      const pat = makePattern(t, tile, (st.sw ?? F * 0.3) * 8, (st.angle ?? 0), lb.x0 + rng.range(0, 1), lb.y0 + rng.range(0, 1));
       t.globalCompositeOperation = 'destination-over';
       strokeP(t, main, F, pat || rgba(s.fill, s.fillAlpha), cap, join);
       // shines
@@ -191,7 +219,8 @@ export function renderFatLetter(P, rng, L, s) {
   P.endScratch(T);
 
   // props (material)
-  if (P.wantProps) {
+  if (P.wantProps && (s.metal || s.outlineMetal)) {
+    // plain spray paint uses the default material; only chrome needs explicit props
     P.matStroke(main, F + 2 * o + (s.second ? 2 * s.second.w : 0), s.outlineMetal || 0, s.gloss ?? 150, 0, 0.95);
     if (s.fillAlpha > 0.01) P.matStroke(main, F, s.metal || 0, s.gloss ?? 150, 0, Math.min(1, s.fillAlpha));
   }
@@ -243,7 +272,4 @@ export function letterDrips(P, rng, letters, F, o, color, count, maxLen) {
   ctx.stroke(dp);
   ctx.fillStyle = rgba(color, 0.92);
   ctx.fill(bp);
-  P.matStroke(dp, w, 0, 150, 0, 0.9);
 }
-
-export { PAINT, lighten, darken, mix };

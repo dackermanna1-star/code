@@ -2,14 +2,15 @@
 // derived from a pool seed so the same writers recur across segments and props.
 
 import { Rng } from '../core/rng.js';
-import { PAINT, pickTagColor, pickMarkerColor, pickThrowFill, pickOutline } from '../core/color.js';
+import { pickTagColor, pickMarkerColor, pickThrowFill, pickOutline } from '../core/color.js';
 import { glyphVariantCount } from '../font/font.js';
 
 const CONS = [
   ['K', 10], ['R', 9], ['S', 9], ['Z', 6], ['X', 4], ['M', 6], ['T', 7], ['V', 5], ['N', 4], ['L', 3],
   ['D', 3], ['P', 2], ['B', 2], ['C', 2], ['G', 2], ['H', 1.5], ['J', 1], ['W', 1.5], ['F', 1], ['Y', 0.6], ['Q', 0.3],
 ];
-const VOW = [['E', 9], ['A', 8], ['O', 9], ['I', 3.5], ['U', 3], ['Y', 0.7]];
+const VOW = [['E', 9], ['A', 8], ['O', 9], ['I', 3.2], ['U', 2.4]];
+const VV_OK = new Set(['EO', 'OE', 'AE', 'EA', 'IA', 'AU', 'OA', 'IO', 'EI']);
 const PATTERNS = [
   ['CVCV', 6], ['CVCC', 5], ['CVC', 4], ['VCVC', 3], ['CVCVC', 3], ['CCVC', 2], ['VCC', 1.5],
   ['CVCCV', 2], ['CVVC', 1], ['VCCV', 2], ['CVCVCV', 0.6], ['CCVCC', 0.6], ['VCVCV', 0.6],
@@ -24,7 +25,13 @@ const BLOCK = new Set((
   'NAZI HOE FUK FUC FCK FAK SEX ASS TIT CUM NIG NIGA FAG POO PEE XXX KILL DIE GAY JEW COK COCK DIK DICK PUS PUSI ANUS ' +
   'SEMEN RAPE HITLER KIKE SPIC WOP GOOK COON SLUT WHORE TWAT CUNT PORN NUDE BOOB TITS DRUG METH CRAK CRACK ' +
   'NIKE ADIDAS SONY AUDI KIA AXE AVON EXXON OREO VISA IKEA ZARA LEGO SEGA FIAT SAAB OPEL MAZDA TOTO XBOX ROLEX ' +
-  'MVSK CHAOS RISE DREAM SKAM KOZE SMOK TOXIC KRSONE KRS'
+  'MVSK CHAOS RISE DREAM SKAM KOZE SMOK TOXIC KRSONE KRS ' +
+  'KENT CAMEL SALEM VOGUE NIVEA PEPSI COKE FANTA SPRITE LEVI LEVIS PUMA FILA VANS OREO TACO BIC ZIPPO MARS ' +
+  'MONTANA KRYLON RUSTO MOLOTOW BELTON IRONLAK KOBRA FLAME LOOP MTN SNUS ARES ROLEX TESLA SKODA DACIA LADA ' +
+  'BMW AUDI OPEL VOLVO MAZDA HONDA SEAT KIA TATA JEEP DODGE FORD MINI SMART LEXUS ACURA NOKIA ASUS ACER DELL ' +
+  'SONOS BOSE AMEX SHELL ESSO TEXACO ARCO MOBIL CITGO SUNOCO OXXO AMAZON EBAY UBER LYFT XEROX KODAK CANON ' +
+  'NIKON LEICA SANYO SHARP SEIKO CASIO TIMEX OMEGA RADO TISSOT DIOR GUCCI PRADA ZARA MANGO GAP OBEY SUPREME ' +
+  'STUSSY VOLCOM HURLEY OAKLEY RAYBAN LACOSTE KAPPA UMBRO DIESEL REPLAY GUESS BENZ AXA ING UBS'
 ).split(/\s+/));
 
 const BAD_SUB = ['KKK', 'SS ', 'NIG', 'FAG', 'FUK', 'FCK', 'CUM', 'SEX', 'NAZ', 'ASS', 'TIT', 'DIK', 'COK', 'PUS', 'RAP', 'XXX', 'HOE', 'KIK', 'SPIC', 'JEW', 'CUN', 'TWA', 'WHO', 'SLU', 'POR'];
@@ -35,30 +42,42 @@ function isBad(name) {
   return false;
 }
 
+const ONSETS = new Set(['KR', 'SK', 'ST', 'TR', 'SM', 'DR', 'PR', 'GR', 'BR', 'KL', 'SL', 'SP', 'SN', 'TZ', 'ZK']);
+const SILLY = new Set(['MAMA', 'PAPA', 'TOTS', 'ITEM', 'MILE', 'ANTI', 'RAKE', 'MAM', 'POPO', 'DADA', 'NANA', 'BABE', 'BABA', 'MOMO', 'TATA', 'KAKA', 'CACA', 'PIPI', 'NONO', 'SEX', 'SEXY']);
+
 export function makeName(rng, minLen = 3, maxLen = 6) {
-  for (let tries = 0; tries < 60; tries++) {
+  outer: for (let tries = 0; tries < 80; tries++) {
     const pat = rng.pickW(PATTERNS);
     let s = '';
     for (let i = 0; i < pat.length; i++) {
       const isC = pat[i] === 'C';
       let ch = rng.pickW(isC ? CONS : VOW);
       if (isC && i > 0 && pat[i - 1] === 'C') {
-        // keep consonant clusters pronounceable-ish
+        // keep consonant clusters pronounceable-ish (onsets stricter than codas)
+        const okSet = i === 1 ? ONSETS : GOOD_CLUSTERS;
         let ok = false;
-        for (let k = 0; k < 8 && !ok; k++) {
-          if (GOOD_CLUSTERS.has(s[s.length - 1] + ch)) ok = true;
+        for (let k = 0; k < 10 && !ok; k++) {
+          if (okSet.has(s[s.length - 1] + ch)) ok = true;
           else ch = rng.pickW(CONS);
         }
-        if (!ok) ch = rng.pick(['K', 'S', 'T', 'R']);
+        if (!ok) continue outer;
       }
       s += ch;
     }
+    if (/^(..)\1$/.test(s) || /(.)(.)\1\2/.test(s) || SILLY.has(s)) continue;
     if (rng.chance(0.08) && s.length <= 4) s += rng.pick(['ONE', 'ER', 'OS', 'K', 'S', 'Z']);
-    if (rng.chance(0.06)) s = s.replace(/O/, '0');
     if (s.length < minLen || s.length > maxLen) continue;
     if (/(.)\1\1/.test(s)) continue;
-    if (/^[AEIOUY]{2}/.test(s)) continue;
+    if (/([AEIOU])\1/.test(s)) continue;
+    let vvBad = false;
+    for (let k = 0; k < s.length - 1; k++) {
+      if ('AEIOU'.includes(s[k]) && 'AEIOU'.includes(s[k + 1]) && !VV_OK.has(s[k] + s[k + 1])) vvBad = true;
+    }
+    if (vvBad) continue;
+    if ((s.match(/X/g) || []).length > 1 || (s.match(/[QJ]/g) || []).length > 1) continue;
+    if (/^[AEIOU]{2}/.test(s)) continue;
     if (isBad(s)) continue;
+    if (rng.chance(0.05)) s = s[0] + s.slice(1).replace(/O/, '0');
     return s;
   }
   return rng.pick(['KREZ', 'ZOVE', 'TESK', 'MORA', 'VEXA']);
@@ -143,7 +162,7 @@ export function makeWriter(rng, crews) {
     color: pickTagColor(rng),
     altColor: rng.chance(0.4) ? pickTagColor(rng) : null,
     markerColor: pickMarkerColor(rng),
-    lineW: rng.range(0.009, 0.022),
+    lineW: rng.range(0.012, 0.028),
     sticker: rng.chance(0.35),
   };
   if (rng.chance(0.55)) {
@@ -164,9 +183,16 @@ export function makeWriter(rng, crews) {
       shadow: rng.chance(0.22),
       second: rng.chance(0.18),
       shine: rng.chance(0.6),
-      hollow: rng.chance(0.09),
+      hollow: rng.chance(0.14),
       dir: rng.chance(0.75) ? 1 : -1,
+      variants: {},
     };
+    // some writers bubble their stylized letterforms (flat-top A, epsilon E, rounded M...)
+    const fatOK = { A: [1], B: [1], C: [2], D: [1], E: [1, 3], G: [2], K: [1, 2], M: [1, 3], N: [1], O: [3], R: [1, 2], T: [1], U: [1], W: [1], Y: [1], Z: [1] };
+    const pv = rng.chance(0.45) ? rng.range(0.3, 0.8) : 0;
+    for (const ch of new Set(w.throw.text)) {
+      if (fatOK[ch] && rng.chance(pv)) w.throw.variants[ch] = rng.pick(fatOK[ch]);
+    }
   }
   if (rng.chance(0.18)) w.pieceStyle = rng.pickW([['block', 5], ['semi', 4], ['soft', 2]]);
   return w;
@@ -213,5 +239,3 @@ export function pickLocalWriters(pool, rng, count) {
 export function pickWriter(local, rng) {
   return rng.pickW(local.map((x) => [x, 0.12 + x.fame * 1.4]));
 }
-
-export { PAINT };

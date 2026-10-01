@@ -18,9 +18,9 @@ const sm = (a, b, x) => {
 
 function palette() {
   const P = new Palette();
-  P.add('leather', { color: [20, 19, 20], rough: 0.32, cls: MCLS.LEATHER, vari: 0.08 });
+  P.add('leather', { color: [27, 25, 26], rough: 0.32, cls: MCLS.LEATHER, vari: 0.08 });
   P.add('leatherCrease', { color: [14, 13, 14], rough: 0.45, cls: MCLS.LEATHER, vari: 0.05 });
-  P.add('fabric', { color: [16, 16, 18], rough: 0.85, cls: MCLS.FABRIC, vari: 0.06 });
+  P.add('fabric', { color: [11, 11, 13], rough: 0.88, cls: MCLS.FABRIC, vari: 0.06 });
   P.add('nylon', { color: [20, 16, 15], rough: 0.5, cls: MCLS.NYLON, vari: 0.0 });
   P.add('boot', { color: [12, 11, 12], rough: 0.24, cls: MCLS.LEATHER, vari: 0.05 });
   P.add('sole', { color: [10, 9, 9], rough: 0.7, cls: MCLS.RUBBER, vari: 0.04 });
@@ -84,8 +84,8 @@ export class Body {
     {
       const len = 0.52; // from shoulders (top) down to the hem
       const { g, origin } = tube(len,
-        (t) => 0.165 - 0.025 * Math.sin(t * Math.PI * 0.9) + (t > 0.85 ? (t - 0.85) * 0.25 : 0),
-        (t) => 0.105 + 0.03 * Math.exp(-((t - 0.28) ** 2) / 0.012) - 0.012 * t,
+        (t) => 0.165 - 0.025 * Math.sin(t * Math.PI * 0.9) + (t > 0.82 ? (t - 0.82) * 0.42 : 0),
+        (t) => 0.105 + 0.03 * Math.exp(-((t - 0.28) ** 2) / 0.012) - 0.012 * t + (t > 0.85 ? (t - 0.85) * 0.3 : 0),
         (t, x, z, e) => {
           if (e < 0.72 && t > 0.03 && t < 0.97) return 0; // hollow
           if (Math.abs(x) < 0.006 && z < 0 && t > 0.12) return M('zip');
@@ -211,28 +211,48 @@ export class Body {
       wrist.position.set(0, -0.25, 0);
       elbow.add(wrist);
       {
-        // hand: palm + slightly curled fingers + thumb, nails
-        const W = Math.ceil(0.07 / VS), H = Math.ceil(0.2 / VS), D = Math.ceil(0.08 / VS);
+        // hand: rounded palm, four tapered, slightly curled fingers, thumb, nails
+        const W = Math.ceil(0.06 / VS), H = Math.ceil(0.2 / VS), D = Math.ceil(0.1 / VS);
         const g = new VoxelGrid(W, H, D);
-        const ox = -0.035, oy = -0.2, oz = -0.04;
+        const ox = -0.03, oy = -0.2, oz = -0.05;
+        const skin = M('skin'), nail = M('nail');
         for (let k = 0; k < D; k++)
           for (let j = 0; j < H; j++)
             for (let i = 0; i < W; i++) {
               const x = ox + (i + 0.5) * VS, y = oy + (j + 0.5) * VS, z = oz + (k + 0.5) * VS;
-              // palm
-              if (y > -0.1 && y < -0.005 && Math.abs(x) < 0.013 && Math.abs(z) < 0.036) g.set(i, j, k, M('skin'));
-              // fingers curl forward
-              const fy = -0.1 - y;
-              if (fy > 0 && fy < 0.085 && Math.abs(x) < 0.011) {
-                const cz = -0.005 - fy * fy * 3.5;
-                if (Math.abs(z - cz + 0.004) < 0.034 && Math.abs(z - cz) < 0.034) g.set(i, j, k, fy > 0.078 ? M('nail') : M('skin'));
+              // palm: rounded slab, thicker at the heel of the hand
+              if (y > -0.095 && y < -0.004) {
+                const t = (-y - 0.004) / 0.091;
+                const halfT = 0.0135 - 0.003 * t, halfW = 0.036 - 0.004 * t;
+                if ((x / halfT) ** 2 + (z / halfW) ** 4 <= 1) g.set(i, j, k, skin);
               }
-              // thumb
-              if (y > -0.09 && y < -0.035 && x * -1 > -0.022 && Math.abs(x) < 0.02 && z < -0.03 && z > -0.045) g.set(i, j, k, M('skin'));
+              // fingers: four columns across the width, curling toward the palm side (-x for the inner side)
+              const fy = -0.095 - y;
+              if (fy > 0 && fy < 0.085) {
+                for (let f = 0; f < 4; f++) {
+                  const fz = -0.026 + f * 0.0175;
+                  const len = [0.072, 0.082, 0.078, 0.06][f];
+                  if (fy > len) continue;
+                  const curl = (fy / len) ** 2 * 0.018;
+                  const r = 0.0085 - 0.002 * (fy / len);
+                  if ((x + curl) ** 2 + (z - fz) ** 2 <= r * r) g.set(i, j, k, fy > len - 0.012 && x + curl > 0.0 ? nail : skin);
+                }
+              }
+              // thumb: along the front edge, angled down and inward
+              const ty = -0.03 - y;
+              if (ty > 0 && ty < 0.06) {
+                const cz = 0.036 + ty * 0.15, cx = -0.008 - ty * 0.15;
+                if ((x - cx) ** 2 + (z - cz) ** 2 <= 0.009 ** 2) g.set(i, j, k, ty > 0.048 && x - cx > 0.0 ? nail : skin);
+              }
             }
-        if (side === 'L') g.box(Math.floor(W / 2) - 2, Math.floor(H * 0.42), 0, Math.floor(W / 2) + 2, Math.floor(H * 0.42) + 1, D, P.get('ring'));
+        // a thin ring on the left ring finger
+        if (side === 'L') {
+          const ry = Math.round((-0.112 - oy) / VS), rz = Math.round((0.0265 - oz) / VS);
+          for (let i = 0; i < W; i++) for (let k = rz - 1; k <= rz + 1; k++) if (g.get(i, ry, k)) g.set(i, ry, k, P.get('ring'));
+        }
         const hm = mesh(g, [ox, oy, oz]);
-        hm.rotation.y = sx * 0.35;
+        // palms face the thighs, fingers forward
+        hm.rotation.y = sx > 0 ? Math.PI : 0;
         wrist.add(hm);
       }
       this.arms[side] = { shoulder, elbow, wrist, sx };

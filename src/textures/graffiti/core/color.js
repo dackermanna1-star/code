@@ -124,9 +124,9 @@ export function fromHsl(h, s, l) {
 
 export function pickTagColor(rng) {
   return PAINT[rng.pickW([
-    ['black', 40], ['softBlack', 6], ['white', 11], ['silver', 12], ['red', 7], ['maroon', 3],
-    ['blue', 4], ['navy', 2], ['grey', 3], ['darkGrey', 2], ['gold', 2], ['pink', 2],
-    ['purple', 3], ['skyBlue', 2], ['teal', 1], ['orange', 1], ['green', 1], ['lightGrey', 2],
+    ['black', 58], ['softBlack', 8], ['white', 12], ['silver', 9], ['red', 5], ['maroon', 2],
+    ['blue', 2.5], ['navy', 1.5], ['grey', 3], ['darkGrey', 2], ['gold', 1], ['pink', 1],
+    ['purple', 1.5], ['skyBlue', 1], ['teal', 0.5], ['orange', 0.5], ['green', 0.5], ['lightGrey', 2],
   ])];
 }
 
@@ -150,6 +150,6 @@ export function pickOutline(rng, fillName) {
     return rng.pickW([['white', 5], ['silver', 2], ['red', 2], ['gold', 1], ['skyBlue', 1]]);
   }
   return rng.pickW([
-    ['black', 74], ['red', 5], ['maroon', 4], ['blue', 5], ['purple', 4], ['navy', 3], ['softBlack', 5],
+    ['black', 82], ['softBlack', 6], ['red', 3], ['maroon', 2.5], ['blue', 2.5], ['purple', 2], ['navy', 2],
   ]);
 }

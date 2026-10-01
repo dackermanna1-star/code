@@ -2,8 +2,8 @@
 // wooden utility poles (unrolled, wraps horizontally), fences, roll-down shutters.
 
 import { Rng } from '../core/rng.js';
-import { createCanvas, get2d } from '../core/canvas.js';
-import { PAINT, jitter, mix, pickTagColor } from '../core/color.js';
+import { createCanvas, get2d, resetCtx } from '../core/canvas.js';
+import { PAINT, mix, pickTagColor } from '../core/color.js';
 import { Painter } from '../paint/painter.js';
 import { buildFields, Accumulator } from './aging.js';
 import { getWriterPool, pickLocalWriters, pickWriter } from './writers.js';
@@ -82,7 +82,7 @@ export function* propPaintGen(spec) {
   const Hpx = Math.max(1, Math.round(S.heightM * S.ppm));
   const rng = new Rng('prop:' + S.kind + ':' + String(S.seed));
   const fields = buildFields(S, Wpx, Hpx, rng.fork('fields'));
-  const acc = new Accumulator(Wpx, Hpx);
+  const acc = Accumulator.get(Wpx, Hpx);
   const pool = getWriterPool(S.poolSeed);
   const local = pickLocalWriters(pool, rng.fork('local'), 10);
   const color = createCanvas(Wpx, Hpx), cctx = get2d(color);
@@ -95,14 +95,15 @@ export function* propPaintGen(spec) {
   const reachTop = Math.min(S.heightM, isPole ? 3.0 : S.heightM);
   // canvas v for a height above the surface bottom
   const vOf = (y) => S.heightM - y;
+  // keep an element of estimated size (w, h) inside non-wrapping surfaces
+  const fitX = (x, w) => (isPole ? x : Math.max(Math.min(w / 2 + 0.02, S.widthM / 2), Math.min(Math.max(S.widthM - w / 2 - 0.02, S.widthM / 2), x)));
+  const fitV = (v, h) => Math.max(Math.min(h / 2 + 0.02, S.heightM / 2), Math.min(Math.max(S.heightM - h / 2 - 0.02, S.heightM / 2), v));
   yield;
   for (let e = 0; e < nEras; e++) {
     const er = rng.fork('era' + e);
     const age = e === nEras - 1 ? er.range(0.1, 1) : S.ageYears * (1 - (e + er.range(0.3, 0.7)) / nEras);
-    cctx.setTransform(1, 0, 0, 1, 0, 0);
-    cctx.clearRect(0, 0, Wpx, Hpx);
-    pctx.setTransform(1, 0, 0, 1, 0, 0);
-    pctx.clearRect(0, 0, props.width, props.height);
+    resetCtx(cctx, Wpx, Hpx);
+    resetCtx(pctx, props.width, props.height);
     const P = new Painter({ ctx: cctx, pctx, ppm: S.ppm, widthM: S.widthM, heightM: S.heightM, wallTone: S.wallTone, propsScale: 0.5 });
     const dens = S.density * er.range(0.7, 1.2);
     let jid = 0;
@@ -151,9 +152,10 @@ export function* propPaintGen(spec) {
     const nThrows = poisson(er, area * 0.22 * mixK.throws * dens);
     for (let i = 0; i < nThrows; i++) {
       let w = pickWriter(local, er);
-      const h = Math.min(S.heightM * 0.5, er.range(0.25, 0.6));
-      const y = vOf(er.range(h * 0.8, Math.max(h, reachTop - h * 0.6)));
-      const x = xr();
+      const n = w.throw ? w.throw.text.length : 3;
+      const h = Math.min(S.heightM * 0.5, er.range(0.25, 0.6), (S.widthM * 0.9) / (n * 0.95 + 0.3));
+      const y = fitV(vOf(er.range(h * 0.8, Math.max(h, reachTop - h * 0.6))), h * 1.5);
+      const x = fitX(xr(), n * h * 0.95 + h * 0.3);
       wrapDraw(P, S, seedFor(), (r) => renderThrowup(P, r, { writer: w, h, x, y }));
       counts.throwups++;
     }
@@ -162,15 +164,19 @@ export function* propPaintGen(spec) {
     for (let i = 0; i < nTags; i++) {
       const w = pickWriter(local, er);
       const vertical = isPole && er.chance(0.35);
-      const h = vertical ? er.range(0.07, 0.14) : Math.max(0.05, Math.min(0.4, Math.exp(er.gauss() * 0.35) * (isPole ? 0.12 : 0.16)));
-      const y = vOf(er.range(isPole ? 0.4 : 0.1, reachTop - 0.1));
-      const x = xr();
+      const len = w.name.length + 0.5;
+      let h = vertical ? er.range(0.07, 0.14) : Math.max(0.05, Math.min(0.4, Math.exp(er.gauss() * 0.35) * (isPole ? 0.12 : 0.16)));
+      if (!vertical && !isPole) h = Math.min(h, (S.widthM * 0.92) / (len * 0.62 + 0.3));
+      const estW = vertical ? h : len * h * 0.62 + h * 0.3, estH = vertical ? h * 1.25 * w.name.length : h * 1.6;
+      const y = fitV(vOf(er.range(isPole ? 0.4 : 0.1, reachTop - 0.1)), estH);
+      const x = fitX(xr(), estW);
       const tool = S.kind === 'dumpster' && er.chance(0.5) ? 'marker' : w.tool;
       const col = S.kind === 'dumpster' || S.kind === 'door' || S.kind === 'shutter'
         ? (er.chance(0.45) ? er.pickW([[PAINT.white, 4], [PAINT.silver, 3], [PAINT.lightGrey, 1], [PAINT.black, 2]]) : w.color)
         : er.chance(0.7) ? w.color : pickTagColor(er);
       wrapDraw(P, S, seedFor(), (r) => renderTag(P, r, { writer: w, h, x, y, tool, color: col, vertical, maxW: isPole ? S.widthM * 0.8 : S.widthM * 0.95 }));
       counts.tags++;
+      if ((i & 15) === 15) yield;
     }
     // stickers
     const nSt = poisson(er, area * 3.0 * mixK.stickers * dens);
@@ -185,8 +191,8 @@ export function* propPaintGen(spec) {
     const nSc = Math.round(area * 2.5 * mixK.scribbles * dens);
     for (let i = 0; i < nSc; i++) {
       const w = pickWriter(local, er);
-      const x = xr();
-      const y = vOf(er.range(0.2, reachTop - 0.05));
+      const x = fitX(xr(), 0.3);
+      const y = fitV(vOf(er.range(0.2, reachTop - 0.05)), 0.12);
       wrapDraw(P, S, seedFor(), (r) => (r.chance(0.45)
         ? renderTag(P, r, { writer: w, h: r.range(0.035, 0.09), x, y, tool: 'marker', color: r.chance(0.5) ? PAINT.black : w.markerColor })
         : renderScribble(P, r, { x, y, writer: w })));
@@ -208,5 +214,3 @@ export function* propPaintGen(spec) {
   const stats = { ms: Math.round(now() - t0), width: Wpx, height: Hpx, kind: S.kind, eras: nEras, counts, coverage: +out.coverage.toFixed(3) };
   return { color: out.color, props: out.props, colorImage: out.colorImage, propsImage: out.propsImage, stats };
 }
-
-export { mix, jitter };

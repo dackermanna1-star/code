@@ -28,6 +28,19 @@ export class PropWorld {
     this.missing = new Set();
     this.count = 0;
     this.lampAnchors = new Map();
+    this.surfaceIndex = new Map(); // 10 cm cell -> footstep surface for litter underfoot
+  }
+
+  markSurface(x, z, r, surface) {
+    for (let dz = -r; dz <= r + 1e-6; dz += 0.1)
+      for (let dx = -r; dx <= r + 1e-6; dx += 0.1) {
+        if (dx * dx + dz * dz > r * r + 0.005) continue;
+        this.surfaceIndex.set(`${Math.floor((x + dx) * 10)},${Math.floor((z + dz) * 10)}`, surface);
+      }
+  }
+
+  surfaceAt(x, z) {
+    return this.surfaceIndex.get(`${Math.floor(x * 10)},${Math.floor(z * 10)}`) ?? null;
   }
 
   /** Generate (cached) a prop. Returns null if the generator is missing. */
@@ -323,8 +336,10 @@ export class PropWorld {
     P('pallet', { broken: true }, -2.0, -38.0, 0.7);
     P('mattress', { leaning: true }, 2.62, -57.8, -Math.PI / 2, { collide: false });
     this.world.collision?.addRect(2.45, -57.8, 0.25, 1.0, 0, 0);
-    P('flatCardboard', {}, 1.6, -24.4, -1.2);
-    P('flatCardboard', {}, -2.2, -45.8, 0.5, { variant: 2 });
+    P('flatCardboard', {}, 1.6, -24.4, -1.2, { collide: false });
+    P('flatCardboard', {}, -2.2, -45.8, 0.5, { variant: 2, collide: false });
+    this.markSurface(1.6, -24.4, 0.45, 'cardboard');
+    this.markSurface(-2.2, -45.8, 0.45, 'cardboard');
     P('cardboardBox', { wet: true }, 1.9, -20.2, 0.3);
     P('cardboardBox', {}, 2.35, -21.0, 1.2, { variant: 3 });
     P('cardboardBox', { wet: true }, -2.1, -46.4, 0.2, { variant: 4 });
@@ -344,8 +359,12 @@ export class PropWorld {
     P('brokenChair', {}, 3.9, -41.5, 2.2);
     P('bicycleFrame', {}, 3.75, -33.3, -0.3);
     P('paintCan', {}, 4.2, -42.5, 0.3);
-    P('rubble', {}, -2.5, -23.2, 0.4);
-    P('rubble', {}, -2.45, -0.2, 1.3, { variant: 2 });
+    P('rubble', {}, -2.5, -23.2, 0.4, { collide: false });
+    P('rubble', {}, -2.45, -0.2, 1.3, { variant: 2, collide: false });
+    this.markSurface(-2.5, -23.2, 0.4, 'debris');
+    this.markSurface(-2.45, -0.2, 0.4, 'debris');
+    this.world.collision?.addCircle(-2.55, -23.2, 0.18);
+    this.world.collision?.addCircle(-2.5, -0.2, 0.18);
     P('crateSeat', {}, 3.9, -40.3, 0.7);
     P('plasticChair', {}, -19.5, -77.6, 0.6);
     P('newspaperBox', {}, 6.5, 15.2, Math.PI);
@@ -392,6 +411,8 @@ export class PropWorld {
         const variant = r.int(0, variants - 1);
         const lying = name === 'can' || name === 'bottle' || name === 'cup' ? r.chance(0.8) : false;
         this.place(name, { variant }, { pos: new THREE.Vector3(x, y, z), yaw: r.range(0, 6.28), roll: lying ? Math.PI / 2 : 0 }, { variant, collide: false, reflect: false });
+        const surf = { glassShard: 'glass', leaf: 'debris', paperScrap: 'debris', foodBox: 'debris', cup: 'debris', can: 'debris', bottle: 'glass', plasticBag: 'debris' }[name];
+        if (surf) this.markSurface(x, z, name === 'glassShard' ? 0.12 : 0.08, surf);
         placed++;
       }
     }

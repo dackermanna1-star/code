@@ -1,6 +1,7 @@
 // Feeds every facade's layout into the graffiti generator and copies the
 // results into the paint atlas layers sampled by the facade shader.
 import { generateWallPaint } from './graffiti/index.js';
+import { downsampleImage } from './paintImage.js';
 import { BRICK_SCHEMES, FACE_ROT } from '../world/layout.js';
 import { PAINT_LAYER_H } from '../world/units.js';
 
@@ -10,6 +11,14 @@ const yieldFrame = () => new Promise((r) => setTimeout(r, 0));
 const FE_LANDINGS = { L0: { u: 16.2, ys: [3.92, 7.22, 10.52] }, L1: { u: 6.1, ys: [4.52, 7.82] }, L3: { u: 10.6, ys: [4.12, 7.42] } };
 // Dumpster spots along facades (tags above dumpster height)
 const DUMPSTER_SPOTS = { R2: [8.8], L2: [1.9] };
+// Objects standing against walls: little paint behind them, more just above
+const OCCLUDERS = {
+  R2: [{ x: 7.85, w: 1.9, h: 1.3 }],
+  L2: [{ x: 0.95, w: 1.9, h: 1.3 }],
+  L0: [{ x: 9.3, w: 1.7, h: 1.1 }],
+  R4: [{ x: 13.0, w: 1.8, h: 1.1 }, { x: 6.4, w: 1.3, h: 0.85 }, { x: 3.7, w: 1.0, h: 1.9 }],
+  L3: [{ x: 11.1, w: 1.7, h: 1.1 }],
+};
 
 function makeCanvas(w, h) {
   if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(w, h);
@@ -63,6 +72,8 @@ export function buildPaintJobs(atlas, facades, fixtures) {
       groundLine: -v0,
       ageYears: 6 + ((f.seed ?? 3) % 12),
       style: { ...(p.style ?? {}), ghostSign: !!f.ghost },
+      occluders: (OCCLUDERS[f.id] ?? []).map((o) => ({ ...o })),
+      poolSeed: 'alley',
     };
     jobs.push({ id: f.id, spec, cost: f.width * (p.density ?? 0.3) });
   }
@@ -70,9 +81,9 @@ export function buildPaintJobs(atlas, facades, fixtures) {
 }
 
 function runOnMain(job, atlas) {
-  const res = generateWallPaint(job.spec);
-  atlas.blitFacade('color', job.id, res.color);
-  atlas.blitFacade('props', job.id, downscale(res.props, atlas.propsPPM / atlas.colorPPM));
+  const res = generateWallPaint({ ...job.spec, canvases: false });
+  atlas.blitFacade('color', job.id, res.colorImage);
+  atlas.blitFacade('props', job.id, downsampleImage(res.propsImage, atlas.propsPPM / atlas.colorPPM));
 }
 
 /**

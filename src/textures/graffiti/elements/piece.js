@@ -2,24 +2,25 @@
 // highlights and optional background clouds / bubbles / panel.
 
 import { layoutText, placeSymbol } from '../font/font.js';
-import { bboxOf, translate, rotateAround, unionBox, resample, wobble } from '../core/geom.js';
+import { bboxOf, rotateAround, unionBox, resample, wobble } from '../core/geom.js';
 import { PAINT, rgba, mix, darken, lighten, jitter } from '../core/color.js';
 import { renderFatLetter, smoothSkeleton, letterDrips, streakTile } from './fatletter.js';
-import { zigzagFill, addCircle, addPolyline } from '../paint/spray.js';
+import { zigzagFill, addCircle } from '../paint/spray.js';
 
 const SCHEMES = [
-  { w: 6, c: ['paleMint', 'mint', 'teal'] },
-  { w: 6, c: ['paleBlue', 'skyBlue', 'blue'] },
-  { w: 7, c: ['white', 'silver', 'lightGrey'] },
-  { w: 5, c: ['silver', 'white', 'chromeDark'] },
-  { w: 3, c: ['yellow', 'gold', 'orange'] },
-  { w: 3, c: ['pink', 'rose', 'purple'] },
-  { w: 3, c: ['lavender', 'purple', 'navy'] },
-  { w: 2, c: ['orange', 'red', 'maroon'] },
-  { w: 2, c: ['mint', 'paleBlue', 'skyBlue'] },
-  { w: 2, c: ['cream', 'gold', 'ochre'] },
-  { w: 2, c: ['skyBlue', 'white', 'paleBlue'] },
-  { w: 1.5, c: ['lightGrey', 'grey', 'darkGrey'] },
+  { w: 9, c: ['white', 'silver', 'lightGrey'] },
+  { w: 6, c: ['silver', 'white', 'chromeDark'] },
+  { w: 3, c: ['lightGrey', 'grey', 'darkGrey'] },
+  { w: 3, c: ['cream', 'lightGrey', 'grey'] },
+  { w: 4, c: ['paleMint', 'mint', 'teal'] },
+  { w: 4, c: ['paleBlue', 'skyBlue', 'blue'] },
+  { w: 1.5, c: ['mint', 'paleBlue', 'skyBlue'] },
+  { w: 1.5, c: ['skyBlue', 'white', 'paleBlue'] },
+  { w: 1.5, c: ['yellow', 'gold', 'orange'] },
+  { w: 1.2, c: ['pink', 'rose', 'purple'] },
+  { w: 1.2, c: ['lavender', 'purple', 'navy'] },
+  { w: 0.8, c: ['orange', 'red', 'maroon'] },
+  { w: 1.2, c: ['cream', 'gold', 'ochre'] },
 ];
 
 function pickScheme(rng) {
@@ -86,20 +87,22 @@ export function renderPiece(P, rng, o) {
   const allBox = bboxOf(letters.flatMap((l) => l.strokes), FF / 2);
 
   const [c1, c2, c3] = pickScheme(rng);
-  const outline = rng.chance(0.75) ? PAINT.black : rng.chance(0.5) ? PAINT.navy : PAINT.maroon;
-  const oW = hh * rng.range(0.035, 0.06);
-  const extrude = rng.chance(0.6)
+  const outline = rng.chance(0.85) ? PAINT.black : rng.chance(0.5) ? PAINT.navy : PAINT.maroon;
+  const oW = hh * rng.range(0.045, 0.075);
+  // plain straight letters (fill + outline only) are the most common alley pieces
+  const simple = rng.chance(style === 'block' ? 0.45 : 0.25);
+  const extrude = !simple && rng.chance(0.6)
     ? { dx: hh * rng.range(0.05, 0.12) * (rng.chance(0.7) ? 1 : -1), dy: hh * rng.range(0.04, 0.1), color: rng.pickW([[darken(c3, 0.35), 3], [PAINT.black, 1.5], [PAINT.purple, 1], [PAINT.navy, 1], [PAINT.maroon, 1], [lighten(c1, 0.3), 1]]), steps: 8 }
     : null;
-  const second = rng.chance(0.6) ? { w: hh * rng.range(0.03, 0.06), color: rng.pickW([[PAINT.white, 5], [PAINT.cream, 2], [lighten(c1, 0.5), 2], [PAINT.black, 1]]) } : null;
+  const second = !simple && rng.chance(0.6) ? { w: hh * rng.range(0.03, 0.06), color: rng.pickW([[PAINT.white, 5], [PAINT.cream, 2], [lighten(c1, 0.5), 2], [PAINT.black, 1]]) } : null;
   const fillAlpha = rng.range(0.85, 0.97);
 
   // background
-  const bg = rng.pickW([['none', 4], ['cloud', 3], ['bubbles', 2], ['panel', 2]]);
+  const bg = simple ? 'none' : rng.pickW([['none', 7], ['cloud', 1.5], ['bubbles', 1.5], ['panel', 1]]);
   let box = unionBox(null, allBox);
   if (bg === 'cloud') box = unionBox(box, drawCloud(P, rng, allBox, hh, outline, rng.pickW([[PAINT.white, 3], [lighten(c1, 0.55), 2], [PAINT.paleBlue, 1], [PAINT.lavender, 1]])));
   else if (bg === 'bubbles') box = unionBox(box, drawBubbles(P, rng, allBox, hh, outline, c2));
-  else if (bg === 'panel') box = unionBox(box, drawPanel(P, rng, allBox, hh, rng.pickW([[PAINT.paleMint, 2], [PAINT.paleBlue, 2], [PAINT.lightGrey, 1], [PAINT.lavender, 1], [PAINT.cream, 1]])));
+  else if (bg === 'panel') box = unionBox(box, drawPanel(P, rng, allBox, hh, mix(rng.pickW([[PAINT.paleMint, 2], [PAINT.mint, 1], [PAINT.paleBlue, 2], [PAINT.lightGrey, 1], [PAINT.lavender, 1], [PAINT.cream, 0.6]]), P.wallTone, rng.range(0.15, 0.35))));
 
   const fillFn = makeGradientFill(c1, c2, c3, fillAlpha, allBox, rng, FF);
   const st = {
@@ -161,7 +164,7 @@ function makeGradientFill(c1, c2, c3, alpha, box, rng, F) {
     const tile = streakTile(lighten(c1, 0.15), null, 0.22, texVariant);
     const p0 = u.createPattern(tile, 'repeat');
     if (p0 && p0.setTransform && typeof DOMMatrix !== 'undefined') {
-      const k = (F * 1.6) / 64;
+      const k = (F * 3) / 128;
       p0.setTransform(new DOMMatrix().translateSelf(lb.x0, lb.y0).rotateSelf((texAngle * 180) / Math.PI).scaleSelf(k, k));
     }
     u.fillStyle = p0 || rgba(lighten(c1, 0.1), 0.1);
@@ -325,5 +328,3 @@ function drawPanel(P, rng, box, h, color) {
   P.matFill(p, 0, 130, 0, 0.9);
   return { x0: x0 - h * 0.08, y0: y0 - h * 0.08, x1: x1 + h * 0.08, y1: y1 + h * 0.08 };
 }
-
-export { addPolyline };

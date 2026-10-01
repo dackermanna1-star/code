@@ -9,7 +9,7 @@
 
 import { wallPaintGen, normalizeWallSpec, DEFAULT_STYLE } from './world/compose.js';
 import { propPaintGen, normalizePropSpec } from './world/props.js';
-import { setCanvasFactory, clearScratchPool } from './core/canvas.js';
+import { setCanvasFactory, clearScratchPool, createCanvas } from './core/canvas.js';
 import { getWriterPool } from './world/writers.js';
 
 function runSync(gen) {
@@ -18,11 +18,11 @@ function runSync(gen) {
   return r.value;
 }
 
-/** Yield to the event loop (scheduler.yield when available). */
+/**
+ * Yield to the event loop with a fresh macrotask (MessageChannel), so rendering,
+ * input, timers and other tasks interleave fairly with generation.
+ */
 export function yieldToMain() {
-  if (typeof globalThis.scheduler !== 'undefined' && typeof globalThis.scheduler.yield === 'function') {
-    return globalThis.scheduler.yield();
-  }
   if (typeof MessageChannel !== 'undefined') {
     return new Promise((res) => {
       const ch = new MessageChannel();
@@ -88,6 +88,66 @@ export async function generatePaintBatch(jobs, opts = {}) {
   }
   if (opts.releaseScratch !== false) clearScratchPool();
   return out;
+}
+
+/**
+ * Like generatePaintBatch but spreads the surfaces over module Web Workers
+ * (OffscreenCanvas in workers). Results are identical to the main-thread
+ * versions. Falls back to generatePaintBatch when workers/OffscreenCanvas are
+ * unavailable or a worker fails to start.
+ * opts: { workers = min(4, cores - 1), canvases = true, onProgress(done, total, result) }
+ */
+export async function generatePaintBatchParallel(jobs, opts = {}) {
+  const cores = (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4;
+  const n = Math.max(1, Math.min(opts.workers ?? Math.min(4, cores - 1), jobs.length));
+  if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined' || n < 2) return generatePaintBatch(jobs, opts);
+  let workers;
+  try {
+    workers = Array.from({ length: n }, () => new Worker(new URL('./worker.js', import.meta.url), { type: 'module' }));
+  } catch (err) {
+    return generatePaintBatch(jobs, opts);
+  }
+  const results = new Array(jobs.length);
+  let next = 0, done = 0, failed = false;
+  await new Promise((resolve) => {
+    const finish = () => { if (done === jobs.length || failed) resolve(); };
+    const feed = (w) => {
+      if (failed || next >= jobs.length) return;
+      const id = next++;
+      w.postMessage({ id, type: jobs[id].type, spec: jobs[id].spec });
+    };
+    for (const w of workers) {
+      w.onmessage = (e) => {
+        const m = e.data;
+        if (!m.ok) { failed = true; finish(); return; }
+        const colorImage = new ImageData(new Uint8ClampedArray(m.color), m.w, m.h);
+        const propsImage = new ImageData(new Uint8ClampedArray(m.props), m.w, m.h);
+        let color = null, props = null;
+        if (opts.canvases !== false) {
+          color = createCanvas(m.w, m.h);
+          color.getContext('2d').putImageData(colorImage, 0, 0);
+          props = createCanvas(m.w, m.h);
+          props.getContext('2d').putImageData(propsImage, 0, 0);
+        }
+        results[m.id] = { color, props, colorImage, propsImage, stats: m.stats };
+        done++;
+        if (opts.onProgress) opts.onProgress(done, jobs.length, results[m.id]);
+        feed(w);
+        finish();
+      };
+      w.onerror = () => { failed = true; finish(); };
+      feed(w);
+    }
+  });
+  for (const w of workers) w.terminate();
+  if (failed) {
+    // e.g. the bundler did not emit the worker: redo the missing ones on the main thread
+    const rest = [];
+    jobs.forEach((j, i) => { if (!results[i]) rest.push(i); });
+    const redo = await generatePaintBatch(rest.map((i) => jobs[i]), { ...opts, onProgress: null });
+    rest.forEach((i, k) => { results[i] = redo[k]; });
+  }
+  return results;
 }
 
 /** Writer names of the shared pool (for e.g. matching graffiti on custom props). */

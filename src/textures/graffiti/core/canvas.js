@@ -26,6 +26,36 @@ export function get2d(canvas) {
   return canvas.getContext('2d', { willReadFrequently: true, alpha: true });
 }
 
+/**
+ * Restore a context to its default state and clear it. Reused canvases must not
+ * leak state (lineCap, miterLimit, ...) into the next surface: results would then
+ * depend on what was generated before.
+ */
+export function resetCtx(ctx, w, h) {
+  if (typeof ctx.reset === 'function') {
+    ctx.reset();
+    return;
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.lineCap = 'butt';
+  ctx.lineJoin = 'miter';
+  ctx.miterLimit = 10;
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#000';
+  ctx.strokeStyle = '#000';
+  if (ctx.setLineDash) ctx.setLineDash([]);
+  ctx.lineDashOffset = 0;
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'rgba(0,0,0,0)';
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.imageSmoothingEnabled = true;
+  if ('filter' in ctx) ctx.filter = 'none';
+  ctx.clearRect(0, 0, w, h);
+}
+
 // ---------------------------------------------------------------------------
 // Scratch canvas pool. drawImage() from a CPU canvas snapshots the WHOLE source
 // canvas, so scratch canvases are kept in tight size classes.
@@ -52,11 +82,7 @@ export function acquireScratch(w, h) {
   }
   s.w = w;
   s.h = h;
-  const c = s.ctx;
-  c.setTransform(1, 0, 0, 1, 0, 0);
-  c.globalAlpha = 1;
-  c.globalCompositeOperation = 'source-over';
-  c.clearRect(0, 0, cw, ch);
+  resetCtx(s.ctx, cw, ch);
   return s;
 }
 

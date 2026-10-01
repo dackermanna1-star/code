@@ -5,15 +5,18 @@
 import { layoutText } from '../font/font.js';
 import { addPolyline, addPolygon } from '../paint/spray.js';
 import { rgba } from '../core/color.js';
-import { bboxOf } from '../core/geom.js';
 
 const SYL_A = ['HAL', 'VOR', 'KES', 'BRAN', 'MOR', 'DEL', 'WIN', 'STRA', 'GREL', 'TOR', 'ASH', 'LIND', 'BECK', 'HOLM', 'FEN', 'CAR', 'OST', 'MAR', 'KIL', 'ROD', 'SEV', 'ARN'];
 const SYL_B = ['SEN', 'LAND', 'WICK', 'ROW', 'DALE', 'MANN', 'FORD', 'TON', 'LEY', 'BERG', 'STEAD', 'HURST', 'VELD', 'MOOR', 'GATE', 'RICH'];
 const TRADES = ['COLD STORAGE', 'FURNITURE CO.', 'PAPER BOX CO.', 'BAKERY', 'MOVING & STORAGE', 'TOOL & DIE', 'PIANO WORKS', 'HARDWARE', 'FUR STORAGE', 'MATTRESS CO.', 'LAUNDRY', 'PRINTING CO.', 'STOVE WORKS', 'WHOLESALE', 'CANDY CO.', 'BOX & CRATE'];
 const TAGS = ['FIREPROOF WAREHOUSE', 'WHOLESALE & RETAIL', 'EST. 19', 'SINCE 19', 'OFFICE UPSTAIRS', 'FREIGHT ENTRANCE', 'PHONE 22', 'TRUCKS FOR HIRE'];
 
+const AVOID = new Set(['MARLEY', 'KESWICK', 'CARLEY', 'ASHLEY', 'ASHFORD', 'STRATON', 'MORGATE', 'HOLMSEN']);
+
 export function ghostSignText(rng) {
-  const name = rng.pick(SYL_A) + rng.pick(SYL_B) + (rng.chance(0.3) ? ' BROS.' : rng.chance(0.25) ? ' & SON' : '');
+  let base = rng.pick(SYL_A) + rng.pick(SYL_B);
+  for (let i = 0; i < 6 && AVOID.has(base); i++) base = rng.pick(SYL_A) + rng.pick(SYL_B);
+  const name = base + (rng.chance(0.3) ? ' BROS.' : rng.chance(0.25) ? ' & SON' : '');
   const trade = rng.pick(TRADES);
   let tag = rng.pick(TAGS);
   if (tag.endsWith('19')) tag += String(rng.int(5, 39)).padStart(2, '0');
@@ -87,5 +90,3 @@ export function renderGhostSign(P, rng, o) {
   }
   return { x0: o.x0, y0: o.y0, x1: o.x0 + o.w, y1: o.y0 + o.h };
 }
-
-export { bboxOf };

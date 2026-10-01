@@ -3,10 +3,11 @@
 // age in years (fade, chalking, erosion, grime) and composited over older eras.
 
 import { Rng } from '../core/rng.js';
-import { createCanvas, get2d } from '../core/canvas.js';
+import { createCanvas, get2d, resetCtx } from '../core/canvas.js';
 import { noise1 } from '../core/noise.js';
 import { PAINT, pickTagColor, jitter, mix } from '../core/color.js';
 import { Painter } from '../paint/painter.js';
+import { sprayStrokes } from '../paint/spray.js';
 import { buildFields, Accumulator } from './aging.js';
 import { getWriterPool, pickLocalWriters, pickWriter } from './writers.js';
 import { renderTag } from '../elements/tag.js';
@@ -14,7 +15,7 @@ import { renderThrowup } from '../elements/throwup.js';
 import { renderPiece } from '../elements/piece.js';
 import { renderRoller, renderExtinguisher } from '../elements/roller.js';
 import { buffColor, shadeVariant, renderRollerBuff, renderPaintOut, renderSprayBuff, blockColor } from '../elements/buff.js';
-import { renderStickerCluster, renderSticker } from '../elements/sticker.js';
+import { renderStickerCluster } from '../elements/sticker.js';
 import { renderPosterGroup } from '../elements/poster.js';
 import { renderScribble } from '../elements/scribble.js';
 import { renderGhostSign } from '../elements/ghostsign.js';
@@ -38,6 +39,7 @@ export function normalizeWallSpec(spec) {
     bands: spec.bands && spec.bands.length ? spec.bands : null,
     hotspots: spec.hotspots || [],
     holes: spec.holes || [],
+    occluders: spec.occluders || [],
     groundLine: spec.groundLine ?? 0,
     ageYears: Math.max(0.5, spec.ageYears ?? 14),
     style: { ...DEFAULT_STYLE, ...(spec.style || {}) },
@@ -45,6 +47,7 @@ export function normalizeWallSpec(spec) {
     edgeMargin: spec.edgeMargin ?? 0.06,
     canvases: spec.canvases !== false,
     periodicX: !!spec.periodicX,
+    _profile: !!spec._profile,
   };
   return S;
 }
@@ -62,9 +65,9 @@ function prof(pts, h) {
 }
 
 const PROFILES = {
-  tag: [[0, 0.22], [0.15, 0.35], [0.4, 0.8], [0.8, 1], [2.0, 1], [2.4, 0.62], [3.0, 0.28], [3.6, 0.1], [5, 0.025], [30, 0.012]],
-  throw: [[0.25, 0.15], [0.6, 0.85], [0.9, 1], [2.0, 1], [2.6, 0.5], [3.4, 0.14], [5, 0.025], [30, 0.01]],
-  piece: [[0.7, 0.05], [1.1, 0.5], [1.4, 1], [2.4, 1], [3.1, 0.45], [4.0, 0.12], [5.5, 0.02], [30, 0.01]],
+  tag: [[0, 0.22], [0.15, 0.35], [0.4, 0.8], [0.8, 1], [2.0, 1], [2.4, 0.62], [3.0, 0.28], [3.6, 0.1], [4.5, 0.015], [30, 0.004]],
+  throw: [[0.25, 0.15], [0.6, 0.85], [0.9, 1], [2.0, 1], [2.6, 0.5], [3.4, 0.14], [4.2, 0.01], [30, 0.002]],
+  piece: [[0.8, 0.05], [1.2, 0.6], [1.5, 1], [3.3, 1], [3.9, 0.55], [4.6, 0.12], [5.3, 0.004], [30, 0.002]],
   roller: [[1.5, 0.01], [3, 0.08], [4.2, 0.4], [6, 1], [30, 1]],
   sticker: [[0.8, 0.06], [1.15, 1], [1.85, 1], [2.25, 0.25], [2.6, 0]],
   poster: [[0.9, 0.05], [1.3, 1], [2.0, 1], [2.5, 0.25], [3.0, 0]],
@@ -73,6 +76,8 @@ const PROFILES = {
 };
 const HOT_AFFINITY = { tag: 1.4, throw: 0.9, piece: 0.25, roller: 1.0, sticker: 0.5, poster: 0.1, scribble: 0.5, buff: 0 };
 const DOOR_MUL = { tag: 2.2, throw: 1.3, piece: 0.08, roller: 0.2, sticker: 2.5, poster: 0.4, scribble: 1.8, buff: 1 };
+// roll-down shutters are prime spots for throw-ups and pieces
+const SHUTTER_MUL = { tag: 1.8, throw: 2.2, piece: 1.6, roller: 0.3, sticker: 1.2, poster: 0.6, scribble: 1.4, buff: 1 };
 
 class WallWorld {
   constructor(S, rng) {
@@ -101,25 +106,26 @@ class WallWorld {
   }
 
   toCanvasRect(h) {
-    // spec y is meters above ground; segment y = y + groundLine; canvas v = heightM - segY
-    const yb = h.y + this.S.groundLine;
+    // spec y values are meters from the segment's bottom edge; canvas v = heightM - y
+    const yb = h.y;
     return { x0: h.x, x1: h.x + h.w, y0: this.S.heightM - (yb + h.h), y1: this.S.heightM - yb };
   }
 
   hAG(v) { return this.S.heightM - v - this.S.groundLine; }
 
-  bandMul(hAG) {
+  /** bands are given in segment coordinates (meters from the segment bottom) */
+  bandMul(segY) {
     const B = this.S.bands;
     if (!B) return 1;
     let m = -1;
-    for (const b of B) if (hAG >= b.y0 && hAG <= b.y1) m = Math.max(m, b.density ?? 1);
+    for (const b of B) if (segY >= b.y0 && segY <= b.y1) m = Math.max(m, b.density ?? 1);
     return m < 0 ? 0.03 : m;
   }
 
-  hotspot(u, hAG) {
+  hotspot(u, segY) {
     let s = 0;
     for (const h of this.S.hotspots) {
-      const dx = u - h.x, dy = hAG - h.y;
+      const dx = u - h.x, dy = segY - h.y;
       s += (h.density ?? 1) * Math.exp(-(dx * dx + dy * dy) / Math.max(0.01, h.r * h.r));
     }
     return s;
@@ -137,26 +143,42 @@ class WallWorld {
     this.caps = {};
     const seed = this.rng.int(0, 1e6);
     for (const t of types) { this.maps[t] = new Float32Array(this.gw * this.gh); this.caps[t] = 0; }
+    const rowProf = {};
     for (let j = 0; j < this.gh; j++) {
       const v = (j + 0.5) * CELL;
       const h = this.hAG(v);
+      const segY = S.heightM - v;
+      // height profiles only depend on the row
+      for (const t of types) rowProf[t] = prof(PROFILES[t], h);
+      const bandRow = this.bandMul(segY);
       for (let i = 0; i < this.gw; i++) {
         const u = (i + 0.5) * CELL;
         const idx = j * this.gw + i;
         if (h < 0.02 || u < S.edgeMargin || u > S.widthM - S.edgeMargin) continue;
-        const band = this.bandMul(h);
-        const hs = this.hotspot(u, h);
+        const band = bandRow;
+        const hs = this.hotspot(u, segY);
         const forb = this.inRects(this.forbid, u, v, 0.04);
         const door = this.inRects(this.doors, u, v, 0);
         const nearDoor = !door && this.inRects(this.doors, u, v, 0.7);
+        // objects standing against the wall (dumpsters, bins): hard to paint behind,
+        // popular right above (writers stand on them)
+        let occ = 1, occUp = 1;
+        for (const o of S.occluders) {
+          if (u >= o.x && u <= o.x + o.w) {
+            if (h <= o.h) occ = Math.min(occ, 0.06);
+            else if (h <= o.h + 1.9) occUp = Math.max(occUp, 1.9);
+          }
+        }
         // busy / quiet stretches along the wall
         const busy = 0.3 + 1.4 * noise1(u / 5.5, seed) * (0.6 + 0.4 * noise1(u / 1.7, seed + 5));
         for (const t of types) {
           if (forb) continue;
-          let w = prof(PROFILES[t], h) * band * (1 + 2 * hs) + hs * HOT_AFFINITY[t] * (t === 'sticker' && h > 2.6 ? 0 : 1);
+          let w = rowProf[t] * band * (1 + 2 * hs) + hs * HOT_AFFINITY[t] * (t === 'sticker' && h > 2.6 ? 0 : 1);
           if (t !== 'roller' && t !== 'buff') w *= busy;
-          if (door) w *= DOOR_MUL[t];
+          if (door) w *= (door.kind === 'shutter' ? SHUTTER_MUL : DOOR_MUL)[t];
           else if (nearDoor && (t === 'tag' || t === 'sticker' || t === 'scribble')) w *= 1.5;
+          w *= occ;
+          if (occUp > 1 && (t === 'tag' || t === 'throw' || t === 'scribble')) w *= occUp;
           this.maps[t][idx] = w;
           this.caps[t] += w * CELL * CELL;
         }
@@ -174,7 +196,7 @@ class WallWorld {
     if (!this._cdfs) this._cdfs = new Map();
     let ent = this._cdfs.get(key);
     // rebuild lazily: heat changes a little with every placement
-    if (!ent || this.version - ent.version >= 6) {
+    if (!ent || this.version - ent.version >= 12) {
       const cdf = ent ? ent.cdf : new Float32Array(n);
       const heat = this.heat, eraBig = this.eraBig, fresh = this.fresh;
       let tot = 0;
@@ -220,7 +242,37 @@ class WallWorld {
     return { u, v, box };
   }
 
+  /** Grow the era's dirty rectangle (drips/halos margin, drips run downward). */
+  touch(box) {
+    if (!box) return;
+    (this.dirty || (this.dirty = [])).push({ x0: box.x0 - 0.3, y0: box.y0 - 0.3, x1: box.x1 + 0.3, y1: box.y1 + 0.9 });
+  }
+
+  /** Merge dirty boxes into a few horizontal bands (canvas meters). */
+  dirtyBands() {
+    const list = this.dirty;
+    this.dirty = null;
+    if (!list || !list.length) return [];
+    list.sort((a, b) => a.y0 - b.y0);
+    const bands = [];
+    let cur = { ...list[0] };
+    for (let i = 1; i < list.length; i++) {
+      const b = list[i];
+      if (b.y0 <= cur.y1 + 0.8) {
+        if (b.y1 > cur.y1) cur.y1 = b.y1;
+        if (b.x0 < cur.x0) cur.x0 = b.x0;
+        if (b.x1 > cur.x1) cur.x1 = b.x1;
+      } else {
+        bands.push(cur);
+        cur = { ...b };
+      }
+    }
+    bands.push(cur);
+    return bands;
+  }
+
   addHeat(box, amount, big = false) {
+    this.touch(box);
     const gw = this.gw, gh = this.gh;
     this.version += big ? 100 : 1;
     const i0 = Math.max(0, Math.floor(box.x0 / CELL) - 1), i1 = Math.min(gw - 1, Math.floor(box.x1 / CELL) + 1);
@@ -237,6 +289,7 @@ class WallWorld {
   }
 
   markFresh(box, k = 1) {
+    this.touch(box);
     const gw = this.gw, gh = this.gh;
     this.version += 100;
     const i0 = Math.max(0, Math.floor(box.x0 / CELL)), i1 = Math.min(gw - 1, Math.floor(box.x1 / CELL));
@@ -246,6 +299,7 @@ class WallWorld {
 
   /** Remove heat under a buffed area (old tags covered -> less attraction, but edges attract). */
   coolHeat(box, k = 0.6) {
+    this.touch(box);
     const gw = this.gw, gh = this.gh;
     this.version += 100;
     const i0 = Math.max(0, Math.floor(box.x0 / CELL)), i1 = Math.min(gw - 1, Math.floor(box.x1 / CELL));
@@ -270,9 +324,10 @@ function poisson(rng, lambda) {
 }
 
 function tagSize(rng, hAG) {
-  let h = Math.exp(rng.gauss() * 0.38) * 0.19;
+  let h = Math.exp(rng.gauss() * 0.42) * 0.21;
+  if (rng.chance(0.2)) h = rng.range(0.32, 0.75); // big bold tags
   if (hAG > 2.2) h *= 1 + 0.25 * Math.min(4, hAG - 2.2);
-  return Math.max(0.06, Math.min(0.6, h));
+  return Math.max(0.06, Math.min(0.75, h));
 }
 
 function chooseTagColor(rng, w) {
@@ -285,47 +340,65 @@ function chooseTagColor(rng, w) {
 // ---------------------------------------------------------------------------
 
 function planEras(S, rng) {
-  const n = Math.max(2, Math.min(5, Math.round(1.5 + S.ageYears / 4)));
+  const n = Math.max(2, Math.min(5, Math.floor(1.5 + S.ageYears / 5)));
   const eras = [];
   for (let e = 0; e < n; e++) {
     const frac = (e + rng.range(0.25, 0.75)) / n;
     let age = S.ageYears * (1 - frac);
     if (e === n - 1) age = rng.range(0.15, Math.min(1.5, S.ageYears * 0.15));
-    eras.push({ index: e, age, intensity: e === n - 1 ? rng.range(0.55, 0.9) : rng.range(0.6, 1.3) });
+    eras.push({ index: e, count: n, age, intensity: e === n - 1 ? rng.range(0.45, 0.75) : rng.range(0.65, 1.3) });
   }
   return eras;
 }
 
-/** Paint one era's elements. Returns counts. */
-function paintEra(P, W, era, eraRng, counts) {
+/** Paint one era's elements (generator: yields after each element). */
+function* paintEra(P, W, era, eraRng, counts) {
   const S = W.S;
   const st = S.style;
   const rng = eraRng;
   W.eraBig.fill(0);
   W.fresh.fill(0);
   W.version += 100;
-  const dens = S.density * era.intensity;
+  // total accumulated content depends on the wall's age (saturating), not on how
+  // many eras it is split into
+  const ageK = 0.7 + 0.3 * Math.min(1, S.ageYears / 14);
+  const dens = S.density * era.intensity * (4.2 / era.count) * ageK;
 
   // --- buffs at the start of the era (not in the first era)
-  if (era.index > 0 && st.buffs > 0) paintBuffs(P, W, era, rng.fork('buffs'), counts, dens);
+  if (era.index > 0 && st.buffs > 0) {
+    const tb = now();
+    paintBuffs(P, W, era, rng.fork('buffs'), counts, dens);
+    if (W.S._profile) {
+      P.ctx.getImageData(0, 0, 1, 1);
+      W.prof = W.prof || {};
+      W.prof.buffs = (W.prof.buffs || 0) + now() - tb;
+    }
+  }
 
   // --- schedule jobs over the era timeline
   const jobs = [];
   const caps = W.caps;
   const add = (type, n, tRange = [0, 1]) => { for (let i = 0; i < n; i++) jobs.push({ type, t: rng.range(tRange[0], tRange[1]) }); };
-  add('piece', poisson(rng, caps.piece * 0.0105 * dens * st.pieces * 1.5), [0, 0.6]);
-  add('throw', poisson(rng, caps.throw * 0.075 * dens * st.throwups), [0, 1]);
-  add('roller', poisson(rng, caps.roller * 0.0035 * dens * st.rollers * (0.6 + era.index * 0.1)), [0, 1]);
-  add('tag', Math.round(caps.tag * 0.95 * dens * st.tags * (0.85 + rng.next() * 0.3)), [0, 1]);
+  const last = era.index === era.count - 1;
+  add('piece', poisson(rng, caps.piece * 0.034 * dens * st.pieces * (last ? 0.45 : 1)), [0, 0.6]);
+  add('throw', poisson(rng, caps.throw * 0.145 * dens * st.throwups), [0, 1]);
+  add('roller', caps.roller > 0.05 ? poisson(rng, (S.widthM / 30) * 0.6 * dens * st.rollers) : 0, [0, 1]);
+  add('tag', Math.round(caps.tag * 1.05 * dens * st.tags * (0.85 + rng.next() * 0.3) * (era.age > 9 ? 0.75 : 1)), [0, 1]);
   add('sticker', poisson(rng, caps.sticker * 0.16 * dens * st.stickers * (era.index >= 1 ? 1 : 0.5)), [0.1, 1]);
   add('poster', poisson(rng, (S.widthM / 26) * st.posters * dens), [0, 0.8]);
   add('scribble', Math.round(caps.scribble * 0.4 * dens * st.scribbles), [0, 1]);
-  add('block', poisson(rng, (S.widthM / 30) * st.buffs * dens * 0.5), [0, 0.3]);
+  add('block', poisson(rng, (S.widthM / 40) * st.buffs * dens * 0.5), [0, 0.3]);
+  // social patterns: bombing runs, crew sessions, cross-outs (beef)
+  add('run', S.widthM >= 8 ? poisson(rng, (S.widthM / 30) * 0.45 * dens * st.throwups) : 0, [0.1, 1]);
+  add('session', poisson(rng, (S.widthM / 30) * 0.8 * dens * st.tags), [0, 1]);
+  add('xout', era.index > 0 ? poisson(rng, (S.widthM / 30) * 1.2 * dens * st.tags) : 0, [0.2, 1]);
   jobs.sort((a, b) => a.t - b.t);
 
   let ji = 0;
+  const prof = W.S._profile ? (W.prof || (W.prof = {})) : null;
   for (const job of jobs) {
     const jr = rng.fork(1000 + ji++);
+    const tj = prof ? now() : 0;
     switch (job.type) {
       case 'tag': doTag(P, W, era, jr, counts); break;
       case 'throw': doThrow(P, W, era, jr, counts); break;
@@ -335,20 +408,35 @@ function paintEra(P, W, era, eraRng, counts) {
       case 'poster': doPosters(P, W, era, jr, counts); break;
       case 'scribble': doScribble(P, W, era, jr, counts); break;
       case 'block': doColorBlock(P, W, era, jr, counts); break;
+      case 'run': doBombingRun(P, W, era, jr, counts); break;
+      case 'session': doCrewSession(P, W, era, jr, counts); break;
+      case 'xout': doCrossOut(P, W, era, jr, counts); break;
     }
+    if (prof) {
+      // debug: force rasterization so the cost lands on this element type
+      P.ctx.getImageData(0, 0, 1, 1);
+      if (P.pctx) P.pctx.getImageData(0, 0, 1, 1);
+      prof[job.type] = (prof[job.type] || 0) + now() - tj;
+    } else if ((ji & 31) === 31) {
+      // Chrome records canvas commands and rasterizes lazily; flush now and then so
+      // time-sliced (async) generation never blocks on one huge raster burst
+      P.ctx.getImageData(0, 0, 1, 1);
+    }
+    yield;
   }
 }
 
 function doTag(P, W, era, rng, counts) {
-  const pos = W.sample('tag', rng, 1.3, { respect: 0.3, fresh: 1.5 });
+  const pos = W.sample('tag', rng, 1.3, { respect: 0.3, fresh: 4 });
   if (!pos) return;
   const writer = pickWriter(W.local, rng);
   const h = tagSize(rng, W.hAG(pos.v));
   const len = writer.name.length + (writer.hand.number ? 1 : 0);
-  const estW = Math.min(1.3, len * h * 0.62 + h * 0.3), estH = h * 1.6;
+  const maxW = h > 0.3 ? 2.4 : 1.3;
+  const estW = Math.min(maxW, len * h * 0.62 + h * 0.3), estH = h * 1.6;
   const f = W.fit(pos.u, pos.v, estW, estH);
   if (!f) return;
-  const box = renderTag(P, rng, { writer, h, x: f.u, y: f.v, color: chooseTagColor(rng, writer), maxW: 1.3, lod: era.age > 6 ? 1 : 0 });
+  const box = renderTag(P, rng, { writer, h, x: f.u, y: f.v, color: chooseTagColor(rng, writer), maxW, lod: era.age > 9 ? 2 : era.age > 5 ? 1 : 0, tool: h > 0.34 && rng.chance(0.5) ? 'fat' : undefined });
   W.addHeat(box, 0.35);
   W.items.push({ type: 'tag', box, era: era.index });
   counts.tags++;
@@ -362,7 +450,7 @@ function doThrow(P, W, era, rng, counts) {
     const alt = W.local.filter((w) => w.throw);
     if (alt.length) writer = rng.pick(alt);
   }
-  const h = Math.max(0.4, Math.min(1.4, Math.exp(rng.gauss() * 0.25) * 0.72));
+  const h = Math.max(0.45, Math.min(1.6, Math.exp(rng.gauss() * 0.28) * 0.85));
   const n = (writer.throw ? writer.throw.text : writer.name.slice(0, 3)).length;
   const estW = n * h * 0.95 + h * 0.3, estH = h * 1.5;
   const f = W.fit(pos.u, pos.v, estW, estH);
@@ -378,7 +466,7 @@ function doPiece(P, W, era, rng, counts) {
     const pos = W.sample('piece', rng, 0, { respect: 0.02, fresh: 6 });
     if (!pos) return;
     const writer = pickWriter(W.local, rng);
-    const h = Math.max(0.7, Math.min(1.8, Math.exp(rng.gauss() * 0.2) * 1.15));
+    const h = Math.max(0.8, Math.min(2.0, Math.exp(rng.gauss() * 0.22) * 1.25));
     const n = Math.min(6, writer.name.length);
     const estW = Math.min(5, n * h * 0.9 + h * 0.5), estH = h * 1.55;
     const f = W.fit(pos.u, pos.v, estW, estH);
@@ -406,13 +494,13 @@ function doRoller(P, W, era, rng, counts) {
   const writer = pickWriter(W.local, rng);
   const ext = rng.chance(0.4);
   const text = writer.name.slice(0, ext ? 6 : rng.int(3, 5));
-  const h = ext ? rng.range(0.6, 1.4) : rng.range(0.9, 2.0);
-  const estW = text.length * h * (ext ? 0.75 : 1.05), estH = h * 1.3;
+  const h = ext ? rng.range(0.9, 2.2) : rng.range(0.9, 2.0);
+  const estW = text.length * h * (ext ? 0.6 : 0.85), estH = h * 1.4;
   const f = W.fit(pos.u, pos.v, estW, estH);
   if (!f) return;
   const color = rng.pickW([[PAINT.black, 5], [PAINT.white, 3], [PAINT.silver, 1], [PAINT.maroon, 0.6], [PAINT.blue, 0.4]]);
   const box = ext
-    ? renderExtinguisher(P, rng, { text, h, x: f.u, y: f.v, color })
+    ? renderExtinguisher(P, rng, { writer, h: h * 0.75, x: f.u, y: f.v, color })
     : renderRoller(P, rng, { text, h, x: f.u, y: f.v, color });
   W.addHeat(box, 0.3);
   W.items.push({ type: 'roller', box, era: era.index });
@@ -464,13 +552,107 @@ function doScribble(P, W, era, rng, counts) {
   counts.scribbles++;
 }
 
+/** One writer's throw-up repeated along the wall at a similar height. */
+function doBombingRun(P, W, era, rng, counts) {
+  const ws = W.local.filter((w) => w.throw);
+  if (!ws.length) return;
+  const writer = rng.pickW(ws.map((w) => [w, 0.2 + w.fame]));
+  const pos = W.sample('throw', rng, 0.3);
+  if (!pos) return;
+  const h = Math.max(0.45, Math.min(1.2, Math.exp(rng.gauss() * 0.2) * 0.7));
+  const n = rng.int(3, 5);
+  const estW = writer.throw.text.length * h * 0.95 + h * 0.3, estH = h * 1.5;
+  let u = pos.u - rng.range(0, 0.5) * n * 3;
+  for (let k = 0; k < n; k++) {
+    const f = W.fit(u, pos.v + rng.gauss() * 0.15, estW, estH);
+    if (f && u > 0 && u < W.S.widthM) {
+      const box = renderThrowup(P, rng, { writer, h: h * rng.range(0.92, 1.08), x: f.u, y: f.v });
+      W.addHeat(box, 0.5, true);
+      W.items.push({ type: 'throw', box, era: era.index });
+      counts.throwups++;
+    }
+    u += estW + rng.range(1.2, 4.5);
+  }
+}
+
+/** Crew members tagging side by side. */
+function doCrewSession(P, W, era, rng, counts) {
+  const pos = W.sample('tag', rng, 0.6, { fresh: 3 });
+  if (!pos) return;
+  const crewed = W.local.filter((w) => w.crew);
+  const crew = crewed.length ? rng.pick(crewed).crew : null;
+  let members = crew ? W.local.filter((w) => w.crew === crew) : [];
+  if (members.length < 2) members = W.local;
+  const n = rng.int(3, 6);
+  const h = Math.max(0.12, Math.min(0.45, Math.exp(rng.gauss() * 0.3) * 0.24));
+  let u = pos.u;
+  const dir = rng.chance(0.5) ? 1 : -1;
+  const tool = rng.chance(0.4) ? 'marker' : undefined;
+  const color = rng.chance(0.5) ? chooseTagColor(rng, members[0]) : null;
+  for (let k = 0; k < n; k++) {
+    const writer = members[k % members.length];
+    const estW = Math.min(1.6, writer.name.length * h * 0.62 + h * 0.3);
+    const f = W.fit(u, pos.v + rng.gauss() * h * 0.6, estW, h * 1.6);
+    if (f) {
+      const box = renderTag(P, rng, { writer, h: h * rng.range(0.85, 1.15), x: f.u, y: f.v, color: color || chooseTagColor(rng, writer), tool, maxW: 1.6, lod: era.age > 9 ? 2 : era.age > 5 ? 1 : 0 });
+      W.addHeat(box, 0.3);
+      W.items.push({ type: 'tag', box, era: era.index });
+      counts.tags++;
+    }
+    u += dir * (estW * 0.6 + rng.range(0.1, 0.5)) * (k % 2 ? 1 : 1.4);
+  }
+}
+
+/** Beef: an older tag or throw-up crossed out, often with the rival's tag next to it. */
+function doCrossOut(P, W, era, rng, counts) {
+  const reach = W.S.heightM - W.S.groundLine - 3.2;
+  const olds = W.items.filter((it) => it.era < era.index && (it.type === 'tag' || it.type === 'throw') && it.box.y0 > reach);
+  if (!olds.length) return;
+  const it = olds[rng.int(0, olds.length - 1)];
+  const b = it.box;
+  const writer = pickWriter(W.local, rng);
+  const color = chooseTagColor(rng, writer);
+  const strokes = [];
+  const cy = (b.y0 + b.y1) / 2, bw = b.x1 - b.x0, bh = b.y1 - b.y0;
+  const kind = rng.next();
+  if (kind < 0.55) {
+    // one or two fast strike lines through the middle
+    const nL = rng.chance(0.4) ? 2 : 1;
+    for (let k = 0; k < nL; k++) {
+      const y = cy + (k - (nL - 1) / 2) * bh * 0.25 + rng.gauss() * bh * 0.08;
+      strokes.push([b.x0 - bw * 0.05, y + rng.gauss() * bh * 0.1, (b.x0 + b.x1) / 2, y + rng.gauss() * bh * 0.05, b.x1 + bw * 0.05, y + rng.gauss() * bh * 0.1]);
+    }
+  } else if (kind < 0.85) {
+    strokes.push([b.x0, b.y0, b.x1, b.y1], [b.x1, b.y0, b.x0, b.y1]);
+  } else {
+    // scribbled over
+    const p = [];
+    for (let k = 0; k < 9; k++) p.push(b.x0 + (k / 8) * bw, k % 2 ? b.y0 + bh * 0.2 : b.y1 - bh * 0.2);
+    strokes.push(p);
+  }
+  const wpx = Math.max(0.012, Math.min(0.035, bh * 0.08));
+  sprayStrokes(P, strokes, { w: wpx, color, alpha: 0.92, rng, taperEnd: 0.6, drip: 0.15 });
+  W.touch(b);
+  if (rng.chance(0.6)) {
+    const h = Math.max(0.12, Math.min(0.4, bh * rng.range(0.5, 0.9)));
+    const f = W.fit(b.x1 + h * 2, cy + rng.gauss() * 0.1, Math.min(1.4, writer.name.length * h * 0.62), h * 1.6);
+    if (f) {
+      const box = renderTag(P, rng, { writer, h, x: f.u, y: f.v, color, maxW: 1.4 });
+      W.addHeat(box, 0.3);
+      W.items.push({ type: 'tag', box, era: era.index });
+      counts.tags++;
+    }
+  }
+  counts.crossouts = (counts.crossouts || 0) + 1;
+}
+
 function doColorBlock(P, W, era, rng, counts) {
-  const pos = W.sample('piece', rng, 0.3);
+  const pos = W.sample('buff', rng, 0.3);
   if (!pos) return;
   const w = rng.range(0.8, 2.6), h = rng.range(1.0, 3.0);
   const f = W.fit(pos.u, pos.v, w, h);
   if (!f) return;
-  const color = blockColor(rng);
+  const color = mix(blockColor(rng), W.S.wallTone, rng.range(0.25, 0.45));
   const box = rng.chance(0.6)
     ? renderRollerBuff(P, rng, { x0: f.box.x0, x1: f.box.x1, top: f.box.y0, bottom: f.box.y1, color, raggedTop: 0.05, raggedBottom: 0.04 })
     : renderSprayBuff(P, rng, { box: f.box, color, margin: 0.02 });
@@ -485,7 +667,9 @@ function paintBuffs(P, W, era, rng, counts, dens) {
   const st = S.style;
   // campaign color family for this era
   const fam = buffColor(S.wallTone, rng);
-  const campaigns = poisson(rng, (0.35 + S.widthM / 30) * st.buffs * (0.6 + 0.6 * dens));
+  // buffing follows the amount of graffiti there is to buff (none at density 0)
+  const dK = Math.min(1, dens * 2);
+  const campaigns = poisson(rng, (0.5 + S.widthM / 22) * st.buffs * (0.6 + 0.6 * dens) * dK);
   const vGround = S.heightM - S.groundLine;
   for (let c = 0; c < campaigns; c++) {
     // target: hot area within reach
@@ -497,7 +681,7 @@ function paintBuffs(P, W, era, rng, counts, dens) {
       if (W.heat[idx] > bestHeat) { bestHeat = W.heat[idx]; best = p; }
     }
     if (!best) break;
-    const kind = rng.pickW([['band', 2], ['patch', 4], ['stack', 2]]);
+    const kind = rng.pickW([['band', 3], ['patch', 4], ['stack', 2]]);
     const color = rng.chance(0.75) ? fam.color : buffColor(S.wallTone, rng).color;
     if (kind === 'band') {
       // long band from (near) the ground up to a straight-ish top line
@@ -536,8 +720,10 @@ function paintBuffs(P, W, era, rng, counts, dens) {
     }
   }
   // spot buffs over individual older pieces/throw-ups/tags
-  const olds = W.items.filter((it) => it.era < era.index && (it.type === 'throw' || it.type === 'tag' || it.type === 'piece'));
-  const nSpot = Math.min(olds.length, poisson(rng, (S.widthM / 5) * st.buffs * (0.5 + dens)));
+  // only what a buffer can reach from the ground (or a short ladder)
+  const reach = S.heightM - S.groundLine - 3.9;
+  const olds = W.items.filter((it) => it.era < era.index && (it.type === 'throw' || it.type === 'tag' || it.type === 'piece') && it.box.y0 > reach);
+  const nSpot = Math.min(olds.length, poisson(rng, (S.widthM / 5) * st.buffs * (0.5 + dens) * dK));
   for (let i = 0; i < nSpot; i++) {
     const it = olds[rng.int(0, olds.length - 1)];
     const c = rng.chance(0.6) ? shadeVariant(fam.color, rng, 0.08) : buffColor(S.wallTone, rng).color;
@@ -554,9 +740,9 @@ function paintBuffs(P, W, era, rng, counts, dens) {
   }
   // doors get repainted now and then
   for (const d of W.doors) {
-    if (d.kind === 'door' && rng.chance(0.3 * st.buffs)) {
+    if (d.kind === 'door' && rng.chance(0.3 * st.buffs * dK)) {
       const col = rng.pick([[52, 70, 58], [70, 70, 72], [92, 44, 40], [40, 46, 70], [34, 34, 36], [110, 96, 80]]);
-      renderPaintOut(P, rng, { x0: d.x0, x1: d.x1, top: d.y0, bottom: Math.min(d.y1, vGround), color: jitter(col, rng, 5) });
+      W.touch(renderPaintOut(P, rng, { x0: d.x0, x1: d.x1, top: d.y0, bottom: Math.min(d.y1, vGround), color: jitter(col, rng, 5) }));
       counts.buffs++;
     }
   }
@@ -575,10 +761,8 @@ function getEraCanvases(W, H) {
     c.props = createCanvas(Math.ceil(W / 2), Math.ceil(H / 2));
     c.pctx = get2d(c.props);
   }
-  c.cctx.setTransform(1, 0, 0, 1, 0, 0);
-  c.cctx.clearRect(0, 0, W, H);
-  c.pctx.setTransform(1, 0, 0, 1, 0, 0);
-  c.pctx.clearRect(0, 0, c.props.width, c.props.height);
+  resetCtx(c.cctx, W, H);
+  resetCtx(c.pctx, c.props.width, c.props.height);
   return c;
 }
 
@@ -590,7 +774,7 @@ export function* wallPaintGen(spec) {
   const Hpx = Math.max(1, Math.round(S.heightM * S.ppm));
   const rng = new Rng(S.seed);
   const fields = buildFields(S, Wpx, Hpx, rng.fork('fields'));
-  const acc = new Accumulator(Wpx, Hpx);
+  const acc = Accumulator.get(Wpx, Hpx);
   const world = new WallWorld(S, rng.fork('world'));
   const eras = planEras(S, rng.fork('eras'));
   const counts = { tags: 0, throwups: 0, pieces: 0, rollers: 0, buffs: 0, stickers: 0, posters: 0, scribbles: 0, ghostSign: 0 };
@@ -600,12 +784,28 @@ export function* wallPaintGen(spec) {
   const compositeEra = (age, index, opts = {}) => {
     const c = eraCanvasCache;
     const tg = now();
-    const img = c.cctx.getImageData(0, 0, Wpx, Hpx).data;
-    const pimg = c.pctx.getImageData(0, 0, c.props.width, c.props.height).data;
-    const tc = now();
-    acc.composite(img, pimg, fields, age, { wallTone: S.wallTone, eraIndex: index, pshift: 1, ...opts });
+    // read back only the bands this era touched
+    let tc = tg;
+    for (const d of world.dirtyBands()) {
+      const x0 = Math.max(0, Math.floor(d.x0 * S.ppm) & ~1);
+      const y0 = Math.max(0, Math.floor(d.y0 * S.ppm) & ~1);
+      const x1 = Math.min(Wpx, Math.ceil(d.x1 * S.ppm));
+      const y1 = Math.min(Hpx, Math.ceil(d.y1 * S.ppm));
+      if (x1 <= x0 || y1 <= y0) continue;
+      const rw = x1 - x0, rh = y1 - y0;
+      const t1 = now();
+      const img = c.cctx.getImageData(x0, y0, rw, rh).data;
+      const px0 = x0 >> 1, py0 = y0 >> 1;
+      const pw = Math.max(1, Math.min(c.props.width - px0, Math.ceil(x1 / 2) - px0));
+      const ph = Math.max(1, Math.min(c.props.height - py0, Math.ceil(y1 / 2) - py0));
+      const pimg = c.pctx.getImageData(px0, py0, pw, ph).data;
+      const t2 = now();
+      acc.composite(img, pimg, fields, age, { wallTone: S.wallTone, eraIndex: index, pshift: 1, region: { x0, y0, w: rw, h: rh, px0, py0, pw }, ...opts });
+      tc += t2 - t1;
+    }
+    const tEnd = now();
     timings.get = (timings.get || 0) + Math.round(tc - tg);
-    timings.comp = (timings.comp || 0) + Math.round(now() - tc);
+    timings.comp = (timings.comp || 0) + Math.round(tEnd - tg - (tc - tg));
   };
 
   // ghost sign (decades old)
@@ -623,7 +823,7 @@ export function* wallPaintGen(spec) {
         getEraCanvases(Wpx, Hpx);
         const c = eraCanvasCache;
         const P = new Painter({ ctx: c.cctx, pctx: c.pctx, ppm: S.ppm, widthM: S.widthM, heightM: S.heightM, wallTone: S.wallTone, propsScale: 0.5 });
-        renderGhostSign(P, gr, { x0, y0, w: sw, h: sh });
+        world.touch(renderGhostSign(P, gr, { x0, y0, w: sw, h: sh }));
         compositeEra(gr.range(55, 95), 17, { erosion: 1.15 });
         counts.ghostSign = 1;
         break;
@@ -636,7 +836,7 @@ export function* wallPaintGen(spec) {
     const te = now();
     const c = getEraCanvases(Wpx, Hpx);
     const P = new Painter({ ctx: c.cctx, pctx: c.pctx, ppm: S.ppm, widthM: S.widthM, heightM: S.heightM, wallTone: S.wallTone, propsScale: 0.5 });
-    paintEra(P, world, era, rng.fork('era' + era.index), counts);
+    yield* paintEra(P, world, era, rng.fork('era' + era.index), counts);
     const tc = now();
     compositeEra(era.age, era.index);
     timings['era' + era.index] = Math.round(tc - te) + '+' + Math.round(now() - tc);
@@ -657,8 +857,7 @@ export function* wallPaintGen(spec) {
     coverage: +out.coverage.toFixed(3),
     writers: world.local.map((w) => w.name),
     timings,
+    profile: world.prof ? Object.fromEntries(Object.entries(world.prof).map(([k, v]) => [k, Math.round(v)])) : undefined,
   };
   return { color: out.color, props: out.props, colorImage: out.colorImage, propsImage: out.propsImage, stats };
 }
-
-export { mix, renderSticker };

@@ -141,8 +141,13 @@ export class Player {
     this.lookDX = this.lookDY = 0;
     this.pitchT = Math.max(-1.32, Math.min(1.25, this.pitchT));
     const lk = 1 - Math.exp(-dt / 0.045);
+    const prevYaw = this.yaw;
     this.yaw += (this.yawT - this.yaw) * lk;
     this.pitch += (this.pitchT - this.pitch) * lk;
+    // lean very slightly into turns (more when walking)
+    const yawRate = dt > 0 ? (this.yaw - prevYaw) / dt : 0;
+    const leanT = Math.max(-1, Math.min(1, yawRate * 0.35)) * THREE.MathUtils.degToRad(0.7) * (0.35 + 0.65 * Math.min(1, this.speed));
+    this.lean = (this.lean ?? 0) + (leanT - (this.lean ?? 0)) * (1 - Math.exp(-dt / 0.25));
 
     // ── movement ──
     const len = Math.hypot(inp.f, inp.s);
@@ -247,7 +252,7 @@ export class Player {
       neckY + oy,
       this.pos.z - sinY * lat + (-ox * sinY + oz * cosY),
     );
-    cam.rotation.set(pitch, this.yaw, roll, 'YXZ');
+    cam.rotation.set(pitch, this.yaw, roll + (this.lean ?? 0), 'YXZ');
     cam.updateMatrixWorld();
 
     this.gait.phase = this.phase;
