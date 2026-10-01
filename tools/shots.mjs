@@ -13,12 +13,15 @@ const page = await browser.newPage({ viewport: { width: 640, height: 480 } });
 const logs = [];
 page.on('console', (m) => logs.push(m.type() + ': ' + m.text()));
 page.on('pageerror', (e) => logs.push('PAGEERROR: ' + e.message + '\n' + e.stack));
-await page.goto(`http://127.0.0.1:${port}/index.html?${query}`);
+// play=1 skips the title screen
+await page.goto(`http://127.0.0.1:${port}/index.html?play=1${query ? '&' + query : ''}`);
 await page.waitForTimeout(2500);
 for (const s of shots) {
   const info = await page.evaluate((s) => {
     const g = window.__game;
     if (!g) return 'game failed to boot';
+    g.state = 'play';
+    g.ui.stack.length = 0;
     if (s.eval) { try { (0, eval)(s.eval); } catch (e) { return 'eval error ' + e.message; } }
     if (s.x !== undefined) {
       g.spawnAt(s.dim || 0, s.x, s.y || 0, s.z, s.yaw || 0);
