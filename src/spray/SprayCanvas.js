@@ -733,7 +733,6 @@ export class SprayCanvas {
     }
     // drying
     this.dryFor(dt);
-    this.sinceStamp += dt;
   }
 
   /** Wet film relaxes; canvases that have dried out release their CPU field. */
@@ -827,6 +826,9 @@ export class SprayCanvas {
     this.time += dt;
     this.flush();
     this.decayWetness(dt);
+    // distant walls sample the mip chain: rebuild it once the can has paused
+    // (counted here, every frame: the simulation ticks stop when nothing runs)
+    this.sinceStamp += dt;
     if (this.dirty && this.sinceStamp > 0.35) this.updateMips();
   }
 }
