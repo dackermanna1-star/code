@@ -11,6 +11,8 @@ const params = {
   dpr: num('dpr', 1.5),
   walk: num('walk', 0), // shot mode: seconds of simulated walking before the capture
   quality: q.get('q') ?? 'high',
+  fixedRes: q.has('fixedRes'),
+  nopaint: q.has('nopaint'),
   debug: q.has('debug'),
 };
 
@@ -20,7 +22,10 @@ const gate = document.getElementById('gate');
 async function main() {
   const engine = new Engine(canvas, params);
   window.__engine = engine;
-  await engine.init();
+  const bar = document.querySelector('#load i');
+  await engine.init((k) => {
+    if (bar) bar.style.width = `${Math.round(k * 100)}%`;
+  });
   engine.bakeShadows();
 
   if (params.shot) {
@@ -62,22 +67,31 @@ async function main() {
     return;
   }
 
+  // compile the heavy shaders and run a few frames behind the black gate
+  try {
+    await engine.renderer.compileAsync(engine.scene, engine.camera);
+  } catch {
+    /* compileAsync unsupported: shaders compile on first render */
+  }
+  engine.post.fade = 0;
+  for (let i = 0; i < 2; i++) engine.step(1 / 60);
   gate.classList.add('ready');
   engine.player.update(0.016);
   engine.post.fade = 0;
   engine.start();
 
   let started = false;
+  let hadLock = false;
   const view = canvas;
   const lock = () => {
     try {
       const r = view.requestPointerLock?.({ unadjustedMovement: true });
-      if (r && r.catch) r.catch(() => view.requestPointerLock?.());
+      if (r && r.catch) r.catch(() => view.requestPointerLock?.()?.catch?.(() => {}));
     } catch {
-      /* drag-to-look fallback */
+      /* no pointer lock (sandboxed iframe): drag-to-look fallback */
     }
   };
-  gate.addEventListener('click', async () => {
+  gate.addEventListener('click', () => {
     gate.classList.add('hidden');
     gate.classList.remove('paused');
     lock();
@@ -96,7 +110,22 @@ async function main() {
     } else engine.onResume?.();
   });
   document.addEventListener('pointerlockchange', () => {
-    if (document.pointerLockElement !== view && started) {
+    if (document.pointerLockElement === view) {
+      hadLock = true;
+      return;
+    }
+    // only treat it as a pause if we actually had the lock (Esc pressed)
+    if (started && hadLock) {
+      hadLock = false;
+      engine.player.enabled = false;
+      gate.classList.remove('hidden');
+      gate.classList.add('paused');
+      engine.onPause?.();
+    }
+  });
+  // without pointer lock, Escape still pauses
+  addEventListener('keydown', (e) => {
+    if (e.code === 'Escape' && started && !hadLock && engine.player.enabled) {
       engine.player.enabled = false;
       gate.classList.remove('hidden');
       gate.classList.add('paused');

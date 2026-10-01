@@ -18,13 +18,16 @@
       }
       #gate.ready .hint { opacity: 0.55; }
       #gate.hidden { opacity: 0; pointer-events: none; }
+      #load { position: fixed; left: 50%; bottom: 22%; width: 120px; height: 1px; margin-left: -60px; background: #1a1c20; transition: opacity 1.5s ease; }
+      #load i { display: block; height: 100%; width: 0%; background: #5b616c; transition: width 0.4s ease; }
+      #gate.ready #load { opacity: 0; }
       #gate.paused { opacity: 1; background: rgba(0, 0, 0, 0.72); pointer-events: auto; }
       #gate.paused .hint { opacity: 0.5; transition-delay: 0s; }
     </style>
   </head>
   <body>
     <canvas id="view"></canvas>
-    <div id="gate"><span class="hint">click to walk</span></div>
+    <div id="gate"><span class="hint">click to walk</span><div id="load"><i></i></div></div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

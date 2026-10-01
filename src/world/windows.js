@@ -319,7 +319,10 @@ function createWindowMaterial(stateTex, count) {
         vec3 skyRad = mix(uSkyIrrSide, uSkyIrr, clamp(R.y * 1.5, 0.0, 1.0)) * 0.3183;
         vec3 env = skyRad * mix(0.08, 1.0, smoothstep(0.0, 0.6, R.y) * A.a) + A.rgb * 0.05;
         vec3 transmitted = outRad * mix(0.85, 0.45, grime);
-        vec3 dirt = vec3(0.04, 0.038, 0.035) * (A.a * uSkyIrrSide.b * 3.0 + 0.01) * grime;
+        vec4 Bv = texture(uIrrB, uvw);
+        float sideVis = N.x * N.x * (N.x >= 0.0 ? Bv.r : Bv.g) + N.z * N.z * (N.z >= 0.0 ? Bv.b : Bv.a);
+        vec3 Eside = uSkyIrrSide * sideVis + A.rgb;
+        vec3 dirt = Eside * (0.1 * grime / 3.14159);
         vec3 c = transmitted * (1.0 - F) + env * F * (1.0 - 0.5 * grime) + dirt;
         gl_FragColor = vec4(c, 1.0);
       }

@@ -8,6 +8,8 @@ import { Body } from '../player/Body.js';
 import { captureEnvironment, applyEnvironment } from '../render/envCapture.js';
 import { Ambient } from '../world/ambient.js';
 import { Debris } from '../world/debris.js';
+import { Soundscape } from './soundscape.js';
+import { paintFacades } from '../textures/paintFacades.js';
 import { LAYER_REFLECT } from '../world/units.js';
 
 export class Engine {
@@ -19,6 +21,7 @@ export class Engine {
     this.frameHooks = [];
     this.renderScale = 1;
     this.perf = { acc: 0, n: 0, since: 0, lastAdjust: 0 };
+    this.paintFacades = params.nopaint ? null : paintFacades;
   }
 
   async init(progress = () => {}) {
@@ -61,14 +64,20 @@ export class Engine {
     this.envMap = captureEnvironment(renderer, this.scene);
     this.body.group.visible = true;
     applyEnvironment(this.scene, this.envMap, 1.0);
+    progress(0.85);
     this.post = new Post(this, { quality: this.params.quality, exposure: this.params.exposure });
     this.post.init([...this.world.lamps, ...(this.world.extraFogLights ?? [])]);
     this.post.preHooks.push((r, s, c) => this.world.ground.reflection.render(r, s, c));
     this.ambient = new Ambient(this).build();
     this.debris = new Debris(this, this.world.props.material).build();
+    this.sound = new Soundscape(this);
+    this.onStart = () => this.sound.start();
+    this.onPause = () => this.sound.setPaused(true);
+    this.onResume = () => this.sound.setPaused(false);
 
     window.addEventListener('resize', () => this.resize());
     this.resize();
+    progress(1);
   }
 
   resize() {
@@ -122,6 +131,7 @@ export class Engine {
   }
 
   step(dt) {
+    this.frames = (this.frames ?? 0) + 1;
     this.time += dt;
     shared.uTime.value = this.time;
     if (!this.params.shot || this.params.walk) {
@@ -133,6 +143,7 @@ export class Engine {
     this.world.update(dt, this.time);
     this.ambient?.update(dt, this.time);
     this.debris?.update(dt, this.time);
+    this.sound?.update(dt, this.time);
     this.render(dt);
   }
 

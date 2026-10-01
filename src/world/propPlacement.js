@@ -355,7 +355,7 @@ export class PropWorld {
   placeDebris() {
     const r = this.rng.fork('debris');
     const types = [
-      ['can', 70, 6], ['bottle', 35, 6], ['cup', 22, 4], ['foodBox', 14, 4], ['paperScrap', 120, 8],
+      ['can', 70, 6], ['bottle', 35, 6], ['cup', 14, 4], ['foodBox', 6, 4], ['paperScrap', 120, 8],
       ['cigaretteButt', 260, 4], ['bottleCap', 60, 3], ['leaf', 220, 6], ['glassShard', 70, 4], ['plasticBag', 10, 4],
     ];
     const hot = [[-2.2, 2.0], [-2.2, -46.6], [2.2, -22.2], [-2.2, -34.9], [2.4, -48.0], [-2.3, -61.0], [18.0, -78.5], [2.5, -55.5], [0, -27.2], [0, -61.0], [-2.4, -16.5], [3.9, -40.0]];
