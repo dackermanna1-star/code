@@ -538,6 +538,7 @@ export class Game {
     const cam = this.player.camera(this.time);
     cam.fov = (s.fov * Math.PI) / 180;
     r.snapScale = s.jitterMode === 0 ? 0.001 : s.jitterMode === 2 ? 2.4 : 1;
+    r.lens = s.jitterMode === 0 ? 0 : s.jitterMode === 2 ? 0.05 : 0.03;
     r.dither = s.dither;
     r.begin(cam, { fogColor: this.env.fog, fogNear: this.env.fogNear, fogFar: this.env.fogFar, time: this.time, flick: this.flicker.v, bright: s.bright });
     this.world.time = this.time;

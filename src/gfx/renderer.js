@@ -33,7 +33,7 @@ export class Renderer {
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('link failed: ' + gl.getProgramInfoLog(prog));
     this.prog = prog;
     this.u = {};
-    for (const n of ['uVP', 'uModel', 'uCam', 'uSnap', 'uFog', 'uTime', 'uFlick', 'uBright', 'uTex', 'uFogColor', 'uDither', 'uAlphaMul', 'uLightMul']) {
+    for (const n of ['uVP', 'uModel', 'uCam', 'uSnap', 'uFog', 'uTime', 'uFlick', 'uBright', 'uTex', 'uFogColor', 'uDither', 'uAlphaMul', 'uLightMul', 'uLens']) {
       this.u[n] = gl.getUniformLocation(prog, n);
     }
     this.view = mat4();
@@ -42,6 +42,7 @@ export class Renderer {
     this.ident = mat4();
     this.planes = new Float32Array(24);
     this.snapScale = 1;
+    this.lens = 0;
     this.dither = true;
     this.stats = { draws: 0, tris: 0 };
     gl.enable(gl.DEPTH_TEST);
@@ -122,6 +123,7 @@ export class Renderer {
     gl.uniform1fv(this.u.uFlick, env.flick);
     gl.uniform1f(this.u.uBright, env.bright ?? 1);
     gl.uniform1f(this.u.uLightMul, env.lightMul ?? 1);
+    gl.uniform1f(this.u.uLens, this.lens);
     gl.uniform3f(this.u.uFogColor, fc[0], fc[1], fc[2]);
     gl.uniform1f(this.u.uDither, this.dither ? 1 : 0);
     gl.uniform1f(this.u.uAlphaMul, 1);

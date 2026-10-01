@@ -24,6 +24,7 @@ uniform float uTime;
 uniform float uFlick[16];
 uniform float uBright;
 uniform float uLightMul;
+uniform float uLens;
 
 out vec3 vUVW;
 out vec4 vColW;
@@ -47,6 +48,9 @@ void main() {
   vec4 clip = uVP * wp;
   if (clip.w > 0.08) {
     vec2 ndc = clip.xy / clip.w;
+    // slight per-vertex stretch toward the edges of the frame (straight polygon edges stay
+    // straight, only their corners move, as with a cheap lens hack on the real hardware)
+    ndc *= 1.0 + uLens * min(dot(ndc, ndc), 2.5);
     ndc = floor(ndc * uSnap + 0.5) / uSnap;
     clip.xy = ndc * clip.w;
   }
