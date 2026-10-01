@@ -585,7 +585,7 @@ export function buildChunkData(world, dim, level, cx, cz) {
   for (let z = az; z < bz; z++) for (let x = ax; x < bx; x++) {
     const zb = win.zones[win.zi[win.idx(x, z)]];
     let k = zmap.get(zb);
-    if (k === undefined) { k = zonesUsed.length; zonesUsed.push(zb.zone); zmap.set(zb, k); }
+    if (k === undefined) { k = zonesUsed.length; zonesUsed.push(zoneSummary(zb.zone)); zmap.set(zb, k); }
     zoneIdx[(z - az) * CHUNK + (x - ax)] = k;
   }
 
@@ -602,3 +602,23 @@ export function buildChunkData(world, dim, level, cx, cz) {
 }
 
 const AMB_DEFAULT = [0.2, 0.19, 0.16];
+
+// plain, cycle-free description of a zone for the game thread
+export function zoneSummary(z) {
+  const p = z.params || {};
+  const out = {
+    key: z.key, type: z.type, dim: z.dim, level: z.level, x0: z.x0, z0: z.z0, x1: z.x1, z1: z.z1,
+    params: { env: p.env, variant: p.variant, layout: p.layout, mutable: !!p.mutable },
+  };
+  if (z.claimedBy) out.claimedBy = zoneSummary(z.claimedBy);
+  return out;
+}
+
+// all transferable buffers of a chunk result
+export function chunkTransfers(d) {
+  const t = [];
+  for (const k of ['arch', 'props', 'trans']) if (d[k]) t.push(d[k].data, d[k].idx.buffer);
+  t.push(d.boxes.buffer, d.zoneIdx.buffer);
+  for (const dy of d.dynamics) if (dy.packed) t.push(dy.packed.data, dy.packed.idx.buffer);
+  return t;
+}

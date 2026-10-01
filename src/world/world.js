@@ -51,9 +51,42 @@ export class World {
   ckey(dim, level, cx, cz) { return dim + ':' + level + ':' + cx + ':' + cz; }
   getChunk(dim, level, cx, cz) { return this.chunks.get(this.ckey(dim, level, cx, cz)); }
 
+  // Hand chunk building to a worker; results are installed as they arrive.
+  attachWorker(worker) {
+    this.worker = worker;
+    this.inflight = new Map();
+    this.workerGen = (this.workerGen || 0) + 1;
+    this.workerReady = false;
+    const init = () => {
+      worker.postMessage({ type: 'init', gen: this.workerGen, seed: this.seed, forceType: this.zones.forceType, forcePiece: this.zones.forcePiece, mutation: [...this.mutation] });
+      this.workerReady = true;
+    };
+    if (worker.helloed) init();
+    worker.onmessage = (e) => {
+      const m = e.data;
+      if (m.type === 'hello') { worker.helloed = true; init(); return; }
+      if (m.type === 'error') { console.error('[world worker]', m.message); this.inflight.delete(m.key); return; }
+      if (m.type !== 'chunk' || m.gen !== this.workerGen) return;
+      this.inflight.delete(m.key);
+      const d = m.data;
+      // still wanted?
+      if (this.lastPos && (d.dim !== this.lastPos.dim || Math.abs(d.level - this.levelOf(this.lastPos.y)) > 2) && !(this.keepKeys && this.keepKeys.has(m.key))) return;
+      if (this.chunks.has(m.key)) return;
+      this.stats.buildMs += d.ms || 0;
+      this.installChunk(d);
+    };
+  }
+
   buildChunk(dim, level, cx, cz) {
     const t0 = performance.now();
     const data = buildChunkData(this, dim, level, cx, cz);
+    data.ms = performance.now() - t0;
+    this.stats.buildMs += data.ms;
+    return this.installChunk(data);
+  }
+
+  installChunk(data) {
+    const { dim, level, cx, cz } = data;
     const ch = { key: this.ckey(dim, level, cx, cz), dim, level, cx, cz, data, meshes: {}, grid: null };
     if (this.gpu) {
       if (data.arch) ch.meshes.arch = this.gpu.createMesh(data.arch.data, data.arch.idx);
@@ -74,7 +107,6 @@ export class World {
     this.indexBoxes(ch);
     this.chunks.set(ch.key, ch);
     this.stats.built++;
-    this.stats.buildMs += performance.now() - t0;
     return ch;
   }
 
@@ -136,13 +168,28 @@ export class World {
       }
     }
     want.sort((a, b) => a[0] - b[0]);
-    const t0 = performance.now();
+    this.lastPos = { dim, x: px, y: py, z: pz };
+    this.keepKeys = keep;
     let built = 0;
-    for (const w of want) {
-      if (!force && built > 0 && performance.now() - t0 > budgetMs) break;
-      if (force && w[0] > force) break;
-      this.buildChunk(w[1], w[2], w[3], w[4]);
-      built++;
+    if (this.worker) {
+      // keep a few requests in flight, nearest first
+      if (this.workerReady) {
+        for (const w of want) {
+          if (this.inflight.size >= 4) break;
+          const k = this.ckey(w[1], w[2], w[3], w[4]);
+          if (this.inflight.has(k)) continue;
+          this.inflight.set(k, true);
+          this.worker.postMessage({ type: 'build', gen: this.workerGen, key: k, dim: w[1], level: w[2], cx: w[3], cz: w[4] });
+        }
+      }
+    } else {
+      const t0 = performance.now();
+      for (const w of want) {
+        if (!force && built > 0 && performance.now() - t0 > budgetMs) break;
+        if (force && w[0] > force) break;
+        this.buildChunk(w[1], w[2], w[3], w[4]);
+        built++;
+      }
     }
     // unload
     for (const ch of this.chunks.values()) {
@@ -158,6 +205,16 @@ export class World {
     return built;
   }
 
+  // are the chunks around a point (current level and the one below) loaded?
+  areaReady(dim, x, y, z, r = 1) {
+    const L = this.levelOf(y);
+    const cx = Math.floor(x / CHUNK), cz = Math.floor(z / CHUNK);
+    for (const l of [L, L - 1]) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+      if (!this.chunks.has(this.ckey(dim, l, cx + dx, cz + dz))) return false;
+    }
+    return true;
+  }
+
   unloadAll() { for (const ch of [...this.chunks.values()]) this.unloadChunk(ch); }
 
   // A mutable zone gets a new interior: bump its counter, forget its builder and any chunk that
@@ -165,6 +222,7 @@ export class World {
   mutate(zone) {
     this.mutation.set(zone.key, (this.mutation.get(zone.key) || 0) + 1);
     this.builders.delete(zone.key);
+    if (this.worker) this.worker.postMessage({ type: 'mutate', key: zone.key, count: this.mutation.get(zone.key) });
     for (const ch of [...this.chunks.values()]) {
       if (ch.dim !== zone.dim || Math.abs(ch.level - zone.level) > 0) continue;
       const x0 = ch.cx * CHUNK - 8, z0 = ch.cz * CHUNK - 8, x1 = x0 + CHUNK + 16, z1 = z0 + CHUNK + 16;

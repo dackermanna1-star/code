@@ -1085,6 +1085,13 @@ T('dec_ceiling_hole', decal((p) => {
 
 export const TEX_DEFS = DEFS;
 
+// name -> layer mapping without painting anything (used by the world worker)
+export function textureIndex() {
+  const index = {};
+  DEFS.forEach((d, i) => { index[d.name] = i; });
+  return index;
+}
+
 export function generateTextures() {
   const layers = [], index = {};
   for (const d of DEFS) {

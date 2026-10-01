@@ -156,6 +156,7 @@ export class UI {
         else { c.globalAlpha = a; drawTextCentered(c, this.message.text, W / 2, H - 36, C.hi, 1, C.shadow); c.globalAlpha = 1; }
       }
     }
+    if (this.loading) drawTextCentered(c, 'NOW LOADING', W / 2, H / 2 - 4, C.text, 1, C.shadow);
     if (this.saveIcon > 0) {
       this.saveIcon -= dt;
       if (Math.floor(this.saveIcon * 4) % 2 === 0) this.drawCardIcon(W - 22, 8, 1);

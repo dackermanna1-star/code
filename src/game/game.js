@@ -89,9 +89,24 @@ export class Game {
     this.world = new this.World(seed, this.texIndex, this.renderer);
     if (this.params.has('force')) this.world.zones.forceType = this.params.get('force');
     if (this.params.has('piece')) this.world.zones.forcePiece = this.params.get('piece');
+    if (this.worker && !this.workerFailed) {
+      this.world.attachWorker(this.worker);
+      if (!this.workerWatch) {
+        this.workerWatch = true;
+        this.worker.addEventListener('error', (e) => { console.warn('world worker failed, generating on the main thread', e.message); this.dropWorker(); });
+        setTimeout(() => { if (!this.worker || !this.worker.helloed) this.dropWorker(); }, 8000);
+      }
+    }
     this.player = new this.Player(this.world);
     this.hookPlayer();
     this.spawnAt(0, SPAWN[0] + 0.5, 0, SPAWN[1] + 0.5, 0);
+  }
+
+  dropWorker() {
+    if (this.workerFailed) return;
+    this.workerFailed = true;
+    if (this.world) { this.world.worker = null; this.world.inflight = new Map(); }
+    try { this.worker && this.worker.terminate(); } catch (e) { /* ignore */ }
   }
 
   hookPlayer() {
@@ -198,38 +213,51 @@ export class Game {
     this.input.unlock();
   }
 
-  // Load the area and place the player on a free floor spot near (x, z).
+  // Place the player on a free floor spot near (x, z) as soon as the area is loaded.
   spawnAt(dim, x, y, z, yaw) {
-    const w = this.world;
     this.player.dim = dim;
-    w.update(dim, x, y, z, 0, 40);
-    const level = Math.floor((y + 0.05) / LEVEL_H);
+    this.player.setPos(x, y, z, yaw);
+    this.player.frozen = true;
+    this.pendingSpawn = { dim, x, y, z, yaw, t: 0 };
+    if (!this.world.worker) { this.world.update(dim, x, y, z, 0, 40); this.trySpawn(); }
+    return true;
+  }
+
+  trySpawn(dt = 0) {
+    const s = this.pendingSpawn;
+    if (!s) return true;
+    s.t += dt;
+    const w = this.world;
+    w.update(s.dim, s.x, s.y, s.z, 4);
+    if (w.worker && !w.areaReady(s.dim, s.x, s.y, s.z, 1) && s.t < 20) return false;
+    const level = Math.floor((s.y + 0.05) / LEVEL_H);
     const tmp = [];
-    for (let r = 0; r < 14; r++) {
-      for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+    let placed = false;
+    for (let r = 0; r < 14 && !placed; r++) {
+      for (let dz = -r; dz <= r && !placed; dz++) for (let dx = -r; dx <= r && !placed; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
-        const cx = Math.floor(x) + dx + 0.5, cz = Math.floor(z) + dz + 0.5;
+        const cx = Math.floor(s.x) + dx + 0.5, cz = Math.floor(s.z) + dz + 0.5;
         const y0 = level * LEVEL_H;
-        w.queryBoxes(dim, cx - PLAYER_R, y0 - 3, cz - PLAYER_R, cx + PLAYER_R, y0 + 4.5, cz + PLAYER_R, tmp);
+        w.queryBoxes(s.dim, cx - PLAYER_R, y0 - 3, cz - PLAYER_R, cx + PLAYER_R, y0 + 4.5, cz + PLAYER_R, tmp);
         let best = null;
         for (let k = 0; k < tmp.length; k += 7) {
           const top = tmp[k + 4];
-          if (top > y + 1.5 || top < y - 3) continue;
-          if (best !== null && Math.abs(top - y) >= Math.abs(best - y)) continue;
+          if (top > s.y + 1.5 || top < s.y - 3) continue;
+          if (best !== null && Math.abs(top - s.y) >= Math.abs(best - s.y)) continue;
           let blocked = false;
           for (let j = 0; j < tmp.length; j += 7) {
             if (tmp[j + 1] < top + PLAYER_H && tmp[j + 4] > top + 0.01) { blocked = true; break; }
           }
           if (!blocked) best = top;
         }
-        if (best !== null) {
-          this.player.setPos(cx, best + 0.001, cz, yaw);
-          return true;
-        }
+        if (best !== null) { this.player.setPos(cx, best + 0.001, cz, s.yaw); placed = true; }
       }
     }
-    this.player.setPos(x, y, z, yaw);
-    return false;
+    if (!placed) this.player.setPos(s.x, s.y, s.z, s.yaw);
+    this.player.dim = s.dim;
+    this.player.frozen = false;
+    this.pendingSpawn = null;
+    return true;
   }
 
   // drop the player onto a random spot some levels down (fell into nothing)
@@ -261,6 +289,7 @@ export class Game {
   }
 
   updateTitle(dt, inp) {
+    if (this.pendingSpawn) this.trySpawn(dt);
     if (!this.ui.top()) {
       if (inp.menuOk || inp.click || inp.use || inp.pause) { this.ui.open('title'); }
     } else this.ui.input(inp);
@@ -282,6 +311,11 @@ export class Game {
   updatePlay(dt, inp) {
     const p = this.player;
     const ui = this.ui;
+    if (this.pendingSpawn) {
+      this.ui.loading = !this.trySpawn(dt);
+      if (this.pendingSpawn) { this.updateEnv(dt); return; }
+    }
+    this.ui.loading = false;
     if (ui.active) {
       ui.input(inp);
       p.update(dt, { mx: 0, mz: 0, turn: 0, lookX: 0, lookY: 0 });

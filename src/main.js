@@ -30,7 +30,12 @@ async function boot() {
   resolveMaterials(index);
   setPropTextures(index);
   const input = new Input(glc.parentElement);
-  const game = new Game({ renderer, glc, uic, input, texIndex: index, World, Player, Flicker });
+  // world generation runs in a worker when possible (falls back to the main thread)
+  let worker = null;
+  if (!new URLSearchParams(location.search).has('noworker')) {
+    try { worker = new Worker(new URL('./world/worker.js', import.meta.url), { type: 'module' }); } catch (e) { console.warn('no worker', e); }
+  }
+  const game = new Game({ renderer, glc, uic, input, texIndex: index, World, Player, Flicker, worker });
   game.texMs = performance.now() - t0;
   window.__game = game;
   game.start();
