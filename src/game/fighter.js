@@ -5,7 +5,7 @@
   const JJK = (typeof window !== 'undefined' ? window : globalThis).JJK;
   const U = JJK.U, Rig = JJK.Rig, B = JJK.BTN;
   const S = (JJK.CHAR_SCALE = 1.2);
-  const PUSH_W = (JJK.PUSH_W = 17);
+  const PUSH_W = (JJK.PUSH_W = 24);
   const MOT = JJK.MOTIONS, MWIN = JJK.MOTION_WIN;
   const hasDoc = typeof document !== 'undefined';
 
@@ -99,13 +99,13 @@
       const d0 = this.buf.dir(0);
       this.backHeld = d0 === 4 || d0 === 1 || d0 === 7 ? this.backHeld + 1 : 0;
       if (!locked && this.buf.pr(0) & (B.L | B.M | B.H | B.SP | B.SU | B.UN)) {
-        const cmd = this.recognize();
-        if (cmd) this.pending = { cmd, t: 8 };
+        const r = this.recognize(1);
+        if (r) this.pending = { cmd: r, score: this.lastScore, t: 8, at: this.match ? this.match.frame : 0 };
       }
     }
 
-    // Find the best matching command for this frame's press.
-    recognize() {
+    // Find the best matching command for a press within the last `within` frames.
+    recognize(within = 1) {
       const cmds = this.def.commands;
       const buf = this.buf;
       const air = this.air || this.y > 0;
@@ -118,9 +118,9 @@
         if (c.air === undefined && air) continue; // default ground-only
         let score = 1000 - i;
         if (c.chord) {
-          if (!buf.chordWithin(c.b, 3, 1)) continue;
+          if (!buf.chordWithin(c.b, 3, within)) continue;
           score += 100000;
-        } else if (!(buf.pr(0) & c.b)) continue;
+        } else if (!buf.pressedWithin(c.b, within)) continue;
         if (c.m) {
           const age = buf.motion(MOT[c.m], MWIN[c.m] + (c.m.length > 3 ? 4 : 0), 9);
           if (age < 0) continue;
@@ -132,7 +132,26 @@
         if (c.cond && !c.cond(this)) continue;
         if (score > bestScore) { best = c; bestScore = score; }
       }
+      this.lastScore = bestScore;
       return best;
+    }
+
+    // Input upgrade window: during the first frames of a move, a stronger command
+    // built from the same press (chord, completed motion) replaces it.
+    tryUpgrade() {
+      const mv = this.move;
+      if (!mv || this.mf > 3 || this.moveScore == null || mv.tier > 5 || this.contact) return false;
+      const r = this.recognize(4);
+      if (!r || r.id === mv.id || this.lastScore < this.moveScore + 900) return false;
+      const nm = this.def.moves[r.id];
+      if (!nm || (nm.cond && !nm.cond(this))) return false;
+      if (nm.cost && !this.canAfford(nm.cost + 0) && !(mv.cost && this.canAfford(nm.cost - mv.cost))) return false;
+      if (mv.cost) this.meter = Math.min(300, this.meter + mv.cost);
+      if (mv.onEnd) mv.onEnd(this, this.match);
+      this.invisible = false;
+      const score = this.lastScore;
+      if (this.startMove(r.id)) { this.moveScore = score; this.pending = null; return true; }
+      return false;
     }
 
     // ------------------------------------------------------------ helpers
@@ -188,6 +207,7 @@
       void prevMove; void prevSt;
       this.st = 'move'; this.sf = 0;
       this.move = mv; this.mf = 0;
+      this.moveScore = null;
       this.contact = null;
       this.hitIds = {};
       this.lastMoveId = id;
@@ -246,7 +266,13 @@
       if (mv.cond && !mv.cond(this)) { this.pending = null; return false; }
       this.pending = null;
       if (!this.move || this.st !== 'move') this.faceOpp();
-      return this.startMove(mv.id, { chain: this.st === 'move' });
+      // Black Flash: a heavy cancelled within a 1-frame window of the hit-stop ending
+      const cur = this.st === 'move' ? this.move : null;
+      const bf = cur && cur.tier <= 3 && mv.tier === 3 && this.contact === 'hit' && this.hsEnd != null &&
+        Math.abs((p.at || 0) - this.hsEnd) <= 1 && this.cleanPress(p);
+      const ok = this.startMove(mv.id, { chain: this.st === 'move' });
+      if (ok) { this.moveScore = p.score; this.bfArmed = !!bf; }
+      return ok;
     }
     faceOpp() {
       const o = this.opp;
@@ -261,6 +287,7 @@
       if (this.hitstop > 0) {
         this.hitstop--;
         this.shakeT++;
+        if (this.hitstop === 0 && this.contact === 'hit') this.hsEnd = m.frame;
         return;
       }
       this.shakeT = 0;
@@ -306,6 +333,11 @@
         if (this.burnout <= 0) this.dg = Math.min(100, this.dg + 100 / (48 * 60));
       }
       if (this.afterT > 0) this.afterT--;
+      // visible breathing when badly hurt
+      if (this.hp < this.maxHp * 0.25 && NEUTRAL[this.st] && this.sf % 46 === 0 && JJK.FX && !JJK.HEADLESS) {
+        const h = this.anchor('head');
+        JJK.FX.spawn('smoke', h[0] + this.facing * 12, h[1] - 6, { vx: this.facing * 0.5, vy: 0.3, drag: 0.95, life: 34, size: 1.5, size2: 5, color: '#d8d0d0', alpha: 0.35 });
+      }
       // combo bookkeeping (as defender)
       if (this.combo.hits > 0) {
         this.combo.time++;
@@ -338,7 +370,7 @@
           const tapB = d === 4 && buf.dir(1) !== 4 && buf.motion(MOT['44'], MWIN['44'], 1) >= 0;
           if (st === 'run') {
             if (d === 6 || d === 9 || d === 3) {
-              this.vx = this.facing * stats.runSpeed;
+              this.vx = this.facing * stats.runSpeed * this.speedMul();
               if (d === 9) { this.jump(1, true); return; }
               this.setAnim('run');
               return;
@@ -359,14 +391,14 @@
           }
           if (d === 6) {
             this.st = 'walkF';
-            this.vx = this.facing * stats.walkF;
+            this.vx = this.facing * stats.walkF * this.speedMul();
             this.setAnim('walkF');
           } else if (d === 4) {
             if (threat) {
               this.st = 'guard'; this.vx = 0; this.setAnim('block');
             } else {
               this.st = 'walkB';
-              this.vx = -this.facing * stats.walkB;
+              this.vx = -this.facing * stats.walkB * this.speedMul();
               this.setAnim('walkB');
             }
           } else {
@@ -505,6 +537,13 @@
       }
     }
 
+    // no mashing: the heavy press must be the only attack press in the last few frames
+    cleanPress(p) {
+      let n = 0;
+      for (let k = 0; k < 8; k++) if (this.buf.pr(k) & (B.L | B.M | B.H)) n++;
+      return n <= 1;
+    }
+
     tryPendingThrowOrSpecial() {
       const p = this.pending;
       if (!p) return false;
@@ -543,13 +582,17 @@
     moveUpdate(m) {
       const mv = this.move;
       this.mf++;
+      if (this.tryUpgrade()) return;
       // cancels
       if (this.pending && this.tryPending()) return;
       // jump cancel (launchers)
-      if (mv.jc && this.contact === 'hit' && this.mf >= mv.s + 2 && this.buf.dir(0) >= 7) {
+      let upK = -1;
+      if (mv.jc && this.contact === 'hit' && this.mf >= mv.s + 2) for (let k = 0; k < 8; k++) if (this.buf.dir(k) >= 7) { upK = k; break; }
+      if (upK >= 0) {
+        const jd = this.buf.dir(upK);
         this.move = null;
         this.st = 'air';
-        this.jump(this.buf.dir(0) === 9 ? 1 : this.buf.dir(0) === 7 ? -1 : 0, false);
+        this.jump(jd === 9 ? 1 : jd === 7 ? -1 : 0, false);
         this.vy = this.stats.jumpV * 1.05;
         this.airActions = this.stats.airActions;
         return;
@@ -839,7 +882,8 @@
       r.drawTo(ctx, alpha);
     }
 
-    dmgMul() { return this.def.dmgMul ? this.def.dmgMul(this) : 1; }
+    dmgMul() { return (this.def.dmgMul ? this.def.dmgMul(this) : 1) * (this.blackFlash ? 2.5 : 1); }
+    speedMul() { return this.def.speedMul ? this.def.speedMul(this) : 1; }
     dmgTakenMul() { return this.def.dmgTakenMul ? this.def.dmgTakenMul(this) : 1; }
 
     auraColor() {

@@ -30,6 +30,8 @@
     set(s) {
       this.scene = s;
       JJK.FX.clear();
+      // sync menu edge detection so held keys don't leak into the next scene
+      if (JJK.UI) JJK.UI.input.poll();
     },
     startBattle(o) {
       this.set(new JJK.UI.BattleScene(this, o));

@@ -235,8 +235,19 @@
           break;
         }
         case 'flame': {
+          // teardrop tongue of flame: base blob + tapered tip trailing upward
           const c = k < 0.2 ? '#fff6c0' : k < 0.45 ? p.color : k < 0.75 ? p.color2 : '#3a1008';
-          FX.pxCircle(ctx, sx, sy, size * (1 - k * 0.5), c);
+          const r = size * (1 - k * 0.55);
+          FX.pxCircle(ctx, sx, sy, r, c);
+          if (r > 1.5) {
+            ctx.fillStyle = c;
+            ctx.beginPath();
+            ctx.moveTo(sx - r * 0.85, sy - r * 0.2);
+            ctx.lineTo(sx + Math.sin(p.seed + p.t * 0.4) * r * 0.5, sy - r * 2.4);
+            ctx.lineTo(sx + r * 0.85, sy - r * 0.2);
+            ctx.fill();
+            if (k < 0.5) FX.pxCircle(ctx, sx, sy + r * 0.2, r * 0.45, k < 0.25 ? '#ffffff' : '#ffe9a0');
+          }
           break;
         }
         case 'debris': {

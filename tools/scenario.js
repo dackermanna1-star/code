@@ -17,6 +17,8 @@ const SC = {
   clash: { q: 'play=training&p1=gojo&p2=sukuna', steps: [[600, "F(0).startMove('domain');F(1).startMove('domain')"], [600, '', 1], [1300, '', 1], [1200, '', 1], [2500, '', 1], [1500, '', 1]] },
   infinity: { q: 'play=training&p1=gojo&p2=sukuna', steps: [[600, "F(0).cs.infOn=true;F(1).x=F(0).x+80"], [100, "F(1).startMove('5H')"], [250, '', 1], [200, '', 1], [300, "F(1).startMove('dismantle')"], [400, '', 1]] },
   combo: { q: 'play=training&p1=gojo&p2=sukuna', steps: [[400, 'F(1).x=F(0).x+70'], [100, "F(0).startMove('2H')"], [200, '', 1], [300, '', 1]] },
+  ko: { q: 'play=versus', steps: [[3600, 'F(1).hp=40;F(1).x=F(0).x+80;F(0).startMove("5H")'], [300, '', 1], [500, '', 1], [900, '', 1], [2600, '', 1], [1200, '', 1]] },
+  heavy: { q: 'play=training&p1=sukuna&p2=gojo', steps: [[500, 'F(1).x=F(0).x+90;F(1).startMove("5M")'], [80, 'F(0).startMove("5H")'], [190, '', 1], [60, '', 1], [500, 'F(1).x=F(0).x+60;F(0).startMove("throw")'], [200, '', 1], [300, '', 1]] },
   title: { q: '', steps: [[1500, '', 1]] },
   select: { q: '', steps: [[800, "JJK.game.set(new JJK.UI.Select({mode:'versus'}))"], [600, '', 1]] },
   vs: { q: '', steps: [[300, "JJK.game.set(new JJK.UI.VsScreen({mode:'versus',p1:{char:'gojo',pal:0},p2:{char:'sukuna',pal:0}}))"], [900, '', 1]] },

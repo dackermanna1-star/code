@@ -90,7 +90,7 @@
     const J = JJK.Rig.solve(pose, def.art.dims);
     const xf = new JJK.Rig.Xform().set(x, y, facing, z, pose.rot || 0, [0, 70], 1, 1);
     r.begin();
-    r.lights.push({ x: x + facing * 40 * z, y: y - 100 * z, r: 120 * z, r2: 14400 * z * z, c: charId === 'gojo' ? [40, 110, 255] : [255, 50, 30], i: 0.6 });
+    r.lights.push({ x: x + facing * 34 * z, y: y - 110 * z, r: 60 * z, r2: 3600 * z * z, c: charId === 'gojo' ? [40, 110, 255] : [255, 50, 30], i: 0.4 });
     if (opts.dark) r.tint = [10, 0, 10, 0.75];
     def.art.draw(r, J, xf, { pose, pal, sec: opts.sec || new JJK.Rig.Secondary(), eyesOpen: !!opts.eyes });
     r.outline(def.art.outline, opts.aura || 0, true);
@@ -134,11 +134,11 @@
       UI.drawBackdrop(ctx, this.t, 0.35);
       FX.draw(ctx, { sx: (x) => x + 320, sy: (y) => -y + 360, ez: 1 }, 'front');
       // characters
-      UI.drawFighterBig(ctx, 'gojo', 0, null, 200, 330, 1, 1.45, { anim: 'idle', t: this.t, slot: 'a' });
-      UI.drawFighterBig(ctx, 'sukuna', 0, null, 440, 330, -1, 1.45, { anim: 'idle', t: this.t, slot: 'b' });
-      const hh = UI.title(ctx, 40);
-      Font.draw(ctx, 'GOJO  VS  SUKUNA', W / 2, 44 + hh, { color: '#ffffff', align: 'center', scale: 2, outline: '#300000' });
-      Font.draw(ctx, 'A JUJUTSU ARCADE FIGHTER', W / 2, 64 + hh, { color: '#d0a090', align: 'center', outline: '#000' });
+      UI.drawFighterBig(ctx, 'gojo', 0, null, 190, 378, 1, 1.25, { anim: 'idle', t: this.t, slot: 'a' });
+      UI.drawFighterBig(ctx, 'sukuna', 0, null, 450, 378, -1, 1.25, { anim: 'idle', t: this.t, slot: 'b' });
+      const hh = UI.title(ctx, 24);
+      Font.draw(ctx, 'GOJO  VS  SUKUNA', W / 2, 26 + hh, { color: '#ffffff', align: 'center', scale: 2, outline: '#300000' });
+      Font.draw(ctx, 'A JUJUTSU ARCADE FIGHTER', W / 2, 46 + hh, { color: '#d0a090', align: 'center', outline: '#000' });
       if (this.t % 60 < 40) Font.draw(ctx, 'PRESS START', W / 2, 300, { color: '#ffd23a', align: 'center', scale: 2, outline: '#000' });
       Font.draw(ctx, 'ENTER / J / GAMEPAD A', W / 2, 320, { color: '#a08070', align: 'center', outline: '#000' });
       Font.draw(ctx, 'FAN-MADE • PERSONAL USE', W / 2, 348, { color: '#604040', align: 'center' });
@@ -390,6 +390,7 @@
   class PauseMenu {
     constructor(bs) {
       this.bs = bs; this.sel = 0; this.sub = null;
+      UI.input.poll();
       const m = bs.m;
       this.items = [
         { label: 'RESUME', go: () => this.close() },
@@ -435,8 +436,7 @@
         if (this.sub.tickSub(ev)) this.sub = null;
         return;
       }
-      if (JJK.keyPressed('Escape') && !this._first) { this.close(); return; }
-      this._first = false;
+      if (JJK.keyPressed('Escape')) { this.close(); return; }
       if (ev.up) { this.sel = (this.sel + this.items.length - 1) % this.items.length; snd('ui_move'); }
       if (ev.down) { this.sel = (this.sel + 1) % this.items.length; snd('ui_move'); }
       const it = this.items[this.sel];
@@ -448,7 +448,7 @@
     render(ctx) {
       ctx.fillStyle = 'rgba(0,0,0,0.72)';
       ctx.fillRect(0, 0, W, H);
-      if (this.sub) { this.sub.render(ctx, true); return; }
+      if (this.sub) { ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, W, H); this.sub.render(ctx, true); return; }
       Font.draw(ctx, 'PAUSED', W / 2, 30, { color: '#ffd23a', align: 'center', scale: 3, outline: '#000' });
       const lh = this.items.length > 9 ? 19 : 22;
       list(ctx, this.items, this.sel, W / 2, 70, { w: 320, lh, scale: this.items.length > 9 ? 1 : 2 });

@@ -92,7 +92,8 @@
         h = this.virtual.held;
       } else if (this.enabled) {
         const k = this.kb;
-        const any = (list) => list && list.some((c) => keys.has(c));
+        // a key tapped and released between two ticks still counts for one tick
+        const any = (list) => list && list.some((c) => keys.has(c) || keysPressed.has(c));
         if (k) {
           u = any(k.up); d = any(k.down); l = any(k.left); r = any(k.right);
           if (any(k.L)) h |= B.L;

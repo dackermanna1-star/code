@@ -107,7 +107,7 @@
       hits: big ? 2 : 1, interval: 6,
       hit: big
         ? { dmg: 110, tier: 6, str: 'x', hs: 40, bs: 24, launch: true, lv: 6, lx: 11, wb: true, splat: true, chip: 24, gdmg: 30, spark: RED2, kick: [8, 0], minScale: 0.5, jug: 0 }
-        : { dmg: 72, tier: 4, str: 's', hs: 30, bs: 18, launch: true, lv: 5, lx: 9, wb: true, chip: 10, gdmg: 14, spark: RED2, kick: [5, 0] },
+        : { dmg: 64, tier: 4, str: 's', hs: 30, bs: 18, launch: true, lv: 5, lx: 9, chip: 9, gdmg: 14, spark: RED2, kick: [5, 0] },
       update(p, m) {
         if (p.t % 1 === 0) FX.spawn('flame', p.x - p.vx * 0.5, p.y + R(-4, 4), { vx: -p.vx * 0.15, vy: R(-0.5, 0.5), life: 12, size: big ? 14 : 5, size2: 1, color: RED, color2: '#801010', add: true });
         if (big && p.t % 3 === 0 && m.stage && m.stage.impact) m.stage.impact(p.x, p.y, 0.4, 'red');
@@ -302,23 +302,23 @@
 
     // ---- normals
     '5L': {
-      name: 'Jab', tier: 1, s: 4, a: 3, r: 7,
+      name: 'Jab', tier: 1, s: 5, a: 3, r: 7,
       hits: [{ at: 'fh', r: 10, dmg: 18, hs: 14, bs: 10, ha: 'high' }],
-      anim: [[0, 'idle'], [2, 'jab0', 'out'], [4, 'jab1', 'snap'], [6, 'jab1', 'linear'], [9, 'jab2', 'out'], [13, 'idle', 'inOut']],
+      anim: [[0, 'idle'], [2, 'jab0', 'out'], [5, 'jab1', 'snap'], [7, 'jab1', 'linear'], [10, 'jab2', 'out'], [14, 'idle', 'inOut']],
       sfxStart: 'whiff_l', grunt: 'light',
     },
     '5M': {
-      name: 'Palm Strike', tier: 2, s: 7, a: 3, r: 13,
+      name: 'Palm Strike', tier: 2, s: 8, a: 3, r: 13,
       hits: [{ at: 'nh', r: 12, dmg: 40, hs: 19, bs: 13 }],
-      vel: [[3, 3.4], [9, 0.5], [12, 0]],
-      anim: [[0, 'idle'], [4, 'palm0', 'out'], [7, 'palm1', 'snap'], [10, 'palm1', 'linear'], [15, 'palm2', 'out'], [22, 'idle', 'inOut']],
+      vel: [[3, 2.4], [10, 0.4], [13, 0]],
+      anim: [[0, 'idle'], [4, 'palm0', 'out'], [8, 'palm1', 'snap'], [11, 'palm1', 'linear'], [16, 'palm2', 'out'], [23, 'idle', 'inOut']],
       sfxStart: 'whiff_m', grunt: 'medium',
     },
     '5H': {
-      name: 'Spinning Heel', tier: 3, s: 11, a: 4, r: 18,
+      name: 'Spinning Heel', tier: 3, s: 12, a: 4, r: 18,
       hits: [{ at: 'nf', r: 14, dmg: 62, hs: 22, bs: 16, pb: 7, chWb: true, chLaunch: true, lv: 6, lx: 8 }],
-      anim: [[0, 'idle'], [6, 'kick0', 'out'], [11, 'kick1', 'snap'], [15, 'kick1', 'linear'], [22, 'kick2', 'out'], [32, 'idle', 'inOut']],
-      vel: [[1, 1.2], [10, 0]],
+      anim: [[0, 'idle'], [6, 'kick0', 'out'], [12, 'kick1', 'snap'], [16, 'kick1', 'linear'], [23, 'kick2', 'out'], [33, 'idle', 'inOut']],
+      vel: [[1, 1.2], [11, 0]],
       sfxStart: 'whiff_h', grunt: 'heavy',
     },
     '2L': {
@@ -328,17 +328,18 @@
       sfxStart: 'whiff_l', grunt: 'light',
     },
     '2M': {
-      name: 'Sliding Shin', tier: 2, s: 8, a: 3, r: 15,
+      name: 'Sliding Shin', tier: 2, s: 9, a: 3, r: 15,
       hits: [{ at: 'ff', r: 12, dmg: 34, hs: 18, bs: 12, guard: 'low', ha: 'low' }],
-      vel: [[4, 3], [10, 0]],
-      anim: [[0, 'crouch'], [5, 'poke0', 'out'], [8, 'poke1', 'snap'], [11, 'poke1'], [25, 'crouch', 'inOut']],
+      vel: [[4, 3], [11, 0]],
+      anim: [[0, 'crouch'], [5, 'poke0', 'out'], [9, 'poke1', 'snap'], [12, 'poke1'], [26, 'crouch', 'inOut']],
       sfxStart: 'whiff_m', grunt: 'medium',
     },
     '2H': {
-      name: 'Rising Uppercut', tier: 3, s: 9, a: 4, r: 22, jc: true,
-      hits: [{ at: 'nh', r: 15, off: [0, 4], dmg: 55, launch: true, lv: 10.5, lx: 1.6, hs: 30, bs: 15 }],
-      inv: [[3, 12, 'air']],
-      anim: [[0, 'crouch'], [5, 'upper0', 'out'], [9, 'upper1', 'snap'], [13, 'upper1', 'linear'], [22, 'upper2', 'out'], [34, 'idle', 'inOut']],
+      name: 'Rising Uppercut', tier: 3, s: 10, a: 4, r: 22, jc: true,
+      hits: [{ box: [6, 40, 54, 160], dmg: 55, launch: true, lv: 10.5, lx: 1.6, hs: 30, bs: 15 }],
+      inv: [[3, 13, 'air']],
+      vel: [[3, 4.2], [10, 0.6], [13, 0]],
+      anim: [[0, 'crouch'], [5, 'upper0', 'out'], [10, 'upper1', 'snap'], [14, 'upper1', 'linear'], [23, 'upper2', 'out'], [35, 'idle', 'inOut']],
       sfxStart: 'whiff_h', grunt: 'heavy',
     },
     jL: {
@@ -400,14 +401,14 @@
       voice: 'blue',
     },
     red: {
-      name: 'Reversal: Red', tier: 4, s: 18, a: 1, r: 24, technique: true,
+      name: 'Reversal: Red', tier: 4, s: 17, a: 1, r: 28, technique: true,
       cond: (f) => technique(f) && !hasProj(f, 'red'),
-      anim: [[0, 'idle'], [8, 'castRed0', 'out'], [16, 'castRed0'], [18, 'castRed1', 'snap'], [28, 'castRed1'], [42, 'idle', 'inOut']],
+      anim: [[0, 'idle'], [7, 'castRed0', 'out'], [15, 'castRed0'], [17, 'castRed1', 'snap'], [28, 'castRed1'], [45, 'idle', 'inOut']],
       tick(f, m, mf) {
         const h = handPos(f, 'fh');
         if (mf === 2) snd('red_charge', { pan: f.pan() });
-        if (mf < 18) FX.spawn('px', h[0] + R(-14, 14), h[1] + R(-14, 14), { vx: R(-1, 1), vy: R(-1, 1), life: 8, size: 2, color: U.pick([RED, RED2]), add: true });
-        if (mf === 18) {
+        if (mf < 17) FX.spawn('px', h[0] + R(-14, 14), h[1] + R(-14, 14), { vx: R(-1, 1), vy: R(-1, 1), life: 8, size: 2, color: U.pick([RED, RED2]), add: true });
+        if (mf === 17) {
           spawnRed(f, m, h[0] + f.facing * 10, h[1]);
           snd('red_shot', { pan: f.pan() });
           f.vx = -f.facing * 2.5;
@@ -434,19 +435,18 @@
       voice: 'red',
     },
     redLaunch: {
-      name: 'Red: Launcher', tier: 4, s: 10, a: 5, r: 26, technique: true,
+      name: 'Red: Launcher', tier: 4, s: 12, a: 4, r: 28, technique: true,
       cond: (f) => technique(f),
-      hits: [{ box: [8, 30, 64, 150], dmg: 70, launch: true, lv: 11.5, lx: 2.4, hs: 34, bs: 18, spark: RED2, chip: 8, kick: [0, -4] }],
+      hits: [{ box: [8, 30, 64, 150], dmg: 62, launch: true, lv: 11, lx: 3, hs: 30, bs: 18, spark: RED2, chip: 8, kick: [0, -4] }],
       inv: [[1, 9, 'air']],
-      anim: [[0, 'idle'], [5, 'burst0', 'out'], [10, 'burst1', 'snap'], [15, 'burst1'], [40, 'idle', 'inOut']],
+      anim: [[0, 'idle'], [6, 'burst0', 'out'], [12, 'burst1', 'snap'], [16, 'burst1'], [43, 'idle', 'inOut']],
       tick(f, m, mf) {
-        if (mf === 10) {
+        if (mf === 12) {
           const h = handPos(f, 'fh');
           redBurstFx(m, h[0], h[1] - 10, 0.35);
           snd('red_burst', { pan: f.pan() });
         }
       },
-      jc: true,
       grunt: 'heavy',
     },
     teleport: {
@@ -491,11 +491,11 @@
       onEnd(f) { f.invisible = false; },
     },
     bluePull: {
-      name: 'Blue: Pull', tier: 4, s: 14, a: 4, r: 22, technique: true,
+      name: 'Blue: Pull', tier: 4, s: 14, a: 4, r: 16, technique: true,
       cond: (f) => technique(f),
       hits: [{ box: [40, 0, 230, 170], dmg: 30, hs: 30, bs: 18, pb: -4, spark: BLUE2, str: 's', chip: 0, gdmg: 6,
         special(att, def, m) { pullTo(att, def, m, 48); } }],
-      anim: [[0, 'idle'], [8, 'pull0', 'out'], [14, 'pull0'], [18, 'pull1', 'snap'], [39, 'idle', 'inOut']],
+      anim: [[0, 'idle'], [8, 'pull0', 'out'], [14, 'pull0'], [18, 'pull1', 'snap'], [33, 'idle', 'inOut']],
       tick(f, m, mf) {
         if (mf >= 10 && mf <= 18) {
           const x = f.x + f.facing * (40 + (mf - 10) * 22);
@@ -619,15 +619,15 @@
 
     // ---- Supers
     maxRed: {
-      name: 'Maximum Output: Red', tier: 6, s: 22, a: 1, r: 30, cost: 100, technique: true,
+      name: 'Maximum Output: Red', tier: 6, s: 14, a: 1, r: 34, cost: 100, technique: true,
       cond: (f) => technique(f),
-      inv: [[1, 22, 'all']],
-      anim: [[0, 'idle'], [4, 'castRed0', 'out'], [20, 'castRed0'], [22, 'castRed1', 'snap'], [34, 'castRed1'], [52, 'idle', 'inOut']],
+      inv: [[1, 14, 'all']],
+      anim: [[0, 'idle'], [4, 'castRed0', 'out'], [12, 'castRed0'], [14, 'castRed1', 'snap'], [30, 'castRed1'], [48, 'idle', 'inOut']],
       onStart(f, m) { m.superFlash(f, 'MAXIMUM OUTPUT: RED', { dur: 36, zoom: 1.4, color: RED }); f.hairLift = 4; },
       tick(f, m, mf) {
         const h = handPos(f, 'fh');
-        if (mf < 22) for (let i = 0; i < 3; i++) FX.spawn('px', h[0] + R(-30, 30), h[1] + R(-30, 30), { vx: R(-2, 2), vy: R(-2, 2), life: 10, size: 2, color: U.pick([RED, RED2, '#fff']), add: true });
-        if (mf === 22) {
+        if (mf < 14) for (let i = 0; i < 3; i++) FX.spawn('px', h[0] + R(-30, 30), h[1] + R(-30, 30), { vx: R(-2, 2), vy: R(-2, 2), life: 10, size: 2, color: U.pick([RED, RED2, '#fff']), add: true });
+        if (mf === 14) {
           spawnRed(f, m, h[0] + f.facing * 30, h[1], { big: true, vx: 10 });
           snd('max_red', { pan: f.pan() });
           f.vx = -f.facing * 5;
@@ -793,8 +793,8 @@
         }
         if (t > 72 && t < 128) {
           const b = JJK.Font.banner('HOLLOW PURPLE', { scale: 5, top: '#ffffff', mid: '#e0a0ff', mid2: '#b050ff', bot: '#40007a', outline: '#10001a' });
-          if (b) ctx.drawImage(b, Math.round(320 - b.width / 2), 40);
-          JJK.Font.draw(ctx, 'IMAGINARY TECHNIQUE', 320, 30, { color: '#d0b0ff', align: 'center', outline: '#000' });
+          if (b) ctx.drawImage(b, Math.round(320 - b.width / 2), 96);
+          JJK.Font.draw(ctx, 'IMAGINARY TECHNIQUE', 320, 84, { color: '#d0b0ff', align: 'center', outline: '#000', scale: 2 });
         }
       },
       onEnd(m) { f.eyesOpen = false; },
@@ -887,6 +887,7 @@
   const def = {
     id: 'gojo', name: 'GOJO', full: 'SATORU GOJO', title: 'THE STRONGEST',
     art: JJK.Art.gojo,
+    domainType: 'void',
     color: '#7fd8ff',
     hitColor: '#cfeeff',
     blockColor: '#9fd8ff',

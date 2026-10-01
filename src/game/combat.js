@@ -24,12 +24,23 @@
   };
 
   // World hitbox of a move hit for fighter f.
+  // Strike hitboxes cover the striking limb from mid-forearm/shin to the fist/foot,
+  // so point-blank attacks connect even when the fist extends past the body.
+  const PARENT = { fh: 'fe', nh: 'ne', ff: 'fk', nf: 'nk' };
   C.hitbox = function (f, h) {
     if (h.at) {
       const p = f.anchor(h.at);
       const r = (h.r || 12) * S;
       const ox = (h.off ? h.off[0] : 0) * S * f.facing, oy = (h.off ? h.off[1] : 0) * S;
-      return [p[0] + ox - r, p[1] + oy - r, p[0] + ox + r, p[1] + oy + r];
+      let x0 = p[0], y0 = p[1], x1 = p[0], y1 = p[1];
+      const par = PARENT[h.at];
+      if (par && !h.point) {
+        const q = f.anchor(par);
+        const mx = q[0] + (p[0] - q[0]) * 0.25, my = q[1] + (p[1] - q[1]) * 0.25;
+        x0 = Math.min(x0, mx); x1 = Math.max(x1, mx); y0 = Math.min(y0, my); y1 = Math.max(y1, my);
+      }
+      const rv = r * 0.8;
+      return [x0 + ox - r, y0 + oy - rv, x1 + ox + r, y1 + oy + rv];
     }
     return f.boxToWorld(h.box);
   };
@@ -250,7 +261,9 @@
     if (combo.used[mvId] && hits > 1 && !h.multi) scale *= 0.82;
     combo.used[mvId] = (combo.used[mvId] || 0) + 1;
     const dmgMul = (att.dmgMul ? att.dmgMul() : 1) * (def.dmgTakenMul ? def.dmgTakenMul() : 1);
-    let dmg = (h.dmg || 0) * scale * (ch ? 1.2 : pc ? 1.1 : 1) * dmgMul;
+    let blackFlash = false;
+    if (!proj && att.bfArmed && (h.tier || 1) === 3) { blackFlash = true; att.bfArmed = false; }
+    let dmg = (h.dmg || 0) * scale * (ch ? 1.2 : pc ? 1.1 : 1) * dmgMul * (blackFlash ? 2.5 : 1);
     if (ctx.dmgMul) dmg *= ctx.dmgMul;
     dmg = Math.max(h.dmg > 0 ? 1 : 0, Math.round(dmg));
     const t = m.training;
@@ -315,10 +328,32 @@
       if (h.kick) m.cam.kick(h.kick[0] * away, h.kick[1]);
     }
     if (JJK.Audio && h.str !== 'l') JJK.Audio.rumble(def.side, h.str === 'x' ? 1 : 0.5, 0.6, h.str === 'x' ? 300 : 120);
+    if (blackFlash) C.blackFlash(m, att, def, pt);
     if (ch) m.popText(att, 'COUNTER', '#ff4a3a', true);
     else if (pc) m.popText(att, 'PUNISH', '#ffb03a', true);
     m.onHit(att, def, h, { dmg, ch, pc, pt, proj });
     if (def.hp <= 0) m.onKO(def, att, h);
+  };
+
+  // Black Flash: cursed energy distortion within a millionth of a second of impact.
+  C.blackFlash = function (m, att, def, pt) {
+    def.hitstop += 10; att.hitstop += 10;
+    att.meterGain(60);
+    att.dg = Math.min(100, att.dg + 15);
+    m.impact(4, 0xff000000);
+    m.flashScreen('#000000', 0.5, 6);
+    m.cam.shake(0.6);
+    m.cam.zoomPulse(0.06);
+    m.popText(att, 'BLACK FLASH', '#ff2020', true);
+    if (JJK.FX) {
+      for (let i = 0; i < 9; i++) {
+        const a = Math.random() * Math.PI * 2, r = 50 + Math.random() * 60;
+        JJK.FX.bolt(pt[0], pt[1], pt[0] + Math.cos(a) * r, pt[1] + Math.sin(a) * r, '#ff1a1a', '#000000', 12, 12);
+      }
+      JJK.FX.spawn('ring', pt[0], pt[1], { life: 16, size: 6, size2: 70, color: '#000000', w: 4 });
+      JJK.FX.spawn('ring', pt[0], pt[1], { life: 18, size: 4, size2: 50, color: '#ff2020', w: 2, add: true });
+    }
+    if (JJK.Audio) { JJK.Audio.play('black_flash', { pan: def.pan() }); JJK.Audio.rumble(att.side, 1, 1, 300); }
   };
 
   // ----- throws ------------------------------------------------------------

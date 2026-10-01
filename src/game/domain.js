@@ -17,6 +17,8 @@
   const BURNOUT = 240;
 
   // ------------------------------------------------------------- startup
+  D.typeOf = (f) => f.def.domainType;
+
   D.begin = function (f, m, type) {
     if (!f.spend(200)) return false;
     f.dg = 0;
@@ -42,7 +44,7 @@
     const c = f.anchor('chest');
     if (mf % 2 === 0) {
       const a = Math.random() * Math.PI * 2, d = R(60, 120);
-      FX.spawn('px', c[0] + Math.cos(a) * d, c[1] + Math.sin(a) * d, { vx: -Math.cos(a) * d / 12, vy: -Math.sin(a) * d / 12, life: 12, size: 2, color: INFO[f.cs.domainType].color, add: true });
+      FX.spawn('px', c[0] + Math.cos(a) * d, c[1] + Math.sin(a) * d, { vx: -Math.cos(a) * d / 12, vy: -Math.sin(a) * d / 12, life: 12, size: 2, color: INFO[D.typeOf(f)].color, add: true });
     }
     m.darken = Math.max(m.darken, Math.min(0.6, mf / mv.s * 0.6));
     if (m.stage) m.stage.darken = Math.max(m.stage.darken || 0, mf / mv.s * 0.5);
@@ -51,8 +53,9 @@
       if (m.pendingClash) {
         const pc = m.pendingClash;
         m.pendingClash = null;
-        D.startClash(m, pc.a, pc.b);
-        return;
+        const other = pc.a === f ? pc.b : pc.a;
+        const otherLive = (other.st === 'move' && other.move && other.move.id === 'domain') || (m.domain && m.domain.owner === other);
+        if (otherLive) { D.startClash(m, pc.a, pc.b); return; }
       }
       // if the opponent is mid-startup of their own domain, wait for them (clash resolves at their activation)
       const o = m.opp(f);
@@ -60,7 +63,7 @@
         m.pendingClash = { a: f, b: o };
         return 'hold';
       }
-      D.activate(f, m, f.cs.domainType);
+      D.activate(f, m, D.typeOf(f));
     }
   };
 
@@ -75,14 +78,14 @@
         // the other one still expands normally
         const other = m.pendingClash.a === f ? m.pendingClash.b : m.pendingClash.a;
         m.pendingClash = null;
-        if (other.st === 'move' && other.move && other.move.id === 'domain') m.domainStartup = { owner: other, type: other.cs.domainType };
+        if (other.st === 'move' && other.move && other.move.id === 'domain') m.domainStartup = { owner: other, type: D.typeOf(other) };
       }
       f.meter = Math.min(300, f.meter + 100);
       f.dg = 50;
       m.popText(f, 'DOMAIN BROKEN', '#ff8080', true);
       snd('domain_shatter', { pan: f.pan() });
       const c = f.anchor('chest');
-      for (let i = 0; i < 20; i++) FX.spawn('debris', c[0], c[1], { vx: R(-5, 5), vy: R(-1, 6), ay: -0.3, life: 40, size: R(2, 4), color: INFO[f.cs.domainType].color, color2: '#fff', vr: R(-0.4, 0.4), floor: 0 });
+      for (let i = 0; i < 20; i++) FX.spawn('debris', c[0], c[1], { vx: R(-5, 5), vy: R(-1, 6), ay: -0.3, life: 40, size: R(2, 4), color: INFO[D.typeOf(f)].color, color2: '#fff', vr: R(-0.4, 0.4), floor: 0 });
     }
   };
 
@@ -132,10 +135,10 @@
           if (b) {
             const k = Math.min(1, (t - (opts.short ? 10 : 64)) / 8);
             ctx.globalAlpha = k;
-            ctx.drawImage(b, Math.round(320 - b.width / 2), 42);
+            ctx.drawImage(b, Math.round(320 - b.width / 2), 96);
             ctx.globalAlpha = 1;
           }
-          D.drawKanji(ctx, info.jp, 320, 110, info.color);
+          D.drawKanji(ctx, info.jp, 320, 172, info.color);
         }
       },
       onEnd(m) {
@@ -291,7 +294,7 @@
       loop: JJK.Audio ? JJK.Audio.loop('domain_clash_loop', { vol: 0.7 }) : null,
     };
     for (const f of [a, b]) { f.move = null; f.st = 'cinematic'; f.setAnim('domainSign2' in f.def.poses ? 'idle' : 'idle'); f.vx = 0; f.vy = 0; }
-    if (m.stage && m.stage.setMode) m.stage.setMode('clash', { split: 0.5, leftMode: left.cs.domainType, rightMode: right.cs.domainType, frames: 20 });
+    if (m.stage && m.stage.setMode) m.stage.setMode('clash', { split: 0.5, leftMode: D.typeOf(left), rightMode: D.typeOf(right), frames: 20 });
     m.banner('DOMAIN CLASH', { life: 90, scale: 6, top: '#ffffff', mid: '#ffd0ff', mid2: '#c060ff', bot: '#300050' });
     if (JJK.Voice) JJK.Voice.announce('Domain clash');
     m.cam.shake(0.6);
@@ -370,7 +373,7 @@
           const loser = m.opp(c.winner);
           loser.burnout = BURNOUT;
           m.popText(loser, 'BURNOUT', '#a0a0b0', true);
-          D.activate(c.winner, m, c.winner.cs.domainType, { short: true, durMul: 0.75 });
+          D.activate(c.winner, m, D.typeOf(c.winner), { short: true, durMul: 0.75 });
         } else {
           for (const f of [f1, f2]) f.burnout = BURNOUT;
           if (m.stage && m.stage.setMode) m.stage.setMode('normal', { frames: 30 });

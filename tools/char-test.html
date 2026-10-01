@@ -39,8 +39,10 @@ const id=params.get('id')||'gojo'; const P=JJK.Poses[id];
 const list=(params.get('poses')||'idle').split(',');
 const cols=+(params.get('cols')||6); const cw=W/cols; const rows=Math.ceil(list.length/cols); const rh=H/rows;
 const z=+(params.get('z')||1.2);
-list.forEach((n,i)=>{const col=i%cols,row=(i/cols)|0; const x=cw*col+cw/2, y=rh*row+rh-14;
-  drawChar(id,P[n]||{},x,y,1,z,+(params.get('pal')||0),{});
+const focus=params.get('focus');
+list.forEach((n,i)=>{const col=i%cols,row=(i/cols)|0; let x=cw*col+cw/2, y=rh*row+rh-14;
+  if(focus==='head'){const J=JJK.Rig.solve(JJK.Rig.full(P[n]||{}),JJK.Art[id].dims); x=cw*col+cw/2-J.head[0]*z; y=rh*row+rh/2+J.head[1]*z;}
+  drawChar(id,P[n]||{},x,y,1,z,+(params.get('pal')||0),{eyes: params.get('eyes')==='1'});
   ctx.fillStyle='#fff';ctx.font='10px monospace';ctx.fillText(n+(P[n]?'':'(?)'),cw*col+4,rh*row+rh-2);});
 window.DONE=true;
 </script></body></html>

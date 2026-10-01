@@ -58,10 +58,11 @@
   V.onCaption = function (fn) {
     if (typeof fn !== 'function') return () => {};
     capFns.push(fn);
-    return () => {
-      const i = capFns.indexOf(fn);
-      if (i >= 0) capFns.splice(i, 1);
-    };
+    return () => V.offCaption(fn);
+  };
+  V.offCaption = function (fn) {
+    const i = capFns.indexOf(fn);
+    if (i >= 0) capFns.splice(i, 1);
   };
   function emit(charId, text, info) {
     for (let i = 0; i < capFns.length; i++) {

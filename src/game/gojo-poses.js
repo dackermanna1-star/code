@@ -27,12 +27,12 @@
   P.blockIn = { hip: [-2, 70], lean: 2, bend: 0, head: 6, nh: [14, 2], fh: [16, 6], nf: [-20, 0], ff: [17, 0], face: 'calm' };
   P.block = { hip: [-3, 69], lean: -1, bend: -1, head: 10, nh: [12, 7], fh: [15, 11], nf: [-21, 0], ff: [16, 0], face: 'calm' };
   P.ablock = { hip: [0, 72], lean: 4, bend: 0, head: 10, nh: [12, 7], fh: [15, 11], nf: [-12, 14], ff: [10, 18], face: 'calm' };
-  P.prejump = { hip: [0, 54], lean: 14, bend: 6, head: -4, nh: [12, -12], fh: [20, -10], nf: [-18, 0], ff: [17, 0], face: 'smirk' };
-  P.jumpUp0 = { hip: [0, 78], lean: 2, bend: 0, head: -6, nh: [10, -22], fh: [18, -20], nf: [-8, 2], ff: [6, 0], face: 'smirk' };
+  P.prejump = { sx: 1.05, sy: 0.95, hip: [0, 54], lean: 14, bend: 6, head: -4, nh: [12, -12], fh: [20, -10], nf: [-18, 0], ff: [17, 0], face: 'smirk' };
+  P.jumpUp0 = { sx: 0.94, sy: 1.07, hip: [0, 78], lean: 2, bend: 0, head: -6, nh: [10, -22], fh: [18, -20], nf: [-8, 2], ff: [6, 0], face: 'smirk' };
   P.jumpUp = { hip: [0, 78], lean: 10, bend: 4, head: -4, nh: [14, -10], fh: [22, -6], nf: [-14, 22], ff: [14, 30], face: 'smirk' };
   P.jumpTop = { hip: [0, 78], lean: 8, bend: 4, head: 0, nh: [15, -10], fh: [23, -8], nf: [-16, 20], ff: [16, 24], face: 'smirk' };
   P.jumpDown = { hip: [0, 78], lean: 6, bend: 2, head: 2, nh: [15, -14], fh: [24, -12], nf: [-16, 6], ff: [16, 9], face: 'smirk' };
-  P.land = { hip: [0, 56], lean: 16, bend: 6, head: 2, nh: [14, -12], fh: [22, -10], nf: [-21, 0], ff: [20, 0], face: 'smirk' };
+  P.land = { sx: 1.07, sy: 0.93, hip: [0, 56], lean: 16, bend: 6, head: 2, nh: [14, -12], fh: [22, -10], nf: [-21, 0], ff: [20, 0], face: 'smirk' };
   P.parryReady = { hip: [-2, 69], lean: 0, bend: 0, head: 2, nh: [20, 4], fh: [26, -2], nf: [-20, 0], ff: [18, 0], nhs: 'open', fhs: 'open', face: 'calm' };
   P.parryPose = { hip: [4, 70], lean: 12, bend: 4, head: -4, nh: [30, -2], fh: [14, -10], nf: [-18, 0], ff: [22, 0], nhs: 'open', face: 'grin' };
   P.throwReach = { hip: [6, 69], lean: 16, bend: 4, head: -2, nh: [38, -6], fh: [34, -2], nf: [-16, 0], ff: [24, 0], nhs: 'grip', fhs: 'grip', face: 'smirk' };

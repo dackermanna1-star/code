@@ -1058,7 +1058,7 @@
     explosion: 0.45, debris: 2.13, round_bell: 1.46, timer_tick: 1.14, slowmo: 0.98, fire_crackle: 1.48,
     charge_level: 1.38,
     // loops
-    blue_loop: 0.55, purple_charge: 0.78, fuga_charge: 0.7, infinity_hum: 2,
+    blue_loop: 0.55, purple_charge: 0.68, fuga_charge: 0.64, infinity_hum: 2, domain_clash_loop: 0.9,
   };
   const lvl = (name, o) => (o.vol != null ? Math.max(0, +o.vol || 0) : 1) * (LEVEL[name] || 1);
   function playOn(E, name, o) {

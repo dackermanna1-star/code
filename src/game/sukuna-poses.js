@@ -30,12 +30,12 @@
   P.blockIn = { hip: [-2, 65], lean: 4, bend: 2, head: 6, nh: [14, 0], fh: [16, 4], nf: [-24, 0], ff: [18, 0], face: 'calm' };
   P.block = { hip: [-3, 64], lean: 2, bend: 0, head: 10, nh: [12, 6], fh: [15, 10], nf: [-25, 0], ff: [17, 0], face: 'calm' };
   P.ablock = { hip: [0, 66], lean: 4, bend: 0, head: 10, nh: [12, 6], fh: [15, 10], nf: [-12, 14], ff: [10, 18], face: 'calm' };
-  P.prejump = { hip: [0, 50], lean: 18, bend: 8, head: 0, nh: [10, -16], fh: [20, -12], nf: [-22, 0], ff: [19, 0], nhs: 'claw', fhs: 'claw', face: 'grin' };
-  P.jumpUp0 = { hip: [0, 70], lean: 4, bend: 0, head: -6, nh: [6, -26], fh: [14, -24], nf: [-8, 2], ff: [6, 0], nhs: 'claw', fhs: 'claw', face: 'grin' };
+  P.prejump = { sx: 1.05, sy: 0.95, hip: [0, 50], lean: 18, bend: 8, head: 0, nh: [10, -16], fh: [20, -12], nf: [-22, 0], ff: [19, 0], nhs: 'claw', fhs: 'claw', face: 'grin' };
+  P.jumpUp0 = { sx: 0.94, sy: 1.07, hip: [0, 70], lean: 4, bend: 0, head: -6, nh: [6, -26], fh: [14, -24], nf: [-8, 2], ff: [6, 0], nhs: 'claw', fhs: 'claw', face: 'grin' };
   P.jumpUp = { hip: [0, 70], lean: 14, bend: 6, head: 0, nh: [12, -14], fh: [24, -6], nf: [-14, 24], ff: [14, 30], nhs: 'claw', fhs: 'claw', face: 'grin' };
   P.jumpTop = { hip: [0, 70], lean: 10, bend: 6, head: 2, nh: [14, -12], fh: [24, -6], nf: [-16, 22], ff: [16, 24], nhs: 'claw', fhs: 'claw', face: 'grin' };
   P.jumpDown = { hip: [0, 70], lean: 8, bend: 4, head: 4, nh: [14, -16], fh: [24, -10], nf: [-16, 6], ff: [16, 9], nhs: 'claw', fhs: 'claw', face: 'grin' };
-  P.land = { hip: [0, 50], lean: 20, bend: 8, head: 4, nh: [12, -16], fh: [24, -10], nf: [-24, 0], ff: [22, 0], nhs: 'claw', fhs: 'claw', face: 'grin' };
+  P.land = { sx: 1.07, sy: 0.93, hip: [0, 50], lean: 20, bend: 8, head: 4, nh: [12, -16], fh: [24, -10], nf: [-24, 0], ff: [22, 0], nhs: 'claw', fhs: 'claw', face: 'grin' };
   P.parryReady = { hip: [-2, 64], lean: 2, bend: 0, head: 2, nh: [20, 4], fh: [26, -2], nf: [-22, 0], ff: [18, 0], nhs: 'open', fhs: 'open', face: 'calm' };
   P.parryPose = { hip: [4, 64], lean: 14, bend: 4, head: -4, nh: [30, -4], fh: [14, -10], nf: [-20, 0], ff: [22, 0], nhs: 'claw', face: 'grin' };
   P.throwReach = { hip: [6, 63], lean: 18, bend: 4, head: -2, nh: [38, -4], fh: [34, 0], nf: [-18, 0], ff: [24, 0], nhs: 'claw', fhs: 'claw', face: 'grin' };

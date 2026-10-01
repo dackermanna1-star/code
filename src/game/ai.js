@@ -7,11 +7,11 @@
   const U = JJK.U, B = JJK.BTN;
 
   const LEVELS = {
-    easy: { react: 30, block: 0.22, antiair: 0.1, punish: 0.1, combo: 1, specials: 0.25, supers: 0.08, aggr: 0.35, tech: 0.1, perfect: 0.1, mash: 0.2, parry: 0, jump: 0.15 },
-    normal: { react: 20, block: 0.5, antiair: 0.35, punish: 0.35, combo: 2, specials: 0.45, supers: 0.3, aggr: 0.5, tech: 0.4, perfect: 0.3, mash: 0.5, parry: 0.02, jump: 0.12 },
-    hard: { react: 14, block: 0.74, antiair: 0.62, punish: 0.68, combo: 3, specials: 0.58, supers: 0.65, aggr: 0.55, tech: 0.7, perfect: 0.55, mash: 0.8, parry: 0.05, jump: 0.1 },
-    extreme: { react: 10, block: 0.88, antiair: 0.85, punish: 0.9, combo: 4, specials: 0.66, supers: 0.85, aggr: 0.6, tech: 0.9, perfect: 0.75, mash: 1, parry: 0.08, jump: 0.08 },
-    boss: { react: 7, block: 0.94, antiair: 0.94, punish: 1, combo: 4, specials: 0.7, supers: 1, aggr: 0.85, tech: 1, perfect: 0.9, mash: 1, parry: 0.12, jump: 0.1 },
+    easy: { bf: 0, react: 30, block: 0.22, antiair: 0.1, punish: 0.1, combo: 1, specials: 0.25, supers: 0.08, aggr: 0.35, tech: 0.1, perfect: 0.1, mash: 0.2, parry: 0, jump: 0.15 },
+    normal: { bf: 0.04, react: 20, block: 0.5, antiair: 0.35, punish: 0.35, combo: 2, specials: 0.45, supers: 0.3, aggr: 0.5, tech: 0.4, perfect: 0.3, mash: 0.5, parry: 0.02, jump: 0.12 },
+    hard: { bf: 0.1, react: 14, block: 0.74, antiair: 0.62, punish: 0.68, combo: 3, specials: 0.58, supers: 0.65, aggr: 0.55, tech: 0.7, perfect: 0.55, mash: 0.8, parry: 0.05, jump: 0.1 },
+    extreme: { bf: 0.2, react: 10, block: 0.88, antiair: 0.85, punish: 0.9, combo: 4, specials: 0.66, supers: 0.85, aggr: 0.6, tech: 0.9, perfect: 0.75, mash: 1, parry: 0.08, jump: 0.08 },
+    boss: { bf: 0.35, react: 7, block: 0.94, antiair: 0.94, punish: 1, combo: 4, specials: 0.7, supers: 1, aggr: 0.85, tech: 1, perfect: 0.9, mash: 1, parry: 0.12, jump: 0.1 },
   };
   JJK.AI_LEVELS = LEVELS;
 
@@ -19,7 +19,7 @@
   const ROUTES = {
     gojo: {
       basic: ['5L', '5M', '5H', 'red'],
-      low: ['2L', '2M', 'red'],
+      low: ['2L', '2M', 'redLaunch'],
       launch: ['5M', '2H', 'J', 'jM', 'jH'],
       meter: ['5M', '5H', 'maxRed'],
       pull: ['bluePull', '5M', '5H', 'redLaunch'],
@@ -39,6 +39,17 @@
       this.f = f;
       this.level = level;
       this.p = LEVELS[level] || LEVELS.normal;
+      // rushdown needs more execution than zoning: at the lower tiers CPU Sukuna is
+      // blended toward the next tier so each difficulty feels similar for both characters
+      const order = ['easy', 'normal', 'hard', 'extreme', 'boss'];
+      const li = order.indexOf(level);
+      if (f.def.id === 'sukuna' && li >= 0 && li < 3) {
+        const a = this.p, b = LEVELS[order[li + 1]], k = 0.6;
+        const mix = {};
+        for (const key in a) mix[key] = a[key] + (b[key] - a[key]) * k;
+        mix.combo = Math.round(mix.combo);
+        this.p = mix;
+      }
       this.plan = [];
       this.cool = 0;
       this.t = 0;
@@ -147,6 +158,12 @@
           return;
         }
       }
+      // answer zoning: jump over low projectiles, trade, or counter
+      if (proj && proj.dist > 110 && proj.dist < 300 && f.onGround && f.actionable) {
+        const x = this.r();
+        if (x < this.p.jump * 2.2 && proj.y < 130) { this.cmd('JF'); return; }
+        if (f.def.id === 'sukuna' && !f.cs.da && f.burnout <= 0 && x < this.p.specials * 0.5) { this.cmd(f.meter >= 50 && this.r() < this.p.supers * 0.3 ? '4SU' : '236SP'); return; }
+      }
       if (proj && proj.dist < 200) {
         if (f.def.id === 'gojo' && !f.cs.infOn && f.cs.inf > 40 && this.r() < this.p.specials * 0.4) { this.plan.push({ d: 5, b: B.UN }); return; }
         if (this.r() < this.p.block * 0.8) { this.blockDir = 4; this.blockT = 14; this.emit(4, 0); return; }
@@ -225,6 +242,11 @@
       if (R.cancelSpecial[id]) { this.cmd(R.cancelSpecial[id]); return; }
       if (id[0] === 'j') { this.cmd('j' + id.slice(1).replace(/^/, '5')); return; }
       const d = id[0], b = id.slice(1);
+      // heavies in a chain: only sometimes hit the Black Flash timing
+      if (b === 'H' && this.route && this.ri > 0 && this.r() > this.p.bf) {
+        const n = 2 + Math.floor(this.r() * 2);
+        for (let i = 0; i < n; i++) this.plan.push({ d: +d });
+      }
       this.cmd(d + b);
     }
 
@@ -311,18 +333,24 @@
         this.holdT = f.meter >= 100 && f.cs.kindle >= 1 ? 80 : f.meter >= 50 ? 46 : 18;
         return;
       }
+      const oRecover = o.st === 'move' && o.phase === 'recovery' && o.move.total - o.mf > 10;
+      const oBusy = oRecover || o.st === 'block' || o.st === 'down' || o.st === 'wakeup';
       if (dist > 260) {
-        if (tech && r() < p.specials * 0.6) { this.cmd('236SP'); if (r() < 0.4) this.plan.push({ d: 5 }, { d: 5 }, { d: 5 }, { d: 5 }, { d: 5 }, { d: 5 }, { d: 5, b: B.SP }); return; }
-        this.cmd('66'); this.hold(6, 18 + Math.floor(r() * 16));
+        // close the gap: dash on openings, otherwise walk in behind Dismantle pressure
+        if (oBusy || r() < p.aggr * 0.35) { this.cmd('66'); this.hold(6, 14 + Math.floor(r() * 12)); return; }
+        if (tech && r() < p.specials * 0.6) { this.cmd('236SP'); if (r() < 0.4) this.plan.push({ d: 5 }, { d: 5 }, { d: 5 }, { d: 5 }, { d: 5 }, { d: 5 }, { d: 5 }, { d: 5, b: B.SP }); return; }
+        this.hold(6, 16);
         return;
       }
       if (dist > 130) {
         const x = r();
-        if (tech && x < p.specials * 0.35) { this.cmd('236SP'); return; }
-        if (x < 0.4) { this.cmd('6SP'); this.route = ['lunge', 'cleave']; this.ri = 0; return; }
-        if (x < 0.75) { this.cmd('66'); this.hold(6, 8); return; }
-        if (r() < p.jump * 2) { this.cmd('JF'); this.plan.push({ d: 5 }, { d: 5 }, { d: 5 }, { d: 5 }, { d: 5 }, { d: 5 }, { d: 5 }, { d: 5 }, { d: 5 }, { d: 5 }, { d: 5, b: B.H }); return; }
-        this.hold(6, 14);
+        if (oRecover && dist < 240) { this.cmd('6SP'); this.route = ['lunge', 'cleave']; this.ri = 0; return; }
+        if (oBusy && x < 0.6) { this.cmd('66'); this.hold(6, 4); this.cmd(r() < 0.5 ? '2L' : 'LM'); this.route = ['2L', '2M', 'dismantle']; this.ri = 0; return; }
+        if (tech && x < p.specials * 0.45) { this.cmd('236SP'); return; }
+        if (x < 0.25 && r() < p.jump * 1.1 && !o.isStunned()) { this.cmd('JF'); this.plan.push({ d: 5 }, { d: 5 }, { d: 5 }, { d: 5 }, { d: 5 }, { d: 5 }, { d: 5 }, { d: 5 }, { d: 5 }, { d: 5, b: B.H }); return; }
+        if (x < 0.4 && f.meter >= 50 && o.def.id === 'gojo' && o.cs.infOn && !f.cs.da) { this.plan.push({ d: 6, b: B.UN }); return; }
+        // walk forward ready to block
+        this.hold(6, 10 + Math.floor(r() * 10));
         return;
       }
       // close: mix-ups

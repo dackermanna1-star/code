@@ -213,7 +213,7 @@
   const TR = {};
 
   TR.battle = {
-    bpm: 150, bars: 16, vol: 0.5,
+    bpm: 150, bars: 16, vol: 0.46,
     ch: ['Dm', 'Dm', 'Bb', 'C', 'Dm', 'Dm', 'Eb', 'C', 'Gm', 'Gm', 'Bb', 'A', 'Dm', 'Bb', 'Eb', 'A'],
     bass: [0, null, 0, 0, 12, null, 0, 0, 0, null, 0, 0, 12, null, 0, 7],
     lead: seq([
@@ -388,7 +388,7 @@
 
   // Victory: 2-bar triumphant sting (plays once), then a quiet 4-bar loop.
   TR.victory = {
-    bpm: 116, intro: 2, bars: 4, vol: 0.55,
+    bpm: 116, intro: 2, bars: 4, vol: 0.5,
     ch: ['D', 'Bm', 'G', 'A'],
     step(d, b, st, t, sd) {
       if (b === 0) {

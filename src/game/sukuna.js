@@ -29,7 +29,7 @@
     const h = o.h || (charged ? 46 : 32);
     const p = new JJK.Projectile(f, {
       x: f.x + f.facing * 50, y: o.y != null ? o.y : f.y + (o.dy || 96), vx: (o.vx || (charged ? 12.5 : 11)) * f.facing, vy: o.vy || 0,
-      w: charged ? 18 : 11, h, life: 75, type: 'dismantle', hp: charged ? 2 : 1, moveId: o.id || 'dismantle',
+      w: charged ? 18 : 11, h, life: 75, type: 'dismantle', hp: charged ? 3 : 2, moveId: o.id || 'dismantle',
       hit: charged
         ? { dmg: 92, tier: 4, str: 's', hs: 30, bs: 18, launch: true, lv: 6, lx: 5, chip: 12, gdmg: 14, spark: CRIM2, sfx: 'dismantle_hit', kd: true }
         : { dmg: o.dmg || 55, tier: o.tier || 4, str: 's', hs: 20, bs: 15, pb: 5, chip: 7, gdmg: 9, spark: CRIM2, sfx: 'dismantle_hit', av: 4 },
@@ -266,46 +266,47 @@
 
     // ---- normals
     '5L': {
-      name: 'Backfist', tier: 1, s: 5, a: 3, r: 8,
+      name: 'Backfist', tier: 1, s: 4, a: 3, r: 8,
       hits: [{ at: 'fh', r: 11, dmg: 20, hs: 14, bs: 10, ha: 'high' }],
-      anim: [[0, 'idle'], [3, 'bfist0', 'out'], [5, 'bfist1', 'snap'], [8, 'bfist1'], [15, 'idle', 'inOut']],
+      anim: [[0, 'idle'], [3, 'bfist0', 'out'], [4, 'bfist1', 'snap'], [7, 'bfist1'], [14, 'idle', 'inOut']],
       sfxStart: 'whiff_l', grunt: 'light',
     },
     '5M': {
-      name: 'Claw Rake', tier: 2, s: 8, a: 3, r: 14,
+      name: 'Claw Rake', tier: 2, s: 7, a: 3, r: 14,
       hits: [{ at: 'nh', r: 14, dmg: 44, hs: 19, bs: 13 }],
-      vel: [[3, 2.6], [10, 0]],
-      anim: [[0, 'idle'], [4, 'claw0', 'out'], [8, 'claw1', 'snap'], [11, 'claw1'], [16, 'claw2', 'out'], [24, 'idle', 'inOut']],
-      tick(f, m, mf) { if (mf === 8) { const h = f.anchor('nh'); slashFx(h[0], h[1], 30, -0.9 * f.facing, CRIM, 6); } },
+      vel: [[3, 2.6], [9, 0]],
+      anim: [[0, 'idle'], [4, 'claw0', 'out'], [7, 'claw1', 'snap'], [10, 'claw1'], [15, 'claw2', 'out'], [23, 'idle', 'inOut']],
+      tick(f, m, mf) { if (mf === 7) { const h = f.anchor('nh'); slashFx(h[0], h[1], 30, -0.9 * f.facing, CRIM, 6); } },
       sfxStart: 'whiff_m', grunt: 'medium',
     },
     '5H': {
-      name: 'Cursed Fist', tier: 3, s: 12, a: 4, r: 18,
+      name: 'Cursed Fist', tier: 3, s: 11, a: 4, r: 18,
       hits: [{ at: 'nh', r: 14, dmg: 68, hs: 22, bs: 16, pb: 7.5, chWb: true, chLaunch: true, lv: 6, lx: 9 }],
-      vel: [[5, 3], [12, 0]],
-      anim: [[0, 'idle'], [7, 'heavy0', 'out'], [12, 'heavy1', 'snap'], [16, 'heavy1'], [24, 'heavy2', 'out'], [33, 'idle', 'inOut']],
+      vel: [[5, 3], [11, 0]],
+      anim: [[0, 'idle'], [7, 'heavy0', 'out'], [11, 'heavy1', 'snap'], [15, 'heavy1'], [23, 'heavy2', 'out'], [32, 'idle', 'inOut']],
       sfxStart: 'whiff_h', grunt: 'heavy',
     },
     '2L': {
-      name: 'Shin Kick', tier: 1, s: 5, a: 2, r: 9,
+      name: 'Shin Kick', tier: 1, s: 4, a: 2, r: 9,
       hits: [{ at: 'ff', r: 10, dmg: 16, hs: 14, bs: 10, guard: 'low', ha: 'low' }],
-      anim: [[0, 'crouch'], [3, 'lowKick0', 'out'], [5, 'lowKick1', 'snap'], [7, 'lowKick1'], [15, 'crouch', 'inOut']],
+      anim: [[0, 'crouch'], [3, 'lowKick0', 'out'], [4, 'lowKick1', 'snap'], [6, 'lowKick1'], [14, 'crouch', 'inOut']],
       sfxStart: 'whiff_l', grunt: 'light',
     },
     '2M': {
-      name: 'Slide', tier: 2, s: 10, a: 4, r: 16,
+      name: 'Slide', tier: 2, s: 9, a: 4, r: 16,
       hits: [{ at: 'ff', r: 13, dmg: 38, hs: 18, bs: 12, guard: 'low', ha: 'low' }],
-      vel: [[5, 6], [14, 1], [17, 0]],
-      anim: [[0, 'crouch'], [6, 'slide0', 'out'], [10, 'slide1', 'snap'], [14, 'slide1'], [29, 'crouch', 'inOut']],
+      vel: [[5, 6], [13, 1], [16, 0]],
+      anim: [[0, 'crouch'], [6, 'slide0', 'out'], [9, 'slide1', 'snap'], [13, 'slide1'], [28, 'crouch', 'inOut']],
       tick(f, m, mf) { if (mf === 8) FX.dust(f.x, 0.6, -f.facing); },
       sfxStart: 'whiff_m', grunt: 'medium',
     },
     '2H': {
-      name: 'Rising Talon', tier: 3, s: 10, a: 4, r: 22, jc: true,
-      hits: [{ at: 'nh', r: 15, off: [0, 4], dmg: 58, launch: true, lv: 10.5, lx: 1.6, hs: 30, bs: 15 }],
-      inv: [[4, 12, 'air']],
-      anim: [[0, 'crouch'], [5, 'rclaw0', 'out'], [10, 'rclaw1', 'snap'], [14, 'rclaw1'], [24, 'rclaw2', 'out'], [35, 'idle', 'inOut']],
-      tick(f, m, mf) { if (mf === 10) { const h = f.anchor('nh'); slashFx(h[0], h[1] - 20, 50, 1.3, CRIM, 7); } },
+      name: 'Rising Talon', tier: 3, s: 9, a: 4, r: 22, jc: true,
+      hits: [{ box: [6, 40, 56, 160], dmg: 58, launch: true, lv: 10.5, lx: 1.6, hs: 30, bs: 15 }],
+      inv: [[4, 11, 'air']],
+      vel: [[3, 4.4], [9, 0.6], [12, 0]],
+      anim: [[0, 'crouch'], [5, 'rclaw0', 'out'], [9, 'rclaw1', 'snap'], [13, 'rclaw1'], [23, 'rclaw2', 'out'], [34, 'idle', 'inOut']],
+      tick(f, m, mf) { if (mf === 9) { const h = f.anchor('nh'); slashFx(h[0], h[1] - 20, 50, 1.3, CRIM, 7); } },
       sfxStart: 'whiff_h', grunt: 'heavy',
     },
     jL: {
@@ -641,6 +642,21 @@
     if (mf === 86) { JJK.Voice && JJK.Voice.say('sukuna', 'wcs_3'); snd('chant_tick'); }
     if (mf === 40 && JJK.Audio) JJK.Audio.hush(2.2, 0.06);
     if (mf > 30 && mf < 120 && m.stage) m.stage.darken = Math.max(m.stage.darken || 0, Math.min(0.45, (mf - 30) / 120));
+    if (mf === 108) {
+      // stillness: a brief close-up on his eyes before the cut
+      const head = f.anchor('head');
+      m.cinematic({
+        dur: 18, letterbox: 40, dark: 0.9,
+        update(m, t) { m.cam.override = { x: head[0] + f.facing * 6, y: head[1] - 6, zoom: 3.6, speed: 0.45 }; },
+        draw(ctx, m, t) {
+          // eye glint
+          const h = f.anchor('head');
+          const sx = m.cam.sx(h[0] + f.facing * 7), sy = m.cam.sy(h[1] + 2);
+          if (t > 6) { FX.glow(ctx, sx, sy, 22, '#ff2020', 0.9); ctx.fillStyle = '#fff'; ctx.fillRect(Math.round(sx) - 3, Math.round(sy), 7, 1); }
+        },
+        onEnd(m) { m.cam.override = null; },
+      });
+    }
     if (mf === 120) {
       const L = wcsLine(f, d.aim);
       if (JJK.Audio) { JJK.Audio.unhush(0.02); }
@@ -701,6 +717,7 @@
   const def = {
     id: 'sukuna', name: 'SUKUNA', full: 'RYOMEN SUKUNA', title: 'KING OF CURSES',
     art: JJK.Art.sukuna,
+    domainType: 'shrine',
     color: '#ff5050',
     hitColor: '#ff9a7a',
     blockColor: '#ffb0a0',
@@ -713,7 +730,8 @@
     moves: Kit.build(moves),
     commands: [],
     initState() { return { kindle: 0, usedKindle: 0, da: false, daT: 0, fugaSnd: null, wcsAim: null }; },
-    dmgMul(f) { return f.cs.da ? 1.12 : 1; },
+    dmgMul(f) { return (f.cs.da ? 1.12 : 1) * (f.cs.shrineBuff ? 1.2 : 1); },
+    speedMul(f) { return f.cs.shrineBuff ? 1.25 : 1; },
     update(f, m) {
       const cs = f.cs;
       // Domain Amplification toggle (Unique button)
@@ -796,10 +814,18 @@
       // World Cutting Slash aim line (visible to both players)
       if (f.cs.wcsAim) {
         const L = f.cs.wcsAim;
-        const a = 0.35 + 0.25 * Math.sin(m.frame * 0.3);
+        const a = 0.45 + 0.3 * Math.sin(m.frame * 0.3);
         ctx.save();
-        ctx.strokeStyle = `rgba(255,40,40,${a})`;
-        ctx.setLineDash([6, 6]);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = `rgba(255,30,30,${a * 0.35})`;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(cam.sx(L.x0), cam.sy(L.y0));
+        ctx.lineTo(cam.sx(L.x1), cam.sy(L.y1));
+        ctx.stroke();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = `rgba(255,70,70,${a})`;
+        ctx.setLineDash([8, 5]);
         ctx.lineDashOffset = -m.frame;
         ctx.lineWidth = 1;
         ctx.beginPath();

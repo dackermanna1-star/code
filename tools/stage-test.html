@@ -153,6 +153,30 @@
       return { avg: tot / n, back: back / n, worst, wallPerFrame: wall, parts: stage.parts.length };
     },
     darken(v) { darken = v; },
+    // JS-only cost: run drawBack/drawFront against a context whose methods are no-ops
+    jsCost(n) {
+      const nul = {};
+      for (const k in CanvasRenderingContext2D.prototype) {
+        try { if (typeof CanvasRenderingContext2D.prototype[k] === 'function') nul[k] = () => {}; } catch (e) {}
+      }
+      let tot = 0;
+      for (let i = 0; i < n; i++) {
+        step();
+        const a = performance.now();
+        stage.drawBack(nul, cam); stage.drawFront(nul, cam);
+        tot += performance.now() - a;
+      }
+      return tot / n;
+    },
+    // count canvas calls made by one drawBack + drawFront (all contexts)
+    count() {
+      const P = CanvasRenderingContext2D.prototype, names = ['drawImage', 'fillRect', 'stroke', 'fill', 'putImageData', 'clip', 'save'];
+      const orig = {}, n = {};
+      for (const k of names) { orig[k] = P[k]; n[k] = 0; P[k] = function () { n[k]++; return orig[k].apply(this, arguments); }; }
+      step(); stage.drawBack(ctx, cam); stage.drawFront(ctx, cam);
+      for (const k of names) P[k] = orig[k];
+      return n;
+    },
   };
   if (auto) render(); else requestAnimationFrame(loop);
 })();

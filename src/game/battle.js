@@ -75,7 +75,9 @@
       if (JJK.FX) JJK.FX.clear();
       this.cam.reset();
       this.timer = this.roundTime;
-      this.domain = null; this.clash = null;
+      if (this.domain && this.domain.amb) this.domain.amb.stop(0.2);
+      this.domain = null; this.clash = null; this.pendingClash = null; this.domainStartup = null; this.domainVisual = null;
+      this.simplePrompt = null; this.tear = null; this.events.length = 0;
       if (this.stage && this.stage.setMode) this.stage.setMode('normal', { frames: 1 });
       this.cine = null; this.freeze = 0; this.slow = 1; this.slowT = 0;
       this.darken = 0; this.letterbox = 0;
@@ -199,6 +201,8 @@
       this.texts.push(Object.assign({ text, t: 0, life: 70 }, opts));
     }
     caption(id, text) {
+      // chants already have stylized on-screen text
+      if (/^(Dragon Scale|Recoil|Twin Meteors|Phase\. Twilight)/.test(text)) return;
       this.captions.push({ id, text, t: 0, life: Math.max(90, text.length * 5) });
       if (this.captions.length > 2) this.captions.shift();
     }
@@ -324,6 +328,7 @@
         if (--e.t <= 0) { this.events.splice(i, 1); e.fn(); }
       }
       // domain / character global effects
+      if (this.domainStartup && JJK.Domain) JJK.Domain.checkInterrupt(this);
       if (this.domain && JJK.Domain) JJK.Domain.update(this);
       if (this.clash && JJK.Domain) JJK.Domain.updateClash(this);
       this.pushboxes();
@@ -423,6 +428,8 @@
           break;
         }
         case 'fight': {
+          // safety: any fighter at 0 HP must be KO'd (e.g. damage dealt during a transition)
+          for (const f of this.fighters) if (f.hp <= 0 && !f.ko && !this.training) { this.onKO(f, this.opp(f), {}); break; }
           if (JJK.Music && !this.domain && !this.clash) {
             const low = Math.min(a.hp / a.maxHp, b.hp / b.maxHp);
             const final = this.roundLabel === 'FINAL ROUND';
@@ -504,6 +511,11 @@
       if (st && st.drawFront) st.drawFront(ctx, cam);
       if (this.domain && JJK.Domain) JJK.Domain.drawFront(ctx, this);
       this.applyDistortions(ctx);
+      // low-health danger vignette
+      if (this.phase === 'fight' && !this.training) {
+        const low = Math.min(...this.fighters.map((f) => f.hp / f.maxHp));
+        if (low < 0.25) this.drawDanger(ctx, (0.25 - low) / 0.25);
+      }
       if (this.impactT > 0) this.drawImpactFrame(ctx);
       if (this.tear) this.applyTear(ctx);
       if (this.cine && this.cine.draw) this.cine.draw(ctx, this, this.cine.t);
@@ -532,8 +544,32 @@
         ctx.fillRect(0, 0, W, this.letterbox);
         ctx.fillRect(0, H - this.letterbox, W, this.letterbox);
       }
-      if (this.hud) this.hud.draw(ctx);
-      if (this.training) JJK.Training.draw(ctx, this);
+      // the HUD steps aside during cinematics
+      this.hudAlpha = U.approach(this.hudAlpha == null ? 1 : this.hudAlpha, this.cine || this.clash ? 0 : 1, 0.12);
+      if (this.hud && this.hudAlpha > 0.01) {
+        ctx.globalAlpha = this.hudAlpha;
+        this.hud.draw(ctx);
+        ctx.globalAlpha = 1;
+      }
+      if (this.training && !this.cine) JJK.Training.draw(ctx, this);
+    }
+
+    drawDanger(ctx, k) {
+      if (!this._vig && hasDoc) {
+        const c = document.createElement('canvas');
+        c.width = W; c.height = H;
+        const x = c.getContext('2d');
+        const g = x.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, W * 0.62);
+        g.addColorStop(0, 'rgba(160,0,0,0)');
+        g.addColorStop(1, 'rgba(160,0,0,1)');
+        x.fillStyle = g;
+        x.fillRect(0, 0, W, H);
+        this._vig = c;
+      }
+      if (!this._vig) return;
+      ctx.globalAlpha = (0.18 + 0.14 * Math.sin(this.frame * 0.12)) * (0.5 + k * 0.5);
+      ctx.drawImage(this._vig, 0, 0);
+      ctx.globalAlpha = 1;
     }
 
     drawImpactFrame(ctx) {
