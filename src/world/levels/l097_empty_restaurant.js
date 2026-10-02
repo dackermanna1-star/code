@@ -57,6 +57,18 @@ defineTexture('lv97_cloth', (p) => {
   p.rect(0, 58, 64, 6, [216, 210, 198]);
 }, 6);
 defineMaterial('lv97_cloth', 'lv97_cloth', { s: 1, surf: 'carpet' });
+function plates(p, pts) {
+  p.fill([236, 232, 222]);
+  p.noise(4, 0.03, 2);
+  for (const [x, y] of pts) { p.disc(x, y, 8, [244, 242, 236]); p.ring(x, y, 8, 1.6, [196, 160, 80]); p.disc(x, y, 3, [226, 222, 212]); p.rect(x + 9, y - 5, 2, 10, [190, 190, 196]); }
+  p.rect(30, 30, 4, 4, [200, 160, 70]);
+}
+defineTexture('lv97_top', (p) => plates(p, [[32, 12], [32, 52], [12, 32], [52, 32]]), 8);
+defineTexture('lv97_top2', (p) => plates(p, [[12, 32], [52, 32]]), 8);
+defineTexture('lv97_top_long', (p) => plates(p, [[12, 12], [32, 12], [52, 12], [12, 52], [32, 52], [52, 52]]), 8);
+defineMaterial('lv97_top', 'lv97_top', { s: 1, surf: 'carpet' });
+defineMaterial('lv97_top2', 'lv97_top2', { s: 1, surf: 'carpet' });
+defineMaterial('lv97_top_long', 'lv97_top_long', { s: 1, surf: 'carpet' });
 defineTexture('lv97_velvet', (p) => { p.fill([140, 22, 34]); p.noise(3, 0.1, 2); p.grain(0.05); }, 6);
 defineMaterial('lv97_velvet', 'lv97_velvet', { s: 0.5, surf: 'carpet' });
 defineTexture('lv97_menu', (p) => {
@@ -81,38 +93,31 @@ defineMaterial('lv97_plate', 'lv97_plate', { s: 0.3, surf: 'tile' });
 function chairAt(mb, cx, cz, fx, fz) {
   const wd = S('lv97_wood'), vv = S('lv97_velvet');
   const alongX = Math.abs(fx) > 0.5;
-  mb.box(cx - 0.21, 0, cz - 0.21, cx + 0.21, 0.42, cz + 0.21, wd, { skip: 8 });
-  mb.box(cx - 0.21, 0.42, cz - 0.21, cx + 0.21, 0.5, cz + 0.21, vv);
+  mb.box(cx - 0.21, 0, cz - 0.21, cx + 0.21, 0.48, cz + 0.21, vv, { skip: 8 });
   const bx = cx - fx * 0.19, bz = cz - fz * 0.19;
   const tx = alongX ? 0.03 : 0.21, tz = alongX ? 0.21 : 0.03;
-  mb.box(bx - tx, 0.5, bz - tz, bx + tx, 1.02, bz + tz, vv);
-  mb.box(bx - tx - (alongX ? 0.015 : 0), 1.0, bz - tz - (alongX ? 0 : 0.015), bx + tx + (alongX ? 0.015 : 0), 1.05, bz + tz + (alongX ? 0 : 0.015), wd);
+  mb.box(bx - tx, 0.48, bz - tz, bx + tx, 1.05, bz + tz, wd, { skip: 8 });
 }
 defineProp('lv97_table', {
   build(mb, p) {
     const kind = p.opts.kind || 0;
-    const cloth = S('lv97_cloth'), plate = S('lv97_plate');
+    const cloth = S('lv97_cloth'), top = S(kind === 2 ? 'lv97_top_long' : kind === 1 ? 'lv97_top2' : 'lv97_top');
     const ch = [];            // [x, z, fx, fz]
     if (kind === 2) {         // long table for six
-      mb.box(-1.15, 0, -0.45, 1.15, 0.74, 0.45, cloth, { uv: 'fit' });
+      mb.box(-1.15, 0, -0.45, 1.15, 0.74, 0.45, [cloth, cloth, top, null, cloth, cloth], { uv: ['world', 'world', [0, 0, 1, 1], 'world', 'world', 'world'] });
       for (const sx of [-0.7, 0, 0.7]) { ch.push([sx, -0.62, 0, 1]); ch.push([sx, 0.62, 0, -1]); }
     } else {
       const r = kind === 1 ? 0.5 : 0.62, d = r + 0.1;
-      mb.cyl(0, 0, 0, r, 0.74, 8, cloth, 1);
+      mb.cyl(0, 0, 0, r, 0.74, 8, cloth, 1, top);
       ch.push([-d, 0, 1, 0]); ch.push([d, 0, -1, 0]);
       if (kind !== 1) { ch.push([0, -d, 0, 1]); ch.push([0, d, 0, -1]); }
     }
-    for (const [cx, cz, fx, fz] of ch) {
-      chairAt(mb, cx, cz, fx, fz);
-      const px = kind === 2 ? cx : cx * 0.6, pz = kind === 2 ? cz * 0.6 : cz * 0.6;
-      mb.box(px - 0.11, 0.741, pz - 0.11, px + 0.11, 0.755, pz + 0.11, plate);
-    }
-    // candle: a brass stub and a small flame
-    mb.cyl(0, 0.74, 0, 0.035, 0.1, 4, S('lv97_brass'), 1);
-    mb.box(-0.014, 0.84, -0.014, 0.014, 0.9, 0.014, propGlow('lv97_flame', 1.1, 0));
-    // the menu: a card standing on the cloth
+    for (const [cx, cz, fx, fz] of ch) chairAt(mb, cx, cz, fx, fz);
+    // candle: a brass stub with a small flame, and the menu card standing on the cloth
+    mb.box(-0.03, 0.74, -0.03, 0.03, 0.84, 0.03, S('lv97_brass'), { skip: 8 });
+    mb.box(-0.014, 0.84, -0.014, 0.014, 0.9, 0.014, propGlow('lv97_flame', 1.1, 0), { skip: 8 });
     const menu = S('lv97_menu');
-    mb.box(0.12, 0.74, 0.1, 0.3, 0.98, 0.114, [menu, menu, menu, menu, menu, menu], { uv: ['world', 'world', 'world', 'world', [0, 0, 1, 1], [0, 0, 1, 1]] });
+    mb.box(0.12, 0.74, 0.1, 0.3, 0.98, 0.114, menu, { skip: 15, uv: 'fit' });
   },
   boxes: (p) => (p.opts.kind === 2 ? [[-1.35, 0, -0.9, 1.35, 1.0, 0.9]] : [[-0.95, 0, -0.95, 0.95, 1.0, 0.95]]),
   use: 'level',

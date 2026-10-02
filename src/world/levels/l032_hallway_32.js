@@ -59,12 +59,12 @@ defineTexture('lv32_brass', (p) => { p.fill([196, 154, 72]); p.bevel(0, 0, 64, 6
 defineTexture('lv32_globe', (p) => { p.fill([255, 240, 196]); p.disc(32, 32, 24, [255, 252, 226], 1, 8); }, 6);
 for (let n = 1; n <= 32; n++) {
   defineTexture('lv32_n' + n, (p) => {
-    p.fill([30, 22, 12]);
-    p.rect(2, 2, 60, 60, [180, 142, 66]);
+    p.fill([60, 42, 20]);
+    p.rect(2, 2, 60, 60, [208, 166, 80]);
     p.bevel(2, 2, 60, 60, 0.3, 0.35);
-    p.rect(6, 6, 52, 52, [34, 26, 14]);
+    p.rect(7, 7, 50, 50, [222, 184, 98]);
     const s = String(n), w = s.length * 18 - 3;
-    p.text(s, Math.floor((64 - w) / 2), 21, [238, 206, 122], 3);
+    p.text(s, Math.floor((64 - w) / 2), 21, [44, 28, 10], 3);
   }, 6);
 }
 
