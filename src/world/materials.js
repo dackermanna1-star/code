@@ -1,5 +1,6 @@
 // Material table: how a surface maps textures, its footstep sound and lighting hints.
-// Material ids are stored in Uint8 cell arrays, so keep the count < 256.
+// Material ids are stored in 16-bit cell arrays. A material with the FULLBRIGHT flag is
+// self-lit wherever it is used (cells, brushes, props): opts.glow sets its brightness.
 
 export const VF = { // per-vertex flags
   FULLBRIGHT: 1, WOBBLE: 2, VIBRATE: 4, ANIM: 8, NOFOG: 16, SCROLL: 32, SWAY: 64,
@@ -21,6 +22,8 @@ function mat(name, tex, opts = {}) {
     flags: opts.flags ?? 0,
     stain: opts.stain ?? 0,
     frames: opts.frames ?? 1,
+    glow: opts.glow ?? 1.0,      // brightness of a FULLBRIGHT (self-lit) material
+    chan: opts.chan ?? 0,        // flicker channel of a self-lit material
   });
   M[name] = id;
   return id;
@@ -136,6 +139,11 @@ mat('vest_floor', 'carpet_gray', { s: 1, surf: 'carpet' });
 mat('vest_ceil', 'ceil_tile_white', { s: 1, surf: 'drywall' });
 
 // Other modules may register extra materials before resolveMaterials() runs at boot.
+// self-lit surfaces usable anywhere (lamps, lit windows, signs)
+mat('glow_panel', 'light_panel', { s: 1, flags: VF.FULLBRIGHT, glow: 1.0 });
+mat('glow_bulb', 'bulb', { s: 1, flags: VF.FULLBRIGHT, glow: 1.1 });
+mat('glow_window', 'window_lit', { s: 1, flags: VF.FULLBRIGHT, glow: 0.95 });
+
 export const defineMaterial = mat;
 
 export function resolveMaterials(texIndex) {

@@ -24,6 +24,7 @@ export class TouchUI {
     this.bClimb = btn('climb', 'CLIMB', 'b-climb');
     this.bRun = btn('run', 'RUN', 'b-run', true);
     this.bMenu = btn('menu', 'II', 'b-menu');
+    this.bPhone = btn('phone', 'PHONE', 'b-phone');
     this.runToggle = false;
     root.appendChild(wrap);
     this.wrap = wrap;
@@ -36,7 +37,7 @@ export class TouchUI {
     this.bRun.classList.toggle('on', this.runToggle);
     const playing = this.game.state === 'play' && !this.game.ui.active;
     this.wrap.style.display = playing || this.game.state === 'pause' ? 'block' : 'none';
-    for (const b of [this.bUse, this.bCrouch, this.bClimb, this.bRun]) b.style.visibility = playing ? 'visible' : 'hidden';
+    for (const b of [this.bUse, this.bCrouch, this.bClimb, this.bRun, this.bPhone]) b.style.visibility = playing ? 'visible' : 'hidden';
   }
 
   draw(c) {

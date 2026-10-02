@@ -5,6 +5,7 @@ import { setPropTextures } from './props.js';
 import { World } from './world.js';
 import './gen/index.js';
 import { buildChunkData, chunkTransfers } from './chunk.js';
+import { findDoors } from './levels.js';
 
 let world = null;
 let gen = 0;
@@ -36,6 +37,9 @@ if (scope) scope.onmessage = (e) => {
       const transfers = chunkTransfers(d);
       for (const [, px] of tex) transfers.push(px.buffer);
       scope.postMessage({ type: 'chunk', gen, key: m.key, data: d, tex }, transfers);
+    } else if (m.type === 'doors') {
+      if (!world) return;
+      scope.postMessage({ type: 'doors', id: m.id, list: findDoors(world, m.dim, m.story, m.x, m.z, m.r) });
     } else if (m.type === 'mutate') {
       if (!world) return;
       world.mutation.set(m.key, m.count);

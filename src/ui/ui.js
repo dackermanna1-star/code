@@ -20,6 +20,8 @@ export class UI {
     this.fadeTarget = 0;
     this.saveIcon = 0;
     this.titleT = 0;
+    this.fadeRate = 2.4;
+    this.levelCard = null;   // { n, name, t, first, count } shown when you arrive on a level
   }
 
   get W() { return this.game.uic.width; }
@@ -159,21 +161,43 @@ export class UI {
         else { c.globalAlpha = a; drawTextCentered(c, this.message.text, W / 2, H - 36, C.hi, 1, C.shadow); c.globalAlpha = 1; }
       }
     }
+    if (g.phone && (g.state === 'play' || g.state === 'pause')) g.phone.draw(c, W, H, g.state === 'play' ? dt : 0);
     if (this.loading) drawTextCentered(c, 'NOW LOADING', W / 2, H / 2 - 4, C.text, 1, C.shadow);
     if (this.saveIcon > 0) {
       this.saveIcon -= dt;
       if (Math.floor(this.saveIcon * 4) % 2 === 0) this.drawCardIcon(W - 22, 8, 1);
     }
     // fades sit under menus so menus stay readable
-    this.fade += (this.fadeTarget - this.fade) * Math.min(1, dt * 2.4);
+    this.fade += (this.fadeTarget - this.fade) * Math.min(1, dt * this.fadeRate);
     if (Math.abs(this.fade - this.fadeTarget) < 0.01) this.fade = this.fadeTarget;
     if (this.fade > 0.003) { c.fillStyle = `rgba(0,0,0,${this.fade})`; c.fillRect(0, 0, W, H); }
+    if (this.levelCard && g.state !== 'title') this.drawLevelCard(dt);
     const m = this.top();
     if (m && m.id !== 'title') this.drawMenu(m);
     else if (m && m.id === 'title') this.drawMenu(m, true);
     if (this.note) this.drawNote();
     if (this.card) this.drawCard();
     if (g.touchUI) g.touchUI.draw(c);
+  }
+
+  // LEVEL n / NAME over the first view of a level
+  drawLevelCard(dt) {
+    const L = this.levelCard;
+    L.t += dt;
+    const t = L.t, a = t < 1.2 ? Math.max(0, (t - 0.2) / 1.0) : t < 5.5 ? 1 : Math.max(0, 1 - (t - 5.5) / 1.5);
+    if (t > 7.2) { this.levelCard = null; return; }
+    const c = this.ctx, W = this.W, H = this.H;
+    c.globalAlpha = a;
+    const y = Math.round(H * 0.34);
+    drawTextCentered(c, 'LEVEL ' + L.n, W / 2, y, '#ece4c4', 3, '#000');
+    const name = L.name;
+    const sc = textWidth(name, 2) <= W - 24 ? 2 : 1;
+    drawTextCentered(c, name, W / 2, y + 28, C.text, sc, '#000');
+    if (L.first && t > 1.6) {
+      c.globalAlpha = a * Math.min(1, (t - 1.6) / 0.8);
+      drawTextCentered(c, 'LEVELS FOUND  ' + L.count, W / 2, H - 30, C.dim, 1, '#000');
+    }
+    c.globalAlpha = 1;
   }
 
   box(x, y, w, h) {

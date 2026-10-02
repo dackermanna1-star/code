@@ -25,6 +25,8 @@ uniform float uFlick[16];
 uniform float uBright;
 uniform float uLightMul;
 uniform float uLens;
+uniform vec4 uPL;      // player light: position, radius (0 = off)
+uniform vec3 uPLCol;
 
 out vec3 vUVW;
 out vec4 vColW;
@@ -58,6 +60,10 @@ void main() {
   float w = clip.w;
   float fl = uFlick[aFC.y];
   vec3 col = (aCol.rgb * uLightMul + aFlk.rgb * fl) * 2.0 * uBright;
+  if (uPL.w > 0.0 && (flags & 1u) == 0u) {
+    float k = max(0.0, 1.0 - distance(wp.xyz, uPL.xyz) / uPL.w);
+    col += uPLCol * k * k * 2.0 * uBright;
+  }
   float d = distance(wp.xyz, uCam);
   float fog = clamp((d - uFog.x) / (uFog.y - uFog.x), 0.0, 1.0);
   if ((flags & 16u) != 0u) fog = 0.0;
@@ -84,6 +90,8 @@ uniform float uSplit;           // layers per array
 uniform vec3 uFogColor;
 uniform float uDither;
 uniform float uAlphaMul;
+uniform float uSat;
+uniform vec3 uTint;
 in vec3 vUVW;
 in vec4 vColW;
 in float vFogW;
@@ -102,6 +110,7 @@ void main() {
   if (t.a < 0.5) discard;
   vec3 c = t.rgb * col.rgb;
   c = mix(c, uFogColor, clamp(fog, 0.0, 1.0));
+  c = mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, uSat) * uTint;
   ivec2 p = ivec2(gl_FragCoord.xy) & 3;
   float d = BAYER[p.y * 4 + p.x] * uDither;
   c = floor(clamp(c * 255.0 + d, 0.0, 255.0) / 8.0) / 31.0;

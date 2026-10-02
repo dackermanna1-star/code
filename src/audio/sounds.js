@@ -9,6 +9,8 @@ import {
   burst, tone, modesBuf, crackle, bubble, squeak, stickSlip, wavetable, oscAdd, envelope, loopLfo,
   mixInto, mixWrap, mulInto, scale, peakOf, normPeak, normRms, mixRms, fadeEdges, softClip, wowLoop, adpcmG, rmsOf,
 } from './dsp.js';
+import { EXTRA } from './registry.js';
+import './levels/index.js';
 
 // ----------------------------------------------------------------------------- canvas
 // A small drawing context: adds layers at times (seconds). In loop mode layers that run past
@@ -950,10 +952,20 @@ export const UI_SOUNDS = {
   } },
 };
 
+// sounds registered by other modules (levels): merged into the tables, built last unless wanted
+const EXTRA_NAMES = new Set();
+for (const [k, d] of Object.entries(EXTRA.shots)) { SHOTS[k] = d; EXTRA_NAMES.add(k); }
+for (const [k, d] of Object.entries(EXTRA.loops)) { LOOPS[k] = d; EXTRA_NAMES.add('loop_' + k); }
+for (const [k, d] of Object.entries(EXTRA.beds)) { BEDS[k] = d; EXTRA_NAMES.add(k); }
+for (const [k, d] of Object.entries(EXTRA.ui)) { UI_SOUNDS[k] = d; EXTRA_NAMES.add('ui_' + k); }
+
 // ============================================================================ bank
 // Every buffer the engine needs, as lazy jobs: { name, sr, loop, kind, make() -> Float32Array,
 // makeG() -> generator returning the same Float32Array }.
-function job(name, sr, loop, kind, makeG) { return { name, sr, loop, kind, makeG, make: () => drain(makeG()) }; }
+function job(name, sr, loop, kind, makeG) {
+  const extra = EXTRA_NAMES.has(name) || EXTRA_NAMES.has(name.replace(/_\d+$/, ''));
+  return { name, sr, loop, kind, extra, makeG, make: () => drain(makeG()) };
+}
 
 export function* bankJobs() {
   for (let s = 0; s < FOOT_NAMES.length; s++) {
@@ -981,14 +993,15 @@ export function* bankJobs() {
 // The bank in the order the engine wants it: what the first seconds of play need comes first
 // (the hum, the air, the yellow room tone, footsteps, menu blips), the rest after.
 const PRIORITY = [(j) => j.name === 'bed_hum', (j) => j.name === 'bed_hvac', (j) => j.name === 'tone_yellow',
-  (j) => j.kind === 'foot', (j) => j.kind === 'ui', (j) => j.kind === 'bed', (j) => j.kind === 'shot', () => true];
+  (j) => j.kind === 'foot', (j) => j.kind === 'ui', (j) => j.kind === 'bed' && !j.extra, (j) => j.kind === 'shot' && !j.extra,
+  (j) => !j.extra, () => true];
 export function bankQueue() {
   const rank = (j) => PRIORITY.findIndex((f) => f(j));
   return [...bankJobs()].map((j, i) => [rank(j), i, j]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map((e) => e[2]);
 }
 
 export const SHOT_VARIANTS = Object.fromEntries(Object.entries(SHOTS).map(([k, d]) => [k, d.n]));
-export const TONES = ['yellow', 'office', 'industrial', 'dark', 'water', 'outdoor', 'school', 'hotel', 'void'];
+export const TONES = Object.keys(BEDS).filter((k) => k.startsWith('tone_')).map((k) => k.slice(5));
 
 
 let JOBS = null;

@@ -5,6 +5,7 @@ import { buildChunkData } from './chunk.js';
 import { CHUNK, LEVEL_H } from '../config.js';
 import { aabbVisible } from '../core/math.js';
 import { POCKETS } from './pockets.js';
+import { levelDimDef, findDoors } from './levels.js';
 import { generateLayer } from '../gfx/textures.js';
 
 const MAX_BUILDERS = 140;
@@ -27,7 +28,7 @@ export class World {
     this.modelM = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
   }
 
-  dimDef(dim) { return this.dimDefs.get(dim) || POCKETS[dim] || null; }
+  dimDef(dim) { return this.dimDefs.get(dim) || POCKETS[dim] || levelDimDef(dim) || null; }
 
   zoneAt(dim, level, x, z) { return this.zones.zoneAt(dim, level, x, z); }
 
@@ -69,6 +70,7 @@ export class World {
       const m = e.data;
       if (m.type === 'hello') { worker.helloed = true; init(); return; }
       if (m.type === 'error') { console.error('[world worker]', m.message); this.inflight.delete(m.key); return; }
+      if (m.type === 'doors') { const res = this.doorWaits && this.doorWaits.get(m.id); if (res) { this.doorWaits.delete(m.id); res(m.list); } return; }
       if (m.type !== 'chunk' || m.gen !== this.workerGen) return;
       // texture pixels ride along with the first chunk that needs them: keep them even if the
       // chunk itself is no longer wanted
@@ -81,6 +83,21 @@ export class World {
       this.stats.buildMs += d.ms || 0;
       this.installChunk(d);
     };
+  }
+
+  // Doors within r metres (async). The worker generates the zones it needs; without a worker
+  // this runs here.
+  queryDoors(dim, story, x, z, r) {
+    if (this.worker && this.workerReady && !this.workerBroken) {
+      const id = (this.doorQueryId = (this.doorQueryId || 0) + 1);
+      this.doorWaits = this.doorWaits || new Map();
+      return new Promise((resolve) => {
+        this.doorWaits.set(id, resolve);
+        this.worker.postMessage({ type: 'doors', gen: this.workerGen, id, dim, story, x, z, r });
+        setTimeout(() => { if (this.doorWaits.has(id)) { this.doorWaits.delete(id); resolve(null); } }, 8000);
+      });
+    }
+    return Promise.resolve(findDoors(this, dim, story, x, z, r));
   }
 
   buildChunk(dim, level, cx, cz) {

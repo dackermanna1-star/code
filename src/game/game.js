@@ -11,10 +11,13 @@ import { TouchUI } from '../ui/touch.js';
 import { Events } from './events.js';
 import { loadSave, writeSave, loadSettings, writeSettings } from './save.js';
 import { vestibuleTrigger, portalTarget } from '../world/portals.js';
+import { LEVELS, levelOfDim, dimOfLevel, levelNumbers } from '../world/levels.js';
+import { LevelNav } from './levelnav.js';
+import { Phone } from '../ui/phone.js';
 
 export const DEFAULT_SEED = 0x5eed0001;
 const DEFAULT_ENV = { fog: [0.42, 0.38, 0.2], fogNear: 5, fogFar: 34, hum: 0.6, hvac: 0.5, reverb: 'room', tone: 'yellow' };
-const USE_LABEL = { save: 'USE TELEPHONE', note: 'READ', locked: 'OPEN', cooler: 'DRINK', vending: 'USE', typewriter: 'USE TYPEWRITER' };
+const USE_LABEL = { save: 'USE TELEPHONE', note: 'READ', locked: 'OPEN', cooler: 'DRINK', vending: 'USE', typewriter: 'USE TYPEWRITER', leveldoor: 'OPEN DOOR' };
 
 export class Game {
   constructor(o) {
@@ -45,7 +48,14 @@ export class Game {
     this.prefetch = null;
     this.mutableVisited = new Map();
     this.mutT = 0;
+    this.discovered = new Set([0]);
+    this.levelState = {};      // per-level scratch state for level scripts
+    this.levelTrans = null;    // walking through a level door
+    this.nav = new LevelNav(this);
+    this.phone = new Phone(this);
   }
+
+  get levelN() { return levelOfDim(this.player ? this.player.dim : 0); }
 
   // ------------------------------------------------------------------ boot
   start() {
@@ -69,9 +79,15 @@ export class Game {
       else if (!document.hidden && this.audio) this.audioCall('resume');
     });
     window.addEventListener('beforeunload', () => { if (this.state === 'play' || this.state === 'pause') this.saveGame('auto'); });
-    if (p.has('x') || p.has('play')) {
-      // development: jump straight in
+    if (p.has('x') || p.has('play') || p.has('lv')) {
+      // development: jump straight in (?lv=<n> starts on that level's arrival point)
       this.state = 'play';
+      if (p.has('lv') && LEVELS[Number(p.get('lv'))]) {
+        const L = LEVELS[Number(p.get('lv'))], E = L.entry;
+        this.spawnAt(L.dim, E.x, E.y || 0, E.z, E.yaw || 0);
+        this.discovered.add(L.n);
+        this.ui.levelCard = { n: L.n, name: L.name, t: 0, first: false, count: this.discovered.size };
+      }
       if (p.has('x')) {
         this.spawnAt(Number(p.get('dim') || 0), Number(p.get('x')), Number(p.get('y') || 0), Number(p.get('z')), Number(p.get('yaw') || 0));
         if (p.has('pitch')) this.player.pitch = this.player.tpitch = Number(p.get('pitch'));
@@ -154,6 +170,10 @@ export class Game {
     else this.spawnAt(0, SPAWN[0] + 0.5, 0, SPAWN[1] + 0.5, 0);
     this.player.distance = 0;
     this.stats = { time: 0, levels: {} };
+    this.discovered = new Set([0]);
+    this.levelTrans = null;
+    this.nav.reset();
+    this.phone.up = false;
     this.events.reset();
     this.state = 'play';
     this.input.lock();
@@ -173,6 +193,9 @@ export class Game {
     this.player.distance = s.distance || 0;
     this.stats = { time: s.time || 0, levels: s.levels || {} };
     this.portalReturn = s.portalReturn || null;
+    this.discovered = new Set([0, ...(s.discovered || []), levelOfDim(s.dim || 0)]);
+    this.levelTrans = null;
+    this.nav.reset();
     this.events.reset();
     this.state = 'play';
     this.input.lock();
@@ -184,7 +207,7 @@ export class Game {
     if (!p || this.state === 'title') return false;
     const ok = writeSave({
       v: 1, seed: this.seed, dim: p.dim, x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch,
-      distance: p.distance, time: this.stats.time, levels: this.stats.levels, kind, date: Date.now(),
+      distance: p.distance, time: this.stats.time, levels: this.stats.levels, kind, date: Date.now(), discovered: [...this.discovered],
       portalReturn: this.portalReturn,
     });
     if (ok && kind === 'auto') this.ui.saveIcon = 1.6;
@@ -266,6 +289,14 @@ export class Game {
   // drop the player onto a random spot some levels down (fell into nothing)
   fellThrough() {
     const p = this.player;
+    // out of a level's world: you slip through into another level
+    if (this.levelN !== 0 && !this.levelTrans) {
+      const L = LEVELS[this.levelN];
+      const all = levelNumbers().filter((n) => n !== this.levelN);
+      if (L && L.fallTo === 'entry') this.enterLevel(L.n, null);
+      else if (all.length) this.enterLevel(all[Math.floor(Math.random() * all.length)], null);
+      return;
+    }
     const down = 1 + Math.floor(Math.random() * 3);
     const lvl = p.level() - down;
     const a = Math.random() * Math.PI * 2;
@@ -353,11 +384,19 @@ export class Game {
       p.update(dt, { mx: 0, mz: 0, turn: 0, lookX: 0, lookY: 0 });
     } else {
       if (inp.pause) { this.pause(); return; }
+      if (inp.phone && !this.levelTrans) this.phone.toggle();
       p.sens = 0.0023 * this.settings.sens;
       p.invertY = this.settings.invertY;
-      p.update(dt, inp);
+      p.update(dt, this.levelTrans ? { mx: 0, mz: 0, turn: 0, lookX: 0, lookY: 0 } : inp);
       this.findTarget();
-      if (inp.use && this.target) this.interact(this.target);
+      if (inp.use && this.target && !this.levelTrans) this.interact(this.target);
+    }
+    this.updateLevelTransition(dt);
+    this.nav.update(dt, this.phone.up && !this.levelTrans);
+    const L = LEVELS[this.levelN];
+    if (L && L.script && !this.levelTrans) {
+      const st = this.levelState[L.n] || (this.levelState[L.n] = {});
+      try { L.script({ game: this, player: p, level: L, state: st, time: this.time }, dt); } catch (e) { console.warn('level script', L.n, e); L.script = null; }
     }
     this.checkPortals();
     this.world.update(p.dim, p.x, p.y, p.z, 5, false, this.prefetch);
@@ -458,6 +497,70 @@ export class Game {
     this.world.update(p.dim, p.x, p.y, p.z, 0, 24);
   }
 
+  // ------------------------------------------------------------------ levels
+  // Every level door leads to a random level (never the one you are in). The door you arrived
+  // through locks behind you.
+  useLevelDoor(it) {
+    const p = this.player;
+    const here = this.levelN;
+    const arrival = (this.world.chunksNear(p.dim, p.x, p.z, 2) || []).some((ch) => (ch.data.doors || []).some((d) => d.arrival && Math.hypot(d.x - it.x, d.z - it.z) < 0.6));
+    if (arrival) {
+      this.audioCall('play', 'locked_rattle', it.x, it.y, it.z, {});
+      this.ui.say('It has locked behind you.');
+      return;
+    }
+    const po = (it.prop && it.prop.opts) || {};
+    if (po.message) { this.audioCall('play', 'locked_rattle', it.x, it.y, it.z, {}); this.ui.say(po.message); return; }
+    if (po.target !== undefined && LEVELS[po.target]) { this.enterLevel(po.target, it); return; }
+    const all = levelNumbers().filter((n) => n !== here);
+    if (!all.length) { this.ui.say('It will not open.'); return; }
+    const target = this.params.has('level') && LEVELS[Number(this.params.get('level'))] && Number(this.params.get('level')) !== here ? Number(this.params.get('level')) : all[Math.floor(Math.random() * all.length)];
+    this.enterLevel(target, it);
+  }
+
+  enterLevel(n, door) {
+    const L = LEVELS[n];
+    if (!L) return;
+    const p = this.player;
+    if (door) this.audioCall('play', 'door_open', door.x, door.y, door.z, {});
+    this.phone.up = false;
+    this.levelTrans = { n, phase: 'out', t: 0 };
+    this.ui.fadeRate = 1.6;
+    this.ui.fadeTarget = 1;
+    p.frozen = true;
+  }
+
+  updateLevelTransition(dt) {
+    const T = this.levelTrans;
+    if (!T) return;
+    const L = LEVELS[T.n];
+    T.t += dt;
+    if (T.phase === 'out' && T.t > 1.3) {
+      const E = L.entry;
+      this.spawnAt(L.dim, E.x, E.y || 0, E.z, E.yaw || 0);
+      this.player.pitch = this.player.tpitch = E.pitch || 0;
+      this.nav.reset();
+      this.events.reset();
+      this.look = null;
+      T.phase = 'load';
+      T.t = 0;
+    } else if (T.phase === 'load' && !this.pendingSpawn && T.t > 0.4) {
+      const first = !this.discovered.has(T.n);
+      this.discovered.add(T.n);
+      this.ui.levelCard = { n: T.n, name: L.name, t: 0, first, count: this.discovered.size };
+      this.ui.fadeRate = 0.55;
+      this.ui.fadeTarget = 0;
+      this.audioCall('play', 'arrive', undefined, undefined, undefined, { vol: 1 });
+      this.player.frozen = false;
+      T.phase = 'in';
+      T.t = 0;
+    } else if (T.phase === 'in' && T.t > 2.5) {
+      this.ui.fadeRate = 2.4;
+      this.levelTrans = null;
+      this.saveGame('auto');
+    }
+  }
+
   findTarget() {
     const p = this.player;
     const cam = p.camera(this.time);
@@ -475,7 +578,7 @@ export class Game {
       }
     }
     this.target = best;
-    this.ui.prompt = best ? '[' + (this.input.isTouch ? 'USE' : this.input.usingPad ? 'X' : 'E') + '] ' + (USE_LABEL[best.prop && best.prop.type === 'typewriter' ? 'typewriter' : best.kind] || 'USE') : null;
+    this.ui.prompt = best ? '[' + (this.input.isTouch ? 'USE' : this.input.usingPad ? 'X' : 'E') + '] ' + ((best.prop && best.prop.opts && best.prop.opts.label) || USE_LABEL[best.prop && best.prop.type === 'typewriter' ? 'typewriter' : best.kind] || 'USE') : null;
   }
 
   interact(it) {
@@ -492,7 +595,16 @@ export class Game {
       case 'note': {
         const idx = it.prop && it.prop.opts && it.prop.opts.text !== undefined ? it.prop.opts.text : Math.floor(it.x * 13 + it.z * 7);
         this.audioCall('play', 'paper', it.x, it.y, it.z, {});
-        this.ui.showNote(noteText(idx));
+        this.ui.showNote(typeof idx === 'string' ? idx : noteText(idx));
+        break;
+      }
+      case 'level': {
+        // a level's own interactive objects: handled by the level's onUse(ctx, item)
+        const L = LEVELS[this.levelN];
+        if (L && L.onUse) {
+          const st = this.levelState[L.n] || (this.levelState[L.n] = {});
+          try { L.onUse({ game: this, player: p, level: L, state: st, time: this.time }, it); } catch (e) { console.warn('level onUse', L.n, e); }
+        }
         break;
       }
       case 'locked':
@@ -507,6 +619,9 @@ export class Game {
         this.audioCall('play', 'vending_clunk', it.x, it.y, it.z, {});
         this.ui.say(Math.random() < 0.7 ? 'Nothing comes out.' : 'SOLD OUT');
         break;
+      case 'leveldoor':
+        this.useLevelDoor(it);
+        break;
       default:
         break;
     }
@@ -516,13 +631,68 @@ export class Game {
   updateEnv(dt) {
     const p = this.player;
     const zone = this.world.zoneInfoAt(p.dim, p.x, p.y + 0.5, p.z);
-    const target = (zone && zone.params && zone.params.env) || DEFAULT_ENV;
+    let target = (zone && zone.params && zone.params.env) || DEFAULT_ENV;
+    // a level script may override parts of the look (this.look is reset on every level change)
+    if (this.look && this.levelN !== 0) target = { ...target, ...this.look };
     this.zone = zone;
     const k = 1 - Math.exp(-dt * 0.9);
     for (let i = 0; i < 3; i++) this.env.fog[i] += (target.fog[i] - this.env.fog[i]) * k;
     this.env.fogNear += (target.fogNear - this.env.fogNear) * k;
     this.env.fogFar += (target.fogFar - this.env.fogFar) * k;
     this.env.hum = target.hum; this.env.hvac = target.hvac; this.env.reverb = target.reverb; this.env.tone = target.tone;
+    this.updateLevelLook(dt, target, k);
+  }
+
+  // sky, weather and colour grade: the zone's env first, then the level's defaults
+  updateLevelLook(dt, zenv, k) {
+    const L = LEVELS[this.levelN];
+    const e = this.env;
+    // chunk streaming radius (open levels can see further)
+    const vr = (zenv.viewRadius ?? (L && L.viewRadius)) || 3;
+    if (this.world.radius !== vr) this.world.radius = vr;
+    // sky: colours blend, the rest switches
+    const sky = zenv.sky !== undefined ? zenv.sky : L ? L.sky : null;
+    if (!sky) e.sky = null;
+    else {
+      if (!e.sky || e.skySrc !== sky) {
+        const prev = e.sky;
+        e.sky = { ...sky, top: [...(prev ? prev.top : sky.top)], horizon: [...(prev ? prev.horizon : sky.horizon)], ground: [...((prev && prev.ground) || sky.ground || sky.horizon)] };
+        e.skySrc = sky;
+        for (const part of ['band', 'clouds']) {
+          if (sky[part]) {
+            const li = this.texIndex[sky[part].layer];
+            e.sky[part] = { ...sky[part], layerIndex: li !== undefined && li < (this.renderer.texPer || 1e9) ? li : -1 };
+            if (li !== undefined) this.world.ensureLayers([li]);
+          }
+        }
+      }
+      for (const key of ['top', 'horizon', 'ground']) {
+        const to = sky[key] || sky.horizon;
+        for (let i = 0; i < 3; i++) e.sky[key][i] += (to[i] - e.sky[key][i]) * k;
+      }
+    }
+    // weather: fades in and out; none under a roof unless it rains indoors
+    const wx = zenv.weather !== undefined ? zenv.weather : L ? L.weather : null;
+    this.roofT = (this.roofT || 0) - dt;
+    if (this.roofT <= 0) {
+      this.roofT = 0.3;
+      const p = this.player, tmp = [];
+      this.world.queryBoxes(p.dim, p.x - 0.1, p.y + 2.0, p.z - 0.1, p.x + 0.1, p.y + 40, p.z + 0.1, tmp);
+      this.underRoof = tmp.length > 0;
+    }
+    const want = wx && (wx.indoor || !this.underRoof) ? wx.amount ?? 1 : 0;
+    if (wx && (!e.weather || e.weather.kind !== wx.kind) && (!e.weather || e.weather.amount < 0.02)) e.weather = { ...wx, amount: 0 };
+    if (e.weather) {
+      if (wx && e.weather.kind === wx.kind) Object.assign(e.weather, { ...wx, amount: e.weather.amount });
+      e.weather.amount += ((e.weather.kind === (wx && wx.kind) ? want : 0) - e.weather.amount) * Math.min(1, dt * 1.5);
+      if (!wx && e.weather.amount < 0.01) e.weather = null;
+    }
+    // colour grade
+    const gr = zenv.grade !== undefined ? zenv.grade : L ? L.grade : null;
+    const ts = gr ? gr.sat ?? 1 : 1, tt = gr && gr.tint ? gr.tint : [1, 1, 1];
+    if (!e.grade) e.grade = { sat: 1, tint: [1, 1, 1] };
+    e.grade.sat += (ts - e.grade.sat) * k;
+    for (let i = 0; i < 3; i++) e.grade.tint[i] += (tt[i] - e.grade.tint[i]) * k;
   }
 
   updateAudio(dt) {
@@ -569,9 +739,13 @@ export class Game {
     r.snapScale = s.jitterMode === 0 ? 0.001 : s.jitterMode === 2 ? 2.4 : 1;
     r.lens = s.jitterMode === 0 ? 0 : s.jitterMode === 2 ? 0.05 : 0.03;
     r.dither = s.dither;
-    r.begin(cam, { fogColor: this.env.fog, fogNear: this.env.fogNear, fogFar: this.env.fogFar, time: this.time, flick: this.flicker.v, bright: s.bright });
+    const pl = this.state === 'play' || this.state === 'pause' ? this.phone.light() : null;
+    if (pl) { pl.x = cam.x; pl.y = cam.y - 0.25; pl.z = cam.z; }
+    const look = this.state === 'title' ? {} : this.env;
+    r.begin(cam, { fogColor: this.env.fog, fogNear: this.env.fogNear, fogFar: this.env.fogFar, time: this.time, flick: this.flicker.v, bright: s.bright, sky: look.sky, grade: look.grade, plight: pl });
     this.world.time = this.time;
     this.world.draw(r, cam.dim, cam, this.env.fogFar, this.env.fogFar * 0.8);
+    if (look.weather) r.drawWeather(cam, look.weather, this.time, look.grade);
     r.end();
     this.ui.draw(dt);
     if (this.debug) this.drawDebug();

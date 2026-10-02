@@ -51,11 +51,11 @@ export class Input {
   poll() {
     const s = {
       mx: 0, mz: 0, turn: 0, lookX: 0, lookY: 0, run: false, crouchHold: false,
-      crouchToggle: false, use: false, climb: false, pause: false,
+      crouchToggle: false, use: false, climb: false, pause: false, phone: false,
       menuUp: false, menuDown: false, menuLeft: false, menuRight: false, menuOk: false, menuBack: false,
       click: this.clicked,
     };
-    if (this.down('KeyW', 'ArrowUp')) s.mz += 1;
+    if (this.down('KeyW')) s.mz += 1;
     if (this.down('KeyS', 'ArrowDown')) s.mz -= 1;
     if (this.down('KeyA')) s.mx -= 1;
     if (this.down('KeyD')) s.mx += 1;
@@ -67,6 +67,7 @@ export class Input {
     s.use = this.hit('KeyE', 'KeyF', 'Enter') || (this.locked && this.clicked);
     s.climb = this.hit('Space');
     s.pause = this.hit('Escape', 'KeyP', 'Tab');
+    s.phone = this.hit('ArrowUp', 'KeyQ');
     s.menuUp = this.hit('ArrowUp', 'KeyW');
     s.menuDown = this.hit('ArrowDown', 'KeyS');
     s.menuLeft = this.hit('ArrowLeft', 'KeyA');
@@ -102,6 +103,7 @@ export class Input {
     s.use = s.use || hit(0);
     s.climb = s.climb || hit(2);
     s.pause = s.pause || hit(9);
+    s.phone = s.phone || hit(3) || hit(8);
     s.menuUp = s.menuUp || hit(12) || (ly < -0.6 && !this.padStick);
     s.menuDown = s.menuDown || hit(13) || (ly > 0.6 && !this.padStick);
     s.menuLeft = s.menuLeft || hit(14);
@@ -175,6 +177,7 @@ export class Input {
     if (T.pressed.has('use') || T.pressed.has('tap')) { s.use = true; s.menuOk = true; }
     if (T.pressed.has('climb')) s.climb = true;
     if (T.pressed.has('menu')) s.pause = true;
+    if (T.pressed.has('phone')) s.phone = true;
     if (T.pressed.has('up')) s.menuUp = true;
     if (T.pressed.has('down')) s.menuDown = true;
     if (T.pressed.has('back')) s.menuBack = true;

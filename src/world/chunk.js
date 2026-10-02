@@ -113,10 +113,16 @@ export function buildChunkData(world, dim, level, cx, cz) {
         continue;
       }
       const flg = win.flags[i];
-      // floor
+      // floor (smooth terrain: corners take the average height of the smooth cells around them)
       if (isNum(f) && !(flg & CF.STAIRS)) {
         const st = matStyle(win.fmat[i]);
         const base = arch.grid(x, y0 + f, z + 1, 1, 0, 0, 0, 0, -1, 1, 1, [0, 1, 0], st, 'world', st.su, st.sv);
+        if (flg & CF.SMOOTH) {
+          arch.pos[base * 3 + 1] = y0 + cornerH(x, z + 1, f);
+          arch.pos[(base + 1) * 3 + 1] = y0 + cornerH(x + 1, z + 1, f);
+          arch.pos[(base + 2) * 3 + 1] = y0 + cornerH(x, z, f);
+          arch.pos[(base + 3) * 3 + 1] = y0 + cornerH(x + 1, z, f);
+        }
         nudgeCellQuad(arch, base, x, z, true);
       }
       // ceiling (missing tiles become a dark recess into the plenum)
@@ -138,7 +144,7 @@ export function buildChunkData(world, dim, level, cx, cz) {
         const nx = x + dx, nz = z + dz;
         if (!win.inside(nx, nz) || S(nx, nz) || isVoid(nx, nz)) continue;
         const nf = F(nx, nz), nc = C(nx, nz);
-        if (isNum(f)) {
+        if (isNum(f) && !((flg & CF.SMOOTH) && smooth(nx, nz))) {
           let low = null;
           if (isNum(nf) && nf < f - 0.001) low = nf;
           else if (!isNum(nf)) low = f - 0.3;
@@ -155,6 +161,20 @@ export function buildChunkData(world, dim, level, cx, cz) {
         }
       }
     }
+  }
+
+  function smooth(x, z) {
+    if (!win.inside(x, z)) return false;
+    const j = win.idx(x, z);
+    return (win.flags[j] & CF.SMOOTH) !== 0 && !win.solid[j] && isNum(win.floor[j]);
+  }
+  // height of the terrain corner at (cx, cz): mean of the smooth cells touching it
+  function cornerH(cx, cz, own) {
+    let s = 0, n = 0;
+    for (let dz = -1; dz <= 0; dz++) for (let dx = -1; dx <= 0; dx++) {
+      if (smooth(cx + dx, cz + dz)) { s += win.floor[win.idx(cx + dx, cz + dz)]; n++; }
+    }
+    return n ? s / n : own;
   }
 
   // emits a vertical quad on the edge of cell (x,z) toward (dx,dz), facing the neighbour
@@ -373,6 +393,7 @@ export function buildChunkData(world, dim, level, cx, cz) {
   const interact = [];
   const dynamics = [];
   const specials = [];
+  const doors = [];
   const inChunk = (x, z) => x >= ax && x < bx && z >= az && z < bz;
   for (const zb of win.zones) {
     for (const L of zb.lights) {
@@ -421,6 +442,7 @@ export function buildChunkData(world, dim, level, cx, cz) {
     for (const f of zb.fixtures) if (inChunk(f.x, f.z)) emitFixture(f);
     for (const d of zb.decals) if (inChunk(d.x, d.z)) emitDecal(d);
     for (const e of zb.emitters) if (inChunk(e.x, e.z)) emitters.push({ x: e.x, y: e.y + y0, z: e.z, snd: e.snd, vol: e.vol, rad: e.rad });
+    for (const d of zb.doors) if (inChunk(d.x, d.z)) doors.push({ x: d.x, y: d.y + y0, z: d.z, rot: d.rot, arrival: !!d.arrival });
     for (const s of zb.specials) if (s.x !== undefined && inChunk(s.x, s.z)) specials.push(s);
   }
   function styleExtra(b) {
@@ -604,7 +626,7 @@ export function buildChunkData(world, dim, level, cx, cz) {
     props: props.n ? props.pack(bP.col, bP.flk) : null, propBounds: props.n ? props.bounds() : null,
     trans: trans.n ? trans.pack(bT.col, bT.flk) : null,
     boxes: new Float32Array(boxes),
-    lights: chunkLights, emitters, interact, dynamics, specials,
+    lights: chunkLights, emitters, interact, dynamics, specials, doors,
     zones: zonesUsed, zoneIdx,
     tris: (arch.ni + props.ni + trans.ni) / 3,
   };

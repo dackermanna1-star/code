@@ -293,6 +293,7 @@ export function matStyle(id, extra) {
   const st = {
     layer: m.layers[0], flags: m.flags, tint: m.tint, su: m.su, sv: m.sv, lit: true, stain: m.stain, mat: id,
   };
+  if (m.flags & VF.FULLBRIGHT) { st.lit = false; st.color = [0.08, 0.08, 0.08]; st.flk = [m.glow, m.glow, m.glow]; st.chan = m.chan; }
   if (extra) Object.assign(st, extra);
   return st;
 }

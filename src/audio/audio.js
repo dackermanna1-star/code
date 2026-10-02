@@ -589,7 +589,7 @@ export class AudioEngine {
       }
       const P = this.calc(v);
       this.limit(null, MAX_VOICES);
-      const voice = this.voice(buf, { kind: 'shot', rate: rnd(0.975, 1.025), gain: P.dry, lowpass: P.fc, pan: P.pan, send: P.wet });
+      const voice = this.voice(buf, { kind: 'shot', rate: clamp(num(o.rate, 1), 0.25, 4) * rnd(0.975, 1.025), gain: P.dry, lowpass: P.fc, pan: P.pan, send: P.wet });
       Object.assign(voice, { positional: v.positional, x: v.x, y: v.y, z: v.z, distant: v.distant, base: v.base, occ: v.occ, af: P.fc, ag: P.dry, aw: P.wet, ap: P.pan });
       this.voices.push(voice);
     } catch (e) { this.warn(e); }

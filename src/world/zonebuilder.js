@@ -17,7 +17,7 @@ export const W = {
 // wall types that block walking at standing height
 export const W_BLOCKS = new Set([W.WALL, W.HALF, W.WINDOW, W.RAIL, W.GLASS, W.FULL, W.PART]);
 
-export const CF = { STAIRS: 1, VOID: 2, NOLIGHTBLEED: 4, WET: 8, NOPROPS: 16, GATE: 32, KEEP: 64, ROOMWALL: 128, HOLE_CEIL: 256 };
+export const CF = { STAIRS: 1, VOID: 2, NOLIGHTBLEED: 4, WET: 8, NOPROPS: 16, GATE: 32, KEEP: 64, ROOMWALL: 128, HOLE_CEIL: 256, SMOOTH: 512 };
 
 export class ZoneBuilder {
   constructor(zone, seedOverride) {
@@ -46,6 +46,7 @@ export class ZoneBuilder {
     this.decals = [];
     this.emitters = [];
     this.specials = [];
+    this.doors = [];      // level doors {x, y, z, rot} (y relative to the level base)
     this.dynamics = [];
     this.gates = [];
     this.rng = new RNG(seedOverride ?? zone.seed);
@@ -159,6 +160,7 @@ export class ZoneBuilder {
     this.emitters = this.emitters.filter((e) => !inside(e.x, e.z));
     this.brushes = this.brushes.filter((b) => !(b.x0 < x1 && b.x1 > x0 && b.z0 < z1 && b.z1 > z0));
     this.dynamics = this.dynamics.filter((p) => !inside(p.x, p.z));
+    this.doors = this.doors.filter((d) => !inside(d.x, d.z));
   }
 
   // walkability between adjacent cells (used by connectivity checks)

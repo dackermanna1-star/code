@@ -17,6 +17,9 @@ function compile(gl, type, src) {
   return s;
 }
 
+import { SkyFx } from './skyfx.js';
+const NO_GRADE = { sat: 1, tint: [1, 1, 1] };
+
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
@@ -33,7 +36,7 @@ export class Renderer {
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('link failed: ' + gl.getProgramInfoLog(prog));
     this.prog = prog;
     this.u = {};
-    for (const n of ['uVP', 'uModel', 'uCam', 'uSnap', 'uFog', 'uTime', 'uFlick', 'uBright', 'uTex', 'uFogColor', 'uDither', 'uAlphaMul', 'uLightMul', 'uLens', 'uTex2', 'uTex3', 'uTex4', 'uSplit']) {
+    for (const n of ['uVP', 'uModel', 'uCam', 'uSnap', 'uFog', 'uTime', 'uFlick', 'uBright', 'uTex', 'uFogColor', 'uDither', 'uAlphaMul', 'uLightMul', 'uLens', 'uTex2', 'uTex3', 'uTex4', 'uSplit', 'uPL', 'uPLCol', 'uSat', 'uTint']) {
       this.u[n] = gl.getUniformLocation(prog, n);
     }
     this.view = mat4();
@@ -133,6 +136,10 @@ export class Renderer {
     fpsView(this.view, cam.x, cam.y, cam.z, cam.yaw, cam.pitch, cam.roll || 0);
     mul(this.vp, this.proj, this.view);
     frustumPlanes(this.vp, this.planes);
+    if (env.sky) {
+      if (!this.skyfx) this.skyfx = new SkyFx(this);
+      this.skyfx.drawSky(cam, env.sky, env.time, env.grade || NO_GRADE);
+    }
     gl.useProgram(this.prog);
     gl.uniformMatrix4fv(this.u.uVP, false, this.vp);
     gl.uniformMatrix4fv(this.u.uModel, false, this.ident);
@@ -145,6 +152,13 @@ export class Renderer {
     gl.uniform1f(this.u.uBright, env.bright ?? 1);
     gl.uniform1f(this.u.uLightMul, env.lightMul ?? 1);
     gl.uniform1f(this.u.uLens, this.lens);
+    const pl = env.plight;
+    gl.uniform4f(this.u.uPL, pl ? pl.x : 0, pl ? pl.y : 0, pl ? pl.z : 0, pl ? pl.rad : 0);
+    gl.uniform3f(this.u.uPLCol, pl ? pl.color[0] * pl.int : 0, pl ? pl.color[1] * pl.int : 0, pl ? pl.color[2] * pl.int : 0);
+    const gr = env.grade || NO_GRADE;
+    gl.uniform1f(this.u.uSat, gr.sat ?? 1);
+    const tn = gr.tint || NO_GRADE.tint;
+    gl.uniform3f(this.u.uTint, tn[0], tn[1], tn[2]);
     gl.uniform3f(this.u.uFogColor, fc[0], fc[1], fc[2]);
     gl.uniform1f(this.u.uDither, this.dither ? 1 : 0);
     gl.uniform1f(this.u.uAlphaMul, 1);
@@ -185,6 +199,14 @@ export class Renderer {
     gl.drawElements(gl.TRIANGLES, count, gl.UNSIGNED_INT, start * 4);
     this.stats.draws++;
     this.stats.tris += count / 3;
+  }
+
+  // rain / snow / dust around the camera, after the opaque world
+  drawWeather(cam, wx, time, grade) {
+    if (!wx || !(wx.amount > 0)) return;
+    if (!this.skyfx) this.skyfx = new SkyFx(this);
+    this.skyfx.drawWeather(cam, wx, time, grade || NO_GRADE);
+    this.gl.useProgram(this.prog);
   }
 
   end() {
