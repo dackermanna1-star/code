@@ -11,6 +11,7 @@ import { createGenerator } from '../gen/index';
 import type { DimensionId, WorldGenerator } from '../gen/generator';
 import { Chunk } from '../chunk';
 import { lightChunkLocal } from '../light';
+import { lodTile } from '../gen/lod';
 
 const gens = new Map<string, WorldGenerator>();
 function gen(dimension: DimensionId, seed: number): WorldGenerator {
@@ -41,6 +42,9 @@ self.onmessage = (e: MessageEvent) => {
     } else if (m.type === 'spawn') {
       const result = gen(m.dimension, m.seed).findSpawn();
       (self as any).postMessage({ type: 'spawn', id: m.id, result });
+    } else if (m.type === 'lod') {
+      const r = lodTile(gen(m.dimension, m.seed), m.x0, m.z0, m.n, m.step);
+      (self as any).postMessage({ type: 'lod', id: m.id, ...r }, [r.heights.buffer, r.colors.buffer, r.kinds.buffer]);
     } else if (m.type === 'biome') {
       const g = gen(m.dimension, m.seed);
       (self as any).postMessage({ type: 'biome', id: m.id, result: g.biomeAt(m.x, m.z) });

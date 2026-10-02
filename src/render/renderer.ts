@@ -50,6 +50,8 @@ export interface FrameState {
   underwater: boolean;
   waterFogColor: THREE.Color;
   wind: number;
+  /** 0..1 rain wetness of exposed surfaces. */
+  wetness?: number;
   nightVision: number;
   damage: number;
   overlay?: THREE.Vector4;
@@ -115,6 +117,7 @@ export class Renderer {
   private debugPass: CopyPass | null = null;
   private debugShader: FullscreenPass | null = null;
   private entityDepth: THREE.Material | null = null;
+  private prevResolved: THREE.Texture | null = null;
 
   /** Linear view-distance texture of the current frame (R32F, sky = 1e6). For soft particles / overlays. */
   get linearDepthTexture(): THREE.Texture {
@@ -180,6 +183,15 @@ export class Renderer {
       u_waterFog: { value: new THREE.Color(0.02, 0.08, 0.12) },
       u_dimension: { value: 0 },
       u_dimAmbient: { value: new THREE.Color(0, 0, 0) },
+      u_wetness: { value: 0 },
+      u_prevColor: { value: null },
+      u_linDepth: { value: null },
+      u_prevViewProj: { value: new THREE.Matrix4() },
+      u_viewMat: { value: new THREE.Matrix4() },
+      u_viewInvMat: { value: new THREE.Matrix4() },
+      u_projMat: { value: new THREE.Matrix4() },
+      u_ssrEnabled: { value: 1 },
+      u_hasPrev: { value: 0 },
       ...this.shadowUniforms,
     };
     this.translucentUniforms = {
@@ -382,6 +394,15 @@ export class Renderer {
     lu.g2.value = this.gbuffer.textures[2];
     lu.g3.value = this.gbuffer.textures[3];
     lu.u_depth.value = this.depthTex;
+    lu.u_wetness.value = f.wetness ?? 0;
+    lu.u_linDepth.value = this.linDepth.target.texture;
+    lu.u_prevViewProj.value.copy(this.prevViewProj);
+    lu.u_viewMat.value.copy(cam.matrixWorldInverse);
+    lu.u_viewInvMat.value.copy(cam.matrixWorld);
+    lu.u_projMat.value.copy(cam.projectionMatrix);
+    lu.u_ssrEnabled.value = s.ssr ? 1 : 0;
+    lu.u_prevColor.value = this.prevResolved;
+    lu.u_hasPrev.value = this.prevResolved ? 1 : 0;
     this.lighting.render(gl, this.hdrA);
     this.atmo.render(this.hdrA, this.depthTex, cam);
 
@@ -414,7 +435,8 @@ export class Renderer {
       const viewInv = cam.matrixWorld;
       const out = this.taa.render(gl, this.hdrB.texture, this.depthTex, cam.projectionMatrixInverse, viewInv, this.prevViewProj);
       resolved = out.texture;
-    }
+      this.prevResolved = out.texture;
+    } else this.prevResolved = null;
     this.prevViewProj.copy(this.viewProj);
 
     // ---------- hand / overlays (post TAA)
@@ -470,6 +492,7 @@ export class Renderer {
   resetTemporal() {
     this.taa?.reset();
     this.exposure.reset();
+    this.prevResolved = null;
   }
 
   get exposureUniforms() {

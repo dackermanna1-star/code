@@ -28,6 +28,7 @@ import { BIOMES } from '../world/biomes';
 import { TICK_SECONDS, PHYSICS_DT, DAY_LENGTH_TICKS } from '../core/constants';
 import { seedFromString } from '../core/rng';
 import type { Entity } from '../entity/entity';
+import { LodTerrain } from '../render/lodTerrain';
 
 export type Difficulty = 'peaceful' | 'easy' | 'normal' | 'hard';
 
@@ -104,6 +105,8 @@ export class Game {
   onFrame: ((dt: number) => void) | null = null;
   readonly sunDir = new THREE.Vector3();
   readonly moonDir = new THREE.Vector3();
+  /** Distant terrain LOD beyond the loaded chunks. */
+  readonly lod = new LodTerrain();
 
   constructor(readonly canvas: HTMLCanvasElement, settings?: GameSettings) {
     this.settings = settings ?? loadSettings();
@@ -116,6 +119,7 @@ export class Game {
     this.cameraCtl.baseFov = this.settings.fov;
     this.cameraCtl.viewBobbing = this.settings.viewBobbing;
     this.interaction = new Interaction(this);
+    this.lod.outerRadius = this.settings.lodDistance;
     window.addEventListener('resize', () => this.renderer.resize(window.innerWidth, window.innerHeight));
     this.renderer.resize(window.innerWidth, window.innerHeight);
   }
@@ -185,6 +189,7 @@ export class Game {
       this.chunks.dispose();
       this.renderer.chunks.clear();
       this.entities?.clear();
+      this.lod.clear();
     }
     this.dimension = dim;
     this.world = new World(dim, this.info.seed);
@@ -271,6 +276,8 @@ export class Game {
     const p = this.player;
     // chunk streaming
     this.chunks.update(p.pos.x, p.pos.z);
+    this.lod.enabled = this.settings.lod && this.dimension === 'overworld';
+    if (!this.loading) this.lod.update(this.chunks, p.pos.x, p.pos.z, this.realTime);
     if (this.loading) {
       const near = this.chunks.nearReady(2) && this.world.isLoaded(Math.floor(p.pos.x), Math.floor(p.pos.z));
       if (near) {
@@ -437,10 +444,10 @@ export class Game {
     const sky = {
       sunDir: this.sunDir, moonDir: this.moonDir, moonPhase: moonPhase(this.ticks + this.dayTime), time: this.realTime,
       rain: this.weather.rain, thunder: this.weather.thunder, dimension: this.dimension as 'overworld' | 'nether' | 'end',
-      cameraPosition: cam.position, renderDistance: this.settings.renderDistance * 16,
+      cameraPosition: cam.position, renderDistance: this.lod.enabled ? Math.max(this.lod.outerRadius, this.settings.renderDistance * 16) : this.settings.renderDistance * 16,
       biomeFogColor: biome?.fog !== undefined ? new THREE.Color(biome.fog) : undefined,
     };
-    const gb: THREE.Scene[] = [this.entities.scene];
+    const gb: THREE.Scene[] = [this.entities.scene, this.lod.scene];
     const fw: THREE.Scene[] = [this.entities.forwardScene];
     const extra = this.renderExtras;
     if (extra.gbuffer) gb.push(...extra.gbuffer);
@@ -453,6 +460,7 @@ export class Game {
       underwater,
       waterFogColor: waterFog,
       wind: this.weather.rain * 0.6 + this.weather.thunder * 0.4,
+      wetness: (this.weather as any).wetness ?? this.weather.rain,
       nightVision: p.hasEffect('night_vision') ? 1 : 0,
       damage: p.hurtTime > 0 ? p.hurtTime / p.hurtDuration : 0,
       overlay: extra.overlay,
@@ -606,6 +614,7 @@ export class Game {
       }
     }
     if (s.brightness !== undefined) this.renderer.lightUniforms.u_minAmbient.value = 0.002 + s.brightness * 0.01;
+    if (s.lodDistance !== undefined) this.lod.outerRadius = s.lodDistance;
     this.audio?.setMasterVolume?.(this.settings.masterVolume);
     this.audio?.setCategoryVolume?.('music', this.settings.musicVolume);
   }

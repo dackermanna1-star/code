@@ -126,6 +126,7 @@ export class ChunkManager {
         this.world.removeChunk(c.cx, c.cz);
         this.sink.removeChunk(c.cx, c.cz);
         this.requested.delete(k);
+        this.meshedChunks.delete(k);
         for (let sy = 0; sy < SECTIONS_PER_CHUNK; sy++) this.world.dirtySections.delete(sectionKey(c.cx, sy, c.cz));
       }
     }
@@ -195,6 +196,7 @@ export class ChunkManager {
     // Empty section with empty neighbours above/below: nothing to draw
     if (!c.blocks[sy] && !(sy > 0 && c.blocks[sy - 1]) && !(sy < 15 && c.blocks[sy + 1])) {
       this.sink.updateSection(k, cx, sy, cz, { opaque: null, cutout: null, translucent: null });
+      this.checkMeshed(cx, cz);
       return;
     }
     const input = this.buildInput(cx, sy, cz);
@@ -210,11 +212,22 @@ export class ChunkManager {
         if (res.version !== this.sectionVersion.get(k)) return;
         this.sink.updateSection(k, cx, sy, cz, res.out);
         this.meshedCount++;
+        this.checkMeshed(cx, cz);
       })
       .catch((e) => {
         this.meshing.delete(k);
         console.error('mesh failed', e);
       });
+  }
+
+  private checkMeshed(cx: number, cz: number) {
+    const ck = chunkKey(cx, cz);
+    if (this.meshedChunks.has(ck)) return;
+    for (let sy = 0; sy < SECTIONS_PER_CHUNK; sy++) {
+      const k = sectionKey(cx, sy, cz);
+      if (this.world.dirtySections.has(k) || this.meshing.has(k)) return;
+    }
+    this.meshedChunks.add(ck);
   }
 
   /** Build the padded 18³ input for a section from the world. */
@@ -263,6 +276,19 @@ export class ChunkManager {
   locate(structure: string, x: number, z: number): Promise<{ x: number; y: number; z: number } | null> {
     return this.gen.request<{ result: any }>({ type: 'locate', dimension: this.world.dimension, seed: this.world.seed, structure, x, z }).then((r) => r.result);
   }
+  /** Request a distant-terrain LOD tile (low priority: only when generation is idle). */
+  requestLod(x0: number, z0: number, n: number, step: number): Promise<{ heights: Float32Array; colors: Uint32Array; kinds: Uint8Array }> {
+    return this.gen.request({ type: 'lod', dimension: this.world.dimension, seed: this.world.seed, x0, z0, n, step });
+  }
+  get genIdle() {
+    return this.gen.busy === 0;
+  }
+  /** True once every section of the chunk has been meshed at least once. */
+  isChunkMeshed(cx: number, cz: number): boolean {
+    return this.meshedChunks.has(chunkKey(cx, cz));
+  }
+  readonly meshedChunks = new Set<number>();
+
   findSpawn(): Promise<{ x: number; y: number; z: number }> {
     return this.gen.request<{ result: any }>({ type: 'spawn', dimension: this.world.dimension, seed: this.world.seed }).then((r) => r.result);
   }

@@ -156,6 +156,7 @@ type SettingDef =
 const SETTINGS: SettingDef[] = [
   { key: 'quality', label: 'Graphics Quality', type: 'select', options: [['low', 'Low'], ['medium', 'Medium'], ['high', 'High'], ['ultra', 'Ultra']] },
   { key: 'renderDistance', label: 'Render Distance', type: 'range', min: 2, max: 24, step: 1, fmt: (v) => `${v} chunks` },
+  { key: 'lodDistance', label: 'Distant Terrain (LOD)', type: 'range', min: 256, max: 2048, step: 64, fmt: (v) => `${v} blocks` },
   { key: 'renderScale', label: 'Render Scale', type: 'range', min: 0.5, max: 1.5, step: 0.05, fmt: (v) => `${Math.round(v * 100)}%` },
   { key: 'fov', label: 'FOV', type: 'range', min: 30, max: 110, step: 1 },
   { key: 'sensitivity', label: 'Mouse Sensitivity', type: 'range', min: 0, max: 1, step: 0.01, fmt: (v) => `${Math.round(v * 200)}%` },
@@ -164,6 +165,7 @@ const SETTINGS: SettingDef[] = [
   { key: 'musicVolume', label: 'Music', type: 'range', min: 0, max: 1, step: 0.01, fmt: (v) => `${Math.round(v * 100)}%` },
   { key: 'textureSize', label: 'Texture Resolution (restart)', type: 'select', options: [['64', '64'], ['128', '128'], ['256', '256'], ['512', '512']] },
   { key: 'viewBobbing', label: 'View Bobbing', type: 'bool' },
+  { key: 'lod', label: 'Distant Terrain', type: 'bool' },
   { key: 'bevels', label: 'Bevelled Block Edges', type: 'bool' },
   { key: 'decorations', label: 'Grass Tufts & Leaf Detail', type: 'bool' },
   { key: 'blood', label: 'Blood & Wounds', type: 'bool' },

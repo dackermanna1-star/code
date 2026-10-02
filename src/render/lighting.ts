@@ -33,8 +33,57 @@ uniform float u_underwater;
 uniform vec3 u_waterFog;
 uniform float u_dimension;   // 0 overworld, 1 nether, 2 end
 uniform vec3 u_dimAmbient;
+uniform float u_wetness;
+uniform sampler2D u_prevColor;
+uniform sampler2D u_linDepth;
+uniform mat4 u_prevViewProj;
+uniform mat4 u_viewMat;
+uniform mat4 u_viewInvMat;
+uniform mat4 u_projMat;
+uniform float u_ssrEnabled;
+uniform float u_hasPrev;
 in vec2 v_uv;
 out vec4 o;
+
+// Screen-space reflection against linear depth; returns reflected radiance (rgb) and confidence (a)
+vec4 traceSSR(vec3 vpos, vec3 vR, float jitter, float rough) {
+  if (vR.z > 0.35) return vec4(0.0);
+  float stepLen = 0.18 + length(vpos) * 0.012;
+  vec3 p = vpos + vR * stepLen * (0.5 + jitter);
+  vec3 prev = p;
+  for (int i = 0; i < 28; i++) {
+    vec4 c = u_projMat * vec4(p, 1.0);
+    vec2 uv = c.xy / c.w * 0.5 + 0.5;
+    if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0 || c.w < 0.0) break;
+    float sceneD = texture(u_linDepth, uv).r;
+    float rayD = length(p);
+    float diff = rayD - sceneD;
+    if (diff > 0.0 && diff < stepLen * 2.0 + 0.3) {
+      vec3 a = prev, b = p;
+      for (int k = 0; k < 5; k++) {
+        vec3 m = (a + b) * 0.5;
+        vec4 mc = u_projMat * vec4(m, 1.0);
+        vec2 muv = mc.xy / mc.w * 0.5 + 0.5;
+        if (length(m) > texture(u_linDepth, muv).r) b = m; else a = m;
+      }
+      vec4 bc = u_projMat * vec4(b, 1.0);
+      vec2 huv = bc.xy / bc.w * 0.5 + 0.5;
+      // reproject hit to the previous frame
+      vec3 hitWorld = (u_viewInvMat * vec4(b, 1.0)).xyz;
+      vec4 pc = u_prevViewProj * vec4(hitWorld, 1.0);
+      vec2 puv = pc.xy / pc.w * 0.5 + 0.5;
+      if (puv.x < 0.0 || puv.y < 0.0 || puv.x > 1.0 || puv.y > 1.0) return vec4(0.0);
+      vec2 e = min(huv, 1.0 - huv);
+      float fade = smoothstep(0.0, 0.1, min(e.x, e.y)) * (1.0 - smoothstep(0.15, 0.45, rough)) * (1.0 - float(i) / 28.0 * 0.5);
+      vec3 col = textureLod(u_prevColor, puv, rough * 4.0).rgb;
+      return vec4(min(col, vec3(64.0)), fade);
+    }
+    prev = p;
+    p += vR * stepLen;
+    stepLen *= 1.14;
+  }
+  return vec4(0.0);
+}
 
 float caustics(vec3 p, float t) {
   vec2 q = p.xz * 0.7 + p.y * 0.2;
@@ -47,6 +96,8 @@ float caustics(vec3 p, float t) {
   }
   return c;
 }
+
+bool foliageFlag(uint f) { return (f & 1u) != 0u; }
 
 void main() {
   float depth = texture(u_depth, v_uv).r;
@@ -73,6 +124,33 @@ void main() {
   float ssao = texture(u_ssao, v_uv).r;
   float ao = vao * ssao;
   float noise = ignT(gl_FragCoord.xy, u_frame);
+  vec3 wpos = rel + u_cameraPos;
+
+  // ---------------- rain wetness & puddles (exposed surfaces only)
+  if (u_wetness > 0.001 && (flags & 16u) == 0u) {
+    float exposure = smoothstep(0.86, 0.97, l.r);
+    float up = smoothstep(0.55, 0.95, N.y);
+    float wet = u_wetness * exposure;
+    if (wet > 0.001) {
+      float pn = vnoise(wpos.xz * 0.31) * 0.65 + vnoise(wpos.xz * 1.37) * 0.35;
+      float cavity = 1.0 - vao;
+      float puddle = up * smoothstep(0.5, 0.68, pn + cavity * 0.35 + (u_wetness - 0.5) * 0.25) * step(rough, 0.97) * (foliageFlag(flags) ? 0.0 : 1.0);
+      float porous = smoothstep(0.35, 0.9, rough) * (1.0 - metal);
+      albedo *= mix(1.0, 0.58, wet * porous * (foliageFlag(flags) ? 0.4 : 1.0));
+      rough = mix(rough, foliageFlag(flags) ? rough * 0.75 : 0.32, wet * 0.7);
+      if (puddle > 0.0) {
+        // rain ripples
+        vec2 cell = floor(wpos.xz * 3.0);
+        vec2 f = fract(wpos.xz * 3.0) - 0.5;
+        float t = fract(u_time * 0.9 + hash12(cell) * 7.0);
+        float ring = sin((length(f + (hash22(cell) - 0.5) * 0.4) - t * 0.6) * 40.0) * (1.0 - t) * smoothstep(0.0, 0.1, t);
+        vec3 pN = normalize(vec3(f.x * ring * 0.08, 1.0, f.y * ring * 0.08));
+        N = normalize(mix(N, pN, puddle * wet));
+        rough = mix(rough, 0.02, puddle * wet);
+        albedo *= mix(1.0, 0.82, puddle * wet);
+      }
+    }
+  }
 
   vec3 L = u_lightDir;
   vec3 H = normalize(V + L);
@@ -132,12 +210,18 @@ void main() {
   // subtle block light specular
   vec3 blockSpec = blk * envBRDFApprox(f0, max(rough, 0.35), NoV) * 0.15 * ao;
 
-  // ---------------- specular ambient (sky reflections)
+  // ---------------- specular ambient (sky reflections + SSR)
   vec3 R = reflect(-V, N);
   R.y = abs(R.y) * 0.85 + 0.15 * R.y;
   vec3 env = mix(atmo_skyRadiance(normalize(R)), irr / PI, smoothstep(0.2, 0.9, rough));
+  vec4 ssrHit = vec4(0.0);
+  if (u_ssrEnabled > 0.5 && u_hasPrev > 0.5 && rough < 0.45 && dist < 160.0) {
+    vec3 vN = normalize(mat3(u_viewMat) * N);
+    vec3 vR = normalize(reflect(normalize(vp.xyz), vN));
+    ssrHit = traceSSR(vp.xyz, vR, noise, rough);
+  }
   float specOcc = clamp(pow(NoV + ao, exp2(-16.0 * rough - 1.0)) - 1.0 + ao, 0.0, 1.0);
-  vec3 specAmb = env * envBRDFApprox(f0, rough, NoV) * skyVis * specOcc;
+  vec3 specAmb = (env * skyVis * (1.0 - ssrHit.a) + ssrHit.rgb * ssrHit.a) * envBRDFApprox(f0, rough, NoV) * specOcc;
 
   // ---------------- emissive
   vec3 emissive = albedo * emis * EMISSIVE_SCALE;

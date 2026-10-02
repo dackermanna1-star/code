@@ -20,6 +20,9 @@ export interface GameSettings {
   guiScale: number;
   brightness: number;
   autoJump: boolean;
+  /** Distant terrain LOD beyond the render distance. */
+  lod: boolean;
+  lodDistance: number;
 }
 
 export const DEFAULT_SETTINGS: GameSettings = {
@@ -41,6 +44,8 @@ export const DEFAULT_SETTINGS: GameSettings = {
   guiScale: 2,
   brightness: 0.5,
   autoJump: false,
+  lod: true,
+  lodDistance: 768,
 };
 
 const KEY = 'voxelcraft.settings.v1';

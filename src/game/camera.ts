@@ -71,7 +71,7 @@ export class CameraController {
     cam.rotation.set(pitch, yaw, roll, 'YXZ');
     cam.fov = this.baseFov * p.fovMul * (this.game.input.isDown('zoom') ? 0.25 : 1);
     cam.near = 0.05;
-    cam.far = Math.max(512, this.game.settings.renderDistance * 16 * 2.2);
+    cam.far = Math.max(512, this.game.settings.renderDistance * 16 * 2.2, this.game.settings.lod ? this.game.settings.lodDistance * 1.6 : 0);
     cam.updateProjectionMatrix();
     cam.updateMatrixWorld(true);
   }
