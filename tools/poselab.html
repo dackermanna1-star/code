@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Pose Lab</title>
+<style>
+  body { margin: 0; background: #f4f4f2; font: 12px sans-serif; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+import { Simulation } from '../src/sim/simulation.js';
+import { DEFAULT_SETTINGS } from '../src/config.js';
+import { MOVES } from '../src/fighter/moves.js';
+import { NJ, HEAD, NECK, PELVIS, ELB_A, HAND_A, ELB_B, HAND_B, KNEE_A, FOOT_A, KNEE_B, FOOT_B } from '../src/fighter/skeleton.js';
+
+const params = new URLSearchParams(location.search);
+const list = (params.get('moves') || Object.keys(MOVES).filter((m) => !['jumpsquat'].includes(m)).join(',')).split(',');
+const cols = +(params.get('cols') || 10);
+const cellW = 110, cellH = 150, labelW = 90;
+const c = document.getElementById('c');
+c.width = labelW + cols * cellW;
+c.height = list.length * cellH;
+const ctx = c.getContext('2d');
+
+function capture(id) {
+  const sim = new Simulation({ ...DEFAULT_SETTINGS, environment: 'facility', maxActive: 0, spawnRate: 0, hazardDensity: 0, propDensity: 0 }, 777, 1);
+  sim.director.update = () => {};
+  sim.checkEnd = () => {};
+  const f = sim.hero;
+  f.brain = null;
+  f.facing = 1;
+  for (let i = 0; i < 30; i++) sim.step();
+  const m = MOVES[id];
+  if (m.type === 'getup') {
+    // knock the body onto its back or front, then force the requested get-up
+    f.knockdown(id === 'getupFront' ? 60 : -60, -260, { spin: id === 'getupFront' ? 9 : -9 });
+    for (let i = 0; i < 200 && f.state !== 'down'; i++) sim.step();
+    f.beginGetup(id);
+  } else if (m.type === 'throw') {
+    return null;
+  } else {
+    if (m.weapon || id === 'wthrow') f.weapon = sim.props.makeWeapon('pipe');
+    f.startMove(id);
+  }
+  const frames = [];
+  const dur = (m.dur || 0.6) / f.moveRate + 0.1;
+  const x0 = f.x, y0 = f.y;
+  for (let k = 0; k < cols; k++) {
+    const target = (k / (cols - 1)) * dur;
+    while (sim.time - frames.t0 < target || frames.t0 === undefined) {
+      if (frames.t0 === undefined) frames.t0 = sim.time;
+      sim.step();
+      sim.drainEvents();
+      if (sim.time - frames.t0 >= target) break;
+    }
+    const j = [];
+    for (let i = 0; i < NJ; i++) j.push([f.rag.p[i].x - x0, f.rag.p[i].y - y0]);
+    frames.push({ j, state: f.state, mt: f.mt });
+  }
+  return frames;
+}
+
+function drawFig(j, ox, oy, s) {
+  const P = (i) => [ox + j[i][0] * s, oy + j[i][1] * s];
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const seg = (pts, col, w) => { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); pts.forEach((i, n) => { const p = P(i); n ? ctx.lineTo(...p) : ctx.moveTo(...p); }); ctx.stroke(); };
+  seg([PELVIS, KNEE_B, FOOT_B], '#7a7a7a', 4.5);
+  seg([NECK, ELB_B, HAND_B], '#7a7a7a', 4.5);
+  seg([PELVIS, NECK], '#111', 5);
+  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(...P(HEAD), 7, 0, Math.PI * 2); ctx.fill();
+  seg([PELVIS, KNEE_A, FOOT_A], '#c0392b', 4.5);
+  seg([NECK, ELB_A, HAND_A], '#2471a3', 4.5);
+}
+
+list.forEach((id, row) => {
+  const frames = capture(id);
+  const y = row * cellH;
+  ctx.fillStyle = row % 2 ? '#ecece8' : '#f7f7f4';
+  ctx.fillRect(0, y, c.width, cellH);
+  ctx.fillStyle = '#222'; ctx.font = 'bold 13px sans-serif'; ctx.fillText(id, 6, y + 20);
+  if (!frames) { ctx.fillText('(throw: needs victim)', 6, y + 40); return; }
+  frames.forEach((fr, k) => {
+    const ox = labelW + k * cellW + 40, oy = y + cellH - 18;
+    ctx.strokeStyle = '#bbb'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ox - 38, oy); ctx.lineTo(ox + 68, oy); ctx.stroke();
+    drawFig(fr.j, ox, oy, 1.0);
+    ctx.fillStyle = '#888'; ctx.font = '10px sans-serif'; ctx.fillText(fr.state + ' ' + fr.mt.toFixed(2), ox - 36, y + 12);
+  });
+});
+document.title = 'ready';
+</script>
+</body>
+</html>

@@ -1,0 +1,183 @@
+// Colour palettes per environment. The facility palette follows the clean
+// white-and-grey look of classic stick-fight animations.
+
+export const PALETTES = {
+  facility: {
+    interior: '#fbfbfa',
+    seam: 'rgba(0,0,0,0.035)',
+    outline: '#161616',
+    slabTop: '#cfcfcf',
+    slabFace: '#c4c4c4',
+    duct: '#a39f9d',
+    ductShade: '#8e8987',
+    ductJoint: '#555251',
+    ductLight: '#b6b2b0',
+    wall: '#dcdcda',
+    wallDark: '#c6c6c4',
+    metal: '#9d9d9d',
+    metalDark: '#5b5b5b',
+    metalLight: '#c9c9c9',
+    pipe: '#a2a2a2',
+    pipeDark: '#575757',
+    lamp: '#2c2c2c',
+    lampLens: '#a5a5a5',
+    door: '#ffffff',
+    panel: '#d2d2d2',
+    stairs: '#c9c9c9',
+    stairsDark: '#9f9f9f',
+    glass: 'rgba(150,196,228,0.32)',
+    glassEdge: '#5d7488',
+    skyTop: '#c9def0',
+    skyBottom: '#eef5fa',
+    city: '#b9c9d6',
+    city2: '#a6b8c7',
+    street: '#a9a9a7',
+    streetLine: '#d8d8d6',
+    accent: '#e33b2e',
+    ground: '#8d8d8b',
+    shadow: 'rgba(0,0,0,0.13)',
+    light: '255,247,226',
+    darkness: 'rgba(8,10,18,0.78)',
+  },
+  warehouse: {
+    interior: '#ece6d8',
+    seam: 'rgba(80,60,30,0.07)',
+    outline: '#1c1a17',
+    slabTop: '#b9b3a7',
+    slabFace: '#a8a296',
+    duct: '#8f8a80',
+    ductShade: '#7b766d',
+    ductJoint: '#4c4842',
+    ductLight: '#a39e94',
+    wall: '#cfc6b3',
+    wallDark: '#b9af9a',
+    metal: '#7d8288',
+    metalDark: '#4a4f55',
+    metalLight: '#a3a8ae',
+    pipe: '#8c9196',
+    pipeDark: '#4b5055',
+    lamp: '#33363b',
+    lampLens: '#ffe2a8',
+    door: '#e9e3d4',
+    panel: '#c9c2b2',
+    stairs: '#868b91',
+    stairsDark: '#5d6268',
+    glass: 'rgba(170,200,215,0.3)',
+    glassEdge: '#5a6a75',
+    skyTop: '#f2c79a',
+    skyBottom: '#f8e6cf',
+    city: '#cdb59a',
+    city2: '#bba083',
+    street: '#9c968c',
+    streetLine: '#d2cbbf',
+    accent: '#f2b52c',
+    ground: '#7d776d',
+    shadow: 'rgba(40,25,5,0.14)',
+    light: '255,224,170',
+    darkness: 'rgba(14,10,6,0.8)',
+  },
+  rooftop: {
+    interior: '#2b2533',
+    seam: 'rgba(255,255,255,0.03)',
+    outline: '#16121b',
+    slabTop: '#5c5664',
+    slabFace: '#4a4552',
+    duct: '#4a4552',
+    ductShade: '#3c3843',
+    ductJoint: '#24202a',
+    ductLight: '#6a6472',
+    wall: '#544e5c',
+    wallDark: '#3f3a46',
+    metal: '#a3a1ab',
+    metalDark: '#615e69',
+    metalLight: '#c8c6cf',
+    pipe: '#8d8a95',
+    pipeDark: '#4d4a55',
+    lamp: '#2a2630',
+    lampLens: '#ffd98f',
+    door: '#6b6574',
+    panel: '#7a7483',
+    stairs: '#77737f',
+    stairsDark: '#4c4855',
+    glass: 'rgba(255,214,160,0.28)',
+    glassEdge: '#8a7a6a',
+    skyTop: '#272a5a',
+    skyMid: '#a1527c',
+    skyBottom: '#ffb36b',
+    sun: '#ffd8a0',
+    city: '#6a4a72',
+    city2: '#4c3858',
+    city3: '#33263f',
+    windowLit: '#ffd486',
+    street: '#3a3542',
+    streetLine: '#5a5463',
+    accent: '#ff5d73',
+    ground: '#3a3542',
+    shadow: 'rgba(0,0,0,0.22)',
+    light: '255,214,150',
+    darkness: 'rgba(10,8,20,0.7)',
+  },
+  construction: {
+    interior: '#e9e4da',
+    seam: 'rgba(0,0,0,0.04)',
+    outline: '#2a2622',
+    slabTop: '#c7c0b4',
+    slabFace: '#b3ac9f',
+    duct: '#a9a294',
+    ductShade: '#958e81',
+    ductJoint: '#625c53',
+    ductLight: '#bdb6a9',
+    wall: '#bcb4a6',
+    wallDark: '#a59d8f',
+    metal: '#c4542f',
+    metalDark: '#8c3519',
+    metalLight: '#de7a52',
+    pipe: '#8f949a',
+    pipeDark: '#565b61',
+    lamp: '#3a3632',
+    lampLens: '#fff1c4',
+    door: '#d8d2c6',
+    panel: '#c9c2b4',
+    stairs: '#b9b2a5',
+    stairsDark: '#8e877a',
+    glass: 'rgba(170,205,230,0.3)',
+    glassEdge: '#5c7080',
+    skyTop: '#8fc2ea',
+    skyBottom: '#eaf4fb',
+    city: '#b3c6d4',
+    city2: '#9fb4c3',
+    street: '#a69c8a',
+    streetLine: '#c9bfac',
+    accent: '#ff7b22',
+    ground: '#9a8f7b',
+    shadow: 'rgba(40,30,10,0.14)',
+    light: '255,244,214',
+    darkness: 'rgba(12,10,8,0.75)',
+  },
+};
+
+export function shade(hex, k) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) & 255;
+  let g = (n >> 8) & 255;
+  let b = n & 255;
+  if (k < 0) {
+    r *= 1 + k;
+    g *= 1 + k;
+    b *= 1 + k;
+  } else {
+    r += (255 - r) * k;
+    g += (255 - g) * k;
+    b += (255 - b) * k;
+  }
+  return '#' + ((1 << 24) | (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(b)).toString(16).slice(1);
+}
+
+export function mix(a, b, t) {
+  const na = parseInt(a.slice(1), 16);
+  const nb = parseInt(b.slice(1), 16);
+  const r = ((na >> 16) & 255) * (1 - t) + ((nb >> 16) & 255) * t;
+  const g = ((na >> 8) & 255) * (1 - t) + ((nb >> 8) & 255) * t;
+  const bl = (na & 255) * (1 - t) + (nb & 255) * t;
+  return '#' + ((1 << 24) | (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(bl)).toString(16).slice(1);
+}

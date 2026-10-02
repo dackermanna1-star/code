@@ -1,0 +1,14 @@
+{
+  "name": "stickman-arena",
+  "version": "1.0.0",
+  "description": "Physics-driven stick figure combat simulation: one elite black stickman against an endless procedurally generated crowd.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "npx --yes serve -l 5173 .",
+    "build": "node tools/build.mjs",
+    "headless": "node tools/headless.mjs",
+    "smoke": "node tools/smoke.mjs"
+  },
+  "license": "MIT"
+}
