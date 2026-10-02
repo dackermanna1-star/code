@@ -74,7 +74,6 @@ export class AudioGlueSystem implements GameSystem {
     ev.on('anvilLand', ({ x, y, z }: any) => a.play('random.anvil_land', { pos: at(x, y, z) }));
     ev.on('explosion', ({ pos, power }: any) => a.play('random.explode', { pos, volume: Math.max(2, power) }));
     ev.on('dimensionChanged', ({ dimension }: any) => a.setMusicMode?.(dimension === 'nether' ? 'nether' : dimension === 'end' ? 'end' : game.player?.creative ? 'creative' : 'overworld'));
-    (game.world as any).systems.fluidFizz = (x: number, y: number, z: number) => a.play('random.fizz', { pos: at(x, y, z), volume: 0.6 });
   }
 
   onWorldChange(game: Game) {

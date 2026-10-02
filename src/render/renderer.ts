@@ -311,6 +311,7 @@ export class Renderer {
     const cam = f.camera;
     const s = this.settings;
     this.frame++;
+    this.chunks.flush();
     gl.info.autoReset = false;
     gl.info.reset();
 
