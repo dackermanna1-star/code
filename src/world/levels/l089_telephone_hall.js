@@ -6,7 +6,6 @@ import { defineTexture } from '../../gfx/textures.js';
 import { defineMaterial, VF } from '../materials.js';
 import { defineProp, propMat as S, propTex as T } from '../props.js';
 import { defineZone } from '../zonetypes.js';
-import { LEVELS, levelNumbers } from '../levels.js';
 import { LEVEL_ZONE, defineLevel, env, M, W, hr, cbox, owns, levelDoor, ceilingLight } from './kit.js';
 import { pmod, voidCells, floorSlab, ceilSlab } from './g08_kit.js';
 
@@ -264,9 +263,8 @@ defineLevel(N, {
     if (s.silent[key]) { ctx.game.ui.say('The line is quiet.', 2); return; }
     ctx.game.audioCall('play', 'phone_pickup', item.x, item.y, item.z, {});
     const h = hr(Math.floor(item.x * 2), Math.floor(item.z * 2), 233);
-    const all = levelNumbers().filter((n) => n !== N && LEVELS[n]);
-    if (h < 0.72 && all.length) {
-      const n = all[Math.floor(hr(Math.floor(item.x * 2), Math.floor(item.z * 2), 234) * all.length) % all.length];
+    const n = ctx.game.pickNewLevel ? ctx.game.pickNewLevel() : null;   // never a level already found
+    if (h < 0.72 && n !== null) {
       ctx.game.ui.say('The line connects.', 2);
       s.go = { n, t: 1.6 };
     } else {

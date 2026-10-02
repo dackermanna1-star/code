@@ -292,9 +292,9 @@ export class Game {
     // out of a level's world: you slip through into another level
     if (this.levelN !== 0 && !this.levelTrans) {
       const L = LEVELS[this.levelN];
-      const all = levelNumbers().filter((n) => n !== this.levelN);
+      const next = this.pickNewLevel();
       if (L && L.fallTo === 'entry') this.enterLevel(L.n, null);
-      else if (all.length) this.enterLevel(all[Math.floor(Math.random() * all.length)], null);
+      else if (next !== null) this.enterLevel(next, null);
       return;
     }
     const down = 1 + Math.floor(Math.random() * 3);
@@ -512,11 +512,20 @@ export class Game {
     }
     const po = (it.prop && it.prop.opts) || {};
     if (po.message) { this.audioCall('play', 'locked_rattle', it.x, it.y, it.z, {}); this.ui.say(po.message); return; }
-    if (po.target !== undefined && LEVELS[po.target]) { this.enterLevel(po.target, it); return; }
-    const all = levelNumbers().filter((n) => n !== here);
-    if (!all.length) { this.ui.say('It will not open.'); return; }
-    const target = this.params.has('level') && LEVELS[Number(this.params.get('level'))] && Number(this.params.get('level')) !== here ? Number(this.params.get('level')) : all[Math.floor(Math.random() * all.length)];
+    if (po.target !== undefined && LEVELS[po.target] && !this.discovered.has(po.target)) { this.enterLevel(po.target, it); return; }
+    const next = this.pickNewLevel();
+    if (next === null) { this.ui.say('It will not open.'); return; }
+    const target = this.params.has('level') && LEVELS[Number(this.params.get('level'))] && Number(this.params.get('level')) !== here ? Number(this.params.get('level')) : next;
     this.enterLevel(target, it);
+  }
+
+  // A random level you have not been to yet; once you have found them all, any other level.
+  pickNewLevel() {
+    const here = this.levelN;
+    const others = levelNumbers().filter((n) => n !== here);
+    const fresh = others.filter((n) => !this.discovered.has(n));
+    const pool = fresh.length ? fresh : others;
+    return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
   }
 
   enterLevel(n, door) {
