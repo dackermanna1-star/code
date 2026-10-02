@@ -10,6 +10,7 @@ import { CascadedShadows } from './shadows';
 import { CopyPass, LinearDepthPass, SSAOPass, VolumetricPass, TAAPass, BloomPass, ExposurePass, TonemapPass } from './post/passes';
 import type { AtmosphereLike, BlockMaterialSet, SkyParams } from './types';
 import { shaderPass, type FullscreenPass } from './post/fullscreen';
+import { createEntityDepthMaterial } from './entityMaterial';
 
 export type Quality = 'low' | 'medium' | 'high' | 'ultra';
 
@@ -113,6 +114,19 @@ export class Renderer {
   debugView = '';
   private debugPass: CopyPass | null = null;
   private debugShader: FullscreenPass | null = null;
+  private entityDepth: THREE.Material | null = null;
+
+  /** Linear view-distance texture of the current frame (R32F, sky = 1e6). For soft particles / overlays. */
+  get linearDepthTexture(): THREE.Texture {
+    return this.linDepth.target.texture;
+  }
+  /** Opaque scene HDR colour (before translucents) of the current frame. */
+  get sceneColorTexture(): THREE.Texture {
+    return this.hdrA.texture;
+  }
+  get depthTexture(): THREE.DepthTexture {
+    return this.depthTex;
+  }
 
   constructor(readonly canvas: HTMLCanvasElement, quality: Quality = 'high') {
     this.settings = presetSettings(quality);
@@ -342,7 +356,7 @@ export class Renderer {
       const casters = [
         { scene: this.chunks.opaque, material: this.shadowOpaque },
         { scene: this.chunks.cutout, material: this.shadowCutout },
-        ...(f.shadowScenes ?? []).map((sc) => ({ scene: sc, material: null })),
+        ...(f.shadowScenes ?? []).map((sc) => ({ scene: sc, material: (this.entityDepth ??= createEntityDepthMaterial(false)) as THREE.Material })),
       ];
       this.shadows.update(gl, cam, this.atmo.lightDir, casters);
     }

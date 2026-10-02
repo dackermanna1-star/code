@@ -111,3 +111,59 @@ Block textures live in two `sampler2DArray`s produced by `src/render/materials/`
 * Don't modify files owned by other workstreams (see each task brief); integrate through the
   documented interfaces. If an interface is insufficient, add a new export rather than changing an
   existing one, and mention it in your final report.
+
+## Game layer (src/game, src/entity, src/ui)
+
+* `Game` (`src/game/game.ts`) owns everything: `game.world` (current dimension `World`), `game.chunks`
+  (`ChunkManager`), `game.entities` (`EntityManager`), `game.player`, `game.renderer`, `game.input`,
+  `game.ui`, `game.audio` (procedural `AudioEngine`), `game.settings`, `game.events` (emitter),
+  `game.dayTime` (ticks, 0 = sunrise), `game.ticks`, `game.weather` ({rain, thunder, raining...}),
+  `game.difficulty`, `game.gamerules`, `game.dimension`. Helpers: `breakBlock`, `resolveDrops`,
+  `dropItem`, `spawnXp`, `spawn(entity,x,y,z)`, `message(text)`, `enterDimension(dim,pos)`.
+  Service slots filled by systems: `game.itemModels` (item visuals), `game.particles`,
+  `game.physics` (Rapier), `game.saver`.
+* Loop: 20 TPS `tick()` (world scheduled/random ticks → interaction → systems.tick → entities.tick →
+  item pickup), 60 Hz `physicsStep` (entities then systems.physics), per-frame `update` + render.
+* **Systems**: implement `GameSystem` (`src/game/systems.ts`: init/tick/physics/update/onWorldChange/
+  save/load) and add an instance in `src/game/systemList.ts`.
+* **Blocks behaviour**: `addBehavior(nameOrTagOrPredicate, { onUse, onRandomTick, onScheduledTick,
+  onNeighborChange, onPlace, onRemove, onEntityInside, onEntityStep, canSurvive, getPlacementState,
+  getWeakPower, getStrongPower, ... })` (`src/world/blocks/behaviors.ts`). Hooks chain across modules.
+  `world.setBlock(x,y,z,state, SetFlags.ALL)` updates light/mesh, calls hooks and notifies neighbours.
+  `world.scheduleTick(x,y,z,delay)`, `world.get/setBlockEntity(x,y,z,data)` (plain JSON-able data).
+* **Items**: `registerItem(name, props)` / `addItemBehavior(names, { use, useOnBlock, useOnEntity,
+  useTick, release, holdUse, usePose, inventoryTick })` (`src/game/items/registry.ts`). Block items are
+  auto-registered under the block's name. `ItemStack = { item, count, damage, ench?, data? }`.
+  Player inventory slots: 0-8 hotbar, 9-35 main, 36-39 armor (feet, legs, chest, head), 40 offhand.
+* **Entities**: extend `Entity` / `LivingEntity` (`src/entity`), call `registerEntity(type, Ctor,
+  category)`. Set `model` (THREE.Object3D) built with `createEntityMaterial()` (G-buffer MRT
+  material; uniforms `u_hurt`, `u_light` (use `setEntityLight`), `u_wounds[8]`/`u_woundCount`,
+  `u_bloodType`). Entity models are rendered from `entities.scene` into the G-buffer and cast shadows
+  (depth override). Living entities: `intent` (forward/strafe/jump/sneak/sprint) drives Minecraft-like
+  movement in `physicsStep`; `hurt(DamageSource, amount)`, `knockback()`, `addEffect()`; optional
+  `sounds = { hurt, death, say, step }` for the audio glue. `Projectile`/`ArrowEntity` in
+  `src/entity/projectile.ts`.
+* **Rendering hooks** for systems: `game.renderExtras = { gbuffer?: Scene[], forward?: Scene[],
+  shadow?: Scene[], hand?: {scene, camera}, overlayScene?: Scene, overlay?: Vector4 }`. Forward scenes
+  draw into the HDR buffer after translucents with depth testing; useful textures:
+  `renderer.linearDepthTexture`, `renderer.sceneColorTexture`, `renderer.lightUniforms`
+  (u_lightDir, u_lightColor, u_sh[9] ambient SH, …), `renderer.atmosphere` (glsl + uniforms),
+  `renderer.blockMaterials()`, `createBlockMesh(renderer, state)` for single-block meshes.
+* **UI**: `ui.open(screen)` / `ui.close()`; screens are DOM elements (`src/ui/ui.ts`, helper `h()`),
+  styles in `src/ui/style.css`. `setItemIconProvider(stack => dataURL)` (`src/ui/hud.ts`).
+
+### Events (`game.events.on(name, fn)`)
+`entityAdded/Removed {entity}`, `entityHurt {entity, source, amount}`, `entityDeath {entity, source}`,
+`entityFallDamage {entity, distance, damage}`, `footstep {entity, block}`, `jump {entity}`,
+`blockStartBreak / blockHitting {x,y,z,state,player,progress}`, `blockBroken {x,y,z,state,player,tool}`,
+`blockPlaced {x,y,z,state,oldState,player}`, `blockLanded {x,y,z,state,entity,speed}`,
+`itemPickup {player, entity, stack, count}`, `itemDropped`, `itemBroke`, `levelUp`, `xpPickup`,
+`spawnXp {pos, amount, handle()}`, `playerAttack {player,target,damage,crit,sweep,strength,weapon,point}`,
+`playerAttackMiss`, `sweepAttack`, `swingAir`, `arrowHit`, `arrowStuck`, `explosion {pos, power}`,
+`chat {text,color}`, `title {title,subtitle,time}`, `worldReady`, `dimensionChanged {dimension}`,
+`chunkReady {chunk}`. Add new events freely (document them in your report).
+
+### Testing the game
+`node tools/screenshot.mjs "/index.html?autostart=1&seed=123&mode=creative&time=6000&x=0&y=90&z=0&yaw=30&pitch=-15&rd=4&frames=10" out.png --w 960 --h 540`
+starts a world directly (no menus) and captures after N frames. `window.game` is the Game instance
+(use `page.evaluate` in your own Playwright scripts to drive it).

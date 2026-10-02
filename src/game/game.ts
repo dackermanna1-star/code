@@ -457,7 +457,7 @@ export class Game {
       damage: p.hurtTime > 0 ? p.hurtTime / p.hurtDuration : 0,
       overlay: extra.overlay,
       gbufferScenes: gb,
-      shadowScenes: [this.entities.shadowScene, ...(extra.shadow ?? [])],
+      shadowScenes: [this.entities.scene, ...(extra.shadow ?? [])],
       forwardScenes: fw,
       hand: extra.hand,
       overlayScene: extra.overlayScene,
