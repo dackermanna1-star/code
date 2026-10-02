@@ -7,6 +7,7 @@ import { createTerrainGBufferMaterial, createTerrainShadowMaterial } from './sha
 import { createLightingPass } from './lighting';
 import { createTranslucentMaterial } from './translucent';
 import { CascadedShadows } from './shadows';
+import { makeRT } from './post/fullscreen';
 import { CopyPass, LinearDepthPass, SSAOPass, VolumetricPass, TAAPass, BloomPass, ExposurePass, TonemapPass } from './post/passes';
 import type { AtmosphereLike, BlockMaterialSet, SkyParams } from './types';
 import { shaderPass, type FullscreenPass } from './post/fullscreen';
@@ -461,6 +462,7 @@ export class Renderer {
     tu.u_time.value = f.time;
     tu.u_damage.value = f.damage;
     tu.u_overlay.value.copy(f.overlay ?? new THREE.Vector4(0, 0, 0, 0));
+    this.updateFlare(cam, f);
     gl.setViewport(0, 0, this.width, this.height);
     this.tonemap.render(gl, this.post.texture, bloomTex, expTex, null);
     if (this.debugView) {
@@ -487,6 +489,38 @@ export class Renderer {
     this.stats.drawCalls = gl.info.render.calls;
     this.stats.triangles = gl.info.render.triangles;
     this.stats.frameMs = performance.now() - t0;
+  }
+
+  private flareTarget = makeRT(1, 1, { type: THREE.HalfFloatType, format: THREE.RedFormat, filter: THREE.NearestFilter });
+  private flarePass = shaderPass(
+    `precision highp float; uniform sampler2D u_lin; uniform vec2 u_sun; uniform vec2 u_texel; out vec4 o;
+    void main(){ float sky = 0.0; float n = 0.0;
+      for (int j = -3; j <= 3; j++) for (int i = -3; i <= 3; i++) {
+        vec2 uv = u_sun + vec2(i, j) * u_texel * 5.0;
+        if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) continue;
+        n += 1.0; sky += step(1.0e5, texture(u_lin, uv).r);
+      }
+      o = vec4(n > 0.0 ? sky / n : 0.0, 0.0, 0.0, 1.0); }`,
+    { u_lin: { value: null }, u_sun: { value: new THREE.Vector2() }, u_texel: { value: new THREE.Vector2() } },
+  );
+  /** Sun lens-flare: project the sun; visibility is estimated on the GPU from the linear depth around it. */
+  private updateFlare(cam: THREE.PerspectiveCamera, f: FrameState) {
+    const tu = this.tonemap.uniforms;
+    const sun = f.sky.sunDir;
+    const p = new THREE.Vector3().copy(cam.position).addScaledVector(sun, 1000).project(cam);
+    const inFront = sun.dot(new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion)) > 0.05;
+    const onScreen = inFront && Math.abs(p.x) < 1.3 && Math.abs(p.y) < 1.3 && f.sky.dimension === 'overworld' && sun.y > -0.05;
+    const fu = (this.flarePass.material as THREE.RawShaderMaterial).uniforms;
+    fu.u_lin.value = this.linDepth.target.texture;
+    fu.u_sun.value.set(p.x * 0.5 + 0.5, p.y * 0.5 + 0.5);
+    fu.u_texel.value.set(1 / this.width, 1 / this.height);
+    if (onScreen) this.flarePass.render(this.gl, this.flareTarget);
+    tu.u_flareVis.value = this.flareTarget.texture;
+    tu.u_sunScreen.value.set(p.x * 0.5 + 0.5, p.y * 0.5 + 0.5, onScreen ? 1 : 0);
+    const c = this.atmo.lightColor;
+    const k = (1 - f.sky.rain) * (sun.y > 0 ? 1 : 0);
+    tu.u_sunColor.value.setRGB(c.r * k, c.g * k, c.b * k);
+    tu.u_aspect.value = this.width / this.height;
   }
 
   resetTemporal() {

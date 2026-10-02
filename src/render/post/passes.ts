@@ -476,7 +476,34 @@ export class TonemapPass {
       uniform float u_exposureBias; uniform float u_saturation; uniform float u_contrast; uniform float u_vignette; uniform float u_grain;
       uniform float u_time; uniform vec3 u_whiteBalance; uniform vec4 u_overlay; uniform float u_damage; uniform float u_underwater; uniform float u_gamma;
       uniform float u_dbg;
+      uniform vec3 u_sunScreen;   // xy = sun uv, z = 1 if in front of the camera
+      uniform vec3 u_sunColor;    // flare tint (linear HDR, pre-exposure)
+      uniform sampler2D u_flareVis;
+      uniform float u_aspect;
       in vec2 v_uv; out vec4 o;
+      vec3 flare(vec2 uv) {
+        if (u_sunScreen.z < 0.5 || dot(u_sunColor, u_sunColor) < 1e-8) return vec3(0.0);
+        float vis = texture(u_flareVis, vec2(0.5)).r;
+        if (vis <= 0.0) return vec3(0.0);
+        vec2 s = u_sunScreen.xy;
+        vec2 d = (uv - s) * vec2(u_aspect, 1.0);
+        float r = length(d);
+        vec3 c = vec3(0.0);
+        // soft glare halo + anamorphic streak
+        c += u_sunColor * (0.06 / (1.0 + r * r * 60.0) + 0.02 * exp(-abs(d.y) * 220.0) * exp(-abs(d.x) * 2.2));
+        // ghosts along the axis through the screen centre
+        vec2 axis = (vec2(0.5) - s);
+        for (int i = 0; i < 5; i++) {
+          float fi = float(i);
+          float k = -0.4 + fi * 0.55;
+          vec2 gp = s + axis * (1.0 + k);
+          float gr = length((uv - gp) * vec2(u_aspect, 1.0));
+          float size = 0.02 + 0.025 * fract(fi * 0.618);
+          vec3 tint = mix(vec3(1.0, 0.55, 0.25), vec3(0.3, 0.6, 1.0), fract(fi * 0.37));
+          c += u_sunColor * tint * 0.004 * smoothstep(size, size * 0.6, gr);
+        }
+        return c * vis;
+      }
       vec3 RRTAndODTFit(vec3 v) { vec3 a = v * (v + 0.0245786) - 0.000090537; vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081; return a / b; }
       vec3 ACESFitted(vec3 color) {
         const mat3 ACESInputMat = mat3(0.59719, 0.07600, 0.02840, 0.35458, 0.90834, 0.13383, 0.04823, 0.01566, 0.83777);
@@ -487,6 +514,7 @@ export class TonemapPass {
         vec3 c = texture(u_hdr, v_uv).rgb;
         vec3 b = texture(u_bloom, v_uv).rgb;
         c = mix(c, b, u_bloomStrength);
+        c += flare(v_uv);
         float e = texture(u_exposure, vec2(0.5)).r * u_exposureBias;
         if (u_dbg == 1.0) { o = vec4(c, e); return; }
         c *= e * u_whiteBalance;
@@ -516,6 +544,7 @@ export class TonemapPass {
         u_hdr: { value: null }, u_bloom: { value: null }, u_exposure: { value: null }, u_bloomStrength: { value: 0.045 }, u_exposureBias: { value: 1 },
         u_saturation: { value: 1.12 }, u_contrast: { value: 1.04 }, u_vignette: { value: 0.32 }, u_grain: { value: 0.012 }, u_time: { value: 0 },
         u_whiteBalance: { value: new THREE.Vector3(1, 1, 1) }, u_overlay: { value: new THREE.Vector4(0, 0, 0, 0) }, u_damage: { value: 0 }, u_underwater: { value: 0 }, u_gamma: { value: 1 }, u_dbg: { value: 0 },
+        u_sunScreen: { value: new THREE.Vector3() }, u_sunColor: { value: new THREE.Color(0, 0, 0) }, u_aspect: { value: 1 }, u_flareVis: { value: null },
       },
     );
   }
