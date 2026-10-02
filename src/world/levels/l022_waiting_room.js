@@ -5,7 +5,7 @@
 // every room) counts up one.
 import { defineTexture } from '../../gfx/textures.js';
 import { defineMaterial, VF } from '../materials.js';
-import { defineProp, propMat as S, propTex as T, propWithXf as withXf } from '../props.js';
+import { defineProp, propMat as S, propTex as T, propGlow as glow, propWithXf as withXf } from '../props.js';
 import { defineZone } from '../zonetypes.js';
 import { xfRotX } from '../../core/math.js';
 import { LEVEL_ZONE, defineLevel, env, M, W, hr, owns, levelDoor, ceilingLight, cbox } from './kit.js';
@@ -114,15 +114,45 @@ defineMaterial('lv22_wood', 'lv22_wood', { s: 1, surf: 'wood' });
 defineMaterial('lv22_amber', 'lv22_amber', { s: 1, flags: VF.FULLBRIGHT, glow: 1.1 });
 
 // ------------------------------------------------------------------ props
-defineProp('lv22_chairs', {
-  // three joined vinyl chairs; the front (-z) faces the room
+defineProp('lv22_seats', {
+  // two groups of three joined vinyl chairs, 5.1 m apart (the doorway lies between them); the front (-z) faces the room
   build(mb) {
     const cush = T('lv22_cushion');
     const fit = [0, 0, 1, 1];
-    mb.box(-0.85, 0.0, -0.27, 0.85, 0.47, 0.27, cush, { skip: 8, uv: ['world', 'world', fit, 'world', fit, fit] });
-    mb.box(-0.85, 0.47, 0.2, 0.85, 0.92, 0.3, cush, { skip: 8, uv: ['world', 'world', fit, 'world', fit, fit] });
+    for (const cx of [-2.55, 2.55]) {
+      mb.box(cx - 0.85, 0.0, -0.27, cx + 0.85, 0.47, 0.27, cush, { skip: 8, uv: ['world', 'world', fit, 'world', fit, fit] });
+      mb.box(cx - 0.85, 0.47, 0.2, cx + 0.85, 0.92, 0.3, cush, { skip: 8, uv: ['world', 'world', fit, 'world', fit, fit] });
+    }
   },
-  boxes: [[-0.88, 0, -0.28, 0.88, 0.95, 0.3]],
+  boxes: [[-3.43, 0, -0.28, -1.67, 0.95, 0.3], [1.67, 0, -0.28, 3.43, 0.95, 0.3]],
+});
+defineProp('lv22_booth', {
+  // the receptionist's desk behind the glass: desk, a blue-screen monitor, a swivel chair pulled out (front toward -z)
+  build(mb) {
+    mb.box(-0.7, 0.71, -0.4, 0.7, 0.75, 0.4, S('lv22_wood'), { skip: 8 });
+    mb.box(-0.65, 0.0, -0.38, 0.65, 0.71, 0.38, S('wood_dark'), { skip: 8 });
+    const bz = S('plastic_beige'), scr = glow('crt_blue', 1.0, 0);
+    mb.box(0.5, 0.75, -0.15, 0.9, 1.09, 0.15, [bz, bz, bz, null, bz, scr], { uv: ['world', 'world', 'world', 'world', 'world', [0.07, 0.07, 0.93, 0.93]] });
+    const c = T('lv22_cushion');
+    mb.box(0.45, 0.42, -1.1, 0.95, 0.5, -0.6, c, { skip: 8 });
+    mb.box(0.47, 0.5, -0.65, 0.93, 0.95, -0.6, c, { skip: 8 });
+  },
+  boxes: [[-0.7, 0, -0.4, 0.7, 0.78, 0.4]],
+});
+defineProp('lv22_corner', {
+  // a floor lamp (with its warm light) and a potted plant beside it
+  build(mb, p, r) {
+    mb.box(-0.015, 0.0, -0.015, 0.015, 1.4, 0.015, S('metal_dark'), { skip: 12 });
+    mb.cyl(0, 1.3, 0, 0.22, 0.3, 6, glow('lamp_shade', 0.85), 0);
+    mb.cyl(-0.2, 0.0, 1.2, 0.17, 0.32, 6, S('plastic_orange', { tint: [0.7, 0.55, 0.45] }), 1);
+    const lv = T('leaves_dead', { lit: true });
+    for (let k = 0; k < 2; k++) {
+      const a = k * Math.PI / 2 + r.range(0, 0.6), c = Math.cos(a) * 0.45, s = Math.sin(a) * 0.45;
+      mb.card([-0.2 - c, 0.3, 1.2 - s, -0.2 + c, 0.3, 1.2 + s, -0.2 + c, 1.4, 1.2 + s, -0.2 - c, 1.4, 1.2 - s], [s, 0, -c], lv, [0, 1, 1, 1, 1, 0, 0, 0]);
+    }
+  },
+  boxes: [[-0.17, 0, -0.17, 0.17, 1.7, 0.17], [-0.37, 0, 1.03, -0.03, 0.5, 1.37]],
+  light: { y: 1.45, color: [1.0, 0.8, 0.55], rad: 4.5, int: 0.55 },
 });
 defineProp('lv22_counter', {
   build(mb) {
@@ -136,9 +166,6 @@ defineProp('lv22_bell', {
   build(mb) { mb.box(-0.05, 0, -0.05, 0.05, 0.07, 0.05, S('chrome'), { skip: 8 }); },
   use: 'level',
 });
-defineProp('lv22_desk', {
-  build(mb) {
-    mb.box(-0.7, 0.71, -0.4, 0.7, 0.75, 0.4, S('lv22_wood'), { skip: 8 });
     mb.box(-0.65, 0.0, -0.38, 0.65, 0.71, 0.38, S('wood_dark'), { skip: 8 });
   },
   boxes: [[-0.7, 0, -0.4, 0.7, 0.75, 0.4]],
@@ -150,11 +177,6 @@ defineProp('lv22_table', {
   },
   boxes: [[-0.55, 0, -0.3, 0.55, 0.43, 0.3]],
 });
-defineProp('lv22_chair', {
-  // the receptionist's swivel chair, pulled out
-  build(mb) {
-    const f = S('lv22_wood'), c = T('lv22_cushion');
-    mb.box(-0.25, 0.42, -0.25, 0.25, 0.5, 0.25, c, { skip: 8 });
     mb.box(-0.23, 0.5, 0.2, 0.23, 0.95, 0.26, c, { skip: 8 });
     mb.box(-0.03, 0.0, -0.03, 0.03, 0.42, 0.03, f, { skip: 12 });
   },
@@ -263,43 +285,28 @@ function gen(zb) {
   for (let j = j0; j <= j1; j++) {
     for (let i = i0; i <= i1; i++) {
       if (blocked(i, j)) continue;
-      const x0 = i * R, z0 = j * R;
-      const own = (x, z) => owns(zb, x, z);
+      const x0 = i * R, z0 = j * R;       // rooms never straddle a zone: 8 m divides 64 m
       // twelve chairs: two groups of three on each side wall, flanking the doorways
-      for (const [gz, ] of [[1.45], [6.55]]) {
-        if (own(x0 + 0.45, z0 + gz)) zb.prop('lv22_chairs', x0 + 0.42, 0, z0 + gz, Math.PI / 2 * 1, {});
-        if (own(x0 + R - 0.45, z0 + gz)) zb.prop('lv22_chairs', x0 + R - 0.42, 0, z0 + gz, -Math.PI / 2, {});
-      }
+      zb.prop('lv22_seats', x0 + 0.42, 0, z0 + 4, Math.PI / 2, {});
+      zb.prop('lv22_seats', x0 + R - 0.42, 0, z0 + 4, -Math.PI / 2, {});
       // reception: counter and window, bell, NOW SERVING above, the booth's furniture
-      if (own(x0 + 4, z0 + 2.25)) {
-        zb.prop('lv22_counter', x0 + 4, 0, z0 + 2.4, Math.PI, {});
-        zb.prop('lv22_bell', x0 + 5.3, 1.05, z0 + 2.3, 0, { use: 'level', label: 'RING BELL', useY: 1.1, useR: 0.8 });
-        zb.prop('lv22_display', x0 + 4, 1.92, z0 + 2.1, Math.PI, {});
-        zb.light(x0 + 4, 2.1, z0 + 1.0, { color: [0.85, 0.9, 1.0], rad: 4, int: 0.35 });
-        zb.prop('lv22_desk', x0 + 4, 0, z0 + 0.5, Math.PI, {});
-        zb.prop('crt', x0 + 3.3, 0.75, z0 + 0.5, Math.PI, { screen: 'crt_blue' });
-        zb.prop('lv22_chair', x0 + 3.3, 0, z0 + 1.35, 0.5 + hr(i, j, 31) * 2, {});
-      }
+      zb.prop('lv22_counter', x0 + 4, 0, z0 + 2.4, Math.PI, {});
+      zb.prop('lv22_bell', x0 + 5.3, 1.05, z0 + 2.3, 0, { use: 'level', label: 'RING BELL', useY: 1.1, useR: 0.8 });
+      zb.prop('lv22_display', x0 + 4, 1.92, z0 + 2.1, Math.PI, {});
+      zb.prop('lv22_booth', x0 + 4, 0, z0 + 0.5, Math.PI, {});
       // the staff door: on the south wall, it opens into the next room's booth
-      if (own(x0 + 4.5, z0 + R)) zb.prop('lv22_door', x0 + 4.5, 0, z0 + R, 0, { useY: 1.0, useR: 0.9 });
+      zb.prop('lv22_door', x0 + 4.5, 0, z0 + R, 0, { useY: 1.0, useR: 0.9 });
       // the slot on the north wall: a level door in some rooms
-      if (northSlot(i, j) === 2 && own(x0 + 7.5, z0)) levelDoor(zb, x0 + 7.5, z0, Math.PI);
-      // furniture in the middle
-      if (own(x0 + 4, z0 + 5.2)) {
-        zb.prop('lv22_table', x0 + 4, 0, z0 + 5.4, 0, {});
-      }
-      if (own(x0 + 6.9, z0 + 7.1)) zb.prop('plant', x0 + 6.9, 0, z0 + 7.0, 0, { h: 1.2 });
-      if (own(x0 + 7.0, z0 + 3.0)) zb.prop('lamp_floor', x0 + 7.2, 0, z0 + (hr(i, j, 36) < 0.5 ? 2.6 : 5.6), 0, {});
-      // wall clock beside the booth, two prints
-      if (own(x0 + 6.5, z0 + 0.1)) zb.prop('lv22_clock', x0 + 6.5, 1.85, z0 + 0.12, Math.PI, {});
+      if (northSlot(i, j) === 2) levelDoor(zb, x0 + 7.5, z0, Math.PI);
+      zb.prop('lv22_table', x0 + 4, 0, z0 + 5.4, 0, {});
+      zb.prop('lv22_corner', x0 + 7.2, 0, z0 + 5.6, 0, {});
+      zb.prop('lv22_clock', x0 + 6.5, 1.85, z0 + 0.12, Math.PI, {});
       zb.decal(x0 + 0.12, 1.55, z0 + 1.45, 'px', 0.8, 0.8, hr(i, j, 37) < 0.5 ? 'lv22_print_a' : 'lv22_print_b');
       zb.decal(x0 + R - 0.12, 1.55, z0 + 6.55, 'nx', 0.8, 0.8, hr(i, j, 38) < 0.5 ? 'lv22_print_a' : 'lv22_print_b');
-      // ceiling lights
+      // ceiling lights, and a warm glow beside each doorway so the next room shines down the line of doors
       ceilingLight(zb, x0 + 2.0, z0 + 5.5, 'troffer', 'on', { color: [1.0, 0.92, 0.78], mul: 0.8, rot: 1 });
       ceilingLight(zb, x0 + 6.0, z0 + 5.5, 'troffer', 'on', { color: [1.0, 0.92, 0.78], mul: 0.8, rot: 1 });
-      // a warm glow beside each doorway, so the next room shines down the line of doors
-      if (own(x0 + 1.2, z0 + 4)) zb.light(x0 + 1.4, 1.9, z0 + 4, { color: [1.0, 0.82, 0.55], rad: 7, int: 0.75 });
-      ceilingLight(zb, x0 + 4.0, z0 + 1.0, 'tube', 'on', { color: [0.9, 0.95, 1.0], mul: 0.4, rot: 1 });
+      zb.light(x0 + 1.4, 1.9, z0 + 4, { color: [1.0, 0.82, 0.55], rad: 7, int: 0.75 });
     }
   }
 }

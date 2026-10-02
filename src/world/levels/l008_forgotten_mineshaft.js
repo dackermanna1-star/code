@@ -1,3 +1,5 @@
+// DRAFT, NOT LOADED (not imported by g02.js): written but never run in the game; its sounds (g02_mine
+// tone, g02_cart_far, g02_rockfall, g02_timber, g02_shaft_moan, g02_shaftwind) are not written yet.
 // Level 8: Forgotten Mineshaft. Timbered drifts and crosscuts in dark rock, rails running down
 // the middle, carts left where they stopped, lanterns that nobody lit. Some chambers are broken
 // open by shafts that fall away into nothing; some have a few planks laid across. You arrive at

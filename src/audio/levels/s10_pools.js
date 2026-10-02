@@ -1,4 +1,4 @@
-// Sounds of the three pools: 50 (night, open air), 90 (dust, a glass hall) and 78 (underground).
+// Sounds of the two hotel pools: 50 (night, open air) and 90 (dust, a glass hall).
 import { defineBed, defineLoop, defineShot } from '../registry.js';
 import { TAU, SR_LO, white, filterG, envelope, mulInto, mixRms, rmsOf, cyc, loopLfo, oscAdd, wavetable, wowLoop, mixInto } from '../dsp.js';
 
@@ -101,47 +101,4 @@ defineShot('lv90_tink', { n: 3, dur: 1.6, peak: 0.6, gen(S) {
   for (let k = 0; k < 5; k++) { S.ring(t, [[r.range(3400, 5200), 0.05, 0.2], [r.range(5600, 7600), 0.03, 0.1]]); S.click(t, 0.2, 3000, 0.002); t += r.range(0.05, 0.25) * (1 + k * 0.5); }
 } });
 
-// ------------------------------------------------------------------ 78 THE UNDERGROUND POOL
-// sodium lamp ballasts buzzing at double mains frequency, pumps far off, a vast hall of tile and water
-defineBed('tone_lv78', { L: 16, sr: SR_LO, norm: ['rms', 0.17], *gen(S, L) {
-  const { out, r, sr } = S, n = out.length;
-  const tab = wavetable([[1, 1], [2, 0.5, 1], [3, 0.35, 0.3], [4, 0.22, 2], [6, 0.12, 1.4]]);
-  oscAdd(out, tab, cyc(100, L), 0.35, sr); oscAdd(out, tab, cyc(100.5, L), 0.2, sr, 0.4); yield;
-  const rum = white(n, r); yield* filterG(rum, [['lp', 75], ['lp', 75]], sr, true); yield;
-  const sw = loopLfo(r, L, [1, 3]);
-  for (let i = 0; i < n; i++) rum[i] *= 0.6 + 0.4 * sw(i / sr);
-  mixRms(out, rum, rmsOf(out) * 0.9);
-  const hall = white(n, r); yield* filterG(hall, [['bp', 900, 0.4], ['lp', 2200]], sr, true); yield;
-  mixRms(out, hall, rmsOf(out) * 0.12);
-  const f = cyc(0.5, L);
-  for (let i = 0; i < n; i++) out[i] *= 1 + 0.07 * Math.sin((TAU * f * i) / sr);
-} });
-
-// a pump running in a dry sump: slow thrum, a little water
-defineLoop('lv78_pump', { L: 4, sr: SR_LO, norm: ['rms', 0.2], *gen(S, L) {
-  const { out, r, sr } = S, n = out.length;
-  oscAdd(out, wavetable([[1, 0.6], [2, 0.4, 1], [3, 0.2, 2]]), cyc(46, L), 1, sr); yield;
-  const f = cyc(2, L);
-  for (let i = 0; i < n; i++) out[i] *= 0.55 + 0.45 * Math.pow(0.5 + 0.5 * Math.sin((TAU * f * i) / sr), 2);
-  const sl = white(n, r); yield* filterG(sl, [['bp', 380, 0.7], ['lp', 900]], sr, true); yield;
-  for (let i = 0; i < n; i++) sl[i] *= 0.4 + 0.6 * Math.pow(0.5 + 0.5 * Math.sin((TAU * f * i) / sr + 2), 2);
-  mixRms(out, sl, rmsOf(out) * 0.5);
-} });
-
-// heavy drips from a low ceiling into black water, answered by the tiled hall
-defineLoop('lv78_drip', { L: 10, sr: SR_LO, norm: ['peak', 0.65], gen(S) {
-  const r = S.r;
-  for (const t of [0.4, 2.7, 5.3, 8.1]) {
-    const f = r.range(260, 480);
-    for (let e = 0; e < 4; e++) S.bubble(t + e * 0.42, 0.6 / (1 + e * 1.6), f * (1 - e * 0.05), r.range(0.03, 0.05), 0.4).ring(t + e * 0.42, [[r.range(180, 240), 0.4, 0.05 / (1 + e)], [r.range(420, 560), 0.3, 0.03 / (1 + e)]]);
-  }
-} });
-
-// water draining somewhere far below
-defineShot('lv78_gurgle', { n: 2, dur: 4, sr: SR_LO, peak: 0.7, gen(S, k) {
-  const r = S.r;
-  S.noise(0.1, 0.4, 0.8, 1.6, [['bp', 300 + k * 60, 1], ['lp', 800]], 3.4);
-  for (let j = 0; j < 14; j++) S.bubble(0.4 + j * r.range(0.12, 0.26), r.range(0.1, 0.4), r.range(160, 520), r.range(0.03, 0.08), 0.3);
-  S.tone(0.3, 0.12, { f0: 90, f1: 55, glide: 1.4, att: 0.4, dec: 1.2, dur: 3, shape: 'sin' });
-} });
 void envelope; void mulInto; void mixInto;

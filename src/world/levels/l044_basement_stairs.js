@@ -81,7 +81,7 @@ function gen(zb) {
   // the well: no floor, and no ceiling either (a skylight at the very top)
   Z.each(R[0], R[1], R[2], R[3], (u, v, i) => { zb.floor[i] = NaN; zb.ceil[i] = top ? SH : NaN; if (top) zb.cmat[i] = M.lv44_sky; });
   rails(Z);
-  stairs(Z, story);
+  if (!top) stairs(Z, story);          // the top storey has no flights of its own: only the way down, in the storey below
   // light: a bare bulb hanging in the well and one over the hall's far end
   zb.fixture(Z.x(14.5), Z.z(14.5), 'bulb', true, { y: SH, hang: 1.3, ch: rr(1) < 0.18 ? 6 : 0 });
   Z.light(14.5, SH - 1.8, 14.5, { color: WARM, rad: 10, int: 1.2, ch: rr(1) < 0.18 ? 6 : 0 });

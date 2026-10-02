@@ -212,12 +212,12 @@ function lamps(zb, bi, bj) {
   for (let r = 0; r < 8; r++) {
     const za = z0 + 4 + r * RP + RP / 2;       // aisle between row r and r+1
     const nave = r === NAVE || r === NAVE - 1;
-    const step = nave ? 10 : 14;
+    const step = nave ? 10 : 11;
     for (let x = x0 + 5 + ((r * 3) % 7); x < x1; x += step) {
       if (hr(Math.floor(x), r + bj * 8, 20) < 0.12) continue;
       if (!owns(zb, x, za)) continue;
       zb.prop('lv55_pendant', x, 3.4, za, 0, {});
-      zb.light(x, 3.4, za, { color: [1.0, 0.76, 0.42], rad: 8.5, int: nave ? 1.35 : 1.2, ch: hr(Math.floor(x), r, 21) < 0.07 ? 3 : 0 });
+      zb.light(x, 2.9, za, { color: [1.0, 0.76, 0.42], rad: 8.5, int: nave ? 1.6 : 1.8, ch: hr(Math.floor(x), r, 21) < 0.07 ? 3 : 0 });
     }
   }
 }
