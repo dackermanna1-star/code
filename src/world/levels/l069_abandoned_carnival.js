@@ -21,7 +21,7 @@ defineTexture('lv69_boards', (p) => {
   p.speckle(90, [150, 112, 80], 0.2, 0.5); p.grain(0.05);
 }, 10);
 defineTexture('lv69_dirt', (p) => {
-  p.fill([74, 56, 44]); p.noise(5, 0.16, 3); p.grain(0.08);
+  p.fill([108, 80, 60]); p.noise(5, 0.16, 3); p.grain(0.08);
   p.speckle(120, [150, 120, 70], 0.3, 0.7); p.speckle(80, [44, 32, 26], 0.4, 0.8);
 }, 10);
 defineTexture('lv69_grass', (p) => {
@@ -361,7 +361,7 @@ function lampPole(zb, x, z, c, ch = 0) {
   if (!owns(zb, x, z)) return;
   zb.box(x - 0.12, 0, z - 0.12, x + 0.12, 6.2, z + 0.12, M.lv69_pole, { sub: 0 });
   zb.box(x - 0.28, 6.0, z - 0.28, x + 0.28, 6.5, z + 0.28, M.lv69_lamp, { sub: 0, collide: false });
-  zb.light(x, 5.2, z, { color: c, rad: 10, int: 0.9, ch });
+  zb.light(x, 3.6, z, { color: c, rad: 10, int: 1.15, ch });
   zb.decal(x, 0, z, 'up', 10, 10, 'lv69_pool', { lit: false, glow: 0.3 });
 }
 // a flat ribbon of bulbs between two points at height y (axis 'x' or 'z'), clipped to the zone

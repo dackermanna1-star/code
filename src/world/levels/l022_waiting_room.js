@@ -309,7 +309,7 @@ defineZone('lv22_rooms', {
   ...LEVEL_ZONE,
   params: () => ({
     ambient: [0.2, 0.16, 0.15],
-    env: env({ fog: [0.16, 0.115, 0.11], fogNear: 4, fogFar: 26, hum: 0.5, hvac: 0.3, reverb: 'room', tone: 'lv22_room' }),
+    env: env({ fog: [0.2, 0.14, 0.125], fogNear: 6, fogFar: 40, hum: 0.5, hvac: 0.3, reverb: 'room', tone: 'lv22_room' }),
   }),
   gen,
 });

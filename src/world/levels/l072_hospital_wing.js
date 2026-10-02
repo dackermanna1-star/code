@@ -234,7 +234,7 @@ function gen(zb) {
 defineZone('lv72_wing', {
   ...LEVEL_ZONE,
   params: () => ({
-    ambient: [0.56, 0.62, 0.68],
+    ambient: [0.5, 0.56, 0.62],
     env: env({ fog: [0.8, 0.88, 0.95], fogNear: 8, fogFar: 62, hum: 0.55, hvac: 0.6, reverb: 'corridor', tone: 'lv72_wing' }),
   }),
   gen,

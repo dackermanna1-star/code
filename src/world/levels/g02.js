@@ -6,5 +6,6 @@ const files = [
   './l002_pipe_dreams.js',
   './l059_maintenance_tunnels.js',
   './l019_crawlspace.js',
+  './l024_blast_off.js',
 ];
 await Promise.all(files.map((p) => import(p).catch((e) => console.error('[g02] failed to load', p, e))));

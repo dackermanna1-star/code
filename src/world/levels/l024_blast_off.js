@@ -143,6 +143,7 @@ defineMaterial('lv24_metal', 'lv24_metal', { s: 2, surf: 'metal' });
 defineMaterial('lv24_bunker', 'lv24_bunker', { s: 3, surf: 'concrete', stain: 0.12 });
 defineMaterial('lv24_lamp', 'lv24_lamp', { s: 1, flags: VF.FULLBRIGHT, glow: 1.25 });
 defineMaterial('lv24_beacon', 'lv24_beacon', { s: 1, flags: VF.FULLBRIGHT | VF.NOFOG, glow: 1.2, chan: 14 });
+defineMaterial('lv24_clock', 'lv24_clock', { s: 1, flags: VF.FULLBRIGHT, glow: 1.15 });
 defineMaterial('lv24_glow', 'lv24_glow', { s: 1, flags: VF.FULLBRIGHT, glow: 1.4, chan: 10 });
 
 // ------------------------------------------------------------------ geometry helpers
@@ -384,7 +385,6 @@ function gen(zb) {
     zb.light(cx, 4, cz, { color: [1.0, 0.55, 0.2], rad: 14, int: 1.7, ch: 10 });
     zb.light(cx + 8, 3, cz + 8, { color: [1.0, 0.55, 0.2], rad: 12, int: 1.3, ch: 10 });
     zb.light(cx - 8, 3, cz - 8, { color: [1.0, 0.55, 0.2], rad: 12, int: 1.3, ch: 10 });
-    zb.prop('lv24_beacon_dummy', cx, 0, cz, 0, {});
     // beacons on the nose
     const top = [108, 76, 80][kind];
     zb.box(cx - 0.25, top, cz - 0.25, cx + 0.25, top + 0.5, cz + 0.25, M.lv24_beacon, { collide: false });
@@ -393,6 +393,12 @@ function gen(zb) {
     zb.light(cx + 5.3, 38, cz, { color: [0.8, 0.88, 1.0], rad: 9, int: 0.5 });
     zb.emitter(cx + 5, 30, cz, 'g02_vent', { vol: 1, rad: 40 });
   }
+  // floodlit concrete: pools of cold white over the pad
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * TAU + 0.3, rr = 22;
+    if (zb.in(cx + Math.cos(a) * rr, cz + Math.sin(a) * rr)) zb.light(cx + Math.cos(a) * rr, 3, cz + Math.sin(a) * rr, { color: [0.8, 0.9, 1.0], rad: 11, int: 0.85 });
+  }
+  for (const [dx, dz] of [[-12, 0], [12, 0], [0, -12], [0, 12]]) zb.light(cx + dx, 3, cz + dz, { color: [0.85, 0.92, 1.0], rad: 10, int: 0.8 });
   // the gantry
   const gx = cx + side * (kind === 1 ? 14 : 12);
   if (zb.in(gx, cz)) {
@@ -444,8 +450,8 @@ function gen(zb) {
 defineZone('lv24_complex', {
   ...LEVEL_ZONE,
   params: () => ({
-    ambient: [0.15, 0.18, 0.28],
-    env: env({ fog: [0.05, 0.062, 0.115], fogNear: 30, fogFar: 92, hum: 0, hvac: 0, reverb: 'outdoor', tone: 'g02_night' }),
+    ambient: [0.19, 0.225, 0.34],
+    env: env({ fog: [0.05, 0.062, 0.115], fogNear: 40, fogFar: 104, hum: 0, hvac: 0, reverb: 'outdoor', tone: 'g02_night' }),
   }),
   gen,
 });

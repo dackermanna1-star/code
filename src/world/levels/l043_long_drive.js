@@ -184,7 +184,8 @@ function gen(zb) {
         const mats = [M.lv43_metal, M.lv43_metal, M.lv43_metal, M.lv43_metal, M.lv43_metal, M.lv43_metal];
         mats[side > 0 ? 1 : 0] = M['lv43_green' + k];
         const sx0 = gx - 0.35, sx1 = gx + 0.35;
-        zb.box(sx0, 4.3, zs0 + 2.0, sx1, 6.6, zs1 - 2.0, mats, { uv: 'fit', collide: false });
+        const zm = (zs0 + zs1) / 2;
+        zb.box(sx0, 3.7, zm - 2.5, sx1, 6.6, zm + 2.5, mats, { uv: 'fit', collide: false });
       }
     }
     // ---- cars standing in the lanes, doors open
@@ -262,7 +263,7 @@ function gen(zb) {
       zb.box(xk - 5.6, 5.3, zp - 1.1, xk + 5.6, 6.2, zp + 1.1, M.lv43_pier, { sub: 4 });
     }
     // the shade under the deck
-    zb.box(xk - 8, hwy ? 0.03 : 0.05, z0, xk + 8, hwy ? 0.05 : 0.07, z1, M.lv43_shadow, { alpha: 0.42, collide: false, sub: 8, skip: only(FACE.PY) });
+    if (hwy) zb.box(xk - 8, 0.13, z0, xk + 8, 0.15, z1, M.lv43_shadow, { alpha: 0.36, collide: false, sub: 8, skip: only(FACE.PY) });
     if (hwy) zb.emitter(xk, 4, zc, 'lv43_whistle', { vol: 0.5, rad: 40 });
   }
 }

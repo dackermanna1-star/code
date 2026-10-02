@@ -65,8 +65,9 @@ export function carve(base, holes) {
 export function animMaterial(name, texPrefix, drawFrame, o = {}) {
   for (let f = 0; f < 4; f++) defineTexture(texPrefix + f, (p) => drawFrame(p, f), o.colors ?? 10);
   const base = { s: o.s ?? 1, su: o.su, sv: o.sv, surf: o.surf ?? 'concrete', glow: o.glow ?? 1, chan: o.chan || 0 };
-  defineMaterial(name, texPrefix + '0', { ...base, flags: VF.FULLBRIGHT | VF.ANIM });
-  for (let f = 1; f < 4; f++) defineMaterial(`${name}_f${f}`, texPrefix + f, { ...base, flags: VF.FULLBRIGHT });
+  const extra = o.flags || 0;
+  defineMaterial(name, texPrefix + '0', { ...base, flags: VF.FULLBRIGHT | VF.ANIM | extra });
+  for (let f = 1; f < 4; f++) defineMaterial(`${name}_f${f}`, texPrefix + f, { ...base, flags: VF.FULLBRIGHT | extra });
   return name;
 }
 // hidden slivers, one per chunk of the zone, that keep frames 1..3 of an animated material loaded

@@ -16,7 +16,7 @@ const SIGN_CH = 10, RING_CH = 9;
 
 // ------------------------------------------------------------------ textures
 function tile(p, line) {
-  p.fill([226, 233, 242]);
+  p.fill([222, 228, 238]);
   p.noise(3, 0.035, 2);
   p.grain(0.015);
   p.rect(0, 0, 64, 1, [196, 208, 226], 0.8); p.rect(0, 0, 1, 64, [196, 208, 226], 0.8);
@@ -86,21 +86,24 @@ defineMaterial('lv15_screen_b', 'lv15_screen_b', { s: 1, flags: VF.FULLBRIGHT, g
 defineMaterial('lv15_screen_c', 'lv15_screen_c', { s: 1, flags: VF.FULLBRIGHT, glow: 1.0, chan: SIGN_CH });
 
 // ------------------------------------------------------------------ props
-// a shallow arch of 32 m span in the local x-y plane, springing 10 m above the floor
+// A shallow arch of 32 m span in the local x-y plane, springing 10 m above the floor, built in
+// four pieces (opts.k = 0..3, the prop standing under its own piece) so that every piece lies
+// within the lighting window of the chunk that owns it.
 defineProp('lv15_arch', {
   build(mb, p) {
-    const span = BAY, half = span / 2, th = 0.9, dz = 0.6, seg = 16;
+    const span = BAY, half = span / 2, th = 0.9, dz = 0.6, seg = 16, per = seg / 4;
+    const k = p.opts.k || 0, xoff = -half + (k + 0.5) * (span / 4);
     const R = (half * half + RISE * RISE) / (2 * RISE), cy = SPRING + RISE - R;
     const tmax = Math.asin(half / R);
     const wall = S('lv15_wall'), glow = propGlow('lv15_glow', 1.1, 0);
-    const pt = (t, r, z) => [r * Math.sin(t), cy + r * Math.cos(t), z];
+    const pt = (t, r, z) => [r * Math.sin(t) - xoff, cy + r * Math.cos(t), z];
     const rin = R - th / 2, rout = R + th / 2;
-    for (let i = 0; i < seg; i++) {
+    for (let i = k * per; i < (k + 1) * per; i++) {
       const t0 = -tmax + (2 * tmax * i) / seg, t1 = -tmax + (2 * tmax * (i + 1)) / seg, tm = (t0 + t1) / 2;
-      const far = [(rin + 9) * Math.sin(tm), cy + (rin + 9) * Math.cos(tm), 0];
+      const far = [(rin + 9) * Math.sin(tm) - xoff, cy + (rin + 9) * Math.cos(tm), 0];
       outQuad(mb, pt(t0, rin, -dz), pt(t1, rin, -dz), pt(t1, rin, dz), pt(t0, rin, dz), wall, UVQ, far);
-      outQuad(mb, pt(t0, rout, -dz), pt(t1, rout, -dz), pt(t1, rout, dz), pt(t0, rout, dz), wall, UVQ, [0, cy, 0]);
-      for (const s of [-1, 1]) outQuad(mb, pt(t0, rin, s * dz), pt(t1, rin, s * dz), pt(t1, rout, s * dz), pt(t0, rout, s * dz), wall, UVQ, [0, cy, -s * 10]);
+      outQuad(mb, pt(t0, rout, -dz), pt(t1, rout, -dz), pt(t1, rout, dz), pt(t0, rout, dz), wall, UVQ, [-xoff, cy, 0]);
+      for (const s of [-1, 1]) outQuad(mb, pt(t0, rin, s * dz), pt(t1, rin, s * dz), pt(t1, rout, s * dz), pt(t0, rout, s * dz), wall, UVQ, [-xoff, cy, -s * 10]);
       outQuad(mb, pt(t0, rin - 0.03, -0.22), pt(t1, rin - 0.03, -0.22), pt(t1, rin - 0.03, 0.22), pt(t0, rin - 0.03, 0.22), glow, UVQ, far);
     }
   },
@@ -151,9 +154,12 @@ function gen(zb) {
   for (let j = jA; j <= jB; j++) for (let i = iA; i <= iB; i++) {
     const bx = i * BAY, bz = j * BAY;
     if (owns(zb, bx, bz)) zb.prop('lv15_column', bx, 0, bz, 0, {});
-    if (owns(zb, bx + 16, bz)) zb.prop('lv15_arch', bx + 16, 0, bz, 0, {});
+    for (let k = 0; k < 4; k++) {
+      const off = -16 + (k + 0.5) * 8;
+      if (owns(zb, bx + 16 + off, bz)) zb.prop('lv15_arch', bx + 16 + off, 0, bz, 0, { k });
+      if (owns(zb, bx, bz + 16 + off)) zb.prop('lv15_arch', bx, 0, bz + 16 + off, Math.PI / 2, { k });
+    }
     if (owns(zb, bx, bz + 16)) {
-      zb.prop('lv15_arch', bx, 0, bz + 16, Math.PI / 2, {});
       // a gate sign hangs from the crown over the middle of the path
       if (hr(i, j, 1501) < 0.8) {
         const v = ['a', 'b', 'c'][Math.floor(hr(i, j, 1502) * 3)];
@@ -166,7 +172,7 @@ function gen(zb) {
     // the middle of the bay: a totem in a ring of light, four benches around it
     const cx = bx + 16, cz = bz + 16;
     const doorHere = hr(i, j, 1520) < 0.75 && !(i === 0 && j === 0);
-    if (owns(zb, cx, cz)) {
+    if (owns(zb, cx, cz) && !(i === 0 && j === 0)) {
       const k = hr(i, j, 1510);
       if (k < 0.55) {
         zb.prop('lv15_totem', cx, 0, cz, 0, { v: ['a', 'b', 'c'][Math.floor(hr(i, j, 1511) * 3)], v2: ['a', 'b', 'c'][Math.floor(hr(i, j, 1512) * 3)] });
@@ -214,8 +220,8 @@ defineZone('lv15_halls', {
   ...LEVEL_ZONE,
   doors: true,
   params: () => ({
-    ambient: [0.82, 0.88, 1.0],
-    env: env({ fog: [0.82, 0.89, 0.98], fogNear: 14, fogFar: 74, hum: 0, hvac: 0.1, reverb: 'hall', tone: 'void' }),
+    ambient: [0.84, 0.88, 0.96],
+    env: env({ fog: [0.78, 0.87, 0.97], fogNear: 28, fogFar: 92, hum: 0, hvac: 0.1, reverb: 'hall', tone: 'void' }),
   }),
   gen,
 });
@@ -239,7 +245,7 @@ defineLevel(N, {
   entry: { x: ENTRY.x, y: 0, z: ENTRY.z, yaw: Math.PI / 2, pitch: 0.06 },
   doorDensity: 0.4,
   viewRadius: 4,
-  sky: { top: [0.5, 0.67, 0.92], horizon: [0.84, 0.91, 0.99], ground: [0.8, 0.86, 0.95], curve: 0.6 },
+  sky: { top: [0.2, 0.4, 0.82], horizon: [0.74, 0.85, 0.97], ground: [0.7, 0.8, 0.94], curve: 0.5 },
   grade: { sat: 1.05, tint: [0.98, 1.0, 1.04] },
   light: { phoneRadius: 3, phoneIntensity: 0.1 },
   script(ctx, dt) {

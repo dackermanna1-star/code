@@ -320,6 +320,7 @@ function lamp(zb, x, z, y, on, dying) {
 
 function drawPath(zb, path, rng) {
   const pts = path.pts;
+  const entryZ = zb.x0 === 0 && zb.z0 === 0;     // the walkway out of the arrival platform always stays lit
   for (let i = 0; i + 1 < pts.length; i++) {
     const a = pts[i], b = pts[i + 1];
     const dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz);
@@ -347,7 +348,7 @@ function drawPath(zb, path, rng) {
         const bed = hf(x, z);
         const top = DECK + (path.rail ? 0.95 : 0);
         zb.box(x - 0.07, bed - 0.12, z - 0.07, x + 0.07, top, z + 0.07, M.lv13_post, { collide: path.rail === true });
-        if (path.rail && s > phase + 0.1 && path.lamps && (Math.floor(s / 2.8) % 2 === 1) && side === (Math.floor(s / 2.8) % 4 === 1 ? -1 : 1) && Math.hypot(x - EX, z - EZ) > 9) lamp(zb, x, z, top + 0.05, hr(Math.floor(x), Math.floor(z), 31) > 0.16, hr(Math.floor(x), Math.floor(z), 32) < 0.1);
+        if (path.rail && s > phase + 0.1 && path.lamps && (Math.floor(s / 2.8) % 2 === 1) && side === (Math.floor(s / 2.8) % 4 === 1 ? -1 : 1) && Math.hypot(x - EX, z - EZ) > 9) lamp(zb, x, z, top + 0.05, path.main || entryZ || hr(Math.floor(x), Math.floor(z), 31) > 0.16, !path.main && !entryZ && hr(Math.floor(x), Math.floor(z), 32) < 0.1);
       }
     }
     if (path.rail) {
