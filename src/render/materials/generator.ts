@@ -253,12 +253,17 @@ async function generateLayers(
       mm.frustumCulled = false;
       compileScene.add(mm);
     }
+    // Progress: the first 10% covers shader compilation, the rest the layers.
+    const compileShare = fresh.length > 0 ? 0.1 : 0;
+    onProgress?.(0);
     renderer.setRenderTarget(temp);
     let tc = performance.now();
     await renderer.compileAsync(compileScene, camera);
     sync('compileAsync', tc);
-    for (const p of fresh) {
-      // Force a first draw so the link status is checked, and record failures.
+    for (let k = 0; k < fresh.length; k++) {
+      // Force a first draw so the link status is checked (and, without parallel compile support,
+      // so the compile happens here, one program at a time between yields), and record failures.
+      const p = fresh[k];
       const entry = cache.get(p)!;
       tc = performance.now();
       mesh.material = entry.material;
@@ -268,6 +273,8 @@ async function generateLayers(
       entry.ok = !hasProgramError(renderer, entry.material);
       if (!entry.ok) console.error(`[materials] program '${p}' failed to compile; its layers use the fallback`);
       sync(`first draw '${p}'`, tc);
+      onProgress?.((compileShare * (k + 1)) / fresh.length);
+      await new Promise<void>((r) => setTimeout(r, 0));
     }
     const fallback = cache.get('fallback')!;
 
@@ -329,7 +336,7 @@ async function generateLayers(
       propsData[i * 4 + 3] = Math.round(255 * clamp01(def.sss));
 
       if ((i + 1) % yieldEvery === 0 || last) {
-        onProgress?.((i + 1) / layerCount);
+        onProgress?.(compileShare + ((1 - compileShare) * (i + 1)) / layerCount);
         await new Promise<void>((r) => setTimeout(r, 0));
       }
     }

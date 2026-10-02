@@ -158,7 +158,7 @@ Mat material(vec2 uv) {
       m.h = mix(m.h, 0.82, ln);
       torchSpot(m, uv, vec2(4.0, 3.0) * PX, on);
       torchSpot(m, uv, vec2(12.0, 3.0) * PX, on);
-      torchSpot(m, uv, vec2(8.0, 13.0) * PX, on * 0.0);
+      torchSpot(m, uv, vec2(8.0, 13.0) * PX, 0.0); // the front torch of a comparator is lit only in subtract mode
     }
     return m;
   }

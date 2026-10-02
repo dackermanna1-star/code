@@ -5,7 +5,6 @@ Mat glassPane(vec2 uv, float interiorA, float frameA, vec3 tintC) {
   float frame = 1.0 - smoothstep(0.9 * PX, 1.1 * PX, e);
   float n = fbm(uv, vec2(3.0), 3, 0.5, 900.0);
   // diagonal streak highlights (classic glass texture), top-left and bottom-right
-  float d1 = abs(uv.x - uv.y + 0.0 - (1.0 - 0.0) * 0.0 - 0.25 * 0.0);
   float s1 = cover(abs((uv.y - uv.x) - 0.42) - 0.012) * step(0.55, uv.y) * step(uv.x, 0.45) * step(0.15, uv.x);
   float s2 = cover(abs((uv.y - uv.x) - 0.33) - 0.006) * step(0.62, uv.y) * step(uv.x, 0.32) * step(0.2, uv.x);
   float s3 = cover(abs((uv.y - uv.x) + 0.42) - 0.01) * step(uv.y, 0.45) * step(0.6, uv.x) * step(uv.x, 0.85);

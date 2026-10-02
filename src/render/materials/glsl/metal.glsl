@@ -7,10 +7,10 @@
 
 vec3 metalBaseColor(int v) {
   if (v == V_METAL_BLOCK || v == V_GEM_BLOCK || v == V_LAPIS_BLOCK || v == V_REDSTONE_BLOCK) return uC[0];
-  if (v == V_ANVIL) return rgb(0x3e3e40);
-  if (v == V_CHAIN) return rgb(0x3a3d46);
+  if (v == V_ANVIL) return rgb(0x4e4e52);
+  if (v == V_CHAIN) return rgb(0x4a4e58);
   if (v == V_LANTERN) return rgb(0x34363c);
-  if (v == V_CAULDRON || v == V_HOPPER) return rgb(0x48484a);
+  if (v == V_CAULDRON || v == V_HOPPER) return rgb(0x56565a);
   return rgb(0x8c8c8e);
 }
 
@@ -131,12 +131,10 @@ Mat material(vec2 uv) {
       hole = cover(sdBox(g, vec2(0.28, 0.2))) * inside;
     }
     // rivets in the corners of the frame
-    vec2 q = abs(c) - vec2(6.6 * PX);
     vec2 rv = rivet(abs(c), vec2(6.6 * PX), 0.6 * PX);
     m.col = mix(m.col, m.col * 1.15, rv.x * rv.y);
     m.h = mix(m.h, 0.95, rv.x);
     // inner edge of holes is darker (thickness)
-    m.col *= 1.0 - 0.4 * (cover(-0.01 + 0.0) * 0.0);
     m.a = 1.0 - hole;
     return m;
   }

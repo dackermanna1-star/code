@@ -62,10 +62,14 @@ Mat material(vec2 uv) {
       vec2 off = (r.xy - 0.5) * 0.42 * (k == 0 ? 0.0 : 1.0);
       float rad = rs * (0.07 + 0.06 * r.z);
       vec2 dv = p - (bc + off);
-      float d = length(dv) - rad;
+      // angular grains: a randomly rotated box/diamond blend instead of round blobs
+      vec2 rv = rot(r.z * TAU) * dv;
+      float ang = max(abs(rv.x), abs(rv.y));
+      float dia = (abs(rv.x) + abs(rv.y)) * 0.75;
+      float d = mix(ang, dia, fract(r.x * 5.0)) * 1.05 - rad;
       if (d < dmin) { dmin = d; nearestOff = dv / max(rad, 1e-3); }
     }
-    float edgeN = 0.025 * rs * gnoise(uv * 48.0, vec2(48.0), salt + 2.0);
+    float edgeN = 0.03 * rs * gnoise(uv * 48.0, vec2(48.0), salt + 2.0);
     float sd = (dmin + edgeN) / grid; // uv units
     inc = cover(sd);
     float rimC = cover(sd - 0.012) - inc;
@@ -90,13 +94,13 @@ Mat material(vec2 uv) {
     // coal: dark chunky matte lumps with dull sheen
     mc = mix(uC[0], uC[1], sat(0.5 + 0.5 * g + 0.3 * facet));
     mc = mix(mc, uC[2], smoothstep(0.55, 0.9, hl) * 0.4);
-    mh = 0.72 + 0.12 * hl + 0.04 * g;
+    mh = 0.73 + 0.08 * hl + 0.04 * g;
   } else if (style == 1) {
     // metal nugget: rounded, bright highlight towards the light, dark edge
     float sh = dot(normalize(vec2(-0.5, 0.8)), -lp) * 0.5 + 0.5;
     mc = mix(uC[0], uC[1], smoothstep(0.0, 0.6, hl));
     mc = mix(mc, uC[2], smoothstep(0.55, 0.95, sh * hl + 0.15 * g) * 0.8);
-    mh = 0.7 + 0.18 * sqrt(hl) + 0.02 * g;
+    mh = 0.74 + 0.09 * sqrt(hl) + 0.02 * g;
   } else if (style == 2) {
     // faceted gem: angular facets with bright white glints
     float f = step(0.5, fract(facet * 3.7 + 0.3 * g));
@@ -114,7 +118,7 @@ Mat material(vec2 uv) {
     float sh = abs(fract(dot(lp, vec2(0.8, 0.6)) * 1.5 + facet) - 0.5);
     mc = mix(uC[0], uC[1], smoothstep(0.0, 0.5, hl + 0.2 * g));
     mc = mix(mc, uC[2], smoothstep(0.32, 0.5, sh) * 0.7 + smoothstep(0.7, 1.0, hl) * 0.4);
-    mh = 0.72 + 0.12 * hl + 0.05 * sh;
+    mh = 0.73 + 0.08 * hl + 0.05 * sh;
   }
   float any = max(inc, speck * 0.85);
   m.col = mix(m.col, mc, any);

@@ -91,7 +91,7 @@ Mat bookshelf(vec2 uv, Mat wood) {
   float ly = (uv.y - y0) / (y1 - y0);
   float band = cover(abs(ly - 0.2) - 0.04) + cover(abs(ly - 0.78) - 0.04);
   col = mix(col, rgb(0xd8b860) * 0.8, sat(band) * 0.6);
-  float gap = cover(abs(lx - 0.0) * bw * PX - 0.15 * PX) + cover(abs(lx - 1.0) * bw * PX - 0.15 * PX);
+  float gap = cover(lx * bw * PX - 0.15 * PX) + cover((1.0 - lx) * bw * PX - 0.15 * PX);
   col *= 1.0 - 0.5 * sat(gap);
   // shadowed back of the shelf above books that are shorter
   vec3 back = rgb(0x1e140a);
@@ -286,7 +286,7 @@ Mat material(vec2 uv) {
     float node = cover(abs(fract(uv.y * 2.0) - 0.5) / 2.0 - 0.3 * PX) * frame;
     float a = frame;
     if (part < 0.5) {
-      float brace = max(cover(sdSeg(uv, vec2(1.5, 1.5) * PX, vec2(14.5, 14.5) * PX) - 0.9 * PX), cover(sdSeg(uv, vec2(1.5, 14.5) * PX, vec2(14.5, 1.5) * PX) - 0.9 * PX) * 0.0);
+      float brace = cover(sdSeg(uv, vec2(1.5, 1.5) * PX, vec2(14.5, 14.5) * PX) - 0.9 * PX);
       a = max(a, brace);
     } else if (part < 1.5) {
       float slat = cover(abs(fract(uv.x * 4.0) - 0.5) / 4.0 - 1.2 * PX);

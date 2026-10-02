@@ -30,14 +30,25 @@ Mat masonSurface(vec2 uv, float salt) {
   vec3 col = t < 0.5 ? mix(dk, md, t * 2.0) : mix(md, lt, t * 2.0 - 1.0);
   float gf = floor(uSize * 0.5);
   float g = vnoise(uv * gf, vec2(gf), salt + 3.0) - 0.5;
-  col *= 1.0 + g * 0.1;
+  float g2 = vnoise(uv * gf * 0.5, vec2(gf * 0.5), salt + 5.0) - 0.5;
+  col *= 1.0 + g * 0.12 + g2 * 0.08;
   vec4 w = worley(q, vec2(24.0), 0.9, salt + 4.0);
   float sp = (1.0 - smoothstep(0.15, 0.3, w.x)) * step(w.z, 0.12);
-  float pit = (1.0 - smoothstep(0.1, 0.22, w.x)) * step(0.95, w.z);
-  col = mix(col, uC[4], sp * 0.8);
+  float pit = (1.0 - smoothstep(0.08, 0.2, w.x)) * step(0.97, w.z);
+  col = mix(col, uC[4], sp * 0.45);
   col = mix(col, dk * 0.6, pit * 0.6);
-  float h = 0.5 + 0.3 * n + 0.12 * n2 + 0.05 * g - 0.3 * pit;
-  return M(col, 1.0, sat(h), uP[2].z + 0.05 * n2);
+  // dressed-stone micro relief (tool marks / grain) and weathering
+  float mr = fbm(q, vec2(f * 4.0), 3, 0.5, salt + 6.0);
+  float h = 0.5 + 0.3 * n + 0.12 * n2 + 0.08 * mr + 0.05 * g + 0.04 * g2 - 0.3 * pit;
+  col *= 1.0 + 0.05 * mr;
+  // sedimentary strata (sandstone): thin darker bedding lines
+  if (layer > 0.0) {
+    float sl = sin(TAU * (13.0 * q.y + 0.6 * n2)) * (0.6 + 0.4 * sin(TAU * (3.0 * q.y + q.x)));
+    float strata = smoothstep(0.75, 1.0, sl) * layer;
+    col = mix(col, dk * 0.88, strata * 0.6);
+    h -= 0.05 * strata;
+  }
+  return M(col, 1.0, sat(h), uP[2].z + 0.05 * n2 + 0.03 * mr);
 }
 
 // Distance (uv units, + inside) to the edge of the unit (brick/tile/panel) and its id/local coords.

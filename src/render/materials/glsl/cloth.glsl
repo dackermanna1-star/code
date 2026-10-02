@@ -28,7 +28,7 @@ Mat weave(vec2 uv) {
   float thread = over_ ? 1.0 - 4.0 * f.y * f.y : 1.0 - 4.0 * f.x * f.x;
   float fuzz = gnoise(uv * 128.0, vec2(128.0), 960.0);
   // quilting seams
-  float seam = cover(abs(fract(uv.y * 2.0) - 0.5) * 0.5 - 0.004) * 0.0 + cover(abs(uv.y - 0.5) - 0.006);
+  float seam = cover(abs(uv.y - 0.5) - 0.006);
   float n = fbm(uv, vec2(4.0), 3, 0.5, 961.0);
   float t = 0.84 + 0.1 * thread + 0.03 * fuzz + 0.03 * n - 0.15 * seam;
   float h = 0.6 + 0.2 * thread + 0.03 * fuzz - 0.25 * seam + 0.06 * n;

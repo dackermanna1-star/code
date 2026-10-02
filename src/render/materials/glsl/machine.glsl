@@ -365,7 +365,7 @@ Mat material(vec2 uv) {
   if (v == V_SPAWNER) {
     // dark iron cage: 4x4 openings
     vec2 g = abs(fract(uv * 4.0) - 0.5);
-    float bars = max(cover(g.x * 0.25 - 0.06 * 0.25 - 0.0), cover(g.y * 0.25 - 0.06 * 0.25));
+    float bars = max(cover((g.x - 0.06) * 0.25), cover((g.y - 0.06) * 0.25));
     float rod = 1.0 - 2.0 * min(g.x, g.y);
     vec3 col = met.col * vec3(0.6, 0.62, 0.75) * (0.6 + 0.6 * sat(1.0 - min(g.x, g.y) / 0.08));
     float e = borderDist(uv);
