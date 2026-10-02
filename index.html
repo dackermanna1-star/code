@@ -162,7 +162,6 @@ const SFX = (() => {
     w.connect(windFilt); windFilt.connect(windGain); windGain.connect(master); w.start();
   };
   S.ok = () => !!ac && !S.silent;
-  S.tap = () => { if (!ac) return null; const an = ac.createAnalyser(); an.fftSize = 2048; master.connect(an); return an; };
   S.pause = () => { if (ac && ac.state === 'running') ac.suspend(); };
   S.resume = () => { if (ac && ac.state === 'suspended') ac.resume(); };
   S.setMuted = m => { S.muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : 0.9, ac.currentTime, 0.02); };
@@ -1019,6 +1018,21 @@ function drawGround(c, T) {
   // road lines on the ground plane
   c.fillStyle = 'rgba(160,165,190,0.07)';
   for (let x = Math.floor(xl / 180) * 180; x < xr; x += 180) c.fillRect(x, 18, 90, 3);
+  // energy light reflected on the ground plane
+  if (LIGHTS.length) {
+    const ls = LIGHTS.filter(L => L.y > -900 && L.i > 0.15).sort((a, b) => b.i - a.i).slice(0, 6);
+    c.globalCompositeOperation = 'lighter';
+    for (const L of ls) {
+      const h = Math.max(0, 1 + L.y / 900), rx = Math.min(1600, L.r * 0.35) * (0.6 + 0.4 * h), a = Math.min(0.55, L.i * 0.3) * h;
+      if (a < 0.02) continue;
+      c.save(); c.translate(L.x, 18); c.scale(1, 0.09);
+      const gr = c.createRadialGradient(0, 0, 0, 0, 0, rx);
+      gr.addColorStop(0, L.col); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      c.globalAlpha = a; c.fillStyle = gr; c.beginPath(); c.arc(0, 0, rx, 0, TAU); c.fill();
+      c.restore();
+    }
+    c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+  }
   // scorch marks
   for (const s of World.scorches) {
     const gg = c.createRadialGradient(s.x, 14, 0, s.x, 14, s.r);
@@ -4161,11 +4175,6 @@ function init() {
   window.__seek = t => { seek(t); render(T); return T; };
   window.__render = () => { render(T); return true; };
   window.__joint = (who, t, j) => (who === 'g' ? G : S).joint(t, j).map(v => Math.round(v));
-  window.__perf = (t0, t1, step) => {
-    seek(t0); const out = []; let t = t0;
-    while (t < t1) { const a = performance.now(); simStep(t, t + step); t += step; T = t; const b = performance.now(); render(T); const c2 = performance.now(); out.push([+t.toFixed(2), +(b - a).toFixed(1), +(c2 - b).toFixed(1), parts.length]); }
-    return out;
-  };
   window.__info = () => ({ W, H, parts: parts.length, webgl: !!post, fx: FX.length, ev: EVENTS.length });
 }
 init();
