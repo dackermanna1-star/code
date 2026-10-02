@@ -13,18 +13,17 @@
 import type { WorldGenerator } from '../generator';
 import type { GeneratedChunk } from '../../chunk';
 import { OverworldTerrain, SEA_Y } from './terrain';
-import { Aquifer, FLUID_BARRIER, FLUID_LAVA, FLUID_WATER } from './aquifer';
+import { Aquifer, FLUID_BARRIER as FLUID_BARRIER_, FLUID_LAVA as FLUID_LAVA_, FLUID_WATER as FLUID_WATER_, LAVA_Y as LAVA_Y_ } from './aquifer';
 import { SurfaceRules, IS_BADLANDS as IS_BADLANDS_, IS_FROZEN_OCEAN as IS_FROZEN_OCEAN_ } from './surface';
 import { BIO as BIO_ } from './biomeSource';
 import { ST as ST_, IS_SOLID as IS_SOLID_, IS_LEAVES as IS_LEAVES_, IS_LOG as IS_LOG_ } from '../common/states';
 import { hashF as hashF_ } from '../common/noise';
 import { blendBiomeColors, finishChunk } from '../common/output';
-import { Carvers, segmentContains, type Segment } from './carvers';
+import { Carvers, segmentContains as segmentContains_, type Segment } from './carvers';
 import { OrePlacer } from './ores';
 import { Decorator, type DecorationHost } from './features';
 import { ChunkWriter } from '../common/writer';
 import { StructureManager } from '../structures/index';
-import { LAVA_Y } from './aquifer';
 import { BLOCKS } from '../../blocks/registry';
 
 // module-local bindings (avoid namespace getters in hot loops under tsx/vitest)
@@ -34,6 +33,11 @@ const IS_BADLANDS = IS_BADLANDS_;
 const IS_FROZEN_OCEAN = IS_FROZEN_OCEAN_;
 const BIO = BIO_;
 const hashF = hashF_;
+const FLUID_BARRIER = FLUID_BARRIER_;
+const FLUID_LAVA = FLUID_LAVA_;
+const FLUID_WATER = FLUID_WATER_;
+const LAVA_Y = LAVA_Y_;
+const segmentContains = segmentContains_;
 
 /** Blocks carvers may remove. */
 const CARVABLE = new Uint8Array(4096);
@@ -165,6 +169,7 @@ export class OverworldGenerator implements WorldGenerator, DecorationHost {
     this.terrain.fillChunk(cx, cz, this.solid, this.top);
     const x0 = cx * 16, z0 = cz * 16;
     for (let c = 0; c < 256; c++) this.colBiome[c] = this.terrain.biomeAt(x0 + (c & 15), z0 + (c >> 4));
+    this.aquifer.prepare(cx, cz);
     this.baseBlocks(cx, cz);
     this.applySurface(cx, cz);
     this.bedrock(cx, cz);

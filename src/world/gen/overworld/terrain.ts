@@ -71,15 +71,19 @@ export class QuartColumn {
   rar2d = 1;
   elev = 0;
   thick2d = -1;
-  // density channels per level
-  readonly d = new Float64Array(LEVELS);
-  readonly tog = new Float64Array(LEVELS);
-  readonly nth = new Float64Array(LEVELS);
-  readonly na = new Float64Array(LEVELS);
-  readonly nb = new Float64Array(LEVELS);
-  readonly done = new Uint8Array(LEVELS);
+  /**
+   * Density channels per level, allocated lazily (many columns are only used for climate/biomes):
+   * [D x33 | noodle toggle x33 | noodle thickness x33 | ridge A x33 | ridge B x33]. Float32 keeps
+   * memory low; every consumer reads the same stored values, so results stay bit-identical.
+   */
+  ch: Float32Array = EMPTY_F32;
+  done: Uint8Array = EMPTY_U8;
   constructor(readonly qx: number, readonly qz: number) {}
 }
+
+const EMPTY_F32 = new Float32Array(0);
+const EMPTY_U8 = new Uint8Array(0);
+const TOG = LEVELS, NTH = 2 * LEVELS, NA = 3 * LEVELS, NB = 4 * LEVELS;
 
 const qkey = (qx: number, qz: number) => (qx + 0x80000) * 0x100000 + (qz + 0x80000);
 
@@ -178,7 +182,7 @@ export class OverworldTerrain {
     const k = qkey(qx, qz);
     let c = this.cache.get(k);
     if (c) return c;
-    if (this.cache.size > 60000) this.cache.clear();
+    if (this.cache.size > 24000) this.cache.clear();
     c = new QuartColumn(qx, qz);
     const bx = qx * 4, bz = qz * 4;
     this.climateAt(bx, bz, c);
@@ -196,11 +200,6 @@ export class OverworldTerrain {
     const maxBase = compressOffset(c.offset + Math.max(0, c.jag) * 1.0);
     const yBound = 63.52 + 128 * (maxBase + this.noiseMax / Math.max(0.3, c.factor));
     c.kTop = Math.max(1, Math.min(LEVELS - 1, Math.ceil(yBound / CELL_H)));
-    for (let i = c.kTop + 1; i < LEVELS; i++) {
-      c.d[i] = FORCED;
-      c.tog[i] = FORCED;
-      c.done[i] = 1;
-    }
     // 2D cave parameters
     c.rar3d = rarity3d(this.spag3dRarity.at(bx, bz));
     c.rar2d = rarity2d(this.spag2dMod.at(bx, bz));
@@ -279,20 +278,31 @@ export class OverworldTerrain {
       const f = clamp(y / BOTTOM_SLIDE_END, 0, 1);
       D = 0.1171875 + f * (D - 0.1171875);
     }
-    c.d[k] = D;
+    c.ch[k] = D;
     if (y >= NOODLE_MIN_Y && y <= NOODLE_MAX_Y) {
-      c.tog[k] = this.noodleToggle.at(x, y, z);
-      c.nth[k] = -0.075 - 0.025 * this.noodleThick.at(x, y, z);
-      c.na[k] = this.noodleA.at(x, y, z);
-      c.nb[k] = this.noodleB.at(x, y, z);
+      c.ch[TOG + k] = this.noodleToggle.at(x, y, z);
+      c.ch[NTH + k] = -0.075 - 0.025 * this.noodleThick.at(x, y, z);
+      c.ch[NA + k] = this.noodleA.at(x, y, z);
+      c.ch[NB + k] = this.noodleB.at(x, y, z);
     } else {
-      c.tog[k] = FORCED;
+      c.ch[TOG + k] = FORCED;
     }
     c.done[k] = 1;
   }
 
+  private allocate(c: QuartColumn): void {
+    c.ch = new Float32Array(LEVELS * 5);
+    c.done = new Uint8Array(LEVELS);
+    for (let i = c.kTop + 1; i < LEVELS; i++) {
+      c.ch[i] = FORCED;
+      c.ch[TOG + i] = FORCED;
+      c.done[i] = 1;
+    }
+  }
+
   /** Ensure levels [k0, k1] are computed for a quart column. */
   ensure(c: QuartColumn, k0: number, k1: number): void {
+    if (c.done.length === 0) this.allocate(c);
     for (let k = k0; k <= k1; k++) if (c.done[k] === 0) this.computeLevel(c, k);
   }
 
@@ -327,19 +337,19 @@ export class OverworldTerrain {
     const kMax = Math.max(c00.kTop, c10.kTop, c01.kTop, c11.kTop);
     for (let k = kMax - 1; k >= 0; k--) {
       this.ensure(c00, k, k + 1); this.ensure(c10, k, k + 1); this.ensure(c01, k, k + 1); this.ensure(c11, k, k + 1);
-      const d0 = bilerp(c00.d[k], c10.d[k], c01.d[k], c11.d[k], fx, fz);
-      const d1 = bilerp(c00.d[k + 1], c10.d[k + 1], c01.d[k + 1], c11.d[k + 1], fx, fz);
+      const d0 = bilerp(c00.ch[k], c10.ch[k], c01.ch[k], c11.ch[k], fx, fz);
+      const d1 = bilerp(c00.ch[k + 1], c10.ch[k + 1], c01.ch[k + 1], c11.ch[k + 1], fx, fz);
       if (d0 <= 0 && d1 <= 0) continue;
-      const t0 = bilerp(c00.tog[k], c10.tog[k], c01.tog[k], c11.tog[k], fx, fz);
-      const t1 = bilerp(c00.tog[k + 1], c10.tog[k + 1], c01.tog[k + 1], c11.tog[k + 1], fx, fz);
+      const t0 = bilerp(c00.ch[TOG + k], c10.ch[TOG + k], c01.ch[TOG + k], c11.ch[TOG + k], fx, fz);
+      const t1 = bilerp(c00.ch[TOG + k + 1], c10.ch[TOG + k + 1], c01.ch[TOG + k + 1], c11.ch[TOG + k + 1], fx, fz);
       let h0 = 0, h1 = 0, a0 = 0, a1 = 0, b0 = 0, b1 = 0;
       if (t0 >= 0 || t1 >= 0) {
-        h0 = bilerp(c00.nth[k], c10.nth[k], c01.nth[k], c11.nth[k], fx, fz);
-        h1 = bilerp(c00.nth[k + 1], c10.nth[k + 1], c01.nth[k + 1], c11.nth[k + 1], fx, fz);
-        a0 = bilerp(c00.na[k], c10.na[k], c01.na[k], c11.na[k], fx, fz);
-        a1 = bilerp(c00.na[k + 1], c10.na[k + 1], c01.na[k + 1], c11.na[k + 1], fx, fz);
-        b0 = bilerp(c00.nb[k], c10.nb[k], c01.nb[k], c11.nb[k], fx, fz);
-        b1 = bilerp(c00.nb[k + 1], c10.nb[k + 1], c01.nb[k + 1], c11.nb[k + 1], fx, fz);
+        h0 = bilerp(c00.ch[NTH + k], c10.ch[NTH + k], c01.ch[NTH + k], c11.ch[NTH + k], fx, fz);
+        h1 = bilerp(c00.ch[NTH + k + 1], c10.ch[NTH + k + 1], c01.ch[NTH + k + 1], c11.ch[NTH + k + 1], fx, fz);
+        a0 = bilerp(c00.ch[NA + k], c10.ch[NA + k], c01.ch[NA + k], c11.ch[NA + k], fx, fz);
+        a1 = bilerp(c00.ch[NA + k + 1], c10.ch[NA + k + 1], c01.ch[NA + k + 1], c11.ch[NA + k + 1], fx, fz);
+        b0 = bilerp(c00.ch[NB + k], c10.ch[NB + k], c01.ch[NB + k], c11.ch[NB + k], fx, fz);
+        b1 = bilerp(c00.ch[NB + k + 1], c10.ch[NB + k + 1], c01.ch[NB + k + 1], c11.ch[NB + k + 1], fx, fz);
       }
       for (let j = 7; j >= 0; j--) {
         if (OverworldTerrain.solidAt(j * 0.125, d0, d1, t0, t1, h0, h1, a0, a1, b0, b1)) return k * CELL_H + j;
@@ -369,8 +379,8 @@ export class OverworldTerrain {
         const c00 = cols[qz * 5 + qx], c10 = cols[qz * 5 + qx + 1], c01 = cols[(qz + 1) * 5 + qx], c11 = cols[(qz + 1) * 5 + qx + 1];
         const kMax = Math.max(c00.kTop, c10.kTop, c01.kTop, c11.kTop);
         for (let k = 0; k <= kMax; k++) {
-          vD[k] = bilerp(c00.d[k], c10.d[k], c01.d[k], c11.d[k], fx, fz);
-          vT[k] = bilerp(c00.tog[k], c10.tog[k], c01.tog[k], c11.tog[k], fx, fz);
+          vD[k] = bilerp(c00.ch[k], c10.ch[k], c01.ch[k], c11.ch[k], fx, fz);
+          vT[k] = bilerp(c00.ch[TOG + k], c10.ch[TOG + k], c01.ch[TOG + k], c11.ch[TOG + k], fx, fz);
         }
         let topY = -1;
         const colIdx = (z << 4) | x;
@@ -386,12 +396,12 @@ export class OverworldTerrain {
           }
           let h0 = 0, h1 = 0, a0 = 0, a1 = 0, b0 = 0, b1 = 0;
           if (t0 >= 0 || t1 >= 0) {
-            h0 = bilerp(c00.nth[k], c10.nth[k], c01.nth[k], c11.nth[k], fx, fz);
-            h1 = bilerp(c00.nth[k + 1], c10.nth[k + 1], c01.nth[k + 1], c11.nth[k + 1], fx, fz);
-            a0 = bilerp(c00.na[k], c10.na[k], c01.na[k], c11.na[k], fx, fz);
-            a1 = bilerp(c00.na[k + 1], c10.na[k + 1], c01.na[k + 1], c11.na[k + 1], fx, fz);
-            b0 = bilerp(c00.nb[k], c10.nb[k], c01.nb[k], c11.nb[k], fx, fz);
-            b1 = bilerp(c00.nb[k + 1], c10.nb[k + 1], c01.nb[k + 1], c11.nb[k + 1], fx, fz);
+            h0 = bilerp(c00.ch[NTH + k], c10.ch[NTH + k], c01.ch[NTH + k], c11.ch[NTH + k], fx, fz);
+            h1 = bilerp(c00.ch[NTH + k + 1], c10.ch[NTH + k + 1], c01.ch[NTH + k + 1], c11.ch[NTH + k + 1], fx, fz);
+            a0 = bilerp(c00.ch[NA + k], c10.ch[NA + k], c01.ch[NA + k], c11.ch[NA + k], fx, fz);
+            a1 = bilerp(c00.ch[NA + k + 1], c10.ch[NA + k + 1], c01.ch[NA + k + 1], c11.ch[NA + k + 1], fx, fz);
+            b0 = bilerp(c00.ch[NB + k], c10.ch[NB + k], c01.ch[NB + k], c11.ch[NB + k], fx, fz);
+            b1 = bilerp(c00.ch[NB + k + 1], c10.ch[NB + k + 1], c01.ch[NB + k + 1], c11.ch[NB + k + 1], fx, fz);
           }
           for (let j = 7; j >= 0; j--) {
             if (OverworldTerrain.solidAt(j * 0.125, d0, d1, t0, t1, h0, h1, a0, a1, b0, b1)) {

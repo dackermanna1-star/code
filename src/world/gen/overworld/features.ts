@@ -96,6 +96,8 @@ function pickKind(c: TreeConf, roll: number): TreeKind {
 }
 
 const MAX_ATTEMPTS = 64;
+/** Flag for two-block plants returned by plantOn. */
+const TALL = 1 << 20;
 
 interface TreePlan {
   x: number;
@@ -334,58 +336,61 @@ export class Decorator {
         if (g === ST.snowBlock && biome === BIO.grove && r < 0.01) work[gi + 256] = ST.fern;
         continue;
       }
-      this.plantOn(x, y, z, gi, g, biome, r, space2, work);
+      const p = this.plantOn(x, y, z, gi, g, biome, r, space2, work);
+      if (p !== 0) {
+        if (p & TALL) {
+          const lo = p & 0xffff;
+          work[gi + 256] = lo;
+          work[gi + 512] = lo | 8;
+        } else work[gi + 256] = p;
+      }
     }
   }
 
-  private plantOn(x: number, y: number, z: number, gi: number, g: number, biome: number, r: number, space2: boolean, work: Uint16Array): void {
-    const put = (s: number): void => {
-      work[gi + 256] = s;
-    };
-    const putTall = (lo: number): void => {
-      if (!space2) return put(ST.shortGrass);
-      work[gi + 256] = lo;
-      work[gi + 512] = lo | 8;
-    };
+  /**
+   * Plant for a grass-like ground block; returns the state to place above (0 = nothing), with
+   * TALL set for two-block plants (lower half state; the upper half is state | 8).
+   */
+  private plantOn(x: number, y: number, z: number, gi: number, g: number, biome: number, r: number, space2: boolean, work: Uint16Array): number {
     const patch = this.patchN.at(x, z);
     const fl = this.flowerN.noise2(x, z);
     const r2 = this.rnd(x, y, z, 0x2f10);
     switch (biome) {
       case BIO.plains:
       case BIO.sunflower_plains: {
-        if (biome === BIO.sunflower_plains && r < 0.035 && space2) return putTall(ST.sunflower);
-        if (r < 0.022) return put(fl < -0.25 ? TULIPS[Math.floor(r2 * 4)] : PLAINS_FLOWERS[Math.floor(r2 * PLAINS_FLOWERS.length)]);
-        if (r < 0.06 + Math.max(0, patch) * 0.12) return putTall(ST.tallGrassLo);
-        if (r < 0.42 + patch * 0.15) return put(ST.shortGrass);
-        if (r > 0.9995) return put(ST.pumpkin);
-        return;
+        if (biome === BIO.sunflower_plains && r < 0.035 && space2) return space2 ? (ST.sunflower) | TALL : ST.shortGrass;
+        if (r < 0.022) return fl < -0.25 ? TULIPS[Math.floor(r2 * 4)] : PLAINS_FLOWERS[Math.floor(r2 * PLAINS_FLOWERS.length)];
+        if (r < 0.06 + Math.max(0, patch) * 0.12) return space2 ? (ST.tallGrassLo) | TALL : ST.shortGrass;
+        if (r < 0.42 + patch * 0.15) return ST.shortGrass;
+        if (r > 0.9995) return ST.pumpkin;
+        return 0;
       }
       case BIO.meadow: {
-        if (r < 0.1 + Math.max(0, fl) * 0.25) return put(MEADOW_FLOWERS[Math.floor(((fl + 1) * 3 + r2 * 2) % MEADOW_FLOWERS.length)]);
-        if (r < 0.22) return putTall(ST.tallGrassLo);
-        if (r < 0.6) return put(ST.shortGrass);
-        return;
+        if (r < 0.1 + Math.max(0, fl) * 0.25) return MEADOW_FLOWERS[Math.floor(((fl + 1) * 3 + r2 * 2) % MEADOW_FLOWERS.length)];
+        if (r < 0.22) return space2 ? (ST.tallGrassLo) | TALL : ST.shortGrass;
+        if (r < 0.6) return ST.shortGrass;
+        return 0;
       }
       case BIO.flower_forest: {
         if (r < 0.28) {
           const idx = Math.floor(((fl + 1) * 0.5 * FLOWER_FOREST.length + r2 * 1.2) % FLOWER_FOREST.length);
-          return put(FLOWER_FOREST[Math.max(0, idx)]);
+          return FLOWER_FOREST[Math.max(0, idx)];
         }
-        if (r < 0.31 && space2) return putTall(TALL_FLOWERS[Math.floor(r2 * 3)]);
-        if (r < 0.36) return put(ST.shortGrass);
-        return;
+        if (r < 0.31 && space2) return space2 ? (TALL_FLOWERS[Math.floor(r2 * 3)]) | TALL : ST.shortGrass;
+        if (r < 0.36) return ST.shortGrass;
+        return 0;
       }
       case BIO.forest:
       case BIO.birch_forest:
       case BIO.old_growth_birch_forest:
       case BIO.dark_forest: {
-        if (r < 0.006 && space2) return putTall(TALL_FLOWERS[Math.floor(r2 * 3)]);
-        if (r < 0.018) return put(FOREST_FLOWERS[Math.floor(r2 * FOREST_FLOWERS.length)]);
-        if (biome === BIO.dark_forest && r < 0.03) return put(r2 < 0.5 ? ST.brownMushroom : ST.redMushroom);
-        if (r < 0.035) return putTall(ST.tallGrassLo);
-        if (r < 0.14 + patch * 0.05) return put(ST.shortGrass);
-        if (r > 0.9996) return put(ST.pumpkin);
-        return;
+        if (r < 0.006 && space2) return space2 ? (TALL_FLOWERS[Math.floor(r2 * 3)]) | TALL : ST.shortGrass;
+        if (r < 0.018) return FOREST_FLOWERS[Math.floor(r2 * FOREST_FLOWERS.length)];
+        if (biome === BIO.dark_forest && r < 0.03) return r2 < 0.5 ? ST.brownMushroom : ST.redMushroom;
+        if (r < 0.035) return space2 ? (ST.tallGrassLo) | TALL : ST.shortGrass;
+        if (r < 0.14 + patch * 0.05) return ST.shortGrass;
+        if (r > 0.9996) return ST.pumpkin;
+        return 0;
       }
       case BIO.taiga:
       case BIO.snowy_taiga:
@@ -393,23 +398,23 @@ export class Decorator {
       case BIO.old_growth_spruce_taiga: {
         const og = biome === BIO.old_growth_pine_taiga || biome === BIO.old_growth_spruce_taiga;
         const snowy = biome === BIO.snowy_taiga;
-        if (r < (snowy ? 0.0005 : og ? 0.006 : 0.004) && patch > 0) return put(ST.sweetBerryBush);
-        if (og && r > 0.985) return put(r2 < 0.5 ? ST.brownMushroom : ST.redMushroom);
-        if (og && r > 0.98) return put(ST.deadBush);
-        if (r < (snowy ? 0.01 : 0.03)) return putTall(ST.largeFernLo);
-        if (r < (snowy ? 0.06 : og ? 0.22 : 0.16)) return put(ST.fern);
-        if (r < (snowy ? 0.08 : og ? 0.28 : 0.22)) return put(ST.shortGrass);
-        if (!snowy && r < 0.226) return put(DEFAULT_FLOWERS[Math.floor(r2 * 3)]);
-        if (r > 0.9995) return put(ST.pumpkin);
-        return;
+        if (r < (snowy ? 0.0005 : og ? 0.006 : 0.004) && patch > 0) return ST.sweetBerryBush;
+        if (og && r > 0.985) return r2 < 0.5 ? ST.brownMushroom : ST.redMushroom;
+        if (og && r > 0.98) return ST.deadBush;
+        if (r < (snowy ? 0.01 : 0.03)) return space2 ? (ST.largeFernLo) | TALL : ST.shortGrass;
+        if (r < (snowy ? 0.06 : og ? 0.22 : 0.16)) return ST.fern;
+        if (r < (snowy ? 0.08 : og ? 0.28 : 0.22)) return ST.shortGrass;
+        if (!snowy && r < 0.226) return DEFAULT_FLOWERS[Math.floor(r2 * 3)];
+        if (r > 0.9995) return ST.pumpkin;
+        return 0;
       }
       case BIO.savanna:
       case BIO.savanna_plateau:
       case BIO.windswept_savanna: {
-        if (r < 0.1 + Math.max(0, patch) * 0.1) return putTall(ST.tallGrassLo);
-        if (r < 0.45) return put(ST.shortGrass);
-        if (r < 0.456) return put(DEFAULT_FLOWERS[Math.floor(r2 * 3)]);
-        return;
+        if (r < 0.1 + Math.max(0, patch) * 0.1) return space2 ? (ST.tallGrassLo) | TALL : ST.shortGrass;
+        if (r < 0.45) return ST.shortGrass;
+        if (r < 0.456) return DEFAULT_FLOWERS[Math.floor(r2 * 3)];
+        return 0;
       }
       case BIO.jungle:
       case BIO.sparse_jungle:
@@ -422,25 +427,25 @@ export class Decorator {
             if (work[gi + (k << 8)] !== 0) break;
             work[gi + (k << 8)] = ST.bamboo;
           }
-          return;
+          return 0;
         }
-        if (r > 0.996 && biome !== BIO.bamboo_jungle) return put(ST.melon);
-        if (r < bambooP + 0.03) return putTall(ST.largeFernLo);
-        if (r < bambooP + 0.1) return put(ST.fern);
-        if (r < bambooP + 0.3) return put(ST.shortGrass);
-        if (r < bambooP + 0.31) return put(DEFAULT_FLOWERS[Math.floor(r2 * 3)]);
-        return;
+        if (r > 0.996 && biome !== BIO.bamboo_jungle) return ST.melon;
+        if (r < bambooP + 0.03) return space2 ? (ST.largeFernLo) | TALL : ST.shortGrass;
+        if (r < bambooP + 0.1) return ST.fern;
+        if (r < bambooP + 0.3) return ST.shortGrass;
+        if (r < bambooP + 0.31) return DEFAULT_FLOWERS[Math.floor(r2 * 3)];
+        return 0;
       }
       case BIO.swamp: {
-        if (r < 0.012) return put(ST.blueOrchid);
-        if (r < 0.022) return put(r2 < 0.5 ? ST.brownMushroom : ST.redMushroom);
-        if (r < 0.1) return put(ST.shortGrass);
-        return;
+        if (r < 0.012) return ST.blueOrchid;
+        if (r < 0.022) return r2 < 0.5 ? ST.brownMushroom : ST.redMushroom;
+        if (r < 0.1) return ST.shortGrass;
+        return 0;
       }
       case BIO.cherry_grove: {
-        if (r < 0.03) return put(r2 < 0.7 ? ST.pinkTulip : ST.lilyOfTheValley);
-        if (r < 0.3) return put(ST.shortGrass);
-        return;
+        if (r < 0.03) return r2 < 0.7 ? ST.pinkTulip : ST.lilyOfTheValley;
+        if (r < 0.3) return ST.shortGrass;
+        return 0;
       }
       case BIO.windswept_hills:
       case BIO.windswept_forest:
@@ -449,9 +454,9 @@ export class Decorator {
       case BIO.stony_shore:
       case BIO.river:
       case BIO.beach: {
-        if (r < 0.12) return put(ST.shortGrass);
-        if (r < 0.125) return put(DEFAULT_FLOWERS[Math.floor(r2 * 3)]);
-        return;
+        if (r < 0.12) return ST.shortGrass;
+        if (r < 0.125) return DEFAULT_FLOWERS[Math.floor(r2 * 3)];
+        return 0;
       }
       case BIO.snowy_plains:
       case BIO.ice_spikes:
@@ -459,16 +464,16 @@ export class Decorator {
       case BIO.jagged_peaks:
       case BIO.frozen_peaks:
       case BIO.grove:
-        return;
+        return 0;
       default: {
         if (IS_OCEAN_B[biome]) {
-          if (r < 0.08) put(ST.shortGrass);
-          return;
+          return r < 0.08 ? ST.shortGrass : 0;
         }
-        if (r < 0.15) return put(ST.shortGrass);
-        if (r < 0.16) return put(DEFAULT_FLOWERS[Math.floor(r2 * 3)]);
+        if (r < 0.15) return ST.shortGrass;
+        if (r < 0.16) return DEFAULT_FLOWERS[Math.floor(r2 * 3)];
       }
     }
+    return 0;
   }
 
   /** Cactus survival: no solid blocks horizontally next to the cactus column (inside the chunk). */
@@ -592,7 +597,7 @@ export class Decorator {
   private dungeons(cx: number, cz: number, w: ChunkWriter, top: Int16Array, r: Rng): void {
     const work = w.work;
     const x0 = cx * 16, z0 = cz * 16;
-    for (let a = 0; a < 6; a++) {
+    for (let a = 0; a < 10; a++) {
       const rx = 2 + r.int(2), rz = 2 + r.int(2);
       const ox = 4 + r.int(8), oz = 4 + r.int(8);
       const oy = 8 + r.int(50);

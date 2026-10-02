@@ -39,7 +39,7 @@ export interface EndSpike {
 
 class EndColumn {
   island = 0;
-  readonly d = new Float64Array(LEVELS);
+  readonly d = new Float32Array(LEVELS);
   kTop = 0;
   done = false;
   constructor(readonly qx: number, readonly qz: number) {}
@@ -117,7 +117,7 @@ export class EndGenerator implements WorldGenerator {
     const key = (qx + 0x80000) * 0x100000 + (qz + 0x80000);
     let c = this.cache.get(key);
     if (c) return c;
-    if (this.cache.size > 40000) this.cache.clear();
+    if (this.cache.size > 16384) this.cache.clear();
     c = new EndColumn(qx, qz);
     const x = qx * 4, z = qz * 4;
     c.island = this.islandHeight(x, z);

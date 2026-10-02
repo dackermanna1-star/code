@@ -70,6 +70,34 @@ export class Aquifer {
     return st;
   }
 
+  // per-chunk tables (prepare()): centres and lazily computed statuses for gx/gz in [base, base+2],
+  // gy in [-1, 22]
+  private gxBase = 0;
+  private gzBase = 0;
+  private prepared = false;
+  private readonly tcx = new Int32Array(216);
+  private readonly tcy = new Int32Array(216);
+  private readonly tcz = new Int32Array(216);
+  private readonly tst = new Int32Array(216);
+
+  /** Precompute the aquifer cells around chunk (cx, cz); fluidAt is fastest inside that chunk. */
+  prepare(cx: number, cz: number): void {
+    this.gxBase = cx - 1;
+    this.gzBase = cz - 1;
+    for (let i = 0; i < 3; i++)
+      for (let j = 0; j < 24; j++)
+        for (let k = 0; k < 3; k++) {
+          const gx = this.gxBase + i, gy = j - 1, gz = this.gzBase + k;
+          const h = hash3i(gx, gy, gz, this.seed ^ 0x6a09e667);
+          const n = (i * 24 + j) * 3 + k;
+          this.tcx[n] = gx * 16 + (h % 10);
+          this.tcy[n] = gy * 12 + ((h >>> 8) % 9);
+          this.tcz[n] = gz * 16 + ((h >>> 16) % 10);
+          this.tst[n] = -1;
+        }
+    this.prepared = true;
+  }
+
   private decode(code: number, gx0: number, gy0: number, gz0: number): number {
     const ax = (code / 6) | 0, r = code - ax * 6, ay = (r / 2) | 0, az = r - ay * 2;
     return this.status(gx0 + ax, gy0 + ay, gz0 + az);
@@ -79,6 +107,8 @@ export class Aquifer {
   fluidAt(x: number, y: number, z: number): number {
     if (y < LAVA_Y) return FLUID_LAVA;
     const gx0 = Math.floor((x - 5) / 16), gy0 = Math.floor((y + 1) / 12) - 1, gz0 = Math.floor((z - 5) / 16);
+    const ix = gx0 - this.gxBase, iz = gz0 - this.gzBase, iy = gy0 + 1;
+    if (this.prepared && ix >= 0 && ix <= 1 && iz >= 0 && iz <= 1 && iy >= 0 && iy <= 21) return this.fluidFast(x, y, z, ix, iy, iz, gx0, gy0, gz0);
     let n = 0;
     for (let ax = 0; ax <= 1; ax++)
       for (let ay = 0; ay <= 2; ay++)
@@ -90,7 +120,60 @@ export class Aquifer {
           this.cs[n] = (gx - gx0) * 6 + (gy - gy0) * 2 + (gz - gz0);
           n++;
         }
-    // two nearest
+    return this.resolve(n, y, gx0, gy0, gz0);
+  }
+
+  private fluidFast(x: number, y: number, z: number, ix: number, iy: number, iz: number, gx0: number, gy0: number, gz0: number): number {
+    // early out: if no candidate cell holds fluid at this height, the answer is "no fluid" (exact)
+    let any = false;
+    for (let ax = 0; ax <= 1 && !any; ax++)
+      for (let ay = 0; ay <= 2 && !any; ay++)
+        for (let az = 0; az <= 1; az++) {
+          const st = this.cachedStatus(ax * 6 + ay * 2 + az, ix, iy, iz, gx0, gy0, gz0);
+          if ((st & 3) !== FLUID_NONE && y < st >> 2) {
+            any = true;
+            break;
+          }
+        }
+    if (!any) return FLUID_NONE;
+    let n = 0;
+    for (let ax = 0; ax <= 1; ax++)
+      for (let ay = 0; ay <= 2; ay++)
+        for (let az = 0; az <= 1; az++) {
+          const t = ((ix + ax) * 24 + iy + ay) * 3 + iz + az;
+          const dx = this.tcx[t] - x, dy = this.tcy[t] - y, dz = this.tcz[t] - z;
+          this.cd[n] = dx * dx + dy * dy + dz * dz;
+          this.cs[n] = ax * 6 + ay * 2 + az;
+          n++;
+        }
+    let i1 = 0, i2 = -1;
+    for (let i = 1; i < n; i++) {
+      if (this.cd[i] < this.cd[i1]) { i2 = i1; i1 = i; }
+      else if (i2 < 0 || this.cd[i] < this.cd[i2]) i2 = i;
+    }
+    const s1 = this.cachedStatus(this.cs[i1], ix, iy, iz, gx0, gy0, gz0);
+    const t1 = s1 & 3, l1 = s1 >> 2;
+    const f1 = t1 !== FLUID_NONE && y < l1 ? t1 : FLUID_NONE;
+    const sim = 1 - Math.abs(this.cd[i2] - this.cd[i1]) / 25;
+    if (sim > 0) {
+      const s2 = this.cachedStatus(this.cs[i2], ix, iy, iz, gx0, gy0, gz0);
+      const t2 = s2 & 3, l2 = s2 >> 2;
+      const f2 = t2 !== FLUID_NONE && y < l2 ? t2 : FLUID_NONE;
+      if (f1 !== f2 && sim > 0.3) return FLUID_BARRIER;
+      if (f1 !== FLUID_NONE && f2 !== FLUID_NONE && l1 !== l2 && sim > 0.3) return FLUID_BARRIER;
+    }
+    return f1;
+  }
+
+  private cachedStatus(code: number, ix: number, iy: number, iz: number, gx0: number, gy0: number, gz0: number): number {
+    const ax = (code / 6) | 0, r = code - ax * 6, ay = (r / 2) | 0, az = r - ay * 2;
+    const t = ((ix + ax) * 24 + iy + ay) * 3 + iz + az;
+    let st = this.tst[t];
+    if (st < 0) st = this.tst[t] = this.status(gx0 + ax, gy0 + ay, gz0 + az);
+    return st;
+  }
+
+  private resolve(n: number, y: number, gx0: number, gy0: number, gz0: number): number {
     let i1 = 0, i2 = -1;
     for (let i = 1; i < n; i++) {
       if (this.cd[i] < this.cd[i1]) { i2 = i1; i1 = i; }

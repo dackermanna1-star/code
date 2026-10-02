@@ -182,8 +182,12 @@ export class OrePlacer {
         if (dx * dx >= 1) continue;
         for (let y = ya; y <= yb; y++) {
           const dy = (y + 0.5 - sy) / rad;
-          if (dx * dx + dy * dy >= 1) continue;
-          for (let z = za; z <= zb; z++) {
+          const rem = 1 - dx * dx - dy * dy;
+          if (rem <= 0) continue;
+          // analytic z-range of the sphere slice (+1 margin); the exact test below decides
+          const half = rad * Math.sqrt(rem);
+          const z0r = Math.max(za, Math.floor(sz - 0.5 - half) - 1), z1r = Math.min(zb, Math.ceil(sz - 0.5 + half) + 1);
+          for (let z = z0r; z <= z1r; z++) {
             const dz = (z + 0.5 - sz) / rad;
             if (dx * dx + dy * dy + dz * dz >= 1) continue;
             const i = (y << 8) | ((z - z0) << 4) | (x - x0);

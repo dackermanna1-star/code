@@ -66,7 +66,7 @@ const NETHER_ORES: OreConf[] = [
 
 class NetherColumn {
   biome = 0;
-  readonly d = new Float64Array(LEVELS);
+  readonly d = new Float32Array(LEVELS);
   done = false;
   constructor(readonly qx: number, readonly qz: number) {}
 }
@@ -130,7 +130,7 @@ export class NetherGenerator implements WorldGenerator {
     const key = (qx + 0x80000) * 0x100000 + (qz + 0x80000);
     let c = this.cache.get(key);
     if (c) return c;
-    if (this.cache.size > 40000) this.cache.clear();
+    if (this.cache.size > 16384) this.cache.clear();
     c = new NetherColumn(qx, qz);
     const x = qx * 4, z = qz * 4;
     const T = this.tempN.noise2(x, z), H = this.humN.noise2(x, z);

@@ -79,7 +79,7 @@ export class Carvers {
     const key = (sx + 0x100000) * 0x200000 + (sz + 0x100000);
     let out = this.cache.get(key);
     if (out) return out;
-    if (this.cache.size > 1500) this.cache.clear();
+    if (this.cache.size > 800) this.cache.clear();
     out = [];
     const ctx = { out };
     // worm caves (Minecraft "cave": p = 0.15, y 8..180 -> ours 10..128)
