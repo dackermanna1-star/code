@@ -76,13 +76,14 @@ const stoneModes =
 const woodModes =
   (lo: number, hi: number, t: number, hiAmp = 0.4) =>
   (r: Rand, size: number): Mode[] => {
+    // plank modes: inharmonic (spread ratios) and well damped so it reads as a "tock", not a marimba
     const f0 = r.log(lo, hi) / size;
     return [
       { f: f0, t60: t * r.range(0.8, 1.2), a: 1 },
-      { f: f0 * r.range(1.8, 2.3), t60: t * 0.7, a: 0.6 },
-      { f: f0 * r.range(2.9, 3.7), t60: t * 0.5, a: 0.45 },
-      { f: f0 * r.range(4.6, 5.6), t60: t * 0.35, a: 0.25 },
-      ...randomModes(r, 5, 750, 3200, t * 0.15, t * 0.4, { tilt: 0.6, amp: hiAmp }),
+      { f: f0 * r.range(1.75, 2.6), t60: t * 0.7, a: 0.65 },
+      { f: f0 * r.range(2.7, 4.3), t60: t * 0.5, a: 0.5 },
+      { f: f0 * r.range(4.4, 6.2), t60: t * 0.35, a: 0.3 },
+      ...randomModes(r, 7, 700, 3400, t * 0.12, t * 0.35, { tilt: 0.5, amp: hiAmp }),
     ];
   };
 
@@ -130,8 +131,8 @@ const MATS: Record<GenericGroup, Mat> = {
     debris: { amp: 0.35, fLo: 1500, fHi: 7000, hard: 0.9, t60: 0.04, dur: 0.45 },
   },
   wood: {
-    click: [0.35, 700, 7000, 0.004],
-    modal: { amp: 0.9, gen: woodModes(270, 430, 0.1, 0.75), attack: 0.0004 },
+    click: [0.45, 600, 6000, 0.008],
+    modal: { amp: 0.9, gen: woodModes(270, 430, 0.065, 0.75), attack: 0.0004 },
     thump: [0.1, 140, 0.04],
     grit: { amp: 0.18, fLo: 1500, fHi: 5500, q: 2, dLo: 0.001, dHi: 0.004, rate: 350, time: 0.03 },
     breakExtra: (out, sr, r, t) => splinter(out, sr, r, t, 0.6),

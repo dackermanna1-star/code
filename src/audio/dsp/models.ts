@@ -168,20 +168,33 @@ export function grain(out: Float32Array, sr: number, r: Rand, t0: number, dur: n
   }
 }
 
-/** Inhomogeneous Poisson scatter of events in [t0, t1). Returns the number of events. */
+/**
+ * Poisson scatter of events in [t0, t1). A time-varying rate uses thinning (Lewis-Shedler):
+ * candidates at the peak rate, accepted with probability rate(t)/peak — so the density follows
+ * the curve exactly (no stray late events). Returns the number of events.
+ */
 export function scatter(r: Rand, t0: number, t1: number, rate: number | ((t: number) => number), fn: (t: number, i: number) => void, max = 20000): number {
-  let t = t0;
   let i = 0;
-  while (i < max) {
-    const lam = typeof rate === 'number' ? rate : rate(t);
-    if (!(lam > 1e-4)) {
-      t += 0.004;
+  if (typeof rate === 'number') {
+    if (!(rate > 1e-4)) return 0;
+    let t = t0;
+    while (i < max) {
+      t += -Math.log(1 - r.next()) / rate;
       if (t >= t1) break;
-      continue;
+      fn(t, i++);
     }
-    t += -Math.log(1 - r.next()) / lam;
+    return i;
+  }
+  let peak = 0;
+  const probes = 96;
+  for (let k = 0; k <= probes; k++) peak = Math.max(peak, rate(t0 + ((t1 - t0) * k) / probes));
+  peak *= 1.15;
+  if (!(peak > 1e-4)) return 0;
+  let t = t0;
+  while (i < max) {
+    t += -Math.log(1 - r.next()) / peak;
     if (t >= t1) break;
-    fn(t, i++);
+    if (r.next() * peak < rate(t)) fn(t, i++);
   }
   return i;
 }

@@ -227,13 +227,14 @@ export function loopSpecs(): Record<string, LoopSpec> {
           r,
           len,
           (c, rr) => {
-            addNoise(c, rr, 0, c.length, 1, 'brown');
-            lowpass(c, sr, 500);
+            addNoise(c, rr, 0, c.length, 0.6, 'brown');
+            addNoise(c, rr, 0, c.length, 0.25, 'pink');
+            lowpass(c, sr, 700);
           },
           (o, rr) => {
-            grains(o, sr, rr, { t0: 0, t1: len, rate: 320, fLo: 500, fHi: 2500, q: 1.3, durLo: 0.002, durHi: 0.008, amp: 0.35 });
+            grains(o, sr, rr, { t0: 0, t1: len, rate: 450, fLo: 700, fHi: 3000, q: 1.3, durLo: 0.002, durHi: 0.008, amp: 0.5 });
             scatter(rr, 0.2, len - 0.3, 0.6, (t) => bubble(o, sr, t, rr.range(900, 1800), 0.2, 0.3));
-            lowpass(o, sr, 2200);
+            lowpass(o, sr, 3000);
           },
         ),
     },
@@ -249,18 +250,18 @@ export function loopSpecs(): Record<string, LoopSpec> {
           r,
           len,
           (c, rr) => {
-            mix(c, roar(sr, rr, len, 220, 0.5, 1), 0, 1);
+            mix(c, roar(sr, rr, len, 380, 0.5, 1), 0, 1);
           },
           (o, rr) => {
-            bubbles(o, sr, rr, 0, len - 0.1, 6, 250, 900, 0.25, 0.2, 0.6);
+            bubbles(o, sr, rr, 0, len - 0.1, 9, 250, 900, 0.3, 0.2, 0.6);
             const n = o.length;
             const w = new Float32Array(n);
             addNoise(w, rr, 0, n, 1, 'pink');
             const fc: number[] = [];
-            for (let t = 0; t <= len + 0.2; t += 0.2) fc.push(t, 350 * Math.pow(1.5, Math.sin(TAU * 0.11 * t + rr.next() * 6)));
+            for (let t = 0; t <= len + 0.2; t += 0.2) fc.push(t, 450 * Math.pow(1.5, Math.sin(TAU * 0.11 * t + rr.next() * 6)));
             sweep(w, sr, 'bp', fc, 2.5);
-            for (let i = 0; i < n; i++) o[i] += w[i] * 0.5;
-            lowpass(o, sr, 1100);
+            for (let i = 0; i < n; i++) o[i] += w[i] * 0.8;
+            lowpass(o, sr, 1400);
           },
         ),
     },
@@ -275,10 +276,10 @@ export function loopSpecs(): Record<string, LoopSpec> {
           sr,
           r,
           len,
-          (c, rr) => mix(c, roar(sr, rr, len, 110, 0.4, 1), 0, 1),
+          (c, rr) => mix(c, roar(sr, rr, len, 220, 0.4, 1), 0, 1),
           (o, rr) => {
-            addNoise(o, rr, 0, o.length, 0.25, 'pink');
-            lowpass(o, sr, 420);
+            addNoise(o, rr, 0, o.length, 0.35, 'pink');
+            lowpass(o, sr, 650);
           },
         ),
     },
@@ -288,28 +289,41 @@ export function loopSpecs(): Record<string, LoopSpec> {
       stereo: true,
       div: 2,
       xf: 1.5,
-      gen: (sr, r, len) =>
-        stereoPair(sr, r, len, (o, rr) => {
-          const n = o.length;
-          const g = smoothRandom(rr, sr, n, 0.35);
-          const g2 = smoothRandom(rr, sr, n, 1.3);
-          const lo = new Float32Array(n);
-          addNoise(lo, rr, 0, n, 1, 'pink');
-          const hi = lo.slice();
+      gen: (sr, r, len) => {
+        // shared gust envelope (both ears hear the same gust) with per-channel noise:
+        // gusts brighten the body and raise a whistle that only sings in strong gusts
+        const n = Math.ceil(len * sr);
+        const gust = smoothRandom(r.fork(3), sr, n, 0.22);
+        const flutter = smoothRandom(r.fork(4), sr, n, 2.2);
+        const G = new Float32Array(n);
+        for (let i = 0; i < n; i++) {
+          const x = 0.5 + 0.5 * gust[i];
+          G[i] = x * x * (3 - 2 * x);
+        }
+        const out: Float32Array[] = [];
+        for (let c = 0; c < 2; c++) {
+          const rr = r.fork(10 + c);
+          const body = new Float32Array(n);
+          addNoise(body, rr, 0, n, 1, 'pink');
+          const wh = body.slice();
           const fl: number[] = [];
           const fh: number[] = [];
-          for (let t = 0; t <= len + 0.1; t += 0.1) {
-            const k = Math.round(t * sr) < n ? g[Math.round(t * sr)] : 0;
-            fl.push(t, 260 * Math.pow(1.8, k));
-            fh.push(t, 650 * Math.pow(1.7, k));
+          for (let t = 0; t <= len + 0.05; t += 0.05) {
+            const k = G[Math.min(n - 1, Math.round(t * sr))];
+            fl.push(t, 300 + 800 * k);
+            fh.push(t, 450 + 650 * k + 40 * c);
           }
-          sweep(lo, sr, 'bp', fl, 0.9);
-          sweep(hi, sr, 'bp', fh, 3);
+          sweep(body, sr, 'lp', fl, 0.7);
+          sweep(wh, sr, 'bp', fh, 7);
+          const o = new Float32Array(n);
           for (let i = 0; i < n; i++) {
-            const gust = 0.55 + 0.35 * g[i] + 0.1 * g2[i];
-            o[i] = (lo[i] * 0.9 + hi[i] * 0.35 * Math.max(0, g[i] + 0.3)) * gust;
+            const k = G[i];
+            o[i] = body[i] * (0.25 + 0.75 * k) * (0.9 + 0.1 * flutter[i]) + wh[i] * 0.9 * k * k * (0.8 + 0.2 * flutter[i]);
           }
-        }),
+          out.push(o);
+        }
+        return out;
+      },
     },
     'loop.nether': {
       cat: 'ambient',
