@@ -1736,6 +1736,10 @@ function charTime(T) {
   return t;
 }
 
+// ---- scene cuts: trails / afterimages never sample across these times
+const SCENE_CUTS = [];
+const acrossCut = (a, b) => { for (const c of SCENE_CUTS) if (a < c && b >= c) return true; return false; };
+
 // ---- lights affecting rim lighting
 let LIGHTS = [];
 const MOON_DIR = [0.55, -0.83];
@@ -1755,6 +1759,7 @@ const HITFLASH = [];
 function hitFlashAt(A, T) { let m = 0; for (const h of HITFLASH) if (h.a === A && T >= h.t && T < h.t + 0.2) m = Math.max(m, 1 - (T - h.t) / 0.2); return m; }
 
 function actorVel(A, Tc) {
+  if (acrossCut(Tc - 1 / 60, Tc)) return [0, 0];
   const a = A.state(Tc, A.st2), x1 = a.x, y1 = a.y;
   const b = A.state(Tc - 1 / 60, A.st2);
   if (a.tele || b.tele) return [0, 0];
@@ -1776,7 +1781,7 @@ function drawActor(c, A, T, mode) {
   if (mode === 'sil' || mode === 'silW') { silPath(c, R, S, o); c.fillStyle = mode === 'sil' ? '#000' : '#fff'; c.fill(); return; }
   // afterimages / teleport ghosts
   const aiF = A.v('ai', T);
-  if (sp > 700 || aiF > 0 || st.tele) {
+  if ((sp > 700 || aiF > 0 || st.tele) && !acrossCut(Tc - 0.2, Tc)) {
     c.globalCompositeOperation = 'lighter';
     for (let k = 5; k >= 1; k--) {
       const tk = stepT(Tc - k * 0.034);
@@ -1824,7 +1829,7 @@ function drawActor(c, A, T, mode) {
     const spr = S.id === 'gojo' ? HOT.cyan : HOT.red;
     for (let w = 0; w < (S.id === 'gojo' ? 1 : 2); w++) {
       const scale = w ? 0.65 : 1;
-      if (sp > 250 || eg > 1.2) {
+      if ((sp > 250 || eg > 1.2) && !acrossCut(Tc - 0.15, Tc)) {
         c.beginPath();
         let started = false;
         for (let k = 0; k <= 10; k++) {
@@ -3764,13 +3769,15 @@ function buildScript() {
   });
   addShake(55.85, 1.6, 0.6); addShake(56.4, 1.2, 0.5);
   ZOOMBLUR.add(55.8, 0).add(55.9, 0.32).add(56.8, 0.2).add(57.45, 0.1).add(57.5, 0);
-  WHITEOUT.add(55.8, 0).add(56.3, 0.25).add(56.95, 1, 'in').add(57.45, 1).add(57.5, 0);
+  WHITEOUT.add(55.8, 0).add(56.3, 0.25).add(56.95, 1, 'in').add(57.499, 1).add(57.5, 0, 'cut');
   grade(55.85, { ca: 0.03, bright: 1.15 }); grade(57.45, { ca: 0.01 });
   C(55.85, { x: 0, y: -260, z: 1.2, r: 0.04, e: 'cut' });
   C(56.9, { x: 0, y: -380, z: 0.2, r: -0.03, e: 'expo' });
   C(57.45, { x: 0, y: -380, z: 0.18, r: -0.04, e: 'linear' });
   ev(56.95, () => { SFX.cut(); SFX.ring(2.4, 1); });
   g(55.7, -620, 'g', 'hurtBig', { pb: 0.05 }); s(55.7, 640, 'g', 'hurtBig', { pb: 0.05 });
+  g(57.495, -620, 'g', 'hurtBig'); s(57.495, 640, 'g', 'hurtBig');
+  SCENE_CUTS.push(57.5);
 
   // ======================================================== 7. AFTERMATH + FREEZE (57.5 - 60)
   ev(57.5, () => {
