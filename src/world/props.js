@@ -993,7 +993,11 @@ export function buildProp(mb, trans, p, y0, tex) {
   def.build(mb, p, rng);
   mb.xf = null;
   if (p.opts.flags) for (let i = startN; i < mb.n; i++) mb.flags[i] |= p.opts.flags;
-  if (p.opts.tint) for (let i = startN; i < mb.n; i++) { mb.tint[i * 3] *= p.opts.tint[0]; mb.tint[i * 3 + 1] *= p.opts.tint[1]; mb.tint[i * 3 + 2] *= p.opts.tint[2]; }
+  if (p.opts.tint) {
+    // a number is a grey tint
+    const t = typeof p.opts.tint === 'number' ? [p.opts.tint, p.opts.tint, p.opts.tint] : p.opts.tint;
+    for (let i = startN; i < mb.n; i++) { mb.tint[i * 3] *= t[0]; mb.tint[i * 3 + 1] *= t[1]; mb.tint[i * 3 + 2] *= t[2]; }
+  }
   const res = { boxes: [], interact: null, emitter: null, dynamic: null };
   if (!p.opts.flip && p.opts.collide !== false) {
     const bl = typeof def.boxes === 'function' ? def.boxes(p) : def.boxes;

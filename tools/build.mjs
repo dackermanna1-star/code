@@ -6,7 +6,7 @@
 //   node tools/build.mjs
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const src = path.join(root, 'src');
@@ -49,10 +49,26 @@ function transform(id, code) {
   code = code.replace(/\bimport\(/g, '__dynImport(');
   code = code.replace(/\bimport\.meta\.url\b/g, 'location.href');
   const getters = exportsList.map(([ext, local]) => `Object.defineProperty(__exports, ${JSON.stringify(ext)}, { get: () => ${local}, enumerable: true });`).join('\n');
+  exportNames.set(id, exportsList.map(([ext]) => ext));
   return `__def(${JSON.stringify(id)}, async function (__exports, __dynImport) {\n${getters}\n${code}\n});`;
 }
 
+const exportNames = new Map();
 const modules = files.map((f) => transform(rel(f), fs.readFileSync(f, 'utf8')));
+
+// The export scan above is regex based. Check it against what Node's own module loader sees, so
+// a construct it misses (e.g. `export const a = 1, b = 2;`) fails the build instead of silently
+// dropping an export from the bundle.
+let missingExports = 0;
+for (const f of files) {
+  if (f.endsWith(path.join('src', 'main.js'))) continue;
+  const id = rel(f);
+  let real;
+  try { real = Object.keys(await import(pathToFileURL(f).href)); } catch (e) { continue; }
+  const have = new Set(exportNames.get(id) || []);
+  for (const name of real) if (!have.has(name)) { missingExports++; console.error(`${id}: export '${name}' is not picked up by the bundler (split multi-name exports into one per line)`); }
+}
+if (missingExports) { console.error(`build failed: ${missingExports} export(s) would be missing from the bundle`); process.exit(1); }
 
 const runtime = `
 const __mods = Object.create(null), __cache = Object.create(null);
