@@ -31,11 +31,12 @@ Click the screen to look around with the mouse. Every player walks through the s
 | Walk faster | `Shift` | `R2` / `L1` / `L3` |
 | Crouch | `C` toggle, `Ctrl` hold | `○` / `B` |
 | Climb onto something low | `Space` | `□` / `X` |
-| Use / read / answer | `E`, `F`, `Enter` or left click | `×` / `A` |
-| Pause | `Esc`, `P` or `Tab` | `Start` |
+| Use / read / open doors | `E`, `F`, `Enter` or left click | `×` / `A` |
+| Phone (find level doors) | `↑` or `Q` | `△` / `Y` |
+| Pause, level log | `Esc`, `P` or `Tab` | `Start` |
 
 On touch screens the left half of the screen is a movement stick, the right half looks around,
-and buttons appear for using, climbing, crouching and walking faster.
+and buttons appear for using, the phone, climbing, crouching and walking faster.
 
 ### Saving
 
@@ -49,6 +50,17 @@ back to where you were.
 Mouse sensitivity, invert look, field of view, vertex jitter (off / authentic / heavy),
 dithering, a 30 fps cap, a widescreen mode, brightness and volume. Settings are stored in the
 browser.
+
+## Levels
+
+The building is only Level 0. Somewhere in every level there are doors standing in their own
+frames, with warm light leaking out from under them and a faint hum. Open one and you are
+somewhere else: a random level out of a hundred, each its own endless world. The door locks
+behind you, so you have to find another one.
+
+Pull out your **phone** with the up arrow. Its little green screen shows the level you are on,
+an arrow toward the nearest door and how far it is, and it beeps from the door's direction,
+faster as you get closer. The pause menu keeps a **level log** of every level you have found.
 
 ## What makes it look like 1998
 
