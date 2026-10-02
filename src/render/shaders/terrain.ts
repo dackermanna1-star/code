@@ -90,7 +90,7 @@ void main() {
   v_uv = uv;
   v_layer = a_tex.z;
   v_flags = flags;
-  v_normal = decodeNormal();
+  v_normal = normalize(mat3(modelMatrix) * decodeNormal());
   v_light = a_light;
   v_color = a_color;
 }

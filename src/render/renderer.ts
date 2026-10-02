@@ -220,6 +220,11 @@ export class Renderer {
     return this.atmo;
   }
 
+  /** Terrain G-buffer materials (for single-block meshes: falling blocks, items in the world). */
+  blockMaterials() {
+    return { opaque: this.matOpaque, cutout: this.matCutout };
+  }
+
   applySettings(s: Partial<RenderSettings>) {
     const prev = this.settings;
     this.settings = { ...this.settings, ...s };
