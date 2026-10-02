@@ -22,6 +22,7 @@ export class UI {
     this.saveIcon = 0;
     this.titleT = 0;
     this.fadeRate = 2.4;
+    this.fadeColor = [0, 0, 0];   // a level door fades through the light behind it
     this.levelCard = null;   // { n, name, t, first, count } shown when you arrive on a level
   }
 
@@ -179,7 +180,7 @@ export class UI {
     // fades sit under menus so menus stay readable
     this.fade += (this.fadeTarget - this.fade) * Math.min(1, dt * this.fadeRate);
     if (Math.abs(this.fade - this.fadeTarget) < 0.01) this.fade = this.fadeTarget;
-    if (this.fade > 0.003) { c.fillStyle = `rgba(0,0,0,${this.fade})`; c.fillRect(0, 0, W, H); }
+    if (this.fade > 0.003) { const fc = this.fadeColor; c.fillStyle = `rgba(${fc[0]},${fc[1]},${fc[2]},${this.fade})`; c.fillRect(0, 0, W, H); }
     if (this.levelCard && g.state === 'play') this.drawLevelCard(dt);
     const m = this.top();
     if (m && m.id !== 'title') this.drawMenu(m);

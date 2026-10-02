@@ -384,15 +384,16 @@ export class Game {
       p.update(dt, { mx: 0, mz: 0, turn: 0, lookX: 0, lookY: 0 });
     } else {
       if (inp.pause) { this.pause(); return; }
-      if (inp.phone && !this.levelTrans) this.phone.toggle();
+      const held = this.levelTrans && this.levelTrans.phase !== 'in';   // walking through the door
+      if (inp.phone && !held) this.phone.toggle();
       p.sens = 0.0023 * this.settings.sens;
       p.invertY = this.settings.invertY;
-      p.update(dt, this.levelTrans ? { mx: 0, mz: 0, turn: 0, lookX: 0, lookY: 0 } : inp);
-      this.findTarget();
+      p.update(dt, held ? { mx: 0, mz: 0, turn: 0, lookX: 0, lookY: 0 } : inp);
+      if (this.levelTrans) { this.target = null; this.ui.prompt = null; } else this.findTarget();
       if (inp.use && this.target && !this.levelTrans) this.interact(this.target);
     }
     this.updateLevelTransition(dt);
-    this.nav.update(dt, this.phone.up && !this.levelTrans);
+    this.nav.update(dt, this.phone.up && !(this.levelTrans && this.levelTrans.phase !== 'in'));
     const L = LEVELS[this.levelN];
     if (L && L.script && !this.levelTrans) {
       const st = this.levelState[L.n] || (this.levelState[L.n] = {});
@@ -527,6 +528,7 @@ export class Game {
     this.levelTrans = { n, phase: 'out', t: 0 };
     this.ui.fadeRate = 1.6;
     this.ui.fadeTarget = 1;
+    this.ui.fadeColor = door ? [255, 238, 206] : [0, 0, 0];
     p.frozen = true;
   }
 
@@ -555,6 +557,8 @@ export class Game {
       T.phase = 'in';
       T.t = 0;
     } else if (T.phase === 'in' && T.t > 2.5) {
+      if (this.ui.fade < 0.02) this.ui.fadeColor = [0, 0, 0];
+      else return;
       this.ui.fadeRate = 2.4;
       this.levelTrans = null;
       this.saveGame('auto');
