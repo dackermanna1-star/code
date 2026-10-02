@@ -58,3 +58,25 @@ export function carve(base, holes) {
   }
   return rects;
 }
+
+// A four-frame animated self-lit material (the engine flips ANIM layers at 14 fps). The
+// engine only uploads the first frame's texture for a material, so animKeep() must be called
+// once per zone to put the other three frames on the GPU. drawFrame(p, f) paints frame f.
+export function animMaterial(name, texPrefix, drawFrame, o = {}) {
+  for (let f = 0; f < 4; f++) defineTexture(texPrefix + f, (p) => drawFrame(p, f), o.colors ?? 10);
+  const base = { s: o.s ?? 1, su: o.su, sv: o.sv, surf: o.surf ?? 'concrete', glow: o.glow ?? 1, chan: o.chan || 0 };
+  defineMaterial(name, texPrefix + '0', { ...base, flags: VF.FULLBRIGHT | VF.ANIM });
+  for (let f = 1; f < 4; f++) defineMaterial(`${name}_f${f}`, texPrefix + f, { ...base, flags: VF.FULLBRIGHT });
+  return name;
+}
+// hidden slivers, one per chunk of the zone, that keep frames 1..3 of an animated material loaded
+export function animKeep(zb, ...names) {
+  for (let cz = Math.floor(zb.z0 / 16) * 16; cz < zb.z1; cz += 16) {
+    for (let cx = Math.floor(zb.x0 / 16) * 16; cx < zb.x1; cx += 16) {
+      const x = Math.max(cx, zb.x0) + 0.2, z = Math.max(cz, zb.z0) + 0.2;
+      for (const n of names) {
+        zb.box(x, -0.3, z, x + 0.03, -0.27, z + 0.03, [M[n + '_f1'], M[n + '_f2'], M[n + '_f3'], null, null, null], { collide: false, sub: 0 });
+      }
+    }
+  }
+}

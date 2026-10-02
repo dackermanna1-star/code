@@ -95,7 +95,7 @@ defineProp('lv73_rampside', {
 // one ramp up per deck, in an aisle of its own, starting at a z that depends on the zone
 const rampOf = (k, zi) => ({ x: S0 + MOD * (1 + 2 * k) + 5, z: 8 + 24 * ((((zi * 2 + k) % 4) + 4) % 4), w: 6 });
 const bridgeAt = (c, zi, k) => (hr(c, zi * 4 + k, 7301) < 0.85 ? { z: 24 + 16 * Math.floor(hr(c, zi, 7302) * 5) } : null);
-const ENTRY = { x: 26.5, z: 60.5, k: 2 };
+const ENTRY = { x: 26.5, z: 60.5, k: 3 };
 const WALL_X = ENTRY.x + 0.75 + 0.12 + 0.01;   // wall plane behind the arrival door (east of the player)
 
 function car(zb, k, x, z, rot) {
@@ -270,7 +270,7 @@ defineZone('lv73_garage', {
   ...LEVEL_ZONE,
   doors: true,
   params: (zone) => ({
-    ambient: zone.level === 3 ? [0.5, 0.42, 0.55] : [0.2, 0.17, 0.24],
+    ambient: zone.level === 3 ? [0.62, 0.5, 0.62] : [0.3, 0.25, 0.34],
     env: env({ fog: [0.5, 0.34, 0.42], fogNear: 8, fogFar: 78, hum: 0.05, hvac: 0.2, reverb: 'hall', tone: 'g05_dusk' }),
   }),
   gen,

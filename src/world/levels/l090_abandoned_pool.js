@@ -46,15 +46,17 @@ defineTexture('lv90_poolfloor', (p, r) => {
 }, 10);
 // still, green, dusted: no ripple in the texture at all
 defineTexture('lv90_water', (p, r) => {
-  p.fill([46, 58, 36]);
+  p.fill([78, 92, 56]);
   p.map((x, y, c) => {
     const n = pnoise(x, y, 4, 7) * 0.6 + pnoise(x, y, 8, 2) * 0.4;
-    const k = 0.82 + n * 0.4;
+    const k = 0.8 + n * 0.45;
     return [c[0] * k, c[1] * k, c[2] * k];
   });
-  for (let i = 0; i < 14; i++) p.stain(r.int(0, 63), r.int(0, 63), r.int(3, 8), [112, 104, 60], 0.6);
-  dust(p, 0.25, [120, 112, 80], 9);
-}, 8);
+  // the skylights, mirrored faintly in water that never moves
+  for (let ty = 0; ty < 2; ty++) for (let tx = 0; tx < 2; tx++) { p.rect(tx * 32 + 5, ty * 32 + 5, 22, 22, [150, 148, 118], 0.28); p.rect(tx * 32 + 15, ty * 32 + 5, 2, 22, [60, 70, 44], 0.4); p.rect(tx * 32 + 5, ty * 32 + 15, 22, 2, [60, 70, 44], 0.4); }
+  for (let i = 0; i < 12; i++) p.stain(r.int(0, 63), r.int(0, 63), r.int(3, 8), [118, 108, 62], 0.5);
+  dust(p, 0.18, [130, 120, 86], 9);
+}, 10);
 // skylights: panes of dirty glass lit from behind, a frame of iron, some panes gone
 function skylight(seed, broken, clean) {
   return (p, r) => {
@@ -296,6 +298,15 @@ function gen(zb) {
     }
   });
 
+  // daylight that gets through the cleanest panes lands on the floor in slanted patches
+  for (let bx = 0; bx < 8; bx++) for (let bz = 0; bz < 8; bz++) {
+    const x = ox + bx * 8, z = oz + bz * 8;
+    if (Math.floor(hr((x >> 3) + 31 * (z >> 3), (z >> 3) * 7 + (x >> 3), 713) * 4) !== 3 || hr(bx + bi * 8, bz + bj * 8, 714) > 0.65) continue;
+    const px = x + 7, pz = z + 5;
+    if (P && px - ox > P.x0 - 1 && px - ox < P.x1 + 1 && pz - oz > P.z0 - 1 && pz - oz < P.z1 + 1) continue;
+    if (owns(zb, px, pz)) { zb.decal(px, 0, pz, 'up', 5.5, 5.5, 'lv90_patch', { lit: false, glow: 0.8, rot: 0.2 }); zb.light(px, 2.5, pz, { color: [1.0, 0.94, 0.78], rad: 9, int: 0.35 }); }
+  }
+
   // iron beams under the glass, and pillars on a 16 m grid
   for (let t = 8; t < B; t += 16) {
     zb.box(ox, H - 0.7, oz + t - 0.25, ox + B, H - 0.05, oz + t + 0.25, M.lv90_beam, { collide: false, sub: 16 });
@@ -416,7 +427,7 @@ export const ENTRY = { x: 7.5, y: 0, z: 32.5, yaw: Math.PI / 2, pitch: 0.02 };
 defineZone('lv90_hall', {
   ...LEVEL_ZONE,
   params: () => ({
-    ambient: [0.3, 0.27, 0.2],
+    ambient: [0.27, 0.25, 0.19],
     env: env({ fog: [0.3, 0.27, 0.2], fogNear: 8, fogFar: 52, hum: 0, hvac: 0, reverb: 'hall', tone: 'lv90' }),
   }),
   gen,
