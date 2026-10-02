@@ -4,5 +4,6 @@ import './g04_kit.js';
 const levels = [
   './l009_darkness_ave.js',
   './l037_suburban_loop.js',
+  './l098_blackout_district.js',
 ];
 await Promise.all(levels.map((p) => import(p).catch((e) => console.error('[g04] failed to load', p, e))));

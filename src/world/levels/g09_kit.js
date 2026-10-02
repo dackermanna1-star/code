@@ -91,19 +91,23 @@ export function inView(game, x, y, z, half = 0.75, maxDist = 60) {
 }
 
 // ---------------------------------------------------------------- teleports
-// Fade out, move the player, fade in. Uses the engine's own pending teleport (the one that
-// follows a fall), so the area around the destination is streamed in before the fade clears.
-export function fadeTeleport(game, x, y, z, delay = 0.8, rate = 3.2) {
+// Fade out, move the player (and turn them), fade in. Uses the engine's own pending teleport (the
+// one that follows a fall), so the area around the destination is streamed in before the fade
+// clears. Call fadeStep() from the level's script every frame.
+export function fadeTeleport(game, x, y, z, yaw, delay = 0.8, rate = 3.2) {
   if (game.pendingTeleport) return false;
   const p = game.player;
   game.ui.fadeRate = rate;
   game.ui.fadeTarget = 1;
-  game.pendingTeleport = { t: delay, dim: p.dim, x, y, z };
+  game.pendingTeleport = { t: delay, dim: p.dim, x, y, z, yaw };
   return true;
 }
-// call every frame: restores the default fade speed once a teleport is over
-export function fadeIdle(game) {
-  if (!game.pendingTeleport && !game.pendingSpawn && game.ui.fadeRate !== 2.4 && !game.levelTrans) game.ui.fadeRate = 2.4;
+export function fadeStep(game) {
+  const pt = game.pendingTeleport, p = game.player;
+  if (pt) {
+    // turn the player while the screen is black
+    if (pt.yaw !== undefined && pt.t < 0.45 && game.ui.fade > 0.8) { p.yaw = p.tyaw = pt.yaw; pt.yaw = undefined; }
+  } else if (!game.pendingSpawn && game.ui.fadeRate !== 2.4 && !game.levelTrans) game.ui.fadeRate = 2.4;
 }
 
 export { CF, M, cbox, hr };

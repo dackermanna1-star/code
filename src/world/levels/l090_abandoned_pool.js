@@ -186,7 +186,7 @@ defineMaterial('lv90_deck', 'lv90_deck', { s: 4, surf: 'tile', stain: 0.1 });
 defineMaterial('lv90_coping', 'lv90_coping', { s: 2, surf: 'tile', stain: 0.08 });
 defineMaterial('lv90_poolwall', 'lv90_poolwall', { s: 4, surf: 'tile' });
 defineMaterial('lv90_poolfloor', 'lv90_poolfloor', { s: 3, surf: 'water' });
-defineMaterial('lv90_water', 'lv90_water', { s: 6, surf: 'water' });
+defineMaterial('lv90_water', 'lv90_water', { s: 6, surf: 'water', flags: VF.FULLBRIGHT, glow: 0.62 });
 for (let k = 0; k < 4; k++) defineMaterial('lv90_sky' + k, 'lv90_sky' + k, { s: 8, flags: VF.FULLBRIGHT, glow: 0.78 });
 defineMaterial('lv90_pillar', 'lv90_pillar', { su: 2.4, sv: 6, surf: 'concrete', stain: 0.12 });
 defineMaterial('lv90_beam', 'lv90_beam', { s: 2, surf: 'metal' });
@@ -380,12 +380,12 @@ function gen(zb) {
         const h = hr(bi * 11 + k, bj * 5 + si, 760);
         const [x, z] = sd.at(t);
         if (!owns(zb, x, z) || nearEntry(x, z, 6)) continue;
-        if (h < 0.42) {
+        if (h < 0.52) {
           const knocked = h < 0.07;
           zb.prop('lv90_lounger', x, knocked ? 0.35 : 0, z, rot + (hr(k, si, 761) - 0.5) * (knocked ? 2.5 : 0.25), knocked ? { roll: 1.2, up: 0.4 } : { up: 0.2 + hr(k, si, 762) * 0.6 });
-        } else if (h < 0.5) zb.prop('lv90_table', x, 0, z, 0, {});
-        else if (h < 0.56) zb.prop('lv90_planter', x, 0, z, 0, { s: 1.0 });
-        else if (h < 0.6) zb.prop('lv90_parasol', x, 0, z, rot, {});
+        } else if (h < 0.6) zb.prop('lv90_table', x, 0, z, 0, {});
+        else if (h < 0.68) zb.prop('lv90_planter', x, 0, z, 0, { s: 1.0 });
+        else if (h < 0.74) zb.prop('lv90_parasol', x, 0, z, rot, {});
       }
     });
   }
@@ -428,7 +428,7 @@ defineZone('lv90_hall', {
   ...LEVEL_ZONE,
   params: () => ({
     ambient: [0.27, 0.25, 0.19],
-    env: env({ fog: [0.3, 0.27, 0.2], fogNear: 8, fogFar: 52, hum: 0, hvac: 0, reverb: 'hall', tone: 'lv90' }),
+    env: env({ fog: [0.5, 0.47, 0.38], fogNear: 8, fogFar: 54, hum: 0, hvac: 0, reverb: 'hall', tone: 'lv90' }),
   }),
   gen,
 });
@@ -440,7 +440,7 @@ defineLevel(N, {
   entry: ENTRY,
   doorDensity: 1,
   viewRadius: 4,
-  sky: { top: [0.62, 0.6, 0.52], horizon: [0.7, 0.66, 0.54], ground: [0.4, 0.37, 0.3], curve: 0.6 },
+  sky: { top: [0.6, 0.58, 0.5], horizon: [0.5, 0.47, 0.38], ground: [0.5, 0.47, 0.38], curve: 0.6 },
   weather: { kind: 'dust', amount: 0.75, indoor: true, color: [0.9, 0.84, 0.64, 0.5], fall: 0.03, wind: [0.02, 0.008], size: 0.022 },
   light: { phoneRadius: 3.8, phoneIntensity: 0.2 },
   // from time to time the water stirs: a ring spreads across the surface although nothing touches it

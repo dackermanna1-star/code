@@ -4,6 +4,7 @@
 // its own level.
 const files = [
   './l027_red_corridor.js',
+  './l032_hallway_32.js',
   './l053_blue_hallway.js',
   './l095_endless_corridor.js',
   './l099_last_hallway.js',

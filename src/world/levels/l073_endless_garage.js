@@ -95,7 +95,7 @@ defineProp('lv73_rampside', {
 // one ramp up per deck, in an aisle of its own, starting at a z that depends on the zone
 const rampOf = (k, zi) => ({ x: S0 + MOD * (1 + 2 * k) + 5, z: 8 + 24 * ((((zi * 2 + k) % 4) + 4) % 4), w: 6 });
 const bridgeAt = (c, zi, k) => (hr(c, zi * 4 + k, 7301) < 0.85 ? { z: 24 + 16 * Math.floor(hr(c, zi, 7302) * 5) } : null);
-const ENTRY = { x: 26.5, z: 60.5, k: 3 };
+const ENTRY = { x: 20.5, z: 60.5, k: 2 };
 const WALL_X = ENTRY.x + 0.75 + 0.12 + 0.01;   // wall plane behind the arrival door (east of the player)
 
 function car(zb, k, x, z, rot) {
@@ -157,34 +157,41 @@ function gen(zb) {
   }
   const inCore = (x, z) => cores.some((c) => x > c.xf - 1.2 && x < c.mx + 16.5 && z > c.z0 - 1.4 && z < c.z0 + 9.4);
 
-  // edges of the slab: parapet, deep fascia beam above it
-  const edge = (xa, xb, b, bx0) => {
+  // edges of the slab: a kerb and cable rails (you can see through them), a deep fascia beam above
+  const rail = (xa, za, zb_, w) => {
+    cbox(zb, xa - w, 0, za, xa + w, 0.22, zb_, M.concrete, { sub: 8 });
+    for (const y of [0.55, 1.02]) cbox(zb, xa - 0.035, y, za, xa + 0.035, y + 0.06, zb_, M.metal_dark, { sub: 16 });
+    for (let pz = Math.ceil(za / 4) * 4; pz < zb_; pz += 4) cbox(zb, xa - 0.05, 0, pz - 0.05, xa + 0.05, 1.08, pz + 0.05, M.metal_dark, { sub: 4 });
+  };
+  const edge = (xa, xb, b) => {
     const gaps = b ? [[z0 + b.z, z0 + b.z + 6]] : [];
     let a = z0;
     for (const [g0, g1] of [...gaps, [z1, z1]]) {
       if (g0 > a) {
-        cbox(zb, xa, 0, a, xb, 1.1, g0, M.lv73_wall, { sub: 3 });
+        rail((xa + xb) / 2, a, g0, 0.2);
         if (!top) cbox(zb, xa, CEIL + 0.1, a, xb + 0.2, 6.0, g0, M.lv73_ceil, { sub: 3 });
       }
       a = g1;
     }
-    void bx0;
   };
   edge(x0 + S0, x0 + S0 + 0.3, bL);
   edge(x0 + S1 - 0.3, x0 + S1, bR);
   for (const [b, bx0, bx1] of [[bR, x0 + S1, x1], [bL, x0, x0 + S0]]) {
     if (!b) continue;
-    for (const dz of [0, 5.7]) cbox(zb, bx0, 0, z0 + b.z + dz, bx1, 1.1, z0 + b.z + dz + 0.3, M.lv73_wall, { sub: 3 });
+    for (const dz of [0.15, 5.85]) {
+      cbox(zb, bx0, 0, z0 + b.z + dz - 0.15, bx1, 0.22, z0 + b.z + dz + 0.15, M.concrete, { sub: 8 });
+      for (const y of [0.55, 1.02]) cbox(zb, bx0, y, z0 + b.z + dz - 0.035, bx1, y + 0.06, z0 + b.z + dz + 0.035, M.metal_dark, { sub: 16 });
+    }
   }
   // columns: every 8 m in z along the lines of each module
-  for (let m = 0; m < 6; m++) for (const dx of [0.5, 5, 11]) {
+  if (!top) for (let m = 0; m < 6; m++) for (const dx of [0.5, 5, 11]) {
     const cx = x0 + S0 + m * MOD + dx;
     for (let j = Math.floor(z0 / 8); j * 8 < z1; j++) {
       const cz = j * 8;
       if (cz < z0 || cz >= z1 || cx < x0 + S0 + 0.7 || cx > x0 + S1 - 0.7) continue;
       if (within(up, cx, cz, 1) || within(inFull, cx, cz, 1) || inCore(cx, cz)) continue;
-      cbox(zb, cx - 0.4, 0, cz - 0.4, cx + 0.4, top ? 3.2 : 6.0, cz + 0.4, colM, { sub: 3 });
-      if (!top && dx !== 0.5 && j % 2 === 0) {
+      cbox(zb, cx - 0.4, 0, cz - 0.4, cx + 0.4, 6.0, cz + 0.4, colM, { sub: 3 });
+      if (dx !== 0.5 && j % 2 === 0) {
         zb.decal(cx, 1.5, cz - 0.41, 'nz', 0.5, 0.7, 'digit_' + (k + 1), { lit: true });
         zb.decal(cx, 1.5, cz + 0.41, 'pz', 0.5, 0.7, 'digit_' + (k + 1), { lit: true });
       }
@@ -242,14 +249,17 @@ function gen(zb) {
     if (lz < z0 || lz >= z1) continue;
     for (const lx of [x0 + S0 + 2.5, x0 + S1 - 2.5]) zb.light(lx, top ? 2.6 : 2.2, lz, { color: [0.55, 0.5, 0.95], rad: 11, int: top ? 0.5 : 0.6 });
   }
-  // the roof deck: tall lamp poles
-  if (top) for (let m = 0; m < 6; m++) for (let j = Math.floor(z0 / 16); j * 16 < z1; j++) {
-    const px = x0 + S0 + m * MOD + 8, pz = j * 16 + 8;
-    if (pz < z0 || pz >= z1 || within(up, px, pz, 0) || within(inFull, px, pz, 1)) continue;
-    zb.box(px - 0.1, 0, pz - 0.1, px + 0.1, 7, pz + 0.1, M.metal_dark);
-    zb.box(px - 0.8, 6.9, pz - 0.07, px + 0.8, 7.0, pz + 0.07, M.metal_dark, { collide: false });
-    for (const s of [-1, 1]) zb.box(px + s * 0.8 - 0.25, 6.82, pz - 0.15, px + s * 0.8 + 0.25, 6.9, pz + 0.15, M.glow_bulb, { collide: false });
-    zb.light(px, 6.0, pz, { color: [1.0, 0.76, 0.5], rad: 9, int: 0.8 });
+  // the roof deck: tall lamp poles along both edges and down the middle of the aisles
+  if (top) {
+    const pole = (px, pz, arm) => {
+      if (pz < z0 || pz >= z1 || px < x0 || px >= x1 || within(up, px, pz, 0) || within(inFull, px, pz, 1) || inCore(px, pz)) return;
+      zb.box(px - 0.1, 0, pz - 0.1, px + 0.1, 7.2, pz + 0.1, M.metal_dark);
+      zb.box(px - 0.06, 7.1, pz - 0.9, px + 0.06, 7.2, pz + 0.9, M.metal_dark, { collide: false });
+      for (const s of [-1, 1]) zb.box(px - 0.2, 6.98, pz + s * 0.9 - 0.3, px + 0.2, 7.1, pz + s * 0.9 + 0.3, M.glow_bulb, { collide: false });
+      zb.light(px + arm, 6.2, pz, { color: [1.0, 0.76, 0.5], rad: 10, int: 0.9 });
+    };
+    for (let j = Math.floor(z0 / 12); j * 12 < z1; j++) { pole(x0 + S0 + 1.2, j * 12 + 6, 1); pole(x0 + S1 - 1.2, j * 12 + 6, -1); }
+    for (let m = 0; m < 6; m++) for (let j = Math.floor(z0 / 16); j * 16 < z1; j++) pole(x0 + S0 + m * MOD + 8, j * 16 + 8, 0);
   }
   // the cores themselves
   for (const c of cores) {
