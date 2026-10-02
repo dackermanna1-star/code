@@ -162,6 +162,7 @@ const SFX = (() => {
     w.connect(windFilt); windFilt.connect(windGain); windGain.connect(master); w.start();
   };
   S.ok = () => !!ac && !S.silent;
+  S.tap = () => { if (!ac) return null; const an = ac.createAnalyser(); an.fftSize = 2048; master.connect(an); return an; };
   S.pause = () => { if (ac && ac.state === 'running') ac.suspend(); };
   S.resume = () => { if (ac && ac.state === 'suspended') ac.resume(); };
   S.setMuted = m => { S.muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : 0.9, ac.currentTime, 0.02); };
@@ -3567,7 +3568,7 @@ function buildScript() {
   s(41.36, -350, 'g', 'dash'); s(41.4, -345, 'g', 'fold', { pb: 0.03 });
   blackFlash(41.38, G, 'haF', '#ff2030', -0.12);
   S.track('ai').add(41.4, 0).add(41.42, 0.6).add(41.95, 0.6).add(42.0, 0);
-  s(41.95, -280, -1050, 'tumble', { r: -300, e: 'out', pb: 0.08 });
+  s(41.95, -280, -880, 'tumble', { r: -300, e: 'out', pb: 0.08 });
   energyTrail(S, 41.4, 41.95, '#ff3a3a', 6);
   C(40.3, { x: -40, y: -250, z: 0.85, e: 'expo' });
   C(40.55, { x: -45, y: -190, z: 1.55, r: 0.06, e: 'expo' });
@@ -3575,18 +3576,18 @@ function buildScript() {
   C(41.3, { x: -400, y: -200, z: 1.5, r: -0.06, e: 'expo' });
   C(41.6, { x: -360, y: -500, z: 0.7, e: 'expo' });
   // sky barrage: Dismantle rain vs Red shots
-  s(42.05, -260, -1000, 'slashDn', { r: 0, pb: 0.05 });
+  s(42.05, -260, -840, 'slashDn', { r: 0, pb: 0.05 });
   const BR = mulberry32(4242);
-  for (let i = 0; i < 9; i++) s(42.15 + i * 0.15, -260 + (BR() - 0.5) * 60, -1000 + (BR() - 0.5) * 40, i % 2 ? 'slashUp' : 'slashDn', { pb: 0.05 });
+  for (let i = 0; i < 9; i++) s(42.15 + i * 0.15, -260 + (BR() - 0.5) * 60, -840 + (BR() - 0.5) * 40, i % 2 ? 'slashUp' : 'slashDn', { pb: 0.05 });
   s(43.55, -200, -900, 'fall', { pb: 0.2 });
   g(41.6, -440, 'g', 'ready'); g(41.9, -420, 'g', 'pointUp', { pb: 0.1 });
   for (let i = 0; i < 22; i++) {
     const t = 42.1 + i * 0.06, x0 = -260 + (BR() - 0.5) * 300, x1 = -420 + (BR() - 0.5) * 900;
-    slash(t, x0, -900, x1, -40 - BR() * 60, { w: 6, dur: 0.3, grow: 0.04 });
+    slash(t, x0, -760, x1, -40 - BR() * 60, { w: 6, dur: 0.3, grow: 0.04 });
     ev(t + 0.04, () => { burstSparks(x1, -40, 10, { speed: 500, col: '#ff8080', life: 0.25 }); addCrack(x1, 2, 1, '#ff5050', gameT, 0.6); if (i % 2) SFX.slash(0.4); });
   }
   for (let i = 0; i < 8; i++) {
-    const t = 42.15 + i * 0.16, tx = -260 + (BR() - 0.5) * 400, ty = -560 - BR() * 300;
+    const t = 42.15 + i * 0.16, tx = -260 + (BR() - 0.5) * 400, ty = -420 - BR() * 260;
     const pos = T => { const k = clamp((T - t) / 0.12, 0, 1); return [lerp(-420, tx, k), lerp(-260, ty, k)]; };
     orbFX('red', t, t + 0.12, pos, () => 14, { fi: 0.01, fo: 0.01, li: 0.8 });
     explosion(t + 0.12, tx, ty, { p: 0.6, r: 90, col: 'red', lc: '#ff5040', silent: i % 2 === 1 });
@@ -3594,8 +3595,8 @@ function buildScript() {
   }
   addShake(42.1, 0.4, 1.4);
   title(42.1, 42.9, '解', 'DISMANTLE', { x: 0.74, y: 0.2, col: '#ff3a3a', size: 120 });
-  C(42.0, { x: -320, y: -560, z: 0.5, r: -0.04, e: 'out' });
-  C(43.5, { x: -320, y: -540, z: 0.56, r: 0.06, e: 'linear' });
+  C(42.0, { x: -320, y: -460, z: 0.68, r: -0.04, e: 'out' });
+  C(43.5, { x: -320, y: -450, z: 0.76, r: 0.06, e: 'linear' });
   // Domain Expansion
   g(43.65, -420, 'g', 'ready', { pb: 0.15 }); g(43.9, -380, 'g', 'ready'); g(44.15, -380, 'g', 'domain', { pb: 0.12 }); g(46.0, -380, 'g', 'domain');
   s(43.95, 380, 'g', 'land', { arc: 200, e: 'inout', f: -1, pb: 0.15 }); s(44.15, 380, 'g', 'mudra', { pb: 0.12 }); s(46.0, 380, 'g', 'mudra');
@@ -3730,7 +3731,7 @@ function buildScript() {
   grade(55.1, { ca: 0.006 }); grade(55.6, { ca: 0.025 });
   // COLLISION
   const FX0 = 0, FY = -185;
-  IMPACTS.push({ t: 55.62, seq: [['white', 1], ['blackSil', 1], ['whiteSil', 1], ['invert', 1], ['redSil', 1], ['threshInv', 1]], x: FX0, y: FY, col: '#c080ff', zoom: 1.45, rot: 0.08 });
+  IMPACTS.push({ t: 55.62, seq: [['white', 1], ['blackSil', 1, 0.4], ['whiteSil', 1, 0.44], ['redSil', 1, 0.7], ['threshInv', 1, 1.35]], x: FX0, y: FY, col: '#c080ff', zoom: 1.45, rot: 0.06 });
   addStop(55.62, 0.2, 0.1);
   ev(55.62, () => { SFX.boom(2, 4); SFX.hit(1.5); SFX.crackle(1.5, 1); });
   fx(55.85, 57.49, {
@@ -3935,6 +3936,7 @@ function buildUniforms(T, Tr, imp) {
   if (imp) {
     U.ca += 0.008;
     if (imp.mode === 'invert') U.mode = 3;
+    if (imp.mode in SIL_MODES) U.ca = Math.min(U.ca, 0.01);
   }
   if (Tr >= FREEZE_T && freezeLook) { const k = clamp((T - FREEZE_T) / 0.15, 0, 1); U.sat = lerp(U.sat, freezeLook.sat, k); U.con = lerp(U.con, freezeLook.con, k); U.grain = 0.05 + 0.06 * k; U.vig = lerp(U.vig, 0.95, k); U.tint[0] *= lerp(1, freezeLook.tint[0], k); U.tint[1] *= lerp(1, freezeLook.tint[1], k); U.tint[2] *= lerp(1, freezeLook.tint[2], k); }
   const fl = flashAt(T), wo = WHITEOUT.at(Tr);
@@ -3973,7 +3975,8 @@ function render(T) {
   if (imp && imp.mode !== 'white' && imp.mode !== 'black') {
     const k = imp.mode in SIL_MODES ? 0.55 : 0.25;
     cam.x = lerp(cam.x, imp.im.x, k); cam.y = lerp(cam.y, imp.im.y, k);
-    cam.z *= imp.mode in SIL_MODES ? imp.im.zoom : 1 + (imp.im.zoom - 1) * 0.4;
+    const zf = imp.im.seq[imp.i][2] || imp.im.zoom;
+    cam.z *= imp.mode in SIL_MODES ? zf : 1 + (zf - 1) * 0.4;
     cam.r += imp.im.rot * (imp.mode in SIL_MODES ? 1 : 0.4);
   }
   LIGHTS = [];
