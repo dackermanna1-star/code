@@ -1116,7 +1116,7 @@ function spawnPuff(kind, x, y, vx, vy, life, r, a, layer, o) {
   if (dustCount > 260) return null;
   dustCount++;
   const arr = PUFF[kind];
-  return spawn(PT.DUST, x, y, vx, vy, life, r, arr[(rng() * arr.length) | 0], Object.assign({ a: a === undefined ? 0.8 : a, f: layer === undefined ? 1 : layer, drag: 1.2, gs: r * 0.35, rot: rng() * TAU, vr: rsym(0.4) }, o));
+  return spawn(PT.DUST, x, y, vx, vy, life, r, arr[(rng() * arr.length) | 0], Object.assign({ a: (a === undefined ? 0.8 : a) * (kind === 'dust' ? 0.72 : 1), f: layer === undefined ? 1 : layer, drag: 1.2, gs: r * 0.35, rot: rng() * TAU, vr: rsym(0.4) }, o));
 }
 function spawnDebris(x, y, vx, vy, s, col, layer, o) {
   const n = 4 + ((rng() * 3) | 0), poly = [];
@@ -2245,8 +2245,18 @@ function resolveHits() {
     const col = h.col || '#ffffff', glowName = h.glow || 'white';
     addShake(t, (h.shake !== undefined ? h.shake : 0.12 + p * 0.55), 0.1 + p * 0.16);
     addPunch(t, h.punch !== undefined ? h.punch : 0.015 + p * 0.09, 0.09);
-    if (p >= 0.75 && h.flash !== false) flash(t, Math.min(0.75, p * 0.5), 0.05);
+    if (p >= 0.95 && h.flash !== false) flash(t, Math.min(0.85, p * 0.55), 0.035);
     lightBurst(t, x, y, { r: 34 + p * 95, col: glowName, i: 0.55 + p * 0.45, dur: 0.18 + p * 0.25, lc: col });
+    // sharp two-frame impact star
+    const starSeed = (t * 977) | 0, starR = 26 + p * 70, starRot = hash1(starSeed) * TAU;
+    fx(t, t + 0.075, { layer: 'front', draw(c, T, k) {
+      const R = mulberry32(starSeed + (k > 0.5 ? 7 : 0)), n = 9 + ((R() * 4) | 0);
+      c.translate(x, y); c.rotate(starRot + (k > 0.5 ? 0.3 : 0));
+      const path = (sc) => { c.beginPath(); for (let i = 0; i <= n * 2; i++) { const a = (i / (n * 2)) * TAU, r = (i % 2 ? 0.22 : 0.6 + R() * 0.55) * starR * sc; c[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r); } c.closePath(); };
+      c.globalCompositeOperation = 'lighter';
+      path(1.25 * (1 + k * 0.5)); c.fillStyle = col; c.globalAlpha = 0.65 * (1 - k * 0.5); c.fill();
+      path(0.8 * (1 + k * 0.4)); c.fillStyle = '#ffffff'; c.globalAlpha = 1 - k * 0.6; c.fill();
+    } });
     if (p >= 0.45) ring(t, x, y, { r1: 40 + p * 190, w: 2 + p * 7, col, dur: 0.22 + p * 0.25, a: 0.75, distort: p >= 0.55 ? 0.012 + p * 0.03 : 0 });
     if (p >= 1.3) ring(t + 0.03, x, y, { r1: 120 + p * 380, w: 4 + p * 6, col: '#ffffff', dur: 0.35 + p * 0.2, a: 0.4 });
     if (h.if) IMPACTS.push({ t, seq: h.if, x, y, col, zoom: h.ifz || 1.25, rot: h.ifr === undefined ? rsym(0.12) : h.ifr });
@@ -3144,8 +3154,8 @@ function buildScript() {
   C(14.0, { x: 980, y: -380, z: 0.85, r: 0, e: 'out' });
   // breather: Gojo hangs in the air, pockets
   g(14.1, 300, -560, 'airPocket'); g(15.9, 330, -470, 'airPocket', { e: 'inout' });
-  C(14.35, { x: 720, y: -430, z: 0.84, e: 'cut' });
-  C(15.9, { x: 700, y: -430, z: 0.95, e: 'linear' });
+  C(14.35, { x: 560, y: -470, z: 1.0, e: 'cut' });
+  C(15.9, { x: 540, y: -460, z: 1.12, e: 'linear' });
   fx(15.2, 16.0, { light: T => ({ x: 1100, y: -330, r: 700, col: '#ff4040', i: 1.2 * smoothstep(15.2, 16, T) }), draw(c, T, k) { c.globalCompositeOperation = 'lighter'; glow(c, GLOW.red, 1100, -330, 160 + 60 * Math.sin(T * 30), k * 0.8); } });
   ev(15.2, () => SFX.rumble(0.9, 0.6));
   ev(15.45, () => SFX.swell(0.55, 0.6));
@@ -3188,7 +3198,9 @@ function buildScript() {
   C(16.4, { x: -40, y: -640, z: 0.42, r: 0.02, e: 'expo' });
   C(17.2, { x: 40, y: -880, z: 1.5, r: -0.06, e: 'expo' });
   C(17.35, { x: 0, y: -640, z: 0.44, r: 0.03, e: 'expo' });
-  C(17.85, { x: -60, y: -470, z: 1.4, r: 0.05, e: 'expo' });
+  C(17.56, { x: 600, y: -650, z: 1.0, r: -0.04, e: 'expo' });
+  C(17.74, { x: 250, y: -560, z: 0.6, r: 0.02, e: 'expo' });
+  C(17.88, { x: -60, y: -470, z: 1.4, r: 0.05, e: 'expo' });
   C(18.0, { x: -200, y: -600, z: 0.6, r: -0.02, e: 'expo' });
   // Sukuna kicks Gojo out of the sky
   g(18.38, -240, 'g', 'land', { e: 'in', pb: 0.06, f: -1 });
