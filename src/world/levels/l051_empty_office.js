@@ -229,6 +229,7 @@ defineLevel(N, {
   // starts, feeds a few sheets and stops
   script(ctx, dt) {
     const s = ctx.state;
+    if (!s.warm) { s.warm = 1; ctx.game.audioCall('play', 'lv51_printer', undefined, undefined, undefined, { vol: 0 }); }
     if (s.t === undefined || s.t > 130) s.t = 35 + Math.random() * 40;
     s.t -= dt;
     if (s.t > 0) return;

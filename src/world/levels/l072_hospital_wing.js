@@ -252,6 +252,7 @@ defineLevel(N, {
   // the intercom chimes now and then somewhere along the corridor; no voice follows
   script(ctx, dt) {
     const s = ctx.state;
+    if (!s.warm) { s.warm = 1; ctx.game.audioCall('play', 'lv72_chime', undefined, undefined, undefined, { vol: 0 }); }
     if (s.t === undefined || s.t > 110) s.t = 25 + Math.random() * 30;
     s.t -= dt;
     if (s.t > 0) return;

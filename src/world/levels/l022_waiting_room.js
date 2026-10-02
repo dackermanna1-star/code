@@ -327,6 +327,7 @@ defineLevel(N, {
   script(ctx, dt) {
     const s = ctx.state;
     if (s.n === undefined || s.n < 0 || s.n > 9) s.n = 1;
+    if (!s.warm) { s.warm = 1; for (const nm of ['lv22_chime', 'lv22_bell']) ctx.game.audioCall('play', nm, undefined, undefined, undefined, { vol: 0 }); }
     if (s.t === undefined) s.t = 50 + Math.random() * 40;
     s.t -= dt;
     if (s.t <= 0) {

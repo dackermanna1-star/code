@@ -366,6 +366,7 @@ defineLevel(N, {
   // the bell: every forty-five seconds of play, from the nearest bell tower (far off when none is close)
   script(ctx, dt) {
     const s = ctx.state;
+    if (!s.warm) { s.warm = 1; ctx.game.audioCall('play', 'lv64_bell', undefined, undefined, undefined, { vol: 0 }); }
     if (s.t === undefined || s.t > 60) s.t = 22;
     s.t -= dt;
     if (s.t > 0) return;

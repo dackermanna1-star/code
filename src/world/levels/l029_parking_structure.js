@@ -121,6 +121,7 @@ function gen(zb) {
       const cx = i * CX;
       for (const [lx, lz, rot, len, hung] of [[cx, zb0 + 8, 0, 2.6, true], [cx + 4, zb0 + 8, 0, 1.2, false], [cx + 4, zb0 + 2.5, 1, 1.2, false], [cx + 4, zb0 + 13.5, 1, 1.2, false]]) {
         if (!zb.in(Math.floor(lx), Math.floor(lz)) || inCore(lx, lz)) continue;
+        if (rot === 1 && (i & 1)) continue;                 // the bay rows are lit every 16 m
         const u = hr(Math.floor(lx * 2), Math.floor(lz * 2), 2920);
         const dark = hr(Math.floor(lx / 24), Math.floor(lz / 32), 2925) < 0.1;
         const state = dark ? 'off' : u < 0.05 ? 'off' : u < 0.1 ? 'dying' : u < 0.19 ? 'flicker' : 'on';
@@ -129,8 +130,12 @@ function gen(zb) {
         if (hung) {
           const ch = state === 'dying' ? 5 + (i & 3) : state === 'flicker' ? 1 + (i & 3) : 0;
           zb.fixture(lx, lz, 'tube', state !== 'off', { ch, rot, l: len, y: CEIL - 0.3 });
-          if (state !== 'off') zb.light(lx, CEIL - 0.85, lz, { color, rad: 7.2, int: 0.9, ch });
-        } else ceilingLight(zb, lx, lz, 'tube', state, { rot, l: len, color, rad: 6.8, int: 0.8 });
+          if (state !== 'off') zb.light(lx, CEIL - 0.85, lz, { color, rad: 6.2, int: 1.0, ch });
+        } else if (lz === zb0 + 8) {
+          // between the hung bars: a fixture only, the bars light the floor under it
+          const on = state !== 'off';
+          zb.fixture(lx, lz, 'tube', on, { ch: state === 'flicker' ? 1 + (i & 3) : 0, rot, l: len });
+        } else ceilingLight(zb, lx, lz, 'tube', state, { rot, l: len, color, rad: 5.2, int: 0.9 });
       }
     }
     // painted arrows down the aisle (one way, alternating by module)
