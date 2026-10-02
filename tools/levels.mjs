@@ -2,7 +2,7 @@
 // reach, and generation / chunk building stay inside the budget.
 //   node tools/levels.mjs            all levels
 //   node tools/levels.mjs 7 12 40    only these
-import { generateTextures } from '../src/gfx/textures.js';
+import { textureIndex } from '../src/gfx/textures.js';
 import { resolveMaterials } from '../src/world/materials.js';
 import { setPropTextures } from '../src/world/props.js';
 import { World } from '../src/world/world.js';
@@ -12,7 +12,7 @@ import { ZT } from '../src/world/zonetypes.js';
 import { buildChunkData } from '../src/world/chunk.js';
 import { CHUNK, LEVEL_H, PLAYER_R } from '../src/config.js';
 
-const { index } = generateTextures();
+const index = textureIndex();   // layer numbers only; pixels are not needed here
 resolveMaterials(index); setPropTextures(index);
 const want = process.argv.slice(2).map(Number).filter((n) => Number.isFinite(n));
 const list = want.length ? want : levelNumbers();
