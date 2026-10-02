@@ -450,6 +450,18 @@ R('amethyst_block', stone({ hardness: 1.5, requiresTool: false, sound: 'glass' }
 R('budding_amethyst', stone({ hardness: 1.5, requiresTool: false, sound: 'glass', drops: 'none' }));
 R('amethyst_cluster', plant({ hardness: 1.5, sound: 'glass', emission: rgb(5, 3, 7), tool: 'pickaxe', fireEncouragement: 0, flammability: 0, drops: [{ item: 'amethyst_shard', min: 4, max: 4, fortune: 'ore' }] }));
 
+// ---------------------------------------------------------------------------------
+// Appended by the world-generation workstream
+// ---------------------------------------------------------------------------------
+// Powder snow: full opaque cube you sink into (no collision; collected with a bucket in Minecraft).
+R('powder_snow', { solid: false, hardness: 0.25, tool: 'shovel', sound: 'snow', drops: 'none', item: null, mapColor: 0xf8fdfd });
+R('smooth_basalt', stone({ hardness: 1.25, resistance: 4.2, mapColor: 0x454547 }));
+R('mushroom_stem', { hardness: 0.2, tool: 'axe', sound: 'wood', drops: 'none', silkTouchable: true, mapColor: 0xc7c2b4 });
+R('brown_mushroom_block', { hardness: 0.2, tool: 'axe', sound: 'wood', drops: [{ item: 'brown_mushroom', min: 0, max: 2 }], silkTouchable: true, mapColor: 0x956f51 });
+R('red_mushroom_block', { hardness: 0.2, tool: 'axe', sound: 'wood', drops: [{ item: 'red_mushroom', min: 0, max: 2 }], silkTouchable: true, mapColor: 0xc52e2b });
+R('twisting_vines', plant({ climbable: true }));
+R('raw_copper_block', stone({ hardness: 5, harvestTier: 1, mapColor: 0x9a6a4f }));
+
 finalizeRegistry();
 
 export {};
