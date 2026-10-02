@@ -141,8 +141,7 @@ export class Game {
     this.uic.width = w; this.uic.height = RES_H;
     this.ctx.imageSmoothingEnabled = false;
     const scr = this.glc.parentElement;
-    scr.style.aspectRatio = this.settings.wide ? '16 / 9' : '4 / 3';
-    scr.style.height = this.settings.wide ? 'min(100vh, 56.25vw)' : 'min(100vh, 75vw)';
+    scr.style.setProperty('--ar', this.settings.wide ? '1.7778' : '1.3333');
   }
 
   saveSettings() { writeSettings(this.settings); }
@@ -294,14 +293,20 @@ export class Game {
     if (!this.ui.top()) {
       if (inp.menuOk || inp.click || inp.use || inp.pause) { this.ui.open('title'); }
     } else this.ui.input(inp);
-    // slow drift through the first hall
+    // slow drift back and forth along a clear lane of the first hall
     this.titleCamT += dt;
     const t = this.titleCamT;
     const p = this.player;
-    p.x = SPAWN[0] + 0.5 + Math.sin(t * 0.021) * 3;
-    p.z = SPAWN[1] + 0.5 - ((t * 0.32) % 22);
+    if (!this.titleLane) this.titleLane = this.findTitleLane();
+    const lane = this.titleLane || { x: SPAWN[0] + 0.5, z: SPAWN[1] + 0.5, dx: 0, dz: -1, yaw: 0, len: 0 };
+    // stop well short of whatever ends the lane, so the camera never stares into it
+    const travel = Math.max(0, lane.len - 7);
+    const u = travel * (0.5 - 0.5 * Math.cos((t * Math.PI * 0.3) / Math.max(1, travel)));
+    const side = Math.sin(t * 0.05) * 0.3;
+    p.x = lane.x + lane.dx * u - lane.dz * side;
+    p.z = lane.z + lane.dz * u + lane.dx * side;
     p.y = 0;
-    p.yaw = p.tyaw = Math.sin(t * 0.05) * 0.5 - 0.15;
+    p.yaw = p.tyaw = lane.yaw + Math.sin(t * 0.05) * 0.35;
     p.pitch = p.tpitch = 0.03;
     p.dim = 0;
     this.world.update(0, p.x, p.y, p.z, 4);
@@ -309,6 +314,27 @@ export class Game {
     if (this.titleWaiting && (this.world.areaReady(0, p.x, p.y, p.z, 1) || this.titleCamT > 12)) { this.titleWaiting = false; this.ui.fadeTarget = 0; }
     this.updateEnv(dt);
     this.updateAudio(dt);
+  }
+
+  // The longest straight run from near the spawn with ~1.8 m of space on every side, so the title
+  // camera never brushes a pillar. Null until the hall has streamed in.
+  findTitleLane() {
+    const w = this.world, tmp = [];
+    const sx = SPAWN[0] + 0.5, sz = SPAWN[1] + 0.5;
+    if (!w.areaReady(0, sx, 0, sz, 1)) return null;
+    const clear = (x, z) => { w.queryBoxes(0, x - 1.8, 0.3, z - 1.8, x + 1.8, 2.0, z + 1.8, tmp); return tmp.length === 0; };
+    let best = null;
+    for (let d = 0; d < 4; d++) {
+      const yaw = (d * Math.PI) / 2, dx = Math.sin(yaw), dz = -Math.cos(yaw);
+      for (const off of [0, 1, -1, 2, -2]) {
+        const x = sx - dz * off, z = sz + dx * off;
+        if (!clear(x, z)) continue;
+        let len = 0;
+        while (len < 26 && clear(x + dx * (len + 1), z + dz * (len + 1))) len++;
+        if (!best || len > best.len) best = { x, z, dx, dz, yaw, len };
+      }
+    }
+    return best || { x: sx, z: sz, dx: 0, dz: -1, yaw: 0, len: 0 };
   }
 
   updatePlay(dt, inp) {

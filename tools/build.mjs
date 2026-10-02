@@ -1,4 +1,5 @@
-// Bundles the game into a single self-contained HTML file: dist/index.html.
+// Bundles the game into a single self-contained HTML file: dist/index.html (plus
+// dist/level-zero.html, the same page without the document skeleton).
 // Zero dependencies. Every module under src/ becomes a lazy async factory; static imports turn
 // into awaited lookups, dynamic import() resolves inside the bundle, and the world worker is
 // started from the bundle's own source through a Blob URL.
@@ -70,14 +71,17 @@ function __require(id) {
   return (__cache[id] = fn(ex, dyn).then(() => ex));
 }`;
 
-const bundleFn = `function __bundle(__isWorker) {
+// __bundle(entry): entry is false on the page, or the repo-relative path of a worker module when
+// the bundle runs inside a worker started by __makeWorker(path).
+const bundleFn = `function __bundle(__entry) {
 "use strict";
 ${runtime}
 ${modules.join('\n')}
-if (__isWorker) {
-  __require('src/world/worker.js').catch((e) => { self.postMessage({ type: 'error', key: null, message: String(e && e.stack || e) }); });
+if (__entry) {
+  __require(__entry).catch((e) => { self.postMessage({ type: 'error', key: null, message: String(e && e.stack || e) }); });
 } else {
-  globalThis.__makeWorldWorker = () => new Worker(URL.createObjectURL(new Blob(['(' + __bundle.toString() + ')(true);'], { type: 'text/javascript' })));
+  globalThis.__makeWorker = (id) => new Worker(URL.createObjectURL(new Blob(['(' + __bundle.toString() + ')(' + JSON.stringify(id) + ');'], { type: 'text/javascript' })));
+  globalThis.__makeWorldWorker = () => globalThis.__makeWorker('src/world/worker.js');
   __require('src/main.js').catch((e) => { console.error(e); const el = document.getElementById('err'); if (el) { el.style.display = 'block'; el.textContent = 'Failed to start: ' + e.message; } });
 }
 }`;
@@ -90,3 +94,14 @@ fs.mkdirSync(path.join(root, 'dist'), { recursive: true });
 fs.writeFileSync(path.join(root, 'dist', 'index.html'), html);
 const kb = (Buffer.byteLength(html) / 1024).toFixed(0);
 console.log(`dist/index.html written: ${files.length} modules, ${kb} KB`);
+
+// The same page as a fragment for hosts that supply their own document skeleton (doctype,
+// charset and viewport): title and style first, then the body content.
+const frag = html
+  .replace(/<!doctype html>\s*/i, '')
+  .replace(/<\/?html[^>]*>\s*/gi, '')
+  .replace(/<\/?head>\s*/gi, '')
+  .replace(/<meta [^>]*>\s*/gi, '')
+  .replace(/<\/?body>\s*/gi, '');
+fs.writeFileSync(path.join(root, 'dist', 'level-zero.html'), frag);
+console.log(`dist/level-zero.html written (fragment, ${(Buffer.byteLength(frag) / 1024).toFixed(0)} KB)`);

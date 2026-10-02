@@ -5,13 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Level Zero</title>
 <style>
-  :root { --bg: #000; --fg: #d8cfa0; --btn: rgba(216, 207, 160, 0.16); --btn-on: rgba(216, 207, 160, 0.38); --btn-line: rgba(216, 207, 160, 0.45); }
+  /* one dark look: a TV in an unlit room */
+  :root { --bg: #000; --fg: #d8cfa0; --btn: rgba(216, 207, 160, 0.16); --btn-on: rgba(216, 207, 160, 0.38); --btn-line: rgba(216, 207, 160, 0.45);
+    --err-bg: #300; --err-fg: #fcc; color-scheme: dark; }
   html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
   body { color: var(--fg); font-family: ui-monospace, Menlo, Consolas, monospace; }
-  #stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
-  #screen { position: relative; aspect-ratio: 4 / 3; height: min(100vh, 75vw); max-width: 100vw; cursor: crosshair; }
+  #stage { position: fixed; inset: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; container-type: size;
+    padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(16px, env(safe-area-inset-left, 0px)); }
+  #screen { --ar: 1.3333; position: relative; aspect-ratio: var(--ar); cursor: crosshair;
+    width: min(calc(100vw - 32px), calc(100vh * var(--ar))); width: min(100cqw, calc(100cqh * var(--ar))); }
   #screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
-  #err { display: none; position: fixed; left: 16px; right: 16px; top: 16px; padding: 12px; background: #300; color: #fcc; white-space: pre-wrap; }
+  #err { display: none; position: fixed; left: 16px; right: 16px; top: 16px; padding: 12px; background: var(--err-bg); color: var(--err-fg); white-space: pre-wrap; }
   #touch { position: absolute; inset: 0; pointer-events: none; display: none; }
   .tbtn { position: absolute; pointer-events: auto; width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
     background: var(--btn); border: 2px solid var(--btn-line); color: var(--fg); font-size: 12px; letter-spacing: 1px; touch-action: none; }
@@ -21,7 +25,6 @@
   .b-crouch { right: 24px; bottom: 30px; }
   .b-run { left: 24px; bottom: 30px; width: 56px; height: 56px; }
   .b-menu { right: 16px; top: 16px; width: 44px; height: 44px; font-size: 14px; }
-  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg: #000; } }
 </style>
 </head>
 <body>
