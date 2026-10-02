@@ -152,6 +152,7 @@ ACCENT.forEach((ac, k) => {
   defineMaterial('lv21_stripe_ew_' + k, 'lv21_stripe_ew_' + k, { s: 1, surf: 'carpet' });
 });
 ACCENT.forEach((ac, k) => defineMaterial('lv21_acc_' + k, 'lv21_acc_' + k, { s: 1, surf: 'metal' }));
+defineMaterial('lv21_zero', 'g01_dg_0', { s: 1, surf: 'carpet' });
 defineMaterial('lv21_carpet', 'lv21_carpet', { s: 2, surf: 'carpet', stain: 0.06 });
 defineMaterial('lv21_ceil', 'lv21_ceil', { s: 2, surf: 'drywall' });
 defineMaterial('lv21_terrazzo', 'lv21_terrazzo', { s: 2.5, surf: 'tile' });

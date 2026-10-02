@@ -5,7 +5,7 @@
 import { defineZone } from '../zonetypes.js';
 import { defineProp, propMat as S, propTex as T, propGlow as glow } from '../props.js';
 import { LEVEL_ZONE, defineLevel, env, M, hr, levelDoor, ceilingLight } from './kit.js';
-import { Loc, face, withCommas, numWidth, clamp } from './g01_kit.js';
+import { Loc, face, withCommas, numWidth, clamp, flatSlab } from './g01_kit.js';
 import { ACCENT, DIR_W, DIR_H } from './l021_numbered_hotel_tex.js';
 
 const N = 21;
@@ -229,7 +229,7 @@ function lobbyHall(Z) {
   // the directory: a wall-sized board on the north wall, left of the corridor mouth
   Z.prop('lv21_dirboard', 25.5, 0.3, v0, face(0, 1), { t: 2.0 });
   // the giant zero in the floor, the empty reception desk and its key rack on the east side
-  Z.decal(27, 0.02, 37.5, 'up', 8.5, 8.5, 'g01_dg_0', {});
+  Z.prop('g01_num', 41.0, 0.9, v0, face(0, 1), { text: '0', h: 4.6, tint: ACCENT[0] });
   Z.prop('reception_desk', 40.2, 0, 31, face(-1, 0), { tint: [0.6, 0.72, 1.0] });
   Z.box(43.4, 0.2, c - 6 + 0.5, 43.6, 2.7, c + 6 - 0.5, [M.lv21_steel, M.lv21_keys, M.lv21_steel, M.lv21_steel, M.lv21_steel, M.lv21_steel], { uv: ['world', [0, 0, 6, 2.5], 'world', 'world', 'world', 'world'] });
   for (const [u, v, r] of [[22, 46.2, face(0, -1)], [32, 46.2, face(0, -1)], [21.2, 30, face(1, 0)], [45.8, 41, face(-1, 0)]]) Z.prop('bench', u, 0, v, r, { len: 1.8 });

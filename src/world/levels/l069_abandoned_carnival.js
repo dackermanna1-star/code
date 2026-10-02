@@ -16,7 +16,7 @@ const COLS = [[0.95, 0.32, 0.36], [0.2, 0.75, 0.78], [1.0, 0.82, 0.3], [0.62, 0.
 
 // ------------------------------------------------------------------ textures
 defineTexture('lv69_boards', (p) => {
-  p.fill([108, 76, 52]); p.noise(6, 0.1, 3);
+  p.fill([140, 98, 66]); p.noise(6, 0.1, 3);
   for (let y = 0; y < 64; y += 8) { p.rect(0, y, 64, 1, [52, 34, 22]); p.rect(((y * 5) % 64), y, 1, 8, [52, 34, 22]); }
   p.speckle(90, [150, 112, 80], 0.2, 0.5); p.grain(0.05);
 }, 10);
@@ -93,16 +93,16 @@ function bulbRibbon(f, anim) {
     }
   };
 }
-animMaterial('lv69_chase', 'lv69_chase', (p, f) => bulbRibbon(f, true)(p), { s: 1, su: 1.6, sv: 0.4, glow: 1.1 });
+animMaterial('lv69_chase', 'lv69_chase', (p, f) => bulbRibbon(f, true)(p), { s: 1, su: 1.6, sv: 0.4, glow: 1.5 });
 defineTexture('lv69_bulbs', bulbRibbon(0, false), 12);
 // the rim of the wheel and the edges of things: a rod pattern, bulbs along its length
 animMaterial('lv69_chaser', 'lv69_chaser', (p, f) => {
   p.fill([30, 22, 34]);
   for (let k = 0; k < 4; k++) {
-    const lit = k === f, col = lit ? [255, 240, 190] : BULB[k];
-    p.rect(0, k * 16 + 2, 64, 12, lit ? col : [col[0] * 0.45, col[1] * 0.45, col[2] * 0.45]);
+    const lit = k === f, col = lit ? [255, 244, 200] : BULB[k];
+    p.rect(0, k * 16 + 2, 64, 12, lit ? col : [col[0] * 0.7, col[1] * 0.7, col[2] * 0.7]);
   }
-}, { s: 1, su: 1, sv: 0.5, glow: 1.15 });
+}, { s: 1, su: 1, sv: 0.5, glow: 1.7 });
 defineTexture('lv69_sign_tickets', signTex(['TICKETS'], [150, 40, 50], [250, 232, 190], 1), 8);
 defineTexture('lv69_sign_games', signTex(['GAMES', 'OF', 'SKILL'], [30, 100, 110], [250, 232, 190], 1), 8);
 defineTexture('lv69_sign_fun', signTex(['FUN', 'HOUSE'], [110, 50, 140], [255, 224, 120], 2), 8);
@@ -234,7 +234,7 @@ defineProp('lv69_wheel', {
     for (const z of [-ZF, ZF]) {
       for (let k = 0; k < SEG; k++) {
         const a = pt(k, z), b = pt(k + 1, z);
-        mb.rod(a[0], a[1], a[2], b[0], b[1], b[2], 0.2, 4, rim);
+        mb.rod(a[0], a[1], a[2], b[0], b[1], b[2], 0.32, 4, rim);
       }
       for (let k = 0; k < SEG; k += 2) { const a = pt(k, z); mb.rod(0, H, z, a[0], a[1], a[2], 0.07, 4, steel); }
       for (let k = 0; k < SEG; k += 4) { const a = pt(k, z, R * 0.5), b = pt(k + 4, z, R * 0.5); mb.rod(a[0], a[1], a[2], b[0], b[1], b[2], 0.06, 4, steel); }
@@ -361,8 +361,8 @@ function lampPole(zb, x, z, c, ch = 0) {
   if (!owns(zb, x, z)) return;
   zb.box(x - 0.12, 0, z - 0.12, x + 0.12, 6.2, z + 0.12, M.lv69_pole, { sub: 0 });
   zb.box(x - 0.28, 6.0, z - 0.28, x + 0.28, 6.5, z + 0.28, M.lv69_lamp, { sub: 0, collide: false });
-  zb.light(x, 5.2, z, { color: c, rad: 9.5, int: 0.62, ch });
-  zb.decal(x, 0, z, 'up', 9, 9, 'lv69_pool', { lit: false, glow: 0.22 });
+  zb.light(x, 5.2, z, { color: c, rad: 10, int: 0.9, ch });
+  zb.decal(x, 0, z, 'up', 10, 10, 'lv69_pool', { lit: false, glow: 0.3 });
 }
 // a flat ribbon of bulbs between two points at height y (axis 'x' or 'z'), clipped to the zone
 function ribbon(zb, axis, fixed, a, b, y, mat) {
@@ -556,8 +556,8 @@ function gen(zb) {
 defineZone('lv69_fair', {
   ...LEVEL_ZONE,
   params: () => ({
-    ambient: [0.14, 0.11, 0.2],
-    env: env({ fog: [0.12, 0.06, 0.17], fogNear: 16, fogFar: 100, hum: 0, hvac: 0, reverb: 'outdoor', tone: 'lv69_dusk' }),
+    ambient: [0.22, 0.17, 0.3],
+    env: env({ fog: [0.16, 0.07, 0.2], fogNear: 22, fogFar: 115, hum: 0, hvac: 0, reverb: 'outdoor', tone: 'lv69_dusk' }),
   }),
   gen,
 });

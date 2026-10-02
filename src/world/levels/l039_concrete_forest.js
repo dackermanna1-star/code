@@ -168,7 +168,7 @@ function lampAt(zb, x, z, y, ch, arm, h = 5.4) {
 function gen(zb) {
   zb.noConnectivity = true;
   const pl0 = [ENTRY_PAD];
-  let door = doorSite(zb, 0.66, 71);
+  let door = doorSite(zb, 0.86, 71);
   if (door && Math.hypot(door.x - EX, door.z - EZ) < 18) door = null;
   if (door) pl0.push({ x: door.x, z: door.z, r0: 2.6, r1: 6.5 });
   const hf = padded(baseH, pl0);

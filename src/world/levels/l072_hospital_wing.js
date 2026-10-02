@@ -149,7 +149,10 @@ function roomId(x, z) {
   const row = bz * 2 + (k < 5 ? 0 : 1);
   return (rx + 20000) * 40000 + (row + 20000) + 1;
 }
-const kind = (x, z) => (corridor(x, z) ? 0 : roomId(x, z));
+// the arrival block: x 0..16, z 0..18 is one plain mass (no rooms, no doors) so the first chunk is cheap
+const BLOCK = -777;
+const inBlock = (x, z) => x >= 0 && x < 16 && z >= 0 && z < 18;
+const kind = (x, z) => (corridor(x, z) ? 0 : inBlock(x, z) ? BLOCK : roomId(x, z));
 const roomOff = (x) => { const u = pmod(x, PX); return u < 28 ? u % 4 : (u - 31) % 4; };
 // the first corridor is closed at x = 0: the arrival door stands in that wall
 const ENTRY_Z = 6;
@@ -191,7 +194,7 @@ function gen(zb) {
       }
       a = kind(x, z - 1); b = kind(x, z);
       if (a !== b) {
-        const door = (a === 0 || b === 0) && roomOff(x) === 1;
+        const door = (a === 0 || b === 0) && roomOff(x) === 1 && a !== BLOCK && b !== BLOCK;
         zb.setWall(x, z, 'N', door ? W.DOOR : W.WALL, a === 0 ? wc : wr, b === 0 ? wc : wr);
         if (door) {
           const rot = a === 0 ? 0 : Math.PI;
@@ -206,7 +209,7 @@ function gen(zb) {
     const k = pmod(z, PZ);
     if (k !== 2 && k !== 10) continue;
     for (let x = zb.x0; x < zb.x1; x++) {
-      if (roomOff(x) !== 2 || corridor(x, z) || isNS(x)) continue;
+      if (roomOff(x) !== 2 || corridor(x, z) || isNS(x) || inBlock(x, z)) continue;
       const north = k === 2;
       const back = north ? z - 2 : z + 3;                     // z of the back wall line
       zb.prop('lv72_room', x - 0.3, 0, north ? back + 1.27 : back - 1.27, north ? 0 : Math.PI, {});

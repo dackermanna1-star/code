@@ -239,7 +239,7 @@ function row(zb, hf, ax, az, bx, bz, step, fn) {
 function gen(zb) {
   zb.noConnectivity = true;
   const pl0 = [ENTRY_PAD];
-  let door = doorSite(zb, 0.7, 71);
+  let door = doorSite(zb, 0.86, 71);
   if (door && Math.hypot(door.x - EX, door.z - EZ) < 20) door = null;
   if (door) pl0.push({ x: door.x, z: door.z, r0: 3.2, r1: 7 });
   const hf = padded(baseH, pl0);

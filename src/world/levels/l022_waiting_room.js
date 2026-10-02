@@ -8,7 +8,7 @@ import { defineMaterial, VF } from '../materials.js';
 import { defineProp, propMat as S, propTex as T, propWithXf as withXf } from '../props.js';
 import { defineZone } from '../zonetypes.js';
 import { xfRotX } from '../../core/math.js';
-import { LEVEL_ZONE, defineLevel, env, M, W, hr, owns, levelDoor, ceilingLight } from './kit.js';
+import { LEVEL_ZONE, defineLevel, env, M, W, hr, owns, levelDoor, ceilingLight, cbox } from './kit.js';
 import { driveFlicker, mix, voidCells, floorSlab, ceilSlab } from './g08_kit.js';
 
 const N = 22;
@@ -115,34 +115,40 @@ defineMaterial('lv22_amber', 'lv22_amber', { s: 1, flags: VF.FULLBRIGHT, glow: 1
 
 // ------------------------------------------------------------------ props
 defineProp('lv22_chairs', {
-  // three joined vinyl chairs on a wooden frame; the front (-z) faces the room
+  // three joined vinyl chairs; the front (-z) faces the room
   build(mb) {
     const cush = T('lv22_cushion');
-    const wd = S('lv22_wood');
     const fit = [0, 0, 1, 1];
-    mb.box(-0.85, 0.4, -0.27, 0.85, 0.47, 0.27, [cush, cush, cush, wd, wd, cush], { uv: ['world', 'world', 'world', 'world', 'world', fit] });
-    mb.box(-0.85, 0.47, 0.22, 0.85, 0.92, 0.3, [cush, cush, cush, cush, cush, cush], { uv: ['world', 'world', 'world', 'world', 'world', fit] });
-    for (const s of [-1, 1]) mb.box(s * 0.85 - 0.03, 0.0, -0.22, s * 0.85 + 0.03, 0.62, 0.22, wd, { skip: 8 });
+    mb.box(-0.85, 0.0, -0.27, 0.85, 0.47, 0.27, cush, { skip: 8, uv: ['world', 'world', fit, 'world', fit, fit] });
+    mb.box(-0.85, 0.47, 0.2, 0.85, 0.92, 0.3, cush, { skip: 8, uv: ['world', 'world', fit, 'world', fit, fit] });
   },
   boxes: [[-0.88, 0, -0.28, 0.88, 0.95, 0.3]],
 });
 defineProp('lv22_counter', {
   build(mb) {
-    const wd = S('lv22_wood');
-    mb.box(-2.0, 0, -0.2, 2.0, 1.0, 0.2, wd);
-    mb.box(-2.05, 1.0, -0.3, 2.05, 1.05, 0.2, S('plastic_beige'));
-    const sg = T('lv22_sign');
-    mb.box(-0.5, 1.05, -0.12, -0.2, 1.3, -0.1, [sg, sg, sg, sg, sg, sg], { uv: ['world', 'world', 'world', 'world', 'world', [0, 0, 1, 1]] });
+    mb.box(-2.0, 0, -0.2, 2.0, 1.0, 0.2, S('lv22_wood'), { skip: 8 });
+    mb.box(-2.05, 1.0, -0.3, 2.05, 1.05, 0.2, S('plastic_beige'), { skip: 8 });
   },
   boxes: [[-2.05, 0, -0.3, 2.05, 1.05, 0.2]],
 });
 defineProp('lv22_bell', {
   // a service bell on the counter: it rings, nobody comes
-  build(mb) {
-    mb.cyl(0, 0, 0, 0.07, 0.03, 5, S('chrome'), 1);
-    mb.cyl(0, 0.03, 0, 0.04, 0.04, 5, S('chrome'), 1);
-  },
+  build(mb) { mb.box(-0.05, 0, -0.05, 0.05, 0.07, 0.05, S('chrome'), { skip: 8 }); },
   use: 'level',
+});
+defineProp('lv22_desk', {
+  build(mb) {
+    mb.box(-0.7, 0.71, -0.4, 0.7, 0.75, 0.4, S('lv22_wood'), { skip: 8 });
+    mb.box(-0.65, 0.0, -0.38, 0.65, 0.71, 0.38, S('wood_dark'), { skip: 8 });
+  },
+  boxes: [[-0.7, 0, -0.4, 0.7, 0.75, 0.4]],
+});
+defineProp('lv22_table', {
+  build(mb) {
+    mb.box(-0.55, 0.38, -0.3, 0.55, 0.43, 0.3, S('lv22_wood'), { skip: 8 });
+    mb.box(-0.45, 0.0, -0.2, 0.45, 0.38, 0.2, S('wood_dark'), { skip: 8 });
+  },
+  boxes: [[-0.55, 0, -0.3, 0.55, 0.43, 0.3]],
 });
 defineProp('lv22_chair', {
   // the receptionist's swivel chair, pulled out
@@ -166,7 +172,7 @@ defineProp('lv22_door', {
 defineProp('lv22_clock', {
   // a plain wall clock; its face is flat on the wall (front toward -z)
   build(mb) {
-    withXf(mb, xfRotX(Math.PI / 2), () => mb.cyl(0, 0, 0, 0.19, 0.05, 6, S('plastic_black'), 2));
+    withXf(mb, xfRotX(Math.PI / 2), () => mb.cyl(0, 0, 0, 0.19, 0.05, 6, S('plastic_black'), 0));
     mb.card([0.16, -0.16, -0.003, -0.16, -0.16, -0.003, -0.16, 0.16, -0.003, 0.16, 0.16, -0.003], [0, 0, -1], T('clock_c'), [0, 1, 1, 1, 1, 0, 0, 0]);
   },
   emitter: { snd: 'lv22_tick', vol: 0.5, rad: 6, y: 0 },
@@ -198,7 +204,10 @@ defineProp('lv22_display', {
 
 // ------------------------------------------------------------------ layout
 // the doorway between room (i, j) and its west neighbour: always open; the first room's is shut
-const westOpen = (i, j) => !(i === 0 && j === 0);
+const westOpen = () => true;
+// rooms (-2..-1, 0..1) are replaced by the entrance corridor (a plain mass of wall with a passage), so
+// the arrival chunk stays cheap and the first sight is the corridor of doorways ahead
+const blocked = (i, j) => i >= -2 && i <= -1 && j >= 0 && j <= 1;
 // the slot on the north wall (x cell 7): 0 wall, 1 doorway, 2 level door
 function northSlot(i, j) {
   if (i === 0 && j === 0) return 0;
@@ -243,10 +252,20 @@ function gen(zb) {
   ceilSlab(zb, zb.x0, zb.z0, zb.x1, zb.z1, M.lv22_ceil, CH);
   const i0 = Math.floor(zb.x0 / R), i1 = Math.floor((zb.x1 - 1) / R);
   const j0 = Math.floor(zb.z0 / R), j1 = Math.floor((zb.z1 - 1) / R);
-  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) genRoom(zb, i, j);
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (!blocked(i, j)) genRoom(zb, i, j);
+  // the entrance: a 2 m wide passage 15 m long into the first room, the arrival door at its end
+  const solid = { skip: 4 | 8, sub: 4 };
+  cbox(zb, -16, 0, 0, 0, CH, 3, M.lv22_paper, solid);
+  cbox(zb, -16, 0, 5, 0, CH, 16, M.lv22_paper, solid);
+  cbox(zb, -16, 0, 3, -15, CH, 5, M.lv22_paper, solid);
+  if (zb.x0 <= -8 && zb.x1 > -8 && zb.z0 <= 4 && zb.z1 > 4) {
+    ceilingLight(zb, -11, 4, 'tube', 'on', { color: [1.0, 0.9, 0.72], mul: 0.55, rot: 1 });
+    ceilingLight(zb, -4, 4, 'tube', 'on', { color: [1.0, 0.9, 0.72], mul: 0.55, rot: 1 });
+  }
   // contents, once per room (owned by the zone holding the anchor)
   for (let j = j0; j <= j1; j++) {
     for (let i = i0; i <= i1; i++) {
+      if (blocked(i, j)) continue;
       const x0 = i * R, z0 = j * R;
       const own = (x, z) => owns(zb, x, z);
       // twelve chairs: two groups of three on each side wall, flanking the doorways
@@ -260,7 +279,7 @@ function gen(zb) {
         zb.prop('lv22_bell', x0 + 5.3, 1.05, z0 + 2.3, 0, { use: 'level', label: 'RING BELL', useY: 1.1, useR: 0.8 });
         zb.prop('lv22_display', x0 + 4, 1.92, z0 + 2.1, Math.PI, {});
         zb.light(x0 + 4, 2.1, z0 + 1.0, { color: [0.85, 0.9, 1.0], rad: 4, int: 0.35 });
-        zb.prop('desk', x0 + 4, 0, z0 + 0.5, Math.PI, {});
+        zb.prop('lv22_desk', x0 + 4, 0, z0 + 0.5, Math.PI, {});
         zb.prop('crt', x0 + 3.3, 0.75, z0 + 0.5, Math.PI, { screen: 'crt_blue' });
         zb.prop('lv22_chair', x0 + 3.3, 0, z0 + 1.35, 0.5 + hr(i, j, 31) * 2, {});
       }
@@ -270,9 +289,7 @@ function gen(zb) {
       if (northSlot(i, j) === 2 && own(x0 + 7.5, z0)) levelDoor(zb, x0 + 7.5, z0, Math.PI);
       // furniture in the middle
       if (own(x0 + 4, z0 + 5.2)) {
-        zb.prop('coffee_table', x0 + 4, 0, z0 + 5.4, 0, { n: 1 });
-        zb.prop('papers', x0 + 3.7, 0.43, z0 + 5.4, hr(i, j, 33) * 6.28, {});
-        zb.prop('book', x0 + 4.3, 0.43, z0 + 5.3, hr(i, j, 34) * 6.28, {});
+        zb.prop('lv22_table', x0 + 4, 0, z0 + 5.4, 0, {});
       }
       if (own(x0 + 6.9, z0 + 7.1)) zb.prop('plant', x0 + 6.9, 0, z0 + 7.0, 0, { h: 1.2 });
       if (own(x0 + 7.0, z0 + 3.0)) zb.prop('lamp_floor', x0 + 7.2, 0, z0 + (hr(i, j, 36) < 0.5 ? 2.6 : 5.6), 0, {});
@@ -302,7 +319,7 @@ defineLevel(N, {
   name: 'THE WAITING ROOM',
   zoneType: 'lv22_rooms',
   zoneSize: 64,
-  entry: { x: 0.75, y: 0, z: 3.5, yaw: Math.PI / 2 },
+  entry: { x: -14.25, y: 0, z: 4.0, yaw: Math.PI / 2 },
   doorDensity: 0,
   viewRadius: 3,
   light: { phoneRadius: 3.2, phoneIntensity: 0.2 },
