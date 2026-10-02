@@ -35,7 +35,7 @@ export function registerDevItems() {
     ['glass_bottle', 0xcfe8f0], ['firework_star', 0x888888], ['firework_rocket', 0xc04040], ['item_frame', 0x8f6a3a], ['painting', 0xb0703a], ['armor_stand', 0x9a7a4a],
     ['tripwire_hook', 0x9a9a9a], ['minecart', 0x8a8a8a], ['writable_book', 0x7b4b2a], ['written_book', 0x7b4b2a], ['filled_map', 0xd8c89a], ['map', 0xd8c89a],
     ['music_disc_13', 0xe8c040], ['music_disc_cat', 0x60c040], ['music_disc_otherside', 0x3aa0c8], ['iron_horse_armor', 0xd0d0d0], ['golden_horse_armor', 0xf0c040], ['diamond_horse_armor', 0x60e0e0],
-    ['dragon_breath', 0xe0a0d0], ['pufferfish', 0xe8c040], ['chorus_fruit', 0x8a5a8a],
+    ['dragon_breath', 0xe0a0d0], ['pufferfish', 0xe8c040], ['chorus_fruit', 0x8a5a8a], ['fire_charge', 0xd05010], ['heart_of_the_sea', 0x2b8bd6],
   ] as [string, number][]) ing(n, c);
   add('enchanted_book', { maxStack: 1, rarity: 'uncommon', category: 'misc', visual: { kind: 'sprite', id: 'enchanted_book', color: 0x9b2fd0 } });
   for (let i = 0; i < DYES.length; i++) ing(`${DYES[i]}_dye`, DYE_HEX[i]);
