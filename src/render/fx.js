@@ -3,7 +3,18 @@
 // simulation remains deterministic.
 
 import { RNG } from '../core/rng.js';
-import { HEAD, NECK, PELVIS, NJ } from '../fighter/skeleton.js';
+import { HEAD, NECK, PELVIS, KNEE_A, KNEE_B, NJ } from '../fighter/skeleton.js';
+import { Gore } from './gore.js';
+
+// wound slots on a fighter (visual): head, torso, lead arm, rear arm, lead leg, rear leg
+export const W_HEAD = 0;
+export const W_TORSO = 1;
+const WOUND_PART = { head: [W_HEAD], body: [W_TORSO, W_TORSO, 2, 3], legs: [4, 5] };
+
+export function woundsOf(f) {
+  if (!f.gore) f.gore = { w: new Float32Array(6), bleed: 0, pool: 0, poolX: 0, poolY: 0, poolT: 0, smearX: null };
+  return f.gore;
+}
 
 const TAU = Math.PI * 2;
 const MAX = 2600;
@@ -22,9 +33,22 @@ export class FX {
     this.smoke = [];
     this.steamers = new Map();
     this.time = 0;
+    this.gore = new Gore();
+    this.goreK = 1.6;
+    this.impact = null; // a stylised black-on-white impact frame
+    this.impactCd = 0;
   }
 
-  reset(sim) {
+  impactFrame(a, b, x, y, force) {
+    if (!force && this.time < this.impactCd) return;
+    this.impact = { t: 0.085, a, b, x, y };
+    this.impactCd = this.time + 1.5;
+  }
+
+  reset(sim, settings) {
+    this.gore.reset(sim, settings);
+    this.impact = null;
+    this.goreK = settings ? [0, 1, 1.7][settings.gore | 0] || 0 : 1;
     for (const p of this.ps) p.alive = false;
     this.arcs.length = 0;
     this.lights.length = 0;
@@ -72,6 +96,7 @@ export class FX {
     p.floor = o.floor !== undefined ? o.floor : null;
     p.alpha = o.alpha !== undefined ? o.alpha : 1;
     p.add = !!o.add;
+    p.wallT = o.wallT !== undefined ? o.wallT : -1;
     return p;
   }
 
@@ -114,6 +139,8 @@ export class FX {
           this.burst('spark', e.x, e.y, 16, { speed: [200, 520], life: [0.1, 0.3], size: [1.5, 2.6], color: '255,240,190', g: 500, drag: 2, add: true });
           this.spawn({ type: 'flash', x: e.x, y: e.y, life: 0.12, size: 34, color: '255,250,230', add: true });
         } else {
+          if (this.goreK > 0 && e.b && e.kind !== 'push') this.bleedHit(e, sim, pw);
+          if (e.a && e.a.isHero && e.b && !e.friendly && (e.b.dead || (e.down && pw > 1.2))) this.impactFrame(e.a, e.b, e.x, e.y);
           const metal = e.weapon === 'pipe' || e.weapon === 'crowbar';
           this.spawn({ type: 'flash', x: e.x, y: e.y, life: 0.07 + pw * 0.03, size: 14 + pw * 16, color: '255,255,255', add: true });
           this.spawn({ type: 'streaks', x: e.x, y: e.y, life: 0.11, size: 16 + pw * 18, rot: r.range(0, TAU), color: '255,255,255', alpha: 0.95 });
@@ -125,6 +152,13 @@ export class FX {
       }
       case 'thud': {
         const pw = Math.min(1.6, e.power || 0.5);
+        if (this.goreK > 0 && e.f && e.f.gore && (e.wall || pw > 0.8)) this.bleedImpact(e, sim, pw);
+        if (e.f && pw > 1.25 && e.f.knock && e.f.knock.by && e.f.knock.by.isHero && sim.time - e.f.knock.time < 1.5) {
+          // slammed down hard: the floor shakes, dust rings out
+          this.impactFrame(e.f.knock.by, e.f, e.x, e.y);
+          for (const dir of [-1, 1]) this.burst('dust', e.x + dir * 8, e.y + 4, 5, { ang: dir > 0 ? -0.1 : Math.PI + 0.1, spread: 0.25, speed: [120, 320], life: [0.35, 0.7], size: [6, 11], grow: 30, color: '200,196,190', drag: 4, alpha: 0.5 });
+          this.spawn({ type: 'ring', x: e.x, y: e.y, life: 0.25, size: 10, grow: 260, color: '255,255,255', alpha: 0.5 });
+        }
         if (e.wall) {
           this.burst('chip', e.x, e.y, 6, { speed: [80, 260], life: [0.4, 0.9], size: [1.5, 3], color: '150,150,150', g: 1500, floor: e.y + 50 });
         }
@@ -195,8 +229,158 @@ export class FX {
       case 'heroDefeated':
         this.flashScreen(0.25, '255,255,255');
         break;
+      case 'ko':
+        if (this.goreK > 0 && e.f && e.cause !== 'electric' && e.cause !== 'fell' && e.cause !== 'window') {
+          const g = woundsOf(e.f);
+          g.bleed = Math.min(2, g.bleed + 0.6);
+          const hp = e.f.rag.p[HEAD];
+          this.spray(sim, hp.x, hp.y, (e.by ? Math.sign(e.f.x - e.by.x) : 0) || 1, 1.2, 10, e.cause === 'explosion' ? 2 : 1);
+        }
+        break;
     }
     void settings;
+  }
+
+  // A landed blow: wounds on the struck part, a spray away from the attacker,
+  // and on big hits a splash straight onto the wall behind the victim.
+  bleedHit(e, sim, pw) {
+    const t = e.b;
+    const g = woundsOf(t);
+    const dmg = pw * 9;
+    const slots = WOUND_PART[e.part] || WOUND_PART.body;
+    const slot = slots[this.rng.int(0, slots.length - 1)];
+    const k = dmg / Math.max(20, t.maxHp * 0.35);
+    g.w[slot] = Math.min(1.5, g.w[slot] + k * (e.ground ? 0.8 : 1));
+    if (e.part === 'body') {
+      const arm = 2 + this.rng.int(0, 1);
+      g.w[arm] = Math.min(1.5, g.w[arm] + k * 0.3);
+    }
+    const cut = e.weapon || e.kind === 'weapon' || e.part === 'head';
+    g.bleed = Math.min(2, g.bleed + k * (cut ? 0.9 : 0.5));
+    const dir = Math.sign(t.x - (e.a ? e.a.x : t.x - 1)) || 1;
+    const heavy = pw > 1.15 || e.down;
+    const n = (2 + pw * 5) * (e.part === 'head' ? 1.3 : 1) * (cut ? 1.3 : 1) * (heavy ? 1.3 : 1);
+    this.spray(sim, e.x, e.y, dir, pw, n, 1);
+    if (heavy && this.rng.chance(0.35 * this.goreK)) {
+      // the classic: a splash on the wall right behind the head
+      const hx = t.rag.p[HEAD].x + dir * this.rng.range(14, 40);
+      const hy = t.rag.p[HEAD].y + this.rng.range(-10, 18);
+      this.gore.wall(hx, hy, dir, this.rng.range(-0.4, 0.2), 3 + pw * 3.5 * Math.min(1.4, this.goreK));
+    }
+  }
+
+  // Bodies slamming into floors and walls leave their mark.
+  bleedImpact(e, sim, pw) {
+    const g = e.f.gore;
+    if (g.bleed < 0.15 && !e.wall) return;
+    if (e.wall && e.nx !== undefined) {
+      this.gore.wall(e.x, e.y, -e.nx, this.rng.range(-0.3, 0.3), 3 + pw * 4);
+      this.spray(sim, e.x, e.y, -Math.sign(e.nx) || 1, pw * 0.8, 6, 1);
+    } else {
+      const fl = this.floorBelow(sim, e.x, e.y - 20);
+      if (fl - e.y < 40) this.gore.floor(e.x, fl, 2 + pw * 3 * Math.min(1.5, g.bleed + 0.4));
+    }
+  }
+
+  // Droplets thrown from (x, y), mostly in direction dir, some sticking to
+  // the wall behind mid-flight, the rest raining onto the floor.
+  spray(sim, x, y, dir, pw, n, mul) {
+    const r = this.rng;
+    const count = Math.round(n * this.goreK * (mul || 1));
+    const fl = this.floorBelow(sim, x, y);
+    for (let i = 0; i < count; i++) {
+      const a = (dir > 0 ? 0 : Math.PI) + dir * r.range(-0.95, 0.45) + (r.chance(0.15) ? Math.PI * r.range(0.8, 1.2) : 0);
+      const sp = r.range(90, 260 + pw * 260);
+      this.spawn({
+        type: 'blood',
+        x: x + r.range(-3, 3),
+        y: y + r.range(-3, 3),
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - r.range(40, 160),
+        life: r.range(0.7, 1.6),
+        size: r.range(1.1, 2.6) * (0.8 + pw * 0.2),
+        color: r.chance(0.3) ? '120,6,14' : '165,12,22',
+        g: 1500,
+        drag: 0.6,
+        floor: fl,
+        wallT: r.chance(0.3) ? r.range(0.03, 0.3) : -1,
+      });
+    }
+    if (this.goreK > 1.2 && pw > 0.6) {
+      this.burst('mist', x, y, 2 + Math.round(pw * 2), { ang: dir > 0 ? -0.2 : Math.PI + 0.2, spread: 0.7, speed: [20, 90], life: [0.25, 0.5], size: [4, 8], grow: 22, color: '150,10,20', drag: 4, alpha: 0.35 });
+    }
+  }
+
+  // Blood particles: stick to walls mid-flight or stain the floor on landing.
+  bloodStep(p, sim) {
+    if (p.wallT >= 0 && p.max - p.life >= p.wallT) {
+      p.alive = false;
+      if (!this.gore.drop(p.x, p.y, p.vx, p.vy, p.size)) {
+        p.alive = true;
+        p.wallT = -1;
+      }
+      return;
+    }
+    if (p.floor !== null && p.y >= p.floor) {
+      const g = sim.level.groundUnder(p.x - 1, p.x + 1, p.floor - 6, 12, true, false);
+      if (g) {
+        this.gore.floor(p.x, g.y, p.size * 0.9);
+        p.alive = false;
+      } else p.floor = this.floorBelow(sim, p.x, p.y + 2);
+    }
+  }
+
+  // Wounded fighters drip; bodies on the floor pool and smear.
+  updateBleeding(dt, sim, view) {
+    const r = this.rng;
+    const h = sim.h;
+    for (const f of sim.fighters) {
+      const g = f.gore;
+      if (!g || g.bleed <= 0.02 || f.removed) continue;
+      const pel = f.rag.p[PELVIS];
+      if (pel.x < view.x0 - 300 || pel.x > view.x1 + 300) continue;
+      if (!f.dead) g.bleed = Math.max(0, g.bleed - dt * 0.012);
+      if (!f.ragdolled) {
+        if (r.chance(dt * g.bleed * 2.2 * this.goreK)) {
+          const src = g.w[W_HEAD] > g.w[W_TORSO] ? f.rag.p[HEAD] : f.rag.p[NECK];
+          this.spawn({ type: 'blood', x: src.x + r.range(-4, 4), y: src.y + 6, vx: f.vx * 0.5 + r.range(-15, 15), vy: r.range(0, 40), life: 1.5, size: r.range(1, 1.8), color: '150,10,20', g: 1400, floor: this.floorBelow(sim, src.x, src.y) });
+        }
+        g.smearX = null;
+        continue;
+      }
+      // lying still: a pool spreads from the head and chest
+      const hp = f.rag.p[HEAD];
+      const slow = f.rag.sleeping || f.rag.coreSpeed(h) < 40;
+      g.poolT -= dt;
+      if (slow && g.poolT <= 0) {
+        g.poolT = 0.35;
+        const cx = (hp.x * 2 + pel.x) / 3;
+        const fl = sim.level.groundUnder(cx - 2, cx + 2, Math.max(hp.y, pel.y) - 12, 40, true, false);
+        if (fl) {
+          const maxR = 10 + Math.min(1.5, g.bleed) * 26 * Math.min(1.3, this.goreK);
+          if (Math.abs(cx - g.poolX) > 30 || Math.abs(fl.y - g.poolY) > 4) {
+            g.poolX = cx;
+            g.poolY = fl.y;
+            g.pool = 3;
+          }
+          if (g.pool < maxR) {
+            g.pool = Math.min(maxR, g.pool + 2.2);
+            this.gore.pool(g.poolX, g.poolY, g.pool);
+          }
+        }
+      }
+      // sliding along the floor: smear
+      if (!slow && pel.ground !== undefined) {
+        const low = f.rag.p[NECK].ground || pel.ground || f.rag.p[KNEE_A].ground || f.rag.p[KNEE_B].ground;
+        if (low) {
+          const fl = sim.level.groundUnder(pel.x - 2, pel.x + 2, pel.y - 6, 30, true, false);
+          if (fl) {
+            if (g.smearX !== null && Math.abs(pel.x - g.smearX) < 60) this.gore.smear(g.smearX, pel.x, fl.y, g.bleed);
+            g.smearX = pel.x;
+          } else g.smearX = null;
+        } else g.smearX = null;
+      }
+    }
   }
 
   floorBelow(sim, x, y) {
@@ -214,6 +398,11 @@ export class FX {
   // --------------------------------------------------------------- update
   update(dt, sim, view, settings) {
     this.time += dt;
+    if (this.impact) {
+      this.impact.t -= dt;
+      if (this.impact.t <= 0) this.impact = null;
+    }
+    if (settings) this.goreK = [0, 1, 1.7][settings.gore | 0] || 0;
     const r = this.rng;
     for (const p of this.ps) {
       if (!p.alive) continue;
@@ -232,6 +421,10 @@ export class FX {
       p.y += p.vy * dt;
       p.rot += p.vr * dt;
       p.size = Math.max(0.2, p.size + p.grow * dt);
+      if (p.type === 'blood') {
+        this.bloodStep(p, sim);
+        continue;
+      }
       if (p.floor !== null && p.y > p.floor) {
         p.y = p.floor;
         p.vy *= -0.3;
@@ -263,6 +456,7 @@ export class FX {
         this.spawn({ type: 'spark', x: p.x, y: p.y, vx: r.range(-200, 200), vy: r.range(-260, 60), life: r.range(0.06, 0.18), size: 1.4, color: '210,235,255', g: 400, add: true });
       }
     }
+    if (this.goreK > 0) this.updateBleeding(dt, sim, view);
     // wind debris & rain
     const L = sim.level;
     if (L.wind && r.chance(dt * 6)) {
@@ -379,6 +573,16 @@ function drawParticle(ctx, p, k) {
       ctx.stroke();
       break;
     }
+    case 'blood': {
+      const v = Math.hypot(p.vx, p.vy);
+      const st = Math.min(3.2, 1 + v / 260);
+      ctx.fillStyle = `rgba(${p.color},${Math.min(1, k * 3)})`;
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, p.size * st, p.size, Math.atan2(p.vy, p.vx), 0, TAU);
+      ctx.fill();
+      break;
+    }
+    case 'mist':
     case 'dust':
     case 'smoke':
     case 'steam': {

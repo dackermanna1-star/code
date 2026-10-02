@@ -174,7 +174,7 @@ export function makeHeroSpec(settings) {
     color: '#0e0e10',
     colorFar: '#2a2a2e',
     scale: 1.04,
-    hp: Math.round(260 * S.heroEndurance),
+    hp: Math.round(300 * S.heroEndurance),
     stamina: 100 * (0.8 + 0.2 * S.heroEndurance),
     strength: 1.16 + 0.12 * (S.heroSkill - 1),
     runSpeed: 385 * S.heroSpeed,

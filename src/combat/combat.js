@@ -18,6 +18,27 @@ function hostile(a, b) {
   return true; // enemies can (accidentally) hit each other
 }
 
+// Two enemies on the same side, unless they have a score to settle.
+export function allies(a, b) {
+  if (a.isHero || b.isHero) return false;
+  return !((a.brain && a.brain.foe === b) || (b.brain && b.brain.foe === a));
+}
+
+// Which way the blow throws his body: drives the hit-reaction pose.
+function reactionFor(a, t, hit, part) {
+  if (hit.react && part === HEAD) return hit.react;
+  const fromBehind = Math.sign(a.x - t.x || 1) !== t.facing;
+  if (part === HEAD || hit.height === 'high') {
+    if (hit.launch || hit.ky < -250) return 'chin';
+    const id = a.move ? a.move.id : '';
+    if (id === 'hook' || id === 'haymaker' || id === 'roundhouse' || id === 'wswing' || id === 'backfist') return 'jaw';
+    return fromBehind ? 'back' : 'head';
+  }
+  if (hit.height === 'low' || part === KNEE_A || part === KNEE_B) return 'leg';
+  if (hit.react) return hit.react;
+  return fromBehind ? 'back' : 'gut';
+}
+
 // Returns the joint index that was struck, or -1.
 function testHit(att, hit, tgt, sx0, sy0, sx1, sy1, r) {
   const p = tgt.rag.p;
@@ -85,7 +106,7 @@ export function processAttacks(sim) {
         if (t === a || t.removed || a.hitSet.has(t.id)) continue;
         if (!hostile(a, t)) continue;
         if (t.dead) continue;
-        const friendly = !a.isHero && !t.isHero;
+        const friendly = allies(a, t);
         if (hit.ground) {
           // stomps are aimed: nobody stamps on a fallen ally by accident
           if (friendly || !(t.state === 'down' || t.state === 'ragdoll')) continue;
@@ -117,7 +138,7 @@ export function resolveHit(sim, a, t, hit, part, hx, hy) {
   const rng = sim.rng;
   const dirBase = hit.abs ? a.moveFacing : a.facing;
   const kdir = Math.sign(hit.kx) * dirBase || a.facing;
-  const friendly = !a.isHero && !t.isHero;
+  const friendly = allies(a, t);
 
   // --- parry (perfect timing turns the attack against the attacker)
   if (t.state === 'move' && t.move && t.move.parryWin && t.mt >= t.move.parryWin[0] && t.mt <= t.move.parryWin[1] && facingToward(t, a) && hit.height !== 'low' && !hit.tackle) {
@@ -170,13 +191,25 @@ export function resolveHit(sim, a, t, hit, part, hx, hy) {
   if (hit.ground && t.ragdolled) {
     const gd = hit.dmg * a.strength * rng.range(0.85, 1.1) * (friendly ? 0.6 : 1);
     t.damage(gd, a, 'beaten');
-    t.rag.addVelAt(part, kdir * 260 * rv, -140, h, 0.4);
+    if (hit.punt) {
+      // punted like a ball: the body flies into whoever stands behind it
+      const mf = clamp(9.25 / t.mass, 0.5, 1.4);
+      t.rag.addVel(kdir * Math.abs(hit.kx) * mf * rv, hit.ky * mf * rv, h);
+      t.rag.addSpin(kdir * 6, h);
+      t.knock = { by: a, chainId: sim.newChain(a), depth: 0, time: sim.time, kind: 'kick' };
+      if (t.state === 'down') t.setState('ragdoll');
+      t.restT = 0;
+      if (a.isHero) sim.hitstop(3);
+    } else if (hit.ky > 150) {
+      // stamped on
+      t.rag.addVelAt(part, kdir * 40 * rv, hit.ky * 0.8 * rv, h, 0.5);
+    } else t.rag.addVelAt(part, kdir * 260 * rv, -140, h, 0.4);
     if (t.state === 'down') t.downT = Math.min(t.downT + 0.18, 1.6);
     t.flash = 1;
     a.freeze = t.freeze = 2;
     a.moveHit = true;
     a.stats.hits++;
-    sim.emit({ t: 'hit', kind: hit.kind, x: hx, y: hy, power: gd / 9, down: false, a, b: t, part: PART_NAMES[part] || 'body', friendly, ground: true });
+    sim.emit({ t: 'hit', kind: hit.kind, x: hx, y: hy, power: gd / 9, down: false, a, b: t, part: PART_NAMES[part] || 'body', friendly, ground: true, move: a.move ? a.move.id : null });
     return 'ground';
   }
 
@@ -194,6 +227,13 @@ export function resolveHit(sim, a, t, hit, part, hx, hy) {
   let kvy = hit.ky * mf * rv * (hit.ky < 0 ? sk : 1);
   if (hit.kind === 'weapon' && a.weapon) kvx *= 0.85 + a.weapon.dmg * 0.15;
   t.poise -= hit.poise * a.strength * (a.isHero ? 1.15 : 1);
+  // a blow that kills without launching him: he folds where he stands
+  const lethal = t.hp - dmg <= 0;
+  let fold = null;
+  if (lethal && t.grounded && !hit.launch && !hit.sweep && !hit.tackle && Math.abs(kvx) < 360 && kvy < 200 && t.state !== 'held' && t.state !== 'grabbed') {
+    if (rng.chance(t.isHero ? 0.8 : 0.5)) fold = rng.chance(0.7) ? 'crumple' : 'timber';
+  }
+  t.pendingDeath = !!fold;
   t.damage(dmg, a, 'beaten');
   t.stats.taken++;
   a.stats.hits++;
@@ -202,6 +242,7 @@ export function resolveHit(sim, a, t, hit, part, hx, hy) {
   const brute = t.mass > 13;
   let down = t.dead || t.poise <= 0 || !t.grounded || hit.tackle || (hit.launch && t.mass < 14);
   if (hit.sweep) down = !brute || rng.chance(0.45);
+  if (hit.ky > 250 && !brute) down = down || rng.chance(0.7); // chopped to the floor
   if (!down && Math.abs(kvx) > 380 && !brute) down = rng.chance(0.75);
   if (t.state === 'held') down = false;
   if (t.isHero && !t.dead && down && !hit.sweep && !hit.tackle && t.poise > -12 && rng.chance(0.3 * S.heroSkill)) {
@@ -209,20 +250,31 @@ export function resolveHit(sim, a, t, hit, part, hx, hy) {
     down = false;
   }
 
-  if (down) {
+  if (fold && t.dead && t.dieOnFeet(fold)) {
+    t.pendingDeath = false;
+    t.rag.addVelAt(part, kvx * 0.3, -30, h, 0.3);
+  } else if (down) {
+    t.pendingDeath = false;
     t.poise = t.maxPoise * 0.65;
-    const spin = hit.sweep ? -kdir * 10 : hit.launch ? -kdir * 3 : 0;
+    if (a.isHero) {
+      // his finishing blows send bodies flying
+      kvx *= 1.18;
+      kvy *= 1.1;
+    }
+    const spin = hit.sweep ? -kdir * 10 : hit.launch ? -kdir * 3 : t.dead ? -kdir * rng.range(2, 6) : 0;
     t.knockdown(kvx, kvy, { joint: part, jx: kvx * 0.5, jy: kvy * 0.25 - 40, spin });
     t.knock = { by: a, chainId: sim.newChain(a), depth: 0, time: sim.time, kind: hit.kind };
   } else {
-    t.hitstun(hit.stun * (1.25 - t.toughness * 0.25) * (t.isHero ? 0.75 : 1), kvx * 0.45, kvy * 0.25, part !== HEAD && hit.height !== 'high');
+    const heavy = dmg > 11 || Math.abs(kvx) > 300 || hit.stun > 0.5;
+    t.hitstun(hit.stun * (1.25 - t.toughness * 0.25) * (t.isHero ? 0.75 : 1), kvx * 0.45, kvy * 0.25, part !== HEAD && hit.height !== 'high', reactionFor(a, t, hit, part), heavy);
     t.rag.addVelAt(part, kvx * 0.9, kvy * 0.4 - 50, h, 0.45);
   }
   t.flash = 1;
   const stop = Math.round(clamp(dmg * 0.32, 2, 6));
   a.freeze = stop;
   t.freeze = stop;
-  if (a.isHero && (down || dmg > 11)) sim.hitstop(down ? 4 : 2);
+  if (a.isHero && (down || dmg > 11)) sim.hitstop(t.dead ? 6 : down ? 4 : 3);
+  else if (t.isHero && dmg > 12) sim.hitstop(3);
   if (hit.kind === 'weapon' && a.weapon) {
     a.weapon.durability -= 1;
     if (a.weapon.durability <= 0) sim.props.breakHeldWeapon(a);
@@ -362,7 +414,7 @@ export function processBodyImpacts(sim) {
         t.knock = { by, chainId: f.knock ? f.knock.chainId : sim.newChain(by), depth: depth + 1, time: now, kind: 'body', via: f };
         sim.onChain(t.knock, t, f);
       } else if (ratio > 0.5 || t.isHero) {
-        t.hitstun(0.16 + ratio * 0.2, tvx * 0.7, 0, true);
+        t.hitstun(0.16 + ratio * 0.2, tvx * 0.7, 0, true, Math.sign(pel.x - t.x || 1) === t.facing ? 'gut' : 'back', ratio > 0.8);
         t.rag.addVelAt(PELVIS, tvx, -40, h, 0.5);
       } else {
         // a glancing bump: shoved aside, no stagger

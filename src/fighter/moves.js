@@ -25,6 +25,21 @@ export const HOLDING = P({ torso: 18, head: -6, sA: 82, eA: 72, sB: 76, eB: 82, 
 export const WEAPON_GUARD = P({ torso: 8, head: -6, sA: 64, eA: 70, sB: 40, eB: 96, py: 39 }, GUARD);
 export const FLINCH_HIGH = P({ rot: 0, torso: -22, head: -32, sA: -24, eA: -30, sB: -20, eB: -30, hA: 0, kA: 0, hB: 0, kB: 0, px: 0, py: -2 });
 export const FLINCH_LOW = P({ rot: 0, torso: 28, head: 18, sA: -20, eA: -20, sB: -10, eB: -10, hA: 0, kA: 0, hB: 0, kB: 0, px: 0, py: -4 });
+// Directional hit reactions (additive on top of the stance).
+const Z = { rot: 0, torso: 0, head: 0, sA: 0, eA: 0, sB: 0, eB: 0, hA: 0, kA: 0, hB: 0, kB: 0, px: 0, py: 0 };
+export const FLINCH = {
+  head: FLINCH_HIGH,
+  // a hook: the head whips round and down, arms fly loose
+  jaw: P({ ...Z, torso: -10, head: 44, sA: -46, eA: -60, sB: 34, eB: -50, py: -3 }),
+  // an uppercut: chin snaps up, back arches, up onto the toes
+  chin: P({ ...Z, torso: -34, head: -58, sA: 30, eA: -70, sB: 40, eB: -70, py: 3 }),
+  // to the gut: folds in half clutching the stomach
+  gut: P({ ...Z, torso: 52, head: 30, sA: 22, eA: 40, sB: 30, eB: 40, hA: 12, kA: 26, kB: 22, py: -7, px: -3 }),
+  // from behind: arches forward, arms thrown back
+  back: P({ ...Z, torso: 26, head: -30, sA: -40, eA: -20, sB: -46, eB: -24, py: -2, px: 3 }),
+  // a leg kick: the knee buckles
+  leg: P({ ...Z, torso: 18, head: 10, sA: 14, eA: -20, hA: 16, kA: 44, py: -9 }),
+};
 
 export const MOVES = {};
 
@@ -694,16 +709,299 @@ def('jumpsquat', {
   keepVel: true,
 });
 
+// More strikes -----------------------------------------------------------------
+def('superman', {
+  keys: [
+    [0, GUARD],
+    [0.1, P({ torso: 6, head: -8, hB: 46, kB: 96, sB: 22, eB: 140, py: 33 }, GUARD), 'outQuad'],
+    [0.2, P({ torso: 18, head: -12, sA: 40, eA: 120, sB: 28, eB: 150, hA: 50, kA: 82, hB: -62, kB: 28 }, GUARD), 'outQuad'],
+    [0.27, P({ torso: 32, head: -14, sA: 20, eA: 100, sB: 100, eB: 0, hA: 24, kA: 36, hB: -54, kB: 40, px: 6 }, GUARD), 'outCubic'],
+    [0.38, P({ torso: 30, head: -12, sA: 24, eA: 100, sB: 96, eB: 8, hA: 22, kA: 40, hB: -40, kB: 40, px: 6 }, GUARD)],
+    [0.56, GUARD],
+  ],
+  air: { t: 0.12, vx: 340, vy: 380, legsFrom: 0.12 },
+  legs: { A: [[0.1, 0.56]], B: [[0.04, 0.56]] },
+  hits: [{ t0: 0.22, t1: 0.36, joint: HAND_B, r: 11, dmg: 13, kx: 320, ky: -60, stun: 0.5, poise: 32, height: 'high', kind: 'punch' }],
+  endOnLand: 0.3,
+  cancel: 0.62,
+  stamina: 9,
+  range: [70, 150],
+});
+
+def('backfist', {
+  keys: [
+    [0, GUARD],
+    [0.08, P({ torso: 6, head: -16, sA: 18, eA: 140, sB: 32, eB: 120, hB: -8, kB: 26 }, GUARD), 'inQuad'],
+    [0.13, P({ torso: 22, head: -32, sA: 56, eA: 120, sB: 30, eB: 120, px: 2 }, GUARD), 'linear'],
+    [0.21, P({ torso: 18, head: -12, sA: 102, eA: 8, sB: 22, eB: 132, px: 7 }, GUARD), 'outCubic'],
+    [0.29, P({ torso: 16, head: -10, sA: 98, eA: 14, sB: 22, eB: 132, px: 7 }, GUARD)],
+    [0.48, GUARD],
+  ],
+  flips: [0.1, 0.18],
+  hits: [{ t0: 0.17, t1: 0.27, joint: HAND_A, r: 12, dmg: 11, kx: 330, ky: -50, stun: 0.45, poise: 30, height: 'high', kind: 'punch', abs: true, react: 'jaw' }],
+  motion: [[0.06, 0.2, 100]],
+  cancel: 0.3,
+  stamina: 7,
+  range: [20, 64],
+});
+
+def('axekick', {
+  keys: [
+    [0, GUARD],
+    [0.12, P({ torso: -16, head: 2, sA: 54, eA: 92, sB: 30, eB: 110, hA: 148, kA: 12, py: 41 }, GUARD), 'outQuad'],
+    [0.2, P({ torso: -22, head: 6, sA: 60, eA: 88, sB: 26, eB: 110, hA: 168, kA: 4, py: 42 }, GUARD), 'linear'],
+    [0.3, P({ torso: 22, head: -10, sA: 40, eA: 110, sB: 30, eB: 120, hA: 40, kA: 6, py: 37, px: 4 }, GUARD), 'inCubic'],
+    [0.4, P({ torso: 18, head: -8, hA: 22, kA: 24, py: 37, px: 4 }, GUARD)],
+    [0.6, GUARD],
+  ],
+  legs: { A: [[0.03, 0.5]] },
+  hits: [{ t0: 0.23, t1: 0.33, joint: FOOT_A, r: 14, dmg: 15, kx: 120, ky: 420, stun: 0.62, poise: 64, height: 'high', kind: 'kick', react: 'gut' }],
+  cancel: 0.44,
+  stamina: 10,
+  range: [22, 66],
+});
+
+def('jumpknee', {
+  keys: [
+    [0, GUARD],
+    [0.08, P({ torso: 16, head: -10, py: 32, hA: 30, kA: 60, hB: -24, kB: 50 }, GUARD), 'outQuad'],
+    [0.18, P({ torso: -10, head: -6, sA: 74, eA: 64, sB: 66, eB: 70, hA: 124, kA: 140, hB: -22, kB: 64 }, GUARD), 'outCubic'],
+    [0.3, P({ torso: -4, head: -4, sA: 70, eA: 60, sB: 62, eB: 66, hA: 120, kA: 136, hB: -16, kB: 70 }, GUARD)],
+    [0.5, AIR_DOWN],
+  ],
+  air: { t: 0.08, vx: 330, vy: 560, legsFrom: 0.08 },
+  legs: { A: [[0, 0.6]], B: [[0, 0.6]] },
+  hits: [{ t0: 0.14, t1: 0.32, joint: KNEE_A, r: 14, dmg: 15, kx: 260, ky: -400, stun: 0.55, poise: 50, height: 'high', kind: 'kick', launch: true, react: 'chin' }],
+  endOnLand: 0.25,
+  cancel: 0.9,
+  stamina: 10,
+  range: [50, 150],
+});
+
+def('dropkick', {
+  keys: [
+    [0, GUARD],
+    [0.1, P({ torso: 18, head: -10, py: 31, hA: 30, kA: 64, hB: -26, kB: 56 }, GUARD), 'outQuad'],
+    [0.2, P({ torso: -24, head: 6, sA: 30, eA: 60, sB: 20, eB: 60, hA: 104, kA: 124, hB: 98, kB: 126 }, GUARD), 'outQuad'],
+    [0.3, P({ torso: -64, head: 18, sA: -40, eA: 30, sB: -54, eB: 30, hA: 94, kA: 4, hB: 88, kB: 6 }, GUARD), 'outCubic'],
+    [0.5, P({ torso: -60, head: 16, sA: -40, eA: 30, sB: -54, eB: 30, hA: 92, kA: 8, hB: 86, kB: 10 }, GUARD)],
+    [0.7, P({ torso: 6, sA: 60, eA: 70, sB: 40, eB: 70, hA: 70, kA: 100, hB: 50, kB: 100 }, GUARD), 'inOutQuad'],
+  ],
+  air: { t: 0.1, vx: 430, vy: 520, legsFrom: 0.1 },
+  legs: { A: [[0, 0.8]], B: [[0, 0.8]] },
+  hits: [
+    { t0: 0.26, t1: 0.5, joint: FOOT_A, r: 15, dmg: 15, kx: 720, ky: -170, stun: 0.6, poise: 90, height: 'mid', kind: 'kick' },
+    { t0: 0.26, t1: 0.5, joint: FOOT_B, r: 15, dmg: 4, kx: 720, ky: -170, stun: 0.6, poise: 90, height: 'mid', kind: 'kick' },
+  ],
+  endOnLand: 0.4,
+  cancel: 0.9,
+  stamina: 12,
+  range: [90, 220],
+  heroOnly: true,
+});
+
+def('headbutt', {
+  keys: [
+    [0, GUARD],
+    [0.09, P({ torso: -12, head: -30, sA: 74, eA: 58, sB: 70, eB: 62, px: -2 }, GUARD), 'outQuad'],
+    [0.16, P({ torso: 36, head: 24, sA: 80, eA: 50, sB: 76, eB: 56, px: 9, py: 38 }, GUARD), 'inCubic'],
+    [0.24, P({ torso: 32, head: 20, sA: 78, eA: 54, sB: 74, eB: 58, px: 8, py: 38 }, GUARD)],
+    [0.42, GUARD],
+  ],
+  hits: [{ t0: 0.12, t1: 0.2, joint: HEAD, r: 12, dmg: 11, kx: 170, ky: -30, stun: 0.5, poise: 34, height: 'high', kind: 'punch', react: 'head' }],
+  motion: [[0.08, 0.18, 120]],
+  cancel: 0.26,
+  stamina: 5,
+  range: [4, 30],
+});
+
+// Finishers on someone already on the floor ----------------------------------------
+def('stomp', {
+  keys: [
+    [0, GUARD],
+    [0.13, P({ torso: -6, head: 14, sA: 64, eA: 92, sB: 40, eB: 110, hA: 112, kA: 124, py: 41 }, GUARD), 'outQuad'],
+    [0.22, P({ torso: 22, head: 30, sA: 40, eA: 120, sB: 30, eB: 120, hA: 28, kA: 8, py: 36 }, GUARD), 'inCubic'],
+    [0.32, P({ torso: 20, head: 28, hA: 30, kA: 12, py: 36 }, GUARD)],
+    [0.52, GUARD],
+  ],
+  legs: { A: [[0.03, 0.42]] },
+  hits: [{ t0: 0.18, t1: 0.27, joint: FOOT_A, r: 15, dmg: 14, kx: 50, ky: 320, stun: 0, poise: 0, height: 'ground', kind: 'kick', ground: true }],
+  cancel: 0.4,
+  stamina: 6,
+  range: [-6, 44],
+});
+
+def('punt', {
+  keys: [
+    [0, GUARD],
+    [0.13, P({ torso: -10, head: 16, sA: 70, eA: 60, sB: 10, eB: 90, hB: -62, kB: 86 }, GUARD), 'outQuad'],
+    [0.22, P({ torso: 14, head: 20, sA: 20, eA: 80, sB: 70, eB: 50, hB: 82, kB: 8, px: 4 }, GUARD), 'outCubic'],
+    [0.3, P({ torso: 12, head: 18, sA: 20, eA: 80, sB: 70, eB: 50, hB: 78, kB: 14, px: 4 }, GUARD)],
+    [0.55, GUARD],
+  ],
+  legs: { B: [[0.03, 0.46]] },
+  hits: [{ t0: 0.17, t1: 0.27, joint: FOOT_B, r: 15, dmg: 9, kx: 640, ky: -360, stun: 0, poise: 0, height: 'ground', kind: 'kick', ground: true, punt: true }],
+  cancel: 0.42,
+  stamina: 7,
+  range: [6, 52],
+  heroOnly: true,
+});
+
+// Brutal throws ------------------------------------------------------------------
+def('suplex', {
+  type: 'throw',
+  autoGround: true,
+  keys: [
+    [0, P({ torso: 20, sA: 80, eA: 60, sB: 70, eB: 70, px: 4 }, GUARD)],
+    [0.2, P({ torso: 14, head: -16, sA: 150, eA: 60, sB: 144, eB: 66, hA: 30, kA: 70, py: 31 }, GUARD), 'inOutQuad'],
+    [0.42, P({ torso: -70, head: -46, sA: 200, eA: 20, sB: 196, eB: 26, hA: 60, kA: 110, hB: 40, kB: 110, px: -8, py: 28 }, GUARD), 'inQuad'],
+    [0.55, P({ torso: -84, head: -40, sA: 210, eA: 20, sB: 206, eB: 24, hA: 70, kA: 120, hB: 50, kB: 120, px: -10, py: 24 }, GUARD)],
+    [0.8, P({ torso: 20, head: -10, sA: 60, eA: 80, sB: 50, eB: 90, py: 30 }, GUARD), 'inOutQuad'],
+    [1.0, GUARD],
+  ],
+  legs: { A: [[0.15, 0.8]], B: [[0.3, 0.78]] },
+  victim: [
+    [0, 26, -40, 26, -4],
+    [0.2, 22, -22, 26, -86],
+    [0.42, -12, -112, 22, -124],
+    [0.55, -64, 26, -30, -44],
+  ],
+  release: [0.55, -220, 700],
+  throwDmg: 16,
+  stamina: 10,
+  dir: -1,
+  heroOnly: true,
+});
+
+def('powerbomb', {
+  type: 'throw',
+  keys: [
+    [0, P({ torso: 20, sA: 80, eA: 60, sB: 70, eB: 70, px: 4 }, GUARD)],
+    [0.22, P({ torso: -8, head: -18, sA: 176, eA: 20, sB: 170, eB: 24, py: 40 }, GUARD), 'inOutQuad'],
+    [0.38, P({ torso: -20, head: -24, sA: 188, eA: 12, sB: 182, eB: 16, py: 42 }, GUARD), 'outQuad'],
+    [0.5, P({ torso: 52, head: 6, sA: 96, eA: 10, sB: 90, eB: 16, py: 27, px: 6 }, GUARD), 'inCubic'],
+    [0.82, GUARD],
+  ],
+  victim: [
+    [0, 26, -40, 26, -4],
+    [0.22, 8, -104, 34, -132],
+    [0.38, 18, -150, 46, -152],
+    [0.5, 64, 26, 50, -34],
+  ],
+  release: [0.5, 140, 950],
+  throwDmg: 18,
+  stamina: 10,
+  dir: 1,
+  heroOnly: true,
+});
+
+// The clinch: head pulled down, knees driven up into the face.
+def('clinch', {
+  type: 'throw',
+  keys: [
+    [0, P({ torso: 22, sA: 80, eA: 60, sB: 74, eB: 66, px: 4 }, GUARD)],
+    [0.14, P({ torso: 26, head: -6, sA: 82, eA: 54, sB: 78, eB: 58, hA: 40, kA: 90, px: 2 }, GUARD)],
+    [0.24, P({ torso: 18, head: -10, sA: 74, eA: 60, sB: 70, eB: 64, hA: 112, kA: 120, px: 4 }, GUARD), 'outCubic'],
+    [0.36, P({ torso: 26, sA: 82, eA: 54, sB: 78, eB: 58, hA: 20, kA: 30, hB: 30, kB: 80 }, GUARD)],
+    [0.48, P({ torso: 18, head: -10, sA: 74, eA: 60, sB: 70, eB: 64, hB: 112, kB: 120, px: 4 }, GUARD), 'outCubic'],
+    [0.62, P({ torso: 26, sA: 82, eA: 54, sB: 78, eB: 58, hA: 44, kA: 96, hB: -10, kB: 30 }, GUARD)],
+    [0.76, P({ torso: 10, head: -14, sA: 70, eA: 66, sB: 66, eB: 70, hA: 128, kA: 128, px: 6 }, GUARD), 'outCubic'],
+    [1.0, GUARD],
+  ],
+  legs: { A: [[0.1, 0.36], [0.56, 0.9]], B: [[0.36, 0.6]] },
+  victim: [
+    [0, 26, -40, 26, -4],
+    [0.12, 26, -14, 46, -26],
+    [0.74, 26, -16, 46, -26],
+    [0.78, 30, -40, 40, -10],
+  ],
+  strikes: [[0.24, 7], [0.48, 7], [0.76, 11]],
+  release: [0.78, 300, -300],
+  throwDmg: 4,
+  stamina: 10,
+  dir: 1,
+  heroOnly: true,
+});
+
+// Taunts --------------------------------------------------------------------------
+def('beckon', {
+  type: 'special',
+  keys: [
+    [0, GUARD],
+    [0.16, P({ torso: -4, head: -6, sA: 82, eA: 18, sB: 20, eB: 120 }, GUARD), 'outQuad'],
+    [0.3, P({ torso: -4, head: -6, sA: 82, eA: 112, sB: 20, eB: 120 }, GUARD)],
+    [0.44, P({ torso: -4, head: -6, sA: 82, eA: 18, sB: 20, eB: 120 }, GUARD)],
+    [0.58, P({ torso: -4, head: -6, sA: 82, eA: 112, sB: 20, eB: 120 }, GUARD)],
+    [0.85, GUARD],
+  ],
+  cancel: 0.3,
+});
+
+def('chestbeat', {
+  type: 'special',
+  keys: [
+    [0, GUARD],
+    [0.12, P({ torso: -14, head: -24, sA: 62, eA: 140, sB: 64, eB: 140, py: 41 }, GUARD), 'outQuad'],
+    [0.22, P({ torso: -10, head: -20, sA: 30, eA: 150, sB: 70, eB: 140, py: 41 }, GUARD)],
+    [0.32, P({ torso: -10, head: -20, sA: 70, eA: 140, sB: 30, eB: 150, py: 41 }, GUARD)],
+    [0.42, P({ torso: -10, head: -20, sA: 30, eA: 150, sB: 70, eB: 140, py: 41 }, GUARD)],
+    [0.52, P({ torso: -10, head: -20, sA: 70, eA: 140, sB: 30, eB: 150, py: 41 }, GUARD)],
+    [0.62, P({ torso: -18, head: -36, sA: 150, eA: 40, sB: 146, eB: 44, py: 42 }, GUARD), 'outQuad'],
+    [0.95, GUARD],
+  ],
+  cancel: 0.5,
+  enemyOnly: true,
+});
+
+def('neckcrack', {
+  type: 'special',
+  keys: [
+    [0, GUARD],
+    [0.2, P({ torso: 4, head: -36, sA: 30, eA: 120, sB: 14, eB: 120, py: 40 }, GUARD), 'inOutQuad'],
+    [0.42, P({ torso: 6, head: 34, sA: 24, eA: 124, sB: 10, eB: 124, py: 40 }, GUARD), 'inOutQuad'],
+    [0.6, P({ torso: 2, head: -6, sA: 60, eA: 30, sB: 50, eB: 30, py: 41 }, GUARD), 'outQuad'],
+    [0.9, GUARD],
+  ],
+  cancel: 0.5,
+  heroOnly: true,
+});
+
+// Deaths: the first key is replaced by the pose he was in.
+def('crumple', {
+  type: 'death',
+  fromCurrent: true,
+  keys: [
+    [0, GUARD],
+    [0.16, P({ torso: 26, head: 34, sA: 18, eA: 24, sB: 8, eB: 18, hA: 40, kA: 92, hB: 30, kB: 104, py: 26 }, GUARD), 'outQuad'],
+    [0.42, P({ torso: 54, head: 46, sA: 6, eA: 10, sB: 0, eB: 8, hA: 82, kA: 152, hB: 74, kB: 152, py: 14 }, GUARD), 'inQuad'],
+    [0.52, P({ torso: 64, head: 50, sA: 4, eA: 8, sB: -4, eB: 6, hA: 84, kA: 152, hB: 76, kB: 152, py: 13 }, GUARD)],
+  ],
+  legs: { A: [[0.05, 0.52]], B: [[0.05, 0.52]] },
+  fall: [70, -20, 3],
+});
+
+def('timber', {
+  type: 'death',
+  fromCurrent: true,
+  keys: [
+    [0, GUARD],
+    [0.2, P({ torso: -14, head: -34, sA: 26, eA: 12, sB: 16, eB: 10, hA: 4, kA: 2, hB: -4, kB: 2, py: 43 }, GUARD), 'outQuad'],
+    [0.34, P({ torso: -22, head: -40, sA: 30, eA: 10, sB: 20, eB: 8, hA: 4, kA: 2, hB: -4, kB: 2, py: 43 }, GUARD)],
+  ],
+  legs: { A: [[0.05, 0.34]], B: [[0.05, 0.34]] },
+  fall: [-60, -10, -2.2],
+});
+
 export const STRIKES_HERO = ['jab', 'cross', 'hook', 'uppercut', 'elbow', 'knee', 'teep', 'roundhouse', 'spinkick', 'sweep', 'flyingkick', 'shove'];
 export const BACK_MOVES = ['backkick', 'backelbow'];
 export const WEAPON_MOVES = ['wswing', 'woverhead', 'wthrust'];
 
 // Enemy styles: weighted moves they may use.
 export const STYLES = {
-  boxer: [['jab', 4], ['cross', 3], ['hook', 2], ['uppercut', 1]],
-  brawler: [['haymaker', 4], ['jab', 2], ['cross', 2], ['shove', 1]],
-  kicker: [['teep', 3], ['roundhouse', 2], ['jab', 1], ['knee', 1], ['flyingkick', 1]],
-  grappler: [['bearhug', 4], ['jab', 1], ['knee', 2], ['tackle', 1]],
-  wild: [['haymaker', 3], ['tackle', 2], ['hook', 2], ['knee', 1]],
-  balanced: [['jab', 3], ['cross', 2], ['teep', 1], ['hook', 1], ['roundhouse', 1]],
+  boxer: [['jab', 4], ['cross', 3], ['hook', 2], ['uppercut', 1], ['backfist', 1]],
+  brawler: [['haymaker', 4], ['jab', 2], ['cross', 2], ['headbutt', 2], ['shove', 1], ['superman', 1]],
+  kicker: [['teep', 3], ['roundhouse', 2], ['axekick', 1], ['jab', 1], ['knee', 1], ['flyingkick', 1], ['jumpknee', 1]],
+  grappler: [['bearhug', 4], ['headbutt', 2], ['jab', 1], ['knee', 2], ['tackle', 1]],
+  wild: [['haymaker', 3], ['tackle', 2], ['headbutt', 2], ['hook', 2], ['knee', 1], ['superman', 1]],
+  balanced: [['jab', 3], ['cross', 2], ['teep', 1], ['hook', 1], ['roundhouse', 1], ['backfist', 1]],
 };

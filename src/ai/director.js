@@ -19,6 +19,7 @@ export class Director {
     this.wave = 0;
     this.queue = [];
     this.alarm = 0;
+    this.scuffleT = 14;
   }
 
   get remaining() {
@@ -44,6 +45,12 @@ export class Director {
       }
     }
     if (sim.over) return;
+    // fights break out elsewhere on the map, not only around Onyx
+    this.scuffleT -= dt;
+    if (this.scuffleT <= 0) {
+      this.scuffleT = rng.range(8, 17) / Math.sqrt(clamp(S.maxActive / 26, 0.5, 4));
+      this.startScuffle();
+    }
     const active = sim.enemiesAlive;
     // the crowd grows over the first couple of minutes: he gets to show
     // what he can do before the numbers start to tell
@@ -92,6 +99,59 @@ export class Director {
     }
   }
 
+  startScuffle() {
+    const sim = this.sim;
+    const S = sim.settings;
+    const rng = sim.rng;
+    const hero = sim.hero;
+    let brawling = 0;
+    const free = [];
+    for (const e of sim.enemies) {
+      if (e.dead || e.removed || !e.brain) continue;
+      if (e.brain.foe) {
+        brawling++;
+        continue;
+      }
+      if (e.ragdolled || e.state === 'spawn' || e.state === 'held' || e.state === 'holding') continue;
+      if (Math.abs(e.x - hero.x) + Math.abs(e.y - hero.y) * 1.5 < 400) continue;
+      free.push(e);
+    }
+    if (brawling / 2 >= Math.max(2, Math.round(S.maxActive / 9))) return;
+    const dur = rng.range(7, 15);
+    // two idle ones close together get into it
+    for (let tries = 0; tries < 6 && free.length > 1; tries++) {
+      const a = free[rng.int(0, free.length - 1)];
+      let b = null;
+      let bd = 300;
+      for (const o of free) {
+        if (o === a || Math.abs(o.y - a.y) > 40) continue;
+        const d = Math.abs(o.x - a.x);
+        if (d < bd) {
+          bd = d;
+          b = o;
+        }
+      }
+      if (!b) continue;
+      a.brain.startBrawl(b, dur);
+      b.brain.startBrawl(a, dur);
+      sim.emit({ t: 'feed', text: `${a.name} and ${b.name} go at each other`, level: 1 });
+      sim.emit({ t: 'brawl', a, b, x: (a.x + b.x) / 2, y: a.y });
+      return;
+    }
+    // nobody handy: a pair arrives somewhere else already fighting
+    if (this.remaining < 2 || sim.enemiesAlive + 2 > S.maxActive * 1.2) return;
+    const pts = sim.level.spawnPoints.filter((p) => Math.abs(p.x - hero.x) + Math.abs(p.y - hero.y) * 1.4 > 650 && p.type !== 'vent');
+    if (!pts.length) return;
+    const p = rng.pick(pts);
+    const a = this.spawnOne(p);
+    const b = this.spawnOne(p);
+    if (!a || !b) return;
+    a.brain.startBrawl(b, dur);
+    b.brain.startBrawl(a, dur);
+    sim.emit({ t: 'feed', text: `A fight breaks out across the ${sim.level.outdoor ? 'roofs' : 'floor'}`, level: 1 });
+    sim.emit({ t: 'brawl', a, b, x: p.x, y: p.y });
+  }
+
   pickPoint(group) {
     const sim = this.sim;
     const rng = sim.rng;
@@ -129,7 +189,7 @@ export class Director {
     const sim = this.sim;
     const S = sim.settings;
     const rng = sim.rng;
-    if (S.totalEnemies > 0 && this.spawned >= S.totalEnemies) return;
+    if (S.totalEnemies > 0 && this.spawned >= S.totalEnemies) return null;
     const spec = makeEnemySpec(rng, S, this.level, sim.nextId++);
     spec.name = sim.uniqueName(spec.name);
     const hero = sim.hero;
@@ -181,5 +241,6 @@ export class Director {
     }
     sim.addFighter(f);
     this.spawned++;
+    return f;
   }
 }

@@ -45,9 +45,14 @@ export function steerTo(f, sim, tx, tSurf, opts = {}) {
       f._lt = tSurf;
       f._ltime = sim.time;
     }
+    const S0 = link ? nav.surfaces[link.type === 'stairsEnter' ? link.to : link.from] : null;
+    if (link && (!S0 || (link.type === 'stairsEnter' && S0.type !== 'stairs'))) {
+      f._link = null; // a route from walkways that no longer exist
+      link = null;
+    }
     if (link) {
       const lx = link.xa !== undefined ? clamp(tx, link.xa, link.xb) : link.x;
-      const S = nav.surfaces[link.type === 'stairsEnter' ? link.to : link.from];
+      const S = S0;
       switch (link.type) {
         case 'stairsEnter': {
           const fromBottom = Math.abs(link.x - S.xBottom) < Math.abs(link.x - S.xTop);
@@ -100,6 +105,7 @@ export function steerTo(f, sim, tx, tSurf, opts = {}) {
     }
   }
 
+  if (!Number.isFinite(goalX)) goalX = Number.isFinite(tx) ? tx : f.x;
   const dx = goalX - f.x;
   const arrive = opts.arrive !== undefined ? opts.arrive : 8;
   it.mx = Math.abs(dx) < arrive ? 0 : Math.sign(dx);

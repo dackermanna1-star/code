@@ -340,6 +340,14 @@ export class Simulation {
     for (const f of this.fighters) {
       if (f.removed || f.kinematic) continue;
       const rag = f.rag;
+      if (!Number.isFinite(f.x) || !Number.isFinite(f.y) || !Number.isFinite(f.vx) || !Number.isFinite(f.vy)) {
+        // a controller blow-up: put him back on his body
+        const pp = rag.p[PELVIS];
+        f.x = Number.isFinite(pp.x) ? pp.x : this.hero.x;
+        f.y = Number.isFinite(pp.y) ? pp.y + 40 : this.hero.y;
+        f.vx = 0;
+        f.vy = 0;
+      }
       if (rag.hasNaN()) {
         // recover from a numerical blow-up rather than poisoning the world
         rag.setFromJoints(f.jt);
@@ -350,7 +358,8 @@ export class Simulation {
       rag.maxImpact = 0;
       if (imp > 300 && f.ragdolled && (!f._thudT || this.time - f._thudT > 0.22)) {
         f._thudT = this.time;
-        this.emit({ t: 'thud', x: rag.p[PELVIS].x, y: rag.p[PELVIS].y, power: Math.min(1.6, imp / 900), body: true, f });
+        const wall = Math.abs(rag.impNx) > 0.65;
+        this.emit({ t: 'thud', x: wall ? rag.impX : rag.p[PELVIS].x, y: wall ? rag.impY : rag.p[PELVIS].y, power: Math.min(1.6, imp / 900), body: true, f, wall, nx: rag.impNx });
         if (imp > 760 && !f.dead) {
           const by = f.knock ? f.knock.by : f.thrownBy || null;
           const k = f.isHero ? 0.6 : 1;
@@ -525,7 +534,22 @@ export class Simulation {
     this.level.breakSolid(s);
     // a smashed skylight is a hole in the floor: re-plan the walkways so
     // everyone jumps it instead of strolling into it
-    if (s.kind === 'skylight') this.nav = buildNav(this.level);
+    if (s.kind === 'skylight') {
+      this.nav = buildNav(this.level);
+      // routes planned on the old walkways are void now
+      for (const f of this.fighters) {
+        f._link = null;
+        f._avoid = null;
+        f.lastSurface = -1;
+        if (f.surface >= this.nav.surfaces.length) f.surface = -1;
+      }
+      const hb = this.hero && this.hero.brain;
+      if (hb) {
+        hb.anchor = null;
+        hb.roam = null;
+        hb.evalT = 0;
+      }
+    }
     this.emit({ t: 'break', material: 'glass', x, y, power: Math.min(1.6, speed / 600), solid: s });
     if (s.kind === 'skylight') this.level.ledges.push({ x0: s.x, x1: s.x + s.w, y: s.y, floor: 0, skylight: true });
     // whoever smashed through gets tagged for "thrown through the window"

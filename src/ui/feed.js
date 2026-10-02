@@ -9,7 +9,11 @@ const MOVE_NAMES = {
   teep: 'a push kick', roundhouse: 'a roundhouse', spinkick: 'a spinning back kick', sweep: 'a low sweep',
   flyingkick: 'a flying kick', backkick: 'a back kick', backelbow: 'a back elbow', shove: 'a shove',
   wswing: 'a full swing', woverhead: 'an overhead smash', wthrust: 'a thrust',
+  superman: 'a superman punch', backfist: 'a spinning backfist', axekick: 'an axe kick', jumpknee: 'a flying knee',
+  dropkick: 'a dropkick', headbutt: 'a headbutt', stomp: 'a stomp', punt: 'a punt',
 };
+const SHOWY = new Set(['spinkick', 'flyingkick', 'superman', 'backfist', 'axekick', 'jumpknee', 'dropkick', 'headbutt']);
+const cap = (t) => t[0].toUpperCase() + t.slice(1);
 
 const WEAPON_NAMES = { pipe: 'steel pipe', bat: 'bat', crowbar: 'crowbar', plank: 'plank' };
 
@@ -22,6 +26,7 @@ export function describe(e) {
       const by = e.by;
       const viaHero = by && by.isHero;
       if (by && !by.isHero && by !== f && (e.cause === 'beaten' || e.cause === 'body')) {
+        if (by.brain && by.brain.foe === f) return { text: pick([`${by.name} beats ${name} senseless`, `${by.name} wins the brawl with ${name}`, `${name} loses the fight with ${by.name}`], n), level: 2 };
         return { text: `${by.name} accidentally knocks out ${name}`, level: 2 };
       }
       switch (e.cause) {
@@ -53,13 +58,18 @@ export function describe(e) {
       if (e.move === 'spinthrow') return { text: `Onyx spins ${e.b.name} into the crowd`, level: 2 };
       if (e.move === 'reversal') return { text: `Reversal — ${e.b.name} goes over the shoulder`, level: 2 };
       if (e.move === 'shouldertoss') return { text: `Onyx tosses ${e.b.name} over his shoulder`, level: 1 };
+      if (e.move === 'suplex') return { text: `Onyx suplexes ${e.b.name} into the floor`, level: 2 };
+      if (e.move === 'powerbomb') return { text: `Onyx powerbombs ${e.b.name}`, level: 2 };
+      if (e.move === 'clinch') return { text: `Onyx knees ${e.b.name} in the clinch`, level: 1 };
       return { text: `Onyx hip-throws ${e.b.name}`, level: 1 };
     case 'grab':
       if (e.hold && e.b && e.b.isHero) return { text: `${e.a.name} grabs Onyx from behind`, level: 2 };
       return null;
     case 'hit':
       if (e.friendly && e.down && n % 2 === 0) return { text: `${e.a.name} clobbers ${e.b.name} by mistake`, level: 1 };
-      if (e.a && e.a.isHero && e.down && (e.move === 'spinkick' || e.move === 'flyingkick') && n % 2 === 0) return { text: `${MOVE_NAMES[e.move] ? MOVE_NAMES[e.move][0].toUpperCase() + MOVE_NAMES[e.move].slice(1) : 'A kick'} floors ${e.b.name}`, level: 1 };
+      if (e.a && e.a.isHero && e.ground && e.move === 'punt') return { text: `Onyx punts ${e.b.name} across the floor`, level: 2 };
+      if (e.a && e.a.isHero && e.ground && e.move === 'stomp' && n % 2 === 0) return { text: pick([`Onyx stamps on ${e.b.name}`, `Onyx puts the boot in on ${e.b.name}`], n), level: 1 };
+      if (e.a && e.a.isHero && e.down && SHOWY.has(e.move) && n % 2 === 0) return { text: `${cap(MOVE_NAMES[e.move] || 'a kick')} floors ${e.b.name}`, level: 1 };
       return null;
     case 'combo':
       if (e.n === 4 || e.n === 6 || e.n === 9) return { text: `${e.n}-hit combo`, level: 1 };

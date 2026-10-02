@@ -31,10 +31,15 @@ can even abort his own wind-up when he sees something coming. On offense he
 looks for opportunities rather than following a script: an exposed back,
 an enemy near a ledge, a window, an electrical panel or a gas canister; a
 crowd lined up for a kick that sends one body bowling into the next; a
-plank or pipe to pick up; a grab to turn into a throw, a sweep or a
-reversal. He backs off when surrounded, repositions to stairs and corridors
-where fewer enemies can reach him at once, and uses their momentum against
-them. He does not get stronger as the fight
+plank or pipe to pick up; a grab to turn into a hip throw, a suplex, a
+powerbomb or a clinch with knees to the face. Anyone left on the floor near
+him gets stamped on, or punted into his friends. His arsenal also includes
+superman punches, spinning backfists, axe kicks, flying knees, dropkicks and
+headbutts, with aerial moves saved for open space. He backs off when
+surrounded, repositions to stairs and corridors where fewer enemies can
+reach him at once, uses their momentum against them, and every so often
+takes the fight somewhere else on the map: up the stairs, across a catwalk,
+or straight into somebody else's brawl. He does not get stronger as the fight
 goes on: he gets **tired**. Stamina drains with every action, fatigue builds
 over time and with every hit taken, and his reactions, guard and get-ups
 slow down. He dominates early and, sooner or later, is overwhelmed.
@@ -58,9 +63,13 @@ fight:
 | Thrower | Throws objects from range before closing in |
 
 Enemies share attack turns so they do not all swing at once, flank,
-hesitate, lose nerve as their friends fall and retreat when it breaks, see
-less in the dark and the smoke, and can hit each other by accident. A spawn director runs the fight in waves (build, peak, relax) and
-escalates over time: more enemies at once, smarter and stronger types.
+hesitate, taunt, lose nerve as their friends fall and retreat when it
+breaks, see less in the dark and the smoke, and hit each other by accident.
+Hotheads hit back, so accidents turn into grudge brawls, and fights also
+break out on their own in other parts of the map, between idle enemies or a
+pair arriving already swinging. A spawn director runs the fight in waves
+(build, peak, relax) and escalates over time: more enemies at once, smarter
+and stronger types.
 
 ## Physics
 
@@ -93,13 +102,27 @@ platforms, stairs, railings, ledges, doors, columns, props and hazards:
 ## Presentation
 
 - **Director camera** that frames the hero and the action around him,
-  widens for crowds, tightens for duels, and calls slow-motion punch-ins for
-  spectacular moments (with cooldowns, so they stay special). Also
-  follow, wide and free (drag to pan, wheel to zoom) modes.
+  widens for crowds, tightens for duels, calls slow-motion punch-ins for
+  spectacular moments, and in a lull frames the brawls going on nearby or
+  cuts away to one across the map. Also follow, wide and free (drag to pan,
+  wheel to zoom) modes.
 - **Animation**: anticipation and follow-through on every move, hit-stop,
   squash on landing, motion trails, natural ragdoll falls and get-ups.
-- **Effects**: impact flashes, sparks, dust, debris, glass shards, smoke,
-  fire, speed lines, screen shake, rain and lamp light.
+  Hit reactions depend on where and how a blow lands: the head snaps back,
+  a hook whips it round, an uppercut lifts the chin, a body shot folds them
+  in half, a leg kick buckles the knee, and big shots send them reeling
+  with arms windmilling. The dead do not always ragdoll: some crumple to
+  their knees, some fall stiff like a tree. Fighters bounce on their feet,
+  taunt and beckon.
+- **Blood and bruising** (Off, Blood or Brutal): blows spray blood away
+  from the attacker, droplets stick to the walls behind and stain the
+  floor, big hits splash the wall behind the head, bodies slammed into walls
+  leave a mark, the downed pool and smear as they slide. Fighters bruise
+  and bleed where they were hit: dark blotches on their limbs, a swollen
+  eye, cuts, blood running down the face and chest.
+- **Effects**: impact flashes, black-on-white impact frames on knockout
+  blows, shockwave rings on slams, sparks, dust, debris, glass shards,
+  smoke, fire, speed lines, screen shake, rain and lamp light.
 - **Procedural audio** (Web Audio, no sample files): impacts sized by
   force, whooshes, grunts, glass, electricity, explosions, a crowd bed, and
   reverb that follows the arena. Slow motion bends the sound with it.
@@ -132,8 +155,9 @@ The settings drawer covers:
 - **The black stickman:** skill, endurance, reaction speed, movement speed.
 - **World and physics:** environment, conditions, hazards, props and
   weapons, gravity, impact force.
-- **Presentation:** camera mode, render quality, slow motion, screen shake,
-  volume, motion trails, HUD, performance stats.
+- **Presentation:** camera mode, render quality, blood (Off, Blood,
+  Brutal), slow motion, screen shake, volume, motion trails, HUD,
+  performance stats.
 
 Settings are remembered between visits. Settings marked *next* apply when the
 next battle starts.
@@ -157,14 +181,16 @@ responsive through:
 - a frame-time budget so an extreme crowd slows the action slightly instead
   of dropping into a spiral of long frames.
 
+Blood is painted once into world-space tiles, allocated only where it
+lands, so a soaked arena costs a handful of image copies per frame.
+
 In testing (Node, one core), the default settings simulate in under 1 ms
-per step, the 160-enemy Nightmare preset in about 3 ms, and a 220-enemy
-stress brawl in about 8 ms.
+per step and a 220-enemy stress brawl in about 4 to 8 ms.
 
 ## Balance
 
-At the default settings a battle typically lasts two to four and a half
-minutes and Onyx takes down 45 to 90 enemies before the crowd and his own
+At the default settings a battle typically lasts two to three and a half
+minutes and Onyx takes down 50 to 100 enemies before the crowd and his own
 fatigue catch up with him. Hero endurance, the difficulty presets and the
 enemy sliders stretch or shorten that.
 
@@ -186,8 +212,8 @@ src/
   ai/                 hero brain, enemy brain, steering, roster
                       (procedural enemies), spawn director
   sim/                the simulation: step order, collisions, KOs, cleanup
-  render/             renderer, figures, environment art, effects, camera,
-                      palettes
+  render/             renderer, figures, environment art, effects, blood
+                      decals, camera, palettes
   audio/              procedural Web Audio engine
   ui/                 HUD, settings drawer, commentary feed
   style.css

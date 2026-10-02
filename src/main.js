@@ -118,7 +118,7 @@ export function start(root) {
     sim = new Simulation(S, sd, simNumber++);
     renderer.setSim(sim);
     renderer.resize(S.quality);
-    fx.reset(sim);
+    fx.reset(sim, S);
     cam.reset(sim, renderer.W, renderer.H);
     if (audio.ready) audio.setTheme(sim.level.theme, sim.level.condition);
     ui.onNewSim(sim);
@@ -156,12 +156,18 @@ export function start(root) {
       // fixed steps within a time budget; when a huge crowd makes the
       // simulation slower than real time, drop the backlog (the action runs
       // a little slower) instead of spiralling into ever longer frames
-      while (acc >= SIM_DT && steps < 6) {
-        lastStepAdvanced = sim.step();
-        routeEvents(sim.drainEvents());
-        acc -= SIM_DT;
-        steps++;
-        if (performance.now() - t0 > 13) break;
+      try {
+        while (acc >= SIM_DT && steps < 6) {
+          lastStepAdvanced = sim.step();
+          routeEvents(sim.drainEvents());
+          acc -= SIM_DT;
+          steps++;
+          if (performance.now() - t0 > 13) break;
+        }
+      } catch (err) {
+        // never freeze on a bad state: report it and start a fresh battle
+        console.error(err);
+        newSim();
       }
       if (acc > SIM_DT * 2) acc = SIM_DT * 0.5;
       perf.simMs += (performance.now() - t0 - perf.simMs) * 0.1;

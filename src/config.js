@@ -53,6 +53,7 @@ export const DEFAULT_SETTINGS = {
   slowMo: 1,
   screenShake: 1,
   motionTrails: true,
+  gore: 2, // 0 off, 1 blood, 2 brutal
   showStats: false,
   debugAI: false,
   autoNext: true,

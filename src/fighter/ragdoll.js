@@ -42,6 +42,9 @@ export class Ragdoll {
     this.maxImpact = 0;
     this.settle = 0; // 0..1 extra damping for slow, piled-up bodies
     this.coreAvg = 0; // smoothed core speed (sleep test ignores contact jitter)
+    this.impNx = 0; // normal and point of the hardest core impact this step
+    this.impX = 0;
+    this.impY = 0;
   }
 
   // Speed of the heavy core (pelvis and neck), ignoring flailing limbs.
@@ -166,7 +169,15 @@ export class Ragdoll {
     }
     for (let i = 0; i < NJ; i++) level.collideParticle(p[i], bounce, mu, h);
     // only the heavy core (head, neck, pelvis) counts as the body slamming down
-    for (let i = 0; i < 3; i++) if (p[i].impact > this.maxImpact) this.maxImpact = p[i].impact;
+    for (let i = 0; i < 3; i++) {
+      const q = p[i];
+      if (q.impact > this.maxImpact) {
+        this.maxImpact = q.impact;
+        this.impNx = q.impactNx;
+        this.impX = q.x - q.impactNx * q.r;
+        this.impY = q.y - q.impactNy * q.r;
+      }
+    }
   }
 
   grounded() {

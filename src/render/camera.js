@@ -29,6 +29,9 @@ export class Camera {
     this.focusY = 0;
     this.free = { x: 0, y: 0, w: 1400, active: false };
     this.endT = 0;
+    this.idleT = 0;
+    this.cut = null; // { x, y, t } cutaway to a brawl elsewhere
+    this.cutCooldown = 8;
   }
 
   reset(sim, W, H) {
@@ -59,18 +62,22 @@ export class Camera {
     if (!force && (freq <= 0 || this.slowCooldown > 0 || score < 7 / Math.max(0.35, freq))) return false;
     const dur = clamp(0.45 + score * 0.04, 0.5, 1.3);
     this.slow = { t: 0, hold: dur, scale: clamp(0.32 - score * 0.006, 0.16, 0.3), x, y, punch: clamp(0.12 + score * 0.01, 0.12, 0.3) };
-    this.slowCooldown = force ? 0 : 7 / Math.max(0.35, freq);
+    this.slowCooldown = force ? 0 : 5 / Math.max(0.35, freq);
     return true;
   }
 
   onEvent(e, sim, settings) {
     switch (e.t) {
       case 'hit':
-        if (e.a && e.a.isHero) this.addTrauma(e.down ? 0.16 + Math.min(0.2, (e.power || 0) * 0.08) : 0.06, settings);
-        else if (e.b && e.b.isHero) this.addTrauma(0.12, settings);
+        if (e.a && e.a.isHero) {
+          this.addTrauma(e.down ? 0.2 + Math.min(0.25, (e.power || 0) * 0.1) + (e.b && e.b.dead ? 0.12 : 0) : 0.08, settings);
+          if (e.b && e.b.dead && (e.power || 0) > 1.15) this.requestSlowmo(7.5, e.x, e.y, settings);
+        } else if (e.b && e.b.isHero) this.addTrauma(e.power > 1.2 ? 0.22 : 0.13, settings);
+        else if (e.down) this.addTrauma(0.05, settings);
         break;
       case 'thud':
-        if ((e.power || 0) > 0.9) this.addTrauma(0.06 * e.power, settings);
+        if ((e.power || 0) > 1.3 && e.f && e.f.knock && e.f.knock.by && e.f.knock.by.isHero) this.addTrauma(0.3, settings);
+        else if ((e.power || 0) > 0.9) this.addTrauma(0.06 * e.power, settings);
         break;
       case 'explosion':
         this.addTrauma(0.75, settings);
@@ -92,8 +99,9 @@ export class Camera {
         if (e.count >= 2) this.requestSlowmo(6 + e.count * 2.5, e.x, e.y, settings);
         break;
       case 'throw':
-        if (e.move === 'spinthrow' || e.move === 'reversal') this.requestSlowmo(9, e.x, e.y, settings);
+        if (e.move === 'spinthrow' || e.move === 'reversal' || e.move === 'suplex' || e.move === 'powerbomb') this.requestSlowmo(9, e.x, e.y, settings);
         break;
+
       case 'parry':
         this.requestSlowmo(7.5, e.x, e.y, settings);
         break;
@@ -183,12 +191,52 @@ export class Camera {
         y0 = Math.min(y0, p.y - 130);
         y1 = Math.max(y1, p.y + 50);
       }
+      // while Onyx has nobody on him, show the fights going on around him
+      this.idleT = engaged === 0 ? this.idleT + dt : 0;
+      if (this.cutCooldown > 0) this.cutCooldown -= dt;
+      let brawl = null;
+      let bd = 1e9;
+      if (this.idleT > 1.2 && !sim.over) {
+        for (const f of sim.enemies) {
+          if (f.dead || f.removed || !f.brain || !f.brain.foe || f.ragdolled) continue;
+          const d = Math.abs(f.x - hx) + Math.abs(f.y - hy);
+          if (d < bd) {
+            bd = d;
+            brawl = f;
+          }
+        }
+      }
+      if (brawl && bd < 1100) {
+        const o = brawl.brain.foe;
+        x0 = Math.min(x0, brawl.x - 90, o.x - 90);
+        x1 = Math.max(x1, brawl.x + 90, o.x + 90);
+        y0 = Math.min(y0, brawl.y - 150, o.y - 150);
+        y1 = Math.max(y1, brawl.y + 40, o.y + 40);
+      } else if (brawl && !this.cut && this.cutCooldown <= 0) {
+        this.cut = { f: brawl, t: 0 };
+      }
+      if (this.cut) {
+        const c = this.cut;
+        c.t += dt;
+        if (c.t > 5 || engaged > 0 || c.f.dead || !c.f.brain || !c.f.brain.foe || sim.over) {
+          this.cut = null;
+          this.cutCooldown = 14;
+        }
+      }
       const minW = engaged <= 1 ? 900 : engaged <= 3 ? 1060 : 1240;
       tw = Math.max(minW, x1 - x0 + 300, (y1 - y0 + 220) * aspect);
       tw = Math.min(tw, 2400);
       // keep the hero inside the inner part of the frame
       tx = clamp((x0 + x1) / 2, hx - tw * 0.3, hx + tw * 0.3);
       ty = clamp((y0 + y1) / 2 - 30, hy - (tw / aspect) * 0.3, hy + (tw / aspect) * 0.15);
+      if (this.cut) {
+        // meanwhile, across the map...
+        const c = this.cut.f;
+        const o = c.brain.foe;
+        tx = (c.x + o.x) / 2;
+        ty = Math.min(c.y, o.y) - 70;
+        tw = 980;
+      }
       if (punch > 0) {
         tx = lerp(tx, this.focusX, punch * 2.2);
         ty = lerp(ty, this.focusY - 30, punch * 2.2);

@@ -43,7 +43,11 @@ export function drawFighter(ctx, f, alpha, opts) {
     col = mix(col, '#ffffff', Math.min(1, f.flash) * 0.75);
     far = mix(far, '#ffffff', Math.min(1, f.flash) * 0.7);
   }
-  const zap = f.state === 'zap' && f.zapT > 0;
+  if (opts.solid) {
+    col = opts.solid;
+    far = opts.solid;
+  }
+  const zap = f.state === 'zap' && f.zapT > 0 && !opts.solid;
   if (zap && Math.sin(opts.t * 70 + f.id) > 0) {
     col = '#fff6b0';
     far = '#f0e290';
@@ -75,6 +79,7 @@ export function drawFighter(ctx, f, alpha, opts) {
   ctx.lineTo(j[ELB_B * 2], j[ELB_B * 2 + 1]);
   ctx.lineTo(j[HAND_B * 2], j[HAND_B * 2 + 1]);
   ctx.stroke();
+  if (f.gore && opts.gore) drawWounds(ctx, f, j, col, false);
   // torso with a slight spine curve, then the neck into the head
   const px = j[PELVIS * 2];
   const py = j[PELVIS * 2 + 1];
@@ -110,9 +115,138 @@ export function drawFighter(ctx, f, alpha, opts) {
   ctx.lineTo(j[ELB_A * 2], j[ELB_A * 2 + 1]);
   ctx.lineTo(j[HAND_A * 2], j[HAND_A * 2 + 1]);
   ctx.stroke();
+  if (f.gore && opts.gore) drawWounds(ctx, f, j, col, true);
   if (f.weapon) drawHeldWeapon(ctx, f, j);
   if (zap) drawSkeletonGlow(ctx, j, d, opts.t);
   if (fade < 1) ctx.globalAlpha = 1;
+}
+
+// Bruises (dark blotches on coloured limbs), cuts and blood. The near pass
+// covers head, torso and near limbs; the far pass the limbs behind the body.
+// Positions along each bone are fixed per fighter so marks do not crawl.
+const BONES_NEAR = [
+  [2, NECK, ELB_A, HAND_A],
+  [4, PELVIS, KNEE_A, FOOT_A],
+];
+const BONES_FAR = [
+  [3, NECK, ELB_B, HAND_B],
+  [5, PELVIS, KNEE_B, FOOT_B],
+];
+
+function drawWounds(ctx, f, j, col, near) {
+  const g = f.gore;
+  const w = g.w;
+  const d = f.dims;
+  const lw = d.lw;
+  const hero = f.isHero;
+  const bruiseCol = hero ? null : mix(col, '#260818', 0.62);
+  const bones = near ? BONES_NEAR : BONES_FAR;
+  for (const [slot, a, b, c] of bones) {
+    const lvl = w[slot];
+    if (lvl < 0.1) continue;
+    const marks = lvl > 0.8 ? 3 : lvl > 0.4 ? 2 : 1;
+    for (let k = 0; k < marks; k++) {
+      const u = 0.15 + (((f.id * 37 + slot * 11 + k * 29) % 100) / 100) * 1.7;
+      const [s0, s1] = u < 1 ? [a, b] : [b, c];
+      const t = u < 1 ? u : u - 1;
+      const x0 = j[s0 * 2];
+      const y0 = j[s0 * 2 + 1];
+      const x1 = j[s1 * 2];
+      const y1 = j[s1 * 2 + 1];
+      const px = x0 + (x1 - x0) * t;
+      const py = y0 + (y1 - y0) * t;
+      const dx = (x1 - x0) * 0.12;
+      const dy = (y1 - y0) * 0.12;
+      if (bruiseCol) {
+        ctx.strokeStyle = bruiseCol;
+        ctx.globalAlpha = Math.min(0.9, lvl * 1.1);
+        ctx.lineWidth = lw * 0.72;
+        ctx.beginPath();
+        ctx.moveTo(px - dx, py - dy);
+        ctx.lineTo(px + dx, py + dy);
+        ctx.stroke();
+      }
+      if (lvl > 0.35 || hero) {
+        // a cut across the limb
+        const l = Math.hypot(dx, dy) || 1;
+        const nx = (-dy / l) * lw * 0.45;
+        const ny = (dx / l) * lw * 0.45;
+        ctx.strokeStyle = '#c4141f';
+        ctx.globalAlpha = Math.min(1, 0.4 + lvl * 0.6);
+        ctx.lineWidth = Math.max(1.2, lw * 0.22);
+        ctx.beginPath();
+        ctx.moveTo(px - nx + dx * 0.4, py - ny + dy * 0.4);
+        ctx.lineTo(px + nx - dx * 0.4, py + ny - dy * 0.4);
+        ctx.stroke();
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
+  if (!near) return;
+  const hx = j[HEAD * 2];
+  const hy = j[HEAD * 2 + 1];
+  const nx = j[NECK * 2];
+  const ny = j[NECK * 2 + 1];
+  const r = d.headR;
+  const fc = f.ragdolled ? 1 : f.facing;
+  // torso: bruising, and blood running down the chest
+  const tw = w[1];
+  if (tw > 0.12) {
+    const px = j[PELVIS * 2];
+    const py = j[PELVIS * 2 + 1];
+    if (bruiseCol) {
+      ctx.strokeStyle = bruiseCol;
+      ctx.globalAlpha = Math.min(0.85, tw);
+      ctx.lineWidth = lw * 0.8;
+      ctx.beginPath();
+      ctx.moveTo(nx + (px - nx) * 0.3, ny + (py - ny) * 0.3);
+      ctx.lineTo(nx + (px - nx) * (0.45 + Math.min(0.3, tw * 0.25)), ny + (py - ny) * (0.45 + Math.min(0.3, tw * 0.25)));
+      ctx.stroke();
+    }
+  }
+  const hw = w[0];
+  if (g.bleed > 0.35 || hw > 0.5) {
+    const px = j[PELVIS * 2];
+    const py = j[PELVIS * 2 + 1];
+    const run = Math.min(0.75, (g.bleed + hw) * 0.3);
+    ctx.strokeStyle = '#b5121c';
+    ctx.globalAlpha = 0.85;
+    ctx.lineWidth = Math.max(1.5, lw * 0.32);
+    ctx.beginPath();
+    ctx.moveTo(nx + fc * lw * 0.2, ny);
+    ctx.lineTo(nx + (px - nx) * run + fc * lw * 0.2, ny + (py - ny) * run);
+    ctx.stroke();
+  }
+  // head: a swollen eye, then a cut with blood trickling down the face
+  if (hw > 0.12) {
+    if (bruiseCol) {
+      ctx.fillStyle = bruiseCol;
+      ctx.globalAlpha = Math.min(0.9, hw * 1.1);
+      ctx.beginPath();
+      ctx.arc(hx + fc * r * 0.42, hy - r * 0.05, r * (0.3 + Math.min(0.2, hw * 0.15)), 0, TAU);
+      ctx.fill();
+    }
+    if (hw > 0.3 || hero) {
+      ctx.globalAlpha = Math.min(1, 0.45 + hw * 0.55);
+      ctx.strokeStyle = '#c4141f';
+      ctx.lineWidth = Math.max(1.6, r * 0.22);
+      const sx = hx + fc * r * 0.55;
+      const sy = hy - r * 0.45;
+      const len = r * (0.8 + Math.min(1.4, hw * 1.2));
+      // trickle follows gravity in screen space
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + fc * r * 0.12, sy + len);
+      ctx.stroke();
+      if (hw > 0.7) {
+        ctx.beginPath();
+        ctx.moveTo(hx - fc * r * 0.1, hy - r * 0.7);
+        ctx.lineTo(hx - fc * r * 0.05, hy + r * 0.2);
+        ctx.stroke();
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
 }
 
 function strokeBody(ctx, j) {

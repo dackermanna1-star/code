@@ -233,6 +233,7 @@ export class UI {
           <h3>Presentation</h3>
           ${sel('cameraMode', 'Camera', CAMERA_ORDER.map((c) => [c, CAMERA_LABELS[c]]), S.cameraMode)}
           ${sel('quality', 'Render quality', [['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], S.quality)}
+          ${sel('gore', 'Blood', [[0, 'Off'], [1, 'Blood'], [2, 'Brutal']], S.gore)}
           ${group('view').map(slider).join('')}
           ${TOGGLES.filter((t) => t[2] === 'view').map(toggle).join('')}
         </section>
@@ -294,10 +295,10 @@ export class UI {
         a.settingsChanged(id);
       });
     }
-    for (const id of ['difficulty', 'timeLimit', 'totalEnemies', 'environment', 'condition', 'cameraMode', 'quality']) {
+    for (const id of ['difficulty', 'timeLimit', 'totalEnemies', 'environment', 'condition', 'cameraMode', 'quality', 'gore']) {
       $(id).addEventListener('change', (e) => {
         let v = e.target.value;
-        if (id === 'timeLimit' || id === 'totalEnemies') v = parseInt(v, 10);
+        if (id === 'timeLimit' || id === 'totalEnemies' || id === 'gore') v = parseInt(v, 10);
         this.S[id] = v;
         if (id === 'difficulty' && DIFFICULTY_PRESETS[v]) {
           Object.assign(this.S, DIFFICULTY_PRESETS[v]);
@@ -317,7 +318,7 @@ export class UI {
       $('o_' + id).textContent = fmt(this.S[id]);
     }
     for (const [id] of TOGGLES) $('t_' + id).checked = !!this.S[id];
-    for (const id of ['difficulty', 'timeLimit', 'totalEnemies', 'environment', 'condition', 'cameraMode', 'quality']) $(id).value = String(this.S[id]);
+    for (const id of ['difficulty', 'timeLimit', 'totalEnemies', 'environment', 'condition', 'cameraMode', 'quality', 'gore']) $(id).value = String(this.S[id]);
     this.syncDock();
   }
 

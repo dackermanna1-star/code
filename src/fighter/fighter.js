@@ -11,7 +11,7 @@ import {
 import { Ragdoll } from './ragdoll.js';
 import {
   MOVES, GUARD, RELAXED, TIRED, BLOCK, RUN, AIR_UP, AIR_DOWN, LAND, STAGGER, TAUNT, HELD, HOLDING,
-  WEAPON_GUARD, FLINCH_HIGH, FLINCH_LOW,
+  WEAPON_GUARD, FLINCH_HIGH, FLINCH_LOW, FLINCH,
 } from './moves.js';
 
 const tmpList = [];
@@ -138,6 +138,9 @@ export class Fighter {
     this.squashV = 0;
     this.flinch = 0;
     this.flinchLow = false;
+    this.flinchType = 'head';
+    this.flinchRate = 4.5;
+    this.bob = (spec.id * 1.3) % 6.28;
     this.flash = 0;
     this.breath = (spec.id * 0.37) % 6.28;
     this.poseRate = 16;
@@ -293,7 +296,7 @@ export class Fighter {
 
   // ---------------------------------------------------------------- damage
   // Small reactions keep the fighter on its feet; muscles slacken briefly.
-  hitstun(dur, kvx, kvy, low, h) {
+  hitstun(dur, kvx, kvy, low, react, heavy) {
     if (this.dead) return;
     if (this.state === 'move' && this.move) {
       if (this.move.type === 'throw' && this.victim) this.releaseVictim(false);
@@ -311,7 +314,29 @@ export class Fighter {
     this.muscleRate = 3.2;
     this.flinch = 1;
     this.flinchLow = !!low;
+    this.flinchType = react || (low ? 'gut' : 'head');
+    // big shots hold the reaction pose longer
+    this.flinchRate = clamp(1.5 / Math.max(0.2, dur), 2.2, 6);
+    if (heavy && !this.isHero) {
+      // reeling: arms windmilling, stumbling back
+      this.staggered = true;
+      this.stun = Math.max(this.stun, dur * 1.35);
+    }
     this.replantFeet();
+  }
+
+  // Killed on his feet by a blow that did not launch him: he folds.
+  dieOnFeet(kind) {
+    if (this.ragdolled || this.state === 'grabbed' || this.state === 'held' || !this.grounded) return false;
+    if (this.holdTarget) this.releaseHold();
+    if (this.state === 'move' && this.move && this.move.type === 'throw' && this.victim) this.releaseVictim(false);
+    this.snap = copyPose(new Float64Array(NP), this.pose);
+    this.vx *= 0.3;
+    this.staggered = false;
+    this.flinch = 0;
+    this.move = null;
+    this.dropWeapon(this.facing * 40, -120);
+    return this.startMove(kind);
   }
 
   stumble(dir, dur) {
@@ -370,7 +395,7 @@ export class Fighter {
       this.koCause = cause || 'beaten';
       this.koBy = by || null;
       this.koTime = this.sim.time;
-      if (!this.ragdolled) this.knockdown(0, 0);
+      if (!this.ragdolled && !this.pendingDeath) this.knockdown(0, 0);
       this.sim.onKO(this, by, cause);
     }
     return amount;
@@ -459,7 +484,7 @@ export class Fighter {
     if (this.passT > 0) this.passT -= dt;
     if (this.invuln > 0) this.invuln -= dt;
     if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 6);
-    if (this.flinch > 0) this.flinch = Math.max(0, this.flinch - dt * 4.5);
+    if (this.flinch > 0) this.flinch = Math.max(0, this.flinch - dt * this.flinchRate);
 
     this.updateVitals(dt);
 
@@ -593,7 +618,10 @@ export class Fighter {
     const fall = this.y - this.fallStartY;
     this.airTime = 0;
     this.replantFeet();
-    if (v > 1250 || (v > 1000 && this.state === 'hitstun')) {
+    // he drops off catwalks on purpose and lands like a cat; others fold up
+    const hard = this.isHero && this.state !== 'hitstun' ? 1600 : 1250;
+    const hurt = this.isHero && this.state !== 'hitstun' ? 1150 : 760;
+    if (v > hard || (v > 1000 && this.state === 'hitstun')) {
       // hard landing: crumple
       const dmg = (v - 900) * 0.045;
       this.knockdown(this.vx * 0.5, 0, { spin: 0 });
@@ -601,8 +629,8 @@ export class Fighter {
       this.emit({ t: 'thud', x: this.x, y: this.y, power: 1.2 });
       return;
     }
-    if (v > 700) {
-      const dmg = Math.max(0, (v - 760) * 0.02);
+    if (v > hurt - 60) {
+      const dmg = Math.max(0, (v - hurt) * 0.02);
       if (dmg > 0) this.damage(dmg, null, 'fall');
     }
     this.squashV += v * 0.09;
@@ -705,6 +733,13 @@ export class Fighter {
       this.onLandFromMove();
       return;
     }
+    if (m.type === 'death' && (t >= m.dur || !this.grounded)) {
+      const fl = m.fall;
+      this.move = null;
+      this.pendingDeath = false;
+      this.knockdown(this.facing * fl[0], fl[1], { spin: this.facing * fl[2] });
+      return;
+    }
     if (t >= m.dur) {
       if (m.air && !this.grounded) {
         // keep falling in the last pose until landing
@@ -749,6 +784,23 @@ export class Fighter {
     const py = this.rag.p[PELVIS].y;
     v.pinNeck = [px + f * lerp(a[1], b[1], u) * s, py + lerp(a[2], b[2], u) * s];
     v.pinPelvis = [px + f * lerp(a[3], b[3], u) * s, py + lerp(a[4], b[4], u) * s];
+    // blows landed while holding him (knees in the clinch)
+    if (m.strikes) {
+      for (const [st, dmg] of m.strikes) {
+        if (prev < st && t >= st) {
+          const hp = v.rag.p[HEAD];
+          const d = dmg * this.strength * this.sim.rng.range(0.9, 1.1);
+          v.damage(d, this, 'beaten');
+          v.flash = 1;
+          v.rag.addVelAt(HEAD, f * 120, -260, this.sim.h, 0.5);
+          this.moveHit = true;
+          this.stats.hits++;
+          this.freeze = v.freeze = 3;
+          if (this.isHero) this.sim.hitstop(2);
+          this.emit({ t: 'hit', kind: 'kick', x: hp.x, y: hp.y, power: d / 9, down: false, a: this, b: v, part: 'head', move: m.id });
+        }
+      }
+    }
     if (prev < m.release[0] && t >= m.release[0]) {
       const h = this.sim.h;
       const rv = this.sim.settings.physicsIntensity;
@@ -1246,11 +1298,29 @@ export class Fighter {
       const dx = Math.abs(this.lookTarget.headX - this.headX) + 40;
       tg[HEADA] += clamp(Math.atan2(dy, dx), -0.5, 0.5) * 0.7;
     }
-    // hit flinch (additive)
+    // hit flinch (additive, by where and how he was hit)
     if (this.flinch > 0) {
-      const fl = this.flinchLow ? FLINCH_LOW : FLINCH_HIGH;
+      const fl = FLINCH[this.flinchType] || (this.flinchLow ? FLINCH_LOW : FLINCH_HIGH);
       const k = Ease.outQuad(this.flinch);
       for (let i = 0; i < NP; i++) tg[i] += fl[i] * k;
+    }
+    if (this.staggered && st === 'hitstun') {
+      // reeling: arms windmill for balance, knees soft
+      const w = this.stateT * 15;
+      tg[SA] += Math.sin(w) * 1.1;
+      tg[SB] += Math.sin(w + 2.4) * 1.1;
+      tg[EA] -= 0.6;
+      tg[EB] -= 0.6;
+      tg[HEADA] += Math.sin(w * 0.7) * 0.25;
+      tg[PY] -= 3;
+    } else if (st === 'ground' && speed < 50 && (base === GUARD || base === WEAPON_GUARD) && (this.isHero || this.style === 'boxer' || this.style === 'kicker')) {
+      // fighters bounce on the balls of their feet
+      this.bob += dt * (this.isHero ? 7.5 : 6.5);
+      const b = Math.sin(this.bob);
+      tg[PY] += b * 1.3 - 0.6;
+      tg[SA] += Math.sin(this.bob + 0.6) * 0.06;
+      tg[SB] += Math.sin(this.bob + 1.4) * 0.05;
+      tg[TORSO] += Math.cos(this.bob) * 0.02;
     }
     // squat before a jump / after landing
     this.poseRate = st === 'hitstun' ? 26 : this.stance === 'tired' ? 7 : 15;
@@ -1259,7 +1329,7 @@ export class Fighter {
   sampleMove(m, t, out) {
     const keys = m.keys;
     const n = keys.length;
-    const first = m.type === 'getup' && this.snap ? this.snap : keys[0].pose;
+    const first = (m.type === 'getup' || m.fromCurrent) && this.snap ? this.snap : keys[0].pose;
     if (t <= keys[0].t) return copyPose(out, first);
     for (let i = 1; i < n; i++) {
       const k = keys[i];

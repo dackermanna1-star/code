@@ -12,7 +12,7 @@ import { MOVES } from '../fighter/moves.js';
 import { steerTo, surfaceOfFighter, stairsOf } from './steer.js';
 
 const near = [];
-const HERO_MOVES = ['jab', 'cross', 'hook', 'uppercut', 'elbow', 'knee', 'teep', 'roundhouse', 'spinkick', 'sweep', 'flyingkick', 'shove', 'grab', 'backkick', 'backelbow'];
+const HERO_MOVES = ['jab', 'cross', 'hook', 'uppercut', 'elbow', 'knee', 'teep', 'roundhouse', 'spinkick', 'sweep', 'flyingkick', 'shove', 'grab', 'backkick', 'backelbow', 'superman', 'backfist', 'axekick', 'jumpknee', 'dropkick', 'headbutt'];
 const ARMED_MOVES = ['wswing', 'woverhead', 'wthrust', 'teep', 'knee', 'sweep', 'backkick', 'roundhouse', 'grab', 'wthrow'];
 const HAZARD_NAMES = { electric: 'the live panel', ledge: 'the drop', window: 'the window', canister: 'the gas canister', stairs: 'the stairs', crowd: 'the crowd' };
 
@@ -40,6 +40,8 @@ export class HeroBrain {
     this.dodgeLock = 0;
     this.lastDefense = -10;
     this.lastFlying = -10;
+    this.lastDropkick = -10;
+    this.nextTaunt = 6;
     this.threatClose = false;
   }
 
@@ -104,7 +106,16 @@ export class HeroBrain {
       it.mx = 0;
       return;
     }
+    if (this.finisher()) return;
     if (this.offend()) return;
+    // a quiet moment: crack the neck, wave the next ones in
+    if (this.threatsNear === 0 && f.canAct() && this.sim.time > this.nextTaunt && f.stamina > 50) {
+      this.nextTaunt = this.sim.time + this.sim.rng.range(7, 15);
+      it.action = this.sim.rng.chance(0.55) ? 'neckcrack' : 'beckon';
+      it.mx = 0;
+      this.say(it.action === 'beckon' ? 'Come on' : 'Shaking it off', 1);
+      return;
+    }
     this.position(dt);
   }
 
@@ -525,7 +536,13 @@ export class HeroBrain {
         return true;
       }
     }
-    const cands = this.threats.filter((t) => !t.down && t.ad < 400 && Math.abs(t.dy) < 60 && t.e.state !== 'spawn');
+    let cands = this.threats.filter((t) => !t.down && t.ad < 400 && Math.abs(t.dy) < 60 && t.e.state !== 'spawn');
+    const roaming = this.tactic === 'roam' && this.roam;
+    if (roaming) {
+      // on the move: only the ones in his way, on top of him, or swinging
+      const dir = Math.sign(this.roam.x - f.x) || f.facing;
+      cands = cands.filter((t) => t.ad < 90 || t.attacking || (Math.sign(t.dx) === dir && t.ad < 200));
+    }
     if (!cands.length) {
       this.target = null;
       return false;
@@ -563,6 +580,7 @@ export class HeroBrain {
     this.target = best.e;
     const opts = this.moveOptions(best, cands);
     if (!opts.length) {
+      if (roaming) return false; // keep moving; position() carries him on
       // close the distance (but do not charge blindly into a crowd)
       const e = best.e;
       const want = f.weapon ? 60 : 44;
@@ -586,6 +604,8 @@ export class HeroBrain {
     it.mx = 0;
     if (pick === 'grab') this.chooseThrow(best.e);
     if (pick === 'flyingkick') this.lastFlying = this.sim.time;
+    if (pick === 'dropkick') this.lastDropkick = this.sim.time;
+    if (pick === 'superman') this.lastSuperman = this.sim.time;
     it.action = pick;
     if (best.env && best.env.push > 0.6 && (m.crowd || pick === 'grab' || pick === 'teep' || pick === 'shove')) {
       this.say(best.env.label === 'crowd' ? 'Sending him into the crowd' : `Using ${HAZARD_NAMES[best.env.label] || 'the terrain'}`, 1);
@@ -608,6 +628,8 @@ export class HeroBrain {
     for (const t of cands) if (!t.behind && t.ad < 95) frontCluster++;
     // someone close behind him: long, committed moves leave his back open
     const exposed = this.exposedBehind(150, e);
+    // leaving the ground in a crowd gets you swatted out of the air
+    const airSafe = this.exposedBehind(240, e) === 0 && this.engaged <= 2;
     let isolated = true;
     for (const t of cands) if (t.e !== e && Math.abs(t.e.x - e.x) < 160) isolated = false;
     const list = f.weapon ? ARMED_MOVES : HERO_MOVES;
@@ -643,6 +665,12 @@ export class HeroBrain {
         case 'woverhead': w = 0.9 + (stag ? 0.8 : 0); break;
         case 'wthrust': w = 1.0; break;
         case 'wthrow': w = f.weapon && f.weapon.durability <= 2 && isolated ? 2 : 0.05; break;
+        case 'superman': w = ad > 85 && airSafe && this.sim.time - (this.lastSuperman || -9) > 3 && this.safeLanding(T.side, 220) ? 0.3 + (stag ? 0.4 : 0) : 0; break;
+        case 'backfist': w = 0.7 + (frontCluster >= 2 ? 0.2 : 0) + (stag ? 0.3 : 0); break;
+        case 'axekick': w = 0.45 + (blocking ? 1.5 : 0) + (stag ? 0.5 : 0); break;
+        case 'jumpknee': w = airSafe && this.safeLanding(T.side, 220) ? 0.3 + (stag ? 0.8 : 0) : 0; break;
+        case 'dropkick': w = airSafe && st > 40 && this.sim.time - this.lastDropkick > 5 && this.safeLanding(T.side, 330) ? 0.15 + env.push * 1.8 + (env.crowd >= 2 ? 0.5 : 0) : 0; break;
+        case 'headbutt': w = 0.55 + (e.state === 'holding' ? 1 : 0) + (stag ? 0.3 : 0); break;
       }
       if (T.behind && !m.back && this.engagedFront > 0) w *= 0.4; // turning away from others is risky
       if (exposed > 0 && !m.back && m.dur / rate > 0.42) w *= 0.3;
@@ -657,6 +685,48 @@ export class HeroBrain {
     return opts;
   }
 
+  // Somewhere else to fight: a brawl across the map, or a far point of the
+  // level he can reach.
+  pickRoamGoal(cur) {
+    const f = this.f;
+    const sim = this.sim;
+    const nav = sim.nav;
+    const rng = sim.rng;
+    if (cur < 0) return null;
+    const reach = (s) => s === cur || nav.dist[cur][s] < Infinity;
+    if (rng.chance(0.55)) {
+      let best = null;
+      let bd = 1e9;
+      for (const e of sim.enemies) {
+        if (e.dead || !e.brain || !e.brain.foe || e.ragdolled) continue;
+        const d = Math.abs(e.x - f.x) + Math.abs(e.y - f.y) * 1.5;
+        const s = surfaceOfFighter(e);
+        if (d < 450 || s < 0 || !reach(s) || d > bd) continue;
+        bd = d;
+        best = { x: e.x, surf: s };
+      }
+      if (best) return { ...best, until: sim.time + clamp(bd / 230 + 5, 8, 22), label: 'Crashing their brawl' };
+    }
+    const items = [];
+    for (const S of nav.surfaces) {
+      if (S.isolated || S.type === 'stairs' || !reach(S.id) || S.x1 - S.x0 < 120) continue;
+      for (let k = 0; k < 3; k++) {
+        const x = rng.range(S.x0 + 50, S.x1 - 50);
+        const d = Math.abs(x - f.x) + Math.abs(S.y - f.y) * 1.5;
+        if (d < 450) continue;
+        let w = d < 1700 ? 1.4 : 0.7;
+        if (S.id !== cur) w *= 1.4;
+        for (const lg of sim.level.ledges) if (Math.abs(lg.y - S.y) < 8 && x > lg.x0 - 90 && x < lg.x1 + 90) w *= 0.1;
+        items.push([{ x, surf: S.id, d }, w]);
+      }
+    }
+    if (!items.length) return null;
+    const g = rng.weighted(items);
+    const S = nav.surfaces[g.surf];
+    const label = S.y < f.y - 60 ? 'Taking the fight upstairs' : S.y > f.y + 60 ? 'Taking it downstairs' : 'Moving the fight';
+    return { x: g.x, surf: g.surf, until: sim.time + clamp(g.d / 230 + 5, 8, 22), label };
+  }
+
   // Enemies on their feet close behind him (other than `skip`).
   exposedBehind(radius, skip = null) {
     let n = 0;
@@ -668,9 +738,54 @@ export class HeroBrain {
     const f = this.f;
     const fwd = this.envOpportunity(victim);
     const back = this.behindValue();
-    if (back > fwd.push + 0.25) this.throwPlan = 'shouldertoss';
-    else if (fwd.crowd >= 2 && f.stamina > 35 && this.exposedBehind(170, victim) === 0) this.throwPlan = 'spinthrow';
-    else this.throwPlan = this.sim.rng.chance(0.7) ? 'hipthrow' : 'shouldertoss';
+    const exposed = this.exposedBehind(170, victim);
+    const fresh = f.stamina > 30;
+    const opts = [['hipthrow', 1], ['shouldertoss', 0.6 + (back > fwd.push ? 1.5 : 0)]];
+    if (fwd.crowd >= 2 && fresh && !exposed) opts.push(['spinthrow', 1.6]);
+    if (fresh) opts.push(['suplex', 0.8 + back * 1.2]);
+    if (fresh && !exposed) opts.push(['powerbomb', 0.7 + (fwd.push < 0.3 ? 0.4 : 0)]);
+    if (!exposed && this.engaged <= 5) opts.push(['clinch', 1.2]);
+    this.throwPlan = this.sim.rng.weighted(opts);
+  }
+
+  // Someone down within reach and nothing coming: stamp on him, or punt the
+  // body into his friends.
+  finisher() {
+    const f = this.f;
+    const sim = this.sim;
+    if (!f.canAct() || f.weapon || f.stamina < 12 || this.danger < 0.5 || this.exposedBehind(130) > 0) return false;
+    if (sim.time < (this.nextFinisher || 0)) return false;
+    let best = null;
+    for (const t of this.threats) {
+      const e = t.e;
+      if (!t.down || e.dead || !(e.state === 'down' || e.state === 'ragdoll') || Math.abs(t.dy) > 40) continue;
+      if (e.rag.coreSpeed(sim.h) > 160) continue;
+      const px = e.rag.p[2].x;
+      const ad = Math.abs(px - f.x);
+      if (ad > 70) continue;
+      if (!best || ad < best.ad) best = { e, ad, side: Math.sign(px - f.x) || f.facing, px };
+    }
+    if (!best) return false;
+    this.nextFinisher = sim.time + sim.rng.range(0.4, 1.4);
+    const it = f.intent;
+    const env = this.envOpportunity(best.e, best.side);
+    const punt = env.crowd >= 1 || env.push > 0.6 ? 0.75 : 0.25;
+    const id = sim.rng.chance(punt) ? 'punt' : 'stomp';
+    const m = MOVES[id];
+    const want = (m.range[0] + m.range[1]) * 0.5;
+    if (best.ad > m.range[1] - 4 || best.ad < m.range[0] + 2) {
+      it.mx = best.ad > want ? best.side : -best.side;
+      it.face = best.side;
+      it.run = false;
+      this.nextFinisher = sim.time + 0.05;
+      return true;
+    }
+    it.face = best.side;
+    it.mx = 0;
+    it.target = best.e;
+    it.action = id;
+    this.say(id === 'punt' ? 'Punting him into the crowd' : 'Finishing him', 0.7);
+    return true;
   }
 
   // ----------------------------------------------------------------- tactics
@@ -691,8 +806,28 @@ export class HeroBrain {
     }
     this.threatsNear = threatsNear;
     const lowHp = f.hp < f.maxHp * 0.25;
+    // now and then he takes the fight somewhere else on the map: across a
+    // catwalk, up the stairs, into somebody else's brawl
+    if (this.tactic === 'roam' && this.roam) {
+      const g = this.roam;
+      const there = Math.abs(f.x - g.x) < 70 && cur === g.surf;
+      if (!there && sim.time < g.until && f.stamina > 22 && !lowHp) return;
+      this.roam = null;
+      this.roamNext = sim.time + sim.rng.range(12, 24);
+    }
     if (threatsNear === 0 && incoming === 0) {
       if (this.tactic !== 'recover') this.quietSince = sim.time;
+      // nothing here: go where the fighting is
+      if (sim.time - (this.quietSince || 0) > 4 && f.stamina > 55 && sim.time > (this.roamNext || 0)) {
+        const g = this.pickRoamGoal(cur);
+        if (g) {
+          this.tactic = 'roam';
+          this.roam = g;
+          this.anchor = null;
+          this.say(g.label, 1.2);
+          return;
+        }
+      }
       // a long lull with enemies still about: go and find them
       if (sim.enemiesAlive > 0 && sim.time - (this.quietSince || 0) > 14 && f.stamina > 60) {
         this.tactic = 'hunt';
@@ -714,6 +849,17 @@ export class HeroBrain {
       this.tactic = 'breakout';
       this.anchor = this.bestPosition(cur, 2.2);
       return;
+    }
+    if (!lowHp && f.stamina > 45 && threatsNear <= 6 && sim.time > (this.roamNext === undefined ? 18 : this.roamNext)) {
+      const g = this.pickRoamGoal(cur);
+      if (g) {
+        this.tactic = 'roam';
+        this.roam = g;
+        this.anchor = null;
+        this.say(g.label, 1.2);
+        return;
+      }
+      this.roamNext = sim.time + 6;
     }
     if (threatsNear <= 2 && f.stamina > 30 && !lowHp && incoming < 6) {
       this.tactic = 'hunt';
@@ -873,6 +1019,11 @@ export class HeroBrain {
         return;
       }
       if (this.mindT <= 0) this.mind = `Going for the ${w.weapon.label}`;
+    } else if (this.tactic === 'roam' && this.roam) {
+      tx = this.roam.x;
+      ts = this.roam.surf;
+      run = Math.abs(tx - f.x) > 90;
+      if (this.mindT <= 0) this.mind = this.roam.label;
     } else if (this.anchor && (this.tactic === 'hold' || this.tactic === 'breakout' || this.tactic === 'recover')) {
       tx = this.anchor.x;
       ts = this.anchor.surf;

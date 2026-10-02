@@ -33,15 +33,68 @@ export class EnemyBrain {
     this.seenKO = 0;
   }
 
+  // Whoever this enemy is fighting right now: the hero, or a grudge.
   get hero() {
-    return this.sim.hero;
+    return this.foe || this.sim.hero;
   }
 
   onHit(by, dmg) {
     if (by && by.isHero) {
       this.courage = Math.max(0, this.courage - dmg * 0.004 * (1 - this.f.aggression));
       this.thinkT = Math.min(this.thinkT, 0.1);
+    } else if (by && by !== this.f && !by.dead && !this.foe && by.brain) {
+      // clobbered by one of his own: hotheads hit back, and it spreads
+      const f = this.f;
+      const p = 0.12 + f.aggression * 0.34 - f.intelligence * 0.2;
+      if (this.sim.rng.chance(p)) {
+        const dur = this.sim.rng.range(5, 12);
+        this.startBrawl(by, dur);
+        if (by.brain.startBrawl && !by.brain.foe && this.sim.rng.chance(0.75)) by.brain.startBrawl(f, dur);
+        this.sim.emit({ t: 'feed', text: `${f.name} turns on ${by.name}`, level: 1 });
+      }
     }
+  }
+
+  startBrawl(foe, dur) {
+    const f = this.f;
+    if (f.dead || !foe || foe.dead || foe === f || foe.isHero) return;
+    this.releaseToken();
+    this.foe = foe;
+    this.brawlUntil = this.sim.time + dur;
+    this.mode = 'wait';
+    this.cooldown = this.sim.rng.range(0.05, 0.5);
+    this.thinkT = 0;
+  }
+
+  endBrawl() {
+    this.foe = null;
+    this.mode = 'approach';
+    this.thinkT = 0;
+    this.cooldown = this.sim.rng.range(0.3, 1);
+  }
+
+  // Fighting a grudge: no queue, no tokens, just him and the other guy.
+  thinkBrawl() {
+    const f = this.f;
+    const sim = this.sim;
+    const foe = this.foe;
+    const realHero = sim.hero;
+    // the brawl ends when time is up, the other one is done, or Onyx walks in
+    const heroNear = !realHero.dead && Math.abs(realHero.x - f.x) < 220 && Math.abs(realHero.y - f.y) < 60;
+    if (foe.dead || foe.removed || sim.time > this.brawlUntil || (heroNear && sim.rng.chance(0.6))) {
+      if (foe.brain && foe.brain.foe === f) foe.brain.endBrawl();
+      this.endBrawl();
+      return false;
+    }
+    const dist = Math.abs(foe.x - f.x);
+    this.dist = dist;
+    this.same = Math.abs(foe.y - f.y) < 60;
+    const down = foe.ragdolled && !foe.dead;
+    if (this.cooldown <= 0 && (!down || f.aggression > 0.45)) {
+      this.mode = 'attack';
+      this.planAttack(dist, down, false);
+    } else this.mode = 'wait';
+    return true;
   }
 
   onWitnessKO(dist) {
@@ -76,6 +129,7 @@ export class EnemyBrain {
 
   // ------------------------------------------------------------- decisions
   think() {
+    if (this.foe && this.thinkBrawl()) return;
     const f = this.f;
     const sim = this.sim;
     const hero = this.hero;
@@ -144,7 +198,7 @@ export class EnemyBrain {
     const f = this.f;
     const rng = this.sim.rng;
     if (heroDown) {
-      this.planned = 'groundkick';
+      this.planned = rng.chance(0.45) ? 'stomp' : 'groundkick';
       return;
     }
     if (f.weapon) {
@@ -156,6 +210,7 @@ export class EnemyBrain {
       const m = MOVES[id];
       if (!m || m.heroOnly) return false;
       if (heroHeld && (id === 'bearhug' || id === 'tackle')) return false;
+      if (this.foe && m.type === 'grab') return false;
       if (id === 'flyingkick' || id === 'tackle') return dist > 90;
       return true;
     });
@@ -289,15 +344,21 @@ export class EnemyBrain {
           this.circleT = sim.rng.range(0.5, 1.6);
           if (sim.rng.chance(0.18 * (1 - f.intelligence))) this.tauntT = sim.rng.range(0.8, 1.6);
         }
-        let want = this.waitDist + this.circleDir * 22;
+        let want = (this.foe ? 72 + (1 - f.aggression) * 40 : this.waitDist) + this.circleDir * (this.foe ? 10 : 22);
         // crowd: if allies already sit at my slot, hang back a little further
         const tx = hero.x + side * want;
         steerTo(f, sim, tx, hs, { run: Math.abs(tx - f.x) > 160, arrive: 14, careful: true });
         it.face = Math.sign(dx) || f.facing;
         if (this.tauntT > 0) {
           this.tauntT -= dt;
-          if (it.mx === 0) f.stance = 'taunt';
-        }
+          if (it.mx === 0) {
+            f.stance = 'taunt';
+            if (!this.tauntDone && f.canAct() && dist > 130) {
+              this.tauntDone = true;
+              it.action = f.personality === 'brute' || f.personality === 'berserker' ? 'chestbeat' : 'beckon';
+            }
+          }
+        } else this.tauntDone = false;
         // agile flankers leap over a busy hero to get behind him
         const behind = side !== hero.facing;
         if (f.personality === 'flanker' && !behind && dist < 130 && dist > 60 && hero.state === 'move' && f.canAct() && sim.rng.chance(dt * 1.5)) {
@@ -310,7 +371,7 @@ export class EnemyBrain {
         const m = MOVES[this.planned] || MOVES.jab;
         const r = m.range;
         const want = (r[0] + r[1]) * 0.5;
-        if (this.planned === 'groundkick' && !(hero.state === 'down' || hero.state === 'ragdoll')) {
+        if ((this.planned === 'groundkick' || this.planned === 'stomp') && !(hero.state === 'down' || hero.state === 'ragdoll')) {
           this.mode = 'wait';
           this.thinkT = 0;
           break;
@@ -337,14 +398,14 @@ export class EnemyBrain {
             it.action = this.planned;
             this.lastAttack = sim.time;
             // hit-and-run vs keep pressing
-            if (sim.rng.chance(0.22 + f.aggression * 0.38)) {
+            if (sim.rng.chance(0.3 + f.aggression * 0.42)) {
               this.planAttack(dist, false, hero.state === 'held');
-              this.cooldown = sim.rng.range(0.08, 0.4) / (0.5 + f.aggression);
-              this.thinkT = Math.max(this.thinkT, 0.25);
+              this.cooldown = sim.rng.range(0.05, 0.3) / (0.5 + f.aggression);
+              this.thinkT = Math.max(this.thinkT, 0.2);
             } else {
               this.mode = 'wait';
               this.releaseToken();
-              this.cooldown = sim.rng.range(0.55, 1.4) * (1.4 - f.aggression * 0.7);
+              this.cooldown = sim.rng.range(0.4, 1.1) * (1.35 - f.aggression * 0.7);
             }
           }
         }
@@ -378,7 +439,7 @@ export class TokenManager {
     const S = this.sim.settings;
     const lvl = this.sim.director.level;
     // early on the crowd takes turns; escalation lets more of them in at once
-    this.max = Math.max(1, Math.round(0.9 + lvl * 1.1 + (S.enemyIntelligence - 1) * 1.2 + (S.enemyAggression - 1) * 2.5));
+    this.max = Math.max(1, Math.round(1.4 + lvl * 1.25 + (S.enemyIntelligence - 1) * 1.2 + (S.enemyAggression - 1) * 2.5));
     const now = this.sim.time;
     for (const [f, t] of this.holders) {
       if (f.dead || f.removed || now - t > 3.2 || Math.abs(f.x - this.sim.hero.x) > 420) this.holders.delete(f);

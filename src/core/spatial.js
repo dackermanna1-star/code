@@ -34,6 +34,7 @@ export class PointGrid {
   }
 
   insert(obj, x, y) {
+    if (x !== x || y !== y) return; // NaN: never poison the grid
     let cx = Math.floor(x * this.inv) - this.cx0;
     let cy = Math.floor(y * this.inv) - this.cy0;
     if (cx < 0) cx = 0;

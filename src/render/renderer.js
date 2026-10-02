@@ -68,6 +68,7 @@ export class Renderer {
     env.drawDecor(ctx, sim, view, t, 'mid');
     env.drawStructure(ctx, view);
     if (L.puddles) this.drawPuddles(ctx, sim, view, alpha);
+    fx.gore.draw(ctx, view);
 
     const dark = L.dark;
     if (dark) this.drawDarkness(ctx, sim, cam, fx, view, t, W, H);
@@ -83,7 +84,7 @@ export class Renderer {
     }
     order.sort((a, b) => rank(a) - rank(b) || a.id - b.id);
     for (const f of order) if (!f.ragdolled) drawShadow(ctx, f, alpha, P);
-    const opts = { t, trails: S.motionTrails, light: undefined, rim: null };
+    const opts = { t, trails: S.motionTrails, light: undefined, rim: null, gore: S.gore > 0 };
     let i = 0;
     for (; i < order.length && rank(order[i]) === 0; i++) this.drawOne(ctx, order[i], alpha, opts, dark, sim, t);
     for (const b of sim.props.boxes) drawBox(ctx, b, alpha, t, P);
@@ -93,6 +94,7 @@ export class Renderer {
 
     env.drawFront(ctx, sim, view, t);
     fx.draw(ctx, view, t);
+    if (fx.impact && S.screenShake > 0) this.drawImpactFrame(ctx, fx.impact, view, alpha, t);
     if (L.rain) fx.drawRain(ctx, view);
     if (L.smoke) fx.drawSmoke(ctx, view);
     if (S.debugAI) this.drawDebug(ctx, sim, view);
@@ -123,6 +125,32 @@ export class Renderer {
       ctx.fillRect(0, 0, W, bh);
       ctx.fillRect(0, H - bh, W, bh);
     }
+  }
+
+  // Two frames of pure graphic punch: white world, the two fighters in solid
+  // black, burst lines radiating from the point of contact.
+  drawImpactFrame(ctx, im, view, alpha, t) {
+    const m = 400;
+    ctx.save();
+    ctx.fillStyle = 'rgba(250,248,244,0.93)';
+    ctx.fillRect(view.x0 - m, view.y0 - m, view.x1 - view.x0 + m * 2, view.y1 - view.y0 + m * 2);
+    ctx.strokeStyle = 'rgba(10,10,12,0.85)';
+    ctx.lineCap = 'butt';
+    const n = 22;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + ((i * 7) % 5) * 0.05;
+      const r0 = 70 + ((i * 13) % 7) * 12;
+      const r1 = r0 + 260 + ((i * 29) % 11) * 30;
+      ctx.lineWidth = 2 + ((i * 5) % 4);
+      ctx.beginPath();
+      ctx.moveTo(im.x + Math.cos(a) * r0, im.y + Math.sin(a) * r0);
+      ctx.lineTo(im.x + Math.cos(a) * r1, im.y + Math.sin(a) * r1);
+      ctx.stroke();
+    }
+    const o = { t, trails: false, solid: '#0a0a0c', gore: false };
+    if (im.b && !im.b.removed) drawFighter(ctx, im.b, alpha, o);
+    if (im.a && !im.a.removed) drawFighter(ctx, im.a, alpha, o);
+    ctx.restore();
   }
 
   drawOne(ctx, f, alpha, opts, dark, sim, t) {

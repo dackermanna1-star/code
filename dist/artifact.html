@@ -1090,6 +1090,7 @@ const DEFAULT_SETTINGS = {
   slowMo: 1,
   screenShake: 1,
   motionTrails: true,
+  gore: 2, // 0 off, 1 blood, 2 brutal
   showStats: false,
   debugAI: false,
   autoNext: true,
@@ -1262,6 +1263,7 @@ class PointGrid {
   }
 
   insert(obj, x, y) {
+    if (x !== x || y !== y) return; // NaN: never poison the grid
     let cx = Math.floor(x * this.inv) - this.cx0;
     let cy = Math.floor(y * this.inv) - this.cy0;
     if (cx < 0) cx = 0;
@@ -4175,6 +4177,9 @@ class Ragdoll {
     this.maxImpact = 0;
     this.settle = 0; // 0..1 extra damping for slow, piled-up bodies
     this.coreAvg = 0; // smoothed core speed (sleep test ignores contact jitter)
+    this.impNx = 0; // normal and point of the hardest core impact this step
+    this.impX = 0;
+    this.impY = 0;
   }
 
   // Speed of the heavy core (pelvis and neck), ignoring flailing limbs.
@@ -4299,7 +4304,15 @@ class Ragdoll {
     }
     for (let i = 0; i < NJ; i++) level.collideParticle(p[i], bounce, mu, h);
     // only the heavy core (head, neck, pelvis) counts as the body slamming down
-    for (let i = 0; i < 3; i++) if (p[i].impact > this.maxImpact) this.maxImpact = p[i].impact;
+    for (let i = 0; i < 3; i++) {
+      const q = p[i];
+      if (q.impact > this.maxImpact) {
+        this.maxImpact = q.impact;
+        this.impNx = q.impactNx;
+        this.impX = q.x - q.impactNx * q.r;
+        this.impY = q.y - q.impactNy * q.r;
+      }
+    }
   }
 
   grounded() {
@@ -4363,6 +4376,21 @@ const HOLDING = P({ torso: 18, head: -6, sA: 82, eA: 72, sB: 76, eB: 82, px: 2, 
 const WEAPON_GUARD = P({ torso: 8, head: -6, sA: 64, eA: 70, sB: 40, eB: 96, py: 39 }, GUARD);
 const FLINCH_HIGH = P({ rot: 0, torso: -22, head: -32, sA: -24, eA: -30, sB: -20, eB: -30, hA: 0, kA: 0, hB: 0, kB: 0, px: 0, py: -2 });
 const FLINCH_LOW = P({ rot: 0, torso: 28, head: 18, sA: -20, eA: -20, sB: -10, eB: -10, hA: 0, kA: 0, hB: 0, kB: 0, px: 0, py: -4 });
+// Directional hit reactions (additive on top of the stance).
+const Z = { rot: 0, torso: 0, head: 0, sA: 0, eA: 0, sB: 0, eB: 0, hA: 0, kA: 0, hB: 0, kB: 0, px: 0, py: 0 };
+const FLINCH = {
+  head: FLINCH_HIGH,
+  // a hook: the head whips round and down, arms fly loose
+  jaw: P({ ...Z, torso: -10, head: 44, sA: -46, eA: -60, sB: 34, eB: -50, py: -3 }),
+  // an uppercut: chin snaps up, back arches, up onto the toes
+  chin: P({ ...Z, torso: -34, head: -58, sA: 30, eA: -70, sB: 40, eB: -70, py: 3 }),
+  // to the gut: folds in half clutching the stomach
+  gut: P({ ...Z, torso: 52, head: 30, sA: 22, eA: 40, sB: 30, eB: 40, hA: 12, kA: 26, kB: 22, py: -7, px: -3 }),
+  // from behind: arches forward, arms thrown back
+  back: P({ ...Z, torso: 26, head: -30, sA: -40, eA: -20, sB: -46, eB: -24, py: -2, px: 3 }),
+  // a leg kick: the knee buckles
+  leg: P({ ...Z, torso: 18, head: 10, sA: 14, eA: -20, hA: 16, kA: 44, py: -9 }),
+};
 
 const MOVES = {};
 
@@ -5032,20 +5060,303 @@ def('jumpsquat', {
   keepVel: true,
 });
 
+// More strikes -----------------------------------------------------------------
+def('superman', {
+  keys: [
+    [0, GUARD],
+    [0.1, P({ torso: 6, head: -8, hB: 46, kB: 96, sB: 22, eB: 140, py: 33 }, GUARD), 'outQuad'],
+    [0.2, P({ torso: 18, head: -12, sA: 40, eA: 120, sB: 28, eB: 150, hA: 50, kA: 82, hB: -62, kB: 28 }, GUARD), 'outQuad'],
+    [0.27, P({ torso: 32, head: -14, sA: 20, eA: 100, sB: 100, eB: 0, hA: 24, kA: 36, hB: -54, kB: 40, px: 6 }, GUARD), 'outCubic'],
+    [0.38, P({ torso: 30, head: -12, sA: 24, eA: 100, sB: 96, eB: 8, hA: 22, kA: 40, hB: -40, kB: 40, px: 6 }, GUARD)],
+    [0.56, GUARD],
+  ],
+  air: { t: 0.12, vx: 340, vy: 380, legsFrom: 0.12 },
+  legs: { A: [[0.1, 0.56]], B: [[0.04, 0.56]] },
+  hits: [{ t0: 0.22, t1: 0.36, joint: HAND_B, r: 11, dmg: 13, kx: 320, ky: -60, stun: 0.5, poise: 32, height: 'high', kind: 'punch' }],
+  endOnLand: 0.3,
+  cancel: 0.62,
+  stamina: 9,
+  range: [70, 150],
+});
+
+def('backfist', {
+  keys: [
+    [0, GUARD],
+    [0.08, P({ torso: 6, head: -16, sA: 18, eA: 140, sB: 32, eB: 120, hB: -8, kB: 26 }, GUARD), 'inQuad'],
+    [0.13, P({ torso: 22, head: -32, sA: 56, eA: 120, sB: 30, eB: 120, px: 2 }, GUARD), 'linear'],
+    [0.21, P({ torso: 18, head: -12, sA: 102, eA: 8, sB: 22, eB: 132, px: 7 }, GUARD), 'outCubic'],
+    [0.29, P({ torso: 16, head: -10, sA: 98, eA: 14, sB: 22, eB: 132, px: 7 }, GUARD)],
+    [0.48, GUARD],
+  ],
+  flips: [0.1, 0.18],
+  hits: [{ t0: 0.17, t1: 0.27, joint: HAND_A, r: 12, dmg: 11, kx: 330, ky: -50, stun: 0.45, poise: 30, height: 'high', kind: 'punch', abs: true, react: 'jaw' }],
+  motion: [[0.06, 0.2, 100]],
+  cancel: 0.3,
+  stamina: 7,
+  range: [20, 64],
+});
+
+def('axekick', {
+  keys: [
+    [0, GUARD],
+    [0.12, P({ torso: -16, head: 2, sA: 54, eA: 92, sB: 30, eB: 110, hA: 148, kA: 12, py: 41 }, GUARD), 'outQuad'],
+    [0.2, P({ torso: -22, head: 6, sA: 60, eA: 88, sB: 26, eB: 110, hA: 168, kA: 4, py: 42 }, GUARD), 'linear'],
+    [0.3, P({ torso: 22, head: -10, sA: 40, eA: 110, sB: 30, eB: 120, hA: 40, kA: 6, py: 37, px: 4 }, GUARD), 'inCubic'],
+    [0.4, P({ torso: 18, head: -8, hA: 22, kA: 24, py: 37, px: 4 }, GUARD)],
+    [0.6, GUARD],
+  ],
+  legs: { A: [[0.03, 0.5]] },
+  hits: [{ t0: 0.23, t1: 0.33, joint: FOOT_A, r: 14, dmg: 15, kx: 120, ky: 420, stun: 0.62, poise: 64, height: 'high', kind: 'kick', react: 'gut' }],
+  cancel: 0.44,
+  stamina: 10,
+  range: [22, 66],
+});
+
+def('jumpknee', {
+  keys: [
+    [0, GUARD],
+    [0.08, P({ torso: 16, head: -10, py: 32, hA: 30, kA: 60, hB: -24, kB: 50 }, GUARD), 'outQuad'],
+    [0.18, P({ torso: -10, head: -6, sA: 74, eA: 64, sB: 66, eB: 70, hA: 124, kA: 140, hB: -22, kB: 64 }, GUARD), 'outCubic'],
+    [0.3, P({ torso: -4, head: -4, sA: 70, eA: 60, sB: 62, eB: 66, hA: 120, kA: 136, hB: -16, kB: 70 }, GUARD)],
+    [0.5, AIR_DOWN],
+  ],
+  air: { t: 0.08, vx: 330, vy: 560, legsFrom: 0.08 },
+  legs: { A: [[0, 0.6]], B: [[0, 0.6]] },
+  hits: [{ t0: 0.14, t1: 0.32, joint: KNEE_A, r: 14, dmg: 15, kx: 260, ky: -400, stun: 0.55, poise: 50, height: 'high', kind: 'kick', launch: true, react: 'chin' }],
+  endOnLand: 0.25,
+  cancel: 0.9,
+  stamina: 10,
+  range: [50, 150],
+});
+
+def('dropkick', {
+  keys: [
+    [0, GUARD],
+    [0.1, P({ torso: 18, head: -10, py: 31, hA: 30, kA: 64, hB: -26, kB: 56 }, GUARD), 'outQuad'],
+    [0.2, P({ torso: -24, head: 6, sA: 30, eA: 60, sB: 20, eB: 60, hA: 104, kA: 124, hB: 98, kB: 126 }, GUARD), 'outQuad'],
+    [0.3, P({ torso: -64, head: 18, sA: -40, eA: 30, sB: -54, eB: 30, hA: 94, kA: 4, hB: 88, kB: 6 }, GUARD), 'outCubic'],
+    [0.5, P({ torso: -60, head: 16, sA: -40, eA: 30, sB: -54, eB: 30, hA: 92, kA: 8, hB: 86, kB: 10 }, GUARD)],
+    [0.7, P({ torso: 6, sA: 60, eA: 70, sB: 40, eB: 70, hA: 70, kA: 100, hB: 50, kB: 100 }, GUARD), 'inOutQuad'],
+  ],
+  air: { t: 0.1, vx: 430, vy: 520, legsFrom: 0.1 },
+  legs: { A: [[0, 0.8]], B: [[0, 0.8]] },
+  hits: [
+    { t0: 0.26, t1: 0.5, joint: FOOT_A, r: 15, dmg: 15, kx: 720, ky: -170, stun: 0.6, poise: 90, height: 'mid', kind: 'kick' },
+    { t0: 0.26, t1: 0.5, joint: FOOT_B, r: 15, dmg: 4, kx: 720, ky: -170, stun: 0.6, poise: 90, height: 'mid', kind: 'kick' },
+  ],
+  endOnLand: 0.4,
+  cancel: 0.9,
+  stamina: 12,
+  range: [90, 220],
+  heroOnly: true,
+});
+
+def('headbutt', {
+  keys: [
+    [0, GUARD],
+    [0.09, P({ torso: -12, head: -30, sA: 74, eA: 58, sB: 70, eB: 62, px: -2 }, GUARD), 'outQuad'],
+    [0.16, P({ torso: 36, head: 24, sA: 80, eA: 50, sB: 76, eB: 56, px: 9, py: 38 }, GUARD), 'inCubic'],
+    [0.24, P({ torso: 32, head: 20, sA: 78, eA: 54, sB: 74, eB: 58, px: 8, py: 38 }, GUARD)],
+    [0.42, GUARD],
+  ],
+  hits: [{ t0: 0.12, t1: 0.2, joint: HEAD, r: 12, dmg: 11, kx: 170, ky: -30, stun: 0.5, poise: 34, height: 'high', kind: 'punch', react: 'head' }],
+  motion: [[0.08, 0.18, 120]],
+  cancel: 0.26,
+  stamina: 5,
+  range: [4, 30],
+});
+
+// Finishers on someone already on the floor ----------------------------------------
+def('stomp', {
+  keys: [
+    [0, GUARD],
+    [0.13, P({ torso: -6, head: 14, sA: 64, eA: 92, sB: 40, eB: 110, hA: 112, kA: 124, py: 41 }, GUARD), 'outQuad'],
+    [0.22, P({ torso: 22, head: 30, sA: 40, eA: 120, sB: 30, eB: 120, hA: 28, kA: 8, py: 36 }, GUARD), 'inCubic'],
+    [0.32, P({ torso: 20, head: 28, hA: 30, kA: 12, py: 36 }, GUARD)],
+    [0.52, GUARD],
+  ],
+  legs: { A: [[0.03, 0.42]] },
+  hits: [{ t0: 0.18, t1: 0.27, joint: FOOT_A, r: 15, dmg: 14, kx: 50, ky: 320, stun: 0, poise: 0, height: 'ground', kind: 'kick', ground: true }],
+  cancel: 0.4,
+  stamina: 6,
+  range: [-6, 44],
+});
+
+def('punt', {
+  keys: [
+    [0, GUARD],
+    [0.13, P({ torso: -10, head: 16, sA: 70, eA: 60, sB: 10, eB: 90, hB: -62, kB: 86 }, GUARD), 'outQuad'],
+    [0.22, P({ torso: 14, head: 20, sA: 20, eA: 80, sB: 70, eB: 50, hB: 82, kB: 8, px: 4 }, GUARD), 'outCubic'],
+    [0.3, P({ torso: 12, head: 18, sA: 20, eA: 80, sB: 70, eB: 50, hB: 78, kB: 14, px: 4 }, GUARD)],
+    [0.55, GUARD],
+  ],
+  legs: { B: [[0.03, 0.46]] },
+  hits: [{ t0: 0.17, t1: 0.27, joint: FOOT_B, r: 15, dmg: 9, kx: 640, ky: -360, stun: 0, poise: 0, height: 'ground', kind: 'kick', ground: true, punt: true }],
+  cancel: 0.42,
+  stamina: 7,
+  range: [6, 52],
+  heroOnly: true,
+});
+
+// Brutal throws ------------------------------------------------------------------
+def('suplex', {
+  type: 'throw',
+  autoGround: true,
+  keys: [
+    [0, P({ torso: 20, sA: 80, eA: 60, sB: 70, eB: 70, px: 4 }, GUARD)],
+    [0.2, P({ torso: 14, head: -16, sA: 150, eA: 60, sB: 144, eB: 66, hA: 30, kA: 70, py: 31 }, GUARD), 'inOutQuad'],
+    [0.42, P({ torso: -70, head: -46, sA: 200, eA: 20, sB: 196, eB: 26, hA: 60, kA: 110, hB: 40, kB: 110, px: -8, py: 28 }, GUARD), 'inQuad'],
+    [0.55, P({ torso: -84, head: -40, sA: 210, eA: 20, sB: 206, eB: 24, hA: 70, kA: 120, hB: 50, kB: 120, px: -10, py: 24 }, GUARD)],
+    [0.8, P({ torso: 20, head: -10, sA: 60, eA: 80, sB: 50, eB: 90, py: 30 }, GUARD), 'inOutQuad'],
+    [1.0, GUARD],
+  ],
+  legs: { A: [[0.15, 0.8]], B: [[0.3, 0.78]] },
+  victim: [
+    [0, 26, -40, 26, -4],
+    [0.2, 22, -22, 26, -86],
+    [0.42, -12, -112, 22, -124],
+    [0.55, -64, 26, -30, -44],
+  ],
+  release: [0.55, -220, 700],
+  throwDmg: 16,
+  stamina: 10,
+  dir: -1,
+  heroOnly: true,
+});
+
+def('powerbomb', {
+  type: 'throw',
+  keys: [
+    [0, P({ torso: 20, sA: 80, eA: 60, sB: 70, eB: 70, px: 4 }, GUARD)],
+    [0.22, P({ torso: -8, head: -18, sA: 176, eA: 20, sB: 170, eB: 24, py: 40 }, GUARD), 'inOutQuad'],
+    [0.38, P({ torso: -20, head: -24, sA: 188, eA: 12, sB: 182, eB: 16, py: 42 }, GUARD), 'outQuad'],
+    [0.5, P({ torso: 52, head: 6, sA: 96, eA: 10, sB: 90, eB: 16, py: 27, px: 6 }, GUARD), 'inCubic'],
+    [0.82, GUARD],
+  ],
+  victim: [
+    [0, 26, -40, 26, -4],
+    [0.22, 8, -104, 34, -132],
+    [0.38, 18, -150, 46, -152],
+    [0.5, 64, 26, 50, -34],
+  ],
+  release: [0.5, 140, 950],
+  throwDmg: 18,
+  stamina: 10,
+  dir: 1,
+  heroOnly: true,
+});
+
+// The clinch: head pulled down, knees driven up into the face.
+def('clinch', {
+  type: 'throw',
+  keys: [
+    [0, P({ torso: 22, sA: 80, eA: 60, sB: 74, eB: 66, px: 4 }, GUARD)],
+    [0.14, P({ torso: 26, head: -6, sA: 82, eA: 54, sB: 78, eB: 58, hA: 40, kA: 90, px: 2 }, GUARD)],
+    [0.24, P({ torso: 18, head: -10, sA: 74, eA: 60, sB: 70, eB: 64, hA: 112, kA: 120, px: 4 }, GUARD), 'outCubic'],
+    [0.36, P({ torso: 26, sA: 82, eA: 54, sB: 78, eB: 58, hA: 20, kA: 30, hB: 30, kB: 80 }, GUARD)],
+    [0.48, P({ torso: 18, head: -10, sA: 74, eA: 60, sB: 70, eB: 64, hB: 112, kB: 120, px: 4 }, GUARD), 'outCubic'],
+    [0.62, P({ torso: 26, sA: 82, eA: 54, sB: 78, eB: 58, hA: 44, kA: 96, hB: -10, kB: 30 }, GUARD)],
+    [0.76, P({ torso: 10, head: -14, sA: 70, eA: 66, sB: 66, eB: 70, hA: 128, kA: 128, px: 6 }, GUARD), 'outCubic'],
+    [1.0, GUARD],
+  ],
+  legs: { A: [[0.1, 0.36], [0.56, 0.9]], B: [[0.36, 0.6]] },
+  victim: [
+    [0, 26, -40, 26, -4],
+    [0.12, 26, -14, 46, -26],
+    [0.74, 26, -16, 46, -26],
+    [0.78, 30, -40, 40, -10],
+  ],
+  strikes: [[0.24, 7], [0.48, 7], [0.76, 11]],
+  release: [0.78, 300, -300],
+  throwDmg: 4,
+  stamina: 10,
+  dir: 1,
+  heroOnly: true,
+});
+
+// Taunts --------------------------------------------------------------------------
+def('beckon', {
+  type: 'special',
+  keys: [
+    [0, GUARD],
+    [0.16, P({ torso: -4, head: -6, sA: 82, eA: 18, sB: 20, eB: 120 }, GUARD), 'outQuad'],
+    [0.3, P({ torso: -4, head: -6, sA: 82, eA: 112, sB: 20, eB: 120 }, GUARD)],
+    [0.44, P({ torso: -4, head: -6, sA: 82, eA: 18, sB: 20, eB: 120 }, GUARD)],
+    [0.58, P({ torso: -4, head: -6, sA: 82, eA: 112, sB: 20, eB: 120 }, GUARD)],
+    [0.85, GUARD],
+  ],
+  cancel: 0.3,
+});
+
+def('chestbeat', {
+  type: 'special',
+  keys: [
+    [0, GUARD],
+    [0.12, P({ torso: -14, head: -24, sA: 62, eA: 140, sB: 64, eB: 140, py: 41 }, GUARD), 'outQuad'],
+    [0.22, P({ torso: -10, head: -20, sA: 30, eA: 150, sB: 70, eB: 140, py: 41 }, GUARD)],
+    [0.32, P({ torso: -10, head: -20, sA: 70, eA: 140, sB: 30, eB: 150, py: 41 }, GUARD)],
+    [0.42, P({ torso: -10, head: -20, sA: 30, eA: 150, sB: 70, eB: 140, py: 41 }, GUARD)],
+    [0.52, P({ torso: -10, head: -20, sA: 70, eA: 140, sB: 30, eB: 150, py: 41 }, GUARD)],
+    [0.62, P({ torso: -18, head: -36, sA: 150, eA: 40, sB: 146, eB: 44, py: 42 }, GUARD), 'outQuad'],
+    [0.95, GUARD],
+  ],
+  cancel: 0.5,
+  enemyOnly: true,
+});
+
+def('neckcrack', {
+  type: 'special',
+  keys: [
+    [0, GUARD],
+    [0.2, P({ torso: 4, head: -36, sA: 30, eA: 120, sB: 14, eB: 120, py: 40 }, GUARD), 'inOutQuad'],
+    [0.42, P({ torso: 6, head: 34, sA: 24, eA: 124, sB: 10, eB: 124, py: 40 }, GUARD), 'inOutQuad'],
+    [0.6, P({ torso: 2, head: -6, sA: 60, eA: 30, sB: 50, eB: 30, py: 41 }, GUARD), 'outQuad'],
+    [0.9, GUARD],
+  ],
+  cancel: 0.5,
+  heroOnly: true,
+});
+
+// Deaths: the first key is replaced by the pose he was in.
+def('crumple', {
+  type: 'death',
+  fromCurrent: true,
+  keys: [
+    [0, GUARD],
+    [0.16, P({ torso: 26, head: 34, sA: 18, eA: 24, sB: 8, eB: 18, hA: 40, kA: 92, hB: 30, kB: 104, py: 26 }, GUARD), 'outQuad'],
+    [0.42, P({ torso: 54, head: 46, sA: 6, eA: 10, sB: 0, eB: 8, hA: 82, kA: 152, hB: 74, kB: 152, py: 14 }, GUARD), 'inQuad'],
+    [0.52, P({ torso: 64, head: 50, sA: 4, eA: 8, sB: -4, eB: 6, hA: 84, kA: 152, hB: 76, kB: 152, py: 13 }, GUARD)],
+  ],
+  legs: { A: [[0.05, 0.52]], B: [[0.05, 0.52]] },
+  fall: [70, -20, 3],
+});
+
+def('timber', {
+  type: 'death',
+  fromCurrent: true,
+  keys: [
+    [0, GUARD],
+    [0.2, P({ torso: -14, head: -34, sA: 26, eA: 12, sB: 16, eB: 10, hA: 4, kA: 2, hB: -4, kB: 2, py: 43 }, GUARD), 'outQuad'],
+    [0.34, P({ torso: -22, head: -40, sA: 30, eA: 10, sB: 20, eB: 8, hA: 4, kA: 2, hB: -4, kB: 2, py: 43 }, GUARD)],
+  ],
+  legs: { A: [[0.05, 0.34]], B: [[0.05, 0.34]] },
+  fall: [-60, -10, -2.2],
+});
+
 const STRIKES_HERO = ['jab', 'cross', 'hook', 'uppercut', 'elbow', 'knee', 'teep', 'roundhouse', 'spinkick', 'sweep', 'flyingkick', 'shove'];
 const BACK_MOVES = ['backkick', 'backelbow'];
 const WEAPON_MOVES = ['wswing', 'woverhead', 'wthrust'];
 
 // Enemy styles: weighted moves they may use.
 const STYLES = {
-  boxer: [['jab', 4], ['cross', 3], ['hook', 2], ['uppercut', 1]],
-  brawler: [['haymaker', 4], ['jab', 2], ['cross', 2], ['shove', 1]],
-  kicker: [['teep', 3], ['roundhouse', 2], ['jab', 1], ['knee', 1], ['flyingkick', 1]],
-  grappler: [['bearhug', 4], ['jab', 1], ['knee', 2], ['tackle', 1]],
-  wild: [['haymaker', 3], ['tackle', 2], ['hook', 2], ['knee', 1]],
-  balanced: [['jab', 3], ['cross', 2], ['teep', 1], ['hook', 1], ['roundhouse', 1]],
+  boxer: [['jab', 4], ['cross', 3], ['hook', 2], ['uppercut', 1], ['backfist', 1]],
+  brawler: [['haymaker', 4], ['jab', 2], ['cross', 2], ['headbutt', 2], ['shove', 1], ['superman', 1]],
+  kicker: [['teep', 3], ['roundhouse', 2], ['axekick', 1], ['jab', 1], ['knee', 1], ['flyingkick', 1], ['jumpknee', 1]],
+  grappler: [['bearhug', 4], ['headbutt', 2], ['jab', 1], ['knee', 2], ['tackle', 1]],
+  wild: [['haymaker', 3], ['tackle', 2], ['headbutt', 2], ['hook', 2], ['knee', 1], ['superman', 1]],
+  balanced: [['jab', 3], ['cross', 2], ['teep', 1], ['hook', 1], ['roundhouse', 1], ['backfist', 1]],
 };
-return { WEAPON_TIP, GUARD, RELAXED, TIRED, BLOCK, RUN, AIR_UP, AIR_DOWN, LAND, STAGGER, TAUNT, HELD, HOLDING, WEAPON_GUARD, FLINCH_HIGH, FLINCH_LOW, MOVES, STRIKES_HERO, BACK_MOVES, WEAPON_MOVES, STYLES };
+return { WEAPON_TIP, GUARD, RELAXED, TIRED, BLOCK, RUN, AIR_UP, AIR_DOWN, LAND, STAGGER, TAUNT, HELD, HOLDING, WEAPON_GUARD, FLINCH_HIGH, FLINCH_LOW, FLINCH, MOVES, STRIKES_HERO, BACK_MOVES, WEAPON_MOVES, STYLES };
 })();
 
 // ---- src/fighter/fighter.js
@@ -5053,7 +5364,7 @@ const __m13 = (() => {
 const { clamp, lerp, damp, dampAngle, wrapAngle, smoothstep, Ease, approach } = __m5;
 const { makeDims, fk, ik2, poseFromJoints, copyPose, lerpPose, NP, ANGLE_CHANNELS, ROT, TORSO, HEADA, SA, EA, SB, EB, HA, KA, HB, KB, PX, PY, HEAD, NECK, PELVIS, ELB_A, HAND_A, ELB_B, HAND_B, KNEE_A, FOOT_A, KNEE_B, FOOT_B, NJ } = __m11;
 const { Ragdoll } = __m14;
-const { MOVES, GUARD, RELAXED, TIRED, BLOCK, RUN, AIR_UP, AIR_DOWN, LAND, STAGGER, TAUNT, HELD, HOLDING, WEAPON_GUARD, FLINCH_HIGH, FLINCH_LOW } = __m15;
+const { MOVES, GUARD, RELAXED, TIRED, BLOCK, RUN, AIR_UP, AIR_DOWN, LAND, STAGGER, TAUNT, HELD, HOLDING, WEAPON_GUARD, FLINCH_HIGH, FLINCH_LOW, FLINCH } = __m15;
 // A fighter: character controller + state machine + procedural animation +
 // active ragdoll. The brain (AI) writes `intent`; everything else here turns
 // intent into physically plausible motion.
@@ -5186,6 +5497,9 @@ class Fighter {
     this.squashV = 0;
     this.flinch = 0;
     this.flinchLow = false;
+    this.flinchType = 'head';
+    this.flinchRate = 4.5;
+    this.bob = (spec.id * 1.3) % 6.28;
     this.flash = 0;
     this.breath = (spec.id * 0.37) % 6.28;
     this.poseRate = 16;
@@ -5341,7 +5655,7 @@ class Fighter {
 
   // ---------------------------------------------------------------- damage
   // Small reactions keep the fighter on its feet; muscles slacken briefly.
-  hitstun(dur, kvx, kvy, low, h) {
+  hitstun(dur, kvx, kvy, low, react, heavy) {
     if (this.dead) return;
     if (this.state === 'move' && this.move) {
       if (this.move.type === 'throw' && this.victim) this.releaseVictim(false);
@@ -5359,7 +5673,29 @@ class Fighter {
     this.muscleRate = 3.2;
     this.flinch = 1;
     this.flinchLow = !!low;
+    this.flinchType = react || (low ? 'gut' : 'head');
+    // big shots hold the reaction pose longer
+    this.flinchRate = clamp(1.5 / Math.max(0.2, dur), 2.2, 6);
+    if (heavy && !this.isHero) {
+      // reeling: arms windmilling, stumbling back
+      this.staggered = true;
+      this.stun = Math.max(this.stun, dur * 1.35);
+    }
     this.replantFeet();
+  }
+
+  // Killed on his feet by a blow that did not launch him: he folds.
+  dieOnFeet(kind) {
+    if (this.ragdolled || this.state === 'grabbed' || this.state === 'held' || !this.grounded) return false;
+    if (this.holdTarget) this.releaseHold();
+    if (this.state === 'move' && this.move && this.move.type === 'throw' && this.victim) this.releaseVictim(false);
+    this.snap = copyPose(new Float64Array(NP), this.pose);
+    this.vx *= 0.3;
+    this.staggered = false;
+    this.flinch = 0;
+    this.move = null;
+    this.dropWeapon(this.facing * 40, -120);
+    return this.startMove(kind);
   }
 
   stumble(dir, dur) {
@@ -5418,7 +5754,7 @@ class Fighter {
       this.koCause = cause || 'beaten';
       this.koBy = by || null;
       this.koTime = this.sim.time;
-      if (!this.ragdolled) this.knockdown(0, 0);
+      if (!this.ragdolled && !this.pendingDeath) this.knockdown(0, 0);
       this.sim.onKO(this, by, cause);
     }
     return amount;
@@ -5507,7 +5843,7 @@ class Fighter {
     if (this.passT > 0) this.passT -= dt;
     if (this.invuln > 0) this.invuln -= dt;
     if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 6);
-    if (this.flinch > 0) this.flinch = Math.max(0, this.flinch - dt * 4.5);
+    if (this.flinch > 0) this.flinch = Math.max(0, this.flinch - dt * this.flinchRate);
 
     this.updateVitals(dt);
 
@@ -5641,7 +5977,10 @@ class Fighter {
     const fall = this.y - this.fallStartY;
     this.airTime = 0;
     this.replantFeet();
-    if (v > 1250 || (v > 1000 && this.state === 'hitstun')) {
+    // he drops off catwalks on purpose and lands like a cat; others fold up
+    const hard = this.isHero && this.state !== 'hitstun' ? 1600 : 1250;
+    const hurt = this.isHero && this.state !== 'hitstun' ? 1150 : 760;
+    if (v > hard || (v > 1000 && this.state === 'hitstun')) {
       // hard landing: crumple
       const dmg = (v - 900) * 0.045;
       this.knockdown(this.vx * 0.5, 0, { spin: 0 });
@@ -5649,8 +5988,8 @@ class Fighter {
       this.emit({ t: 'thud', x: this.x, y: this.y, power: 1.2 });
       return;
     }
-    if (v > 700) {
-      const dmg = Math.max(0, (v - 760) * 0.02);
+    if (v > hurt - 60) {
+      const dmg = Math.max(0, (v - hurt) * 0.02);
       if (dmg > 0) this.damage(dmg, null, 'fall');
     }
     this.squashV += v * 0.09;
@@ -5753,6 +6092,13 @@ class Fighter {
       this.onLandFromMove();
       return;
     }
+    if (m.type === 'death' && (t >= m.dur || !this.grounded)) {
+      const fl = m.fall;
+      this.move = null;
+      this.pendingDeath = false;
+      this.knockdown(this.facing * fl[0], fl[1], { spin: this.facing * fl[2] });
+      return;
+    }
     if (t >= m.dur) {
       if (m.air && !this.grounded) {
         // keep falling in the last pose until landing
@@ -5797,6 +6143,23 @@ class Fighter {
     const py = this.rag.p[PELVIS].y;
     v.pinNeck = [px + f * lerp(a[1], b[1], u) * s, py + lerp(a[2], b[2], u) * s];
     v.pinPelvis = [px + f * lerp(a[3], b[3], u) * s, py + lerp(a[4], b[4], u) * s];
+    // blows landed while holding him (knees in the clinch)
+    if (m.strikes) {
+      for (const [st, dmg] of m.strikes) {
+        if (prev < st && t >= st) {
+          const hp = v.rag.p[HEAD];
+          const d = dmg * this.strength * this.sim.rng.range(0.9, 1.1);
+          v.damage(d, this, 'beaten');
+          v.flash = 1;
+          v.rag.addVelAt(HEAD, f * 120, -260, this.sim.h, 0.5);
+          this.moveHit = true;
+          this.stats.hits++;
+          this.freeze = v.freeze = 3;
+          if (this.isHero) this.sim.hitstop(2);
+          this.emit({ t: 'hit', kind: 'kick', x: hp.x, y: hp.y, power: d / 9, down: false, a: this, b: v, part: 'head', move: m.id });
+        }
+      }
+    }
     if (prev < m.release[0] && t >= m.release[0]) {
       const h = this.sim.h;
       const rv = this.sim.settings.physicsIntensity;
@@ -6294,11 +6657,29 @@ class Fighter {
       const dx = Math.abs(this.lookTarget.headX - this.headX) + 40;
       tg[HEADA] += clamp(Math.atan2(dy, dx), -0.5, 0.5) * 0.7;
     }
-    // hit flinch (additive)
+    // hit flinch (additive, by where and how he was hit)
     if (this.flinch > 0) {
-      const fl = this.flinchLow ? FLINCH_LOW : FLINCH_HIGH;
+      const fl = FLINCH[this.flinchType] || (this.flinchLow ? FLINCH_LOW : FLINCH_HIGH);
       const k = Ease.outQuad(this.flinch);
       for (let i = 0; i < NP; i++) tg[i] += fl[i] * k;
+    }
+    if (this.staggered && st === 'hitstun') {
+      // reeling: arms windmill for balance, knees soft
+      const w = this.stateT * 15;
+      tg[SA] += Math.sin(w) * 1.1;
+      tg[SB] += Math.sin(w + 2.4) * 1.1;
+      tg[EA] -= 0.6;
+      tg[EB] -= 0.6;
+      tg[HEADA] += Math.sin(w * 0.7) * 0.25;
+      tg[PY] -= 3;
+    } else if (st === 'ground' && speed < 50 && (base === GUARD || base === WEAPON_GUARD) && (this.isHero || this.style === 'boxer' || this.style === 'kicker')) {
+      // fighters bounce on the balls of their feet
+      this.bob += dt * (this.isHero ? 7.5 : 6.5);
+      const b = Math.sin(this.bob);
+      tg[PY] += b * 1.3 - 0.6;
+      tg[SA] += Math.sin(this.bob + 0.6) * 0.06;
+      tg[SB] += Math.sin(this.bob + 1.4) * 0.05;
+      tg[TORSO] += Math.cos(this.bob) * 0.02;
     }
     // squat before a jump / after landing
     this.poseRate = st === 'hitstun' ? 26 : this.stance === 'tired' ? 7 : 15;
@@ -6307,7 +6688,7 @@ class Fighter {
   sampleMove(m, t, out) {
     const keys = m.keys;
     const n = keys.length;
-    const first = m.type === 'getup' && this.snap ? this.snap : keys[0].pose;
+    const first = (m.type === 'getup' || m.fromCurrent) && this.snap ? this.snap : keys[0].pose;
     if (t <= keys[0].t) return copyPose(out, first);
     for (let i = 1; i < n; i++) {
       const k = keys[i];
@@ -6536,9 +6917,14 @@ function steerTo(f, sim, tx, tSurf, opts = {}) {
       f._lt = tSurf;
       f._ltime = sim.time;
     }
+    const S0 = link ? nav.surfaces[link.type === 'stairsEnter' ? link.to : link.from] : null;
+    if (link && (!S0 || (link.type === 'stairsEnter' && S0.type !== 'stairs'))) {
+      f._link = null; // a route from walkways that no longer exist
+      link = null;
+    }
     if (link) {
       const lx = link.xa !== undefined ? clamp(tx, link.xa, link.xb) : link.x;
-      const S = nav.surfaces[link.type === 'stairsEnter' ? link.to : link.from];
+      const S = S0;
       switch (link.type) {
         case 'stairsEnter': {
           const fromBottom = Math.abs(link.x - S.xBottom) < Math.abs(link.x - S.xTop);
@@ -6591,6 +6977,7 @@ function steerTo(f, sim, tx, tSurf, opts = {}) {
     }
   }
 
+  if (!Number.isFinite(goalX)) goalX = Number.isFinite(tx) ? tx : f.x;
   const dx = goalX - f.x;
   const arrive = opts.arrive !== undefined ? opts.arrive : 8;
   it.mx = Math.abs(dx) < arrive ? 0 : Math.sign(dx);
@@ -6662,7 +7049,7 @@ const { steerTo, surfaceOfFighter, stairsOf } = __m17;
 
 
 const near = [];
-const HERO_MOVES = ['jab', 'cross', 'hook', 'uppercut', 'elbow', 'knee', 'teep', 'roundhouse', 'spinkick', 'sweep', 'flyingkick', 'shove', 'grab', 'backkick', 'backelbow'];
+const HERO_MOVES = ['jab', 'cross', 'hook', 'uppercut', 'elbow', 'knee', 'teep', 'roundhouse', 'spinkick', 'sweep', 'flyingkick', 'shove', 'grab', 'backkick', 'backelbow', 'superman', 'backfist', 'axekick', 'jumpknee', 'dropkick', 'headbutt'];
 const ARMED_MOVES = ['wswing', 'woverhead', 'wthrust', 'teep', 'knee', 'sweep', 'backkick', 'roundhouse', 'grab', 'wthrow'];
 const HAZARD_NAMES = { electric: 'the live panel', ledge: 'the drop', window: 'the window', canister: 'the gas canister', stairs: 'the stairs', crowd: 'the crowd' };
 
@@ -6690,6 +7077,8 @@ class HeroBrain {
     this.dodgeLock = 0;
     this.lastDefense = -10;
     this.lastFlying = -10;
+    this.lastDropkick = -10;
+    this.nextTaunt = 6;
     this.threatClose = false;
   }
 
@@ -6754,7 +7143,16 @@ class HeroBrain {
       it.mx = 0;
       return;
     }
+    if (this.finisher()) return;
     if (this.offend()) return;
+    // a quiet moment: crack the neck, wave the next ones in
+    if (this.threatsNear === 0 && f.canAct() && this.sim.time > this.nextTaunt && f.stamina > 50) {
+      this.nextTaunt = this.sim.time + this.sim.rng.range(7, 15);
+      it.action = this.sim.rng.chance(0.55) ? 'neckcrack' : 'beckon';
+      it.mx = 0;
+      this.say(it.action === 'beckon' ? 'Come on' : 'Shaking it off', 1);
+      return;
+    }
     this.position(dt);
   }
 
@@ -7175,7 +7573,13 @@ class HeroBrain {
         return true;
       }
     }
-    const cands = this.threats.filter((t) => !t.down && t.ad < 400 && Math.abs(t.dy) < 60 && t.e.state !== 'spawn');
+    let cands = this.threats.filter((t) => !t.down && t.ad < 400 && Math.abs(t.dy) < 60 && t.e.state !== 'spawn');
+    const roaming = this.tactic === 'roam' && this.roam;
+    if (roaming) {
+      // on the move: only the ones in his way, on top of him, or swinging
+      const dir = Math.sign(this.roam.x - f.x) || f.facing;
+      cands = cands.filter((t) => t.ad < 90 || t.attacking || (Math.sign(t.dx) === dir && t.ad < 200));
+    }
     if (!cands.length) {
       this.target = null;
       return false;
@@ -7213,6 +7617,7 @@ class HeroBrain {
     this.target = best.e;
     const opts = this.moveOptions(best, cands);
     if (!opts.length) {
+      if (roaming) return false; // keep moving; position() carries him on
       // close the distance (but do not charge blindly into a crowd)
       const e = best.e;
       const want = f.weapon ? 60 : 44;
@@ -7236,6 +7641,8 @@ class HeroBrain {
     it.mx = 0;
     if (pick === 'grab') this.chooseThrow(best.e);
     if (pick === 'flyingkick') this.lastFlying = this.sim.time;
+    if (pick === 'dropkick') this.lastDropkick = this.sim.time;
+    if (pick === 'superman') this.lastSuperman = this.sim.time;
     it.action = pick;
     if (best.env && best.env.push > 0.6 && (m.crowd || pick === 'grab' || pick === 'teep' || pick === 'shove')) {
       this.say(best.env.label === 'crowd' ? 'Sending him into the crowd' : `Using ${HAZARD_NAMES[best.env.label] || 'the terrain'}`, 1);
@@ -7258,6 +7665,8 @@ class HeroBrain {
     for (const t of cands) if (!t.behind && t.ad < 95) frontCluster++;
     // someone close behind him: long, committed moves leave his back open
     const exposed = this.exposedBehind(150, e);
+    // leaving the ground in a crowd gets you swatted out of the air
+    const airSafe = this.exposedBehind(240, e) === 0 && this.engaged <= 2;
     let isolated = true;
     for (const t of cands) if (t.e !== e && Math.abs(t.e.x - e.x) < 160) isolated = false;
     const list = f.weapon ? ARMED_MOVES : HERO_MOVES;
@@ -7293,6 +7702,12 @@ class HeroBrain {
         case 'woverhead': w = 0.9 + (stag ? 0.8 : 0); break;
         case 'wthrust': w = 1.0; break;
         case 'wthrow': w = f.weapon && f.weapon.durability <= 2 && isolated ? 2 : 0.05; break;
+        case 'superman': w = ad > 85 && airSafe && this.sim.time - (this.lastSuperman || -9) > 3 && this.safeLanding(T.side, 220) ? 0.3 + (stag ? 0.4 : 0) : 0; break;
+        case 'backfist': w = 0.7 + (frontCluster >= 2 ? 0.2 : 0) + (stag ? 0.3 : 0); break;
+        case 'axekick': w = 0.45 + (blocking ? 1.5 : 0) + (stag ? 0.5 : 0); break;
+        case 'jumpknee': w = airSafe && this.safeLanding(T.side, 220) ? 0.3 + (stag ? 0.8 : 0) : 0; break;
+        case 'dropkick': w = airSafe && st > 40 && this.sim.time - this.lastDropkick > 5 && this.safeLanding(T.side, 330) ? 0.15 + env.push * 1.8 + (env.crowd >= 2 ? 0.5 : 0) : 0; break;
+        case 'headbutt': w = 0.55 + (e.state === 'holding' ? 1 : 0) + (stag ? 0.3 : 0); break;
       }
       if (T.behind && !m.back && this.engagedFront > 0) w *= 0.4; // turning away from others is risky
       if (exposed > 0 && !m.back && m.dur / rate > 0.42) w *= 0.3;
@@ -7307,6 +7722,48 @@ class HeroBrain {
     return opts;
   }
 
+  // Somewhere else to fight: a brawl across the map, or a far point of the
+  // level he can reach.
+  pickRoamGoal(cur) {
+    const f = this.f;
+    const sim = this.sim;
+    const nav = sim.nav;
+    const rng = sim.rng;
+    if (cur < 0) return null;
+    const reach = (s) => s === cur || nav.dist[cur][s] < Infinity;
+    if (rng.chance(0.55)) {
+      let best = null;
+      let bd = 1e9;
+      for (const e of sim.enemies) {
+        if (e.dead || !e.brain || !e.brain.foe || e.ragdolled) continue;
+        const d = Math.abs(e.x - f.x) + Math.abs(e.y - f.y) * 1.5;
+        const s = surfaceOfFighter(e);
+        if (d < 450 || s < 0 || !reach(s) || d > bd) continue;
+        bd = d;
+        best = { x: e.x, surf: s };
+      }
+      if (best) return { ...best, until: sim.time + clamp(bd / 230 + 5, 8, 22), label: 'Crashing their brawl' };
+    }
+    const items = [];
+    for (const S of nav.surfaces) {
+      if (S.isolated || S.type === 'stairs' || !reach(S.id) || S.x1 - S.x0 < 120) continue;
+      for (let k = 0; k < 3; k++) {
+        const x = rng.range(S.x0 + 50, S.x1 - 50);
+        const d = Math.abs(x - f.x) + Math.abs(S.y - f.y) * 1.5;
+        if (d < 450) continue;
+        let w = d < 1700 ? 1.4 : 0.7;
+        if (S.id !== cur) w *= 1.4;
+        for (const lg of sim.level.ledges) if (Math.abs(lg.y - S.y) < 8 && x > lg.x0 - 90 && x < lg.x1 + 90) w *= 0.1;
+        items.push([{ x, surf: S.id, d }, w]);
+      }
+    }
+    if (!items.length) return null;
+    const g = rng.weighted(items);
+    const S = nav.surfaces[g.surf];
+    const label = S.y < f.y - 60 ? 'Taking the fight upstairs' : S.y > f.y + 60 ? 'Taking it downstairs' : 'Moving the fight';
+    return { x: g.x, surf: g.surf, until: sim.time + clamp(g.d / 230 + 5, 8, 22), label };
+  }
+
   // Enemies on their feet close behind him (other than `skip`).
   exposedBehind(radius, skip = null) {
     let n = 0;
@@ -7318,9 +7775,54 @@ class HeroBrain {
     const f = this.f;
     const fwd = this.envOpportunity(victim);
     const back = this.behindValue();
-    if (back > fwd.push + 0.25) this.throwPlan = 'shouldertoss';
-    else if (fwd.crowd >= 2 && f.stamina > 35 && this.exposedBehind(170, victim) === 0) this.throwPlan = 'spinthrow';
-    else this.throwPlan = this.sim.rng.chance(0.7) ? 'hipthrow' : 'shouldertoss';
+    const exposed = this.exposedBehind(170, victim);
+    const fresh = f.stamina > 30;
+    const opts = [['hipthrow', 1], ['shouldertoss', 0.6 + (back > fwd.push ? 1.5 : 0)]];
+    if (fwd.crowd >= 2 && fresh && !exposed) opts.push(['spinthrow', 1.6]);
+    if (fresh) opts.push(['suplex', 0.8 + back * 1.2]);
+    if (fresh && !exposed) opts.push(['powerbomb', 0.7 + (fwd.push < 0.3 ? 0.4 : 0)]);
+    if (!exposed && this.engaged <= 5) opts.push(['clinch', 1.2]);
+    this.throwPlan = this.sim.rng.weighted(opts);
+  }
+
+  // Someone down within reach and nothing coming: stamp on him, or punt the
+  // body into his friends.
+  finisher() {
+    const f = this.f;
+    const sim = this.sim;
+    if (!f.canAct() || f.weapon || f.stamina < 12 || this.danger < 0.5 || this.exposedBehind(130) > 0) return false;
+    if (sim.time < (this.nextFinisher || 0)) return false;
+    let best = null;
+    for (const t of this.threats) {
+      const e = t.e;
+      if (!t.down || e.dead || !(e.state === 'down' || e.state === 'ragdoll') || Math.abs(t.dy) > 40) continue;
+      if (e.rag.coreSpeed(sim.h) > 160) continue;
+      const px = e.rag.p[2].x;
+      const ad = Math.abs(px - f.x);
+      if (ad > 70) continue;
+      if (!best || ad < best.ad) best = { e, ad, side: Math.sign(px - f.x) || f.facing, px };
+    }
+    if (!best) return false;
+    this.nextFinisher = sim.time + sim.rng.range(0.4, 1.4);
+    const it = f.intent;
+    const env = this.envOpportunity(best.e, best.side);
+    const punt = env.crowd >= 1 || env.push > 0.6 ? 0.75 : 0.25;
+    const id = sim.rng.chance(punt) ? 'punt' : 'stomp';
+    const m = MOVES[id];
+    const want = (m.range[0] + m.range[1]) * 0.5;
+    if (best.ad > m.range[1] - 4 || best.ad < m.range[0] + 2) {
+      it.mx = best.ad > want ? best.side : -best.side;
+      it.face = best.side;
+      it.run = false;
+      this.nextFinisher = sim.time + 0.05;
+      return true;
+    }
+    it.face = best.side;
+    it.mx = 0;
+    it.target = best.e;
+    it.action = id;
+    this.say(id === 'punt' ? 'Punting him into the crowd' : 'Finishing him', 0.7);
+    return true;
   }
 
   // ----------------------------------------------------------------- tactics
@@ -7341,8 +7843,28 @@ class HeroBrain {
     }
     this.threatsNear = threatsNear;
     const lowHp = f.hp < f.maxHp * 0.25;
+    // now and then he takes the fight somewhere else on the map: across a
+    // catwalk, up the stairs, into somebody else's brawl
+    if (this.tactic === 'roam' && this.roam) {
+      const g = this.roam;
+      const there = Math.abs(f.x - g.x) < 70 && cur === g.surf;
+      if (!there && sim.time < g.until && f.stamina > 22 && !lowHp) return;
+      this.roam = null;
+      this.roamNext = sim.time + sim.rng.range(12, 24);
+    }
     if (threatsNear === 0 && incoming === 0) {
       if (this.tactic !== 'recover') this.quietSince = sim.time;
+      // nothing here: go where the fighting is
+      if (sim.time - (this.quietSince || 0) > 4 && f.stamina > 55 && sim.time > (this.roamNext || 0)) {
+        const g = this.pickRoamGoal(cur);
+        if (g) {
+          this.tactic = 'roam';
+          this.roam = g;
+          this.anchor = null;
+          this.say(g.label, 1.2);
+          return;
+        }
+      }
       // a long lull with enemies still about: go and find them
       if (sim.enemiesAlive > 0 && sim.time - (this.quietSince || 0) > 14 && f.stamina > 60) {
         this.tactic = 'hunt';
@@ -7364,6 +7886,17 @@ class HeroBrain {
       this.tactic = 'breakout';
       this.anchor = this.bestPosition(cur, 2.2);
       return;
+    }
+    if (!lowHp && f.stamina > 45 && threatsNear <= 6 && sim.time > (this.roamNext === undefined ? 18 : this.roamNext)) {
+      const g = this.pickRoamGoal(cur);
+      if (g) {
+        this.tactic = 'roam';
+        this.roam = g;
+        this.anchor = null;
+        this.say(g.label, 1.2);
+        return;
+      }
+      this.roamNext = sim.time + 6;
     }
     if (threatsNear <= 2 && f.stamina > 30 && !lowHp && incoming < 6) {
       this.tactic = 'hunt';
@@ -7523,6 +8056,11 @@ class HeroBrain {
         return;
       }
       if (this.mindT <= 0) this.mind = `Going for the ${w.weapon.label}`;
+    } else if (this.tactic === 'roam' && this.roam) {
+      tx = this.roam.x;
+      ts = this.roam.surf;
+      run = Math.abs(tx - f.x) > 90;
+      if (this.mindT <= 0) this.mind = this.roam.label;
     } else if (this.anchor && (this.tactic === 'hold' || this.tactic === 'breakout' || this.tactic === 'recover')) {
       tx = this.anchor.x;
       ts = this.anchor.surf;
@@ -7634,15 +8172,68 @@ class EnemyBrain {
     this.seenKO = 0;
   }
 
+  // Whoever this enemy is fighting right now: the hero, or a grudge.
   get hero() {
-    return this.sim.hero;
+    return this.foe || this.sim.hero;
   }
 
   onHit(by, dmg) {
     if (by && by.isHero) {
       this.courage = Math.max(0, this.courage - dmg * 0.004 * (1 - this.f.aggression));
       this.thinkT = Math.min(this.thinkT, 0.1);
+    } else if (by && by !== this.f && !by.dead && !this.foe && by.brain) {
+      // clobbered by one of his own: hotheads hit back, and it spreads
+      const f = this.f;
+      const p = 0.12 + f.aggression * 0.34 - f.intelligence * 0.2;
+      if (this.sim.rng.chance(p)) {
+        const dur = this.sim.rng.range(5, 12);
+        this.startBrawl(by, dur);
+        if (by.brain.startBrawl && !by.brain.foe && this.sim.rng.chance(0.75)) by.brain.startBrawl(f, dur);
+        this.sim.emit({ t: 'feed', text: `${f.name} turns on ${by.name}`, level: 1 });
+      }
     }
+  }
+
+  startBrawl(foe, dur) {
+    const f = this.f;
+    if (f.dead || !foe || foe.dead || foe === f || foe.isHero) return;
+    this.releaseToken();
+    this.foe = foe;
+    this.brawlUntil = this.sim.time + dur;
+    this.mode = 'wait';
+    this.cooldown = this.sim.rng.range(0.05, 0.5);
+    this.thinkT = 0;
+  }
+
+  endBrawl() {
+    this.foe = null;
+    this.mode = 'approach';
+    this.thinkT = 0;
+    this.cooldown = this.sim.rng.range(0.3, 1);
+  }
+
+  // Fighting a grudge: no queue, no tokens, just him and the other guy.
+  thinkBrawl() {
+    const f = this.f;
+    const sim = this.sim;
+    const foe = this.foe;
+    const realHero = sim.hero;
+    // the brawl ends when time is up, the other one is done, or Onyx walks in
+    const heroNear = !realHero.dead && Math.abs(realHero.x - f.x) < 220 && Math.abs(realHero.y - f.y) < 60;
+    if (foe.dead || foe.removed || sim.time > this.brawlUntil || (heroNear && sim.rng.chance(0.6))) {
+      if (foe.brain && foe.brain.foe === f) foe.brain.endBrawl();
+      this.endBrawl();
+      return false;
+    }
+    const dist = Math.abs(foe.x - f.x);
+    this.dist = dist;
+    this.same = Math.abs(foe.y - f.y) < 60;
+    const down = foe.ragdolled && !foe.dead;
+    if (this.cooldown <= 0 && (!down || f.aggression > 0.45)) {
+      this.mode = 'attack';
+      this.planAttack(dist, down, false);
+    } else this.mode = 'wait';
+    return true;
   }
 
   onWitnessKO(dist) {
@@ -7677,6 +8268,7 @@ class EnemyBrain {
 
   // ------------------------------------------------------------- decisions
   think() {
+    if (this.foe && this.thinkBrawl()) return;
     const f = this.f;
     const sim = this.sim;
     const hero = this.hero;
@@ -7745,7 +8337,7 @@ class EnemyBrain {
     const f = this.f;
     const rng = this.sim.rng;
     if (heroDown) {
-      this.planned = 'groundkick';
+      this.planned = rng.chance(0.45) ? 'stomp' : 'groundkick';
       return;
     }
     if (f.weapon) {
@@ -7757,6 +8349,7 @@ class EnemyBrain {
       const m = MOVES[id];
       if (!m || m.heroOnly) return false;
       if (heroHeld && (id === 'bearhug' || id === 'tackle')) return false;
+      if (this.foe && m.type === 'grab') return false;
       if (id === 'flyingkick' || id === 'tackle') return dist > 90;
       return true;
     });
@@ -7890,15 +8483,21 @@ class EnemyBrain {
           this.circleT = sim.rng.range(0.5, 1.6);
           if (sim.rng.chance(0.18 * (1 - f.intelligence))) this.tauntT = sim.rng.range(0.8, 1.6);
         }
-        let want = this.waitDist + this.circleDir * 22;
+        let want = (this.foe ? 72 + (1 - f.aggression) * 40 : this.waitDist) + this.circleDir * (this.foe ? 10 : 22);
         // crowd: if allies already sit at my slot, hang back a little further
         const tx = hero.x + side * want;
         steerTo(f, sim, tx, hs, { run: Math.abs(tx - f.x) > 160, arrive: 14, careful: true });
         it.face = Math.sign(dx) || f.facing;
         if (this.tauntT > 0) {
           this.tauntT -= dt;
-          if (it.mx === 0) f.stance = 'taunt';
-        }
+          if (it.mx === 0) {
+            f.stance = 'taunt';
+            if (!this.tauntDone && f.canAct() && dist > 130) {
+              this.tauntDone = true;
+              it.action = f.personality === 'brute' || f.personality === 'berserker' ? 'chestbeat' : 'beckon';
+            }
+          }
+        } else this.tauntDone = false;
         // agile flankers leap over a busy hero to get behind him
         const behind = side !== hero.facing;
         if (f.personality === 'flanker' && !behind && dist < 130 && dist > 60 && hero.state === 'move' && f.canAct() && sim.rng.chance(dt * 1.5)) {
@@ -7911,7 +8510,7 @@ class EnemyBrain {
         const m = MOVES[this.planned] || MOVES.jab;
         const r = m.range;
         const want = (r[0] + r[1]) * 0.5;
-        if (this.planned === 'groundkick' && !(hero.state === 'down' || hero.state === 'ragdoll')) {
+        if ((this.planned === 'groundkick' || this.planned === 'stomp') && !(hero.state === 'down' || hero.state === 'ragdoll')) {
           this.mode = 'wait';
           this.thinkT = 0;
           break;
@@ -7938,14 +8537,14 @@ class EnemyBrain {
             it.action = this.planned;
             this.lastAttack = sim.time;
             // hit-and-run vs keep pressing
-            if (sim.rng.chance(0.22 + f.aggression * 0.38)) {
+            if (sim.rng.chance(0.3 + f.aggression * 0.42)) {
               this.planAttack(dist, false, hero.state === 'held');
-              this.cooldown = sim.rng.range(0.08, 0.4) / (0.5 + f.aggression);
-              this.thinkT = Math.max(this.thinkT, 0.25);
+              this.cooldown = sim.rng.range(0.05, 0.3) / (0.5 + f.aggression);
+              this.thinkT = Math.max(this.thinkT, 0.2);
             } else {
               this.mode = 'wait';
               this.releaseToken();
-              this.cooldown = sim.rng.range(0.55, 1.4) * (1.4 - f.aggression * 0.7);
+              this.cooldown = sim.rng.range(0.4, 1.1) * (1.35 - f.aggression * 0.7);
             }
           }
         }
@@ -7979,7 +8578,7 @@ class TokenManager {
     const S = this.sim.settings;
     const lvl = this.sim.director.level;
     // early on the crowd takes turns; escalation lets more of them in at once
-    this.max = Math.max(1, Math.round(0.9 + lvl * 1.1 + (S.enemyIntelligence - 1) * 1.2 + (S.enemyAggression - 1) * 2.5));
+    this.max = Math.max(1, Math.round(1.4 + lvl * 1.25 + (S.enemyIntelligence - 1) * 1.2 + (S.enemyAggression - 1) * 2.5));
     const now = this.sim.time;
     for (const [f, t] of this.holders) {
       if (f.dead || f.removed || now - t > 3.2 || Math.abs(f.x - this.sim.hero.x) > 420) this.holders.delete(f);
@@ -8197,7 +8796,7 @@ function makeHeroSpec(settings) {
     color: '#0e0e10',
     colorFar: '#2a2a2e',
     scale: 1.04,
-    hp: Math.round(260 * S.heroEndurance),
+    hp: Math.round(300 * S.heroEndurance),
     stamina: 100 * (0.8 + 0.2 * S.heroEndurance),
     strength: 1.16 + 0.12 * (S.heroSkill - 1),
     runSpeed: 385 * S.heroSpeed,
@@ -8242,6 +8841,7 @@ class Director {
     this.wave = 0;
     this.queue = [];
     this.alarm = 0;
+    this.scuffleT = 14;
   }
 
   get remaining() {
@@ -8267,6 +8867,12 @@ class Director {
       }
     }
     if (sim.over) return;
+    // fights break out elsewhere on the map, not only around Onyx
+    this.scuffleT -= dt;
+    if (this.scuffleT <= 0) {
+      this.scuffleT = rng.range(8, 17) / Math.sqrt(clamp(S.maxActive / 26, 0.5, 4));
+      this.startScuffle();
+    }
     const active = sim.enemiesAlive;
     // the crowd grows over the first couple of minutes: he gets to show
     // what he can do before the numbers start to tell
@@ -8315,6 +8921,59 @@ class Director {
     }
   }
 
+  startScuffle() {
+    const sim = this.sim;
+    const S = sim.settings;
+    const rng = sim.rng;
+    const hero = sim.hero;
+    let brawling = 0;
+    const free = [];
+    for (const e of sim.enemies) {
+      if (e.dead || e.removed || !e.brain) continue;
+      if (e.brain.foe) {
+        brawling++;
+        continue;
+      }
+      if (e.ragdolled || e.state === 'spawn' || e.state === 'held' || e.state === 'holding') continue;
+      if (Math.abs(e.x - hero.x) + Math.abs(e.y - hero.y) * 1.5 < 400) continue;
+      free.push(e);
+    }
+    if (brawling / 2 >= Math.max(2, Math.round(S.maxActive / 9))) return;
+    const dur = rng.range(7, 15);
+    // two idle ones close together get into it
+    for (let tries = 0; tries < 6 && free.length > 1; tries++) {
+      const a = free[rng.int(0, free.length - 1)];
+      let b = null;
+      let bd = 300;
+      for (const o of free) {
+        if (o === a || Math.abs(o.y - a.y) > 40) continue;
+        const d = Math.abs(o.x - a.x);
+        if (d < bd) {
+          bd = d;
+          b = o;
+        }
+      }
+      if (!b) continue;
+      a.brain.startBrawl(b, dur);
+      b.brain.startBrawl(a, dur);
+      sim.emit({ t: 'feed', text: `${a.name} and ${b.name} go at each other`, level: 1 });
+      sim.emit({ t: 'brawl', a, b, x: (a.x + b.x) / 2, y: a.y });
+      return;
+    }
+    // nobody handy: a pair arrives somewhere else already fighting
+    if (this.remaining < 2 || sim.enemiesAlive + 2 > S.maxActive * 1.2) return;
+    const pts = sim.level.spawnPoints.filter((p) => Math.abs(p.x - hero.x) + Math.abs(p.y - hero.y) * 1.4 > 650 && p.type !== 'vent');
+    if (!pts.length) return;
+    const p = rng.pick(pts);
+    const a = this.spawnOne(p);
+    const b = this.spawnOne(p);
+    if (!a || !b) return;
+    a.brain.startBrawl(b, dur);
+    b.brain.startBrawl(a, dur);
+    sim.emit({ t: 'feed', text: `A fight breaks out across the ${sim.level.outdoor ? 'roofs' : 'floor'}`, level: 1 });
+    sim.emit({ t: 'brawl', a, b, x: p.x, y: p.y });
+  }
+
   pickPoint(group) {
     const sim = this.sim;
     const rng = sim.rng;
@@ -8352,7 +9011,7 @@ class Director {
     const sim = this.sim;
     const S = sim.settings;
     const rng = sim.rng;
-    if (S.totalEnemies > 0 && this.spawned >= S.totalEnemies) return;
+    if (S.totalEnemies > 0 && this.spawned >= S.totalEnemies) return null;
     const spec = makeEnemySpec(rng, S, this.level, sim.nextId++);
     spec.name = sim.uniqueName(spec.name);
     const hero = sim.hero;
@@ -8404,6 +9063,7 @@ class Director {
     }
     sim.addFighter(f);
     this.spawned++;
+    return f;
   }
 }
 return { Director };
@@ -8431,6 +9091,27 @@ function hostile(a, b) {
   if (a === b) return false;
   if (a.isHero) return !b.isHero;
   return true; // enemies can (accidentally) hit each other
+}
+
+// Two enemies on the same side, unless they have a score to settle.
+function allies(a, b) {
+  if (a.isHero || b.isHero) return false;
+  return !((a.brain && a.brain.foe === b) || (b.brain && b.brain.foe === a));
+}
+
+// Which way the blow throws his body: drives the hit-reaction pose.
+function reactionFor(a, t, hit, part) {
+  if (hit.react && part === HEAD) return hit.react;
+  const fromBehind = Math.sign(a.x - t.x || 1) !== t.facing;
+  if (part === HEAD || hit.height === 'high') {
+    if (hit.launch || hit.ky < -250) return 'chin';
+    const id = a.move ? a.move.id : '';
+    if (id === 'hook' || id === 'haymaker' || id === 'roundhouse' || id === 'wswing' || id === 'backfist') return 'jaw';
+    return fromBehind ? 'back' : 'head';
+  }
+  if (hit.height === 'low' || part === KNEE_A || part === KNEE_B) return 'leg';
+  if (hit.react) return hit.react;
+  return fromBehind ? 'back' : 'gut';
 }
 
 // Returns the joint index that was struck, or -1.
@@ -8500,7 +9181,7 @@ function processAttacks(sim) {
         if (t === a || t.removed || a.hitSet.has(t.id)) continue;
         if (!hostile(a, t)) continue;
         if (t.dead) continue;
-        const friendly = !a.isHero && !t.isHero;
+        const friendly = allies(a, t);
         if (hit.ground) {
           // stomps are aimed: nobody stamps on a fallen ally by accident
           if (friendly || !(t.state === 'down' || t.state === 'ragdoll')) continue;
@@ -8532,7 +9213,7 @@ function resolveHit(sim, a, t, hit, part, hx, hy) {
   const rng = sim.rng;
   const dirBase = hit.abs ? a.moveFacing : a.facing;
   const kdir = Math.sign(hit.kx) * dirBase || a.facing;
-  const friendly = !a.isHero && !t.isHero;
+  const friendly = allies(a, t);
 
   // --- parry (perfect timing turns the attack against the attacker)
   if (t.state === 'move' && t.move && t.move.parryWin && t.mt >= t.move.parryWin[0] && t.mt <= t.move.parryWin[1] && facingToward(t, a) && hit.height !== 'low' && !hit.tackle) {
@@ -8585,13 +9266,25 @@ function resolveHit(sim, a, t, hit, part, hx, hy) {
   if (hit.ground && t.ragdolled) {
     const gd = hit.dmg * a.strength * rng.range(0.85, 1.1) * (friendly ? 0.6 : 1);
     t.damage(gd, a, 'beaten');
-    t.rag.addVelAt(part, kdir * 260 * rv, -140, h, 0.4);
+    if (hit.punt) {
+      // punted like a ball: the body flies into whoever stands behind it
+      const mf = clamp(9.25 / t.mass, 0.5, 1.4);
+      t.rag.addVel(kdir * Math.abs(hit.kx) * mf * rv, hit.ky * mf * rv, h);
+      t.rag.addSpin(kdir * 6, h);
+      t.knock = { by: a, chainId: sim.newChain(a), depth: 0, time: sim.time, kind: 'kick' };
+      if (t.state === 'down') t.setState('ragdoll');
+      t.restT = 0;
+      if (a.isHero) sim.hitstop(3);
+    } else if (hit.ky > 150) {
+      // stamped on
+      t.rag.addVelAt(part, kdir * 40 * rv, hit.ky * 0.8 * rv, h, 0.5);
+    } else t.rag.addVelAt(part, kdir * 260 * rv, -140, h, 0.4);
     if (t.state === 'down') t.downT = Math.min(t.downT + 0.18, 1.6);
     t.flash = 1;
     a.freeze = t.freeze = 2;
     a.moveHit = true;
     a.stats.hits++;
-    sim.emit({ t: 'hit', kind: hit.kind, x: hx, y: hy, power: gd / 9, down: false, a, b: t, part: PART_NAMES[part] || 'body', friendly, ground: true });
+    sim.emit({ t: 'hit', kind: hit.kind, x: hx, y: hy, power: gd / 9, down: false, a, b: t, part: PART_NAMES[part] || 'body', friendly, ground: true, move: a.move ? a.move.id : null });
     return 'ground';
   }
 
@@ -8609,6 +9302,13 @@ function resolveHit(sim, a, t, hit, part, hx, hy) {
   let kvy = hit.ky * mf * rv * (hit.ky < 0 ? sk : 1);
   if (hit.kind === 'weapon' && a.weapon) kvx *= 0.85 + a.weapon.dmg * 0.15;
   t.poise -= hit.poise * a.strength * (a.isHero ? 1.15 : 1);
+  // a blow that kills without launching him: he folds where he stands
+  const lethal = t.hp - dmg <= 0;
+  let fold = null;
+  if (lethal && t.grounded && !hit.launch && !hit.sweep && !hit.tackle && Math.abs(kvx) < 360 && kvy < 200 && t.state !== 'held' && t.state !== 'grabbed') {
+    if (rng.chance(t.isHero ? 0.8 : 0.5)) fold = rng.chance(0.7) ? 'crumple' : 'timber';
+  }
+  t.pendingDeath = !!fold;
   t.damage(dmg, a, 'beaten');
   t.stats.taken++;
   a.stats.hits++;
@@ -8617,6 +9317,7 @@ function resolveHit(sim, a, t, hit, part, hx, hy) {
   const brute = t.mass > 13;
   let down = t.dead || t.poise <= 0 || !t.grounded || hit.tackle || (hit.launch && t.mass < 14);
   if (hit.sweep) down = !brute || rng.chance(0.45);
+  if (hit.ky > 250 && !brute) down = down || rng.chance(0.7); // chopped to the floor
   if (!down && Math.abs(kvx) > 380 && !brute) down = rng.chance(0.75);
   if (t.state === 'held') down = false;
   if (t.isHero && !t.dead && down && !hit.sweep && !hit.tackle && t.poise > -12 && rng.chance(0.3 * S.heroSkill)) {
@@ -8624,20 +9325,31 @@ function resolveHit(sim, a, t, hit, part, hx, hy) {
     down = false;
   }
 
-  if (down) {
+  if (fold && t.dead && t.dieOnFeet(fold)) {
+    t.pendingDeath = false;
+    t.rag.addVelAt(part, kvx * 0.3, -30, h, 0.3);
+  } else if (down) {
+    t.pendingDeath = false;
     t.poise = t.maxPoise * 0.65;
-    const spin = hit.sweep ? -kdir * 10 : hit.launch ? -kdir * 3 : 0;
+    if (a.isHero) {
+      // his finishing blows send bodies flying
+      kvx *= 1.18;
+      kvy *= 1.1;
+    }
+    const spin = hit.sweep ? -kdir * 10 : hit.launch ? -kdir * 3 : t.dead ? -kdir * rng.range(2, 6) : 0;
     t.knockdown(kvx, kvy, { joint: part, jx: kvx * 0.5, jy: kvy * 0.25 - 40, spin });
     t.knock = { by: a, chainId: sim.newChain(a), depth: 0, time: sim.time, kind: hit.kind };
   } else {
-    t.hitstun(hit.stun * (1.25 - t.toughness * 0.25) * (t.isHero ? 0.75 : 1), kvx * 0.45, kvy * 0.25, part !== HEAD && hit.height !== 'high');
+    const heavy = dmg > 11 || Math.abs(kvx) > 300 || hit.stun > 0.5;
+    t.hitstun(hit.stun * (1.25 - t.toughness * 0.25) * (t.isHero ? 0.75 : 1), kvx * 0.45, kvy * 0.25, part !== HEAD && hit.height !== 'high', reactionFor(a, t, hit, part), heavy);
     t.rag.addVelAt(part, kvx * 0.9, kvy * 0.4 - 50, h, 0.45);
   }
   t.flash = 1;
   const stop = Math.round(clamp(dmg * 0.32, 2, 6));
   a.freeze = stop;
   t.freeze = stop;
-  if (a.isHero && (down || dmg > 11)) sim.hitstop(down ? 4 : 2);
+  if (a.isHero && (down || dmg > 11)) sim.hitstop(t.dead ? 6 : down ? 4 : 3);
+  else if (t.isHero && dmg > 12) sim.hitstop(3);
   if (hit.kind === 'weapon' && a.weapon) {
     a.weapon.durability -= 1;
     if (a.weapon.durability <= 0) sim.props.breakHeldWeapon(a);
@@ -8777,7 +9489,7 @@ function processBodyImpacts(sim) {
         t.knock = { by, chainId: f.knock ? f.knock.chainId : sim.newChain(by), depth: depth + 1, time: now, kind: 'body', via: f };
         sim.onChain(t.knock, t, f);
       } else if (ratio > 0.5 || t.isHero) {
-        t.hitstun(0.16 + ratio * 0.2, tvx * 0.7, 0, true);
+        t.hitstun(0.16 + ratio * 0.2, tvx * 0.7, 0, true, Math.sign(pel.x - t.x || 1) === t.facing ? 'gut' : 'back', ratio > 0.8);
         t.rag.addVelAt(PELVIS, tvx, -40, h, 0.5);
       } else {
         // a glancing bump: shoved aside, no stagger
@@ -8843,7 +9555,7 @@ function processTrips(sim) {
   }
   if (tripT.size > 4000) for (const [k, v] of tripT) if (now - v > 6) tripT.delete(k);
 }
-return { processAttacks, resolveHit, processBodyImpacts, processTrips };
+return { allies, processAttacks, resolveHit, processBodyImpacts, processTrips };
 })();
 
 // ---- src/sim/simulation.js
@@ -9205,6 +9917,14 @@ class Simulation {
     for (const f of this.fighters) {
       if (f.removed || f.kinematic) continue;
       const rag = f.rag;
+      if (!Number.isFinite(f.x) || !Number.isFinite(f.y) || !Number.isFinite(f.vx) || !Number.isFinite(f.vy)) {
+        // a controller blow-up: put him back on his body
+        const pp = rag.p[PELVIS];
+        f.x = Number.isFinite(pp.x) ? pp.x : this.hero.x;
+        f.y = Number.isFinite(pp.y) ? pp.y + 40 : this.hero.y;
+        f.vx = 0;
+        f.vy = 0;
+      }
       if (rag.hasNaN()) {
         // recover from a numerical blow-up rather than poisoning the world
         rag.setFromJoints(f.jt);
@@ -9215,7 +9935,8 @@ class Simulation {
       rag.maxImpact = 0;
       if (imp > 300 && f.ragdolled && (!f._thudT || this.time - f._thudT > 0.22)) {
         f._thudT = this.time;
-        this.emit({ t: 'thud', x: rag.p[PELVIS].x, y: rag.p[PELVIS].y, power: Math.min(1.6, imp / 900), body: true, f });
+        const wall = Math.abs(rag.impNx) > 0.65;
+        this.emit({ t: 'thud', x: wall ? rag.impX : rag.p[PELVIS].x, y: wall ? rag.impY : rag.p[PELVIS].y, power: Math.min(1.6, imp / 900), body: true, f, wall, nx: rag.impNx });
         if (imp > 760 && !f.dead) {
           const by = f.knock ? f.knock.by : f.thrownBy || null;
           const k = f.isHero ? 0.6 : 1;
@@ -9390,7 +10111,22 @@ class Simulation {
     this.level.breakSolid(s);
     // a smashed skylight is a hole in the floor: re-plan the walkways so
     // everyone jumps it instead of strolling into it
-    if (s.kind === 'skylight') this.nav = buildNav(this.level);
+    if (s.kind === 'skylight') {
+      this.nav = buildNav(this.level);
+      // routes planned on the old walkways are void now
+      for (const f of this.fighters) {
+        f._link = null;
+        f._avoid = null;
+        f.lastSurface = -1;
+        if (f.surface >= this.nav.surfaces.length) f.surface = -1;
+      }
+      const hb = this.hero && this.hero.brain;
+      if (hb) {
+        hb.anchor = null;
+        hb.roam = null;
+        hb.evalT = 0;
+      }
+    }
     this.emit({ t: 'break', material: 'glass', x, y, power: Math.min(1.6, speed / 600), solid: s });
     if (s.kind === 'skylight') this.level.ledges.push({ x0: s.x, x1: s.x + s.w, y: s.y, floor: 0, skylight: true });
     // whoever smashed through gets tagged for "thrown through the window"
@@ -11000,7 +11736,11 @@ function drawFighter(ctx, f, alpha, opts) {
     col = mix(col, '#ffffff', Math.min(1, f.flash) * 0.75);
     far = mix(far, '#ffffff', Math.min(1, f.flash) * 0.7);
   }
-  const zap = f.state === 'zap' && f.zapT > 0;
+  if (opts.solid) {
+    col = opts.solid;
+    far = opts.solid;
+  }
+  const zap = f.state === 'zap' && f.zapT > 0 && !opts.solid;
   if (zap && Math.sin(opts.t * 70 + f.id) > 0) {
     col = '#fff6b0';
     far = '#f0e290';
@@ -11032,6 +11772,7 @@ function drawFighter(ctx, f, alpha, opts) {
   ctx.lineTo(j[ELB_B * 2], j[ELB_B * 2 + 1]);
   ctx.lineTo(j[HAND_B * 2], j[HAND_B * 2 + 1]);
   ctx.stroke();
+  if (f.gore && opts.gore) drawWounds(ctx, f, j, col, false);
   // torso with a slight spine curve, then the neck into the head
   const px = j[PELVIS * 2];
   const py = j[PELVIS * 2 + 1];
@@ -11067,9 +11808,138 @@ function drawFighter(ctx, f, alpha, opts) {
   ctx.lineTo(j[ELB_A * 2], j[ELB_A * 2 + 1]);
   ctx.lineTo(j[HAND_A * 2], j[HAND_A * 2 + 1]);
   ctx.stroke();
+  if (f.gore && opts.gore) drawWounds(ctx, f, j, col, true);
   if (f.weapon) drawHeldWeapon(ctx, f, j);
   if (zap) drawSkeletonGlow(ctx, j, d, opts.t);
   if (fade < 1) ctx.globalAlpha = 1;
+}
+
+// Bruises (dark blotches on coloured limbs), cuts and blood. The near pass
+// covers head, torso and near limbs; the far pass the limbs behind the body.
+// Positions along each bone are fixed per fighter so marks do not crawl.
+const BONES_NEAR = [
+  [2, NECK, ELB_A, HAND_A],
+  [4, PELVIS, KNEE_A, FOOT_A],
+];
+const BONES_FAR = [
+  [3, NECK, ELB_B, HAND_B],
+  [5, PELVIS, KNEE_B, FOOT_B],
+];
+
+function drawWounds(ctx, f, j, col, near) {
+  const g = f.gore;
+  const w = g.w;
+  const d = f.dims;
+  const lw = d.lw;
+  const hero = f.isHero;
+  const bruiseCol = hero ? null : mix(col, '#260818', 0.62);
+  const bones = near ? BONES_NEAR : BONES_FAR;
+  for (const [slot, a, b, c] of bones) {
+    const lvl = w[slot];
+    if (lvl < 0.1) continue;
+    const marks = lvl > 0.8 ? 3 : lvl > 0.4 ? 2 : 1;
+    for (let k = 0; k < marks; k++) {
+      const u = 0.15 + (((f.id * 37 + slot * 11 + k * 29) % 100) / 100) * 1.7;
+      const [s0, s1] = u < 1 ? [a, b] : [b, c];
+      const t = u < 1 ? u : u - 1;
+      const x0 = j[s0 * 2];
+      const y0 = j[s0 * 2 + 1];
+      const x1 = j[s1 * 2];
+      const y1 = j[s1 * 2 + 1];
+      const px = x0 + (x1 - x0) * t;
+      const py = y0 + (y1 - y0) * t;
+      const dx = (x1 - x0) * 0.12;
+      const dy = (y1 - y0) * 0.12;
+      if (bruiseCol) {
+        ctx.strokeStyle = bruiseCol;
+        ctx.globalAlpha = Math.min(0.9, lvl * 1.1);
+        ctx.lineWidth = lw * 0.72;
+        ctx.beginPath();
+        ctx.moveTo(px - dx, py - dy);
+        ctx.lineTo(px + dx, py + dy);
+        ctx.stroke();
+      }
+      if (lvl > 0.35 || hero) {
+        // a cut across the limb
+        const l = Math.hypot(dx, dy) || 1;
+        const nx = (-dy / l) * lw * 0.45;
+        const ny = (dx / l) * lw * 0.45;
+        ctx.strokeStyle = '#c4141f';
+        ctx.globalAlpha = Math.min(1, 0.4 + lvl * 0.6);
+        ctx.lineWidth = Math.max(1.2, lw * 0.22);
+        ctx.beginPath();
+        ctx.moveTo(px - nx + dx * 0.4, py - ny + dy * 0.4);
+        ctx.lineTo(px + nx - dx * 0.4, py + ny - dy * 0.4);
+        ctx.stroke();
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
+  if (!near) return;
+  const hx = j[HEAD * 2];
+  const hy = j[HEAD * 2 + 1];
+  const nx = j[NECK * 2];
+  const ny = j[NECK * 2 + 1];
+  const r = d.headR;
+  const fc = f.ragdolled ? 1 : f.facing;
+  // torso: bruising, and blood running down the chest
+  const tw = w[1];
+  if (tw > 0.12) {
+    const px = j[PELVIS * 2];
+    const py = j[PELVIS * 2 + 1];
+    if (bruiseCol) {
+      ctx.strokeStyle = bruiseCol;
+      ctx.globalAlpha = Math.min(0.85, tw);
+      ctx.lineWidth = lw * 0.8;
+      ctx.beginPath();
+      ctx.moveTo(nx + (px - nx) * 0.3, ny + (py - ny) * 0.3);
+      ctx.lineTo(nx + (px - nx) * (0.45 + Math.min(0.3, tw * 0.25)), ny + (py - ny) * (0.45 + Math.min(0.3, tw * 0.25)));
+      ctx.stroke();
+    }
+  }
+  const hw = w[0];
+  if (g.bleed > 0.35 || hw > 0.5) {
+    const px = j[PELVIS * 2];
+    const py = j[PELVIS * 2 + 1];
+    const run = Math.min(0.75, (g.bleed + hw) * 0.3);
+    ctx.strokeStyle = '#b5121c';
+    ctx.globalAlpha = 0.85;
+    ctx.lineWidth = Math.max(1.5, lw * 0.32);
+    ctx.beginPath();
+    ctx.moveTo(nx + fc * lw * 0.2, ny);
+    ctx.lineTo(nx + (px - nx) * run + fc * lw * 0.2, ny + (py - ny) * run);
+    ctx.stroke();
+  }
+  // head: a swollen eye, then a cut with blood trickling down the face
+  if (hw > 0.12) {
+    if (bruiseCol) {
+      ctx.fillStyle = bruiseCol;
+      ctx.globalAlpha = Math.min(0.9, hw * 1.1);
+      ctx.beginPath();
+      ctx.arc(hx + fc * r * 0.42, hy - r * 0.05, r * (0.3 + Math.min(0.2, hw * 0.15)), 0, TAU);
+      ctx.fill();
+    }
+    if (hw > 0.3 || hero) {
+      ctx.globalAlpha = Math.min(1, 0.45 + hw * 0.55);
+      ctx.strokeStyle = '#c4141f';
+      ctx.lineWidth = Math.max(1.6, r * 0.22);
+      const sx = hx + fc * r * 0.55;
+      const sy = hy - r * 0.45;
+      const len = r * (0.8 + Math.min(1.4, hw * 1.2));
+      // trickle follows gravity in screen space
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + fc * r * 0.12, sy + len);
+      ctx.stroke();
+      if (hw > 0.7) {
+        ctx.beginPath();
+        ctx.moveTo(hx - fc * r * 0.1, hy - r * 0.7);
+        ctx.lineTo(hx - fc * r * 0.05, hy + r * 0.2);
+        ctx.stroke();
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
 }
 
 function strokeBody(ctx, j) {
@@ -11398,6 +12268,7 @@ class Renderer {
     env.drawDecor(ctx, sim, view, t, 'mid');
     env.drawStructure(ctx, view);
     if (L.puddles) this.drawPuddles(ctx, sim, view, alpha);
+    fx.gore.draw(ctx, view);
 
     const dark = L.dark;
     if (dark) this.drawDarkness(ctx, sim, cam, fx, view, t, W, H);
@@ -11413,7 +12284,7 @@ class Renderer {
     }
     order.sort((a, b) => rank(a) - rank(b) || a.id - b.id);
     for (const f of order) if (!f.ragdolled) drawShadow(ctx, f, alpha, P);
-    const opts = { t, trails: S.motionTrails, light: undefined, rim: null };
+    const opts = { t, trails: S.motionTrails, light: undefined, rim: null, gore: S.gore > 0 };
     let i = 0;
     for (; i < order.length && rank(order[i]) === 0; i++) this.drawOne(ctx, order[i], alpha, opts, dark, sim, t);
     for (const b of sim.props.boxes) drawBox(ctx, b, alpha, t, P);
@@ -11423,6 +12294,7 @@ class Renderer {
 
     env.drawFront(ctx, sim, view, t);
     fx.draw(ctx, view, t);
+    if (fx.impact && S.screenShake > 0) this.drawImpactFrame(ctx, fx.impact, view, alpha, t);
     if (L.rain) fx.drawRain(ctx, view);
     if (L.smoke) fx.drawSmoke(ctx, view);
     if (S.debugAI) this.drawDebug(ctx, sim, view);
@@ -11453,6 +12325,32 @@ class Renderer {
       ctx.fillRect(0, 0, W, bh);
       ctx.fillRect(0, H - bh, W, bh);
     }
+  }
+
+  // Two frames of pure graphic punch: white world, the two fighters in solid
+  // black, burst lines radiating from the point of contact.
+  drawImpactFrame(ctx, im, view, alpha, t) {
+    const m = 400;
+    ctx.save();
+    ctx.fillStyle = 'rgba(250,248,244,0.93)';
+    ctx.fillRect(view.x0 - m, view.y0 - m, view.x1 - view.x0 + m * 2, view.y1 - view.y0 + m * 2);
+    ctx.strokeStyle = 'rgba(10,10,12,0.85)';
+    ctx.lineCap = 'butt';
+    const n = 22;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + ((i * 7) % 5) * 0.05;
+      const r0 = 70 + ((i * 13) % 7) * 12;
+      const r1 = r0 + 260 + ((i * 29) % 11) * 30;
+      ctx.lineWidth = 2 + ((i * 5) % 4);
+      ctx.beginPath();
+      ctx.moveTo(im.x + Math.cos(a) * r0, im.y + Math.sin(a) * r0);
+      ctx.lineTo(im.x + Math.cos(a) * r1, im.y + Math.sin(a) * r1);
+      ctx.stroke();
+    }
+    const o = { t, trails: false, solid: '#0a0a0c', gore: false };
+    if (im.b && !im.b.removed) drawFighter(ctx, im.b, alpha, o);
+    if (im.a && !im.a.removed) drawFighter(ctx, im.a, alpha, o);
+    ctx.restore();
   }
 
   drawOne(ctx, f, alpha, opts, dark, sim, t) {
@@ -11650,6 +12548,9 @@ class Camera {
     this.focusY = 0;
     this.free = { x: 0, y: 0, w: 1400, active: false };
     this.endT = 0;
+    this.idleT = 0;
+    this.cut = null; // { x, y, t } cutaway to a brawl elsewhere
+    this.cutCooldown = 8;
   }
 
   reset(sim, W, H) {
@@ -11680,18 +12581,22 @@ class Camera {
     if (!force && (freq <= 0 || this.slowCooldown > 0 || score < 7 / Math.max(0.35, freq))) return false;
     const dur = clamp(0.45 + score * 0.04, 0.5, 1.3);
     this.slow = { t: 0, hold: dur, scale: clamp(0.32 - score * 0.006, 0.16, 0.3), x, y, punch: clamp(0.12 + score * 0.01, 0.12, 0.3) };
-    this.slowCooldown = force ? 0 : 7 / Math.max(0.35, freq);
+    this.slowCooldown = force ? 0 : 5 / Math.max(0.35, freq);
     return true;
   }
 
   onEvent(e, sim, settings) {
     switch (e.t) {
       case 'hit':
-        if (e.a && e.a.isHero) this.addTrauma(e.down ? 0.16 + Math.min(0.2, (e.power || 0) * 0.08) : 0.06, settings);
-        else if (e.b && e.b.isHero) this.addTrauma(0.12, settings);
+        if (e.a && e.a.isHero) {
+          this.addTrauma(e.down ? 0.2 + Math.min(0.25, (e.power || 0) * 0.1) + (e.b && e.b.dead ? 0.12 : 0) : 0.08, settings);
+          if (e.b && e.b.dead && (e.power || 0) > 1.15) this.requestSlowmo(7.5, e.x, e.y, settings);
+        } else if (e.b && e.b.isHero) this.addTrauma(e.power > 1.2 ? 0.22 : 0.13, settings);
+        else if (e.down) this.addTrauma(0.05, settings);
         break;
       case 'thud':
-        if ((e.power || 0) > 0.9) this.addTrauma(0.06 * e.power, settings);
+        if ((e.power || 0) > 1.3 && e.f && e.f.knock && e.f.knock.by && e.f.knock.by.isHero) this.addTrauma(0.3, settings);
+        else if ((e.power || 0) > 0.9) this.addTrauma(0.06 * e.power, settings);
         break;
       case 'explosion':
         this.addTrauma(0.75, settings);
@@ -11713,8 +12618,9 @@ class Camera {
         if (e.count >= 2) this.requestSlowmo(6 + e.count * 2.5, e.x, e.y, settings);
         break;
       case 'throw':
-        if (e.move === 'spinthrow' || e.move === 'reversal') this.requestSlowmo(9, e.x, e.y, settings);
+        if (e.move === 'spinthrow' || e.move === 'reversal' || e.move === 'suplex' || e.move === 'powerbomb') this.requestSlowmo(9, e.x, e.y, settings);
         break;
+
       case 'parry':
         this.requestSlowmo(7.5, e.x, e.y, settings);
         break;
@@ -11804,12 +12710,52 @@ class Camera {
         y0 = Math.min(y0, p.y - 130);
         y1 = Math.max(y1, p.y + 50);
       }
+      // while Onyx has nobody on him, show the fights going on around him
+      this.idleT = engaged === 0 ? this.idleT + dt : 0;
+      if (this.cutCooldown > 0) this.cutCooldown -= dt;
+      let brawl = null;
+      let bd = 1e9;
+      if (this.idleT > 1.2 && !sim.over) {
+        for (const f of sim.enemies) {
+          if (f.dead || f.removed || !f.brain || !f.brain.foe || f.ragdolled) continue;
+          const d = Math.abs(f.x - hx) + Math.abs(f.y - hy);
+          if (d < bd) {
+            bd = d;
+            brawl = f;
+          }
+        }
+      }
+      if (brawl && bd < 1100) {
+        const o = brawl.brain.foe;
+        x0 = Math.min(x0, brawl.x - 90, o.x - 90);
+        x1 = Math.max(x1, brawl.x + 90, o.x + 90);
+        y0 = Math.min(y0, brawl.y - 150, o.y - 150);
+        y1 = Math.max(y1, brawl.y + 40, o.y + 40);
+      } else if (brawl && !this.cut && this.cutCooldown <= 0) {
+        this.cut = { f: brawl, t: 0 };
+      }
+      if (this.cut) {
+        const c = this.cut;
+        c.t += dt;
+        if (c.t > 5 || engaged > 0 || c.f.dead || !c.f.brain || !c.f.brain.foe || sim.over) {
+          this.cut = null;
+          this.cutCooldown = 14;
+        }
+      }
       const minW = engaged <= 1 ? 900 : engaged <= 3 ? 1060 : 1240;
       tw = Math.max(minW, x1 - x0 + 300, (y1 - y0 + 220) * aspect);
       tw = Math.min(tw, 2400);
       // keep the hero inside the inner part of the frame
       tx = clamp((x0 + x1) / 2, hx - tw * 0.3, hx + tw * 0.3);
       ty = clamp((y0 + y1) / 2 - 30, hy - (tw / aspect) * 0.3, hy + (tw / aspect) * 0.15);
+      if (this.cut) {
+        // meanwhile, across the map...
+        const c = this.cut.f;
+        const o = c.brain.foe;
+        tx = (c.x + o.x) / 2;
+        ty = Math.min(c.y, o.y) - 70;
+        tw = 980;
+      }
       if (punch > 0) {
         tx = lerp(tx, this.focusX, punch * 2.2);
         ty = lerp(ty, this.focusY - 30, punch * 2.2);
@@ -11860,15 +12806,278 @@ class Camera {
 return { Camera };
 })();
 
+// ---- src/render/gore.js
+const __m28 = (() => {
+const { RNG } = __m3;
+// Blood that stays: splatters on walls and solid faces, strips and pools on
+// floors, smears where bodies slid. Painted once into world-space tiles that
+// are only allocated where blood actually lands, then blitted each frame.
+// Visual only: the simulation never reads any of this.
+
+
+const TILE = 256; // world units per tile
+const MAX_TILES = 180;
+const TAU = Math.PI * 2;
+
+const BLOOD = ['rgba(150,8,18,0.92)', 'rgba(118,6,14,0.94)', 'rgba(178,16,26,0.9)'];
+const POOL = 'rgb(104,4,12)';
+const POOL_EDGE = 'rgb(128,8,16)';
+
+function makeCanvas(w, h) {
+  if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(w, h);
+  if (typeof document !== 'undefined') {
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    return c;
+  }
+  return null;
+}
+
+class Gore {
+  constructor() {
+    this.rng = new RNG(0xb100d);
+    this.tiles = new Map();
+    this.scale = 1;
+    this.sim = null;
+    this.enabled = true;
+  }
+
+  reset(sim, settings) {
+    this.tiles.clear();
+    this.sim = sim;
+    const q = settings ? settings.quality : 'high';
+    this.scale = q === 'low' ? 0.7 : q === 'medium' ? 1 : 1.5;
+    this.level = settings ? settings.gore : 2;
+  }
+
+  // ------------------------------------------------------------ tiles
+  tile(tx, ty, create) {
+    const key = (tx + 2048) * 4096 + (ty + 2048);
+    let t = this.tiles.get(key);
+    if (!t && create) {
+      if (this.tiles.size >= MAX_TILES) return null;
+      const px = Math.ceil(TILE * this.scale);
+      const c = makeCanvas(px, px);
+      if (!c) return null;
+      t = { tx, ty, c, ctx: c.getContext('2d') };
+      t.ctx.lineCap = 'round';
+      this.tiles.set(key, t);
+    }
+    return t;
+  }
+
+  // Run draw(ctx) in world coordinates on every tile the box touches.
+  paint(x0, y0, x1, y1, draw) {
+    const s = this.scale;
+    const tx0 = Math.floor(x0 / TILE);
+    const tx1 = Math.floor(x1 / TILE);
+    const ty0 = Math.floor(y0 / TILE);
+    const ty1 = Math.floor(y1 / TILE);
+    for (let tx = tx0; tx <= tx1; tx++) {
+      for (let ty = ty0; ty <= ty1; ty++) {
+        const t = this.tile(tx, ty, true);
+        if (!t) continue;
+        t.ctx.setTransform(s, 0, 0, s, -tx * TILE * s, -ty * TILE * s);
+        draw(t.ctx);
+      }
+    }
+  }
+
+  draw(ctx, view) {
+    if (!this.tiles.size) return;
+    const tx0 = Math.floor(view.x0 / TILE);
+    const tx1 = Math.floor(view.x1 / TILE);
+    const ty0 = Math.floor(view.y0 / TILE);
+    const ty1 = Math.floor(view.y1 / TILE);
+    for (let tx = tx0; tx <= tx1; tx++) {
+      for (let ty = ty0; ty <= ty1; ty++) {
+        const t = this.tile(tx, ty, false);
+        if (t) ctx.drawImage(t.c, tx * TILE, ty * TILE, TILE, TILE);
+      }
+    }
+  }
+
+  // ------------------------------------------------------------ queries
+  // Is there something behind (x, y) for blood to stick to: the interior
+  // back wall indoors, or the face of a solid anywhere.
+  wallAt(x, y) {
+    const L = this.sim.level;
+    if (!L.outdoor && x > 0 && x < L.width && y < -2 && y > L.bounds.top + 30) return true;
+    return !!L.isSolidAt(x, y);
+  }
+
+  // ------------------------------------------------------------ marks
+  // Radial splash on a wall, thrown in direction (dx, dy). Geometry is
+  // rolled once so every tile the splash straddles paints the same shapes.
+  wall(x, y, dx, dy, size) {
+    if (!this.sim || !this.wallAt(x, y)) return false;
+    const r = this.rng;
+    const l = Math.hypot(dx, dy) || 1;
+    const ang = Math.atan2(dy / l, dx / l);
+    const reach = size * 3;
+    const col = BLOOD[r.int(0, 2)];
+    const blobs = [[x, y, size * r.range(0.5, 0.75), size * r.range(0.4, 0.6), ang]];
+    const n = Math.round(4 + size * 1.2);
+    for (let i = 0; i < n; i++) {
+      const d = r.range(0.4, 1) * reach;
+      const a = ang + r.range(-0.7, 0.7);
+      const sz = Math.max(0.6, size * 0.28 * (1 - d / reach) + r.range(0.3, 1.2));
+      blobs.push([x + Math.cos(a) * d, y + Math.sin(a) * d, sz * 1.6, sz, a]);
+    }
+    const lines = [];
+    for (let i = 0; i < 2; i++) {
+      const a = ang + r.range(-0.35, 0.35);
+      const d0 = size * 0.6;
+      const d1 = reach * r.range(0.6, 1.1);
+      lines.push([x + Math.cos(a) * d0, y + Math.sin(a) * d0, x + Math.cos(a) * d1, y + Math.sin(a) * d1, r.range(0.8, 1.8)]);
+    }
+    const runs = size > 5 ? r.int(1, 3) : r.chance(0.3) ? 1 : 0;
+    let low = y + reach;
+    for (let i = 0; i < runs; i++) {
+      const ox = x + r.range(-size * 0.5, size * 0.5);
+      const len = size * 6 * r.range(0.3, 1);
+      const w = r.range(1.2, 2.2);
+      lines.push([ox, y, ox, y + len, w]);
+      blobs.push([ox, y + len, w * 0.9, w * 0.9, 0]);
+      low = Math.max(low, y + len + 3);
+    }
+    this.paint(x - reach - 4, y - reach - 4, x + reach + 4, low, (ctx) => {
+      ctx.fillStyle = col;
+      ctx.strokeStyle = col;
+      ctx.beginPath();
+      for (const [bx, by, rx, ry, a] of blobs) {
+        ctx.moveTo(bx + rx, by);
+        ctx.ellipse(bx, by, rx, ry, a, 0, TAU);
+      }
+      ctx.fill();
+      for (const [x0, y0, x1, y1, w] of lines) {
+        ctx.lineWidth = w;
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x1, y1);
+        ctx.stroke();
+      }
+    });
+    return true;
+  }
+
+  // A single droplet hitting a wall: a small streak along its flight.
+  drop(x, y, dx, dy, size) {
+    if (!this.sim || !this.wallAt(x, y)) return false;
+    const r = this.rng;
+    const ang = Math.atan2(dy, dx);
+    const col = BLOOD[r.int(0, 2)];
+    const len = size * r.range(1.2, 2.4);
+    const sat = r.chance(0.35) ? [x + Math.cos(ang) * len * 2.2, y + Math.sin(ang) * len * 2.2, size * 0.45] : null;
+    const run = size > 1.8 && r.chance(0.12) ? r.range(4, 12) : 0;
+    const m = len * 3 + 4;
+    this.paint(x - m, y - m, x + m, y + m + run, (ctx) => {
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.ellipse(x, y, len, size * 0.6, ang, 0, TAU);
+      if (sat) {
+        ctx.moveTo(sat[0] + sat[2], sat[1]);
+        ctx.arc(sat[0], sat[1], sat[2], 0, TAU);
+      }
+      ctx.fill();
+      if (run) {
+        ctx.strokeStyle = col;
+        ctx.lineWidth = size * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y + run);
+        ctx.stroke();
+      }
+    });
+    return true;
+  }
+
+  // A strip of blood on the floor line at (x, y = floor top).
+  floor(x, y, size) {
+    if (!this.sim) return;
+    const r = this.rng;
+    const w = size * 1.8;
+    const col = BLOOD[r.int(0, 2)];
+    const blobs = [[x, y + 0.5, w * r.range(0.7, 1.1), Math.min(3.4, 1.2 + size * 0.25)]];
+    const n = r.int(1, 4);
+    for (let i = 0; i < n; i++) blobs.push([x + r.range(-w * 1.6, w * 1.6), y + 0.5, r.range(0.8, 2.6), r.range(0.6, 1.2)]);
+    let drip = null;
+    if (size > 3 && r.chance(0.5)) drip = [x + r.range(-w * 0.6, w * 0.6), r.range(3, 11), r.range(1, 1.8)];
+    this.paint(x - w * 1.7 - 3, y - 6, x + w * 1.7 + 3, y + 14, (ctx) => {
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      for (const [bx, by, rx, ry] of blobs) {
+        ctx.moveTo(bx + rx, by);
+        ctx.ellipse(bx, by, rx, ry, 0, 0, TAU);
+      }
+      ctx.fill();
+      if (drip) {
+        ctx.strokeStyle = col;
+        ctx.lineWidth = drip[2];
+        ctx.beginPath();
+        ctx.moveTo(drip[0], y);
+        ctx.lineTo(drip[0], y + drip[1]);
+        ctx.stroke();
+      }
+    });
+  }
+
+  // Pools grow by repainting a slightly larger opaque ellipse.
+  pool(x, y, rx) {
+    if (!this.sim) return;
+    this.paint(x - rx - 2, y - 5, x + rx + 2, y + 6, (ctx) => {
+      ctx.fillStyle = POOL_EDGE;
+      ctx.beginPath();
+      ctx.ellipse(x, y + 0.6, rx + 1.2, 3.2, 0, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = POOL;
+      ctx.beginPath();
+      ctx.ellipse(x, y + 0.6, rx, 2.4, 0, 0, TAU);
+      ctx.fill();
+    });
+  }
+
+  // A dragged streak along the floor between x0 and x1.
+  smear(x0, x1, y, k) {
+    if (!this.sim) return;
+    const a = Math.min(x0, x1);
+    const b = Math.max(x0, x1);
+    if (b - a < 1) return;
+    this.paint(a - 2, y - 4, b + 2, y + 4, (ctx) => {
+      ctx.strokeStyle = `rgba(120,6,14,${0.35 + 0.4 * Math.min(1, k)})`;
+      ctx.lineWidth = 1.5 + 2 * Math.min(1, k);
+      ctx.beginPath();
+      ctx.moveTo(a, y + 0.6);
+      ctx.lineTo(b, y + 0.6);
+      ctx.stroke();
+    });
+  }
+}
+return { BLOOD, Gore };
+})();
+
 // ---- src/render/fx.js
 const __m27 = (() => {
 const { RNG } = __m3;
-const { HEAD, NECK, PELVIS, NJ } = __m11;
+const { HEAD, NECK, PELVIS, KNEE_A, KNEE_B, NJ } = __m11;
+const { Gore } = __m28;
 // Visual-only effects. Driven by simulation events and live state; updated
 // in (scaled) real time so slow motion stays smooth. Uses its own RNG so the
 // simulation remains deterministic.
 
 
+
+
+// wound slots on a fighter (visual): head, torso, lead arm, rear arm, lead leg, rear leg
+const W_HEAD = 0;
+const W_TORSO = 1;
+const WOUND_PART = { head: [W_HEAD], body: [W_TORSO, W_TORSO, 2, 3], legs: [4, 5] };
+
+function woundsOf(f) {
+  if (!f.gore) f.gore = { w: new Float32Array(6), bleed: 0, pool: 0, poolX: 0, poolY: 0, poolT: 0, smearX: null };
+  return f.gore;
+}
 
 const TAU = Math.PI * 2;
 const MAX = 2600;
@@ -11887,9 +13096,22 @@ class FX {
     this.smoke = [];
     this.steamers = new Map();
     this.time = 0;
+    this.gore = new Gore();
+    this.goreK = 1.6;
+    this.impact = null; // a stylised black-on-white impact frame
+    this.impactCd = 0;
   }
 
-  reset(sim) {
+  impactFrame(a, b, x, y, force) {
+    if (!force && this.time < this.impactCd) return;
+    this.impact = { t: 0.085, a, b, x, y };
+    this.impactCd = this.time + 1.5;
+  }
+
+  reset(sim, settings) {
+    this.gore.reset(sim, settings);
+    this.impact = null;
+    this.goreK = settings ? [0, 1, 1.7][settings.gore | 0] || 0 : 1;
     for (const p of this.ps) p.alive = false;
     this.arcs.length = 0;
     this.lights.length = 0;
@@ -11937,6 +13159,7 @@ class FX {
     p.floor = o.floor !== undefined ? o.floor : null;
     p.alpha = o.alpha !== undefined ? o.alpha : 1;
     p.add = !!o.add;
+    p.wallT = o.wallT !== undefined ? o.wallT : -1;
     return p;
   }
 
@@ -11979,6 +13202,8 @@ class FX {
           this.burst('spark', e.x, e.y, 16, { speed: [200, 520], life: [0.1, 0.3], size: [1.5, 2.6], color: '255,240,190', g: 500, drag: 2, add: true });
           this.spawn({ type: 'flash', x: e.x, y: e.y, life: 0.12, size: 34, color: '255,250,230', add: true });
         } else {
+          if (this.goreK > 0 && e.b && e.kind !== 'push') this.bleedHit(e, sim, pw);
+          if (e.a && e.a.isHero && e.b && !e.friendly && (e.b.dead || (e.down && pw > 1.2))) this.impactFrame(e.a, e.b, e.x, e.y);
           const metal = e.weapon === 'pipe' || e.weapon === 'crowbar';
           this.spawn({ type: 'flash', x: e.x, y: e.y, life: 0.07 + pw * 0.03, size: 14 + pw * 16, color: '255,255,255', add: true });
           this.spawn({ type: 'streaks', x: e.x, y: e.y, life: 0.11, size: 16 + pw * 18, rot: r.range(0, TAU), color: '255,255,255', alpha: 0.95 });
@@ -11990,6 +13215,13 @@ class FX {
       }
       case 'thud': {
         const pw = Math.min(1.6, e.power || 0.5);
+        if (this.goreK > 0 && e.f && e.f.gore && (e.wall || pw > 0.8)) this.bleedImpact(e, sim, pw);
+        if (e.f && pw > 1.25 && e.f.knock && e.f.knock.by && e.f.knock.by.isHero && sim.time - e.f.knock.time < 1.5) {
+          // slammed down hard: the floor shakes, dust rings out
+          this.impactFrame(e.f.knock.by, e.f, e.x, e.y);
+          for (const dir of [-1, 1]) this.burst('dust', e.x + dir * 8, e.y + 4, 5, { ang: dir > 0 ? -0.1 : Math.PI + 0.1, spread: 0.25, speed: [120, 320], life: [0.35, 0.7], size: [6, 11], grow: 30, color: '200,196,190', drag: 4, alpha: 0.5 });
+          this.spawn({ type: 'ring', x: e.x, y: e.y, life: 0.25, size: 10, grow: 260, color: '255,255,255', alpha: 0.5 });
+        }
         if (e.wall) {
           this.burst('chip', e.x, e.y, 6, { speed: [80, 260], life: [0.4, 0.9], size: [1.5, 3], color: '150,150,150', g: 1500, floor: e.y + 50 });
         }
@@ -12060,8 +13292,158 @@ class FX {
       case 'heroDefeated':
         this.flashScreen(0.25, '255,255,255');
         break;
+      case 'ko':
+        if (this.goreK > 0 && e.f && e.cause !== 'electric' && e.cause !== 'fell' && e.cause !== 'window') {
+          const g = woundsOf(e.f);
+          g.bleed = Math.min(2, g.bleed + 0.6);
+          const hp = e.f.rag.p[HEAD];
+          this.spray(sim, hp.x, hp.y, (e.by ? Math.sign(e.f.x - e.by.x) : 0) || 1, 1.2, 10, e.cause === 'explosion' ? 2 : 1);
+        }
+        break;
     }
     void settings;
+  }
+
+  // A landed blow: wounds on the struck part, a spray away from the attacker,
+  // and on big hits a splash straight onto the wall behind the victim.
+  bleedHit(e, sim, pw) {
+    const t = e.b;
+    const g = woundsOf(t);
+    const dmg = pw * 9;
+    const slots = WOUND_PART[e.part] || WOUND_PART.body;
+    const slot = slots[this.rng.int(0, slots.length - 1)];
+    const k = dmg / Math.max(20, t.maxHp * 0.35);
+    g.w[slot] = Math.min(1.5, g.w[slot] + k * (e.ground ? 0.8 : 1));
+    if (e.part === 'body') {
+      const arm = 2 + this.rng.int(0, 1);
+      g.w[arm] = Math.min(1.5, g.w[arm] + k * 0.3);
+    }
+    const cut = e.weapon || e.kind === 'weapon' || e.part === 'head';
+    g.bleed = Math.min(2, g.bleed + k * (cut ? 0.9 : 0.5));
+    const dir = Math.sign(t.x - (e.a ? e.a.x : t.x - 1)) || 1;
+    const heavy = pw > 1.15 || e.down;
+    const n = (2 + pw * 5) * (e.part === 'head' ? 1.3 : 1) * (cut ? 1.3 : 1) * (heavy ? 1.3 : 1);
+    this.spray(sim, e.x, e.y, dir, pw, n, 1);
+    if (heavy && this.rng.chance(0.35 * this.goreK)) {
+      // the classic: a splash on the wall right behind the head
+      const hx = t.rag.p[HEAD].x + dir * this.rng.range(14, 40);
+      const hy = t.rag.p[HEAD].y + this.rng.range(-10, 18);
+      this.gore.wall(hx, hy, dir, this.rng.range(-0.4, 0.2), 3 + pw * 3.5 * Math.min(1.4, this.goreK));
+    }
+  }
+
+  // Bodies slamming into floors and walls leave their mark.
+  bleedImpact(e, sim, pw) {
+    const g = e.f.gore;
+    if (g.bleed < 0.15 && !e.wall) return;
+    if (e.wall && e.nx !== undefined) {
+      this.gore.wall(e.x, e.y, -e.nx, this.rng.range(-0.3, 0.3), 3 + pw * 4);
+      this.spray(sim, e.x, e.y, -Math.sign(e.nx) || 1, pw * 0.8, 6, 1);
+    } else {
+      const fl = this.floorBelow(sim, e.x, e.y - 20);
+      if (fl - e.y < 40) this.gore.floor(e.x, fl, 2 + pw * 3 * Math.min(1.5, g.bleed + 0.4));
+    }
+  }
+
+  // Droplets thrown from (x, y), mostly in direction dir, some sticking to
+  // the wall behind mid-flight, the rest raining onto the floor.
+  spray(sim, x, y, dir, pw, n, mul) {
+    const r = this.rng;
+    const count = Math.round(n * this.goreK * (mul || 1));
+    const fl = this.floorBelow(sim, x, y);
+    for (let i = 0; i < count; i++) {
+      const a = (dir > 0 ? 0 : Math.PI) + dir * r.range(-0.95, 0.45) + (r.chance(0.15) ? Math.PI * r.range(0.8, 1.2) : 0);
+      const sp = r.range(90, 260 + pw * 260);
+      this.spawn({
+        type: 'blood',
+        x: x + r.range(-3, 3),
+        y: y + r.range(-3, 3),
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - r.range(40, 160),
+        life: r.range(0.7, 1.6),
+        size: r.range(1.1, 2.6) * (0.8 + pw * 0.2),
+        color: r.chance(0.3) ? '120,6,14' : '165,12,22',
+        g: 1500,
+        drag: 0.6,
+        floor: fl,
+        wallT: r.chance(0.3) ? r.range(0.03, 0.3) : -1,
+      });
+    }
+    if (this.goreK > 1.2 && pw > 0.6) {
+      this.burst('mist', x, y, 2 + Math.round(pw * 2), { ang: dir > 0 ? -0.2 : Math.PI + 0.2, spread: 0.7, speed: [20, 90], life: [0.25, 0.5], size: [4, 8], grow: 22, color: '150,10,20', drag: 4, alpha: 0.35 });
+    }
+  }
+
+  // Blood particles: stick to walls mid-flight or stain the floor on landing.
+  bloodStep(p, sim) {
+    if (p.wallT >= 0 && p.max - p.life >= p.wallT) {
+      p.alive = false;
+      if (!this.gore.drop(p.x, p.y, p.vx, p.vy, p.size)) {
+        p.alive = true;
+        p.wallT = -1;
+      }
+      return;
+    }
+    if (p.floor !== null && p.y >= p.floor) {
+      const g = sim.level.groundUnder(p.x - 1, p.x + 1, p.floor - 6, 12, true, false);
+      if (g) {
+        this.gore.floor(p.x, g.y, p.size * 0.9);
+        p.alive = false;
+      } else p.floor = this.floorBelow(sim, p.x, p.y + 2);
+    }
+  }
+
+  // Wounded fighters drip; bodies on the floor pool and smear.
+  updateBleeding(dt, sim, view) {
+    const r = this.rng;
+    const h = sim.h;
+    for (const f of sim.fighters) {
+      const g = f.gore;
+      if (!g || g.bleed <= 0.02 || f.removed) continue;
+      const pel = f.rag.p[PELVIS];
+      if (pel.x < view.x0 - 300 || pel.x > view.x1 + 300) continue;
+      if (!f.dead) g.bleed = Math.max(0, g.bleed - dt * 0.012);
+      if (!f.ragdolled) {
+        if (r.chance(dt * g.bleed * 2.2 * this.goreK)) {
+          const src = g.w[W_HEAD] > g.w[W_TORSO] ? f.rag.p[HEAD] : f.rag.p[NECK];
+          this.spawn({ type: 'blood', x: src.x + r.range(-4, 4), y: src.y + 6, vx: f.vx * 0.5 + r.range(-15, 15), vy: r.range(0, 40), life: 1.5, size: r.range(1, 1.8), color: '150,10,20', g: 1400, floor: this.floorBelow(sim, src.x, src.y) });
+        }
+        g.smearX = null;
+        continue;
+      }
+      // lying still: a pool spreads from the head and chest
+      const hp = f.rag.p[HEAD];
+      const slow = f.rag.sleeping || f.rag.coreSpeed(h) < 40;
+      g.poolT -= dt;
+      if (slow && g.poolT <= 0) {
+        g.poolT = 0.35;
+        const cx = (hp.x * 2 + pel.x) / 3;
+        const fl = sim.level.groundUnder(cx - 2, cx + 2, Math.max(hp.y, pel.y) - 12, 40, true, false);
+        if (fl) {
+          const maxR = 10 + Math.min(1.5, g.bleed) * 26 * Math.min(1.3, this.goreK);
+          if (Math.abs(cx - g.poolX) > 30 || Math.abs(fl.y - g.poolY) > 4) {
+            g.poolX = cx;
+            g.poolY = fl.y;
+            g.pool = 3;
+          }
+          if (g.pool < maxR) {
+            g.pool = Math.min(maxR, g.pool + 2.2);
+            this.gore.pool(g.poolX, g.poolY, g.pool);
+          }
+        }
+      }
+      // sliding along the floor: smear
+      if (!slow && pel.ground !== undefined) {
+        const low = f.rag.p[NECK].ground || pel.ground || f.rag.p[KNEE_A].ground || f.rag.p[KNEE_B].ground;
+        if (low) {
+          const fl = sim.level.groundUnder(pel.x - 2, pel.x + 2, pel.y - 6, 30, true, false);
+          if (fl) {
+            if (g.smearX !== null && Math.abs(pel.x - g.smearX) < 60) this.gore.smear(g.smearX, pel.x, fl.y, g.bleed);
+            g.smearX = pel.x;
+          } else g.smearX = null;
+        } else g.smearX = null;
+      }
+    }
   }
 
   floorBelow(sim, x, y) {
@@ -12079,6 +13461,11 @@ class FX {
   // --------------------------------------------------------------- update
   update(dt, sim, view, settings) {
     this.time += dt;
+    if (this.impact) {
+      this.impact.t -= dt;
+      if (this.impact.t <= 0) this.impact = null;
+    }
+    if (settings) this.goreK = [0, 1, 1.7][settings.gore | 0] || 0;
     const r = this.rng;
     for (const p of this.ps) {
       if (!p.alive) continue;
@@ -12097,6 +13484,10 @@ class FX {
       p.y += p.vy * dt;
       p.rot += p.vr * dt;
       p.size = Math.max(0.2, p.size + p.grow * dt);
+      if (p.type === 'blood') {
+        this.bloodStep(p, sim);
+        continue;
+      }
       if (p.floor !== null && p.y > p.floor) {
         p.y = p.floor;
         p.vy *= -0.3;
@@ -12128,6 +13519,7 @@ class FX {
         this.spawn({ type: 'spark', x: p.x, y: p.y, vx: r.range(-200, 200), vy: r.range(-260, 60), life: r.range(0.06, 0.18), size: 1.4, color: '210,235,255', g: 400, add: true });
       }
     }
+    if (this.goreK > 0) this.updateBleeding(dt, sim, view);
     // wind debris & rain
     const L = sim.level;
     if (L.wind && r.chance(dt * 6)) {
@@ -12244,6 +13636,16 @@ function drawParticle(ctx, p, k) {
       ctx.stroke();
       break;
     }
+    case 'blood': {
+      const v = Math.hypot(p.vx, p.vy);
+      const st = Math.min(3.2, 1 + v / 260);
+      ctx.fillStyle = `rgba(${p.color},${Math.min(1, k * 3)})`;
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, p.size * st, p.size, Math.atan2(p.vy, p.vx), 0, TAU);
+      ctx.fill();
+      break;
+    }
+    case 'mist':
     case 'dust':
     case 'smoke':
     case 'steam': {
@@ -12327,11 +13729,11 @@ function drawParticle(ctx, p, k) {
     }
   }
 }
-return { FX };
+return { W_HEAD, W_TORSO, woundsOf, FX };
 })();
 
 // ---- src/audio/audio.js
-const __m28 = (() => {
+const __m29 = (() => {
 const { clamp } = __m5;
 // Procedural sound: everything is synthesised with Web Audio, triggered by
 // simulation events and positioned by where they happen on screen. Slow
@@ -12858,7 +14260,7 @@ return { AudioEngine };
 })();
 
 // ---- src/ui/feed.js
-const __m30 = (() => {
+const __m31 = (() => {
 
 // Play-by-play commentary built from simulation events. Returns
 // { text, level } (level 0..3 = routine..spectacular) or null.
@@ -12871,7 +14273,11 @@ const MOVE_NAMES = {
   teep: 'a push kick', roundhouse: 'a roundhouse', spinkick: 'a spinning back kick', sweep: 'a low sweep',
   flyingkick: 'a flying kick', backkick: 'a back kick', backelbow: 'a back elbow', shove: 'a shove',
   wswing: 'a full swing', woverhead: 'an overhead smash', wthrust: 'a thrust',
+  superman: 'a superman punch', backfist: 'a spinning backfist', axekick: 'an axe kick', jumpknee: 'a flying knee',
+  dropkick: 'a dropkick', headbutt: 'a headbutt', stomp: 'a stomp', punt: 'a punt',
 };
+const SHOWY = new Set(['spinkick', 'flyingkick', 'superman', 'backfist', 'axekick', 'jumpknee', 'dropkick', 'headbutt']);
+const cap = (t) => t[0].toUpperCase() + t.slice(1);
 
 const WEAPON_NAMES = { pipe: 'steel pipe', bat: 'bat', crowbar: 'crowbar', plank: 'plank' };
 
@@ -12884,6 +14290,7 @@ function describe(e) {
       const by = e.by;
       const viaHero = by && by.isHero;
       if (by && !by.isHero && by !== f && (e.cause === 'beaten' || e.cause === 'body')) {
+        if (by.brain && by.brain.foe === f) return { text: pick([`${by.name} beats ${name} senseless`, `${by.name} wins the brawl with ${name}`, `${name} loses the fight with ${by.name}`], n), level: 2 };
         return { text: `${by.name} accidentally knocks out ${name}`, level: 2 };
       }
       switch (e.cause) {
@@ -12915,13 +14322,18 @@ function describe(e) {
       if (e.move === 'spinthrow') return { text: `Onyx spins ${e.b.name} into the crowd`, level: 2 };
       if (e.move === 'reversal') return { text: `Reversal — ${e.b.name} goes over the shoulder`, level: 2 };
       if (e.move === 'shouldertoss') return { text: `Onyx tosses ${e.b.name} over his shoulder`, level: 1 };
+      if (e.move === 'suplex') return { text: `Onyx suplexes ${e.b.name} into the floor`, level: 2 };
+      if (e.move === 'powerbomb') return { text: `Onyx powerbombs ${e.b.name}`, level: 2 };
+      if (e.move === 'clinch') return { text: `Onyx knees ${e.b.name} in the clinch`, level: 1 };
       return { text: `Onyx hip-throws ${e.b.name}`, level: 1 };
     case 'grab':
       if (e.hold && e.b && e.b.isHero) return { text: `${e.a.name} grabs Onyx from behind`, level: 2 };
       return null;
     case 'hit':
       if (e.friendly && e.down && n % 2 === 0) return { text: `${e.a.name} clobbers ${e.b.name} by mistake`, level: 1 };
-      if (e.a && e.a.isHero && e.down && (e.move === 'spinkick' || e.move === 'flyingkick') && n % 2 === 0) return { text: `${MOVE_NAMES[e.move] ? MOVE_NAMES[e.move][0].toUpperCase() + MOVE_NAMES[e.move].slice(1) : 'A kick'} floors ${e.b.name}`, level: 1 };
+      if (e.a && e.a.isHero && e.ground && e.move === 'punt') return { text: `Onyx punts ${e.b.name} across the floor`, level: 2 };
+      if (e.a && e.a.isHero && e.ground && e.move === 'stomp' && n % 2 === 0) return { text: pick([`Onyx stamps on ${e.b.name}`, `Onyx puts the boot in on ${e.b.name}`], n), level: 1 };
+      if (e.a && e.a.isHero && e.down && SHOWY.has(e.move) && n % 2 === 0) return { text: `${cap(MOVE_NAMES[e.move] || 'a kick')} floors ${e.b.name}`, level: 1 };
       return null;
     case 'combo':
       if (e.n === 4 || e.n === 6 || e.n === 9) return { text: `${e.n}-hit combo`, level: 1 };
@@ -12954,9 +14366,9 @@ return { describe };
 })();
 
 // ---- src/ui/ui.js
-const __m29 = (() => {
+const __m30 = (() => {
 const { ENVIRONMENTS, CONDITIONS, DIFFICULTY_PRESETS } = __m1;
-const { describe } = __m30;
+const { describe } = __m31;
 // DOM interface: broadcast-style HUD, control dock, settings drawer and the
 // end-of-battle card. Talks to main.js through the `actions` callbacks.
 
@@ -13191,6 +14603,7 @@ class UI {
           <h3>Presentation</h3>
           ${sel('cameraMode', 'Camera', CAMERA_ORDER.map((c) => [c, CAMERA_LABELS[c]]), S.cameraMode)}
           ${sel('quality', 'Render quality', [['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], S.quality)}
+          ${sel('gore', 'Blood', [[0, 'Off'], [1, 'Blood'], [2, 'Brutal']], S.gore)}
           ${group('view').map(slider).join('')}
           ${TOGGLES.filter((t) => t[2] === 'view').map(toggle).join('')}
         </section>
@@ -13252,10 +14665,10 @@ class UI {
         a.settingsChanged(id);
       });
     }
-    for (const id of ['difficulty', 'timeLimit', 'totalEnemies', 'environment', 'condition', 'cameraMode', 'quality']) {
+    for (const id of ['difficulty', 'timeLimit', 'totalEnemies', 'environment', 'condition', 'cameraMode', 'quality', 'gore']) {
       $(id).addEventListener('change', (e) => {
         let v = e.target.value;
-        if (id === 'timeLimit' || id === 'totalEnemies') v = parseInt(v, 10);
+        if (id === 'timeLimit' || id === 'totalEnemies' || id === 'gore') v = parseInt(v, 10);
         this.S[id] = v;
         if (id === 'difficulty' && DIFFICULTY_PRESETS[v]) {
           Object.assign(this.S, DIFFICULTY_PRESETS[v]);
@@ -13275,7 +14688,7 @@ class UI {
       $('o_' + id).textContent = fmt(this.S[id]);
     }
     for (const [id] of TOGGLES) $('t_' + id).checked = !!this.S[id];
-    for (const id of ['difficulty', 'timeLimit', 'totalEnemies', 'environment', 'condition', 'cameraMode', 'quality']) $(id).value = String(this.S[id]);
+    for (const id of ['difficulty', 'timeLimit', 'totalEnemies', 'environment', 'condition', 'cameraMode', 'quality', 'gore']) $(id).value = String(this.S[id]);
     this.syncDock();
   }
 
@@ -13490,8 +14903,8 @@ const { Simulation } = __m2;
 const { Renderer } = __m22;
 const { Camera } = __m26;
 const { FX } = __m27;
-const { AudioEngine } = __m28;
-const { UI } = __m29;
+const { AudioEngine } = __m29;
+const { UI } = __m30;
 const { clamp } = __m5;
 // Bootstrap and main loop: fixed-step simulation with render interpolation,
 // camera-driven slow motion, event routing to effects/audio/HUD, settings
@@ -13612,7 +15025,7 @@ function start(root) {
     sim = new Simulation(S, sd, simNumber++);
     renderer.setSim(sim);
     renderer.resize(S.quality);
-    fx.reset(sim);
+    fx.reset(sim, S);
     cam.reset(sim, renderer.W, renderer.H);
     if (audio.ready) audio.setTheme(sim.level.theme, sim.level.condition);
     ui.onNewSim(sim);
@@ -13650,12 +15063,18 @@ function start(root) {
       // fixed steps within a time budget; when a huge crowd makes the
       // simulation slower than real time, drop the backlog (the action runs
       // a little slower) instead of spiralling into ever longer frames
-      while (acc >= SIM_DT && steps < 6) {
-        lastStepAdvanced = sim.step();
-        routeEvents(sim.drainEvents());
-        acc -= SIM_DT;
-        steps++;
-        if (performance.now() - t0 > 13) break;
+      try {
+        while (acc >= SIM_DT && steps < 6) {
+          lastStepAdvanced = sim.step();
+          routeEvents(sim.drainEvents());
+          acc -= SIM_DT;
+          steps++;
+          if (performance.now() - t0 > 13) break;
+        }
+      } catch (err) {
+        // never freeze on a bad state: report it and start a fresh battle
+        console.error(err);
+        newSim();
       }
       if (acc > SIM_DT * 2) acc = SIM_DT * 0.5;
       perf.simMs += (performance.now() - t0 - perf.simMs) * 0.1;
