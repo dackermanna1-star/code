@@ -1,3 +1,2 @@
-// Sounds for level group 01.
-import { defineShot, defineLoop, defineBed } from '../registry.js';
-void defineShot; void defineLoop; void defineBed;
+// Sounds for level group 01 (hotels and apartments).
+import './s01_l005.js';

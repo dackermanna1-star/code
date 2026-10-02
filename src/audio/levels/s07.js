@@ -1,3 +1,2 @@
-// Sounds for level group 07.
-import { defineShot, defineLoop, defineBed } from '../registry.js';
-void defineShot; void defineLoop; void defineBed;
+// Sounds for level group 07 (each level's sounds live in its own s07_NN.js).
+import './s07_58.js';
