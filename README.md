@@ -157,8 +157,16 @@ responsive through:
 - a frame-time budget so an extreme crowd slows the action slightly instead
   of dropping into a spiral of long frames.
 
-On a typical laptop the default settings simulate in about 1 ms per step;
-200+ enemies at once in about 8 to 15 ms.
+In testing (Node, one core), the default settings simulate in under 1 ms
+per step, the 160-enemy Nightmare preset in about 3 ms, and a 220-enemy
+stress brawl in about 8 ms.
+
+## Balance
+
+At the default settings a battle typically lasts two to four and a half
+minutes and Onyx takes down 45 to 90 enemies before the crowd and his own
+fatigue catch up with him. Hero endurance, the difficulty presets and the
+enemy sliders stretch or shorten that.
 
 ## Project layout
 
