@@ -22,6 +22,7 @@
   .tag { font-size: clamp(10px, 1.15vw, 15px); letter-spacing: .32em; opacity: .62; text-transform: uppercase; }
   .play { margin-top: 3vh; padding: .85em 2.4em; border: 2px solid rgba(255, 255, 255, .78); font-weight: 800; letter-spacing: .32em; font-size: clamp(12px, 1.35vw, 19px); animation: pulse 1.5s ease-in-out infinite; background: rgba(0, 0, 0, .35); }
   .keys { margin-top: 1.6vh; font-size: clamp(10px, .95vw, 13px); opacity: .55; letter-spacing: .08em; line-height: 1.9; }
+  .keys.warn { margin-top: .4vh; opacity: .4; }
   @keyframes pulse { 50% { box-shadow: 0 0 32px rgba(110, 200, 255, .55), inset 0 0 22px rgba(255, 50, 70, .35); transform: scale(1.045); } }
   #end { justify-content: flex-end; padding-bottom: 7vh; background: transparent; }
   #end .play { animation: none; font-size: clamp(11px, 1.1vw, 15px); padding: .7em 1.9em; }
@@ -37,6 +38,7 @@
   <div class="tag">the strongest of today · the strongest in history</div>
   <div class="play">▶&nbsp; CLICK TO START</div>
   <div class="keys">sound on recommended · 60 seconds<br>SPACE pause · R restart · ← → seek · M mute · F fullscreen · D stats</div>
+  <div class="keys warn">⚠ contains rapid flashing images</div>
 </div>
 <div id="end" class="ov hide"><div class="play">↻&nbsp; REPLAY</div></div>
 <div id="hud"></div>
