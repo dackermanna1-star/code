@@ -118,25 +118,59 @@ export function buildProgram(name: ProgramName): BuiltProgram {
   return { name, fragment, variants };
 }
 
+/**
+ * A deliberately tiny program used for the layers of any family program that fails to compile on
+ * a given driver: a plain noisy surface in the definition's first palette colour.
+ */
+export function buildFallbackFragment(): string {
+  const fam = /* glsl */ `
+Mat material(vec2 uv) {
+  float n = fbm(uv, vec2(4.0), 4, 0.5, 1.0);
+  return M(uC[0] * (0.85 + 0.3 * n), 1.0, 0.6 + 0.2 * n, 0.8);
+}`;
+  return [HEADER, lib, fam, FOOTER].join('\n');
+}
+
 export const VERTEX = /* glsl */ `
 in vec3 position;
 void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }
 `;
 
-/** Pass 2a: alpha-aware colour dilation for cutout cards + sRGB encode. */
+/**
+ * Pass 2a: micro-cavity shading baked from the height field (texel-scale crevices are below what
+ * screen-space AO can resolve), alpha-aware colour dilation for cutout cards, sRGB encode.
+ */
 export const ALBEDO_FRAG = /* glsl */ `
 precision highp float;
 precision highp int;
 uniform sampler2D tA;
+uniform sampler2D tS;
 uniform int uN;
 uniform int uCutout;
 uniform vec3 uBg;
+uniform float uCavity;
 out vec4 oColor;
 vec3 lin2srgb(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
+float Hs(ivec2 q) { q = (q % uN + uN) % uN; return texelFetch(tS, q, 0).r; }
 void main() {
   ivec2 p = ivec2(gl_FragCoord.xy);
   vec4 c = texelFetch(tA, p, 0);
   vec3 rgb = c.rgb;
+  if (uCavity > 0.0) {
+    int r1 = max(1, uN / 96);
+    int r2 = r1 * 3;
+    float h0 = Hs(p);
+    float s1 = 0.0, s2 = 0.0;
+    for (int k = 0; k < 8; k++) {
+      float a = float(k) * 0.785398;
+      vec2 d = vec2(cos(a), sin(a));
+      s1 += Hs(p + ivec2(round(d * float(r1))));
+      s2 += Hs(p + ivec2(round(d * float(r2))));
+    }
+    float avg = (s1 + s2) / 16.0;
+    float curv = h0 - avg;
+    rgb *= clamp(1.0 + uCavity * (curv < 0.0 ? 2.2 * curv : 0.6 * curv), 0.55, 1.12);
+  }
   if (uCutout == 1 && c.a < 0.6) {
     vec3 acc = vec3(0.0);
     float w = 0.0;

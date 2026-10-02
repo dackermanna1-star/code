@@ -84,8 +84,8 @@ Mat material(vec2 uv) {
     float tile = 1.0 - smoothstep(0.38, 0.42, max(abs(f.x), abs(f.y)));
     float big = step(0.5, h1(mod(id, 4.0), 940.0));
     float n = fbm(uv, vec2(8.0), 3, 0.5, 941.0);
-    vec3 lineC = rgb(0x8ab2a8);
-    vec3 tc = mix(rgb(0xc8ece4), rgb(0xf6fffc), sat(0.5 + 0.8 * n + 0.3 * big));
+    vec3 lineC = rgb(0x6f9c94);
+    vec3 tc = mix(rgb(0xa8dcd6), rgb(0xf2fffc), sat(0.45 + 0.8 * n + 0.35 * big));
     vec3 col = mix(lineC * (0.9 + 0.2 * n), tc, tile);
     float e = borderDist(uv);
     col = mix(col, rgb(0x6a9a90), 1.0 - smoothstep(0.5 * PX, 0.8 * PX, e));

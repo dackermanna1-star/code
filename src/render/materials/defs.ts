@@ -22,6 +22,8 @@ export interface TexDef {
   sss?: number;
   /** Alpha is the opacity of a cutout card (enables alpha-aware filtering and colour dilation). */
   cutout?: boolean;
+  /** Micro-cavity darkening baked into albedo (default 1 for opaque, 0 for cutout). */
+  cavity?: number;
 }
 
 export interface ResolvedDef {
@@ -37,6 +39,7 @@ export interface ResolvedDef {
   thr: number;
   sss: number;
   cutout: boolean;
+  cavity: number;
 }
 
 export const DEFS: Record<string, TexDef> = {};
@@ -75,6 +78,7 @@ export function resolveDef(name: string): ResolvedDef {
     thr: d.thr ?? 0,
     sss: d.sss ?? 0,
     cutout: d.cutout ?? false,
+    cavity: d.cavity ?? (d.cutout ? 0 : 1),
   };
 }
 
@@ -86,23 +90,23 @@ def('missing', { prog: 'cloth', v: 'missing' });
 // ---------------------------------------------------------------------------------- rocks
 const rockDef = (c: Hex[], p: number[], extra: Partial<TexDef> = {}): TexDef => ({ prog: 'rock', v: 'rock', c, p, ...extra });
 // rock() params: [patchF, contrast, speckA, speckB | cracks, pits, dashes, aniso | rough, hAmp, speckCells, salt | facets, speckR, grain, lightPatches]
-def('stone', rockDef(['#6a6a6a', '#7f7f7f', '#939393', '#666666', '#8e8e8e'], [5, 0.5, 0.03, 0.03, 0.3, 0.12, 0.75, -1, 0.8, 1, 30, 1, 0.7, 0.35, 0.7, 0.6]));
-def('tuff', rockDef(['#56574f', '#6c6d66', '#83847b', '#a2a397', '#45463f'], [6, 0.5, 0.12, 0.07, 0.1, 0.7, 0.1, 0, 0.9, 1.2, 24, 2, 0.5, 0.4, 1, 0.4]));
-def('calcite', rockDef(['#c2c3be', '#dcddd9', '#ededea', '#b5b7b1', '#f7f7f4'], [4, 0.4, 0.05, 0.06, 0.15, 0.05, 0.25, 0, 0.5, 0.7, 20, 3, 0.4, 0.4, 0.5, 0.7], { sss: 0.15 }));
-def('deepslate', rockDef(['#38383d', '#4d4d52', '#626268', '#2e2e33', '#6a6a70'], [4, 0.55, 0.04, 0.05, 0.2, 0.08, 0.6, 4, 0.74, 1, 28, 4, 0.6, 0.35, 0.7, 0.5]));
-def('deepslate_top', rockDef(['#38383d', '#4d4d52', '#626268', '#2e2e33', '#6a6a70'], [5, 0.65, 0.05, 0.06, 0.25, 0.1, 0.3, 0, 0.74, 1, 28, 5, 0.7, 0.35, 0.7, 0.6]));
-def('end_stone', rockDef(['#c4c688', '#dbde9e', '#e9ebb6', '#b1b277', '#f0f1c9'], [6, 0.6, 0.08, 0.08, 0.1, 0.85, 0.2, 0, 0.85, 1.1, 24, 6, 0.5, 0.4, 0.8, 0.6]));
-def('netherrack', rockDef(['#4d2223', '#6f3534', '#8b4747', '#3e1717', '#9a5050'], [6, 0.8, 0.1, 0.1, 0.35, 0.4, 0.35, 0, 0.9, 1.4, 22, 7, 0.9, 0.4, 1, 0.6]));
+def('stone', rockDef(['#686868', '#7f7f7f', '#949494', '#5e5e5e', '#a0a0a0'], [5, 0.6, 0.08, 0.08, 0.35, 0.1, 0.9, -1, 0.8, 1.2, 40, 1, 0.8, 0.28, 1.0, 0.7], { depth: 1.4 }));
+def('tuff', rockDef(['#56574f', '#6c6d66', '#83847b', '#a2a397', '#45463f'], [6, 0.5, 0.12, 0.07, 0.1, 0.7, 0.1, 0, 0.9, 1.2, 24, 2, 0.5, 0.4, 1, 0.4], { depth: 1.3 }));
+def('calcite', rockDef(['#c2c3be', '#dcddd9', '#ededea', '#b5b7b1', '#f7f7f4'], [4, 0.4, 0.05, 0.06, 0.15, 0.05, 0.25, 0, 0.5, 0.7, 20, 3, 0.4, 0.4, 0.5, 0.7], { sss: 0.15, depth: 1.2 }));
+def('deepslate', rockDef(['#38383d', '#4d4d52', '#626268', '#2e2e33', '#6a6a70'], [4, 0.55, 0.04, 0.05, 0.2, 0.08, 0.6, 4, 0.74, 1, 28, 4, 0.6, 0.35, 0.7, 0.5], { depth: 1.3 }));
+def('deepslate_top', rockDef(['#38383d', '#4d4d52', '#626268', '#2e2e33', '#6a6a70'], [5, 0.65, 0.05, 0.06, 0.25, 0.1, 0.3, 0, 0.74, 1, 28, 5, 0.7, 0.35, 0.7, 0.6], { depth: 1.3 }));
+def('end_stone', rockDef(['#c4c688', '#dbde9e', '#e9ebb6', '#b1b277', '#f0f1c9'], [6, 0.6, 0.08, 0.08, 0.1, 0.85, 0.2, 0, 0.85, 1.1, 24, 6, 0.5, 0.4, 0.8, 0.6], { depth: 1.3 }));
+def('netherrack', rockDef(['#4d2223', '#6f3534', '#8b4747', '#3e1717', '#9a5050'], [6, 0.8, 0.1, 0.1, 0.35, 0.4, 0.35, 0, 0.9, 1.4, 22, 7, 0.9, 0.4, 1, 0.6], { depth: 1.3 }));
 def('bedrock', rockDef(['#262626', '#565656', '#8c8c8c', '#161616', '#a3a3a3'], [5, 1, 0.1, 0.1, 0.4, 0.3, 0.5, 0, 0.9, 1.6, 12, 8, 1, 0.45, 1, 1], { depth: 1.3 }));
-def('blackstone', rockDef(['#1e181c', '#2b2328', '#3c3339', '#16111a', '#4a4048'], [5, 0.6, 0.05, 0.08, 0.3, 0.2, 0.3, 0, 0.82, 1, 26, 9, 0.7, 0.35, 0.8, 0.5]));
-def('dripstone_block', rockDef(['#6d5447', '#866b5c', '#9d8371', '#5c483c', '#ae9480'], [4, 0.6, 0.04, 0.05, 0.15, 0.25, 0.6, -4, 0.8, 1, 24, 10, 0.5, 0.35, 0.8, 0.6]));
+def('blackstone', rockDef(['#1e181c', '#2b2328', '#3c3339', '#16111a', '#4a4048'], [5, 0.6, 0.05, 0.08, 0.3, 0.2, 0.3, 0, 0.82, 1, 26, 9, 0.7, 0.35, 0.8, 0.5], { depth: 1.3 }));
+def('dripstone_block', rockDef(['#6d5447', '#866b5c', '#9d8371', '#5c483c', '#ae9480'], [4, 0.6, 0.04, 0.05, 0.15, 0.25, 0.6, -4, 0.8, 1, 24, 10, 0.5, 0.35, 0.8, 0.6], { depth: 1.2 }));
 // granular(): c = [main, second, dark, light], p = [cells, fracSecond, fracDark, fracLight | rough, hAmp, polish, salt]
-def('granite', { prog: 'rock', v: 'granular', c: ['#a3705c', '#8a5a49', '#3f2b27', '#cdb0a2'], p: [20, 0.32, 0.12, 0.17, 0.7, 1, 0, 11] });
-def('diorite', { prog: 'rock', v: 'granular', c: ['#c6c6c4', '#adadab', '#454546', '#e6e6e4'], p: [22, 0.3, 0.13, 0.24, 0.66, 1, 0, 12] });
-def('andesite', { prog: 'rock', v: 'granular', c: ['#8a8a8a', '#7a7a7b', '#565657', '#a7a7a7'], p: [34, 0.4, 0.12, 0.12, 0.74, 1, 0, 13] });
+def('granite', { prog: 'rock', v: 'granular', c: ['#a06d59', '#8c5b4a', '#4a322c', '#c9a898'], p: [40, 0.32, 0.1, 0.16, 0.7, 1, 0, 11], depth: 1.4 });
+def('diorite', { prog: 'rock', v: 'granular', c: ['#c4c4c2', '#adadab', '#4c4c4e', '#e4e4e2'], p: [40, 0.3, 0.1, 0.22, 0.66, 1, 0, 12], depth: 1.4 });
+def('andesite', { prog: 'rock', v: 'granular', c: ['#8a8a8a', '#7b7b7c', '#5a5a5b', '#a5a5a5'], p: [56, 0.4, 0.1, 0.1, 0.74, 1, 0, 13], depth: 1.4 });
 // crystal(): c = [deep, mid, light, edge], p = [cells, tilt, edge, rough | salt]
-def('amethyst_block', { prog: 'rock', v: 'crystal', c: ['#4f2f86', '#8561bf', '#b597e8', '#d9c6f7'], p: [6, 0.7, 0.3, 0.28, 14], sss: 0.1 });
-def('coal_block', { prog: 'rock', v: 'crystal', c: ['#070707', '#131314', '#29292b', '#47474b'], p: [5, 0.8, 0.3, 0.32, 15] });
+def('amethyst_block', { prog: 'rock', v: 'crystal', c: ['#4f2f86', '#8561bf', '#b597e8', '#d9c6f7'], p: [6, 0.7, 0.14, 0.28, 14], sss: 0.1 });
+def('coal_block', { prog: 'rock', v: 'crystal', c: ['#070707', '#131314', '#29292b', '#47474b'], p: [5, 0.8, 0.12, 0.32, 15] });
 def('budding_amethyst', { prog: 'rock', v: 'budding', c: ['#4a2c7c', '#7a55b4', '#b79be0', '#d6c4f2'], p: [6, 0.7, 0.3, 0.3, 81], sss: 0.1 });
 def('basalt_side', { prog: 'rock', v: 'basalt_side' });
 def('basalt_top', { prog: 'rock', v: 'basalt_top' });
@@ -186,9 +190,9 @@ def('smooth_stone_slab_side', mas(SMOOTH_C, [4, 2, 1, 0, 1, 0.6, 0.1, 0, 5, 0.3,
 def('polished_granite', mas(['#8c5a46', '#9d6a55', '#af7c66', '#6c4232', '#c79e8d'], [2, 1, 1, 0, 0.6, 1.2, 0.2, 0, 7, 0.6, 0.42, 0.4, 0, 0, 0, 0]));
 def('polished_diorite', mas(['#b6b6b6', '#c4c4c4', '#d3d3d3', '#8a8a8a', '#575757'], [2, 1, 1, 0, 0.6, 1.2, 0.2, 0, 7, 0.5, 0.42, 0.4, 0, 0, 0, 0]));
 def('polished_andesite', mas(['#7c807f', '#858887', '#929594', '#5f6261', '#a6a8a7'], [2, 1, 1, 0, 0.6, 1.2, 0.2, 0, 7, 0.5, 0.45, 0.4, 0, 0, 0, 0]));
-const COBBLE_C = ['#5d5d5d', '#7a7a7a', '#989898', '#2e2e2e', '#6a6a6a', '#587a2a'];
-def('cobblestone', mas(COBBLE_C, [3, 4, 0, 0, 0.4, 0, 0, 0, 8, 0.5, 0.86, 1, 0, 0, 0, 0], { depth: 1.2 }));
-def('mossy_cobblestone', mas(COBBLE_C, [3, 4, 0, 0, 0.4, 0, 0, 0, 8, 0.5, 0.86, 1, 0.55, 0, 0, 0], { depth: 1.2 }));
+const COBBLE_C = ['#585858', '#7a7a7a', '#9c9c9c', '#363636', '#6a6a6a', '#587a2a'];
+def('cobblestone', mas(COBBLE_C, [3, 4, 0, 0, 0.3, 0, 0, 0, 8, 0.5, 0.86, 1, 0, 0, 0, 0], { depth: 1.2 }));
+def('mossy_cobblestone', mas(COBBLE_C, [3, 4, 0, 0, 0.3, 0, 0, 0, 8, 0.5, 0.86, 1, 0.55, 0, 0, 0], { depth: 1.2 }));
 def('cobbled_deepslate', mas(['#38383c', '#4b4b50', '#606066', '#1a1a1c', '#424246'], [3, 5, 0, 0, 0.35, 0, 0, 0, 8, 0.5, 0.82, 1, 0, 0, 0, 0], { depth: 1.2 }));
 const SANDSTONE_C = ['#cbbe8b', '#d8cb9b', '#e6dcb3', '#b6a876', '#c9b989'];
 def('sandstone', mas(SANDSTONE_C, [5, 1, 1, 0, 0, 0, 0, 0, 10, 0.35, 0.9, 0.6, 0, 0, 4, 1]));
@@ -205,20 +209,20 @@ def('cut_red_sandstone', mas(RED_SANDSTONE_C, [2, 1, 1, 0, 0.3, 1.2, 0.1, 0, 8, 
 // V_SOIL p = [clodCells, clodRelief, pebbleDensity, pebbleCells | rough, grain, ripple, pebbleSize | furrows, wet, soulFaces, - | -, -, -, untinted]
 // c = [dark, mid, light, pebbleA, pebbleB]
 const soil = (c: Hex[], p: number[], extra: Partial<TexDef> = {}): TexDef => ({ prog: 'soil', v: 'soil', c, p, ...extra });
-def('dirt', soil(['#5c3f2b', '#866043', '#9d7555', '#8a8378', '#6a5040'], [9, 0.8, 0.1, 14, 0.93, 0.5, 0, 0.32, 0, 0, 0, 0, 0, 0, 0, 1]));
-def('coarse_dirt', soil(['#5a3e2a', '#77553a', '#8f6a4c', '#8c8a84', '#5e5a52'], [8, 0.9, 0.45, 16, 0.94, 0.6, 0, 0.34]));
-def('sand', soil(['#c9c08c', '#dbd3a0', '#e8e1b8', '#b5a87c', '#ece6c8'], [14, 0.15, 0.06, 30, 0.92, 0.6, 0.6, 0.2]));
-def('red_sand', soil(['#a65418', '#be6621', '#cf7834', '#8a4212', '#d68a4a'], [14, 0.15, 0.06, 30, 0.92, 0.6, 0.6, 0.2]));
-def('gravel', soil(['#6e6a69', '#837e7d', '#9a9594', '#8f8e8d', '#7c6c60'], [10, 0.4, 0.92, 9, 0.85, 0.5, 0, 0.48], { depth: 1.2 }));
-def('clay', soil(['#8f95a2', '#a0a6b3', '#b0b6c2', '#8a8f9a', '#b8bcc6'], [5, 0.4, 0.05, 12, 0.75, 0.25, 0, 0.3]));
+def('dirt', soil(['#5c3f2b', '#866043', '#9d7555', '#8a8378', '#6a5040'], [9, 0.8, 0.1, 14, 0.93, 0.5, 0, 0.32, 0, 0, 0, 0, 0, 0, 0, 1], { depth: 1.3 }));
+def('coarse_dirt', soil(['#5a3e2a', '#77553a', '#8f6a4c', '#8c8a84', '#5e5a52'], [8, 0.9, 0.45, 16, 0.94, 0.6, 0, 0.34], { depth: 1.4 }));
+def('sand', soil(['#c9c08c', '#dbd3a0', '#e8e1b8', '#b5a87c', '#ece6c8'], [14, 0.15, 0.06, 30, 0.92, 0.6, 0.6, 0.2], { depth: 1.3 }));
+def('red_sand', soil(['#a65418', '#be6621', '#cf7834', '#8a4212', '#d68a4a'], [14, 0.15, 0.06, 30, 0.92, 0.6, 0.6, 0.2], { depth: 1.3 }));
+def('gravel', soil(['#6e6a69', '#837e7d', '#9a9594', '#8f8e8d', '#7c6c60'], [10, 0.4, 0.92, 9, 0.85, 0.5, 0, 0.48], { depth: 1.4 }));
+def('clay', soil(['#8f95a2', '#a0a6b3', '#b0b6c2', '#8a8f9a', '#b8bcc6'], [5, 0.4, 0.05, 12, 0.75, 0.25, 0, 0.3], { depth: 1.2 }));
 def('mud', soil(['#2e2c2f', '#3c3a3d', '#4c494c', '#2a2826', '#4a4440'], [6, 0.6, 0.06, 12, 0.4, 0.3, 0, 0.3, 0, 0.6, 0]));
-def('packed_mud', soil(['#7b5b43', '#8e6b50', '#a07b5e', '#b49e6c', '#6a5040'], [8, 0.4, 0.15, 20, 0.85, 0.4, 0, 0.25]));
-def('soul_sand', soil(['#3e2f25', '#513e32', '#66503f', '#2e221a', '#6e5a48'], [12, 0.6, 0.15, 18, 0.92, 0.6, 0, 0.3, 0, 0, 1]));
-def('soul_soil', soil(['#3a2b22', '#4b392e', '#5c483a', '#2e221a', '#6a5444'], [10, 0.7, 0.12, 16, 0.92, 0.6, 0, 0.3]));
+def('packed_mud', soil(['#7b5b43', '#8e6b50', '#a07b5e', '#b49e6c', '#6a5040'], [8, 0.4, 0.15, 20, 0.85, 0.4, 0, 0.25], { depth: 1.2 }));
+def('soul_sand', soil(['#3e2f25', '#513e32', '#66503f', '#2e221a', '#6e5a48'], [12, 0.6, 0.15, 18, 0.92, 0.6, 0, 0.3, 0, 0, 1], { depth: 1.3 }));
+def('soul_soil', soil(['#3a2b22', '#4b392e', '#5c483a', '#2e221a', '#6a5444'], [10, 0.7, 0.12, 16, 0.92, 0.6, 0, 0.3], { depth: 1.3 }));
 def('concrete_powder', soil(['#d4d4d4', '#e8e8e8', '#f5f5f5', '#c4c4c4', '#fafafa'], [14, 0.2, 0.15, 26, 0.95, 0.7, 0, 0.25]));
 def('farmland', soil(['#5e3f26', '#7a5434', '#8e6642', '#6e655a', '#4a3420'], [8, 0.9, 0.08, 14, 0.92, 0.5, 0, 0.3, 1, 0, 0]));
 def('farmland_moist', soil(['#38220f', '#4a2f17', '#5a3b20', '#4a4038', '#2e1d0e'], [8, 0.9, 0.08, 14, 0.92, 0.5, 0, 0.3, 1, 0.5, 0]));
-def('dirt_path_top', soil(['#7f6535', '#94793f', '#a6894c', '#8a8478', '#6e5a3a'], [10, 0.3, 0.12, 16, 0.88, 0.4, 0, 0.3]));
+def('dirt_path_top', soil(['#7f6535', '#94793f', '#a6894c', '#8a8478', '#6e5a3a'], [10, 0.3, 0.12, 16, 0.88, 0.4, 0, 0.3], { depth: 1.2 }));
 def('grass_block_top', { prog: 'soil', v: 'grass_top', sss: 0.3 });
 def('grass_block_side', { prog: 'soil', v: 'grass_side' });
 // V_FRINGE p2 = [depthPx, base(0 dirt,1 netherrack), style(0 blades,1 snow,2 path), alphaOut]; c5/c6 fringe colours
@@ -245,14 +249,14 @@ def('snow', { prog: 'soil', v: 'snow', sss: 0.3 });
 // canopy p = [cells, leafLen, widthRatio, presence | shape(0 broad,1 needle,2 round,3 large,4 narrow,5 blossom), twigs, blossom, shapeExp]
 const leaves = (c: Hex[], p: number[], extra: Partial<TexDef> = {}): TexDef => ({ prog: 'foliage', v: 'canopy', c, p, cutout: true, sss: 0.8, ...extra });
 def('oak_leaves', leaves(['#b6b6b4', '#4e4e4e'], [6, 0.14, 0.55, 0.72, 0, 0.6, 0, 0.8]));
-def('spruce_leaves', leaves(['#a8a8a8', '#3c3c3c'], [14, 0.075, 0.14, 0.85, 1, 0.8, 0, 1.0], { sss: 0.6 }));
+def('spruce_leaves', leaves(['#9a9a9a', '#2c2c2c'], [18, 0.085, 0.2, 0.97, 1, 0.5, 0, 1.0], { sss: 0.6 }));
 def('birch_leaves', leaves(['#c2c2c0', '#5a5a5a'], [8, 0.1, 0.7, 0.7, 2, 0.5, 0, 0.7]));
 def('jungle_leaves', leaves(['#b2b2b0', '#484848'], [4, 0.24, 0.48, 0.8, 3, 0.5, 0, 0.75]));
 def('acacia_leaves', leaves(['#b4b4b2', '#4c4c4c'], [9, 0.08, 0.38, 0.75, 4, 0.6, 0, 0.8]));
 def('dark_oak_leaves', leaves(['#a4a4a2', '#3e3e3e'], [6, 0.15, 0.55, 0.8, 0, 0.6, 0, 0.8]));
 def('cherry_leaves', leaves(['#eab0c8', '#b06888', '#f7cfe0', '#fff2f6'], [6, 0.13, 0.6, 0.78, 5, 0.5, 0.65, 0.8]));
 def('leaves_fluff_oak', { ...leaves(['#b6b6b4', '#4e4e4e'], [6, 0.14, 0.55, 0.95, 0, 0.3, 0, 0.8]), v: 'fluff' });
-def('leaves_fluff_needle', { ...leaves(['#a8a8a8', '#3c3c3c'], [14, 0.075, 0.14, 0.95, 1, 0.4, 0, 1.0]), v: 'fluff', sss: 0.6 });
+def('leaves_fluff_needle', { ...leaves(['#9a9a9a', '#2c2c2c'], [18, 0.085, 0.2, 0.99, 1, 0.3, 0, 1.0]), v: 'fluff', sss: 0.6 });
 def('grass_tuft', { prog: 'foliage', v: 'tuft', cutout: true, sss: 0.6 });
 def('vine', { prog: 'foliage', v: 'vine', cutout: true, sss: 0.6 });
 def('glow_lichen', { prog: 'foliage', v: 'lichen', cutout: true, emit: 0.45, thr: 0.05, sss: 0.3 });
@@ -324,14 +328,14 @@ def('lantern', { prog: 'metal', v: 'lantern', p: [0, 0, 0, 0, 0, 0], cutout: tru
 def('soul_lantern', { prog: 'metal', v: 'lantern', p: [0, 0, 0, 0, 0, 1], cutout: true, metal: 0.6, emit: 1, thr: 0.3 });
 
 // ---------------------------------------------------------------------------------- glass, ice, gels
-def('glass', { prog: 'glass', v: 'glass', c: ['#eef6f8'], p: [0.1, 0.55] });
-def('stained_glass', { prog: 'glass', v: 'glass', c: ['#f6f6f6'], p: [0.45, 0.75] });
+def('glass', { prog: 'glass', v: 'glass', c: ['#eef6f8'], p: [0.1, 0.55], cavity: 0 });
+def('stained_glass', { prog: 'glass', v: 'glass', c: ['#f6f6f6'], p: [0.45, 0.75], cavity: 0 });
 def('ice', { prog: 'glass', v: 'ice', c: ['#7aa6e8', '#b8d4fa'], p: [0.68, 0.8, 0.25], sss: 0.3 });
 def('packed_ice', { prog: 'glass', v: 'ice', c: ['#7ea8ee', '#aacafa'], p: [1, 0.6, 0.15], sss: 0.2 });
 def('blue_ice', { prog: 'glass', v: 'ice', c: ['#5a90ec', '#88b6fa'], p: [1, 0.9, 0.1], sss: 0.25 });
 def('slime_block', { prog: 'glass', v: 'gel', c: ['#7ccf6a', '#56a646', '#9ae68a'], p: [0.55, 0.85, 0], sss: 0.5 });
 def('honey_block', { prog: 'glass', v: 'gel', c: ['#f8b83a', '#e09018', '#fcd070'], p: [0.7, 0.9, 1], sss: 0.5 });
-def('beacon', { prog: 'glass', v: 'beacon', emit: 1, thr: 0.35 });
+def('beacon', { prog: 'glass', v: 'beacon', emit: 1, thr: 0.35, cavity: 0 });
 def('sea_lantern', { prog: 'glass', v: 'sea_lantern', emit: 0.9, thr: 0, sss: 0.2 });
 
 // ---------------------------------------------------------------------------------- cloth & neutral tintables
@@ -343,12 +347,12 @@ def('sponge', { prog: 'cloth', v: 'sponge', p: [0] });
 def('wet_sponge', { prog: 'cloth', v: 'sponge', p: [1] });
 
 // ---------------------------------------------------------------------------------- fluids & portals
-def('water_still', { prog: 'fluid', v: 'water', p: [0], depth: 0.5 });
-def('water_flow', { prog: 'fluid', v: 'water', p: [1], depth: 0.5 });
+def('water_still', { prog: 'fluid', v: 'water', p: [0], depth: 0.5, cavity: 0 });
+def('water_flow', { prog: 'fluid', v: 'water', p: [1], depth: 0.5, cavity: 0 });
 def('lava_still', { prog: 'fluid', v: 'lava', p: [0], emit: 1, thr: 0.2 });
 def('lava_flow', { prog: 'fluid', v: 'lava', p: [1], emit: 1, thr: 0.2 });
-def('nether_portal', { prog: 'fluid', v: 'nether_portal', emit: 0.85, thr: 0 });
-def('end_portal', { prog: 'fluid', v: 'end_portal', emit: 1, thr: 0.03 });
+def('nether_portal', { prog: 'fluid', v: 'nether_portal', emit: 0.85, thr: 0, cavity: 0 });
+def('end_portal', { prog: 'fluid', v: 'end_portal', emit: 1, thr: 0.03, cavity: 0 });
 
 // ---------------------------------------------------------------------------------- organic blocks
 const org = (v: string, p: number[] = [], extra: Partial<TexDef> = {}): TexDef => ({ prog: 'organic', v, p, ...extra });
@@ -444,31 +448,31 @@ def('flower_pot', rs('pot', [0]));
 // ---------------------------------------------------------------------------------- wood
 interface WoodSpec { planks: Hex[]; pp: number[]; bark: Hex[]; b0: number[]; b1: number[]; top: Hex[]; tp: number[]; log: string; top_: string }
 export const WOOD: Record<string, WoodSpec> = {
-  oak: { planks: ['#7d6338', '#a2834f', '#b9975c', '#4a361c'], pp: [0.12, 0.5, 0.25, 0],
+  oak: { planks: ['#7d6338', '#a2834f', '#b9975c', '#4a361c'], pp: [0.2, 0.42, 0.25, 0],
     bark: ['#2e2214', '#4f3c22', '#6d5532', '#87704a', '#3a2c1a', '#4b5a22'], b0: [7, 0.7, 0, 0], b1: [0.88, 1, 0, 0],
     top: ['#8a6a3c', '#b08d58', '#c4a068', '#6d5532', '#4a3a22', '#9e7c48'], tp: [9, 0.6, 0.6, 1], log: 'oak_log', top_: 'oak_log_top' },
-  spruce: { planks: ['#5a4126', '#735531', '#87663d', '#34230f'], pp: [0.12, 0.5, 0.3, 0],
+  spruce: { planks: ['#5a4126', '#735531', '#87663d', '#34230f'], pp: [0.2, 0.42, 0.3, 0],
     bark: ['#1c140b', '#2e2112', '#3d2c18', '#57432a', '#2a1e10', '#3a4a20'], b0: [9, 0.4, 0, 0.8], b1: [0.85, 1, 0, 0],
     top: ['#5a4022', '#7a5a34', '#8c6a40', '#3d2c18', '#2a1e10', '#6e4f2c'], tp: [12, 0.6, 0.5, 1], log: 'spruce_log', top_: 'spruce_log_top' },
-  birch: { planks: ['#a8955e', '#c0af79', '#d4c48f', '#7a6943'], pp: [0.08, 0.5, 0.15, 0],
-    bark: ['#a3a39b', '#c9cdc4', '#d9ddd5', '#eceee8', '#26221f', '#2c2824'], b0: [10, 0.3, 1, 0], b1: [0.6, 0.35, 0.85, 0],
+  birch: { planks: ['#a8955e', '#c0af79', '#d4c48f', '#7a6943'], pp: [0.14, 0.42, 0.15, 0],
+    bark: ['#c2c5bd', '#d2d5cd', '#e0e3db', '#f0f2ed', '#1e1a17', '#26221e'], b0: [10, 0.15, 1, 0], b1: [0.55, 0.25, 1, 0],
     top: ['#a8925c', '#cdb984', '#dccb98', '#d8dcd4', '#8f8f88', '#bfa870'], tp: [8, 0.6, 0.4, 1], log: 'birch_log', top_: 'birch_log_top' },
-  jungle: { planks: ['#835c3d', '#a07350', '#b5875f', '#563a24'], pp: [0.12, 0.5, 0.2, 0],
+  jungle: { planks: ['#835c3d', '#a07350', '#b5875f', '#563a24'], pp: [0.2, 0.42, 0.2, 0],
     bark: ['#2c2410', '#4a3c1c', '#5c4b23', '#74602e', '#3a2e14', '#4b5a22'], b0: [8, 0.5, 0, 0], b1: [0.85, 1, 0.25, 0],
     top: ['#8a6440', '#a87c56', '#ba8e66', '#5c4b23', '#3e3216', '#9a6c48'], tp: [9, 0.6, 0.5, 1], log: 'jungle_log', top_: 'jungle_log_top' },
-  acacia: { planks: ['#8a4724', '#a85a32', '#be6c3f', '#5a2c14'], pp: [0.1, 0.5, 0.2, 0],
+  acacia: { planks: ['#8a4724', '#a85a32', '#be6c3f', '#5a2c14'], pp: [0.16, 0.42, 0.2, 0],
     bark: ['#3a3631', '#57524a', '#676157', '#7d776c', '#48433c', '#4b5a22'], b0: [7, 0.6, 0, 0], b1: [0.85, 1, 0, 0],
     top: ['#8e4a28', '#b05e34', '#c2703f', '#676157', '#48433c', '#a05530'], tp: [10, 0.6, 0.5, 1], log: 'acacia_log', top_: 'acacia_log_top' },
-  dark_oak: { planks: ['#2f1c10', '#42291a', '#573624', '#1a0f07'], pp: [0.12, 0.5, 0.25, 0],
+  dark_oak: { planks: ['#2f1c10', '#42291a', '#573624', '#1a0f07'], pp: [0.2, 0.42, 0.25, 0],
     bark: ['#1a120a', '#2d2214', '#3c2e1a', '#4f3e25', '#20180e', '#3a4a20'], b0: [6, 0.8, 0, 0], b1: [0.9, 1.1, 0, 0],
     top: ['#3a2614', '#563a22', '#64452a', '#3c2e1a', '#261c10', '#4a3018'], tp: [8, 0.6, 0.6, 1], log: 'dark_oak_log', top_: 'dark_oak_log_top' },
-  cherry: { planks: ['#c89383', '#e2b1a1', '#eec6b8', '#96685c'], pp: [0.08, 0.5, 0.1, -0.05],
+  cherry: { planks: ['#c89383', '#e2b1a1', '#eec6b8', '#96685c'], pp: [0.12, 0.42, 0.1, -0.05],
     bark: ['#1e1014', '#2e181e', '#3a2027', '#4d2c33', '#6a4048', '#3a4a20'], b0: [10, 0.2, 0.8, 0], b1: [0.75, 0.6, 0, 0],
     top: ['#a87870', '#c89890', '#d6aca4', '#3a2027', '#261418', '#b88880'], tp: [9, 0.6, 0.4, 1], log: 'cherry_log', top_: 'cherry_log_top' },
-  crimson: { planks: ['#52263d', '#6a344b', '#80425b', '#321422'], pp: [0.1, 0.5, 0, 0],
+  crimson: { planks: ['#52263d', '#6a344b', '#80425b', '#321422'], pp: [0.16, 0.42, 0, 0],
     bark: ['#2a0d14', '#4a1520', '#5c1d2a', '#7a2a3a', '#943349', '#d24a3a'], b0: [9, 0.3, 0, 0], b1: [0.8, 0.8, 0.15, 0.5],
     top: ['#7a2030', '#a03848', '#b84a58', '#5c1d2a', '#2a0d14', '#c45a5a'], tp: [7, 0.7, 0, 1.2], log: 'crimson_stem', top_: 'crimson_stem_top' },
-  warped: { planks: ['#1f524d', '#2b6963', '#377f78', '#12302d'], pp: [0.1, 0.5, 0, 0],
+  warped: { planks: ['#1f524d', '#2b6963', '#377f78', '#12302d'], pp: [0.16, 0.42, 0, 0],
     bark: ['#141c24', '#263038', '#39424c', '#4a5560', '#1f8a84', '#30c0b0'], b0: [9, 0.3, 0, 0], b1: [0.8, 0.8, 0.12, 0.6],
     top: ['#1c6e68', '#2a8c84', '#36a098', '#39424c', '#141c24', '#48b0a6'], tp: [7, 0.7, 0, 1.2], log: 'warped_stem', top_: 'warped_stem_top' },
 };

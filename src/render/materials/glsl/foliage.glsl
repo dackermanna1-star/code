@@ -19,15 +19,13 @@ Mat canopy(vec2 uv, bool masked) {
   // twigs visible through the gaps
   if (uP[1].y > 0.0) {
     for (int k = 0; k < 3; k++) {
+      // wavy twigs, periodic in both directions
       vec3 r = h3(vec2(float(k), 1.0), salt + 1.0);
-      vec2 a = vec2(r.x, -0.1);
-      vec2 b = vec2(r.x + (r.y - 0.5) * 0.8, 1.1);
-      vec2 d = uv - a;
-      d.x -= floor(d.x + 0.5 - (b.x - a.x) * sat(d.y / 1.2));
-      float t = sat(d.y / 1.2);
-      float w = 0.008 * (1.0 - 0.5 * t);
-      float dist = abs(d.x - (b.x - a.x) * t - 0.02 * sin(t * 12.0 + r.z * 6.0)) - w;
-      float c = cover(dist) * uP[1].y * blob;
+      float x = r.x + 0.06 * sin(TAU * uv.y + r.y * 6.0) + 0.02 * sin(TAU * 3.0 * uv.y + r.z * 6.0);
+      float dx = uv.x - x;
+      dx -= floor(dx + 0.5);
+      float w = 0.006 + 0.003 * sin(TAU * uv.y + r.z * 4.0);
+      float c = cover(abs(dx) - w) * uP[1].y * blob;
       over(m, rgb(0x3a2a1a), 0.15, 0.8, c);
     }
   }
@@ -66,7 +64,7 @@ Mat canopy(vec2 uv, bool masked) {
         } else {
           vec4 Ls = leafSD(d, -dir * len * 0.5, dir * len * 0.5, len * uP[0].z * 0.5, shapeExp);
           float cv = cover(Ls.x);
-          if (cv > 0.0) leafPaint(m, cv, Ls.y, Ls.z, lc * shadeK, dc * shadeK, 0.3 + 0.22 * fl);
+          if (cv > 0.0) leafPaint(m, cv, Ls.y, Ls.z, lc * shadeK, dc * shadeK, 0.3 + 0.22 * fl, uv);
         }
       }
     }
@@ -119,7 +117,7 @@ Mat vine(vec2 uv) {
         vec4 Ls = leafSD(d, -dir * len * 0.3, dir * len * 0.7, len * 0.32, 0.55);
         float cv = cover(Ls.x);
         float sh = 0.75 + 0.3 * fract(r.y * 19.0) + 0.1 * fl;
-        if (cv > 0.0) leafPaint(m, cv, Ls.y, Ls.z, lc * sh, dc * sh, 0.5 + 0.2 * fl);
+        if (cv > 0.0) leafPaint(m, cv, Ls.y, Ls.z, lc * sh, dc * sh, 0.5 + 0.2 * fl, uv);
       }
     }
   }
@@ -155,7 +153,7 @@ Mat weeping(vec2 uv) {
     vec2 lp = vec2(dx - side * 0.03, (yy - 0.5) / 6.0);
     vec4 Ls = leafSD(lp, vec2(-side * 0.025, 0.02), vec2(side * 0.035, -0.035), 0.017, 0.6);
     float cl = cover(Ls.x);
-    if (cl > 0.0) leafPaint(m, cl, Ls.y, Ls.z, rgb(0xc43a2a), rgb(0x701818), 0.6);
+    if (cl > 0.0) leafPaint(m, cl, Ls.y, Ls.z, rgb(0xc43a2a), rgb(0x701818), 0.6, uv);
   }
   return m;
 }

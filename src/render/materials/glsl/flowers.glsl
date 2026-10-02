@@ -92,8 +92,8 @@ El flowerEl(float t, int i) {
 int tallCount(float t) {
   if (t == 0.0) return 12;
   if (t == 1.0) return 18;
-  if (t == 2.0) return 24;
-  return 22;
+  if (t == 2.0) return 34;
+  return 30;
 }
 
 El tallEl(float t, int i, float yoff) {
@@ -125,27 +125,27 @@ El tallEl(float t, int i, float yoff) {
   }
   if (t == 2.0) {
     // rose bush: dense leafy bush with red roses in the upper half
-    if (i < 18) {
+    if (i < 28) {
       float x = 0.12 + 0.76 * er(i, 1.0);
-      float y = 0.1 + 1.55 * er(i, 2.0) * (0.6 + 0.4 * (1.0 - abs(x - 0.5) * 2.0));
+      float y = 0.06 + 1.62 * er(i, 2.0);
       float ang = TAU * er(i, 3.0);
       vec2 d = vec2(cos(ang), sin(ang)) * 0.11;
       return el(E_LEAF, vec2(x, y) - d + o, vec2(x, y) + d + o, 0.06, 0.8, 0.0, LEAF1 * (0.8 + 0.4 * er(i, 4.0)), LEAF2);
     }
-    float k = fi - 18.0;
+    float k = fi - 28.0;
     vec2 c = vec2(0.25 + 0.25 * mod(k, 3.0), 1.2 + 0.3 * floor(k / 3.0) + 0.08 * er(i, 5.0));
     if (k < 6.0 && mod(k, 2.0) == 0.0) return el(E_PETALS, c + o, vec2(k, 0.0), 0.09, 0.06, 5.0, rgb(0xe02434), rgb(0x7a0814));
     return el(E_DISC, c + o, vec2(0.0), 0.055, 0.05, 1.0, rgb(0xc0141e), rgb(0x500408));
   }
   // peony: leafy with big pink blooms
-  if (i < 16) {
+  if (i < 24) {
     float x = 0.12 + 0.76 * er(i, 1.0);
     float y = 0.1 + 1.4 * er(i, 2.0);
     float ang = TAU * er(i, 3.0);
     vec2 d = vec2(cos(ang), sin(ang)) * 0.13;
     return el(E_LEAF, vec2(x, y) - d + o, vec2(x, y) + d + o, 0.065, 0.8, 0.0, LEAF1 * (0.8 + 0.4 * er(i, 4.0)), LEAF2);
   }
-  float k = fi - 16.0;
+  float k = fi - 24.0;
   vec2 c = vec2(0.28 + 0.44 * mod(k, 2.0), 1.3 + 0.25 * floor(k / 2.0));
   return el(E_BALL, c + o, vec2(0.0), 0.15, 0.14, 14.0, rgb(0xffc4dc), rgb(0xc8608a));
 }
@@ -157,7 +157,7 @@ Mat material(vec2 uv) {
   if (v != V_FLOWER && !tall) return missingTex(uv);
   int n = tall ? tallCount(t) : flowerCount(t);
   Mat m = M(vec3(0.15, 0.3, 0.08), 0.0, 0.0, 0.7);
-  for (int i = 0; i < 28; i++) {
+  for (int i = 0; i < 36; i++) {
     if (i >= n) break;
     El e;
     if (tall) e = tallEl(t, i, uP[0].y);

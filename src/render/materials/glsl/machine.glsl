@@ -52,7 +52,7 @@ float tntLetters(vec2 uv) {
   vec2 p = uv * 16.0;
   float t1 = boxMask(uv, vec2(2.0, 9.0), vec2(5.0, 10.0)) + boxMask(uv, vec2(3.0, 6.0), vec2(4.0, 9.0));
   float n = boxMask(uv, vec2(6.0, 6.0), vec2(7.0, 10.0)) + boxMask(uv, vec2(9.0, 6.0), vec2(10.0, 10.0)) +
-            boxMask(uv, vec2(7.0, 8.0), vec2(8.0, 9.0)) + boxMask(uv, vec2(8.0, 7.0), vec2(9.0, 8.0));
+            cover(sdSeg(uv, vec2(6.8, 9.6) * PX, vec2(9.2, 6.4) * PX) - 0.5 * PX);
   float t2 = boxMask(uv, vec2(11.0, 9.0), vec2(14.0, 10.0)) + boxMask(uv, vec2(12.0, 6.0), vec2(13.0, 9.0));
   return sat(t1 + n + t2);
 }
@@ -194,11 +194,15 @@ Mat material(vec2 uv) {
       float brow = boxMask(uv, vec2(2.0, 12.5), vec2(14.0, 13.5));
       m.col *= 1.0 - 0.2 * brow;
     } else if (part < 1.5) {
-      float stripe = boxMask(uv, vec2(6.0, 0.0), vec2(10.0, 16.0));
-      float chev = cover(abs(abs(uv.x - 0.5) * 1.6 - fract(uv.y * 4.0) * 0.25 + 0.05) - 0.012) * stripe;
-      m.col = mix(m.col, m.col * 0.7, stripe * 0.6);
-      m.col *= 1.0 + 0.25 * chev;
-      m.h -= 0.08 * stripe;
+      // recessed channel with an upward arrow (signal direction)
+      float stripe = boxMask(uv, vec2(5.5, 1.0), vec2(10.5, 15.0));
+      m.col = mix(m.col, rgb(0x3a3a3c) * (0.9 + 0.2 * m.h), stripe * 0.85);
+      m.h = mix(m.h, 0.35, stripe);
+      float shaft = boxMask(uv, vec2(7.25, 2.5), vec2(8.75, 11.0));
+      float head = cover(max(abs(uv.x - 0.5) - (13.5 * PX - uv.y) * 0.9, -(uv.y - 10.0 * PX)));
+      float arrow = max(shaft, head);
+      m.col = mix(m.col, rgb(0xb4b4b4), arrow);
+      m.h = mix(m.h, 0.6, arrow);
     } else {
       float sock = boxMask(uv, vec2(6.0, 6.0), vec2(10.0, 10.0));
       bool lit = part > 2.5;
@@ -268,11 +272,11 @@ Mat material(vec2 uv) {
   }
   if (v == V_LAMP) {
     bool on = part > 0.5;
-    vec2 g = fract(uv * 2.0) - 0.5;
-    float pane = cover(sdBox(g, vec2(0.36)));
+    vec2 g = fract(uv * 3.0) - 0.5;
+    float pane = cover(sdBox(g, vec2(0.38)) / 3.0);
     float n = fbm(uv, vec2(8.0), 3, 0.5, 1340.0);
     // filament: wiggly glowing lines inside each pane
-    float fil = cover(abs(g.y + 0.15 * sin(g.x * 18.0 + 1.3)) - 0.03) * pane;
+    float fil = cover((abs(g.y + 0.16 * sin(g.x * 14.0 + 1.3 + floor(uv.x * 3.0))) - 0.045) / 3.0) * pane;
     vec3 frame = on ? rgb(0xa86a2a) : rgb(0x5a3418);
     frame *= 0.85 + 0.25 * n;
     vec3 glass = on ? mix(rgb(0xffc860), rgb(0xfff4d0), sat(0.5 + 0.6 * n)) : mix(rgb(0x3a2410), rgb(0x5a3a1c), 0.5 + 0.5 * n);

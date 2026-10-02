@@ -297,15 +297,17 @@ Mat material(vec2 uv) {
   }
   if (v == V_CAMPFIRE) {
     // horizontal log: bark rows with charred cracks glowing with embers
+    // grain runs horizontally (log lying on its side); bark furrows + charred patches + ember cracks
     float n = fbm(uv, vec2(3.0, 8.0), 4, 0.55, 1540.0);
-    float rid = 1.0 - abs(gnoise(uv * vec2(3.0, 10.0), vec2(3.0, 10.0), 1541.0));
-    float crack = smoothstep(0.88, 0.98, rid);
-    vec3 bark = mix(rgb(0x2a1e12), rgb(0x5a4024), sat(0.5 + 0.6 * n));
-    bark = mix(bark, rgb(0x161210), smoothstep(0.2, 0.6, fbm(uv, vec2(4.0), 3, 0.5, 1542.0)) * 0.7);
-    float ember = crack * smoothstep(0.0, 0.4, fbm(uv, vec2(6.0, 3.0), 3, 0.5, 1543.0) + 0.3);
-    vec3 ec = mix(rgb(0xc03a08), rgb(0xffb030), sat(ember * 1.4));
-    vec3 col = mix(bark, ec, ember);
-    return M(col, 1.0, 0.65 + 0.2 * (1.0 - crack) + 0.05 * n, mix(0.85, 0.6, ember));
+    float fur = smoothstep(0.75, 0.97, 1.0 - abs(gnoise(uv * vec2(1.5, 9.0), vec2(1.5, 9.0), 1541.0)));
+    vec3 bark = mix(rgb(0x2e2214), rgb(0x5e4426), sat(0.5 + 0.6 * n));
+    bark = mix(bark, rgb(0x1a140e), fur * 0.85);
+    float char_ = smoothstep(0.15, 0.45, fbm(uv, vec2(4.0), 3, 0.5, 1542.0));
+    bark = mix(bark, rgb(0x141110), char_ * 0.75);
+    float ember = fur * char_ * smoothstep(0.1, 0.35, fbm(uv, vec2(6.0, 3.0), 3, 0.5, 1543.0));
+    vec3 ec = mix(rgb(0xb83206), rgb(0xffa82a), sat(ember * 1.6));
+    vec3 col = mix(bark, ec, sat(ember * 1.5));
+    return M(col, 1.0, 0.7 - 0.4 * fur + 0.05 * n, mix(0.85, 0.6, ember));
   }
   if (v == V_DAYLIGHT) {
     // 0 top (sensor glass cells in a wooden frame), 1 side (slab side)

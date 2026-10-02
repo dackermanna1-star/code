@@ -26,10 +26,10 @@ Mat material(vec2 uv) {
     int style = int(uP[1].x + 0.5);
     vec2 pf = panelFrame(uv, 1.0 * PX, 0.9 * PX);
     m.h = 0.55 + 0.4 * pf.x;
-    m.col *= 0.82 + 0.18 * pf.x;
+    m.col *= 0.6 + 0.4 * pf.x;
     // light inner edge highlight, dark outer edge
-    float hl = cover(abs(borderDist(uv) - 1.1 * PX) - 0.004);
-    m.col = mix(m.col, m.col * 1.12, hl * 0.6);
+    float hl = cover(abs(borderDist(uv) - 1.15 * PX) - 0.25 * PX);
+    m.col = mix(m.col, m.col * 1.22, hl * 0.75);
     if (style == 0) {
       float groove = cover(abs(uv.y - 2.5 * PX) - 0.006) * step(1.2 * PX, uv.x) * step(uv.x, 1.0 - 1.2 * PX);
       m.col *= 1.0 - 0.18 * groove;

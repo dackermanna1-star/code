@@ -1,27 +1,35 @@
 /**
  * Procedural PBR block-material generator.
  *
- * Every block texture layer is rendered on the GPU by a parameterised GLSL material program
- * (see ./glsl/*.glsl and ./defs.ts):
+ * Every block texture layer (see textureList.ts) is rendered on the GPU by one of 16 parameterised
+ * GLSL "family" programs (./glsl/*.glsl, assembled in ./programs.ts; per-texture parameters in
+ * ./defs.ts):
  *
- *   pass 1  material program -> temp MRT (linear albedo + alpha, height + roughness), half-float
- *   pass 2a temp albedo  -> albedo array layer (alpha-aware colour dilation, sRGB encode)
- *   pass 2b temp height  -> normal array layer (Sobel normal from the wrapped height field)
+ *   pass 1  family program  -> temp MRT (half float): linear albedo + alpha | height + roughness
+ *           (optionally supersampled inside the shader)
+ *   pass 2a temp            -> albedo array layer: micro-cavity shading from the height field,
+ *                              alpha-aware colour dilation for cutout cards, sRGB encode
+ *   pass 2b temp            -> normal array layer: Sobel normal of the wrapped height field,
+ *                              height in .z, roughness in .w
  *
- * Mipmaps of both arrays are generated once at the end. All noise is periodic so every
- * texture tiles seamlessly.
+ * Mipmaps of both arrays are generated once, after the last layer. All noise is periodic, so
+ * every texture tiles seamlessly. Renderer state (render target, clear colour, autoClear) is
+ * restored when done.
  */
 import * as THREE from 'three';
 import { TEXTURE_NAMES } from './textureList';
-import { ALBEDO_FRAG, NORMAL_FRAG, PROGRAM_NAMES, VERTEX, buildProgram, type BuiltProgram, type ProgramName } from './programs';
+import {
+  ALBEDO_FRAG, NORMAL_FRAG, PROGRAM_NAMES, VERTEX, buildFallbackFragment, buildProgram,
+  type BuiltProgram, type ProgramName,
+} from './programs';
 import { resolveDef, type ResolvedDef } from './defs';
 
 export interface BlockMaterialSet {
   /** sampler2DArray, RGBA8: .rgb sRGB-encoded albedo, .a opacity (cutout/translucent) or tint mask (opaque). */
   albedo: THREE.Texture;
-  /** sampler2DArray, RGBA8 linear: .xy tangent normal (n*0.5+0.5), .z height (1 = top), .w perceptual roughness. */
+  /** sampler2DArray, RGBA8 linear: .xy tangent normal (n*0.5+0.5, x along +u, y along +v), .z height (1 = top), .w perceptual roughness. */
   normal: THREE.Texture;
-  /** width = layerCount, height 1, RGBA8: .r metalness, .g emissive, .b emissive luminance threshold, .a subsurface. */
+  /** width = layerCount, height 1, RGBA8: .r metalness, .g emissive strength, .b emissive luminance threshold, .a subsurface. */
   props: THREE.DataTexture;
   /** Texture resolution (square). */
   size: number;
@@ -31,7 +39,7 @@ export interface BlockMaterialSet {
 export interface GenerateOptions {
   /** Supersampling factor per axis for the material pass (default: 2 for size <= 128, else 1). */
   supersample?: number;
-  /** Layers to yield after (default 6). */
+  /** Yield to the event loop (and report progress) every N layers (default 6). */
   yieldEvery?: number;
   /** Generate mipmaps (default true). */
   mipmaps?: boolean;
@@ -44,6 +52,13 @@ export interface GenerateOptions {
 /** Physical depth (block units) represented by the full 0..1 height range at depth multiplier 1. */
 export const HEIGHT_DEPTH = 0.06;
 
+/** Wall-clock duration of the most recent generation (ms, CPU side; GPU work may still be queued). */
+export let lastGenerationMs = 0;
+
+/**
+ * Generates every block texture layer (layer index = textureLayer(name)). `size` is the square
+ * resolution (32..512 recommended; powers of two give the best mipmaps).
+ */
 export async function generateBlockMaterials(
   renderer: THREE.WebGLRenderer,
   size: number,
@@ -67,7 +82,17 @@ export async function generateMaterialSubset(
   return { ...set, names };
 }
 
-const programCache = new WeakMap<THREE.WebGLRenderer, Map<ProgramName, { built: BuiltProgram; material: THREE.RawShaderMaterial; ok: boolean }>>();
+/** Releases the compiled material programs cached for `renderer` (they are kept for fast regeneration). */
+export function disposeBlockMaterialPrograms(renderer: THREE.WebGLRenderer) {
+  const cache = programCache.get(renderer);
+  if (!cache) return;
+  for (const e of cache.values()) e.material.dispose();
+  programCache.delete(renderer);
+}
+
+interface ProgramEntry { built: BuiltProgram | null; material: THREE.RawShaderMaterial; ok: boolean }
+type CacheKey = ProgramName | 'fallback';
+const programCache = new WeakMap<THREE.WebGLRenderer, Map<CacheKey, ProgramEntry>>();
 
 function makeMaterial(fragment: string, uniforms: Record<string, THREE.IUniform>) {
   return new THREE.RawShaderMaterial({
@@ -102,6 +127,10 @@ function hasProgramError(renderer: THREE.WebGLRenderer, material: THREE.Material
   return prog.diagnostics !== undefined && prog.diagnostics.runnable === false;
 }
 
+function clamp01(x: number) {
+  return x < 0 ? 0 : x > 1 ? 1 : x;
+}
+
 async function generateLayers(
   renderer: THREE.WebGLRenderer,
   sizeIn: number,
@@ -113,6 +142,10 @@ async function generateLayers(
   const layerCount = names.length;
   const ss = Math.max(1, Math.min(4, Math.round(options.supersample ?? (size <= 128 ? 2 : 1))));
   const yieldEvery = Math.max(1, options.yieldEvery ?? 6);
+  const anisotropy = options.anisotropy ?? renderer.capabilities.getMaxAnisotropy();
+  const mipmaps = options.mipmaps ?? true;
+  const timing = options.timing ?? false;
+  const t0 = performance.now();
 
   // ---- save renderer state
   const prevTarget = renderer.getRenderTarget();
@@ -137,8 +170,6 @@ async function generateLayers(
     depthBuffer: false,
     generateMipmaps: false,
   });
-  const anisotropy = options.anisotropy ?? renderer.capabilities.getMaxAnisotropy();
-  const mipmaps = options.mipmaps ?? true;
   const arrayOpts = {
     format: THREE.RGBAFormat,
     type: THREE.UnsignedByteType,
@@ -154,12 +185,12 @@ async function generateLayers(
   const normalRT = new THREE.WebGLArrayRenderTarget(size, size, layerCount, arrayOpts);
   albedoRT.texture.name = 'blockAlbedo';
   normalRT.texture.name = 'blockNormal';
-  albedoRT.texture.colorSpace = THREE.NoColorSpace;
+  albedoRT.texture.colorSpace = THREE.NoColorSpace; // sRGB-encoded data, decoded by the terrain shader
   normalRT.texture.colorSpace = THREE.NoColorSpace;
   // Let consumers reach the owning render targets (e.g. to dispose them).
   albedoRT.texture.renderTarget = albedoRT;
   normalRT.texture.renderTarget = normalRT;
-  const timing = options.timing ?? false;
+
   const gl = renderer.getContext();
   const syncPx = new Uint8Array(4);
   const sync = (label: string, t: number) => {
@@ -171,9 +202,11 @@ async function generateLayers(
 
   const albedoMat = makeMaterial(ALBEDO_FRAG, {
     tA: { value: temp.textures[0] },
+    tS: { value: temp.textures[1] },
     uN: { value: size },
     uCutout: { value: 0 },
     uBg: { value: new THREE.Vector3(0.2, 0.2, 0.2) },
+    uCavity: { value: 0 },
   });
   const normalMat = makeMaterial(NORMAL_FRAG, {
     tS: { value: temp.textures[1] },
@@ -182,9 +215,7 @@ async function generateLayers(
     uCutout: { value: 0 },
     uDepth: { value: HEIGHT_DEPTH },
   });
-
   const propsData = new Uint8Array(layerCount * 4);
-  const t0 = performance.now();
 
   try {
     renderer.autoClear = false;
@@ -202,17 +233,21 @@ async function generateLayers(
     }
     const needed = new Set<ProgramName>(defs.map((d) => d.prog));
     const compileScene = new THREE.Scene();
-    const fresh: ProgramName[] = [];
-    for (const p of PROGRAM_NAMES) {
-      if (!needed.has(p) || cache.has(p)) continue;
-      const built = buildProgram(p);
-      const material = makeMaterial(built.fragment, materialUniforms());
-      cache.set(p, { built, material, ok: true });
+    const fresh: CacheKey[] = [];
+    const addProgram = (key: CacheKey, built: BuiltProgram | null, fragment: string) => {
+      const material = makeMaterial(fragment, materialUniforms());
+      cache!.set(key, { built, material, ok: true });
       const m = new THREE.Mesh(geometry, material);
       m.frustumCulled = false;
       compileScene.add(m);
-      fresh.push(p);
+      fresh.push(key);
+    };
+    for (const p of PROGRAM_NAMES) {
+      if (!needed.has(p) || cache.has(p)) continue;
+      const built = buildProgram(p);
+      addProgram(p, built, built.fragment);
     }
+    if (!cache.has('fallback')) addProgram('fallback', null, buildFallbackFragment());
     for (const m of [albedoMat, normalMat]) {
       const mm = new THREE.Mesh(geometry, m);
       mm.frustumCulled = false;
@@ -223,8 +258,8 @@ async function generateLayers(
     await renderer.compileAsync(compileScene, camera);
     sync('compileAsync', tc);
     for (const p of fresh) {
+      // Force a first draw so the link status is checked, and record failures.
       const entry = cache.get(p)!;
-      // Force a draw so program link status is checked, then record failures.
       tc = performance.now();
       mesh.material = entry.material;
       entry.material.uniforms.uSize.value = 4;
@@ -234,16 +269,21 @@ async function generateLayers(
       if (!entry.ok) console.error(`[materials] program '${p}' failed to compile; its layers use the fallback`);
       sync(`first draw '${p}'`, tc);
     }
+    const fallback = cache.get('fallback')!;
 
     // ---- render layers
     for (let i = 0; i < layerCount; i++) {
       const def = defs[i];
       const tl = performance.now();
-      const entry = cache.get(def.prog)!;
-      let variant = entry.built.variants.get(def.v);
+      let entry = cache.get(def.prog)!;
+      let variant = entry.built?.variants.get(def.v);
       if (variant === undefined) {
         if (def.v !== 'missing') console.warn(`[materials] '${names[i]}': unknown variant '${def.v}' in '${def.prog}'`);
-        variant = -1; // every program renders the 'missing' checker for unknown variants
+        variant = -1; // every family program renders the 'missing' checker for unknown variants
+      }
+      if (!entry.ok) {
+        entry = fallback;
+        variant = 0;
       }
       const u = entry.material.uniforms;
       u.uSize.value = size;
@@ -258,22 +298,23 @@ async function generateLayers(
         const c = def.c[k] ?? [0.5, 0.5, 0.5];
         (u.uC.value[k] as THREE.Vector3).set(c[0], c[1], c[2]);
       }
-      // pass 1
+      // pass 1: material
       mesh.material = entry.material;
       renderer.setRenderTarget(temp);
       renderer.render(mesh, camera);
 
-      // pass 2a albedo
+      // pass 2a: albedo (the mip chain is built once, by the draw into the final layer)
+      const last = i === layerCount - 1;
       albedoMat.uniforms.uCutout.value = def.cutout ? 1 : 0;
+      albedoMat.uniforms.uCavity.value = def.cavity;
       const bg = def.c[0] ?? [0.2, 0.2, 0.2];
       (albedoMat.uniforms.uBg.value as THREE.Vector3).set(bg[0], bg[1], bg[2]);
-      const last = i === layerCount - 1;
-      if (last && mipmaps) albedoRT.texture.generateMipmaps = true; // mip chain built once, after the final layer
+      if (last && mipmaps) albedoRT.texture.generateMipmaps = true;
       mesh.material = albedoMat;
       renderer.setRenderTarget(albedoRT, i);
       renderer.render(mesh, camera);
 
-      // pass 2b normal
+      // pass 2b: normal + height + roughness
       normalMat.uniforms.uCutout.value = def.cutout ? 1 : 0;
       normalMat.uniforms.uDepth.value = HEIGHT_DEPTH * def.depth;
       if (last && mipmaps) normalRT.texture.generateMipmaps = true;
@@ -292,9 +333,13 @@ async function generateLayers(
         await new Promise<void>((r) => setTimeout(r, 0));
       }
     }
-    // Keep further renders into the arrays from regenerating the mip chain.
+    // Keep later renders into the arrays from regenerating (and overwriting) the mip chain.
     albedoRT.texture.generateMipmaps = false;
     normalRT.texture.generateMipmaps = false;
+  } catch (err) {
+    albedoRT.dispose();
+    normalRT.dispose();
+    throw err;
   } finally {
     renderer.setRenderTarget(prevTarget, prevFace, prevMip);
     renderer.setClearColor(prevClear, prevClearAlpha);
@@ -312,15 +357,6 @@ async function generateLayers(
   props.needsUpdate = true;
   props.name = 'blockProps';
 
-  const ms = performance.now() - t0;
-  (generateLayers as unknown as { lastMs: number }).lastMs = ms;
-  lastGenerationMs = ms;
+  lastGenerationMs = performance.now() - t0;
   return { albedo: albedoRT.texture, normal: normalRT.texture, props, size, layerCount };
-}
-
-/** Wall-clock duration of the most recent generation (ms). */
-export let lastGenerationMs = 0;
-
-function clamp01(x: number) {
-  return x < 0 ? 0 : x > 1 ? 1 : x;
 }

@@ -42,12 +42,16 @@ vec4 leafSD(vec2 p, vec2 a, vec2 b, float w, float shape) {
   return vec4(sd, t, s / max(hw, 1e-5), hw);
 }
 
-void leafPaint(inout Mat m, float c, float t, float s, vec3 c1, vec3 c2, float hb) {
+void leafPaint(inout Mat m, float c, float t, float s, vec3 c1, vec3 c2, float hb, vec2 p) {
   float rib = 1.0 - smoothstep(0.0, 0.14, abs(s));
-  float veins = smoothstep(0.75, 1.0, sin((t * 7.0 - abs(s) * 2.2) * PI));
-  vec3 col = mix(c2, c1, sat(t * 1.2)) * (0.8 + 0.25 * (1.0 - s * s)) * (1.0 + 0.15 * rib) * (1.0 - 0.08 * veins);
-  float h = hb + 0.12 * (1.0 - s * s) + 0.03 * rib;
-  over(m, col, h, 0.55, c);
+  float veins = smoothstep(0.8, 1.0, sin((t * 8.0 - abs(s) * 2.4) * PI)) * smoothstep(0.95, 0.4, abs(s));
+  // fine leaf tissue texture + a slightly lighter, thinner margin
+  float tex = gnoise(p * 160.0, vec2(160.0), 560.0) * 0.6 + gnoise(p * 48.0, vec2(48.0), 561.0) * 0.4;
+  float margin = smoothstep(0.8, 1.0, abs(s));
+  vec3 col = mix(c2, c1, sat(t * 1.2)) * (0.8 + 0.25 * (1.0 - s * s)) * (1.0 + 0.18 * rib) * (1.0 - 0.14 * veins);
+  col *= (0.93 + 0.12 * tex) * (1.0 + 0.08 * margin);
+  float h = hb + 0.12 * (1.0 - s * s) + 0.03 * rib - 0.02 * veins + 0.01 * tex;
+  over(m, col, h, 0.5 + 0.1 * tex, c);
 }
 
 void drawEl(inout Mat m, vec2 p, El e, float hb) {
@@ -71,7 +75,7 @@ void drawEl(inout Mat m, vec2 p, El e, float hb) {
     vec4 L = leafSD(p, e.a, e.b, e.w, e.w2 > 0.0 ? e.w2 : 0.8);
     float c = cover(L.x);
     if (c <= 0.0) return;
-    leafPaint(m, c, L.y, L.z, e.c1, e.c2, hb);
+    leafPaint(m, c, L.y, L.z, e.c1, e.c2, hb, p);
   } else if (e.t == E_STEM) {
     vec2 pa = p - e.a, ba = e.b - e.a;
     float t = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
@@ -82,6 +86,7 @@ void drawEl(inout Mat m, vec2 p, El e, float hb) {
     float s = dd / max(w, 1e-5);
     float cyl = sqrt(sat(1.0 - s * s));
     vec3 col = mix(e.c2, e.c1, t) * (0.7 + 0.4 * cyl);
+    col *= 0.94 + 0.08 * gnoise(vec2(t * 40.0, s * 3.0 + 7.0), vec2(40.0, 1e3), 523.0);
     if (e.n > 0.0) col *= 0.85 + 0.15 * smoothstep(0.3, 0.6, abs(fract(t * e.n) - 0.5) * 2.0);
     over(m, col, hb + 0.15 * cyl, 0.6, c);
   } else if (e.t == E_DISC) {
@@ -115,6 +120,9 @@ void drawEl(inout Mat m, vec2 p, El e, float hb) {
     float s = q.y / max(e.w2, 1e-5);
     vec3 col = mix(e.c2, e.c1, smoothstep(0.0, 0.7, t)) * (0.82 + 0.22 * (1.0 - s * s));
     col *= 0.92 + 0.12 * h1(vec2(mod(pid, n), 5.0), 521.0);
+    // radial petal veins and fine tissue texture
+    float pv = sin(a * 90.0 / max(n, 1.0) * 6.0 + t * 3.0);
+    col *= (0.95 + 0.05 * pv) * (0.95 + 0.08 * gnoise(p * 160.0, vec2(160.0), 522.0));
     over(m, col, hb + 0.1 * (1.0 - t) + 0.05 * (1.0 - s * s), 0.55, c);
   } else if (e.t == E_FROND) {
     // curved rachis from a to b (bend = w2 along the normal) with paired leaflets (n pairs),
@@ -147,7 +155,7 @@ void drawEl(inout Mat m, vec2 p, El e, float hb) {
     }
     float cL = cover(best);
     if (max(cR, cL) <= 0.0) return;
-    if (cL > 0.0) leafPaint(m, cL, bt, bs, e.c1, e.c2, hb);
+    if (cL > 0.0) leafPaint(m, cL, bt, bs, e.c1, e.c2, hb, p);
     over(m, e.c2 * 0.9, hb + 0.08, 0.6, cR);
   } else if (e.t == E_EAR) {
     // grain ear (wheat): alternating kernels along a spike from a to b, kernel count n, half width w

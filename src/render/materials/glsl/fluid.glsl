@@ -20,17 +20,19 @@ Mat material(vec2 uv) {
     return M(col, 0.78 + 0.08 * foam, sat(h), 0.03 + 0.15 * foam);
   }
   if (v == V_LAVA) {
-    vec2 q = uv + warp(uv, 3.0, flow ? 0.08 : 0.05, 1010.0);
-    float n = flow ? fbm(q, vec2(3.0, 9.0), 5, 0.55, 1011.0) : fbm(q, vec2(4.0), 5, 0.55, 1011.0);
-    vec4 vc = voronoi(q, flow ? vec2(3.0, 6.0) : vec2(4.0), 0.9, 1012.0);
-    float crust = smoothstep(0.05, 0.3, n + 0.15) * smoothstep(0.02, 0.1, vc.x);
-    crust *= flow ? 0.55 : 0.75;
-    float heat = sat(0.6 + 0.6 * fbm(uv, vec2(6.0), 3, 0.5, 1013.0));
-    vec3 molten = mix(rgb(0xd84808), rgb(0xffb428), heat);
-    molten = mix(molten, rgb(0xfff0a0), smoothstep(0.75, 1.0, heat) * 0.6);
-    vec3 cr = mix(rgb(0x3a1206), rgb(0x6a2408), sat(0.5 + n));
+    vec2 q = uv + warp(uv, 3.0, flow ? 0.09 : 0.06, 1010.0);
+    vec2 f = flow ? vec2(3.0, 8.0) : vec2(4.0);
+    float n = fbm(q, f, 5, 0.55, 1011.0);
+    // cooling crust: organic plates where the noise is high, thin glowing seams inside them
+    float plate = smoothstep(0.08, 0.22, n);
+    float seam = 1.0 - smoothstep(0.0, 0.08, abs(fbm(q, f * 2.0, 3, 0.5, 1012.0)));
+    float crust = plate * (1.0 - seam * 0.8) * (flow ? 0.7 : 0.9);
+    float heat = sat(0.55 + 0.7 * fbm(uv, vec2(6.0), 3, 0.5, 1013.0) - 0.4 * plate);
+    vec3 molten = mix(rgb(0xc83a06), rgb(0xffa020), heat);
+    molten = mix(molten, rgb(0xffe890), smoothstep(0.75, 1.0, heat) * 0.7);
+    vec3 cr = mix(rgb(0x2e0e04), rgb(0x5a1e06), sat(0.5 + 2.0 * (n - 0.2)));
     vec3 col = mix(molten, cr, crust);
-    float h = 0.5 + 0.35 * crust + 0.08 * n;
+    float h = 0.45 + 0.4 * crust + 0.08 * n;
     return M(col, 1.0, sat(h), mix(0.3, 0.85, crust));
   }
   if (v == V_NETHER_PORTAL) {

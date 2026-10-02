@@ -140,12 +140,14 @@ Mat material(vec2 uv) {
       vec3 col = base * (1.0 - 0.15 * groove) * (1.0 - 0.3 * pore);
       return M(col, 1.0, 0.75 - 0.12 * groove - 0.2 * pore + 0.05 * n, 0.62);
     }
-    float r = max(abs(c.x), abs(c.y));
-    float ring = smoothstep(0.28, 0.32, r) * (1.0 - smoothstep(0.44, 0.47, r));
-    vec4 w = worley(uv, vec2(14.0), 0.9, 1133.0);
-    float spongy = (1.0 - smoothstep(0.15, 0.35, w.x)) * (1.0 - smoothstep(0.26, 0.3, r));
-    vec3 col = mix(base, base * 0.55, spongy * 0.8);
-    col = mix(col, base * 1.05, ring);
+    float r = max(abs(c.x), abs(c.y)) * 0.7 + length(c) * 0.3;
+    float ring = smoothstep(0.26, 0.29, r) * (1.0 - smoothstep(0.42, 0.45, r));
+    vec4 w = worley(uv, vec2(16.0), 0.9, 1133.0);
+    float spongy = (1.0 - smoothstep(0.1, 0.42, w.x)) * (1.0 - smoothstep(0.24, 0.27, r));
+    vec3 col = mix(base * 0.92, rgb(0x8a8270), spongy * 0.9);
+    col = mix(col, base * 1.06, ring);
+    float seam = cover(abs(r - 0.265) - 0.006);
+    col *= 1.0 - 0.25 * seam;
     float rim = smoothstep(0.46, 0.5, r);
     col *= 1.0 - 0.15 * rim;
     return M(col, 1.0, 0.7 - 0.25 * spongy + 0.08 * ring - 0.1 * rim, 0.6);

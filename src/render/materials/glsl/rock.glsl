@@ -143,11 +143,20 @@ Mat magma(vec2 uv) {
 
 Mat debris(vec2 uv, bool top) {
   vec2 q = uv + warp(uv, 3.0, 0.04, 51.0);
-  vec2 c = top ? q - 0.5 : vec2(q.x - 0.5, q.y + 0.35);
-  float d = top ? mix(length(c), max(abs(c.x), abs(c.y)), 0.5) : length(c * vec2(0.8, 1.0));
+  vec2 c = q - 0.5;
   float n = fbm(uv, vec2(5.0), 4, 0.55, 52.0);
-  float band = sin(d * (top ? 42.0 : 34.0) + n * 3.0);
-  float band2 = sin(d * 90.0 + n * 6.0);
+  float d, band, band2;
+  if (top) {
+    d = mix(length(c), max(abs(c.x), abs(c.y)), 0.5);
+    band = sin(d * 42.0 + n * 3.0);
+    band2 = sin(d * 90.0 + n * 6.0);
+  } else {
+    // side: wavy, arching strata (periodic in both directions)
+    float ph = TAU * (5.0 * q.y + 0.35 * sin(TAU * q.x)) + n * 3.0;
+    band = sin(ph);
+    band2 = sin(2.3 * ph + n * 4.0);
+    d = 0.3;
+  }
   vec3 col = mix(rgb(0x4a312a), rgb(0x6e4c41), smoothstep(-0.5, 0.5, band));
   col = mix(col, rgb(0x8f6a5a), smoothstep(0.7, 1.0, band) * 0.7);
   col = mix(col, rgb(0x35221d), smoothstep(0.75, 1.0, -band) * 0.6);
@@ -158,23 +167,25 @@ Mat debris(vec2 uv, bool top) {
 }
 
 Mat rawBlock(vec2 uv, vec3 c0, vec3 c1, vec3 c2, vec3 crev, float rough, float salt) {
-  vec2 q = uv + warp(uv, 4.0, 0.04, salt);
-  vec4 v = voronoi(q, vec2(5.0), 0.85, salt + 1.0);
-  vec4 v2 = voronoi(q, vec2(11.0), 0.9, salt + 2.0);
+  // lumpy raw-ore nuggets: overlapping rounded lumps (smooth-min of domes), crevices between
+  vec2 q = uv + warp(uv, 4.0, 0.05, salt);
+  vec4 w = worley(q, vec2(5.0), 0.9, salt + 1.0);
+  vec4 w2 = worley(q + 0.31, vec2(11.0), 0.9, salt + 2.0);
   float n = fbm(q, vec2(10.0), 4, 0.55, salt + 3.0);
-  float dome = bevel(v.x, 0.35);
-  float small = bevel(v2.x, 0.2);
-  float t = sat(0.5 + 0.5 * n + 0.4 * (v.y - 0.5));
+  float lump = 1.0 - smoothstep(0.0, 0.85, w.x);
+  float lump2 = 1.0 - smoothstep(0.0, 0.75, w2.x);
+  float hgt = max(lump * 0.9, lump2 * 0.7) + 0.08 * n;
+  float t = sat(0.45 + 0.5 * n + 0.35 * (w.z - 0.5) + 0.3 * lump2);
   vec3 col = t < 0.5 ? mix(c0, c1, t * 2.0) : mix(c1, c2, t * 2.0 - 1.0);
-  col *= 0.85 + 0.25 * small;
-  float crevice = 1.0 - smoothstep(0.0, 0.08, v.x);
-  col = mix(col, crev, crevice * 0.85);
-  float h = 0.35 + 0.45 * dome + 0.12 * small + 0.06 * n;
-  return M(col, 1.0, sat(h), sat(rough + 0.1 * crevice - 0.08 * small));
+  float crevice = 1.0 - smoothstep(0.15, 0.45, hgt);
+  col = mix(col, crev, crevice * 0.8);
+  float spark = gnoise(uv * 96.0, vec2(96.0), salt + 4.0);
+  col *= 1.0 + 0.08 * spark;
+  return M(col, 1.0, sat(0.2 + 0.75 * hgt), sat(rough + 0.15 * crevice - 0.1 * lump2));
 }
 
 Mat glowstone(vec2 uv) {
-  vec2 q = uv + warp(uv, 4.0, 0.03, 71.0);
+  vec2 q = uv + warp(uv, 4.0, 0.06, 71.0);
   vec4 v = voronoi(q, vec2(6.0), 0.85, 72.0);
   vec4 v2 = voronoi(q, vec2(13.0), 0.9, 73.0);
   float n = fbm(uv, vec2(12.0), 3, 0.5, 74.0);

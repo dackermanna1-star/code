@@ -14,16 +14,21 @@ Mat soilBase(vec2 uv, vec3 dk, vec3 md, vec3 lt, vec3 pa, vec3 pb, vec4 p0, vec4
   float gf = floor(uSize * 0.5);
   float g = vnoise(uv * gf, vec2(gf), salt + 2.0) - 0.5;
   float g2 = vnoise(uv * gf * 0.5, vec2(gf * 0.5), salt + 3.0) - 0.5;
-  // clods
+  // soft clumps and crumbs at two scales (domes, no polygon cracks)
   vec4 c = worley(q, vec2(max(2.0, p0.x)), 0.9, salt + 4.0);
-  float clod = smoothstep(0.0, 0.5, c.y - c.x);
-  float t = sat(0.5 + 0.55 * n + 0.25 * (c.z - 0.5) + (g * 0.8 + g2 * 0.6) * p1.y);
+  vec4 c2 = worley(q + 0.37, floor(vec2(max(2.0, p0.x) * 2.7)), 0.9, salt + 8.0);
+  float clod = 1.0 - smoothstep(0.0, 0.75, c.x);
+  float crumb = 1.0 - smoothstep(0.0, 0.6, c2.x);
+  float t = sat(0.5 + 0.55 * n + 0.18 * (c.z - 0.5) + 0.12 * (c2.z - 0.5) + (g * 0.8 + g2 * 0.6) * p1.y);
   vec3 col = t < 0.5 ? mix(dk, md, t * 2.0) : mix(md, lt, t * 2.0 - 1.0);
-  col *= 0.88 + 0.12 * clod;
-  float h = 0.55 + 0.18 * n + p0.y * 0.2 * clod + 0.05 * (g + g2);
+  col *= 0.9 + 0.08 * clod + 0.06 * crumb;
+  float h = 0.5 + 0.16 * n + p0.y * (0.16 * clod + 0.1 * crumb) + 0.05 * (g + g2);
+  // fine organic fibres / rootlets
+  float fib = smoothstep(0.93, 0.99, 1.0 - abs(gnoise(q * vec2(9.0, 23.0), vec2(9.0, 23.0), salt + 9.0))) * step(0.15, fbm(uv, vec2(5.0), 2, 0.5, salt + 10.0));
+  col = mix(col, dk * 0.6, fib * 0.5 * p1.y);
   // sand ripples
   if (p1.z > 0.0) {
-    float rp = sin((uv.y + 0.05 * fbm(uv, vec2(2.0), 3, 0.5, salt + 5.0) + 0.02 * uv.x) * TAU * 7.0);
+    float rp = sin(TAU * (7.0 * uv.y + uv.x) + 2.2 * fbm(uv, vec2(2.0), 3, 0.5, salt + 5.0));
     h += p1.z * 0.08 * rp;
     col *= 1.0 + p1.z * 0.04 * rp;
   }
@@ -41,7 +46,7 @@ Mat soilBase(vec2 uv, vec3 dk, vec3 md, vec3 lt, vec3 pa, vec3 pb, vec4 p0, vec4
     col *= 1.0 - 0.25 * ring;
     h -= 0.04 * ring;
   }
-  return M(col, 1.0, sat(h), sat(p1.x - 0.05 * clod));
+  return M(col, 1.0, sat(h), sat(p1.x - 0.04 * clod));
 }
 
 /**
@@ -55,7 +60,7 @@ Mat bladeCarpet(vec2 uv, vec3 base, vec3 tipc, vec4 p, float salt) {
   float fz = fbm(q, vec2(24.0), 3, 0.55, salt + 1.0);
   float fz2 = gnoise(q * 64.0, vec2(64.0), salt + 2.0);
   float under = sat(0.5 + 0.6 * fz + 0.25 * fz2);
-  vec3 col = mix(base * 0.62, base * 0.95, under);
+  vec3 col = mix(base * 0.42, base * 0.85, under);
   float h = 0.45 + 0.2 * under;
   float cov = smoothstep(p.w - 0.08, p.w + 0.08, under + 0.15 * fbm(q, vec2(6.0), 2, 0.5, salt + 3.0));
   // blade layers
@@ -78,11 +83,14 @@ Mat bladeCarpet(vec2 uv, vec3 base, vec3 tipc, vec4 p, float salt) {
         d -= floor(d + 0.5);
         float t = sat(dot(d, dir) / len);
         float w = p.z * (1.0 - 0.85 * t) * (0.7 + 0.6 * fract(r.z * 29.0));
-        float dist = length(d - dir * t * len) - w;
+        vec2 perp = vec2(-dir.y, dir.x);
+        float bend = (fract(r.x * 7.0) - 0.5) * len * 0.6;
+        vec2 ctr = dir * t * len + perp * bend * t * t;
+        float dist = length(d - ctr) - w;
         float c = cover(dist);
         if (c > 0.0) {
-          float shadeK = 0.7 + 0.5 * fract(r.x * 17.0 + r.y * 5.0) + 0.25 * t;
-          float ridge = 1.0 - sat(abs(dot(d - dir * t * len, vec2(-dir.y, dir.x))) / max(w + p.z * 0.2, 1e-4));
+          float shadeK = 0.62 + 0.55 * fract(r.x * 17.0 + r.y * 5.0) + 0.25 * t;
+          float ridge = 1.0 - sat(abs(dot(d - ctr, perp)) / max(w + p.z * 0.2, 1e-4));
           vec3 bc = mix(base, tipc, t * 0.7) * shadeK * (0.85 + 0.2 * ridge);
           float bh = 0.62 + 0.12 * fl + 0.1 * ridge - 0.1 * t;
           col = mix(col, bc, c);
@@ -117,22 +125,29 @@ vec3 topFringe(vec2 uv, float depth, float cols, float tipLen, int style, float 
     float e = edge + bump;
     return vec3(cover(y - e), y - e, 0.0);
   }
-  float cx = uv.x * cols;
-  float ci = floor(cx);
+  // two layers of hanging blades: a sparser back layer and a denser front layer
   float best = 0.0;
   float bid = 0.0;
-  for (int k = -1; k <= 1; k++) {
-    float cell = ci + float(k);
-    vec3 r = h3(vec2(mod(cell, cols), 3.0), salt + 1.0);
-    float x0 = (cell + 0.15 + 0.7 * r.x) / cols;
-    // a few long drips, mostly short tips
-    float len = edge * (0.7 + 0.2 * r.z) + tipLen * (0.25 + 1.2 * r.y * r.y * r.y);
-    float w = (0.6 + 0.5 * r.z) / cols;
-    float dx = abs(uv.x - x0 - 0.25 * (y - edge * 0.5) * (r.z - 0.5));
-    float tipT = sat((y - edge * 0.45) / max(len - edge * 0.45, 1e-3));
-    float half_ = w * (1.0 - tipT * tipT) * 0.5;
-    float c = cover(dx - half_) * step(y, len);
-    if (c > best) { best = c; bid = r.x; }
+  for (int L = 0; L < 2; L++) {
+    float lc = L == 0 ? floor(cols * 0.7) : cols;
+    float cx = uv.x * lc;
+    float ci = floor(cx);
+    for (int k = -1; k <= 1; k++) {
+      float cell = ci + float(k);
+      vec3 r = h3(vec2(mod(cell, lc), 3.0 + float(L) * 11.0), salt + 1.0);
+      float x0 = (cell + 0.15 + 0.7 * r.x) / lc;
+      // a few long drips, mostly short tips
+      float len = edge * (0.7 + 0.2 * r.z) + tipLen * (0.2 + 1.3 * r.y * r.y * r.y) * (L == 0 ? 1.15 : 1.0);
+      float w = (0.6 + 0.6 * r.z) / lc;
+      float lean = (r.z - 0.5) * 0.5 + (fract(r.x * 7.0) - 0.5) * 0.2;
+      float dx = uv.x - x0 - lean * (y - edge * 0.5);
+      dx -= floor(dx + 0.5);
+      float tipT = sat((y - edge * 0.45) / max(len - edge * 0.45, 1e-3));
+      float half_ = w * (1.0 - tipT * tipT) * 0.5;
+      float c = cover(abs(dx) - half_) * step(y, len);
+      // front layer wins where it covers; ids encode layer for shading
+      if (c > 0.0 && (L == 1 || c > best)) { best = max(best, c); bid = r.x * 0.5 + float(L) * 0.5; }
+    }
   }
   float solid = cover(y - edge * 0.62);
   float cov = max(best, solid);

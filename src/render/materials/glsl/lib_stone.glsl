@@ -40,8 +40,8 @@ Mat rock(vec2 uv, vec3 dark, vec3 mid, vec3 light, vec3 sa, vec3 sb, vec4 p0, ve
   if (p1.z > 0.0) {
     vec2 sf = an > 0.5 ? vec2(24.0, 5.0) : vec2(6.0, 20.0);
     float s = fbm(q + vec2(0.13, 0.71), sf, 3, 0.45, salt + 6.0);
-    float sm = smoothstep(0.2, 0.42, s) * p1.z;
-    col = mix(col, dark * 0.78, sm * 0.8);
+    float sm = smoothstep(0.12, 0.3, s) * p1.z;
+    col = mix(col, dark * 0.74, sm * 0.85);
     h -= sm * 0.05 * p2.y;
     float sl = smoothstep(0.24, 0.45, -s) * p1.z * p3.w;
     col = mix(col, light * 1.04, sl * 0.5);
@@ -62,8 +62,12 @@ Mat rock(vec2 uv, vec3 dark, vec3 mid, vec3 light, vec3 sa, vec3 sb, vec4 p0, ve
   float gf = floor(uSize * 0.5);
   float g = vnoise(uv * gf, vec2(gf), salt + 9.0) - 0.5;
   float g2 = vnoise(uv * gf * 0.5, vec2(gf * 0.5), salt + 10.0) - 0.5;
-  col *= 1.0 + (g * 0.12 + g2 * 0.1) * p3.z;
-  h += (g * 0.03 + g2 * 0.03) * p2.y * p3.z;
+  col *= 1.0 + (g * 0.16 + g2 * 0.12) * p3.z;
+  h += (g * 0.04 + g2 * 0.05) * p2.y * p3.z;
+  // mid-frequency micro relief (pitted, granular rock face)
+  float mr = fbm(q, vec2(pf * 6.0) * af, 3, 0.5, salt + 36.0);
+  h += 0.07 * mr * p2.y;
+  col *= 1.0 + 0.05 * mr;
 
   // cracks: warped Voronoi borders, partially masked
   if (p1.x > 0.0) {
@@ -96,30 +100,33 @@ Mat rock(vec2 uv, vec3 dark, vec3 mid, vec3 light, vec3 sa, vec3 sb, vec4 p0, ve
  */
 Mat granular(vec2 uv, vec3 c0, vec3 c1, vec3 c2, vec3 c3, vec4 p, vec4 s) {
   float salt = s.w;
-  vec2 q = uv + warp(uv, 4.0, 0.02, salt);
-  vec4 v = voronoi(q, vec2(p.x), 0.95, salt + 1.0);
-  float id = v.y;
+  vec2 q = uv + warp(uv, 4.0, 0.03, salt);
+  // blotchy zones decide which minerals dominate locally (Minecraft-like speckle clusters)
+  float zone = fbm(uv, vec2(4.0), 4, 0.55, salt + 3.0);
+  vec4 w = worley(q, vec2(p.x), 0.95, salt + 1.0);
+  float id = fract(w.z + 0.0);
+  float dk = p.z * (1.0 + 1.6 * zone);
+  float lt = p.w * (1.0 - 1.4 * zone);
   vec3 col = c0;
   float rr = s.x;
   float kind = 0.0;
-  if (id < p.z) { col = c2; rr = s.x * 0.55; kind = 2.0; }
-  else if (id < p.z + p.w) { col = c3; rr = s.x * 0.6; kind = 3.0; }
-  else if (id < p.z + p.w + p.y) { col = c1; kind = 1.0; }
-  col *= 0.84 + 0.32 * fract(id * 17.31);
-  // finer grains between crystals
-  vec4 w = worley(q, vec2(p.x * 2.5), 0.9, salt + 2.0);
-  float fine = step(0.82, w.z) * (1.0 - smoothstep(0.18, 0.34, w.x));
-  col = mix(col, mix(c2, c3, step(0.91, w.z)), fine * 0.85);
-  // large scale tonal variation
-  float zone = fbm(uv, vec2(3.0), 4, 0.5, salt + 3.0);
-  col *= 1.0 + 0.12 * zone;
+  if (id < dk) { col = c2; rr = s.x * 0.55; kind = 2.0; }
+  else if (id < dk + lt) { col = c3; rr = s.x * 0.6; kind = 3.0; }
+  else if (id < dk + lt + p.y) { col = c1; kind = 1.0; }
+  col *= 0.86 + 0.28 * fract(id * 17.31);
+  // soft crystal boundaries: blend towards the neighbour colour instead of outlining
+  float edge = 1.0 - smoothstep(0.0, 0.18, w.y - w.x);
+  col = mix(col, c0 * 0.92, edge * 0.25);
+  // fine grains
+  vec4 w2 = worley(q, vec2(p.x * 2.5), 0.9, salt + 2.0);
+  float fine = (1.0 - smoothstep(0.16, 0.32, w2.x));
+  col = mix(col, mix(c2, c3, step(0.5, w2.z)), fine * step(0.8, w2.z) * 0.85);
+  col *= 1.0 + 0.1 * zone;
   float gf = floor(uSize * 0.5);
   float g = vnoise(uv * gf, vec2(gf), salt + 4.0) - 0.5;
-  col *= 1.0 + g * 0.08;
-  float edge = 1.0 - smoothstep(0.0, 0.07, v.x);
-  col *= 1.0 - edge * 0.12 * (1.0 - s.z);
-  // relief: crystals stand slightly proud; hard minerals (quartz/dark) more so
-  float relief = 0.06 * smoothstep(0.0, 0.18, v.x) + 0.03 * (kind >= 2.0 ? 1.0 : 0.0) + 0.05 * zone + 0.02 * g;
+  col *= 1.0 + g * 0.1;
+  float mr = fbm(q, vec2(p.x * 0.5), 3, 0.5, salt + 5.0);
+  float relief = 0.03 * smoothstep(0.0, 0.25, w.y - w.x) + 0.02 * (kind >= 2.0 ? 1.0 : 0.0) + 0.05 * zone + 0.04 * mr + 0.02 * g;
   float h = 0.75 + s.y * relief * (1.0 - 0.85 * s.z);
   rr = mix(rr, rr * 0.35, s.z) + 0.04 * g;
   return M(col, 1.0, sat(h), sat(rr));
@@ -130,7 +137,7 @@ Mat granular(vec2 uv, vec3 c0, vec3 c1, vec3 c2, vec3 c3, vec4 p, vec4 s) {
  *  c0 deep, c1 mid, c2 light, c3 edge highlight; p: x cells, y facet tilt, z edge highlight, w roughness; salt
  */
 Mat crystal(vec2 uv, vec3 c0, vec3 c1, vec3 c2, vec3 c3, vec4 p, float salt) {
-  vec2 q = uv + warp(uv, 3.0, 0.03, salt);
+  vec2 q = uv + warp(uv, 3.0, 0.06, salt) + warp(uv, 8.0, 0.012, salt + 9.0);
   vec4 v = voronoi(q, vec2(p.x), 0.9, salt + 1.0);
   vec2 sl = h2(vec2(v.y * 1013.0, 1.0), salt + 2.0) * 2.0 - 1.0;
   float plane = dot(-v.zw, sl) * p.y;

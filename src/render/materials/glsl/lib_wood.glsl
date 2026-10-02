@@ -12,11 +12,15 @@ Mat woodGrain(vec2 uv, vec3 dk, vec3 md, vec3 lt, float salt) {
   // growth-ring lines (latewood): thin dark lines along the board
   float ring = abs(fract(wv * 22.0 + 1.6 * fbm(uv, vec2(2.0, 3.0), 3, 0.5, salt + 4.0)) - 0.5);
   float late = 1.0 - smoothstep(0.03, 0.12, ring);
-  float t = sat(0.5 + streak * 0.9 + fine * 0.15);
+  // second, finer ring family for denser figure
+  float ring2 = abs(fract(wv * 47.0 + 2.3 * fbm(uv, vec2(3.0, 5.0), 2, 0.5, salt + 6.0)) - 0.5);
+  float late2 = 1.0 - smoothstep(0.02, 0.08, ring2);
+  float t = sat(0.5 + streak * 1.15 + fine * 0.18);
   vec3 col = t < 0.5 ? mix(dk, md, t * 2.0) : mix(md, lt, t * 2.0 - 1.0);
-  col = mix(col, dk * 0.92, late * 0.45);
+  col = mix(col, dk * 0.88, late * 0.6);
+  col = mix(col, dk, late2 * 0.22);
   float pores = gnoise(vec2(uv.x, wv) * vec2(48.0, 256.0), vec2(48.0, 256.0), salt + 5.0);
-  col *= 1.0 + 0.05 * pores;
+  col *= 1.0 + 0.07 * pores;
   float h = 0.5 + 0.25 * streak - 0.15 * late + 0.06 * fine + 0.04 * pores;
   float r = 0.62 + 0.08 * late + 0.05 * fine;
   return M(col, 1.0, sat(h), r);
@@ -79,9 +83,11 @@ Mat bark(vec2 uv, vec3 cr, vec3 dk, vec3 md, vec3 lt, vec3 mk, vec3 ac, vec4 p0,
   float xw = uv.x + 0.03 * fbm(uv, vec2(2.0, 3.0), 3, 0.5, salt) + 0.01 * fbm(uv, vec2(6.0, 4.0), 2, 0.5, salt + 1.0);
   vec2 q = vec2(xw, uv.y);
   // meandering vertical furrows (zero crossings of vertically stretched noise) separating plates
-  float n1 = gnoise(q * vec2(F, 1.5), vec2(F, 1.5), salt + 2.0);
+  // (all frequencies are integers so the bark tiles seamlessly in both directions)
+  float n1 = gnoise(q * vec2(F, 2.0), vec2(F, 2.0), salt + 2.0);
   float n2 = gnoise(q * vec2(F * 2.0, 3.0), vec2(F * 2.0, 3.0), salt + 3.0);
-  float n3 = gnoise(q * vec2(F * 0.75, F * 0.6), vec2(F * 0.75, F * 0.6), salt + 4.0);
+  vec2 f3 = max(vec2(1.0), floor(vec2(F * 0.75, F * 0.6)));
+  float n3 = gnoise(q * f3, f3, salt + 4.0);
   float fur = smoothstep(0.72, 0.97, 1.0 - abs(n1));
   float fur2 = smoothstep(0.82, 0.98, 1.0 - abs(n2)) * 0.65;
   float brk = smoothstep(0.86, 0.98, 1.0 - abs(n3)) * p0.y;
@@ -97,7 +103,7 @@ Mat bark(vec2 uv, vec3 cr, vec3 dk, vec3 md, vec3 lt, vec3 mk, vec3 ac, vec4 p0,
   float h = 0.15 + 0.7 * plate + 0.08 * n + 0.03 * fib;
   // scales (spruce)
   if (p0.w > 0.0) {
-    vec4 w = worley(q + vec2(0.0, 0.3 * xw), vec2(F * 1.5, F * 1.1), 0.9, salt + 6.0);
+    vec4 w = worley(q + vec2(0.0, 0.04 * sin(TAU * xw)), floor(vec2(F * 1.5, F * 1.1)), 0.9, salt + 6.0);
     float sc = smoothstep(0.0, 0.25, w.y - w.x);
     col = mix(col, mix(col, lt, 0.3) * (0.85 + 0.3 * w.z), p0.w * 0.6);
     col = mix(col, cr, (1.0 - sc) * p0.w * 0.7);

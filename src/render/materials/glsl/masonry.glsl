@@ -90,13 +90,13 @@ Mat material(vec2 uv) {
     h = 0.62 + relief * 0.3 * (s.h - 0.5);
   } else if (kind == 3) {
     // cobble: irregular rounded stones with dark gaps
-    vec2 q = uv + warp(uv, 4.0, 0.045, salt + 10.0);
+    vec2 q = uv + warp(uv, 3.0, 0.07, salt + 10.0) + warp(uv, 9.0, 0.012, salt + 30.0);
     float cells = max(2.0, uP[0].y);
     vec4 v = voronoi(q, vec2(cells), 0.95, salt + 11.0);
     e = v.x / cells - uP[1].x * PX * 0.5;
     id = v.y;
     float dome = bevel(e, 0.09 + 0.05 * id);
-    vec3 tone = mix(uC[0], uC[2], fract(id * 7.31));
+    vec3 tone = mix(uC[0], uC[2], fract(id * 7.31)) * (0.9 + 0.2 * fract(id * 3.7));
     col = mix(col, col * tone / max(uC[1], vec3(0.02)), 0.55);
     h = 0.25 + 0.55 * dome + relief * 0.15 * (s.h - 0.5);
   } else {
@@ -206,9 +206,10 @@ Mat material(vec2 uv) {
     float vein = 1.0 - smoothstep(0.0, 0.02, abs(fbm(uv, vec2(5.0), 3, 0.5, 18.0)));
     col = mix(col, rgb(0x1f6b74) * 0.6, vein * (1.0 - frame) * 0.5);
   } else if (motif == MOTIF_DARK_PRISMARINE) {
-    float lx = cover(abs(uv.x - 0.5) - 0.012);
-    float ly = cover(abs(uv.y - 0.5) - 0.012);
-    float ln = max(lx * step(0.5, uv.y), ly);
+    float lx = cover(abs(uv.x - 0.5) - 0.016) * step(0.5, uv.y);
+    float lx2 = max(cover(abs(uv.x - 0.25) - 0.016), cover(abs(uv.x - 0.75) - 0.016)) * step(uv.y, 0.5);
+    float ly = cover(abs(uv.y - 0.5) - 0.016);
+    float ln = max(max(lx, lx2), ly);
     col = mix(col, uC[3], ln);
     h -= ln * 0.25;
   } else if (motif == MOTIF_QUARTZ_SIDE) {

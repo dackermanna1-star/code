@@ -34,8 +34,12 @@ Mat material(vec2 uv) {
     // farmland furrows
     if (uP[2].x > 0.0) {
       float fr = cos(uv.y * TAU * 4.0 + 0.6 * fbm(uv, vec2(3.0), 2, 0.5, 210.0));
-      m.h = mix(m.h, m.h * 0.6 + 0.4 * (0.5 + 0.5 * fr), uP[2].x);
-      m.col *= 1.0 + 0.12 * fr * uP[2].x;
+      m.h = mix(m.h, m.h * 0.45 + 0.55 * (0.5 + 0.5 * fr), uP[2].x);
+      m.col *= 1.0 + 0.22 * fr * uP[2].x;
+      // the frame of untilled soil around the edge (Minecraft farmland border)
+      float e = borderDist(uv);
+      float rim = 1.0 - smoothstep(0.8 * PX, 1.2 * PX, e);
+      m.col = mix(m.col, m.col * 0.8, rim * uP[2].x);
     }
     // wetness: darker, glossier, puddled lows
     if (uP[2].y > 0.0) {
@@ -58,7 +62,7 @@ Mat material(vec2 uv) {
   }
   if (v == V_GRASS_TOP) {
     vec3 grey = rgb(0xa2a2a2);
-    Mat g = bladeCarpet(uv, grey, rgb(0xc4c4c2), vec4(22.0, 0.05, 0.0055, 0.22), 220.0);
+    Mat g = bladeCarpet(uv, grey, rgb(0xc8c8c6), vec4(20.0, 0.06, 0.0075, 0.24), 220.0);
     // soil specks keep the dirt colour and are not tinted (alpha 0)
     float a = g.a;
     m.col = mix(m.col * 0.8, g.col, a);
@@ -131,7 +135,7 @@ Mat material(vec2 uv) {
     float y = 1.0 - uv.y;
     float streak = gnoise(uv * vec2(48.0, 6.0), vec2(48.0, 6.0), 251.0);
     float grain = gnoise(uv * 64.0, vec2(64.0), 252.0);
-    float k = style == 1 ? 0.5 + 0.12 * grain : sat(0.55 + 0.35 * streak + 0.2 * fract(fr.z * 7.0));
+    float k = style == 1 ? 0.5 + 0.12 * grain : sat(0.5 + 0.35 * streak + 0.25 * fract(fr.z * 13.0)) * (fr.z < 0.5 ? 0.72 : 1.0);
     vec3 c = mix(fc, fl, k);
     // fringe darkens with depth (self shadow towards its lower edge)
     c *= 1.0 - 0.25 * smoothstep(depth * 0.5, depth * 1.6, y);

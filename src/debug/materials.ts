@@ -147,7 +147,7 @@ function runSheet() {
     glslVersion: THREE.GLSL3,
     vertexShader: `in vec3 position; void main(){ gl_Position = vec4(position.xy, 0.0, 1.0); }`,
     fragmentShader: COMMON + /* glsl */ `
-uniform float uCell, uPad, uLabelH, uH;
+uniform float uCell, uPad, uLabelH, uH, uTile;
 uniform int uCols, uCount, uView;
 out vec4 o;
 void main() {
@@ -158,7 +158,7 @@ void main() {
   int idx = int(cellI.y) * uCols + int(cellI.x);
   vec3 bg = vec3(0.105, 0.113, 0.133);
   if (cellI.x < 0.0 || cellI.x >= float(uCols) || idx >= uCount || local.x >= uCell || local.y >= uCell || local.x < 0.0 || local.y < 0.0) { o = vec4(lin2srgb(bg * bg), 1.0); return; }
-  vec2 uv = vec2(local.x, uCell - local.y) / uCell;
+  vec2 uv = vec2(local.x, uCell - local.y) / uCell * uTile;
   float layer = float(idx);
   vec4 a = textureLod(tAlb, vec3(uv, layer), 0.0);
   vec4 n = textureLod(tNrm, vec3(uv, layer), 0.0);
@@ -197,7 +197,11 @@ void main() {
     float nh = max(dot(nn, Hh), 0.0);
     float D = a2 / (3.14159 * pow(nh * nh * (a2 - 1.0) + 1.0, 2.0));
     vec3 F0 = mix(vec3(0.04), alb, props.r);
-    vec3 c = alb * (1.0 - props.r) * d * 2.2 + F0 * D * d * 0.6 + alb * 0.25;
+    // crude environment reflection (sky above, ground below) so metals read correctly
+    vec3 R = reflect(-V, nn);
+    vec3 env = mix(vec3(0.18, 0.16, 0.14), vec3(0.55, 0.62, 0.72), smoothstep(-0.3, 0.6, R.y));
+    vec3 Fe = F0 + (1.0 - F0) * pow(1.0 - max(nn.z, 0.0), 5.0);
+    vec3 c = alb * (1.0 - props.r) * d * 2.2 + F0 * D * d * 0.6 + alb * 0.25 * (1.0 - props.r) + Fe * env * (1.0 - r * 0.85) * 1.2;
     col = opac ? mix(checker * checker, c, a.a) : c;
     col = lin2srgb(clamp(tonemap(col), 0.0, 1.0));
   }
@@ -215,6 +219,7 @@ void main() {
       uCols: { value: cols },
       uCount: { value: names.length },
       uView: { value: Math.max(0, viewId) },
+      uTile: { value: +(q.get("tile") ?? 1) },
     },
     depthTest: false,
     depthWrite: false,
@@ -265,6 +270,8 @@ function runPreview() {
   const spacing = 1.45;
   camera.position.set(0, 1.3 + rowsN * 0.6, 2.2 + Math.max(perRow, rowsN * 1.6) * 0.9);
   camera.lookAt(0, -0.1, 0);
+  camera.updateMatrixWorld();
+  camera.updateProjectionMatrix();
 
   const mat = (layer: number) =>
     new THREE.RawShaderMaterial({
@@ -335,6 +342,10 @@ void main() {
   vec3 sun = vec3(3.2, 3.0, 2.7);
   vec3 col = (alb * (1.0 - props.r) / 3.14159 * 3.14159 * 0.9 * (1.0 - F) + spec) * sun * nl;
   col += alb * (1.0 - props.r * 0.8) * mix(vec3(0.10, 0.11, 0.12), vec3(0.22, 0.26, 0.33), n.y * 0.5 + 0.5);
+  vec3 R = reflect(-V, n);
+  vec3 env = mix(vec3(0.16, 0.14, 0.12), vec3(0.5, 0.58, 0.7), smoothstep(-0.3, 0.6, R.y));
+  vec3 Fe = F0 + (1.0 - F0) * pow(1.0 - max(dot(n, V), 0.0), 5.0);
+  col += Fe * env * (1.0 - r * 0.85);
   float lumA = dot(alb, vec3(0.2126, 0.7152, 0.0722));
   if (props.g > 0.0 && lumA > props.b) col += alb * props.g * 4.0;
   // translucent textures (glass, water ...) as alpha blended
