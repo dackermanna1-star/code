@@ -953,11 +953,13 @@ export const UI_SOUNDS = {
 };
 
 // sounds registered by other modules (levels): merged into the tables, built last unless wanted
+// (definitions marked core: true are built with the rest of the bank; the others only when a
+// level asks for them)
 const EXTRA_NAMES = new Set();
-for (const [k, d] of Object.entries(EXTRA.shots)) { SHOTS[k] = d; EXTRA_NAMES.add(k); }
-for (const [k, d] of Object.entries(EXTRA.loops)) { LOOPS[k] = d; EXTRA_NAMES.add('loop_' + k); }
-for (const [k, d] of Object.entries(EXTRA.beds)) { BEDS[k] = d; EXTRA_NAMES.add(k); }
-for (const [k, d] of Object.entries(EXTRA.ui)) { UI_SOUNDS[k] = d; EXTRA_NAMES.add('ui_' + k); }
+for (const [k, d] of Object.entries(EXTRA.shots)) { SHOTS[k] = d; if (!d.core) EXTRA_NAMES.add(k); }
+for (const [k, d] of Object.entries(EXTRA.loops)) { LOOPS[k] = d; if (!d.core) EXTRA_NAMES.add('loop_' + k); }
+for (const [k, d] of Object.entries(EXTRA.beds)) { BEDS[k] = d; if (!d.core) EXTRA_NAMES.add(k); }
+for (const [k, d] of Object.entries(EXTRA.ui)) { UI_SOUNDS[k] = d; if (!d.core) EXTRA_NAMES.add('ui_' + k); }
 
 // ============================================================================ bank
 // Every buffer the engine needs, as lazy jobs: { name, sr, loop, kind, make() -> Float32Array,
@@ -999,6 +1001,8 @@ export function bankQueue() {
   const rank = (j) => PRIORITY.findIndex((f) => f(j));
   return [...bankJobs()].map((j, i) => [rank(j), i, j]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map((e) => e[2]);
 }
+// what gets built up front: everything except the levels' own sounds (those come on request)
+export const coreQueue = () => bankQueue().filter((j) => !j.extra);
 
 export const SHOT_VARIANTS = Object.fromEntries(Object.entries(SHOTS).map(([k, d]) => [k, d.n]));
 export const TONES = Object.keys(BEDS).filter((k) => k.startsWith('tone_')).map((k) => k.slice(5));

@@ -7,7 +7,7 @@
 //                   { type: 'ir', kind, rate, l, r } · { type: 'jobError', name, message }
 //                   { type: 'done', count, ms }
 // Importing this module anywhere but inside a worker does nothing (tools/check.mjs imports it).
-import { bankQueue } from './sounds.js';
+import { coreQueue, jobTable } from './sounds.js';
 import { makeIR } from './reverb.js';
 
 const scope = typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && self instanceof WorkerGlobalScope ? self : null;
@@ -15,6 +15,7 @@ const scope = typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undef
 const SLICE_MS = 30;   // work per task before checking for IR requests
 let queue = [];
 const irQueue = [];
+const done = new Set();   // jobs already built (or queued) by name
 let t0 = 0, sent = 0, finished = false;
 
 function post(msg, transfer) { scope.postMessage(msg, transfer || []); }
@@ -29,6 +30,7 @@ function buildIR(req) {
 }
 
 function runJob(job) {
+  done.add(job.name);
   try {
     const data = job.make();
     post({ type: 'buf', name: job.name, sr: job.sr, loop: job.loop, kind: job.kind, data }, [data.buffer]);
@@ -75,11 +77,18 @@ if (scope) {
     } else if (m.type === 'want' && Array.isArray(m.names)) {
       const want = new Set(m.names);
       const front = queue.filter((j) => want.has(j.name));
-      if (front.length) queue = front.concat(queue.filter((j) => !want.has(j.name)));
+      // the levels' own sounds are not in the queue until something asks for them
+      const table = jobTable();
+      for (const n of want) {
+        const j = table.get(n);
+        if (j && !done.has(n) && !front.includes(j)) { front.push(j); done.add(n); }
+      }
+      if (front.length) { queue = front.concat(queue.filter((j) => !want.has(j.name))); finished = false; schedule(); }
     }
   };
   t0 = performance.now();
-  queue = bankQueue();
+  queue = coreQueue();
+  for (const j of queue) done.add(j.name);
   post({ type: 'hello', total: queue.length });
   schedule();
 }

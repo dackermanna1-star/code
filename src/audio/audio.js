@@ -15,7 +15,7 @@
 // and pitch-by-playback-rate, so the bank keeps its lo-fi PlayStation character.
 // Every public method is safe at any time (before the bank is ready, while suspended, with
 // unknown names) and never throws.
-import { FOOT_NAMES, FOOT_VARIANTS, SHOT_VARIANTS, TONES, bankQueue } from './sounds.js';
+import { FOOT_NAMES, FOOT_VARIANTS, SHOT_VARIANTS, TONES, coreQueue, jobTable } from './sounds.js';
 import { REVERB, makeIRG } from './reverb.js';
 
 const WORKER_PATH = 'src/audio/bankworker.js';   // repo-relative: what the single-file build expects
@@ -156,7 +156,7 @@ export class AudioEngine {
       this.verbOut = this.gain(1, this.master);
       this.verbIn = this.gain(1, null);
       this.t0 = nowMs();
-      this.total = bankQueue().length;
+      this.total = coreQueue().length;
       // start the worker in a task of its own (the single-file build's worker factory encodes the
       // whole bundle into a Blob: ~10-15 ms that shouldn't stack on the context's creation)
       setTimeout(() => this.loadBank(), 0);
@@ -266,7 +266,7 @@ export class AudioEngine {
   // Fallback: run the jobs' generators on the main thread in short slices during idle time.
   mainThreadBank() {
     this.mode = 'main';
-    this.queue = bankQueue().filter((j) => !this.buffers.has(j.name));
+    this.queue = coreQueue().filter((j) => !this.buffers.has(j.name));
     this.slice();
   }
 
@@ -330,14 +330,18 @@ export class AudioEngine {
 
   // move buffers that are needed now to the front of the queue
   want(names) {
-    if (this.ready || this.mode === 'off') return;
+    if (this.mode === 'off') return;
     const list = names.filter((n) => !this.buffers.has(n) && !this.wanted.has(n));
     if (!list.length) return;
     for (const n of list) this.wanted.add(n);
     if (this.mode === 'worker') this.post({ type: 'want', names: list });
     else if (this.queue) {
       const s = new Set(list);
-      this.queue = this.queue.filter((j) => s.has(j.name)).concat(this.queue.filter((j) => !s.has(j.name)));
+      const table = jobTable();
+      const front = this.queue.filter((j) => s.has(j.name));
+      for (const n of list) { const j = table.get(n); if (j && !front.includes(j)) front.push(j); }
+      this.queue = front.concat(this.queue.filter((j) => !s.has(j.name)));
+      this.slice();
     }
   }
 

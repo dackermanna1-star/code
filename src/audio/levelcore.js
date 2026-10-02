@@ -4,7 +4,7 @@ import { defineShot, defineLoop, defineUi } from './registry.js';
 import { TAU, white, filter, envelope, mulInto, mixRms, oscAdd, wavetable, cyc, rmsOf } from './dsp.js';
 
 // a warm, slightly detuned organ-like hum behind a closed door: unlike anything else in the building
-defineLoop('door_hum', { L: 4, norm: ['rms', 0.16], gen(S, L) {
+defineLoop('door_hum', { core: true, L: 4, norm: ['rms', 0.16], gen(S, L) {
   const { out, r, sr } = S, n = out.length;
   const tab = wavetable([[1, 1], [2, 0.35], [3, 0.12], [4, 0.05]]);
   oscAdd(out, tab, cyc(110, L), 0.5, sr);
@@ -19,7 +19,7 @@ defineLoop('door_hum', { L: 4, norm: ['rms', 0.16], gen(S, L) {
 } });
 
 // latch, a heavy hinge, then air rushing past
-defineShot('door_open', { n: 2, dur: 2.6, peak: 0.85, gen(S, k) {
+defineShot('door_open', { core: true, n: 2, dur: 2.6, peak: 0.85, gen(S, k) {
   const r = S.r;
   S.click(0, 0.6, 1800, 0.004).click(0.03, 0.4, 2600, 0.003);
   S.thump(0.05, 0.35, 140, 70, 0.12);
@@ -31,7 +31,7 @@ defineShot('door_open', { n: 2, dur: 2.6, peak: 0.85, gen(S, k) {
 } });
 
 // the swell under the title card: a low chord opening up, with a little shimmer on top
-defineShot('arrive', { n: 3, dur: 7, peak: 0.8, gen(S, k) {
+defineShot('arrive', { core: true, n: 3, dur: 7, peak: 0.8, gen(S, k) {
   const { out, r, sr } = S, n = out.length;
   const roots = [55, 49, 61.74];
   const f0 = roots[k];
@@ -44,15 +44,15 @@ defineShot('arrive', { n: 3, dur: 7, peak: 0.8, gen(S, k) {
 } });
 
 // the phone's locator beep and the double beep when you face the door
-defineShot('phone_ping', { n: 1, dur: 0.18, peak: 0.7, gen(S) {
+defineShot('phone_ping', { core: true, n: 1, dur: 0.18, peak: 0.7, gen(S) {
   S.tone(0, 0.6, { f0: 1760, att: 0.001, dec: 0.05, dur: 0.07, shape: 'sq' }).filter([['lp', 3800], ['hp', 300]]);
 } });
-defineShot('phone_lock', { n: 1, dur: 0.32, peak: 0.7, gen(S) {
+defineShot('phone_lock', { core: true, n: 1, dur: 0.32, peak: 0.7, gen(S) {
   S.tone(0, 0.55, { f0: 2093, att: 0.001, dec: 0.04, dur: 0.06, shape: 'sq' }).tone(0.11, 0.55, { f0: 2637, att: 0.001, dec: 0.06, dur: 0.08, shape: 'sq' }).filter([['lp', 4200], ['hp', 300]]);
 } });
-defineUi('phone_up', { dur: 0.3, gen(S) {
+defineUi('phone_up', { core: true, dur: 0.3, gen(S) {
   S.click(0, 0.5, 900, 0.006).tone(0.05, 0.3, { f0: 1175, att: 0.001, dec: 0.04, dur: 0.05, shape: 'sq' }).filter([['lp', 3500]]);
 } });
-defineUi('phone_down', { dur: 0.25, gen(S) {
+defineUi('phone_down', { core: true, dur: 0.25, gen(S) {
   S.tone(0, 0.25, { f0: 880, att: 0.001, dec: 0.04, dur: 0.05, shape: 'sq' }).click(0.07, 0.5, 900, 0.006).filter([['lp', 3200]]);
 } });
