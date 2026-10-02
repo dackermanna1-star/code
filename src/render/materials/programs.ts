@@ -145,6 +145,7 @@ precision highp float;
 precision highp int;
 uniform sampler2D tA;
 uniform sampler2D tS;
+uniform sampler2D tAvg;
 uniform int uN;
 uniform int uCutout;
 uniform vec3 uBg;
@@ -183,12 +184,37 @@ void main() {
         w += k;
       }
     }
-    vec3 fill = w > 1e-4 ? acc / w : uBg;
+    // far from any opaque texel: use the alpha-weighted average colour of the whole card
+    vec4 av = texelFetch(tAvg, ivec2(0), 0);
+    vec3 avg = av.a > 0.5 ? av.rgb : uBg;
+    vec3 fill = w > 1e-4 ? acc / w : avg;
     float t = w > 1e-4 ? clamp(w * 2.0, 0.0, 1.0) : 0.0;
-    fill = mix(uBg, fill, t);
+    fill = mix(avg, fill, t);
     rgb = mix(fill, rgb, clamp(c.a / 0.6, 0.0, 1.0));
   }
   oColor = vec4(lin2srgb(clamp(rgb, 0.0, 1.0)), c.a);
+}
+`;
+
+/** Cutout layers: alpha-weighted average colour of the card (1x1 output; .a = 1 when valid). */
+export const AVERAGE_FRAG = /* glsl */ `
+precision highp float;
+precision highp int;
+uniform sampler2D tA;
+uniform int uN;
+out vec4 oColor;
+void main() {
+  vec3 acc = vec3(0.0);
+  float w = 0.0;
+  int st = max(1, uN / 24);
+  for (int y = 0; y < 24; y++) {
+    for (int x = 0; x < 24; x++) {
+      vec4 s = texelFetch(tA, (ivec2(x, y) * st + st / 2) % uN, 0);
+      acc += s.rgb * s.a;
+      w += s.a;
+    }
+  }
+  oColor = w > 1e-3 ? vec4(acc / w, 1.0) : vec4(0.0);
 }
 `;
 

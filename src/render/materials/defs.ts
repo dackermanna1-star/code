@@ -211,8 +211,8 @@ def('cut_red_sandstone', mas(RED_SANDSTONE_C, [2, 1, 1, 0, 0.3, 1.2, 0.1, 0, 8, 
 const soil = (c: Hex[], p: number[], extra: Partial<TexDef> = {}): TexDef => ({ prog: 'soil', v: 'soil', c, p, ...extra });
 def('dirt', soil(['#5c3f2b', '#866043', '#9d7555', '#8a8378', '#6a5040'], [9, 0.8, 0.1, 14, 0.93, 0.5, 0, 0.32, 0, 0, 0, 0, 0, 0, 0, 1], { depth: 1.3 }));
 def('coarse_dirt', soil(['#5a3e2a', '#77553a', '#8f6a4c', '#8c8a84', '#5e5a52'], [8, 0.9, 0.45, 16, 0.94, 0.6, 0, 0.34], { depth: 1.4 }));
-def('sand', soil(['#c9c08c', '#dbd3a0', '#e8e1b8', '#b5a87c', '#ece6c8'], [14, 0.15, 0.06, 30, 0.92, 0.6, 0.6, 0.2], { depth: 1.3 }));
-def('red_sand', soil(['#a65418', '#be6621', '#cf7834', '#8a4212', '#d68a4a'], [14, 0.15, 0.06, 30, 0.92, 0.6, 0.6, 0.2], { depth: 1.3 }));
+def('sand', soil(['#c9c08c', '#dbd3a0', '#e8e1b8', '#b5a87c', '#ece6c8'], [14, 0.15, 0.06, 30, 0.92, 0.6, 0.22, 0.2], { depth: 1.3 }));
+def('red_sand', soil(['#a65418', '#be6621', '#cf7834', '#8a4212', '#d68a4a'], [14, 0.15, 0.06, 30, 0.92, 0.6, 0.22, 0.2], { depth: 1.3 }));
 def('gravel', soil(['#6e6a69', '#837e7d', '#9a9594', '#8f8e8d', '#7c6c60'], [10, 0.4, 0.92, 9, 0.85, 0.5, 0, 0.48], { depth: 1.4 }));
 def('clay', soil(['#8f95a2', '#a0a6b3', '#b0b6c2', '#8a8f9a', '#b8bcc6'], [5, 0.4, 0.05, 12, 0.75, 0.25, 0, 0.3], { depth: 1.2 }));
 def('mud', soil(['#2e2c2f', '#3c3a3d', '#4c494c', '#2a2826', '#4a4440'], [6, 0.6, 0.06, 12, 0.4, 0.3, 0, 0.3, 0, 0.6, 0]));
@@ -347,8 +347,8 @@ def('sponge', { prog: 'cloth', v: 'sponge', p: [0] });
 def('wet_sponge', { prog: 'cloth', v: 'sponge', p: [1] });
 
 // ---------------------------------------------------------------------------------- fluids & portals
-def('water_still', { prog: 'fluid', v: 'water', p: [0], depth: 0.5, cavity: 0 });
-def('water_flow', { prog: 'fluid', v: 'water', p: [1], depth: 0.5, cavity: 0 });
+def('water_still', { prog: 'fluid', v: 'water', p: [0], depth: 1.2, cavity: 0 });
+def('water_flow', { prog: 'fluid', v: 'water', p: [1], depth: 1.2, cavity: 0 });
 def('lava_still', { prog: 'fluid', v: 'lava', p: [0], emit: 1, thr: 0.2 });
 def('lava_flow', { prog: 'fluid', v: 'lava', p: [1], emit: 1, thr: 0.2 });
 def('nether_portal', { prog: 'fluid', v: 'nether_portal', emit: 0.85, thr: 0, cavity: 0 });

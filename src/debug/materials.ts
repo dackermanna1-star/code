@@ -2,7 +2,7 @@
  * Debug page for the procedural block materials.
  *
  *   /debug/materials.html?size=64&view=albedo            contact sheet of every layer
- *   ...&view=normal|height|rough|alpha|lit                  other channels ('lit' = static lit shading)
+ *   ...&view=normal|height|rough|alpha|lit|rgb              other channels (lit = static lit shading, rgb = albedo ignoring alpha)
  *   ...&from=0&count=100  or  &names=stone,dirt  or &filter=planks   choose layers
  *   ...&cell=96&cols=12                                     display cell size / columns
  *   ...&tint=1                                              apply representative biome/constant tints
@@ -141,7 +141,7 @@ function runSheet() {
   const W = cols * (cell + pad) + pad;
   const H = rows * (cell + labelH + pad) + pad;
   renderer.setSize(W, H, true);
-  const viewId = ['albedo', 'normal', 'height', 'rough', 'alpha', 'lit'].indexOf(view);
+  const viewId = ['albedo', 'normal', 'height', 'rough', 'alpha', 'lit', 'rgb'].indexOf(view);
 
   const mat = new THREE.RawShaderMaterial({
     glslVersion: THREE.GLSL3,
@@ -175,7 +175,7 @@ void main() {
     col = opac ? mix(checker * checker, alb, a.a) : alb;
     // emissive preview: brighten texels above threshold
     float l = dot(alb, vec3(0.2126, 0.7152, 0.0722));
-    if (props.g > 0.0 && l > props.b) col += alb * props.g * 0.6;
+    if (props.g > 0.0 && l > props.b) col += alb * props.g * 0.6 * (opac ? a.a : 1.0);
     col = lin2srgb(clamp(col, 0.0, 1.0));
   } else if (uView == 1) {
     col = vec3(n.xy, sqrt(max(0.0, 1.0 - dot(n.xy * 2.0 - 1.0, n.xy * 2.0 - 1.0))) * 0.5 + 0.5);
@@ -183,6 +183,8 @@ void main() {
     col = vec3(n.z);
   } else if (uView == 3) {
     col = vec3(n.w);
+  } else if (uView == 6) {
+    col = a.rgb;
   } else if (uView == 4) {
     col = vec3(a.a);
   } else {

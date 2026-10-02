@@ -7,8 +7,11 @@
  *
  *   pass 1  family program  -> temp MRT (half float): linear albedo + alpha | height + roughness
  *           (optionally supersampled inside the shader)
+ *   (cutout cards only) temp -> 1x1 alpha-weighted average colour of the card
  *   pass 2a temp            -> albedo array layer: micro-cavity shading from the height field,
- *                              alpha-aware colour dilation for cutout cards, sRGB encode
+ *                              colour dilation into transparent texels of cutout cards (nearby
+ *                              opaque colours, else the card average) so mipmaps don't bleed
+ *                              dark halos, sRGB encode
  *   pass 2b temp            -> normal array layer: Sobel normal of the wrapped height field,
  *                              height in .z, roughness in .w
  *
@@ -19,7 +22,7 @@
 import * as THREE from 'three';
 import { TEXTURE_NAMES } from './textureList';
 import {
-  ALBEDO_FRAG, NORMAL_FRAG, PROGRAM_NAMES, VERTEX, buildFallbackFragment, buildProgram,
+  ALBEDO_FRAG, AVERAGE_FRAG, NORMAL_FRAG, PROGRAM_NAMES, VERTEX, buildFallbackFragment, buildProgram,
   type BuiltProgram, type ProgramName,
 } from './programs';
 import { resolveDef, type ResolvedDef } from './defs';
@@ -200,7 +203,10 @@ async function generateLayers(
     console.log(`[materials] ${label}: ${(performance.now() - t).toFixed(1)} ms`);
   };
 
+  const avgRT = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false, generateMipmaps: false });
+  const avgMat = makeMaterial(AVERAGE_FRAG, { tA: { value: temp.textures[0] }, uN: { value: size } });
   const albedoMat = makeMaterial(ALBEDO_FRAG, {
+    tAvg: { value: avgRT.texture },
     tA: { value: temp.textures[0] },
     tS: { value: temp.textures[1] },
     uN: { value: size },
@@ -223,6 +229,7 @@ async function generateLayers(
     renderer.initRenderTarget(albedoRT);
     renderer.initRenderTarget(normalRT);
     renderer.initRenderTarget(temp);
+    renderer.initRenderTarget(avgRT);
 
     // ---- resolve definitions & compile the programs they need (in parallel when supported)
     const defs: ResolvedDef[] = names.map((n) => resolveDef(n));
@@ -248,7 +255,7 @@ async function generateLayers(
       addProgram(p, built, built.fragment);
     }
     if (!cache.has('fallback')) addProgram('fallback', null, buildFallbackFragment());
-    for (const m of [albedoMat, normalMat]) {
+    for (const m of [albedoMat, normalMat, avgMat]) {
       const mm = new THREE.Mesh(geometry, m);
       mm.frustumCulled = false;
       compileScene.add(mm);
@@ -310,6 +317,12 @@ async function generateLayers(
       renderer.setRenderTarget(temp);
       renderer.render(mesh, camera);
 
+      // cutout cards: average colour (fill for fully transparent texels, see ALBEDO_FRAG)
+      if (def.cutout) {
+        mesh.material = avgMat;
+        renderer.setRenderTarget(avgRT);
+        renderer.render(mesh, camera);
+      }
       // pass 2a: albedo (the mip chain is built once, by the draw into the final layer)
       const last = i === layerCount - 1;
       albedoMat.uniforms.uCutout.value = def.cutout ? 1 : 0;
@@ -353,6 +366,8 @@ async function generateLayers(
     renderer.autoClear = prevAutoClear;
     temp.dispose();
     albedoMat.dispose();
+    avgMat.dispose();
+    avgRT.dispose();
     normalMat.dispose();
     geometry.dispose();
   }
