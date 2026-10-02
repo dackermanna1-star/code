@@ -18,6 +18,8 @@ URL parameters (development):
 | `x= z= y= yaw= pitch= dim=` | start at a position (`spawnAt` drops you on the nearest free floor) |
 | `force=<zoneType>` | every zone that can hold that type becomes it (except the start area) |
 | `piece=<roomPiece>` | every room that calls `tryRoomPiece` and fits becomes that piece |
+| `noworker` | generate the world on the main thread (no Web Worker) |
+| `noaudioworker` | build the sound bank on the main thread in idle slices |
 
 `F3` toggles a debug overlay (position, zone, chunk stats).
 
@@ -208,6 +210,20 @@ wetcarpet wet asphalt`). There is a hard limit of 255 materials – reuse existi
 Generators that carve rectangular rooms call `tryRoomPiece(zb, rect, rng, chance)`; when it
 returns a name the room was handed over to that piece (walls and doors already exist; the
 piece should add its own lights).
+
+## Sound (`src/audio/`)
+
+* `sounds.js` is the procedural bank: `SHOTS` (one-shots, `n` variants each), `LOOPS`
+  (positional loops for `zb.emitter(x, y, z, '<loop name>', { vol, rad })`), `BEDS` (hum, air
+  handling and one room tone per `env.tone`), footsteps per floor surface, and `UI_SOUNDS`.
+  Everything is synthesised at 22050 or 11025 Hz and run through a PS-ADPCM round trip.
+* `bankworker.js` builds the bank off the main thread; `audio.js` (`AudioEngine`) mixes it. The
+  game talks to it only through `game.audioCall(method, ...)`: `play(name, x, y, z, { distant,
+  vol })`, `footstep`, `land`, `ui`, `setHvac`, `humShift`, and `update()` every frame with the
+  zone's `env` (`hum`, `hvac`, `reverb`, `tone`), the nearby emitters and lights.
+* `env.reverb` picks an impulse response from `REVERB` in `reverb.js` (tiny, room, office,
+  corridor, hall, warehouse, stairwell, tunnel, tile, auditorium, outdoor).
+* Floor surfaces come from each material's `surf` (`materials.js`), so footsteps follow the floor.
 
 ## Art direction
 
