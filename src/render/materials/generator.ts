@@ -115,7 +115,6 @@ function materialUniforms(): Record<string, THREE.IUniform> {
     uSize: { value: 64 },
     uSeed: { value: 1 },
     uSS: { value: 1 },
-    uZero: { value: 0 },
     uVariant: { value: 0 },
     uCutout: { value: 0 },
     uP: { value: [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()] },

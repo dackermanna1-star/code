@@ -71,6 +71,11 @@ function pickNames(): string[] {
 }
 
 const names = pickNames();
+if (names.length === 0) {
+  status.textContent = "no matching texture names";
+  window.__shotReady = true;
+  throw new Error("[materials] no matching texture names");
+}
 const canvas = document.getElementById('view') as HTMLCanvasElement;
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true });
 renderer.setPixelRatio(1);

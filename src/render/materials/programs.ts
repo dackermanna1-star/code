@@ -58,7 +58,6 @@ precision highp int;
 uniform float uSize;
 uniform float uSeed;
 uniform int uSS;
-uniform int uZero; // always 0: keeps loop bounds non-constant so compilers don't unroll (compile time)
 uniform int uVariant;
 uniform int uCutout;
 uniform vec4 uP[4];
