@@ -169,9 +169,9 @@ export class StubAtmosphere implements AtmosphereLike {
       this.lightColor.setRGB(0.06, 0.07, 0.1);
     }
     // SH: constant + up gradient
-    const amb = new THREE.Color().copy(z).lerp(h, 0.5).multiplyScalar(Math.PI);
+    const amb = new THREE.Color().copy(z).lerp(h, 0.5).multiplyScalar(Math.PI / 0.282095);
     this.ambientSH[0].set(amb.r, amb.g, amb.b);
-    this.ambientSH[1].set(z.r * 0.8, z.g * 0.8, z.b * 0.8);
+    this.ambientSH[1].set(z.r * 0.8 / 0.488603, z.g * 0.8 / 0.488603, z.b * 0.8 / 0.488603);
     for (let i = 2; i < 9; i++) this.ambientSH[i].set(0, 0, 0);
     this.fogColor.copy(h);
     this.skyUniforms.u_projInv.value.copy(camera.projectionMatrixInverse);

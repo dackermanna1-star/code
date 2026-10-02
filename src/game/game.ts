@@ -431,14 +431,14 @@ export class Game {
     ENTITY_SHARED.u_viewInvRot.value.setFromMatrix4(cam.matrixWorld);
     const eye = this.cameraCtl.eyeWorld;
     const biome = BIOMES[this.world.getBiome(Math.floor(eye.x), Math.floor(eye.z))];
-    const waterFog = new THREE.Color(biome?.waterFog ?? 0x050533).convertSRGBToLinear().multiplyScalar(4);
+    const waterFog = new THREE.Color(biome?.waterFog ?? 0x050533).multiplyScalar(4);
     const camBlock = this.world.getBlock(Math.floor(cam.position.x), Math.floor(cam.position.y), Math.floor(cam.position.z));
     const underwater = (camBlock >>> 4) !== 0 && BLOCKS[camBlock >>> 4].liquid === 1;
     const sky = {
       sunDir: this.sunDir, moonDir: this.moonDir, moonPhase: moonPhase(this.ticks + this.dayTime), time: this.realTime,
       rain: this.weather.rain, thunder: this.weather.thunder, dimension: this.dimension as 'overworld' | 'nether' | 'end',
       cameraPosition: cam.position, renderDistance: this.settings.renderDistance * 16,
-      biomeFogColor: biome?.fog !== undefined ? new THREE.Color(biome.fog).convertSRGBToLinear() : undefined,
+      biomeFogColor: biome?.fog !== undefined ? new THREE.Color(biome.fog) : undefined,
     };
     const gb: THREE.Scene[] = [this.entities.scene];
     const fw: THREE.Scene[] = [this.entities.forwardScene];

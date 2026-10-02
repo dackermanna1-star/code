@@ -66,13 +66,13 @@ vec3 envBRDFApprox(vec3 f0, float rough, float NoV) {
   return f0 * AB.x + AB.y;
 }
 
-// L2 SH irradiance (coefficients already convolved)
+// L2 SH irradiance (coefficients already cosine-convolved; standard real SH basis, Y up)
 vec3 shIrradiance(vec3 n, vec3 sh[9]) {
   return max(vec3(0.0),
-    sh[0] +
-    sh[1] * n.y + sh[2] * n.z + sh[3] * n.x +
-    sh[4] * (n.x * n.y) + sh[5] * (n.y * n.z) + sh[6] * (3.0 * n.z * n.z - 1.0) +
-    sh[7] * (n.x * n.z) + sh[8] * (n.x * n.x - n.y * n.y));
+    sh[0] * 0.282095 +
+    sh[1] * (0.488603 * n.y) + sh[2] * (0.488603 * n.z) + sh[3] * (0.488603 * n.x) +
+    sh[4] * (1.092548 * n.x * n.y) + sh[5] * (1.092548 * n.y * n.z) + sh[6] * (0.315392 * (3.0 * n.z * n.z - 1.0)) +
+    sh[7] * (1.092548 * n.x * n.z) + sh[8] * (0.546274 * (n.x * n.x - n.y * n.y)));
 }
 
 // Block light level (0..1 in 1/15 steps, smooth-interpolated) -> radiance factor
