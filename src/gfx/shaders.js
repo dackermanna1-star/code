@@ -77,6 +77,8 @@ precision highp float;
 precision highp int;
 precision highp sampler2DArray;
 uniform sampler2DArray uTex;
+uniform sampler2DArray uTex2;   // overflow layers on GPUs with a small array-layer limit
+uniform float uSplit;           // first layer that lives in uTex2
 uniform vec3 uFogColor;
 uniform float uDither;
 uniform float uAlphaMul;
@@ -93,7 +95,7 @@ void main() {
   vec2 uv = vUVW.xy / w;
   vec4 col = vColW / w;
   float fog = vFogW / w;
-  vec4 t = texture(uTex, vec3(uv, vLayer));
+  vec4 t = vLayer < uSplit ? texture(uTex, vec3(uv, vLayer)) : texture(uTex2, vec3(uv, vLayer - uSplit));
   if (t.a < 0.5) discard;
   vec3 c = t.rgb * col.rgb;
   c = mix(c, uFogColor, clamp(fog, 0.0, 1.0));
