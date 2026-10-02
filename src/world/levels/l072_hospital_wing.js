@@ -12,7 +12,7 @@ import { LEVEL_ZONE, defineLevel, env, M, W, hr, levelDoor, ceilingLight } from 
 import { pmod, voidCells, floorSlab, ceilSlab } from './g08_kit.js';
 
 const N = 72;
-const CH = 2.9;
+const CH = 2.38;           // under 2.4 m a wall is one row of polygons
 const PZ = 13, PX = 63;
 
 // ------------------------------------------------------------------ textures & materials
@@ -103,20 +103,15 @@ defineMaterial('lv72_led', 'lv72_led', { s: 1, flags: VF.FULLBRIGHT, glow: 1.2 }
 
 // ------------------------------------------------------------------ props
 defineProp('lv72_door', {
-  // a locked patient-room door with a small window: it fills a 1 m doorway, front toward -z
+  // a locked patient-room door with a small window (a real opening, 0.3 x 0.5 at 1.2 m): it fills a
+  // 1 m doorway, front toward -z
   build(mb) {
-    const dt = T('lv72_door'), fr = S('lv72_metal');
-    const edge = S('lv72_stripe');
-    const fit = [0, 0, 1, 1];
-    // leaf: below, above and beside the window (0.3 x 0.5 at 1.2..1.7 m)
-    mb.box(-0.47, 0.0, -0.03, 0.47, 1.2, 0.03, [edge, edge, edge, edge, dt, dt], { uv: ['world', 'world', 'world', 'world', [0, 0.45, 1, 1], [0, 0.45, 1, 1]] });
-    mb.box(-0.47, 1.7, -0.03, 0.47, 2.08, 0.03, [edge, edge, edge, edge, dt, dt], { uv: ['world', 'world', 'world', 'world', [0, 0, 1, 0.3], [0, 0, 1, 0.3]] });
-    mb.box(0.15, 1.2, -0.03, 0.47, 1.7, 0.03, [edge, edge, edge, edge, dt, dt], { uv: ['world', 'world', 'world', 'world', [0, 0.3, 0.3, 0.45], [0, 0.3, 0.3, 0.45]] });
-    mb.box(-0.47, 1.2, -0.03, -0.15, 1.7, 0.03, [edge, edge, edge, edge, dt, dt], { uv: ['world', 'world', 'world', 'world', [0.7, 0.3, 1, 0.45], [0.7, 0.3, 1, 0.45]] });
-    // the window's frame
-    mb.box(-0.15, 1.2, -0.04, 0.15, 1.22, 0.04, fr, { skip: 8 });
-    mb.box(-0.15, 1.68, -0.04, 0.15, 1.7, 0.04, fr, { skip: 4 });
-    void fit;
+    const dt = T('lv72_door'), ed = S('lv72_stripe');
+    //   faces: +x -x +y -y +z -z
+    mb.box(-0.47, 0.0, -0.03, 0.47, 1.2, 0.03, [null, null, ed, null, dt, dt], { uv: ['world', 'world', 'world', 'world', [0, 0.45, 1, 1], [0, 0.45, 1, 1]] });
+    mb.box(-0.47, 1.7, -0.03, 0.47, 2.08, 0.03, [null, null, null, ed, dt, dt], { uv: ['world', 'world', 'world', 'world', [0, 0, 1, 0.3], [0, 0, 1, 0.3]] });
+    mb.box(0.15, 1.2, -0.03, 0.47, 1.7, 0.03, [null, ed, null, null, dt, dt], { uv: ['world', 'world', 'world', 'world', [0, 0.3, 0.3, 0.45], [0, 0.3, 0.3, 0.45]] });
+    mb.box(-0.47, 1.2, -0.03, -0.15, 1.7, 0.03, [ed, null, null, null, dt, dt], { uv: ['world', 'world', 'world', 'world', [0.7, 0.3, 1, 0.45], [0.7, 0.3, 1, 0.45]] });
   },
   boxes: [[-0.5, 0, -0.08, 0.5, 2.1, 0.08]],
   use: 'locked',
@@ -126,16 +121,11 @@ defineProp('lv72_room', {
   // bedside cabinet with a dark monitor. The room is seen through the door's small window.
   build(mb) {
     const sh = T('lv72_sheet'), bl = T('lv72_blanket'), mt = S('lv72_metal'), wh = S('plastic_white');
-    // frame and mattress
-    mb.box(-0.5, 0.25, -1.1, 0.5, 0.55, 1.0, [sh, sh, sh, mt, sh, sh], { skip: 0 });
-    mb.box(-0.5, 0.55, -0.1, 0.5, 0.6, 1.0, [bl, bl, bl, bl, bl, bl], { skip: 8 });
-    mb.box(-0.5, 0.55, -1.0, 0.5, 0.68, -0.35, [sh, sh, sh, sh, sh, sh], { skip: 8 });   // pillow / raised head
-    mb.box(-0.52, 0.3, -1.12, 0.52, 1.1, -1.06, wh);                                       // headboard
-    for (const s of [-1, 1]) mb.box(s * 0.52 - 0.01, 0.0, 0.9, s * 0.52 + 0.01, 0.25, 0.94, mt, { skip: 8 });
-    mb.box(-0.5, 0.0, -1.06, -0.46, 0.25, -1.02, mt, { skip: 8 }); mb.box(0.46, 0.0, -1.06, 0.5, 0.25, -1.02, mt, { skip: 8 });
-    // cabinet with the monitor
-    mb.box(0.62, 0, -0.95, 1.02, 0.75, -0.5, wh);
-    mb.box(0.68, 0.75, -0.9, 0.96, 1.0, -0.62, S('plastic_black'));
+    mb.box(-0.5, 0.28, -1.1, 0.5, 0.62, 1.0, [bl, bl, bl, null, bl, bl]);
+    mb.box(-0.5, 0.62, -1.05, 0.5, 0.72, -0.4, [sh, sh, sh, null, sh, sh]);
+    mb.box(-0.52, 0.3, -1.12, 0.52, 1.1, -1.08, mt, { skip: 2 | 1 | 8 });
+    mb.box(0.62, 0, -0.95, 1.02, 0.75, -0.5, wh, { skip: 8 });
+    mb.box(0.68, 0.75, -0.9, 0.96, 1.0, -0.62, S('plastic_black'), { skip: 8 });
   },
   boxes: [[-0.5, 0, -1.12, 0.52, 0.7, 1.0], [0.6, 0, -0.95, 1.02, 0.75, -0.5]],
 });
@@ -221,29 +211,28 @@ function gen(zb) {
       const back = north ? z - 2 : z + 3;                     // z of the back wall line
       zb.prop('lv72_room', x - 0.3, 0, north ? back + 1.27 : back - 1.27, north ? 0 : Math.PI, {});
       zb.decal(x, 1.45, north ? back + 0.12 : back - 0.12, north ? 'pz' : 'nz', 1.7, 1.3, 'lv72_window', { lit: false, glow: 1.0 });
-      zb.light(x, 1.6, north ? back + 1.4 : back - 1.4, { color: [0.86, 0.94, 1.0], rad: 5, int: 0.5 });
     }
   }
   // corridor lights every 3 m, an intercom every 16 m on the north wall, signs at the crossings
   for (let z = zb.z0; z < zb.z1; z++) {
     if (pmod(z, PZ) !== 6) continue;
     for (let x = zb.x0; x < zb.x1; x++) {
-      if (pmod(x, 3) === 1) ceilingLight(zb, x + 0.5, z + 0.5, 'troffer', 'on', { rot: 1, color: [0.96, 1.0, 1.08], mul: 0.72 });
+      if (pmod(x, 4) === 1) ceilingLight(zb, x + 0.5, z + 0.5, 'troffer', 'on', { rot: 1, color: [0.96, 1.0, 1.08], mul: 0.8, rad: 7.5 });
       if (pmod(x, 16) === 8) zb.prop('lv72_intercom', x + 0.5, 1.75, z - 0.9, Math.PI, {});
       if (pmod(x, PX) === 27) zb.decal(x + 0.5, 2.25, z - 0.9, 'pz', 0.9, 0.9, 'lv72_sign');
     }
   }
   for (let x = zb.x0; x < zb.x1; x++) {
     if (pmod(x, PX) !== 29) continue;
-    for (let z = zb.z0; z < zb.z1; z++) if (!isEW(z) && pmod(z, 3) === 1) ceilingLight(zb, x + 0.5, z + 0.5, 'troffer', 'on', { rot: 0, color: [0.96, 1.0, 1.08], mul: 0.72 });
+    for (let z = zb.z0; z < zb.z1; z++) if (!isEW(z) && pmod(z, 4) === 1) ceilingLight(zb, x + 0.5, z + 0.5, 'troffer', 'on', { rot: 0, color: [0.96, 1.0, 1.08], mul: 0.8, rad: 7.5 });
   }
 }
 
 defineZone('lv72_wing', {
   ...LEVEL_ZONE,
   params: () => ({
-    ambient: [0.5, 0.56, 0.62],
-    env: env({ fog: [0.8, 0.88, 0.95], fogNear: 8, fogFar: 72, hum: 0.55, hvac: 0.6, reverb: 'corridor', tone: 'lv72_wing' }),
+    ambient: [0.56, 0.62, 0.68],
+    env: env({ fog: [0.8, 0.88, 0.95], fogNear: 8, fogFar: 62, hum: 0.55, hvac: 0.6, reverb: 'corridor', tone: 'lv72_wing' }),
   }),
   gen,
 });

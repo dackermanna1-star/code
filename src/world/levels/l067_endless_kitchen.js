@@ -119,7 +119,7 @@ function island(zb, bx, bz) {
   const steel = M.lv67_steel, dark = M.lv67_steel_dark;
   // the island: 12 stacks a side, back to back, with a steel top
   const door = new Set();
-  const nd = hr(bx, bz, 670) < 0.12 ? 1 : 0;       // roughly one island in eight has an oven that is a door
+  const nd = hr(bx, bz, 670) < 0.07 ? 1 : 0;       // roughly one island in fourteen has an oven that is a door
   if (nd) door.add(Math.floor(hr(bx, bz, 671) * 24));
   for (let k = 0; k < 12; k++) {
     for (const side of [-1, 1]) {

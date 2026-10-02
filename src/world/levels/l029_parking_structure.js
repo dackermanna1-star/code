@@ -63,13 +63,6 @@ defineTexture('lv29_ceil', (p) => {
   p.stain(40, 30, 10, [60, 66, 60], 0.45);
   p.speckle(30, [128, 130, 120], 0.3, 0.6);
 }, 10);
-defineTexture('lv29_plate', (p) => {
-  p.fill([226, 226, 214]);
-  p.frame(0, 0, 64, 64, [40, 40, 36]);
-  p.text('C', 8, 14, [30, 30, 28], 4);
-  p.text('7', 34, 14, [30, 30, 28], 4);
-}, 4);
-
 defineMaterial('lv29_aisle_a', 'lv29_aisle_a', { su: 8, sv: 8, surf: 'concrete' });
 defineMaterial('lv29_aisle_b', 'lv29_aisle_b', { su: 8, sv: 8, surf: 'concrete' });
 defineMaterial('lv29_bay_a', 'lv29_bay_a', { su: 8, sv: 8, surf: 'concrete' });

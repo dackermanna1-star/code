@@ -30,14 +30,14 @@ defineLoop('lv77_cooler', { L: 4, norm: ['rms', 0.16], gen(S, L) {
 
 // ceiling speakers: ordinary, then out of tune, then slow and hollow
 const PA = PROG.lounge, BPM_A = 76;
-defineLoop('lv77_muzak_a', { L: muzakLen(PA, BPM_A), norm: ['rms', 0.14], gen(S, L) {
-  muzak(S, L, { prog: PA, bpm: BPM_A, dens: 0.55, detune: 6, wow: 0.003, lp: 2400, lead: 'epiano', pad: 0.8 });
+defineLoop('lv77_muzak_a', { L: muzakLen(PA, BPM_A), sr: 11025, norm: ['rms', 0.14], *gen(S, L) {
+  yield* muzak(S, L, { prog: PA, bpm: BPM_A, dens: 0.55, detune: 6, wow: 0.003, lp: 2400, lead: 'epiano', pad: 0.8 });
 } });
-defineLoop('lv77_muzak_b', { L: muzakLen(PROG.minor, 64), norm: ['rms', 0.14], gen(S, L) {
-  muzak(S, L, { prog: PROG.minor, bpm: 64, dens: 0.45, detune: 38, wow: 0.012, wowCycles: 2, wow2: 0.004, lp: 1700, lead: 'vibes', pad: 1.1 });
+defineLoop('lv77_muzak_b', { L: muzakLen(PROG.minor, 64), sr: 11025, norm: ['rms', 0.14], *gen(S, L) {
+  yield* muzak(S, L, { prog: PROG.minor, bpm: 64, dens: 0.45, detune: 38, wow: 0.012, wowCycles: 2, wow2: 0.004, lp: 1700, lead: 'vibes', pad: 1.1 });
 } });
-defineLoop('lv77_muzak_c', { L: muzakLen(PROG.warm, 40), norm: ['rms', 0.14], gen(S, L) {
-  muzak(S, L, { prog: PROG.warm, bpm: 40, dens: 0.3, detune: 90, wow: 0.03, wowCycles: 1, wow2: 0.008, lp: 1100, lead: 'bell', pad: 1.5, lift: -1 });
+defineLoop('lv77_muzak_c', { L: muzakLen(PROG.warm, 40), sr: 11025, norm: ['rms', 0.14], *gen(S, L) {
+  yield* muzak(S, L, { prog: PROG.warm, bpm: 40, dens: 0.3, detune: 90, wow: 0.03, wowCycles: 1, wow2: 0.008, lp: 1100, lead: 'bell', pad: 1.5, lift: -1 });
 } });
 
 // the store chime (two notes, the second lower); then silence

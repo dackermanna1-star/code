@@ -186,6 +186,7 @@ defineProp('lv10_pole', {
     }
   },
   boxes: [[-0.2, 0, -0.2, 0.2, 3, 0.2]],
+  emitter: { snd: 'lv10_hum', y: 5.5, vol: 0.55, rad: 17 },
 });
 defineProp('lv10_stone', {
   build(mb, p, r) {

@@ -226,6 +226,11 @@ function bayMat(stage, z, side) {
   return M[`lv77_bay${s}_${v}`];
 }
 
+// is the bay next to this one (at z2) missing because of the alcove on this side?
+function inAlNeighbour(al, az0, az1, side, z2) {
+  return !!al && al.side === side && z2 >= az0 && z2 < az1;
+}
+
 function gen(zb) {
   voidZone(zb, CF);
   const k = Math.floor(zb.z0 / G);
@@ -251,7 +256,11 @@ function gen(zb) {
       const x0 = side < 0 ? AX : AX + AW - SD;
       const mat = bayMat(zs, z, side);
       // front face toward the aisle: +x on the west side, -x on the east side
-      const mats = side < 0 ? [mat, sd, top, null, sd, sd] : [sd, mat, top, null, sd, sd];
+      // only the face toward the aisle is ever seen (the tops are above eye level, the ends are
+      // hidden by the next bay), except where the run is open to an alcove
+      const endN = inAlNeighbour(al, az0, az1, side, z - 1), endS = inAlNeighbour(al, az0, az1, side, z + 1);
+      const sdN = endN ? sd : null, sdS = endS ? sd : null;
+      const mats = side < 0 ? [mat, null, null, null, sdS, sdN] : [null, mat, null, null, sdS, sdN];
       zb.box(x0, 0, z, x0 + SD, SH, z + 1, mats, { uv: 'world' });
     }
   }

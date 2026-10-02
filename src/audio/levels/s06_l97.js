@@ -25,6 +25,6 @@ defineLoop('lv97_clock', { L: 4, norm: ['peak', 0.5], gen(S, L) {
 
 // piano muzak: slow, soft, a little behind the beat, nothing but the instrument
 const PB = 58;
-defineLoop('lv97_piano', { L: muzakLen(PROG.minor, PB), norm: ['rms', 0.12], gen(S, L) {
-  muzak(S, L, { prog: PROG.minor, bpm: PB, dens: 0.5, detune: 14, wow: 0.007, wowCycles: 2, wow2: 0.003, lp: 1500, lead: 'epiano', pad: 0.7, bass: 1.2, lift: 0 });
+defineLoop('lv97_piano', { L: muzakLen(PROG.minor, PB), sr: 11025, norm: ['rms', 0.12], *gen(S, L) {
+  yield* muzak(S, L, { prog: PROG.minor, bpm: PB, dens: 0.5, detune: 14, wow: 0.007, wowCycles: 2, wow2: 0.003, lp: 1500, lead: 'epiano', pad: 0.7, bass: 1.2, lift: 0 });
 } });

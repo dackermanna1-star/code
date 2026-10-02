@@ -2,7 +2,7 @@
 // locked but two. Door 32 is at the far end and puts you back at the beginning. Door 1 is near
 // the start and makes the hallway longer: you come out at the start of a hallway whose doors are
 // further apart, and so on, each one a little longer than the last. Somewhere in each hallway
-// there is one plain grey door that is not numbered.
+// there is a plain grey door that is not numbered (one about every 110 m).
 //
 // Layout: hallway c (c = 0, 1, 2, ...) runs east along z = 160 c + 24 (the rows are far enough
 // apart that the phone never sees another hallway's door). Door spacing is 6 + 0.8 c metres.
@@ -129,11 +129,17 @@ function hall(zb, c) {
     zb.prop('lv32_door', x, 0, north ? zc - 1 : zc + 2, north ? ANG.N : ANG.S, { n, label: 'OPEN', use: 'level', useR: 0.9, useY: 1.1 });
   }
   if (owns(zb, xe - 0.5, zc + 0.5)) zb.prop('lv32_door', xe, 0, zc + 0.5, ANG.E, { n: 32, end: true, label: 'OPEN', use: 'level', useR: 0.9, useY: 1.1 });
-  // the real one: grey, unnumbered, between two numbered doors
-  const nr = 4 + Math.floor(hr(c, 5, 3203) * 24), xr = 6 + s * (nr + 0.5), northR = hr(c, 6, 3204) < 0.5;
-  if (owns(zb, xr, northR ? zc - 0.5 : zc + 1.5)) levelDoor(zb, xr, northR ? zc - 1 + 0.12 : zc + 2 - 0.12, northR ? Math.PI : 0);
-  // a light over it so it is not missed
-  if (owns(zb, xr, zc + 0.5)) zb.light(xr, 2.6, zc + 0.5, { color: [1.0, 0.9, 0.7], rad: 5, int: 0.35 });
+  // the real ones: grey, unnumbered, between two numbered doors, about one per 110 m so that
+  // one is never far (hallway 0 has two, the longer ones more)
+  const cnt = Math.max(1, Math.round((xe - 6) / 110));
+  for (let k = 0; k < cnt; k++) {
+    const base = 6 + ((k + 0.5) * (xe - 6)) / cnt + (hr(c * 7 + k, 5, 3203) - 0.5) * 30;
+    const nr = Math.min(30, Math.max(1, Math.round((base - 6) / s - 0.5)));
+    const xr = 6 + s * (nr + 0.5), northR = hr(c * 7 + k, 6, 3204) < 0.5;
+    if (owns(zb, xr, northR ? zc - 0.5 : zc + 1.5)) levelDoor(zb, xr, northR ? zc - 1 + 0.12 : zc + 2 - 0.12, northR ? Math.PI : 0);
+    // a light over it so it is not missed
+    if (owns(zb, xr, zc + 0.5)) zb.light(xr, 2.6, zc + 0.5, { color: [1.0, 0.9, 0.7], rad: 5, int: 0.35 });
+  }
 }
 
 function gen(zb) {

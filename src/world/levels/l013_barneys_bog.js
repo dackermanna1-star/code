@@ -347,7 +347,7 @@ function drawPath(zb, path, rng) {
         const bed = hf(x, z);
         const top = DECK + (path.rail ? 0.95 : 0);
         zb.box(x - 0.07, bed - 0.12, z - 0.07, x + 0.07, top, z + 0.07, M.lv13_post, { collide: path.rail === true });
-        if (path.rail && s > phase + 0.1 && side === -1 && path.lamps && (Math.floor(s / 2.8) % 2 === 1)) lamp(zb, x, z, top + 0.05, hr(Math.floor(x), Math.floor(z), 31) > 0.16, hr(Math.floor(x), Math.floor(z), 32) < 0.1);
+        if (path.rail && s > phase + 0.1 && path.lamps && (Math.floor(s / 2.8) % 2 === 1) && side === (Math.floor(s / 2.8) % 4 === 1 ? -1 : 1) && Math.hypot(x - EX, z - EZ) > 9) lamp(zb, x, z, top + 0.05, hr(Math.floor(x), Math.floor(z), 31) > 0.16, hr(Math.floor(x), Math.floor(z), 32) < 0.1);
       }
     }
     if (path.rail) {

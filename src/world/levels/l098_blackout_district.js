@@ -160,7 +160,7 @@ function gen(zb) {
         w, d, fl, kind: fl === 1 ? 'low' : 'gable', pitch: 0.5, sun: MOON,
         wall: 'lv98_siding' + Math.floor(h(8) * WALLS.length), roof: 'lv98_roof', trim: 'plastic_gray', door: 'lv98_door' + Math.floor(h(10) * DOORS.length),
         winDark: 'lv98_win', winLit: 'lv98_wlit', garage: garage ? gs : 0, gw, gdoor: 'lv98_garage', doorAt: garage ? -0.3 * gs : (h(13) - 0.5) * 0.5, porch: h(14) < 0.3 ? 2 : 1,
-        chimney: h(15) < 0.6, baseY: LAWN, tint: [0.62, 0.7, 0.9], shellRoof: M.lv98_roof, ov: 0.7, sov: 0.5,
+        chimney: h(15) < 0.6, baseY: LAWN, tint: [0.85, 0.92, 1.05], shellRoof: M.lv98_roof, ov: 0.7, sov: 0.5,
       };
       const slots = houseSlots(o);
       o.wm = new Array(slots).fill(-1);
@@ -256,7 +256,7 @@ function gen(zb) {
 defineZone('lv98_district', {
   ...LEVEL_ZONE,
   params: () => ({
-    ambient: [0.15, 0.18, 0.3],
+    ambient: [0.18, 0.21, 0.34],
     env: env({ fog: [0.05, 0.07, 0.125], fogNear: 4, fogFar: 64, hum: 0, hvac: 0, reverb: 'outdoor', tone: 'lv98_moon' }),
   }),
   gen,

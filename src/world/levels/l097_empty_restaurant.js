@@ -127,13 +127,11 @@ defineProp('lv97_chandelier', {
     const br = S('lv97_brass');
     const y = p.opts.drop || 1.2;           // hangs this far below the origin
     mb.box(-0.02, -y + 0.3, -0.02, 0.02, 0.0, 0.02, br, { skip: 12 });
-    mb.cyl(0, -y, 0, 0.5, 0.06, 8, br, 3);
-    mb.cyl(0, -y + 0.06, 0, 0.12, 0.3, 6, br, 1);
+    mb.cyl(0, -y, 0, 0.5, 0.06, 6, br, 3);
     const g = propGlow('lv97_bulb', 1.0, p.opts.ch || 0);
     for (let k = 0; k < 6; k++) {
       const a = (k / 6) * Math.PI * 2, bx = Math.cos(a) * 0.46, bz = Math.sin(a) * 0.46;
-      mb.box(bx - 0.03, -y + 0.06, bz - 0.03, bx + 0.03, -y + 0.2, bz + 0.03, S('lv97_cloth'));
-      mb.box(bx - 0.035, -y + 0.2, bz - 0.035, bx + 0.035, -y + 0.27, bz + 0.035, g);
+      mb.box(bx - 0.035, -y + 0.06, bz - 0.035, bx + 0.035, -y + 0.27, bz + 0.035, g, { skip: 8 });
     }
   },
   boxes: [],
@@ -154,7 +152,7 @@ function bay(zb, bx, bz) {
   const dead = hr(bx, bz, 971) < 0.08;
   if (zb.in(cx, cz)) {
     zb.prop('lv97_chandelier', cx + 0.5, CH - 0.05, cz + 0.5, 0, { drop: 1.2, ch: dead ? 0 : 0 });
-    if (!dead) zb.light(cx + 0.5, CH - 1.6, cz + 0.5, { color: [1.0, 0.72, 0.4], rad: 9, int: 0.55, ch: hr(bx, bz, 972) < 0.07 ? 3 : 0 });
+    if (!dead) zb.light(cx + 0.5, CH - 1.6, cz + 0.5, { color: [1.0, 0.72, 0.4], rad: 8, int: 0.66, ch: hr(bx, bz, 972) < 0.07 ? 3 : 0 });
   }
   // tables: four per bay, a few missing, a few of other kinds
   const spots = [[2, 2], [6, 2], [2, 6], [6, 6]];
@@ -165,10 +163,10 @@ function bay(zb, bx, bz) {
     const x = x0 + dx + 0.5, z = z0 + dz + 0.5;
     if (!zb.in(Math.floor(x), Math.floor(z))) return;
     zb.prop('lv97_table', x, 0, z, kind === 2 && hr(bx, bz, 990 + k) < 0.5 ? Math.PI / 2 : 0, { kind, use: 'level', label: 'READ MENU', useY: 0.9, useR: 0.9 });
-    if (hr(bx, bz, 1000 + k) < 0.3) zb.light(x, 1.3, z, { color: [1.0, 0.7, 0.34], rad: 3, int: 0.45 });
+    if (hr(bx, bz, 1000 + k) < 0.15) zb.light(x, 1.3, z, { color: [1.0, 0.7, 0.34], rad: 3, int: 0.45 });
   });
   // a wooden screen with a door in it, here and there
-  if (hr(bx, bz, 973) < 0.1) {
+  if (hr(bx, bz, 973) < 0.05) {
     cbox(zb, x0 + 1.5, 0, z0 + 0.5, x0 + 6.5, 2.7, z0 + 0.8, M.lv97_wood);
     cbox(zb, x0 + 1.4, 2.7, z0 + 0.45, x0 + 6.6, 2.8, z0 + 0.85, M.lv97_brass);
     levelDoor(zb, x0 + 4.5, z0 + 0.94, Math.PI, { y: 0 });
@@ -193,7 +191,7 @@ function gen(zb) {
 defineZone('lv97_hall', {
   ...LEVEL_ZONE,
   params: () => ({
-    ambient: [0.2, 0.11, 0.08],
+    ambient: [0.25, 0.14, 0.1],
     env: env({ fog: [0.07, 0.04, 0.03], fogNear: 4, fogFar: 40, hum: 0, hvac: 0.25, reverb: 'hall', tone: 'lv97_hall' }),
   }),
   gen,

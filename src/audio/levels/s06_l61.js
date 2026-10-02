@@ -32,6 +32,6 @@ defineLoop('lv61_popper', { L: 6, norm: ['rms', 0.18], gen(S, L) {
 
 // lounge muzak through a ceiling speaker
 const BPM = 84;
-defineLoop('lv61_muzak', { L: muzakLen(PROG.bossa, BPM), norm: ['rms', 0.14], gen(S, L) {
-  muzak(S, L, { prog: PROG.bossa, bpm: BPM, dens: 0.6, detune: 12, wow: 0.005, wowCycles: 3, lp: 2200, lead: 'vibes', pad: 0.9, bass: 1.0 });
+defineLoop('lv61_muzak', { L: muzakLen(PROG.bossa, BPM), sr: 11025, norm: ['rms', 0.14], *gen(S, L) {
+  yield* muzak(S, L, { prog: PROG.bossa, bpm: BPM, dens: 0.6, detune: 12, wow: 0.005, wowCycles: 3, lp: 2200, lead: 'vibes', pad: 0.9, bass: 1.0 });
 } });

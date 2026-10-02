@@ -65,7 +65,7 @@ function gen(zb) {
     const dead = hr(Math.round(z), 3, 9503) < 0.32 * (1 - b) && z < 0;
     const mat = dead ? M.lv95_panel_off : b > 0.45 ? M.lv95_panel : M.lv95_panel_dim;
     zb.box(-0.1, H - 0.04, z - 0.5, 1.1, H, z + 0.5, mat, { collide: false });
-    if (!dead) zb.light(0.5, H - 0.5, z, { color: [1.0, 0.97, 0.9], rad: 9.5, int: 1.0 * (0.25 + 0.75 * b) });
+    if (!dead) zb.light(0.5, H - 0.5, z, { color: [1.0, 0.97, 0.9], rad: 9.5, int: 0.9 * (0.25 + 0.75 * b) });
   }
   // the end wall behind the arrival door
   cbox(zb, -1, 0, 9.45, 2, H, 10, M.lv95_wall);
@@ -87,7 +87,7 @@ defineZone('lv95_hall', {
   ...LEVEL_ZONE,
   params: (zone) => {
     const b = bright((zone.z0 + zone.z1) / 2);
-    const A = 0.46 * b;
+    const A = 0.4 * b;
     return {
       ambient: [A, A, A * 0.97],
       env: env({
