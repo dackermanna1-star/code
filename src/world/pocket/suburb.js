@@ -83,7 +83,7 @@ defineZone('p_suburb', {
   weight: () => 0,
   params: () => ({
     wallMat: M.siding, floorMat: M.concrete_floor, ceilMat: M.concrete_dark, ceilH: 6,
-    ambient: [0.085, 0.09, 0.115],
+    ambient: [0.125, 0.13, 0.165],
     env: env({ fog: [0.012, 0.014, 0.024], fogNear: 4, fogFar: 52, hum: 0.1, hvac: 0.35, reverb: 'warehouse', tone: 'industrial' }),
   }),
   gen: genSuburb,

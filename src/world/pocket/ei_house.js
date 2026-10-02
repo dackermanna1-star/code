@@ -1,13 +1,15 @@
 // Assets for pocket 5, the Scaffolded Suburb: the cargo-racked house prop, its lit windows, the
 // pallet decks the houses sit on, floor paint and the sign shown above the portal doors.
 import { defineTexture, signTex } from '../../gfx/textures.js';
-import { defineProp, propMat as S, propTex as T, propGlow as glow } from '../props.js';
+import { defineProp, propMat as S, propTex as T, propGlow as glow, PROP_FIT as FIT } from '../props.js';
 import { hash32 } from '../../core/rng.js';
 
 // ------------------------------------------------------------------ textures
 defineTexture('ei_sign_inventory', signTex(['IN-', 'VEN-', 'TORY'], [52, 56, 64], [238, 170, 64], 2), 8);
 defineTexture('ei_sign_office', signTex(['SALES', 'OFFICE'], [236, 232, 214], [150, 40, 36], 1), 8);
-defineTexture('ei_sign_lot', signTex(['LOT', 'READY'], [232, 190, 40], [30, 30, 30], 1), 8);
+
+// numbered aisle boards hanging over the aisles
+for (let k = 0; k < 8; k++) defineTexture('ei_aisle' + k, signTex(['AISLE', String(k * 3 + 4).padStart(2, '0')], [30, 58, 120], [244, 240, 228], 1), 8);
 
 // plank deck of a giant pallet (the shelf every house stands on)
 defineTexture('ei_deck', (p, r) => {
@@ -93,6 +95,9 @@ defineProp('ei_house', {
     const hx = Wd / 2, hz = D / 2;
     // walls (no back face: it stands against the next house)
     mb.box(-hx, 0, -hz, hx, HW, hz, [side, side, null, null, null, side], { sub: 2.6 });
+    // white corner boards and the band between the storeys
+    for (const sx of [-1, 1]) mb.box(sx * hx - 0.09, 0, -hz - 0.04, sx * hx + 0.09, HW, -hz + 0.12, trim, { skip: 12 });
+    mb.box(-hx, FH - 0.07, -hz - 0.03, hx, FH + 0.07, -hz, trim, { skip: 12 });
     // gabled roof with eaves
     const oe = 0.35, ye = HW - 0.08;
     if (ridgeX) {
@@ -158,5 +163,29 @@ defineProp('ei_house', {
   boxes: (p) => {
     const Wd = p.opts.w || 6.4, D = p.opts.d || 5.4;
     return [[-Wd / 2, 0, -D / 2 - 0.3, Wd / 2, 6.6, D / 2]];
+  },
+});
+
+// ------------------------------------------------------------------ street furniture
+// street lamp with a sodium head, standing where the cross streets meet the aisles
+defineProp('ei_streetlamp', {
+  build(mb) {
+    const m = S('metal_dark'), hd = S('metal');
+    mb.cyl(0, 0, 0, 0.17, 0.14, 6, m, 3);
+    mb.cyl(0, 0.14, 0, 0.055, 5.0, 6, m, 0);
+    mb.rod(0, 5.0, 0, 0, 5.3, -0.5, 0.04, 4, m);
+    mb.rod(0, 5.3, -0.5, 0, 5.24, -0.95, 0.04, 4, m);
+    const g = glow('light_panel', 1.1);
+    mb.box(-0.22, 5.1, -1.4, 0.22, 5.27, -0.72, [hd, hd, hd, g, hd, hd]);
+  },
+  boxes: [[-0.12, 0, -0.12, 0.12, 5.0, 0.12]],
+  light: { y: 4.95, z: -1.05, color: [1.0, 0.72, 0.42], rad: 8, int: 1.0 },
+});
+// numbered aisle board on two chains; hung with zb.dynamic so it turns slowly in the draught
+defineProp('ei_aislesign', {
+  build(mb, p) {
+    const tex = T(p.opts.tex || 'ei_aisle0'), bd = S('plastic_blue'), ch = S('metal_dark');
+    for (const sx of [-1, 1]) mb.rod(sx * 0.4, 0, 0, sx * 0.46, -0.75, 0, 0.012, 3, ch);
+    mb.box(-0.55, -1.85, -0.04, 0.55, -0.75, 0.04, [bd, bd, bd, bd, tex, tex], { uv: ['world', 'world', 'world', 'world', FIT, FIT] });
   },
 });

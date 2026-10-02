@@ -109,9 +109,9 @@ defineTexture('z_manhole', (p, r) => {
 // small floor drain
 defineTexture('z_drain', (p) => {
   p.clearAlpha(0);
-  p.rect(14, 14, 36, 36, [58, 58, 60]); p.rectA(14, 14, 36, 36, 255);
+  p.rect(14, 14, 36, 36, [92, 92, 94]); p.rectA(14, 14, 36, 36, 255);
   p.frame(14, 14, 36, 36, [100, 98, 94]);
-  for (let x = 18; x < 48; x += 4) p.rect(x, 18, 2, 28, [14, 14, 16]);
+  for (let x = 18; x < 48; x += 4) p.rect(x, 18, 2, 28, [30, 30, 34]);
 }, 6);
 // ceiling hatch (seen from below)
 defineTexture('z_hatch', (p, r) => {
@@ -130,13 +130,17 @@ defineTexture('z_hatch', (p, r) => {
 // wall streaks: wet dark water runs, and rust runs
 defineTexture('z_streak', (p, r) => {
   p.clearAlpha(0);
-  p.fill([34, 32, 30]);
-  for (let k = 0; k < 7; k++) {
+  p.fill([54, 46, 38]);
+  for (let k = 0; k < 6; k++) {
     let x = r.int(6, 58);
-    const y0 = r.int(0, 18), len = r.int(24, 60), w = r.int(1, 3), a = r.range(120, 200);
+    const y0 = r.int(0, 18), len = r.int(24, 60), w = r.int(1, 3);
     for (let y = y0; y < y0 + len && y < 64; y++) {
       const f = 1 - (y - y0) / len;
-      for (let xx = 0; xx < w; xx++) { const q = p.i(x + xx, y); p.a[q] = Math.max(p.a[q], a * (0.35 + 0.65 * f)); }
+      for (let xx = -1; xx <= w; xx++) {
+        const q = p.i(x + xx, y);
+        const core = xx >= 0 && xx < w;
+        p.a[q] = Math.max(p.a[q], core ? 255 * (0.55 + 0.45 * f) : 150 * f);
+      }
       if (r.chance(0.12)) x += r.sign();
     }
   }

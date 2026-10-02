@@ -55,6 +55,11 @@ function rackRun(zb, i, j, x0, z0, out) {
       const ux = xl[m], uz = z0 + b * BAY;
       cbox(zb, ux - U, 0, uz - U, ux + U, top, uz + U, M.rack_blue, { skip: FACE.PY | FACE.NY, sub: T / 3 });
       cbox(zb, ux - U - 0.1, 0, uz - U - 0.1, ux + U + 0.1, 0.55, uz + U + 0.1, M.hazard, { skip: FACE.NY, sub: 1 });
+      // location tag at eye level on the face toward the aisle
+      if (m !== 1 && zb.in(Math.floor(ux), Math.floor(uz)) && hr(i * 11 + m, j * 13 + b, 41) < 0.7) {
+        const t = 'ei_tag' + Math.floor(hr(i + m, j + b, 42) * 4);
+        zb.decal(m === 0 ? ux - U : ux + U, 1.75, uz, m === 0 ? 'nx' : 'px', 0.34, 0.34, t);
+      }
     }
   }
   // ---- decks (giant pallets) and the beams under them
@@ -76,19 +81,32 @@ function rackRun(zb, i, j, x0, z0, out) {
   }
   // ---- ties across the aisle west of this block, and the work lamps hanging from them
   const nW = tiers(i - 1, j, 1), nT = Math.min(nA, nW);
-  for (const b of [0, 2, NB]) {
+  for (let b = 0; b <= NB; b++) {
     const uz = z0 + b * BAY;
     for (let k = 1; k < nT; k++) {
+      if (b % 2 === 1 && k > 1) break;
       const y = deckTop(k) - DK;
       cbox(zb, x0 - AW, y - 0.46, uz - 0.1, x0, y, uz + 0.1, M.rack_orange, { skip: FACE.PY, sub: 4.2 });
     }
     const lx = x0 - AW / 2;
+    if (nT >= 2 && b === 2 && owns(zb, lx, uz)) {
+      // numbered board hanging from the tie, turning a little in the draught
+      const y = deckTop(1) - DK - 0.46;
+      zb.dynamic('ei_aislesign', lx, y, uz, 0, { tex: 'ei_aisle' + (((i % 8) + 8) % 8), collide: false }, { osc: [0.18, 0.08, hr(i, j, 25) * 6.28] });
+    }
     if (nT >= 2 && owns(zb, lx, uz)) {
       const y = deckTop(1) - DK - 0.46;
       const u = hr(i * 7 + b, j, 21);
       const state = u < 0.1 ? 'off' : u < 0.2 ? 'flicker' : 'on';
-      ceilingLight(zb, lx, uz, 'highbay', state, { y: y + 0.05, hang: 2.5, rad: 8, int: 0.95, color: [0.82, 0.92, 1.0] });
+      ceilingLight(zb, lx, uz, 'highbay', state, { y: y + 0.05, hang: 2.5, rad: 8, int: 1.25, color: [0.84, 0.93, 1.0] });
       if (state === 'on' && u > 0.55) zb.emitter(lx, y - 1, uz, 'hum_strip', { vol: 0.12, rad: 8 });
+    }
+  }
+  // ---- street lamps at the corners where the cross streets meet the aisles
+  for (const [lx, rot] of [[xl[0] - 1.2, Math.PI / 2], [xl[2] + 1.2, -Math.PI / 2]]) {
+    for (const lz of [z0 - 1.3, z0 + RL + 1.3]) {
+      if (!owns(zb, lx, lz)) continue;
+      if (hr(i * 5 + (lx < x0 + RD ? 0 : 1), j * 3 + (lz < z0 ? 0 : 1), 27) < 0.75) zb.prop('ei_streetlamp', lx, 0, lz, rot, {});
     }
   }
   // ---- the houses
@@ -108,11 +126,20 @@ function rackRun(zb, i, j, x0, z0, out) {
         const v = hash32(i * 73856093 ^ j * 19349663 ^ (b * 2 + row) * 83492791 ^ k * 2654435761);
         zb.prop('ei_house', cx, y, cz, row === 0 ? -Math.PI / 2 : Math.PI / 2, { v, w: W, d: D, collide: k === 0 });
         out.houses++;
+        if (hr(i + b * 3, j * 5 + k, 43) < 0.1) {
+          const wz0 = cz - W / 2 - 0.3, wz1 = cz + W / 2 + 0.3;
+          cbox(zb, Math.min(cx - D / 2, cx + D / 2) - 0.5, y, wz0, Math.max(cx - D / 2, cx + D / 2) + 0.5, y + 7.3, wz1, M.white, { alpha: 0.2, tint: [0.8, 0.92, 1.0], collide: false, skip: FACE.NY, sub: 1 });
+        }
+        // a mailbox at the kerb in front of some of the ground floor houses
+        if (k === 0 && hr(i + b * 7, j + row * 13, 44) < 0.4) {
+          const mx = (row === 0 ? xl[0] - 0.75 : xl[2] + 0.75), mz = cz + 1.9;
+          if (owns(zb, mx, mz)) zb.prop('mailbox', mx, 0, mz, row === 0 ? -Math.PI / 2 : Math.PI / 2, {});
+        }
         // the lights are on: warm light spilling into the aisle
         const lit = hr(i + b * 5, j + k * 11, 35) < 0.9;
         if (lit) {
           const c = WARM[Math.floor(hr(i + b, j + row * 3 + k, 36) * WARM.length)];
-          zb.light(fx + dir * 1.2, y + 3.0, cz, { rad: 7.5, int: 0.58, color: c });
+          zb.light(fx + dir * 1.2, y + 3.0, cz, { rad: 8, int: 0.72, color: c });
         }
       }
     }
