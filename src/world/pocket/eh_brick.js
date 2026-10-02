@@ -6,6 +6,7 @@
 import { defineProp, propMat as S, propGlow as G } from '../props.js';
 import { VF } from '../materials.js';
 import { defineTexture } from '../../gfx/textures.js';
+import { defineMaterial } from '../materials.js';
 import { face, tface } from './eh_common.js';
 
 export const HWID = 5.5;               // half width of the house
@@ -14,6 +15,34 @@ export const WALL_H = 6.0;             // wall height to the eaves
 export const GAR = 2.4;                // half width of the garage opening
 export const GAR_H = 2.45;             // opening height
 export const ALC = 1.0;                // how far the concrete wall stands behind the facade
+
+// chunky brick (four courses to the tile) so that it survives the low resolution
+defineTexture('eh_brick', (p, r) => {
+  p.fill([128, 124, 116]);
+  for (let row = 0; row < 4; row++) {
+    const off = row % 2 ? 16 : 0;
+    for (let b = -1; b < 3; b++) {
+      const t = r.next();
+      const c = [118 + t * 34, 52 + t * 18, 38 + t * 12];
+      p.rect(off + b * 32 + 1, row * 16 + 1, 30, 14, c);
+      p.shade(off + b * 32 + 1, row * 16 + 1, 30, 3, 0.08);
+      p.shade(off + b * 32 + 1, row * 16 + 12, 30, 3, -0.1);
+    }
+  }
+  p.grain(0.07);
+  p.noise(8, 0.05, 2);
+}, 16);
+defineMaterial('eh_brick', 'eh_brick', { su: 2.0, sv: 1.0, surf: 'concrete', stain: 0.05 });
+
+// a slightly paler, bluer road surface than the daytime one so that the lamps' pools show on it
+defineTexture('eh_asphalt', (p) => {
+  p.fill([88, 88, 96]);
+  p.grain(0.1);
+  p.noise(4, 0.1, 2);
+  p.speckle(170, [136, 136, 144], 0.3, 0.7);
+  p.speckle(90, [58, 58, 66], 0.3, 0.7);
+}, 16);
+defineMaterial('eh_asphalt', 'eh_asphalt', { s: 3, surf: 'asphalt' });
 
 // sodium lamp lens
 defineTexture('eh_sodium', (p) => {
@@ -32,8 +61,8 @@ export const roofUnder = (z) => roofTop(z) - RT;
 defineProp('eh_brickhouse', {
   build(mb, p) {
     // props are lit brighter than cell geometry (ambient boost), so the paint is toned down
-    const k = 0.74 * (p.opts.tint || 1);
-    const brick = S('brick', { tint: [k, k * 0.98, k * 0.96] });
+    const k = 0.74 * (p.opts.shade || 1);
+    const brick = S('eh_brick', { tint: [k, k * 0.98, k * 0.96] });
     const conc = S('concrete', { tint: [k * 0.95, k * 0.95, k] });
     const roof = S('shingles', { tint: [0.9, 0.9, 0.95] });
     const trim = S('wood_dark', { tint: [0.5, 0.5, 0.52] });
@@ -89,10 +118,22 @@ defineProp('eh_streetlamp', {
     mb.cyl(0, 0.45, 0, 0.09, 4.75, 6, metal, 2);
     mb.rod(0, 5.1, 0, 0, 5.4, -1.0, 0.055, 4, metal, false);
     mb.rod(0, 5.4, -1.0, 0, 5.4, -2.1, 0.055, 4, metal, false);
-    // lamp head with a glowing lens underneath
-    mb.box(-0.26, 5.28, -2.55, 0.26, 5.46, -1.75, [metal, metal, metal, lens, metal, metal]);
+    // lamp head: a glowing lantern with a dark cap
+    mb.box(-0.27, 5.2, -2.6, 0.27, 5.44, -1.7, [lens, lens, metal, lens, lens, lens]);
   },
   boxes: [[-0.2, 0, -0.2, 0.2, 5.2, 0.2]],
-  light: { x: 0, y: 5.0, z: -2.15, color: [1.0, 0.72, 0.4], rad: 8, int: 1.35 },
+  light: { x: 0, y: 4.9, z: -2.15, color: [1.0, 0.72, 0.4], rad: 8, int: 1.2 },
   emitter: { snd: 'transformer', vol: 0.12, rad: 9, y: 4.5, cond: (p) => !!p.opts.hum },
+});
+
+// A short lantern post for the back yards.
+defineProp('eh_gardenlamp', {
+  build(mb, p) {
+    const metal = S('metal_dark', { tint: [0.7, 0.7, 0.74] });
+    const lens = { ...G('eh_sodium', 1.25), flags: VF.FULLBRIGHT | VF.NOFOG };
+    mb.cyl(0, 0, 0, 0.07, 2.6, 5, metal, 2);
+    mb.box(-0.2, 2.6, -0.2, 0.2, 3.1, 0.2, [lens, lens, metal, metal, lens, lens]);
+  },
+  boxes: [[-0.12, 0, -0.12, 0.12, 3, 0.12]],
+  light: { x: 0, y: 2.9, z: 0, color: [1.0, 0.76, 0.46], rad: 8, int: 1.15 },
 });

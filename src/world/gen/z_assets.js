@@ -230,12 +230,14 @@ defineTexture('z_stone', (p, r) => {
 // corporate lobby carpet: navy with a pale diamond lattice
 defineTexture('z_carpet_lobby', (p, r) => {
   p.fill([40, 48, 84]);
-  p.noise(2, 0.05, 2);
+  p.noise(2, 0.06, 2);
   for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
-    if ((x + y) % 16 === 0 || (x - y + 64) % 16 === 0) p.set(x, y, [104, 100, 124]);
+    if ((x + y) % 32 === 0 || (x - y + 64) % 32 === 0) p.set(x, y, [74, 76, 112]);
   }
-  for (const cx of [8, 24, 40, 56]) for (const cy of [8, 24, 40, 56]) { p.set(cx, cy, [176, 150, 84]); p.set(cx + 1, cy, [176, 150, 84], 0.6); }
-  p.grain(0.06);
+  for (const cx of [16, 48]) for (const cy of [16, 48]) {
+    p.set(cx, cy, [150, 126, 76]); p.set(cx + 1, cy, [150, 126, 76], 0.7); p.set(cx - 1, cy, [150, 126, 76], 0.7); p.set(cx, cy + 1, [150, 126, 76], 0.7); p.set(cx, cy - 1, [150, 126, 76], 0.7);
+  }
+  p.grain(0.07);
 }, 16);
 // conference carpet: grey-teal tweed
 defineTexture('z_carpet_conf', (p, r) => {
@@ -268,10 +270,10 @@ defineTexture('z_screen', (p, r) => {
 }, 8);
 // elevator floor indicator, dark
 defineTexture('z_floor_ind', (p) => {
-  p.fill([16, 14, 12]);
-  p.text('--', 14, 24, [255, 150, 40], 3);
-  p.frame(0, 0, 64, 64, [110, 110, 112]);
-  p.frame(1, 1, 62, 62, [60, 60, 62]);
+  p.fill([34, 20, 10]);
+  p.text('--', 10, 22, [255, 170, 60], 4);
+  p.frame(0, 0, 64, 64, [150, 150, 154]);
+  p.frame(1, 1, 62, 62, [90, 90, 94]);
 }, 8);
 // building directory board
 defineTexture('z_dir_board', (p, r) => {
@@ -361,7 +363,7 @@ defineProp('z_audrow', {
     const top = ['world', 'world', [0, 0, n, 1], 'world', 'world', [0, 0, n, 1]];
     // cushion, backrest
     mb.box(x0, 0.4, -0.25, x1, 0.47, 0.19, [fr, fr, seat, null, seat, seat], { uv: top });
-    mb.box(x0, 0.5, 0.17, x1, 0.5 + Hb, 0.24, [blk, blk, blk, null, blk, seat], { uv: ['world', 'world', 'world', 'world', 'world', [0, 0, n, 1]] });
+    mb.box(x0, 0.5, 0.17, x1, 0.5 + Hb, 0.24, [blk, blk, blk, null, seat, seat], { uv: ['world', 'world', 'world', 'world', [0, 0, n, 1], [0, 0, n, 1]] });
     // linking beam + legs every three seats
     mb.box(x0, 0.3, -0.02, x1, 0.34, 0.04, fr, { skip: 8 });
     const legs = Math.max(2, Math.ceil(n / 3) + 1);
@@ -413,6 +415,22 @@ defineProp('z_planter', {
     }
   },
   boxes: (p) => [[-(p.opts.len || 1.4) / 2, 0, -0.33, (p.opts.len || 1.4) / 2, 0.52, 0.33]],
+});
+
+// A dead shrub in a bed of soil (no pot): bare branches and a few dry leaves. opts: h
+defineProp('z_shrub', {
+  build(mb, p, r) {
+    const wood = S('wood_dark'), lv = T('leaves_dead', { lit: true });
+    const n = r.int(4, 6), h = p.opts.h || r.range(0.8, 1.3);
+    for (let k = 0; k < n; k++) {
+      const a = (k / n) * Math.PI * 2 + r.range(0, 1), len = h * r.range(0.6, 1.0), sp = r.range(0.08, 0.3);
+      mb.rod(0, 0, 0, Math.cos(a) * sp, len, Math.sin(a) * sp, 0.014, 4, wood);
+    }
+    for (let k = 0; k < 2; k++) {
+      const a = k * Math.PI / 2 + r.range(0, 0.6), c = Math.cos(a) * 0.3, s = Math.sin(a) * 0.3;
+      mb.card([-c, h * 0.35, -s, c, h * 0.35, s, c, h * 0.35 + h * 0.6, s, -c, h * 0.35 + h * 0.6, -s], [s, 0, -c], lv, [0, 1, 1, 1, 1, 0, 0, 0]);
+    }
+  },
 });
 
 // Queue stanchion: post with a velvet rope running along +x for opts.len metres (0 = no rope).

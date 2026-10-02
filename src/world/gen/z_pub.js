@@ -12,7 +12,7 @@ import './z_assets.js';
 
 // ------------------------------------------------------------------ context
 export function makeCtx(zb, world, r) {
-  const keep = keepClearMask(zb, world, 4, 2);
+  const keep = keepClearMask(zb, world, 3, 1);
   const occ = new Uint8Array(zb.w * zb.d);
   for (let i = 0; i < occ.length; i++) if (keep[i]) occ[i] = 2;
   const gates = zb.gates;
@@ -34,8 +34,10 @@ export function reserve(c, x0, z0, x1, z1, v = 1) {
 // random free rectangle w x d (cells); opts.margin: extra free ring, opts.inset: distance from the zone border
 export function findSpot(c, w, d, opts = {}) {
   const { r, zb } = c;
-  const m = opts.margin ?? 0, inset = opts.inset ?? 1;
-  for (let k = 0; k < (opts.tries ?? 40); k++) {
+  const inset = opts.inset ?? 1;
+  for (let k = 0; k < (opts.tries ?? 60); k++) {
+    // the requested margin applies for the first tries, then relaxes
+    const m = k < 30 ? (opts.margin ?? 0) : Math.min(opts.margin ?? 0, 0.4);
     const ww = opts.rot && r.chance(0.5) ? d : w, dd = ww === w ? d : w;
     const sx = zb.x1 - zb.x0 - ww - 2 * inset, sz = zb.z1 - zb.z0 - dd - 2 * inset;
     if (sx < 0 || sz < 0) continue;
@@ -131,7 +133,9 @@ export function sideRoom(c, side, u0, w, depth, o) {
   const pad = F.rect(u0 + doorT - 1, depth, u0 + doorT + 2, depth + 2);
   reserve(c, pad[0], pad[1], pad[2], pad[3], 4);
   void hallEdge;
-  return { rect, door: doors[0], side, dsd, F, u0, w, depth };
+  const dd = doors[0];
+  (c.views || (c.views = [])).push({ name: 'room' + (c.views ? c.views.length : 0), x: dd.x + 0.5 - dd.dx * 2.2, z: dd.z + 0.5 - dd.dz * 2.2, yaw: Math.atan2(dd.dx, -dd.dz), pitch: 0 });
+  return { rect, door: dd, side, dsd, F, u0, w, depth };
 }
 
 // ------------------------------------------------------------------ simple furnished side rooms
@@ -288,3 +292,19 @@ export function seatBlock(c, cx, cz, alongX, units, o = {}) {
 }
 
 export { clamp };
+
+// a light just inside every group of gates so that arrivals are never in the dark
+export function gateLights(c, kind = 'panel', o = {}) {
+  const { zb, r, p } = c;
+  const done = new Set();
+  for (const g of c.gates) {
+    const k = g.side + ':' + Math.floor((g.side === 'N' || g.side === 'S' ? g.x : g.z) / 4);
+    if (done.has(k)) continue;
+    done.add(k);
+    const x = g.x + g.dx * 2 + 0.5, z = g.z + g.dz * 2 + 0.5;
+    if (!zb.in(Math.floor(x), Math.floor(z))) continue;
+    const i = zb.i(Math.floor(x), Math.floor(z));
+    if (zb.solid[i] || Number.isNaN(zb.ceil[i])) continue;
+    ceilingLight(zb, x, z, kind, lightState(r, (o.fail ?? p.fail) * 0.35, p.flicker), { mul: o.mul ?? 1.4, rad: o.rad ?? 7.2, rot: o.rot });
+  }
+}

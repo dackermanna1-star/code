@@ -119,6 +119,7 @@ export function furnishMachineRoom(zb, room, ctx) {
         rod(zb, a[0] + nrm[0] * off, floorY + 1.3, a[1] + nrm[1] * off, b[0] + nrm[0] * off, floorY + 1.3, b[1] + nrm[1] * off, 0.05, 'pipe');
         zb.prop('a_valve', m[0] + nrm[0] * off, floorY + 1.3, m[1] + nrm[1] * off, facing(nrm[0], nrm[1]), {});
       }
+      emit(U / 2, V - 1.5, floorY + 1.0, 'machine', { vol: 0.45, rad: 10 });
       onWall('left', V * 0.55, 1.45, 0.8, 0.8, 'z_controls');
       onWall('back', U < 8 ? 0.8 : U * 0.5, 2.1, 0.8, 0.8, 'a_sign_boiler');
       onWall('front', Math.min(U - 0.8, doorU + 1.6), 1.6, 0.5, 0.65, 'a_sign_nosmoke');
@@ -145,6 +146,7 @@ export function furnishMachineRoom(zb, room, ctx) {
       onWall('left', V * 0.5, 1.5, 0.8, 0.8, 'z_controls');
       onWall('front', Math.max(0.8, doorU - 1.6), 1.7, 0.5, 0.5, 'a_sign_pump');
       emit(U / 2, V - 1, floorY + 0.8, 'water', { vol: 0.45, rad: 8 });
+      emit(U / 2, V - 1, floorY + 1.0, 'machine', { vol: 0.4, rad: 9 });
       lightRow('tube', nLights(U, 4), nLights(V, 5));
       break;
     }

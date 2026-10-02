@@ -27,10 +27,10 @@ function maintParams(zone, rng, ctx) {
     roomFloor: rng.weighted([[M.a_epoxy, 3], [M.concrete_floor, 3], [M.metal_plate, 1.2]]),
     density: rng.range(0.17, 0.27),
     pipes: rng.range(0.5, 1),
-    fail: dark ? 0.75 : rng.range(0.22, 0.45),
+    fail: dark ? 0.68 : rng.range(0.22, 0.45),
     flicker: rng.range(0.06, 0.14),
     wet: style === 'flooded' ? 0.8 : style === 'damp' ? 0.35 : 0.08,
-    ambient: dark ? [0.1, 0.092, 0.082] : [0.21, 0.195, 0.172],
+    ambient: dark ? [0.135, 0.125, 0.11] : [0.21, 0.195, 0.172],
   };
   p.env = env({ fog: dark ? [0.04, 0.036, 0.03] : [0.075, 0.065, 0.055], fogNear: 3, fogFar: dark ? 18 : 24, hum: 0.12, hvac: 0.5, reverb: 'tunnel', tone: 'industrial' });
   return p;
@@ -242,7 +242,7 @@ function components(S) {
 // every carved cell must belong to one component; join strays through the rock
 function connectAll(S) {
   const { zb, p, kind, runOf, I } = S;
-  for (let pass = 0; pass < 10; pass++) {
+  for (let pass = 0; pass < 80; pass++) {
     const { comp, nc } = components(S);
     if (nc <= 1) return;
     const sizes = new Int32Array(nc);
@@ -368,7 +368,7 @@ function furnishRoom(S, rm, r) {
     if (piece) { rm.piece = piece; return; }
   }
   rm.doorU = (rm.dz !== 0 ? rm.door.x - rm.x0 : rm.door.z - rm.z0) + 0.5;
-  furnishMachineRoom(zb, rm, { zb, r, lights: { fail: p.fail * 0.8, flicker: p.flicker } });
+  furnishMachineRoom(zb, rm, { zb, r, lights: { fail: Math.min(p.fail * 0.7, 0.42), flicker: p.flicker } });
 }
 
 // ------------------------------------------------------------------ sunken stretches

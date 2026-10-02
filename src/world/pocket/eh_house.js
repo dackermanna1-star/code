@@ -15,6 +15,7 @@ export const GROUND = 0.15;              // lawn / sidewalk level (road is 0)
 export const F0 = 0.30, F1 = 1.65;       // finished floors: front half, back half
 export const CH = 2.6;                   // ceiling height above each floor
 const TOP0 = F0 + CH, TOP1 = F1 + CH;    // wall tops
+const TOPS = 3.6;                        // ceiling over the stairwell (kept under the sloping roof)
 
 // ---------------------------------------------------------------- assets
 // builder-grade carpet, fine pile, the colour of old oatmeal
@@ -69,7 +70,13 @@ defineProp('eh_roof_split', {
     // gable fills on both sides: front half (lower wall tops) and back half
     for (const sx of [-1, 1]) {
       const x = sx * WALL_X, h = [sx, 0, 0];
-      face(mb, [x, TOP0, 0], [x, TOP0, 5], [x, roofUnder(5), 5], [x, roofUnder(0), 0], h, siding, siding.su, siding.sv, [0, -1, 0]);
+      if (p.opts.stairSide === sx) {
+        // the stairwell side has a taller wall between v = 2 and 5
+        face(mb, [x, TOP0, 0], [x, TOP0, 2], [x, roofUnder(2), 2], [x, roofUnder(0), 0], h, siding, siding.su, siding.sv, [0, -1, 0]);
+        face(mb, [x, TOPS, 2], [x, TOPS, 5], [x, roofUnder(5), 5], [x, roofUnder(2), 2], h, siding, siding.su, siding.sv, [0, -1, 0]);
+      } else {
+        face(mb, [x, TOP0, 0], [x, TOP0, 5], [x, roofUnder(5), 5], [x, roofUnder(0), 0], h, siding, siding.su, siding.sv, [0, -1, 0]);
+      }
       const P = [[5, TOP1], [11.12, TOP1], [11.12, roofUnder(11.12)], [8.4, roofUnder(8.4)], [5, roofUnder(5)]].map(([v, y]) => [x, y, v]);
       tface(mb, P[0], P[1], P[2], h, siding, siding.su, siding.sv);
       tface(mb, P[0], P[2], P[3], h, siding, siding.su, siding.sv);
@@ -79,6 +86,19 @@ defineProp('eh_roof_split', {
     const cy0 = roofTop(7.6) - 0.5;
     mb.box(2.6, cy0, 7.1, 3.5, 6.7, 8.0, brick, { skip: 8 });
     mb.box(2.5, 6.7, 7.0, 3.6, 6.82, 8.1, S('concrete', { tint: [TINT, TINT, TINT] }), { skip: 8 });
+  },
+  boxes: [],
+});
+
+// The closed garage door, a thin slab standing off the facade (a decal would z-fight with the
+// wall at this distance). Local origin on the facade plane, the slab sticks out toward -z.
+defineProp('eh_garage_door', {
+  build(mb, p) {
+    const w = (p.opts.w || 4.5) / 2, h = p.opts.h || 2.2;
+    const st = T('garage_door', { tint: [0.78, 0.78, 0.78] });
+    const edge = S('plastic_white', { tint: [0.55, 0.55, 0.55] });
+    const FIT = [0, 0, 1, 1];
+    mb.box(-w, 0.03, -0.07, w, 0.03 + h, 0, [edge, edge, edge, null, null, st], { uv: ['world', 'world', 'world', 'world', FIT, FIT] });
   },
   boxes: [],
 });
@@ -130,6 +150,78 @@ function groundRing(zb, fr, driveMat, EXT) {
   found(0.1, HD - 0.1, HW - 0.1, HD + 0.1);
 }
 
+// The engine caps every wall junction and every change of wall type with a post that has ONE
+// material on all four sides, so beside a window or where a partition meets the outside wall a
+// drywall (or siding) pillar shows on the wrong face. After the plan is written, every such post on
+// the outer walls gets a thin board in the right material over its wrong-looking face.
+function coverPosts(zb, fr, EXT, INT) {
+  const isNum = (v) => !Number.isNaN(v);
+  const edge = (x, z, side) => {
+    if (!zb.in(x, z)) return [0, 0, 0, 0];
+    const i = zb.i(x, z), ox = side === 'W' ? x - 1 : x, oz = side === 'W' ? z : z - 1;
+    const t = side === 'W' ? zb.wallW[i] : zb.wallN[i], mm = side === 'W' ? zb.wmW[i] : zb.wmN[i];
+    const fa = zb.getFloor(ox, oz), fb = zb.floor[i], ca = zb.getCeil(ox, oz), cb = zb.ceil[i];
+    const bot = Math.min(isNum(fa) ? fa : Infinity, isNum(fb) ? fb : Infinity);
+    const top = Math.max(isNum(ca) ? ca : -Infinity, isNum(cb) ? cb : -Infinity);
+    return [t, mm >> 8 || (mm & 255), bot, top];
+  };
+  const line = (cells, ed, td) => {
+    for (const [u, v] of cells) {
+      const vx = fr.x(u, v), vz = fr.z(u, v);
+      if (!zb.in(vx, vz)) continue;
+      const E = [edge(vx, vz - 1, 'W'), edge(vx, vz, 'W'), edge(vx - 1, vz, 'N'), edge(vx, vz, 'N')];
+      const [n, s, w, e] = E.map((q) => q[0]);
+      const cnt = (n ? 1 : 0) + (s ? 1 : 0) + (w ? 1 : 0) + (e ? 1 : 0);
+      if (!cnt || (cnt === 2 && n && s && n === s) || (cnt === 2 && w && e && w === e)) continue;
+      const first = E.find((q) => q[0]);
+      const post = first[1];
+      const outside = post === INT;           // a drywall post shows on the siding face
+      if (!outside && post !== EXT) continue;
+      let bot = Infinity, top = -Infinity;
+      for (const q of E) if (q[0]) { bot = Math.min(bot, q[2]); top = Math.max(top, q[3]); }
+      if (!Number.isFinite(bot) || !Number.isFinite(top)) continue;
+      const [ex, ez] = fr.dir(ed[0], ed[1]), [tx, tz] = fr.dir(td[0], td[1]);
+      const sgn = outside ? 1 : -1;               // outer face: along the exterior direction, inner: against it
+      const a0 = 0.1 * sgn, a1 = 0.15 * sgn;
+      const px = [vx + ex * a0, vx + ex * a1], pz = [vz + ez * a0, vz + ez * a1];
+      const x0 = Math.min(px[0], px[1]) - Math.abs(tx) * 0.17, x1 = Math.max(px[0], px[1]) + Math.abs(tx) * 0.17;
+      const z0 = Math.min(pz[0], pz[1]) - Math.abs(tz) * 0.17, z1 = Math.max(pz[0], pz[1]) + Math.abs(tz) * 0.17;
+      const m = outside ? EXT : INT;
+      // faces: [+x, -x, +y, -y, +z, -z]; only the face looking away from the wall and the two ends
+      const out = [ex * sgn > 0 ? m : null, ex * sgn < 0 ? m : null, null, null, ez * sgn > 0 ? m : null, ez * sgn < 0 ? m : null];
+      if (tx) { out[0] = m; out[1] = m; }
+      if (tz) { out[4] = m; out[5] = m; }
+      zb.box(x0, bot, z0, x1, top, z1, out, { collide: false, sub: 8 });
+    }
+  };
+  const L = [], R = [], F = [], B = [];
+  for (let v = 1; v < HD; v++) { L.push([0, v]); R.push([HW, v]); }
+  for (let u = 1; u < HW; u++) { F.push([u, 0]); B.push([u, HD]); }
+  line(L, [-1, 0], [0, 1]);
+  line(R, [1, 0], [0, 1]);
+  line(F, [0, -1], [1, 0]);
+  line(B, [0, 1], [1, 0]);
+  // corners: a board on each of the two outer faces when the corner post is drywall
+  for (const [u, v, du, dv] of [[0, 0, -1, -1], [HW, 0, 1, -1], [0, HD, -1, 1], [HW, HD, 1, 1]]) {
+    const vx = fr.x(u, v), vz = fr.z(u, v);
+    if (!zb.in(vx, vz)) continue;
+    const E = [edge(vx, vz - 1, 'W'), edge(vx, vz, 'W'), edge(vx - 1, vz, 'N'), edge(vx, vz, 'N')];
+    const first = E.find((q) => q[0]);
+    if (!first || first[1] !== INT) continue;
+    let bot = Infinity, top = -Infinity;
+    for (const q of E) if (q[0]) { bot = Math.min(bot, q[2]); top = Math.max(top, q[3]); }
+    if (!Number.isFinite(bot) || !Number.isFinite(top)) continue;
+    const e1 = fr.dir(du, 0), e2 = fr.dir(0, dv);          // world outward directions of the two faces
+    // face along e1 runs on along -e2 (the wall continues that way), face along e2 along -e1
+    for (const [e, d] of [[e1, [-e2[0], -e2[1]]], [e2, [-e1[0], -e1[1]]]]) {
+      const along = (k) => [vx + e[0] * k[0] + d[0] * k[1], vz + e[1] * k[0] + d[1] * k[1]];
+      const a = along([0.1, -0.1]), b = along([0.15, 0.17]);
+      zb.box(Math.min(a[0], b[0]), bot, Math.min(a[1], b[1]), Math.max(a[0], b[0]), top, Math.max(a[1], b[1]),
+        [e[0] > 0 || d[0] ? EXT : null, e[0] < 0 || d[0] ? EXT : null, null, null, e[1] > 0 || d[1] ? EXT : null, e[1] < 0 || d[1] ? EXT : null], { collide: false });
+    }
+  }
+}
+
 export function buildHouse(zb, fr, o) {
   const EXT = o.ext, INT = M.drywall_raw, CARPET = M.eh_carpet;
   groundRing(zb, fr, o.driveMat || M.concrete_floor, EXT);
@@ -140,7 +232,7 @@ export function buildHouse(zb, fr, o) {
     for (let u = 0; u < HW; u++) {
       const f = floorOf(v);
       let ceil = f + CH;
-      if (u >= 10 && v >= 2 && v <= 4) ceil = TOP1;       // stairwell is as tall as the upper level
+      if (u >= 10 && v >= 2 && v <= 4) ceil = TOPS;       // stairwell: room for the climb, still under the roof
       fr.setCell(u, v, { floor: f, ceil, fmat: CARPET, cmat: INT, wmat: INT, flags: 0, solid: 0 });
     }
   }
@@ -150,7 +242,7 @@ export function buildHouse(zb, fr, o) {
   const sz0 = Math.min(c0[1], c1[1]), sz1 = Math.max(c0[1], c1[1]) + 1;
   const dir = fr.vx > 0 ? '+x' : fr.vx < 0 ? '-x' : fr.vz > 0 ? '+z' : '-z';
   stairs(zb, sx0, sz0, sx1, sz1, dir, F0, F1, CARPET);
-  for (let v = 2; v <= 4; v++) for (let u = 10; u <= 11; u++) fr.setCell(u, v, { ceil: TOP1 });
+  for (let v = 2; v <= 4; v++) for (let u = 10; u <= 11; u++) fr.setCell(u, v, { ceil: TOPS });
 
   // ---- exterior walls
   fr.hEdges(0, 5, 0, W.WALL, EXT, INT);               // garage front (closed door painted on)
@@ -159,6 +251,7 @@ export function buildHouse(zb, fr, o) {
   fr.hEdges(8, 10, 0, W.WINDOW, EXT, INT);            // living room picture window
   fr.hEdges(10, 12, 0, W.WALL, EXT, INT);
   fr.vEdges(0, 0, HD, W.WALL, EXT, INT);              // west (left) side
+  fr.vEdges(0, 2, 3, W.WINDOW, EXT, INT);
   fr.vEdges(0, 8, 9, W.WINDOW, EXT, INT);
   fr.vEdges(12, 0, HD, W.WALL, INT, EXT);             // east (right) side
   fr.vEdges(12, 1, 2, W.WINDOW, INT, EXT);
@@ -177,8 +270,13 @@ export function buildHouse(zb, fr, o) {
   fr.vEdges(4, 7, HD, W.WALL, INT, INT);
   fr.vEdges(8, 7, HD, W.WALL, INT, INT);
 
+  coverPosts(zb, fr, EXT, INT);
+
   // ---- outside dressing
-  fr.decal(2.5, GROUND + 1.15, -0.1, 0, -1, 4.5, 2.2, 'garage_door');
+  {
+    const gx = fr.x(2.5, -0.1), gz = fr.z(2.5, -0.1);
+    if (zb.in(Math.floor(gx), Math.floor(gz))) zb.prop('eh_garage_door', gx, GROUND, gz, Math.atan2(fr.fx, -fr.fz), { w: 4.5, h: 2.2 });
+  }
   // the front door leaf, ajar in the wind
   const hx = fr.x(5.16, 0.0), hz = fr.z(5.16, 0.0);
   if (zb.in(Math.floor(hx), Math.floor(hz))) {
@@ -186,16 +284,27 @@ export function buildHouse(zb, fr, o) {
     zb.dynamic('eh_door_leaf', hx, F0, hz, rot, {}, { osc: [0.14, 0.06, o.phase || 0] });
   }
 
-  // ---- daylight: one soft light per room (no fixtures anywhere)
-  const lights = [[2.5, 2.5, F0], [7.5, 2.2, F0], [10.5, 3.2, F0 + 0.7], [6, 6, F1], [2, 9, F1], [6, 9, F1], [10, 9, F1]];
-  for (const [lu, lv, f] of lights) {
+  // ---- daylight: a cool light just inside every window, a very dim one in the windowless
+  // hall, foyer and stairwell. No fixtures anywhere.
+  const L = (lu, lv, f, int, color, rad = 6.5) => {
     const x = fr.x(lu, lv), z = fr.z(lu, lv);
-    if (zb.in(Math.floor(x), Math.floor(z))) zb.light(x, f + 2.0, z, { rad: 7, int: o.light ?? 0.5, color: [1, 0.97, 0.9] });
-  }
+    if (zb.in(Math.floor(x), Math.floor(z))) zb.light(x, f, z, { rad, int: int * (o.light ?? 1), color });
+  };
+  const day = [0.9, 0.95, 1.0], dim = [1, 0.96, 0.88];
+  L(9.0, 0.9, F0 + 1.7, 0.55, day);      // living room picture window
+  L(11.0, 1.5, F0 + 1.7, 0.45, day);     // living room side window
+  L(0.9, 2.5, F0 + 1.7, 0.5, day);       // garage room window
+  L(11.1, 8.5, F1 + 1.7, 0.5, day);      // east bedroom
+  L(0.9, 8.5, F1 + 1.7, 0.5, day);       // west bedroom
+  for (const u of [1.5, 5.5, 9.5]) L(u, 10.1, F1 + 1.7, 0.5, day);   // back windows
+  L(7.5, 2.5, F0 + 2.1, 0.3, dim);       // foyer
+  L(10.5, 3.0, F0 + 2.4, 0.22, dim);     // stairwell
+  L(3.0, 6.0, F1 + 2.1, 0.2, dim, 5);    // hall
+  L(9.0, 6.0, F1 + 2.1, 0.2, dim, 5);
 
   // ---- roof
   const rx = fr.x(HW / 2, 0), rz = fr.z(HW / 2, 0);
-  if (!o.noRoof) zb.prop('eh_roof_split', rx, 0, rz, Math.atan2(fr.fx, -fr.fz), { siding: o.sidingName || 'siding', collide: false });
+  if (!o.noRoof) zb.prop('eh_roof_split', rx, 0, rz, Math.atan2(fr.fx, -fr.fz), { siding: o.sidingName || 'siding', collide: false, stairSide: fr.mirror ? 1 : -1 });
 }
 
 export { CF };

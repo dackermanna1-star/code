@@ -7,7 +7,7 @@
 import { defineZone } from '../zonetypes.js';
 import { definePocket } from '../pockets.js';
 import { M, env, facing } from '../gen/common.js';
-import { defineProp, propMat as S } from '../props.js';
+import { defineProp, propMat as S, propTex } from '../props.js';
 import { defineTexture, signTex } from '../../gfx/textures.js';
 import { defineMaterial } from '../materials.js';
 import { voidAll, shelledReturn, hr } from './e_util.js';
@@ -65,6 +65,42 @@ defineProp('eh_deadtree', {
     mb.rod(0, H, 0, 0.1, H + 0.9, 0.05, 0.04, 3, bark, false);
   },
   boxes: [[-0.25, 0, -0.25, 0.25, 3, 0.25]],
+});
+
+// "MODEL HOMES" on a post, the same sign that hangs over the portal in the main building
+defineProp('eh_signpost', {
+  build(mb, p) {
+    const wood = S('wood_dark', { tint: [0.6, 0.58, 0.56] });
+    const st = propTex('eh_sign_hollow', { tint: [0.8, 0.8, 0.8] });
+    const FIT = [0, 0, 1, 1];
+    for (const x of [-0.55, 0.55]) mb.box(x - 0.05, 0, -0.04, x + 0.05, 2.5, 0.04, wood, { skip: 8 });
+    mb.box(-0.72, 1.1, -0.04, 0.72, 2.5, 0.04, [wood, wood, wood, wood, st, st], { uv: ['world', 'world', 'world', 'world', FIT, FIT] });
+  },
+  boxes: [[-0.7, 0, -0.1, 0.7, 2.5, 0.1]],
+});
+
+// A wooden utility pole with a crossarm. opts.span: length (toward local +z) of the three wires
+// that run on to the next pole.
+defineProp('eh_utilpole', {
+  build(mb, p) {
+    const wood = S('wood_dark', { tint: [0.55, 0.52, 0.5] });
+    const wire = S('plastic_black', { tint: [0.5, 0.5, 0.5] });
+    const ins = S('porcelain', { tint: [0.6, 0.6, 0.6] });
+    mb.cyl(0, 0, 0, 0.17, 4.5, 6, wood, 0);
+    mb.cyl(0, 4.5, 0, 0.13, 4.0, 6, wood, 2);
+    mb.box(-1.15, 7.6, -0.06, 1.15, 7.76, 0.06, wood);
+    mb.box(-1.4, 6.9, -0.05, -1.1, 7.0, 0.05, wood);
+    const L = p.opts.span || 0;
+    for (const x of [-0.95, 0, 0.95]) {
+      const top = x === 0 ? 8.52 : 7.98;
+      mb.cyl(x, x === 0 ? 8.5 : 7.76, 0, 0.05, 0.22, 5, ins, 3);
+      if (L > 0) {
+        mb.rod(x, top, 0, x, top - 0.38, L / 2, 0.014, 3, wire, false);
+        mb.rod(x, top - 0.38, L / 2, x, top, L, 0.014, 3, wire, false);
+      }
+    }
+  },
+  boxes: [[-0.22, 0, -0.22, 0.22, 4, 0.22]],
 });
 
 // ------------------------------------------------------------------ tile layout (canonical)
@@ -182,7 +218,7 @@ function genHollow(zb) {
     const ax = odd ? x0 + TILE - L.ax : x0 + L.ax, az = odd ? z0 + TILE - L.az : z0 + L.az;
     const fr = new Frame(zb, f, ax, az, L.m);
     const sp = SIDINGS[Math.floor(seedAt(n, 3) * 3) % 3];
-    buildHouse(zb, fr, { ext: sp[1], sidingName: sp[0], phase: seedAt(n, 5) * 6.28, light: 0.5 });
+    buildHouse(zb, fr, { ext: sp[1], sidingName: sp[0], phase: seedAt(n, 5) * 6.28, light: 1 });
     // mailbox at the curb side of the lawn
     const [mu, mv] = TILE_CLS.info[n].mail;
     zb.prop('mailbox', fr.x(mu, mv), GROUND, fr.z(mu, mv), facing(fr.fx, fr.fz), { tint: [0.62, 0.68, 0.8] });
@@ -198,7 +234,15 @@ function genHollow(zb) {
     zb.prop('eh_deadtree', cxw - 4.6, 0, czw + 0.3, 1.0, { h: 4.6 });
     zb.prop('eh_deadtree', cxw + 4.6, 0, czw - 0.8, 3.0, { h: 5.2 });
   } else {
-    zb.prop('eh_deadtree', cxw + 0.2, 0, czw - 0.2, 0, { h: 5.2 });
+    zb.prop('eh_deadtree', wx(C - 1.4), 0, wz(C - 0.6), 0, { h: 5.2 });
+  }
+  // the sign on the island, facing down the stem
+  zb.prop('eh_signpost', wx(C + 3.4), 0, wz(C + 2.2), odd ? 0 : Math.PI, {});
+
+  // ---- utility poles along the stem, wires running on to the next pole
+  for (const px of [24.6, 39.4]) {
+    const pz = 58;
+    zb.prop('eh_utilpole', wx(px), GROUND, wz(pz), 0, { span: odd ? 0 : 12 });
   }
 
   // ---- street paint: dashed centre line down the stem, dashes around the ring

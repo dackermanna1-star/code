@@ -54,6 +54,7 @@ export function dressMaintenance(S, r, rLight) {
   S.walls = walls;
   S.used = new Set();
   beams(S, r);
+  casings(S, walls, r);
   pipesAndDucts(S, walls, r);
   nicheContents(S, r);
   shaftContents(S, r);
@@ -85,6 +86,33 @@ function beams(S, r) {
       if (run.di % 2 === 0) zb.box(c[0] + (run.di === 0 ? 0 : 1 - t), ceil - 0.3, mnz, c[0] + (run.di === 0 ? t : 1), ceil, mxz, M.concrete_dark, { collide: false, skip: 4 });
       else zb.box(mnx, ceil - 0.3, c[1] + (run.di === 1 ? 0 : 1 - t), mxx, ceil, c[1] + (run.di === 1 ? t : 1), M.concrete_dark, { collide: false, skip: 4 });
     }
+  }
+}
+
+// ------------------------------------------------------------------ service casings along one wall
+// A waist-high trunking box hugging a wall of a 2 m tunnel: leaves a 1.5 m gap to walk through.
+function casings(S, walls, r) {
+  const { zb, kAt } = S;
+  for (const w of walls) {
+    if (w.len < 6 || !r.chance(0.2)) continue;
+    // only where the tunnel is two cells wide
+    const t0 = w.a0 + 2, t1 = w.a1 - 2;
+    if (t1 - t0 < 2) continue;
+    let ok = true;
+    for (let t = t0; t < t1 && ok; t++) {
+      const cx = w.dx !== 0 ? w.o : t, cz = w.dx !== 0 ? t : w.o;
+      if (kAt(cx - w.dx, cz - w.dz) !== K.TUN) ok = false;
+    }
+    if (!ok) continue;
+    const a = r.int(t0, Math.max(t0, t1 - 3)), b = Math.min(t1, a + r.int(3, 8));
+    if (b - a < 2) continue;
+    const dep = 0.42, h = r.pick([0.7, 0.85, 1.0]);
+    const [x0, z0] = planePt(w, a), [x1, z1] = planePt(w, b);
+    const n = [-w.dx, -w.dz];
+    const xs = [x0, x1, x0 + n[0] * dep, x1 + n[0] * dep], zs = [z0, z1, z0 + n[1] * dep, z1 + n[1] * dep];
+    const m = r.pick([M.duct, M.concrete_dark, M.metal_dark]);
+    zb.box(Math.min(...xs), 0, Math.min(...zs), Math.max(...xs), h, Math.max(...zs), [m, m, M.metal_plate, null, m, m], { sub: 1.6 });
+    for (let t = a; t < b; t++) S.used.add(keyOf(w.dx !== 0 ? w.o : t, w.dx !== 0 ? t : w.o, w.dx, w.dz));
   }
 }
 
@@ -369,6 +397,11 @@ function floors(S, r) {
       nd++;
       zb.emitter(x + 0.5, zb.ceil[I(x, z)] - 0.25, z + 0.5, 'drip', { vol: 0.5, rad: 8 });
     }
+  }
+  // the pipes tick and knock somewhere in the dark
+  for (let k = 0; k < Math.min(4, 1 + Math.round(cells.length / 200)); k++) {
+    const [x, z] = r.pick(cells);
+    zb.emitter(x + 0.5, zb.ceil[I(x, z)] - 0.2, z + 0.5, r.pick(['pipes', 'pipes', 'vent']), { vol: 0.4, rad: 9 });
   }
   // grate sections over a drain channel
   for (let g = 0; g < r.int(0, 2); g++) {
