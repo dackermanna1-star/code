@@ -71,15 +71,28 @@ no image or audio files.
 The building is generated as you walk and is effectively infinite in every direction, on many
 floors. It is deterministic: the same seed always builds the same rooms.
 
-It starts in the classic yellow rooms: striped wallpaper, damp carpet, buzzing ceiling panels.
-From there it keeps going: offices with cubicles and meeting rooms, long corridors, storage
-rooms and warehouses, maintenance spaces, schools, lobbies and waiting areas, and stairwells
-that climb for longer than they should. Further out there are places that do not make sense,
-and some doorways lead somewhere they cannot lead.
+It starts in the classic yellow rooms: striped wallpaper, damp carpet, buzzing ceiling panels,
+pillars and half walls. From there it keeps going:
 
-Sound is synthesised live: fluorescent hum, air handling, pipes, footsteps that change with the
-floor, a primitive reverb that follows the size of the room, and things happening somewhere far
-away that you will never find the source of.
+* offices with cubicles, meeting rooms, kitchens, copy rooms and desks someone just left;
+* hotel and institutional corridors that run for a hundred metres, narrow, widen and stop;
+* archive aisles, supply rooms and warehouses of pallet racking two floors high;
+* service tunnels with pipes, dead lamps, boiler rooms and stairs down into standing water;
+* schools with lockers, classrooms, a cafeteria and a gym;
+* lobbies, waiting rooms and conference halls with nobody in them;
+* stairwells that climb for longer than they should, and holes and shafts between floors.
+
+Further out there are rooms that do not make sense: a bullpen of empty office chairs, a floor
+that is a grid of square pits, waiting chairs on islands in dark water, a living room built on
+the ceiling, rooms that repeat a room you saw earlier with one small difference, and a hallway
+that is gone when you come back. Some doorways lead to places that cannot be inside the
+building at all: an endless lecture hall, an auditorium of velvet seats fading into mist, a
+neighbourhood of empty houses, a road that curves forever, a warehouse that stores houses, and
+the pool rooms.
+
+Sound is synthesised live: fluorescent hum that follows the lights, air handling that sometimes
+cuts out, footsteps that change with the floor, a reverb that follows the size of the room, and
+things happening somewhere far away that you will never find the source of.
 
 ## Development
 
