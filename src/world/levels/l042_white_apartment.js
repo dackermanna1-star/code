@@ -227,7 +227,7 @@ defineZone('lv42_white', {
   ...LEVEL_ZONE,
   params: () => ({
     ambient: [0.92, 0.92, 0.94],
-    env: env({ fog: [0.99, 0.99, 1.0], fogNear: 20, fogFar: 84, hum: 0, hvac: 0, reverb: 'room', tone: 'lv42_hush' }),
+    env: env({ fog: [0.99, 0.99, 1.0], fogNear: 16, fogFar: 58, hum: 0, hvac: 0, reverb: 'room', tone: 'lv42_hush' }),
   }),
   gen,
 });

@@ -245,7 +245,6 @@ defineZone('lv33_rain', {
   params: () => ({
     ambient: [0.19, 0.22, 0.27],
     env: env({ fog: [0.1, 0.12, 0.16], fogNear: 5, fogFar: 54, hum: 0, hvac: 0, reverb: 'hall', tone: 'lv33_rain' }),
-    weather: RAIN,
   }),
   gen,
 });

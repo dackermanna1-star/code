@@ -171,8 +171,9 @@ function gen(zb) {
   const run = alongX ? fx1 - fx0 : fz1 - fz0, tread = run / n;
   for (let k = 0; k < n; k++) {
     const a = up ? k * tread : run - (k + 1) * tread, top = (STORY * (k + 1)) / n;
-    if (alongX) zb.box(fx0 + a, top - 0.24, fz0, fx0 + a + tread, top, fz1, M.lv40_floor, { sub: 8 });
-    else zb.box(fx0, top - 0.24, fz0 + a, fx1, top, fz0 + a + tread, M.lv40_floor, { sub: 8 });
+    const back = alongX ? (up ? 1 : 2) : (up ? 16 : 32);
+    if (alongX) zb.box(fx0 + a, top - 0.24, fz0, fx0 + a + tread, top, fz1, M.lv40_floor, { sub: 8, skip: back });
+    else zb.box(fx0, top - 0.24, fz0 + a, fx1, top, fz0 + a + tread, M.lv40_floor, { sub: 8, skip: back });
     // invisible solid rails on both long sides
     for (const side of [0, 1]) {
       if (alongX) { const zz = side ? fz1 - 0.08 : fz0; zb.box(fx0 + a, top, zz, fx0 + a + tread, top + 0.95, zz + 0.08, M.lv40_brass, { render: false }); }
@@ -220,8 +221,8 @@ function gen(zb) {
     }
     const k = hr(bi * 5 + 3, bj * 7 + Math.floor(s / 4), 1010);
     const rate = (k < 0.5 ? 1 : -1) * (0.03 + hr(bi, bj + s, 1011) * 0.22);
-    zb.dynamic('lv40_hand', cx, DY, cz, hr(bi, bj + s, 1012) * 6.28, { len: 20, w: 0.5, y: 0.35, collide: false }, { spin: rate });
-    zb.dynamic('lv40_hand', cx, DY, cz, hr(bi + 1, bj + s, 1013) * 6.28, { len: 12.5, w: 0.9, y: 0.6, collide: false }, { spin: rate / 12 });
+    zb.dynamic('lv40_hand', cx, DY, cz, hr(bi, bj + s, 1012) * 6.28, { len: 20, w: 0.8, y: 0.35, collide: false }, { spin: rate });
+    zb.dynamic('lv40_hand', cx, DY, cz, hr(bi + 1, bj + s, 1013) * 6.28, { len: 12.5, w: 1.5, y: 0.6, collide: false }, { spin: rate / 12 });
     zb.light(cx, 2, cz, { color: [1.0, 0.72, 0.36], rad: 10, int: 0.7 });
     for (const [lx, lz] of [[cx - 14, cz], [cx + 14, cz], [cx, cz - 14], [cx, cz + 14]]) zb.light(lx, 1.5, lz, { color: [1.0, 0.72, 0.36], rad: 10, int: 0.7 });
     zb.emitter(cx, 1, cz, 'lv40_tick_' + 'abc'[Math.floor(hr(bi, bj + Math.floor(s / 4), 1014) * 3)], { vol: 1.0, rad: 28 });

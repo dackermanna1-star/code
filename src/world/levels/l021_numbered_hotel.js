@@ -225,7 +225,7 @@ function lobbyHall(Z) {
     Z.box(c + du - 0.5, 0, c + dv - 0.5, c + du + 0.5, 0.15, c + dv + 0.5, M.lv21_plain_dark);
   }
   // ceiling lights
-  for (const du of [-10.5, -3.5, 3.5, 10.5]) for (const dv of [-10.5, -3.5, 3.5, 10.5]) ceilingLight(zb, Z.x(c + du + 1.75), Z.z(c + dv + 1.75), 'panel', 'on', { color: COOL, rad: 9, int: 0.9 });
+  for (const du of [-10.5, -3.5, 3.5, 10.5]) for (const dv of [-10.5, -3.5, 3.5, 10.5]) ceilingLight(zb, Z.x(c + du + 1.75), Z.z(c + dv + 1.75), 'panel', 'on', { color: COOL, rad: 8, int: 1.1 });
   // the directory: a wall-sized board on the north wall, left of the corridor mouth
   Z.prop('lv21_dirboard', 25.5, 0.3, v0, face(0, 1), { t: 2.0 });
   // the giant zero in the floor, the empty reception desk and its key rack on the east side
@@ -242,7 +242,7 @@ function lobbyHall(Z) {
 defineZone('lv21_hotel', {
   ...LEVEL_ZONE,
   params: () => ({
-    ambient: [0.3, 0.33, 0.37],
+    ambient: [0.38, 0.42, 0.47],
     env: env({ fog: [0.44, 0.5, 0.56], fogNear: 7, fogFar: 56, hum: 0.7, hvac: 0.5, reverb: 'corridor', tone: 'lv21_air' }),
   }),
   gen,

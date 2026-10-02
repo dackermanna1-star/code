@@ -42,7 +42,7 @@ defineTexture('lv17_hull', (p, r) => {
 defineTexture('lv17_ports', (p, r) => {
   p.fill([16, 18, 24]);
   for (let ty = 0; ty < 4; ty++) for (let tx = 0; tx < 4; tx++) {
-    const lit = r.chance(0.58);
+    const lit = r.chance(0.78);
     const c = lit ? mulc([255, 208, 118], 0.8 + r.next() * 0.3) : [30, 34, 42];
     p.rect(tx * 16 + 2, ty * 16 + 4, 12, 8, c);
     if (lit) p.rect(tx * 16 + 2, ty * 16 + 7, 12, 1, mulc(c, 0.7));
@@ -93,7 +93,7 @@ defineTexture('lv17_horizon', (p, r) => {
 
 defineMaterial('lv17_deck', 'lv17_deck', { s: 4, surf: 'metal', stain: 0.1, flags: SW });
 defineMaterial('lv17_hull', 'lv17_hull', { s: 6, surf: 'metal', stain: 0.1, flags: SW });
-defineMaterial('lv17_ports', 'lv17_ports', { s: 16, flags: VF.FULLBRIGHT | VF.NOFOG | SW, glow: 0.95 });
+defineMaterial('lv17_ports', 'lv17_ports', { s: 16, flags: VF.FULLBRIGHT | VF.NOFOG | SW, glow: 1.1 });
 defineMaterial('lv17_wall', 'lv17_wall', { s: 4, surf: 'metal', stain: 0.1, flags: SW });
 for (const k of ['r', 'b', 'g', 'y']) defineMaterial('lv17_cont_' + k, 'lv17_cont_' + k, { s: 4, surf: 'metal', flags: SW });
 defineMaterial('lv17_rail', 'lv17_rail', { s: 1, surf: 'metal', flags: SW });
@@ -155,8 +155,7 @@ defineProp('lv17_bollard', {
 
 // ------------------------------------------------------------------ lots
 const lotKind = (zi, zj) => {
-  if (zi === 0 && zj === 0) return 0;                       // the arrival: open deck
-  if (zi === 1 && zj === 0) return 3;                       // and the bridge tower beside it
+  if (zi === 0 && zj === 0) return 3;                       // the arrival: the bridge tower stands off the gangway
   const u = hr(zi, zj, 801);
   return u < 0.3 ? 1 : u < 0.5 ? 2 : u < 0.66 ? 3 : u < 0.84 ? 0 : 4;    // yard, hangar, bridge tower, open, funnels
 };
@@ -178,6 +177,8 @@ function yard(zb, ox, oz, zi, zj) {
       }
     }
   }
+  // lamps hung over the alleys between the stacks
+  for (let row = 0; row < 8; row += 2) for (let slot = 0; slot < 4; slot++) zb.light(ox + 5 + slot * 14 + 6, 4.2, oz + 8 + row * 6 - 1.5, { color: [1.0, 0.8, 0.5], rad: 9, int: 1.6, ch: hr(slot + zi * 5, row + zj * 3, 815) < 0.08 ? 3 : 0 });
   for (const [lx, lz] of [[ox + 2, oz + 2], [ox + 62, oz + 62], [ox + 62, oz + 2], [ox + 2, oz + 62]]) if (owns(zb, lx, lz)) zb.prop('lv17_pole', lx, 0, lz, hr(lx | 0, lz | 0, 814) * TAU, {});
   if (owns(zb, ox + 31, oz + 4)) zb.prop('lv17_pole', ox + 31, 0, oz + 4, 0, {});
 }
@@ -200,35 +201,42 @@ function hangar(zb, ox, oz, zi, zj) {
     const x = x0 + 4 + hr(k, zi, 822) * (x1 - x0 - 8), z = z0 + 4 + hr(k, zj, 823) * (z1 - z0 - 8);
     if (!owns(zb, x, z) || (z > z0 + 15 && z < z0 + 25 && false)) continue;
     const t = hr(k, zi + zj * 7, 824);
-    zb.prop(t < 0.4 ? 'a_drum' : t < 0.6 ? 'a_pump' : t < 0.8 ? 'pallet' : 'box_stack', x, 0, z, hr(k, 5, 825) * TAU, { on: true });
+    zb.prop(t < 0.4 ? 'a_drum' : t < 0.6 ? 'a_pump' : t < 0.8 ? 'pallet' : 'box_stack', x, 0, z, hr(k, 5, 825) * TAU, { on: true, flags: SW });
   }
-  for (let x = x0 + 4; x < x1 - 6; x += 12) if (owns(zb, x, z0 + 3)) zb.prop('rack', x, 0, z0 + 2.4, 0, { w: 2.7, h: 6, levels: 3 });
+  for (let x = x0 + 4; x < x1 - 6; x += 12) if (owns(zb, x, z0 + 3)) zb.prop('rack', x, 0, z0 + 2.4, 0, { w: 2.7, h: 6, levels: 3, flags: SW });
   // a door in the end wall of the hangar
   placeDoor(zb, x1 - 2.4, oz + 32, -Math.PI / 2, {});
   void zj;
 }
 
 function tower(zb, ox, oz, zi, zj) {
-  const x0 = ox + 14, z0 = oz + 14;
-  box(zb, x0, 0, z0, x0 + 22, 11, z0 + 30, M.lv17_wall);
-  box(zb, x0 + 3, 11, z0 + 4, x0 + 19, 19, z0 + 26, M.lv17_wall);
-  box(zb, x0 - 1, 19, z0 + 2, x0 + 23, 22.5, z0 + 28, M.lv17_steel);
-  // lit window rows on every face, a little proud of the walls
-  for (const [y0, y1, a, b] of [[3, 6, 0, 22], [7.5, 10, 0, 22]]) {
-    box(zb, x0 + a, y0, z0 - 0.06, x0 + b, y1, z0, M.lv17_ports, { collide: false });
-    box(zb, x0 + a, y0, z0 + 30, x0 + b, y1, z0 + 30.06, M.lv17_ports, { collide: false });
+  const x0 = ox + (zi === 0 ? 7 : 10), z0 = oz + 12, W = 28, D = 38;
+  // three tiers, each narrower, then the bridge wing that overhangs all round
+  box(zb, x0, 0, z0, x0 + W, 13, z0 + D, M.lv17_wall);
+  box(zb, x0 + 4, 13, z0 + 5, x0 + W - 4, 25, z0 + D - 5, M.lv17_wall);
+  box(zb, x0 - 1, 25, z0 + 3, x0 + W + 1, 30, z0 + D - 3, M.lv17_steel);
+  // rows of lit windows on the four faces of every tier, a little proud of the walls
+  const band = (y0, y1, ax0, az0, ax1, az1) => box(zb, ax0, y0, az0, ax1, y1, az1, M.lv17_ports, { collide: false });
+  for (const [y0, y1] of [[3, 6], [7.5, 10.5]]) {
+    band(y0, y1, x0 + 1, z0 - 0.06, x0 + W - 1, z0);
+    band(y0, y1, x0 + 1, z0 + D, x0 + W - 1, z0 + D + 0.06);
+    band(y0, y1, x0 - 0.06, z0 + 1, x0, z0 + D - 1);
+    band(y0, y1, x0 + W, z0 + 1, x0 + W + 0.06, z0 + D - 1);
   }
-  box(zb, x0 - 0.06, 3, z0 + 2, x0, 6, z0 + 28, M.lv17_ports, { collide: false });
-  box(zb, x0 + 22, 3, z0 + 2, x0 + 22.06, 6, z0 + 28, M.lv17_ports, { collide: false });
-  box(zb, x0 + 3, 13, z0 + 3.94, x0 + 19, 17, z0 + 4, M.lv17_ports, { collide: false });
-  box(zb, x0 + 3, 13, z0 + 26, x0 + 19, 17, z0 + 26.06, M.lv17_ports, { collide: false });
-  // the bridge: a wide band of windows all round the top
-  for (const [ax0, az0, ax1, az1] of [[x0 - 1, z0 + 1.94, x0 + 23, z0 + 2], [x0 - 1, z0 + 28, x0 + 23, z0 + 28.06]]) box(zb, ax0, 19.3, az0, ax1, 21.6, az1, M.lv17_ports, { collide: false });
-  if (owns(zb, x0 + 11, z0 + 15)) { zb.prop('lv17_mast', x0 + 11, 22.5, z0 + 15, 0, { h: 18 }); }
-  zb.light(x0 + 11, 4.2, z0 - 2, { color: [1.0, 0.8, 0.5], rad: 9, int: 1.3 });
-  zb.light(x0 + 11, 4.2, z0 + 32, { color: [1.0, 0.8, 0.5], rad: 9, int: 1.3 });
-  zb.light(x0 - 2, 4.2, z0 + 15, { color: [1.0, 0.8, 0.5], rad: 9, int: 1.3 });
-  zb.light(x0 + 24, 4.2, z0 + 15, { color: [1.0, 0.8, 0.5], rad: 9, int: 1.3 });
+  for (const [y0, y1] of [[15, 18], [20, 23]]) {
+    band(y0, y1, x0 + 5, z0 + 4.94, x0 + W - 5, z0 + 5);
+    band(y0, y1, x0 + 5, z0 + D - 5, x0 + W - 5, z0 + D - 4.94);
+    band(y0, y1, x0 + 3.94, z0 + 6, x0 + 4, z0 + D - 6);
+    band(y0, y1, x0 + W - 4, z0 + 6, x0 + W - 3.94, z0 + D - 6);
+  }
+  band(26, 29, x0, z0 + 2.94, x0 + W, z0 + 3);
+  band(26, 29, x0, z0 + D - 3, x0 + W, z0 + D - 2.94);
+  band(26, 29, x0 - 1.06, z0 + 4, x0 - 1, z0 + D - 4);
+  band(26, 29, x0 + W + 1, z0 + 4, x0 + W + 1.06, z0 + D - 4);
+  if (owns(zb, x0 + W / 2, z0 + D / 2)) zb.prop('lv17_mast', x0 + W / 2, 30, z0 + D / 2, 0, { h: 22 });
+  if (owns(zb, x0 + 4, z0 + 4)) zb.prop('lv17_mast', x0 + 4, 30, z0 + 4, 0, { h: 10 });
+  for (const [lx, lz] of [[x0 + W / 2, z0 - 3], [x0 + W / 2, z0 + D + 3], [x0 - 3, z0 + D / 2], [x0 + W + 3, z0 + D / 2]]) zb.light(lx, 4.5, lz, { color: [1.0, 0.8, 0.5], rad: 10, int: 1.5 });
+  zb.light(x0 - 3, 4.5, z0 + 8, { color: [1.0, 0.8, 0.5], rad: 10, int: 1.3 }); zb.light(x0 - 3, 4.5, z0 + D - 8, { color: [1.0, 0.8, 0.5], rad: 10, int: 1.3 });
   // a door at the foot of the tower
   placeDoor(zb, x0 + 7, z0 - 0.16, 0, {});
   void zi; void zj;
@@ -269,7 +277,7 @@ function gangway(zb, ox, zi, north) {
   for (const sx of [-4, 4]) box(zb, gx + sx - 0.05, 0, p0, gx + sx + 0.05, 1.05, p1, M.lv17_rail);
   box(zb, gx - 4, 0, north ? zlo : zhi - 0.1, gx + 4, 1.05, north ? zlo + 0.1 : zhi, M.lv17_rail);
   if (owns(zb, gx, ze - dir * 3)) zb.light(gx, 3, ze - dir * 3, { color: [1.0, 0.86, 0.6], rad: 9, int: 1.3 });
-  placeDoor(zb, gx, ze - dir * 1.4, north ? Math.PI : 0, { y: 0 });
+  if (!(zi === 0 && north)) placeDoor(zb, gx, ze - dir * 1.4, north ? Math.PI : 0, { y: 0 });
   if (owns(zb, gx + 3.6, ze - dir * 1.4)) zb.prop('lv17_mast', gx + 3.6, 0, ze - dir * 1.4, 0, { h: 10 });
   if (owns(zb, gx, zs0(north))) zb.prop('lv17_pole', gx + 2.4, 0, zs0(north), north ? 0 : Math.PI, {});
 }
@@ -329,6 +337,11 @@ function gen(zb) {
     if (zj === 0) cbox(zb, x - 0.1, 0.05, Z0 + 0.5, x + 0.1, 0.28, Z0 + 0.7, M.lv17_lamp, { collide: false });
     if (zj === 2) cbox(zb, x - 0.1, 0.05, Z1 - 0.7, x + 0.1, 0.28, Z1 - 0.5, M.lv17_lamp, { collide: false });
   }
+  // tall lamps leaning out over the edges, every 24 m
+  for (let x = ox + 12; x < ox + 64; x += 24) {
+    if (zj === 0 && owns(zb, x, Z0 + 2.2) && !(zi === 0 && x < 40)) zb.prop('lv17_pole', x, 0, Z0 + 2.2, Math.PI / 2, {});
+    if (zj === 2 && owns(zb, x, Z1 - 2.2)) zb.prop('lv17_pole', x, 0, Z1 - 2.2, -Math.PI / 2, {});
+  }
   // deck floodlights along the edges and the middle
   for (let x = ox + 16; x < ox + 64; x += 32) for (const z of [Z0 + 9, 96, Z1 - 9]) if (owns(zb, x, z) && !(zi === 0 && zj === 0 && z === Z0 + 9)) zb.prop('lv17_pole', x, 0, z, Math.PI, {});
 }
@@ -344,7 +357,7 @@ defineZone('lv17_ship', {
 
 const SKY = {
   top: [0.004, 0.006, 0.02], horizon: [0.012, 0.015, 0.032], ground: [0.004, 0.005, 0.012], curve: 0.6, stars: 0.5,
-  clouds: { layer: 'lv17_lights', color: [1.0, 0.86, 0.62], amount: 1, speed: 0.34, scale: 0.55 },
+  clouds: { layer: 'lv17_lights', color: [1.0, 0.86, 0.62], amount: 0.8, speed: 0.34, scale: 0.55 },
   band: { layer: 'lv17_horizon', color: [0.03, 0.035, 0.07], repeat: 5, top: 0.06, bottom: -0.03, fog: 0.4 },
 };
 
@@ -352,7 +365,7 @@ defineLevel(N, {
   name: 'THE CARRIER',
   zoneType: (ctx) => (ctx.z0 >= -64 && ctx.z0 < 256 ? 'lv17_ship' : 'lv_void'),
   zoneSize: 64,
-  entry: { x: 12, y: 0, z: 14, yaw: Math.PI / 2, pitch: 0.14 },
+  entry: { x: 44, y: 0, z: -6.2, yaw: Math.PI, pitch: 0.06 },
   doorDensity: 0,
   viewRadius: 5,
   sky: SKY,
@@ -365,7 +378,8 @@ defineLevel(N, {
     if (st.t <= 0) { st.t = 70 + Math.random() * 80; st.surgeAt = ctx.time; ctx.game.audioCall('play', 'g02_surge', undefined, undefined, undefined, { vol: 1 }); }
     const age = st.surgeAt === undefined ? 99 : ctx.time - st.surgeAt;
     const sky = ctx.game.env && ctx.game.env.sky;
-    if (sky && sky.clouds) sky.clouds.speed = 0.34 + (age < 8 ? 0.7 * Math.sin((Math.PI * age) / 8) : 0);
+    // (the scroll speed itself must stay fixed: it is multiplied by the clock, so changing it would make the lights jump)
+    if (sky && sky.clouds) sky.clouds.amount = 0.8 + (age < 8 ? 0.2 * Math.sin((Math.PI * age) / 8) : 0);
     flickerHook(ctx, N, (f, t) => {
       if (age < 7) for (let ch = 1; ch <= 4; ch++) f.v[ch] *= 0.55 + 0.45 * Math.abs(Math.sin(t * (3 + ch) + age));
     });

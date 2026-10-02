@@ -7,7 +7,7 @@
 // rock columns; a slab of ceiling with stalactites and faint crystal specks 36 m up.
 import { defineTexture } from '../../gfx/textures.js';
 import { defineMaterial, VF } from '../materials.js';
-import { defineProp, propMat as S, propTex as T } from '../props.js';
+import { defineProp, propMat as S } from '../props.js';
 import { defineZone } from '../zonetypes.js';
 import { LEVEL_ZONE, defineLevel, env, M, W, hr, cbox, owns, levelDoor, ceilingLight, poleLamp } from './kit.js';
 import { pmod, voidCells, floorSlab, ceilSlab, bigText } from './g08_kit.js';
@@ -233,7 +233,7 @@ function lampRow(zb, ox, oz, wing) {
   }
 }
 
-function genRocks(zb, ox, oz, ci, cj, wing, type) {
+function genRocks(zb, ox, oz, ci, cj, wing) {
   // keep boulders off the roads, the wing and the tower
   const ok = (x, z, r) => {
     if (x > ox - 3 - r && x < ox + 6 + r) return false;                         // north-south road
@@ -279,7 +279,6 @@ function genRocks(zb, ox, oz, ci, cj, wing, type) {
     const x = ox + hr(ci * 11 + k, cj, 111) * 64, z = oz + hr(ci, cj * 11 + k, 112) * 64;
     cbox(zb, x - 0.6, CAVE - 0.9, z - 0.6, x + 0.6, CAVE, z + 0.6, M.lv64_crystal, { collide: false });
   }
-  void type;
 }
 
 function gen(zb) {
@@ -328,7 +327,7 @@ function gen(zb) {
       zb.light(tx + 3.0, 1.6, tz, { color: [1.0, 0.8, 0.5], rad: 6, int: 0.5 });
     }
   }
-  genRocks(zb, ox, oz, ci, cj, wing, type);
+  genRocks(zb, ox, oz, ci, cj, wing);
   // the arrival gate: a short brick wall standing in the road, with the door in it
   if (ci === -1 && cj === 0) {
     cbox(zb, GATE.x - 0.2, 0, GATE.z0, GATE.x + 0.2, 3.4, GATE.z1, M.lv64_brick, { skip: 4 | 8 });

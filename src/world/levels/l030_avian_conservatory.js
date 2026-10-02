@@ -260,11 +260,11 @@ function quadrant(zb, qx, qz, bi, bj, kind) {
       for (let k = 0; k < 4; k++) { const a = (k / 4) * TAU + 0.5; zb.prop('lv30_palm', px + Math.cos(a) * 5, 0, pz + Math.sin(a) * 5, 0, { h: 6 + hr(k, bi, 220 + bj) * 4 }); }
       for (let k = 0; k < 9; k++) { const a = (k / 9) * TAU; zb.prop('lv30_bush', px + Math.cos(a) * 8, 0, pz + Math.sin(a) * 8, 0, { kind: k % 3 }); }
       zb.prop('lv30_bench', px + 8.5, 0, pz, Math.PI / 2, {}); zb.prop('lv30_bench', px - 8.5, 0, pz, -Math.PI / 2, {});
-      if (hr(bi, bj, 230 + px) < 0.5) door(px, pz + 1, 0);
+      if (hr(bi, bj, 230 + px) < 0.25) door(px, pz + 1, 0);
       feathers(zb, px - 6, pz - 6, px + 6, pz + 6, 8, 11);
       break;
     }
-    case 1: cage(zb, px, pz, 15, 15, 8, true, bi, bj, 240 + Math.floor(px)); door(px, pz + 0.5, 0); break;
+    case 1: cage(zb, px, pz, 15, 15, 8, true, bi, bj, 240 + Math.floor(px)); if (hr(bi, bj, 241 + px) < 0.6) door(px, pz + 0.5, 0); break;
     case 2: {           // a pond with a boardwalk
       zb.fill(Math.floor(px - 10), Math.floor(pz - 10), Math.ceil(px + 10), Math.ceil(pz + 10), (x, z, i) => {
         const d = Math.hypot(x + 0.5 - px, z + 0.5 - pz);
@@ -274,7 +274,7 @@ function quadrant(zb, qx, qz, bi, bj, kind) {
       for (let k = 0; k < 12; k++) { const a = hr(k, bi, 250 + bj) * TAU, d = 1 + hr(k, bj, 251) * 5; zb.decal(px + Math.cos(a) * d, -0.14, pz + Math.sin(a) * d, 'up', 1.6, 1.6, 'lv30_lily', { rot: a }); }
       for (let k = 0; k < 14; k++) { const a = (k / 14) * TAU; zb.prop('lv30_bush', px + Math.cos(a) * 9.8, -0.3, pz + Math.sin(a) * 9.8, 0, { kind: 0 }); }
       cbox(zb, px - 10, -0.2, pz - 0.8, px + 10, 0.1, pz + 0.8, M.lv30_bark, { sub: 2 });
-      door(px, pz, Math.PI / 2, 0.1);
+      if (hr(bi, bj, 252 + px) < 0.7) door(px, pz, Math.PI / 2, 0.1);
       break;
     }
     case 3: {           // a misting plaza
@@ -284,14 +284,14 @@ function quadrant(zb, qx, qz, bi, bj, kind) {
       for (const [dx, dz] of [[-7, -7], [7, -7], [-7, 7], [7, 7]]) zb.prop('lv30_mister', px + dx, 0, pz + dz, 0, {});
       for (let k = 0; k < 6; k++) { const a = (k / 6) * TAU; zb.prop('lv30_bench', px + Math.cos(a) * 9, 0, pz + Math.sin(a) * 9, a + Math.PI / 2, {}); }
       zb.prop('lv30_sign', px + 4, 0, pz + 4, 0.5, { k: 'mist' });
-      if (hr(bi, bj, 260 + px) < 0.5) door(px - 6, pz + 5, 0.7);
+      if (hr(bi, bj, 260 + px) < 0.25) door(px - 6, pz + 5, 0.7);
       break;
     }
     case 4: {           // a row of small cages
       for (let k = 0; k < 3; k++) cage(zb, px - 8 + k * 8, pz, 6.4, 8, 6, false, bi, bj, 270 + k);
       for (let k = 0; k < 3; k++) { cbox(zb, px - 8 + k * 8 - 1.2, 0, pz - 4.06, px - 8 + k * 8 + 1.2, 3.2, pz - 3.94, M.lv30_mesh, { sub: 4 }); }
       zb.prop('lv30_sign', px - 11.5, 0, pz - 5.2, 0, { k: 'feed' });
-      door(px, pz + 8, Math.PI);
+      if (hr(bi, bj, 272 + px) < 0.5) door(px, pz + 8, Math.PI);
       break;
     }
     default: {          // the keepers' hut

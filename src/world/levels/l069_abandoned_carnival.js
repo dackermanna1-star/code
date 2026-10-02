@@ -377,7 +377,7 @@ function avenues(zb) {
   // poles along the inner edges of the four half avenues, ribbons between them and across
   for (let t = 4; t < B; t += 8) {
     for (const [px, pz] of [[x0 + AV, z0 + t], [x1 - AV, z0 + t], [x0 + t, z0 + AV], [x0 + t, z1 - AV]]) {
-      lampPole(zb, px, pz, colAt(px, pz), 1 + Math.floor(hr(px, pz, 9) * 4) % 4 === 1 && hr(px, pz, 10) < 0.3 ? 2 : 0);
+      lampPole(zb, px, pz, colAt(px, pz), hr(px, pz, 10) < 0.12 ? 2 : 0);
     }
   }
   for (const [axis, fixed, a, b] of [['z', x0 + AV, z0, z1], ['z', x1 - AV, z0, z1], ['x', z0 + AV, x0, x1], ['x', z1 - AV, x0, x1]]) ribbon(zb, axis, fixed, a, b, 6.1, M.lv69_bulbs);
@@ -398,7 +398,7 @@ const FORTUNES = [
   'YOUR FORTUNE: THE RIDE YOU ARE LOOKING FOR IS THE ONE THAT IS STILL TURNING.',
   'YOUR FORTUNE: A DOOR WILL OPEN WHERE THE LIGHTS ARE BRIGHTEST. DO NOT TRUST IT. USE IT.',
   'YOUR FORTUNE: LUCKY NUMBERS 0, 0. THE SCOREBOARD WAS RIGHT.',
-  'YOUR FORTUNE: SOMEONE WINS THE BIG PRIZE TONIGHT. IT IS NOT YOU. IT NEVER IS.',
+  'YOUR FORTUNE: THE BIG PRIZE IS STILL ON THE TOP SHELF OF THE LAST BOOTH.',
   'YOUR FORTUNE: THE ORGAN KNOWS ONLY ONE SONG AND IS PROUD OF IT.',
   'YOUR FORTUNE: THE LAST TICKET IS ALREADY IN YOUR POCKET.',
   'YOUR FORTUNE: STAY FOR ONE MORE RIDE. THERE ARE ALWAYS MORE.',

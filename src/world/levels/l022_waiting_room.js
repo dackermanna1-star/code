@@ -8,8 +8,8 @@ import { defineMaterial, VF } from '../materials.js';
 import { defineProp, propMat as S, propTex as T, propGlow as glow, propWithXf as withXf } from '../props.js';
 import { defineZone } from '../zonetypes.js';
 import { xfRotX } from '../../core/math.js';
-import { LEVEL_ZONE, defineLevel, env, M, W, hr, owns, levelDoor, ceilingLight, cbox } from './kit.js';
-import { driveFlicker, mix, voidCells, floorSlab, ceilSlab } from './g08_kit.js';
+import { LEVEL_ZONE, defineLevel, env, M, W, hr, levelDoor, ceilingLight, cbox } from './kit.js';
+import { driveFlicker, voidCells, floorSlab, ceilSlab } from './g08_kit.js';
 
 const N = 22;
 const R = 8;                 // room pitch (x and z)
@@ -166,20 +166,12 @@ defineProp('lv22_bell', {
   build(mb) { mb.box(-0.05, 0, -0.05, 0.05, 0.07, 0.05, S('chrome'), { skip: 8 }); },
   use: 'level',
 });
-    mb.box(-0.65, 0.0, -0.38, 0.65, 0.71, 0.38, S('wood_dark'), { skip: 8 });
-  },
-  boxes: [[-0.7, 0, -0.4, 0.7, 0.75, 0.4]],
-});
 defineProp('lv22_table', {
   build(mb) {
     mb.box(-0.55, 0.38, -0.3, 0.55, 0.43, 0.3, S('lv22_wood'), { skip: 8 });
     mb.box(-0.45, 0.0, -0.2, 0.45, 0.38, 0.2, S('wood_dark'), { skip: 8 });
   },
   boxes: [[-0.55, 0, -0.3, 0.55, 0.43, 0.3]],
-});
-    mb.box(-0.23, 0.5, 0.2, 0.23, 0.95, 0.26, c, { skip: 8 });
-    mb.box(-0.03, 0.0, -0.03, 0.03, 0.42, 0.03, f, { skip: 12 });
-  },
 });
 defineProp('lv22_door', {
   // the staff door: locked, with a brass plate
@@ -325,7 +317,7 @@ defineLevel(N, {
   name: 'THE WAITING ROOM',
   zoneType: 'lv22_rooms',
   zoneSize: 64,
-  entry: { x: -3.25, y: 0, z: 4.0, yaw: Math.PI / 2 },
+  entry: { x: -3.25, y: 0, z: 4.5, yaw: Math.PI / 2 },
   doorDensity: 0,
   viewRadius: 3,
   light: { phoneRadius: 3.2, phoneIntensity: 0.2 },
@@ -361,4 +353,3 @@ defineLevel(N, {
     }
   },
 });
-void mix;

@@ -33,7 +33,7 @@ defineProp('lv5_sconce', {
     mb.box(-0.025, 0.0, -0.17, 0.025, 0.05, -0.025, g);
     mb.box(-0.06, 0.02, -0.26, 0.06, 0.2, -0.14, glow('bulb', 1.2));
   },
-  light: { y: 0.15, z: -0.4, color: [1.0, 0.78, 0.46], rad: 6.5, int: 0.55 },
+  light: { y: 0.15, z: -0.4, color: [1.0, 0.78, 0.46], rad: 5.5, int: 0.6 },
 });
 
 defineProp('lv5_column', {

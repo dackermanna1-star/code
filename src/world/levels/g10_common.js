@@ -1,6 +1,7 @@
 // Group 10: helpers shared by the levels of this group (painting, scripts that touch the animated
 // props of the loaded chunks).
 import { pnoise } from '../../gfx/texgen.js';
+import { CF } from './kit.js';
 
 export const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 export const mulc = (c, m) => [c[0] * m, c[1] * m, c[2] * m];
@@ -43,4 +44,22 @@ export function inView(ctx, x, z, half = 1.0) {
   if (d < 1.5) return true;
   const fx = Math.sin(p.yaw), fz = -Math.cos(p.yaw);
   return (dx * fx + dz * fz) / d > Math.cos(half);
+}
+
+// A flight of steps over the cell rect [x0, x1) x [z0, z1): every step is a slab a little thicker than
+// the rise (so the underside shows as a saw tooth) instead of a column down to the floor; far fewer
+// vertices than the engine's stairs(). dir: '+x' '-x' '+z' '-z' is the way up. The cells become
+// CF.STAIRS (no floor of their own); the steps carry the collision.
+export function slabStairs(zb, x0, z0, x1, z1, dir, h0, h1, mat, n) {
+  const alongX = dir === '+x' || dir === '-x', up = dir === '+x' || dir === '+z';
+  zb.fill(x0, z0, x1, z1, (x, z, i) => { zb.flags[i] |= CF.STAIRS; zb.floor[i] = Math.min(h0, h1); zb.solid[i] = 0; });
+  const run = alongX ? x1 - x0 : z1 - z0, tread = run / n, rise = (h1 - h0) / n;
+  const thick = Math.abs(rise) + 0.04;
+  for (let k = 0; k < n; k++) {
+    const a = up ? k * tread : run - (k + 1) * tread, top = h0 + rise * (k + 1);
+    // the face toward the next step up is hidden: leave it out
+    const back = alongX ? (up ? 1 : 2) : (up ? 16 : 32);
+    if (alongX) zb.box(x0 + a, top - thick, z0, x0 + a + tread, top, z1, mat, { sub: 8, skip: back });
+    else zb.box(x0, top - thick, z0 + a, x1, top, z0 + a + tread, mat, { sub: 8, skip: back });
+  }
 }

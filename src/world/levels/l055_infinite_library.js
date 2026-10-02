@@ -52,6 +52,11 @@ defineTexture('lv55_carpet', (p) => {
 defineTexture('lv55_brass', (p) => { p.fill([188, 148, 62]); p.noise(4, 0.15, 2); p.rect(0, 0, 64, 4, [240, 210, 120]); p.rect(0, 58, 64, 6, [110, 80, 30]); }, 8);
 defineTexture('lv55_shade', (p) => { p.fill([40, 120, 74]); p.noise(4, 0.08, 2); p.rect(0, 0, 64, 5, [90, 170, 110]); p.rect(0, 59, 64, 5, [20, 70, 44]); }, 8);
 defineTexture('lv55_glow', (p) => { p.fill([255, 214, 140]); p.disc(32, 32, 26, [255, 244, 200]); }, 4);
+defineTexture('lv55_globe', (p) => {
+  p.fill([64, 96, 136]);
+  p.map((x, y, c) => { const n = pnoise(x, y, 4, 17) * 0.65 + pnoise(x, y, 8, 23) * 0.35; return n > 0.54 ? [150 + (n - 0.54) * 200, 128, 78] : c; });
+  p.rect(0, 0, 64, 4, [230, 236, 240]); p.rect(0, 60, 64, 4, [230, 236, 240]); p.noise(3, 0.06, 2);
+}, 10);
 defineTexture('lv55_paper', (p) => { p.fill([226, 214, 178]); p.noise(4, 0.06, 2); for (let y = 8; y < 60; y += 6) p.rect(6, y, 52, 1, [150, 134, 100], 0.6); }, 6);
 defineTexture('lv55_cover', (p) => {
   p.fill([128, 40, 36]); p.noise(4, 0.1, 2);
@@ -73,6 +78,7 @@ defineMaterial('lv55_carpet', 'lv55_carpet', { s: 4, surf: 'carpet' });
 defineMaterial('lv55_brass', 'lv55_brass', { s: 1, surf: 'metal' });
 defineMaterial('lv55_shade', 'lv55_shade', { s: 1, surf: 'metal' });
 defineMaterial('lv55_cat', 'lv55_cat', { s: 2, surf: 'wood' });
+defineMaterial('lv55_globe', 'lv55_globe', { s: 1.6, surf: 'wood' });
 glowMat('lv55_glow', 'lv55_glow', 1.0, { s: 1 });
 glowMat('lv55_glowshade', 'lv55_shade', 0.55, { s: 1 });
 defineMaterial('lv55_paper', 'lv55_paper', { s: 1, surf: 'carpet' });
@@ -80,10 +86,10 @@ defineMaterial('lv55_sign', 'lv55_sign', { s: 1, surf: 'wood' });
 
 // ------------------------------------------------------------------ places that do not exist yet
 const A = ['A HARBOUR', 'A CITY OF STAIRCASES', 'A SALT DESERT', 'A LIGHTHOUSE', 'A RAILWAY STATION', 'AN ORCHARD', 'A CANAL TOWN', 'AN OBSERVATORY', 'A SWIMMING BATH', 'A MARKET SQUARE', 'A ROOFTOP GARDEN', 'A VALLEY OF BRIDGES', 'AN ISLAND OF CLOCKS', 'A TELEGRAPH TOWER', 'A CINEMA', 'A GLASS FACTORY', 'A VILLAGE OF WINDMILLS', 'A TOWN ON STILTS', 'A MOUNTAIN PASS', 'A LAUNDRY'];
-const B = ['THAT HAS NOT BEEN BUILT YET', 'THAT WILL BE FOUNDED IN A YEAR NOBODY HAS NAMED', 'THAT THE MAP MAKERS LEFT BLANK ON PURPOSE', 'THAT EXISTS ONLY ON THE LAST DAY OF AUTUMN', 'THAT WAS DRAWN BEFORE THE LAND WAS FOUND', 'WHOSE FOUNDATIONS ARE STILL IN THE POST', 'THAT IS ALWAYS ABOUT TO OPEN', 'THAT HAS BEEN RESERVED FOR YOU', 'THAT IS REMEMBERED ONLY IN ADVANCE'];
-const C = ['WHERE THE TIDE COMES IN AS SAND', 'WHERE EVERY CLOCK RUNS BACKWARD AT NOON', 'WHERE RAIN FALLS UP AND IS COLLECTED BY ROOFS', 'WHERE ALL THE DOORS OPEN ONTO YESTERDAY', 'WHERE LIGHT IS SOLD BY THE METRE', 'WHERE THE STREETS ARE NAMED AFTER SOUNDS', 'WHERE THE WIND IS TAXED AND THE SNOW IS FREE', 'WHERE EVERY WINDOW LOOKS INTO A DIFFERENT SEASON', 'WHERE THE LAMPS ARE LIT BY THE BUILDINGS THEMSELVES', 'WHERE THE STAIRS GO DOWN TO THE SKY', 'WHERE NOTHING IS EVER FINISHED AND NOBODY MINDS', 'WHERE THE ECHO ARRIVES BEFORE THE SOUND'];
-const D = ['THERE IS ONE DOOR, AND IT IS ALWAYS THE ONE YOU CAME IN BY.', 'THE LIBRARY IS OPEN ALL NIGHT, AND ALL OF THE NIGHT IS LONG.', 'IF YOU ARRIVE EARLY, THE PLACE WILL WAIT FOR YOU.', 'THE ONLY SOUND IS A KETTLE, FAR AWAY, JUST BEFORE IT BOILS.', 'EVERY VISITOR IS GIVEN A KEY. NONE OF THEM FIT, AND THAT IS THE POINT.', 'THE PLAN OF THE TOWN IS FOLDED INSIDE THE LAST BOOK ON THE LAST SHELF.', 'THE PAGE ENDS HERE. THE PLACE DOES NOT.', 'ON CLEAR DAYS YOU CAN SEE THE NEXT LEVEL FROM THE HIGHEST WINDOW.'];
-const TITLES = ['THE QUIET COAST', 'ATLAS OF UNBUILT ROOMS', 'A GUIDE TO LATER', 'GAZETTEER OF THE NEARLY', 'THE SOUTHERN STAIRS', 'NOTES ON A TOWN TO COME', 'THE MAP IS NOT THE PLACE YET', 'VOLUME OF HARBOURS', 'THE TRAVELLER BEFORE DEPARTURE'];
+const B = ['THAT HAS NOT BEEN BUILT YET', 'THAT WILL BE FOUNDED IN A YEAR NOBODY HAS NAMED', 'THAT THE MAPS LEAVE BLANK ON PURPOSE', 'THAT EXISTS ONLY ON THE LAST DAY OF AUTUMN', 'THAT WAS DRAWN BEFORE THE LAND WAS FOUND', 'WHOSE FOUNDATIONS ARE STILL IN THE POST', 'THAT IS ALWAYS ABOUT TO OPEN', 'THAT HAS BEEN RESERVED IN ADVANCE', 'THAT IS REMEMBERED ONLY IN ADVANCE'];
+const C = ['WHERE THE TIDE COMES IN AS SAND', 'WHERE EVERY CLOCK RUNS BACKWARD AT NOON', 'WHERE RAIN FALLS UP AND IS COLLECTED BY ROOFS', 'WHERE ALL THE DOORS OPEN ONTO YESTERDAY', 'WHERE LIGHT IS SOLD BY THE METRE', 'WHERE THE STREETS ARE NAMED AFTER SOUNDS', 'WHERE THE WIND HAS A FLOOR NUMBER AND THE SNOW HAS NONE', 'WHERE EVERY WINDOW LOOKS INTO A DIFFERENT SEASON', 'WHERE THE LAMPS ARE LIT BY THE BUILDINGS THEMSELVES', 'WHERE THE STAIRS GO DOWN TO THE SKY', 'WHERE NOTHING IS EVER FINISHED AND NOTHING MINDS', 'WHERE THE ECHO ARRIVES BEFORE THE SOUND'];
+const D = ['THERE IS ONE DOOR, AND IT IS ALWAYS THE ONE YOU CAME IN BY.', 'THE LIBRARY IS OPEN ALL NIGHT, AND ALL OF THE NIGHT IS LONG.', 'IF YOU ARRIVE EARLY, THE PLACE WILL WAIT FOR YOU.', 'THE ONLY SOUND IS A TAP, FAR AWAY, DRIPPING INTO A BASIN.', 'EVERY DOOR HAS A KEY HANGING BESIDE IT. NONE OF THE KEYS FIT, AND THAT IS THE POINT.', 'THE PLAN OF THE TOWN IS FOLDED INSIDE THE LAST BOOK ON THE LAST SHELF.', 'THE PAGE ENDS HERE. THE PLACE DOES NOT.', 'ON CLEAR DAYS YOU CAN SEE THE NEXT LEVEL FROM THE HIGHEST WINDOW.'];
+const TITLES = ['THE QUIET COAST', 'ATLAS OF UNBUILT ROOMS', 'A GUIDE TO LATER', 'GAZETTEER OF THE NEARLY', 'THE SOUTHERN STAIRS', 'NOTES ON A TOWN TO COME', 'THE MAP IS NOT THE PLACE YET', 'VOLUME OF HARBOURS', 'THE JOURNEY BEFORE DEPARTURE'];
 const pick = (arr, h) => arr[Math.floor(h * arr.length) % arr.length];
 export function placeText(seed) {
   const h = (k) => hr(seed, k * 7 + 3, 55);
@@ -119,7 +125,7 @@ defineProp('lv55_table', {
       mb.box(x - 0.15, 1.2, -0.1, x + 0.15, 1.3, 0.14, S('lv55_glowshade'));
     }
     for (const x of [-L * 0.1, L * 0.14]) { mb.box(x - 0.14, 0.8, 0.1, x + 0.14, 0.9, 0.34, leather([1.2, 0.5, 0.4])); mb.box(x - 0.12, 0.9, 0.1, x + 0.12, 0.98, 0.32, leather([0.5, 0.9, 0.6])); }
-    for (const x of [-L * 0.3, 0, L * 0.3]) for (const z of [-0.95, 0.95]) { mb.box(x - 0.22, 0.42, z - 0.22, x + 0.22, 0.47, z + 0.22, wd); mb.box(x - 0.22, 0.47, z + Math.sign(z) * 0.18 - 0.03, x + 0.22, 0.95, z + Math.sign(z) * 0.18 + 0.03, wd); }
+    for (const x of [-L * 0.25, L * 0.25]) for (const z of [-0.95, 0.95]) { mb.box(x - 0.22, 0.42, z - 0.22, x + 0.22, 0.47, z + 0.22, wd); mb.box(x - 0.22, 0.47, z + Math.sign(z) * 0.18 - 0.03, x + 0.22, 0.95, z + Math.sign(z) * 0.18 + 0.03, wd); }
   },
   boxes: (p) => [[-(p.opts.len || 3.2) / 2, 0, -0.65, (p.opts.len || 3.2) / 2, 0.85, 0.65]],
 });
@@ -137,7 +143,7 @@ defineProp('lv55_globe', {
   build(mb) {
     const br = S('lv55_brass'), wd = S('lv55_wood');
     mb.cyl(0, 0, 0, 0.5, 0.08, 8, wd, 3); mb.cyl(0, 0.08, 0, 0.07, 1.0, 6, br, 0);
-    mb.cyl(0, 1.0, 0, 0.55, 0.9, 10, S('lv55_cat'), 3); mb.cyl(0, 1.05, 0, 0.45, 0.8, 10, S('lv55_shade'), 3);
+    mb.cyl(0, 1.0, 0, 0.45, 0.9, 10, S('lv55_globe'), 3); mb.cyl(0, 1.2, 0, 0.55, 0.5, 10, S('lv55_globe'), 3);
     mb.cyl(0, 0.95, 0, 0.58, 0.05, 10, br, 3); mb.cyl(0, 1.9, 0, 0.58, 0.05, 10, br, 3);
   },
   boxes: [[-0.6, 0, -0.6, 0.6, 2, 0.6]],
@@ -180,27 +186,26 @@ function shelfRows(zb, bi, bj) {
     for (let k = kStart; k <= kEnd; k++) {
       const a = 18.5 + k * 32 - 0.0, b = a + 28;
       if (b <= x0 || a >= x1) continue;
-      const h = runHeight(k + bi * 0, bj * 8 + r + Math.floor(x0 / 64) * 3);
+      const rr = bj * 8 + r, h = runHeight(k, rr);
       const m = [M.lv55_wood, M.lv55_wood, M.lv55_wood, null, M.lv55_books, M.lv55_books];
       cbox(zb, a, 0, z - RT / 2, b, h, z + RT / 2, m, { sub: 4 });
       // a cap of dark wood and a little moulding at the head of the run
       cbox(zb, a - 0.1, h, z - RT / 2 - 0.1, b + 0.1, h + 0.25, z + RT / 2 + 0.1, M.lv55_wood, { sub: 8 });
       // books standing out of the shelf, at eye level, on both faces
-      for (let s = 0; s < 3; s++) {
-        const bx = a + 3 + hr(k, r * 3 + s, 6) * 22, face = hr(k, r * 3 + s, 7) < 0.5 ? -1 : 1;
+      for (let s = 0; s < 2; s++) {
+        const bx = a + 3 + hr(k, rr * 3 + s, 6) * 22, face = hr(k, rr * 3 + s, 7) < 0.5 ? -1 : 1;
         if (!owns(zb, bx, z + face * (RT / 2))) continue;
-        zb.prop('lv55_book', bx, 1.25 + hr(k, r + s, 8) * 0.6, z + face * (RT / 2 + 0.01), face < 0 ? Math.PI : 0, { use: 'level', label: 'READ', seed: Math.floor(bx * 13 + z * 7 + r), useR: 0.5, useY: 0 });
+        zb.prop('lv55_book', bx, 1.25 + hr(k, rr + s, 8) * 0.6, z + face * (RT / 2 + 0.01), face < 0 ? Math.PI : 0, { use: 'level', label: 'READ', seed: Math.floor(bx * 13 + z * 7 + rr), useR: 0.5, useY: 0 });
       }
       // a rolling ladder against the face, now and then
-      if (hr(k, r, 9) < 0.5) {
-        const lx = a + 6 + hr(k, r, 10) * 16, face = hr(k, r, 11) < 0.5 ? -1 : 1;
-        if (owns(zb, lx, z + face * (RT / 2 + 0.05))) zb.prop('lv55_ladder', lx, 0, z + face * (RT / 2 + 0.05), face < 0 ? Math.PI : 0, { h: 4.5 + hr(k, r, 12) * 4 });
+      if (hr(k, rr, 9) < 0.5) {
+        const lx = a + 6 + hr(k, rr, 10) * 16, face = hr(k, rr, 11) < 0.5 ? -1 : 1;
+        if (owns(zb, lx, z + face * (RT / 2 + 0.05))) zb.prop('lv55_ladder', lx, 0, z + face * (RT / 2 + 0.05), face < 0 ? Math.PI : 0, { h: 4.5 + hr(k, rr, 12) * 4 });
       }
       // a gallery: a railed balcony running along the face, high above
       for (const [gy, side] of [[6.5, -1], [6.5, 1]]) {
         if (r < 0 || h < 8) break;
         cbox(zb, a, gy, z + side * (RT / 2), b, gy + 0.18, z + side * (RT / 2 + 1.0), M.lv55_wood, { sub: 8, collide: false });
-        cbox(zb, a, gy + 0.18, z + side * (RT / 2 + 0.95), b, gy + 1.2, z + side * (RT / 2 + 1.0), M.lv55_brass, { sub: 8, collide: false });
       }
     }
   }
@@ -212,12 +217,12 @@ function lamps(zb, bi, bj) {
   for (let r = 0; r < 8; r++) {
     const za = z0 + 4 + r * RP + RP / 2;       // aisle between row r and r+1
     const nave = r === NAVE || r === NAVE - 1;
-    const step = nave ? 10 : 11;
+    const step = nave ? 11 : 13;
     for (let x = x0 + 5 + ((r * 3) % 7); x < x1; x += step) {
       if (hr(Math.floor(x), r + bj * 8, 20) < 0.12) continue;
       if (!owns(zb, x, za)) continue;
       zb.prop('lv55_pendant', x, 3.4, za, 0, {});
-      zb.light(x, 2.9, za, { color: [1.0, 0.76, 0.42], rad: 8.5, int: nave ? 1.6 : 1.8, ch: hr(Math.floor(x), r, 21) < 0.07 ? 3 : 0 });
+      zb.light(x, 2.9, za, { color: [1.0, 0.76, 0.42], rad: 6.6, int: nave ? 2.0 : 2.3, ch: hr(Math.floor(x), r, 21) < 0.07 ? 3 : 0 });
     }
   }
 }
@@ -236,7 +241,7 @@ function furniture(zb, bi, bj) {
       zb.light(tx, 1.7, tz, { color: [1.0, 0.82, 0.5], rad: 5.5, int: 0.9 });
     }
     if (owns(zb, x + 8, zc) && hr(Math.floor(x), bj, 32) < 0.5) zb.prop('lv55_lectern', x + 8, 0, zc, hr(Math.floor(x), 1, 33) * TAU, { use: 'level', label: 'READ', seed: Math.floor(x * 5 + bj), useY: 1.1, useR: 0.8 });
-    if (owns(zb, x + 3, zc - 0.5) && hr(Math.floor(x), bj, 34) < 0.35) zb.prop('lv55_globe', x + 3, 0, zc, 0, {});
+    if (owns(zb, x + 3, zc - 2.0) && hr(Math.floor(x), bj, 34) < 0.35) zb.prop('lv55_globe', x + 3, 0, zc - 2.0, 0, {});
   }
   // card catalogues against the ends of shelf runs, signs
   for (let r = 0; r < 8; r++) {
@@ -255,7 +260,7 @@ function doors(zb, bi, bj) {
   for (let r = 0; r < 8; r++) {
     if (r === NAVE) continue;
     for (const [gi, g] of GAPS.entries()) {
-      if (hr(bi * 2 + gi, bj * 8 + r, 60) > 0.2) continue;
+      if (hr(bi * 2 + gi, bj * 8 + r, 60) > 0.1) continue;
       levelDoor(zb, x0 + g + 2, z0 + 4 + r * RP, gi ? Math.PI / 2 : -Math.PI / 2);
     }
   }

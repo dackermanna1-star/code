@@ -81,7 +81,7 @@ function gen(zb) {
   hall(Z, R);
   for (const ax of ['x', 'z']) for (const side of ax === 'x' ? ['N', 'S'] : ['W', 'E']) {
     const g = wallGeom(ax, side);
-    for (const sep of SEPS) pilaster(Z, g, sep + 0.5);
+    SEPS.forEach((sep, k) => pilaster(Z, g, sep + 0.5, k % 2 === 0));
     for (const [t0, t1] of [[0, HALL0], [HALL1, G]]) slab(Z, g, t0, t1, 0.3, GH - 0.5, GH, M.lv5_gold);
   }
   const alcove = origin ? -1 : Math.floor(R(3, 4) * BAYS.length);
@@ -110,10 +110,11 @@ function runners(Z) {
   flatSlab(Z, 30, 30, 35, 35, 0, th, M.lv5_carpet_x, (x) => (x - x0 - 30) / 5, (z) => (z - z0 - 30) / 5);
 }
 
-function pilaster(Z, g, t) {
+function pilaster(Z, g, t, lamp) {
   slab(Z, g, t - 0.38, t + 0.38, 0.32, 0, GH - 0.55, M.lv5_column);
   slab(Z, g, t - 0.46, t + 0.46, 0.4, 0, 0.35, M.lv5_gold);
   slab(Z, g, t - 0.5, t + 0.5, 0.42, GH - 1.15, GH - 0.55, M.lv5_gold);
+  if (!lamp) return;
   const [pu, pv] = onPlane(g, t, 0.33);
   Z.prop('lv5_sconce', pu, 3.0, pv, faceOf(g), {});
 }
@@ -148,7 +149,7 @@ function chandeliers(Z, R) {
     for (const [u, v, ax] of [[GC, t, 'z'], [t, GC, 'x']]) {
       const out = R(20 + k, ax === 'x' ? 1 : 2) < 0.1;
       Z.prop('lv5_chandelier', u, GH, v, 0, { drop: 1.4, r: 1.0, tiers: 2 });
-      if (!out) Z.light(u, GH - 2.8, v, { color: WARM, rad: 10, int: 1.0, ch: R(30 + k, ax === 'x' ? 3 : 4) < 0.12 ? 2 : 0 });
+      if (!out) Z.light(u, GH - 2.8, v, { color: WARM, rad: 9, int: 1.05, ch: R(30 + k, ax === 'x' ? 3 : 4) < 0.12 ? 2 : 0 });
     }
   }
 }

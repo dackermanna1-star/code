@@ -147,7 +147,7 @@ const bulbs = (zb, x, z, y, salt) => {
 
 function hallStuff(zb) {
   // joists under the boards, 0.8 m apart (you walk beneath them)
-  for (let x = 0.4; x < HALL; x += 0.8) zb.box(x - 0.055, TALL - 0.15, 0.1, x + 0.055, TALL, HALL - 0.1, M.lv19_post, { collide: false, skip: 4 });
+  for (let x = 0.4; x < HALL; x += 0.8) zb.box(x - 0.055, TALL - 0.15, 0.1, x + 0.055, TALL, HALL - 0.1, M.lv19_post, { collide: false, skip: 4, sub: 8 });
   // a forest of posts, 4 m apart, from floor to the boards
   for (let z = 4; z < HALL; z += 4) for (let x = 4; x < HALL; x += 4) {
     if (!zb.in(x, z)) continue;
@@ -156,9 +156,9 @@ function hallStuff(zb) {
     zb.box(x + o - 0.16, 0, z - 0.16, x + o + 0.16, TALL, z + 0.16, M.lv19_post, { uv: 'world' });
   }
   // light from the gaps: pools along each strip
-  for (const x of [5, 13, 21, 29]) for (let z = 5; z < 28; z += 3.5) {
+  for (const x of [5, 13, 21, 29]) for (let z = 5; z < 28; z += 4.6) {
     if (!owns(zb, x + 0.5, z)) continue;
-    zb.light(x + 0.5, TALL - 0.3, z, { color: [1.0, 0.94, 0.78], rad: 8, int: 1.05 });
+    zb.light(x + 0.5, TALL - 0.3, z, { color: [1.0, 0.94, 0.78], rad: 8, int: 1.25 });
   }
   // a few bulbs among the posts
   for (let z = 8; z < HALL; z += 8) for (let x = 8; x < HALL; x += 8) bulbs(zb, x + 2, z + 2, TALL - 0.1, 531);

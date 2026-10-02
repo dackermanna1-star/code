@@ -191,6 +191,12 @@ function gen(zb) {
 
 function genNSLights(zb) {
   const i0 = Math.floor((zb.x0 - H0) / HP), i1 = Math.floor((zb.x1 - 1 - H0) / HP);
+  // a brighter lamp over every crossing: a glow to walk toward down the long halls
+  const k0 = Math.floor((zb.z0 - H0) / HP), k1 = Math.floor((zb.z1 - 1 - H0) / HP);
+  for (let k = k0; k <= k1; k++) for (let i = i0; i <= i1; i++) {
+    const cx = H0 + i * HP + 2.5, cz = H0 + k * HP + 2.5;
+    if (owns(zb, cx, cz)) ceilingLight(zb, cx, cz, 'bulb', 'on', { color: [1.0, 0.8, 0.5], mul: 1.4, rad: 8, hang: 0.8 });
+  }
   for (let i = i0; i <= i1; i++) {
     const cx = H0 + i * HP + 2.5;
     for (let z = Math.ceil(zb.z0 / 8) * 8; z < zb.z1; z += 8) {
@@ -239,13 +245,15 @@ defineLevel(N, {
     if (s.scan > 0) return;
     s.scan = 0.25;
     const p = ctx.player;
-    for (const ch of ctx.game.world.chunksNear(p.dim, p.x, p.z, 30)) {
-      for (const e of ch.data.emitters) {
-        if (typeof e.snd !== 'string' || e.snd.indexOf('lv89_ring') !== 0) continue;
-        if (e.base === undefined) e.base = e.vol;
-        e.vol = s.hush > 0 || s.silent[keyOf(e.x, e.z)] ? 0 : e.base;
+    try {
+      for (const ch of ctx.game.world.chunksNear(p.dim, p.x, p.z, 30)) {
+        for (const e of ch.data.emitters) {
+          if (typeof e.snd !== 'string' || e.snd.indexOf('lv89_ring') !== 0) continue;
+          if (e.base === undefined) e.base = e.vol;
+          e.vol = s.hush > 0 || s.silent[keyOf(e.x, e.z)] ? 0 : e.base;
+        }
       }
-    }
+    } catch (err) { /* chunks not ready yet */ }
   },
   // answering a ringing phone: most of them connect (each phone to its own level), some just go quiet
   onUse(ctx, item) {

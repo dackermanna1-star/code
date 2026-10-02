@@ -8,8 +8,9 @@ import { defineMaterial, VF } from '../materials.js';
 import { defineProp, propMat as S, propTex as T, propGlow as G, propWithXf as withXf } from '../props.js';
 import { xfMul, xfTranslate, xfRotY } from '../../core/math.js';
 import { defineZone } from '../zonetypes.js';
-import { LEVEL_ZONE, defineLevel, openGround, cbox, owns, hr, levelDoor, env, M, FACE, only, facing, ceilingLight, stairs } from './kit.js';
+import { LEVEL_ZONE, defineLevel, openGround, cbox, owns, hr, levelDoor, env, M, FACE, only, facing, ceilingLight } from './kit.js';
 import { defineHotelProps } from './g10_hotel.js';
+import { slabStairs } from './g10_common.js';
 
 const N = 50;
 const B = 128;          // one courtyard per zone
@@ -356,13 +357,13 @@ function pier(zb, ax, az, bx, bz, w) {
 function diveTower(zb, X, Z, door) {
   cbox(zb, X - 4, 4.45, Z, X + 6, 4.8, Z + 6, M.lv50_coping, { sub: 3 });
   for (const px of [X - 3.7, X + 0.5, X + 5.7]) for (const pz of [Z + 0.3, Z + 5.7]) cbox(zb, px - 0.3, 0, pz - 0.3, px + 0.3, 4.45, pz + 0.3, M.lv50_column, { sub: 3 });
-  stairs(zb, X + 4, Z + 6, X + 6, Z + 13, '-z', 0, 4.8, M.lv50_coping);
+  slabStairs(zb, X + 4, Z + 6, X + 6, Z + 13, '-z', 0, 4.8, M.lv50_coping, 24);
   // open rails: posts and two bars, with an invisible solid behind them so nobody slips through
   const rail = (x0, z0, x1, z1) => {
     const alongX = x1 - x0 > z1 - z0;
     zb.box(x0, 4.8, z0, x1, 5.9, z1, M.lv50_post, { render: false });
     const L = alongX ? x1 - x0 : z1 - z0;
-    const n = Math.max(1, Math.round(L / 1.5));
+    const n = Math.max(1, Math.round(L / 2.5));
     for (let k = 0; k <= n; k++) {
       const q = (L * k) / n;
       const px = alongX ? x0 + q : (x0 + x1) / 2, pz = alongX ? (z0 + z1) / 2 : z0 + q;
@@ -487,8 +488,8 @@ function gen(zb) {
   // the pool: a shaft of teal tile fading to black, a glassy surface, light from below along the rim
   shaft(zb, ox + P.x0, oz + P.z0, ox + P.x1, oz + P.z1);
   cbox(zb, ox + P.x0, -0.19, oz + P.z0, ox + P.x1, -0.17, oz + P.z1, M.lv50_water, { alpha: 0.5, collide: false, skip: only(FACE.PY), sub: 6 });
-  for (let t = P.x0; t < P.x1; t += 6) for (const zz of [P.z0 - 0.5, P.z1 + 0.5]) if (zb.in(ox + t, Math.floor(oz + zz))) zb.light(ox + t, -0.1, oz + zz, { color: [0.2, 0.75, 0.8], rad: 6, int: 0.55 });
-  for (let t = P.z0; t < P.z1; t += 6) for (const xx of [P.x0 - 0.5, P.x1 + 0.5]) if (zb.in(Math.floor(ox + xx), oz + t)) zb.light(ox + xx, -0.1, oz + t, { color: [0.2, 0.75, 0.8], rad: 6, int: 0.55 });
+  for (let t = P.x0 + 2; t < P.x1; t += 8) for (const zz of [P.z0 - 0.5, P.z1 + 0.5]) if (zb.in(ox + t, Math.floor(oz + zz))) zb.light(ox + t, -0.1, oz + zz, { color: [0.2, 0.75, 0.8], rad: 5.5, int: 0.6 });
+  for (let t = P.z0 + 2; t < P.z1; t += 8) for (const xx of [P.x0 - 0.5, P.x1 + 0.5]) if (zb.in(Math.floor(ox + xx), oz + t)) zb.light(ox + xx, -0.1, oz + t, { color: [0.2, 0.75, 0.8], rad: 5.5, int: 0.6 });
 
   // the island in the middle, joined to the deck by a pier (or two)
   const cx = Math.round((P.x0 + P.x1) / 2), cz = Math.round((P.z0 + P.z1) / 2);

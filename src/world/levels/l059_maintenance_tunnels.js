@@ -247,7 +247,7 @@ function lightsAndSigns(zb, n) {
   const tube = (x, z, rot, salt) => {
     if (!zb.in(Math.floor(x), Math.floor(z))) return;
     const u = hr(Math.floor(x * 3), Math.floor(z * 3), salt);
-    const state = u < 0.07 ? 'off' : u < 0.16 ? 'flicker' : u < 0.2 ? 'dying' : 'on';
+    const state = u < 0.1 ? 'off' : u < 0.2 ? 'flicker' : u < 0.26 ? 'dying' : 'on';
     ceilingLight(zb, x, z, 'tube', state, { rot, color: [0.86, 1.0, 0.9], rad: 7.2, mul: 1.15 });
   };
   const axisX = n.eE || n.eW;
@@ -318,7 +318,7 @@ function gen(zb) {
 defineZone('lv59_tunnels', {
   ...LEVEL_ZONE,
   params: () => ({
-    ambient: [0.2, 0.22, 0.2],
+    ambient: [0.16, 0.18, 0.16],
     env: env({ fog: [0.2, 0.23, 0.2], fogNear: 4, fogFar: 30, hum: 0.55, hvac: 0.35, reverb: 'tunnel', tone: 'g02_maint' }),
   }),
   gen,

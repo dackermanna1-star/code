@@ -138,8 +138,9 @@ function gen(zb) {
   for (let k = 0; k < n; k++) {
     const a = at(k), top = (6 * (k + 1)) / n;
     // each step is a slab a little thicker than the rise: the underside shows as a saw tooth
-    if (alongX) zb.box(fx0 + a, top - 0.22, fz0, fx0 + a + tread, top, fz1, M.lv84_step, { sub: 8 });
-    else zb.box(fx0, top - 0.22, fz0 + a, fx1, top, fz0 + a + tread, M.lv84_step, { sub: 8 });
+    const back = alongX ? (up ? 1 : 2) : (up ? 16 : 32);
+    if (alongX) zb.box(fx0 + a, top - 0.22, fz0, fx0 + a + tread, top, fz1, M.lv84_step, { sub: 8, skip: back });
+    else zb.box(fx0, top - 0.22, fz0 + a, fx1, top, fz0 + a + tread, M.lv84_step, { sub: 8, skip: back });
     // an invisible solid keeps people from slipping off the open side; every third step gets a baluster and a piece of handrail
     let bx0, bx1, bz0, bz1;
     if (alongX) { bx0 = fx0 + a; bx1 = fx0 + a + tread; bz0 = wellSide === 'S' ? fz1 - 0.09 : fz0; bz1 = wellSide === 'S' ? fz1 : fz0 + 0.09; }
