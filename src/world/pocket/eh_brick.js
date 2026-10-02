@@ -4,9 +4,8 @@
 // toward +z. The house is a purely visual prop: its collision is laid down by the zone as
 // invisible brushes (a prop's own collision boxes would stop at its chunk's border).
 import { defineProp, propMat as S, propGlow as G, propTex as T } from '../props.js';
-import { VF } from '../materials.js';
+import { VF, defineMaterial } from '../materials.js';
 import { defineTexture } from '../../gfx/textures.js';
-import { defineMaterial } from '../materials.js';
 import { face, tface } from './eh_common.js';
 
 export const HWID = 5.5;               // half width of the house
@@ -43,6 +42,17 @@ defineTexture('eh_asphalt', (p) => {
   p.speckle(90, [58, 58, 66], 0.3, 0.7);
 }, 16);
 defineMaterial('eh_asphalt', 'eh_asphalt', { s: 3, surf: 'asphalt' });
+
+// the "NO OUTLET" street sign: white frame on green, NO big, OUTLET beneath. Also the sign over
+// the portal doors in the main building.
+defineTexture('eh_sign_culdesac', (p) => {
+  const fg = [238, 236, 222];
+  p.fill([28, 82, 50]);
+  p.frame(2, 2, 60, 60, fg);
+  p.frame(3, 3, 58, 58, fg);
+  p.text('NO', 15, 11, fg, 3);
+  p.text('OUTLET', 14, 40, fg, 1);
+}, 8);
 
 // sodium lamp lens
 defineTexture('eh_sodium', (p) => {

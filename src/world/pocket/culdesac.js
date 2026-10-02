@@ -7,7 +7,6 @@
 import { defineZone } from '../zonetypes.js';
 import { definePocket } from '../pockets.js';
 import { M, env } from '../gen/common.js';
-import { defineTexture } from '../../gfx/textures.js';
 import { voidAll, shelledReturn, owns, hr } from './e_util.js';
 import './eh_common.js';
 import { HWID, HDEP, GAR, ALC } from './eh_brick.js';
@@ -25,15 +24,6 @@ const NL_OUT = 42, NL_IN = 37;                    // streetlamps
 const TAU = Math.PI * 2;
 
 definePocket(ID, { name: 'culdesac', zoneType: 'p_culdesac', sign: 'eh_sign_culdesac', entry: ENTRY });
-// a street-name style sign: white frame on green, NO big, OUTLET beneath
-defineTexture('eh_sign_culdesac', (p) => {
-  const fg = [238, 236, 222];
-  p.fill([28, 82, 50]);
-  p.frame(2, 2, 60, 60, fg);
-  p.frame(3, 3, 58, 58, fg);
-  p.text('NO', 15, 11, fg, 3);
-  p.text('OUTLET', 14, 40, fg, 1);
-}, 8);
 
 // ------------------------------------------------------------------ layout
 const rot2f = (fx, fz) => Math.atan2(fx, -fz);
