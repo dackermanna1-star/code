@@ -460,6 +460,7 @@ R('mushroom_stem', { hardness: 0.2, tool: 'axe', sound: 'wood', drops: 'none', s
 R('brown_mushroom_block', { hardness: 0.2, tool: 'axe', sound: 'wood', drops: [{ item: 'brown_mushroom', min: 0, max: 2 }], silkTouchable: true, mapColor: 0x956f51 });
 R('red_mushroom_block', { hardness: 0.2, tool: 'axe', sound: 'wood', drops: [{ item: 'red_mushroom', min: 0, max: 2 }], silkTouchable: true, mapColor: 0xc52e2b });
 R('twisting_vines', plant({ climbable: true }));
+R('raw_copper_block', stone({ hardness: 5, harvestTier: 1, mapColor: 0x9a6a4f }));
 
 finalizeRegistry();
 

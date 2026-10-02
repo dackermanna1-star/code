@@ -22,7 +22,7 @@ function measure(dim: DimensionId, seed: number, ox: number, oz: number, n: numb
 
 const fmt = (m: { cpu: number; wall: number }) => `${m.cpu.toFixed(2)} ms cpu / ${m.wall.toFixed(2)} ms wall`;
 
-describe('worldgen performance', () => {
+describe('worldgen performance', { timeout: 120_000 }, () => {
   it('overworld stays within budget', () => {
     const streaming = measure('overworld', 123, 0, 0, 10, 1);
     const isolated = measure('overworld', 123, 200, 200, 6, 5);

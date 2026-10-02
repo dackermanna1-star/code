@@ -77,6 +77,8 @@ export const ST = {
   dsLapisOre: S('deepslate_lapis_ore'),
   dsDiamondOre: S('deepslate_diamond_ore'),
   dsEmeraldOre: S('deepslate_emerald_ore'),
+  rawIronBlock: S('raw_iron_block'),
+  rawCopperBlock: SO('raw_copper_block'),
   // vegetation
   shortGrass: S('short_grass'),
   fern: S('fern'),

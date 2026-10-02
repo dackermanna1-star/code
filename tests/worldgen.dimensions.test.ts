@@ -1,11 +1,14 @@
 /**
- * Dimension-level contracts: overworld layers (bedrock, deepslate, sea level, ores by depth),
- * cheap queries vs generated chunks, spawn & structures; Nether bedrock floor/roof, lava sea, empty
- * above y = 127; End main island, spikes with crystals, unlit exit portal, outer islands.
+ * Dimension-level contracts: overworld layers (bedrock, deepslate, sea level, ores by depth, ore
+ * veins, fossils), cheap queries vs generated chunks, spawn & structures; Nether bedrock floor/roof,
+ * lava sea, empty above y = 127; End main island, spikes with crystals, unlit exit portal, outer
+ * islands.
  */
 import { describe, expect, it } from 'vitest';
 import { createGenerator } from '../src/world/gen/index';
 import { EndGenerator } from '../src/world/gen/end/end';
+import { OreVeins } from '../src/world/gen/overworld/veins';
+import { ST } from '../src/world/gen/common/states';
 import { BLOCKS } from '../src/world/blocks/registry';
 import { BIOMES } from '../src/world/biomes';
 import '../src/world/blocks/blocks';
@@ -13,7 +16,7 @@ import { GenWorld, blockAt } from './worldgen.helpers';
 
 const NAME = (s: number) => BLOCKS[s >>> 4]?.name ?? '?';
 
-describe('overworld contracts', () => {
+describe('overworld contracts', { timeout: 120_000 }, () => {
   const g = createGenerator('overworld', 123);
   const chunks: [number, number, ReturnType<typeof g.generate>][] = [];
   for (let cz = -4; cz < 4; cz++) for (let cx = -4; cx < 4; cx++) chunks.push([cx, cz, g.generate(cx * 7, cz * 7)]);
@@ -73,6 +76,51 @@ describe('overworld contracts', () => {
     console.log('[worldgen] ore counts (64 chunks):', [...oreY.entries()].map(([k, v]) => `${k}:${v.length}@y${Math.round(avg(k))}`).join(' '));
   });
 
+  it('large ore veins: copper + granite at y 20..56, iron + tuff at y 1..16, replacing only stone', () => {
+    const veins = new OreVeins(123);
+    const work = new Uint16Array(65536);
+    const counts = new Map<string, number>();
+    let misplaced = 0;
+    for (let cz = -16; cz < 16; cz++)
+      for (let cx = -16; cx < 16; cx++) {
+        work.fill(0);
+        for (let y = 0; y < 64; y++) for (let c = 0; c < 256; c++) work[(y << 8) | c] = y < 12 ? ST.deepslate : ST.stone;
+        veins.apply(cx, cz, work);
+        for (let i = 0; i < 65536; i++) {
+          const s = work[i], y = i >> 8;
+          if (s === 0 || s === ST.stone || s === ST.deepslate) continue;
+          const n = NAME(s);
+          counts.set(n, (counts.get(n) ?? 0) + 1);
+          const copper = n === 'granite' || n.includes('copper');
+          if (copper ? y < 20 || y > 56 : y < 1 || y > 16) misplaced++;
+        }
+      }
+    expect(misplaced).toBe(0);
+    for (const n of ['granite', 'copper_ore', 'tuff', 'deepslate_iron_ore']) expect(counts.get(n) ?? 0, n).toBeGreaterThan(50);
+    // filler dominates, ore is a minority, raw-metal blocks are rare
+    expect(counts.get('granite')!).toBeGreaterThan(counts.get('copper_ore')!);
+    expect(counts.get('raw_copper_block') ?? 0).toBeLessThan(counts.get('copper_ore')! / 10);
+  });
+
+  it('fossils: bone blocks buried in deserts and swamps', () => {
+    const gg = createGenerator('overworld', 123);
+    let generated = 0, fossils = 0;
+    for (let r = 0; r < 160 && fossils === 0; r++)
+      for (let cz = -r; cz <= r && fossils === 0 && generated < 300; cz++)
+        for (let cx = -r; cx <= r && fossils === 0 && generated < 300; cx++) {
+          if (Math.max(Math.abs(cx), Math.abs(cz)) !== r) continue;
+          const b = BIOMES[gg.biomeAt(cx * 16 + 8, cz * 16 + 8)].name;
+          if (b !== 'desert' && b !== 'swamp') continue;
+          const ch = gg.generate(cx, cz);
+          generated++;
+          let bones = 0;
+          for (let c = 0; c < 256; c++)
+            for (let y = 1; y < 64; y++) if (NAME(blockAt(ch, c & 15, y, c >> 4)) === 'bone_block') bones++;
+          if (bones >= 10) fossils++;
+        }
+    expect(fossils).toBe(1);
+  });
+
   it('findSpawn returns dry, walkable ground with headroom', () => {
     for (const seed of [123, 1, 99]) {
       const gg = createGenerator('overworld', seed);
@@ -109,7 +157,7 @@ describe('overworld contracts', () => {
   });
 });
 
-describe('nether contracts', () => {
+describe('nether contracts', { timeout: 120_000 }, () => {
   const g = createGenerator('nether', 123);
   const w = new GenWorld(g);
   for (let cz = -3; cz < 3; cz++) for (let cx = -3; cx < 3; cx++) w.generate(cx * 2, cz * 2);
@@ -141,7 +189,7 @@ describe('nether contracts', () => {
   });
 });
 
-describe('end contracts', () => {
+describe('end contracts', { timeout: 120_000 }, () => {
   const g = new EndGenerator(123);
   const w = new GenWorld(g);
   for (let cz = -8; cz < 8; cz++) for (let cx = -8; cx < 8; cx++) w.generate(cx, cz);

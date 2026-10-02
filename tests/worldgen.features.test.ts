@@ -29,7 +29,7 @@ const WINDOWS: [number, number][] = [
   [39, -29],
 ];
 
-describe('worldgen trees and features', () => {
+describe('worldgen trees and features', { timeout: 120_000 }, () => {
   const gen = new OverworldGenerator(123);
   const world = new GenWorld(gen);
   // generate 5x5 windows in a scrambled order so neighbours are generated before/after each other

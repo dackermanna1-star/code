@@ -4,7 +4,8 @@
  * Pipeline per chunk column (all steps are pure functions of (seed, position)):
  *  1. terrain density fill (terrain.ts) -> stone / deepslate (dithered y 8..16) / air
  *  2. fluids: open water up to sea level, aquifers for cave air (aquifer.ts)
- *  3. surface rules (surface.ts) + biome extensions (badlands hoodoos, icebergs), bedrock floor
+ *  3. surface rules (surface.ts) + biome extensions (badlands hoodoos, icebergs), bedrock floor,
+ *     large copper / iron ore veins (veins.ts)
  *  4. carvers (ravines + worm caves, carvers.ts)
  *  5. features & structures (features/*, structures/*), evaluated for this chunk and its
  *     neighbours, writing only blocks inside this chunk
@@ -21,6 +22,7 @@ import { hashF as hashF_ } from '../common/noise';
 import { blendBiomeColors, finishChunk } from '../common/output';
 import { Carvers, segmentContains as segmentContains_, type Segment } from './carvers';
 import { OrePlacer } from './ores';
+import { OreVeins } from './veins';
 import { Decorator, type DecorationHost } from './features';
 import { ChunkWriter } from '../common/writer';
 import { StructureManager } from '../structures/index';
@@ -43,6 +45,8 @@ const segmentContains = segmentContains_;
 const CARVABLE = new Uint8Array(4096);
 for (const b of BLOCKS) {
   if (['stone', 'granite', 'diorite', 'andesite', 'tuff', 'deepslate', 'dirt', 'grass_block', 'podzol', 'coarse_dirt', 'mycelium', 'mud', 'sand', 'red_sand', 'gravel', 'sandstone', 'red_sandstone', 'calcite', 'snow_block', 'powder_snow', 'clay', 'terracotta'].includes(b.name) || b.name.endsWith('_terracotta')) CARVABLE[b.id] = 1;
+  // ore-vein blocks (veins are placed before carving; ordinary ores come after it)
+  if (['copper_ore', 'deepslate_copper_ore', 'iron_ore', 'deepslate_iron_ore', 'raw_iron_block', 'raw_copper_block'].includes(b.name)) CARVABLE[b.id] = 1;
 }
 
 export class OverworldGenerator implements WorldGenerator, DecorationHost {
@@ -52,6 +56,7 @@ export class OverworldGenerator implements WorldGenerator, DecorationHost {
   readonly surface: SurfaceRules;
   readonly carvers: Carvers;
   readonly ores: OrePlacer;
+  readonly veins: OreVeins;
   readonly decorator: Decorator;
   readonly structures: StructureManager;
   private readonly writer = new ChunkWriter();
@@ -68,6 +73,7 @@ export class OverworldGenerator implements WorldGenerator, DecorationHost {
     this.surface = new SurfaceRules(seed);
     this.carvers = new Carvers(seed);
     this.ores = new OrePlacer(seed, (x, z) => this.terrain.biomeAt(x, z));
+    this.veins = new OreVeins(seed);
     this.decorator = new Decorator(this);
     this.structures = new StructureManager('overworld', {
       seed,
@@ -173,6 +179,7 @@ export class OverworldGenerator implements WorldGenerator, DecorationHost {
     this.baseBlocks(cx, cz);
     this.applySurface(cx, cz);
     this.bedrock(cx, cz);
+    this.veins.apply(cx, cz, work);
     this.segs = this.carvers.segmentsFor({ x0: x0 - 16, z0: z0 - 16, x1: x0 + 31, z1: z0 + 31 });
     this.carve(cx, cz);
     let maxTop = 0;

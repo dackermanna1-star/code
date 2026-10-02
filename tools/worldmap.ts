@@ -8,6 +8,7 @@
  *   <out>_biomes.png      flat biome map
  *   <out>_section.png     vertical cross-section along X at the centre z (blocks coloured by type)
  *   <out>_section_z.png   vertical cross-section along Z at the centre x
+ *   <out>_slice_y<N>.png  horizontal overworld slices at the heights given by --slices (e.g. 10,40)
  *   <out>_nether.png      Nether: horizontal slice at y=40 (left) and a vertical section (right)
  *   <out>_end.png         End: top-down of the main island (left) and a vertical section (right)
  * Prints biome statistics and generation timings. PNG encoding uses node:zlib only.
@@ -38,6 +39,8 @@ const sectionLen = Number(arg('section', String(Math.min(size, 768))));
 /** Output down-scaling factor for the top-down maps (e.g. --scale 4 renders a 4096-block area into 1024 px). */
 const scale = Math.max(1, Number(arg('scale', '1')));
 const base = out.replace(/\.png$/i, '');
+/** Horizontal overworld slices (caves, ores, ore veins), e.g. --slices 10,40. */
+const slices = arg('slices', '').split(',').filter((v) => v.trim() !== '').map((v) => Math.max(0, Math.min(255, Math.floor(Number(v)))));
 
 // ------------------------------------------------------------------------------------------------
 // PNG
@@ -124,6 +127,7 @@ const NAMED: Record<string, number> = {
   end_stone: 0xdbde9e, chorus_plant: 0x5e3f5e, chorus_flower: 0x9a7a9a, iron_bars: 0x9a9a9a, torch: 0xffd060, end_portal_frame: 0x3a6a5a,
   mossy_stone_bricks: 0x6f7a62, stone_bricks: 0x7a7a7a, cracked_stone_bricks: 0x707070, sandstone_slab: 0xd8cb8b, cut_sandstone: 0xd8cb8b,
   smooth_sandstone: 0xe0d496, gold_block: 0xf5d634, cave_air: 0x000000, infested_stone: 0x7d7d7d,
+  raw_iron_block: 0xa6876b, raw_copper_block: 0x9a6a4f,
 };
 const FOLIAGE_TINTED = new Set(['oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'vine']);
 const GRASS_TINTED = new Set(['grass_block', 'short_grass', 'fern', 'tall_grass', 'large_fern', 'sugar_cane']);
@@ -237,6 +241,7 @@ function overworld() {
   const biomeCount = new Map<number, number>();
   const cx0 = Math.floor(x0 / 16), cz0 = Math.floor(z0 / 16), cx1 = Math.floor((x0 + size - 1) / 16), cz1 = Math.floor((z0 + size - 1) / 16);
   const blockCount = new Map<string, number>();
+  const sliceImgs = slices.map(() => new Image(size, size));
   for (let cz = cz0; cz <= cz1; cz++) {
     for (let cx = cx0; cx <= cx1; cx++) {
       const ch = gen(g, cx, cz);
@@ -248,6 +253,10 @@ function overworld() {
           const b = ch.biomes[col];
           biomeCount.set(b, (biomeCount.get(b) ?? 0) + 1);
           bimg.set(px, pz, biomeColor(b));
+          for (let k = 0; k < slices.length; k++) {
+            const s = getBlock(ch, lx, slices[k], lz);
+            sliceImgs[k].set(px, pz, s === 0 || NAME_OF(s) === 'cave_air' ? 0x101010 : blockColor(s, ch, col));
+          }
           let y = 255;
           while (y > 0 && getBlock(ch, lx, y, lz) === 0) y--;
           const s = getBlock(ch, lx, y, lz);
@@ -293,6 +302,7 @@ function overworld() {
     img.save(out);
     bimg.save(`${base}_biomes.png`);
   }
+  slices.forEach((y, k) => (scale > 1 ? downscale(sliceImgs[k], scale) : sliceImgs[k]).save(`${base}_slice_y${y}.png`));
   const total = size * size;
   console.log(`overworld: ${genCount} chunks in ${(performance.now() - t0).toFixed(0)} ms, ${(genMs / genCount).toFixed(2)} ms/chunk`);
   console.log('biomes:', [...biomeCount.entries()].sort((a, b) => b[1] - a[1]).map(([b, n]) => `${BIOMES[b].name} ${((100 * n) / total).toFixed(1)}%`).join(', '));

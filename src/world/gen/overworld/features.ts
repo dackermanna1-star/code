@@ -1,7 +1,7 @@
 /**
  * Overworld decoration: trees (cross-chunk), per-column vegetation, underground decoration
- * (glow lichen, springs, dripstone / lush patches, dungeons, geodes), boulders, ice spikes and the
- * final freeze pass (snow layers + ice).
+ * (glow lichen, springs, dripstone / lush patches, dungeons, geodes, fossils), boulders, ice spikes
+ * and the final freeze pass (snow layers + ice).
  *
  * Determinism rules (see generator.ts):
  *  - Trees and other multi-chunk features are planned per *source* chunk with a chunk-seeded RNG.
@@ -13,7 +13,7 @@
  *    the chunk itself.
  */
 import { Rng, seedFor } from '../../../core/rng';
-import { ST as ST_, IS_SOIL as IS_SOIL_, IS_SOLID as IS_SOLID_, IS_LEAVES as IS_LEAVES_, IS_FULL as IS_FULL_ } from '../common/states';
+import { ST as ST_, IS_SOIL as IS_SOIL_, IS_SOLID as IS_SOLID_, IS_LEAVES as IS_LEAVES_, IS_FULL as IS_FULL_, withAxis } from '../common/states';
 import { OctaveNoise, RawNoise2, hash3i as hash3i_ } from '../common/noise';
 import { BIO as BIO_ } from './biomeSource';
 import { BIOMES } from '../../biomes';
@@ -131,6 +131,53 @@ const SUGARCANE_GROUND = new Set<number>([ST.grass, ST.dirt, ST.sand, ST.redSand
 
 const STONEISH = new Uint8Array(4096);
 for (const s of [ST.stone, ST.deepslate, ST.granite, ST.diorite, ST.andesite, ST.tuff]) STONEISH[s >>> 4] = 1;
+
+/** Blocks a fossil may replace (natural stone, soil, sand and ores; never air or fluids). */
+const FOSSIL_REPLACEABLE = new Uint8Array(4096);
+for (const s of [
+  ST.stone, ST.deepslate, ST.granite, ST.diorite, ST.andesite, ST.tuff, ST.dirt, ST.coarseDirt, ST.mud, ST.clay, ST.gravel,
+  ST.sand, ST.redSand, ST.sandstone, ST.redSandstone, ST.coalOre, ST.dsCoalOre, ST.ironOre, ST.dsIronOre, ST.copperOre,
+  ST.dsCopperOre, ST.goldOre, ST.dsGoldOre, ST.redstoneOre, ST.dsRedstoneOre, ST.lapisOre, ST.dsLapisOre,
+])
+  FOSSIL_REPLACEABLE[s >>> 4] = 1;
+const FOSSIL_BIOMES = new Set<number>([BIO.desert, BIO.swamp]);
+
+/**
+ * Fossil shapes in local coordinates: [u (along the body), v (across, -2..2), y, axis kind], with
+ * axis kind 0 = vertical bone, 1 = along u, 2 = along v. Returns the shape and its size along u / y.
+ */
+function fossilShape(r: Rng): { cells: number[][]; len: number; height: number } {
+  const cells: number[][] = [];
+  if (r.next() < 0.5) {
+    // spine with a ribcage: vertebrae at y = 3, dorsal spikes above, ribs curving down both sides
+    const len = 8 + r.int(5);
+    const ribFrom = 2 + r.int(2), ribTo = len - 3 - r.int(2);
+    for (let u = 0; u < len; u++) {
+      cells.push([u, 0, 3, 1]);
+      if (u % 2 === 0 && u > 0 && u < len - 2) cells.push([u, 0, 4, 0]);
+    }
+    for (let u = ribFrom; u <= ribTo; u += 2) {
+      const deep = u > ribFrom && u < ribTo; // the middle ribs close below the body
+      for (const s of [-1, 1]) {
+        cells.push([u, s, 3, 2], [u, 2 * s, 2, 0], [u, 2 * s, 1, 0]);
+        if (deep) cells.push([u, s, 0, 2]);
+      }
+    }
+    return { cells, len, height: 5 };
+  }
+  // skull: hollow cranium with eye sockets, a nasal ridge, upper jaw and lower jaw bars
+  for (let u = 1; u <= 4; u++)
+    for (let v = -2; v <= 2; v++)
+      for (let y = 1; y <= 3; y++) {
+        const shell = Math.abs(v) === 2 || y === 3 || u === 4 || (u === 1 && v === 0);
+        if (!shell || (u === 4 && Math.abs(v) === 2 && y === 3)) continue;
+        if (u === 1 && Math.abs(v) === 1 && y === 2) continue; // eye sockets
+        cells.push([u, v, y, y === 3 ? 2 : 0]);
+      }
+  for (let v = -1; v <= 1; v++) cells.push([0, v, 1, 2]);
+  for (let u = 0; u <= 3; u++) for (const v of [-1, 1]) cells.push([u, v, 0, 1]);
+  return { cells, len: 5, height: 4 };
+}
 
 // ------------------------------------------------------------------------------------------------
 
@@ -259,7 +306,7 @@ export class Decorator {
   // ----------------------------------------------------------------------------------------------
 
   decorate(cx: number, cz: number, w: ChunkWriter, top: Int16Array, colBiome: Uint8Array): void {
-    this.underground(cx, cz, w, top);
+    this.underground(cx, cz, w, top, colBiome);
     this.trees(cx, cz, w);
     this.localFeatures(cx, cz, w, top, colBiome);
     this.vegetation(cx, cz, w, top, colBiome);
@@ -527,7 +574,7 @@ export class Decorator {
   // underground decoration (local)
   // ----------------------------------------------------------------------------------------------
 
-  private underground(cx: number, cz: number, w: ChunkWriter, top: Int16Array): void {
+  private underground(cx: number, cz: number, w: ChunkWriter, top: Int16Array, colBiome: Uint8Array): void {
     const work = w.work;
     const r = new Rng(seedFor(this.host.seed, cx, cz, 0x0dec0));
     const x0 = cx * 16, z0 = cz * 16;
@@ -589,6 +636,63 @@ export class Decorator {
     }
     this.dungeons(cx, cz, w, top, r);
     this.geodes(cx, cz, w);
+    this.fossils(cx, cz, w, top, colBiome);
+  }
+
+  /**
+   * Fossils (Minecraft `FossilFeature`, deserts and swamps): 1 in 64 chunks gets an upper fossil
+   * (y 20 .. surface - 12; 10 % of its bones are coal ore) and 1 in 64 a lower one (y 2..11 in the
+   * deepslate; 10 % deepslate diamond ore). A spine with a ribcage or a skull, any heading; 10 % of
+   * the bones are missing; only natural stone / soil / sand is replaced, and a fossil with more than
+   * 4 of its 8 box corners in open space (caves) is skipped. Kept inside the chunk.
+   */
+  private fossils(cx: number, cz: number, w: ChunkWriter, top: Int16Array, colBiome: Uint8Array): void {
+    if (!FOSSIL_BIOMES.has(colBiome[(8 << 4) | 8])) return;
+    const r = new Rng(seedFor(this.host.seed, cx, cz, 0xf0551));
+    for (let pass = 0; pass < 2; pass++) {
+      const roll = r.int(64);
+      const seed = r.nextU32();
+      if (roll === 0) this.fossil(cx, cz, w, top, pass === 1, seed);
+    }
+  }
+
+  private fossil(cx: number, cz: number, w: ChunkWriter, top: Int16Array, lower: boolean, seed: number): void {
+    const work = w.work;
+    const r = new Rng(seed);
+    const { cells, len, height } = fossilShape(r);
+    const alongX = r.next() < 0.5, flip = r.next() < 0.5;
+    const sx = alongX ? len : 5, sz = alongX ? 5 : len;
+    const lx0 = r.int(17 - sx), lz0 = r.int(17 - sz);
+    let minTop = 255;
+    for (let z = lz0; z < lz0 + sz; z++) for (let x = lx0; x < lx0 + sx; x++) minTop = Math.min(minTop, top[(z << 4) | x]);
+    let y0: number;
+    if (lower) y0 = 2 + r.int(10);
+    else {
+      const yMax = minTop - 12 - height;
+      if (yMax < 20) return;
+      y0 = 20 + r.int(yMax - 19);
+    }
+    // Minecraft's empty-corner rule (air and fluids count as empty)
+    let open = 0;
+    for (const x of [lx0, lx0 + sx - 1])
+      for (const z of [lz0, lz0 + sz - 1])
+        for (const y of [y0, y0 + height - 1]) if (!IS_SOLID[work[(y << 8) | (z << 4) | x] >>> 4]) open++;
+    if (open > 4) return;
+    const x0 = cx * 16, z0 = cz * 16;
+    for (const [u, v, y, kind] of cells) {
+      const uu = flip ? len - 1 - u : u;
+      const lx = alongX ? lx0 + uu : lx0 + v + 2, lz = alongX ? lz0 + v + 2 : lz0 + uu;
+      const wy = y0 + y;
+      const i = (wy << 8) | (lz << 4) | lx;
+      const old = work[i];
+      if (!FOSSIL_REPLACEABLE[old >>> 4]) continue;
+      const h = hash3i(x0 + lx, wy, z0 + lz, this.host.seed ^ 0xf0552);
+      if ((h & 1023) < 102) continue; // 10 % rot
+      if (((h >>> 10) & 1023) < 102) {
+        const deep = old === ST.deepslate || old === ST.tuff;
+        work[i] = lower ? (deep ? ST.dsDiamondOre : ST.diamondOre) : deep ? ST.dsCoalOre : ST.coalOre;
+      } else work[i] = withAxis(ST.boneBlock, kind === 0 ? 0 : (kind === 1) === alongX ? 1 : 2);
+    }
   }
 
   /** Minecraft monster rooms, kept inside one chunk (rooms are at most 9x9 including walls). */

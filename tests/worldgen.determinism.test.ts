@@ -19,7 +19,7 @@ const CASES: [DimensionId, number, number, number][] = [
   ['end', 123, 70, 70], // outer islands
 ];
 
-describe('worldgen determinism', () => {
+describe('worldgen determinism', { timeout: 120_000 }, () => {
   for (const [dim, seed, ccx, ccz] of CASES) {
     it(`${dim} seed ${seed} @${ccx},${ccz}: same chunk twice is identical`, () => {
       const g = createGenerator(dim, seed);

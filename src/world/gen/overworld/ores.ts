@@ -57,7 +57,8 @@ export const ORES: OreConf[] = [
   ore({ stone: ST.diorite, deep: ST.diorite, size: 64, count: 2, minY: 16, maxY: 60, trapezoid: false, discard: 0, target: Target.NATURAL }),
   ore({ stone: ST.andesite, deep: ST.andesite, size: 64, count: 1, rarity: 1 / 6, minY: 64, maxY: 128, trapezoid: false, discard: 0, target: Target.NATURAL }),
   ore({ stone: ST.andesite, deep: ST.andesite, size: 64, count: 2, minY: 16, maxY: 60, trapezoid: false, discard: 0, target: Target.NATURAL }),
-  ore({ stone: ST.tuff, deep: ST.tuff, size: 64, count: 2, minY: 0, maxY: 18, trapezoid: false, discard: 0, target: Target.NATURAL }),
+  // tuff: Minecraft's 2 blobs per chunk over 64 deepslate levels, scaled to the 18 levels here
+  ore({ stone: ST.tuff, deep: ST.tuff, size: 64, count: 0.6, minY: 0, maxY: 18, trapezoid: false, discard: 0, target: Target.NATURAL }),
   ore({ stone: ST.infestedStone, deep: ST.infestedStone, size: 9, count: 10, minY: 0, maxY: 63, trapezoid: false, discard: 0, biomes: WINDSWEPT }),
   // coal
   ore({ stone: ST.coalOre, deep: ST.dsCoalOre, size: 17, count: 20, minY: 100, maxY: 255, trapezoid: false, discard: 0 }),
