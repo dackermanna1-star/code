@@ -122,7 +122,15 @@ export class World {
       const z0 = Math.max(0, Math.floor(b[o + 2] - az)), z1 = Math.min(CHUNK - 1, Math.floor(b[o + 5] - az - 1e-4));
       for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) grid[z * CHUNK + x].push(k);
     }
+    // boxes that reach past the chunk's edges (big props near a border): queries that start in a
+    // neighbouring chunk check these too
+    const over = [];
+    for (let k = 0; k < nb; k++) {
+      const o = k * 7;
+      if (b[o] < ax || b[o + 3] > ax + CHUNK || b[o + 2] < az || b[o + 5] > az + CHUNK) over.push(k);
+    }
     ch.grid = grid;
+    ch.over = over;
     ch.stamp = new Int32Array(nb);
   }
 
@@ -241,10 +249,23 @@ export class World {
     const cz0 = Math.floor(z0 / CHUNK), cz1 = Math.floor(z1 / CHUNK);
     let missing = false;
     for (let L = L0; L <= L1; L++) {
-      for (let cz = cz0; cz <= cz1; cz++) for (let cx = cx0; cx <= cx1; cx++) {
+      for (let cz = cz0 - 1; cz <= cz1 + 1; cz++) for (let cx = cx0 - 1; cx <= cx1 + 1; cx++) {
+        const ring = cx < cx0 || cx > cx1 || cz < cz0 || cz > cz1;
         const ch = this.chunks.get(this.ckey(dim, L, cx, cz));
-        if (!ch) { if (L >= L1 - 1) missing = true; continue; }
+        if (!ch) { if (!ring && L >= L1 - 1) missing = true; continue; }
         const b = ch.data.boxes;
+        if (ring) {
+          // neighbouring chunk: only its boxes that reach over its edge can touch the query
+          for (let j = 0; j < ch.over.length; j++) {
+            const k = ch.over[j];
+            if (ch.stamp[k] === stamp) continue;
+            ch.stamp[k] = stamp;
+            const o = k * 7;
+            if (b[o] >= x1 || b[o + 3] <= x0 || b[o + 1] >= y1 || b[o + 4] <= y0 || b[o + 2] >= z1 || b[o + 5] <= z0) continue;
+            out.push(b[o], b[o + 1], b[o + 2], b[o + 3], b[o + 4], b[o + 5], b[o + 6]);
+          }
+          continue;
+        }
         const ax = cx * CHUNK, az = cz * CHUNK;
         const gx0 = Math.max(0, Math.floor(x0 - ax)), gx1 = Math.min(CHUNK - 1, Math.floor(x1 - ax));
         const gz0 = Math.max(0, Math.floor(z0 - az)), gz1 = Math.min(CHUNK - 1, Math.floor(z1 - az));
