@@ -220,7 +220,7 @@ export class Fighter {
   computeMoveRate(move) {
     let r = this.moveSpeed * (1 - this.fatigue * 0.22);
     if (this.stamina < 15) r *= 0.85;
-    if (move.type === 'getup') r *= this.isHero ? 1.15 - this.fatigue * 0.35 : 0.85 + this.toughness * 0.1;
+    if (move.type === 'getup') r *= this.isHero ? 1.5 - this.fatigue * 0.45 : 0.85 + this.toughness * 0.1;
     return r;
   }
 
@@ -444,7 +444,8 @@ export class Fighter {
 
   // ----------------------------------------------------------------- update
   updateLogic(dt) {
-    if (this.removed) return;
+    if (this.removed || this.baked) return;
+    if (this.dead && this.state === 'ko' && this.rag.sleeping) return; // a body at rest
     if (this.freeze > 0) {
       this.freeze--;
       this.frozen = true;
@@ -508,7 +509,8 @@ export class Fighter {
     if (this.dead) return;
     const ms = this.maxStamina();
     const exert = this.state === 'move' || this.state === 'block' || this.state === 'hitstun';
-    const regen = (exert ? 6 : this.stance === 'tired' ? 34 : 22) * (1 - this.fatigue * 0.55);
+    // a trained fighter breathes through the exchanges
+    const regen = (exert ? (this.isHero ? 10 : 6) : this.stance === 'tired' ? 34 : this.isHero ? 26 : 22) * (1 - this.fatigue * 0.55);
     this.stamina = Math.min(ms, this.stamina + regen * dt);
     if (this.isHero) {
       // fatigue creeps up while fighting; very slowly eases when calm
@@ -779,9 +781,9 @@ export class Fighter {
       return;
     }
     const sp = this.rag.maxSpeed(h);
-    const pp = this.rag.p;
-    const core = Math.max(Math.abs(pp[PELVIS].x - pp[PELVIS].px) + Math.abs(pp[PELVIS].y - pp[PELVIS].py), Math.abs(pp[NECK].x - pp[NECK].px) + Math.abs(pp[NECK].y - pp[NECK].py)) / h;
-    const resting = core < 75 && this.rag.grounded();
+    const core = this.rag.coreSpeed(h);
+    // resting on the floor or on top of other bodies both count
+    const resting = core < 75;
     if (resting) this.restT += dt;
     else this.restT = Math.max(0, this.restT - dt * 2);
     if (this.state === 'ragdoll') {
@@ -789,7 +791,7 @@ export class Fighter {
         if (this.restT > 0.3) this.setState('ko');
         return;
       }
-      if ((this.restT > 0.15 && this.stateT > 0.3) || (this.stateT > 1.8 && core < 260 && this.rag.grounded())) {
+      if ((this.restT > 0.15 && this.stateT > 0.3) || (this.stateT > 1.8 && core < 260)) {
         this.setState('down');
         const base = this.isHero ? 0.2 + this.fatigue * 0.8 : 0.3 + Math.max(0, 1 - this.toughness) * 0.4;
         this.downT = base + this.sim.rng.range(0, this.isHero ? 0.3 : 0.6) + (1 - this.hp / this.maxHp) * (this.isHero ? 0.5 : 0.9);
@@ -851,7 +853,7 @@ export class Fighter {
     this.muscle = 0.15;
     this.muscleRate = 5;
     // a trained fighter protects himself while rising
-    if (this.isHero) this.invuln = 0.35 + this.skill * 0.15;
+    if (this.isHero) this.invuln = 0.45 + this.skill * 0.2 - this.fatigue * 0.3;
     this.emit({ t: 'getup', f: this });
   }
 
@@ -1421,6 +1423,10 @@ export class Fighter {
   // Called by the simulation before the physics step.
   drivePhysics() {
     if (this.removed) return;
+    if (this.baked) {
+      this.kinematic = false;
+      return;
+    }
     if (this.state === 'held' || (!this.ragdolled && this.state !== 'grabbed' && this.muscle >= 1)) {
       this.rag.drive(this.jt, this.sim.sub);
       this.rag.sleeping = false;

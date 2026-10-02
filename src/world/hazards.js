@@ -45,6 +45,7 @@ export class Hazards {
     const h = sim.h;
     for (const f of near) {
       if (f.removed || f.zapT > 0) continue;
+      if (f.isHero && sim.time - (f.lastZap || -10) < 2.5) continue;
       let touch = false;
       if (f.ragdolled || f.state === 'grabbed') {
         if (f.dead && f.rag.sleeping) continue;
@@ -64,7 +65,8 @@ export class Hazards {
       const by = f.knock ? f.knock.by : f.thrownBy || f.lastHitBy;
       f.knock = f.knock || { by, chainId: sim.newChain(by), depth: 0, time: sim.time, kind: 'electric' };
       f.zapSource = hz;
-      f.electrocute(0.9, 75 * Math.max(0.6, sim.settings.hazardDensity));
+      f.lastZap = sim.time;
+      f.electrocute(f.isHero ? 0.6 : 0.9, (f.isHero ? 22 : 75) * Math.max(0.6, sim.settings.hazardDensity));
       hz.cooldown = 1.1;
       hz.arcT = 0.9;
       hz.arcTarget = f;

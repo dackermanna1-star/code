@@ -35,7 +35,7 @@ export class Camera {
     const h = sim.hero;
     this.x = h.x;
     this.y = h.y - 120;
-    this.viewW = 950;
+    this.viewW = 1100;
     this.sx.v = this.sy.v = this.sw.v = 0;
     this.trauma = 0;
     this.slow = null;
@@ -157,7 +157,7 @@ export class Camera {
       ty = (L.bounds.top + L.bounds.bottom) / 2;
       tw = Math.max(L.bounds.right - L.bounds.left, (L.bounds.bottom - L.bounds.top) * aspect) * 1.02;
     } else if (this.mode === 'follow') {
-      tw = 1050;
+      tw = 1150;
     } else if (this.mode === 'free') {
       tx = this.free.x;
       ty = this.free.y;
@@ -183,9 +183,9 @@ export class Camera {
         y0 = Math.min(y0, p.y - 130);
         y1 = Math.max(y1, p.y + 50);
       }
-      const minW = engaged <= 1 ? 720 : engaged <= 3 ? 880 : 1050;
-      tw = Math.max(minW, x1 - x0 + 240, (y1 - y0 + 200) * aspect);
-      tw = Math.min(tw, 2200);
+      const minW = engaged <= 1 ? 900 : engaged <= 3 ? 1060 : 1240;
+      tw = Math.max(minW, x1 - x0 + 300, (y1 - y0 + 220) * aspect);
+      tw = Math.min(tw, 2400);
       // keep the hero inside the inner part of the frame
       tx = clamp((x0 + x1) / 2, hx - tw * 0.3, hx + tw * 0.3);
       ty = clamp((y0 + y1) / 2 - 30, hy - (tw / aspect) * 0.3, hy + (tw / aspect) * 0.15);

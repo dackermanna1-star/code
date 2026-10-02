@@ -43,8 +43,10 @@ function hslToHex(h, s, l) {
 
 export function enemyColor(rng) {
   const h = rng.range(0, 360);
-  const s = rng.range(38, 82);
-  const l = rng.range(36, 60);
+  const s = rng.range(46, 86);
+  // keep clear of the white walls and of the hero's black
+  const yellowish = h > 40 && h < 75;
+  const l = rng.range(34, yellowish ? 50 : 55);
   return {
     color: hslToHex(h, s, l),
     colorFar: hslToHex(h, s * 0.95, l * 0.82),
@@ -101,7 +103,7 @@ export function makeEnemySpec(rng, settings, level, id) {
   const aggrS = S.enemyAggression;
   const lv = Math.pow(level, 0.45);
   let hp = (30 + 22 * scale * scale) * Math.sqrt(str) * lv * v(0.85, 1.15);
-  let strength = v(0.78, 1.0) * str * Math.pow(level, 0.25) * (0.85 + scale * 0.15);
+  let strength = v(0.7, 0.88) * str * Math.pow(level, 0.25) * (0.85 + scale * 0.15);
   let runSpeed = v(255, 325);
   let agility = v(0.75, 1.0);
   let moveSpeed = v(0.78, 0.96);
@@ -172,7 +174,7 @@ export function makeHeroSpec(settings) {
     color: '#0e0e10',
     colorFar: '#2a2a2e',
     scale: 1.04,
-    hp: Math.round(190 * S.heroEndurance),
+    hp: Math.round(230 * S.heroEndurance),
     stamina: 100 * (0.8 + 0.2 * S.heroEndurance),
     strength: 1.08 + 0.12 * (S.heroSkill - 1),
     runSpeed: 385 * S.heroSpeed,

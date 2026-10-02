@@ -43,13 +43,14 @@ export class Nav {
     return l;
   }
 
-  nextLink(from, to, x) {
+  nextLink(from, to, x, avoid = null) {
     if (from === to || from < 0 || to < 0) return null;
     let best = null;
     let bc = Infinity;
     const row = this.out[from];
     for (let i = 0; i < row.length; i++) {
       const l = row[i];
+      if (l === avoid) continue;
       const rest = l.to === to ? 0 : this.dist[l.to][to];
       if (rest === Infinity) continue;
       const lx = l.xa !== undefined ? clamp(x, l.xa, l.xb) : l.x;
@@ -69,13 +70,17 @@ export class Nav {
   }
 }
 
-function blockingSolid(L, x, y) {
-  const list = L.queryRect(x - 1, y - 1, x + 1, y + 1, []);
+// First solid inside the body-sized box a fighter would pass through when
+// stepping off a surface edge (x0..x1, y0..y1); the tallest one wins.
+function blockingSolid(L, x0, x1, y0, y1) {
+  const list = L.queryRect(x0, y0, x1, y1, []);
+  let best = null;
   for (const s of list) {
     if (s.oneWay || s.broken) continue;
-    if (x >= s.x && x <= s.x + s.w && y >= s.y && y <= s.y + s.h) return s;
+    if (s.x + s.w <= x0 || s.x >= x1 || s.y + s.h <= y0 || s.y >= y1) continue;
+    if (!best || s.y < best.y) best = s;
   }
-  return null;
+  return best;
 }
 
 export function buildNav(L) {
@@ -162,7 +167,8 @@ export function buildNav(L) {
   for (const S of flat) {
     for (const dir of [-1, 1]) {
       const end = dir < 0 ? S.x0 : S.x1;
-      const blk = blockingSolid(L, end + dir * 6, S.y - 12);
+      const bx = end + dir * 2;
+      const blk = blockingSolid(L, Math.min(bx, bx + dir * 22), Math.max(bx, bx + dir * 22), S.y - 90, S.y - 8);
       let vault = false;
       if (blk) {
         if (blk.kind === 'railing') vault = true;

@@ -85,8 +85,10 @@ export function processAttacks(sim) {
         if (t === a || t.removed || a.hitSet.has(t.id)) continue;
         if (!hostile(a, t)) continue;
         if (t.dead) continue;
+        const friendly = !a.isHero && !t.isHero;
         if (hit.ground) {
-          if (!(t.state === 'down' || t.state === 'ragdoll')) continue;
+          // stomps are aimed: nobody stamps on a fallen ally by accident
+          if (friendly || !(t.state === 'down' || t.state === 'ragdoll')) continue;
         } else if (t.ragdolled || t.state === 'grabbed') continue;
         if (t.iframe && t.state === 'move' && hit.height !== 'low') continue;
         if (t.invuln > 0) continue;
@@ -99,7 +101,8 @@ export function processAttacks(sim) {
         if (part < 0) continue;
         a.hitSet.add(t.id);
         resolveHit(sim, a, t, hit, part, sx1, sy1);
-        if (a.state !== 'move') break;
+        // an ally caught in the way absorbs the blow
+        if (a.state !== 'move' || friendly) break;
       }
       // strikes also shove props around
       sim.props.strikeProps(a, hit, sx0, sy0, sx1, sy1, r);
@@ -128,11 +131,25 @@ export function resolveHit(sim, a, t, hit, part, hx, hy) {
     return 'parry';
   }
 
+  // --- the hero's guard: set in his stance and facing the attacker, he
+  // catches many straight-on strikes on his arms (less so when tired)
+  let guarded = false;
+  if (t.isHero && t.grounded && facingToward(t, a) && hit.height !== 'low' && hit.height !== 'ground' && !hit.tackle && !friendly) {
+    // in his stance, or already snapping back from his own strike
+    let stance = 0;
+    if (t.state === 'ground') stance = 1;
+    else if (t.state === 'move' && t.move && t.move.type === 'strike' && t.move.hits.length && t.mt > t.move.hits[t.move.hits.length - 1].t1) stance = 0.6;
+    if (stance > 0) {
+      const chance = t.skill * 0.7 * stance * (1 - t.fatigue * 0.65) * (t.stamina > 10 ? 1 : 0.4) * (hit.kind === 'weapon' ? 0.5 : 1);
+      guarded = rng.chance(chance);
+    }
+  }
+
   // --- block
-  if (t.state === 'block' && facingToward(t, a) && hit.height !== 'low' && hit.height !== 'ground' && !hit.tackle) {
+  if ((guarded || t.state === 'block') && facingToward(t, a) && hit.height !== 'low' && hit.height !== 'ground' && !hit.tackle) {
     const chip = hit.dmg * a.strength * 0.1;
     t.damage(chip, a, 'beaten');
-    t.stamina -= hit.dmg * 1.5 + 3;
+    t.stamina -= t.isHero ? hit.dmg * 1.1 + 2 : hit.dmg * 1.5 + 3;
     t.blockStun = 0.1 + hit.stun * 0.45;
     const mf = clamp(9.25 / t.mass, 0.55, 1.5);
     t.vx = kdir * Math.abs(hit.kx) * 0.38 * mf * rv;
@@ -272,12 +289,14 @@ export function processBodyImpacts(sim) {
     const f = fighters[i];
     if (f.removed || !(f.ragdolled || f.state === 'grabbed') || f.rag.sleeping) continue;
     const pel = f.rag.p[PELVIS];
-    const vx = (pel.x - pel.px) / h;
-    const vy = (pel.y - pel.py) / h;
+    let vx = (pel.x - pel.px) / h;
+    let vy = (pel.y - pel.py) / h;
     const sp = Math.sqrt(vx * vx + vy * vy);
-    if (sp < 240) continue;
+    if (sp < 280) continue;
     sim.fighterHash.query(pel.x, pel.y, 70, near);
     for (let k = 0; k < near.length; k++) {
+      // each body it ploughs into in the same step takes momentum out of it
+      if (vx * vx + vy * vy < 280 * 280) break;
       const t = near[k];
       if (t === f || t.removed || t.dead || t.ragdolled || t.state === 'grabbed') continue;
       if (f.grabbedBy === t || t.victim === f) continue;
@@ -306,32 +325,58 @@ export function processBodyImpacts(sim) {
       if (!hit) continue;
       const dirx = Math.sign(t.x - pel.x) || Math.sign(vx) || 1;
       const rel = (vx - t.vx) * dirx;
-      if (rel < 140 && Math.abs(vy) < 500) continue;
+      if (rel < 190 && Math.abs(vy) < 500) continue;
+      if (t.isHero) {
+        // he controls where his own victims fly; only hard, foreign impacts count
+        const src = f.knock ? f.knock.by : f.thrownBy;
+        if (src === t || rel < 260) continue;
+      }
       pairT.set(key, now);
       const impact = Math.sqrt(rel * rel + vy * vy * 0.3);
       const mf = f.mass;
       const mt = t.mass;
-      const share = mf / (mf + mt);
-      const tvx = dirx * Math.max(rel, 0) * share * 1.15 * sim.settings.physicsIntensity;
-      const dmg = impact * 0.011 * (mf / 9.25);
-      const thresh = 300 * Math.sqrt(t.toughness * (mt / 9.25)) * (t.state === 'block' ? 1.4 : 1);
-      const by = f.knock ? f.knock.by : f.thrownBy || null;
-      t.damage(dmg, by, 'body');
-      if (impact > thresh || t.state === 'hitstun' || t.poise < t.maxPoise * 0.3) {
-        t.knockdown(tvx, -Math.min(260, impact * 0.25), { joint: PELVIS, jx: tvx * 0.3, jy: -60 });
-        t.knock = { by, chainId: f.knock ? f.knock.chainId : sim.newChain(by), depth: (f.knock ? f.knock.depth : 0) + 1, time: now, kind: 'body', via: f };
-        sim.onChain(t.knock, t, f);
+      // a planted fighter is effectively heavier: his feet bleed momentum
+      // into the floor, so chains lose energy at every link. A freshly
+      // launched body is the exception: it ploughs on through the next man.
+      const depth = f.knock ? f.knock.depth : 0;
+      const fresh = depth === 0;
+      const mtEff = mt * (!t.grounded ? 1 : fresh ? 1.15 : 1.6);
+      const share = mf / (mf + mtEff);
+      const tvx = dirx * Math.max(rel, 0) * share * 1.12 * sim.settings.physicsIntensity;
+      let dmg = Math.max(0, impact - 160) * 0.014 * (mf / 9.25);
+      let thresh = 300 * Math.sqrt(t.toughness * (mt / 9.25)) * (t.state === 'block' ? 1.4 : 1) * (1 + depth * 0.5);
+      if (t.isHero) {
+        // a trained fighter braces and rides the impact
+        thresh *= t.state === 'block' ? 3.2 : 2.3;
+        dmg *= 0.45;
       } else {
-        t.hitstun(0.32, tvx * 0.7, 0, true);
+        // already reeling or worn down: easier to bowl over
+        if (t.state === 'hitstun') thresh *= 0.8;
+        if (t.poise < t.maxPoise * 0.3) thresh *= 0.82;
+      }
+      const by = f.knock ? f.knock.by : f.thrownBy || null;
+      if (dmg > 0) t.damage(dmg, by, 'body');
+      const ratio = impact / thresh;
+      if (ratio > 1) {
+        t.knockdown(tvx, -Math.min(260, impact * 0.25), { joint: PELVIS, jx: tvx * 0.3, jy: -60 });
+        t.knock = { by, chainId: f.knock ? f.knock.chainId : sim.newChain(by), depth: depth + 1, time: now, kind: 'body', via: f };
+        sim.onChain(t.knock, t, f);
+      } else if (ratio > 0.5 || t.isHero) {
+        t.hitstun(0.16 + ratio * 0.2, tvx * 0.7, 0, true);
         t.rag.addVelAt(PELVIS, tvx, -40, h, 0.5);
+      } else {
+        // a glancing bump: shoved aside, no stagger
+        t.vx += tvx * 0.6;
       }
       t.flash = Math.max(t.flash, 0.6);
-      // the flying body loses momentum
-      const keep = 1 - (mt / (mf + mt)) * 0.75;
+      // the flying body loses momentum (slightly inelastic exchange)
+      const keep = clamp((mf - 0.12 * mtEff) / (mf + mtEff) + (fresh ? 0.22 : 0), 0.1, 0.9);
       for (const p of f.rag.p) {
         p.px = p.x - (p.x - p.px) * keep;
         p.py = p.y - (p.y - p.py) * (0.6 + keep * 0.4);
       }
+      vx = (pel.x - pel.px) / h;
+      vy = (pel.y - pel.py) / h;
       sim.emit({ t: 'thud', x: (pel.x + t.x) / 2, y: t.y - 50, power: impact / 500, body: true });
       if (by === t) continue;
       if (t.brain && t.brain.onHit) t.brain.onHit(by, dmg, true);
@@ -349,7 +394,7 @@ export function processTrips(sim) {
   for (const t of sim.fighters) {
     if (t.removed || t.dead || t.state !== 'ground' || !t.grounded) continue;
     const sp = Math.abs(t.vx);
-    if (sp < 200) continue;
+    if (sp < 200 || now < (t.tripSafeT || 0)) continue;
     sim.bodyHash.query(t.x + Math.sign(t.vx) * 14, t.y - 8, 18, near);
     for (const b of near) {
       if (b === t || b.removed) continue;
@@ -367,10 +412,13 @@ export function processTrips(sim) {
       }
       if (!under) continue;
       const care = t.isHero ? 0.97 : t.intelligence * 0.55 + t.agility * 0.25;
-      const pTrip = clamp(0.5 - care * 0.5, 0.02, 0.5) * clamp((sp - 180) / 200, 0.2, 1);
+      const pTrip = clamp(0.38 - care * 0.42, 0.02, 0.36) * clamp((sp - 180) / 200, 0.2, 1);
+      // having stepped over one body he watches his feet for a moment
+      t.tripSafeT = now + 1.1;
       if (sim.rng.chance(pTrip)) {
-        t.knockdown(t.vx * 0.85, -170, { spin: t.facing * 7 });
-        t.knock = { by: b.knock ? b.knock.by : null, chainId: b.knock ? b.knock.chainId : 0, depth: 1, time: now, kind: 'trip' };
+        // a trip sends you down more than forward
+        t.knockdown(t.vx * 0.55, -130, { spin: t.facing * 5.5 });
+        t.knock = { by: b.knock ? b.knock.by : null, chainId: b.knock ? b.knock.chainId : 0, depth: 2, time: now, kind: 'trip' };
         sim.emit({ t: 'trip', a: t, b, x: t.x, y: t.y });
       } else {
         t.hopT = 0.2; // brief lifted step over the body

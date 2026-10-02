@@ -834,17 +834,30 @@ function applyCondition(L, condition, rng) {
   if (condition === 'wet') {
     L.friction = 0.42;
     if (L.outdoor) L.rain = true;
-    L.puddles = [];
-    for (const f of L.floors) {
-      const n = rng.int(2, 4);
-      for (let i = 0; i < n; i++) L.puddles.push({ x: rng.range(f.x0 + 80, f.x1 - 80), y: f.y, w: rng.range(120, 300) });
-    }
+    L.puddles = []; // placed once the collision grid exists (placePuddles)
   } else if (condition === 'wind') {
     L.wind = rng.sign() * rng.range(90, 170);
   } else if (condition === 'dark') {
     L.dark = true;
   } else if (condition === 'smoke') {
     L.smoke = true;
+  }
+}
+
+// Puddles only where there is open floor under their whole width.
+function placePuddles(L, rng) {
+  const onFloor = (x, y) => {
+    const g = L.groundUnder(x - 1, x + 1, y - 3, 6, false);
+    return g && Math.abs(g.y - y) < 2;
+  };
+  for (const so of L.solids) {
+    if (so.oneWay || so.w < 220 || !(so.kind === 'ground' || so.kind === 'floor' || so.kind === 'roof')) continue;
+    const n = rng.int(1, so.w > 900 ? 4 : 2);
+    for (let i = 0; i < n; i++) {
+      const w = Math.min(rng.range(120, 300), so.w * 0.5);
+      const x = rng.range(so.x + w / 2 + 12, so.x + so.w - w / 2 - 12);
+      if (onFloor(x - w / 2, so.y) && onFloor(x, so.y) && onFloor(x + w / 2, so.y)) L.puddles.push({ x, y: so.y, w });
+    }
   }
 }
 
@@ -865,6 +878,7 @@ export function generateLevel(seed, settings) {
   else buildConstruction(b);
   applyCondition(L, condition, rng);
   L.buildGrid();
+  if (L.puddles) placePuddles(L, rng);
   buildNav(L);
   return L;
 }

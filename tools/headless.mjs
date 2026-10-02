@@ -19,7 +19,22 @@ for (let i = 0; i < N; i++) {
   let steps = 0;
   let peakFighters = 0;
   const causes = {};
+  const heroDmg = {};
+  const heroKD = {};
+  let downTime = 0;
   let lastLog = 0;
+  const hero = sim.hero;
+  const origDamage = hero.damage.bind(hero);
+  hero.damage = (amt, by, cause) => {
+    heroDmg[cause] = (heroDmg[cause] || 0) + amt;
+    return origDamage(amt, by, cause);
+  };
+  const origKD = hero.knockdown.bind(hero);
+  hero.knockdown = (vx, vy, o) => {
+    const why = hero.state === 'move' && hero.move ? 'during ' + hero.move.id : hero.state;
+    heroKD[why] = (heroKD[why] || 0) + 1;
+    return origKD(vx, vy, o);
+  };
   while (steps < maxSteps) {
     sim.step();
     steps++;
@@ -27,6 +42,7 @@ for (let i = 0; i < N; i++) {
       if (e.t === 'ko') causes[e.cause] = (causes[e.cause] || 0) + 1;
     }
     peakFighters = Math.max(peakFighters, sim.fighters.length);
+    if (hero.ragdolled) downTime += sim.dt;
     if (sim.over && sim.overT > 2) break;
     if (process.env.VERBOSE && sim.time - lastLog >= 30) {
       lastLog = sim.time;
@@ -52,6 +68,9 @@ for (let i = 0; i < N; i++) {
     dodges: sim.hero.stats.dodges,
     msPerSimSec: (ms / sim.time).toFixed(1),
     causes: JSON.stringify(causes),
+    heroDmg: JSON.stringify(Object.fromEntries(Object.entries(heroDmg).map(([k, v]) => [k, Math.round(v)]))),
+    heroKD: JSON.stringify(heroKD),
+    downPct: ((downTime / sim.time) * 100).toFixed(0) + '%',
   };
   results.push(r);
   console.log(JSON.stringify(r));

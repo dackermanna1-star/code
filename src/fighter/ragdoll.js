@@ -40,6 +40,15 @@ export class Ragdoll {
     this.sleeping = false;
     this.sleepT = 0;
     this.maxImpact = 0;
+    this.settle = 0; // 0..1 extra damping for slow, piled-up bodies
+    this.coreAvg = 0; // smoothed core speed (sleep test ignores contact jitter)
+  }
+
+  // Speed of the heavy core (pelvis and neck), ignoring flailing limbs.
+  coreSpeed(h) {
+    const a = this.p[2];
+    const b = this.p[1];
+    return Math.max(Math.abs(a.x - a.px) + Math.abs(a.y - a.py), Math.abs(b.x - b.px) + Math.abs(b.y - b.py)) / h;
   }
 
   setFromJoints(j) {
@@ -126,9 +135,10 @@ export class Ragdoll {
     const p = this.p;
     const gm = g * (1 - muscle * 0.92);
     const maxDisp = 34;
+    const dr = drag - this.settle * 0.06;
     for (let i = 0; i < NJ; i++) {
       p[i].ground = false;
-      integrate(p[i], h, gm, drag, maxDisp);
+      integrate(p[i], h, gm, dr, maxDisp);
     }
     if (muscle > 0 && targets) {
       const k = muscle * muscle * 0.55 + muscle * 0.1;

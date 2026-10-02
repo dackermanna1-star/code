@@ -45,7 +45,9 @@ export class Director {
     }
     if (sim.over) return;
     const active = sim.enemiesAlive;
-    const ramp = clamp(0.3 + sim.time / 70, 0.3, 1);
+    // the crowd grows over the first couple of minutes: he gets to show
+    // what he can do before the numbers start to tell
+    const ramp = clamp(0.24 + sim.time / 150, 0.24, 1);
     const pf = this.phase === 'peak' ? 1.15 : this.phase === 'relax' ? 0.45 : 0.65 + 0.35 * clamp(this.phaseT / this.phaseDur, 0, 1);
     const target = Math.max(2, S.maxActive * ramp * pf);
     const rf = this.phase === 'peak' ? 2.2 : this.phase === 'relax' ? 0.35 : 1;
@@ -68,7 +70,8 @@ export class Director {
       this.phaseDur = rng.range(9, 15) * S.randomness + 12 * (1 - S.randomness);
       this.wave++;
       const cap = Math.max(0, Math.round(S.maxActive * 1.1) - sim.enemiesAlive - this.queue.length);
-      const n = Math.min(cap, Math.round((3 + this.level * 2.4 + S.maxActive * 0.18) * S.spawnRate), this.remaining);
+      const early = clamp(0.55 + sim.time / 240, 0.55, 1);
+      const n = Math.min(cap, Math.round((3 + this.level * 2.4 + S.maxActive * 0.18) * S.spawnRate * early), this.remaining);
       if (n > 0) {
         this.alarm = 4;
         sim.emit({ t: 'wave', n: this.wave, count: n });

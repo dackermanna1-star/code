@@ -122,7 +122,9 @@ export class EnemyBrain {
     let priority = f.aggression + (behind ? 0.6 * f.intelligence : 0) + (heroDown ? 0.5 : 0) + (heroHeld ? 0.9 : 0) - dist / 900 + sim.rng.range(0, 0.3);
     if (f.personality === 'flanker' && behind) priority += 0.5;
     let go = false;
-    if (!this.usesTokens || heroHeld || (heroDown && f.aggression > 0.4)) go = true;
+    // the impatient ones barge in, but even they need room to swing
+    if (heroHeld) go = true;
+    else if (!this.usesTokens) go = sim.tokens.holders.size <= sim.tokens.max || sim.tokens.request(f, priority + 0.6);
     else go = sim.tokens.request(f, priority);
     if (f.personality === 'hesitant' && !heroDown && !heroHeld && sim.rng.chance(0.5)) {
       const busy = hero.state === 'move' || hero.state === 'held';
@@ -217,6 +219,20 @@ export class EnemyBrain {
     f.lookTarget = hero;
     f.stance = 'guard';
     it.target = hero;
+
+    // the sharper ones scatter from a hissing canister
+    if (f.intelligence > 0.35) {
+      for (const b of sim.props.boxes) {
+        if (b.fuse < 0 || sim.time - (b.fuseT || 0) < f.reaction) continue;
+        const [cx, cy] = b.center();
+        if (Math.abs(cx - f.x) < 190 && Math.abs(cy - (f.y - 30)) < 140 && (b.id + f.id) % 10 < f.intelligence * 10) {
+          it.mx = Math.sign(f.x - cx) || 1;
+          it.run = true;
+          it.face = it.mx;
+          return;
+        }
+      }
+    }
 
     switch (this.mode) {
       case 'search': {
@@ -321,14 +337,14 @@ export class EnemyBrain {
             it.action = this.planned;
             this.lastAttack = sim.time;
             // hit-and-run vs keep pressing
-            if (sim.rng.chance(0.35 + f.aggression * 0.45)) {
+            if (sim.rng.chance(0.22 + f.aggression * 0.38)) {
               this.planAttack(dist, false, hero.state === 'held');
-              this.cooldown = sim.rng.range(0.05, 0.35) / (0.5 + f.aggression);
+              this.cooldown = sim.rng.range(0.08, 0.4) / (0.5 + f.aggression);
               this.thinkT = Math.max(this.thinkT, 0.25);
             } else {
               this.mode = 'wait';
               this.releaseToken();
-              this.cooldown = sim.rng.range(0.35, 1.1) * (1.35 - f.aggression);
+              this.cooldown = sim.rng.range(0.55, 1.4) * (1.4 - f.aggression * 0.7);
             }
           }
         }
@@ -361,7 +377,8 @@ export class TokenManager {
   update() {
     const S = this.sim.settings;
     const lvl = this.sim.director.level;
-    this.max = Math.max(1, Math.round(1.6 + lvl * 1.3 + (S.enemyIntelligence - 1) * 1.2 + (S.enemyAggression - 1) * 2.5));
+    // early on the crowd takes turns; escalation lets more of them in at once
+    this.max = Math.max(1, Math.round(0.9 + lvl * 1.1 + (S.enemyIntelligence - 1) * 1.2 + (S.enemyAggression - 1) * 2.5));
     const now = this.sim.time;
     for (const [f, t] of this.holders) {
       if (f.dead || f.removed || now - t > 3.2 || Math.abs(f.x - this.sim.hero.x) > 420) this.holders.delete(f);

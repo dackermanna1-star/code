@@ -174,8 +174,9 @@ export class FX {
         const R = e.R || 220;
         this.spawn({ type: 'flash', x: e.x, y: e.y, life: 0.22, size: R * 0.9, color: '255,240,200', add: true });
         this.spawn({ type: 'ring', x: e.x, y: e.y, life: 0.35, size: 20, grow: R * 3.2, color: '255,230,190', alpha: 0.7 });
-        this.burst('fire', e.x, e.y, 34, { speed: [60, 520], life: [0.3, 0.75], size: [12, 30], grow: -18, color: '255,150,50', g: -200, drag: 3, add: true });
-        this.burst('smoke', e.x, e.y, 22, { speed: [30, 220], life: [1.2, 2.6], size: [18, 34], grow: 40, color: '70,66,64', g: -60, drag: 1.6, alpha: 0.55 });
+        this.burst('fire', e.x, e.y, 26, { speed: [60, 480], life: [0.25, 0.6], size: [10, 24], grow: -16, color: '255,120,30', g: -220, drag: 3.2 });
+        this.burst('fire', e.x, e.y, 10, { speed: [20, 200], life: [0.12, 0.3], size: [14, 26], grow: -30, color: '255,236,170', g: -100, drag: 3, add: true });
+        this.burst('smoke', e.x, e.y, 20, { speed: [30, 200], life: [1.2, 2.6], size: [16, 30], grow: 38, color: '58,54,52', g: -60, drag: 1.6, alpha: 0.6 });
         this.burst('chip', e.x, e.y, 20, { speed: [200, 700], life: [0.6, 1.4], size: [2, 4], color: '60,55,50', g: 1500, floor: this.floorBelow(sim, e.x, e.y) });
         this.flashScreen(0.45, '255,236,200');
         this.lights.push({ x: e.x, y: e.y, r: R * 2.4, life: 0.9, max: 0.9, color: '255,180,90' });
@@ -388,7 +389,8 @@ function drawParticle(ctx, p, k) {
       break;
     }
     case 'fire': {
-      ctx.fillStyle = `rgba(${k > 0.6 ? '255,230,160' : p.color},${a * 0.8})`;
+      const col = p.add ? p.color : k > 0.7 ? '255,214,90' : k > 0.4 ? p.color : '170,50,20';
+      ctx.fillStyle = `rgba(${col},${a * 0.9})`;
       ctx.beginPath();
       ctx.arc(p.x, p.y, Math.max(1, p.size), 0, TAU);
       ctx.fill();

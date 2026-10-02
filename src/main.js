@@ -153,13 +153,17 @@ export function start(root) {
       acc += realDt * ts;
       const t0 = performance.now();
       let steps = 0;
-      while (acc >= SIM_DT && steps < 8) {
+      // fixed steps within a time budget; when a huge crowd makes the
+      // simulation slower than real time, drop the backlog (the action runs
+      // a little slower) instead of spiralling into ever longer frames
+      while (acc >= SIM_DT && steps < 6) {
         lastStepAdvanced = sim.step();
         routeEvents(sim.drainEvents());
         acc -= SIM_DT;
         steps++;
+        if (performance.now() - t0 > 13) break;
       }
-      if (steps >= 8) acc = 0;
+      if (acc > SIM_DT * 2) acc = SIM_DT * 0.5;
       perf.simMs += (performance.now() - t0 - perf.simMs) * 0.1;
       if (!wasSlow && cam.slow) audio.handle({ t: 'slowmo' }, cam, sim);
       fx.update(realDt * ts, sim, cam.view(W, H), S);

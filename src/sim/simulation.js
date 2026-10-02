@@ -3,10 +3,11 @@
 
 import { SIM_DT, SUBSTEPS, BASE_GRAVITY, sanitizeSettings } from '../config.js';
 import { RNG, mixSeed } from '../core/rng.js';
-import { SpatialHash } from '../core/spatial.js';
+import { PointGrid } from '../core/spatial.js';
 import { clamp } from '../core/math.js';
-import { collideParticles } from '../physics/particles.js';
+import { collideParticles, collideStatic } from '../physics/particles.js';
 import { generateLevel } from '../world/generator.js';
+import { buildNav } from '../world/nav.js';
 import { Props, WEAPONS } from '../world/props.js';
 import { Hazards } from '../world/hazards.js';
 import { Fighter } from '../fighter/fighter.js';
@@ -21,6 +22,8 @@ const CORE = [HEAD, NECK, PELVIS, KNEE_A, KNEE_B];
 export const ENV_CAUSES = new Set(['electric', 'fell', 'window', 'explosion', 'steam', 'wall', 'object']);
 const LEGS = [PELVIS, KNEE_A, FOOT_A, KNEE_B, FOOT_B];
 const near = [];
+const byX = (a, b) => a.x - b.x;
+const MAX_PART_R = 20; // largest ragdoll particle (a big brute's head)
 
 export class Simulation {
   constructor(settings, seed, number = 1) {
@@ -41,9 +44,17 @@ export class Simulation {
     this.enemies = [];
     this.hero = null;
     this.enemiesAlive = 0;
-    this.fighterHash = new SpatialHash(96, '_hf');
-    this.bodyHash = new SpatialHash(96, '_hb');
-    this.partHash = new SpatialHash(48, '_hp');
+    // particle grids: simulated body particles, and animated legs (which only
+    // shove props). Points sit in one cell; queries add MAX_PART_R.
+    const B = this.level.bounds;
+    this.fighterHash = new PointGrid(96, 30);
+    this.fighterHash.setBounds(B.left - 300, B.top - 900, B.right + 300, this.level.killY + 50);
+    this.bodyHash = new PointGrid(96, 40);
+    this.bodyHash.setBounds(B.left - 300, B.top - 900, B.right + 300, this.level.killY + 50);
+    this.partHash = new PointGrid(24);
+    this.partHash.setBounds(B.left - 300, B.top - 900, B.right + 300, this.level.killY + 50);
+    this.kinHash = new PointGrid(32);
+    this.kinHash.setBounds(B.left - 300, B.top - 900, B.right + 300, this.level.killY + 50);
     this.events = [];
     this.pairT = new Map();
     this.tripT = new Map();
@@ -55,7 +66,12 @@ export class Simulation {
     this.windNow = 0;
     this.over = null;
     this.overT = 0;
-    this.corpseCap = this.settings.quality === 'low' ? 70 : 160;
+    // corpses: the newest stay physical (piles, trips); older ones are baked
+    // into frozen scenery that costs nothing; the oldest finally fade away
+    const low = this.settings.quality === 'low';
+    this.physCorpseCap = low ? 32 : 60;
+    this.corpseCap = low ? 110 : 240;
+    this.corpseList = [];
     this.stats = {
       defeated: 0, spawned: 0, hits: 0, taken: 0, blocks: 0, dodges: 0, parries: 0, throws: 0,
       envKOs: 0, friendlyKOs: 0, bestChain: 0, bestCombo: 0, maxEngaged: 0, damageTaken: 0,
@@ -199,7 +215,8 @@ export class Simulation {
         const f = fighters[i];
         if (f.kinematic || f.removed || f.rag.sleeping) continue;
         const far = Math.abs(f.x - this.hero.x) > 1500;
-        f.rag.step(h, g, L, f.muscle > 0 ? f.jt : null, f.muscle, mu, 0.22, far ? 2 : 4);
+        if (far && s > 0 && f.ragdolled) continue; // distant bodies: one substep is plenty
+        f.rag.step(far && f.ragdolled ? h * 2 : h, g, L, f.muscle > 0 ? f.jt : null, f.muscle, mu, 0.22, far ? 2 : 4);
         if (f.state === 'grabbed') this.applyPins(f);
         if (this.windNow && f.ragdolled) for (const p of f.rag.p) p.addVel(this.windNow * h * 0.5, 0, h);
       }
@@ -241,14 +258,14 @@ export class Simulation {
     bh.clear();
     let alive = 0;
     for (const f of this.fighters) {
-      if (f.removed) continue;
+      if (f.removed || f.baked) continue;
       if (f.ragdolled && (f.state === 'ko' || f.state === 'down')) {
-        bh.insert(f, f.rag.p[PELVIS].x, f.y - 10, 40);
+        bh.insert(f, f.rag.p[PELVIS].x, f.y - 10);
         if (f.state === 'ko' && f.rag.sleeping) continue;
       }
       const cx = f.ragdolled ? f.rag.p[PELVIS].x : f.x;
       const cy = f.ragdolled ? f.rag.p[PELVIS].y : f.y - 45;
-      fh.insert(f, cx, cy, 30);
+      fh.insert(f, cx, cy);
       if (!f.isHero && !f.dead) alive++;
     }
     this.enemiesAlive = alive;
@@ -256,44 +273,63 @@ export class Simulation {
 
   rebuildPartHash() {
     const ph = this.partHash;
+    const kh = this.kinHash;
     ph.clear();
+    kh.clear();
+    const hx = this.hero.x;
     for (const f of this.fighters) {
-      if (f.removed) continue;
+      if (f.removed || f.baked) continue;
       const kin = f.kinematic;
+      if (kin && Math.abs(f.x - hx) > 1400) continue;
       const list = kin ? LEGS : CORE;
-      if (kin && Math.abs(f.x - this.hero.x) > 1400) continue;
+      const hash = kin ? kh : ph;
       for (let i = 0; i < list.length; i++) {
         const p = f.rag.p[list[i]];
         p.owner = f;
         p.kin = kin;
-        ph.insert(p, p.x, p.y, p.r + 6);
+        hash.insert(p, p.x, p.y);
       }
     }
   }
 
   // Ragdoll vs ragdoll: bodies pile up instead of overlapping.
   collideBodies() {
+    const P = this.partHash;
     for (const f of this.fighters) {
       if (f.kinematic || f.removed || f.rag.sleeping) continue;
+      const rp = f.rag.p;
       for (let i = 0; i < CORE.length; i++) {
-        const p = f.rag.p[CORE[i]];
-        this.partHash.query(p.x, p.y, p.r + 12, near);
+        const p = rp[CORE[i]];
+        const reach = p.r + MAX_PART_R;
+        P.query(p.x, p.y, reach + 4, near);
         for (let k = 0; k < near.length; k++) {
           const q = near[k];
           const o = q.owner;
-          if (o === f || q.kin || o.removed) continue;
-          if (!o.rag.sleeping && o.id < f.id) continue;
-          if (collideParticles(p, q, 0.05) && o.rag.sleeping) {
+          if (o === f || o.removed) continue;
+          const ddx = q.x - p.x;
+          const ddy = q.y - p.y;
+          const rr = p.r + q.r;
+          if (ddx * ddx + ddy * ddy >= rr * rr) continue;
+          if (o.rag.sleeping) {
+            // resting on a sleeping body: it is static ground unless hit hard
             const rv = Math.abs(p.x - p.px) + Math.abs(p.y - p.py);
-            if (rv > 1.2) {
+            if (rv > 2.5 && Math.abs(p.x - q.x) + Math.abs(p.y - q.y) < p.r + q.r) {
               o.rag.sleeping = false;
               o.rag.sleepT = 0;
-            } else {
-              // resting on a sleeping body: it acts as static ground
-              q.x = q.ox;
-              q.y = q.oy;
-            }
+              collideParticles(p, q, 0.05);
+            } else collideStatic(p, q);
+            continue;
           }
+          if (o.id < f.id) continue;
+          const hit = collideParticles(p, q, 0.05);
+          if (hit && !o.rag.sleeping && f.rag.settle > 0.3 && o.rag.settle > 0.3) {
+            // two slow bodies grinding against each other: bleed energy
+            p.px += (p.x - p.px) * 0.4;
+            p.py += (p.y - p.py) * 0.4;
+            q.px += (q.x - q.px) * 0.4;
+            q.py += (q.y - q.py) * 0.4;
+          }
+
         }
       }
     }
@@ -325,30 +361,44 @@ export class Simulation {
         this.outOfBounds(f);
         continue;
       }
-      // sleep settled bodies
-      if (f.state === 'ko' || (f.state === 'down' && f.dead)) {
-        if (rag.maxSpeed(h) < 20) {
-          rag.sleepT += dt;
-          if (rag.sleepT > 0.8) {
-            rag.sleeping = true;
-            for (const p of rag.p) {
-              p.px = p.x;
-              p.py = p.y;
-            }
+      // slow bodies get extra damping so piles settle instead of jostling
+      const core = rag.coreSpeed(h);
+      rag.coreAvg += (core - rag.coreAvg) * 0.2;
+      rag.settle = f.ragdolled ? clamp((90 - core) / 70, 0, 1) : 0;
+      // sleep settled bodies. The smoothed speed ignores the contact jitter of
+      // a pile; long-dead bodies are put to rest more and more firmly.
+      if (f.dead && f.ragdolled && f.state !== 'zap') {
+        const age = this.time - f.koTime;
+        const lim = age > 5 ? 70 : 32;
+        if (rag.coreAvg < lim) {
+          rag.sleepT += dt * (age > 5 ? 2 : 1);
+        } else if (rag.coreAvg > lim * 1.7 || core > 320) rag.sleepT = 0;
+        if (rag.sleepT > 0.45 || (age > 12 && core < 160)) {
+          rag.sleeping = true;
+          rag.coreAvg = 0;
+          for (const p of rag.p) {
+            p.px = p.x;
+            p.py = p.y;
           }
-        } else rag.sleepT = 0;
+        }
       }
     }
   }
 
-  // Crowd separation between standing fighters.
+  // Crowd separation between standing fighters (sort and sweep along x).
   separate() {
+    const list = this.sepList || (this.sepList = []);
+    list.length = 0;
     for (const f of this.fighters) {
       if (f.removed || f.ragdolled || f.state === 'grabbed' || f.passT > 0 || f.state === 'held' || f.state === 'holding') continue;
-      this.fighterHash.query(f.x, f.y - 45, 40, near);
-      for (const g of near) {
-        if (g.id <= f.id || g.removed || g.ragdolled || g.state === 'grabbed' || g.passT > 0) continue;
-        if (g.state === 'held' || g.state === 'holding') continue;
+      list.push(f);
+    }
+    list.sort(byX);
+    for (let i = 0; i < list.length; i++) {
+      const f = list[i];
+      for (let j = i + 1; j < list.length; j++) {
+        const g = list[j];
+        if (g.x - f.x > 40) break;
         if (Math.abs(g.y - f.y) > 34) continue;
         const minSep = (f.w + g.w) * 0.5 * 0.86;
         const dx = g.x - f.x;
@@ -368,18 +418,32 @@ export class Simulation {
   }
 
   cleanup(dt) {
-    let corpses = 0;
-    for (let i = this.fighters.length - 1; i >= 0; i--) {
+    let phys = 0;
+    let all = 0;
+    for (let i = 0; i < this.fighters.length; i++) {
       const f = this.fighters[i];
-      if (f.dead && !f.isHero && f.state === 'ko' && f.rag.sleeping) corpses++;
+      if (!f.dead || f.isHero || f.removed || f.fading) continue;
+      all++;
+      if (!f.baked) phys++;
     }
-    if (corpses > this.corpseCap) {
-      let excess = corpses - this.corpseCap;
-      for (const f of this.fighters) {
-        if (excess <= 0) break;
-        if (f.dead && !f.isHero && f.state === 'ko' && f.rag.sleeping && !f.fading) {
+    if (phys > this.physCorpseCap || all > this.corpseCap) {
+      const list = this.corpseList;
+      list.length = 0;
+      for (const f of this.fighters) if (f.dead && !f.isHero && !f.removed && !f.fading) list.push(f);
+      list.sort((a, b) => a.koTime - b.koTime);
+      let bake = phys - this.physCorpseCap;
+      let fade = all - this.corpseCap;
+      for (const f of list) {
+        if (fade > 0) {
           f.fading = 1;
-          excess--;
+          fade--;
+          if (!f.baked) bake--;
+          continue;
+        }
+        if (bake <= 0) break;
+        if (!f.baked && f.state === 'ko' && f.rag.sleeping) {
+          f.baked = true;
+          bake--;
         }
       }
     }
@@ -459,6 +523,9 @@ export class Simulation {
   breakSolid(s, x, y, speed) {
     if (s.broken) return;
     this.level.breakSolid(s);
+    // a smashed skylight is a hole in the floor: re-plan the walkways so
+    // everyone jumps it instead of strolling into it
+    if (s.kind === 'skylight') this.nav = buildNav(this.level);
     this.emit({ t: 'break', material: 'glass', x, y, power: Math.min(1.6, speed / 600), solid: s });
     if (s.kind === 'skylight') this.level.ledges.push({ x0: s.x, x1: s.x + s.w, y: s.y, floor: 0, skylight: true });
     // whoever smashed through gets tagged for "thrown through the window"
@@ -483,6 +550,7 @@ export class Simulation {
       const cy = f.ragdolled ? f.rag.p[PELVIS].y : f.y - 45;
       const d = Math.hypot(cx - x, cy - y);
       if (d > R) continue;
+      f.baked = false; // blasted scenery comes back to life
       const k = 1 - d / R;
       const nx = (cx - x) / (d || 1);
       const ny = (cy - y) / (d || 1) - 0.55;

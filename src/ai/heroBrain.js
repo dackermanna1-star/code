@@ -96,13 +96,92 @@ export class HeroBrain {
       this.evaluateTactics();
       this.evalT = 0.35 + this.sim.rng.range(0, 0.25);
     }
+    if (this.evadeBlast()) return;
     if (this.defend()) return;
+    if (this.offGlass()) return;
+    if (this.guardUp()) return;
     if (it.block) {
       it.mx = 0;
       return;
     }
     if (this.offend()) return;
     this.position(dt);
+  }
+
+  // Hands up: someone squared up in front is about to throw, and he has
+  // read it. He waits behind his guard rather than trading.
+  guardUp() {
+    const f = this.f;
+    const sim = this.sim;
+    if (!f.canAct() || f.stamina < 12) return false;
+    for (const t of this.threats) {
+      if (!t.imminent || t.behind || t.ad > 120 || !t.rec || t.rec.start !== 'pending') continue;
+      if (!t.rec.guard || t.rec.missed || sim.time < t.rec.at) continue;
+      const it = f.intent;
+      it.block = true;
+      it.face = t.side;
+      it.mx = 0;
+      this.blockUntil = Math.max(this.blockUntil, sim.time + 0.12);
+      if (this.mindT <= 0) this.say('Guard up', 0.5);
+      return true;
+    }
+    return false;
+  }
+
+  // Never fight standing on a skylight: one heavy landing and it gives way.
+  offGlass() {
+    const f = this.f;
+    const g = f.groundSolid;
+    if (!f.grounded || !g || g.kind !== 'skylight' || g.broken || !f.canAct()) return false;
+    const it = f.intent;
+    const left = f.x - g.x;
+    const right = g.x + g.w - f.x;
+    it.mx = left < right ? -1 : 1;
+    it.run = true;
+    it.block = false;
+    if (this.mindT <= 0) this.say('Off the glass', 0.6);
+    return true;
+  }
+
+  // A hissing canister nearby: get clear before it goes up.
+  evadeBlast() {
+    const f = this.f;
+    const sim = this.sim;
+    let bomb = null;
+    let bd = 300;
+    for (const b of sim.props.boxes) {
+      if (b.fuse < 0 || sim.time - (b.fuseT || 0) < f.reaction) continue;
+      const [cx, cy] = b.center();
+      const d = Math.abs(cx - f.x);
+      if (d < bd && Math.abs(cy - (f.y - 30)) < 160) {
+        bd = d;
+        bomb = cx;
+      }
+    }
+    if (bomb === null) return false;
+    const it = f.intent;
+    const away = Math.sign(f.x - bomb) || -f.facing;
+    if (f.canAct() && bd < 150 && f.stamina > 10 && this.spaceToward(away) > 120) {
+      it.face = away;
+      it.action = 'roll';
+    } else {
+      it.mx = away;
+      it.run = true;
+      it.face = away;
+    }
+    it.block = false;
+    this.say('Live canister!', 0.8);
+    return true;
+  }
+
+  // How long until he registers a threat, and the chance he misses it.
+  readDelay(behind) {
+    const f = this.f;
+    const sim = this.sim;
+    const load = Math.max(0, this.engaged - 3) * 0.12;
+    const delay = f.reaction * (1 + f.fatigue * 1.5 + load) * (behind ? 1.6 : 1) * (sim.level.dark ? 1.25 : 1) * sim.rng.range(0.75, 1.25);
+    const pMiss = clamp(f.fatigue * 0.28 + Math.max(0, this.engaged - 4) * 0.045 + (behind ? 0.13 : 0.015) - (f.skill - 0.85) * 0.5, 0, 0.65);
+    return { delay, pMiss };
   }
 
   threatsAttacking() {
@@ -131,6 +210,21 @@ export class HeroBrain {
       const side = Math.sign(dx) || 1;
       const behind = side !== f.facing;
       const t = { e, dx, ad, dy, side, behind, attacking: false, perceived: false, tth: 9, move: null, down: e.ragdolled };
+      // anticipation: someone stepping into range with intent reads as a
+      // threat, and the read starts his reaction clock before the punch does
+      if (!e.ragdolled && e.brain && e.brain.mode === 'attack' && e.state === 'ground' && Math.abs(dy) < 40 && e.facing === -side) {
+        const pm = MOVES[e.brain.planned];
+        if (pm && ad < pm.range[1] + 25) t.imminent = true;
+        if (pm && ad < pm.range[1] + 90) {
+          const rec0 = this.noticed.get(e.id);
+          if (!rec0 || (rec0.start !== 'pending' && sim.time - rec0.t0 > 0.6)) {
+            const { delay, pMiss } = this.readDelay(behind);
+            // whether he meets this one with his hands up or looks to strike first
+            const guard = rng.chance(0.3 + f.skill * 0.3 - f.fatigue * 0.25 + (this.engaged >= 3 ? 0.15 : 0));
+            this.noticed.set(e.id, { start: 'pending', t0: sim.time, at: sim.time + delay, missed: rng.chance(pMiss), handled: false, guard });
+          }
+        }
+      }
       if (!e.ragdolled && Math.abs(dy) < 50 && ad < 300) {
         engaged++;
         if (behind) back++;
@@ -151,11 +245,11 @@ export class HeroBrain {
           // a charging tackle lands when the gap closes, not when its window opens
           t.tth = tackling ? Math.max(rem, (ad - 38) / Math.max(200, Math.abs(e.vx))) : rem;
           let rec = this.noticed.get(e.id);
-          if (!rec || rec.start !== e.moveStartT) {
-            const load = Math.max(0, this.engaged - 3) * 0.12;
-            const delay = f.reaction * (1 + f.fatigue * 1.5 + load) * (behind ? 1.6 : 1) * (sim.level.dark ? 1.25 : 1) * rng.range(0.75, 1.25);
-            const pMiss = clamp(f.fatigue * 0.28 + Math.max(0, this.engaged - 4) * 0.045 + (behind ? 0.13 : 0.015) - (f.skill - 0.85) * 0.5, 0, 0.65);
-            rec = { start: e.moveStartT, at: sim.time + delay, missed: rng.chance(pMiss), handled: false };
+          if (rec && rec.start === 'pending' && sim.time - rec.t0 < 1.2) {
+            rec.start = e.moveStartT; // he saw this one coming
+          } else if (!rec || rec.start !== e.moveStartT) {
+            const { delay, pMiss } = this.readDelay(behind);
+            rec = { start: e.moveStartT, t0: sim.time, at: sim.time + delay, missed: rng.chance(pMiss), handled: false };
             this.noticed.set(e.id, rec);
           }
           t.rec = rec;
@@ -189,7 +283,21 @@ export class HeroBrain {
       if (!first || t.tth < first.tth) first = t;
     }
     if (!first) return false;
-    if (!f.canAct()) return false;
+    if (!f.canAct()) {
+      // an elite fighter can abort his own wind-up when he sees it coming,
+      // or snap back from a strike's follow-through instead of riding it out
+      const m0 = f.state === 'move' ? f.move : null;
+      const strike = m0 && (m0.type === 'strike' || m0.type === 'grab');
+      let lastHit = 0;
+      if (strike) for (const hh of m0.hits) lastHit = Math.max(lastHit, hh.t1);
+      const feint = strike && f.mt < m0.windup * 0.75;
+      const recover = strike && m0.type === 'strike' && f.mt > lastHit + 0.03;
+      const ok = (feint || recover) && f.grounded && !m0.air && this.sim.rng.chance(f.skill * (feint ? 0.8 : 0.9) - f.fatigue * 0.35);
+      if (!ok) return false;
+      f.move = null;
+      f.setState('ground');
+      f.replantFeet();
+    }
     const sandwiched = nFront > 0 && nBack > 0;
     const m = first.move;
     const h0 = m.hits.length ? m.hits[0] : null;
@@ -220,9 +328,9 @@ export class HeroBrain {
     }
     const behindSpace = this.spaceToward(-first.side);
     if (!sandwiched && behindSpace > 90) opts.push(['backstep', 1.4]);
-    if ((sandwiched || this.engaged >= 4) && st > 12) opts.push(['roll', 1.7 + (sandwiched ? 1 : 0)]);
-    if (sandwiched && st > 16 && first.ad < 150 && first.ad > 40) opts.push(['vault', 1.9]);
-    if (!low && !grab && !tackle) opts.push(['block', 1.1 + (st > 30 ? 0.4 : -0.9)]);
+    if ((sandwiched || this.engaged >= 4) && st > 12 && this.safeLanding(this.lessCrowdedSide(), 160)) opts.push(['roll', 1.7 + (sandwiched ? 1 : 0)]);
+    if (sandwiched && st > 16 && first.ad < 150 && first.ad > 40 && this.safeLanding(first.side, 220)) opts.push(['vault', 1.9]);
+    if (!low && !grab && !tackle) opts.push(['block', 1.7 + (st > 30 ? 0.5 : -1.0) + (nFront > 1 ? 0.4 : 0)]);
     // decision noise: sometimes a worse choice, sometimes frozen
     const eps = this.epsilon();
     if (rng.chance(eps * 0.5)) {
@@ -302,6 +410,17 @@ export class HeroBrain {
       if (!L.groundUnder(x - 3, x + 3, f.y - 4, 40, true, true)) return Math.min(space, d - 25);
     }
     return space;
+  }
+
+  // No deadly drop along a leap's path (a gap between roofs, a shaft).
+  safeLanding(dir, dist) {
+    const f = this.f;
+    const L = this.sim.level;
+    for (let d = 40; d <= dist; d += 40) {
+      const x = f.x + dir * d;
+      if (!L.groundUnder(x - 4, x + 4, f.y - 40, 520, true, false)) return false;
+    }
+    return true;
   }
 
   lessCrowdedSide() {
@@ -411,6 +530,13 @@ export class HeroBrain {
       this.target = null;
       return false;
     }
+    // restraint: with a noticed attack on the way, only a strike that lands first is worth it
+    let danger = 9;
+    for (const t of this.threats) {
+      if (t.attacking && t.perceived && t.tth < danger) danger = t.tth;
+      else if (t.imminent && !t.behind) danger = Math.min(danger, 0.3);
+    }
+    this.danger = danger;
     // target selection
     let best = null;
     let bs = -1e9;
@@ -480,6 +606,8 @@ export class HeroBrain {
     const blocking = e.state === 'block';
     let frontCluster = 0;
     for (const t of cands) if (!t.behind && t.ad < 95) frontCluster++;
+    // someone close behind him: long, committed moves leave his back open
+    const exposed = this.exposedBehind(150, e);
     let isolated = true;
     for (const t of cands) if (t.e !== e && Math.abs(t.e.x - e.x) < 160) isolated = false;
     const list = f.weapon ? ARMED_MOVES : HERO_MOVES;
@@ -491,6 +619,9 @@ export class HeroBrain {
         if (!T.behind || ad < -r[1] || ad > -r[0]) continue;
       } else if (ad < r[0] || ad > r[1]) continue;
       if (st < m.stamina * 0.9 && id !== 'jab') continue;
+      // too slow to start with an attack incoming
+      const rate = f.computeMoveRate(m);
+      if (this.danger < 0.5 && m.windup / rate > this.danger - 0.03) continue;
       let w = 1;
       switch (id) {
         case 'jab': w = 1.25; break;
@@ -503,7 +634,7 @@ export class HeroBrain {
         case 'roundhouse': w = 0.85 + (stag ? 0.7 : 0); break;
         case 'spinkick': w = 0.35 + env.push * 2.2 + (stag ? 0.9 : 0) + (st > 45 ? 0.2 : -0.4); break;
         case 'sweep': w = 0.35 + (frontCluster >= 2 ? 1.1 : 0) + (blocking ? 1.6 : 0); break;
-        case 'flyingkick': w = isolated && st > 50 && this.sim.time - this.lastFlying > 6 ? 0.55 : 0; break;
+        case 'flyingkick': w = isolated && st > 50 && this.sim.time - this.lastFlying > 6 && this.safeLanding(T.side, 340) ? 0.55 : 0; break;
         case 'shove': w = 0.25 + env.push * 2.2; break;
         case 'grab': w = 0.6 + env.push * 1.8 + (blocking ? 1.8 : 0) + this.behindValue() * 1.2; break;
         case 'backkick': w = 1.8 + env.push * 0.5; break;
@@ -514,9 +645,23 @@ export class HeroBrain {
         case 'wthrow': w = f.weapon && f.weapon.durability <= 2 && isolated ? 2 : 0.05; break;
       }
       if (T.behind && !m.back && this.engagedFront > 0) w *= 0.4; // turning away from others is risky
+      if (exposed > 0 && !m.back && m.dur / rate > 0.42) w *= 0.3;
+      // in a crowd, quick strikes keep him safe; big moves need an opening
+      if (this.engaged >= 3) {
+        const slow = m.windup / f.computeMoveRate(m);
+        if (slow > 0.12 && !stag && env.push < 0.6) w *= 0.45;
+        if (id === 'jab' || id === 'teep' || id === 'backkick' || id === 'backelbow' || id === 'elbow') w *= 1.3;
+      }
       if (w > 0.05) opts.push([id, w]);
     }
     return opts;
+  }
+
+  // Enemies on their feet close behind him (other than `skip`).
+  exposedBehind(radius, skip = null) {
+    let n = 0;
+    for (const t of this.threats) if (t.behind && !t.down && t.ad < radius && Math.abs(t.dy) < 50 && t.e !== skip) n++;
+    return n;
   }
 
   chooseThrow(victim) {
@@ -524,7 +669,7 @@ export class HeroBrain {
     const fwd = this.envOpportunity(victim);
     const back = this.behindValue();
     if (back > fwd.push + 0.25) this.throwPlan = 'shouldertoss';
-    else if (fwd.crowd >= 2 && f.stamina > 35) this.throwPlan = 'spinthrow';
+    else if (fwd.crowd >= 2 && f.stamina > 35 && this.exposedBehind(170, victim) === 0) this.throwPlan = 'spinthrow';
     else this.throwPlan = this.sim.rng.chance(0.7) ? 'hipthrow' : 'shouldertoss';
   }
 
@@ -547,6 +692,13 @@ export class HeroBrain {
     this.threatsNear = threatsNear;
     const lowHp = f.hp < f.maxHp * 0.25;
     if (threatsNear === 0 && incoming === 0) {
+      if (this.tactic !== 'recover') this.quietSince = sim.time;
+      // a long lull with enemies still about: go and find them
+      if (sim.enemiesAlive > 0 && sim.time - (this.quietSince || 0) > 14 && f.stamina > 60) {
+        this.tactic = 'hunt';
+        this.anchor = null;
+        return;
+      }
       this.tactic = 'recover';
       // grab a weapon or move to a strong spot while it is quiet
       const w = !f.weapon ? sim.props.nearestWeapon(f.x, f.y, 420) : null;
@@ -662,11 +814,13 @@ export class HeroBrain {
     score -= between * 0.38 * crowdFear;
     // hazards: leverage toward the enemies' side, danger right next to us
     const enemySide = sideL > sideR ? -1 : 1;
+    const wet = L.condition === 'wet';
     for (const hz of sim.hazards.list) {
       if (hz.type !== 'electric' || Math.abs(hz.y - y) > 20) continue;
       const dd = (hz.x - x) * enemySide;
       const ad = Math.abs(hz.x - x);
       if (ad < 80) score -= 1.4;
+      else if (wet && ad < 210) score -= 1.2; // the shock runs across the wet floor
       else if (dd > 60 && dd < 240) {
         score += 0.7;
         tags.push('hazard');

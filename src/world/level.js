@@ -66,7 +66,7 @@ export class Level {
     const y0 = Math.floor(s.y / CELL);
     const y1 = Math.floor((s.y + s.h) / CELL);
     for (let cx = x0; cx <= x1; cx++) {
-      for (let cy = y0; cy <= y1; cy++) fn((cx + 32768) * 65536 + (cy + 32768));
+      for (let cy = y0; cy <= y1; cy++) fn((cx + 4096) * 8192 + (cy + 4096));
     }
   }
 
@@ -105,7 +105,7 @@ export class Level {
     const cy1 = Math.floor(y1 / CELL);
     for (let cx = cx0; cx <= cx1; cx++) {
       for (let cy = cy0; cy <= cy1; cy++) {
-        const b = this.grid.get((cx + 32768) * 65536 + (cy + 32768));
+        const b = this.grid.get((cx + 4096) * 8192 + (cy + 4096));
         if (!b) continue;
         for (let i = 0; i < b.length; i++) {
           const s = b[i];

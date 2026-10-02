@@ -20,6 +20,7 @@ const BOX_KINDS = {
 };
 
 const near = [];
+const nearKin = [];
 let nextId = 1;
 
 export class Box {
@@ -175,8 +176,11 @@ export class Props {
       }
       // body particles vs box. Walkers push with finite strength and feel
       // the weight (their controller slows down while shoving heavy boxes).
-      sim.partHash.query(cx, cy, rad, near);
-      for (const q of near) {
+      sim.partHash.query(cx, cy, rad + 20, near);
+      sim.kinHash.query(cx, cy, rad + 20, nearKin);
+      for (let k = 0; k < nearKin.length; k++) near.push(nearKin[k]);
+      for (let k = 0; k < near.length; k++) {
+        const q = near[k];
         const o = q.owner;
         if (o && o.removed) continue;
         const wq = q.kin ? 0.9 / Math.max(0.5, o ? o.mass / 9.25 : 1) : q.w;
@@ -290,6 +294,7 @@ export class Props {
     if (b.k.explosive) {
       if (b.hp <= 0 && b.fuse < 0) {
         b.fuse = this.sim.rng.range(0.45, 1.0);
+        b.fuseT = this.sim.time;
         b.sleeping = false;
         b.lastThrower = by || b.lastThrower;
         this.sim.emit({ t: 'fuse', x: b.center()[0], y: b.center()[1], box: b });
@@ -329,19 +334,22 @@ export class Props {
     sim.fighterHash.query(cx, cy, Math.max(b.w, b.h), near);
     for (const f of near) {
       if (f.removed || f.dead || f.ragdolled) continue;
-      if (b.lastThrower === f && now - (b.throwT || 0) < 0.4) continue;
+      if (b.lastThrower === f && (f.isHero || now - (b.throwT || 0) < 0.4)) continue;
       const last = b.hitT.get(f.id);
       if (last !== undefined && now - last < 0.8) continue;
       const top = f.y - 88 * f.scale;
       if (cy < top - b.h / 2 || cy > f.y + b.h / 2) continue;
       if (Math.abs(cx - f.x) > b.w / 2 + 12 * f.scale) continue;
+      // relative speed: a crate shoved along by the crowd is not a missile
+      const rvx = vx - (f.ragdolled ? 0 : f.vx);
+      const sp = Math.sqrt(rvx * rvx + vy * vy);
+      if (sp < 280) continue;
       b.hitT.set(f.id, now);
-      const sp = Math.sqrt(vx * vx + vy * vy);
-      const dmg = sp * 0.012 * Math.min(2.2, b.mass / 2);
+      const dmg = sp * 0.012 * Math.min(2.2, b.mass / 2) * (f.isHero ? 0.5 : 1);
       const by = b.lastThrower && b.lastThrower !== f ? b.lastThrower : null;
       f.damage(dmg, by, 'object');
       const dir = Math.sign(vx) || 1;
-      if (sp * b.mass > 900 * Math.sqrt(f.mass / 9.25)) {
+      if (sp > 330 && sp * b.mass > 1350 * Math.sqrt(f.mass / 9.25)) {
         f.knockdown(dir * sp * 0.5, -160);
         f.knock = { by, chainId: sim.newChain(by), depth: 1, time: now, kind: 'object' };
         if (by) sim.onChain(f.knock, f, null);
@@ -390,13 +398,26 @@ export class Props {
     if (sp < 150) return;
     sim.fighterHash.query(q.x, q.y, 40, near);
     for (const f of near) {
-      if (f.removed || f.dead || f.ragdolled || f === pr.thrower) continue;
+      if (f.removed || f.dead || f.ragdolled || f === pr.thrower || f === pr.passed) continue;
       if (!f.isHero && sim.rng.chance(0.6)) continue;
       const p = f.rag.p;
       const r = q.r + f.dims.lw;
       const hitHead = (q.x - p[HEAD].x) ** 2 + (q.y - p[HEAD].y) ** 2 < (q.r + f.dims.headR) ** 2;
       const hitBody = segPointDist2(p[NECK].x, p[NECK].y, p[PELVIS].x, p[PELVIS].y, q.x, q.y) < r * r;
       if (!hitHead && !hitBody) continue;
+      if (f.isHero && !pr.dodged) {
+        // he tracks things thrown at him: a slip of the head, a lean back
+        const facing = Math.sign(pr.thrower ? pr.thrower.x - f.x : -(q.x - q.px)) === f.facing;
+        const ready = f.state === 'ground' ? 1 : f.state === 'block' ? 1 : f.state === 'move' ? 0.4 : 0;
+        const chance = (facing ? f.skill * 0.7 : 0.12) * ready * (1 - f.fatigue * 0.6);
+        pr.dodged = true;
+        if (sim.rng.chance(chance)) {
+          pr.passed = f;
+          f.flinch = Math.max(f.flinch, 0.5);
+          sim.emit({ t: 'whoosh', x: q.x, y: q.y, power: 0.4 });
+          continue;
+        }
+      }
       if (f.state === 'block' && Math.sign(pr.thrower ? pr.thrower.x - f.x : 1) === f.facing) {
         sim.emit({ t: 'hit', kind: 'block', x: q.x, y: q.y, power: 0.3, a: pr.thrower, b: f });
       } else {
@@ -587,13 +608,17 @@ function pushOutOfBox(A, q, wq, isBox) {
   const l = Math.sqrt(ex * ex + ey * ey) || 1;
   const nx = ey / l;
   const ny = -ex / l;
-  const pen = r - best;
+  const pen = Math.min(r - best, 2.5);
   const t = clamp(((q.x - a.x) * ex + (q.y - a.y) * ey) / (l * l), 0, 1);
   const wsum = wq + a.w * (1 - t) * (1 - t) + c.w * t * t;
   if (wsum <= 0) return false;
   const lam = pen / wsum;
+  // bodies resting against a box should not be shoved away violently
+  const keep = isBox ? 0 : 0.7;
   q.x += nx * lam * wq;
   q.y += ny * lam * wq;
+  q.px += nx * lam * wq * keep;
+  q.py += ny * lam * wq * keep;
   a.x -= nx * lam * a.w * (1 - t);
   a.y -= ny * lam * a.w * (1 - t);
   c.x -= nx * lam * c.w * t;

@@ -128,7 +128,9 @@ export function collideParticles(a, b, restitution) {
   const d = Math.sqrt(d2);
   const nx = dx / d;
   const ny = dy / d;
-  const pen = rr - d;
+  // resolve deep overlaps gradually and without turning the push into
+  // velocity (Verlet would otherwise launch bodies apart)
+  const pen = Math.min(rr - d, 1.5);
   const wsum = a.w + b.w;
   const ka = a.w / wsum;
   const kb = b.w / wsum;
@@ -142,6 +144,10 @@ export function collideParticles(a, b, restitution) {
   a.y -= ny * pen * ka;
   b.x += nx * pen * kb;
   b.y += ny * pen * kb;
+  a.px -= nx * pen * ka;
+  a.py -= ny * pen * ka;
+  b.px += nx * pen * kb;
+  b.py += ny * pen * kb;
   if (rel < 0) {
     const j = -(1 + restitution) * rel;
     a.px += nx * j * ka;
@@ -151,3 +157,32 @@ export function collideParticles(a, b, restitution) {
   }
   return true;
 }
+
+// Particle a against a static (sleeping) particle b: a takes the full
+// correction and loses its inward velocity, b does not move.
+export function collideStatic(a, b) {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  const rr = a.r + b.r;
+  const d2 = dx * dx + dy * dy;
+  if (d2 >= rr * rr || d2 < 1e-9) return false;
+  const d = Math.sqrt(d2);
+  const nx = dx / d;
+  const ny = dy / d;
+  const pen = Math.min(rr - d, 2);
+  const vx = a.x - a.px;
+  const vy = a.y - a.py;
+  const vn = vx * nx + vy * ny;
+  a.x += nx * pen;
+  a.y += ny * pen;
+  if (vn < 0) {
+    // remove the inward component and add a little friction
+    a.px = a.x - (vx - vn * nx) * 0.85;
+    a.py = a.y - (vy - vn * ny) * 0.85;
+  } else {
+    a.px += nx * pen;
+    a.py += ny * pen;
+  }
+  return true;
+}
+
