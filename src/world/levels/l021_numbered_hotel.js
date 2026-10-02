@@ -216,6 +216,7 @@ function lobbyHall(Z) {
   // neutral rim around the hall (corridor mouths stay open)
   Z.each(u0 - 1, v0 - 1, u1 + 1, v1 + 1, (u, v, i) => { if (zb.solid[i]) zb.solid[i] = M.lv21_wall_0; });
   Z.carve(u0, v0, u1, v1, { floor: 0, ceil: LH, fmat: M.lv21_terrazzo, cmat: M.lv21_ceil, wmat: M.lv21_wall_0 });
+  Z.floorMat(21, 21, 46, 46, (u, v) => (u >= 32 && u < 35) || (v >= 32 && v < 35) ? M.lv21_terrazzo : M.lv21_carpet);
   const c = CX;
   // columns
   for (const du of [-10.5, -3.5, 3.5, 10.5]) for (const dv of [-10.5, -3.5, 3.5, 10.5]) {
@@ -224,15 +225,14 @@ function lobbyHall(Z) {
     Z.box(c + du - 0.5, 0, c + dv - 0.5, c + du + 0.5, 0.15, c + dv + 0.5, M.lv21_plain_dark);
   }
   // ceiling lights
-  for (const du of [-10.5, -3.5, 3.5, 10.5]) for (const dv of [-10.5, -3.5, 3.5, 10.5]) ceilingLight(zb, Z.x(c + du + 1.75), Z.z(c + dv + 1.75), 'panel', 'on', { color: COOL, rad: 9, int: 0.75 });
-  // the directory on the north wall, left of the corridor mouth
-  Z.prop('lv21_dirboard', 26.5, 0.9, v0, face(0, 1), { t: 1.5 });
-  Z.prop('g01_num', 41.0, v0, 2.0, face(0, 1), { text: '0', h: 1.9, tint: ACCENT[0] });
-  // reception: an empty desk, the key rack behind it, the giant zero on the floor
-  Z.prop('reception_desk', c, 0, 31.5, face(0, 1), {});
-  Z.box(c - 3, 0.2, 28.4, c + 3, 2.6, 28.6, [M.lv21_steel, M.lv21_steel, M.lv21_steel, M.lv21_steel, M.lv21_keys, M.lv21_keys], { uv: ['world', 'world', 'world', 'world', [0, 0, 6, 2.4], [0, 0, 6, 2.4]] });
-  Z.decal(c, 0.02, 40.5, 'up', 7, 7, 'g01_dg_0', {});
-  for (const [u, v, r] of [[22, 46.2, face(0, -1)], [45, 46.2, face(0, -1)], [21.2, 30, face(1, 0)], [45.8, 36, face(-1, 0)]]) Z.prop('bench', u, 0, v, r, { len: 1.8 });
+  for (const du of [-10.5, -3.5, 3.5, 10.5]) for (const dv of [-10.5, -3.5, 3.5, 10.5]) ceilingLight(zb, Z.x(c + du + 1.75), Z.z(c + dv + 1.75), 'panel', 'on', { color: COOL, rad: 9, int: 0.9 });
+  // the directory: a wall-sized board on the north wall, left of the corridor mouth
+  Z.prop('lv21_dirboard', 25.5, 0.3, v0, face(0, 1), { t: 2.0 });
+  // the giant zero in the floor, the empty reception desk and its key rack on the east side
+  Z.decal(27, 0.02, 37.5, 'up', 8.5, 8.5, 'g01_dg_0', {});
+  Z.prop('reception_desk', 40.2, 0, 31, face(-1, 0), { tint: [0.6, 0.72, 1.0] });
+  Z.box(43.4, 0.2, c - 6 + 0.5, 43.6, 2.7, c + 6 - 0.5, [M.lv21_steel, M.lv21_keys, M.lv21_steel, M.lv21_steel, M.lv21_steel, M.lv21_steel], { uv: ['world', [0, 0, 6, 2.5], 'world', 'world', 'world', 'world'] });
+  for (const [u, v, r] of [[22, 46.2, face(0, -1)], [32, 46.2, face(0, -1)], [21.2, 30, face(1, 0)], [45.8, 41, face(-1, 0)]]) Z.prop('bench', u, 0, v, r, { len: 1.8 });
   // a door at the east wall
   levelDoor(zb, Z.x(46.9), Z.z(23.5), face(-1, 0), {});
   Z.light(45.8, 2.0, 23.5, { color: [1.0, 0.86, 0.62], rad: 5, int: 0.6 });
