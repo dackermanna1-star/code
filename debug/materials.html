@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Block materials</title>
+    <style>
+      html, body { margin: 0; background: #1b1d22; color: #ddd; font: 11px/1.2 system-ui, sans-serif; }
+      #view { display: block; }
+      #labels { position: absolute; left: 0; top: 0; pointer-events: none; }
+      .lbl { position: absolute; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #e6e6e6; font-size: 10px; text-align: center; }
+      #status { position: fixed; right: 8px; bottom: 6px; color: #9ab; font-size: 11px; background: rgba(0,0,0,0.5); padding: 2px 6px; }
+    </style>
+  </head>
+  <body>
+    <canvas id="view"></canvas>
+    <div id="labels"></div>
+    <div id="status">generating…</div>
+    <script type="module" src="/src/debug/materials.ts"></script>
+  </body>
+</html>
