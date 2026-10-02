@@ -13,7 +13,7 @@
  *    the chunk itself.
  */
 import { Rng, seedFor } from '../../../core/rng';
-import { ST as ST_, IS_SOIL as IS_SOIL_, IS_SOLID as IS_SOLID_, IS_LEAVES as IS_LEAVES_, IS_AIR as IS_AIR_, IS_FULL as IS_FULL_ } from '../common/states';
+import { ST as ST_, IS_SOIL as IS_SOIL_, IS_SOLID as IS_SOLID_, IS_LEAVES as IS_LEAVES_, IS_FULL as IS_FULL_ } from '../common/states';
 import { OctaveNoise, RawNoise2, hash3i as hash3i_ } from '../common/noise';
 import { BIO as BIO_ } from './biomeSource';
 import { BIOMES } from '../../biomes';
@@ -26,7 +26,6 @@ const ST = ST_;
 const IS_SOIL = IS_SOIL_;
 const IS_SOLID = IS_SOLID_;
 const IS_LEAVES = IS_LEAVES_;
-const IS_AIR = IS_AIR_;
 const IS_FULL = IS_FULL_;
 const BIO = BIO_;
 const hash3i = hash3i_;
@@ -127,7 +126,6 @@ const IS_OCEAN_B = new Uint8Array(N_B);
 for (const b of BIOMES) if (b.category === 'ocean') IS_OCEAN_B[b.id] = 1;
 const KELP_OCEANS = new Set<number>([BIO.ocean, BIO.deep_ocean, BIO.cold_ocean, BIO.deep_cold_ocean, BIO.lukewarm_ocean, BIO.deep_lukewarm_ocean]);
 const WARM_OCEANS = new Set<number>([BIO.warm_ocean, BIO.lukewarm_ocean, BIO.deep_lukewarm_ocean]);
-const SNOWY_BIOMES = new Set<number>([BIO.snowy_plains, BIO.ice_spikes, BIO.snowy_taiga, BIO.snowy_slopes, BIO.grove, BIO.jagged_peaks, BIO.frozen_peaks, BIO.snowy_beach, BIO.frozen_river, BIO.frozen_ocean, BIO.deep_frozen_ocean]);
 const SAND_GROUND = new Set<number>([ST.sand, ST.redSand]);
 const SUGARCANE_GROUND = new Set<number>([ST.grass, ST.dirt, ST.sand, ST.redSand, ST.podzol, ST.coarseDirt, ST.mud]);
 
@@ -171,7 +169,7 @@ export class Decorator {
 
   /** Candidate trees of a source chunk (positions & kinds only; cached; pure). */
   private plan(sx: number, sz: number): TreePlan[] {
-    const key = (sx + 0x100000) * 0x200000 + (sz + 0x100000);
+    const key = (sx + 0x400000) * 0x800000 + (sz + 0x400000);
     let list = this.plans.get(key);
     if (list) return list;
     if (this.plans.size > 4000) this.plans.clear();
@@ -336,7 +334,7 @@ export class Decorator {
         if (g === ST.snowBlock && biome === BIO.grove && r < 0.01) work[gi + 256] = ST.fern;
         continue;
       }
-      const p = this.plantOn(x, y, z, gi, g, biome, r, space2, work);
+      const p = this.plantOn(x, y, z, gi, biome, r, space2, work);
       if (p !== 0) {
         if (p & TALL) {
           const lo = p & 0xffff;
@@ -351,7 +349,7 @@ export class Decorator {
    * Plant for a grass-like ground block; returns the state to place above (0 = nothing), with
    * TALL set for two-block plants (lower half state; the upper half is state | 8).
    */
-  private plantOn(x: number, y: number, z: number, gi: number, g: number, biome: number, r: number, space2: boolean, work: Uint16Array): number {
+  private plantOn(x: number, y: number, z: number, gi: number, biome: number, r: number, space2: boolean, work: Uint16Array): number {
     const patch = this.patchN.at(x, z);
     const fl = this.flowerN.noise2(x, z);
     const r2 = this.rnd(x, y, z, 0x2f10);

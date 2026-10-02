@@ -85,7 +85,7 @@ const EMPTY_F32 = new Float32Array(0);
 const EMPTY_U8 = new Uint8Array(0);
 const TOG = LEVELS, NTH = 2 * LEVELS, NA = 3 * LEVELS, NB = 4 * LEVELS;
 
-const qkey = (qx: number, qz: number) => (qx + 0x80000) * 0x100000 + (qz + 0x80000);
+const qkey = (qx: number, qz: number) => (qx + 0x800000) * 0x1000000 + (qz + 0x800000);
 
 function rarity3d(v: number): number {
   return v < -0.5 ? 0.75 : v < 0 ? 1.0 : v < 0.5 ? 1.5 : 2.0;
@@ -143,10 +143,12 @@ export class OverworldTerrain {
     this.caveLayer = new RawNoise3(s(21), 1 / 256, 1 / 26);
     this.caveCheese = new OctaveNoise(s(22), 1 / 256, [0.5, 0.5, 0.5, 0.125], { sigma: 0.32, yScale: 1.25 });
     this.spag3dRarity = new RawNoise2(s(23), 1 / 1024);
-    this.spag3d1 = new RawNoise3(s(24), 1 / 128, 1 / 112);
-    this.spag3d2 = new RawNoise3(s(25), 1 / 128, 1 / 112);
+    // the vertical frequency is higher than Minecraft's: our underground is ~60 blocks deep, and
+    // nearly-vertical noise sheets would otherwise intersect in long vertical shafts
+    this.spag3d1 = new RawNoise3(s(24), 1 / 128, 1 / 34);
+    this.spag3d2 = new RawNoise3(s(25), 1 / 128, 1 / 34);
     this.spag3dThick = new RawNoise3(s(26), 1 / 256, 1 / 256);
-    this.caveEntrance = new OctaveNoise(s(27), 1 / 171, [0.4, 0.25, 0.25], { sigma: 0.2, yScale: 0.67 });
+    this.caveEntrance = new OctaveNoise(s(27), 1 / 171, [0.4, 0.25, 0.25], { sigma: 0.2, yScale: 1.3 });
     this.spag2dMod = new RawNoise2(s(28), 1 / 1024);
     this.spag2d = new RawNoise3(s(29), 1 / 128, 1 / 128);
     this.spag2dElev = new RawNoise2(s(30), 1 / 256);
@@ -234,8 +236,8 @@ export class OverworldTerrain {
   private entrances(x: number, y: number, z: number, c: QuartColumn): number {
     const r = c.rar3d;
     const inv = 1 / r;
-    const s1 = r * Math.abs(this.spag3d1.atScaled(x, y, z, inv));
-    const s2 = r * Math.abs(this.spag3d2.atScaled(x, y, z, inv));
+    const s1 = r * Math.abs(this.spag3d1.atScaledXZ(x, y, z, inv));
+    const s2 = r * Math.abs(this.spag3d2.atScaledXZ(x, y, z, inv));
     const thick = -0.085 - 0.0115 * this.spag3dThick.at(x, y, z);
     const spag = clamp(Math.max(s1, s2) + thick, -1, 1);
     const ent = this.caveEntrance.noise3(x, y, z) + 0.37 + clampedMap(y, 12, 40, 0.3, 0);
@@ -371,7 +373,7 @@ export class OverworldTerrain {
         this.ensureAll(c);
         cols.push(c);
       }
-    const vD = new Float64Array(LEVELS), vT = new Float64Array(LEVELS), vH = new Float64Array(LEVELS), vA = new Float64Array(LEVELS), vB = new Float64Array(LEVELS);
+    const vD = new Float64Array(LEVELS), vT = new Float64Array(LEVELS);
     for (let z = 0; z < 16; z++) {
       const qz = z >> 2, fz = (z & 3) * 0.25;
       for (let x = 0; x < 16; x++) {

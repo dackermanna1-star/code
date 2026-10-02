@@ -335,7 +335,7 @@ function darkOak(w: ChunkWriter, r: Rng, x: number, y: number, z: number): void 
     }
   }
   // main canopy (double trunk)
-  const skipLarge = (rr: Rng, lx: number, ly: number, lz: number, range: number): boolean => {
+  const skipLarge = (lx: number, ly: number, lz: number, range: number): boolean => {
     if (ly === 1) return lx + lz > range * 2 - 2;
     return false;
   };
@@ -344,7 +344,7 @@ function darkOak(w: ChunkWriter, r: Rng, x: number, y: number, z: number): void 
       for (let dz = -range; dz <= range + 1; dz++) {
         if (ly === 0 && (dx === -range || dx >= range) && (dz === -range || dz >= range)) continue;
         const ax = Math.min(Math.abs(dx), Math.abs(dx - 1)), az = Math.min(Math.abs(dz), Math.abs(dz - 1));
-        if (skipLarge(r, ax, ly, az, range)) continue;
+        if (skipLarge(ax, ly, az, range)) continue;
         w.leaf(tx + dx, top + ly, tz + dz, ST.darkOakLeaves);
       }
   };

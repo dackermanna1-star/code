@@ -76,7 +76,7 @@ export class Carvers {
 
   /** All carve segments started by one source chunk (full paths, cached; pure). */
   source(sx: number, sz: number): Segment[] {
-    const key = (sx + 0x100000) * 0x200000 + (sz + 0x100000);
+    const key = (sx + 0x400000) * 0x800000 + (sz + 0x400000);
     let out = this.cache.get(key);
     if (out) return out;
     if (this.cache.size > 800) this.cache.clear();

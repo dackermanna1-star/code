@@ -104,6 +104,10 @@ export class RawNoise3 {
   atScaled(x: number, y: number, z: number, inv: number): number {
     return this.n.noise3(x * inv * this.fxz + this.ox, y * inv * this.fy + this.oy, z * inv * this.fxz + this.oz);
   }
+  /** Sample at (x / d, y, z / d): horizontal-only scaling (keeps vertical detail in a shallow world). */
+  atScaledXZ(x: number, y: number, z: number, inv: number): number {
+    return this.n.noise3(x * inv * this.fxz + this.ox, y * this.fy + this.oy, z * inv * this.fxz + this.oz);
+  }
 }
 
 /** Single-octave 2D simplex with offsets. */

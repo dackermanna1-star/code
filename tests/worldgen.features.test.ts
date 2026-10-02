@@ -96,13 +96,20 @@ describe('worldgen trees and features', () => {
           queue.push([nx, ny, nz, d + 1]);
         }
       }
+      const nearLog = (x: number, y: number, z: number) => {
+        // leaves separated from their trunk by a terrain block (steep slopes) still count as attached
+        for (let dx = -6; dx <= 6; dx++)
+          for (let dy = -6; dy <= 6; dy++)
+            for (let dz = -6; dz <= 6; dz++) if (isLog(world.get(x + dx, y + dy, z + dz))) return true;
+        return false;
+      };
       for (let x = x0; x <= x1; x++)
         for (let z = z0; z <= z1; z++)
           for (let y = 50; y < 256; y++) {
             const s = world.get(x, y, z);
             if (!isLeaf(s)) continue;
             leaves++;
-            if (!dist.has(`${x},${y},${z}`)) orphan++;
+            if (!dist.has(`${x},${y},${z}`) && !nearLog(x, y, z)) orphan++;
           }
       // log components (26-connected): the lowest log of each must stand on soil or a log
       const seen = new Set<string>();

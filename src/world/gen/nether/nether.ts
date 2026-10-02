@@ -16,7 +16,7 @@ import type { WorldGenerator } from '../generator';
 import type { GeneratedChunk } from '../../chunk';
 import { OctaveNoise, RawNoise2, hash3i as hash3i_, hashF as hashF_ } from '../common/noise';
 import { Rng, seedFor } from '../../../core/rng';
-import { ST as ST_, IS_SOLID as IS_SOLID_ } from '../common/states';
+import { ST as ST_ } from '../common/states';
 import { finishChunk } from '../common/output';
 import { ChunkWriter } from '../common/writer';
 import { OrePlacer, ore, Target, type OreConf } from '../overworld/ores';
@@ -25,7 +25,6 @@ import { S, BLOCK_BY_NAME } from '../../blocks/registry';
 import { StructureManager } from '../structures/index';
 
 const ST = ST_;
-const IS_SOLID = IS_SOLID_;
 const hash3i = hash3i_;
 const hashF = hashF_;
 
@@ -127,7 +126,7 @@ export class NetherGenerator implements WorldGenerator {
   // ------------------------------------------------------------------------------------------
 
   private column(qx: number, qz: number): NetherColumn {
-    const key = (qx + 0x80000) * 0x100000 + (qz + 0x80000);
+    const key = (qx + 0x800000) * 0x1000000 + (qz + 0x800000);
     let c = this.cache.get(key);
     if (c) return c;
     if (this.cache.size > 16384) this.cache.clear();
@@ -334,7 +333,7 @@ export class NetherGenerator implements WorldGenerator {
 
   /** Glowstone clusters hanging from ceilings (cached per source chunk, pure). */
   private glowBlobs(sx: number, sz: number): number[] {
-    const key = (sx + 0x100000) * 0x200000 + (sz + 0x100000);
+    const key = (sx + 0x400000) * 0x800000 + (sz + 0x400000);
     let out = this.glowCache.get(key);
     if (out) return out;
     if (this.glowCache.size > 2000) this.glowCache.clear();

@@ -40,7 +40,7 @@ export class Aquifer {
 
   /** Encoded status: level * 4 + type (type 0 = none, 1 = water, 2 = lava). */
   private status(gx: number, gy: number, gz: number): number {
-    const key = ((gx + 0x40000) * 64 + (gy + 8)) * 0x80000 + (gz + 0x40000);
+    const key = ((gx + 0x200000) * 64 + (gy + 8)) * 0x400000 + (gz + 0x200000);
     const hit = this.cache.get(key);
     if (hit !== undefined) return hit;
     if (this.cache.size > 50000) this.cache.clear();

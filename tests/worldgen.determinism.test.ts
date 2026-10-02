@@ -13,6 +13,7 @@ const CASES: [DimensionId, number, number, number][] = [
   ['overworld', 123, 30, -25], // jungle near the coast (trees crossing borders)
   ['overworld', 123, -9, -6], // old growth taiga / mountains (mega spruces, caves)
   ['overworld', 7, 0, 0],
+  ['overworld', -42, 1874990, -1874990], // near the 30M-block world border (cache keys must not collide)
   ['nether', 123, -6, -9], // crimson forest (huge fungi, glowstone)
   ['end', 123, 2, -1], // obsidian spikes + crystals
   ['end', 123, 70, 70], // outer islands

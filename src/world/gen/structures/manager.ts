@@ -35,7 +35,7 @@ export class StructureManager {
 
   /** All starts whose bounding box intersects chunk (cx, cz), in write order. */
   startsFor(cx: number, cz: number): StructureStart[] {
-    const k = (cx + 0x100000) * 0x200000 + (cz + 0x100000);
+    const k = (cx + 0x400000) * 0x800000 + (cz + 0x400000);
     const hit = this.nearCache.get(k);
     if (hit) return hit;
     if (this.nearCache.size > 4096) this.nearCache.clear();
