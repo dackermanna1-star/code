@@ -109,7 +109,7 @@ function explosion(sr: number, r: Rand): Float32Array {
 }
 
 function gulp(out: Float32Array, sr: number, r: Rand, t: number, amp: number): void {
-  bubble(out, sr, t, r.range(170, 250), amp, 0.45, 0.28);
+  bubble(out, sr, t, r.range(170, 250), amp, 0.08, 1);
   thump(out, sr, t, 140, 85, 0.08, amp * 0.5, 0.006);
   bubbles(out, sr, r, t + 0.02, t + 0.12, 60, 400, 1500, amp * 0.25, 0.3);
 }
@@ -188,7 +188,7 @@ function sparkle(out: Float32Array, sr: number, r: Rand, t0: number, t1: number,
 }
 
 function lavaPop(out: Float32Array, sr: number, r: Rand, t: number, amp: number): void {
-  bubble(out, sr, t, r.range(170, 320), amp, 0.55, 0.22);
+  bubble(out, sr, t, r.range(170, 320), amp, 0.2, 0.5);
   const n = Math.round(0.05 * sr);
   const s0 = Math.round(t * sr);
   let ph = 0;

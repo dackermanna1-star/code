@@ -1270,7 +1270,7 @@ export function creatureSounds(): Record<string, SoundSpec> {
         const out = alloc(sr, 1.0);
         for (let i = 0; i < 3; i++) {
           const t = 0.005 + i * r.range(0.16, 0.2);
-          bubble(out, sr, t, r.range(170, 240), 0.8, 0.5, 0.3);
+          bubble(out, sr, t, r.range(170, 240), 0.8, 0.08, 1);
           thump(out, sr, t, 130, 80, 0.07, 0.4);
         }
         voice(out, sr, r, 0.62, { dur: 0.25, f0: [0, 360, 0.25, 300], amp: [0, 0, 0.04, 0.5, 0.25, 0], vowel: [0, 'a', 0.25, 'a'], scale: 1.25, breath: 0.8 });

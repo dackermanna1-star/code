@@ -129,6 +129,8 @@ export interface AudioStats {
   bank: BankStats | null;
   music: ReturnType<MusicEngine['stats']> | null;
   ambience: Record<string, number>;
+  /** Per-loop detail (only with `getStats(true)`). */
+  loopDetail?: { name: string; dist: number; active: boolean; positional: boolean }[];
 }
 
 const NOOP_LOOP: LoopHandle = Object.freeze({
@@ -361,18 +363,23 @@ export class AudioEngine {
     }
   }
 
-  /** Releases the context, worker and all nodes. */
+  /** Releases the context, worker and all nodes (a later `init()` starts afresh). */
   dispose(): void {
     this.teardown();
+    this.initPromise = null;
   }
 
   private teardown(): void {
     try {
       this.music?.dispose();
       this.amb?.dispose();
-      for (const v of this.voices.slice()) this.release(v);
+      for (const l of this.loops) {
+        l.stopped = true;
+        this.stopLoopNodes(l, 0.05);
+      }
+      for (const v of this.voices.slice()) this.kill(v, 0.02);
       this.bank?.dispose();
-      if (this.live && this.ctx && !this.opts.context) void (this.ctx as AudioContext).close();
+      if (this.live && this.ctx && !this.opts.context) (this.ctx as AudioContext).close().catch(() => undefined);
     } catch {
       /* ignore */
     }
@@ -695,6 +702,8 @@ export class AudioEngine {
       holdParam(v.gain.gain, c.currentTime);
       v.gain.gain.setTargetAtTime(0, c.currentTime, fade / 3);
       v.src.stop(c.currentTime + fade + 0.01);
+      // safety net: a source stopped before its scheduled start may never fire 'ended'
+      if (this.live) setTimeout(() => this.release(v), (Math.max(0, v.start - c.currentTime) + fade + 0.5) * 1000);
     } catch {
       this.release(v);
     }
@@ -859,7 +868,7 @@ export class AudioEngine {
     let pan: PannerNode | null = null;
     const ref = REF_DISTANCE * Math.max(1, st.vol);
     if (st.pos) {
-      pan = this.makePanner(st.pos, ref);
+      pan = this.makePanner(st.pos, ref, this.loopDistance(st) > HRTF_RANGE ? 'equalpower' : 'HRTF');
       gain.connect(pan);
       pan.connect(g.cat[st.spec.cat]);
     } else gain.connect(g.cat[st.spec.cat]);
@@ -916,6 +925,11 @@ export class AudioEngine {
       }
       st.appliedGain = gTarget;
     }
+    // HRTF only near the listener (with hysteresis) — distant loops use the cheaper equal-power panner
+    if (n.pan) {
+      if (n.pan.panningModel === 'HRTF' && d > HRTF_RANGE + 4) n.pan.panningModel = 'equalpower';
+      else if (n.pan.panningModel !== 'HRTF' && d < HRTF_RANGE - 4) n.pan.panningModel = 'HRTF';
+    }
     const cut = Math.min(st.muffle > 0 ? muffleCut(st.muffle) : 22000, st.pos ? airCut(d) : 22000);
     if (Math.abs(cut - st.appliedCut) > cut * 0.03) {
       n.filt.frequency.setTargetAtTime(this.hz(cut), t, 0.08);
@@ -925,15 +939,23 @@ export class AudioEngine {
 
   private updateLoops(): void {
     for (const st of this.loops) this.refreshLoop(st);
-    // too many audible positional loops → park the farthest ones
-    let active = this.activeLoopCount();
-    while (active > MAX_ACTIVE_LOOPS) {
-      let far: LoopState | null = null;
-      for (const l of this.loops) if (l.nodes && l.pos && (!far || l.dist > far.dist)) far = l;
-      if (!far) break;
-      this.stopLoopNodes(far, 0.3);
-      active--;
+    // Over the active-loop budget: keep the closest ones audible — swap the farthest active
+    // loop for a nearer parked one (one swap per tick converges quickly without thrashing).
+    if (this.activeLoopCount() < MAX_ACTIVE_LOOPS) return;
+    let farActive: LoopState | null = null;
+    let nearParked: LoopState | null = null;
+    for (const l of this.loops) {
+      if (!l.pos || l.stopped) continue;
+      if (l.nodes) {
+        if (!farActive || l.dist > farActive.dist) farActive = l;
+      } else if (l.vol > 0 && l.dist < MAX_DISTANCE * Math.max(1, l.vol) && (!nearParked || l.dist < nearParked.dist)) nearParked = l;
     }
+    if (!farActive || !nearParked || nearParked.dist + 2 >= farActive.dist) return;
+    const buf = this.bank?.get(`l:${nearParked.name}`);
+    if (!buf) return;
+    this.stopLoopNodes(farActive, 0.3);
+    this.startLoopNodes(nearParked, buf);
+    this.applyLoopParams(nearParked, nearParked.dist);
   }
 
   // =======================================================================================
@@ -1019,8 +1041,8 @@ export class AudioEngine {
   // diagnostics
   // =======================================================================================
 
-  getStats(): AudioStats {
-    return {
+  getStats(detail = false): AudioStats {
+    const s: AudioStats = {
       state: this.ctx ? this.ctx.state : 'unavailable',
       ready: this._ready,
       sampleRate: this.ctx?.sampleRate ?? 0,
@@ -1031,6 +1053,8 @@ export class AudioEngine {
       music: this.music?.stats() ?? null,
       ambience: this.amb?.levels() ?? {},
     };
+    if (detail) s.loopDetail = this.loops.map((l) => ({ name: l.name, dist: Math.round(l.dist * 10) / 10, active: !!l.nodes, positional: !!l.pos }));
+    return s;
   }
 
   /** Output analyser (post-limiter) for meters / debug views. */

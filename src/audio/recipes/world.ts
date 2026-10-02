@@ -307,7 +307,7 @@ function caveSound(sr: number, r: Rand, v: number): Float32Array {
     // drips in a cavern
     let t = r.range(0.1, 0.4);
     while (t < dur - 1.2) {
-      bubble(out, sr, t, r.range(1100, 2600), 0.6, 0.35, 0.8);
+      bubble(out, sr, t, r.range(700, 1500), 0.6, 0.5, 0.3);
       ping(out, sr, t, r.range(1800, 3200), 0.04, 0.15);
       t += r.range(0.4, 1.2);
     }
@@ -419,7 +419,7 @@ export function worldSounds(): Record<string, SoundSpec> {
       pv: 0.15,
       gen: (sr, r) => {
         const out = alloc(sr, 0.5);
-        bubble(out, sr, 0.003, r.range(1300, 2800), 1, 0.35, 0.8);
+        bubble(out, sr, 0.003, r.range(700, 1500), 1, 0.5, 0.3);
         ping(out, sr, 0.003, r.range(2500, 4000), 0.03, 0.2);
         return echo(out, sr, r.range(0.09, 0.15), 0.4, 0.35, 3000, 0.6);
       },

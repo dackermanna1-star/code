@@ -122,9 +122,9 @@ export function loopSpecs(): Record<string, LoopSpec> {
       gen: (sr, r, len) => {
         const out = alloc(sr, len);
         mix(out, roar(sr, r, len, 160, 2, 1.2), 0, 1);
-        scatter(r, 0, len - 0.3, 7, (t) => bubble(out, sr, t, r.range(110, 380), r.range(0.2, 0.6), 0.5, 0.25));
+        scatter(r, 0, len - 0.3, 7, (t) => bubble(out, sr, t, r.range(110, 380), r.range(0.2, 0.6), 0.2, 0.5));
         scatter(r, 0.2, len - 0.4, 0.9, (t) => {
-          bubble(out, sr, t, r.range(170, 300), 0.8, 0.55, 0.22);
+          bubble(out, sr, t, r.range(170, 300), 0.8, 0.2, 0.5);
           sizzle(out, sr, r, t + 0.01, 0.15, 0.25, 1);
         });
         return out;

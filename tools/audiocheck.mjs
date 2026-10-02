@@ -200,6 +200,14 @@ try {
     if (!ok) exitCode = 1;
   }
 
+  // ---- 3b. loop virtualization ------------------------------------------------------------
+  if (!flag('no-mix')) {
+    const lt = await page.evaluate(() => window.__audioCheck.loopTest());
+    report.loops = lt;
+    console.log(`\nloop virtualization (30 positional loops): ${JSON.stringify(lt.before)} · after listener move ${JSON.stringify(lt.afterMove)} → ${lt.ok ? 'OK' : 'FAIL'}`);
+    if (!lt.ok) exitCode = 1;
+  }
+
   // ---- 4. generative music (offline engine render per mood) ------------------------------
   if (!flag('no-music')) {
     report.music = [];

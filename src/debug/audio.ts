@@ -616,6 +616,43 @@ async function musicRender(mode: MusicMode, seconds = 30): Promise<Record<string
   return { mode, piece, peakDb: m.peakDb, rmsDb: m.rmsDb, finite: m.finite, centroid: m.centroid, png: cv.toDataURL('image/png') };
 }
 
+/**
+ * Loop virtualization: 30 positional fire loops at 3–38 blocks → at most 24 active, and the
+ * active set is the nearest audible ones (after the listener moves too).
+ */
+async function loopTest(): Promise<Record<string, unknown>> {
+  const oac = new OfflineAudioContext(2, CHECK_SR, CHECK_SR);
+  const eng = new AudioEngine({ context: oac, worker: false, prewarm: false, seed: 3 });
+  await eng.init();
+  eng.getBank()?.renderNow('l:loop.fire');
+  eng.setListener({ x: 0, y: 64, z: 0 }, FORWARD, UP);
+  const handles: LoopHandle[] = [];
+  for (let i = 0; i < 30; i++) {
+    const d = 3 + ((i * 37) % 30) * 1.2; // shuffled distances 3..38 (all audible → over the 24-loop budget)
+    const a = i * 2.4;
+    handles.push(eng.loop('loop.fire', { pos: { x: Math.sin(a) * d, y: 64, z: Math.cos(a) * d } }));
+  }
+  const check = () => {
+    const det = eng.getStats(true).loopDetail ?? [];
+    const active = det.filter((l) => l.active);
+    const parkedAudible = det.filter((l) => !l.active && l.dist < 48);
+    const farthestActive = Math.max(0, ...active.map((l) => l.dist));
+    const nearestParked = Math.min(1e9, ...parkedAudible.map((l) => l.dist));
+    return { active: active.length, inRange: det.filter((l) => l.dist < 48).length, farthestActive, nearestParked, ok: active.length <= 24 && nearestParked + 2.01 >= farthestActive };
+  };
+  for (let k = 0; k < 40; k++) eng.update(0.1);
+  const a = check();
+  // move the listener: the nearest set changes
+  eng.setListener({ x: 40, y: 64, z: 0 }, FORWARD, UP);
+  for (let k = 0; k < 60; k++) eng.update(0.1);
+  const b = check();
+  for (const h of handles) h.stop(0);
+  eng.update(0.1);
+  const c = eng.getStats();
+  eng.dispose();
+  return { before: a, afterMove: b, afterStop: { loops: c.loops, activeLoops: c.activeLoops }, ok: a.ok && b.ok && c.loops === 0 };
+}
+
 /** Realtime test with the page's engine: worker pre-render, live playback levels, lazy-render latency. */
 async function realtimeTest(): Promise<Record<string, unknown>> {
   const t0 = performance.now();
@@ -689,6 +726,7 @@ window.__audioCheck = {
   },
   spectrogramPNG,
   mixTest,
+  loopTest,
   musicRender,
   realtimeTest,
 };
