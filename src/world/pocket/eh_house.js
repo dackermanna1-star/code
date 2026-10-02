@@ -165,7 +165,7 @@ function coverPosts(zb, fr, EXT, INT) {
     const fa = zb.getFloor(ox, oz), fb = zb.floor[i], ca = zb.getCeil(ox, oz), cb = zb.ceil[i];
     const bot = Math.min(isNum(fa) ? fa : Infinity, isNum(fb) ? fb : Infinity);
     const top = Math.max(isNum(ca) ? ca : -Infinity, isNum(cb) ? cb : -Infinity);
-    return [t, mm >> 8 || (mm & 255), bot, top];
+    return [t, mm >>> 16 || (mm & 0xffff), bot, top];
   };
   const line = (cells, ed, td) => {
     for (const [u, v] of cells) {

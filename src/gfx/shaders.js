@@ -77,8 +77,10 @@ precision highp float;
 precision highp int;
 precision highp sampler2DArray;
 uniform sampler2DArray uTex;
-uniform sampler2DArray uTex2;   // overflow layers on GPUs with a small array-layer limit
-uniform float uSplit;           // first layer that lives in uTex2
+uniform sampler2DArray uTex2;   // further arrays on GPUs with a small array-layer limit
+uniform sampler2DArray uTex3;
+uniform sampler2DArray uTex4;
+uniform float uSplit;           // layers per array
 uniform vec3 uFogColor;
 uniform float uDither;
 uniform float uAlphaMul;
@@ -95,7 +97,8 @@ void main() {
   vec2 uv = vUVW.xy / w;
   vec4 col = vColW / w;
   float fog = vFogW / w;
-  vec4 t = vLayer < uSplit ? texture(uTex, vec3(uv, vLayer)) : texture(uTex2, vec3(uv, vLayer - uSplit));
+  float arr = floor(vLayer / uSplit), l = vLayer - arr * uSplit;
+  vec4 t = arr < 0.5 ? texture(uTex, vec3(uv, l)) : arr < 1.5 ? texture(uTex2, vec3(uv, l)) : arr < 2.5 ? texture(uTex3, vec3(uv, l)) : texture(uTex4, vec3(uv, l));
   if (t.a < 0.5) discard;
   vec3 c = t.rgb * col.rgb;
   c = mix(c, uFogColor, clamp(fog, 0.0, 1.0));

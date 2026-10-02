@@ -235,7 +235,7 @@ function carvePath(zb, comp, from, to) {
       const i = zb.i(ex, ez);
       const keepMats = side === 'W' ? zb.wmW[i] : zb.wmN[i];
       const nt = wt === W.WALL || wt === W.FULL || wt === W.GLASS ? W.DOOR : W.NONE;
-      zb.setWall(ex, ez, side, nt, keepMats & 255, keepMats >> 8);
+      zb.setWall(ex, ez, side, nt, keepMats & 0xffff, keepMats >>> 16);
     }
     comp[c] = to;
     c = p;

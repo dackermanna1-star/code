@@ -139,7 +139,7 @@ mat('vest_ceil', 'ceil_tile_white', { s: 1, surf: 'drywall' });
 export const defineMaterial = mat;
 
 export function resolveMaterials(texIndex) {
-  if (MATS.length > 255) throw new Error('too many materials: ' + MATS.length);
+  if (MATS.length > 65535) throw new Error('too many materials: ' + MATS.length);
   for (let i = 1; i < MATS.length; i++) {
     const m = MATS[i];
     m.layers = m.tex.map((t) => {

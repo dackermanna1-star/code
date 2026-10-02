@@ -97,7 +97,7 @@ export function paintSide(zb, rect, side, mat, opts = {}) {
     const t = ed.e === 'W' ? zb.wallW[i] : zb.wallN[i];
     if (!t) continue;
     const packed = ed.e === 'W' ? zb.wmW[i] : zb.wmN[i];
-    let mm = packed & 255, mp = packed >> 8;
+    let mm = packed & 0xffff, mp = packed >>> 16;
     if (ed.inner === 1) mp = mat; else mm = mat;
     const nt = opts.noWindows && t === W.WINDOW ? W.WALL : t;
     zb.setWall(ed.x, ed.z, ed.e, nt, mm, mp);

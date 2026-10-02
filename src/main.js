@@ -1,7 +1,7 @@
 // Boot: renderer, procedural textures, then hand over to the game.
 import { RES_W, RES_H } from './config.js';
 import { Renderer } from './gfx/renderer.js';
-import { generateTextures } from './gfx/textures.js';
+import { textureIndex, textureCount } from './gfx/textures.js';
 import { drawTextCentered } from './gfx/font.js';
 import { resolveMaterials } from './world/materials.js';
 import { setPropTextures } from './world/props.js';
@@ -25,8 +25,9 @@ async function boot() {
   const renderer = new Renderer(glc);
   renderer.setResolution(RES_W, RES_H);
   const t0 = performance.now();
-  const { layers, index } = generateTextures();
-  renderer.uploadTextures(layers);
+  // texture pixels are generated on demand (by the world worker, with the chunks that use them)
+  const index = textureIndex();
+  renderer.allocTextures(textureCount());
   resolveMaterials(index);
   setPropTextures(index);
   const input = new Input(glc.parentElement);

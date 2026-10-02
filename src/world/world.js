@@ -5,6 +5,7 @@ import { buildChunkData } from './chunk.js';
 import { CHUNK, LEVEL_H } from '../config.js';
 import { aabbVisible } from '../core/math.js';
 import { POCKETS } from './pockets.js';
+import { generateLayer } from '../gfx/textures.js';
 
 const MAX_BUILDERS = 140;
 
@@ -58,7 +59,9 @@ export class World {
     this.workerGen = (this.workerGen || 0) + 1;
     this.workerReady = false;
     const init = () => {
-      worker.postMessage({ type: 'init', gen: this.workerGen, seed: this.seed, texIndex: this.tex, forceType: this.zones.forceType, forcePiece: this.zones.forcePiece, mutation: [...this.mutation] });
+      const have = [];
+      if (this.gpu && this.gpu.texReady) this.gpu.texReady.forEach((v, i) => { if (v) have.push(i); });
+      worker.postMessage({ type: 'init', gen: this.workerGen, seed: this.seed, texIndex: this.tex, forceType: this.zones.forceType, forcePiece: this.zones.forcePiece, mutation: [...this.mutation], haveLayers: have });
       this.workerReady = true;
     };
     if (worker.helloed) init();
@@ -67,6 +70,9 @@ export class World {
       if (m.type === 'hello') { worker.helloed = true; init(); return; }
       if (m.type === 'error') { console.error('[world worker]', m.message); this.inflight.delete(m.key); return; }
       if (m.type !== 'chunk' || m.gen !== this.workerGen) return;
+      // texture pixels ride along with the first chunk that needs them: keep them even if the
+      // chunk itself is no longer wanted
+      if (m.tex && this.gpu) for (const [l, px] of m.tex) this.gpu.uploadLayer(l, px);
       this.inflight.delete(m.key);
       const d = m.data;
       // still wanted?
@@ -85,8 +91,16 @@ export class World {
     return this.installChunk(data);
   }
 
+  // make sure every texture layer in the list is on the GPU (generating it here if needed)
+  ensureLayers(layers) {
+    const g = this.gpu;
+    if (!g || !g.texReady || !layers) return;
+    for (const l of layers) if (!g.texReady[l]) g.uploadLayer(l, generateLayer(l));
+  }
+
   installChunk(data) {
     const { dim, level, cx, cz } = data;
+    this.ensureLayers(data.layers);
     const ch = { key: this.ckey(dim, level, cx, cz), dim, level, cx, cz, data, meshes: {}, grid: null };
     if (this.gpu) {
       if (data.arch) ch.meshes.arch = this.gpu.createMesh(data.arch.data, data.arch.idx);

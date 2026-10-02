@@ -1101,6 +1101,18 @@ export function textureIndex() {
   return index;
 }
 
+let ORDER = null;
+function order() { if (!ORDER || ORDER.length !== new Set(DEFS.map((d) => d.name)).size) ORDER = ordered(); return ORDER; }
+export function textureCount() { return order().length; }
+// RGBA pixels of one layer (layer numbers as in textureIndex())
+export function generateLayer(i) {
+  const d = order()[i];
+  if (!d) return null;
+  const p = new Painter(strHash(d.name));
+  d.fn(p, p.rng);
+  return finalize(p, d.colors);
+}
+
 export function generateTextures() {
   const layers = [], index = {};
   for (const d of ordered()) {

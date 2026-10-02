@@ -18,9 +18,9 @@ export class CellWindow {
     this.X0 = X0; this.Z0 = Z0; this.N = N;
     const n = N * N;
     this.floor = new Float32Array(n); this.ceil = new Float32Array(n);
-    this.fmat = new Uint8Array(n); this.cmat = new Uint8Array(n); this.wmat = new Uint8Array(n);
-    this.solid = new Uint8Array(n); this.wallW = new Uint8Array(n); this.wallN = new Uint8Array(n);
-    this.wmW = new Uint16Array(n); this.wmN = new Uint16Array(n);
+    this.fmat = new Uint16Array(n); this.cmat = new Uint16Array(n); this.wmat = new Uint16Array(n);
+    this.solid = new Uint16Array(n); this.wallW = new Uint8Array(n); this.wallN = new Uint8Array(n);
+    this.wmW = new Uint32Array(n); this.wmN = new Uint32Array(n);
     this.flags = new Uint16Array(n); this.zi = new Uint8Array(n);
     this.zones = [];
   }
@@ -225,7 +225,7 @@ export function buildChunkData(world, dim, level, cx, cz) {
         const t = side === 'W' ? win.wallW[i] : win.wallN[i];
         if (!t) continue;
         const mm = side === 'W' ? win.wmW[i] : win.wmN[i];
-        const matMinus = mm & 255, matPlus = mm >> 8;
+        const matMinus = mm & 0xffff, matPlus = mm >>> 16;
         const [bot, top, hi] = wallRange(x, z, side, t);
         const s0 = side === 'W' ? (postNeeded(x, z) ? HALF_T : 0) : (postNeeded(x, z) ? HALF_T : 0);
         const s1 = side === 'W' ? (postNeeded(x, z + 1) ? HALF_T : 0) : (postNeeded(x + 1, z) ? HALF_T : 0);
@@ -346,7 +346,7 @@ export function buildChunkData(world, dim, level, cx, cz) {
       if (!mat) {
         const i = win.idx(ex, ez);
         const mm = sd === 'W' ? win.wmW[i] : win.wmN[i];
-        mat = mm >> 8 || (mm & 255);
+        mat = mm >>> 16 || (mm & 0xffff);
       }
     }
     if (!Number.isFinite(bot)) return;
@@ -578,6 +578,7 @@ export function buildChunkData(world, dim, level, cx, cz) {
     // move to pivot-local coordinates for the model matrix
     for (let v = 0; v < dy.mb.n; v++) { dy.mb.pos[v * 3] -= dy.x; dy.mb.pos[v * 3 + 1] -= dy.y; dy.mb.pos[v * 3 + 2] -= dy.z; }
     dy.packed = dy.mb.pack(b.col, b.flk);
+    dy.layers = new Set(); for (let v = 0; v < dy.mb.n; v++) dy.layers.add(dy.mb.layer[v]);
     dy.mb = null;
   }
 
@@ -592,8 +593,13 @@ export function buildChunkData(world, dim, level, cx, cz) {
     zoneIdx[(z - az) * CHUNK + (x - ax)] = k;
   }
 
+  // texture layers this chunk draws with (so they can be generated / uploaded on demand)
+  const used = new Set();
+  const collect = (mb) => { if (mb) for (let v = 0; v < mb.n; v++) used.add(mb.layer[v]); };
+  collect(arch); collect(props); collect(trans);
+  for (const dy of dynamics) if (dy.layers) { for (const l of dy.layers) used.add(l); dy.layers = null; }
   return {
-    dim, level, cx, cz, y0,
+    dim, level, cx, cz, y0, layers: Uint16Array.from(used),
     arch: arch.n ? arch.pack(bA.col, bA.flk) : null, archBounds: arch.n ? arch.bounds() : null,
     props: props.n ? props.pack(bP.col, bP.flk) : null, propBounds: props.n ? props.bounds() : null,
     trans: trans.n ? trans.pack(bT.col, bT.flk) : null,

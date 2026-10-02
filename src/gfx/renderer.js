@@ -33,7 +33,7 @@ export class Renderer {
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('link failed: ' + gl.getProgramInfoLog(prog));
     this.prog = prog;
     this.u = {};
-    for (const n of ['uVP', 'uModel', 'uCam', 'uSnap', 'uFog', 'uTime', 'uFlick', 'uBright', 'uTex', 'uFogColor', 'uDither', 'uAlphaMul', 'uLightMul', 'uLens', 'uTex2', 'uSplit']) {
+    for (const n of ['uVP', 'uModel', 'uCam', 'uSnap', 'uFog', 'uTime', 'uFlick', 'uBright', 'uTex', 'uFogColor', 'uDither', 'uAlphaMul', 'uLightMul', 'uLens', 'uTex2', 'uTex3', 'uTex4', 'uSplit']) {
       this.u[n] = gl.getUniformLocation(prog, n);
     }
     this.view = mat4();
@@ -58,25 +58,40 @@ export class Renderer {
     this.w = w; this.h = h;
   }
 
-  uploadTextures(layers) {
+  // Allocate room for `count` texture layers. Layers start out empty (fully transparent, so
+  // nothing draws with them) and are filled with uploadLayer() as they are generated.
+  // WebGL2 only guarantees 256 layers per array texture: spread over up to four arrays.
+  allocTextures(count) {
     const gl = this.gl;
-    // WebGL2 only guarantees 256 layers per array texture: spill the rest into a second array
     const max = Math.max(1, gl.getParameter(gl.MAX_ARRAY_TEXTURE_LAYERS) || 256);
-    const make = (from, to) => {
+    this.texPer = Math.min(max, Math.max(1, count));
+    this.texArrays = [];
+    for (let from = 0; from < count && this.texArrays.length < 4; from += this.texPer) {
       const tex = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex);
-      gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, TS, TS, Math.max(1, to - from));
-      for (let i = from; i < to; i++) gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, i - from, TS, TS, 1, gl.RGBA, gl.UNSIGNED_BYTE, layers[i]);
+      gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, TS, TS, Math.min(this.texPer, count - from));
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.REPEAT);
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.REPEAT);
-      return tex;
-    };
-    const split = Math.min(layers.length, max);
-    this.tex = make(0, split);
-    this.tex2 = layers.length > split ? make(split, Math.min(layers.length, split + max)) : this.tex;
-    this.texSplit = layers.length > split ? split : 1e9;
+      this.texArrays.push(tex);
+    }
+    this.texReady = new Uint8Array(count);
+  }
+
+  uploadLayer(i, pixels) {
+    if (!this.texArrays || i >= this.texReady.length || !pixels) return;
+    const a = Math.floor(i / this.texPer);
+    if (a >= this.texArrays.length) return;
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.texArrays[a]);
+    gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, i - a * this.texPer, TS, TS, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    this.texReady[i] = 1;
+  }
+
+  uploadTextures(layers) {
+    this.allocTextures(layers.length);
+    layers.forEach((px, i) => this.uploadLayer(i, px));
   }
 
   // data: ArrayBuffer of interleaved vertices, idx: Uint32Array
@@ -133,13 +148,14 @@ export class Renderer {
     gl.uniform3f(this.u.uFogColor, fc[0], fc[1], fc[2]);
     gl.uniform1f(this.u.uDither, this.dither ? 1 : 0);
     gl.uniform1f(this.u.uAlphaMul, 1);
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.tex2);
-    gl.uniform1i(this.u.uTex2, 1);
-    gl.uniform1f(this.u.uSplit, this.texSplit);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.tex);
-    gl.uniform1i(this.u.uTex, 0);
+    const arrs = this.texArrays || [];
+    const units = ['uTex', 'uTex2', 'uTex3', 'uTex4'];
+    for (let k = 3; k >= 0; k--) {
+      gl.activeTexture(gl.TEXTURE0 + k);
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, arrs[k] || arrs[0] || null);
+      gl.uniform1i(this.u[units[k]], k);
+    }
+    gl.uniform1f(this.u.uSplit, this.texPer || 1e9);
     gl.disable(gl.BLEND);
     gl.depthMask(true);
     this.stats.draws = 0; this.stats.tris = 0;

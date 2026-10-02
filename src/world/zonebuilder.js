@@ -5,6 +5,12 @@ import { RNG } from '../core/rng.js';
 import { M } from './materials.js';
 import { propLightFor } from './props.js';
 
+// Wall material pairs are packed into one 32-bit value: material on the minus side in the low 16
+// bits, plus side in the high 16 bits.
+export const packMats = (minus, plus) => ((minus & 0xffff) | ((plus & 0xffff) << 16)) >>> 0;
+export const matMinus = (packed) => packed & 0xffff;
+export const matPlus = (packed) => packed >>> 16;
+
 export const W = {
   NONE: 0, WALL: 1, HALF: 2, DOOR: 3, WINDOW: 4, RAIL: 5, GLASS: 6, ARCH: 7, LOW: 8, FULL: 9, PART: 10, UPPER: 11, BIGDOOR: 12,
 };
@@ -23,14 +29,14 @@ export class ZoneBuilder {
     const p = zone.params || {};
     this.floor = new Float32Array(n);
     this.ceil = new Float32Array(n).fill(p.ceilH ?? 3);
-    this.fmat = new Uint8Array(n).fill(p.floorMat ?? M.carpet_y);
-    this.cmat = new Uint8Array(n).fill(p.ceilMat ?? M.ceil_tile);
-    this.wmat = new Uint8Array(n).fill(p.wallMat ?? M.wp_stripe);
-    this.solid = new Uint8Array(n);
+    this.fmat = new Uint16Array(n).fill(p.floorMat ?? M.carpet_y);
+    this.cmat = new Uint16Array(n).fill(p.ceilMat ?? M.ceil_tile);
+    this.wmat = new Uint16Array(n).fill(p.wallMat ?? M.wp_stripe);
+    this.solid = new Uint16Array(n);
     this.wallW = new Uint8Array(n);
     this.wallN = new Uint8Array(n);
-    this.wmW = new Uint16Array(n);
-    this.wmN = new Uint16Array(n);
+    this.wmW = new Uint32Array(n);
+    this.wmN = new Uint32Array(n);
     this.flags = new Uint16Array(n);
     this.room = new Int16Array(n).fill(-1);
     this.brushes = [];
@@ -78,8 +84,8 @@ export class ZoneBuilder {
     const i = this.i(x, z);
     const mm = matMinus ?? this.params.wallMat ?? M.wp_stripe;
     const mp = matPlus ?? mm;
-    if (side === 'W') { this.wallW[i] = type; this.wmW[i] = mm | (mp << 8); }
-    else { this.wallN[i] = type; this.wmN[i] = mm | (mp << 8); }
+    if (side === 'W') { this.wallW[i] = type; this.wmW[i] = packMats(mm, mp); }
+    else { this.wallN[i] = type; this.wmN[i] = packMats(mm, mp); }
   }
   getWall(x, z, side) {
     if (!this.in(x, z)) return -1;
