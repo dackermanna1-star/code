@@ -5,7 +5,7 @@
 import { defineTexture } from '../../gfx/textures.js';
 import { defineMaterial, VF } from '../materials.js';
 import { defineZone } from '../zonetypes.js';
-import { LEVEL_ZONE, defineLevel, hr, levelDoor, env, M, W, stairs, CF } from './kit.js';
+import { LEVEL_ZONE, defineLevel, hr, levelDoor, env, M, W, CF } from './kit.js';
 
 const N = 84;
 const Z = 16;
@@ -14,19 +14,20 @@ const STEPS = 33;          // steps per story: 3 stories are 99 steps
 
 // ---------------------------------------------------------------- palettes: one per hundred steps
 const PAL = [
-  { name: 'mustard', wall: [208, 172, 58], fog: [0.36, 0.28, 0.07], light: [1.0, 0.86, 0.5] },
-  { name: 'orange', wall: [214, 124, 46], fog: [0.38, 0.19, 0.05], light: [1.0, 0.7, 0.4] },
-  { name: 'red', wall: [176, 58, 50], fog: [0.32, 0.08, 0.07], light: [1.0, 0.55, 0.45] },
-  { name: 'rose', wall: [190, 74, 124], fog: [0.34, 0.1, 0.19], light: [1.0, 0.6, 0.75] },
-  { name: 'violet', wall: [118, 78, 174], fog: [0.2, 0.1, 0.32], light: [0.8, 0.62, 1.0] },
-  { name: 'blue', wall: [58, 98, 184], fog: [0.07, 0.15, 0.34], light: [0.65, 0.78, 1.0] },
-  { name: 'teal', wall: [42, 152, 158], fog: [0.05, 0.27, 0.3], light: [0.6, 0.95, 0.95] },
-  { name: 'green', wall: [68, 158, 86], fog: [0.08, 0.3, 0.13], light: [0.7, 1.0, 0.7] },
-  { name: 'lime', wall: [170, 188, 58], fog: [0.3, 0.34, 0.07], light: [0.95, 1.0, 0.6] },
-  { name: 'cream', wall: [224, 214, 178], fog: [0.4, 0.38, 0.3], light: [1.0, 0.96, 0.82] },
-  { name: 'grey', wall: [134, 136, 142], fog: [0.2, 0.2, 0.22], light: [0.9, 0.92, 1.0] },
-  { name: 'black', wall: [46, 44, 52], fog: [0.025, 0.025, 0.035], light: [1.0, 0.9, 0.6] },
+  { name: 'butter', wall: [226, 200, 108], light: [1.0, 0.9, 0.58] },
+  { name: 'orange', wall: [214, 124, 46], light: [1.0, 0.72, 0.42] },
+  { name: 'red', wall: [176, 58, 50], light: [1.0, 0.58, 0.48] },
+  { name: 'rose', wall: [190, 74, 124], light: [1.0, 0.64, 0.78] },
+  { name: 'violet', wall: [118, 78, 174], light: [0.82, 0.66, 1.0] },
+  { name: 'blue', wall: [58, 98, 184], light: [0.68, 0.8, 1.0] },
+  { name: 'teal', wall: [42, 152, 158], light: [0.62, 0.95, 0.95] },
+  { name: 'green', wall: [68, 158, 86], light: [0.72, 1.0, 0.72] },
+  { name: 'lime', wall: [170, 188, 58], light: [0.95, 1.0, 0.62] },
+  { name: 'cream', wall: [224, 214, 178], light: [1.0, 0.96, 0.84] },
+  { name: 'grey', wall: [134, 136, 142], light: [0.9, 0.92, 1.0] },
+  { name: 'black', wall: [46, 44, 52], light: [1.0, 0.9, 0.62] },
 ];
+for (const c of PAL) c.fog = c.name === 'black' ? [0.03, 0.03, 0.04] : c.wall.map((v) => (v / 255) * 0.5);
 const palOf = (story) => (((Math.floor(story / 3)) % PAL.length) + PAL.length) % PAL.length;
 
 PAL.forEach((c, k) => {
@@ -102,31 +103,32 @@ function gen(zb) {
   let dir = F.dir;
   if (mx && (dir === '+x' || dir === '-x')) dir = dir === '+x' ? '-x' : '+x';
   if (mz && (dir === '+z' || dir === '-z')) dir = dir === '+z' ? '-z' : '+z';
-  stairs(zb, fx0, fz0, fx1, fz1, dir, 0, 6, M.lv84_step, { riser: 6 / STEPS });
+  zb.fill(fx0, fz0, fx1, fz1, (x, z, i) => { zb.flags[i] |= CF.STAIRS; zb.floor[i] = 0; zb.solid[i] = 0; });
   zb.rectWallMat(fx0, fz0, fx1, fz1, wallM);
-
-  // balusters and a handrail along the open side of the flight, stepping with the treads
   const alongX = dir === '+x' || dir === '-x';
-  // the open edge of the flight is the one facing the well: for flights along x it is the side
-  // away from the outer wall, for flights along z likewise
-  const wellSide = (() => {
-    if (alongX) return (fz0 + fz1) / 2 < zb.z0 + Z / 2 ? 'S' : 'N';   // wall is north: open side south
-    return (fx0 + fx1) / 2 < zb.x0 + Z / 2 ? 'E' : 'W';
-  })();
+  const wellSide = alongX ? ((fz0 + fz1) / 2 < zb.z0 + Z / 2 ? 'S' : 'N') : ((fx0 + fx1) / 2 < zb.x0 + Z / 2 ? 'E' : 'W');
   const n = STEPS, run = alongX ? fx1 - fx0 : fz1 - fz0, tread = run / n;
   const up = dir === '+x' || dir === '+z';
+  const at = (k) => (up ? k * tread : run - (k + 1) * tread);
   for (let k = 0; k < n; k++) {
-    const a = up ? k * tread : run - (k + 1) * tread, top = (6 * (k + 1)) / n;
-    const mid = a + tread / 2;
+    const a = at(k), top = (6 * (k + 1)) / n;
+    // each step is a slab a little thicker than the rise: the underside shows as a saw tooth
+    if (alongX) zb.box(fx0 + a, top - 0.22, fz0, fx0 + a + tread, top, fz1, M.lv84_step, { sub: 8 });
+    else zb.box(fx0, top - 0.22, fz0 + a, fx1, top, fz0 + a + tread, M.lv84_step, { sub: 8 });
+    // an invisible solid keeps people from slipping off the open side; every third step gets a baluster and a piece of handrail
     let bx0, bx1, bz0, bz1;
     if (alongX) { bx0 = fx0 + a; bx1 = fx0 + a + tread; bz0 = wellSide === 'S' ? fz1 - 0.09 : fz0; bz1 = wellSide === 'S' ? fz1 : fz0 + 0.09; }
     else { bz0 = fz0 + a; bz1 = fz0 + a + tread; bx0 = wellSide === 'E' ? fx1 - 0.09 : fx0; bx1 = wellSide === 'E' ? fx1 : fx0 + 0.09; }
-    // handrail piece (collides, so nobody falls into the well off the stair)
-    zb.box(bx0, top + 0.9, bz0, bx1, top + 1.0, bz1, M.lv84_rail, { sub: 0 });
-    zb.box(bx0, top, bz0, bx1, top + 0.9, bz1, M.lv84_rail, { render: false });
-    // a baluster at the middle of each tread
-    if (alongX) zb.box(fx0 + mid - 0.03, top, bz0 + 0.02, fx0 + mid + 0.03, top + 0.9, bz1 - 0.02, M.lv84_rail, { collide: false, skip: 12 });
-    else zb.box(bx0 + 0.02, top, fz0 + mid - 0.03, bx1 - 0.02, top + 0.9, fz0 + mid + 0.03, M.lv84_rail, { collide: false, skip: 12 });
+    zb.box(bx0, top, bz0, bx1, top + 0.95, bz1, M.lv84_rail, { render: false });
+    if (k % 3 === 1) {
+      const span = tread * 3;
+      const rx0 = alongX ? (up ? bx0 - tread : bx0 - tread) : bx0, rx1 = alongX ? bx1 + tread : bx1;
+      const rz0 = alongX ? bz0 : bz0 - tread, rz1 = alongX ? bz1 : bz1 + tread;
+      void span;
+      zb.box(rx0, top + 0.9, rz0, rx1, top + 1.0, rz1, M.lv84_rail, { collide: false, sub: 8 });
+      if (alongX) zb.box((bx0 + bx1) / 2 - 0.03, top, bz0 + 0.02, (bx0 + bx1) / 2 + 0.03, top + 0.9, bz1 - 0.02, M.lv84_rail, { collide: false, skip: 12, sub: 8 });
+      else zb.box(bx0 + 0.02, top, (bz0 + bz1) / 2 - 0.03, bx1 - 0.02, top + 0.9, (bz0 + bz1) / 2 + 0.03, M.lv84_rail, { collide: false, skip: 12, sub: 8 });
+    }
   }
   // rail on the landing's open side toward the well (the edge is given in unmirrored cell space)
   {
@@ -157,8 +159,8 @@ function gen(zb) {
   const cx = zb.x0 + Z / 2, cz = zb.z0 + Z / 2;
   zb.box(cx - 0.01, 3.4, cz - 0.01, cx + 0.01, 6.0, cz + 0.01, M.lv84_cord, { collide: false, skip: 12 });
   zb.box(cx - 0.12, 3.1, cz - 0.12, cx + 0.12, 3.4, cz + 0.12, M.lv84_bulb, { collide: false });
-  zb.light(cx, 3.0, cz, { color: P.light, rad: 11, int: 0.95 });
-  zb.light(cx, 0.8, cz, { color: P.light, rad: 8, int: 0.5 });
+  zb.light(cx, 3.0, cz, { color: P.light, rad: 12, int: 1.15 });
+  zb.light(cx, 0.8, cz, { color: P.light, rad: 9, int: 0.6 });
 
   // a door on a landing whose north/south wall has no arch
   const landS = lz1 === zb.z1;
@@ -173,9 +175,9 @@ defineZone('lv84_shaft', {
   params: (zone) => {
     const P = PAL[palOf(zone.level)];
     return {
-      ambient: [0.26 + P.fog[0] * 0.2, 0.25 + P.fog[1] * 0.2, 0.24 + P.fog[2] * 0.2],
+      ambient: [0.34 + P.fog[0] * 0.3, 0.33 + P.fog[1] * 0.3, 0.32 + P.fog[2] * 0.3],
       wallMat: M['lv84_wall' + palOf(zone.level)],
-      env: env({ fog: P.fog, fogNear: 3, fogFar: 34, hum: 0.12, hvac: 0.0, reverb: 'stairwell', tone: 'lv84' }),
+      env: env({ fog: P.fog, fogNear: 4, fogFar: 32, hum: 0.12, hvac: 0.0, reverb: 'stairwell', tone: 'lv84' }),
     };
   },
   gen,
@@ -191,7 +193,7 @@ defineLevel(N, {
   bands: 'all',
   entry: ENTRY,
   doorDensity: 0,
-  viewRadius: 3,
+  viewRadius: 2,
   sky: null,
   light: { phoneRadius: 3.4, phoneIntensity: 0.2 },
 });

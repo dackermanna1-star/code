@@ -3,6 +3,7 @@
 import './g04_kit.js';
 const levels = [
   './l009_darkness_ave.js',
+  './l011_ruined_city.js',
   './l037_suburban_loop.js',
   './l043_long_drive.js',
   './l098_blackout_district.js',

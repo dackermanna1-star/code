@@ -204,8 +204,8 @@ function gen(zb) {
             if (roadX && tz === 5) mat = M.lv11_dash_x;
             else if (roadZ && tx === 5) mat = M.lv11_dash_z;
           }
-          if (roadX && !roadZ && (tx === 10 || tx === 11) && tz > 1) mat = M.lv11_zebra_z;
-          if (roadZ && !roadX && (tz === 10 || tz === 11) && tx > 1) mat = M.lv11_zebra_x;
+          if (roadX && !roadZ && (tx === 10 || tx === 11) && tz > 1) mat = M.lv11_zebra_x;
+          if (roadZ && !roadX && (tz === 10 || tz === 11) && tx > 1) mat = M.lv11_zebra_z;
         }
       } else { h = SW; mat = hr(lx >> 2, lz >> 2, 11910 + a * 3 + b) < 0.15 ? M.lv11_plaza : M.lv11_walk; }
       zb.floor[zb.i(x0 + lx, z0 + lz)] = h;
@@ -233,17 +233,17 @@ function gen(zb) {
       const lx = along === 'z' ? e : s, lz = along === 'z' ? s : e;
       const nearEnd = s < 16 || s > G - 16;
       if (hr(a + k, b * 3 + edge + (along === 'x' ? 7 : 0), 12010) < 0.7 && !nearEnd) {
-        const dir = along === 'z' ? (edge ? 'W' : 'E') : (edge ? 'N' : 'S');
+        const dir = along === 'z' ? (edge ? 'E' : 'W') : (edge ? 'S' : 'N');
         lamp(zb, x0 + lx, z0 + lz, dir, { y: SW, h: 8.5, arm: 2.4, dead: true });
       }
       // a car in a lane (not too close to the intersections)
       if (!nearEnd && hr(a + k * 3, b * 3 + edge + (along === 'x' ? 5 : 0), 12020) < 0.3) {
-        const lane = 2.5 + hr(a + k, b + edge, 12030) * 5;           // metres from the median edge
+        const lane = 1.8 + hr(a + k, b + edge, 12030) * 4.6;           // metres from the median edge
         const east = hr(a, b + k, 12040) < 0.5;
         const dist = 2 + lane + 0.2;                                  // from the zone edge
         const cx = along === 'z' ? (edge ? x1 - dist : x0 + dist) : x0 + s, cz = along === 'z' ? z0 + s : (edge ? z1 - dist : z0 + dist);
         if (owns(zb, cx, cz)) {
-          const rot = along === 'z' ? (edge ? Math.PI : 0) : (edge ? Math.PI / 2 : -Math.PI / 2);
+          const rot = along === 'z' ? (edge ? Math.PI : 0) : (edge ? -Math.PI / 2 : Math.PI / 2);
           zb.prop('g04_car', cx, 0, cz, rot + (hr(a + k, b + edge, 12050) - 0.5) * 0.1, {
             kind: CAR_KINDS[Math.floor(hr(a + k, b + edge, 12060) * 5)], col: CAR_COLS[Math.floor(hr(a + k, b + edge, 12070) * 6)], dust: true,
             door: hr(a + k, b + edge, 12080) < 0.3 ? 1 : 0, flat: hr(a + k, b + edge, 12090) < 0.25, hood: hr(a + k, b + edge, 12100) < 0.1,
