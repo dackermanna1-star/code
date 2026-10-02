@@ -86,9 +86,11 @@ export function buildChunkData(world, dim, level, cx, cz) {
     let top = Math.max(isNum(ca) ? ca : -Infinity, isNum(cb) ? cb : -Infinity);
     if (!Number.isFinite(top)) top = H;
     if ((isNum(ca) && ca <= H && !isVoid(ox, oz)) || (isNum(cb) && cb <= H && !isVoid(x, z))) top = Math.min(top, H);
+    // openings are measured from the higher floor, so a doorway over a step still fits a person
+    const hi = Math.max(isNum(fa) ? fa : bot, isNum(fb) ? fb : bot);
     if (type === W.FULL) { bot = Math.min(bot, 0); top = Math.max(top, H); }
     if (type === W.UPPER) { bot = top; top = H; }
-    return [bot, top];
+    return [bot, top, Math.max(bot, hi)];
   }
 
   // ---- floors / ceilings / risers / solids
@@ -224,10 +226,10 @@ export function buildChunkData(world, dim, level, cx, cz) {
         if (!t) continue;
         const mm = side === 'W' ? win.wmW[i] : win.wmN[i];
         const matMinus = mm & 255, matPlus = mm >> 8;
-        const [bot, top] = wallRange(x, z, side, t);
+        const [bot, top, hi] = wallRange(x, z, side, t);
         const s0 = side === 'W' ? (postNeeded(x, z) ? HALF_T : 0) : (postNeeded(x, z) ? HALF_T : 0);
         const s1 = side === 'W' ? (postNeeded(x, z + 1) ? HALF_T : 0) : (postNeeded(x + 1, z) ? HALF_T : 0);
-        emitWall(x, z, side, t, matMinus, matPlus, bot, top, s0, s1);
+        emitWall(x, z, side, t, matMinus, matPlus, bot, top, s0, s1, hi);
       }
       // post at the NW vertex of this cell
       const pc = postNeeded(x, z);
@@ -264,7 +266,7 @@ export function buildChunkData(world, dim, level, cx, cz) {
     addBox(x0, y0 + ya, z0, x1, y0 + yb, z1, 255);
   }
 
-  function emitWall(x, z, side, t, matMinus, matPlus, bot, top, s0, s1) {
+  function emitWall(x, z, side, t, matMinus, matPlus, bot, top, s0, s1, hi = bot) {
     const T = HALF_T;
     switch (t) {
       case W.WALL: case W.FULL: case W.UPPER:
@@ -272,11 +274,12 @@ export function buildChunkData(world, dim, level, cx, cz) {
         break;
       case W.DOOR: case W.ARCH: case W.LOW: case W.BIGDOOR: {
         const oh = t === W.DOOR ? DOOR_H : t === W.ARCH ? 2.6 : t === W.BIGDOOR ? 2.45 : 1.0;
-        if (bot + oh < top) wallSlab(side, x, z, s0, s1, T, bot + oh, top, matMinus, matPlus, 3 | 8);
+        const head = Math.min(top, hi + oh);
+        if (head < top) wallSlab(side, x, z, s0, s1, T, head, top, matMinus, matPlus, 3 | 8);
         if (t === W.DOOR) {
           // door frame trim on the head
           const [fx0, fz0, fx1, fz1] = wallGeom(side, x, z, s0, s1, T + 0.03);
-          arch.box(fx0, y0 + bot + oh - 0.06, fz0, fx1, y0 + bot + oh, fz1, trim, { skip: 4 });
+          arch.box(fx0, y0 + head - 0.06, fz0, fx1, y0 + head, fz1, trim, { skip: 4 });
         }
         break;
       }
