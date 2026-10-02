@@ -99,6 +99,16 @@ B('basalt_deltas', 2.0, 0.0, 'nether', { dimension: 'nether', precipitation: 'no
 B('the_end', 0.5, 0.5, 'the_end', { dimension: 'end', precipitation: 'none', fog: 0x0a080c });
 B('end_highlands', 0.5, 0.5, 'the_end', { dimension: 'end', precipitation: 'none', fog: 0x0a080c });
 B('small_end_islands', 0.5, 0.5, 'the_end', { dimension: 'end', precipitation: 'none', fog: 0x0a080c });
+// Appended by the world-generation workstream (Minecraft 1.18+ multi-noise biome variants).
+B('deep_lukewarm_ocean', 0.5, 0.5, 'ocean', { water: 0x45adf2, waterFog: 0x041633 });
+B('deep_cold_ocean', 0.5, 0.5, 'ocean', { water: 0x3d57d6, waterFog: 0x050533 });
+B('deep_frozen_ocean', 0.0, 0.5, 'ocean', { water: 0x3938c9, waterFog: 0x050533, precipitation: 'snow' });
+B('windswept_forest', 0.2, 0.3, 'mountain');
+B('windswept_gravelly_hills', 0.2, 0.3, 'mountain');
+B('windswept_savanna', 2.0, 0.0, 'savanna');
+B('old_growth_birch_forest', 0.6, 0.6, 'forest');
+B('old_growth_spruce_taiga', 0.25, 0.8, 'taiga');
+B('eroded_badlands', 2.0, 0.0, 'badlands', { grass: 0x90814d, foliage: 0x9e814d });
 
 export function biomeByName(name: string): Biome {
   const b = BIOME_BY_NAME.get(name);
