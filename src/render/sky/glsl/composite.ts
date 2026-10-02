@@ -17,7 +17,7 @@ uniform mat4 sky_invViewProj;   // rotation-only inverse view-projection
 uniform highp sampler2D sky_depth;
 uniform int sky_depthMode;      // 0 = none (depth test), 1 = sample & discard
 uniform highp sampler2D sky_clouds;
-uniform int sky_cloudMode;      // 0 none, 1 low-res volumetric buffer, 2 flat 2D layer
+uniform int sky_cloudMode;      // 0 none, 1 low-res volumetric buffer, 2 flat 2D layer, 3 cloud panorama
 uniform mat3 sky_starRot;
 uniform vec3 sky_moonLight;     // direction of sunlight on the moon (phase)
 uniform vec4 sky_disk;          // x sun disk radiance per unit illuminance, y moon disk radiance, z sun radius, w moon radius
@@ -226,6 +226,11 @@ void main() {
     cl_ambient(ambTop, ambBot);
     vec4 c = cl_clouds2D(d, ambTop, ambBot);
     col = col * c.a + c.rgb;
+  } else if (sky_cloudMode == 3) {
+    vec3 dd = normalize(vec3(d.x, max(d.y, 0.0), d.z) + vec3(1e-6, 0.0, 0.0));
+    vec4 c = texture(atmo_cloudEnvMap, atmo_skyViewUV(dd, atmo_cloudEnvSize));
+    float w = smoothstep(-0.12, 0.0, d.y);
+    col = col * mix(1.0, c.a, w) + c.rgb * w;
   }
   outColor = vec4(col, alpha);
 }

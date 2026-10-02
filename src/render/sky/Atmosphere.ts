@@ -159,6 +159,8 @@ export class Atmosphere {
   private shadowGenZ = 0;
   private readonly shadowLight = new THREE.Vector3(0, 1, 0);
   private lastTime = 0;
+  private updateCount = 0;
+  private lastRenderUpdate = -1;
   private readonly sunDir = new THREE.Vector3(0, 1, 0);
   private readonly moonDir = new THREE.Vector3(0, -1, 0);
   private coverage = 0.42;
@@ -262,8 +264,8 @@ export class Atmosphere {
     this.guard.save();
     try {
       if (!this.staticReady) this.buildStatic();
-      camera.updateMatrixWorld();
       this.frame = frameIndex;
+      this.updateCount++;
       if (params.dimension !== this.dimension) {
         this.dimension = params.dimension;
         this.historyValid = false;
@@ -280,13 +282,15 @@ export class Atmosphere {
       if (this.dimension === 'overworld') {
         this.passes.skyView.render(this.renderer, this.skyViewRT);
         this.renderCloudEnv();
-        if (frameIndex - this.lastShadowFrame >= this.q.shadowEvery || frameIndex < this.lastShadowFrame) {
+        // scheduling uses the internal update counter (robust to callers passing a constant frameIndex)
+        const n = this.updateCount;
+        if (n - this.lastShadowFrame >= this.q.shadowEvery) {
           this.renderCloudShadow();
-          this.lastShadowFrame = frameIndex;
+          this.lastShadowFrame = n;
         }
         this.updateShadowLookup(params);
-        if (!this.shPending && (frameIndex - this.lastShFrame >= this.q.shEvery || frameIndex < this.lastShFrame || !this.shReadOnce)) {
-          this.lastShFrame = frameIndex;
+        if (!this.shPending && (n - this.lastShFrame >= this.q.shEvery || !this.shReadOnce)) {
+          this.lastShFrame = n;
           this.computeSH();
         }
       } else {
@@ -314,19 +318,25 @@ export class Atmosphere {
 
       const w = target ? target.width : this.renderer.domElement.width;
       const h = target ? target.height : this.renderer.domElement.height;
+      // Only the first render() after update() is the main view (volumetric clouds + temporal
+      // history). Extra views in the same frame (reflections, portals) use the cloud panorama.
+      const mainView = this.lastRenderUpdate !== this.updateCount;
+      this.lastRenderUpdate = this.updateCount;
       let cloudMode = 0;
       let cloudTex: THREE.Texture = this.dummyTex;
       if (this.dimension === 'overworld') {
-        if (this.q.volumetric) {
+        if (!mainView) {
+          cloudMode = 3;
+        } else if (this.q.volumetric) {
           this.ensureCloudTargets(w, h);
           const cu = this.passes.cloud.material.uniforms;
           cu.cl_invViewProj.value.copy(this.invViewProj);
           cu.cl_res.value.set(this.cloudRT!.width, this.cloudRT!.height);
           cu.cl_depth.value = depthTexture ?? this.dummyTex;
           cu.cl_skip.value = depthTexture ? 1 : 0;
-          cu.cl_frame.value = this.frame % 1024;
+          cu.cl_frame.value = this.updateCount % 1024;
           // sub-texel jitter (Halton 2,3) so the temporal history anti-aliases the low-res edges
-          const hi = (this.frame % 16) + 1;
+          const hi = (this.updateCount % 16) + 1;
           if (this.q.temporal) cu.cl_subpixel.value.set(halton(hi, 2) - 0.5, halton(hi, 3) - 0.5);
           else cu.cl_subpixel.value.set(0, 0);
           const fovY = THREE.MathUtils.degToRad(camera.fov) / Math.max(camera.zoom, 1e-3);
@@ -371,7 +381,7 @@ export class Atmosphere {
       u.sky_pixelAngle.value = (2 * Math.tan(fovY / 2)) / Math.max(h, 1);
       this.passes.composite.render(this.renderer, target);
 
-      this.prevViewProj.copy(this.viewProj);
+      if (mainView) this.prevViewProj.copy(this.viewProj);
     } finally {
       this.guard.restore();
     }

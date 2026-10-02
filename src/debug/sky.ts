@@ -346,6 +346,10 @@ const sceneRT = new THREE.WebGLRenderTarget(W, H, {
 });
 // "sep" mode: lit colour copied into a separate HDR target without that depth attachment
 const hdrRT = sep ? new THREE.WebGLRenderTarget(W, H, { type: THREE.HalfFloatType, depthBuffer: false }) : null;
+// ?secondary=1: an extra small sky view per frame, shown inset in the top-right corner
+const secondaryRT = qs.get('secondary') === '1'
+  ? new THREE.WebGLRenderTarget(256, 144, { type: THREE.HalfFloatType, depthTexture: new THREE.DepthTexture(256, 144, THREE.UnsignedIntType) })
+  : null;
 
 const fsGeo = new THREE.BufferGeometry();
 fsGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3));
@@ -559,6 +563,12 @@ function renderFrame() {
     hdr = hdrRT;
   }
   timed('render', () => atmosphere.render(hdr, sceneRT.depthTexture!, camera));
+  if (secondaryRT) {
+    // second view in the same frame (e.g. a reflection probe): rendered with the cloud panorama
+    renderer.setRenderTarget(secondaryRT);
+    renderer.clear(true, true, false);
+    atmosphere.render(secondaryRT, secondaryRT.depthTexture!, camera);
+  }
 
   // output
   renderer.setRenderTarget(null);
@@ -577,6 +587,12 @@ function renderFrame() {
     tonemapPass.mat.uniforms.tHdr.value = hdr.texture;
     tonemapPass.mat.uniforms.uExposure.value = exposure;
     renderer.render(tonemapPass.scene, orthoCam);
+    if (secondaryRT) {
+      tonemapPass.mat.uniforms.tHdr.value = secondaryRT.texture;
+      renderer.setViewport(W - 266, H - 154, 256, 144);
+      renderer.render(tonemapPass.scene, orthoCam);
+      renderer.setViewport(0, 0, W, H);
+    }
   }
   renderer.autoClear = true;
   timings.push(performance.now() - t0);
