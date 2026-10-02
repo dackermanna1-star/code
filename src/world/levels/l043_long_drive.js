@@ -94,7 +94,7 @@ function hAt(x, z) {
   if (d < 22) return -0.7 + 0.7 * (d - 19) / 3;
   return (fbm(x, z, 110, 4311, 3) - 0.5) * 11 * smooth((d - 24) / 40);
 }
-const viaX = (k) => BX * k + 90 + hr(k, 7, 4301) * 140;
+const viaX = (k) => (k === 0 ? 74 : BX * k + 90 + hr(k, 7, 4301) * 140);
 const CAR_COLS = [[0.7, 0.72, 0.76], [0.62, 0.2, 0.18], [0.24, 0.3, 0.5], [0.85, 0.85, 0.82], [0.3, 0.42, 0.34], [0.8, 0.7, 0.3], [0.3, 0.3, 0.32]];
 const CAR_KINDS = ['sedan', 'sedan', 'wagon', 'van', 'pickup', 'sedan'];
 
@@ -172,7 +172,7 @@ function gen(zb) {
     }
     // ---- gantries with green signs, one pair every so often
     for (let g = Math.floor(x0 / 480); g * 480 < x1; g++) {
-      const gx = g * 480 + 140 + hr(g, j, 4360) * 160;
+      const gx = g === 0 && j === 0 ? 50 : g * 480 + 140 + hr(g, j, 4360) * 160;
       if (gx < x0 || gx >= x1 - 1) continue;
       const k = 1 + (Math.abs(g * 7 + j) % 4);
       for (const side of [-1, 1]) {
@@ -190,12 +190,13 @@ function gen(zb) {
     // ---- cars standing in the lanes, doors open
     for (let s = 0; s < 6; s++) {
       const u = hr(i * 6 + s, j, 4400);
-      if (u > 0.5) continue;
+      if (u > 0.64) continue;
       const side = hr(i * 6 + s, j, 4401) < 0.5 ? -1 : 1;
       const lane = Math.floor(hr(i * 6 + s, j, 4402) * 3.2);
       const rel = side * (lane > 2 ? 15.2 : 3.5 + lane * 4);
       const cx = x0 + 8 + s * 21 + hr(i * 6 + s, j, 4403) * 9, cz = zc + rel + 0.5 * (hr(i, s, 4404) - 0.5);
       if (!owns(zb, cx, cz)) continue;
+      if (i === 0 && j === 0 && cx < 70 && Math.abs(cz - (zc + 7.5)) < 5) continue;
       const kind = CAR_KINDS[Math.floor(hr(i * 6 + s, j, 4405) * CAR_KINDS.length)];
       zb.prop('g04_car', cx, 0, cz, (side > 0 ? Math.PI / 2 : -Math.PI / 2) + (hr(i * 6 + s, j, 4406) - 0.5) * 0.14, {
         kind, col: CAR_COLS[Math.floor(hr(i * 6 + s, j, 4407) * CAR_COLS.length)], dust: true,
@@ -284,7 +285,7 @@ defineLevel(N, {
   viewRadius: 5,
   sky: {
     top: [0.42, 0.47, 0.52], horizon: [0.69, 0.72, 0.74], ground: [0.5, 0.52, 0.5], curve: 0.5,
-    sun: { dir: [0.4, 0.28, -0.85], color: [0.95, 0.94, 0.88], size: 0.002, halo: 0.5 },
+    sun: { dir: [0.4, 0.28, -0.85], color: [0.95, 0.94, 0.88], size: 0.002, halo: 0.3 },
     clouds: { layer: 'lv43_clouds', color: [0.8, 0.82, 0.84], amount: 0.95, speed: 0.004, scale: 0.3 },
     band: { layer: 'lv43_ridge', color: [0.8, 0.85, 0.85], repeat: 6, top: 0.05, bottom: -0.03, fog: 0.62 },
   },
