@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Audio debug — Photorealistic Physics Edition</title>
+    <style>
+      :root {
+        --bg: #101214;
+        --panel: #181b1f;
+        --line: #2a2f36;
+        --text: #d9dde3;
+        --dim: #8a929c;
+        --accent: #62c46d;
+        --warn: #e0a84f;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.35 system-ui, sans-serif; }
+      header { position: sticky; top: 0; z-index: 2; display: flex; gap: 12px; align-items: center; padding: 8px 12px; background: #0b0d0f; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+      header h1 { font-size: 15px; margin: 0 8px 0 0; font-weight: 600; }
+      #status { color: var(--dim); font-family: ui-monospace, monospace; font-size: 12px; white-space: pre; }
+      main { display: grid; grid-template-columns: 330px 1fr; gap: 10px; padding: 10px; }
+      aside, section { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+      aside h2, section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); margin: 10px 0 6px; }
+      aside h2:first-child, section h2:first-child { margin-top: 0; }
+      label.row { display: grid; grid-template-columns: 92px 1fr 42px; align-items: center; gap: 6px; margin: 2px 0; }
+      label.row span:last-child { text-align: right; font-family: ui-monospace, monospace; color: var(--dim); }
+      input[type='range'] { width: 100%; }
+      select { background: #0e1012; color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 2px 4px; }
+      button { background: #23282e; color: var(--text); border: 1px solid #333a42; border-radius: 4px; padding: 3px 7px; margin: 2px; cursor: pointer; font-size: 12px; }
+      button:hover { background: #2d343c; border-color: #4a535e; }
+      button.on { background: #2f5233; border-color: var(--accent); }
+      button.primary { background: #2f5233; border-color: var(--accent); font-weight: 600; }
+      .group { margin-bottom: 8px; }
+      .group h3 { font-size: 12px; margin: 6px 0 2px; color: var(--accent); font-weight: 600; }
+      table.grid { border-collapse: collapse; font-size: 12px; }
+      table.grid td, table.grid th { padding: 1px 2px; }
+      table.grid th { color: var(--dim); font-weight: 500; text-align: left; }
+      table.grid button { margin: 0; padding: 2px 5px; min-width: 40px; }
+      canvas { display: block; width: 100%; background: #000; border-radius: 4px; }
+      #specInfo { color: var(--dim); font-family: ui-monospace, monospace; font-size: 12px; margin-top: 4px; white-space: pre-wrap; }
+      .flex { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+      .hint { color: var(--dim); font-size: 12px; }
+      @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Procedural audio debug</h1>
+      <button id="start" class="primary">Start audio</button>
+      <span id="status">not started — click “Start audio” (browsers require a user gesture)</span>
+    </header>
+    <main>
+      <aside id="controls"></aside>
+      <div>
+        <section>
+          <h2>Last sound — spectrogram (log frequency 40 Hz–20 kHz) &amp; level</h2>
+          <canvas id="spec" width="900" height="240"></canvas>
+          <div id="specInfo">Play a sound to see its spectrogram.</div>
+          <h2>Output meter</h2>
+          <canvas id="meter" width="900" height="60"></canvas>
+        </section>
+        <section style="margin-top: 10px">
+          <h2>Block materials (SoundGroup × action)</h2>
+          <div id="blocks"></div>
+          <h2>Sounds</h2>
+          <div id="sounds"></div>
+        </section>
+      </div>
+    </main>
+    <script type="module" src="/src/debug/audio.ts"></script>
+  </body>
+</html>
