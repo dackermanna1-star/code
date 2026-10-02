@@ -124,4 +124,26 @@ export interface GeneratedChunk {
   blockEntities?: { x: number; y: number; z: number; data: any }[];
   /** Entities to spawn on first load (villagers, animals ...). */
   entities?: { type: string; x: number; y: number; z: number; data?: any }[];
+  /** Local light computed in the worker (filled by gen.worker.ts, not by generators). */
+  light?: (Uint16Array | null)[];
+  lightFill?: Uint16Array;
+}
+
+/** Build a Chunk from generator output (main thread). */
+export function chunkFromGenerated(g: GeneratedChunk): Chunk {
+  const c = new Chunk(g.cx, g.cz);
+  for (let i = 0; i < c.blocks.length; i++) c.blocks[i] = g.blocks[i] ?? null;
+  c.biomes.set(g.biomes);
+  c.heightmap.set(g.heightmap);
+  c.grassColor.set(g.grassColor);
+  c.foliageColor.set(g.foliageColor);
+  c.waterColor.set(g.waterColor);
+  if (g.light && g.lightFill) {
+    for (let i = 0; i < c.light.length; i++) c.light[i] = g.light[i] ?? null;
+    c.lightFill.set(g.lightFill);
+  }
+  if (g.blockEntities) for (const be of g.blockEntities) c.blockEntities.set((be.y << 8) | ((be.z & 15) << 4) | (be.x & 15), be.data);
+  if (g.entities?.length) c.data.pendingEntities = g.entities;
+  c.status = 'lit';
+  return c;
 }

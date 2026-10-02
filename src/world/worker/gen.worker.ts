@@ -9,6 +9,8 @@
  */
 import { createGenerator } from '../gen/index';
 import type { DimensionId, WorldGenerator } from '../gen/generator';
+import { Chunk } from '../chunk';
+import { lightChunkLocal } from '../light';
 
 const gens = new Map<string, WorldGenerator>();
 function gen(dimension: DimensionId, seed: number): WorldGenerator {
@@ -23,8 +25,15 @@ self.onmessage = (e: MessageEvent) => {
   try {
     if (m.type === 'gen') {
       const chunk = gen(m.dimension, m.seed).generate(m.cx, m.cz);
-      const transfer: Transferable[] = [chunk.biomes.buffer, chunk.heightmap.buffer, chunk.grassColor.buffer, chunk.foliageColor.buffer, chunk.waterColor.buffer];
+      // light the chunk locally (borders are fixed up on the main thread)
+      const c = new Chunk(m.cx, m.cz);
+      for (let i = 0; i < c.blocks.length; i++) c.blocks[i] = chunk.blocks[i] ?? null;
+      lightChunkLocal(c);
+      chunk.light = c.light.slice();
+      chunk.lightFill = c.lightFill;
+      const transfer: Transferable[] = [chunk.biomes.buffer, chunk.heightmap.buffer, chunk.grassColor.buffer, chunk.foliageColor.buffer, chunk.waterColor.buffer, chunk.lightFill.buffer];
       for (const s of chunk.blocks) if (s) transfer.push(s.buffer);
+      for (const l of chunk.light) if (l) transfer.push(l.buffer);
       (self as any).postMessage({ type: 'gen', id: m.id, chunk }, transfer);
     } else if (m.type === 'locate') {
       const result = gen(m.dimension, m.seed).locateStructure(m.structure, m.x, m.z);
