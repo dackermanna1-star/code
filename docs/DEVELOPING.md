@@ -31,6 +31,20 @@ URL parameters (development):
   `node tools/shots.mjs '[{"name":"a","x":200,"z":200,"yaw":1.2}]' "force=office" /tmp/out`
   then look at `/tmp/out/a.png`. Set `PORT=` if your server is not on 8765.
 
+### Single-file build
+
+`node tools/build.mjs` writes `dist/index.html`, the whole game in one file that also runs from
+`file://`, and `dist/level-zero.html`, the same page without doctype/head/body for hosts that
+supply their own document skeleton. Every module becomes an async factory inside one script.
+
+* Supported module syntax: named imports and exports, `import * as`, side-effect imports,
+  dynamic `import()`, `export { a as b }`. No `export default`, no `export *`, and one
+  declarator per exported `const`.
+* Workers: inside the bundle, `globalThis.__makeWorker(path)` starts a Blob worker running the
+  module with that repo-relative path. Create workers like this so both modes work:
+  `globalThis.__makeWorker ? globalThis.__makeWorker('src/audio/bankworker.js') : new Worker(new URL('./bankworker.js', import.meta.url), { type: 'module' })`.
+  Worker modules must also import cleanly in Node (`tools/check.mjs`), so guard `self`.
+
 ## Conventions
 
 * Units are metres. `+x` east, `+z` south, `+y` up. Camera yaw 0 looks toward `-z`.
