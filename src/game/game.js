@@ -233,7 +233,10 @@ export class Game {
     const level = Math.floor((s.y + 0.05) / LEVEL_H);
     const tmp = [];
     let placed = false;
-    for (let r = 0; r < 14 && !placed; r++) {
+    // first look for floor near the requested height (so the top of a ceiling slab between two
+    // levels never counts as floor), then accept bigger drops
+    for (let pass = 0; pass < 2 && !placed; pass++) for (let r = 0; r < 14 && !placed; r++) {
+      const below = pass === 0 ? 1.0 : 3;
       for (let dz = -r; dz <= r && !placed; dz++) for (let dx = -r; dx <= r && !placed; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
         const cx = Math.floor(s.x) + dx + 0.5, cz = Math.floor(s.z) + dz + 0.5;
@@ -242,7 +245,7 @@ export class Game {
         let best = null;
         for (let k = 0; k < tmp.length; k += 7) {
           const top = tmp[k + 4];
-          if (top > s.y + 1.5 || top < s.y - 3) continue;
+          if (top > s.y + 1.5 || top < s.y - below) continue;
           if (best !== null && Math.abs(top - s.y) >= Math.abs(best - s.y)) continue;
           let blocked = false;
           for (let j = 0; j < tmp.length; j += 7) {
