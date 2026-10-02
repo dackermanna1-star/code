@@ -4,6 +4,7 @@
 // stair. Every hundred steps (three stories) the walls change colour, and the light with them.
 import { defineTexture } from '../../gfx/textures.js';
 import { defineMaterial, VF } from '../materials.js';
+import { defineProp, propMat as S, propTex as T } from '../props.js';
 import { defineZone } from '../zonetypes.js';
 import { LEVEL_ZONE, defineLevel, hr, levelDoor, env, M, W, CF } from './kit.js';
 
@@ -67,6 +68,30 @@ defineMaterial('lv84_rail', 'lv84_rail', { s: 1, surf: 'metal' });
 defineMaterial('lv84_bulb', 'lv84_bulb', { s: 1, flags: VF.FULLBRIGHT, glow: 1.15 });
 defineMaterial('lv84_cord', 'lv84_cord', { s: 1, surf: 'metal' });
 
+// painted numerals on the wall: white with a dark edge
+for (const ch of '0123456789-') {
+  defineTexture('lv84_n' + (ch === '-' ? 'm' : ch), (p) => {
+    p.fill([250, 244, 228]);
+    p.clearAlpha(0);
+    for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [2, 2], [-2, 2], [2, -2]]) { p.text(ch, 14 + dx, 10 + dy, [30, 24, 20], 6); p.textA(ch, 14 + dx, 10 + dy, 255, 6); }
+    p.text(ch, 14, 10, [250, 244, 228], 6); p.textA(ch, 14, 10, 255, 6);
+  }, 4);
+}
+// handrail of a flight: a sloped rod on balusters, one at every third tread
+defineProp('lv84_rail', {
+  build(mb, p) {
+    const L = p.opts.len, rise = p.opts.rise, n = p.opts.n, rail = S('lv84_rail');
+    const yAt = (x) => 0.95 + (rise * x) / L;
+    mb.rod(-0.05, yAt(-0.05), 0, L + 0.05, yAt(L + 0.05), 0, 0.04, 5, rail, true);
+    for (let k = 1; k < n; k += 3) {
+      const x = ((k + 0.5) * L) / n, top = (rise * (k + 1)) / n;
+      mb.rod(x, top, 0, x, yAt(x), 0, 0.018, 4, rail);
+    }
+    mb.rod(0.04, 0, 0, 0.04, yAt(0.04), 0, 0.045, 5, rail, true);
+    mb.rod(L - 0.04, rise, 0, L - 0.04, yAt(L - 0.04), 0, 0.045, 5, rail, true);
+  },
+});
+
 // ---------------------------------------------------------------- layout
 // per story the stair starts in one corner: NW, NE, SE, SW (clockwise) and runs to the next one.
 // Neighbouring shafts are mirrored (chessboard), so at the corner where four shafts meet all four
@@ -78,7 +103,7 @@ const FLIGHT = [
   { land: [0, Z - R, R, Z], run: [0, R, R, Z - R], dir: '-z', rail: ['W', R, Z - R, Z] },
 ];
 // does the shared wall between the landings north/south of each other have an arch (or a door)?
-const nsArch = (i, j, s) => (i === 0 && j === 0 && s === 0) ? false : hr(i * 5 + j, s, 901) < 0.5;
+const nsArch = (i, j, s) => (i === 0 && j === 0 && s === 0) ? true : hr(i * 5 + j, s, 901) < 0.5;
 const doorHere = (i, j, s, k) => hr(i * 3 + k, j * 7 + s, 902) < 0.34;
 
 function gen(zb) {
@@ -120,16 +145,16 @@ function gen(zb) {
     if (alongX) { bx0 = fx0 + a; bx1 = fx0 + a + tread; bz0 = wellSide === 'S' ? fz1 - 0.09 : fz0; bz1 = wellSide === 'S' ? fz1 : fz0 + 0.09; }
     else { bz0 = fz0 + a; bz1 = fz0 + a + tread; bx0 = wellSide === 'E' ? fx1 - 0.09 : fx0; bx1 = wellSide === 'E' ? fx1 : fx0 + 0.09; }
     zb.box(bx0, top, bz0, bx1, top + 0.95, bz1, M.lv84_rail, { render: false });
-    if (k % 3 === 1) {
-      const span = tread * 3;
-      const rx0 = alongX ? (up ? bx0 - tread : bx0 - tread) : bx0, rx1 = alongX ? bx1 + tread : bx1;
-      const rz0 = alongX ? bz0 : bz0 - tread, rz1 = alongX ? bz1 : bz1 + tread;
-      void span;
-      zb.box(rx0, top + 0.9, rz0, rx1, top + 1.0, rz1, M.lv84_rail, { collide: false, sub: 8 });
-      if (alongX) zb.box((bx0 + bx1) / 2 - 0.03, top, bz0 + 0.02, (bx0 + bx1) / 2 + 0.03, top + 0.9, bz1 - 0.02, M.lv84_rail, { collide: false, skip: 12, sub: 8 });
-      else zb.box(bx0 + 0.02, top, (bz0 + bz1) / 2 - 0.03, bx1 - 0.02, top + 0.9, (bz0 + bz1) / 2 + 0.03, M.lv84_rail, { collide: false, skip: 12, sub: 8 });
-    }
   }
+  // the handrail: one sloped prop along the open side
+  {
+    const rot = { '+x': 0, '+z': Math.PI / 2, '-x': Math.PI, '-z': -Math.PI / 2 }[dir];
+    let rx, rz;
+    if (alongX) { rz = wellSide === 'S' ? fz1 - 0.06 : fz0 + 0.06; rx = dir === '+x' ? fx0 : fx1; }
+    else { rx = wellSide === 'E' ? fx1 - 0.06 : fx0 + 0.06; rz = dir === '+z' ? fz0 : fz1; }
+    zb.prop('lv84_rail', rx, 0, rz, rot, { len: run, rise: 6, n, collide: false });
+  }
+
   // rail on the landing's open side toward the well (the edge is given in unmirrored cell space)
   {
     const [kind, line, a0, a1] = F.rail;
@@ -154,6 +179,20 @@ function gen(zb) {
     zb.setWall(x, zb.z0, 'N', arch ? W.ARCH : W.WALL, wallM, wallM);
   }
   // keep the arch cells' floors continuous with the neighbour's landing (the landing floor is at 0 on both sides)
+
+  // at the first story of a colour the number of steps climbed so far is painted on the wall of the flight
+  if (((s % 3) + 3) % 3 === 0) {
+    const label = String(Math.floor(s / 3) * 100), wx = (fx0 + fx1) / 2, wz = (fz0 + fz1) / 2;
+    const dw = 1.15, total = label.length * dw;
+    for (let q = 0; q < label.length; q++) {
+      const off = -total / 2 + dw * (q + 0.5), tex = 'lv84_n' + (label[q] === '-' ? 'm' : label[q]);
+      let x, z, face;
+      if (alongX) { const north = wellSide === 'S'; face = north ? 'pz' : 'nz'; z = north ? zb.z0 + 0.12 : zb.z1 - 0.12; x = north ? wx + off : wx - off; }
+      else { const west = wellSide === 'E'; face = west ? 'px' : 'nx'; x = west ? zb.x0 + 0.12 : zb.x1 - 0.12; z = west ? wz - off : wz + off; }
+      zb.decal(x, 3.2, z, face, 1.0, 1.7, tex);
+    }
+    void wx; void wz;
+  }
 
   // a bare bulb on a cord in the middle of the well, tinted by the colour of this stretch
   const cx = zb.x0 + Z / 2, cz = zb.z0 + Z / 2;

@@ -5,6 +5,7 @@
 const files = [
   './l002_pipe_dreams.js',
   './l059_maintenance_tunnels.js',
+  './l017_the_carrier.js',
   './l019_crawlspace.js',
   './l024_blast_off.js',
 ];

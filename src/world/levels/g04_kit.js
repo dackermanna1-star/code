@@ -433,17 +433,17 @@ defineMaterial('g04_sig_body', 'g04_sig_body', { s: 1, surf: 'metal' });
 
 // One signal head on a pole at (x, z): the lenses face `face` ('N' = toward -z, 'S' +z, 'E' +x, 'W' -x).
 // chans = [red, amber, green] channel numbers (0 steady) or null for a dead head.
-export function signalHead(zb, x, y, z, face, chans) {
+export function signalHead(zb, x, y, z, face, chans, k = 1) {
   const dx = face === 'E' ? 1 : face === 'W' ? -1 : 0, dz = face === 'S' ? 1 : face === 'N' ? -1 : 0;
-  const hx = x + dx * 0.34, hz = z + dz * 0.34;
-  const ax = dz ? 0.2 : 0.18, az = dz ? 0.18 : 0.2;
-  zb.box(hx - ax, y - 0.55, hz - az, hx + ax, y + 0.55, hz + az, M.g04_sig_body, { collide: false });
+  const hx = x + dx * 0.34 * k, hz = z + dz * 0.34 * k;
+  const ax = (dz ? 0.2 : 0.18) * k, az = (dz ? 0.18 : 0.2) * k;
+  zb.box(hx - ax, y - 0.55 * k, hz - az, hx + ax, y + 0.55 * k, hz + az, M.g04_sig_body, { collide: false });
   zb.box(Math.min(x, hx) - 0.06, y - 0.05, Math.min(z, hz) - 0.06, Math.max(x, hx) + 0.06, y + 0.05, Math.max(z, hz) + 0.06, M.g04_sig_body, { collide: false });
-  const fx = hx + dx * 0.19, fz = hz + dz * 0.19;
-  const mats = chans ? ['r', 'a', 'g'].map((k, i) => M['g04_sig_' + k + (chans[i] || '')]) : [M.g04_sig_off, M.g04_sig_off, M.g04_sig_off];
+  const fx = hx + dx * 0.19 * k, fz = hz + dz * 0.19 * k;
+  const mats = chans ? ['r', 'a', 'g'].map((c, i) => M['g04_sig_' + c + (chans[i] || '')]) : [M.g04_sig_off, M.g04_sig_off, M.g04_sig_off];
   for (let i = 0; i < 3; i++) {
-    const yy = y + 0.34 - i * 0.34;
-    zb.box(fx - (dz ? 0.12 : 0.02), yy - 0.12, fz - (dx ? 0.12 : 0.02), fx + (dz ? 0.12 : 0.02), yy + 0.12, fz + (dx ? 0.12 : 0.02), mats[i], { collide: false });
+    const yy = y + (0.34 - i * 0.34) * k, q = 0.12 * k;
+    zb.box(fx - (dz ? q : 0.02), yy - q, fz - (dx ? q : 0.02), fx + (dz ? q : 0.02), yy + q, fz + (dx ? q : 0.02), mats[i], { collide: false });
   }
 }
 // A signal pole at (x, z) with heads facing the listed directions
@@ -452,5 +452,5 @@ export function signalPole(zb, x, z, heads, o = {}) {
   const y0 = o.y ?? 0, h = o.h ?? 4.9;
   zb.box(x - 0.09, y0, z - 0.09, x + 0.09, y0 + h, z + 0.09, M.g04_pole);
   zb.box(x - 0.2, y0, z - 0.2, x + 0.2, y0 + 0.3, z + 0.2, M.g04_pole);
-  for (const hd of heads) signalHead(zb, x, y0 + h - 0.9, z, hd.face, hd.chans);
+  for (const hd of heads) signalHead(zb, x, y0 + h - 0.9 * (o.k ?? 1), z, hd.face, hd.chans, o.k ?? 1);
 }

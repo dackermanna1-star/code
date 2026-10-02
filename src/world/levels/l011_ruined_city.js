@@ -8,8 +8,8 @@
 import { defineZone } from '../zonetypes.js';
 import { LEVEL_ZONE, defineLevel, openGround, levelDoor, env } from './kit.js';
 import {
-  defineTexture, defineMaterial, hr, owns, cbox, M, mul, mix, FACE, only,
-  paintAsphalt, paintConcrete, paintSkyline, paintWindow, stripe, lamp, signalPole, driveChannels,
+  defineTexture, defineMaterial, hr, owns, cbox, M, mul, FACE,
+  paintAsphalt, paintConcrete, paintSkyline, stripe, lamp, signalPole, driveChannels,
 } from './g04_kit.js';
 import { pfbm } from '../../gfx/texgen.js';
 
@@ -128,8 +128,6 @@ function tower(zb, X0, Z0, X1, Z1, h, seed) {
   for (let k = 0; k < 4; k++) {
     if (hs[k] > Hb + 0.1) continue;
     const [ax, az, bx, bz] = quads[k];
-    const fl = Hb + 2 + Math.floor(h(20 + k) * 3) * 0;
-    void fl;
     cbox(zb, ax + 0.5, Hb, az + 0.5, bx - 0.5, Hb + 0.4, bz - 0.5, M.lv11_rubble, { sub: 6 });
   }
   // heaps of fallen masonry around the base
@@ -191,7 +189,6 @@ function gen(zb) {
     const tz = Math.min(lz, G - 1 - lz);
     for (let lx = 0; lx < G; lx++) {
       const tx = Math.min(lx, G - 1 - lx);
-      const i = lz * G + lx;
       if (tz >= 13 && tx >= 13) continue;
       let h = 0, mat = null;
       const roadX = tz < 9, roadZ = tx < 9;                      // inside an east-west / north-south carriageway
@@ -210,19 +207,17 @@ function gen(zb) {
       } else { h = SW; mat = hr(lx >> 2, lz >> 2, 11910 + a * 3 + b) < 0.15 ? M.lv11_plaza : M.lv11_walk; }
       zb.floor[zb.i(x0 + lx, z0 + lz)] = h;
       zb.fmat[zb.i(x0 + lx, z0 + lz)] = mat;
-      void i;
     }
   }
   // ---- the four lots
-  const lots = [];
-  for (let qz = 0; qz < 2; qz++) for (let qx = 0; qx < 2; qx++) lots.push(lot(zb, qx, qz, a, b));
+  for (let qz = 0; qz < 2; qz++) for (let qx = 0; qx < 2; qx++) lot(zb, qx, qz, a, b);
   // ---- signals: this zone draws the pole in each of its four corners, for the intersection there
   const corners = [[0, 0, 1, 1], [1, 0, -1, 1], [0, 1, 1, -1], [1, 1, -1, -1]];
   for (const [ix, iz, sx, sz] of corners) {
     const ia = a + ix, ib = b + iz, grp = (ia + ib) & 1, c0 = 1 + grp * 6;
     const px = (ix ? x1 : x0) + sx * 10.5, pz = (iz ? z1 : z0) + sz * 10.5;
     const fx = sx > 0 ? 'W' : 'E', fz = sz > 0 ? 'N' : 'S';
-    signalPole(zb, px, pz, [{ face: fz, chans: [c0, c0 + 1, c0 + 2] }, { face: fx, chans: [c0 + 3, c0 + 4, c0 + 5] }], { y: SW });
+    signalPole(zb, px, pz, [{ face: fz, chans: [c0, c0 + 1, c0 + 2] }, { face: fx, chans: [c0 + 3, c0 + 4, c0 + 5] }], { y: SW, k: 1.7, h: 5.6 });
     if (ix === 1 && iz === 1 && owns(zb, px, pz)) zb.emitter(px, 4, pz, 'lv11_buzz', { vol: 0.45, rad: 16 });
   }
   // ---- dead street lamps along the pavements, cars standing in the lanes
@@ -231,37 +226,36 @@ function gen(zb) {
       const s = 14 + k * 22 + hr(a * 4 + k, b * 4 + edge, 12000) * 6;
       const e = edge ? G - 11.5 : 11.5;
       const lx = along === 'z' ? e : s, lz = along === 'z' ? s : e;
-      const nearEnd = s < 16 || s > G - 16;
+      const nearEnd = s < 15 || s > G - 15;
       if (hr(a + k, b * 3 + edge + (along === 'x' ? 7 : 0), 12010) < 0.7 && !nearEnd) {
         const dir = along === 'z' ? (edge ? 'E' : 'W') : (edge ? 'S' : 'N');
         lamp(zb, x0 + lx, z0 + lz, dir, { y: SW, h: 8.5, arm: 2.4, dead: true });
       }
       // a car in a lane (not too close to the intersections)
-      if (!nearEnd && hr(a + k * 3, b * 3 + edge + (along === 'x' ? 5 : 0), 12020) < 0.3) {
+      if (!nearEnd && hr(a + k * 3, b * 3 + edge + (along === 'x' ? 5 : 0), 12020) < 0.55) {
         const lane = 1.8 + hr(a + k, b + edge, 12030) * 4.6;           // metres from the median edge
-        const east = hr(a, b + k, 12040) < 0.5;
         const dist = 2 + lane + 0.2;                                  // from the zone edge
         const cx = along === 'z' ? (edge ? x1 - dist : x0 + dist) : x0 + s, cz = along === 'z' ? z0 + s : (edge ? z1 - dist : z0 + dist);
-        if (owns(zb, cx, cz)) {
+        if (owns(zb, cx, cz) && !(a === 0 && b === 0 && cx > 48 && cx < 104 && cz < 10)) {
           const rot = along === 'z' ? (edge ? Math.PI : 0) : (edge ? -Math.PI / 2 : Math.PI / 2);
           zb.prop('g04_car', cx, 0, cz, rot + (hr(a + k, b + edge, 12050) - 0.5) * 0.1, {
             kind: CAR_KINDS[Math.floor(hr(a + k, b + edge, 12060) * 5)], col: CAR_COLS[Math.floor(hr(a + k, b + edge, 12070) * 6)], dust: true,
             door: hr(a + k, b + edge, 12080) < 0.3 ? 1 : 0, flat: hr(a + k, b + edge, 12090) < 0.25, hood: hr(a + k, b + edge, 12100) < 0.1,
           });
         }
-        void east;
       }
     }
   }
-  // ---- a door on the pavement in front of a lot
-  if (hr(a, b, 12200) < 0.9) {
-    const q = Math.floor(hr(a, b, 12210) * 4), qx = q & 1, qz = q >> 1;
-    const s = 20 + hr(a, b, 12220) * 40;
+  // ---- two doors on the pavements in front of lots
+  for (let k = 0; k < 2; k++) {
+    if (hr(a, b, 12200 + k) > 0.92) continue;
+    const q = (Math.floor(hr(a, b, 12210 + k) * 2) + k * 2) % 4, qx = q & 1, qz = q >> 1;
+    let s = 20 + hr(a, b, 12220 + k) * 40;
     const frontZ = qz ? G - 11.5 : 11.5;
-    const px = x0 + (qx ? G - s : s), pz = z0 + frontZ;
+    let px = x0 + (qx ? G - s : s), pz = z0 + frontZ;
+    if (a === 0 && b === 0 && k === 0) { px = 92; pz = 11.5; }
     if (owns(zb, px, pz)) levelDoor(zb, px, pz, qz ? Math.PI : 0, { y: SW });
   }
-  void lots;
 }
 
 defineZone('lv11_city', {

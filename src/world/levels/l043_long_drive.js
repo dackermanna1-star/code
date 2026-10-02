@@ -38,10 +38,15 @@ defineTexture('lv43_dirt', (p) => { p.fill([112, 96, 72]); p.noise(5, 0.2, 3); p
 defineTexture('lv43_ditch', (p) => paintGrass(p, [78, 98, 58], { noise: 0.2, dark: 60 }), 10);
 defineTexture('lv43_leaf', (p) => paintLeaves(p, [64, 90, 52], [110, 132, 72], { blobs: 70 }), 10);
 defineTexture('lv43_leaf_b', (p) => paintLeaves(p, [100, 100, 56], [150, 140, 76], { blobs: 70 }), 10);
-defineTexture('lv43_green', (p) => signTex(['NEXT EXIT', '190 MI'], [22, 110, 64], [244, 244, 236], 1)(p), 8);
-defineTexture('lv43_green2', (p) => signTex(['NO', 'SERVICES'], [22, 110, 64], [244, 244, 236], 1)(p), 8);
-defineTexture('lv43_green3', (p) => signTex(['LEVEL', '43'], [22, 110, 64], [244, 244, 236], 2)(p), 8);
-defineTexture('lv43_green4', (p) => signTex(['KEEP', 'GOING'], [22, 110, 64], [244, 244, 236], 1)(p), 8);
+const signPaint = (lines) => (p) => {
+  p.fill([22, 110, 64]);
+  lines.forEach(([txt, sc, y]) => { const w = txt.length * 6 * sc - sc; p.text(txt, Math.round(32 - w / 2), y, [244, 244, 236], sc); });
+  p.frame(0, 0, 64, 64, [236, 236, 228]); p.frame(2, 2, 60, 60, [14, 70, 40]);
+};
+defineTexture('lv43_green', signPaint([['EXIT', 2, 9], ['190', 3, 26], ['MILES', 1, 52]]), 8);
+defineTexture('lv43_green2', signPaint([['NO', 3, 8], ['SERVICE', 1, 36], ['NEXT 400 MI', 1, 48]]), 8);
+defineTexture('lv43_green3', signPaint([['LEVEL', 2, 12], ['43', 3, 34]]), 8);
+defineTexture('lv43_green4', signPaint([['KEEP', 2, 10], ['GOING', 2, 32]]), 8);
 defineTexture('lv43_marker', (p) => { p.fill([22, 100, 60]); p.frame(0, 0, 64, 64, [240, 240, 232]); p.text('MILE', 14, 5, [240, 240, 232], 2); }, 6);
 for (let d = 0; d < 10; d++) defineTexture('lv43_dg' + d, (p) => { p.fill([22, 100, 60]); p.text(String(d), 14, 7, [244, 244, 236], 7); }, 4);
 defineTexture('lv43_metal', (p) => { p.fill([96, 100, 106]); p.noise(5, 0.12, 2); }, 6);
@@ -117,13 +122,15 @@ function gen(zb) {
   // ground: heights on a 4 m lattice (global, so zones agree), interpolated per cell
   const NODES = G / 4 + 1, nodeH = new Float32Array(NODES * NODES);
   for (let nz = 0; nz < NODES; nz++) for (let nx = 0; nx < NODES; nx++) nodeH[nz * NODES + nx] = hAt(x0 + nx * 4, z0 + nz * 4);
+  const BL = G / 8, blk = new Float32Array(BL * BL);
+  for (let bz = 0; bz < BL; bz++) for (let bx = 0; bx < BL; bx++) blk[bz * BL + bx] = hr((x0 >> 3) + bx, (z0 >> 3) + bz, 4320);
   zb.fill(x0, z0, x1, z1, (x, z, i) => {
     const fx = (x + 0.5 - x0) / 4, fz = (z + 0.5 - z0) / 4;
     const ix = Math.min(NODES - 2, Math.floor(fx)), iz = Math.min(NODES - 2, Math.floor(fz)), tx = fx - ix, tz = fz - iz;
     const a = nodeH[iz * NODES + ix], b = nodeH[iz * NODES + ix + 1], c = nodeH[(iz + 1) * NODES + ix], d = nodeH[(iz + 1) * NODES + ix + 1];
     const h = (a + (b - a) * tx) * (1 - tz) + (c + (d - c) * tx) * tz;
     zb.floor[i] = h; zb.ceil[i] = NaN; zb.flags[i] = CF_SMOOTH;
-    const n = hr(x >> 3, z >> 3, 4320);
+    const n = blk[((z - z0) >> 3) * BL + ((x - x0) >> 3)];
     zb.fmat[i] = h < -0.05 ? M.lv43_ditch : n < 0.22 ? M.lv43_dirt : n < 0.62 ? M.lv43_grass : M.lv43_dry;
   });
   const zc = z0 + ZC;
@@ -185,7 +192,7 @@ function gen(zb) {
         mats[side > 0 ? 1 : 0] = M['lv43_green' + k];
         const sx0 = gx - 0.35, sx1 = gx + 0.35;
         const zm = (zs0 + zs1) / 2;
-        zb.box(sx0, 3.7, zm - 2.5, sx1, 6.6, zm + 2.5, mats, { uv: 'fit', collide: false });
+        zb.box(sx0, 3.7, zm - 2.1, sx1, 6.6, zm + 2.1, mats, { uv: 'fit', collide: false });
       }
     }
     // ---- cars standing in the lanes, doors open

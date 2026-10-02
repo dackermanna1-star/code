@@ -34,9 +34,9 @@ function facade(p, litP) {
     p.rect(x0 + 2, y0 + 2, 12, 1, [48, 50, 56]);
   }
 }
-T('lv33_facade_a', (p) => facade(p, 0.34), 14);
-T('lv33_facade_b', (p) => facade(p, 0.22), 14);
-T('lv33_facade_c', (p) => facade(p, 0.46), 14);
+T('lv33_facade_a', (p) => facade(p, 0.46), 14);
+T('lv33_facade_b', (p) => facade(p, 0.32), 14);
+T('lv33_facade_c', (p) => facade(p, 0.6), 14);
 T('lv33_conc', (p) => {
   p.fill([74, 78, 82]); p.noise(5, 0.1, 3); p.grain(0.06);
   for (let i = 0; i < 6; i++) p.drip(p.rng.int(0, 63), 0, p.rng.int(20, 60), [40, 46, 52], 0.35, 2);
@@ -79,20 +79,26 @@ for (let f = 0; f < 4; f++) {
     p.clearAlpha(0);
     const r = p.rng;
     for (let x = 0; x < 64; x += 2) {
-      const len = 10 + ((x * 7 + 3) % 28), y0 = (((x * 13) % 64) + f * 16 + (x % 3) * 9) % 64;
+      const len = 22 + ((x * 7 + 3) % 30), y0 = (((x * 13) % 64) + f * 16 + (x % 3) * 9) % 64;
       for (let k = 0; k < len; k++) { const yy = (y0 + k) % 64; p.set(x, yy, k < 3 ? [230, 240, 248] : [150, 178, 200]); p.alpha(x, yy, 255); if (r.chance(0.5)) { p.set(x + 1, yy, [190, 212, 226]); p.alpha(x + 1, yy, 255); } }
     }
   }, 6);
 }
 T('lv33_pole', (p) => { p.fill([40, 44, 48]); p.noise(4, 0.1, 2); }, 4);
-for (const k of ['a', 'b', 'c']) defineMaterial('lv33_facade_' + k, 'lv33_facade_' + k, { s: 12, flags: VF.FULLBRIGHT, glow: 0.78, surf: 'concrete' });
+for (const k of ['a', 'b', 'c']) defineMaterial('lv33_facade_' + k, 'lv33_facade_' + k, { s: 12, flags: VF.FULLBRIGHT, glow: 0.95, surf: 'concrete' });
 defineMaterial('lv33_conc', 'lv33_conc', { s: 3, surf: 'concrete', stain: 0.1 });
 defineMaterial('lv33_wet', 'lv33_wet', { s: 3, surf: 'wet', stain: 0.06 });
 defineMaterial('lv33_ceil', 'lv33_ceil', { s: 8, surf: 'concrete' });
 defineMaterial('lv33_lobby', 'lv33_lobby', { s: 2, surf: 'wet' });
 defineMaterial('lv33_wall', 'lv33_wall', { s: 2, surf: 'drywall', stain: 0.1 });
 defineMaterial('lv33_puddle', 'lv33_puddle', { s: 2, surf: 'water', flags: VF.WOBBLE | VF.SCROLL });
-defineMaterial('lv33_fall', 'lv33_fall0', { s: 4, flags: VF.FULLBRIGHT | VF.ANIM, glow: 0.42, surf: 'water', frames: 4 });
+for (let f = 1; f < 4; f++) defineMaterial('lv33_fall' + f, 'lv33_fall' + f, { s: 4 });
+defineMaterial('lv33_fall', 'lv33_fall0', { s: 4, flags: VF.FULLBRIGHT | VF.ANIM, glow: 0.85, surf: 'water', frames: 4 });
+
+// the animation needs all four frames uploaded: a speck of each in the same chunk
+function fallFrames(Z, u, v) {
+  for (let f = 1; f < 4; f++) Z.box(u + f * 0.2, CH - 0.05, v, u + f * 0.2 + 0.05, CH, v + 0.05, M['lv33_fall' + f], { collide: false });
+}
 
 // ------------------------------------------------------------------ the zone
 const isTower = (u, v) => ((u >= 6 && u < 26) || (u >= 38 && u < 58)) && ((v >= 6 && v < 26) || (v >= 38 && v < 58));
@@ -109,21 +115,54 @@ function gen(zb) {
   // streets: lamps on the tower faces, hanging flood lamps, puddles
   const towers = [];
   for (let ti = 0; ti < 2; ti++) for (let tj = 0; tj < 2; tj++) towers.push([TOW[ti], TOW[tj], ti, tj]);
-  for (const [tu, tv, ti, tj] of towers) tower(Z, zb, zi, zj, tu, tv, ti, tj, R);
+  const plaza = zi === 0 && zj === 0;
+  if (!plaza) for (const [tu, tv, ti, tj] of towers) tower(Z, zb, zi, zj, tu, tv, ti, tj, R);
+  else greatPlaza(Z, zb, R);
   for (let k = 0; k < 8; k++) for (let m = 0; m < 8; m++) {
     const u = k * 8, v = m * 8;
     if ((u % 32 !== 0 && v % 32 !== 0)) continue;
-    if (isTower(u, v)) continue;
+    if (!plaza && isTower(u, v)) continue;
+    if (plaza && u >= 6 && u < 58 && v >= 6 && v < 58) continue;
     zb.fixture(Z.x(u), Z.z(v), 'highbay', true, { y: CH, hang: 1.6 });
     Z.light(u, CH - 2.4, v, { color: [1.0, 0.78, 0.5], rad: 10, int: 0.8, ch: R(40 + k, m, 1) < 0.1 ? 3 : 0 });
   }
   // puddles
   for (let k = 0; k < 16; k++) {
     const u0 = Math.floor(R(60 + k, 1) * 58), v0 = Math.floor(R(61 + k, 2) * 58), w = 2 + Math.floor(R(62 + k, 3) * 4), d = 2 + Math.floor(R(63 + k, 4) * 4);
+    if (plaza && u0 > 4 && u0 < 58 && v0 > 4 && v0 < 58) continue;
     if (isTower(u0 - 1, v0 - 1) || isTower(u0 + w + 1, v0 + d + 1) || isTower(u0 - 1, v0 + d + 1) || isTower(u0 + w + 1, v0 - 1)) continue;
     water(zb, Z.x(u0), Z.z(v0), Z.x(u0 + w), Z.z(v0 + d), 0.03, M.lv33_puddle, 0.55);
   }
   // ambient sounds: the downpour on the roof is the room tone; pouring water by the falls is placed at them
+}
+
+// the great plaza of the origin zone: no towers, a roof twice as high, a sunken pool you can wade
+// and a curtain of water pouring from the roof into it
+function greatPlaza(Z, zb, R) {
+  const PH = 18;
+  Z.heights(6, 6, 58, 58, 0, PH);
+  Z.each(16, 18, 48, 46, (u, v, i) => { zb.floor[i] = -0.4; });
+  water(zb, Z.x(16), Z.z(18), Z.x(48), Z.z(46), -0.05, M.lv33_puddle, 0.72);
+  // the curtain
+  Z.box(16, 0, 21, 48, PH - 0.4, 21.3, M.lv33_fall, { collide: false, skip: 15 });
+  for (const u of [18, 30, 42]) fallFrames(Z, u, 21.1);
+  for (const u of [20, 32, 44]) Z.light(u, 2.4, 22.6, { color: [0.62, 0.78, 1.0], rad: 11, int: 0.9 });
+  for (const u of [24, 40]) Z.light(u, 6, 19.5, { color: [0.62, 0.78, 1.0], rad: 11, int: 0.6 });
+  Z.emitter(32, 3, 21, 'lv33_fall', { vol: 1.0, rad: 30 });
+  // columns holding up the roof
+  for (const u of [8, 24, 40, 56]) for (const v of [8, 24, 40, 56]) {
+    if (u > 14 && u < 50 && v > 16 && v < 48) continue;
+    Z.box(u - 0.6, 0, v - 0.6, u + 0.6, PH, v + 0.6, M.lv33_conc);
+    Z.light(u, 4.5, v, { color: SODIUM, rad: 10, int: 0.8 });
+  }
+  // lamps along the rim of the pool
+  for (const t of [16, 24, 40, 48]) for (const [px, pz, ax] of [[t, 16.3, 0], [t, 47.7, 0], [14.3, t, 0.8], [49.7, t, -0.8]]) {
+    if ((t === 16 || t === 48) && (px === 14.3 || px === 49.7)) continue;
+    poleLamp(zb, Z.x(px), Z.z(pz), 4.4, { y: 0, armX: ax, arm: ax !== 0, color: R(t, px, 33) < 0.35 ? MERCURY : SODIUM, rad: 11, int: 1.0 });
+  }
+  for (const [u, v, r] of [[26, 52, 0], [38, 52, 0], [10, 32, Math.PI / 2], [54, 32, -Math.PI / 2]]) Z.prop('bench', u, 0, v, r, { len: 1.8 });
+  levelDoor(zb, Z.x(52.5), Z.z(46.5), face(-1, 0), {});
+  Z.light(51.0, 2.4, 46.5, { color: [1.0, 0.86, 0.62], rad: 5, int: 0.6 });
 }
 
 function tower(Z, zb, zi, zj, tu, tv, ti, tj, R) {
@@ -189,10 +228,12 @@ function tower(Z, zb, zi, zj, tu, tv, ti, tj, R) {
       const z0 = fz < 0 ? tv - 0.12 : tv + 20, z1 = fz < 0 ? tv : tv + 20.12;
       Z.box(tu + c, 0.2, z0, tu + c + w, CH - 0.3, z1, M.lv33_fall, { collide: false, skip: 63 & ~(fz < 0 ? 32 : 16) });
       Z.emitter(tu + c + w / 2, 2, fz < 0 ? tv - 0.6 : tv + 20.6, 'lv33_fall', { vol: 0.9, rad: 16 });
+      fallFrames(Z, tu + c + 1, tv + 1);
     } else {
       const x0 = fx < 0 ? tu - 0.12 : tu + 20, x1 = fx < 0 ? tu : tu + 20.12;
       Z.box(x0, 0.2, tv + c, x1, CH - 0.3, tv + c + w, M.lv33_fall, { collide: false, skip: 63 & ~(fx < 0 ? 2 : 1) });
       Z.emitter(fx < 0 ? tu - 0.6 : tu + 20.6, 2, tv + c + w / 2, 'lv33_fall', { vol: 0.9, rad: 16 });
+      fallFrames(Z, tu + 1, tv + c + 1);
     }
   }
 }
@@ -202,8 +243,8 @@ const RAIN = { kind: 'rain', amount: 0.62, color: [0.66, 0.72, 0.82, 0.5], fall:
 defineZone('lv33_rain', {
   ...LEVEL_ZONE,
   params: () => ({
-    ambient: [0.15, 0.17, 0.21],
-    env: env({ fog: [0.08, 0.095, 0.125], fogNear: 5, fogFar: 50, hum: 0, hvac: 0, reverb: 'hall', tone: 'lv33_rain' }),
+    ambient: [0.19, 0.22, 0.27],
+    env: env({ fog: [0.1, 0.12, 0.16], fogNear: 5, fogFar: 54, hum: 0, hvac: 0, reverb: 'hall', tone: 'lv33_rain' }),
     weather: RAIN,
   }),
   gen,
@@ -213,7 +254,7 @@ defineLevel(N, {
   name: 'THE RAIN ROOM',
   zoneType: 'lv33_rain',
   zoneSize: G,
-  entry: { x: 32.5, y: 0, z: 58.5, yaw: 0, pitch: 0 },
+  entry: { x: 32.5, y: 0, z: 54.5, yaw: 0, pitch: 0 },
   doorDensity: 0.45,
   viewRadius: 3,
   weather: RAIN,

@@ -6,7 +6,7 @@ import { pfbm } from '../../gfx/texgen.js';
 import { defineZone } from '../zonetypes.js';
 import { LEVEL_ZONE, defineLevel, openGround, levelDoor, env } from './kit.js';
 import {
-  defineTexture, defineMaterial, S, T, hr, owns, M, FACE, mul, mix,
+  defineTexture, defineMaterial, hr, owns, M,
   paintAsphalt, paintConcrete, paintGrass, paintSiding, paintShingle, paintWindow, paintLeaves, stripe, lamp,
 } from './g04_kit.js';
 import { placeHouse } from './g04_house.js';
@@ -179,8 +179,8 @@ function gen(zb) {
     const north = ((k + j) & 1) === 0;
     const u = hr(k, j, 40);
     const dead = u < 0.07, ch = !dead && u < 0.16 ? 1 + (k & 3) : 0;
-    if (north) lamp(zb, x, z0 + 27.5, 'S', { h: 6.2, arm: 2.6, y: WALK, color: [1.0, 0.72, 0.4], rad: 12, int: 3.3, ch, dead, lens: ch ? M['g04_lens_y' + ch] : M.g04_lens_y });
-    else lamp(zb, x, z0 + 37.5, 'N', { h: 6.2, arm: 2.6, y: WALK, color: [1.0, 0.72, 0.4], rad: 12, int: 3.3, ch, dead, lens: ch ? M['g04_lens_y' + ch] : M.g04_lens_y });
+    if (north) lamp(zb, x, z0 + 27.5, 'S', { h: 6.2, arm: 2.6, y: WALK, color: [1.0, 0.72, 0.4], rad: 12, int: 3.8, ch, dead, lens: ch ? M['g04_lens_y' + ch] : M.g04_lens_y });
+    else lamp(zb, x, z0 + 37.5, 'N', { h: 6.2, arm: 2.6, y: WALK, color: [1.0, 0.72, 0.4], rad: 12, int: 3.8, ch, dead, lens: ch ? M['g04_lens_y' + ch] : M.g04_lens_y });
     // a hydrant by some of them
     if (hr(k, j, 41) < 0.4) {
       const hx = x + 3.2, hz = north ? z0 + 25.7 : z0 + 39.3;
@@ -216,7 +216,7 @@ defineLevel(N, {
   name: '9999 DARKNESS AVE.',
   zoneType: 'lv9_avenue',
   zoneSize: G,
-  entry: { x: 8.5, y: 0, z: 32.5, yaw: Math.PI / 2 },
+  entry: { x: 13.5, y: 0, z: 32.5, yaw: Math.PI / 2 },
   doorDensity: 0.25,
   viewRadius: 5,
   sky: {
@@ -224,4 +224,13 @@ defineLevel(N, {
     clouds: { layer: 'lv9_clouds', color: [0.2, 0.13, 0.1], amount: 0.85, speed: 0.002, scale: 0.4 },
   },
   light: { phoneRadius: 4.2, phoneIntensity: 0.26 },
+  // now and then the grid draws harder somewhere down the street: a swell of mains hum, far off
+  script(ctx, dt) {
+    const s = ctx.state;
+    s.t = (s.t ?? 40) - dt;
+    if (s.t > 0) return;
+    s.t = 55 + Math.random() * 70;
+    const p = ctx.player, a = Math.random() * Math.PI * 2;
+    ctx.game.audioCall('play', 'lv9_surge', p.x + Math.sin(a) * 35, p.y + 6, p.z - Math.cos(a) * 35, { distant: true, vol: 0.8 });
+  },
 });

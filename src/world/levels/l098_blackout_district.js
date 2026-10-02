@@ -118,6 +118,8 @@ function gen(zb) {
     road[lz * G + lx] = r;
   }
   const at = (m, lx, lz) => (lx < 0 || lz < 0 || lx >= G || lz >= G ? 0 : m[lz * G + lx]);
+  const BL = G / 8, blk = new Float32Array(BL * BL);
+  for (let bz = 0; bz < BL; bz++) for (let bx = 0; bx < BL; bx++) blk[bz * BL + bx] = hr(bx, bz, a * 31 + b * 17 + 7);
   for (let pass = 0; pass < 2; pass++) {
     const src = pass === 0 ? road : shoulder, add = [];
     for (let lz = 0; lz < G; lz++) for (let lx = 0; lx < G; lx++) {
@@ -135,7 +137,7 @@ function gen(zb) {
       else if (lx === C && !inZ) mat = M.lv98_road_z;
       cellSet(zb, x, z, ROAD, mat);
     } else if (shoulder[k]) cellSet(zb, x, z, GRAV, M.lv98_gravel);
-    else if (hr(lx >> 3, lz >> 3, a * 31 + b * 17 + 7) < 0.5) cellSet(zb, x, z, LAWN, M.lv98_grass);
+    else if (blk[(lz >> 3) * BL + (lx >> 3)] < 0.5) cellSet(zb, x, z, LAWN, M.lv98_grass);
   }
   const wp = (u, v, e) => [cx + DIR[e][0] * u + PERP[e][0] * v, cz + DIR[e][1] * u + PERP[e][1] * v];
   const pad = (e, u0, u1, v0, v1, mat, step = 0.5) => {
@@ -263,7 +265,7 @@ defineZone('lv98_district', {
 });
 
 // ------------------------------------------------------------------ the windows answer the dark
-const DELAY = [0, 3, 7, 4.5, 11, 6, 15, 9, 20, 13, 5, 17, 25];
+const DELAY = [0, 2, 4, 3, 6, 5, 8, 7, 10, 9, 3.5, 12, 14];
 const DUR = [0, 46, 52, 40, 60, 44, 70, 38, 50, 64, 42, 56, 48];
 const CYCLE = 110;
 

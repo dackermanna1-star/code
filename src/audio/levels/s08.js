@@ -2,3 +2,5 @@
 import './s08_office.js';
 import './s08_waiting.js';
 import './s08_wing.js';
+import './s08_cave.js';
+import './s08_phones.js';

@@ -294,6 +294,7 @@ defineLevel(N, {
   entry: { x: ENTRY.x, y: ENTRY.k * 6, z: ENTRY.z, yaw: -Math.PI / 2, pitch: 0.03 },
   doorDensity: 0.7,
   viewRadius: 4,
+  fallTo: 'entry',
   sky: {
     top: [0.05, 0.05, 0.2], horizon: [0.92, 0.5, 0.42], ground: [0.24, 0.15, 0.28], curve: 0.5,
     sun: { dir: [1, -0.04, 0.25], color: [1.0, 0.55, 0.35], size: 0, halo: 0.55 },

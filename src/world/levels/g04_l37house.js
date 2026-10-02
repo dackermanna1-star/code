@@ -1,8 +1,7 @@
 // The house of level 37 (Suburban Loop): a tall yellow house with a turret, a wrap-around porch
 // and a red door. It stands at the end of every road. Placed with placeLoopHouse(); the details
 // that differ each time (car, curtains, lights, flags) come in through opts.
-import { defineTexture, defineMaterial, defineProp, S, T, G, VF, face, tface, mul, hr, owns, M, FACE, paintSiding, paintBrick, paintShingle, paintWindow, withXf } from './g04_kit.js';
-import { xfMul, xfTranslate, xfRotY } from '../../core/math.js';
+import { defineTexture, defineMaterial, defineProp, S, T, G, VF, face, tface, owns, M, FACE, paintSiding, paintBrick, paintShingle, paintWindow } from './g04_kit.js';
 
 defineTexture('lv37_yellow', (p) => paintSiding(p, [252, 214, 72], { board: 8, groove: 0.8, hi: 1.05, grain: 0.02, noise: 0.03 }), 8);
 defineTexture('lv37_trim', (p) => { p.fill([246, 244, 236]); p.noise(3, 0.04, 2); p.grain(0.02); }, 4);
@@ -26,8 +25,6 @@ defineMaterial('lv37_slate', 'lv37_slate', { s: 1.5, surf: 'wood' });
 defineMaterial('lv37_porch', 'lv37_porch', { s: 1.2, surf: 'wood' });
 defineMaterial('lv37_brick', 'lv37_brick', { su: 1.0, sv: 0.5, surf: 'concrete' });
 
-const FIT = [0, 0, 1, 1];
-void FIT;
 
 // a flat rectangle on a wall whose outward normal is (nx, nz) (horizontal), centred at (cx, cy, cz)
 function rectN(mb, nx, nz, cx, cy, cz, wd, ht, st) {

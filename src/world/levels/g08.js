@@ -2,3 +2,5 @@
 import './l051_empty_office.js';
 import './l022_waiting_room.js';
 import './l072_hospital_wing.js';
+import './l064_underground_school.js';
+import './l089_telephone_hall.js';

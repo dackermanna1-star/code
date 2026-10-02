@@ -6,12 +6,11 @@ import { defineTexture } from '../../gfx/textures.js';
 import { defineMaterial } from '../materials.js';
 import { defineZone } from '../zonetypes.js';
 import { LEVEL_ZONE, defineLevel, cbox, owns, hr, levelDoor, env, M, ceilingLight } from './kit.js';
-import { hookFlicker, smooth } from './g05_kit.js';
+import { hookFlicker } from './g05_kit.js';
 import { MZ, CX, bayCar, reactiveNear, REACT } from './g05_garage.js';
 
 const N = 29;
 const CEIL = 2.55;
-const SOLID = (r, g, b) => [r, g, b];
 
 // ------------------------------------------------------------------ textures
 function slab(p, seed, bay) {
@@ -108,13 +107,13 @@ function gen(zb) {
         const cz = zb0 + dz;
         if (cx < x0 - 1 || cx > x1 + 1 || cz < z0 - 1 || cz > z1 + 1) continue;
         if (inCore(cx - 1, cz) || inCore(cx, cz) || inCore(cx - 1, cz - 1) || inCore(cx, cz - 1)) continue;
-        cbox(zb, cx - 0.35, 0, cz - 0.35, cx + 0.35, CEIL, cz + 0.35, M.lv29_column);
+        cbox(zb, cx - 0.35, 0, cz - 0.35, cx + 0.35, CEIL, cz + 0.35, M.lv29_column, { sub: 3 });
       }
       // beams: along x over the aisle edges, across the aisle between them
       for (const dz of [5, 11]) {
-        if (!inCore(cx, zb0 + dz)) cbox(zb, cx, CEIL - 0.4, zb0 + dz - 0.35, cx + CX, CEIL, zb0 + dz + 0.35, M.lv29_ceil, { sub: 2 });
+        if (!inCore(cx, zb0 + dz)) cbox(zb, cx, CEIL - 0.4, zb0 + dz - 0.35, cx + CX, CEIL, zb0 + dz + 0.35, M.lv29_ceil, { sub: 4 });
       }
-      if (!inCore(cx, zb0 + 8)) cbox(zb, cx - 0.25, CEIL - 0.34, zb0 + 5.35, cx + 0.25, CEIL, zb0 + 10.65, M.lv29_ceil, { sub: 2 });
+      if (!inCore(cx, zb0 + 8)) cbox(zb, cx - 0.25, CEIL - 0.34, zb0 + 5.35, cx + 0.25, CEIL, zb0 + 10.65, M.lv29_ceil, { sub: 4 });
     }
     // tubes: bars across the aisle under every cross beam (so the row reads from far away), a
     // flush tube between them, and one over each row of bays
@@ -253,4 +252,3 @@ defineLevel(N, {
     }
   },
 });
-void smooth; void SOLID;

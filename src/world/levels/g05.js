@@ -2,6 +2,7 @@
 // only removes itself.
 const levels = [
   './l015_futuristic_halls.js',
+  './l023_endless_elevator.js',
   './l029_parking_structure.js',
   './l073_endless_garage.js',
   './l082_endless_parking_lot.js',

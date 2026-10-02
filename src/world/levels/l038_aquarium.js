@@ -22,13 +22,13 @@ defineTexture('lv38_tile', (p) => {
 }, 12);
 defineTexture('lv38_kick', (p) => { p.fill([48, 62, 68]); p.noise(5, 0.12, 3); p.rect(0, 0, 64, 3, [30, 42, 48]); p.speckle(80, [74, 90, 92], 0.2, 0.5); }, 8);
 defineTexture('lv38_floor', (p) => {
-  p.fill([26, 38, 44]); p.noise(6, 0.1, 3);
-  for (let k = 0; k < 64; k += 32) { p.rect(k, 0, 1, 64, [14, 22, 28], 0.9); p.rect(0, k, 64, 1, [14, 22, 28], 0.9); }
+  p.fill([50, 72, 80]); p.noise(6, 0.1, 3);
+  for (let k = 0; k < 64; k += 32) { p.rect(k, 0, 1, 64, [24, 38, 44], 0.9); p.rect(0, k, 64, 1, [14, 22, 28], 0.9); }
   p.rect(6, 6, 18, 2, [60, 100, 110], 0.25); p.rect(38, 40, 20, 2, [60, 100, 110], 0.25); p.speckle(100, [60, 78, 84], 0.2, 0.5);
 }, 8);
 defineTexture('lv38_ceil', (p) => {
-  p.fill([22, 30, 36]); p.noise(5, 0.1, 3);
-  for (let k = 0; k < 64; k += 32) { p.rect(k, 0, 2, 64, [12, 18, 22]); p.rect(0, k, 64, 2, [12, 18, 22]); }
+  p.fill([36, 50, 58]); p.noise(5, 0.1, 3);
+  for (let k = 0; k < 64; k += 32) { p.rect(k, 0, 2, 64, [18, 28, 34]); p.rect(0, k, 64, 2, [12, 18, 22]); }
   p.speckle(60, [40, 52, 58], 0.2, 0.5);
 }, 8);
 // caustics: the zero lines of the difference of two noise fields, shifted a little per frame
@@ -95,6 +95,7 @@ defineMaterial('lv38_ceil', 'lv38_ceil', { s: 3, surf: 'drywall' });
 glowMat('lv38_glass', 'lv38_glass', 0.55, { s: 3, surf: 'tile' });
 glowMat('lv38_rockm', 'lv38_rock', 0.62, { s: 1.5, surf: 'concrete', chan: 9 });
 glowMat('lv38_bonem', 'lv38_bone', 0.8, { s: 1.5, surf: 'concrete', chan: 10 });
+glowMat('lv38_lamp', 'lv38_glass', 1.0, { s: 1 });
 defineMaterial('lv38_grate', 'lv38_grate', { s: 1, surf: 'metal' });
 defineMaterial('lv38_metal', 'lv38_metal', { s: 1.5, surf: 'metal' });
 defineMaterial('lv38_pump', 'lv38_pump', { s: 4, surf: 'metal' });
@@ -199,16 +200,20 @@ function tankSide(zb, b, side, back, gap, bi, bj, k) {
     }
     box(t0, t0 + 0.7, 0, WT, -0.6, CH, solid); box(t1 - 0.7, t1, 0, WT, -0.6, CH, solid);       // pillars
     box(t0 + 0.7, t1 - 0.7, 0, WT, -0.6, 0.7, wallMats(side, M.lv38_cw, M.lv38_kick, M.lv38_kick));   // the kick under the glass
-    box(t0 + 0.7, t1 - 0.7, WT / 2 - 0.06, WT / 2 + 0.06, 0.7, CH, wallMats(side, M.lv38_glass, M.lv38_glass, null), { alpha: 0.2, sub: 8 });
+    box(t0 + 0.7, t1 - 0.7, WT / 2 - 0.06, WT / 2 + 0.06, 0.7, CH, wallMats(side, M.lv38_glass, M.lv38_glass, null), { alpha: 0.4, sub: 8 });
+    box(t0 + 0.7, t1 - 0.7, -0.02, WT + 0.02, 3.4, 3.62, M.lv38_metal, { sub: 4 });
+    for (let t = t0 + 0.7 + 5.9; t < t1 - 3; t += 5.9) box(t - 0.12, t + 0.12, -0.02, WT + 0.02, 0.7, CH, M.lv38_metal, { sub: 0 });
+    box(t0 + 0.7, t1 - 0.7, -0.62, -0.5, 0.95, 1.05, M.lv38_metal, { sub: 0, collide: false });
+    for (let t = t0 + 1.5; t < t1 - 1; t += 3) box(t - 0.05, t + 0.05, -0.58, -0.54, 0, 1.0, M.lv38_metal, { sub: 0, collide: false });
     const tm = (t0 + t1) / 2;
     // light from the tank spills into the corridor, and moves on the floor
-    const c = side === 'W' ? [b.x0 - 1.4, zb.z0 + (b.z0 - zb.z0) + tm] : side === 'E' ? [b.x1 + 1.4, b.z0 + tm] : side === 'N' ? [b.x0 + tm, b.z0 - 1.4] : [b.x0 + tm, b.z1 + 1.4];
+    const c = side === 'W' ? [b.x0 - 1.5, b.z0 + tm] : side === 'E' ? [b.x1 + 1.5, b.z0 + tm] : side === 'N' ? [b.x0 + tm, b.z0 - 1.5] : [b.x0 + tm, b.z1 + 1.5];
     const horiz = side === 'W' || side === 'E';
     for (const o of [-5, 5]) {
       const lx = horiz ? c[0] : c[0] + o, lz = horiz ? c[1] + o : c[1];
       if (owns(zb, lx, lz)) zb.light(lx, 3.4, lz, { color: [0.25, 0.65, 1.0], rad: 10, int: 0.95, ch: 9 + ((s_(t0) + k) % 2) });
     }
-    if (owns(zb, c[0], c[1])) zb.decal(c[0], 0, c[1], 'up', horiz ? 5 : 11, horiz ? 11 : 5, 'lv38_cd0', { lit: false, glow: 0.5, ch: 10, flags: VF.ANIM | VF.SCROLL });
+    if (owns(zb, c[0], c[1])) zb.decal(c[0], 0, c[1], 'up', horiz ? 2.8 : 11, horiz ? 11 : 2.8, 'lv38_cd0', { lit: false, glow: 0.5, ch: 10, flags: VF.ANIM | VF.SCROLL });
   }
 }
 const s_ = (t) => Math.floor(t) & 1;
@@ -219,7 +224,7 @@ function gen(zb) {
   zb.floor.fill(NaN); zb.ceil.fill(NaN); zb.flags.fill(CF.VOID);
   zb.noConnectivity = true;
   const b = { x0: x0 + CW, z0: z0 + CW, x1: x1 - CW, z1: z1 - CW };
-  const kind = (bi === 0 && bj === 0) ? 0 : (() => { const u = hr(bi, bj, 3); return u < 0.18 ? 2 : u < 0.4 ? 1 : 0; })();
+  const kind = (bi === 0 && bj === 0) ? 1 : (() => { const u = hr(bi, bj, 3); return u < 0.18 ? 2 : u < 0.4 ? 1 : 0; })();
   // corridors: the four half corridors around the block
   zb.fill(x0, z0, x1, z1, (x, z, i) => {
     const corr = x < b.x0 || x >= b.x1 || z < b.z0 || z >= b.z1;
@@ -229,8 +234,8 @@ function gen(zb) {
     zb.fmat[i] = M.lv38_floor; zb.cmat[i] = M.lv38_ceil; zb.wmat[i] = M.lv38_tile;
   });
   const cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2;
-  const back = (bi === 0 && bj === 0) ? 'E' : ['W', 'E', 'N', 'S'][Math.floor(hr(bi, bj, 4) * 4)];
-  const tubeX = hr(bi, bj, 5) < 0.5;
+  const back = (bi === 0 && bj === 0) ? 'N' : ['W', 'E', 'N', 'S'][Math.floor(hr(bi, bj, 4) * 4)];
+  const tubeX = (bi === 0 && bj === 0) ? true : hr(bi, bj, 5) < 0.5;
   if (kind !== 2) {
     // the tank: sand, a luminous ceiling, walls with windows
     zb.box(b.x0, -1.2, b.z0, b.x1, SAND, b.z1, [null, null, M.lv38_cf, null, null, null], { sub: 7 });
@@ -279,8 +284,8 @@ function tube(zb, b, tubeX, cx, cz) {
   const put = (u0, u1, v0, v1, y0, y1, m, o = {}) => { const r = R(u0, u1, v0, v1); zb.box(r[0], y0, r[1], r[2], y1, r[3], m, { sub: 4, ...o }); };
   put(0, len, 0, 2 * hw, -0.3, 0, [null, null, M.lv38_grate, M.lv38_metal, null, null]);
   const gm = tubeX ? [null, null, null, null, M.lv38_glass, M.lv38_glass] : [M.lv38_glass, M.lv38_glass, null, null, null, null];
-  put(0, len, -0.06, 0.06, 0, hgt, gm, { alpha: 0.2, sub: 8 }); put(0, len, 2 * hw - 0.06, 2 * hw + 0.06, 0, hgt, gm, { alpha: 0.2, sub: 8 });
-  put(0, len, 0, 2 * hw, hgt, hgt + 0.1, [null, null, M.lv38_glass, M.lv38_glass, null, null], { alpha: 0.2, sub: 8 });
+  put(0, len, -0.06, 0.06, 0, hgt, gm, { alpha: 0.32, sub: 8 }); put(0, len, 2 * hw - 0.06, 2 * hw + 0.06, 0, hgt, gm, { alpha: 0.32, sub: 8 });
+  put(0, len, 0, 2 * hw, hgt, hgt + 0.1, [null, null, M.lv38_glass, M.lv38_glass, null, null], { alpha: 0.32, sub: 8 });
   for (let u = 3; u < len; u += 6) {
     put(u - 0.2, u + 0.2, -0.15, 0.15, 0, hgt + 0.2, M.lv38_metal, { sub: 0 }); put(u - 0.2, u + 0.2, 2 * hw - 0.15, 2 * hw + 0.15, 0, hgt + 0.2, M.lv38_metal, { sub: 0 });
     put(u - 0.2, u + 0.2, -0.15, 2 * hw + 0.15, hgt, hgt + 0.3, M.lv38_metal, { sub: 0, collide: false });
@@ -308,6 +313,11 @@ function hall(zb, b, bi, bj, cx, cz) {
   }
   zb.light(cx, 3.0, cz, { color: [0.3, 0.7, 1.0], rad: 10, int: 1.0, ch: 9 });
   zb.light(cx + 6, 3.0, cz + 6, { color: [0.3, 0.8, 0.9], rad: 8, int: 0.7, ch: 10 });
+  for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) {
+    const lx = cx + i * 11, lz = cz + j * 11;
+    zb.light(lx, 4.4, lz, { color: [0.4, 0.8, 1.0], rad: 10, int: 1.5, ch: 9 + ((i + j) & 1) });
+    cbox(zb, lx - 0.6, CH - 0.15, lz - 0.2, lx + 0.6, CH - 0.02, lz + 0.2, M.lv38_lamp, { sub: 0, collide: false });
+  }
   levelDoor(zb, cx, cz - 3, 0, { y: 0.4 });
   zb.decal(cx, 0.4, cz, 'up', 12, 12, 'lv38_cd0', { lit: false, glow: 0.5, ch: 10, flags: VF.ANIM | VF.SCROLL });
 }
@@ -328,7 +338,7 @@ defineZone('lv38_aquarium', {
   ...LEVEL_ZONE,
   params: () => ({
     ambient: [0.05, 0.08, 0.11],
-    env: env({ fog: [0.025, 0.07, 0.1], fogNear: 8, fogFar: 78, hum: 0.1, hvac: 0.2, reverb: 'hall', tone: 'lv38_filter' }),
+    env: env({ fog: [0.03, 0.08, 0.11], fogNear: 30, fogFar: 120, hum: 0.1, hvac: 0.2, reverb: 'hall', tone: 'lv38_filter' }),
   }),
   gen,
 });
@@ -347,7 +357,7 @@ defineLevel(N, {
   name: 'THE AQUARIUM',
   zoneType: 'lv38_aquarium',
   zoneSize: P,
-  entry: { x: 0.5, y: 0, z: 31.5, yaw: Math.PI / 2 },
+  entry: { x: 1.3, y: 0, z: 32.0, yaw: Math.PI / 2 },
   doorDensity: 0.5,
   viewRadius: 4,
   light: { phoneRadius: 4, phoneIntensity: 0.3 },
