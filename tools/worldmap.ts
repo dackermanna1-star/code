@@ -3,6 +3,10 @@
  *
  *   npx tsx tools/worldmap.ts --seed 123 --size 1024 --out /tmp/map.png [--x 0 --z 0] [--dims overworld,nether,end]
  *
+ * Options: --x/--z map centre; --section <len> cross-section length; --scale <n> down-scales the
+ * top-down maps (e.g. --size 4096 --scale 4); --slices 10,40 horizontal underground slices;
+ * --iso "x,z,size[,dim];..." isometric close-ups of small areas.
+ *
  * Writes (next to --out):
  *   <out>                 top-down overworld map: block colours (biome-tinted), hill shading, water depth
  *   <out>_biomes.png      flat biome map
@@ -11,6 +15,7 @@
  *   <out>_slice_y<N>.png  horizontal overworld slices at the heights given by --slices (e.g. 10,40)
  *   <out>_nether.png      Nether: horizontal slice at y=40 (left) and a vertical section (right)
  *   <out>_end.png         End: top-down of the main island (left) and a vertical section (right)
+ *   <out>_iso_<x>_<z>[_dim].png  isometric close-ups requested with --iso
  * Prints biome statistics and generation timings. PNG encoding uses node:zlib only.
  */
 import { deflateSync } from 'node:zlib';
