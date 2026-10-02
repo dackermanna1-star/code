@@ -13,6 +13,10 @@ import { SUN_PATH_TILT_DEG } from './constants';
  */
 
 const _X = new THREE.Vector3(1, 0, 0);
+const _U = new THREE.Vector3();
+const _N = new THREE.Vector3();
+const _T = new THREE.Vector3();
+const _M4 = new THREE.Matrix4();
 
 export interface CelestialState {
   sunDir: THREE.Vector3;
@@ -38,7 +42,7 @@ export function celestialFromTicks(ticks: number, tiltDeg = SUN_PATH_TILT_DEG, o
   const o = out ?? { sunDir: new THREE.Vector3(), moonDir: new THREE.Vector3(), moonPhase: 0 };
   const day = Math.floor(ticks / 24000);
   const a = (((ticks % 24000) + 24000) % 24000) / 24000 * Math.PI * 2;
-  const U = sunPathNoon(tiltDeg);
+  const U = sunPathNoon(tiltDeg, _U);
   o.sunDir.copy(_X).multiplyScalar(Math.cos(a)).addScaledVector(U, Math.sin(a)).normalize();
   o.moonDir.copy(o.sunDir).negate();
   o.moonPhase = ((day % 8) + 8) % 8;
@@ -69,8 +73,8 @@ export function moonPhaseFactor(phase: number): number {
  */
 export function moonLightDirection(moonDir: THREE.Vector3, phase: number, tiltDeg = SUN_PATH_TILT_DEG, out = new THREE.Vector3()): THREE.Vector3 {
   const { alpha, waxing } = moonPhaseAngle(phase);
-  const axis = sunPathAxis(tiltDeg);
-  const T = new THREE.Vector3().crossVectors(axis, moonDir);
+  const axis = sunPathAxis(tiltDeg, _N);
+  const T = _T.crossVectors(axis, moonDir);
   if (T.lengthSq() < 1e-8) T.set(-1, 0, 0);
   T.normalize();
   if (!waxing) T.negate();
@@ -82,9 +86,8 @@ export function moonLightDirection(moonDir: THREE.Vector3, phase: number, tiltDe
  * along its path, so stars wheel around the path axis with the sun.
  */
 export function starFrameRotation(sunDir: THREE.Vector3, tiltDeg = SUN_PATH_TILT_DEG, out = new THREE.Matrix3()): THREE.Matrix3 {
-  const U = sunPathNoon(tiltDeg);
-  const axis = sunPathAxis(tiltDeg);
+  const U = sunPathNoon(tiltDeg, _U);
+  const axis = sunPathAxis(tiltDeg, _N);
   const angle = Math.atan2(sunDir.dot(U), sunDir.dot(_X));
-  const m4 = new THREE.Matrix4().makeRotationAxis(axis, -angle);
-  return out.setFromMatrix4(m4);
+  return out.setFromMatrix4(_M4.makeRotationAxis(axis, -angle));
 }

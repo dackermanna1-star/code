@@ -42,6 +42,8 @@ export type { SkyQuality };
 /** Moonlight tint (luminance ≈ 1): dim and bluish. */
 const MOON_TINT = new THREE.Vector3(0.86, 0.98, 1.3);
 const NIGHT_GLOW = new THREE.Vector3(0.45, 0.62, 0.9).multiplyScalar(2.2e-4);
+const NETHER_FOG_DEFAULT = new THREE.Color(0x330808);
+const END_FOG_DEFAULT = new THREE.Color().setRGB(0.06, 0.035, 0.08);
 const SH_TARGET_WIDTH = 16;
 
 const smoothstep = (e0: number, e1: number, x: number) => {
@@ -265,6 +267,7 @@ export class Atmosphere {
       if (params.dimension !== this.dimension) {
         this.dimension = params.dimension;
         this.historyValid = false;
+        this.shReadOnce = false; // next SH projection reads back synchronously
         this.lastShFrame = -1e9;
         this.lastShadowFrame = -1e9;
       }
@@ -633,11 +636,11 @@ export class Atmosphere {
     let dimFogDensity = 0;
     if (p.dimension === 'nether') {
       // THREE.Color stores linear working-space values (hex input is converted on construction)
-      const c = p.biomeFogColor ?? new THREE.Color(0x330808);
+      const c = p.biomeFogColor ?? NETHER_FOG_DEFAULT;
       U.atmo_dimFogColor.value.set(c.r, c.g, c.b);
       dimFogDensity = 1 / 55;
     } else if (p.dimension === 'end') {
-      const c = p.biomeFogColor ?? new THREE.Color().setRGB(0.06, 0.035, 0.08);
+      const c = p.biomeFogColor ?? END_FOG_DEFAULT;
       // End sky: near-black deep purple; fog is a dim purple haze
       U.atmo_dimFogColor.value.set(c.r, c.g, c.b).multiplyScalar(0.6);
       dimFogDensity = 1 / 220;
@@ -663,10 +666,10 @@ export class Atmosphere {
     const overcast = Math.pow(rain, 0.7);
     C.cl_shape.value.set(this.coverage, L.viewSigma * (1 - 0.5 * overcast), L.detail, L.spread * (1 - 0.5 * rain));
     C.cl_light.value.set(L.lightSigma * (1 - 0.65 * overcast), L.diffDecay, L.diffAmp, 0);
-    C.cl_look.value.set(L.aerial + 0.04 * rain, L.ambient, Math.min(0.3 * rain + 0.3 * thunder, 0.6), L.multiScatter);
+    C.cl_look.value.set(L.aerial + 0.04 * rain, L.ambient, Math.min(0.55 * rain + 0.25 * thunder, 0.8), L.multiScatter);
     C.cl_march.value.set(this.q.stepsMin, this.q.stepsMax, this.q.lightSteps, 70);
-    const fovY = THREE.MathUtils.degToRad(camera.fov);
-    C.cl_lod.value.set((2 * Math.tan(fovY / 2)) / 540, this.q.shapeNoiseSize, 32, this.q.detail ? 22 : 0);
+    // x (pixel angle of the main cloud pass) is set in render()
+    C.cl_lod.value.set(C.cl_lod.value.x || 0.002, this.q.shapeNoiseSize, 32, this.q.detail ? 22 : 0);
   }
 
   private renderCloudEnv() {
@@ -738,20 +741,20 @@ export class Atmosphere {
     if (Number.isFinite(fr)) this.fogColor.setRGB(fr, fg, fb);
   }
 
-  private setConstantAmbient(irr: THREE.Vector3) {
+  private setConstantAmbient(r: number, g: number, b: number) {
     // constant irradiance E -> c0 = E / Y00
-    this.ambientSH[0].copy(irr).multiplyScalar(1 / 0.282095);
+    this.ambientSH[0].set(r, g, b).multiplyScalar(1 / 0.282095);
     for (let i = 1; i < 9; i++) this.ambientSH[i].set(0, 0, 0);
   }
 
   private setDimensionAmbient(p: SkyParams) {
     const fc = this.uniforms.atmo_dimFogColor.value as THREE.Vector3;
     if (p.dimension === 'nether') {
-      this.setConstantAmbient(new THREE.Vector3(0.42, 0.24, 0.17));
+      this.setConstantAmbient(0.42, 0.24, 0.17);
       // slight top/bottom variation: warmer from below (lava glow)
       this.ambientSH[1].set(-0.06, -0.03, -0.02);
     } else {
-      this.setConstantAmbient(new THREE.Vector3(0.13, 0.10, 0.17));
+      this.setConstantAmbient(0.13, 0.1, 0.17);
     }
     this.fogColor.setRGB(fc.x, fc.y, fc.z);
     this.uniforms.atmo_cloudShadowParams.value.w = 0;
@@ -759,7 +762,7 @@ export class Atmosphere {
 
   /** Rough initial ambient before the first GPU projection. */
   private ambientFallback() {
-    this.setConstantAmbient(new THREE.Vector3(2.0, 2.4, 3.0));
+    this.setConstantAmbient(2.0, 2.4, 3.0);
   }
 }
 

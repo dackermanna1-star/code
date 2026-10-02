@@ -126,6 +126,8 @@ vec3 sky_moon(vec3 d, vec3 Tv, out float mask) {
   return sky_disk.y * (alb / 0.12) * (lit + earthshine) * Tv * mask;
 }
 
+// Procedural stars on a cube-face grid. Magnitudes follow N(<m) ~ 3^m (m in [-1.5, 8.5]);
+// peak radiance = k * 10^(-0.4 m), so only ~1/9 of the stars (m < 6) rise above a dark sky.
 vec3 sky_starLayer(vec3 sd, float cells, float density, float seed) {
   vec3 a = abs(sd);
   vec2 uv; float face;
@@ -141,29 +143,29 @@ vec3 sky_starLayer(vec3 sd, float cells, float density, float seed) {
   vec2 pos = 0.2 + 0.6 * h.xy;
   float pxPerCell = 2.0 / (cells * max(sky_pixelAngle, 1e-5));
   vec2 dpx = (f - pos) * pxPerCell;
-  float r2 = dot(dpx, dpx);
-  float b = exp(-r2 * 1.1);
-  float mag = pow(h2.x, 12.0) * 6.0 + pow(h2.x, 4.0) * 0.25 + 0.015;
-  float temp = h2.y;
-  vec3 col = mix(vec3(1.0, 0.72, 0.45), vec3(0.75, 0.85, 1.0), smoothstep(0.15, 0.85, temp));
-  col = mix(col, vec3(1.0), 0.35);
+  float b = exp(-dot(dpx, dpx) * 1.1);
+  float mag = 8.5 + log(max(h2.x, 1e-6)) / log(3.0);          // N(<m) ~ 3^m
+  float flux = pow(10.0, -0.4 * max(mag, -1.5));
+  vec3 col = mix(vec3(1.0, 0.74, 0.5), vec3(0.72, 0.84, 1.0), smoothstep(0.1, 0.9, h2.y));
+  col = mix(col, vec3(1.0), 0.4);
   float tw = 1.0 + 0.45 * sin(sky_night.y * (2.0 + 5.0 * h2.z) + h.x * 40.0) * (0.35 + 0.65 * (1.0 - clamp(sd.y, 0.0, 1.0)));
-  return col * mag * b * tw;
+  return col * flux * b * tw;
 }
 
 vec3 sky_milkyWay(vec3 sd) {
   vec3 gN = normalize(vec3(0.35, 0.42, 0.84));
   float lat = dot(sd, gN);
-  float band = exp(-lat * lat / (0.13 * 0.13));
+  float band = exp(-lat * lat / (0.16 * 0.16));
   if (band < 0.01) return vec3(0.0);
   vec3 core = normalize(vec3(-0.6, 0.55, -0.25));
-  float c = 0.4 + 0.6 * smoothstep(-0.2, 1.0, dot(sd, core));
-  float cl = textureLod(cl_shapeNoise, sd * 0.45 + 0.3, 0.0).g;
-  float dust = textureLod(cl_detailNoise, sd * 1.1, 0.0).r;
-  float lanes = smoothstep(0.35, 0.75, dust) * exp(-lat * lat / (0.04 * 0.04));
-  float v = band * c * (0.35 + 0.9 * cl) * (1.0 - 0.75 * lanes);
-  vec3 col = mix(vec3(0.6, 0.7, 1.0), vec3(1.0, 0.9, 0.78), c);
-  return col * v;
+  float c = smoothstep(-0.3, 1.0, dot(sd, core));
+  float clumps = textureLod(cl_shapeNoise, sd * 1.3 + 0.3, 0.0).g;
+  float fine = textureLod(cl_detailNoise, sd * 2.2, 0.0).g;
+  float dust = textureLod(cl_detailNoise, sd * vec3(1.6, 3.2, 1.6) + 0.37, 0.0).r;
+  float lanes = smoothstep(0.42, 0.72, dust) * exp(-lat * lat / (0.05 * 0.05));
+  float v = band * (0.25 + 0.75 * c) * pow(clumps, 2.0) * (0.6 + 0.8 * fine) * (1.0 - 0.8 * lanes);
+  vec3 col = mix(vec3(0.62, 0.72, 1.0), vec3(1.0, 0.88, 0.74), c);
+  return col * v * 2.2;
 }
 
 vec3 sky_endSky(vec3 d) {
@@ -173,7 +175,7 @@ vec3 sky_endSky(vec3 d) {
   float n2 = textureLod(cl_detailNoise, sd * vec3(0.6, 2.4, 0.6) + 0.5, 0.0).g;
   float streak = smoothstep(0.55, 0.95, n1) * (0.5 + 0.5 * n2);
   col += vec3(0.020, 0.008, 0.030) * streak * 1.6;
-  col += sky_starLayer(sd, 160.0, 0.35, 5.0) * 0.0012;
+  col += sky_starLayer(sd, 220.0, 0.1, 5.0) * 0.004;
   return col;
 }
 
@@ -211,7 +213,7 @@ void main() {
     // stars & milky way (hidden behind the moon disk)
     if (sky_night.x > 0.0) {
       vec3 sd = sky_starRot * d;
-      vec3 stars = sky_starLayer(sd, 260.0, 0.4, 1.0) * 0.0012 + sky_starLayer(sd, 70.0, 0.35, 2.0) * 0.005;
+      vec3 stars = sky_starLayer(sd, 220.0, 0.18, 1.0) * 0.12;
       stars += sky_milkyWay(sd) * sky_night.w;
       col += stars * Tv * sky_night.x * (1.0 - moonMask) * (1.0 - atmo_weather.x);
     }

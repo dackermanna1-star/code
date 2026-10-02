@@ -80,6 +80,7 @@ export class RendererStateGuard {
   private activeCubeFace = 0;
   private activeMip = 0;
   private autoClear = true;
+  private infoAutoReset = true;
   constructor(private renderer: THREE.WebGLRenderer) {}
   save() {
     const r = this.renderer;
@@ -88,10 +89,14 @@ export class RendererStateGuard {
     this.activeMip = r.getActiveMipmapLevel();
     this.autoClear = r.autoClear;
     r.autoClear = false;
+    // our internal render() calls must not reset the engine's per-frame draw statistics
+    this.infoAutoReset = r.info.autoReset;
+    r.info.autoReset = false;
   }
   restore() {
     const r = this.renderer;
     r.setRenderTarget(this.target, this.activeCubeFace, this.activeMip);
     r.autoClear = this.autoClear;
+    r.info.autoReset = this.infoAutoReset;
   }
 }

@@ -97,14 +97,15 @@ vec3 atmo_skyViewDir(vec2 uv, vec2 res) {
 // Altitude (km) in the atmosphere model for a block-space height (kept near ground level).
 float atmo_altitudeForY(float y) { return 0.02 + max(y, 0.0) * 0.00025; }
 
-uint atmo_hashU(uint x) {
+// 32-bit integer hash (explicit highp: fragment shaders default int to mediump)
+highp uint atmo_hashU(highp uint x) {
   x ^= x >> 16u; x *= 0x7feb352du; x ^= x >> 15u; x *= 0x846ca68bu; x ^= x >> 16u;
   return x;
 }
-vec3 atmo_hash33(uvec3 v) {
-  uint a = atmo_hashU(v.x ^ atmo_hashU(v.y ^ atmo_hashU(v.z)));
-  uint b = atmo_hashU(a ^ 0x9e3779b9u);
-  uint c = atmo_hashU(b ^ 0x85ebca6bu);
+highp vec3 atmo_hash33(highp uvec3 v) {
+  highp uint a = atmo_hashU(v.x ^ atmo_hashU(v.y ^ atmo_hashU(v.z)));
+  highp uint b = atmo_hashU(a ^ 0x9e3779b9u);
+  highp uint c = atmo_hashU(b ^ 0x85ebca6bu);
   return vec3(uvec3(a, b, c) >> 8u) * (1.0 / 16777216.0);
 }
 `;
@@ -116,28 +117,28 @@ uniform highp sampler2D atmo_multiScatLUT;
 uniform highp sampler2D atmo_skyViewLUT;
 uniform highp sampler2D atmo_cloudEnvMap;
 uniform highp sampler2D atmo_cloudShadowMap;
-uniform vec2 atmo_skyViewSize;
-uniform vec2 atmo_cloudEnvSize;
-uniform vec3 atmo_sunDir;
-uniform vec3 atmo_moonDir;
-uniform vec3 atmo_sunIlluminance;
-uniform vec3 atmo_moonIlluminance;
-uniform vec3 atmo_lightDir;
-uniform vec3 atmo_lightColor;
-uniform vec3 atmo_cameraPos;
-uniform float atmo_cameraAltKm;
-uniform vec3 atmo_sunTransCam;
-uniform vec3 atmo_moonTransCam;
-uniform vec4 atmo_fogParams;
-uniform vec4 atmo_hazeParams;
-uniform vec4 atmo_weather;
-uniform int atmo_dimension;
-uniform vec3 atmo_dimFogColor;
-uniform vec3 atmo_nightGlow;
-uniform vec4 atmo_cloudShadowParams;
-uniform vec4 atmo_cloudShadowParams2;
-uniform vec3 atmo_cloudShadowLight;
-uniform vec3 atmo_ambientSH[9];
+uniform highp vec2 atmo_skyViewSize;
+uniform highp vec2 atmo_cloudEnvSize;
+uniform highp vec3 atmo_sunDir;
+uniform highp vec3 atmo_moonDir;
+uniform highp vec3 atmo_sunIlluminance;
+uniform highp vec3 atmo_moonIlluminance;
+uniform highp vec3 atmo_lightDir;
+uniform highp vec3 atmo_lightColor;
+uniform highp vec3 atmo_cameraPos;
+uniform highp float atmo_cameraAltKm;
+uniform highp vec3 atmo_sunTransCam;
+uniform highp vec3 atmo_moonTransCam;
+uniform highp vec4 atmo_fogParams;
+uniform highp vec4 atmo_hazeParams;
+uniform highp vec4 atmo_weather;
+uniform highp int atmo_dimension;
+uniform highp vec3 atmo_dimFogColor;
+uniform highp vec3 atmo_nightGlow;
+uniform highp vec4 atmo_cloudShadowParams;
+uniform highp vec4 atmo_cloudShadowParams2;
+uniform highp vec3 atmo_cloudShadowLight;
+uniform highp vec3 atmo_ambientSH[9];
 `;
 
 /** Public functions. Requires GLSL_ATMO_UNIFORMS + GLSL_ATMO_COMMON before it. */

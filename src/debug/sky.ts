@@ -461,7 +461,64 @@ function updateShadowCamera() {
   shadowMatrix.multiplyMatrices(shadowCam.projectionMatrix, shadowCam.matrixWorldInverse);
 }
 
+// Contract self-test: a foreign shader that includes atmosphere.glsl with only `precision highp float`
+// and calls every public function in both stages. Compile/link errors show up in the console.
+function contractSelfTest(): boolean {
+  const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, depthBuffer: false });
+  const mat = new THREE.RawShaderMaterial({
+    glslVersion: THREE.GLSL3,
+    uniforms: { ...atmosphere.uniforms },
+    vertexShader: `precision highp float;\n${atmosphere.glsl}\nin vec3 position; out vec3 vFog;
+      void main() { vec3 d = normalize(vec3(0.2, 0.4, -0.3)); vFog = atmo_applyFog(vec3(0.1), d, 120.0) + atmo_ambient(d);
+        gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+    fragmentShader: `precision highp float;\n${atmosphere.glsl}\nin vec3 vFog; layout(location = 0) out vec4 o;
+      void main() { vec3 d = normalize(vec3(0.3, 0.5, 0.2)); vec3 p = vec3(10.0, 70.0, -5.0);
+        vec3 c = atmo_skyRadiance(d) + atmo_skyRadianceWithClouds(d) + atmo_applyFog(vec3(0.1), d, 100.0)
+               + atmo_sunTransmittance(p) + atmo_ambient(d) + vFog;
+        o = vec4(c * atmo_cloudShadow(p), 1.0); }`,
+    depthTest: false,
+  });
+  const mesh = new THREE.Mesh(fsGeo, mat);
+  mesh.frustumCulled = false;
+  const sc = new THREE.Scene();
+  sc.add(mesh);
+  renderer.setRenderTarget(rt);
+  renderer.render(sc, orthoCam);
+  renderer.setRenderTarget(null);
+  const ok = renderer.getContext().getError() === 0 && renderer.info.programs!.every((pr) => (pr as unknown as { diagnostics?: { runnable: boolean } }).diagnostics?.runnable !== false);
+  mat.dispose();
+  rt.dispose();
+  return ok;
+}
+
+// Optional GPU timing (?profile=1): TIME_ELAPSED queries around atmosphere.update() and render().
+const gl2 = renderer.getContext() as WebGL2RenderingContext;
+const timerExt = qs.get('profile') === '1' ? gl2.getExtension('EXT_disjoint_timer_query_webgl2') : null;
+const pendingQueries: { q: WebGLQuery; label: 'update' | 'render' }[] = [];
+const gpuMs = { update: [] as number[], render: [] as number[] };
+function timed(label: 'update' | 'render', fn: () => void) {
+  if (!timerExt) return fn();
+  const q = gl2.createQuery()!;
+  gl2.beginQuery(timerExt.TIME_ELAPSED_EXT, q);
+  fn();
+  gl2.endQuery(timerExt.TIME_ELAPSED_EXT);
+  pendingQueries.push({ q, label });
+}
+function pollQueries() {
+  if (!timerExt) return;
+  const disjoint = gl2.getParameter(timerExt.GPU_DISJOINT_EXT);
+  for (let i = pendingQueries.length - 1; i >= 0; i--) {
+    const { q, label } = pendingQueries[i];
+    if (!gl2.getQueryParameter(q, gl2.QUERY_RESULT_AVAILABLE)) continue;
+    if (!disjoint) gpuMs[label].push(gl2.getQueryParameter(q, gl2.QUERY_RESULT) / 1e6);
+    gl2.deleteQuery(q);
+    pendingQueries.splice(i, 1);
+  }
+}
+const median = (a: number[]) => (a.length ? [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)] : 0);
+
 const timings: number[] = [];
+let contractOk: boolean | null = null;
 function renderFrame() {
   const t0 = performance.now();
   if (spin !== 0 && frame > 0) {
@@ -475,7 +532,9 @@ function renderFrame() {
     params.moonDir.copy(cel.moonDir);
     params.time = ticks / 20;
   }
-  atmosphere.update(params, camera, frame);
+  pollQueries();
+  timed('update', () => atmosphere.update(params, camera, frame));
+  if (contractOk === null) contractOk = contractSelfTest();
   (sceneUniforms.uLightColor.value as THREE.Vector3).set(atmosphere.lightColor.r, atmosphere.lightColor.g, atmosphere.lightColor.b);
   sceneUniforms.uCamPos.value.copy(camera.position);
 
@@ -499,7 +558,7 @@ function renderFrame() {
     renderer.render(copyPass.scene, orthoCam);
     hdr = hdrRT;
   }
-  atmosphere.render(hdr, sceneRT.depthTexture!, camera);
+  timed('render', () => atmosphere.render(hdr, sceneRT.depthTexture!, camera));
 
   // output
   renderer.setRenderTarget(null);
@@ -537,12 +596,15 @@ function info() {
     exposure: +exposure.toFixed(4),
     msPerFrame: timings.length ? +(timings.reduce((a, b) => a + b, 0) / timings.length).toFixed(1) : 0,
     frames: frame,
+    glslContract: contractOk,
+    ...(timerExt ? { gpuUpdateMs: +median(gpuMs.update).toFixed(3), gpuRenderMs: +median(gpuMs.render).toFixed(3), quality } : {}),
   };
 }
 
 function updateHud() {
   const i = info();
-  hud.textContent = `t=${Math.round(ticks)} sun=${i.sunElevationDeg}° light=${i.lightColor.join(',')} amb=${i.ambientUp.join(',')} ev=${i.exposure} ${i.msPerFrame}ms`;
+  const gpu = timerExt ? ` gpu: update ${median(gpuMs.update).toFixed(2)}ms render ${median(gpuMs.render).toFixed(2)}ms (${quality})` : '';
+  hud.textContent = `t=${Math.round(ticks)} sun=${i.sunElevationDeg}° light=${i.lightColor.join(',')} amb=${i.ambientUp.join(',')} ev=${i.exposure} ${i.msPerFrame}ms${gpu}`;
 }
 
 // interactive look
@@ -556,14 +618,19 @@ window.addEventListener('pointermove', (e: PointerEvent) => {
   orientCamera();
 });
 
+// With ?frames=N: render exactly N frames, then signal the screenshot tool and stop.
+// Without it: keep rendering interactively (drag to look), still signalling readiness after 16 frames.
+const readyAfter = Number.isFinite(frames) ? frames : 16;
 async function run() {
   while (frame < frames) {
     renderFrame();
-    if (frame % 4 === 0 || frame === frames) updateHud();
+    if (frame % 4 === 0 || frame === readyAfter) updateHud();
+    if (frame === readyAfter) {
+      (window as unknown as { __shotInfo: unknown }).__shotInfo = info();
+      (window as unknown as { __shotReady: boolean }).__shotReady = true;
+    }
     await new Promise((r) => requestAnimationFrame(() => r(null)));
   }
   updateHud();
-  (window as unknown as { __shotInfo: unknown }).__shotInfo = info();
-  (window as unknown as { __shotReady: boolean }).__shotReady = true;
 }
 run();

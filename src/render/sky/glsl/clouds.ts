@@ -40,7 +40,7 @@ float cl_coverage(vec4 w) {
 // p = (x, altitude, z) in cloud-frame km. h = height fraction in the layer.
 float cl_density(vec3 p, float h, bool detail, float lodShape, float lodDetail) {
   if (h < 0.0 || h > 1.0) return 0.0;
-  vec4 w = textureLod(cl_weatherMap, p.xz / CL_WEATHER_TILE, 0.0);
+  vec4 w = textureLod(cl_weatherMap, p.xz / CL_WEATHER_TILE, max(lodShape - 0.5, 0.0));
   float cov = cl_coverage(w);
   if (cov < 0.02) return 0.0;
   float topH = mix(0.45, 1.0, w.g);
@@ -84,7 +84,7 @@ bool cl_segment(vec3 rd, out float t0, out float t1) {
   t0 = 0.0; t1 = 0.0;
   if (ac < ab) {
     float gn, gf;
-    if (cl_sphere(r0, mu, ac * (2.0 * Rc + ac), gn, gf) && gn > 0.0) return false;
+    if (mu < 0.0 && cl_sphere(r0, mu, ac * (2.0 * Rc + ac), gn, gf) && gf > 0.0) return false; // hits the ground
     t0 = bf; t1 = tf;
   } else if (ac <= at) {
     t0 = 0.0; t1 = tf;
@@ -239,6 +239,7 @@ vec4 cl_clouds2D(vec3 rd, vec3 ambTop, vec3 ambBot) {
   vec3 S = cl_lightAt(alt, rel) * ms + mix(ambBot, ambTop, 0.6) * cl_look.y;
   float T = exp(-d * thick * cl_shape.y * 0.6 / max(abs(rd.y), 0.08) * 0.15);
   float ap = exp(-t * cl_look.x) * (1.0 - smoothstep(cl_march.w * 0.5, cl_march.w, t));
+  ap *= smoothstep(0.0, 0.08, abs(rd.y)); // a flat layer aliases into streaks at grazing angles
   return vec4(S * (1.0 - T) * ap, 1.0 - (1.0 - T) * ap);
 }
 `;
