@@ -10,9 +10,9 @@ import { LEVEL_ZONE, defineLevel, env, M, hr, levelDoor, water, poleLamp, ceilin
 import { Loc, face, clamp } from './g01_kit.js';
 
 const N = 33;
-const G = 64, CH = 16, LH = 6.4;
+const G = 64, CH = 11, LH = 6.4;
 const TOW = [6, 38];               // tower starts (20 wide) inside a zone; streets everywhere else
-const SODIUM = [1.0, 0.68, 0.34];
+const SODIUM = [1.0, 0.68, 0.34], MERCURY = [0.62, 0.8, 1.0];
 const T = defineTexture;
 
 // ------------------------------------------------------------------ textures
@@ -45,7 +45,7 @@ T('lv33_conc', (p) => {
 T('lv33_wet', (p) => {
   p.fill([46, 50, 56]);
   p.noise(5, 0.1, 3);
-  p.map((x, y, c) => { const v = pnoise(x, y, 6, 7), w = pnoise(x * 2, y * 0.6, 8, 3); const k = v > 0.62 ? 1.6 : 1; return [c[0] * k * (0.9 + w * 0.2), c[1] * k * (0.9 + w * 0.2), c[2] * k * 1.02]; });
+  p.map((x, y, c) => { const v = pnoise(x, y, 6, 7), w = pnoise(x * 2, y * 0.6, 8, 3); const k = v > 0.7 ? 1.3 : 1; return [c[0] * k * (0.9 + w * 0.2), c[1] * k * (0.9 + w * 0.2), c[2] * k * 1.02]; });
   for (let i = 0; i < 10; i++) p.rect(p.rng.int(0, 60), p.rng.int(0, 63), p.rng.int(3, 9), 1, [112, 124, 136], 0.5);
   p.grain(0.05);
 }, 12);
@@ -68,9 +68,9 @@ T('lv33_wall', (p) => {
   p.grain(0.05);
 }, 12);
 T('lv33_puddle', (p) => {
-  p.fill([14, 20, 28]);
-  p.map((x, y, c) => { const n = pnoise(x, y * 2, 16, 4) * 0.6 + pnoise(x * 2, y, 8, 9) * 0.4; return [c[0] + n * 26, c[1] + n * 34, c[2] + n * 44]; });
-  for (let i = 0; i < 18; i++) p.rect(p.rng.int(0, 60), p.rng.int(0, 63), p.rng.int(2, 7), 1, [150, 170, 190], 0.45);
+  p.fill([30, 42, 58]);
+  p.map((x, y, c) => { const n = pnoise(x, y * 2, 16, 4) * 0.6 + pnoise(x * 2, y, 8, 9) * 0.4; return [c[0] + n * 34, c[1] + n * 44, c[2] + n * 58]; });
+  for (let i = 0; i < 22; i++) p.rect(p.rng.int(0, 60), p.rng.int(0, 63), p.rng.int(2, 9), 1, [190, 208, 226], 0.7);
 }, 8);
 // four frames of falling water: streaks with gaps
 for (let f = 0; f < 4; f++) {
@@ -92,7 +92,7 @@ defineMaterial('lv33_ceil', 'lv33_ceil', { s: 8, surf: 'concrete' });
 defineMaterial('lv33_lobby', 'lv33_lobby', { s: 2, surf: 'wet' });
 defineMaterial('lv33_wall', 'lv33_wall', { s: 2, surf: 'drywall', stain: 0.1 });
 defineMaterial('lv33_puddle', 'lv33_puddle', { s: 2, surf: 'water', flags: VF.WOBBLE | VF.SCROLL });
-defineMaterial('lv33_fall', 'lv33_fall0', { s: 4, flags: VF.FULLBRIGHT | VF.ANIM, glow: 0.55, surf: 'water', frames: 4 });
+defineMaterial('lv33_fall', 'lv33_fall0', { s: 4, flags: VF.FULLBRIGHT | VF.ANIM, glow: 0.42, surf: 'water', frames: 4 });
 
 // ------------------------------------------------------------------ the zone
 const isTower = (u, v) => ((u >= 6 && u < 26) || (u >= 38 && u < 58)) && ((v >= 6 && v < 26) || (v >= 38 && v < 58));
@@ -110,11 +110,12 @@ function gen(zb) {
   const towers = [];
   for (let ti = 0; ti < 2; ti++) for (let tj = 0; tj < 2; tj++) towers.push([TOW[ti], TOW[tj], ti, tj]);
   for (const [tu, tv, ti, tj] of towers) tower(Z, zb, zi, zj, tu, tv, ti, tj, R);
-  for (let k = 0; k < 4; k++) for (let m = 0; m < 4; m++) {
-    const u = k * 16, v = m * 16;
+  for (let k = 0; k < 8; k++) for (let m = 0; m < 8; m++) {
+    const u = k * 8, v = m * 8;
+    if ((u % 32 !== 0 && v % 32 !== 0)) continue;
     if (isTower(u, v)) continue;
     zb.fixture(Z.x(u), Z.z(v), 'highbay', true, { y: CH, hang: 1.6 });
-    Z.light(u, CH - 3.2, v, { color: [1.0, 0.78, 0.5], rad: 10, int: 0.85, ch: R(40 + k, m, 1) < 0.1 ? 3 : 0 });
+    Z.light(u, CH - 2.4, v, { color: [1.0, 0.78, 0.5], rad: 10, int: 0.8, ch: R(40 + k, m, 1) < 0.1 ? 3 : 0 });
   }
   // puddles
   for (let k = 0; k < 16; k++) {
@@ -134,7 +135,17 @@ function tower(Z, zb, zi, zj, tu, tv, ti, tj, R) {
     for (const t of [1.5, 18.5]) {
       const px = dz === 0 ? (dx > 0 ? tu + 20 + 0.6 : tu - 0.6) : tu + t;
       const pz = dx === 0 ? (dz > 0 ? tv + 20 + 0.6 : tv - 0.6) : tv + t;
-      poleLamp(zb, Z.x(px), Z.z(pz), 4.6, { y: 0, armX: dx > 0 ? 0.8 : dx < 0 ? -0.8 : 0.0, arm: dx !== 0, color: SODIUM, rad: 10, int: 0.85, ch: R(key + s, t, 7) < 0.08 ? 3 : 0 });
+      poleLamp(zb, Z.x(px), Z.z(pz), 4.6, { y: 0, armX: dx > 0 ? 0.8 : dx < 0 ? -0.8 : 0.0, arm: dx !== 0, color: R(key + s, t, 6) < 0.3 ? MERCURY : SODIUM, rad: 10, int: 0.9, ch: R(key + s, t, 7) < 0.08 ? 3 : 0 });
+    }
+  });
+  // street furniture
+  SIDES.forEach(([dx, dz], s) => {
+    if (R(key + s, 20, 21) < 0.5) {
+      const t = 6 + Math.floor(R(key + s, 21, 22) * 8);
+      const px = dz === 0 ? (dx > 0 ? tu + 20.7 : tu - 0.7) : tu + t;
+      const pz = dx === 0 ? (dz > 0 ? tv + 20.7 : tv - 0.7) : tv + t;
+      const kind = Math.floor(R(key + s, 22, 23) * 3);
+      Z.prop(kind === 0 ? 'bench' : kind === 1 ? 'trash_can' : 'traffic_cone', px, 0, pz, face(dx, dz), { len: 1.6 });
     }
   });
   // an entrance hall on one face
@@ -191,8 +202,8 @@ const RAIN = { kind: 'rain', amount: 0.62, color: [0.66, 0.72, 0.82, 0.5], fall:
 defineZone('lv33_rain', {
   ...LEVEL_ZONE,
   params: () => ({
-    ambient: [0.1, 0.12, 0.15],
-    env: env({ fog: [0.045, 0.055, 0.07], fogNear: 4, fogFar: 46, hum: 0, hvac: 0, reverb: 'hall', tone: 'lv33_rain' }),
+    ambient: [0.15, 0.17, 0.21],
+    env: env({ fog: [0.08, 0.095, 0.125], fogNear: 5, fogFar: 50, hum: 0, hvac: 0, reverb: 'hall', tone: 'lv33_rain' }),
     weather: RAIN,
   }),
   gen,

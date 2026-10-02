@@ -71,9 +71,9 @@ defineTexture('lv22_amber', (p) => { p.fill([255, 176, 52]); p.rect(0, 0, 64, 6,
 defineTexture('lv22_display', (p) => {
   p.fill([14, 10, 8]);
   p.frame(0, 0, 64, 64, [60, 56, 50]);
-  p.text('NOW', 5, 12, [255, 176, 52], 2);
-  p.text('SERVING', 5, 32, [255, 176, 52], 1);
-  p.rect(44, 6, 1, 52, [60, 40, 20]);
+  p.text('NOW', 5, 14, [255, 176, 52], 2);
+  p.text('SERVING', 5, 36, [255, 176, 52], 1);
+  p.rect(46, 8, 1, 48, [60, 40, 20]);
 }, 6);
 defineTexture('lv22_sign', (p) => {
   p.fill([226, 218, 196]);
@@ -183,9 +183,9 @@ defineProp('lv22_display', {
   build(mb) {
     const hs = S('plastic_black');
     const lab = T('lv22_display');
-    mb.box(-0.58, 0, -0.06, 0.58, 0.58, 0.06, [hs, hs, hs, hs, hs, lab], { uv: ['world', 'world', 'world', 'world', 'world', [0, 0, 1, 1]] });
-    // the digit lies on the viewer's right (-x side), 0.16 m wide and 0.34 m high
-    const cx = -0.36, cy = 0.29, w = 0.17, h = 0.36, t = 0.032, z0 = -0.075, z1 = -0.062;
+    mb.box(-0.42, 0, -0.06, 0.42, 0.58, 0.06, [hs, hs, hs, hs, hs, lab], { uv: ['world', 'world', 'world', 'world', 'world', [0, 0, 1, 1]] });
+    // the digit lies on the viewer's right (-x side), 0.14 m wide and 0.34 m high
+    const cx = -0.27, cy = 0.29, w = 0.14, h = 0.34, t = 0.03, z0 = -0.075, z1 = -0.062;
     const seg = (ch, x0, y0, x1, y1) => {
       const st = T('lv22_amber', { flags: VF.FULLBRIGHT, lit: false, color: [0, 0, 0], flk: [1.15, 0.95, 0.55], chan: ch });
       mb.box(cx + x0, cy + y0, z0, cx + x1, cy + y1, z1, st, { skip: 31 });

@@ -107,8 +107,6 @@ function gen(zb) {
 
   // balusters and a handrail along the open side of the flight, stepping with the treads
   const alongX = dir === '+x' || dir === '-x';
-  const innerLocal = F.rail[0] === 'N' ? F.rail[1] : F.rail[1];   // unused, kept for clarity
-  void innerLocal;
   // the open edge of the flight is the one facing the well: for flights along x it is the side
   // away from the outer wall, for flights along z likewise
   const wellSide = (() => {
@@ -130,14 +128,15 @@ function gen(zb) {
     if (alongX) zb.box(fx0 + mid - 0.03, top, bz0 + 0.02, fx0 + mid + 0.03, top + 0.9, bz1 - 0.02, M.lv84_rail, { collide: false, skip: 12 });
     else zb.box(bx0 + 0.02, top, fz0 + mid - 0.03, bx1 - 0.02, top + 0.9, fz0 + mid + 0.03, M.lv84_rail, { collide: false, skip: 12 });
   }
-  // rail on the landing's open side toward the well
+  // rail on the landing's open side toward the well (the edge is given in unmirrored cell space)
   {
-    const [rx0, rz0, rx1, rz1] = [lx0, lz0, lx1, lz1];
-    const edges = [];
-    if (F.rail[0] === 'N') edges.push([mz ? rz0 : rz1, 'N']); else edges.push([mx ? rx0 : rx1, 'W']);
-    for (const [ln, kind] of edges) {
-      if (kind === 'N') for (let x = rx0; x < rx1; x++) zb.setWall(x, ln, 'N', W.RAIL, M.lv84_rail, M.lv84_rail);
-      else for (let z = rz0; z < rz1; z++) zb.setWall(ln, z, 'W', W.RAIL, M.lv84_rail, M.lv84_rail);
+    const [kind, line, a0, a1] = F.rail;
+    if (kind === 'N') {
+      const ln = mapZ(line), xa = Math.min(mapX(a0), mapX(a1)), xb = Math.max(mapX(a0), mapX(a1));
+      for (let x = xa; x < xb; x++) zb.setWall(x, ln, 'N', W.RAIL, M.lv84_rail, M.lv84_rail);
+    } else {
+      const ln = mapX(line), za = Math.min(mapZ(a0), mapZ(a1)), zbb = Math.max(mapZ(a0), mapZ(a1));
+      for (let z = za; z < zbb; z++) zb.setWall(ln, z, 'W', W.RAIL, M.lv84_rail, M.lv84_rail);
     }
   }
 
@@ -163,9 +162,10 @@ function gen(zb) {
 
   // a door on a landing whose north/south wall has no arch
   const landS = lz1 === zb.z1;
-  const cxL = (lx0 + lx1) / 2;
-  if (landN && !archNS && doorHere(bi, bj, s, 0)) levelDoor(zb, cxL, zb.z0 + 0.75, Math.PI, { y: 0 });
+  const cxL = (lx0 + lx1) / 2, first = bi === 0 && bj === 0 && s === 0;
+  if (landN && !archNS && !first && doorHere(bi, bj, s, 0)) levelDoor(zb, cxL, zb.z0 + 0.75, Math.PI, { y: 0 });
   else if (landS && !nsArch(bi, bj + 1, s) && doorHere(bi, bj, s, 1)) levelDoor(zb, cxL, zb.z1 - 0.75, 0, { y: 0 });
+  zb.emitter(cx, 3.2, cz, 'lv84_bulb', { vol: 0.5, rad: 13 });
 }
 
 defineZone('lv84_shaft', {
