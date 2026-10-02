@@ -189,7 +189,7 @@ function gen(zb) {
       let x, z, face;
       if (alongX) { const north = wellSide === 'S'; face = north ? 'pz' : 'nz'; z = north ? zb.z0 + 0.12 : zb.z1 - 0.12; x = north ? wx + off : wx - off; }
       else { const west = wellSide === 'E'; face = west ? 'px' : 'nx'; x = west ? zb.x0 + 0.12 : zb.x1 - 0.12; z = west ? wz - off : wz + off; }
-      zb.decal(x, 3.2, z, face, 1.0, 1.7, tex);
+      zb.decal(x, 5.0, z, face, 1.0, 1.7, tex);
     }
     void wx; void wz;
   }

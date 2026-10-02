@@ -35,8 +35,8 @@ defineTexture('lv19_boards', (p, r) => {
   p.fill([92, 64, 38]);
   for (let y = 0; y < 64; y += 8) {
     p.rect(0, y, 64, 8, mulc([100, 70, 42], 0.8 + r.next() * 0.35));
-    p.rect(0, y, 64, 1, [30, 20, 12]);
-    if (r.chance(0.5)) p.rect(r.int(0, 56), y + 1, r.int(2, 6), 7, [26, 18, 10], 0.5);
+    p.rect(0, y, 64, 1, [58, 40, 24]);
+    if (r.chance(0.5)) p.rect(r.int(0, 56), y + 1, r.int(2, 6), 7, [60, 42, 26], 0.5);
     for (let k = 0; k < 3; k++) p.set(r.int(0, 63), y + r.int(1, 6), [60, 40, 24], 0.8);
   }
   p.grain(0.05);

@@ -382,9 +382,7 @@ function gen(zb) {
       zb.light(cx + Math.cos(a) * 9, y, cz + Math.sin(a) * 9, { color: [1.0, 0.95, 0.86], rad: 11, int: 1.15 });
     }
     // engines flare when the launch button is pressed (channel 10)
-    zb.light(cx, 4, cz, { color: [1.0, 0.55, 0.2], rad: 14, int: 1.7, ch: 10 });
-    zb.light(cx + 8, 3, cz + 8, { color: [1.0, 0.55, 0.2], rad: 12, int: 1.3, ch: 10 });
-    zb.light(cx - 8, 3, cz - 8, { color: [1.0, 0.55, 0.2], rad: 12, int: 1.3, ch: 10 });
+    for (const [dx, dz, y, r, int] of [[0, 0, 4, 15, 2.6], [9, 9, 3, 13, 2.0], [-9, -9, 3, 13, 2.0], [9, -9, 3, 13, 2.0], [-9, 9, 3, 13, 2.0], [0, 14, 3, 12, 1.8], [0, -14, 3, 12, 1.8], [14, 0, 3, 12, 1.8], [-14, 0, 3, 12, 1.8]]) zb.light(cx + dx, y, cz + dz, { color: [1.0, 0.55, 0.2], rad: r, int, ch: 10 });
     // beacons on the nose
     const top = [108, 76, 80][kind];
     zb.box(cx - 0.25, top, cz - 0.25, cx + 0.25, top + 0.5, cz + 0.25, M.lv24_beacon, { collide: false });

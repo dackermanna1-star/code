@@ -3,3 +3,4 @@ import './l005_ornate_hotel.js';
 import './l021_numbered_hotel.js';
 import './l033_rain_room.js';
 import './l042_white_apartment.js';
+import './l044_basement_stairs.js';

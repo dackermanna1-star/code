@@ -130,7 +130,7 @@ function gen(zb) {
         if (hung) {
           const ch = state === 'dying' ? 5 + (i & 3) : state === 'flicker' ? 1 + (i & 3) : 0;
           zb.fixture(lx, lz, 'tube', state !== 'off', { ch, rot, l: len, y: CEIL - 0.3 });
-          if (state !== 'off') zb.light(lx, CEIL - 0.85, lz, { color, rad: 6.2, int: 1.0, ch });
+          if (state !== 'off') zb.light(lx, CEIL - 0.85, lz, { color, rad: 6.4, int: 1.15, ch });
         } else if (lz === zb0 + 8) {
           // between the hung bars: a fixture only, the bars light the floor under it
           const on = state !== 'off';
@@ -190,7 +190,7 @@ defineZone('lv29_garage', {
   ...LEVEL_ZONE,
   doors: true,
   params: () => ({
-    ambient: [0.09, 0.1, 0.09],
+    ambient: [0.125, 0.14, 0.13],
     ceilH: CEIL,
     env: env({ fog: [0.045, 0.062, 0.056], fogNear: 3, fogFar: 48, hum: 0.25, hvac: 0.5, reverb: 'warehouse', tone: 'g05_garage' }),
   }),

@@ -253,15 +253,12 @@ function gen(zb) {
   const i0 = Math.floor(zb.x0 / R), i1 = Math.floor((zb.x1 - 1) / R);
   const j0 = Math.floor(zb.z0 / R), j1 = Math.floor((zb.z1 - 1) / R);
   for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (!blocked(i, j)) genRoom(zb, i, j);
-  // the entrance: a 2 m wide passage 15 m long into the first room, the arrival door at its end
+  // the entrance: a 2 m wide passage, 4 m long, into the first room, the arrival door at its end
   const solid = { skip: 4 | 8, sub: 4 };
   cbox(zb, -16, 0, 0, 0, CH, 3, M.lv22_paper, solid);
   cbox(zb, -16, 0, 5, 0, CH, 16, M.lv22_paper, solid);
-  cbox(zb, -16, 0, 3, -15, CH, 5, M.lv22_paper, solid);
-  if (zb.x0 <= -8 && zb.x1 > -8 && zb.z0 <= 4 && zb.z1 > 4) {
-    ceilingLight(zb, -11, 4, 'tube', 'on', { color: [1.0, 0.9, 0.72], mul: 0.55, rot: 1 });
-    ceilingLight(zb, -4, 4, 'tube', 'on', { color: [1.0, 0.9, 0.72], mul: 0.55, rot: 1 });
-  }
+  cbox(zb, -16, 0, 3, -4, CH, 5, M.lv22_paper, solid);
+  if (zb.x0 <= -2 && zb.x1 > -2 && zb.z0 <= 4 && zb.z1 > 4) ceilingLight(zb, -2, 4, 'tube', 'on', { color: [1.0, 0.9, 0.72], mul: 0.5, rot: 1 });
   // contents, once per room (owned by the zone holding the anchor)
   for (let j = j0; j <= j1; j++) {
     for (let i = i0; i <= i1; i++) {
@@ -298,8 +295,10 @@ function gen(zb) {
       zb.decal(x0 + 0.12, 1.55, z0 + 1.45, 'px', 0.8, 0.8, hr(i, j, 37) < 0.5 ? 'lv22_print_a' : 'lv22_print_b');
       zb.decal(x0 + R - 0.12, 1.55, z0 + 6.55, 'nx', 0.8, 0.8, hr(i, j, 38) < 0.5 ? 'lv22_print_a' : 'lv22_print_b');
       // ceiling lights
-      ceilingLight(zb, x0 + 2.0, z0 + 5.0, 'troffer', 'on', { color: [1.0, 0.92, 0.78], mul: 0.62, rot: 1 });
-      ceilingLight(zb, x0 + 6.0, z0 + 5.0, 'troffer', 'on', { color: [1.0, 0.92, 0.78], mul: 0.62, rot: 1 });
+      ceilingLight(zb, x0 + 2.0, z0 + 5.5, 'troffer', 'on', { color: [1.0, 0.92, 0.78], mul: 0.8, rot: 1 });
+      ceilingLight(zb, x0 + 6.0, z0 + 5.5, 'troffer', 'on', { color: [1.0, 0.92, 0.78], mul: 0.8, rot: 1 });
+      // a warm glow beside each doorway, so the next room shines down the line of doors
+      if (own(x0 + 1.2, z0 + 4)) zb.light(x0 + 1.4, 1.9, z0 + 4, { color: [1.0, 0.82, 0.55], rad: 7, int: 0.75 });
       ceilingLight(zb, x0 + 4.0, z0 + 1.0, 'tube', 'on', { color: [0.9, 0.95, 1.0], mul: 0.4, rot: 1 });
     }
   }
@@ -319,7 +318,7 @@ defineLevel(N, {
   name: 'THE WAITING ROOM',
   zoneType: 'lv22_rooms',
   zoneSize: 64,
-  entry: { x: -14.25, y: 0, z: 4.0, yaw: Math.PI / 2 },
+  entry: { x: -3.25, y: 0, z: 4.0, yaw: Math.PI / 2 },
   doorDensity: 0,
   viewRadius: 3,
   light: { phoneRadius: 3.2, phoneIntensity: 0.2 },

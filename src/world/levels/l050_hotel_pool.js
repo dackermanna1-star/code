@@ -504,10 +504,10 @@ function gen(zb) {
   const face = piers[0];            // pier side: 0 north, 1 east, 2 south, 3 west
   const prot = [0, Math.PI / 2, Math.PI, -Math.PI / 2][face];
   if (owns(zb, ox + cx, oz + cz)) {
-    zb.prop('lv50_pavilion', ox + cx, 0, oz + cz, prot + Math.PI, {});
+    zb.prop('lv50_pavilion', ox + cx, 0, oz + cz, prot, {});
     // door stands inside against the back wall; the pavilion's back (local +z) faces away from the pier
-    const bx = ox + cx + Math.sin(prot) * 2.2, bz = oz + cz - Math.cos(prot) * 2.2;
-    levelDoor(zb, bx, bz, prot + Math.PI, { y: 0 });
+    const bx = ox + cx - Math.sin(prot) * 2.2, bz = oz + cz + Math.cos(prot) * 2.2;
+    levelDoor(zb, bx, bz, prot, { y: 0 });
   }
 
   // diving towers on the south deck: always in the first courtyard, in some of the others

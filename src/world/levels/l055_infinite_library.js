@@ -217,7 +217,7 @@ function lamps(zb, bi, bj) {
       if (hr(Math.floor(x), r + bj * 8, 20) < 0.12) continue;
       if (!owns(zb, x, za)) continue;
       zb.prop('lv55_pendant', x, 3.4, za, 0, {});
-      zb.light(x, 3.6, za, { color: [1.0, 0.76, 0.42], rad: 10, int: nave ? 1.1 : 0.95, ch: hr(Math.floor(x), r, 21) < 0.07 ? 3 : 0 });
+      zb.light(x, 3.4, za, { color: [1.0, 0.76, 0.42], rad: 8.5, int: nave ? 1.35 : 1.2, ch: hr(Math.floor(x), r, 21) < 0.07 ? 3 : 0 });
     }
   }
 }
@@ -233,7 +233,7 @@ function furniture(zb, bi, bj) {
       const tx = x + jitter + (s > 0 ? 6 : 0), tz = zc + s * 4.2;
       if (!owns(zb, tx, tz)) continue;
       if (hr(Math.floor(tx), s + bj * 2, 31) < 0.8) zb.prop('lv55_table', tx, 0, tz, 0, { len: 3.4 });
-      zb.light(tx, 1.7, tz, { color: [1.0, 0.82, 0.5], rad: 7, int: 0.8 });
+      zb.light(tx, 1.7, tz, { color: [1.0, 0.82, 0.5], rad: 5.5, int: 0.9 });
     }
     if (owns(zb, x + 8, zc) && hr(Math.floor(x), bj, 32) < 0.5) zb.prop('lv55_lectern', x + 8, 0, zc, hr(Math.floor(x), 1, 33) * TAU, { use: 'level', label: 'READ', seed: Math.floor(x * 5 + bj), useY: 1.1, useR: 0.8 });
     if (owns(zb, x + 3, zc - 0.5) && hr(Math.floor(x), bj, 34) < 0.35) zb.prop('lv55_globe', x + 3, 0, zc, 0, {});
@@ -327,7 +327,7 @@ defineLevel(N, {
   entry: { x: 4.5, y: 0, z: 4 + NAVE * RP + 0.5, yaw: Math.PI / 2 },
   doorDensity: 0.3,
   viewRadius: 4,
-  weather: { kind: 'dust', amount: 0.55, color: [1.0, 0.86, 0.6, 0.6], fall: 0.04, wind: [0.03, 0.01], size: 1.1, indoor: true },
+  weather: { kind: 'dust', amount: 0.7, color: [1.0, 0.86, 0.6, 0.7], fall: 0.05, wind: [0.04, 0.02], size: 0.022, indoor: true },
   light: { phoneRadius: 4, phoneIntensity: 0.25 },
   script,
   onUse,
