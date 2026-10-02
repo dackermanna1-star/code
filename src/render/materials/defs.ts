@@ -516,3 +516,12 @@ def('daylight_detector_top', ww('daylight', 0));
 def('daylight_detector_side', ww('daylight', 1));
 
 def('reinforced_deepslate', mas(['#1c2224', '#262e30', '#323b3e', '#141819', '#2a3234'], [2, 1, 1, 0, 0, 0.5, 0, 0, 5, 0.4, 0.7, 0.6, 0, 0, 8, 0]));
+
+// --- blocks appended by world generation ---------------------------------------------------
+def('raw_copper_block', { prog: 'rock', v: 'raw', c: ['#7a4428', '#b06a44', '#d8946a', '#47240f'], p: [0.6, 18], metal: 0.6 });
+def('smooth_basalt', rockDef(['#3c3c42', '#48484e', '#55555b', '#323237', '#5e5e64'], [6, 0.35, 0.03, 0.04, 0.05, 0.05, 0.2, 0, 0.55, 0.6, 24, 3, 0.3, 0.3, 0.4, 0.3], { depth: 0.8 }));
+def('mushroom_stem', { ...org('wart'), c: ['#c9bfa9', '#ddd5c2', '#efe9dc'], sss: 0.15 });
+def('brown_mushroom_block', { ...org('wart'), c: ['#6a4b33', '#8c6847', '#a8825b'], seed: nameSeed('brown_mushroom_block') });
+def('red_mushroom_block', { ...org('wart'), c: ['#8c1210', '#bd2420', '#d84a40'], seed: nameSeed('red_mushroom_block') });
+def('powder_snow', { prog: 'soil', v: 'snow', sss: 0.4, seed: nameSeed('powder_snow') });
+def('twisting_vines', { prog: 'foliage', v: 'weeping', cutout: true, sss: 0.4, c: ['#0d6e66', '#17958a', '#30bfae'], seed: nameSeed('twisting_vines') });
