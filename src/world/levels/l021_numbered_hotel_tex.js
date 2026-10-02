@@ -110,7 +110,8 @@ T('lv21_stencil', (p) => { p.fill([34, 44, 62]); p.noise(6, 0.08, 2); }, 4);
 
 // ------------------------------------------------------------------ the directory
 // A board of 6 x 3 tiles, painted as one picture and cut into tiles
-export const DIR_W = 6, DIR_H = 3;
+export const DIR_W = 6;
+export const DIR_H = 3;
 const DIR_LINES = [
   // [text, scale, colour, x (px from left, -1 = centred)]
   ['ROOM DIRECTORY', 3, [250, 250, 244], -1, 6],

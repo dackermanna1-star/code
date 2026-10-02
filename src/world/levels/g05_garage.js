@@ -9,7 +9,9 @@ export const REACT = [9, 10, 11, 12, 14, 15];
 
 // Level 29 grid: modules 16 m deep along z (bays 5 | aisle 6 | bays 5), columns every 8 m in
 // x, three bays between columns.
-export const MZ = 16, CX = 8, BW = 8 / 3;
+export const MZ = 16;
+export const CX = 8;
+export const BW = 8 / 3;
 
 // a car in bay (i, k) [column i, bay k of 0..2] of module j, row 0 (north of the aisle) or 1
 export function bayCar(i, k, j, row, era = 3) {
