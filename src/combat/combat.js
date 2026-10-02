@@ -382,6 +382,8 @@ export function processBodyImpacts(sim) {
         // he controls where his own victims fly; only hard, foreign impacts count
         const src = f.knock ? f.knock.by : f.thrownBy;
         if (src === t || rel < 260) continue;
+        // and the viewer's missiles miss him unless the viewer says otherwise
+        if (now - f.playerT < 3 && sim.powers.spared(t)) continue;
       }
       pairT.set(key, now);
       const impact = Math.sqrt(rel * rel + vy * vy * 0.3);
@@ -407,11 +409,17 @@ export function processBodyImpacts(sim) {
         if (t.poise < t.maxPoise * 0.3) thresh *= 0.82;
       }
       const by = f.knock ? f.knock.by : f.thrownBy || null;
+      // a body the viewer threw: whatever it flattens is on them
+      const viewer = now - f.playerT < 3;
+      if (viewer) {
+        t.playerT = now;
+        if (f.knock && f.knock.player) t.knock = { by: null, chainId: f.knock.chainId, depth: depth + 1, time: now, kind: 'body', via: f, player: true };
+      }
       if (dmg > 0) t.damage(dmg, by, 'body');
       const ratio = impact / thresh;
       if (ratio > 1) {
         t.knockdown(tvx, -Math.min(260, impact * 0.25), { joint: PELVIS, jx: tvx * 0.3, jy: -60 });
-        t.knock = { by, chainId: f.knock ? f.knock.chainId : sim.newChain(by), depth: depth + 1, time: now, kind: 'body', via: f };
+        t.knock = { by, chainId: f.knock ? f.knock.chainId : sim.newChain(by), depth: depth + 1, time: now, kind: 'body', via: f, player: viewer && !!(f.knock && f.knock.player) };
         sim.onChain(t.knock, t, f);
       } else if (ratio > 0.5 || t.isHero) {
         t.hitstun(0.16 + ratio * 0.2, tvx * 0.7, 0, true, Math.sign(pel.x - t.x || 1) === t.facing ? 'gut' : 'back', ratio > 0.8);

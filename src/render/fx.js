@@ -37,6 +37,7 @@ export class FX {
     this.goreK = 1.6;
     this.impact = null; // a stylised black-on-white impact frame
     this.impactCd = 0;
+    this.bolts = []; // lightning strikes being drawn
   }
 
   impactFrame(a, b, x, y, force) {
@@ -48,6 +49,7 @@ export class FX {
   reset(sim, settings) {
     this.gore.reset(sim, settings);
     this.impact = null;
+    this.bolts.length = 0;
     this.goreK = settings ? [0, 1, 1.7][settings.gore | 0] || 0 : 1;
     for (const p of this.ps) p.alive = false;
     this.arcs.length = 0;
@@ -229,8 +231,29 @@ export class FX {
       case 'heroDefeated':
         this.flashScreen(0.25, '255,255,255');
         break;
+      case 'shot':
+        this.onShot(e, sim);
+        break;
+      case 'lightning':
+        this.onLightning(e, sim);
+        break;
+      case 'push': {
+        this.spawn({ type: 'ring', x: e.x, y: e.y, life: 0.35, size: 20, grow: e.R * 3, color: '255,255,255', alpha: 0.8 });
+        this.spawn({ type: 'ring', x: e.x, y: e.y, life: 0.5, size: 10, grow: e.R * 1.8, color: '200,220,255', alpha: 0.5 });
+        this.spawn({ type: 'flash', x: e.x, y: e.y, life: 0.15, size: 90, color: '230,240,255', add: true });
+        this.burst('dust', e.x, e.y, 18, { speed: [160, 520], life: [0.35, 0.8], size: [8, 16], grow: 30, color: '205,200,195', drag: 3.5, alpha: 0.45 });
+        this.flashScreen(0.12, '230,240,255');
+        break;
+      }
+      case 'pspawn':
+        this.spawn({ type: 'flash', x: e.x, y: e.y, life: 0.18, size: 40, color: '255,220,150', add: true });
+        this.burst('dust', e.x, e.y, 6, { speed: [30, 120], life: [0.3, 0.6], size: [5, 9], grow: 20, color: '220,210,200', drag: 3, alpha: 0.5 });
+        break;
+      case 'pgrab':
+        this.spawn({ type: 'ring', x: e.x, y: e.y, life: 0.2, size: 4, grow: 90, color: '255,255,255', alpha: 0.7 });
+        break;
       case 'ko':
-        if (this.goreK > 0 && e.f && e.cause !== 'electric' && e.cause !== 'fell' && e.cause !== 'window') {
+        if (this.goreK > 0 && e.f && e.cause !== 'electric' && e.cause !== 'fell' && e.cause !== 'window' && e.cause !== 'lightning') {
           const g = woundsOf(e.f);
           g.bleed = Math.min(2, g.bleed + 0.6);
           const hp = e.f.rag.p[HEAD];
@@ -239,6 +262,47 @@ export class FX {
         break;
     }
     void settings;
+  }
+
+  // A gunshot: tracer, impact, and what the round did when it got there.
+  onShot(e, sim) {
+    const r = this.rng;
+    this.spawn({ type: 'tracer', x: e.x, y: e.y, vx: e.ox, vy: e.oy, life: 0.1, size: 2.4, color: '255,176,40' });
+    this.spawn({ type: 'flash', x: e.x, y: e.y, life: 0.06, size: 16, color: '255,240,200', add: true });
+    if (e.kind === 'flesh') {
+      const f = e.f;
+      if (this.goreK > 0) {
+        const g = woundsOf(f);
+        const slot = e.head ? W_HEAD : W_TORSO;
+        g.w[slot] = Math.min(1.5, g.w[slot] + (e.head ? 1.2 : 0.6));
+        g.bleed = Math.min(2, g.bleed + (e.head ? 0.9 : 0.5));
+        const dir = Math.sign(e.dx) || 1;
+        // exit wound: a spray along the line of fire and a splash behind
+        this.spray(sim, e.x, e.y, dir, e.head ? 1.8 : 1.3, e.head ? 16 : 10, 1);
+        this.gore.wall(e.x + e.dx * r.range(26, 48), e.y + e.dy * r.range(20, 40), e.dx, e.dy, e.head ? 9 : 6);
+        if (this.goreK > 1.2) this.burst('mist', e.x, e.y, 4, { ang: Math.atan2(e.dy, e.dx), spread: 0.5, speed: [60, 200], life: [0.25, 0.5], size: [4, 9], grow: 26, color: '150,10,20', drag: 4, alpha: 0.4 });
+      }
+      f.flash = 1;
+      if (e.kill && e.head) this.impactFrame(null, f, e.x, e.y, false);
+    } else if (e.kind === 'wall' || e.kind === 'solid') {
+      this.gore.hole(e.x, e.y);
+      this.burst('dust', e.x, e.y, 4, { speed: [30, 140], life: [0.3, 0.6], size: [3, 6], grow: 16, color: '205,200,190', drag: 3, alpha: 0.5 });
+      this.burst('chip', e.x, e.y, 4, { speed: [80, 240], life: [0.3, 0.7], size: [1, 2], color: '140,138,132', g: 1400, floor: this.floorBelow(sim, e.x, e.y) });
+    } else if (e.kind === 'metal') {
+      this.burst('spark', e.x, e.y, 10, { speed: [150, 480], life: [0.08, 0.25], size: [1.2, 2.2], color: '255,220,150', g: 700, drag: 1.5, add: true });
+    }
+  }
+
+  // A bolt from above: drawn for a few frames with flicker, plus the arcs
+  // it jumped along, a flash and a scorch mark where it landed.
+  onLightning(e, sim) {
+    this.bolts.push({ ox: e.ox, oy: e.oy, x: e.x, y: e.y, chain: e.chain, t: 0, life: 0.42, seed: this.rng.int(1, 1e6) });
+    this.flashScreen(0.4, '220,232,255');
+    this.lights.push({ x: e.x, y: e.y - 60, r: 620, life: 0.7, max: 0.7, color: '200,220,255' });
+    this.burst('spark', e.x, e.y, 30, { speed: [160, 620], life: [0.1, 0.4], size: [1.2, 2.6], color: '225,240,255', g: 600, drag: 1.5, add: true });
+    this.burst('dust', e.x, e.y, 8, { speed: [40, 200], life: [0.4, 0.9], size: [6, 12], grow: 24, color: '120,120,125', drag: 3, alpha: 0.4 });
+    this.spawn({ type: 'ring', x: e.x, y: e.y, life: 0.25, size: 8, grow: 300, color: '210,230,255', alpha: 0.6 });
+    this.gore.scorch(e.x, e.y, 26);
   }
 
   // A landed blow: wounds on the struck part, a spray away from the attacker,
@@ -402,6 +466,11 @@ export class FX {
       this.impact.t -= dt;
       if (this.impact.t <= 0) this.impact = null;
     }
+    for (let i = this.bolts.length - 1; i >= 0; i--) {
+      const b = this.bolts[i];
+      b.t += dt;
+      if (b.t > b.life) this.bolts.splice(i, 1);
+    }
     if (settings) this.goreK = [0, 1, 1.7][settings.gore | 0] || 0;
     const r = this.rng;
     for (const p of this.ps) {
@@ -411,6 +480,7 @@ export class FX {
         p.alive = false;
         continue;
       }
+      if (p.type === 'tracer') continue; // vx/vy hold its origin, not a velocity
       if (p.drag) {
         const k = Math.exp(-p.drag * dt);
         p.vx *= k;
@@ -507,8 +577,55 @@ export class FX {
       if (p.x < view.x0 - 200 || p.x > view.x1 + 200 || p.y < view.y0 - 200 || p.y > view.y1 + 200) continue;
       drawParticle(ctx, p, p.life / p.max);
     }
-    this.drawArcs(ctx, t);
     ctx.restore();
+    // electricity reads on white walls too: dark halo, bright core
+    this.drawArcs(ctx, t);
+    this.drawBolts(ctx);
+  }
+
+  drawBolts(ctx) {
+    for (const b of this.bolts) {
+      const k = 1 - b.t / b.life;
+      // re-roll the jag every few hundredths for a crackling flicker
+      const r = new RNG(b.seed + Math.floor(b.t * 28));
+      const path = (x0, y0, x1, y1, n, amp) => {
+        const pts = [[x0, y0]];
+        for (let i = 1; i < n; i++) {
+          const u = i / n;
+          pts.push([x0 + (x1 - x0) * u + r.range(-amp, amp), y0 + (y1 - y0) * u + r.range(-amp * 0.4, amp * 0.4)]);
+        }
+        pts.push([x1, y1]);
+        return pts;
+      };
+      const stroke = (pts, w, col) => {
+        ctx.strokeStyle = col;
+        ctx.lineWidth = w;
+        ctx.beginPath();
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+        ctx.stroke();
+      };
+      const len = Math.hypot(b.x - b.ox, b.y - b.oy);
+      const main = path(b.ox, b.oy, b.x, b.y, Math.max(8, Math.round(len / 40)), 26);
+      stroke(main, 18 * k + 2, `rgba(30,55,160,${0.3 * k})`);
+      stroke(main, 7 * k + 2, `rgba(110,160,255,${0.85 * k})`);
+      stroke(main, 2.6, `rgba(255,255,255,${k})`);
+      // forks off the main channel
+      for (let f = 0; f < 3; f++) {
+        const i = 2 + Math.floor(r.range(0, main.length - 3));
+        const [sx, sy] = main[i];
+        const fork = path(sx, sy, sx + r.range(-120, 120), sy + r.range(40, 160), 5, 14);
+        stroke(fork, 6 * k, `rgba(30,55,160,${0.25 * k})`);
+        stroke(fork, 3 * k, `rgba(120,170,255,${0.75 * k})`);
+        stroke(fork, 1.2, `rgba(255,255,255,${0.9 * k})`);
+      }
+      for (const [x0, y0, x1, y1] of b.chain) {
+        const arc = path(x0, y0, x1, y1, 7, 14);
+        stroke(arc, 9 * k, `rgba(30,55,160,${0.28 * k})`);
+        stroke(arc, 4 * k, `rgba(120,170,255,${0.8 * k})`);
+        stroke(arc, 1.6, `rgba(255,255,255,${0.95 * k})`);
+      }
+    }
   }
 
   drawArcs(ctx, t) {
@@ -520,9 +637,9 @@ export class FX {
       const sx = a.floor ? f.x : hz.x;
       const sy = a.floor ? hz.y - 4 : hz.y - hz.h * 0.6;
       const tgt = f.rag.p[r.chance(0.5) ? PELVIS : r.chance(0.5) ? NECK : HEAD];
-      for (let k = 0; k < 2; k++) {
-        ctx.strokeStyle = k ? 'rgba(255,255,255,0.95)' : 'rgba(140,190,255,0.55)';
-        ctx.lineWidth = k ? 1.6 : 5;
+      for (let k = 0; k < 3; k++) {
+        ctx.strokeStyle = k === 2 ? 'rgba(255,255,255,0.95)' : k === 1 ? 'rgba(120,170,255,0.75)' : 'rgba(30,60,170,0.35)';
+        ctx.lineWidth = k === 2 ? 1.6 : k === 1 ? 4 : 9;
         ctx.beginPath();
         ctx.moveTo(sx, sy);
         const n = 7;
@@ -570,6 +687,16 @@ function drawParticle(ctx, p, k) {
       ctx.beginPath();
       ctx.moveTo(p.x, p.y);
       ctx.lineTo(p.x - p.vx * 0.025, p.y - p.vy * 0.025);
+      ctx.stroke();
+      break;
+    }
+    case 'tracer': {
+      // a streak from off screen (stored in vx/vy) to the impact point
+      ctx.strokeStyle = `rgba(${p.color},${k})`;
+      ctx.lineWidth = p.size;
+      ctx.beginPath();
+      ctx.moveTo(p.vx + (p.x - p.vx) * 0.55, p.vy + (p.y - p.vy) * 0.55);
+      ctx.lineTo(p.x, p.y);
       ctx.stroke();
       break;
     }

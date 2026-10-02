@@ -213,6 +213,56 @@ export class Gore {
     });
   }
 
+  // A bullet hole: a dark pit with a pale chipped rim.
+  hole(x, y) {
+    if (!this.sim) return;
+    const r = this.rng;
+    const a = r.range(0, TAU);
+    const chips = [];
+    for (let i = 0; i < 4; i++) chips.push([x + Math.cos(a + i * 1.7) * r.range(2.5, 4.5), y + Math.sin(a + i * 1.7) * r.range(2.5, 4.5), r.range(0.6, 1.2)]);
+    this.paint(x - 8, y - 8, x + 8, y + 8, (ctx) => {
+      ctx.fillStyle = 'rgba(235,232,226,0.55)';
+      ctx.beginPath();
+      ctx.arc(x, y, 3.6, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(40,40,44,0.6)';
+      for (const [cx, cy, cr] of chips) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, cr, 0, TAU);
+        ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(20,20,22,0.92)';
+      ctx.beginPath();
+      ctx.arc(x, y, 1.9, 0, TAU);
+      ctx.fill();
+    });
+  }
+
+  // Lightning scorch: a sooty starburst on the floor line or a wall.
+  scorch(x, y, size) {
+    if (!this.sim) return;
+    const r = this.rng;
+    const rays = [];
+    for (let i = 0; i < 9; i++) rays.push([r.range(0, TAU), size * r.range(0.6, 1.4)]);
+    this.paint(x - size * 1.5, y - size * 1.5, x + size * 1.5, y + size * 1.5, (ctx) => {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, size);
+      g.addColorStop(0, 'rgba(18,16,16,0.7)');
+      g.addColorStop(1, 'rgba(18,16,16,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(24,20,20,0.5)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      for (const [a, l] of rays) {
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l * 0.6);
+      }
+      ctx.stroke();
+    });
+  }
+
   // Pools grow by repainting a slightly larger opaque ellipse.
   pool(x, y, rx) {
     if (!this.sim) return;

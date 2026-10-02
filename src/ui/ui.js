@@ -60,6 +60,7 @@ const SLIDERS = [
 
 const TOGGLES = [
   ['autoNext', 'Start the next battle automatically', 'sim'],
+  ['powersHurtHero', 'Your powers can hit Onyx too', 'world'],
   ['motionTrails', 'Motion trails', 'view'],
   ['showHud', 'Show HUD', 'view'],
   ['showStats', 'Performance stats', 'view'],
@@ -228,6 +229,7 @@ export class UI {
           ${sel('environment', 'Environment', [['random', 'Random']].concat(ENVIRONMENTS.map((e) => [e.id, e.label])), S.environment, true)}
           ${sel('condition', 'Conditions', [['random', 'Random']].concat(CONDITIONS.map((c) => [c.id, c.label])), S.condition, true)}
           ${group('world').map(slider).join('')}
+          ${TOGGLES.filter((t) => t[2] === 'world').map(toggle).join('')}
         </section>
         <section class="group">
           <h3>Presentation</h3>
@@ -243,6 +245,12 @@ export class UI {
             <dt>Space</dt><dd>Pause</dd><dt>N</dt><dd>New battle</dd><dt>R</dt><dd>Replay seed</dd>
             <dt>C</dt><dd>Camera mode</dd><dt>M</dt><dd>Sound</dd><dt>H</dt><dd>Hide interface</dd>
             <dt>S</dt><dd>Settings</dd><dt>1 2 3</dt><dd>Speed</dd><dt>D</dt><dd>AI overlay</dd>
+          </dl>
+          <h3>Your powers</h3>
+          <dl class="keylist">
+            <dt>G</dt><dd>Grab and fling</dd><dt>F</dt><dd>Gun</dd><dt>Z</dt><dd>Lightning</dd>
+            <dt>B</dt><dd>Grenade</dd><dt>X</dt><dd>Shockwave</dd><dt>E</dt><dd>Spawn enemy</dd>
+            <dt>Q</dt><dd>Just watch</dd>
           </dl>
         </section>
       </div>`;
@@ -483,7 +491,7 @@ export class UI {
     const hero = sim.hero;
     this.root.querySelector('#endKicker').textContent = `SIMULATION #${sim.number} · ${sim.level.theme.toUpperCase()}`;
     this.root.querySelector('#endTitle').textContent = o.victory ? (o.reason === 'cleared' ? 'Cleared' : 'Survived') : 'Defeated';
-    const causes = { electric: 'electrocuted', fell: 'fell from a height', explosion: 'caught in an explosion', window: 'thrown out a window', body: 'flattened by flying bodies', slam: 'slammed into the floor', beaten: 'overwhelmed' };
+    const causes = { electric: 'electrocuted', fell: 'fell from a height', explosion: 'caught in an explosion', window: 'thrown out a window', body: 'flattened by flying bodies', slam: 'slammed into the floor', beaten: 'overwhelmed', shot: 'shot (by you)', smash: 'smashed into the floor (by you)', lightning: 'struck by lightning (yours)', push: 'blown away (by you)' };
     this.root.querySelector('#endSub').textContent = o.victory
       ? `Onyx held on for ${fmtTime(o.time)} and put down ${st.defeated} opponents.`
       : `Onyx was ${causes[o.cause] || 'overwhelmed'}${o.by ? ` (final blow: ${o.by})` : ''} after ${fmtTime(o.time)}.`;
@@ -500,6 +508,7 @@ export class UI {
       ['Most engaged at once', st.maxEngaged],
       ['Friendly-fire KOs', st.friendlyKOs],
     ];
+    if (st.playerKOs) rows.push(['By your hand', st.playerKOs]);
     this.root.querySelector('#endGrid').innerHTML = rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
     this.end.hidden = false;
     this.setCountdown(countdown);

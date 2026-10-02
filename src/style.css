@@ -606,6 +606,87 @@ select {
   }
 }
 
+/* --------------------------------------------------------------- powers */
+.powers {
+  position: absolute;
+  right: var(--gutter);
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  gap: 4px;
+  padding: 5px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.pw-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.pw-btn svg {
+  width: 21px;
+  height: 21px;
+}
+
+.pw-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--paper);
+}
+
+.pw-btn.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.pw-btn[data-tool='watch'] {
+  margin-bottom: 3px;
+}
+
+.pw-hint {
+  position: absolute;
+  right: calc(var(--gutter) + 62px);
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  gap: 2px;
+  max-width: min(260px, calc(100vw - 110px));
+  padding: 8px 12px;
+  background: var(--panel-solid);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--accent);
+  border-radius: 4px;
+  pointer-events: none;
+  animation: feed-in 0.2s ease-out;
+}
+
+.pw-hint strong {
+  font-family: var(--font-display);
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.pw-hint span {
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--paper);
+}
+
 /* --------------------------------------------------------------- drawer */
 .drawer {
   position: absolute;
@@ -1009,6 +1090,51 @@ select option {
   }
   .perf {
     bottom: calc(env(safe-area-inset-bottom, 0px) + 160px);
+  }
+  .powers {
+    top: calc(env(safe-area-inset-top, 0px) + 96px);
+    transform: none;
+    gap: 2px;
+    padding: 4px;
+  }
+  .pw-btn {
+    width: 36px;
+    height: 36px;
+  }
+  .pw-hint {
+    /* below the hero plate, beside the palette */
+    top: calc(env(safe-area-inset-top, 0px) + 132px);
+    transform: none;
+    right: calc(var(--gutter) + 52px);
+  }
+}
+
+/* short screens (phones on their side): the palette folds into two columns
+   between the scoreboard and the dock, and the sound button moves up */
+@media (max-height: 560px) and (min-width: 721px) {
+  .powers {
+    grid-template-columns: repeat(2, auto);
+    gap: 2px;
+    padding: 4px;
+  }
+  .pw-btn {
+    width: 36px;
+    height: 36px;
+  }
+  .pw-btn[data-tool='watch'] {
+    grid-column: span 2;
+    width: auto;
+    margin-bottom: 0;
+  }
+  .pw-hint {
+    right: calc(var(--gutter) + 90px);
+  }
+  .sound-hint {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+    padding: 0 10px;
+  }
+  .sound-hint span {
+    display: none;
   }
 }
 

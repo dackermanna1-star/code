@@ -32,10 +32,23 @@ export class Camera {
     this.idleT = 0;
     this.cut = null; // { x, y, t } cutaway to a brawl elsewhere
     this.cutCooldown = 8;
+    this.hold = false; // the viewer is dragging something: keep the frame still
+  }
+
+  // Inverse of the renderer's world transform (zoom, roll, shake).
+  screenToWorld(sx, sy, W, H) {
+    const u = sx - W / 2;
+    const v = sy - H / 2;
+    const c = Math.cos(this.rot);
+    const s = Math.sin(this.rot);
+    const ux = u * c + v * s;
+    const uy = -u * s + v * c;
+    return [ux / this.zoom + this.x + this.shakeX, uy / this.zoom + this.y + this.shakeY];
   }
 
   reset(sim, W, H) {
     const h = sim.hero;
+    this.hold = false;
     this.x = h.x;
     this.y = h.y - 120;
     this.viewW = 1100;
@@ -82,6 +95,17 @@ export class Camera {
       case 'explosion':
         this.addTrauma(0.75, settings);
         this.requestSlowmo(16, e.x, e.y, settings);
+        break;
+      case 'shot':
+        this.addTrauma(e.kind === 'flesh' ? 0.08 : 0.04, settings);
+        if (e.kill && e.head) this.requestSlowmo(7, e.x, e.y, settings);
+        break;
+      case 'lightning':
+        this.addTrauma(0.5, settings);
+        if (e.n >= 3) this.requestSlowmo(9, e.x, e.y, settings);
+        break;
+      case 'push':
+        this.addTrauma(0.4, settings);
         break;
       case 'zap':
         if (!e.floor) {
@@ -257,6 +281,13 @@ export class Camera {
     if (vh < bh + 200) ty = clamp(ty, L.bounds.top + vh / 2, L.bounds.bottom - vh / 2 + 60);
     else ty = (L.bounds.top + L.bounds.bottom) / 2;
 
+    if (this.hold && dt > 0) {
+      // hold the frame while the viewer drags (zoom out only if forced)
+      tx = this.x;
+      ty = this.y;
+      tw = this.viewW;
+      this.sx.v = this.sy.v = this.sw.v = 0;
+    }
     if (dt <= 0) {
       this.x = tx;
       this.y = ty;

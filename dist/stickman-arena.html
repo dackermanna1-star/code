@@ -617,6 +617,87 @@ select {
   }
 }
 
+/* --------------------------------------------------------------- powers */
+.powers {
+  position: absolute;
+  right: var(--gutter);
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  gap: 4px;
+  padding: 5px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.pw-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.pw-btn svg {
+  width: 21px;
+  height: 21px;
+}
+
+.pw-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--paper);
+}
+
+.pw-btn.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.pw-btn[data-tool='watch'] {
+  margin-bottom: 3px;
+}
+
+.pw-hint {
+  position: absolute;
+  right: calc(var(--gutter) + 62px);
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  gap: 2px;
+  max-width: min(260px, calc(100vw - 110px));
+  padding: 8px 12px;
+  background: var(--panel-solid);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--accent);
+  border-radius: 4px;
+  pointer-events: none;
+  animation: feed-in 0.2s ease-out;
+}
+
+.pw-hint strong {
+  font-family: var(--font-display);
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.pw-hint span {
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--paper);
+}
+
 /* --------------------------------------------------------------- drawer */
 .drawer {
   position: absolute;
@@ -1021,6 +1102,51 @@ select option {
   .perf {
     bottom: calc(env(safe-area-inset-bottom, 0px) + 160px);
   }
+  .powers {
+    top: calc(env(safe-area-inset-top, 0px) + 96px);
+    transform: none;
+    gap: 2px;
+    padding: 4px;
+  }
+  .pw-btn {
+    width: 36px;
+    height: 36px;
+  }
+  .pw-hint {
+    /* below the hero plate, beside the palette */
+    top: calc(env(safe-area-inset-top, 0px) + 132px);
+    transform: none;
+    right: calc(var(--gutter) + 52px);
+  }
+}
+
+/* short screens (phones on their side): the palette folds into two columns
+   between the scoreboard and the dock, and the sound button moves up */
+@media (max-height: 560px) and (min-width: 721px) {
+  .powers {
+    grid-template-columns: repeat(2, auto);
+    gap: 2px;
+    padding: 4px;
+  }
+  .pw-btn {
+    width: 36px;
+    height: 36px;
+  }
+  .pw-btn[data-tool='watch'] {
+    grid-column: span 2;
+    width: auto;
+    margin-bottom: 0;
+  }
+  .pw-hint {
+    right: calc(var(--gutter) + 90px);
+  }
+  .sound-hint {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+    padding: 0 10px;
+  }
+  .sound-hint span {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1101,6 +1227,7 @@ const DEFAULT_SETTINGS = {
   screenShake: 1,
   motionTrails: true,
   gore: 2, // 0 off, 1 blood, 2 brutal
+  powersHurtHero: false,
   showStats: false,
   debugAI: false,
   autoNext: true,
@@ -3387,6 +3514,7 @@ const BOX_KINDS = {
   box: { mass: 0.0007, hp: 26, material: 'cardboard', breakSpeed: 520, bounce: 0.2, mu: 0.6, w: 40, h: 34 },
   barrel: { mass: 0.0034, hp: 9999, material: 'metal', breakSpeed: 99999, bounce: 0.25, mu: 0.5, w: 36, h: 52 },
   canister: { mass: 0.0024, hp: 34, material: 'metal', breakSpeed: 99999, bounce: 0.3, mu: 0.5, w: 26, h: 44, explosive: true },
+  grenade: { mass: 0.004, hp: 9999, material: 'metal', breakSpeed: 99999, bounce: 0.38, mu: 0.55, w: 11, h: 14, explosive: true, power: 1.2 },
 };
 
 const near = [];
@@ -3415,6 +3543,8 @@ class Box {
     this.broken = false;
     this.lastThrower = null;
     this.hitT = new Map();
+    this.player = false; // set off (or thrown) by the viewer
+    this.playerT = -Infinity; // last sent flying by the viewer
   }
 
   center() {
@@ -3459,6 +3589,7 @@ class Stick {
     this.sleepT = 0;
     this.life = Infinity;
     this.debris = false;
+    this.playerT = -Infinity;
   }
 }
 
@@ -3542,7 +3673,9 @@ class Props {
         if (A.sleeping && B.sleeping) continue;
         const [bx, by] = B.center();
         if (Math.abs(bx - cx) > rad + B.w || Math.abs(by - cy) > rad + B.h) continue;
-        for (const q of B.p) pushOutOfBox(A, q, q.w, true);
+        let touched = false;
+        for (const q of B.p) if (pushOutOfBox(A, q, q.w, true)) touched = true;
+        if (touched && A.playerT !== B.playerT) A.playerT = B.playerT = Math.max(A.playerT, B.playerT);
       }
       // body particles vs box. Walkers push with finite strength and feel
       // the weight (their controller slows down while shoving heavy boxes).
@@ -3556,6 +3689,8 @@ class Props {
         const wq = q.kin ? 0.9 / Math.max(0.5, o ? o.mass / 9.25 : 1) : q.w;
         const moved = pushOutOfBox(A, q, wq, false);
         if (!moved || !o) continue;
+        // a body the viewer flung knocks this box on in their name
+        if (!q.kin && o.playerT > A.playerT && sim.time - o.playerT < 3) A.playerT = o.playerT;
         if (q.kin) {
           if (A.mass > o.mass * 0.12) {
             o.boxPush = Math.max(o.boxPush || 0, A.mass / (o.mass * 0.12));
@@ -3575,6 +3710,7 @@ class Props {
     const h = sim.h;
     for (let i = this.boxes.length - 1; i >= 0; i--) {
       const b = this.boxes[i];
+      if (!b) continue; // an explosion further up the list broke boxes below it
       // impacts damage boxes
       let imp = 0;
       for (const q of b.p) {
@@ -3583,7 +3719,10 @@ class Props {
       }
       if (imp > 260) {
         if (imp > 420) sim.emit({ t: 'clatter', x: b.p[2].x, y: b.p[2].y, material: b.k.material, power: imp / 700 });
+        const lit = b.fuse >= 0;
         this.damageBox(b, (imp - 260) * 0.12, b.lastThrower);
+        // a canister knocked about by the viewer's doing goes up in their name
+        if (!lit && b.fuse >= 0 && b.playerT > -Infinity) b.player = true;
       }
       if (b.broken) continue;
       // canister fuse
@@ -3592,7 +3731,7 @@ class Props {
         if (b.fuse < 0) {
           const [x, y] = b.center();
           this.boxes.splice(i, 1);
-          sim.explode(x, y, 1, b.lastThrower);
+          sim.explode(x, y, b.k.power || 1, b.lastThrower, { player: !!b.player, src: b.kind });
           continue;
         }
       }
@@ -3600,7 +3739,10 @@ class Props {
       const [vx, vy] = b.velocity(h);
       if (vx * vx + vy * vy < 400 && b.p.some((q) => q.ground)) {
         b.sleepT += dt;
-        if (b.sleepT > 0.6) b.sleeping = true;
+        if (b.sleepT > 0.6) {
+          b.sleeping = true;
+          b.playerT = -Infinity; // at rest: no longer anybody's missile
+        }
       } else {
         b.sleepT = 0;
         b.sleeping = false;
@@ -3689,6 +3831,7 @@ class Props {
         const s = new Stick('plank', x + rng.range(-b.w / 3, b.w / 3), y + rng.range(-b.h / 3, b.h / 3), rng.range(0, Math.PI), b.w * rng.range(0.7, 0.95), 0.7);
         s.weapon = k === 0 ? { kind: 'plank', ...WEAPONS.plank } : null;
         s.debris = k > 0;
+        s.playerT = b.playerT;
         if (s.debris) s.life = rng.range(6, 10);
         for (const q of s.p) q.setVel(vx * 0.5 + rng.range(-160, 160), vy * 0.5 - rng.range(60, 260), h);
         this.sticks.push(s);
@@ -3702,9 +3845,11 @@ class Props {
     const [cx, cy] = b.center();
     const now = sim.time;
     sim.fighterHash.query(cx, cy, Math.max(b.w, b.h), near);
+    const player = b.player || b.playerT > -Infinity;
     for (const f of near) {
       if (f.removed || f.dead || f.ragdolled) continue;
       if (b.lastThrower === f && (f.isHero || now - (b.throwT || 0) < 0.4)) continue;
+      if (player && sim.powers.spared(f)) continue;
       const last = b.hitT.get(f.id);
       if (last !== undefined && now - last < 0.8) continue;
       const top = f.y - 88 * f.scale;
@@ -3737,8 +3882,10 @@ class Props {
     const a = s.p[0];
     const b = s.p[1];
     sim.fighterHash.query((a.x + b.x) / 2, (a.y + b.y) / 2, 60, near);
+    const player = now - s.playerT < 3;
     for (const f of near) {
       if (f.removed || f.dead || f.ragdolled || f === s.thrower) continue;
+      if (player && sim.powers.spared(f)) continue;
       if (s.thrower && !s.thrower.isHero && !f.isHero && sim.rng.chance(0.5)) continue;
       const p = f.rag.p;
       const r = 6 + f.dims.lw;
@@ -3814,6 +3961,8 @@ class Props {
       if (b.struckBy === a && b.struckMove === a.move) continue;
       b.struckBy = a;
       b.struckMove = a.move;
+      b.playerT = -Infinity; // a fighter's kick makes it theirs
+      if (b.kind !== 'grenade') b.player = false;
       const k = (Math.abs(hit.kx) * 1.4 + 120) * a.strength * sim.settings.physicsIntensity / Math.max(0.6, b.mass / 2.5);
       b.addVel(dir * k, -Math.min(260, k * 0.35), sim.h);
       b.lastThrower = a;
@@ -3911,8 +4060,9 @@ class Props {
   }
 
   // Radial impulse on every loose prop.
-  blast(x, y, R, power, by) {
+  blast(x, y, R, power, by, player = false) {
     const h = this.sim.h;
+    const now = this.sim.time;
     for (const b of this.boxes.slice()) {
       const [cx, cy] = b.center();
       const d = Math.hypot(cx - x, cy - y);
@@ -3922,7 +4072,13 @@ class Props {
       const ny = (cy - y) / (d || 1) - 0.5;
       b.addVel(nx * k * 900, ny * k * 900, h);
       b.lastThrower = by;
+      const lit = b.fuse >= 0;
       this.damageBox(b, k * 120, by);
+      if (player) {
+        b.playerT = now;
+        // a canister the viewer's blast sets off is theirs too
+        if (!lit && b.fuse >= 0) b.player = true;
+      }
     }
     for (const s of this.sticks) {
       const mx = (s.p[0].x + s.p[1].x) / 2;
@@ -3932,6 +4088,7 @@ class Props {
       const k = (1 - d / R) * power;
       for (const q of s.p) q.addVel(((mx - x) / (d || 1)) * k * 800, (((my - y) / (d || 1)) - 0.6) * k * 800, h);
       s.sleeping = false;
+      if (player) s.playerT = now;
     }
   }
 }
@@ -4074,6 +4231,9 @@ class Hazards {
         touch = this.inZone(hz, f.x, f.y - 40, 8);
       }
       if (!touch) continue;
+      // a body the viewer put there stays the viewer's doing while it fries
+      const viewer = sim.time - f.playerT < 3;
+      if (viewer) f.playerT = sim.time;
       const by = f.knock ? f.knock.by : f.thrownBy || f.lastHitBy;
       f.knock = f.knock || { by, chainId: sim.newChain(by), depth: 0, time: sim.time, kind: 'electric' };
       f.zapSource = hz;
@@ -4084,17 +4244,18 @@ class Hazards {
       hz.arcTarget = f;
       hz.zaps++;
       sim.emit({ t: 'zap', x: hz.x, y: hz.y - hz.h * 0.6, power: 1, f, hz, by });
-      if (sim.level.condition === 'wet') this.arcAcrossFloor(hz, f, by);
+      if (sim.level.condition === 'wet') this.arcAcrossFloor(hz, f, by, viewer);
       break;
     }
   }
 
   // Wet floors carry the shock to anyone standing nearby.
-  arcAcrossFloor(hz, src, by) {
+  arcAcrossFloor(hz, src, by, player) {
     const sim = this.sim;
     sim.fighterHash.query(hz.x, hz.y - 20, 190, near);
     for (const f of near) {
       if (f === src || f.removed || f.dead || f.zapT > 0) continue;
+      if (player && sim.powers.spared(f)) continue; // set off by the viewer's throw
       if (Math.abs(f.y - hz.y) > 12 || !f.grounded) continue;
       f.zapSource = hz;
       f.knock = { by, chainId: sim.newChain(by), depth: 1, time: sim.time, kind: 'electric' };
@@ -5492,6 +5653,7 @@ class Fighter {
     this.lastHitTime = -10;
     this.lastDamageTime = -10;
     this.knock = null; // chain-reaction attribution { by, chainId, depth, time }
+    this.playerT = -Infinity; // last sent flying by the viewer's powers
     this.passT = 0;
     this.stance = 'guard';
     this.lookTarget = null;
@@ -6196,9 +6358,18 @@ class Fighter {
     this.vy = (p.y - p.py) / h;
     if (this.state === 'zap') {
       this.zapT -= dt;
-      this.damage(this.zapDmg * dt, this.knock ? this.knock.by : null, 'electric');
+      this.damage(this.zapDmg * dt, this.knock ? this.knock.by : null, this.zapCause || 'electric');
       this.flash = Math.max(this.flash, 0.6);
-      if (this.zapT <= 0) this.setState(this.dead ? 'ko' : 'ragdoll');
+      if (this.zapT <= 0) {
+        this.zapCause = null;
+        this.setState(this.dead ? 'ko' : 'ragdoll');
+      }
+      return;
+    }
+    if (this.playerHeld) {
+      // dangling from the viewer's grip: no getting up
+      this.restT = 0;
+      if (this.state !== 'ragdoll') this.setState('ragdoll');
       return;
     }
     const sp = this.rag.maxSpeed(h);
@@ -7061,6 +7232,7 @@ const { steerTo, surfaceOfFighter, stairsOf } = __m17;
 const near = [];
 const HERO_MOVES = ['jab', 'cross', 'hook', 'uppercut', 'elbow', 'knee', 'teep', 'roundhouse', 'spinkick', 'sweep', 'flyingkick', 'shove', 'grab', 'backkick', 'backelbow', 'superman', 'backfist', 'axekick', 'jumpknee', 'dropkick', 'headbutt'];
 const ARMED_MOVES = ['wswing', 'woverhead', 'wthrust', 'teep', 'knee', 'sweep', 'backkick', 'roundhouse', 'grab', 'wthrow'];
+const ROLL_RUN = 200; // ground a dodge roll covers, with a margin
 const HAZARD_NAMES = { electric: 'the live panel', ledge: 'the drop', window: 'the window', canister: 'the gas canister', stairs: 'the stairs', crowd: 'the crowd' };
 
 class HeroBrain {
@@ -7219,7 +7391,20 @@ class HeroBrain {
     if (bomb === null) return false;
     const it = f.intent;
     const away = Math.sign(f.x - bomb) || -f.facing;
-    if (f.canAct() && bd < 150 && f.stamina > 10 && this.spaceToward(away) > 120) {
+    it.block = false;
+    const room = this.runRoom(away);
+    if (room < 70) {
+      // backed up against a roof edge or a wall: diving past it beats
+      // going over the edge; with nowhere to go, brace for it
+      if (f.canAct() && f.stamina > 10 && this.runRoom(-away, 300) > Math.max(ROLL_RUN, bd + 110)) {
+        it.face = -away;
+        it.action = 'roll';
+      } else {
+        it.mx = 0;
+        it.face = -away;
+        it.block = true;
+      }
+    } else if (f.canAct() && bd < 150 && f.stamina > 10 && room >= ROLL_RUN && this.spaceToward(away) > 120) {
       it.face = away;
       it.action = 'roll';
     } else {
@@ -7227,9 +7412,22 @@ class HeroBrain {
       it.run = true;
       it.face = away;
     }
-    it.block = false;
     this.say('Live canister!', 0.8);
     return true;
+  }
+
+  // How far he can run that way before a wall or a drop he should not take
+  // at a sprint (a roof edge, a shaft, a gap between buildings, a skylight).
+  runRoom(dir, max = 240) {
+    const f = this.f;
+    const L = this.sim.level;
+    for (let d = 30; d <= max; d += 30) {
+      const x = f.x + dir * d;
+      if (L.isSolidAt(x, f.y - 40)) return d - 20;
+      const g = L.groundUnder(x - 3, x + 3, f.y - 4, 260, true, false);
+      if (!g || (g.kind === 'skylight' && !g.broken)) return d - 25;
+    }
+    return max;
   }
 
   // How long until he registers a threat, and the chance he misses it.
@@ -9066,6 +9264,14 @@ class Director {
         f.setState('air');
         break;
       }
+      case 'drop':
+        // dropped in by the viewer: falls from where they clicked
+        f.placeAt(x, y);
+        f.grounded = false;
+        f.vy = 40;
+        f.fallStartY = y;
+        f.setState('air');
+        break;
       default:
         f.placeAt(x, y);
         f.spawning = { t: 0.8, walk: true, dir: p.dir || dirToHero };
@@ -9467,6 +9673,8 @@ function processBodyImpacts(sim) {
         // he controls where his own victims fly; only hard, foreign impacts count
         const src = f.knock ? f.knock.by : f.thrownBy;
         if (src === t || rel < 260) continue;
+        // and the viewer's missiles miss him unless the viewer says otherwise
+        if (now - f.playerT < 3 && sim.powers.spared(t)) continue;
       }
       pairT.set(key, now);
       const impact = Math.sqrt(rel * rel + vy * vy * 0.3);
@@ -9492,11 +9700,17 @@ function processBodyImpacts(sim) {
         if (t.poise < t.maxPoise * 0.3) thresh *= 0.82;
       }
       const by = f.knock ? f.knock.by : f.thrownBy || null;
+      // a body the viewer threw: whatever it flattens is on them
+      const viewer = now - f.playerT < 3;
+      if (viewer) {
+        t.playerT = now;
+        if (f.knock && f.knock.player) t.knock = { by: null, chainId: f.knock.chainId, depth: depth + 1, time: now, kind: 'body', via: f, player: true };
+      }
       if (dmg > 0) t.damage(dmg, by, 'body');
       const ratio = impact / thresh;
       if (ratio > 1) {
         t.knockdown(tvx, -Math.min(260, impact * 0.25), { joint: PELVIS, jx: tvx * 0.3, jy: -60 });
-        t.knock = { by, chainId: f.knock ? f.knock.chainId : sim.newChain(by), depth: depth + 1, time: now, kind: 'body', via: f };
+        t.knock = { by, chainId: f.knock ? f.knock.chainId : sim.newChain(by), depth: depth + 1, time: now, kind: 'body', via: f, player: viewer && !!(f.knock && f.knock.player) };
         sim.onChain(t.knock, t, f);
       } else if (ratio > 0.5 || t.isHero) {
         t.hitstun(0.16 + ratio * 0.2, tvx * 0.7, 0, true, Math.sign(pel.x - t.x || 1) === t.facing ? 'gut' : 'back', ratio > 0.8);
@@ -9568,6 +9782,403 @@ function processTrips(sim) {
 return { allies, processAttacks, resolveHit, processBodyImpacts, processTrips };
 })();
 
+// ---- src/sim/powers.js
+const __m22 = (() => {
+const { clamp, segPointDist2 } = __m5;
+const { HEAD, NECK, PELVIS, ELB_A, HAND_A, ELB_B, HAND_B, KNEE_A, FOOT_A, KNEE_B, FOOT_B, NJ } = __m11;
+const { Box } = __m10;
+// The viewer's powers: grab and fling bodies, shoot, call down lightning,
+// throw grenades, blast a shockwave, drop in new enemies. Everything acts
+// through the same physics and damage as the fight itself, so a body you
+// throw bowls people over and a grenade you lob sends the hero running.
+
+
+
+
+const BONES = [
+  [NECK, PELVIS], [NECK, ELB_A], [ELB_A, HAND_A], [NECK, ELB_B], [ELB_B, HAND_B],
+  [PELVIS, KNEE_A], [KNEE_A, FOOT_A], [PELVIS, KNEE_B], [KNEE_B, FOOT_B],
+];
+const near = [];
+
+class Powers {
+  constructor(sim) {
+    this.sim = sim;
+    this.drag = null; // { f, idx, x, y }
+    this.kills = 0;
+  }
+
+  // The hero is off limits unless the viewer says otherwise.
+  spared(f) {
+    return f.isHero && !this.sim.settings.powersHurtHero;
+  }
+
+  playerKnock(f, kind) {
+    const sim = this.sim;
+    f.knock = { by: null, chainId: sim.newChain(null), depth: 0, time: sim.time, kind, player: true };
+    f.playerT = sim.time;
+  }
+
+  // ------------------------------------------------------------ picking
+  // Closest fighter body part to (x, y): bones as capsules, head as a disc.
+  // With opts.reach, a near miss still catches the closest joint within
+  // that distance (grabbing a moving stickman should not take a sniper).
+  pick(x, y, slack, opts = {}) {
+    const sim = this.sim;
+    let best = null;
+    let bd = Infinity;
+    let close = null;
+    let cd = opts.reach || 0;
+    for (const f of sim.fighters) {
+      if (f.removed || f.fading) continue;
+      if (opts.alive && f.dead) continue;
+      if (this.spared(f)) continue;
+      const p = f.rag.p;
+      const pel = p[PELVIS];
+      if (Math.abs(pel.x - x) > 160 || Math.abs(pel.y - y) > 200) continue;
+      const lw = f.dims.lw * 0.5 + slack;
+      const hr = f.dims.headR + slack;
+      const dh = Math.hypot(p[HEAD].x - x, p[HEAD].y - y) - hr;
+      if (dh < 0 && dh < bd) {
+        bd = dh;
+        best = { f, idx: HEAD, head: true };
+      }
+      for (const [a, b] of BONES) {
+        const d = Math.sqrt(segPointDist2(p[a].x, p[a].y, p[b].x, p[b].y, x, y)) - lw;
+        if (d < 0 && d < bd) {
+          bd = d;
+          // the nearer end of the bone is the part that gets hold of
+          const da = Math.hypot(p[a].x - x, p[a].y - y);
+          const db = Math.hypot(p[b].x - x, p[b].y - y);
+          best = { f, idx: da < db ? a : b, head: false, bone: [a, b] };
+        }
+      }
+      if (!best && cd > 0) {
+        for (let i = 0; i < NJ; i++) {
+          const d = Math.hypot(p[i].x - x, p[i].y - y);
+          if (d < cd) {
+            cd = d;
+            close = { f, idx: i, head: i === HEAD };
+          }
+        }
+      }
+    }
+    return best || close;
+  }
+
+  // ------------------------------------------------------------- grab
+  grab(x, y, slack, reach = 0) {
+    const hit = this.pick(x, y, slack, { reach });
+    if (!hit) return null;
+    const f = hit.f;
+    const sim = this.sim;
+    f.baked = false;
+    f.fading = 0;
+    if (!f.ragdolled) f.knockdown(0, -40);
+    f.rag.sleeping = false;
+    f.rag.sleepT = 0;
+    f.playerHeld = true;
+    f.restT = 0;
+    if (f.state === 'down') f.setState('ragdoll');
+    this.playerKnock(f, 'player');
+    this.drag = { f, idx: hit.idx, x, y };
+    sim.emit({ t: 'pgrab', f, x, y });
+    return f;
+  }
+
+  moveDrag(x, y) {
+    if (!this.drag) return;
+    this.drag.x = x;
+    this.drag.y = y;
+  }
+
+  release() {
+    const d = this.drag;
+    this.drag = null;
+    if (!d) return;
+    const f = d.f;
+    f.playerHeld = false;
+    f.restT = 0;
+    f.playerT = this.sim.time;
+    if (f.knock) f.knock.time = this.sim.time; // a fresh missile for chain reactions
+    const p = f.rag.p[d.idx];
+    const sp = Math.hypot(p.x - p.px, p.y - p.py) / this.sim.h;
+    this.sim.emit({ t: 'pthrow', f, x: p.x, y: p.y, power: sp / 900 });
+  }
+
+  // Each physics substep: the grabbed part chases the cursor (with a cap so
+  // the solver never explodes); the rest of the body hangs off it.
+  applyDrag() {
+    const d = this.drag;
+    if (!d) return;
+    const f = d.f;
+    if (f.removed) {
+      this.drag = null;
+      return;
+    }
+    const p = f.rag.p[d.idx];
+    let dx = (d.x - p.x) * 0.45;
+    let dy = (d.y - p.y) * 0.45;
+    const l = Math.hypot(dx, dy);
+    const cap = 22;
+    if (l > cap) {
+      dx *= cap / l;
+      dy *= cap / l;
+    }
+    p.x += dx;
+    p.y += dy;
+    f.rag.sleeping = false;
+    f.playerT = this.sim.time;
+  }
+
+  // -------------------------------------------------------------- gun
+  // A hitscan shot at (x, y), fired from (ox, oy) off screen: hits whatever
+  // is under the cursor. Bodies take the round, glass shatters, canisters
+  // go up, crates jump, walls take a bullet hole.
+  shoot(ox, oy, x, y, slack) {
+    const sim = this.sim;
+    const h = sim.h;
+    let dx = x - ox;
+    let dy = y - oy;
+    const l = Math.hypot(dx, dy) || 1;
+    dx /= l;
+    dy /= l;
+    const rv = sim.settings.physicsIntensity;
+    const hit = this.pick(x, y, slack);
+    const ev = { t: 'shot', ox, oy, x, y, dx, dy, kind: 'air' };
+    if (hit) {
+      const f = hit.f;
+      const part = hit.idx;
+      const head = part === HEAD;
+      const legs = part === KNEE_A || part === KNEE_B || part === FOOT_A || part === FOOT_B;
+      const dmg = (head ? 80 : legs ? 18 : 32) * sim.rng.range(0.9, 1.1);
+      f.baked = false;
+      f.rag.sleeping = false;
+      f.headshot = head;
+      f.playerT = sim.time;
+      const wasDead = f.dead;
+      if (!wasDead) {
+        this.playerKnock(f, 'shot');
+        if (legs && f.hp > dmg && !f.ragdolled) {
+          // a round to the leg: the knee goes, he stays up for now
+          f.damage(dmg, null, 'shot');
+          f.hitstun(0.55, dx * 160, 0, true, 'leg', true);
+        } else {
+          f.pendingDeath = false;
+          f.damage(dmg, null, 'shot');
+          if (!f.ragdolled) f.knockdown(dx * 260 * rv, (dy * 260 - 140) * rv, { joint: part, jx: dx * 650 * rv, jy: dy * 650 * rv });
+          else f.rag.addVelAt(part, dx * 700 * rv, dy * 700 * rv, h, 0.4);
+        }
+      } else f.rag.addVelAt(part, dx * 600 * rv, dy * 600 * rv, h, 0.4);
+      f.flash = 1;
+      const pp = f.rag.p[part];
+      ev.kind = 'flesh';
+      ev.f = f;
+      ev.head = head;
+      ev.x = pp.x;
+      ev.y = pp.y;
+      ev.kill = !wasDead && f.dead;
+      sim.emit(ev);
+      return ev;
+    }
+    // props under the cursor
+    for (const b of sim.props.boxes) {
+      const [cx, cy] = b.center();
+      if (Math.abs(cx - x) > b.w / 2 + 3 || Math.abs(cy - y) > b.h / 2 + 3) continue;
+      b.addVel(dx * 260, dy * 260 - 60, h);
+      b.playerT = sim.time;
+      if (b.k.explosive) {
+        b.player = true;
+        b.lastThrower = null;
+      }
+      sim.props.damageBox(b, b.k.explosive ? 999 : 30, null);
+      if (b.k.explosive && b.fuse > 0.15) b.fuse = 0.12; // a round in a gas tank
+      ev.kind = 'metal';
+      sim.emit(ev);
+      return ev;
+    }
+    // glass
+    const L = sim.level;
+    const s = L.isSolidAt(x, y);
+    if (s && s.breakable && !s.broken) {
+      sim.breakSolid(s, x, y, 900);
+      ev.kind = 'glass';
+      sim.emit(ev);
+      return ev;
+    }
+    if (s) ev.kind = 'solid';
+    else if (!L.outdoor && x > 0 && x < L.width && y < 0 && y > L.bounds.top + 30) ev.kind = 'wall';
+    sim.emit(ev);
+    return ev;
+  }
+
+  // -------------------------------------------------------- lightning
+  // A bolt from the ceiling (or the sky) to (x, y). Everyone near the strike
+  // is electrocuted; the current jumps on to the next people along.
+  lightning(x, y) {
+    const sim = this.sim;
+    const L = sim.level;
+    // snap onto a body under the cursor, else to the ground below it
+    let tx = x;
+    let ty = y;
+    const hit = this.pick(x, y, 18, { alive: true });
+    if (hit) {
+      tx = hit.f.rag.p[HEAD].x;
+      ty = hit.f.rag.p[HEAD].y;
+    } else {
+      const g = L.groundUnder(x - 2, x + 2, y - 4, 420, true, false);
+      if (g) ty = g.y;
+    }
+    const up = L.raycast(tx, ty - 24, tx, L.bounds.top - 600);
+    const ox = up ? up.x : tx + sim.rng.range(-80, 80);
+    const oy = up ? up.y : L.bounds.top - 400;
+    const zapped = new Set();
+    const chain = [];
+    const zap = (f, dur, dmg) => {
+      zapped.add(f);
+      f.baked = false;
+      if (this.spared(f)) return;
+      if (!f.dead) {
+        this.playerKnock(f, 'lightning');
+        f.zapCause = 'lightning';
+        f.zapT = 0;
+        f.electrocute(dur, dmg);
+      } else {
+        f.rag.sleeping = false;
+        f.playerT = sim.time;
+        f.rag.addVel(sim.rng.range(-60, 60), -220, sim.h);
+      }
+    };
+    sim.fighterHash.query(tx, ty, 80, near);
+    const first = [];
+    for (const f of near) {
+      if (f.removed || this.spared(f)) continue;
+      for (let i = 0; i < NJ; i++) {
+        const p = f.rag.p[i];
+        if (Math.hypot(p.x - tx, p.y - ty) < 62) {
+          first.push(f);
+          break;
+        }
+      }
+    }
+    for (const f of first) zap(f, 1.1, 85);
+    // the current jumps on, up to a handful of links
+    let frontier = first.slice();
+    let links = 0;
+    while (frontier.length && links < 5) {
+      const next = [];
+      for (const a of frontier) {
+        if (links >= 5) break;
+        sim.fighterHash.query(a.rag.p[NECK].x, a.rag.p[NECK].y, 190, near);
+        let best = null;
+        let bd = 190;
+        for (const b of near) {
+          if (zapped.has(b) || b.removed || b.dead || this.spared(b)) continue;
+          const d = Math.hypot(b.rag.p[NECK].x - a.rag.p[NECK].x, b.rag.p[NECK].y - a.rag.p[NECK].y);
+          if (d < bd) {
+            bd = d;
+            best = b;
+          }
+        }
+        if (!best) continue;
+        chain.push([a.rag.p[NECK].x, a.rag.p[NECK].y, best.rag.p[NECK].x, best.rag.p[NECK].y]);
+        zap(best, 0.8, 45);
+        next.push(best);
+        links++;
+      }
+      frontier = next;
+    }
+    // wet floors carry it to everyone standing nearby
+    if (L.condition === 'wet') {
+      sim.fighterHash.query(tx, ty, 240, near);
+      for (const f of near) {
+        if (zapped.has(f) || f.removed || f.dead || !f.grounded || Math.abs(f.y - ty) > 14 || this.spared(f)) continue;
+        chain.push([tx, ty, f.x, f.y - 10]);
+        zap(f, 0.5, 26);
+      }
+    }
+    // canisters and glass in the strike take it too
+    for (const b of sim.props.boxes) {
+      const [cx, cy] = b.center();
+      if (!b.k.explosive || Math.hypot(cx - tx, cy - ty) >= 90) continue;
+      b.player = true;
+      b.lastThrower = null;
+      sim.props.damageBox(b, 999, null);
+    }
+    const s = L.isSolidAt(tx, ty + 2);
+    if (s && s.breakable && !s.broken) sim.breakSolid(s, tx, ty, 900);
+    sim.emit({ t: 'lightning', x: tx, y: ty, ox, oy, chain, n: zapped.size });
+    return zapped.size;
+  }
+
+  // ---------------------------------------------------------- grenade
+  grenade(x, y, vx, vy) {
+    const sim = this.sim;
+    const b = new Box('grenade', x, y);
+    const h = sim.h;
+    const spin = clamp(vx * 0.02, -9, 9);
+    const [cx, cy] = [x, y];
+    for (const q of b.p) q.setVel(vx - (q.y - cy) * spin, vy + (q.x - cx) * spin, h);
+    b.fuse = 2.1;
+    b.fuseT = sim.time;
+    b.player = true;
+    sim.props.boxes.push(b);
+    sim.emit({ t: 'grenade', x, y, box: b });
+    return b;
+  }
+
+  // -------------------------------------------------------- shockwave
+  push(x, y) {
+    const sim = this.sim;
+    const R = 300;
+    const h = sim.h;
+    const rv = sim.settings.physicsIntensity;
+    let n = 0;
+    for (const f of sim.fighters) {
+      if (f.removed || this.spared(f)) continue;
+      const cx = f.ragdolled ? f.rag.p[PELVIS].x : f.x;
+      const cy = f.ragdolled ? f.rag.p[PELVIS].y : f.y - 45;
+      const d = Math.hypot(cx - x, cy - y);
+      if (d > R) continue;
+      const k = 1 - d / R;
+      const nx = (cx - x) / (d || 1);
+      const ny = (cy - y) / (d || 1) - 0.45;
+      const v = 1250 * k * rv;
+      f.baked = false;
+      if (!f.dead) {
+        n++;
+        this.playerKnock(f, 'push');
+        if (!f.ragdolled) f.knockdown(nx * v, ny * v, { spin: sim.rng.sign() * 7 * k });
+        else f.rag.addVel(nx * v, ny * v, h);
+        f.damage(8 * k, null, 'push');
+      } else {
+        f.playerT = sim.time;
+        f.rag.addVel(nx * v, ny * v, h);
+      }
+    }
+    sim.props.blast(x, y, R, 0.9, null);
+    for (const w of sim.level.windows) {
+      if (w.broken) continue;
+      if (Math.hypot(w.x + w.w / 2 - x, w.y + w.h / 2 - y) < R * 0.55) sim.breakSolid(w, w.x + w.w / 2, w.y + w.h / 2, 900);
+    }
+    sim.emit({ t: 'push', x, y, R, n });
+    return n;
+  }
+
+  // ------------------------------------------------------------ spawn
+  spawn(x, y) {
+    const sim = this.sim;
+    const f = sim.director.spawnOne({ type: 'drop', x, y });
+    if (f) {
+      f.playerT = sim.time; // dropped on Onyx's head, it does not count
+      sim.emit({ t: 'pspawn', x, y, f });
+    }
+    return f;
+  }
+}
+return { Powers };
+})();
+
 // ---- src/sim/simulation.js
 const __m2 = (() => {
 const { SIM_DT, SUBSTEPS, BASE_GRAVITY, sanitizeSettings } = __m1;
@@ -9586,6 +10197,7 @@ const { TokenManager } = __m18;
 const { Director } = __m19;
 const { makeHeroSpec } = __m20;
 const { processAttacks, processBodyImpacts, processTrips } = __m21;
+const { Powers } = __m22;
 // The simulation: a deterministic fixed-step world (no DOM). Presentation
 // layers read state and drain `events` after each step.
 
@@ -9605,8 +10217,10 @@ const { processAttacks, processBodyImpacts, processTrips } = __m21;
 
 
 
+
 const CORE = [HEAD, NECK, PELVIS, KNEE_A, KNEE_B];
 const ENV_CAUSES = new Set(['electric', 'fell', 'window', 'explosion', 'steam', 'wall', 'object']);
+const PLAYER_CAUSES = new Set(['shot', 'smash', 'lightning', 'push']);
 const LEGS = [PELVIS, KNEE_A, FOOT_A, KNEE_B, FOOT_B];
 const near = [];
 const byX = (a, b) => a.x - b.x;
@@ -9661,9 +10275,10 @@ class Simulation {
     this.corpseList = [];
     this.stats = {
       defeated: 0, spawned: 0, hits: 0, taken: 0, blocks: 0, dodges: 0, parries: 0, throws: 0,
-      envKOs: 0, friendlyKOs: 0, bestChain: 0, bestCombo: 0, maxEngaged: 0, damageTaken: 0,
+      envKOs: 0, friendlyKOs: 0, playerKOs: 0, bestChain: 0, bestCombo: 0, maxEngaged: 0, damageTaken: 0,
       byCause: {},
     };
+    this.powers = new Powers(this);
     this.props = new Props(this);
     this.props.spawnFromLevel(this.level);
     this.hazards = new Hazards(this);
@@ -9807,6 +10422,7 @@ class Simulation {
         if (f.state === 'grabbed') this.applyPins(f);
         if (this.windNow && f.ragdolled) for (const p of f.rag.p) p.addVel(this.windNow * h * 0.5, 0, h);
       }
+      this.powers.applyDrag();
       this.props.substep(h, g);
       this.collideBodies();
     }
@@ -9950,7 +10566,10 @@ class Simulation {
         if (imp > 760 && !f.dead) {
           const by = f.knock ? f.knock.by : f.thrownBy || null;
           const k = f.isHero ? 0.6 : 1;
-          f.damage((imp - 760) * 0.034 * k, by, f.knock && f.knock.kind === 'throw' ? 'throw' : 'slam');
+          const kind = f.knock ? f.knock.kind : null;
+          // bodies the viewer flings around hit the floor much harder
+          const pk = f.knock && f.knock.player ? 1.35 : 1;
+          f.damage((imp - 760) * 0.034 * k * pk, by, kind === 'throw' ? 'throw' : f.knock && f.knock.player ? 'smash' : 'slam');
         }
       }
       if (rag.p[PELVIS].y > this.level.killY) {
@@ -9963,7 +10582,7 @@ class Simulation {
       rag.settle = f.ragdolled ? clamp((90 - core) / 70, 0, 1) : 0;
       // sleep settled bodies. The smoothed speed ignores the contact jitter of
       // a pile; long-dead bodies are put to rest more and more firmly.
-      if (f.dead && f.ragdolled && f.state !== 'zap') {
+      if (f.dead && f.ragdolled && f.state !== 'zap' && !f.playerHeld) {
         const age = this.time - f.koTime;
         const lim = age > 5 ? 70 : 32;
         if (rag.coreAvg < lim) {
@@ -10025,7 +10644,7 @@ class Simulation {
     if (phys > this.physCorpseCap || all > this.corpseCap) {
       const list = this.corpseList;
       list.length = 0;
-      for (const f of this.fighters) if (f.dead && !f.isHero && !f.removed && !f.fading) list.push(f);
+      for (const f of this.fighters) if (f.dead && !f.isHero && !f.removed && !f.fading && !f.playerHeld) list.push(f);
       list.sort((a, b) => a.koTime - b.koTime);
       let bake = phys - this.physCorpseCap;
       let fade = all - this.corpseCap;
@@ -10088,8 +10707,10 @@ class Simulation {
     if (env) st.envKOs++;
     st.byCause[cause] = (st.byCause[cause] || 0) + 1;
     if (by && !by.isHero) st.friendlyKOs++;
+    const player = PLAYER_CAUSES.has(cause) || !!(f.knock && f.knock.player && this.time - f.knock.time < 6 && !by);
+    if (player) st.playerKOs++;
     if (this.tokens) this.tokens.release(f);
-    this.emit({ t: 'ko', f, by, cause, knock: f.knock, x: f.pelvisX, y: f.pelvisY });
+    this.emit({ t: 'ko', f, by, cause, knock: f.knock, x: f.pelvisX, y: f.pelvisY, player });
     // nearby enemies lose some nerve
     this.fighterHash.query(f.x, f.y - 40, 500, near);
     for (const o of near) {
@@ -10150,25 +10771,27 @@ class Simulation {
     else if (ev === 'throwObject') this.props.throwObject(f, this.hero);
   }
 
-  explode(x, y, power, by) {
+  explode(x, y, power, by, opts = {}) {
     const R = 240 * power;
     let victims = 0;
     const h = this.h;
-    this.emit({ t: 'explosion', x, y, power, R, by });
+    this.emit({ t: 'explosion', x, y, power, R, by, player: !!opts.player });
     for (const f of this.fighters) {
       if (f.removed) continue;
+      if (opts.player && this.powers.spared(f)) continue; // the viewer's blasts leave Onyx be
       const cx = f.ragdolled ? f.rag.p[PELVIS].x : f.x;
       const cy = f.ragdolled ? f.rag.p[PELVIS].y : f.y - 45;
       const d = Math.hypot(cx - x, cy - y);
       if (d > R) continue;
       f.baked = false; // blasted scenery comes back to life
+      if (opts.player) f.playerT = this.time;
       const k = 1 - d / R;
       const nx = (cx - x) / (d || 1);
       const ny = (cy - y) / (d || 1) - 0.55;
       const v = 950 * k * power * this.settings.physicsIntensity;
       if (!f.dead) {
         victims++;
-        f.knock = { by, chainId: this.newChain(by), depth: 1, time: this.time, kind: 'explosion' };
+        f.knock = { by, chainId: this.newChain(by), depth: 1, time: this.time, kind: 'explosion', player: !!opts.player, src: opts.src };
         if (!f.ragdolled) f.knockdown(nx * v, ny * v, { spin: (this.rng.sign() * 8 * k) });
         else f.rag.addVel(nx * v, ny * v, h);
         f.damage(58 * k * power * (f.isHero ? 0.8 : 1), by, 'explosion');
@@ -10177,7 +10800,7 @@ class Simulation {
       }
       f.flash = 1;
     }
-    this.props.blast(x, y, R, power, by);
+    this.props.blast(x, y, R, power, by, !!opts.player);
     for (const w of this.level.windows) {
       if (w.broken) continue;
       const d = Math.hypot(w.x + w.w / 2 - x, w.y + w.h / 2 - y);
@@ -10215,7 +10838,7 @@ return { ENV_CAUSES, Simulation, clampSeed };
 })();
 
 // ---- src/render/palettes.js
-const __m24 = (() => {
+const __m25 = (() => {
 
 // Colour palettes per environment. The facility palette follows the clean
 // white-and-grey look of classic stick-fight animations.
@@ -10404,8 +11027,8 @@ return { PALETTES, shade, mix };
 })();
 
 // ---- src/render/env.js
-const __m23 = (() => {
-const { PALETTES, shade, mix } = __m24;
+const __m24 = (() => {
+const { PALETTES, shade, mix } = __m25;
 const { RNG } = __m3;
 const { clamp } = __m5;
 // Environment rendering: backdrop, interiors, structure, stairs, hazards and
@@ -11699,8 +12322,8 @@ return { EnvRenderer, rect, line, rrect, stripeBand, clamp };
 })();
 
 // ---- src/render/figures.js
-const __m25 = (() => {
-const { mix } = __m24;
+const __m26 = (() => {
+const { mix } = __m25;
 const { HEAD, NECK, PELVIS, ELB_A, HAND_A, ELB_B, HAND_B, KNEE_A, FOOT_A, KNEE_B, FOOT_B, NJ } = __m11;
 // Stick figures, held weapons, props and projectiles. Positions are
 // interpolated between the last two simulation steps for smooth slow motion.
@@ -12140,6 +12763,45 @@ function drawBox(ctx, b, alpha, t, P) {
     ctx.moveTo(-w / 2, h / 6);
     ctx.lineTo(w / 2, h / 6);
     ctx.stroke();
+  } else if (b.kind === 'grenade') {
+    // olive body, segmented, spoon lever on top, a blinking light that
+    // speeds up as the fuse burns down
+    ctx.fillStyle = '#4f5a2c';
+    ctx.beginPath();
+    ctx.ellipse(0, 1.5, w / 2, h / 2 - 1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#2b3216';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(-w / 2 + 1, 1.5);
+    ctx.lineTo(w / 2 - 1, 1.5);
+    ctx.moveTo(0, -h / 2 + 2);
+    ctx.lineTo(0, h / 2);
+    ctx.stroke();
+    ctx.strokeStyle = P.outline;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.ellipse(0, 1.5, w / 2, h / 2 - 1, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#7d7f80';
+    ctx.fillRect(-2.5, -h / 2 - 2.5, 5, 3.5);
+    ctx.strokeStyle = '#9a9c9e';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(2.5, -h / 2 - 1);
+    ctx.quadraticCurveTo(w / 2 + 3, -h / 2 + 1, w / 2, 2);
+    ctx.stroke();
+    const rate = b.fuse < 0.6 ? 26 : b.fuse < 1.2 ? 14 : 7;
+    if (b.fuse >= 0 && Math.sin(t * rate) > 0) {
+      ctx.fillStyle = '#ff3b2f';
+      ctx.beginPath();
+      ctx.arc(0, -1.5, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,80,60,0.35)';
+      ctx.beginPath();
+      ctx.arc(0, -1.5, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
   } else if (b.kind === 'canister') {
     const hot = b.fuse >= 0 && Math.sin(t * 30) > 0;
     ctx.fillStyle = hot ? '#ffffff' : '#d8362a';
@@ -12204,9 +12866,9 @@ return { interpJoints, drawShadow, drawFighter, drawStickShape, drawBox, drawSti
 })();
 
 // ---- src/render/renderer.js
-const __m22 = (() => {
-const { EnvRenderer } = __m23;
-const { drawFighter, drawShadow, drawBox, drawStick, drawProjectile } = __m25;
+const __m23 = (() => {
+const { EnvRenderer } = __m24;
+const { drawFighter, drawShadow, drawBox, drawStick, drawProjectile } = __m26;
 const { PELVIS } = __m11;
 const { clamp } = __m5;
 // Frame composition: camera transform, environment layers, bodies, props,
@@ -12305,6 +12967,7 @@ class Renderer {
     env.drawFront(ctx, sim, view, t);
     fx.draw(ctx, view, t);
     if (fx.impact && S.screenShake > 0) this.drawImpactFrame(ctx, fx.impact, view, alpha, t);
+    if (this.overlay) this.overlay(ctx, view, alpha, t);
     if (L.rain) fx.drawRain(ctx, view);
     if (L.smoke) fx.drawSmoke(ctx, view);
     if (S.debugAI) this.drawDebug(ctx, sim, view);
@@ -12525,7 +13188,7 @@ return { Renderer };
 })();
 
 // ---- src/render/camera.js
-const __m26 = (() => {
+const __m27 = (() => {
 const { clamp, smoothDamp, noise1, lerp } = __m5;
 const { PELVIS } = __m11;
 // Cinematic camera. "Director" mode frames the hero plus whatever matters
@@ -12561,10 +13224,23 @@ class Camera {
     this.idleT = 0;
     this.cut = null; // { x, y, t } cutaway to a brawl elsewhere
     this.cutCooldown = 8;
+    this.hold = false; // the viewer is dragging something: keep the frame still
+  }
+
+  // Inverse of the renderer's world transform (zoom, roll, shake).
+  screenToWorld(sx, sy, W, H) {
+    const u = sx - W / 2;
+    const v = sy - H / 2;
+    const c = Math.cos(this.rot);
+    const s = Math.sin(this.rot);
+    const ux = u * c + v * s;
+    const uy = -u * s + v * c;
+    return [ux / this.zoom + this.x + this.shakeX, uy / this.zoom + this.y + this.shakeY];
   }
 
   reset(sim, W, H) {
     const h = sim.hero;
+    this.hold = false;
     this.x = h.x;
     this.y = h.y - 120;
     this.viewW = 1100;
@@ -12611,6 +13287,17 @@ class Camera {
       case 'explosion':
         this.addTrauma(0.75, settings);
         this.requestSlowmo(16, e.x, e.y, settings);
+        break;
+      case 'shot':
+        this.addTrauma(e.kind === 'flesh' ? 0.08 : 0.04, settings);
+        if (e.kill && e.head) this.requestSlowmo(7, e.x, e.y, settings);
+        break;
+      case 'lightning':
+        this.addTrauma(0.5, settings);
+        if (e.n >= 3) this.requestSlowmo(9, e.x, e.y, settings);
+        break;
+      case 'push':
+        this.addTrauma(0.4, settings);
         break;
       case 'zap':
         if (!e.floor) {
@@ -12786,6 +13473,13 @@ class Camera {
     if (vh < bh + 200) ty = clamp(ty, L.bounds.top + vh / 2, L.bounds.bottom - vh / 2 + 60);
     else ty = (L.bounds.top + L.bounds.bottom) / 2;
 
+    if (this.hold && dt > 0) {
+      // hold the frame while the viewer drags (zoom out only if forced)
+      tx = this.x;
+      ty = this.y;
+      tw = this.viewW;
+      this.sx.v = this.sy.v = this.sw.v = 0;
+    }
     if (dt <= 0) {
       this.x = tx;
       this.y = ty;
@@ -12817,7 +13511,7 @@ return { Camera };
 })();
 
 // ---- src/render/gore.js
-const __m28 = (() => {
+const __m29 = (() => {
 const { RNG } = __m3;
 // Blood that stays: splatters on walls and solid faces, strips and pools on
 // floors, smears where bodies slid. Painted once into world-space tiles that
@@ -13033,6 +13727,56 @@ class Gore {
     });
   }
 
+  // A bullet hole: a dark pit with a pale chipped rim.
+  hole(x, y) {
+    if (!this.sim) return;
+    const r = this.rng;
+    const a = r.range(0, TAU);
+    const chips = [];
+    for (let i = 0; i < 4; i++) chips.push([x + Math.cos(a + i * 1.7) * r.range(2.5, 4.5), y + Math.sin(a + i * 1.7) * r.range(2.5, 4.5), r.range(0.6, 1.2)]);
+    this.paint(x - 8, y - 8, x + 8, y + 8, (ctx) => {
+      ctx.fillStyle = 'rgba(235,232,226,0.55)';
+      ctx.beginPath();
+      ctx.arc(x, y, 3.6, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(40,40,44,0.6)';
+      for (const [cx, cy, cr] of chips) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, cr, 0, TAU);
+        ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(20,20,22,0.92)';
+      ctx.beginPath();
+      ctx.arc(x, y, 1.9, 0, TAU);
+      ctx.fill();
+    });
+  }
+
+  // Lightning scorch: a sooty starburst on the floor line or a wall.
+  scorch(x, y, size) {
+    if (!this.sim) return;
+    const r = this.rng;
+    const rays = [];
+    for (let i = 0; i < 9; i++) rays.push([r.range(0, TAU), size * r.range(0.6, 1.4)]);
+    this.paint(x - size * 1.5, y - size * 1.5, x + size * 1.5, y + size * 1.5, (ctx) => {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, size);
+      g.addColorStop(0, 'rgba(18,16,16,0.7)');
+      g.addColorStop(1, 'rgba(18,16,16,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(24,20,20,0.5)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      for (const [a, l] of rays) {
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l * 0.6);
+      }
+      ctx.stroke();
+    });
+  }
+
   // Pools grow by repainting a slightly larger opaque ellipse.
   pool(x, y, rx) {
     if (!this.sim) return;
@@ -13068,10 +13812,10 @@ return { BLOOD, Gore };
 })();
 
 // ---- src/render/fx.js
-const __m27 = (() => {
+const __m28 = (() => {
 const { RNG } = __m3;
 const { HEAD, NECK, PELVIS, KNEE_A, KNEE_B, NJ } = __m11;
-const { Gore } = __m28;
+const { Gore } = __m29;
 // Visual-only effects. Driven by simulation events and live state; updated
 // in (scaled) real time so slow motion stays smooth. Uses its own RNG so the
 // simulation remains deterministic.
@@ -13110,6 +13854,7 @@ class FX {
     this.goreK = 1.6;
     this.impact = null; // a stylised black-on-white impact frame
     this.impactCd = 0;
+    this.bolts = []; // lightning strikes being drawn
   }
 
   impactFrame(a, b, x, y, force) {
@@ -13121,6 +13866,7 @@ class FX {
   reset(sim, settings) {
     this.gore.reset(sim, settings);
     this.impact = null;
+    this.bolts.length = 0;
     this.goreK = settings ? [0, 1, 1.7][settings.gore | 0] || 0 : 1;
     for (const p of this.ps) p.alive = false;
     this.arcs.length = 0;
@@ -13302,8 +14048,29 @@ class FX {
       case 'heroDefeated':
         this.flashScreen(0.25, '255,255,255');
         break;
+      case 'shot':
+        this.onShot(e, sim);
+        break;
+      case 'lightning':
+        this.onLightning(e, sim);
+        break;
+      case 'push': {
+        this.spawn({ type: 'ring', x: e.x, y: e.y, life: 0.35, size: 20, grow: e.R * 3, color: '255,255,255', alpha: 0.8 });
+        this.spawn({ type: 'ring', x: e.x, y: e.y, life: 0.5, size: 10, grow: e.R * 1.8, color: '200,220,255', alpha: 0.5 });
+        this.spawn({ type: 'flash', x: e.x, y: e.y, life: 0.15, size: 90, color: '230,240,255', add: true });
+        this.burst('dust', e.x, e.y, 18, { speed: [160, 520], life: [0.35, 0.8], size: [8, 16], grow: 30, color: '205,200,195', drag: 3.5, alpha: 0.45 });
+        this.flashScreen(0.12, '230,240,255');
+        break;
+      }
+      case 'pspawn':
+        this.spawn({ type: 'flash', x: e.x, y: e.y, life: 0.18, size: 40, color: '255,220,150', add: true });
+        this.burst('dust', e.x, e.y, 6, { speed: [30, 120], life: [0.3, 0.6], size: [5, 9], grow: 20, color: '220,210,200', drag: 3, alpha: 0.5 });
+        break;
+      case 'pgrab':
+        this.spawn({ type: 'ring', x: e.x, y: e.y, life: 0.2, size: 4, grow: 90, color: '255,255,255', alpha: 0.7 });
+        break;
       case 'ko':
-        if (this.goreK > 0 && e.f && e.cause !== 'electric' && e.cause !== 'fell' && e.cause !== 'window') {
+        if (this.goreK > 0 && e.f && e.cause !== 'electric' && e.cause !== 'fell' && e.cause !== 'window' && e.cause !== 'lightning') {
           const g = woundsOf(e.f);
           g.bleed = Math.min(2, g.bleed + 0.6);
           const hp = e.f.rag.p[HEAD];
@@ -13312,6 +14079,47 @@ class FX {
         break;
     }
     void settings;
+  }
+
+  // A gunshot: tracer, impact, and what the round did when it got there.
+  onShot(e, sim) {
+    const r = this.rng;
+    this.spawn({ type: 'tracer', x: e.x, y: e.y, vx: e.ox, vy: e.oy, life: 0.1, size: 2.4, color: '255,176,40' });
+    this.spawn({ type: 'flash', x: e.x, y: e.y, life: 0.06, size: 16, color: '255,240,200', add: true });
+    if (e.kind === 'flesh') {
+      const f = e.f;
+      if (this.goreK > 0) {
+        const g = woundsOf(f);
+        const slot = e.head ? W_HEAD : W_TORSO;
+        g.w[slot] = Math.min(1.5, g.w[slot] + (e.head ? 1.2 : 0.6));
+        g.bleed = Math.min(2, g.bleed + (e.head ? 0.9 : 0.5));
+        const dir = Math.sign(e.dx) || 1;
+        // exit wound: a spray along the line of fire and a splash behind
+        this.spray(sim, e.x, e.y, dir, e.head ? 1.8 : 1.3, e.head ? 16 : 10, 1);
+        this.gore.wall(e.x + e.dx * r.range(26, 48), e.y + e.dy * r.range(20, 40), e.dx, e.dy, e.head ? 9 : 6);
+        if (this.goreK > 1.2) this.burst('mist', e.x, e.y, 4, { ang: Math.atan2(e.dy, e.dx), spread: 0.5, speed: [60, 200], life: [0.25, 0.5], size: [4, 9], grow: 26, color: '150,10,20', drag: 4, alpha: 0.4 });
+      }
+      f.flash = 1;
+      if (e.kill && e.head) this.impactFrame(null, f, e.x, e.y, false);
+    } else if (e.kind === 'wall' || e.kind === 'solid') {
+      this.gore.hole(e.x, e.y);
+      this.burst('dust', e.x, e.y, 4, { speed: [30, 140], life: [0.3, 0.6], size: [3, 6], grow: 16, color: '205,200,190', drag: 3, alpha: 0.5 });
+      this.burst('chip', e.x, e.y, 4, { speed: [80, 240], life: [0.3, 0.7], size: [1, 2], color: '140,138,132', g: 1400, floor: this.floorBelow(sim, e.x, e.y) });
+    } else if (e.kind === 'metal') {
+      this.burst('spark', e.x, e.y, 10, { speed: [150, 480], life: [0.08, 0.25], size: [1.2, 2.2], color: '255,220,150', g: 700, drag: 1.5, add: true });
+    }
+  }
+
+  // A bolt from above: drawn for a few frames with flicker, plus the arcs
+  // it jumped along, a flash and a scorch mark where it landed.
+  onLightning(e, sim) {
+    this.bolts.push({ ox: e.ox, oy: e.oy, x: e.x, y: e.y, chain: e.chain, t: 0, life: 0.42, seed: this.rng.int(1, 1e6) });
+    this.flashScreen(0.4, '220,232,255');
+    this.lights.push({ x: e.x, y: e.y - 60, r: 620, life: 0.7, max: 0.7, color: '200,220,255' });
+    this.burst('spark', e.x, e.y, 30, { speed: [160, 620], life: [0.1, 0.4], size: [1.2, 2.6], color: '225,240,255', g: 600, drag: 1.5, add: true });
+    this.burst('dust', e.x, e.y, 8, { speed: [40, 200], life: [0.4, 0.9], size: [6, 12], grow: 24, color: '120,120,125', drag: 3, alpha: 0.4 });
+    this.spawn({ type: 'ring', x: e.x, y: e.y, life: 0.25, size: 8, grow: 300, color: '210,230,255', alpha: 0.6 });
+    this.gore.scorch(e.x, e.y, 26);
   }
 
   // A landed blow: wounds on the struck part, a spray away from the attacker,
@@ -13475,6 +14283,11 @@ class FX {
       this.impact.t -= dt;
       if (this.impact.t <= 0) this.impact = null;
     }
+    for (let i = this.bolts.length - 1; i >= 0; i--) {
+      const b = this.bolts[i];
+      b.t += dt;
+      if (b.t > b.life) this.bolts.splice(i, 1);
+    }
     if (settings) this.goreK = [0, 1, 1.7][settings.gore | 0] || 0;
     const r = this.rng;
     for (const p of this.ps) {
@@ -13484,6 +14297,7 @@ class FX {
         p.alive = false;
         continue;
       }
+      if (p.type === 'tracer') continue; // vx/vy hold its origin, not a velocity
       if (p.drag) {
         const k = Math.exp(-p.drag * dt);
         p.vx *= k;
@@ -13580,8 +14394,55 @@ class FX {
       if (p.x < view.x0 - 200 || p.x > view.x1 + 200 || p.y < view.y0 - 200 || p.y > view.y1 + 200) continue;
       drawParticle(ctx, p, p.life / p.max);
     }
-    this.drawArcs(ctx, t);
     ctx.restore();
+    // electricity reads on white walls too: dark halo, bright core
+    this.drawArcs(ctx, t);
+    this.drawBolts(ctx);
+  }
+
+  drawBolts(ctx) {
+    for (const b of this.bolts) {
+      const k = 1 - b.t / b.life;
+      // re-roll the jag every few hundredths for a crackling flicker
+      const r = new RNG(b.seed + Math.floor(b.t * 28));
+      const path = (x0, y0, x1, y1, n, amp) => {
+        const pts = [[x0, y0]];
+        for (let i = 1; i < n; i++) {
+          const u = i / n;
+          pts.push([x0 + (x1 - x0) * u + r.range(-amp, amp), y0 + (y1 - y0) * u + r.range(-amp * 0.4, amp * 0.4)]);
+        }
+        pts.push([x1, y1]);
+        return pts;
+      };
+      const stroke = (pts, w, col) => {
+        ctx.strokeStyle = col;
+        ctx.lineWidth = w;
+        ctx.beginPath();
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+        ctx.stroke();
+      };
+      const len = Math.hypot(b.x - b.ox, b.y - b.oy);
+      const main = path(b.ox, b.oy, b.x, b.y, Math.max(8, Math.round(len / 40)), 26);
+      stroke(main, 18 * k + 2, `rgba(30,55,160,${0.3 * k})`);
+      stroke(main, 7 * k + 2, `rgba(110,160,255,${0.85 * k})`);
+      stroke(main, 2.6, `rgba(255,255,255,${k})`);
+      // forks off the main channel
+      for (let f = 0; f < 3; f++) {
+        const i = 2 + Math.floor(r.range(0, main.length - 3));
+        const [sx, sy] = main[i];
+        const fork = path(sx, sy, sx + r.range(-120, 120), sy + r.range(40, 160), 5, 14);
+        stroke(fork, 6 * k, `rgba(30,55,160,${0.25 * k})`);
+        stroke(fork, 3 * k, `rgba(120,170,255,${0.75 * k})`);
+        stroke(fork, 1.2, `rgba(255,255,255,${0.9 * k})`);
+      }
+      for (const [x0, y0, x1, y1] of b.chain) {
+        const arc = path(x0, y0, x1, y1, 7, 14);
+        stroke(arc, 9 * k, `rgba(30,55,160,${0.28 * k})`);
+        stroke(arc, 4 * k, `rgba(120,170,255,${0.8 * k})`);
+        stroke(arc, 1.6, `rgba(255,255,255,${0.95 * k})`);
+      }
+    }
   }
 
   drawArcs(ctx, t) {
@@ -13593,9 +14454,9 @@ class FX {
       const sx = a.floor ? f.x : hz.x;
       const sy = a.floor ? hz.y - 4 : hz.y - hz.h * 0.6;
       const tgt = f.rag.p[r.chance(0.5) ? PELVIS : r.chance(0.5) ? NECK : HEAD];
-      for (let k = 0; k < 2; k++) {
-        ctx.strokeStyle = k ? 'rgba(255,255,255,0.95)' : 'rgba(140,190,255,0.55)';
-        ctx.lineWidth = k ? 1.6 : 5;
+      for (let k = 0; k < 3; k++) {
+        ctx.strokeStyle = k === 2 ? 'rgba(255,255,255,0.95)' : k === 1 ? 'rgba(120,170,255,0.75)' : 'rgba(30,60,170,0.35)';
+        ctx.lineWidth = k === 2 ? 1.6 : k === 1 ? 4 : 9;
         ctx.beginPath();
         ctx.moveTo(sx, sy);
         const n = 7;
@@ -13643,6 +14504,16 @@ function drawParticle(ctx, p, k) {
       ctx.beginPath();
       ctx.moveTo(p.x, p.y);
       ctx.lineTo(p.x - p.vx * 0.025, p.y - p.vy * 0.025);
+      ctx.stroke();
+      break;
+    }
+    case 'tracer': {
+      // a streak from off screen (stored in vx/vy) to the impact point
+      ctx.strokeStyle = `rgba(${p.color},${k})`;
+      ctx.lineWidth = p.size;
+      ctx.beginPath();
+      ctx.moveTo(p.vx + (p.x - p.vx) * 0.55, p.vy + (p.y - p.vy) * 0.55);
+      ctx.lineTo(p.x, p.y);
       ctx.stroke();
       break;
     }
@@ -13742,8 +14613,409 @@ function drawParticle(ctx, p, k) {
 return { W_HEAD, W_TORSO, woundsOf, FX };
 })();
 
+// ---- src/ui/powers.js
+const __m30 = (() => {
+const { drawFighter } = __m26;
+// The viewer's toolbox: a palette of powers, pointer handling (mouse and
+// touch), and the in-world overlays that go with them (the grab rope, the
+// grenade's arc, the shockwave's reach).
+
+
+const ICON = {
+  watch: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3l12 9-5.2 1.2L16 20l-2.4 1-3.1-6.6L6 18z" fill="currentColor"/></svg>',
+  grab: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12V5.5a1.5 1.5 0 0 1 3 0V11m0-6.5a1.5 1.5 0 0 1 3 0V11m0-5a1.5 1.5 0 0 1 3 0v6.5m0-3a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-1.2a6 6 0 0 1-4.6-2.2L3.6 15.4a1.6 1.6 0 0 1 2.3-2.2L8 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  gun: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 1.5v5M12 17.5v5M1.5 12h5M17.5 12h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg>',
+  zap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2L5 13.5h5.5L9 22l9.5-12.5H13z" fill="currentColor"/></svg>',
+  grenade: '<svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="11" cy="15" rx="6" ry="6.6" fill="currentColor"/><rect x="8.6" y="5.6" width="5" height="3.4" rx="0.8" fill="currentColor"/><path d="M13.6 6.4c2.4-.8 4.6.1 5.6 2.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="19.6" cy="9.6" r="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
+  push: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.6" fill="currentColor"/><path d="M7.4 7.4a6.5 6.5 0 0 0 0 9.2M16.6 7.4a6.5 6.5 0 0 1 0 9.2M4.2 4.2a11 11 0 0 0 0 15.6M19.8 4.2a11 11 0 0 1 0 15.6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>',
+  spawn: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5.5" r="3" fill="currentColor"/><path d="M9 9v7m0 0l-3.5 5M9 16l3.5 5M9 11.5l-4 2.5M9 11.5l4 2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M18 6v6M15 9h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+};
+
+const TOOLS = [
+  { id: 'watch', key: 'q', label: 'Watch', hint: 'Just watch the fight' },
+  { id: 'grab', key: 'g', label: 'Grab', hint: 'Drag a stickman, then fling them into the floor, a wall or the crowd' },
+  { id: 'gun', key: 'f', label: 'Gun', hint: 'Click to shoot. Hold for automatic fire' },
+  { id: 'zap', key: 'z', label: 'Lightning', hint: 'Click to call down lightning. It jumps between bodies' },
+  { id: 'grenade', key: 'b', label: 'Grenade', hint: 'Drag to throw a grenade, or click to drop one' },
+  { id: 'push', key: 'x', label: 'Shockwave', hint: 'Click to blast everyone away' },
+  { id: 'spawn', key: 'e', label: 'Spawn', hint: 'Click to drop in a new enemy' },
+];
+
+const CROSSHAIR = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Cg fill='none' stroke='%23000' stroke-width='4' opacity='.55'%3E%3Ccircle cx='16' cy='16' r='9'/%3E%3Cpath d='M16 2v8M16 22v8M2 16h8M22 16h8'/%3E%3C/g%3E%3Cg fill='none' stroke='%23ff3b2f' stroke-width='2'%3E%3Ccircle cx='16' cy='16' r='9'/%3E%3Cpath d='M16 2v8M16 22v8M2 16h8M22 16h8'/%3E%3C/g%3E%3Ccircle cx='16' cy='16' r='1.6' fill='%23ff3b2f'/%3E%3C/svg%3E\") 16 16, crosshair";
+
+function el(html) {
+  const t = document.createElement('template');
+  t.innerHTML = html.trim();
+  return t.content.firstElementChild;
+}
+
+class PowerController {
+  constructor(root, canvas, hooks) {
+    this.root = root;
+    this.canvas = canvas;
+    this.hooks = hooks; // { sim(), cam, renderer, paused(), settings }
+    this.tool = 'watch';
+    this.ptr = { sx: 0, sy: 0, wx: 0, wy: 0, down: false, id: null, inside: false, touch: false };
+    this.aim = null; // grenade throw: press point
+    this.fireT = 0;
+    this.cool = 0;
+    this.hover = null;
+    this.hoverT = 0;
+    this.hintT = 0;
+    this.wasDragging = false;
+    this.build();
+    this.bind();
+  }
+
+  build() {
+    this.palette = el(`
+      <nav class="powers" aria-label="Your powers">
+        ${TOOLS.map((t) => `<button class="pw-btn${t.id === 'watch' ? ' on' : ''}" data-tool="${t.id}" title="${t.label} (${t.key.toUpperCase()})" aria-label="${t.label}" aria-pressed="${t.id === 'watch'}">${ICON[t.id]}</button>`).join('')}
+      </nav>`);
+    this.hintEl = el('<div class="pw-hint" hidden><strong></strong><span></span></div>');
+    this.root.append(this.palette, this.hintEl);
+    for (const b of this.palette.querySelectorAll('.pw-btn')) {
+      b.addEventListener('click', () => this.setTool(b.dataset.tool));
+    }
+  }
+
+  setTool(id) {
+    if (this.tool === id && id !== 'watch') id = 'watch';
+    if (this.dragging) this.endDrag();
+    this.tool = id;
+    this.aim = null;
+    for (const b of this.palette.querySelectorAll('.pw-btn')) {
+      const on = b.dataset.tool === id;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
+    }
+    const t = TOOLS.find((x) => x.id === id);
+    this.hintEl.querySelector('strong').textContent = t.label;
+    this.hintEl.querySelector('span').textContent = t.hint;
+    this.hintEl.hidden = false;
+    this.hintT = 3.2;
+    this.applyCursor();
+  }
+
+  // Keyboard shortcuts; returns true when the key was a tool key.
+  key(k) {
+    if (k === 'escape' && this.tool !== 'watch') {
+      this.setTool('watch');
+      return true;
+    }
+    const t = TOOLS.find((x) => x.key === k);
+    if (!t) return false;
+    this.setTool(t.id);
+    return true;
+  }
+
+  applyCursor() {
+    const c = this.canvas;
+    const free = this.hooks.settings.cameraMode === 'free';
+    if (this.tool === 'watch') c.style.cursor = free ? 'grab' : '';
+    else if (this.tool === 'grab') c.style.cursor = this.dragging ? 'grabbing' : 'grab';
+    else if (this.tool === 'spawn') c.style.cursor = 'copy';
+    else c.style.cursor = CROSSHAIR;
+  }
+
+  get active() {
+    return this.tool !== 'watch';
+  }
+
+  get dragging() {
+    const sim = this.hooks.sim();
+    return !!(sim && sim.powers.drag);
+  }
+
+  // ------------------------------------------------------------- input
+  toLocal(e) {
+    const r = this.canvas.getBoundingClientRect();
+    this.ptr.sx = e.clientX - r.left;
+    this.ptr.sy = e.clientY - r.top;
+    this.updateWorld();
+  }
+
+  updateWorld() {
+    const { cam, renderer } = this.hooks;
+    const [wx, wy] = cam.screenToWorld(this.ptr.sx, this.ptr.sy, renderer.W, renderer.H);
+    this.ptr.wx = wx;
+    this.ptr.wy = wy;
+  }
+
+  // pick slack: a few screen pixels (more for fingers), in world units
+  slack() {
+    return (this.ptr.touch ? 14 : 6) / this.hooks.cam.zoom;
+  }
+
+  // how far off a grab may land and still catch the nearest joint
+  reach() {
+    return (this.ptr.touch ? 52 : 32) / this.hooks.cam.zoom;
+  }
+
+  bind() {
+    const c = this.canvas;
+    c.addEventListener('pointerdown', (e) => {
+      if (!this.active || e.button > 0) return;
+      e.preventDefault();
+      this.ptr.touch = e.pointerType === 'touch';
+      this.toLocal(e);
+      this.ptr.down = true;
+      this.ptr.id = e.pointerId;
+      try {
+        c.setPointerCapture(e.pointerId);
+      } catch (err) {
+        /* capture unavailable */
+      }
+      this.press();
+    });
+    c.addEventListener('pointermove', (e) => {
+      this.ptr.inside = true;
+      this.ptr.touch = e.pointerType === 'touch';
+      this.toLocal(e);
+    });
+    const up = (e) => {
+      if (!this.ptr.down || (this.ptr.id !== null && e.pointerId !== this.ptr.id)) return;
+      this.toLocal(e);
+      this.ptr.down = false;
+      this.releasePress(e.type === 'pointercancel');
+    };
+    c.addEventListener('pointerup', up);
+    c.addEventListener('pointercancel', up);
+    c.addEventListener('pointerleave', () => {
+      if (!this.ptr.down) this.ptr.inside = false;
+    });
+    c.addEventListener('contextmenu', (e) => {
+      if (this.active) e.preventDefault();
+    });
+  }
+
+  press() {
+    const sim = this.hooks.sim();
+    if (!sim) return;
+    const P = sim.powers;
+    const { wx, wy } = this.ptr;
+    switch (this.tool) {
+      case 'grab':
+        if (P.grab(wx, wy, this.slack(), this.reach())) this.applyCursor();
+        break;
+      case 'gun':
+        this.fire(0);
+        this.fireT = 0.14;
+        break;
+      case 'zap':
+        if (this.cool <= 0) {
+          P.lightning(wx, wy);
+          this.cool = 0.3;
+        }
+        break;
+      case 'grenade':
+        this.aim = { sx: this.ptr.sx, sy: this.ptr.sy, wx, wy };
+        break;
+      case 'push':
+        if (this.cool <= 0) {
+          P.push(wx, wy);
+          this.cool = 0.35;
+        }
+        break;
+      case 'spawn':
+        if (this.cool <= 0) {
+          P.spawn(wx, wy);
+          this.cool = 0.18;
+        }
+        break;
+    }
+  }
+
+  releasePress(cancel) {
+    const sim = this.hooks.sim();
+    if (!sim) return;
+    if (this.tool === 'grab') this.endDrag();
+    if (this.tool === 'grenade' && this.aim) {
+      const v = this.throwVelocity();
+      if (!cancel) sim.powers.grenade(this.aim.wx, this.aim.wy, v[0], v[1]);
+      this.aim = null;
+    }
+  }
+
+  endDrag() {
+    const sim = this.hooks.sim();
+    if (sim) sim.powers.release();
+    this.applyCursor();
+  }
+
+  // Drag direction is the throw direction; a click just drops it.
+  throwVelocity() {
+    const a = this.aim;
+    const cam = this.hooks.cam;
+    const dx = (this.ptr.sx - a.sx) / cam.zoom;
+    const dy = (this.ptr.sy - a.sy) / cam.zoom;
+    const l = Math.hypot(dx, dy);
+    if (l * cam.zoom < 10) return [0, -60];
+    const sp = Math.min(1500, l * 5.2);
+    return [(dx / l) * sp, (dy / l) * sp];
+  }
+
+  // The shot comes from below the frame on the side away from the target,
+  // so bodies are thrown up and away from the shooter.
+  fire(spreadPx) {
+    const sim = this.hooks.sim();
+    const { cam, renderer } = this.hooks;
+    const W = renderer.W;
+    const H = renderer.H;
+    const left = this.ptr.sx > W / 2;
+    const [ox, oy] = cam.screenToWorld(left ? -60 : W + 60, H + 40, W, H);
+    // automatic fire wanders a little
+    const sp = spreadPx / cam.zoom;
+    const x = this.ptr.wx + (Math.random() - 0.5) * 2 * sp;
+    const y = this.ptr.wy + (Math.random() - 0.5) * 2 * sp;
+    sim.powers.shoot(ox, oy, x, y, this.slack());
+  }
+
+  // ------------------------------------------------------------ per frame
+  update(dt) {
+    const sim = this.hooks.sim();
+    if (!sim) return;
+    if (this.hintT > 0) {
+      this.hintT -= dt;
+      if (this.hintT <= 0) this.hintEl.hidden = true;
+    }
+    if (this.cool > 0) this.cool -= dt;
+    // the world moves under a still pointer: keep its world position fresh
+    this.updateWorld();
+    const P = sim.powers;
+    if (P.drag) {
+      if (!this.ptr.down || this.tool !== 'grab') this.endDrag();
+      else P.moveDrag(this.ptr.wx, this.ptr.wy);
+    }
+    if (this.tool === 'gun' && this.ptr.down && !this.hooks.paused()) {
+      this.fireT -= dt;
+      if (this.fireT <= 0) {
+        this.fire(5);
+        this.fireT = 0.12;
+      }
+    }
+    // what is under the pointer (for the highlight)
+    this.hoverT -= dt;
+    if (this.hoverT <= 0) {
+      this.hoverT = 0.05;
+      this.hover = null;
+      if (this.ptr.inside && !P.drag && (this.tool === 'grab' || this.tool === 'gun' || this.tool === 'zap')) {
+        const reach = this.tool === 'grab' ? this.reach() : 0;
+        const hit = P.pick(this.ptr.wx, this.ptr.wy, this.slack() + 4 / this.hooks.cam.zoom, { reach });
+        if (hit) this.hover = hit;
+      }
+    }
+    const dragging = !!P.drag;
+    if (dragging !== this.wasDragging) {
+      // the body can slip away on its own (a new battle, say)
+      this.wasDragging = dragging;
+      this.applyCursor();
+    }
+    this.hooks.cam.hold = dragging;
+  }
+
+  // ---------------------------------------------------------- overlays
+  drawOverlay(ctx, view, alpha, t) {
+    const sim = this.hooks.sim();
+    if (!sim || this.tool === 'watch') return;
+    const P = sim.powers;
+    const z = this.hooks.cam.zoom;
+    const px = this.ptr.wx;
+    const py = this.ptr.wy;
+    ctx.save();
+    ctx.lineCap = 'round';
+    if (this.hover && !this.hover.f.removed) {
+      const rim = this.tool === 'grab' ? 'rgba(255,178,31,0.9)' : 'rgba(255,70,50,0.8)';
+      drawFighter(ctx, this.hover.f, alpha, { t, trails: false, rim, gore: true });
+    }
+    if (P.drag) {
+      const d = P.drag;
+      const p = d.f.rag.p[d.idx];
+      const x = p.ox + (p.x - p.ox) * alpha;
+      const y = p.oy + (p.y - p.oy) * alpha;
+      // light on dark, so the rope reads on white walls and night skies alike
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(px, py);
+      ctx.strokeStyle = 'rgba(16,16,20,0.45)';
+      ctx.lineWidth = 4.5 / z;
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = 2 / z;
+      ctx.setLineDash([6 / z, 5 / z]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.arc(px, py, 5 / z, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(16,16,20,0.6)';
+      ctx.lineWidth = 1.5 / z;
+      ctx.stroke();
+    }
+    if (this.tool === 'grenade' && this.aim) this.drawArc(ctx, sim, z);
+    if (this.tool === 'push' && this.ptr.inside) {
+      ctx.beginPath();
+      ctx.arc(px, py, 300, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(16,16,20,0.18)';
+      ctx.lineWidth = 4 / z;
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      ctx.lineWidth = 2 / z;
+      ctx.setLineDash([10 / z, 8 / z]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    if (this.tool === 'spawn' && this.ptr.inside) {
+      const g = sim.level.groundUnder(px - 2, px + 2, py, 1200, true, false);
+      ctx.strokeStyle = 'rgba(255,178,31,0.7)';
+      ctx.lineWidth = 2 / z;
+      ctx.beginPath();
+      ctx.arc(px, py, 10 / z, 0, Math.PI * 2);
+      if (g) {
+        ctx.moveTo(px, py + 10 / z);
+        ctx.lineTo(px, g.y);
+        ctx.moveTo(px - 14, g.y);
+        ctx.lineTo(px + 14, g.y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Dotted flight path of the grenade about to be thrown.
+  drawArc(ctx, sim, z) {
+    const [vx0, vy0] = this.throwVelocity();
+    let x = this.aim.wx;
+    let y = this.aim.wy;
+    let vx = vx0;
+    let vy = vy0;
+    const g = sim.gravity;
+    const dt = 0.035;
+    ctx.fillStyle = 'rgba(255,178,31,0.9)';
+    for (let i = 0; i < 44; i++) {
+      vy += g * dt;
+      x += vx * dt;
+      y += vy * dt;
+      if (sim.level.isSolidAt(x, y)) break;
+      if (i % 2 === 0) {
+        ctx.beginPath();
+        ctx.arc(x, y, (5 - i * 0.06) / z, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.strokeStyle = 'rgba(255,178,31,0.9)';
+    ctx.lineWidth = 2 / z;
+    ctx.beginPath();
+    ctx.arc(this.aim.wx, this.aim.wy, 8 / z, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+return { TOOLS, PowerController };
+})();
+
 // ---- src/audio/audio.js
-const __m29 = (() => {
+const __m31 = (() => {
 const { clamp } = __m5;
 // Procedural sound: everything is synthesised with Web Audio, triggered by
 // simulation events and positioned by where they happen on screen. Slow
@@ -14067,6 +15339,38 @@ class AudioEngine {
     this.claim('boom', 1.5);
   }
 
+  // A gunshot: a sharp crack, a low body thump and a ringing tail.
+  gunshot(pan, vol, r) {
+    const t = this.ac.currentTime;
+    const d = this.out(pan);
+    this.noise(d, t, 0.03, 1.0 * vol, 'highpass', 2500, 0.7);
+    this.noise(d, t, 0.22 / r, 0.8 * vol, 'lowpass', 1800 * r, 0.8, 200);
+    this.tone(d, t, 0.12 / r, 0.9 * vol, 'sine', 160 * r, 40 * r, 0.002);
+    this.noise(this.reverbSend, t, 0.5, 0.35 * vol, 'bandpass', 900, 0.6, 300);
+    this.claim('gun', 0.12);
+  }
+
+  // Thunder: a white crack overhead, then a long rolling rumble.
+  thunder(pan, vol) {
+    const t = this.ac.currentTime;
+    const d = this.out(pan);
+    this.noise(d, t, 0.12, 1.0 * vol, 'highpass', 1800, 0.6);
+    this.noise(d, t, 0.25, 0.9 * vol, 'bandpass', 2600, 0.8, 600);
+    this.noise(d, t + 0.05, 2.4, 0.9 * vol, 'lowpass', 900, 0.6, 60, this.white);
+    this.tone(d, t + 0.04, 1.6, 0.7 * vol, 'sine', 52, 30, 0.02);
+    for (let k = 0; k < 6; k++) this.noise(d, t + 0.2 + Math.random() * 1.6, 0.3, 0.25 * vol, 'lowpass', 300 + Math.random() * 300, 1);
+    this.claim('thunder', 2.4);
+  }
+
+  // A metallic tick: the grenade's spoon flying off.
+  pin(pan, vol) {
+    const t = this.ac.currentTime;
+    const d = this.out(pan);
+    this.tone(d, t, 0.08, 0.35 * vol, 'triangle', 2200, 1800);
+    this.tone(d, t + 0.05, 0.12, 0.25 * vol, 'sine', 3100, 2900);
+    this.claim('pin', 0.15);
+  }
+
   hiss(pan, vol, dur) {
     const t = this.ac.currentTime;
     const d = this.out(pan);
@@ -14245,6 +15549,27 @@ class AudioEngine {
       case 'explosion':
         if (this.allow('boom', 3, 0.05)) this.explosion(pan, Math.min(1, vol * 1.3), r);
         break;
+      case 'shot':
+        if (this.allow('gun', 6, 0.03)) this.gunshot(pan * 0.6, Math.max(0.6, vol), r);
+        if (e.kind === 'flesh' && this.allow('impact', 10, 0.01)) this.punch(pan, vol * 0.8, true, r);
+        else if ((e.kind === 'metal' || e.kind === 'solid') && this.allow('metal', 6, 0.04)) this.clang(pan, vol * 0.2, r * 1.8);
+        break;
+      case 'lightning':
+        if (this.allow('thunder', 2, 0.15)) this.thunder(pan, Math.max(0.8, vol));
+        if (this.allow('zap', 3, 0.1)) this.zap(pan, vol, r, 0.9);
+        break;
+      case 'push':
+        if (this.allow('boom', 3, 0.05)) {
+          this.thud(pan, vol, r * 0.7);
+          this.whoosh(pan, vol, r * 0.6);
+        }
+        break;
+      case 'grenade':
+        if (this.allow('pin', 2, 0.1)) this.pin(pan, vol);
+        break;
+      case 'pspawn':
+        if (this.allow('thud', 6, 0.03)) this.thud(pan, vol * 0.4, r * 1.6);
+        break;
       case 'steam':
         if (e.on && this.allow('hiss', 3, 0.2)) this.hiss(pan, vol * 0.8, 1.3);
         break;
@@ -14270,7 +15595,7 @@ return { AudioEngine };
 })();
 
 // ---- src/ui/feed.js
-const __m31 = (() => {
+const __m33 = (() => {
 
 // Play-by-play commentary built from simulation events. Returns
 // { text, level } (level 0..3 = routine..spectacular) or null.
@@ -14299,6 +15624,20 @@ function describe(e) {
       const name = f.name;
       const by = e.by;
       const viaHero = by && by.isHero;
+      if (e.player) {
+        switch (e.cause) {
+          case 'shot': return f.headshot ? { text: `Headshot — ${name} drops`, level: 3 } : { text: pick([`You gun down ${name}`, `You shoot ${name}`], n), level: 2 };
+          case 'smash': return { text: pick([`You smash ${name} into the floor`, `You slam ${name} down`, `${name} meets the floor, courtesy of you`], n), level: 2 };
+          case 'lightning': return { text: pick([`Lightning fries ${name}`, `${name} is struck down`], n), level: 2 };
+          case 'explosion': return e.knock && e.knock.src === 'grenade' ? { text: `Your grenade takes out ${name}`, level: 2 } : { text: pick([`You blow up ${name}`, `${name} goes up with the canister you set off`], n), level: 2 };
+          case 'push': return { text: `Your shockwave finishes ${name}`, level: 2 };
+          case 'fell': return { text: `You send ${name} over the edge`, level: 3 };
+          case 'window': return { text: `You throw ${name} through the window`, level: 3 };
+          case 'electric': return { text: `You throw ${name} into the live panel`, level: 3 };
+          case 'body': return { text: `${name} is flattened by a body you threw`, level: 2 };
+          default: return { text: `${name} is out, thanks to you`, level: 1 };
+        }
+      }
       if (by && !by.isHero && by !== f && (e.cause === 'beaten' || e.cause === 'body')) {
         if (by.brain && by.brain.foe === f) return { text: pick([`${by.name} beats ${name} senseless`, `${by.name} wins the brawl with ${name}`, `${name} loses the fight with ${by.name}`], n), level: 2 };
         return { text: `${by.name} accidentally knocks out ${name}`, level: 2 };
@@ -14363,6 +15702,9 @@ function describe(e) {
       return { text: `${e.a.name} trips over a body`, level: 1 };
     case 'feed':
       return { text: e.text, level: e.level || 1 };
+    case 'lightning':
+      if (e.n >= 3) return { text: `Lightning arcs through ${e.n} of them`, level: 3 };
+      return null;
     case 'heroDefeated': {
       const how = { electric: 'electrocuted', fell: 'fallen', explosion: 'caught in a blast', window: 'thrown out', body: 'buried under bodies' }[e.cause];
       return { text: how ? `Onyx is ${how}. It's over.` : `Onyx is down${e.by ? ` — ${e.by.name} lands the final blow` : ''}.`, level: 3 };
@@ -14376,9 +15718,9 @@ return { describe };
 })();
 
 // ---- src/ui/ui.js
-const __m30 = (() => {
+const __m32 = (() => {
 const { ENVIRONMENTS, CONDITIONS, DIFFICULTY_PRESETS } = __m1;
-const { describe } = __m31;
+const { describe } = __m33;
 // DOM interface: broadcast-style HUD, control dock, settings drawer and the
 // end-of-battle card. Talks to main.js through the `actions` callbacks.
 
@@ -14440,6 +15782,7 @@ const SLIDERS = [
 
 const TOGGLES = [
   ['autoNext', 'Start the next battle automatically', 'sim'],
+  ['powersHurtHero', 'Your powers can hit Onyx too', 'world'],
   ['motionTrails', 'Motion trails', 'view'],
   ['showHud', 'Show HUD', 'view'],
   ['showStats', 'Performance stats', 'view'],
@@ -14608,6 +15951,7 @@ class UI {
           ${sel('environment', 'Environment', [['random', 'Random']].concat(ENVIRONMENTS.map((e) => [e.id, e.label])), S.environment, true)}
           ${sel('condition', 'Conditions', [['random', 'Random']].concat(CONDITIONS.map((c) => [c.id, c.label])), S.condition, true)}
           ${group('world').map(slider).join('')}
+          ${TOGGLES.filter((t) => t[2] === 'world').map(toggle).join('')}
         </section>
         <section class="group">
           <h3>Presentation</h3>
@@ -14623,6 +15967,12 @@ class UI {
             <dt>Space</dt><dd>Pause</dd><dt>N</dt><dd>New battle</dd><dt>R</dt><dd>Replay seed</dd>
             <dt>C</dt><dd>Camera mode</dd><dt>M</dt><dd>Sound</dd><dt>H</dt><dd>Hide interface</dd>
             <dt>S</dt><dd>Settings</dd><dt>1 2 3</dt><dd>Speed</dd><dt>D</dt><dd>AI overlay</dd>
+          </dl>
+          <h3>Your powers</h3>
+          <dl class="keylist">
+            <dt>G</dt><dd>Grab and fling</dd><dt>F</dt><dd>Gun</dd><dt>Z</dt><dd>Lightning</dd>
+            <dt>B</dt><dd>Grenade</dd><dt>X</dt><dd>Shockwave</dd><dt>E</dt><dd>Spawn enemy</dd>
+            <dt>Q</dt><dd>Just watch</dd>
           </dl>
         </section>
       </div>`;
@@ -14863,7 +16213,7 @@ class UI {
     const hero = sim.hero;
     this.root.querySelector('#endKicker').textContent = `SIMULATION #${sim.number} · ${sim.level.theme.toUpperCase()}`;
     this.root.querySelector('#endTitle').textContent = o.victory ? (o.reason === 'cleared' ? 'Cleared' : 'Survived') : 'Defeated';
-    const causes = { electric: 'electrocuted', fell: 'fell from a height', explosion: 'caught in an explosion', window: 'thrown out a window', body: 'flattened by flying bodies', slam: 'slammed into the floor', beaten: 'overwhelmed' };
+    const causes = { electric: 'electrocuted', fell: 'fell from a height', explosion: 'caught in an explosion', window: 'thrown out a window', body: 'flattened by flying bodies', slam: 'slammed into the floor', beaten: 'overwhelmed', shot: 'shot (by you)', smash: 'smashed into the floor (by you)', lightning: 'struck by lightning (yours)', push: 'blown away (by you)' };
     this.root.querySelector('#endSub').textContent = o.victory
       ? `Onyx held on for ${fmtTime(o.time)} and put down ${st.defeated} opponents.`
       : `Onyx was ${causes[o.cause] || 'overwhelmed'}${o.by ? ` (final blow: ${o.by})` : ''} after ${fmtTime(o.time)}.`;
@@ -14880,6 +16230,7 @@ class UI {
       ['Most engaged at once', st.maxEngaged],
       ['Friendly-fire KOs', st.friendlyKOs],
     ];
+    if (st.playerKOs) rows.push(['By your hand', st.playerKOs]);
     this.root.querySelector('#endGrid').innerHTML = rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
     this.end.hidden = false;
     this.setCountdown(countdown);
@@ -14910,15 +16261,17 @@ return { UI };
 const __m0 = (() => {
 const { SIM_DT, DEFAULT_SETTINGS, sanitizeSettings } = __m1;
 const { Simulation } = __m2;
-const { Renderer } = __m22;
-const { Camera } = __m26;
-const { FX } = __m27;
-const { AudioEngine } = __m29;
-const { UI } = __m30;
+const { Renderer } = __m23;
+const { Camera } = __m27;
+const { FX } = __m28;
+const { PowerController } = __m30;
+const { AudioEngine } = __m31;
+const { UI } = __m32;
 const { clamp } = __m5;
 // Bootstrap and main loop: fixed-step simulation with render interpolation,
 // camera-driven slow motion, event routing to effects/audio/HUD, settings
 // persistence and keyboard/pointer controls.
+
 
 
 
@@ -15014,7 +16367,11 @@ function start(root) {
         // live-tunable values flow straight into the running battle
         for (const k of ['maxActive', 'spawnRate', 'enemyAggression', 'escalation', 'physicsIntensity', 'slowMo', 'screenShake']) sim.settings[k] = S[k];
       }
-      if (key === 'cameraMode') cam.mode = S.cameraMode;
+      if (key === 'cameraMode') {
+        cam.mode = S.cameraMode;
+        powers.applyCursor();
+      }
+      if (key === 'powersHurtHero' && sim) sim.settings.powersHurtHero = S.powersHurtHero;
       if (key === 'volume') audio.setVolume(S.volume);
       if (key === 'quality') renderer.resize(S.quality);
       if (key === 'debugAI' || key === 'showStats' || key === 'showHud') ui.applyVisibility();
@@ -15024,6 +16381,8 @@ function start(root) {
 
   const ui = new UI(root, S, actions);
   cam.mode = S.cameraMode;
+  const powers = new PowerController(root, canvas, { sim: () => sim, cam, renderer, paused: () => paused, settings: S });
+  renderer.overlay = (ctx, view, alpha, t) => powers.drawOverlay(ctx, view, alpha, t);
 
   function setPaused(p) {
     paused = p;
@@ -15093,6 +16452,7 @@ function start(root) {
       renderT += realDt * ts;
     }
     const alpha = lastStepAdvanced ? clamp(acc / SIM_DT, 0, 1) : 1;
+    powers.update(realDt);
     cam.update(paused ? 0 : realDt, sim, W, H, alpha, S);
     const r0 = performance.now();
     renderer.render(sim, cam, fx, alpha, renderT, S);
@@ -15125,6 +16485,7 @@ function start(root) {
   window.addEventListener('keydown', (e) => {
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) return;
     const k = e.key.toLowerCase();
+    if (!e.ctrlKey && !e.metaKey && !e.altKey && powers.key(k)) return;
     if (k === ' ') {
       e.preventDefault();
       actions.togglePause();
@@ -15153,7 +16514,7 @@ function start(root) {
   // free camera: drag to pan, wheel to zoom
   let drag = null;
   canvas.addEventListener('pointerdown', (e) => {
-    if (S.cameraMode !== 'free') return;
+    if (S.cameraMode !== 'free' || powers.active) return;
     drag = { x: e.clientX, y: e.clientY, cx: cam.free.x, cy: cam.free.y };
     canvas.setPointerCapture(e.pointerId);
   });
@@ -15169,6 +16530,7 @@ function start(root) {
     (e) => {
       if (S.cameraMode !== 'free') return;
       e.preventDefault();
+      if (powers.dragging) return;
       cam.free.w = clamp(cam.free.w * Math.exp(e.deltaY * 0.001), 300, 6000);
     },
     { passive: false },
@@ -15178,7 +16540,7 @@ function start(root) {
   if (window.claude && window.claude.hot && window.claude.hot.snapshot) {
     window.claude.hot.snapshot(() => ({ settings: S }));
   }
-  window.__arena = { get sim() { return sim; }, cam, fx, settings: S, newSim, setPaused };
+  window.__arena = { get sim() { return sim; }, cam, fx, settings: S, newSim, setPaused, powers };
 
   newSim();
   requestAnimationFrame(frame);

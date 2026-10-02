@@ -17,6 +17,7 @@ const BOX_KINDS = {
   box: { mass: 0.0007, hp: 26, material: 'cardboard', breakSpeed: 520, bounce: 0.2, mu: 0.6, w: 40, h: 34 },
   barrel: { mass: 0.0034, hp: 9999, material: 'metal', breakSpeed: 99999, bounce: 0.25, mu: 0.5, w: 36, h: 52 },
   canister: { mass: 0.0024, hp: 34, material: 'metal', breakSpeed: 99999, bounce: 0.3, mu: 0.5, w: 26, h: 44, explosive: true },
+  grenade: { mass: 0.004, hp: 9999, material: 'metal', breakSpeed: 99999, bounce: 0.38, mu: 0.55, w: 11, h: 14, explosive: true, power: 1.2 },
 };
 
 const near = [];
@@ -45,6 +46,8 @@ export class Box {
     this.broken = false;
     this.lastThrower = null;
     this.hitT = new Map();
+    this.player = false; // set off (or thrown) by the viewer
+    this.playerT = -Infinity; // last sent flying by the viewer
   }
 
   center() {
@@ -89,6 +92,7 @@ export class Stick {
     this.sleepT = 0;
     this.life = Infinity;
     this.debris = false;
+    this.playerT = -Infinity;
   }
 }
 
@@ -172,7 +176,9 @@ export class Props {
         if (A.sleeping && B.sleeping) continue;
         const [bx, by] = B.center();
         if (Math.abs(bx - cx) > rad + B.w || Math.abs(by - cy) > rad + B.h) continue;
-        for (const q of B.p) pushOutOfBox(A, q, q.w, true);
+        let touched = false;
+        for (const q of B.p) if (pushOutOfBox(A, q, q.w, true)) touched = true;
+        if (touched && A.playerT !== B.playerT) A.playerT = B.playerT = Math.max(A.playerT, B.playerT);
       }
       // body particles vs box. Walkers push with finite strength and feel
       // the weight (their controller slows down while shoving heavy boxes).
@@ -186,6 +192,8 @@ export class Props {
         const wq = q.kin ? 0.9 / Math.max(0.5, o ? o.mass / 9.25 : 1) : q.w;
         const moved = pushOutOfBox(A, q, wq, false);
         if (!moved || !o) continue;
+        // a body the viewer flung knocks this box on in their name
+        if (!q.kin && o.playerT > A.playerT && sim.time - o.playerT < 3) A.playerT = o.playerT;
         if (q.kin) {
           if (A.mass > o.mass * 0.12) {
             o.boxPush = Math.max(o.boxPush || 0, A.mass / (o.mass * 0.12));
@@ -205,6 +213,7 @@ export class Props {
     const h = sim.h;
     for (let i = this.boxes.length - 1; i >= 0; i--) {
       const b = this.boxes[i];
+      if (!b) continue; // an explosion further up the list broke boxes below it
       // impacts damage boxes
       let imp = 0;
       for (const q of b.p) {
@@ -213,7 +222,10 @@ export class Props {
       }
       if (imp > 260) {
         if (imp > 420) sim.emit({ t: 'clatter', x: b.p[2].x, y: b.p[2].y, material: b.k.material, power: imp / 700 });
+        const lit = b.fuse >= 0;
         this.damageBox(b, (imp - 260) * 0.12, b.lastThrower);
+        // a canister knocked about by the viewer's doing goes up in their name
+        if (!lit && b.fuse >= 0 && b.playerT > -Infinity) b.player = true;
       }
       if (b.broken) continue;
       // canister fuse
@@ -222,7 +234,7 @@ export class Props {
         if (b.fuse < 0) {
           const [x, y] = b.center();
           this.boxes.splice(i, 1);
-          sim.explode(x, y, 1, b.lastThrower);
+          sim.explode(x, y, b.k.power || 1, b.lastThrower, { player: !!b.player, src: b.kind });
           continue;
         }
       }
@@ -230,7 +242,10 @@ export class Props {
       const [vx, vy] = b.velocity(h);
       if (vx * vx + vy * vy < 400 && b.p.some((q) => q.ground)) {
         b.sleepT += dt;
-        if (b.sleepT > 0.6) b.sleeping = true;
+        if (b.sleepT > 0.6) {
+          b.sleeping = true;
+          b.playerT = -Infinity; // at rest: no longer anybody's missile
+        }
       } else {
         b.sleepT = 0;
         b.sleeping = false;
@@ -319,6 +334,7 @@ export class Props {
         const s = new Stick('plank', x + rng.range(-b.w / 3, b.w / 3), y + rng.range(-b.h / 3, b.h / 3), rng.range(0, Math.PI), b.w * rng.range(0.7, 0.95), 0.7);
         s.weapon = k === 0 ? { kind: 'plank', ...WEAPONS.plank } : null;
         s.debris = k > 0;
+        s.playerT = b.playerT;
         if (s.debris) s.life = rng.range(6, 10);
         for (const q of s.p) q.setVel(vx * 0.5 + rng.range(-160, 160), vy * 0.5 - rng.range(60, 260), h);
         this.sticks.push(s);
@@ -332,9 +348,11 @@ export class Props {
     const [cx, cy] = b.center();
     const now = sim.time;
     sim.fighterHash.query(cx, cy, Math.max(b.w, b.h), near);
+    const player = b.player || b.playerT > -Infinity;
     for (const f of near) {
       if (f.removed || f.dead || f.ragdolled) continue;
       if (b.lastThrower === f && (f.isHero || now - (b.throwT || 0) < 0.4)) continue;
+      if (player && sim.powers.spared(f)) continue;
       const last = b.hitT.get(f.id);
       if (last !== undefined && now - last < 0.8) continue;
       const top = f.y - 88 * f.scale;
@@ -367,8 +385,10 @@ export class Props {
     const a = s.p[0];
     const b = s.p[1];
     sim.fighterHash.query((a.x + b.x) / 2, (a.y + b.y) / 2, 60, near);
+    const player = now - s.playerT < 3;
     for (const f of near) {
       if (f.removed || f.dead || f.ragdolled || f === s.thrower) continue;
+      if (player && sim.powers.spared(f)) continue;
       if (s.thrower && !s.thrower.isHero && !f.isHero && sim.rng.chance(0.5)) continue;
       const p = f.rag.p;
       const r = 6 + f.dims.lw;
@@ -444,6 +464,8 @@ export class Props {
       if (b.struckBy === a && b.struckMove === a.move) continue;
       b.struckBy = a;
       b.struckMove = a.move;
+      b.playerT = -Infinity; // a fighter's kick makes it theirs
+      if (b.kind !== 'grenade') b.player = false;
       const k = (Math.abs(hit.kx) * 1.4 + 120) * a.strength * sim.settings.physicsIntensity / Math.max(0.6, b.mass / 2.5);
       b.addVel(dir * k, -Math.min(260, k * 0.35), sim.h);
       b.lastThrower = a;
@@ -541,8 +563,9 @@ export class Props {
   }
 
   // Radial impulse on every loose prop.
-  blast(x, y, R, power, by) {
+  blast(x, y, R, power, by, player = false) {
     const h = this.sim.h;
+    const now = this.sim.time;
     for (const b of this.boxes.slice()) {
       const [cx, cy] = b.center();
       const d = Math.hypot(cx - x, cy - y);
@@ -552,7 +575,13 @@ export class Props {
       const ny = (cy - y) / (d || 1) - 0.5;
       b.addVel(nx * k * 900, ny * k * 900, h);
       b.lastThrower = by;
+      const lit = b.fuse >= 0;
       this.damageBox(b, k * 120, by);
+      if (player) {
+        b.playerT = now;
+        // a canister the viewer's blast sets off is theirs too
+        if (!lit && b.fuse >= 0) b.player = true;
+      }
     }
     for (const s of this.sticks) {
       const mx = (s.p[0].x + s.p[1].x) / 2;
@@ -562,6 +591,7 @@ export class Props {
       const k = (1 - d / R) * power;
       for (const q of s.p) q.addVel(((mx - x) / (d || 1)) * k * 800, (((my - y) / (d || 1)) - 0.6) * k * 800, h);
       s.sleeping = false;
+      if (player) s.playerT = now;
     }
   }
 }

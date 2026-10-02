@@ -62,6 +62,9 @@ export class Hazards {
         touch = this.inZone(hz, f.x, f.y - 40, 8);
       }
       if (!touch) continue;
+      // a body the viewer put there stays the viewer's doing while it fries
+      const viewer = sim.time - f.playerT < 3;
+      if (viewer) f.playerT = sim.time;
       const by = f.knock ? f.knock.by : f.thrownBy || f.lastHitBy;
       f.knock = f.knock || { by, chainId: sim.newChain(by), depth: 0, time: sim.time, kind: 'electric' };
       f.zapSource = hz;
@@ -72,17 +75,18 @@ export class Hazards {
       hz.arcTarget = f;
       hz.zaps++;
       sim.emit({ t: 'zap', x: hz.x, y: hz.y - hz.h * 0.6, power: 1, f, hz, by });
-      if (sim.level.condition === 'wet') this.arcAcrossFloor(hz, f, by);
+      if (sim.level.condition === 'wet') this.arcAcrossFloor(hz, f, by, viewer);
       break;
     }
   }
 
   // Wet floors carry the shock to anyone standing nearby.
-  arcAcrossFloor(hz, src, by) {
+  arcAcrossFloor(hz, src, by, player) {
     const sim = this.sim;
     sim.fighterHash.query(hz.x, hz.y - 20, 190, near);
     for (const f of near) {
       if (f === src || f.removed || f.dead || f.zapT > 0) continue;
+      if (player && sim.powers.spared(f)) continue; // set off by the viewer's throw
       if (Math.abs(f.y - hz.y) > 12 || !f.grounded) continue;
       f.zapSource = hz;
       f.knock = { by, chainId: sim.newChain(by), depth: 1, time: sim.time, kind: 'electric' };

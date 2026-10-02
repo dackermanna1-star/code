@@ -6,8 +6,10 @@ figures through randomized arenas. Nothing is scripted or canned: every
 punch, throw, stumble, fall and chain reaction comes out of an active-ragdoll
 physics model and two layers of AI, so no two runs play out alike.
 
-It is a simulation to watch rather than a game to play. You set the
-conditions; the fight unfolds by itself.
+It is a simulation to watch rather than a game to play: you set the
+conditions and the fight unfolds by itself. When you feel like meddling, a
+palette of powers lets you reach in and grab stickmen, shoot them, call down
+lightning or lob a grenade into the crowd.
 
 ## Running it
 
@@ -70,6 +72,29 @@ break out on their own in other parts of the map, between idle enemies or a
 pair arriving already swinging. A spawn director runs the fight in waves
 (build, peak, relax) and escalates over time: more enemies at once, smarter
 and stronger types.
+
+## Your powers
+
+The palette on the right edge of the screen (or a key) arms a power. Press
+the same button again, **Q** or **Esc** to go back to watching. Powers act
+through the same physics and damage as the fight itself, so a body you fling
+bowls people over and a grenade you lob sends the crowd running.
+
+| Power | Key | How it works |
+| --- | --- | --- |
+| Grab | **G** | Press on a stickman, alive or dead, and drag. Let go mid-swing to fling them into the floor, a wall or the crowd. The harder they land, the more it hurts. |
+| Gun | **F** | Click to shoot whatever is under the cursor; hold for automatic fire. A headshot kills, a leg shot buckles the knee, a body shot knocks them flying. Bullets also shatter glass, set off gas canisters, jolt crates and leave holes in the walls. |
+| Lightning | **Z** | Click to bring a bolt down from the ceiling or the sky. It jumps from body to body through a crowd and arcs across wet floors. |
+| Grenade | **B** | Press where it should start and drag to throw it; a dotted arc previews the flight. A click just drops it there. It goes off about two seconds later. |
+| Shockwave | **X** | Click to blast everyone near the cursor off their feet, along with crates, barrels and the nearest windows. |
+| Spawn | **E** | Click to drop a new enemy in at the cursor (up to the enemies-at-once limit). |
+
+Onyx is off limits by default, so your powers only ever help him. Turn on
+*Your powers can hit Onyx too* (World and physics) to make it a free-for-all.
+The commentary feed credits your kills ("Headshot — Teal drops", "Your
+grenade takes out Cyan") and the end-of-battle card counts them under *By
+your hand*. The powers work with touch as well as a mouse; in the free camera,
+dragging pans the view only while Watch is selected.
 
 ## Physics
 
@@ -144,6 +169,8 @@ platforms, stairs, railings, ledges, doors, columns, props and hazards:
 | **M** | Sound on / off |
 | **D** | AI debug overlay |
 | **1 / 2 / 3** | Half, normal, double speed |
+| **G F Z B X E** | Arm a power: grab, gun, lightning, grenade, shockwave, spawn |
+| **Q / Esc** | Put the power away and just watch |
 
 The settings drawer covers:
 
@@ -154,7 +181,7 @@ The settings drawer covers:
   intelligence, aggression, variety and escalation.
 - **The black stickman:** skill, endurance, reaction speed, movement speed.
 - **World and physics:** environment, conditions, hazards, props and
-  weapons, gravity, impact force.
+  weapons, gravity, impact force, and whether your powers can hit Onyx.
 - **Presentation:** camera mode, render quality, blood (Off, Blood,
   Brutal), slow motion, screen shake, volume, motion trails, HUD,
   performance stats.
@@ -211,11 +238,12 @@ src/
                       trips
   ai/                 hero brain, enemy brain, steering, roster
                       (procedural enemies), spawn director
-  sim/                the simulation: step order, collisions, KOs, cleanup
+  sim/                the simulation: step order, collisions, KOs, cleanup,
+                      the viewer's powers
   render/             renderer, figures, environment art, effects, blood
                       decals, camera, palettes
   audio/              procedural Web Audio engine
-  ui/                 HUD, settings drawer, commentary feed
+  ui/                 HUD, settings drawer, commentary feed, power palette
   style.css
 tools/
   build.mjs           zero-dependency bundler -> dist/

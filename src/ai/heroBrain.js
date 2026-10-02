@@ -14,6 +14,7 @@ import { steerTo, surfaceOfFighter, stairsOf } from './steer.js';
 const near = [];
 const HERO_MOVES = ['jab', 'cross', 'hook', 'uppercut', 'elbow', 'knee', 'teep', 'roundhouse', 'spinkick', 'sweep', 'flyingkick', 'shove', 'grab', 'backkick', 'backelbow', 'superman', 'backfist', 'axekick', 'jumpknee', 'dropkick', 'headbutt'];
 const ARMED_MOVES = ['wswing', 'woverhead', 'wthrust', 'teep', 'knee', 'sweep', 'backkick', 'roundhouse', 'grab', 'wthrow'];
+const ROLL_RUN = 200; // ground a dodge roll covers, with a margin
 const HAZARD_NAMES = { electric: 'the live panel', ledge: 'the drop', window: 'the window', canister: 'the gas canister', stairs: 'the stairs', crowd: 'the crowd' };
 
 export class HeroBrain {
@@ -172,7 +173,20 @@ export class HeroBrain {
     if (bomb === null) return false;
     const it = f.intent;
     const away = Math.sign(f.x - bomb) || -f.facing;
-    if (f.canAct() && bd < 150 && f.stamina > 10 && this.spaceToward(away) > 120) {
+    it.block = false;
+    const room = this.runRoom(away);
+    if (room < 70) {
+      // backed up against a roof edge or a wall: diving past it beats
+      // going over the edge; with nowhere to go, brace for it
+      if (f.canAct() && f.stamina > 10 && this.runRoom(-away, 300) > Math.max(ROLL_RUN, bd + 110)) {
+        it.face = -away;
+        it.action = 'roll';
+      } else {
+        it.mx = 0;
+        it.face = -away;
+        it.block = true;
+      }
+    } else if (f.canAct() && bd < 150 && f.stamina > 10 && room >= ROLL_RUN && this.spaceToward(away) > 120) {
       it.face = away;
       it.action = 'roll';
     } else {
@@ -180,9 +194,22 @@ export class HeroBrain {
       it.run = true;
       it.face = away;
     }
-    it.block = false;
     this.say('Live canister!', 0.8);
     return true;
+  }
+
+  // How far he can run that way before a wall or a drop he should not take
+  // at a sprint (a roof edge, a shaft, a gap between buildings, a skylight).
+  runRoom(dir, max = 240) {
+    const f = this.f;
+    const L = this.sim.level;
+    for (let d = 30; d <= max; d += 30) {
+      const x = f.x + dir * d;
+      if (L.isSolidAt(x, f.y - 40)) return d - 20;
+      const g = L.groundUnder(x - 3, x + 3, f.y - 4, 260, true, false);
+      if (!g || (g.kind === 'skylight' && !g.broken)) return d - 25;
+    }
+    return max;
   }
 
   // How long until he registers a threat, and the chance he misses it.

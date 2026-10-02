@@ -437,6 +437,45 @@ export function drawBox(ctx, b, alpha, t, P) {
     ctx.moveTo(-w / 2, h / 6);
     ctx.lineTo(w / 2, h / 6);
     ctx.stroke();
+  } else if (b.kind === 'grenade') {
+    // olive body, segmented, spoon lever on top, a blinking light that
+    // speeds up as the fuse burns down
+    ctx.fillStyle = '#4f5a2c';
+    ctx.beginPath();
+    ctx.ellipse(0, 1.5, w / 2, h / 2 - 1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#2b3216';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(-w / 2 + 1, 1.5);
+    ctx.lineTo(w / 2 - 1, 1.5);
+    ctx.moveTo(0, -h / 2 + 2);
+    ctx.lineTo(0, h / 2);
+    ctx.stroke();
+    ctx.strokeStyle = P.outline;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.ellipse(0, 1.5, w / 2, h / 2 - 1, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#7d7f80';
+    ctx.fillRect(-2.5, -h / 2 - 2.5, 5, 3.5);
+    ctx.strokeStyle = '#9a9c9e';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(2.5, -h / 2 - 1);
+    ctx.quadraticCurveTo(w / 2 + 3, -h / 2 + 1, w / 2, 2);
+    ctx.stroke();
+    const rate = b.fuse < 0.6 ? 26 : b.fuse < 1.2 ? 14 : 7;
+    if (b.fuse >= 0 && Math.sin(t * rate) > 0) {
+      ctx.fillStyle = '#ff3b2f';
+      ctx.beginPath();
+      ctx.arc(0, -1.5, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,80,60,0.35)';
+      ctx.beginPath();
+      ctx.arc(0, -1.5, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
   } else if (b.kind === 'canister') {
     const hot = b.fuse >= 0 && Math.sin(t * 30) > 0;
     ctx.fillStyle = hot ? '#ffffff' : '#d8362a';

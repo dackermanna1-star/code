@@ -54,6 +54,7 @@ export const DEFAULT_SETTINGS = {
   screenShake: 1,
   motionTrails: true,
   gore: 2, // 0 off, 1 blood, 2 brutal
+  powersHurtHero: false,
   showStats: false,
   debugAI: false,
   autoNext: true,

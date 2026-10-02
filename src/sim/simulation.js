@@ -17,9 +17,11 @@ import { TokenManager } from '../ai/enemyBrain.js';
 import { Director } from '../ai/director.js';
 import { makeHeroSpec } from '../ai/roster.js';
 import { processAttacks, processBodyImpacts, processTrips } from '../combat/combat.js';
+import { Powers } from './powers.js';
 
 const CORE = [HEAD, NECK, PELVIS, KNEE_A, KNEE_B];
 export const ENV_CAUSES = new Set(['electric', 'fell', 'window', 'explosion', 'steam', 'wall', 'object']);
+const PLAYER_CAUSES = new Set(['shot', 'smash', 'lightning', 'push']);
 const LEGS = [PELVIS, KNEE_A, FOOT_A, KNEE_B, FOOT_B];
 const near = [];
 const byX = (a, b) => a.x - b.x;
@@ -74,9 +76,10 @@ export class Simulation {
     this.corpseList = [];
     this.stats = {
       defeated: 0, spawned: 0, hits: 0, taken: 0, blocks: 0, dodges: 0, parries: 0, throws: 0,
-      envKOs: 0, friendlyKOs: 0, bestChain: 0, bestCombo: 0, maxEngaged: 0, damageTaken: 0,
+      envKOs: 0, friendlyKOs: 0, playerKOs: 0, bestChain: 0, bestCombo: 0, maxEngaged: 0, damageTaken: 0,
       byCause: {},
     };
+    this.powers = new Powers(this);
     this.props = new Props(this);
     this.props.spawnFromLevel(this.level);
     this.hazards = new Hazards(this);
@@ -220,6 +223,7 @@ export class Simulation {
         if (f.state === 'grabbed') this.applyPins(f);
         if (this.windNow && f.ragdolled) for (const p of f.rag.p) p.addVel(this.windNow * h * 0.5, 0, h);
       }
+      this.powers.applyDrag();
       this.props.substep(h, g);
       this.collideBodies();
     }
@@ -363,7 +367,10 @@ export class Simulation {
         if (imp > 760 && !f.dead) {
           const by = f.knock ? f.knock.by : f.thrownBy || null;
           const k = f.isHero ? 0.6 : 1;
-          f.damage((imp - 760) * 0.034 * k, by, f.knock && f.knock.kind === 'throw' ? 'throw' : 'slam');
+          const kind = f.knock ? f.knock.kind : null;
+          // bodies the viewer flings around hit the floor much harder
+          const pk = f.knock && f.knock.player ? 1.35 : 1;
+          f.damage((imp - 760) * 0.034 * k * pk, by, kind === 'throw' ? 'throw' : f.knock && f.knock.player ? 'smash' : 'slam');
         }
       }
       if (rag.p[PELVIS].y > this.level.killY) {
@@ -376,7 +383,7 @@ export class Simulation {
       rag.settle = f.ragdolled ? clamp((90 - core) / 70, 0, 1) : 0;
       // sleep settled bodies. The smoothed speed ignores the contact jitter of
       // a pile; long-dead bodies are put to rest more and more firmly.
-      if (f.dead && f.ragdolled && f.state !== 'zap') {
+      if (f.dead && f.ragdolled && f.state !== 'zap' && !f.playerHeld) {
         const age = this.time - f.koTime;
         const lim = age > 5 ? 70 : 32;
         if (rag.coreAvg < lim) {
@@ -438,7 +445,7 @@ export class Simulation {
     if (phys > this.physCorpseCap || all > this.corpseCap) {
       const list = this.corpseList;
       list.length = 0;
-      for (const f of this.fighters) if (f.dead && !f.isHero && !f.removed && !f.fading) list.push(f);
+      for (const f of this.fighters) if (f.dead && !f.isHero && !f.removed && !f.fading && !f.playerHeld) list.push(f);
       list.sort((a, b) => a.koTime - b.koTime);
       let bake = phys - this.physCorpseCap;
       let fade = all - this.corpseCap;
@@ -501,8 +508,10 @@ export class Simulation {
     if (env) st.envKOs++;
     st.byCause[cause] = (st.byCause[cause] || 0) + 1;
     if (by && !by.isHero) st.friendlyKOs++;
+    const player = PLAYER_CAUSES.has(cause) || !!(f.knock && f.knock.player && this.time - f.knock.time < 6 && !by);
+    if (player) st.playerKOs++;
     if (this.tokens) this.tokens.release(f);
-    this.emit({ t: 'ko', f, by, cause, knock: f.knock, x: f.pelvisX, y: f.pelvisY });
+    this.emit({ t: 'ko', f, by, cause, knock: f.knock, x: f.pelvisX, y: f.pelvisY, player });
     // nearby enemies lose some nerve
     this.fighterHash.query(f.x, f.y - 40, 500, near);
     for (const o of near) {
@@ -563,25 +572,27 @@ export class Simulation {
     else if (ev === 'throwObject') this.props.throwObject(f, this.hero);
   }
 
-  explode(x, y, power, by) {
+  explode(x, y, power, by, opts = {}) {
     const R = 240 * power;
     let victims = 0;
     const h = this.h;
-    this.emit({ t: 'explosion', x, y, power, R, by });
+    this.emit({ t: 'explosion', x, y, power, R, by, player: !!opts.player });
     for (const f of this.fighters) {
       if (f.removed) continue;
+      if (opts.player && this.powers.spared(f)) continue; // the viewer's blasts leave Onyx be
       const cx = f.ragdolled ? f.rag.p[PELVIS].x : f.x;
       const cy = f.ragdolled ? f.rag.p[PELVIS].y : f.y - 45;
       const d = Math.hypot(cx - x, cy - y);
       if (d > R) continue;
       f.baked = false; // blasted scenery comes back to life
+      if (opts.player) f.playerT = this.time;
       const k = 1 - d / R;
       const nx = (cx - x) / (d || 1);
       const ny = (cy - y) / (d || 1) - 0.55;
       const v = 950 * k * power * this.settings.physicsIntensity;
       if (!f.dead) {
         victims++;
-        f.knock = { by, chainId: this.newChain(by), depth: 1, time: this.time, kind: 'explosion' };
+        f.knock = { by, chainId: this.newChain(by), depth: 1, time: this.time, kind: 'explosion', player: !!opts.player, src: opts.src };
         if (!f.ragdolled) f.knockdown(nx * v, ny * v, { spin: (this.rng.sign() * 8 * k) });
         else f.rag.addVel(nx * v, ny * v, h);
         f.damage(58 * k * power * (f.isHero ? 0.8 : 1), by, 'explosion');
@@ -590,7 +601,7 @@ export class Simulation {
       }
       f.flash = 1;
     }
-    this.props.blast(x, y, R, power, by);
+    this.props.blast(x, y, R, power, by, !!opts.player);
     for (const w of this.level.windows) {
       if (w.broken) continue;
       const d = Math.hypot(w.x + w.w / 2 - x, w.y + w.h / 2 - y);

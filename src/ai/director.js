@@ -234,6 +234,14 @@ export class Director {
         f.setState('air');
         break;
       }
+      case 'drop':
+        // dropped in by the viewer: falls from where they clicked
+        f.placeAt(x, y);
+        f.grounded = false;
+        f.vy = 40;
+        f.fallStartY = y;
+        f.setState('air');
+        break;
       default:
         f.placeAt(x, y);
         f.spawning = { t: 0.8, walk: true, dir: p.dir || dirToHero };

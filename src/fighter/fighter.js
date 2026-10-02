@@ -123,6 +123,7 @@ export class Fighter {
     this.lastHitTime = -10;
     this.lastDamageTime = -10;
     this.knock = null; // chain-reaction attribution { by, chainId, depth, time }
+    this.playerT = -Infinity; // last sent flying by the viewer's powers
     this.passT = 0;
     this.stance = 'guard';
     this.lookTarget = null;
@@ -827,9 +828,18 @@ export class Fighter {
     this.vy = (p.y - p.py) / h;
     if (this.state === 'zap') {
       this.zapT -= dt;
-      this.damage(this.zapDmg * dt, this.knock ? this.knock.by : null, 'electric');
+      this.damage(this.zapDmg * dt, this.knock ? this.knock.by : null, this.zapCause || 'electric');
       this.flash = Math.max(this.flash, 0.6);
-      if (this.zapT <= 0) this.setState(this.dead ? 'ko' : 'ragdoll');
+      if (this.zapT <= 0) {
+        this.zapCause = null;
+        this.setState(this.dead ? 'ko' : 'ragdoll');
+      }
+      return;
+    }
+    if (this.playerHeld) {
+      // dangling from the viewer's grip: no getting up
+      this.restT = 0;
+      if (this.state !== 'ragdoll') this.setState('ragdoll');
       return;
     }
     const sp = this.rag.maxSpeed(h);

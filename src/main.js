@@ -7,6 +7,7 @@ import { Simulation } from './sim/simulation.js';
 import { Renderer } from './render/renderer.js';
 import { Camera } from './render/camera.js';
 import { FX } from './render/fx.js';
+import { PowerController } from './ui/powers.js';
 import { AudioEngine } from './audio/audio.js';
 import { UI } from './ui/ui.js';
 import { clamp } from './core/math.js';
@@ -97,7 +98,11 @@ export function start(root) {
         // live-tunable values flow straight into the running battle
         for (const k of ['maxActive', 'spawnRate', 'enemyAggression', 'escalation', 'physicsIntensity', 'slowMo', 'screenShake']) sim.settings[k] = S[k];
       }
-      if (key === 'cameraMode') cam.mode = S.cameraMode;
+      if (key === 'cameraMode') {
+        cam.mode = S.cameraMode;
+        powers.applyCursor();
+      }
+      if (key === 'powersHurtHero' && sim) sim.settings.powersHurtHero = S.powersHurtHero;
       if (key === 'volume') audio.setVolume(S.volume);
       if (key === 'quality') renderer.resize(S.quality);
       if (key === 'debugAI' || key === 'showStats' || key === 'showHud') ui.applyVisibility();
@@ -107,6 +112,8 @@ export function start(root) {
 
   const ui = new UI(root, S, actions);
   cam.mode = S.cameraMode;
+  const powers = new PowerController(root, canvas, { sim: () => sim, cam, renderer, paused: () => paused, settings: S });
+  renderer.overlay = (ctx, view, alpha, t) => powers.drawOverlay(ctx, view, alpha, t);
 
   function setPaused(p) {
     paused = p;
@@ -176,6 +183,7 @@ export function start(root) {
       renderT += realDt * ts;
     }
     const alpha = lastStepAdvanced ? clamp(acc / SIM_DT, 0, 1) : 1;
+    powers.update(realDt);
     cam.update(paused ? 0 : realDt, sim, W, H, alpha, S);
     const r0 = performance.now();
     renderer.render(sim, cam, fx, alpha, renderT, S);
@@ -208,6 +216,7 @@ export function start(root) {
   window.addEventListener('keydown', (e) => {
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) return;
     const k = e.key.toLowerCase();
+    if (!e.ctrlKey && !e.metaKey && !e.altKey && powers.key(k)) return;
     if (k === ' ') {
       e.preventDefault();
       actions.togglePause();
@@ -236,7 +245,7 @@ export function start(root) {
   // free camera: drag to pan, wheel to zoom
   let drag = null;
   canvas.addEventListener('pointerdown', (e) => {
-    if (S.cameraMode !== 'free') return;
+    if (S.cameraMode !== 'free' || powers.active) return;
     drag = { x: e.clientX, y: e.clientY, cx: cam.free.x, cy: cam.free.y };
     canvas.setPointerCapture(e.pointerId);
   });
@@ -252,6 +261,7 @@ export function start(root) {
     (e) => {
       if (S.cameraMode !== 'free') return;
       e.preventDefault();
+      if (powers.dragging) return;
       cam.free.w = clamp(cam.free.w * Math.exp(e.deltaY * 0.001), 300, 6000);
     },
     { passive: false },
@@ -261,7 +271,7 @@ export function start(root) {
   if (window.claude && window.claude.hot && window.claude.hot.snapshot) {
     window.claude.hot.snapshot(() => ({ settings: S }));
   }
-  window.__arena = { get sim() { return sim; }, cam, fx, settings: S, newSim, setPaused };
+  window.__arena = { get sim() { return sim; }, cam, fx, settings: S, newSim, setPaused, powers };
 
   newSim();
   requestAnimationFrame(frame);

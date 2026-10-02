@@ -321,6 +321,38 @@ export class AudioEngine {
     this.claim('boom', 1.5);
   }
 
+  // A gunshot: a sharp crack, a low body thump and a ringing tail.
+  gunshot(pan, vol, r) {
+    const t = this.ac.currentTime;
+    const d = this.out(pan);
+    this.noise(d, t, 0.03, 1.0 * vol, 'highpass', 2500, 0.7);
+    this.noise(d, t, 0.22 / r, 0.8 * vol, 'lowpass', 1800 * r, 0.8, 200);
+    this.tone(d, t, 0.12 / r, 0.9 * vol, 'sine', 160 * r, 40 * r, 0.002);
+    this.noise(this.reverbSend, t, 0.5, 0.35 * vol, 'bandpass', 900, 0.6, 300);
+    this.claim('gun', 0.12);
+  }
+
+  // Thunder: a white crack overhead, then a long rolling rumble.
+  thunder(pan, vol) {
+    const t = this.ac.currentTime;
+    const d = this.out(pan);
+    this.noise(d, t, 0.12, 1.0 * vol, 'highpass', 1800, 0.6);
+    this.noise(d, t, 0.25, 0.9 * vol, 'bandpass', 2600, 0.8, 600);
+    this.noise(d, t + 0.05, 2.4, 0.9 * vol, 'lowpass', 900, 0.6, 60, this.white);
+    this.tone(d, t + 0.04, 1.6, 0.7 * vol, 'sine', 52, 30, 0.02);
+    for (let k = 0; k < 6; k++) this.noise(d, t + 0.2 + Math.random() * 1.6, 0.3, 0.25 * vol, 'lowpass', 300 + Math.random() * 300, 1);
+    this.claim('thunder', 2.4);
+  }
+
+  // A metallic tick: the grenade's spoon flying off.
+  pin(pan, vol) {
+    const t = this.ac.currentTime;
+    const d = this.out(pan);
+    this.tone(d, t, 0.08, 0.35 * vol, 'triangle', 2200, 1800);
+    this.tone(d, t + 0.05, 0.12, 0.25 * vol, 'sine', 3100, 2900);
+    this.claim('pin', 0.15);
+  }
+
   hiss(pan, vol, dur) {
     const t = this.ac.currentTime;
     const d = this.out(pan);
@@ -498,6 +530,27 @@ export class AudioEngine {
         break;
       case 'explosion':
         if (this.allow('boom', 3, 0.05)) this.explosion(pan, Math.min(1, vol * 1.3), r);
+        break;
+      case 'shot':
+        if (this.allow('gun', 6, 0.03)) this.gunshot(pan * 0.6, Math.max(0.6, vol), r);
+        if (e.kind === 'flesh' && this.allow('impact', 10, 0.01)) this.punch(pan, vol * 0.8, true, r);
+        else if ((e.kind === 'metal' || e.kind === 'solid') && this.allow('metal', 6, 0.04)) this.clang(pan, vol * 0.2, r * 1.8);
+        break;
+      case 'lightning':
+        if (this.allow('thunder', 2, 0.15)) this.thunder(pan, Math.max(0.8, vol));
+        if (this.allow('zap', 3, 0.1)) this.zap(pan, vol, r, 0.9);
+        break;
+      case 'push':
+        if (this.allow('boom', 3, 0.05)) {
+          this.thud(pan, vol, r * 0.7);
+          this.whoosh(pan, vol, r * 0.6);
+        }
+        break;
+      case 'grenade':
+        if (this.allow('pin', 2, 0.1)) this.pin(pan, vol);
+        break;
+      case 'pspawn':
+        if (this.allow('thud', 6, 0.03)) this.thud(pan, vol * 0.4, r * 1.6);
         break;
       case 'steam':
         if (e.on && this.allow('hiss', 3, 0.2)) this.hiss(pan, vol * 0.8, 1.3);

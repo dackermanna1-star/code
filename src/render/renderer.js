@@ -95,6 +95,7 @@ export class Renderer {
     env.drawFront(ctx, sim, view, t);
     fx.draw(ctx, view, t);
     if (fx.impact && S.screenShake > 0) this.drawImpactFrame(ctx, fx.impact, view, alpha, t);
+    if (this.overlay) this.overlay(ctx, view, alpha, t);
     if (L.rain) fx.drawRain(ctx, view);
     if (L.smoke) fx.drawSmoke(ctx, view);
     if (S.debugAI) this.drawDebug(ctx, sim, view);

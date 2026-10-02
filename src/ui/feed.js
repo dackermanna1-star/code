@@ -25,6 +25,20 @@ export function describe(e) {
       const name = f.name;
       const by = e.by;
       const viaHero = by && by.isHero;
+      if (e.player) {
+        switch (e.cause) {
+          case 'shot': return f.headshot ? { text: `Headshot — ${name} drops`, level: 3 } : { text: pick([`You gun down ${name}`, `You shoot ${name}`], n), level: 2 };
+          case 'smash': return { text: pick([`You smash ${name} into the floor`, `You slam ${name} down`, `${name} meets the floor, courtesy of you`], n), level: 2 };
+          case 'lightning': return { text: pick([`Lightning fries ${name}`, `${name} is struck down`], n), level: 2 };
+          case 'explosion': return e.knock && e.knock.src === 'grenade' ? { text: `Your grenade takes out ${name}`, level: 2 } : { text: pick([`You blow up ${name}`, `${name} goes up with the canister you set off`], n), level: 2 };
+          case 'push': return { text: `Your shockwave finishes ${name}`, level: 2 };
+          case 'fell': return { text: `You send ${name} over the edge`, level: 3 };
+          case 'window': return { text: `You throw ${name} through the window`, level: 3 };
+          case 'electric': return { text: `You throw ${name} into the live panel`, level: 3 };
+          case 'body': return { text: `${name} is flattened by a body you threw`, level: 2 };
+          default: return { text: `${name} is out, thanks to you`, level: 1 };
+        }
+      }
       if (by && !by.isHero && by !== f && (e.cause === 'beaten' || e.cause === 'body')) {
         if (by.brain && by.brain.foe === f) return { text: pick([`${by.name} beats ${name} senseless`, `${by.name} wins the brawl with ${name}`, `${name} loses the fight with ${by.name}`], n), level: 2 };
         return { text: `${by.name} accidentally knocks out ${name}`, level: 2 };
@@ -89,6 +103,9 @@ export function describe(e) {
       return { text: `${e.a.name} trips over a body`, level: 1 };
     case 'feed':
       return { text: e.text, level: e.level || 1 };
+    case 'lightning':
+      if (e.n >= 3) return { text: `Lightning arcs through ${e.n} of them`, level: 3 };
+      return null;
     case 'heroDefeated': {
       const how = { electric: 'electrocuted', fell: 'fallen', explosion: 'caught in a blast', window: 'thrown out', body: 'buried under bodies' }[e.cause];
       return { text: how ? `Onyx is ${how}. It's over.` : `Onyx is down${e.by ? ` — ${e.by.name} lands the final blow` : ''}.`, level: 3 };
