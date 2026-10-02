@@ -171,8 +171,8 @@ defineProp('lv52_slide', {
     mb.box(-0.55, 1.8, 0.52, 0.55, 2.25, 0.58, col, { skip: 8 });
     // chute: slopes from the platform down to the ground, with side walls
     const y0 = 1.76, z0 = -0.55, y1 = 0.14, z1 = -3.1;
-    mb.poly4([-0.36, y1, z1], [0.36, y1, z1], [0.36, y0, z0], [-0.36, y0, z0], ch, [0, 1, 1, 1, 1, 0, 0, 0]);
-    mb.poly4([0.36, y1 - 0.02, z1], [-0.36, y1 - 0.02, z1], [-0.36, y0 - 0.02, z0], [0.36, y0 - 0.02, z0], col, [0, 1, 1, 1, 1, 0, 0, 0]);
+    mb.poly4([0.36, y1, z1], [-0.36, y1, z1], [-0.36, y0, z0], [0.36, y0, z0], ch, [0, 1, 1, 1, 1, 0, 0, 0]);
+    mb.poly4([-0.36, y1 - 0.02, z1], [0.36, y1 - 0.02, z1], [0.36, y0 - 0.02, z0], [-0.36, y0 - 0.02, z0], col, [0, 1, 1, 1, 1, 0, 0, 0]);
     for (const sx of [-1, 1]) {
       const xa = sx * 0.36, xb = sx * 0.4;
       mb.poly4([xa, y1, z1], [xa, y0, z0], [xa, y0 + 0.2, z0], [xa, y1 + 0.2, z1], col, [0, 1, 1, 1, 1, 0, 0, 0]);
@@ -214,7 +214,6 @@ defineProp('lv52_roundabout', {
   build(mb) {
     const top = T('lv52_rb_top', { lit: true }), pipe = S('lv52_pipe');
     mb.cyl(0, 0.0, 0, 0.14, 0.3, 6, pipe, 3);
-    mb.cyl(0, 0.3, 0, 1.4, 0.07, 10, S('lv52_pipe'), 0, top);
     mb.cyl(0, 0.3, 0, 1.4, 0.07, 10, S('lv52_pipe'), 3, top);
     mb.cyl(0, 0.37, 0, 0.05, 0.55, 5, pipe, 3);
     for (let k = 0; k < 4; k++) {

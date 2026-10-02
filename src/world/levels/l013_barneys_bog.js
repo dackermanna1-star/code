@@ -315,7 +315,7 @@ function lamp(zb, x, z, y, on, dying) {
   if (!on) { zb.box(x - 0.1, y, z - 0.1, x + 0.1, y + 0.3, z + 0.1, M.lv13_post, { collide: false }); return; }
   const ch = dying ? 7 : hr(Math.floor(x), Math.floor(z), 33) < 0.12 ? 2 : 0;
   zb.prop('lv13_lantern', x, y, z, 0, { ch });
-  zb.light(x, y + 0.15, z, { color: [0.62, 1.0, 0.42], rad: 9, int: 0.95, ch });
+  zb.light(x, y + 0.15, z, { color: [0.62, 1.0, 0.42], rad: 7.5, int: 1.0, ch });
 }
 
 function drawPath(zb, path, rng) {
@@ -332,10 +332,10 @@ function drawPath(zb, path, rng) {
     const sx = a[0] + ux * insA, sz = a[1] + uz * insA, ex = b[0] - ux * insB, ez = b[1] - uz * insB;
     if (Math.hypot(ex - sx, ez - sz) > 0.05) {
       const mat = alongX ? M.lv13_plank_v : M.lv13_plank_h;
-      cbox(zb, Math.min(sx, ex) - (alongX ? 0 : HW), DECK - 0.13, Math.min(sz, ez) - (alongX ? HW : 0), Math.max(sx, ex) + (alongX ? 0 : HW), DECK, Math.max(sz, ez) + (alongX ? HW : 0), mat);
+      cbox(zb, Math.min(sx, ex) - (alongX ? 0 : HW), DECK - 0.13, Math.min(sz, ez) - (alongX ? HW : 0), Math.max(sx, ex) + (alongX ? 0 : HW), DECK, Math.max(sz, ez) + (alongX ? HW : 0), mat, { skip: 8 });
     }
     // corner squares
-    if (!last) cbox(zb, b[0] - HW, DECK - 0.13, b[1] - HW, b[0] + HW, DECK, b[1] + HW, M.lv13_plank_h);
+    if (!last) cbox(zb, b[0] - HW, DECK - 0.13, b[1] - HW, b[0] + HW, DECK, b[1] + HW, M.lv13_plank_h, { skip: 8 });
     // posts and rails
     const px = -uz, pz = ux;     // sideways
     const phase = 0.5 + (i * 0.7) % 1.2;
@@ -368,7 +368,7 @@ function drawPath(zb, path, rng) {
 }
 
 function platform(zb, cx, cz, rail) {
-  cbox(zb, cx - PLAT, DECK - 0.13, cz - PLAT, cx + PLAT, DECK, cz + PLAT, M.lv13_plank_h);
+  cbox(zb, cx - PLAT, DECK - 0.13, cz - PLAT, cx + PLAT, DECK, cz + PLAT, M.lv13_plank_h, { skip: 8 });
   for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
     const x = cx + sx * (PLAT - 0.12), z = cz + sz * (PLAT - 0.12);
     if (owns(zb, x, z)) zb.box(x - 0.09, hf(x, z) - 0.12, z - 0.09, x + 0.09, DECK + (rail ? 1.0 : 0), z + 0.09, M.lv13_post, { collide: rail });
