@@ -22,7 +22,7 @@ interface ZPal {
 }
 
 const PAL: Record<string, ZPal> = {
-  zombie: { skin: hex(0x5d8a3e), skinDark: hex(0x34521f), hair: hex(0x22331a), shirt: hex(0x1d9a9c), pants: hex(0x3c3a8d), shoes: hex(0x3c3f45), rot: hex(0x4a3a20), eye: hex(0x050505), eyeGlow: 0, wet: 0.15, kelp: 0, sun: 0 },
+  zombie: { skin: hex(0x557f3a), skinDark: hex(0x34521f), hair: hex(0x22331a), shirt: hex(0x1d9a9c), pants: hex(0x3c3a8d), shoes: hex(0x3c3f45), rot: hex(0x4a3a20), eye: hex(0x050505), eyeGlow: 0, wet: 0.15, kelp: 0, sun: 0 },
   husk: { skin: hex(0x9a8a62), skinDark: hex(0x5f5236), hair: hex(0x4b3f2a), shirt: hex(0x8a7b55), pants: hex(0x6a5a40), shoes: hex(0x463b2c), rot: hex(0x4a3b26), eye: hex(0x0b0806), eyeGlow: 0, wet: 0, kelp: 0, sun: 1 },
   drowned: { skin: hex(0x4f9a94), skinDark: hex(0x2a5a5a), hair: hex(0x1a3b2a), shirt: hex(0x3a8a7a), pants: hex(0x3b5a6e), shoes: hex(0x2d3a3c), rot: hex(0x24433a), eye: hex(0x46f0e8), eyeGlow: 1, wet: 0.85, kelp: 1, sun: 0 },
 };
@@ -43,8 +43,9 @@ function zombiePaint(kind: string) {
 function rotSkin(s: Sample, P: ZPal) {
   skin(s, P.skin, { mottle: 0.9, pores: 0.0004, wrinkles: 0.6, sss: 0.55, rough: 0.55 - P.wet * 0.3, blotch: P.skinDark, blotchAmt: 0.55, vein: P.skinDark, veinAmt: 0.35 });
   // necrotic lesions
-  const w = worley3(s.x * 9 + 3, s.y * 9, s.z * 9, 1);
-  const lesion = smooth(0.32, 0.18, w.f1) * smooth(0.55, 0.85, w.id);
+  const wx = fbm3(s.x * 4, s.y * 4, s.z * 4, 2) * 0.35;
+  const w = worley3(s.x * 6 + 3 + wx, s.y * 6 - wx, s.z * 6, 1);
+  const lesion = smooth(0.42, 0.12, w.f1 + noise3(s.x * 45, s.y * 45, s.z * 45) * 0.12) * smooth(0.6, 0.9, w.id);
   if (lesion > 0) {
     mixRGB(s, P.rot, lesion * 0.8);
     s.height -= lesion * 0.0018;
@@ -217,6 +218,6 @@ export function zombieModel(kind: 'zombie' | 'husk' | 'drowned' = 'zombie'): Mod
     paint: zombiePaint(kind),
     nose: { w: 2, h: 1.4, d: 0.55, row: 4.9 },
     sss: 0.55,
-    blood: kind === 'drowned' ? 2 : 0,
+    blood: 0,
   });
 }

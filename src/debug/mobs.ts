@@ -86,8 +86,8 @@ async function main() {
   const target = new THREE.Vector3(num('tx', 0), H + num('ty', 1.0), num('tz', 0));
   const yaw = THREE.MathUtils.degToRad(num('yaw', 0)), pitch = THREE.MathUtils.degToRad(num('pitch', -8));
   const dist = num('dist', Math.max(4.5, names.length * spacing * 0.9));
-  cam.position.set(target.x - Math.sin(yaw) * Math.cos(pitch) * -dist, target.y - Math.sin(pitch) * dist, target.z + Math.cos(yaw) * Math.cos(pitch) * dist);
-  cam.position.x = target.x + Math.sin(yaw) * Math.cos(pitch) * dist;
+  // yaw 0 = viewing the mobs' faces (they face -Z)
+  cam.position.set(target.x - Math.sin(yaw) * Math.cos(pitch) * dist, target.y - Math.sin(pitch) * dist, target.z - Math.cos(yaw) * Math.cos(pitch) * dist);
   cam.lookAt(target);
   const time = num('time', 3000);
   const angle = (time / 24000) * Math.PI * 2;
