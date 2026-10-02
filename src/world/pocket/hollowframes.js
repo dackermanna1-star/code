@@ -221,7 +221,7 @@ function genHollow(zb) {
     buildHouse(zb, fr, { ext: sp[1], sidingName: sp[0], phase: seedAt(n, 5) * 6.28, light: 1 });
     // mailbox at the curb side of the lawn
     const [mu, mv] = TILE_CLS.info[n].mail;
-    zb.prop('mailbox', fr.x(mu, mv), GROUND, fr.z(mu, mv), facing(fr.fx, fr.fz), { tint: [0.62, 0.68, 0.8] });
+    zb.prop('mailbox', fr.x(mu, mv), GROUND, fr.z(mu, mv), facing(fr.fx, fr.fz), { tint: [1.2, 1.1, 0.7] });
     const tr = TILE_CLS.info[n].tree;
     if (tr && seedAt(n, 7) < 0.75) zb.prop('eh_deadtree', fr.x(tr[0], tr[1]), GROUND, fr.z(tr[0], tr[1]), seedAt(n, 9) * 6.28, { h: 3.8 + seedAt(n, 11) * 1.6 });
   });
@@ -247,7 +247,8 @@ function genHollow(zb) {
 
   // ---- street paint: dashed centre line down the stem, dashes around the ring
   const dec = (cx, cz, w, h, tex, rot) => zb.decal(wx(cx), 0, wz(cz), 'up', w, h, tex, { rot: (rot || 0) + (odd ? Math.PI : 0) });
-  for (let cz = C + 14; cz < TILE - 0.01; cz += 6) dec(C, cz + 1.5, 0.2, 3, 'eh_paint_y', 0);
+  // (3 m dashes are laid as two pieces: long decals z-fight with the ground near the camera)
+  for (let cz = C + 14; cz < TILE - 0.01; cz += 6) { dec(C, cz + 0.75, 0.2, 1.53, 'eh_paint_y', 0); dec(C, cz + 2.25, 0.2, 1.53, 'eh_paint_y', 0); }
   for (let k = 0; k < 18; k++) {
     const a = (k / 18) * Math.PI * 2, r = 9.75;
     const cz = C + Math.sin(a) * r, cx = C + Math.cos(a) * r;
@@ -271,4 +272,3 @@ defineZone('p_hollowframes', {
   gen: genHollow,
 });
 
-export { HW };

@@ -7,12 +7,14 @@ import { W, CF, M, stairs } from '../gen/common.js';
 import { defineProp, propMat as S, propTex as T } from '../props.js';
 import { defineTexture } from '../../gfx/textures.js';
 import { defineMaterial } from '../materials.js';
-import { face, tface, rotAlong } from './eh_common.js';
+import { face, tface } from './eh_common.js';
 import { FACE, only } from './e_util.js';
 
-export const HW = 12, HD = 11;           // footprint in cells
+export const HW = 12;                    // footprint in cells
+export const HD = 11;
 export const GROUND = 0.15;              // lawn / sidewalk level (road is 0)
-export const F0 = 0.30, F1 = 1.65;       // finished floors: front half, back half
+export const F0 = 0.30;                  // finished floors: front half
+export const F1 = 1.65;                  // back half
 export const CH = 2.6;                   // ceiling height above each floor
 const TOP0 = F0 + CH, TOP1 = F1 + CH;    // wall tops
 const TOPS = 3.6;                        // ceiling over the stairwell (kept under the sloping roof)
@@ -217,7 +219,7 @@ function coverPosts(zb, fr, EXT, INT) {
       const along = (k) => [vx + e[0] * k[0] + d[0] * k[1], vz + e[1] * k[0] + d[1] * k[1]];
       const a = along([0.1, -0.1]), b = along([0.15, 0.17]);
       zb.box(Math.min(a[0], b[0]), bot, Math.min(a[1], b[1]), Math.max(a[0], b[0]), top, Math.max(a[1], b[1]),
-        [e[0] > 0 || d[0] ? EXT : null, e[0] < 0 || d[0] ? EXT : null, null, null, e[1] > 0 || d[1] ? EXT : null, e[1] < 0 || d[1] ? EXT : null], { collide: false });
+        [e[0] > 0 || d[0] ? EXT : null, e[0] < 0 || d[0] ? EXT : null, null, null, e[1] > 0 || d[1] ? EXT : null, e[1] < 0 || d[1] ? EXT : null], { collide: false, sub: 8 });
     }
   }
 }
@@ -272,16 +274,31 @@ export function buildHouse(zb, fr, o) {
 
   coverPosts(zb, fr, EXT, INT);
 
+  // ---- the only fittings an unfinished house has: a switch plate, a few outlets, floor vents
+  fr.decal(7.5, F0 + 1.3, 0.1, 0, 1, 0.14, 0.22, 'dec_switch');
+  fr.decal(6.5, F0 + 0.3, 4.9, 0, -1, 0.14, 0.2, 'dec_outlet');
+  fr.decal(4.9, F0 + 0.3, 2.0, -1, 0, 0.14, 0.2, 'dec_outlet');
+  fr.decal(3.5, F1 + 0.3, 6.9, 0, -1, 0.14, 0.2, 'dec_outlet');
+  fr.decal(9.0, F1 + 2.2, 6.9, 0, -1, 0.5, 0.3, 'dec_vent');
+  fr.decal(3.9, F1 + 0.3, 9.0, -1, 0, 0.14, 0.2, 'dec_outlet');
+  fr.decal(8.1, F1 + 0.3, 8.5, 1, 0, 0.14, 0.2, 'dec_outlet');
+  for (const [lu, lv, f] of [[2.5, 4.2, F0], [8.0, 3.6, F0], [6.0, 5.5, F1], [2.0, 10.4, F1], [6.0, 10.4, F1], [10.0, 10.4, F1]]) {
+    if (fr.owns(lu, lv)) zb.decal(fr.x(lu, lv), f, fr.z(lu, lv), 'up', 0.4, 0.26, 'dec_vent_floor', { rot: Math.atan2(fr.uz, fr.ux) });
+  }
+
   // ---- outside dressing
   {
     const gx = fr.x(2.5, -0.1), gz = fr.z(2.5, -0.1);
     if (zb.in(Math.floor(gx), Math.floor(gz))) zb.prop('eh_garage_door', gx, GROUND, gz, Math.atan2(fr.fx, -fr.fz), { w: 4.5, h: 2.2 });
   }
-  // the front door leaf, ajar in the wind
+  // the front door leaf, standing open into the foyer and stirring in the wind. It leans 0.2 rad
+  // from the wall toward the room, and swings +-0.12 about that, so it never meets the partition
+  // beside the door (whichever way the plan is mirrored).
   const hx = fr.x(5.16, 0.0), hz = fr.z(5.16, 0.0);
   if (zb.in(Math.floor(hx), Math.floor(hz))) {
-    const rot = rotAlong(fr.vx, fr.vz) + 0.1;
-    zb.dynamic('eh_door_leaf', hx, F0, hz, rot, {}, { osc: [0.14, 0.06, o.phase || 0] });
+    const a = 0.2;
+    const rot = Math.atan2(fr.vz * Math.cos(a) + fr.uz * Math.sin(a), fr.vx * Math.cos(a) + fr.ux * Math.sin(a));
+    zb.dynamic('eh_door_leaf', hx, F0, hz, rot, {}, { osc: [0.12, 0.06, o.phase || 0] });
   }
 
   // ---- daylight: a cool light just inside every window, a very dim one in the windowless
@@ -291,20 +308,14 @@ export function buildHouse(zb, fr, o) {
     if (zb.in(Math.floor(x), Math.floor(z))) zb.light(x, f, z, { rad, int: int * (o.light ?? 1), color });
   };
   const day = [0.9, 0.95, 1.0], dim = [1, 0.96, 0.88];
-  L(9.0, 0.9, F0 + 1.7, 0.55, day);      // living room picture window
-  L(11.0, 1.5, F0 + 1.7, 0.45, day);     // living room side window
-  L(0.9, 2.5, F0 + 1.7, 0.5, day);       // garage room window
-  L(11.1, 8.5, F1 + 1.7, 0.5, day);      // east bedroom
-  L(0.9, 8.5, F1 + 1.7, 0.5, day);       // west bedroom
-  for (const u of [1.5, 5.5, 9.5]) L(u, 10.1, F1 + 1.7, 0.5, day);   // back windows
-  L(7.5, 2.5, F0 + 2.1, 0.3, dim);       // foyer
-  L(10.5, 3.0, F0 + 2.4, 0.22, dim);     // stairwell
-  L(3.0, 6.0, F1 + 2.1, 0.2, dim, 5);    // hall
-  L(9.0, 6.0, F1 + 2.1, 0.2, dim, 5);
+  L(9.0, 1.0, F0 + 1.8, 0.6, day);       // living room, by the picture window
+  L(1.0, 2.5, F0 + 1.8, 0.5, day);        // garage room, by its window
+  L(7.5, 3.2, F0 + 2.1, 0.28, dim);       // foyer
+  L(6.0, 6.0, F1 + 2.1, 0.24, dim, 7);    // hall
+  for (const u of [2, 6, 10]) L(u, 9.0, F1 + 1.8, 0.55, day);   // the three bedrooms
 
   // ---- roof
   const rx = fr.x(HW / 2, 0), rz = fr.z(HW / 2, 0);
   if (!o.noRoof) zb.prop('eh_roof_split', rx, 0, rz, Math.atan2(fr.fx, -fr.fz), { siding: o.sidingName || 'siding', collide: false, stairSide: fr.mirror ? 1 : -1 });
 }
 
-export { CF };

@@ -128,12 +128,9 @@ function genCuldesac(zb) {
       houseCollision(zb, h);
       if (!owns(zb, h.ax, h.az)) continue;
       const shade = 0.9 + hr(side, k, 5) * 0.2;
-      zb.prop('eh_brickhouse', h.ax, GROUND, h.az, h.rot, { shade, hum: (k & 1) === 0, collide: false });
+      zb.prop('eh_brickhouse', h.ax, GROUND, h.az, h.rot, { shade, hum: (k & 1) === 0, collide: false, drive: FACADE - ROAD });
       // a lamp over the back yard on every other house
       if (k & 1) zb.light(h.ax - h.fx * (HDEP + 0.6), GROUND + 4.4, h.az - h.fz * (HDEP + 0.6), { rad: 8, int: 0.8, color: [1.0, 0.8, 0.52] });
-      // the driveway, from the garage to the kerb
-      const len = FACADE - ROAD;
-      zb.decal(h.ax + h.fx * len / 2, GROUND, h.az + h.fz * len / 2, 'up', GAR * 2, len, 'sidewalk', { rot: h.rot });
     }
   }
 
@@ -146,11 +143,24 @@ function genCuldesac(zb) {
       const x = CX + (R + sgn * 9.8) * ux, z = CZ + (R + sgn * 9.8) * uz;
       if (!owns(zb, x, z)) continue;
       const rot = rot2f(-sgn * ux, -sgn * uz);
-      zb.prop('eh_streetlamp', x, GROUND, z, rot, { hum: j % 3 === 0 });
+      // most lamps burn steadily; a few stutter, a few have gone out
+      const u = hr(side + 7, j, 11);
+      const dead = u < 0.06;
+      const ch = dead ? 0 : u < 0.13 ? 5 + (j & 3) : u < 0.2 ? 1 + (j & 3) : 0;
+      zb.prop('eh_streetlamp', x, GROUND, z, rot, { hum: j % 3 === 0, dead, ch });
       // a second, lower light under the lamp head widens the pool of light on the road
       const fx = -sgn * ux, fz = -sgn * uz;
-      zb.light(x + fx * 2.1, GROUND + 2.4, z + fz * 2.1, { rad: 8, int: 1.5, color: [1.0, 0.74, 0.42] });
+      if (!dead) zb.light(x + fx * 2.1, GROUND + 2.4, z + fz * 2.1, { rad: 8, int: 1.5, color: [1.0, 0.74, 0.42], ch });
     }
+  }
+
+  // ---- NO OUTLET signs: one either side of the pump house, then every 36 degrees round the ring
+  const signs = [[Math.PI + 0.085, 1], [Math.PI - 0.085, -1]];
+  for (let k = 1; k < 10; k++) signs.push([Math.PI + 0.085 + k * (TAU / 10), k & 1 ? -1 : 1]);
+  for (const [th, sgn] of signs) {
+    const ux = Math.cos(th), uz = Math.sin(th);
+    const x = CX + (R + sgn * 9.2) * ux, z = CZ + (R + sgn * 9.2) * uz;
+    if (owns(zb, x, z)) zb.prop('eh_roadsign', x, GROUND, z, rot2f(-sgn * ux, -sgn * uz), {});
   }
 
   // ---- lantern posts in the back yards, so that the far wall shows as a faint warm glow
@@ -163,16 +173,19 @@ function genCuldesac(zb) {
     }
   }
 
-  // ---- road paint: double yellow centre line, white edge lines
-  const NS = Math.round((TAU * R) / 4.2);
-  for (let m = 0; m < NS; m++) {
-    const th = (m + 0.5) * (TAU / NS);
+  // ---- road paint: double yellow centre line, white edge lines. Long decals z-fight with the
+  // 1 m ground quads near the camera (their snapped vertices disagree about depth), so each
+  // 4.2 m stretch is laid as three short pieces.
+  const NS = Math.round((TAU * R) / 4.2), PIECES = 3;
+  for (let m = 0; m < NS * PIECES; m++) {
+    const th = (m + 0.5) * (TAU / (NS * PIECES));
     const ux = Math.cos(th), uz = Math.sin(th), rot = th + Math.PI;
     const px = CX + R * ux, pz = CZ + R * uz;
     if (!owns(zb, px, pz)) continue;
     const nearShed = Math.hypot(px - (ENTRY.ox + 1.5), pz - (ENTRY.oz + 3.5)) < 8.5;
-    if (!nearShed) for (const d of [-0.16, 0.16]) zb.decal(CX + (R + d) * ux, 0, CZ + (R + d) * uz, 'up', 0.12, 4.4, 'eh_paint_y', { rot });
-    for (const d of [-7.35, 7.35]) zb.decal(CX + (R + d) * ux, 0, CZ + (R + d) * uz, 'up', 0.12, 4.4, 'eh_paint_w', { rot });
+    const len = (4.2 / PIECES) * 1.04;
+    if (!nearShed) for (const d of [-0.16, 0.16]) zb.decal(CX + (R + d) * ux, 0, CZ + (R + d) * uz, 'up', 0.12, len, 'eh_paint_y', { rot });
+    for (const d of [-7.35, 7.35]) zb.decal(CX + (R + d) * ux, 0, CZ + (R + d) * uz, 'up', 0.12, len, 'eh_paint_w', { rot });
   }
 
   // ---- ambience: the low note of a transformer somewhere

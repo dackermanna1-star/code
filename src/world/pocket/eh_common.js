@@ -78,9 +78,6 @@ export class Frame {
   }
 }
 
-// prop rotation so that the model's local +x points along world (dx, dz)
-export const rotAlong = (dx, dz) => Math.atan2(dz, dx);
-
 // ---------------------------------------------------------------- polygon helpers for props
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];

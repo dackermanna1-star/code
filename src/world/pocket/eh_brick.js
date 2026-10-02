@@ -3,7 +3,7 @@
 // Models face local -z (the street side); the facade is the plane z = 0 and the house extends
 // toward +z. The house is a purely visual prop: its collision is laid down by the zone as
 // invisible brushes (a prop's own collision boxes would stop at its chunk's border).
-import { defineProp, propMat as S, propGlow as G } from '../props.js';
+import { defineProp, propMat as S, propGlow as G, propTex as T } from '../props.js';
 import { VF } from '../materials.js';
 import { defineTexture } from '../../gfx/textures.js';
 import { defineMaterial } from '../materials.js';
@@ -100,30 +100,36 @@ defineProp('eh_brickhouse', {
       tface(mb, P[0], P[2], P[3], h, brick, brick.su, brick.sv);
       tface(mb, P[0], P[3], P[4], h, brick, brick.su, brick.sv);
     }
+    // the driveway: a slab 5 cm proud of the lawn from the garage to the kerb (a decal here z-fights
+    // with the ground quads near the camera)
+    const drive = S('sidewalk', { tint: [k * 1.05, k * 1.05, k * 1.1] });
+    mb.box(-G2, 0, -(p.opts.drive || 9), G2, 0.05, 0, drive, { skip: 8, sub: 1.5 });
     // chimney
     mb.box(3.5, roofTop(6.4) - 0.6, 5.9, 4.4, 10.4, 6.8, brick, { skip: 8 });
     mb.box(3.4, 10.4, 5.8, 4.5, 10.55, 6.9, conc, { skip: 8 });
   },
   boxes: [],
-  // the garage's light, spilling out onto the driveway
+  // the garage's light, spilling out onto the driveway, and the faint buzz of its tube
   light: { x: 0, y: 1.9, z: 0.1, color: [0.76, 0.97, 0.9], rad: 8, int: 1.0 },
+  emitter: { snd: 'hum_strip', vol: 0.1, rad: 8, y: 1.9, cond: (p) => !!p.opts.hum },
 });
 
-// Sodium streetlamp. The arm reaches toward local -z (the road).
+// Sodium streetlamp. The arm reaches toward local -z (the road). opts.ch: flicker channel,
+// opts.dead: a lamp that has gone out.
 defineProp('eh_streetlamp', {
   build(mb, p) {
     const metal = S('metal_dark', { tint: [0.7, 0.7, 0.74] });
-    const lens = { ...G('eh_sodium', 1.3), flags: VF.FULLBRIGHT | VF.NOFOG };
+    const lens = p.opts.dead ? S('plastic_gray', { tint: [0.35, 0.35, 0.38] }) : { ...G('eh_sodium', 1.3, p.opts.ch || 0), flags: VF.FULLBRIGHT | VF.NOFOG };
     mb.box(-0.16, 0, -0.16, 0.16, 0.45, 0.16, metal, { skip: 8 });
     mb.cyl(0, 0.45, 0, 0.09, 4.75, 6, metal, 2);
     mb.rod(0, 5.1, 0, 0, 5.4, -1.0, 0.055, 4, metal, false);
     mb.rod(0, 5.4, -1.0, 0, 5.4, -2.1, 0.055, 4, metal, false);
-    // lamp head: a glowing lantern with a dark cap
+    // lamp head: a lantern with a dark cap
     mb.box(-0.27, 5.2, -2.6, 0.27, 5.44, -1.7, [lens, lens, metal, lens, lens, lens]);
   },
   boxes: [[-0.2, 0, -0.2, 0.2, 5.2, 0.2]],
-  light: { x: 0, y: 4.9, z: -2.15, color: [1.0, 0.72, 0.4], rad: 8, int: 1.2 },
-  emitter: { snd: 'transformer', vol: 0.12, rad: 9, y: 4.5, cond: (p) => !!p.opts.hum },
+  light: { x: 0, y: 4.9, z: -2.15, color: [1.0, 0.72, 0.4], rad: 8, int: 1.2, cond: (p) => !p.opts.dead },
+  emitter: { snd: 'transformer', vol: 0.12, rad: 9, y: 4.5, cond: (p) => !!p.opts.hum && !p.opts.dead },
 });
 
 // A short lantern post for the back yards.
@@ -136,4 +142,16 @@ defineProp('eh_gardenlamp', {
   },
   boxes: [[-0.12, 0, -0.12, 0.12, 3, 0.12]],
   light: { x: 0, y: 2.9, z: 0, color: [1.0, 0.76, 0.46], rad: 8, int: 1.15 },
+});
+
+// The street sign that stands at the mouth of every cul-de-sac. Faces local -z.
+defineProp('eh_roadsign', {
+  build(mb, p) {
+    const metal = S('metal_dark', { tint: [0.65, 0.65, 0.7] });
+    const st = T('eh_sign_culdesac', { tint: [0.85, 0.85, 0.85] });
+    const FIT = [0, 0, 1, 1];
+    mb.cyl(0, 0, 0, 0.04, 2.4, 5, metal, 2);
+    mb.box(-0.4, 1.65, -0.07, 0.4, 2.45, -0.03, [metal, metal, metal, metal, metal, st], { uv: ['world', 'world', 'world', 'world', FIT, FIT] });
+  },
+  boxes: [[-0.1, 0, -0.1, 0.1, 2.4, 0.1]],
 });
