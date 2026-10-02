@@ -1,9 +1,8 @@
 // Dressing for the maintenance tunnels: pipes, ducts, beams, stencils, panels, niches, dead ends,
 // puddles, grates, drips and lights.
 import { CF, M, ceilingLight, facing, propOnWall } from './common.js';
-import { pipeRun, rod } from './a_common.js';
-import { lightState } from './b_util.js';
-import { K, DIRS, clamp, faceToward, keyOf } from './z_util.js';
+import { pipeRun, rod, floorLine } from './a_common.js';
+import { K, DIRS, clamp, faceToward, keyOf, lightState } from './z_util.js';
 
 // ------------------------------------------------------------------ wall faces
 // Maximal runs of straight wall seen from tunnel cells. (dx, dz) points from the cells to the wall;
@@ -113,6 +112,7 @@ function casings(S, walls, r) {
     const m = r.pick([M.duct, M.concrete_dark, M.metal_dark]);
     zb.box(Math.min(...xs), 0, Math.min(...zs), Math.max(...xs), h, Math.max(...zs), [m, m, M.metal_plate, null, m, m], { sub: 1.6 });
     for (let t = a; t < b; t++) S.used.add(keyOf(w.dx !== 0 ? w.o : t, w.dx !== 0 ? t : w.o, w.dx, w.dz));
+    (S.casingInfo || (S.casingInfo = [])).push({ x: (x0 + x1) / 2, z: (z0 + z1) / 2, dx: w.dx, dz: w.dz, alongX: w.alongX });
   }
 }
 
@@ -353,9 +353,23 @@ function wallStuff(S, walls, r) {
   }
 }
 
-// a sign beside every machine room door
+// a sign beside every machine room door, and one inside every entrance
 function doorSigns(S, r) {
   const { zb, kind, I, kAt } = S;
+  for (const run of S.runs) {
+    if (!run.gate || run.dead || run.cells.length < 3 || !r.chance(0.75)) continue;
+    const [dx, dz] = DIRS[run.di];
+    for (const s of r.shuffle([1, -1])) {
+      const ld = s > 0 ? DIRS[(run.di + 1) % 4] : DIRS[(run.di + 3) % 4];
+      const c = run.cells[2];
+      if (kind[I(c[0], c[1])] !== K.TUN || kAt(c[0] + ld[0], c[1] + ld[1]) !== K.SOLID) continue;
+      const px = ld[0] > 0 ? c[0] + 1 : ld[0] < 0 ? c[0] : c[0] + 0.5, pz = ld[1] > 0 ? c[1] + 1 : ld[1] < 0 ? c[1] : c[1] + 0.5;
+      zb.decal(px, 1.7, pz, faceToward(ld[0], ld[1]), 0.5, 0.5, r.pick(['sign_auth', 'sign_maint', 'a_sign_hardhat', 'sign_staff']));
+      S.used.add(keyOf(c[0], c[1], ld[0], ld[1]));
+      break;
+    }
+    void dx; void dz;
+  }
   const sign = { boiler: 'a_sign_boiler', pump: 'a_sign_pump', electrical: 'a_sign_danger', tank: 'a_sign_hardhat', control: 'sign_staff', storage: 'a_sign_supply', sump: 'sign_watchstep' };
   for (const rm of S.rooms) {
     const { from, dx, dz } = rm;
@@ -414,6 +428,17 @@ function floors(S, r) {
       for (const [x, z] of run.w === 2 ? [c, [c[0] + pv[0], c[1] + pv[1]]] : [c]) if (kind[I(x, z)] === K.TUN && zb.floor[I(x, z)] === 0) zb.fmat[I(x, z)] = M.grate;
     }
   }
+  // yellow walking lines down the middle of some long straight tunnels
+  for (const run of runs) {
+    if (run.dead || run.link || run.cells.length < 9 || !r.chance(0.28)) continue;
+    const pv = DIRS[(run.di + 1) % 4];
+    let ok = true;
+    for (let k = 1; k < run.cells.length - 1; k++) { const c = run.cells[k]; if (kind[I(c[0], c[1])] !== K.TUN || zb.floor[I(c[0], c[1])] !== 0) { ok = false; break; } }
+    if (!ok) continue;
+    const ctr = (c) => [c[0] + 0.5 + (run.w === 2 ? pv[0] * 0.5 : 0), c[1] + 0.5 + (run.w === 2 ? pv[1] * 0.5 : 0)];
+    const a = ctr(run.cells[1]), b = ctr(run.cells[run.cells.length - 2]);
+    floorLine(zb, a[0], a[1], b[0], b[1], 0.12, r.chance(0.75) ? 'a_dec_line' : 'a_dec_line_w', 0);
+  }
   // drains and manhole covers
   const nDr = Math.round(cells.length / 60);
   for (let k = 0; k < nDr; k++) {
@@ -430,11 +455,34 @@ function pitDressing(S, r) {
     const { run, k0, k1, depth, lanes } = pit;
     const flooded = p.style === 'flooded' || r.chance(0.35);
     for (let k = k0 + 3; k < k1 - 3; k++) for (const [x, z] of lanes(run.cells[k])) {
-      if (flooded) { zb.fmat[I(x, z)] = M.water_black; }
+      if (flooded) { zb.fmat[I(x, z)] = M.water_dark; }
       else if (r.chance(0.35)) zb.decal(x + 0.5, -depth, z + 0.5, 'up', r.range(0.9, 1.5), r.range(0.9, 1.5), 'dec_puddle', { rot: r.range(0, 6) });
     }
     const mid = run.cells[Math.floor((k0 + k1) / 2)];
     zb.emitter(mid[0] + 0.5, -depth + 0.5, mid[1] + 0.5, flooded ? 'water' : 'drip', { vol: 0.5, rad: 9 });
+    // hazard stripes before each stair and a handrail along one wall
+    const ctrOf = (c) => [c[0] + 0.5 + (run.w === 2 ? DIRS[(run.di + 1) % 4][0] * 0.5 : 0), c[1] + 0.5 + (run.w === 2 ? DIRS[(run.di + 1) % 4][1] * 0.5 : 0)];
+    const dvec = DIRS[run.di], pvv = DIRS[(run.di + 1) % 4];
+    for (const [kk, sgn] of [[k0 - 1, 1], [k1, -1]]) {
+      const c = run.cells[kk];
+      if (!c) continue;
+      const [hx, hz] = ctrOf(c);
+      zb.decal(hx + dvec[0] * sgn * 0.35, 0, hz + dvec[1] * sgn * 0.35, 'up', 0.3, run.w === 2 ? 1.9 : 0.95, 'hazard', { rot: run.di % 2 === 0 ? 0 : Math.PI / 2 });
+    }
+    {
+      const side = r.sign();
+      const lat = side * (run.w === 2 ? 0.88 : 0.38);
+      const railAt = (kA, kB, hA, hB) => {
+        const A = ctrOf(run.cells[kA]), B = ctrOf(run.cells[kB]);
+        const ax = A[0] - dvec[0] * 0.5 + pvv[0] * lat, az = A[1] - dvec[1] * 0.5 + pvv[1] * lat;
+        const bx = B[0] + dvec[0] * 0.5 + pvv[0] * lat, bz = B[1] + dvec[1] * 0.5 + pvv[1] * lat;
+        rod(zb, ax, hA + 0.95, az, bx, hB + 0.95, bz, 0.025, 'metal');
+        rod(zb, ax, hA, az, ax, hA + 0.95, az, 0.02, 'metal');
+        rod(zb, bx, hB, bz, bx, hB + 0.95, bz, 0.02, 'metal');
+      };
+      railAt(k0, k0 + 2, 0, -depth);
+      railAt(k1 - 3, k1 - 1, -depth, 0);
+    }
     // lamps hung low over the sunken part so the water and the stairs can be seen
     const nl = Math.max(1, Math.round((k1 - k0 - 6) / 5));
     const pvl = DIRS[(run.di + 1) % 4];

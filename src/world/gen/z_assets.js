@@ -4,7 +4,7 @@ import { defineTexture } from '../../gfx/textures.js';
 import { pnoise, pfbm } from '../../gfx/texgen.js';
 import { defineMaterial, M } from '../materials.js';
 import { defineProp, propMat as S, propTex as T, propGlow as glow, propWithXf as withXf, PROP_FIT as FIT } from '../props.js';
-import { xfRotY, xfRotX, xfTranslate, xfMul } from '../../core/math.js';
+import { xfRotY, xfTranslate, xfMul } from '../../core/math.js';
 
 const mulc = (c, m) => [c[0] * m, c[1] * m, c[2] * m];
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];

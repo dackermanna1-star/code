@@ -4,7 +4,7 @@ import { CF, M, ceilingLight, facing, stairs } from './common.js';
 import { W_BLOCKS } from '../zonebuilder.js';
 import { defineRoomPiece } from '../roompieces.js';
 import { pipeRun, rod, floorLine } from './a_common.js';
-import { lightState } from './b_util.js';
+import { lightState } from './z_util.js';
 import './z_assets.js';
 
 // Frame of a room seen from its door: u runs along the door wall, v away from it.
@@ -25,7 +25,14 @@ export function detectDoor(zb, rect) {
   const { x0, z0, x1, z1 } = rect;
   const open = (t) => t !== -1 && !W_BLOCKS.has(t);
   const cnt = { N: 0, S: 0, W: 0, E: 0 }, at = { N: -1, S: -1, W: -1, E: -1 };
-  const edge = (x, z, e) => (zb.in(x, z) ? zb.getWall(x, z, e) : -1);
+  // the zone's own west / north border walls are written after gen(): count them as walls (except at gates)
+  const edge = (x, z, e) => {
+    if (!zb.in(x, z)) return -1;
+    if ((e === 'W' && x === zb.x0) || (e === 'N' && z === zb.z0)) {
+      return zb.gates.some((g) => g.x === x && g.z === z && g.side === e) ? 0 : 1;
+    }
+    return zb.getWall(x, z, e);
+  };
   for (let x = x0; x < x1; x++) {
     if (open(edge(x, z0, 'N'))) { cnt.N++; if (at.N < 0) at.N = x - x0; }
     if (open(edge(x, z1, 'N'))) { cnt.S++; if (at.S < 0) at.S = x - x0; }

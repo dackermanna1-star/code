@@ -1,12 +1,12 @@
 // Helpers shared by the three public-interior variants (lobby / waiting room / conference hall):
 // a placement context with an occupancy grid, wall frames along the zone sides, side rooms,
 // columns, light grids and a few recurring furniture groups.
-import { W, CF, M, ceilingLight, facing } from './common.js';
+import { W, ceilingLight, facing } from './common.js';
 import { keepClearMask } from './a_common.js';
-import { gateSet, lightState, restroom } from './b_util.js';
+import { restroom } from './b_util.js';
 import { tryRoomPiece } from '../roompieces.js';
 import { roomFrame } from './z_rooms.js';
-import { faceOfNormal, clamp } from './z_util.js';
+import { faceOfNormal, clamp, lightState, gateSet } from './z_util.js';
 import './b_assets.js';
 import './z_assets.js';
 
@@ -241,6 +241,11 @@ export function columns(c, x0, z0, x1, z1, sx, sz, H, mat, o = {}) {
     zb.box(cx - hw, 0.18, cz - hw, cx + hw, H - 0.2, cz + hw, mat, { sub: 1.6 });
     zb.box(cx - hw - 0.07, 0, cz - hw - 0.07, cx + hw + 0.07, 0.18, cz + hw + 0.07, mat);
     zb.box(cx - hw - 0.07, H - 0.2, cz - hw - 0.07, cx + hw + 0.07, H, cz + hw + 0.07, mat, { skip: 4 });
+    if (r.chance(o.signs ?? 0.22)) {
+      const k = Math.floor(r.range(0, 4));
+      const [fx, fz, face] = [[cx + hw, cz, 'px'], [cx - hw, cz, 'nx'], [cx, cz + hw, 'pz'], [cx, cz - hw, 'nz']][k];
+      zb.decal(fx, 1.7, fz, face, 0.5, 0.5, r.pick(['sign_level', 'sign_floor0', 'sign_occupancy', 'sign_thisway', 'z_poster_quiet']));
+    }
     reserve(c, x, z, x + 1, z + 1, 5);
     out.push([cx, cz]);
   }

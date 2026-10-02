@@ -6,13 +6,12 @@
 //   conference - an empty conference hall: rows of chairs facing a podium and a blank projection
 //                screen, a foyer with registration tables, side doors
 import { defineZone } from '../zonetypes.js';
-import { W, CF, M, ceilingLight, facing, env } from './common.js';
-import { tryRoomPiece } from '../roompieces.js';
-import { trimRuns, lightState, faceKey } from './b_util.js';
+import { M, ceilingLight, facing, env } from './common.js';
+import { trimRuns, faceKey } from './b_util.js';
 import './b_assets.js';
 import './z_assets.js';
 import './z_rooms.js';
-import { clamp, faceOfNormal } from './z_util.js';
+import { clamp, faceOfNormal, lightState } from './z_util.js';
 import { gateLights, makeCtx, freeRect, reserve, findSpot, sideFrame, freeSpan, buildRoomBox, sideRooms, dressSideRoom, columns, lightGrid, seatRow, seatBlock } from './z_pub.js';
 
 // ------------------------------------------------------------------ params
@@ -269,6 +268,7 @@ function reception(c, F, u, H, blocked) {
   // phone on the visitor side counter (save point)
   const [ph, pz] = F.pt(u + r.range(-L / 2 + 0.6, L / 2 - 0.6), dv + 0.2);
   zb.prop('phone', ph, 1.15, pz, F.rot(0, 1), { useY: 0.1 });
+  { const f = F.vec(0, 1); view(c, 'phone', ph + f[0] * 1.1, pz + f[1] * 1.1, -f[0], -f[1], -0.45); }
   // the other side of the desk: chairs, screens
   for (let k = 0; k < 2; k++) {
     if (k === 1 && r.chance(0.3)) continue;

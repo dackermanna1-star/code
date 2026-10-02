@@ -18,10 +18,10 @@ function maintParams(zone, rng, ctx) {
   const style = rng.weighted([['dry', 4], ['damp', 3.2], ['flooded', 1.1 + far * 0.8]]);
   const dark = rng.chance(0.07 + far * 0.12);
   const p = {
-    style, dark,
-    wallMat: rng.weighted([[M.concrete, 3], [M.z_wall_band, 3.2], [M.concrete_dark, 1.6], [M.cmu, 1.2], [M.cmu_green, 0.5]]),
+    variant: style, style, dark,
+    wallMat: rng.weighted([[M.concrete, 3], [M.z_wall_band, 3.2], [M.concrete_dark, 0.9], [M.cmu, 1.8], [M.cmu_green, 0.6]]),
     floorMat: rng.weighted([[M.concrete_floor, 3.2], [M.concrete_dark, 1.4], [M.concrete, 1]]),
-    ceilMat: rng.weighted([[M.z_ceil_conc, 4], [M.concrete_dark, 1.6]]),
+    ceilMat: rng.weighted([[M.z_ceil_conc, 4], [M.concrete_dark, 1.0]]),
     ceilH: rng.pick([2.3, 2.4, 2.4, 2.5, 2.6]),
     roomWall: rng.weighted([[M.cmu, 3], [M.paint_dirty, 2], [M.cmu_green, 1.4], [M.concrete_dark, 1]]),
     roomFloor: rng.weighted([[M.a_epoxy, 3], [M.concrete_floor, 3], [M.metal_plate, 1.2]]),
@@ -132,7 +132,7 @@ function digNetwork(S, r) {
 
   const queue = [];
   const spawn = (run) => { if (run) queue.push(run); return run; };
-  const pickW = (parentW) => (parentW === 1 ? (r.chance(0.3) ? 2 : 1) : r.chance(0.72) ? 2 : 1);
+  const pickW = (parentW) => (parentW === 1 ? (r.chance(0.4) ? 2 : 1) : r.chance(0.8) ? 2 : 1);
   const pickCeil = (parent) => (r.chance(0.45) ? parent : clamp(p.ceilH + r.pick([-0.2, -0.1, 0, 0, 0.1, 0.2]), 2.2, 2.7));
   const lenFor = (w) => (w === 2 ? r.int(7, 22) : r.int(4, 14));
 
