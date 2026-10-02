@@ -1,6 +1,7 @@
 // PS1-style user interface drawn into the low resolution overlay canvas: title screen, pause
 // menu, options, memory card dialogs, notes and short messages.
 import { drawText, drawTextCentered, textWidth, wrapText, FONT_LINE } from '../gfx/font.js';
+import { LEVELS, levelNumbers } from '../world/levels.js';
 
 const C = {
   text: '#d8d2b8', dim: '#8a8676', hi: '#ffe9a0', shadow: '#000', box: 'rgba(8,8,12,0.82)', border: '#9a9478',
@@ -52,6 +53,7 @@ export class UI {
       case 'pause':
         return [
           { label: 'RESUME', act: () => g.resume() },
+          { label: 'LEVEL LOG', act: () => this.open('log') },
           { label: 'OPTIONS', act: () => this.open('options') },
           { label: 'CONTROLS', act: () => this.open('controls') },
           { label: 'QUIT TO TITLE', act: () => this.open('confirmquit') },
@@ -90,6 +92,13 @@ export class UI {
     }
     const m = this.top();
     if (!m) return false;
+    if (m.id === 'log') {
+      const n = levelNumbers().length;
+      if (inp.menuUp) { m.scroll = Math.max(0, (m.scroll || 0) - 1); this.game.sfx('move'); }
+      if (inp.menuDown) { m.scroll = Math.min(Math.max(0, n - 12), (m.scroll || 0) + 1); this.game.sfx('move'); }
+      if (inp.menuOk || inp.menuBack || inp.pause || inp.click) this.close();
+      return true;
+    }
     if (inp.menuUp) { m.sel = (m.sel + m.items.length - 1) % m.items.length; this.game.sfx('move'); }
     if (inp.menuDown) { m.sel = (m.sel + 1) % m.items.length; this.game.sfx('move'); }
     const it = m.items[m.sel];
@@ -171,7 +180,7 @@ export class UI {
     this.fade += (this.fadeTarget - this.fade) * Math.min(1, dt * this.fadeRate);
     if (Math.abs(this.fade - this.fadeTarget) < 0.01) this.fade = this.fadeTarget;
     if (this.fade > 0.003) { c.fillStyle = `rgba(0,0,0,${this.fade})`; c.fillRect(0, 0, W, H); }
-    if (this.levelCard && g.state !== 'title') this.drawLevelCard(dt);
+    if (this.levelCard && g.state === 'play') this.drawLevelCard(dt);
     const m = this.top();
     if (m && m.id !== 'title') this.drawMenu(m);
     else if (m && m.id === 'title') this.drawMenu(m, true);
@@ -229,6 +238,7 @@ export class UI {
     const titles = { pause: 'PAUSE', options: 'OPTIONS', controls: 'CONTROLS', confirmquit: 'RETURN TO TITLE?' };
     const lines = m.items;
     if (m.id === 'controls') { this.drawControls(m); return; }
+    if (m.id === 'log') { this.drawLog(m); return; }
     const rowH = 12;
     const w = m.id === 'options' ? 220 : 160;
     const h = lines.length * rowH + (isTitle ? 12 : 30);
@@ -266,14 +276,38 @@ export class UI {
     }
   }
 
+  // every level, in order: the ones you have been to by name, the rest as dashes
+  drawLog(m) {
+    const c = this.ctx, W = this.W, H = this.H, g = this.game;
+    const all = levelNumbers();
+    const rows = 12, w = 236, h = rows * 11 + 52;
+    const x = Math.round((W - w) / 2), y = Math.round((H - h) / 2);
+    this.box(x, y, w, h);
+    const found = all.filter((n) => g.discovered.has(n)).length;
+    drawTextCentered(c, 'LEVEL LOG', W / 2, y + 7, C.hi, 1);
+    drawTextCentered(c, `FOUND ${found} / ${all.length}`, W / 2, y + 19, C.dim, 1);
+    const s = m.scroll || 0;
+    for (let i = 0; i < rows && s + i < all.length; i++) {
+      const n = all[s + i];
+      const known = g.discovered.has(n);
+      const here = n === g.levelN;
+      const col = here ? C.hi : known ? C.text : C.dim;
+      drawText(c, String(n).padStart(2, '0'), x + 12, y + 33 + i * 11, col, 1, C.shadow);
+      drawText(c, known ? LEVELS[n].name : '- - -', x + 34, y + 33 + i * 11, col, 1, C.shadow);
+    }
+    if (s > 0) drawText(c, '▲', x + w - 16, y + 33, C.dim, 1);
+    if (s + rows < all.length) drawText(c, '▼', x + w - 16, y + 33 + (rows - 1) * 11, C.dim, 1);
+    drawTextCentered(c, '▶ BACK', W / 2, y + h - 12, C.hi, 1, C.shadow);
+  }
+
   drawControls(m) {
     const c = this.ctx, W = this.W, H = this.H;
     const touch = this.game.input.isTouch;
     const rows = touch ? [
-      ['LEFT THUMB', 'WALK'], ['RIGHT THUMB', 'LOOK'], ['TAP', 'USE'], ['RUN / CROUCH', 'BUTTONS'], ['CLIMB', 'LEDGES'], ['II', 'PAUSE'],
+      ['LEFT THUMB', 'WALK'], ['RIGHT THUMB', 'LOOK'], ['TAP', 'USE'], ['RUN / CROUCH', 'BUTTONS'], ['CLIMB', 'LEDGES'], ['PHONE', 'FIND DOORS'], ['II', 'PAUSE'],
     ] : [
-      ['W A S D', 'WALK'], ['MOUSE', 'LOOK'], ['ARROWS', 'WALK / TURN'], ['SHIFT', 'RUN'], ['C / CTRL', 'CROUCH'],
-      ['SPACE', 'CLIMB LEDGE'], ['E / CLICK', 'USE'], ['ESC', 'PAUSE'], ['GAMEPAD', 'SUPPORTED'],
+      ['W A S D', 'WALK'], ['MOUSE', 'LOOK'], ['UP / Q', 'PHONE'], ['LEFT / RIGHT', 'TURN'], ['SHIFT', 'RUN'], ['C / CTRL', 'CROUCH'],
+      ['SPACE', 'CLIMB LEDGE'], ['E / CLICK', 'USE / OPEN'], ['ESC', 'PAUSE'], ['GAMEPAD', 'SUPPORTED'],
     ];
     const w = 220, h = rows.length * 11 + 44;
     const x = Math.round((W - w) / 2), y = Math.round((H - h) / 2);
