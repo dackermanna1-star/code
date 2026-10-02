@@ -27,6 +27,7 @@ function genPools(zb) {
   if (cabin) dressCabin(zb, cabin);
   walls(zb);
   for (let j = jA; j <= jB; j++) for (let i = iA; i <= iB; i++) emitRoom(zb, roomAt(i, j));
+  for (let j = jA; j <= jB + 1; j++) for (let i = iA; i <= iB + 1; i++) colonnades(zb, roomAt(i, j));
 }
 
 function fillCells(zb, room) {
@@ -75,7 +76,16 @@ function archesAndColonnades(zb, room) {
       if (!owns(zb, x, z)) continue;
       zb.prop('ei_arch', x, 0, z, dir === 'V' ? Math.PI / 2 : 0, { ax: dir === 'V' ? 'z' : 'x', w: 4, sp: 1.1, H });
     }
-    if (et === 3) for (const c of [4, 8, 12]) { const [x, z] = along(c); pillar(zb, x, z, 0, H); }
+  }
+}
+
+// colonnades stand on the wall lines, so a pillar on a zone border belongs to both zones' rectangles
+function colonnades(zb, room) {
+  const { i, j } = room;
+  for (const dir of ['V', 'H']) {
+    if (edgeType(dir, i, j) !== 3) continue;
+    const H = wallHeight(dir, i, j);
+    for (const c of [4, 8, 12]) pillar(zb, dir === 'V' ? i * R : i * R + c, dir === 'V' ? j * R + c : j * R, 0, H);
   }
 }
 
@@ -90,6 +100,7 @@ function emitRoom(zb, room) {
   const { x0, z0 } = room;
   let first = true;
   for (const p of room.pools) {
+    if (p.dry) continue;
     cbox(zb, x0 + p.u0, WATER_Y - 0.02, z0 + p.v0, x0 + p.u1, WATER_Y, z0 + p.v1, M.ei_water, { alpha: 0.5, collide: false, skip: only(FACE.PY), sub: 2 });
     const cx = x0 + (p.u0 + p.u1) / 2, cz = z0 + (p.v0 + p.v1) / 2;
     if (first && (p.u1 - p.u0) * (p.v1 - p.v0) >= 24 && owns(zb, cx, cz)) { zb.emitter(cx, 0.3, cz, 'water', { vol: 0.2, rad: 18 }); first = false; }
@@ -110,12 +121,12 @@ function emitRoom(zb, room) {
   for (const w of room.wells) {
     if (!owns(zb, w.x, w.z)) continue;
     zb.decal(w.x, w.top, w.z, 'down', w.s, w.s, 'ei_sky', { lit: false, glow: 1.25 });
-    zb.light(w.x, w.top - 0.6, w.z, { rad: 8, int: 0.8, color: [0.93, 1.0, 1.0] });
+    zb.light(w.x, w.top - 0.6, w.z, { rad: 8, int: 0.5, color: [0.93, 1.0, 1.0] });
   }
   for (const p of room.panels) {
     if (!zb.in(Math.floor(p.x), Math.floor(p.z))) continue;
     const u = hr(p.x, p.z, 61);
-    ceilingLight(zb, p.x + 0.5, p.z + 0.5, 'panel', u < 0.06 ? 'flicker' : 'on', { mul: 1.1 });
+    ceilingLight(zb, p.x + 0.5, p.z + 0.5, 'panel', u < 0.06 ? 'flicker' : 'on', { mul: 0.5 });
   }
   for (const d of room.drips) if (owns(zb, d.x, d.z)) zb.emitter(d.x + 0.5, 2.5, d.z + 0.5, 'drip', { vol: 0.35, rad: 12 });
 }
@@ -139,6 +150,15 @@ function poolDetails(zb, room) {
       if (owns(zb, lx, lz)) zb.prop('ei_ladder', lx + 0.0, 0, lz, rot, { d: p.D });
     }
     const u = Math.floor(cx - x0), v = Math.floor(cz - z0);
+    if (room.type === 'lanes') {
+      // two lane lines along the deep part of the pool
+      const vert = p.shallow === 'N' ? [p.v0 + 4, p.v1] : [p.v0, p.v1 - 4];
+      for (const lu of [p.u0 + 2, p.u0 + 4]) {
+        const lx = x0 + lu, lz = z0 + (vert[0] + vert[1]) / 2;
+        if (owns(zb, lx, lz)) zb.decal(lx, -p.D, lz, 'up', 0.22, vert[1] - vert[0] - 0.4, 'ei_lane');
+      }
+      return;
+    }
     if (owns(zb, cx, cz) && u >= 0 && v >= 0 && u < R && v < R) zb.decal(cx, room.F[v * R + u], cz, 'up', 0.9, 0.9, 'ei_drain');
   }
 }
@@ -189,7 +209,7 @@ defineZone('p_pools', {
   weight: () => 0,
   params: () => ({
     wallMat: M.ei_tile_wall, floorMat: M.ei_tile_floor, ceilMat: M.ei_tile_ceil, ceilH: 4.4,
-    ambient: [0.66, 0.72, 0.72],
+    ambient: [0.7, 0.77, 0.77],
     env: env({ fog: [0.8, 0.92, 0.92], fogNear: 8, fogFar: 46, hum: 0.12, hvac: 0.1, reverb: 'tile', tone: 'water' }),
   }),
   gen: genPools,

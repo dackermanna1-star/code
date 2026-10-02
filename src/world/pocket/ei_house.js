@@ -8,6 +8,15 @@ import { hash32 } from '../../core/rng.js';
 defineTexture('ei_sign_inventory', signTex(['IN-', 'VEN-', 'TORY'], [52, 56, 64], [238, 170, 64], 2), 8);
 defineTexture('ei_sign_office', signTex(['SALES', 'OFFICE'], [236, 232, 214], [150, 40, 36], 1), 8);
 
+// street name plates: green strip painted into the top quarter of the tile
+const STREETS = ['ELM ST', 'OAK AVE', '2ND ST', 'PINE CT', 'MAPLE DR', '5TH AVE'];
+STREETS.forEach((n, k) => defineTexture('ei_street' + k, (p) => {
+  p.fill([20, 98, 62]);
+  p.rect(0, 0, 64, 16, [24, 112, 70]);
+  p.frame(0, 0, 64, 16, [236, 238, 230]);
+  p.text(n, 32 - Math.round((n.length * 6 - 1) / 2), 4, [244, 246, 238], 1);
+}, 8));
+
 // numbered aisle boards hanging over the aisles
 for (let k = 0; k < 8; k++) defineTexture('ei_aisle' + k, signTex(['AISLE', String(k * 3 + 4).padStart(2, '0')], [30, 58, 120], [244, 240, 228], 1), 8);
 
@@ -85,7 +94,7 @@ defineProp('ei_house', {
   build(mb, p) {
     const o = p.opts, v = (o.v || 1) >>> 0;
     const h = (k) => hash32(v ^ Math.imul(k + 1, 0x9e3779b1)) / 4294967296;
-    const Wd = o.w || 6.4, D = o.d || 5.4, FH = 2.5, HW = FH * 2;
+    const Wd = o.w || 6.4, D = o.d || 5.3, FH = 2.5, HW = FH * 2;
     const [sm, st] = SIDING[Math.floor(h(1) * SIDING.length)];
     const side = S(sm, { tint: st });
     const trim = S('plastic_white');
@@ -93,8 +102,8 @@ defineProp('ei_house', {
     const ridgeX = h(3) < 0.5;
     const rh = 1.7 + h(4) * 0.5;
     const hx = Wd / 2, hz = D / 2;
-    // walls (no back face: it stands against the next house)
-    mb.box(-hx, 0, -hz, hx, HW, hz, [side, side, null, null, null, side], { sub: 2.6 });
+    // walls
+    mb.box(-hx, 0, -hz, hx, HW, hz, [side, side, null, null, side, side], { sub: 2.6 });
     // white corner boards and the band between the storeys
     for (const sx of [-1, 1]) mb.box(sx * hx - 0.09, 0, -hz - 0.04, sx * hx + 0.09, HW, -hz + 0.12, trim, { skip: 12 });
     mb.box(-hx, FH - 0.07, -hz - 0.03, hx, FH + 0.07, -hz, trim, { skip: 12 });
@@ -111,11 +120,12 @@ defineProp('ei_house', {
       mb.poly4([-X, ye, -Z], [-X, ye, Z], [0, yr, Z], [0, yr, -Z], roof, [0, 2, 4, 2, 4, 0, 0, 0]);
       mb.poly4([X, ye, Z], [X, ye, -Z], [0, yr, -Z], [0, yr, Z], roof, [0, 2, 4, 2, 4, 0, 0, 0]);
       mb.tri3([hx, HW, -hz], [-hx, HW, -hz], [0, yr - 0.1, -hz], side, [0, 1, 1, 1, 0.5, 0]);
+      mb.tri3([-hx, HW, hz], [hx, HW, hz], [0, yr - 0.1, hz], side, [0, 1, 1, 1, 0.5, 0]);
     }
     // chimney
     if (h(5) < 0.55) {
       const cx = (h(6) < 0.5 ? -1 : 1) * hx * 0.55, cz = ridgeX ? 0 : (h(7) < 0.5 ? -1 : 1) * hz * 0.4;
-      mb.box(cx - 0.4, HW + 0.2, cz - 0.4, cx + 0.4, HW + rh + 0.9, cz + 0.4, S('brick'), { skip: 8 });
+      mb.box(cx - 0.4, HW + 0.2, cz - 0.4, cx + 0.4, Math.min(HW + rh + 0.9, 7.4), cz + 0.4, S('brick'), { skip: 8 });
     }
     // windows: glowing panes
     const lit = o.lit ?? 0.88;
@@ -169,7 +179,7 @@ defineProp('ei_house', {
 // ------------------------------------------------------------------ street furniture
 // street lamp with a sodium head, standing where the cross streets meet the aisles
 defineProp('ei_streetlamp', {
-  build(mb) {
+  build(mb, p) {
     const m = S('metal_dark'), hd = S('metal');
     mb.cyl(0, 0, 0, 0.17, 0.14, 6, m, 3);
     mb.cyl(0, 0.14, 0, 0.055, 5.0, 6, m, 0);
@@ -177,6 +187,11 @@ defineProp('ei_streetlamp', {
     mb.rod(0, 5.3, -0.5, 0, 5.24, -0.95, 0.04, 4, m);
     const g = glow('light_panel', 1.1);
     mb.box(-0.22, 5.1, -1.4, 0.22, 5.27, -0.72, [hd, hd, hd, g, hd, hd]);
+    // two street name plates on the pole, one for each street that meets here
+    const q = [0, 0, 1, 0.25], w = 'world', gr = S('metal_dark');
+    const a = T('ei_street' + (p.opts.sa || 0)), b = T('ei_street' + (p.opts.sb || 1));
+    mb.box(-0.4, 3.35, -0.05, 0.4, 3.6, 0.05, [gr, gr, gr, gr, a, a], { uv: [w, w, w, w, q, q] });
+    mb.box(-0.05, 3.7, -0.4, 0.05, 3.95, 0.4, [b, b, gr, gr, gr, gr], { uv: [q, q, w, w, w, w] });
   },
   boxes: [[-0.12, 0, -0.12, 0.12, 5.0, 0.12]],
   light: { y: 4.95, z: -1.05, color: [1.0, 0.72, 0.42], rad: 8, int: 1.0 },

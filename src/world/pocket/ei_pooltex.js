@@ -16,28 +16,28 @@ function tiles(p, n, base, grout, r, amp = 0.04) {
   for (let ty = 0; ty < n; ty++) for (let tx = 0; tx < n; tx++) p.bevel(tx * ts + 1, ty * ts + 1, ts - 1, ts - 1, 0.05, 0.025);
 }
 
-defineTexture('ei_tile_floor', (p, r) => { tiles(p, 4, [232, 232, 222], [170, 186, 190], r, 0.05); p.grain(0.015); }, 16);
+defineTexture('ei_tile_floor', (p, r) => { tiles(p, 4, [230, 230, 216], [160, 180, 184], r, 0.06); p.grain(0.015); }, 16);
 defineTexture('ei_tile_floor_b', (p, r) => {
-  tiles(p, 4, [232, 232, 222], [170, 186, 190], r, 0.05);
-  for (let ty = 0; ty < 4; ty++) for (let tx = 0; tx < 4; tx++) if ((tx + ty) % 2) p.rect(tx * 16 + 1, ty * 16 + 1, 15, 15, [190, 224, 226]);
+  tiles(p, 4, [230, 230, 216], [160, 180, 184], r, 0.06);
+  for (let ty = 0; ty < 4; ty++) for (let tx = 0; tx < 4; tx++) if ((tx + ty) % 2) p.rect(tx * 16 + 1, ty * 16 + 1, 15, 15, [176, 218, 222]);
   p.grain(0.015);
 }, 16);
 // wall tile: 0.2 m tiles (1.6 m repeat) with a turquoise course every repeat
 defineTexture('ei_tile_wall', (p, r) => {
-  tiles(p, 4, [242, 244, 238], [176, 198, 202], r, 0.035);
+  tiles(p, 4, [232, 236, 230], [170, 194, 198], r, 0.035);
   for (let tx = 0; tx < 4; tx++) p.rect(tx * 16 + 1, 26, 15, 4, [118, 198, 208]);
   for (let tx = 0; tx < 4; tx++) p.bevel(tx * 16 + 1, 26, 15, 4, 0.1, 0.05);
   p.grain(0.012);
 }, 16);
-defineTexture('ei_tile_ceil', (p, r) => { tiles(p, 4, [236, 238, 228], [198, 206, 200], r, 0.02); p.grain(0.012); }, 16);
+defineTexture('ei_tile_ceil', (p, r) => { tiles(p, 4, [224, 230, 224], [186, 198, 194], r, 0.025); p.grain(0.012); }, 16);
 defineTexture('ei_tile_pool', (p, r) => {
-  tiles(p, 4, [110, 204, 214], [188, 236, 240], r, 0.07);
+  tiles(p, 4, [110, 204, 214], [166, 226, 232], r, 0.07);
   p.map((x, y, c) => {
     const w = Math.sin((x + 6 * Math.sin(y * 0.2)) * 0.45) + Math.sin((y + 5 * Math.sin(x * 0.17)) * 0.5);
     return w > 1.4 ? [c[0] * 1.2, c[1] * 1.1, c[2] * 1.06] : c;
   });
 }, 16);
-defineTexture('ei_tile_edge', (p, r) => { tiles(p, 4, [58, 168, 190], [220, 240, 242], r, 0.05); p.grain(0.015); }, 16);
+defineTexture('ei_tile_edge', (p, r) => { tiles(p, 4, [58, 168, 190], [150, 212, 222], r, 0.05); p.grain(0.015); }, 16);
 defineTexture('ei_water', (p) => {
   p.fill([96, 202, 216]);
   p.map((x, y, c) => {
@@ -68,6 +68,11 @@ defineTexture('ei_sign_changing', (p) => {
   p.text('OPEN', 32 - 11, 40, [240, 250, 250], 1);
   p.frame(0, 0, 64, 64, [150, 170, 172]);
 }, 8);
+// black lane line on the bottom of a lap pool
+defineTexture('ei_lane', (p) => {
+  p.clearAlpha(0);
+  for (let y = 0; y < 64; y++) for (let x = 24; x < 40; x++) { p.set(x, y, [26, 62, 122]); p.alpha(x, y, 255); }
+}, 4);
 // floor drain
 defineTexture('ei_drain', (p) => {
   p.clearAlpha(0);

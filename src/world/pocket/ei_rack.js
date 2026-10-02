@@ -2,8 +2,7 @@
 // coordinates: double rows of cargo racking run north-south, separated by wide aisles and
 // cross streets, and each bay of each tier holds a two storey house. Zones only emit their own
 // part of it (brushes are clipped to the zone, entities belong to the zone they stand in).
-import { M } from '../gen/common.js';
-import { ceilingLight } from '../gen/common.js';
+import { M, ceilingLight } from '../gen/common.js';
 import { cbox, owns, hr, FACE } from './e_util.js';
 import { hash32 } from '../../core/rng.js';
 
@@ -53,7 +52,7 @@ function rackRun(zb, i, j, x0, z0, out) {
     const top = topOf[m] * T - 0.3;
     for (let b = 0; b <= NB; b++) {
       const ux = xl[m], uz = z0 + b * BAY;
-      cbox(zb, ux - U, 0, uz - U, ux + U, top, uz + U, M.rack_blue, { skip: FACE.PY | FACE.NY, sub: T / 3 });
+      cbox(zb, ux - U, 0, uz - U, ux + U, top, uz + U, M.rack_blue, { skip: FACE.PY | FACE.NY, sub: T / 2 });
       cbox(zb, ux - U - 0.1, 0, uz - U - 0.1, ux + U + 0.1, 0.55, uz + U + 0.1, M.hazard, { skip: FACE.NY, sub: 1 });
       // location tag at eye level on the face toward the aisle
       if (m !== 1 && zb.in(Math.floor(ux), Math.floor(uz)) && hr(i * 11 + m, j * 13 + b, 41) < 0.7) {
@@ -97,8 +96,11 @@ function rackRun(zb, i, j, x0, z0, out) {
     if (nT >= 2 && owns(zb, lx, uz)) {
       const y = deckTop(1) - DK - 0.46;
       const u = hr(i * 7 + b, j, 21);
-      const state = u < 0.1 ? 'off' : u < 0.2 ? 'flicker' : 'on';
-      ceilingLight(zb, lx, uz, 'highbay', state, { y: y + 0.05, hang: 2.5, rad: 8, int: 1.25, color: [0.84, 0.93, 1.0] });
+      const dark = hr(i, j, 22) < 0.08;
+      const state = dark || u < 0.1 ? 'off' : u < 0.2 ? 'flicker' : 'on';
+      const cu = hr(i, j, 23);
+      const color = cu < 0.6 ? [0.84, 0.93, 1.0] : cu < 0.85 ? [1.0, 0.86, 0.62] : [0.8, 1.0, 0.82];
+      ceilingLight(zb, lx, uz, 'highbay', state, { y: y + 0.05, hang: 2.5, rad: 8, int: 1.25, color });
       if (state === 'on' && u > 0.55) zb.emitter(lx, y - 1, uz, 'hum_strip', { vol: 0.12, rad: 8 });
     }
   }
@@ -106,43 +108,44 @@ function rackRun(zb, i, j, x0, z0, out) {
   for (const [lx, rot] of [[xl[0] - 1.2, Math.PI / 2], [xl[2] + 1.2, -Math.PI / 2]]) {
     for (const lz of [z0 - 1.3, z0 + RL + 1.3]) {
       if (!owns(zb, lx, lz)) continue;
-      if (hr(i * 5 + (lx < x0 + RD ? 0 : 1), j * 3 + (lz < z0 ? 0 : 1), 27) < 0.75) zb.prop('ei_streetlamp', lx, 0, lz, rot, {});
+      if (hr(i * 5 + (lx < x0 + RD ? 0 : 1), j * 3 + (lz < z0 ? 0 : 1), 27) < 0.75) zb.prop('ei_streetlamp', lx, 0, lz, rot, { sa: Math.floor(hr(i, 5, 28) * 6), sb: Math.floor(hr(j, 9, 29) * 6) });
     }
   }
   // ---- the houses
   for (let row = 0; row < 2; row++) {
     const n = row === 0 ? nA : nB;
     const dir = row === 0 ? -1 : 1;           // the front faces the aisle
+    const stocked = hr(i * 2 + row, j, 12) < 0.3 ? 1 + Math.floor(hr(i * 2 + row, j, 13) * (n - 1)) : n;
     for (let b = 0; b < NB; b++) {
-      for (let k = 0; k < n; k++) {
+      for (let k = 0; k < Math.min(n, stocked); k++) {
         const h = hr(i * 131 + b * 17 + row, j * 7 + k, 31);
         if (h < 0.07 + (k === 0 ? 0 : 0.05)) continue;   // an empty slot
-        const D = 5.4 + hr(i + b, j + k, 33) * 0.3;
+        const D = 5.2 + hr(i + b, j + k, 33) * 0.3;
         const W = 6.0 + hr(i + b, j * 3 + k, 34) * 0.7;
         const fx = (row === 0 ? xl[0] : xl[2]) - dir * 0.7;   // front face
         const cx = fx - dir * D / 2, cz = z0 + (b + 0.5) * BAY;
-        if (!owns(zb, cx, cz)) continue;
         const y = deckTop(k);
-        const v = hash32(i * 73856093 ^ j * 19349663 ^ (b * 2 + row) * 83492791 ^ k * 2654435761);
-        zb.prop('ei_house', cx, y, cz, row === 0 ? -Math.PI / 2 : Math.PI / 2, { v, w: W, d: D, collide: k === 0 });
-        out.houses++;
-        if (hr(i + b * 3, j * 5 + k, 43) < 0.1) {
-          const wz0 = cz - W / 2 - 0.3, wz1 = cz + W / 2 + 0.3;
-          cbox(zb, Math.min(cx - D / 2, cx + D / 2) - 0.5, y, wz0, Math.max(cx - D / 2, cx + D / 2) + 0.5, y + 7.3, wz1, M.white, { alpha: 0.2, tint: [0.8, 0.92, 1.0], collide: false, skip: FACE.NY, sub: 1 });
-        }
-        // a mailbox at the kerb in front of some of the ground floor houses
+        // wrapping, cages and mailboxes are decided by coordinates alone: they may reach into the next zone
+        const bx0 = Math.min(cx - D / 2, cx + D / 2), bx1 = Math.max(cx - D / 2, cx + D / 2);
+        if (hr(i + b * 3, j * 5 + k, 45) < 0.05) cbox(zb, bx0 - 0.45, y, cz - W / 2 - 0.25, bx1 + 0.45, y + 7.4, cz + W / 2 + 0.25, M.grate, { collide: false, skip: FACE.NY | FACE.PY, sub: 1 });
+        else if (hr(i + b * 3, j * 5 + k, 43) < 0.1) cbox(zb, bx0 - 0.5, y, cz - W / 2 - 0.3, bx1 + 0.5, y + 7.3, cz + W / 2 + 0.3, M.white, { alpha: 0.5, tint: [0.85, 1.05, 1.3], collide: false, skip: FACE.NY, sub: 1 });
+        // ground floor houses are solid: invisible collision brushes (a prop's own boxes are lost past the
+        // edge of the 16 m chunk it is anchored in, which a house this size often crosses)
+        if (k === 0) cbox(zb, bx0 - (row === 0 ? 0.3 : 0), 0, cz - W / 2, bx1 + (row === 1 ? 0.3 : 0), 6.6, cz + W / 2, M.ei_deck, { render: false });
         if (k === 0 && hr(i + b * 7, j + row * 13, 44) < 0.4) {
-          const mx = (row === 0 ? xl[0] - 0.75 : xl[2] + 0.75), mz = cz + 1.9;
+          const mx = row === 0 ? xl[0] - 0.75 : xl[2] + 0.75, mz = cz + 1.9;
           if (owns(zb, mx, mz)) zb.prop('mailbox', mx, 0, mz, row === 0 ? -Math.PI / 2 : Math.PI / 2, {});
         }
+        if (!owns(zb, cx, cz)) continue;
+        const v = hash32(i * 73856093 ^ j * 19349663 ^ (b * 2 + row) * 83492791 ^ k * 2654435761);
+        zb.prop('ei_house', cx, y, cz, row === 0 ? -Math.PI / 2 : Math.PI / 2, { v, w: W, d: D, collide: false });
+        out.houses++;
         // the lights are on: warm light spilling into the aisle
-        const lit = hr(i + b * 5, j + k * 11, 35) < 0.9;
-        if (lit) {
+        if (hr(i + b * 5, j + k * 11, 35) < 0.9) {
           const c = WARM[Math.floor(hr(i + b, j + row * 3 + k, 36) * WARM.length)];
           zb.light(fx + dir * 1.2, y + 3.0, cz, { rad: 8, int: 0.72, color: c });
         }
       }
     }
   }
-  void CW;
 }

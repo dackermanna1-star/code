@@ -93,26 +93,19 @@ class Room {
     this.ceilH = 4.4;
     this.paint();
   }
-  k(u, v) { return v * R + u; }
-  inb(u, v) { return u >= 0 && v >= 0 && u < R && v < R; }
-  setCell(u, v, f, fm, wm) {
-    if (!this.inb(u, v)) return;
-    const k = v * R + u;
-    this.F[k] = f; if (fm) this.FM[k] = fm; if (wm) this.WM[k] = wm;
-  }
   rect(u0, v0, u1, v1, fn) { for (let v = Math.max(0, v0); v < Math.min(R, v1); v++) for (let u = Math.max(0, u0); u < Math.min(R, u1); u++) fn(u, v, v * R + u); }
 
   // pool with a coping ring; shallow: side with the entry ramp ('N' 'S' 'E' 'W' or null)
-  addPool(u0, v0, w, d, shallow, D) {
+  addPool(u0, v0, w, d, shallow, D, dry = false) {
     this.rect(u0 - 1, v0 - 1, u0 + w + 1, v0 + d + 1, (u, v, k) => { this.FM[k] = M.ei_tile_edge; this.WM[k] = M.ei_tile_edge; });
     this.rect(u0, v0, u0 + w, v0 + d, (u, v, k) => {
       let s = 9;
       if (shallow === 'N') s = v - v0; else if (shallow === 'S') s = v0 + d - 1 - v;
       else if (shallow === 'W') s = u - u0; else if (shallow === 'E') s = u0 + w - 1 - u;
       this.F[k] = -Math.min(D, 0.3 + 0.28 * s);
-      this.FM[k] = M.ei_tile_pool; this.WM[k] = M.ei_tile_pool; this.FL[k] |= CF.WET;
+      this.FM[k] = dry ? M.ei_tile_edge : M.ei_tile_pool; this.WM[k] = dry ? M.ei_tile_edge : M.ei_tile_pool; if (!dry) this.FL[k] |= CF.WET;
     });
-    this.pools.push({ u0, v0, u1: u0 + w, v1: v0 + d, shallow, D, deck: true });
+    this.pools.push({ u0, v0, u1: u0 + w, v1: v0 + d, shallow, D, deck: true, dry });
   }
   well(u, v, s) { // light well over local cells [u, u+s) x [v, v+s)
     const top = Math.min(this.ceilH + 1.3, 6.0);
@@ -133,7 +126,7 @@ class Room {
       this.C.fill(this.ceilH);
       const w = 6 + 2 * Math.floor(h(5) * 3), d = 6 + 2 * Math.floor(h(6) * 3);
       const u0 = (R - w) >> 1, v0 = (R - d) >> 1;
-      this.addPool(u0, v0, w, d, ['N', 'S', 'E', 'W'][Math.floor(h(7) * 4)], h(8) < 0.5 ? 1.0 : 1.2);
+      this.addPool(u0, v0, w, d, ['N', 'S', 'E', 'W'][Math.floor(h(7) * 4)], h(8) < 0.5 ? 1.0 : 1.2, h(10) < 0.18);
       for (const [a, b] of [[u0 - 1, v0 - 1], [u0 + w + 1, v0 - 1], [u0 - 1, v0 + d + 1], [u0 + w + 1, v0 + d + 1]]) this.pillar(a, b);
       this.well(u0 + (w >> 1) - 1, v0 + (d >> 1) - 1, 3);
       if (w >= 8) { this.well(u0 + 1, v0 + 1, 2); this.well(u0 + w - 3, v0 + d - 3, 2); }
@@ -162,7 +155,7 @@ class Room {
     } else if (type === 'lanes') {
       this.ceilH = 4.4; this.C.fill(this.ceilH);
       const D = h(8) < 0.5 ? 1.0 : 1.2;
-      this.addPool(5, 2, 6, 12, h(7) < 0.5 ? 'N' : 'S', D);
+      this.addPool(5, 2, 6, 12, h(7) < 0.5 ? 'N' : 'S', D, h(10) < 0.15);
       for (const v of [4, 8, 12]) { this.pillar(3.5, v); this.pillar(12.5, v); }
       this.well(6, 3, 4); this.well(6, 9, 4);
     } else { // corridors: 4 m wide, a cross of arms cut out of solid tile
@@ -211,7 +204,7 @@ class Room {
     const pools = [{ x0: 147, x1: 152, shallow: 'E' }, { x0: 168, x1: 173, shallow: 'W' }];
     for (let v = 0; v < R; v++) for (let u = 0; u < R; u++) {
       const x = this.x0 + u, z = this.z0 + v, k = v * R + u;
-      if ((x + (z >> 0)) % 2 === 0 && x >= 153 && x < 167) this.FM[k] = M.ei_tile_floor_b;
+      if ((x + z) % 2 === 0 && x >= 153 && x < 167) this.FM[k] = M.ei_tile_floor_b;
       for (const p of pools) {
         const inRing = x >= p.x0 - 1 && x < p.x1 + 1 && z >= 130 && z < 158;
         if (inRing) { this.FM[k] = M.ei_tile_edge; this.WM[k] = M.ei_tile_edge; }
