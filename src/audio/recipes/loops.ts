@@ -103,6 +103,13 @@ function cricket(out: Float32Array, sr: number, r: Rand, len: number): void {
 }
 
 export function loopSpecs(): Record<string, LoopSpec> {
+  const o = loopTable();
+  // the spec lists `portal.portal` as the portal hum: accept it as a loop name too
+  o['portal.portal'] = o['loop.portal'];
+  return o;
+}
+
+function loopTable(): Record<string, LoopSpec> {
   return {
     'loop.fire': { cat: 'blocks', dur: 5, gen: (sr, r, len) => fireLoop(sr, r, len, { lp: 520, crackle: 18, pops: 0.25, hiss: 0.05 }) },
     'loop.campfire': { cat: 'blocks', dur: 6, gen: (sr, r, len) => fireLoop(sr, r, len, { lp: 420, crackle: 26, pops: 0.35, hiss: 0.03 }) },

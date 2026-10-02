@@ -183,7 +183,7 @@ function buildControls(): void {
         } else {
           loops.set(name, engine.loop(name, playOpts()));
           b.classList.add('on');
-          showSpectrogram(name);
+          showSpectrogram(name, 'loop');
         }
       },
     }, name.replace('loop.', ''));
@@ -294,18 +294,19 @@ function drawSpectrogram(canvas: HTMLCanvasElement, ch: Float32Array[], sr: numb
   return m;
 }
 
-function showSpectrogram(name: string): void {
+function showSpectrogram(name: string, kind: 'sound' | 'loop' = 'sound'): void {
   const bank = engine.getBank();
   let ch: Float32Array[] | null = null;
   let sr = 48000;
-  const key = LOOP_NAMES.includes(name) ? `l:${name}` : `s:${name}#0`;
+  const isLoop = kind === 'loop';
+  const key = isLoop ? `l:${name}` : `s:${name}#0`;
   const buf = bank?.get(key);
   if (buf) {
     ch = [];
     for (let i = 0; i < buf.numberOfChannels; i++) ch.push(buf.getChannelData(i));
     sr = buf.sampleRate;
   } else {
-    const r = LOOP_NAMES.includes(name) ? renderLoop(name, 48000) : renderSound(name, 0, 48000);
+    const r = isLoop ? renderLoop(name, 48000) : renderSound(name, 0, 48000);
     if (r) {
       ch = r.ch;
       sr = r.sr;
@@ -446,7 +447,7 @@ function seamOf(ch: Float32Array[]): number {
 }
 
 async function checkKey(key: string): Promise<CheckResult> {
-  const isLoop = LOOP_NAMES.includes(key);
+  const isLoop = !key.includes('#') && LOOP_NAMES.includes(key);
   const [name, vs] = isLoop ? [key, '0'] : key.split('#');
   const v = Number(vs ?? 0);
   const base = { key, name, v, kind: (isLoop ? 'loop' : 'sound') as 'sound' | 'loop', category: categoryOf(name) };
@@ -464,7 +465,7 @@ async function checkKey(key: string): Promise<CheckResult> {
 }
 
 async function spectrogramPNG(key: string, width = 900, height = 280): Promise<string> {
-  const isLoop = LOOP_NAMES.includes(key);
+  const isLoop = !key.includes('#') && LOOP_NAMES.includes(key);
   const [name, vs] = isLoop ? [key, '0'] : key.split('#');
   const r = isLoop ? renderLoop(name, CHECK_SR) : renderSound(name, Number(vs ?? 0), CHECK_SR);
   if (!r) throw new Error(`unknown ${key}`);
