@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { SD } from '../core/SD';
 import { Animator } from '../char/Anim';
-import { GJ_POCKETS, GJ_PURPLE, GJ_SIGN, SK_CHANT1, SK_DOMAIN, SK_IDLE, SK_LAUGH, SK_SIGN, SK_SUMMON, KNEEL } from '../char/Poses';
+import { DOWN, GJ_POCKETS, GJ_PURPLE, GJ_SIGN, SK_CHANT1, SK_DOMAIN, SK_IDLE, SK_LAUGH, SK_SIGN, SK_SUMMON, KNEEL } from '../char/Poses';
 import { DAY } from '../world/Sky';
 import { ShrineEnv, VoidEnv } from '../world/Domains';
 import type { Fight } from './Fight';
@@ -937,7 +937,7 @@ export class Director {
     t.at(4.4, () => {
       const pp = p.f.pos;
       const dir = V(Math.sin(p.yaw + Math.PI), 0, Math.cos(p.yaw + Math.PI));
-      this.shot(pp.clone().addScaledVector(dir, 1.6).setY(1.75), pp.clone().addScaledVector(dir, 1.25).setY(1.78), pp.clone().setY(1.76), pp.clone().setY(1.78), 3.4, [36, 30]);
+      this.shot(pp.clone().addScaledVector(dir, 1.6).setY(1.75), pp.clone().addScaledVector(dir, 1.25).setY(1.78), pp.clone().setY(1.76), pp.clone().setY(1.78), 3.4, [36, 30], 'io', -0.22);
       p.model.setExpr('smirk');
       SD.hud?.subtitle('大丈夫　僕　最強だから', "Don't worry. I'm the strongest.", 'gojo', 3.4);
       SD.renderer.post.manga = 0;
@@ -962,11 +962,20 @@ export class Director {
     t.at(2.6, () => {
       SD.renderer.post.slice = 0;
       this.cine(true);
+      // Gojo has fallen a few paces off; Sukuna stands over the street
+      const { dir } = this.stage(7);
+      p.anim.stop();
+      p.anim.stance = DOWN;
+      p.model.setExpr('closed');
+      b.anim.stop();
       b.anim.stance = SK_IDLE;
       b.model.setExpr('smirk');
-      const bp = b.f.pos;
-      const dir = V(Math.sin(b.yaw), 0, Math.cos(b.yaw));
-      this.shot(bp.clone().addScaledVector(dir, 2.6).setY(1.55), bp.clone().addScaledVector(dir, 2.2).setY(1.6), bp.clone().setY(1.55), bp.clone().setY(1.58), 4, [36, 32]);
+      const bp = b.f.pos.clone();
+      // dir runs from Gojo to Sukuna: the camera stands off Sukuna's shoulder, looking back at his face
+      const side = V(-dir.z, 0, dir.x);
+      const c0 = bp.clone().addScaledVector(dir, -1.9).addScaledVector(side, 0.9);
+      const c1 = bp.clone().addScaledVector(dir, -1.5).addScaledVector(side, 0.65);
+      this.shot(c0.setY(b.f.pos.y + 1.5), c1.setY(b.f.pos.y + 1.56), bp.clone().setY(b.f.pos.y + 1.5), bp.clone().setY(b.f.pos.y + 1.55), 4.8, [36, 31], 'io', 0.22);
       SD.renderer.post.manga = 1;
       SD.hud?.subtitle('天晴れだ　五条悟', 'Splendid, Satoru Gojo.', 'sukuna', 2.2);
     });
