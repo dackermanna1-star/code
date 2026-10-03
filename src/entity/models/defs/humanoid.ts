@@ -32,8 +32,8 @@ export interface HumanoidOpts {
   blood?: number;
   /** Mass (kg) for the ragdoll. */
   mass?: number;
-  /** Override per-bone ragdoll boxes. */
-  omitBones?: string[];
+  /** Skip the solid torso box (skeleton ribcage is built from extra prims). */
+  noTorso?: boolean;
 }
 
 export interface HumanoidLayout {
@@ -79,7 +79,7 @@ export function humanoidDef(o: HumanoidOpts): ModelDef {
   const box = (id: string, bone: string, from: V3, to: V3, extra: Partial<BoxPrim> = {}): BoxPrim => ({ kind: 'box', id, bone, from, to, r, ...extra });
   // head + body
   prims.push(box('head', 'head', L.headBox[0], L.headBox[1], { r: o.headR ?? r * 1.15, seg: 3 }));
-  prims.push(box('torso', 'body', L.bodyBox[0], L.bodyBox[1], { seg: 2 }));
+  if (!o.noTorso) prims.push(box('torso', 'body', L.bodyBox[0], L.bodyBox[1], { seg: 2 }));
   if (o.nose) {
     const n = o.nose;
     const top = L.headBox[1][1];
@@ -116,7 +116,7 @@ export function humanoidDef(o: HumanoidOpts): ModelDef {
     key: o.key,
     bones,
     prims,
-    density: o.density ?? 288,
+    density: o.density ?? 210,
     paint: o.paint,
     slots: o.slots,
     sss: o.sss ?? 0.6,

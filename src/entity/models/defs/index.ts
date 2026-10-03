@@ -5,11 +5,19 @@
  */
 import type { ModelDef } from '../def';
 import { zombieModel } from './zombie';
+import { skeletonModel, creeperModel, spiderModel, cowModel, pigModel, sheepModel, chickenModel } from './creatures';
 
 type Factory = (variant: string) => ModelDef;
 
 const FACTORIES: Record<string, Factory> = {
   zombie: (v) => zombieModel((v || 'zombie') as any),
+  skeleton: () => skeletonModel(),
+  creeper: () => creeperModel(),
+  spider: () => spiderModel(),
+  cow: () => cowModel(),
+  pig: () => pigModel(),
+  sheep: () => sheepModel(),
+  chicken: () => chickenModel(),
 };
 
 const memo = new Map<string, ModelDef>();
