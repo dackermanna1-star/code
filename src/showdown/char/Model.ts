@@ -35,6 +35,16 @@ export class CharModel {
     return this.rig.bones[n];
   }
 
+  /** Frees the GPU side: geometry, materials and the face canvases. */
+  dispose() {
+    disposeTree(this.group);
+    if (this.faces) {
+      for (const t of this.faces.maps.values()) t.dispose();
+      this.faces.glow.dispose();
+    }
+    this.rig.skeleton.dispose();
+  }
+
   setBody(geo: THREE.BufferGeometry, mat: THREE.Material) {
     const m = new THREE.SkinnedMesh(geo, mat);
     m.bind(this.rig.skeleton);
@@ -144,4 +154,14 @@ export function handMats(skin: number, skinD: number, nail: number) {
     skinD: toon(skinD, { rim: 0.3 }),
     nail: toon(nail),
   };
+}
+
+/** Disposes every geometry and material under an object (textures shared through ramps are left alone). */
+export function disposeTree(o: THREE.Object3D) {
+  o.traverse((c) => {
+    const m = c as THREE.Mesh;
+    if (m.geometry) m.geometry.dispose();
+    const mats = Array.isArray(m.material) ? m.material : m.material ? [m.material] : [];
+    for (const mt of mats) mt.dispose();
+  });
 }

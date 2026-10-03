@@ -663,7 +663,7 @@ export class Player implements Combatant {
     this.cam.shake(1);
     this.cam.kick(14);
     SD.timing.hitstop(0.12);
-    SD.onomato?.('虚式「茈」', null, 2.4, 'purple');
+    SD.onomato?.('ドォン', null, 2.2, 'purple');
     SD.audio?.play('purpleFire', { volume: 1.3 });
     if (big) {
       SD.audio?.play('wcs', { volume: 0.8 });

@@ -139,8 +139,32 @@ export class Showdown {
     requestAnimationFrame(loop);
   }
 
+  /** frame-time samples for stepping quality down on slow machines */
+  private perf = { t: 0, n: 0, sum: 0, done: false };
+
+  private autoQuality(dt: number) {
+    const q = this.perf;
+    if (q.done || this.settings.qualitySet || document.hidden) return;
+    q.t += dt;
+    if (q.t < 2) return;
+    q.n++;
+    q.sum += dt;
+    if (q.t < 5) return;
+    const avg = q.sum / q.n;
+    const next: MenuSettings['quality'] | null = avg > 1 / 38 ? (this.settings.quality === 'high' ? 'medium' : this.settings.quality === 'medium' ? 'low' : null) : null;
+    if (next) {
+      this.applySettings({ ...this.settings, quality: next });
+      this.menu.settings.quality = next;
+      // measure again at the new setting
+      q.t = 0;
+      q.n = 0;
+      q.sum = 0;
+    } else q.done = true;
+  }
+
   private frame(dt: number) {
     if (!this.ready) return;
+    this.autoQuality(dt);
     this.update(dt);
     this.renderer.render(this.studioScene ?? this.scene, this.camera, SD.hideVM ? null : this.vmScene, this.vmCamera, dt);
     this.input.endFrame();
@@ -250,6 +274,7 @@ export class Showdown {
   pause() {
     if (this.paused || !this.inDuel) return;
     this.paused = true;
+    this.input.exitLock();
     this.menu.onResume = () => this.resume();
     this.menu.onRetry = () => this.retry();
     this.menu.onQuit = () => this.toTitle();

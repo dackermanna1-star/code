@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { clearLenses } from '../../gojo/GojoFX';
 import { SD } from '../core/SD';
 import { HUD } from '../ui/HUD';
+import { disposeTree } from '../char/Model';
 import { Boss, DIFFICULTY, Difficulty } from './Boss';
 import { Timing } from './Combat';
 import { Director } from './Director';
@@ -77,8 +78,18 @@ export class Fight {
     this.director.dispose();
     this.player.f.dispose();
     this.boss.f.dispose();
-    for (const o of [...SD.scene.children]) if (!this.sceneBefore.has(o)) SD.scene.remove(o);
-    for (const o of [...SD.vmScene.children]) if (!this.vmBefore.has(o)) SD.vmScene.remove(o);
+    this.player.model.dispose();
+    this.boss.model.dispose();
+    for (const o of [...SD.scene.children])
+      if (!this.sceneBefore.has(o)) {
+        SD.scene.remove(o);
+        disposeTree(o);
+      }
+    for (const o of [...SD.vmScene.children])
+      if (!this.vmBefore.has(o)) {
+        SD.vmScene.remove(o);
+        disposeTree(o);
+      }
     this.hud.dispose();
     SD.fx.clear();
     SD.audio?.stopLoops();
@@ -110,8 +121,8 @@ export class Fight {
     if (this.over || this.ending) return;
     this.ending = r;
     const done = () => {
+      // the last shot stays up behind the results
       this.over = r;
-      this.director.cine(false);
       this.onOver?.(r);
     };
     // let a running cutscene finish first

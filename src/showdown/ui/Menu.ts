@@ -5,6 +5,8 @@ export interface MenuSettings {
   sens: number;
   manga: boolean;
   quality: 'high' | 'medium' | 'low';
+  /** chosen by the player (otherwise the game may step it down on a slow machine) */
+  qualitySet?: boolean;
   volume: number;
 }
 
@@ -121,6 +123,8 @@ export class Menu {
     });
     q<HTMLSelectElement>('.quality').addEventListener('change', (e) => {
       this.settings.quality = (e.target as HTMLSelectElement).value as MenuSettings['quality'];
+      this.settings.qualitySet = true;
+      saveSettings(this.settings);
       this.onSettings?.(this.settings);
     });
     q<HTMLButtonElement>('.start').addEventListener('click', () => {

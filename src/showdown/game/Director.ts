@@ -8,6 +8,7 @@ import type { Fight } from './Fight';
 import { Mahoraga } from './Mahoraga';
 import { Timeline } from './Timeline';
 import { makeHit } from './Combat';
+import { disposeTree } from '../char/Model';
 
 const _v = new THREE.Vector3();
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
@@ -389,10 +390,22 @@ export class Director {
     this.sureHit = null;
     this.wcs = null;
     this.cutFx = null;
-    this.maho?.dispose();
+    if (this.maho) {
+      this.maho.dispose();
+      this.maho.model.dispose();
+    }
     this.maho = null;
     this.voidEnv.group.removeFromParent();
     this.shrineEnv.group.removeFromParent();
+    disposeTree(this.voidEnv.group);
+    disposeTree(this.shrineEnv.group);
+    if (this.clashSceneObj) {
+      const env = this.clashSceneObj.userData.env as VoidEnv;
+      // Gojo's body may still be standing in the clash world
+      this.clashSceneObj.remove(this.player().model.group);
+      disposeTree(env.group);
+      this.clashSceneObj = null;
+    }
     this.env = 'city';
     this.envTarget = 'city';
     this.applyEnv();
