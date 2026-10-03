@@ -123,6 +123,11 @@ export class Player {
       G.gojo.blocked(from);
       return;
     }
+    // Sukuna shrugs most of it off, and reverse cursed technique heals the rest
+    if (G.sukuna?.active) {
+      amount *= G.sukuna.damageScale;
+      G.sukuna.onHurt();
+    }
     this.hp -= amount;
     this.damageFlash = Math.min(1, this.damageFlash + 0.35 + amount / 60);
     this.addTrauma(Math.min(0.45, 0.12 + amount / 80));
@@ -138,6 +143,8 @@ export class Player {
       this.recoilPitch += 0.015;
     }
     this.onHurt?.(amount);
+    // the King of Curses does not die to this: reverse cursed technique puts him back together
+    if (this.hp <= 0 && G.sukuna?.active) G.sukuna.reverse();
     if (this.hp <= 0) {
       this.hp = 0;
       this.alive = false;

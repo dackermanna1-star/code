@@ -29,6 +29,7 @@ Click the game to capture the mouse. If the page is embedded somewhere that bloc
 | Pee | `K` to unzip, hold left mouse to go, `K` again to zip up |
 | God mode on / off | `H` (also in Settings and the pause menu; it stays on until you turn it off) |
 | Become Satoru Gojo / back to guns | `J` (see below) |
+| Let Ryomen Sukuna out / back to guns | `U` (see below) |
 | Build mode | `F`, then left mouse to place, `Q`/`E`/wheel to rotate, `R` to turn 90°, `1`–`9` to pick a defense, right mouse to exit |
 | Pack up a defense (between waves) | Look at it and hold `E` (keeps its current damage) |
 | Skip the countdown to the next wave | `Enter` |
@@ -61,6 +62,18 @@ Press `J` and the gun goes down, the blindfold comes off, and you fight with the
 
 Kicks (`V`) still work, and kills still pay. The Six Eyes make every zombie's cursed energy glow.
 
+## Ryomen Sukuna
+
+Press `U` and Sukuna takes over: you look down at your hands as the black markings crawl around the wrists and the nails turn black. Press `U` again to push him back down. `J` and `U` swap straight from one to the other.
+
+| Technique | Key | What it does |
+| --- | --- | --- |
+| Reverse cursed technique | always on | Hits barely land (70% less damage) and he heals quickly between them. |
+| Dismantle (解) | Left mouse (hold for a flurry) | A flick of the knife hand sends an invisible edge flying down the road. Whatever it passes through comes apart at that height: heads, torsos, legs. Diagonal cuts carve gashes into the asphalt. |
+| Cleave (捌) | Right mouse | Seizes whatever is under the crosshair (and everything packed around it), a web of cuts lands on them at once, and they fall apart into pieces. Bosses lose a third of their health. |
+| Fuga (■「開」) | `R` | Fire kindles in the palm and is drawn back like a bow into an arrow of flame. Let go and it lands as a firestorm: a towering fireball, burning ground and burning bodies. |
+| Domain Expansion: Malevolent Shrine (領域展開「伏魔御厨子」) | `Z` | The Enma-ten hand sign. There is no barrier: the sky bleeds, a red moon rises, the road drowns in a pool of blood and bones, and the shrine climbs out of the ground with its mouth open. For 10 seconds everything within 60 m is cut, again and again, until nothing is left whole. Use Fuga inside it and the fire fills the whole domain. |
+
 ## Tech
 
 - **Three.js** rendering into a low-resolution target that is upscaled with nearest-neighbour filtering (the pixel look), plus a custom bloom chain and a tone-mapping/grading pass. The first-person viewmodel is drawn in its own pass.
@@ -71,4 +84,4 @@ Kicks (`V`) still work, and kills still pay. The Six Eyes make every zombie's cu
 - **GPU particles**, a persistent blood/scorch stain map, pooled lights, tracers, casings and gibs.
 - **WebAudio** synthesis of every sound, with positional voices, distance filtering and reverb.
 
-Source layout: `src/core` (math, input, globals), `src/render`, `src/world` (road, fields, mountains, weather), `src/player`, `src/zombies`, `src/fx`, `src/weapons`, `src/gojo` (Gojo's hands, techniques, domain and their effects), `src/defenses`, `src/game` (waves, progression, air strike), `src/ui`, `src/audio`.
+Source layout: `src/core` (math, input, globals), `src/render`, `src/world` (road, fields, mountains, weather), `src/player`, `src/zombies`, `src/fx`, `src/weapons`, `src/gojo` (Gojo's hands, techniques, domain and their effects), `src/sukuna` (Sukuna's techniques, the shrine and their effects), `src/defenses`, `src/game` (waves, progression, air strike), `src/ui`, `src/audio`.

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { G } from '../core/G';
 import { clamp, damp, Spring3 } from '../core/math';
 import { C, chamferBox, gunMat, mergeByMaterial } from './ModelBuilder';
-import { BareHand, SLEEVE_G, SLEEVE_G2 } from '../gojo/BareHand';
+import { BareHand, HandLook, LOOK_GOJO, LOOK_SUKUNA, SLEEVE_G, SLEEVE_G2 } from '../gojo/BareHand';
 import { WeaponModel } from './models';
 
 const _v = new THREE.Vector3();
@@ -12,6 +12,8 @@ const _q = new THREE.Quaternion();
 const _m = new THREE.Matrix4();
 const _e = new THREE.Euler();
 const _white = new THREE.Color(1, 1, 1);
+const _nail = new THREE.Color();
+const _nail2 = new THREE.Color();
 /** Distance from the gripped handle to the wrist joint. */
 const WRIST = 0.08;
 
@@ -266,7 +268,7 @@ function makeArm(side: 1 | -1): Arm {
   };
 }
 
-/** Gojo's arm: black uniform sleeve and a bare, articulated hand. */
+/** Gojo's or Sukuna's arm: uniform sleeve and a bare, articulated hand. */
 interface BareArm {
   shoulder: THREE.Vector3;
   pole: THREE.Vector3;
@@ -275,20 +277,47 @@ interface BareArm {
   hand: THREE.Group;
   bare: BareHand;
   cuff: THREE.Mesh;
+  /** Sukuna: bare forearm under a rolled-up sleeve, with two black bands at the wrist. */
+  foreSkin: THREE.Mesh;
+  roll: THREE.Mesh;
+  bands: THREE.Mesh[];
+  sleeveMat: THREE.MeshPhongMaterial;
+  cuffMat: THREE.MeshPhongMaterial;
+  skinMat: THREE.MeshPhongMaterial;
   lenA: number;
   lenB: number;
 }
 
+/** Sleeves, cuffs, bare forearm and markings for each look. */
+export interface ArmLook {
+  hand: HandLook;
+  sleeve: number;
+  cuff: number;
+  /** Fraction of the forearm left bare by a rolled-up sleeve (0 = full sleeve). */
+  roll: number;
+  /** Tattoo bands drawn on (0..1): Sukuna's markings crawl on during the takeover. */
+  bands: number;
+}
+export const ARM_GOJO: ArmLook = { hand: LOOK_GOJO, sleeve: SLEEVE_G, cuff: SLEEVE_G2, roll: 0, bands: 0 };
+export const ARM_SUKUNA: ArmLook = { hand: LOOK_SUKUNA, sleeve: 0x1b2131, cuff: 0x283048, roll: 0.58, bands: 1 };
+
 function makeBareArm(side: 1 | -1): BareArm {
-  const upper = new THREE.Mesh(sleeveGeo(0.05, 0.044, 0.88, [0.3, 0.66]), gunMat(SLEEVE_G, 0, 'fabric'));
-  const fore = new THREE.Mesh(sleeveGeo(0.044, 0.036, 0.86, [0.28, 0.6]), gunMat(SLEEVE_G, 0, 'fabric'));
+  const sleeveMat = gunMat(SLEEVE_G, 0, 'fabric').clone();
+  const cuffMat = gunMat(SLEEVE_G2, 0, 'fabric').clone();
+  const skinMat = gunMat(LOOK_GOJO.skin, 0, 'skin').clone();
+  const upper = new THREE.Mesh(sleeveGeo(0.05, 0.044, 0.88, [0.3, 0.66]), sleeveMat);
+  const fore = new THREE.Mesh(sleeveGeo(0.044, 0.036, 0.86, [0.28, 0.6]), sleeveMat);
   const hand = new THREE.Group();
   const bare = new BareHand(side);
   hand.add(bare.group);
-  const cuff = new THREE.Mesh(sleeveGeo(0.039, 0.038, 0.86, []), gunMat(SLEEVE_G2, 0, 'fabric'));
+  const cuff = new THREE.Mesh(sleeveGeo(0.039, 0.038, 0.86, []), cuffMat);
   cuff.scale.set(1, 1, 0.05);
   hand.add(cuff);
-  for (const o of [upper, fore, hand]) o.visible = false;
+  const foreSkin = new THREE.Mesh(sleeveGeo(0.036, 0.03, 0.84, []), skinMat);
+  const roll = new THREE.Mesh(sleeveGeo(0.05, 0.048, 0.86, [0.5]), cuffMat);
+  const inkMat = new THREE.MeshPhongMaterial({ color: 0x0b090a, specular: 0x111111, shininess: 8 });
+  const bands = [0, 1].map(() => new THREE.Mesh(sleeveGeo(0.0335, 0.0335, 0.85, []), inkMat));
+  for (const o of [upper, fore, hand, foreSkin, roll, ...bands]) o.visible = false;
   return {
     shoulder: new THREE.Vector3(side * 0.22, -0.4, 0.22),
     pole: new THREE.Vector3(side * 0.9, -1, 0.2).normalize(),
@@ -297,6 +326,12 @@ function makeBareArm(side: 1 | -1): BareArm {
     hand,
     bare,
     cuff,
+    foreSkin,
+    roll,
+    bands,
+    sleeveMat,
+    cuffMat,
+    skinMat,
     lenA: 0.34,
     lenB: 0.37,
   };
@@ -347,8 +382,11 @@ export class Viewmodel {
   private armL = makeArm(-1);
   private gojoR = makeBareArm(1);
   private gojoL = makeBareArm(-1);
-  /** Which arms are drawn: tactical gloves, or Gojo's bare hands (driven by rhObj/lhObj). */
+  /** Which arms are drawn: tactical gloves, or bare hands (Gojo or Sukuna, driven by rhObj/lhObj). */
   armSet: 'glove' | 'gojo' = 'glove';
+  /** Look of the bare arms (see setBareLook). */
+  private bareLook: ArmLook = ARM_GOJO;
+  private bandK = 0;
   /** Camera-space root that bobs and sways like the gun; Gojo's hand anchors live under it. */
   readonly handsRoot = new THREE.Group();
   readonly flash: THREE.Mesh;
@@ -400,7 +438,7 @@ export class Viewmodel {
     this.scene.add(this.ambient);
     this.scene.add(this.sun, this.sun.target, this.hemi, this.fill, this.camKey, this.camKey.target);
     for (const a of [this.armR, this.armL]) this.scene.add(a.upper, a.fore, a.hand);
-    for (const a of [this.gojoR, this.gojoL]) this.scene.add(a.upper, a.fore, a.hand);
+    for (const a of [this.gojoR, this.gojoL]) this.scene.add(a.upper, a.fore, a.hand, a.foreSkin, a.roll, ...a.bands);
     this.scene.add(this.handsRoot);
     this.armL.hand.add(this.leftProp);
     this.armR.hand.add(this.rightProp);
@@ -451,9 +489,32 @@ export class Viewmodel {
     return out.copy(d).applyQuaternion(G.camera.quaternion);
   }
 
+  /** Switch the bare arms between Gojo and Sukuna. bands: how far the markings have spread (0..1). */
+  setBareLook(look: ArmLook, bands = look.bands) {
+    this.bandK = bands;
+    if (this.bareLook === look) return;
+    this.bareLook = look;
+    for (const a of [this.gojoR, this.gojoL]) {
+      a.bare.setLook(look.hand);
+      a.sleeveMat.color.setHex(look.sleeve);
+      a.cuffMat.color.setHex(look.cuff);
+      a.skinMat.color.setHex(look.hand.skin);
+    }
+  }
+
+  /** Sukuna's takeover: the nails darken from Yuji's to black (0..1). */
+  setBareNail(k: number) {
+    const c = _nail.setHex(0xdcb4a4).lerp(_nail2.setHex(this.bareLook.hand.nail), THREE.MathUtils.clamp(k, 0, 1)).getHex();
+    for (const a of [this.gojoR, this.gojoL]) a.bare.setNailColor(c);
+  }
+
   private solveBare(arm: BareArm, obj: THREE.Object3D | null, visible: boolean, dt: number) {
     const vis = visible && !!obj && !this.hideArms;
     arm.upper.visible = arm.fore.visible = arm.hand.visible = vis;
+    const rolled = vis && this.bareLook.roll > 0;
+    arm.foreSkin.visible = arm.roll.visible = rolled;
+    for (const b of arm.bands) b.visible = rolled && this.bandK > 0.02;
+    arm.cuff.visible = !rolled;
     if (!vis || !obj) return;
     arm.bare.setPose((obj.userData.pose as string) ?? 'relax');
     arm.bare.rate = (obj.userData.rate as number) ?? 16;
@@ -466,7 +527,26 @@ export class Viewmodel {
     solveIK(arm.shoulder, wrist, arm.lenA, arm.lenB, arm.pole, elbow);
     const up = _v3.set(0, 1, 0);
     orientBox(arm.upper, arm.shoulder, elbow, up);
-    orientBox(arm.fore, elbow, wrist, up);
+    if (rolled) {
+      // sleeve pushed up toward the elbow, bare forearm below it with the markings near the wrist
+      const roll = this.bareLook.roll;
+      const end = _a.copy(elbow).lerp(wrist, 1 - roll);
+      orientBox(arm.fore, elbow, end, up);
+      const skinFrom = _b.copy(elbow).lerp(wrist, 1 - roll - 0.06);
+      orientBox(arm.foreSkin, skinFrom, wrist, up);
+      const dir = new THREE.Vector3().subVectors(wrist, elbow).normalize();
+      const rollTo = new THREE.Vector3().copy(end).addScaledVector(dir, 0.03);
+      orientBox(arm.roll, _b.copy(end).addScaledVector(dir, -0.012), rollTo, up);
+      const len = elbow.distanceTo(wrist);
+      arm.bands.forEach((band, i) => {
+        // the two rings draw on from the wrist upward
+        const k = THREE.MathUtils.clamp(this.bandK * 2 - i, 0, 1);
+        const at = new THREE.Vector3().copy(wrist).addScaledVector(dir, -len * (0.13 + i * 0.1));
+        const w = 0.016 * k;
+        orientBox(band, at, at.clone().addScaledVector(dir, Math.max(0.0005, w)), up);
+        band.visible = band.visible && k > 0.02;
+      });
+    } else orientBox(arm.fore, elbow, wrist, up);
     arm.hand.position.copy(target);
     // sleeve cuff over the wrist, along the forearm
     const inv = _q.copy(arm.hand.quaternion).invert();

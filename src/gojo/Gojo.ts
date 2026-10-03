@@ -6,6 +6,7 @@ import { S } from '../zombies/Zombie';
 import type { Zombie } from '../zombies/Zombie';
 import type { Ragdoll } from '../zombies/Ragdolls';
 import type { HitInfo, ZombieHit } from '../zombies/ZombieManager';
+import { ARM_GOJO } from '../weapons/Viewmodel';
 import type { Viewmodel } from '../weapons/Viewmodel';
 import { Arcs, Beam, Orb, ORB_BLUE, ORB_PURPLE, ORB_RED, Pulses, Streaks, clearLenses, setLens } from './GojoFX';
 import { Domain } from './Domain';
@@ -41,7 +42,7 @@ const _m = new THREE.Matrix4();
 const F3 = new Float32Array(3);
 
 /** Orientation of a hand anchor: fingers along f, back of the hand toward b. */
-function handQuat(out: THREE.Quaternion, fx: number, fy: number, fz: number, bx: number, by: number, bz: number) {
+export function handQuat(out: THREE.Quaternion, fx: number, fy: number, fz: number, bx: number, by: number, bz: number) {
   _hz.set(-fx, -fy, -fz).normalize();
   _hy.set(bx, by, bz);
   _hy.addScaledVector(_hz, -_hy.dot(_hz)).normalize();
@@ -51,7 +52,7 @@ function handQuat(out: THREE.Quaternion, fx: number, fy: number, fz: number, bx:
 }
 
 /** Distance from p to segment ab. */
-function segDist(px: number, py: number, pz: number, a: THREE.Vector3, b: THREE.Vector3) {
+export function segDist(px: number, py: number, pz: number, a: THREE.Vector3, b: THREE.Vector3) {
   const abx = b.x - a.x;
   const aby = b.y - a.y;
   const abz = b.z - a.z;
@@ -65,7 +66,7 @@ function segDist(px: number, py: number, pz: number, a: THREE.Vector3, b: THREE.
  * One of Gojo's bare hands: an anchor under the viewmodel's hands root that
  * glides toward a target pose. When it is not needed it drops out of view.
  */
-class Hand {
+export class Hand {
   readonly obj = new THREE.Object3D();
   private readonly tp = new THREE.Vector3();
   private readonly tq = new THREE.Quaternion();
@@ -470,11 +471,6 @@ export class Gojo {
   update(dt: number, vm: Viewmodel, ok: boolean) {
     this.attach(vm);
     this.time += dt;
-    const post = G.renderer.post;
-    // impact frames hold for a couple of frames, then cut away
-    post.impact = Math.max(0, post.impact - dt * 8);
-    post.bloomBoost = damp(post.bloomBoost, 0, 3.5, dt);
-    clearLenses();
     for (const k of Object.keys(this.cd) as (keyof typeof this.cd)[]) this.cd[k] = Math.max(0, this.cd[k] - dt);
     this.blockT -= dt;
     this.vmArcs.begin();
@@ -493,6 +489,7 @@ export class Gojo {
 
     // viewmodel side
     if (this.armsReady) {
+      vm.setBareLook(ARM_GOJO);
       vm.rhObj = this.rh.obj;
       vm.lhObj = this.lh.obj;
       vm.rhVisible = this.rh.visible;

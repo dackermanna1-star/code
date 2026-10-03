@@ -217,6 +217,8 @@ export class UI {
         <div><span>God mode on / off</span><span class="kbd">H</span></div>
         <div><span>Become Satoru Gojo / back to guns</span><span class="kbd">J</span></div>
         <div><span>Gojo: Blue (hold) / Red / Purple / Domain</span><span><span class="kbd">LMB</span><span class="kbd">RMB</span><span class="kbd">R</span><span class="kbd">Z</span></span></div>
+        <div><span>Let Ryomen Sukuna out / back to guns</span><span class="kbd">U</span></div>
+        <div><span>Sukuna: Dismantle (hold) / Cleave / Fuga / Shrine</span><span><span class="kbd">LMB</span><span class="kbd">RMB</span><span class="kbd">R</span><span class="kbd">Z</span></span></div>
         <div><span>Build mode</span><span class="kbd">F</span></div>
         <div><span>Rotate structure</span><span><span class="kbd">Q</span><span class="kbd">E</span><span class="kbd">Wheel</span></span></div>
         <div><span>Pick up structure (prep)</span><span>hold <span class="kbd">E</span></span></div>
@@ -732,10 +734,11 @@ export class UI {
     this.set('hptext', `${Math.ceil(pl.hp)} / ${pl.maxHp}`);
     (document.getElementById('vignette-low') as HTMLElement).style.boxShadow = `inset 0 0 ${hpk < 0.35 ? 200 : 0}px rgba(170,0,0,${hpk < 0.35 ? 0.5 + Math.sin(G.time * 6) * 0.2 : 0})`;
     this.set('gren', `GRENADES <span class="num" style="font-size:22px">${G.weapons.grenades}</span> <span class="kbd">G</span>`);
-    // Satoru Gojo: technique bar instead of the gun
-    const gj = G.gojo;
-    const gojoOn = !!gj?.active;
+    // Satoru Gojo / Ryomen Sukuna: technique bar instead of the gun
+    const gj = G.gojo?.active ? G.gojo : G.sukuna?.active ? G.sukuna : null;
+    const gojoOn = !!gj;
     this.hudEl.classList.toggle('gojo-on', gojoOn);
+    this.hudEl.classList.toggle('suk-on', gojoOn && gj === G.sukuna);
     if (gojoOn) {
       const h = gj.hud();
       const slots = h.slots
@@ -745,7 +748,7 @@ export class UI {
           return `<div class="gs ${s.cls}${s.on ? ' on' : ''}${cd > 0 ? ' cool' : ''}" style="--cd:${cd}"><b>${s.jp}</b><small>${s.name}</small><span class="kbd">${s.key}</span>${left}</div>`;
         })
         .join('');
-      this.set('gojo', `<div class="inf">∞ INFINITY</div><div class="gsr">${slots}</div>`);
+      this.set('gojo', `<div class="inf">${h.label ? esc(h.label) : '∞ INFINITY'}</div><div class="gsr">${slots}</div>`);
     }
     if (this.jjkT > 0) {
       this.jjkT -= dt;

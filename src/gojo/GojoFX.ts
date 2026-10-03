@@ -557,3 +557,12 @@ export function clearLenses() {
   const post = G.renderer.post;
   post.lenses.fill(0);
 }
+
+/** Once per frame before Gojo and Sukuna update: lenses are re-set by whoever needs them, impact frames cut away. */
+export function cursedPostFrame(dt: number) {
+  const post = G.renderer.post;
+  // impact frames hold for a couple of frames, then cut away
+  post.impact = Math.max(0, post.impact - dt * 8);
+  post.bloomBoost += (0 - post.bloomBoost) * (1 - Math.exp(-3.5 * dt));
+  clearLenses();
+}

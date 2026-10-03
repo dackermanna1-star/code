@@ -843,6 +843,145 @@ reg('infinityBlock', 3, () => {
   mix(o, modal(0.4, [[rr(2300, 2900), 0.4, 0.12], [rr(4400, 5200), 0.2, 0.06]]), 0.5);
   return normalize(o, 0.45);
 });
+// ------------------------------------------------------------ Ryomen Sukuna
+function slice(len: number, f0: number, ring: number) {
+  const o = buf(len);
+  mix(o, biquad(env(white(0.05), ad(0.0004, 0.012)), 'hp', f0), 1.2);
+  if (ring > 0) mix(o, modal(len * 0.8, [[f0 * rr(0.62, 0.7), 0.3 * ring, 0.09], [f0 * rr(1.0, 1.1), 0.18 * ring, 0.06], [f0 * rr(1.5, 1.6), 0.1 * ring, 0.04]]), 1);
+  return o;
+}
+reg('sukunaTransform', 1, () => {
+  const len = 2.4;
+  const o = buf(len);
+  // pressure building, two heavy heartbeats
+  mix(o, env(biquad(pink(0.45), 'bp', sweep(180, 2200, 0.42), 1.6), (t) => Math.pow(Math.min(1, t / 0.42), 2) * (t < 0.43 ? 1 : 0)), 1.1);
+  for (const at of [0.04, 0.24]) mix(o, env(osc(0.25, sweep(70, 38, 0.12)), ad(0.003, 0.07)), 1.4, at);
+  // the takeover: a sub boom under a distorted growl
+  mix(o, env(osc(1.6, sweep(72, 24, 0.8)), ad(0.003, 0.55)), 2.2, 0.42);
+  mix(o, biquad(env(white(0.06), ad(0.0004, 0.015)), 'hp', 1600), 1.2, 0.42);
+  const growl = voice(1.6, (t) => 58 - t * 8, [[380, 4, 1], [880, 5, 0.55], [2300, 7, 0.22]], 0.35, 0.09, 0.7);
+  env(growl, (t) => Math.min(1, t / 0.06) * Math.exp(-t / 0.9) * (t > 0.7 ? 0.6 + 0.4 * Math.sin((t - 0.7) * 2 * Math.PI * 5) : 1));
+  mix(o, drive(growl, 2.4), 0.9, 0.44);
+  for (let k = 0; k < 50; k++) mix(o, click(0.02, rr(900, 4200), 3, 0.004), rr(0.05, 0.25), rr(0.45, 1.6));
+  return normalize(echo(drive(o, 1.6), 0.21, 0.32, 1200, 3), 0.95);
+});
+reg('sukunaRevert', 1, () => {
+  const o = buf(0.9);
+  mix(o, env(biquad(pink(0.7), 'bp', sweep(2600, 200, 0.6), 1.6), ad(0.04, 0.25)), 1);
+  mix(o, env(osc(0.5, sweep(80, 40, 0.3)), ad(0.004, 0.15)), 0.9, 0.15);
+  return normalize(o, 0.6);
+});
+// Dismantle: an edge of air. A rush, a hiss and a thin metallic ring
+reg('dismantle', 4, () => {
+  const len = 0.5;
+  const o = buf(len);
+  mix(o, env(biquad(pink(0.3), 'bp', sweep(rr(4200, 6000), rr(700, 1100), 0.18), 1.4), ad(0.003, 0.07)), 1.3);
+  mix(o, slice(len, rr(5200, 6800), 1), 0.9, 0.005);
+  mix(o, env(osc(0.08, sweep(140, 60, 0.05)), ad(0.001, 0.02)), 0.35);
+  return normalize(o, 0.8);
+});
+reg('slashFlesh', 4, () => {
+  const o = buf(0.45);
+  mix(o, slice(0.2, rr(3500, 5200), 0.4), 0.6);
+  mix(o, biquad(env(white(0.25), ad(0.002, 0.05)), 'bp', sweep(rr(1300, 1700), 500, 0.12), 1.8), 1.3, 0.008);
+  mix(o, env(osc(0.15, sweep(110, 45, 0.08)), ad(0.002, 0.04)), 0.9, 0.01);
+  const sq = env(white(0.3), (t) => Math.exp(-t / 0.07) * (0.5 + 0.5 * Math.sin(t * 2 * Math.PI * 42)));
+  mix(o, biquad(sq, 'bp', rr(380, 520), 3), 0.8, 0.03);
+  return normalize(o, 0.8);
+});
+// Cleave: a burst of cuts landing at once, then the body comes apart
+reg('cleave', 2, () => {
+  const o = buf(0.8);
+  for (let k = 0; k < 9; k++) mix(o, slice(0.12, rr(4000, 8500), rr(0.3, 1)), rr(0.4, 0.8), k * 0.012 + rr(0, 0.006));
+  mix(o, biquad(env(white(0.3), ad(0.002, 0.07)), 'bp', 700, 1.4), 1.6, 0.12);
+  mix(o, env(osc(0.25, sweep(95, 40, 0.12)), ad(0.002, 0.06)), 1.3, 0.12);
+  for (let k = 0; k < 10; k++) mix(o, biquad(env(white(0.08), ad(0.003, 0.025)), 'bp', rr(350, 900), 3), rr(0.2, 0.5), 0.14 + rr(0, 0.35));
+  return normalize(drive(o, 1.5), 0.92);
+});
+// Fuga: fire kindling in a palm, roaring as it is drawn into an arrow
+function fireRoar(len: number, lp: number) {
+  const r = env(brown(len), (t) => 0.75 + 0.25 * Math.sin(t * 2 * Math.PI * 7.3) * Math.sin(t * 2 * Math.PI * 2.9));
+  return biquad(r, 'lp', lp);
+}
+reg('fugaDraw', 1, () => {
+  const len = 2.4;
+  const o = buf(len);
+  mix(o, env(biquad(pink(0.4), 'bp', sweep(300, 1600, 0.2), 1.4), ad(0.01, 0.12)), 1.0);
+  const roar = env(fireRoar(len, 700), (t) => Math.min(1, Math.pow(t / 1.8, 1.5)) * (t > 2.2 ? Math.max(0, (len - t) / 0.2) : 1));
+  mix(o, roar, 3.2);
+  mix(o, env(biquad(osc(len, (t) => 70 + 45 * Math.min(1, t / 1.8), 'saw'), 'lp', 900), (t) => Math.min(1, t / 1.6) * 0.5), 0.6);
+  for (let k = 0; k < 140; k++) {
+    const t = Math.pow(rr(0, 1), 0.7) * (len - 0.05);
+    mix(o, click(0.015, rr(1200, 5200), 4, 0.003), rr(0.08, 0.35) * (0.3 + t / len), t);
+  }
+  // 開: a bright snap when the arrow takes shape
+  mix(o, slice(0.4, 6200, 1), 0.7, 0.75);
+  mix(o, env(biquad(pink(0.4), 'bp', sweep(500, 3000, 0.15), 1.2), ad(0.005, 0.12)), 1.1, 0.75);
+  return normalize(o, 0.85);
+});
+reg('fugaFire', 1, () => {
+  const len = 1.4;
+  const o = buf(len);
+  mix(o, env(biquad(pink(0.8), 'bp', sweep(3200, 350, 0.35), 1.2), ad(0.003, 0.2)), 1.8);
+  mix(o, env(osc(0.5, sweep(120, 45, 0.2)), ad(0.002, 0.1)), 1.3);
+  mix(o, env(fireRoar(len, 900), ad(0.01, 0.5)), 2.4);
+  return normalize(o, 0.9);
+});
+reg('fugaBlast', 2, () => {
+  const len = 4.8;
+  const o = buf(len);
+  mix(o, biquad(env(white(0.05), ad(0.0003, 0.008)), 'hp', 1400), 2.0);
+  mix(o, env(osc(2.4, sweep(105, 20, 1.1)), ad(0.004, 0.9)), 2.8);
+  mix(o, env(biquad(pink(1.0), 'bp', sweep(220, 900, 0.3), 1.0), ad(0.004, 0.35)), 1.8);
+  mix(o, env(fireRoar(len, 650), (t) => Math.min(1, t / 0.05) * Math.exp(-t / 2.2)), 4.2);
+  for (let k = 0; k < 120; k++) mix(o, click(0.02, rr(700, 4500), 3, 0.004), rr(0.05, 0.3) * Math.exp(-k / 60), rr(0.03, 3.8));
+  let r: Float32Array = echo(o, 0.27, 0.42, 650, 4);
+  r = drive(r, 3.4);
+  fadeOut(r, 0.6);
+  return normalize(r, 1.0);
+});
+// Malevolent Shrine: a temple bell rung once, the ground giving way, and then endless cutting
+function templeBell(len: number, f: number) {
+  const o = modal(len, [
+    [f, 0.9, 2.6],
+    [f * 2.0, 0.5, 1.9],
+    [f * 2.76, 0.45, 1.4],
+    [f * 3.94, 0.3, 1.0],
+    [f * 5.4, 0.2, 0.7],
+    [f * 6.8, 0.1, 0.45],
+  ]);
+  mix(o, biquad(env(white(0.06), ad(0.0005, 0.02)), 'bp', f * 4, 1.2), 0.5);
+  return o;
+}
+reg('shrineStart', 1, () => {
+  const len = 4.4;
+  const o = buf(len);
+  mix(o, templeBell(len, 96), 1.4);
+  mix(o, env(biquad(brown(len), 'lp', 140), (t) => Math.min(1, t / 1.2) * Math.exp(-Math.max(0, t - 1.3) / 1.4)), 3.0);
+  mix(o, env(osc(2.2, sweep(60, 26, 1.4)), ad(0.4, 0.9)), 1.2, 0.2);
+  mix(o, choir(3.2, [73.4, 110, 146.8], 0.9), 1.0, 0.4);
+  for (let k = 0; k < 26; k++) mix(o, slice(0.12, rr(3500, 9000), rr(0.2, 0.9)), rr(0.15, 0.45), 1.25 + rr(0, 1.6));
+  return normalize(echo(o, 0.33, 0.38, 2400, 4), 0.95);
+});
+reg('shrineLoop', 1, () => {
+  const L = 4.0;
+  const o = buf(L);
+  for (let k = 0; k < 280; k++) mix(o, slice(0.08, rr(3000, 9500), rr(0, 1)), rr(0.05, 0.3), rr(0, L - 0.1));
+  for (let k = 0; k < 34; k++) mix(o, env(biquad(pink(0.25), 'bp', sweep(rr(3000, 5500), rr(500, 900), 0.15), 1.4), ad(0.004, 0.06)), rr(0.15, 0.45), rr(0, L - 0.3));
+  for (let k = 0; k < 14; k++) mix(o, biquad(env(white(0.1), ad(0.002, 0.04)), 'bp', rr(450, 800), 2), rr(0.2, 0.5), rr(0, L - 0.15));
+  const drone = osc(L, 41, 'sine');
+  mix(drone, osc(L, 61.6, 'sine'), 0.6);
+  mix(o, drone, 0.5);
+  return normalize(seamless(o, 0.4), 0.6);
+});
+reg('shrineEnd', 1, () => {
+  const len = 2.4;
+  const o = buf(len);
+  mix(o, templeBell(len, 120), 0.9);
+  mix(o, env(biquad(pink(1.2), 'bp', sweep(2500, 200, 1.0), 1.2), ad(0.02, 0.45)), 1.0);
+  mix(o, env(biquad(brown(len), 'lp', 160), ad(0.02, 0.8)), 2.0);
+  return normalize(o, 0.85);
+});
 reg('footstep', 5, (v) => footstep(v));
 reg('land', 1, () => bodyFall());
 for (const m of ['wood', 'metal', 'concrete', 'sand']) {

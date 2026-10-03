@@ -7,6 +7,8 @@ import { Viewmodel } from './Viewmodel';
 import { Kick } from './Kick';
 import { Emote, Pee } from './Gestures';
 import { Gojo } from '../gojo/Gojo';
+import { cursedPostFrame } from '../gojo/GojoFX';
+import { Sukuna } from '../sukuna/Sukuna';
 import { randomCone } from './Ballistics';
 import { C, mat } from './ModelBuilder';
 
@@ -83,6 +85,8 @@ export class WeaponController {
   readonly pee = new Pee();
   /** Satoru Gojo mode (J): bare hands and the Limitless instead of guns. */
   readonly gojo: Gojo;
+  /** Ryomen Sukuna mode (U): Dismantle, Cleave, Fuga and the Malevolent Shrine. */
+  readonly sukuna: Sukuna;
 
   constructor() {
     this.vm = new Viewmodel();
@@ -90,7 +94,9 @@ export class WeaponController {
     this.emote = new Emote(G.vmScene);
     this.gojo = new Gojo();
     G.gojo = this.gojo;
-    this.gojo.onRevert = () => {
+    this.sukuna = new Sukuna();
+    G.sukuna = this.sukuna;
+    this.gojo.onRevert = this.sukuna.onRevert = () => {
       // the gun comes back up
       this.state = 'equip';
       this.stateT = 0;
@@ -241,12 +247,25 @@ export class WeaponController {
     const gestureOk = pl.alive && !G.game?.uiBlocking && !G.placement?.active;
     if (!pl.alive && this.pee.on) this.pee.reset();
 
-    // ---- J: become Satoru Gojo (and back)
+    // ---- J: become Satoru Gojo, U: let Sukuna out (pressing the other key swaps straight over)
     const gojo = this.gojo;
-    if (!pl.alive && gojo.active) gojo.forceRevert();
-    if (gestureOk && input.pressed('KeyJ') && this.state !== 'throw' && gojo.toggle() && this.pee.on) this.pee.reset();
-    if (gojo.active) {
-      this.updateGojo(dt, gestureOk);
+    const suk = this.sukuna;
+    cursedPostFrame(dt);
+    if (!pl.alive) {
+      if (gojo.active) gojo.forceRevert();
+      if (suk.active) suk.forceRevert();
+    }
+    if (gestureOk && this.state !== 'throw') {
+      if (input.pressed('KeyJ')) {
+        if (suk.active) suk.forceRevert();
+        if (gojo.toggle() && this.pee.on) this.pee.reset();
+      } else if (input.pressed('KeyU')) {
+        if (gojo.active) gojo.forceRevert();
+        if (suk.toggle() && this.pee.on) this.pee.reset();
+      }
+    }
+    if (gojo.active || suk.active) {
+      this.updateCursed(dt, gestureOk);
       return;
     }
     this.vm.armSet = 'glove';
@@ -319,6 +338,7 @@ export class WeaponController {
     // ---- animation
     this.animate(dt);
     this.gojo.update(dt, this.vm, false);
+    this.sukuna.update(dt, this.vm, false);
     this.kick.update(dt, this.vm);
     this.pee.update(dt, this.vm, pl.alive && !G.game?.uiBlocking && input.mouse(0));
     this.emote.update(dt, this.vm, wantEmote, w?.def.category === 'bow');
@@ -327,12 +347,12 @@ export class WeaponController {
     void this.scopeHideT;
   }
 
-  /** Gojo mode: the guns are put away; the hands belong to the Limitless. */
-  private updateGojo(dt: number, ok: boolean) {
+  /** Gojo or Sukuna: the guns are put away; the hands belong to the technique. */
+  private updateCursed(dt: number, ok: boolean) {
     const vm = this.vm;
     const pl = G.player;
     const input = G.input;
-    const gojo = this.gojo;
+    const cur = this.gojo.active ? this.gojo : this.sukuna;
     this.ads = damp(this.ads, 0, 16, dt);
     vm.ads = this.ads;
     G.renderer.post.scope = 0;
@@ -343,7 +363,7 @@ export class WeaponController {
     this.burstLeft = 0;
     vm.hideArms = false;
     if (pl.alive && !G.game?.uiBlocking && (input.pressed('KeyV') || input.mousePress(1))) this.kick.tryStart();
-    if (gojo.armsReady) {
+    if (cur.armsReady) {
       vm.armSet = 'gojo';
       vm.hideWeapon = true;
       vm.animPos.set(0, 0, 0);
@@ -358,12 +378,13 @@ export class WeaponController {
       vm.armSet = 'glove';
       vm.hideWeapon = false;
       this.animate(dt);
-      vm.lower = Math.max(vm.lower, gojo.gunLower);
+      vm.lower = Math.max(vm.lower, cur.gunLower);
     }
-    gojo.update(dt, vm, ok);
-    pl.fovMul = gojo.fovMul;
-    this.moveMul = 1.12;
-    pl.moveMul = 1.12;
+    this.gojo.update(dt, vm, ok && this.gojo.active);
+    this.sukuna.update(dt, vm, ok && this.sukuna.active);
+    pl.fovMul = cur.fovMul;
+    this.moveMul = cur === this.sukuna ? 1.15 : 1.12;
+    pl.moveMul = this.moveMul;
     this.kick.update(dt, vm);
     this.vm.update(dt, G.input.mouseDX, G.input.mouseDY, pl.moving ? Math.min(1, Math.hypot(pl.vel.x, pl.vel.z) / 4.7) : 0, pl.sprinting, pl.onGround);
   }

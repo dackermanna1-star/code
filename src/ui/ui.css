@@ -230,6 +230,13 @@ html, body {
 #hud .gs.red { --c: #ff5a46; --g: rgba(255, 40, 20, 0.7); }
 #hud .gs.purple { --c: #c88bff; --g: rgba(150, 60, 255, 0.75); }
 #hud .gs.void { --c: #e6f3ff; --g: rgba(120, 190, 255, 0.7); width: 96px; }
+#hud .gs.kai { --c: #f4ece6; --g: rgba(255, 40, 30, 0.7); }
+#hud .gs.hachi { --c: #ff3b2e; --g: rgba(200, 0, 0, 0.8); }
+#hud .gs.fuga { --c: #ffa23a; --g: rgba(255, 110, 20, 0.8); }
+#hud .gs.shrine { --c: #ff5248; --g: rgba(160, 0, 0, 0.85); width: 104px; }
+#hud .gs.shrine b { font-size: 19px; letter-spacing: 0; }
+#hud.suk-on .gojo .inf { color: #ff9d90; text-shadow: 0 0 8px rgba(255, 30, 20, 0.9), 1px 1px 0 #000; }
+#hud.suk-on .gs { background: linear-gradient(180deg, rgba(26, 6, 6, 0.86), rgba(8, 2, 2, 0.92)); }
 #hud .gs b { font-family: 'Yu Mincho', 'YuMincho', 'Hiragino Mincho ProN', 'Noto Serif CJK JP', 'Noto Serif JP', 'MS Mincho', serif; font-size: 30px; line-height: 1; color: var(--c); text-shadow: 0 0 10px var(--g), 0 0 2px #fff, 2px 2px 0 #000; }
 #hud .gs.void b { font-size: 21px; letter-spacing: 1px; }
 #hud .gs small { font-family: var(--font-pixel); font-size: 9px; letter-spacing: 2px; color: #d8d2c4; margin-top: 4px; text-shadow: 1px 1px 0 #000; }
@@ -249,6 +256,11 @@ html, body {
 #hud .jjk.purple { --c: #d29bff; --g: rgba(150, 50, 255, 0.95); }
 #hud .jjk.void { --c: #f2f8ff; --g: rgba(110, 180, 255, 0.95); }
 #hud .jjk.six { --c: #d6f1ff; --g: rgba(90, 200, 255, 0.95); }
+#hud .jjk.kai { --c: #fff2ee; --g: rgba(255, 30, 20, 0.95); }
+#hud .jjk.hachi { --c: #ff3a2c; --g: rgba(190, 0, 0, 0.95); }
+#hud .jjk.fuga { --c: #ffb24a; --g: rgba(255, 100, 10, 0.95); }
+#hud .jjk.shrine, #hud .jjk.sukuna { --c: #ff4a40; --g: rgba(150, 0, 0, 0.95); }
+#hud .jjk.shrine .jp, #hud .jjk.sukuna .jp, #hud .jjk.fuga .jp { color: #1a0202; text-shadow: 0 0 2px var(--c), 0 0 14px var(--g), 0 0 34px var(--g), 0 0 60px var(--g); }
 #hud .jjk .jp { font-family: 'Yu Mincho', 'YuMincho', 'Hiragino Mincho ProN', 'Noto Serif CJK JP', 'Noto Serif JP', 'MS Mincho', serif; font-weight: 700; font-size: 44px; line-height: 1.05; color: #fff; text-shadow: 0 0 6px var(--c), 0 0 22px var(--g), 0 0 48px var(--g), 3px 3px 0 #000; letter-spacing: 0.06em; }
 #hud .jjk.big .jp { font-size: clamp(56px, 9vw, 128px); letter-spacing: 0.12em; }
 #hud .jjk .en { font-family: var(--font-pixel); font-size: 13px; letter-spacing: 6px; color: var(--c); margin-top: 6px; text-shadow: 0 0 10px var(--g), 2px 2px 0 #000; }

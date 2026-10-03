@@ -301,6 +301,9 @@ export class Atmosphere {
   /** Infinite Void takeover (0..1): cold light from the singularity, black-blue fog, no sky. */
   voidMix = 0;
   readonly voidLight = new THREE.Vector3(0, 0.35, -1).normalize();
+  /** Malevolent Shrine takeover (0..1): the sky bleeds, a red moon lights the world. */
+  shrineMix = 0;
+  readonly shrineDir = new THREE.Vector3(0, 0.17, 1).normalize();
   private t = 0;
   private tTarget = 0;
   private lightningTimer = 4;
@@ -460,6 +463,35 @@ export class Atmosphere {
       s.storm *= 1 - vm;
       s.sunVisible *= 1 - vm;
     }
+    const sm = this.shrineMix;
+    if (sm > 0.001) {
+      s.sunDir.lerp(this.shrineDir, sm).normalize();
+      s.sunColor.lerp(_vc.setRGB(1.0, 0.24, 0.12), sm);
+      s.sunIntensity += (1.05 - s.sunIntensity) * sm;
+      s.skyTop.lerp(_vc.setRGB(0.012, 0.001, 0.002), sm);
+      s.skyHorizon.lerp(_vc.setRGB(0.26, 0.018, 0.01), sm);
+      s.hemiSky.lerp(_vc.setRGB(0.34, 0.05, 0.04), sm);
+      s.hemiGround.lerp(_vc.setRGB(0.06, 0.008, 0.008), sm);
+      s.hemiIntensity += (0.6 - s.hemiIntensity) * sm;
+      s.fogColor.lerp(_vc.setRGB(0.085, 0.006, 0.005), sm);
+      s.cloudColor.lerp(_vc.setRGB(0.24, 0.025, 0.016), sm);
+      s.cloudShade.lerp(_vc.setRGB(0.03, 0.003, 0.003), sm);
+      s.cloudCover += (0.55 - s.cloudCover) * sm;
+      s.mountainNear.lerp(_vc.setRGB(0.09, 0.012, 0.012), sm);
+      s.mountainFar.lerp(_vc.setRGB(0.16, 0.02, 0.016), sm);
+      s.treeColor.lerp(_vc.setRGB(0.07, 0.015, 0.012), sm);
+      s.grassTint.lerp(_vc.setRGB(0.5, 0.12, 0.09), sm);
+      s.exposure += (1.0 - s.exposure) * sm;
+      s.saturation += (1.05 - s.saturation) * sm;
+      s.contrast += (1.22 - s.contrast) * sm;
+      s.tint.lerp(_vc.setRGB(1.04, 0.96, 0.95), sm);
+      s.lift.lerp(_vc.setRGB(0.008, 0.0, 0.0), sm);
+      s.stars *= 1 - sm;
+      s.rain *= 1 - sm;
+      s.storm *= 1 - sm;
+      // the moon is drawn by the shrine itself
+      s.sunVisible *= 1 - sm;
+    }
 
     // lightning
     if (s.storm > 0.5) {
@@ -489,6 +521,9 @@ export class Atmosphere {
     const far = clamp(ARENA.fogFar - (s.fogDensity - 0.0042) * 1500, 24, ARENA.fogFar);
     this.fog.far = far + (95 - far) * vm;
     this.fog.near = far * 0.34 + (35 - far * 0.34) * vm;
+    // the shrine stands out past the usual fog wall
+    this.fog.far += (130 - this.fog.far) * sm;
+    this.fog.near += (40 - this.fog.near) * sm;
     this.sky.visible = vm < 0.999;
 
     // Shadow frustum follows the player, biased ahead; snapped to texels to avoid shimmer

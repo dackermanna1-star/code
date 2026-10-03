@@ -2,11 +2,21 @@ import * as THREE from 'three';
 import { chamferBox, gunMat } from '../weapons/ModelBuilder';
 
 /** Gojo's skin and uniform. */
-export const SKIN = 0xd6a68c;
-const SKIN_D = 0xbf8d74;
+export const SKIN = 0xc8987c;
+const SKIN_D = 0xab7d64;
 const NAIL = 0xe2bcae;
 export const SLEEVE_G = 0x16171e;
 export const SLEEVE_G2 = 0x0e0f14;
+
+/** Skin, knuckle shade and nail colours of a pair of bare hands. */
+export interface HandLook {
+  skin: number;
+  skinD: number;
+  nail: number;
+}
+export const LOOK_GOJO: HandLook = { skin: SKIN, skinD: SKIN_D, nail: NAIL };
+/** Sukuna in Yuji's body: a warmer skin tone and black nails. */
+export const LOOK_SUKUNA: HandLook = { skin: 0xad7556, skinD: 0x8f5c42, nail: 0x0c0a0b };
 
 type V3 = [number, number, number];
 
@@ -58,6 +68,27 @@ export const HAND_POSES: Record<string, HandPose> = {
     spread: [-0.24, -0.06, 0.12, 0.3],
     lift: [0, 0, 0, 0],
     thumb: [[-0.03, -0.012, 0.03], [-0.054, -0.018, 0.004], [-0.064, -0.03, -0.016], [-0.06, -0.04, -0.034]],
+  },
+  // Dismantle: a knife hand, fingers straight and pressed together
+  blade: {
+    flex: [[0.03, 0.04, 0.02], [0.02, 0.03, 0.02], [0.03, 0.04, 0.02], [0.05, 0.06, 0.03]],
+    spread: [0.06, 0.02, -0.02, -0.06],
+    lift: [0, 0, 0, 0],
+    thumb: [[-0.03, -0.012, 0.03], [-0.04, -0.016, 0.0], [-0.038, -0.018, -0.024], [-0.032, -0.018, -0.042]],
+  },
+  // Malevolent Shrine: the Enma-ten sign. Middle fingers up, index curled behind, the rest folded
+  mudra: {
+    flex: [[1.15, 1.3, 0.7], [0.0, 0.02, 0.02], [1.45, 1.6, 0.9], [1.5, 1.7, 0.95]],
+    spread: [0.05, 0, 0.04, 0.08],
+    lift: [0, 0, 0, 0],
+    thumb: [[-0.03, -0.012, 0.03], [-0.045, -0.014, 0.0], [-0.05, -0.012, -0.03], [-0.05, -0.01, -0.055]],
+  },
+  // Fuga: thumb and index pinch the nock of the flame arrow
+  pinch: {
+    flex: [[0.75, 0.9, 0.5], [1.0, 1.2, 0.7], [1.3, 1.5, 0.85], [1.4, 1.6, 0.9]],
+    spread: [0.0, 0.02, 0.05, 0.1],
+    lift: [0, 0, 0, 0],
+    thumb: [[-0.03, -0.012, 0.03], [-0.045, -0.03, 0.0], [-0.04, -0.05, -0.035], [-0.03, -0.062, -0.058]],
   },
   fist: {
     flex: [CURL, CURL, CURL, [1.55, 1.75, 0.95]],
@@ -127,11 +158,16 @@ export class BareHand {
   /** Blend speed toward the target pose (1/s). */
   rate = 16;
 
+  private mSkin: THREE.MeshPhongMaterial;
+  private mSkinD: THREE.MeshPhongMaterial;
+  private mNail: THREE.MeshPhongMaterial;
+
   constructor(readonly side: 1 | -1) {
     const s = side;
-    const skin = gunMat(SKIN, 0, 'skin');
-    const skinD = gunMat(SKIN_D, 0, 'skin');
-    const nail = gunMat(NAIL, 0, 'poly');
+    // own copies: the look (Gojo or Sukuna) recolours them
+    const skin = (this.mSkin = gunMat(SKIN, 0, 'skin').clone());
+    const skinD = (this.mSkinD = gunMat(SKIN_D, 0, 'skin').clone());
+    const nail = (this.mNail = gunMat(NAIL, 0, 'poly').clone());
     const add = (size: V3, pos: V3, m: THREE.Material, rot?: V3) => {
       const mesh = new THREE.Mesh(chamferBox(size[0], size[1], size[2]), m);
       mesh.position.set(pos[0] * s, pos[1], pos[2]);
@@ -156,7 +192,7 @@ export class BareHand {
         segs.push(m);
         this.group.add(m);
       }
-      const n = new THREE.Mesh(chamferBox(THICK[f] * 0.62, 0.0026, 0.012), nail);
+      const n = new THREE.Mesh(chamferBox(THICK[f] * 0.72, 0.003, 0.0145), nail);
       this.group.add(n);
       this.fingers.push({ segs, nail: n });
     }
@@ -166,11 +202,24 @@ export class BareHand {
       this.thumb.push(m);
       this.group.add(m);
     }
-    this.thumbNail = new THREE.Mesh(chamferBox(0.012, 0.0026, 0.012), nail);
+    this.thumbNail = new THREE.Mesh(chamferBox(0.0135, 0.003, 0.014), nail);
     this.group.add(this.thumbNail);
     this.cur = clonePose(HAND_POSES.relax);
     this.target = HAND_POSES.relax;
     this.apply();
+  }
+
+  setLook(look: HandLook) {
+    this.mSkin.color.setHex(look.skin);
+    this.mSkinD.color.setHex(look.skinD);
+    this.mNail.color.setHex(look.nail);
+    // black nails get a little lacquer shine
+    this.mNail.shininess = look.nail < 0x202020 ? 60 : 16;
+    this.mNail.specular.setHex(look.nail < 0x202020 ? 0x4a4a50 : 0x1e1e1e);
+  }
+
+  setNailColor(hex: number) {
+    this.mNail.color.setHex(hex);
   }
 
   setPose(name: string) {
