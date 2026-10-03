@@ -40,6 +40,8 @@ export interface SaveData {
   medkit: boolean;
   /** Kills since the last death (lifetime count lives in stats). */
   runKills: number;
+  /** One-time starting cash already granted to this save. */
+  bonusCash?: boolean;
 }
 
 export const MEDKIT = { id: 'medkit', name: 'Medkit', cost: 200, heal: 50 };
@@ -59,10 +61,19 @@ export const DEFAULT_SETTINGS: Settings = {
   showFps: false,
 };
 
+/** Every weapon, upgrade and defense can be bought from Day 1 (no day locks). */
+export const UNLOCK_ALL = true;
+/** Cash every run starts with (new game and after a death). */
+export const START_MONEY = 10000;
+export function isLocked(unlockDay: number, day: number) {
+  return !UNLOCK_ALL && unlockDay > day;
+}
+
 function fresh(): SaveData {
   return {
     version: 1,
-    money: 0,
+    money: START_MONEY,
+    bonusCash: true,
     day: 1,
     bestDay: 1,
     owned: { m686: 0, shorty: 0 },
@@ -83,7 +94,7 @@ export function wavesForDay(day: number) {
   return Math.min(10, 3 + Math.floor((day - 1) / 10));
 }
 
-/** Persistent progression. The ONLY money source is earn() from kills. */
+/** Persistent progression. Apart from the starting cash, money only comes from earn() (kills). */
 export class Progress {
   data: SaveData;
   onChange: (() => void) | null = null;
@@ -99,6 +110,11 @@ export class Progress {
       if (raw) {
         const d = JSON.parse(raw) as SaveData;
         const f = fresh();
+        // saves from before the starting cash get a one-time $10,000
+        if (!d.bonusCash) {
+          d.money = (d.money ?? 0) + START_MONEY;
+          d.bonusCash = true;
+        }
         return { ...f, ...d, stats: { ...f.stats, ...(d.stats ?? {}) }, settings: { ...f.settings, ...(d.settings ?? {}) } };
       }
     } catch {
@@ -191,7 +207,7 @@ export class Progress {
 
   buyWeapon(id: string) {
     const w = WEAPON_MAP[id];
-    if (!w || this.owns(id) || w.unlockDay > this.data.day) return false;
+    if (!w || this.owns(id) || isLocked(w.unlockDay, this.data.day)) return false;
     if (!this.spend(w.cost)) return false;
     this.data.owned[id] = 0;
     // auto-equip into a free slot
@@ -206,7 +222,7 @@ export class Progress {
     const lvl = this.level(id);
     if (!w || lvl < 0 || !w.levels || lvl >= w.levels.length) return false;
     const L = w.levels[lvl];
-    if (L.unlockDay > this.data.day) return false;
+    if (isLocked(L.unlockDay, this.data.day)) return false;
     if (!this.spend(L.cost)) return false;
     this.data.owned[id] = lvl + 1;
     this.changed();

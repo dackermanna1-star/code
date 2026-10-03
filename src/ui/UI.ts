@@ -4,7 +4,7 @@ import { clamp, formatMoney } from '../core/math';
 import { CATEGORIES, GRENADE, WEAPONS, WEAPON_MAP, WeaponDef, statsFor } from '../weapons/defs';
 import { DEFENSES, DEFENSE_MAP, DefenseDef, turretCost } from '../defenses/defs';
 import { Icons } from './Icons';
-import { MEDKIT, wavesForDay } from '../game/Progress';
+import { MEDKIT, isLocked, wavesForDay } from '../game/Progress';
 
 const _pv = new THREE.Vector3();
 
@@ -305,7 +305,7 @@ export class UI {
           <div><span>Money earned</span><b>${formatMoney(sum.money)}</b></div>
           <div><span>Days survived</span><b>${sum.day - 1}</b></div>
         </div>
-        <div class="help-note" style="margin:0 auto 14px">The road took everything: money, weapons and defenses are gone. You start over on Day 1 with a revolver, a shotgun, one grenade and one barrier. Best day so far: ${G.progress.data.stats.bestDay}.</div>
+        <div class="help-note" style="margin:0 auto 14px">The road took everything: money, weapons and defenses are gone. You start over on Day 1 with $10,000, a revolver, a shotgun, one grenade and one barrier. Best day so far: ${G.progress.data.stats.bestDay}.</div>
         <div class="actions"><button class="btn primary" data-a="retry">Start Over — Day 1</button><button class="btn" data-a="menu">Main Menu</button></div>
       </div>`,
       'summary',
@@ -439,7 +439,7 @@ export class UI {
       .map((id) => {
         if (this.shopCat === 'defense') {
           const def = DEFENSE_MAP[id];
-          const locked = def.unlockDay > d.day;
+          const locked = isLocked(def.unlockDay, d.day);
           const cnt = def.kind === 'turret' ? Object.keys(d.inventory).filter((k) => k.startsWith(def.id + ':')).reduce((a, k) => a + d.inventory[k].length, 0) : P.itemCount(id);
           const price = def.kind === 'turret' ? `${formatMoney(def.cost)}+` : formatMoney(def.cost);
           return `<div class="item${this.shopSel === id ? ' on' : ''}${locked ? ' locked' : ''}" data-a="sel" data-v="${id}">
@@ -457,7 +457,7 @@ export class UI {
         }
         const w = WEAPON_MAP[id];
         const owned = P.owns(id);
-        const locked = w.unlockDay > d.day;
+        const locked = isLocked(w.unlockDay, d.day);
         const eq = d.loadout.includes(id);
         return `<div class="item${this.shopSel === id ? ' on' : ''}${locked ? ' locked' : ''}" data-a="sel" data-v="${id}">
           ${locked ? `<div class="tag lock">DAY ${w.unlockDay}</div>` : eq ? '<div class="tag eq">EQUIPPED</div>' : owned ? '<div class="tag own">OWNED</div>' : ''}
@@ -472,7 +472,7 @@ export class UI {
         <div class="grid">${grid}</div>
         <div class="detail">${this.detailHtml()}</div>
       </div>
-      <div class="foot"><span>Money only comes from kills. Day ${d.day} · ${wavesForDay(d.day)} waves</span><button class="btn primary" data-a="close">Done (Esc)</button></div>
+      <div class="foot"><span>Everything is unlocked. Money comes from kills. Day ${d.day} · ${wavesForDay(d.day)} waves</span><button class="btn primary" data-a="close">Done (Esc)</button></div>
     </div>`;
   }
 
@@ -504,7 +504,7 @@ export class UI {
     }
     if (this.shopCat === 'defense') {
       const def = DEFENSE_MAP[id] as DefenseDef;
-      const locked = def.unlockDay > d.day;
+      const locked = isLocked(def.unlockDay, d.day);
       let extra = '';
       let price = def.cost;
       let canBuy = !locked;
@@ -541,7 +541,7 @@ export class UI {
     const s = statsFor(w, Math.max(0, lvl));
     const next = owned && w.levels && lvl < w.levels.length ? w.levels[lvl] : null;
     const ns = next ? statsFor(w, lvl + 1) : null;
-    const locked = w.unlockDay > d.day;
+    const locked = isLocked(w.unlockDay, d.day);
     const dmgTxt = w.charge ? `${s.charge!.minDmg}-${s.charge!.maxDmg}` : w.flame ? `${w.flame.dps}/s` : s.pellets > 1 ? `${s.damage}×${s.pellets}` : String(Math.round(s.damage * 10) / 10);
     const dmgV = w.charge ? s.charge!.maxDmg : w.flame ? w.flame.dps : w.projectile?.explosive ? w.projectile.explosive.damage : s.damage * s.pellets;
     const nDmg = ns ? (ns.charge ? ns.charge.maxDmg : ns.damage * ns.pellets) : undefined;
@@ -561,7 +561,7 @@ export class UI {
     else if (!owned) acts = `<button class="btn gold" data-a="buy" data-v="${id}" ${d.money < w.cost ? 'disabled' : ''}>Buy — ${formatMoney(w.cost)}</button>`;
     else {
       if (next) {
-        acts += next.unlockDay > d.day
+        acts += isLocked(next.unlockDay, d.day)
           ? `<button class="btn" disabled>${esc(next.name)} — Day ${next.unlockDay}</button>`
           : `<button class="btn gold" data-a="upgrade" data-v="${id}" ${d.money < next.cost ? 'disabled' : ''}>Upgrade: ${esc(next.name)} — ${formatMoney(next.cost)}</button>`;
       }
@@ -573,7 +573,7 @@ export class UI {
     }
     const icon = this.weaponIcon(id);
     return `<img src="${icon}"><h3>${esc(owned ? s.levelName : w.name)}</h3>
-      <div class="desc">${esc(next && next.unlockDay <= d.day ? next.desc : w.desc)}</div>
+      <div class="desc">${esc(next && !isLocked(next.unlockDay, d.day) ? next.desc : w.desc)}</div>
       ${this.statRow('Damage', dmgV, 500, dmgTxt, nDmg)}
       ${this.statRow('Fire rate', w.mode === 'flame' ? 600 : s.rpm, 3000, w.mode === 'flame' ? '—' : s.rpm + ' rpm', ns?.rpm)}
       ${this.statRow('Magazine', s.mag, 500, w.mode === 'flame' ? 'fuel ' + s.mag : String(s.mag), ns?.mag)}

@@ -1,6 +1,6 @@
 # Blood Road
 
-A first-person zombie horde defense game for the browser, inspired by *They Are Coming: Zombie Defense*. You hold a straight country road against ever-growing hordes, earn money only by killing zombies, and spend it on guns, barricades, traps and turrets between waves.
+A first-person zombie horde defense game for the browser, inspired by *They Are Coming: Zombie Defense*. You hold a straight country road against ever-growing hordes, start with $10,000, earn more only by killing zombies, and spend it on guns, barricades, traps and turrets between waves.
 
 Everything is procedural: the voxel zombies and their skins, the weapon models, the textures, the sky and weather, and every sound effect (synthesized at load time, no audio files).
 
@@ -41,9 +41,9 @@ Click the game to capture the mouse. If the page is embedded somewhere that bloc
 
 The road fades into a fog wall about 50 m out (closer in bad weather), and the horde walks out of it. There is no repair: a broken barricade is gone. Structures still standing at the end of the day go back into your inventory with their current damage. Ammo refills at the start of each wave, but health never refills on its own: buy a medkit in the shop to start the next day with +50 health.
 
-**Death is permanent.** When you die the run is wiped: money, weapons, defenses and days are gone, and you start over on Day 1 with the starting gear. Only your lifetime records (best day, total kills) are kept.
+**Death is permanent.** When you die the run is wiped: money, weapons, defenses and days are gone, and you start over on Day 1 with the starting gear and $10,000. Only your lifetime records (best day, total kills) are kept.
 
-You start with an M686 revolver, a Super Shorty shotgun, one grenade and one wooden barrier. The shop has 49 weapons across 12 categories: pistols, shotguns, SMGs, assault rifles, machine guns, marksman rifles, snipers, launchers, bows, energy weapons, flamethrowers and particle weapons. Several weapons have upgrade paths, and turret-capable weapons can be mounted on turrets.
+You start with $10,000, an M686 revolver, a Super Shorty shotgun, one grenade and one wooden barrier. Every weapon, upgrade and defense is buyable from Day 1 (`UNLOCK_ALL` and `START_MONEY` in `src/game/Progress.ts` turn the day locks and starting cash back off). The shop has 49 weapons across 12 categories: pistols, shotguns, SMGs, assault rifles, machine guns, marksman rifles, snipers, launchers, bows, energy weapons, flamethrowers and particle weapons. Several weapons have upgrade paths, and turret-capable weapons can be mounted on turrets.
 
 ## Tech
 
