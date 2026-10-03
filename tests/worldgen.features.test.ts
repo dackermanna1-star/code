@@ -177,7 +177,7 @@ describe('worldgen trees and features', { timeout: 120_000 }, () => {
           } else if (be.data.type === 'chest') {
             chests++;
             expect(NAME(s)).toBe('chest');
-            expect(['dungeon', 'ruined_portal']).toContain(be.data.loot);
+            expect(['dungeon', 'simple_dungeon', 'ruined_portal']).toContain(be.data.loot);
           }
         }
       }
