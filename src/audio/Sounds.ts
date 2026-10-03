@@ -672,6 +672,177 @@ function zipper(up: boolean) {
 }
 reg('zipDown', 2, () => zipper(false));
 reg('zipUp', 2, () => zipper(true));
+// ------------------------------------------------------------ Gojo Satoru
+function chimes(len: number, freqs: number[], spread: number, tau: number) {
+  const o = buf(len);
+  freqs.forEach((f, i) => {
+    const t0 = i * spread;
+    const s = osc(len - t0, (t) => f * (1 + 0.004 * Math.sin(t * 2 * Math.PI * 5.5)), 'sine');
+    env(s, (t) => Math.min(1, t / 0.04) * Math.exp(-t / tau));
+    mix(o, s, 0.5, t0);
+  });
+  return o;
+}
+reg('gojoTransform', 1, () => {
+  const o = buf(2.2);
+  mix(o, env(biquad(pink(0.9), 'bp', sweep(350, 4200, 0.55), 2.2), ad(0.25, 0.35)), 1.4);
+  mix(o, chimes(2.0, [1318.5, 1760, 2637, 3520], 0.07, 0.8), 0.7, 0.32);
+  mix(o, env(osc(1.2, sweep(140, 34, 0.5)), ad(0.004, 0.45)), 1.6, 0.42);
+  mix(o, biquad(env(white(0.05), ad(0.0005, 0.012)), 'hp', 2500), 0.7, 0.42);
+  return normalize(echo(o, 0.17, 0.3, 2400, 3), 0.9);
+});
+reg('gojoRevert', 1, () => {
+  const o = buf(1.0);
+  mix(o, env(biquad(pink(0.8), 'bp', sweep(4000, 300, 0.6), 2), ad(0.05, 0.3)), 1);
+  mix(o, chimes(0.9, [2637, 1760, 1318.5], 0.05, 0.3), 0.4);
+  return normalize(o, 0.6);
+});
+reg('blueStart', 2, () => {
+  const o = buf(1.1);
+  mix(o, env(biquad(pink(1.0), 'bp', sweep(3200, 260, 0.7), 1.8), ad(0.02, 0.45)), 1.6);
+  mix(o, env(osc(1.0, sweep(95, 38, 0.6)), ad(0.01, 0.5)), 1.4);
+  mix(o, modal(0.6, [[2400, 0.3, 0.12], [3611, 0.18, 0.08], [5120, 0.1, 0.05]]), 0.5);
+  return normalize(o, 0.85);
+});
+reg('blueLoop', 1, () => {
+  const L = 3.3;
+  const o = buf(L);
+  const hum = osc(L, 55, 'sine');
+  mix(hum, osc(L, 55.9, 'sine'), 1);
+  mix(hum, osc(L, 110.4, 'sine'), 0.35);
+  env(hum, (t) => 0.75 + 0.25 * Math.sin(t * 2 * Math.PI * 1.7));
+  mix(o, hum, 1.1);
+  const wind = biquad(pink(L), 'bp', (t) => 650 + 420 * Math.sin(t * 2 * Math.PI * 0.6) + 200 * Math.sin(t * 2 * Math.PI * 1.9), 2.4);
+  mix(o, wind, 0.9);
+  mix(o, biquad(brown(L), 'lp', 180), 1.2);
+  for (let k = 0; k < 70; k++) mix(o, click(0.012, rr(1500, 5200), 4, 0.002), rr(0.04, 0.16), rr(0, L - 0.02));
+  return normalize(seamless(o), 0.7);
+});
+reg('blueCollapse', 2, () => {
+  const o = buf(1.4);
+  mix(o, env(biquad(white(0.3), 'bp', sweep(240, 3600, 0.24), 1.6), (t) => Math.pow(Math.min(1, t / 0.24), 2) * (t < 0.25 ? 1 : 0)), 1.4);
+  mix(o, env(osc(1.1, sweep(90, 28, 0.7)), ad(0.002, 0.42)), 2.0, 0.24);
+  mix(o, biquad(env(white(0.06), ad(0.0004, 0.02)), 'hp', 1800), 1.2, 0.24);
+  return normalize(drive(echo(o, 0.15, 0.25, 1400, 2), 1.8), 0.95);
+});
+reg('redCharge', 2, () => {
+  const L = 0.5;
+  const o = buf(L);
+  for (let k = 0; k < 90; k++) {
+    const t = Math.pow(rr(0, 1), 0.6) * (L - 0.02);
+    mix(o, click(0.01, rr(1800, 7000), 5, 0.0015), rr(0.15, 0.55) * (0.4 + t / L), t);
+  }
+  mix(o, env(biquad(osc(L, sweep(280, 1300, L), 'square'), 'lp', 2600), (t) => (t / L) * 0.6), 0.6);
+  mix(o, env(biquad(pink(L), 'bp', sweep(1500, 5000, L), 3), (t) => t / L), 0.8);
+  return normalize(o, 0.75);
+});
+reg('redFire', 2, () => {
+  const o = buf(0.8);
+  mix(o, biquad(env(white(0.04), ad(0.0003, 0.008)), 'hp', 2200), 1.6);
+  mix(o, env(biquad(pink(0.7), 'bp', sweep(2600, 380, 0.5), 1.4), ad(0.005, 0.22)), 1.3);
+  mix(o, env(osc(0.5, sweep(160, 50, 0.25)), ad(0.002, 0.12)), 1.2);
+  return normalize(o, 0.9);
+});
+reg('redBlast', 2, () => {
+  const len = 3.4;
+  const o = buf(len);
+  mix(o, biquad(env(white(0.04), ad(0.0002, 0.006)), 'hp', 1800), 1.8);
+  mix(o, env(osc(1.6, sweep(110, 22, 0.7)), ad(0.003, 0.5)), 2.2);
+  mix(o, env(biquad(pink(1.2), 'bp', sweep(300, 3200, 0.18), 1.2), ad(0.003, 0.3)), 1.6);
+  const rum = env(brown(len), (t) => Math.min(1, t / 0.02) * Math.exp(-t / 1.1));
+  mix(o, biquad(rum, 'lp', 220), 3.4);
+  for (let k = 0; k < 40; k++) mix(o, click(0.02, rr(900, 5000), 3, 0.004), rr(0.05, 0.3) * Math.exp(-k / 20), rr(0.05, 1.6));
+  let r: Float32Array = echo(o, 0.24, 0.38, 700, 4);
+  r = drive(r, 3.2);
+  fadeOut(r, 0.3);
+  return normalize(r, 0.99);
+});
+reg('purpleCharge', 1, () => {
+  const L = 2.3;
+  const o = buf(L);
+  // blue's low hum climbs while red's whine falls: they meet just before release
+  mix(o, env(osc(L, (t) => 62 + 68 * Math.pow(t / L, 2), 'saw'), (t) => Math.min(1, t / 0.3) * 0.5), 0.5);
+  mix(o, env(biquad(osc(L, (t) => 1500 - 900 * Math.pow(t / L, 1.5), 'square'), 'lp', 3000), (t) => Math.min(1, t / 0.4) * 0.25), 0.5);
+  for (let k = 0; k < 160; k++) {
+    const t = Math.pow(rr(0, 1), 0.5) * (L - 0.05);
+    mix(o, click(0.012, rr(1500, 7500), 5, 0.0018), rr(0.08, 0.4) * (0.3 + t / L), t);
+  }
+  mix(o, env(biquad(white(L), 'bp', sweep(300, 6000, L), 1.5), (t) => Math.pow(t / L, 3) * 1.4), 1);
+  mix(o, biquad(env(brown(L), (t) => t / L), 'lp', 200), 1.8);
+  return normalize(o, 0.85);
+});
+reg('purpleFire', 1, () => {
+  const len = 4.2;
+  const o = buf(len);
+  mix(o, biquad(env(white(0.05), ad(0.0002, 0.01)), 'hp', 1500), 2.2);
+  mix(o, env(osc(3.0, sweep(120, 24, 2.2)), ad(0.004, 1.3)), 2.6);
+  mix(o, env(osc(3.0, sweep(240, 48, 2.2), 'saw'), ad(0.004, 0.7)), 0.5);
+  const roar = env(brown(len), (t) => Math.min(1, t / 0.05) * Math.exp(-t / 1.5));
+  mix(o, biquad(roar, 'lp', 420), 3.5);
+  mix(o, env(biquad(pink(len), 'hp', 2800), (t) => Math.min(1, t / 0.02) * Math.exp(-t / 0.9) * (0.7 + 0.3 * Math.sin(t * 40))), 0.9);
+  for (let k = 0; k < 60; k++) mix(o, click(0.02, rr(700, 6000), 3, 0.004), rr(0.05, 0.35) * Math.exp(-k / 30), rr(0.02, 2.4));
+  let r: Float32Array = echo(o, 0.28, 0.42, 600, 4);
+  r = drive(r, 3.6);
+  fadeOut(r, 0.5);
+  return normalize(r, 1.0);
+});
+reg('purpleLoop', 1, () => {
+  const L = 3.3;
+  const o = buf(L);
+  mix(o, biquad(brown(L), 'lp', 360), 3);
+  mix(o, biquad(pink(L), 'bp', (t) => 900 + 300 * Math.sin(t * 2 * Math.PI * 1.3), 1.5), 0.8);
+  for (let k = 0; k < 80; k++) mix(o, click(0.015, rr(800, 5000), 3, 0.003), rr(0.05, 0.2), rr(0, L - 0.02));
+  return normalize(seamless(o), 0.75);
+});
+function choir(len: number, notes: number[], attack: number) {
+  const o = buf(len);
+  for (const f of notes) {
+    for (const det of [-0.004, 0.004]) {
+      const v = voice(len, (t) => f * (1 + det) * (1 + 0.006 * Math.sin(t * 2 * Math.PI * (4.8 + det * 100))), [[760, 6, 1], [1150, 7, 0.55], [2900, 9, 0.25]], 0.05, 0.004);
+      env(v, (t) => Math.min(1, t / attack) * Math.min(1, (len - t) / 0.4));
+      mix(o, v, 0.25);
+    }
+  }
+  return biquad(o, 'lp', 4200);
+}
+reg('domainStart', 1, () => {
+  const len = 3.6;
+  const o = buf(len);
+  mix(o, env(biquad(pink(0.7), 'bp', sweep(5000, 200, 0.6), 1.5), (t) => Math.min(1, t / 0.5) * (t < 0.65 ? 1 : 0)), 1.0);
+  mix(o, env(osc(2.6, sweep(70, 24, 1.6)), ad(0.004, 1.1)), 2.4, 0.6);
+  mix(o, biquad(env(white(0.08), ad(0.0003, 0.03)), 'hp', 1200), 1.4, 0.6);
+  mix(o, choir(2.9, [146.8, 220, 329.6, 493.9], 0.8), 1.2, 0.65);
+  for (let k = 0; k < 18; k++) mix(o, modal(0.9, [[rr(2200, 6200), 0.25, 0.25]]), rr(0.1, 0.3), rr(0.7, 3.0));
+  return normalize(echo(o, 0.31, 0.4, 3000, 4), 0.95);
+});
+reg('domainLoop', 1, () => {
+  const L = 6.4;
+  const o = buf(L);
+  const drone = osc(L, 55, 'sine');
+  mix(drone, osc(L, 82.4, 'sine'), 0.6);
+  mix(drone, osc(L, 110.2, 'sine'), 0.3);
+  env(drone, (t) => 0.7 + 0.3 * Math.sin((t / L) * Math.PI * 2 * 2));
+  mix(o, drone, 0.9);
+  mix(o, choir(L, [146.8, 220, 329.6], 2.5), 0.55);
+  for (let k = 0; k < 40; k++) mix(o, modal(1.2, [[rr(2500, 7000), 0.2, rr(0.2, 0.6)]]), rr(0.04, 0.14), rr(0, L - 1.2));
+  mix(o, biquad(pink(L), 'bp', (t) => 1800 + 900 * Math.sin((t / L) * Math.PI * 2), 3), 0.2);
+  return normalize(seamless(o, 0.6), 0.6);
+});
+reg('domainEnd', 1, () => {
+  const len = 1.8;
+  const o = buf(len);
+  for (let k = 0; k < 70; k++) mix(o, modal(0.5, [[rr(2600, 9500), 0.4, rr(0.03, 0.12)], [rr(1200, 3000), 0.2, 0.05]]), rr(0.05, 0.3), Math.pow(rr(0, 1), 2) * 0.6);
+  mix(o, biquad(env(white(0.5), ad(0.001, 0.12)), 'hp', 2500), 1.2);
+  mix(o, env(biquad(pink(1.4), 'bp', sweep(3000, 200, 1.2), 1.4), ad(0.01, 0.5)), 0.9, 0.05);
+  mix(o, env(osc(0.8, sweep(80, 30, 0.5)), ad(0.003, 0.3)), 1.2);
+  return normalize(echo(o, 0.2, 0.3, 3000, 3), 0.9);
+});
+reg('infinityBlock', 3, () => {
+  const o = buf(0.5);
+  mix(o, env(osc(0.4, sweep(220, 90, 0.2)), ad(0.002, 0.08)), 0.8);
+  mix(o, modal(0.4, [[rr(2300, 2900), 0.4, 0.12], [rr(4400, 5200), 0.2, 0.06]]), 0.5);
+  return normalize(o, 0.45);
+});
 reg('footstep', 5, (v) => footstep(v));
 reg('land', 1, () => bodyFall());
 for (const m of ['wood', 'metal', 'concrete', 'sand']) {

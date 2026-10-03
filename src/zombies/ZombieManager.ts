@@ -270,6 +270,18 @@ export class ZombieManager {
         this.applyVel(z, 0, 0, dt);
         continue;
       }
+      if (z.voidT > 0) {
+        // Infinite Void: endless information, no action. They stand and twitch.
+        z.voidT -= dt;
+        if (z.state === 'attack') z.state = 'walk';
+        if (Math.random() < dt * 6) {
+          z.kickSpring(S.TorsoPitch, rand(-2.5, 2.5));
+          z.kickSpring(S.HeadRoll, rand(-3, 3));
+          z.kickSpring(S.HeadPitch, rand(-2, 2));
+        }
+        this.applyVel(z, 0, 0, dt);
+        continue;
+      }
 
       // --- desired direction
       let dirX = dxp / (distP || 1);
@@ -358,6 +370,22 @@ export class ZombieManager {
           const push = (0.9 - d) * 2.5;
           vx += (ox / d) * push;
           vz += (oz / d) * push;
+        }
+      }
+      // Infinity: the closer they get, the slower they move; they never arrive
+      const inf = G.gojo?.infinityRadius ?? 0;
+      if (inf > 0 && distP < inf + 0.6) {
+        const nx = dxp / (distP || 1);
+        const nz = dzp / (distP || 1);
+        const inward = vx * nx + vz * nz;
+        const k = clamp((distP - inf) / 0.6, 0, 1);
+        if (inward > 0) {
+          vx -= nx * inward * (1 - k * k);
+          vz -= nz * inward * (1 - k * k);
+        }
+        if (distP < inf) {
+          vx -= nx * (inf - distP) * 6;
+          vz -= nz * (inf - distP) * 6;
         }
       }
       this.applyVel(z, vx, vz, dt);
@@ -809,6 +837,19 @@ export class ZombieManager {
   }
   onHeadPop: ((z: Zombie) => void) | null = null;
 
+  /** Erased from existence (Hollow Purple): no ragdoll, no corpse, still counts as a kill. */
+  vaporize(z: Zombie, h: HitInfo) {
+    if (!z.alive) return;
+    z.alive = false;
+    z.fx.eyes = 0;
+    this.kills++;
+    this.dropBody(z);
+    if (z.ragdoll) this.ragdolls.destroy(z.ragdoll);
+    z.ragdoll = null;
+    this.remove(z);
+    this.onKill?.(z, h);
+  }
+
   private remove(z: Zombie) {
     const i = this.list.indexOf(z);
     if (i >= 0) {
@@ -934,8 +975,10 @@ export class ZombieManager {
 
   render() {
     const rend = this.renderer;
+    const hide = G.gojo?.domainHides as ((x: number, z: number) => boolean) | undefined;
     for (const z of this.list) {
       if (!z.alive) continue;
+      if (hide && hide(z.x, z.z)) continue;
       if (z.state === 'down' && z.ragdoll) {
         const r: Ragdoll = z.ragdoll;
         pushBody(rend, z.type, z.skin, z.fx, r.partPos, r.partQuat, r.partScale, r.mask, z.accHidden);

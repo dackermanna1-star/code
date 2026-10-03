@@ -118,6 +118,11 @@ export class Player {
 
   damage(amount: number, from?: THREE.Vector3) {
     if (!this.alive || this.godMode) return;
+    // Infinity: the attack never arrives
+    if (G.gojo?.active) {
+      G.gojo.blocked(from);
+      return;
+    }
     this.hp -= amount;
     this.damageFlash = Math.min(1, this.damageFlash + 0.35 + amount / 60);
     this.addTrauma(Math.min(0.45, 0.12 + amount / 80));

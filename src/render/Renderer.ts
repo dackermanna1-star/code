@@ -29,6 +29,19 @@ export interface PostFX {
   grain: number;
   scope: number;
   heal: number;
+  /** Extra bloom on top of bloomStrength (big ability moments). */
+  bloomBoost: number;
+  /** Anime-style impact frame: two-tone inverted flash (0..1). */
+  impact: number;
+  impactColor: THREE.Color;
+  /**
+   * Up to 4 screen-space lenses, 4 floats each: x, y (uv), size (fraction of
+   * screen height), strength. lensMode per lens: 0 = gravity well (Einstein
+   * ring pinch), 1 = shockwave ring of radius lensRing.
+   */
+  lenses: Float32Array;
+  lensMode: Float32Array;
+  lensRing: Float32Array;
 }
 
 export class GameRenderer {
@@ -48,6 +61,12 @@ export class GameRenderer {
     grain: 0.035,
     scope: 0,
     heal: 0,
+    bloomBoost: 0,
+    impact: 0,
+    impactColor: new THREE.Color(0.75, 0.55, 1),
+    lenses: new Float32Array(16),
+    lensMode: new Float32Array(4),
+    lensRing: new Float32Array(4),
   };
   pixelSize = 2;
   width = 1;
@@ -172,7 +191,36 @@ export class GameRenderer {
         uniform vec2 internalRes; uniform vec2 outRes;
         uniform float exposure, saturation, contrast, vignette, damage, flash, aberration, bloomStrength, grain, time, scope, heal;
         uniform vec3 tint; uniform vec3 lift;
+        uniform vec4 lensA[4]; uniform vec4 lensB[4];
+        uniform float impact; uniform vec3 impactColor;
         varying vec2 vUv;
+
+        // space bending around Gojo's techniques
+        vec2 lensUV(vec2 uv, float k){
+          vec2 asp = vec2(outRes.x / outRes.y, 1.0);
+          for (int i = 0; i < 4; i++) {
+            vec4 A = lensA[i];
+            if (A.w == 0.0) continue;
+            vec4 B = lensB[i];
+            vec2 d = (uv - A.xy) * asp;
+            float r = length(d);
+            if (B.x < 0.5) {
+              // gravity well: sample where light would come from (beta = theta - E^2/theta),
+              // held back inside the core so the orb itself stays readable
+              float E = A.z;
+              float e2 = E * E;
+              float w = smoothstep(E * 0.55, E * 1.15, r) * (1.0 - smoothstep(E * 5.0, E * 9.0, r));
+              vec2 beta = d * (1.0 - A.w * k * e2 / max(r * r, e2 * 0.55));
+              uv = A.xy + mix(d, beta, w) / asp;
+            } else {
+              // shockwave: a refraction band riding the ring
+              float x = (r - B.y) / max(A.z, 1e-4);
+              float off = A.w * k * x * exp(-x * x) * A.z;
+              uv += (r > 1e-5 ? d / r : vec2(0.0)) * off / asp;
+            }
+          }
+          return uv;
+        }
 
         vec3 aces(vec3 x){
           const float a = 2.51; const float b = 0.03; const float c = 2.43; const float d = 0.59; const float e = 0.14;
@@ -185,10 +233,21 @@ export class GameRenderer {
         }
         void main(){
           vec2 uv = vUv;
+          bool lensing = lensA[0].w != 0.0 || lensA[1].w != 0.0 || lensA[2].w != 0.0 || lensA[3].w != 0.0;
+          vec3 col;
+          if (lensing) {
+            // per-channel lensing gives the bent light a chromatic fringe
+            vec2 uR = lensUV(uv, 1.08), uG = lensUV(uv, 1.0), uB = lensUV(uv, 0.92);
+            if (aberration > 0.001) { vec2 off = (uv - 0.5) * aberration * 0.02; uR += off; uB -= off; }
+            col.r = texture2D(tScene, (floor(uR * internalRes) + 0.5) / internalRes).r;
+            col.g = texture2D(tScene, (floor(uG * internalRes) + 0.5) / internalRes).g;
+            col.b = texture2D(tScene, (floor(uB * internalRes) + 0.5) / internalRes).b;
+            uv = uG;
+          }
           // snap to internal pixel grid for crisp nearest upscale
           vec2 pix = (floor(uv * internalRes) + 0.5) / internalRes;
-          vec3 col;
-          if (aberration > 0.001) {
+          if (lensing) {
+          } else if (aberration > 0.001) {
             vec2 dir = (uv - 0.5);
             vec2 off = dir * aberration * 0.02;
             col.r = texture2D(tScene, pix + off).r;
@@ -208,6 +267,12 @@ export class GameRenderer {
           col = (col - 0.5) * contrast + 0.5;
           // flash
           col += vec3(1.0, 0.92, 0.8) * flash;
+          // impact frame: two-tone, inverted silhouettes
+          if (impact > 0.001) {
+            float il = dot(col, vec3(0.299, 0.587, 0.114));
+            vec3 imp = mix(impactColor * 1.15, vec3(0.025, 0.015, 0.04), smoothstep(0.28, 0.5, il));
+            col = mix(col, imp, clamp(impact, 0.0, 1.0));
+          }
           // vignette
           vec2 vd = uv - 0.5;
           vd.x *= outRes.x / outRes.y;
@@ -255,6 +320,10 @@ export class GameRenderer {
         heal: { value: 0 },
         tint: { value: new THREE.Color(1, 1, 1) },
         lift: { value: new THREE.Color(0, 0, 0) },
+        lensA: { value: [0, 1, 2, 3].map(() => new THREE.Vector4()) },
+        lensB: { value: [0, 1, 2, 3].map(() => new THREE.Vector4()) },
+        impact: { value: 0 },
+        impactColor: { value: new THREE.Color(0.75, 0.55, 1) },
       },
       depthTest: false,
       depthWrite: false,
@@ -350,7 +419,13 @@ export class GameRenderer {
     u.damage.value = p.damage;
     u.flash.value = p.flash;
     u.aberration.value = p.aberration;
-    u.bloomStrength.value = p.bloomStrength;
+    u.bloomStrength.value = p.bloomStrength + p.bloomBoost;
+    for (let i = 0; i < 4; i++) {
+      (u.lensA.value[i] as THREE.Vector4).set(p.lenses[i * 4], p.lenses[i * 4 + 1], p.lenses[i * 4 + 2], p.lenses[i * 4 + 3]);
+      (u.lensB.value[i] as THREE.Vector4).set(p.lensMode[i], p.lensRing[i], 0, 0);
+    }
+    u.impact.value = p.impact;
+    (u.impactColor.value as THREE.Color).copy(p.impactColor);
     u.grain.value = p.grain;
     u.time.value = this.time;
     u.scope.value = p.scope;

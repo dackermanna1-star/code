@@ -295,7 +295,14 @@ export class BodyRenderer {
   readonly dynAcc: Record<AccessoryId, InstBatch>;
   readonly statAcc: Record<AccessoryId, InstBatch>;
   readonly group = new THREE.Group();
-  readonly uniforms = { bloodMask: { value: null as THREE.Texture | null }, time: { value: 0 } };
+  readonly uniforms = {
+    bloodMask: { value: null as THREE.Texture | null },
+    time: { value: 0 },
+    /** Six Eyes: living bodies glow with cursed energy (0..1). */
+    six: { value: 0 },
+    /** Color of the hit flash (red-orange normally, cold white inside the void). */
+    flashCol: { value: new THREE.Color(1.0, 0.22, 0.12) },
+  };
 
   constructor(atlas: SkinAtlas, dynCapacity: number, statCapacity: number) {
     this.uniforms.bloodMask.value = makeBloodMask();
@@ -368,6 +375,8 @@ export class BodyRenderer {
     mat.onBeforeCompile = (shader) => {
       shader.uniforms.bloodMask = u.bloodMask;
       shader.uniforms.uTime = u.time;
+      shader.uniforms.uSix = u.six;
+      shader.uniforms.uFlashCol = u.flashCol;
       shader.vertexShader = shader.vertexShader
         .replace(
           '#include <common>',
@@ -397,7 +406,7 @@ export class BodyRenderer {
         .replace(
           '#include <common>',
           `#include <common>
-          uniform sampler2D bloodMask; uniform float uTime;
+          uniform sampler2D bloodMask; uniform float uTime; uniform float uSix; uniform vec3 uFlashCol;
           varying vec4 vFx; varying float vFire; varying vec2 vLocalUv; varying vec3 vObjPos;`,
         )
         .replace(
@@ -414,7 +423,16 @@ export class BodyRenderer {
           '#include <emissivemap_fragment>',
           `#include <emissivemap_fragment>
           ${skinned ? 'totalEmissiveRadiance *= vFx.w;' : ''}
-          totalEmissiveRadiance += vec3(1.0, 0.22, 0.12) * vFx.y * 1.6;
+          totalEmissiveRadiance += uFlashCol * vFx.y * 1.6;
+          ${
+            skinned
+              ? `if (uSix > 0.001 && vFx.w > 0.001) {
+            float rim = pow(1.0 - abs(dot(normalize(normal), normalize(vViewPosition))), 3.0);
+            float pulse = 0.8 + 0.2 * sin(uTime * 3.0 + vObjPos.y * 6.0);
+            totalEmissiveRadiance += vec3(0.16, 0.5, 1.45) * (rim * 0.85 + 0.012) * uSix * pulse;
+          }`
+              : ''
+          }
           if (vFire > 0.01) {
             float fl = 0.6 + 0.4 * sin(uTime * 23.0 + vObjPos.y * 40.0 + vObjPos.x * 17.0);
             totalEmissiveRadiance += vec3(1.6, 0.55, 0.12) * vFire * fl;

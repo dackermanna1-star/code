@@ -101,6 +101,8 @@ export class Zombie {
   readonly fromQuat = new Float32Array(PART_COUNT * 4);
   getupDur = 1.1;
   trappedT = 0;
+  /** Caught in Infinite Void: paralysed while > 0 (refreshed each frame by the domain). */
+  voidT = 0;
   trappedBy: any = null;
   lastHitBy = '';
   lastHitT = 0;

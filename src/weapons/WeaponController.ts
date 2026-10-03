@@ -6,6 +6,7 @@ import { buildGrenade, buildWeaponModel, WeaponModel } from './models';
 import { Viewmodel } from './Viewmodel';
 import { Kick } from './Kick';
 import { Emote, Pee } from './Gestures';
+import { Gojo } from '../gojo/Gojo';
 import { randomCone } from './Ballistics';
 import { C, mat } from './ModelBuilder';
 
@@ -80,11 +81,22 @@ export class WeaponController {
   readonly kick: Kick;
   readonly emote: Emote;
   readonly pee = new Pee();
+  /** Satoru Gojo mode (J): bare hands and the Limitless instead of guns. */
+  readonly gojo: Gojo;
 
   constructor() {
     this.vm = new Viewmodel();
     this.kick = new Kick(G.vmScene);
     this.emote = new Emote(G.vmScene);
+    this.gojo = new Gojo();
+    G.gojo = this.gojo;
+    this.gojo.onRevert = () => {
+      // the gun comes back up
+      this.state = 'equip';
+      this.stateT = 0;
+      this.stateDur = 0.45;
+      G.audio?.play('equip', { volume: 0.6 });
+    };
     const lg = new THREE.BufferGeometry();
     lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3 * 64), 3));
     this.arcLine = new THREE.Line(lg, new THREE.LineDashedMaterial({ color: 0xfff2a0, dashSize: 0.25, gapSize: 0.18, transparent: true, opacity: 0.85, depthTest: true }));
@@ -228,6 +240,17 @@ export class WeaponController {
     // ---- gestures: K toggles pee mode, hold T to flip off the horde
     const gestureOk = pl.alive && !G.game?.uiBlocking && !G.placement?.active;
     if (!pl.alive && this.pee.on) this.pee.reset();
+
+    // ---- J: become Satoru Gojo (and back)
+    const gojo = this.gojo;
+    if (!pl.alive && gojo.active) gojo.forceRevert();
+    if (gestureOk && input.pressed('KeyJ') && this.state !== 'throw' && gojo.toggle() && this.pee.on) this.pee.reset();
+    if (gojo.active) {
+      this.updateGojo(dt, gestureOk);
+      return;
+    }
+    this.vm.armSet = 'glove';
+
     if (gestureOk && input.pressed('KeyK') && this.state !== 'throw') this.pee.toggle();
     const peeing = this.pee.on;
     const wantEmote = gestureOk && !peeing && !!w && input.down('KeyT') && (this.state === 'idle' || this.state === 'cycle');
@@ -295,12 +318,54 @@ export class WeaponController {
 
     // ---- animation
     this.animate(dt);
+    this.gojo.update(dt, this.vm, false);
     this.kick.update(dt, this.vm);
     this.pee.update(dt, this.vm, pl.alive && !G.game?.uiBlocking && input.mouse(0));
     this.emote.update(dt, this.vm, wantEmote, w?.def.category === 'bow');
     const [mdx, mdy] = [G.input.mouseDX, G.input.mouseDY];
     this.vm.update(dt, mdx, mdy, pl.moving ? Math.min(1, Math.hypot(pl.vel.x, pl.vel.z) / 4.7) : 0, pl.sprinting && this.sprintBlock <= 0 && this.ads < 0.2, pl.onGround);
     void this.scopeHideT;
+  }
+
+  /** Gojo mode: the guns are put away; the hands belong to the Limitless. */
+  private updateGojo(dt: number, ok: boolean) {
+    const vm = this.vm;
+    const pl = G.player;
+    const input = G.input;
+    const gojo = this.gojo;
+    this.ads = damp(this.ads, 0, 16, dt);
+    vm.ads = this.ads;
+    G.renderer.post.scope = 0;
+    this.spin = Math.max(0, this.spin - dt * 1.2);
+    this.heat = Math.max(0, this.heat - dt * 1.5);
+    this.charge = 0;
+    this.draw = Math.max(0, this.draw - dt * 3);
+    this.burstLeft = 0;
+    vm.hideArms = false;
+    if (pl.alive && !G.game?.uiBlocking && (input.pressed('KeyV') || input.mousePress(1))) this.kick.tryStart();
+    if (gojo.armsReady) {
+      vm.armSet = 'gojo';
+      vm.hideWeapon = true;
+      vm.animPos.set(0, 0, 0);
+      vm.animRot.set(0, 0, 0);
+      vm.lower = 0;
+      vm.lhTarget = null;
+      vm.rhTarget = null;
+      vm.leftProp.clear();
+      vm.rightProp.clear();
+    } else {
+      // the gun goes down first
+      vm.armSet = 'glove';
+      vm.hideWeapon = false;
+      this.animate(dt);
+      vm.lower = Math.max(vm.lower, gojo.gunLower);
+    }
+    gojo.update(dt, vm, ok);
+    pl.fovMul = gojo.fovMul;
+    this.moveMul = 1.12;
+    pl.moveMul = 1.12;
+    this.kick.update(dt, vm);
+    this.vm.update(dt, G.input.mouseDX, G.input.mouseDY, pl.moving ? Math.min(1, Math.hypot(pl.vel.x, pl.vel.z) / 4.7) : 0, pl.sprinting, pl.onGround);
   }
 
   // -------------------------------------------------------------------------

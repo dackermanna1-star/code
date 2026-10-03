@@ -215,7 +215,53 @@ html, body {
 #hud .slot.on { opacity: 1; box-shadow: 0 0 0 2px #000, 0 0 0 4px var(--gold); background: rgba(40, 30, 10, 0.7); }
 #hud .slot img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
 #hud .slot span { position: absolute; top: 1px; left: 3px; font-family: var(--font-pixel); font-size: 10px; text-shadow: 1px 1px 0 #000; }
-#hud .bc { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; align-items: flex-end; }
+#hud .bc { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; }
+#hud .bc .invrow { display: flex; gap: 6px; align-items: flex-end; }
+
+/* ------------------------------------------------------------ Satoru Gojo */
+#hud .gojo { display: none; }
+#hud.gojo-on .gojo { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+#hud.gojo-on .br, #hud.gojo-on .gren { display: none; }
+#hud .gojo .inf { font-family: var(--font-pixel); font-size: 11px; letter-spacing: 4px; color: #bfe6ff; text-shadow: 0 0 8px rgba(110, 190, 255, 0.9), 1px 1px 0 #000; animation: gojo-inf 2.4s ease-in-out infinite; }
+@keyframes gojo-inf { 50% { opacity: 0.55; letter-spacing: 5px; } }
+#hud .gojo .gsr { display: flex; gap: 8px; }
+#hud .gs { --c: #8fc8ff; --g: rgba(60, 140, 255, 0.55); position: relative; width: 74px; height: 70px; background: linear-gradient(180deg, rgba(10, 12, 24, 0.82), rgba(4, 4, 10, 0.9)); box-shadow: 0 0 0 2px #000, inset 0 0 0 1px rgba(255, 255, 255, 0.08); display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
+#hud .gs.blue { --c: #6fb4ff; --g: rgba(40, 120, 255, 0.7); }
+#hud .gs.red { --c: #ff5a46; --g: rgba(255, 40, 20, 0.7); }
+#hud .gs.purple { --c: #c88bff; --g: rgba(150, 60, 255, 0.75); }
+#hud .gs.void { --c: #e6f3ff; --g: rgba(120, 190, 255, 0.7); width: 96px; }
+#hud .gs b { font-family: 'Yu Mincho', 'YuMincho', 'Hiragino Mincho ProN', 'Noto Serif CJK JP', 'Noto Serif JP', 'MS Mincho', serif; font-size: 30px; line-height: 1; color: var(--c); text-shadow: 0 0 10px var(--g), 0 0 2px #fff, 2px 2px 0 #000; }
+#hud .gs.void b { font-size: 21px; letter-spacing: 1px; }
+#hud .gs small { font-family: var(--font-pixel); font-size: 9px; letter-spacing: 2px; color: #d8d2c4; margin-top: 4px; text-shadow: 1px 1px 0 #000; }
+#hud .gs .kbd { position: absolute; top: 3px; left: 3px; font-size: 9px; padding: 0 3px; }
+#hud .gs::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: calc(var(--cd) * 100%); background: rgba(0, 0, 0, 0.62); }
+#hud .gs.cool b { opacity: 0.45; text-shadow: none; }
+#hud .gs.on { box-shadow: 0 0 0 2px #000, 0 0 0 4px var(--c), 0 0 22px var(--g); }
+#hud .gs.on b { animation: gojo-pulse 0.5s ease-in-out infinite alternate; }
+@keyframes gojo-pulse { to { transform: scale(1.12); filter: brightness(1.5); } }
+#hud .gs .left { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--c); box-shadow: 0 0 8px var(--g); }
+
+/* technique callouts: kanji over the English name */
+#hud .jjk { position: absolute; left: 50%; top: 64%; transform: translateX(-50%); text-align: center; pointer-events: none; opacity: 0; white-space: nowrap; --c: #9fd0ff; --g: rgba(60, 140, 255, 0.8); }
+#hud .jjk.big { top: 24%; }
+#hud .jjk.blue { --c: #7cbcff; --g: rgba(30, 110, 255, 0.95); }
+#hud .jjk.red { --c: #ff5a46; --g: rgba(255, 30, 10, 0.95); }
+#hud .jjk.purple { --c: #d29bff; --g: rgba(150, 50, 255, 0.95); }
+#hud .jjk.void { --c: #f2f8ff; --g: rgba(110, 180, 255, 0.95); }
+#hud .jjk.six { --c: #d6f1ff; --g: rgba(90, 200, 255, 0.95); }
+#hud .jjk .jp { font-family: 'Yu Mincho', 'YuMincho', 'Hiragino Mincho ProN', 'Noto Serif CJK JP', 'Noto Serif JP', 'MS Mincho', serif; font-weight: 700; font-size: 44px; line-height: 1.05; color: #fff; text-shadow: 0 0 6px var(--c), 0 0 22px var(--g), 0 0 48px var(--g), 3px 3px 0 #000; letter-spacing: 0.06em; }
+#hud .jjk.big .jp { font-size: clamp(56px, 9vw, 128px); letter-spacing: 0.12em; }
+#hud .jjk .en { font-family: var(--font-pixel); font-size: 13px; letter-spacing: 6px; color: var(--c); margin-top: 6px; text-shadow: 0 0 10px var(--g), 2px 2px 0 #000; }
+#hud .jjk.big .en { font-size: clamp(14px, 1.8vw, 22px); letter-spacing: 10px; margin-top: 12px; }
+#hud .jjk.show { animation: jjk-in 0.42s cubic-bezier(0.2, 0.9, 0.2, 1) forwards; }
+#hud .jjk.show .en { animation: jjk-en 0.6s ease-out 0.12s both; }
+@keyframes jjk-in {
+  0% { opacity: 0; transform: translateX(-50%) scale(1.5); filter: blur(10px) brightness(3); }
+  35% { opacity: 1; filter: blur(0) brightness(2); }
+  100% { opacity: 1; transform: translateX(-50%) scale(1); filter: blur(0) brightness(1); }
+}
+@keyframes jjk-en { from { opacity: 0; letter-spacing: 22px; } to { opacity: 1; } }
+#hud .jjk:not(.show) { transition: opacity 0.35s; }
 #hud .inv { width: 58px; height: 58px; background: rgba(20, 16, 14, 0.72); box-shadow: 0 0 0 2px #000; position: relative; }
 #hud .inv.sel { box-shadow: 0 0 0 2px #000, 0 0 0 4px var(--cyan); }
 #hud .inv img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }

@@ -298,6 +298,9 @@ export class Atmosphere {
   private skyMat: THREE.ShaderMaterial;
   private a: AtmoPreset = PRESETS.day;
   private b: AtmoPreset = PRESETS.day;
+  /** Infinite Void takeover (0..1): cold light from the singularity, black-blue fog, no sky. */
+  voidMix = 0;
+  readonly voidLight = new THREE.Vector3(0, 0.35, -1).normalize();
   private t = 0;
   private tTarget = 0;
   private lightningTimer = 4;
@@ -439,6 +442,24 @@ export class Atmosphere {
     this.t += (this.tTarget - this.t) * Math.min(1, dt * 0.25);
     const s = this.state;
     s.blend(this.a, this.b, this.t);
+    const vm = this.voidMix;
+    if (vm > 0.001) {
+      s.sunDir.lerp(this.voidLight, vm).normalize();
+      s.sunColor.lerp(_vc.setRGB(0.72, 0.88, 1.0), vm);
+      s.sunIntensity += (1.25 - s.sunIntensity) * vm;
+      s.hemiSky.lerp(_vc.setRGB(0.07, 0.11, 0.3), vm);
+      s.hemiGround.lerp(_vc.setRGB(0.015, 0.02, 0.06), vm);
+      s.hemiIntensity += (0.95 - s.hemiIntensity) * vm;
+      s.fogColor.lerp(_vc.setRGB(0.008, 0.012, 0.035), vm);
+      s.exposure += (1.08 - s.exposure) * vm;
+      s.saturation += (1.12 - s.saturation) * vm;
+      s.contrast += (1.14 - s.contrast) * vm;
+      s.tint.lerp(_vc.setRGB(0.92, 0.98, 1.08), vm);
+      s.lift.lerp(_vc.setRGB(0.0, 0.004, 0.02), vm);
+      s.rain *= 1 - vm;
+      s.storm *= 1 - vm;
+      s.sunVisible *= 1 - vm;
+    }
 
     // lightning
     if (s.storm > 0.5) {
@@ -466,8 +487,9 @@ export class Atmosphere {
     this.fog.color.copy(s.fogColor);
     // thicker weather pulls the wall in; clear days see out to ARENA.fogFar
     const far = clamp(ARENA.fogFar - (s.fogDensity - 0.0042) * 1500, 24, ARENA.fogFar);
-    this.fog.far = far;
-    this.fog.near = far * 0.34;
+    this.fog.far = far + (95 - far) * vm;
+    this.fog.near = far * 0.34 + (35 - far * 0.34) * vm;
+    this.sky.visible = vm < 0.999;
 
     // Shadow frustum follows the player, biased ahead; snapped to texels to avoid shimmer
     const center = new THREE.Vector3(focus.x + forward.x * (this.shadowSize * 0.55), 0, focus.z + forward.z * (this.shadowSize * 0.55));
@@ -501,5 +523,7 @@ export class Atmosphere {
     (ru.color.value as THREE.Color).copy(s.hemiSky).multiplyScalar(0.9).addScalar(0.1 + l);
   }
 }
+
+const _vc = new THREE.Color();
 
 export const smooth01 = (t: number) => smoothstep(0, 1, t);

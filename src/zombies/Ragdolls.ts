@@ -285,9 +285,11 @@ export class RagdollSystem {
 
   private enforceBudget() {
     if (this.active.length <= this.maxActive) return;
-    // freeze the most settled (or oldest) non-recovering ragdolls
+    // freeze the most settled (or oldest) non-recovering ragdolls; bodies still
+    // in the air go last so nothing gets stuck hanging there
     const cands = this.active.filter((r) => !r.zombie);
-    cands.sort((a, b) => b.restT - a.restT || b.age - a.age);
+    const air = (r: Ragdoll) => (r.minY > 0.9 ? 1 : 0);
+    cands.sort((a, b) => air(a) - air(b) || b.restT - a.restT || b.age - a.age);
     let over = this.active.length - this.maxActive;
     for (const r of cands) {
       if (over <= 0) break;
@@ -402,6 +404,8 @@ export class RagdollSystem {
     this.destroy(r);
     if (r.zombie) return;
     if (r.mask === 0) return;
+    // forced out of the budget while still flying: it simply never lands
+    if (r.minY > 1.2) return;
     r.corpse = this.addCorpse(r.type, r.skin, r.fx, r.partPos, r.partQuat, r.partScale, r.mask, r.fireT > 0 ? r.fireT : 0, r.accHidden);
     if (r.wounds.length) G.wounds?.bake(r.wounds, r.partPos, r.partQuat, r.mask);
   }

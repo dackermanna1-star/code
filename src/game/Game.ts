@@ -257,6 +257,7 @@ export class Game {
     G.wounds.clear();
     G.liquid.clear();
     G.weapons?.pee?.reset();
+    G.gojo?.reset();
     G.structures.clear();
     G.projectiles.clear();
     G.airstrike.clear();
@@ -512,6 +513,7 @@ export class Game {
     else if (freeze) {
       G.input.consumeMouse(); // no camera jump when a menu closes
       G.weapons?.pee?.silence();
+      G.gojo?.silence();
     }
     if (this.mode === 'menu') this.updateMenuCamera(dt);
     // death sequence

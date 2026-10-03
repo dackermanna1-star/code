@@ -368,6 +368,11 @@ export class Liquid {
     u.camPos.value.copy(G.camera.position);
   }
 
+  setVisible(v: boolean) {
+    this.stream.visible = v;
+    this.puddleMesh.visible = v;
+  }
+
   clear() {
     this.n = 0;
     this.puddles.length = 0;

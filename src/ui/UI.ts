@@ -50,6 +50,7 @@ export class UI {
   private moneyShown = 0;
   private hmT = 0;
   private bannerT = 0;
+  private jjkT = 0;
   private dmgDirs: { el: HTMLDivElement; t: number }[] = [];
   private fpsT = 0;
   private frames = 0;
@@ -69,7 +70,8 @@ export class UI {
       <div class="tr"><div class="kills" data-r="kills"></div><div class="fps" data-r="fps"></div></div>
       <div id="killfeed"></div>
       <div class="bl"><div class="godtag" data-r="god" style="display:none">GOD MODE</div><div class="hp"><i data-r="hpbar"></i><b data-r="hptext"></b></div><div class="gren" data-r="gren"></div></div>
-      <div class="bc" data-r="inv"></div>
+      <div class="bc"><div class="gojo" data-r="gojo"></div><div class="invrow" data-r="inv"></div></div>
+      <div class="jjk" data-r="jjk"></div>
       <div class="br"><div class="wname" data-r="wname"></div><div class="ammo" data-r="ammo"></div><div class="gauge" data-r="gaugew"><i data-r="gauge"></i></div><div class="slots" data-r="slots"></div></div>
       <div id="xh" data-r="xh"><i class="l"></i><i class="r"></i><i class="t"></i><i class="b"></i><i class="dot"></i></div>
       <div id="hm" data-r="hm"><i style="transform:translate(-14px,-8px) rotate(45deg)"></i><i style="transform:translate(4px,-8px) rotate(-45deg)"></i><i style="transform:translate(-14px,6px) rotate(-45deg)"></i><i style="transform:translate(4px,6px) rotate(45deg)"></i></div>
@@ -213,6 +215,8 @@ export class UI {
         <div><span>Middle finger</span><span>hold <span class="kbd">T</span></span></div>
         <div><span>Unzip / zip up (then hold LMB)</span><span class="kbd">K</span></div>
         <div><span>God mode on / off</span><span class="kbd">H</span></div>
+        <div><span>Become Satoru Gojo / back to guns</span><span class="kbd">J</span></div>
+        <div><span>Gojo: Blue (hold) / Red / Purple / Domain</span><span><span class="kbd">LMB</span><span class="kbd">RMB</span><span class="kbd">R</span><span class="kbd">Z</span></span></div>
         <div><span>Build mode</span><span class="kbd">F</span></div>
         <div><span>Rotate structure</span><span><span class="kbd">Q</span><span class="kbd">E</span><span class="kbd">Wheel</span></span></div>
         <div><span>Pick up structure (prep)</span><span>hold <span class="kbd">E</span></span></div>
@@ -603,6 +607,16 @@ export class UI {
     while (this.refs.toasts.children.length > 4) this.refs.toasts.firstChild?.remove();
   }
 
+  /** Technique name on screen, anime style: kanji over the English name. */
+  gojoCallout(jp: string, en: string, kind: string, big = false) {
+    const e = this.refs.jjk;
+    e.className = `jjk ${kind}${big ? ' big' : ''}`;
+    e.innerHTML = `<div class="jp">${esc(jp)}</div><div class="en">${esc(en)}</div>`;
+    void e.offsetWidth; // restart the entrance animation
+    e.classList.add('show');
+    this.jjkT = big ? 2.3 : 1.25;
+  }
+
   banner(big: string, sub = '', dur = 2.4) {
     this.refs.bannerBig.textContent = big;
     this.refs.bannerSub.textContent = sub;
@@ -718,6 +732,25 @@ export class UI {
     this.set('hptext', `${Math.ceil(pl.hp)} / ${pl.maxHp}`);
     (document.getElementById('vignette-low') as HTMLElement).style.boxShadow = `inset 0 0 ${hpk < 0.35 ? 200 : 0}px rgba(170,0,0,${hpk < 0.35 ? 0.5 + Math.sin(G.time * 6) * 0.2 : 0})`;
     this.set('gren', `GRENADES <span class="num" style="font-size:22px">${G.weapons.grenades}</span> <span class="kbd">G</span>`);
+    // Satoru Gojo: technique bar instead of the gun
+    const gj = G.gojo;
+    const gojoOn = !!gj?.active;
+    this.hudEl.classList.toggle('gojo-on', gojoOn);
+    if (gojoOn) {
+      const h = gj.hud();
+      const slots = h.slots
+        .map((s: any) => {
+          const cd = Math.round(clamp(s.cd, 0, 1) * 50) / 50;
+          const left = s.left > 0 ? `<i class="left" style="width:${Math.round(s.left * 100)}%"></i>` : '';
+          return `<div class="gs ${s.cls}${s.on ? ' on' : ''}${cd > 0 ? ' cool' : ''}" style="--cd:${cd}"><b>${s.jp}</b><small>${s.name}</small><span class="kbd">${s.key}</span>${left}</div>`;
+        })
+        .join('');
+      this.set('gojo', `<div class="inf">∞ INFINITY</div><div class="gsr">${slots}</div>`);
+    }
+    if (this.jjkT > 0) {
+      this.jjkT -= dt;
+      if (this.jjkT <= 0) this.refs.jjk.classList.remove('show');
+    }
     // weapon
     const info = G.weapons.info();
     if (info) {

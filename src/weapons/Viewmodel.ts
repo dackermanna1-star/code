@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { G } from '../core/G';
 import { clamp, damp, Spring3 } from '../core/math';
 import { C, chamferBox, gunMat, mergeByMaterial } from './ModelBuilder';
+import { BareHand, SLEEVE_G, SLEEVE_G2 } from '../gojo/BareHand';
 import { WeaponModel } from './models';
 
 const _v = new THREE.Vector3();
@@ -265,6 +266,42 @@ function makeArm(side: 1 | -1): Arm {
   };
 }
 
+/** Gojo's arm: black uniform sleeve and a bare, articulated hand. */
+interface BareArm {
+  shoulder: THREE.Vector3;
+  pole: THREE.Vector3;
+  upper: THREE.Mesh;
+  fore: THREE.Mesh;
+  hand: THREE.Group;
+  bare: BareHand;
+  cuff: THREE.Mesh;
+  lenA: number;
+  lenB: number;
+}
+
+function makeBareArm(side: 1 | -1): BareArm {
+  const upper = new THREE.Mesh(sleeveGeo(0.05, 0.044, 0.88, [0.3, 0.66]), gunMat(SLEEVE_G, 0, 'fabric'));
+  const fore = new THREE.Mesh(sleeveGeo(0.044, 0.036, 0.86, [0.28, 0.6]), gunMat(SLEEVE_G, 0, 'fabric'));
+  const hand = new THREE.Group();
+  const bare = new BareHand(side);
+  hand.add(bare.group);
+  const cuff = new THREE.Mesh(sleeveGeo(0.039, 0.038, 0.86, []), gunMat(SLEEVE_G2, 0, 'fabric'));
+  cuff.scale.set(1, 1, 0.05);
+  hand.add(cuff);
+  for (const o of [upper, fore, hand]) o.visible = false;
+  return {
+    shoulder: new THREE.Vector3(side * 0.22, -0.4, 0.22),
+    pole: new THREE.Vector3(side * 0.9, -1, 0.2).normalize(),
+    upper,
+    fore,
+    hand,
+    bare,
+    cuff,
+    lenA: 0.34,
+    lenB: 0.37,
+  };
+}
+
 /** Solve 2-bone IK; returns elbow position. */
 export function solveIK(s: THREE.Vector3, t: THREE.Vector3, a: number, b: number, pole: THREE.Vector3, out: THREE.Vector3) {
   const d = _v.subVectors(t, s);
@@ -308,6 +345,12 @@ export class Viewmodel {
   model: WeaponModel | null = null;
   private armR = makeArm(1);
   private armL = makeArm(-1);
+  private gojoR = makeBareArm(1);
+  private gojoL = makeBareArm(-1);
+  /** Which arms are drawn: tactical gloves, or Gojo's bare hands (driven by rhObj/lhObj). */
+  armSet: 'glove' | 'gojo' = 'glove';
+  /** Camera-space root that bobs and sways like the gun; Gojo's hand anchors live under it. */
+  readonly handsRoot = new THREE.Group();
   readonly flash: THREE.Mesh;
   private flashT = 1;
   readonly recoilPos = new Spring3(170, 17);
@@ -357,6 +400,8 @@ export class Viewmodel {
     this.scene.add(this.ambient);
     this.scene.add(this.sun, this.sun.target, this.hemi, this.fill, this.camKey, this.camKey.target);
     for (const a of [this.armR, this.armL]) this.scene.add(a.upper, a.fore, a.hand);
+    for (const a of [this.gojoR, this.gojoL]) this.scene.add(a.upper, a.fore, a.hand);
+    this.scene.add(this.handsRoot);
     this.armL.hand.add(this.leftProp);
     this.armR.hand.add(this.rightProp);
     const fm = new THREE.MeshBasicMaterial({ map: G.fx.flashTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: new THREE.Color(4, 3, 1.6) });
@@ -406,6 +451,33 @@ export class Viewmodel {
     return out.copy(d).applyQuaternion(G.camera.quaternion);
   }
 
+  private solveBare(arm: BareArm, obj: THREE.Object3D | null, visible: boolean, dt: number) {
+    const vis = visible && !!obj && !this.hideArms;
+    arm.upper.visible = arm.fore.visible = arm.hand.visible = vis;
+    if (!vis || !obj) return;
+    arm.bare.setPose((obj.userData.pose as string) ?? 'relax');
+    arm.bare.rate = (obj.userData.rate as number) ?? 16;
+    arm.bare.update(dt);
+    obj.updateWorldMatrix(true, false);
+    const target = obj.getWorldPosition(new THREE.Vector3());
+    obj.getWorldQuaternion(arm.hand.quaternion);
+    const wrist = arm.bare.wrist.clone().applyQuaternion(arm.hand.quaternion).add(target);
+    const elbow = new THREE.Vector3();
+    solveIK(arm.shoulder, wrist, arm.lenA, arm.lenB, arm.pole, elbow);
+    const up = _v3.set(0, 1, 0);
+    orientBox(arm.upper, arm.shoulder, elbow, up);
+    orientBox(arm.fore, elbow, wrist, up);
+    arm.hand.position.copy(target);
+    // sleeve cuff over the wrist, along the forearm
+    const inv = _q.copy(arm.hand.quaternion).invert();
+    const dir = _v2.subVectors(wrist, elbow).normalize().applyQuaternion(inv);
+    _a.copy(arm.bare.wrist).addScaledVector(dir, -0.035);
+    _b.copy(_a).add(dir);
+    _m.lookAt(_a, _b, up);
+    arm.cuff.position.copy(_a);
+    arm.cuff.quaternion.setFromRotationMatrix(_m);
+  }
+
   update(dt: number, mouseDX: number, mouseDY: number, moving: number, sprinting: boolean, onGround: boolean) {
     const m = this.model;
     // lights in camera space
@@ -451,6 +523,37 @@ export class Viewmodel {
     this.camera.position.set(0, 0, 0);
     this.camera.quaternion.identity();
     this.camera.updateMatrixWorld();
+
+    // hands-only root: same bob, sway, breathing and recoil as the gun, no hip pose
+    {
+      const amt = moving;
+      const hp = this.handsRoot.position;
+      hp.set(
+        Math.sin(this.bobPhase) * 0.012 * amt + this.swayX * 0.4 + this.sprint * 0.02 + Math.sin(this.idleT * 0.9) * 0.0022 * (1 - moving * 0.7) - this.lean * 0.006,
+        -Math.abs(Math.cos(this.bobPhase)) * 0.01 * amt + this.swayY * 0.4 - this.sprint * 0.04 + Math.sin(this.idleT * 1.8) * 0.0016 * (1 - moving * 0.7) + this.vertP - this.lower * 0.35,
+        0,
+      );
+      hp.add(this.animPos);
+      hp.x += this.recoilPos.x.x;
+      hp.y += this.recoilPos.x.y;
+      hp.z += this.recoilPos.x.z * 0.12;
+      this.handsRoot.rotation.set(
+        this.swayY * 1.2 + this.recoilRot.x.x * 0.06 + this.animRot.x - this.sprint * 0.2,
+        this.swayX * 1.2 + this.recoilRot.x.y * 0.05 + this.animRot.y,
+        Math.sin(this.bobPhase) * 0.02 * amt + this.recoilRot.x.z * 0.05 + this.animRot.z - this.swayX * 0.8 - this.lean * 0.05,
+        'YXZ',
+      );
+      this.handsRoot.updateMatrixWorld(true);
+    }
+    if (this.armSet === 'gojo') {
+      this.holder.visible = false;
+      this.flash.visible = false;
+      for (const a of [this.armL, this.armR]) a.upper.visible = a.fore.visible = a.hand.visible = false;
+      this.solveBare(this.gojoR, this.rhObj, this.rhVisible, dt);
+      this.solveBare(this.gojoL, this.lhObj, this.lhVisible, dt);
+      return;
+    }
+    for (const a of [this.gojoL, this.gojoR]) a.upper.visible = a.fore.visible = a.hand.visible = false;
 
     if (!m) {
       this.holder.visible = false;
