@@ -7,13 +7,14 @@ import { Rng } from '../../../core/rng';
 import type { DimensionId } from '../generator';
 import type { ChunkWriter } from '../common/writer';
 import { structureTypesFor } from './registry';
-import { regionCandidate, regionsFor, startSeed } from './placement';
+import { regionCandidate, regionsFor, ringPositions, startSeed } from './placement';
 import { boxIntersectsChunk, type StructureContext, type StructureStart, type StructureType } from './types';
 
 export class StructureManager {
   private readonly types: StructureType[];
   private readonly cache = new Map<string, StructureStart | null>();
   private readonly nearCache = new Map<number, StructureStart[]>();
+  private readonly rings = new Map<string, [number, number][]>();
 
   constructor(readonly dimension: DimensionId, readonly ctx: StructureContext) {
     this.types = structureTypesFor(dimension);
@@ -33,6 +34,15 @@ export class StructureManager {
     return start;
   }
 
+  /** Start chunks of a concentric-rings type (cached). */
+  ringStarts(t: StructureType): [number, number][] {
+    const p = t.placement;
+    if (p.kind !== 'concentric_rings') return [];
+    let r = this.rings.get(t.id);
+    if (!r) this.rings.set(t.id, (r = ringPositions(this.ctx.seed, p, (x, z) => this.ctx.biomeAt(x, z))));
+    return r;
+  }
+
   /** All starts whose bounding box intersects chunk (cx, cz), in write order. */
   startsFor(cx: number, cz: number): StructureStart[] {
     const k = (cx + 0x400000) * 0x800000 + (cz + 0x400000);
@@ -43,6 +53,14 @@ export class StructureManager {
     for (const t of this.types) {
       const p = t.placement;
       const R = t.maxReach;
+      if (p.kind === 'concentric_rings') {
+        for (const c of this.ringStarts(t)) {
+          if (Math.abs(c[0] - cx) > R || Math.abs(c[1] - cz) > R) continue;
+          const s = this.startAt(t, c[0], c[1]);
+          if (s && boxIntersectsChunk(s.box, cx, cz)) out.push(s);
+        }
+        continue;
+      }
       const [rx0, rz0, rx1, rz1] = regionsFor(p, cx - R, cz - R, cx + R, cz + R);
       for (let rz = rz0; rz <= rz1; rz++)
         for (let rx = rx0; rx <= rx1; rx++) {
@@ -79,6 +97,17 @@ export class StructureManager {
     const t = this.types.find((tt) => tt.id === id);
     if (!t) return null;
     const p = t.placement;
+    if (p.kind === 'concentric_rings') {
+      // nearest start chunk first; the start's representative point lies within its reach
+      const cands = this.ringStarts(t)
+        .map((c) => [c[0], c[1], (c[0] * 16 + 8 - x) ** 2 + (c[1] * 16 + 8 - z) ** 2] as const)
+        .sort((a, b) => a[2] - b[2]);
+      for (const c of cands) {
+        const s = this.startAt(t, c[0], c[1]);
+        if (s) return { x: s.x, y: s.y, z: s.z };
+      }
+      return null;
+    }
     const crx = Math.floor(Math.floor(x / 16) / p.spacing), crz = Math.floor(Math.floor(z / 16) / p.spacing);
     const found: StructureStart[] = [];
     let bestD = Infinity;

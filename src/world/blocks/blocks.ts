@@ -462,6 +462,20 @@ R('red_mushroom_block', { hardness: 0.2, tool: 'axe', sound: 'wood', drops: [{ i
 R('twisting_vines', plant({ climbable: true }));
 R('raw_copper_block', stone({ hardness: 5, harvestTier: 1, mapColor: 0x9a6a4f }));
 
+// ---------------------------------------------------------------------------------
+// Appended by the structures workstream: village job-site blocks and the bell
+// ---------------------------------------------------------------------------------
+const side4 = (top: string, side: string, bottom: string, front = side): Faces => ({ up: top, down: bottom, north: front, south: side, west: side, east: front });
+R('composter', wood({ shape: 'cauldron', layer: 'cutout', fullCube: false, opacity: 0, hardness: 0.6, tex: { up: 'podzol_top', down: 'oak_planks', north: 'composter_side', south: 'composter_side', west: 'composter_side', east: 'composter_side' } }));
+R('lectern', wood({ shape: 'anvil', fullCube: false, opacity: 0, hardness: 2.5, orient: 'hfacing', tex: { up: 'lectern_top', down: 'oak_planks', north: 'lectern_side', south: 'lectern_side', west: 'lectern_side', east: 'lectern_side' } }));
+R('smithing_table', wood({ hardness: 2.5, tex: side4('smithing_table_top', 'smithing_table_side', 'dark_oak_planks', 'smithing_table_front') }));
+R('cartography_table', wood({ hardness: 2.5, tex: side4('cartography_table_top', 'cartography_table_side', 'dark_oak_planks') }));
+R('fletching_table', wood({ hardness: 2.5, tex: side4('fletching_table_top', 'fletching_table_side', 'birch_planks', 'fletching_table_front') }));
+R('loom', wood({ hardness: 2.5, orient: 'hfacing', tex: frontFaces('loom_front', 'loom_side', 'loom_top', 'oak_planks') }));
+R('stonecutter', stone({ shape: 'enchanting_table', fullCube: false, opacity: 0, hardness: 3.5, orient: 'hfacing', tex: { up: 'stonecutter_top', down: 'smooth_stone', north: 'stonecutter_side', south: 'stonecutter_side', west: 'stonecutter_side', east: 'stonecutter_side' } }));
+R('grindstone', stone({ shape: 'anvil', fullCube: false, opacity: 0, hardness: 2, requiresTool: true, orient: 'hfacing', tex: { up: 'grindstone_round', down: 'dark_oak_planks', north: 'grindstone_side', south: 'grindstone_side', west: 'grindstone_side', east: 'grindstone_side' } }));
+R('bell', stone({ shape: 'lantern', layer: 'cutout', fullCube: false, opacity: 0, hardness: 5, sound: 'anvil', tex: 'bell_body', harvestTier: 0 }));
+
 finalizeRegistry();
 
 export {};

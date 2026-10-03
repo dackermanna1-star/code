@@ -87,7 +87,23 @@ export interface RandomSpreadPlacement {
   frequency?: number;
 }
 
-export type StructurePlacement = RandomSpreadPlacement;
+/**
+ * Minecraft ConcentricRingsStructurePlacement (strongholds): `count` starts on rings around the
+ * origin. Ring k (0-based) is at a distance of (4 + 6k) * `distance` chunks (+-1.25 * distance),
+ * holding `spread` starts on the first ring and more on outer rings. Each position is nudged to a
+ * column whose biome passes `biomeOk` within 112 blocks (vanilla biome search).
+ */
+export interface ConcentricRingsPlacement {
+  kind: 'concentric_rings';
+  distance: number;
+  spread: number;
+  count: number;
+  salt: number;
+  /** Biome filter for the start position (e.g. not ocean / river). */
+  biomeOk?: (biome: number) => boolean;
+}
+
+export type StructurePlacement = RandomSpreadPlacement | ConcentricRingsPlacement;
 
 export interface StructureType {
   /** Unique id, e.g. 'ruined_portal', 'village', 'stronghold'. Used by `locateStructure`. */
