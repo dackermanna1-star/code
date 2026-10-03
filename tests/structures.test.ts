@@ -131,6 +131,25 @@ describe('structures', { timeout: 300_000 }, () => {
     expect(bes.some((b) => b.data.id === 'mob_spawner' && b.data.entity === 'silverfish')).toBe(true);
   });
 
+  it('villages: vanilla spacing, a start within 40 chunks for some seed, identical starts per generator', () => {
+    const t = typeOf(gen(1), 'village');
+    expect(t.placement).toMatchObject({ spacing: 34, separation: 8 });
+    let found = 0;
+    for (const seed of [1, 2, 3, 123]) {
+      const a = gen(seed), b = gen(seed);
+      const v = a.locateStructure('village', 0, 0);
+      if (!v || Math.hypot(v.x, v.z) > 40 * 16) continue;
+      found++;
+      const cx = Math.floor(v.x / 16), cz = Math.floor(v.z / 16);
+      const sa = a.structures.startAt(typeOf(a, 'village'), cx, cz);
+      const sb = b.structures.startAt(typeOf(b, 'village'), cx, cz);
+      expect(sa.pieces.length).toBe(sb.pieces.length);
+      expect(sa.box).toEqual(sb.box);
+      expect(sa.pieces.map((p: any) => p.box)).toEqual(sb.pieces.map((p: any) => p.box));
+    }
+    expect(found).toBeGreaterThan(0);
+  });
+
   it('village chunks are independent of generation order and carry chest/villager data', () => {
     const g = gen(1);
     const v = g.locateStructure('village', 0, 0);

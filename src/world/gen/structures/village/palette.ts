@@ -84,6 +84,7 @@ for (const [n, v] of [
   ['desert', 'desert'],
   ['savanna', 'savanna'], ['savanna_plateau', 'savanna'],
   ['taiga', 'taiga'],
+  ['snowy_taiga', 'snowy'],
   ['snowy_plains', 'snowy'],
 ] as [string, VillageVariant][]) BIOME_VARIANT.set(biomeId(n), v);
 

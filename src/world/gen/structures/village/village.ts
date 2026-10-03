@@ -23,7 +23,9 @@ import { B } from '../lib/blocks';
 
 const SEA = 63;
 const REACH = 6;
-const MAX_BUILDINGS = 26;
+const MAX_BUILDINGS = 18;
+/** Max terrain height range (sampled on a coarse grid around the centre) for a village to start. */
+const MAX_RELIEF = 20;
 
 /** A straight street segment, 3 blocks wide, following the terrain. */
 class StreetPiece implements StructurePiece {
@@ -69,6 +71,15 @@ function generateVillage(ctx: StructureContext, chunkX: number, chunkZ: number, 
   if (!variant) return null;
   const cy = ctx.heightAt(cx, cz);
   if (cy < SEA) return null;
+  // like vanilla, villages want fairly flat land: reject steep or water-split sites
+  let lo = cy, hi = cy;
+  for (let dz = -24; dz <= 24; dz += 8)
+    for (let dx = -24; dx <= 24; dx += 8) {
+      const h = ctx.heightAt(cx + dx, cz + dz);
+      if (h < lo) lo = h;
+      if (h > hi) hi = h;
+    }
+  if (hi - lo > MAX_RELIEF) return null;
   const pal = palette(variant);
   const lim = box((chunkX - REACH) * 16, 0, (chunkZ - REACH) * 16, (chunkX + REACH) * 16 + 15, 255, (chunkZ + REACH) * 16 + 15);
   const within = (b: BlockBox) => b.minX >= lim.minX && b.maxX <= lim.maxX && b.minZ >= lim.minZ && b.maxZ <= lim.maxZ;
