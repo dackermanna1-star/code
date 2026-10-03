@@ -8,6 +8,9 @@ import { AudioGlueSystem } from './audioGlue';
 import { ContainerSystem } from './containers/system';
 import { ItemSystem } from './items/itemSystem';
 import { MobSpawningSystem } from './spawning';
+import { PhysicsSystem } from '../physics/system';
+import { ExplosionSystem } from './explosions';
+import { RagdollSystem } from '../physics/ragdoll';
 
 export function createSystems(): GameSystem[] {
   return [
@@ -17,5 +20,8 @@ export function createSystems(): GameSystem[] {
     new ContainerSystem(),
     new ItemSystem(),
     new MobSpawningSystem(),
+    new PhysicsSystem(),
+    new ExplosionSystem(),
+    new RagdollSystem(),
   ];
 }
