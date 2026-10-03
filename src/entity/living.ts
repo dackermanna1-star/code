@@ -3,7 +3,7 @@
  * fire, fall damage, death. Mobs and the player extend this.
  */
 import * as THREE from 'three';
-import { Entity, type DamageSource, type DamageType } from './entity';
+import { Entity, PHYS, type DamageSource, type DamageType } from './entity';
 import { BLOCKS, T_FULL_CUBE } from '../world/blocks/registry';
 
 export interface StatusEffect {
@@ -86,8 +86,12 @@ export abstract class LivingEntity extends Entity {
   removeEffect(id: string) {
     if (this.effects.delete(id)) this.onEffectRemoved(id);
   }
-  protected onEffectAdded(_id: string) {}
-  protected onEffectRemoved(_id: string) {}
+  protected onEffectAdded(id: string) {
+    this.onEffectAddedImpl(id);
+  }
+  protected onEffectRemoved(id: string) {
+    this.onEffectRemovedImpl(id);
+  }
 
   /** Armor points (0-20) — overridden by entities with equipment. */
   get armorValue(): number {
@@ -208,35 +212,49 @@ export abstract class LivingEntity extends Entity {
     return 20;
   }
 
+  /** Undead mobs (zombies, skeletons ...) invert instant health/damage and ignore poison/regeneration. */
+  get isUndead(): boolean {
+    return (this as any).undead === true || (this as any).mobType === 'undead';
+  }
+
   protected tickEffects() {
     for (const e of [...this.effects.values()]) {
       const lvl = e.amplifier + 1;
       switch (e.id) {
         case 'regeneration': {
-          const iv = Math.max(1, 50 >> e.amplifier);
-          if (this.age % iv === 0) this.heal(1);
+          const iv = 50 >> e.amplifier;
+          if ((iv <= 0 || this.age % iv === 0) && !this.isUndead) this.heal(1);
           break;
         }
         case 'poison': {
-          const iv = Math.max(1, 25 >> e.amplifier);
-          if (this.age % iv === 0 && this.health > 1) this.hurt({ type: 'poison', bypassArmor: true }, 1);
+          const iv = 25 >> e.amplifier;
+          if ((iv <= 0 || this.age % iv === 0) && this.health > 1 && !this.isUndead) this.hurt({ type: 'poison', bypassArmor: true }, 1);
           break;
         }
         case 'wither': {
-          const iv = Math.max(1, 40 >> e.amplifier);
-          if (this.age % iv === 0) this.hurt({ type: 'wither', bypassArmor: true }, 1);
+          const iv = 40 >> e.amplifier;
+          if (iv <= 0 || this.age % iv === 0) this.hurt({ type: 'wither', bypassArmor: true }, 1);
           break;
         }
         case 'instant_health':
-          this.heal(4 << e.amplifier);
+          if (this.isUndead) this.hurt({ type: 'magic', bypassArmor: true }, 6 << e.amplifier);
+          else this.heal(Math.max(4 << e.amplifier, 0));
           e.duration = 0;
           break;
         case 'instant_damage':
-          this.hurt({ type: 'magic', bypassArmor: true }, 6 << e.amplifier);
+          if (this.isUndead) this.heal(Math.max(4 << e.amplifier, 0));
+          else this.hurt({ type: 'magic', bypassArmor: true }, 6 << e.amplifier);
           e.duration = 0;
           break;
-        case 'absorption':
-          if (this.absorption <= 0 && e.duration > 0 && !(e as any)._applied) { this.absorption = 4 * lvl; (e as any)._applied = true; }
+        case 'hunger':
+          (this as any).addExhaustion?.(0.005 * lvl);
+          break;
+        case 'saturation':
+          (this as any).eat?.(lvl, 1.0);
+          break;
+        case 'levitation':
+        case 'slow_falling':
+          this.fallDistance = 0;
           break;
       }
       if (e.duration > 0) e.duration--;
@@ -244,11 +262,22 @@ export abstract class LivingEntity extends Entity {
     }
   }
 
+  protected onEffectAddedImpl(id: string) {
+    const e = this.effects.get(id);
+    if (id === 'absorption' && e) this.absorption = Math.max(this.absorption, 4 * (e.amplifier + 1));
+  }
+  protected onEffectRemovedImpl(id: string) {
+    if (id === 'absorption') this.absorption = 0;
+  }
+
   protected tickEnvironmentDamage() {
     // lava / fire
     if (this.inLava) {
       this.fireTicks = Math.max(this.fireTicks, 300);
       this.hurt({ type: 'lava', fire: true }, 4);
+    }
+    if (this.fireTicks > 0 && (this.inWater || this.isInRain())) {
+      if (!this.inLava) this.fireTicks = 0;
     }
     if (this.fireTicks > 0 && this.age % 20 === 0 && !this.inLava) {
       if (this.inWater) this.fireTicks = 0;
@@ -269,6 +298,14 @@ export abstract class LivingEntity extends Entity {
     if (st && T_FULL_CUBE[st >>> 4] && !this.noClip && this.age % 10 === 0) this.hurt({ type: 'suffocate', bypassArmor: true }, 1);
     // void
     if (this.pos.y < -64) this.hurt({ type: 'void', bypassArmor: true }, 4);
+  }
+
+  /** Raining on the entity's column with open sky above (extinguishes fire). */
+  isInRain(): boolean {
+    const g: any = this.game;
+    if (!g?.weather?.raining || g.dimension !== 'overworld') return false;
+    const x = Math.floor(this.pos.x), z = Math.floor(this.pos.z);
+    return this.pos.y + this.height >= this.world.getHeight(x, z);
   }
 
   canBreatheUnderwater() {
@@ -341,6 +378,14 @@ export abstract class LivingEntity extends Entity {
       return;
     }
     const { fx, fz } = this.intentToWorld();
+    // levitation: vy += (0.05 * level - vy) * 0.2 per tick; slow falling: gravity 0.01 instead of 0.08
+    const lev = this.effectLevel('levitation');
+    const slowFall = !lev && this.vel.y <= 0 && this.hasEffect('slow_falling');
+    const prevNoGravity = this.noGravity;
+    if (lev > 0) {
+      this.vel.y += (0.05 * lev * 20 - this.vel.y) * (1 - Math.pow(0.8, dt * 20));
+      this.noGravity = true;
+    }
     let jump = this.intent.jump;
     if (jump && this.onGround && !this.inWater && !this.inLava && this.jumpCooldown === 0) {
       this.vel.y = this.jumpVelocity();
@@ -353,6 +398,8 @@ export abstract class LivingEntity extends Entity {
       jump = false;
     }
     this.travel(dt, fx, fz, this.movementSpeed(), jump || (this.intent.jump && (this.inWater || this.inLava || this.onClimbable)), false, this.intent.sneak);
+    this.noGravity = prevNoGravity;
+    if (slowFall && !this.onGround && !this.inWater) this.vel.y += PHYS.gravity * (7 / 8) * dt;
     // body yaw follows movement direction
     const hs = Math.hypot(this.pos.x - this.prevPos.x, this.pos.z - this.prevPos.z);
     if (hs > 0.0025 / 3) {

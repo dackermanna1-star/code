@@ -138,7 +138,7 @@ export class Interaction {
     const haste = p.effectLevel('haste') + p.effectLevel('conduit_power');
     if (haste) speed *= 1 + 0.2 * haste;
     const fatigue = p.effectLevel('mining_fatigue');
-    if (fatigue) speed *= Math.pow(0.3, Math.min(4, fatigue));
+    if (fatigue) speed *= [0.3, 0.09, 0.0027, 0.00081][Math.min(4, fatigue) - 1];
     if (p.eyesInWater && !(p.armorPiece('head')?.ench?.aqua_affinity)) speed /= 5;
     if (!p.onGround && !p.flying) speed /= 5;
     const canHarvest = !def.requiresTool || (!!tool && tool.type === def.tool && tool.tier >= def.harvestTier) || (def.name === 'cobweb' && (tool?.type === 'sword' || tool?.type === 'shears'));
