@@ -4,7 +4,7 @@ import { SD } from '../core/SD';
 import { Animator, Clip } from '../char/Anim';
 import { buildSukuna } from '../char/Characters';
 import type { CharModel } from '../char/Model';
-import { BLOCK, DODGE, DOWN, GET_UP, HIT_HEAVY, HIT_LIGHT, KNEEL, LAUNCHED, SK_AXE, SK_CLEAVE, SK_DISMANTLE, SK_DISMANTLE_L, SK_FUGA, SK_GUARD, SK_HOOK, SK_IDLE, SK_JAB, SK_KICK, SK_LAUGH, SK_UPPER, airPose, runCycle, walkCycle } from '../char/Poses';
+import { BLOCK, DODGE, DOWN, GET_UP, HIT_HEAVY, HIT_LIGHT, KNEEL, LAUNCHED, SK_AXE, SK_CLEAVE, SK_DISMANTLE, SK_DISMANTLE_L, SK_FUGA, SK_GUARD, SK_HOOK, SK_IDLE, SK_JAB, SK_KICK, SK_LAUGH, SK_UPPER, SK_WCS, airPose, runCycle, walkCycle } from '../char/Poses';
 import { Combatant, Hit, HitKind, HitResult, makeHit } from './Combat';
 import { Fighter } from './Fighter';
 import type { Player } from './Player';
@@ -100,7 +100,9 @@ export class Boss implements Combatant {
   private castName = '';
   poise = 100;
   /** cooldowns */
-  readonly cd = { dismantle: 2, cleave: 3, fuga: 14, dash: 0, dodge: 0, laugh: 8 };
+  readonly cd = { dismantle: 2, cleave: 3, fuga: 14, dash: 0, dodge: 0, laugh: 8, wcs: 4 };
+  /** world-cutting slash in progress: plane, damage taken during the chant */
+  private wcs: { vertical: boolean; n: THREE.Vector3; d: number; taken: number; locked: boolean } | null = null;
   /** set-piece hooks: return true to take over (domain, Mahoraga, World-Cutting Slash) */
   onThreshold: ((hpFrac: number) => boolean) | null = null;
   onEvent: ((name: string, data?: any) => void) | null = null;
@@ -359,8 +361,9 @@ export class Boss implements Combatant {
   }
 
   private decide(dist: number) {
-    const a = this.diff.aggression;
+    const a = this.diff.aggression * (1 + (this.phase - 1) * 0.12);
     this.think = this.diff.think * rnd(0.6, 1.5) * (1.4 - a * 0.5);
+    if (this.phase >= 4 && this.cd.wcs <= 0 && dist > 5) return this.startWCS();
     if (dist < 3.4) {
       if (this.cd.cleave <= 0 && chance(0.18)) return this.beginCombo(['cleave']);
       return this.beginCombo();
@@ -535,7 +538,89 @@ export class Boss implements Combatant {
     this.onEvent?.('fuga');
   }
 
+  /** 龍鱗　反発　番いの流星: three signs, then a cut through the world itself. */
+  private startWCS() {
+    this.castName = 'wcs';
+    this.set('cast');
+    this.cd.wcs = 13 + rnd(0, 4);
+    this.armor = 4;
+    this.wcs = { vertical: Math.random() < 0.55, n: new THREE.Vector3(), d: 0, taken: 0, locked: false };
+    this.model.setExpr('focus');
+    const line = (jp: string, en: string) => {
+      SD.hud?.callout(jp, en, 'sukuna', 1.1);
+      SD.audio?.play('chant', { volume: 1.1 });
+      this.player.cam.shake(0.15);
+    };
+    this.anim.play(SK_WCS, 1, (e) => {
+      if (e === 'chant1') line('龍鱗', 'Dragon scales.');
+      if (e === 'chant2') line('反発', 'Recoil.');
+      if (e === 'chant3') line('番いの流星', 'Twin meteors.');
+      if (e === 'release') this.releaseWCS();
+    });
+    this.onEvent?.('wcs');
+  }
+
+  private aimWCS() {
+    const w = this.wcs!;
+    if (w.locked) return;
+    const p = this.player;
+    const to = new THREE.Vector3().subVectors(p.f.pos, this.f.pos).setY(0).normalize();
+    if (w.vertical) {
+      // a standing sheet through Gojo: step out of it
+      w.n.set(-to.z, 0, to.x);
+      w.d = w.n.dot(p.f.pos);
+    } else {
+      // a level sheet through his chest: get above it
+      w.n.set(0, 1, 0).applyAxisAngle(to, 0.06);
+      w.d = w.n.dot(new THREE.Vector3(p.f.pos.x, p.f.pos.y + 1.3, p.f.pos.z));
+    }
+    SD.director?.telegraphWCS(w.n.clone(), w.d, this.f.pos.clone(), to);
+  }
+
+  private releaseWCS() {
+    const w = this.wcs;
+    if (!w) return;
+    SD.director?.clearWCS();
+    const p = this.player;
+    const fwd = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
+    const c = p.aim(new THREE.Vector3());
+    const inPlane = Math.abs(w.n.dot(c) - w.d) < (w.vertical ? 0.9 : 1.0);
+    const ahead = new THREE.Vector3().subVectors(c, this.f.pos).dot(fwd) > 0;
+    SD.audio?.play('wcs', { volume: 1.6 });
+    const post = SD.renderer.post;
+    post.impact = 1.4;
+    post.impactColor.setRGB(1, 1, 1);
+    post.flash = 0.5;
+    p.cam.shake(1.1);
+    SD.timing.hitstop(0.12);
+    // everything in front of him on that sheet comes apart
+    const bounds = new THREE.Box3().setFromCenterAndSize(this.f.pos.clone().addScaledVector(fwd, 220), new THREE.Vector3(460, 400, 460));
+    SD.world?.slice(w.n, w.d, bounds, fwd, 'wcs', 0.45);
+    if (inPlane && ahead && p.alive) {
+      const dmg = this.diff.name === 'THE STRONGEST' ? 99999 : this.diff.name === 'HARD' ? 650 : 420;
+      p.receive(makeHit('wcs', dmg, c, fwd, { knock: 6, lift: 2, stun: 0.8, sure: true, source: this }));
+      SD.fx.slashes.flash({ pos: c.clone(), fwd: fwd.clone(), axis: new THREE.Vector3().crossVectors(w.n, fwd).normalize(), len: 6, thick: 0.15, bulge: 0.1, color: [2, 2, 2] }, 0.5);
+      SD.onomato?.('ザンッ', c, 2.2);
+    } else SD.onomato?.('ズッ', this.f.pos.clone().addScaledVector(fwd, 12).setY(3), 1.6);
+    this.model.setExpr(inPlane && ahead ? 'grin' : 'neutral');
+    this.wcs = null;
+  }
+
   private runCast(dt: number) {
+    if (this.castName === 'wcs') {
+      if (this.wcs) {
+        // locks on a beat before the cut
+        if (this.anim.actionT > 2.65) this.wcs.locked = true;
+        this.aimWCS();
+      }
+      if (this.anim.action === null) {
+        this.wcs = null;
+        SD.director?.clearWCS();
+        this.set('idle');
+        this.think = 0.6;
+      }
+      return;
+    }
     if (this.castName === 'dismantle') {
       if (this.anim.action === null || this.anim.actionK > 0.85) {
         this.volley--;
@@ -737,6 +822,17 @@ export class Boss implements Combatant {
     this.hp -= hit.dmg;
     this.poise -= hit.dmg * (hit.kind === 'punch' ? 1.6 : 1);
     this.onEvent?.('hurt', hit);
+    if (this.wcs) {
+      this.wcs.taken += hit.dmg;
+      // a heavy enough blow breaks the incantation
+      if (this.wcs.taken > 200 || hit.kind === 'red' || hit.kind === 'blackflash' || hit.kind === 'purple') {
+        this.wcs = null;
+        SD.director?.clearWCS();
+        this.armor = 0;
+        SD.hud?.callout('詠唱中断', 'Chant broken!', '', 1.4);
+        this.poise = 0;
+      }
+    }
     const big = hit.launch || this.poise <= 0;
     if (this.armor > 0 && !hit.launch && hit.kind !== 'purple') {
       this.anim.kick('chest', -120, rnd(-60, 60), 0);

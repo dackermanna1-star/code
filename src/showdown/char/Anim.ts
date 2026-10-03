@@ -215,6 +215,8 @@ export class Animator {
   hands: [string, string] = ['relax', 'relax'];
   /** whole-body lean from acceleration (radians) */
   lean = new THREE.Vector2();
+  /** poses were authored for a different body size: IK targets and hip offsets scale by this */
+  ikScale = 1;
   run_: ((p: number, k: number) => Pose) | null = null;
 
   constructor(
@@ -284,13 +286,14 @@ export class Animator {
     }
     const ha = a.p.hip ?? [0, 0, 0];
     const hb = b.p.hip ?? [0, 0, 0];
-    hip.set(ha[0] + (hb[0] - ha[0]) * k, ha[1] + (hb[1] - ha[1]) * k, ha[2] + (hb[2] - ha[2]) * k);
+    hip.set(ha[0] + (hb[0] - ha[0]) * k, ha[1] + (hb[1] - ha[1]) * k, ha[2] + (hb[2] - ha[2]) * k).multiplyScalar(this.ikScale);
     for (const side of ['L', 'R'] as const) {
       const g = this.actGoals[side];
       g.w = 0;
       g.rw = 0;
       g.set(a.p.ik?.[side], 1 - k, a.p.ik?.[`${side}f`], a.p.ik?.[`${side}p`]);
       g.set(b.p.ik?.[side], k, b.p.ik?.[`${side}f`], b.p.ik?.[`${side}p`]);
+      g.pos.multiplyScalar(this.ikScale);
       // targets ride along with the pose's crouch / lunge
       g.pos.add(hip);
     }
@@ -306,8 +309,8 @@ export class Animator {
     if (!this.grounded) pose = this.cycles.air(this.vy);
     else if (sp < 0.25) pose = this.stance;
     else {
-      const walk = sp < this.walkSpeed;
-      const stride = walk ? 1.35 : 2.4;
+      const walk = sp < this.walkSpeed * this.ikScale;
+      const stride = (walk ? 1.35 : 2.4) * this.ikScale;
       this.phase += (sp / stride) * dt * Math.PI * 2 * 0.5;
       pose = walk ? this.cycles.walk(this.phase) : this.cycles.run(this.phase);
       // blend into the stance at low speed
@@ -318,21 +321,21 @@ export class Animator {
         for (const n of this.names) this.base.get(n)!.slerp(this.tmpA.get(n)!, 1 - w);
         const h = pose.hip ?? [0, 0, 0];
         const hs = this.stance.hip ?? [0, 0, 0];
-        this.hipBase.set(hs[0] + (h[0] - hs[0]) * w, hs[1] + (h[1] - hs[1]) * w, hs[2] + (h[2] - hs[2]) * w);
+        this.hipBase.set(hs[0] + (h[0] - hs[0]) * w, hs[1] + (h[1] - hs[1]) * w, hs[2] + (h[2] - hs[2]) * w).multiplyScalar(this.ikScale);
         this.goals.L.set(this.stance.ik?.L, 1 - w, this.stance.ik?.Lf, this.stance.ik?.Lp);
         this.goals.R.set(this.stance.ik?.R, 1 - w, this.stance.ik?.Rf, this.stance.ik?.Rp);
-        this.goals.L.pos.add(this.hipBase);
-        this.goals.R.pos.add(this.hipBase);
+        this.goals.L.pos.multiplyScalar(this.ikScale).add(this.hipBase);
+        this.goals.R.pos.multiplyScalar(this.ikScale).add(this.hipBase);
         return pose.hands ?? this.stance.hands;
       }
     }
     toQ(pose, this.base, this.names);
     const h = pose.hip ?? [0, 0, 0];
-    this.hipBase.set(h[0], h[1], h[2]);
+    this.hipBase.set(h[0], h[1], h[2]).multiplyScalar(this.ikScale);
     this.goals.L.set(pose.ik?.L, 1, pose.ik?.Lf, pose.ik?.Lp);
     this.goals.R.set(pose.ik?.R, 1, pose.ik?.Rf, pose.ik?.Rp);
-    this.goals.L.pos.add(this.hipBase);
-    this.goals.R.pos.add(this.hipBase);
+    this.goals.L.pos.multiplyScalar(this.ikScale).add(this.hipBase);
+    this.goals.R.pos.multiplyScalar(this.ikScale).add(this.hipBase);
     return pose.hands;
   }
 

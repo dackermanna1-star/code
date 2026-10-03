@@ -106,7 +106,7 @@ const TEETH = 0xdcd0b4;
 const MOUTH = 0x060101;
 
 /** The Malevolent Shrine: tiered temple with a gaping, fanged mouth, horns and a bull skull. Front faces +Z. */
-function buildShrine() {
+export function buildShrine() {
   const b = new Builder();
   const glow = new Builder();
   // stepped stone platform and the front stair
@@ -219,7 +219,7 @@ function buildShrine() {
 }
 
 /** Skull and bone instances strewn through the pool. */
-function skullGeometry() {
+export function skullGeometry() {
   const b = new Builder();
   b.box([0.34, 0.28, 0.38], [0, 0.17, 0], BONE, [0, 0, 0], 0.2);
   b.box([0.28, 0.14, 0.12], [0, 0.07, 0.17], BONE_D);
@@ -229,7 +229,7 @@ function skullGeometry() {
   b.box([0.05, 0.06, 0.04], [0, 0.1, 0.2], MOUTH);
   return b.build();
 }
-function boneGeometry() {
+export function boneGeometry() {
   const b = new Builder();
   b.box([0.06, 0.06, 0.52], [0, 0.03, 0], BONE);
   b.box([0.13, 0.1, 0.1], [0, 0.05, 0.27], BONE_D);
@@ -237,7 +237,7 @@ function boneGeometry() {
   return b.build();
 }
 
-const POOL_VERT = /* glsl */ `
+export const POOL_VERT = /* glsl */ `
 varying vec3 vWorld;
 #include <fog_pars_vertex>
 void main(){
@@ -248,7 +248,7 @@ void main(){
   #include <fog_vertex>
 }`;
 
-const POOL_FRAG = /* glsl */ `
+export const POOL_FRAG = /* glsl */ `
 uniform vec3 uCam; uniform vec3 uCenter; uniform float uR; uniform float uTime; uniform float uA;
 uniform vec3 uMoon; uniform vec3 uSkyLow; uniform vec3 uSkyHigh;
 varying vec3 vWorld;
@@ -279,7 +279,7 @@ void main(){
   #include <fog_fragment>
 }`;
 
-const MOON_FRAG = /* glsl */ `
+export const MOON_FRAG = /* glsl */ `
 uniform float uA; uniform float uTime;
 varying vec2 vUv;
 float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }

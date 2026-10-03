@@ -4,12 +4,14 @@ import { SD } from '../core/SD';
 import { HUD } from '../ui/HUD';
 import { Boss, DIFFICULTY, Difficulty } from './Boss';
 import { Timing } from './Combat';
+import { Director } from './Director';
 import { Player } from './Player';
 
 const CALL: Record<string, [string, string, string]> = {
   red: ['術式反転「赫」', 'Cursed Technique Reversal: Red', 'red'],
   blue: ['術式順転「蒼」', 'Cursed Technique Lapse: Blue', 'blue'],
   purpleFire: ['虚式「茈」', 'Hollow Technique: Purple', 'purple'],
+  purple200: ['虚式「茈」　200%', 'Hollow Technique: Purple — 200%', 'purple'],
   rct: ['反転術式', 'Reverse Cursed Technique', ''],
 };
 
@@ -22,7 +24,11 @@ export class Fight {
   readonly boss: Boss;
   readonly hud: HUD;
   readonly timing = new Timing();
+  readonly director: Director;
   over: 'win' | 'lose' | null = null;
+  /** decided, ending cutscene still playing */
+  private ending: 'win' | 'lose' | null = null;
+  stats = { time: 0, bf: 0, bfBest: 0, dmgTaken: 0, techniques: 0 };
   onOver: ((r: 'win' | 'lose') => void) | null = null;
   /** manga rendering held on (setting) */
   mangaBase = 0;
@@ -44,21 +50,39 @@ export class Fight {
     this.boss.onEvent = (name) => {
       if (name === 'dead') this.end('win');
     };
+    this.director = new Director(this);
+    SD.director = this.director;
   }
 
   private onPlayer(name: string, data?: any) {
     const c = CALL[name];
     if (c) this.hud.callout(c[0], c[1], c[2]);
-    if (name === 'blackFlash') this.hud.blackFlash(data as number);
+    if (c) this.stats.techniques++;
+    if (name === 'blackFlash') {
+      this.hud.blackFlash(data as number);
+      this.stats.bf++;
+      this.stats.bfBest = Math.max(this.stats.bfBest, data as number);
+    }
     if (name === 'bfRelease' && data !== 'perfect') this.hud.ono(data === 'early' ? '早い' : '遅い', null, 0.6);
-    if (name === 'domainOpen') this.hud.callout('領域展開「無量空処」', 'Domain Expansion: Infinite Void', 'void', 2.6);
+    if (name === 'domainOpen') {
+      this.hud.callout('領域展開「無量空処」', 'Domain Expansion: Infinite Void', 'void', 2.6);
+      this.director.playerDomain();
+    }
     if (name === 'dead') this.end('lose');
   }
 
   private end(r: 'win' | 'lose') {
-    if (this.over) return;
-    this.over = r;
-    this.onOver?.(r);
+    if (this.over || this.ending) return;
+    this.ending = r;
+    const done = () => {
+      this.over = r;
+      this.director.cine(false);
+      this.onOver?.(r);
+    };
+    // let a running cutscene finish first
+    this.director.seq = null;
+    if (r === 'win') this.director.victory(done);
+    else this.director.defeat(done);
   }
 
   /** Real-time dt in, scaled sim inside. */
@@ -67,8 +91,15 @@ export class Fight {
     this.timing.update(dt);
     const sdt = dt * SD.timeScale;
     this.postFrame(dt);
+    if (!this.ending) this.stats.time += sdt;
+    const hp0 = this.player.hp;
     this.player.update(sdt);
+    this.boss.phase = this.director.phase;
     this.boss.update(sdt);
+    this.director.update(sdt, dt);
+    if (this.player.hp < hp0) this.stats.dmgTaken += hp0 - this.player.hp;
+    // the fallen leave the enemy list
+    for (let i = SD.enemies.length - 1; i >= 0; i--) if (!SD.enemies[i].alive && SD.enemies[i] !== this.boss) SD.enemies.splice(i, 1);
     this.hud.update(dt, this.player, this.boss.alive || this.over ? this.boss : null);
     return sdt;
   }

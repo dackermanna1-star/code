@@ -6,6 +6,7 @@ import { SD } from './core/SD';
 import { SRenderer } from './render/SRenderer';
 import { OUTLINE_RES } from './render/Toon';
 import { COLLIDE, City } from './world/City';
+import { Destruction } from './world/Destruction';
 import { SFX } from './fx/SFX';
 import { Fight } from './game/Fight';
 import { DIFFICULTY } from './game/Boss';
@@ -33,6 +34,7 @@ export class Showdown {
   readonly input: Input;
   city!: City;
   fx!: SFX;
+  world!: Destruction;
   fight: Fight | null = null;
   readonly audio = new AudioEngine();
   music!: Music;
@@ -79,6 +81,8 @@ export class Showdown {
     SD.city = this.city;
     this.fx = new SFX(this.scene);
     SD.fx = this.fx;
+    this.world = new Destruction(this.city);
+    SD.world = this.world;
     SD.rayGroups = COLLIDE.rayAll;
     SD.enemies = [];
     this.camera.position.set(0, 1.7, 40);
@@ -109,8 +113,17 @@ export class Showdown {
   private frame(dt: number) {
     if (!this.ready) return;
     this.update(dt);
-    this.renderer.render(this.studioScene ?? this.scene, this.camera, this.vmScene, this.vmCamera, dt);
+    this.renderer.render(this.studioScene ?? this.scene, this.camera, SD.hideVM ? null : this.vmScene, this.vmCamera, dt);
     this.input.endFrame();
+  }
+
+  /** Tests: one frame of input-driven simulation without drawing. */
+  sim(sec: number) {
+    const n = Math.max(1, Math.round(sec * 60));
+    for (let i = 0; i < n; i++) {
+      this.update(1 / 60);
+      this.input.endFrame();
+    }
   }
 
   /** Deterministic stepping for tests: simulate `sec` seconds at 60 Hz. */
@@ -120,7 +133,7 @@ export class Showdown {
       this.update(1 / 60);
       this.input.endFrame();
     }
-    this.renderer.render(this.studioScene ?? this.scene, this.camera, this.vmScene, this.vmCamera, 1 / 60);
+    this.renderer.render(this.studioScene ?? this.scene, this.camera, SD.hideVM ? null : this.vmScene, this.vmCamera, 1 / 60);
   }
 
   private update(dt: number) {
@@ -137,6 +150,7 @@ export class Showdown {
     if (this.fly.on) this.updateFly(dt);
     this.physics.world.propagateModifiedBodyPositionsToColliders();
     this.physics.step(sdt);
+    this.world.update(sdt);
     this.city.update(sdt, this.camera);
     this.city.placeSun(this.fight ? this.fight.player.f.pos : this.camera.position);
     this.fx.setAmbient(this.city.hemi.color.clone().multiplyScalar(0.9).lerp(new THREE.Color(1, 1, 1), 0.4));

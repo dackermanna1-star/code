@@ -575,3 +575,72 @@ export const ALL_POSES: Record<string, Pose> = {
   GJ_POINT,
 };
 export const ALL_CLIPS: Record<string, Clip> = { SK_JAB, SK_HOOK, SK_UPPER, SK_KICK, SK_AXE, SK_DISMANTLE, SK_CLEAVE, SK_FUGA, SK_DOMAIN, SK_LAUGH, SK_WCS, SK_SUMMON, HIT_LIGHT, HIT_HEAVY, DODGE, BLOCK };
+
+// ------------------------------------------------------------------ Mahoraga
+export const MH_IDLE = P(
+  {
+    spine: [14, 0, 0],
+    chest: [10, 0, 0],
+    neck: [-8, 0, 0],
+    head: [-10, 0, 0],
+    uArmL: [-8, 0, 18],
+    fArmL: [-28, 0, 0],
+    uArmR: [-30, 0, -16],
+    fArmR: [-40, 30, 0],
+    thighL: [-14, -10, 10],
+    shinL: [26, 0, 0],
+    footL: [-10, 10, -10],
+    thighR: [6, 10, -10],
+    shinR: [24, 0, 0],
+    footR: [-28, -10, 10],
+  },
+  [0, -0.06, 0],
+  ['claw', 'fist'],
+);
+export const MH_SLASH: Clip = {
+  name: 'mhSlash',
+  fadeIn: 0.1,
+  fadeOut: 0.3,
+  events: [[0.62, 'hit']],
+  keys: [
+    { t: 0, p: MH_IDLE },
+    { t: 0.45, e: 'io', p: over(MH_IDLE, P({ spine: [6, -40, 0], chest: [4, -30, 0], uArmR: [-60, -60, -90], fArmR: [-30, 0, 0], uArmL: [-30, 0, 40] }, [0, -0.08, -0.04], ['claw', 'fist'])) },
+    { t: 0.62, e: 'snap', p: over(MH_IDLE, P({ spine: [14, 40, 0], chest: [10, 30, 0], uArmR: [-80, 70, -80], fArmR: [-6, 0, 0], uArmL: [-10, 0, 20] }, [0, -0.12, 0.1], ['claw', 'fist'])) },
+    { t: 1.15, e: 'io', p: MH_IDLE },
+  ],
+};
+export const MH_SLAM: Clip = {
+  name: 'mhSlam',
+  fadeIn: 0.1,
+  fadeOut: 0.35,
+  events: [[0.78, 'hit']],
+  keys: [
+    { t: 0, p: MH_IDLE },
+    { t: 0.55, e: 'io', p: over(MH_IDLE, P({ spine: [-16, 0, 0], chest: [-14, 0, 0], head: [10, 0, 0], uArmR: [-170, 0, -10], fArmR: [-20, 0, 0], uArmL: [-160, 0, 20], fArmL: [-30, 0, 0] }, [0, 0.05, -0.05], ['fist', 'fist'])) },
+    { t: 0.78, e: 'snap', p: over(MH_IDLE, P({ spine: [40, 0, 0], chest: [24, 0, 0], head: [-24, 0, 0], uArmR: [-70, 0, -10], fArmR: [-4, 0, 0], uArmL: [-60, 0, 20], fArmL: [-10, 0, 0], thighL: [-40, 0, 10], shinL: [50, 0, 0] }, [0, -0.3, 0.15], ['fist', 'fist'])) },
+    { t: 1.4, e: 'io', p: MH_IDLE },
+  ],
+};
+export const MH_PUNCH: Clip = {
+  name: 'mhPunch',
+  fadeIn: 0.08,
+  fadeOut: 0.25,
+  events: [[0.38, 'hit']],
+  keys: [
+    { t: 0, p: MH_IDLE },
+    { t: 0.26, e: 'out', p: over(MH_IDLE, P({ chest: [6, 30, 0], uArmL: [20, 0, 40], fArmL: [-110, 0, 0] }, [0, -0.06, -0.05], ['fist', 'fist'])) },
+    { t: 0.38, e: 'snap', p: over(MH_IDLE, P({ spine: [16, -20, 0], chest: [10, -26, 0], uArmL: [-88, 0, 6], fArmL: [-4, -80, 0] }, [0, -0.1, 0.18], ['fist', 'fist'])) },
+    { t: 0.8, e: 'io', p: MH_IDLE },
+  ],
+};
+export const MH_ROAR: Clip = {
+  name: 'mhRoar',
+  fadeIn: 0.2,
+  fadeOut: 0.4,
+  keys: [
+    { t: 0, p: MH_IDLE },
+    { t: 0.5, e: 'io', p: P({ spine: [-14, 0, 0], chest: [-18, 0, 0], neck: [-14, 0, 0], head: [-26, 0, 0], uArmL: [-30, 0, 70], fArmL: [-40, 0, 0], uArmR: [-30, 0, -70], fArmR: [-40, 0, 0], thighL: [-8, 0, 14], thighR: [8, 0, -14], shinL: [10, 0, 0], shinR: [10, 0, 0] }, [0, -0.04, 0], ['claw', 'fist']) },
+    { t: 2.0, e: 'lin', p: P({ spine: [-16, 0, 0], chest: [-20, 0, 0], neck: [-16, 0, 0], head: [-30, 0, 0], uArmL: [-34, 0, 74], fArmL: [-44, 0, 0], uArmR: [-34, 0, -74], fArmR: [-44, 0, 0], thighL: [-8, 0, 14], thighR: [8, 0, -14], shinL: [10, 0, 0], shinR: [10, 0, 0] }, [0, -0.04, 0], ['claw', 'fist']) },
+    { t: 2.5, e: 'io', p: MH_IDLE },
+  ],
+};

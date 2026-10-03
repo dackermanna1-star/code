@@ -3,7 +3,7 @@ import { G } from '../core/G';
 import { clamp } from '../core/math';
 import { Streaks } from './GojoFX';
 
-const VOID_GLSL = /* glsl */ `
+export const VOID_GLSL = /* glsl */ `
 uniform vec3 uV; uniform float uTime;
 float vh3(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
 float vn3(vec3 p){
@@ -54,7 +54,7 @@ vec3 voidSky(vec3 d){
   return col;
 }`;
 
-const DOME_VERT = /* glsl */ `
+export const DOME_VERT = /* glsl */ `
 varying vec3 vDir;
 void main(){
   vDir = position;
@@ -62,12 +62,12 @@ void main(){
   gl_Position = p.xyww;
 }`;
 
-const DOME_FRAG = /* glsl */ `
+export const DOME_FRAG = /* glsl */ `
 ${VOID_GLSL}
 varying vec3 vDir;
 void main(){ gl_FragColor = vec4(voidSky(normalize(vDir)), 1.0); }`;
 
-const WORLD_VERT = /* glsl */ `
+export const WORLD_VERT = /* glsl */ `
 varying vec3 vWorld;
 void main(){
   vec4 wp = modelMatrix * vec4(position, 1.0);
@@ -75,7 +75,7 @@ void main(){
   gl_Position = projectionMatrix * viewMatrix * wp;
 }`;
 
-const FLOOR_FRAG = /* glsl */ `
+export const FLOOR_FRAG = /* glsl */ `
 ${VOID_GLSL}
 uniform vec3 uCam; uniform vec3 uCenter; uniform float uR; uniform float uEdge;
 varying vec3 vWorld;

@@ -75,7 +75,10 @@ export class Player implements Combatant {
   private orbP: Orb;
   private shots: Shot[] = [];
   private blue: { orb: Orb; pos: THREE.Vector3; t: number; life: number; held: Combatant | null } | null = null;
-  private purple: { orb: Orb; pos: THREE.Vector3; dir: THREE.Vector3; t: number; hit: Set<Combatant> } | null = null;
+  private purple: { orb: Orb; pos: THREE.Vector3; dir: THREE.Vector3; t: number; hit: Set<Combatant>; big: boolean } | null = null;
+  /** the 200% Purple with its full incantation (final phase) */
+  private p200 = false;
+  private chantLit = 0;
   private purpleCharge = 0;
   private fired = false;
   private recoverDur = 0;
@@ -318,7 +321,11 @@ export class Player implements Combatant {
   }
 
   private cancelAct() {
-    if (this.act === 'purple') this.purpleCharge = 0;
+    if (this.act === 'purple') {
+      this.purpleCharge = 0;
+      this.p200 = false;
+      SD.hud?.chant([], 0);
+    }
     this.endAct();
   }
 
@@ -614,6 +621,8 @@ export class Player implements Combatant {
     this.act = 'purple';
     this.actT = 0;
     this.purpleCharge = 0;
+    this.p200 = SD.director?.phase === 4;
+    this.chantLit = 0;
     this.ce -= GOJO_COST.purple;
     this.cd.purple = GOJO_CD.purple;
     this.sinceTech = 0;
@@ -627,12 +636,15 @@ export class Player implements Combatant {
     const fwd = this.forward(new THREE.Vector3());
     const tgt = this.pickTarget(120, 0.15);
     if (tgt) fwd.copy(tgt.aim(_v).sub(this.eye).normalize());
+    const big = this.p200;
     const orb = new Orb(ORB_PURPLE);
-    orb.radius = 2.4;
-    orb.haloScale = 3.2;
+    orb.radius = big ? 4.5 : 2.4;
+    orb.haloScale = big ? 2.6 : 3.2;
     SD.scene.add(orb.group);
-    const pos = this.eye.clone().addScaledVector(fwd, 3);
-    this.purple = { orb, pos, dir: fwd, t: 0, hit: new Set() };
+    const pos = this.eye.clone().addScaledVector(fwd, big ? 6 : 3);
+    this.purple = { orb, pos, dir: fwd, t: 0, hit: new Set(), big };
+    SD.hud?.chant([], 0);
+    this.p200 = false;
     this.act = 'recover';
     this.actT = 0;
     this.recoverDur = 0.45;
@@ -653,34 +665,46 @@ export class Player implements Combatant {
     SD.timing.hitstop(0.12);
     SD.onomato?.('虚式「茈」', null, 2.4, 'purple');
     SD.audio?.play('purpleFire', { volume: 1.3 });
-    this.onEvent?.('purpleFire');
+    if (big) {
+      SD.audio?.play('wcs', { volume: 0.8 });
+      SD.renderer.post.manga = 1;
+      SD.timing.hitstop(0.25, 0.02);
+      this.cam.shake(1.2);
+    }
+    this.onEvent?.(big ? 'purple200' : 'purpleFire');
   }
 
   private updatePurple(dt: number) {
     const p = this.purple;
     if (!p) return;
     p.t += dt;
-    const step = 46 * dt;
+    const step = (p.big ? 38 : 46) * dt;
     p.pos.addScaledVector(p.dir, step);
     p.orb.group.position.copy(p.pos);
-    p.orb.radius = 2.4 + Math.sin(p.t * 20) * 0.08;
+    const R = p.big ? Math.min(9, 4.5 + p.t * 2.2) : 2.4;
+    p.orb.radius = R + Math.sin(p.t * 20) * 0.08 * R;
     p.orb.intensity = 1.6;
     p.orb.update(SD.time, SD.camera);
     p.orb.group.visible = true;
-    setLens(3, p.pos, 3.2, 1.0, SD.camera, 0);
-    for (let i = 0; i < 10; i++) {
+    setLens(3, p.pos, R * 1.3, 1.0, SD.camera, 0);
+    for (let i = 0; i < (p.big ? 24 : 10); i++) {
       const a = rnd(0, Math.PI * 2);
-      const q = p.pos.clone().add(_v.set(Math.cos(a) * 2.6, Math.sin(a) * 2.6, rnd(-1, 1)));
+      const q = p.pos.clone().add(_v.set(Math.cos(a) * R * 1.1, Math.sin(a) * R * 1.1, rnd(-1, 1)));
       SD.fx.streaks.emit(q.x, q.y, q.z, -p.dir.x * 30 + rnd(-3, 3), rnd(-3, 3), -p.dir.z * 30 + rnd(-3, 3), 0.35, 0.05, 1.6, 0.6, 2.6, { stretch: 0.03 });
     }
     // everything in the path is erased
-    SD.world?.erase(p.pos, 3.0);
+    SD.world?.erase(p.pos, R * 1.15);
+    if (p.big) {
+      // the ground boils away under it
+      const g = p.pos.clone().setY(SD.city.groundY(p.pos.x, p.pos.z));
+      if (p.pos.y - R < g.y + 1 && Math.random() < 0.6) SD.fx.crater(g, _v2.set(0, 1, 0), R * 1.4);
+    }
     for (const e of SD.enemies as Combatant[]) {
       if (!e.alive || p.hit.has(e)) continue;
       const c = e.aim(_v);
-      if (c.distanceTo(p.pos) < 3.2) {
+      if (c.distanceTo(p.pos) < R + 0.8) {
         p.hit.add(e);
-        e.receive(makeHit('purple', 520, c, p.dir.clone().setY(0.2), { knock: 30, lift: 10, stun: 1.6, launch: true, source: this }));
+        e.receive(makeHit('purple', p.big ? 1500 : 520, c, p.dir.clone().setY(0.2), { knock: p.big ? 40 : 30, lift: p.big ? 14 : 10, stun: 1.6, launch: true, source: this }));
         SD.timing.hitstop(0.15, 0.03);
         SD.renderer.post.impact = 1.2;
         this.cam.shake(0.8);
@@ -753,14 +777,28 @@ export class Player implements Combatant {
         if (t > 0.5) this.endAct();
         break;
       case 'purple': {
-        this.purpleCharge = Math.min(1, t / 1.1);
+        const full = this.p200 ? 3.6 : 1.1;
+        if (this.p200) {
+          // 九綱　偏光　烏と声明　表裏の間
+          const lines = ['九綱', '偏光', '烏と声明', '表裏の間'];
+          const lit = Math.min(4, Math.floor(t / 0.9) + 1);
+          if (lit !== this.chantLit) {
+            this.chantLit = lit;
+            SD.hud?.chant(lines, lit);
+            SD.audio?.play('chant', { volume: 1 });
+            this.cam.shake(0.2);
+            SD.renderer.post.speed = 0.6;
+            SD.renderer.post.manga = Math.max(SD.renderer.post.manga, 0.7);
+          }
+        }
+        this.purpleCharge = Math.min(1, t / full);
         const k = this.purpleCharge;
         if (t > 0.45) {
           this.arms.R.set(FP.purpleMeet, 160, 22);
           this.arms.L.set(FP.purpleMeet, 160, 22);
         }
         // blue in the left hand, red in the right, then they fuse
-        const merge = THREE.MathUtils.smoothstep(t, 0.55, 1.0);
+        const merge = THREE.MathUtils.smoothstep(t, full * 0.5, full * 0.9);
         this.arms.R.root.localToWorld(this.orbR.group.position.set(0, 0.03, -0.1));
         this.arms.L.root.localToWorld(this.orbL.group.position.set(0, 0.03, -0.1));
         const mid = _v.addVectors(this.orbR.group.position, this.orbL.group.position).multiplyScalar(0.5).add(_v2.set(0, 0.02, -0.06));
@@ -777,7 +815,7 @@ export class Player implements Combatant {
         this.arms.glow(merge > 0.5 ? 0xb040ff : 0x8080ff, 4, mid);
         SD.renderer.post.bloomBoost = Math.max(SD.renderer.post.bloomBoost, merge * 0.8);
         this.cam.shake(0.02 * k);
-        if (t > 3) this.firePurple();
+        if (t > full + 2) this.firePurple();
         break;
       }
       case 'domain':

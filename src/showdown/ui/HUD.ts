@@ -45,6 +45,12 @@ export class HUD {
   private zoneEl: HTMLDivElement;
   private hintEl: HTMLDivElement;
   private onos: Ono[] = [];
+  private promptEl!: HTMLDivElement;
+  private promptT = 0;
+  private promptDur = 1;
+  private clashEl!: HTMLDivElement;
+  private chantEl!: HTMLDivElement;
+  private hint2El!: HTMLDivElement;
   private bossTrailV = 1;
   private hpTrailV = 1;
   private callT = 0;
@@ -74,7 +80,11 @@ export class HUD {
       <div class="sd-onos"></div>
       <div class="sd-bf"></div>
       <div class="sd-zone">ZONE</div>
-      <div class="sd-hint"></div>`;
+      <div class="sd-hint"></div>
+      <div class="sd-hint two"></div>
+      <div class="sd-prompt"><span class="key"></span><span class="txt"></span><div class="bar"><i></i></div></div>
+      <div class="sd-clash"><div class="lbl"><span class="l">無量空処</span><span class="r">伏魔御廚子</span></div><div class="meter"><i class="fill"></i><i class="mark"></i></div><div class="beat"></div><div class="tip">CLICK ON THE BEAT</div></div>
+      <div class="sd-chant"></div>`;
     parent.appendChild(r);
     const q = <T extends Element>(s: string) => r.querySelector(s) as T;
     this.bossBox = q('.sd-boss');
@@ -94,6 +104,10 @@ export class HUD {
     this.bfEl = q('.sd-bf');
     this.zoneEl = q('.sd-zone');
     this.hintEl = q('.sd-hint');
+    this.hint2El = q('.sd-hint.two');
+    this.promptEl = q('.sd-prompt');
+    this.clashEl = q('.sd-clash');
+    this.chantEl = q('.sd-chant');
     const tech = q<HTMLDivElement>('.sd-tech');
     for (const t of TECH) {
       const el = document.createElement('div');
@@ -128,6 +142,47 @@ export class HUD {
     this.hintEl.classList.add('show');
     window.clearTimeout((this.hintEl as any)._t);
     (this.hintEl as any)._t = window.setTimeout(() => this.hintEl.classList.remove('show'), dur * 1000);
+  }
+
+  /** Second hint line (stays a while). */
+  hint2(text: string, dur = 4) {
+    this.hint2El.textContent = text;
+    this.hint2El.classList.add('show');
+    window.clearTimeout((this.hint2El as any)._t);
+    (this.hint2El as any)._t = window.setTimeout(() => this.hint2El.classList.remove('show'), dur * 1000);
+  }
+
+  /** A big key prompt with a draining timer bar. */
+  prompt(key: string, text: string, dur: number) {
+    if (!key) {
+      this.promptEl.classList.remove('show');
+      this.promptT = 0;
+      return;
+    }
+    (this.promptEl.querySelector('.key') as HTMLElement).textContent = key;
+    (this.promptEl.querySelector('.txt') as HTMLElement).textContent = text;
+    this.promptEl.classList.add('show');
+    this.promptT = this.promptDur = dur;
+  }
+
+  /** Domain clash meter: balance -1 (Sukuna) .. 1 (Gojo), beat pulse 0..1. */
+  clash(show: boolean, balance: number, beat: number) {
+    this.clashEl.classList.toggle('show', show);
+    if (!show) return;
+    (this.clashEl.querySelector('.fill') as HTMLElement).style.width = `${50 + balance * 50}%`;
+    const b = this.clashEl.querySelector('.beat') as HTMLElement;
+    b.style.transform = `translateX(-50%) scale(${1 + beat * 0.35})`;
+    b.style.opacity = `${0.35 + beat * 0.65}`;
+  }
+
+  /** The incantation, line by line, down the side of the frame. */
+  chant(lines: string[], lit: number) {
+    if (!lines.length) {
+      this.chantEl.classList.remove('show');
+      return;
+    }
+    this.chantEl.classList.add('show');
+    this.chantEl.innerHTML = lines.map((l, i) => `<span class="${i < lit ? 'on' : ''}">${l}</span>`).join('');
   }
 
   /** Manga sound effect at a world point (or screen centre). */
@@ -200,6 +255,11 @@ export class HUD {
     }
     this.zoneEl.classList.toggle('show', p.bf.zone > 0);
     // timers
+    if (this.promptT > 0) {
+      this.promptT -= dt;
+      (this.promptEl.querySelector('.bar i') as HTMLElement).style.width = `${Math.max(0, this.promptT / this.promptDur) * 100}%`;
+      if (this.promptT <= 0) this.promptEl.classList.remove('show');
+    }
     if (this.callT > 0 && (this.callT -= dt) <= 0) this.callEl.classList.remove('show');
     if (this.subT > 0 && (this.subT -= dt) <= 0) this.subEl.classList.remove('show');
     if (this.bfT > 0 && (this.bfT -= dt) <= 0) this.bfEl.classList.remove('show');
