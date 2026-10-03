@@ -10,20 +10,21 @@ export const enum Flag {
   TARGET = 8,
 }
 
-export abstract class Goal {
+/** An AI goal (implemented by plain classes: `class X implements Goal`). */
+export interface Goal {
   /** Bitmask of Flag. */
-  flags = 0;
-  abstract canUse(): boolean;
-  canContinueToUse(): boolean {
-    return this.canUse();
-  }
-  isInterruptable(): boolean {
-    return true;
-  }
-  start(): void {}
-  stop(): void {}
-  tick(): void {}
+  flags: number;
+  canUse(): boolean;
+  /** Default: canUse(). */
+  canContinueToUse?(): boolean;
+  /** Default: true. */
+  isInterruptable?(): boolean;
+  start?(): void;
+  stop?(): void;
+  tick?(): void;
 }
+
+const cont = (g: Goal) => (g.canContinueToUse ? g.canContinueToUse() : g.canUse());
 
 interface Wrapped {
   priority: number;
@@ -45,7 +46,7 @@ export class GoalSelector {
   remove(goal: Goal) {
     for (const w of this.goals) {
       if (w.goal !== goal) continue;
-      if (w.running) { w.running = false; goal.stop(); }
+      if (w.running) { w.running = false; goal.stop?.(); }
     }
     this.goals = this.goals.filter((w) => w.goal !== goal);
     for (const [f, w] of this.locked) if (w.goal === goal) this.locked.delete(f);
@@ -59,12 +60,12 @@ export class GoalSelector {
     return this.goals.filter((w) => w.running).map((w) => w.goal);
   }
 
-  isRunning(type: abstract new (...a: any[]) => Goal): boolean {
+  isRunning(type: new (...a: any[]) => Goal): boolean {
     return this.goals.some((w) => w.running && w.goal instanceof type);
   }
 
   stopAll() {
-    for (const w of this.goals) if (w.running) { w.running = false; w.goal.stop(); }
+    for (const w of this.goals) if (w.running) { w.running = false; w.goal.stop?.(); }
     this.locked.clear();
   }
 
@@ -72,9 +73,9 @@ export class GoalSelector {
     // stop goals that can't continue (or whose flags got disabled)
     for (const w of this.goals) {
       if (!w.running) continue;
-      if ((w.goal.flags & this.disabled) !== 0 || !w.goal.canContinueToUse()) {
+      if ((w.goal.flags & this.disabled) !== 0 || !cont(w.goal)) {
         w.running = false;
-        w.goal.stop();
+        w.goal.stop?.();
       }
     }
     for (const [f, w] of this.locked) if (!w.running) this.locked.delete(f);
@@ -86,20 +87,20 @@ export class GoalSelector {
       for (let f = 1; f <= 8; f <<= 1) {
         if (!(w.goal.flags & f)) continue;
         const other = this.locked.get(f);
-        if (other && other.running) { other.running = false; other.goal.stop(); }
+        if (other && other.running) { other.running = false; other.goal.stop?.(); }
         this.locked.set(f, w);
       }
       w.running = true;
-      w.goal.start();
+      w.goal.start?.();
     }
-    for (const w of this.goals) if (w.running) w.goal.tick();
+    for (const w of this.goals) if (w.running) w.goal.tick?.();
   }
 
   private canReplaceAll(w: Wrapped): boolean {
     for (let f = 1; f <= 8; f <<= 1) {
       if (!(w.goal.flags & f)) continue;
       const other = this.locked.get(f);
-      if (other && other.running && (other === w || !other.goal.isInterruptable() || other.priority <= w.priority)) return false;
+      if (other && other.running && (other === w || other.goal.isInterruptable?.() === false || other.priority <= w.priority)) return false;
     }
     return true;
   }
