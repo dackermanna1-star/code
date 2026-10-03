@@ -182,7 +182,9 @@ export class ChunkManager {
     const dirty = this.world.dirtySections;
     if (dirty.size === 0 || !this.mesh.hasCapacity()) return;
     const cand: [number, number][] = [];
-    const r2 = (this.renderDistance + 1) ** 2;
+    // every loaded chunk keeps its meshes current (chunks stay loaded and drawn up to r + 3);
+    // only work for chunks about to unload is dropped
+    const r2 = (this.renderDistance + 3) ** 2;
     for (const k of dirty) {
       if (this.meshing.has(k)) continue;
       const sy = k % 32;
