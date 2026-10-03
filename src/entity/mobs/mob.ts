@@ -241,15 +241,16 @@ export abstract class Mob extends LivingEntity {
   // ------------------------------------------------------------------ damage & death
   override hurt(src: DamageSource, amount: number): boolean {
     if (this.fireImmune && (src.type === 'fire' || src.type === 'lava')) return false;
-    const ok = super.hurt(src, amount);
-    if (ok) {
-      const a = src.attacker as any;
-      if (a && (a.type === 'player' || a.owner?.type === 'player' || a.isTame?.())) {
-        this.lastHurtByPlayerTick = this.age;
-        this.lastHurtByPlayer = a.type === 'player' ? a : a.owner ?? a;
-      }
-      this.noActionTime = 0;
+    // record kill credit before the damage pipeline (which may run the death logic)
+    const a = src.attacker as any;
+    const prevTick = this.lastHurtByPlayerTick, prevBy = this.lastHurtByPlayer;
+    if (a && !this.dead && (a.type === 'player' || a.owner?.type === 'player')) {
+      this.lastHurtByPlayerTick = this.age;
+      this.lastHurtByPlayer = a.type === 'player' ? a : a.owner;
     }
+    const ok = super.hurt(src, amount);
+    if (ok) this.noActionTime = 0;
+    else { this.lastHurtByPlayerTick = prevTick; this.lastHurtByPlayer = prevBy; }
     return ok;
   }
 
