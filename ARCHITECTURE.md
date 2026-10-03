@@ -152,6 +152,15 @@ Block textures live in two `sampler2DArray`s produced by `src/render/materials/`
 * **UI**: `ui.open(screen)` / `ui.close()`; screens are DOM elements (`src/ui/ui.ts`, helper `h()`),
   styles in `src/ui/style.css`. `setItemIconProvider(stack => dataURL)` (`src/ui/hud.ts`).
 
+* **Gore** (`game.gore`, `src/game/gore/*`): typed wounds (blunt bruise / cut slash / pierce puncture /
+  burn char, `classifyDamage(DamageSource)`, max 8 per entity in a `WoundSet`, encoded into
+  `u_wounds` (w = type*100 + severity*10 + size) and `u_woundDir` (xyz dir, w growth) via
+  `rig.setWounds`), blood spray/drips (bleeding wounds keep dripping), `BloodDecals` (instanced forward
+  quads, 200 max, 60 s life, pools under corpses) and dismemberment: the RagdollSystem calls
+  `gore.planDismember(entity, source)` before building a ragdoll without those bone subtrees and
+  `gore.detach(...)` afterwards (parts are Rapier bodies with mesh clones + red stump caps + spurts).
+  Blood colour per mob: `bloodFor(entity)` (`gore/blood.ts`). Needs `game.physics` for parts only.
+
 ### Events (`game.events.on(name, fn)`)
 `entityAdded/Removed {entity}`, `entityHurt {entity, source, amount}`, `entityDeath {entity, source}`,
 `entityFallDamage {entity, distance, damage}`, `footstep {entity, block}`, `jump {entity}`,

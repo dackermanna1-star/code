@@ -5,6 +5,7 @@
  *   &t=<animation time seconds>  &variant=<per-mob variant list matching mobs>
  */
 import * as THREE from 'three';
+import { WoundSet, type WoundType } from '../game/gore/wounds';
 import { Renderer, type Quality } from '../render/renderer';
 import { World } from '../world/world';
 import { Chunk } from '../world/chunk';
@@ -82,6 +83,19 @@ async function main() {
     rigs.push({ rig, name: model, st, mem: {} });
   });
   const pose = q.get('pose') ?? 'idle';
+  // ?wounds=1[&woundAge=s]: one wound of each type on the first mob's front (gore shader check)
+  if (q.has('wounds')) {
+    const set = new WoundSet();
+    const W: [WoundType, number, number, number, number, number, number, number][] = [
+      ['blunt', -0.15, 1.05, -0.13, 0, 1, 0, 0.6], ['cut', 0.1, 1.25, -0.13, 1, -0.6, 0, 0.8],
+      ['pierce', 0.12, 0.95, -0.13, 0, 1, 0, 0.6], ['burn', -0.12, 1.3, -0.13, 0, 1, 0, 0.7], ['blunt', 0, 1.65, -0.26, 0, 1, 0, 0.9],
+    ];
+    for (const [type, x, y, z, dx, dy, dz, severity] of W) set.add({ type, pos: { x, y, z }, dir: { x: dx, y: dy, z: dz }, severity, size: 0.5 });
+    set.tick(num('woundAge', 3));
+    const pos = Array.from({ length: 8 }, () => new THREE.Vector4()), dir = Array.from({ length: 8 }, () => new THREE.Vector4());
+    const n = set.writeUniforms(pos, dir);
+    for (const r of rigs) r.rig.setWounds(pos, dir, n);
+  }
   const cam = new THREE.PerspectiveCamera(num('fov', 50), 16 / 9, 0.05, 500);
   const target = new THREE.Vector3(num('tx', 0), H + num('ty', 1.0), num('tz', 0));
   const yaw = THREE.MathUtils.degToRad(num('yaw', 0)), pitch = THREE.MathUtils.degToRad(num('pitch', -8));

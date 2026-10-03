@@ -23,20 +23,10 @@ import { EmitterScanner, EmitterKind, torchFlamePos } from '../render/particles/
 import { BLOCKS } from '../world/blocks/registry';
 import { LivingEntity } from '../entity/living';
 import type { Entity } from '../entity/entity';
+import { bloodFor } from './gore/blood';
 
 const rnd = Math.random;
 const fp = [0, 0, 0];
-
-/** Blood colour by entity type (null = no blood: bone dust etc.). */
-function bloodFor(e: Entity): { color: [number, number, number] | null; dust?: string } {
-  const t = e.type;
-  if (t === 'skeleton' || t === 'wither_skeleton' || t === 'stray') return { color: null, dust: 'bone_block' };
-  if (t === 'slime' || t === 'magma_cube') return { color: t === 'slime' ? [0.12, 0.55, 0.08] : [0.6, 0.15, 0.02], dust: t === 'slime' ? 'slime_block' : undefined };
-  if (t === 'creeper') return { color: [0.1, 0.35, 0.06] };
-  if (t === 'enderman' || t === 'endermite' || t === 'shulker') return { color: [0.35, 0.05, 0.5] };
-  if (t === 'iron_golem' || t === 'snow_golem' || t === 'blaze' || t === 'item' || t === 'armor_stand') return { color: null };
-  return { color: [0.22, 0.004, 0.004] };
-}
 
 export class FxSystem implements GameSystem {
   readonly name = 'fx';
@@ -163,7 +153,8 @@ export class FxSystem implements GameSystem {
       const st = blockStateByName(b.dust);
       if (st) for (let i = 0; i < Math.min(12, 3 + amount * 2); i++) P.crumb(st, pt.x, pt.y, pt.z, (rnd() - 0.5) * 3 + (dir?.x ?? 0) * 2, 1 + rnd() * 2, (rnd() - 0.5) * 3 + (dir?.z ?? 0) * 2, 0.6);
     }
-    if (b.color && this.game.settings.blood !== false && source.type !== 'fall' && source.type !== 'fire' && source.type !== 'lava') {
+    // blood sprays / drips / wounds / decals are handled by the gore system when it is installed
+    if (!(this.game as any).gore && b.color && this.game.settings.blood !== false && source.type !== 'fall' && source.type !== 'fire' && source.type !== 'lava') {
       P.bloodSpray(pt.x, pt.y, pt.z, { count: n, color: b.color, dir: dir ? [dir.x, dir.y, dir.z] : undefined });
     }
     if (source.type === 'fire' || source.type === 'lava') P.emit('smoke', [e.pos.x, e.pos.y + e.height * 0.5, e.pos.z], { count: 2, spread: [0.3, 0.5, 0.3] });

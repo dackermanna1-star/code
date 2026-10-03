@@ -8,7 +8,9 @@
  * a little "muscle" damping. The current pose at death is the joints' neutral pose.
  * Bodies inherit the entity velocity and receive the killing impulse (DamageSource.dir ×
  * impulse at `point`; explosions push every part radially). Bone objects are driven from the
- * bodies every frame. After ~12 s the corpse sinks into the ground and the entity is removed.
+ * bodies every frame. After ~20 s the corpse fades (dithered) while it sinks into the ground and
+ * the entity is removed. Settled corpses are put to sleep (no endless twitching). Dismembered
+ * bones (and their subtrees) are left out (`RagdollOptions.exclude`) - see game/gore.
  *
  * Contract with entities: while a ragdoll is active `entity.data.ragdoll === true` (animation
  * must stop), `entity.data.keepBodyTicks` is set (deathRemoveTicks should return it). If the
@@ -28,14 +30,16 @@ export interface RagdollBone {
   parent: string | null;
   pivot?: THREE.Vector3;
   mass?: number;
+  /** `mass` was explicitly authored (otherwise it is re-derived from volume x tissue density). */
+  massFixed?: boolean;
   center?: THREE.Vector3;
 }
 
-type Part = 'head' | 'upperArm' | 'lowerArm' | 'upperLeg' | 'lowerLeg' | 'tail' | 'torso' | 'other';
+export type Part = 'head' | 'upperArm' | 'lowerArm' | 'upperLeg' | 'lowerLeg' | 'tail' | 'torso' | 'other';
 export function classifyBone(name: string): Part {
   const n = name.toLowerCase();
   if (/head|neck|skull|jaw/.test(n)) return 'head';
-  if (/forearm|lower_?arm|elbow|hand/.test(n)) return 'lowerArm';
+  if (/forearm|lower_?arm|elbow|hand|^fore/.test(n)) return 'lowerArm';
   if (/arm|shoulder|wing/.test(n)) return 'upperArm';
   if (/shin|calf|lower_?leg|knee|foot/.test(n)) return 'lowerLeg';
   if (/leg|thigh|hip/.test(n)) return 'upperLeg';
@@ -43,7 +47,28 @@ export function classifyBone(name: string): Part {
   if (/body|torso|chest|pelvis|spine|hips/.test(n)) return 'torso';
   return 'other';
 }
-const MASS_FRACTION: Record<Part, number> = { head: 0.08, upperArm: 0.04, lowerArm: 0.025, upperLeg: 0.1, lowerLeg: 0.06, tail: 0.02, torso: 0.45, other: 0.05 };
+/** Relative tissue density per part: bone box volume x this = share of the body mass (torso heaviest). */
+const PART_DENSITY: Record<Part, number> = { head: 0.35, upperArm: 0.9, lowerArm: 0.8, upperLeg: 1.1, lowerLeg: 0.9, tail: 0.6, torso: 1.9, other: 0.9 };
+
+/** Mass (kg) of each bone: explicit masses win, otherwise volume x part density, normalised to `total`. */
+export function boneMasses(defs: RagdollBone[], total: number): Map<string, number> {
+  const w = defs.map((d) => d.size[0] * d.size[1] * d.size[2] * PART_DENSITY[classifyBone(d.name)]);
+  const sum = w.reduce((a, b) => a + b, 0) || 1;
+  const out = new Map<string, number>();
+  defs.forEach((d, i) => out.set(d.name, d.massFixed && d.mass !== undefined ? d.mass : Math.max(0.4, (w[i] / sum) * total)));
+  return out;
+}
+
+/** The bone `name` plus every bone below it. */
+export function subtreeNames(defs: { name: string; parent: string | null }[], name: string): Set<string> {
+  const out = new Set<string>([name]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const d of defs) if (d.parent && out.has(d.parent) && !out.has(d.name)) { out.add(d.name); grew = true; }
+  }
+  return out;
+}
 
 interface RBone {
   def: RagdollBone;
@@ -59,9 +84,13 @@ export class Ragdoll {
   readonly bones: RBone[] = [];
   readonly joints: RAPIER_NS.ImpulseJoint[] = [];
   age = 0;
-  life = 12;
+  /** Seconds the corpse lies there before it fades and sinks. */
+  life = 20;
   sink = 0;
   removed = false;
+  /** Time every body has been (nearly) at rest. */
+  restT = 0;
+  asleep = false;
   private _p = new THREE.Vector3();
   private _q = new THREE.Quaternion();
   private _m = new THREE.Matrix4();
@@ -141,6 +170,8 @@ function frameQuat(x: THREE.Vector3, y: THREE.Vector3): THREE.Quaternion {
 }
 
 export interface RagdollOptions {
+  /** Bones (names) to leave out, e.g. dismembered subtrees. */
+  exclude?: Set<string>;
   /** Initial velocity of every part (entity velocity, b/s). */
   velocity?: THREE.Vector3;
   /** Total mass when bones have no `mass` (kg). */
@@ -149,8 +180,12 @@ export interface RagdollOptions {
 
 /** Build a ragdoll for a model with `userData.bones`. Returns null when the model has no bones. */
 export function buildRagdoll(pw: PhysicsWorld, model: THREE.Object3D, entity: any = null, opts: RagdollOptions = {}): Ragdoll | null {
-  const defs = model.userData?.bones as RagdollBone[] | undefined;
-  if (!defs?.length) return null;
+  const allDefs = model.userData?.bones as RagdollBone[] | undefined;
+  if (!allDefs?.length) return null;
+  const totalMass = opts.mass ?? entity?.mass ?? 60;
+  const masses = boneMasses(allDefs, totalMass);
+  const defs = opts.exclude?.size ? allDefs.filter((d) => !opts.exclude!.has(d.name)) : allDefs;
+  if (!defs.length) return null;
   const R = pw.R;
   model.updateWorldMatrix(true, true);
   // parents first
@@ -165,7 +200,6 @@ export function buildRagdoll(pw: PhysicsWorld, model: THREE.Object3D, entity: an
   };
   defs.forEach(add);
   const boneObjs = new Set(defs.map((d) => d.obj));
-  const totalMass = opts.mass ?? entity?.mass ?? 60;
   const rd = new Ragdoll(pw, model, entity);
   const modelQ = new THREE.Quaternion();
   model.getWorldQuaternion(modelQ);
@@ -183,13 +217,29 @@ export function buildRagdoll(pw: PhysicsWorld, model: THREE.Object3D, entity: an
     }
     const half: [number, number, number] = [Math.max(0.03, d.size[0] * s.x * 0.46), Math.max(0.03, d.size[1] * s.y * 0.48), Math.max(0.03, d.size[2] * s.z * 0.46)];
     const c = center.clone().multiply(s).applyQuaternion(q).add(pos);
-    const mass = d.mass ?? MASS_FRACTION[part] * totalMass;
+    const mass = masses.get(d.name) ?? 1;
+    // Friction/restitution combine with the terrain surface (min / max rules): flesh itself is
+    // grippy and dead, so ice stays slippery and slime still bounces.
     const body = pw.addBody({
       kind: 'ragdoll', owner: rd, position: c, rotation: q, linvel: opts.velocity,
-      shape: { type: 'box', half }, mass: Math.max(0.5, mass), friction: 0.8, restitution: 0.05,
-      group: GROUP.RAGDOLL, linearDamping: 0.12, angularDamping: 0.9, solverIterations: 4, impacts: part === 'torso' || part === 'head',
+      shape: { type: 'box', half }, mass, friction: 0.9, restitution: 0.02,
+      // corpses collide with the world but not with themselves / each other: no initial
+      // interpenetration between neighbouring limbs and no pile-up explosions
+      group: GROUP.RAGDOLL, filter: 0xffff & ~GROUP.RAGDOLL,
+      linearDamping: part === 'torso' ? 0.18 : 0.3, angularDamping: part === 'torso' ? 1.2 : 1.8, solverIterations: 4,
+      impacts: part === 'torso' || part === 'head',
     });
     body.userData.sound = 'wool';
+    // speed limits keep depenetration / explosions from flinging parts
+    body.onStep = (b) => {
+      if (b.rb.isSleeping()) return;
+      const v = b.rb.linvel();
+      const sp = Math.hypot(v.x, v.y, v.z);
+      if (sp > 24) b.rb.setLinvel({ x: v.x * 24 / sp, y: v.y * 24 / sp, z: v.z * 24 / sp }, true);
+      const a = b.rb.angvel();
+      const as = Math.hypot(a.x, a.y, a.z);
+      if (as > 18) b.rb.setAngvel({ x: a.x * 18 / as, y: a.y * 18 / as, z: a.z * 18 / as }, true);
+    };
     const rb: RBone = { def: d, body, center, scale: s, parent: d.parent ? map.get(d.parent) ?? null : null, part };
     map.set(d.name, rb);
     rd.bones.push(rb);
@@ -219,7 +269,7 @@ export function buildRagdoll(pw: PhysicsWorld, model: THREE.Object3D, entity: an
       const raw = (j as any).rawSet;
       if (part === 'lowerArm') raw.jointSetLimits(j.handle, R.JointAxis.AngX, -0.05, 2.3);
       else raw.jointSetLimits(j.handle, R.JointAxis.AngX, -2.3, 0.05);
-      raw.jointConfigureMotorVelocity(j.handle, R.JointAxis.AngX, 0, 0.4);
+      raw.jointConfigureMotorVelocity(j.handle, R.JointAxis.AngX, 0, 0.8);
     } else {
       j = pw.rw.createImpulseJoint(R.JointData.spherical(v(a1), v(a2)), P.rb, body.rb, true);
       j.setLocalFrame1(v(a1), f1);
@@ -236,7 +286,7 @@ export function buildRagdoll(pw: PhysicsWorld, model: THREE.Object3D, entity: an
       raw.jointSetLimits(j.handle, R.JointAxis.AngX, lim[0][0], lim[0][1]);
       raw.jointSetLimits(j.handle, R.JointAxis.AngY, lim[1][0], lim[1][1]);
       raw.jointSetLimits(j.handle, R.JointAxis.AngZ, lim[2][0], lim[2][1]);
-      for (const ax of [R.JointAxis.AngX, R.JointAxis.AngY, R.JointAxis.AngZ]) raw.jointConfigureMotorVelocity(j.handle, ax, 0, 0.25);
+      for (const ax of [R.JointAxis.AngX, R.JointAxis.AngY, R.JointAxis.AngZ]) raw.jointConfigureMotorVelocity(j.handle, ax, 0, part === 'head' ? 0.6 : 0.45);
     }
     j.setContactsEnabled(false);
     rd.joints.push(j);
@@ -282,6 +332,13 @@ export function applyKillImpulse(rd: Ragdoll, src: DamageSource | null) {
   pw.applyImpulse(hit.body, J, p ?? hit.body.pos);
 }
 
+/** Dithered fade of a model whose materials carry `u_fade` (entity materials). */
+export function setModelFade(model: THREE.Object3D, f: number) {
+  const rig = model.userData?.rig as { setFade?(f: number): void } | undefined;
+  if (rig?.setFade) rig.setFade(f);
+  else model.traverse((o: any) => { const u = o.material?.uniforms?.u_fade; if (u) u.value = f; });
+}
+
 /** Converts dying entities' models into ragdolls (`game.ragdolls`). */
 export class RagdollSystem implements GameSystem {
   readonly name = 'ragdolls';
@@ -323,16 +380,34 @@ export class RagdollSystem implements GameSystem {
     if (entity === g.player && g.cameraCtl?.perspective === 'first') {
       // still ragdoll (visible in third person / to others), cheap enough
     }
-    const rd = buildRagdoll(pw, entity.model, entity, { velocity: entity.vel?.clone(), mass: entity.mass });
+    // the gore system may decide that parts come off with the killing blow
+    const gore = g.gore as { planDismember?(e: any, s: DamageSource | null): string[]; detach?(e: any, names: string[], s: DamageSource | null, rd: Ragdoll): void } | null;
+    let plan: string[] = [];
+    try {
+      plan = gore?.planDismember?.(entity, source) ?? [];
+    } catch (e) {
+      console.warn('dismember plan failed', e);
+    }
+    const defs = entity.model.userData.bones as RagdollBone[];
+    const exclude = new Set<string>();
+    for (const n of plan) for (const m of subtreeNames(defs, n)) exclude.add(m);
+    const rd = buildRagdoll(pw, entity.model, entity, { velocity: entity.vel?.clone(), mass: entity.mass, exclude });
     if (!rd) return null;
     applyKillImpulse(rd, source);
+    if (plan.length) {
+      try {
+        gore?.detach?.(entity, plan, source, rd);
+      } catch (e) {
+        console.warn('dismember failed', e);
+      }
+    }
     // keep the cost bounded: the oldest corpses go first
     if (this.active.size >= this.maxActive) {
       const oldest = [...this.active].sort((a, b) => b.age - a.age)[0];
       if (oldest) this.end(oldest);
     }
     entity.data.ragdoll = true;
-    entity.data.keepBodyTicks = Math.ceil((rd.life + 1.6) * 20);
+    entity.data.keepBodyTicks = Math.ceil((rd.life + 3.4) * 20);
     this.active.add(rd);
     g.events.emit('ragdollStart', { entity, ragdoll: rd });
     return rd;
@@ -342,6 +417,7 @@ export class RagdollSystem implements GameSystem {
     rd.dispose();
     this.active.delete(rd);
     if (rd.model.parent === this.scene) rd.model.removeFromParent();
+    setModelFade(rd.model, 1);
     const e = rd.entity;
     if (e) {
       e.data.ragdoll = false;
@@ -373,9 +449,11 @@ export class RagdollSystem implements GameSystem {
       rd.age += dt;
       if (rd.age > rd.life) {
         if (rd.sink === 0) for (const b of rd.bones) b.body.rb.setBodyType(game.physics.R.RigidBodyType.Fixed, false);
-        rd.sink += dt * 0.5;
-        if (rd.sink > 1.1) { this.end(rd); continue; }
-      }
+        // sink into the ground while dissolving
+        rd.sink += dt * 0.4;
+        setModelFade(rd.model, Math.max(0, 1 - rd.sink / 0.95));
+        if (rd.sink > 1) { this.end(rd); continue; }
+      } else this.settle(rd, dt);
       rd.drive(alpha);
       if (doLight) {
         const p = rd.root.body.pos;
@@ -383,6 +461,25 @@ export class RagdollSystem implements GameSystem {
         const v = [((L >>> 12) & 15) / 15, ((L >>> 8) & 15) / 15, ((L >>> 4) & 15) / 15, (L & 15) / 15];
         rd.model.traverse((o: any) => o.material?.uniforms?.u_light?.value?.set?.(v[0], v[1], v[2], v[3]));
       }
+    }
+  }
+
+  /** Put corpses that came to rest to sleep (joint motors would keep them twitching forever). */
+  private settle(rd: Ragdoll, dt: number) {
+    if (rd.asleep) {
+      if (!rd.root.body.rb.isSleeping()) { rd.asleep = false; rd.restT = 0; }
+      return;
+    }
+    let calm = true;
+    for (const b of rd.bones) {
+      if (b.body.rb.isSleeping()) continue;
+      const v = b.body.rb.linvel(), a = b.body.rb.angvel();
+      if (v.x * v.x + v.y * v.y + v.z * v.z > 0.12 * 0.12 || a.x * a.x + a.y * a.y + a.z * a.z > 0.3 * 0.3) { calm = false; break; }
+    }
+    rd.restT = calm ? rd.restT + dt : 0;
+    if (rd.restT > 1.0 && rd.age > 1.5) {
+      for (const b of rd.bones) b.body.rb.sleep();
+      rd.asleep = true;
     }
   }
 

@@ -12,6 +12,7 @@ import { PhysicsSystem } from '../physics/system';
 import { ExplosionSystem } from './explosions';
 import { RagdollSystem } from '../physics/ragdoll';
 import { FxSystem } from './fxGlue';
+import { GoreSystem } from './gore/system';
 import { WeatherSystem } from './weather';
 import { createSurvivalSystems } from './survival';
 import { SaveSystem } from './saves';
@@ -29,6 +30,7 @@ export function createSystems(): GameSystem[] {
     new ExplosionSystem(),
     new RagdollSystem(),
     new FxSystem(),
+    new GoreSystem(),
     new WeatherSystem(),
     ...createSurvivalSystems(),
     new LandmarkSystem(),

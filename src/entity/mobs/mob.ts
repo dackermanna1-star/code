@@ -500,7 +500,7 @@ export abstract class Mob extends LivingEntity {
     const ragdoll = this.data.ragdoll === true;
     // materials: light, hurt flash
     const L = this.world.getLight(Math.floor(p.x), Math.floor(p.y + Math.min(1.5, this.height * 0.6)), Math.floor(p.z));
-    const hurt = this.dead ? 1 : this.hurtTime > 0 ? Math.min(1, (this.hurtTime + 1 - alpha) / 2) : 0;
+    const hurt = this.dead ? (ragdoll ? Math.max(0, 1 - this.deathTime / 8) : 1) : this.hurtTime > 0 ? Math.min(1, (this.hurtTime + 1 - alpha) / 2) : 0;
     for (const m of rig.materials) {
       setEntityLight(m, L);
       m.uniforms.u_hurt.value = hurt;
