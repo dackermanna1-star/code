@@ -17,9 +17,9 @@ const BZ = BACK_WALL_Z;
 
 /** Extrude a side profile given as [z, y, fillet?] points along X (from x0 to x1). */
 function sideProfile(pts: FP[], x0: number, x1: number, bevel: number): THREE.BufferGeometry {
-  const p = fillet(pts.map((q) => (q.length > 2 ? [-q[0], q[1], q[2]] : [-q[0], q[1]]) as FP), 6, true);
+  const p = fillet(pts.map((q) => (q.length > 2 ? [-q[0], q[1], q[2]] : [-q[0], q[1]]) as FP), 4, true);
   const s = new THREE.Shape(p.map(([x, y]) => new THREE.Vector2(x, y)));
-  return softExtrude(s, x1 - x0, bevel, { curveSegs: 8, bevelSegs: 3 }).rotateY(Math.PI / 2).translate(x0, 0, 0);
+  return softExtrude(s, x1 - x0, bevel, { curveSegs: 6, bevelSegs: 2 }).rotateY(Math.PI / 2).translate(x0, 0, 0);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -78,7 +78,7 @@ interface Clock {
 
 function buildClock(parent: THREE.Object3D, pos: [number, number, number], r: number): Clock {
   const g = grp(parent, pos, 'clock');
-  part(g, puck(r, 0.03, 0.012, 48).rotateX(Math.PI / 2), lacquer(PALETTE.coral, 0.32));
+  part(g, puck(r, 0.03, 0.012, 36).rotateX(Math.PI / 2), lacquer(PALETTE.coral, 0.32));
   part(g, new THREE.CircleGeometry(r * 0.86, 48), textured('clockFace', clockFaceTex(), { roughness: 0.5 }), { pos: [0, 0, 0.0305], cast: false });
   part(g, new THREE.TorusGeometry(r * 0.9, 0.006, 8, 48), chrome(), { pos: [0, 0, 0.032] });
   const hand = (len: number, wid: number, z: number, col: string) => {
@@ -97,6 +97,7 @@ function buildHood(root: THREE.Object3D): Clock {
   const g = grp(root, [0, 0, 0], 'hood');
   const cx = LAYOUT.stove.pos.x;
   const hw = 0.44;
+  const mint = lacquer(PALETTE.cabinet, 0.34);
   const cream = lacquer('#fff6e8', 0.34);
   // canopy: lip at the front, sloping up to the chimney
   const canopy: FP[] = [
@@ -106,14 +107,16 @@ function buildHood(root: THREE.Object3D): Clock {
     [-0.76, 2.0, 0.06],
     [BZ, 2.0],
   ];
-  part(g, sideProfile(canopy, cx - hw, cx + hw, 0.028), cream);
-  // coral lip bar + chrome pinstripe
-  part(g, new THREE.CapsuleGeometry(0.019, hw * 2 - 0.02, 6, 16).rotateZ(Math.PI / 2), lacquer(PALETTE.coral, 0.32), { pos: [cx, 1.645, -0.462] });
-  part(g, new THREE.CapsuleGeometry(0.0045, hw * 2 - 0.06, 4, 10).rotateZ(Math.PI / 2), chrome(), { pos: [cx, 1.712, -0.468] });
-  // chimney with two coral bands
+  part(g, sideProfile(canopy, cx - hw, cx + hw, 0.028), mint);
+  // cream rolled lip with chrome speed lines (retro streamline)
+  part(g, new THREE.CapsuleGeometry(0.024, hw * 2 - 0.01, 6, 16).rotateZ(Math.PI / 2), cream, { pos: [cx, 1.652, -0.462] });
+  for (const [y, z, l] of [[1.705, -0.468, 0.7], [1.745, -0.488, 0.56], [1.785, -0.52, 0.42]] as [number, number, number][]) {
+    part(g, new THREE.CapsuleGeometry(0.005, l, 4, 8).rotateZ(Math.PI / 2), chrome(), { pos: [cx, y, z], cast: false });
+  }
+  // chimney with cream bands
   const chH = WALL_TOP - 1.99;
-  part(g, rboxB(0.4, chH, 0.22, 0.03, 3), cream, { pos: [cx, 1.99, BZ + 0.11] });
-  for (const y of [2.16, 2.75]) part(g, rbox(0.404, 0.022, 0.224, 0.01, 2), lacquer(PALETTE.coral, 0.32), { pos: [cx, y, BZ + 0.11] });
+  part(g, rboxB(0.4, chH, 0.22, 0.03, 3), mint, { pos: [cx, 1.99, BZ + 0.11] });
+  for (const y of [2.18, 2.73]) part(g, rbox(0.404, 0.026, 0.224, 0.012, 2), cream, { pos: [cx, y, BZ + 0.11] });
   // warm under-hood light (decor only)
   part(g, rbox(0.5, 0.01, 0.22, 0.004, 1), new THREE.MeshBasicMaterial({ color: '#ffe9bf', toneMapped: false }), { pos: [cx, 1.628, -0.78], cast: false });
   return buildClock(g, [cx, 2.455, BZ + 0.22], 0.125);
@@ -136,10 +139,10 @@ function bracket(parent: THREE.Object3D, x: number, yTop: number, depth: number,
 function buildMicrowaveShelf(root: THREE.Object3D) {
   const g = grp(root, [0, 0, 0], 'microwaveShelf');
   const p = LAYOUT.microwave.pos;
-  const d = 0.42, w = 0.64, t = 0.036;
+  const d = 0.42, w = 0.57, t = 0.036;
   const board = boxUV(rbox(w, t, d, 0.012, 3).translate(p.x, p.y - t / 2, BZ + d / 2), 1 / 0.9);
   part(g, board, butcherBlock());
-  for (const s of [-1, 1]) bracket(g, p.x + s * 0.2, p.y - t, d - 0.06, 0.24, lacquer('#fff6e8', 0.34), 0.026);
+  for (const s of [-1, 1]) bracket(g, p.x + s * 0.17, p.y - t, 0.25, 0.2, lacquer('#fff6e8', 0.34), 0.024);
 }
 
 /** Wooden spice rack: shelf board, scalloped back, rounded sides. Returns the bottle row centre. */
@@ -160,7 +163,7 @@ function buildSpiceRack(root: THREE.Object3D, width: number): THREE.Group {
     s.quadraticCurveTo(x0 + sw / 2, h + 0.03, x0, h - 0.03);
   }
   s.closePath();
-  part(g, softExtrude(s, 0.018, 0.005, { curveSegs: 8 }), lacquer(PALETTE.coral, 0.36), { pos: [0, 0, BZ + 0.002] });
+  part(g, softExtrude(s, 0.018, 0.005, { curveSegs: 6, bevelSegs: 2 }), lacquer(PALETTE.coral, 0.36), { pos: [0, 0, BZ + 0.002] });
   // sides with rounded tops
   for (const sx of [-1, 1]) {
     const side = roundedRectShape(d, 0.16, 0.03, 0, 0.05);
@@ -283,7 +286,7 @@ function buildChalkboard(root: THREE.Object3D): ChalkboardProp {
   const wood = textured('chalkFrame', woodTex('chalkFrame', { w: 256, h: 128, rings: 4, base: '#f0d0a4', contrast: 0.7 }), { color: '#d99e66', roughness: 0.5 });
   const ring = roundedRectShape(W, H, 0.05);
   ring.holes.push(roundedRectPath(W - frame * 2, H - frame * 2, 0.025));
-  part(g, softExtrude(ring, 0.032, 0.01, { curveSegs: 8 }), wood, { pos: [0, 0, -0.01] });
+  part(g, softExtrude(ring, 0.032, 0.01, { curveSegs: 5, bevelSegs: 2 }), wood, { pos: [0, 0, -0.01] });
   part(g, rbox(W - frame * 2 + 0.01, H - frame * 2 + 0.01, 0.01, 0.01, 1), matte('#26332d', 0.9), { pos: [0, 0, -0.008], cast: false });
   let title = "Today's Special";
   let sub: string | undefined = 'Anything!';
@@ -339,16 +342,16 @@ function domePendant(root: THREE.Object3D, pos: [number, number, number], r: num
   const g = grp(root, [pos[0], top, pos[2]], 'pendant');
   const s = grp(g, [0, pos[1] - top, 0], 'shade');
   const h = r * 0.85;
-  const outer = fillet([[r, 0], [r * 0.98, h * 0.25, r * 0.4], [r * 0.6, h * 0.85, r * 0.3], [r * 0.18, h, r * 0.06], [r * 0.12, h]], 8);
-  part(s, lathe(outer, 48), lacquer(color, 0.3));
-  const inner = fillet([[r * 0.12, h - 0.006], [r * 0.56, h * 0.82, r * 0.3], [r * 0.94, h * 0.24, r * 0.3], [r - 0.004, 0.002]], 8);
-  part(s, lathe(inner, 48), enamel('#fff6e6', 0.6), { cast: false });
-  part(s, new THREE.TorusGeometry(r, 0.0065, 8, 48).rotateX(Math.PI / 2), lacquer('#fff6e6', 0.3), { pos: [0, 0.002, 0] });
-  part(s, cylB(r * 0.17, r * 0.2, 0.05, 20), chrome(), { pos: [0, h - 0.008, 0] });
+  const outer = fillet([[r, 0], [r * 0.98, h * 0.25, r * 0.4], [r * 0.6, h * 0.85, r * 0.3], [r * 0.18, h, r * 0.06], [r * 0.12, h]], 5);
+  part(s, lathe(outer, 36), lacquer(color, 0.3), { cast: false });
+  const inner = fillet([[r * 0.12, h - 0.006], [r * 0.56, h * 0.82, r * 0.3], [r * 0.94, h * 0.24, r * 0.3], [r - 0.004, 0.002]], 5);
+  part(s, lathe(inner, 36), enamel('#fff6e6', 0.6), { cast: false });
+  part(s, new THREE.TorusGeometry(r, 0.0065, 6, 36).rotateX(Math.PI / 2), lacquer('#fff6e6', 0.3), { pos: [0, 0.002, 0], cast: false });
+  part(s, cylB(r * 0.17, r * 0.2, 0.05, 16), chrome(), { pos: [0, h - 0.008, 0], cast: false });
   // cord up to the (invisible) ceiling
   part(s, cylB(0.0055, 0.0055, top - (pos[1] + h + 0.04), 8), enamel('#4a3d3a', 0.5), { pos: [0, h + 0.04, 0], cast: false });
   // a round bulb peeking out under the rim
-  const bulb = new THREE.Mesh(new THREE.SphereGeometry(r * 0.3, 20, 14), bulbMat());
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(r * 0.3, 16, 10), bulbMat());
   bulb.position.y = -r * 0.04;
   bulb.castShadow = false;
   bulb.name = 'bulb';
@@ -399,8 +402,8 @@ export function buildFixtures(): Fixtures {
   // pendants: the dining lamp (with a warm light) and two over the counter
   const pendants: Pendant[] = [];
   pendants.push(domePendant(root, [LAYOUT.table.pos.x, 1.8, LAYOUT.table.pos.z - 0.04], 0.19, PALETTE.coral));
-  pendants.push(domePendant(root, [-0.62, 2.02, -0.5], 0.13, PALETTE.butter));
-  pendants.push(domePendant(root, [1.82, 2.0, -0.48], 0.13, PALETTE.butter));
+  pendants.push(domePendant(root, [-0.52, 2.02, -0.5], 0.13, PALETTE.butter));
+  pendants.push(domePendant(root, [1.6, 2.0, -0.48], 0.13, PALETTE.butter));
   const lights: THREE.Light[] = [];
   const warm = new THREE.PointLight('#ffd49a', 1.7, 3.4, 2);
   warm.position.set(LAYOUT.table.pos.x, 1.76, LAYOUT.table.pos.z - 0.04);

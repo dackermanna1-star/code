@@ -15,6 +15,10 @@ import { ginghamTex, woodTex, speckleTex } from './textures';
 
 const TAU = Math.PI * 2;
 type Ctx = CanvasRenderingContext2D;
+
+/** Radial segment multiplier for the bottle being built (decor copies use fewer segments). */
+let DETAIL = 1;
+const seg = (n: number) => Math.max(10, Math.round(n * DETAIL));
 const INK = '#4a3530';
 const CREAM = '#fff6e8';
 
@@ -45,7 +49,7 @@ const shellMat = () =>
         roughness: 0.05,
         metalness: 0,
         transparent: true,
-        opacity: 0.26,
+        opacity: 0.14,
         depthWrite: false,
         clearcoat: 1,
         clearcoatRoughness: 0.06,
@@ -87,7 +91,7 @@ const FILL_BASE: Record<string, string> = {
   sprinkles: '#fff4f8',
   'olive-oil': '#dcc444',
   'hot-sauce': '#e2381b',
-  'soy-sauce': '#3a1d0c',
+  'soy-sauce': '#2c1407',
 };
 
 function contentsTex(def: SeasoningDef): THREE.Texture {
@@ -674,7 +678,7 @@ function radiusAt(prof: P2[], y: number): number {
   return best;
 }
 
-function bandPts(prof: P2[], y0: number, y1: number, off: number, n = 10): P2[] {
+function bandPts(prof: P2[], y0: number, y1: number, off: number, n = 6): P2[] {
   const pts: P2[] = [];
   for (let i = 0; i <= n; i++) {
     const y = y0 + ((y1 - y0) * i) / n;
@@ -686,13 +690,13 @@ function bandPts(prof: P2[], y0: number, y1: number, off: number, n = 10): P2[] 
 /** Opaque contents following the inside of a glass profile, from y0 to the fill level y1. */
 function fillContents(root: THREE.Object3D, def: SeasoningDef, prof: P2[], y0: number, y1: number, inset = 0.0022) {
   const pts: P2[] = [[0, y0]];
-  for (const [r, y] of bandPts(prof, y0, y1, -inset, 12)) pts.push([Math.max(0.001, r), y]);
+  for (const [r, y] of bandPts(prof, y0, y1, -inset, 8)) pts.push([Math.max(0.001, r), y]);
   pts.push([0, y1]);
-  part(root, lathe(pts, 36), contentsMat(def));
+  part(root, lathe(pts, seg(24)), contentsMat(def));
 }
 
-function glassShell(root: THREE.Object3D, prof: P2[], segs = 44) {
-  part(root, lathe(prof, segs), shellMat(), { order: 3 });
+function glassShell(root: THREE.Object3D, prof: P2[], segs = 32) {
+  part(root, lathe(prof, seg(segs)), shellMat(), { order: 3 });
 }
 
 /** Full wrap-around label following the body profile between y0 and y1. */
@@ -700,21 +704,21 @@ function labelBand(root: THREE.Object3D, def: SeasoningDef, prof: P2[], y0: numb
   const pts = bandPts(prof, y0, y1, off);
   const rMid = radiusAt(prof, (y0 + y1) / 2) + off;
   const tex = bandTex(def, bg, TAU * rMid, y1 - y0);
-  part(root, lathe(pts, 48, -Math.PI, TAU), textured('bottleBand:' + def.id, tex, { roughness: 0.42 }), { cast: false });
+  part(root, lathe(pts, seg(36), -Math.PI, TAU), textured('bottleBand:' + def.id, tex, { roughness: 0.42 }), { cast: false });
 }
 
 /** Front sticker (4:3) following the body profile. */
 function sticker(root: THREE.Object3D, def: SeasoningDef, prof: P2[], y0: number, y1: number, off = 0.0009) {
-  const pts = bandPts(prof, y0, y1, off, 8);
+  const pts = bandPts(prof, y0, y1, off, 4);
   const rMid = radiusAt(prof, (y0 + y1) / 2) + off;
   const half = Math.min(1.45, ((4 / 3) * (y1 - y0)) / (2 * rMid));
   const m = mat('sticker:' + def.id, () => new THREE.MeshStandardMaterial({ map: stickerTex(def), alphaTest: 0.5, roughness: 0.38 }));
-  part(root, lathe(pts, 24, -half, half * 2), m, { cast: false });
+  part(root, lathe(pts, 14, -half, half * 2), m, { cast: false });
 }
 
 /** Shaker holes: little dark discs on a flat top. */
 function holes(root: THREE.Object3D, y: number, ring: number, n: number) {
-  const disc = new THREE.CircleGeometry(0.0024, 10).rotateX(-Math.PI / 2);
+  const disc = new THREE.CircleGeometry(0.0024, 8).rotateX(-Math.PI / 2);
   const geos = [disc.clone().translate(0, y, 0)];
   for (let i = 0; i < n; i++) {
     const a = (i / n) * TAU + 0.3;
@@ -724,18 +728,19 @@ function holes(root: THREE.Object3D, y: number, ring: number, n: number) {
 }
 
 /** Vertical grip ridges around a cap. */
-function ridges(root: THREE.Object3D, r: number, y0: number, y1: number, n: number, color: string) {
+function ridges(root: THREE.Object3D, r: number, y0: number, y1: number, count: number, color: string) {
   const geos: THREE.BufferGeometry[] = [];
+  const n = Math.max(8, Math.round(count * DETAIL));
   const h = y1 - y0;
   for (let i = 0; i < n; i++) {
     const a = (i / n) * TAU;
-    geos.push(new THREE.CapsuleGeometry(0.0011, Math.max(0.001, h - 0.0022), 2, 5).translate(Math.sin(a) * r, y0 + h / 2, Math.cos(a) * r));
+    geos.push(new THREE.CapsuleGeometry(0.0012, Math.max(0.001, h - 0.0024), 1, 4).translate(Math.sin(a) * r, y0 + h / 2, Math.cos(a) * r));
   }
   part(root, mergeGeo(geos), lacquer(color, 0.32), { cast: false });
 }
 
 function ringAt(root: THREE.Object3D, r: number, tubeR: number, y: number, m: THREE.Material) {
-  part(root, new THREE.TorusGeometry(r, tubeR, 8, 44).rotateX(Math.PI / 2), m, { pos: [0, y, 0], cast: false });
+  part(root, new THREE.TorusGeometry(r, tubeR, 6, seg(32)).rotateX(Math.PI / 2), m, { pos: [0, y, 0], cast: false });
 }
 
 function leafGeo(len: number, wid: number): THREE.BufferGeometry {
@@ -752,12 +757,12 @@ function leafGeo(len: number, wid: number): THREE.BufferGeometry {
 /** Classic diner shaker (salt, sugar): glass body, chunky coloured dome cap with holes. */
 function dinerShaker(root: THREE.Group, def: SeasoningDef): THREE.Vector3 {
   const R = 0.031;
-  const g = fillet([[0, 0], [R - 0.004, 0, 0.004], [R, 0.007, 0.005], [R, 0.07, 0.014], [0.0255, 0.088, 0.008], [0.0245, 0.096]], 5);
+  const g = fillet([[0, 0], [R - 0.004, 0, 0.004], [R, 0.007, 0.005], [R, 0.07, 0.014], [0.0255, 0.088, 0.008], [0.0245, 0.096]], 3);
   fillContents(root, def, g, 0.004, 0.069);
   glassShell(root, g);
   sticker(root, def, g, 0.022, 0.062);
-  const cap = fillet([[0.0252, 0.084], [0.0294, 0.084, 0.002], [0.0304, 0.1, 0.005], [0.0286, 0.117, 0.01], [0.017, 0.1278, 0.004], [0, 0.1278]], 5);
-  part(root, lathe(cap, 44), lacquer(def.label, 0.3));
+  const cap = fillet([[0.0252, 0.084], [0.0294, 0.084, 0.002], [0.0304, 0.1, 0.005], [0.0286, 0.117, 0.01], [0.017, 0.1278, 0.004], [0, 0.1278]], 3);
+  part(root, lathe(cap, seg(32)), lacquer(def.label, 0.3));
   ringAt(root, 0.0298, 0.0017, 0.0872, silver());
   holes(root, 0.1281, 0.0102, 6);
   return new THREE.Vector3(0, 0.128, 0);
@@ -766,26 +771,26 @@ function dinerShaker(root: THREE.Group, def: SeasoningDef): THREE.Vector3 {
 /** Spice jar (cinnamon, chili, herbs): straight glass, wrap label, flip-top cap. */
 function spiceJar(root: THREE.Group, def: SeasoningDef): THREE.Vector3 {
   const R = 0.0275;
-  const g = fillet([[0, 0], [R - 0.004, 0, 0.004], [R, 0.006, 0.004], [R, 0.085, 0.006], [0.024, 0.091, 0.003], [0.024, 0.095]], 5);
+  const g = fillet([[0, 0], [R - 0.004, 0, 0.004], [R, 0.006, 0.004], [R, 0.085, 0.006], [0.024, 0.091, 0.003], [0.024, 0.095]], 3);
   fillContents(root, def, g, 0.004, 0.081);
   glassShell(root, g);
   labelBand(root, def, g, 0.024, 0.068);
   const capCol = def.label;
-  part(root, puck(0.0293, 0.031, 0.0065, 44), lacquer(capCol, 0.32), { pos: [0, 0.0885, 0] });
+  part(root, puck(0.0293, 0.031, 0.0065, seg(32)), lacquer(capCol, 0.32), { pos: [0, 0.0885, 0] });
   ringAt(root, 0.0292, 0.0011, 0.1125, enamel(shade(capCol, -0.35), 0.5));
-  ridges(root, 0.0293, 0.0915, 0.109, 26, capCol);
+  ridges(root, 0.0293, 0.0915, 0.109, 18, capCol);
   part(root, rbox(0.015, 0.0065, 0.007, 0.0028, 2), lacquer(capCol, 0.32), { pos: [0, 0.1135, 0.0285] });
   return new THREE.Vector3(0, 0.1195, 0);
 }
 
 /** Round "bubble" shaker for sprinkles: the colourful contents are the label. */
 function bubbleShaker(root: THREE.Group, def: SeasoningDef): THREE.Vector3 {
-  const g = fillet([[0, 0], [0.021, 0, 0.005], [0.0355, 0.02, 0.022], [0.0365, 0.054, 0.026], [0.026, 0.086, 0.012], [0.0205, 0.094], [0.0205, 0.1]], 6);
+  const g = fillet([[0, 0], [0.021, 0, 0.005], [0.0355, 0.02, 0.022], [0.0365, 0.054, 0.026], [0.026, 0.086, 0.012], [0.0205, 0.094], [0.0205, 0.1]], 4);
   fillContents(root, def, g, 0.004, 0.078);
-  glassShell(root, g, 48);
+  glassShell(root, g, 36);
   sticker(root, def, g, 0.026, 0.058);
-  const cap = fillet([[0.0205, 0.091], [0.0248, 0.091, 0.002], [0.026, 0.106, 0.006], [0.0205, 0.12, 0.008], [0, 0.1222]], 5);
-  part(root, lathe(cap, 40), lacquer(def.label, 0.3));
+  const cap = fillet([[0.0205, 0.091], [0.0248, 0.091, 0.002], [0.026, 0.106, 0.006], [0.0205, 0.12, 0.008], [0, 0.1222]], 3);
+  part(root, lathe(cap, seg(28)), lacquer(def.label, 0.3));
   ringAt(root, 0.0252, 0.0016, 0.0935, lacquer(PALETTE.coral, 0.3));
   holes(root, 0.1225, 0.0088, 6);
   return new THREE.Vector3(0, 0.1225, 0);
@@ -797,14 +802,14 @@ function grinder(root: THREE.Group, def: SeasoningDef): THREE.Vector3 {
   wt.center.set(0.5, 0.5);
   wt.rotation = Math.PI / 2;
   const wood = textured('millWood', wt, { color: '#87553a', roughness: 0.4 });
-  const body = fillet([[0, 0], [0.028, 0, 0.004], [0.0305, 0.006, 0.003], [0.0305, 0.017, 0.004], [0.0255, 0.028, 0.01], [0.0255, 0.1, 0.012], [0.0215, 0.112, 0.006], [0.0215, 0.118]], 5);
-  part(root, lathe(body, 40), wood);
+  const body = fillet([[0, 0], [0.028, 0, 0.004], [0.0305, 0.006, 0.003], [0.0305, 0.017, 0.004], [0.0255, 0.028, 0.01], [0.0255, 0.1, 0.012], [0.0215, 0.112, 0.006], [0.0215, 0.118]], 3);
+  part(root, lathe(body, seg(28)), wood);
   labelBand(root, def, body, 0.044, 0.09, '#fff1dc');
   ringAt(root, 0.0304, 0.0018, 0.0115, silver());
-  const crown = fillet([[0.0215, 0.114], [0.0272, 0.116, 0.003], [0.0276, 0.136, 0.006], [0.0205, 0.145, 0.005], [0.008, 0.147], [0.008, 0.151]], 5);
-  part(root, lathe(crown, 40), lacquer('#3a2f2c', 0.32));
-  ridges(root, 0.0277, 0.119, 0.133, 22, '#4a3d3a');
-  part(root, new THREE.SphereGeometry(0.0108, 20, 14), silver(), { pos: [0, 0.157, 0] });
+  const crown = fillet([[0.0215, 0.114], [0.0272, 0.116, 0.003], [0.0276, 0.136, 0.006], [0.0205, 0.145, 0.005], [0.008, 0.147], [0.008, 0.151]], 3);
+  part(root, lathe(crown, seg(28)), lacquer('#3a2f2c', 0.32));
+  ridges(root, 0.0277, 0.119, 0.133, 16, '#4a3d3a');
+  part(root, new THREE.SphereGeometry(0.0108, 16, 10), silver(), { pos: [0, 0.157, 0] });
   return new THREE.Vector3(0, 0.167, 0);
 }
 
@@ -819,13 +824,13 @@ const SQUEEZE: Record<string, { body: string; cap: string; tip: string }> = {
 function squeeze(root: THREE.Group, def: SeasoningDef): THREE.Vector3 {
   const S = SQUEEZE[def.id] ?? { body: def.color, cap: CREAM, tip: def.label };
   const R = 0.0305;
-  const g = fillet([[0, 0], [R - 0.004, 0, 0.005], [R, 0.008, 0.005], [R, 0.09, 0.016], [0.019, 0.11, 0.006], [0.0185, 0.113]], 6);
-  part(root, lathe(g, 44), lacquer(S.body, 0.3));
+  const g = fillet([[0, 0], [R - 0.004, 0, 0.005], [R, 0.008, 0.005], [R, 0.09, 0.016], [0.019, 0.11, 0.006], [0.0185, 0.113]], 4);
+  part(root, lathe(g, seg(32)), lacquer(S.body, 0.3));
   labelBand(root, def, g, 0.026, 0.078);
-  const cap = fillet([[0.018, 0.106], [0.022, 0.106, 0.002], [0.0222, 0.126, 0.004], [0.012, 0.13, 0.003], [0.0115, 0.132]], 5);
-  part(root, lathe(cap, 40), lacquer(S.cap, 0.3));
-  ridges(root, 0.0223, 0.108, 0.123, 24, S.cap);
-  part(root, lathe(fillet([[0.0115, 0.1295], [0.0092, 0.136, 0.003], [0.0042, 0.153, 0.002], [0.0032, 0.1555], [0, 0.1555]], 4), 28), lacquer(S.cap, 0.3));
+  const cap = fillet([[0.018, 0.106], [0.022, 0.106, 0.002], [0.0222, 0.126, 0.004], [0.012, 0.13, 0.003], [0.0115, 0.132]], 3);
+  part(root, lathe(cap, seg(28)), lacquer(S.cap, 0.3));
+  ridges(root, 0.0223, 0.108, 0.123, 16, S.cap);
+  part(root, lathe(fillet([[0.0115, 0.1295], [0.0092, 0.136, 0.003], [0.0042, 0.153, 0.002], [0.0032, 0.1555], [0, 0.1555]], 3), seg(20)), lacquer(S.cap, 0.3));
   part(root, new THREE.SphereGeometry(0.0036, 12, 8), lacquer(S.tip, 0.3), { pos: [0, 0.1558, 0] });
   return new THREE.Vector3(0, 0.159, 0);
 }
@@ -838,60 +843,60 @@ function honeyHive(root: THREE.Group, def: SeasoningDef): THREE.Vector3 {
   let y = 0.0015;
   rs.forEach((rm, i) => {
     const rg = rm - 0.0042;
-    for (let k = i === 0 ? 1 : 0; k <= 8; k++) {
-      const t = k / 8;
+    for (let k = i === 0 ? 1 : 0; k <= 6; k++) {
+      const t = k / 6;
       pts.push([rg + (rm - rg) * Math.sin(Math.PI * t), y + hs[i] * t]);
     }
     y += hs[i];
   });
   pts.push([0.0135, y + 0.004], [0.0122, y + 0.006]);
   const top = y + 0.006;
-  part(root, lathe(pts, 48), mat('honeyBody', () => new THREE.MeshPhysicalMaterial({ color: '#f2ad2c', roughness: 0.28, clearcoat: 0.8, clearcoatRoughness: 0.12 })));
+  part(root, lathe(pts, seg(32)), mat('honeyBody', () => new THREE.MeshPhysicalMaterial({ color: '#f2ad2c', roughness: 0.28, clearcoat: 0.8, clearcoatRoughness: 0.12 })));
   // entrance hole on the bottom ring
   part(root, new THREE.CircleGeometry(0.0085, 20, 0, Math.PI), enamel('#5a3214', 0.6), { pos: [0, 0.004, 0.0335], rot: [-0.12, 0, 0], cast: false });
   // sticker floats over rings 2-3
   const band: P2[] = [];
   for (let i = 0; i <= 6; i++) band.push([0.0352, 0.026 + (0.03 * i) / 6]);
   const half = ((4 / 3) * 0.03) / (2 * 0.0352);
-  part(root, lathe(band, 20, -half, half * 2), mat('sticker:' + def.id, () => new THREE.MeshStandardMaterial({ map: stickerTex(def), alphaTest: 0.5, roughness: 0.38 })), { cast: false });
+  part(root, lathe(band, 14, -half, half * 2), mat('sticker:' + def.id, () => new THREE.MeshStandardMaterial({ map: stickerTex(def), alphaTest: 0.5, roughness: 0.38 })), { cast: false });
   // cap + nozzle
-  part(root, lathe(fillet([[0.0118, top - 0.003], [0.0136, top - 0.003, 0.002], [0.0138, top + 0.011, 0.004], [0.008, top + 0.014, 0.002], [0.0075, top + 0.0145]], 4), 32), lacquer(CREAM, 0.3));
-  part(root, lathe(fillet([[0.0075, top + 0.014], [0.0062, top + 0.019, 0.002], [0.0032, top + 0.03, 0.0015], [0.0026, top + 0.032], [0, top + 0.032]], 4), 24), lacquer(CREAM, 0.3));
+  part(root, lathe(fillet([[0.0118, top - 0.003], [0.0136, top - 0.003, 0.002], [0.0138, top + 0.011, 0.004], [0.008, top + 0.014, 0.002], [0.0075, top + 0.0145]], 4), seg(32)), lacquer(CREAM, 0.3));
+  part(root, lathe(fillet([[0.0075, top + 0.014], [0.0062, top + 0.019, 0.002], [0.0032, top + 0.03, 0.0015], [0.0026, top + 0.032], [0, top + 0.032]], 3), seg(18)), lacquer(CREAM, 0.3));
   part(root, new THREE.SphereGeometry(0.0032, 12, 8), lacquer('#e8a521', 0.3), { pos: [0, top + 0.032, 0] });
   return new THREE.Vector3(0, top + 0.035, 0);
 }
 
 /** Slim hot-sauce bottle with a long neck and a green screw cap. */
 function hotSauce(root: THREE.Group, def: SeasoningDef): THREE.Vector3 {
-  const g = fillet([[0, 0], [0.019, 0, 0.004], [0.022, 0.006, 0.004], [0.022, 0.07, 0.014], [0.0098, 0.1, 0.012], [0.0088, 0.124], [0.0098, 0.126], [0.0098, 0.128]], 6);
+  const g = fillet([[0, 0], [0.019, 0, 0.004], [0.022, 0.006, 0.004], [0.022, 0.07, 0.014], [0.0098, 0.1, 0.012], [0.0088, 0.124], [0.0098, 0.126], [0.0098, 0.128]], 4);
   fillContents(root, def, g, 0.004, 0.113, 0.0017);
-  glassShell(root, g, 40);
+  glassShell(root, g, 28);
   labelBand(root, def, g, 0.02, 0.062);
-  part(root, lathe(bandPts(g, 0.101, 0.114, 0.0007, 4), 32), lacquer(CREAM, 0.35), { cast: false });
-  part(root, puck(0.0118, 0.024, 0.0042, 32), lacquer(def.label, 0.32), { pos: [0, 0.1235, 0] });
-  ridges(root, 0.0119, 0.126, 0.144, 18, def.label);
+  part(root, lathe(bandPts(g, 0.101, 0.114, 0.0007, 4), seg(32)), lacquer(CREAM, 0.35), { cast: false });
+  part(root, puck(0.0118, 0.024, 0.0042, seg(24)), lacquer(def.label, 0.32), { pos: [0, 0.1235, 0] });
+  ridges(root, 0.0119, 0.126, 0.144, 12, def.label);
   return new THREE.Vector3(0, 0.148, 0);
 }
 
 /** Tall olive-oil bottle with a cork stopper. */
 function oilBottle(root: THREE.Group, def: SeasoningDef): THREE.Vector3 {
-  const g = fillet([[0, 0], [0.022, 0, 0.005], [0.0245, 0.008, 0.004], [0.0245, 0.09, 0.016], [0.0105, 0.117, 0.012], [0.0096, 0.132], [0.0108, 0.134], [0.0108, 0.136]], 6);
+  const g = fillet([[0, 0], [0.022, 0, 0.005], [0.0245, 0.008, 0.004], [0.0245, 0.09, 0.016], [0.0105, 0.117, 0.012], [0.0096, 0.132], [0.0108, 0.134], [0.0108, 0.136]], 4);
   fillContents(root, def, g, 0.004, 0.108, 0.0018);
-  glassShell(root, g, 40);
+  glassShell(root, g, 28);
   labelBand(root, def, g, 0.026, 0.074);
   const cork = textured('cork', speckleTex('cork', '#dcb47e', '#a87a48', 900, [0.5, 1.4]), { roughness: 0.85 });
-  part(root, puck(0.0101, 0.021, 0.0035, 24), cork, { pos: [0, 0.129, 0] });
+  part(root, puck(0.0101, 0.021, 0.0035, seg(24)), cork, { pos: [0, 0.129, 0] });
   ringAt(root, 0.011, 0.0012, 0.131, enamel(def.label, 0.4));
   return new THREE.Vector3(0, 0.15, 0);
 }
 
 /** Round soy-sauce flask with a red pouring cap (spout to the left, -X). */
 function soyFlask(root: THREE.Group, def: SeasoningDef): THREE.Vector3 {
-  const g = fillet([[0, 0], [0.026, 0, 0.006], [0.034, 0.015, 0.014], [0.0358, 0.044, 0.022], [0.031, 0.078, 0.02], [0.0135, 0.098, 0.008], [0.0125, 0.106]], 6);
+  const g = fillet([[0, 0], [0.026, 0, 0.006], [0.034, 0.015, 0.014], [0.0358, 0.044, 0.022], [0.031, 0.078, 0.02], [0.0135, 0.098, 0.008], [0.0125, 0.106]], 4);
   fillContents(root, def, g, 0.004, 0.08, 0.002);
-  glassShell(root, g, 44);
+  glassShell(root, g, 32);
   labelBand(root, def, g, 0.026, 0.062);
-  part(root, lathe(fillet([[0.0124, 0.101], [0.0182, 0.101, 0.003], [0.0192, 0.119, 0.008], [0.0085, 0.127, 0.004], [0, 0.127]], 5), 36), lacquer(def.label, 0.3));
+  part(root, lathe(fillet([[0.0124, 0.101], [0.0182, 0.101, 0.003], [0.0192, 0.119, 0.008], [0.0085, 0.127, 0.004], [0, 0.127]], 3), seg(36)), lacquer(def.label, 0.3));
   const a = 0.75;
   const dir = new THREE.Vector3(-Math.sin(a), Math.cos(a), 0);
   const base = new THREE.Vector3(-0.007, 0.121, 0);
@@ -904,15 +909,15 @@ function soyFlask(root: THREE.Group, def: SeasoningDef): THREE.Vector3 {
 
 /** Lemon-shaped squeezy bottle with a green cap and two leaves. */
 function lemonBottle(root: THREE.Group, _def: SeasoningDef): THREE.Vector3 {
-  const g = fillet([[0, 0], [0.011, 0, 0.003], [0.027, 0.014, 0.02], [0.0368, 0.046, 0.03], [0.0275, 0.082, 0.02], [0.012, 0.097, 0.006], [0.0078, 0.104]], 8);
+  const g = fillet([[0, 0], [0.011, 0, 0.003], [0.027, 0.014, 0.02], [0.0368, 0.046, 0.03], [0.0275, 0.082, 0.02], [0.012, 0.097, 0.006], [0.0078, 0.104]], 5);
   const peel = mat(
     'lemonPeel',
     () => new THREE.MeshPhysicalMaterial({ color: '#f9df3e', roughness: 0.38, clearcoat: 0.5, clearcoatRoughness: 0.2, bumpMap: speckleTex('lemonDimple', '#808080', '#5a5a5a', 1600, [0.6, 1.5]), bumpScale: 0.8 }),
   );
-  part(root, lathe(g, 48), peel);
+  part(root, lathe(g, seg(36)), peel);
   const green = lacquer(PALETTE.leaf, 0.32);
-  part(root, puck(0.0088, 0.013, 0.003, 24), green, { pos: [0, 0.1, 0] });
-  part(root, lathe(fillet([[0.0062, 0.112], [0.0048, 0.118, 0.002], [0.0026, 0.127, 0.001], [0, 0.128]], 3), 20), green);
+  part(root, puck(0.0088, 0.013, 0.003, seg(24)), green, { pos: [0, 0.1, 0] });
+  part(root, lathe(fillet([[0.0062, 0.112], [0.0048, 0.118, 0.002], [0.0026, 0.127, 0.001], [0, 0.128]], 3), seg(20)), green);
   const lg = leafGeo(0.03, 0.0085);
   part(root, lg, green, { pos: [0.004, 0.108, 0.002], rot: [0.2, 0, 0.45] });
   part(root, lg, lacquer(PALETTE.leafDark, 0.32), { pos: [-0.003, 0.107, -0.002], rot: [0.3, Math.PI * 0.85, 0.5] });
@@ -922,29 +927,29 @@ function lemonBottle(root: THREE.Group, _def: SeasoningDef): THREE.Vector3 {
 /** Glass jar with a lid (tomato sauce, peanut butter). */
 function sauceJar(root: THREE.Group, def: SeasoningDef, o: { R: number; H: number; lidH: number; lid: string; fill: number; bandBg: string }): THREE.Vector3 {
   const { R, H } = o;
-  const g = fillet([[0, 0], [R - 0.005, 0, 0.005], [R, 0.008, 0.005], [R, H - 0.016, 0.012], [R - 0.005, H - 0.004, 0.004], [R - 0.005, H]], 6);
+  const g = fillet([[0, 0], [R - 0.005, 0, 0.005], [R, 0.008, 0.005], [R, H - 0.016, 0.012], [R - 0.005, H - 0.004, 0.004], [R - 0.005, H]], 4);
   fillContents(root, def, g, 0.004, o.fill, 0.0022);
-  glassShell(root, g, 48);
+  glassShell(root, g, 36);
   labelBand(root, def, g, H * 0.2, H * 0.72, o.bandBg);
   const lidY = H - 0.007;
-  part(root, puck(R - 0.0015, o.lidH, 0.0055, 48), lacquer(o.lid, 0.3), { pos: [0, lidY, 0] });
+  part(root, puck(R - 0.0015, o.lidH, 0.0055, seg(32)), lacquer(o.lid, 0.3), { pos: [0, lidY, 0] });
   ringAt(root, R - 0.0012, 0.0016, lidY + o.lidH * 0.42, enamel(CREAM, 0.4));
-  ridges(root, R - 0.0012, lidY + 0.003, lidY + o.lidH * 0.3, 40, o.lid);
+  ridges(root, R - 0.0012, lidY + 0.003, lidY + o.lidH * 0.3, 24, o.lid);
   return new THREE.Vector3(0, lidY + o.lidH, 0);
 }
 
 /** Jam jar with a gingham cloth cover tied with string. */
 function jamJar(root: THREE.Group, def: SeasoningDef): THREE.Vector3 {
   const R = 0.037;
-  const g = fillet([[0, 0], [R - 0.004, 0, 0.005], [R, 0.008, 0.005], [R, 0.056, 0.01], [0.032, 0.064, 0.003], [0.032, 0.07]], 6);
+  const g = fillet([[0, 0], [R - 0.004, 0, 0.005], [R, 0.008, 0.005], [R, 0.056, 0.01], [0.032, 0.064, 0.003], [0.032, 0.07]], 4);
   fillContents(root, def, g, 0.004, 0.06);
-  glassShell(root, g, 48);
+  glassShell(root, g, 36);
   sticker(root, def, g, 0.014, 0.046);
-  part(root, puck(0.0335, 0.012, 0.004, 40), lacquer(def.label, 0.3), { pos: [0, 0.066, 0] });
+  part(root, puck(0.0335, 0.012, 0.004, seg(32)), lacquer(def.label, 0.3), { pos: [0, 0.066, 0] });
   // cloth: dome + flared skirt with a wavy hem
   const y = 0.072, r = 0.034;
-  const prof = fillet([[r + 0.011, y - 0.022], [r + 0.0022, y - 0.006, 0.004], [r + 0.0022, y + 0.004, 0.006], [r * 0.55, y + 0.018, 0.012], [0, y + 0.02]], 6);
-  const cloth = lathe(prof, 64);
+  const prof = fillet([[r + 0.011, y - 0.022], [r + 0.0022, y - 0.006, 0.004], [r + 0.0022, y + 0.004, 0.006], [r * 0.55, y + 0.018, 0.012], [0, y + 0.02]], 4);
+  const cloth = lathe(prof, seg(48));
   const pos = cloth.attributes.position as THREE.BufferAttribute;
   for (let i = 0; i < pos.count; i++) {
     const py = pos.getY(i);
@@ -972,11 +977,11 @@ function jamJar(root: THREE.Group, def: SeasoningDef): THREE.Vector3 {
 function whipCan(root: THREE.Group, def: SeasoningDef): THREE.Vector3 {
   const R = 0.029;
   const g = fillet([[0, 0], [R - 0.004, 0, 0.004], [R, 0.006, 0.004], [R, 0.112]], 4);
-  part(root, lathe(g, 44), enamel('#fbfaf6', 0.3));
-  part(root, lathe(bandPts(g, 0.012, 0.106, 0.0006, 4), 48, -Math.PI, TAU), textured('bottleBand:' + def.id, canTex(def), { roughness: 0.38 }), { cast: false });
-  part(root, lathe(fillet([[R, 0.1105], [R + 0.0005, 0.114, 0.002], [0.024, 0.125, 0.01], [0.011, 0.131, 0.003], [0.0105, 0.133]], 5), 44), silver());
+  part(root, lathe(g, seg(32)), enamel('#fbfaf6', 0.3));
+  part(root, lathe(bandPts(g, 0.012, 0.106, 0.0006, 4), seg(36), -Math.PI, TAU), textured('bottleBand:' + def.id, canTex(def), { roughness: 0.38 }), { cast: false });
+  part(root, lathe(fillet([[R, 0.1105], [R + 0.0005, 0.114, 0.002], [0.024, 0.125, 0.01], [0.011, 0.131, 0.003], [0.0105, 0.133]], 3), seg(32)), silver());
   ringAt(root, R + 0.0002, 0.0016, 0.0095, silver());
-  part(root, puck(0.0118, 0.015, 0.004, 28), lacquer('#ffffff', 0.3), { pos: [0, 0.13, 0] });
+  part(root, puck(0.0118, 0.015, 0.004, seg(28)), lacquer('#ffffff', 0.3), { pos: [0, 0.13, 0] });
   const a = 0.62;
   const dir = new THREE.Vector3(-Math.sin(a), Math.cos(a), 0);
   const base = new THREE.Vector3(-0.003, 0.142, 0);
@@ -990,7 +995,12 @@ function whipCan(root: THREE.Group, def: SeasoningDef): THREE.Vector3 {
 
 // ---------------------------------------------------------------------------------------------
 
-export function buildBottle(def: SeasoningDef): BottleProp {
+/**
+ * Build the bottle for a seasoning. `detail` (0..1) lowers the radial segment counts for small
+ * decorative copies; the default full detail is what the HUD icons and the held bottle use.
+ */
+export function buildBottle(def: SeasoningDef, detail = 1): BottleProp {
+  DETAIL = THREE.MathUtils.clamp(detail, 0.3, 1);
   const root = new THREE.Group();
   root.name = 'bottle:' + def.id;
   let nozzle: THREE.Vector3;
@@ -1021,6 +1031,7 @@ export function buildBottle(def: SeasoningDef): BottleProp {
     default:
       nozzle = spiceJar(root, def);
   }
+  DETAIL = 1;
   mergeStatic(root);
   root.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(root);

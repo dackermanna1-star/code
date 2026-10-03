@@ -188,7 +188,7 @@ export function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: numbe
 /** Friendly rounded font stack used for labels & chalk. */
 export const FONT_STACK = "'Baloo 2', 'Fredoka', 'Nunito', 'Trebuchet MS', 'Verdana', 'DejaVu Sans', sans-serif";
 /** Chalk-style stack for the menu board. */
-export const CHALK_FONT_STACK = "'Baloo 2', 'Fredoka', 'Comic Sans MS', 'Chalkboard SE', cursive";
+export const CHALK_FONT_STACK = "'Baloo 2', 'Fredoka', 'Nunito', 'Comic Sans MS', 'Chalkboard SE', 'Trebuchet MS', 'DejaVu Sans', sans-serif";
 
 // ---------------------------------------------------------------------------------------------
 // Materials (cached; never mutate a cached material - use `own()` for gameplay-animated ones)

@@ -6,13 +6,16 @@ import { renderSfx } from './sfx';
 import { renderLoopLayer, renderLoopEvent } from './loops';
 import { renderPhrase } from './voice';
 import { renderNote, type Inst } from './instruments';
+import { makeReverbIR } from './dsp';
 
 export type RenderJob =
   | { k: 'sfx'; name: SfxName; v: number }
   | { k: 'layer'; name: LoopName; layer: number }
   | { k: 'event'; name: LoopName; v: number }
   | { k: 'voice'; phrase: VoicePhrase; seed: number }
-  | { k: 'note'; inst: Inst; midi: number };
+  | { k: 'note'; inst: Inst; midi: number }
+  /** stereo reverb impulse response at the context rate, returned as [left..., right...] */
+  | { k: 'ir'; sr: number; dur: number; seed: number };
 
 export interface RenderRequest {
   id: number;
@@ -43,6 +46,13 @@ export function renderJob(job: RenderJob, sr: number): Float32Array {
       case 'note':
         out = renderNote(job.inst, job.midi, sr);
         break;
+      case 'ir': {
+        const [l, r] = makeReverbIR(job.sr, job.dur, job.seed);
+        out = new Float32Array(l.length * 2);
+        out.set(l, 0);
+        out.set(r, l.length);
+        break;
+      }
     }
     if (!out || out.length === 0) return SILENT();
     // paranoia: a NaN would poison the whole mix bus

@@ -23,9 +23,9 @@ import { buildCounters } from './decor/counter';
 import { buildFixtures, SHELF_A, SHELF_B, SPICE_RACK_W } from './decor/fixtures';
 import { bigPlant, smallPlant, updatePlant, cookbooks, mug, plateStack, cookieJar, napkinHolder, type Plant } from './decor/things';
 
-/** Decorative seasoning bottle placed on a shelf group (local coords), facing +Z. */
+/** Decorative seasoning bottle placed on a shelf group (local coords), facing +Z. Lower detail. */
 function shelfBottle(parent: THREE.Object3D, id: string, x: number, y: number, z: number, yaw = 0, scale = 1) {
-  const b = buildBottle(getSeasoning(id));
+  const b = buildBottle(getSeasoning(id), 0.6);
   b.root.position.set(x, y, z);
   b.root.rotation.y = yaw;
   b.root.scale.setScalar(scale);
@@ -125,7 +125,7 @@ export function buildKitchen(): KitchenRefs {
   const table = buildTable(LAYOUT.table.radius, LAYOUT.table.topY);
   table.position.copy(LAYOUT.table.pos);
   root.add(table);
-  const chair = buildChair(LAYOUT.character.pos.y);
+  const chair = buildChair(LAYOUT.character.pos.y, PALETTE.butter);
   chair.position.copy(LAYOUT.chair.pos);
   chair.rotation.y = LAYOUT.character.yaw;
   root.add(chair);
@@ -153,25 +153,24 @@ export function buildKitchen(): KitchenRefs {
   const step = (SPICE_RACK_W - 0.075) / (rackIds.length - 1);
   rackIds.forEach((id, i) => shelfBottle(fx.spiceRack, id, -SPICE_RACK_W / 2 + 0.0375 + i * step, 0, rz, (i % 2 ? -1 : 1) * 0.12));
 
-  // shelf A (left, above the chalkboard): cookbooks, jars, a trailing pothos
+  // shelf A (left, above the chalkboard): cookbooks, jars, (gap for the pendant), a trailing pothos
   const aY = SHELF_A.y, aZ = BACK_WALL_Z + SHELF_A.depth / 2;
   place(deco, cookbooks([PALETTE.coral, PALETTE.cabinet, PALETTE.lilac, PALETTE.butter], 2), SHELF_A.x0 + 0.05, aY, aZ);
-  shelfBottle(deco, 'tomato-sauce', -1.0, aY, aZ, 0.15, 1.25);
-  shelfBottle(deco, 'jam', -0.88, aY, aZ + 0.01, -0.2, 1.3);
-  shelfBottle(deco, 'peanut-butter', -0.76, aY, aZ, 0.1, 1.2);
-  place(deco, plateStack(4), -0.5, aY, aZ - 0.01);
+  shelfBottle(deco, 'tomato-sauce', -1.03, aY, aZ, 0.15, 1.25);
+  shelfBottle(deco, 'jam', -0.915, aY, aZ + 0.01, -0.2, 1.3);
+  shelfBottle(deco, 'peanut-butter', -0.8, aY, aZ, 0.1, 1.2);
   addPlant(smallPlant('trailing', PALETTE.cabinet, 3, 0.34), deco, -0.2, aY, aZ - 0.02);
 
-  // shelf B (right, above the microwave): oils & sauces, mugs, a little succulent
+  // shelf B (right, above the microwave): oils & sauces, (gap for the pendant), plates, mugs, a succulent
   const bY = SHELF_B.y, bZ = BACK_WALL_Z + SHELF_B.depth / 2;
   shelfBottle(deco, 'olive-oil', 1.12, bY, bZ, 0.1, 1.2);
   shelfBottle(deco, 'soy-sauce', 1.23, bY, bZ + 0.01, -0.1, 1.2);
   shelfBottle(deco, 'honey', 1.34, bY, bZ, 0.2, 1.2);
   shelfBottle(deco, 'lemon-juice', 1.45, bY, bZ + 0.01, -0.3, 1.15);
-  place(deco, mug(PALETTE.coral), 2.04, bY, bZ, -0.4);
-  place(deco, mug(PALETTE.cabinet), 2.15, bY, bZ - 0.03, -0.9);
-  place(deco, cookbooks([PALETTE.butter, PALETTE.coral], 7), 2.25, bY, bZ);
-  addPlant(smallPlant('succulent', PALETTE.coral, 5), deco, 2.43, bY, bZ);
+  place(deco, plateStack(4), 2.08, bY, bZ - 0.01);
+  place(deco, mug(PALETTE.coral), 2.24, bY, bZ, -0.4);
+  place(deco, mug(PALETTE.cabinet), 2.34, bY, bZ - 0.03, -0.9);
+  addPlant(smallPlant('succulent', PALETTE.coral, 5), deco, 2.45, bY, bZ);
 
   // fridge top: cookie jar + a little herb bush
   const fTop = fr.pos.y + fr.height;

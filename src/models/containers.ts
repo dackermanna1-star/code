@@ -615,6 +615,8 @@ export interface DishOpts {
   /** Number of scallops on the rim (0 = round). Default 8. */
   scallops?: number;
   segments?: number;
+  /** Profile sampling density (1 = default; ~0.6 for a lighter dish when it holds a lot of food). */
+  detail?: number;
 }
 
 export function smallDish(o: DishOpts = {}): Vessel {
@@ -622,8 +624,10 @@ export function smallDish(o: DishOpts = {}): Vessel {
   const accent = o.color ?? PASTEL.pink;
   const scallops = o.scallops ?? 8;
   const segs = o.segments ?? 64;
+  const detail = o.detail ?? 1;
+  const nd = (n: number) => Math.max(2, Math.round(n * detail));
   const t = 0.0042;
-  const key = JSON.stringify(['dish', R, D, accent, scallops, segs]);
+  const key = JSON.stringify(['dish', R, D, accent, scallops, segs, detail]);
   let hit = geoCache.get(key);
   if (!hit) {
     const footR = R * 0.58, footH = 0.0055, stemR = R * 0.3, stemH = 0.011;
@@ -644,14 +648,14 @@ export function smallDish(o: DishOpts = {}): Vessel {
         body(0),
       ],
       [0, 0.002, 0.0014, 0.0022, 0.0028, 0],
-      3,
+      detail < 0.8 ? 2 : 3,
     );
     const innerC = offsetLeft(body, t);
     const built = buildProfile([
       { pts: foot, color: accent, tag: 'foot' },
-      { curve: body, n: 12, color: accent, tag: 'outer' },
-      { curve: arc(R - t / 2, Hb, t / 2, 0, Math.PI), n: 6, color: GLAZE, tag: 'rim' },
-      { curve: reverse(innerC), n: 11, color: GLAZE, tag: 'inner' },
+      { curve: body, n: nd(12), color: accent, tag: 'outer' },
+      { curve: arc(R - t / 2, Hb, t / 2, 0, Math.PI), n: nd(6), color: GLAZE, tag: 'rim' },
+      { curve: reverse(innerC), n: nd(11), color: GLAZE, tag: 'inner' },
       { curve: line(innerC(0), [0, y0 + t]), n: 2, color: GLAZE, tag: 'bottom' },
     ]);
     const inner: Profile = [[0, y0 + t]];

@@ -18,6 +18,7 @@ export const PRIO_IDLE = 3;
 const N_PRIO = 4;
 
 type Callback = (buf: AudioBuffer | null) => void;
+type RawCallback = (data: Float32Array | null) => void;
 
 interface Entry {
   key: string;
@@ -26,6 +27,8 @@ interface Entry {
   cbs: Callback[];
   /** in flight on a worker */
   busy: boolean;
+  /** raw request: the samples go to `raw` as-is and nothing is cached */
+  raw?: RawCallback;
 }
 
 interface Slot {
@@ -33,6 +36,8 @@ interface Slot {
   /** only takes URGENT / SOON jobs while another worker is alive (keeps latency low) */
   urgentOnly: boolean;
   dead: boolean;
+  /** has finished at least one job (its first job also pays for loading the worker script) */
+  warm: boolean;
   job: { id: number; entry: Entry; timer: ReturnType<typeof setTimeout> } | null;
 }
 
@@ -46,9 +51,14 @@ export interface BankStats {
   failures: number;
   /** bytes of PCM held */
   bytes: number;
+  /** why the last worker was retired, if one was */
+  lastError: string;
 }
 
-const JOB_TIMEOUT_MS = 15000;
+/** A worker that doesn't answer within this long is presumed hung and replaced by the fallback. */
+const JOB_TIMEOUT_MS = 20000;
+/** The first job also loads + compiles the worker (slow on a busy dev server / low-end phone). */
+const FIRST_JOB_TIMEOUT_MS = 90000;
 
 export class Bank {
   private bufs = new Map<string, AudioBuffer>();
@@ -61,6 +71,7 @@ export class Bank {
   rendered = 0;
   failures = 0;
   bytes = 0;
+  lastError = '';
 
   constructor(
     readonly ctx: BaseAudioContext,
@@ -128,6 +139,20 @@ export class Bank {
     this.pump();
   }
 
+  /** Renders a job and hands back the raw samples (not cached; e.g. the reverb impulse response). */
+  requestRaw(key: string, job: RenderJob, prio: number, cb: RawCallback): void {
+    if (this.disposed || this.pending.has(key)) return;
+    if (this.syncMode) {
+      safeRaw(cb, renderJob(job, this.sr));
+      return;
+    }
+    const p = Math.max(0, Math.min(N_PRIO - 1, prio | 0));
+    const e: Entry = { key, job, prio: p, cbs: [], busy: false, raw: cb };
+    this.pending.set(key, e);
+    this.queues[p].push(e);
+    this.pump();
+  }
+
   /**
    * Renders `key` synchronously on the calling thread (main-thread fallback / offline tests).
    * Returns null if the job is currently in flight on a worker.
@@ -137,7 +162,7 @@ export class Bank {
     if (have) return have;
     if (this.disposed) return null;
     const e = this.pending.get(key);
-    if (e?.busy) return null;
+    if (e?.busy || e?.raw) return null;
     if (e) {
       const q = this.queues[e.prio];
       const i = q.indexOf(e);
@@ -170,15 +195,19 @@ export class Bank {
       rendered: this.rendered,
       failures: this.failures,
       bytes: this.bytes,
+      lastError: this.lastError,
     };
   }
 
   dispose(): void {
     this.disposed = true;
-    for (const s of this.slots) this.killSlot(s, false);
+    for (const s of this.slots) this.killSlot(s, false, '');
     if (this.mainTimer !== null) clearTimeout(this.mainTimer);
     this.mainTimer = null;
-    for (const e of this.pending.values()) for (const cb of e.cbs) safeCall(cb, null);
+    for (const e of this.pending.values()) {
+      for (const cb of e.cbs) safeCall(cb, null);
+      if (e.raw) safeRaw(e.raw, null);
+    }
     this.pending.clear();
     for (const q of this.queues) q.length = 0;
   }
@@ -192,13 +221,13 @@ export class Bank {
     for (let i = 0; i < n; i++) {
       try {
         const w = new RenderWorker();
-        const slot: Slot = { w, urgentOnly: i === 1, dead: false, job: null };
+        const slot: Slot = { w, urgentOnly: i === 1, dead: false, warm: false, job: null };
         w.onmessage = (ev: MessageEvent<RenderResponse>) => this.onMessage(slot, ev.data);
         w.onerror = (ev: ErrorEvent) => {
           ev.preventDefault?.();
-          this.killSlot(slot, true);
+          this.killSlot(slot, true, `worker error: ${ev.message || 'failed to load'}`);
         };
-        w.onmessageerror = () => this.killSlot(slot, true);
+        w.onmessageerror = () => this.killSlot(slot, true, 'worker message error');
         this.slots.push(slot);
       } catch {
         /* workers unavailable (CSP, file://...) -> main thread fallback */
@@ -237,16 +266,19 @@ export class Bank {
   private send(slot: Slot, e: Entry): void {
     const id = this.nextId++;
     e.busy = true;
-    const timer = setTimeout(() => {
-      // a hung worker: give its job to someone else
-      if (slot.job?.id === id) this.killSlot(slot, true);
-    }, JOB_TIMEOUT_MS);
+    const timer = setTimeout(
+      () => {
+        // a hung worker: give its job to someone else
+        if (slot.job?.id === id) this.killSlot(slot, true, `worker timeout (${slot.warm ? 'job' : 'first job'})`);
+      },
+      slot.warm ? JOB_TIMEOUT_MS : FIRST_JOB_TIMEOUT_MS,
+    );
     slot.job = { id, entry: e, timer };
     const req: RenderRequest = { id, sr: this.sr, job: e.job };
     try {
       slot.w.postMessage(req);
-    } catch {
-      this.killSlot(slot, true);
+    } catch (err) {
+      this.killSlot(slot, true, `postMessage failed: ${String(err)}`);
     }
   }
 
@@ -255,9 +287,11 @@ export class Bank {
     if (!j || !msg || j.id !== msg.id) return;
     clearTimeout(j.timer);
     slot.job = null;
+    slot.warm = true;
     const e = j.entry;
     e.busy = false;
-    if ('data' in msg && msg.data instanceof Float32Array) this.finish(e, this.toBuffer(msg.data));
+    if (e.raw) this.finishRaw(e, 'data' in msg && msg.data instanceof Float32Array ? msg.data : renderJob(e.job, this.sr));
+    else if ('data' in msg && msg.data instanceof Float32Array) this.finish(e, this.toBuffer(msg.data));
     else {
       // worker-side failure: try once more on the main thread, silently
       this.failures++;
@@ -266,9 +300,10 @@ export class Bank {
     this.pump();
   }
 
-  private killSlot(slot: Slot, requeue: boolean): void {
+  private killSlot(slot: Slot, requeue: boolean, reason: string): void {
     if (slot.dead) return;
     slot.dead = true;
+    if (reason) this.lastError = reason;
     try {
       slot.w.terminate();
     } catch {
@@ -287,17 +322,26 @@ export class Bank {
     if (requeue) this.pump();
   }
 
-  /** Main-thread fallback: one job per timer tick (urgent ones right away). */
+  /**
+   * Main-thread fallback: one job per tick — urgent / music jobs right away, background work only
+   * in idle time (between frames) and spaced out, so the game keeps its frame rate.
+   */
   private scheduleMain(): void {
     if (this.mainTimer !== null || this.disposed) return;
     const p = this.peekPrio();
     if (p < 0) return;
-    const delay = p === PRIO_URGENT ? 0 : p === PRIO_SOON ? 8 : 40;
-    this.mainTimer = setTimeout(() => {
+    const run = () => {
       this.mainTimer = null;
       const e = this.take(N_PRIO - 1);
-      if (e) this.finish(e, this.toBuffer(renderJob(e.job, this.sr)));
+      if (e?.raw) this.finishRaw(e, renderJob(e.job, this.sr));
+      else if (e) this.finish(e, this.toBuffer(renderJob(e.job, this.sr)));
       this.pump();
+    };
+    const delay = p === PRIO_URGENT ? 0 : p === PRIO_SOON ? 8 : p === PRIO_BG ? 60 : 250;
+    const ric = (globalThis as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    this.mainTimer = setTimeout(() => {
+      if (p >= PRIO_BG && typeof ric === 'function') ric(run, { timeout: 1500 });
+      else run();
     }, delay);
   }
 
@@ -313,6 +357,11 @@ export class Bank {
     }
   }
 
+  private finishRaw(e: Entry, data: Float32Array): void {
+    this.pending.delete(e.key);
+    if (e.raw && !this.disposed) safeRaw(e.raw, data);
+  }
+
   private finish(e: Entry, buf: AudioBuffer | null): void {
     this.pending.delete(e.key);
     if (buf && !this.disposed) {
@@ -323,6 +372,14 @@ export class Bank {
     const cbs = e.cbs;
     e.cbs = [];
     for (const cb of cbs) safeCall(cb, this.disposed ? null : buf);
+  }
+}
+
+function safeRaw(cb: RawCallback, d: Float32Array | null): void {
+  try {
+    cb(d);
+  } catch {
+    /* ignore */
   }
 }
 

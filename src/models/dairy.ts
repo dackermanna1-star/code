@@ -1137,7 +1137,8 @@ function cheeseRindGeometry(): THREE.BufferGeometry {
   return g;
 }
 
-function buildCheese(r: Rng): THREE.Object3D {
+/** The wedge in its own frame: tip at the origin, rind towards +x, sitting on y = 0. */
+function cheeseWedge(r: Rng): THREE.Group {
   const faces = cheeseFaces();
   const holes = cheeseHoles(r);
   const faceGeos: THREE.BufferGeometry[] = [];
@@ -1161,8 +1162,39 @@ function buildCheese(r: Rng): THREE.Object3D {
   g.add(mesh(merge(faceGeos), cheeseFaceMat(), { name: 'cheese' }));
   if (bowls.length) g.add(mesh(merge(bowls), cheeseHoleMat(), { name: 'cheese-holes' }));
   g.add(mesh(cheeseRindGeometry(), cheeseRindMat(), { skin: true, name: 'cheese-rind' }));
+  return g;
+}
+
+function buildCheese(r: Rng): THREE.Object3D {
+  const g = cheeseWedge(r);
   g.rotation.y = 0.55 + r.range(-0.15, 0.15);
-  return sitOnGround(g);
+  return sitOnGround(group(g));
+}
+
+/** Halved wedge: the same wedge split down its middle (clip plane + a fresh cut face). */
+function cheeseHalves(r: Rng): THREE.Object3D {
+  const w = cheeseWedge(r);
+  const out = new THREE.Group();
+  for (const s of [1, -1]) {
+    const half = new THREE.Group();
+    const copy = w.clone();
+    copy.userData.clipPlanes = [new THREE.Plane(new THREE.Vector3(0, 0, -s), 0)];
+    half.add(copy);
+    const face = new THREE.ShapeGeometry(new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(CH_L - 0.0004, 0), new THREE.Vector2(CH_L - 0.0004, CH_H), new THREE.Vector2(0, CH_H)]));
+    const uv = face.attributes.uv as THREE.BufferAttribute;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 0.07, uv.getY(i) / 0.07);
+    if (s > 0) {
+      flipWinding(face);
+      const nor = face.attributes.normal as THREE.BufferAttribute;
+      for (let i = 0; i < nor.count; i++) nor.setXYZ(i, 0, 0, -1);
+    }
+    half.add(mesh(vcol(face, '#f3e4cc'), cheeseFaceMat()));
+    half.position.z = s * 0.008;
+    half.rotation.y = s * 0.1;
+    out.add(half);
+  }
+  out.rotation.y = 0.5 + r.range(-0.15, 0.15);
+  return sitOnGround(group(out));
 }
 
 /** Paint a shaded cheese hole (lit from the top-left). */
@@ -1242,22 +1274,16 @@ const mozzTex = lazy(() =>
     256,
     256,
     (ctx, w, h) => {
-      ctx.fillStyle = '#fbf9f1';
+      const gr = ctx.createLinearGradient(0, 0, 0, h);
+      gr.addColorStop(0, '#fdfcf6');
+      gr.addColorStop(0.75, '#f9f6ec');
+      gr.addColorStop(1, '#eee8d8');
+      ctx.fillStyle = gr;
       ctx.fillRect(0, 0, w, h);
       const r = rng(8);
       mottleT(ctx, w, h, '#ffffff', r, 30, [w * 0.05, w * 0.15], [0.35, 0.6]);
       mottleT(ctx, w, h, '#efeadb', r, 26, [w * 0.04, w * 0.12], [0.15, 0.3]);
-      // stretched-curd streaks running towards the knot
-      ctx.lineCap = 'round';
-      for (let i = 0; i < 46; i++) {
-        const x = r.next() * w, y0 = r.range(0, h * 0.7), len = r.range(h * 0.15, h * 0.45);
-        ctx.strokeStyle = rgba(r.next() < 0.5 ? '#ffffff' : '#e8e3d2', r.range(0.25, 0.5));
-        ctx.lineWidth = r.range(0.8, 2.2);
-        ctx.beginPath();
-        ctx.moveTo(x, y0);
-        ctx.quadraticCurveTo(x + r.range(-6, 6), y0 + len * 0.5, x + r.range(-4, 4), y0 + len);
-        ctx.stroke();
-      }
+      specksT(ctx, w, h, '#ffffff', r, 40, [1, 2.5], 0.5);
     },
     { key: 'dairy/mozzarella', wrap: true },
   ),
@@ -1291,23 +1317,27 @@ const mozzFleshMat = lazy(() =>
 function buildMozzarella(r: Rng): THREE.Object3D {
   const g = latheGeometry(MOZZ_PROFILE, 44);
   const ph = r.range(0, TAU), seed = r.range(0, 40);
-  const folds = r.int(6, 8);
+  const folds = r.int(5, 7);
+  const lean = r.range(0.06, 0.11), leanA = r.range(0, TAU);
   const pos = g.attributes.position as THREE.BufferAttribute;
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
     const rr = Math.hypot(x, z);
-    if (rr < 1e-6) continue;
-    const a = Math.atan2(z, x);
     const h = y / MOZZ_H;
-    const fold = 0.035 * Math.sin(folds * a + ph) * sstep(0.86, 0.99, h);
-    const wob = 0.035 * fbm3(Math.cos(a) * 1.4 + seed, h * 2.2, Math.sin(a) * 1.4, 2);
-    const k = 1 + fold + wob * sstep(0.02, 0.2, h);
-    pos.setXYZ(i, x * k, y + 0.0012 * sstep(0.92, 1, h) + 0.0006 * Math.sin(folds * a + ph) * sstep(0.9, 1, h), z * k);
+    const a = Math.atan2(z, x);
+    // soft pleats gathering into a small pinched knot on top
+    const fold = rr > 1e-6 ? 0.04 * Math.sin(folds * a + ph) * sstep(0.84, 0.97, h) : 0;
+    const wob = 0.03 * fbm3(Math.cos(a) * 1.4 + seed, h * 2.2, Math.sin(a) * 1.4, 2) * sstep(0.02, 0.2, h);
+    const pinch = 1 - 0.28 * sstep(0.9, 1, h);
+    const k = (1 + fold + wob) * pinch;
+    // the ball slumps a little to one side
+    const sl = lean * MOZZ_H * h * h;
+    pos.setXYZ(i, x * k + Math.cos(leanA) * sl, y + 0.0028 * sstep(0.93, 1, h), z * k + Math.sin(leanA) * sl);
   }
   smoothNormals(g);
   const m = mesh(g, mozzMat(), { skin: true, name: 'mozzarella' });
-  m.scale.set(r.range(0.97, 1.03), r.range(0.95, 1.03), r.range(0.97, 1.03));
-  m.rotation.set(r.range(-0.05, 0.05), r.range(0, TAU), r.range(-0.05, 0.05));
+  m.scale.set(r.range(0.98, 1.04), r.range(0.93, 1.0), r.range(0.98, 1.04));
+  m.rotation.y = r.range(0, TAU);
   return sitOnGround(group(m));
 }
 
@@ -1526,6 +1556,30 @@ function buildButter(r: Rng): THREE.Object3D {
   pm.position.set(-BUT_L / 2 - 0.022, 0.0042, r.range(-0.004, 0.004));
   g.add(pm);
   g.rotation.y = r.range(-0.35, 0.2);
+  return sitOnGround(g);
+}
+
+/** Butter cut in two: both halves on the opened paper. */
+function butterHalves(r: Rng): THREE.Object3D {
+  const g = new THREE.Group();
+  const hl = BUT_L / 2 - 0.0015;
+  const block = roundedBox(hl, BUT_H, BUT_D, 0.0034, 3);
+  block.translate(0, BUT_H / 2 + 0.0006, 0);
+  for (const s of [-1, 1]) {
+    const m = mesh(block, butterMat(), { name: 'butter' });
+    m.position.set(s * (hl / 2 + 0.006), 0, s * r.range(0, 0.004));
+    m.rotation.y = s * r.range(0.08, 0.2);
+    g.add(m);
+  }
+  const zw = BUT_D / 2 + BUT_H * 0.9, xw = BUT_L / 2 + 0.016;
+  const seed = r.range(0, 20);
+  const sheet = paramSurface(16, 12, (u, v, out) => {
+    const x = -xw + 2 * xw * u, z = -zw + 2 * zw * v;
+    const edge = Math.max(Math.abs(z) / zw, Math.abs(x) / xw);
+    out.set(x, 0.00035 + Math.max(0, fbm3(x * 70 + seed, z * 70, seed, 2)) * 0.0012 + 0.004 * sstep(0.85, 1, edge), z);
+  });
+  g.add(mesh(sheet, paperInsideMat(), { name: 'butter-sheet' }));
+  g.rotation.y = r.range(-0.3, 0.3);
   return sitOnGround(g);
 }
 
@@ -2019,6 +2073,7 @@ export const MODELS: ModelTable = {
     section: (ctx, s, o) => cheeseSection(ctx, s, o),
     skin: cheeseRindMat,
     flesh: cheeseFleshMat,
+    forms: { halved: (r) => cheeseHalves(r) },
   },
   mozzarella: {
     build: buildMozzarella,
@@ -2034,6 +2089,7 @@ export const MODELS: ModelTable = {
     section: (ctx, s) => butterSection(ctx, s),
     skin: butterMat,
     flesh: butterMat,
+    forms: { halved: (r) => butterHalves(r) },
   },
   yogurt: {
     build: buildYogurt,

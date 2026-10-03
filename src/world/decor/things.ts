@@ -16,8 +16,8 @@ export interface Plant {
 }
 
 /** A soft leaf: an ellipsoid along +X (base at origin), drooping and folded along its midrib. */
-function leafGeo(len: number, wid: number, thick: number, droop = 0.25, fold = 0.25): THREE.BufferGeometry {
-  const g = new THREE.SphereGeometry(1, 14, 10).translate(1, 0, 0).scale(len / 2, thick, wid / 2);
+function leafGeo(len: number, wid: number, thick: number, droop = 0.25, fold = 0.25, ws = 10, hs = 6): THREE.BufferGeometry {
+  const g = new THREE.SphereGeometry(1, ws, hs).translate(1, 0, 0).scale(len / 2, thick, wid / 2);
   const p = g.attributes.position as THREE.BufferAttribute;
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
@@ -29,16 +29,23 @@ function leafGeo(len: number, wid: number, thick: number, droop = 0.25, fold = 0
 }
 
 function potGeo(r: number, h: number): THREE.BufferGeometry {
-  return lathe(fillet([[0, 0], [r * 0.78, 0, r * 0.12], [r, h * 0.9, r * 0.1], [r * 1.08, h * 0.93, r * 0.04], [r * 1.08, h, r * 0.03], [r * 0.92, h], [r * 0.9, h * 0.9]], 6), 40);
+  return lathe(fillet([[0, 0], [r * 0.78, 0, r * 0.12], [r, h * 0.9, r * 0.1], [r * 1.08, h * 0.93, r * 0.04], [r * 1.08, h, r * 0.03], [r * 0.92, h], [r * 0.9, h * 0.9]], 4), 28);
 }
 
 function pot(parent: THREE.Object3D, r: number, h: number, color: string, band = PALETTE.cream) {
   part(parent, potGeo(r, h), lacquer(color, 0.32));
-  part(parent, new THREE.TorusGeometry(r * 0.98, r * 0.045, 8, 40).rotateX(Math.PI / 2), lacquer(band, 0.32), { pos: [0, h * 0.62, 0] });
-  part(parent, puck(r * 0.9, h * 0.05, r * 0.05, 32), matte('#6a4a36', 0.95), { pos: [0, h * 0.84, 0], cast: false });
+  part(parent, new THREE.TorusGeometry(r * 0.98, r * 0.045, 6, 28).rotateX(Math.PI / 2), lacquer(band, 0.32), { pos: [0, h * 0.62, 0] });
+  part(parent, puck(r * 0.9, h * 0.05, r * 0.05, 20), matte('#6a4a36', 0.95), { pos: [0, h * 0.84, 0], cast: false });
 }
 
-/** Big fiddle-leaf style floor plant (~1.2 m). */
+/** Place a leaf (built along +X, flat in XZ): roll about its own axis, pitch up, then yaw. */
+function leafAt(g: THREE.BufferGeometry, pos: V3, yaw: number, pitch: number, roll: number): THREE.BufferGeometry {
+  const m = new THREE.Matrix4().makeRotationY(yaw).multiply(new THREE.Matrix4().makeRotationZ(pitch)).multiply(new THREE.Matrix4().makeRotationX(roll));
+  m.setPosition(pos[0], pos[1], pos[2]);
+  return g.clone().applyMatrix4(m);
+}
+
+/** Big fiddle-leaf style floor plant (~1.2 m): a short trunk with a crown of broad round leaves. */
 export function bigPlant(seed = 1): Plant {
   const root = new THREE.Group();
   root.name = 'bigPlant';
@@ -48,26 +55,37 @@ export function bigPlant(seed = 1): Plant {
   const stems: THREE.BufferGeometry[] = [];
   const leavesA: THREE.BufferGeometry[] = [];
   const leavesB: THREE.BufferGeometry[] = [];
-  const n = 8;
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2 + r.range(-0.3, 0.3);
-    const reach = r.range(0.1, 0.27);
-    const hgt = r.range(0.5, 0.9) * (i % 3 === 0 ? 1.12 : 1);
-    const end: V3 = [Math.cos(a) * reach, hgt, Math.sin(a) * reach];
-    stems.push(tube([[0, 0, 0], [end[0] * 0.3, hgt * 0.45, end[2] * 0.3], end], 0.008, 16, 6));
-    const k = r.int(2, 3);
-    for (let j = 0; j < k; j++) {
-      const t = 1 - j * 0.22;
-      const pos: V3 = [end[0] * t, hgt * (0.55 + 0.45 * t), end[2] * t];
-      const yaw = -a + r.range(-0.7, 0.7);
-      const pitch = r.range(0.25, 0.75);
-      const L = r.range(0.17, 0.24), W = L * r.range(0.62, 0.75);
-      (j % 2 ? leavesB : leavesA).push(xf(leafGeo(L, W, 0.012, 0.22, 0.3), pos, [0, yaw, pitch]));
-    }
+  // trunk + three branches
+  const trunkTop: V3 = [0.02, 0.62, 0.0];
+  stems.push(tube([[0, 0, 0], [0.01, 0.3, 0.01], trunkTop], 0.014, 16, 8));
+  const tips: V3[] = [trunkTop];
+  for (let b = 0; b < 3; b++) {
+    const a = b * 2.1 + 0.4;
+    const tip: V3 = [Math.cos(a) * 0.17, 0.5 + b * 0.09, Math.sin(a) * 0.17];
+    stems.push(tube([[0.01, 0.28 + b * 0.06, 0], [tip[0] * 0.5, tip[1] - 0.08, tip[2] * 0.5], tip], 0.009, 12, 6));
+    tips.push(tip);
   }
-  // a couple of upright young leaves in the middle
-  for (let j = 0; j < 3; j++) leavesA.push(xf(leafGeo(0.16, 0.1, 0.01, 0.1, 0.3), [0, 0.75 + j * 0.08, 0], [0, j * 2.1, 1.1 + j * 0.1]));
-  part(foliage, mergeGeo(stems), enamel('#5a8a3a', 0.6), { cast: false });
+  const big = leafGeo(1, 0.8, 0.055, 0.18, 0.12, 18, 10);
+  let k = 0;
+  for (const tip of tips) {
+    const n = tip === trunkTop ? 9 : 6;
+    for (let j = 0; j < n; j++) {
+      const a = (j / n) * Math.PI * 2 + r.range(-0.4, 0.4) + k;
+      const L = r.range(0.18, 0.25);
+      const pos: V3 = [tip[0] + Math.cos(a) * 0.02, tip[1] - j * 0.03 + r.range(-0.02, 0.02), tip[2] + Math.sin(a) * 0.02];
+      const geo = leafAt(big, pos, -a, r.range(0.35, 0.95), r.range(-0.7, 0.7));
+      const sc = new THREE.Matrix4().makeTranslation(pos[0], pos[1], pos[2]).multiply(new THREE.Matrix4().makeScale(L, L, L)).multiply(new THREE.Matrix4().makeTranslation(-pos[0], -pos[1], -pos[2]));
+      geo.applyMatrix4(sc);
+      ((j + k) % 2 ? leavesB : leavesA).push(geo);
+    }
+    k += 1.3;
+  }
+  // top bud leaves
+  for (let j = 0; j < 3; j++) {
+    const geo = leafAt(leafGeo(0.15, 0.11, 0.009, 0.06, 0.1, 14, 8), [trunkTop[0], trunkTop[1] + 0.02, trunkTop[2]], j * 2.1, 1.15, 0.3);
+    leavesA.push(geo);
+  }
+  part(foliage, mergeGeo(stems), enamel('#6a8a3a', 0.6), { cast: false });
   part(foliage, mergeGeo(leavesA), lacquer(PALETTE.leaf, 0.42));
   part(foliage, mergeGeo(leavesB), lacquer(PALETTE.leafDark, 0.42));
   return { root, foliage, phase: seed * 1.7 };
@@ -158,7 +176,7 @@ export function mug(color: string): THREE.Group {
   const g = new THREE.Group();
   g.name = 'mug';
   const R = 0.04, H = 0.085;
-  part(g, lathe(fillet([[0, 0], [R - 0.006, 0, 0.006], [R, 0.008, 0.006], [R, H, 0.003], [R - 0.005, H], [R - 0.005, 0.012, 0.006], [0, 0.012]], 5), 36), lacquer(color, 0.3));
+  part(g, lathe(fillet([[0, 0], [R - 0.006, 0, 0.006], [R, 0.008, 0.006], [R, H, 0.003], [R - 0.005, H], [R - 0.005, 0.012, 0.006], [0, 0.012]], 3), 28), lacquer(color, 0.3));
   part(g, new THREE.TorusGeometry(0.024, 0.0065, 10, 24, Math.PI * 1.2).rotateZ(-Math.PI * 0.6), lacquer(color, 0.3), { pos: [R + 0.006, H * 0.52, 0] });
   part(g, new THREE.TorusGeometry(R - 0.0015, 0.0025, 6, 36).rotateX(Math.PI / 2), lacquer(PALETTE.cream, 0.3), { pos: [0, H * 0.7, 0], cast: false });
   return g;
@@ -167,7 +185,7 @@ export function mug(color: string): THREE.Group {
 export function plateStack(n = 4): THREE.Group {
   const g = new THREE.Group();
   g.name = 'plates';
-  const geo = lathe(fillet([[0, 0], [0.06, 0, 0.004], [0.075, 0.008, 0.01], [0.1, 0.014, 0.004], [0.098, 0.017], [0.072, 0.011, 0.01], [0, 0.009]], 5), 40);
+  const geo = lathe(fillet([[0, 0], [0.06, 0, 0.004], [0.075, 0.008, 0.01], [0.1, 0.014, 0.004], [0.098, 0.017], [0.072, 0.011, 0.01], [0, 0.009]], 3), 32);
   const cols = ['#ffffff', PALETTE.cabinet, '#ffffff', PALETTE.butter, '#ffffff'];
   for (let i = 0; i < n; i++) part(g, geo, lacquer(cols[i % cols.length], 0.25), { pos: [0, i * 0.011, 0] });
   return g;
@@ -177,9 +195,9 @@ export function cookieJar(scale = 1): THREE.Group {
   const g = new THREE.Group();
   g.name = 'cookieJar';
   const R = 0.075 * scale, H = 0.15 * scale;
-  const prof = fillet([[0, 0], [R - 0.01, 0, 0.01], [R, 0.015, 0.012], [R, H - 0.02, 0.02], [R * 0.78, H, 0.006], [R * 0.78, H + 0.008]], 6);
+  const prof = fillet([[0, 0], [R - 0.01, 0, 0.01], [R, 0.015, 0.012], [R, H - 0.02, 0.02], [R * 0.78, H, 0.006], [R * 0.78, H + 0.008]], 4);
   // cookies inside (drawn first, opaque)
-  const cookie = puck(0.034 * scale, 0.012 * scale, 0.005, 24);
+  const cookie = puck(0.034 * scale, 0.012 * scale, 0.005, 16, 2);
   const chips: THREE.BufferGeometry[] = [];
   const cookies: THREE.BufferGeometry[] = [];
   const r = new Rand(4);
@@ -195,9 +213,9 @@ export function cookieJar(scale = 1): THREE.Group {
   }
   part(g, mergeGeo(cookies), lacquer('#e2a866', 0.6));
   part(g, mergeGeo(chips), enamel('#5a3220', 0.5), { cast: false });
-  part(g, lathe(prof, 48), glass('#f3fbff', 0.28), { order: 3 });
+  part(g, lathe(prof, 36), glass('#f3fbff', 0.28), { order: 3 });
   // lid with a knob
-  part(g, lathe(fillet([[0, H + 0.03 * scale], [R * 0.7, H + 0.022 * scale, 0.02], [R * 0.9, H + 0.006, 0.006], [R * 0.9, H], [R * 0.75, H - 0.004]], 6), 48), lacquer(PALETTE.coral, 0.3));
+  part(g, lathe(fillet([[0, H + 0.03 * scale], [R * 0.7, H + 0.022 * scale, 0.02], [R * 0.9, H + 0.006, 0.006], [R * 0.9, H], [R * 0.75, H - 0.004]], 4), 36), lacquer(PALETTE.coral, 0.3));
   part(g, new THREE.SphereGeometry(0.016 * scale, 18, 12), lacquer(PALETTE.cream, 0.3), { pos: [0, H + 0.04 * scale, 0] });
   return g;
 }

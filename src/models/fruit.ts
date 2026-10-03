@@ -7,8 +7,14 @@
 //  - Broad colour (blush, ripeness gradients) comes from vertex colours; fine detail from canvas
 //    maps and normal maps generated from painted height fields. Where a map has to *lighten*
 //    (lenticels, streaks) the map's base is a light grey and the vertex colours are boosted.
+//  - Big procedural skins (watermelon stripes, pineapple eye lattice, avocado pebbles) are painted
+//    per pixel in metres over the lathe's texture space (`latheField`), giving colour + a float
+//    height field that becomes the normal map without 8-bit banding (`normalField`).
 //  - `profile` (for the generic cut forms) always starts at the lowest point on the axis, so the
-//    forms' face UVs line up with `sectionV`.
+//    forms' face UVs line up with `sectionV`. Items that lie down (lemon, strawberry, watermelon,
+//    kiwi, mango, avocado, coconut) keep an upright profile and rotate in `build`.
+//  - 'bunch' items (grapes, cherry, blueberry) merge their pieces into one or two meshes;
+//    `piece` builds one grape / cherry with stem / berry.
 //  - Templates (materials, textures) are cached; builders only make geometry.
 
 import * as THREE from 'three';
@@ -2444,8 +2450,8 @@ function pineSectionV(ctx: Ctx, w: number, h: number, o: SectionOpts) {
     const [rr, yy] = prof[i];
     if (rr < 0.012) continue;
     for (const side of [-1, 1]) {
-      const px = m.X(side * rr * 0.93), py = m.Y(yy);
-      seed(ctx, px, py, 0.0075 * m.kx, 0.0042 * m.kx, side > 0 ? Math.PI : 0, '#5c3812', '#a8782a', 'rgba(255,255,255,0.12)');
+      const px = m.X(side * (rr - 0.0072)), py = m.Y(yy);
+      seed(ctx, px, py, 0.0085 * m.kx, 0.0045 * m.kx, side > 0 ? Math.PI : 0, '#5c3812', '#a8782a', 'rgba(255,255,255,0.12)');
     }
   }
   // core column
@@ -2481,21 +2487,22 @@ const grapeBloomTex = lazy(() =>
       ctx.fillStyle = '#d8d8dc';
       ctx.fillRect(0, 0, w, h);
       const r = rng(81);
-      blobs(ctx, w, h, r, 28, '255,255,255', [5, 14], [0.25, 0.55]);
-      blobs(ctx, w, h, r, 14, '110,100,124', [4, 10], [0.12, 0.28]);
+      blobs(ctx, w, h, r, 30, '255,255,255', [5, 14], [0.25, 0.55]);
+      blobs(ctx, w, h, r, 10, '150,140,160', [6, 14], [0.06, 0.14]);
     },
     { key: 'fruit-grape-bloom', wrap: true },
   ),
 );
 const grapeMat = lazy(() =>
-  foodMat({ color: '#ffffff', map: grapeBloomTex(), vertexColors: true, roughness: 0.34, clearcoat: 0.7, clearcoatRoughness: 0.22, flesh: colorsOf('grapes').flesh, cookColor: colorsOf('grapes').cooked, name: 'grape-skin' }),
+  foodMat({ color: '#ffffff', map: grapeBloomTex(), vertexColors: true, roughness: 0.38, clearcoat: 0.55, clearcoatRoughness: 0.3, flesh: colorsOf('grapes').flesh, cookColor: colorsOf('grapes').cooked, name: 'grape-skin' }),
 );
+const grapeCoreMat = lazy(() => foodMat({ color: '#24082a', roughness: 0.95, flesh: colorsOf('grapes').flesh, cookColor: colorsOf('grapes').cooked, name: 'grape-core' }));
 const grapeSkinCutMat = lazy(() => foodMat({ color: colorsOf('grapes').skin, roughness: 0.34, clearcoat: 0.6, clearcoatRoughness: 0.25, flesh: colorsOf('grapes').flesh, cookColor: colorsOf('grapes').cooked }));
 const grapeFleshMat = lazy(() => foodMat({ color: colorsOf('grapes').flesh, roughness: 0.22, clearcoat: 0.4, clearcoatRoughness: 0.2, flesh: colorsOf('grapes').flesh, cookColor: colorsOf('grapes').cooked }));
 
 /** One grape: slightly oval, local +Y = stem end. Vertex coloured (reddish near the stem, darker below). */
-function grapeGeo(r: Rng, rad: number): THREE.BufferGeometry {
-  const g = new THREE.SphereGeometry(rad, 10, 8);
+function grapeGeo(r: Rng, rad: number, segs = 12, rings = 9): THREE.BufferGeometry {
+  const g = new THREE.SphereGeometry(rad, segs, rings);
   g.scale(1, r.range(1.06, 1.16), 1);
   const base = col(r.pick(GRAPE_COLORS)), top = base.clone().lerp(col('#8e3050'), 0.3), low = base.clone().multiplyScalar(0.6);
   const k = GRAPE_BOOST * r.range(0.88, 1.1);
@@ -2508,37 +2515,63 @@ function grapeGeo(r: Rng, rad: number): THREE.BufferGeometry {
 const UP = new THREE.Vector3(0, 1, 0);
 
 function buildGrapes(r: Rng): THREE.Object3D {
-  const L = 0.098;
+  // Staggered rings of grapes on a cone lying on the table (shoulders at x = 0, tip towards -X).
+  const L = 0.09, R0 = 0.028, R1 = 0.007, AX = 0.024;
+  const cand: { c: THREE.Vector3; rad: number; t: number }[] = [];
+  const slant = Math.hypot(L, R0 - R1);
+  let row = 0;
+  for (let t = 0; t <= 1.001; row++) {
+    const rad = 0.0096 * lerp(1, 0.85, t);
+    const cr = lerp(R0, R1, t);
+    const n = Math.max(1, Math.round((TAU * cr) / (rad * 1.95)));
+    const off = (row % 2) * 0.5 + r.range(-0.15, 0.15);
+    for (let k = 0; k < n; k++) {
+      const phi = ((k + off + r.range(-0.12, 0.12)) / n) * TAU;
+      const c = new THREE.Vector3(-t * L + r.range(-0.002, 0.002), AX + Math.sin(phi) * cr * 0.92, Math.cos(phi) * cr);
+      cand.push({ c, rad: rad * r.range(0.94, 1.06), t });
+    }
+    t += (rad * 1.65) / slant;
+  }
+  // close the shoulders with a few grapes around the stalk
+  for (let k = 0; k < 4; k++) {
+    const phi = (k / 4) * TAU + r.range(-0.3, 0.3);
+    cand.push({ c: new THREE.Vector3(0.0075, AX + Math.sin(phi) * R0 * 0.42, Math.cos(phi) * R0 * 0.42), rad: 0.009 * r.range(0.94, 1.06), t: 0 });
+  }
+  // rest on the table; keep grapes that don't overlap (top ones first: they are the visible ones)
+  for (const q of cand) q.c.y = Math.max(q.c.y, q.rad * 1.05);
+  cand.sort((p, q) => q.c.y - p.c.y);
   const spots: { c: THREE.Vector3; rad: number; axis: THREE.Vector3 }[] = [];
-  for (let tries = 0; tries < 2000 && spots.length < 28; tries++) {
-    const t = Math.pow(r.next(), 0.85); // 0 = shoulders (stem end) .. 1 = tip
-    const coneR = lerp(0.03, 0.006, t);
-    const phi = r.range(0, TAU), rho = Math.sqrt(r.range(0.3, 1)) * coneR;
-    const rad = r.range(0.0082, 0.0094) * lerp(1, 0.88, t);
-    const c = new THREE.Vector3(-t * L, Math.sin(phi) * rho * 0.7, Math.cos(phi) * rho);
-    if (c.y < 0) c.y *= 0.8; // settles on the table
-    if (spots.some((s) => s.c.distanceTo(c) < (s.rad + rad) * 0.93)) continue;
-    const attach = new THREE.Vector3(c.x + 0.006, c.y * 0.15, c.z * 0.15);
-    spots.push({ c, rad, axis: attach.sub(c).normalize() });
+  for (const q of cand) {
+    if (spots.length >= 38) break;
+    if (spots.some((s) => s.c.distanceTo(q.c) < (s.rad + q.rad) * 0.82)) continue;
+    const attach = new THREE.Vector3(q.c.x + 0.006, AX, 0);
+    spots.push({ c: q.c, rad: q.rad, axis: attach.sub(q.c).normalize() });
   }
   const grapes: THREE.BufferGeometry[] = [];
   const stems: THREE.BufferGeometry[] = [];
-  const q = new THREE.Quaternion(), spin = new THREE.Quaternion(), m4 = new THREE.Matrix4();
+  const quat = new THREE.Quaternion(), spin = new THREE.Quaternion(), m4 = new THREE.Matrix4();
   for (const s of spots) {
-    const g = grapeGeo(r, s.rad);
-    q.setFromUnitVectors(UP, s.axis).multiply(spin.setFromAxisAngle(UP, r.range(0, TAU)));
-    g.applyMatrix4(m4.compose(s.c, q, new THREE.Vector3(1, 1, 1)));
+    const hidden = s.c.y < AX - R0 * 0.35;
+    const g = hidden ? grapeGeo(r, s.rad, 9, 6) : grapeGeo(r, s.rad, 12, 9);
+    quat.setFromUnitVectors(UP, s.axis).multiply(spin.setFromAxisAngle(UP, r.range(0, TAU)));
+    g.applyMatrix4(m4.compose(s.c, quat, new THREE.Vector3(1, 1, 1)));
     grapes.push(g);
+    if (hidden || s.c.x < -0.03) continue; // pedicels only show between the shoulder grapes
     const a = s.c.clone().addScaledVector(s.axis, s.rad * 1.02);
-    const b = new THREE.Vector3(s.c.x + 0.006, s.c.y * 0.12, s.c.z * 0.12);
+    const b = new THREE.Vector3(s.c.x + 0.006, AX, 0);
     stems.push(colorStem([[a.x, a.y, a.z], [lerp(a.x, b.x, 0.5), lerp(a.y, b.y, 0.5) + 0.001, lerp(a.z, b.z, 0.5)], [b.x, b.y, b.z]], 0.00075, 0.0009, [[0, '#8a8a3e'], [1, '#7a7a3a']], { tub: 2, radial: 4, caps: 'flat' }));
   }
-  // main stalk running through the bunch, out at the top, with the woody cut cross-piece
-  const e: V3 = [0.026, 0.009, 0.001];
-  stems.push(colorStem([e, [0.014, 0.004, 0], [-0.01, 0.001, 0], [-0.05, 0, 0.002], [-L * 0.88, -0.002, 0]], 0.0026, 0.0013, [[0, '#6a5030'], [0.15, '#7c7a3a'], [1, '#8a9a46']], { tub: 14, radial: 7 }));
+  // dark core so gaps between grapes never show the background
+  const core = new THREE.IcosahedronGeometry(1, 1);
+  core.scale(L * 0.5, R0 * 0.62, R0 * 0.7);
+  core.translate(-L * 0.42, AX - 0.002, 0);
+  const coreMesh = mesh(core, grapeCoreMat(), { name: 'grape-core' });
+  // main stalk through the bunch, out at the shoulders, with the woody cut cross-piece
+  const e: V3 = [0.044, AX + 0.016, r.range(-0.004, 0.004)];
+  stems.push(colorStem([e, [0.027, AX + 0.007, 0], [0.006, AX - 0.002, 0], [-0.04, AX - 0.004, 0.002], [-L * 0.85, AX - 0.004, 0]], 0.0027, 0.0013, [[0, '#6a5030'], [0.18, '#7c7a3a'], [1, '#8a9a46']], { tub: 10, radial: 7, caps: 'flat' }));
   const tw = r.range(0.006, 0.009);
   stems.push(colorStem([[e[0] + 0.001, e[1], e[2] - tw], [e[0] + 0.0015, e[1] + 0.001, e[2]], [e[0] + 0.001, e[1], e[2] + tw]], 0.0017, 0.0015, [[0, '#5e4428'], [1, '#6a5030']], { tub: 4, radial: 7 }));
-  const root = grp(mesh(merge(grapes), grapeMat(), { name: 'grapes' }), mesh(merge(stems), vcStemMat(), { name: 'grape-stems' }));
+  const root = grp(mesh(merge(grapes), grapeMat(), { name: 'grapes' }), coreMesh, mesh(merge(stems), vcStemMat(), { name: 'grape-stems' }));
   root.rotation.y = r.range(-0.5, 0.5);
   return seat(root);
 }
@@ -2678,7 +2711,7 @@ const BB_PROFILE: Profile = smoothProfile(
     [0.0016, 0.0101],
     [0.0001, 0.0099],
   ],
-  10,
+  9,
 );
 const BB_C = 0.0057; // centre height
 const BB_MAP = 0xdc / 255;
@@ -2692,7 +2725,7 @@ const bbBloomTex = lazy(() =>
       ctx.fillStyle = '#dcdcdc';
       ctx.fillRect(0, 0, w, h);
       const r = rng(91);
-      blobs(ctx, w, h, r, 30, '255,255,255', [4, 12], [0.25, 0.5], [0.05, 0.8]);
+      blobs(ctx, w, h, r, 36, '255,255,255', [4, 12], [0.3, 0.6], [0.05, 0.8]);
       blobs(ctx, w, h, r, 12, '90,90,110', [3, 8], [0.12, 0.25], [0.1, 0.8]);
     },
     { key: 'fruit-bb-bloom', wrap: true },
@@ -2719,7 +2752,7 @@ const bbFleshMat = lazy(() => foodMat({ color: colorsOf('blueberry').flesh, roug
 
 /** One berry centred at the origin (crown up). */
 function berryGeo(r: Rng): THREE.BufferGeometry {
-  const g = lathe(BB_PROFILE, 20);
+  const g = lathe(BB_PROFILE, 15);
   const k = r.range(0.88, 1.08), ph = r.range(0, TAU);
   deform(g, (p) => {
     const a = Math.atan2(p.x, p.z), rad = Math.hypot(p.x, p.z);
@@ -2728,7 +2761,7 @@ function berryGeo(r: Rng): THREE.BufferGeometry {
     p.multiplyScalar(k);
     p.y -= BB_C * k;
   });
-  const base = col(r.pick(['#34407e', '#2c3672', '#38407a', '#2a2c64', '#3c4888'])).multiplyScalar(BB_BOOST * r.range(0.85, 1.1));
+  const base = col(r.pick(['#2e3474', '#283068', '#32366e', '#25285c', '#363e80'])).multiplyScalar(BB_BOOST * r.range(0.85, 1.1));
   const CROWN = col('#2a2236').multiplyScalar(BB_BOOST), RIM = col('#544a6e').multiplyScalar(BB_BOOST);
   return paintVertices(g, (p) => {
     const rad = Math.hypot(p.x, p.z) / k, y = p.y / k + BB_C;
@@ -2744,27 +2777,35 @@ function placeBerry(g: THREE.BufferGeometry, r: Rng, pos: V3, tilt: number): THR
 
 function buildBlueberry(r: Rng): THREE.Object3D {
   const rho = 0.0063; // sphere radius used for stacking
-  const low: [number, number][] = [];
-  for (let tries = 0; tries < 600 && low.length < 9; tries++) {
-    const [dx, dz] = r.disc();
-    const x = dx * 0.026, z = dz * 0.026;
-    if (low.every(([px, pz]) => Math.hypot(px - x, pz - z) > rho * 2.02)) low.push([x, z]);
-  }
+  const sp = rho * 2.06;
+  // bottom layer: jittered hex packing, the 14 closest to a slightly random centre
+  const grid: [number, number][] = [];
+  for (let i = -3; i <= 3; i++)
+    for (let j = -3; j <= 3; j++) {
+      const x = (i + j * 0.5) * sp, z = j * sp * 0.866;
+      if (Math.hypot(x, z) < 0.036) grid.push([x + r.range(-0.0005, 0.0005), z + r.range(-0.0005, 0.0005)]);
+    }
+  const [ox, oz] = r.disc();
+  const near = (p: [number, number]) => Math.hypot(p[0] - ox * 0.005, (p[1] - oz * 0.005) * 1.25) + r.next() * 0.006;
+  const low = grid.map((p) => [p, near(p)] as const).sort((a, b) => a[1] - b[1]).slice(0, 14).map((e) => e[0]);
   const geos: THREE.BufferGeometry[] = [];
   for (const [x, z] of low) geos.push(placeBerry(berryGeo(r), r, [x, rho, z], r.range(0, 0.5)));
+  // top layer: berries nestled in the hollows between three touching berries
   const high: V3[] = [];
-  for (let tries = 0; tries < 400 && high.length < 4; tries++) {
-    const [dx, dz] = r.disc();
-    const x = dx * 0.017, z = dz * 0.017;
-    let y = -1, supports = 0;
-    for (const [px, pz] of low) {
-      const d = Math.hypot(px - x, pz - z);
-      if (d < rho * 2) {
-        supports++;
-        y = Math.max(y, rho + Math.sqrt(rho * rho * 4 - d * d));
+  const tri: [number, number, number][] = [];
+  for (let a = 0; a < low.length; a++)
+    for (let b = a + 1; b < low.length; b++)
+      for (let c = b + 1; c < low.length; c++) {
+        const d = (i: number, j: number) => Math.hypot(low[i][0] - low[j][0], low[i][1] - low[j][1]);
+        if (d(a, b) < sp * 1.25 && d(b, c) < sp * 1.25 && d(a, c) < sp * 1.25) tri.push([a, b, c]);
       }
-    }
-    if (supports < 2 || high.some((h) => Math.hypot(h[0] - x, h[1] - y, h[2] - z) < rho * 2.02)) continue;
+  tri.sort(() => r.next() - 0.5);
+  for (const [a, b, c] of tri) {
+    if (high.length >= 6) break;
+    const x = (low[a][0] + low[b][0] + low[c][0]) / 3, z = (low[a][1] + low[b][1] + low[c][1]) / 3;
+    let y = rho;
+    for (const i of [a, b, c]) y = Math.max(y, rho + Math.sqrt(Math.max(0, 4 * rho * rho - (low[i][0] - x) ** 2 - (low[i][1] - z) ** 2)));
+    if (high.some((h) => Math.hypot(h[0] - x, h[1] - y, h[2] - z) < rho * 2.02)) continue;
     high.push([x, y, z]);
   }
   for (const p of high) geos.push(placeBerry(berryGeo(r), r, p, r.range(0.2, 1.1)));
@@ -3192,10 +3233,10 @@ const kiwiSkinTex = lazy(() =>
     512,
     256,
     (ctx, w, h) => {
-      ctx.fillStyle = '#8a6a3a';
+      ctx.fillStyle = '#7c5c30';
       ctx.fillRect(0, 0, w, h);
-      noiseField(ctx, w, h, [24, 12], 51, (n) => (n > 0.5 ? '#9c7a44' : '#745628'), 0.7);
-      kiwiHairs(ctx, w, h, '#c0a070', '#4e3618', 3600);
+      noiseField(ctx, w, h, [24, 12], 51, (n) => (n > 0.5 ? '#8e6c3a' : '#664a22'), 0.7);
+      kiwiHairs(ctx, w, h, '#b8966a', '#3e2a12', 3600);
       // darker, balder ends
       ctx.fillStyle = linear(ctx, 0, 0, 0, h, [[0, 'rgba(70,48,22,0.85)'], [0.05, 'rgba(70,48,22,0)'], [0.95, 'rgba(70,48,22,0)'], [1, 'rgba(60,40,20,0.9)']]);
       ctx.fillRect(0, 0, w, h);
@@ -3243,11 +3284,12 @@ const kiwiPeeledTex = lazy(() =>
       const G = hexRGB('#7cc242'), G2 = hexRGB('#9ad25a'), GD = hexRGB('#62a832'), CORE = hexRGB('#eef4c8'), SEED = hexRGB('#2e3a14');
       pixels(ctx, 512, 256, (x, y, o) => {
         const u = (x + 0.5) / 512, v = 1 - (y + 0.5) / 256, sv = v * L.total;
-        const n = noiseU(u, sv, 30, 25, 4.4);
+        const n = fbmU(u, sv, 3, 190, 4.4, 3);
         setRGB(o, G);
-        blend(o, n > 0 ? G2 : GD, Math.abs(n) * 1.5);
+        blend(o, n > 0 ? G2 : GD, Math.abs(n) * 1.1);
         const pole = Math.min(sv, L.total - sv);
-        blend(o, G2, sstep(0.016, 0.006, pole) * 0.6);
+        // fine fibres radiating from the core, only near the ends
+        blend(o, G2, sstep(0.013, 0.005, pole) * (0.4 + 0.6 * noiseU(u, sv, 45, 40, 2.2)) * 0.6);
         blend(o, CORE, sstep(0.0065, 0.0025, pole));
         // the seed ring shows faintly through the flesh near each end
         const sd = noiseU(u, sv, 70, 600, 8.8);
@@ -3309,7 +3351,7 @@ function kiwiSection(ctx: Ctx, s: number, o: SectionOpts) {
   // ring of black seeds
   for (let i = 0; i < 52; i++) {
     const a = (i / 52) * TAU + r.range(-0.04, 0.04), d = R * r.range(0.3, 0.42);
-    seed(ctx, c + Math.cos(a) * d, c + Math.sin(a) * d, s * r.range(0.03, 0.04), s * 0.017, a + r.range(-0.3, 0.3), '#120a06', '#3e2c1a', 'rgba(255,255,255,0.4)');
+    seed(ctx, c + Math.cos(a) * d, c + Math.sin(a) * d, s * r.range(0.03, 0.04), s * 0.017, a + r.range(-0.3, 0.3), '#0a0604', '#2a1c10', 'rgba(255,255,255,0.3)');
   }
   // creamy core
   fillEllipse(ctx, c, c, R * 0.19, R * 0.15, r.range(0, Math.PI), radial(ctx, c, c, 0, R * 0.19, [[0, '#fdfdf0'], [0.7, '#f4f6d8'], [1, 'rgba(240,246,204,0.6)']]));
@@ -3342,7 +3384,7 @@ function kiwiSectionV(ctx: Ctx, w: number, h: number, o: SectionOpts) {
     const yy = r.range(0.01, 0.06), side = i % 2 ? 1 : -1;
     const spread = Math.sin((Math.PI * (yy - 0.004)) / 0.062);
     const x = cx + side * r.range(0.0058, 0.0095) * spread * m.kx;
-    seed(ctx, x, m.Y(yy), 0.0028 * m.kx, 0.0014 * m.kx, side > 0 ? r.range(-0.4, 0.4) : Math.PI + r.range(-0.4, 0.4), '#120a06', '#3e2c1a', 'rgba(255,255,255,0.4)');
+    seed(ctx, x, m.Y(yy), 0.0024 * m.kx, 0.0012 * m.kx, side > 0 ? r.range(-0.4, 0.4) : Math.PI + r.range(-0.4, 0.4), '#0a0604', '#2a1c10', 'rgba(255,255,255,0.25)');
   }
   // creamy core column
   const yT = m.Y(0.063), yB = m.Y(0.006), cw = 0.0042 * m.kx;
@@ -3422,13 +3464,40 @@ const mangoSkinCutMat = lazy(() => {
   return m;
 });
 const mangoFleshMat = lazy(() => foodMat({ color: colorsOf('mango').flesh, roughness: 0.28, clearcoat: 0.4, clearcoatRoughness: 0.25, flesh: colorsOf('mango').flesh, cookColor: colorsOf('mango').cooked }));
+/** Peeled: glossy golden flesh with fibres running along the fruit. */
+const mangoPeeledMat = lazy(() =>
+  foodMat({
+    color: '#ffffff',
+    map: canvasTexture(
+      256,
+      256,
+      (ctx, w, h) => {
+        const BASE = hexRGB('#ffae2c'), LIGHT = hexRGB('#ffca52'), DEEP = hexRGB('#f2921a'), STEM = hexRGB('#f8c040');
+        pixels(ctx, w, h, (x, y, o) => {
+          const u = (x + 0.5) / w, v = 1 - (y + 0.5) / h;
+          const f = noiseU(u, v, 16, 5, 1.1), b = fbmU(u, v, 1.5, 3, 3.3, 2);
+          setRGB(o, BASE);
+          blend(o, f > 0 ? LIGHT : DEEP, Math.abs(f) * 0.7 + Math.abs(b) * 0.3);
+          blend(o, STEM, sstep(0.75, 1, v) * 0.5);
+        });
+      },
+      { key: 'fruit-mango-peeled' },
+    ),
+    roughness: 0.3,
+    clearcoat: 0.55,
+    clearcoatRoughness: 0.22,
+    flesh: colorsOf('mango').flesh,
+    cookColor: colorsOf('mango').cooked,
+    name: 'mango-peeled',
+  }),
+);
 
-function buildMango(r: Rng): THREE.Object3D {
+function buildMango(r: Rng, peeled = false): THREE.Object3D {
   const k = r.range(0.94, 1.05), flat = r.range(0.76, 0.84), bend = r.range(0.004, 0.008), beak = r.range(0.004, 0.008), seedN = r.range(0, 40);
   const g = lathe(MANGO_PROFILE, 48);
   deform(g, (p) => {
     const t = p.y / MANGO_L;
-    const f = k * (1 + fbm3(p.x * 35 + seedN, p.y * 35, p.z * 35, 2) * 0.022);
+    const f = k * (peeled ? 0.95 : 1) * (1 + fbm3(p.x * 35 + seedN, p.y * 35, p.z * 35, 2) * (peeled ? 0.035 : 0.022));
     p.x = p.x * f + bend * Math.sin(Math.PI * t) - beak * sstep(0.3, 0, t);
     p.z *= f * flat;
     p.y *= k;
@@ -3446,9 +3515,9 @@ function buildMango(r: Rng): THREE.Object3D {
     c.lerp(RED, b).lerp(DEEP, sstep(0.6, 1, b) * 0.4);
     return c.multiplyScalar(MANGO_BOOST);
   });
-  const body = mesh(g, mangoSkinMat(), { skin: true, name: 'mango-body' });
-  const stem = mesh(colorStem([[bend * 0, H - 0.003, 0], [0, H + 0.002, 0], [0.0004, H + 0.005, 0.0002]], 0.0022, 0.0018, [[0, '#6e6a30'], [1, '#4e3a20']], { tub: 3, radial: 8, caps: 'flat' }), vcStemMat());
-  const up = grp(body, stem);
+  const body = mesh(g, peeled ? mangoPeeledMat() : mangoSkinMat(), { skin: !peeled, name: 'mango-body' });
+  const up = grp(body);
+  if (!peeled) up.add(mesh(colorStem([[0, H - 0.003, 0], [0, H + 0.002, 0], [0.0004, H + 0.005, 0.0002]], 0.0022, 0.0018, [[0, '#6e6a30'], [1, '#4e3a20']], { tub: 3, radial: 8, caps: 'flat' }), vcStemMat()));
   up.rotation.x = Math.PI / 2;
   const root = grp(up);
   root.rotation.y = r.range(0, TAU);
@@ -3527,7 +3596,8 @@ function mangoSectionV(ctx: Ctx, w: number, h: number, o: SectionOpts) {
 }
 
 const MANGO: ModelDef = {
-  build: buildMango,
+  build: (r) => buildMango(r),
+  peeled: (r) => buildMango(r, true),
   profile: MANGO_PROFILE,
   skin: mangoSkinCutMat,
   flesh: mangoFleshMat,
@@ -3554,10 +3624,10 @@ function cocoHairs(ctx: Ctx, w: number, h: number, cols: string[], n: number) {
   const r = rng(143);
   ctx.lineCap = 'round';
   for (let i = 0; i < n; i++) {
-    const x = r.next() * w, y = r.range(-0.02, 0.97) * h, len = r.range(6, 24), a = Math.PI / 2 + r.range(-0.55, 0.55), bend = r.range(-4, 4);
+    const x = r.next() * w, y = r.range(-0.04, 0.97) * h, len = r.range(8, 26), a = Math.PI / 2 + r.range(-0.45, 0.45), bend = r.range(-4, 4);
     ctx.strokeStyle = r.pick(cols);
-    ctx.globalAlpha = r.range(0.35, 0.8);
-    ctx.lineWidth = r.range(0.7, 1.8);
+    ctx.globalAlpha = r.range(0.3, 0.75);
+    ctx.lineWidth = r.range(0.5, 1.2);
     wrapX(w, x, len, (xx) => {
       ctx.beginPath();
       ctx.moveTo(xx, y);
@@ -3573,10 +3643,10 @@ const cocoHairTex = lazy(() =>
     512,
     512,
     (ctx, w, h) => {
-      ctx.fillStyle = '#5c3a1e';
+      ctx.fillStyle = '#4a2c16';
       ctx.fillRect(0, 0, w, h);
-      noiseField(ctx, w, h, [20, 20], 71, (n) => (n > 0.5 ? '#7a5030' : '#46280f'), 0.8);
-      cocoHairs(ctx, w, h, ['#3a2210', '#2c180a', '#8a6038', '#a87a4a', '#c09060', '#6b4423'], 4200);
+      noiseField(ctx, w, h, [20, 20], 71, (n) => (n > 0.5 ? '#664024' : '#341c0a'), 0.8);
+      cocoHairs(ctx, w, h, ['#2a160a', '#22120a', '#5a3a20', '#7a5230', '#946a42', '#b08454', '#c49868'], 9000);
       // smoother, darker cap around the eyes (top)
       ctx.fillStyle = linear(ctx, 0, 0, 0, h, [[0, 'rgba(52,32,16,0.95)'], [0.035, 'rgba(52,32,16,0.5)'], [0.07, 'rgba(52,32,16,0)']]);
       ctx.fillRect(0, 0, w, h);
@@ -3593,9 +3663,9 @@ const cocoHairNormal = lazy(() =>
       ctx.fillStyle = '#707070';
       ctx.fillRect(0, 0, w, h);
       noiseField(ctx, w, h, [40, 40], 73, (n) => (n > 0.5 ? '#868686' : '#5a5a5a'), 0.8);
-      cocoHairs(ctx, w, h, ['#e0e0e0', '#c0c0c0', '#303030'], 4200);
+      cocoHairs(ctx, w, h, ['#e8e8e8', '#c8c8c8', '#d8d8d8', '#303030', '#404040'], 9000);
     },
-    2.6,
+    3,
   ),
 );
 const cocoHairMat = lazy(() =>
@@ -3604,9 +3674,9 @@ const cocoHairMat = lazy(() =>
     map: cocoHairTex(),
     normalMap: cocoHairNormal(),
     roughness: 0.92,
-    sheen: 1,
-    sheenColor: '#e8c494',
-    sheenRoughness: 0.7,
+    sheen: 0.8,
+    sheenColor: '#c89c6c',
+    sheenRoughness: 0.65,
     flesh: colorsOf('coconut').flesh,
     cookColor: colorsOf('coconut').cooked,
     name: 'coconut-husk',
@@ -3638,7 +3708,7 @@ function buildCoconut(r: Rng): THREE.Object3D {
     eyes.push(bake(eye.clone(), [Math.sin(a) * d, COCO_L * k - 0.0011, Math.cos(a) * d], a, 0, 0, [i === 0 ? 1.1 : 0.9, 0.45, 1]));
   }
   up.add(mesh(merge(eyes), cocoEyeMat(), { name: 'coconut-eyes' }));
-  up.rotation.z = Math.PI / 2 * r.range(0.72, 0.85);
+  up.rotation.z = (Math.PI / 2) * r.range(0.6, 0.7);
   const root = grp(up);
   root.rotation.y = r.range(0, TAU);
   return seat(root, body);

@@ -303,6 +303,14 @@ function profileShapes(info: BodyInfo, mirrored: boolean): THREE.Shape[] {
   return [s];
 }
 
+/** A partial lathe gets u = 0..1 over its own arc; squeeze it to the arc's share of the full texture. */
+function remapLatheU(g: THREE.BufferGeometry, start: number, span: number): THREE.BufferGeometry {
+  const uv = g.attributes.uv as THREE.BufferAttribute;
+  for (let i = 0; i < uv.count; i++) uv.setX(i, start + uv.getX(i) * span);
+  uv.needsUpdate = true;
+  return g;
+}
+
 /** ShapeGeometry with UVs mapped to the profile frame: u = (x + R) / 2R, v = y / H. */
 function faceGeometry(shapes: THREE.Shape[], info: BodyInfo): THREE.BufferGeometry {
   const g = new THREE.ShapeGeometry(shapes, 6);
@@ -389,7 +397,7 @@ function halves(state: FoodState, model: ModelDef, r: Rng, opts: FormOpts): THRE
     // Built upright (axis = Y). Half k=0 occupies x >= 0 with its cut face at x = 0 facing -X;
     // k=1 is the mirror image.
     const half = new THREE.Group();
-    const body = new THREE.Mesh(latheGeometry(info.profile, 36, k * Math.PI, Math.PI), skin);
+    const body = new THREE.Mesh(remapLatheU(latheGeometry(info.profile, 36, k * Math.PI, Math.PI), k * 0.5, 0.5), skin);
     const fg = faceGeometry(shapes, info);
     fg.rotateY(k === 0 ? -Math.PI / 2 : Math.PI / 2);
     half.add(body, new THREE.Mesh(fg, face));
@@ -457,7 +465,7 @@ function wedges(state: FoodState, model: ModelDef, r: Rng, n: number, opts: Form
   for (let k = 0; k < n; k++) {
     const phi0 = k * d;
     const w = new THREE.Group();
-    w.add(new THREE.Mesh(latheGeometry(info.profile, Math.max(6, Math.round(48 / n) + 2), phi0, d), skin));
+    w.add(new THREE.Mesh(remapLatheU(latheGeometry(info.profile, Math.max(6, Math.round(48 / n) + 2), phi0, d), phi0 / (Math.PI * 2), d / (Math.PI * 2)), skin));
     // side faces (skip for rings? rings still have faces)
     const f0 = faceGeometry(shapes, info);
     f0.rotateY(phi0 - Math.PI / 2);

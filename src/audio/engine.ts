@@ -15,7 +15,7 @@ import { SFX, SFX_NAMES, type SfxSpec } from './sfx';
 import { LOOPS, LOOP_NAMES, type LoopSpec } from './loops';
 import { VOICE_PHRASES } from './voice';
 import { Bank, PRIO_BG, PRIO_IDLE, PRIO_URGENT, type BankStats } from './bank';
-import { Mixer, holdAt } from './mixer';
+import { Mixer, REVERB_SEC, holdAt } from './mixer';
 import { MusicPlayer } from './musicPlayer';
 import type { RenderJob } from './render';
 import { clamp } from './dsp';
@@ -405,7 +405,7 @@ export class Engine implements Audio {
   }
 
   private setup(ctx: BaseAudioContext): void {
-    const mixer = new Mixer(ctx, { reverb: this.opts.reverb, master: this.masterVol });
+    const mixer = new Mixer(ctx, { master: this.masterVol });
     mixer.connectTo(ctx.destination);
     if (!this.sfxOn) mixer.setSfxEnabled(false);
     const bank = new Bank(ctx, Math.min(RENDER_SR, ctx.sampleRate), this.opts.workers ?? !this.offline, this.offline);
@@ -415,6 +415,10 @@ export class Engine implements Audio {
     this.mixer = mixer;
     this.bank = bank;
     this.music = music;
+    if (this.opts.reverb !== false)
+      bank.requestRaw('ir', { k: 'ir', sr: ctx.sampleRate, dur: REVERB_SEC, seed: 11 }, PRIO_BG, (ir) => {
+        if (ir) mixer.attachReverb(ir);
+      });
     if (!this.offline) this.timer = setInterval(() => this.tick(), 100);
   }
 
@@ -468,7 +472,8 @@ export class Engine implements Audio {
       if (!this.ctx || !this.isRunning()) return;
       this.music?.tick();
       const now = this.ctx.currentTime;
-      for (const s of this.shots) if (now > s.end + 1) this.release(s);
+      // safety net for sources whose `ended` event never arrived
+      if (this.shots.length) for (const s of this.shots.filter((x) => now > x.end + 1)) this.release(s);
       for (const l of this.loops) l.flush();
     } catch (e) {
       this.fault(e);

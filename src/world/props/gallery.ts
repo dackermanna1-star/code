@@ -13,6 +13,8 @@ import { buildFridge } from './fridge';
 import { buildCuttingBoard, buildToolCaddy, buildKnife, buildPeeler, buildRollingPin, buildMasher, buildMixingBowl, buildWhisk } from './prep';
 import { buildPlate, buildBell, buildTable, buildChair } from './dining';
 import { buildTrash } from './trash';
+import { bigPlant, smallPlant, cookieJar, cookbooks, mug, plateStack, napkinHolder } from '../decor/things';
+import { PALETTE } from '../palette';
 
 type Entry = { name: string; make: () => THREE.Object3D; gap?: number; extra?: boolean };
 
@@ -156,6 +158,25 @@ export function buildGallery(): THREE.Object3D {
       },
     },
     { name: 'trash', extra: true, make: () => buildTrash().root },
+    {
+      name: 'plants',
+      extra: true,
+      make: () => {
+        const g = new THREE.Group();
+        g.add(bigPlant(2).root);
+        const items = [smallPlant('succulent', PALETTE.cabinet, 9).root, smallPlant('bush', PALETTE.butter, 7).root, smallPlant('trailing', PALETTE.cabinet, 3, 0.34).root];
+        items.forEach((o, i) => {
+          o.position.set(0.45 + i * 0.22, 0.45, 0);
+          g.add(o);
+        });
+        const props = [cookieJar(1), cookbooks([PALETTE.coral, PALETTE.cabinet, PALETTE.lilac, PALETTE.butter], 2), mug(PALETTE.coral), plateStack(4), napkinHolder()];
+        props.forEach((o, i) => {
+          o.position.set(0.4 + i * 0.2, 0, 0.3);
+          g.add(o);
+        });
+        return g;
+      },
+    },
   ];
 
   const root = new THREE.Group();

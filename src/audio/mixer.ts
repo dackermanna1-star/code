@@ -9,10 +9,10 @@
 // Gates implement the sound switch (the music player fades its own notes); `duck` lowers the
 // music under Mochi and big moments.
 
-import { makeReverbIR, softClip, clamp } from './dsp';
+import { softClip, clamp } from './dsp';
 import { MUSIC_TRIM } from './music';
 
-const REVERB_SEC = 1.25;
+export const REVERB_SEC = 1.25;
 const SEND = { sfx: 0.11, voice: 0.13, music: 0.24 };
 const REVERB_RETURN = 1;
 
@@ -51,10 +51,14 @@ export class Mixer {
   private readonly comp: DynamicsCompressorNode;
   private ducks: { amount: number; until: number }[] = [];
   private analyser: AnalyserNode | null = null;
+  /** sum of the reverb sends; the convolver is attached later (its IR is rendered off-thread) */
+  private readonly revIn: GainNode;
+  private readonly revOut: GainNode;
+  private conv: ConvolverNode | null = null;
 
   constructor(
     readonly ctx: BaseAudioContext,
-    opts: { reverb?: boolean; master?: number } = {},
+    opts: { master?: number } = {},
   ) {
     const g = (v = 1) => {
       const n = ctx.createGain();
@@ -90,24 +94,34 @@ export class Mixer {
     this.musicIn.connect(this.musicDuck).connect(preMix);
     preMix.connect(comp).connect(clip).connect(this.output);
 
-    if (opts.reverb !== false) {
-      try {
-        const conv = ctx.createConvolver();
-        conv.normalize = false;
-        const [l, r] = makeReverbIR(ctx.sampleRate, REVERB_SEC, 11);
-        const ir = ctx.createBuffer(2, l.length, ctx.sampleRate);
-        ir.getChannelData(0).set(l);
-        ir.getChannelData(1).set(r);
-        conv.buffer = ir;
-        const ret = g(REVERB_RETURN);
-        conv.connect(ret).connect(preMix);
-        this.sfxGate.connect(g(SEND.sfx)).connect(conv);
-        this.voiceGate.connect(g(SEND.voice)).connect(conv);
-        this.musicDuck.connect(g(SEND.music)).connect(conv);
-      } catch {
-        /* no reverb: fine */
-      }
+    this.revIn = g();
+    this.revOut = g(REVERB_RETURN);
+    this.revOut.connect(preMix);
+    this.sfxGate.connect(g(SEND.sfx)).connect(this.revIn);
+    this.voiceGate.connect(g(SEND.voice)).connect(this.revIn);
+    this.musicDuck.connect(g(SEND.music)).connect(this.revIn);
+  }
+
+  /** Attaches the room reverb once its impulse response ([left..., right...]) is ready. */
+  attachReverb(ir: Float32Array): void {
+    if (this.conv || ir.length < 4) return;
+    try {
+      const n = ir.length >> 1;
+      const buf = this.ctx.createBuffer(2, n, this.ctx.sampleRate);
+      buf.getChannelData(0).set(ir.subarray(0, n));
+      buf.getChannelData(1).set(ir.subarray(n, 2 * n));
+      const conv = this.ctx.createConvolver();
+      conv.normalize = false;
+      conv.buffer = buf;
+      this.revIn.connect(conv).connect(this.revOut);
+      this.conv = conv;
+    } catch {
+      /* no reverb: fine */
     }
+  }
+
+  get hasReverb(): boolean {
+    return !!this.conv;
   }
 
   connectTo(dest: AudioNode): void {

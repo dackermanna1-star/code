@@ -28,7 +28,7 @@ export function buildPlate(): PlateProp {
       [0.1, 0.0105, 0.02],
       [0, 0.0105],
     ],
-    6,
+    4,
   );
   // rim band texture along the profile (v = arc length from the underside centre)
   const tex = canvasTex(
@@ -46,7 +46,7 @@ export function buildPlate(): PlateProp {
     },
     {},
   );
-  part(root, lathe(prof, 72), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.2 }));
+  part(root, lathe(prof, 56), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.2 }));
   mergeStatic(root);
   return { root, surfaceY: 0.0105, radius: 0.125 };
 }
@@ -89,7 +89,7 @@ export function buildTable(radius = 0.46, topY = 0.74): THREE.Group {
 }
 
 /** Retro diner chair facing +Z, seat cushion top at seatY. */
-export function buildChair(seatY = 0.5, cushion = PALETTE.cabinet): THREE.Group {
+export function buildChair(seatY = 0.5, cushion: string = PALETTE.cabinet): THREE.Group {
   const root = new THREE.Group();
   root.name = 'chair';
   const vinyl = lacquer(cushion, 0.5);

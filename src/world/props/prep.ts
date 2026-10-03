@@ -365,8 +365,8 @@ export function buildMixingBowl(): MixingBowlProp {
     },
     {},
   );
-  part(root, lathe(outer, 64), new THREE.MeshStandardMaterial({ map: bandTex, roughness: 0.24 }));
-  part(root, lathe(inner, 64), ceramic('#fff9ee'));
+  part(root, lathe(outer, 48), new THREE.MeshStandardMaterial({ map: bandTex, roughness: 0.24 }));
+  part(root, lathe(inner, 48), ceramic('#fff9ee'));
   const fill = new THREE.Mesh(
     new THREE.CircleGeometry(innerRim, 56).rotateX(-Math.PI / 2),
     new THREE.MeshStandardMaterial({ color: '#f3dfae', roughness: 0.45, metalness: 0 }),

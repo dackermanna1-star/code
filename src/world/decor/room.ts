@@ -18,7 +18,7 @@ export const WAINSCOT_Y = 0.92;
 /** The dining nook gets wainscot up to here (the counter run starts at COUNTER.x0). */
 const NOOK_X1 = -1.25;
 const FLOOR_FRONT_Z = 2.3;
-const TILE = 0.45; // floor checker tile size (m)
+const TILE = 0.38; // floor checker tile size (m)
 
 export interface Room {
   root: THREE.Group;
@@ -67,14 +67,15 @@ function outsideTex(): THREE.Texture {
       };
       // canvas y for a world height (plane spans y 0.35..2.95)
       const Y = (y: number) => ((2.95 - y) / 2.6) * h;
-      hill(Y(1.42), h * 0.03, 0.014, 0.4, '#c6e7cf', '#b4dcc0');
       const r = new Rand(21);
+      // round bushes sitting on the far hill line (drawn first, half hidden by the hill)
       for (let i = 0; i < 12; i++) {
-        c.fillStyle = r.next() < 0.5 ? '#a6d6a2' : '#b4ddae';
+        c.fillStyle = r.next() < 0.5 ? '#93cc94' : '#a3d6a0';
         c.beginPath();
-        c.arc(r.range(0, w), Y(1.42) - r.range(0, 8), r.range(7, 14), 0, Math.PI * 2);
+        c.arc(r.range(0, w), Y(1.42) + r.range(2, 8), r.range(9, 15), 0, Math.PI * 2);
         c.fill();
       }
+      hill(Y(1.42), h * 0.03, 0.014, 0.4, '#b3deb4', '#a2d4a4');
       hill(Y(1.3), h * 0.035, 0.01, 2.1, '#9fd987', '#8ccd74');
       hill(Y(1.17), h * 0.025, 0.008, 4.3, '#86cc6d', '#76bf5e');
       // picket fence along the bottom of the view
@@ -141,7 +142,7 @@ function glassStreakTex(): THREE.Texture {
 
 /** Gathered curtain panel (grid mesh). Origin = top inner corner; hangs down -Y, spans +X*side. */
 function curtainGeo(width: number, height: number, side: 1 | -1, tieY: number): THREE.BufferGeometry {
-  const nx = 22, ny = 26;
+  const nx = 18, ny = 20;
   const pos: number[] = [], uv: number[] = [], idx: number[] = [];
   for (let j = 0; j <= ny; j++) {
     const v = j / ny;
@@ -238,11 +239,11 @@ export function buildRoom(): Room {
   const win = grp(root, [wcx, wcy, BZ], 'window');
   const ring = roundedRectShape(ww + 0.13, wh + 0.13, WINDOW.r + 0.065);
   ring.holes.push(roundedRectPath(ww - 0.01, wh - 0.01, WINDOW.r - 0.005));
-  part(win, softExtrude(ring, 0.07, 0.018, { curveSegs: 12, bevelSegs: 4 }), frameMat, { pos: [0, 0, -0.035] });
+  part(win, softExtrude(ring, 0.07, 0.018, { curveSegs: 8, bevelSegs: 3 }), frameMat, { pos: [0, 0, -0.035] });
   // reveal (tunnel through the wall)
   const reveal = roundedRectShape(ww + 0.02, wh + 0.02, WINDOW.r + 0.01);
   reveal.holes.push(roundedRectPath(ww - 0.004, wh - 0.004, WINDOW.r - 0.002));
-  part(win, softExtrude(reveal, 0.16, 0.002, { curveSegs: 12, bevelSegs: 1 }), enamel('#f6ead6', 0.8), { pos: [0, 0, -0.2], cast: false });
+  part(win, softExtrude(reveal, 0.16, 0.002, { curveSegs: 8, bevelSegs: 1 }), enamel('#f6ead6', 0.8), { pos: [0, 0, -0.2], cast: false });
   // mullions (cross) set back in the opening
   const mz = -0.09;
   part(win, rbox(0.045, wh, 0.04, 0.012, 3), frameMat, { pos: [0, 0, mz] });
