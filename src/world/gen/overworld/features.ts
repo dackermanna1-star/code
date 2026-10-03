@@ -21,6 +21,7 @@ import { TreeKind, TREE_REACH, TREE_LARGE, growTree, iceSpike, boulder } from '.
 import type { ChunkWriter } from '../common/writer';
 import { isCarved, type Segment } from './carvers';
 import { S } from '../../blocks/registry';
+import { chestData, spawnerData, LOOT } from '../structures/lib/blockEntities';
 
 const ST = ST_;
 const IS_SOIL = IS_SOIL_;
@@ -746,7 +747,7 @@ export class Decorator {
           if (IS_SOLID[work[i + 16] >>> 4]) { solid++; face = 2; }
           if (solid !== 1) continue;
           work[i] = ST.chest | face;
-          w.blockEntity(x0 + x, oy, z0 + z, { type: 'chest', loot: 'dungeon' });
+          w.blockEntity(x0 + x, oy, z0 + z, chestData(LOOT.dungeon, seed ^ (x * 31 + z)));
           chests++;
           break;
         }
@@ -754,7 +755,7 @@ export class Decorator {
       const spi = (oy << 8) | (oz << 4) | ox;
       work[spi] = ST.spawner;
       const mob = mobRoll < 0.25 ? 'skeleton' : mobRoll < 0.75 ? 'zombie' : 'spider';
-      w.blockEntity(x0 + ox, oy, z0 + oz, { type: 'spawner', mob });
+      w.blockEntity(x0 + ox, oy, z0 + oz, spawnerData(mob));
       void chests;
     }
   }

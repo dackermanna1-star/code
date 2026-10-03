@@ -45,6 +45,7 @@
 import './ruinedPortal';
 import './desertWell';
 import './stronghold';
+import './village/village';
 
 export { StructureManager } from './manager';
 export { registerStructure, structureTypesFor, structureType } from './registry';

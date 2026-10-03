@@ -136,13 +136,33 @@ const NAMED: Record<string, number> = {
 };
 const FOLIAGE_TINTED = new Set(['oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'vine']);
 const GRASS_TINTED = new Set(['grass_block', 'short_grass', 'fern', 'tall_grass', 'large_fern', 'sugar_cane']);
+/** Colours for building blocks (structures) that carry no map colour. */
+function structureColor(n: string): number | undefined {
+  const WOODS: [string, number, number][] = [['dark_oak', 0x42291a, 0x2d2214], ['oak', 0xa2834f, 0x6d5532], ['spruce', 0x735531, 0x3d2c18], ['birch', 0xc0af79, 0xd2d5cd], ['jungle', 0xa07350, 0x5c4b23], ['acacia', 0xa85a32, 0x676157], ['cherry', 0xe2b1a1, 0x3a2027]];
+  if (n.endsWith('_leaves') || n.endsWith('_sapling')) return undefined;
+  for (const [w, planks, bark] of WOODS) if (n.startsWith(w + '_')) return n.endsWith('_log') ? bark : n.endsWith('_door') || n.endsWith('_trapdoor') ? planks - 0x101010 : planks;
+  if (n.includes('stone_brick')) return n.includes('mossy') ? 0x6e7a5a : 0x7a7a7a;
+  if (n.startsWith('cobblestone') || n === 'cobblestone_wall') return 0x6a6a6a;
+  if (n.startsWith('mossy_cobblestone')) return 0x5e6e4e;
+  if (n.startsWith('sandstone') || n.includes('cut_sandstone') || n.includes('smooth_sandstone')) return 0xd8cb9b;
+  const M: Record<string, number> = {
+    glass_pane: 0xc0e0f0, glass: 0xc0e0f0, bookshelf: 0x8a5a30, crafting_table: 0x9a6a3a, chest: 0xa8752a, barrel: 0x7a5530, lantern: 0xffd070,
+    torch: 0xffd070, bell: 0xf0c040, farmland: 0x5a3a20, wheat: 0xc8b040, carrots: 0x60a030, potatoes: 0x70a030, beetroots: 0x806030,
+    dirt_path: 0x9a7a40, furnace: 0x606060, blast_furnace: 0x505058, smoker: 0x5a5048, composter: 0x8a6a3a, lectern: 0xa2834f,
+    end_portal_frame: 0x3a6a5a, spawner: 0x203040, iron_bars: 0x9a9a9a, cobweb: 0xeeeeee, hay_block: 0xc8a020, smooth_stone: 0xa0a0a0,
+    smooth_stone_slab: 0xa0a0a0, bricks: 0x9a5040, white_bed: 0xe0e0e0, red_bed: 0xa02020, ladder: 0x9a7a40, anvil: 0x404040,
+  };
+  if (M[n] !== undefined) return M[n];
+  if (n.endsWith('_bed')) return 0xa04040;
+  return undefined;
+}
 const BLOCK_RGB = new Uint32Array(4096);
 for (const b of BLOCKS) {
-  let c = NAMED[b.name];
+  let c = NAMED[b.name] ?? structureColor(b.name);
   if (c === undefined) {
     if (b.name.endsWith('_leaves')) c = b.name === 'spruce_leaves' ? 0x619961 : b.name === 'birch_leaves' ? 0x80a755 : 0x48b518;
     else if (b.name.endsWith('_terracotta')) c = 0x985e43;
-    else c = b.mapColor ?? 0x808080;
+    else c = b.mapColor ?? structureColor(b.name) ?? 0x808080;
   }
   BLOCK_RGB[b.id] = c;
 }

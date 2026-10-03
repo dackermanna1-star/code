@@ -11,6 +11,7 @@ import { BIOMES } from '../../biomes';
 import { registerStructure } from './registry';
 import { box, type StructureContext, type StructurePiece, type StructureStart } from './types';
 import type { ChunkWriter } from '../common/writer';
+import { chestData, LOOT } from './lib/blockEntities';
 
 class PortalPiece implements StructurePiece {
   readonly box;
@@ -97,7 +98,7 @@ class PortalPiece implements StructurePiece {
       const gy = ctx.heightAt(cx, cz);
       if (Math.abs(gy - (y - 1)) <= 3) {
         wr.set(cx, gy + 1, cz, ST.chest | (axis === 0 ? 2 : 1));
-        wr.blockEntity(cx, gy + 1, cz, { type: 'chest', loot: 'ruined_portal' });
+        wr.blockEntity(cx, gy + 1, cz, chestData(LOOT.ruinedPortal, this.seed));
       }
     }
   }
