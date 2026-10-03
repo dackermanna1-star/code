@@ -113,7 +113,7 @@ void main() {
     } else if (code < 1.5) {
       // bruise: starts reddish-purple, spreads and turns blue/dark, yellow-green fringe when old
       float d = length(q + (vec3(nz, vnoise3(v_local * 23.0), nz) - 0.5) * 0.03);
-      float r = (0.05 + 0.08 * sz + 0.05 * sev) * (0.6 + 0.4 * wd.w);
+      float r = (0.07 + 0.09 * sz + 0.06 * sev) * (0.6 + 0.4 * wd.w);
       float body = smoothstep(r, r * 0.2, d);
       float fringe = smoothstep(r * 1.5, r * 0.8, d);
       vec3 young = vec3(0.34, 0.08, 0.13);
@@ -123,7 +123,7 @@ void main() {
       if (u_bloodType == 1.0) { albedo = mix(albedo, albedo * 0.6, body * 0.5); }
       else {
         albedo = mix(albedo, albedo * vec3(0.9, 0.85, 0.35), fringe * wd.w * 0.25 * (1.0 - body));
-        albedo = mix(albedo, albedo * bcol * 2.2, body * k * 0.7);
+        albedo = mix(albedo, albedo * 0.2 + bcol * 0.45, body * min(1.0, k * 1.1));
         if (sev > 0.7) { albedo = mix(albedo, woundCol, smoothstep(r * 0.45, r * 0.1, d) * (sev - 0.6)); wetness = max(wetness, smoothstep(r * 0.45, r * 0.1, d) * 0.6); }
       }
     } else if (code < 2.5) {
