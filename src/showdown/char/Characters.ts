@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RAMP_CHAR, toon } from '../render/Toon';
 import { Ring, SkinBuilder, WeightFn, headGeometry, limbWeights, rigid, spikeHair, torsoWeights } from './Body';
 import { FACE_GOJO, FACE_SUKUNA, FaceSet, FaceStyle } from './Face';
@@ -25,16 +26,19 @@ const TORSO: Ring[] = [
   R(1.17, 0.152, 0.102, 0.098),
   R(1.27, 0.168, 0.112, 0.102),
   R(1.36, 0.182, 0.12, 0.108),
-  R(1.44, 0.198, 0.112, 0.104, 2.4),
-  R(1.49, 0.2, 0.098, 0.096, 2.8),
-  R(1.525, 0.15, 0.078, 0.08, 2.4),
-  R(1.55, 0.07, 0.058, 0.062),
+  R(1.43, 0.194, 0.113, 0.104, 2.2),
+  R(1.475, 0.19, 0.1, 0.096, 2.3),
+  R(1.505, 0.162, 0.086, 0.086, 2.2),
+  R(1.53, 0.116, 0.07, 0.072),
+  R(1.555, 0.07, 0.058, 0.062),
   R(1.62, 0.052, 0.05, 0.052),
   R(1.69, 0.048, 0.046, 0.048),
 ];
 const ARM: Ring[] = [
-  R(1.535, 0.04, 0.045),
-  R(1.5, 0.062, 0.06, 0.062),
+  R(1.546, 0.022, 0.024),
+  R(1.536, 0.044, 0.046, 0.048),
+  R(1.517, 0.057, 0.057, 0.06),
+  R(1.488, 0.062, 0.06, 0.062),
   R(1.42, 0.06, 0.058, 0.06),
   R(1.3, 0.054, 0.052, 0.054),
   R(1.2, 0.05, 0.05),
@@ -77,6 +81,53 @@ function skirtWeights(topY: number, depth: number, extra?: (p: THREE.Vector3) =>
       [('thigh' + side) as BoneName, t],
     ];
   };
+}
+
+/** Front surface depth of a ring stack at (x, y), for laying bands on the cloth. */
+function frontZ(rings: Ring[], x: number, y: number) {
+  let a = rings[0];
+  let b = rings[rings.length - 1];
+  for (let i = 0; i < rings.length - 1; i++) {
+    const r0 = rings[i];
+    const r1 = rings[i + 1];
+    if ((y - r0.y) * (y - r1.y) <= 0) {
+      a = r0;
+      b = r1;
+      break;
+    }
+  }
+  const t = Math.abs(b.y - a.y) < 1e-6 ? 0 : (y - a.y) / (b.y - a.y);
+  const rx = a.rx + (b.rx - a.rx) * t;
+  const rz = a.rzF + (b.rzF - a.rzF) * t;
+  const pw = (a.pw ?? 2) + ((b.pw ?? 2) - (a.pw ?? 2)) * t;
+  const u = Math.min(1, Math.abs(x) / rx);
+  return { z: rz * Math.pow(Math.max(0, 1 - Math.pow(u, pw)), 1 / pw), rx, rz };
+}
+
+/** A flat band laid along a path over the front of a ring stack (kimono collars). */
+function ribbon(rings: Ring[], path: [number, number][], width: number, lift: number) {
+  const pts = path.map(([x, y]) => {
+    const f = frontZ(rings, x, y);
+    const n = new THREE.Vector3(x / (f.rx * f.rx), 0, f.z / (f.rz * f.rz)).normalize();
+    return { p: new THREE.Vector3(x, y, f.z).addScaledVector(n, lift), n };
+  });
+  const pos: number[] = [];
+  const idx: number[] = [];
+  pts.forEach((q, i) => {
+    const a = pts[Math.max(0, i - 1)].p;
+    const b = pts[Math.min(pts.length - 1, i + 1)].p;
+    const tan = b.clone().sub(a).normalize();
+    const side = new THREE.Vector3().crossVectors(tan, q.n).normalize().multiplyScalar(width / 2);
+    pos.push(q.p.x + side.x, q.p.y + side.y, q.p.z + side.z, q.p.x - side.x, q.p.y - side.y, q.p.z - side.z);
+    if (i > 0) {
+      const k = i * 2;
+      idx.push(k - 2, k - 1, k, k - 1, k + 1, k);
+    }
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  return g;
 }
 
 function shoeGeo(len: number, w: number, h: number) {
@@ -143,20 +194,36 @@ export function buildGojo(): CharModel {
   // head, ears, hair
   const hp = { r: 0.088, h: 0.112, d: 0.1, chin: 0.036, jaw: 0.42, flat: 0.15 };
   const headAt = headParts(model, rig, FACE_GOJO, hp, 0.115);
+  const hairMat = toon(0xf4f6fa, { rim: 0.6, rimColor: 0xbfe0ff });
   const hair = spikeHair({
-    rx: 0.098,
+    rx: 0.099,
     ry: 0.1,
-    rz: 0.106,
-    cy: 0.032,
+    rz: 0.107,
+    cy: 0.034,
     cz: -0.01,
-    count: 38,
-    len: [0.07, 0.16],
-    width: [0.026, 0.042],
+    count: 64,
+    len: [0.06, 0.135],
+    width: [0.024, 0.04],
     seed: 1207,
-    allow: (n) => !(n.z > 0.42 && n.y < 0.55) && n.y > -0.15,
-    flow: (n, r) => new THREE.Vector3(n.x * 0.75 + (r() - 0.5) * 0.4, 1.1 + n.y * 0.4, n.z * 0.3 - 0.42 + (r() - 0.5) * 0.3),
+    allow: (n) => !(n.z > 0.4 && n.y < 0.6) && n.y > -0.2,
+    flow: (n, r) => new THREE.Vector3(n.x * 1.05 + (r() - 0.5) * 0.5, 0.75 + n.y * 0.6, n.z * 0.55 - 0.3 + (r() - 0.5) * 0.35),
   });
-  model.attach('head', hair, toon(0xf4f6fa, { rim: 0.6, rimColor: 0xbfe0ff }), headAt.clone(), true);
+  model.attach('head', hair, hairMat, headAt.clone(), true);
+  // strands falling over the forehead
+  const bangs = spikeHair({
+    rx: 0.094,
+    ry: 0.096,
+    rz: 0.104,
+    cy: 0.036,
+    cz: -0.004,
+    count: 9,
+    len: [0.045, 0.085],
+    width: [0.016, 0.026],
+    seed: 77,
+    allow: (n) => n.z > 0.45 && n.y > 0.35 && n.y < 0.8 && Math.abs(n.x) < 0.5,
+    flow: (n, r) => new THREE.Vector3(n.x * 0.6 + (r() - 0.5) * 0.3, -0.8, 0.45),
+  });
+  model.attach('head', bangs, hairMat, headAt.clone(), true);
   // shoes
   const shoeMat = toon(0x15161c, { rim: 0.4 });
   for (const s of [-1, 1]) {
@@ -191,7 +258,7 @@ export function buildSukuna(): CharModel {
       r.rzB += 0.012;
     }
   }
-  const vneck = (p: THREE.Vector3) => p.z > 0 && p.y > 1.16 && Math.abs(p.x) < (p.y - 1.16) * 0.36;
+  const vneck = (p: THREE.Vector3) => p.z > 0 && p.y > 1.2 && Math.abs(p.x) < (p.y - 1.2) * 0.27;
   sb.tube(torso, torsoWeights(rig), (p) => (p.y > 0.9 && p.y < 1.06 ? OBI : vneck(p) || p.y > 1.42 ? SKIN_M : KIMONO), { seg: 28, capStart: true, capEnd: true });
   for (const [side, m] of [
     ['L', false],
@@ -206,10 +273,12 @@ export function buildSukuna(): CharModel {
       arm[1],
       arm[2],
       arm[3],
-      { ...arm[4], rx: 0.058, rzF: 0.06, rzB: 0.07 },
-      { ...arm[4], y: ey - 0.08, rx: 0.068, rzF: 0.068, rzB: 0.085 },
-      { ...arm[4], y: wy + 0.07, rx: 0.08, rzF: 0.078, rzB: 0.11 },
-      { ...arm[4], y: wy + 0.05, rx: 0.081, rzF: 0.079, rzB: 0.112 },
+      arm[4],
+      arm[5],
+      { ...arm[6], rx: 0.058, rzF: 0.06, rzB: 0.07 },
+      { ...arm[6], y: ey - 0.08, rx: 0.068, rzF: 0.068, rzB: 0.085 },
+      { ...arm[6], y: wy + 0.07, rx: 0.08, rzF: 0.078, rzB: 0.11 },
+      { ...arm[6], y: wy + 0.05, rx: 0.081, rzF: 0.079, rzB: 0.112 },
     ];
     sb.tube(bell, armWeights(side, J), () => KIMONO, { seg: 16, capStart: true, mirrorX: m });
     // forearm skin under the sleeve
@@ -226,12 +295,13 @@ export function buildSukuna(): CharModel {
     (p) => (p.z > 0.1 && Math.abs(p.x) < 0.03 ? 0xd9d4ca : KIMONO),
     { seg: 26 },
   );
-  // kimono collar bands (eri) crossing left over right
-  const eri = new THREE.BoxGeometry(0.03, 0.34, 0.012);
-  for (const s of [-1, 1]) {
-    const m = new THREE.Matrix4().compose(new THREE.Vector3(s * 0.052, 1.29, 0.105), new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.18, 0, s * 0.42)), new THREE.Vector3(1, 1, 1));
-    sb.geo(eri, m, INK, rigid('chest'));
-  }
+  // kimono collar (eri): left panel over right, the top band running on down to the obi
+  const bandA: [number, number][] = [[0.06, 1.425], [0.052, 1.4], [0.04, 1.35], [0.024, 1.29], [0.006, 1.235], [-0.016, 1.18], [-0.042, 1.125], [-0.066, 1.075], [-0.08, 1.05]];
+  const bandB: [number, number][] = [[-0.06, 1.425], [-0.052, 1.4], [-0.04, 1.35], [-0.024, 1.29], [-0.008, 1.24], [0.004, 1.215]];
+  sb.geo(ribbon(torso, bandB, 0.024, 0.004), new THREE.Matrix4(), INK, torsoWeights(rig));
+  sb.geo(ribbon(torso, bandA, 0.026, 0.008), new THREE.Matrix4(), INK, torsoWeights(rig));
+  // the panel edge under the top band, a fold line down the skirt
+  sb.geo(ribbon(torso, [[0.006, 1.21], [-0.03, 1.13], [-0.07, 1.06]], 0.004, 0.009), new THREE.Matrix4(), 0xbdb7ac, torsoWeights(rig));
   // obi knot at the back
   sb.geo(new THREE.BoxGeometry(0.16, 0.09, 0.06), new THREE.Matrix4().makeTranslation(0, 0.93, -0.13), OBI, rigid('hips'));
   const bodyMat = toon(0xffffff, { vertexColors: true, rim: 0.5, rimColor: 0xffd8d0, ramp: RAMP_CHAR, backShade: 0.7 });
@@ -289,7 +359,7 @@ export function buildMahoraga(): { model: CharModel; wheel: THREE.Group; sword: 
     ['R', true],
   ] as ['L' | 'R', boolean][]) {
     // bulging biceps and forearms
-    const arm = scaleRings(ARM, s, s * 1.35).map((r, i) => ({ ...r, cx: J.uArmL.x, cz: -0.02 * s, rx: r.rx * (i === 2 || i === 5 ? 1.15 : 1) }));
+    const arm = scaleRings(ARM, s, s * 1.35).map((r, i) => ({ ...r, cx: J.uArmL.x, cz: -0.02 * s, rx: r.rx * (i === 4 || i === 7 ? 1.15 : 1) }));
     sb.tube(arm, armWeights(side, J), () => MAHO_SKIN, { seg: 14, capStart: true, capEnd: true, mirrorX: m });
     const leg = scaleRings(LEG, s, s * 1.2).map((r) => ({ ...r, cx: J.thighL.x }));
     sb.tube(leg, legWeights(side, J), (pp) => (pp.y > 0.56 * s ? MAHO_SKIRT : MAHO_SKIN), { seg: 14, capStart: true, capEnd: true, mirrorX: m });
@@ -301,25 +371,97 @@ export function buildMahoraga(): { model: CharModel; wheel: THREE.Group; sword: 
     () => MAHO_SKIRT,
     { seg: 24 },
   );
-  sb.tube([R(1.1 * s, 0.17 * s, 0.12 * s, 0.13 * s), R(1.04 * s, 0.172 * s, 0.122 * s, 0.132 * s)], rigid('hips'), () => MAHO_GOLD, { seg: 24 });
+  // a thick twisted rope for a belt, its knot hanging at the front
+  const rope = new THREE.TorusGeometry(1, 0.11, 8, 40);
+  {
+    const pa = rope.getAttribute('position') as THREE.BufferAttribute;
+    const v = new THREE.Vector3();
+    for (let i = 0; i < pa.count; i++) {
+      v.fromBufferAttribute(pa, i);
+      const a = Math.atan2(v.y, v.x);
+      // the strands twist around the ring
+      const tw = 1 + 0.18 * Math.sin(a * 22 + Math.atan2(v.z, Math.hypot(v.x, v.y) - 1) * 2);
+      const rr = Math.hypot(v.x, v.y);
+      const off = (rr - 1) * tw;
+      pa.setXYZ(i, Math.cos(a) * (1 + off), Math.sin(a) * (1 + off), v.z * tw);
+    }
+    rope.computeVertexNormals();
+  }
+  const ropeM = new THREE.Matrix4().compose(new THREE.Vector3(0, 1.075 * s, 0.004 * s), new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0)), new THREE.Vector3(0.178 * s, 0.135 * s, 0.11 * s));
+  sb.geo(rope, ropeM, 0xe9e3d6, rigid('hips'));
+  for (const sd of [-1, 1]) {
+    const tail = new THREE.CylinderGeometry(0.016 * s, 0.01 * s, 0.26 * s, 8);
+    sb.geo(tail, new THREE.Matrix4().compose(new THREE.Vector3(sd * 0.035 * s, 0.95 * s, 0.15 * s), new THREE.Quaternion().setFromEuler(new THREE.Euler(0.12, 0, sd * 0.12)), new THREE.Vector3(1, 1, 1)), 0xe9e3d6, rigid('hips'));
+  }
+  sb.geo(new THREE.SphereGeometry(0.04 * s, 12, 10), new THREE.Matrix4().makeTranslation(0, 1.07 * s, 0.15 * s), 0xe9e3d6, rigid('hips'));
+
+  // musculature: pecs, abdominals, deltoids, traps, lats, biceps, forearms, calves
+  const ell = (a: number, b: number, c: number) => new THREE.SphereGeometry(1, 18, 12).scale(a * s, b * s, c * s);
+  const onFront = (x: number, y: number, sink: number) => new THREE.Vector3(x * s, y * s, frontZ(torso, x * s, y * s).z - sink * s);
+  const rot = (x: number, y: number, z: number) => new THREE.Quaternion().setFromEuler(new THREE.Euler(x, y, z));
+  const at = (p: THREE.Vector3, q = new THREE.Quaternion()) => new THREE.Matrix4().compose(p, q, new THREE.Vector3(1, 1, 1));
+  for (const sd of [-1, 1]) {
+    const side = sd > 0 ? 'L' : 'R';
+    // pectorals: two heavy plates over the ribcage
+    sb.geo(ell(0.1, 0.064, 0.03), at(onFront(sd * 0.074, 1.37, 0.016), rot(0.22, sd * 0.3, sd * -0.1)), MAHO_SKIN, rigid('chest'));
+    // abdominals, three rows
+    for (let r = 0; r < 3; r++) sb.geo(ell(0.032, 0.03, 0.011), at(onFront(sd * 0.032, 1.255 - r * 0.066, 0.006), rot(0.05, sd * 0.2, 0)), MAHO_SKIN, rigid(r === 0 ? 'chest' : 'spine'));
+    // obliques
+    sb.geo(ell(0.03, 0.08, 0.04), at(onFront(sd * 0.12, 1.16, 0.035), rot(0, sd * 0.5, sd * 0.12)), MAHO_SKIN, rigid('spine'));
+    // trapezius: the slope from neck to shoulder
+    sb.geo(ell(0.09, 0.05, 0.06), at(new THREE.Vector3(sd * 0.085 * s, 1.5 * s, -0.025 * s), rot(0, 0, sd * -0.42)), MAHO_SKIN, rigid('chest'));
+    // lats flaring under the arms
+    sb.geo(ell(0.05, 0.13, 0.07), at(new THREE.Vector3(sd * 0.165 * s, 1.3 * s, -0.04 * s), rot(0, 0, sd * 0.18)), MAHO_SKIN, rigid('chest'));
+    // deltoid caps
+    const sh = J[('uArm' + side) as BoneName];
+    sb.geo(ell(0.074, 0.088, 0.076), at(new THREE.Vector3(sh.x + sd * 0.02 * s, sh.y - 0.035 * s, sh.z - 0.004 * s)), MAHO_SKIN, rigid(('uArm' + side) as BoneName));
+    // biceps and triceps
+    const el = J[('fArm' + side) as BoneName];
+    const mid = (sh.y + el.y) / 2;
+    sb.geo(ell(0.05, 0.1, 0.052), at(new THREE.Vector3(sh.x, mid, sh.z + 0.032 * s)), MAHO_SKIN, rigid(('uArm' + side) as BoneName));
+    sb.geo(ell(0.048, 0.11, 0.05), at(new THREE.Vector3(sh.x + sd * 0.006 * s, mid + 0.02 * s, sh.z - 0.03 * s)), MAHO_SKIN, rigid(('uArm' + side) as BoneName));
+    // forearm mass just below the elbow
+    const wr = J[('hand' + side) as BoneName];
+    sb.geo(ell(0.054, 0.1, 0.05), at(new THREE.Vector3(el.x + sd * 0.008 * s, el.y - (el.y - wr.y) * 0.3, el.z + 0.012 * s)), MAHO_SKIN, rigid(('fArm' + side) as BoneName));
+    // calves
+    const kn = J[('shin' + side) as BoneName];
+    const an = J[('foot' + side) as BoneName];
+    sb.geo(ell(0.055, 0.11, 0.06), at(new THREE.Vector3(kn.x, kn.y - (kn.y - an.y) * 0.3, kn.z - 0.03 * s)), MAHO_SKIN, rigid(('shin' + side) as BoneName));
+  }
+  // thick neck
+  sb.tube([R(1.5 * s, 0.075 * s, 0.07 * s, 0.075 * s), R(1.6 * s, 0.07 * s, 0.065 * s, 0.07 * s), R(1.7 * s, 0.062 * s, 0.06 * s, 0.062 * s)], (pp) => (pp.y < 1.56 * s ? [['chest', 1]] : [['neck', 0.8], ['chest', 0.2]]), () => MAHO_SKIN, { seg: 16 });
   const bodyMat = toon(0xffffff, { vertexColors: true, rim: 0.45, ramp: RAMP_CHAR, backShade: 0.6 });
   bodyMat.side = THREE.DoubleSide;
   model.setBody(sb.build(), bodyMat);
 
-  // head: no eyes, two pairs of wings where they'd be
-  const hp = { r: 0.085 * s, h: 0.11 * s, d: 0.1 * s, chin: 0.03 * s, jaw: 0.35, flat: 0.12 };
+  // head: no eyes, two pairs of feathered wings where they'd be
+  const hp = { r: 0.078 * s, h: 0.1 * s, d: 0.094 * s, chin: 0.03 * s, jaw: 0.3, flat: 0.12 };
   const style: FaceStyle = { ...FACE_GOJO, skin: '#dcd8cf', skinShade: '#b9b3a8', eyeW: 0.0001, eyeH: 0.0001, glow: 0, lips: '#7a6a62', brow: '#dcd8cf', lash: '#dcd8cf', lashEdge: '#dcd8cf' };
-  const headAt = headParts(model, rig, style, hp, 0.11 * s);
-  const wingMat = toon(0xe8e4dc, { rim: 0.5 });
-  const wing = new THREE.ConeGeometry(0.05 * s, 0.24 * s, 4);
-  wing.scale(1, 1, 0.25);
+  const headAt = headParts(model, rig, style, hp, 0.1 * s);
+  const wingMat = toon(0xefebe3, { rim: 0.55, rimColor: 0xffffff, backShade: 0.5 });
+  const wingGeo = (len: number, n: number) => {
+    const parts: THREE.BufferGeometry[] = [];
+    for (let i = 0; i < n; i++) {
+      const L = len * (1 - i * 0.16);
+      // a long flat feather, rooted at the origin, pointing along +X
+      const f = new THREE.SphereGeometry(1, 14, 8).scale(L / 2, 0.022 * s * (1 - i * 0.1), 0.006 * s);
+      f.translate(L / 2, 0, 0);
+      f.rotateZ(0.28 - i * 0.2);
+      f.translate(0, -i * 0.006 * s, -i * 0.004 * s);
+      parts.push(f);
+    }
+    return mergeGeometries(parts, false)!;
+  };
   for (const sd of [-1, 1])
     for (let k2 = 0; k2 < 2; k2++) {
-      const at = headAt.clone().add(new THREE.Vector3(sd * hp.r * 0.95, (0.01 - k2 * 0.045) * s, 0.03 * s));
-      model.attach('head', wing, wingMat, at, true, new THREE.Euler(0, 0, sd * (1.25 + k2 * 0.35)));
+      const g = wingGeo((k2 === 0 ? 0.25 : 0.19) * s, 3);
+      if (sd < 0) g.scale(-1, 1, 1);
+      const at2 = headAt.clone().add(new THREE.Vector3(sd * hp.r * 0.62, (0.004 - k2 * 0.032) * s, hp.d * 0.62));
+      // swept back past the temples, the upper pair higher
+      model.attach('head', g, wingMat, at2, true, new THREE.Euler(0, sd * (0.62 + k2 * 0.1), sd * (k2 === 0 ? 0.32 : -0.08)));
     }
-  // hair-like crest
-  const crest = spikeHair({ rx: 0.09 * s, ry: 0.09 * s, rz: 0.1 * s, cy: 0.03 * s, cz: -0.01 * s, count: 14, len: [0.04 * s, 0.08 * s], width: [0.02 * s, 0.03 * s], seed: 99, allow: (n) => n.y > 0.4 && n.z < 0.3, flow: (n) => new THREE.Vector3(n.x, 1, -0.5) });
+  // a short crest of hair-like fins
+  const crest = spikeHair({ rx: 0.084 * s, ry: 0.088 * s, rz: 0.094 * s, cy: 0.028 * s, cz: -0.01 * s, count: 9, len: [0.035 * s, 0.07 * s], width: [0.018 * s, 0.026 * s], seed: 99, allow: (n) => n.y > 0.55 && n.z < 0.25, flow: (n) => new THREE.Vector3(n.x * 0.5, 1, -0.7) });
   model.attach('head', crest, toon(0xcfcac0, { rim: 0.4 }), headAt.clone(), true);
 
   // the Dharma wheel

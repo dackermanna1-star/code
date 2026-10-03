@@ -285,24 +285,49 @@ export class FaceSet {
     g.restore();
   }
 
-  /** Two black lines under each eye sweeping onto the cheek. */
+  /**
+   * Sukuna's markings: the lower pair of eyes (a lidded slit under each eye)
+   * and one bold stripe across each cheek toward the ear.
+   */
   private marks(g: CanvasRenderingContext2D, side: number) {
     const st = this.style;
+    const w = this.m(st.eyeW);
+    const u = (v: number) => this.m(v);
+    g.fillStyle = '#0d0b10';
     g.save();
-    const [cx, cy] = this.px(side * (st.eyeX + 0.004), st.eyeY - st.eyeH * 0.9);
+    const [cx, cy] = this.px(side * (st.eyeX + 0.001), st.eyeY - st.eyeH * 1.18);
     g.translate(cx, cy);
     g.scale(side, 1);
-    g.fillStyle = '#0d0b10';
-    for (let k = 0; k < 2; k++) {
-      const oy = this.m(0.006 + k * 0.0075);
-      g.beginPath();
-      g.moveTo(-this.m(0.012), oy);
-      g.quadraticCurveTo(this.m(0.006), oy - this.m(0.002), this.m(0.024), oy + this.m(0.006));
-      g.lineTo(this.m(0.022), oy + this.m(0.009));
-      g.quadraticCurveTo(this.m(0.004), oy + this.m(0.0025), -this.m(0.012), oy + this.m(0.0028));
-      g.closePath();
-      g.fill();
-    }
+    g.rotate(-st.tilt * 0.9);
+    g.beginPath();
+    g.moveTo(-w * 0.4, u(0.0004));
+    g.bezierCurveTo(-w * 0.12, -u(0.0034), w * 0.26, -u(0.0036), w * 0.5, -u(0.0012));
+    g.lineTo(w * 0.64, -u(0.0026));
+    g.lineTo(w * 0.5, u(0.0013));
+    g.bezierCurveTo(w * 0.24, u(0.0003), -w * 0.12, u(0.0009), -w * 0.4, u(0.0004));
+    g.closePath();
+    g.fill();
+    // the slit's lower lid
+    g.beginPath();
+    g.moveTo(-w * 0.2, u(0.0026));
+    g.quadraticCurveTo(w * 0.12, u(0.0048), w * 0.38, u(0.0024));
+    g.lineWidth = u(0.0008);
+    g.strokeStyle = '#0d0b10';
+    g.stroke();
+    g.restore();
+    g.save();
+    const [sx, sy] = this.px(side * (st.eyeX + st.eyeW * 0.3), st.eyeY - st.eyeH * 2.75);
+    g.translate(sx, sy);
+    g.scale(side, 1);
+    g.rotate(0.16);
+    g.beginPath();
+    g.moveTo(-u(0.002), -u(0.0026));
+    g.quadraticCurveTo(u(0.012), -u(0.0038), u(0.029), -u(0.0012));
+    g.lineTo(u(0.031), u(0.0002));
+    g.quadraticCurveTo(u(0.013), u(0.0024), -u(0.002), u(0.0028));
+    g.quadraticCurveTo(-u(0.0045), u(0.0001), -u(0.002), -u(0.0026));
+    g.closePath();
+    g.fill();
     g.restore();
   }
 

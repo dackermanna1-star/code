@@ -336,6 +336,8 @@ export class Showdown {
     sun.position.set(3, 6, 5);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.bias = -0.0005;
+    sun.shadow.normalBias = 0.02;
     const c = sun.shadow.camera;
     c.left = c.bottom = -8;
     c.right = c.top = 8;
