@@ -264,10 +264,10 @@ export class Game {
   frame(now: number) {
     let dt = (now - this.lastFrame) / 1000;
     this.lastFrame = now;
-    if (dt > 0.25) dt = 0.25;
-    this.realTime += dt;
     this.fpsFrames++;
     this.fpsTime += dt;
+    if (dt > 0.25) dt = 0.25;
+    this.realTime += dt;
     if (this.fpsTime >= 0.5) {
       this.fps = Math.round(this.fpsFrames / this.fpsTime);
       this.fpsFrames = 0;
@@ -315,7 +315,9 @@ export class Game {
     this.interaction.updateTarget();
     this.entities.updateVisuals(alpha, dt);
     for (const s of this.systems) s.update?.(this, dt, alpha);
-    this.render(dt);
+    // the loading screen covers the view; skipping the scene keeps slow GPUs from starving the
+    // chunk/mesh workers (their results are consumed on the main thread)
+    if (!this.loading) this.render(dt);
     this.audioListener();
     this.onFrame?.(dt);
     this.input.endFrame();
