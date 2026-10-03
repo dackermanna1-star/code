@@ -1,0 +1,32 @@
+// Munch Lab colour palette: a sunny, pastel, retro-diner kitchen with warm wood.
+export const PALETTE = {
+  wall: '#f8eedc',
+  wallPattern: '#f0dcc0',
+  tile: '#d4efe6',
+  tileGrout: '#b6dacd',
+  floorA: '#e7b991',
+  floorB: '#d9a37a',
+  cabinet: '#8fd5c3', // mint
+  cabinetDark: '#6cbfac',
+  cabinetHandle: '#f4d27a',
+  counter: '#e9c79c', // butcher block
+  counterEdge: '#d4a776',
+  coral: '#ff8a74',
+  coralDark: '#ec6a57',
+  butter: '#ffd978',
+  butterDark: '#f2bf4f',
+  lilac: '#b9a6f2',
+  sky: '#bfe6ff',
+  cream: '#fff7ea',
+  steel: '#cfd7dd',
+  steelDark: '#8f9aa5',
+  chrome: '#e7edf2',
+  copper: '#dc8f62',
+  wood: '#c98e5a',
+  woodDark: '#a5703f',
+  leaf: '#6cc36a',
+  leafDark: '#3f9a4f',
+  ink: '#3d2c2a',
+  glass: '#dff4ff',
+  black: '#2b2626',
+} as const;

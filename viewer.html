@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Munch Lab — Model Viewer</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #f3ead9; font-family: system-ui, sans-serif; }
+      canvas { display: block; }
+      .lbl { position: absolute; transform: translate(-50%, 0); font-size: 11px; color: #4a3a2a; background: rgba(255,255,255,0.75); padding: 1px 5px; border-radius: 6px; white-space: nowrap; pointer-events: none; }
+      #info { position: absolute; left: 8px; top: 6px; font-size: 12px; color: #6a5a4a; }
+    </style>
+  </head>
+  <body>
+    <div id="info"></div>
+    <script type="module" src="/src/viewer/main.ts"></script>
+  </body>
+</html>
