@@ -174,6 +174,10 @@ export function buildSeasoningDecals(state: FoodState, content: THREE.Object3D):
       out.add(m);
     }
   }
+  out.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (m.isMesh) m.geometry.userData.disposable = true;
+  });
   return out.children.length ? out : null;
 }
 

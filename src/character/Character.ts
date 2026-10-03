@@ -18,6 +18,12 @@ const CREAM = '#fff0e4';
 const PINK = '#ffb3c7';
 
 const BODY_H = 0.8;
+const TMP_C = new THREE.Color();
+const TINT_RED = new THREE.Color('#ff8f80');
+const TINT_GREEN = new THREE.Color('#a8e08a');
+const TINT_BLUE = new THREE.Color('#a8d4ff');
+const TINT_SOOT = new THREE.Color('#8a8088');
+const EAR_BASE = new THREE.Color(LILAC);
 const BODY_PROFILE: Profile = smoothProfile(
   [
     [0.0001, 0.0],
@@ -53,6 +59,8 @@ export class Character {
   private readonly armL = new THREE.Group();
   private readonly armR = new THREE.Group();
   private readonly belly: THREE.Mesh;
+  private readonly bodyMat: THREE.MeshPhysicalMaterial;
+  private readonly earMat: THREE.MeshPhysicalMaterial;
   readonly pickMeshes: THREE.Object3D[] = [];
   readonly zone: THREE.Mesh;
   private baseYaw = LAYOUT.character.yaw;
@@ -85,7 +93,7 @@ export class Character {
   private focus: { p: THREE.Vector3; until: number } | null = null;
   private wanderPoint = new THREE.Vector3();
   private wanderT = 0;
-  private mood: Mood = 'idle';
+  mood: Mood = 'idle';
   private eatingItem: FoodItem | null = null;
   private anticipating: FoodItem | null = null;
   private lastNotice = new Map<string, number>();
@@ -106,6 +114,7 @@ export class Character {
     const bodyGeo = latheGeometry(BODY_PROFILE, 72);
     paintBody(bodyGeo);
     const bodyMat = new THREE.MeshPhysicalMaterial({ color: '#ffffff', vertexColors: true, roughness: 0.82, sheen: 1, sheenColor: new THREE.Color('#efe6ff'), sheenRoughness: 0.45, bumpMap: fuzz, bumpScale: 0.6 });
+    this.bodyMat = bodyMat;
     const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
     bodyMesh.scale.z = Z_SCALE;
     bodyMesh.castShadow = bodyMesh.receiveShadow = true;
@@ -132,6 +141,7 @@ export class Character {
     const earGeo = new THREE.SphereGeometry(0.085, 28, 18);
     earGeo.scale(1, 1.15, 0.55);
     const earMat = new THREE.MeshPhysicalMaterial({ color: LILAC, roughness: 0.8, sheen: 1, sheenColor: new THREE.Color('#efe6ff'), bumpMap: fuzz, bumpScale: 0.5 });
+    this.earMat = earMat;
     const innerGeo = new THREE.SphereGeometry(0.06, 24, 14);
     innerGeo.scale(1, 1.1, 0.35);
     const innerMat = new THREE.MeshStandardMaterial({ color: PINK, roughness: 0.6 });
@@ -889,6 +899,7 @@ export class Character {
     this.face.over.mouthOpen = (this.face.over.mouthOpen ?? 0) * 0 + talk + chew;
     this.face.over.cheeks = this.chewAmp * (0.6 + 0.4 * Math.sin(this.chewT * 15));
     this.face.update(dt);
+    this.applySkinTint();
 
     // --- body springs
     const breathe = Math.sin(time * 2.1) * 0.012;
@@ -935,6 +946,19 @@ export class Character {
   }
 
   postUpdate() {}
+
+  /** Whole-body colour shifts: red when spicy, green when grossed out, blue when frozen. */
+  private applySkinTint() {
+    const red = this.face.value('red'), green = this.face.value('green'), blue = this.face.value('blue'), soot = this.face.value('soot');
+    const c = TMP_C.set('#ffffff');
+    c.lerp(TINT_RED, Math.min(1, Math.max(0, red)) * 0.75);
+    c.lerp(TINT_GREEN, Math.min(1, Math.max(0, green)) * 0.7);
+    c.lerp(TINT_BLUE, Math.min(1, Math.max(0, blue)) * 0.7);
+    c.lerp(TINT_SOOT, Math.min(1, Math.max(0, soot)) * 0.25);
+    this.bodyMat.color.copy(c);
+    this.earMat.color.copy(EAR_BASE).multiply(c);
+    this.bodyMat.emissive.copy(TINT_RED).multiplyScalar(Math.max(0, red) * 0.12);
+  }
 
   private aimArm(arm: THREE.Group, dir: THREE.Vector3, wave: number, time: number, side: number, dt: number) {
     const d = dir.clone();

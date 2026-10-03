@@ -313,31 +313,114 @@ function normalTex(key: string, w: number, h: number, paint: (ctx: Ctx, w: numbe
       const src = hx.getImageData(0, 0, w, h).data;
       const H = new Float32Array(w * h);
       for (let i = 0; i < w * h; i++) H[i] = src[i * 4] / 255;
-      const out = ctx.createImageData(w, h);
-      const d = out.data;
-      for (let y = 0; y < h; y++) {
-        const yu = wrapY ? (y - 1 + h) % h : Math.max(0, y - 1);
-        const yd = wrapY ? (y + 1) % h : Math.min(h - 1, y + 1);
-        for (let x = 0; x < w; x++) {
-          const xl = (x - 1 + w) % w, xr = (x + 1) % w;
-          const dx = (H[y * w + xr] - H[y * w + xl]) * strength;
-          const dy = (H[yd * w + x] - H[yu * w + x]) * strength;
-          // canvas y runs down = -v: n = (-dh/du, -dh/dv, 1) = (-dx, +dy, 1)
-          const nx = -dx, ny = dy;
-          const l = Math.sqrt(nx * nx + ny * ny + 1);
-          const i = (y * w + x) * 4;
-          d[i] = (nx / l * 0.5 + 0.5) * 255;
-          d[i + 1] = (ny / l * 0.5 + 0.5) * 255;
-          d[i + 2] = (1 / l * 0.5 + 0.5) * 255;
-          d[i + 3] = 255;
-        }
-      }
-      ctx.putImageData(out, 0, 0);
+      writeNormals(ctx, H, w, h, strength, wrapY);
     },
     { key, srgb: false, wrap: true },
   );
   if (repeat) t.repeat.set(repeat[0], repeat[1]);
   return t;
+}
+
+/** Height field (row-major, canvas orientation) -> tangent-space normal map pixels. */
+function writeNormals(ctx: Ctx, H: Float32Array, w: number, h: number, strength: number, wrapY: boolean) {
+  const out = ctx.createImageData(w, h);
+  const d = out.data;
+  for (let y = 0; y < h; y++) {
+    const yu = wrapY ? (y - 1 + h) % h : Math.max(0, y - 1);
+    const yd = wrapY ? (y + 1) % h : Math.min(h - 1, y + 1);
+    for (let x = 0; x < w; x++) {
+      const xl = (x - 1 + w) % w, xr = (x + 1) % w;
+      const dx = (H[y * w + xr] - H[y * w + xl]) * strength;
+      const dy = (H[yd * w + x] - H[yu * w + x]) * strength;
+      // canvas y runs down = -v: n = (-dh/du, -dh/dv, 1) = (-dx, +dy, 1)
+      const nx = -dx, ny = dy;
+      const l = Math.sqrt(nx * nx + ny * ny + 1);
+      const i = (y * w + x) * 4;
+      d[i] = (nx / l * 0.5 + 0.5) * 255;
+      d[i + 1] = (ny / l * 0.5 + 0.5) * 255;
+      d[i + 2] = (1 / l * 0.5 + 0.5) * 255;
+      d[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(out, 0, 0);
+}
+
+/** Normal map straight from a float height field (no 8-bit banding). */
+function normalField(key: string, w: number, h: number, field: () => Float32Array, strength: number, wrapY = false): THREE.Texture {
+  return canvasTexture(w, h, (ctx) => writeNormals(ctx, field(), w, h, strength, wrapY), { key, srgb: false, wrap: true });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Per-pixel painting (big procedural skins: stripes, eyes, pebbles, hair)
+
+type RGB = [number, number, number];
+const hexRGB = (hex: string): RGB => {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+/** o += (c - o) * t */
+function blend(o: RGB, c: RGB, t: number) {
+  if (t <= 0) return;
+  if (t > 1) t = 1;
+  o[0] += (c[0] - o[0]) * t;
+  o[1] += (c[1] - o[1]) * t;
+  o[2] += (c[2] - o[2]) * t;
+}
+function setRGB(o: RGB, c: RGB) {
+  o[0] = c[0];
+  o[1] = c[1];
+  o[2] = c[2];
+}
+
+/** Fill a canvas pixel by pixel (opaque). `fn` writes 0..255 sRGB into `o`. */
+function pixels(ctx: Ctx, w: number, h: number, fn: (x: number, y: number, o: RGB) => void) {
+  const img = ctx.createImageData(w, h);
+  const d = img.data;
+  const o: RGB = [0, 0, 0];
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      fn(x, y, o);
+      const i = (y * w + x) * 4;
+      d[i] = o[0];
+      d[i + 1] = o[1];
+      d[i + 2] = o[2];
+      d[i + 3] = 255;
+    }
+  ctx.putImageData(img, 0, 0);
+}
+
+/** Value noise seamless in u (0..1 wraps around a circle of radius fu). */
+const noiseU = (u: number, v: number, fu: number, fv: number, s = 0) => noise3(Math.cos(u * TAU) * fu + s, Math.sin(u * TAU) * fu - s * 0.7, v * fv + s * 0.31);
+const fbmU = (u: number, v: number, fu: number, fv: number, s = 0, oct = 3) => fbm3(Math.cos(u * TAU) * fu + s, Math.sin(u * TAU) * fu - s * 0.7, v * fv + s * 0.31, oct);
+
+/** Cheap integer hash -> 0..1. */
+const hash1 = (n: number) => {
+  let h = Math.imul(n ^ 0x9e3779b9, 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+};
+
+/** Colour from gradient stops at t. */
+function stopColor(stops: [number, string][], t: number): THREE.Color {
+  if (t <= stops[0][0]) return col(stops[0][1]);
+  for (let i = 1; i < stops.length; i++)
+    if (t <= stops[i][0]) return col(stops[i - 1][1]).lerp(col(stops[i][1]), (t - stops[i - 1][0]) / Math.max(1e-6, stops[i][0] - stops[i - 1][0]));
+  return col(stops[stops.length - 1][1]);
+}
+
+/** Stem tube vertex-coloured along its length (t = distance from the first point / span). Use with vcStemMat(). */
+function colorStem(pts: V3[], r0: number, r1: number, stops: [number, string][], o: { tub?: number; radial?: number; caps?: 'round' | 'flat' } = {}): THREE.BufferGeometry {
+  const g = stemGeo(pts, r0, r1, o);
+  const a = new THREE.Vector3(...pts[0]);
+  const span = Math.max(1e-6, a.distanceTo(new THREE.Vector3(...pts[pts.length - 1])));
+  return paintVertices(g, (p) => stopColor(stops, p.distanceTo(a) / span));
+}
+
+/** Bake position / Euler (YXZ: yaw, pitch, roll) / scale into a geometry. */
+function bake(g: THREE.BufferGeometry, pos: V3, yaw = 0, pitch = 0, roll = 0, scale: number | V3 = 1): THREE.BufferGeometry {
+  const s = typeof scale === 'number' ? new THREE.Vector3(scale, scale, scale) : new THREE.Vector3(...scale);
+  const m = new THREE.Matrix4().compose(new THREE.Vector3(...pos), new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, roll, 'YXZ')), s);
+  return g.applyMatrix4(m);
 }
 
 /** Tileable value-noise field painted per pixel (cheap: low-res then scaled up smoothly). */
@@ -1821,8 +1904,1941 @@ const STRAWBERRY: ModelDef = {
 };
 
 // =============================================================================================
+// WATERMELON (oval; lies on its side. Profile upright: blossom end at y = 0, stem end on top)
 
-// @@REST@@
+const WM_L = 0.258, WM_R = 0.1;
+const WM_PROFILE: Profile = (() => {
+  const pts: Profile = [];
+  const n = 40;
+  for (let i = 0; i <= n; i++) {
+    const th = -Math.PI / 2 + (i / n) * Math.PI;
+    pts.push([Math.max(0.0001, WM_R * Math.pow(Math.max(0, Math.cos(th)), 0.86)), (WM_L / 2) * (1 + Math.sin(th))]);
+  }
+  return pts;
+})();
+const WM_STRIPES = 15;
+/** Texture u of the field spot: faces down / sideways once the melon lies down. */
+const WM_SPOT_U = 0.86;
+
+/** Striped rind. `whole` adds the field spot and the pole scars (not wanted on cut pieces). */
+function wmSkinTex(whole: boolean): THREE.Texture {
+  const w = whole ? 1024 : 512, h = whole ? 512 : 256;
+  return canvasTexture(
+    w,
+    h,
+    (ctx) => {
+      const L = latheInfo(WM_PROFILE);
+      const LIGHT = hexRGB('#a2cf66'), LIGHT2 = hexRGB('#bddf84'), LIGHTD = hexRGB('#7db44c');
+      const DARK = hexRGB('#2c6b2b'), DARK2 = hexRGB('#1f5323'), DARKL = hexRGB('#3e8838');
+      const SPOT = hexRGB('#e8d88c'), SPOT2 = hexRGB('#d2bd6a'), BLOSSOM = hexRGB('#8c7c46'), STEM = hexRGB('#5d6e2c');
+      const tmp: RGB = [0, 0, 0];
+      let rowY = -1, sv = 0, rad = 0;
+      pixels(ctx, w, h, (x, y, o) => {
+        if (y !== rowY) {
+          rowY = y;
+          const v = 1 - (y + 0.5) / h;
+          sv = v * L.total;
+          rad = Math.max(0.004, radiusAtV(L, v));
+        }
+        const u = (x + 0.5) / w;
+        // pale ground netted with darker veins
+        const n1 = fbmU(u, sv, 5, 30, 1.7, 3);
+        setRGB(o, LIGHT);
+        blend(o, n1 > 0 ? LIGHT2 : LIGHTD, Math.abs(n1) * 1.8);
+        blend(o, LIGHTD, sstep(0.84, 0.96, 1 - Math.abs(fbmU(u, sv, 12, 70, 4.1, 2))) * 0.9);
+        // jagged dark stripes running from pole to pole
+        const fu = u * WM_STRIPES;
+        const k0 = Math.floor(fu);
+        let cover = 0;
+        for (let kk = k0 - 1; kk <= k0 + 1; kk++) {
+          const k = ((kk % WM_STRIPES) + WM_STRIPES) % WM_STRIPES;
+          const d = fu - (kk + 0.5 + 0.16 * noise3(k * 3.7, sv * 18, 0.5));
+          const hw = 0.25 * (1 + 0.2 * noise3(k * 5.3, sv * 26, 1.1)) + 0.085 * fbm3(k * 7.1 + (d > 0 ? 13.1 : 0), sv * 120, 2.3, 2);
+          cover = Math.max(cover, sstep(hw + 0.03, hw - 0.03, Math.abs(d)));
+        }
+        if (cover > 0) {
+          const n2 = fbmU(u, sv, 9, 50, 7.7, 2);
+          setRGB(tmp, DARK);
+          blend(tmp, n2 > 0 ? DARKL : DARK2, Math.abs(n2) * 1.6);
+          blend(o, tmp, cover);
+        }
+        if (whole) {
+          let du = u - WM_SPOT_U;
+          du -= Math.round(du);
+          const ex = (du * TAU * rad) / 0.052, ey = (sv - L.total * 0.52) / 0.08;
+          const sp = sstep(1, 0.55, Math.sqrt(ex * ex + ey * ey) + 0.3 * fbmU(u, sv, 7, 40, 9.1, 2));
+          if (sp > 0) {
+            setRGB(tmp, SPOT);
+            blend(tmp, SPOT2, 0.5 + 0.5 * noiseU(u, sv, 20, 120, 3.3));
+            blend(o, tmp, sp * 0.95);
+          }
+          blend(o, BLOSSOM, sstep(0.011, 0.005, sv) * 0.9);
+          blend(o, STEM, sstep(0.014, 0.006, L.total - sv) * 0.8);
+        }
+      });
+    },
+    { key: whole ? 'fruit-wm-skin' : 'fruit-wm-skin-cut' },
+  );
+}
+
+const wmSkinMat = lazy(() =>
+  foodMat({ color: '#ffffff', map: wmSkinTex(true), roughness: 0.42, clearcoat: 0.45, clearcoatRoughness: 0.3, flesh: colorsOf('watermelon').flesh, cookColor: colorsOf('watermelon').cooked, name: 'watermelon-skin' }),
+);
+const wmSkinCutMat = lazy(() =>
+  foodMat({ color: '#ffffff', map: wmSkinTex(false), roughness: 0.42, clearcoat: 0.3, clearcoatRoughness: 0.35, flesh: colorsOf('watermelon').flesh, cookColor: colorsOf('watermelon').cooked }),
+);
+const wmFleshTex = lazy(() =>
+  canvasTexture(
+    128,
+    128,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#f2475a';
+      ctx.fillRect(0, 0, w, h);
+      const r = rng(61);
+      blobs(ctx, w, h, r, 60, '255,140,150', [3, 8], [0.2, 0.45]);
+      blobs(ctx, w, h, r, 40, '196,18,44', [3, 9], [0.12, 0.3]);
+    },
+    { key: 'fruit-wm-flesh', wrap: true },
+  ),
+);
+const wmFleshMat = lazy(() => foodMat({ color: '#ffffff', map: wmFleshTex(), roughness: 0.28, flesh: colorsOf('watermelon').flesh, cookColor: colorsOf('watermelon').cooked }));
+
+function buildWatermelon(r: Rng): THREE.Object3D {
+  const g = lathe(WM_PROFILE, 64);
+  const k = r.range(0.95, 1.04), fat = r.range(0.95, 1.04), seedN = r.range(0, 40);
+  deform(g, (p) => {
+    const n = fbm3(p.x * 8 + seedN, p.y * 8, p.z * 8, 2);
+    const f = k * fat * (1 + n * 0.025);
+    p.x *= f;
+    p.z *= f;
+    p.y *= k;
+  });
+  const body = mesh(g, wmSkinMat(), { name: 'watermelon-body' });
+  const top = WM_L * k, c = r.range(0.006, 0.01) * r.sign();
+  const stem = mesh(
+    colorStem([[0, top - 0.004, 0], [0, top + 0.004, 0], [c * 0.4, top + 0.011, 0.003], [c, top + 0.014, 0.008]], 0.0034, 0.0022, [[0, '#6f7f34'], [0.7, '#7a6a3a'], [1, '#5a4422']], { tub: 8, radial: 9 }),
+    vcStemMat(),
+  );
+  const spin = grp(body, stem);
+  spin.rotation.y = r.range(-0.3, 0.3);
+  const up = grp(spin);
+  up.rotation.z = Math.PI / 2 + r.range(-0.03, 0.03);
+  const root = grp(up);
+  root.rotation.y = r.range(-0.5, 0.5);
+  return seat(root, body);
+}
+
+function wmSection(ctx: Ctx, s: number, o: SectionOpts) {
+  const c = s / 2;
+  const r = rng(63);
+  let R = c;
+  if (!o.peeled) {
+    // striped rind edge
+    const n = WM_STRIPES * 2;
+    for (let i = 0; i < n; i++) {
+      ctx.beginPath();
+      ctx.moveTo(c, c);
+      ctx.arc(c, c, c, (i / n) * TAU, ((i + 1) / n) * TAU + 0.01);
+      ctx.closePath();
+      ctx.fillStyle = i % 2 ? '#2c6b2b' : '#6fa646';
+      ctx.fill();
+    }
+    R = c * 0.965;
+    fillCircle(ctx, c, c, R, radial(ctx, c, c, R * 0.84, R, [[0, '#f6f4dc'], [0.45, '#e4f0bc'], [0.8, '#b9d98a'], [1, '#8fc263']]));
+    R = c * 0.845;
+  }
+  // flesh: deep red heart, paler near the rind
+  fillCircle(ctx, c, c, R, radial(ctx, c, c, 0, R, [[0, '#ee324c'], [0.65, '#f1435a'], [0.86, '#f3606f'], [0.95, '#f7a8a2'], [1, '#f9dcc6']]));
+  // juicy crystals
+  discDots(ctx, c, c, R * 0.93, r, 380, 'rgba(255,175,180,0.3)', [s * 0.004, s * 0.011]);
+  discDots(ctx, c, c, R * 0.93, r, 240, 'rgba(186,14,40,0.18)', [s * 0.004, s * 0.01]);
+  // seeds in a loose ring, tips pointing to the centre
+  const n = 13;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * TAU + r.range(-0.16, 0.16), d = R * r.range(0.5, 0.66);
+    seed(ctx, c + Math.cos(a) * d, c + Math.sin(a) * d, s * 0.055, s * 0.032, a + Math.PI + r.range(-0.3, 0.3), '#160e0a', '#5a3a26');
+  }
+  for (let i = 0; i < 5; i++) {
+    const a = r.range(0, TAU), d = R * r.range(0.35, 0.6);
+    seed(ctx, c + Math.cos(a) * d, c + Math.sin(a) * d, s * 0.035, s * 0.02, a + Math.PI, '#e8d6c0', '#fff6ea', 'rgba(255,255,255,0.3)');
+  }
+}
+
+function wmSectionV(ctx: Ctx, w: number, h: number, o: SectionOpts) {
+  const prof = WM_PROFILE;
+  const m = vmap(prof, w, h);
+  ctx.fillStyle = o.peeled ? '#cfe3a0' : '#2c6b2b';
+  ctx.fillRect(0, 0, w, h);
+  const d0 = o.peeled ? 0 : 0.0032;
+  layeredSil(ctx, prof, m, [
+    [d0, '#8fc263'],
+    [d0 + 0.003, '#c6e09a'],
+    [d0 + 0.007, '#eef3d4'],
+    [d0 + 0.0105, '#f8d8c6'],
+    [d0 + 0.0125, '#f5909a'],
+    [d0 + 0.0155, '#f35a6a'],
+    [d0 + 0.022, '#f2475a'],
+    [d0 + 0.045, '#ef384f'],
+  ]);
+  const r = rng(64);
+  ctx.save();
+  silhouette(ctx, prof, m, d0 + 0.013);
+  ctx.clip();
+  for (let i = 0; i < 700; i++) fillCircle(ctx, r.next() * w, r.next() * h, w * r.range(0.004, 0.01), r.next() < 0.6 ? 'rgba(255,175,180,0.28)' : 'rgba(186,14,40,0.16)');
+  // seeds on an inner shell, pointing towards the core
+  const ring = insetProfile(prof, 0.045);
+  const cx = m.X(0);
+  for (let i = 0; i < 30; i++) {
+    const j = Math.floor(r.range(0.1, 0.9) * (ring.length - 1));
+    const side = i % 2 ? 1 : -1;
+    const px = m.X(side * ring[j][0] * r.range(0.85, 1.12)), py = m.Y(ring[j][1] + r.range(-0.004, 0.004));
+    const ty = m.Y(clamp(ring[j][1], WM_L * 0.3, WM_L * 0.7));
+    const ang = Math.atan2(ty - py, cx - px) + r.range(-0.25, 0.25);
+    if (i % 7 === 6) seed(ctx, px, py, 0.006 * m.kx, 0.0035 * m.kx, ang, '#e8d6c0', '#fff6ea', 'rgba(255,255,255,0.3)');
+    else seed(ctx, px, py, 0.0095 * m.kx, 0.0056 * m.kx, ang, '#160e0a', '#5a3a26');
+  }
+  ctx.restore();
+}
+
+const WATERMELON: ModelDef = {
+  build: buildWatermelon,
+  profile: WM_PROFILE,
+  skin: wmSkinCutMat,
+  flesh: wmFleshMat,
+  section: wmSection,
+  sectionV: wmSectionV,
+  iconRotation: [0, 0.4, 0],
+};
+
+// =============================================================================================
+// PINEAPPLE (upright; spiral lattice of eyes; crown of stiff leaves)
+
+const PINE_H = 0.136;
+const PINE_PROFILE: Profile = smoothProfile(
+  [
+    [0.0001, 0.0],
+    [0.016, 0.0003],
+    [0.03, 0.0022],
+    [0.04, 0.0075],
+    [0.0465, 0.018],
+    [0.0498, 0.036],
+    [0.0505, 0.056],
+    [0.0496, 0.076],
+    [0.0465, 0.096],
+    [0.041, 0.112],
+    [0.033, 0.1235],
+    [0.0225, 0.1315],
+    [0.0115, 0.1352],
+    [0.0001, PINE_H],
+  ],
+  36,
+);
+const PINE_PEELED: Profile = PINE_PROFILE.map(([rr, y]) => [Math.max(0.0001, rr * 0.9), y]);
+const PINE_N = 12; // eyes per ring
+const PINE_ROW = 0.0128; // metres between rows
+const PINE_STEP = 0.6; // column shift per row: rows become spirals
+const PINE_T = 512;
+
+interface Eye {
+  d1: number;
+  d2: number;
+  dx: number;
+  dy: number;
+  id: number;
+}
+
+/** Nearest / second-nearest eye centre (metres) at texture u and arc length sv. dx, dy: offset from the eye centre (dy towards the crown). */
+function pineEye(u: number, sv: number, circ: number, e: Eye) {
+  const sx = circ / PINE_N;
+  const X = u * PINE_N, Y = sv / PINE_ROW;
+  const j0 = Math.floor(Y);
+  e.d1 = e.d2 = 1e9;
+  for (let j = j0 - 1; j <= j0 + 2; j++) {
+    const off = j * PINE_STEP;
+    const kc = Math.round(X - off);
+    for (let k = kc - 1; k <= kc + 1; k++) {
+      let dX = X - (k + off);
+      dX -= Math.round(dX / PINE_N) * PINE_N;
+      const dx = dX * sx, dy = (Y - j) * PINE_ROW;
+      const d = Math.hypot(dx, dy);
+      if (d < e.d1) {
+        e.d2 = e.d1;
+        e.d1 = d;
+        e.dx = dx;
+        e.dy = dy;
+        e.id = (((k % PINE_N) + PINE_N) % PINE_N) * 131 + j * 7919;
+      } else if (d < e.d2) e.d2 = d;
+    }
+  }
+}
+
+interface Field {
+  col: Uint8ClampedArray;
+  H: Float32Array;
+}
+
+/** Paint colour + height per pixel over a lathe's texture space. fn(u, v, sv, circ, o) returns the height. */
+function latheField(prof: Profile, w: number, h: number, fn: (u: number, v: number, sv: number, circ: number, o: RGB) => number): Field {
+  const L = latheInfo(prof);
+  const colr = new Uint8ClampedArray(w * h * 4);
+  const H = new Float32Array(w * h);
+  const o: RGB = [0, 0, 0];
+  for (let y = 0; y < h; y++) {
+    const v = 1 - (y + 0.5) / h, sv = v * L.total;
+    const circ = TAU * Math.max(0.002, radiusAtV(L, v));
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      H[i] = fn((x + 0.5) / w, v, sv, circ, o);
+      colr[i * 4] = o[0];
+      colr[i * 4 + 1] = o[1];
+      colr[i * 4 + 2] = o[2];
+      colr[i * 4 + 3] = 255;
+    }
+  }
+  return { col: colr, H };
+}
+
+function fieldTex(key: string, w: number, h: number, f: () => Field): THREE.Texture {
+  return canvasTexture(
+    w,
+    h,
+    (ctx) => {
+      const img = ctx.createImageData(w, h);
+      img.data.set(f().col);
+      ctx.putImageData(img, 0, 0);
+    },
+    { key },
+  );
+}
+
+const pineSkinField = lazy(() => {
+  const GOLD = hexRGB('#e6aa3c'), ORANGE = hexRGB('#c47628'), DEEP = hexRGB('#8a5220'), GROOVE = hexRGB('#4c2e12');
+  const GREEN = hexRGB('#86963a'), TIP = hexRGB('#3a2410'), LIP = hexRGB('#f2d488'), SCAR = hexRGB('#a8865a'), SCAR2 = hexRGB('#7c5c34');
+  const e: Eye = { d1: 0, d2: 0, dx: 0, dy: 0, id: 0 };
+  return latheField(PINE_PROFILE, PINE_T, PINE_T, (u, v, sv, circ, o) => {
+    pineEye(u, sv, circ, e);
+    const edge = e.d2 - e.d1;
+    const rnd = hash1(e.id);
+    const dome = sstep(0.0003, 0.0055, edge);
+    // facet: deep edges -> orange -> golden centre; greener near the crown
+    setRGB(o, DEEP);
+    blend(o, ORANGE, sstep(0, 0.002, edge));
+    blend(o, GOLD, dome * (0.55 + 0.4 * rnd) * sstep(0.013, 0.003, e.d1));
+    blend(o, GREEN, (sstep(0.6, 0.95, v) * 0.75 + sstep(0.25, 0.08, v) * 0.35) * (0.45 + 0.7 * rnd) * (0.4 + 0.6 * dome));
+    // pale lip curving under each eye's spike
+    const lipR = Math.hypot(e.dx * 0.85, e.dy - 0.0042);
+    const lip = sstep(0.0016, 0.0005, Math.abs(lipR - 0.0078)) * sstep(0.0005, -0.0025, e.dy) * dome;
+    blend(o, LIP, lip * 0.85);
+    // dark dried spike at the top of the eye
+    const sp = Math.hypot(e.dx / 0.0012, (e.dy - 0.0036) / 0.0022);
+    blend(o, TIP, sstep(1.05, 0.55, sp));
+    // grooves between eyes
+    blend(o, GROOVE, sstep(0.0013, 0.0002, edge) * 0.9);
+    let height = dome * (0.55 + 0.45 * sstep(0.012, 0.0, e.d1)) + lip * 0.12 + sstep(1.1, 0.2, sp) * 0.4;
+    // flat stem scar at the bottom, plain under the crown
+    const scar = sstep(0.075, 0.045, v);
+    if (scar > 0) {
+      const ring = 0.5 + 0.5 * Math.sin(sv * 900 + noiseU(u, sv, 3, 60) * 3);
+      const sc: RGB = [SCAR[0], SCAR[1], SCAR[2]];
+      blend(sc, SCAR2, ring * 0.5);
+      blend(o, sc, scar);
+      height = lerp(height, 0.3 + ring * 0.05, scar);
+    }
+    const top = sstep(0.93, 0.97, v);
+    blend(o, hexRGB('#6a6a2c'), top);
+    return lerp(height, 0.4, top);
+  });
+});
+
+const pinePeeledField = lazy(() => {
+  const FLESH = hexRGB('#f6cf45'), LIGHT = hexRGB('#fbe07a'), DEEP = hexRGB('#eab232'), PIT = hexRGB('#5c3a14'), RIM = hexRGB('#c08a30');
+  const e: Eye = { d1: 0, d2: 0, dx: 0, dy: 0, id: 0 };
+  return latheField(PINE_PEELED, PINE_T, PINE_T, (u, v, sv, circ, o) => {
+    pineEye(u, sv, circ, e);
+    const fib = noiseU(u, sv, 40, 30, 2.2);
+    setRGB(o, FLESH);
+    blend(o, fib > 0 ? LIGHT : DEEP, Math.abs(fib) * 1.4);
+    // little brown pits where the eyes were cut out
+    const pr = Math.hypot(e.dx, (e.dy - 0.001) * 1.2);
+    const rim = sstep(0.0042, 0.0026, pr);
+    blend(o, RIM, rim * 0.75);
+    blend(o, PIT, sstep(0.0024, 0.001, pr));
+    const ends = sstep(0.06, 0.02, v) + sstep(0.95, 0.99, v);
+    blend(o, DEEP, ends * 0.6);
+    return 0.6 + fib * 0.04 - rim * 0.45 - sstep(0.0024, 0.0008, pr) * 0.2;
+  });
+});
+
+const pineSkinMat = lazy(() =>
+  withNormalScale(
+    foodMat({
+      color: '#ffffff',
+      map: fieldTex('fruit-pine-skin', PINE_T, PINE_T, pineSkinField),
+      normalMap: normalField('fruit-pine-normal', PINE_T, PINE_T, () => pineSkinField().H, 4.5),
+      roughness: 0.62,
+      flesh: colorsOf('pineapple').flesh,
+      cookColor: colorsOf('pineapple').cooked,
+      name: 'pineapple-skin',
+    }),
+    1,
+  ),
+);
+const pinePeeledMat = lazy(() =>
+  foodMat({
+    color: '#ffffff',
+    map: fieldTex('fruit-pine-peeled', PINE_T, PINE_T, pinePeeledField),
+    normalMap: normalField('fruit-pine-peeled-n', PINE_T, PINE_T, () => pinePeeledField().H, 4),
+    roughness: 0.4,
+    clearcoat: 0.35,
+    clearcoatRoughness: 0.35,
+    flesh: colorsOf('pineapple').flesh,
+    cookColor: colorsOf('pineapple').cooked,
+    name: 'pineapple-peeled',
+  }),
+);
+const pineFleshTex = lazy(() =>
+  canvasTexture(
+    128,
+    128,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#f8d64e';
+      ctx.fillRect(0, 0, w, h);
+      const r = rng(75);
+      ctx.lineCap = 'round';
+      for (let i = 0; i < 70; i++) {
+        const x = r.next() * w, y = r.next() * h, len = r.range(10, 30);
+        ctx.strokeStyle = r.next() < 0.6 ? `rgba(255,246,190,${r.range(0.3, 0.6)})` : `rgba(226,170,40,${r.range(0.2, 0.4)})`;
+        ctx.lineWidth = r.range(1, 2.4);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + r.range(-3, 3), y + len);
+        ctx.stroke();
+      }
+    },
+    { key: 'fruit-pine-flesh', wrap: true },
+  ),
+);
+const pineFleshMat = lazy(() => foodMat({ color: '#ffffff', map: pineFleshTex(), roughness: 0.34, flesh: colorsOf('pineapple').flesh, cookColor: colorsOf('pineapple').cooked }));
+
+const pineLeafMat = lazy(() =>
+  foodMat({
+    color: '#ffffff',
+    map: canvasTexture(
+      64,
+      256,
+      (ctx, w, h) => {
+        ctx.fillStyle = linear(ctx, 0, 0, w, 0, [[0, '#6c9c64'], [0.14, '#3d8446'], [0.5, '#2c6c3a'], [0.86, '#3d8446'], [1, '#6c9c64']]);
+        ctx.fillRect(0, 0, w, h);
+        const r = rng(71);
+        for (let i = 0; i < 16; i++) {
+          const x = r.next() * w;
+          ctx.strokeStyle = r.next() < 0.5 ? `rgba(190,226,190,${r.range(0.15, 0.3)})` : `rgba(14,50,24,${r.range(0.15, 0.3)})`;
+          ctx.lineWidth = r.range(0.8, 2);
+          ctx.beginPath();
+          ctx.moveTo(x, h);
+          ctx.lineTo(lerp(x, w / 2, 0.6), 0);
+          ctx.stroke();
+        }
+        // dry tip (canvas top = leaf tip), reddish edges, pale base
+        ctx.fillStyle = linear(ctx, 0, 0, w, 0, [[0, 'rgba(150,70,50,0.35)'], [0.08, 'rgba(150,70,50,0)'], [0.92, 'rgba(150,70,50,0)'], [1, 'rgba(150,70,50,0.35)']]);
+        ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = linear(ctx, 0, 0, 0, h, [[0, 'rgba(150,118,60,0.8)'], [0.06, 'rgba(150,118,60,0)'], [0.86, 'rgba(200,214,150,0)'], [1, 'rgba(200,214,150,0.55)']]);
+        ctx.fillRect(0, 0, w, h);
+      },
+      { key: 'fruit-pine-leaf' },
+    ),
+    roughness: 0.42,
+    clearcoat: 0.2,
+    clearcoatRoughness: 0.45,
+    flesh: '#5f8e62',
+    cookColor: '#5a5424',
+    cookAmount: 0.35,
+    name: 'pineapple-leaf',
+  }),
+);
+
+/** Rosette of stiff, sword-shaped leaves (one merged mesh) sitting at height `top`. */
+function pineCrown(r: Rng, top: number): THREE.Mesh {
+  const geos: THREE.BufferGeometry[] = [];
+  const n = 27;
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1); // 0 = inner (tall, upright) .. 1 = outer (short, spreading)
+    const len = lerp(0.08, 0.036, t) * r.range(0.86, 1.1);
+    const wid = lerp(0.016, 0.022, t) * r.range(0.9, 1.1);
+    const g = leafGeo({ length: len, width: wid, curl: -lerp(0.1, 0.55, t) * r.range(0.7, 1.25), fold: 0.42, segments: 6, seed: i, outline: (s) => Math.pow(1 - s, 0.8) * Math.min(1, 0.72 + s * 4) });
+    const yaw = i * 2.39996 + r.range(-0.2, 0.2);
+    const rad = lerp(0.001, 0.012, t);
+    geos.push(bake(g, [Math.sin(yaw) * rad, top - 0.007 + t * 0.004, Math.cos(yaw) * rad], yaw, -lerp(1.4, 0.38, t) + r.range(-0.12, 0.12), r.range(-0.25, 0.25)));
+  }
+  return mesh(merge(geos), pineLeafMat(), { name: 'pineapple-crown' });
+}
+
+function pineBuild(r: Rng, peeled: boolean): THREE.Object3D {
+  const k = r.range(0.95, 1.05), fat = r.range(0.96, 1.05), seedN = r.range(0, 30);
+  const g = lathe(peeled ? PINE_PEELED : PINE_PROFILE, 40);
+  deform(g, (p) => {
+    const f = fat * k * (1 + fbm3(p.x * 25 + seedN, p.y * 25, p.z * 25, 2) * 0.02);
+    p.x *= f;
+    p.z *= f;
+    p.y *= k;
+  });
+  const body = mesh(g, peeled ? pinePeeledMat() : pineSkinMat(), { name: 'pineapple-body' });
+  const root = grp(body, pineCrown(r, PINE_H * k));
+  root.rotation.y = r.range(0, TAU);
+  return seat(root, body);
+}
+
+function pineSection(ctx: Ctx, s: number, o: SectionOpts) {
+  const c = s / 2;
+  const r = rng(73);
+  let R = c;
+  if (!o.peeled) {
+    fillCircle(ctx, c, c, c, '#7a4a1c');
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * TAU;
+      fillCircle(ctx, c + Math.cos(a) * c * 0.975, c + Math.sin(a) * c * 0.975, s * 0.034, i % 2 ? '#c8822c' : '#b06e26');
+    }
+    R = c * 0.925;
+  }
+  fillCircle(ctx, c, c, R, radial(ctx, c, c, 0, R, [[0, '#f8eab0'], [0.19, '#f7e49a'], [0.25, '#f9da5c'], [0.75, '#f8d44c'], [1, '#f0c23a']]));
+  discFibres(ctx, c, c, R, r, 130, 'rgba(255,250,214,0.45)', [s * 0.003, s * 0.007], 0.22, 0.9);
+  discFibres(ctx, c, c, R, r, 70, 'rgba(222,164,36,0.3)', [s * 0.003, s * 0.006], 0.22, 0.9);
+  // eye pits poking into the flesh
+  for (let i = 0; i < 18; i++) {
+    const a = (i / 18) * TAU + r.range(-0.08, 0.08);
+    seed(ctx, c + Math.cos(a) * R * 0.94, c + Math.sin(a) * R * 0.94, s * 0.065, s * 0.034, a + Math.PI, '#5c3812', '#a8782a', 'rgba(255,255,255,0.12)');
+  }
+  // fibrous core
+  fillCircle(ctx, c, c, R * 0.21, radial(ctx, c, c, 0, R * 0.21, [[0, '#fcf4cc'], [0.75, '#f8eab0'], [1, 'rgba(248,234,176,0)']]));
+  discFibres(ctx, c, c, R * 0.2, r, 30, 'rgba(226,196,110,0.4)', [s * 0.002, s * 0.004], 0.1, 0.95);
+}
+
+function pineSectionV(ctx: Ctx, w: number, h: number, o: SectionOpts) {
+  const prof = PINE_PROFILE;
+  const m = vmap(prof, w, h);
+  ctx.fillStyle = o.peeled ? '#e8b83a' : '#7a4a1c';
+  ctx.fillRect(0, 0, w, h);
+  const d0 = o.peeled ? 0 : 0.0042;
+  layeredSil(ctx, prof, m, [[d0, '#f0c23a'], [d0 + 0.006, '#f8d44c'], [d0 + 0.02, '#f9da5c']]);
+  const r = rng(74);
+  ctx.save();
+  silhouette(ctx, prof, m, d0);
+  ctx.clip();
+  // fibres fanning out from the core
+  const cx = m.X(0);
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 90; i++) {
+    const y0 = r.range(0.06, 0.94) * h, side = r.sign();
+    ctx.strokeStyle = r.next() < 0.6 ? 'rgba(255,248,206,0.45)' : 'rgba(222,164,36,0.28)';
+    ctx.lineWidth = w * r.range(0.004, 0.009);
+    ctx.beginPath();
+    ctx.moveTo(cx + side * 0.008 * m.kx, y0);
+    ctx.lineTo(cx + side * 0.06 * m.kx, y0 - (y0 - h / 2) * 0.25 - h * 0.04);
+    ctx.stroke();
+  }
+  // eye pits along the rim
+  const L = latheInfo(prof);
+  for (let s = 0.02; s < L.total - 0.015; s += 0.0105) {
+    let i = 1;
+    while (i < L.arc.length - 1 && L.arc[i] < s) i++;
+    const [rr, yy] = prof[i];
+    if (rr < 0.012) continue;
+    for (const side of [-1, 1]) {
+      const px = m.X(side * rr * 0.93), py = m.Y(yy);
+      seed(ctx, px, py, 0.0075 * m.kx, 0.0042 * m.kx, side > 0 ? Math.PI : 0, '#5c3812', '#a8782a', 'rgba(255,255,255,0.12)');
+    }
+  }
+  // core column
+  const yb = m.Y(0.008), yt = m.Y(PINE_H - 0.008);
+  ctx.fillStyle = linear(ctx, cx - 0.012 * m.kx, 0, cx + 0.012 * m.kx, 0, [[0, 'rgba(250,236,180,0)'], [0.3, '#f8eab4'], [0.5, '#fcf2cc'], [0.7, '#f8eab4'], [1, 'rgba(250,236,180,0)']]);
+  ctx.fillRect(cx - 0.012 * m.kx, yt, 0.024 * m.kx, yb - yt);
+  ctx.restore();
+}
+
+const PINEAPPLE: ModelDef = {
+  build: (r) => pineBuild(r, false),
+  peeled: (r) => pineBuild(r, true),
+  profile: PINE_PROFILE,
+  skin: pineSkinMat,
+  flesh: pineFleshMat,
+  section: pineSection,
+  sectionV: pineSectionV,
+};
+
+// =============================================================================================
+// GRAPES (bunch lying on its side: stem end towards +X, tip towards -X)
+
+const GRAPE_COLORS = ['#4a1c5e', '#5a2370', '#662a7c', '#4e2048', '#5e2660', '#3e1a50'];
+const GRAPE_MAP = 0xd8 / 255;
+const GRAPE_BOOST = 1 / lin(GRAPE_MAP);
+
+/** Waxy bloom: whitish dusty patches (multiplied by the per-grape vertex colour). */
+const grapeBloomTex = lazy(() =>
+  canvasTexture(
+    128,
+    64,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#d8d8dc';
+      ctx.fillRect(0, 0, w, h);
+      const r = rng(81);
+      blobs(ctx, w, h, r, 28, '255,255,255', [5, 14], [0.25, 0.55]);
+      blobs(ctx, w, h, r, 14, '110,100,124', [4, 10], [0.12, 0.28]);
+    },
+    { key: 'fruit-grape-bloom', wrap: true },
+  ),
+);
+const grapeMat = lazy(() =>
+  foodMat({ color: '#ffffff', map: grapeBloomTex(), vertexColors: true, roughness: 0.34, clearcoat: 0.7, clearcoatRoughness: 0.22, flesh: colorsOf('grapes').flesh, cookColor: colorsOf('grapes').cooked, name: 'grape-skin' }),
+);
+const grapeSkinCutMat = lazy(() => foodMat({ color: colorsOf('grapes').skin, roughness: 0.34, clearcoat: 0.6, clearcoatRoughness: 0.25, flesh: colorsOf('grapes').flesh, cookColor: colorsOf('grapes').cooked }));
+const grapeFleshMat = lazy(() => foodMat({ color: colorsOf('grapes').flesh, roughness: 0.22, clearcoat: 0.4, clearcoatRoughness: 0.2, flesh: colorsOf('grapes').flesh, cookColor: colorsOf('grapes').cooked }));
+
+/** One grape: slightly oval, local +Y = stem end. Vertex coloured (reddish near the stem, darker below). */
+function grapeGeo(r: Rng, rad: number): THREE.BufferGeometry {
+  const g = new THREE.SphereGeometry(rad, 10, 8);
+  g.scale(1, r.range(1.06, 1.16), 1);
+  const base = col(r.pick(GRAPE_COLORS)), top = base.clone().lerp(col('#8e3050'), 0.3), low = base.clone().multiplyScalar(0.6);
+  const k = GRAPE_BOOST * r.range(0.88, 1.1);
+  return paintVertices(g, (p) => {
+    const t = p.y / (rad * 1.1);
+    return base.clone().lerp(top, sstep(0.35, 1, t)).lerp(low, sstep(-0.1, -1, t) * 0.7).multiplyScalar(k);
+  });
+}
+
+const UP = new THREE.Vector3(0, 1, 0);
+
+function buildGrapes(r: Rng): THREE.Object3D {
+  const L = 0.098;
+  const spots: { c: THREE.Vector3; rad: number; axis: THREE.Vector3 }[] = [];
+  for (let tries = 0; tries < 2000 && spots.length < 28; tries++) {
+    const t = Math.pow(r.next(), 0.85); // 0 = shoulders (stem end) .. 1 = tip
+    const coneR = lerp(0.03, 0.006, t);
+    const phi = r.range(0, TAU), rho = Math.sqrt(r.range(0.3, 1)) * coneR;
+    const rad = r.range(0.0082, 0.0094) * lerp(1, 0.88, t);
+    const c = new THREE.Vector3(-t * L, Math.sin(phi) * rho * 0.7, Math.cos(phi) * rho);
+    if (c.y < 0) c.y *= 0.8; // settles on the table
+    if (spots.some((s) => s.c.distanceTo(c) < (s.rad + rad) * 0.93)) continue;
+    const attach = new THREE.Vector3(c.x + 0.006, c.y * 0.15, c.z * 0.15);
+    spots.push({ c, rad, axis: attach.sub(c).normalize() });
+  }
+  const grapes: THREE.BufferGeometry[] = [];
+  const stems: THREE.BufferGeometry[] = [];
+  const q = new THREE.Quaternion(), spin = new THREE.Quaternion(), m4 = new THREE.Matrix4();
+  for (const s of spots) {
+    const g = grapeGeo(r, s.rad);
+    q.setFromUnitVectors(UP, s.axis).multiply(spin.setFromAxisAngle(UP, r.range(0, TAU)));
+    g.applyMatrix4(m4.compose(s.c, q, new THREE.Vector3(1, 1, 1)));
+    grapes.push(g);
+    const a = s.c.clone().addScaledVector(s.axis, s.rad * 1.02);
+    const b = new THREE.Vector3(s.c.x + 0.006, s.c.y * 0.12, s.c.z * 0.12);
+    stems.push(colorStem([[a.x, a.y, a.z], [lerp(a.x, b.x, 0.5), lerp(a.y, b.y, 0.5) + 0.001, lerp(a.z, b.z, 0.5)], [b.x, b.y, b.z]], 0.00075, 0.0009, [[0, '#8a8a3e'], [1, '#7a7a3a']], { tub: 2, radial: 4, caps: 'flat' }));
+  }
+  // main stalk running through the bunch, out at the top, with the woody cut cross-piece
+  const e: V3 = [0.026, 0.009, 0.001];
+  stems.push(colorStem([e, [0.014, 0.004, 0], [-0.01, 0.001, 0], [-0.05, 0, 0.002], [-L * 0.88, -0.002, 0]], 0.0026, 0.0013, [[0, '#6a5030'], [0.15, '#7c7a3a'], [1, '#8a9a46']], { tub: 14, radial: 7 }));
+  const tw = r.range(0.006, 0.009);
+  stems.push(colorStem([[e[0] + 0.001, e[1], e[2] - tw], [e[0] + 0.0015, e[1] + 0.001, e[2]], [e[0] + 0.001, e[1], e[2] + tw]], 0.0017, 0.0015, [[0, '#5e4428'], [1, '#6a5030']], { tub: 4, radial: 7 }));
+  const root = grp(mesh(merge(grapes), grapeMat(), { name: 'grapes' }), mesh(merge(stems), vcStemMat(), { name: 'grape-stems' }));
+  root.rotation.y = r.range(-0.5, 0.5);
+  return seat(root);
+}
+
+function grapePiece(r: Rng): THREE.Object3D {
+  const rad = r.range(0.0085, 0.0095);
+  const stem = colorStem([[0, rad * 0.95, 0], [0.0008, rad + 0.003, 0], [0.0025, rad + 0.0055, 0.001]], 0.0008, 0.0006, [[0, '#8a9a46'], [1, '#6a5030']], { tub: 3, radial: 5, caps: 'flat' });
+  const o = grp(mesh(grapeGeo(r, rad), grapeMat()), mesh(stem, vcStemMat()));
+  o.rotation.set(r.range(1.25, 1.5), r.range(0, TAU), 0, 'YXZ');
+  return seat(o);
+}
+
+const GRAPES: ModelDef = {
+  build: buildGrapes,
+  piece: (r) => grapePiece(r),
+  skin: grapeSkinCutMat,
+  flesh: grapeFleshMat,
+  iconRotation: [0, 0.5, 0],
+};
+
+// =============================================================================================
+// CHERRY (pair on joined stems; piece = one cherry with its stem)
+
+const CHERRY_PROFILE: Profile = smoothProfile(
+  [
+    [0.0001, 0.0],
+    [0.0022, 0.0003],
+    [0.0056, 0.0018],
+    [0.0087, 0.0046],
+    [0.0108, 0.0086],
+    [0.0118, 0.0126],
+    [0.0115, 0.0164],
+    [0.01, 0.0196],
+    [0.0072, 0.0216],
+    [0.0042, 0.0217],
+    [0.0019, 0.0204],
+    [0.0001, 0.0196],
+  ],
+  22,
+);
+const CHERRY_TOP = 0.0196;
+
+const cherryMat = lazy(() =>
+  foodMat({ color: '#ffffff', vertexColors: true, roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.08, flesh: colorsOf('cherry').flesh, cookColor: colorsOf('cherry').cooked, name: 'cherry-skin' }),
+);
+const cherrySkinCutMat = lazy(() => foodMat({ color: colorsOf('cherry').skin, roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.1, flesh: colorsOf('cherry').flesh, cookColor: colorsOf('cherry').cooked }));
+const cherryFleshMat = lazy(() => foodMat({ color: colorsOf('cherry').flesh, roughness: 0.25, clearcoat: 0.4, flesh: colorsOf('cherry').flesh, cookColor: colorsOf('cherry').cooked }));
+
+/** One cherry, stem dimple at (0, top, 0); suture groove on the +Z side. Returns [geometry, top y]. */
+function cherryGeo(r: Rng): [THREE.BufferGeometry, number] {
+  const g = lathe(CHERRY_PROFILE, 28);
+  const k = r.range(0.93, 1.06), seedN = r.range(0, 50);
+  deform(g, (p) => {
+    const a = Math.atan2(p.x, p.z), rad = Math.hypot(p.x, p.z);
+    const groove = 1 - 0.05 * Math.exp(-((angDiff(a, 0) / 0.2) ** 2)) * sstep(0.003, 0.009, rad) * sstep(0.0215, 0.012, p.y);
+    const f = k * groove * (1 + fbm3(p.x * 110 + seedN, p.y * 110, p.z * 110, 2) * 0.025);
+    p.x *= f;
+    p.z *= f;
+    p.y *= k;
+  });
+  const H = 0.0217 * k;
+  const TOP = col('#b41624'), MID = col('#96101d'), LOW = col('#4e0610'), DIMPLE = col('#6a2016');
+  paintVertices(g, (p) => {
+    const t = clamp(p.y / H);
+    const c = LOW.clone().lerp(MID, sstep(0.0, 0.5, t)).lerp(TOP, sstep(0.55, 0.95, t) * 0.7);
+    c.multiplyScalar(1 + fbm3(p.x * 260 + seedN, p.y * 260, p.z * 260, 2) * 0.3);
+    if (t > 0.8) c.lerp(DIMPLE, sstep(0.0042, 0.0015, Math.hypot(p.x, p.z)) * 0.6);
+    return c;
+  });
+  return [g, CHERRY_TOP * k];
+}
+
+function cherryStem(base: THREE.Vector3, tip: THREE.Vector3, bow: THREE.Vector3): THREE.BufferGeometry {
+  const p1 = base.clone().lerp(tip, 0.35).add(bow), p2 = base.clone().lerp(tip, 0.72).addScaledVector(bow, 0.55);
+  return colorStem(
+    [[base.x, base.y - 0.0015, base.z], [p1.x, p1.y, p1.z], [p2.x, p2.y, p2.z], [tip.x, tip.y, tip.z]],
+    0.0011,
+    0.00085,
+    [[0, '#6e7a2c'], [0.12, '#6f9236'], [0.85, '#7f8a3a'], [1, '#6a5030']],
+    { tub: 12, radial: 6 },
+  );
+}
+
+/** A cherry placed at (x, z), leaning by `lean`, random spin. Returns its geometry and stem base point. */
+function placedCherry(r: Rng, x: number, z: number, lean: number): [THREE.BufferGeometry, THREE.Vector3] {
+  const [g, top] = cherryGeo(r);
+  const m4 = new THREE.Matrix4().compose(new THREE.Vector3(x, 0, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, r.range(0, TAU), lean, 'ZYX')), new THREE.Vector3(1, 1, 1));
+  g.applyMatrix4(m4);
+  return [g, new THREE.Vector3(0, top, 0).applyMatrix4(m4)];
+}
+
+function buildCherry(r: Rng): THREE.Object3D {
+  const J = new THREE.Vector3(r.range(-0.003, 0.003), r.range(0.046, 0.052), r.range(-0.014, -0.009));
+  const bodies: THREE.BufferGeometry[] = [];
+  const stems: THREE.BufferGeometry[] = [];
+  for (const s of [-1, 1]) {
+    const [g, base] = placedCherry(r, s * r.range(0.0118, 0.0132), s * r.range(-0.003, 0.003), -s * r.range(0.08, 0.22));
+    bodies.push(g);
+    stems.push(cherryStem(base, J, new THREE.Vector3(s * r.range(0.002, 0.004), 0, r.range(0.001, 0.004))));
+  }
+  stems.push(colorStem([[J.x, J.y - 0.001, J.z], [J.x + 0.0005, J.y + 0.0025, J.z - 0.0006], [J.x + 0.001, J.y + 0.0045, J.z - 0.0012]], 0.0017, 0.0014, [[0, '#6a5030'], [1, '#5a4024']], { tub: 3, radial: 7 }));
+  const root = grp(mesh(merge(bodies), cherryMat(), { name: 'cherries' }), mesh(merge(stems), vcStemMat(), { name: 'cherry-stems' }));
+  if (r.next() < 0.85) addLeaf(root, [J.x, J.y + 0.002, J.z], r.range(-2.4, -0.8) * r.sign(), r.range(-0.35, -0.1), r.range(0.036, 0.044), r.range(0.016, 0.019), fruitLeafMat(), -0.25, r.range(-0.3, 0.3));
+  root.rotation.y = r.range(-0.6, 0.6);
+  return seat(root);
+}
+
+function cherryPiece(r: Rng): THREE.Object3D {
+  const [g, base] = placedCherry(r, 0, 0, r.range(-0.15, 0.15));
+  const tip = new THREE.Vector3(r.range(-0.006, 0.006), base.y + r.range(0.026, 0.032), r.range(-0.012, -0.006));
+  const root = grp(mesh(g, cherryMat()), mesh(cherryStem(base, tip, new THREE.Vector3(r.range(0.002, 0.004), 0, r.range(0.002, 0.004))), vcStemMat()));
+  root.rotation.y = r.range(0, TAU);
+  return seat(root);
+}
+
+const CHERRY: ModelDef = {
+  build: buildCherry,
+  piece: (r) => cherryPiece(r),
+  skin: cherrySkinCutMat,
+  flesh: cherryFleshMat,
+};
+
+// =============================================================================================
+// BLUEBERRY (little heap; piece = one berry)
+
+const BB_PROFILE: Profile = smoothProfile(
+  [
+    [0.0001, 0.0],
+    [0.003, 0.0004],
+    [0.0055, 0.0019],
+    [0.0067, 0.0045],
+    [0.0068, 0.0066],
+    [0.0061, 0.0089],
+    [0.0047, 0.0106],
+    [0.0036, 0.0113],
+    [0.0027, 0.0109],
+    [0.0016, 0.0101],
+    [0.0001, 0.0099],
+  ],
+  10,
+);
+const BB_C = 0.0057; // centre height
+const BB_MAP = 0xdc / 255;
+const BB_BOOST = 1 / lin(BB_MAP);
+
+const bbBloomTex = lazy(() =>
+  canvasTexture(
+    128,
+    64,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#dcdcdc';
+      ctx.fillRect(0, 0, w, h);
+      const r = rng(91);
+      blobs(ctx, w, h, r, 30, '255,255,255', [4, 12], [0.25, 0.5], [0.05, 0.8]);
+      blobs(ctx, w, h, r, 12, '90,90,110', [3, 8], [0.12, 0.25], [0.1, 0.8]);
+    },
+    { key: 'fruit-bb-bloom', wrap: true },
+  ),
+);
+const bbMat = lazy(() =>
+  foodMat({
+    color: '#ffffff',
+    map: bbBloomTex(),
+    vertexColors: true,
+    roughness: 0.5,
+    clearcoat: 0.3,
+    clearcoatRoughness: 0.45,
+    sheen: 0.45,
+    sheenColor: '#94a6de',
+    sheenRoughness: 0.5,
+    flesh: colorsOf('blueberry').flesh,
+    cookColor: colorsOf('blueberry').cooked,
+    name: 'blueberry-skin',
+  }),
+);
+const bbSkinCutMat = lazy(() => foodMat({ color: colorsOf('blueberry').skin, roughness: 0.5, clearcoat: 0.3, clearcoatRoughness: 0.45, flesh: colorsOf('blueberry').flesh, cookColor: colorsOf('blueberry').cooked }));
+const bbFleshMat = lazy(() => foodMat({ color: colorsOf('blueberry').flesh, roughness: 0.3, clearcoat: 0.3, flesh: colorsOf('blueberry').flesh, cookColor: colorsOf('blueberry').cooked }));
+
+/** One berry centred at the origin (crown up). */
+function berryGeo(r: Rng): THREE.BufferGeometry {
+  const g = lathe(BB_PROFILE, 20);
+  const k = r.range(0.88, 1.08), ph = r.range(0, TAU);
+  deform(g, (p) => {
+    const a = Math.atan2(p.x, p.z), rad = Math.hypot(p.x, p.z);
+    // five little sepal points around the crown
+    if (p.y > 0.0092) p.y += 0.0009 * Math.pow(Math.max(0, Math.cos(5 * a + ph)), 2) * sstep(0.0016, 0.003, rad) * sstep(0.0048, 0.0037, rad);
+    p.multiplyScalar(k);
+    p.y -= BB_C * k;
+  });
+  const base = col(r.pick(['#34407e', '#2c3672', '#38407a', '#2a2c64', '#3c4888'])).multiplyScalar(BB_BOOST * r.range(0.85, 1.1));
+  const CROWN = col('#2a2236').multiplyScalar(BB_BOOST), RIM = col('#544a6e').multiplyScalar(BB_BOOST);
+  return paintVertices(g, (p) => {
+    const rad = Math.hypot(p.x, p.z) / k, y = p.y / k + BB_C;
+    const c = base.clone().lerp(RIM, sstep(0.0098, 0.0109, y) * sstep(0.0048, 0.0035, rad));
+    return c.lerp(CROWN, sstep(0.0028, 0.0016, rad) * sstep(0.0095, 0.0105, y));
+  });
+}
+
+/** Orient a centred berry (random spin, tilt) and move it. */
+function placeBerry(g: THREE.BufferGeometry, r: Rng, pos: V3, tilt: number): THREE.BufferGeometry {
+  return bake(g, pos, r.range(0, TAU), tilt * r.sign(), r.range(-0.3, 0.3));
+}
+
+function buildBlueberry(r: Rng): THREE.Object3D {
+  const rho = 0.0063; // sphere radius used for stacking
+  const low: [number, number][] = [];
+  for (let tries = 0; tries < 600 && low.length < 9; tries++) {
+    const [dx, dz] = r.disc();
+    const x = dx * 0.026, z = dz * 0.026;
+    if (low.every(([px, pz]) => Math.hypot(px - x, pz - z) > rho * 2.02)) low.push([x, z]);
+  }
+  const geos: THREE.BufferGeometry[] = [];
+  for (const [x, z] of low) geos.push(placeBerry(berryGeo(r), r, [x, rho, z], r.range(0, 0.5)));
+  const high: V3[] = [];
+  for (let tries = 0; tries < 400 && high.length < 4; tries++) {
+    const [dx, dz] = r.disc();
+    const x = dx * 0.017, z = dz * 0.017;
+    let y = -1, supports = 0;
+    for (const [px, pz] of low) {
+      const d = Math.hypot(px - x, pz - z);
+      if (d < rho * 2) {
+        supports++;
+        y = Math.max(y, rho + Math.sqrt(rho * rho * 4 - d * d));
+      }
+    }
+    if (supports < 2 || high.some((h) => Math.hypot(h[0] - x, h[1] - y, h[2] - z) < rho * 2.02)) continue;
+    high.push([x, y, z]);
+  }
+  for (const p of high) geos.push(placeBerry(berryGeo(r), r, p, r.range(0.2, 1.1)));
+  return seat(mesh(merge(geos), bbMat(), { name: 'blueberries' }));
+}
+
+function blueberryPiece(r: Rng): THREE.Object3D {
+  return seat(mesh(placeBerry(berryGeo(r), r, [0, 0, 0], r.range(0, 0.7)), bbMat()));
+}
+
+const BLUEBERRY: ModelDef = {
+  build: buildBlueberry,
+  piece: (r) => blueberryPiece(r),
+  skin: bbSkinCutMat,
+  flesh: bbFleshMat,
+};
+
+// =============================================================================================
+// PEACH (fuzzy sheen, speckled blush, suture groove)
+
+const PEACH_H = 0.0735;
+const PEACH_PROFILE: Profile = smoothProfile(
+  [
+    [0.0001, 0.0],
+    [0.004, 0.0004],
+    [0.011, 0.0022],
+    [0.02, 0.0068],
+    [0.0295, 0.0145],
+    [0.036, 0.0255],
+    [0.0388, 0.0375],
+    [0.0378, 0.0495],
+    [0.0335, 0.0598],
+    [0.0262, 0.0678],
+    [0.0175, 0.0726],
+    [0.0098, 0.0735],
+    [0.0048, 0.0712],
+    [0.0018, 0.0688],
+    [0.0001, 0.068],
+  ],
+  40,
+);
+const PEACH_MAP = 0xe8 / 255;
+const PEACH_BOOST = 1 / lin(PEACH_MAP);
+
+/** Fine freckles + fuzz grain, multiplied over the vertex-colour blush. */
+const peachSkinTex = lazy(() =>
+  canvasTexture(
+    512,
+    256,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#e8e8e8';
+      ctx.fillRect(0, 0, w, h);
+      noiseField(ctx, w, h, [64, 32], 37, (n) => (n > 0.5 ? '#f2f2f2' : '#dcdcdc'), 0.5);
+      const r = rng(103);
+      for (let i = 0; i < 1500; i++) {
+        const x = r.next() * w, y = r.range(0.04, 0.96) * h, s = r.range(0.5, 1.4);
+        const a = r.range(0.25, 0.6);
+        wrapX(w, x, 2, (xx) => fillEllipse(ctx, xx, y, s, s * 1.3, 0, `rgba(176,40,40,${a})`));
+      }
+      blobs(ctx, w, h, r, 40, '170,50,40', [6, 18], [0.06, 0.16]);
+    },
+    { key: 'fruit-peach-skin' },
+  ),
+);
+const peachSkinMat = lazy(() =>
+  foodMat({
+    color: '#ffffff',
+    map: peachSkinTex(),
+    vertexColors: true,
+    roughness: 0.62,
+    sheen: 1,
+    sheenColor: '#ffdcc8',
+    sheenRoughness: 0.42,
+    flesh: colorsOf('peach').flesh,
+    cookColor: colorsOf('peach').cooked,
+    name: 'peach-skin',
+  }),
+);
+const peachSkinCutMat = lazy(() => {
+  const m = foodMat({ color: '#f08a50', map: peachSkinTex(), roughness: 0.62, sheen: 1, sheenColor: '#ffdcc8', sheenRoughness: 0.42, flesh: colorsOf('peach').flesh, cookColor: colorsOf('peach').cooked });
+  m.color.multiplyScalar(PEACH_BOOST);
+  return m;
+});
+const peachFleshMat = lazy(() => foodMat({ color: colorsOf('peach').flesh, roughness: 0.32, clearcoat: 0.3, clearcoatRoughness: 0.3, flesh: colorsOf('peach').flesh, cookColor: colorsOf('peach').cooked }));
+
+function buildPeach(r: Rng): THREE.Object3D {
+  const k = r.range(0.94, 1.06), sx = r.range(0.97, 1.04), sz = r.range(0.97, 1.03), sy = r.range(0.95, 1.04);
+  const a0 = r.range(0, TAU), cheek = r.range(0.015, 0.035), seedN = r.range(0, 40);
+  const xf = (p: THREE.Vector3) => {
+    const a = Math.atan2(p.x, p.z), rad = Math.hypot(p.x, p.z), t = p.y / PEACH_H;
+    const da = angDiff(a, a0);
+    const groove = 1 - 0.075 * Math.exp(-((da / 0.16) ** 2)) * sstep(0.004, 0.016, rad) * sstep(0.12, 0.55, t);
+    const f = k * groove * (1 + cheek * Math.sin(da) * sstep(0, 0.01, rad)) * (1 + fbm3(p.x * 40 + seedN, p.y * 40, p.z * 40, 2) * 0.018);
+    p.x *= f * sx;
+    p.z *= f * sz;
+    p.y *= k * sy;
+  };
+  const g = lathe(PEACH_PROFILE, 48);
+  deform(g, xf);
+  const H = PEACH_H * k * sy;
+  const sunA = r.range(0, TAU), blushAmt = r.range(0.55, 1);
+  const YEL = col('#f9c862'), ORA = col('#f5a64e'), RED = col('#dc4a3c'), DEEP = col('#ae2a32'), STEM = col('#cfc062');
+  paintVertices(g, (p) => {
+    const t = clamp(p.y / H), a = Math.atan2(p.x, p.z), rad = Math.hypot(p.x, p.z);
+    const n = fbm3(p.x * 55 + seedN, p.y * 55, p.z * 55, 3);
+    const b = sstep(-0.35, 0.65, Math.cos(angDiff(a, sunA)) * 0.75 + (t - 0.35) * 0.7 + n * 1.1) * blushAmt;
+    const c = YEL.clone().lerp(ORA, clamp(0.35 + n * 0.8 + (0.5 - t) * 0.3));
+    c.lerp(RED, b).lerp(DEEP, sstep(0.55, 1, b) * 0.55);
+    if (t > 0.85) c.lerp(STEM, sstep(0.008, 0.002, rad) * 0.7);
+    return c.multiplyScalar(PEACH_BOOST);
+  });
+  const body = mesh(g, peachSkinMat(), { skin: true, name: 'peach-body' });
+  const root = grp(body);
+  const base = new THREE.Vector3(0, 0.0686, 0);
+  xf(base);
+  root.add(mesh(colorStem([[base.x, base.y - 0.002, base.z], [base.x, base.y + 0.003, base.z], [base.x + 0.0008, base.y + 0.0065, base.z + 0.0004]], 0.0017, 0.0014, [[0, '#7a6a34'], [1, '#5e4426']], { tub: 4, radial: 7 }), vcStemMat()));
+  if (r.next() < 0.65) addLeaf(root, [base.x, base.y + 0.0045, base.z], r.range(0, TAU), r.range(-0.45, -0.2), r.range(0.05, 0.06), r.range(0.0145, 0.017), darkLeafMat(), -0.3, r.range(-0.3, 0.3));
+  root.rotation.set(r.range(-0.1, 0.1), r.range(0, TAU), r.range(-0.1, 0.1));
+  return seat(root, body);
+}
+
+/** Peach stone: wrinkled almond shape, pointed end towards `ang` (canvas radians). */
+function peachPit(ctx: Ctx, x: number, y: number, len: number, wid: number, ang: number, r: Rng) {
+  teardrop(ctx, x, y, len, wid, ang);
+  ctx.save();
+  ctx.fillStyle = radial(ctx, x - wid * 0.15, y - len * 0.1, 0, len * 0.6, [[0, '#b46a40'], [0.6, '#94502e'], [1, '#6e3620']]);
+  ctx.fill();
+  ctx.clip();
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 26; i++) {
+    const px = x + r.range(-0.5, 0.5) * wid, py = y + r.range(-0.5, 0.5) * len;
+    ctx.strokeStyle = r.next() < 0.6 ? 'rgba(70,30,16,0.55)' : 'rgba(214,150,100,0.4)';
+    ctx.lineWidth = Math.max(1, wid * r.range(0.025, 0.05));
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.quadraticCurveTo(px + r.range(-0.15, 0.15) * wid, py + r.range(-0.15, 0.15) * len, px + r.range(-0.25, 0.25) * wid, py + r.range(-0.2, 0.2) * len);
+    ctx.stroke();
+  }
+  ctx.restore();
+  fillEllipse(ctx, x - wid * 0.18, y - len * 0.12, wid * 0.12, len * 0.07, ang + Math.PI / 2, 'rgba(255,220,190,0.35)');
+}
+
+function peachSection(ctx: Ctx, s: number, o: SectionOpts) {
+  const c = s / 2;
+  const r = rng(105);
+  let R = c;
+  if (!o.peeled) {
+    fillCircle(ctx, c, c, c, radial(ctx, c, c, c * 0.9, c, [[0, '#e8703e'], [1, '#c43c2c']]));
+    R = c * 0.972;
+  }
+  fillCircle(ctx, c, c, R, radial(ctx, c, c, 0, R, [[0, '#e0583c'], [0.3, '#f08a4c'], [0.42, '#f8b05a'], [0.85, '#fbc36e'], [1, o.peeled ? '#f8bc66' : '#f9b45e']]));
+  discFibres(ctx, c, c, R, r, 80, 'rgba(206,60,44,0.35)', [s * 0.003, s * 0.007], 0.25, 0.55);
+  discDots(ctx, c, c, R * 0.97, r, 220, 'rgba(255,236,190,0.3)', [s * 0.004, s * 0.009], 0.35, 1);
+  peachPit(ctx, c, c, R * 0.5, R * 0.4, -Math.PI / 2 + 0.3, r);
+}
+
+function peachSectionV(ctx: Ctx, w: number, h: number, o: SectionOpts) {
+  const prof = PEACH_PROFILE;
+  const m = vmap(prof, w, h);
+  ctx.fillStyle = o.peeled ? '#f8b860' : '#d24c36';
+  ctx.fillRect(0, 0, w, h);
+  const d0 = o.peeled ? 0 : 0.001;
+  layeredSil(ctx, prof, m, [[d0, '#f4a054'], [d0 + 0.002, '#fabc66'], [d0 + 0.008, '#fbc36e']]);
+  const r = rng(106);
+  ctx.save();
+  silhouette(ctx, prof, m, d0);
+  ctx.clip();
+  const px = m.X(0), py = m.Y(0.036);
+  ctx.fillStyle = radial(ctx, px, py, 0.006 * m.kx, 0.028 * m.kx, [[0, 'rgba(214,64,46,0.9)'], [0.45, 'rgba(238,120,70,0.5)'], [1, 'rgba(250,180,100,0)']]);
+  ctx.fillRect(0, 0, w, h);
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 70; i++) {
+    const a = r.range(0, TAU), d0f = r.range(0.011, 0.016), d1f = d0f + r.range(0.006, 0.014);
+    ctx.strokeStyle = 'rgba(206,64,44,0.35)';
+    ctx.lineWidth = w * r.range(0.004, 0.008);
+    ctx.beginPath();
+    ctx.moveTo(px + Math.cos(a) * d0f * m.kx, py + Math.sin(a) * d0f * 1.3 * m.ky);
+    ctx.lineTo(px + Math.cos(a) * d1f * m.kx, py + Math.sin(a) * d1f * 1.3 * m.ky);
+    ctx.stroke();
+  }
+  for (let i = 0; i < 200; i++) fillCircle(ctx, r.next() * w, r.next() * h, w * r.range(0.004, 0.009), 'rgba(255,236,190,0.25)');
+  peachPit(ctx, px, py, 0.034 * m.ky, 0.024 * m.kx, -Math.PI / 2, r);
+  ctx.restore();
+}
+
+const PEACH: ModelDef = {
+  build: buildPeach,
+  profile: PEACH_PROFILE,
+  skin: peachSkinCutMat,
+  flesh: peachFleshMat,
+  section: peachSection,
+  sectionV: peachSectionV,
+};
+
+// =============================================================================================
+// PEAR (calyx basin at the bottom; the cut profile starts at the lowest point)
+
+const PEAR_H = 0.0972;
+const PEAR_TOP: Profile = [
+  [0.0325, 0.0405],
+  [0.0272, 0.0505],
+  [0.0228, 0.0595],
+  [0.0198, 0.0685],
+  [0.0176, 0.0768],
+  [0.015, 0.0848],
+  [0.0112, 0.0918],
+  [0.0062, 0.0962],
+  [0.0026, PEAR_H],
+  [0.0001, 0.0962],
+];
+const PEAR_BODY: Profile = smoothProfile(
+  [[0.0001, 0.0042], [0.0035, 0.0036], [0.0085, 0.0018], [0.0155, 0.0004], [0.0235, 0.0024], [0.0302, 0.0088], [0.0342, 0.0185], [0.0352, 0.0295], ...PEAR_TOP],
+  46,
+);
+const PEAR_CUT: Profile = smoothProfile([[0.0001, 0.0], [0.009, 0.0005], [0.018, 0.0024], [0.0262, 0.0066], [0.0318, 0.014], [0.0347, 0.024], [0.0352, 0.0315], ...PEAR_TOP], 40);
+const PEAR_MAP = 0xe6 / 255;
+const PEAR_BOOST = 1 / lin(PEAR_MAP);
+
+const pearSkinTex = lazy(() =>
+  canvasTexture(
+    512,
+    256,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#e6e6e6';
+      ctx.fillRect(0, 0, w, h);
+      noiseField(ctx, w, h, [40, 20], 41, (n) => (n > 0.5 ? '#eeeeee' : '#d8d8d8'), 0.6);
+      const r = rng(111);
+      // russet freckles, denser towards the stem (canvas top)
+      for (let i = 0; i < 900; i++) {
+        const x = r.next() * w, y = Math.pow(r.next(), 1.4) * h * 0.95 + h * 0.03, s = r.range(0.7, 1.6);
+        const a = r.range(0.35, 0.75);
+        wrapX(w, x, 3, (xx) => fillEllipse(ctx, xx, y, s * 1.2, s, 0, `rgba(120,86,40,${a})`));
+      }
+      // russet patch around the stem
+      blobs(ctx, w, h, r, 30, '140,104,56', [8, 26], [0.15, 0.35], [0.0, 0.16]);
+      ctx.fillStyle = linear(ctx, 0, 0, 0, h, [[0, 'rgba(130,96,50,0.6)'], [0.06, 'rgba(130,96,50,0)'], [1, 'rgba(0,0,0,0)']]);
+      ctx.fillRect(0, 0, w, h);
+    },
+    { key: 'fruit-pear-skin' },
+  ),
+);
+const pearSkinMat = lazy(() =>
+  foodMat({ color: '#ffffff', map: pearSkinTex(), vertexColors: true, roughness: 0.48, clearcoat: 0.22, clearcoatRoughness: 0.45, flesh: colorsOf('pear').flesh, cookColor: colorsOf('pear').cooked, name: 'pear-skin' }),
+);
+const pearSkinCutMat = lazy(() => {
+  const m = foodMat({ color: colorsOf('pear').skin, map: pearSkinTex(), roughness: 0.48, clearcoat: 0.2, flesh: colorsOf('pear').flesh, cookColor: colorsOf('pear').cooked });
+  m.color.multiplyScalar(PEAR_BOOST);
+  return m;
+});
+const pearFleshMat = lazy(() => foodMat({ color: colorsOf('pear').flesh, roughness: 0.4, flesh: colorsOf('pear').flesh, cookColor: colorsOf('pear').cooked }));
+
+function buildPear(r: Rng): THREE.Object3D {
+  const k = r.range(0.94, 1.05), fat = r.range(0.95, 1.06), lean = r.range(0.006, 0.014), leanDir = r.range(0, TAU), seedN = r.range(0, 40);
+  const xf = (p: THREE.Vector3) => {
+    const t = p.y / PEAR_H;
+    const f = k * fat * (1 + fbm3(p.x * 38 + seedN, p.y * 38, p.z * 38, 2) * 0.03);
+    p.x *= f;
+    p.z *= f;
+    const l = lean * sstep(0.35, 1, t) * sstep(0.35, 1, t);
+    p.x += Math.cos(leanDir) * l;
+    p.z += Math.sin(leanDir) * l;
+    p.y *= k;
+  };
+  const g = lathe(PEAR_BODY, 48);
+  deform(g, xf);
+  const H = PEAR_H * k;
+  const sunA = r.range(0, TAU), blush = r.next() < 0.6 ? r.range(0.15, 0.45) : 0;
+  const GRN = col('#a6bf38'), YEL = col('#d9d454'), PALE = col('#e2dc78'), RED = col('#d0743c'), BASIN = col('#8a7a3a');
+  paintVertices(g, (p) => {
+    const t = clamp(p.y / H), a = Math.atan2(p.x, p.z), rad = Math.hypot(p.x, p.z);
+    const n = fbm3(p.x * 45 + seedN, p.y * 45, p.z * 45, 3);
+    const sun = Math.cos(angDiff(a, sunA));
+    const c = GRN.clone().lerp(YEL, clamp(0.45 + sun * 0.3 - (t - 0.35) * 0.6 + n * 0.8));
+    c.lerp(PALE, sstep(0.3, 0.9, sun * 0.6 + n) * 0.35);
+    c.lerp(RED, blush * sstep(0.2, 0.9, sun + n * 0.8) * sstep(0.75, 0.2, t));
+    if (t < 0.1) c.lerp(BASIN, sstep(0.009, 0.002, rad) * 0.8);
+    return c.multiplyScalar(PEAR_BOOST);
+  });
+  const body = mesh(g, pearSkinMat(), { skin: true, name: 'pear-body' });
+  const root = grp(body);
+  const base = new THREE.Vector3(0, 0.0962, 0);
+  xf(base);
+  const bx = r.range(-0.005, 0.005), bz = r.range(-0.004, 0.004), len = r.range(0.02, 0.026);
+  root.add(
+    mesh(
+      colorStem([[base.x, base.y - 0.003, base.z], [base.x, base.y + 0.004, base.z], [base.x + bx * 0.4, base.y + len * 0.6, base.z + bz * 0.4], [base.x + bx, base.y + len, base.z + bz]], 0.0021, 0.0015, [[0, '#7a6234'], [0.2, '#6a5030'], [1, '#4e3820']], { tub: 10, radial: 8 }),
+      vcStemMat(),
+    ),
+  );
+  if (r.next() < 0.45) addLeaf(root, [base.x + bx * 0.3, base.y + len * 0.45, base.z + bz * 0.3], r.range(0, TAU), r.range(-0.5, -0.2), r.range(0.04, 0.048), r.range(0.02, 0.024), fruitLeafMat(), -0.3, r.range(-0.3, 0.3));
+  root.rotation.y = r.range(0, TAU);
+  return seat(root, body);
+}
+
+/** Small pear core: five-lobed star with seeds (horizontal slice). */
+function pearSection(ctx: Ctx, s: number, o: SectionOpts) {
+  const c = s / 2;
+  const r = rng(113);
+  let R = c;
+  if (!o.peeled) {
+    fillCircle(ctx, c, c, c, radial(ctx, c, c, c * 0.9, c, [[0, '#c8d050'], [1, '#98ae34']]));
+    R = c * 0.968;
+  }
+  fillCircle(ctx, c, c, R, radial(ctx, c, c, 0, R, [[0, '#f8f4d8'], [0.6, '#f6f1cc'], [0.92, '#f1ecbc'], [1, o.peeled ? '#ece6b0' : '#e8e8a8']]));
+  // gritty stone cells
+  discDots(ctx, c, c, R * 0.96, r, 320, 'rgba(214,204,150,0.35)', [s * 0.002, s * 0.005], 0.05, 1);
+  discDots(ctx, c, c, R * 0.96, r, 200, 'rgba(255,255,248,0.45)', [s * 0.003, s * 0.007], 0.05, 1);
+  const ro = 0.27 * R, ri = 0.12 * R;
+  ctx.beginPath();
+  for (let i = 0; i <= 10; i++) {
+    const a = (i / 10) * TAU - Math.PI / 2;
+    const rr = i % 2 === 0 ? ro : ri;
+    const x = c + Math.cos(a) * rr, y = c + Math.sin(a) * rr;
+    if (i === 0) ctx.moveTo(x, y);
+    else {
+      const am = a - TAU / 20, rm = (ro + ri) * 0.6;
+      ctx.quadraticCurveTo(c + Math.cos(am) * rm, c + Math.sin(am) * rm, x, y);
+    }
+  }
+  ctx.closePath();
+  ctx.fillStyle = radial(ctx, c, c, 0, ro, [[0, '#f4ecc8'], [1, '#ebdfb0']]);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(190,170,110,0.7)';
+  ctx.lineWidth = s * 0.007;
+  ctx.stroke();
+  for (let k = 0; k < 5; k++) {
+    const a = (k / 5) * TAU - Math.PI / 2;
+    if (k % 2 === 1 && r.next() < 0.5) continue;
+    seed(ctx, c + Math.cos(a) * 0.16 * R, c + Math.sin(a) * 0.16 * R, 0.11 * R, 0.06 * R, a + Math.PI, '#3a1e0e', '#7a4a24');
+  }
+}
+
+function pearSectionV(ctx: Ctx, w: number, h: number, o: SectionOpts) {
+  const prof = PEAR_CUT;
+  const m = vmap(prof, w, h);
+  ctx.fillStyle = o.peeled ? '#ece6b0' : '#a8be3a';
+  ctx.fillRect(0, 0, w, h);
+  const d0 = o.peeled ? 0 : 0.0012;
+  layeredSil(ctx, prof, m, [[d0, '#ebe8b0'], [d0 + 0.002, '#f2edc4'], [d0 + 0.007, '#f6f1cf']]);
+  const r = rng(114);
+  ctx.save();
+  silhouette(ctx, prof, m, d0);
+  ctx.clip();
+  for (let i = 0; i < 400; i++) fillCircle(ctx, r.next() * w, r.next() * h, w * r.range(0.002, 0.006), r.next() < 0.5 ? 'rgba(214,204,150,0.35)' : 'rgba(255,255,248,0.4)');
+  const cx = m.X(0);
+  // vascular line from the calyx through the core to the stem
+  ctx.strokeStyle = 'rgba(200,184,120,0.65)';
+  ctx.lineWidth = w * 0.012;
+  ctx.beginPath();
+  ctx.moveTo(cx, m.Y(0.001));
+  ctx.lineTo(cx, m.Y(0.0965));
+  ctx.stroke();
+  // core: lens around the seeds in the bulb
+  const yT = m.Y(0.047), yB = m.Y(0.012), cw = 0.0095 * m.kx;
+  ctx.beginPath();
+  ctx.moveTo(cx, yT);
+  ctx.bezierCurveTo(cx + cw * 1.5, lerp(yT, yB, 0.25), cx + cw * 1.4, lerp(yT, yB, 0.8), cx, yB);
+  ctx.bezierCurveTo(cx - cw * 1.4, lerp(yT, yB, 0.8), cx - cw * 1.5, lerp(yT, yB, 0.25), cx, yT);
+  ctx.fillStyle = 'rgba(238,226,176,0.9)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(196,172,110,0.7)';
+  ctx.lineWidth = w * 0.006;
+  ctx.stroke();
+  for (const sgn of [-1, 1]) seed(ctx, cx + sgn * cw * 0.5, m.Y(0.029), 0.011 * m.ky, 0.006 * m.kx, -Math.PI / 2 + sgn * 0.15, '#3a1e0e', '#7a4a24');
+  fillEllipse(ctx, cx, m.Y(0.001), 0.0035 * m.kx, 0.0015 * m.ky, 0, '#6a5030');
+  ctx.restore();
+}
+
+const PEAR: ModelDef = {
+  build: buildPear,
+  profile: PEAR_CUT,
+  skin: pearSkinCutMat,
+  flesh: pearFleshMat,
+  section: pearSection,
+  sectionV: pearSectionV,
+};
+
+// =============================================================================================
+// KIWI (fuzzy brown ellipsoid lying on its side; profile upright: blossom end at y = 0)
+
+const KIWI_L = 0.0698;
+const KIWI_PROFILE: Profile = smoothProfile(
+  [
+    [0.0001, 0.0],
+    [0.004, 0.0004],
+    [0.0085, 0.0018],
+    [0.0135, 0.0048],
+    [0.019, 0.0105],
+    [0.0232, 0.019],
+    [0.0252, 0.029],
+    [0.0256, 0.038],
+    [0.025, 0.047],
+    [0.0228, 0.0555],
+    [0.0185, 0.0625],
+    [0.013, 0.0668],
+    [0.0075, 0.0692],
+    [0.0035, 0.0698],
+    [0.0001, KIWI_L],
+  ],
+  36,
+);
+const KIWI_PEELED: Profile = KIWI_PROFILE.map(([rr, y]) => [Math.max(0.0001, rr * 0.95), y * 0.97]);
+
+/** Hair strokes along the fruit (shared by the colour and normal maps). */
+function kiwiHairs(ctx: Ctx, w: number, h: number, light: string, dark: string, n: number) {
+  const r = rng(123);
+  ctx.lineCap = 'round';
+  for (let i = 0; i < n; i++) {
+    const x = r.next() * w, y = r.next() * h, len = r.range(4, 11), a = r.range(-0.6, 0.6) + Math.PI / 2;
+    ctx.strokeStyle = r.next() < 0.55 ? light : dark;
+    ctx.globalAlpha = r.range(0.2, 0.55);
+    ctx.lineWidth = r.range(0.6, 1.3);
+    wrapX(w, x, len, (xx) => {
+      ctx.beginPath();
+      ctx.moveTo(xx, y);
+      ctx.lineTo(xx + Math.cos(a) * len, y + Math.sin(a) * len);
+      ctx.stroke();
+    });
+  }
+  ctx.globalAlpha = 1;
+}
+
+const kiwiSkinTex = lazy(() =>
+  canvasTexture(
+    512,
+    256,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#8a6a3a';
+      ctx.fillRect(0, 0, w, h);
+      noiseField(ctx, w, h, [24, 12], 51, (n) => (n > 0.5 ? '#9c7a44' : '#745628'), 0.7);
+      kiwiHairs(ctx, w, h, '#c0a070', '#4e3618', 3600);
+      // darker, balder ends
+      ctx.fillStyle = linear(ctx, 0, 0, 0, h, [[0, 'rgba(70,48,22,0.85)'], [0.05, 'rgba(70,48,22,0)'], [0.95, 'rgba(70,48,22,0)'], [1, 'rgba(60,40,20,0.9)']]);
+      ctx.fillRect(0, 0, w, h);
+    },
+    { key: 'fruit-kiwi-skin' },
+  ),
+);
+const kiwiNormalTex = lazy(() =>
+  normalTex(
+    'fruit-kiwi-normal',
+    512,
+    256,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#808080';
+      ctx.fillRect(0, 0, w, h);
+      noiseField(ctx, w, h, [48, 24], 53, (n) => (n > 0.5 ? '#949494' : '#6c6c6c'), 0.8);
+      kiwiHairs(ctx, w, h, '#d0d0d0', '#404040', 3600);
+    },
+    2,
+  ),
+);
+const kiwiSkinMat = lazy(() =>
+  withNormalScale(
+    foodMat({
+      color: '#ffffff',
+      map: kiwiSkinTex(),
+      normalMap: kiwiNormalTex(),
+      roughness: 0.86,
+      sheen: 1,
+      sheenColor: '#dcc090',
+      sheenRoughness: 0.55,
+      flesh: colorsOf('kiwi').flesh,
+      cookColor: colorsOf('kiwi').cooked,
+      name: 'kiwi-skin',
+    }),
+    0.7,
+  ),
+);
+const kiwiPeeledTex = lazy(() =>
+  canvasTexture(
+    512,
+    256,
+    (ctx) => {
+      const L = latheInfo(KIWI_PEELED);
+      const G = hexRGB('#7cc242'), G2 = hexRGB('#9ad25a'), GD = hexRGB('#62a832'), CORE = hexRGB('#eef4c8'), SEED = hexRGB('#2e3a14');
+      pixels(ctx, 512, 256, (x, y, o) => {
+        const u = (x + 0.5) / 512, v = 1 - (y + 0.5) / 256, sv = v * L.total;
+        const n = noiseU(u, sv, 30, 25, 4.4);
+        setRGB(o, G);
+        blend(o, n > 0 ? G2 : GD, Math.abs(n) * 1.5);
+        const pole = Math.min(sv, L.total - sv);
+        blend(o, G2, sstep(0.016, 0.006, pole) * 0.6);
+        blend(o, CORE, sstep(0.0065, 0.0025, pole));
+        // the seed ring shows faintly through the flesh near each end
+        const sd = noiseU(u, sv, 70, 600, 8.8);
+        blend(o, SEED, sstep(0.45, 0.75, sd) * sstep(0.004, 0.0015, Math.abs(pole - 0.0105)) * 0.7);
+      });
+    },
+    { key: 'fruit-kiwi-peeled' },
+  ),
+);
+const kiwiPeeledMat = lazy(() =>
+  foodMat({ color: '#ffffff', map: kiwiPeeledTex(), roughness: 0.3, clearcoat: 0.6, clearcoatRoughness: 0.25, flesh: colorsOf('kiwi').flesh, cookColor: colorsOf('kiwi').cooked, name: 'kiwi-peeled' }),
+);
+const kiwiSkinCutMat = lazy(() => foodMat({ color: '#ffffff', map: kiwiSkinTex(), roughness: 0.86, sheen: 1, sheenColor: '#dcc090', sheenRoughness: 0.55, flesh: colorsOf('kiwi').flesh, cookColor: colorsOf('kiwi').cooked }));
+const kiwiFleshMat = lazy(() => foodMat({ color: colorsOf('kiwi').flesh, roughness: 0.28, clearcoat: 0.4, clearcoatRoughness: 0.25, flesh: colorsOf('kiwi').flesh, cookColor: colorsOf('kiwi').cooked }));
+
+function kiwiBuild(r: Rng, peeled: boolean): THREE.Object3D {
+  const k = r.range(0.94, 1.05), sx = r.range(1.0, 1.06), sz = r.range(0.9, 0.97), seedN = r.range(0, 30);
+  const g = lathe(peeled ? KIWI_PEELED : KIWI_PROFILE, 40);
+  deform(g, (p) => {
+    const f = k * (1 + fbm3(p.x * 45 + seedN, p.y * 45, p.z * 45, 2) * 0.03);
+    p.x *= f * sx;
+    p.z *= f * sz;
+    p.y *= k;
+  });
+  const body = mesh(g, peeled ? kiwiPeeledMat() : kiwiSkinMat(), { name: 'kiwi-body' });
+  const up = grp(body);
+  if (!peeled) {
+    const top = KIWI_L * k;
+    up.add(mesh(colorStem([[0, top - 0.002, 0], [0, top + 0.0005, 0], [0.0002, top + 0.0018, 0]], 0.0034, 0.0028, [[0, '#6a5030'], [1, '#4a3420']], { tub: 2, radial: 10, caps: 'flat' }), vcStemMat()));
+    up.add(mesh(colorStem([[0, 0.0014, 0], [0, -0.0004, 0], [0.0002, -0.0012, 0]], 0.0016, 0.0009, [[0, '#4a3420'], [1, '#2e2010']], { tub: 2, radial: 7 }), vcStemMat()));
+  }
+  up.rotation.z = Math.PI / 2 + r.range(-0.05, 0.05);
+  const root = grp(up);
+  root.rotation.y = r.range(-0.6, 0.6);
+  return seat(root, body);
+}
+
+function kiwiSection(ctx: Ctx, s: number, o: SectionOpts) {
+  const c = s / 2;
+  const r = rng(121);
+  let R = c;
+  if (!o.peeled) {
+    fillCircle(ctx, c, c, c, '#7a5a30');
+    R = c * 0.962;
+  }
+  fillCircle(ctx, c, c, R, radial(ctx, c, c, 0, R, [[0, '#f6f6dc'], [0.18, '#eaf2c4'], [0.27, '#bfe080'], [0.45, '#94d050'], [0.85, '#80c444'], [1, '#6cb238']]));
+  // white rays from the core
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 36; i++) {
+    const a = (i / 36) * TAU + r.range(-0.05, 0.05);
+    ctx.strokeStyle = `rgba(236,248,214,${r.range(0.3, 0.55)})`;
+    ctx.lineWidth = s * r.range(0.005, 0.009);
+    ctx.beginPath();
+    ctx.moveTo(c + Math.cos(a) * R * 0.22, c + Math.sin(a) * R * 0.22);
+    ctx.lineTo(c + Math.cos(a) * R * r.range(0.5, 0.7), c + Math.sin(a) * R * r.range(0.5, 0.7));
+    ctx.stroke();
+  }
+  discDots(ctx, c, c, R * 0.95, r, 200, 'rgba(210,240,160,0.3)', [s * 0.004, s * 0.009], 0.45, 1);
+  // ring of black seeds
+  for (let i = 0; i < 52; i++) {
+    const a = (i / 52) * TAU + r.range(-0.04, 0.04), d = R * r.range(0.3, 0.42);
+    seed(ctx, c + Math.cos(a) * d, c + Math.sin(a) * d, s * r.range(0.03, 0.04), s * 0.017, a + r.range(-0.3, 0.3), '#120a06', '#3e2c1a', 'rgba(255,255,255,0.4)');
+  }
+  // creamy core
+  fillEllipse(ctx, c, c, R * 0.19, R * 0.15, r.range(0, Math.PI), radial(ctx, c, c, 0, R * 0.19, [[0, '#fdfdf0'], [0.7, '#f4f6d8'], [1, 'rgba(240,246,204,0.6)']]));
+}
+
+function kiwiSectionV(ctx: Ctx, w: number, h: number, o: SectionOpts) {
+  const prof = KIWI_PROFILE;
+  const m = vmap(prof, w, h);
+  ctx.fillStyle = o.peeled ? '#86c84a' : '#7a5a30';
+  ctx.fillRect(0, 0, w, h);
+  const d0 = o.peeled ? 0 : 0.0009;
+  layeredSil(ctx, prof, m, [[d0, '#6cb238'], [d0 + 0.003, '#7cc242'], [d0 + 0.008, '#8ccc4a'], [d0 + 0.0135, '#b2dc72']]);
+  const r = rng(122);
+  ctx.save();
+  silhouette(ctx, prof, m, d0);
+  ctx.clip();
+  const cx = m.X(0);
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 60; i++) {
+    const y = m.Y(r.range(0.008, 0.062)), side = r.sign();
+    ctx.strokeStyle = `rgba(236,248,214,${r.range(0.3, 0.5)})`;
+    ctx.lineWidth = w * r.range(0.005, 0.008);
+    ctx.beginPath();
+    ctx.moveTo(cx + side * 0.004 * m.kx, y);
+    ctx.lineTo(cx + side * r.range(0.012, 0.016) * m.kx, y + r.range(-0.004, 0.004) * m.ky);
+    ctx.stroke();
+  }
+  // seeds flanking the core
+  for (let i = 0; i < 64; i++) {
+    const yy = r.range(0.01, 0.06), side = i % 2 ? 1 : -1;
+    const spread = Math.sin((Math.PI * (yy - 0.004)) / 0.062);
+    const x = cx + side * r.range(0.0058, 0.0095) * spread * m.kx;
+    seed(ctx, x, m.Y(yy), 0.0028 * m.kx, 0.0014 * m.kx, side > 0 ? r.range(-0.4, 0.4) : Math.PI + r.range(-0.4, 0.4), '#120a06', '#3e2c1a', 'rgba(255,255,255,0.4)');
+  }
+  // creamy core column
+  const yT = m.Y(0.063), yB = m.Y(0.006), cw = 0.0042 * m.kx;
+  ctx.beginPath();
+  ctx.moveTo(cx, yT);
+  ctx.bezierCurveTo(cx + cw * 1.3, lerp(yT, yB, 0.2), cx + cw * 1.3, lerp(yT, yB, 0.8), cx, yB);
+  ctx.bezierCurveTo(cx - cw * 1.3, lerp(yT, yB, 0.8), cx - cw * 1.3, lerp(yT, yB, 0.2), cx, yT);
+  ctx.fillStyle = '#f6f8de';
+  ctx.fill();
+  ctx.restore();
+}
+
+const KIWI: ModelDef = {
+  build: (r) => kiwiBuild(r, false),
+  peeled: (r) => kiwiBuild(r, true),
+  profile: KIWI_PROFILE,
+  skin: kiwiSkinCutMat,
+  flesh: kiwiFleshMat,
+  section: kiwiSection,
+  sectionV: kiwiSectionV,
+};
+
+// =============================================================================================
+// MANGO (flattened kidney shape lying on its flat side; profile upright: beak at y = 0)
+
+const MANGO_L = 0.12;
+const MANGO_PROFILE: Profile = smoothProfile(
+  [
+    [0.0001, 0.0],
+    [0.005, 0.0008],
+    [0.012, 0.004],
+    [0.02, 0.011],
+    [0.028, 0.022],
+    [0.036, 0.04],
+    [0.0405, 0.058],
+    [0.0415, 0.072],
+    [0.0395, 0.087],
+    [0.034, 0.1],
+    [0.0255, 0.11],
+    [0.0155, 0.1165],
+    [0.006, 0.1195],
+    [0.0001, MANGO_L],
+  ],
+  40,
+);
+const MANGO_MAP = 0xe2 / 255;
+const MANGO_BOOST = 1 / lin(MANGO_MAP);
+
+const mangoSkinTex = lazy(() =>
+  canvasTexture(
+    512,
+    256,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#e2e2e2';
+      ctx.fillRect(0, 0, w, h);
+      noiseField(ctx, w, h, [32, 16], 61, (n) => (n > 0.5 ? '#eaeaea' : '#d8d8d8'), 0.6);
+      const r = rng(131);
+      // pale lenticel dots
+      for (let i = 0; i < 1100; i++) {
+        const x = r.next() * w, y = r.range(0.03, 0.97) * h, s = r.range(0.5, 1.2);
+        wrapX(w, x, 2, (xx) => fillCircle(ctx, xx, y, s, `rgba(255,255,236,${r.range(0.5, 0.9)})`));
+      }
+      for (let i = 0; i < 160; i++) {
+        const x = r.next() * w, y = r.range(0.03, 0.97) * h;
+        wrapX(w, x, 2, (xx) => fillCircle(ctx, xx, y, r.range(0.5, 1), 'rgba(90,60,30,0.4)'));
+      }
+    },
+    { key: 'fruit-mango-skin' },
+  ),
+);
+const mangoSkinMat = lazy(() =>
+  foodMat({ color: '#ffffff', map: mangoSkinTex(), vertexColors: true, roughness: 0.38, clearcoat: 0.45, clearcoatRoughness: 0.3, flesh: colorsOf('mango').flesh, cookColor: colorsOf('mango').cooked, name: 'mango-skin' }),
+);
+const mangoSkinCutMat = lazy(() => {
+  const m = foodMat({ color: colorsOf('mango').skin, map: mangoSkinTex(), roughness: 0.38, clearcoat: 0.4, flesh: colorsOf('mango').flesh, cookColor: colorsOf('mango').cooked });
+  m.color.multiplyScalar(MANGO_BOOST);
+  return m;
+});
+const mangoFleshMat = lazy(() => foodMat({ color: colorsOf('mango').flesh, roughness: 0.28, clearcoat: 0.4, clearcoatRoughness: 0.25, flesh: colorsOf('mango').flesh, cookColor: colorsOf('mango').cooked }));
+
+function buildMango(r: Rng): THREE.Object3D {
+  const k = r.range(0.94, 1.05), flat = r.range(0.76, 0.84), bend = r.range(0.004, 0.008), beak = r.range(0.004, 0.008), seedN = r.range(0, 40);
+  const g = lathe(MANGO_PROFILE, 48);
+  deform(g, (p) => {
+    const t = p.y / MANGO_L;
+    const f = k * (1 + fbm3(p.x * 35 + seedN, p.y * 35, p.z * 35, 2) * 0.022);
+    p.x = p.x * f + bend * Math.sin(Math.PI * t) - beak * sstep(0.3, 0, t);
+    p.z *= f * flat;
+    p.y *= k;
+  });
+  const H = MANGO_L * k;
+  const sunA = Math.PI + r.range(-0.5, 0.5), blushAmt = r.range(0.5, 1), green = r.range(0.15, 0.6);
+  const GRN = col('#86a83a'), YEL = col('#f6c632'), ORA = col('#f7a232'), RED = col('#e2503a'), DEEP = col('#c03838');
+  paintVertices(g, (p) => {
+    const t = clamp(p.y / H), a = Math.atan2(p.x, p.z);
+    const n = fbm3(p.x * 40 + seedN, p.y * 40, p.z * 40, 3);
+    const sun = Math.cos(angDiff(a, sunA));
+    const c = YEL.clone().lerp(ORA, clamp(0.3 + n * 0.7 + sun * 0.2));
+    c.lerp(GRN, clamp(sstep(0.5, 0.98, t) * 0.7 + green * sstep(0.2, -0.6, sun) + n * 0.3 - 0.1));
+    const b = sstep(0.0, 0.8, sun * 0.8 + (t - 0.4) * 0.8 + n * 0.9) * blushAmt;
+    c.lerp(RED, b).lerp(DEEP, sstep(0.6, 1, b) * 0.4);
+    return c.multiplyScalar(MANGO_BOOST);
+  });
+  const body = mesh(g, mangoSkinMat(), { skin: true, name: 'mango-body' });
+  const stem = mesh(colorStem([[bend * 0, H - 0.003, 0], [0, H + 0.002, 0], [0.0004, H + 0.005, 0.0002]], 0.0022, 0.0018, [[0, '#6e6a30'], [1, '#4e3a20']], { tub: 3, radial: 8, caps: 'flat' }), vcStemMat());
+  const up = grp(body, stem);
+  up.rotation.x = Math.PI / 2;
+  const root = grp(up);
+  root.rotation.y = r.range(0, TAU);
+  return seat(root, body);
+}
+
+/** Flat fibrous mango stone (cream with hairy fibres). */
+function mangoPit(ctx: Ctx, x: number, y: number, rx: number, ry: number, r: Rng) {
+  ctx.save();
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 90; i++) {
+    const a = r.range(0, TAU);
+    const px = x + Math.cos(a) * rx * 0.95, py = y + Math.sin(a) * ry * 0.95;
+    ctx.strokeStyle = `rgba(250,226,150,${r.range(0.35, 0.7)})`;
+    ctx.lineWidth = Math.max(1, rx * r.range(0.02, 0.04));
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px + Math.cos(a + r.range(-0.4, 0.4)) * rx * r.range(0.15, 0.35), py + Math.sin(a + r.range(-0.4, 0.4)) * ry * r.range(0.1, 0.3));
+    ctx.stroke();
+  }
+  fillEllipse(ctx, x, y, rx, ry, 0, radial(ctx, x - rx * 0.2, y - ry * 0.2, 0, Math.max(rx, ry), [[0, '#fbf2d6'], [0.7, '#f2e2b0'], [1, '#e6cc8a']]));
+  ctx.beginPath();
+  ctx.ellipse(x, y, rx, ry, 0, 0, TAU);
+  ctx.clip();
+  for (let i = 0; i < 40; i++) {
+    const py = y + r.range(-1, 1) * ry, px = x + r.range(-1, 1) * rx;
+    ctx.strokeStyle = 'rgba(214,184,120,0.45)';
+    ctx.lineWidth = Math.max(1, rx * 0.025);
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px + r.range(-0.3, 0.3) * rx, py + r.range(-0.15, 0.15) * ry);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function mangoSection(ctx: Ctx, s: number, o: SectionOpts) {
+  const c = s / 2;
+  const r = rng(133);
+  let R = c;
+  if (!o.peeled) {
+    ctx.fillStyle = linear(ctx, 0, 0, s, s, [[0, '#d8483a'], [0.5, '#f0a030'], [1, '#9aa83a']]);
+    ctx.fillRect(0, 0, s, s);
+    R = c * 0.97;
+  }
+  fillCircle(ctx, c, c, R, radial(ctx, c, c, 0, R, [[0, '#ffc23a'], [0.5, '#ffb52e'], [0.9, '#fca826'], [1, o.peeled ? '#ffb830' : '#f6c040']]));
+  discFibres(ctx, c, c, R, r, 90, 'rgba(255,226,140,0.35)', [s * 0.003, s * 0.007], 0.2, 0.95);
+  discDots(ctx, c, c, R * 0.95, r, 160, 'rgba(240,140,20,0.2)', [s * 0.004, s * 0.009], 0.2, 1);
+  mangoPit(ctx, c, c, R * 0.44, R * 0.11, r);
+}
+
+function mangoSectionV(ctx: Ctx, w: number, h: number, o: SectionOpts) {
+  const prof = MANGO_PROFILE;
+  const m = vmap(prof, w, h);
+  ctx.fillStyle = o.peeled ? '#ffb830' : '#e6702e';
+  ctx.fillRect(0, 0, w, h);
+  const d0 = o.peeled ? 0 : 0.0012;
+  layeredSil(ctx, prof, m, [[d0, '#fbab28'], [d0 + 0.004, '#ffb52e'], [d0 + 0.012, '#ffbe38']]);
+  const r = rng(134);
+  ctx.save();
+  silhouette(ctx, prof, m, d0);
+  ctx.clip();
+  const px = m.X(0), py = m.Y(0.062);
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 80; i++) {
+    const a = r.range(0, TAU);
+    ctx.strokeStyle = 'rgba(255,226,140,0.35)';
+    ctx.lineWidth = w * r.range(0.004, 0.008);
+    ctx.beginPath();
+    ctx.moveTo(px + Math.cos(a) * 0.02 * m.kx, py + Math.sin(a) * 0.04 * m.ky);
+    ctx.lineTo(px + Math.cos(a) * 0.036 * m.kx, py + Math.sin(a) * 0.056 * m.ky);
+    ctx.stroke();
+  }
+  mangoPit(ctx, px, py, 0.021 * m.kx, 0.04 * m.ky, r);
+  ctx.restore();
+}
+
+const MANGO: ModelDef = {
+  build: buildMango,
+  profile: MANGO_PROFILE,
+  skin: mangoSkinCutMat,
+  flesh: mangoFleshMat,
+  section: mangoSection,
+  sectionV: mangoSectionV,
+};
+
+// =============================================================================================
+// COCONUT (hairy brown husk with three eyes; profile upright: eyes on top)
+
+const COCO_L = 0.118, COCO_R = 0.053;
+const COCO_PROFILE: Profile = (() => {
+  const pts: Profile = [];
+  const n = 36;
+  for (let i = 0; i <= n; i++) {
+    const th = -Math.PI / 2 + (i / n) * Math.PI;
+    const s = Math.sin(th);
+    pts.push([Math.max(0.0001, COCO_R * Math.cos(th) * (1 - 0.06 * s)), (COCO_L / 2) * (1 + s)]);
+  }
+  return pts;
+})();
+
+function cocoHairs(ctx: Ctx, w: number, h: number, cols: string[], n: number) {
+  const r = rng(143);
+  ctx.lineCap = 'round';
+  for (let i = 0; i < n; i++) {
+    const x = r.next() * w, y = r.range(-0.02, 0.97) * h, len = r.range(6, 24), a = Math.PI / 2 + r.range(-0.55, 0.55), bend = r.range(-4, 4);
+    ctx.strokeStyle = r.pick(cols);
+    ctx.globalAlpha = r.range(0.35, 0.8);
+    ctx.lineWidth = r.range(0.7, 1.8);
+    wrapX(w, x, len, (xx) => {
+      ctx.beginPath();
+      ctx.moveTo(xx, y);
+      ctx.quadraticCurveTo(xx + Math.cos(a) * len * 0.5 + bend, y + Math.sin(a) * len * 0.5, xx + Math.cos(a) * len, y + Math.sin(a) * len);
+      ctx.stroke();
+    });
+  }
+  ctx.globalAlpha = 1;
+}
+
+const cocoHairTex = lazy(() =>
+  canvasTexture(
+    512,
+    512,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#5c3a1e';
+      ctx.fillRect(0, 0, w, h);
+      noiseField(ctx, w, h, [20, 20], 71, (n) => (n > 0.5 ? '#7a5030' : '#46280f'), 0.8);
+      cocoHairs(ctx, w, h, ['#3a2210', '#2c180a', '#8a6038', '#a87a4a', '#c09060', '#6b4423'], 4200);
+      // smoother, darker cap around the eyes (top)
+      ctx.fillStyle = linear(ctx, 0, 0, 0, h, [[0, 'rgba(52,32,16,0.95)'], [0.035, 'rgba(52,32,16,0.5)'], [0.07, 'rgba(52,32,16,0)']]);
+      ctx.fillRect(0, 0, w, h);
+    },
+    { key: 'fruit-coco-hair' },
+  ),
+);
+const cocoHairNormal = lazy(() =>
+  normalTex(
+    'fruit-coco-hair-n',
+    512,
+    512,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#707070';
+      ctx.fillRect(0, 0, w, h);
+      noiseField(ctx, w, h, [40, 40], 73, (n) => (n > 0.5 ? '#868686' : '#5a5a5a'), 0.8);
+      cocoHairs(ctx, w, h, ['#e0e0e0', '#c0c0c0', '#303030'], 4200);
+    },
+    2.6,
+  ),
+);
+const cocoHairMat = lazy(() =>
+  foodMat({
+    color: '#ffffff',
+    map: cocoHairTex(),
+    normalMap: cocoHairNormal(),
+    roughness: 0.92,
+    sheen: 1,
+    sheenColor: '#e8c494',
+    sheenRoughness: 0.7,
+    flesh: colorsOf('coconut').flesh,
+    cookColor: colorsOf('coconut').cooked,
+    name: 'coconut-husk',
+  }),
+);
+const cocoEyeMat = lazy(() => foodMat({ color: '#24160c', roughness: 0.75, flesh: colorsOf('coconut').flesh, cookColor: '#140c06', name: 'coconut-eye' }));
+const cocoSkinCutMat = lazy(() => foodMat({ color: '#ffffff', map: cocoHairTex(), roughness: 0.92, sheen: 1, sheenColor: '#e8c494', sheenRoughness: 0.7, flesh: colorsOf('coconut').flesh, cookColor: colorsOf('coconut').cooked }));
+const cocoFleshMat = lazy(() => foodMat({ color: colorsOf('coconut').flesh, roughness: 0.55, flesh: colorsOf('coconut').flesh, cookColor: colorsOf('coconut').cooked }));
+
+function buildCoconut(r: Rng): THREE.Object3D {
+  const k = r.range(0.94, 1.05), seedN = r.range(0, 40), ph = r.range(0, TAU);
+  const g = lathe(COCO_PROFILE, 48);
+  deform(g, (p) => {
+    const a = Math.atan2(p.x, p.z), rad = Math.hypot(p.x, p.z);
+    const ridge = 1 + 0.035 * Math.cos(3 * a + ph) * sstep(0.004, 0.02, rad);
+    const f = k * ridge * (1 + fbm3(p.x * 30 + seedN, p.y * 30, p.z * 30, 3) * 0.04);
+    p.x *= f;
+    p.z *= f;
+    p.y *= k;
+  });
+  const body = mesh(g, cocoHairMat(), { name: 'coconut-body' });
+  const up = grp(body);
+  // three eyes in a little triangle at the top
+  const eye = new THREE.SphereGeometry(0.0034, 10, 6);
+  const eyes: THREE.BufferGeometry[] = [];
+  for (let i = 0; i < 3; i++) {
+    const a = ph / 3 + (i / 3) * TAU, d = 0.0072 * k;
+    // the shell is ~0.6 mm below the pole at this radius; sink the eyes a little
+    eyes.push(bake(eye.clone(), [Math.sin(a) * d, COCO_L * k - 0.0011, Math.cos(a) * d], a, 0, 0, [i === 0 ? 1.1 : 0.9, 0.45, 1]));
+  }
+  up.add(mesh(merge(eyes), cocoEyeMat(), { name: 'coconut-eyes' }));
+  up.rotation.z = Math.PI / 2 * r.range(0.72, 0.85);
+  const root = grp(up);
+  root.rotation.y = r.range(0, TAU);
+  return seat(root, body);
+}
+
+function cocoSection(ctx: Ctx, s: number, o: SectionOpts) {
+  const c = s / 2;
+  const r = rng(141);
+  let R = c;
+  if (!o.peeled) {
+    fillCircle(ctx, c, c, c, '#6b4423');
+    discFibres(ctx, c, c, c, r, 200, 'rgba(176,134,84,0.7)', [s * 0.003, s * 0.006], 0.93, 1.0);
+    R = c * 0.95;
+    fillCircle(ctx, c, c, R, radial(ctx, c, c, R * 0.9, R, [[0, '#2e1c0e'], [1, '#4a2e18']]));
+    R = c * 0.915;
+  }
+  fillCircle(ctx, c, c, R, '#8a6242');
+  const rm = R * 0.975;
+  fillCircle(ctx, c, c, rm, radial(ctx, c, c, rm * 0.7, rm, [[0, '#fdfbf3'], [0.8, '#fbf8ee'], [1, '#f2ecdc']]));
+  // the hollow: shaded so it reads as a cavity (shadow under the top-left rim, lit far wall)
+  const rh = rm * 0.74;
+  fillCircle(ctx, c, c, rh, radial(ctx, c + rh * 0.2, c + rh * 0.25, rh * 0.1, rh * 1.15, [[0, '#ece5d4'], [0.6, '#ddd3be'], [1, '#bdb099']]));
+  ctx.save();
+  circle(ctx, c, c, rh);
+  ctx.clip();
+  fillCircle(ctx, c + rh * 0.12, c + rh * 0.14, rh * 0.98, 'rgba(0,0,0,0)');
+  ctx.fillStyle = radial(ctx, c - rh * 0.55, c - rh * 0.55, rh * 0.3, rh * 1.3, [[0, 'rgba(120,100,70,0.45)'], [0.5, 'rgba(120,100,70,0.12)'], [1, 'rgba(120,100,70,0)']]);
+  ctx.fillRect(0, 0, s, s);
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(160,140,110,0.5)';
+  ctx.lineWidth = s * 0.006;
+  circle(ctx, c, c, rh);
+  ctx.stroke();
+}
+
+function cocoSectionV(ctx: Ctx, w: number, h: number, o: SectionOpts) {
+  const prof = COCO_PROFILE;
+  const m = vmap(prof, w, h);
+  ctx.fillStyle = o.peeled ? '#4a2e18' : '#6b4423';
+  ctx.fillRect(0, 0, w, h);
+  const d0 = o.peeled ? 0 : 0.0028;
+  layeredSil(ctx, prof, m, [[d0, '#3a2412'], [d0 + 0.0022, '#8a6242'], [d0 + 0.0028, '#f2ecdc'], [d0 + 0.004, '#fbf8ee']]);
+  ctx.save();
+  silhouette(ctx, prof, m, d0 + 0.0135);
+  ctx.fillStyle = radial(ctx, w * 0.6, h * 0.6, w * 0.05, w * 0.7, [[0, '#ece5d4'], [0.6, '#ddd3be'], [1, '#bdb099']]);
+  ctx.fill();
+  ctx.clip();
+  ctx.fillStyle = radial(ctx, w * 0.2, h * 0.15, w * 0.1, w * 0.8, [[0, 'rgba(120,100,70,0.45)'], [1, 'rgba(120,100,70,0)']]);
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+  if (!o.peeled) {
+    const r = rng(142);
+    ctx.save();
+    ctx.fillStyle = 'rgba(176,134,84,0.6)';
+    for (let i = 0; i < 150; i++) {
+      const x = r.next() * w, y = r.next() * h;
+      fillCircle(ctx, x, y, w * 0.004, 'rgba(176,134,84,0.25)');
+    }
+    ctx.restore();
+  }
+}
+
+const COCONUT: ModelDef = {
+  build: buildCoconut,
+  profile: COCO_PROFILE,
+  skin: cocoSkinCutMat,
+  flesh: cocoFleshMat,
+  section: cocoSection,
+  sectionV: cocoSectionV,
+};
+
+// =============================================================================================
+// AVOCADO (pebbly Hass skin, lies on its side; profile upright: bulb at the bottom)
+
+const AVO_H = 0.099;
+const AVO_PROFILE: Profile = smoothProfile(
+  [
+    [0.0001, 0.0],
+    [0.008, 0.0006],
+    [0.016, 0.0028],
+    [0.024, 0.0075],
+    [0.0305, 0.0155],
+    [0.0338, 0.026],
+    [0.0342, 0.037],
+    [0.0322, 0.048],
+    [0.0285, 0.058],
+    [0.0248, 0.068],
+    [0.0218, 0.077],
+    [0.0185, 0.0855],
+    [0.0138, 0.0925],
+    [0.0078, 0.097],
+    [0.003, 0.0988],
+    [0.0001, AVO_H],
+  ],
+  40,
+);
+const AVO_PIT_Y = 0.032, AVO_PIT_R = 0.0195;
+
+const avoSkinField = lazy(() => {
+  const BASE = hexRGB('#2e4a1c'), TOPC = hexRGB('#557430'), LOW = hexRGB('#1a2c10'), DARK = hexRGB('#2a2428'), OLIVE = hexRGB('#5e7232');
+  return latheField(AVO_PROFILE, 512, 512, (u, v, sv, circ, o) => {
+    // pebbles ~1.5 mm: two octaves of value noise, rounded tops
+    const n1 = noiseU(u, sv, 20, 640, 1.3), n2 = noiseU(u, sv, 42, 1300, 5.1);
+    const hgt = sstep(-0.35, 0.55, n1 * 0.75 + n2 * 0.45);
+    const big = fbmU(u, sv, 2.2, 40, 9.7, 3);
+    setRGB(o, BASE);
+    blend(o, TOPC, hgt * 0.75);
+    blend(o, LOW, (1 - hgt) * 0.6);
+    blend(o, DARK, sstep(0.05, 0.4, big) * 0.75);
+    blend(o, OLIVE, sstep(-0.1, -0.45, big) * 0.45);
+    const pole = Math.min(sv, latheInfo(AVO_PROFILE).total - sv);
+    blend(o, hexRGB('#4a3a22'), sstep(0.004, 0.0015, pole) * 0.8);
+    return hgt;
+  });
+});
+const avoSkinMat = lazy(() =>
+  withNormalScale(
+    foodMat({
+      color: '#ffffff',
+      map: fieldTex('fruit-avo-skin', 512, 512, avoSkinField),
+      normalMap: normalField('fruit-avo-normal', 512, 512, () => avoSkinField().H, 2.2),
+      roughness: 0.55,
+      clearcoat: 0.3,
+      clearcoatRoughness: 0.45,
+      flesh: colorsOf('avocado').flesh,
+      cookColor: colorsOf('avocado').cooked,
+      name: 'avocado-skin',
+    }),
+    1,
+  ),
+);
+const avoSkinCutMat = lazy(() => foodMat({ color: '#ffffff', map: fieldTex('fruit-avo-skin', 512, 512, avoSkinField), roughness: 0.55, clearcoat: 0.25, flesh: colorsOf('avocado').flesh, cookColor: colorsOf('avocado').cooked }));
+const avoFleshMat = lazy(() => foodMat({ color: colorsOf('avocado').flesh, roughness: 0.42, flesh: colorsOf('avocado').flesh, cookColor: colorsOf('avocado').cooked }));
+
+function buildAvocado(r: Rng): THREE.Object3D {
+  const k = r.range(0.94, 1.05), fat = r.range(0.95, 1.06), seedN = r.range(0, 40), lean = r.range(-0.004, 0.004);
+  const g = lathe(AVO_PROFILE, 48);
+  deform(g, (p) => {
+    const t = p.y / AVO_H;
+    const f = k * fat * (1 + fbm3(p.x * 30 + seedN, p.y * 30, p.z * 30, 3) * 0.035);
+    p.x = p.x * f + lean * t * t;
+    p.z *= f;
+    p.y *= k;
+  });
+  const body = mesh(g, avoSkinMat(), { skin: true, name: 'avocado-body' });
+  const top = AVO_H * k;
+  const stem = mesh(colorStem([[lean, top - 0.002, 0], [lean, top + 0.0015, 0], [lean + 0.0003, top + 0.0035, 0.0002]], 0.0028, 0.0024, [[0, '#6a5a30'], [1, '#4a3820']], { tub: 3, radial: 9, caps: 'flat' }), vcStemMat());
+  const up = grp(body, stem);
+  up.rotation.z = Math.PI / 2 + r.range(0.12, 0.2);
+  const root = grp(up);
+  root.rotation.y = r.range(-0.7, 0.7);
+  return seat(root, body);
+}
+
+/** Glossy brown avocado stone (canvas disc at x, y, radius pr). */
+function avoPit(ctx: Ctx, x: number, y: number, prx: number, pry: number) {
+  fillEllipse(ctx, x, y, prx * 1.08, pry * 1.08, 0, 'rgba(150,140,60,0.4)');
+  fillEllipse(ctx, x, y, prx, pry, 0, radial(ctx, x - prx * 0.3, y - pry * 0.35, Math.min(prx, pry) * 0.05, Math.max(prx, pry) * 1.15, [[0, '#c48a5c'], [0.35, '#9c6038'], [0.8, '#6e3c20'], [1, '#56301a']]));
+  fillEllipse(ctx, x - prx * 0.36, y - pry * 0.42, prx * 0.26, pry * 0.14, -0.6, 'rgba(255,238,218,0.5)');
+}
+
+function avoSection(ctx: Ctx, s: number, o: SectionOpts) {
+  const c = s / 2;
+  const r = rng(151);
+  let R = c;
+  if (!o.peeled) {
+    fillCircle(ctx, c, c, c, '#22301a');
+    R = c * 0.972;
+  }
+  fillCircle(ctx, c, c, R, radial(ctx, c, c, 0, R, [[0, '#f2eab0'], [0.42, '#ebe6a0'], [0.62, '#d6e07c'], [0.82, '#b4d05a'], [0.94, '#8cbc3e'], [1, '#6ea630']]));
+  discDots(ctx, c, c, R * 0.95, r, 160, 'rgba(255,255,220,0.25)', [s * 0.005, s * 0.012], 0.4, 1);
+  avoPit(ctx, c, c, R * 0.38, R * 0.38);
+}
+
+function avoSectionV(ctx: Ctx, w: number, h: number, o: SectionOpts) {
+  const prof = AVO_PROFILE;
+  const m = vmap(prof, w, h);
+  ctx.fillStyle = o.peeled ? '#9cc84a' : '#22301a';
+  ctx.fillRect(0, 0, w, h);
+  const d0 = o.peeled ? 0 : 0.0011;
+  layeredSil(ctx, prof, m, [[d0, '#6ea630'], [d0 + 0.0015, '#8cbc3e'], [d0 + 0.004, '#b4d05a'], [d0 + 0.008, '#d6e07c'], [d0 + 0.012, '#ebe6a0']]);
+  const r = rng(152);
+  ctx.save();
+  silhouette(ctx, prof, m, d0);
+  ctx.clip();
+  for (let i = 0; i < 200; i++) fillCircle(ctx, r.next() * w, r.next() * h, w * r.range(0.005, 0.012), 'rgba(255,255,220,0.2)');
+  avoPit(ctx, m.X(0), m.Y(AVO_PIT_Y), AVO_PIT_R * m.kx, AVO_PIT_R * 1.08 * m.ky);
+  ctx.restore();
+}
+
+const AVOCADO: ModelDef = {
+  build: buildAvocado,
+  profile: AVO_PROFILE,
+  skin: avoSkinCutMat,
+  flesh: avoFleshMat,
+  section: avoSection,
+  sectionV: avoSectionV,
+};
+
+// =============================================================================================
 
 export const MODELS: ModelTable = {
   apple: APPLE,
@@ -1830,4 +3846,15 @@ export const MODELS: ModelTable = {
   orange: ORANGE,
   lemon: LEMON,
   strawberry: STRAWBERRY,
+  watermelon: WATERMELON,
+  pineapple: PINEAPPLE,
+  grapes: GRAPES,
+  cherry: CHERRY,
+  blueberry: BLUEBERRY,
+  peach: PEACH,
+  pear: PEAR,
+  kiwi: KIWI,
+  mango: MANGO,
+  coconut: COCONUT,
+  avocado: AVOCADO,
 };

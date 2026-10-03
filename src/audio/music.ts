@@ -15,7 +15,8 @@
 //   B2 : F  C  G  Am | F  Em Dm G7        energy 2   (ends on the dominant -> back to A)
 // The melody is *composed per phrase* from rhythm cells + a random walk that is forced onto chord
 // tones on strong beats, with call-and-answer repetition (bars 1-2 -> 3-4 -> 5-6 -> 7-8), so a
-// cycle never repeats exactly.
+// cycle never repeats exactly. Each 32-bar cycle moves to a new key (C -> D -> A -> C ...): its
+// last bar is played as the V7 of the next key, so every modulation is a plain dominant cadence.
 
 import { Rng, clamp, dbToGain, integratedDb } from './dsp';
 import { renderNote, type Inst } from './instruments';
@@ -67,6 +68,8 @@ export interface MusicNote {
   vel: number;
   /** playback detune in cents (unison strings, humanisation) */
   cents?: number;
+  /** choke group: a new note in the same group damps the previous one (uke strings, bass) */
+  ch?: string;
 }
 
 export interface BarInfo {
@@ -78,15 +81,17 @@ export interface BarInfo {
   cycle: number;
   energy: number;
   chords: readonly [ChordName, ChordName];
+  /** key of this bar in semitones above C */
+  transpose: number;
   notes: MusicNote[];
 }
 
 /** Level of each part relative to its (peak-normalised) sample. */
 export const PART_GAIN: Record<Inst, number> = {
-  uke: 0.5,
+  uke: 0.7,
   marimba: 0.55,
   glock: 0.3,
-  bass: 0.62,
+  bass: 0.52,
   shaker: 0.3,
   kick: 0.42,
   brush: 0.3,
@@ -100,8 +105,15 @@ export const PART_PAN: Record<Inst, number> = {
   kick: 0,
   brush: -0.2,
 };
-/** Overall music level target (integrated, K-weighted dB) — sits well under the SFX reference. */
-export const MUSIC_TARGET_DB = -31;
+/** Overall music level target (integrated, K-weighted dB, pre-master) — sits well under the SFX reference. */
+export const MUSIC_TARGET_DB = -32;
+/**
+ * Bus gain that brings the raw part mix (PART_GAIN x velocity) to MUSIC_TARGET_DB. Baked from
+ * `renderMusicOffline` measurements; tests/audio.test.ts fails if it drifts by more than 1.5 dB.
+ */
+export const MUSIC_TRIM = 0.23;
+/** Key of each 32-bar cycle (semitones from C). */
+export const KEYS: readonly number[] = [0, 2, -3];
 
 // ---------------------------------------------------------------------------------------------
 // Scale helpers
@@ -306,9 +318,19 @@ const BASS_PATTERNS: readonly (readonly BassHit[])[] = [
   [[0, 'r', 0.95], [3, '5', 0.6], [4, 'o', 0.7], [7, 'a', 0.45]],
 ];
 
-/** Diatonic approach note below the next root. */
-function approachBelow(nextRoot: number): number {
-  return MAJOR.includes((nextRoot - 1 + 120) % 12) ? nextRoot - 1 : nextRoot - 2;
+/** Diatonic approach note below the next root (in the major key `key` semitones above C). */
+function approachBelow(nextRoot: number, key: number): number {
+  return MAJOR.includes((((nextRoot - 1 - key) % 12) + 12) % 12) ? nextRoot - 1 : nextRoot - 2;
+}
+
+/** Key (transposition from C) of absolute bar `index`; a cycle's final bar already sits in the next key. */
+export function keyOfBar(index: number): number {
+  if (index < INTRO.length) return KEYS[0];
+  const k = index - INTRO.length;
+  const phraseNo = Math.floor(k / 8);
+  const cycle = Math.floor(phraseNo / SECTIONS.length);
+  const lastBarOfCycle = phraseNo % SECTIONS.length === SECTIONS.length - 1 && k % 8 === 7;
+  return KEYS[(cycle + (lastBarOfCycle ? 1 : 0)) % KEYS.length];
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -362,6 +384,8 @@ export class Composer {
       if (barInPhrase === 0) this.planPhrase(sec, phraseNo, cycle);
     }
 
+    const tr = keyOfBar(index);
+    const trNext = keyOfBar(index + 1);
     const notes: MusicNote[] = [];
     const hum = () => r.bi() * 0.005;
     const withHum = (n: MusicNote): MusicNote => ((n.t = Math.max(0, n.t + hum())), n);
@@ -376,13 +400,13 @@ export class Composer {
         if (si < 0) continue;
         const chord = chordAtSlot(bc, s);
         const accent = s === 0 ? 1 : s % 2 === 0 ? 0.78 : 0.62;
-        notes.push(withHum({ part: 'uke', midi: chord.uke[si], t: slotTime(s), vel: clamp(0.62 * accent + r.range(-0.06, 0.06), 0.2, 1) }));
+        notes.push(withHum({ part: 'uke', midi: chord.uke[si] + tr, t: slotTime(s), vel: clamp(0.62 * accent + r.range(-0.06, 0.06), 0.2, 1), ch: `u${si}` }));
       }
     } else {
       const pat = STRUMS[(this.ukePat + (energy >= 2 && r.chance(0.3) ? 2 : 0)) % STRUMS.length];
       for (const [slot, dir, vel] of pat) {
         if (intro && index === 0 && slot > 0 && r.chance(0.3)) continue;
-        this.strum(notes, chordAtSlot(bc, slot), slotTime(slot), dir, vel * (1 + r.range(-0.1, 0.1)), r);
+        this.strum(notes, chordAtSlot(bc, slot), slotTime(slot), dir, vel * (1 + r.range(-0.1, 0.1)), r, tr);
       }
     }
 
@@ -392,14 +416,15 @@ export class Composer {
       for (const [slot, kind, vel] of pat) {
         const chord = chordAtSlot(bc, slot);
         const b = chord.bass;
-        let midi = b.root;
-        if (kind === '5') midi = b.fifth;
-        else if (kind === '3') midi = b.third;
-        else if (kind === 'o') midi = b.root + 12 > 55 ? b.root : b.root + 12;
-        else if (kind === 'a') midi = approachBelow(CHORDS[nextBc[0]].bass.root);
+        let midi = b.root + tr;
+        if (kind === '5') midi = b.fifth + tr;
+        else if (kind === '3') midi = b.third + tr;
+        else if (kind === 'o') midi = (b.root + 12 > 55 ? b.root : b.root + 12) + tr;
+        // approach the *sounding* next root (which may already be in the next key)
+        else if (kind === 'a') midi = approachBelow(CHORDS[nextBc[0]].bass.root + trNext, trNext);
         // never approach a note we are already on
-        if (kind === 'a' && midi === b.root && bc[0] === nextBc[0]) midi = b.fifth;
-        notes.push(withHum({ part: 'bass', midi, t: slotTime(slot), vel: clamp(vel + r.range(-0.07, 0.07), 0.2, 1) }));
+        if (kind === 'a' && midi === b.root + tr && bc[0] === nextBc[0]) midi = b.fifth + tr;
+        notes.push(withHum({ part: 'bass', midi, t: slotTime(slot), vel: clamp(vel + r.range(-0.07, 0.07), 0.2, 1), ch: 'b' }));
       }
     }
 
@@ -407,12 +432,13 @@ export class Composer {
     if (!intro) {
       for (const n of this.melody[barInPhrase] ?? []) {
         const t = slotTime(n.slot);
-        notes.push(withHum({ part: 'marimba', midi: n.midi, t, vel: n.vel }));
-        if (n.landing && n.len >= 4) notes.push({ part: 'glock', midi: n.midi + 12 > 91 ? n.midi : n.midi + 12, t: t + 0.004, vel: 0.5 });
-        else if (n.len >= 2 && (n.slot === 0 || n.slot === 4) && r.chance(0.12)) {
-          // tiny grace note from one scale step below
+        notes.push(withHum({ part: 'marimba', midi: n.midi + tr, t, vel: n.vel }));
+        if (n.landing && n.len >= 4) notes.push({ part: 'glock', midi: (n.midi + 12 > 91 ? n.midi : n.midi + 12) + tr, t: t + 0.004, vel: 0.5 });
+        else if (n.len >= 2 && n.slot > 0 && (n.slot & 1) === 0 && r.chance(0.12)) {
+          // tiny grace note from one scale step below (never on the downbeat: it would sound as a
+          // simultaneous second with the main note)
           const below = scaleMidi(this.midiToIdx(n.midi) - 1);
-          notes.push({ part: 'marimba', midi: below, t: Math.max(0, t - 0.07), vel: n.vel * 0.45 });
+          notes.push({ part: 'marimba', midi: below + tr, t: t - 0.07, vel: n.vel * 0.45 });
         }
       }
     }
@@ -424,7 +450,8 @@ export class Composer {
         const tones = chord.pcs.slice(0, 3).map((pc) => 79 + ((((pc - 79) % 12) + 12) % 12)).sort((a, b) => a - b);
         const ordered = r.chance(0.3) ? tones.slice().reverse() : tones;
         const t0 = barInPhrase === 7 ? slotTime(5) : slotTime(r.pick([0, 2]));
-        ordered.forEach((m, i) => notes.push({ part: 'glock', midi: m, t: t0 + i * 0.13, vel: 0.5 - i * 0.07 }));
+        const trG = barInPhrase === 7 ? trNext : tr;
+        ordered.forEach((m, i) => notes.push({ part: 'glock', midi: m + trG, t: t0 + i * 0.13, vel: 0.5 - i * 0.07 }));
       }
     }
 
@@ -437,7 +464,7 @@ export class Composer {
         if (sparse && s % 2 === 0 && s !== 0) continue;
         const off = s & 1;
         const vel = (off ? 0.55 : 0.3) * (s === 5 || s === 1 ? 1 : 0.9) * (sparse ? 0.8 : 1);
-        notes.push({ part: 'shaker', midi: off && (s === 3 || s === 7) ? 1 : 0, t: slotTime(s) + r.bi() * 0.003, vel: clamp(vel + r.range(-0.06, 0.06), 0.1, 1) });
+        notes.push({ part: 'shaker', midi: off && (s === 3 || s === 7) ? 1 : 0, t: Math.max(0, slotTime(s) + r.bi() * 0.003), vel: clamp(vel + r.range(-0.06, 0.06), 0.1, 1) });
       }
     }
     if (energy >= 2) {
@@ -451,7 +478,7 @@ export class Composer {
     }
 
     notes.sort((a, b) => a.t - b.t);
-    return { index, section, barInPhrase, cycle, energy, chords: bc, notes };
+    return { index, section, barInPhrase, cycle, energy, chords: bc, transpose: tr, notes };
   }
 
   private midiToIdx(m: number): number {
@@ -459,7 +486,7 @@ export class Composer {
     return MEL_CENTER;
   }
 
-  private strum(notes: MusicNote[], chord: ChordDef, t: number, dir: 'd' | 'u', vel: number, r: Rng): void {
+  private strum(notes: MusicNote[], chord: ChordDef, t: number, dir: 'd' | 'u', vel: number, r: Rng, tr: number): void {
     const order = dir === 'd' ? [0, 1, 2, 3] : [3, 2, 1, 0];
     const gaps = dir === 'd' ? 0.011 : 0.008;
     const w = dir === 'd' ? [1, 0.9, 0.82, 0.78] : [1, 0.85, 0.7, 0.62];
@@ -468,7 +495,14 @@ export class Composer {
       const midi = chord.uke[si];
       // re-entrant unison strings (same pitch twice): detune slightly so they shimmer instead of doubling in phase
       const dup = chord.uke.indexOf(midi) !== si;
-      notes.push({ part: 'uke', midi, t: t0 + k * gaps, vel: clamp(vel * w[k] * (1 + r.range(-0.08, 0.08)), 0.1, 1), cents: dup ? 5 : r.range(-1.5, 1.5) });
+      notes.push({
+        part: 'uke',
+        midi: midi + tr,
+        t: Math.max(0, t0 + k * gaps),
+        vel: clamp(vel * w[k] * (1 + r.range(-0.08, 0.08)), 0.1, 1),
+        cents: dup ? 5 : r.range(-1.5, 1.5),
+        ch: `u${si}`,
+      });
     });
   }
 
@@ -504,32 +538,57 @@ export function sampleFor(part: Inst, midi: number, sr: number): Float32Array {
   return s;
 }
 
-/** Mixes `bars` bars from a fresh composer into a mono buffer, applying the runtime part gains. */
-export function renderMusicOffline(bars: number, sr: number, seed = 1, startBar = 0): { audio: Float32Array; infos: BarInfo[] } {
+/** A choked note fades with this time constant (s) from the moment the next note in its group starts ... */
+export const CHOKE_TC = 0.012;
+/** ... and is cut this long (s) after it. */
+export const CHOKE_CUT = 0.1;
+
+/**
+ * Mixes `bars` bars from a fresh composer into a mono buffer, exactly like the runtime player does
+ * (part gains x velocity, detune, choke groups). `parts` renders a subset (for balance checks).
+ */
+export function renderMusicOffline(
+  bars: number,
+  sr: number,
+  seed = 1,
+  startBar = 0,
+  parts?: readonly Inst[],
+): { audio: Float32Array; infos: BarInfo[] } {
   const comp = new Composer(seed);
   const infos: BarInfo[] = [];
   const total = Math.ceil((bars * BAR_SEC + 2.5) * sr);
   const out = new Float32Array(total);
+  const evs: { n: MusicNote; at: number; choke: number }[] = [];
   for (let b = 0; b < startBar + bars; b++) {
     const info = comp.next();
     if (b < startBar) continue;
     infos.push(info);
     const base = (b - startBar) * BAR_SEC;
-    for (const n of info.notes) {
-      const src = sampleFor(n.part, n.midi, sr);
-      const g = n.vel * PART_GAIN[n.part];
-      const at = Math.round((base + n.t) * sr);
-      const rate = n.cents ? Math.pow(2, n.cents / 1200) : 1;
-      if (rate === 1) {
-        for (let i = 0; i < src.length && at + i < total; i++) out[at + i] += src[i] * g;
-      } else {
-        const len = Math.floor((src.length - 1) / rate);
-        for (let i = 0; i < len && at + i < total; i++) {
-          const p = i * rate;
-          const k = Math.floor(p);
-          out[at + i] += (src[k] + (src[k + 1] - src[k]) * (p - k)) * g;
-        }
-      }
+    for (const n of info.notes) evs.push({ n, at: base + n.t, choke: Infinity });
+  }
+  evs.sort((a, b) => a.at - b.at);
+  const lastIn = new Map<string, { at: number; choke: number }>();
+  for (const e of evs) {
+    if (!e.n.ch) continue;
+    const prev = lastIn.get(e.n.ch);
+    if (prev && e.at > prev.at) prev.choke = Math.min(prev.choke, e.at);
+    lastIn.set(e.n.ch, e);
+  }
+  for (const { n, at: atSec, choke } of evs) {
+    if (parts && !parts.includes(n.part)) continue;
+    const src = sampleFor(n.part, n.midi, sr);
+    const g = n.vel * PART_GAIN[n.part];
+    const at = Math.round(atSec * sr);
+    const rate = n.cents ? Math.pow(2, n.cents / 1200) : 1;
+    const chokeAt = Number.isFinite(choke) ? Math.round((choke - atSec) * sr) : Infinity;
+    const len = Math.min(Math.floor((src.length - 1) / rate), chokeAt + Math.round(CHOKE_CUT * sr));
+    const kChoke = Math.exp(-1 / (CHOKE_TC * sr));
+    let env = 1;
+    for (let i = 0; i < len && at + i < total; i++) {
+      const p = i * rate;
+      const k = Math.floor(p);
+      if (i >= chokeAt) env *= kChoke;
+      out[at + i] += (src[k] + (src[k + 1] - src[k]) * (p - k)) * g * env;
     }
   }
   return { audio: out, infos };

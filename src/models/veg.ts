@@ -23,6 +23,7 @@ import {
   profileMaxRadius,
   smoothNormals,
   deform,
+  roundedBox,
   blobGeometry,
   sweepGeometry,
   curveThrough,
@@ -2630,6 +2631,1158 @@ function cornSection(ctx: Ctx, s: number) {
 }
 
 // =============================================================================================
+// Cut helpers for items with their own halves / slices / chunks (mushroom, pumpkin...)
+
+/** Partial lathe with welded normals; u is remapped to the full turn so wrapped textures line up. */
+function latheArc(profile: Profile, segs: number, phi0 = 0, len = TAU): THREE.BufferGeometry {
+  const g = latheGeometry(profile, segs, phi0, len);
+  const uv = g.attributes.uv as THREE.BufferAttribute;
+  for (let i = 0; i < uv.count; i++) uv.setX(i, (phi0 + uv.getX(i) * len) / TAU);
+  smoothNormals(g);
+  g.computeBoundingBox();
+  g.computeBoundingSphere();
+  return g;
+}
+
+/** Mirrored silhouette path of a profile in a canvas (X takes a signed radius). */
+function mirroredPath(ctx: Ctx, profile: Profile, X: (rad: number) => number, Y: (y: number) => number) {
+  ctx.beginPath();
+  profile.forEach(([rad, y], i) => (i ? ctx.lineTo(X(rad), Y(y)) : ctx.moveTo(X(rad), Y(y))));
+  for (let i = profile.length - 1; i >= 0; i--) ctx.lineTo(X(-profile[i][0]), Y(profile[i][1]));
+  ctx.closePath();
+}
+
+/**
+ * Outline(s) of an upright lathe body cut by a vertical plane at distance d from its axis, drawn in
+ * that plane (x across, y = height). d = 0 gives the full mirrored silhouette.
+ */
+function cutShapes(profile: Profile, d: number): THREE.Shape[] {
+  const shapes: THREE.Shape[] = [];
+  let run: [number, number][] = [];
+  const flush = () => {
+    if (run.length >= 3) {
+      const s = new THREE.Shape();
+      s.moveTo(run[0][0], run[0][1]);
+      for (let i = 1; i < run.length; i++) s.lineTo(run[i][0], run[i][1]);
+      for (let i = run.length - 1; i >= 0; i--) if (run[i][0] > 1e-6) s.lineTo(-run[i][0], run[i][1]);
+      s.closePath();
+      shapes.push(s);
+    }
+    run = [];
+  };
+  for (let i = 0; i < profile.length; i++) {
+    const [rad, y] = profile[i];
+    if (i > 0) {
+      const [pr, py] = profile[i - 1];
+      if (rad > d !== pr > d) {
+        run.push([0, mix(py, y, (d - pr) / (rad - pr))]);
+        if (rad <= d) flush();
+      }
+    }
+    if (rad > d) run.push([Math.sqrt(rad * rad - d * d), y]);
+  }
+  flush();
+  return shapes;
+}
+
+/** Flat face for cut shapes; UV in the sectionV frame of the profile: u = (x + R) / 2R, v = y / H. */
+function faceGeom(shapes: THREE.Shape[], R: number, H: number): THREE.BufferGeometry {
+  const g = new THREE.ShapeGeometry(shapes, 8);
+  const pos = g.attributes.position as THREE.BufferAttribute, uv = g.attributes.uv as THREE.BufferAttribute;
+  for (let i = 0; i < pos.count; i++) uv.setXY(i, (pos.getX(i) + R) / (2 * R), pos.getY(i) / H);
+  uv.needsUpdate = true;
+  return g;
+}
+
+/** Remap the cap UVs (material group 0) of an ExtrudeGeometry to the same frame. */
+function capUV(g: THREE.BufferGeometry, R: number, H: number) {
+  const pos = g.attributes.position as THREE.BufferAttribute, uv = g.attributes.uv as THREE.BufferAttribute;
+  const grp = g.groups.find((x) => x.materialIndex === 0);
+  if (!grp) return;
+  for (let i = grp.start; i < grp.start + grp.count; i++) uv.setXY(i, (pos.getX(i) + R) / (2 * R), pos.getY(i) / H);
+  uv.needsUpdate = true;
+}
+
+/** Copy of an object with every mesh transform baked into its geometry (tight bounds for sitOnGround). */
+function baked(root: THREE.Object3D): THREE.Group {
+  root.updateMatrixWorld(true);
+  const out = new THREE.Group();
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh) return;
+    const g = m.geometry.clone();
+    g.applyMatrix4(m.matrixWorld);
+    g.computeBoundingBox();
+    g.computeBoundingSphere();
+    const nm = new THREE.Mesh(g, m.material);
+    nm.castShadow = m.castShadow;
+    nm.receiveShadow = m.receiveShadow;
+    nm.userData = { ...m.userData };
+    out.add(nm);
+  });
+  return out;
+}
+
+/**
+ * Two halves lying cut face up (like the generic halves, but with the item's own parts).
+ * half(k) builds the half of the upright item that occupies x >= 0 (k = 0) or x <= 0 (k = 1),
+ * its cut face in the x = 0 plane. tilt dips the bottom end (items with a narrow base).
+ */
+function lyingHalves(r: Rng, R: number, H: number, half: (k: 0 | 1) => THREE.Object3D, tilt = 0): THREE.Object3D {
+  const g = new THREE.Group();
+  for (const k of [0, 1] as const) {
+    const h = half(k);
+    h.rotation.z = k === 0 ? -Math.PI / 2 : Math.PI / 2;
+    h.position.set(k === 0 ? -H / 2 : H / 2, R, 0);
+    const tg = new THREE.Group();
+    tg.add(h);
+    tg.rotation.z = (k === 0 ? 1 : -1) * tilt;
+    const holder = new THREE.Group();
+    holder.add(tg);
+    holder.position.z = (k === 0 ? -1 : 1) * R * 1.12;
+    holder.rotation.y = (k === 0 ? 0.25 : -0.35) + r.range(-0.15, 0.15);
+    g.add(holder);
+  }
+  return sitOnGround(baked(g));
+}
+
+/** n well-spread points in a disc of radius R (best of a few candidates each). */
+function scatter(r: Rng, n: number, R: number, minD: number): [number, number][] {
+  const pts: [number, number][] = [];
+  for (let i = 0; i < n; i++) {
+    let best: [number, number] = [0, 0], bestD = -1;
+    for (let k = 0; k < 24; k++) {
+      const [dx, dz] = r.disc();
+      const p: [number, number] = [dx * R, dz * R];
+      const d = pts.length ? Math.min(...pts.map((q) => Math.hypot(q[0] - p[0], q[1] - p[1]))) : 1;
+      if (d > bestD) {
+        bestD = d;
+        best = p;
+      }
+      if (d > minD) break;
+    }
+    pts.push(best);
+  }
+  return pts;
+}
+
+/** Vertex colours from the (smooth) normal: up-facing, down-facing and side colours blended. */
+function paintByNormal(g: THREE.BufferGeometry, up: THREE.Color, down: THREE.Color, side: THREE.Color): THREE.BufferGeometry {
+  const nor = g.attributes.normal as THREE.BufferAttribute;
+  const col = new Float32Array(nor.count * 3);
+  const c = new THREE.Color();
+  for (let i = 0; i < nor.count; i++) {
+    const ny = nor.getY(i);
+    c.copy(side);
+    if (ny > 0) c.lerp(up, sstep(0.35, 0.75, ny));
+    else c.lerp(down, sstep(0.35, 0.75, -ny));
+    col[i * 3] = c.r;
+    col[i * 3 + 1] = c.g;
+    col[i * 3 + 2] = c.b;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return g;
+}
+
+// =============================================================================================
+// MUSHROOM (round): white button mushroom - domed cap with an in-curled rim, pinkish-brown gills
+// underneath, short thick stem. Halves and slices show the T-shaped cut face.
+
+const MUSHROOM = colors('mushroom');
+const MUSH_STEM_R = 0.0102;
+const MUSH_GILL_Y = 0.0238;
+const MUSH_RIM = 0.0262;
+const MUSH_STEM: Profile = smoothProfile(
+  [[0.0001, 0], [0.0086, 0.0002], [0.0105, 0.0013], [0.0112, 0.0041], [0.0107, 0.0095], [0.0102, 0.016], [MUSH_STEM_R, MUSH_GILL_Y]],
+  16,
+);
+const MUSH_GILLS: Profile = smoothProfile([[MUSH_STEM_R, MUSH_GILL_Y], [0.0145, 0.0236], [0.0198, 0.0228], [MUSH_RIM, 0.0213]], 8);
+const MUSH_CAP: Profile = smoothProfile(
+  [
+    [MUSH_RIM, 0.0213], [0.0281, 0.0197], [0.0301, 0.0204], [0.0315, 0.0232], [0.0318, 0.0272], [0.0306, 0.0336],
+    [0.0274, 0.0405], [0.0222, 0.046], [0.0152, 0.0496], [0.0076, 0.0514], [0.0001, 0.0519],
+  ],
+  36,
+);
+/** T-shaped silhouette: stem, gill underside, in-curled rim, dome. */
+const MUSH_PROFILE: Profile = [...MUSH_STEM, ...MUSH_GILLS.slice(1), ...MUSH_CAP.slice(1)];
+/** The 3D stem runs on up inside the cap so a tilted cap never shows a gap. */
+const MUSH_STEM_3D: Profile = [...MUSH_STEM, [0.0099, 0.0285]];
+const MUSH_R = profileMaxRadius(MUSH_PROFILE);
+const MUSH_H = profileHeight(MUSH_PROFILE);
+
+/** Cap skin: u around, v from the in-curled rim (canvas bottom) to the apex (top). */
+const mushCapTex = () =>
+  canvasTexture(
+    256,
+    256,
+    (ctx, w, h) => {
+      const g = ctx.createLinearGradient(0, h, 0, 0);
+      g.addColorStop(0, '#c2b091');
+      g.addColorStop(0.1, '#d9cbb2');
+      g.addColorStop(0.24, '#ece3d3');
+      g.addColorStop(0.62, '#e9dfcd');
+      g.addColorStop(1, '#dccdb3');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+      blotches(ctx, w, h, '#cdb894', { n: 34, size: [0.04, 0.12], alpha: [0.1, 0.24], seed: 41, ys: 0.8, y: [0, 0.95] });
+      blotches(ctx, w, h, '#faf6ee', { n: 34, size: [0.03, 0.1], alpha: [0.18, 0.36], seed: 42, ys: 0.8, y: [0.2, 0.85] });
+      // fine radial fibres (vertical in UV space, converging at the apex on the model)
+      const r = new Rng(43);
+      for (let i = 0; i < 110; i++) {
+        const x = r.next() * w, y0 = h * r.range(0.18, 1.02), len = h * r.range(0.08, 0.32);
+        ctx.strokeStyle = rgba(r.next() < 0.6 ? '#cdbb9e' : '#ffffff', r.range(0.12, 0.3));
+        ctx.lineWidth = r.range(0.6, 1.4);
+        ctx.beginPath();
+        ctx.moveTo(x, y0);
+        ctx.lineTo(x + r.range(-2, 2), y0 - len);
+        ctx.stroke();
+      }
+      dots(ctx, w, h, '#9c7c5c', { n: 26, size: [0.002, 0.005], alpha: [0.25, 0.55], seed: 44, y: [0.15, 0.95] });
+    },
+    { key: 'veg/mushroom/cap' },
+  );
+
+/** Gills: u around, v from the stem (canvas bottom) out to the rim (top). Dark gaps, light plates. */
+function mushGillTex(bump: boolean) {
+  return canvasTexture(
+    512,
+    64,
+    (ctx, w, h) => {
+      if (bump) {
+        ctx.fillStyle = '#202020';
+        ctx.fillRect(0, 0, w, h);
+      } else {
+        const g = ctx.createLinearGradient(0, h, 0, 0);
+        g.addColorStop(0, '#e6dac6');
+        g.addColorStop(0.12, '#a98470');
+        g.addColorStop(0.3, '#7f5644');
+        g.addColorStop(0.86, '#77503f');
+        g.addColorStop(0.95, '#a8846e');
+        g.addColorStop(1, '#d9cab3');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+      }
+      const N = 120;
+      for (let i = 0; i < N; i++) {
+        const x = ((i + 0.5) / N) * w;
+        const yEnd = h * (i % 2 ? 0.52 : i % 4 === 2 ? 0.72 : 0.88);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = bump ? '#f0f0f0' : rgba('#c7a48c', 0.6);
+        ctx.beginPath();
+        ctx.moveTo(x, h * 0.03);
+        ctx.lineTo(x, yEnd);
+        ctx.stroke();
+      }
+    },
+    { key: bump ? 'veg/mushroom/gills-bump' : 'veg/mushroom/gills', srgb: !bump },
+  );
+}
+
+/** Stem: u around, v up; the bottom of the canvas is the cut end. */
+const mushStemTex = () =>
+  canvasTexture(
+    128,
+    128,
+    (ctx, w, h) => {
+      const g = ctx.createLinearGradient(0, h, 0, 0);
+      g.addColorStop(0, '#c4ab84');
+      g.addColorStop(0.12, '#d2bc98');
+      g.addColorStop(0.2, '#e9dfcd');
+      g.addColorStop(0.45, '#f3ede2');
+      g.addColorStop(1, '#f1e9dc');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+      const r = new Rng(45);
+      for (let i = 0; i < 46; i++) {
+        const x = r.next() * w, y0 = h * r.range(0.2, 1), len = h * r.range(0.2, 0.6);
+        ctx.strokeStyle = rgba(r.next() < 0.55 ? '#d9ccb4' : '#ffffff', r.range(0.2, 0.45));
+        ctx.lineWidth = r.range(0.6, 1.5);
+        ctx.beginPath();
+        ctx.moveTo(x, y0);
+        ctx.lineTo(x + r.range(-1.5, 1.5), y0 - len);
+        ctx.stroke();
+      }
+    },
+    { key: 'veg/mushroom/stem' },
+  );
+
+const mushFibres = (ctx: Ctx, w: number, h: number) => {
+  const r = new Rng(46);
+  for (let i = 0; i < 40; i++) {
+    const x = r.next() * w, y = r.next() * h;
+    ctx.strokeStyle = rgba(r.next() < 0.5 ? '#ddd1bd' : '#fffdf8', r.range(0.25, 0.5));
+    ctx.lineWidth = r.range(0.6, 1.3);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + r.range(-3, 3), y + r.range(10, 26));
+    ctx.stroke();
+  }
+};
+
+const mushroomSkin = lazy(() =>
+  foodMat({ color: '#ffffff', map: mushCapTex(), roughness: 0.5, sheen: 0.35, sheenColor: '#fff4e2', sheenRoughness: 0.45, flesh: MUSHROOM.flesh, cookColor: MUSHROOM.cooked, name: 'mushroom-cap' }),
+);
+const mushroomGillMat = lazy(() =>
+  foodMat({ color: '#ffffff', map: mushGillTex(false), bumpMap: mushGillTex(true), bumpScale: 1.5, roughness: 0.78, flesh: MUSHROOM.flesh, cookColor: '#4e3322' }),
+);
+const mushroomStemMat = lazy(() =>
+  foodMat({ color: '#ffffff', map: mushStemTex(), roughness: 0.6, sheen: 0.3, sheenColor: '#fff4e2', flesh: MUSHROOM.flesh, cookColor: MUSHROOM.cooked }),
+);
+const mushroomFlesh = lazy(() =>
+  foodMat({ color: '#ffffff', map: fleshTex('veg/mushroom/flesh', '#f1e9db', '#fbf8f1', '#dfd2bc', mushFibres), roughness: 0.6, flesh: MUSHROOM.flesh, cookColor: MUSHROOM.cooked }),
+);
+const mushroomChunkMat = lazy(() =>
+  foodMat({ color: '#ffffff', vertexColors: true, map: fleshTex('veg/mushroom/chunk', '#f6f1e8', '#ffffff', '#e4dacb', mushFibres), roughness: 0.6, flesh: MUSHROOM.flesh, cookColor: MUSHROOM.cooked }),
+);
+
+/** The T-shaped cut face in the profile frame (x = -R..R across, y = top..bottom of the canvas). */
+function mushroomFace(ctx: Ctx, w: number, h: number, rim: boolean) {
+  const X = (rad: number) => w / 2 + (rad / MUSH_R) * (w / 2);
+  const Y = (y: number) => h - (y / MUSH_H) * h;
+  const r = new Rng(47);
+  ctx.fillStyle = '#efe7d8';
+  ctx.fillRect(0, 0, w, h);
+  // cap flesh: creamy, a touch warmer towards the skin
+  const cg = ctx.createRadialGradient(w / 2, Y(0.031), w * 0.05, w / 2, Y(0.031), w * 0.56);
+  cg.addColorStop(0, '#f9f5ec');
+  cg.addColorStop(0.65, '#f4eee2');
+  cg.addColorStop(1, '#e8dcc6');
+  ctx.fillStyle = cg;
+  ctx.fillRect(0, 0, w, h);
+  // stem fibres running up into the cap
+  for (let i = 0; i < 30; i++) {
+    const x = X(r.range(-MUSH_STEM_R * 0.92, MUSH_STEM_R * 0.92));
+    ctx.strokeStyle = rgba(r.next() < 0.55 ? '#e0d4bf' : '#fffdf6', r.range(0.3, 0.6));
+    ctx.lineWidth = r.range(0.8, 2);
+    ctx.beginPath();
+    ctx.moveTo(x, Y(0.002));
+    ctx.bezierCurveTo(x + r.range(-2, 2), Y(0.01), x + r.range(-3, 3), Y(0.02), x + r.range(-6, 6), Y(0.033));
+    ctx.stroke();
+  }
+  // slightly translucent, greyer core where the stem runs into the cap
+  softSpot(ctx, w / 2, Y(0.03), w * 0.17, h * 0.13, '#ddd0ba', 0.55);
+  // gill layer hanging under the cap flesh: deepest mid-way, a comb of thin dark plates
+  for (const side of [-1, 1]) {
+    const depth = (rad: number) => 0.0034 * Math.pow(Math.sin(Math.PI * clamp((rad - MUSH_STEM_R) / (MUSH_RIM - MUSH_STEM_R))), 0.5) + 0.0008;
+    ctx.save();
+    ctx.beginPath();
+    MUSH_GILLS.forEach(([rad, y], i) => (i ? ctx.lineTo(X(side * rad), Y(y)) : ctx.moveTo(X(side * rad), Y(y))));
+    for (let i = MUSH_GILLS.length - 1; i >= 0; i--) {
+      const [rad, y] = MUSH_GILLS[i];
+      ctx.lineTo(X(side * rad), Y(y + depth(rad)));
+    }
+    ctx.closePath();
+    const gg = ctx.createLinearGradient(0, Y(MUSH_GILL_Y + 0.004), 0, Y(MUSH_GILL_Y - 0.003));
+    gg.addColorStop(0, '#a9806a');
+    gg.addColorStop(1, '#7a5040');
+    ctx.fillStyle = gg;
+    ctx.fill();
+    ctx.clip();
+    ctx.strokeStyle = rgba('#5a3626', 0.7);
+    ctx.lineWidth = Math.max(1, w * 0.004);
+    for (let x = X(side * MUSH_STEM_R); side > 0 ? x < X(MUSH_RIM) : x > X(-MUSH_RIM); x += side * w * 0.014) {
+      ctx.beginPath();
+      ctx.moveTo(x, Y(MUSH_GILL_Y + 0.006));
+      ctx.lineTo(x + side * w * 0.003, Y(MUSH_GILL_Y - 0.004));
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // cut end of the stem
+  const eg = ctx.createLinearGradient(0, Y(0.0026), 0, h);
+  eg.addColorStop(0, rgba('#cdb690', 0));
+  eg.addColorStop(0.5, rgba('#cdb690', 0.85));
+  eg.addColorStop(1, '#c2a77e');
+  ctx.fillStyle = eg;
+  ctx.fillRect(0, Y(0.0026), w, h - Y(0.0026));
+  if (rim) {
+    mirroredPath(ctx, MUSH_PROFILE, X, Y);
+    ctx.lineWidth = Math.max(2, w * 0.022);
+    ctx.strokeStyle = '#cbb795';
+    ctx.stroke();
+    ctx.lineWidth = Math.max(1, w * 0.008);
+    ctx.strokeStyle = '#b39c78';
+    ctx.stroke();
+  }
+  sheen(ctx, w * 0.4, Y(0.041), w * 0.18, h * 0.06, 0.2);
+}
+
+const mushFaceMats = new Map<string, Mat>();
+function mushroomFaceMat(rim: boolean): Mat {
+  const key = rim ? 'rim' : 'slice';
+  let m = mushFaceMats.get(key);
+  if (!m) {
+    const map = canvasTexture(256, 256, (ctx, w, h) => mushroomFace(ctx, w, h, rim), { key: `veg/mushroom/face-${key}` });
+    mushFaceMats.set(key, (m = foodMat({ color: '#ffffff', map, roughness: 0.5, flesh: MUSHROOM.flesh, cookColor: MUSHROOM.cooked })));
+  }
+  return m;
+}
+
+function mushroomGeoms(segs: number, phi0 = 0, len = TAU) {
+  return {
+    cap: latheArc(MUSH_CAP, segs, phi0, len),
+    gills: latheArc(MUSH_GILLS, segs, phi0, len),
+    stem: latheArc(MUSH_STEM_3D, Math.max(8, Math.round(segs * 0.6)), phi0, len),
+  };
+}
+
+function buildMushroom(r: Rng): THREE.Object3D {
+  const { cap, gills, stem } = mushroomGeoms(48);
+  const sN = r.range(0, 50), amp = r.range(0.03, 0.05);
+  // organic irregularity of the cap (none at the stem junction so the gills stay attached)
+  const wob = (a: number, y: number, rad: number) =>
+    rad * (1 + amp * clamp((rad - 0.011) / 0.012) * fbm3(Math.sin(a) * 1.4 + sN, y * 40, Math.cos(a) * 1.4, 2));
+  radial(cap, wob);
+  radial(gills, wob);
+  // the cap sits a little crooked on its stem
+  const tx = r.range(-0.1, 0.1), tz = r.range(-0.1, 0.1);
+  for (const g of [cap, gills]) {
+    g.translate(0, -0.024, 0);
+    g.rotateX(tx);
+    g.rotateZ(tz);
+    g.translate(0, 0.024, 0);
+  }
+  const s = r.range(0.92, 1.06);
+  const o = group(mesh(cap, mushroomSkin(), { skin: true }), mesh(gills, mushroomGillMat()), mesh(stem, mushroomStemMat()));
+  o.scale.set(s, s * r.range(0.95, 1.05), s);
+  o.rotation.y = r.range(0, TAU);
+  return sitOnGround(o);
+}
+
+/** Two halves showing the T-shaped face; each rests on its cap edge and stem foot. */
+function mushroomHalves(r: Rng): THREE.Object3D {
+  const s = r.range(0.94, 1.04);
+  const face = faceGeom(cutShapes(MUSH_PROFILE, 0), MUSH_R, MUSH_H);
+  return lyingHalves(
+    r,
+    MUSH_R * s,
+    MUSH_H * s,
+    (k) => {
+      const { cap, gills, stem } = mushroomGeoms(24, k * Math.PI, Math.PI);
+      const f = face.clone();
+      f.rotateY(k === 0 ? -Math.PI / 2 : Math.PI / 2);
+      const o = group(mesh(cap, mushroomSkin()), mesh(gills, mushroomGillMat()), mesh(stem, mushroomStemMat()), mesh(f, mushroomFaceMat(true)));
+      o.scale.setScalar(s);
+      return o;
+    },
+    0.62,
+  );
+}
+
+/** Vertical slices: T-shapes from the middle, cap-only crescents from the sides, fallen in a row. */
+function mushroomSlices(r: Rng): THREE.Object3D {
+  const offs = [0.0182, 0.0092, 0.0008, 0.0088, 0.0178].map((d) => d + r.range(-0.0008, 0.0008));
+  const th = 0.0042, tilt = 0.34;
+  const g = new THREE.Group();
+  let x = 0;
+  offs.forEach((d, i) => {
+    const shapes = cutShapes(MUSH_PROFILE, Math.abs(d));
+    if (!shapes.length) return;
+    const geo = new THREE.ExtrudeGeometry(shapes, { depth: th, bevelEnabled: true, bevelThickness: th * 0.2, bevelSize: th * 0.16, bevelSegments: 2, curveSegments: 4, steps: 1 });
+    capUV(geo, MUSH_R, MUSH_H);
+    geo.translate(0, -MUSH_H / 2, -th / 2);
+    geo.rotateX(-Math.PI / 2); // face up, cap towards -z
+    geo.computeBoundingBox();
+    const halfW = geo.boundingBox!.max.x;
+    const m = mesh(geo, [mushroomFaceMat(false), mushroomSkin()]);
+    m.rotation.set(0, r.range(-0.07, 0.07), tilt);
+    if (i > 0) x += halfW * 0.58;
+    m.position.set(x, halfW * Math.sin(tilt) + th * 0.7, r.range(-0.002, 0.002));
+    g.add(m);
+  });
+  return sitOnGround(baked(g));
+}
+
+/**
+ * Chopped pieces: cap pieces have a domed skin top and a band of brown gills along the bottom of
+ * every side, stem pieces are white and fibrous.
+ */
+function mushroomChunks(r: Rng): THREE.Object3D {
+  const skin = lin('#ddd0b8'), gill = lin('#6e4636'), gillL = lin('#9a705a'), flesh = lin('#f6f1e8'), fleshD = lin('#e8dfcf');
+  const parts: THREE.BufferGeometry[] = [];
+  const pts = scatter(r, 17, 0.028, 0.0098);
+  pts.forEach(([x, z], i) => {
+    const s = r.range(0.0082, 0.011);
+    const capPiece = r.next() < 0.75;
+    const hgt = s * (capPiece ? r.range(0.72, 0.9) : r.range(0.85, 1.05));
+    const sk = r.range(-0.25, 0.25);
+    const geo = roundedBox(s * r.range(0.85, 1.15), hgt, s * r.range(0.8, 1.1), s * 0.14, 2);
+    deform(geo, (p) => {
+      const q = 1 - clamp((p.x * p.x + p.z * p.z) / (s * s * 0.5));
+      if (capPiece && p.y > 0) p.y += s * 0.18 * q;
+      p.x += p.y * sk; // knife cuts are never square
+      p.z += 0.08 * s * Math.sin(p.x * 400 + i);
+    });
+    // colour: domed skin on top, gill band under the cap flesh (cap pieces), flesh elsewhere
+    const pos = geo.attributes.position as THREE.BufferAttribute, nor = geo.attributes.normal as THREE.BufferAttribute;
+    const cols = new Float32Array(pos.count * 3);
+    const c = new THREE.Color();
+    for (let k = 0; k < pos.count; k++) {
+      const y = pos.getY(k) / hgt, ny = nor.getY(k);
+      c.copy(flesh).lerp(fleshD, 0.5 + 0.5 * Math.sin(pos.getX(k) * 900 + pos.getZ(k) * 700));
+      if (capPiece) {
+        c.lerp(gillL, sstep(-0.12, -0.3, y)).lerp(gill, sstep(-0.3, -0.48, y) * 0.9);
+        c.lerp(skin, sstep(0.35, 0.8, ny) * sstep(0.15, 0.4, y));
+      }
+      cols[k * 3] = c.r;
+      cols[k * 3 + 1] = c.g;
+      cols[k * 3 + 2] = c.b;
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+    const flip = r.next() < 0.22;
+    const layer = i > 11 ? 1 : 0;
+    geo.applyMatrix4(
+      new THREE.Matrix4().compose(
+        V(x, hgt * 0.55 + layer * s * 0.7, z),
+        new THREE.Quaternion().setFromEuler(new THREE.Euler(r.range(-0.3, 0.3) + (flip ? Math.PI : 0), r.range(0, TAU), r.range(-0.3, 0.3))),
+        V(1, 1, 1),
+      ),
+    );
+    parts.push(geo);
+  });
+  return sitOnGround(mesh(merge(parts), mushroomChunkMat()));
+}
+
+const mushroomSection = (ctx: Ctx, s: number, o: SectionOpts) => mushroomFace(ctx, s, s, !o.peeled);
+const mushroomSectionV = (ctx: Ctx, w: number, h: number, o: SectionOpts) => mushroomFace(ctx, w, h, !o.peeled);
+
+// =============================================================================================
+// EGGPLANT (long, peelable): glossy aubergine teardrop with a leathery green calyx cap and a
+// thick woody stem. Lies on its side with the narrow end dipping down.
+
+const EGGPLANT = colors('eggplant');
+const EGG_L = 0.192;
+const EGGPLANT_PROFILE: Profile = smoothProfile(
+  [
+    [0.0001, 0], [0.0115, 0.0024], [0.0232, 0.0092], [0.0333, 0.0212], [0.0392, 0.0368], [0.0412, 0.0545], [0.0404, 0.0735],
+    [0.0375, 0.0948], [0.0336, 0.1165], [0.0293, 0.1385], [0.0253, 0.1585], [0.0219, 0.1745], [0.0182, 0.1852], [0.0118, 0.1905], [0.0001, EGG_L],
+  ],
+  56,
+);
+const eggPath = new ProfilePath(EGGPLANT_PROFILE);
+
+/** Skin: u around, v along (canvas bottom = blossom end, top = stem end under the calyx). */
+function eggplantTex(peeled: boolean) {
+  return canvasTexture(
+    256,
+    512,
+    (ctx, w, h) => {
+      const r = new Rng(peeled ? 71 : 70);
+      const g = ctx.createLinearGradient(0, h, 0, 0);
+      if (!peeled) {
+        g.addColorStop(0, '#5a3a4a');
+        g.addColorStop(0.012, '#3c1a4c');
+        g.addColorStop(0.3, '#4a2263');
+        g.addColorStop(0.62, '#53296d');
+        g.addColorStop(0.74, '#5a3274');
+        g.addColorStop(0.8, '#9a86a6');
+        g.addColorStop(0.84, '#d2d7b0');
+        g.addColorStop(1, '#b4c48c');
+      } else {
+        g.addColorStop(0, '#d8cc9a');
+        g.addColorStop(0.03, '#ece2bc');
+        g.addColorStop(0.6, '#e8dfb4');
+        g.addColorStop(0.85, '#dedfa6');
+        g.addColorStop(1, '#cfd496');
+      }
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+      // long soft streaks along the fruit
+      for (let i = 0; i < 30; i++) {
+        const x = r.next() * w, y = r.range(0.08, 0.7) * h, len = r.range(0.15, 0.45) * h, wd = r.range(4, 12);
+        ctx.fillStyle = rgba(peeled ? (r.next() < 0.5 ? '#f6efd2' : '#d4c890') : r.next() < 0.6 ? '#7a4a96' : '#2c0f3c', r.range(0.07, 0.17));
+        for (const dx of [-w, 0, w]) {
+          ctx.beginPath();
+          ctx.ellipse(x + dx, y, wd / 2, len / 2, 0, 0, TAU);
+          ctx.fill();
+        }
+      }
+      if (!peeled) {
+        blotches(ctx, w, h, '#2a0d38', { n: 50, size: [0.03, 0.09], alpha: [0.1, 0.22], seed: 72, ys: 2.2, y: [0.02, 0.72] });
+        blotches(ctx, w, h, '#6d3e8a', { n: 40, size: [0.03, 0.08], alpha: [0.06, 0.14], seed: 73, ys: 2.2, y: [0.02, 0.72] });
+        // lavender blush fading into the pale band that grew under the calyx
+        blotches(ctx, w, h, '#a88cc0', { n: 22, size: [0.04, 0.08], alpha: [0.12, 0.25], seed: 74, ys: 1.6, y: [0.72, 0.8] });
+      } else {
+        blotches(ctx, w, h, '#f8f2da', { n: 40, size: [0.03, 0.08], alpha: [0.2, 0.4], seed: 75, ys: 1.6 });
+        dots(ctx, w, h, '#c8b878', { n: 90, size: [0.003, 0.006], alpha: [0.2, 0.45], seed: 76, ys: 1.6 });
+        // a few slivers of skin the peeler missed
+        blotches(ctx, w, h, '#5a3274', { n: 7, size: [0.008, 0.016], alpha: [0.5, 0.8], seed: 77, ys: 3, y: [0.1, 0.7] });
+      }
+    },
+    { key: peeled ? 'veg/eggplant/peeled' : 'veg/eggplant/skin' },
+  );
+}
+
+const eggplantSkin = lazy(() =>
+  foodMat({ color: '#ffffff', map: eggplantTex(false), roughness: 0.2, clearcoat: 1, clearcoatRoughness: 0.06, flesh: EGGPLANT.flesh, cookColor: EGGPLANT.cooked, name: 'eggplant-skin' }),
+);
+const eggplantPeeledMat = lazy(() =>
+  foodMat({ color: '#ffffff', map: eggplantTex(true), roughness: 0.5, clearcoat: 0.2, clearcoatRoughness: 0.4, flesh: EGGPLANT.flesh, cookColor: EGGPLANT.cooked }),
+);
+const eggplantFlesh = lazy(() =>
+  foodMat({
+    color: '#ffffff',
+    map: fleshTex('veg/eggplant/flesh', '#eee5c0', '#f8f3dc', '#d9cc98', (ctx, w, h) => {
+      dots(ctx, w, h, '#fffbe8', { n: 120, size: [0.006, 0.014], alpha: [0.3, 0.6], seed: 78 });
+      dots(ctx, w, h, '#9a7440', { n: 16, size: [0.012, 0.02], alpha: [0.75, 0.95], seed: 79, ys: 0.65 });
+    }),
+    roughness: 0.55,
+    flesh: EGGPLANT.flesh,
+    cookColor: EGGPLANT.cooked,
+  }),
+);
+
+/** Organic shape: off-centre bulge, slight curve, lumps. Same function for body, calyx and stem. */
+function eggplantDeform(r: Rng) {
+  const sN = r.range(0, 50), ph = r.range(0, TAU), bend = r.range(0.004, 0.012), ba = r.range(0, TAU), bulge = r.range(0.02, 0.05);
+  return (p: THREE.Vector3) => {
+    const t = clamp(p.y / EGG_L);
+    const a = Math.atan2(p.x, p.z);
+    const k = 1 + bulge * Math.cos(a + ph) * Math.sin(Math.PI * t) * (1 - t) + 0.016 * fbm3(p.x * 45 + sN, p.y * 20, p.z * 45, 2);
+    const b = Math.sin(Math.PI * t) * bend;
+    p.x = p.x * k + Math.sin(ba) * b;
+    p.z = p.z * k + Math.cos(ba) * b;
+  };
+}
+
+function buildEggplant(r: Rng, peeled = false): THREE.Object3D {
+  const body = lathe(EGGPLANT_PROFILE, 44);
+  const parts = calyxAndStem(r, eggPath, EGG_L, {
+    points: 5,
+    inner: 0.017,
+    tip: [0.036, 0.046],
+    sharp: 2.1,
+    lift: [0.0012, 0.0035],
+    twist: r.range(-0.3, 0.3),
+    stemLen: r.range(0.024, 0.03),
+    stemR: 0.0047,
+    stemBend: r.range(0.25, 0.45),
+    green: ['#355a22', '#5f8a34'],
+    stemCol: ['#4f7230', '#c9bd8c'],
+    matKey: 'eggplant-green',
+  });
+  const fn = eggplantDeform(r);
+  deform(body, fn);
+  for (const p of parts) deform(p.geometry, fn);
+  const o = group(mesh(body, peeled ? eggplantPeeledMat() : eggplantSkin(), { skin: !peeled }), ...parts);
+  // lie down along +X, the narrow stem end dipping until it touches the ground
+  o.rotation.set(0, r.range(-0.1, 0.1), -Math.PI / 2 - r.range(0.13, 0.16));
+  const s = r.range(0.94, 1.04);
+  o.scale.set(s, s * r.range(0.95, 1.05), s);
+  return sitOnGround(baked(o));
+}
+
+function eggplantSeedRing(ctx: Ctx, s: number, seedN: number) {
+  const R = s / 2, r = new Rng(seedN);
+  for (let i = 0; i < 44; i++) {
+    // seeds sit loosely around the soft centre, in four fuzzy lobes
+    const lobe = Math.floor(r.next() * 4), a = (lobe / 4) * TAU + 0.6 + r.range(-0.55, 0.55);
+    const rr = R * (0.26 + r.range(0, 0.28));
+    seed(ctx, R + Math.cos(a) * rr, R + Math.sin(a) * rr, s * 0.014, s * 0.0085, a + r.range(-0.5, 0.5), '#a27a44', 'rgba(110,80,40,0.75)', 'rgba(236,224,176,0.5)');
+  }
+}
+
+function eggplantSection(ctx: Ctx, s: number, o: SectionOpts) {
+  const R = s / 2;
+  radialFill(ctx, s, [[0, '#f4edd0'], [0.42, '#efe6c2'], [0.78, '#ece2b6'], [0.92, '#e2ddaa'], [1, '#d6d49c']]);
+  ctx.save();
+  circle(ctx, R, R, R);
+  ctx.clip();
+  // spongy, faintly greener seed zone
+  ringStroke(ctx, R, R, R * 0.4, s * 0.17, rgba('#dcd49c', 0.3));
+  dots(ctx, s, s, '#fffbe8', { n: 240, size: [0.003, 0.007], alpha: [0.3, 0.6], seed: 80 });
+  dots(ctx, s, s, '#d5c894', { n: 180, size: [0.002, 0.005], alpha: [0.2, 0.45], seed: 81 });
+  eggplantSeedRing(ctx, s, 82);
+  ctx.restore();
+  if (!o.peeled) {
+    ringStroke(ctx, R, R, R - s * 0.013, s * 0.026, '#3c1a4e');
+    ringStroke(ctx, R, R, R - s * 0.031, s * 0.01, rgba('#cfd2a0', 0.7));
+  }
+  sheen(ctx, R * 0.7, R * 0.62, R * 0.32, R * 0.16, 0.16);
+}
+
+function eggplantSectionV(ctx: Ctx, w: number, h: number, o: SectionOpts) {
+  const r = new Rng(83);
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, '#e2dfaa');
+  g.addColorStop(0.18, '#efe7c2');
+  g.addColorStop(1, '#f1e9c8');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  dots(ctx, w, h, '#fffbe8', { n: 260, size: [0.004, 0.009], alpha: [0.3, 0.6], seed: 84 });
+  // seed columns in the bulbous (blossom) half - canvas bottom
+  for (const side of [-1, 1])
+    for (let i = 0; i < 18; i++) {
+      const t = r.range(0.3, 0.95);
+      const x = w / 2 + side * w * (0.12 + r.range(0, 0.2)) * Math.sin(Math.PI * t) ** 0.4;
+      seed(ctx, x, t * h, w * 0.016, w * 0.01, Math.PI / 2 + r.range(-0.4, 0.4), '#a27a44', 'rgba(110,80,40,0.75)', 'rgba(236,224,176,0.5)');
+    }
+  if (!o.peeled) {
+    silhouettePath(ctx, EGGPLANT_PROFILE, w, h);
+    ctx.lineWidth = Math.max(2, w * 0.04);
+    ctx.strokeStyle = '#3c1a4e';
+    ctx.stroke();
+  }
+  sheen(ctx, w * 0.38, h * 0.55, w * 0.18, h * 0.2, 0.12);
+}
+
+// =============================================================================================
+// PUMPKIN (round): deeply ribbed orange pumpkin, ridged woody stem and a curly tendril.
+// Halves show the seed cavity; slices are thin crescents cut from the wall.
+
+const PUMPKIN = colors('pumpkin');
+const PUMP_H = 0.168;
+const PUMP_TOP = 0.1545;
+const PUMP_WALL = 0.025;
+const PUMPKIN_PROFILE: Profile = smoothProfile(
+  [
+    [0.0001, 0.0105], [0.011, 0.0078], [0.029, 0.0034], [0.052, 0.0012], [0.077, 0.0058], [0.099, 0.019], [0.1155, 0.039],
+    [0.1235, 0.0635], [0.1252, 0.087], [0.1205, 0.111], [0.1065, 0.134], [0.0845, 0.152], [0.0585, 0.1635], [0.0345, 0.168],
+    [0.0185, 0.1645], [0.0095, 0.157], [0.0001, PUMP_TOP],
+  ],
+  30,
+);
+const PUMP_R = profileMaxRadius(PUMPKIN_PROFILE);
+
+type RadialFn = (a: number, y: number, rad: number) => number;
+
+/**
+ * Rib deformation: N rounded lobes with sharp creases between them, plus gentle lobe-to-lobe and
+ * organic variation. Lobe centres sit at angle 2PI k / N. cutSafe keeps the x = 0 plane exact
+ * (no variation there) so halves match their flat face.
+ */
+function pumpkinShape(N: number, s: number, cutSafe: boolean): RadialFn {
+  return (a, y, rad) => {
+    const h = clamp(y / PUMP_H);
+    const c = Math.abs(Math.cos((N * a) / 2));
+    const depth = 0.095 * (0.4 + 0.6 * Math.sin(Math.PI * clamp(h * 1.08 - 0.04)));
+    const v = 0.028 * Math.sin(2 * a + s) + 0.018 * Math.sin(3 * a + s * 1.7) + 0.022 * fbm3(Math.sin(a) * 1.5 + s, h * 2.5, Math.cos(a) * 1.5, 2);
+    return rad * (1 - depth * (1 - Math.sqrt(c))) * (1 + (cutSafe ? Math.sin(a) ** 2 : 1) * v);
+  };
+}
+
+/** Skin colour / bump for N lobes: u around (lobe centres at u = k / N), v from the bottom up. */
+function pumpkinTex(N: number, bump: boolean) {
+  return canvasTexture(
+    512,
+    256,
+    (ctx, w, h) => {
+      const r = new Rng(90 + N);
+      if (bump) {
+        ctx.fillStyle = '#808080';
+        ctx.fillRect(0, 0, w, h);
+      } else {
+        const g = ctx.createLinearGradient(0, h, 0, 0);
+        g.addColorStop(0, '#8a5a26');
+        g.addColorStop(0.035, '#cf6c1a');
+        g.addColorStop(0.16, '#ea7d1c');
+        g.addColorStop(0.5, '#f58c20');
+        g.addColorStop(0.82, '#f39124');
+        g.addColorStop(0.94, '#dc8a30');
+        g.addColorStop(1, '#a4833e');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+      }
+      const lw = w / N;
+      for (let k = 0; k < N; k++)
+        for (const dx of [-w, 0, w]) {
+          const xc = k * lw + dx, xe = xc + lw / 2;
+          if (!bump) {
+            const lg = ctx.createLinearGradient(xc - lw * 0.42, 0, xc + lw * 0.42, 0);
+            lg.addColorStop(0, rgba('#ffb04a', 0));
+            lg.addColorStop(0.5, rgba('#ffb04a', 0.3));
+            lg.addColorStop(1, rgba('#ffb04a', 0));
+            ctx.fillStyle = lg;
+            ctx.fillRect(xc - lw * 0.42, 0, lw * 0.84, h);
+          }
+          const cc = bump ? '#000000' : '#a4460c';
+          const cg = ctx.createLinearGradient(xe - lw * 0.17, 0, xe + lw * 0.17, 0);
+          cg.addColorStop(0, rgba(cc, 0));
+          cg.addColorStop(0.5, rgba(cc, bump ? 0.75 : 0.6));
+          cg.addColorStop(1, rgba(cc, 0));
+          ctx.fillStyle = cg;
+          ctx.fillRect(xe - lw * 0.17, 0, lw * 0.34, h);
+        }
+      // fine wavy streaks along the ribs
+      for (let i = 0; i < 240; i++) {
+        const x = r.next() * w, y0 = r.range(0.02, 0.9) * h, len = r.range(0.15, 0.6) * h;
+        ctx.strokeStyle = bump ? rgba(r.next() < 0.5 ? '#ffffff' : '#000000', 0.3) : rgba(r.next() < 0.5 ? '#ffb456' : '#c45a0e', r.range(0.08, 0.2));
+        ctx.lineWidth = r.range(0.8, 2.2);
+        ctx.beginPath();
+        ctx.moveTo(x, y0);
+        ctx.bezierCurveTo(x + r.range(-3, 3), y0 + len * 0.3, x + r.range(-3, 3), y0 + len * 0.6, x + r.range(-4, 4), y0 + len);
+        ctx.stroke();
+      }
+      if (!bump) {
+        dots(ctx, w, h, '#ffd290', { n: 80, size: [0.0015, 0.003], alpha: [0.3, 0.6], seed: 93, ys: 2, y: [0.08, 0.9] });
+        blotches(ctx, w, h, '#7d8a36', { n: 18, size: [0.02, 0.05], alpha: [0.12, 0.28], seed: 94, ys: 1.5, y: [0.9, 1] });
+      }
+    },
+    { key: `veg/pumpkin/${bump ? 'bump' : 'skin'}${N}`, srgb: !bump, wrap: true },
+  );
+}
+
+const pumpSkinMats = new Map<number, Mat>();
+function pumpkinSkinN(N: number): Mat {
+  let m = pumpSkinMats.get(N);
+  if (!m)
+    pumpSkinMats.set(
+      N,
+      (m = foodMat({ color: '#ffffff', map: pumpkinTex(N, false), bumpMap: pumpkinTex(N, true), bumpScale: 1.2, roughness: 0.42, clearcoat: 0.35, clearcoatRoughness: 0.32, flesh: PUMPKIN.flesh, cookColor: PUMPKIN.cooked, name: 'pumpkin-skin' })),
+    );
+  return m;
+}
+const pumpkinSkin = () => pumpkinSkinN(10);
+const pumpkinStemMat = () => plantMat('pumpkin-stem', '#d8c89a', { roughness: 0.85, cookColor: '#4a3a1a' });
+const pumpStrands = (ctx: Ctx, w: number, h: number) => {
+  const r = new Rng(97);
+  for (let i = 0; i < 26; i++) {
+    const x = r.next() * w, y = r.next() * h;
+    ctx.strokeStyle = rgba(r.next() < 0.5 ? '#fff0b0' : '#e8892a', r.range(0.25, 0.5));
+    ctx.lineWidth = r.range(0.8, 1.8);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.quadraticCurveTo(x + r.range(-12, 12), y + r.range(-12, 12), x + r.range(-24, 24), y + r.range(-24, 24));
+    ctx.stroke();
+  }
+};
+const pumpkinFlesh = lazy(() =>
+  foodMat({ color: '#ffffff', map: fleshTex('veg/pumpkin/flesh', '#f7a83c', '#fcc463', '#e98a2a', pumpStrands), roughness: 0.5, clearcoat: 0.2, flesh: PUMPKIN.flesh, cookColor: PUMPKIN.cooked }),
+);
+const pumpkinInnerMat = lazy(() =>
+  foodMat({ color: '#ffffff', map: fleshTex('veg/pumpkin/inner', '#f8bb52', '#fde29a', '#ea9634', pumpStrands), roughness: 0.75, flesh: PUMPKIN.flesh, cookColor: PUMPKIN.cooked }),
+);
+
+/** Height of the top surface at distance d from the axis (upper half of the profile). */
+function pumpkinTopY(d: number): number {
+  const P = PUMPKIN_PROFILE;
+  let iMax = 0;
+  for (let i = 1; i < P.length; i++) if (P[i][0] > P[iMax][0]) iMax = i;
+  for (let i = iMax; i < P.length - 1; i++) {
+    const [r0, y0] = P[i], [r1, y1] = P[i + 1];
+    if (d <= r0 && d >= r1) return mix(y0, y1, (r0 - d) / (r0 - r1 || 1));
+  }
+  return P[P.length - 1][1];
+}
+
+/** Thick, ridged, slightly twisted stem flaring into the top; leans towards angle ang. */
+function pumpkinStem(r: Rng, ang: number, lean: number): THREE.BufferGeometry {
+  const len = r.range(0.042, 0.052);
+  const dx = Math.sin(ang), dz = Math.cos(ang);
+  const y0 = PUMP_TOP - 0.006;
+  const pts: V3[] = [
+    [0, y0, 0],
+    [dx * 0.002, y0 + len * 0.36, dz * 0.002],
+    [dx * len * lean * 0.45, y0 + len * 0.76, dz * len * lean * 0.45],
+    [dx * len * lean, y0 + len, dz * len * lean],
+  ];
+  const twist = r.range(-0.7, 0.7);
+  const geo = sweepGeometry(curveThrough(pts), {
+    radius: (t) => 0.0096 * (1 + 0.9 * Math.pow(1 - sstep(0, 0.32, t), 2)) * (1 - 0.16 * t),
+    shape: (a, t) => 1 - 0.17 * (1 - Math.pow(Math.abs(Math.cos(3 * (a + twist * t))), 0.6)),
+    radialSegments: 24,
+    tubularSegments: 14,
+    caps: 'flat',
+  });
+  gradeAlong(geo, pts[0], pts[3], stops([[0, '#4c6a28'], [0.3, '#687a36'], [0.75, '#8f8a50'], [1, '#c2b383']]));
+  return geo;
+}
+
+/** Thin green tendril running out from the stem over the top and coiling like a spring. */
+function pumpkinTendril(r: Rng, ang: number): THREE.BufferGeometry {
+  const dir = V(Math.sin(ang), 0, Math.cos(ang)), side = V(dir.z, 0, -dir.x);
+  const turns = r.range(1.8, 2.4), R0 = r.range(0.0075, 0.0095), tr = 0.0015;
+  const pts: V3[] = [];
+  for (let i = 0; i <= 44; i++) {
+    const t = i / 44;
+    const along = 0.012 + t * 0.056;
+    const coil = sstep(0.08, 0.3, t);
+    const a = Math.max(0, t - 0.08) * turns * TAU;
+    const rad = R0 * (1 - 0.5 * t) * coil;
+    const cy = pumpkinTopY(along) + tr + 0.0012 + rad;
+    const sn = Math.sin(a) * rad, cs = Math.cos(a) * rad;
+    pts.push([dir.x * along + side.x * sn, cy - cs, dir.z * along + side.z * sn]);
+  }
+  const geo = sweepGeometry(curveThrough(pts), { radius: (t) => tr * (1 - 0.45 * t), radialSegments: 6, tubularSegments: 64, caps: 'round' });
+  gradeAlong(geo, pts[0], pts[pts.length - 1], stops([[0, '#5d7a2c'], [0.6, '#7c9a3a'], [1, '#b4b060']]));
+  return geo;
+}
+
+function buildPumpkin(r: Rng): THREE.Object3D {
+  const N = r.next() < 0.6 ? 10 : 12;
+  const g = latheArc(PUMPKIN_PROFILE, N === 10 ? 80 : 72);
+  radial(g, pumpkinShape(N, r.range(0, 30), false));
+  const ang = r.range(0, TAU);
+  const stem = pumpkinStem(r, ang, r.range(0.25, 0.5));
+  const tendril = pumpkinTendril(r, ang + r.sign() * r.range(1.7, 2.6));
+  const o = group(mesh(g, pumpkinSkinN(N), { skin: true }), mesh(merge([stem, tendril]), pumpkinStemMat()));
+  const s = r.range(0.94, 1.03);
+  o.scale.set(s, s * r.range(0.92, 1.04), s);
+  o.rotation.y = r.range(0, TAU);
+  return sitOnGround(o);
+}
+
+/** Cut face (halves / sectionV): orange wall, pale under-skin line, stringy seed cavity. */
+function pumpkinFace(ctx: Ctx, w: number, h: number, rim: boolean) {
+  const X = (rad: number) => w / 2 + (rad / PUMP_R) * (w / 2);
+  const Y = (y: number) => h - (y / PUMP_H) * h;
+  const r = new Rng(95);
+  const fg = ctx.createRadialGradient(w / 2, Y(0.086), w * 0.16, w / 2, Y(0.086), w * 0.52);
+  fg.addColorStop(0, '#fcc860');
+  fg.addColorStop(0.5, '#f9ae40');
+  fg.addColorStop(1, '#ee8a22');
+  ctx.fillStyle = fg;
+  ctx.fillRect(0, 0, w, h);
+  // fibrous grain following the wall
+  for (let i = 0; i < 50; i++) {
+    const k = r.range(0.6, 0.98);
+    ctx.strokeStyle = rgba(r.next() < 0.5 ? '#ffd47c' : '#e8841e', r.range(0.12, 0.25));
+    ctx.lineWidth = r.range(0.8, 1.6);
+    ctx.beginPath();
+    const a0 = r.range(0, TAU), a1 = a0 + r.range(0.3, 0.9);
+    ctx.ellipse(w / 2, Y(0.086), (w / 2) * k, (h / 2) * k * 0.95, 0, a0, a1);
+    ctx.stroke();
+  }
+  // seed cavity
+  const cx = w / 2, cy = Y(0.087), rx = (0.07 / PUMP_R) * (w / 2), ry = (0.05 / PUMP_H) * h;
+  const cav = () => {
+    ctx.beginPath();
+    for (let i = 0; i <= 72; i++) {
+      const a = (i / 72) * TAU, k = 1 + 0.05 * Math.sin(5 * a + 1) + 0.03 * Math.sin(9 * a + 2);
+      ctx.lineTo(cx + Math.cos(a) * rx * k, cy + Math.sin(a) * ry * k);
+    }
+    ctx.closePath();
+  };
+  ctx.save();
+  cav();
+  const cg = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
+  cg.addColorStop(0, '#fde3a0');
+  cg.addColorStop(0.7, '#f9cb6c');
+  cg.addColorStop(1, '#f2a744');
+  ctx.fillStyle = cg;
+  ctx.fill();
+  ctx.clip();
+  for (let i = 0; i < 46; i++) {
+    const a = r.range(0, TAU), b = a + Math.PI + r.range(-0.9, 0.9);
+    ctx.strokeStyle = rgba(r.next() < 0.55 ? '#ea9230' : '#fff3c4', r.range(0.35, 0.6));
+    ctx.lineWidth = r.range(0.8, 2.2);
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry);
+    ctx.quadraticCurveTo(cx + r.range(-rx, rx) * 0.5, cy + r.range(-ry, ry) * 0.5, cx + Math.cos(b) * rx, cy + Math.sin(b) * ry);
+    ctx.stroke();
+  }
+  for (let i = 0; i < 30; i++) {
+    const a = r.range(0, TAU), k = i < 22 ? r.range(0.72, 0.92) : r.range(0.2, 0.55);
+    const x = cx + Math.cos(a) * rx * k, y = cy + Math.sin(a) * ry * k;
+    seed(ctx, x, y, w * 0.032, w * 0.017, Math.atan2(Math.sin(a) * ry, Math.cos(a) * rx) + r.range(-0.3, 0.3), '#f7efd6', 'rgba(205,184,140,0.95)', 'rgba(255,246,214,0.5)');
+  }
+  ctx.restore();
+  cav();
+  ctx.lineWidth = Math.max(1.5, w * 0.012);
+  ctx.strokeStyle = rgba('#fbd27c', 0.9);
+  ctx.stroke();
+  // pale fibres where the stem joins
+  softSpot(ctx, w / 2, Y(0.152), w * 0.06, h * 0.035, '#f6d78e', 0.7);
+  if (rim) {
+    mirroredPath(ctx, PUMPKIN_PROFILE, X, Y);
+    ctx.lineWidth = Math.max(4, w * 0.06);
+    ctx.strokeStyle = '#ffd47a';
+    ctx.stroke();
+    ctx.lineWidth = Math.max(2, w * 0.028);
+    ctx.strokeStyle = '#d2620e';
+    ctx.stroke();
+  }
+  sheen(ctx, w * 0.34, h * 0.3, w * 0.16, h * 0.08, 0.14);
+}
+
+const pumpFaceMats = new Map<string, Mat>();
+function pumpkinFaceMat(kind: 'half' | 'wedge'): Mat {
+  let m = pumpFaceMats.get(kind);
+  if (!m) {
+    const map = canvasTexture(256, 256, (ctx, w, h) => (kind === 'half' ? pumpkinFace(ctx, w, h, true) : pumpkinWedgeFace(ctx, w, h)), { key: `veg/pumpkin/face-${kind}` });
+    pumpFaceMats.set(kind, (m = foodMat({ color: '#ffffff', map, roughness: 0.42, clearcoat: 0.25, clearcoatRoughness: 0.3, flesh: PUMPKIN.flesh, cookColor: PUMPKIN.cooked })));
+  }
+  return m;
+}
+
+function pumpkinHalves(r: Rng): THREE.Object3D {
+  const N = 10, shape = pumpkinShape(N, r.range(0, 30), true);
+  const face = faceGeom(cutShapes(PUMPKIN_PROFILE, 0), PUMP_R, PUMP_H);
+  const stem = pumpkinStem(r, 0, 0.35); // leans within the cut plane
+  const s = r.range(0.95, 1.03);
+  return lyingHalves(r, PUMP_R * s, PUMP_H * s, (k) => {
+    const g = latheArc(PUMPKIN_PROFILE, 40, k * Math.PI, Math.PI);
+    radial(g, shape);
+    const st = stem.clone();
+    deform(st, (p) => {
+      p.x = k === 0 ? Math.max(p.x, 0.0003) : Math.min(p.x, -0.0003);
+    });
+    const f = face.clone();
+    f.rotateY(k === 0 ? -Math.PI / 2 : Math.PI / 2);
+    const o = group(mesh(g, pumpkinSkinN(N)), mesh(f, pumpkinFaceMat('half')), mesh(st, pumpkinStemMat()));
+    o.scale.setScalar(s);
+    return o;
+  });
+}
+
+/** Crescent outline of the wall (r, y): outer = skin side, inner = offset by the wall thickness. */
+const pumpkinCrescent = lazy(() => {
+  const P = PUMPKIN_PROFILE, lim = 0.052;
+  const i0 = P.findIndex(([rad]) => rad >= lim);
+  let i1 = P.length - 1;
+  while (i1 > 0 && P[i1][0] < lim) i1--;
+  const outer = P.slice(i0, i1 + 1).map(([a, b]) => [a, b] as [number, number]);
+  const inner = outer.map((p, i) => {
+    const a = outer[Math.max(0, i - 1)], b = outer[Math.min(outer.length - 1, i + 1)];
+    const tx = b[0] - a[0], ty = b[1] - a[1], l = Math.hypot(tx, ty) || 1;
+    return [p[0] - (ty / l) * PUMP_WALL, p[1] + (tx / l) * PUMP_WALL] as [number, number];
+  });
+  return { outer, inner };
+});
+
+/** Crescent face texture: u = r / R (axis at the left edge), v = y / H. */
+function pumpkinWedgeFace(ctx: Ctx, w: number, h: number) {
+  const { outer, inner } = pumpkinCrescent();
+  const X = (rad: number) => (rad / PUMP_R) * w, Y = (y: number) => h - (y / PUMP_H) * h;
+  const r = new Rng(98);
+  const fg = ctx.createRadialGradient(0, Y(0.086), w * 0.55, 0, Y(0.086), w);
+  fg.addColorStop(0, '#fdd06c');
+  fg.addColorStop(0.45, '#f9b042');
+  fg.addColorStop(1, '#ef8c22');
+  ctx.fillStyle = fg;
+  ctx.fillRect(0, 0, w, h);
+  const line = (pts: [number, number][]) => {
+    ctx.beginPath();
+    pts.forEach(([a, b], i) => (i ? ctx.lineTo(X(a), Y(b)) : ctx.moveTo(X(a), Y(b))));
+  };
+  // stringy pulp left on the inner (cavity) side
+  line(inner);
+  ctx.lineWidth = w * 0.05;
+  ctx.strokeStyle = rgba('#fcd682', 0.9);
+  ctx.stroke();
+  for (let i = 0; i < 40; i++) {
+    const p = inner[r.int(1, inner.length - 2)];
+    ctx.strokeStyle = rgba(r.next() < 0.5 ? '#f09a34' : '#fff2c0', r.range(0.4, 0.7));
+    ctx.lineWidth = r.range(0.8, 1.8);
+    ctx.beginPath();
+    ctx.moveTo(X(p[0]) + r.range(-3, 3), Y(p[1]) + r.range(-3, 3));
+    ctx.lineTo(X(p[0]) + r.range(-10, 2), Y(p[1]) + r.range(-8, 8));
+    ctx.stroke();
+  }
+  // skin with a pale line just under it
+  line(outer);
+  ctx.lineWidth = w * 0.07;
+  ctx.strokeStyle = '#ffd47a';
+  ctx.stroke();
+  ctx.lineWidth = w * 0.032;
+  ctx.strokeStyle = '#d2620e';
+  ctx.stroke();
+}
+
+/** One crescent slice of the wall between angles phi0 and phi0 + d (upright frame, ribs applied). */
+function pumpkinWedge(N: number, shape: RadialFn, phi0: number, d: number): THREE.Object3D {
+  const { outer, inner } = pumpkinCrescent();
+  const segs = Math.max(3, Math.round((d / TAU) * 120));
+  const outerG = latheArc(outer, segs, phi0, d);
+  const innerG = latheArc(inner, segs, phi0, d);
+  const botG = latheArc([inner[0], outer[0]], segs, phi0, d);
+  const topG = latheArc([outer[outer.length - 1], inner[inner.length - 1]], segs, phi0, d);
+  const shp = new THREE.Shape([...outer, ...inner.slice().reverse()].map(([a, b]) => new THREE.Vector2(a, b)));
+  const side = (phi: number, flip: boolean) => {
+    const f = new THREE.ShapeGeometry(shp, 1);
+    const pos = f.attributes.position as THREE.BufferAttribute, uv = f.attributes.uv as THREE.BufferAttribute;
+    for (let i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) / PUMP_R, pos.getY(i) / PUMP_H);
+    if (flip) f.scale(1, 1, -1);
+    f.rotateY(phi - Math.PI / 2);
+    return f;
+  };
+  const faces = [side(phi0, false), side(phi0 + d, true)];
+  for (const g of [outerG, innerG, botG, topG, ...faces]) radial(g, shape);
+  return group(mesh(outerG, pumpkinSkinN(N)), mesh(merge([innerG, botG, topG]), pumpkinInnerMat()), mesh(merge(faces), pumpkinFaceMat('wedge')));
+}
+
+/** Thin crescent slices lying on their sides, nested like a cut-up pumpkin on a board. */
+function pumpkinSlices(r: Rng): THREE.Object3D {
+  const N = 10, shape = pumpkinShape(N, r.range(0, 30), false);
+  const d = TAU / 30;
+  const out = new THREE.Group();
+  const start = r.range(0, TAU);
+  for (let i = 0; i < 5; i++) {
+    const phi0 = start + i * d * 1.02;
+    const w = pumpkinWedge(N, shape, phi0, d);
+    // lay it on its first cut face, then turn the skin side towards +z
+    const n = V(-Math.cos(phi0), 0, Math.sin(phi0));
+    const q = new THREE.Quaternion().setFromUnitVectors(n, V(0, -1, 0));
+    const c = V(Math.sin(phi0 + d / 2), 0, Math.cos(phi0 + d / 2)).applyQuaternion(q);
+    const qy = new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), -Math.atan2(c.x, c.z) + r.range(-0.12, 0.12));
+    w.quaternion.copy(qy.multiply(q));
+    const piece = sitOnGround(baked(w));
+    piece.position.set(r.range(-0.006, 0.006), 0, i * 0.03);
+    out.add(piece);
+  }
+  return sitOnGround(baked(out));
+}
+
+const pumpkinSection = (ctx: Ctx, s: number, o: SectionOpts) => {
+  const R = s / 2, N = 10, r = new Rng(96);
+  const lobe = (a: number) => 1 - 0.07 * (1 - Math.sqrt(Math.abs(Math.cos((N * a) / 2))));
+  const path = (k: number) => {
+    ctx.beginPath();
+    for (let i = 0; i <= 160; i++) {
+      const a = (i / 160) * TAU, rr = R * k * lobe(a);
+      ctx.lineTo(R + Math.cos(a) * rr, R + Math.sin(a) * rr);
+    }
+    ctx.closePath();
+  };
+  ctx.fillStyle = o.peeled ? '#f39a2c' : '#d2620e';
+  ctx.fillRect(0, 0, s, s);
+  path(0.975);
+  ctx.fillStyle = o.peeled ? '#f39a2c' : '#ffd47a';
+  ctx.fill();
+  path(0.945);
+  const fg = ctx.createRadialGradient(R, R, R * 0.3, R, R, R);
+  fg.addColorStop(0, '#fdd06c');
+  fg.addColorStop(0.5, '#f9b042');
+  fg.addColorStop(1, '#ef8c22');
+  ctx.fillStyle = fg;
+  ctx.fill();
+  // cavity: stringy pulp with seeds round the wall
+  ctx.save();
+  ctx.beginPath();
+  for (let i = 0; i <= 72; i++) {
+    const a = (i / 72) * TAU, k = R * (0.5 + 0.03 * Math.sin(5 * a) + 0.02 * Math.sin(11 * a + 1));
+    ctx.lineTo(R + Math.cos(a) * k, R + Math.sin(a) * k);
+  }
+  ctx.closePath();
+  const cg = ctx.createRadialGradient(R, R, 0, R, R, R * 0.5);
+  cg.addColorStop(0, '#fde3a0');
+  cg.addColorStop(1, '#f5b450');
+  ctx.fillStyle = cg;
+  ctx.fill();
+  ctx.lineWidth = s * 0.012;
+  ctx.strokeStyle = rgba('#fbd27c', 0.9);
+  ctx.stroke();
+  ctx.clip();
+  for (let i = 0; i < 40; i++) {
+    const a = r.range(0, TAU), b = a + Math.PI + r.range(-1, 1);
+    ctx.strokeStyle = rgba(r.next() < 0.55 ? '#ea9230' : '#fff3c4', r.range(0.35, 0.6));
+    ctx.lineWidth = r.range(0.8, 2);
+    ctx.beginPath();
+    ctx.moveTo(R + Math.cos(a) * R * 0.5, R + Math.sin(a) * R * 0.5);
+    ctx.quadraticCurveTo(R + r.range(-0.2, 0.2) * R, R + r.range(-0.2, 0.2) * R, R + Math.cos(b) * R * 0.5, R + Math.sin(b) * R * 0.5);
+    ctx.stroke();
+  }
+  for (let i = 0; i < 22; i++) {
+    const a = (i / 16) * TAU + r.range(-0.1, 0.1), k = i < 16 ? r.range(0.36, 0.42) : r.range(0.08, 0.25);
+    seed(ctx, R + Math.cos(a) * R * k, R + Math.sin(a) * R * k, s * 0.034, s * 0.017, a + r.range(-0.2, 0.2), '#f7efd6', 'rgba(205,184,140,0.95)', 'rgba(255,246,214,0.5)');
+  }
+  ctx.restore();
+  sheen(ctx, R * 0.7, R * 0.6, R * 0.3, R * 0.14, 0.15);
+};
+const pumpkinSectionV = (ctx: Ctx, w: number, h: number, o: SectionOpts) => pumpkinFace(ctx, w, h, !o.peeled);
+
+// =============================================================================================
 // Table
 
 export const MODELS: ModelTable = {
@@ -2721,6 +3874,40 @@ export const MODELS: ModelTable = {
     flesh: garlicFlesh,
     section: garlicSection,
     sectionV: garlicSectionV,
+  },
+  mushroom: {
+    build: buildMushroom,
+    profile: MUSH_PROFILE,
+    skin: mushroomSkin,
+    flesh: mushroomFlesh,
+    section: mushroomSection,
+    sectionV: mushroomSectionV,
+    forms: {
+      halved: (r) => mushroomHalves(r),
+      sliced: (r) => mushroomSlices(r),
+      diced: (r) => mushroomChunks(r),
+    },
+  },
+  eggplant: {
+    build: (r) => buildEggplant(r, false),
+    peeled: (r) => buildEggplant(r, true),
+    profile: EGGPLANT_PROFILE,
+    skin: eggplantSkin,
+    flesh: eggplantFlesh,
+    section: eggplantSection,
+    sectionV: eggplantSectionV,
+  },
+  pumpkin: {
+    build: buildPumpkin,
+    profile: PUMPKIN_PROFILE,
+    skin: pumpkinSkin,
+    flesh: pumpkinFlesh,
+    section: pumpkinSection,
+    sectionV: pumpkinSectionV,
+    forms: {
+      halved: (r) => pumpkinHalves(r),
+      sliced: (r) => pumpkinSlices(r),
+    },
   },
 };
 

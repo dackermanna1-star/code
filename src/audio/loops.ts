@@ -156,6 +156,8 @@ export interface LoopLayerSpec {
   db: number;
   /** fixed stereo offset of the layer (-1..1) */
   pan?: number;
+  /** high-shelf cut above ~5.5 kHz (dB, negative) — keeps hissy beds warm over long sessions */
+  tame?: number;
   render: (lb: LoopBuf) => void;
 }
 export interface LoopEventSpec {
@@ -237,6 +239,7 @@ export const LOOPS: Record<LoopName, LoopSpec> = {
       {
         len: 3.1,
         db: -31,
+        tame: -4,
         render: (lb) => {
           const sr = lb.sr;
           lb.add(lb.filt(lb.white(), new Biquad().highpass(1800, 0.7, sr), new Biquad().lowpass(9500, 0.7, sr)), 0.1, mul(lb.wobble(0.9, 0.35), lb.wobble(13, 0.25)));
@@ -246,6 +249,7 @@ export const LOOPS: Record<LoopName, LoopSpec> = {
       {
         len: 4.3,
         db: -30,
+        tame: -4,
         render: (lb) => {
           crackleLayer(lb, 70, [2500, 8000], [1, 2], 0.0015, 3);
           spits(lb, 4, [0.5, 1.2]);
@@ -267,6 +271,7 @@ export const LOOPS: Record<LoopName, LoopSpec> = {
       {
         len: 4.7,
         db: -30,
+        tame: -3,
         render: (lb) => {
           const r = lb.rng;
           crackleLayer(lb, 26, [900, 4000], [1.5, 3], 0.003, 2.5);
@@ -307,6 +312,7 @@ export const LOOPS: Record<LoopName, LoopSpec> = {
       {
         len: 3.1,
         db: -28,
+        tame: -4,
         render: (lb) => {
           const sr = lb.sr;
           lb.add(lb.filt(lb.white(), new Biquad().highpass(1500, 0.7, sr), new Biquad().lowpass(10000, 0.7, sr)), 0.1, mul(lb.wobble(1.1, 0.25), lb.wobble(16, 0.3)));
@@ -316,6 +322,7 @@ export const LOOPS: Record<LoopName, LoopSpec> = {
       {
         len: 4.3,
         db: -28,
+        tame: -4,
         render: (lb) => {
           crackleLayer(lb, 220, [2000, 9000], [0.9, 1.6], 0.0012, 3);
           spits(lb, 10, [0.4, 1]);
@@ -327,7 +334,7 @@ export const LOOPS: Record<LoopName, LoopSpec> = {
     layers: [
       {
         len: 3.0,
-        db: -25,
+        db: -27,
         render: (lb) => {
           const sr = lb.sr;
           const saw = lb.harmonic(142, (h) => 1 / h, 48);
@@ -342,7 +349,7 @@ export const LOOPS: Record<LoopName, LoopSpec> = {
       },
       {
         len: 4.1,
-        db: -33,
+        db: -35,
         render: (lb) => {
           const sr = lb.sr;
           lb.add(lb.filt(lb.white(), new Biquad().bandpass(2500, 1, sr)), 0.1, lb.wobble(9, 0.7));
@@ -499,6 +506,7 @@ export function renderLoopLayer(name: LoopName, layer: number, sr: number, seed 
   const spec = LOOPS[name].layers[layer];
   const lb = new LoopBuf(sr, spec.len, new Rng(seed * 6007 + hashName(name) + layer * 101));
   spec.render(lb);
+  if (spec.tame) lb.d.set(lb.filt(lb.d, new Biquad().highshelf(5500, spec.tame, sr)));
   const d = lb.d;
   // remove any DC circularly (keeps the seam intact)
   let mean = 0;

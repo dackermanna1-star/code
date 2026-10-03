@@ -212,6 +212,9 @@ export class Hud {
     root.appendChild(this.hintEl);
     this.cookbook = h('div', 'cookbook hidden');
     root.appendChild(this.cookbook);
+    const rot = h('div', 'rotate-hint', 'Tip: turn your device sideways for a bigger kitchen!');
+    rot.onclick = () => rot.remove();
+    root.appendChild(rot);
 
     this.setView('overview', null);
     this.showTitle();

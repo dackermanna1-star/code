@@ -58,7 +58,7 @@ export class CameraRig {
       let need = Math.max(needV, needH);
       if (name === 'overview') {
         // never pull the overview back too far: allow panning instead
-        const maxDist = dist * 1.18;
+        const maxDist = dist * 1.34;
         if (need > maxDist) {
           const visibleHalfW = Math.tan(hfov / 2) * maxDist;
           this.panLimit = Math.max(0, hw - visibleHalfW);

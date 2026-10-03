@@ -54,8 +54,9 @@ function uke(midi: number, sr: number, rng: Rng): Float32Array {
 /** Soft rubber-mallet marimba. */
 function marimba(midi: number, sr: number, rng: Rng): Float32Array {
   const f = midiToHz(midi);
-  const tau = clamp(0.75 - (midi - 60) * 0.018, 0.22, 0.85);
-  const dur = Math.min(1.4, tau * 5);
+  // rubber mallets on rosewood: low bars ring ~1.5 s, high ones well under a second
+  const tau = clamp(0.55 - (midi - 60) * 0.014, 0.2, 0.6);
+  const dur = Math.min(1.6, tau * 5.5);
   const b = new Float32Array(Math.round(dur * sr));
   addMode(b, 0, sr, f, 1, tau, 0.0015);
   addMode(b, 0, sr, f * 1.0015, 0.18, tau * 1.4, 0.012); // resonator tube
@@ -66,15 +67,15 @@ function marimba(midi: number, sr: number, rng: Rng): Float32Array {
   const lp = new OnePole().set(Math.min(5000, f * 5), sr);
   const n = Math.round(0.006 * sr);
   for (let i = 0; i < n; i++) b[i] += lp.lp(nz.white()) * 0.25 * Math.exp(-i / (0.0012 * sr));
-  return finish(b, sr, 0.5, 0.08);
+  return finish(b, sr, 0.5, 0.15);
 }
 
 /** Glockenspiel / music-box bar. */
 function glock(midi: number, sr: number): Float32Array {
   const f = midiToHz(midi);
-  const dur = 1.5;
+  const dur = 1.7;
   const b = new Float32Array(Math.round(dur * sr));
-  addMode(b, 0, sr, f, 1, 0.55, 0.0008);
+  addMode(b, 0, sr, f, 1, 0.45, 0.0008);
   addMode(b, 0, sr, f * 2.756, 0.22, 0.18, 0.0006);
   addMode(b, 0, sr, f * 5.404, 0.07, 0.07, 0.0005);
   addMode(b, 0, sr, f * 8.933, 0.025, 0.03, 0.0005);
@@ -85,7 +86,7 @@ function glock(midi: number, sr: number): Float32Array {
 /** Round plucked bass (sine-based "U-bass"). */
 function bass(midi: number, sr: number, rng: Rng): Float32Array {
   const f = midiToHz(midi);
-  const dur = 1.1;
+  const dur = 1.5;
   const n = Math.round(dur * sr);
   const b = new Float32Array(n);
   let ph = 0;
@@ -103,7 +104,7 @@ function bass(midi: number, sr: number, rng: Rng): Float32Array {
   const lp = new OnePole().set(700, sr);
   for (let i = 0; i < Math.round(0.012 * sr); i++) b[i] += lp.lp(nz.white()) * 0.3 * Math.exp(-i / (0.003 * sr));
   new Biquad().lowpass(1400, 0.6, sr).apply(b);
-  return finish(b, sr, 0.6, 0.1);
+  return finish(b, sr, 0.6, 0.15);
 }
 
 function shaker(sr: number, rng: Rng, accent: boolean): Float32Array {
@@ -119,7 +120,7 @@ function shaker(sr: number, rng: Rng, accent: boolean): Float32Array {
     const e = i < att ? 0.5 - 0.5 * Math.cos((Math.PI * i) / att) : Math.exp(-(i - att) / tau);
     b[i] = bp.run(hp.run(nz.white())) * e;
   }
-  return finish(b, sr, 0.5, 0.01);
+  return finish(b, sr, 0.5, 0.025);
 }
 
 function kick(sr: number, rng: Rng): Float32Array {

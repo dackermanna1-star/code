@@ -1041,6 +1041,7 @@ export function mergeGroup(root: THREE.Object3D): THREE.Group {
     const norm = geos.map((g) => normalizeAttrs(g, keepColor));
     const merged = mergeGeometries(norm, false);
     if (!merged) continue;
+    merged.userData.disposable = true;
     merged.computeBoundingBox();
     merged.computeBoundingSphere();
     const mesh = new THREE.Mesh(merged, material);

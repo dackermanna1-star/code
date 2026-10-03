@@ -276,7 +276,7 @@ export const PHRASES: Record<PhraseKey, (r: Rng) => Seg[]> = {
 };
 
 /** Per-phrase loudness trims (dB) so breathy / hummed phrases sit a little lower. */
-const PHRASE_TRIM: Partial<Record<PhraseKey, number>> = {
+export const PHRASE_TRIM: Partial<Record<PhraseKey, number>> = {
   sigh: -3,
   hmm: -2,
   mmm: -1.5,
@@ -289,7 +289,7 @@ const PHRASE_TRIM: Partial<Record<PhraseKey, number>> = {
   cry: -1,
 };
 
-export const VOICE_REF_DB = -19;
+export const VOICE_REF_DB = -20.5;
 export const VOICE_PEAK_CAP = 0.7;
 export const MOCHI_BASE_HZ = 400;
 

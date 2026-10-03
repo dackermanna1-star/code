@@ -241,7 +241,9 @@ export abstract class HeatStation extends Station {
   }
 
   protected onDone(item: FoodItem) {
-    this.game.fx.sparkle(item.position.clone().add(new THREE.Vector3(0, item.visual.height * 0.8, 0)), 6);
+    const top = item.position.clone().add(new THREE.Vector3(0, item.visual.height * 0.8, 0));
+    this.game.fx.sparkle(top, 6);
+    if (this.game.camera.view === this.view) this.game.ui.floatLabel('Perfect!', top.add(new THREE.Vector3(0, 0.08, 0)), 'good', 0.85);
   }
 
   /** Called with cooking events from process.applyHeat. */

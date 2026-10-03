@@ -95,6 +95,16 @@ export class Game {
     this.camera.onArrive = (v) => this.onArrive(v);
 
     window.addEventListener('resize', () => this.resize());
+    // mobile GPUs can drop the context (memory pressure, backgrounding): pause and offer a reload
+    this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      this.paused = true;
+      const msg = document.createElement('div');
+      msg.className = 'context-lost';
+      msg.innerHTML = '<div>The kitchen needs a quick nap.<br><button>Tap to wake it up</button></div>';
+      msg.querySelector('button')!.addEventListener('click', () => location.reload());
+      this.container.appendChild(msg);
+    });
     this.resize();
     this.kitchen.chalkboard.write("Today's Special", 'Anything you like!');
   }

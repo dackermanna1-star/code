@@ -261,6 +261,10 @@ export class FoodVisual {
   /** (Re)build the sauce / sprinkle decals from the current seasoning amounts. */
   refreshDecals() {
     if (this.decals) {
+      this.decals.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (m.isMesh && m.geometry.userData.disposable) m.geometry.dispose();
+      });
       this.decals.removeFromParent();
       for (const m of this.decalMats) m.dispose();
       this.decalMats = [];
@@ -298,6 +302,11 @@ export class FoodVisual {
   }
 
   private disposeContent() {
+    // geometry built just for this item (merged pieces, decals) is unique and safe to free
+    this.content.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh && m.geometry.userData.disposable) m.geometry.dispose();
+    });
     for (const s of this.segments) for (const m of s.materials) m.dispose();
     this.segments = [];
     for (const m of this.decalMats) m.dispose();

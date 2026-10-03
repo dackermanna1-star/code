@@ -279,6 +279,7 @@ export class Interaction {
       return;
     }
     if (hit.character) {
+      if (g.camera.view === 'overview') g.goTo('plate');
       g.character.tap();
       return;
     }
@@ -306,6 +307,7 @@ export class Interaction {
     item.holder?.release(item);
     item.beginDrag();
     this.game.audio.play('pickup', { pitch: 0.95 + Math.random() * 0.15 });
+    if (item.name) this.game.ui.floatLabel(item.name, item.position.clone().add(new THREE.Vector3(0, item.visual.height + 0.1, 0)), 'info', 0.8);
     this.game.character.watch(item);
     this.game.ui.setDragging(true);
     this.moveDrag(x, y);
@@ -339,7 +341,7 @@ export class Interaction {
           hover = target.item.position.clone().add(new THREE.Vector3(0, target.item.visual.height + 0.06, 0));
           break;
         case 'character':
-          hover = this.game.character.mouthWorld().add(new THREE.Vector3(0, -0.02, 0.14));
+          hover = this.game.character.mouthWorld().add(new THREE.Vector3(0, -0.11, 0.17));
           break;
         case 'trash':
           hover = this.game.trash.mouth.clone().add(new THREE.Vector3(0, 0.14, 0));
@@ -604,18 +606,18 @@ export class Interaction {
     s.acc += dt;
     s.total += dt;
     if (s.acc >= 0.25) {
-      const amount = s.acc * 1.2;
+      const amount = s.acc * 0.8;
       s.acc = 0;
       const tgt = s.target;
       if (tgt instanceof Station) {
         const list = tgt.contents.filter((i) => i.mode === 'rest');
         for (const it of list) {
-          addSeasoning(it.state, s.def.id, amount / Math.max(1, list.length));
+          if ((it.state.season[s.def.id] ?? 0) < 4) addSeasoning(it.state, s.def.id, amount / Math.max(1, list.length));
           it.refresh();
         }
         if (list[0]) g.character.notice('season', list[0].position);
       } else if (tgt) {
-        addSeasoning(tgt.state, s.def.id, amount);
+        if ((tgt.state.season[s.def.id] ?? 0) < 4) addSeasoning(tgt.state, s.def.id, amount);
         tgt.refresh();
         tgt.wobble(0.15);
         g.decals.add(tgt, s.def, noz);

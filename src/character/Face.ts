@@ -108,19 +108,26 @@ export class Face {
     c.clearRect(0, 0, W, H);
     const v = (k: FaceKey) => this.v(k);
     // skin tints (spicy red, gross green, cold blue) as a soft overlay
+    // soft extra flush around the cheeks/nose (the body itself is tinted by the character)
     const tint = (col: string, a: number) => {
       if (a <= 0.01) return;
-      const g = c.createRadialGradient(W / 2, H * 0.55, 20, W / 2, H * 0.55, W * 0.55);
+      c.save();
+      c.translate(W / 2, H * 0.62);
+      c.scale(1, 0.55);
+      const g = c.createRadialGradient(0, 0, 10, 0, 0, W * 0.36);
       g.addColorStop(0, col);
       g.addColorStop(1, 'rgba(0,0,0,0)');
-      c.globalAlpha = Math.min(1, a);
+      c.globalAlpha = Math.min(1, a) * 0.6;
       c.fillStyle = g;
-      c.fillRect(0, 0, W, H);
+      c.beginPath();
+      c.arc(0, 0, W * 0.36, 0, Math.PI * 2);
+      c.fill();
+      c.restore();
       c.globalAlpha = 1;
     };
-    tint('rgba(255,70,50,0.75)', v('red'));
-    tint('rgba(120,200,90,0.75)', v('green'));
-    tint('rgba(120,190,255,0.75)', v('blue'));
+    tint('rgba(255,70,50,0.7)', v('red'));
+    tint('rgba(110,190,80,0.6)', v('green'));
+    tint('rgba(120,180,255,0.6)', v('blue'));
 
     // cheeks
     const blush = v('blush') + v('red') * 0.4;
@@ -366,8 +373,8 @@ export class Face {
 
     const curve = (x: number) => {
       const t = x / hw; // -1..1
-      let y = -smile * 26 * (1 - t * t) + (smile * 30) * 0; // smile: centre lower than corners
-      y = smile * 26 * (t * t - 1) * -1;
+      // smile > 0: the middle dips below the corners
+      let y = smile * 26 * (1 - t * t);
       if (wob > 0.02) y += Math.sin(t * Math.PI * 3 + this.wobbleT * 14) * 9 * wob;
       return y;
     };

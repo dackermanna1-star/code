@@ -80,7 +80,7 @@ export const SFX: Record<SfxName, SfxSpec> = {
   // --- basic interaction ---------------------------------------------------------------------
   tap: {
     dur: 0.09,
-    loud: -8,
+    loud: -6,
     pv: 1.2,
     render: (s) => {
       s.click(0, { f: s.rng.range(2000, 2800), q: 1.6, amp: 0.45, dur: 0.002 });
@@ -339,8 +339,8 @@ export const SFX: Record<SfxName, SfxSpec> = {
     dur: 0.26,
     loud: -6,
     render: (s) => {
-      s.noise(0, { dur: 0.22, type: 'bp', f: s.rng.range(1400, 1800), f2: s.rng.range(4800, 5600), q: 1.8, env: (x) => swell(x, 0.35, 2), amp: 0.5 });
-      s.lowpass(10000);
+      s.noise(0, { dur: 0.22, color: 'pink', type: 'bp', f: s.rng.range(1000, 1300), f2: s.rng.range(3300, 3900), q: 1.5, env: (x) => swell(x, 0.35, 2), amp: 0.5 });
+      s.lowpass(7500);
     },
   },
 
@@ -774,7 +774,7 @@ export const SFX: Record<SfxName, SfxSpec> = {
       const gap = r.range(0.12, 0.14);
       for (let k = 0; k < 3; k++) {
         const t = k * gap;
-        s.crackle(t, { span: 0.05, count: 14, f: [3500, 8000], q: 1.2, amp: k === 1 ? 0.3 : 0.24, dur: [0.0006, 0.002] });
+        s.crackle(t, { span: 0.05, count: 14, f: [2800, 7000], q: 1.2, amp: k === 1 ? 0.3 : 0.24, dur: [0.0006, 0.002] });
         s.noise(t, { dur: 0.06, type: 'hp', f: 4000, q: 0.7, attack: 0.006, tau: 0.02, amp: 0.12 });
       }
       s.lowpass(11000);
@@ -784,9 +784,9 @@ export const SFX: Record<SfxName, SfxSpec> = {
     dur: 0.42,
     loud: -5,
     render: (s) => {
-      s.noise(0, { dur: 0.38, type: 'bp', f: 6200, q: 0.6, hp: 2500, attack: 0.012, hold: 0.18, tau: 0.06, flutter: { rate: 40, depth: 0.15 }, amp: 0.5 });
+      s.noise(0, { dur: 0.38, type: 'bp', f: 4800, q: 0.6, hp: 2000, attack: 0.012, hold: 0.18, tau: 0.06, flutter: { rate: 40, depth: 0.15 }, amp: 0.5 });
       s.noise(0, { dur: 0.05, type: 'bp', f: 1500, q: 1, attack: 0.002, tau: 0.012, amp: 0.15 });
-      s.lowpass(12000);
+      s.lowpass(8500);
     },
   },
   sprinkle: {
@@ -794,7 +794,7 @@ export const SFX: Record<SfxName, SfxSpec> = {
     loud: -6,
     render: (s) => {
       const r = s.rng;
-      s.crackle(0.005, { span: 0.62, count: r.int(18, 28), f: [3000, 9000], q: 4, amp: 0.25, dur: [0.0005, 0.0015], skew: 1.6 });
+      s.crackle(0.005, { span: 0.62, count: r.int(18, 28), f: [2500, 7500], q: 4, amp: 0.25, dur: [0.0005, 0.0015], skew: 1.6 });
       for (let k = 0; k < 4; k++) s.modal(r.next() * 0.5, r.range(4000, 7000), [[1, 0.05, 0.02]]);
       s.lowpass(12000);
     },
@@ -857,8 +857,9 @@ export const SFX: Record<SfxName, SfxSpec> = {
     dur: 0.95,
     loud: -5,
     render: (s) => {
-      s.noise(0, { dur: 0.9, type: 'hp', f: 2200, q: 0.6, lp: 9000, env: (x) => swell(x, 0.12, 1.3), flutter: { rate: 12, depth: 0.25 }, amp: 0.5 });
+      s.noise(0, { dur: 0.9, type: 'hp', f: 1800, q: 0.6, lp: 6500, env: (x) => swell(x, 0.12, 1.3), flutter: { rate: 12, depth: 0.25 }, amp: 0.5 });
       s.noise(0, { dur: 0.6, type: 'bp', f: 3500, q: 2, env: (x) => swell(x, 0.2, 2), amp: 0.08 });
+      s.lowpass(6500, 0.6);
     },
   },
   fire: {
