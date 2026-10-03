@@ -117,6 +117,9 @@ async function boot() {
   };
 
   if (q.has('autostart')) {
+    setInterval(() => {
+      (window as any).__shotProgress = { loading: game.loading, ...(game.chunks?.stats ?? {}), fps: game.fps, ready: !!(window as any).__shotReady };
+    }, 1000);
     const info = Game.createInfo('Test', q.get('seed') ?? '12345', (q.get('mode') as any) ?? 'creative', 'peaceful');
     await startWorld(info);
     const p = game.player;

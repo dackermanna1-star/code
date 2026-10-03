@@ -41,8 +41,13 @@ page.on('pageerror', (e) => logs.push(`[pageerror] ${e.stack || e.message}`));
 const url = `http://127.0.0.1:${realPort}${urlPath.startsWith('/') ? '' : '/'}${urlPath}`;
 const t0 = Date.now();
 let ready = false;
+let probe;
 try {
   await page.goto(url, { waitUntil: 'load', timeout: 120000 });
+  probe = setInterval(async () => {
+    const pr = await page.evaluate(() => window.__shotProgress ?? null).catch(() => null);
+    if (pr) console.log(`[progress ${((Date.now() - t0) / 1000).toFixed(0)}s]`, JSON.stringify(pr));
+  }, 30000);
   await page.waitForFunction(() => window.__shotReady === true, null, { timeout, polling: 500 });
   ready = true;
 } catch (e) {
@@ -54,6 +59,7 @@ console.log(`screenshot ${out} (${ready ? 'ready' : 'TIMEOUT'}) in ${((Date.now(
 if (info) console.log('info:', JSON.stringify(info));
 const maxLogs = 60;
 for (const l of logs.slice(-maxLogs)) console.log(l);
+clearInterval(probe);
 await browser.close();
 await server.close();
 process.exit(0);

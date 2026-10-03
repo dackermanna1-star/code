@@ -86,6 +86,8 @@ export class ChunkManager {
       for (let dx = -radius; dx <= radius; dx++) {
         const c = this.world.getChunk(pcx + dx, pcz + dz);
         if (!c) return false;
+        // chunks at the edge of the load radius can't be meshed until their neighbours load
+        if (!this.meshable(c.cx, c.cz)) continue;
         for (let sy = 0; sy < SECTIONS_PER_CHUNK; sy++) {
           const k = sectionKey(c.cx, sy, c.cz);
           if (this.world.dirtySections.has(k) && c.blocks[sy]) return false;
