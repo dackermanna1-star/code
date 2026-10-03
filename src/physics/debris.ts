@@ -147,7 +147,7 @@ export class DebrisManager {
   readonly scene = new THREE.Scene();
   private frags: Fragment[] = [];
   /** Max simultaneous fragments. */
-  maxFragments = 160;
+  maxFragments = 110;
   private _p = new THREE.Vector3();
   private _q = new THREE.Quaternion();
 

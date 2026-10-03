@@ -7,7 +7,8 @@ import { CoreWorldSystem } from './coreWorld';
 import { AudioGlueSystem } from './audioGlue';
 import { PhysicsSystem } from '../physics/system';
 import { ExplosionSystem } from './explosions';
+import { RagdollSystem } from '../physics/ragdoll';
 
 export function createSystems(): GameSystem[] {
-  return [new PhysicsSystem(), new CoreWorldSystem(), new OverlaySystem(), new AudioGlueSystem(), new ExplosionSystem()];
+  return [new PhysicsSystem(), new CoreWorldSystem(), new OverlaySystem(), new AudioGlueSystem(), new ExplosionSystem(), new RagdollSystem()];
 }

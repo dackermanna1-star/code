@@ -30,6 +30,7 @@ export class PhysicsSystem implements GameSystem {
   R: RapierModule | null = null;
   private sounds: number[] = [];
   private game!: Game;
+  private errors = 0;
 
   async init(game: Game) {
     this.game = game;
@@ -58,7 +59,11 @@ export class PhysicsSystem implements GameSystem {
   physics(game: Game, dt: number) {
     const pw = game.physics as PhysicsWorld | null;
     if (!pw || !this.R) return;
-    pw.step(dt);
+    try {
+      pw.step(dt);
+    } catch (e) {
+      if (this.errors++ < 5) console.error('physics step failed', e);
+    }
   }
 
   private impact(b: PhysBody, speed: number, other: PhysBody | null) {
