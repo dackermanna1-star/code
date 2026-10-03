@@ -525,3 +525,25 @@ def('brown_mushroom_block', { ...org('wart'), c: ['#6a4b33', '#8c6847', '#a8825b
 def('red_mushroom_block', { ...org('wart'), c: ['#8c1210', '#bd2420', '#d84a40'], seed: nameSeed('red_mushroom_block') });
 def('powder_snow', { prog: 'soil', v: 'snow', sss: 0.4, seed: nameSeed('powder_snow') });
 def('twisting_vines', { prog: 'foliage', v: 'weeping', cutout: true, sss: 0.4, c: ['#0d6e66', '#17958a', '#30bfae'], seed: nameSeed('twisting_vines') });
+
+// --- blocks appended by the structures workstream (village job sites, bell) -----------------
+const DARK_C = WOOD.dark_oak.planks, BIRCH_C = WOOD.birch.planks, SPRUCE_C = WOOD.spruce.planks;
+def('composter_side', ww('barrel', 0, OAK_C, { seed: nameSeed('composter') }));
+def('lectern_top', ww('bookshelf', 0, OAK_C, { seed: nameSeed('lectern') }));
+def('lectern_side', ww('crafting', 2, OAK_C, { seed: nameSeed('lectern_side') }));
+def('smithing_table_top', { prog: 'metal', v: 'metal_block', c: ['#3a3a40', '#26262a'], p: [0.8, 0.6, 0.3, 0.08, 0], metal: 0.8 });
+def('smithing_table_side', ww('crafting', 2, DARK_C, { seed: nameSeed('smithing_table') }));
+def('smithing_table_front', ww('crafting', 1, DARK_C, { seed: nameSeed('smithing_table_front') }));
+def('cartography_table_top', ww('crafting', 0, ['#a89a78', '#cbbd98', '#e2d6b4', '#6e5f40'], { seed: nameSeed('cartography_table') }));
+def('cartography_table_side', ww('crafting', 2, DARK_C, { seed: nameSeed('cartography_table_side') }));
+def('fletching_table_top', ww('crafting', 0, BIRCH_C, { seed: nameSeed('fletching_table') }));
+def('fletching_table_side', ww('crafting', 2, BIRCH_C, { seed: nameSeed('fletching_table_side') }));
+def('fletching_table_front', ww('crafting', 1, BIRCH_C, { seed: nameSeed('fletching_table_front') }));
+def('loom_top', ww('crafting', 0, SPRUCE_C, { seed: nameSeed('loom') }));
+def('loom_side', ww('barrel', 0, SPRUCE_C, { seed: nameSeed('loom_side') }));
+def('loom_front', ww('crafting', 1, SPRUCE_C, { seed: nameSeed('loom_front') }));
+def('stonecutter_top', { prog: 'metal', v: 'metal_block', c: ['#9a9a9a', '#6a6a6a'], p: [0.6, 0.5, 0.3, 0.08, 0], metal: 0.9 });
+def('stonecutter_side', mach('furnace', 0, { seed: nameSeed('stonecutter') }));
+def('grindstone_round', mach('furnace', 1, { seed: nameSeed('grindstone') }));
+def('grindstone_side', mach('furnace', 0, { seed: nameSeed('grindstone_side') }));
+def('bell_body', { prog: 'metal', v: 'metal_block', c: ['#f0c040', '#b88a18'], p: [0.4, 0.5, 0.2, 0.12, 1], metal: 1 });
