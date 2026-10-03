@@ -251,6 +251,7 @@ export class Hud {
     g.audio.unlock();
     g.audio.play('magic');
     if (this.settings.music) g.audio.startMusic();
+    g.audio.loop('room', { volume: 0.7 }); // soft room tone & the odd bird outside
     this.titleScreen?.classList.add('gone');
     setTimeout(() => this.titleScreen?.remove(), 700);
     setTimeout(() => g.character.greet(), 500);

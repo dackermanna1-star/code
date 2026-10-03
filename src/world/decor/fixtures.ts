@@ -332,8 +332,9 @@ export interface Pendant {
   bulb: THREE.Mesh;
 }
 
+let bulbMaterial: THREE.MeshBasicMaterial | null = null;
 function bulbMat(): THREE.MeshBasicMaterial {
-  return new THREE.MeshBasicMaterial({ color: '#fff3d2', toneMapped: false });
+  return (bulbMaterial ??= new THREE.MeshBasicMaterial({ color: '#fff3d2', toneMapped: false }));
 }
 
 /** Dome pendant; pos = bottom centre of the shade. The group pivots at the ceiling line. */
@@ -411,9 +412,8 @@ export function buildFixtures(): Fixtures {
   root.add(warm);
   lights.push(warm);
 
-  const keep: THREE.Object3D[] = [chalkboard.root, ...pendants.map((p) => p.group), clock.hour, clock.minute, clock.second];
+  const keep: THREE.Object3D[] = [chalkboard.root, clock.hour, clock.minute, clock.second, ...pendants.map((p) => p.bulb)];
   mergeStatic(root, keep);
-  for (const p of pendants) mergeStatic(p.group, [p.bulb]);
 
   const t0 = 10 * 3600 + 8 * 60 + 20; // starts at 10:08:20
   return {
@@ -430,10 +430,6 @@ export function buildFixtures(): Fixtures {
       clock.second.rotation.z = -((Math.floor(s) % 60) / 60) * Math.PI * 2;
       clock.minute.rotation.z = -((s / 60) % 60) / 60 * Math.PI * 2;
       clock.hour.rotation.z = -((s / 3600) % 12) / 12 * Math.PI * 2;
-      pendants.forEach((p, i) => {
-        p.group.rotation.z = Math.sin(time * 0.8 + i * 2.1) * 0.006;
-        p.group.rotation.x = Math.sin(time * 0.6 + i) * 0.004;
-      });
     },
   };
 }

@@ -67,6 +67,9 @@ export class Bank {
   private slots: Slot[] = [];
   private nextId = 1;
   private mainTimer: ReturnType<typeof setTimeout> | null = null;
+  private mainIdle: number | null = null;
+  /** priority of the pending main-thread tick (99 = none) */
+  private mainPrio = 99;
   private disposed = false;
   rendered = 0;
   failures = 0;
@@ -202,8 +205,7 @@ export class Bank {
   dispose(): void {
     this.disposed = true;
     for (const s of this.slots) this.killSlot(s, false, '');
-    if (this.mainTimer !== null) clearTimeout(this.mainTimer);
-    this.mainTimer = null;
+    this.cancelMain();
     for (const e of this.pending.values()) {
       for (const cb of e.cbs) safeCall(cb, null);
       if (e.raw) safeRaw(e.raw, null);
@@ -327,22 +329,39 @@ export class Bank {
    * in idle time (between frames) and spaced out, so the game keeps its frame rate.
    */
   private scheduleMain(): void {
-    if (this.mainTimer !== null || this.disposed) return;
+    if (this.disposed) return;
     const p = this.peekPrio();
     if (p < 0) return;
+    if (this.mainTimer !== null || this.mainIdle !== null) {
+      if (p >= this.mainPrio) return; // something at least as urgent is already scheduled
+      this.cancelMain(); // urgent work pre-empts a pending background tick
+    }
+    this.mainPrio = p;
     const run = () => {
       this.mainTimer = null;
+      this.mainIdle = null;
+      this.mainPrio = 99;
       const e = this.take(N_PRIO - 1);
       if (e?.raw) this.finishRaw(e, renderJob(e.job, this.sr));
       else if (e) this.finish(e, this.toBuffer(renderJob(e.job, this.sr)));
       this.pump();
     };
     const delay = p === PRIO_URGENT ? 0 : p === PRIO_SOON ? 8 : p === PRIO_BG ? 60 : 250;
-    const ric = (globalThis as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    const g = globalThis as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
     this.mainTimer = setTimeout(() => {
-      if (p >= PRIO_BG && typeof ric === 'function') ric(run, { timeout: 1500 });
+      this.mainTimer = null;
+      if (p >= PRIO_BG && typeof g.requestIdleCallback === 'function') this.mainIdle = g.requestIdleCallback(run, { timeout: 1500 });
       else run();
     }, delay);
+  }
+
+  private cancelMain(): void {
+    if (this.mainTimer !== null) clearTimeout(this.mainTimer);
+    const g = globalThis as { cancelIdleCallback?: (h: number) => void };
+    if (this.mainIdle !== null && typeof g.cancelIdleCallback === 'function') g.cancelIdleCallback(this.mainIdle);
+    this.mainTimer = null;
+    this.mainIdle = null;
+    this.mainPrio = 99;
   }
 
   private toBuffer(data: Float32Array): AudioBuffer | null {

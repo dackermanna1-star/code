@@ -3108,25 +3108,26 @@ function mushroomHalves(r: Rng): THREE.Object3D {
   );
 }
 
-/** Vertical slices: T-shapes from the middle, cap-only crescents from the sides, fallen in a row. */
+/**
+ * Vertical slices: T-shapes from the middle, cap-only crescents from the sides, lying flat in a loose
+ * spread (custom forms get no layout hint, so this reads well both on a board and as a topping).
+ */
 function mushroomSlices(r: Rng): THREE.Object3D {
-  const offs = [0.0182, 0.0092, 0.0008, 0.0088, 0.0178].map((d) => d + r.range(-0.0008, 0.0008));
-  const th = 0.0042, tilt = 0.34;
+  const offs = [0.0008, 0.0088, 0.0092, 0.0178, 0.0182].map((d) => d + r.range(-0.0008, 0.0008));
+  const th = 0.0042;
   const g = new THREE.Group();
-  let x = 0;
+  const spots = scatter(r, offs.length, 0.034, 0.034);
   offs.forEach((d, i) => {
     const shapes = cutShapes(MUSH_PROFILE, Math.abs(d));
     if (!shapes.length) return;
     const geo = new THREE.ExtrudeGeometry(shapes, { depth: th, bevelEnabled: true, bevelThickness: th * 0.2, bevelSize: th * 0.16, bevelSegments: 1, curveSegments: 4, steps: 1 });
     capUV(geo, MUSH_R, MUSH_H);
     geo.translate(0, -MUSH_H / 2, -th / 2);
-    geo.rotateX(-Math.PI / 2); // face up, cap towards -z
-    geo.computeBoundingBox();
-    const halfW = geo.boundingBox!.max.x;
+    geo.rotateX(-Math.PI / 2); // face up
     const m = mesh(geo, [mushroomFaceMat(false), mushroomSkin()]);
-    m.rotation.set(0, r.range(-0.07, 0.07), tilt);
-    if (i > 0) x += halfW * 0.58;
-    m.position.set(x, halfW * Math.sin(tilt) + th * 0.7, r.range(-0.002, 0.002));
+    // later slices sit a hair higher and tilt a touch, as if dropped on the others
+    m.rotation.set(r.range(-0.03, 0.03), r.range(0, TAU), r.range(-0.03, 0.03));
+    m.position.set(spots[i][0], th * 0.75 + i * 0.0016, spots[i][1]);
     g.add(m);
   });
   return sitOnGround(baked(g));
@@ -3996,7 +3997,7 @@ function smallPod(r: Rng): THREE.Object3D {
 }
 
 function peaPiece(r: Rng, i: number): THREE.Object3D {
-  if (i % 5 === 4) return smallPod(r);
+  if (i === 4) return smallPod(r);
   return sitOnGround(mesh(blobGeometry(PEA_R * r.range(0.9, 1.06), { detail: 3, amp: PEA_R * 0.035, seed: r.range(0, 20), scale: [1.02, 0.97, 1] }), peaMat()));
 }
 

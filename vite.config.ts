@@ -19,7 +19,6 @@ export default defineConfig(({ mode }) => ({
         alias: [
           { find: /^.*\/food\/process$/, replacement: '/src/dev/shims/process.ts' },
           { find: /^(\.\.\/)+recipes$/, replacement: '/src/dev/shims/recipes.ts' },
-          { find: /^(\.\.\/)+audio$/, replacement: '/src/dev/shims/audio.ts' },
         ],
       }
     : undefined,

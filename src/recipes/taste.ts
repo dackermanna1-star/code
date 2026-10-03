@@ -417,15 +417,19 @@ function analyze(f: FoodState): MealAnalysis {
   for (const u of x.units) {
     const d = u.def;
     if (!d) continue;
-    if (d.category === 'fruit' && u.cook.boil >= 0.5 && u.via !== 'soup' && u.via !== 'drink') weird += 0.45;
-    if ((d.tags.includes('dessert') || d.tags.includes('candy') || d.category === 'fruit') && u.id !== 'donut' && u.cook.deepfry >= 0.3) weird += 0.25;
+    if (d.category === 'fruit' && u.cook.boil >= 0.5 && u.via !== 'soup' && u.via !== 'drink') weird += 0.5;
+    if ((d.tags.includes('dessert') || d.tags.includes('candy') || d.category === 'fruit') && u.id !== 'donut' && u.cook.deepfry >= 0.3) weird += 0.4;
     if ((u.id === 'lettuce' || u.id === 'cucumber' || u.id === 'watermelon') && u.done >= 0.4) weird += 0.2;
     if (u.freeze >= 0.5 && !d.tags.includes('frozen-treat') && d.category !== 'fruit' && u.via !== 'icepop' && u.via !== 'scoops') weird += 0.3;
     if (u.form === 'flat' && !['dough', 'cookie-dough', 'batter', 'beaten-egg', 'sweet-cream'].includes(u.id)) weird += 0.25;
   }
   if (x.units.some((u) => u.via === 'soup' && isDessertId(u.id))) weird += 0.3;
+  // sweet + savoury (fries dipped in ice cream, chocolate bacon): odd, often good
+  const dessertish = [...x.ingredients].some(isDessertId) || ['sprinkles', 'chocolate-syrup', 'whip', 'jam'].some((s) => sea(x, s, 0.3));
+  const savoryMain = x.units.some((u) => !!u.def && (u.def.tags.includes('meat') || u.def.tags.includes('seafood') || (u.id === 'potato' && u.dry >= 0.3)));
+  if (dessertish && savoryMain && clash.worst < 0.45) weird += 0.35;
   if (seasonKinds >= 4) weird += seasonKinds >= 6 ? 0.45 : 0.3;
-  if (!dish && distinctIngredients >= 5) weird += distinctIngredients >= 7 ? 0.3 : 0.15;
+  if (!dish && distinctIngredients >= 5) weird += distinctIngredients >= 7 ? 0.35 : 0.2;
   if (dish) weird *= 0.4;
   weird = clamp(weird, 0, 1);
 

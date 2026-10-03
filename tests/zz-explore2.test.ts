@@ -63,3 +63,18 @@ it('explore2', () => {
     console.log(`${label.padEnd(22)} | ${nameFood(f).padEnd(30)} | ${a.name.padEnd(32)} | ${(a.dishId ?? '-').padEnd(18)} | ${a.reaction.padEnd(10)} t=${a.taste.toFixed(2)} w=${a.weirdness.toFixed(2)} ${a.eatStyle} ${a.category} "${a.quip}"`);
   }
 });
+it('weird-good probes', () => {
+  const rows: [string, FoodState][] = [
+    ['fries + ice cream', combine(cook(cuts(F('potato'), 3), 'deepfry', 5), F('ice-cream'))],
+    ['choc bacon', sea(cook(F('bacon'), 'fry', 6), 'chocolate-syrup')],
+    ['deep fried banana', cook(F('banana'), 'deepfry', 3)],
+    ['deep fried candy squashed', cook(flatten(F('chocolate'))!, 'deepfry', 1)],
+    ['boiled banana honey', sea(cook(F('banana'), 'boil', 8), 'honey')],
+    ['pancake 4 sauces', ['honey', 'sprinkles', 'chocolate-syrup', 'whip'].reduce((f, s) => sea(f, s), F('pancake'))],
+    ['5 good things pile', combine(combine(combine(combine(F('strawberry'), F('banana')), F('cookie')), F('marshmallow')), F('gummy'))],
+  ];
+  for (const [label, f] of rows) {
+    const a = analyzeMeal(f);
+    console.log(`${label.padEnd(26)} | ${a.name.padEnd(32)} | ${a.reaction.padEnd(10)} t=${a.taste.toFixed(2)} w=${a.weirdness.toFixed(2)}`);
+  }
+});

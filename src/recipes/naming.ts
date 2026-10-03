@@ -363,6 +363,7 @@ function assemblyName(x: Ctx): string {
   const comps = x.comps;
   const base = x.base;
   const root = x.root;
+  if (!comps.length) return 'Empty Plate';
   if (base && BREAD_KIND[base.id] && (base.form === 'halved' || base.form === 'sliced')) {
     const kind = BREAD_KIND[base.id];
     const fill = comps.filter((c) => c !== base && c.id !== base.id && c.id !== 'butter');
@@ -371,13 +372,13 @@ function assemblyName(x: Ctx): string {
     return firstFit(`${joinWords(w)} ${kind}`, `${w[0]} ${kind}`, kind);
   }
   if (base && FLAT_KIND[base.id]) {
-    let kind = FLAT_KIND[base.id];
-    if (base.id === 'dough' && base.dry < 0.3) kind = 'Raw Pizza';
+    const kind = FLAT_KIND[base.id];
+    const raw = base.id === 'dough' && base.dry < 0.3 ? 'Raw ' : '';
     let tops = comps.filter((c) => c !== base);
     if (kind.endsWith('Pizza') && tops.some((c) => c.id !== 'cheese' && c.id !== 'mozzarella')) tops = tops.filter((c) => c.id !== 'cheese' && c.id !== 'mozzarella');
-    if (!tops.length) return kind;
+    if (!tops.length) return raw + kind;
     const w = words(tops);
-    return firstFit(`${joinWords(w)} ${kind}`, `${w[0]} ${kind}`, kind);
+    return firstFit(`${raw}${joinWords(w)} ${kind}`, `${raw}${w[0]} ${kind}`, raw + kind);
   }
   const coat = comps.find((c) => COAT_ADJ[c.id] && c.form === 'flat');
   if (coat) {

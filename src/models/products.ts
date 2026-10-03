@@ -267,6 +267,8 @@ function defaultState(id: string): FoodState {
 const has = (c: Ctx, ...ids: string[]) => ids.some((i) => c.ids.includes(i));
 const hasTagged = (c: Ctx, tag: string) => c.ids.some((i) => hasDef(i) && (getDef(i).tags as string[]).includes(tag));
 const fruitsOf = (c: Ctx) => c.ids.filter((i) => hasDef(i) && getDef(i).category === 'fruit');
+/** Real candy went in (chocolate is tagged 'candy' too, but gets its own chips / curls). */
+const hasCandy = (c: Ctx) => c.ids.some((i) => hasDef(i) && i !== 'marshmallow' && getDef(i).tags.includes('candy') && !getDef(i).tags.includes('chocolate'));
 
 /** Ingredients that show up as visible bits in soups / mixtures / fillings. */
 const NOT_BITS = new Set(['egg', 'butter', 'flour', 'milk', 'cream', 'yogurt', 'ice-cream', 'batter', 'beaten-egg', 'sweet-cream', 'whipped-cream', 'soup', 'drink', 'mixture', 'rice', 'spaghetti']);
@@ -1391,12 +1393,18 @@ const candyGeo = lazy(() => {
 });
 const CANDY_COLORS = ['#ff4f6e', '#ffc93a', '#4fb8ff', '#6fd36a', '#b07cff', '#ff8a3d'];
 const candyMat = lazy(() => foodMat({ color: '#ffffff', vertexColors: true, roughness: 0.22, clearcoat: 0.9, clearcoatRoughness: 0.1, flesh: '#f87ac0', cookColor: '#a02a6a' }));
+/** Rounded chocolate chunk (cookie dough). */
+const chocChunkGeo = lazy(() => {
+  const g = noisify(new THREE.IcosahedronGeometry(0.5, 1), 0.07, 3.2, 9);
+  g.scale(1, 0.78, 1);
+  return g;
+});
 const whiteChocMat = lazy(() => foodMat({ color: '#f6ead2', flesh: '#f6ead2', cookColor: '#c89a60', roughness: 0.34, clearcoat: 0.5, clearcoatRoughness: 0.25 }));
 
 /** What went in, as little bits: chips (white ones on a dark base), nuts, candy, chunks. */
 function studsOf(c: Ctx, darkBase: boolean, max = 3): Stud[] {
   const out: Stud[] = [];
-  if (hasTagged(c, 'chocolate')) out.push({ geo: chipGeo(), mat: darkBase ? whiteChocMat() : chocoMat(), scale: 1, height: 0.006, sink: 0.4, centred: false, tilt: 0.35 });
+  if (hasTagged(c, 'chocolate')) out.push({ geo: chocChunkGeo(), mat: darkBase ? whiteChocMat() : chocoMat(), scale: 0.0078, height: 0.0062, sink: 0.42, centred: true, tilt: 0.5 });
   for (const id of solidBits(c)) {
     if (out.length >= max) break;
     const d = getDef(id);
@@ -1446,7 +1454,8 @@ function cookieColors(c: Ctx): CookieColors {
   return { base, flesh: c.tinted ? mixHex(c.tint, '#ffffff', 0.08) : CDOUGH.flesh, dark: lightness(base) < 0.42 };
 }
 
-const doughMat = (flesh: string) => vcMat('cookie-dough:' + flesh, { roughness: 0.6, sheen: 0.45, flesh, cooked: CDOUGH.cooked ?? '#b8782e' });
+const doughGrain = lazy(() => bumpNoiseTexture('prod:dough-grain', 72, 256, true));
+const doughMat = (flesh: string) => vcMat('cookie-dough:' + flesh, { roughness: 0.64, sheen: 0.4, flesh, cooked: CDOUGH.cooked ?? '#b8782e', bump: doughGrain(), bumpScale: 0.9 });
 
 interface DoughSurface {
   at: (d: THREE.Vector3, out?: THREE.Vector3) => THREE.Vector3;
@@ -1458,7 +1467,9 @@ function doughSurface(R: number, seed: number, squash = 0.76): DoughSurface {
   const yb = -R * squash * 0.6;
   const kk = R * 0.16;
   const lump = (d: THREE.Vector3) =>
-    0.15 * fbm3(d.x * 1.5 + seed, d.y * 1.5 - seed * 0.7, d.z * 1.5 + seed * 0.3, 3) + 0.05 * fbm3(d.x * 4.3 - seed, d.y * 4.3 + seed, d.z * 4.3, 2);
+    0.15 * fbm3(d.x * 1.5 + seed, d.y * 1.5 - seed * 0.7, d.z * 1.5 + seed * 0.3, 3) +
+    0.075 * fbm3(d.x * 4.3 - seed, d.y * 4.3 + seed, d.z * 4.3, 2) +
+    0.03 * fbm3(d.x * 9 + seed, d.y * 9, d.z * 9 - seed, 2);
   const at = (d: THREE.Vector3, out = new THREE.Vector3()) => {
     const k = R * (1 + lump(d));
     let y = d.y * k * squash;
@@ -1770,10 +1781,17 @@ function pancakeGeo(seed: number): THREE.BufferGeometry {
   });
 }
 
+/** A pat of butter, softly slumping as it melts. */
 const butterGeo = lazy(() => {
-  const g = roundedBox(0.02, 0.0072, 0.02, 0.0026, 2);
+  const g = roundedBox(0.02, 0.0072, 0.02, 0.003, 3);
   g.translate(0, 0.0036, 0);
-  return g;
+  return deform(g, (p) => {
+    const t = p.y / 0.0072;
+    const k = 1 + 0.12 * (1 - t) * (1 - t);
+    p.x *= k;
+    p.z *= k;
+    p.y *= 1 - 0.12 * Math.min(1, Math.hypot(p.x, p.z) / 0.012);
+  });
 });
 const butterMat = lazy(() => foodMat({ color: '#fde07c', flesh: '#fde69a', cookColor: '#e0a840', roughness: 0.22, clearcoat: 0.8, clearcoatRoughness: 0.15 }));
 
@@ -1785,8 +1803,6 @@ function pancakeToppings(c: Ctx, b: Batch, g: THREE.Group, top: THREE.Vector3, p
     const x = top.x + c.r.range(-0.004, 0.004), z = top.z + c.r.range(-0.004, 0.004);
     const y = surfY(x, z);
     b.add(butterMat(), placed(butterGeo(), [x, y - 0.0009, z], [c.r.range(-0.05, 0.05), c.r.range(0, TAU), c.r.range(-0.05, 0.05)]));
-    const pool = puddleGeometry({ radius: 0.0185, height: 0.0006, seed: c.r.range(0, 30), wobble: 0.16, lobes: 3, dome: 0.1, rings: 4, segments: 28 }).geo;
-    b.add(liquidMat('butter-pool', '#fbd768', '#e0a840', { roughness: 0.08, clearcoat: 1 }), placed(pool, [x, y - 0.0002, z]));
     taken.push([x - top.x, z - top.z]);
   }
   for (const id of fruitsOf(c).slice(0, 2)) {
@@ -2033,8 +2049,8 @@ const cakeCrumbTex = lazy(() => {
         if (!sponge) return [255, 255, 255];
         const a = ((px + 0.5) / w) * TAU;
         const x = Math.sin(a) * r, z = Math.cos(a) * r;
-        const pore = sstep(0.16, 0.38, fbm3(x * 420, y * 420, z * 420, 2));
-        const v = 250 - pore * 46 + fbm3(x * 90, y * 90, z * 90, 2) * 16;
+        const pore = sstep(0.18, 0.4, fbm3(x * 420, y * 420, z * 420, 2));
+        const v = 252 - pore * 26 + fbm3(x * 90, y * 90, z * 90, 2) * 10;
         return [v, v * 0.985, v * 0.96];
       });
     },
@@ -2071,14 +2087,14 @@ function cakeDrips(r: Rng): { L: (th: number) => number; cols: number[] } {
     return out;
   };
   const cols: number[] = [];
-  for (const d of drips) for (let k = -4; k <= 4; k++) cols.push(d.a + (k / 4) * d.w * 1.25);
+  for (const d of drips) for (let k = -3; k <= 3; k++) cols.push(d.a + (k / 3) * d.w * 1.2);
   return { L, cols };
 }
 
 /** The frosting band: over the rounded top edge and down the side into drips (adaptive columns). */
 function frostBandGeo(L: (th: number) => number, extra: number[]): THREE.BufferGeometry {
   const all: number[] = [];
-  for (let i = 0; i < 72; i++) all.push((i / 72) * TAU);
+  for (let i = 0; i < 64; i++) all.push((i / 64) * TAU);
   for (const a of extra) all.push(((a % TAU) + TAU) % TAU);
   all.sort((p, q) => p - q);
   const ths = all.filter((t, i) => i === 0 || t - all[i - 1] > 0.004);
@@ -2197,7 +2213,7 @@ function cakeDecor(c: Ctx, cc: CakeColors, b: Batch, g: THREE.Group) {
   for (let k = 0; k < nR; k++) {
     const a = a0 + (k / nR) * TAU;
     const x = Math.sin(a) * ringR, z = Math.cos(a) * ringR;
-    const s = c.r.range(0.94, 1.08);
+    const s = c.r.range(1.18, 1.3);
     const y0 = topAt(ringR) - 0.0005;
     b.add(rosMat, placed(rosetteGeo(), [x, y0, z], [0, c.r.range(0, TAU), 0], s));
     const yTop = y0 + 0.0144 * s;
@@ -2215,7 +2231,7 @@ function cakeDecor(c: Ctx, cc: CakeColors, b: Batch, g: THREE.Group) {
       b.add(m, placed(chocoCurl(c.r, 9, 5), [x, topAt(Math.hypot(x, z)) + 0.0018 + i * 0.0003, z], [c.r.range(-0.4, 0.4), c.r.range(0, TAU), c.r.range(-0.3, 0.3)], 0.9));
     }
   }
-  if (hasTagged(c, 'candy'))
+  if (hasCandy(c))
     sprinkles(b, c.r, 46, () => {
       const [dx, dz] = c.r.disc();
       const x = dx * ringR * 0.86, z = dz * ringR * 0.86;
@@ -2235,7 +2251,7 @@ function buildCake(c: Ctx): THREE.Object3D {
   const cc = cakeColors(c);
   const g = new THREE.Group();
   const { pts, cols } = cakeBodyPoints(cc, true);
-  g.add(meshOf(revolve(pts, { segments: 44, colors: cols.map((h) => new THREE.Color(h)) }), cakeBodyMat(cc.sponge), 'cake'));
+  g.add(meshOf(revolve(pts, { segments: 40, colors: cols.map((h) => new THREE.Color(h)) }), cakeBodyMat(cc.sponge), 'cake'));
   const drips = cakeDrips(c.r);
   const fm = frostMat(cc.frost);
   g.add(meshOf(frostBandGeo(drips.L, drips.cols), fm, 'frosting'), meshOf(frostCapGeo(), fm, 'frosting-top'));
@@ -2631,16 +2647,16 @@ function friedEggSectionV(ctx: CanvasRenderingContext2D, w: number, h: number) {
 
 const SCRAM = getDef('scrambled-eggs').colors;
 
-/** Soft folded curd shapes (unit length along x). */
+/** Soft, puffy curds (unit size): rounded lumps with a gentle fold. Two levels of detail. */
 const curdGeos = lazy(() =>
   Array.from({ length: 6 }, (_, k) => {
     const g: THREE.BufferGeometry = new THREE.IcosahedronGeometry(0.5, k < 3 ? 3 : 2);
     const s = k * 7.3 + 1.1;
-    const bend = 0.3 + (k % 3) * 0.14;
     deform(g, (p) => {
-      p.set(p.x, p.y * 0.5, p.z * 0.74);
-      p.y += bend * (p.x * p.x - 0.07) + 0.035 * Math.sin(p.z * 10 + s);
-      p.multiplyScalar(1 + fbm3(p.x * 3.4 + s, p.y * 3.4, p.z * 3.4 - s, 3) * 0.34);
+      p.set(p.x * 1.22, p.y * 0.6, p.z * 0.94);
+      p.multiplyScalar(1 + fbm3(p.x * 2 + s, p.y * 2, p.z * 2 - s, 3) * 0.28);
+      // a soft fold across the curd, ends curling up a little
+      p.y += 0.07 * Math.sin(p.x * 5.5 + s) * (p.y > 0 ? 1 : 0.4) + 0.12 * (p.x * p.x - 0.12) - 0.05 * Math.cos(p.z * 6 + s);
     });
     return g;
   }),
@@ -2648,27 +2664,27 @@ const curdGeos = lazy(() =>
 
 function buildScrambled(c: Ctx): THREE.Object3D {
   const base = c.tinted ? mixHex(SCRAM.flesh, c.tint, 0.5) : SCRAM.flesh;
-  const shades = [base, mixHex(base, '#fff2b8', 0.4), adjust(base, 0.95, 1.06), mixHex(base, '#fff8dc', 0.22)];
-  const light = new THREE.Color(mixHex(base, '#fff7d6', 0.55));
-  const mat = vcMat('scrambled:' + base, { roughness: 0.34, clearcoat: 0.55, sheen: 0.25, flesh: base, cooked: SCRAM.cooked ?? c.cooked, cookAmount: 0.6 });
+  const light = new THREE.Color(mixHex(base, '#fff6d0', 0.5));
+  const deep = new THREE.Color(adjust(base, 0.94, 1.08));
+  const mat = vcMat('scrambled:' + base, { roughness: 0.3, clearcoat: 0.6, sheen: 0.25, flesh: base, cooked: SCRAM.cooked ?? c.cooked, cookAmount: 0.6 });
   const b = new Batch();
   // a hidden core keeps the heap solid
   const core = revolve(
     smoothProfile(
       [
         [0.0001, 0],
-        [0.04, 0],
-        [0.042, 0.006],
-        [0.033, 0.019],
-        [0.017, 0.026],
-        [0.0001, 0.028],
+        [0.036, 0],
+        [0.038, 0.006],
+        [0.03, 0.019],
+        [0.015, 0.027],
+        [0.0001, 0.029],
       ],
       8,
     ),
-    { segments: 20 },
+    { segments: 18 },
   );
-  b.add(mat, colored(core, adjust(base, 0.93)));
-  const R = 0.05, H = 0.033, N = 24;
+  b.add(mat, colored(core, adjust(base, 0.95)));
+  const R = 0.046, H = 0.036, N = 22;
   const ph = c.r.range(0, TAU);
   const curds: { x: number; y: number; z: number; s: number }[] = [];
   for (let i = 0; i < N; i++) {
@@ -2676,30 +2692,33 @@ function buildScrambled(c: Ctx): THREE.Object3D {
     const d = R * Math.sqrt(f) * c.r.range(0.88, 1.04);
     const a = i * 2.399963 + ph + c.r.range(-0.2, 0.2);
     const x = Math.sin(a) * d, z = Math.cos(a) * d;
-    const R2 = R * 1.08;
+    const R2 = R * 1.1;
     const u = Math.max(0, 1 - (d / R2) ** 2);
-    const dome = H * Math.pow(u, 0.75);
-    const s = THREE.MathUtils.lerp(0.02, 0.03, f) * c.r.range(0.88, 1.12);
-    const y = Math.max(s * 0.2, dome - s * 0.1);
+    const s = THREE.MathUtils.lerp(0.026, 0.036, f) * c.r.range(0.9, 1.1);
+    const y = Math.max(s * 0.3, H * Math.pow(u, 0.7) - s * 0.15);
     // lie along the heap's slope
-    const slope = H * 0.75 * Math.pow(Math.max(u, 0.05), -0.25) * ((2 * d) / (R2 * R2));
-    const tilt = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(Math.cos(a), 0, -Math.sin(a)), Math.min(1, Math.atan(slope)));
-    const q = tilt.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(c.r.range(-0.3, 0.3), c.r.range(0, TAU), c.r.range(-0.3, 0.3))));
-    const geo = placed(c.r.pick(curdGeos()), [x, y, z], q, [s, s * c.r.range(0.85, 1.2), s]);
-    const cA = new THREE.Color(c.r.pick(shades));
+    const slope = H * 0.7 * Math.pow(Math.max(u, 0.05), -0.3) * ((2 * d) / (R2 * R2));
+    const tilt = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(Math.cos(a), 0, -Math.sin(a)), Math.min(0.9, Math.atan(slope)));
+    const q = tilt.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(c.r.range(-0.25, 0.25), c.r.range(0, TAU), c.r.range(-0.25, 0.25))));
+    const geos = curdGeos();
+    const geo = placed(geos[(i < N * 0.55 ? 0 : 3) + c.r.int(0, 2)], [x, y, z], q, [s, s * c.r.range(0.9, 1.15), s]);
+    const cA = new THREE.Color(base).lerp(light, c.r.range(0, 0.3));
     const ns = c.r.range(0, 20);
-    paintVertices(geo, (p) => cA.clone().lerp(light, clamp01(((p.y - y) / (s * 0.3)) * 0.35 + fbm3(p.x * 300 + ns, p.y * 300, p.z * 300, 2) * 0.6)));
+    paintVertices(geo, (p) => {
+      const t = clamp01((p.y - y) / (s * 0.35) + 0.4);
+      return cA.clone().lerp(deep, (1 - t) * 0.5).lerp(light, clamp01(t * 0.3 + fbm3(p.x * 220 + ns, p.y * 220, p.z * 220, 2) * 0.5));
+    });
     b.add(mat, geo);
     curds.push({ x, y, z, s });
   }
-  const upper = curds.slice(Math.floor(N * 0.35));
+  const upper = curds.slice(Math.floor(N * 0.3));
   // chopped herbs on top
   const herbs = c.ids.filter(isGreenHerb);
   if (herbs.length) {
     const m = bitMat(getDef(herbs[0]).colors.skin, 0.45, '#2a4a1a', 0.2);
     for (let i = 0; i < 16; i++) {
       const cu = c.r.pick(upper);
-      b.add(m, placed(fleckGeo(), [cu.x + c.r.range(-0.6, 0.6) * cu.s * 0.5, cu.y + cu.s * 0.2, cu.z + c.r.range(-0.6, 0.6) * cu.s * 0.5], [c.r.range(-0.4, 0.4), c.r.range(0, TAU), c.r.range(-0.4, 0.4)], c.r.range(0.004, 0.0065)));
+      b.add(m, placed(fleckGeo(), [cu.x + c.r.range(-0.5, 0.5) * cu.s * 0.5, cu.y + cu.s * 0.3, cu.z + c.r.range(-0.5, 0.5) * cu.s * 0.5], [c.r.range(-0.4, 0.4), c.r.range(0, TAU), c.r.range(-0.4, 0.4)], c.r.range(0.004, 0.006)));
     }
   }
   // other bits folded through
@@ -2708,9 +2727,8 @@ function buildScrambled(c: Ctx): THREE.Object3D {
     const bit = bitOf(id, c.r);
     const m = bitMat(bit.color, 0.4, getDef(id).colors.cooked ?? c.cooked, 0.3);
     for (let i = 0; i < 7; i++) {
-      const cu = c.r.pick(curds);
-      const k = bit.kind === 'ball' ? 0.0075 : 0.0068;
-      b.add(m, placed(bit.geo, [cu.x + c.r.range(-0.5, 0.5) * cu.s * 0.5, cu.y + cu.s * 0.16, cu.z + c.r.range(-0.5, 0.5) * cu.s * 0.5], [c.r.range(0, 3), c.r.range(0, 3), c.r.range(0, 3)], k));
+      const cu = c.r.pick(upper);
+      b.add(m, placed(bit.geo, [cu.x + c.r.range(-0.5, 0.5) * cu.s * 0.45, cu.y + cu.s * 0.24, cu.z + c.r.range(-0.5, 0.5) * cu.s * 0.45], [c.r.range(0, 3), c.r.range(0, 3), c.r.range(0, 3)], bit.kind === 'ball' ? 0.0075 : 0.007));
     }
   }
   return sitOnGround(b.addTo(new THREE.Group()));
@@ -2929,22 +2947,22 @@ const kernelGeos = lazy(() =>
   Array.from({ length: 6 }, (_, k) => {
     const r = rng(k * 17 + 3);
     const g: THREE.BufferGeometry = new THREE.IcosahedronGeometry(0.5, 2);
-    const lobes = Array.from({ length: r.int(4, 6) }, () => ({ d: randDir(r), a: r.range(0.2, 0.42), p: r.range(2.5, 5) }));
-    const hull = lobes[0].d.clone().negate().addScaledVector(randDir(r), 0.35).normalize();
+    const lobes = Array.from({ length: r.int(5, 7) }, () => ({ d: randDir(r), a: r.range(0.28, 0.48), p: r.range(2.2, 3.6) }));
+    const hull = lobes[0].d.clone().negate().addScaledVector(randDir(r), 0.3).normalize();
     const cols = new Float32Array(g.attributes.position.count * 3);
-    const puff = new THREE.Color('#fffaf0'), cream = new THREE.Color('#f5e1ae'), hullA = new THREE.Color('#e9a43c'), hullB = new THREE.Color('#b26f28');
+    const puff = new THREE.Color('#fffbf2'), cream = new THREE.Color('#f8ebc6'), hullA = new THREE.Color('#f2c25c'), hullB = new THREE.Color('#c98a34');
     const tmp = new THREE.Color();
     const d = new THREE.Vector3();
     deform(g, (p, _n, i) => {
       d.copy(p).normalize();
-      let s = 0.7;
+      let s = 0.62;
       for (const L of lobes) s += L.a * Math.pow(Math.max(0, d.dot(L.d)), L.p);
-      s += 0.07 * fbm3(d.x * 4 + k, d.y * 4, d.z * 4 - k, 2);
+      s += 0.08 * fbm3(d.x * 4.5 + k, d.y * 4.5, d.z * 4.5 - k, 2);
       const hd = d.dot(hull);
-      s *= 1 - 0.2 * sstep(0.55, 0.95, hd);
-      p.copy(d).multiplyScalar(0.5 * s);
-      tmp.copy(cream).lerp(puff, clamp01((s - 0.72) * 3.2));
-      if (hd > 0.62) tmp.lerp(hullA, sstep(0.62, 0.8, hd)).lerp(hullB, sstep(0.85, 0.97, hd) * 0.7);
+      s *= 1 - 0.22 * sstep(0.72, 0.97, hd);
+      p.copy(d).multiplyScalar(0.45 * s);
+      tmp.copy(cream).lerp(puff, clamp01((s - 0.68) * 2.6));
+      if (hd > 0.8) tmp.lerp(hullA, sstep(0.8, 0.9, hd)).lerp(hullB, sstep(0.93, 0.99, hd) * 0.6);
       cols[i * 3] = tmp.r;
       cols[i * 3 + 1] = tmp.g;
       cols[i * 3 + 2] = tmp.b;
@@ -2956,42 +2974,42 @@ const kernelGeos = lazy(() =>
 
 const popcornMat = (tint: string) =>
   cmat('popcorn:' + tint, () =>
-    foodMat({ color: tint, vertexColors: true, roughness: 0.82, sheen: 0.35, sheenColor: '#fffaf0', sheenRoughness: 0.7, flesh: POPC.flesh, cookColor: POPC.cooked, cookAmount: 0.6 }),
+    foodMat({ color: tint, vertexColors: true, roughness: 0.8, sheen: 0.35, sheenColor: '#fffaf0', sheenRoughness: 0.7, flesh: POPC.flesh, cookColor: POPC.cooked, cookAmount: 0.6 }),
   );
 
 function buildPopcorn(c: Ctx): THREE.Object3D {
   const mat = popcornMat(c.tinted ? mixHex('#ffffff', c.tint, 0.55) : has(c, 'butter') ? '#fff1c6' : '#ffffff');
   const choc = hasTagged(c, 'chocolate');
   const b = new Batch();
-  const RB = 0.05, HB = 0.038;
+  const RB = 0.044, HB = 0.046;
   // hidden core so the heap never looks hollow
   const core = revolve(
     smoothProfile(
       [
         [0.0001, 0],
-        [RB * 0.95, 0],
-        [RB * 0.9, HB * 0.3],
-        [RB * 0.6, HB * 0.75],
-        [RB * 0.25, HB * 0.95],
-        [0.0001, HB],
+        [RB * 0.85, 0],
+        [RB * 0.8, HB * 0.3],
+        [RB * 0.55, HB * 0.72],
+        [RB * 0.22, HB * 0.9],
+        [0.0001, HB * 0.94],
       ],
       6,
     ),
     { segments: 14 },
   );
-  b.add(mat, colored(core, '#f4e2b0'));
+  b.add(mat, colored(core, '#f8ecca'));
   const ph = c.r.range(0, TAU);
-  const n = 34;
+  const n = 36;
   for (let i = 0; i < n; i++) {
-    const d = fibDir(i, n, 0.02, c.r, 0.12, ph);
-    const s = c.r.range(0.019, 0.024);
+    const d = fibDir(i, n, -0.08, c.r, 0.1, ph);
+    const s = c.r.range(0.023, 0.028);
     const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(c.r.range(0, TAU), c.r.range(0, TAU), c.r.range(0, TAU)));
-    b.add(choc && i % 3 === 0 ? chocoMat() : mat, placed(c.r.pick(kernelGeos()), [d.x * RB, d.y * HB + s * 0.12, d.z * RB], q, s));
+    b.add(choc && i % 3 === 0 ? chocoMat() : mat, placed(c.r.pick(kernelGeos()), [d.x * RB, Math.max(s * 0.35, d.y * HB), d.z * RB], q, s));
   }
   // a few strays around the heap
-  for (let i = 0; i < 6; i++) {
-    const a = ph + (i / 6) * TAU + c.r.range(-0.4, 0.4), rr = RB * c.r.range(1.12, 1.4);
-    const s = c.r.range(0.018, 0.022);
+  for (let i = 0; i < 5; i++) {
+    const a = ph + (i / 5) * TAU + c.r.range(-0.4, 0.4), rr = RB * c.r.range(1.3, 1.55);
+    const s = c.r.range(0.021, 0.025);
     b.add(mat, placed(c.r.pick(kernelGeos()), [Math.sin(a) * rr, s * 0.42, Math.cos(a) * rr], [c.r.range(0, TAU), c.r.range(0, TAU), c.r.range(0, TAU)], s));
   }
   return sitOnGround(b.addTo(new THREE.Group()));
@@ -3290,9 +3308,9 @@ function buildScoops(c: Ctx): THREE.Object3D {
   const g = new THREE.Group();
   g.add(dish.root);
   // a little melted ice cream fills the dish under the scoops
-  g.add(liquidFill(dish, 0.9, scoopMat(flav[0]), { surfaceOnly: true, rings: 4, segments: 32 }));
+  g.add(liquidFill(dish, 0.55, scoopMat(flav[0]), { surfaceOnly: true, rings: 4, segments: 32 }));
   const rs = 0.0228;
-  const y0 = dish.rimY + rs * 0.43 + 0.0015;
+  const y0 = dish.rimY + 0.0025;
   const spots: V3[] =
     n === 3
       ? [
@@ -3314,7 +3332,7 @@ function buildScoops(c: Ctx): THREE.Object3D {
   const dir = new THREE.Vector3(0.42, 0.86, -0.3).normalize();
   b.add(waferMat(), placed(waferGeo(), tp.clone().add(new THREE.Vector3(-0.002, 0.006, -0.002)).addScaledVector(dir, 0.021), new THREE.Quaternion().setFromUnitVectors(Y_UP, dir)));
   if (has(c, 'cherry')) cherry(b, [tp.x - 0.004, tp.y + rs * 0.93, tp.z + 0.003], c.r, 0.9);
-  if (hasTagged(c, 'candy'))
+  if (hasCandy(c))
     sprinkles(b, c.r, 24, () => {
       const d = fibDir(c.r.int(0, 29), 30, 0.25, c.r, 0.2);
       return { p: tp.clone().addScaledVector(d, rs * 0.99), n: d };

@@ -111,7 +111,6 @@ export class Engine implements Audio {
   private voiceNow: Shot | null = null;
   private voiceToken = 0;
   private voiceSeed = 1;
-  private timer: ReturnType<typeof setInterval> | null = null;
   private prerendered = false;
   private hiddenSuspended = false;
   /** errors swallowed by the never-throw guards (diagnostics) */
@@ -419,7 +418,8 @@ export class Engine implements Audio {
       bank.requestRaw('ir', { k: 'ir', sr: ctx.sampleRate, dur: REVERB_SEC, seed: 11 }, PRIO_BG, (ir) => {
         if (ir) mixer.attachReverb(ir);
       });
-    if (!this.offline) this.timer = setInterval(() => this.tick(), 100);
+    // control tick: music look-ahead, throttled loop parameters, housekeeping
+    if (!this.offline) setInterval(() => this.tick(), 100);
   }
 
   private onRunning(): void {

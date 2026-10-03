@@ -219,6 +219,10 @@ export function buildRoom(): Room {
   const rug = part(root, rugGeo, new THREE.MeshStandardMaterial({ map: rugTexOval(), roughness: 0.95, alphaTest: 0.5 }), { pos: [-2.16, 0.004, -0.06], scale: [0.86, 1, 0.72], cast: false });
   rug.name = 'rug';
 
+  // --- striped runner in front of the counter run (fringed ends)
+  const runner = part(root, new THREE.PlaneGeometry(2.7, 0.46).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: runnerTex(), roughness: 0.95, alphaTest: 0.5 }), { pos: [0.5, 0.004, -0.02], cast: false });
+  runner.name = 'runner';
+
   // --- back wall with the window hole
   const wallShape = new THREE.Shape();
   wallShape.moveTo(W0 - 0.06, 0);
@@ -312,7 +316,7 @@ export function buildRoom(): Room {
   part(root, rbox(0.025, 0.09, leftD, 0.01, 3), railMat, { pos: [W0 + 0.024, 0.045, BZ + leftD / 2], cast: false });
 
   // --- side walls (cut-away dollhouse edges)
-  const sideMat = textured('roomWallpaperSide', wp, { roughness: 0.92 });
+  const sideMat = wallMat;
   const rightD = 1.1;
   part(root, planarUV(new THREE.PlaneGeometry(leftD, WALL_TOP).rotateY(Math.PI / 2).translate(W0, WALL_TOP / 2, BZ + leftD / 2), 'zy', 1 / 0.62), sideMat, { cast: false });
   part(root, planarUV(new THREE.PlaneGeometry(rightD, WALL_TOP).rotateY(-Math.PI / 2).translate(W1, WALL_TOP / 2, BZ + rightD / 2), 'zy', 1 / 0.62), sideMat, { cast: false });
@@ -342,6 +346,62 @@ export function buildRoom(): Room {
       });
     },
   };
+}
+
+/** Woven striped runner with fringes on the short ends (u = length). */
+function runnerTex(): THREE.Texture {
+  return canvasTex(
+    'runner',
+    1024,
+    176,
+    (c, w, h) => {
+      c.clearRect(0, 0, w, h);
+      const fr = 22; // fringe length (px) at both ends
+      c.fillStyle = '#fff1dc';
+      c.fillRect(fr, 0, w - fr * 2, h);
+      // lengthwise stripes
+      const bands: [number, number, string][] = [
+        [0.0, 0.1, PALETTE.coral],
+        [0.16, 0.2, '#9fdccd'],
+        [0.26, 0.29, PALETTE.butter],
+        [0.71, 0.74, PALETTE.butter],
+        [0.8, 0.84, '#9fdccd'],
+        [0.9, 1.0, PALETTE.coral],
+      ];
+      for (const [a, b, col] of bands) {
+        c.fillStyle = col;
+        c.fillRect(fr, a * h, w - fr * 2, (b - a) * h);
+      }
+      // little diamonds down the middle
+      c.fillStyle = PALETTE.coral;
+      for (let x = fr + 40; x < w - fr - 20; x += 60) {
+        c.beginPath();
+        c.moveTo(x, h / 2 - 14);
+        c.lineTo(x + 12, h / 2);
+        c.lineTo(x, h / 2 + 14);
+        c.lineTo(x - 12, h / 2);
+        c.closePath();
+        c.fill();
+      }
+      // weave texture
+      c.fillStyle = 'rgba(120,80,60,0.07)';
+      for (let x = fr; x < w - fr; x += 4) c.fillRect(x, 0, 1.5, h);
+      for (let y = 0; y < h; y += 4) c.fillRect(fr, y, w - fr * 2, 1);
+      // fringes
+      c.strokeStyle = '#f3dcc0';
+      c.lineWidth = 3;
+      c.lineCap = 'round';
+      for (let y = 6; y < h - 4; y += 9) {
+        c.beginPath();
+        c.moveTo(fr, y);
+        c.lineTo(4, y + 1);
+        c.moveTo(w - fr, y);
+        c.lineTo(w - 4, y + 1);
+        c.stroke();
+      }
+    },
+    { aniso: 8 },
+  );
 }
 
 /** Oval braided rug (pastel rings) with a transparent outside. */
