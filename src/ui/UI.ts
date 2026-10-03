@@ -4,7 +4,7 @@ import { clamp, formatMoney } from '../core/math';
 import { CATEGORIES, GRENADE, WEAPONS, WEAPON_MAP, WeaponDef, statsFor } from '../weapons/defs';
 import { DEFENSES, DEFENSE_MAP, DefenseDef, turretCost } from '../defenses/defs';
 import { Icons } from './Icons';
-import { MEDKIT, isLocked, wavesForDay } from '../game/Progress';
+import { MEDKIT, START_MONEY, isLocked, wavesForDay } from '../game/Progress';
 
 const _pv = new THREE.Vector3();
 
@@ -305,7 +305,7 @@ export class UI {
           <div><span>Money earned</span><b>${formatMoney(sum.money)}</b></div>
           <div><span>Days survived</span><b>${sum.day - 1}</b></div>
         </div>
-        <div class="help-note" style="margin:0 auto 14px">The road took everything: money, weapons and defenses are gone. You start over on Day 1 with $10,000, a revolver, a shotgun, one grenade and one barrier. Best day so far: ${G.progress.data.stats.bestDay}.</div>
+        <div class="help-note" style="margin:0 auto 14px">The road took everything: money, weapons and defenses are gone. You start over on Day 1 with ${formatMoney(START_MONEY)}, a revolver, a shotgun, one grenade and one barrier. Best day so far: ${G.progress.data.stats.bestDay}.</div>
         <div class="actions"><button class="btn primary" data-a="retry">Start Over — Day 1</button><button class="btn" data-a="menu">Main Menu</button></div>
       </div>`,
       'summary',

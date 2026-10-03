@@ -40,8 +40,8 @@ export interface SaveData {
   medkit: boolean;
   /** Kills since the last death (lifetime count lives in stats). */
   runKills: number;
-  /** One-time starting cash already granted to this save. */
-  bonusCash?: boolean;
+  /** Starting cash already granted to this save (true = the old $10,000 grant). */
+  bonusCash?: boolean | number;
 }
 
 export const MEDKIT = { id: 'medkit', name: 'Medkit', cost: 200, heal: 50 };
@@ -64,7 +64,7 @@ export const DEFAULT_SETTINGS: Settings = {
 /** Every weapon, upgrade and defense can be bought from Day 1 (no day locks). */
 export const UNLOCK_ALL = true;
 /** Cash every run starts with (new game and after a death). */
-export const START_MONEY = 10000;
+export const START_MONEY = 100000;
 export function isLocked(unlockDay: number, day: number) {
   return !UNLOCK_ALL && unlockDay > day;
 }
@@ -73,7 +73,7 @@ function fresh(): SaveData {
   return {
     version: 1,
     money: START_MONEY,
-    bonusCash: true,
+    bonusCash: START_MONEY,
     day: 1,
     bestDay: 1,
     owned: { m686: 0, shorty: 0 },
@@ -110,10 +110,11 @@ export class Progress {
       if (raw) {
         const d = JSON.parse(raw) as SaveData;
         const f = fresh();
-        // saves from before the starting cash get a one-time $10,000
-        if (!d.bonusCash) {
-          d.money = (d.money ?? 0) + START_MONEY;
-          d.bonusCash = true;
+        // older saves are topped up once to the full starting cash
+        const granted = d.bonusCash === true ? 10000 : d.bonusCash || 0;
+        if (granted < START_MONEY) {
+          d.money = (d.money ?? 0) + START_MONEY - granted;
+          d.bonusCash = START_MONEY;
         }
         return { ...f, ...d, stats: { ...f.stats, ...(d.stats ?? {}) }, settings: { ...f.settings, ...(d.settings ?? {}) } };
       }
