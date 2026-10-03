@@ -152,10 +152,22 @@ export class ChunkManager {
       this.world.addChunk(chunk);
       this.generatedCount++;
       this.opts.onChunkReady?.(chunk);
+      this.refill();
     } catch (e) {
       console.error('chunk gen failed', cx, cz, e);
       this.requested.delete(k);
     }
+  }
+
+  /** Keep the workers busy between frames (frame rate must not throttle loading). */
+  private refillQueued = false;
+  private refill() {
+    if (this.refillQueued || this.disposed) return;
+    this.refillQueued = true;
+    queueMicrotask(() => {
+      this.refillQueued = false;
+      if (!this.disposed) this.update(this.centerX, this.centerZ);
+    });
   }
 
   private meshable(cx: number, cz: number): boolean {
@@ -215,6 +227,7 @@ export class ChunkManager {
         this.sink.updateSection(k, cx, sy, cz, res.out);
         this.meshedCount++;
         this.checkMeshed(cx, cz);
+        this.refill();
       })
       .catch((e) => {
         this.meshing.delete(k);

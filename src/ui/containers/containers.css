@@ -1,0 +1,154 @@
+/* Container screens: Minecraft layouts in GUI pixels (1 GUI px = var(--gp) CSS px). */
+.mcc {
+  --gp: 2px;
+  --mc-panel: #c6c6c6;
+  --mc-panel-hi: #ffffff;
+  --mc-panel-lo: #555555;
+  --mc-slot: #8b8b8b;
+  --mc-slot-lo: #373737;
+  --mc-label: #404040;
+  position: absolute; inset: 0; pointer-events: auto; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at 50% 45%, rgba(8, 8, 12, 0.38), rgba(8, 8, 12, 0.66));
+  backdrop-filter: blur(2.5px) saturate(0.9);
+  font-family: 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', sans-serif;
+  cursor: default;
+}
+.mcc * { box-sizing: border-box; }
+.mcc-wrap { position: relative; }
+.mcc-win {
+  position: relative;
+  border-radius: calc(var(--gp) * 3);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0) 38%),
+    linear-gradient(180deg, #cdcdcd, #c2c2c2);
+  box-shadow:
+    inset calc(var(--gp) * 2) calc(var(--gp) * 2) 0 var(--mc-panel-hi),
+    inset calc(var(--gp) * -2) calc(var(--gp) * -2) 0 var(--mc-panel-lo),
+    0 0 0 var(--gp) #0e0e0e,
+    0 calc(var(--gp) * 6) calc(var(--gp) * 18) rgba(0, 0, 0, 0.45);
+}
+.mcc-label {
+  position: absolute; white-space: nowrap; color: var(--mc-label);
+  font-size: calc(var(--gp) * 7.4); line-height: 1; font-weight: 600; letter-spacing: 0.01em;
+}
+.mcc-slot {
+  position: absolute; width: calc(var(--gp) * 18); height: calc(var(--gp) * 18);
+  background: linear-gradient(135deg, #848484, #929292);
+  box-shadow: inset var(--gp) var(--gp) 0 var(--mc-slot-lo), inset calc(var(--gp) * -1) calc(var(--gp) * -1) 0 #ffffff;
+}
+.mcc-slot.big { width: calc(var(--gp) * 26); height: calc(var(--gp) * 26); }
+.mcc-slot.big > .mcc-item { left: calc(var(--gp) * 5); top: calc(var(--gp) * 5); }
+.mcc-slot.big::after { inset: calc(var(--gp) * 5); }
+.mcc-slot.nobg { background: none; box-shadow: none; }
+.mcc-slot::after { content: ''; position: absolute; inset: var(--gp); background: rgba(255, 255, 255, 0); pointer-events: none; transition: background 60ms; }
+.mcc-slot.hover::after { background: rgba(255, 255, 255, 0.42); }
+.mcc-slot.drag::after { background: rgba(255, 255, 255, 0.3); }
+.mcc-hint { position: absolute; left: var(--gp); top: var(--gp); width: calc(var(--gp) * 16); height: calc(var(--gp) * 16); opacity: 0.5; pointer-events: none; }
+.mcc-item, .mcc-cursor > .mcc-stack { position: absolute; left: var(--gp); top: var(--gp); width: calc(var(--gp) * 16); height: calc(var(--gp) * 16); pointer-events: none; }
+.mcc-stack { position: relative; width: 100%; height: 100%; }
+.mcc-stack > img { width: 100%; height: 100%; display: block; image-rendering: auto; }
+.mcc-stack > .swatch {
+  width: 100%; height: 100%; border-radius: calc(var(--gp) * 2); display: flex; align-items: center; justify-content: center;
+  font-size: calc(var(--gp) * 5.5); font-weight: 800; color: rgba(255, 255, 255, 0.92); text-shadow: var(--gp) var(--gp) 0 rgba(0, 0, 0, 0.55);
+  box-shadow: inset 0 calc(var(--gp) * -3) calc(var(--gp) * 4) rgba(0, 0, 0, 0.35), inset 0 calc(var(--gp) * 1.5) calc(var(--gp) * 3) rgba(255, 255, 255, 0.3);
+}
+.mcc-count {
+  position: absolute; right: calc(var(--gp) * -1.5); bottom: calc(var(--gp) * -1.5); color: #fff; font-weight: 700; line-height: 1;
+  font-size: calc(var(--gp) * 7.6); text-shadow: var(--gp) var(--gp) 0 #3f3f3f; pointer-events: none; z-index: 2; font-variant-numeric: tabular-nums;
+}
+.mcc-count.yellow { color: #ffff55; text-shadow: var(--gp) var(--gp) 0 #3f3f15; }
+.mcc-dur { position: absolute; left: calc(var(--gp) * 2); top: calc(var(--gp) * 13); width: calc(var(--gp) * 13); height: calc(var(--gp) * 2); background: #000; z-index: 2; }
+.mcc-dur > div { height: 50%; }
+.mcc-glint {
+  position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; opacity: 0.85;
+  background: linear-gradient(115deg, rgba(160, 60, 255, 0) 30%, rgba(190, 110, 255, 0.75) 45%, rgba(160, 60, 255, 0) 60%) 0 0 / 300% 100%;
+  animation: mcc-glint 3.2s linear infinite;
+  -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
+}
+@keyframes mcc-glint { from { background-position: 150% 0; } to { background-position: -150% 0; } }
+.mcc-cursor { position: fixed; left: 0; top: 0; width: calc(var(--gp) * 18); height: calc(var(--gp) * 18); pointer-events: none; z-index: 30; will-change: transform; }
+.mcc-cursor > .mcc-stack { filter: drop-shadow(0 calc(var(--gp) * 1.5) calc(var(--gp) * 1.5) rgba(0, 0, 0, 0.45)); }
+.mcc-tip {
+  position: fixed; left: 0; top: 0; z-index: 40; pointer-events: none; max-width: 46vw;
+  padding: calc(var(--gp) * 3) calc(var(--gp) * 4) calc(var(--gp) * 3.5);
+  background: rgba(16, 0, 16, 0.94);
+  border-radius: calc(var(--gp) * 1.5);
+  box-shadow: inset 0 0 0 var(--gp) rgba(80, 0, 255, 0.42), 0 0 0 var(--gp) rgba(16, 0, 16, 0.94), 0 calc(var(--gp) * 3) calc(var(--gp) * 8) rgba(0, 0, 0, 0.4);
+  font-size: calc(var(--gp) * 7.4); line-height: 1.32; font-weight: 600; color: #fff;
+}
+.mcc-tip > div { white-space: nowrap; text-shadow: var(--gp) var(--gp) 0 rgba(0, 0, 0, 0.6); }
+.mcc-tip > div:first-child { margin-bottom: calc(var(--gp) * 2); }
+.mcc-tip > div.gap { margin-top: calc(var(--gp) * 4); }
+.mcc-tip > div.it { font-style: italic; }
+.mcc-widget { position: absolute; pointer-events: none; }
+.mcc-widget svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.mcc-inset {
+  position: absolute; background: #000; border-radius: calc(var(--gp) * 0.5);
+  box-shadow: inset var(--gp) var(--gp) 0 var(--mc-slot-lo), inset calc(var(--gp) * -1) calc(var(--gp) * -1) 0 #fff;
+}
+.mcc-text-input {
+  position: absolute; pointer-events: auto; border: none; outline: none; color: #fff; background: #000;
+  box-shadow: inset 0 0 0 var(--gp) #a0a0a0; padding: 0 calc(var(--gp) * 3); font: 600 calc(var(--gp) * 7.4) / 1 'Segoe UI', system-ui, sans-serif;
+  border-radius: calc(var(--gp) * 0.5);
+}
+.mcc-text-input:disabled { color: #707070; background: #1a1a1a; }
+.mcc-text-input:focus { box-shadow: inset 0 0 0 var(--gp) #ffffff; }
+.mcc-btn {
+  position: absolute; pointer-events: auto; border-radius: calc(var(--gp) * 1); cursor: pointer;
+  background: linear-gradient(#9e9e9e, #868686);
+  box-shadow: inset var(--gp) var(--gp) 0 rgba(255, 255, 255, 0.55), inset calc(var(--gp) * -1) calc(var(--gp) * -1) 0 rgba(0, 0, 0, 0.35), 0 0 0 var(--gp) #111;
+}
+.mcc-btn:hover { background: linear-gradient(#a6b6e6, #7e8fc8); }
+.mcc-btn.disabled { cursor: default; background: linear-gradient(#5c5c5c, #4a4a4a); box-shadow: inset 0 0 0 var(--gp) rgba(0, 0, 0, 0.25), 0 0 0 var(--gp) #111; }
+.mcc-effects { position: absolute; top: 0; display: flex; flex-direction: column; gap: calc(var(--gp) * 1); }
+.mcc-effect {
+  display: flex; align-items: center; gap: calc(var(--gp) * 3); height: calc(var(--gp) * 32); min-width: calc(var(--gp) * 120);
+  padding: 0 calc(var(--gp) * 5) 0 calc(var(--gp) * 5); border-radius: calc(var(--gp) * 3);
+  background: linear-gradient(180deg, rgba(198, 198, 198, 0.96), rgba(184, 184, 184, 0.96));
+  box-shadow: inset var(--gp) var(--gp) 0 #fff, inset calc(var(--gp) * -1) calc(var(--gp) * -1) 0 #555, 0 0 0 var(--gp) #0e0e0e;
+}
+.mcc-effect.compact { min-width: 0; padding: 0 calc(var(--gp) * 7); }
+.mcc-effect .ico { width: calc(var(--gp) * 18); height: calc(var(--gp) * 18); flex: none; }
+.mcc-effect .nm { font-size: calc(var(--gp) * 7.4); font-weight: 700; color: #fff; text-shadow: var(--gp) var(--gp) 0 #3f3f3f; white-space: nowrap; }
+.mcc-effect .tm { font-size: calc(var(--gp) * 7); color: #7e7e7e; font-weight: 600; margin-top: calc(var(--gp) * 1.5); font-variant-numeric: tabular-nums; }
+/* enchanting */
+.mcc-ench { overflow: hidden; }
+.mcc-ench .glyphs { position: absolute; left: calc(var(--gp) * 20); top: calc(var(--gp) * 2); right: calc(var(--gp) * 2); font-size: calc(var(--gp) * 7.6); line-height: 1.1; color: #685e4a; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: clip; opacity: 0.8; }
+.mcc-ench .lvl { position: absolute; right: calc(var(--gp) * 2.5); bottom: calc(var(--gp) * 1.5); font-size: calc(var(--gp) * 7.6); font-weight: 800; color: #80ff20; text-shadow: var(--gp) var(--gp) 0 #2a4000; }
+.mcc-ench .lap { position: absolute; left: calc(var(--gp) * 1.5); top: calc(var(--gp) * 1.5); width: calc(var(--gp) * 16); height: calc(var(--gp) * 16); }
+.mcc-ench.disabled .glyphs { color: #3a3530; opacity: 0.6; }
+.mcc-ench.disabled .lvl { color: #407f10; text-shadow: none; }
+.mcc-ench.empty { cursor: default; background: linear-gradient(#6b6b6b, #5f5f5f); }
+.mcc-ench.empty > * { display: none; }
+.mcc-ench:not(.disabled):not(.empty):hover .glyphs { color: #ffff80; opacity: 1; }
+/* creative */
+.mcc-tab {
+  position: absolute; width: calc(var(--gp) * 26); height: calc(var(--gp) * 30); pointer-events: auto; cursor: pointer;
+  background: linear-gradient(#bdbdbd, #a9a9a9); border-radius: calc(var(--gp) * 3);
+  box-shadow: inset var(--gp) var(--gp) 0 #e8e8e8, inset calc(var(--gp) * -1) 0 0 #555, 0 0 0 var(--gp) #0e0e0e;
+}
+.mcc-tab.top { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.mcc-tab.bottom { border-top-left-radius: 0; border-top-right-radius: 0; }
+.mcc-tab.sel { background: linear-gradient(#cdcdcd, #c6c6c6); z-index: 2; height: calc(var(--gp) * 32); }
+.mcc-tab.top.sel { box-shadow: inset var(--gp) var(--gp) 0 #fff, inset calc(var(--gp) * -2) 0 0 #555, calc(var(--gp) * -1) calc(var(--gp) * -1) 0 #0e0e0e, var(--gp) calc(var(--gp) * -1) 0 #0e0e0e; }
+.mcc-tab.bottom.sel { box-shadow: inset var(--gp) 0 0 #fff, inset calc(var(--gp) * -2) calc(var(--gp) * -2) 0 #555, calc(var(--gp) * -1) var(--gp) 0 #0e0e0e, var(--gp) var(--gp) 0 #0e0e0e; }
+.mcc-tab:hover:not(.sel) { background: linear-gradient(#c8c8c8, #b4b4b4); }
+.mcc-tab > .mcc-stack { position: absolute; left: calc(var(--gp) * 5); top: calc(var(--gp) * 8); width: calc(var(--gp) * 16); height: calc(var(--gp) * 16); }
+.mcc-scroll { position: absolute; pointer-events: auto; background: #8b8b8b; box-shadow: inset var(--gp) var(--gp) 0 #373737, inset calc(var(--gp) * -1) calc(var(--gp) * -1) 0 #fff; }
+.mcc-thumb {
+  position: absolute; left: var(--gp); width: calc(var(--gp) * 12); height: calc(var(--gp) * 15); cursor: grab; border-radius: calc(var(--gp) * 0.8);
+  background: linear-gradient(90deg, #e6e6e6, #c6c6c6 55%, #a9a9a9);
+  box-shadow: inset var(--gp) var(--gp) 0 #fff, inset calc(var(--gp) * -1) calc(var(--gp) * -1) 0 #555, 0 0 0 calc(var(--gp) * 0.5) #2a2a2a;
+}
+.mcc-thumb.off { background: #9a9a9a; box-shadow: inset var(--gp) var(--gp) 0 #b8b8b8, inset calc(var(--gp) * -1) calc(var(--gp) * -1) 0 #6a6a6a; cursor: default; }
+.mcc-trash { background: linear-gradient(135deg, #7d5050, #8f6060); }
+/* trading */
+.mcc-offer { position: absolute; height: calc(var(--gp) * 20); width: calc(var(--gp) * 88); }
+.mcc-offer .mcc-stack { position: absolute; width: calc(var(--gp) * 16); height: calc(var(--gp) * 16); top: calc(var(--gp) * 2); }
+.mcc-offer .mcc-count { right: calc(var(--gp) * -1); bottom: calc(var(--gp) * -1); }
+.mcc-offer.sel { background: linear-gradient(#b8c4ee, #8f9fd6); }
+.mcc-offer.out { filter: grayscale(0.6) brightness(0.85); }
+.mcc-strike { position: absolute; color: #ff5555; font-size: calc(var(--gp) * 6); font-weight: 800; text-decoration: line-through; }
+.mcc-xpbar { position: absolute; height: calc(var(--gp) * 5); background: #1d1d1d; border-radius: calc(var(--gp) * 1); box-shadow: 0 0 0 calc(var(--gp) * 0.5) #000; overflow: hidden; }
+.mcc-xpbar > div { height: 100%; background: linear-gradient(#b6ff5a, #4fa61a); }
+.mcc-steve { position: absolute; transform-style: preserve-3d; pointer-events: none; }

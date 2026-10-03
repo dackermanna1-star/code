@@ -88,7 +88,7 @@ export class Game {
   /** Absolute game ticks and day time (ticks). */
   ticks = 0;
   dayTime = 1000;
-  readonly weather = { rain: 0, thunder: 0, raining: false, thundering: false, rainTime: 12000 + Math.floor(Math.random() * 168000), thunderTime: 12000 + Math.floor(Math.random() * 168000) };
+  readonly weather = { rain: 0, thunder: 0, raining: false, thundering: false, wetness: 0, rainTime: 12000 + Math.floor(Math.random() * 168000), thunderTime: 12000 + Math.floor(Math.random() * 168000) };
   paused = false;
   running = false;
   realTime = 0;
@@ -264,10 +264,10 @@ export class Game {
   frame(now: number) {
     let dt = (now - this.lastFrame) / 1000;
     this.lastFrame = now;
-    if (dt > 0.25) dt = 0.25;
-    this.realTime += dt;
     this.fpsFrames++;
     this.fpsTime += dt;
+    if (dt > 0.25) dt = 0.25;
+    this.realTime += dt;
     if (this.fpsTime >= 0.5) {
       this.fps = Math.round(this.fpsFrames / this.fpsTime);
       this.fpsFrames = 0;
@@ -315,7 +315,9 @@ export class Game {
     this.interaction.updateTarget();
     this.entities.updateVisuals(alpha, dt);
     for (const s of this.systems) s.update?.(this, dt, alpha);
-    this.render(dt);
+    // the loading screen covers the view; skipping the scene keeps slow GPUs from starving the
+    // chunk/mesh workers (their results are consumed on the main thread)
+    if (!this.loading) this.render(dt);
     this.audioListener();
     this.onFrame?.(dt);
     this.input.endFrame();
@@ -461,7 +463,7 @@ export class Game {
       waterFogColor: waterFog,
       wind: this.weather.rain * 0.6 + this.weather.thunder * 0.4,
       wetness: (this.weather as any).wetness ?? this.weather.rain,
-      nightVision: p.hasEffect('night_vision') ? 1 : 0,
+      nightVision: extra.nightVision ?? (p.hasEffect('night_vision') ? 1 : 0),
       damage: p.hurtTime > 0 ? p.hurtTime / p.hurtDuration : 0,
       overlay: extra.overlay,
       gbufferScenes: gb,
@@ -473,7 +475,7 @@ export class Game {
   }
 
   /** Scenes contributed by systems (particles, hand, outlines ...). */
-  readonly renderExtras: { gbuffer?: THREE.Scene[]; forward?: THREE.Scene[]; shadow?: THREE.Scene[]; hand?: { scene: THREE.Scene; camera: THREE.Camera }; overlayScene?: THREE.Scene; overlay?: THREE.Vector4 } = {};
+  readonly renderExtras: { nightVision?: number; gbuffer?: THREE.Scene[]; forward?: THREE.Scene[]; shadow?: THREE.Scene[]; hand?: { scene: THREE.Scene; camera: THREE.Camera }; overlayScene?: THREE.Scene; overlay?: THREE.Vector4 } = {};
 
   private audioListener() {
     if (!this.audio?.setListener) return;
@@ -579,6 +581,18 @@ export class Game {
     let handled = false;
     this.events.emit('spawnXp', { pos, amount, handle: () => { handled = true; } });
     if (!handled) this.player.addXp(amount);
+  }
+
+  /** Replaces the default respawn logic (beds, respawn anchors, dimension return). */
+  respawnHandler: ((game: Game) => Promise<void> | void) | null = null;
+
+  /** Respawn the dead player (death screen "Respawn"). */
+  async respawnPlayer() {
+    if (this.respawnHandler) return this.respawnHandler(this);
+    const sp = this.player.spawnPoint;
+    const p = sp ?? this.player.pos;
+    this.player.respawn(p.x, p.y + (sp ? 0 : 1), p.z);
+    if (!sp) this.chunks.findSpawn().then((s) => this.player.setPos(s.x, s.y, s.z));
   }
 
   spawn<T extends Entity>(e: T, x: number, y: number, z: number): T {
