@@ -4,7 +4,7 @@ import { clamp, formatMoney } from '../core/math';
 import { CATEGORIES, GRENADE, WEAPONS, WEAPON_MAP, WeaponDef, statsFor } from '../weapons/defs';
 import { DEFENSES, DEFENSE_MAP, DefenseDef, turretCost } from '../defenses/defs';
 import { Icons } from './Icons';
-import { MEDKIT, START_MONEY, isLocked, wavesForDay } from '../game/Progress';
+import { MEDKIT, START_DAY, START_MONEY, isLocked, wavesForDay } from '../game/Progress';
 
 const _pv = new THREE.Vector3();
 
@@ -112,7 +112,7 @@ export class UI {
     m.innerHTML = `
       <div class="blood-banner"><h1 class="blood-title">BLOOD ROAD</h1><div class="tag">Hold the road. Kill the horde. Survive the day.</div></div>
       <div class="buttons">
-        ${has ? `<div class="save-info">DAY ${p.day} &nbsp;·&nbsp; ${wavesForDay(p.day)} WAVES &nbsp;·&nbsp; ${formatMoney(p.money)}</div><button class="btn primary" data-a="continue">Continue — Day ${p.day}</button>` : `<button class="btn primary" data-a="new">Start Day 1</button>`}
+        ${has ? `<div class="save-info">DAY ${p.day} &nbsp;·&nbsp; ${wavesForDay(p.day)} WAVES &nbsp;·&nbsp; ${formatMoney(p.money)}</div><button class="btn primary" data-a="continue">Continue — Day ${p.day}</button>` : `<button class="btn primary" data-a="new">Start Day ${START_DAY}</button>`}
         ${has ? `<button class="btn" data-a="new">New Game</button>` : ''}
         <button class="btn" data-a="help">How to Play</button>
         <button class="btn" data-a="settings">Settings</button>
@@ -124,7 +124,7 @@ export class UI {
       G.audio?.unlock();
       G.audio?.play('uiClick', {});
       const act = a.dataset.a;
-      if (act === 'continue') G.game.startDay(G.progress.data.day);
+      if (act === 'continue') G.game.beginRun();
       else if (act === 'new') {
         // two-step confirm in the page itself (embedded frames block confirm())
         if (has && a.dataset.armed !== '1') {
@@ -140,7 +140,7 @@ export class UI {
           return;
         }
         G.progress.reset();
-        G.game.startDay(1);
+        G.game.beginRun();
       } else if (act === 'help') this.showHelp();
       else if (act === 'settings') this.showSettings();
     });
@@ -217,7 +217,7 @@ export class UI {
         <div><span>Pause</span><span class="kbd">Esc</span></div>
       </div>
       <div class="help-note">Every dollar comes from killing zombies. Survive all waves of a day to unlock the next —
-      days 1–10 have 3 waves, 11–20 have 4, and so on up to 10. The shop opens when a day ends: buy guns, barricades, traps and medkits there, then place defenses with F between waves. Health never refills on its own, and death wipes the whole run back to Day 1.
+      days 1–10 have 3 waves, 11–20 have 4, and so on up to 10. The shop opens when a day ends: buy guns, barricades, traps and medkits there, then place defenses with F between waves. Health never refills on its own, and death wipes the whole run back to the starting day.
       Destroyed defenses are gone for good: there is no repair, so place them wisely.</div>
       <div style="margin-top:16px;text-align:right"><button class="btn primary" data-a="back">Back</button></div>`,
       '',
@@ -305,12 +305,12 @@ export class UI {
           <div><span>Money earned</span><b>${formatMoney(sum.money)}</b></div>
           <div><span>Days survived</span><b>${sum.day - 1}</b></div>
         </div>
-        <div class="help-note" style="margin:0 auto 14px">The road took everything: money, weapons and defenses are gone. You start over on Day 1 with ${formatMoney(START_MONEY)}, a revolver, a shotgun, one grenade and one barrier. Best day so far: ${G.progress.data.stats.bestDay}.</div>
-        <div class="actions"><button class="btn primary" data-a="retry">Start Over — Day 1</button><button class="btn" data-a="menu">Main Menu</button></div>
+        <div class="help-note" style="margin:0 auto 14px">The road took everything: money, weapons and defenses are gone. You start over on Day ${START_DAY} with ${formatMoney(START_MONEY)}, a revolver, a shotgun, one grenade and one barrier. Best day so far: ${G.progress.data.stats.bestDay}.</div>
+        <div class="actions"><button class="btn primary" data-a="retry">Start Over — Day ${START_DAY}</button><button class="btn" data-a="menu">Main Menu</button></div>
       </div>`,
       'summary',
       (a) => {
-        if (a === 'retry') G.game.startDay(1);
+        if (a === 'retry') G.game.beginRun();
         else if (a === 'menu') G.game.quitToMenu(true);
       },
     );
@@ -318,9 +318,10 @@ export class UI {
   }
 
   // ------------------------------------------------------------------ shop
-  private returnTo: 'game' | 'summary' = 'game';
-  openShop(fromSummary = false) {
-    this.returnTo = fromSummary ? 'summary' : 'game';
+  private returnTo: 'game' | 'summary' | 'start' = 'game';
+  /** `true` = from the day summary, 'start' = before a fresh run's first day. */
+  openShop(from: boolean | 'start' = false) {
+    this.returnTo = from === 'start' ? 'start' : from ? 'summary' : 'game';
     this.shopOpen = true;
     if (!this.shopEl) {
       this.shopEl = el('div');
@@ -472,7 +473,7 @@ export class UI {
         <div class="grid">${grid}</div>
         <div class="detail">${this.detailHtml()}</div>
       </div>
-      <div class="foot"><span>Everything is unlocked. Money comes from kills. Day ${d.day} · ${wavesForDay(d.day)} waves</span><button class="btn primary" data-a="close">Done (Esc)</button></div>
+      <div class="foot"><span>Everything is unlocked. Money comes from kills. Day ${d.day} · ${wavesForDay(d.day)} waves</span><button class="btn primary" data-a="close">${this.returnTo === 'start' ? `Start Day ${d.day}` : 'Done (Esc)'}</button></div>
     </div>`;
   }
 

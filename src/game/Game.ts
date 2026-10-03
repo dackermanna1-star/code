@@ -305,6 +305,15 @@ export class Game {
     this.startDay(G.progress.data.day);
   }
 
+  /** Continue / start a run. A fresh run gets one shopping trip before its first day. */
+  beginRun() {
+    if (G.progress.data.preShop) {
+      G.ui.closeOverlay();
+      G.ui.hideMenu();
+      G.ui.openShop('start');
+    } else this.startDay(G.progress.data.day);
+  }
+
   refreshLoadout() {
     const d = G.progress.data;
     G.weapons.setLoadout(d.loadout, d.owned);
@@ -331,7 +340,13 @@ export class Game {
     this.enterMenu();
   }
 
-  onShopClosed(returnTo: 'game' | 'summary') {
+  onShopClosed(returnTo: 'game' | 'summary' | 'start') {
+    if (returnTo === 'start') {
+      G.progress.data.preShop = false;
+      G.progress.save(true);
+      this.startDay(G.progress.data.day);
+      return;
+    }
     this.refreshLoadout();
     G.weapons.grenades = G.progress.data.grenades;
     if (returnTo === 'game' && this.mode === 'play' && !G.ui.overlayOpen) G.input.requestLock();

@@ -118,8 +118,9 @@ export class Zombie {
     const boss = type.id === 'boss';
     this.hardy = !boss && Math.random() < 0.35;
     this.maxHp = type.hp * hpScale * (this.hardy ? lerp(1.12, 1.6, Math.random()) : boss ? 1 : lerp(0.85, 1.0, Math.random()));
-    // bosses (every 5th day from 10) climb faster than the horde: ~530 HP on day 10, ~3000 on day 40
-    if (boss) this.maxHp *= 1 + Math.max(0, (G.waves?.day ?? 10) - 10) * 0.07;
+    // bosses (every 5th day from 10) climb faster than the horde until day 50:
+    // ~530 HP on day 10, ~3000 on day 40, then they only follow the horde's scaling
+    if (boss) this.maxHp *= 1 + Math.min(40, Math.max(0, (G.waves?.day ?? 10) - 10)) * 0.07;
     this.hp = this.maxHp;
     this.speed = lerp(type.speed[0], type.speed[1], Math.random());
     this.scale = lerp(type.scale[0], type.scale[1], Math.random());

@@ -41,9 +41,9 @@ Click the game to capture the mouse. If the page is embedded somewhere that bloc
 
 The road fades into a fog wall about 50 m out (closer in bad weather), and the horde walks out of it. There is no repair: a broken barricade is gone. Structures still standing at the end of the day go back into your inventory with their current damage. Ammo refills at the start of each wave, but health never refills on its own: buy a medkit in the shop to start the next day with +50 health.
 
-**Death is permanent.** When you die the run is wiped: money, weapons, defenses and days are gone, and you start over on Day 1 with the starting gear and $100,000. Only your lifetime records (best day, total kills) are kept.
+**Death is permanent.** When you die the run is wiped: money, weapons, defenses and days are gone, and you start over on Day 100 with the starting gear and $100,000. Only your lifetime records (best day, total kills) are kept.
 
-You start with $100,000, an M686 revolver, a Super Shorty shotgun, one grenade and one wooden barrier. Every weapon, upgrade and defense is buyable from Day 1 (`UNLOCK_ALL` and `START_MONEY` in `src/game/Progress.ts` turn the day locks and starting cash back off). The shop has 49 weapons across 12 categories: pistols, shotguns, SMGs, assault rifles, machine guns, marksman rifles, snipers, launchers, bows, energy weapons, flamethrowers and particle weapons. Several weapons have upgrade paths, and turret-capable weapons can be mounted on turrets.
+Runs start on Day 100 with $100,000, an M686 revolver, a Super Shorty shotgun, one grenade and one wooden barrier. Every weapon, upgrade and defense is buyable right away, and a fresh run opens the shop once before its first day (`UNLOCK_ALL`, `START_MONEY` and `START_DAY` in `src/game/Progress.ts` turn the day locks, starting cash and starting day back to normal). The shop has 49 weapons across 12 categories: pistols, shotguns, SMGs, assault rifles, machine guns, marksman rifles, snipers, launchers, bows, energy weapons, flamethrowers and particle weapons. Several weapons have upgrade paths, and turret-capable weapons can be mounted on turrets.
 
 ## Tech
 

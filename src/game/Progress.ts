@@ -42,6 +42,10 @@ export interface SaveData {
   runKills: number;
   /** Starting cash already granted to this save (true = the old $10,000 grant). */
   bonusCash?: boolean | number;
+  /** START_DAY already applied to this save. */
+  startDayApplied?: number;
+  /** Fresh run: the shop opens once before the first day starts. */
+  preShop?: boolean;
 }
 
 export const MEDKIT = { id: 'medkit', name: 'Medkit', cost: 200, heal: 50 };
@@ -65,6 +69,8 @@ export const DEFAULT_SETTINGS: Settings = {
 export const UNLOCK_ALL = true;
 /** Cash every run starts with (new game and after a death). */
 export const START_MONEY = 100000;
+/** Day every run starts on (new game and after a death). */
+export const START_DAY = 100;
 export function isLocked(unlockDay: number, day: number) {
   return !UNLOCK_ALL && unlockDay > day;
 }
@@ -74,8 +80,10 @@ function fresh(): SaveData {
     version: 1,
     money: START_MONEY,
     bonusCash: START_MONEY,
-    day: 1,
-    bestDay: 1,
+    day: START_DAY,
+    bestDay: START_DAY,
+    startDayApplied: START_DAY,
+    preShop: true,
     owned: { m686: 0, shorty: 0 },
     loadout: ['m686', 'shorty', null, null],
     inventory: { woodBarrier: [1] },
@@ -116,6 +124,14 @@ export class Progress {
           d.money = (d.money ?? 0) + START_MONEY - granted;
           d.bonusCash = START_MONEY;
         }
+        // and jumped once to the starting day, with a shopping trip first
+        if ((d.startDayApplied ?? 0) < START_DAY) {
+          if ((d.day ?? 1) < START_DAY) {
+            d.day = START_DAY;
+            d.preShop = true;
+          }
+          d.startDayApplied = START_DAY;
+        }
         return { ...f, ...d, stats: { ...f.stats, ...(d.stats ?? {}) }, settings: { ...f.settings, ...(d.settings ?? {}) } };
       }
     } catch {
@@ -149,7 +165,7 @@ export class Progress {
     this.saveTimer = setTimeout(write, 400);
   }
 
-  /** Permadeath: the run is wiped back to Day 1; lifetime records and settings stay. */
+  /** Permadeath: the run is wiped back to START_DAY; lifetime records and settings stay. */
   resetRun() {
     const { settings, stats, seenIntro } = this.data;
     this.data = fresh();
