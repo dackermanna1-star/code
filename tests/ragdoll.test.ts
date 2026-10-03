@@ -82,6 +82,35 @@ describe('ragdoll', () => {
     expect(total).toBeLessThan(90);
   });
 
+  it('leaves excluded (dismembered) subtrees out and keeps the rest jointed', () => {
+    const pw = new PhysicsWorld(RAPIER as any, flatWorld());
+    const model = humanoid();
+    model.position.set(4.5, 10, 4.5);
+    const rd = buildRagdoll(pw, model, null, { mass: 70, exclude: new Set(['rightArm', 'rightForearm']) })!;
+    expect(rd.bones.length).toBe(8);
+    expect(rd.joints.length).toBe(7);
+    expect(rd.bones.some((b) => b.def.name === 'rightArm')).toBe(false);
+    const torso = rd.bones.find((b) => b.def.name === 'body')!;
+    for (const b of rd.bones) if (b !== torso) expect(torso.body.mass).toBeGreaterThan(b.body.mass);
+    rd.dispose();
+  });
+
+  it('settles and the bodies fall asleep without twitching', () => {
+    const pw = new PhysicsWorld(RAPIER as any, flatWorld());
+    const model = humanoid();
+    model.position.set(4.5, 10.2, 4.5);
+    const rd = buildRagdoll(pw, model, null, { mass: 70 })!;
+    applyKillImpulse(rd, { type: 'player', dir: new THREE.Vector3(0, 0.2, 1).normalize(), impulse: 3, weapon: 'iron_axe', point: new THREE.Vector3(4.5, 11.2, 4.5) });
+    for (let i = 0; i < 60 * 8; i++) pw.step(1 / 60);
+    for (const b of rd.bones) {
+      const v = b.body.rb.linvel(), a = b.body.rb.angvel();
+      expect(Math.hypot(v.x, v.y, v.z)).toBeLessThan(0.3);
+      expect(Math.hypot(a.x, a.y, a.z)).toBeLessThan(0.6);
+      expect(b.body.pos.y).toBeGreaterThan(9.9);
+    }
+    rd.dispose();
+  });
+
   it('falls over from a hit, stays connected and settles on the ground', () => {
     const pw = new PhysicsWorld(RAPIER as any, flatWorld());
     const model = humanoid();

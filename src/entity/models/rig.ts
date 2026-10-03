@@ -37,6 +37,8 @@ export interface RagdollBone {
   pivot: THREE.Vector3;
   mass: number;
   center: THREE.Vector3;
+  /** `mass` was set explicitly by the model definition (otherwise ragdolls re-derive it from volume). */
+  massFixed?: boolean;
 }
 
 export class RigBone {
@@ -204,7 +206,7 @@ export class Rig {
       const bd = def.bones[i];
       const mass = explicit && bd.mass !== undefined ? bd.mass : (vols[i] / vsum) * totalMass;
       const piv = b.parent ? new THREE.Vector3(b.pivot[0] - b.parent.center[0], b.pivot[1] - b.parent.center[1], b.pivot[2] - b.parent.center[2]) : new THREE.Vector3(...b.pivot);
-      this.ragdoll.push({ name: b.name, obj: b.obj, size: [b.size[0], b.size[1], b.size[2]], parent: b.parent?.name ?? null, pivot: piv, mass, center: new THREE.Vector3(...b.center) });
+      this.ragdoll.push({ name: b.name, obj: b.obj, size: [b.size[0], b.size[1], b.size[2]], parent: b.parent?.name ?? null, pivot: piv, mass, center: new THREE.Vector3(...b.center), massFixed: explicit && bd.mass !== undefined });
     });
     // attachment points
     for (const [name, a] of Object.entries(def.attach ?? {})) {
@@ -289,6 +291,47 @@ export class Rig {
     // snap onto the surface box
     best.geometry.boundingBox!.clampPoint(lp, lp);
     this.addWound(lp, severity);
+  }
+
+  /**
+   * Nearest part mesh to a world point; writes the rest-space point (snapped onto the part's
+   * box) to `out`. Returns the mesh (name `bone:slot`) or null when the rig has no meshes.
+   */
+  locate(world: THREE.Vector3, out: THREE.Vector3): THREE.Mesh | null {
+    this.root.updateWorldMatrix(true, true);
+    let best: THREE.Mesh | null = null, bd = Infinity;
+    for (const m of this.meshes) {
+      const g = m.geometry;
+      if (!g.boundingBox) g.computeBoundingBox();
+      out.copy(world);
+      m.worldToLocal(out);
+      const d = g.boundingBox!.distanceToPoint(out);
+      if (d < bd) { bd = d; best = m; }
+    }
+    if (!best) return null;
+    out.copy(world);
+    best.worldToLocal(out);
+    best.geometry.boundingBox!.clampPoint(out, out);
+    return best;
+  }
+
+  /** Upload externally managed wounds (typed: position+code, direction+growth) to every material. */
+  setWounds(pos: THREE.Vector4[], dir: THREE.Vector4[], count: number) {
+    const n = Math.min(8, count);
+    for (const m of this.materials) {
+      const a = m.uniforms.u_wounds.value as THREE.Vector4[];
+      const b = m.uniforms.u_woundDir?.value as THREE.Vector4[] | undefined;
+      for (let i = 0; i < n; i++) {
+        a[i].copy(pos[i]);
+        b?.[i].copy(dir[i]);
+      }
+      m.uniforms.u_woundCount.value = n;
+    }
+  }
+
+  /** Fade (1 = opaque .. 0 = gone, dithered) the whole model. */
+  setFade(f: number) {
+    for (const m of this.materials) if (m.uniforms.u_fade) m.uniforms.u_fade.value = f;
   }
 
   clearWounds() {

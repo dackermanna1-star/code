@@ -77,6 +77,8 @@ export class Game {
   itemModels: any = null;
   ui: any = null;
   particles: any = null;
+  /** Gore system (wounds, decals, dismemberment) - filled by GoreSystem. */
+  gore: any = null;
   physics: any = null;
   saver: any = null;
 
