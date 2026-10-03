@@ -33,6 +33,14 @@ export class AudioEngine {
   private master!: GainNode;
   private sfx!: GainNode;
   private amb!: GainNode;
+  /** Music bus (the ambience/music volume). */
+  get musicBus() {
+    return this.amb;
+  }
+  /** Synthesized variants of a sound. */
+  bufferOf(name: string) {
+    return this.buffers.get(name);
+  }
   private verbIn!: GainNode;
   private buffers = new Map<string, AudioBuffer[]>();
   private active = new Map<string, AudioBufferSourceNode[]>();
@@ -42,7 +50,10 @@ export class AudioEngine {
   private hordeLevel = 0;
   ready = false;
 
-  async init(progress?: (p: number) => void) {
+  /** Ambience beds (wind, rain, horde) are only built for Blood Road. */
+  ambience = true;
+
+  async init(progress?: (p: number) => void, recipes: Record<string, { variants: number; fn: (v: number) => Float32Array }> = RECIPES) {
     try {
       const AC = window.AudioContext || (window as any).webkitAudioContext;
       this.ctx = new AC({ latencyHint: 'interactive' });
@@ -79,12 +90,12 @@ export class AudioEngine {
     verbOut.connect(this.master);
 
     // synthesize everything
-    const names = Object.keys(RECIPES);
+    const names = Object.keys(recipes);
     let done = 0;
-    const total = names.reduce((a, n) => a + RECIPES[n].variants, 0) + 4;
+    const total = names.reduce((a, n) => a + recipes[n].variants, 0) + 4;
     let lastYield = performance.now();
     for (const name of names) {
-      const r = RECIPES[name];
+      const r = recipes[name];
       const arr: AudioBuffer[] = [];
       for (let v = 0; v < r.variants; v++) {
         srand(hash(name) + v * 7919);
@@ -99,7 +110,7 @@ export class AudioEngine {
       }
       this.buffers.set(name, arr);
     }
-    this.buildAmbience();
+    if (this.ambience) this.buildAmbience();
     progress?.(1);
     this.ready = true;
   }
@@ -345,6 +356,7 @@ export class AudioEngine {
       (L as any).setPosition(cam.position.x, cam.position.y, cam.position.z);
       (L as any).setOrientation(f.x, f.y, f.z, e[4], e[5], e[6]);
     }
+    if (!this.ambience) return;
     // ambience
     const s = G.atmosphere.state;
     let near = 0;

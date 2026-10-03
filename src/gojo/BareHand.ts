@@ -162,12 +162,15 @@ export class BareHand {
   private mSkinD: THREE.MeshPhongMaterial;
   private mNail: THREE.MeshPhongMaterial;
 
-  constructor(readonly side: 1 | -1) {
+  constructor(
+    readonly side: 1 | -1,
+    mats?: { skin: THREE.Material; skinD: THREE.Material; nail: THREE.Material },
+  ) {
     const s = side;
     // own copies: the look (Gojo or Sukuna) recolours them
-    const skin = (this.mSkin = gunMat(SKIN, 0, 'skin').clone());
-    const skinD = (this.mSkinD = gunMat(SKIN_D, 0, 'skin').clone());
-    const nail = (this.mNail = gunMat(NAIL, 0, 'poly').clone());
+    const skin = (this.mSkin = (mats?.skin ?? gunMat(SKIN, 0, 'skin').clone()) as THREE.MeshPhongMaterial);
+    const skinD = (this.mSkinD = (mats?.skinD ?? gunMat(SKIN_D, 0, 'skin').clone()) as THREE.MeshPhongMaterial);
+    const nail = (this.mNail = (mats?.nail ?? gunMat(NAIL, 0, 'poly').clone()) as THREE.MeshPhongMaterial);
     const add = (size: V3, pos: V3, m: THREE.Material, rot?: V3) => {
       const mesh = new THREE.Mesh(chamferBox(size[0], size[1], size[2]), m);
       mesh.position.set(pos[0] * s, pos[1], pos[2]);
@@ -214,8 +217,17 @@ export class BareHand {
     this.mSkinD.color.setHex(look.skinD);
     this.mNail.color.setHex(look.nail);
     // black nails get a little lacquer shine
-    this.mNail.shininess = look.nail < 0x202020 ? 60 : 16;
-    this.mNail.specular.setHex(look.nail < 0x202020 ? 0x4a4a50 : 0x1e1e1e);
+    if (this.mNail.specular) {
+      this.mNail.shininess = look.nail < 0x202020 ? 60 : 16;
+      this.mNail.specular.setHex(look.nail < 0x202020 ? 0x4a4a50 : 0x1e1e1e);
+    }
+  }
+
+  /** Every mesh of the hand (for shadow / layer settings). */
+  meshes() {
+    const out: THREE.Mesh[] = [];
+    this.group.traverse((o) => (o as THREE.Mesh).isMesh && out.push(o as THREE.Mesh));
+    return out;
   }
 
   setNailColor(hex: number) {

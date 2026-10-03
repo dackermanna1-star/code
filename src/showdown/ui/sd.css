@@ -1,0 +1,50 @@
+:root {
+  --ink: #0b0a10;
+  --paper: #f3f1ea;
+  --blue: #5fc8ff;
+  --red: #ff2a3c;
+  --purple: #b24dff;
+  --font-brush: 'SD Brush', 'SD Mincho', 'Yu Mincho', 'Hiragino Mincho ProN', serif;
+  --font-impact: 'SD Impact', 'SD Mincho', 'Yu Gothic', 'Hiragino Sans', sans-serif;
+  --font-mincho: 'SD Mincho', 'Yu Mincho', 'Hiragino Mincho ProN', serif;
+  --font-comic: 'SD Comic', 'SD Oswald', Impact, sans-serif;
+  --font-ui: 'SD Oswald', 'Arial Narrow', Arial, sans-serif;
+  color-scheme: dark;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#app {
+  position: fixed;
+  inset: 0;
+}
+#game {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  outline: none;
+}
+#ui {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: var(--font-ui);
+  color: #fff;
+}
+.sd-fatal {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font: 20px var(--font-ui);
+  color: #fff;
+  background: #200;
+}

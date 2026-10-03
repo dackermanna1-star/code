@@ -16,11 +16,13 @@ export interface ParticleOpts {
   /** Alpha-test cutoff (pixel-crisp particles). */
   alphaTest?: number;
   fog?: boolean;
+  /** Fade particles out within this distance of the camera: [gone, full] (metres). */
+  nearFade?: [number, number];
 }
 
 const VERT = /* glsl */ `
 attribute vec3 aPos; attribute vec3 aVel; attribute vec4 aTime; attribute vec4 aSize; attribute vec4 aC0; attribute vec4 aC1;
-uniform float uTime; uniform float uStretch; uniform float uGround;
+uniform float uTime; uniform float uStretch; uniform float uGround; uniform vec2 uNearFade;
 varying vec4 vColor; varying vec2 vUv;
 #include <fog_pars_vertex>
 void main(){
@@ -60,6 +62,7 @@ void main(){
   } else {
     mv.xy += c2 * size;
   }
+  if (uNearFade.y > 0.0) vColor.a *= smoothstep(uNearFade.x, uNearFade.y, -mv.z);
   gl_Position = projectionMatrix * mv;
   vec4 mvPosition = mv;
   #include <fog_vertex>
@@ -136,6 +139,7 @@ export class ParticleSystem {
           uLit: { value: o.lit ? 1 : 0 },
           uAmbient: { value: new THREE.Color(1, 1, 1) },
           uAlphaTest: { value: o.alphaTest ?? 0.01 },
+          uNearFade: { value: new THREE.Vector2(o.nearFade?.[0] ?? 0, o.nearFade?.[1] ?? 0) },
         },
       ]),
       transparent: true,

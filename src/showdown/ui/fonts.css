@@ -1,0 +1,26 @@
+/* Display fonts, subset to the glyphs the game uses (tools/subset-fonts.py). */
+@font-face {
+  font-family: 'SD Brush';
+  src: url('../fonts/brush.woff2') format('woff2');
+  font-display: block;
+}
+@font-face {
+  font-family: 'SD Impact';
+  src: url('../fonts/impact.woff2') format('woff2');
+  font-display: block;
+}
+@font-face {
+  font-family: 'SD Mincho';
+  src: url('../fonts/mincho.woff2') format('woff2');
+  font-display: block;
+}
+@font-face {
+  font-family: 'SD Comic';
+  src: url('../fonts/comic.woff2') format('woff2');
+  font-display: block;
+}
+@font-face {
+  font-family: 'SD Oswald';
+  src: url('../fonts/oswald.woff2') format('woff2');
+  font-display: block;
+}
