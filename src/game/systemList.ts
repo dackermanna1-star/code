@@ -7,6 +7,7 @@ import { CoreWorldSystem } from './coreWorld';
 import { AudioGlueSystem } from './audioGlue';
 import { ContainerSystem } from './containers/system';
 import { ItemSystem } from './items/itemSystem';
+import { MobSpawningSystem } from './spawning';
 
 export function createSystems(): GameSystem[] {
   return [
@@ -15,5 +16,6 @@ export function createSystems(): GameSystem[] {
     new AudioGlueSystem(),
     new ContainerSystem(),
     new ItemSystem(),
+    new MobSpawningSystem(),
   ];
 }
