@@ -6,7 +6,14 @@ import { OverlaySystem } from './overlays';
 import { CoreWorldSystem } from './coreWorld';
 import { AudioGlueSystem } from './audioGlue';
 import { ContainerSystem } from './containers/system';
+import { ItemSystem } from './items/itemSystem';
 
 export function createSystems(): GameSystem[] {
-  return [new CoreWorldSystem(), new OverlaySystem(), new AudioGlueSystem(), new ContainerSystem()];
+  return [
+    new CoreWorldSystem(),
+    new OverlaySystem(),
+    new AudioGlueSystem(),
+    new ContainerSystem(),
+    new ItemSystem(),
+  ];
 }

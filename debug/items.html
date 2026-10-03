@@ -1,0 +1,14 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Items debug</title>
+<style>
+html,body{margin:0;background:#2b2d31;color:#ddd;font:11px system-ui,sans-serif;overflow:hidden}
+#grid{display:flex;flex-wrap:wrap;gap:4px;padding:6px;align-content:flex-start}
+.cell{width:var(--cell,76px);display:flex;flex-direction:column;align-items:center;gap:2px}
+.cell .ico{width:var(--ico,64px);height:var(--ico,64px);display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.06);border-radius:4px}
+.cell img,.cell canvas{width:var(--ico,64px);height:var(--ico,64px);image-rendering:auto}
+.cell .n{max-width:var(--cell,76px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px;color:#bbb}
+#info{position:fixed;right:6px;bottom:4px;color:#8f8;font:11px monospace}
+canvas#view{position:fixed;inset:0;width:100%;height:100%;display:none}
+</style></head>
+<body><div id="grid"></div><canvas id="view"></canvas><div id="info"></div>
+<script type="module" src="/src/debug/items.ts"></script></body></html>
