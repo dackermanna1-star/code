@@ -68,6 +68,10 @@ describe('One World Trade Center', () => {
     expect(name(0, 64 + p.podium - 1, cz + p.R)).toBe('fin_wall');
     expect(name(0, 64 + p.podium + 5, cz + p.R)).toBe('curtain_wall');
     expect(name(0, 63, cz)).toBe('smooth_quartz');
+    // parapet: glass ring above the roof deck, open behind it
+    expect(name(0, 64 + p.roof - 1, cz + p.R)).toBe('curtain_wall');
+    expect(name(0, 64 + p.deck, cz + 5)).toBe('gray_concrete');
+    expect(world.getBlock(0, 64 + p.deck + 1, cz + 5)).toBe(0);
     // sealed: every ring cell of every layer below the deck is solid (except the entrance)
     let holes = 0;
     for (let i = 3; i < p.deck; i++) {

@@ -253,7 +253,7 @@ export class LandmarkSystem implements GameSystem {
       // 2) the tower, layer by layer
       for (let n = 0; job.layer >= 0 && job.layer < p.top && budget > 0 && n < LAYERS_PER_TICK; n++) {
         const i = job.layer++;
-        const r = i > p.deck ? 2 : p.R;
+        const r = i >= p.roof ? 2 : p.R;
         for (let wd = -r; wd <= r; wd++) {
           for (let u = -r; u <= r; u++) {
             const s = towerBlock(p, u, wd, i);
