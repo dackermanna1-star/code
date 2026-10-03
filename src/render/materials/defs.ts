@@ -309,7 +309,7 @@ def('gold_block', { prog: 'metal', v: 'metal_block', c: ['#f4cc3e', '#c8961a'], 
 def('copper_block', { prog: 'metal', v: 'metal_block', c: ['#c46e50', '#8a4a34'], p: [0.3, 0.4, 0.36, 0.25, 2], metal: 1 });
 def('netherite_block', { prog: 'metal', v: 'metal_block', c: ['#5a5355', '#332d2e'], p: [0.6, 0.5, 0.33, 0.2, 3], metal: 0.85 });
 // landmark tower (One World Trade Center spawner)
-def('curtain_wall', { prog: 'metal', v: 'curtain_wall', c: ['#9fb6cf', '#c9ced3'], p: [2, 0.035, 0.12, 0], metal: 1, depth: 0.4 });
+def('curtain_wall', { prog: 'metal', v: 'curtain_wall', c: ['#b2c6da', '#d3d7db'], p: [2, 0.035, 0.12, 0], metal: 1, depth: 0.4 });
 def('tower_icon', { prog: 'metal', v: 'tower_icon', c: ['#3a5f8f', '#a8c4e0', '#b0b6bc'], p: [0, 0, 0, 0], metal: 0.4, depth: 0.3 });
 def('fin_wall', { prog: 'metal', v: 'fin_wall', c: ['#d8dde2', '#7d858e'], p: [6, 0.2, 0, 0], metal: 1, depth: 0.6 });
 def('diamond_block', { prog: 'metal', v: 'gem_block', c: ['#2aa8a8', '#62ede4', '#d2fffa', '#1e8a86'], p: [0, 0, 0, 0, 0] });
