@@ -4,6 +4,9 @@
 //  V_LAPIS_BLOCK, V_REDSTONE_BLOCK, V_IRON_BARS, V_IRON_DOOR (uP1.y 1 = top), V_IRON_TRAPDOOR,
 //  V_ANVIL (uP1.y 1 = top), V_CAULDRON (uP1.y 0 side, 1 top, 2 bottom), V_HOPPER (uP1.y 0 outside, 1 top),
 //  V_CHAIN, V_LANTERN (uP1.y 1 = soul)
+//  V_CURTAIN_WALL: uC0 glass, uC1 mullion; uP0 = [mullions per block, glass rough, pane tone variation, -]
+//  V_TOWER_ICON : spawner block face: a tapering glass tower with its spire on a dusk sky; uC0 sky, uC1 glass, uC2 frame
+//  V_FIN_WALL   : uC0 fin face, uC1 fin shadow; uP0 = [fins per block, rough, -, -]
 
 vec3 metalBaseColor(int v) {
   if (v == V_METAL_BLOCK || v == V_GEM_BLOCK || v == V_LAPIS_BLOCK || v == V_REDSTONE_BLOCK) return uC[0];
@@ -235,6 +238,48 @@ Mat material(vec2 uv) {
     float a = max(frameM, glass);
     float h = 0.5 + 0.35 * frameM;
     return M(col, a, h, mix(0.15, 0.4, frameM));
+  }
+  if (v == V_CURTAIN_WALL) {
+    // unitized glass curtain wall: mirror panes between thin aluminium mullions and transoms
+    float n = max(1.0, uP[0].x);
+    float gx = fract(uv.x * n);
+    float dMull = min(gx, 1.0 - gx) / n;
+    float dTran = min(uv.y, 1.0 - uv.y);
+    float mull = max(cover(dMull - 0.42 * PX), cover(dTran - 0.42 * PX));
+    float pane = floor(uv.x * n);
+    float tone = (h1(vec2(pane, 3.0), 811.0) - 0.5) * uP[0].z;
+    vec3 glass = uC[0] * (1.0 + tone) * (0.97 + 0.03 * gnoise(uv * vec2(2.0, 8.0), vec2(2.0, 8.0), 812.0));
+    vec3 col = mix(glass, uC[1], mull);
+    float h = mix(0.5, 0.72, mull);
+    return M(col, 1.0, h, mix(uP[0].y, 0.32, mull));
+  }
+  if (v == V_FIN_WALL) {
+    // vertical prismatic glass fins of the tower base
+    float n = max(1.0, uP[0].x);
+    float f = fract(uv.x * n);
+    float ridge = 1.0 - abs(f * 2.0 - 1.0);
+    float lit = smoothstep(0.0, 1.0, f);
+    vec3 col = mix(uC[1], uC[0], 0.35 + 0.65 * lit);
+    col *= 0.96 + 0.04 * gnoise(uv * vec2(4.0, 16.0), vec2(4.0, 16.0), 813.0);
+    float band = cover(min(uv.y, 1.0 - uv.y) - 0.35 * PX);
+    col = mix(col, uC[1] * 0.8, band);
+    return M(col, 1.0, 0.45 + 0.4 * ridge, uP[0].y);
+  }
+  if (v == V_TOWER_ICON) {
+    // y = 0 at the top of the texture
+    float y = uv.y, x = uv.x - 0.5;
+    vec3 col = mix(uC[0] * 1.15, uC[0] * 0.75, y);
+    float base = 0.86, roofY = 0.3;
+    float hw = mix(0.2, 0.13, sat((base - y) / (base - roofY)));
+    float body = step(roofY, y) * step(y, base) * step(abs(x), hw);
+    float tri = step(abs(x), hw * sat((y - roofY) / (base - roofY)));
+    vec3 glass = mix(uC[1], uC[1] * 0.7, tri) * (0.9 + 0.1 * step(0.5, fract(uv.x * 16.0)));
+    col = mix(col, glass, body);
+    float spire = step(abs(x), 0.6 * PX) * step(0.08, y) * step(y, roofY);
+    col = mix(col, vec3(0.95), spire);
+    vec2 pf = panelFrame(uv, 1.0 * PX, 0.8 * PX);
+    col = mix(uC[2], col, 1.0 - pf.y);
+    return M(col, 1.0, 0.5 + 0.3 * pf.x + 0.1 * body, mix(0.5, 0.08, body));
   }
   return missingTex(uv);
 }

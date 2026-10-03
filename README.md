@@ -42,6 +42,21 @@ atmosphere lookup tables and pre-renders the most common sounds.
 | Zoom | `C` |
 | Pause | `Esc` |
 
+## Worlds, creative mode and landmarks
+
+* **Saving**: worlds are stored in the browser (IndexedDB) and autosave every minute, when the tab
+  is hidden, when you change dimension and on *Save and Quit*. Only player-made changes, container
+  contents and entities are stored; untouched terrain regenerates from the seed. Continue a world
+  from *Singleplayer*.
+* **Creative mode**: pick *Creative* when creating a world. `E` opens the creative inventory
+  (category tabs, search, survival inventory tab with a destroy-item slot).
+* **One World Trade Center**: in the creative inventory (*Functional Blocks* or search "trade").
+  Place it on open ground and a scaled replica rises in front of you over a few seconds: the
+  square base with glass fins, the tapering shaft whose plan turns from a square into a 45° square
+  (an octagon at mid-height), a parapet, roof deck and spire. The world is 256 blocks tall, so the
+  tower is scaled to fit above the spot (about 1:3 at ground level, 178 blocks to the spire tip).
+  Inside: a lobby, a floor every 4 blocks lit by sea lanterns and a ladder core to the roof.
+
 ## Graphics
 
 * Deferred PBR pipeline (WebGL2, HDR): cascaded soft shadows (PCSS), screen-space ambient occlusion,

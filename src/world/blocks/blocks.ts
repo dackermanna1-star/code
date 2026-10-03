@@ -476,6 +476,14 @@ R('stonecutter', stone({ shape: 'enchanting_table', fullCube: false, opacity: 0,
 R('grindstone', stone({ shape: 'anvil', fullCube: false, opacity: 0, hardness: 2, requiresTool: true, orient: 'hfacing', tex: { up: 'grindstone_round', down: 'dark_oak_planks', north: 'grindstone_side', south: 'grindstone_side', west: 'grindstone_side', east: 'grindstone_side' } }));
 R('bell', stone({ shape: 'lantern', layer: 'cutout', fullCube: false, opacity: 0, hardness: 5, sound: 'anvil', tex: 'bell_body', harvestTier: 0 }));
 
+// ---------------------------------------------------------------------------------
+// Landmarks (src/game/landmarks.ts): curtain-wall glass, fin cladding and the spawner block.
+// Appended last so existing block ids (and saved worlds) stay valid.
+// ---------------------------------------------------------------------------------
+R('curtain_wall', stone({ hardness: 0.8, resistance: 3, requiresTool: false, sound: 'glass', mapColor: 0x8ea8c4 }));
+R('fin_wall', stone({ hardness: 2, sound: 'metal', mapColor: 0xc4c9ce }));
+R('one_world_trade_center', stone({ hardness: 1, requiresTool: false, sound: 'metal', mapColor: 0x8ea8c4, tex: { up: 'fin_wall', down: 'fin_wall', north: 'tower_icon', south: 'tower_icon', west: 'tower_icon', east: 'tower_icon' } }));
+
 finalizeRegistry();
 
 export {};

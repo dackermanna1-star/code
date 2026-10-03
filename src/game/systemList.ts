@@ -15,6 +15,7 @@ import { FxSystem } from './fxGlue';
 import { WeatherSystem } from './weather';
 import { createSurvivalSystems } from './survival';
 import { SaveSystem } from './saves';
+import { LandmarkSystem } from './landmarks';
 
 export function createSystems(): GameSystem[] {
   return [
@@ -30,6 +31,7 @@ export function createSystems(): GameSystem[] {
     new FxSystem(),
     new WeatherSystem(),
     ...createSurvivalSystems(),
+    new LandmarkSystem(),
     new SaveSystem(),
   ];
 }
