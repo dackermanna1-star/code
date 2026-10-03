@@ -42,6 +42,8 @@ export interface WorldInfo {
   lastPlayed: number;
   hardcore?: boolean;
   cheats?: boolean;
+  /** Never saved (title-screen panorama, test harness). */
+  transient?: boolean;
 }
 
 export interface GameEvents {
@@ -196,6 +198,7 @@ export class Game {
       this.lod.clear();
     }
     this.dimension = dim;
+    await this.saver?.enterDimension?.(this, dim);
     this.world = new World(dim, this.info.seed);
     this.world.tick = this.ticks;
     this.entities = new EntityManager(this, this.world);
@@ -205,6 +208,7 @@ export class Game {
       decorations: this.settings.decorations,
       onChunkReady: (c) => this.onChunkReady(c),
       loadSaved: this.saver?.loadChunk ? (d, cx, cz) => this.saver.loadChunk(this, d, cx, cz) : undefined,
+      onUnload: (c) => this.saver?.chunkUnloaded?.(c),
     });
     let p = pos;
     if (!p) {
@@ -235,7 +239,7 @@ export class Game {
       }
       delete c.data.pendingEntities;
     }
-    const saved = c.data.savedEntities as any[] | undefined;
+    const saved = (c.data.savedEntities as any[] | undefined) ?? this.saver?.takeEntities?.(c.cx, c.cz);
     if (saved) {
       for (const o of saved) {
         const e = createEntity(o.type);

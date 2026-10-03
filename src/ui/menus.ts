@@ -68,8 +68,18 @@ export function worldSelectScreen(ui: UI, cb: MenuCallbacks): Screen {
     ui.closeAll();
     await cb.play(loaded?.info ?? selected, loaded?.data);
   };
+  // two-step confirmation in the button itself (confirm() dialogs are not available everywhere)
+  let armed = false;
   delBtn.onclick = async () => {
-    if (!selected || !confirm(`Delete world "${selected.name}"? This cannot be undone.`)) return;
+    if (!selected) return;
+    if (!armed) {
+      armed = true;
+      delBtn.textContent = `Delete "${selected.name}"? Click again`;
+      setTimeout(() => { armed = false; delBtn.textContent = 'Delete'; }, 4000);
+      return;
+    }
+    armed = false;
+    delBtn.textContent = 'Delete';
     await cb.deleteWorld(selected.id);
     selected = null;
     playBtn.disabled = delBtn.disabled = true;

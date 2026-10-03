@@ -25,6 +25,8 @@ export interface ChunkManagerOptions {
   onChunkReady?: (c: Chunk) => void;
   /** Optional: provides saved chunk data instead of generating. */
   loadSaved?: (dimension: string, cx: number, cz: number) => Promise<Chunk | null>;
+  /** A chunk is about to be unloaded (saves keep player changes). */
+  onUnload?: (chunk: Chunk) => void;
 }
 
 export class ChunkManager {
@@ -125,6 +127,7 @@ export class ChunkManager {
     for (const [k, c] of this.world.chunks) {
       const dx = c.cx - pcx, dz = c.cz - pcz;
       if (dx * dx + dz * dz > ur * ur) {
+        this.opts.onUnload?.(c);
         this.world.removeChunk(c.cx, c.cz);
         this.sink.removeChunk(c.cx, c.cz);
         this.requested.delete(k);

@@ -13,9 +13,10 @@ import { deserializeStack } from '../game/items/registry';
 import { SimpleContainer } from '../game/containers/storage';
 import type { MenuHost } from '../game/containers/menu';
 import { InventoryMenu, CraftingMenu, ChestMenu, FurnaceMenu, BrewingMenu, EnchantmentMenu, AnvilMenu, MerchantMenu } from '../game/containers/menus';
+import { CreativeMenu } from '../game/containers/creative';
 import { newFurnaceData } from '../game/crafting/smelting';
 import { newBrewingData } from '../game/brewing/brewing';
-import { InventoryScreen, CraftingScreen, FurnaceScreen, BasicContainerScreen, BrewingScreen, EnchantmentScreen, AnvilScreen, MerchantScreen } from '../ui/containers/screens';
+import { InventoryScreen, CreativeScreen, CraftingScreen, FurnaceScreen, BasicContainerScreen, BrewingScreen, EnchantmentScreen, AnvilScreen, MerchantScreen } from '../ui/containers/screens';
 
 registerDevItems();
 installCrafting();
@@ -40,6 +41,10 @@ player.addEffect('regeneration', 600, 0);
 const which = q.get('screen') ?? 'inventory';
 let screen: any;
 if (which === 'inventory') screen = new InventoryScreen(ui, new InventoryMenu(host));
+else if (which === 'creative' || which === 'creative-inv') {
+  screen = new CreativeScreen(ui, new CreativeMenu(host));
+  if (which === 'creative-inv') screen.selectTab('inventory');
+}
 else if (which === 'crafting') {
   const m = new CraftingMenu(host);
   ['oak_planks', 'oak_planks', 'oak_planks', null, 'stick', null, null, 'stick', null].forEach((n, i) => n && m.grid.set(i, S(n)));

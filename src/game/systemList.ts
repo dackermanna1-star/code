@@ -14,6 +14,7 @@ import { RagdollSystem } from '../physics/ragdoll';
 import { FxSystem } from './fxGlue';
 import { WeatherSystem } from './weather';
 import { createSurvivalSystems } from './survival';
+import { SaveSystem } from './saves';
 
 export function createSystems(): GameSystem[] {
   return [
@@ -29,5 +30,6 @@ export function createSystems(): GameSystem[] {
     new FxSystem(),
     new WeatherSystem(),
     ...createSurvivalSystems(),
+    new SaveSystem(),
   ];
 }

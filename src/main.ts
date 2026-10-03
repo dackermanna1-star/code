@@ -83,6 +83,7 @@ async function boot() {
   async function showTitle() {
     panorama = true;
     const info = Game.createInfo('Panorama', q.get('menuseed') ?? '1912', 'spectator', 'peaceful');
+    info.transient = true;
     await game.startWorld(info);
     game.player.flying = true;
     game.gamerules.doMobSpawning = false;
@@ -118,6 +119,7 @@ async function boot() {
       (window as any).__shotProgress = { loading: game.loading, ...(game.chunks?.stats ?? {}), fps: game.fps, ready: !!(window as any).__shotReady };
     }, 1000);
     const info = Game.createInfo('Test', q.get('seed') ?? '12345', (q.get('mode') as any) ?? 'creative', 'peaceful');
+    info.transient = true;
     await startWorld(info);
     const p = game.player;
     if (q.has('time')) { game.dayTime = num('time', 6000); game.gamerules.doDaylightCycle = false; }

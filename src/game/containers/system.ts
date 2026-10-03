@@ -24,6 +24,7 @@ import { deserializeStack, type ItemStack } from '../items/registry';
 import type { MenuHost } from './menu';
 import { SerializedStorage, CompoundStorage, comparatorSignal, type SlotStorage } from './storage';
 import { InventoryMenu, CraftingMenu, ChestMenu, DispenserMenu, HopperMenu, FurnaceMenu, BrewingMenu, EnchantmentMenu, AnvilMenu, MerchantMenu } from './menus';
+import { CreativeMenu } from './creative';
 import type { Merchant } from './trading';
 import { installCrafting } from '../crafting';
 import { newFurnaceData, tickFurnace, rollFurnaceXp, type FurnaceData, type FurnaceKind } from '../crafting/smelting';
@@ -32,7 +33,7 @@ import { fillWithLoot } from '../loot/lootTables';
 import { countBookshelves } from '../enchant/table';
 import { anvilDamageRoll } from '../enchant/anvil';
 import { installEnchantmentEffects } from '../enchant/effects';
-import { BasicContainerScreen, InventoryScreen, CraftingScreen, FurnaceScreen, BrewingScreen, EnchantmentScreen, AnvilScreen, MerchantScreen } from '../../ui/containers/screens';
+import { BasicContainerScreen, InventoryScreen, CreativeScreen, CraftingScreen, FurnaceScreen, BrewingScreen, EnchantmentScreen, AnvilScreen, MerchantScreen } from '../../ui/containers/screens';
 import type { ContainerScreen } from '../../ui/containers/screen';
 
 const FURNACES: Record<string, FurnaceKind> = { furnace: 'furnace', lit_furnace: 'furnace', smoker: 'smoker', blast_furnace: 'blast_furnace' };
@@ -55,7 +56,7 @@ export class ContainerSystem implements GameSystem {
       openMerchant: (m: Merchant, player?: any) => this.openMerchant(m, player),
       storageAt: (x: number, y: number, z: number) => this.storageAt(game.world, x, y, z),
     };
-    if (game.ui) game.ui.inventoryFactory = (ui: any) => new InventoryScreen(ui, new InventoryMenu(this.host()));
+    if (game.ui) game.ui.inventoryFactory = (ui: any) => (game.player?.creative ? new CreativeScreen(ui, new CreativeMenu(this.host())) : new InventoryScreen(ui, new InventoryMenu(this.host())));
     this.installBehaviors();
     this.testHarness();
   }

@@ -15,6 +15,7 @@ import { costA, costB, outOfStock, tradeStack, MERCHANT_LEVELS, MERCHANT_XP } fr
 import { tooltipLines, stackName, type TooltipLine } from './tooltip';
 import { displayName, stackKey } from '../../game/containers/stacks';
 import { ARMOR } from '../../game/inventory';
+import { CreativeMenu, CREATIVE_TABS, creativeItems, creativeSearch, creativeTabIcon, type CreativeTabId } from '../../game/containers/creative';
 
 // ====================================================================================== shared
 export class BasicContainerScreen extends ContainerScreen {
@@ -484,5 +485,126 @@ export class MerchantScreen extends ContainerScreen {
       this.list.append(track);
     }
     void stackName;
+  }
+}
+
+// ====================================================================================== creative
+/**
+ * Creative inventory (vanilla CreativeModeInventoryScreen layout, 195x136): two rows of tabs,
+ * a 9x5 infinite item grid with scrollbar, search tab with a text box, and the survival
+ * inventory tab with a destroy-item slot.
+ */
+export class CreativeScreen extends ContainerScreen {
+  private cm: CreativeMenu;
+  private tabEls = new Map<CreativeTabId, HTMLElement>();
+  private titleEl!: HTMLElement;
+  private search!: HTMLInputElement;
+  private scrollEl!: HTMLElement;
+  private thumb!: HTMLElement;
+  private trash!: HTMLElement;
+  private dragThumb = false;
+  private static lastTab: CreativeTabId = 'building';
+  constructor(ui: UI, menu: CreativeMenu) {
+    super(ui, menu, { titleX: 8, titleY: 6, inventoryLabelY: null, kind: 'creative' });
+    this.cm = menu;
+    this.init();
+    this.selectTab(CreativeScreen.lastTab);
+  }
+  protected override extraHeight() {
+    return 2 * 30;
+  }
+  protected override build() {
+    const cm = this.menu as CreativeMenu;
+    this.titleEl = this.label('', 8, 6);
+    let top = 0, bottom = 0;
+    for (const t of CREATIVE_TABS) {
+      if (t.id !== 'search' && t.id !== 'inventory' && !creativeItems(t.id).length) continue;
+      const i = t.row === 'top' ? top++ : bottom++;
+      const el = h('div', { class: `mcc-tab ${t.row}`, title: t.name });
+      this.place(el, i * 29, t.row === 'top' ? -28 : this.H - 2);
+      const icon = creativeTabIcon(t);
+      if (icon) el.append(stackVisual(icon, { count: null }));
+      el.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        this.selectTab(t.id);
+      });
+      this.tabEls.set(t.id, el);
+      this.wrap.append(el);
+    }
+    // search box
+    this.search = h('input', { class: 'mcc-text-input', maxlength: 50, spellcheck: 'false', placeholder: 'Search...' }) as HTMLInputElement;
+    this.place(this.search, 80, 4, 89, 12);
+    this.search.addEventListener('input', () => cm.setItems(creativeSearch(this.search.value)));
+    this.win.append(this.search);
+    // scrollbar
+    this.scrollEl = h('div', { class: 'mcc-scroll' });
+    this.place(this.scrollEl, 174, 17, 14, 90);
+    this.thumb = h('div', { class: 'mcc-thumb' });
+    this.scrollEl.append(this.thumb);
+    this.scrollEl.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      this.dragThumb = true;
+      this.scrollFromMouse(e.clientY);
+    });
+    window.addEventListener('mousemove', this.onThumbMove);
+    window.addEventListener('mouseup', this.onThumbUp);
+    this.win.append(this.scrollEl);
+    // destroy-item slot (survival inventory tab)
+    this.trash = h('div', { class: 'mcc-slot mcc-trash mcc-btn', title: 'Destroy Item (shift: clear inventory)' });
+    this.place(this.trash, 172, 111, 18, 18);
+    this.trash.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      cm.destroy(e.shiftKey);
+      this.dirty = true;
+      this.refresh();
+    });
+    this.win.append(this.trash);
+  }
+  private onThumbMove = (e: MouseEvent) => {
+    if (this.dragThumb) this.scrollFromMouse(e.clientY);
+  };
+  private onThumbUp = () => {
+    this.dragThumb = false;
+  };
+  private scrollFromMouse(clientY: number) {
+    const r = this.scrollEl.getBoundingClientRect();
+    const f = Math.max(0, Math.min(1, (clientY - r.top - 7.5 * this.gp) / (r.height - 15 * this.gp)));
+    this.cm.scrollTo(f * this.cm.maxScroll);
+    this.dirty = true;
+  }
+  protected override onWheel(e: WheelEvent) {
+    e.preventDefault();
+    if (this.cm.tab === 'inventory') return;
+    this.cm.scrollTo(this.cm.scrollRow + Math.sign(e.deltaY));
+    this.dirty = true;
+  }
+  selectTab(tab: CreativeTabId) {
+    CreativeScreen.lastTab = tab;
+    const cm = this.cm;
+    cm.setTab(tab);
+    if (tab === 'search') cm.setItems(creativeSearch(this.search.value));
+    for (const [id, el] of this.tabEls) el.classList.toggle('sel', id === tab);
+    this.views.forEach((v) => (v.el.style.display = v.slot.hidden ? 'none' : ''));
+    const inv = tab === 'inventory';
+    this.titleEl.textContent = CREATIVE_TABS.find((t) => t.id === tab)?.name ?? '';
+    this.titleEl.style.display = tab === 'search' || inv ? 'none' : '';
+    this.search.style.display = tab === 'search' ? '' : 'none';
+    this.scrollEl.style.display = inv ? 'none' : '';
+    this.trash.style.display = inv ? '' : 'none';
+    if (tab === 'search') setTimeout(() => this.search.focus(), 0);
+    this.dirty = true;
+    this.refresh();
+  }
+  protected override updateWidgets() {
+    const cm = this.cm;
+    const max = cm.maxScroll;
+    this.thumb.classList.toggle('off', max === 0);
+    const f = max ? cm.scrollRow / max : 0;
+    this.thumb.style.top = `calc(var(--gp) * ${1 + f * (90 - 17)})`;
+  }
+  override onClose() {
+    window.removeEventListener('mousemove', this.onThumbMove);
+    window.removeEventListener('mouseup', this.onThumbUp);
+    super.onClose();
   }
 }
