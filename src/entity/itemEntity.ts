@@ -1,6 +1,11 @@
 /**
- * Dropped item entity (bobbing, merging, pickup). Visual model comes from `game.itemModels`
- * if available (3D item meshes), else a small coloured cube.
+ * Dropped item entity (merging, pickup delay, 5-minute despawn, magnet pickup animation).
+ *
+ * With `game.physics` (Rapier) available the item is a small rigid body that tumbles, bounces,
+ * rolls and slides with per-material friction/restitution, floats in water (buoyancy + drag +
+ * flow), and is flung by explosions. Without it, the original Minecraft-style AABB motion is used.
+ * Visual model comes from `game.itemModels.create(stack, 'dropped')` if available (its bounds
+ * size the collider), else a small coloured cube.
  */
 import * as THREE from 'three';
 import { Entity } from './entity';
@@ -8,8 +13,12 @@ import { stackable, type ItemStack, cloneStack } from '../game/items/registry';
 import { createEntityMaterial, setEntityLight } from '../render/entityMaterial';
 import { BLOCK_BY_NAME } from '../world/blocks/registry';
 import { registerEntity } from './manager';
+import { itemPhysShape } from '../physics/materials';
+import { GROUP, type PhysBody, type PhysicsWorld } from '../physics/rapierWorld';
 
 const BOX = new THREE.BoxGeometry(0.25, 0.25, 0.25);
+const _box = new THREE.Box3();
+const _v = new THREE.Vector3();
 
 export class ItemEntity extends Entity {
   readonly type = 'item';
@@ -22,6 +31,16 @@ export class ItemEntity extends Entity {
   collectTicks = 0;
   private mat: THREE.RawShaderMaterial | null = null;
   spin = Math.random() * Math.PI * 2;
+  /** Rigid body (null = AABB fallback physics). */
+  body: PhysBody | null = null;
+  /** Half extents of the physical shape. */
+  readonly half = new THREE.Vector3(0.125, 0.125, 0.125);
+  readonly quat = new THREE.Quaternion();
+  readonly prevQuat = new THREE.Quaternion();
+  /** Child holding the visual, offset so the body centre is the model centre. */
+  private visual: THREE.Object3D | null = null;
+  /** True once the item became a rigid body (keeps its physical pose while being collected). */
+  physical = false;
 
   constructor(stack?: ItemStack) {
     super();
@@ -34,6 +53,7 @@ export class ItemEntity extends Entity {
   override init(game: any, world: any) {
     super.init(game, world);
     this.buildModel();
+    this.createBody();
   }
 
   buildModel() {
@@ -48,8 +68,80 @@ export class ItemEntity extends Entity {
       model = new THREE.Group();
       model.add(m);
     }
-    this.model = model;
+    const holder = new THREE.Group();
+    holder.add(model);
+    this.visual = model;
+    this.model = holder;
     this.model.userData.entity = this;
+    model.userData.entity = this;
+  }
+
+  private physicsWorld(): PhysicsWorld | null {
+    return ((this.game as any)?.physics as PhysicsWorld | null) ?? null;
+  }
+
+  /** Create the rigid body (if Rapier is available). */
+  createBody() {
+    const pw = this.physicsWorld();
+    if (!pw || this.body || !this.stack.item) return;
+    const shape = itemPhysShape(this.stack);
+    const half = new THREE.Vector3(...shape.half);
+    // size the collider from the real visual when another workstream provides item models
+    if (this.visual && !this.mat) {
+      this.visual.updateMatrixWorld(true);
+      _box.setFromObject(this.visual);
+      if (!_box.isEmpty()) {
+        const s = _box.getSize(_v).multiplyScalar(0.5);
+        if (s.x > 0.01 && s.y > 0.003 && s.z > 0.003 && s.x < 0.6 && s.y < 0.6 && s.z < 0.6) {
+          half.set(Math.max(0.015, s.x), Math.max(0.015, s.y), Math.max(0.015, s.z));
+          const c = _box.getCenter(_v);
+          this.visual.position.sub(c);
+        }
+      }
+    }
+    this.half.copy(half);
+    this.quat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * Math.PI * 2);
+    if (shape.kind === 'flat') this.quat.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), (Math.random() - 0.5) * 0.6));
+    this.prevQuat.copy(this.quat);
+    const c = this.pos.clone().add(new THREE.Vector3(0, this.height / 2, 0));
+    const sp = this.vel.length();
+    this.body = pw.addBody({
+      kind: 'item',
+      owner: this,
+      position: c,
+      rotation: this.quat,
+      linvel: this.vel,
+      angvel: { x: (Math.random() - 0.5) * (4 + sp), y: (Math.random() - 0.5) * 6, z: (Math.random() - 0.5) * (4 + sp) },
+      shape: { type: 'box', half: [half.x, half.y, half.z] },
+      mass: shape.mass,
+      friction: shape.mat.friction,
+      restitution: shape.mat.restitution,
+      buoyancy: 1.7,
+      group: GROUP.ITEM,
+      linearDamping: 0.05,
+      angularDamping: shape.kind === 'flat' ? 0.6 : 0.25,
+      ccd: sp > 12,
+    });
+    this.body.userData.sound = shape.kind === 'block' ? BLOCK_BY_NAME.get(this.stack.item.block!)?.sound : shape.mat.density > 5000 ? 'chain' : 'wood';
+    this.mass = shape.mass;
+    this.physical = true;
+  }
+
+  /** Called by the physics world when the body fell out of the world. */
+  onPhysicsLost() {
+    this.remove();
+  }
+
+  override remove() {
+    super.remove();
+    this.dropBody();
+  }
+
+  private dropBody() {
+    if (this.body) {
+      this.physicsWorld()?.removeBody(this.body);
+      this.body = null;
+    }
   }
 
   override tick() {
@@ -84,10 +176,24 @@ export class ItemEntity extends Entity {
 
   override physicsStep(dt: number) {
     this.prevPos.copy(this.pos);
+    this.prevQuat.copy(this.quat);
     if (this.collector) {
+      this.dropBody();
       const t = this.collector.pos;
       this.pos.lerp(new THREE.Vector3(t.x, t.y + 0.8, t.z), Math.min(1, dt * 18));
       this.updateBox();
+      return;
+    }
+    if (!this.body && this.physicsWorld()) this.createBody();
+    const b = this.body;
+    if (b && !b.removed) {
+      // read back the last rigid-body state (stepped after entity physics)
+      this.pos.set(b.pos.x, b.pos.y - this.height / 2, b.pos.z);
+      this.quat.copy(b.quat);
+      b.linvel(this.vel);
+      this.updateBox();
+      this.updateEnvironment();
+      this.onGround = Math.abs(this.vel.y) < 0.05;
       return;
     }
     this.updateEnvironment();
@@ -109,14 +215,22 @@ export class ItemEntity extends Entity {
   override updateVisual(alpha: number, dt: number) {
     if (!this.model) return;
     const p = this.renderPos(alpha);
-    const bob = this.collector ? 0 : Math.sin(this.age / 10 + alpha / 10 + this.bobOffset) * 0.06 + 0.1;
-    this.spin += dt * 1.2;
-    this.model.position.set(p.x, p.y + bob + 0.125, p.z);
-    this.model.rotation.set(0, this.spin, 0);
     const n = Math.min(4, this.stack.count > 32 ? 4 : this.stack.count > 16 ? 3 : this.stack.count > 1 ? 2 : 1);
     this.model.userData.stackVisualCount = n;
-    if (this.mat) setEntityLight(this.mat, this.world.getLight(Math.floor(p.x), Math.floor(p.y + 0.2), Math.floor(p.z)));
-    else this.model.traverse((o: any) => o.material?.uniforms?.u_light && setEntityLight(o.material, this.world.getLight(Math.floor(p.x), Math.floor(p.y + 0.2), Math.floor(p.z))));
+    if (this.visual) this.visual.userData.stackVisualCount = n;
+    if (this.physical) {
+      this.model.position.set(p.x, p.y + this.height / 2, p.z);
+      this.model.quaternion.copy(this.prevQuat).slerp(this.quat, alpha);
+      if (this.collector) this.model.scale.setScalar(Math.max(0.2, 1 - this.collectTicks * 0.25));
+    } else {
+      const bob = this.collector ? 0 : Math.sin(this.age / 10 + alpha / 10 + this.bobOffset) * 0.06 + 0.1;
+      this.spin += dt * 1.2;
+      this.model.position.set(p.x, p.y + bob + 0.125, p.z);
+      this.model.rotation.set(0, this.spin, 0);
+    }
+    const L = this.world.getLight(Math.floor(p.x), Math.floor(p.y + 0.2), Math.floor(p.z));
+    if (this.mat) setEntityLight(this.mat, L);
+    else this.model.traverse((o: any) => o.material?.uniforms?.u_light && setEntityLight(o.material, L));
   }
 
   override serialize() {

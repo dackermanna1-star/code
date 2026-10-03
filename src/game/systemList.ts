@@ -5,7 +5,8 @@ import type { GameSystem } from './systems';
 import { OverlaySystem } from './overlays';
 import { CoreWorldSystem } from './coreWorld';
 import { AudioGlueSystem } from './audioGlue';
+import { PhysicsSystem } from '../physics/system';
 
 export function createSystems(): GameSystem[] {
-  return [new CoreWorldSystem(), new OverlaySystem(), new AudioGlueSystem()];
+  return [new PhysicsSystem(), new CoreWorldSystem(), new OverlaySystem(), new AudioGlueSystem()];
 }
