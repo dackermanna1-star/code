@@ -14,6 +14,7 @@ import { PARTICLE_DEFS, Pool, Mode, Orient, Motion, Ramp, Land, type PDef } from
 import { generateAtlas, type AtlasData } from './atlas';
 import { billboardVertex, BILLBOARD_FRAG, CRUMB_VERT, CRUMB_FRAG } from './shaders';
 import { pointSolid, type BoxHit, type ParticleWorld } from './blockInfo';
+import { FlashPass } from './flash';
 import { T_LIQUID } from '../../world/blocks/registry';
 
 /** What the system needs from the renderer (structural; satisfied by `Renderer`). */
@@ -124,8 +125,12 @@ export class ParticleSystem {
     for (const b of this.bb) this.forwardScene.add(b.mesh);
     this.crumbBatch = new CrumbBatch(this.pools[Pool.Crumb], { u_albedo: tu.u_albedo, u_normalTex: tu.u_normalTex, u_props: tu.u_props });
     this.gbufferScene.add(this.crumbBatch.mesh);
+    this.flash = new FlashPass(lu, this.linDepthUniform);
+    this.forwardScene.add(this.flash.mesh);
     this.renderer = renderer;
   }
+  /** Transient lights (explosions, fireworks, lightning sky flash). Null until attached. */
+  flash: FlashPass | null = null;
   private renderer: ParticleRendererLike | null = null;
 
   get attached() {
@@ -139,6 +144,7 @@ export class ParticleSystem {
   clear() {
     for (const p of this.pools) p.clear();
     this.pending.length = 0;
+    this.flash?.clear();
   }
 
   // ------------------------------------------------------------------------------ spawning
@@ -201,7 +207,8 @@ export class ParticleSystem {
   }
 
   // ------------------------------------------------------------------------------ simulation
-  update(dt: number, camPos: THREE.Vector3) {
+  update(dt: number, camera: THREE.PerspectiveCamera) {
+    const camPos = camera.position;
     const t0 = performance.now();
     dt = Math.min(dt, 0.1);
     this.time += dt;
@@ -214,6 +221,7 @@ export class ParticleSystem {
       this.linDepthUniform.value = this.renderer.linearDepthTexture;
       for (const b of this.bb) b.write(this, this.camX, this.camY, this.camZ, b.pool === this.pools[Pool.Alpha]);
       this.crumbBatch.write(this.camX, this.camY, this.camZ);
+      this.flash?.update(dt, camera);
     }
     const t2 = performance.now();
     this.stats.crumbs = this.pools[0].count;
@@ -394,6 +402,7 @@ export class ParticleSystem {
     for (const b of this.bb) b.dispose();
     this.crumbBatch?.dispose();
     this.atlas?.dispose();
+    this.flash?.dispose();
   }
 }
 
