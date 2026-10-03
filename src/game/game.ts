@@ -88,7 +88,7 @@ export class Game {
   /** Absolute game ticks and day time (ticks). */
   ticks = 0;
   dayTime = 1000;
-  readonly weather = { rain: 0, thunder: 0, raining: false, thundering: false, rainTime: 12000 + Math.floor(Math.random() * 168000), thunderTime: 12000 + Math.floor(Math.random() * 168000) };
+  readonly weather = { rain: 0, thunder: 0, raining: false, thundering: false, wetness: 0, rainTime: 12000 + Math.floor(Math.random() * 168000), thunderTime: 12000 + Math.floor(Math.random() * 168000) };
   paused = false;
   running = false;
   realTime = 0;

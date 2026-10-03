@@ -11,6 +11,8 @@ import { MobSpawningSystem } from './spawning';
 import { PhysicsSystem } from '../physics/system';
 import { ExplosionSystem } from './explosions';
 import { RagdollSystem } from '../physics/ragdoll';
+import { FxSystem } from './fxGlue';
+import { WeatherSystem } from './weather';
 
 export function createSystems(): GameSystem[] {
   return [
@@ -23,5 +25,7 @@ export function createSystems(): GameSystem[] {
     new PhysicsSystem(),
     new ExplosionSystem(),
     new RagdollSystem(),
+    new FxSystem(),
+    new WeatherSystem(),
   ];
 }
