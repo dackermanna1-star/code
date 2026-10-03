@@ -1,13 +1,17 @@
 // Adaptive quality: watches the frame time and steps quality down (or back up) to stay smooth.
 
+import * as THREE from 'three';
 import type { Game } from './Game';
 
+// `gloss` keeps the clearcoat layer on the candy-lacquer surfaces. It is the priciest part of
+// shading big areas (cabinets, appliances), so it goes before resolution and shadows do.
 const LEVELS = [
-  { pixelRatio: 2, shadows: true, shadowSize: 2048, fx: 1 },
-  { pixelRatio: 1.5, shadows: true, shadowSize: 2048, fx: 1 },
-  { pixelRatio: 1.25, shadows: true, shadowSize: 1024, fx: 0.8 },
-  { pixelRatio: 1, shadows: true, shadowSize: 1024, fx: 0.6 },
-  { pixelRatio: 0.85, shadows: false, shadowSize: 512, fx: 0.5 },
+  { pixelRatio: 2, shadows: true, shadowSize: 2048, fx: 1, gloss: true },
+  { pixelRatio: 1.5, shadows: true, shadowSize: 2048, fx: 1, gloss: true },
+  { pixelRatio: 1.25, shadows: true, shadowSize: 1024, fx: 0.8, gloss: true },
+  { pixelRatio: 1.1, shadows: true, shadowSize: 1024, fx: 0.7, gloss: false },
+  { pixelRatio: 1, shadows: false, shadowSize: 1024, fx: 0.6, gloss: false },
+  { pixelRatio: 0.8, shadows: false, shadowSize: 512, fx: 0.5, gloss: false },
 ];
 
 export class Quality {
@@ -43,7 +47,30 @@ export class Quality {
       }
     }
     g.fx.quality = L.fx;
+    this.setGloss(L.gloss);
     g.resize();
+  }
+
+  private gloss = true;
+  /** Turn the clearcoat layer of the kitchen's materials off (or back on). Recompiles once. */
+  private setGloss(on: boolean) {
+    if (on === this.gloss) return;
+    this.gloss = on;
+    const seen = new Set<THREE.Material>();
+    this.game.kitchen.root.traverse((o) => {
+      const mats = (o as THREE.Mesh).material;
+      if (!mats) return;
+      for (const m of Array.isArray(mats) ? mats : [mats]) {
+        if (seen.has(m) || !(m as THREE.MeshPhysicalMaterial).isMeshPhysicalMaterial) continue;
+        seen.add(m);
+        const pm = m as THREE.MeshPhysicalMaterial;
+        if (on && pm.userData.clearcoat0 !== undefined) pm.clearcoat = pm.userData.clearcoat0;
+        else if (!on && pm.clearcoat > 0) {
+          pm.userData.clearcoat0 = pm.clearcoat;
+          pm.clearcoat = 0;
+        }
+      }
+    });
   }
 
   update(dt: number) {

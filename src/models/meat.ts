@@ -1174,7 +1174,7 @@ function baconSection(ctx: CanvasRenderingContext2D, s: number) {
 
 function makeCanvasLocal(w: number, h: number): { canvas: HTMLCanvasElement | OffscreenCanvas; ctx: CanvasRenderingContext2D } {
   const canvas: HTMLCanvasElement | OffscreenCanvas = typeof document !== 'undefined' ? Object.assign(document.createElement('canvas'), { width: w, height: h }) : new OffscreenCanvas(w, h);
-  return { canvas, ctx: canvas.getContext('2d') as CanvasRenderingContext2D };
+  return { canvas, ctx: canvas.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D };
 }
 
 // =============================================================================================

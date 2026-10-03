@@ -12,16 +12,8 @@ export default defineConfig(({ mode }) => ({
     chunkSizeWarningLimit: 5000,
     assetsInlineLimit: mode === 'single' ? 100_000_000 : 4096,
   },
-  server: { port: 5173, strictPort: false, hmr: process.env.NO_HMR || process.env.MUNCH_SHIMS ? false : undefined },
-  // MUNCH_SHIMS=1 swaps in tiny dev stand-ins for modules that are still being written.
-  resolve: process.env.MUNCH_SHIMS
-    ? {
-        alias: [
-          { find: /^.*\/food\/process$/, replacement: '/src/dev/shims/process.ts' },
-          { find: /^(\.\.\/)+recipes$/, replacement: '/src/dev/shims/recipes.ts' },
-        ],
-      }
-    : undefined,
+  // NO_HMR=1 keeps scripted playtests from reloading while files change.
+  server: { port: 5173, strictPort: false, hmr: process.env.NO_HMR ? false : undefined },
   test: {
     include: ['tests/**/*.test.ts'],
     environment: 'node',

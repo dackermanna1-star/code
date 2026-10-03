@@ -33,32 +33,53 @@ export class Thumbs {
     this.scene.add(hemi, key, rim);
   }
 
-  /** Thumbnail for an ingredient id (whole). */
-  food(id: string): Promise<string> {
-    return this.foodState(makeFood(id), 'food:' + id);
+  /** Thumbnail for an ingredient id (whole). `urgent` jumps the queue (it is on screen now). */
+  food(id: string, urgent = false): Promise<string> {
+    return this.foodState(makeFood(id), 'food:' + id, urgent);
   }
 
-  foodState(state: FoodState, key = 'state:' + JSON.stringify(state)): Promise<string> {
-    return this.enqueue(key, () => {
-      const v = new FoodVisual(state);
-      const rot = state.id !== 'assembly' ? getModel(state.id).iconRotation : undefined;
-      return { obj: v.root, dispose: () => v.dispose(), rot };
-    });
+  foodState(state: FoodState, key = 'state:' + JSON.stringify(state), urgent = false): Promise<string> {
+    return this.enqueue(
+      key,
+      () => {
+        const v = new FoodVisual(state);
+        const rot = state.id !== 'assembly' ? getModel(state.id).iconRotation : undefined;
+        return { obj: v.root, dispose: () => v.dispose(), rot };
+      },
+      urgent,
+    );
   }
 
-  object(key: string, build: () => THREE.Object3D): Promise<string> {
-    return this.enqueue(key, () => ({ obj: build(), dispose: () => {} }));
+  object(key: string, build: () => THREE.Object3D, urgent = false): Promise<string> {
+    return this.enqueue(key, () => ({ obj: build(), dispose: () => {} }), urgent);
   }
 
-  private enqueue(key: string, build: Job['build']): Promise<string> {
+  get pending(): number {
+    return this.queue.length;
+  }
+
+  private enqueue(key: string, build: Job['build'], urgent: boolean): Promise<string> {
     const hit = this.cache.get(key);
-    if (hit) return hit;
-    const p = new Promise<string>((resolve) => this.queue.push({ key, build, resolve }));
+    if (hit) {
+      if (urgent) {
+        const i = this.queue.findIndex((j) => j.key === key);
+        if (i > 0) this.queue.unshift(...this.queue.splice(i, 1));
+      }
+      return hit;
+    }
+    const p = new Promise<string>((resolve) => {
+      const job = { key, build, resolve };
+      if (urgent) this.queue.unshift(job);
+      else this.queue.push(job);
+    });
     this.cache.set(key, p);
     return p;
   }
 
-  /** Render a few queued thumbnails (call once per frame). */
+  /**
+   * Render queued thumbnails for up to `maxMs` (call once per frame). At least one job runs per
+   * call, and the first build of a model also warms its texture caches for the game itself.
+   */
   pump(maxMs = 6) {
     if (this.busy || !this.queue.length) return;
     this.busy = true;

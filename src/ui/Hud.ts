@@ -257,6 +257,8 @@ export class Hud {
     setTimeout(() => g.character.greet(), 500);
     this.hintStep = 0;
     this.hintT = 2.5;
+    // warm every other fridge shelf in the background: icons, and the models' textures with them
+    for (const t of PANTRY_TABS) for (const d of pantryItems(t.category)) void this.thumbs.food(d.id);
   }
 
   onUserGesture() {
@@ -328,7 +330,7 @@ export class Hud {
     for (const def of pantryItems(this.currentTab)) {
       const card = h('div', 'food-card', `<div class="thumb"><img alt=""></div><span>${def.name}</span>`);
       card.dataset.id = def.id;
-      void this.thumbs.food(def.id).then((url) => {
+      void this.thumbs.food(def.id, this.pantry.classList.contains('open')).then((url) => {
         const img = card.querySelector('img') as HTMLImageElement;
         img.src = url;
         img.classList.add('ready');
@@ -360,6 +362,8 @@ export class Hud {
     if (want === this.pantry.classList.contains('open')) return;
     this.pantry.classList.toggle('open', want);
     this.fridgeTab.classList.toggle('hidden', want);
+    // the cards on screen get their pictures first (reverse: each one jumps to the front)
+    if (want) for (const d of pantryItems(this.currentTab).slice().reverse()) void this.thumbs.food(d.id, true);
     this.game.audio.play(want ? 'fridge-open' : 'fridge-close', { volume: 0.7 });
     const fr = this.game.kitchen.fridge;
     const from = fr.door.rotation.y, to = want ? fr.openAngle * 0.85 : 0;
@@ -397,6 +401,7 @@ export class Hud {
     const want = open ?? !this.spiceRack.classList.contains('open');
     this.spiceRack.classList.toggle('open', want);
     this.spiceBtn.classList.toggle('active', want);
+    if (want) for (const s of SEASONINGS.slice().reverse()) void this.thumbs.object('bottle:' + s.id, () => this.game.makeBottle(s).root, true);
     this.game.audio.play(want ? 'drawer-open' : 'drawer-close', { volume: 0.5 });
   }
 
@@ -640,8 +645,17 @@ export class Hud {
 
   // ------------------------------------------------------------------------------------------
 
+  /** Thumbnails are built a bit per frame, but never while the camera flies or a finger drags. */
+  private pumpThumbs() {
+    if (!this.thumbs.pending) return;
+    const g = this.game;
+    const looking = this.pantry.classList.contains('open') || this.spiceRack.classList.contains('open');
+    if (looking) this.thumbs.pump(8);
+    else if (!g.camera.moving && !g.interaction.active) this.thumbs.pump(this.started ? 4 : 10);
+  }
+
   update(dt: number) {
-    this.thumbs.pump(this.started ? 5 : 12);
+    this.pumpThumbs();
     const cam = this.game.camera.camera;
     const w = this.root.clientWidth, hgt = this.root.clientHeight;
     const proj = (p: THREE.Vector3) => {

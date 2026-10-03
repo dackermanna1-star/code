@@ -433,7 +433,7 @@ function bake(g: THREE.BufferGeometry, pos: V3, yaw = 0, pitch = 0, roll = 0, sc
 function noiseField(ctx: Ctx, w: number, h: number, cells: [number, number], seed: number, map: (n: number) => string, alpha = 1) {
   const cw = cells[0], ch = cells[1];
   const small = makeCanvas(cw * 3, ch * 3) as HTMLCanvasElement;
-  const sx = small.getContext('2d') as Ctx;
+  const sx = small.getContext('2d', { willReadFrequently: true }) as Ctx;
   const img = sx.createImageData(cw, ch);
   const r = rng(seed);
   const vals: number[] = [];

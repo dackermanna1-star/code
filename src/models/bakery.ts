@@ -148,14 +148,14 @@ export function pixelTex(
   const hit = pixCache.get(key);
   if (hit) return hit;
   const cc = makeCanvas(w, h);
-  const ctx = cc.getContext('2d') as CanvasRenderingContext2D;
+  const ctx = cc.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
   const img = ctx.createImageData(w, h);
   let bc: HTMLCanvasElement | OffscreenCanvas | null = null;
   let bctx: CanvasRenderingContext2D | null = null;
   let bimg: ImageData | null = null;
   if (o.bump) {
     bc = makeCanvas(w, h);
-    bctx = bc.getContext('2d') as CanvasRenderingContext2D;
+    bctx = bc.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
     bimg = bctx.createImageData(w, h);
   }
   const col = [0, 0, 0];
@@ -195,7 +195,7 @@ export function drawTex(key: string, w: number, h: number, draw: (ctx: CanvasRen
   const hit = pixCache.get(key);
   if (hit) return hit.map;
   const cc = makeCanvas(w, h);
-  const ctx = cc.getContext('2d') as CanvasRenderingContext2D;
+  const ctx = cc.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
   draw(ctx, w, h);
   const t = toTexture(cc, o.srgb !== false, !!o.wrap);
   pixCache.set(key, { map: t, bump: null });

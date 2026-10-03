@@ -80,6 +80,11 @@ export class Interaction {
     this.raycaster.setFromCamera(this.ndc, this.game.camera.camera);
   }
 
+  /** True while a finger is busy dragging food or pouring a seasoning. */
+  get active(): boolean {
+    return !!this.dragItem || !!this.season || this.mode !== 'none';
+  }
+
   get ray(): THREE.Ray {
     return this.raycaster.ray;
   }

@@ -62,25 +62,27 @@ export function rng(seed: number): Rng {
 // Noise (value noise, deterministic). Returns roughly -1..1.
 
 function hash3(x: number, y: number, z: number): number {
-  let h = x * 374761393 + y * 668265263 + z * 1274126177;
-  h = (h ^ (h >>> 13)) * 1274126177;
-  h = h ^ (h >>> 16);
-  return ((h >>> 0) % 100000) / 50000 - 1;
+  let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(z, 1274126177)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 2147483648 - 1;
 }
 
 function smooth(t: number) {
   return t * t * (3 - 2 * t);
 }
 
+function lerpN(a: number, b: number, t: number) {
+  return a + (b - a) * t;
+}
+
 export function noise3(x: number, y: number, z: number): number {
   const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
   const xf = smooth(x - xi), yf = smooth(y - yi), zf = smooth(z - zi);
-  const l = (a: number, b: number, t: number) => a + (b - a) * t;
-  const c000 = hash3(xi, yi, zi), c100 = hash3(xi + 1, yi, zi);
-  const c010 = hash3(xi, yi + 1, zi), c110 = hash3(xi + 1, yi + 1, zi);
-  const c001 = hash3(xi, yi, zi + 1), c101 = hash3(xi + 1, yi, zi + 1);
-  const c011 = hash3(xi, yi + 1, zi + 1), c111 = hash3(xi + 1, yi + 1, zi + 1);
-  return l(l(l(c000, c100, xf), l(c010, c110, xf), yf), l(l(c001, c101, xf), l(c011, c111, xf), yf), zf);
+  const x1 = xi + 1, y1 = yi + 1, z1 = zi + 1;
+  const a = lerpN(lerpN(hash3(xi, yi, zi), hash3(x1, yi, zi), xf), lerpN(hash3(xi, y1, zi), hash3(x1, y1, zi), xf), yf);
+  const b = lerpN(lerpN(hash3(xi, yi, z1), hash3(x1, yi, z1), xf), lerpN(hash3(xi, y1, z1), hash3(x1, y1, z1), xf), yf);
+  return lerpN(a, b, zf);
 }
 
 export function fbm3(x: number, y: number, z: number, octaves = 3): number {
@@ -130,7 +132,7 @@ export function canvasTexture(
     if (hit) return hit;
   }
   const c = makeCanvas(w, h);
-  const ctx = c.getContext('2d') as CanvasRenderingContext2D;
+  const ctx = c.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
   draw(ctx, w, h);
   const t = new THREE.CanvasTexture(c as HTMLCanvasElement);
   if (opts.srgb !== false) t.colorSpace = THREE.SRGBColorSpace;

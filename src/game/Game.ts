@@ -22,14 +22,9 @@ import type { FoodItem } from './FoodItem';
 import type { SeasoningDef, FoodState } from '../food/types';
 import type { MealAnalysis } from '../recipes';
 import { makeBottleFallback } from '../world/fallbackBottle';
+import { buildBottle } from '../world/props/bottles';
 import { Discoveries } from './Discoveries';
 import { Quality } from './Quality';
-
-let bottleBuilder: ((def: SeasoningDef) => BottleProp) | null = null;
-/** Lazily resolved so the game runs even before the detailed props exist. */
-export function setBottleBuilder(fn: (def: SeasoningDef) => BottleProp) {
-  bottleBuilder = fn;
-}
 
 export class Game {
   readonly renderer: THREE.WebGLRenderer;
@@ -171,7 +166,7 @@ export class Game {
         this.ui.toast('New recipe!', a.name, thumb);
       }
     };
-    if (state) this.ui.thumbs.foodState(state, 'meal:' + this.discoveries.meals + ':' + state.seed).then(finish, () => finish());
+    if (state) this.ui.thumbs.foodState(state, 'meal:' + this.discoveries.meals + ':' + state.seed, true).then(finish, () => finish());
     else finish();
   }
 
@@ -184,7 +179,7 @@ export class Game {
 
   makeBottle(def: SeasoningDef): BottleProp {
     try {
-      if (bottleBuilder) return bottleBuilder(def);
+      return buildBottle(def);
     } catch (e) {
       console.warn('bottle builder failed', e);
     }
