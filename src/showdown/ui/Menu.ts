@@ -47,6 +47,13 @@ export class Menu {
     this.root = document.createElement('div');
     this.root.className = 'sd-menu';
     parent.appendChild(this.root);
+    // menus are laid out for ~900px of height and scaled to fit the window
+    const fit = () => {
+      const k = Math.max(0.5, Math.min(1.25, window.innerHeight / 900, window.innerWidth / 1300));
+      this.root.style.setProperty('--k', k.toFixed(3));
+    };
+    fit();
+    window.addEventListener('resize', fit);
   }
 
   private set(html: string, cls: string) {
@@ -182,9 +189,10 @@ export class Menu {
       return;
     }
     this.set(
-      `<div class="sd-vs"><div class="l"><span class="jp">五条悟</span><span class="en">SATORU GOJO</span><span class="t">現代最強の呪術師</span></div>
-       <div class="mid"><span class="vs">VS</span><span class="ttl">人外魔境新宿決戦</span></div>
-       <div class="r"><span class="jp">両面宿儺</span><span class="en">RYOMEN SUKUNA</span><span class="t">呪いの王</span></div></div>`,
+      `<div class="sd-vs"><div class="l"><span class="t">現代最強の呪術師</span><span class="jp">五条悟</span><span class="en">SATORU GOJO</span></div>
+       <div class="mid"><span class="vs">VS</span></div>
+       <div class="r"><span class="t">呪いの王</span><span class="jp">両面宿儺</span><span class="en">RYOMEN SUKUNA</span></div>
+       <div class="ttl">人外魔境新宿決戦</div></div>`,
       'vs',
     );
   }

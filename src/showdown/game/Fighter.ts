@@ -183,9 +183,13 @@ export class Fighter {
     this.body.setTranslation({ x: this.pos.x, y: this.pos.y + this.height / 2, z: this.pos.z }, true);
   }
 
+  /** Removes the capsule and its controller from the physics world (safe to call twice). */
   dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
     const w = SD.physics.world;
     w.removeCharacterController(this.ctrl);
     w.removeRigidBody(this.body);
   }
+  private disposed = false;
 }

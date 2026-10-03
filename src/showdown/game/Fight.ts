@@ -33,8 +33,14 @@ export class Fight {
   /** manga rendering held on (setting) */
   mangaBase = 0;
   t = 0;
+  /** title: the face-off behind the menu; intro: the opening cutscene; fight: the duel */
+  mode: 'title' | 'intro' | 'fight' = 'fight';
+  private sceneBefore: Set<THREE.Object3D>;
+  private vmBefore: Set<THREE.Object3D>;
 
-  constructor(uiRoot: HTMLElement, diff: Difficulty = DIFFICULTY.hard) {
+  constructor(uiRoot: HTMLElement, diff: Difficulty = DIFFICULTY.hard, mode: 'title' | 'fight' = 'fight') {
+    this.sceneBefore = new Set(SD.scene.children);
+    this.vmBefore = new Set(SD.vmScene.children);
     SD.timing = this.timing;
     this.player = new Player(0, 24);
     this.player.yaw = 0;
@@ -52,6 +58,35 @@ export class Fight {
     };
     this.director = new Director(this);
     SD.director = this.director;
+    this.mode = mode;
+    if (mode === 'title') this.director.attract();
+  }
+
+  /** From the title: set the difficulty and roll the intro (short on a rematch). */
+  begin(diff: Difficulty, short: boolean) {
+    this.boss.setDifficulty(diff);
+    this.mode = 'intro';
+    this.director.intro(short, () => {
+      this.mode = 'fight';
+      this.hud.shown = true;
+    });
+  }
+
+  /** Tears the duel down: bodies, models, effects, HUD and post state. */
+  dispose() {
+    this.director.dispose();
+    this.player.f.dispose();
+    this.boss.f.dispose();
+    for (const o of [...SD.scene.children]) if (!this.sceneBefore.has(o)) SD.scene.remove(o);
+    for (const o of [...SD.vmScene.children]) if (!this.vmBefore.has(o)) SD.vmScene.remove(o);
+    this.hud.dispose();
+    SD.fx.clear();
+    SD.audio?.stopLoops();
+    SD.timeScale = 1;
+    SD.hideVM = false;
+    SD.renderer.resetPost();
+    SD.enemies = [];
+    for (const k of ['player', 'boss', 'director', 'hud', 'onomato', 'subtitle', 'timing']) SD[k] = null;
   }
 
   private onPlayer(name: string, data?: any) {
@@ -88,10 +123,11 @@ export class Fight {
   /** Real-time dt in, scaled sim inside. */
   update(dt: number) {
     this.t += dt;
+    if (this.mode === 'intro' && (SD.input.pressed('Space') || SD.input.pressed('Enter') || SD.input.mousePress(0))) this.director.skipIntro();
     this.timing.update(dt);
     const sdt = dt * SD.timeScale;
     this.postFrame(dt);
-    if (!this.ending) this.stats.time += sdt;
+    if (!this.ending && this.mode === 'fight') this.stats.time += sdt;
     const hp0 = this.player.hp;
     this.player.update(sdt);
     this.boss.phase = this.director.phase;

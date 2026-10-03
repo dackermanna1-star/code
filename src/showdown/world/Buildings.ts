@@ -46,7 +46,7 @@ export class Building {
     this.mesh.userData.building = this;
   }
 
-  static fromSpec(s: BuildingSpec, mat: THREE.Material) {
+  static fromSpec(s: BuildingSpec, mat: THREE.Material, seed?: number) {
     const y0 = s.y0 ?? 0;
     const poly = s.profile
       ? ConvexPoly.lathe(
@@ -57,7 +57,7 @@ export class Building {
         )
       : ConvexPoly.box(s.w / 2, s.d / 2, y0, y0 + s.h);
     const attrs: FacadeAttrs = {
-      fac: [s.style, s.floor ?? 3.9, s.bay ?? (s.style === STYLE.CURTAIN ? 1.6 : 2.6), (seedN++ * 0.6180339) % 1],
+      fac: [s.style, s.floor ?? 3.9, s.bay ?? (s.style === STYLE.CURTAIN ? 1.6 : 2.6), seed ?? (seedN++ * 0.6180339) % 1],
       box: [s.w / 2, s.d / 2, y0 + s.h, y0],
       color: new THREE.Color(s.color),
       glass: new THREE.Color(s.glass ?? 0x6f8fb0),

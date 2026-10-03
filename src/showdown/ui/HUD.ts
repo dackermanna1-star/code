@@ -84,7 +84,9 @@ export class HUD {
       <div class="sd-hint two"></div>
       <div class="sd-prompt"><span class="key"></span><span class="txt"></span><div class="bar"><i></i></div></div>
       <div class="sd-clash"><div class="lbl"><span class="l">無量空処</span><span class="r">伏魔御廚子</span></div><div class="meter"><i class="fill"></i><i class="mark"></i></div><div class="beat"></div><div class="tip">CLICK ON THE BEAT</div></div>
-      <div class="sd-chant"></div>`;
+      <div class="sd-chant"></div>
+      <div class="sd-caption"></div>
+      <div class="sd-skip">SPACE — スキップ <span>SKIP</span></div>`;
     parent.appendChild(r);
     const q = <T extends Element>(s: string) => r.querySelector(s) as T;
     this.bossBox = q('.sd-boss');
@@ -118,8 +120,36 @@ export class HUD {
     }
   }
 
+  /** Gameplay readouts on or off; captions, subtitles and callouts stay for cutscenes. */
   set visible(v: boolean) {
+    this.root.classList.toggle('cine', !v);
+  }
+
+  /** Everything off (title, results). */
+  set shown(v: boolean) {
     this.root.style.display = v ? '' : 'none';
+  }
+
+  /** "SPACE to skip" in the corner of a skippable cutscene. */
+  set skippable(v: boolean) {
+    this.root.classList.toggle('skippable', v);
+  }
+
+  private capT = 0;
+  /** A manga narration box: time and place. */
+  caption(jp: string, en: string, dur = 3) {
+    const el = this.root.querySelector('.sd-caption') as HTMLDivElement;
+    el.innerHTML = jp ? `<div class="jp">${jp}</div><div class="en">${en}</div>` : '';
+    el.classList.remove('show');
+    void el.offsetWidth;
+    if (jp) el.classList.add('show');
+    this.capT = dur;
+  }
+
+  dispose() {
+    window.clearTimeout((this.hintEl as any)._t);
+    window.clearTimeout((this.hint2El as any)._t);
+    this.root.remove();
   }
 
   /** Big technique name: brush kanji with an English line. */
@@ -263,6 +293,7 @@ export class HUD {
     if (this.callT > 0 && (this.callT -= dt) <= 0) this.callEl.classList.remove('show');
     if (this.subT > 0 && (this.subT -= dt) <= 0) this.subEl.classList.remove('show');
     if (this.bfT > 0 && (this.bfT -= dt) <= 0) this.bfEl.classList.remove('show');
+    if (this.capT > 0 && (this.capT -= dt) <= 0) this.root.querySelector('.sd-caption')?.classList.remove('show');
     // sound effects ride the world
     const w = SD.renderer.width;
     const h = SD.renderer.height;

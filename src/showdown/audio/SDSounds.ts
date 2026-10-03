@@ -232,6 +232,13 @@ reg('uiSelect', 1, () => {
   mix(o, modal(0.5, [[1320, 0.4, 0.2], [1980, 0.3, 0.15]]), 0.5);
   return normalize(o, 0.6);
 });
+// a cold gust across the rooftops: the quiet before a cut
+reg('wind', 1, () => {
+  const len = 3.2;
+  const o = biquad(env(pink(len), (t) => Math.min(1, t / 0.8) * Math.min(1, (len - t) / 1.4) * (0.7 + 0.3 * Math.sin(t * 2.3))), 'bp', sweep(380, 900, len), 0.5);
+  mix(o, biquad(env(white(len), (t) => Math.min(1, t / 1.2) * Math.min(1, (len - t) / 1.2)), 'hp', 4200), 0.08);
+  return normalize(o, 0.5);
+});
 reg('heartbeat', 1, () => {
   const o = buf(0.9);
   mix(o, thump(0.2, 60, 40, 0.06), 1);

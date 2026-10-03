@@ -658,3 +658,71 @@
   text-shadow: 0 0 18px #a040ff;
   transform: scale(1.08);
 }
+
+/* ---------------------------------------------------------------- cutscenes */
+.sd-hud.cine .sd-boss,
+.sd-hud.cine .sd-me,
+.sd-hud.cine .sd-tech,
+.sd-hud.cine .sd-cross,
+.sd-hud.cine .sd-ring,
+.sd-hud.cine .sd-zone,
+.sd-hud.cine .sd-hint,
+.sd-hud.cine .sd-chant {
+  display: none;
+}
+/* subtitles drop into the bottom letterbox bar */
+.sd-hud.cine .sd-sub {
+  bottom: 2.2%;
+}
+.sd-hud.cine .sd-sub .jp {
+  font-size: 24px;
+}
+.sd-caption {
+  position: absolute;
+  left: 5vw;
+  top: 16%;
+  padding: 10px 18px 9px;
+  background: #f6f3ea;
+  color: #111;
+  border: 3px solid #111;
+  box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 0.4s,
+    transform 0.4s;
+}
+.sd-caption.show {
+  opacity: 1;
+  transform: none;
+}
+.sd-caption .jp {
+  font-family: var(--font-mincho);
+  font-size: 24px;
+  letter-spacing: 0.18em;
+  white-space: nowrap;
+}
+.sd-caption .en {
+  font-family: var(--font-comic);
+  font-size: 13px;
+  letter-spacing: 0.24em;
+  margin-top: 4px;
+  opacity: 0.75;
+}
+.sd-skip {
+  position: absolute;
+  right: 3vw;
+  bottom: 3.2%;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+.sd-skip span {
+  font-family: var(--font-comic);
+  opacity: 0.75;
+}
+.sd-hud.skippable .sd-skip {
+  opacity: 0.7;
+}

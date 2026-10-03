@@ -426,6 +426,14 @@ export class Destruction {
     }
   }
 
+  /** The city as it was before the fight: every cut undone, every car back in its lane. */
+  reset() {
+    for (const b of [...this.city.buildings]) b.dispose(this.world);
+    this.pieces.length = 0;
+    this.clear();
+    this.city.rebuild();
+  }
+
   clear() {
     this.marks.clear();
     this.fires.length = 0;

@@ -15,6 +15,10 @@ export interface Shot {
   fov?: [number, number];
   roll?: [number, number];
   ease?: 'io' | 'out' | 'in' | 'lin';
+  /** keep the final framing when the shot runs out (cutscenes cut, they never snap back to the eyes) */
+  hold?: boolean;
+  /** turn the view off the subject (radians, + = subject sits right of centre) */
+  pan?: number;
   /** optional per-frame override: called with progress 0..1 */
   fn?: (k: number, pos: THREE.Vector3, look: THREE.Vector3) => void;
 }
@@ -110,13 +114,18 @@ export class CameraRig {
       cam.position.copy(pos);
       cam.up.set(0, 1, 0);
       cam.lookAt(look);
+      if (s.pan) cam.rotateY(s.pan);
       const r = s.roll ? s.roll[0] + (s.roll[1] - s.roll[0]) * e : 0;
       cam.rotateZ(r + n(29, 3) * sr);
       cam.rotateX(n(23, 1) * sp);
       cam.rotateY(n(19, 2) * sy);
       cam.fov = s.fov ? s.fov[0] + (s.fov[1] - s.fov[0]) * e : this.fovBase;
       cam.updateProjectionMatrix();
-      if (k >= 1) {
+      if (k >= 1 && s.hold) {
+        const cb = this.onShotEnd;
+        this.onShotEnd = null;
+        cb?.();
+      } else if (k >= 1) {
         this.shot = null;
         const cb = this.onShotEnd;
         this.onShotEnd = null;

@@ -36,18 +36,11 @@ export class Director {
   private shrineSlashT = 0;
   /** world-cutting slash telegraph */
   wcs: { n: THREE.Vector3; d: number; t: number; locked: boolean; origin: THREE.Vector3; fwd: THREE.Vector3 } | null = null;
-  private wcsSheet: THREE.Mesh;
+  /** the line a cut leaves across the world, white-hot then fading */
+  private cutFx: { n: THREE.Vector3; d: number; t: number } | null = null;
 
   constructor(readonly fight: Fight) {
     SD.scene.add(this.voidEnv.group, this.shrineEnv.group);
-    const sheet = new THREE.Mesh(
-      new THREE.PlaneGeometry(1, 1),
-      new THREE.MeshBasicMaterial({ color: 0xff2020, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }),
-    );
-    sheet.renderOrder = 50;
-    sheet.visible = false;
-    SD.scene.add(sheet);
-    this.wcsSheet = sheet;
     fight.boss.onThreshold = (k) => this.threshold(k);
   }
 
@@ -70,8 +63,8 @@ export class Director {
   }
 
   /** A fixed or travelling shot. */
-  shot(from: THREE.Vector3, to: THREE.Vector3, look0: THREE.Vector3, look1: THREE.Vector3, dur: number, fov: [number, number] = [50, 50], ease: 'io' | 'out' | 'in' | 'lin' = 'io') {
-    this.fight.player.cam.play({ from, to, lookFrom: look0, lookTo: look1, dur, fov, ease });
+  shot(from: THREE.Vector3, to: THREE.Vector3, look0: THREE.Vector3, look1: THREE.Vector3, dur: number, fov: [number, number] = [50, 50], ease: 'io' | 'out' | 'in' | 'lin' = 'io', pan = 0) {
+    this.fight.player.cam.play({ from, to, lookFrom: look0, lookTo: look1, dur, fov, ease, hold: true, pan });
   }
 
   private boss() {
@@ -177,6 +170,228 @@ export class Director {
       return true;
     }
     return false;
+  }
+
+  // ---------------------------------------------------------------- title and intro
+  /** The two of them squared up in the middle of the junction. */
+  private faceOff() {
+    const p = this.player();
+    const b = this.boss();
+    p.f.place(0, SD.city.groundY(0, 8), 8);
+    b.f.place(0, SD.city.groundY(0, -8), -8);
+    p.yaw = 0;
+    p.pitch = 0;
+    b.yaw = 0;
+    p.anim.stance = GJ_POCKETS;
+    b.anim.stance = SK_IDLE;
+    b.anim.stop();
+    p.anim.stop();
+    p.model.setExpr('neutral');
+    b.model.setExpr('smirk');
+  }
+
+  private attractOn = false;
+  private attractT = 0;
+  private attractShot = -1;
+
+  /** Title screen: the face-off behind the menu, in long drifting shots. */
+  attract() {
+    this.cine(true, false);
+    this.fight.hud.shown = false;
+    this.faceOff();
+    this.attractOn = true;
+    this.attractT = 0;
+    this.attractShot = -1;
+  }
+
+  private updateAttract(dt: number) {
+    if (!this.attractOn) return;
+    this.attractT -= dt;
+    const post = SD.renderer.post;
+    // dip to black between shots
+    post.fade = this.attractT < 0.5 ? Math.max(0, 1 - this.attractT / 0.5) : Math.max(0, post.fade - dt * 2);
+    if (this.attractT > 0) return;
+    this.attractShot = (this.attractShot + 1) % 4;
+    const p = this.player().f.pos;
+    const b = this.boss().f.pos;
+    const P = (o: THREE.Vector3, x: number, y: number, z: number) => o.clone().add(V(x, y, z));
+    const dur = 8;
+    // the menu fills the left of the frame, so the pair sits right of centre
+    const shots: [THREE.Vector3, THREE.Vector3, THREE.Vector3, THREE.Vector3, [number, number], number][] = [
+      // over Gojo's left shoulder: Sukuna waits down the street
+      [P(p, -0.6, 1.82, 1.5), P(p, -0.5, 1.8, 1.15), P(b, 0, 1.45, 0), P(b, 0, 1.55, 0), [30, 27], 0.12],
+      // low in front of Gojo: the strongest against the skyline
+      [P(p, 1.6, 0.25, -2.5), P(p, 1.3, 0.35, -2.05), P(p, 0, 1.45, 0), P(p, 0, 1.6, 0), [40, 36], 0.14],
+      // low behind Sukuna's right shoulder, looking up the street at Gojo
+      [P(b, 0.55, 1.15, -1.6), P(b, 0.45, 1.3, -1.25), P(p, 0, 1.65, 0), P(p, 0, 1.75, 0), [32, 28], 0.12],
+      // the junction from the rooftops
+      [V(-44, 58, 52), V(-36, 50, 40), V(0, 0, 0), V(0, 0, -4), [44, 40], 0.16],
+    ];
+    const s = shots[this.attractShot];
+    this.fight.player.cam.play({ from: s[0], to: s[1], lookFrom: s[2], lookTo: s[3], dur, fov: s[4], ease: 'lin', hold: true, pan: s[5] });
+    this.attractT = dur;
+    post.fade = 1;
+  }
+
+  private introDone: (() => void) | null = null;
+  private vsCam = new THREE.PerspectiveCamera(30, 16 / 9, 0.05, 6000);
+
+  /**
+   * December 24th, noon: the city from above, Sukuna, Gojo, the VS card, and
+   * straight into Gojo's eyes. `short` (a rematch) starts at the VS card.
+   */
+  intro(short: boolean, onDone: () => void) {
+    const p = this.player();
+    const b = this.boss();
+    this.attractOn = false;
+    this.introDone = onDone;
+    this.cine(true);
+    this.fight.hud.shown = true;
+    this.fight.hud.skippable = true;
+    this.faceOff();
+    const post = SD.renderer.post;
+    post.fade = 0;
+    const music = SD.music;
+    const t = new Timeline();
+    this.seq = t;
+    const pp = p.f.pos.clone();
+    const bp = b.f.pos.clone();
+    const O = (o: THREE.Vector3, x: number, y: number, z: number) => o.clone().add(V(x, y, z));
+    const vs = () => {
+      // 五条悟 vs 両面宿儺: two close-ups split on a diagonal, manga-inked
+      post.manga = 1;
+      post.split = 1;
+      post.splitAngle = 0.32;
+      post.splitPos = 0;
+      p.model.setExpr('smirk');
+      b.model.setExpr('grin');
+      this.shot(O(pp, 0.16, 1.77, -0.82), O(pp, 0.1, 1.77, -0.62), O(pp, 0, 1.75, 0), O(pp, 0, 1.76, 0), 2.6, [30, 26], 'lin', -0.15);
+      this.vsCam.aspect = SD.camera.aspect;
+      SD.renderer.splitScene = { scene: SD.scene, camera: this.vsCam };
+      SD.menu?.vsCard(true);
+      SD.audio?.play('vsSting', { volume: 1.2 });
+      this.fight.hud.caption('', '', 0);
+      music?.duck(1, 0.2);
+      music?.mix(0.4, 0.8, 0, 0.3);
+    };
+    const vsTick = (k: number) => {
+      post.manga = 1;
+      // Sukuna's half: his own camera, drifting in
+      const c = this.vsCam;
+      c.position.copy(O(bp, -0.16 + k * 0.04, 1.72, 0.82 - k * 0.18));
+      c.up.set(0, 1, 0);
+      c.lookAt(O(bp, 0, 1.69, 0));
+      c.rotateY(0.15);
+      c.fov = 30 - k * 4;
+      c.aspect = SD.camera.aspect;
+      c.updateProjectionMatrix();
+      c.updateMatrixWorld();
+    };
+    const go = () => {
+      SD.menu?.vsCard(false);
+      post.split = 0;
+      SD.renderer.splitScene = null;
+      post.manga = 0;
+      // from over his shoulder into his eyes
+      this.shot(O(pp, 0.55, 2.15, 2.6), O(pp, 0, 1.76, 0.05), O(pp, -0.1, 1.6, -8), O(bp, 0, 1.4, 0), 0.9, [58, 76], 'in');
+      SD.audio?.play('whoosh', { volume: 0.8 });
+    };
+    if (!short) {
+      t.at(0, () => {
+        post.fade = 1;
+        this.shot(V(-74, 96, 124), V(-44, 62, 74), V(0, 40, -220), V(0, 2, 0), 4.3, [56, 46], 'io');
+        SD.audio?.play('wind', { volume: 0.7 });
+        music?.mix(0, 0, 0, 0.5);
+        music?.duck(1, 0.2);
+      });
+      t.during(0, 1.4, (k) => (post.fade = 1 - k));
+      t.at(0.7, () => this.fight.hud.caption('十二月二十四日　正午　新宿', 'DECEMBER 24 — 12:00 — SHINJUKU', 3.4));
+      t.at(4.3, () => {
+        this.shot(O(bp, 1.15, 0.25, 3.3), O(bp, 0.75, 0.6, 2.6), O(bp, 0, 1.1, 0), O(bp, 0, 1.55, 0), 3.0, [40, 34], 'io');
+        SD.audio?.play('taiko', { volume: 0.9 });
+        music?.mix(0, 0.55, 0, 2.5);
+      });
+      t.at(4.9, () => {
+        b.model.setExpr('grin');
+        SD.hud?.subtitle('待ちわびたぞ　五条悟', "I've waited long for this, Satoru Gojo.", 'sukuna', 2.4);
+      });
+      t.at(5.6, () => b.anim.play(SK_LAUGH));
+      t.at(7.3, () => {
+        // over his shoulder: Gojo, hands in pockets, sixteen metres away
+        this.shot(O(bp, -0.36, 1.74, -1.15), O(bp, -0.3, 1.72, -0.95), O(pp, 0.3, 1.4, 0), O(pp, 0.2, 1.5, 0), 1.6, [30, 27], 'lin', -0.1);
+      });
+      t.at(8.9, () => {
+        this.shot(O(pp, 0.4, 1.7, -1.75), O(pp, 0.22, 1.75, -1.3), O(pp, 0, 1.7, 0), O(pp, 0, 1.74, 0), 2.6, [34, 28], 'io');
+        SD.audio?.play('taiko', { volume: 0.9 });
+      });
+      t.at(9.3, () => {
+        p.model.setExpr('smirk');
+        SD.hud?.subtitle('お待たせ', 'Sorry to keep you waiting.', 'gojo', 2);
+      });
+    }
+    const T = short ? 0 : 11.5;
+    t.at(T, vs);
+    t.during(T, T + 2.6, (k) => vsTick(k));
+    t.at(T + 2.6, go);
+    t.at(T + 3.5, () => this.startDuel());
+    t.end(T + 3.6);
+  }
+
+  /** SPACE during the intro. */
+  skipIntro() {
+    if (!this.introDone) return;
+    SD.menu?.vsCard(false);
+    SD.renderer.post.split = 0;
+    SD.renderer.splitScene = null;
+    SD.renderer.post.manga = 0;
+    SD.renderer.post.fade = 0;
+    this.fight.hud.caption('', '', 0);
+    this.startDuel();
+  }
+
+  /** Hands the fight to the player. */
+  private startDuel() {
+    const done = this.introDone;
+    if (!done) return;
+    this.introDone = null;
+    this.seq = null;
+    this.faceOff();
+    this.cine(false);
+    this.fight.hud.skippable = false;
+    const p = this.player();
+    p.model.setExpr('neutral');
+    this.boss().model.setExpr('smirk');
+    SD.hud?.callout('開戦', 'FIGHT', '', 1.4);
+    SD.audio?.play('taiko', { volume: 1.2 });
+    SD.audio?.play('vsSting', { volume: 0.6 });
+    p.cam.shake(0.3);
+    SD.renderer.post.speed = 0.8;
+    SD.renderer.post.speedMode = 0;
+    SD.renderer.post.speedFocus.set(0.5, 0.5);
+    SD.music?.duck(1, 0.2);
+    SD.music?.mix(1, 0.35, 0, 1);
+    done();
+  }
+
+  /** Puts the world back the way the fight found it. */
+  dispose() {
+    this.seq = null;
+    this.after.length = 0;
+    this.attractOn = false;
+    this.introDone = null;
+    this.clash = null;
+    this.sureHit = null;
+    this.wcs = null;
+    this.cutFx = null;
+    this.maho?.dispose();
+    this.maho = null;
+    this.voidEnv.group.removeFromParent();
+    this.shrineEnv.group.removeFromParent();
+    this.env = 'city';
+    this.envTarget = 'city';
+    this.applyEnv();
+    SD.renderer.splitScene = null;
+    SD.menu?.vsCard(false);
   }
 
   // ---------------------------------------------------------------- 領域展開
@@ -580,23 +795,32 @@ export class Director {
       SD.hud?.subtitle('世界ごと断てばいい', "If I can't cut you, I'll cut the world.", 'sukuna', 2.6);
     });
     t.during(2.4, 5, () => (SD.renderer.post.manga = 1));
+    // the skyline behind Gojo, a breath of stillness, then one line through all of it
+    const cut = { n: V(0, 1, 0), d: 0, dir: V(0, 0, 1) };
     t.at(5, () => {
-      // first cut: the skyline behind Gojo
+      SD.renderer.post.manga = 0;
       const dir = V(Math.sin(b.yaw), 0, Math.cos(b.yaw));
-      const n = V(-dir.z, 0, dir.x).applyAxisAngle(dir, 0.0);
-      // a near-horizontal plane, tilted, at roof height
-      const plane = V(0.08, 1, 0.12).normalize();
-      const at = b.f.pos.clone().setY(38);
-      SD.world.slice(plane, plane.dot(at), null, dir, 'wcs', 0.8);
-      void n;
+      const side = V(-dir.z, 0, dir.x);
+      cut.dir.copy(dir);
+      cut.n.set(0, 1, 0).addScaledVector(side, 0.36).addScaledVector(dir, -0.05).normalize();
+      cut.d = cut.n.dot(p.f.pos.clone().addScaledVector(dir, 70).setY(34));
+      const from = p.f.pos.clone().addScaledVector(dir, -14).setY(2.2);
+      this.shot(from, from.clone().add(V(0, 1.2, 0)).addScaledVector(dir, 2), p.f.pos.clone().addScaledVector(dir, 40).setY(30), p.f.pos.clone().addScaledVector(dir, 60).setY(34), 4.2, [62, 60], 'lin');
+      SD.music?.duck(0.0, 0.3);
+      SD.audio?.play('wind', { volume: 0.6 });
+    });
+    t.at(5.7, () => {
+      SD.world.slice(cut.n, cut.d, null, cut.dir, 'wcs', 1.0);
+      this.cutFlash(cut.n, cut.d);
       SD.audio?.play('wcs', { volume: 1.5 });
-      SD.renderer.post.impact = 1.4;
-      SD.renderer.post.impactColor.setRGB(1, 1, 1);
-      SD.renderer.post.flash = 0.6;
-      p.cam.shake(1);
-      const from = p.f.pos.clone().addScaledVector(dir, -12).setY(3);
-      this.shot(from, from.clone().add(V(0, 6, 0)), p.f.pos.clone().setY(30), p.f.pos.clone().addScaledVector(dir, 60).setY(40), 3.2, [65, 70], 'out');
+      SD.renderer.post.flash = 0.35;
+      SD.timing.hitstop(0.08);
+      p.cam.shake(0.5);
       SD.hud?.callout('世界を断つ斬撃', 'The World-Cutting Slash', 'sukuna', 3);
+    });
+    t.at(6.7, () => {
+      p.cam.shake(0.9);
+      SD.audio?.play('collapse', { volume: 1.4 });
     });
     t.at(8.4, () => {
       this.cine(false);
@@ -610,31 +834,51 @@ export class Director {
 
   /** Sukuna chants the cut in phase 4: the plane is shown, then it falls. */
   telegraphWCS(n: THREE.Vector3, d: number, origin: THREE.Vector3, fwd: THREE.Vector3) {
+    if (this.wcs) {
+      this.wcs.n.copy(n);
+      this.wcs.d = d;
+      return;
+    }
     this.wcs = { n, d, t: 0, locked: false, origin, fwd };
   }
 
+  /** A cut has happened along n·x = d: trace it white across everything. */
+  cutFlash(n: THREE.Vector3, d: number) {
+    this.cutFx = { n: n.clone(), d, t: 0 };
+  }
+
   updateWCS(dt: number) {
+    const post = SD.renderer.post;
     const w = this.wcs;
-    const sheet = this.wcsSheet;
-    if (!w) {
-      sheet.visible = false;
+    if (w) {
+      w.t += dt;
+      // a red thread through the street, buildings and sky, beating faster as the chant closes
+      const beat = 0.5 + 0.5 * Math.sin(w.t * (8 + w.t * 5));
+      post.cutLine = 0.6 + 0.4 * beat;
+      post.cutPlane.set(w.n.x, w.n.y, w.n.z, w.d);
+      post.cutColor.setRGB(1, 0.06, 0.05);
+      post.cutWidth = 1.6 + beat * 1.2;
       return;
     }
-    w.t += dt;
-    sheet.visible = true;
-    // a huge thin plane of red light through the street
-    const mat = sheet.material as THREE.MeshBasicMaterial;
-    mat.opacity = 0.18 + 0.12 * Math.sin(w.t * 20);
-    const c = w.origin.clone().addScaledVector(w.fwd, 150);
-    c.addScaledVector(w.n, w.d - w.n.dot(c));
-    sheet.position.copy(c);
-    sheet.quaternion.setFromUnitVectors(V(0, 0, 1), w.n);
-    sheet.scale.set(320, 320, 1);
+    const c = this.cutFx;
+    if (c) {
+      c.t += dt;
+      const k = c.t / 2.2;
+      post.cutPlane.set(c.n.x, c.n.y, c.n.z, c.d);
+      // white-hot, then a thin seam that lingers
+      const hot = Math.max(0, 1 - c.t / 0.7);
+      const w = 0.85 + hot * 0.15;
+      post.cutColor.setRGB(w, w, w * 1.02);
+      post.cutWidth = 1.5 + hot * 3.5;
+      post.cutLine = k < 1 ? 1 - k * k * k : 0;
+      if (k >= 1) this.cutFx = null;
+      return;
+    }
+    post.cutLine = 0;
   }
 
   clearWCS() {
     this.wcs = null;
-    this.wcsSheet.visible = false;
   }
 
   // ---------------------------------------------------------------- endings
@@ -716,6 +960,7 @@ export class Director {
     this.updateSureHit(dt);
     this.updateEnv(dt);
     this.updateWCS(dt);
+    this.updateAttract(dt);
     if (this.maho) {
       this.maho.update(dt);
       // dead, it no longer moves the story; while sinking the timeline owns the model

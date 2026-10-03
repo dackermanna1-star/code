@@ -231,6 +231,20 @@ export class AudioEngine {
     l.src.playbackRate.setTargetAtTime(rate, ctx.currentTime, 0.1);
   }
 
+  /** Stops every effect loop (a fight ending, a retry). */
+  stopLoops() {
+    for (const k of Object.keys(this.sfxLoops)) {
+      const l = this.sfxLoops[k];
+      try {
+        l.src.stop();
+      } catch {
+        /* already stopped */
+      }
+      l.gain.disconnect();
+      delete this.sfxLoops[k];
+    }
+  }
+
   setVolumes(master: number, sfx: number, music: number) {
     this.vol = { master, sfx, music };
     if (!this.ctx) return;

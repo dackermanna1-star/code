@@ -89,7 +89,7 @@ export class Boss implements Combatant {
   readonly model: CharModel;
   readonly anim: Animator;
   hp: number;
-  readonly maxHp: number;
+  maxHp: number;
   alive = true;
   state: State = 'idle';
   stateT = 0;
@@ -120,7 +120,7 @@ export class Boss implements Combatant {
   invulnerable = false;
   /** take no knockback (big casts) */
   armor = 0;
-  readonly diff: Difficulty;
+  diff: Difficulty;
   /** cursed energy for techniques (phase gating handled outside) */
   phase = 1;
   private volley = 0;
@@ -596,6 +596,7 @@ export class Boss implements Combatant {
     // everything in front of him on that sheet comes apart
     const bounds = new THREE.Box3().setFromCenterAndSize(this.f.pos.clone().addScaledVector(fwd, 220), new THREE.Vector3(460, 400, 460));
     SD.world?.slice(w.n, w.d, bounds, fwd, 'wcs', 0.45);
+    SD.director?.cutFlash(w.n, w.d);
     if (inPlane && ahead && p.alive) {
       const dmg = this.diff.name === 'THE STRONGEST' ? 99999 : this.diff.name === 'HARD' ? 650 : 420;
       p.receive(makeHit('wcs', dmg, c, fwd, { knock: 6, lift: 2, stun: 0.8, sure: true, source: this }));
@@ -886,6 +887,12 @@ export class Boss implements Combatant {
       this.anim.stance = KNEEL;
       this.onEvent?.('dead');
     }
+  }
+
+  /** Chosen on the title screen after the cast is already standing in the street. */
+  setDifficulty(d: Difficulty) {
+    this.diff = d;
+    this.maxHp = this.hp = d.hp;
   }
 
   /** Scripted control (cinematics). */

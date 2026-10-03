@@ -17,7 +17,10 @@ import { buildGojo, buildMahoraga, buildSukuna } from './char/Characters';
 import type { CharModel } from './char/Model';
 import { Animator } from './char/Anim';
 import { ALL_CLIPS, ALL_POSES, SK_IDLE, airPose, runCycle, walkCycle } from './char/Poses';
+import { Menu, MenuSettings, saveSettings } from './ui/Menu';
 import './ui/sd.css';
+
+const QUALITY: Record<MenuSettings['quality'], [number, number]> = { high: [1, 4], medium: [0.85, 2], low: [0.7, 0] };
 
 /**
  * Shinjuku Showdown: boot, main loop and the debug camera. Gameplay systems
@@ -42,6 +45,11 @@ export class Showdown {
   loadProgress = 0;
   /** tests drive the simulation with advance(); the rAF loop stands still */
   manual = false;
+  menu!: Menu;
+  settings!: MenuSettings;
+  /** pause menu up: the world stands still */
+  paused = false;
+  private results = false;
   private last = 0;
   /** Free-fly debug camera (until the fight systems take over). */
   private fly = { yaw: 0, pitch: 0, on: true };
@@ -74,6 +82,11 @@ export class Showdown {
   }
 
   async boot() {
+    this.menu = new Menu(this.ui);
+    SD.menu = this.menu;
+    this.menu.onSound = (n) => this.audio.play(n, { volume: 0.7 });
+    this.menu.loading(0);
+    this.applySettings(this.menu.settings);
     await this.physics.init();
     SD.physics = this.physics;
     G.physics = this.physics;
@@ -88,23 +101,39 @@ export class Showdown {
     this.camera.position.set(0, 1.7, 40);
     this.canvas.addEventListener('click', () => {
       this.audio.unlock();
-      if (this.fight && !this.input.locked) this.input.requestLock(true);
+      if (this.inDuel && !this.paused && !this.input.locked) this.input.requestLock(true);
     });
-    window.addEventListener('keydown', () => this.audio.unlock());
+    window.addEventListener('keydown', (e) => {
+      this.audio.unlock();
+      // without pointer lock (embedded), Escape still pauses
+      if (e.code === 'Escape' && !this.input.requireLock && this.inDuel) {
+        if (this.paused) this.resume();
+        else this.pause();
+      }
+    });
+    window.addEventListener('pointerdown', () => this.audio.unlock());
+    this.input.onLockChange = (locked) => {
+      if (!locked && this.inDuel && !this.paused && !this.manual) this.pause();
+    };
+    this.menu.loading(0.12);
     // sounds and the score are synthesized up front
     this.audio.ambience = false;
-    await this.audio.init((p) => (this.loadProgress = p), SD_RECIPES);
+    await this.audio.init((p) => {
+      this.loadProgress = p;
+      this.menu.loading(0.12 + p * 0.88);
+    }, SD_RECIPES);
     SD.audio = this.audio;
     G.audio = this.audio;
     this.music = new Music(this.audio);
     SD.music = this.music;
+    this.toTitle();
     this.ready = true;
     this.last = performance.now();
     const loop = () => {
       const now = performance.now();
       const dt = Math.min(1 / 20, (now - this.last) / 1000);
       this.last = now;
-      if (!this.manual) this.frame(dt);
+      if (!this.manual && !this.paused) this.frame(dt);
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
@@ -158,14 +187,108 @@ export class Showdown {
     this.audio.update(dt);
   }
 
-  /** Start the duel right away (debug / quick play). */
-  startFight(diff: keyof typeof DIFFICULTY = 'hard') {
-    if (this.fight) return this.fight;
-    this.fight = new Fight(this.ui, DIFFICULTY[diff]);
+  /** The fight is live (intro or duel), not the title or the results. */
+  get inDuel() {
+    return !!this.fight && this.fight.mode !== 'title' && !this.fight.over && !this.results;
+  }
+
+  applySettings(s: MenuSettings) {
+    const q = QUALITY[s.quality] ?? QUALITY.high;
+    if (!this.settings || this.settings.quality !== s.quality || this.renderer.scale !== q[0]) this.renderer.setQuality(q[0], q[1]);
+    this.settings = { ...s };
+    SD.settings = { sens: 0.0022 * s.sens };
+    if (this.fight) this.fight.mangaBase = s.manga ? 1 : 0;
+  }
+
+  private newFight(mode: 'title' | 'fight') {
+    if (this.fight) {
+      this.fight.dispose();
+      this.world.reset();
+    }
+    this.fight = new Fight(this.ui, DIFFICULTY[this.settings.diff] ?? DIFFICULTY.hard, mode);
+    this.fight.mangaBase = this.settings.manga ? 1 : 0;
+    this.fight.onOver = (r) => this.showResults(r);
     this.fly.on = false;
-    this.music.start();
-    this.music.mix(1, 0.35, 0, 2);
     return this.fight;
+  }
+
+  /** The face-off behind the title menu. */
+  toTitle() {
+    this.paused = false;
+    this.results = false;
+    this.input.exitLock();
+    this.audio.ctx?.resume();
+    this.newFight('title');
+    this.music.start();
+    this.music.duck(1, 0.5);
+    this.music.mix(0, 0.45, 0, 2.5);
+    this.menu.onStart = (s) => this.begin(s);
+    this.menu.onSettings = (s) => this.applySettings(s);
+    this.menu.title();
+  }
+
+  /** BEGIN on the title: lock the mouse (this is a click) and roll the intro. */
+  begin(s: MenuSettings, short = false) {
+    saveSettings(s);
+    this.applySettings(s);
+    this.menu.hide();
+    this.audio.unlock();
+    this.input.requestLock(true);
+    if (!this.fight || this.fight.mode !== 'title') this.newFight('title');
+    this.fight!.begin(DIFFICULTY[s.diff] ?? DIFFICULTY.hard, short);
+  }
+
+  /** FIGHT AGAIN: a fresh city and straight to the VS card. */
+  retry() {
+    this.paused = false;
+    this.results = false;
+    this.audio.ctx?.resume();
+    this.newFight('title');
+    this.begin(this.settings, true);
+  }
+
+  pause() {
+    if (this.paused || !this.inDuel) return;
+    this.paused = true;
+    this.menu.onResume = () => this.resume();
+    this.menu.onRetry = () => this.retry();
+    this.menu.onQuit = () => this.toTitle();
+    this.menu.onSettings = (s) => this.applySettings(s);
+    this.menu.pause();
+    this.audio.ctx?.suspend();
+  }
+
+  resume() {
+    if (!this.paused) return;
+    this.paused = false;
+    this.menu.hide();
+    this.audio.ctx?.resume();
+    this.input.requestLock(true);
+    this.last = performance.now();
+  }
+
+  private showResults(r: 'win' | 'lose') {
+    this.results = true;
+    this.input.exitLock();
+    const f = this.fight!;
+    f.hud.shown = false;
+    this.music.duck(0.5, 1.5);
+    this.music.mix(0, r === 'win' ? 0.7 : 0.25, 0, 2);
+    this.menu.onRetry = () => this.retry();
+    this.menu.onQuit = () => this.toTitle();
+    this.menu.results(r === 'win', f.stats, f.boss.diff.name);
+  }
+
+  /** Start the duel right away, no title or intro (tests, quick play). */
+  startFight(diff: keyof typeof DIFFICULTY = 'hard') {
+    this.menu.hide();
+    this.settings.diff = diff as MenuSettings['diff'];
+    const f = this.newFight('fight');
+    f.boss.setDifficulty(DIFFICULTY[diff]);
+    this.music.start();
+    this.music.duck(1, 0.2);
+    this.music.mix(1, 0.35, 0, 2);
+    return f;
   }
 
   private updateFly(dt: number) {

@@ -102,7 +102,9 @@ export class City {
   readonly hemi: THREE.HemisphereLight;
   readonly fog: THREE.FogExp2;
   readonly buildings: Building[] = [];
-  readonly cars: { mesh: THREE.Mesh; body: RAPIER.RigidBody }[] = [];
+  readonly cars: { mesh: THREE.Mesh; body: RAPIER.RigidBody; home: { x: number; y: number; z: number; yaw: number } }[] = [];
+  /** every sliceable building as first built, to stand the city back up for a rematch */
+  private specs: { spec: BuildingSpec; seed: number }[] = [];
   readonly facadeMat = facadeMaterial();
   readonly propMat = toon(0xffffff, { ramp: RAMP_WORLD, vertexColors: true });
   private time = 0;
@@ -332,12 +334,7 @@ export class City {
 
   // ------------------------------------------------------------------ buildings
   private buildRing() {
-    for (const s of RING) {
-      const b = Building.fromSpec(s, this.facadeMat);
-      b.makeStatic(this.world, COLLIDE.world);
-      this.group.add(b.mesh);
-      this.buildings.push(b);
-    }
+    for (const s of RING) this.raise(s);
     // low podiums with shops at street level along the plazas
     const pods: BuildingSpec[] = [
       { name: 'P1', x: -44, z: -63, w: 40, d: 6, h: 5.2, style: S.SHOPS, color: 0x9e9282, bay: 4.4 },
@@ -345,11 +342,32 @@ export class City {
       { name: 'P3', x: -73, z: -38, w: 6, d: 26, h: 5.2, style: S.SHOPS, color: 0xa29684, bay: 4.4 },
       { name: 'P4', x: 74, z: 40, w: 6, d: 26, h: 5.2, style: S.SHOPS, color: 0x7f848a, bay: 4.8 },
     ];
-    for (const s of pods) {
-      const b = Building.fromSpec(s, this.facadeMat);
-      b.makeStatic(this.world, COLLIDE.world);
-      this.group.add(b.mesh);
-      this.buildings.push(b);
+    for (const s of pods) this.raise(s);
+  }
+
+  private raise(s: BuildingSpec, seed?: number) {
+    const b = Building.fromSpec(s, this.facadeMat, seed);
+    b.makeStatic(this.world, COLLIDE.world);
+    this.group.add(b.mesh);
+    this.buildings.push(b);
+    if (seed === undefined) this.specs.push({ spec: s, seed: b.attrs.fac[3] });
+  }
+
+  /** Puts every building back as it was (the old ones must already be disposed). */
+  rebuild() {
+    this.buildings.length = 0;
+    for (const { spec, seed } of this.specs) this.raise(spec, seed);
+    for (const c of this.cars) {
+      const h = c.home;
+      const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), h.yaw);
+      c.body.setTranslation({ x: h.x, y: h.y, z: h.z }, false);
+      c.body.setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }, false);
+      c.body.setLinvel({ x: 0, y: 0, z: 0 }, false);
+      c.body.setAngvel({ x: 0, y: 0, z: 0 }, false);
+      c.body.sleep();
+      c.mesh.position.set(h.x, h.y, h.z);
+      c.mesh.quaternion.copy(q);
+      c.mesh.visible = true;
     }
   }
 
@@ -361,12 +379,7 @@ export class City {
       { name: 'DECK_P1', x, z: -(ROAD.ewS + 1.5), w: 1.4, d: 1.4, h: 6.2, style: S.PLAIN, color: 0x8d9398 },
       { name: 'DECK_P2', x, z: ROAD.ewS + 1.5, w: 1.4, d: 1.4, h: 6.2, style: S.PLAIN, color: 0x8d9398 },
     ];
-    for (const s of specs) {
-      const b = Building.fromSpec(s, this.facadeMat);
-      b.makeStatic(this.world, COLLIDE.world);
-      this.group.add(b.mesh);
-      this.buildings.push(b);
-    }
+    for (const s of specs) this.raise(s);
     // railings on the deck (decor)
     const r = new Builder();
     for (const s of [-1, 1]) {
@@ -689,7 +702,7 @@ export class City {
         body,
       );
       body.sleep();
-      this.cars.push({ mesh, body });
+      this.cars.push({ mesh, body, home: { x, y: gy, z, yaw } });
     };
     // traffic abandoned mid-evacuation: queues on the approaches, a few strays in the junction
     const lanes = [-11.4, -8.1, -4.9, -1.6, 1.6, 4.9, 8.1, 11.4];

@@ -67,6 +67,19 @@ export interface SPost {
   split: number;
   splitAngle: number;
   splitPos: number;
+  /** A world plane drawn as a thin line wherever it meets geometry (and across the sky). */
+  cutLine: number;
+  /** plane normal (xyz) and offset (w): dot(n, p) = w */
+  cutPlane: THREE.Vector4;
+  cutColor: THREE.Color;
+  /** Line width in pixels. */
+  cutWidth: number;
+}
+
+function clonePost(p: SPost): SPost {
+  const o: any = {};
+  for (const [k, v] of Object.entries(p)) o[k] = typeof v === 'number' ? v : v instanceof Float32Array ? v.slice() : (v as any).clone();
+  return o as SPost;
 }
 
 export interface SRendererOpts {
@@ -120,7 +133,12 @@ export class SRenderer {
     split: 0,
     splitAngle: 1.1,
     splitPos: 0,
+    cutLine: 0,
+    cutPlane: new THREE.Vector4(0, 1, 0, 0),
+    cutColor: new THREE.Color(1, 0.1, 0.1),
+    cutWidth: 2,
   };
+  private readonly defaults: SPost = clonePost(this.post);
   width = 1;
   height = 1;
   internalW = 1;
@@ -286,6 +304,12 @@ export class SRenderer {
         splitAngle: { value: 0 },
         splitPos: { value: 0 },
         pxScale: { value: 1 },
+        cutLine: { value: 0 },
+        cutPlane: { value: new THREE.Vector4() },
+        cutColor: { value: new THREE.Color() },
+        cutWidth: { value: 2 },
+        projInv: { value: new THREE.Matrix4() },
+        camWorld: { value: new THREE.Matrix4() },
       },
       depthTest: false,
       depthWrite: false,
@@ -309,6 +333,19 @@ export class SRenderer {
       samples: this.samples,
       generateMipmaps: false,
     });
+  }
+
+  /** Every post value back to how it started (between fights). */
+  resetPost() {
+    const d = this.defaults as any;
+    const p = this.post as any;
+    for (const k of Object.keys(d)) {
+      const v = d[k];
+      if (typeof v === 'number') p[k] = v;
+      else if (v && typeof v.copy === 'function') p[k].copy(v);
+      else if (v instanceof Float32Array) p[k].set(v);
+    }
+    this.splitScene = null;
   }
 
   setQuality(scale: number, samples: number) {
@@ -453,6 +490,14 @@ export class SRenderer {
     u.splitAngle.value = p.splitAngle;
     u.splitPos.value = p.splitPos;
     u.pxScale.value = Math.max(1, this.internalH / 1080);
+    u.cutLine.value = p.cutLine;
+    if (p.cutLine > 0.001) {
+      (u.cutPlane.value as THREE.Vector4).copy(p.cutPlane);
+      (u.cutColor.value as THREE.Color).copy(p.cutColor);
+      u.cutWidth.value = p.cutWidth * (this.internalH / Math.max(1, this.height));
+      (u.projInv.value as THREE.Matrix4).copy((camera as THREE.PerspectiveCamera).projectionMatrixInverse);
+      (u.camWorld.value as THREE.Matrix4).copy(camera.matrixWorld);
+    }
     r.setRenderTarget(null);
     r.clear(true, true, false);
     this.fsMesh.material = this.compositeMat;
@@ -475,6 +520,7 @@ uniform float impact; uniform vec3 impactColor;
 uniform float edges, manga, speed, speedMode, speedWhite, zoomBlur, letterbox, slice, sliceAngle, sliceOffset, fade;
 uniform float split, splitAngle, splitPos, pxScale;
 uniform vec2 speedFocus, speedDir;
+uniform float cutLine, cutWidth; uniform vec4 cutPlane; uniform vec3 cutColor; uniform mat4 projInv, camWorld;
 varying vec2 vUv;
 
 float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
@@ -581,6 +627,25 @@ vec3 mangaTone(vec3 col, vec2 px){
   // fine hatching in the darkest midtones
   float hatch = step(0.5, bandSoft) * step(bandSoft, 0.9) * (1.0 - smoothstep(0.06, 0.16, abs(fract((px.x + px.y) / (4.0 * pxScale)) - 0.5))) * 0.35;
   return mix(paper, ink, clamp(dots + hatch, 0.0, 1.0));
+}
+
+// distance to a world plane in line widths, traced across everything it passes through and on to the horizon
+float cutDist(vec2 uv){
+  float d = texture2D(tDepth, uv).r;
+  vec4 v = projInv * vec4(uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
+  vec3 vp = v.xyz / v.w;
+  vec3 camPos = (camWorld * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+  vec3 wp = (camWorld * vec4(vp, 1.0)).xyz;
+  vec3 ray = normalize(wp - camPos);
+  // radians per internal pixel
+  vec4 v2 = projInv * vec4(0.0, 2.0 / internalRes.y, -1.0, 1.0);
+  vec4 v1 = projInv * vec4(0.0, 0.0, -1.0, 1.0);
+  float pa = abs(v2.y / v2.z - v1.y / v1.z);
+  float w = cutWidth * pa;
+  // the sky: the plane's vanishing line
+  if (d >= 0.99999) return abs(dot(cutPlane.xyz, ray)) / w;
+  float s = dot(cutPlane.xyz, wp) - cutPlane.w;
+  return abs(s) / max(length(wp - camPos) * w, 1e-4);
 }
 
 void main(){
@@ -691,6 +756,18 @@ void main(){
     col = mix(col, lc, clamp(sl, 0.0, 1.0) * (speedWhite > 0.5 ? 0.85 : 0.92));
   }
 
+  if (cutLine > 0.001 && !second) {
+    // a bright core between two ink edges, like a cut drawn across the panel
+    float s = cutDist(uvG);
+    float core = exp(-s * s);
+    float rim = max(exp(-s * s / 6.0) - core, 0.0);
+    float glow = exp(-s * s / 60.0);
+    float lum = luma(cutColor);
+    col = mix(col, vec3(0.02, 0.015, 0.02), clamp(rim * cutLine * 1.6, 0.0, 1.0));
+    col = mix(col, cutColor, clamp(core * cutLine * 1.2, 0.0, 1.0));
+    col += cutColor * glow * cutLine * 0.25 * smoothstep(0.3, 0.9, lum + 0.4);
+  }
+
   col += flashColor * flash;
   if (impact > 0.001) {
     float il = luma(col);
@@ -720,6 +797,17 @@ void main(){
     col = mix(col, vec3(1.0, 0.98, 0.95), clamp(seam * 1.5, 0.0, 1.0));
     if (sliceDist < gap) col = vec3(0.0);
     if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) col = vec3(0.0);
+  }
+  if (split > 0.001) {
+    // the split is a panel gutter: paper between two ink rules
+    vec2 sn = vec2(cos(splitAngle), sin(splitAngle));
+    float dpx = abs(dot((vUv - 0.5) * asp, sn) - splitPos) * outRes.y;
+    float px1 = max(1.0, outRes.y / 1080.0);
+    float gw = 4.0 * px1;
+    float bw = 2.5 * px1;
+    vec3 gut = dpx < gw ? vec3(0.96, 0.95, 0.92) : vec3(0.02);
+    float m = 1.0 - smoothstep(gw + bw - 0.75, gw + bw + 0.75, dpx);
+    col = mix(col, gut, m * clamp(split, 0.0, 1.0));
   }
   if (letterbox > 0.001) {
     float bar = 0.5 - letterbox * 0.115;
