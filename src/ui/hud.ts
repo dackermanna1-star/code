@@ -225,7 +225,7 @@ export class Hud {
     const r = g.renderer;
     const t = g.interaction.target;
     const left = [
-      `Minecraft: Photorealistic Physics Edition (fan recreation)`,
+      `Voxelcraft: Photorealistic Physics Edition (fan recreation)`,
       `${g.fps} fps  ${r.stats.drawCalls} draws  ${(r.stats.triangles / 1e6).toFixed(2)}M tris  ${r.width}x${r.height}`,
       `C: ${g.chunks.stats.chunks} chunks, ${r.chunks.sectionCount} sections, ${(r.chunks.vertexCount / 1e6).toFixed(2)}M verts  gen ${g.chunks.stats.gen} mesh ${g.chunks.stats.mesh} dirty ${g.chunks.stats.dirty}`,
       `E: ${g.entities.list.length}`,

@@ -27,7 +27,7 @@ export function titleScreen(ui: UI, cb: MenuCallbacks): Screen {
   const splash = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
   const el = screen('menu-bg',
     h('div', { class: 'logo' },
-      h('div', { class: 'name' }, 'MINECRAFT'),
+      h('div', { class: 'name' }, 'VOXELCRAFT'),
       h('div', { class: 'edition' }, 'PHOTOREALISTIC PHYSICS EDITION'),
       h('div', { class: 'splash' }, splash)),
     h('div', { class: 'panel', style: { marginTop: '120px', minWidth: '420px', background: 'rgba(10,10,14,0.5)' } },
