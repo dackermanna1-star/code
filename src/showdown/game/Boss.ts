@@ -33,12 +33,12 @@ interface Strike {
 }
 
 const STRIKES: Record<string, Strike> = {
-  jab: { clip: SK_JAB, dmg: 38, reach: 2.4, lunge: 7, knock: 4, lift: 0, stun: 0.25, kind: 'punch' },
-  hook: { clip: SK_HOOK, dmg: 52, reach: 2.3, lunge: 6, knock: 8, lift: 1, stun: 0.35, kind: 'punch' },
-  upper: { clip: SK_UPPER, dmg: 78, reach: 2.2, lunge: 5, knock: 3, lift: 15, stun: 0.6, kind: 'punch', launch: true, da: 0.6 },
-  kick: { clip: SK_KICK, dmg: 72, reach: 2.7, lunge: 6, knock: 20, lift: 4, stun: 0.5, kind: 'kick', launch: true, da: 0.3 },
-  axe: { clip: SK_AXE, dmg: 96, reach: 2.6, lunge: 8, knock: 6, lift: 2, stun: 0.6, kind: 'kick', da: 0.7, slam: true },
-  cleave: { clip: SK_CLEAVE, dmg: 130, reach: 2.6, lunge: 9, knock: 10, lift: 2, stun: 0.6, kind: 'cleave' },
+  jab: { clip: SK_JAB, dmg: 38, reach: 2.4, lunge: 7, knock: 4, lift: 0, stun: 0.25, kind: 'punch', da: 0.2 },
+  hook: { clip: SK_HOOK, dmg: 52, reach: 2.3, lunge: 6, knock: 8, lift: 1, stun: 0.35, kind: 'punch', da: 0.3 },
+  upper: { clip: SK_UPPER, dmg: 78, reach: 2.2, lunge: 5, knock: 3, lift: 15, stun: 0.6, kind: 'punch', launch: true, da: 0.7 },
+  kick: { clip: SK_KICK, dmg: 72, reach: 2.7, lunge: 6, knock: 20, lift: 4, stun: 0.5, kind: 'kick', launch: true, da: 0.5 },
+  axe: { clip: SK_AXE, dmg: 96, reach: 2.6, lunge: 8, knock: 6, lift: 2, stun: 0.6, kind: 'kick', da: 0.8, slam: true },
+  cleave: { clip: SK_CLEAVE, dmg: 130, reach: 2.6, lunge: 9, knock: 10, lift: 2, stun: 0.6, kind: 'cleave', da: 0.6 },
 };
 const COMBOS: string[][] = [
   ['jab', 'hook', 'kick'],
@@ -72,11 +72,13 @@ export interface Difficulty {
   dodge: number;
   /** Domain Amplification chance multiplier */
   da: number;
+  /** how much pressure (hits in quick succession) before he bursts out of a combo */
+  grit: number;
 }
 export const DIFFICULTY: Record<string, Difficulty> = {
-  normal: { name: 'NORMAL', hp: 3200, dmg: 0.75, think: 0.55, aggression: 0.6, dodge: 0.15, da: 0.6 },
-  hard: { name: 'HARD', hp: 4200, dmg: 1.0, think: 0.38, aggression: 0.8, dodge: 0.28, da: 1 },
-  strongest: { name: 'THE STRONGEST', hp: 5200, dmg: 1.3, think: 0.24, aggression: 1, dodge: 0.42, da: 1.3 },
+  normal: { name: 'NORMAL', hp: 3200, dmg: 0.75, think: 0.5, aggression: 0.65, dodge: 0.18, da: 0.7, grit: 6.5 },
+  hard: { name: 'HARD', hp: 4200, dmg: 1.0, think: 0.34, aggression: 0.85, dodge: 0.3, da: 1, grit: 5 },
+  strongest: { name: 'THE STRONGEST', hp: 5200, dmg: 1.3, think: 0.22, aggression: 1, dodge: 0.42, da: 1.3, grit: 3.8 },
 };
 
 /**
@@ -128,6 +130,13 @@ export class Boss implements Combatant {
   private stunT = 0;
   /** seconds until the face relaxes */
   private exprT = 0;
+  /** his HP can't fall below this fraction until the next set piece has played */
+  floorK = 0.7;
+  /** hits taken in quick succession; past diff.grit he bursts out */
+  pressure = 0;
+  private invulnT = 0;
+  /** the whole combo is Domain-Amplified */
+  private daCombo = false;
 
   constructor(
     x: number,
@@ -150,7 +159,10 @@ export class Boss implements Combatant {
       SD.audio?.play('crash', { x: c.point.x, y: c.point.y, z: c.point.z, volume: 1.2 });
       SD.onomato?.('ドガァ', c.point, 1.3);
       this.player.cam.shake(Math.max(0.15, 0.7 - c.point.distanceTo(this.player.eye) * 0.01));
-      if (!this.invulnerable) this.hp -= Math.min(70, c.speed * 2.2);
+      if (!this.invulnerable) {
+        this.hp -= Math.min(70, c.speed * 2.2);
+        this.checkDeath();
+      }
       SD.world?.crash(c.point, c.normal, c.speed, c.collider);
       if (c.kind === 'wall') {
         this.f.vel.multiplyScalar(0.25);
@@ -204,6 +216,10 @@ export class Boss implements Combatant {
     this.poise = Math.min(100, this.poise + dt * 22);
     this.armor = Math.max(0, this.armor - dt);
     this.daGlow = Math.max(0, this.daGlow - dt * 3);
+    this.pressure = Math.max(0, this.pressure - dt * 1.1);
+    this.invulnT = Math.max(0, this.invulnT - dt);
+    // a set piece waits at each HP gate until it can play
+    if (this.alive && this.state !== 'cine' && this.state !== 'dead' && this.floorK > 0 && this.hp <= this.floorK * this.maxHp + 0.5) this.onThreshold?.(this.hp / this.maxHp);
     if (this.exprT > 0) {
       this.exprT -= dt;
       if (this.exprT <= 0 && this.alive && this.model.expr === 'hurt') this.model.setExpr('neutral');
@@ -427,8 +443,10 @@ export class Boss implements Combatant {
   }
 
   // ------------------------------------------------------------------ strikes
-  private beginCombo(list?: string[]) {
+  private beginCombo(list?: string[], da = false) {
     this.combo = [...(list ?? COMBOS[Math.floor(Math.random() * COMBOS.length)])];
+    // sometimes he coats every blow in Domain Amplification
+    this.daCombo = da || chance((0.15 + this.phase * 0.1) * this.diff.da);
     this.nextStrike();
   }
 
@@ -448,7 +466,7 @@ export class Boss implements Combatant {
     this.struck = false;
     this.set('strike');
     this.anim.play(s.clip, name === 'jab' ? 1.15 : 1);
-    if (s.da && chance(s.da * this.diff.da * (0.6 + this.phase * 0.2))) {
+    if (this.daCombo || (s.da && chance(s.da * this.diff.da * (0.6 + this.phase * 0.2)))) {
       this.daGlow = 1.6;
       (this.strike as Strike & { useDa?: boolean }).useDa = true;
     } else (this.strike as Strike & { useDa?: boolean }).useDa = false;
@@ -807,6 +825,7 @@ export class Boss implements Combatant {
       return 'hit';
     }
     if (this.state === 'dodge' && this.stateT < 0.22) return 'dodged';
+    if (this.invulnT > 0 || this.state === 'getup') return 'dodged';
     if (this.state === 'stunned') {
       // free hits while his mind drowns in the void
       this.hp -= hit.dmg * 1.15;
@@ -814,14 +833,27 @@ export class Boss implements Combatant {
       this.checkDeath();
       return 'hit';
     }
-    // a guard sometimes comes up against plain punches
-    if (hit.kind === 'punch' && (this.state === 'idle' || this.state === 'move') && chance(this.diff.dodge * 0.5)) {
+    // a guard comes up against plain punches, more readily the more of them land
+    if (hit.kind === 'punch' && (this.state === 'idle' || this.state === 'move' || this.state === 'hit') && chance(this.diff.dodge * 0.5 + this.pressure * 0.07)) {
       this.anim.play(BLOCK);
       this.hp -= hit.dmg * 0.15;
+      this.pressure += 0.3;
+      this.checkDeath();
       return 'blocked';
     }
-    this.hp -= hit.dmg;
-    this.poise -= hit.dmg * (hit.kind === 'punch' ? 1.6 : 1);
+    // no endless juggles: fists do half on a body in the air or on the ground
+    const airborne = this.state === 'launched' || this.state === 'down';
+    const dmg = airborne && hit.kind === 'punch' ? hit.dmg * 0.5 : hit.dmg;
+    this.hp -= dmg;
+    this.poise -= dmg * (hit.kind === 'punch' ? 1.6 : 1);
+    this.pressure += hit.kind === 'punch' ? 1 : hit.kind === 'blackflash' ? 0.6 : hit.kind === 'blue' ? 0.15 : 1.2;
+    // the King of Curses doesn't stay pinned: he bursts out and comes straight back
+    if (this.pressure >= this.diff.grit && !airborne && hit.kind !== 'purple' && hit.kind !== 'red') {
+      this.onEvent?.('hurt', hit);
+      this.checkDeath();
+      if (this.alive) this.burst();
+      return 'hit';
+    }
     this.onEvent?.('hurt', hit);
     if (this.wcs) {
       this.wcs.taken += hit.dmg;
@@ -834,7 +866,7 @@ export class Boss implements Combatant {
         this.poise = 0;
       }
     }
-    const big = hit.launch || this.poise <= 0;
+    const big = (hit.launch && !(airborne && hit.kind === 'punch')) || this.poise <= 0;
     if (this.armor > 0 && !hit.launch && hit.kind !== 'purple') {
       this.anim.kick('chest', -120, rnd(-60, 60), 0);
       this.anim.kick('head', -200, rnd(-100, 100), 0);
@@ -878,7 +910,40 @@ export class Boss implements Combatant {
     }
   }
 
+  /** A flare of cursed energy: shoves Gojo off, then straight into a Domain-Amplified combo. */
+  private burst() {
+    this.pressure = 0;
+    this.combo = [];
+    this.strike = null;
+    this.slashesCancelCast();
+    this.invulnT = 0.5;
+    this.daGlow = 2;
+    this.poise = 100;
+    this.set('idle');
+    this.anim.play(BLOCK);
+    this.model.setExpr('shout');
+    this.exprT = 0.8;
+    const c = this.aim(new THREE.Vector3());
+    SD.fx.dustRing(this.f.pos.x, this.f.pos.y + 0.1, this.f.pos.z, 3, 28, 12);
+    SD.fx.shell(c, 0.4, 5.5, 0.28, 0xff2a2a, 1.6);
+    SD.audio?.play('slam', { x: c.x, y: c.y, z: c.z, volume: 1 });
+    SD.onomato?.('ドッ', c, 1.2);
+    const p = this.player;
+    const d = new THREE.Vector3().subVectors(p.f.pos, this.f.pos).setY(0);
+    const dist = d.length();
+    if (dist < 6.5 && p.alive) {
+      d.normalize();
+      p.receive(makeHit('burst', 26 * this.diff.dmg, p.aim(new THREE.Vector3()), d, { knock: 15, lift: 3, stun: 0.4, da: true, source: this }));
+      p.cam.shake(0.5);
+    }
+    // and he's already coming
+    this.think = 0.12;
+    this.cd.dash = 0;
+    if (dist < 9 && chance(0.5 + this.diff.aggression * 0.3)) this.beginCombo(undefined, true);
+  }
+
   private checkDeath() {
+    if (this.floorK > 0 && this.hp < this.floorK * this.maxHp) this.hp = this.floorK * this.maxHp;
     if (this.hp <= 0) {
       this.hp = 0;
       this.alive = false;

@@ -26,7 +26,7 @@ export class Director {
   readonly voidEnv = new VoidEnv();
   readonly shrineEnv = new ShrineEnv();
   /** the domain clash, when one is on */
-  clash: { balance: number; t: number; beat: number; nextBeat: number; hits: number; over: boolean } | null = null;
+  clash: { balance: number; t: number; beat: number; nextBeat: number; hits: number; over: boolean; usedBeat?: number } | null = null;
   /** sure-hit timer for whichever domain won */
   private sureHit: { who: 'void' | 'shrine'; t: number } | null = null;
   maho: Mahoraga | null = null;
@@ -150,22 +150,28 @@ export class Director {
 
   // ---------------------------------------------------------------- phases
   private threshold(k: number) {
-    if (this.busy) return true;
+    // never on top of another set piece, a domain or the player's own cutscene
+    if (this.busy || this.clash || this.sureHit || this.awaitAnswer > 0 || this.env !== 'city' || this.envTarget !== 'city') return true;
+    if (this.fight.mode !== 'fight' || !this.player().alive) return true;
+    const b = this.boss();
     if (k <= 0.7 && !this.triggered.has('domain')) {
       this.triggered.add('domain');
       this.phase = 2;
+      b.floorK = 0.46;
       this.domainBattle();
       return true;
     }
     if (k <= 0.46 && !this.triggered.has('maho')) {
       this.triggered.add('maho');
       this.phase = 3;
+      b.floorK = 0.22;
       this.summonMahoraga();
       return true;
     }
     if (k <= 0.22 && !this.triggered.has('finale')) {
       this.triggered.add('finale');
       this.phase = 4;
+      b.floorK = 0;
       this.finale();
       return true;
     }
@@ -541,12 +547,22 @@ export class Director {
       this.player().cam.shake(0.12);
     }
     const toBeat = Math.min(Math.abs(c.t - (c.nextBeat - beatLen)), Math.abs(c.nextBeat - c.t));
+    // one press per beat: on it pushes the line, off it (or mashing) gives ground
+    const beatId = Math.round(c.t / beatLen);
     if (SD.input.mousePress(0) || SD.input.pressed('Space')) {
-      const good = toBeat < 0.11;
-      c.balance += good ? 0.09 : 0.025;
-      c.hits++;
-      SD.audio?.play(good ? 'block' : 'swing', { volume: 0.7 });
-      if (good) SD.hud?.ono('ドンッ', null, 0.9);
+      const good = toBeat < 0.11 && c.usedBeat !== beatId;
+      if (good) {
+        c.usedBeat = beatId;
+        const perfect = toBeat < 0.05;
+        c.balance += perfect ? 0.13 : 0.1;
+        c.hits++;
+        SD.audio?.play('block', { volume: 0.7 });
+        SD.hud?.ono(perfect ? 'ドンッ' : 'ドッ', null, perfect ? 1 : 0.8);
+        this.player().cam.shake(0.1);
+      } else {
+        c.balance -= 0.03;
+        SD.audio?.play('whiff', { volume: 0.5 });
+      }
     }
     c.balance = THREE.MathUtils.clamp(c.balance, -1, 1);
     // the line between the worlds sits between the two of them and rides the balance

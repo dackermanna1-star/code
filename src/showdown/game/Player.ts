@@ -186,7 +186,7 @@ export class Player implements Combatant {
     const ctl = this.alive && this.control && this.stun <= 0;
     this.move(dt, ctl);
     if (ctl) this.actions(dt);
-    else if (this.act === 'charge' || this.act === 'purple') this.cancelAct();
+    else if (this.act === 'charge' || this.act === 'purple' || (this.act === 'rct' && (!this.alive || !this.control))) this.cancelAct();
     this.updateAct(dt);
     this.updateShots(dt);
     this.updateBlue(dt);

@@ -16,7 +16,8 @@ export type HitKind =
   | 'wcs'
   | 'void'
   | 'crash'
-  | 'sword';
+  | 'sword'
+  | 'burst';
 
 export interface Hit {
   kind: HitKind;
