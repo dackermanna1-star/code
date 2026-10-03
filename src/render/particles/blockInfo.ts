@@ -52,7 +52,7 @@ export function blockParticleInfo(state: number): BlockParticleInfo {
     tintMode,
     tint: typeof t === 'number' ? t : 0xffffff,
     topTinted,
-    cutout: def.layer === 'cutout' || def.layer === 'translucent',
+    cutout: def.layer === 'cutout',
     metal: def.sound === 'metal' || def.sound === 'anvil' || def.sound === 'chain' || def.sound === 'lantern',
   };
   infoCache.set(state, inf);
