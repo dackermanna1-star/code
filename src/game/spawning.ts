@@ -91,6 +91,7 @@ export class MobSpawningSystem implements GameSystem {
   readonly name = 'mobSpawning';
   private game!: Game;
   private populated = new Map<string, Set<number>>();
+  private populatedWorld = "";
   private summonDone = false;
   private summonList: string[] = [];
   private summonHold = false;
@@ -238,13 +239,16 @@ export class MobSpawningSystem implements GameSystem {
   /** Animals at chunk generation (once per chunk, remembered in the save). */
   private populateChunk(cx: number, cz: number) {
     const g = this.game;
-    if (!g?.world || g.dimension !== 'overworld') return;
+    if (!g?.world || g.dimension !== 'overworld' || !g.gamerules.doMobSpawning) return;
+    // the record belongs to one world (the title-screen panorama world comes first)
+    const wid = g.info?.id ?? '';
+    if (wid !== this.populatedWorld) { this.populated.clear(); this.populatedWorld = wid; }
     let set = this.populated.get(g.dimension);
     if (!set) this.populated.set(g.dimension, (set = new Set()));
     const k = chunkKey(cx, cz);
     if (set.has(k)) return;
     set.add(k);
-    if (!g.gamerules.doMobSpawning || Math.random() >= 0.1) return;
+    if (Math.random() >= 0.1) return;
     const w = g.world;
     const entry = pick(CREATURE_LIST);
     if (!entry) return;
@@ -280,7 +284,9 @@ export class MobSpawningSystem implements GameSystem {
     for (const [d, s] of this.populated) o[d] = [...s];
     return { populated: o };
   }
-  load(_g: Game, data: any) {
+  load(g: Game, data: any) {
+    this.populated.clear();
+    this.populatedWorld = g.info?.id ?? '';
     for (const [d, arr] of Object.entries(data?.populated ?? {})) this.populated.set(d, new Set(arr as number[]));
   }
 }

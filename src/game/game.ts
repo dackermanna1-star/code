@@ -60,6 +60,8 @@ async function optional(path: string): Promise<any | null> {
   }
 }
 
+const DEFAULT_GAMERULES: Record<string, any> = { doDaylightCycle: true, doWeatherCycle: true, doMobSpawning: true, keepInventory: false, naturalRegeneration: true, mobGriefing: true, doFireTick: true, randomTickSpeed: 3 };
+
 export class Game {
   readonly renderer: Renderer;
   readonly input: Input;
@@ -83,7 +85,7 @@ export class Game {
   entities!: EntityManager;
   player!: Player;
   difficulty: Difficulty = 'normal';
-  gamerules: Record<string, any> = { doDaylightCycle: true, doWeatherCycle: true, doMobSpawning: true, keepInventory: false, naturalRegeneration: true, mobGriefing: true, doFireTick: true, randomTickSpeed: 3 };
+  gamerules: Record<string, any> = { ...DEFAULT_GAMERULES };
 
   /** Absolute game ticks and day time (ticks). */
   ticks = 0;
@@ -173,7 +175,9 @@ export class Game {
     this.ticks = saved?.ticks ?? 0;
     this.dayTime = saved?.dayTime ?? 1000;
     if (saved?.weather) Object.assign(this.weather, saved.weather);
-    if (saved?.gamerules) Object.assign(this.gamerules, saved.gamerules);
+    // reset first: the title-screen panorama world turns mob spawning off
+    for (const k of Object.keys(this.gamerules)) delete this.gamerules[k];
+    Object.assign(this.gamerules, DEFAULT_GAMERULES, saved?.gamerules ?? {});
     this.player = new Player();
     if (saved?.player) this.player.deserialize(saved.player);
     else this.player.setGameMode(info.gameMode);
