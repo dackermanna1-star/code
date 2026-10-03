@@ -6,7 +6,8 @@ import { OverlaySystem } from './overlays';
 import { CoreWorldSystem } from './coreWorld';
 import { AudioGlueSystem } from './audioGlue';
 import { PhysicsSystem } from '../physics/system';
+import { ExplosionSystem } from './explosions';
 
 export function createSystems(): GameSystem[] {
-  return [new PhysicsSystem(), new CoreWorldSystem(), new OverlaySystem(), new AudioGlueSystem()];
+  return [new PhysicsSystem(), new CoreWorldSystem(), new OverlaySystem(), new AudioGlueSystem(), new ExplosionSystem()];
 }
