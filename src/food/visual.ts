@@ -78,6 +78,8 @@ export class FoodVisual {
   }
 
   private bindSegments() {
+    const asPlane = (p: THREE.Plane | { normal: { x: number; y: number; z: number }; constant: number }) =>
+      p instanceof THREE.Plane ? p.clone() : new THREE.Plane(new THREE.Vector3(p.normal.x, p.normal.y, p.normal.z), p.constant);
     const live = new Map<number, FoodState>();
     indexStates(this.state, live);
     this.root.updateMatrixWorld(true);
@@ -115,7 +117,8 @@ export class FoodVisual {
       const planes = node.userData.clipPlanes as THREE.Plane[] | undefined;
       if (planes?.length) {
         tmpMat.multiplyMatrices(rootInv, node.matrixWorld);
-        curClip = [...clip, ...planes.map((p) => p.clone().applyMatrix4(tmpMat))].slice(-3);
+        // Object3D.clone() JSON-copies userData, so a cloned node carries plain {normal, constant}
+        curClip = [...clip, ...planes.map((p) => asPlane(p).applyMatrix4(tmpMat))].slice(-3);
       }
       const tagged = node.userData.segmentState as FoodState | undefined;
       if (tagged) cur = newSegment(live.get(tagged.seed) ?? tagged, node, curClip);

@@ -502,8 +502,10 @@ export class Character {
     this.restArms();
     this.lean.target = 0;
     this.mood = 'idle';
+    // next queued snack (skip any that were binned or cleaned up meanwhile)
+    this.queue = this.queue.filter((it) => this.game.items.list.includes(it));
     const next = this.queue.shift();
-    if (next) setTimeout(() => this.feed(next), 400);
+    if (next) setTimeout(() => this.game.items.list.includes(next) && this.feed(next), 400);
   }
 
   private holdArms(on: boolean) {
