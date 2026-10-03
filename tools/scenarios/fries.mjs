@@ -1,11 +1,11 @@
-// potato -> board -> cut x4 -> drag to fryer via dock -> fry -> plate -> serve
+// potato -> board -> cut x3 (halved, sliced, sticks) -> drag to fryer via dock -> fry -> plate -> serve
 export default async function (t) {
   const g = (fn, a) => t.eval(fn, a);
   await t.page.click('.play', { force: true });
   await t.wait(800);
   await g(() => { const G = window.game; const it = G.items.spawn(window.__mk('potato'), G.stations.board.center()); G.interaction.toStation(it, G.stations.board); });
   await t.wait(1500);
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 3; i++) {
     const p = await t.screenOf('game.stations.board.contents[0].position');
     await t.click(p.x, p.y - 4);
     await t.wait(650);

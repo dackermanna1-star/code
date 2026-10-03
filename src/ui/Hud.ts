@@ -486,6 +486,11 @@ export class Hud {
     const el = h('div', `float-label ${style}`);
     el.textContent = text;
     el.style.setProperty('--s', String(scale));
+    // place it right away (it would otherwise flash in the corner until the next HUD update)
+    const v = pos.clone().project(this.game.camera.camera);
+    const w = this.root.clientWidth, hgt = this.root.clientHeight;
+    el.style.transform = `translate(${(v.x * 0.5 + 0.5) * w}px, ${(-v.y * 0.5 + 0.5) * hgt}px) translate(-50%, -50%) scale(var(--s))`;
+    if (v.z > 1) el.style.opacity = '0';
     this.labelLayer.appendChild(el);
     this.labels.push({ el, pos: pos.clone(), t: 0, life: 1.6 });
     if (this.labels.length > 8) {
@@ -595,11 +600,14 @@ export class Hud {
     const found = new Set(list.map((e) => e.dishId).filter(Boolean));
     const todo = DISHES.filter((d) => !found.has(d.id));
     const hints = todo.sort(() => Math.random() - 0.5).slice(0, 3);
+    const card = (e: (typeof list)[number]) =>
+      `<div class="dish ${e.dishId ? 'recipe' : 'silly'}"><div class="thumb">${e.thumb ? `<img src="${e.thumb}" alt="">` : icon('plate')}</div><b>${escapeHtml(e.name)}</b><span>${reactionWord(e.reaction)}${e.count > 1 ? ' · ×' + e.count : ''}</span></div>`;
+    const section = (title: string, entries: typeof list) => (entries.length ? `<h3 class="book-sec">${title}</h3><div class="book-grid">${entries.map(card).join('')}</div>` : '');
     this.cookbook.innerHTML = `
       <div class="book">
         <div class="book-head"><h2>${icon('book')} Mochi's Cookbook</h2><button class="btn round small close">${icon('close')}</button></div>
         <div class="progress"><div class="bar"><i style="width:${(found.size / Math.max(1, DISHES.length)) * 100}%"></i></div><span>${found.size} of ${DISHES.length} recipes discovered · ${g.discoveries.meals} meals served</span></div>
-        <div class="book-grid">${list.length ? list.map((e) => `<div class="dish ${e.dishId ? 'recipe' : 'silly'}"><div class="thumb">${e.thumb ? `<img src="${e.thumb}" alt="">` : icon('plate')}</div><b>${escapeHtml(e.name)}</b><span>${reactionWord(e.reaction)}${e.count > 1 ? ' · ×' + e.count : ''}</span></div>`).join('') : '<p class="empty">Nothing yet! Cook something and serve it to Mochi.</p>'}</div>
+        ${list.length ? section('Recipes', list.filter((e) => e.dishId)) + section('Snacks & experiments', list.filter((e) => !e.dishId)) : '<p class="empty">Nothing yet! Cook something and serve it to Mochi.</p>'}
         ${hints.length ? `<div class="hints"><h3>Ideas to try</h3>${hints.map((d) => `<div class="idea"><b>${escapeHtml(d.name)}</b><span>${escapeHtml(d.hint)}</span></div>`).join('')}</div>` : ''}
       </div>`;
     this.cookbook.classList.remove('hidden');

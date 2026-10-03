@@ -139,6 +139,7 @@ button { font-family: inherit; color: inherit; border: none; cursor: pointer; }
 .progress .bar { height: 14px; border-radius: 999px; background: #f0e2cf; overflow: hidden; }
 .progress .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--mint), var(--lilac)); border-radius: 999px; }
 .progress span { font-weight: 700; font-size: 15px; opacity: 0.8; }
+.book-sec { margin: 14px 0 8px; font-size: 17px; opacity: 0.85; }
 .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
 .dish { background: #fff; border-radius: 20px; padding: 8px; text-align: center; box-shadow: 0 3px 0 rgba(61,44,62,0.1); }
 .dish .thumb { height: 96px; display: grid; place-items: center; }

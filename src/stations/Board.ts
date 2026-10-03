@@ -26,6 +26,7 @@ export class BoardStation extends Station {
   private toolYaw = 0;
   private toolDown = 0; // 0..1 chop depth
   private busy = false;
+  private queuedTap: FoodItem | null = null;
   private stroke: { last: THREE.Vector3; cutItems: Set<FoodItem>; dist: number } | null = null;
   private idleT = 0;
 
@@ -145,7 +146,11 @@ export class BoardStation extends Station {
 
   /** Apply the current tool to an item. */
   useTool(item: FoodItem, animate: boolean) {
-    if (this.busy && animate) return;
+    if (this.busy && animate) {
+      // remember one tap made mid-chop so quick tapping keeps chopping at the knife's pace
+      this.queuedTap = item;
+      return;
+    }
     const g = this.game;
     const def = hasDef(item.state.id) ? getDef(item.state.id) : null;
     const top = item.position.clone().add(new THREE.Vector3(0, item.visual.height * 0.6, 0));
@@ -218,6 +223,9 @@ export class BoardStation extends Station {
       })
       .then(() => {
         this.busy = false;
+        const next = this.queuedTap;
+        this.queuedTap = null;
+        if (next && this.contents.includes(next) && this.game.camera.view === 'board') this.useTool(next, true);
       });
   }
 
