@@ -12,6 +12,10 @@ import { generateStubMaterials, StubAtmosphere } from '../render/stubs';
 import { ItemMaterials } from '../render/items/itemMaterials';
 import { IconRenderer } from '../render/items/iconRenderer';
 import { ItemIconAtlas } from '../render/items/iconAtlas';
+import { ItemModels } from '../render/items/itemModels';
+import { FirstPersonHand } from '../render/items/hand';
+import { ENTITY_SHARED, setEntityLight } from '../render/entityMaterial';
+import { installItemBehaviors } from '../game/items/behaviors';
 
 const q = new URLSearchParams(location.search);
 const num = (k: string, d: number) => (q.has(k) ? Number(q.get(k)) : d);
@@ -95,9 +99,62 @@ async function atlasGrid() {
   await new Promise((r) => setTimeout(r, 300));
 }
 
+/** 3D scene: a row of dropped item models (G-buffer, deferred lighting) + the first-person hand. */
+async function sceneMode() {
+  installItemBehaviors();
+  const renderer = await setupRenderer();
+  grid.style.display = 'none';
+  const models = new ItemModels(renderer);
+  const scene = new THREE.Scene();
+  const names = (q.get('items') ?? 'diamond_sword,iron_pickaxe,golden_axe,apple,grass_block,potion,bow,shield,bread,oak_fence,diamond,torch').split(',');
+  names.forEach((n, i) => {
+    const s = mkStack(n);
+    if (n === 'potion') s.data = { potion: 'healing' };
+    const m = models.create(s, 'dropped');
+    m.userData.stackVisualCount = q.get('stack') ? 3 : 1;
+    const row = i % 6, col = Math.floor(i / 6);
+    m.position.set((row - 2.5) * 0.62, -0.35 - col * 0.55, -2.4 - col * 0.3);
+    m.rotation.y = num('spin', 0.5);
+    m.traverse((o: any) => o.material?.uniforms?.u_light && setEntityLight(o.material, 15 << 12));
+    scene.add(m);
+  });
+  const cam = new THREE.PerspectiveCamera(70, 16 / 9, 0.05, 200);
+  cam.position.set(0, 0, 0);
+  cam.rotation.order = 'YXZ';
+  cam.rotation.x = THREE.MathUtils.degToRad(num('pitch', -12));
+  const time = num('time', 4000);
+  const angle = (time / 24000) * Math.PI * 2;
+  const sunDir = new THREE.Vector3(Math.cos(angle), Math.sin(angle), -0.35).normalize();
+  // hand with a mocked player
+  const hand = new FirstPersonHand(models);
+  const held = q.get('held') ?? 'diamond_sword';
+  const inv = { held: held === 'none' ? null : mkStack(held), offhand: q.get('off') ? mkStack(q.get('off')!) : null };
+  const player: any = { inventory: inv, attackStrength: () => 1, swingProgress: -1, swingTicks: 0, effectLevel: () => 0, yaw: 0, pitch: cam.rotation.x, sprinting: false, onGround: true, bobPhase: 0, bobAmount: 0, usingItem: null, flying: false, dead: false, spectator: false, sleeping: false };
+  if (q.has('disp')) hand.display = q.get('disp')!.split(',').map(Number);
+  if (q.has('handpose')) hand.override = { pose: q.get('handpose')!, t: num('handt', 0.5) };
+  for (let i = 0; i < 4; i++) hand.tick(player);
+  const fakeGame: any = { player, cameraCtl: { camera: cam, perspective: 'first', viewBobbing: true }, renderer, realTime: 0, ui: null };
+  const light = new THREE.Vector4(num('sky', 15) / 15, num('block', 0) / 15, num('block', 0) / 15 * 0.8, num('block', 0) / 15 * 0.5);
+  const frames = num('frames', 6);
+  for (let f = 0; f < frames; f++) {
+    cam.updateMatrixWorld(true);
+    ENTITY_SHARED.u_viewInvRot.value.setFromMatrix4(cam.matrixWorld);
+    fakeGame.realTime = f / 30;
+    const showHand = held !== 'skip' && hand.update(fakeGame, 1 / 30, light);
+    renderer.render({
+      camera: cam, time: f / 30, dt: 1 / 30,
+      sky: { sunDir, moonDir: sunDir.clone().negate(), moonPhase: 0, time: f / 30, rain: 0, thunder: 0, dimension: 'overworld', cameraPosition: cam.position, renderDistance: 64 },
+      underwater: false, waterFogColor: new THREE.Color(0.02, 0.08, 0.12), wind: 0, nightVision: 0, damage: 0,
+      gbufferScenes: [scene], shadowScenes: [scene], hand: showHand ? hand.extras : undefined,
+    });
+    await new Promise((r) => requestAnimationFrame(r));
+  }
+}
+
 async function main() {
   const mode = q.get('mode') ?? 'grid';
   if (mode === 'grid') await atlasGrid();
+  if (mode === 'scene') await sceneMode();
   void THREE;
   (window as any).__shotReady = true;
 }

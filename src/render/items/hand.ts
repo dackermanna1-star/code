@@ -72,6 +72,8 @@ export class FirstPersonHand {
   private lightInit = false;
   private models = new Map<string, THREE.Object3D>();
   override: HandPoseOverride | null = null;
+  /** firstperson display transform for flat/handheld items: translation (px) xyz, rotation (deg) xyz. */
+  display = [4.5, 4, -1, 0, 90, 25];
   samples = 4;
   visible = false;
 
@@ -291,6 +293,7 @@ export class FirstPersonHand {
     if (ov && side === 1 && ov.pose !== 'swing') { pose = ov.pose; usedTicks = ov.t * 32; }
     const name = stack.item.name;
     let pull = 0;
+    let customDisplay = false;
     const armT = () => ps.translate(side * 0.56, -0.52 + equip * -0.6, -0.72);
     if (pose === 'eat' || pose === 'drink') {
       const dur = stack.item.food?.eatTicks ?? 32;
@@ -304,21 +307,27 @@ export class FirstPersonHand {
       ps.rotZ(side * f3 * 30);
       armT();
     } else if (pose === 'bow') {
+      // Minecraft's bow pull (draw toward the face, tremble at full draw) with the bow held
+      // upright and the arrow aimed at the crosshair
       armT();
-      ps.translate(side * -0.2785682, 0.18344387, 0.15731531);
-      ps.rotX(-13.935);
-      ps.rotY(side * 35.3);
-      ps.rotZ(side * -9.785);
       const f8 = usedTicks;
       const f12 = bowPower(f8);
       pull = f12;
+      ps.translate(side * -0.3, 0.34 + 0.02 * f12, 0.08 + f12 * 0.07);
       if (f12 > 0.1) {
         const f = Math.sin((f8 - 0.1) * 1.3) * (f12 - 0.1);
-        ps.translate(0, f * 0.004, 0);
+        ps.translate(f * 0.004, f * 0.006, 0);
       }
-      ps.translate(0, 0, f12 * 0.04);
-      ps.scale(1, 1, 1 + f12 * 0.2);
-      ps.rotY(-side * 45);
+      const a = new THREE.Vector3(1, 1, 0).normalize(), l = new THREE.Vector3(1, -1, 0).normalize(), n = new THREE.Vector3(0, 0, -1);
+      const F = new THREE.Vector3(-0.1 * side, 0.03, -1).normalize();
+      const Dn = new THREE.Vector3(0.12 * side, -1, 0).normalize().addScaledVector(F, -0).normalize();
+      const X = new THREE.Vector3().crossVectors(F, Dn).normalize();
+      const Dc = new THREE.Vector3().crossVectors(X, F).normalize();
+      const B1 = new THREE.Matrix4().makeBasis(a, l, n).transpose();
+      const B2 = new THREE.Matrix4().makeBasis(F, Dc, X);
+      ps.m.multiply(B2.multiply(B1));
+      ps.scale(0.68);
+      customDisplay = true;
     } else if (pose === 'crossbow') {
       armT();
       ps.translate(side * -0.4785682, -0.094387, 0.05731531);
@@ -359,7 +368,9 @@ export class FirstPersonHand {
     const model = this.modelFor(stack, name === 'bow' ? pull : 0);
     const kind = model.userData.kind;
     // display transform: firstperson_{right,left}hand
-    if (name === 'shield') {
+    if (customDisplay) {
+      // pose already placed the model
+    } else if (name === 'shield') {
       const blocking = pose === 'block';
       const b = blocking ? Math.min(1, usedTicks / 5) : 0;
       ps.translate(side * (-0.18 - 0.1 * b), 0.06 + 0.1 * b, 0.06 - 0.05 * b);
@@ -371,10 +382,11 @@ export class FirstPersonHand {
       ps.rotY(side * 45);
       ps.scale(0.4);
     } else {
-      ps.translate((side * 1.13) / 16, 3.2 / 16, 1.13 / 16);
-      ps.rotX(0);
-      ps.rotY(side * -90);
-      ps.rotZ(side * 25);
+      const D = this.display;
+      ps.translate((side * D[0]) / 16, D[1] / 16, D[2] / 16);
+      ps.rotX(D[3]);
+      ps.rotY(side * D[4]);
+      ps.rotZ(side * D[5]);
       ps.scale(0.68);
       if (side < 0) ps.scale(-1, 1, 1);
     }

@@ -307,6 +307,9 @@ void main() {
   vec3 R = reflect(-V, N);
   R.y = abs(R.y) * 0.85 + 0.15 * R.y;
   vec3 env = mix(atmo_skyRadiance(normalize(R)), irr / PI, smoothstep(0.2, 0.9, s.rough));
+  // held items reflect the surroundings too (ground, the player): neutralise pure-sky reflections
+  float down = smoothstep(0.1, -0.4, reflect(-V, N).y);
+  env = mix(env, vec3(luminance(env)) * vec3(1.0, 0.96, 0.9), 0.45 + 0.3 * down);
   float specOcc = clamp(pow(NoV + s.ao, exp2(-16.0 * s.rough - 1.0)) - 1.0 + s.ao, 0.0, 1.0);
   vec3 specAmb = env * envBRDFApprox(f0, s.rough, NoV) * skyVis * specOcc;
   // metals in dark places still pick up the block light as reflections
