@@ -27,7 +27,10 @@ export class CameraController {
     this.perspective = this.perspective === 'first' ? 'third_back' : this.perspective === 'third_back' ? 'third_front' : 'first';
   }
 
+  /** Physics interpolation factor of the last update (for other view effects). */
+  lastAlpha = 1;
   update(alpha: number, dt: number) {
+    this.lastAlpha = alpha;
     const p = this.game.player;
     const cam = this.camera;
     const pos = p.renderPos(alpha, this.tmp);
@@ -39,8 +42,8 @@ export class CameraController {
     // bobbing (Minecraft-like figure-eight)
     let bobX = 0, bobY = 0;
     if (this.viewBobbing && this.perspective === 'first' && !p.flying) {
-      const ph = p.bobPhase * Math.PI;
-      const a = p.bobAmount;
+      const ph = (p.prevBobPhase + (p.bobPhase - p.prevBobPhase) * alpha) * Math.PI;
+      const a = p.prevBobAmount + (p.bobAmount - p.prevBobAmount) * alpha;
       bobX = Math.sin(ph) * a * 0.045;
       bobY = -Math.abs(Math.cos(ph)) * a * 0.07;
       roll += Math.sin(ph) * a * 0.012;

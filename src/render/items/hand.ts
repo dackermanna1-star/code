@@ -216,8 +216,10 @@ export class FirstPersonHand {
     const ov = this.override;
     if (ov?.pose === 'swing') swing = ov.t;
     // walking bob (ItemInHandRenderer bobView applied to the hand)
-    const ph = (p.bobPhase ?? 0) * Math.PI;
-    const ba = game.cameraCtl.viewBobbing && !p.flying ? (p.bobAmount ?? 0) * (1 + this.sprint * 0.6) : 0;
+    const al = game.cameraCtl?.lastAlpha ?? 1;
+    const lerpBob = (a: number | undefined, b: number | undefined) => (a ?? b ?? 0) + ((b ?? 0) - (a ?? b ?? 0)) * al;
+    const ph = lerpBob(p.prevBobPhase, p.bobPhase) * Math.PI;
+    const ba = game.cameraCtl.viewBobbing && !p.flying ? lerpBob(p.prevBobAmount, p.bobAmount) * (1 + this.sprint * 0.6) : 0;
     const base = new THREE.Matrix4()
       .multiply(new THREE.Matrix4().makeTranslation(Math.sin(ph) * ba * 0.03, -Math.abs(Math.cos(ph)) * ba * 0.05 - this.sprint * 0.05, 0))
       .multiply(new THREE.Matrix4().makeRotationZ(Math.sin(ph) * ba * 2.0 * D2R))

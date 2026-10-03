@@ -41,6 +41,9 @@ export class Player extends LivingEntity {
   landingImpact = 0;
   bobPhase = 0;
   bobAmount = 0;
+  /** Previous physics-step values (the camera interpolates between steps). */
+  prevBobPhase = 0;
+  prevBobAmount = 0;
   stepDistance = 0;
   private lastStepDist = 0;
   /** Smoothed FOV multiplier (sprint, bow, speed). */
@@ -279,9 +282,12 @@ export class Player extends LivingEntity {
       this.game?.events.emit('footstep', { entity: this, block: this.blockBelow() });
     }
     // view bob
+    // Minecraft walk-cycle rate: phase (x pi) advances 0.6 per block walked; one footfall per bob
+    this.prevBobPhase = this.bobPhase;
+    this.prevBobAmount = this.bobAmount;
     const target = this.onGround && !this.flying ? Math.min(1, d / dt / 4.3) : 0;
-    this.bobAmount += (target - this.bobAmount) * Math.min(1, dt * 10);
-    this.bobPhase += d * 1.8;
+    this.bobAmount += (target - this.bobAmount) * Math.min(1, dt * 6);
+    this.bobPhase += Math.min(d, 0.5) * 0.6;
     // camera shake decay
     this.cameraShake.multiplyScalar(Math.exp(-dt * 9));
     this.landingImpact *= Math.exp(-dt * 7);
