@@ -28,5 +28,6 @@ export function createSystems(): GameSystem[] {
     new RagdollSystem(),
     new FxSystem(),
     new WeatherSystem(),
+    ...createSurvivalSystems(),
   ];
 }
