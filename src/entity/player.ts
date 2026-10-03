@@ -7,6 +7,7 @@ import { LivingEntity } from './living';
 import type { DamageSource } from './entity';
 import { Inventory, ARMOR, OFFHAND } from '../game/inventory';
 import type { ItemStack } from '../game/items/registry';
+import { foodTick, xpForLevel, damageExhaustion, type FoodState } from '../game/survival/food';
 
 export type GameMode = 'survival' | 'creative' | 'adventure' | 'spectator';
 
@@ -135,7 +136,7 @@ export class Player extends LivingEntity {
   override hurt(src: DamageSource, amount: number): boolean {
     const ok = super.hurt(src, amount);
     if (ok) {
-      this.addExhaustion(0.1);
+      this.addExhaustion(damageExhaustion(src.type));
       // camera kick toward the hit direction
       const k = Math.min(1, amount / 6);
       this.cameraShake.set((Math.random() - 0.5) * k, (Math.random() - 0.5) * k * 0.5, k);
@@ -162,42 +163,27 @@ export class Player extends LivingEntity {
     if (this.creative || this.spectator) return;
     this.exhaustion = Math.min(40, this.exhaustion + n);
   }
+  /** FoodData.eat(nutrition, saturationModifier). */
   eat(hunger: number, saturationMod: number) {
     this.food = Math.min(20, this.food + hunger);
     this.saturation = Math.min(this.food, this.saturation + hunger * saturationMod * 2);
   }
   private tickFood() {
-    const difficulty = (this.game as any)?.difficulty ?? 'normal';
-    if (this.exhaustion > 4) {
-      this.exhaustion -= 4;
-      if (this.saturation > 0) this.saturation = Math.max(0, this.saturation - 1);
-      else if (difficulty !== 'peaceful') this.food = Math.max(0, this.food - 1);
-    }
-    const regen = (this.game as any)?.gamerules?.naturalRegeneration ?? true;
-    if (regen && this.saturation > 0 && this.food >= 20 && this.health < this.maxHealth) {
-      this.foodTimer++;
-      if (this.foodTimer >= 10) {
-        const f = Math.min(this.saturation, 6);
-        this.heal(f / 6);
-        this.addExhaustion(f);
-        this.foodTimer = 0;
-      }
-    } else if (regen && this.food >= 18 && this.health < this.maxHealth) {
-      this.foodTimer++;
-      if (this.foodTimer >= 80) {
-        this.heal(1);
-        this.addExhaustion(6);
-        this.foodTimer = 0;
-      }
-    } else if (this.food <= 0) {
-      this.foodTimer++;
-      if (this.foodTimer >= 80) {
-        const lim = difficulty === 'hard' ? 0 : difficulty === 'normal' ? 1 : 10;
-        if (this.health > lim) this.hurt({ type: 'starve', bypassArmor: true }, 1);
-        this.foodTimer = 0;
-      }
-    } else this.foodTimer = 0;
-    if (difficulty === 'peaceful') {
+    const g = this.game as any;
+    const difficulty = g?.difficulty ?? 'normal';
+    const regen = g?.gamerules?.naturalRegeneration ?? true;
+    const st: FoodState = { food: this.food, saturation: this.saturation, exhaustion: this.exhaustion, timer: this.foodTimer };
+    foodTick(st, {
+      health: this.health, maxHealth: this.maxHealth, difficulty, naturalRegeneration: regen,
+      heal: (n) => this.heal(n),
+      starve: () => this.hurt({ type: 'starve', bypassArmor: true }, 1),
+    });
+    // (heal/starve do not add exhaustion: starvation damage has 0 food exhaustion)
+    this.food = st.food;
+    this.saturation = st.saturation;
+    this.exhaustion = st.exhaustion;
+    this.foodTimer = st.timer;
+    if (difficulty === 'peaceful' && regen) {
       if (this.age % 20 === 0 && this.health < this.maxHealth) this.heal(1);
       if (this.age % 10 === 0 && this.food < 20) this.food++;
     }
@@ -205,9 +191,7 @@ export class Player extends LivingEntity {
 
   // ------------------------------------------------------------------ XP
   static xpForLevel(level: number): number {
-    if (level >= 30) return 112 + (level - 30) * 9;
-    if (level >= 15) return 37 + (level - 15) * 5;
-    return 7 + level * 2;
+    return xpForLevel(level);
   }
   addXp(n: number) {
     this.score += n;
@@ -251,7 +235,7 @@ export class Player extends LivingEntity {
     if (!this.creative && !this.spectator) this.tickFood();
     if (this.portalCooldown > 0) this.portalCooldown--;
     // sprint conditions
-    if (this.sprinting && (this.food <= 6 && !this.creative || this.intent.forward <= 0 || this.sneaking || this.collidedH && !this.inWater)) this.sprinting = false;
+    if (this.sprinting && (this.hasEffect('blindness') || this.food <= 6 && !this.creative || this.intent.forward <= 0 || this.sneaking || this.collidedH && !this.inWater)) this.sprinting = false;
     // exhaustion from movement handled in physicsStep via distance
   }
 

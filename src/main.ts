@@ -97,10 +97,7 @@ async function boot() {
     setTimeout(() => {
       game.input.exitLock();
       ui.open(deathScreen(ui, () => {
-        const sp = game.player.spawnPoint;
-        const p = sp ?? game.player.pos;
-        game.player.respawn(p.x, p.y + (sp ? 0 : 1), p.z);
-        if (!sp) game.chunks.findSpawn().then((s) => game.player.setPos(s.x, s.y, s.z));
+        void game.respawnPlayer();
         game.input.requestLock();
       }, () => showTitle()));
     }, 900);

@@ -13,6 +13,7 @@ import { ExplosionSystem } from './explosions';
 import { RagdollSystem } from '../physics/ragdoll';
 import { FxSystem } from './fxGlue';
 import { WeatherSystem } from './weather';
+import { createSurvivalSystems } from './survival';
 
 export function createSystems(): GameSystem[] {
   return [
