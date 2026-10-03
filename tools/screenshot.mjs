@@ -29,7 +29,7 @@ const actualPort = server.config.server.port ?? port;
 const addr = server.httpServer.address();
 const realPort = typeof addr === 'object' && addr ? addr.port : actualPort;
 const browser = await chromium.launch({
-  args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--enable-webgl', '--disable-gpu-sandbox'],
+  args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--enable-webgl', '--disable-gpu-sandbox', '--ignore-certificate-errors'],
 });
 const page = await browser.newPage({ viewport: { width: W, height: H } });
 const logs = [];
