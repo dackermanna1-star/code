@@ -138,7 +138,7 @@ export function lapisBadge(n: number, enabled: boolean): SVGSVGElement {
   const hi = enabled ? '#9ab4ff' : '#6a6a7a';
   return svgEl(16, 16, `<rect x="1" y="1" width="14" height="14" rx="2.5" fill="${enabled ? '#26355f' : '#2e2e33'}" stroke="#111" stroke-width="0.8"/>
     <path d="M8 2.8 L12.2 6.2 L10.9 11.8 H5.1 L3.8 6.2 Z" fill="${fill}" stroke="${hi}" stroke-width="0.6"/>
-    <text x="11.6" y="14.4" font-size="6.4" font-weight="800" font-family="system-ui,sans-serif" fill="${enabled ? '#80ff20' : '#5a6a50'}" stroke="#111" stroke-width="0.25" text-anchor="middle">${n}</text>`);
+    <text x="11.6" y="14.4" font-size="6.4" font-weight="800" font-family="'Pixelify Sans','Inter Tight',system-ui,sans-serif" fill="${enabled ? '#80ff20' : '#5a6a50'}" stroke="#111" stroke-width="0.25" text-anchor="middle">${n}</text>`);
 }
 
 /** Open enchanting book (top-left of the enchanting window). */

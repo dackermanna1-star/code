@@ -23,18 +23,21 @@ export interface MenuCallbacks {
   saveAndQuit(): Promise<void>;
 }
 
+function menuBtn(label: string, sub: string, onclick: () => void, primary = false): HTMLElement {
+  return h('button', { class: `btn menu${primary ? ' primary' : ''}`, onclick }, h('span', {}, label), h('span', { class: 'sub' }, sub));
+}
+
 export function titleScreen(ui: UI, cb: MenuCallbacks): Screen {
   const splash = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
-  const el = screen('menu-bg',
+  const el = screen('menu-bg title',
     h('div', { class: 'logo' },
       h('div', { class: 'name' }, 'VOXELCRAFT'),
       h('div', { class: 'edition' }, 'PHOTOREALISTIC PHYSICS EDITION'),
       h('div', { class: 'splash' }, splash)),
-    h('div', { class: 'panel', style: { marginTop: '120px', minWidth: '420px', background: 'rgba(10,10,14,0.5)' } },
-      h('button', { class: 'btn primary', onclick: () => ui.open(worldSelectScreen(ui, cb)) }, 'Singleplayer'),
-      h('button', { class: 'btn', onclick: () => ui.open(createWorldScreen(ui, cb)) }, 'Create New World'),
-      h('button', { class: 'btn', onclick: () => ui.open(settingsScreen(ui)) }, 'Options...'),
-    ),
+    h('div', { class: 'menu-stack' },
+      menuBtn('Singleplayer', 'Load a saved world', () => ui.open(worldSelectScreen(ui, cb)), true),
+      menuBtn('Create New World', 'Pick a seed', () => ui.open(createWorldScreen(ui, cb))),
+      menuBtn('Options', 'Graphics & controls', () => ui.open(settingsScreen(ui)))),
     h('div', { class: 'footer mc-text' }, h('span', {}, 'Fan recreation · not affiliated with Mojang/Microsoft'), h('span', {}, 'WebGL2 deferred renderer')),
   );
   return { el, pauses: false };
@@ -48,7 +51,7 @@ export function worldSelectScreen(ui: UI, cb: MenuCallbacks): Screen {
   const refresh = async () => {
     const worlds = await cb.listWorlds().catch(() => []);
     list.innerHTML = '';
-    if (!worlds.length) list.append(h('div', { class: 'meta', style: { padding: '8px', color: '#aaa' } }, 'No saved worlds yet.'));
+    if (!worlds.length) list.append(h('div', { class: 'meta', style: { padding: '8px' } }, 'No saved worlds yet.'));
     for (const w of worlds.sort((a, b) => b.lastPlayed - a.lastPlayed)) {
       const item = h('div', { class: 'world-item' }, h('div', {}, w.name), h('div', { class: 'meta' }, `${w.gameMode} · ${w.difficulty} · seed ${w.seed} · ${new Date(w.lastPlayed).toLocaleString()}`));
       item.onclick = () => {
@@ -85,7 +88,7 @@ export function worldSelectScreen(ui: UI, cb: MenuCallbacks): Screen {
     playBtn.disabled = delBtn.disabled = true;
     refresh();
   };
-  const el = screen('menu-bg', h('div', { class: 'panel', style: { minWidth: '520px' } },
+  const el = screen('dim', h('div', { class: 'panel wide' },
     h('h2', {}, 'Select World'), list,
     h('div', { class: 'row' }, playBtn, h('button', { class: 'btn', onclick: () => { ui.close(); ui.open(createWorldScreen(ui, cb)); } }, 'Create New World')),
     h('div', { class: 'row' }, delBtn, h('button', { class: 'btn', onclick: () => ui.close() }, 'Cancel')),
@@ -105,7 +108,7 @@ export function createWorldScreen(ui: UI, cb: MenuCallbacks): Screen {
     ui.closeAll();
     await cb.play(info);
   };
-  const el = screen('menu-bg', h('div', { class: 'panel', style: { minWidth: '460px' } },
+  const el = screen('dim', h('div', { class: 'panel wide' },
     h('h2', {}, 'Create New World'),
     h('label', { class: 'field' }, 'World Name'), name,
     h('label', { class: 'field' }, 'Seed for the World Generator'), seed,
@@ -123,9 +126,9 @@ export function createWorldScreen(ui: UI, cb: MenuCallbacks): Screen {
 }
 
 export function loadingScreen(): Screen & { set(msg: string, f: number): void } {
-  const msg = h('div', { class: 'mc-text', style: { fontSize: '18px' } }, 'Loading');
+  const msg = h('div', { class: 'msg' }, 'Loading');
   const fill = h('div', { style: { width: '0%' } });
-  const el = screen('loading', h('div', { class: 'logo', style: { position: 'static', transform: 'none' } }, h('div', { class: 'name', style: { fontSize: '54px' } }, 'MINECRAFT')), msg, h('div', { class: 'bar' }, fill));
+  const el = screen('loading', h('div', { class: 'logo' }, h('div', { class: 'name' }, 'VOXELCRAFT'), h('div', { class: 'edition' }, 'PHOTOREALISTIC PHYSICS EDITION')), msg, h('div', { class: 'bar' }, fill));
   return {
     el,
     set(m: string, f: number) {
@@ -136,10 +139,10 @@ export function loadingScreen(): Screen & { set(msg: string, f: number): void } 
 }
 
 export function pauseScreen(ui: UI, cb: MenuCallbacks): Screen {
-  const el = screen('', h('div', { class: 'panel' },
+  const el = screen('dim', h('div', { class: 'panel' },
     h('h2', {}, 'Game Menu'),
     h('button', { class: 'btn primary', onclick: () => ui.resume() }, 'Back to Game'),
-    h('button', { class: 'btn', onclick: () => ui.open(settingsScreen(ui)) }, 'Options...'),
+    h('button', { class: 'btn', onclick: () => ui.open(settingsScreen(ui)) }, 'Options'),
     h('button', { class: 'btn', onclick: async () => { ui.closeAll(); await cb.saveAndQuit(); } }, 'Save and Quit to Title'),
   ));
   return { el, pauses: true };
@@ -149,9 +152,9 @@ export function deathScreen(ui: UI, onRespawn: () => void, onTitle: () => void):
   const g = ui.game!;
   const score = g.player.score;
   const el = screen('death',
-    h('h1', { class: 'mc-text' }, 'You Died!'),
-    h('div', { class: 'mc-text', style: { marginBottom: '20px' } }, `Score: ${score}`),
-    h('div', { style: { width: '380px' } },
+    h('h1', {}, 'You Died!'),
+    h('div', { class: 'score' }, 'Score: ', h('b', {}, String(score))),
+    h('div', { class: 'menu-stack' },
       h('button', { class: 'btn', onclick: () => { ui.close(); onRespawn(); } }, 'Respawn'),
       h('button', { class: 'btn', onclick: () => { ui.closeAll(); onTitle(); } }, 'Title Screen')),
   );
@@ -192,19 +195,20 @@ export function settingsScreen(ui: UI): Screen {
     let input: HTMLElement;
     const label = h('span', {}, d.label);
     if (d.type === 'range') {
-      const val = h('span', { style: { float: 'right', color: '#ccc' } }, d.fmt ? d.fmt(cur) : String(cur));
+      const val = h('span', { class: 'val' }, d.fmt ? d.fmt(cur) : String(cur));
       const r = h('input', { type: 'range', min: d.min, max: d.max, step: d.step, value: cur }) as HTMLInputElement;
       r.oninput = () => {
         const v = Number(r.value);
         val.textContent = d.fmt ? d.fmt(v) : String(v);
         g.applySettings({ [d.key]: v } as any);
       };
-      input = h('div', {}, h('div', {}, label, val), r);
+      input = h('div', {}, h('div', { class: 'lbl' }, label, val), r);
     } else if (d.type === 'bool') {
-      const b = h('button', { class: 'btn' }, `${d.label}: ${cur ? 'ON' : 'OFF'}`) as HTMLButtonElement;
+      const b = h('button', { class: `btn${cur ? ' on' : ''}` }, `${d.label}: ${cur ? 'ON' : 'OFF'}`) as HTMLButtonElement;
       b.onclick = () => {
         const v = !(g.settings as any)[d.key];
         b.textContent = `${d.label}: ${v ? 'ON' : 'OFF'}`;
+        b.classList.toggle('on', v);
         g.applySettings({ [d.key]: v } as any);
       };
       input = b;
@@ -216,7 +220,7 @@ export function settingsScreen(ui: UI): Screen {
     }
     grid.append(h('div', { class: 'setting' }, input));
   }
-  const el = screen('', h('div', { class: 'panel', style: { minWidth: '640px' } },
+  const el = screen('dim', h('div', { class: 'panel xwide' },
     h('h2', {}, 'Options'), grid,
     h('button', { class: 'btn primary', style: { marginTop: '14px' }, onclick: () => ui.close() }, 'Done')));
   return { el, pauses: true };
