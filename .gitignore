@@ -5,3 +5,4 @@ dist/
 screenshots/
 .vite/
 .claude/worktrees/
+.scratch/
