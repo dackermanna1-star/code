@@ -56,7 +56,7 @@ export class FoodItem {
   private flyT = 0;
   private flyDur = 0;
   private flyFrom = new THREE.Vector3();
-  private flyTo = new THREE.Vector3();
+  private flyEnd = new THREE.Vector3();
   private flyHeight = 0.2;
   private onLand: (() => void) | null = null;
   private flySpin = 0;
@@ -148,7 +148,7 @@ export class FoodItem {
     this.flySpin = opts.spin ?? 0;
     this.hidden = false;
     this.flyFrom.copy(this.pos.value);
-    this.flyTo.copy(to);
+    this.flyEnd.copy(to);
     this.flyT = 0;
     const d = this.flyFrom.distanceTo(to);
     this.flyDur = opts.dur ?? THREE.MathUtils.clamp(0.25 + d * 0.35, 0.3, 0.9);
@@ -179,7 +179,7 @@ export class FoodItem {
     if (this.mode === 'fly') {
       this.flyT = Math.min(1, this.flyT + dt / this.flyDur);
       const k = ease.inOutQuad(this.flyT);
-      p.value.lerpVectors(this.flyFrom, this.flyTo, k);
+      p.value.lerpVectors(this.flyFrom, this.flyEnd, k);
       p.value.y += Math.sin(k * Math.PI) * this.flyHeight;
       p.vel.set(0, 0, 0);
       p.target.copy(p.value);

@@ -66,7 +66,7 @@ export class ItemManager {
         const before = JSON.stringify(it.state.cook);
         try {
           const ev = applyRoom(it.state, step);
-          if (ev.some((e) => e.rebuild)) it.setState(it.state, true);
+          if (ev.some((e: { rebuild?: boolean }) => e.rebuild)) it.setState(it.state, true);
         } catch {
           /* ignore */
         }

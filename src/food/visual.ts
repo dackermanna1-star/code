@@ -155,6 +155,11 @@ export class FoodVisual {
   get height(): number {
     return (this.bounds.max.y - this.bounds.min.y) * this.root.scale.y;
   }
+  /** Footprint radius at the standard food scale (ignores animation / fit scaling). */
+  get baseRadius(): number {
+    const sx = this.bounds.max.x - this.bounds.min.x, sz = this.bounds.max.z - this.bounds.min.z;
+    return Math.max(sx, sz) * 0.5 * FOOD_SCALE;
+  }
   get radius(): number {
     const sx = this.bounds.max.x - this.bounds.min.x, sz = this.bounds.max.z - this.bounds.min.z;
     return Math.max(sx, sz) * 0.5 * this.root.scale.x;

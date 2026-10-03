@@ -47,7 +47,12 @@ export class FryerStation extends HeatStation {
     return f.root.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, f.basketUpY + 0.18, 0));
   }
 
-  restPose(item: FoodItem): RestPose {
+  protected override maxItemRadius(): number {
+    const f = this.game.kitchen.fryer;
+    return Math.min(f.basketSize[0], f.basketSize[1]) * (this.contents.length > 1 ? 0.36 : 0.5);
+  }
+
+  protected slot(item: FoodItem): RestPose {
     const i = this.contents.indexOf(item);
     const f = this.game.kitchen.fryer;
     const p = this.ring(i, this.contents.length, Math.min(f.basketSize[0], f.basketSize[1]) * 0.7, this.center(), 0.3);
@@ -163,7 +168,7 @@ export class BlenderStation extends Station {
     return this.jarWorld(this.game.kitchen.blender.jarTopY + 0.12);
   }
 
-  restPose(item: FoodItem): RestPose {
+  protected slot(item: FoodItem): RestPose {
     const b = this.game.kitchen.blender;
     if (isContainerProduct(item.state) && this.contents.length === 1) return { pos: this.center(), rotY: 0, hidden: true };
     const i = this.contents.indexOf(item);
@@ -299,7 +304,7 @@ export class ToasterStation extends HeatStation {
     return this.center().add(new THREE.Vector3(0, 0.16, 0.02));
   }
 
-  restPose(item: FoodItem): RestPose {
+  protected slot(item: FoodItem): RestPose {
     const t = this.game.kitchen.toaster;
     const i = this.contents.indexOf(item);
     t.root.updateMatrixWorld(true);
@@ -419,7 +424,11 @@ export class MicrowaveStation extends HeatStation {
     return this.center().add(new THREE.Vector3(0, 0.1, 0.22));
   }
 
-  restPose(item: FoodItem): RestPose {
+  protected override maxItemRadius(): number {
+    return this.game.kitchen.microwave.plateRadius * (this.contents.length > 1 ? 0.55 : 0.85);
+  }
+
+  protected slot(item: FoodItem): RestPose {
     const i = this.contents.indexOf(item);
     const m = this.game.kitchen.microwave;
     const p = this.ring(i, this.contents.length, m.plateRadius * 0.9, this.center(), this.plateAngle);
@@ -545,7 +554,12 @@ export class FreezerStation extends Station {
     return this.center().add(new THREE.Vector3(0, 0.2, 0.05));
   }
 
-  restPose(item: FoodItem): RestPose {
+  protected override maxItemRadius(): number {
+    const f = this.game.kitchen.fridge;
+    return Math.min(f.drawerSize[0] / Math.max(1, this.contents.length), f.drawerSize[1]) * 0.48;
+  }
+
+  protected slot(item: FoodItem): RestPose {
     const i = this.contents.indexOf(item);
     const f = this.game.kitchen.fridge;
     const n = this.contents.length;

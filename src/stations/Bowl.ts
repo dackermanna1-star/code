@@ -44,7 +44,11 @@ export class BowlStation extends Station {
     return this.center().add(new THREE.Vector3(0, b.rimY - b.bottomY + 0.08, 0));
   }
 
-  restPose(item: FoodItem): RestPose {
+  protected override maxItemRadius(): number {
+    return this.game.kitchen.bowl.innerRadius * (this.contents.length > 2 ? 0.45 : 0.62);
+  }
+
+  protected slot(item: FoodItem): RestPose {
     const i = this.contents.indexOf(item);
     const n = this.contents.length;
     const b = this.game.kitchen.bowl;
@@ -67,7 +71,7 @@ export class BowlStation extends Station {
     return { label: 'Mix!', icon: 'whisk' };
   }
 
-  override doAction() {
+  override doAction(_down = true) {
     if (!this.contents.length) {
       this.game.ui.floatLabel('Add something!', this.hoverPoint(), 'info');
       return;

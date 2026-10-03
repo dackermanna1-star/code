@@ -31,12 +31,16 @@ export class Quality {
     const L = LEVELS[this.level];
     const g = this.game;
     g.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, L.pixelRatio));
-    g.renderer.shadowMap.enabled = L.shadows;
+    // Toggle the light (not renderer.shadowMap.enabled): a lights-state change makes three.js
+    // recompile programs, whereas flipping the renderer flag leaves stale shadow samplers bound.
     const sun = g.lights.sun;
+    sun.castShadow = L.shadows;
     if (sun.shadow.mapSize.x !== L.shadowSize) {
       sun.shadow.mapSize.set(L.shadowSize, L.shadowSize);
-      sun.shadow.map?.dispose();
-      sun.shadow.map = null as unknown as typeof sun.shadow.map;
+      if (sun.shadow.map) {
+        sun.shadow.map.dispose();
+        sun.shadow.map = null;
+      }
     }
     g.fx.quality = L.fx;
     g.resize();

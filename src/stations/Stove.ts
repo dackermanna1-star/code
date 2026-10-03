@@ -31,7 +31,7 @@ abstract class BurnerStation extends HeatStation {
     return !this.userOff && this.contents.length > 0;
   }
 
-  protected override onReceive() {
+  protected override onReceive(_item?: FoodItem) {
     if (!this.userOff && this.contents.length === 1 && this.heat < 0.2) this.game.audio.play('ignite', { volume: 0.7 });
     this.on = true;
   }
@@ -80,7 +80,11 @@ export class PanStation extends BurnerStation {
     return this.prop.root.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, this.prop.surfaceY, 0));
   }
 
-  restPose(item: FoodItem): RestPose {
+  protected override maxItemRadius(): number {
+    return this.prop.innerRadius * (this.contents.length > 1 ? 0.52 : 0.8);
+  }
+
+  protected slot(item: FoodItem): RestPose {
     const i = this.contents.indexOf(item);
     const p = this.ring(i, this.contents.length, this.prop.innerRadius * 0.85, this.center(), 0.4);
     return { pos: p, rotY: i * 1.3 + (item.state.seed % 10) * 0.1 };
@@ -237,7 +241,11 @@ export class PotStation extends BurnerStation {
     return this.center().add(new THREE.Vector3(0, p.rimY - p.waterY + 0.1, 0));
   }
 
-  restPose(item: FoodItem): RestPose {
+  protected override maxItemRadius(): number {
+    return this.game.kitchen.pot.innerRadius * (this.contents.length > 1 ? 0.5 : 0.75);
+  }
+
+  protected slot(item: FoodItem): RestPose {
     const c = this.center();
     if (isContainerProduct(item.state)) return { pos: c.clone().add(new THREE.Vector3(0, -0.04, 0)), rotY: 0, hidden: true };
     const visible = this.contents.filter((i) => !isContainerProduct(i.state));
@@ -352,8 +360,9 @@ export class PotStation extends BurnerStation {
   }
 
   /** Boiling keeps items hidden-soup aware; dropping splashes. */
-  protected override onReceive(item: FoodItem) {
-    super.onReceive();
+  protected override onReceive(item?: FoodItem) {
+    super.onReceive(item);
+    if (!item) return;
     const c = this.center();
     if (!isContainerProduct(item.state)) {
       setTimeout(() => {
@@ -402,7 +411,12 @@ export class OvenStation extends HeatStation {
     return this.rackWorld(0.14).add(new THREE.Vector3(0, 0.12, 0));
   }
 
-  restPose(item: FoodItem): RestPose {
+  protected override maxItemRadius(): number {
+    const o = this.game.kitchen.stove.oven;
+    return Math.min(o.rackSize[0] / Math.max(1, this.contents.length), o.rackSize[1]) * 0.48;
+  }
+
+  protected slot(item: FoodItem): RestPose {
     const i = this.contents.indexOf(item);
     const n = this.contents.length;
     const o = this.game.kitchen.stove.oven;

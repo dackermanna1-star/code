@@ -479,13 +479,14 @@ export class Character {
     this.holdArms(false);
     this.lookAtPoint = null;
     this.eatingItem = null;
+    const eaten = JSON.parse(JSON.stringify(item.state));
     g.items.remove(item);
     void fit;
     // digest & react
     this.fullness = Math.min(2, this.fullness + 0.35 + size * 1.2);
     this.mood = 'reacting';
     await this.react(a);
-    g.onMealEaten(a);
+    g.onMealEaten(a, eaten);
     if (this.fullness > 1.4) await this.burp();
     this.face.reset();
     this.restArms();

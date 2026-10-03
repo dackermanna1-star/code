@@ -350,10 +350,10 @@ function noiseField(ctx: Ctx, w: number, h: number, cells: [number, number], see
   const vals: number[] = [];
   for (let i = 0; i < cw * ch; i++) vals.push(r.next());
   for (let i = 0; i < cw * ch; i++) {
-    const c = new THREE.Color(map(vals[i]));
-    img.data[i * 4] = c.r * 255;
-    img.data[i * 4 + 1] = c.g * 255;
-    img.data[i * 4 + 2] = c.b * 255;
+    const hex = map(vals[i]);
+    img.data[i * 4] = parseInt(hex.slice(1, 3), 16);
+    img.data[i * 4 + 1] = parseInt(hex.slice(3, 5), 16);
+    img.data[i * 4 + 2] = parseInt(hex.slice(5, 7), 16);
     img.data[i * 4 + 3] = 255;
   }
   // tile 3x3 so smoothing wraps, then draw the middle tile scaled up
@@ -1823,3 +1823,11 @@ const STRAWBERRY: ModelDef = {
 // =============================================================================================
 
 // @@REST@@
+
+export const MODELS: ModelTable = {
+  apple: APPLE,
+  banana: BANANA,
+  orange: ORANGE,
+  lemon: LEMON,
+  strawberry: STRAWBERRY,
+};

@@ -46,7 +46,11 @@ export class BoardStation extends Station {
     return b.root.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, b.surfaceY, 0));
   }
 
-  restPose(item: FoodItem): RestPose {
+  protected override maxItemRadius(): number {
+    return this.contents.length > 1 ? 0.13 : 0.19;
+  }
+
+  protected slot(item: FoodItem): RestPose {
     const i = this.contents.indexOf(item);
     const n = this.contents.length;
     const w = this.game.kitchen.board.size[0];
@@ -75,6 +79,7 @@ export class BoardStation extends Station {
     const t = this.game.kitchen.tools[this.tool];
     if (!t) return;
     this.toolObj = t.root;
+    t.root.userData.noPickTree = true;
     // move to the scene root so we can animate in world space
     const wp = t.root.getWorldPosition(new THREE.Vector3());
     this.game.scene.attach(t.root);
@@ -92,6 +97,7 @@ export class BoardStation extends Station {
     const obj = this.toolObj;
     this.toolObj = null;
     this.toolActive = false;
+    obj.userData.noPickTree = false;
     if (!home) return;
     const from = obj.position.clone();
     const fromQ = obj.quaternion.clone();
@@ -121,6 +127,20 @@ export class BoardStation extends Station {
     }
     if (!this.toolActive) this.liftTool();
     this.useTool(item, true);
+  }
+
+  /** Tapping near food on the board uses the tool on the nearest item (forgiving for little fingers). */
+  override tapSurface(point: THREE.Vector3) {
+    let best: FoodItem | null = null;
+    let bd = 0.16;
+    for (const it of this.contents) {
+      const d = Math.hypot(it.position.x - point.x, it.position.z - point.z) - it.visual.radius * 0.5;
+      if (d < bd) {
+        bd = d;
+        best = it;
+      }
+    }
+    if (best) this.tapItem(best);
   }
 
   /** Apply the current tool to an item. */

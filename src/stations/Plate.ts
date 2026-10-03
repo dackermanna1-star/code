@@ -17,7 +17,7 @@ export class PlateStation extends Station {
     const p = game.kitchen.plate;
     const c = this.center();
     this.cylZone(c.clone().add(new THREE.Vector3(0, 0.06, 0)), p.radius + 0.03, 0.16);
-    this.registerPart(game.kitchen.bell.root, () => this.ring());
+    this.registerPart(game.kitchen.bell.root, () => this.ringBell());
   }
 
   center(): THREE.Vector3 {
@@ -29,7 +29,7 @@ export class PlateStation extends Station {
     return 'plate' as const;
   }
 
-  restPose(item: FoodItem): RestPose {
+  protected slot(item: FoodItem): RestPose {
     // keep big meals on the plate
     const fit = Math.min(1, (this.game.kitchen.plate.radius * 0.95) / Math.max(0.02, item.visual.radius));
     return { pos: this.center(), rotY: 0.3, scale: fit };
@@ -40,7 +40,7 @@ export class PlateStation extends Station {
   }
 
   /** Ring the bell: Mochi eats whatever is on the plate. */
-  ring() {
+  ringBell() {
     const g = this.game;
     const bell = g.kitchen.bell;
     g.audio.play('bell');
@@ -66,7 +66,7 @@ export class PlateStation extends Station {
   }
 
   override doAction() {
-    this.ring();
+    this.ringBell();
   }
 
   protected override onReceive(item: FoodItem) {

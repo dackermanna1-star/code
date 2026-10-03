@@ -81,7 +81,20 @@ export abstract class Station implements Holder {
     for (const it of this.contents) if (it.mode === 'rest' || it.mode === 'held') it.settle(this.restPose(it));
   }
 
-  abstract restPose(item: FoodItem): RestPose;
+  /** Where an item sits in this station (before fit-to-size scaling). */
+  protected abstract slot(item: FoodItem): RestPose;
+
+  /** Largest footprint radius an item may have here (bigger items are shrunk to fit). */
+  protected maxItemRadius(): number {
+    return Infinity;
+  }
+
+  restPose(item: FoodItem): RestPose {
+    const pose = this.slot(item);
+    const lim = this.maxItemRadius();
+    if (isFinite(lim)) pose.scale = Math.min(pose.scale ?? 1, lim / Math.max(0.01, item.visual.baseRadius));
+    return pose;
+  }
 
   /** Where a dragged item hovers when over this station. */
   hoverPoint(): THREE.Vector3 {
@@ -98,6 +111,9 @@ export abstract class Station implements Holder {
     item.wobble(1);
     this.game.audio.play('tap', { pitch: 0.9 + Math.random() * 0.3 });
   }
+
+  /** Tap on the station surface (not on food). Default: nothing. */
+  tapSurface(_point: THREE.Vector3) {}
 
   /** Pointer pressed on the station (not on an item). Return true to capture a gesture. */
   gestureStart(_point: THREE.Vector3, _hit: THREE.Object3D | null): boolean {

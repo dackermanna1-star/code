@@ -19,7 +19,8 @@ import { Hud } from '../ui/Hud';
 import { audio, type Audio } from '../audio';
 import { LAYOUT, VIEWS, type StationId } from '../world/layout';
 import type { FoodItem } from './FoodItem';
-import type { SeasoningDef } from '../food/types';
+import type { SeasoningDef, FoodState } from '../food/types';
+import type { MealAnalysis } from '../recipes';
 import { makeBottleFallback } from '../world/fallbackBottle';
 import { Discoveries } from './Discoveries';
 import { Quality } from './Quality';
@@ -56,6 +57,8 @@ export class Game {
   private shadowFocus = new THREE.Vector3();
   readonly container: HTMLElement;
   paused = false;
+  /** Debug time scale (?speed=4) for scripted playtests on slow renderers. */
+  timeScale = Math.max(0.1, Math.min(8, parseFloat(new URLSearchParams(location.search).get('speed') ?? '1') || 1));
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -104,7 +107,7 @@ export class Game {
       if (!this.running) return;
       requestAnimationFrame(loop);
       const now = performance.now();
-      const dt = Math.min(1 / 20, (now - this.last) / 1000);
+      const dt = Math.min(1 / 20, (now - this.last) / 1000) * this.timeScale;
       this.last = now;
       this.frame(dt);
     };
@@ -123,7 +126,7 @@ export class Game {
   currentStation(): Station | null {
     const v = this.camera.view;
     if (v === 'table') return this.stations.plate;
-    return (this.stations as Record<string, Station>)[v] ?? null;
+    return (this.stations as unknown as Record<string, Station>)[v] ?? null;
   }
 
   goTo(view: ViewName) {
@@ -144,6 +147,22 @@ export class Game {
 
   private onArrive(_v: ViewName) {
     this.ui.onArrive();
+  }
+
+  /** After Mochi finishes a meal: cookbook, chalkboard, celebrations. */
+  onMealEaten(a: MealAnalysis, state?: FoodState) {
+    const finish = (thumb?: string) => {
+      const res = this.discoveries.record(a, thumb);
+      this.kitchen.chalkboard.write("Today's Special", a.name);
+      if (res.isNewDish) {
+        this.ui.markNew(true);
+        this.audio.play('discover');
+        this.fx.celebrate(this.character.mouthWorld().add(new THREE.Vector3(0, 0.35, 0)));
+        this.ui.toast('New recipe!', a.name, thumb);
+      }
+    };
+    if (state) this.ui.thumbs.foodState(state, 'meal:' + this.discoveries.meals + ':' + state.seed).then(finish, () => finish());
+    else finish();
   }
 
   /** Feed an item directly to Mochi. */

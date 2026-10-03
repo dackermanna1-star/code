@@ -84,8 +84,8 @@ export interface ViewDef {
 /** Camera viewpoints. The overview adapts its distance to the screen aspect at runtime. */
 export const VIEWS: Record<'overview' | 'table' | StationId, ViewDef> = {
   overview: { pos: v3(0.05, 1.72, 4.4), target: v3(0.05, 1.0, -0.45), fov: 36, fit: [3.25, 1.2] },
-  table: { pos: v3(-1.78, 1.32, 1.42), target: v3(-2.1, 1.02, -0.25), fov: 40, fit: [0.75, 0.55] },
-  plate: { pos: v3(-1.78, 1.32, 1.42), target: v3(-2.1, 1.02, -0.25), fov: 40, fit: [0.75, 0.55] },
+  table: { pos: v3(-1.7, 1.62, 1.72), target: v3(-2.1, 0.98, -0.18), fov: 38, fit: [0.62, 0.5] },
+  plate: { pos: v3(-1.7, 1.62, 1.72), target: v3(-2.1, 0.98, -0.18), fov: 38, fit: [0.62, 0.5] },
   board: { pos: v3(-0.78, 1.62, 0.18), target: v3(-0.74, 0.93, -0.68), fov: 40, fit: [0.48, 0.3] },
   bowl: { pos: v3(-0.12, 1.55, 0.08), target: v3(-0.12, 0.98, -0.68), fov: 38, fit: [0.32, 0.25] },
   pan: { pos: v3(0.37, 1.58, 0.1), target: v3(0.37, 0.96, -0.56), fov: 38, fit: [0.34, 0.26] },

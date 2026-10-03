@@ -100,8 +100,6 @@ export class Thumbs {
     const prevTarget = this.renderer.getRenderTarget();
     const prevClear = this.renderer.getClearColor(new THREE.Color());
     const prevAlpha = this.renderer.getClearAlpha();
-    const prevShadow = this.renderer.shadowMap.enabled;
-    this.renderer.shadowMap.enabled = false;
     this.renderer.setRenderTarget(this.rt);
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.clear();
@@ -110,7 +108,6 @@ export class Thumbs {
     this.renderer.readRenderTargetPixels(this.rt, 0, 0, this.size, this.size, px);
     this.renderer.setRenderTarget(prevTarget);
     this.renderer.setClearColor(prevClear, prevAlpha);
-    this.renderer.shadowMap.enabled = prevShadow;
     this.scene.remove(holder);
     dispose();
     // flip Y into the canvas

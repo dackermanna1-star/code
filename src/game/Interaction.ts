@@ -95,8 +95,9 @@ export class Interaction {
   pick(x: number, y: number, exclude?: FoodItem): PickHit {
     this.setRay(x, y);
     const hits = this.raycaster.intersectObjects(this.visiblePickables(exclude), true);
-    for (const h of hits) {
+    outer: for (const h of hits) {
       if (h.object.userData.noPick) continue;
+      for (let a: THREE.Object3D | null = h.object; a; a = a.parent) if (a.userData.noPickTree) continue outer;
       const item = this.game.items.fromObject(h.object);
       if (item) return { item, point: h.point, object: h.object };
       let o: THREE.Object3D | null = h.object;
@@ -287,8 +288,12 @@ export class Interaction {
     }
     if (hit.station) {
       if (g.camera.view !== hit.station.view) g.goTo(hit.station.view);
+      else hit.station.tapSurface(hit.point ?? hit.station.center());
       return;
     }
+    // plain worktop taps in a station view: let the station decide (board: chop nearest)
+    const st = g.currentStation();
+    if (st && hit.point) st.tapSurface(hit.point);
   }
 
   // ------------------------------------------------------------------------------------------
@@ -511,7 +516,6 @@ export class Interaction {
       onLand: () => {
         g.items.remove(item);
         base.setState(combined, true);
-        base.holder?.arrange?.();
         if (base.holder) base.settle(base.holder.restPose(base));
         base.land(1.4);
         g.fx.sparkle(top, 8);
