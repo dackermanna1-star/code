@@ -367,7 +367,7 @@ export function buildStove(o: StoveOpts): StoveProp {
   const trimShape = roundedRectShape(winW + 0.03, winH + 0.03, 0.04, 0, winY);
   trimShape.holes.push(roundedRectPath(winW, winH, 0.03, 0, winY));
   part(door, softExtrude(trimShape, 0.008, 0.003, { curveSegs: 8 }), chrome(), { pos: [0, 0, 0.03] });
-  const glassMat = new THREE.MeshStandardMaterial({ color: '#2a2230', roughness: 0.06, metalness: 0.2, transparent: true, opacity: 0.72, depthWrite: false, envMapIntensity: 1.5, side: THREE.DoubleSide });
+  const glassMat = new THREE.MeshStandardMaterial({ color: '#2a2230', roughness: 0.06, metalness: 0.2, transparent: true, opacity: 0.42, depthWrite: false, envMapIntensity: 1.5, side: THREE.DoubleSide });
   part(door, new THREE.ShapeGeometry(roundedRectShape(winW + 0.004, winH + 0.004, 0.03, 0, winY), 8), glassMat, { pos: [0, 0, 0.022], cast: false, order: 4 });
   // handle bar
   const hy = doorH - 0.055;

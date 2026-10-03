@@ -114,7 +114,7 @@ export interface BlenderProp {
   /** Jar group (transparent glass), pivot at its bottom centre. Gameplay shakes it while blending. */
   jar: THREE.Object3D;
   jarInnerRadius: number;
-  /** Local y of the jar's inside bottom and top rim. */
+  /** Jar-local y of the jar's inside bottom and top rim. */
   jarBottomY: number;
   jarTopY: number;
   lid: THREE.Object3D;

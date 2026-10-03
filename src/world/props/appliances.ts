@@ -131,8 +131,9 @@ export function buildBlender(): BlenderProp {
     root,
     jar,
     jarInnerRadius: RI,
-    jarBottomY: jarY + glassBottomY,
-    jarTopY: jarY + glassBottomY + jarH,
+    // jar-local (the jar group shakes while blending and the contents ride along)
+    jarBottomY: glassBottomY,
+    jarTopY: glassBottomY + jarH,
     lid,
     blades,
     button,
@@ -454,7 +455,7 @@ export function buildMicrowave(): MicrowaveProp {
   const plate = dynamic(grp(root, [pc.x, plateY, pc.z], 'turntable'));
   part(plate, lathe(fillet([[0, 0], [plateR - 0.012, 0, 0.01], [plateR, 0.012, 0.004], [plateR - 0.004, 0.014], [plateR - 0.012, 0.004, 0.006], [0, 0.004]], 4), 56), glass('#eaf6ff', 0.55), { cast: false, order: 2 });
   // interior light (opacity animated)
-  const light = new THREE.Mesh(new THREE.BoxGeometry(cw - 0.004, ch - 0.004, cd - 0.004), glowMat('#ffd77a', { side: THREE.BackSide }));
+  const light = new THREE.Mesh(new THREE.BoxGeometry(cw - 0.004, ch - 0.004, cd - 0.004), glowMat('#ffc457', { side: THREE.BackSide }));
   light.position.set((cavX0 + cavX1) / 2, (cavY0 + cavY1) / 2, (cavZ0 + cavZ1) / 2);
   light.name = 'microwaveLight';
   light.renderOrder = 2;
@@ -477,7 +478,7 @@ export function buildMicrowave(): MicrowaveProp {
       ctx.fillStyle = '#ffffff';
       for (let y = 4; y < h; y += 8) for (let x = (y / 8) % 2 ? 4 : 0; x < w; x += 8) {
         ctx.beginPath();
-        ctx.arc(x, y, 2.4, 0, Math.PI * 2);
+        ctx.arc(x, y, 1.7, 0, Math.PI * 2);
         ctx.fill();
       }
     },
@@ -486,7 +487,8 @@ export function buildMicrowave(): MicrowaveProp {
   const screen = screenTex.clone();
   screen.repeat.set(6, 4);
   screen.needsUpdate = true;
-  const winMat = new THREE.MeshStandardMaterial({ color: '#2a2a33', roughness: 0.15, metalness: 0.2, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide });
+  // light enough to watch the food turn (the dotted screen and the interior glow do the rest)
+  const winMat = new THREE.MeshStandardMaterial({ color: '#2a2a33', roughness: 0.15, metalness: 0.2, transparent: true, opacity: 0.4, depthWrite: false, side: THREE.DoubleSide });
   part(door, new THREE.ShapeGeometry(roundedRectShape(winW + 0.006, winH + 0.006, 0.02, dW / 2 - 0.012, dH / 2), 8), winMat, { pos: [0, 0, dT * 0.5], cast: false, order: 4 });
   const dotsMat = new THREE.MeshStandardMaterial({ color: '#111114', roughness: 0.5, alphaMap: screen, alphaTest: 0.5, side: THREE.DoubleSide });
   part(door, new THREE.ShapeGeometry(roundedRectShape(winW + 0.006, winH + 0.006, 0.02, dW / 2 - 0.012, dH / 2), 8), dotsMat, { pos: [0, 0, dT * 0.45], cast: false });

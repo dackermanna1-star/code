@@ -92,9 +92,10 @@ export const VIEWS: Record<'overview' | 'table' | StationId, ViewDef> = {
   grill: { pos: v3(0.76, 1.58, 0.1), target: v3(0.76, 0.96, -0.56), fov: 38, fit: [0.34, 0.26] },
   pot: { pos: v3(0.37, 1.78, -0.12), target: v3(0.37, 1.02, -0.84), fov: 38, fit: [0.3, 0.26] },
   oven: { pos: v3(0.55, 0.88, 0.78), target: v3(0.55, 0.44, -0.4), fov: 40, fit: [0.42, 0.34] },
-  blender: { pos: v3(1.17, 1.5, 0.12), target: v3(1.17, 1.1, -0.76), fov: 38, fit: [0.3, 0.3] },
+  blender: { pos: v3(1.17, 1.56, 0.3), target: v3(1.17, 1.2, -0.76), fov: 38, fit: [0.3, 0.32] },
   toaster: { pos: v3(1.53, 1.4, 0.14), target: v3(1.53, 1.04, -0.74), fov: 38, fit: [0.28, 0.22] },
   fryer: { pos: v3(1.98, 1.55, 0.08), target: v3(1.98, 1.0, -0.7), fov: 38, fit: [0.3, 0.26] },
   microwave: { pos: v3(1.62, 1.6, 0.36), target: v3(1.62, 1.5, -0.8), fov: 38, fit: [0.36, 0.26] },
-  freezer: { pos: v3(2.98, 1.05, 0.66), target: v3(2.98, 0.32, -0.42), fov: 40, fit: [0.42, 0.3] },
+  // high and steep: the drawer sits at floor level and its front panel would hide the food
+  freezer: { pos: v3(2.98, 1.78, 0.6), target: v3(2.98, 0.16, -0.22), fov: 40, fit: [0.4, 0.3] },
 };

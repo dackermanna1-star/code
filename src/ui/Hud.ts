@@ -64,6 +64,7 @@ export class Hud {
   private hintEl: HTMLElement;
   private hintStep = 0;
   private hintT = 0;
+  private hintShown = 0;
   private cookbook: HTMLElement;
   private titleScreen: HTMLElement | null = null;
   private dragging = false;
@@ -564,9 +565,20 @@ export class Hud {
     if (this.hintStep === 2 && (g.stations.plate.contents.length || g.discoveries.meals > 0 || (cooking && g.time > 40))) this.hintAdvance(2);
     if (this.hintStep === 3 && g.discoveries.meals > 0) this.hintAdvance(3);
     if (this.hintStep > 3) return;
+    // a hint stays up for a while, then steps aside (and comes back later if still useful)
+    if (this.hintEl.classList.contains('show')) {
+      this.hintShown += dt;
+      if (this.hintShown > 7) {
+        this.hintEl.classList.remove('show');
+        if (this.hintStep === 2) this.hintAdvance(2);
+        else this.hintT = 18;
+      }
+      return;
+    }
     this.hintT -= dt;
-    if (this.hintT > 0 || this.hintEl.classList.contains('show')) return;
+    if (this.hintT > 0) return;
     if (this.hintStep === 3 && !g.stations.plate.contents.length && !cooking) return;
+    this.hintShown = 0;
     const hints = ['Open the fridge to get some food!', 'Drag food onto a station — or tap it to drop it in!', 'Cook it, chop it, mix it... anything goes!', 'Put food on Mochi’s plate, then ring the bell!'];
     this.hintEl.textContent = hints[this.hintStep];
     this.hintEl.classList.toggle('at-fridge', this.hintStep === 0);

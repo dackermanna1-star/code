@@ -14,6 +14,8 @@ import { buildKitchen } from '../world/kitchen';
 import { buildGallery } from '../world/props/gallery';
 import { VIEWS } from '../world/layout';
 import { sampleDishes } from './samples';
+import { engineDishes } from './engineDishes';
+import { nameFood } from '../recipes';
 
 const q = new URLSearchParams(location.search);
 const renderer = createRenderer({ preserveDrawingBuffer: true });
@@ -102,7 +104,16 @@ function applyPreset(s: FoodState, preset: string) {
   }
 }
 
-const dishes = q.get('dishes') ? sampleDishes() : null;
+// ?dishes=1: hand-assembled samples; ?dishes=engine: dishes cooked by the real engine
+// (&from=N&count=M pages through them), labelled with the name the game would give them.
+function engineSample(): { label: string; state: FoodState }[] {
+  const from = parseInt(q.get('from') ?? '0', 10) || 0;
+  const count = parseInt(q.get('count') ?? '24', 10) || 24;
+  return engineDishes()
+    .slice(from, from + count)
+    .map(([label, state]) => ({ label: `${label} → ${nameFood(state)}`, state }));
+}
+const dishes = q.get('dishes') === 'engine' ? engineSample() : q.get('dishes') ? sampleDishes() : null;
 if (dishes) {
   ids = dishes.map((d) => d.label);
 }

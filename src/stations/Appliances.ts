@@ -515,7 +515,7 @@ export class MicrowaveStation extends HeatStation {
       if (this.running <= 0) this.stop(true);
     }
     const lm = m.light.material as THREE.MeshBasicMaterial;
-    lm.opacity = this.running > 0 ? 0.55 : this.open > 0.3 ? 0.25 : 0;
+    lm.opacity = this.running > 0 ? 0.95 : this.open > 0.3 ? 0.3 : 0;
     if (this.contents.length) this.arrange();
   }
 

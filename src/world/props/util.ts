@@ -458,7 +458,9 @@ export function roundedRectPath(w: number, h: number, r: number, cx = 0, cy = 0)
  * and gets smooth (creased) normals so the bevels shade like moulded plastic / enamel.
  */
 export function softExtrude(shape: THREE.Shape, depth: number, bevel: number, opts: { curveSegs?: number; bevelSegs?: number; uvScale?: number } = {}): THREE.BufferGeometry {
-  const b = Math.min(bevel, depth / 2 - 1e-4);
+  // The bevel insets the outline and grows the holes; past half the wall they cross and the caps
+  // triangulate straight across the hole (a "lid" over a ring), so keep it well under that.
+  const b = Math.min(bevel, depth / 2 - 1e-4, minWall(shape, opts.curveSegs ?? 10) * 0.35);
   const g = new THREE.ExtrudeGeometry(shape, {
     depth: Math.max(1e-4, depth - 2 * b),
     bevelEnabled: b > 0,
@@ -477,6 +479,24 @@ export function softExtrude(shape: THREE.Shape, depth: number, bevel: number, op
   }
   g.dispose();
   return c;
+}
+
+/** Thinnest wall between a shape's outline and its holes (Infinity without holes). */
+function minWall(shape: THREE.Shape, segs: number): number {
+  if (!shape.holes.length) return Infinity;
+  const { shape: outer, holes } = shape.extractPoints(segs);
+  const ab = new THREE.Vector2(), ap = new THREE.Vector2();
+  let min = Infinity;
+  for (const hole of holes)
+    for (const p of hole)
+      for (let i = 0; i < outer.length; i++) {
+        const a = outer[i], b = outer[(i + 1) % outer.length];
+        ab.subVectors(b, a);
+        ap.subVectors(p, a);
+        const t = Math.max(0, Math.min(1, ap.dot(ab) / Math.max(1e-12, ab.lengthSq())));
+        min = Math.min(min, ap.sub(ab.multiplyScalar(t)).length());
+      }
+  return min;
 }
 
 /**
