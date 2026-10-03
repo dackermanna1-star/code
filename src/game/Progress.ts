@@ -11,6 +11,8 @@ export interface Settings {
   quality: 'low' | 'medium' | 'high';
   gore: boolean;
   showFps: boolean;
+  /** Invulnerable player (toggle with H). */
+  god: boolean;
 }
 
 export interface Stats {
@@ -63,6 +65,7 @@ export const DEFAULT_SETTINGS: Settings = {
   quality: 'high',
   gore: true,
   showFps: false,
+  god: false,
 };
 
 /** Every weapon, upgrade and defense can be bought from Day 1 (no day locks). */

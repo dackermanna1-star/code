@@ -423,6 +423,14 @@ export class Game {
     G.waves.setPhase('dead');
   }
 
+  /** God mode: nothing hurts the player. Saved with the settings. */
+  toggleGod() {
+    G.player.godMode = !G.player.godMode;
+    G.progress.save(true);
+    G.ui.toast(G.player.godMode ? 'God mode ON: nothing can hurt you (H to turn off)' : 'God mode OFF', 2.5);
+    G.audio?.play(G.player.godMode ? 'pickup' : 'uiClick', {});
+  }
+
   setPreset(name: string) {
     const p = PRESETS[name];
     if (p) G.atmosphere.setPresets(p, p, 0);
@@ -471,6 +479,7 @@ export class Game {
     // waves start on a timer; Enter just skips the rest of the break
     if (input.pressed('Enter') && G.waves.phase === 'prep') G.waves.startWave();
     if (input.pressed('KeyP')) this.pause();
+    if (input.pressed('KeyH')) this.toggleGod();
   }
 
   simulate(dt: number) {

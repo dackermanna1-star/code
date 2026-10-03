@@ -68,7 +68,7 @@ export class UI {
       <div class="tc"><div class="wavebox" data-r="wavebox"></div><div class="wavebar" data-r="wavebarw"><i data-r="wavebar"></i></div><div class="bossbar" data-r="bossw" style="display:none"><b data-r="bossname">ABOMINATION</b><div class="bb"><i data-r="boss"></i></div></div></div>
       <div class="tr"><div class="kills" data-r="kills"></div><div class="fps" data-r="fps"></div></div>
       <div id="killfeed"></div>
-      <div class="bl"><div class="hp"><i data-r="hpbar"></i><b data-r="hptext"></b></div><div class="gren" data-r="gren"></div></div>
+      <div class="bl"><div class="godtag" data-r="god" style="display:none">GOD MODE</div><div class="hp"><i data-r="hpbar"></i><b data-r="hptext"></b></div><div class="gren" data-r="gren"></div></div>
       <div class="bc" data-r="inv"></div>
       <div class="br"><div class="wname" data-r="wname"></div><div class="ammo" data-r="ammo"></div><div class="gauge" data-r="gaugew"><i data-r="gauge"></i></div><div class="slots" data-r="slots"></div></div>
       <div id="xh" data-r="xh"><i class="l"></i><i class="r"></i><i class="t"></i><i class="b"></i><i class="dot"></i></div>
@@ -184,10 +184,14 @@ export class UI {
         <button class="btn primary" data-a="resume">Resume</button>
         <button class="btn" data-a="help">Controls</button>
         <button class="btn" data-a="settings">Settings</button>
+        <button class="btn${G.player.godMode ? ' gold' : ''}" data-a="god">God Mode: ${G.player.godMode ? 'ON' : 'OFF'}</button>
         <button class="btn" data-a="quit">Quit to Menu</button></div>`,
       '',
       (a) => {
-        if (a === 'resume') G.game.resume(true);
+        if (a === 'god') {
+          G.game.toggleGod();
+          this.showPause();
+        } else if (a === 'resume') G.game.resume(true);
         else if (a === 'settings') this.showSettings(true);
         else if (a === 'help') this.showHelp(true);
         else if (a === 'quit') G.game.quitToMenu();
@@ -208,6 +212,7 @@ export class UI {
         <div><span>Kick</span><span><span class="kbd">V</span><span class="kbd">MMB</span></span></div>
         <div><span>Middle finger</span><span>hold <span class="kbd">T</span></span></div>
         <div><span>Unzip / zip up (then hold LMB)</span><span class="kbd">K</span></div>
+        <div><span>God mode on / off</span><span class="kbd">H</span></div>
         <div><span>Build mode</span><span class="kbd">F</span></div>
         <div><span>Rotate structure</span><span><span class="kbd">Q</span><span class="kbd">E</span><span class="kbd">Wheel</span></span></div>
         <div><span>Pick up structure (prep)</span><span>hold <span class="kbd">E</span></span></div>
@@ -242,6 +247,7 @@ export class UI {
       <div class="row"><label>Quality</label><select data-k="quality"><option value="low"${s.quality === 'low' ? ' selected' : ''}>Low</option><option value="medium"${s.quality === 'medium' ? ' selected' : ''}>Medium</option><option value="high"${s.quality === 'high' ? ' selected' : ''}>High</option></select></div>
       <div class="row"><label>Invert mouse Y</label><input type="checkbox" data-k="invertY"${s.invertY ? ' checked' : ''}></div>
       <div class="row"><label>Show FPS</label><input type="checkbox" data-k="showFps"${s.showFps ? ' checked' : ''}></div>
+      <div class="row"><label>God mode (H in game)</label><input type="checkbox" data-k="god"${s.god ? ' checked' : ''}></div>
       </div>
       <div style="margin-top:16px;text-align:right"><button class="btn primary" data-a="back">Done</button></div>`,
       '',
@@ -706,6 +712,7 @@ export class UI {
     this.set('kills', `☠ ${W.dayKills}`);
     this.set('fps', P.settings.showFps ? `${this.fps} FPS · ${G.zombies.list.length} Z · ${G.ragdolls.active.length}/${G.ragdolls.corpses.length} R/C` : '');
     // health
+    this.refs.god.style.display = pl.godMode ? '' : 'none';
     const hpk = pl.hp / pl.maxHp;
     this.refs.hpbar.style.width = `${hpk * 100}%`;
     this.set('hptext', `${Math.ceil(pl.hp)} / ${pl.maxHp}`);

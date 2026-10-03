@@ -55,7 +55,14 @@ export class Player {
   onLand: ((speed: number) => void) | null = null;
   onHurt: ((amount: number) => void) | null = null;
   onDeath: (() => void) | null = null;
-  godMode = false;
+  /** Invulnerable (H). Backed by the saved settings so it survives reloads. */
+  get godMode() {
+    return !!G.progress?.data?.settings?.god;
+  }
+  set godMode(v: boolean) {
+    const s = G.progress?.data?.settings;
+    if (s) s.god = v;
+  }
 
   spawn() {
     const w = G.physics.world;

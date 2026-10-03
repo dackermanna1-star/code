@@ -198,6 +198,7 @@ html, body {
 #hud .kills { font-size: 16px; }
 #hud .fps { font-size: 11px; color: #9f9; margin-top: 4px; }
 #hud .bl { position: absolute; bottom: 16px; left: 16px; }
+#hud .godtag { display: inline-block; margin-bottom: 6px; padding: 2px 8px; font-family: var(--font-pixel); font-size: 12px; letter-spacing: 2px; color: #1a1206; background: var(--gold); box-shadow: 0 0 0 2px #000, 0 0 12px rgba(255, 200, 60, 0.55); }
 #hud .hp { width: 260px; height: 22px; background: rgba(0, 0, 0, 0.6); box-shadow: 0 0 0 2px #000; position: relative; }
 #hud .hp i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(#e0342f, #a31a16); }
 #hud .hp b { position: absolute; left: 8px; top: 0; font-family: var(--font-pixel); font-size: 13px; line-height: 22px; text-shadow: 1px 1px 0 #000; font-weight: normal; }
