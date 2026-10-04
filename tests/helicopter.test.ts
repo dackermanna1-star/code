@@ -10,6 +10,7 @@ import {
 } from '../src/entity/vehicles/heliPhysics';
 import { HelicopterEntity } from '../src/entity/vehicles/helicopter';
 import { HeliVisual } from '../src/entity/vehicles/heliModel';
+import { Player } from '../src/entity/player';
 
 const DT = 1 / 60;
 const GROUND = 64;
@@ -287,5 +288,92 @@ describe('helicopter flight model', () => {
     const glass = v.forward.children[0];
     expect(glass.matrix.elements[13]).toBeCloseTo(70 - HELI.com.y, 3);
     v.dispose();
+  });
+
+  it('a player boards, takes off with Space, cannot exit in the air, lands with Shift and climbs out', () => {
+    const world = flatWorld();
+    const game = fakeGame(world);
+    const input = {
+      down: new Set<string>(), pressed: new Set<string>(),
+      isDown(a: string) { return this.down.has(a); },
+      wasPressedTick(a: string) { return this.pressed.has(a); },
+    };
+    game.input = input;
+    const p = new Player();
+    p.init(game, world);
+    p.setPos(5.5, GROUND, 0.5);
+    game.player = p;
+    const h = new HelicopterEntity();
+    h.init(game, world);
+    h.setPos(0.5, GROUND, 0.5);
+    let step = 0;
+    const run = (sec: number) => {
+      for (let i = 0; i < Math.round(sec * 60); i++) {
+        if (p.vehicle) h.pilotInput(input, true);
+        p.physicsStep(DT);
+        h.physicsStep(DT);
+        if (++step % 3 === 0) { h.tick(); input.pressed.clear(); }
+      }
+    };
+    expect(h.interact(p)).toBe(true);
+    expect(p.vehicle).toBe(h);
+    expect(game.log.some((e: any) => e.type === 'vehicleMount')).toBe(true);
+    run(5);
+    expect(h.body.rpm).toBeGreaterThan(0.9);
+    expect(h.onGround).toBe(true);
+    input.down.add('jump');
+    run(3);
+    input.down.delete('jump');
+    expect(h.pos.y).toBeGreaterThan(GROUND + 8);
+    // carried at the pilot seat (eye inside the cabin)
+    const eye = p.pos.y + p.eyeHeight;
+    expect(eye - h.pos.y).toBeGreaterThan(1.4);
+    expect(eye - h.pos.y).toBeLessThan(2.0);
+    // Shift in the air descends instead of exiting
+    input.down.add('sneak');
+    input.pressed.add('sneak');
+    run(0.1);
+    expect(p.vehicle).toBe(h);
+    expect(h.exitHint).toBeGreaterThan(0);
+    run(15);
+    expect(h.onGround).toBe(true);
+    expect(h.health).toBe(h.maxHealth); // gentle touchdown
+    input.down.delete('sneak');
+    run(1);
+    // cameras: cockpit and chase
+    const ctl: any = { camera: new THREE.PerspectiveCamera(70, 1, 0.05, 1000), eyeWorld: new THREE.Vector3(), perspective: 'first', vehicleFov: 1 };
+    expect(h.updateCamera(ctl, 1, DT)).toBe(true);
+    expect(h.box.contains(ctl.camera.position.x, ctl.camera.position.y, ctl.camera.position.z)).toBe(true);
+    ctl.perspective = 'third_back';
+    for (let i = 0; i < 30; i++) h.updateCamera(ctl, 1, DT);
+    const off = ctl.camera.position.clone().sub(h.body.c);
+    expect(off.length()).toBeGreaterThan(8);
+    expect(off.y).toBeGreaterThan(1);
+    expect(off.dot(new THREE.Vector3(0, 0, -1).applyQuaternion(h.quat))).toBeLessThan(0); // behind
+    // Shift on the ground: climb out next to it, engine spools down
+    input.pressed.add('sneak');
+    run(0.05);
+    expect(p.vehicle).toBe(null);
+    expect(h.body.engineOn).toBe(false);
+    expect(Math.hypot(p.pos.x - h.pos.x, p.pos.z - h.pos.z)).toBeGreaterThan(1.3);
+    expect(Math.abs(p.pos.y - GROUND)).toBeLessThan(0.2);
+    run(20);
+    expect(h.body.rpm).toBeLessThan(0.05);
+  });
+
+  it('punching it breaks it back into the item', () => {
+    const world = flatWorld();
+    const game = fakeGame(world);
+    const h = new HelicopterEntity();
+    h.init(game, world);
+    h.setPos(0.5, GROUND, 0.5);
+    const attacker: any = { creative: false };
+    let n = 0;
+    while (!h.removed && n < 30) { h.hurt({ type: 'player', attacker, direct: attacker }, 1); n++; }
+    expect(h.removed).toBe(true);
+    expect(n).toBeGreaterThan(3);
+    expect(n).toBeLessThan(12);
+    expect(game.log.some((e: any) => e.type === 'helicopterBroken')).toBe(true);
+    expect(game.log.some((e: any) => e.type === 'helicopterDestroyed')).toBe(false);
   });
 });

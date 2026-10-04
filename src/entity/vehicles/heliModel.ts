@@ -559,7 +559,7 @@ export const LIGHTS = {
   strobeTail: new THREE.Vector3(0, 1.63, 6.27),
   strobeFin: new THREE.Vector3(0, 2.77, 6.12),
   beacon: new THREE.Vector3(0, 2.4, 1.38),
-  landing: new THREE.Vector3(0, 0.83, -1.93),
+  landing: new THREE.Vector3(0, 0.835, -1.965),
 };
 
 /** First-person eye of the pilot (body frame) and seat geometry. */
@@ -723,8 +723,6 @@ function buildGeometry(): HeliGeometry {
       // handle
       trim.add(new RoundedBoxGeometry(0.03, 0.035, 0.14, 2, 0.012), 0x2a2b2e, T(side * 0.805, 1.13, z1 - 0.12));
     }
-    // step on the skid cross tube and hinges
-    for (const z of [-0.5, -0.1, 0.15, 0.75]) trim.add(new RoundedBoxGeometry(0.03, 0.06, 0.04, 1, 0.01), 0x2a2b2e, T(side * 0.8, 1.55, z));
   }
   // ------------------------------------------------------------ engine cowling, mast, exhausts
   const czs: number[] = [];
@@ -1137,7 +1135,7 @@ export class HeliVisual {
       const geo = key === 'beacon' ? G.beacon : key === 'landing' ? G.landing : G.lightSphere;
       const m = mesh(geo, this.lightMats[key], this.body, 'light:' + key);
       m.position.copy(LIGHTS[key]);
-      if (key === 'landing') m.rotation.x = 0.35;
+      if (key === 'landing') m.rotation.x = Math.PI - 0.47; // faces forward and down
       anchors[key] = m;
     }
     // ---- forward pass: glass, rotor discs, light halos
@@ -1248,7 +1246,7 @@ export class HeliVisual {
       this.needles.altimeter.rotation.z = -((s.altitude % 100) / 100) * Math.PI * 2;
       this.needles.rpm.rotation.z = sweep(s.rpm / 1.2);
       this.needles.rpm2.rotation.z = sweep(s.n1 / 1.2);
-      this.needles.vsi.rotation.z = -clamp(s.vspeed / 10, -1, 1) * 2.3 - Math.PI / 2;
+      this.needles.vsi.rotation.z = Math.PI / 2 - clamp(s.vspeed / 10, -1, 1) * 2.3; // zero at 9 o'clock
       this.compassCard.rotation.z = -s.heading;
       this.horizonBall.rotation.z = s.roll;
     }

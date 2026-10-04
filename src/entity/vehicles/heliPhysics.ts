@@ -369,7 +369,11 @@ export class HeliBody {
     // rotor: driven through the freewheel clutch, aerodynamic drag, load droop, autorotation
     // the governor holds Nr at N1 while the engine drives; otherwise aerodynamic drag slows it
     if (this.n1 >= this.rpm - 1e-4 && this.n1 > 0.05) this.rpm = Math.min(this.n1, this.rpm + 0.32 * dt);
-    else this.rpm -= (0.02 + 0.06 * this.rpm * this.rpm + 0.05 * this.collective * this.rpm) * dt;
+    else {
+      this.rpm -= (0.025 + 0.07 * this.rpm * this.rpm + 0.05 * this.collective * this.rpm) * dt;
+      // rotor brake once parked below 50 % Nr
+      if (!this.engineOn && this.contacts >= 2 && this.rpm < 0.5) this.rpm -= 0.06 * dt;
+    }
     if (upVel < -1 && this.rpm > 0.05) this.rpm += Math.min(-upVel, 25) * 0.012 * (1 - this.collective) * dt;
     this.rpm = clamp(this.rpm, 0, 1.06);
   }
