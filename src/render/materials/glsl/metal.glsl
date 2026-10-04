@@ -6,6 +6,7 @@
 //  V_CHAIN, V_LANTERN (uP1.y 1 = soul)
 //  V_CURTAIN_WALL: uC0 glass, uC1 mullion; uP0 = [mullions per block, glass rough, pane tone variation, -]
 //  V_TOWER_ICON : spawner block face: a tapering glass tower with its spire on a dusk sky; uC0 sky, uC1 glass, uC2 frame
+//  V_DISASTER_ICON: spawner faces; uP1.x 0 tornado, 1 earthquake, 2 volcano, 3 tsunami, 4 asteroid, 5 top (hazard stripes)
 //  V_FIN_WALL   : uC0 fin face, uC1 fin shadow; uP0 = [fins per block, rough, -, -]
 
 vec3 metalBaseColor(int v) {
@@ -280,6 +281,70 @@ Mat material(vec2 uv) {
     vec2 pf = panelFrame(uv, 1.0 * PX, 0.8 * PX);
     col = mix(uC[2], col, 1.0 - pf.y);
     return M(col, 1.0, 0.5 + 0.3 * pf.x + 0.1 * body, mix(0.5, 0.08, body));
+  }
+  if (v == V_DISASTER_ICON) {
+    int kind = int(uP[1].x + 0.5);
+    vec2 q = uv - 0.5; // y down
+    vec2 pf = panelFrame(uv, 1.6 * PX, 0.8 * PX);
+    // hazard stripes on the frame
+    float stripe = step(0.5, fract((uv.x + uv.y) * 4.0));
+    vec3 frame = mix(rgb(0x1a1a1a), rgb(0xf2c230), stripe);
+    vec3 bg = mix(rgb(0x2a3140), rgb(0x141820), uv.y);
+    vec3 col = bg;
+    float glow = 0.0;
+    if (kind == 5) {
+      col = mix(rgb(0x1a1a1a), rgb(0xf2c230), step(0.5, fract((uv.x + uv.y) * 3.0)));
+      return M(col * (0.8 + 0.2 * pf.x), 1.0, 0.5 + 0.3 * pf.x, 0.45);
+    } else if (kind == 0) {
+      // tornado: funnel narrowing downward with swirl bands
+      float y = uv.y;
+      float w = mix(0.36, 0.04, smoothstep(0.15, 0.88, y));
+      float xo = sin(y * 7.0) * 0.06 * y;
+      float funnel = step(0.15, y) * step(y, 0.9) * step(abs(q.x - xo), w);
+      float band = 0.75 + 0.25 * sin((q.x - xo) / max(w, 0.02) * 3.0 + y * 30.0);
+      col = mix(col, rgb(0xb8bec8) * band, funnel);
+      float debris = step(0.93, h1(floor(uv * 16.0), 901.0)) * step(0.6, y);
+      col = mix(col, rgb(0x6b4f33), debris);
+    } else if (kind == 1) {
+      // earthquake: ground with a jagged glowing fissure
+      float ground = step(0.42, uv.y);
+      col = mix(col, mix(rgb(0x6b4f33), rgb(0x4a3624), uv.y), ground);
+      col = mix(col, rgb(0x5d9a3a), ground * step(uv.y, 0.47));
+      float cx = 0.5 + 0.12 * sin(uv.y * 23.0) + 0.06 * sin(uv.y * 57.0);
+      float crack = step(0.42, uv.y) * step(abs(uv.x - cx), 0.035 * (1.2 - uv.y));
+      col = mix(col, rgb(0xff6a1a), crack);
+      glow = crack;
+    } else if (kind == 2) {
+      // volcano: cone with a lava crater and plume
+      float cone = step(abs(q.x), (uv.y - 0.32) * 0.75) * step(0.32, uv.y);
+      col = mix(col, mix(rgb(0x4a3a30), rgb(0x2a201a), uv.y), cone);
+      float lava = cone * step(uv.y, 0.4) + step(abs(q.x + sin(uv.y * 30.0) * 0.02), 0.03) * step(0.45, uv.y) * step(uv.y, 0.85) * cone;
+      col = mix(col, rgb(0xff5a10), lava);
+      float smoke = smoothstep(0.2, 0.0, length((uv - vec2(0.5, 0.18)) * vec2(1.0, 1.6)));
+      col = mix(col, rgb(0x5a5a5a), smoke * 0.8);
+      glow = lava;
+    } else if (kind == 3) {
+      // tsunami: curling wave
+      float crest = 0.38 + 0.18 * sin(uv.x * 4.0 + 0.6);
+      float water = step(crest, uv.y);
+      col = mix(col, mix(rgb(0x2a7ad0), rgb(0x0a2a6a), uv.y), water);
+      float curl = smoothstep(0.03, 0.0, abs(length(uv - vec2(0.68, 0.36)) - 0.14)) * step(uv.x, 0.8);
+      col = mix(col, rgb(0xe8f4ff), max(curl, smoothstep(0.03, 0.0, abs(uv.y - crest)) * 0.9));
+    } else {
+      // asteroid: rocky body with a fiery trail
+      vec2 c = vec2(0.62, 0.62);
+      float r = length(uv - c);
+      float rock = step(r, 0.17 + 0.02 * sin(atan(uv.y - c.y, uv.x - c.x) * 7.0));
+      vec2 tq = uv - c;
+      float along = dot(tq, normalize(vec2(-1.0, -1.0)));
+      float perp = abs(tq.x - tq.y) * 0.7071;
+      float trail = step(0.0, along) * step(perp, 0.16 * (1.0 - along * 1.6)) * step(along, 0.6);
+      col = mix(col, mix(rgb(0xffd060), rgb(0xff3a10), sat(along * 2.0)), trail * (1.0 - rock));
+      col = mix(col, rgb(0x3a3430) * (0.8 + 0.4 * h1(floor(uv * 12.0), 902.0)), rock);
+      glow = trail * (1.0 - rock);
+    }
+    col = mix(col, frame, pf.y);
+    return M(col, 1.0, 0.5 + 0.3 * pf.x + 0.1 * (1.0 - pf.y), mix(0.55, 0.35, glow));
   }
   return missingTex(uv);
 }

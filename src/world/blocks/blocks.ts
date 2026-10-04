@@ -484,6 +484,13 @@ R('curtain_wall', stone({ hardness: 0.8, resistance: 3, requiresTool: false, sou
 R('fin_wall', stone({ hardness: 2, sound: 'metal', mapColor: 0xc4c9ce }));
 R('one_world_trade_center', stone({ hardness: 1, requiresTool: false, sound: 'metal', mapColor: 0x8ea8c4, tex: { up: 'fin_wall', down: 'fin_wall', north: 'tower_icon', south: 'tower_icon', west: 'tower_icon', east: 'tower_icon' } }));
 
+// ---------------------------------------------------------------------------------
+// Natural disasters (src/game/disasters): spawner blocks. Appended last (stable ids).
+// ---------------------------------------------------------------------------------
+for (const d of ['tornado', 'earthquake', 'volcano', 'tsunami', 'asteroid']) {
+  R(d, stone({ hardness: 0.5, requiresTool: false, sound: 'metal', tex: { up: 'disaster_top', down: 'disaster_top', north: `disaster_${d}`, south: `disaster_${d}`, west: `disaster_${d}`, east: `disaster_${d}` } }));
+}
+
 finalizeRegistry();
 
 export {};

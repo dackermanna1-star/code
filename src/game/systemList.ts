@@ -17,6 +17,7 @@ import { WeatherSystem } from './weather';
 import { createSurvivalSystems } from './survival';
 import { SaveSystem } from './saves';
 import { LandmarkSystem } from './landmarks';
+import { DisasterSystem } from './disasters/system';
 
 export function createSystems(): GameSystem[] {
   return [
@@ -34,6 +35,7 @@ export function createSystems(): GameSystem[] {
     new WeatherSystem(),
     ...createSurvivalSystems(),
     new LandmarkSystem(),
+    new DisasterSystem(),
     new SaveSystem(),
   ];
 }

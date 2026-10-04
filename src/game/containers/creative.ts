@@ -15,7 +15,7 @@ import { copyWithCount, sameItemSameTags, displayName } from './stacks';
 import { POTIONS, POTION_ITEMS, potionDisplayName } from '../brewing/potions';
 import { ENCHANTMENTS } from '../enchant/enchantments';
 
-export type CreativeTabId = 'building' | 'colored' | 'natural' | 'functional' | 'redstone' | 'tools' | 'combat' | 'food' | 'ingredients' | 'spawn_eggs' | 'search' | 'inventory';
+export type CreativeTabId = 'building' | 'colored' | 'natural' | 'functional' | 'redstone' | 'tools' | 'combat' | 'food' | 'ingredients' | 'spawn_eggs' | 'disasters' | 'search' | 'inventory';
 
 export interface CreativeTab {
   id: CreativeTabId;
@@ -37,6 +37,7 @@ export const CREATIVE_TABS: CreativeTab[] = [
   { id: 'food', name: 'Food & Drinks', icon: ['golden_apple', 'apple', 'cake'], row: 'bottom' },
   { id: 'ingredients', name: 'Ingredients', icon: ['iron_ingot', 'stick'], row: 'bottom' },
   { id: 'spawn_eggs', name: 'Spawn Eggs', icon: ['pig_spawn_egg', 'spawner'], row: 'bottom' },
+  { id: 'disasters', name: 'Natural Disasters', icon: ['asteroid', 'tnt'], row: 'bottom' },
   { id: 'inventory', name: 'Survival Inventory', icon: ['chest'], row: 'bottom' },
 ];
 
@@ -57,6 +58,7 @@ export function creativeTabOf(it: ItemDef): CreativeTabId | null {
     case 'food': return 'food';
     case 'brewing': return 'food';
     case 'spawn_eggs': return 'spawn_eggs';
+    case 'disasters' as any: return 'disasters';
     default: return 'ingredients';
   }
 }
