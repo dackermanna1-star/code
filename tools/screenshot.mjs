@@ -54,7 +54,7 @@ try {
   logs.push(`[shot] not ready: ${e.message.split('\n')[0]}`);
 }
 const info = await page.evaluate(() => window.__shotInfo ?? null).catch(() => null);
-await page.screenshot({ path: out });
+await page.screenshot({ path: out, timeout: 600000 });
 console.log(`screenshot ${out} (${ready ? 'ready' : 'TIMEOUT'}) in ${((Date.now() - t0) / 1000).toFixed(1)}s url=${url}`);
 if (info) console.log('info:', JSON.stringify(info));
 const maxLogs = 60;
