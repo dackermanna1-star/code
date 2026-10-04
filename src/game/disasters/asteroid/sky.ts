@@ -114,7 +114,7 @@ export function installSkyHook(atmo: any) {
     atmo.updateCelestialAndLight = function (p: any) {
       if (sources.size) {
         const { dust } = combined();
-        if (dust > 0) p.rain = Math.max(p.rain ?? 0, 0.85 * dust); // overcast, hazy (sky only: no rain falls)
+        if (dust > 0) p.rain = Math.max(p.rain ?? 0, 0.6 * dust); // overcast, hazy (sky only: no rain falls)
       }
       inner.call(this, p);
       adjust(this, p.cameraPosition ?? null);

@@ -129,7 +129,9 @@ export class Asteroid implements Disaster {
   private exposureTouched = false;
 
   // ---- leveling
-  private sched: RingScheduler;
+  /** Crater excavation (rings inside the crater) and the outer leveling behind the shock front run side by side. */
+  private craterSched: RingScheduler;
+  private outerSched: RingScheduler;
   private bulk: BulkEdit;
   private acc: ColumnAccess;
   private info: ColumnInfo = newColumnInfo();
@@ -176,7 +178,9 @@ export class Asteroid implements Disaster {
     const el = THREE.MathUtils.degToRad(48 + this.rand() * 12);
     this.dirIn = new THREE.Vector3(Math.cos(az) * Math.cos(el), Math.sin(el), Math.sin(az) * Math.cos(el)).normalize();
 
-    this.sched = new RingScheduler(this.plan.maxR);
+    const craterRings = Math.min(this.plan.maxR, Math.ceil(this.plan.R * 1.1));
+    this.craterSched = new RingScheduler(craterRings);
+    this.outerSched = new RingScheduler(this.plan.maxR, undefined, craterRings + 1);
     this.bulk = new BulkEdit(g);
     this.acc = {
       get: (x, y, z) => w.getBlock(x, y, z),
@@ -360,7 +364,7 @@ export class Asteroid implements Disaster {
     this.levelTick(tau);
     this.blastEntities(tau);
     this.timeline(tau);
-    if (tau > WINTER_END && this.sched.done && !this.boulders.length) {
+    if (tau > WINTER_END && this.levelDone && !this.boulders.length) {
       this.say('settle', 'The dust is settling. Life will have to start over.', '#c0b0a0');
       this.finished = true;
       return false;
@@ -420,20 +424,39 @@ export class Asteroid implements Disaster {
   }
 
   // ------------------------------------------------------------------ leveling
+  get levelDone() {
+    return this.craterSched.done && this.outerSched.done;
+  }
+
+  /**
+   * One tick of leveling. The outer rings (cheap, a few edits per column) get the first share of
+   * the budget so the devastation keeps pace with the shock front; the crater (tens of edits per
+   * column) digs with the rest, hidden under the fireball and dust.
+   */
   private levelTick(tau: number) {
-    if (this.sched.done) return;
+    if (this.levelDone) return;
     const P = this.plan;
     const front = shockFront(tau, P.R * 1.15);
     const cam = this.cam();
     this.visualCols = 0;
+    const fn = (dx: number, dz: number) => {
+      const x = P.cx + dx, z = P.cz + dz;
+      const e = processColumn(this.acc, P, x, z, this.info);
+      if (e > 0) this.columnFx(x, z, cam);
+      return e;
+    };
+    const t0 = performance.now();
     this.bulk.begin();
     try {
-      this.sched.run(front, BUDGET, (dx, dz) => {
-        const x = P.cx + dx, z = P.cz + dz;
-        const e = processColumn(this.acc, P, x, z, this.info);
-        if (e > 0) this.columnFx(x, z, cam);
-        return e;
-      });
+      let used = 0;
+      if (!this.outerSched.done) {
+        const crater = this.craterSched.done ? 1 : 0.55;
+        used = this.outerSched.run(front, { edits: BUDGET.edits * crater, ms: BUDGET.ms * crater, columns: BUDGET.columns }, fn).edits;
+      }
+      if (!this.craterSched.done) {
+        const ms = Math.max(0.5, BUDGET.ms - (performance.now() - t0));
+        this.craterSched.run(Infinity, { edits: Math.max(200, BUDGET.edits - used), ms, columns: BUDGET.columns }, fn);
+      }
     } finally {
       this.bulk.end();
     }
@@ -473,8 +496,11 @@ export class Asteroid implements Disaster {
     const g = this.game, I = this.I;
     const front = shockFront(tau, this.plan.R * 1.15);
     const maxR = this.plan.maxR;
+    let kills = 0;
     for (const e of g.entities.list as any[]) {
       if (e.removed || this.blasted.has(e)) continue;
+      // deaths spawn ragdolls: spread them over ticks
+      if (kills >= 6 && e instanceof LivingEntity && e !== g.player) continue;
       const dx = e.pos.x - I.x, dz = e.pos.z - I.z;
       const d = Math.hypot(dx, dz);
       if (d > front) continue;
@@ -499,6 +525,7 @@ export class Asteroid implements Disaster {
         continue;
       }
       if (e instanceof LivingEntity) {
+        kills++;
         e.vel.addScaledVector(dir, fling);
         e.hurt({ type: 'explosion', explosion: true, bypassArmor: true, dir, impulse: 40 * k, point: I.clone(), weapon: 'explosion' }, 10000);
       } else if (d < this.plan.R) {
@@ -748,7 +775,7 @@ export class Asteroid implements Disaster {
       }
       if (I.distanceToSquared(cam) < 600 * 600) {
         const top = I.y + rise;
-        if (tau < 22) this.emit('campfire_smoke', I.x, (I.y + top) * 0.5, I.z, { count: 2, size: 14 + rf * 0.15, spread: [rf * 0.25, (top - I.y) * 0.5 + 1, rf * 0.25], vel: [0, 9, 0], life: 1.6, color: 0x3a302a });
+        if (tau < 20 && (this.ticks & 1) === 0) this.emit('campfire_smoke', I.x, (I.y + top) * 0.5, I.z, { count: 1, size: 7 + rf * 0.05, spread: [rf * 0.2, (top - I.y) * 0.5 + 1, rf * 0.2], vel: [0, 9, 0], life: 1.1, color: 0x3a302a });
         if (tau < 8) this.emit('explosion_fire', I.x, top, I.z, { count: 3, size: 6 + rf * 0.08, spread: rf * 0.5, vel: [0, 12, 0] });
       }
     }
@@ -828,12 +855,12 @@ export class Asteroid implements Disaster {
         const f = this.fires[Math.floor(this.rand() * this.fires.length)];
         const ddx = f[0] - cam.x, ddz = f[2] - cam.z;
         if (ddx * ddx + ddz * ddz > 200 * 200) continue;
-        this.emit('campfire_smoke', f[0] + 0.5, f[1] + 0.6, f[2] + 0.5, { count: 1, size: 2.4, spread: 0.4, color: 0x2a2624 });
+        this.emit('campfire_smoke', f[0] + 0.5, f[1] + 0.6, f[2] + 0.5, { count: 1, size: 1.6, spread: 0.4, color: 0x2a2624, life: 0.8 });
         if (this.rand() < 0.4) this.emit('flame', f[0] + 0.5, f[1] + 0.3, f[2] + 0.5, { count: 2, size: 2.5, spread: 0.4 });
       }
     }
     // the lava lake steams and spits
-    if (this.sched.ring > P.R && this.lavaR > 2 && this.rand() < 0.5 && I.distanceToSquared(cam) < 400 * 400) {
+    if (this.craterSched.done && this.lavaR > 2 && this.rand() < 0.5 && I.distanceToSquared(cam) < 400 * 400) {
       const a = this.rand() * Math.PI * 2, r = Math.sqrt(this.rand()) * this.lavaR * 0.9;
       const x = I.x + Math.cos(a) * r, z = I.z + Math.sin(a) * r;
       this.emit('large_smoke', x, P.lavaY + 1.5, z, { count: 1, size: 4, vel: [0, 3, 0], color: 0x5a4a40 });

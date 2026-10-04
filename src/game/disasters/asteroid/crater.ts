@@ -42,8 +42,8 @@ export function craterProfile(r: number, D: number, H: number): number {
  * the bedrock layers; `maxR` is the leveling radius (distance to the edge of the loaded map).
  */
 export function planImpact(cx: number, cz: number, G: number, maxR: number, rand: () => number, scale = 1): ImpactPlan {
-  const R = Math.round((66 + rand() * 20) * scale);
-  let D = Math.round((34 + rand() * 12) * scale);
+  const R = Math.round((62 + rand() * 18) * scale);
+  let D = Math.round((31 + rand() * 11) * scale);
   D = Math.max(3, Math.min(D, G - 8));
   const H = Math.max(2, Math.round(R * 0.12));
   // lava lake: the bottom ~18% of the bowl (radius ≈ 0.42 R)

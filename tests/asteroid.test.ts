@@ -129,6 +129,17 @@ describe('asteroid ring scheduling', () => {
     expect(s.totalEdits).toBe(total);
   });
 
+  it('can start at an inner ring (outer leveling beside the crater)', () => {
+    const s = new RingScheduler(20, () => 0, 11);
+    let min = Infinity, n = 0;
+    s.run(1e9, { edits: 1e9, ms: 1e9 }, (dx, dz) => { min = Math.min(min, Math.hypot(dx, dz)); n++; return 1; });
+    expect(min).toBeGreaterThanOrEqual(11);
+    expect(s.done).toBe(true);
+    let m = 0;
+    for (let r = 11; r <= 20; r++) m += ringOffsets(r).length / 2;
+    expect(n).toBe(m);
+  });
+
   it('stops on the time budget and on the column cap', () => {
     let t = 0;
     const s = new RingScheduler(100, () => t);
@@ -306,7 +317,7 @@ describe('asteroid disaster (headless, whole sequence)', () => {
     // budgeted: ticks stay near the 5 ms leveling budget (percentile: robust to machine load)
     times.sort((a, b) => a - b);
     expect(times[Math.floor(times.length * 0.98)]).toBeLessThan(20);
-    expect(d.sched.done).toBe(true);
+    expect(d.levelDone).toBe(true);
     // crater with lava at the impact, leveled tree far away, flung/removed debris entity
     let top = 0;
     for (let y = 120; y > 0; y--) if (world.getBlock(0, y, 0)) { top = y; break; }

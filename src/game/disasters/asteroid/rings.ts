@@ -55,8 +55,8 @@ export interface RunResult {
 export type ColumnFn = (dx: number, dz: number, r: number) => number;
 
 export class RingScheduler {
-  ring = 0;
-  private offs: Int32Array = ringOffsets(0);
+  ring: number;
+  private offs: Int32Array;
   private i = 0;
   /** Edits spent beyond earlier budgets (carried forward). */
   debt = 0;
@@ -66,7 +66,11 @@ export class RingScheduler {
   /** Largest single-column edit count seen (for budget accounting / tests). */
   maxColumn = 0;
 
-  constructor(readonly maxR: number, private now: () => number = () => performance.now()) {}
+  /** Rings startRing..maxR (inclusive). */
+  constructor(readonly maxR: number, private now: () => number = () => performance.now(), readonly startRing = 0) {
+    this.ring = startRing;
+    this.offs = ringOffsets(startRing);
+  }
 
   get done() {
     return this.ring > this.maxR;
@@ -74,7 +78,7 @@ export class RingScheduler {
 
   /** Fraction of rings completed (0..1). */
   get progress() {
-    return Math.min(1, this.ring / (this.maxR + 1));
+    return Math.min(1, (this.ring - this.startRing) / (this.maxR + 1 - this.startRing));
   }
 
   /**

@@ -175,8 +175,9 @@ void main() {
   float c = afbm(vL * 4.0 + vec3(0.0, u_time * 0.05, 0.0));
   float ridge = 1.0 - abs(c * 2.0 - 1.0);
   float crack = pow(ridge, 14.0);
-  float t = 0.35 + 0.55 * front + 0.1 * c;
-  float glow = heat * (front * front * (0.6 + 2.6 * h) + crack * (1.2 + 12.0 * front));
+  float t = 0.28 + 0.25 * front + 0.4 * crack + 0.07 * c;
+  float pattern = clamp(vC.r * 9.0, 0.25, 1.4);
+  float glow = heat * (front * front * (0.35 + 1.8 * h) * pattern + crack * (0.8 + 9.0 * front));
   col += ablackbody(t) * glow;
   o = vec4(col, 1.0);
 }
@@ -206,8 +207,8 @@ void main() {
   float n = afbm(vL * 2.5 - normalize(u_travel) * u_time * 4.0);
   float f = max(front, 0.0);
   // the limb blazes (compressed, ionised air seen edge-on); the face stays see-through to the rock
-  float I = pow(fres, 2.2) * smoothstep(-0.5, 0.5, front) * (0.6 + 0.8 * n) * 5.0 + pow(f, 6.0) * (0.3 + 0.5 * n) * 1.2;
-  vec3 col = ablackbody(0.7 + 0.3 * f) * I * u_plasma * u_heat;
+  float I = pow(fres, 2.2) * smoothstep(-0.5, 0.5, front) * (0.6 + 0.8 * n) * 2.6 + pow(f, 6.0) * (0.3 + 0.5 * n) * 0.8;
+  vec3 col = ablackbody(0.48 + 0.3 * f + 0.12 * n) * I * u_plasma * u_heat;
   o = vec4(col, 0.0);
 }
 `;
@@ -247,7 +248,7 @@ void main() {
   float ang = atan(vL.z, vL.x);
   float streak = afbm(vec3(cos(ang) * 3.0, vL.y * 0.9 - u_time * 9.0, sin(ang) * 3.0));
   float I = (pow(fres, 1.4) * 0.9 + 0.2) * exp(-v * 3.2) * (0.35 + 1.1 * streak) * smoothstep(0.0, 0.04, v);
-  vec3 col = ablackbody(0.98 - v * 0.75) * I * u_plasma * u_heat * 2.5;
+  vec3 col = ablackbody(0.72 - v * 0.5 + 0.15 * streak) * I * u_plasma * u_heat * 1.4;
   o = vec4(col, 0.0);
 }
 `;
@@ -288,7 +289,7 @@ void main() {
   float turb = afbm(vec3(vL.x * 0.45, vL.y * 0.16 - u_time * 7.0, vL.z * 0.45));
   float turb2 = afbm(vec3(vL.x * 1.3, vL.y * 0.5 - u_time * 13.0, vL.z * 1.3));
   float I = pow(1.0 - v, 2.4) * facing * (0.15 + 1.4 * turb * turb + 0.5 * turb2) * smoothstep(0.0, 0.02, v);
-  vec3 col = ablackbody(0.9 - v * 0.85 + 0.1 * turb2) * I * u_plasma * u_heat * 1.6;
+  vec3 col = ablackbody(0.75 - v * 0.7 + 0.12 * turb2) * I * u_plasma * u_heat * 1.2;
   o = vec4(col, 0.0);
 }
 `;
@@ -411,9 +412,9 @@ void main() {
   float facing = abs(dot(N, V));
   float n = afbm(vL * 3.2 + vec3(0.0, -u_time * 0.5, 0.0));
   float n2 = afbm(vL * 9.0 + vec3(0.0, -u_time * 0.9, 0.0));
-  float temp = u_temp * (0.45 + 0.75 * n + 0.15 * n2) * (0.55 + 0.45 * facing);
+  float temp = u_temp * (0.2 + 1.1 * smoothstep(0.3, 0.75, n) + 0.15 * n2) * (0.5 + 0.5 * facing);
   float tc = clamp(temp, 0.0, 1.0);
-  vec3 em = ablackbody(tc) * u_glow * tc * tc * (0.6 + 0.8 * n2);
+  vec3 em = ablackbody(tc) * u_glow * tc * tc * tc * (0.5 + 1.0 * n2);
   float a = u_alpha * smoothstep(0.0, 0.45, facing) * (0.7 + 0.3 * n);
   vec3 smoke = vec3(0.05, 0.043, 0.038) * (u_sunCol * max(N.y * 0.5 + 0.5, 0.0) * 0.3 + max(shIrradiance(N), vec3(0.0))) / 3.14159;
   o = vec4(em * a + smoke * a * (1.0 - tc), a);
