@@ -562,7 +562,7 @@ export class Volcano implements Disaster {
         const h = rnd();
         if (centre) this.bulk.set(x, gy, z, this.rock(big || h < 0.5 ? 'magma_block' : 'blackstone'));
         else if (h < 0.35) this.bulk.set(x, gy, z, this.rock(h < 0.12 ? 'magma_block' : 'blackstone'));
-        if (centre && big && rnd() < 0.5) this.bulk.set(x, gy + 1, z, lava);
+        if (centre && big && rnd() < 0.5 && this.bulk.set(x, gy + 1, z, lava)) this.lavaCells.push(x, gy + 1, z);
         else if (!centre && rnd() < 0.3 && w.getBlock(x, gy + 1, z) === 0 && (isFlammable(w.getBlock(x, gy, z)) || rnd() < 0.4)) {
           w.setBlock(x, gy + 1, z, fire, SetFlags.ALL);
         }
@@ -707,10 +707,10 @@ export class Volcano implements Disaster {
       for (const [dx, dz] of H4) {
         const st = w.getBlock(x + dx, y, z + dz);
         if (st === 0) {
-          if (isFlammable(w.getBlock(x + dx, y - 1, z + dz))) w.setBlock(x + dx, y, z + dz, fire, SetFlags.ALL);
+          if (isFlammable(w.getBlock(x + dx, y - 1, z + dz))) w.setBlock(x + dx, y, z + dz, fire, FIRE_FLAGS);
         } else if (blockClass(st) === WEAK && st >>> 4 !== fire >>> 4) {
           this.bulk.set(x + dx, y, z + dz, 0);
-          if (w.getBlock(x + dx, y - 1, z + dz)) w.setBlock(x + dx, y, z + dz, fire, SetFlags.ALL);
+          if (w.getBlock(x + dx, y - 1, z + dz)) w.setBlock(x + dx, y, z + dz, fire, FIRE_FLAGS);
         }
       }
     }
@@ -749,12 +749,22 @@ export class Volcano implements Disaster {
     const w = this.game.world;
     const lavaId = S('lava') >>> 4;
     const sys = this.sys;
+    const pl = this.plan;
+    const cool = (x: number, y: number, z: number) => {
+      const h = hash3(x, y, z, pl.seed + 11);
+      this.bulk.set(x, y, z, this.rock(h < 0.62 ? 'basalt' : h < 0.8 ? 'magma_block' : h < 0.92 ? 'blackstone' : 'smooth_basalt'));
+    };
     for (let k = 0; k < per && this.coolCursor < n; k++, this.coolCursor++) {
       const i = this.coolCursor * 3;
       const x = this.lavaCells[i], y = this.lavaCells[i + 1], z = this.lavaCells[i + 2];
       if (w.getBlock(x, y, z) >>> 4 !== lavaId) continue;
-      const h = hash3(x, y, z, this.plan.seed + 11);
-      this.bulk.set(x, y, z, this.rock(h < 0.62 ? 'basalt' : h < 0.8 ? 'magma_block' : h < 0.92 ? 'blackstone' : 'smooth_basalt'));
+      cool(x, y, z);
+      // lava that spread from the flow through the fluid system (fires woke it up) crusts too
+      for (const [dx, dy, dz] of NEAR5) {
+        const nx = x + dx, ny = y + dy, nz = z + dz;
+        if (Math.hypot(nx - pl.cx, nz - pl.cz) <= pl.craterR + 1.5) continue; // the crater lake stays
+        if (w.getBlock(nx, ny, nz) >>> 4 === lavaId) cool(nx, ny, nz);
+      }
       if (sys && rnd() < 0.15) sys.spawn(PT.steam, x + 0.5, y + 1.1, z + 0.5, 0, 0.8, 0);
     }
   }
@@ -963,6 +973,8 @@ export class Volcano implements Disaster {
 }
 
 const H4: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+/** Fire next to flow lava: burn hooks, but no neighbour updates (they would wake the static lava). */
+const FIRE_FLAGS = SetFlags.HOOKS | SetFlags.MODIFY;
 const NEAR5: [number, number, number][] = [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, -1, 0]];
 
 registerDisaster('volcano', (ctx) => new Volcano(ctx));
