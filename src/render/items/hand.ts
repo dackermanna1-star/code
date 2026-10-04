@@ -184,7 +184,7 @@ export class FirstPersonHand {
   update(game: any, dt: number, light: THREE.Vector4): boolean {
     const p = game.player;
     const cam: THREE.PerspectiveCamera = game.cameraCtl.camera;
-    const hide = !p || game.cameraCtl.perspective !== 'first' || p.dead || p.spectator || p.sleeping || game.ui?.hudHidden || p.usingItem?.stack.item.name === 'spyglass';
+    const hide = !p || game.cameraCtl.perspective !== 'first' || !!p.vehicle || p.dead || p.spectator || p.sleeping || game.ui?.hudHidden || p.usingItem?.stack.item.name === 'spyglass';
     this.visible = !hide;
     if (hide) return false;
     const r = game.renderer;

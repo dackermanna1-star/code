@@ -4,7 +4,7 @@
  */
 import { addNoise, alloc, highpass, lowpass, mix, peakEq, smoothRandom, sweep, TAU, lowShelf } from '../dsp/core';
 import { chorus } from '../dsp/fx';
-import { bubble, bubbles, burst, crackle, grains, ping, ratioModes, scatter, strike, whoosh, PLATE } from '../dsp/models';
+import { bubble, bubbles, burst, crackle, grains, ping, ratioModes, scatter, strike, thump, whoosh, PLATE } from '../dsp/models';
 import type { Rand } from '../dsp/rand';
 import { sizzle } from './kit';
 import type { LoopSpec, Out } from './types';
@@ -102,6 +102,60 @@ function cricket(out: Float32Array, sr: number, r: Rand, len: number): void {
   }
 }
 
+/**
+ * Helicopter main rotor at 100 % Nr: 4 blades × 4.5 rev/s = 18 blade passages/s (36 per 2 s
+ * loop, so the per-blade pattern repeats seamlessly). Rotor wash bed modulated by the passage,
+ * a low "whop" thump per blade and a short blade-vortex crack. Playback rate follows Nr.
+ */
+function heliRotor(sr: number, r: Rand, len: number): Float32Array {
+  const out = alloc(sr, len);
+  const n = out.length;
+  const P = 2 / 36;
+  const bed = new Float32Array(n);
+  addNoise(bed, r, 0, n, 1, 'brown');
+  addNoise(bed, r, 0, n, 0.12, 'pink');
+  lowpass(bed, sr, 650);
+  for (let i = 0; i < n; i++) {
+    const ph = ((i / sr) / P) % 1;
+    bed[i] *= 0.5 + 0.5 * Math.exp(-ph * 6);
+  }
+  mix(out, bed, 0, 0.9);
+  const blade = [1, 0.84, 0.95, 0.8];
+  for (let k = 0; k * P < len; k++) {
+    const t = k * P;
+    const g = blade[k % 4];
+    thump(out, sr, t, 92, 52, 0.055, 0.85 * g);
+    burst(out, sr, r, t, 0.04, 0.55 * g, 50, 480, 0.003);
+    burst(out, sr, r, t + 0.003, 0.012, 0.16 * g, 1100, 3600);
+  }
+  lowShelf(out, sr, 140, 3);
+  return out;
+}
+
+/** Turboshaft whine: compressor tones (whole cycles over the 3 s loop), intake hiss, combustion rumble. */
+function heliTurbine(sr: number, r: Rand, len: number): Float32Array {
+  const n = Math.ceil(len * sr);
+  const out = new Float32Array(n);
+  const tones: [number, number][] = [[1860, 0.15], [3720, 0.055], [5580, 0.022], [930, 0.05], [7440, 0.015], [620, 0.03]];
+  for (const [f, a] of tones) {
+    let ph = r.next() * TAU;
+    for (let i = 0; i < n; i++) {
+      const t = i / sr;
+      ph += (TAU * f * (1 + 0.0012 * Math.sin(TAU * (2 / 3) * t))) / sr;
+      out[i] += Math.sin(ph) * a * (0.88 + 0.12 * Math.sin(TAU * (4 / 3) * t));
+    }
+  }
+  const h = new Float32Array(n);
+  addNoise(h, r, 0, n, 1, 'white');
+  sweep(h, sr, 'bp', 4200, 0.8);
+  mix(out, h, 0, 0.1);
+  const rb = new Float32Array(n);
+  addNoise(rb, r, 0, n, 1, 'brown');
+  lowpass(rb, sr, 240);
+  mix(out, rb, 0, 0.45);
+  return out;
+}
+
 export function loopSpecs(): Record<string, LoopSpec> {
   const o = loopTable();
   // the spec lists `portal.portal` as the portal hum: accept it as a loop name too
@@ -111,6 +165,8 @@ export function loopSpecs(): Record<string, LoopSpec> {
 
 function loopTable(): Record<string, LoopSpec> {
   return {
+    'loop.heli.rotor': { cat: 'neutral', dur: 2, xf: 0.2, level: 1.1, gen: (sr, r, len) => heliRotor(sr, r, len) },
+    'loop.heli.turbine': { cat: 'neutral', dur: 3, xf: 0.3, level: 0.7, gen: (sr, r, len) => heliTurbine(sr, r, len) },
     'loop.fire': { cat: 'blocks', dur: 5, gen: (sr, r, len) => fireLoop(sr, r, len, { lp: 520, crackle: 18, pops: 0.25, hiss: 0.05 }) },
     'loop.campfire': { cat: 'blocks', dur: 6, gen: (sr, r, len) => fireLoop(sr, r, len, { lp: 420, crackle: 26, pops: 0.35, hiss: 0.03 }) },
     'loop.furnace': {

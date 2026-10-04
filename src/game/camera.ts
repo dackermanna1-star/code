@@ -29,10 +29,19 @@ export class CameraController {
 
   /** Physics interpolation factor of the last update (for other view effects). */
   lastAlpha = 1;
+  /** FOV multiplier set by a vehicle camera (speed). */
+  vehicleFov = 1;
   update(alpha: number, dt: number) {
     this.lastAlpha = alpha;
     const p = this.game.player;
     const cam = this.camera;
+    // vehicles (helicopter) place the camera themselves while the player is seated
+    const veh = p.vehicle as any;
+    if (veh && typeof veh.updateCamera === 'function' && veh.updateCamera(this, alpha, dt)) {
+      if (p.hurtTime > 0) cam.rotateZ(Math.sin((p.hurtTime / p.hurtDuration) * Math.PI) * 0.04);
+      this.finish(this.vehicleFov);
+      return;
+    }
     const pos = p.renderPos(alpha, this.tmp);
     const targetEye = p.sleeping ? 0.3 : p.sneaking && !p.flying ? 1.27 : p.swimming ? 0.4 : p.dead ? 0.3 : 1.62;
     this.eyeHeight += (targetEye - this.eyeHeight) * Math.min(1, dt * 14);
@@ -72,7 +81,12 @@ export class CameraController {
     }
     cam.position.copy(eye);
     cam.rotation.set(pitch, yaw, roll, 'YXZ');
-    cam.fov = this.baseFov * p.fovMul * (this.game.input.isDown('zoom') ? 0.25 : 1);
+    this.finish(p.fovMul);
+  }
+
+  private finish(fovMul: number) {
+    const cam = this.camera;
+    cam.fov = this.baseFov * fovMul * (this.game.input.isDown('zoom') ? 0.25 : 1);
     cam.near = 0.05;
     cam.far = Math.max(512, this.game.settings.renderDistance * 16 * 2.2, this.game.settings.lod ? this.game.settings.lodDistance * 1.6 : 0);
     cam.updateProjectionMatrix();

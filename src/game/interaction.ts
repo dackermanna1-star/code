@@ -101,7 +101,7 @@ export class Interaction {
   updateTarget() {
     const g = this.game;
     const p = g.player;
-    if (p.dead || p.sleeping) { this.target = null; this.targetEntity = null; return; }
+    if (p.dead || p.sleeping || p.vehicle) { this.target = null; this.targetEntity = null; return; }
     const eye = g.cameraCtl.eyeWorld;
     const dir = p.lookDir();
     const block = raycastBlocks(g, eye, dir, this.reach);
@@ -110,8 +110,9 @@ export class Interaction {
     let entDist = block ? block.dist : this.reach;
     const box = new AABB();
     for (const e of g.entities.list) {
-      if (e === p || e.removed || !(e instanceof LivingEntity) || (e as LivingEntity).dead) continue;
-      if (e.pos.distanceToSquared(eye) > 64) continue;
+      const vehicle = (e as any).targetable === true;
+      if (e === p || e.removed || (!vehicle && (!(e instanceof LivingEntity) || (e as LivingEntity).dead))) continue;
+      if (e.pos.distanceToSquared(eye) > (vehicle ? 196 : 64)) continue;
       box.copy(e.box);
       const t = box.grow(0.1).rayIntersect(eye.x, eye.y, eye.z, dir.x, dir.y, dir.z, entDist);
       if (t >= 0 && t < entDist) { entDist = t; ent = e; }
@@ -160,7 +161,7 @@ export class Interaction {
     const inp = g.input;
     if (this.useCooldown > 0) this.useCooldown--;
     if (this.breakCooldown > 0) this.breakCooldown--;
-    if (p.dead || p.sleeping || !inp.enabled) {
+    if (p.dead || p.sleeping || !inp.enabled || p.vehicle) {
       this.mining = null;
       this.stopUsing();
       return;

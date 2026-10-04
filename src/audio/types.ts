@@ -19,6 +19,8 @@ export interface PlayOptions {
 export interface LoopHandle {
   setPos(p: Vec3Like): void;
   setVolume(v: number): void;
+  /** Playback-rate multiplier (smoothed), e.g. engine RPM. */
+  setPitch(p: number): void;
   stop(fadeSeconds?: number): void;
 }
 

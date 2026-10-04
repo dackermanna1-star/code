@@ -250,6 +250,22 @@ export class Player extends LivingEntity {
   }
 
   override physicsStep(dt: number) {
+    if (this.vehicle) {
+      // carried by the vehicle (it sets pos/prevPos after its own step)
+      this.prevYaw = this.yaw;
+      this.prevPitch = this.pitch;
+      this.fallDistance = 0;
+      this.sprinting = false;
+      this.swimming = false;
+      this.updateEnvironment();
+      this.prevBobPhase = this.bobPhase;
+      this.prevBobAmount = this.bobAmount;
+      this.bobAmount *= Math.exp(-dt * 6);
+      this.cameraShake.multiplyScalar(Math.exp(-dt * 9));
+      this.landingImpact *= Math.exp(-dt * 7);
+      this.fovMul += (1 - this.fovMul) * Math.min(1, dt * 8);
+      return;
+    }
     if (this.flying && this.mayFly && !this.dead) {
       this.prevPos.copy(this.pos);
       this.prevYaw = this.yaw;

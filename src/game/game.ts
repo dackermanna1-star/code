@@ -352,7 +352,11 @@ export class Game {
     if (!inp.enabled || !inp.locked) return;
     const [mx, my] = inp.consumeMouse();
     const sens = 0.0022 * (0.3 + this.settings.sensitivity * 1.4) * (inp.isDown('zoom') ? 0.25 : 1);
-    if (!p.dead && !p.sleeping) {
+    const veh = p.vehicle as any;
+    if (veh?.onMouse && !p.dead) {
+      // seated: the vehicle turns mouse movement into pedals / camera look
+      veh.onMouse(-mx * sens, -my * sens * (this.settings.invertY ? -1 : 1));
+    } else if (!p.dead && !p.sleeping) {
       p.yaw -= mx * sens;
       p.pitch -= my * sens * (this.settings.invertY ? -1 : 1);
       p.pitch = Math.max(-Math.PI / 2 + 0.001, Math.min(Math.PI / 2 - 0.001, p.pitch));
@@ -371,7 +375,7 @@ export class Game {
       p.flying = !p.flying;
       if (p.flying) p.vel.y = 0;
     }
-    if (inp.wasPressed('drop')) this.dropHeld(inp.isDown('sprint'));
+    if (inp.wasPressed('drop') && !veh) this.dropHeld(inp.isDown('sprint'));
     if (inp.wasPressed('swapHands')) {
       const inv = p.inventory;
       const a = inv.get(inv.selected), b = inv.get(40);
@@ -385,6 +389,16 @@ export class Game {
     const p = this.player;
     const inp = this.input;
     const active = inp.enabled && !p.dead && !p.sleeping;
+    const veh = p.vehicle as any;
+    if (veh) {
+      // seated: keys fly the vehicle instead of walking
+      p.intent.forward = p.intent.strafe = 0;
+      p.intent.jump = false;
+      p.sneaking = false;
+      p.sprinting = false;
+      veh.pilotInput?.(inp, active);
+      return;
+    }
     p.intent.forward = active ? (inp.isDown('forward') ? 1 : 0) - (inp.isDown('back') ? 1 : 0) : 0;
     p.intent.strafe = active ? (inp.isDown('right') ? 1 : 0) - (inp.isDown('left') ? 1 : 0) : 0;
     p.intent.jump = active && inp.isDown('jump');

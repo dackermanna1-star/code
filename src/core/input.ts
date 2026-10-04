@@ -5,13 +5,16 @@ export type Action =
   | 'forward' | 'back' | 'left' | 'right' | 'jump' | 'sneak' | 'sprint'
   | 'inventory' | 'drop' | 'swapHands' | 'perspective' | 'debug' | 'hideHud' | 'chat' | 'command' | 'pause'
   | 'hotbar1' | 'hotbar2' | 'hotbar3' | 'hotbar4' | 'hotbar5' | 'hotbar6' | 'hotbar7' | 'hotbar8' | 'hotbar9'
-  | 'attack' | 'use' | 'pickBlock' | 'screenshot' | 'fullscreen' | 'zoom' | 'playerList';
+  | 'attack' | 'use' | 'pickBlock' | 'screenshot' | 'fullscreen' | 'zoom' | 'playerList'
+  /** Vehicle pedals (helicopter yaw); only read while piloting. */
+  | 'yawLeft' | 'yawRight';
 
 export const DEFAULT_BINDINGS: Record<Action, string> = {
   forward: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'KeyD', jump: 'Space', sneak: 'ShiftLeft', sprint: 'ControlLeft',
   inventory: 'KeyE', drop: 'KeyQ', swapHands: 'KeyF', perspective: 'F5', debug: 'F3', hideHud: 'F1', chat: 'KeyT', command: 'Slash', pause: 'Escape',
   hotbar1: 'Digit1', hotbar2: 'Digit2', hotbar3: 'Digit3', hotbar4: 'Digit4', hotbar5: 'Digit5', hotbar6: 'Digit6', hotbar7: 'Digit7', hotbar8: 'Digit8', hotbar9: 'Digit9',
   attack: 'Mouse0', use: 'Mouse2', pickBlock: 'Mouse1', screenshot: 'F2', fullscreen: 'F11', zoom: 'KeyC', playerList: 'Tab',
+  yawLeft: 'KeyQ', yawRight: 'KeyE',
 };
 
 export class Input {

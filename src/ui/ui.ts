@@ -112,7 +112,8 @@ export class UI {
     }
     const g = this.game;
     if (!g || g.loading) return false;
-    if (down && code === g.input.bindings.inventory && this.inventoryFactory) {
+    const piloting = !!(g.player as any)?.vehicle;
+    if (down && code === g.input.bindings.inventory && this.inventoryFactory && !(piloting && code === g.input.bindings.yawRight)) {
       const s = this.inventoryFactory(this);
       if (s) { this.open(s); return true; }
     }

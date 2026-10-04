@@ -136,6 +136,7 @@ export interface AudioStats {
 const NOOP_LOOP: LoopHandle = Object.freeze({
   setPos() {},
   setVolume() {},
+  setPitch() {},
   stop() {},
 });
 
@@ -784,6 +785,7 @@ export class AudioEngine {
       return {
         setPos: (q: Vec3Like) => this.loopSetPos(st, q),
         setVolume: (v: number) => this.loopSetVolume(st, v),
+        setPitch: (p: number) => this.loopSetPitch(st, p),
         stop: (fade?: number) => this.loopStop(st, fade ?? 0.25),
       };
     } catch (e) {
@@ -807,6 +809,15 @@ export class AudioEngine {
     if (st.stopped) return;
     st.vol = Math.max(0, v);
     this.refreshLoop(st);
+  }
+
+  private loopSetPitch(st: LoopState, p: number): void {
+    if (st.stopped) return;
+    const v = clamp(p, 0.05, 4);
+    if (Math.abs(v - st.pitch) < 0.002) return;
+    st.pitch = v;
+    const n = st.nodes;
+    if (n && this.ctx) n.src.playbackRate.setTargetAtTime(v, this.ctx.currentTime, 0.04);
   }
 
   private loopStop(st: LoopState, fade: number): void {

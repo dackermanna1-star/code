@@ -10,6 +10,7 @@ import * as M from './minerals';
 import * as F from './food';
 import * as G from './gear';
 import { book, bottle, bucket, bowl, stick } from './shapes';
+import { helicopter } from './vehicles';
 
 type PaintFn = (p: Painter) => void;
 
@@ -55,6 +56,8 @@ const PAINTERS: Record<string, PaintFn> = {
   goat_horn: G.goatHorn, minecart: G.minecart, boat: (p) => G.boat(p), chest_boat: G.chestBoat,
   music_disc: G.musicDisc, crossbow: G.crossbow, helmet: G.helmet, chestplate: G.chestplate, leggings: G.leggings,
   boots: G.boots, turtle_helmet: G.turtleHelmet, horse_armor: G.horseArmor, spawn_egg: G.spawnEgg,
+  // vehicles
+  helicopter,
 };
 
 export function hasPainter(id: string): boolean {
