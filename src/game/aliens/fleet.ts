@@ -150,8 +150,8 @@ export class Fleet {
     this.group.add(this.ring);
     this.glows = new BillboardPool(r, this.ships.length + 400, false, 2.2);
     this.streaks = new BillboardPool(r, this.ships.length + 600, false, 1.5);
-    this.fires = new BillboardPool(r, 1500, false, 1.2);
-    this.smoke = new BillboardPool(r, 2500, true, 1.0);
+    this.fires = new BillboardPool(r, 900, false, 1.2);
+    this.smoke = new BillboardPool(r, 900, true, 1.0);
     this.group.add(this.smoke.mesh, this.fires.mesh, this.glows.mesh, this.streaks.mesh);
     this.alive = this.ships.length;
   }
@@ -218,7 +218,7 @@ export class Fleet {
   }
 
   addPuff(x: number, y: number, z: number, vx: number, vy: number, vz: number, size: number, life: number, kind: number, r: number, g: number, b: number, a: number) {
-    if (this.puffs.length > 2400) return;
+    if (this.puffs.length >= 900) return;
     this.puffs.push({ pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(vx, vy, vz), size, age: 0, life, seed: rnd(), kind, r, g, b, a });
   }
 

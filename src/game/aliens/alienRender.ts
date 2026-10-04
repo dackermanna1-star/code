@@ -176,6 +176,13 @@ void main(){
     up = cross(toCam, right);
     if (size.x < minW) { c.rgb *= pow(size.x / minW, 0.8); size = vec2(minW); }
   }
+  // fire and smoke fade out as the camera gets inside them: a screen full of stacked
+  // translucent quads is the most expensive thing the GPU can be asked to draw
+  if (a_param.x > 1.5) {
+    float near = clamp((dist - size.x * 0.4) / max(size.x, 1.0), 0.0, 1.0);
+    c *= near;
+    if (near <= 0.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  }
   vec3 p = a_pos + right * position.x * size.x + up * position.y * size.y;
   v_uv = position.xy;
   v_color = c;

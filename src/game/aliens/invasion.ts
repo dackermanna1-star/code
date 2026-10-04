@@ -83,15 +83,20 @@ class InvasionHud {
   }
   update(dt: number, contacts: number, killed: number, motherHp: number | null, motherState: string) {
     this.alertT -= dt;
-    this.alert.style.opacity = this.alertT > 0 ? '1' : '0';
-    this.f.n.textContent = contacts.toLocaleString('en-US');
-    this.f.k.textContent = killed.toLocaleString('en-US');
-    this.f.mwrap.style.display = motherHp === null ? 'none' : 'block';
+    // DOM writes only on change (rewriting text every frame forces a layout each frame)
+    this.put('ao', this.alertT > 0 ? '1' : '0', (v) => (this.alert.style.opacity = v));
+    this.put('n', contacts.toLocaleString('en-US'), (v) => (this.f.n.textContent = v));
+    this.put('k', killed.toLocaleString('en-US'), (v) => (this.f.k.textContent = v));
+    this.put('mw', motherHp === null ? 'none' : 'block', (v) => (this.f.mwrap.style.display = v));
     if (motherHp !== null) {
-      this.f.mb.style.width = `${Math.max(0, motherHp * 100).toFixed(1)}%`;
-      this.f.ms.textContent = motherState;
+      this.put('mb', `${Math.max(0, motherHp * 100).toFixed(1)}%`, (v) => (this.f.mb.style.width = v));
+      this.put('ms', motherState, (v) => (this.f.ms.textContent = v));
     }
     void this.panel;
+  }
+  private last: Record<string, string> = {};
+  private put(key: string, v: string, set: (v: string) => void) {
+    if (this.last[key] !== v) { this.last[key] = v; set(v); }
   }
   dispose() {
     this.el.remove();
@@ -115,6 +120,7 @@ export class Invasion implements Disaster {
   private carver: Carver;
   private nextBeam = 0;
   private boomBudget = 0;
+  private smallBoomBudget = 0;
   private flybyT = 0;
   private destroyerT = 8;
   private said = new Set<string>();
@@ -198,7 +204,8 @@ export class Invasion implements Disaster {
     const cam = game.cameraCtl.camera.position;
     const p: any = game.player;
     const hud = this.hudEl();
-    this.boomBudget = Math.min(8, this.boomBudget + dt * 6);
+    this.boomBudget = Math.min(3, this.boomBudget + dt * 1.5);
+    this.smallBoomBudget = Math.min(3, this.smallBoomBudget + dt * 3);
     // ---- timeline
     if (this.drone) this.drone.setVolume?.(Math.min(0.75, t / 10));
     this.once('a0', () => { hud?.say('⚠ UNIDENTIFIED OBJECTS ENTERING THE ATMOSPHERE', 'NORAD · ALL STATIONS', 7, true); game.audio?.play?.('alien.horn', { volume: 0.6, pitch: 1.6 }); });
@@ -249,7 +256,7 @@ export class Invasion implements Disaster {
     if (this.carver.busy) {
       this.carver.advance(dt);
       this.bulk.begin();
-      this.carver.work(60000, 10);
+      this.carver.work(40000, 6);
       this.bulk.end();
       relightStep(game, 2);
     }
@@ -348,7 +355,7 @@ export class Invasion implements Disaster {
     const g = this.game;
     this.carver.sphere(tg.clone().setY(tg.y + 4), 26);
     const ex: any = (g as any).explosions;
-    for (let i = 0; i < 4; i++) ex?.explode?.(new THREE.Vector3(tg.x + (rnd() - 0.5) * 30, tg.y + 1, tg.z + (rnd() - 0.5) * 30), 7, { breakBlocks: i < 2 });
+    for (let i = 0; i < 4; i++) ex?.explode?.(new THREE.Vector3(tg.x + (rnd() - 0.5) * 30, tg.y + 1, tg.z + (rnd() - 0.5) * 30), 7, { breakBlocks: i < 2, drops: false, debris: i === 0 });
     g.audio?.play?.('alien.beam', { pos: tg, volume: 14 });
     g.particles?.flash?.(tg.x, tg.y + 20, tg.z, 0xb0ffc8, 6e5, 1.5, 700);
     this.ctx.effects.flash(0.7, 0xd8ffe0);
@@ -446,10 +453,17 @@ export class Invasion implements Disaster {
       }
       if (hit) {
         const ex: any = (g as any).explosions;
+        // Fighter bolts only scorch and hurt (no block edits); destroyer bolts crater within a
+        // budget. No item drops or physics debris: a constant bombardment would otherwise bury
+        // the game in hundreds of drops and rigid bodies.
         const power = b.heavy ? 6 : 2.4;
-        if (this.boomBudget >= 1) {
+        if (b.heavy && this.boomBudget >= 1) {
           this.boomBudget -= 1;
-          ex?.explode?.(b.pos.clone(), power, { breakBlocks: true });
+          ex?.explode?.(b.pos.clone(), power, { breakBlocks: true, drops: false, debris: false });
+        } else if (!b.heavy && this.smallBoomBudget >= 1 && b.pos.distanceToSquared(g.cameraCtl.camera.position) < 200 * 200) {
+          // far impacts are billboards only; near ones get the full blast (light, particles, sound)
+          this.smallBoomBudget -= 1;
+          ex?.explode?.(b.pos.clone(), power, { breakBlocks: false, debris: false });
         }
         this.fleet.addPuff(b.pos.x, b.pos.y + 1, b.pos.z, 0, 4, 0, b.heavy ? 14 : 5, 0.8, BB_FIRE, 1, 0.8, 0.6, 1);
         this.fleet.addPuff(b.pos.x, b.pos.y + 2, b.pos.z, 0, 3, 0, b.heavy ? 22 : 7, 6, BB_SMOKE, 0.12, 0.11, 0.1, 0.8);
@@ -574,7 +588,7 @@ export class Invasion implements Disaster {
     const power = s.cls === Cls.Destroyer ? 9 : s.cls === Cls.Bomber ? 6 : 4;
     if (near < 600 && this.boomBudget >= 1) {
       this.boomBudget -= 1;
-      ex?.explode?.(at.clone().setY(at.y + 1), power, { breakBlocks: true, fire: true });
+      ex?.explode?.(at.clone().setY(at.y + 1), power, { breakBlocks: true, fire: true, drops: false, debris: s.cls !== Cls.Fighter });
     }
     if (s.cls === Cls.Destroyer && near < 900) this.carver.sphere(at.clone().setY(at.y + 2), 16);
     // wreckage

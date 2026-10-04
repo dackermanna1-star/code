@@ -187,6 +187,8 @@ export interface ExplodeOptions {
   damageEntities?: boolean;
   /** Spawn debris chunks. Default true. */
   debris?: boolean;
+  /** Destroyed blocks drop items. Default true. */
+  drops?: boolean;
   rand?: () => number;
 }
 
@@ -344,7 +346,7 @@ export class ExplosionSystem implements GameSystem {
         this.primeTnt(x, y, z, attacker, 10 + Math.floor(rand() * 20));
         continue;
       }
-      if (def.drops !== 'none' && rand() < 1 / power) {
+      if (opts.drops !== false && def.drops !== 'none' && rand() < 1 / power) {
         for (const s of g.resolveDrops(def.drops, st, null, false)) {
           const dv = new THREE.Vector3(x + 0.5 - cx, y + 0.5 - cy, z + 0.5 - cz).normalize().multiplyScalar(2 + rand() * 3);
           dv.y += 2;
