@@ -574,9 +574,8 @@ function buildGeometry(): HeliGeometry {
   // ------------------------------------------------------------ fuselage loft
   const zs: number[] = [];
   const NN = 30;
+  // nose: tip first, denser near the tip
   for (let i = 0; i <= NN; i++) zs.push(CAB_Z0 - (CAB_Z0 - NOSE_Z) * Math.cos(((i / NN) * Math.PI) / 2));
-  zs.reverse(); // tip first
-  zs[0] = NOSE_Z;
   for (let i = 1; i <= 22; i++) zs.push(CAB_Z0 + ((CAB_Z1 - CAB_Z0) * i) / 22);
   for (let i = 1; i <= 16; i++) zs.push(CAB_Z1 + ((TR_Z1 - CAB_Z1) * i) / 16);
   for (let i = 1; i <= 14; i++) zs.push(TR_Z1 + ((BOOM_Z1 - TR_Z1) * i) / 14);
@@ -730,7 +729,6 @@ function buildGeometry(): HeliGeometry {
   // ------------------------------------------------------------ engine cowling, mast, exhausts
   const czs: number[] = [];
   for (let i = 0; i <= 10; i++) czs.push(-0.12 - 0.38 * Math.cos(((i / 10) * Math.PI) / 2));
-  czs.reverse();
   for (let i = 1; i <= 16; i++) czs.push(-0.12 + (1.62 * i) / 16);
   for (let i = 1; i <= 8; i++) czs.push(1.5 + 0.55 * Math.sin(((i / 8) * Math.PI) / 2));
   const cowl = loftGrid(czs, 48, cowlSection);

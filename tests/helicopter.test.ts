@@ -9,6 +9,7 @@ import {
   HeliBody, HELI, HELI_WEIGHT, hoverCollective, groundEffect, translationalLift, impactDamage,
 } from '../src/entity/vehicles/heliPhysics';
 import { HelicopterEntity } from '../src/entity/vehicles/helicopter';
+import { HeliVisual } from '../src/entity/vehicles/heliModel';
 
 const DT = 1 / 60;
 const GROUND = 64;
@@ -247,5 +248,44 @@ describe('helicopter flight model', () => {
     expect(r.health).toBe(23);
     expect(r.body.heading()).toBeCloseTo(1.2, 5);
     expect(r.body.c.y).toBeCloseTo(GROUND + 10 + HELI.com.y, 5);
+  });
+
+  it('builds the procedural model (merged PBR parts, glass, rotors) with sane proportions', () => {
+    const v = new HeliVisual(null);
+    const meshes: THREE.Mesh[] = [];
+    v.root.traverse((o) => { if ((o as THREE.Mesh).isMesh) meshes.push(o as THREE.Mesh); });
+    expect(meshes.length).toBeGreaterThan(15);
+    expect(meshes.length).toBeLessThan(40);
+    let tris = 0;
+    for (const m of meshes) {
+      const g = m.geometry;
+      for (const a of ['position', 'normal', 'uv']) expect(g.getAttribute(a), `${m.name}.${a}`).toBeTruthy();
+      expect(Number.isFinite(g.boundingSphere?.radius ?? g.computeBoundingSphere() ?? 0)).toBe(true);
+      tris += (g.index ? g.index.count : g.getAttribute('position').count) / 3;
+    }
+    expect(tris).toBeGreaterThan(20000);
+    expect(tris).toBeLessThan(200000);
+    v.root.updateMatrixWorld(true);
+    const box = new THREE.Box3();
+    for (const m of meshes) if (m.name === 'paint') box.setFromObject(m);
+    // body frame: nose ~-2.05, tail ~+6.3, cabin ±0.8 wide, belly 0.58, cowling top ~2.4 (relative to the CoM)
+    expect(box.min.z).toBeCloseTo(-2.05, 1);
+    expect(box.max.z).toBeGreaterThan(6.1);
+    expect(box.max.x).toBeGreaterThan(1.0); // stabiliser endplates
+    expect(box.max.y + HELI.com.y).toBeGreaterThan(2.6); // fin
+    const blade = meshes.find((m) => m.name === 'blade0')!;
+    blade.geometry.computeBoundingBox();
+    expect(blade.geometry.boundingBox!.max.x).toBeCloseTo(HELI.rotorRadius, 2);
+    // forward pass: glass + 2 rotor discs + light halos
+    expect(v.forward.children.length).toBe(3 + 6);
+    // one animation frame
+    v.update({
+      com: new THREE.Vector3(0, 70, 0), quat: new THREE.Quaternion(), dt: 1 / 60, time: 1, rpm: 1, n1: 1, collective: 0.5,
+      stickX: 0.2, stickY: 0.5, discX: -0.1, discZ: 0, pedal: 0, load: 1, compression: [0.05, 0.05, 0.05, 0.05], vel: new THREE.Vector3(0, 0, -20),
+      powered: true, piloted: true, showPilot: true, light: 0xf000, hurt: 0, altitude: 70, airspeed: 20, vspeed: 0, heading: 0, roll: 0, camDist: 10,
+    });
+    const glass = v.forward.children[0];
+    expect(glass.matrix.elements[13]).toBeCloseTo(70 - HELI.com.y, 3);
+    v.dispose();
   });
 });
