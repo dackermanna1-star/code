@@ -22,6 +22,7 @@ import { HeliSystem } from './vehicles/heliSystem';
 import { TankSystem } from './vehicles/tankSystem';
 import { PortalSystem } from './portal/portalSystem';
 import { HeroSystem } from './saitama/heroSystem';
+import { RailgunSystem } from './aliens/railgun';
 
 export function createSystems(): GameSystem[] {
   return [
@@ -44,6 +45,7 @@ export function createSystems(): GameSystem[] {
     new TankSystem(),
     new PortalSystem(),
     new HeroSystem(),
+    new RailgunSystem(),
     new SaveSystem(),
   ];
 }

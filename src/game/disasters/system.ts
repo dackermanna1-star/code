@@ -15,8 +15,9 @@ import './earthquake';
 import './volcano';
 import './tsunami';
 import './asteroid';
+import '../aliens/invasion';
 
-export const DISASTER_BLOCKS = ['tornado', 'earthquake', 'volcano', 'tsunami', 'asteroid'] as const;
+export const DISASTER_BLOCKS = ['tornado', 'earthquake', 'volcano', 'tsunami', 'asteroid', 'alien_invasion'] as const;
 const MAX_ACTIVE = 4;
 
 export class DisasterSystem implements GameSystem {

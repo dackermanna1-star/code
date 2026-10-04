@@ -31,6 +31,8 @@ export class CameraController {
   lastAlpha = 1;
   /** FOV multiplier set by a vehicle camera (speed). */
   vehicleFov = 1;
+  /** Minimum far plane (huge things in the sky: invasion fleets). */
+  minFar = 0;
   /** Final adjustment of the on-foot camera pose (portal transit, roll recovery). */
   postPose: ((cam: THREE.PerspectiveCamera, dt: number) => void) | null = null;
   /** Smoothed eye height above the feet (sneak / swim transitions). */
@@ -95,7 +97,7 @@ export class CameraController {
     const cam = this.camera;
     cam.fov = this.baseFov * fovMul * (this.game.input.isDown('zoom') ? 0.25 : 1);
     cam.near = 0.05;
-    cam.far = Math.max(512, this.game.settings.renderDistance * 16 * 2.2, this.game.settings.lod ? this.game.settings.lodDistance * 1.6 : 0);
+    cam.far = Math.max(512, this.minFar, this.game.settings.renderDistance * 16 * 2.2, this.game.settings.lod ? this.game.settings.lodDistance * 1.6 : 0);
     cam.updateProjectionMatrix();
     cam.updateMatrixWorld(true);
   }

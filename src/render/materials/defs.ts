@@ -316,6 +316,7 @@ def('disaster_earthquake', { prog: 'metal', v: 'disaster_icon', c: ['#ffffff'], 
 def('disaster_volcano', { prog: 'metal', v: 'disaster_icon', c: ['#ffffff'], p: [0, 0, 0, 0, 2], metal: 0.2, emit: 1, thr: 0.6, depth: 0.3 });
 def('disaster_tsunami', { prog: 'metal', v: 'disaster_icon', c: ['#ffffff'], p: [0, 0, 0, 0, 3], metal: 0.2, emit: 0, thr: 0.6, depth: 0.3 });
 def('disaster_asteroid', { prog: 'metal', v: 'disaster_icon', c: ['#ffffff'], p: [0, 0, 0, 0, 4], metal: 0.2, emit: 1, thr: 0.6, depth: 0.3 });
+def('disaster_alien_invasion', { prog: 'metal', v: 'disaster_icon', c: ['#ffffff'], p: [0, 0, 0, 0, 6], metal: 0.2, emit: 1, thr: 0.6, depth: 0.3 });
 def('disaster_top', { prog: 'metal', v: 'disaster_icon', c: ['#ffffff'], p: [0, 0, 0, 0, 5], metal: 0.3, depth: 0.3 });
 def('tower_icon', { prog: 'metal', v: 'tower_icon', c: ['#3a5f8f', '#a8c4e0', '#b0b6bc'], p: [0, 0, 0, 0], metal: 0.4, depth: 0.3 });
 def('fin_wall', { prog: 'metal', v: 'fin_wall', c: ['#d8dde2', '#7d858e'], p: [6, 0.2, 0, 0], metal: 1, depth: 0.6 });

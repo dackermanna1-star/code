@@ -99,6 +99,8 @@ export class Atmosphere {
   hazeHeight = 90;
   /** Fair-weather cloud coverage (0..1); rain pushes toward overcast. */
   cloudCoverage = 0.42;
+  /** 0..1 how much of the sun/moon is blocked by something huge overhead (scales direct light). */
+  lightOcclusion = 0;
   /** Wind at cloud level (km/s in cloud space, x = east, y = south). */
   readonly wind = new THREE.Vector2(0.011, 0.0045);
   /** Strength of terrain cloud shadows (0..1). */
@@ -596,7 +598,7 @@ export class Atmosphere {
     U.atmo_moonTransCam.value.set(Tm[0] * pm, Tm[1] * pm, Tm[2] * pm);
     U.atmo_cameraAltKm.value = hCam;
 
-    const weather = (1 - 0.5 * p.rain) * (1 - 0.4 * p.thunder);
+    const weather = (1 - 0.5 * p.rain) * (1 - 0.4 * p.thunder) * (1 - Math.min(1, Math.max(0, this.lightOcclusion)));
     if (p.dimension !== 'overworld') {
       this.lightDir.set(0, 1, 0);
       this.lightColor.setRGB(0, 0, 0);

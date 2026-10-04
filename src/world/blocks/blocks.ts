@@ -490,6 +490,8 @@ R('one_world_trade_center', stone({ hardness: 1, requiresTool: false, sound: 'me
 for (const d of ['tornado', 'earthquake', 'volcano', 'tsunami', 'asteroid']) {
   R(d, stone({ hardness: 0.5, requiresTool: false, sound: 'metal', tex: { up: 'disaster_top', down: 'disaster_top', north: `disaster_${d}`, south: `disaster_${d}`, west: `disaster_${d}`, east: `disaster_${d}` } }));
 }
+// alien invasion (src/game/aliens): appended after the natural disasters (stable ids)
+R('alien_invasion', stone({ hardness: 0.5, requiresTool: false, sound: 'metal', tex: { up: 'disaster_top', down: 'disaster_top', north: 'disaster_alien_invasion', south: 'disaster_alien_invasion', west: 'disaster_alien_invasion', east: 'disaster_alien_invasion' } }));
 
 finalizeRegistry();
 

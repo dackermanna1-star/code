@@ -19,6 +19,7 @@ import { loopSpecs } from './recipes/loops';
 import { sfxSounds } from './recipes/sfx';
 import { portalLoops, portalSounds } from './recipes/portal';
 import { heroSounds } from './recipes/hero';
+import { alienLoops, alienSounds } from './recipes/aliens';
 import type { LoopSpec, Out, SoundSpec } from './recipes/types';
 import { worldSounds } from './recipes/world';
 
@@ -29,9 +30,10 @@ export const SOUNDS: Readonly<Record<string, SoundSpec>> = {
   ...worldSounds(),
   ...portalSounds(),
   ...heroSounds(),
+  ...alienSounds(),
 };
 
-export const LOOPS: Readonly<Record<string, LoopSpec>> = { ...loopSpecs(), ...portalLoops() };
+export const LOOPS: Readonly<Record<string, LoopSpec>> = { ...loopSpecs(), ...portalLoops(), ...alienLoops() };
 
 export interface IRSpec {
   dur: number;

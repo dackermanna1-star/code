@@ -6,7 +6,7 @@
 //  V_CHAIN, V_LANTERN (uP1.y 1 = soul)
 //  V_CURTAIN_WALL: uC0 glass, uC1 mullion; uP0 = [mullions per block, glass rough, pane tone variation, -]
 //  V_TOWER_ICON : spawner block face: a tapering glass tower with its spire on a dusk sky; uC0 sky, uC1 glass, uC2 frame
-//  V_DISASTER_ICON: spawner faces; uP1.x 0 tornado, 1 earthquake, 2 volcano, 3 tsunami, 4 asteroid, 5 top (hazard stripes)
+//  V_DISASTER_ICON: spawner faces; uP1.x 0 tornado, 1 earthquake, 2 volcano, 3 tsunami, 4 asteroid, 5 top (hazard stripes), 6 alien invasion
 //  V_FIN_WALL   : uC0 fin face, uC1 fin shadow; uP0 = [fins per block, rough, -, -]
 
 vec3 metalBaseColor(int v) {
@@ -330,6 +330,20 @@ Mat material(vec2 uv) {
       col = mix(col, mix(rgb(0x2a7ad0), rgb(0x0a2a6a), uv.y), water);
       float curl = smoothstep(0.03, 0.0, abs(length(uv - vec2(0.68, 0.36)) - 0.14)) * step(uv.x, 0.8);
       col = mix(col, rgb(0xe8f4ff), max(curl, smoothstep(0.03, 0.0, abs(uv.y - crest)) * 0.9));
+    } else if (kind == 6) {
+      // alien invasion: night sky, a huge saucer with lit windows and a green beam
+      col = mix(rgb(0x0a0f22), rgb(0x1c2348), uv.y);
+      float stars = step(0.97, h1(floor(uv * 20.0), 903.0)) * step(uv.y, 0.5);
+      col += vec3(stars * 0.8);
+      vec2 s = (uv - vec2(0.5, 0.36)) * vec2(1.0, 3.2);
+      float disc = step(length(s), 0.36);
+      float dome = step(length((uv - vec2(0.5, 0.3)) * vec2(1.0, 1.6)), 0.12) * step(uv.y, 0.31);
+      col = mix(col, mix(rgb(0x6a7280), rgb(0x2a2e36), uv.y * 2.0 - 0.4), max(disc, dome));
+      float lights = disc * step(0.5, fract(uv.x * 10.0)) * step(abs(uv.y - 0.38), 0.012);
+      col = mix(col, rgb(0x7dffb0), lights);
+      float beam = step(0.4, uv.y) * step(abs(q.x), 0.03 + (uv.y - 0.4) * 0.35) * step(uv.y, 0.9);
+      col = mix(col, rgb(0x6dff9a), beam * 0.7);
+      glow = max(lights, beam * 0.8);
     } else {
       // asteroid: rocky body with a fiery trail
       vec2 c = vec2(0.62, 0.62);
