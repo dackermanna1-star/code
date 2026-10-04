@@ -251,3 +251,68 @@ describe('asteroid impact on terrain', () => {
     expect(processColumn(acc, P, 5000, 0, info)).toBe(-1);
   });
 });
+
+describe('asteroid disaster (headless, whole sequence)', () => {
+  it('counts down, impacts, levels the loaded map within budget and cleans up', async () => {
+    const THREE = await import('three');
+    const { DISASTERS, DisasterFx } = await import('../src/game/disasters/kit');
+    await import('../src/game/disasters/asteroid');
+    const world = new World('overworld', 1);
+    for (let cx = -7; cx <= 6; cx++) for (let cz = -7; cz <= 6; cz++) world.addChunk(flatChunk(cx, cz, 64));
+    world.lightEnabled = false;
+    for (let y = 64; y < 70; y++) world.setBlock(90, y, 3, S('oak_log'));
+    const events: string[] = [], msgs: string[] = [];
+    const debris = { x: 30, z: 30, removed: false, pos: new THREE.Vector3(10, 64, 10), vel: new THREE.Vector3(), remove() { this.removed = true; } };
+    const game: any = {
+      world,
+      events: { emit: (n: string, e: any) => events.push(n === 'title' ? `title:${e.title}` : n) },
+      message: (m: string) => msgs.push(m),
+      renderer: {
+        lightUniforms: { u_sh: { value: Array.from({ length: 9 }, () => new THREE.Vector3()) } },
+        settings: { exposureBias: 1 },
+        atmosphere: null, gl: null,
+        translucentUniforms: { u_sceneColor: { value: null } },
+        terrainUniforms: { u_resolution: { value: new THREE.Vector2(1, 1) } },
+      },
+      cameraCtl: { camera: new THREE.PerspectiveCamera(70, 1, 0.05, 600) },
+      renderExtras: {},
+      entities: { list: [debris] },
+      player: null, particles: null, audio: null, chunks: null,
+    };
+    game.cameraCtl.camera.position.set(0, 80, 60);
+    world.setBlock(0, 64, 0, 0);
+    const d: any = DISASTERS.get('asteroid')!({ game, x: 0, y: 64, z: 0, fx: 0, fz: -1, effects: new DisasterFx() });
+    expect(game.renderExtras.forward).toContain(d.scene);
+    const P = d.plan;
+    expect(P.G).toBe(63);
+    let ticks = 0, alive = true;
+    const times: number[] = [];
+    while (alive && ticks < 20 * 400) {
+      const t0 = performance.now();
+      alive = d.tick(game);
+      times.push(performance.now() - t0);
+      d.update(game, 0.05);
+      ticks++;
+      if (ticks === 20 * 14) expect(world.getBlock(0, 40, 0)).not.toBe(0); // nothing dug before the impact
+    }
+    expect(alive).toBe(false);
+    d.dispose(game);
+    expect(game.renderExtras.forward).not.toContain(d.scene);
+    // the timeline: countdown, impact, extinction title, ~4-5 minutes in all
+    expect(events).toContain('title:IMPACT IMMINENT');
+    expect(events).toContain('title:EXTINCTION EVENT');
+    expect(ticks / 20).toBeGreaterThan(200);
+    expect(msgs.length).toBeGreaterThan(4);
+    // budgeted: ticks stay near the 5 ms leveling budget (percentile: robust to machine load)
+    times.sort((a, b) => a - b);
+    expect(times[Math.floor(times.length * 0.98)]).toBeLessThan(20);
+    expect(d.sched.done).toBe(true);
+    // crater with lava at the impact, leveled tree far away, flung/removed debris entity
+    let top = 0;
+    for (let y = 120; y > 0; y--) if (world.getBlock(0, y, 0)) { top = y; break; }
+    expect(top).toBeLessThanOrEqual(P.lavaY);
+    expect(BLOCKS[world.getBlock(0, top, 0) >>> 4].name).toMatch(/lava|magma_block|obsidian/);
+    for (let y = 64; y < 70; y++) expect(BLOCKS[world.getBlock(90, y, 3) >>> 4].name).not.toBe('oak_log');
+    expect(debris.removed).toBe(true);
+  }, 60000);
+});
