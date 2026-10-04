@@ -169,9 +169,11 @@ export class Asteroid implements Disaster {
     this.plan = planImpact(ctx.x, ctx.z, G, this.loadedRadius(ctx.x, ctx.z), this.rand);
     this.lavaR = lavaLakeRadius(this.plan);
     this.I = new THREE.Vector3(ctx.x + 0.5, G + 1, ctx.z + 0.5);
-    // a steep diagonal approach from beyond the impact, ahead of where the player looks
-    const az = Math.atan2(ctx.fz, ctx.fx) + (this.rand() - 0.5) * 0.7;
-    const el = THREE.MathUtils.degToRad(55 + this.rand() * 10);
+    // a steep diagonal approach from beyond the impact, off to one side of where the player looks
+    // (so the trail is seen at an angle rather than head-on)
+    const side = this.rand() < 0.5 ? -1 : 1;
+    const az = Math.atan2(ctx.fz, ctx.fx) + side * THREE.MathUtils.degToRad(30 + this.rand() * 25);
+    const el = THREE.MathUtils.degToRad(48 + this.rand() * 12);
     this.dirIn = new THREE.Vector3(Math.cos(az) * Math.cos(el), Math.sin(el), Math.sin(az) * Math.cos(el)).normalize();
 
     this.sched = new RingScheduler(this.plan.maxR);
@@ -403,7 +405,8 @@ export class Asteroid implements Disaster {
     this.ejectaLeft = 900;
     const deb = (g as any).explosions?.debris;
     if (deb?.spawn) {
-      for (let k = 0; k < 24; k++) {
+      // few physical fragments: every rigid body makes later block edits around it costlier
+      for (let k = 0; k < 10; k++) {
         const st = this.ejectaStates[k % this.ejectaStates.length];
         const a = this.rand() * Math.PI * 2, r = 2 + this.rand() * 10;
         deb.spawn(st, Math.floor(I.x + Math.cos(a) * r), Math.floor(I.y - 1), Math.floor(I.z + Math.sin(a) * r), new THREE.Vector3(I.x, I.y - 6, I.z), 34 + this.rand() * 20, 2, this.rand);
@@ -644,12 +647,13 @@ export class Asteroid implements Disaster {
     this.U.u_bump.value = ROCK_R * k * 0.03;
     this.U.u_travel.value.copy(this.dirIn).negate();
     this.U.u_heat.value = 0.35 + 0.65 * smooth(0, 1, f);
-    this.U.u_plasma.value = 14 + 40 * f * f;
-    // flare (keeps a far bolide visible as a point of light)
+    this.U.u_plasma.value = 1 + 2.2 * f * f;
+    // flare: a point of light while far away, fading to a soft halo as the rock resolves
     const gu = (this.glow.material as THREE.RawShaderMaterial).uniforms;
+    const point = smooth(0.012, 0.0025, ROCK_R / dist);
     gu.u_center.value.copy(g.position);
-    gu.u_size.value = Math.max(ROCK_R * k * 4.5, dist * k * 0.022);
-    gu.u_intensity.value = 22 + 60 * f;
+    gu.u_size.value = Math.max(ROCK_R * k * 2.6, dist * k * 0.014);
+    gu.u_intensity.value = 1.5 + 30 * point;
     // second key light, sky glow, rumble
     const near = smooth(4000, 250, dist);
     this.sky.pos.copy(pos);

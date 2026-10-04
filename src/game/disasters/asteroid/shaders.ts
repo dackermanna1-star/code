@@ -176,7 +176,7 @@ void main() {
   float ridge = 1.0 - abs(c * 2.0 - 1.0);
   float crack = pow(ridge, 14.0);
   float t = 0.35 + 0.55 * front + 0.1 * c;
-  float glow = heat * (front * front * (18.0 + 30.0 * h) + crack * (6.0 + 40.0 * front));
+  float glow = heat * (front * front * (0.6 + 2.6 * h) + crack * (1.2 + 12.0 * front));
   col += ablackbody(t) * glow;
   o = vec4(col, 1.0);
 }
@@ -205,8 +205,9 @@ void main() {
   float fres = 1.0 - abs(dot(N, V));
   float n = afbm(vL * 2.5 - normalize(u_travel) * u_time * 4.0);
   float f = max(front, 0.0);
-  float I = pow(f, 1.6) * (0.5 + 0.9 * n) * 2.2 + pow(fres, 2.5) * smoothstep(-0.6, 0.4, front) * (0.4 + 0.6 * n);
-  vec3 col = ablackbody(0.62 + 0.38 * f) * I * u_plasma * u_heat;
+  // the limb blazes (compressed, ionised air seen edge-on); the face stays see-through to the rock
+  float I = pow(fres, 2.2) * smoothstep(-0.5, 0.5, front) * (0.6 + 0.8 * n) * 5.0 + pow(f, 6.0) * (0.3 + 0.5 * n) * 1.2;
+  vec3 col = ablackbody(0.7 + 0.3 * f) * I * u_plasma * u_heat;
   o = vec4(col, 0.0);
 }
 `;
@@ -246,7 +247,7 @@ void main() {
   float ang = atan(vL.z, vL.x);
   float streak = afbm(vec3(cos(ang) * 3.0, vL.y * 0.9 - u_time * 9.0, sin(ang) * 3.0));
   float I = (pow(fres, 1.4) * 0.9 + 0.2) * exp(-v * 3.2) * (0.35 + 1.1 * streak) * smoothstep(0.0, 0.04, v);
-  vec3 col = ablackbody(0.98 - v * 0.75) * I * u_plasma * u_heat * 0.9;
+  vec3 col = ablackbody(0.98 - v * 0.75) * I * u_plasma * u_heat * 2.5;
   o = vec4(col, 0.0);
 }
 `;
@@ -272,6 +273,7 @@ uniform vec3 cameraPosition;
 uniform float u_heat;
 uniform float u_plasma;
 uniform float u_time;
+uniform vec3 u_travel;
 in vec3 vN;
 in vec3 vW;
 in vec3 vL;
@@ -280,11 +282,13 @@ void main() {
   vec3 N = normalize(vN);
   vec3 V = normalize(cameraPosition - vW);
   float v = clamp(vL.y / ${len.toFixed(1)}, 0.0, 1.0);
-  float facing = abs(dot(N, V));
+  // soft edges seen from the side; seen along the axis the whole cone glows (looking down the trail)
+  float along = abs(dot(normalize(u_travel), V));
+  float facing = mix(pow(abs(dot(N, V)), 1.6), 1.0, along * along);
   float turb = afbm(vec3(vL.x * 0.45, vL.y * 0.16 - u_time * 7.0, vL.z * 0.45));
   float turb2 = afbm(vec3(vL.x * 1.3, vL.y * 0.5 - u_time * 13.0, vL.z * 1.3));
-  float I = pow(1.0 - v, 2.4) * pow(facing, 1.6) * (0.15 + 1.4 * turb * turb + 0.5 * turb2) * smoothstep(0.0, 0.02, v);
-  vec3 col = ablackbody(0.9 - v * 0.85 + 0.1 * turb2) * I * u_plasma * u_heat * 0.7;
+  float I = pow(1.0 - v, 2.4) * facing * (0.15 + 1.4 * turb * turb + 0.5 * turb2) * smoothstep(0.0, 0.02, v);
+  vec3 col = ablackbody(0.9 - v * 0.85 + 0.1 * turb2) * I * u_plasma * u_heat * 1.6;
   o = vec4(col, 0.0);
 }
 `;
@@ -300,6 +304,7 @@ uniform vec3 cameraPosition;
 uniform vec3 u_sunCol;
 uniform float u_heat;
 uniform float u_time;
+uniform vec3 u_travel;
 in vec3 vN;
 in vec3 vW;
 in vec3 vL;
@@ -308,9 +313,10 @@ void main() {
   vec3 N = normalize(vN);
   vec3 V = normalize(cameraPosition - vW);
   float v = clamp(vL.y / ${len.toFixed(1)}, 0.0, 1.0);
-  float facing = abs(dot(N, V));
+  float along = abs(dot(normalize(u_travel), V));
+  float facing = mix(abs(dot(N, V)), 0.55, along * along);
   float turb = afbm(vec3(vL.x * 0.22, vL.y * 0.07 - u_time * 1.5, vL.z * 0.22));
-  float a = pow(facing, 1.8) * smoothstep(0.02, 0.12, v) * pow(1.0 - v, 0.8) * (0.35 + 0.9 * turb) * 0.8 * clamp(u_heat * 1.5, 0.0, 1.0);
+  float a = pow(facing, 1.8) * smoothstep(0.04, 0.16, v) * pow(1.0 - v, 0.8) * (0.35 + 0.9 * turb) * 0.8 * clamp(u_heat * 1.5, 0.0, 1.0);
   a = clamp(a, 0.0, 0.92);
   vec3 lit = vec3(0.07, 0.06, 0.055) * (u_sunCol * 0.25 + max(shIrradiance(vec3(0.0, 1.0, 0.0)), vec3(0.0))) / 3.14159;
   // the hot end glows from the plasma inside
@@ -348,9 +354,9 @@ out vec4 o;
 void main() {
   float r = length(vUv);
   float core = exp(-r * r * 60.0);
-  float halo = exp(-r * 5.0) * 0.25 + exp(-r * 14.0) * 0.6;
-  float spikes = pow(max(0.0, 1.0 - abs(vUv.x * vUv.y) * 90.0), 6.0) * max(0.0, 1.0 - r) * 0.5;
-  float I = (core * 6.0 + halo + spikes) * smoothstep(1.0, 0.7, r);
+  float halo = exp(-r * 7.0) * 0.18 + exp(-r * 18.0) * 0.45;
+  float spikes = pow(max(0.0, 1.0 - abs(vUv.x * vUv.y) * 120.0), 8.0) * max(0.0, 1.0 - r) * 0.35;
+  float I = (core * 5.0 + halo + spikes) * smoothstep(1.0, 0.6, r);
   o = vec4(u_color * I * u_intensity, 0.0);
 }
 `;

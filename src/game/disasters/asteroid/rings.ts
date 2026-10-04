@@ -84,7 +84,7 @@ export class RingScheduler {
     const t0 = this.now();
     const allow = budget.edits - this.debt;
     const maxCols = budget.columns ?? 50000;
-    let edits = 0, columns = 0, processed = 0;
+    let edits = 0, columns = 0, processed = 0, unchecked = 0;
     while (!this.done && this.ring <= frontR) {
       if (this.i >= this.offs.length) {
         this.ring++;
@@ -94,8 +94,11 @@ export class RingScheduler {
         continue;
       }
       if (edits >= allow || columns >= maxCols) break;
-      // time check every 8 columns (performance.now is not free)
-      if ((columns & 7) === 7 && this.now() - t0 > budget.ms) break;
+      // time check every 8 columns, or after any heavy column (performance.now is not free)
+      if ((columns & 7) === 7 || unchecked >= 48) {
+        unchecked = 0;
+        if (this.now() - t0 > budget.ms) break;
+      }
       const dx = this.offs[this.i], dz = this.offs[this.i + 1];
       this.i += 2;
       columns++;
@@ -103,6 +106,7 @@ export class RingScheduler {
       if (e >= 0) {
         processed++;
         edits += e;
+        unchecked += e;
         if (e > this.maxColumn) this.maxColumn = e;
       }
     }
