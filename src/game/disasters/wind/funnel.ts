@@ -30,7 +30,7 @@ void main() {
 }
 `;
 
-function fragment(atmo: string, cloud: boolean): string {
+function fragment(atmo: string, cloud: boolean, steps: number): string {
   return /* glsl */ `
 precision highp float;
 precision highp sampler3D;
@@ -102,7 +102,7 @@ float density(vec3 p, out float hf) {
   hf = clamp((p.y - bottom) / max(1.0, top - bottom), 0.0, 1.0);
   return d * (0.25 + 1.1 * n) * u_cloud.y * 0.22;
 }
-#define STEPS 36
+#define STEPS ${steps}
 #else
 // ------------------------------------------------------------------ funnel + debris cloud
 // p relative to the funnel base. x = condensation density, y = debris density, z = r/R, w = side light
@@ -143,7 +143,7 @@ vec4 density(vec3 p) {
   float side = dot(q / max(r, 1e-3), L);
   return vec4(cond * 2.2, deb * 1.1, r / max(R, 0.5), side);
 }
-#define STEPS 48
+#define STEPS ${steps}
 #endif
 
 void main() {
@@ -228,7 +228,8 @@ export class StormVolume {
   readonly mesh: THREE.Mesh;
   readonly u: VolumeUniforms;
   private mat: THREE.RawShaderMaterial;
-  constructor(r: VolumeRendererLike, noise: NoiseVolume, cloud: boolean, shared?: VolumeUniforms) {
+  /** `detail` scales the raymarch step count (quality presets: ~0.5 low .. 1.25 ultra). */
+  constructor(r: VolumeRendererLike, noise: NoiseVolume, cloud: boolean, shared?: VolumeUniforms, detail = 1) {
     const lu = r.lightUniforms;
     const v3 = () => ({ value: new THREE.Vector3() });
     const v4 = () => ({ value: new THREE.Vector4() });
@@ -240,7 +241,7 @@ export class StormVolume {
     this.mat = new THREE.RawShaderMaterial({
       glslVersion: THREE.GLSL3,
       vertexShader: VERT,
-      fragmentShader: fragment(r.atmosphere.glsl, cloud),
+      fragmentShader: fragment(r.atmosphere.glsl, cloud, Math.round((cloud ? 36 : 48) * Math.max(0.4, Math.min(1.4, detail)))),
       uniforms: {
         ...r.atmosphere.uniforms,
         ...this.u,

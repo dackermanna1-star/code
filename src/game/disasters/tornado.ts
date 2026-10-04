@@ -139,8 +139,10 @@ export class Tornado implements Disaster {
     if (!r || !r.atmosphere || !ex) return;
     try {
       this.noise = new NoiseVolume();
-      this.cloud = new StormVolume(r, this.noise, true);
-      this.funnel = new StormVolume(r, this.noise, false, this.cloud.u);
+      const q = (g.settings as any)?.quality;
+      const detail = q === 'low' ? 0.55 : q === 'medium' ? 0.8 : q === 'ultra' ? 1.25 : 1;
+      this.cloud = new StormVolume(r, this.noise, true, undefined, detail);
+      this.funnel = new StormVolume(r, this.noise, false, this.cloud.u, detail);
       this.cloud.mesh.visible = this.funnel.mesh.visible = false;
       this.fwd.add(this.cloud.mesh, this.funnel.mesh);
       // before the particle scene: billboards composite over the volumes
