@@ -226,6 +226,19 @@ export class TankBody {
         st = stateBuf[0];
       }
     }
+    if (best === -Infinity) {
+      // the wheel is buried in a block (placed against a bank, terrain edited around it):
+      // report the top of the solid stack so the suspension pushes it out
+      const bx = Math.floor(x), bz = Math.floor(z);
+      let by = Math.floor(top);
+      const st0 = world.getBlock(bx, by, bz);
+      if (st0 && T_SOLID[st0 >>> 4]) {
+        let n = 0;
+        while (n < 3 && T_SOLID[world.getBlock(bx, by + 1, bz) >>> 4]) { by++; n++; }
+        best = by + 1;
+        st = st0;
+      }
+    }
     this.groundState[idx] = st;
     return best;
   }
@@ -279,6 +292,7 @@ export class TankBody {
     const fwd = this.forward(_w);
     const top = this.pos.y + 1.25; // max step height the running gear can climb
     let Fy = 0, tPitch = 0, tRoll = 0, n = 0, load = 0;
+    let maxOver = 0, overPitch = 0, overRoll = 0, overW = 0;
     for (let i = 0; i < CONTACTS.length; i++) {
       const c = CONTACTS[i];
       _v.set(c.x, c.lift, c.z).applyQuaternion(q).add(this.pos);
@@ -288,9 +302,20 @@ export class TankBody {
       const pre = c.wheel >= 0 ? TANK.sag : 0;
       let F = 0;
       if (comp + pre > 0) {
-        F = K * (comp + pre);
-        if (comp > TANK.travel) F += TANK.bumpK * (comp - TANK.travel);
-        const dc = (comp - this.prevComp[i]) / dt;
+        // spring up to full travel, then a short stiff bump stop; anything deeper is resolved
+        // positionally below so a wheel buried by terrain can't store energy and launch the hull
+        const over = comp - TANK.travel;
+        F = K * (Math.min(comp, TANK.travel) + pre);
+        if (over > 0) {
+          F += TANK.bumpK * Math.min(over, 0.04);
+          if (over > maxOver) maxOver = over;
+          overPitch += over * -c.z;
+          overRoll += over * c.x;
+          overW += over;
+        }
+        // damper on the compression rate (none on the first touch: there is no previous value)
+        const prev = this.prevComp[i] + pre > 0 ? this.prevComp[i] : comp;
+        const dc = Math.max(-6, Math.min(6, (comp - prev) / dt));
         F += TANK.damping * dc;
         if (F < 0) F = 0;
         n++;
@@ -311,6 +336,18 @@ export class TankBody {
       this.vel.y *= Math.exp(-dt * 1.2);
     }
     this.vel.y += (Fy / TANK.mass - TANK.gravity) * dt;
+    if (maxOver > 0.04) {
+      // bottomed out: lift the hull out of the ground (and tip it towards the buried end)
+      // without adding speed; downward motion is absorbed
+      const lift = Math.min(maxOver - 0.04, 0.6) * 0.5;
+      this.pos.y += lift;
+      if (this.vel.y < 0) this.vel.y *= 0.2;
+      this.vel.y = Math.min(this.vel.y, 2.5);
+      if (overW > 0) {
+        this.pitch += Math.max(-0.03, Math.min(0.03, (overPitch / overW) * 0.02 * lift));
+        this.roll += Math.max(-0.03, Math.min(0.03, (overRoll / overW) * 0.05 * lift));
+      }
+    }
     this.pos.y += this.vel.y * dt;
     // rotational damping (track tension, shocks) + restoring torques
     this.pitchRate += (tPitch / TANK.Ipitch) * dt;

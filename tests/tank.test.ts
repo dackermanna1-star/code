@@ -132,6 +132,23 @@ describe('M1 Abrams driving model', () => {
     expect(Math.abs(b.pos.z - z0)).toBeLessThan(0.3);
   });
 
+  it('placed half-buried in a hillside, climbs out without being launched', () => {
+    const w = flatWorld();
+    // front half sits under a 2-block bank
+    for (let x = -4; x <= 4; x++) for (let z = -6; z <= 0; z++) for (const y of [64, 65]) w.setBlock(x, y, z, S('dirt'), 0);
+    const b = tank(w, 0.5, 64);
+    let maxVy = 0, maxY = 0, worstLanding = 0;
+    run(b, w, 4, () => {
+      maxVy = Math.max(maxVy, b.vel.y);
+      maxY = Math.max(maxY, b.pos.y);
+      worstLanding = Math.max(worstLanding, b.events.landing);
+    });
+    expect(maxVy).toBeLessThan(4);
+    expect(maxY).toBeLessThan(66.5);
+    expect(worstLanding).toBeLessThan(9);
+    expect(b.contacts).toBeGreaterThan(4);
+  });
+
   it('turret traverses at its rated speed and the gun respects its limits', () => {
     const w = flatWorld();
     const b = tank(w);
