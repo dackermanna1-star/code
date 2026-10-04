@@ -575,7 +575,37 @@ export class PhysicsWorld {
   }
 
   // ------------------------------------------------------------------ incremental updates
+  /** Bulk edits: while > 0, block changes only mark their sections (see beginBatch/endBatch). */
+  private batchDepth = 0;
+  private batchSections = new Set<number>();
+  /** Start a bulk edit: per-block collider updates are deferred until endBatch. */
+  beginBatch() {
+    this.batchDepth++;
+  }
+  /** End a bulk edit: every touched section is dropped once and rebuilt lazily where bodies need it. */
+  endBatch() {
+    if (this.batchDepth > 0) this.batchDepth--;
+    if (this.batchDepth > 0 || this.batchSections.size === 0) return;
+    for (const k of this.batchSections) {
+      const sec = this.sections.get(k);
+      if (sec) this.dropSection(sec);
+    }
+    this.batchSections.clear();
+  }
+
   private onBlockChanged(x: number, y: number, z: number) {
+    if (this.batchDepth > 0) {
+      // the block's section, plus neighbours when it sits on a section border
+      const cx = x >> 4, sy = y >> 4, cz = z >> 4, lx = x & 15, ly = y & 15, lz = z & 15;
+      this.batchSections.add(sectionKey(cx, sy, cz));
+      if (lx === 0) this.batchSections.add(sectionKey(cx - 1, sy, cz));
+      else if (lx === 15) this.batchSections.add(sectionKey(cx + 1, sy, cz));
+      if (lz === 0) this.batchSections.add(sectionKey(cx, sy, cz - 1));
+      else if (lz === 15) this.batchSections.add(sectionKey(cx, sy, cz + 1));
+      if (ly === 0 && sy > 0) this.batchSections.add(sectionKey(cx, sy - 1, cz));
+      else if (ly === 15 && sy < 15) this.batchSections.add(sectionKey(cx, sy + 1, cz));
+      return;
+    }
     this.updateBlock(x, y, z);
     // neighbour-dependent shapes (fences, panes, walls, stairs)
     for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {

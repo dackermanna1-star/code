@@ -71,6 +71,8 @@ export class BulkEdit {
     const w = this.game.world;
     this.lightWas = w.lightEnabled;
     w.lightEnabled = false;
+    // physics terrain colliders: rebuild touched sections once per batch, not per block
+    (this.game as any).physics?.beginBatch?.();
     this.open = true;
     return this;
   }
@@ -90,6 +92,7 @@ export class BulkEdit {
   end() {
     if (!this.open) return;
     this.game.world.lightEnabled = this.lightWas;
+    (this.game as any).physics?.endBatch?.();
     this.open = false;
     for (const k of this.touched) relightQueue.add(k);
     this.touched.clear();
