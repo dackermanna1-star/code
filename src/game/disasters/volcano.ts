@@ -542,7 +542,7 @@ export class Volcano implements Disaster {
     if (big && pd < 96 && this.ticks - this.lastExplodeTick >= 3) {
       this.lastExplodeTick = this.ticks;
       try {
-        (g as any).explosions?.explode?.({ x: b.x, y: b.y + 0.3, z: b.z }, 1.6 + rnd() * 0.8, { fire: true });
+        (g as any).explosions?.explode?.({ x: b.x, y: b.y + 0.3, z: b.z }, 1.6 + rnd() * 0.8, { fire: true, debris: false });
       } catch { /* optional */ }
     }
     // splat: magma, lava, blackstone; burn plants; set fires

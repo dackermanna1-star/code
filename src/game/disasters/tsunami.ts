@@ -426,7 +426,7 @@ export class Tsunami implements Disaster {
   // ---------------------------------------------------------------------------- flood
   private tickFill() {
     const deadline = now() + BUDGET_MS;
-    this.debrisBudget = 3;
+    this.debrisBudget = 1;
     let n = 0;
     while (this.fillHead < this.fillQueue.length) {
       if (++n > 1 && now() > deadline) break;
