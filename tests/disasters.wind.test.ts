@@ -13,6 +13,7 @@ import { DISASTERS } from '../src/game/disasters/kit';
 function flatChunk(cx: number, cz: number, h: number) {
   const c = new Chunk(cx, cz);
   for (let x = 0; x < 16; x++) for (let z = 0; z < 16; z++) for (let y = 0; y < h; y++) c.set(x, y, z, S(y === h - 1 ? 'grass_block' : y > h - 4 ? 'dirt' : 'stone'));
+  c.heightmap.fill(h);
   lightChunkLocal(c);
   c.status = 'ready';
   return c;
