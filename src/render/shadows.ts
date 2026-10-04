@@ -68,6 +68,14 @@ export class CascadedShadows {
   private tmpV = new THREE.Vector3();
   private tmpM = new THREE.Matrix4();
 
+  /** Shader matrices of the current cascades for a different camera position (camera-relative lookups). */
+  relativeTo(camPos: THREE.Vector3, out: THREE.Matrix4[]) {
+    for (let i = 0; i < 4; i++) {
+      this.tmpM.makeTranslation(camPos.x, camPos.y, camPos.z);
+      out[i].multiplyMatrices(BIAS, this.lightVP[i]).multiply(this.tmpM);
+    }
+  }
+
   /** Compute cascade cameras for the camera and light direction (unit, toward light). */
   update(renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, lightDir: THREE.Vector3, casters: ShadowCaster[]) {
     this.frame++;

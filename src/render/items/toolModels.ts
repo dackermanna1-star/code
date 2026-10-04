@@ -334,8 +334,16 @@ function plankTexture(): THREE.Texture {
 }
 
 /** Model parts for a `visual.kind === 'model'` id (null = not modelled, use the sprite). */
+const CUSTOM_MODELS = new Map<string, (data?: Record<string, any>) => ModelPart[]>();
+/** Register a modelled item (visual `{ kind: 'model', id }`) built outside this file. */
+export function registerToolModel(id: string, build: (data?: Record<string, any>) => ModelPart[]) {
+  CUSTOM_MODELS.set(id, build);
+}
+
 export function toolModel(id: string, itemName: string, data?: Record<string, any>): ModelPart[] | null {
   const tier = itemName.split('_')[0];
+  const custom = CUSTOM_MODELS.get(id);
+  if (custom) return custom(data);
   switch (id) {
     case 'sword': return swordModel(tier);
     case 'pickaxe': return pickaxeModel(tier);

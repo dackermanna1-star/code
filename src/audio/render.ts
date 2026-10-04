@@ -17,6 +17,7 @@ import { creatureSounds } from './recipes/creatures';
 import { INSTRUMENTS, foldLoop } from './recipes/instruments';
 import { loopSpecs } from './recipes/loops';
 import { sfxSounds } from './recipes/sfx';
+import { portalLoops, portalSounds } from './recipes/portal';
 import type { LoopSpec, Out, SoundSpec } from './recipes/types';
 import { worldSounds } from './recipes/world';
 
@@ -25,9 +26,10 @@ export const SOUNDS: Readonly<Record<string, SoundSpec>> = {
   ...sfxSounds(),
   ...creatureSounds(),
   ...worldSounds(),
+  ...portalSounds(),
 };
 
-export const LOOPS: Readonly<Record<string, LoopSpec>> = loopSpecs();
+export const LOOPS: Readonly<Record<string, LoopSpec>> = { ...loopSpecs(), ...portalLoops() };
 
 export interface IRSpec {
   dur: number;

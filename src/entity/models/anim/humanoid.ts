@@ -115,6 +115,14 @@ export function animateHumanoid(rig: Rig, st: AnimState, dt: number, mem: Record
   if (st.holdItem && st.attack < 0 && !o.zombieArms) { aR = Math.max(aR, 0.3 + bobXR); fR = Math.max(fR, 0.35); }
   if (st.using === 'eat' || st.using === 'drink') { aR = 1.3 + Math.sin(t * 22) * 0.06; aRy = 0.4; fR = 1.2; }
   if (st.using === 'block') { aL = 0.9; aLy = 0.5; fL = 0.6; }
+  if (st.aimGun && st.attack < 0) {
+    // two-handed carry of a held device, following the look pitch
+    const pitch = clamp(st.headPitch, -0.9, 0.9);
+    aR = 1.2 + pitch * 0.85; aL = 1.05 + pitch * 0.85;
+    aRy = -0.05 + st.headYaw * 0.5; aLy = 0.6 + st.headYaw * 0.5;
+    aRz = 0; aLz = 0;
+    fR = 0.3; fL = 0.85;
+  }
   if (swimming) {
     const k = t * 3.2;
     aR = Math.PI - Math.sin(k) * 1.4 - 0.6; aL = Math.PI - Math.sin(k + Math.PI) * 1.4 - 0.6;

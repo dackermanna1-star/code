@@ -101,6 +101,8 @@ export class ParticleSystem {
     tex.needsUpdate = true;
     this.atlas = tex;
     const lu = renderer.lightUniforms, tu = renderer.terrainUniforms;
+    // the renderer points this at the linear depth of whichever view is drawing (main or portal)
+    this.linDepthUniform = lu.u_linDepth;
     const shared: Record<string, THREE.IUniform> = {
       ...renderer.shadowUniforms,
       ...renderer.atmosphere.uniforms,
@@ -218,7 +220,6 @@ export class ParticleSystem {
     this.flushPending();
     const t1 = performance.now();
     if (this.renderer) {
-      this.linDepthUniform.value = this.renderer.linearDepthTexture;
       for (const b of this.bb) b.write(this, this.camX, this.camY, this.camZ, b.pool === this.pools[Pool.Alpha]);
       this.crumbBatch.write(this.camX, this.camY, this.camZ);
       this.flash?.update(dt, camera);

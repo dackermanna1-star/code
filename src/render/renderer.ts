@@ -11,7 +11,7 @@ import { makeRT } from './post/fullscreen';
 import { CopyPass, LinearDepthPass, SSAOPass, VolumetricPass, TAAPass, BloomPass, ExposurePass, TonemapPass } from './post/passes';
 import type { AtmosphereLike, BlockMaterialSet, SkyParams } from './types';
 import { shaderPass, type FullscreenPass } from './post/fullscreen';
-import { createEntityDepthMaterial } from './entityMaterial';
+import { createEntityDepthMaterial, ENTITY_SHARED } from './entityMaterial';
 
 export type Quality = 'low' | 'medium' | 'high' | 'ultra';
 
@@ -66,7 +66,99 @@ export interface FrameState {
   hand?: { scene: THREE.Scene; camera: THREE.Camera };
   /** Selection outline / overlays drawn after TAA (no AA, no bloom feedback). */
   overlayScene?: THREE.Scene;
+  /** Extra camera views (portals) rendered between the main lighting and translucent passes. */
+  views?: ViewProvider;
 }
+
+/**
+ * Off-screen view of the world (G-buffer + lighting + sky + translucents + forward scenes),
+ * without SSAO / volumetrics / TAA. Its `color` is linear HDR in the same units as the main
+ * view, laid out in the main view's screen space (same projection), so a surface drawn in the
+ * main view can sample it at its own normalised fragment coordinate.
+ */
+export class ViewTarget {
+  width = 0;
+  height = 0;
+  gbuffer!: THREE.WebGLRenderTarget;
+  depth!: THREE.DepthTexture;
+  hdrA!: THREE.WebGLRenderTarget;
+  hdrB!: THREE.WebGLRenderTarget;
+  linDepth!: LinearDepthPass;
+
+  get color(): THREE.Texture {
+    return this.hdrB.texture;
+  }
+
+  setSize(w: number, h: number) {
+    w = Math.max(1, Math.round(w));
+    h = Math.max(1, Math.round(h));
+    if (w === this.width && h === this.height) return;
+    this.width = w;
+    this.height = h;
+    this.gbuffer?.dispose();
+    this.depth?.dispose();
+    this.hdrA?.dispose();
+    this.hdrB?.dispose();
+    this.depth = new THREE.DepthTexture(w, h, THREE.FloatType);
+    this.depth.format = THREE.DepthFormat;
+    this.depth.minFilter = this.depth.magFilter = THREE.NearestFilter;
+    this.gbuffer = new THREE.WebGLRenderTarget(w, h, { count: 4, type: THREE.HalfFloatType, depthBuffer: true, stencilBuffer: false, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+    this.gbuffer.textures[0].type = THREE.UnsignedByteType;
+    this.gbuffer.textures[2].type = THREE.UnsignedByteType;
+    this.gbuffer.textures[3].type = THREE.UnsignedByteType;
+    this.gbuffer.depthTexture = this.depth;
+    const mk = (depth: boolean) => new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, depthBuffer: depth, stencilBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+    this.hdrA = mk(false);
+    this.hdrB = mk(true);
+    this.hdrB.depthTexture = this.depth;
+    if (!this.linDepth) this.linDepth = new LinearDepthPass(w, h);
+    else this.linDepth.setSize(w, h);
+  }
+
+  /** Restrict rendering to a normalised screen rect [x0, y0, x1, y1] (null = whole target). */
+  setScissor(r: readonly number[] | null) {
+    const ts = [this.gbuffer, this.hdrA, this.hdrB, this.linDepth.target];
+    if (!r) {
+      for (const t of ts) t.scissorTest = false;
+      return;
+    }
+    const x0 = Math.max(0, Math.floor(r[0] * this.width)), y0 = Math.max(0, Math.floor(r[1] * this.height));
+    const x1 = Math.min(this.width, Math.ceil(r[2] * this.width)), y1 = Math.min(this.height, Math.ceil(r[3] * this.height));
+    for (const t of ts) {
+      t.scissor.set(x0, y0, Math.max(0, x1 - x0), Math.max(0, y1 - y0));
+      t.scissorTest = true;
+    }
+  }
+
+  dispose() {
+    this.gbuffer?.dispose();
+    this.depth?.dispose();
+    this.hdrA?.dispose();
+    this.hdrB?.dispose();
+    this.linDepth?.target.dispose();
+  }
+}
+
+export interface ExtraView {
+  camera: THREE.PerspectiveCamera;
+  target: ViewTarget;
+  /** Normalised screen rect to render (null = everything). */
+  scissor?: readonly number[] | null;
+  /** Own shadow cascades slot (0, 1) for views that matter (first-level portals); else the main cascades are re-based. */
+  shadowSlot?: number;
+  /** Called right before / after this view renders (scene visibility, portal textures). */
+  before?: () => void;
+  after?: () => void;
+}
+
+export interface ViewProvider {
+  /** Views to render this frame, in order (children before parents). `cam` has the TAA jitter. */
+  plan(cam: THREE.PerspectiveCamera, renderer: Renderer): ExtraView[];
+  /** Called after all views, before the main translucent/forward pass. */
+  main?(): void;
+}
+
+const _camPos = new THREE.Vector3();
 
 const HALTON = (i: number, b: number) => {
   let f = 1, r = 0;
@@ -119,6 +211,10 @@ export class Renderer {
   private debugShader: FullscreenPass | null = null;
   private entityDepth: THREE.Material | null = null;
   private prevResolved: THREE.Texture | null = null;
+  private frameCasters: { scene: THREE.Scene; material: THREE.Material }[] = [];
+  private frameShadowsOn = false;
+  private viewShadows: CascadedShadows[] = [];
+  private viewShadowMats = Array.from({ length: 4 }, () => new THREE.Matrix4());
 
   /** Linear view-distance texture of the current frame (R32F, sky = 1e6). For soft particles / overlays. */
   get linearDepthTexture(): THREE.Texture {
@@ -373,7 +469,9 @@ export class Renderer {
         ...(f.shadowScenes ?? []).map((sc) => ({ scene: sc, material: (this.entityDepth ??= createEntityDepthMaterial(false)) as THREE.Material })),
       ];
       this.shadows.update(gl, cam, this.atmo.lightDir, casters);
+      this.frameCasters = casters;
     }
+    this.frameShadowsOn = shadowsOn;
 
     // ---------- G-buffer
     gl.setRenderTarget(this.gbuffer);
@@ -406,6 +504,16 @@ export class Renderer {
     lu.u_hasPrev.value = this.prevResolved ? 1 : 0;
     this.lighting.render(gl, this.hdrA);
     this.atmo.render(this.hdrA, this.depthTex, cam);
+
+    // ---------- extra views (portals): after the main sky so the clouds keep their history
+    if (f.views) {
+      const views = f.views.plan(cam, this);
+      if (views.length) {
+        for (const v of views) this.renderView(v, f);
+        this.restoreMainUniforms(cam, f);
+      }
+      f.views.main?.();
+    }
 
     // ---------- translucent -> hdrB (copy of hdrA + shared depth)
     this.copy.render(gl, this.hdrA.texture, this.hdrB);
@@ -521,6 +629,111 @@ export class Renderer {
     const k = (1 - f.sky.rain) * (sun.y > 0 ? 1 : 0);
     tu.u_sunColor.value.setRGB(c.r * k, c.g * k, c.b * k);
     tu.u_aspect.value = this.width / this.height;
+  }
+
+  /** One extra view: G-buffer, lighting, sky, translucents and forward scenes into `v.target`. */
+  private renderView(v: ExtraView, f: FrameState) {
+    const gl = this.gl;
+    const cam = v.camera;
+    const t = v.target;
+    cam.updateMatrixWorld(true);
+    t.setScissor(v.scissor ?? null);
+    v.before?.();
+    // shadows: own cascades around this view, or the main ones re-based to its camera
+    const su = this.shadowUniforms;
+    const saved = [su.u_shadowMap.value, su.u_shadowMat.value, su.u_shadowRects.value, su.u_cascadeRadius.value];
+    if (this.frameShadowsOn) {
+      const slot = v.shadowSlot ?? -1;
+      if (slot >= 0) {
+        let sh = this.viewShadows[slot];
+        if (!sh || sh.res !== this.settings.shadowRes) {
+          sh?.dispose();
+          sh = this.viewShadows[slot] = new CascadedShadows(this.settings.shadowRes, this.settings.shadowDistance);
+        }
+        if (sh.distance !== this.settings.shadowDistance) sh.setDistance(this.settings.shadowDistance);
+        sh.update(gl, cam, this.atmo.lightDir, this.frameCasters);
+        su.u_shadowMap.value = sh.texture;
+        su.u_shadowMat.value = sh.shaderMats;
+        su.u_shadowRects.value = sh.rects;
+        su.u_cascadeRadius.value = sh.radius;
+      } else {
+        this.shadows.relativeTo(_camPos.setFromMatrixPosition(cam.matrixWorld), this.viewShadowMats);
+        su.u_shadowMat.value = this.viewShadowMats;
+      }
+    }
+    (this.terrainUniforms.u_viewInvRot.value as THREE.Matrix3).setFromMatrix4(cam.matrixWorld);
+    ENTITY_SHARED.u_viewInvRot.value.setFromMatrix4(cam.matrixWorld);
+    const lu = this.lightUniforms;
+    lu.u_projInv.value.copy(cam.projectionMatrixInverse);
+    lu.u_cameraPos.value.setFromMatrixPosition(cam.matrixWorld);
+    gl.setRenderTarget(t.gbuffer);
+    gl.setClearColor(0x000000, 0);
+    gl.clear(true, true, false);
+    gl.render(this.chunks.opaque, cam);
+    gl.render(this.chunks.cutout, cam);
+    if (f.gbufferScenes) for (const sc of f.gbufferScenes) gl.render(sc, cam);
+    t.linDepth.render(gl, t.depth, cam.projectionMatrixInverse);
+    lu.u_ssao.value = this.whiteTex;
+    lu.g0.value = t.gbuffer.textures[0];
+    lu.g1.value = t.gbuffer.textures[1];
+    lu.g2.value = t.gbuffer.textures[2];
+    lu.g3.value = t.gbuffer.textures[3];
+    lu.u_depth.value = t.depth;
+    lu.u_linDepth.value = t.linDepth.target.texture;
+    lu.u_viewMat.value.copy(cam.matrixWorldInverse);
+    lu.u_viewInvMat.value.copy(cam.matrixWorld);
+    lu.u_projMat.value.copy(cam.projectionMatrix);
+    lu.u_ssrEnabled.value = 0;
+    lu.u_hasPrev.value = 0;
+    lu.u_underwater.value = 0;
+    this.lighting.render(gl, t.hdrA);
+    this.atmo.render(t.hdrA, t.depth, cam);
+    this.copy.render(gl, t.hdrA.texture, t.hdrB);
+    this.translucentUniforms.u_sceneColor.value = t.hdrA.texture;
+    this.translucentUniforms.u_linDepth.value = t.linDepth.target.texture;
+    this.translucentUniforms.u_ssr.value = 0;
+    gl.setRenderTarget(t.hdrB);
+    gl.render(this.chunks.translucent, cam);
+    if (f.forwardScenes) for (const sc of f.forwardScenes) gl.render(sc, cam);
+    v.after?.();
+    t.setScissor(null);
+    gl.setRenderTarget(null);
+    [su.u_shadowMap.value, su.u_shadowMat.value, su.u_shadowRects.value, su.u_cascadeRadius.value] = saved;
+  }
+
+  /** Put the camera-dependent uniforms back to the main view after extra views. */
+  private restoreMainUniforms(cam: THREE.PerspectiveCamera, f: FrameState) {
+    (this.terrainUniforms.u_viewInvRot.value as THREE.Matrix3).setFromMatrix4(cam.matrixWorld);
+    ENTITY_SHARED.u_viewInvRot.value.setFromMatrix4(cam.matrixWorld);
+    const lu = this.lightUniforms;
+    lu.u_projInv.value.copy(cam.projectionMatrixInverse);
+    lu.u_cameraPos.value.copy(cam.position);
+    lu.g0.value = this.gbuffer.textures[0];
+    lu.g1.value = this.gbuffer.textures[1];
+    lu.g2.value = this.gbuffer.textures[2];
+    lu.g3.value = this.gbuffer.textures[3];
+    lu.u_depth.value = this.depthTex;
+    lu.u_linDepth.value = this.linDepth.target.texture;
+    lu.u_viewMat.value.copy(cam.matrixWorldInverse);
+    lu.u_viewInvMat.value.copy(cam.matrixWorld);
+    lu.u_projMat.value.copy(cam.projectionMatrix);
+    lu.u_ssrEnabled.value = this.settings.ssr ? 1 : 0;
+    lu.u_hasPrev.value = this.prevResolved ? 1 : 0;
+    lu.u_underwater.value = f.underwater ? 1 : 0;
+    this.translucentUniforms.u_ssr.value = this.settings.ssr ? 1 : 0;
+  }
+
+  /**
+   * The camera moved through a portal: re-express the temporal history (TAA, SSR, clouds) in
+   * the new frame so the first frame on the other side reprojects onto what was just seen
+   * through the portal. `m` maps old world positions to new ones.
+   */
+  transformHistory(m: THREE.Matrix4) {
+    const inv = new THREE.Matrix4().copy(m).invert();
+    this.prevViewProj.multiply(inv);
+    // the sky's cloud history is rotation-only
+    const atmoPrev = (this.atmo as any)?.prevViewProj as THREE.Matrix4 | undefined;
+    if (atmoPrev instanceof THREE.Matrix4) atmoPrev.multiply(new THREE.Matrix4().extractRotation(inv));
   }
 
   resetTemporal() {

@@ -75,6 +75,8 @@ export abstract class Entity {
   passenger: Entity | null = null;
   /** Physical "mass" in kg (used for knockback/physics interactions). */
   mass = 70;
+  /** Multiplier on horizontal air drag (portal flings keep their momentum until landing). */
+  airDragScale = 1;
 
   constructor() {}
 
@@ -217,7 +219,7 @@ export abstract class Entity {
         }
       } else {
         // air control
-        const lam = PHYS.airFriction;
+        const lam = PHYS.airFriction * this.airDragScale;
         const air = 7.6 * (speed / 4.317);
         v.x += fx * air * dt;
         v.z += fz * air * dt;

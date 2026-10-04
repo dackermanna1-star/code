@@ -44,6 +44,13 @@ function sameItem(a: ItemStack | null, b: ItemStack | null) {
   return a.item === b.item && JSON.stringify(a.data ?? null) === JSON.stringify(b.data ?? null) && JSON.stringify(a.ench ?? null) === JSON.stringify(b.ench ?? null);
 }
 
+/** Custom first-person placement for an item (camera space, replaces the vanilla transforms). */
+export type CustomHandPose = (ps: { m: THREE.Matrix4 }, o: { side: number; equip: number; swing: number; dt: number; model: THREE.Object3D }) => void;
+const HAND_POSES = new Map<string, CustomHandPose>();
+export function registerHandPose(itemName: string, fn: CustomHandPose) {
+  HAND_POSES.set(itemName, fn);
+}
+
 export interface HandPoseOverride {
   pose: string;
   t: number;
@@ -76,6 +83,7 @@ export class FirstPersonHand {
   display = [4.5, 4, -1, 0, 90, 25];
   samples = 4;
   visible = false;
+  private frameDt = 0;
 
   constructor(readonly itemModels: ItemModels) {
     const mats = itemModels.mats;
@@ -187,6 +195,7 @@ export class FirstPersonHand {
     const hide = !p || game.cameraCtl.perspective !== 'first' || !!p.vehicle || p.dead || p.spectator || p.sleeping || game.ui?.hudHidden || p.usingItem?.stack.item.name === 'spyglass';
     this.visible = !hide;
     if (hide) return false;
+    this.frameDt = dt;
     const r = game.renderer;
     const gl: THREE.WebGLRenderer = r.gl;
     const mats = this.itemModels.mats;
@@ -294,6 +303,15 @@ export class FirstPersonHand {
     let usedTicks = use ? use.ticks + ta : 0;
     if (ov && side === 1 && ov.pose !== 'swing') { pose = ov.pose; usedTicks = ov.t * 32; }
     const name = stack.item.name;
+    const custom = HAND_POSES.get(name);
+    if (custom) {
+      const model = this.modelFor(stack, 0);
+      custom(ps, { side, equip, swing, dt: this.frameDt, model });
+      slot.root.matrix.copy(base).multiply(ps.m);
+      slot.root.add(model);
+      slot.model = model;
+      return;
+    }
     let pull = 0;
     let customDisplay = false;
     const armT = () => ps.translate(side * 0.56, -0.52 + equip * -0.6, -0.72);

@@ -71,8 +71,48 @@ export class AABB {
 
 const tmpBoxes: number[] = [];
 
+/**
+ * Regions where block collision is removed (the tunnel behind a linked portal, so bodies can
+ * pass into the wall while their eye is still in front of the portal plane). Owned by the
+ * portal system; empty almost always.
+ */
+export const COLLISION_HOLES: { holes: AABB[]; world: World | null } = { holes: [], world: null };
+
+/** Push the parts of `b` outside hole `h` (axis-aligned box difference: up to 6 pieces). */
+function subtractBox(b: AABB, h: AABB, out: AABB[]) {
+  if (!b.intersects(h)) {
+    out.push(b);
+    return;
+  }
+  let minX = b.minX, maxX = b.maxX, minY = b.minY, maxY = b.maxY;
+  if (minX < h.minX) { out.push(new AABB(minX, b.minY, b.minZ, h.minX, b.maxY, b.maxZ)); minX = h.minX; }
+  if (maxX > h.maxX) { out.push(new AABB(h.maxX, b.minY, b.minZ, maxX, b.maxY, b.maxZ)); maxX = h.maxX; }
+  if (minY < h.minY) { out.push(new AABB(minX, minY, b.minZ, maxX, h.minY, b.maxZ)); minY = h.minY; }
+  if (maxY > h.maxY) { out.push(new AABB(minX, h.maxY, b.minZ, maxX, maxY, b.maxZ)); maxY = h.maxY; }
+  if (b.minZ < h.minZ) out.push(new AABB(minX, minY, b.minZ, maxX, maxY, h.minZ));
+  if (b.maxZ > h.maxZ) out.push(new AABB(minX, minY, h.maxZ, maxX, maxY, b.maxZ));
+}
+
+const holeTmp: AABB[] = [];
+const holeTmp2: AABB[] = [];
+
 /** Collect world collision boxes overlapping `box` into `out` (as AABB objects). */
 export function collectCollisions(world: World, box: AABB, out: AABB[]): void {
+  collectWorldCollisions(world, box, out);
+  const holes = COLLISION_HOLES.holes;
+  if (!holes.length || COLLISION_HOLES.world !== world) return;
+  for (const h of holes) {
+    if (!h.intersects(box)) continue;
+    holeTmp.length = 0;
+    for (const b of out) subtractBox(b, h, holeTmp);
+    holeTmp2.length = 0;
+    for (const b of holeTmp) if (b.maxX - b.minX > 1e-6 && b.maxY - b.minY > 1e-6 && b.maxZ - b.minZ > 1e-6) holeTmp2.push(b);
+    out.length = 0;
+    for (const b of holeTmp2) out.push(b);
+  }
+}
+
+function collectWorldCollisions(world: World, box: AABB, out: AABB[]): void {
   out.length = 0;
   const x0 = Math.floor(box.minX) - 1, x1 = Math.floor(box.maxX) + 1;
   const y0 = Math.floor(box.minY) - 1, y1 = Math.floor(box.maxY) + 1;

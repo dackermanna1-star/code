@@ -84,6 +84,11 @@ export function spriteVariant(def: ItemDef, data?: Record<string, any>): Record<
   return undefined;
 }
 
+/** Register an item painter for `visual.id` (items defined outside the core paint modules). */
+export function registerPainter(id: string, fn: PaintFn) {
+  PAINTERS[id] = fn;
+}
+
 export function spriteKey(def: ItemDef, data?: Record<string, any>): string {
   const v = spriteVariant(def, data);
   return v ? `${def.name}|${JSON.stringify(v)}` : def.name;

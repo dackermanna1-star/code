@@ -73,6 +73,8 @@ interface Flash {
   duration: number;
 }
 
+const _cp = new THREE.Vector3();
+
 export class FlashPass {
   readonly mesh: THREE.Mesh;
   private flashes: Flash[] = [];
@@ -103,6 +105,7 @@ export class FlashPass {
     this.mesh = new THREE.Mesh(g, mat);
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = -100;
+    this.mesh.onBeforeRender = (_r, _s, camera) => this.bindCamera(camera);
     this.mesh.visible = false;
   }
 
@@ -116,25 +119,34 @@ export class FlashPass {
     return this.flashes.length;
   }
 
-  update(dt: number, camera: THREE.Camera & { projectionMatrixInverse: THREE.Matrix4 }) {
+  update(dt: number, _camera?: THREE.Camera) {
     const list = this.flashes;
     for (let i = list.length - 1; i >= 0; i--) if ((list[i].age += dt) >= list[i].duration) list.splice(i, 1);
     // strongest first
     list.sort((a, b) => b.intensity * (1 - a.age / a.duration) - a.intensity * (1 - b.age / b.duration));
-    const P = this.uniforms.u_flashPos.value as THREE.Vector4[];
     const C = this.uniforms.u_flashCol.value as THREE.Vector4[];
     const n = Math.min(MAX_FLASH, list.length);
-    const cp = camera.position;
     for (let i = 0; i < n; i++) {
       const f = list[i];
       const k = Math.pow(1 - f.age / f.duration, 2) * f.intensity;
-      P[i].set(f.x - cp.x, f.y - cp.y, f.z - cp.z, f.radius);
       C[i].set(f.r * k, f.g * k, f.b * k, 0);
     }
+    this.count = n;
     this.uniforms.u_flashCount.value = n;
-    (this.uniforms.u_flashProjInv.value as THREE.Matrix4).copy(camera.projectionMatrixInverse);
     const sky = this.skyFlash.x + this.skyFlash.y + this.skyFlash.z > 1e-4;
     this.mesh.visible = n > 0 || sky;
+  }
+
+  private count = 0;
+  /** Camera-relative light positions for whichever camera draws (main view or a portal view). */
+  private bindCamera(camera: THREE.Camera) {
+    const P = this.uniforms.u_flashPos.value as THREE.Vector4[];
+    const cp = _cp.setFromMatrixPosition(camera.matrixWorld);
+    for (let i = 0; i < this.count; i++) {
+      const f = this.flashes[i];
+      P[i].set(f.x - cp.x, f.y - cp.y, f.z - cp.z, f.radius);
+    }
+    (this.uniforms.u_flashProjInv.value as THREE.Matrix4).copy((camera as THREE.PerspectiveCamera).projectionMatrixInverse);
   }
 
   clear() {

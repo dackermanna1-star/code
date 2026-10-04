@@ -72,6 +72,23 @@ Both are in the creative inventory (*Tools & Utilities*). Place one, then right-
   out when slow. It flattens leaves, glass, plants and fences, crushes mobs, and brews up
   (turret thrown off, burning wreck) when the hull is destroyed.
 
+## Portal gun
+
+In the creative inventory (*Tools & Utilities*, or search "portal"). Left click fires a blue
+portal, right click an orange one; each new shot replaces the portal of its colour. Portals open on
+flat runs of opaque blocks (not glass, ice or leaves), slide to fit when you aim near an edge, and
+settle onto the floor on walls so you can walk into them. Shots pass through existing portals.
+
+* Each portal shows a live render of the world from the other one (several levels deep when two
+  portals face each other), and you see yourself through them.
+* Walking, jumping or falling into a portal carries you out of the other with your view and
+  momentum intact: the wall behind the opening stops being solid, you cross when your eye crosses
+  the portal plane, and the camera, interpolation and anti-aliasing history are carried through,
+  so there is no cut. Falling into a floor portal and out of a wall one flings you; the speed is
+  kept until you land. Dropped items and mobs go through too.
+* Breaking the block a portal is on (or blocking its front) closes it. Portals are saved with the
+  world.
+
 ## Graphics
 
 * Deferred PBR pipeline (WebGL2, HDR): cascaded soft shadows (PCSS), screen-space ambient occlusion,

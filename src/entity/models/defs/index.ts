@@ -5,12 +5,14 @@
  */
 import type { ModelDef } from '../def';
 import { zombieModel } from './zombie';
+import { playerModel } from './player';
 import { skeletonModel, creeperModel, spiderModel, cowModel, pigModel, sheepModel, chickenModel } from './creatures';
 
 type Factory = (variant: string) => ModelDef;
 
 const FACTORIES: Record<string, Factory> = {
   zombie: (v) => zombieModel((v || 'zombie') as any),
+  player: () => playerModel(),
   skeleton: () => skeletonModel(),
   creeper: () => creeperModel(),
   spider: () => spiderModel(),

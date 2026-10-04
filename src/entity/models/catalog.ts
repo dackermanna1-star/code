@@ -24,6 +24,7 @@ const SPECS: Record<string, ModelSpec> = {
   pig: { animate: (r, s, dt, m) => animateQuadruped(r, s, dt, m, { amp: 0.9, cadence: 2.8, headDown: 0.6 }), baseColor: 0xe8a0a0, mass: 120 },
   sheep: { animate: (r, s, dt, m) => animateQuadruped(r, s, dt, m, { amp: 0.7 }), baseColor: 0xe0dcd4, mass: 60 },
   chicken: { animate: animateChicken, baseColor: 0xeeeeee, mass: 2.5 },
+  player: { animate: (r, s, dt, m) => animateHumanoid(r, s, dt, m, {}), baseColor: 0xc69477, mass: 75 },
 };
 
 export function registerSpec(model: string, spec: ModelSpec) {

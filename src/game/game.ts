@@ -3,7 +3,7 @@
  * fixed-step main loop (20 TPS logic, 60 Hz physics, variable-rate rendering).
  */
 import * as THREE from 'three';
-import { Renderer, presetSettings } from '../render/renderer';
+import { Renderer, presetSettings, type ViewProvider } from '../render/renderer';
 import { Input } from '../core/input';
 import { Emitter } from '../core/events';
 import { World, SetFlags } from '../world/world';
@@ -499,11 +499,12 @@ export class Game {
       forwardScenes: fw,
       hand: extra.hand,
       overlayScene: extra.overlayScene,
+      views: extra.views,
     });
   }
 
   /** Scenes contributed by systems (particles, hand, outlines ...). */
-  readonly renderExtras: { nightVision?: number; gbuffer?: THREE.Scene[]; forward?: THREE.Scene[]; shadow?: THREE.Scene[]; hand?: { scene: THREE.Scene; camera: THREE.Camera }; overlayScene?: THREE.Scene; overlay?: THREE.Vector4 } = {};
+  readonly renderExtras: { nightVision?: number; gbuffer?: THREE.Scene[]; forward?: THREE.Scene[]; shadow?: THREE.Scene[]; hand?: { scene: THREE.Scene; camera: THREE.Camera }; overlayScene?: THREE.Scene; overlay?: THREE.Vector4; views?: ViewProvider } = {};
 
   private audioListener() {
     if (!this.audio?.setListener) return;

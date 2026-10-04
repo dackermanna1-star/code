@@ -87,6 +87,8 @@ export class Interaction {
   mining: MiningState | null = null;
   /** cooldown (ticks) between block placements while holding right click */
   private useCooldown = 0;
+  /** Veto a block target (e.g. the wall behind a portal you are looking through). */
+  targetFilter: ((eye: THREE.Vector3, dir: THREE.Vector3, hit: BlockTarget) => boolean) | null = null;
   private breakCooldown = 0;
   private useHeldTicks = 0;
   private usingStarted = false;
@@ -104,7 +106,8 @@ export class Interaction {
     if (p.dead || p.sleeping || p.vehicle) { this.target = null; this.targetEntity = null; return; }
     const eye = g.cameraCtl.eyeWorld;
     const dir = p.lookDir();
-    const block = raycastBlocks(g, eye, dir, this.reach);
+    let block = raycastBlocks(g, eye, dir, this.reach);
+    if (block && this.targetFilter && !this.targetFilter(eye, dir, block)) block = null;
     // entities
     let ent: Entity | null = null;
     let entDist = block ? block.dist : this.reach;
@@ -164,6 +167,14 @@ export class Interaction {
     if (p.dead || p.sleeping || !inp.enabled || p.vehicle) {
       this.mining = null;
       this.stopUsing();
+      return;
+    }
+    // items that use the mouse themselves (portal gun)
+    const heldMain = p.mainHand;
+    if (heldMain && itemBehavior(heldMain.item)?.ownsMouse) {
+      this.mining = null;
+      if (p.usingItem) this.releaseUse();
+      if (inp.wasPressedTick('pickBlock') && this.target) this.pickBlock();
       return;
     }
     // ----- attacking / mining

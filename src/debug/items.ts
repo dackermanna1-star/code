@@ -16,6 +16,7 @@ import { ItemModels } from '../render/items/itemModels';
 import { FirstPersonHand } from '../render/items/hand';
 import { ENTITY_SHARED, setEntityLight } from '../render/entityMaterial';
 import { installItemBehaviors } from '../game/items/behaviors';
+import '../game/portal/portalItem';
 
 const q = new URLSearchParams(location.search);
 const num = (k: string, d: number) => (q.has(k) ? Number(q.get(k)) : d);

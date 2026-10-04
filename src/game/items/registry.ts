@@ -239,6 +239,8 @@ export interface ItemBehavior {
   holdUse?: boolean | ((ctx: ItemUseContext) => boolean);
   /** Pose of the first-person item while using: 'eat' | 'drink' | 'bow' | 'block' | 'spear' | 'spyglass' */
   usePose?: string;
+  /** The item handles both mouse buttons itself (no mining, attacking or block use while held). */
+  ownsMouse?: boolean;
   /** Inventory tick (compass, clock, maps). */
   inventoryTick?(game: any, player: any, stack: ItemStack, slot: number): void;
 }

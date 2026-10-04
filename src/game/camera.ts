@@ -31,6 +31,12 @@ export class CameraController {
   lastAlpha = 1;
   /** FOV multiplier set by a vehicle camera (speed). */
   vehicleFov = 1;
+  /** Final adjustment of the on-foot camera pose (portal transit, roll recovery). */
+  postPose: ((cam: THREE.PerspectiveCamera, dt: number) => void) | null = null;
+  /** Smoothed eye height above the feet (sneak / swim transitions). */
+  get currentEyeHeight() {
+    return this.eyeHeight;
+  }
   update(alpha: number, dt: number) {
     this.lastAlpha = alpha;
     const p = this.game.player;
@@ -81,6 +87,7 @@ export class CameraController {
     }
     cam.position.copy(eye);
     cam.rotation.set(pitch, yaw, roll, 'YXZ');
+    this.postPose?.(cam, dt);
     this.finish(p.fovMul);
   }
 

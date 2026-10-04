@@ -7,6 +7,7 @@
  *   &slot=0  &offhand=shield  &handpose=eat|drink|bow|crossbow|spear|block|swing  &handt=0..1
  */
 import * as THREE from 'three';
+import { T_FULL_CUBE } from '../../world/blocks/registry';
 import type { Game } from '../game';
 import type { GameSystem } from '../systems';
 import { ITEMS, tryItem, stack as mkStack, itemBehavior, type ItemStack } from './index';
@@ -168,6 +169,10 @@ export class ItemSystem implements GameSystem {
     if (this.hand) {
       const eye = game.cameraCtl.eyeWorld;
       tmpV.set(0.3, -0.35, -0.55).applyQuaternion(cam.quaternion).add(eye);
+      // a hand reaching through a portal is lit by the other side; never sample inside a wall
+      (game as any).portalMapPoint?.(eye, tmpV);
+      const st = game.world.getBlock(Math.floor(tmpV.x), Math.floor(tmpV.y), Math.floor(tmpV.z));
+      if (st && T_FULL_CUBE[st >>> 4]) tmpV.copy(eye);
       const L = sampleLight(game.world, tmpV);
       if (this.hand.update(game, dt, L)) game.renderExtras.hand = this.hand.extras;
       else delete (game.renderExtras as any).hand;
