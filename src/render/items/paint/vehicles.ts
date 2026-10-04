@@ -81,3 +81,40 @@ export function helicopter(p: P) {
   // nav light
   p.part((g) => { circle(g, 1.6, 9.6, 0.35); g.fillStyle = rgba(0xfff2d8); g.fill(); }, undefined, { rough: 0.2, emissive: 0.6 });
 }
+
+/** M1 Abrams: side view, gun to the left. */
+export function tank(p: P) {
+  const tan = p.params.color || 0xc4ae84;
+  const rubber = p.params.color2 || 0x252422;
+  // tracks: rounded band with wheels
+  p.part((g) => { rrect(g, 1.0, 10.2, 13.6, 3.4, 1.6); g.fillStyle = rgba(rubber); g.fill(); }, (g) => {
+    g.fillStyle = lin(g, 0, 10.2, 0, 13.6, [[0, lighten(rubber, 0.25)], [1, darken(rubber, 0.3)]]);
+    g.fillRect(0, 0, 16, 16);
+  }, METAL);
+  for (let i = 0; i < 7; i++) p.part((g) => { circle(g, 2.6 + i * 1.75, 12.0, 0.75); g.fillStyle = rgba(darken(tan, 0.25)); g.fill(); }, undefined, { rough: 0.6 });
+  // hull with skirts and the shallow glacis
+  p.part((g) => { poly(g, [0.6, 9.0, 2.6, 7.8, 15.2, 7.8, 15.4, 9.0, 15.4, 11.0, 1.0, 11.0]); g.fillStyle = rgba(tan); g.fill(); }, (g) => {
+    g.fillStyle = lin(g, 0, 7.8, 0, 11, [[0, lighten(tan, 0.25)], [1, darken(tan, 0.3)]]);
+    g.fillRect(0, 0, 16, 16);
+    g.fillStyle = rgba(darken(tan, 0.35));
+    for (let i = 0; i < 6; i++) g.fillRect(2.2 + i * 2.1, 9.1, 0.12, 1.9);
+  }, { rough: 0.7 });
+  // turret
+  p.part((g) => { poly(g, [4.2, 7.9, 5.0, 5.6, 12.4, 5.4, 13.8, 6.0, 13.6, 7.9]); g.fillStyle = rgba(tan); g.fill(); }, (g) => {
+    g.fillStyle = lin(g, 0, 5.4, 0, 7.9, [[0, lighten(tan, 0.3)], [1, darken(tan, 0.2)]]);
+    g.fillRect(0, 0, 16, 16);
+    g.fillStyle = rgba(darken(tan, 0.4)); g.fillRect(13.6, 6.0, 1.4, 1.6);
+  }, { rough: 0.7 });
+  // cupola + sight
+  p.part((g) => { rrect(g, 9.4, 4.4, 2.0, 1.1, 0.4); g.fillStyle = rgba(darken(tan, 0.1)); g.fill(); }, undefined, { rough: 0.7 });
+  p.part((g) => { rrect(g, 6.0, 4.7, 1.4, 0.9, 0.2); g.fillStyle = rgba(darken(tan, 0.15)); g.fill(); }, undefined, { rough: 0.7 });
+  // 120 mm gun
+  p.part((g) => { rrect(g, 0.2, 6.2, 5.0, 0.7, 0.3); g.fillStyle = rgba(tan); g.fill(); }, (g) => {
+    g.fillStyle = lin(g, 0, 6.2, 0, 6.9, [[0, lighten(tan, 0.3)], [1, darken(tan, 0.3)]]);
+    g.fillRect(0, 0, 16, 16);
+    g.fillStyle = rgba(darken(tan, 0.25)); g.fillRect(2.2, 6.05, 0.9, 1.0);
+    g.fillStyle = rgba(0x1d1c1a); g.fillRect(0.2, 6.25, 0.5, 0.6);
+  }, METAL);
+  // antenna
+  p.part((g) => { g.fillStyle = rgba(0x141414); g.fillRect(12.8, 1.4, 0.2, 4.0); }, undefined, METAL);
+}

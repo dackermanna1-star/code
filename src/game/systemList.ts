@@ -19,6 +19,7 @@ import { SaveSystem } from './saves';
 import { LandmarkSystem } from './landmarks';
 import { DisasterSystem } from './disasters/system';
 import { HeliSystem } from './vehicles/heliSystem';
+import { TankSystem } from './vehicles/tankSystem';
 
 export function createSystems(): GameSystem[] {
   return [
@@ -38,6 +39,7 @@ export function createSystems(): GameSystem[] {
     new LandmarkSystem(),
     new DisasterSystem(),
     new HeliSystem(),
+    new TankSystem(),
     new SaveSystem(),
   ];
 }

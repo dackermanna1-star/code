@@ -5,7 +5,7 @@
  * boarding. Updated at ~12 Hz.
  */
 import type { Game } from '../game';
-import type { HelicopterEntity } from '../../entity/vehicles/helicopter';
+import { HelicopterEntity } from '../../entity/vehicles/helicopter';
 
 const CSS = `
 .heli-hud { position: absolute; right: 18px; top: 50%; transform: translateY(-50%); width: 188px; padding: 10px 12px;
@@ -86,8 +86,8 @@ export class HeliHud {
 
   update(game: Game, dt: number) {
     const p: any = game.player;
-    const h = (p?.vehicle ?? null) as HelicopterEntity | null;
-    const on = !!h && (h as any).isVehicle === true && !p.dead;
+    const h = p?.vehicle instanceof HelicopterEntity ? p.vehicle : null;
+    const on = !!h && !p.dead;
     if (on !== this.shown) {
       this.shown = on;
       this.el.style.display = on ? 'block' : 'none';

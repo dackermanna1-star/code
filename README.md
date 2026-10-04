@@ -57,6 +57,21 @@ atmosphere lookup tables and pre-renders the most common sounds.
   tower is scaled to fit above the spot (about 1:3 at ground level, 178 blocks to the spire tip).
   Inside: a lobby, a floor every 4 blocks lit by sea lanterns and a ladder core to the roof.
 
+## Vehicles
+
+Both are in the creative inventory (*Tools & Utilities*). Place one, then right-click it to get in.
+
+* **Helicopter**: `Space`/`Shift` collective, `W`/`S` pitch, `A`/`D` bank, mouse X yaw, `F5`
+  view, `Shift` on the ground to get out. Wait for rotor RPM after the engine starts.
+* **M1 Abrams tank**: a 62 t, 9.8 m tank with 7 sprung road wheels a side, animated tracks and a
+  stabilised turret. `W`/`S` drive and reverse (power-limited by the 1500 hp turbine, slower on
+  sand and snow, stalls on steep climbs), `A`/`D` skid steer (pivots in place when stopped),
+  `Space` brake. The mouse aims the turret and gun at real traverse/elevation rates. Left click
+  fires the 120 mm gun (explosive impact, 6 s reload), hold right click for the coaxial machine
+  gun, `C` zooms, `F5` switches between the gunner's sight and the chase camera, and `Shift` gets
+  out when slow. It flattens leaves, glass, plants and fences, crushes mobs, and brews up
+  (turret thrown off, burning wreck) when the hull is destroyed.
+
 ## Graphics
 
 * Deferred PBR pipeline (WebGL2, HDR): cascaded soft shadows (PCSS), screen-space ambient occlusion,

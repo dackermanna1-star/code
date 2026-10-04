@@ -72,11 +72,12 @@ export class HeliSystem implements GameSystem {
     });
     ev.on('dimensionChanged', () => this.reset());
     ev.on('vehicleMount', safe(({ entity }) => {
+      if (!(entity instanceof HelicopterEntity)) return;
       game.audio?.play?.('random.door_open', { pos: entity.pos, volume: 0.7, pitch: 1.1 });
       game.audio?.play?.('random.click', { pos: entity.pos, volume: 0.6, pitch: 0.8 });
       this.hud?.showHint(game);
     }));
-    ev.on('vehicleDismount', safe(({ entity, eject }) => { if (!eject) game.audio?.play?.('random.door_close', { pos: entity.pos, volume: 0.7, pitch: 1.1 }); }));
+    ev.on('vehicleDismount', safe(({ entity, eject }) => { if (entity instanceof HelicopterEntity && !eject) game.audio?.play?.('random.door_close', { pos: entity.pos, volume: 0.7, pitch: 1.1 }); }));
     ev.on('helicopterHit', safe(({ entity, source }) => {
       game.audio?.playBlock?.('metal', 'hit', { pos: entity.pos, volume: 0.9 });
       const p = source?.point ?? _v.copy(entity.pos).setY(entity.pos.y + 1.2);
@@ -162,7 +163,7 @@ export class HeliSystem implements GameSystem {
     for (const h of [...this.sounds.keys()]) this.stopSounds(h);
     this.helis.clear();
     const p = this.game?.player as any;
-    if (p?.vehicle) p.vehicle = null;
+    if (p?.vehicle instanceof HelicopterEntity) p.vehicle = null;
   }
 
   private stopSounds(h: HelicopterEntity) {

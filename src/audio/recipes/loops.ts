@@ -156,6 +156,31 @@ function heliTurbine(sr: number, r: Rand, len: number): Float32Array {
   return out;
 }
 
+/**
+ * Tank tracks at speed: 16 link impacts per second on the sprockets and road wheels (32 per 2 s
+ * loop), a heavy low rumble of 62 t rolling over the ground, and grinding squeal. Playback rate
+ * follows track speed.
+ */
+function tankTracks(sr: number, r: Rand, len: number): Float32Array {
+  const out = alloc(sr, len);
+  const n = out.length;
+  const bed = new Float32Array(n);
+  addNoise(bed, r, 0, n, 1, 'brown');
+  lowpass(bed, sr, 170);
+  mix(out, bed, 0, 1.1);
+  const P = 2 / 32;
+  for (let k = 0; k * P < len; k++) {
+    const t = k * P + r.range(0, 0.005);
+    const g = k % 2 ? 0.8 : 1;
+    strike(out, sr, t, ratioModes(r.log(240, 480), PLATE, 0.07, { tilt: 0.5, jitter: 0.05, r }), 0.3 * g);
+    burst(out, sr, r, t, 0.007, 0.28 * g, 500, 4500);
+    thump(out, sr, t + 0.01, 70, 45, 0.04, 0.35 * g);
+  }
+  whoosh(out, sr, r, 0, len, { f: [0, 1400, 0.5, 1900, 1, 1500], amp: [0, 0.3, 0.5, 0.55, 1, 0.3], q: 14, gain: 0.08 });
+  lowShelf(out, sr, 120, 4);
+  return out;
+}
+
 export function loopSpecs(): Record<string, LoopSpec> {
   const o = loopTable();
   // the spec lists `portal.portal` as the portal hum: accept it as a loop name too
@@ -167,6 +192,7 @@ function loopTable(): Record<string, LoopSpec> {
   return {
     'loop.heli.rotor': { cat: 'neutral', dur: 2, xf: 0.2, level: 1.1, gen: (sr, r, len) => heliRotor(sr, r, len) },
     'loop.heli.turbine': { cat: 'neutral', dur: 3, xf: 0.3, level: 0.7, gen: (sr, r, len) => heliTurbine(sr, r, len) },
+    'loop.tank.tracks': { cat: 'neutral', dur: 2, xf: 0.2, level: 1, gen: (sr, r, len) => tankTracks(sr, r, len) },
     'loop.fire': { cat: 'blocks', dur: 5, gen: (sr, r, len) => fireLoop(sr, r, len, { lp: 520, crackle: 18, pops: 0.25, hiss: 0.05 }) },
     'loop.campfire': { cat: 'blocks', dur: 6, gen: (sr, r, len) => fireLoop(sr, r, len, { lp: 420, crackle: 26, pops: 0.35, hiss: 0.03 }) },
     'loop.furnace': {
