@@ -100,11 +100,16 @@ describe('fissure planning', () => {
     const f = planFault(3, 0, 0, 0, { maxLift: 3 });
     expect(f.cols.length).toBeGreaterThan(400);
     for (const c of f.cols) {
-      expect(c.lift).toBeGreaterThanOrEqual(1);
+      expect(c.lift).not.toBe(0);
+      expect(c.lift).toBeGreaterThanOrEqual(-2);
       expect(c.lift).toBeLessThanOrEqual(3);
-      expect(c.z).toBeGreaterThan(-4); // +z side of a line along +x (with a wavy trace)
+      // a line along +x: the +z side rises, the -z side sinks (with a wavy trace)
+      if (c.lift > 0) expect(c.z).toBeGreaterThan(-4);
+      else expect(c.z).toBeLessThan(4);
     }
     expect(f.cols.some((c) => c.lift === 3)).toBe(true);
+    expect(f.cols.some((c) => c.lift === -2)).toBe(true);
+    expect(f.cols.filter((c) => c.lift > 0).length).toBeGreaterThan(f.cols.filter((c) => c.lift < 0).length);
     for (let i = 1; i < f.cols.length; i++) expect(f.cols[i].along).toBeGreaterThanOrEqual(f.cols[i - 1].along);
   });
 });
@@ -186,10 +191,17 @@ describe('earthquake (headless)', () => {
     // fault: some columns rose by 1-3 blocks
     let raised = 0;
     for (const c of q.fault.cols) {
+      if (c.lift < 0) continue;
       const isCrack = q.fissures.cols.some((f) => f.x === c.x && f.z === c.z);
       if (!isCrack && world.getBlock(c.x, H, c.z) && BLOCKS[world.getBlock(c.x, H + c.lift - 1, c.z) >>> 4].name === 'grass_block') raised++;
     }
     expect(raised).toBeGreaterThan(50);
+    let sunk = 0;
+    for (const c of q.fault.cols) {
+      if (c.lift >= 0 || q.fissures.cols.some((f) => f.x === c.x && f.z === c.z)) continue;
+      if (world.getBlock(c.x, H - 1, c.z) === 0 && BLOCKS[world.getBlock(c.x, H - 1 + c.lift, c.z) >>> 4].name === 'grass_block') sunk++;
+    }
+    expect(sunk).toBeGreaterThan(20);
     // fallen logs lie horizontally somewhere
     let lying = 0;
     for (let x = -50; x < 50; x++) for (let z = -50; z < 50; z++) for (let y = H; y < H + 6; y++) {

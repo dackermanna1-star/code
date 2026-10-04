@@ -5,8 +5,8 @@
  *  - jagged fissures (branching, 2-6 wide, 10-30 deep) open progressively along noisy paths
  *    radiating 40-60 blocks out, with dust plumes, crumbling edges and things above them
  *    falling in; the deepest crack may glow with lava at its bottom.
- *  - a fault scarp: one side of the main rupture is uplifted by up to 3 blocks, carrying
- *    everything on it (trees, houses) up with the ground.
+ *  - a fault scarp: one side of the main rupture is uplifted by up to 3 blocks and the other
+ *    subsides, carrying everything on them (trees, houses) with the ground.
  *  - unsupported blocks collapse: trees topple (whole-tree rigid fall, placed lying down),
  *    structures shed blocks from the top, glass shatters, sand and gravel slide and fall.
  *  - entities are jostled; items, mobs and physics bodies bounce.
@@ -76,7 +76,7 @@ export class Earthquake implements Disaster {
   private toppledThisTick = false;
   private spawnedThisTick = 0;
   /** Counters (tests / debug). */
-  readonly stats = { carved: 0, edges: 0, lifted: 0, toppled: 0, fell: 0, shattered: 0, maxTickMs: 0, blocks: 0 };
+  readonly stats = { carved: 0, edges: 0, lifted: 0, dropped: 0, toppled: 0, fell: 0, shattered: 0, maxTickMs: 0, blocks: 0 };
 
   constructor(readonly game: Game, x: number, y: number, z: number, fx: number, fz: number, o: QuakeOptions = {}) {
     this.seed = o.seed ?? ((Math.random() * 1e9) | 0);
@@ -102,7 +102,7 @@ export class Earthquake implements Disaster {
   }
 
   get done() {
-    return this.ci >= this.fissures.cols.length && this.faultStep >= this.fault.maxLift;
+    return this.ci >= this.fissures.cols.length && this.faultStep >= Math.max(this.fault.maxLift, this.fault.maxDrop);
   }
 
   // ------------------------------------------------------------------------- tick
@@ -158,7 +158,8 @@ export class Earthquake implements Disaster {
   // ------------------------------------------------------------------------- fault scarp
   private liftFault(tm: number, deadline: number) {
     const F = this.fault;
-    while (this.faultStep < F.maxLift) {
+    const steps = Math.max(F.maxLift, F.maxDrop);
+    while (this.faultStep < steps) {
       const start = 0.8 + this.faultStep * 2.2;
       if (tm < start) return;
       const cols = F.cols;
@@ -167,22 +168,27 @@ export class Earthquake implements Disaster {
         if (tm < start + c.along / 14) return;
         if (performance.now() > deadline) return;
         this.fi++;
-        if (c.lift > this.faultStep) this.liftColumn(c);
+        if (Math.abs(c.lift) > this.faultStep) this.shiftColumn(c, c.lift > 0 ? 1 : -1);
       }
       this.faultStep++;
       this.fi = 0;
     }
   }
 
-  /** Push a column up by one block (everything on it rides along). */
-  private liftColumn(c: FaultCol) {
+  /** Move a column up or down by one block (everything on it rides along). */
+  private shiftColumn(c: FaultCol, dir: 1 | -1) {
     const info = this.column(c.x, c.z);
     if (!info || info.wet) return;
     const w = this.game.world;
     const base = Math.max(1, info.ground - 6);
     const top = Math.min(254, info.top);
-    for (let y = top; y >= base; y--) this.edit.set(c.x, y + 1, c.z, w.getBlock(c.x, y, c.z));
-    this.stats.lifted++;
+    if (dir > 0) for (let y = top; y >= base; y--) this.edit.set(c.x, y + 1, c.z, w.getBlock(c.x, y, c.z));
+    else {
+      for (let y = base; y <= top; y++) this.edit.set(c.x, y, c.z, w.getBlock(c.x, y + 1, c.z));
+      this.edit.set(c.x, top + 1, c.z, 0);
+    }
+    if (dir > 0) this.stats.lifted++;
+    else this.stats.dropped++;
     this.stats.blocks += top - base + 1;
     // dust along the scarp face
     const ps = this.game.particles;

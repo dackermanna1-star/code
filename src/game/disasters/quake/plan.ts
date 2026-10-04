@@ -9,7 +9,7 @@
  *    as their walls fall in. Edge columns are marked for crumbling; the deepest arm's core
  *    near the epicentre can be floored with lava.
  *  - `planFault`: a fault scarp: one side of a line through the epicentre is uplifted by a few
- *    blocks, tapering at the line's ends and away from it.
+ *    blocks and the other subsides, tapering at the line's ends and away from it.
  */
 import { hash3, noise2 } from '../kit';
 import { smoothstep } from '../wind/vortex';
@@ -211,7 +211,7 @@ export function planFissures(seed: number, cx: number, cz: number, o: FissureOpt
 export interface FaultCol {
   x: number;
   z: number;
-  /** Total uplift (blocks). */
+  /** Total vertical offset (blocks): positive = uplift, negative = subsidence. */
   lift: number;
   /** Distance along the fault from the epicentre (rupture order). */
   along: number;
@@ -223,15 +223,18 @@ export interface FaultPlan {
   length: number;
   width: number;
   maxLift: number;
+  maxDrop: number;
   cols: FaultCol[];
 }
 
 /**
- * Columns on the uplifted side of a fault line through (cx, cz) along `heading`. The line is
- * slightly wavy; the lift tapers to 0 towards the ends and away from the line.
+ * Columns displaced by a fault line through (cx, cz) along `heading`: the left side rises by up
+ * to `maxLift`, the right side sinks by up to `maxDrop`, so a scarp forms along the (slightly
+ * wavy) line. Offsets taper to 0 towards the ends of the line and away from it.
  */
-export function planFault(seed: number, cx: number, cz: number, heading: number, o: { length?: number; width?: number; maxLift?: number } = {}): FaultPlan {
+export function planFault(seed: number, cx: number, cz: number, heading: number, o: { length?: number; width?: number; maxLift?: number; maxDrop?: number } = {}): FaultPlan {
   const length = o.length ?? 76, width = o.width ?? 20, maxLift = o.maxLift ?? 3;
+  const maxDrop = o.maxDrop ?? Math.max(1, maxLift - 1), dropWidth = width * 0.6;
   const dx = Math.cos(heading), dz = Math.sin(heading);
   const nx = -dz, nz = dx;
   const cols: FaultCol[] = [];
@@ -242,15 +245,17 @@ export function planFault(seed: number, cx: number, cz: number, heading: number,
     const along = px * dx + pz * dz;
     let across = px * nx + pz * nz;
     across -= 1.6 * noise2(along * 0.09, 2.5, seed) + 0.5 * (hash3(Math.floor(along / 3), 1, 2, seed) - 0.5);
-    if (across < 0 || across > width || Math.abs(along) > half) continue;
+    if (across > width || across < -dropWidth || Math.abs(along) > half) continue;
     const endT = 1 - smoothstep(half * 0.55, half, Math.abs(along));
-    const accT = 1 - smoothstep(width * 0.45, width, across);
-    const lift = Math.round(maxLift * endT * accT);
-    if (lift <= 0) continue;
+    // the hanging wall rises, the footwall subsides a little
+    const lift = across >= 0
+      ? Math.round(maxLift * endT * (1 - smoothstep(width * 0.45, width, across)))
+      : -Math.round(maxDrop * endT * (1 - smoothstep(dropWidth * 0.35, dropWidth, -across)));
+    if (lift === 0) continue;
     cols.push({ x: cx + x, z: cz + z, lift, along: Math.abs(along) });
   }
   cols.sort((a, b) => a.along - b.along);
-  return { dirX: dx, dirZ: dz, length, width, maxLift, cols };
+  return { dirX: dx, dirZ: dz, length, width, maxLift, maxDrop, cols };
 }
 
 export { rngOf };
