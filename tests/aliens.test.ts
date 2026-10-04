@@ -9,7 +9,7 @@ const fakeRenderer: any = {
   atmosphere: null,
 };
 
-function makeFleet(scale = 0.05) {
+function makeFleet(scale = 1) {
   const crashes: { s: Ship; at: THREE.Vector3 }[] = [];
   const shots: THREE.Vector3[] = [];
   const fleet = new Fleet(fakeRenderer, new THREE.Vector3(0, 64, 0), {
@@ -75,8 +75,24 @@ describe('the fleet', () => {
     expect(c.at.y).toBeCloseTo(64, 3);
   });
 
+  it('aim assist picks the ship nearest the crosshair within the cone', () => {
+    const { fleet } = makeFleet();
+    run(fleet, 120);
+    const s = fleet.ships.find((x) => x.cls === Cls.Fighter && x.st === St.Patrol)!;
+    const o = s.pos.clone().add(new THREE.Vector3(0, -600, 0));
+    // aimed 2 degrees off the ship: the plain ray misses, the assist finds it
+    const d = new THREE.Vector3(Math.sin(0.035), Math.cos(0.035), 0);
+    const exact = fleet.raycast(o, d, 2000);
+    expect(exact?.ship === s).toBe(false);
+    const a = fleet.aimTarget(o, d, 2000, 0.075);
+    expect(a).not.toBeNull();
+    expect(a!.t).toBeGreaterThan(500);
+    // nothing within a tight cone pointed away from everything
+    expect(fleet.aimTarget(o, new THREE.Vector3(0, -1, 0), 2000, 0.075)).toBeNull();
+  });
+
   it('fighters make attack runs and fire at the target', () => {
-    const { fleet, shots } = makeFleet(0.2);
+    const { fleet, shots } = makeFleet();
     run(fleet, 60);
     fleet.maxAttackers = 20;
     fleet.attackCenter.set(0, 64, 0);

@@ -1,5 +1,5 @@
 /**
- * The invasion fleet: thousands of ships (fighters, bombers, destroyers), simulated on the CPU
+ * The invasion fleet: about a hundred ships (fighters, bombers, destroyers), simulated on the CPU
  * and drawn with instanced meshes.
  *
  * Life of a ship: hidden until its arrival time → atmospheric entry (falls from 2-3 km at
@@ -32,9 +32,9 @@ export interface ClassSpec {
 }
 
 export const CLASSES: ClassSpec[] = [
-  { name: 'fighter', count: 2200, radius: 10, hp: 30, speed: 75, agility: 1.6, alt: [140, 520], orbit: [250, 2600], glow: [0.35, 0.95, 1.0], glowSize: 1.8, tail: 7 },
-  { name: 'bomber', count: 340, radius: 20, hp: 120, speed: 48, agility: 0.8, alt: [380, 820], orbit: [400, 2800], glow: [0.25, 1.0, 0.75], glowSize: 3.6, tail: 16 },
-  { name: 'destroyer', count: 38, radius: 70, hp: 1800, speed: 24, agility: 0.25, alt: [520, 950], orbit: [700, 3000], glow: [0.35, 0.95, 1.0], glowSize: 14, tail: 92 },
+  { name: 'fighter', count: 80, radius: 10, hp: 30, speed: 75, agility: 1.6, alt: [140, 520], orbit: [250, 2600], glow: [0.35, 0.95, 1.0], glowSize: 1.8, tail: 7 },
+  { name: 'bomber', count: 16, radius: 20, hp: 120, speed: 48, agility: 0.8, alt: [380, 820], orbit: [400, 2800], glow: [0.25, 1.0, 0.75], glowSize: 3.6, tail: 16 },
+  { name: 'destroyer', count: 4, radius: 70, hp: 1800, speed: 24, agility: 0.25, alt: [520, 950], orbit: [700, 3000], glow: [0.35, 0.95, 1.0], glowSize: 14, tail: 92 },
 ];
 
 export const enum St { Waiting = 0, Entry = 1, Patrol = 2, Attack = 3, Falling = 4, Gone = 5, Retreat = 6 }
@@ -454,6 +454,26 @@ export class Fleet {
       const th = Math.sqrt(R * R - d2);
       const t0 = tc - th;
       if (t0 < bt) { bt = Math.max(0, t0); best = s; }
+    }
+    return best ? { ship: best, t: bt } : null;
+  }
+
+  /**
+   * Aim assist: the live ship closest to the aim line within `cone` radians (and `maxT`), scored
+   * by angle so the one under the crosshair wins over a nearer one at the edge.
+   */
+  aimTarget(o: THREE.Vector3, d: THREE.Vector3, maxT: number, cone: number): { ship: Ship; t: number } | null {
+    let best: Ship | null = null, bestA = cone, bt = 0;
+    for (const s of this.ships) {
+      if (s.st === St.Waiting || s.st === St.Gone || s.st === St.Falling) continue;
+      const ox = s.pos.x - o.x, oy = s.pos.y - o.y, oz = s.pos.z - o.z;
+      const L = Math.sqrt(ox * ox + oy * oy + oz * oz);
+      if (L < 1 || L > maxT) continue;
+      const cos = (ox * d.x + oy * d.y + oz * d.z) / L;
+      if (cos <= 0) continue;
+      // angle to the hull edge, not the centre: big ships are easier to lock
+      const a = Math.max(0, Math.acos(Math.min(1, cos)) - Math.atan(CLASSES[s.cls].radius / L));
+      if (a < bestA) { bestA = a; best = s; bt = L; }
     }
     return best ? { ship: best, t: bt } : null;
   }

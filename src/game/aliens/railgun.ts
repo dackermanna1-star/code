@@ -1,7 +1,9 @@
 /**
  * The Ion Railgun (creative Combat): a hitscan beam weapon that reaches ships kilometres up.
  * LMB fires (0.3 s recharge): the slug hits the first ship, the mothership or the ground along
- * the aim (a small blast on the ground). Model: gunmetal receiver, twin rails wrapped in
+ * the aim (a small blast on the ground). Aim assist locks onto the ship nearest the crosshair
+ * (within a few degrees, shown by a bracket), since fighters cross the sky far faster than you
+ * can track them. Model: gunmetal receiver, twin rails wrapped in
  * glowing coils, a power cell and scope. Works with or without an invasion running.
  */
 import * as THREE from 'three';
@@ -70,6 +72,12 @@ registerPainter('ion_railgun', (p: P) => {
 
 registerHandPose('ion_railgun', (ps, o) => gunHandPose(ps.m, o.equip));
 
+const _aim = new THREE.Vector3();
+
+/** Aim-assist cone (radians) and range. */
+const LOCK_CONE = 0.075;
+const RANGE = 4000;
+
 interface Beam {
   a: THREE.Vector3;
   b: THREE.Vector3;
@@ -85,6 +93,7 @@ export class RailgunSystem implements GameSystem {
   private cd = 0;
   private recoil = 0;
   private time = 0;
+  private lockEl: HTMLDivElement | null = null;
 
   init(game: Game) {
     this.game = game;
@@ -100,6 +109,7 @@ export class RailgunSystem implements GameSystem {
     const p: any = game.player;
     const holding = !!p && !p.dead && !p.vehicle && !p.spectator && p.mainHand?.item.name === 'ion_railgun';
     if (holding && game.input.enabled && !game.paused && game.input.isDown('attack') && this.cd <= 0) this.fire();
+    this.updateLock(holding && !game.paused);
     if (!this.pool && this.beams.length) {
       this.pool = new BillboardPool(game.renderer, 64, false, 1.2);
       this.scene.add(this.pool.mesh);
@@ -122,6 +132,36 @@ export class RailgunSystem implements GameSystem {
     }
   }
 
+  /** Bracket over the ship the aim assist will hit. */
+  private updateLock(on: boolean) {
+    const g = this.game;
+    let target: THREE.Vector3 | null = null;
+    const cam = g.cameraCtl.camera;
+    if (on && ALIENS.active) {
+      const d = _aim.set(0, 0, -1).applyQuaternion(cam.quaternion).normalize();
+      target = ALIENS.active.lockOn(cam.position, d, RANGE, LOCK_CONE);
+    }
+    if (!target) { if (this.lockEl) this.lockEl.style.display = 'none'; return; }
+    if (!this.lockEl) {
+      const parent = (g as any).ui?.hud?.el ?? document.body;
+      const el = document.createElement('div');
+      el.style.cssText = 'position:absolute;left:0;top:0;width:34px;height:34px;margin:-17px 0 0 -17px;pointer-events:none;z-index:5;' +
+        'background:linear-gradient(#ff4b3e,#ff4b3e) 0 0/10px 2px,linear-gradient(#ff4b3e,#ff4b3e) 0 0/2px 10px,' +
+        'linear-gradient(#ff4b3e,#ff4b3e) 100% 0/10px 2px,linear-gradient(#ff4b3e,#ff4b3e) 100% 0/2px 10px,' +
+        'linear-gradient(#ff4b3e,#ff4b3e) 0 100%/10px 2px,linear-gradient(#ff4b3e,#ff4b3e) 0 100%/2px 10px,' +
+        'linear-gradient(#ff4b3e,#ff4b3e) 100% 100%/10px 2px,linear-gradient(#ff4b3e,#ff4b3e) 100% 100%/2px 10px;background-repeat:no-repeat;' +
+        'filter:drop-shadow(0 0 3px #ff4b3e)';
+      parent.appendChild(el);
+      this.lockEl = el;
+    }
+    const p = _aim.copy(target).project(cam);
+    if (p.z > 1) { this.lockEl.style.display = 'none'; return; }
+    const box = this.lockEl.parentElement!;
+    const w = box.clientWidth || window.innerWidth, h = box.clientHeight || window.innerHeight;
+    this.lockEl.style.display = 'block';
+    this.lockEl.style.transform = `translate(${((p.x + 1) / 2) * w}px, ${((1 - p.y) / 2) * h}px) rotate(${(this.time * 90) % 90}deg)`;
+  }
+
   private fire() {
     const g = this.game;
     this.cd = 0.3;
@@ -130,9 +170,9 @@ export class RailgunSystem implements GameSystem {
     const o = cam.position.clone();
     const d = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion).normalize();
     const hit = shotRaycast(g.world, o, d, 900);
-    const maxT = hit ? hit.dist : 4000;
-    const r = ALIENS.active?.rayHit(o, d, maxT, 70) ?? { t: maxT, what: null };
-    const end = o.clone().addScaledVector(d, r.what ? r.t : maxT);
+    const maxT = hit ? hit.dist : RANGE;
+    const r = ALIENS.active?.rayHit(o, d, maxT, 70, LOCK_CONE) ?? { t: maxT, what: null };
+    const end = r.at ? r.at.clone() : o.clone().addScaledVector(d, r.what ? r.t : maxT);
     const muzzle = new THREE.Vector3(0.2, -0.16, -0.8).applyQuaternion(cam.quaternion).add(o);
     this.beams.push({ a: muzzle, b: end, age: 0 });
     g.audio?.play?.('alien.railgun', { volume: 1 });
@@ -145,5 +185,6 @@ export class RailgunSystem implements GameSystem {
 
   onWorldChange() {
     this.beams.length = 0;
+    if (this.lockEl) this.lockEl.style.display = 'none';
   }
 }

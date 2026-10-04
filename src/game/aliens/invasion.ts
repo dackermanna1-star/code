@@ -1,7 +1,7 @@
 /**
  * ALIEN INVASION (disaster spawner block `alien_invasion`).
  *
- * Timeline: alerts → thousands of ships fall out of the sky in waves (plasma entry streaks) and
+ * Timeline: alerts → a fleet of ships falls out of the sky in waves (plasma entry streaks) and
  * fill it as a turning swarm of lights → the 1.1 km mothership sinks out of the clouds with its
  * horn, blotting out the sun → fighters make strafing runs near you, destroyers bombard the
  * land, and every ~35 s the mothership charges its core and fires a colossal beam that craters
@@ -131,7 +131,7 @@ export class Invasion implements Disaster {
     const gy = g.world.getHeight(Math.floor(ctx.x), Math.floor(ctx.z)) || ctx.y;
     this.center = new THREE.Vector3(ctx.x + 0.5, gy, ctx.z + 0.5);
     const q = g.renderer.settings.quality;
-    const scale = q === 'low' ? 0.45 : q === 'medium' ? 0.75 : q === 'ultra' ? 1.2 : 1;
+    const scale = q === 'low' ? 0.6 : q === 'medium' ? 0.8 : q === 'ultra' ? 1.5 : 1;
     this.fleet = new Fleet(g.renderer, this.center, {
       ground: (x, z) => this.ground(x, z),
       crash: (s, at) => this.onCrash(s, at),
@@ -461,8 +461,25 @@ export class Invasion implements Disaster {
   }
 
   /** Railgun / external hitscan: damage the first ship or the mothership along the ray. */
-  rayHit(o: THREE.Vector3, d: THREE.Vector3, maxT: number, dmg: number): { t: number; what: 'ship' | 'mother' | null } {
-    const sh = this.fleet.raycast(o, d, maxT);
+  lockOn(o: THREE.Vector3, d: THREE.Vector3, maxT: number, cone: number): THREE.Vector3 | null {
+    if (this.fleet.raycast(o, d, maxT)) return null;
+    const a = this.fleet.aimTarget(o, d, maxT, cone);
+    if (!a || this.mother.raycast(o, _d.copy(a.ship.pos).sub(o).normalize(), a.t)) return null;
+    return a.ship.pos;
+  }
+
+  rayHit(o: THREE.Vector3, d: THREE.Vector3, maxT: number, dmg: number, cone = 0): { t: number; what: 'ship' | 'mother' | null; at?: THREE.Vector3 } {
+    let sh = this.fleet.raycast(o, d, maxT);
+    if (!sh && cone > 0) {
+      // aim assist: snap to the ship nearest the crosshair, unless the mothership is in the way
+      const a = this.fleet.aimTarget(o, d, maxT, cone);
+      if (a && !this.mother.raycast(o, _d.copy(a.ship.pos).sub(o).normalize(), a.t)) {
+        const at = a.ship.pos.clone();
+        this.fleet.hit(a.ship, dmg, _d);
+        this.fleet.addPuff(at.x, at.y, at.z, 0, 0, 0, 6, 0.4, BB_FIRE, 1, 0.9, 0.7, 1);
+        return { t: a.t, what: 'ship', at };
+      }
+    }
     const mh = this.mother.raycast(o, d, sh ? sh.t : maxT);
     if (mh) {
       const at = o.clone().addScaledVector(d, mh.t);

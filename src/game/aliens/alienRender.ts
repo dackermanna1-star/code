@@ -5,7 +5,7 @@
  *    flickering fire on damaged ships (per-instance `a_state`), distance haze toward the
  *    atmosphere's fog colour. Instanced (fleets) or single (mothership).
  *  - `BillboardPool`: instanced camera-facing quads for engine glows (kept at least a few pixels
- *    wide so a fleet kilometres away still reads as thousands of lights), plasma entry streaks,
+ *    wide so a fleet kilometres away still reads as lights), plasma entry streaks,
  *    bolts, fireballs and smoke.
  */
 import * as THREE from 'three';

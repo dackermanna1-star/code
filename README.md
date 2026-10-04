@@ -112,14 +112,15 @@ ragdolls from the existing systems.
 
 Place the **Alien Invasion** block (creative *Disasters* tab) and look up:
 
-* Thousands of ships (2,500+ on high quality: fighters, ring-spinning trident bombers and 180 m
-  destroyers) fall out of the sky in waves wrapped in plasma, then fill it as a turning swarm of
-  lights for kilometres in every direction.
+* A fleet of 100 ships (60 on low quality, 150 on ultra: fighters, ring-spinning trident bombers
+  and 180 m destroyers) falls out of the sky in waves wrapped in plasma, then circles overhead as a
+  turning swarm.
 * After about 40 s the 1.1 km mothership sinks out of the clouds with its horn and stops over
   you, blotting out the sun. Fighters strafe the land near you, destroyers bombard it, and every
   ~35 s the mothership charges its core and fires a beam that blasts a crater into the ground.
 * Everything can be destroyed: the **Ion Railgun** (creative *Combat*, hitscan, reaches ships
-  kilometres up), explosions, tank shells, arrows and tridents, and the hero gloves' punches.
+  kilometres up; aim assist locks onto the ship nearest the crosshair, shown by a red bracket, so
+  fast fighters can be hit), explosions, tank shells, arrows and tridents, and the hero gloves' punches.
   The mothership's glowing core takes 4× damage, 12× while it is charging. Destroyed ships burst,
   tumble down trailing fire and smoke and crash, leaving burning wreckage. When the mothership
   dies, explosions ripple over it, the core detonates, it falls and gouges out a crater, and the
