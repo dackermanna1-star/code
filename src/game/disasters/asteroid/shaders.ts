@@ -247,8 +247,8 @@ void main() {
   float fres = 1.0 - abs(dot(N, V));
   float ang = atan(vL.z, vL.x);
   float streak = afbm(vec3(cos(ang) * 3.0, vL.y * 0.9 - u_time * 9.0, sin(ang) * 3.0));
-  float I = (pow(fres, 1.4) * 0.9 + 0.2) * exp(-v * 3.2) * (0.35 + 1.1 * streak) * smoothstep(0.0, 0.04, v);
-  vec3 col = ablackbody(0.72 - v * 0.5 + 0.15 * streak) * I * u_plasma * u_heat * 1.4;
+  float I = (pow(fres, 1.4) * 0.9 + 0.2) * exp(-v * 3.2) * (0.08 + 1.8 * streak * streak) * smoothstep(0.0, 0.04, v);
+  vec3 col = ablackbody(0.66 - v * 0.5 + 0.15 * streak) * I * u_plasma * u_heat * 0.9;
   o = vec4(col, 0.0);
 }
 `;
@@ -285,11 +285,12 @@ void main() {
   float v = clamp(vL.y / ${len.toFixed(1)}, 0.0, 1.0);
   // soft edges seen from the side; seen along the axis the whole cone glows (looking down the trail)
   float along = abs(dot(normalize(u_travel), V));
-  float facing = mix(pow(abs(dot(N, V)), 1.6), 1.0, along * along);
+  float along2 = along * along;
+  float facing = mix(pow(abs(dot(N, V)), 1.6), 0.8, along2 * along2);
   float turb = afbm(vec3(vL.x * 0.45, vL.y * 0.16 - u_time * 7.0, vL.z * 0.45));
   float turb2 = afbm(vec3(vL.x * 1.3, vL.y * 0.5 - u_time * 13.0, vL.z * 1.3));
-  float I = pow(1.0 - v, 2.4) * facing * (0.15 + 1.4 * turb * turb + 0.5 * turb2) * smoothstep(0.0, 0.02, v);
-  vec3 col = ablackbody(0.75 - v * 0.7 + 0.12 * turb2) * I * u_plasma * u_heat * 1.2;
+  float I = pow(1.0 - v, 2.4) * facing * (0.05 + 1.8 * turb * turb * turb + 0.4 * turb2 * turb2) * smoothstep(0.0, 0.02, v);
+  vec3 col = ablackbody(0.62 - v * 0.55 + 0.15 * turb2) * I * u_plasma * u_heat * 1.1;
   o = vec4(col, 0.0);
 }
 `;

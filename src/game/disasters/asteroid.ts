@@ -145,7 +145,6 @@ export class Asteroid implements Disaster {
   // ---- ejecta bombs
   private boulders: Boulder[] = [];
   private bombAcc = 0;
-  private explodeQuota = 0;
 
   // ---- audio and timing
   private rumble: any = null;
@@ -496,14 +495,23 @@ export class Asteroid implements Disaster {
     const g = this.game, I = this.I;
     const front = shockFront(tau, this.plan.R * 1.15);
     const maxR = this.plan.maxR;
+    const cam = this.cam();
+    const t0 = performance.now();
     let kills = 0;
     for (const e of g.entities.list as any[]) {
       if (e.removed || this.blasted.has(e)) continue;
-      // deaths spawn ragdolls: spread them over ticks
-      if (kills >= 6 && e instanceof LivingEntity && e !== g.player) continue;
       const dx = e.pos.x - I.x, dz = e.pos.z - I.z;
       const d = Math.hypot(dx, dz);
       if (d > front) continue;
+      const living = e instanceof LivingEntity && e !== g.player;
+      if (living && e.pos.distanceToSquared(cam) > 96 * 96) {
+        // out of sight: vaporised (no ragdoll to simulate)
+        this.blasted.add(e);
+        e.remove();
+        continue;
+      }
+      // deaths in view spawn ragdolls (costly): a time budget spreads them over ticks
+      if (living && kills > 0 && performance.now() - t0 > 2.5) continue;
       this.blasted.add(e);
       const k = Math.max(0.15, 1 - d / maxR);
       const dir = new THREE.Vector3(dx, 0, dz);
@@ -610,30 +618,46 @@ export class Asteroid implements Disaster {
     this.boulderHeat.needsUpdate = true;
   }
 
+  /**
+   * A bomb lands: a small blast crater (BulkEdit, a few dozen blocks; the full explosion
+   * algorithm with its rigid debris is far too costly for dozens of bombs), the bomb itself as a
+   * glowing magma lump, fires around it, and an explosion effect and sound when in view.
+   */
   private landBoulder(b: Boulder, bx: number, by: number, bz: number, cam: THREE.Vector3) {
-    const g = this.game;
+    const g = this.game, w = g.world;
+    const hot = b.heat > 0.5;
     const near = b.p.distanceToSquared(cam) < 260 * 260;
-    const ex = (g as any).explosions;
-    if (b.heat > 0.5 && ex?.explode && this.explodeQuota > 0 && this.rand() < 0.6) {
-      // a real (small) explosion: crater, fire, debris, damage, sound
-      this.explodeQuota--;
-      ex.explode(new THREE.Vector3(b.p.x, by + 1, b.p.z), 2.2 + b.size * 1.1, { fire: true, debris: near });
-      return;
-    }
+    const r = hot ? 1.6 + b.size * 0.9 : 0.8 + b.size * 0.5;
+    const R = Math.ceil(r);
+    const cy = by + 1;
     if (near) {
-      this.emit('explosion', b.p.x, by + 1, b.p.z, { power: 1.5 + b.size });
-      g.audio?.play?.('random.explode', { pos: { x: b.p.x, y: by + 1, z: b.p.z }, volume: 3, pitch: 0.6 + this.rand() * 0.3 });
+      this.emit('explosion', b.p.x, cy, b.p.z, { power: hot ? 2 + b.size * 1.5 : 1 });
+      g.audio?.play?.('random.explode', { pos: { x: b.p.x, y: cy, z: b.p.z }, volume: hot ? 4 : 2, pitch: 0.55 + this.rand() * 0.3 });
+      const st = w.getBlock(bx, by, bz);
+      if (st) for (let k = 0; k < 10; k++) {
+        const a = this.rand() * Math.PI * 2, sp = 6 + this.rand() * 10;
+        this.crumb(st, b.p.x, cy, b.p.z, Math.cos(a) * sp, 6 + this.rand() * 9, Math.sin(a) * sp, 2 + this.rand() * 3, 1.5);
+      }
     }
-    // the bomb itself: a glowing magma lump (or plain rock) with fire around it
-    const w = g.world;
     this.bulk.begin();
-    if (w.getBlock(bx, by + 1, bz) === 0) this.bulk.set(bx, by + 1, bz, stateOf(b.heat > 0.5 ? 'magma_block' : 'blackstone'));
-    if (b.heat > 0.5) {
-      const fire = stateOf('fire');
-      for (let k = 0; k < 3; k++) {
-        const fx = bx + Math.floor(this.rand() * 5) - 2, fz = bz + Math.floor(this.rand() * 5) - 2;
+    for (let dy = -R; dy <= R; dy++)
+      for (let dx = -R; dx <= R; dx++)
+        for (let dz = -R; dz <= R; dz++) {
+          if (dx * dx + dz * dz + dy * dy * 1.6 > r * r) continue;
+          const s = w.getBlock(bx + dx, cy + dy, bz + dz);
+          if (s && classify(s) !== Cls.Fixed) this.bulk.set(bx + dx, cy + dy, bz + dz, 0);
+        }
+    const floor = Math.max(1, cy - Math.floor(r / 1.26));
+    const fire = stateOf('fire');
+    this.bulk.set(bx, floor, bz, stateOf(hot ? 'magma_block' : 'blackstone'));
+    if (hot) {
+      for (let k = 0; k < 4; k++) {
+        const fx = bx + Math.floor(this.rand() * (2 * R + 3)) - R - 1, fz = bz + Math.floor(this.rand() * (2 * R + 3)) - R - 1;
         const fy = this.surface(fx, fz);
-        if (fy > 0 && w.getBlock(fx, fy + 1, fz) === 0 && T_SOLID[w.getBlock(fx, fy, fz) >>> 4]) this.bulk.set(fx, fy + 1, fz, fire);
+        if (fy > 0 && w.getBlock(fx, fy + 1, fz) === 0 && T_SOLID[w.getBlock(fx, fy, fz) >>> 4]) {
+          this.bulk.set(fx, fy + 1, fz, fire);
+          if (this.fires.length < 48) this.fires.push([fx, fy + 1, fz]);
+        }
       }
     }
     this.bulk.end();
@@ -646,7 +670,6 @@ export class Asteroid implements Disaster {
     const tickTime = this.ticks / 20;
     this.vt = Math.min(tickTime + 0.05, Math.max(tickTime - 0.1, this.vt + dt));
     this.particleBudget = PARTICLES_PER_FRAME;
-    this.explodeQuota = 1;
     const cam = this.cam();
     const U = this.U;
     U.u_time.value = this.vt;
