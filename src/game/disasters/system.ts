@@ -63,7 +63,7 @@ export class DisasterSystem implements GameSystem {
   }
 
   tick(game: Game) {
-    relightStep(game, 2);
+    relightStep(game, 1);
     for (let i = this.active.length - 1; i >= 0; i--) {
       const d = this.active[i];
       let alive = false;
