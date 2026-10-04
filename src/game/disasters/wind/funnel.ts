@@ -68,7 +68,7 @@ vec2 axisOff(float u) {
 }
 float fRadius(float u) {
   u = clamp(u, 0.0, 1.0);
-  return (u_shape.y + (u_shape.z - u_shape.y) * pow(u, 2.4)) * (1.0 - 0.62 * u_shape.w);
+  return (u_shape.y + (u_shape.z - u_shape.y) * pow(u, 2.8)) * (1.0 - 0.62 * u_shape.w);
 }
 float nz(vec3 p) { return texture(u_noise, p).r; }
 mat2 rot2(float a) { float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
@@ -125,23 +125,23 @@ vec4 density(vec3 p) {
   // condensation funnel lowering from the cloud with a ragged lower end
   float bottom = H * (1.0 - u_misc.z) + (n - 0.5) * 10.0;
   float vis = smoothstep(bottom - 2.0, bottom + 5.0, p.y);
-  float edge = R * (0.72 + 0.55 * n);
-  float cond = smoothstep(edge, edge * 0.45, r) * vis;
+  float edge = R * (0.74 + 0.5 * n);
+  float cond = smoothstep(edge, edge * 0.7, r) * vis * (0.75 + 0.5 * n2);
   // tattered outer sheath: wisps in the shear zone
-  cond += smoothstep(R * 1.4, R * 0.9, r) * smoothstep(0.55, 0.85, n2) * vis * 0.35;
+  cond += smoothstep(R * 1.45, R * 0.95, r) * smoothstep(0.55, 0.85, n2) * vis * 0.3;
   // debris cloud: dense churning skirt hugging the ground, hollower centre
   float deb = 0.0;
   if (p.y < 22.0) {
     float hd = max(p.y, 0.0);
     float dn = nz(vec3(rq.x * 0.075, p.y * 0.06 - T_ * 0.55, rq.y * 0.075) + 0.71);
     float Rdd = Rd * (0.6 + 0.7 * dn);
-    deb = exp(-hd / 5.0) * smoothstep(Rdd, Rdd * 0.2, r) * (0.25 + dn * 1.2);
+    deb = exp(-hd / 6.0) * smoothstep(Rdd, Rdd * 0.25, r) * (0.3 + dn * 1.4);
     deb *= mix(0.5, 1.0, smoothstep(0.0, R * 1.3, r));
     deb *= u_dust.w;
   }
   vec2 L = normalize(u_lightDir.xz + vec2(1e-4));
   float side = dot(q / max(r, 1e-3), L);
-  return vec4(cond * 1.25, deb * 0.75, r / max(R, 0.5), side);
+  return vec4(cond * 2.2, deb * 1.1, r / max(R, 0.5), side);
 }
 #define STEPS 48
 #endif
@@ -182,7 +182,7 @@ void main() {
     vec3 alb = mix(u_cond.rgb, u_dust.rgb, dustF);
     float occl = mix(0.3, 1.0, smoothstep(0.1, 1.1, d.z));
     float lit = smoothstep(-0.5, 0.9, d.w) * smoothstep(0.2, 0.9, d.z);
-    vec3 S = alb * ((skyUp * 0.8 + skyDown * 0.4) * occl + sun * lit * 0.45 * ph);
+    vec3 S = alb * ((skyUp * 0.7 + skyDown * 0.35) * occl + sun * lit * 0.25 * ph);
     S += vec3(0.75, 0.8, 1.0) * u_cloud.z * occl * 0.6;
 #endif
     float a = 1.0 - exp(-sig * dt);

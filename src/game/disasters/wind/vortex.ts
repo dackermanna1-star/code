@@ -123,7 +123,7 @@ export interface FunnelShape {
 /** Funnel radius at height fraction u (0 ground .. 1 cloud base). Mirrored in GLSL. */
 export function funnelRadius(u: number, rBase: number, rTop: number, rope: number): number {
   const uu = clamp01(u);
-  const r = rBase + (rTop - rBase) * Math.pow(uu, 2.4);
+  const r = rBase + (rTop - rBase) * Math.pow(uu, 2.8);
   return r * (1 - 0.62 * rope);
 }
 

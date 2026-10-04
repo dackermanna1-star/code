@@ -71,7 +71,7 @@ export class Tornado implements Disaster {
   private cloud: StormVolume | null = null;
   private bolts: Bolt[] = [];
   readonly debris: FlyingDebris;
-  private dust = new THREE.Vector3(0.24, 0.2, 0.16);
+  private dust = new THREE.Vector3(0.18, 0.15, 0.12);
   private dustAcc = 0;
   // gameplay
   private ground = new Map<number, number>();
@@ -104,7 +104,7 @@ export class Tornado implements Disaster {
     this.groundY = y;
     this.base.set(x + 0.5, y, z + 0.5);
     const H = Math.max(36, Math.min(64, 250 - y - 30));
-    this.shape = { H, rBase: 2.3 + rnd() * 0.9, rTop: 15 + rnd() * 5, tiltX: 0, tiltZ: 0, wob: 1.5, s1: rnd() * 6.28, s2: rnd() * 6.28 };
+    this.shape = { H, rBase: 2.3 + rnd() * 0.9, rTop: 11 + rnd() * 4, tiltX: 0, tiltZ: 0, wob: 1.5, s1: rnd() * 6.28, s2: rnd() * 6.28 };
     this.edit = new BulkEdit(game);
     this.debris = new FlyingDebris(game, rnd);
     this.orbit = {
@@ -483,9 +483,9 @@ export class Tornado implements Disaster {
     if (c === 0x808080 || m === Mat.Leaves || m === Mat.Plant || m === Mat.None) c = 0x7a6450;
     const r = s2l(((c >> 16) & 255) / 255), g = s2l(((c >> 8) & 255) / 255), b = s2l((c & 255) / 255);
     // dirty brown-gray: soil colour mixed with dark debris
-    this.dust.x += (r * 0.45 + 0.13 - this.dust.x) * 0.3;
-    this.dust.y += (g * 0.45 + 0.11 - this.dust.y) * 0.3;
-    this.dust.z += (b * 0.45 + 0.09 - this.dust.z) * 0.3;
+    this.dust.x += (r * 0.35 + 0.09 - this.dust.x) * 0.3;
+    this.dust.y += (g * 0.35 + 0.075 - this.dust.y) * 0.3;
+    this.dust.z += (b * 0.35 + 0.06 - this.dust.z) * 0.3;
   }
 
   // ------------------------------------------------------------------------- frame update
@@ -535,7 +535,7 @@ export class Tornado implements Disaster {
     f.u.u_misc.value.set(S.s1, S.s2, L.reach, L.fade);
     // the debris cloud exists only while the vortex is on the ground
     f.u.u_dust.value.set(this.dust.x, this.dust.y, this.dust.z, Math.min(1, L.strength * 1.3) * L.fade);
-    f.u.u_cond.value.set(0.36, 0.37, 0.38, this.spin);
+    f.u.u_cond.value.set(0.19, 0.2, 0.21, this.spin);
     const Rw = 82;
     this.flashLevel *= Math.exp(-dt * 9);
     f.u.u_cloud.value.set(Rw, L.storm, this.flashLevel, 0);

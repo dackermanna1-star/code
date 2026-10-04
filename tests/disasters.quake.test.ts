@@ -201,3 +201,26 @@ describe('earthquake (headless)', () => {
     for (let x = -60; x < 60; x += 2) for (let z = -60; z < 60; z += 2) expect(world.getBlock(x, 0, z)).toBe(S('bedrock'));
   });
 });
+
+describe('earthquake edit budget', () => {
+  it('spreads the work over more ticks when the budget is small', () => {
+    const world = new World('overworld', 1);
+    for (let cx = -5; cx <= 4; cx++) for (let cz = -5; cz <= 4; cz++) world.addChunk(flatChunk(cx, cz));
+    const list: any[] = [];
+    const game: any = { world, dimension: 'overworld', renderExtras: {}, events: { emit() {} }, entities: { list, add(e: any) { e.init(game, world); list.push(e); return e; } } };
+    const tight = new Earthquake(game, 0, H, 0, 0, 1, { seed: 3, budgetMs: 0.4 });
+    const times: number[] = [];
+    let alive = true, ticks = 0;
+    while (alive && ticks < 2000) {
+      const a = performance.now();
+      alive = tight.tick(game);
+      times.push(performance.now() - a);
+      ticks++;
+    }
+    tight.dispose(game);
+    times.sort((a, b) => a - b);
+    expect(times[Math.floor(times.length * 0.9)]).toBeLessThan(6);
+    expect(tight.stats.carved).toBeGreaterThan(100);
+    expect(tight.stats.lifted).toBeGreaterThan(100);
+  });
+});

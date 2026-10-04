@@ -72,6 +72,9 @@ export class Earthquake implements Disaster {
   private sounds = 0;
   private disposed = false;
   private framed = false;
+  private deadline = 0;
+  private toppledThisTick = false;
+  private spawnedThisTick = 0;
   /** Counters (tests / debug). */
   readonly stats = { carved: 0, edges: 0, lifted: 0, toppled: 0, fell: 0, shattered: 0, maxTickMs: 0, blocks: 0 };
 
@@ -109,7 +112,9 @@ export class Earthquake implements Disaster {
     this.ticks++;
     this.t = this.ticks * TICK;
     const I = quakeIntensity(this.t, this.tl);
-    const deadline = t0 + this.budgetMs;
+    const deadline = (this.deadline = t0 + this.budgetMs);
+    this.toppledThisTick = false;
+    this.spawnedThisTick = 0;
     const w = game.world;
     if (w) {
       this.edit.begin();
@@ -345,6 +350,8 @@ export class Earthquake implements Disaster {
   }
 
   private startTopple(x: number, z: number, top: number, dir: number): boolean {
+    // building a tree mesh costs a few ms: at most one per tick, and only with budget left
+    if (this.toppledThisTick || performance.now() > this.deadline - 2) return false;
     const g = this.game, w = g.world;
     const tree = findTree(w, x, z, top);
     if (!tree) return false;
@@ -354,6 +361,7 @@ export class Earthquake implements Disaster {
     const tt = new ToppleTree(tree, dir, g.renderer ? (g.renderer as any) : null, tint);
     this.scene.add(tt.group);
     this.topples.push(tt);
+    this.toppledThisTick = true;
     this.toppled++;
     this.stats.toppled++;
     this.sound('wood', 'break', tree.x, tree.y + 2, tree.z, 0.6, 1.2);
@@ -400,6 +408,11 @@ export class Earthquake implements Disaster {
       this.debrisFx(st, x, y, z, 5);
       return;
     }
+    if (this.spawnedThisTick >= 6) {
+      this.debrisFx(st, x, y, z, 3);
+      return;
+    }
+    this.spawnedThisTick++;
     const e = new FallingBlockEntity(st);
     e.setPos(x + 0.5, y, z + 0.5);
     e.vel.set(vx, vy, vz);
