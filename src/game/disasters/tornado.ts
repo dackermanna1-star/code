@@ -190,12 +190,21 @@ export class Tornado implements Disaster {
     this.tickWeather(game, L);
     this.stats.maxTickMs = Math.max(this.stats.maxTickMs, performance.now() - t0);
     if (this.t >= this.duration) {
-      this.debris.releaseAll();
-      this.releaseEntities(game);
-      return false;
+      if (!this.ended) {
+        this.ended = true;
+        this.debris.releaseAll();
+        this.releaseEntities(game);
+        this.restoreWeather();
+        this.stopLoops();
+      }
+      // let the last flung debris land and fade before cleaning up
+      return this.debris.count > 0 && this.t < this.duration + 12;
     }
     return true;
   }
+
+  /** The funnel is gone (debris may still be landing). */
+  ended = false;
 
   /** Median surface height of 5 columns around (x,z), or null if unloaded. */
   private sampleGround(x: number, z: number): number | null {
@@ -635,7 +644,7 @@ export class Tornado implements Disaster {
     }
     // ---- audio: a roar that swells with proximity, a howl close in, a positional rumble
     const au = game.audio;
-    if (au?.loop) {
+    if (au?.loop && !this.ended) {
       if (!this.loops && L.storm > 0.05) {
         this.loops = {
           roar: au.loop('loop.wind', { volume: 0, pitch: 0.55 }),
@@ -695,6 +704,14 @@ export class Tornado implements Disaster {
     else au?.play?.(dist < 60 ? 'weather.thunder.near' : 'weather.thunder.far', { volume: 1 });
   }
 
+  private stopLoops() {
+    if (!this.loops) return;
+    this.loops.roar.stop(3);
+    this.loops.howl.stop(2);
+    this.loops.pos.stop(3);
+    this.loops = null;
+  }
+
   // ------------------------------------------------------------------------- cleanup
   dispose(game: Game = this.game) {
     if (this.disposed) return;
@@ -714,12 +731,7 @@ export class Tornado implements Disaster {
     this.funnel = this.cloud = null;
     this.noise = null;
     this.fwd.clear();
-    if (this.loops) {
-      this.loops.roar.stop(3);
-      this.loops.howl.stop(2);
-      this.loops.pos.stop(3);
-      this.loops = null;
-    }
+    this.stopLoops();
     (game.particles?.sys?.flash?.skyFlash as THREE.Vector4 | undefined)?.set(0, 0, 0, 0);
     this.restoreWeather();
     this.ground.clear();
