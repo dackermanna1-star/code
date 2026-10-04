@@ -156,19 +156,24 @@ describe('earthquake (headless)', () => {
     };
     expect(DISASTERS.has('earthquake')).toBe(true);
     const q = new Earthquake(game, 0, H, 0, 1, 0, { seed: 11 });
-    let ticks = 0, worst = 0, alive = true;
+    let ticks = 0, alive = true;
+    const times: number[] = [];
     while (alive && ticks < 1000) {
       const a = performance.now();
       alive = q.tick(game);
-      worst = Math.max(worst, performance.now() - a);
+      times.push(performance.now() - a);
       ticks++;
     }
+    times.sort((a, b) => a - b);
+    const p95 = times[Math.floor(times.length * 0.95)], worst = times[times.length - 1];
     q.dispose(game);
-    console.log('quake', ticks, 'ticks, worst', worst.toFixed(2), 'ms', JSON.stringify(q.stats));
+    console.log('quake', ticks, 'ticks, p95', p95.toFixed(2), 'worst', worst.toFixed(2), 'ms', JSON.stringify(q.stats));
     expect(ticks).toBeGreaterThanOrEqual(500);
     expect(ticks).toBeLessThan(800);
     expect(q.done).toBe(true);
-    expect(worst).toBeLessThan(40); // budget 5 ms + collapse; generous for loaded CI machines
+    // edits run under a 5 ms budget per tick (wall-clock: allow for a loaded machine)
+    expect(p95).toBeLessThan(12);
+    expect(worst).toBeLessThan(150);
     expect(q.stats.carved).toBeGreaterThan(300);
     expect(q.stats.lifted).toBeGreaterThan(300);
     expect(q.stats.toppled).toBeGreaterThan(0);

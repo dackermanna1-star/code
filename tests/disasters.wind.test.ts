@@ -139,18 +139,21 @@ describe('tornado simulation (headless)', () => {
     const game = fakeGame(world);
     expect(DISASTERS.has('tornado')).toBe(true);
     const t = new Tornado(game, 2, 64, 0, 1, 0, { seed: 5, duration: 48 });
-    let ticks = 0, worst = 0;
+    let ticks = 0;
+    const times: number[] = [];
     while (ticks < 2000) {
       const a = performance.now();
       const alive = t.tick(game);
-      worst = Math.max(worst, performance.now() - a);
+      times.push(performance.now() - a);
       ticks++;
       if (!alive) break;
     }
+    times.sort((a, b) => a - b);
+    const p95 = times[Math.floor(times.length * 0.95)];
     t.dispose(game);
     expect(ticks).toBe(Math.ceil(48 / 0.05));
     expect(t.stats.ripped).toBeGreaterThan(150);
-    expect(worst).toBeLessThan(40); // generous for CI; the budget is a few ms
+    expect(p95).toBeLessThan(8); // a few ms per tick (wall-clock: allow for a loaded machine)
     // rock is never touched; the trench stays shallow
     for (let x = -10; x < 170; x++) for (let z = -60; z < 60; z++) {
       if (!world.getChunk(x >> 4, z >> 4)) continue;
