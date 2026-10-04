@@ -165,7 +165,11 @@ export class BoltRenderer {
       uniforms: {},
       transparent: true,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      // premultiplied additive (alpha 0 keeps the target's alpha), like the particle Add pool
+      blending: THREE.CustomBlending,
+      blendEquation: THREE.AddEquation,
+      blendSrc: THREE.OneFactor,
+      blendDst: THREE.OneFactor,
       vertexShader: `${GLSL_PRELUDE}
 uniform mat4 modelViewMatrix;
 uniform mat4 projectionMatrix;

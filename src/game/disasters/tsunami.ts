@@ -17,6 +17,7 @@
  * Block edits are budgeted per tick (time) through BulkEdit; flood water is placed as source
  * blocks without neighbour updates so no fluid ticks are scheduled.
  */
+import * as THREE from 'three';
 import type { Game } from '../game';
 import { registerDisaster, BulkEdit, S, hash3, noise2, type Disaster, type DisasterContext, type DisasterFx } from './kit';
 import { planWave, toLocal, wobble, taper, frontStart, advanceFront, floodLevel, profileAt, curlFor, BasinSolver, packOrder, S_LIP, S_CREST, type WavePlan, type FrontState } from './flood/wave';
@@ -546,7 +547,7 @@ export class Tsunami implements Disaster {
         e.vel.y = Math.max(e.vel.y, 3 + rnd() * 2);
         if (!this.hit.has(e) && typeof e.hurt === 'function') {
           this.hit.add(e);
-          e.hurt({ type: 'generic', dir: { x: p.dx, y: 0.3, z: p.dz } }, 4);
+          e.hurt({ type: 'generic', dir: new THREE.Vector3(p.dx, 0.3, p.dz), impulse: 6 }, 4);
           if (e === g.player) this.fx.flash(0.35, 0x9fd8ff);
         }
         this.stats.pushed++;
