@@ -94,7 +94,68 @@ function leg(s: Sample) {
   mulRGB(s, 1 - seam * 0.25);
 }
 
-export function playerModel(): ModelDef {
+// ------------------------------------------------------------------------------- the hero look
+const SUIT = hex(0xf2c21a);
+const RED = hex(0xc8161d);
+const BELT = hex(0x16161a);
+
+function heroHead(s: Sample) {
+  // bald, shining scalp; dot eyes; a calm mouth
+  skin(s, SKIN, { mottle: 0.25, pores: 0.0002, wrinkles: 0.05, sss: 0.6, rough: 0.32 });
+  if (s.face === 'top' || s.y > HEAD_TOP - 0.06) s.rough = 0.22;
+  if (s.face !== 'front' || s.prim !== 'head') return;
+  for (const cx of [2.5, 5.5]) {
+    const eye = ellipseMask(s, cx, 4.5, 0.38, 0.32, 0.2);
+    mixRGB(s, hex(0x141414), eye);
+  }
+  const mouth = rectMask(s, 3.2, 6.4, 1.6, 0.35, 0.2, 0.15);
+  mixRGB(s, hex(0x6a3a2c), mouth * 0.75);
+}
+
+function heroSuit(s: Sample) {
+  cloth(s, SUIT, { thread: 0.003, wear: 0.08, rough: 0.55, seed: 7 });
+  if (s.prim === 'torso') {
+    // zipper and black belt at the waist
+    if (s.face === 'front' && Math.abs(s.u - s.w / 2) < 0.006 && s.y > 1.0) mixRGB(s, hex(0x9a7a10), 0.8);
+    const belt = smooth(0.0, 0.01, s.y - 0.75) * smooth(0.06, 0.05, s.y - 0.75);
+    if (belt > 0) { mixRGB(s, BELT, belt); s.rough = 0.35; }
+  }
+}
+
+function heroArm(s: Sample) {
+  const bottom = s.y - (s.prim.startsWith('fore') ? 0.75 : 1.125);
+  if (s.prim.startsWith('fore') && bottom < 0.2) {
+    cloth(s, RED, { thread: 0.002, wear: 0.05, rough: 0.3, seed: 5 });
+    return;
+  }
+  heroSuit(s);
+}
+
+function heroLeg(s: Sample) {
+  if (s.y < 0.3) {
+    cloth(s, RED, { thread: 0.002, wear: 0.05, rough: 0.3, seed: 6 });
+    if (s.y < 0.02) mulRGB(s, 0.5);
+    return;
+  }
+  heroSuit(s);
+}
+
+export function playerModel(variant = ''): ModelDef {
+  if (variant === 'hero') {
+    return humanoidDef({
+      key: 'player:hero',
+      paint: (s: Sample) => {
+        const prim = s.prim;
+        if (prim === 'head' || prim === 'nose') return heroHead(s);
+        if (prim === 'torso') return heroSuit(s);
+        if (prim.startsWith('arm') || prim.startsWith('fore')) return heroArm(s);
+        return heroLeg(s);
+      },
+      sss: 0.5,
+      blood: 0,
+      mass: 75,
+    });
+  }
   return humanoidDef({
     key: 'player:steve',
     paint: (s: Sample) => {

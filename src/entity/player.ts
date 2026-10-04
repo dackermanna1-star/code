@@ -50,6 +50,8 @@ export class Player extends LivingEntity {
   fovMul = 1;
   portalTicks = 0;
   portalCooldown = 0;
+  /** Super powers granted by items (hero gloves): damage immunity, run and jump multipliers. */
+  readonly powers = { invulnerable: false, speed: 1, jump: 1 };
   readonly stats: Record<string, number> = {};
   /** Score for death screen */
   score = 0;
@@ -133,6 +135,7 @@ export class Player extends LivingEntity {
 
   // ------------------------------------------------------------------ damage
   protected override isInvulnerableTo(src: DamageSource): boolean {
+    if (this.powers.invulnerable && src.type !== 'kill') return true;
     if (src.type === 'void' || src.type === 'kill') return this.creative && src.type !== 'kill' ? src.type !== 'void' : false;
     return this.creative || this.spectator;
   }
@@ -242,8 +245,12 @@ export class Player extends LivingEntity {
     // exhaustion from movement handled in physicsStep via distance
   }
 
+  override jumpVelocity(): number {
+    return super.jumpVelocity() * this.powers.jump;
+  }
+
   override movementSpeed(): number {
-    let sp = super.movementSpeed();
+    let sp = super.movementSpeed() * (this.sprinting ? this.powers.speed : Math.sqrt(this.powers.speed));
     if (this.usingItem) sp *= 0.2;
     if (this.swimming) sp = 2.0 * (this.sprinting ? 2.2 : 1);
     return sp;

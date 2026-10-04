@@ -89,6 +89,25 @@ settle onto the floor on walls so you can walk into them. Shots pass through exi
 * Breaking the block a portal is on (or blocking its front) closes it. Portals are saved with the
   world.
 
+## Hero gloves (one punch)
+
+In the creative inventory (*Combat*, or search "hero"). Hold them and you are the hero: you take
+no damage, sprint absurdly fast, jump very high, and look the part in third person (bald, yellow
+suit, red gloves, white cape).
+
+| Move | Input |
+|---|---|
+| Normal punch: obliterates what you hit and tunnels ~50 blocks behind it | Left click |
+| Consecutive normal punches: ~18 shockwaves a second | Hold left click |
+| Serious punch: a 170-block blast that also clears the clouds from the sky | Right click |
+| Serious punch into the ground: the world breaks to the edge of the loaded map (crater, flattened land, fissures of lava) | Right click looking down |
+| Consecutive serious punches | Hold right click |
+| Super leap (crater on landing) | `Shift` + `Space` |
+
+Destruction is spread over frames within a time budget, so even the world-breaking punch keeps the
+game running; mobs (and vehicles) caught in a shockwave are destroyed, with debris, dust and
+ragdolls from the existing systems.
+
 ## Graphics
 
 * Deferred PBR pipeline (WebGL2, HDR): cascaded soft shadows (PCSS), screen-space ambient occlusion,

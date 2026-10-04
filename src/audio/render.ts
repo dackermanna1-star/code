@@ -18,6 +18,7 @@ import { INSTRUMENTS, foldLoop } from './recipes/instruments';
 import { loopSpecs } from './recipes/loops';
 import { sfxSounds } from './recipes/sfx';
 import { portalLoops, portalSounds } from './recipes/portal';
+import { heroSounds } from './recipes/hero';
 import type { LoopSpec, Out, SoundSpec } from './recipes/types';
 import { worldSounds } from './recipes/world';
 
@@ -27,6 +28,7 @@ export const SOUNDS: Readonly<Record<string, SoundSpec>> = {
   ...creatureSounds(),
   ...worldSounds(),
   ...portalSounds(),
+  ...heroSounds(),
 };
 
 export const LOOPS: Readonly<Record<string, LoopSpec>> = { ...loopSpecs(), ...portalLoops() };

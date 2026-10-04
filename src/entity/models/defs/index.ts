@@ -12,7 +12,7 @@ type Factory = (variant: string) => ModelDef;
 
 const FACTORIES: Record<string, Factory> = {
   zombie: (v) => zombieModel((v || 'zombie') as any),
-  player: () => playerModel(),
+  player: (v) => playerModel(v),
   skeleton: () => skeletonModel(),
   creeper: () => creeperModel(),
   spider: () => spiderModel(),

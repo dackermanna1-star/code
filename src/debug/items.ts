@@ -17,10 +17,12 @@ import { FirstPersonHand } from '../render/items/hand';
 import { ENTITY_SHARED, setEntityLight } from '../render/entityMaterial';
 import { installItemBehaviors } from '../game/items/behaviors';
 import '../game/portal/portalItem';
+import { HERO_ANIM } from '../game/saitama/heroItem';
 
 const q = new URLSearchParams(location.search);
 const num = (k: string, d: number) => (q.has(k) ? Number(q.get(k)) : d);
 const grid = document.getElementById('grid')!;
+if (q.has('hero')) Object.assign(HERO_ANIM, JSON.parse(q.get('hero')!));
 const info = document.getElementById('info')!;
 const view = document.getElementById('view') as HTMLCanvasElement;
 if (q.has('bg')) document.body.style.background = '#' + q.get('bg');

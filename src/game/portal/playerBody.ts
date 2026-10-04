@@ -10,13 +10,23 @@ import { createRig } from '../../entity/models/catalog';
 import type { Rig } from '../../entity/models/rig';
 import { animateHumanoid } from '../../entity/models/anim/humanoid';
 import { newAnimState, type AnimState } from '../../entity/models/anim/common';
-import { setEntityLight } from '../../render/entityMaterial';
+import { setEntityLight, createEntityMaterial } from '../../render/entityMaterial';
 import { wrapAngle } from '../../entity/living';
 
 interface Copy {
   rig: Rig;
   mem: Record<string, any>;
   held: THREE.Object3D | null;
+  cape: THREE.Mesh | null;
+}
+
+/** Items that change the body's look (the hero gloves make you the hero) and are not drawn held. */
+const LOOKS: Record<string, string> = { hero_gloves: 'hero' };
+
+let CAPE_GEO: THREE.BufferGeometry | null = null;
+function capeGeometry() {
+  // hangs from the shoulders down the back (+z is behind the body)
+  return (CAPE_GEO ??= new THREE.PlaneGeometry(0.66, 1.08, 6, 10).translate(0, -0.54, 0).rotateY(Math.PI));
 }
 
 export class PlayerBody {
@@ -31,12 +41,33 @@ export class PlayerBody {
   mainVisible = false;
   private cloneM: THREE.Matrix4 | null = null;
 
+  private variant = '';
+  private capeMat: THREE.RawShaderMaterial | null = null;
+
   constructor(private game: Game) {
+    this.build('');
+  }
+
+  private build(variant: string) {
+    for (const c of this.copies) {
+      c.rig.root.removeFromParent();
+      c.rig.dispose();
+    }
+    this.copies.length = 0;
+    this.variant = variant;
+    this.heldKey = '#';
     for (let i = 0; i < 2; i++) {
-      const rig = createRig('player');
+      const rig = createRig('player', variant);
       rig.root.matrixAutoUpdate = i === 0;
       this.scene.add(rig.root);
-      this.copies.push({ rig, mem: {}, held: null });
+      let cape: THREE.Mesh | null = null;
+      if (variant === 'hero' && rig.attach.back) {
+        this.capeMat ??= createEntityMaterial({ color: 0xf4f2ec, roughness: 0.8, side: THREE.DoubleSide });
+        cape = new THREE.Mesh(capeGeometry(), this.capeMat);
+        cape.position.set(0, 0.32, 0.02);
+        rig.attach.back.add(cape);
+      }
+      this.copies.push({ rig, mem: {}, held: null, cape });
     }
   }
 
@@ -85,7 +116,9 @@ export class PlayerBody {
     st.turnRate = dt > 0 ? dy / dt : 0;
     st.hurt = p.hurtTime > 0 ? p.hurtTime / p.hurtDuration : 0;
     const held = p.mainHand;
-    st.holdItem = !!held;
+    const look = held ? LOOKS[held.item.name] ?? '' : '';
+    if (look !== this.variant) this.build(look);
+    st.holdItem = !!held && !look;
     st.aimGun = held?.item.name === 'portal_gun';
     // held item model
     const key = held ? held.item.name + '|' + JSON.stringify(held.data ?? null) : '';
@@ -93,10 +126,17 @@ export class PlayerBody {
       this.heldKey = key;
       for (const c of this.copies) {
         c.held?.removeFromParent();
-        c.held = held && g.itemModels?.create ? g.itemModels.create(held, 'third_person') : null;
+        c.held = held && !look && g.itemModels?.create ? g.itemModels.create(held, 'third_person') : null;
         if (c.held) c.rig.attach.handR?.add(c.held);
       }
     }
+    // the cape streams back with speed and flutters
+    const sp = Math.hypot(p.vel.x, p.vel.z) + Math.max(0, -p.vel.y) * 0.5;
+    for (const c of this.copies) if (c.cape) {
+      c.cape.rotation.x = -(0.08 + Math.min(1.25, sp * 0.06)) - Math.sin(this.time * (3 + sp * 0.4)) * (0.03 + Math.min(0.12, sp * 0.008));
+      c.cape.rotation.z = Math.sin(this.time * 2.1) * 0.04;
+    }
+    if (this.capeMat) setEntityLight(this.capeMat, g.world.getLight(Math.floor(pos.x), Math.floor(pos.y + 1.2), Math.floor(pos.z)));
     const L = g.world.getLight(Math.floor(pos.x), Math.floor(pos.y + 1.2), Math.floor(pos.z));
     const hurt = p.hurtTime > 0 ? Math.min(1, (p.hurtTime + 1 - alpha) / 2) : 0;
     for (let i = 0; i < this.copies.length; i++) {
