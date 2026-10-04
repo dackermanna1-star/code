@@ -80,7 +80,7 @@ export class HeliHud {
     const k = (a: keyof typeof b) => `<kbd>${keyName(b[a])}</kbd>`;
     this.hint.innerHTML = `<b>HELICOPTER</b> &nbsp;Engine starting, wait for rotor RPM<br>`
       + `${k('jump')}/${k('sneak')} collective (climb / descend, release = hold altitude) &nbsp; ${k('forward')}/${k('back')} pitch &nbsp; ${k('left')}/${k('right')} bank<br>`
-      + `<kbd>Mouse X</kbd> or ${k('yawLeft')}/${k('yawRight')} yaw (pedals) &nbsp; <kbd>Mouse Y</kbd> look &nbsp; ${k('perspective')} view &nbsp; ${k('sneak')} when landed: exit`;
+      + `<kbd>Mouse X</kbd> or ${k('yawLeft')}/${k('yawRight')} yaw (pedals) &nbsp; <kbd>Mouse Y</kbd> look &nbsp; ${k('vehicleView')} view &nbsp; ${k('sneak')} when landed: exit`;
     this.hintT = 13;
   }
 

@@ -15,7 +15,7 @@ import '../world/blocks/blocks';
 import { generateStubMaterials, StubAtmosphere } from '../render/stubs';
 import { ENTITY_SHARED } from '../render/entityMaterial';
 import { TankVisual } from '../entity/vehicles/tankModel';
-import { CONTACTS } from '../entity/vehicles/tankPhysics';
+import { CONTACTS, TANK } from '../entity/vehicles/tankPhysics';
 
 const q = new URLSearchParams(location.search);
 const num = (k: string, d: number) => (q.has(k) ? Number(q.get(k)) : d);
@@ -73,6 +73,12 @@ async function main() {
   const dist = num('dist', 15);
   cam.position.set(target.x - Math.sin(yaw) * Math.cos(pitch) * dist, target.y - Math.sin(pitch) * dist, target.z - Math.cos(yaw) * Math.cos(pitch) * dist);
   cam.lookAt(target);
+  if (q.has('sight')) {
+    // gunner's sight view (same placement as TankEntity.updateCamera)
+    const ty = THREE.MathUtils.degToRad(num('turret', 25));
+    cam.position.set(0.77, 1.02, -1.75).applyAxisAngle(new THREE.Vector3(0, 1, 0), ty).add(TANK.turretPos).add(new THREE.Vector3(0, H, 0));
+    cam.quaternion.setFromEuler(new THREE.Euler(THREE.MathUtils.degToRad(num('gun', 4)), ty, 0, 'YXZ'));
+  }
   const angle = (num('time', 3000) / 24000) * Math.PI * 2;
   const sunDir = new THREE.Vector3(Math.cos(angle) * 0.8, Math.sin(angle), -0.45).normalize();
   const frames = num('frames', 10);
@@ -89,6 +95,7 @@ async function main() {
       compression: new Float32Array(CONTACTS.length), trackL: time * 2, trackR: time * 2, light: world.getLight(0, H + 3, 0), hurt: 0, engine: 1,
       crewed: q.has('crew'), hideCrew: false, destroyed: q.has('wreck'), camDist: dist, time,
     });
+    if (q.has('notank')) tank.root.visible = false;
     cam.updateMatrixWorld(true);
     ENTITY_SHARED.u_viewInvRot.value.setFromMatrix4(cam.matrixWorld);
     renderer.render({

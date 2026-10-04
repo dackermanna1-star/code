@@ -409,6 +409,7 @@ export class TankEntity extends Entity {
     st.engine = this.body.spool;
     st.crewed = !!this.pilot;
     st.hideCrew = local && g.cameraCtl?.perspective === 'first';
+    st.inSight = st.hideCrew && !this.destroyed;
     st.destroyed = this.destroyed;
     st.camDist = cam ? cam.distanceTo(_p) : 0;
     st.time = this.visualTime;

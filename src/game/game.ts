@@ -369,6 +369,10 @@ export class Game {
     }
     for (let i = 1; i <= 9; i++) if (inp.wasPressed(('hotbar' + i) as any)) { p.inventory.selected = i - 1; p.inventory.changed(); }
     if (inp.wasPressed('perspective')) this.cameraCtl.cyclePerspective();
+    if (p.vehicle && inp.wasPressed('vehicleView')) {
+      const c = this.cameraCtl;
+      c.perspective = c.perspective === 'first' ? 'third_back' : 'first';
+    }
     // sprint / fly toggles
     if (inp.consumeDoubleTapSprint() && p.food > 6 || inp.isDown('sprint') && inp.isDown('forward') && (p.food > 6 || p.creative)) p.sprinting = true;
     if (inp.consumeDoubleTapJump() && p.mayFly) {

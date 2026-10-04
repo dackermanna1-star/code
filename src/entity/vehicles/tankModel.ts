@@ -491,6 +491,8 @@ export interface TankVisualState {
   crewed: boolean;
   /** Hide the commander (first-person sight view). */
   hideCrew: boolean;
+  /** Local gunner's sight view: the camera sits inside the turret, so the model is hidden. */
+  inSight?: boolean;
   destroyed: boolean;
   camDist: number;
   time: number;
@@ -588,6 +590,7 @@ export class TankVisual {
     this.lightMat.uniforms.u_emissive.value = on * 2.5;
     this.tailMat.uniforms.u_emissive.value = on * 1.6;
     this.crew.visible = s.crewed && !s.hideCrew && !s.destroyed;
+    this.root.visible = !s.inSight;
     // suspension, wheel spin, tracks
     const comp = s.compression;
     const wy = this.wheelY;

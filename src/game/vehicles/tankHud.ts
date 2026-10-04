@@ -140,7 +140,7 @@ export class TankHud {
       const b = (game.input as any)?.bindings ?? {};
       const k = (a: string, d: string) => `<kbd>${keyName(b[a] ?? d)}</kbd>`;
       this.hint.innerHTML = `<b>M1 Abrams</b> · ${k('forward', 'KeyW')}${k('back', 'KeyS')} drive / reverse · ${k('left', 'KeyA')}${k('right', 'KeyD')} steer (pivot when stopped) · ${k('jump', 'Space')} brake<br>`
-        + `Mouse aims the turret · ${k('attack', 'Mouse0')} 120 mm gun · hold ${k('use', 'Mouse2')} coax MG · ${k('zoom', 'KeyC')} zoom · ${k('perspective', 'F5')} gunner's sight · ${k('sneak', 'ShiftLeft')} climb out`;
+        + `Mouse aims the turret · ${k('attack', 'Mouse0')} 120 mm gun · hold ${k('use', 'Mouse2')} coax MG · ${k('zoom', 'KeyC')} zoom · ${k('vehicleView', 'KeyV')} gunner's sight · ${k('sneak', 'ShiftLeft')} climb out`;
       this.hint.style.opacity = this.hintT > 1 ? '1' : String(Math.max(0, this.hintT));
     } else this.hint.style.opacity = '0';
     if (!on || !t) return;
