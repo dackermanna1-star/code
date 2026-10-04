@@ -186,7 +186,11 @@ void main(){
 
 const BB_FRAG = /* glsl */ `
 precision highp float;
+#define PI 3.14159265
 uniform float u_time;
+uniform vec3 u_lightDir;
+uniform vec3 u_lightColor;
+uniform vec3 u_sh[9];
 uniform vec3 u_fogColor;
 uniform float u_fogDist;
 in vec2 v_uv;
@@ -198,6 +202,7 @@ float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); 
 float noise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f*f*(3.0-2.0*f);
   return mix(mix(hash(i), hash(i+vec2(1,0)), u.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), u.x), u.y); }
 float fbm(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++){ s += a * noise(p); p = p * 2.1 + 3.7; a *= 0.5; } return s; }
+${SH_GLSL}
 void main(){
   int kind = int(v_param.x + 0.5);
   float r = length(v_uv);
@@ -209,7 +214,9 @@ void main(){
   } else if (kind == 1) {
     // streak: bright line across, fading toward the tail (uv.y = -1 tail .. 1 head)
     float across = exp(-v_uv.x * v_uv.x * 7.0);
-    float along = smoothstep(-1.0, 0.2, v_uv.y) * (1.0 - smoothstep(0.85, 1.0, v_uv.y));
+    float along = v_param.y >= 100.0
+      ? 1.0 - smoothstep(0.9, 1.0, abs(v_uv.y))   // seed >= 100: a solid beam, full length
+      : smoothstep(-1.0, 0.2, v_uv.y) * (1.0 - smoothstep(0.85, 1.0, v_uv.y));
     o = vec4(v_color.rgb * across * along * v_color.a, 0.0);
   } else if (kind == 2) {
     // fireball: noisy ball, white-hot core to orange to dark edge as it ages
@@ -227,7 +234,13 @@ void main(){
     float a = (1.0 - smoothstep(0.25 + 0.5 * n, 1.0, r)) * v_color.a;
     if (a <= 0.003) discard;
     float fog = 1.0 - exp(-v_dist / u_fogDist);
-    vec3 c = mix(v_color.rgb * (0.7 + 0.5 * n), u_fogColor, fog * 0.85);
+    // lit like a volume of soot/dust: sun (thinner at the rim) plus sky light, so it reads as
+    // grey smoke in daylight and stays dark at night instead of being a flat black cut-out
+    vec3 L = normalize(u_lightDir);
+    float sun = (0.3 + 0.45 * n + 0.25 * v_uv.y) * clamp(L.y * 3.0 + 0.4, 0.0, 1.0);
+    vec3 sky = shIrradiance(vec3(0.0, 1.0, 0.0), u_sh) * 0.6 + shIrradiance(normalize(vec3(L.x, 0.0, L.z) + 1e-4), u_sh) * 0.4;
+    vec3 albedo = min(vec3(0.6), v_color.rgb * 2.6) * (0.75 + 0.5 * n);
+    vec3 c = mix(albedo * (u_lightColor * sun + sky) / PI, u_fogColor, fog * 0.85);
     o = vec4(c * a, a);
   }
 }`;
@@ -272,6 +285,9 @@ export class BillboardPool {
         u_pxAngle: { value: 0.001 },
         u_minPx: { value: minPx },
         u_time: SHARED_TIME,
+        u_lightDir: r.lightUniforms.u_lightDir,
+        u_lightColor: r.lightUniforms.u_lightColor,
+        u_sh: r.lightUniforms.u_sh,
         u_fogColor: { value: atmo?.fogColor ?? new THREE.Color(0.5, 0.6, 0.75) },
         u_fogDist: { value: 5200 },
       },

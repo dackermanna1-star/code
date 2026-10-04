@@ -302,8 +302,12 @@ export class Invasion implements Disaster {
       _d.divideScalar(L);
       const flick = 0.85 + 0.15 * Math.sin(m.t * 60);
       const fade = Math.min(1, (3.5 - m.st) * 2);
-      this.fx.push(core.x + _d.x * L * 0.5, core.y + _d.y * L * 0.5, core.z + _d.z * L * 0.5, 30, L * 0.5, 4 * flick * fade, 22 * flick * fade, 12 * flick * fade, 1, BB_STREAK, 1, 0, _d.x, _d.y, _d.z);
-      this.fx.push(core.x + _d.x * L * 0.5, core.y + _d.y * L * 0.5, core.z + _d.z * L * 0.5, 9, L * 0.5, 30 * fade, 40 * fade, 34 * fade, 1, BB_STREAK, 2, 0, _d.x, _d.y, _d.z);
+      const mx = core.x + _d.x * L * 0.5, my = core.y + _d.y * L * 0.5, mz = core.z + _d.z * L * 0.5;
+      const grow = Math.min(1, m.st * 4);
+      // wide halo, the green sheath, and the white-hot core of the beam
+      this.fx.push(mx, my, mz, 140 * grow, L * 0.5, 0.5 * flick * fade, 2.6 * flick * fade, 1.5 * flick * fade, 1, BB_STREAK, 101, 0, _d.x, _d.y, _d.z);
+      this.fx.push(mx, my, mz, 48 * grow, L * 0.5, 4 * flick * fade, 22 * flick * fade, 12 * flick * fade, 1, BB_STREAK, 102, 0, _d.x, _d.y, _d.z);
+      this.fx.push(mx, my, mz, 15 * grow, L * 0.5, 30 * fade, 40 * fade, 34 * fade, 1, BB_STREAK, 103, 0, _d.x, _d.y, _d.z);
       this.fx.push(tg.x, tg.y + 6, tg.z, 90, 90, 6 * fade, 26 * fade, 14 * fade, 1, BB_GLOW, 3);
       // keep the impact boiling
       if (rnd() < dt * 30) this.fleet.addPuff(tg.x + (rnd() - 0.5) * 40, tg.y + rnd() * 20, tg.z + (rnd() - 0.5) * 40, (rnd() - 0.5) * 30, 20 + rnd() * 30, (rnd() - 0.5) * 30, 25 + rnd() * 25, 2 + rnd(), BB_FIRE, 0.7, 1, 0.8, 1);
