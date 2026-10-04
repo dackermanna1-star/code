@@ -592,7 +592,14 @@ export class HeliBody {
       _q.setFromAxisAngle(_axis.copy(w).divideScalar(wl), wl * dt);
       q.multiply(_q).normalize();
     }
-    // ---- move the cabin box through the world
+    // ---- move the cabin box through the world. Unloaded chunks count as walls for moveBox:
+    // hold position at the edge of the streamed world instead of "crashing" into it.
+    const reach = HELI.boxHalf + 1.5;
+    const lx = this.c.x + v.x * dt + Math.sign(v.x) * reach, lz = this.c.z + v.z * dt + Math.sign(v.z) * reach;
+    if (!world.isLoaded(Math.floor(lx), Math.floor(this.c.z)) || !world.isLoaded(Math.floor(this.c.x), Math.floor(lz)) || !world.isLoaded(Math.floor(lx), Math.floor(lz))) {
+      v.x = 0;
+      v.z = 0;
+    }
     const dx = v.x * dt, dy = v.y * dt, dz = v.z * dt;
     const r = moveBox(world, this.box, dx, dy, dz, 0, false);
     const mx = this.box.minX + HELI.boxHalf - this.pos.x;

@@ -152,6 +152,19 @@ Block textures live in two `sampler2DArray`s produced by `src/render/materials/`
 * **UI**: `ui.open(screen)` / `ui.close()`; screens are DOM elements (`src/ui/ui.ts`, helper `h()`),
   styles in `src/ui/style.css`. `setItemIconProvider(stack => dataURL)` (`src/ui/hud.ts`).
 
+* **Vehicles** (`src/entity/vehicles`, `src/game/vehicles`): a rider has `player.vehicle` set. While
+  seated `Player.physicsStep` is skipped (the vehicle places the rider each step),
+  `Game.applyPlayerIntent` calls `vehicle.pilotInput(input, active)`, mouse look goes to
+  `vehicle.onMouse(dyaw, dpitch)`, `CameraController` delegates to `vehicle.updateCamera(ctl, alpha, dt)`
+  (return true when it placed the camera; `ctl.vehicleFov` scales the FOV), and block interaction,
+  item use and the first-person hand are off. Non-living entities with `targetable = true` can be
+  targeted, punched (`hurt`) and right-clicked (`interact(player)`). Input actions `yawLeft`/`yawRight`
+  (Q/E) are the pedals (E opens no inventory while piloting). Audio loops have `setPitch(rate)`.
+  Helicopter: `HelicopterEntity` (helicopter.ts) wraps the `HeliBody` flight model (heliPhysics.ts, own
+  60 Hz rigid-body integrator, pure enough for node tests) and `HeliVisual` (heliModel.ts, procedural
+  G-buffer model + forward glass / rotor discs / light halos); `HeliSystem` owns the item, sounds,
+  effects and the cockpit HUD.
+
 * **Gore** (`game.gore`, `src/game/gore/*`): typed wounds (blunt bruise / cut slash / pierce puncture /
   burn char, `classifyDamage(DamageSource)`, max 8 per entity in a `WoundSet`, encoded into
   `u_wounds` (w = type*100 + severity*10 + size) and `u_woundDir` (xyz dir, w growth) via
@@ -170,7 +183,10 @@ Block textures live in two `sampler2DArray`s produced by `src/render/materials/`
 `spawnXp {pos, amount, handle()}`, `playerAttack {player,target,damage,crit,sweep,strength,weapon,point}`,
 `playerAttackMiss`, `sweepAttack`, `swingAir`, `arrowHit`, `arrowStuck`, `explosion {pos, power}`,
 `chat {text,color}`, `title {title,subtitle,time}`, `worldReady`, `dimensionChanged {dimension}`,
-`chunkReady {chunk}`. Add new events freely (document them in your report).
+`chunkReady {chunk}`, `vehicleMount / vehicleDismount {entity, player, eject?}`, `helicopterPlaced {entity, player}`,
+`helicopterHit {entity, source, amount}`, `helicopterImpact {entity, speed, kind, pos}`,
+`helicopterRotorStrike {entity, pos, soft, state}`, `helicopterSplash {entity, speed}`,
+`helicopterBroken / helicopterDestroyed {entity, pos, cause}`. Add new events freely (document them in your report).
 
 ### Testing the game
 `node tools/screenshot.mjs "/index.html?autostart=1&seed=123&mode=creative&time=6000&x=0&y=90&z=0&yaw=30&pitch=-15&rd=4&frames=10" out.png --w 960 --h 540`

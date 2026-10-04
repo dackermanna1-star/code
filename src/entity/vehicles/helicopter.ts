@@ -364,7 +364,7 @@ export class HelicopterEntity extends Entity {
       if (p.dead || p.removed) this.dismount(true);
       else if (p === g.player && g.input?.wasPressedTick?.('sneak')) {
         if (this.canExit()) this.dismount();
-        else this.exitHint = 50;
+        else if (b.agl - HELI.hub.y < 4) this.exitHint = 50; // (higher up, Shift just descends)
       }
     }
     // flooded: engine flame-out, the crew climbs out
@@ -373,6 +373,10 @@ export class HelicopterEntity extends Entity {
       g.events.emit('chat', { text: 'Ditched! The helicopter is sinking.', color: '#8cf' });
     }
     if (b.inLava) this.damageHull(2, 'fire');
+    if (this.pos.y < -64) {
+      if (this.pilot) this.dismount(true);
+      this.remove();
+    }
     if (this.removed) return;
     // dynamic rollover: the spinning rotor digs into the ground
     _v.set(0, 1, 0).applyQuaternion(this.quat);

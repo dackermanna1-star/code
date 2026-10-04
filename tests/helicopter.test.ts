@@ -329,10 +329,14 @@ describe('helicopter flight model', () => {
     const eye = p.pos.y + p.eyeHeight;
     expect(eye - h.pos.y).toBeGreaterThan(1.4);
     expect(eye - h.pos.y).toBeLessThan(2.0);
-    // Shift in the air descends instead of exiting
+    // Shift in the air descends instead of exiting (near the ground it hints "land to exit")
     input.down.add('sneak');
     input.pressed.add('sneak');
     run(0.1);
+    expect(p.vehicle).toBe(h);
+    while (h.body.agl - HELI.hub.y > 2.5 && step < 3000) run(0.05);
+    input.pressed.add('sneak');
+    run(0.05);
     expect(p.vehicle).toBe(h);
     expect(h.exitHint).toBeGreaterThan(0);
     run(15);
