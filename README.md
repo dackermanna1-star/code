@@ -17,6 +17,8 @@ The first start creates `data/db.json`. The site's clock starts on September 1, 
 
 **Demo account:** `Robloxian2008`, password `roblox`. You can also sign up for your own account from the front page.
 
+**Free ROBUX and Tickets:** stop the server (Ctrl+C), run `npm run give` (1,000,000 of each for Robloxian2008) or `npm run give -- YourName 5000 2500`, then `npm start` again.
+
 ## What's there
 
 **Website**

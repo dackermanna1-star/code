@@ -5,8 +5,11 @@
   "description": "A research-driven recreation of the ROBLOX website and client circa 2008 (non-commercial, unpublished).",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "give": "node tools/give.js"
   },
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "license": "UNLICENSED"
 }

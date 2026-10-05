@@ -72,7 +72,12 @@ export default {
     buildCourse(world);
     const parts = { falseGround: [], finish: null, spawns: [] };
     for (const [x0, x1, z0, z1] of FALSE_GROUND) {
-      parts.falseGround.push(world.add({ size: [x1 - x0, 1.2, z1 - z0], position: [(x0 + x1) / 2, FLOOR_Y - 0.6, (z0 + z1) / 2], transparency: 1, color: GRAY, tags: ['deadly'] }));
+      // invisible ground you can stand on...
+      world.add({ size: [x1 - x0, 1.2, z1 - z0], position: [(x0 + x1) / 2, FLOOR_Y - 0.6, (z0 + z1) / 2], transparency: 1, color: GRAY, tags: ['deadly'] });
+      // ...that kills you once you are really standing on it (kept clear of the
+      // visible edges, so jumping off an edge is safe)
+      const inset = 1.2;
+      parts.falseGround.push(world.add({ size: [Math.max(0.4, x1 - x0 - inset * 2), 0.6, Math.max(0.4, z1 - z0 - inset * 2)], position: [(x0 + x1) / 2, FLOOR_Y + 0.3, (z0 + z1) / 2], transparency: 1, canCollide: false }));
     }
     parts.finish = world.add({ size: [30, 2, 15], position: [0, FLOOR_Y + 1, -132.5], transparency: 1, canCollide: false });
     for (const x of [-12, 0, 12]) parts.spawns.push(spawnLocation(world, x, FLOOR_Y + 0.01, 128, { yaw: 0 }));
