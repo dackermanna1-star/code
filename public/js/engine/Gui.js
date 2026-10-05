@@ -366,7 +366,8 @@ export class Gui {
       const head = new THREE.Vector3(c.rootPosition.x, c.rootPosition.y + 3.6, c.rootPosition.z);
       const dist = cam.position.distanceTo(head);
       const v = head.project(cam);
-      const visible = v.z < 1 && v.z > -1 && dist < 100;
+      // a place can hide a label (e.g. enemies in a shooter) with labelVisible(player)
+      const visible = v.z < 1 && v.z > -1 && dist < (g.labelRange || 100) && (!g.labelVisible || g.labelVisible(p, dist));
       tag.style.display = visible ? 'block' : 'none';
       if (!visible) continue;
       const size = dist < 20 ? 24 : dist < 50 ? 18 : 12;

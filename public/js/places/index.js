@@ -11,6 +11,7 @@ export const PLACES = {
   mummy: () => import('./mummy.js'),
   crossroads: () => import('./crossroads.js'),
   personal: () => import('./personal.js'),
+  warzone: () => import('./warzone/index.js'),
 };
 
 export async function loadPlace(script) {

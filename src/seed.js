@@ -430,4 +430,23 @@ function seed() {
   return state;
 }
 
-module.exports = { seed, SEED_VERSION, defaultColors, PALETTE32 };
+/**
+ * Places added after the first release. Runs on every start so existing
+ * databases get them without a reseed (which would reset the demo account).
+ */
+function ensureExtraPlaces(state) {
+  const DESERT = 3104570;
+  if (state.places[DESERT]) return false;
+  const owner = state.users[1600000] || Object.values(state.users)[0];
+  const now = clock.now();
+  state.places[DESERT] = {
+    id: DESERT, name: 'Desert Strike [BETA]', creatorId: owner.id,
+    desc: 'Coalition vs Militia in a desert town! Start with a pistol, earn cash for every kill and buy better guns and attachments (press B). Click the game to use the mouse, click to shoot, E to aim down the sights, R to reload, Shift to sprint. First team to 50 kills wins!',
+    created: now - 3 * DAY, updated: now - 0.1 * DAY, visits: 1873, favorited: 214, online: 37, playedRecent: 960,
+    script: 'warzone', theme: null, public: true, copylocked: true, featured: true, maxPlayers: 12,
+  };
+  state.comments['place:' + DESERT] = [];
+  return true;
+}
+
+module.exports = { seed, SEED_VERSION, defaultColors, PALETTE32, ensureExtraPlaces };

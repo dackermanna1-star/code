@@ -51,6 +51,9 @@ export class Character {
     }
     this.model = new CharacterModel(this.appearance);
     this.root = this.model.root;
+    // shoulders turn about Y after swinging forward, so held guns can be aimed inward
+    this.model.rightShoulder.rotation.order = 'YXZ';
+    this.model.leftShoulder.rotation.order = 'YXZ';
     if (world.shadows) this.root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     this.root.visible = false;
     world.scene.add(this.root);
@@ -182,6 +185,7 @@ export class Character {
       this.world.physics.addBody(b);
       this.debris.push({ mesh: clone, body: b });
     }
+    if (this.ragdoll) this._ragdollJoints();
     this.root.visible = false;
     this.world.physics.removeEventListener('postStep', this._onPhysStep);
     this.world.physics.removeBody(this.body);
@@ -197,7 +201,38 @@ export class Character {
     this.emit('died', this.creatorTag);
   }
 
+  /**
+   * Instead of falling apart into loose bricks (the 2008 death), hold the body
+   * parts together at the neck, shoulders and hips like a rag doll. Used by
+   * places that ask for it (character.ragdoll = true).
+   */
+  _ragdollJoints() {
+    const [torso, head, ra, la, rl, ll] = this.debris.map((d) => d.body);
+    if (!torso) return;
+    const m = this.model;
+    const wp = (o) => { const v = new THREE.Vector3(); o.getWorldPosition(v); return new CANNON.Vec3(v.x, v.y, v.z); };
+    const neck = wp(m.neck);
+    const joints = [
+      [head, neck, 0.5, 0.4],
+      [ra, wp(m.rightShoulder), 1.3, 0.6], [la, wp(m.leftShoulder), 1.3, 0.6],
+      [rl, wp(m.rightHip), 0.9, 0.3], [ll, wp(m.leftHip), 0.9, 0.3],
+    ];
+    for (const [b, p, angle, twist] of joints) {
+      if (!b) continue;
+      const pa = torso.pointToLocalFrame(p), pb = b.pointToLocalFrame(p);
+      const c = new CANNON.ConeTwistConstraint(torso, b, {
+        pivotA: pa, pivotB: pb, axisA: torso.vectorToLocalFrame(new CANNON.Vec3(0, b === head ? 1 : -1, 0)),
+        axisB: b.vectorToLocalFrame(new CANNON.Vec3(0, b === head ? 1 : -1, 0)), angle, twistAngle: twist, collideConnected: false,
+      });
+      this.world.physics.addConstraint(c);
+      (this.ragdollJoints ||= []).push(c);
+    }
+    for (const d of this.debris) { d.body.linearDamping = 0.15; d.body.angularDamping = 0.4; }
+  }
+
   clearDebris() {
+    for (const c of this.ragdollJoints || []) this.world.physics.removeConstraint(c);
+    this.ragdollJoints = [];
     for (const d of this.debris) {
       this.world.scene.remove(d.mesh);
       this.world.physics.removeBody(d.body);
@@ -367,7 +402,12 @@ export class Character {
 
     // face the movement direction; like the 2008 humanoid, only while on the
     // ground (or climbing) -- you cannot turn in mid-air
-    if (hv > 0.05 && !this.platformStand && (this.grounded || this.climbing)) {
+    if (this.lockFacing != null) {
+      // a script is aiming the character (it can walk sideways while facing a target)
+      let d = this.lockFacing - this.facing;
+      d = Math.atan2(Math.sin(d), Math.cos(d));
+      this.facing += d * Math.min(1, dt * 14);
+    } else if (hv > 0.05 && !this.platformStand && (this.grounded || this.climbing)) {
       const target = Math.atan2(-this.input.move.x, -this.input.move.z);
       let d = target - this.facing;
       d = Math.atan2(Math.sin(d), Math.cos(d));
@@ -432,6 +472,8 @@ export class Character {
           des.rs = 1.57; des.ls = 1.0; des.rh = 1.57; des.lh = 1.0;
         }
       }
+      // a place's own tools can hold the arms differently (e.g. two-handed guns)
+      if (this.tool?.armPose) this.tool.armPose(this, des, M);
     }
     if (pose === 'Jumping' || pose === 'FreeFall') M.rh = M.lh = 0.1;
     const steps = dt * 60;
@@ -442,6 +484,9 @@ export class Character {
       this.motor[k] += Math.max(-max, Math.min(max, diff));
     }
     this.model.setAngles(this.motor.rs, this.motor.ls, this.motor.rh, this.motor.lh);
+    const yaw = this.tool?.armYaw ? this.tool.armYaw(this) : null;
+    this.model.rightShoulder.rotation.y = yaw ? yaw[0] : 0;
+    this.model.leftShoulder.rotation.y = yaw ? yaw[1] : 0;
   }
 
   getTouchAABB() {

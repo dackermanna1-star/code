@@ -41,6 +41,7 @@ function load() {
     }
     save(true);
   }
+  if (require('./seed').ensureExtraPlaces(state)) save(true);
   return state;
 }
 

@@ -248,6 +248,8 @@ const SYNTHS = {
   },
 };
 
+const KIT = { noise, noiseBuffer, env, filt, chain };
+
 export const sounds = {
   setListener(v) { listener = v; },
   setMuted(m) { muted = m; if (master) master.gain.value = m ? 0 : 0.5; },
@@ -271,6 +273,21 @@ export const sounds = {
     g.gain.value = vol;
     g.connect(master);
     SYNTHS[name](c, g, c.currentTime + 0.005);
+  },
+  /**
+   * Play a synth defined outside this file: fn(ctx, out, t, kit), where kit has
+   * the noise/envelope/filter helpers. Used by places with their own sounds.
+   */
+  custom(fn, position = null, volume = 1) {
+    if (muted || !unlocked) return;
+    const c = ac();
+    if (!c) return;
+    const vol = this._gain(position, volume);
+    if (vol <= 0.01) return;
+    const g = c.createGain();
+    g.gain.value = vol;
+    g.connect(master);
+    fn(c, g, c.currentTime + 0.005, KIT);
   },
   /** Start a looping sound (rocket whoosh). Returns a handle with stop(). */
   loop(name, volume = 1) {

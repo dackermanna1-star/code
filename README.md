@@ -38,6 +38,9 @@ The first start creates `data/db.json`. The site's clock starts on September 1, 
 - **The New Robloxian Obstical Course (Grand Opening)**: an obby.
 - **The Mummy**: survive until the clock runs out, or catch everyone if you are the Mummy.
 - **Crossroads**: classic brickbattle with all the 2008 tools.
+- **Desert Strike [BETA]**: a modern-style team shooter (Coalition vs Militia) in a desert town, made by Robloxian2008. It is not a 2008 recreation.
+  - You start with a Glock and earn cash per kill to buy guns and attachments: press **B** for the armory. Unlocks are saved in your browser.
+  - Click the game to use the mouse, click to shoot, **E** to aim down the sights, R to reload, Shift to sprint, 1/2 to switch guns.
 - **Your own place**: on your My ROBLOX page, click Edit under your place.
   - **Tools** gives the Grab, Clone and Delete build tools.
   - **Insert** adds bricks and the models you own.

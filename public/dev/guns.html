@@ -1,0 +1,30 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Gun models</title>
+<script type="importmap">{"imports":{"three":"/js/vendor/three.module.min.js"}}</script>
+<style>body{margin:0;background:#888}</style></head><body>
+<script type="module">
+import * as THREE from 'three';
+import { GUNS, buildGun } from '/js/places/warzone/guns.js';
+const W = 1400, H = 900;
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+r.setSize(W, H); r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x9a9a9a);
+const pm = new THREE.PMREMGenerator(r);
+const envScene = new THREE.Scene(); envScene.background = new THREE.Color(0xbfd4ee);
+const l = new THREE.Mesh(new THREE.SphereGeometry(5), new THREE.MeshBasicMaterial({ color: 0xfff4d0, side: THREE.BackSide })); 
+scene.environment = pm.fromScene(new (class extends THREE.Scene { constructor() { super(); this.background = new THREE.Color(0xd8c8a8); const s = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 8), new THREE.MeshBasicMaterial({ color: 0xffffff })); s.position.set(3, 4, 2); s.scale.setScalar(1.5); this.add(s); } })(), 0.04).texture;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x665544, 1.2));
+const sun = new THREE.DirectionalLight(0xffffff, 2.5); sun.position.set(2, 3, 2); scene.add(sun);
+const cfg = [['glock', ['laser']], ['deagle', []], ['mp5', ['reddot']], ['remington', []], ['ak47', ['suppressor']], ['m4', ['acog', 'foregrip']], ['m4', ['holo', 'laser', 'suppressor']], ['m249', ['reddot']], ['m24', []]];
+cfg.forEach(([id, att], i) => {
+  const gun = buildGun(id, att);
+  const g = gun.group;
+  g.rotation.y = -Math.PI / 2; // barrel to the right
+  const col = i % 3, row = Math.floor(i / 3);
+  g.position.set(-1.1 + col * 1.1, 0.75 - row * 0.62, 0);
+  scene.add(g);
+});
+const cam = new THREE.PerspectiveCamera(30, W / H, 0.1, 50); cam.position.set(0.15, 0.3, 4.2); cam.lookAt(0.15, 0.1, 0);
+r.render(scene, cam);
+window.done = true;
+</script></body></html>

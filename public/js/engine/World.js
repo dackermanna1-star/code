@@ -283,6 +283,8 @@ export class World {
       this.sun.position.copy(this.sun.target.position).addScaledVector(dir, 200);
     }
     this.renderer.render(this.scene, this.camera);
+    // extra passes drawn on top (a first-person gun)
+    for (const fn of this.overlays || []) fn(this.renderer);
   }
 
   // --- Touched events ------------------------------------------------------
