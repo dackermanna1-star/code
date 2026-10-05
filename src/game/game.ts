@@ -23,7 +23,7 @@ import { stack as mkStack, tryItem, type ItemStack } from './items/registry';
 import { generateStubMaterials, StubAtmosphere } from '../render/stubs';
 import type { AtmosphereLike } from '../render/types';
 import { ENTITY_SHARED } from '../render/entityMaterial';
-import type { DimensionId } from '../world/gen/generator';
+import type { DimensionId, WorldType } from '../world/gen/generator';
 import { BIOMES } from '../world/biomes';
 import { TICK_SECONDS, PHYSICS_DT, DAY_LENGTH_TICKS } from '../core/constants';
 import { seedFromString } from '../core/rng';
@@ -44,6 +44,8 @@ export interface WorldInfo {
   cheats?: boolean;
   /** Never saved (title-screen panorama, test harness). */
   transient?: boolean;
+  /** Overworld generator preset (missing = 'default'). */
+  worldType?: WorldType;
 }
 
 export interface GameEvents {
@@ -201,7 +203,7 @@ export class Game {
     }
     this.dimension = dim;
     await this.saver?.enterDimension?.(this, dim);
-    this.world = new World(dim, this.info.seed);
+    this.world = new World(dim, this.info.seed, dim === 'overworld' ? this.info.worldType ?? 'default' : 'default');
     this.world.tick = this.ticks;
     this.entities = new EntityManager(this, this.world);
     this.chunks = new ChunkManager(this.world, this.renderer.chunks, {
@@ -218,6 +220,7 @@ export class Game {
       else {
         const s = await this.chunks.findSpawn();
         p = new THREE.Vector3(s.x, s.y, s.z);
+        if (typeof s.yaw === 'number') { this.player.yaw = s.yaw; this.player.pitch = -0.08; }
       }
     }
     this.player.setPos(p.x, p.y, p.z);
@@ -470,7 +473,9 @@ export class Game {
     const biome = BIOMES[this.world.getBiome(Math.floor(eye.x), Math.floor(eye.z))];
     const waterFog = new THREE.Color(biome?.waterFog ?? 0x050533).multiplyScalar(4);
     const camBlock = this.world.getBlock(Math.floor(cam.position.x), Math.floor(cam.position.y), Math.floor(cam.position.z));
-    const underwater = (camBlock >>> 4) !== 0 && BLOCKS[camBlock >>> 4].liquid === 1;
+    const camDef = BLOCKS[camBlock >>> 4];
+    // underwater plants (kelp, seagrass, corals) are waterlogged
+    const underwater = (camBlock >>> 4) !== 0 && (camDef.liquid === 1 || /^(kelp|seagrass|sea_pickle)$|_coral(_fan)?$/.test(camDef.name));
     const sky = {
       sunDir: this.sunDir, moonDir: this.moonDir, moonPhase: moonPhase(this.ticks + this.dayTime), time: this.realTime,
       rain: this.weather.rain, thunder: this.weather.thunder, dimension: this.dimension as 'overworld' | 'nether' | 'end',
@@ -634,9 +639,9 @@ export class Game {
   }
 
   /** Placeholder used by UI before a world exists */
-  static createInfo(name: string, seedText: string, gameMode: WorldInfo['gameMode'], difficulty: Difficulty): WorldInfo {
+  static createInfo(name: string, seedText: string, gameMode: WorldInfo['gameMode'], difficulty: Difficulty, worldType: WorldType = 'default'): WorldInfo {
     const seed = seedText.trim() ? seedFromString(seedText) : Math.floor(Math.random() * 2 ** 31);
-    return { id: `w${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`, name: name || 'New World', seed, gameMode, difficulty, createdAt: Date.now(), lastPlayed: Date.now(), cheats: true };
+    return { id: `w${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`, name: name || 'New World', seed, gameMode, difficulty, createdAt: Date.now(), lastPlayed: Date.now(), cheats: true, ...(worldType !== 'default' ? { worldType } : {}) };
   }
 
   applySettings(s: Partial<GameSettings>) {

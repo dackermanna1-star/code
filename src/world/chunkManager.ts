@@ -146,7 +146,7 @@ export class ChunkManager {
       let chunk: Chunk | null = null;
       if (this.opts.loadSaved) chunk = await this.opts.loadSaved(this.world.dimension, cx, cz);
       if (!chunk) {
-        const res = await this.gen.request<{ chunk: GeneratedChunk }>({ type: 'gen', dimension: this.world.dimension, seed: this.world.seed, cx, cz });
+        const res = await this.gen.request<{ chunk: GeneratedChunk }>({ type: 'gen', dimension: this.world.dimension, seed: this.world.seed, worldType: this.world.worldType, cx, cz });
         if (this.disposed) return;
         chunk = chunkFromGenerated(res.chunk);
       }
@@ -294,11 +294,11 @@ export class ChunkManager {
 
   /** Ask a generation worker for structure locations / spawn. */
   locate(structure: string, x: number, z: number): Promise<{ x: number; y: number; z: number } | null> {
-    return this.gen.request<{ result: any }>({ type: 'locate', dimension: this.world.dimension, seed: this.world.seed, structure, x, z }).then((r) => r.result);
+    return this.gen.request<{ result: any }>({ type: 'locate', dimension: this.world.dimension, seed: this.world.seed, worldType: this.world.worldType, structure, x, z }).then((r) => r.result);
   }
   /** Request a distant-terrain LOD tile (low priority: only when generation is idle). */
   requestLod(x0: number, z0: number, n: number, step: number): Promise<{ heights: Float32Array; colors: Uint32Array; kinds: Uint8Array }> {
-    return this.gen.request({ type: 'lod', dimension: this.world.dimension, seed: this.world.seed, x0, z0, n, step });
+    return this.gen.request({ type: 'lod', dimension: this.world.dimension, seed: this.world.seed, worldType: this.world.worldType, x0, z0, n, step });
   }
   get genIdle() {
     return this.gen.busy === 0;
@@ -309,8 +309,8 @@ export class ChunkManager {
   }
   readonly meshedChunks = new Set<number>();
 
-  findSpawn(): Promise<{ x: number; y: number; z: number }> {
-    return this.gen.request<{ result: any }>({ type: 'spawn', dimension: this.world.dimension, seed: this.world.seed }).then((r) => r.result);
+  findSpawn(): Promise<{ x: number; y: number; z: number; yaw?: number }> {
+    return this.gen.request<{ result: any }>({ type: 'spawn', dimension: this.world.dimension, seed: this.world.seed, worldType: this.world.worldType }).then((r) => r.result);
   }
   get stats() {
     return { gen: this.gen.busy, mesh: this.mesh.busy, dirty: this.world.dirtySections.size, chunks: this.world.chunks.size };

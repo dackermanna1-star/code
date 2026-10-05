@@ -1,23 +1,23 @@
 /// <reference lib="webworker" />
 /**
  * Generation worker: owns one generator per (dimension, seed) and answers chunk requests.
- * Messages in:  { type: 'gen', id, dimension, seed, cx, cz }
+ * Messages in:  { type: 'gen', id, dimension, seed, worldType?, cx, cz } (every request carries worldType)
  *               { type: 'locate', id, dimension, seed, structure, x, z }
  *               { type: 'spawn', id, dimension, seed }
  * Messages out: { type: 'gen', id, chunk } (with transferables)
  *               { type: 'locate', id, result } / { type: 'spawn', id, result }
  */
 import { createGenerator } from '../gen/index';
-import type { DimensionId, WorldGenerator } from '../gen/generator';
+import type { DimensionId, WorldGenerator, WorldType } from '../gen/generator';
 import { Chunk } from '../chunk';
 import { lightChunkLocal } from '../light';
 import { lodTile } from '../gen/lod';
 
 const gens = new Map<string, WorldGenerator>();
-function gen(dimension: DimensionId, seed: number): WorldGenerator {
-  const k = `${dimension}:${seed}`;
+function gen(dimension: DimensionId, seed: number, type: WorldType = 'default'): WorldGenerator {
+  const k = `${dimension}:${seed}:${type}`;
   let g = gens.get(k);
-  if (!g) gens.set(k, (g = createGenerator(dimension, seed)));
+  if (!g) gens.set(k, (g = createGenerator(dimension, seed, type)));
   return g;
 }
 
@@ -25,7 +25,7 @@ self.onmessage = (e: MessageEvent) => {
   const m = e.data;
   try {
     if (m.type === 'gen') {
-      const chunk = gen(m.dimension, m.seed).generate(m.cx, m.cz);
+      const chunk = gen(m.dimension, m.seed, m.worldType).generate(m.cx, m.cz);
       // light the chunk locally (borders are fixed up on the main thread)
       const c = new Chunk(m.cx, m.cz);
       for (let i = 0; i < c.blocks.length; i++) c.blocks[i] = chunk.blocks[i] ?? null;
@@ -37,16 +37,16 @@ self.onmessage = (e: MessageEvent) => {
       for (const l of chunk.light) if (l) transfer.push(l.buffer);
       (self as any).postMessage({ type: 'gen', id: m.id, chunk }, transfer);
     } else if (m.type === 'locate') {
-      const result = gen(m.dimension, m.seed).locateStructure(m.structure, m.x, m.z);
+      const result = gen(m.dimension, m.seed, m.worldType).locateStructure(m.structure, m.x, m.z);
       (self as any).postMessage({ type: 'locate', id: m.id, result });
     } else if (m.type === 'spawn') {
-      const result = gen(m.dimension, m.seed).findSpawn();
+      const result = gen(m.dimension, m.seed, m.worldType).findSpawn();
       (self as any).postMessage({ type: 'spawn', id: m.id, result });
     } else if (m.type === 'lod') {
-      const r = lodTile(gen(m.dimension, m.seed), m.x0, m.z0, m.n, m.step);
+      const r = lodTile(gen(m.dimension, m.seed, m.worldType), m.x0, m.z0, m.n, m.step);
       (self as any).postMessage({ type: 'lod', id: m.id, ...r }, [r.heights.buffer, r.colors.buffer, r.kinds.buffer]);
     } else if (m.type === 'biome') {
-      const g = gen(m.dimension, m.seed);
+      const g = gen(m.dimension, m.seed, m.worldType);
       (self as any).postMessage({ type: 'biome', id: m.id, result: g.biomeAt(m.x, m.z) });
     }
   } catch (err) {

@@ -212,7 +212,7 @@ export function canPlantSurvive(def: BlockDef, world: World, x: number, y: numbe
   if (n === 'dead_bush') return ['sand', 'red_sand', 'terracotta', 'dirt', 'coarse_dirt', 'podzol'].includes(b.name) || b.tags.includes('terracotta');
   if (n.includes('mushroom')) return T_FULL_CUBE[below >>> 4] === 1;
   if (n.includes('fungus') || n.includes('roots')) return ['crimson_nylium', 'warped_nylium', 'soul_soil', 'netherrack', 'grass_block', 'dirt', 'mycelium', 'podzol', 'moss_block'].includes(b.name);
-  if (n === 'kelp' || n === 'seagrass') return T_FULL_CUBE[below >>> 4] === 1 || b.name === 'kelp';
+  if (n === 'kelp' || n === 'seagrass' || n.endsWith('_coral') || n.endsWith('_coral_fan')) return T_FULL_CUBE[below >>> 4] === 1 || b.name === 'kelp';
   if (n === 'bamboo') return b.name === 'bamboo' || b.tags.includes('dirt') || b.tags.includes('sand') || b.name === 'gravel';
   if (n === 'weeping_vines') return true;
   if (def.shape === 'double_plant' && (def as any) && false) return true;

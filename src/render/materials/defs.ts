@@ -256,6 +256,8 @@ def('acacia_leaves', leaves(['#b4b4b2', '#4c4c4c'], [9, 0.08, 0.38, 0.75, 4, 0.6
 def('dark_oak_leaves', leaves(['#a4a4a2', '#3e3e3e'], [6, 0.15, 0.55, 0.8, 0, 0.6, 0, 0.8]));
 def('cherry_leaves', leaves(['#eab0c8', '#b06888', '#f7cfe0', '#fff2f6'], [6, 0.13, 0.6, 0.78, 5, 0.5, 0.65, 0.8]));
 def('leaves_fluff_oak', { ...leaves(['#b6b6b4', '#4e4e4e'], [6, 0.14, 0.55, 0.95, 0, 0.3, 0, 0.8]), v: 'fluff' });
+def('palm_leaves', leaves(['#b8b8b4', '#464646'], [3, 0.42, 0.16, 0.8, 4, 0.25, 0, 0.9]));
+def('leaves_fluff_palm', { ...leaves(['#b8b8b4', '#464646'], [3, 0.46, 0.15, 0.97, 4, 0.2, 0, 0.9]), v: 'fluff' });
 def('leaves_fluff_needle', { ...leaves(['#9a9a9a', '#2c2c2c'], [18, 0.085, 0.2, 0.99, 1, 0.3, 0, 1.0]), v: 'fluff', sss: 0.6 });
 def('grass_tuft', { prog: 'foliage', v: 'tuft', cutout: true, sss: 0.6 });
 def('vine', { prog: 'foliage', v: 'vine', cutout: true, sss: 0.6 });
@@ -273,6 +275,8 @@ def('large_fern_top', plant('large_fern', [0, 1], { seed: nameSeed('large_fern')
 def('sugar_cane', plant('sugar_cane', [], { sss: 0.3 }));
 def('kelp', plant('kelp'));
 def('seagrass', plant('seagrass'));
+def('coral', plant('seagrass', [], { sss: 0.5, seed: 7411 }));
+def('coral_fan', plant('fern', [], { sss: 0.55, seed: 7412 }));
 def('dead_bush', plant('dead_bush', [], { sss: 0.1 }));
 def('bamboo_stalk', plant('bamboo', [], { sss: 0.3 }));
 def('sweet_berry_bush', plant('sweet_berry'));
@@ -382,6 +386,12 @@ def('cactus_bottom', org('cactus', [2], { sss: 0.25 }));
 def('bone_block_side', org('bone', [0]));
 def('bone_block_top', org('bone', [1]));
 def('nether_wart_block', { ...org('wart'), c: ['#3a0404', '#720b0b', '#a51c16'] });
+// reef corals (tropical island): porous living tissue; plants are greyscale cards tinted per species
+def('tube_coral_block', { ...org('wart'), c: ['#152a6e', '#2f56c8', '#6f98f0'], sss: 0.25 });
+def('brain_coral_block', { ...org('wart'), c: ['#7a2048', '#d0558e', '#f4a2c8'], sss: 0.25 });
+def('bubble_coral_block', { ...org('wart'), c: ['#4a1462', '#9a3cc0', '#d38af0'], sss: 0.25 });
+def('fire_coral_block', { ...org('wart'), c: ['#6a0c10', '#c2282c', '#f06a5a'], sss: 0.25 });
+def('horn_coral_block', { ...org('wart'), c: ['#6e5a10', '#cfae2a', '#f4e070'], sss: 0.25 });
 def('warped_wart_block', { ...org('wart'), c: ['#083438', '#167e86', '#2ab4b0'] });
 def('shroomlight', org('shroomlight', [], { emit: 0.85, thr: 0.1 }));
 def('chorus_plant', org('chorus', [0]));

@@ -7,6 +7,7 @@ import type { ModelDef } from '../def';
 import { zombieModel } from './zombie';
 import { playerModel } from './player';
 import { skeletonModel, creeperModel, spiderModel, cowModel, pigModel, sheepModel, chickenModel } from './creatures';
+import { crabModel, snakeModel, parrotModel, turtleModel } from './island';
 
 type Factory = (variant: string) => ModelDef;
 
@@ -20,6 +21,10 @@ const FACTORIES: Record<string, Factory> = {
   pig: () => pigModel(),
   sheep: () => sheepModel(),
   chicken: () => chickenModel(),
+  crab: () => crabModel(),
+  snake: (v) => snakeModel(v || 'green'),
+  parrot: (v) => parrotModel(v || 'scarlet'),
+  sea_turtle: () => turtleModel(),
 };
 
 const memo = new Map<string, ModelDef>();

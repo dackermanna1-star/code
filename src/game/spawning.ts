@@ -6,6 +6,9 @@
  *    400 ticks (cap 10 per 289 chunks);
  *  - despawning: monsters > 128 blocks instantly, > 32 randomly after 30 s idle; Peaceful removes
  *    monsters; `gamerules.doMobSpawning` gates natural spawning.
+ *  - tropical island worlds replace the farm animals with island wildlife chosen by biome and
+ *    ground (crabs and sea turtles on the beach, parrots and snakes in the jungle and palm groves,
+ *    jungle fowl and wild boar), with their own cap;
  *  - debug URL params: `summon=zombie,cow,...&summonDist=5`, `freeze=1` (no AI),
  *    `mobpose=walk|run|attack`, `difficulty=normal`.
  */
@@ -36,7 +39,33 @@ const CREATURE_LIST: Weighted[] = [
   { type: 'cow', weight: 8, min: 4, max: 4 },
 ];
 const NO_ANIMALS = new Set(['ocean', 'river', 'beach', 'desert', 'badlands', 'mushroom', 'underground', 'nether', 'the_end']);
-const SIZES: Record<string, [number, number]> = { zombie: [0.6, 1.95], skeleton: [0.6, 1.99], creeper: [0.6, 1.7], spider: [1.4, 0.9], cow: [0.9, 1.4], pig: [0.9, 0.9], sheep: [0.9, 1.3], chicken: [0.4, 0.7] };
+const SIZES: Record<string, [number, number]> = { zombie: [0.6, 1.95], skeleton: [0.6, 1.99], creeper: [0.6, 1.7], spider: [1.4, 0.9], cow: [0.9, 1.4], pig: [0.9, 0.9], sheep: [0.9, 1.3], chicken: [0.4, 0.7], crab: [0.5, 0.3], snake: [0.5, 0.25], parrot: [0.4, 0.5], sea_turtle: [1.0, 0.42] };
+
+/** Island wildlife: which biomes, on which ground (`canopy`: spawns on top of the trees). */
+type IslandSpawn = Weighted & { biomes: string[]; on: string[]; canopy?: boolean };
+const JUNGLES = ['jungle', 'bamboo_jungle', 'sparse_jungle'];
+export const ISLAND_SPAWNS: IslandSpawn[] = [
+  { type: 'crab', weight: 14, min: 2, max: 4, biomes: ['tropical_beach', 'stony_shore', 'palm_grove'], on: ['sand', 'gravel', 'stone'] },
+  { type: 'sea_turtle', weight: 4, min: 1, max: 2, biomes: ['tropical_beach'], on: ['sand'] },
+  { type: 'parrot', weight: 9, min: 1, max: 3, biomes: [...JUNGLES, 'palm_grove'], on: ['jungle_leaves', 'oak_leaves', 'palm_leaves'], canopy: true },
+  { type: 'parrot', weight: 3, min: 1, max: 2, biomes: ['tropical_beach', 'palm_grove'], on: ['sand', 'grass_block'] },
+  { type: 'snake', weight: 6, min: 1, max: 1, biomes: [...JUNGLES, 'palm_grove'], on: ['grass_block', 'podzol', 'coarse_dirt'] },
+  { type: 'chicken', weight: 3, min: 2, max: 3, biomes: [...JUNGLES], on: ['grass_block', 'podzol'] },
+  { type: 'pig', weight: 3, min: 2, max: 3, biomes: [...JUNGLES, 'palm_grove'], on: ['grass_block', 'podzol', 'coarse_dirt'] },
+];
+const ISLAND_TYPES = new Set(ISLAND_SPAWNS.map((e) => e.type));
+
+/** Ground y (feet) for an island spawn: the canopy top, or the ground under trees. */
+function islandGround(w: World, x: number, z: number, e: IslandSpawn): number {
+  let y = w.getHeight(x, z);
+  if (e.canopy) return y;
+  for (let i = 0; i < 40 && y > 2; i++) {
+    const n = BLOCKS[w.getBlock(x, y - 1, z) >>> 4]?.name ?? 'air';
+    if (n === 'air' || n.endsWith('_leaves') || n.endsWith('_log') || n === 'vine' || n === 'bamboo' || !T_SOLID[w.getBlock(x, y - 1, z) >>> 4]) { y--; continue; }
+    break;
+  }
+  return y;
+}
 
 // ------------------------------------------------------------------------- pure rules (tested)
 /** Night darkening of sky light (0 day .. 11 night) from the sky brightness factor. */
@@ -179,7 +208,11 @@ export class MobSpawningSystem implements GameSystem {
     if (g.difficulty !== 'peaceful' && counts.monster < 70 * scale) {
       for (let i = 0; i < 4; i++) this.spawnCycle(g, chunks, MONSTER_LIST, true);
     }
-    if (g.ticks % 400 === 0 && counts.creature < 10 * scale) {
+    if ((g.world as any).worldType === 'island') {
+      let island = 0;
+      for (const e of g.entities.list) if (e instanceof Mob && !e.removed && ISLAND_TYPES.has(e.type)) island++;
+      if (g.ticks % 100 === 0 && island < 24 * scale) for (let i = 0; i < 3; i++) this.islandCycle(g, chunks);
+    } else if (g.ticks % 400 === 0 && counts.creature < 10 * scale) {
       for (let i = 0; i < 4; i++) this.spawnCycle(g, chunks, CREATURE_LIST, false);
     }
   }
@@ -225,6 +258,40 @@ export class MobSpawningSystem implements GameSystem {
     }
   }
 
+  /** One island wildlife attempt: a pack of the creature that suits the biome and ground. */
+  private islandCycle(g: Game, chunks: [number, number][], at?: [number, number], reason = 'natural') {
+    if (!chunks.length && !at) return;
+    const w = g.world;
+    let x0: number, z0: number;
+    if (at) [x0, z0] = at;
+    else {
+      const [cx, cz] = chunks[Math.floor(Math.random() * chunks.length)];
+      x0 = cx * 16 + Math.floor(Math.random() * 16);
+      z0 = cz * 16 + Math.floor(Math.random() * 16);
+    }
+    if (!w.isLoaded(x0, z0)) return;
+    const biome = BIOMES[w.getBiome(x0, z0)]?.name ?? '';
+    const options = ISLAND_SPAWNS.filter((e) => e.biomes.includes(biome));
+    const entry = options.length ? (pick(options) as IslandSpawn | null) : null;
+    if (!entry) return;
+    const p = g.player.pos;
+    const darken = skyDarkenFrom(g.skyLightFactor);
+    let left = entry.min + Math.floor(Math.random() * (entry.max - entry.min + 1));
+    for (let k = 0; k < left * 4 && left > 0; k++) {
+      const x = x0 + Math.floor(Math.random() * 7) - 3, z = z0 + Math.floor(Math.random() * 7) - 3;
+      if (!w.isLoaded(x, z)) continue;
+      const y = islandGround(w, x, z, entry);
+      const d2 = (x + 0.5 - p.x) ** 2 + (y - p.y) ** 2 + (z + 0.5 - p.z) ** 2;
+      if (reason === 'natural' && (d2 < 24 * 24 || d2 > 96 * 96)) continue;
+      const below = BLOCKS[w.getBlock(x, y - 1, z) >>> 4]?.name ?? '';
+      if (!entry.on.includes(below)) continue;
+      const [wd, ht] = SIZES[entry.type] ?? [0.6, 1];
+      if (!spaceFree(w, x, y, z, wd, ht)) continue;
+      if (Math.max(w.getSkyLight(x, y, z) - darken, w.getBlockLight(x, y, z)) <= 7 && entry.type !== 'snake') continue;
+      if (this.spawnOne(g, entry.type, x + 0.5, y, z + 0.5, reason)) left--;
+    }
+  }
+
   spawnOne(g: Game, type: string, x: number, y: number, z: number, reason: string): Mob | null {
     const e = createEntity(type);
     if (!(e instanceof Mob)) return null;
@@ -248,8 +315,12 @@ export class MobSpawningSystem implements GameSystem {
     const k = chunkKey(cx, cz);
     if (set.has(k)) return;
     set.add(k);
-    if (Math.random() >= 0.1) return;
     const w = g.world;
+    if ((w as any).worldType === 'island') {
+      if (Math.random() < 0.18) this.islandCycle(g, [], [cx * 16 + Math.floor(Math.random() * 16), cz * 16 + Math.floor(Math.random() * 16)], 'chunk');
+      return;
+    }
+    if (Math.random() >= 0.1) return;
     const entry = pick(CREATURE_LIST);
     if (!entry) return;
     const n = entry.min + Math.floor(Math.random() * (entry.max - entry.min + 1));

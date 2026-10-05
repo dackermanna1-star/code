@@ -492,6 +492,28 @@ for (const d of ['tornado', 'earthquake', 'volcano', 'tsunami', 'asteroid']) {
 }
 // alien invasion (src/game/aliens): appended after the natural disasters (stable ids)
 R('alien_invasion', stone({ hardness: 0.5, requiresTool: false, sound: 'metal', tex: { up: 'disaster_top', down: 'disaster_top', north: 'disaster_alien_invasion', south: 'disaster_alien_invasion', west: 'disaster_alien_invasion', east: 'disaster_alien_invasion' } }));
+// ---------------------------------------------------------------------------------
+// Tropical island world type (src/world/gen/island): reef corals. Appended last (stable ids).
+// ---------------------------------------------------------------------------------
+export const CORALS = ['tube', 'brain', 'bubble', 'fire', 'horn'] as const;
+const CORAL_TINT: Record<string, number> = { tube: 0x3f6fe0, brain: 0xe86aa8, bubble: 0xb04ad8, fire: 0xe0383a, horn: 0xe8cf3a };
+for (const c of CORALS) {
+  R(`${c}_coral_block`, stone({ hardness: 1.5, resistance: 6, sound: 'stone', mapColor: CORAL_TINT[c], tags: ['coral'] }));
+  R(`${c}_coral`, plant({ tint: CORAL_TINT[c], tex: 'coral', sound: 'grass', fireEncouragement: 0, flammability: 0, tags: ['plant', 'coral'] }));
+  R(`${c}_coral_fan`, plant({ tint: CORAL_TINT[c], tex: 'coral_fan', sound: 'grass', fireEncouragement: 0, flammability: 0, tags: ['plant', 'coral'] }));
+}
+// palm fronds (tropical island palms): leaves with long narrow leaflets
+R('palm_leaves', {
+  shape: 'leaves', layer: 'cutout', fullCube: false, opacity: 1, hardness: 0.2, tool: 'hoe', sound: 'grass', tint: 'foliage',
+  fireEncouragement: 30, flammability: 60, tags: ['leaves'],
+  drops: (c: DropContext) => {
+    if (c.toolType === 'shears') return [{ item: 'palm_leaves', count: 1 }];
+    const out: { item: string; count: number }[] = [];
+    if (c.rand() < 0.03) out.push({ item: 'jungle_sapling', count: 1 });
+    if (c.rand() < 0.05) out.push({ item: 'stick', count: 1 + Math.floor(c.rand() * 2) });
+    return out;
+  },
+});
 
 finalizeRegistry();
 

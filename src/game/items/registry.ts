@@ -126,7 +126,7 @@ export function tryItem(name: string): ItemDef | undefined {
 
 // ---------------------------------------------------------------------------------------
 // Block items
-const NATURAL = /(ore|log|leaves|sapling|dirt|grass|sand|gravel|stone$|^stone|granite|diorite|andesite|deepslate$|snow|ice|clay|flower|tulip|poppy|dandelion|orchid|allium|bluet|daisy|cornflower|lily|mushroom|cactus|sugar_cane|fern|vine|pumpkin|melon|netherrack|soul|basalt|nylium|end_stone|obsidian|bedrock|moss|mud|kelp|seagrass|bamboo|berry|fungus|roots|amethyst|calcite|tuff|dripstone|podzol|mycelium|wart)/;
+const NATURAL = /(ore|log|leaves|sapling|dirt|grass|sand|gravel|stone$|^stone|granite|diorite|andesite|deepslate$|snow|ice|clay|flower|tulip|poppy|dandelion|orchid|allium|bluet|daisy|cornflower|lily|mushroom|cactus|sugar_cane|fern|vine|pumpkin|melon|netherrack|soul|basalt|nylium|end_stone|obsidian|bedrock|moss|mud|kelp|seagrass|coral|bamboo|berry|fungus|roots|amethyst|calcite|tuff|dripstone|podzol|mycelium|wart)/;
 const FUNCTIONAL = /(crafting_table|furnace|chest|barrel|enchanting|brewing|cauldron|anvil|smoker|blast|campfire|jukebox|note_block|bed|beacon|spawner|ender_chest|bookshelf|torch|lantern|ladder|scaffolding|flower_pot)/;
 const REDSTONE = /(redstone|lever|button|pressure_plate|repeater|comparator|piston|observer|dispenser|dropper|hopper|daylight|target|rail|tnt|lamp|door|trapdoor|fence_gate)/;
 for (const b of BLOCKS) {

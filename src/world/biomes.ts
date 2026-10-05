@@ -109,6 +109,12 @@ B('windswept_savanna', 2.0, 0.0, 'savanna');
 B('old_growth_birch_forest', 0.6, 0.6, 'forest');
 B('old_growth_spruce_taiga', 0.25, 0.8, 'taiga');
 B('eroded_badlands', 2.0, 0.0, 'badlands', { grass: 0x90814d, foliage: 0x9e814d });
+// Tropical island world type (island/island.ts)
+B('tropical_ocean', 0.95, 0.8, 'ocean', { water: 0x1fa8e0, waterFog: 0x063c5c, precipitation: 'rain' });
+B('tropical_lagoon', 0.95, 0.8, 'ocean', { water: 0x3ce6e0, waterFog: 0x0c5a64, precipitation: 'rain' });
+B('tropical_beach', 0.95, 0.6, 'beach', { water: 0x3ce6e0, waterFog: 0x0c5a64, precipitation: 'rain' });
+B('palm_grove', 0.95, 0.7, 'plains', { grass: 0x8ccf3f, foliage: 0x5fb52e, water: 0x3ce6e0, waterFog: 0x0c5a64, precipitation: 'rain' });
+B('volcanic_peak', 0.9, 0.5, 'mountain', { grass: 0x7aa63a, foliage: 0x5d9a2c, water: 0x2f9fd0, precipitation: 'rain' });
 
 export function biomeByName(name: string): Biome {
   const b = BIOME_BY_NAME.get(name);

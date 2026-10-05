@@ -3,6 +3,7 @@
  *
  * Test harness URL parameters (skip menus):
  *   ?autostart=1&seed=123&mode=creative&time=6000&x=..&y=..&z=..&yaw=..&pitch=..&frames=30&rd=6&quality=high
+ *   &worldtype=island (tropical island world)
  */
 import * as THREE from 'three';
 import { Game, type WorldInfo } from './game/game';
@@ -118,7 +119,7 @@ async function boot() {
     setInterval(() => {
       (window as any).__shotProgress = { loading: game.loading, ...(game.chunks?.stats ?? {}), fps: game.fps, ready: !!(window as any).__shotReady };
     }, 1000);
-    const info = Game.createInfo('Test', q.get('seed') ?? '12345', (q.get('mode') as any) ?? 'creative', 'peaceful');
+    const info = Game.createInfo('Test', q.get('seed') ?? '12345', (q.get('mode') as any) ?? 'creative', 'peaceful', q.get('worldtype') === 'island' ? 'island' : 'default');
     info.transient = true;
     await startWorld(info);
     const p = game.player;

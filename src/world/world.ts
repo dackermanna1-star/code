@@ -10,7 +10,7 @@ import { Chunk, FULL_SKY } from './chunk';
 import { LightEngine, type LightAccess } from './light';
 import { behaviorOf } from './blocks/behaviors';
 import { T_OPACITY, T_LIQUID, BLOCKS, T_SOLID, T_FULL_CUBE } from './blocks/registry';
-import type { DimensionId } from './gen/generator';
+import type { DimensionId, WorldType } from './gen/generator';
 
 export const enum SetFlags {
   NONE = 0,
@@ -54,7 +54,7 @@ export class World {
   private lastChunk: Chunk | null = null;
   private lastKey = NaN;
 
-  constructor(readonly dimension: DimensionId, readonly seed: number) {
+  constructor(readonly dimension: DimensionId, readonly seed: number, readonly worldType: WorldType = 'default') {
     this.rng = new Rng(seed ^ 0x51ed270b);
     const self = this;
     const acc: LightAccess = {

@@ -167,6 +167,25 @@ const FU_DIR = FU.map(([x, y, z]) => dirOfVec(x, y, z));
 const FV_DIR = FV.map(([x, y, z]) => dirOfVec(x, y, z));
 const OPP = [1, 0, 3, 2, 5, 4];
 
+/**
+ * Plants that live underwater (kelp, seagrass, sea pickles, corals): their cells count as water
+ * for the liquid surfaces and are filled with water volume themselves, so reefs and kelp forests
+ * have no air pockets around every plant.
+ */
+let WATERLOGGED: Uint8Array | null = null;
+let WATER_ID = -1;
+function waterloggedTable(): Uint8Array {
+  if (!WATERLOGGED) {
+    WATERLOGGED = new Uint8Array(4096);
+    for (const b of BLOCKS) {
+      if (!b) continue;
+      if (b.name === 'kelp' || b.name === 'seagrass' || b.name === 'sea_pickle' || b.name.endsWith('_coral') || b.name.endsWith('_coral_fan')) WATERLOGGED[b.id] = 1;
+      if (b.name === 'water') WATER_ID = b.id;
+    }
+  }
+  return WATERLOGGED;
+}
+
 // Natural textures that get random rotation per block to hide tiling
 const ROTATE_TEX = new Set([
   'grass_block_top', 'dirt', 'sand', 'red_sand', 'gravel', 'stone', 'snow', 'netherrack', 'end_stone', 'coarse_dirt', 'podzol_top', 'mycelium_top',
@@ -333,6 +352,7 @@ export class Mesher {
   // ---------------------------------------------------------------------------- dispatch
   private block(x: number, y: number, z: number, st: number) {
     const def = BLOCKS[st >>> 4];
+    if (waterloggedTable()[st >>> 4] && this.wetCell(x, y, z)) this.liquid(x, y, z, WATER_ID << 4, BLOCKS[WATER_ID]);
     switch (def.shape) {
       case 'air': return;
       case 'cube': case 'grass_block': this.cube(x, y, z, st, def); return;
@@ -700,13 +720,15 @@ export class Mesher {
     // fluff cards: 3 intersecting planes, randomly rotated, extending beyond the block
     const h = hash3(this.inp.ox + x, this.inp.oy + y, this.inp.oz + z, 7);
     const needle = def.name.startsWith('spruce');
-    const fl = TEXTURE_INDEX.get(needle ? 'leaves_fluff_needle' : 'leaves_fluff_oak') ?? layer;
+    const palm = def.name === 'palm_leaves';
+    const fl = TEXTURE_INDEX.get(palm ? 'leaves_fluff_palm' : needle ? 'leaves_fluff_needle' : 'leaves_fluff_oak') ?? layer;
     this.plantLight(x, y, z);
     const cards = 3;
     for (let i = 0; i < cards; i++) {
       const a = (((h >>> (i * 5)) & 31) / 32) * Math.PI + i * (Math.PI / cards);
-      const tilt = ((((h >>> (i * 3 + 13)) & 7) / 7) - 0.5) * 0.9;
-      const size = 0.82 + (((h >>> (i * 4 + 2)) & 7) / 7) * 0.25;
+      // palm fronds: long cards laid down toward horizontal (drooping leaflets)
+      const tilt = palm ? (1.05 + (((h >>> (i * 3 + 13)) & 7) / 7) * 0.35) * (i & 1 ? 1 : -1) : ((((h >>> (i * 3 + 13)) & 7) / 7) - 0.5) * 0.9;
+      const size = palm ? 1.05 + (((h >>> (i * 4 + 2)) & 7) / 7) * 0.3 : 0.82 + (((h >>> (i * 4 + 2)) & 7) / 7) * 0.25;
       const ca = Math.cos(a) * size, sa = Math.sin(a) * size;
       const cy = 0.5, ty = Math.cos(tilt) * size, tz2 = Math.sin(tilt) * size;
       const nrm = octEncode(-sa * 0.3, 0.9, ca * 0.3);
@@ -840,13 +862,27 @@ export class Mesher {
   }
 
   // ---------------------------------------------------------------------------- liquids
+  /** A waterlogged plant cell touches water (above or beside): render it as water. */
+  private wetCell(x: number, y: number, z: number): boolean {
+    const wl = waterloggedTable();
+    for (const [dx, dy, dz] of [[0, 1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]]) {
+      const n = this.at(x + dx, y + dy, z + dz) >>> 4;
+      if (n === WATER_ID || wl[n]) return true;
+    }
+    return false;
+  }
+  /** Same liquid as `id` (waterlogged plants count as water). */
+  private sameLiquid(st: number, id: number): boolean {
+    const n = st >>> 4;
+    return n === id || (id === WATER_ID && waterloggedTable()[n] === 1);
+  }
   private liquidHeight(x: number, y: number, z: number, id: number): number {
     // corner-average heights per Minecraft, returns -1 if not this liquid
     const st = this.at(x, y, z);
-    if (st >>> 4 !== id) return -1;
+    if (!this.sameLiquid(st, id)) return -1;
     const above = this.at(x, y + 1, z);
-    if (above >>> 4 === id) return 1;
-    const lvl = st & 7;
+    if (this.sameLiquid(above, id)) return 1;
+    const lvl = st >>> 4 === id ? st & 7 : 0;
     return (8 - lvl) / 9;
   }
   private cornerHeight(x: number, y: number, z: number, cx: number, cz: number, id: number): number {
@@ -856,7 +892,7 @@ export class Mesher {
       for (let dx = -1; dx <= 0; dx++) {
         const px = x + cx + dx, pz = z + cz + dz;
         const above = this.at(px, y + 1, pz);
-        if (above >>> 4 === id) return 1;
+        if (this.sameLiquid(above, id)) return 1;
         const h = this.liquidHeight(px, y, pz, id);
         if (h >= 0) {
           if (h >= 0.8) { sum += h * 10; cnt += 10; } else { sum += h; cnt += 1; }
@@ -875,7 +911,8 @@ export class Mesher {
     const mode = isWater ? MODE_WATER : MODE_LAVA;
     const layer = TEXTURE_INDEX.get(isWater ? 'water_still' : 'lava_still') ?? 0;
     const tint = isWater ? this.inp.water[cidx(x, z)] : 0xffffff;
-    const aboveSame = this.at(x, y + 1, z) >>> 4 === id;
+    waterloggedTable();
+    const aboveSame = this.sameLiquid(this.at(x, y + 1, z), id);
     const h00 = aboveSame ? 1 : this.cornerHeight(x, y, z, 0, 0, id);
     const h10 = aboveSame ? 1 : this.cornerHeight(x, y, z, 1, 0, id);
     const h11 = aboveSame ? 1 : this.cornerHeight(x, y, z, 1, 1, id);
@@ -904,7 +941,7 @@ export class Mesher {
     const sideH: Record<number, [number, number]> = { 2: [h10, h00], 3: [h01, h11], 4: [h00, h01], 5: [h11, h10] };
     for (let d = 2; d < 6; d++) {
       const n = this.at(x + FN[d][0], y, z + FN[d][2]);
-      if (n >>> 4 === id) continue;
+      if (this.sameLiquid(n, id)) continue;
       if (this.occludes(n, d, st)) continue;
       const [ha, hb] = sideH[d];
       this.cornerLight(d, x + FN[d][0], y, z + FN[d][2], false);
@@ -920,7 +957,7 @@ export class Mesher {
     }
     // bottom
     const dn = this.at(x, y - 1, z);
-    if (dn >>> 4 !== id && !T_FULL_CUBE[dn >>> 4]) {
+    if (!this.sameLiquid(dn, id) && !T_FULL_CUBE[dn >>> 4]) {
       this.cornerLight(0, x, y - 1, z, false);
       this.boostOwn(x, y, z);
       this.quad(s, x, y, z, 0, 0, 0, 1, 0, 1, layer, 0, mode | FLAG_NO_POM, tint, FACE_OCT[0]);

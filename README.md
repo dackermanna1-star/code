@@ -57,6 +57,32 @@ atmosphere lookup tables and pre-renders the most common sounds.
   tower is scaled to fit above the spot (about 1:3 at ground level, 178 blocks to the spire tip).
   Inside: a lobby, a floor every 4 blocks lit by sea lanterns and a ladder core to the roof.
 
+## Tropical Island world type
+
+*Create New World → World Type → Tropical Island.* You wake up on the beach of a large tropical
+island (about 900 blocks across) in an ocean that goes on to the horizon in every direction:
+
+* **The island**: wide sand beaches and rocky headlands with cliffs, a sheltered lagoon bay, a
+  palm grove belt, rolling jungle (dense jungle, bamboo thickets, sparse hills) and a central
+  volcano with ridged flanks, black rock and glowing magma at the crater and a crater lake on
+  top. Small sand cays lie offshore; caves and ores run under the island.
+* **The sea**: a turquoise lagoon over white sand, a barrier reef just under the surface with
+  channels through it (coral heads of five colours, coral plants and fans, sea pickles,
+  seagrass), a drop-off with kelp forests and the deep blue beyond.
+* **Where you start**: a castaway camp (campfire, driftwood seats, a palm-thatch lean-to with a
+  supply chest and a barrel) beside the wreck of the sloop that brought you, beached at the
+  waterline with its side stove in, its mast snapped across the sand, cargo strewn about and a
+  chest in the hold. You face the sea when you arrive.
+* **Wildlife**: crabs that scuttle sideways along the beach and raise their claws at you (they
+  pinch back), sea turtles crawling up the sand and swimming in the lagoon (feed them seagrass),
+  parrots (scarlet, blue-and-gold, green, grey) that perch on the canopy and fly off when you
+  come near, and snakes in the jungle (green tree boa, banded krait, carpet python) that coil and
+  hiss when you get close and bite with venom if you keep coming (sneak to pass them), plus
+  jungle fowl and wild boar. Seagulls wheel over the beaches by day and schools of reef fish
+  (yellow tangs, clownfish, blue tangs, angelfish) swim in the lagoon.
+* **Sound**: waves breaking on the beach, the jungle's daytime chorus of cicadas and birds with
+  exotic bird calls, frogs, crickets and katydids at night, gulls over the shore.
+
 ## Vehicles
 
 Both are in the creative inventory (*Tools & Utilities*). Place one, then right-click it to get in.

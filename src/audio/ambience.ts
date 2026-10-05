@@ -46,6 +46,10 @@ interface Bed {
 interface Traits {
   ocean: boolean;
   shore: boolean;
+  /** Tropical shores (island beaches, lagoon, palm groves): surf and gulls. */
+  surf: boolean;
+  /** Jungle: day chorus, night chorus and exotic birds. */
+  jungle: boolean;
   cold: boolean;
   dry: boolean;
   birds: boolean;
@@ -72,7 +76,9 @@ function traitsOf(b: string): Traits {
   const birds = !cold && !dry && !ocean && has(/forest|taiga|jungle|plains|meadow|cherry|swamp|river|savanna|mushroom|hills|lush/);
   const insects = !cold && !ocean && has(/forest|jungle|plains|meadow|cherry|swamp|savanna|river|desert|badlands|hills|taiga/);
   const nether = NETHER_BEDS[b] ? b : b === 'nether_wastes' ? b : 'nether_wastes';
-  return { ocean, shore, cold, dry, birds, insects, netherBed: NETHER_BEDS[b] ?? '', nether };
+  const surf = has(/tropical|palm_grove/);
+  const jungle = has(/jungle|palm_grove|volcanic/);
+  return { ocean, shore, surf, jungle, cold, dry, birds, insects, netherBed: NETHER_BEDS[b] ?? '', nether };
 }
 
 const smooth01 = (e0: number, e1: number, x: number): number => {
@@ -92,7 +98,7 @@ export class Ambience {
   private applyTimer = 0;
   private mood = 0;
   private moodThreshold = 1;
-  private timers = { drip: 6, bird: 5, under: 8, nether: 10, end: 15, thunder: 12 };
+  private timers = { drip: 6, bird: 5, under: 8, nether: 10, end: 15, thunder: 12, tropical: 4, gull: 6 };
   private rnd: () => number;
   private pos = { x: 0, y: 0, z: 0 };
   private opts: PlayOptions = { pos: this.pos, volume: 1 };
@@ -118,6 +124,9 @@ export class Ambience {
     add('loop.nether.basalt', 0.7);
     add('loop.end', 0.6);
     add('loop.lava', 0.9);
+    add('loop.island.surf', 0.7);
+    add('loop.jungle.day', 0.45);
+    add('loop.jungle.night', 0.45);
   }
 
   /** Copies the state (cheap; call every frame). */
@@ -171,7 +180,12 @@ export class Ambience {
     this.target('loop.underwater', uw * (1 - lava));
     this.target('loop.cave', ow * dry * smooth01(0.35, 0.9, cf));
     this.target('loop.night', ow * dry * outside * night * (tr.insects ? 1 : 0) * (1 - rainy));
-    this.target('loop.ocean', ow * dry * outside * (tr.shore ? 1 : tr.ocean ? 0.6 : 0));
+    this.target('loop.ocean', ow * dry * outside * (tr.surf ? 0.25 : tr.shore ? 1 : tr.ocean ? 0.6 : 0));
+    // tropical island: breaking surf on the shores, the jungle choruses by day and night
+    const shoreSurf = /beach|lagoon|stony/.test(s.biome) ? 1 : s.biome === 'palm_grove' ? 0.55 : s.biome === 'tropical_ocean' ? 0.45 : 0;
+    this.target('loop.island.surf', ow * dry * outside * (tr.surf ? shoreSurf : 0));
+    this.target('loop.jungle.day', ow * dry * outside * (tr.jungle ? 1 - night : 0) * (1 - rainy * 0.7));
+    this.target('loop.jungle.night', ow * dry * outside * (tr.jungle || tr.surf ? night : 0) * (1 - rainy * 0.5));
     const special = tr.netherBed;
     this.target('loop.nether', ne * dry * (special ? 0.45 : 1));
     for (const k of NETHER_BED_NAMES) this.target(k, ne * dry * (k === special ? 1 : 0));
@@ -292,6 +306,23 @@ export class Ambience {
         T.bird = 3 + rnd() * 10;
         this.around(8, 22, 3, 10);
         this.shot('ambient.bird', 0.7 * (1 - cf));
+      }
+    }
+    // exotic birds in the jungle and palm groves, gulls over the tropical shore
+    if (ow && !uw && this.traits.jungle && cf < 0.4 && night < 0.2 && rainy < 0.4) {
+      T.tropical -= dt;
+      if (T.tropical <= 0) {
+        T.tropical = 2.5 + rnd() * 7;
+        this.around(10, 30, 4, 14);
+        this.shot('ambient.tropical_bird', 0.8 * (1 - cf));
+      }
+    }
+    if (ow && !uw && this.traits.surf && !/jungle|volcanic/.test(s.biome) && cf < 0.3 && night < 0.2 && rainy < 0.5) {
+      T.gull -= dt;
+      if (T.gull <= 0) {
+        T.gull = 5 + rnd() * 12;
+        this.around(15, 40, 8, 25);
+        this.shot('ambient.seagull', 0.8);
       }
     }
     if (uw) {

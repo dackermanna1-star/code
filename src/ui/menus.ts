@@ -4,6 +4,7 @@
 import { h, type Screen, type UI } from './ui';
 import { Game, type Difficulty, type WorldInfo } from '../game/game';
 import type { GameSettings } from '../game/settings';
+import type { WorldType } from '../world/gen/generator';
 
 const SPLASHES = [
   'Now with real light!', 'Photons included!', 'Ray-traced... mostly!', '100% physical!', 'Also try the real thing!', 'Ragdolls!',
@@ -53,7 +54,7 @@ export function worldSelectScreen(ui: UI, cb: MenuCallbacks): Screen {
     list.innerHTML = '';
     if (!worlds.length) list.append(h('div', { class: 'meta', style: { padding: '8px' } }, 'No saved worlds yet.'));
     for (const w of worlds.sort((a, b) => b.lastPlayed - a.lastPlayed)) {
-      const item = h('div', { class: 'world-item' }, h('div', {}, w.name), h('div', { class: 'meta' }, `${w.gameMode} · ${w.difficulty} · seed ${w.seed} · ${new Date(w.lastPlayed).toLocaleString()}`));
+      const item = h('div', { class: 'world-item' }, h('div', {}, w.name), h('div', { class: 'meta' }, `${w.gameMode} · ${w.difficulty}${w.worldType === 'island' ? ' · tropical island' : ''} · seed ${w.seed} · ${new Date(w.lastPlayed).toLocaleString()}`));
       item.onclick = () => {
         selected = w;
         list.querySelectorAll('.world-item').forEach((n) => n.classList.remove('sel'));
@@ -103,8 +104,17 @@ export function createWorldScreen(ui: UI, cb: MenuCallbacks): Screen {
   const mode = h('select', { class: 'select' }, h('option', { value: 'survival' }, 'Survival'), h('option', { value: 'creative' }, 'Creative'), h('option', { value: 'adventure' }, 'Adventure'), h('option', { value: 'spectator' }, 'Spectator')) as HTMLSelectElement;
   const diff = h('select', { class: 'select' }, h('option', { value: 'peaceful' }, 'Peaceful'), h('option', { value: 'easy' }, 'Easy'), h('option', { value: 'normal', selected: true }, 'Normal'), h('option', { value: 'hard' }, 'Hard')) as HTMLSelectElement;
   diff.value = 'normal';
+  const type = h('select', { class: 'select' }, h('option', { value: 'default' }, 'Default'), h('option', { value: 'island' }, 'Tropical Island')) as HTMLSelectElement;
+  const typeNote = h('div', { class: 'meta', style: { marginTop: '6px', minHeight: '1.2em' } });
+  const noteFor = () => {
+    typeNote.textContent = type.value === 'island'
+      ? 'Wake up on the beach of a large tropical island: palms, jungle, a volcanic peak, a coral lagoon, crabs, snakes, parrots and sea turtles, and nothing but ocean to the horizon.'
+      : 'Continents, oceans, mountains and caves.';
+  };
+  type.onchange = noteFor;
+  noteFor();
   const create = async () => {
-    const info = Game.createInfo(name.value, seed.value, mode.value as any, diff.value as Difficulty);
+    const info = Game.createInfo(name.value, seed.value, mode.value as any, diff.value as Difficulty, type.value as WorldType);
     ui.closeAll();
     await cb.play(info);
   };
@@ -113,6 +123,7 @@ export function createWorldScreen(ui: UI, cb: MenuCallbacks): Screen {
     h('label', { class: 'field' }, 'World Name'), name,
     h('label', { class: 'field' }, 'Seed for the World Generator'), seed,
     h('div', { class: 'row' }, h('div', {}, h('label', { class: 'field' }, 'Game Mode'), mode), h('div', {}, h('label', { class: 'field' }, 'Difficulty'), diff)),
+    h('label', { class: 'field' }, 'World Type'), type, typeNote,
     h('div', { class: 'row', style: { marginTop: '14px' } }, h('button', { class: 'btn primary', onclick: create }, 'Create New World'), h('button', { class: 'btn', onclick: () => ui.close() }, 'Cancel')),
   ));
   return {

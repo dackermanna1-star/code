@@ -1,7 +1,7 @@
 /**
  * World generation visual check.
  *
- *   npx tsx tools/worldmap.ts --seed 123 --size 1024 --out /tmp/map.png [--x 0 --z 0] [--dims overworld,nether,end]
+ *   npx tsx tools/worldmap.ts --seed 123 --size 1024 --out /tmp/map.png [--x 0 --z 0] [--dims overworld,nether,end] [--type island]
  *
  * Options: --x/--z map centre; --section <len> cross-section length; --scale <n> down-scales the
  * top-down maps (e.g. --size 4096 --scale 4); --slices 10,40 horizontal underground slices;
@@ -40,6 +40,7 @@ const out = arg('out', '/tmp/map.png');
 const cxw = Number(arg('x', '0'));
 const czw = Number(arg('z', '0'));
 const dims = arg('dims', 'overworld,nether,end').split(',');
+const worldType = arg('type', 'default') === 'island' ? 'island' : 'default';
 const sectionLen = Number(arg('section', String(Math.min(size, 768))));
 /** Output down-scaling factor for the top-down maps (e.g. --scale 4 renders a 4096-block area into 1024 px). */
 const scale = Math.max(1, Number(arg('scale', '1')));
@@ -255,7 +256,7 @@ function gen(g: WorldGenerator, cx: number, cz: number): GeneratedChunk {
 // overworld top-down
 // ------------------------------------------------------------------------------------------------
 function overworld() {
-  const g = createGenerator('overworld', seed);
+  const g = createGenerator('overworld', seed, worldType);
   const t0 = performance.now();
   const img = new Image(size, size);
   const bimg = new Image(size, size);
@@ -466,7 +467,7 @@ function iso(spec: string) {
   const [ix, iz, isz, idim] = spec.split(',');
   const X0 = Number(ix), Z0 = Number(iz), N = Number(isz ?? 64);
   const dim = (idim ?? 'overworld') as 'overworld' | 'nether' | 'end';
-  const g = createGenerator(dim, seed);
+  const g = createGenerator(dim, seed, dim === 'overworld' ? worldType : 'default');
   const chunks = new Map<string, GeneratedChunk>();
   const get = (x: number, y: number, z: number): number => {
     if (y < 0 || y > 255) return 0;

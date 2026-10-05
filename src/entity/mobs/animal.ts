@@ -25,7 +25,7 @@ export abstract class AgeableMob extends Mob {
     this.ageTicks = b ? BABY_AGE : 0;
     this.rig?.setScale(this.visualScale());
   }
-  override visualScale() {
+  override visualScale(): number {
     return this.isBaby ? 0.5 : 1;
   }
   /** Age up by a fraction of the remaining time (feeding babies). */

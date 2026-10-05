@@ -8,6 +8,7 @@ import { getTextures } from './textures';
 import type { Animator } from './anim/common';
 import { animateHumanoid } from './anim/humanoid';
 import { animateChicken, animateCreeper, animateQuadruped, animateSpider } from './anim/creatures';
+import { animateCrab, animateParrot, animateSnake, animateTurtle } from './anim/island';
 
 export interface ModelSpec {
   animate: Animator;
@@ -25,6 +26,10 @@ const SPECS: Record<string, ModelSpec> = {
   sheep: { animate: (r, s, dt, m) => animateQuadruped(r, s, dt, m, { amp: 0.7 }), baseColor: 0xe0dcd4, mass: 60 },
   chicken: { animate: animateChicken, baseColor: 0xeeeeee, mass: 2.5 },
   player: { animate: (r, s, dt, m) => animateHumanoid(r, s, dt, m, {}), baseColor: 0xc69477, mass: 75 },
+  crab: { animate: animateCrab, baseColor: 0xc8502a, mass: 1.2 },
+  snake: { animate: animateSnake, baseColor: 0x2f8a35, mass: 3 },
+  parrot: { animate: animateParrot, baseColor: 0xd02a1e, mass: 1 },
+  sea_turtle: { animate: animateTurtle, baseColor: 0x5a4a2a, mass: 140 },
 };
 
 export function registerSpec(model: string, spec: ModelSpec) {

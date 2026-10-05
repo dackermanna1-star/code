@@ -23,6 +23,7 @@ import { TankSystem } from './vehicles/tankSystem';
 import { PortalSystem } from './portal/portalSystem';
 import { HeroSystem } from './saitama/heroSystem';
 import { RailgunSystem } from './aliens/railgun';
+import { IslandLifeSystem } from './island/life';
 
 export function createSystems(): GameSystem[] {
   return [
@@ -46,6 +47,7 @@ export function createSystems(): GameSystem[] {
     new PortalSystem(),
     new HeroSystem(),
     new RailgunSystem(),
+    new IslandLifeSystem(),
     new SaveSystem(),
   ];
 }

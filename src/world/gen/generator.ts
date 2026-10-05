@@ -9,13 +9,16 @@ import type { GeneratedChunk } from '../chunk';
 
 export type DimensionId = 'overworld' | 'nether' | 'end';
 
+/** World type (overworld generator preset): the normal world, or a tropical island in the ocean. */
+export type WorldType = 'default' | 'island';
+
 export interface WorldGenerator {
   readonly dimension: DimensionId;
   readonly seed: number;
   /** Generate one chunk column (blocks, biomes, heightmap, biome colours, block entities, entities). */
   generate(cx: number, cz: number): GeneratedChunk;
-  /** A good spawn position near the origin (overworld) — y is the feet position. */
-  findSpawn(): { x: number; y: number; z: number };
+  /** A good spawn position near the origin (overworld) — y is the feet position; optional facing. */
+  findSpawn(): { x: number; y: number; z: number; yaw?: number };
   /** Biome id at a world column (cheap, no chunk generation required). */
   biomeAt(x: number, z: number): number;
   /** Approximate terrain surface height at a column (cheap). */
@@ -24,4 +27,4 @@ export interface WorldGenerator {
   locateStructure(type: string, x: number, z: number): { x: number; y: number; z: number } | null;
 }
 
-export type GeneratorFactory = (dimension: DimensionId, seed: number) => WorldGenerator;
+export type GeneratorFactory = (dimension: DimensionId, seed: number, type?: WorldType) => WorldGenerator;

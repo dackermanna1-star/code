@@ -15,6 +15,7 @@ export const EXTRA_TEXTURES = [
   'grass_tuft',      // cutout card of dense grass blades used for Better-Foliage-style tufts on grass blocks
   'leaves_fluff_oak',// cutout leaf-cluster cards used around leaf blocks (generic broadleaf, tinted)
   'leaves_fluff_needle', // spruce-like needle cluster card (tinted)
+  'leaves_fluff_palm', // long narrow palm leaflets (tinted)
   'snow_side_overlay', // snow fringe overlay for snowy grass sides
   'grass_block_snow',  // side of a grass block with snow on top
   'missing',
