@@ -5,18 +5,18 @@ import { TILE } from './constants.js';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const geoCache = new Map();
-const cached = (key, fn) => {
+export const cached = (key, fn) => {
   if (!geoCache.has(key)) geoCache.set(key, fn());
   return geoCache.get(key);
 };
 
-function mesh(geo, mat, x = 0, y = 0, z = 0) {
+export function mesh(geo, mat, x = 0, y = 0, z = 0) {
   const m = new THREE.Mesh(geo, mat);
   m.position.set(x, y, z);
   return m;
 }
 
-function lathe(points, segs = 14) {
+export function lathe(points, segs = 14) {
   return new THREE.LatheGeometry(points.map(([x, y]) => new THREE.Vector2(x, y)), segs);
 }
 
@@ -327,6 +327,7 @@ function sigilTexture(color) {
   return t;
 }
 
+const bannerMats = [];
 export function makeBanner() {
   const A = sharedAssets();
   const g = new THREE.Group();
@@ -335,7 +336,9 @@ export function makeBanner() {
   const pos = geo.attributes.position;
   for (let i = 0; i < pos.count; i++) pos.setZ(i, Math.sin((pos.getY(i) + 1) * 2.5) * 0.04);
   geo.computeVertexNormals();
-  const cloth = mesh(geo, new THREE.MeshStandardMaterial({ map: sigilTexture(colors[Math.floor(Math.random() * colors.length)]), roughness: 0.95, side: THREE.DoubleSide, transparent: true, alphaTest: 0.5 }), 0, 2.2, 0.06);
+  const v = Math.floor(Math.random() * colors.length * 3);
+  if (!bannerMats[v]) bannerMats[v] = new THREE.MeshStandardMaterial({ map: sigilTexture(colors[v % colors.length]), roughness: 0.95, side: THREE.DoubleSide, transparent: true, alphaTest: 0.5 });
+  const cloth = mesh(cached('bannerCloth', () => geo), bannerMats[v], 0, 2.2, 0.06);
   const rod = mesh(cached('bannerRod', () => new THREE.CylinderGeometry(0.025, 0.025, 1.1, 6)), A.darkMetal, 0, 3.22, 0.06);
   rod.rotation.z = Math.PI / 2;
   g.add(cloth, rod);
@@ -384,8 +387,10 @@ function webTexture() {
   return _web;
 }
 
+let _webMat = null;
 export function makeCobweb() {
-  const m = new THREE.Mesh(cached('web', () => new THREE.PlaneGeometry(1.4, 1.4)), new THREE.MeshBasicMaterial({ map: webTexture(), transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }));
+  if (!_webMat) _webMat = new THREE.MeshBasicMaterial({ map: webTexture(), transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false });
+  const m = new THREE.Mesh(cached('web', () => new THREE.PlaneGeometry(1.4, 1.4)), _webMat);
   const g = new THREE.Group();
   m.position.set(0.7, -0.7, 0);
   m.rotation.z = Math.PI;
@@ -460,8 +465,18 @@ function rugTexture() {
   return t;
 }
 
-export function makeRug(w, h) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: rugTexture(), roughness: 1, polygonOffset: true, polygonOffsetFactor: -1 }));
+const rugMats = [];
+export function makeRug(w, h, runner = false) {
+  const v = Math.floor(Math.random() * 4) + (runner ? 4 : 0);
+  if (!rugMats[v]) {
+    const t = rugTexture();
+    if (runner) { t.wrapS = t.wrapT = THREE.RepeatWrapping; }
+    rugMats[v] = new THREE.MeshStandardMaterial({ map: t, roughness: 1, polygonOffset: true, polygonOffsetFactor: -1 });
+  }
+  const geo = new THREE.PlaneGeometry(w, h);
+  // a runner lays the pattern's long axis along its length and repeats it
+  if (runner) { const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) { const u = uv.getX(i), v = uv.getY(i); uv.setXY(i, v, u * Math.max(1, Math.round(w / h / 2))); } }
+  const m = new THREE.Mesh(geo, rugMats[v]);
   m.rotation.x = -Math.PI / 2;
   m.position.y = 0.01;
   return m;

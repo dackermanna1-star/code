@@ -13,6 +13,11 @@ export class World {
     this.roomOf = d.roomOf;
     this.rooms = d.rooms;
     const N = d.W * d.H;
+    // floor heights: base height per cell, plus stair ramps rising along a direction
+    // (stairDir 1:+x 2:-x 3:+z 4:-z) by stairRise over the cell
+    this.floorH = d.floorH || new Float32Array(N);
+    this.stairDir = d.stairDir || new Int8Array(N);
+    this.stairRise = d.stairRise || new Float32Array(N);
     this.blocked = new Uint8Array(N); // dynamic blockers (closed doors, gates, secret walls)
     this.navBlocked = new Uint8Array(N); // blocks AI pathing only
     // thin vertical slabs (closed door panels) that stop rays and sight lines but not whole cells
@@ -52,10 +57,30 @@ export class World {
   }
 
   floorAt(x, z) {
-    const c = this.cellAt(x, z);
-    if (c === C.PIT) return -PIT_DEPTH;
-    if (c === C.LAVA) return -LAVA_DEPTH;
-    return 0;
+    const cx = Math.floor(x / TILE), cz = Math.floor(z / TILE);
+    if (!this.inBounds(cx, cz)) return 0;
+    return this.cellFloor(cz * this.W + cx, x / TILE - cx, z / TILE - cz);
+  }
+
+  // Floor height inside cell i at fractional position (fx, fz) in [0,1].
+  cellFloor(i, fx, fz) {
+    let h = this.floorH[i];
+    const s = this.stairDir[i];
+    if (s) {
+      const t = s === 1 ? fx : s === 2 ? 1 - fx : s === 3 ? fz : 1 - fz;
+      h += this.stairRise[i] * Math.min(1, Math.max(0, t));
+    }
+    const c = this.cells[i];
+    if (c === C.PIT) return h - PIT_DEPTH;
+    if (c === C.LAVA) return h - LAVA_DEPTH;
+    return h;
+  }
+
+  // Height of the walkable floor at the cell centre (for spawning things in a room).
+  baseAt(x, z) {
+    const cx = Math.floor(x / TILE), cz = Math.floor(z / TILE);
+    if (!this.inBounds(cx, cz)) return 0;
+    return this.floorH[cz * this.W + cx] + (this.stairDir[cz * this.W + cx] ? this.stairRise[cz * this.W + cx] * 0.5 : 0);
   }
 
   ceilAt(x, z) {
@@ -133,9 +158,10 @@ export class World {
         if (ta > t0) { t0 = ta; ax = 0; sgn = s2; }
         if (tb < t1) t1 = tb;
       }
-      if (Math.abs(dy) < 1e-9) { if (oy < 0 || oy > w.y1) continue; }
+      const wy0 = w.y0 || 0;
+      if (Math.abs(dy) < 1e-9) { if (oy < wy0 || oy > w.y1) continue; }
       else {
-        let ta = -oy / dy, tb = (w.y1 - oy) / dy, s2 = -1;
+        let ta = (wy0 - oy) / dy, tb = (w.y1 - oy) / dy, s2 = -1;
         if (ta > tb) { const tmp = ta; ta = tb; tb = tmp; s2 = 1; }
         if (ta > t0) { t0 = ta; ax = 1; sgn = s2; }
         if (tb < t1) t1 = tb;
@@ -166,19 +192,30 @@ export class World {
     let t = 0;
     let lastAxis = -1;
     for (let i = 0; i < 128; i++) {
-      // floor / ceiling inside the current cell
+      // floor / ceiling inside the current cell (floors may be raised, sunken or ramped)
       const tNext = Math.min(tMaxX, tMaxZ, maxDist);
       if (!this.solidCell(cx, cz)) {
-        const i2 = this.inBounds(cx, cz) ? cz * this.W + cx : -1;
-        const cellType = i2 >= 0 ? this.cells[i2] : C.SOLID;
-        const fy = cellType === C.PIT ? -PIT_DEPTH : cellType === C.LAVA ? -LAVA_DEPTH : 0;
-        const cy = i2 >= 0 ? this.ceil[i2] : 3;
-        if (dy < 0) {
-          const tf = (fy - oy) / dy;
-          if (tf >= t && tf <= tNext) return this._hit(tf, ox, oy, oz, dx, dy, dz, 0, 1, 0, cx, cz);
-        } else if (dy > 0) {
+        const i2 = cz * this.W + cx;
+        const cy = this.ceil[i2] || 3;
+        const xa = ox + dx * t, za = oz + dz * t, xb = ox + dx * tNext, zb = oz + dz * tNext;
+        const fA = this.cellFloor(i2, xa / TILE - cx, za / TILE - cz), fB = this.cellFloor(i2, xb / TILE - cx, zb / TILE - cz);
+        const yA = oy + dy * t, yB = oy + dy * tNext;
+        if (lastAxis >= 0 && yA < fA - 1e-3) {
+          // came in below this cell's floor: hit the step's riser
+          return this._hit(t, ox, oy, oz, dx, dy, dz, lastAxis === 0 ? -stepX : 0, 0, lastAxis === 1 ? -stepZ : 0, cx, cz);
+        }
+        if (lastAxis >= 0 && yA > cy + 1e-3) {
+          // came in above this cell's ceiling: hit the lintel / header
+          return this._hit(t, ox, oy, oz, dx, dy, dz, lastAxis === 0 ? -stepX : 0, 0, lastAxis === 1 ? -stepZ : 0, cx, cz);
+        }
+        const gA = yA - fA, gB = yB - fB;
+        if (gB < 0 && gA >= 0) {
+          const tf = t + (tNext - t) * (gA / (gA - gB || 1e-9));
+          return this._hit(tf, ox, oy, oz, dx, dy, dz, 0, 1, 0, cx, cz);
+        }
+        if (dy > 0 && yB > cy && yA <= cy) {
           const tc = (cy - oy) / dy;
-          if (tc >= t && tc <= tNext) return this._hit(tc, ox, oy, oz, dx, dy, dz, 0, -1, 0, cx, cz);
+          return this._hit(tc, ox, oy, oz, dx, dy, dz, 0, -1, 0, cx, cz);
         }
       } else if (lastAxis >= 0) {
         // entered a solid cell: wall hit
@@ -269,6 +306,7 @@ export class World {
   }
 
   reveal(x, z, radius = 4) {
+    const eyeY = this.floorAt(x, z) + 1.5;
     const cx = Math.floor(x / TILE), cz = Math.floor(z / TILE);
     const room = this.roomAt(x, z);
     if (room && !room.revealed) {
@@ -282,7 +320,7 @@ export class World {
       if (!this.inBounds(nx, nz) || dx * dx + dz * dz > radius * radius) continue;
       const i = nz * this.W + nx;
       if (this.seen[i]) continue;
-      if (this.los(x, 1.5, z, (nx + 0.5) * TILE, 1.5, (nz + 0.5) * TILE) || this.cells[i] === C.SOLID) {
+      if (this.cells[i] === C.SOLID || this.los(x, eyeY, z, (nx + 0.5) * TILE, this.baseAt((nx + 0.5) * TILE, (nz + 0.5) * TILE) + 1.5, (nz + 0.5) * TILE)) {
         // solid cells get revealed only if adjacent to a visible open cell
         if (this.cells[i] !== C.SOLID || this._nearOpenSeen(nx, nz)) this.seen[i] = 1;
       }

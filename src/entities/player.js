@@ -120,7 +120,7 @@ export class Player {
   }
 
   spawnAt(x, z, yaw = 0) {
-    this.pos.set(x, 0, z);
+    this.pos.set(x, this.game.world ? this.game.world.floorAt(x, z) : 0, z);
     this.vel.set(0, 0, 0);
     this.yaw = yaw;
     this.pitch = 0;
@@ -551,15 +551,21 @@ export class Player {
     // floor / ceiling
     const fy = world.floorAt(this.pos.x, this.pos.z);
     const wasGround = this.onGround;
-    if (this.pos.y <= fy && (prevY >= fy - 0.4 || fy === 0)) {
+    const cellHere = world.cellAt(this.pos.x, this.pos.z);
+    if (this.pos.y <= fy && prevY >= fy - 0.6) {
       if (!wasGround && this.vel.y < -4) {
         const p = Math.min(1, -this.vel.y / 14);
         this.landDip = Math.min(0.3, p * 0.3);
         this.audio.land(p);
-        if (this.vel.y < -12 && fy === 0) this._applyDamage(Math.round((-this.vel.y - 12) * 4), { type: 'fall' });
+        if (this.vel.y < -12 && cellHere === C.FLOOR) this._applyDamage(Math.round((-this.vel.y - 12) * 4), { type: 'fall' });
       }
       this.pos.y = fy;
       this.vel.y = Math.max(0, this.vel.y);
+      this.onGround = true;
+    } else if (wasGround && this.vel.y <= 0 && this.pos.y - fy < 0.4 && cellHere === C.FLOOR) {
+      // stay glued to the floor walking down stairs and ramps
+      this.pos.y = fy;
+      this.vel.y = 0;
       this.onGround = true;
     } else {
       this.onGround = this.pos.y <= fy + 0.01;
@@ -569,7 +575,7 @@ export class Player {
 
     // pits & lava
     const cell = world.cellAt(this.pos.x, this.pos.z);
-    if (cell === C.PIT && this.pos.y < -1.6) this._fallOut('pit');
+    if (cell === C.PIT && this.pos.y < world.baseAt(this.pos.x, this.pos.z) - 1.6) this._fallOut('pit');
     else if (cell === C.LAVA && this.pos.y <= fy + 0.05) this._fallOut('lava');
     if (this.onGround && cell === C.FLOOR) {
       this.safeTimer += dt;
@@ -584,7 +590,7 @@ export class Player {
       if (Math.floor(this.bob / Math.PI) !== this.lastStep) {
         this.lastStep = Math.floor(this.bob / Math.PI);
         this.audio.footstep(water ? 'water' : 'stone', Math.min(1, hs / 5));
-        if (water) game.fx.puff(_v.set(this.pos.x, 0.15, this.pos.z), _v2.set(0, 0.6, 0), 0x88bbcc, 0.5, 0.2, 0.6, 0.3);
+        if (water) game.fx.puff(_v.set(this.pos.x, this.pos.y + 0.15, this.pos.z), _v2.set(0, 0.6, 0), 0x88bbcc, 0.5, 0.2, 0.6, 0.3);
       }
     }
   }

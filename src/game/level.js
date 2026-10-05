@@ -6,6 +6,7 @@ import { World } from '../world/world.js';
 import { TILE, C } from '../world/constants.js';
 import { F } from '../world/dungeon-gen.js';
 import * as M from '../world/prop-meshes.js';
+import * as FU from '../world/furniture.js';
 import { harvestFlames, mergeStatic } from '../render/batching.js';
 import { Breakable, Chest, Door, Gate, SecretWall, Trap, Shrine, Shop, Pedestal, Exit } from '../world/props.js';
 import { Enemy, Corpse } from '../entities/enemy.js';
@@ -16,6 +17,14 @@ import { RNG } from '../core/rng.js';
 import { rand } from '../core/math.js';
 
 const _v = new THREE.Vector3();
+
+const ROOM_NAMES = {
+  foyer: 'Entrance Hall', hall: 'Gallery', greathall: 'Great Hall', dining: 'Dining Hall', library: 'Library', chapel: 'Chapel',
+  armory: 'Armoury', dormitory: 'Barracks', ruin: 'Collapsed Chamber', crypt: 'Crypt', kitchen: 'Kitchen', storeroom: 'Storeroom',
+  study: 'Study', prison: 'Cells', alchemy: 'Laboratory', workshop: 'Workshop', bath: 'Bathhouse', bedroom: 'Bedchamber',
+  latrine: 'Latrine', pantry: 'Pantry', throne: 'Throne Room', treasury: 'Treasury', stairs: 'Grand Staircase', shop: 'Merchant',
+  shrine: 'Shrine', secret: 'Hidden Chamber',
+};
 
 export class Level {
   constructor(game, dungeon) {
@@ -63,8 +72,10 @@ export class Level {
     this.meleeTargets = [];
     this.rng = new RNG(game.seed + '-level-' + game.floor);
 
+    this.roomBatches = new Map();
     this._buildLights(built);
     this._spawnEntities();
+    this._flushBatches();
   }
 
   // ------------------------------------------------------------ construction
@@ -77,17 +88,14 @@ export class Level {
       raw.rotation.y = Math.atan2(t.nx, t.nz);
       raw.updateMatrixWorld(true);
       const lp = raw.localToWorld(raw.userData.lightOffset.clone());
-      harvestFlames(raw, this.game.flames);
-      const m = mergeStatic(raw);
-      this.group.add(m);
-      this.cullables.push(m);
+      this._addStatic(raw, this.world.roomAt(t.x, t.z)?.id ?? -1);
       r.addLightSource(lp, theme.torch, 26, 14, 0.8);
     }
     // lava glow
     if (built.lavaCells && built.lavaCells.length) {
       for (let i = 0; i < built.lavaCells.length; i += 5) {
         const [x, y] = built.lavaCells[i];
-        r.addLightSource(new THREE.Vector3((x + 0.5) * TILE, 0.3, (y + 0.5) * TILE), 0xff5a1a, 14, 8, 0.5);
+        r.addLightSource(new THREE.Vector3((x + 0.5) * TILE, this.d.floorH[y * this.d.W + x] + 0.3, (y + 0.5) * TILE), 0xff5a1a, 14, 8, 0.5);
       }
     }
   }
@@ -181,7 +189,7 @@ export class Level {
           break;
         }
         case 'loot': {
-          const pos = new THREE.Vector3(e.x, 0.5, e.z);
+          const pos = new THREE.Vector3(e.x, this.world.floorAt(e.x, e.z) + 0.5, e.z);
           if (e.what === 'gold') game.loot.spawnGold(pos, 3 + game.floor * 2);
           else game.loot.spawnSmall('potion', pos);
           break;
@@ -192,60 +200,159 @@ export class Level {
     }
   }
 
+  // Static decor is gathered per room and merged into one batch per room (a few draws per material).
+  _addStatic(m, roomId) {
+    harvestFlames(m, this.game.flames);
+    if (roomId === undefined || roomId === null || roomId < 0) {
+      const merged = mergeStatic(m);
+      this.group.add(merged);
+      this.cullables.push(merged);
+      return;
+    }
+    if (!this.roomBatches.has(roomId)) this.roomBatches.set(roomId, new THREE.Group());
+    this.roomBatches.get(roomId).add(m);
+  }
+
+  _flushBatches() {
+    for (const [roomId, g] of this.roomBatches) {
+      const r = this.d.rooms[roomId];
+      const out = mergeStatic(g);
+      out.userData = {
+        center: new THREE.Vector3((r.x + r.w / 2) * TILE, 0, (r.y + r.h / 2) * TILE),
+        radius: Math.hypot(r.w, r.h) * TILE * 0.5 + 1,
+      };
+      this.group.add(out);
+      this.cullables.push(out);
+    }
+    this.roomBatches.clear();
+  }
+
+  _light(m, color, intensity, range, flicker = 0.6) {
+    const off = m.userData.lightOffset;
+    if (!off) return;
+    m.updateMatrixWorld(true);
+    this.game.renderer.addLightSource(m.localToWorld(off.clone()), color, intensity, range, flicker);
+  }
+
   _decor(e, room) {
     const mats = this.mats;
+    const world = this.world;
     let m = null;
     let obstacle = null;
     const rot = e.rot || 0;
+    const fy = world.floorAt(e.x, e.z);
     const boxObs = (w, dpt, h = 2) => {
       const alongX = Math.abs(Math.sin(rot)) < 0.5;
       const hx = alongX ? w / 2 : dpt / 2, hz = alongX ? dpt / 2 : w / 2;
       return { type: 'box', x0: e.x - hx, z0: e.z - hz, x1: e.x + hx, z1: e.z + hz, h };
     };
+    const circ = (r, h) => ({ type: 'circle', x: e.x, z: e.z, r, h });
+    const roomId = e.roomId ?? (room ? room.id : -1);
+    // things hung on a wall: their back sits on the wall plane
+    const wall = (mm) => {
+      mm.position.set(e.wallX ?? e.x, e.fy ?? fy, e.wallZ ?? e.z);
+      mm.rotation.y = rot;
+      this._addStatic(mm, roomId);
+    };
+    let light = null;
     switch (e.type) {
-      case 'column': m = M.makeColumn(room ? room.ceil : 4, mats); obstacle = { type: 'circle', x: e.x, z: e.z, r: 0.48, h: 10 }; break;
+      case 'column': {
+        const h = e.h ?? (room ? room.ceil - fy : 4);
+        m = e.slim ? FU.makeSlimColumn(h, mats) : M.makeColumn(h, mats);
+        obstacle = circ(e.slim ? 0.32 : 0.48, 10);
+        break;
+      }
       case 'brazier': {
         m = M.makeBrazier(this.theme.torch);
-        obstacle = { type: 'circle', x: e.x, z: e.z, r: 0.45, h: 1.1 };
-        this.game.renderer.addLightSource(new THREE.Vector3(e.x, 1.8, e.z), this.theme.torch, 34, 16, 1);
+        obstacle = circ(0.45, 1.1);
+        this.game.renderer.addLightSource(new THREE.Vector3(e.x, fy + 1.8, e.z), this.theme.torch, 34, 16, 1);
         break;
       }
       case 'candles': {
         m = M.makeCandles(Math.floor(rand(3, 6)), 0xffb060);
-        this.game.renderer.addLightSource(new THREE.Vector3(e.x, 0.8, e.z), 0xffaa55, 6, 6, 0.6);
+        this.game.renderer.addLightSource(new THREE.Vector3(e.x, fy + 0.8, e.z), 0xffaa55, 6, 6, 0.6);
         break;
       }
-      case 'table': m = M.makeTable(); obstacle = boxObs(1.8, 0.95, 0.9); break;
-      case 'bookshelf': m = M.makeBookshelf(); obstacle = boxObs(2.1, 0.5, 2.5); break;
+      case 'table': m = FU.makeDressedTable(e) || M.makeTable(); obstacle = boxObs(1.8, 0.95, 0.9); break;
+      case 'bookshelf':
+        if (e.double) { m = FU.makeDoubleBookshelf(); obstacle = boxObs(2.1, 0.95, 2.5); }
+        else { m = M.makeBookshelf(); obstacle = boxObs(2.1, 0.5, 2.5); }
+        break;
       case 'sarcophagus': m = M.makeSarcophagus(mats); obstacle = boxObs(1.1, 2.3, 1.1); break;
-      case 'statue': m = M.makeStatue(mats); obstacle = { type: 'circle', x: e.x, z: e.z, r: 0.5, h: 2.8 }; break;
+      case 'statue': m = M.makeStatue(mats); obstacle = circ(0.5, 2.8); break;
       case 'weaponRack': m = M.makeWeaponRack(); obstacle = boxObs(1.4, 0.4, 1.5); break;
-      case 'banner': {
-        m = M.makeBanner();
-        m.position.set(e.wallX ?? e.x, 0, e.wallZ ?? e.z);
-        m.rotation.y = rot;
-        m = mergeStatic(m);
-        this.group.add(m);
-        this.cullables.push(m);
+      case 'banner': wall(M.makeBanner()); return;
+      case 'painting': wall(FU.makePainting(e.seed ?? Math.floor(Math.random() * 99))); return;
+      case 'shield': wall(FU.makeShieldDecor(e.seed ?? 0)); return;
+      case 'pans': wall(FU.makePans()); return;
+      case 'shackles': wall(FU.makeShackles()); return;
+      case 'chains': {
+        m = M.makeChains(rand(1.2, 2.4));
+        m.position.set(e.x, e.y ?? (room ? room.ceil : fy + 4), e.z);
+        this._addStatic(m, roomId);
         return;
       }
-      case 'chains': m = M.makeChains(rand(1.2, 2.4)); m.position.y = e.y ?? (room ? room.ceil : 4); break;
-      case 'cobweb': m = M.makeCobweb(); m.position.y = (e.y ?? (room ? room.ceil : 4)) - 0.02; break;
+      case 'cobweb': {
+        m = M.makeCobweb();
+        m.position.set(e.x, (e.y ?? (room ? room.ceil : fy + 4)) - 0.02, e.z);
+        m.rotation.y = rot;
+        this._addStatic(m, roomId);
+        return;
+      }
+      case 'chandelier': {
+        const top = e.y ?? (room ? room.ceil : fy + 5);
+        const hang = Math.min(2.2, top - fy - 3.4);
+        if (hang < 0.3) return;
+        m = FU.makeChandelier(hang);
+        m.position.set(e.x, top, e.z);
+        this._light(m, 0xffb878, 30, 15, 0.4);
+        this._addStatic(m, roomId);
+        return;
+      }
       case 'bones': m = M.makeBones(); break;
-      case 'cage': m = M.makeCage(); obstacle = { type: 'circle', x: e.x, z: e.z, r: 0.55, h: 2 }; break;
-      case 'rug': m = M.makeRug(e.w || 3, e.h || 2); break;
-      case 'pot': break;
+      case 'cage': m = M.makeCage(); obstacle = circ(0.55, 2); break;
+      case 'rug': case 'runner': {
+        m = M.makeRug(e.w || 3, e.h || 2, e.type === 'runner');
+        m.position.set(e.x, fy + 0.01, e.z);
+        m.rotation.z = rot;
+        this._addStatic(m, roomId);
+        return;
+      }
+      case 'bed': m = FU.makeBed(); obstacle = boxObs(1.3, 2.1, 0.7); break;
+      case 'bunk': m = FU.makeBunk(); obstacle = boxObs(1.05, 2.1, 2.0); break;
+      case 'wardrobe': m = FU.makeWardrobe(); obstacle = boxObs(1.3, 0.65, 2.3); break;
+      case 'nightstand': m = FU.makeNightstand(); obstacle = boxObs(0.56, 0.5, 0.65); light = [0xffaa55, 5, 5]; break;
+      case 'desk': m = FU.makeDesk(); obstacle = boxObs(1.45, 0.75, 0.85); light = [0xffaa55, 6, 6]; break;
+      case 'shelf': m = FU.makeShelf(); obstacle = boxObs(1.9, 0.5, 2); break;
+      case 'sacks': m = FU.makeSacks(); obstacle = circ(0.45, 0.8); break;
+      case 'counter': m = FU.makeCounter(); obstacle = boxObs(2.3, 0.8, 1.0); break;
+      case 'hearth': m = FU.makeHearth(mats); obstacle = boxObs(2.3, 0.95, 2.5); light = [0xff8a3a, 30, 13, 1]; break;
+      case 'cauldron': m = FU.makeCauldron(room && room.func === 'alchemy'); obstacle = circ(0.62, 1.0); light = [room && room.func === 'alchemy' ? 0x6aff8a : 0xff8a3a, 12, 7, 1]; break;
+      case 'longtable': m = FU.makeLongTable(e.len || 4, e.feast); obstacle = boxObs(2.3, e.len || 4, 0.9); break;
+      case 'bench': m = FU.makeBench(); obstacle = boxObs(1.6, 0.45, 0.5); break;
+      case 'privy': m = FU.makePrivy(); obstacle = boxObs(1.12, 1.0, 1.7); break;
+      case 'bucket': m = FU.makeBucket(); obstacle = circ(0.2, 0.4); break;
+      case 'bathtub': m = FU.makeBathtub(); obstacle = boxObs(1.7, 1.0, 0.65); break;
+      case 'pew': m = FU.makePew(); obstacle = boxObs(2.1, 0.6, 1.15); break;
+      case 'altar': m = FU.makeAltar(mats); obstacle = boxObs(2.0, 1.0, 1.1); light = [0xffb060, 10, 8]; break;
+      case 'armorStand': m = FU.makeArmorStand(); obstacle = circ(0.35, 1.9); break;
+      case 'anvil': m = FU.makeAnvil(); obstacle = circ(0.4, 0.95); break;
+      case 'throne': m = FU.makeThrone(mats); obstacle = boxObs(1.6, 1.3, 2.6); break;
+      case 'bust': m = FU.makeBust(mats); obstacle = circ(0.3, 1.8); break;
+      case 'alchemy': m = FU.makeAlchemy(); obstacle = boxObs(1.85, 0.8, 0.95); light = [0x6ab0ff, 7, 5]; break;
+      case 'straw': m = FU.makeStraw(); break;
+      case 'dummy': m = FU.makeDummy(); obstacle = circ(0.35, 1.8); break;
+      case 'bookpile': m = FU.makeBookPile(); break;
+      case 'globe': m = FU.makeGlobe(); obstacle = circ(0.32, 1.4); break;
+      case 'coinpile': m = FU.makeCoinPile(); obstacle = circ(0.55, 0.35); break;
       default: return;
     }
     if (!m) return;
     const y = m.position.y;
-    m.position.set(e.x, y, e.z);
-    if (e.type !== 'rug') m.rotation.y = rot;
-    else m.rotation.z = rot;
-    harvestFlames(m, this.game.flames);
-    if (e.type !== 'rug') m = mergeStatic(m);
-    this.group.add(m);
-    this.cullables.push(m);
+    m.position.set(e.x, fy + y, e.z);
+    m.rotation.y = rot;
+    if (light) this._light(m, light[0], light[1], light[2], light[3] ?? 0.6);
+    this._addStatic(m, roomId);
     if (obstacle) this.addObstacle(obstacle);
   }
 
@@ -287,7 +394,15 @@ export class Level {
   // ------------------------------------------------------------ obstacles
   _cellKey(cx, cz) { return cx * 1000 + cz; }
 
+  // o.h is a height above the local floor unless o.abs is set; it becomes an absolute top (and o.y0 a bottom)
   addObstacle(o) {
+    if (!o.abs) {
+      const cx = o.type === 'circle' ? o.x : (o.x0 + o.x1) / 2, cz = o.type === 'circle' ? o.z : (o.z0 + o.z1) / 2;
+      const fy = this.world.floorAt(cx, cz);
+      o.y0 = fy;
+      o.h = fy + (o.h ?? 2);
+      o.abs = true;
+    }
     this.obstacles.push(o);
     const x0 = o.type === 'circle' ? o.x - o.r : o.x0, x1 = o.type === 'circle' ? o.x + o.r : o.x1;
     const z0 = o.type === 'circle' ? o.z - o.r : o.z0, z1 = o.type === 'circle' ? o.z + o.r : o.z1;
@@ -322,7 +437,7 @@ export class Level {
   collideObstacles(pos, r, prev = null) {
     const set = this._nearObstacles(pos.x, pos.z, r, this._tmpSet || (this._tmpSet = new Set()));
     for (const o of set) {
-      if (pos.y > (o.h ?? 2) + 0.2) continue;
+      if (pos.y > (o.h ?? 2) + 0.2 || pos.y + 1.6 < (o.y0 ?? -99)) continue;
       if (o.type === 'circle') {
         const dx = pos.x - o.x, dz = pos.z - o.z;
         const rr = r + o.r;
@@ -378,7 +493,7 @@ export class Level {
           const tt = (-b - Math.sqrt(disc)) / a;
           if (tt < 0 || tt > maxD) continue;
           const hy = o.y + d.y * tt;
-          if (hy > (ob.h ?? 2) || hy < 0) continue;
+          if (hy > (ob.h ?? 2) || hy < (ob.y0 ?? 0)) continue;
           const hx = o.x + d.x * tt, hz = o.z + d.z * tt;
           const nl = Math.hypot(hx - ob.x, hz - ob.z) || 1;
           hit = { dist: tt, x: hx, y: hy, z: hz, nx: (hx - ob.x) / nl, nz: (hz - ob.z) / nl, obstacle: ob };
@@ -394,7 +509,7 @@ export class Level {
           }
           if (tmin <= tmax && tmin > 0 && tmin <= maxD) {
             const hy = o.y + d.y * tmin;
-            if (hy <= (ob.h ?? 2) && hy >= 0) hit = { dist: tmin, x: o.x + d.x * tmin, y: hy, z: o.z + d.z * tmin, nx, nz, obstacle: ob };
+            if (hy <= (ob.h ?? 2) && hy >= (ob.y0 ?? 0)) hit = { dist: tmin, x: o.x + d.x * tmin, y: hy, z: o.z + d.z * tmin, nx, nz, obstacle: ob };
           }
         }
         if (hit && (!best || hit.dist < best.dist)) best = hit;
@@ -471,7 +586,7 @@ export class Level {
       const to = _v.subVectors(sw.pos, eye).setY(0);
       if (to.length() > 2.6) continue;
       if (to.normalize().dot(new THREE.Vector3(fwd.x, 0, fwd.z).normalize()) < 0.6) continue;
-      sw.hit(this.game, sw.pos.clone().sub(to.multiplyScalar(1.2)).setY(1.1), 1);
+      sw.hit(this.game, sw.pos.clone().sub(to.multiplyScalar(1.2)).setY(this.world.floorAt(sw.pos.x, sw.pos.z) + 1.1), 1);
       return true;
     }
     return false;
@@ -504,7 +619,7 @@ export class Level {
     // temporary gates on every entrance of the room
     const game = this.game;
     for (const e of this.d.entrances) {
-      if (e.roomId !== room.id || e.valid === false) continue;
+      if ((e.roomId !== room.id && e.other !== room.id) || e.valid === false) continue;
       let gate = this.gates.find((g) => g.cx === e.cx && g.cy === e.cy);
       if (!gate) {
         const door = this.doors.find((d) => d.cx === e.cx && d.cy === e.cy);
@@ -513,12 +628,13 @@ export class Level {
         this.gates.push(gate);
         this.updatables.push(gate);
       }
+      gate.closedBy = room.id;
       gate.close(game);
     }
   }
 
   _openRoom(room) {
-    for (const g of this.gates) if (g.roomId === room.id) g.open(this.game);
+    for (const g of this.gates) if (g.roomId === room.id || g.closedBy === room.id) { g.closedBy = null; g.open(this.game); }
   }
 
   _roomAlive(roomId) {
@@ -551,6 +667,8 @@ export class Level {
     }
     st.entered = true;
     if (room.type === 'secret') game.stats.secretsVisited++;
+    const name = ROOM_NAMES[room.type === 'secret' ? 'secret' : room.func];
+    if (name && !['arena', 'miniboss', 'boss', 'start'].includes(room.type)) game.ui.location(name);
     if (room.type === 'arena' || room.type === 'miniboss') {
       const waves = this.pendingWaves.get(room.id) || [];
       if (!waves.length) return;
@@ -651,7 +769,10 @@ export class Level {
     this._cullT = (this._cullT || 0) - dt;
     if (this._cullT <= 0) {
       this._cullT = 0.25;
-      for (const m of this.cullables) m.visible = m.position.distanceToSquared(cam) < 44 * 44;
+      for (const m of this.cullables) {
+        const c = m.userData.center, rr = m.userData.radius || 0;
+        m.visible = (c ? Math.max(0, c.distanceTo(cam) - rr) : m.position.distanceTo(cam)) < 44;
+      }
     }
     if (this.lava) this.lava.material.emissiveMap.offset.set(t * 0.02, t * 0.015);
     if (this.water) this.water.material.normalMap.offset.set(t * 0.02, t * 0.03);
@@ -704,8 +825,8 @@ export class Level {
           game.ui.toast(`Trial wave ${ch.wave}/${ch.waves}`, 'info');
         } else {
           this._openRoom(ch.room);
-          game.loot.dropGear(ch.shrine.pos.clone().setY(1.5), 2);
-          game.loot.dropRelic(ch.shrine.pos.clone().setY(1.5), 1);
+          game.loot.dropGear(ch.shrine.pos.clone().setY(this.world.floorAt(ch.shrine.pos.x, ch.shrine.pos.z) + 1.5), 2);
+          game.loot.dropRelic(ch.shrine.pos.clone().setY(this.world.floorAt(ch.shrine.pos.x, ch.shrine.pos.z) + 1.5), 1);
           game.ui.banner('TRIAL COMPLETE', 'The obelisk rewards your bloodshed');
           game.audio.victory();
           this.challenge = null;

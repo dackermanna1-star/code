@@ -469,7 +469,7 @@ export class Game {
           if (!this.level || p.dead) return;
           if (p.onGround && p.vel.y <= 0) {
             explode(this, p.pos.clone().add(new THREE.Vector3(0, 0.3, 0)), 4.5, Math.round(dmg * 2 + 15), { hurtsPlayer: false, color: 0xd8c8a8, knock: 14 });
-            this.fx.debris(p.pos.clone().setY(0.2), 'stone', 20, 6);
+            this.fx.debris(p.pos.clone().setY(p.pos.y + 0.2), 'stone', 20, 6);
             p.addTrauma(0.5);
             return;
           }
@@ -497,7 +497,7 @@ export class Game {
           const to = _v.subVectors(e.chestPos(), eye);
           const d = to.length();
           if (d > bd || to.normalize().dot(f) < 0.8) continue;
-          if (!this.world.los(eye.x, eye.y, eye.z, e.pos.x, 1.2, e.pos.z)) continue;
+          if (!this.world.los(eye.x, eye.y, eye.z, e.pos.x, e.pos.y + 1.2, e.pos.z)) continue;
           best = e; bd = d;
         }
         if (!best) { this.fx.lightning(eye.clone().addScaledVector(f, 0.5), eye.clone().addScaledVector(f, 6)); audio.zap(eye); break; }

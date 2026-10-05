@@ -93,7 +93,25 @@ export function buildDungeonMeshes(d, mats, shared) {
     const i = idx(cx, cy);
     return cells[i] === C.SOLID || (flags[i] & F.SECRET) !== 0;
   };
-  const floorY = (t) => (t === C.PIT ? -PIT_DEPTH : t === C.LAVA ? -LAVA_DEPTH - 0.6 : 0);
+  const floorH = d.floorH || new Float32Array(W * H);
+  const stairDir = d.stairDir || new Int8Array(W * H);
+  const stairRise = d.stairRise || new Float32Array(W * H);
+  // floor height inside cell i at fractions (fx, fz); pits/lava drop below the cell's base height
+  const cellFloor = (i, fx, fz) => {
+    let h = floorH[i];
+    const sd = stairDir[i];
+    if (sd) h += stairRise[i] * (sd === 1 ? fx : sd === 2 ? 1 - fx : sd === 3 ? fz : 1 - fz);
+    const t = cells[i];
+    if (t === C.PIT) return h - PIT_DEPTH;
+    if (t === C.LAVA) return h - LAVA_DEPTH - 0.6;
+    return h;
+  };
+  // height along the shared edge toward (dx, dy): low and high ends
+  const edgeRange = (i, dx, dy) => {
+    const pts = dx === 1 ? [[1, 0], [1, 1]] : dx === -1 ? [[0, 0], [0, 1]] : dy === 1 ? [[0, 1], [1, 1]] : [[0, 0], [1, 0]];
+    const a = cellFloor(i, pts[0][0], pts[0][1]), b = cellFloor(i, pts[1][0], pts[1][1]);
+    return [Math.min(a, b), Math.max(a, b)];
+  };
 
   const floorGeo = new Geo();
   const wallGeo = new Geo();
@@ -117,30 +135,56 @@ export function buildDungeonMeshes(d, mats, shared) {
   const pitSpikePositions = [];
   const lavaCells = [];
 
+  // a flight of steps filling one cell, climbing toward stairDir
+  const steps = (i, x0, z0, tone) => {
+    const sd = stairDir[i], rise = stairRise[i], h0 = floorH[i];
+    const n = Math.max(2, Math.round(rise / 0.19));
+    const depth = TILE / n, sh = rise / n;
+    const ao = floorAO(0.95, tone);
+    const uvf = (px, py, pz) => [px / (TILE * 2) + py * 0.3, pz / (TILE * 2) + py * 0.3];
+    for (let k = 0; k < n; k++) {
+      const yTop = h0 + sh * (k + 1);
+      const a = k * depth, b = (k + 1) * depth;
+      // tread & riser in cell-local "up the stairs" coordinates mapped to world axes
+      if (sd === 1 || sd === 2) {
+        const xa = sd === 1 ? x0 + a : x0 + TILE - b, xb = sd === 1 ? x0 + b : x0 + TILE - a;
+        floorGeo.patch([xa, yTop, z0], [1, 0, 0], [0, 0, 1], [0, xb - xa], [0, TILE], [0, 1, 0], uvf, ao);
+        const xr = sd === 1 ? xa : xb;
+        floorGeo.patch([xr, yTop - sh, z0], [0, 0, 1], [0, 1, 0], [0, TILE], [0, sh], [sd === 1 ? -1 : 1, 0, 0], (px, py, pz) => [pz / TILE, py / TILE], () => 0.62 * tone);
+      } else {
+        const za = sd === 3 ? z0 + a : z0 + TILE - b, zb = sd === 3 ? z0 + b : z0 + TILE - a;
+        floorGeo.patch([x0, yTop, za], [1, 0, 0], [0, 0, 1], [0, TILE], [0, zb - za], [0, 1, 0], uvf, ao);
+        const zr = sd === 3 ? za : zb;
+        floorGeo.patch([x0, yTop - sh, zr], [1, 0, 0], [0, 1, 0], [0, TILE], [0, sh], [0, 0, sd === 3 ? -1 : 1], (px, py, pz) => [px / TILE, py / TILE], () => 0.62 * tone);
+      }
+    }
+  };
+
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const t = at(x, y);
       if (t === C.SOLID) continue;
       const i = idx(x, y);
       const x0 = x * TILE, z0 = y * TILE;
-      const fy = floorY(t);
+      const fy = cellFloor(i, 0.5, 0.5);
+      const fLow = stairDir[i] ? floorH[i] : fy;
       const cy = ceil[i] || 3.4;
       const tone = 0.86 + hash(x, y) * 0.2;
       const geo = t === C.FLOOR ? floorGeo : pitGeo;
       // floor
-      geo.patch([x0, fy, z0], [1, 0, 0], [0, 0, 1], sub, sub, [0, 1, 0], (px, py, pz) => [px / (TILE * 2), pz / (TILE * 2)], floorAO(t === C.FLOOR ? 0.95 : 0.5, t === C.FLOOR ? tone : 0.6));
+      if (stairDir[i] && t === C.FLOOR) steps(i, x0, z0, tone);
+      else geo.patch([x0, fy, z0], [1, 0, 0], [0, 0, 1], sub, sub, [0, 1, 0], (px, py, pz) => [px / (TILE * 2), pz / (TILE * 2)], floorAO(t === C.FLOOR ? 0.95 : 0.5, t === C.FLOOR ? tone : 0.6));
       // ceiling
       ceilGeo.patch([x0, cy, z0], [1, 0, 0], [0, 0, 1], sub, sub, [0, -1, 0], (px, py, pz) => [px / 4, pz / 4], floorAO(0.7, 0.9 + hash(y, x) * 0.15));
       if (t === C.PIT) for (let k = 0; k < 7; k++) pitSpikePositions.push([x0 + 0.3 + hash(x * 3 + k, y) * (TILE - 0.6), fy, z0 + 0.3 + hash(x, y * 5 + k) * (TILE - 0.6)]);
       if (t === C.LAVA) lavaCells.push([x, y]);
-      if (flags[i] & F.WATER) waterGeo.patch([x0, 0.12, z0], [1, 0, 0], [0, 0, 1], [0, TILE], [0, TILE], [0, 1, 0], (px, py, pz) => [px / 6, pz / 6], null);
+      if (flags[i] & F.WATER) waterGeo.patch([x0, floorH[i] + 0.12, z0], [1, 0, 0], [0, 0, 1], [0, TILE], [0, TILE], [0, 1, 0], (px, py, pz) => [px / 6, pz / 6], null);
 
       // walls on each side
       for (const [dx, dy] of DIRS) {
         const nx = x + dx, ny = y + dy;
         const nt = at(nx, ny);
         const ni = nx >= 0 && ny >= 0 && nx < W && ny < H ? idx(nx, ny) : -1;
-        // boundary plane & tangent
         let o, ua, n;
         if (dx === 1) { o = [x0 + TILE, 0, z0]; ua = [0, 0, 1]; n = [-1, 0, 0]; }
         else if (dx === -1) { o = [x0, 0, z0]; ua = [0, 0, 1]; n = [1, 0, 0]; }
@@ -152,7 +196,6 @@ export function buildDungeonMeshes(d, mats, shared) {
           const fb = Math.min(1, Math.max(0, (py - yb) / 0.9));
           const ft = Math.min(1, Math.max(0, (yt - py) / 0.8));
           let ao = (0.45 + 0.55 * fb * fb * (3 - 2 * fb)) * (0.7 + 0.3 * ft);
-          // inner corners
           const sx = px + n[0] * 0.3, sz = pz + n[2] * 0.3;
           if (solidAO(sx + ua[0] * 0.35, sz + ua[2] * 0.35) || solidAO(sx - ua[0] * 0.35, sz - ua[2] * 0.35)) ao *= 0.72;
           return ao;
@@ -162,19 +205,21 @@ export function buildDungeonMeshes(d, mats, shared) {
           const vs = yt - yb > 1.8 ? [0, 0.7, yt - yb - 0.6, yt - yb] : [0, yt - yb];
           g.patch([o[0], yb, o[2]], ua, [0, 1, 0], [0, 0.45, TILE - 0.45, TILE], vs, n, uvw, wallAO(yb, yt));
         };
+        const [eLo] = edgeRange(i, dx, dy);
         if (nt === C.SOLID) {
-          addWall(wallGeo, fy, cy);
+          addWall(wallGeo, Math.min(fLow, eLo), cy);
           // skirting trim in rooms
-          if (roomOf[i] >= 0 && t === C.FLOOR) {
+          if (roomOf[i] >= 0 && t === C.FLOOR && !stairDir[i]) {
             const off = 0.07, th = 0.3;
             const ox = o[0] + n[0] * off, oz = o[2] + n[2] * off;
             trimGeo.patch([ox, fy, oz], ua, [0, 1, 0], [0, TILE], [0, th], n, uvw, (px, py) => (py < fy + 0.05 ? 0.5 : 0.85));
             trimGeo.patch([o[0], fy + th, o[2]], ua, [n[0], 0, n[2]], [0, TILE], [0, off], [0, 1, 0], uvw, null);
           }
         } else {
-          const nfy = floorY(nt);
-          // step down into pit / lava
-          if (nfy > fy + 0.01) addWall(t === C.FLOOR ? wallGeo : pitGeo, fy, nfy);
+          // step up to a higher neighbour (dais, pit rim, ramp side): riser on this side
+          const [nLo, nHi] = edgeRange(ni, -dx, -dy);
+          const [myLo, myHi] = edgeRange(i, dx, dy);
+          if (nLo > myHi + 0.01 || (nHi > myHi + 0.01 && Math.abs(nLo - myLo) > 0.01)) addWall(t === C.FLOOR ? wallGeo : pitGeo, myLo, nHi);
           // ceiling height change
           const ncy = ceil[ni] || 3.4;
           if (ncy < cy - 0.01) {
@@ -192,7 +237,7 @@ export function buildDungeonMeshes(d, mats, shared) {
     for (let y = r.y; y < r.y + r.h; y++) {
       for (let x = r.x; x < r.x + r.w; x++) {
         if (at(x, y) !== C.FLOOR || roomOf[idx(x, y)] !== r.id) continue;
-        const fy = 0, cy = r.ceil;
+        const fy = r.floorY ?? 0, cy = r.ceil;
         // vertical walls (x boundaries)
         for (const [dx, dy] of DIRS) {
           if (at(x + dx, y + dy) !== C.SOLID) continue;
@@ -251,15 +296,19 @@ export function buildDungeonMeshes(d, mats, shared) {
     else if (e.side === 'W') { bx = (e.cx + 1) * TILE; bz = e.cy * TILE; }
     else if (e.side === 'S') { bx = e.cx * TILE; bz = e.cy * TILE; }
     else { bx = e.cx * TILE; bz = (e.cy + 1) * TILE; }
-    const post = 0.42, depth = 0.32, top = 2.95, lintelTop = Math.min(3.4, r.ceil);
+    // the frame stands on the owning room's floor at the doorway
+    const inner = e.side === 'E' ? [e.cx - 1, e.cy] : e.side === 'W' ? [e.cx + 1, e.cy] : e.side === 'S' ? [e.cx, e.cy - 1] : [e.cx, e.cy + 1];
+    const fb = Math.min(floorH[idx(inner[0], inner[1])], floorH[idx(e.cx, e.cy)] + (e.stair ? stairRise[idx(e.cx, e.cy)] : 0));
+    const post = 0.42, depth = 0.32, top = fb + 2.95, lintelTop = Math.min(fb + 3.4, r.ceil, ceil[idx(e.cx, e.cy)]);
+    const y0 = Math.min(fb, floorH[idx(e.cx, e.cy)]);
     if (e.side === 'E' || e.side === 'W') {
-      trimGeo.box(bx - depth, 0, bz, bx + depth, lintelTop, bz + post, 1 / TILE, 0.55);
-      trimGeo.box(bx - depth, 0, bz + TILE - post, bx + depth, lintelTop, bz + TILE, 1 / TILE, 0.55);
+      trimGeo.box(bx - depth, y0, bz, bx + depth, lintelTop, bz + post, 1 / TILE, 0.55);
+      trimGeo.box(bx - depth, y0, bz + TILE - post, bx + depth, lintelTop, bz + TILE, 1 / TILE, 0.55);
       trimGeo.box(bx - depth, top, bz + post, bx + depth, lintelTop + 0.02, bz + TILE - post, 1 / TILE, 1);
       trimGeo.patch([bx - depth, top, bz + post], [1, 0, 0], [0, 0, 1], [0, depth * 2], [0, TILE - post * 2], [0, -1, 0], (px, py, pz) => [px / TILE, pz / TILE], null);
     } else {
-      trimGeo.box(bx, 0, bz - depth, bx + post, lintelTop, bz + depth, 1 / TILE, 0.55);
-      trimGeo.box(bx + TILE - post, 0, bz - depth, bx + TILE, lintelTop, bz + depth, 1 / TILE, 0.55);
+      trimGeo.box(bx, y0, bz - depth, bx + post, lintelTop, bz + depth, 1 / TILE, 0.55);
+      trimGeo.box(bx + TILE - post, y0, bz - depth, bx + TILE, lintelTop, bz + depth, 1 / TILE, 0.55);
       trimGeo.box(bx + post, top, bz - depth, bx + TILE - post, lintelTop + 0.02, bz + depth, 1 / TILE, 1);
       trimGeo.patch([bx + post, top, bz - depth], [1, 0, 0], [0, 0, 1], [0, TILE - post * 2], [0, depth * 2], [0, -1, 0], (px, py, pz) => [px / TILE, pz / TILE], null);
     }
@@ -267,7 +316,7 @@ export function buildDungeonMeshes(d, mats, shared) {
 
   // lava surface
   for (const [x, y] of lavaCells) {
-    lavaGeo.patch([x * TILE, -LAVA_DEPTH, y * TILE], [1, 0, 0], [0, 0, 1], [0, TILE], [0, TILE], [0, 1, 0], (px, py, pz) => [px / 5, pz / 5], null);
+    lavaGeo.patch([x * TILE, floorH[idx(x, y)] - LAVA_DEPTH, y * TILE], [1, 0, 0], [0, 0, 1], [0, TILE], [0, TILE], [0, 1, 0], (px, py, pz) => [px / 5, pz / 5], null);
   }
 
   const group = new THREE.Group();

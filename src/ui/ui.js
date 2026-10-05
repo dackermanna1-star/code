@@ -87,13 +87,14 @@ export class UI {
     this.bossBar = h('div', { class: 'bossbar hidden' }, h('div', { class: 'name' }), h('div', { class: 'bar' }, h('div', { class: 'lag' }), h('div', { class: 'fill' })));
     this.toasts = h('div', { class: 'toasts' });
     this.bannerEl = h('div', { class: 'banner hidden' }, h('div', { class: 'title' }), h('div', { class: 'sub' }));
+    this.locationEl = h('div', { class: 'location' });
     this.multiEl = h('div', { class: 'multikill hidden' });
     this.introEl = h('div', { class: 'floor-intro hidden' }, h('div', { class: 'depthnum' }), h('div', { class: 'name' }));
     this.barsEl = h('div', { class: 'enemy-bars' });
     this.fade = h('div', { class: 'fade' });
     this.hurtEl = h('div', { class: 'hurt' });
     this.bigMap = h('canvas', { class: 'bigmap hidden', width: 900, height: 900 });
-    hud.append(this.barsEl, this.crosshair, this.prompt, this.tooltip, this.bossBar, this.toasts, this.bannerEl, this.multiEl, this.introEl, this.hurtEl, this.bigMap);
+    hud.append(this.barsEl, this.crosshair, this.prompt, this.tooltip, this.bossBar, this.toasts, this.locationEl, this.bannerEl, this.multiEl, this.introEl, this.hurtEl, this.bigMap);
     this.root.append(hud, this.fade);
   }
 
@@ -392,6 +393,15 @@ export class UI {
     setTimeout(() => el.remove(), 3800);
   }
 
+  // the name of the room you just walked into, faded in under the top of the screen
+  location(name) {
+    const el = this.locationEl;
+    el.textContent = name;
+    el.classList.add('show');
+    clearTimeout(this._locT);
+    this._locT = setTimeout(() => el.classList.remove('show'), 2600);
+  }
+
   banner(title, sub = '', dur = 2.6) {
     const el = this.bannerEl;
     el.querySelector('.title').textContent = title;
@@ -662,10 +672,20 @@ export class UI {
     const ctx = canvas.getContext('2d');
     const Wc = canvas.width, Hc = canvas.height;
     ctx.clearRect(0, 0, Wc, Hc);
-    const cell = big ? Math.min(Wc / world.W, Hc / world.H) : 7;
+    // the big map frames the building's footprint rather than the whole grid
+    if (big && !world._bounds) {
+      let x0 = world.W, y0 = world.H, x1 = 0, y1 = 0;
+      for (let y = 0; y < world.H; y++) for (let x = 0; x < world.W; x++) {
+        if (world.cells[y * world.W + x] === C.SOLID) continue;
+        x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+      }
+      world._bounds = { x0: x0 - 2, y0: y0 - 2, w: x1 - x0 + 5, h: y1 - y0 + 5 };
+    }
+    const B = world._bounds;
+    const cell = big ? Math.min(Wc / B.w, Hc / B.h) : 7;
     ctx.save();
     if (big) {
-      ctx.translate((Wc - world.W * cell) / 2, (Hc - world.H * cell) / 2);
+      ctx.translate((Wc - B.w * cell) / 2 - B.x0 * cell, (Hc - B.h * cell) / 2 - B.y0 * cell);
     } else {
       ctx.beginPath();
       ctx.arc(Wc / 2, Hc / 2, Wc / 2 - 2, 0, Math.PI * 2);
@@ -695,6 +715,18 @@ export class UI {
         if (world.flags[i] & F.SECRET && world.blocked[i]) { ctx.fillStyle = '#2a2622'; ctx.fillRect(x * cell, y * cell, cell, cell); continue; }
         ctx.fillStyle = c === C.PIT ? '#120c0a' : c === C.LAVA ? '#a83a10' : world.flags[i] & F.WATER ? '#2e5a62' : world.roomOf[i] >= 0 ? '#6e655a' : '#57504a';
         ctx.fillRect(x * cell, y * cell, cell + 0.5, cell + 0.5);
+        // storeys: higher floors read lighter, lower ones darker; stairs get tread lines
+        const fh = world.floorH[i];
+        if (fh) { ctx.fillStyle = fh > 0 ? `rgba(255,240,220,${Math.min(0.25, fh * 0.035)})` : `rgba(0,0,0,${Math.min(0.35, -fh * 0.05)})`; ctx.fillRect(x * cell, y * cell, cell + 0.5, cell + 0.5); }
+        const sd = world.stairDir[i];
+        if (sd) {
+          ctx.fillStyle = 'rgba(30,24,20,0.7)';
+          for (let k = 1; k < 4; k++) {
+            const t = k / 4;
+            if (sd <= 2) ctx.fillRect((x + t) * cell, y * cell, Math.max(1, cell * 0.08), cell);
+            else ctx.fillRect(x * cell, (y + t) * cell, cell, Math.max(1, cell * 0.08));
+          }
+        }
         if (world.mapMark[i] || world.blocked[i]) { ctx.fillStyle = '#b07a3a'; ctx.fillRect(x * cell + cell * 0.2, y * cell + cell * 0.2, cell * 0.6, cell * 0.6); }
       }
     }

@@ -56,7 +56,7 @@ export class Enemy {
     this.flying = !!def.flying;
     this.splitLevel = opts.small ? 0 : opts.medium ? 1 : 2;
 
-    this.pos = new THREE.Vector3(opts.x || 0, 0, opts.z || 0);
+    this.pos = new THREE.Vector3(opts.x || 0, game.world ? game.world.floorAt(opts.x || 0, opts.z || 0) : 0, opts.z || 0);
     this.vel = new THREE.Vector3();
     this.yaw = opts.yaw ?? Math.random() * Math.PI * 2;
     this.state = opts.dormant ? 'dormant' : 'idle';
@@ -95,7 +95,7 @@ export class Enemy {
     this.root.position.copy(this.pos);
     this.root.rotation.y = this.yaw;
     game.renderer.scene.add(this.root);
-    if (this.spawnT >= 0) this.root.position.y = -2.2;
+    if (this.spawnT >= 0) this.root.position.y = this.pos.y - 2.2;
     this.attacks = def.attacks.map((a) => ({ name: a, def: ATTACKS[a], cd: 0 }));
   }
 
@@ -453,6 +453,7 @@ export class Enemy {
     const pel = rd.pos[J.pelvis];
     this.pos.set(pel.x, 0, pel.z);
     game.world.collideCircle(this.pos, this.radius);
+    this.pos.y = game.world.floorAt(this.pos.x, this.pos.z);
     this.yaw = rd.yaw() + (rd.faceUp() ? Math.PI : 0);
     rd.restore();
     game.level.ragdolls.delete(rd);
@@ -548,7 +549,7 @@ export class Enemy {
       body.vel.copy(dir).multiplyScalar(knock * 0.6 + 1).setY(3);
       body.ang.set(dir.z * 9 + rand(-2, 2), rand(-3, 3), -dir.x * 9 + rand(-2, 2));
       game.physics.add(body);
-      game.fx.blood(wp.clone().setY(0.4), dir, 1.2, 'ichor', BLOOD.ichor);
+      game.fx.blood(wp.clone().setY(this.pos.y + 0.4), dir, 1.2, 'ichor', BLOOD.ichor);
     } else if (this.mimic) {
       const p = this.chestPos();
       game.fx.debris(p, 'wood', 18, 6);
@@ -630,30 +631,30 @@ export class Enemy {
     if (this.spawnT >= 0) {
       this.spawnT += dt;
       const f = Math.min(1, this.spawnT / 1.1);
-      this.root.position.y = -2.2 * (1 - easeOutCubic(f));
+      this.root.position.y = this.pos.y - 2.2 * (1 - easeOutCubic(f));
       if (Math.random() < 0.5) game.fx.spark(this.pos.clone().add(new THREE.Vector3(rand(-0.6, 0.6), 0.1, rand(-0.6, 0.6))), new THREE.Vector3(0, rand(1, 3), 0), 0xaa66ff, 0.7, 0.12, { grav: -1, floor: false });
       if (f >= 1) { this.spawnT = -1; this.alert(game); this.state = 'chase'; }
       this._animate(dt);
       return;
     }
     if (this.state === 'dormant') {
-      if (p.pos.distanceTo(this.pos) < 7 && game.world.los(this.pos.x, 1.2, this.pos.z, p.pos.x, 1.5, p.pos.z)) {
+      if (p.pos.distanceTo(this.pos) < 7 && game.world.los(this.pos.x, this.pos.y + 1.2, this.pos.z, p.pos.x, p.pos.y + 1.5, p.pos.z)) {
         this.spawnT = 0;
-        game.fx.debris(this.pos.clone().setY(0.2), 'bone', 10, 3);
+        game.fx.debris(this.pos.clone().setY(this.pos.y + 0.2), 'bone', 10, 3);
         game.audio.voice(this.pos, this.def.voice, 'alert');
       }
-      this.root.position.y = -2.2;
+      this.root.position.y = this.pos.y - 2.2;
       return;
     }
 
     if (this.state === 'knockdown') {
       const rd = this.ragdoll;
       const pel = rd.pos[J.pelvis];
-      this.pos.set(pel.x, 0, pel.z);
+      this.pos.set(pel.x, game.world.floorAt(pel.x, pel.z), pel.z);
       this.knockdownT -= dt;
       // dropped in a pit while knocked down
       const cell = game.world.cellAt(pel.x, pel.z);
-      if ((cell === C.PIT && pel.y < -1.4) || (cell === C.LAVA && pel.y < 0)) { this._hazardDeath(game, cell); return; }
+      if ((cell === C.PIT && pel.y < game.world.baseAt(pel.x, pel.z) - 1.4) || (cell === C.LAVA && pel.y < game.world.baseAt(pel.x, pel.z))) { this._hazardDeath(game, cell); return; }
       if (this.knockdownT <= 0 && (rd.still > 0.1 || this.knockdownT < -0.8)) this._getUp(game);
       this._updateHitSpheres();
       return;
@@ -836,7 +837,8 @@ export class Enemy {
       this.pos.x += this.vel.x * dt;
       this.pos.z += this.vel.z * dt;
       world.collideCircle(this.pos, this.radius);
-      this.root.position.set(this.pos.x, 0, this.pos.z);
+      this.pos.y = world.floorAt(this.pos.x, this.pos.z);
+      this.root.position.set(this.pos.x, this.pos.y, this.pos.z);
       this.root.rotation.y = this.yaw;
       return;
     }
@@ -846,7 +848,9 @@ export class Enemy {
     this.pos.z += this.vel.z * dt;
     // vertical (leaps / knock-ups)
     const fy = world.floorAt(this.pos.x, this.pos.z);
-    if (this.airborne || this.pos.y > fy + 0.01 || fy < -0.1) {
+    // walking up stairs / onto a dais, or down a ramp: follow the floor
+    if (!this.airborne && this.pos.y < fy + 0.4 && this.pos.y > fy - 0.6 && world.cellAt(this.pos.x, this.pos.z) === C.FLOOR) this.pos.y = fy;
+    if (this.airborne || this.pos.y > fy + 0.01) {
       this.vel.y -= 22 * dt;
       this.pos.y += this.vel.y * dt;
       if (this.pos.y <= fy) {
@@ -880,7 +884,7 @@ export class Enemy {
     const cell = world.cellAt(this.pos.x, this.pos.z);
     if ((cell === C.PIT || cell === C.LAVA) && !this.airborne) {
       if (cell === C.LAVA && this.pos.y <= fy + 0.05) { this._hazardDeath(game, cell); return; }
-      if (cell === C.PIT && this.pos.y < -1.2) { this._hazardDeath(game, cell); return; }
+      if (cell === C.PIT && this.pos.y < world.baseAt(this.pos.x, this.pos.z) - 1.2) { this._hazardDeath(game, cell); return; }
     }
     if (!this.airborne) {
       // friction for knockback slides
@@ -916,10 +920,10 @@ export class Enemy {
       const a = Math.random() * Math.PI * 2, r = rand(6, 10);
       const x = p.x + Math.cos(a) * r, z = p.z + Math.sin(a) * r;
       if (!game.world.navCell(Math.floor(x / TILE), Math.floor(z / TILE))) continue;
-      if (!game.world.los(x, 1.5, z, p.x, 1.5, p.z)) continue;
+      if (!game.world.los(x, game.world.floorAt(x, z) + 1.5, z, p.x, p.y + 1.5, p.z)) continue;
       game.fx.magic(this.chestPos(), 0xff5533, 24, 3);
       game.audio.cast(this.pos, 'magic');
-      this.pos.set(x, 0, z);
+      this.pos.set(x, game.world.floorAt(x, z), z);
       this.root.position.copy(this.pos);
       game.fx.magic(this.chestPos(), 0xff5533, 24, 3);
       this.cooldown = 0.4;
@@ -1177,7 +1181,7 @@ export class Enemy {
         return { x: A.leapDir.x, z: A.leapDir.z, speed: A.leapVel, face: null, direct: true };
       case 'charge': {
         const dir = A.chargeDir;
-        if (Math.random() < 0.4) game.fx.dust(this.pos.clone().setY(0.1), 1, 0x7a7068, 0.3);
+        if (Math.random() < 0.4) game.fx.dust(this.pos.clone().setY(this.pos.y + 0.1), 1, 0x7a7068, 0.3);
         if (!A.hit && p.pos.distanceTo(this.pos) < this.radius + 0.8) {
           A.hit = true;
           p.takeDamage({ amount: Math.round(this.dmg * d.dmg), dir: dir.clone(), knock: d.knock, unblockable: true, attacker: this, melee: true });
@@ -1231,7 +1235,7 @@ export class Enemy {
     if (d.kind === 'hop' && this.slime) {
       // squelchy landing: small splash, hurts only on contact
       game.audio.slimeHit(this.pos, this.sizeScale > 0.9);
-      game.fx.blood(this.pos.clone().setY(0.2), UP, 0.4, 'goo');
+      game.fx.blood(this.pos.clone().setY(this.pos.y + 0.2), UP, 0.4, 'goo');
       const r = (d.radius || 1.5) * Math.max(0.6, this.sizeScale);
       if (p.pos.distanceTo(_v.set(this.pos.x, p.pos.y, this.pos.z)) < r && p.pos.y < 0.6) {
         p.takeDamage({ amount: Math.round(this.dmg * d.dmg), dir: _v.set(p.pos.x - this.pos.x, 0, p.pos.z - this.pos.z).normalize().clone(), knock: 3, attacker: this, melee: true });

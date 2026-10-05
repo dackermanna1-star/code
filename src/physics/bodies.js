@@ -432,7 +432,7 @@ export class PhysicsWorld {
       if (obs) {
         for (const o of obs) {
           const top = o.h ?? 2;
-          if (py > top) continue;
+          if (py > top || py < (o.y0 ?? -99) - 0.1) continue;
           const up = top - py;
           if (o.type === 'circle') {
             const dx = px - o.x, dz = pz - o.z;

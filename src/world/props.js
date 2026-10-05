@@ -40,7 +40,7 @@ export class Breakable {
     this.mesh = mesh;
     game.renderer.scene.add(mesh);
     const body = (this.body = new RigidBody(shape, { mass, mesh, owner: this, restitution: 0.2, onImpact: (b, sp) => this._impact(sp) }));
-    body.pos.set(x, y + (opts.stack ? 0.85 : 0), z);
+    body.pos.set(x, game.world.floorAt(x, z) + y + (opts.stack ? 0.85 : 0), z);
     body.quat.setFromAxisAngle(UP, opts.rot || 0);
     body.sleeping = !opts.stack;
     game.physics.add(body);
@@ -185,7 +185,7 @@ export class Chest {
     this.hidden = !!opts.hidden;
     this.roomId = opts.roomId;
     this.mesh = M.makeChest(this.tier);
-    this.mesh.position.set(x, 0, z);
+    this.mesh.position.set(x, game.world.floorAt(x, z), z);
     this.mesh.rotation.y = opts.rot || 0;
     this.pos = this.mesh.position;
     this.opened = false;
@@ -201,7 +201,7 @@ export class Chest {
     this.hidden = false;
     this.game.renderer.scene.add(this.mesh);
     this.game.level.addObstacle(this.obstacle);
-    this.game.fx.magic(this.pos.clone().setY(0.6), 0xffdd66, 40, 3);
+    this.game.fx.magic(this.pos.clone().setY(this.game.world.floorAt(this.pos.x, this.pos.z) + 0.6), 0xffdd66, 40, 3);
     this.game.fx.ring(this.pos, 0xffdd66, 3, 0.6, 0.8);
     this.game.audio.secret();
   }
@@ -226,7 +226,7 @@ export class Chest {
     this.openT = 0;
     game.audio.chestOpen(this.pos);
     game.stats.chests++;
-    game.schedule(0.35, () => game.loot.chestLoot(this.pos.clone().setY(0.7), this.tier, this.hasKey));
+    game.schedule(0.35, () => game.loot.chestLoot(this.pos.clone().setY(this.game.world.floorAt(this.pos.x, this.pos.z) + 0.7), this.tier, this.hasKey));
   }
 
   update(dt) {
@@ -266,7 +266,8 @@ export class Door {
     else if (side === 'W') { x = (d.cx + 1) * TILE - 0.05; z = czw + 0.83; rot = Math.PI / 2; }
     else if (side === 'S') { z = d.cy * TILE + 0.05; x = cxw + 0.83; rot = Math.PI; }
     else { z = (d.cy + 1) * TILE - 0.05; x = cxw - 0.83; rot = 0; }
-    pivot.position.set(x, 0, z);
+    const fy = (this.fy = game.world.floorH[d.cy * game.world.W + d.cx]);
+    pivot.position.set(x, fy, z);
     pivot.rotation.y = rot;
     this.baseRot = rot;
     this.openAmt = 0;
@@ -277,13 +278,13 @@ export class Door {
     const alongX = side === 'E' || side === 'W';
     this.normal = alongX ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 0, 1);
     const px = alongX ? x : cxw, pz = alongX ? czw : z;
-    this.pos = new THREE.Vector3(px, 1.2, pz);
-    this.center = new THREE.Vector3(px, 1.4, pz);
+    this.pos = new THREE.Vector3(px, fy + 1.2, pz);
+    this.center = new THREE.Vector3(px, fy + 1.4, pz);
     const box = alongX
       ? { x0: px - ht, x1: px + ht, z0: d.cy * TILE, z1: (d.cy + 1) * TILE }
       : { x0: d.cx * TILE, x1: (d.cx + 1) * TILE, z0: pz - ht, z1: pz + ht };
     this.obstacle = { type: 'box', ...box, h: 3, door: this, onHit: (g, p) => this.onStrike(g, p) };
-    this.thin = { ...box, y1: 2.95, cx: d.cx, cz: d.cy, door: this };
+    this.thin = { ...box, y0: fy, y1: fy + 2.95, cx: d.cx, cz: d.cy, door: this };
     game.level.addObstacle(this.obstacle);
     game.world.thinWalls.push(this.thin);
     // monsters shoulder through plain doors, but never locked or boss doors
@@ -342,7 +343,7 @@ export class Door {
       // knock back anyone standing behind
       for (const e of game.level.enemies) {
         if (e.dead) continue;
-        if (e.pos.distanceTo(_v.set(this.center.x, 0, this.center.z)) < 2.2) {
+        if (e.pos.distanceTo(_v.set(this.center.x, this.fy, this.center.z)) < 2.2) {
           const d = _v.subVectors(e.pos, from).setY(0).normalize().clone();
           e.takeDamage(game, { amount: 8, dir: d, knockback: 12, stagger: 60, point: e.chestPos(), source: 'player' });
         }
@@ -402,12 +403,13 @@ export class Gate {
     this.roomId = g.roomId;
     this.mesh = M.makeGate(height);
     const x = (g.cx + 0.5) * TILE, z = (g.cy + 0.5) * TILE;
-    this.mesh.position.set(x, height + 0.2, z);
+    this.base = game.world.floorH[g.cy * game.world.W + g.cx];
+    this.mesh.position.set(x, this.base + height + 0.2, z);
     if (g.axis === 'x') this.mesh.rotation.y = Math.PI / 2;
     this.height = height;
     this.closed = false;
     this.y = height + 0.2;
-    this.pos = new THREE.Vector3(x, 1.5, z);
+    this.pos = new THREE.Vector3(x, this.base + 1.5, z);
     // bars run across the cell centre: a thin slab that blocks movement, not sight
     this.alongX = g.axis === 'x';
     const ht = 0.08;
@@ -453,11 +455,11 @@ export class Gate {
       const before = this.y;
       this.y += Math.sign(target - this.y) * Math.min(Math.abs(target - this.y), sp * dt);
       if (this.closed && this.y === 0 && before > 0) {
-        this.game.fx.dust(this.pos.clone().setY(0.1), 4, 0x8a8070, 0.8);
+        this.game.fx.dust(this.pos.clone().setY(this.game.world.floorAt(this.pos.x, this.pos.z) + 0.1), 4, 0x8a8070, 0.8);
         this.game.player.addTrauma(0.15);
       }
     }
-    this.mesh.position.y = this.y;
+    this.mesh.position.y = this.base + this.y;
   }
 }
 
@@ -469,7 +471,7 @@ export class SecretWall {
     this.roomId = s.roomId;
     const h = 3.0;
     this.mesh = M.makeSecretWall(mats, h);
-    this.mesh.position.set((s.cx + 0.5) * TILE, h / 2, (s.cy + 0.5) * TILE);
+    this.mesh.position.set((s.cx + 0.5) * TILE, game.world.floorH[s.cy * game.world.W + s.cx] + h / 2, (s.cy + 0.5) * TILE);
     this.hp = 3;
     this.broken = false;
     this.pos = this.mesh.position.clone();
@@ -534,6 +536,7 @@ export class Trap {
     this.cy = e.cy;
     this.x = (e.cx + 0.5) * TILE;
     this.z = (e.cy + 0.5) * TILE;
+    this.fy = game.world.floorH[e.cy * game.world.W + e.cx];
     this.axis = e.axis || 'x';
     this.t = Math.random() * 3;
     this.state = 'idle';
@@ -542,19 +545,19 @@ export class Trap {
     switch (this.kind) {
       case 'spikes':
         this.mesh = M.makeSpikeTrap();
-        this.mesh.position.set(this.x, 0, this.z);
+        this.mesh.position.set(this.x, this.fy, this.z);
         scene.add(this.mesh);
         break;
       case 'darts': {
         this.mesh = M.makePressurePlate(game.level.mats);
-        this.mesh.position.set(this.x, 0, this.z);
+        this.mesh.position.set(this.x, this.fy, this.z);
         scene.add(this.mesh);
         // shooters in both walls perpendicular to the passage
         this.shooters = [];
         for (const s of [-1, 1]) {
           const sh = M.makeDartShooter();
-          if (this.axis === 'x') { sh.position.set(this.x + 0, 1.2, this.z + s * (TILE / 2 - 0.02)); sh.rotation.y = 0; }
-          else { sh.position.set(this.x + s * (TILE / 2 - 0.02), 1.2, this.z); sh.rotation.y = Math.PI / 2; }
+          if (this.axis === 'x') { sh.position.set(this.x + 0, this.fy + 1.2, this.z + s * (TILE / 2 - 0.02)); sh.rotation.y = 0; }
+          else { sh.position.set(this.x + s * (TILE / 2 - 0.02), this.fy + 1.2, this.z); sh.rotation.y = Math.PI / 2; }
           scene.add(sh);
           this.shooters.push({ mesh: sh, side: s });
         }
@@ -565,17 +568,17 @@ export class Trap {
         const ceil = game.world.ceilAt(this.x, this.z);
         this.mesh.position.set(this.x, ceil - 0.05, this.z);
         this.mesh.rotation.y = this.axis === 'x' ? Math.PI / 2 : 0;
-        const s = (ceil - 0.05) / 2.6;
+        const s = (ceil - this.fy - 0.05) / 2.6;
         this.mesh.scale.set(1, s, 1);
         scene.add(this.mesh);
-        this.pivotH = ceil;
+        this.pivotH = ceil - this.fy;
         break;
       }
       case 'flame':
         this.mesh = M.makeFlameVent();
-        this.mesh.position.set(this.x, 0, this.z);
+        this.mesh.position.set(this.x, this.fy, this.z);
         scene.add(this.mesh);
-        this.light = game.renderer.addDynamic(new THREE.Vector3(this.x, 1, this.z), 0xff6622, 0, 7, 0.8);
+        this.light = game.renderer.addDynamic(new THREE.Vector3(this.x, this.fy + 1, this.z), 0xff6622, 0, 7, 0.8);
         break;
       default:
     }
@@ -585,7 +588,7 @@ export class Trap {
     const g = this.game;
     const p = g.player;
     const inCell = (pos, r = 0.2) => Math.abs(pos.x - this.x) < TILE / 2 - 0.1 + r && Math.abs(pos.z - this.z) < TILE / 2 - 0.1 + r;
-    if (!p.dead && inCell(p.pos) && p.pos.y < 0.6) fn(p, true);
+    if (!p.dead && inCell(p.pos) && p.pos.y < this.fy + 0.6) fn(p, true);
     for (const e of g.level.enemies) if (!e.dead && !e.flying && inCell(e.pos)) fn(e, false);
     for (const c of g.level.corpses) {
       // spikes skewer corpses for fun
@@ -601,16 +604,16 @@ export class Trap {
       if (this.state === 'idle') {
         let trig = false;
         this._actorsOnCell(() => (trig = true));
-        if (trig) { this.state = 'armed'; this.t = 0; g.audio.trap({ x: this.x, y: 0, z: this.z }, 'click'); }
+        if (trig) { this.state = 'armed'; this.t = 0; g.audio.trap({ x: this.x, y: this.fy, z: this.z }, 'click'); }
         sp.position.y = Math.max(-0.8, sp.position.y - dt * 2);
       } else if (this.state === 'armed') {
         if (this.t > 0.42) {
           this.state = 'up';
           this.t = 0;
           this.hitSet.clear();
-          g.audio.trap({ x: this.x, y: 0.3, z: this.z }, 'spikes');
+          g.audio.trap({ x: this.x, y: this.fy + 0.3, z: this.z }, 'spikes');
           this._actorsOnCell((a, isPlayer) => this._hurt(a, isPlayer, 18 + g.floor * 6));
-          g.fx.dust(new THREE.Vector3(this.x, 0.1, this.z), 3, 0x8a8070, 0.8);
+          g.fx.dust(new THREE.Vector3(this.x, this.fy + 0.1, this.z), 3, 0x8a8070, 0.8);
         }
       } else if (this.state === 'up') {
         sp.position.y = Math.min(0, sp.position.y + dt * 14);
@@ -624,8 +627,8 @@ export class Trap {
         if (trig) {
           this.state = 'cool';
           this.t = 0;
-          this.mesh.position.y = -0.03;
-          g.audio.trap({ x: this.x, y: 0, z: this.z }, 'click');
+          this.mesh.position.y = this.fy - 0.03;
+          g.audio.trap({ x: this.x, y: this.fy, z: this.z }, 'click');
           for (const s of this.shooters) {
             const from = s.mesh.position.clone();
             const dir = this.axis === 'x' ? new THREE.Vector3(0, 0, -s.side) : new THREE.Vector3(-s.side, 0, 0);
@@ -637,7 +640,7 @@ export class Trap {
             }
           }
         }
-      } else if (this.t > 2.5) { this.state = 'idle'; this.mesh.position.y = 0; }
+      } else if (this.t > 2.5) { this.state = 'idle'; this.mesh.position.y = this.fy; }
     } else if (this.kind === 'blade') {
       const a = Math.sin(this.t * 2.2) * 1.15;
       this.mesh.rotation.z = a;
@@ -674,10 +677,10 @@ export class Trap {
       const on = cycle > 2.5;
       this.light.intensity = on ? 18 : cycle > 2.0 ? 4 : 0;
       this.mesh.userData.glow.material.color.setHex(cycle > 2.0 ? 0xffaa33 : 0x661a08);
-      if (cycle > 2.0 && cycle < 2.5 && Math.random() < 0.3) g.fx.spark(new THREE.Vector3(this.x, 0.15, this.z), new THREE.Vector3(rand(-0.5, 0.5), 2, rand(-0.5, 0.5)), 0xff8833, 0.4, 0.08);
+      if (cycle > 2.0 && cycle < 2.5 && Math.random() < 0.3) g.fx.spark(new THREE.Vector3(this.x, this.fy + 0.15, this.z), new THREE.Vector3(rand(-0.5, 0.5), 2, rand(-0.5, 0.5)), 0xff8833, 0.4, 0.08);
       if (on) {
-        for (let i = 0; i < 3; i++) g.fx.fire(new THREE.Vector3(this.x, 0.2 + Math.random() * 2.4, this.z), 1.6, 0.4);
-        if (!this._roar) { this._roar = true; g.audio.fire({ x: this.x, y: 1, z: this.z }, true); }
+        for (let i = 0; i < 3; i++) g.fx.fire(new THREE.Vector3(this.x, this.fy + 0.2 + Math.random() * 2.4, this.z), 1.6, 0.4);
+        if (!this._roar) { this._roar = true; g.audio.fire({ x: this.x, y: this.fy + 1, z: this.z }, true); }
         this._actorsOnCell((a, isPlayer) => {
           if (this.hitSet.has(a)) return;
           this.hitSet.add(a);
@@ -725,14 +728,15 @@ export class Shrine {
     this.roomId = e.roomId;
     this.def = SHRINES[e.kind];
     this.mesh = M.makeShrine(e.kind, game.level.mats);
-    this.mesh.position.set(e.x, 0, e.z);
+    const fy = game.world.floorAt(e.x, e.z);
+    this.mesh.position.set(e.x, fy, e.z);
     harvestFlames(this.mesh, game.flames);
-    this.pos = new THREE.Vector3(e.x, 1.0, e.z);
+    this.pos = new THREE.Vector3(e.x, fy + 1.0, e.z);
     this.radius = 1.3;
     this.used = false;
     this.uses = 0;
     game.renderer.scene.add(this.mesh);
-    this.light = game.renderer.addLightSource(new THREE.Vector3(e.x, 1.6, e.z), this.mesh.userData.color, 10, 9, 0.3);
+    this.light = game.renderer.addLightSource(new THREE.Vector3(e.x, fy + 1.6, e.z), this.mesh.userData.color, 10, 9, 0.3);
     game.level.addObstacle({ type: 'circle', x: e.x, z: e.z, r: e.kind === 'fountain' ? 1.15 : 0.75, h: 1.5 });
     this.flames = this.mesh.userData.flames || [];
   }
@@ -764,9 +768,9 @@ export class Shrine {
         const cost = Math.round(p.stats.maxHp * 0.25);
         if (p.hp <= cost) { game.audio.ui('deny'); game.ui.toast('You are too weak to offer blood', 'neg'); return; }
         p.hp -= cost;
-        game.fx.blood(this.pos.clone().setY(1), UP, 1.5);
+        game.fx.blood(this.pos.clone().setY(this.game.world.floorAt(this.pos.x, this.pos.z) + 1), UP, 1.5);
         game.audio.gore(this.pos, 1);
-        game.loot.dropRelic(this.pos.clone().setY(1.2), 1);
+        game.loot.dropRelic(this.pos.clone().setY(this.game.world.floorAt(this.pos.x, this.pos.z) + 1.2), 1);
         this.used = true;
         break;
       }
@@ -780,7 +784,7 @@ export class Shrine {
           game.ui.banner(name, 'A warm light fills you (4 minutes)');
           game.audio.levelUp();
         } else if (roll < 0.8) {
-          game.loot.dropGear(this.pos.clone().setY(1.2), 1);
+          game.loot.dropGear(this.pos.clone().setY(this.game.world.floorAt(this.pos.x, this.pos.z) + 1.2), 1);
           game.audio.pickup(2);
         } else {
           p.addBuff('curse', 60, { damageTaken: 0.25 });
@@ -807,7 +811,7 @@ export class Shrine {
         this.uses++;
         p.refreshStats();
         game.audio.clang(this.pos, 1, 1.2);
-        game.fx.sparks(this.pos.clone().setY(0.9), UP, 30, 0xffaa44, 6);
+        game.fx.sparks(this.pos.clone().setY(this.game.world.floorAt(this.pos.x, this.pos.z) + 0.9), UP, 30, 0xffaa44, 6);
         game.ui.toast(`${w.name} tempered to +${w.upgrades}!`, 'good');
         if (this.uses >= 3) this.used = true;
         break;
@@ -819,7 +823,7 @@ export class Shrine {
         if (Math.random() < 0.15) {
           game.ui.toast('The idol laughs at you...', 'neg');
           game.audio.ui('deny');
-        } else game.loot.dropGear(this.pos.clone().setY(1.4), Math.random() < 0.25 ? 2 : 1);
+        } else game.loot.dropGear(this.pos.clone().setY(this.game.world.floorAt(this.pos.x, this.pos.z) + 1.4), Math.random() < 0.25 ? 2 : 1);
         if (this.uses >= 3) this.used = true;
         break;
       }
@@ -856,22 +860,23 @@ export class Shop {
     // merchant stands against the "back" of the room relative to its centre
     this.merchant = M.makeMerchant();
     const mx = e.x, mz = e.z - 1.6;
-    this.merchant.position.set(mx, 0, mz);
+    const fy = game.world.floorAt(e.x, e.z);
+    this.merchant.position.set(mx, fy, mz);
     this.merchant.rotation.y = 0;
     harvestFlames(this.merchant, game.flames);
     game.renderer.scene.add(this.merchant);
-    this.pos = new THREE.Vector3(mx, 1.6, mz);
+    this.pos = new THREE.Vector3(mx, fy + 1.6, mz);
     this.radius = 0.8;
     this.flames = this.merchant.userData.flames;
     game.level.addObstacle({ type: 'circle', x: mx, z: mz, r: 0.7, h: 2 });
     // counter
     let counter = M.makeTable();
-    counter.position.set(mx, 0, mz + 0.9);
+    counter.position.set(mx, fy, mz + 0.9);
     harvestFlames(counter, game.flames);
     counter = mergeStatic(counter);
     game.renderer.scene.add(counter);
     game.level.addObstacle({ type: 'box', x0: mx - 0.95, z0: mz + 0.4, x1: mx + 0.95, z1: mz + 1.4, h: 1 });
-    game.renderer.addLightSource(new THREE.Vector3(mx + 0.5, 2.2, mz + 0.5), 0xffcc77, 14, 10, 0.4);
+    game.renderer.addLightSource(new THREE.Vector3(mx + 0.5, fy + 2.2, mz + 0.5), 0xffcc77, 14, 10, 0.4);
     // wares on pedestals
     this.wares = [];
     const items = game.loot.shopStock();
@@ -917,10 +922,11 @@ export class Pedestal {
     this.price = opts.price || 0;
     this.shop = opts.shop || null;
     this.mesh = M.makePedestal(game.level.mats);
-    this.mesh.position.set(opts.x, 0, opts.z);
+    const fy = game.world.floorAt(opts.x, opts.z);
+    this.mesh.position.set(opts.x, fy, opts.z);
     this.mesh.scale.setScalar(this.shop ? 0.85 : 1);
     game.renderer.scene.add(this.mesh);
-    this.pos = new THREE.Vector3(opts.x, this.shop ? 1.35 : 1.55, opts.z);
+    this.pos = new THREE.Vector3(opts.x, fy + (this.shop ? 1.35 : 1.55), opts.z);
     this.radius = 0.6;
     this.display = game.loot.makeDisplayMesh(this.item);
     this.display.position.copy(this.pos);
@@ -970,10 +976,11 @@ export class Exit {
     this.game = game;
     this.isInteractable = true;
     this.mesh = M.makeExitPortal();
-    this.mesh.position.set(e.x, 0, e.z);
+    this.fy = game.world.floorAt(e.x, e.z);
+    this.mesh.position.set(e.x, this.fy, e.z);
     this.mesh.visible = false;
     game.renderer.scene.add(this.mesh);
-    this.pos = new THREE.Vector3(e.x, 0.8, e.z);
+    this.pos = new THREE.Vector3(e.x, this.fy + 0.8, e.z);
     this.radius = 1.6;
     this.active = false;
   }
@@ -982,7 +989,7 @@ export class Exit {
     if (this.active) return;
     this.active = true;
     this.mesh.visible = true;
-    this.light = this.game.renderer.addLightSource(this.pos.clone().setY(1.5), 0x88aaff, 20, 12, 0.2);
+    this.light = this.game.renderer.addLightSource(this.pos.clone().setY(this.game.world.floorAt(this.pos.x, this.pos.z) + 1.5), 0x88aaff, 20, 12, 0.2);
     this.game.fx.ring(this.pos, 0x88aaff, 5, 1, 1);
     this.game.audio.secret();
   }
@@ -1004,7 +1011,7 @@ export class Exit {
     this.mesh.userData.beam.material.opacity = 0.14 + Math.sin(g.time * 3) * 0.04;
     if (Math.random() < 0.6) {
       const a = Math.random() * Math.PI * 2, r = Math.random() * 1.2;
-      g.fx.spark(new THREE.Vector3(this.pos.x + Math.cos(a) * r, 0.1, this.pos.z + Math.sin(a) * r), new THREE.Vector3(0, rand(1.5, 3.5), 0), 0x88aaff, 1.5, 0.1, { grav: -0.5, floor: false });
+      g.fx.spark(new THREE.Vector3(this.pos.x + Math.cos(a) * r, this.fy + 0.1, this.pos.z + Math.sin(a) * r), new THREE.Vector3(0, rand(1.5, 3.5), 0), 0x88aaff, 1.5, 0.1, { grav: -0.5, floor: false });
     }
   }
 }

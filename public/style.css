@@ -109,6 +109,9 @@ kbd { display: inline-block; min-width: 1.3em; padding: 1px 6px; border: 1px sol
 .toast.r0 { border-color: #c9c4bb; } .toast.r1 { border-color: #62d96b; } .toast.r2 { border-color: #4fa3ff; } .toast.r3 { border-color: #c06bff; } .toast.r4 { border-color: #ffa53a; color: #ffd39a; }
 @keyframes toastIn { from { opacity: 0; transform: translateX(-30px); } }
 
+.location { position: absolute; left: 50%; top: 13%; transform: translateX(-50%); font-family: var(--title); font-size: 21px; letter-spacing: 0.32em; text-transform: uppercase; color: #d9c9a3; text-shadow: 0 2px 4px #000, 0 0 14px rgba(0, 0, 0, 0.8); white-space: nowrap; opacity: 0; transition: opacity 0.9s; pointer-events: none; }
+.location.show { opacity: 0.92; }
+.location::before, .location::after { content: '\2014'; margin: 0 0.6em; color: #8a7a5a; letter-spacing: 0; }
 .banner { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); text-align: center; white-space: nowrap; }
 .banner .title { font-family: var(--title); font-size: 40px; font-weight: 800; letter-spacing: 0.14em; color: #f4e3bf; text-shadow: 0 0 22px rgba(255, 170, 70, 0.55), 0 3px 4px #000; }
 .banner .sub { font-size: 18px; color: #cdbf9f; margin-top: 4px; }
