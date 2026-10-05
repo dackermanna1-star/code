@@ -428,6 +428,7 @@ export class Enemy {
   }
 
   stagger(game, dur) {
+    if (this.ragdoll) return; // knocked down: getting up handles recovery
     this._endAttack();
     this.state = 'stagger';
     this.stateT = dur * (this.boss ? 0.6 : 1);

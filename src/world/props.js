@@ -933,7 +933,7 @@ export class Exit {
 
   label() {
     if (!this.active) return null;
-    return this.game.floor >= this.game.finalFloor ? 'Enter the light (end your descent)' : `Descend to depth ${this.game.floor + 1}`;
+    return this.game.floor >= this.game.finalFloor && !this.game.endless ? 'Enter the light (end your descent)' : `Descend to depth ${this.game.floor + 1}`;
   }
 
   interact(game) {

@@ -484,7 +484,7 @@ export class Level {
   startChallenge(shrine) {
     const game = this.game;
     const room = this.world.rooms[shrine.roomId];
-    this.challenge = { room, t: 0, waves: 3, wave: 0, shrine, spawned: [] };
+    this.challenge = { room, t: 0, waves: 3, wave: 0, shrine, spawned: [], next: game.time + 1.5 };
     for (const g of this.gates) if (g.roomId === room.id) g.close(game);
     this._closeRoom(room);
     game.ui.banner('TRIAL OF BLOOD', 'Survive three waves');
@@ -516,10 +516,11 @@ export class Level {
     return this.enemies.some((e) => !e.dead && e.roomId === roomId);
   }
 
-  _spawnWave(room, list) {
+  _spawnWave(room, list, tag = null) {
     const game = this.game;
     for (const e of list) {
       const en = this.spawnEnemy(e.kind, e.x, e.z, { roomId: room.id, elite: e.elite, spawning: true, miniboss: e.miniboss, dropKey: e.dropKey });
+      if (tag) en[tag] = true;
       if (e.miniboss) {
         game.ui.setBoss(en, true);
         game.ui.banner(en.displayName.toUpperCase(), 'A champion blocks your path');
@@ -548,6 +549,7 @@ export class Level {
       for (const e of waves) { (st.waves[e.wave - 1] = st.waves[e.wave - 1] || []).push(e); }
       st.wave = 0;
       st.active = true;
+      st.nextCheck = game.time + 2.5;
       this._closeRoom(room);
       game.ui.banner(room.type === 'miniboss' ? 'CHAMPION’S DEN' : 'AMBUSH!', room.type === 'miniboss' ? 'Defeat the champion' : `Survive ${st.waves.length} waves`);
       game.schedule(0.8, () => this._spawnWave(room, st.waves[0]));
@@ -676,7 +678,7 @@ export class Level {
     // challenge shrine
     if (this.challenge) {
       const ch = this.challenge;
-      if (!this.enemies.some((e) => !e.dead && e.roomId === ch.room.id) && game.time > (ch.next || 0)) {
+      if (!this.enemies.some((e) => !e.dead && e.challenge) && game.time > (ch.next || 0)) {
         if (ch.wave < ch.waves) {
           ch.wave++;
           ch.next = game.time + 2.5;
@@ -689,7 +691,7 @@ export class Level {
             if (!world.navCell(Math.floor(x / TILE), Math.floor(z / TILE))) continue;
             list.push({ kind: kinds[Math.floor(Math.random() * kinds.length)], x, z, elite: ch.wave === ch.waves && i === 0 ? 1 : 0 });
           }
-          game.schedule(0.5, () => this._spawnWave(ch.room, list));
+          game.schedule(0.5, () => this._spawnWave(ch.room, list, 'challenge'));
           game.ui.toast(`Trial wave ${ch.wave}/${ch.waves}`, 'info');
         } else {
           this._openRoom(ch.room);

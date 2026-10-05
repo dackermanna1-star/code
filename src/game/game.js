@@ -118,6 +118,8 @@ export class Game {
     this.seed = (seed || randomSeedString()).toUpperCase();
     this.rng = new RNG(this.seed);
     this.classId = classId;
+    this.endless = false;
+    this.transitioning = false;
     this.meta.lastClass = classId;
     this.meta.runs++;
     this.saveMeta();
@@ -153,7 +155,9 @@ export class Game {
     this.loot.clear();
     this.fx.clear();
     this.flames.clear();
-    this.scheduled.length = 0;
+    // keep real-time callbacks (e.g. the death screen) across floor loads
+    this.scheduled = this.scheduled.filter((s) => s.real);
+    this.transitioning = false;
     this.renderer.setTheme(theme);
     const dungeon = generateDungeon(this.seed, n, theme);
     this.physics = new PhysicsWorld(null);
@@ -181,14 +185,21 @@ export class Game {
   }
 
   descend() {
-    if (this.state !== 'playing') return;
+    if (this.state !== 'playing' || this.transitioning) return;
+    this.transitioning = true;
     this.stats.floorsCleared++;
     audio.stairs();
     if (this.floor >= this.finalFloor && !this.endless) {
+      this.transitioning = false;
       this.victory();
       return;
     }
     this.ui.fadeOut(() => {
+      if (!this.player || this.player.dead || this.state === 'dying' || this.state === 'dead') {
+        this.transitioning = false;
+        this.ui.fadeIn();
+        return;
+      }
       this.loadFloor(this.floor + 1);
       this.meta.bestFloor = Math.max(this.meta.bestFloor, this.floor);
       this.saveMeta();
@@ -207,10 +218,13 @@ export class Game {
   }
 
   continueEndless() {
+    if (this.transitioning) return;
+    this.transitioning = true;
     this.endless = true;
     this.state = 'playing';
     this.ui.showHUD();
     this.ui.fadeOut(() => {
+      if (!this.player) { this.transitioning = false; this.ui.fadeIn(); return; }
       this.loadFloor(this.floor + 1);
       this.ui.fadeIn();
       this.input.requestLock();
@@ -557,6 +571,7 @@ export class Game {
   _onLock(locked, failed) {
     if (failed) { this.ui.toast('Pointer lock unavailable: move the mouse over the game to look around.', 'info'); return; }
     // leaving pointer lock mid-game (Esc, alt-tab) pauses; menus change state before releasing it
+    if (!locked && this.state === 'map') { this.ui.showMap(false); this.state = 'playing'; }
     if (!locked && this.state === 'playing') this.pause();
   }
 
@@ -631,7 +646,9 @@ export class Game {
     } else if (this.state === 'map') {
       if (input.actionPressed('map') || input.actionPressed('inventory')) { this.state = 'playing'; this.ui.showMap(false); }
     } else if (this.state === 'levelup') {
-      for (const [k, i] of [['Digit1', 0], ['Digit2', 1], ['Digit3', 2]]) if (input.pressed.has(k)) this.ui.pickLevelUp(i);
+      for (const [k, i] of [['Digit1', 0], ['Digit2', 1], ['Digit3', 2]]) {
+        if (input.pressed.has(k)) { this.ui.pickLevelUp(i); input.pressed.clear(); break; }
+      }
     }
 
     const running = this.state === 'playing' || this.state === 'dying' || this.state === 'map';

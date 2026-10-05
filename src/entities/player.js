@@ -315,6 +315,7 @@ export class Player {
   }
 
   _applyDamage(amount, info, chip = false) {
+    if (this.dead) return 0;
     const game = this.game;
     const s = this.stats;
     let dmg = amount * (1 - s.armor) * s.damageTaken;

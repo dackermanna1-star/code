@@ -331,7 +331,7 @@ function tryGenerate(rng, floor, theme) {
     const roll = rng.next();
     if (r.type === 'boss') { r.shape = 'octagon'; }
     else if (big && roll < 0.22) r.shape = 'octagon';
-    else if (big && r.w >= 8 && r.h >= 8 && roll < 0.42 && r.type !== 'shrine') r.shape = theme.lava ? 'lava' : 'pit';
+    else if (big && r.w >= 8 && r.h >= 8 && roll < 0.42 && !['shrine', 'miniboss', 'arena'].includes(r.type)) r.shape = theme.lava ? 'lava' : 'pit';
     else if (big && roll < 0.62) r.shape = 'pillars';
   }
   for (const r of rooms) {
@@ -522,11 +522,13 @@ function tryGenerate(rng, floor, theme) {
     const spots = roomCells(r, (x, y) => !occupied[idx(x, y)] && !nearEntrance(r, x, y, 2));
     rng.shuffle(spots);
     let spent = 0;
+    let misses = 0;
     const out = [];
     while (spent < budget && spots.length) {
       const kind = opts.kind || pickEnemy();
       const cost = ENEMY_COST[kind] || 1;
-      if (spent + cost > budget + 0.4) { if (cost <= 0.6) break; continue; }
+      // remaining budget can't afford this pick; give up after a few tries
+      if (spent + cost > budget + 0.4) { if (cost <= 0.6 || ++misses > 10) break; continue; }
       const [x, y] = spots.pop();
       const elite = !opts.noElite && rng.chance(eliteChance) ? 1 + (floor >= 4 && rng.chance(0.4) ? 1 : 0) : 0;
       const [wx, wz] = wc(x, y);
