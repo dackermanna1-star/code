@@ -4,7 +4,7 @@ const clock = require('../clock');
 const db = require('../db');
 const v = require('../views');
 const { page } = require('../layout');
-const { h, commas, clampInt } = require('../util');
+const { h, commas, clampInt, longDate } = require('../util');
 
 function fdate(t) {
   const d = new Date(t);
@@ -16,24 +16,31 @@ function fdate(t) {
   return `${String(d.getDate()).padStart(2, '0')} ${mon} ${d.getFullYear()}<br/>${time}`;
 }
 
-function forumPage(ctx, title, inner) {
+function forumPage(ctx, title, inner, opts = {}) {
   const F = ctx.state.forum;
   const online = db.users().filter((u) => v.isOnline(u));
   const left = `
     <table class="tableBorder" width="100%" cellspacing="1" cellpadding="3">
       <tr><th class="tableHeaderText" colspan="2" align="left">&nbsp;Search Roblox Forums</th></tr>
       <tr><td class="forumRow" colspan="2" valign="top" align="left">
-        <form method="get" action="/Forum/Search/default.aspx"><input name="q" maxlength="50" size="10" type="text"/> <input value="Search" type="submit"/></form>
+        <form method="get" action="/Forum/Search/default.aspx" style="margin:0"><table cellspacing="1" cellpadding="2" border="0"><tr><td><input name="q" maxlength="50" size="10" type="text"/></td><td colspan="2" align="right"><input value="Search" type="submit"/></td></tr></table></form>
         <span class="normalTextSmall"><br/><a href="/Forum/Search/default.aspx">More search options</a></span>
       </td></tr>
     </table><br/><br/>
-    <table class="tableBorder" width="100%" cellspacing="1" cellpadding="3">
+    <table class="tableBorder" width="100%" cellspacing="1" cellpadding="3" style="white-space:normal">
       <tr><th class="tableHeaderText" colspan="2" align="left">&nbsp;Who is Online</th></tr>
       <tr><td class="forumRow" valign="top"><span class="normalTextSmaller">There are currently: <br/><b>${30 + (Math.floor(clock.now() / 60000) % 40)}</b> anonymous users online.<br/><br/><b>${online.length}</b> registered users online: ${online.slice(0, 20).map((u) => `<a class="userOnlineLinkBold" href="/User.aspx?ID=${u.id}">${h(u.name)}</a>`).join(', ')}</span></td></tr>
     </table>`;
   const menu = `<div class="ForumMenu"><a class="menuTextLink" href="/Forum/Default.aspx"><img src="/images/forum/icon_mini_home.gif" border="0" alt=""/>Home</a> &nbsp;<a class="menuTextLink" href="/Forum/Search/default.aspx"><img src="/images/forum/icon_mini_search.gif" border="0" alt=""/>Search</a> &nbsp;${ctx.user ? `<a class="menuTextLink" href="/User.aspx"><img src="/images/forum/icon_mini_profile.gif" border="0" alt=""/>Profile</a> &nbsp;<a class="menuTextLink" href="/Forum/Default.aspx"><img src="/images/forum/icon_mini_myforums.gif" border="0" alt=""/>MyForums</a>` : `<a class="menuTextLink" href="/Login/New.aspx"><img src="/images/forum/icon_mini_register.gif" border="0" alt=""/>Register</a>`}</div>`;
   void F;
-  const body = `
+  const body = opts.noLeft ? `
+<div id="ForumContainer">
+  <table width="100%" cellspacing="0" cellpadding="0" border="0"><tr valign="top">
+    <td>&nbsp; &nbsp; &nbsp;</td>
+    <td class="CenterColumn" width="95%"><br/>${menu}${inner}</td>
+    <td class="RightColumn">&nbsp; &nbsp; &nbsp;</td>
+  </tr></table>
+</div>` : `
 <div id="ForumContainer">
   <table width="100%" cellspacing="0" cellpadding="0" border="0"><tr valign="top">
     <td class="LeftColumn">&nbsp;&nbsp;&nbsp;</td>
@@ -108,6 +115,14 @@ function showForum(ctx) {
   return forumPage(ctx, 'ROBLOX Forum', inner);
 }
 
+/** "24 Dec 2007 07:46 PM" / "09 Mar 2006" as the ASP.NET Forums printed them. */
+function postDate(t, withTime = true) {
+  const d = new Date(t);
+  const mon = d.toLocaleString('en-US', { month: 'short' });
+  let hr = d.getHours(); const ampm = hr >= 12 ? 'PM' : 'AM'; hr = hr % 12 || 12;
+  return `${String(d.getDate()).padStart(2, '0')} ${mon} ${d.getFullYear()}${withTime ? ` ${String(hr).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} ${ampm}` : ''}`;
+}
+
 function showPost(ctx) {
   const F = ctx.state.forum;
   const t = F.threads[ctx.query.PostID || ctx.query.postid];
@@ -115,26 +130,55 @@ function showPost(ctx) {
   t.views++;
   db.save();
   const f = F.forums[t.forumId];
+  const newest = String(ctx.query.sort || '') === 'desc';
+  const siblings = Object.values(F.threads).filter((x) => x.forumId === t.forumId).sort((a, b) => b.t - a.t);
+  const idx = siblings.indexOf(t);
+  const prev = siblings[idx + 1], next = siblings[idx - 1];
+  const gid = F.groups.findIndex((g) => g.forums.includes(f.id)) + 1;
+  const pids = newest ? t.posts.slice().reverse() : t.posts;
+  const posts = pids.map((pid, i) => {
+    const p = F.posts[pid]; const u = db.userById(p.userId);
+    const cls = i % 2 ? 'forumAlternate' : 'forumRow';
+    const status = v.isOnline(u) ? `${h(u.name)} is online.` : `${h(u.name)} is not online. Last active: ${longDate(u.lastOnline)}`;
+    const subject = pid === t.posts[0] ? t.subject : `Re: ${t.subject}`;
+    return `<tr>
+      <td class="${cls}" width="150" valign="top" nowrap="nowrap"><table border="0">
+        <tr><td><img src="/images/forum/${v.isOnline(u) ? 'user_IsOnline' : 'user_IsOffline'}.gif" alt="${status}" title="${status}" border="0"/>&nbsp;<a class="normalTextSmallBold" href="/User.aspx?ID=${u.id}">${h(u.name)}</a><br/></td></tr>
+        <tr><td><a href="/User.aspx?ID=${u.id}">${v.avatarThumb(u, 64, 64)}</a></td></tr>
+        ${u.admin ? '<tr><td><img src="/images/forum/users_moderator.gif" alt="Forum Moderator" border="0"/></td></tr>' : ''}
+        <tr><td><span class="normalTextSmaller"><b>Joined:</b> ${postDate(u.created, false)}</span></td></tr>
+        <tr><td><span class="normalTextSmaller"><b>Total Posts: </b>${commas(u.forumPosts)}</span></td></tr>
+        <tr><td>&nbsp;</td></tr>
+      </table></td>
+      <td class="${cls}" valign="top"><table cellspacing="0" width="100%" cellpadding="3" border="0">
+        <tr><td class="forumRowHighlight"><span class="normalTextSmallBold">${h(subject)}<a name="${p.id}"></a></span><br/><span class="normalTextSmaller"> Posted: </span><span class="normalTextSmaller">${postDate(p.t)}</span></td></tr>
+        <tr><td colspan="2"><span class="normalTextSmall"><br/>${h(p.body).replace(/\n/g, '<br/>')}</span></td></tr>
+        <tr><td colspan="2"><span class="normalTextSmaller"></span></td></tr>
+        <tr><td height="2"></td></tr>
+        <tr><td colspan="2">${ctx.user ? `<a href="/Forum/AddPost.aspx?PostID=${t.id}"><img src="/images/forum/newpost.gif" border="0" alt="Reply"/></a>` : `<a href="/Login/Default.aspx?ReturnUrl=${encodeURIComponent('/Forum/AddPost.aspx?PostID=' + t.id)}"><img src="/images/forum/newpost.gif" border="0" alt="Reply"/></a>`}&nbsp;&nbsp;&nbsp;<a href="/AbuseReport/ForumPost.aspx?PostID=${p.id}">Report Abuse</a></td></tr>
+      </table></td>
+    </tr>`;
+  }).join('');
   const inner = `
-    <div class="ForumBreadcrumb"><a class="linkMenuSink" href="/Forum/Default.aspx">ROBLOX Forum</a> &raquo; <a class="linkMenuSink" href="/Forum/Default.aspx">${h(f.group)}</a> &raquo; <a class="linkMenuSink" href="/Forum/ShowForum.aspx?ForumID=${f.id}">${h(f.name)}</a> &raquo; <span class="forumName">${h(t.subject)}</span></div>
-    <div class="normalTextSmaller" style="margin:6px 0">Previous Thread :: Next Thread &nbsp; ${ctx.user ? `<a href="/Forum/AddPost.aspx?PostID=${t.id}"><img src="/images/forum/newpost.gif" border="0" alt="Reply"/></a>` : ''}</div>
-    <table class="tableBorder" cellpadding="3" cellspacing="1" width="100%">
-      <tr><th class="tableHeaderText" align="left" colspan="2">&nbsp;${h(t.subject)}</th></tr>
-      ${t.posts.map((pid, i) => { const p = F.posts[pid]; const u = db.userById(p.userId); return `<tr>
-        <td class="forumRow" valign="top" width="150" nowrap="nowrap"><a name="${p.id}"></a>
-          <span class="normalTextSmallBold"><a href="/User.aspx?ID=${u.id}">${h(u.name)}</a></span>
-          <img src="/images/forum/${v.isOnline(u) ? 'user_IsOnline' : 'user_IsOffline'}.gif" alt="" border="0"/>${u.admin ? ' <img src="/images/forum/users_moderator.gif" alt="Forum Moderator" border="0"/>' : ''}<br/>
-          ${v.avatarThumb(u, 100, 100)}<br/>
-          <span class="normalTextSmaller"><b>Joined:</b> ${new Date(u.created).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}<br/><b>Total Posts:</b> ${commas(u.forumPosts)}</span>
-        </td>
-        <td class="${i % 2 ? 'forumAlternate' : 'forumRow'}" valign="top">
-          <span class="normalTextSmaller">${new Date(p.t).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</span><hr size="1"/>
-          <span class="normalTextSmall">${h(p.body).replace(/\n/g, '<br/>')}</span>
-          <div class="PostFooter">${ctx.user ? `<a href="/Forum/AddPost.aspx?PostID=${t.id}"><img src="/images/forum/newpost.gif" border="0" alt="Reply"/></a> ` : ''}<a class="linkSmall" href="/AbuseReport/ForumPost.aspx?PostID=${p.id}">Report Abuse</a></div>
-        </td></tr>
-        <tr><td class="flatViewSpacing" colspan="2"></td></tr>`; }).join('')}
+    <table width="100%" cellpadding="0">
+      <tr><td colspan="2" align="left"><table cellspacing="0" width="100%" cellpadding="0"><tr>
+        <td align="left" width="1px" valign="top" class="popupMenuSink"><nobr><a class="linkMenuSink" href="/Forum/Default.aspx#Group${gid}">${h(f.group)}</a></nobr></td>
+        <td align="left" width="1px" valign="top" class="popupMenuSink"><nobr><span class="normalTextSmallBold">&nbsp;&gt;</span> <a class="linkMenuSink" href="/Forum/ShowForum.aspx?ForumID=${f.id}">${h(f.name)}</a></nobr></td>
+        <td align="left" width="1px" valign="top" class="popupMenuSink"><nobr><span class="normalTextSmallBold">&nbsp;&gt;</span> <a class="linkMenuSink" href="/Forum/ShowPost.aspx?PostID=${t.id}">${h(t.subject)}</a></nobr></td>
+        <td align="left" valign="top">&nbsp;</td>
+      </tr></table></td></tr>
+      <tr><td colspan="2" align="left">&nbsp; </td></tr>
+      <tr>
+        <td align="left" valign="top"><span class="normalTextSmallBold"></span></td>
+        <td align="right" valign="bottom"><form method="get" action="/Forum/ShowPost.aspx" style="margin:0"><input type="hidden" name="PostID" value="${t.id}"/><span class="normalTextSmallBold">Display using: </span><select name="mode"><option selected="selected">Flat View</option><option>Threaded View</option></select>&nbsp;<select name="sort" onchange="this.form.submit()"><option value="asc"${newest ? '' : ' selected="selected"'}>Oldest to newest</option><option value="desc"${newest ? ' selected="selected"' : ''}>Newest to oldest</option></select></form></td>
+      </tr>
+      <tr><td colspan="2"><table class="tableBorder" cellspacing="1" width="100%" cellpadding="0" border="0">
+        <tr><td class="forumHeaderBackgroundAlternate" colspan="2" height="20"><table cellspacing="0" width="100%" cellpadding="0" border="0"><tr><td align="left"></td><td align="right">${prev ? `<a class="linkSmallBold" href="/Forum/ShowPost.aspx?PostID=${prev.id}">Previous Thread</a>` : '<span class="normalTextSmallBold">Previous Thread</span>'}&nbsp;<span class="normalTextSmallBold">::</span>&nbsp;${next ? `<a class="linkSmallBold" href="/Forum/ShowPost.aspx?PostID=${next.id}">Next Thread</a>` : '<span class="normalTextSmallBold">Next Thread</span>'}&nbsp;</td></tr></table></td></tr>
+        <tr><th class="tableHeaderText" align="left" width="100" height="25">&nbsp;Author</th><th class="tableHeaderText" align="left" width="85%">&nbsp;Thread: ${h(t.subject)}</th></tr>
+        ${posts}
+      </table></td></tr>
     </table>`;
-  return forumPage(ctx, 'ROBLOX Forum', inner);
+  return forumPage(ctx, 'ROBLOX Forum', inner, { noLeft: true });
 }
 
 function addPost(ctx) {

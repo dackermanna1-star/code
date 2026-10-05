@@ -401,18 +401,24 @@ function forumImg(kind) {
     if (kind === 'status') { const c = C(34, 34), x = c.getContext('2d'); const g = x.createRadialGradient(13, 12, 2, 17, 17, 16); g.addColorStop(0, '#fff'); g.addColorStop(0.6, '#c8d8f8'); g.addColorStop(1, '#5a7ac8'); x.fillStyle = g; x.beginPath(); x.arc(17, 17, 15, 0, 7); x.fill(); x.fillStyle = '#f0c040'; x.fillRect(9, 13, 16, 11); x.fillStyle = '#ffe080'; x.fillRect(9, 11, 7, 3); return c; }
     if (kind === 'topic') { const c = C(19, 18), x = c.getContext('2d'); x.fillStyle = '#f0c040'; x.fillRect(2, 5, 15, 10); x.fillStyle = '#ffe080'; x.fillRect(2, 3, 7, 3); x.strokeStyle = '#a07000'; x.strokeRect(2.5, 5.5, 14, 9); return c; }
     if (kind === 'newtopic' || kind === 'newpost') {
-      const label = kind === 'newtopic' ? 'new topic' : 'reply';
-      const c = C(kind === 'newtopic' ? 82 : 60, 25), x = c.getContext('2d');
-      roundRect(x, 1, 1, c.width - 2, 23, 5); const g = x.createLinearGradient(0, 0, 0, 25); g.addColorStop(0, '#fff'); g.addColorStop(1, '#c8d4f0'); x.fillStyle = g; x.fill(); x.strokeStyle = '#4455aa'; x.stroke();
-      x.fillStyle = '#013DA4'; x.font = 'bold 11px Verdana'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(label, c.width / 2, 13); return c;
+      // ASP.NET Forums "default" skin pill buttons: "post reply" / "new topic"
+      const [a, b] = kind === 'newtopic' ? ['new', 'topic'] : ['post', 'reply'];
+      const c = C(70, 19), x = c.getContext('2d');
+      roundRect(x, 1, 1, 68, 17, 8.5); const g = x.createLinearGradient(0, 0, 0, 19); g.addColorStop(0, '#ffffff'); g.addColorStop(0.55, '#eef0f6'); g.addColorStop(1, '#c4c9d8'); x.fillStyle = g; x.fill(); x.lineWidth = 1.6; x.strokeStyle = '#2a3c78'; x.stroke();
+      x.textBaseline = 'middle'; x.font = '11px Verdana, sans-serif'; const wa = x.measureText(a).width; x.font = 'bold 11px Verdana, sans-serif'; const wb = x.measureText(b).width;
+      let tx = (70 - wa - wb) / 2; x.font = '11px Verdana, sans-serif'; x.fillStyle = '#1b3a8c'; x.fillText(a, tx, 10); x.font = 'bold 11px Verdana, sans-serif'; x.fillStyle = '#c8401c'; x.fillText(b, tx + wa, 10); return c;
     }
+    if (kind === 'mod') {
+      const c = C(78, 16), x = c.getContext('2d');
+      x.save(); x.translate(7, 8); x.rotate(-Math.PI / 4); x.fillStyle = '#4a6ab8'; x.fillRect(-5, -6, 10, 6); x.fillRect(-1.5, 0, 3, 8); x.restore();
+      x.font = '13px Verdana, sans-serif'; x.textBaseline = 'middle'; x.fillStyle = '#c8502c'; x.fillText('moderator', 16, 8.5); return c;
+    }
+    if (kind === 'online' || kind === 'offline') { const c = C(7, 7), x = c.getContext('2d'); x.fillStyle = '#09090a'; x.beginPath(); x.arc(3.5, 3.5, 3.5, 0, 7); x.fill(); x.fillStyle = kind === 'online' ? '#00ff00' : '#ff0000'; x.beginPath(); x.arc(3.5, 3.5, 2.6, 0, 7); x.fill(); return c; }
     const c = C(12, 13), x = c.getContext('2d');
     if (kind === 'home') { x.fillStyle = '#c4281c'; x.beginPath(); x.moveTo(0, 6); x.lineTo(6, 0); x.lineTo(12, 6); x.fill(); x.fillStyle = '#f5cd2f'; x.fillRect(2, 6, 8, 6); }
     if (kind === 'search') { x.strokeStyle = '#335'; x.lineWidth = 2; x.beginPath(); x.arc(5, 5, 3.5, 0, 7); x.stroke(); x.beginPath(); x.moveTo(8, 8); x.lineTo(11, 12); x.stroke(); }
     if (kind === 'register' || kind === 'profile' || kind === 'myforums') { x.fillStyle = '#f5cd2f'; x.beginPath(); x.arc(6, 3.5, 3, 0, 7); x.fill(); x.fillStyle = kind === 'myforums' ? '#3a9a3a' : '#1a4ad8'; x.fillRect(2, 7, 8, 6); }
     if (kind === 'minitopic') { x.fillStyle = '#4455aa'; x.fillRect(1, 3, 10, 7); x.fillStyle = '#fff'; x.fillRect(2, 4, 8, 5); }
-    if (kind === 'online' || kind === 'offline') { x.fillStyle = kind === 'online' ? '#2a9a2a' : '#999'; x.beginPath(); x.arc(6, 6.5, 5, 0, 7); x.fill(); }
-    if (kind === 'mod') { x.fillStyle = '#d4a020'; star(x, 6, 7, 6, 2.6); x.fill(); }
     return c;
   };
 }

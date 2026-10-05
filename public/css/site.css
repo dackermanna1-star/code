@@ -59,6 +59,7 @@ img{border:0;}
    enclosed their floats; emulate that where the 2008 CSS relied on it. */
 #UserStatisticsPane #UserStatistics .Statistic{overflow:hidden;}
 .Accoutrements{overflow:hidden;}
+#CustomizeCharacterContainer .AttireChooser{margin-bottom:10px;}
 #MyAccountBalanceContainer #Earnings{overflow:hidden;}
 
 /* profile bits not captured in the CSS */
@@ -97,12 +98,12 @@ img{border:0;}
 .popupControl td{padding:0;}
 
 /* inbox / messages */
+#InvitationContainer .MultilineTextBox{height:250px;min-height:250px;}
 
 /* people */
 #BrowseContainer{text-align:center;}
 
 /* account pages */
-#EditProfileContainer fieldset .Row{padding:8px 20px;}
 #ManageAccountUpgradesContainer,#PaymentMethodsContainer{font-family:Verdana,sans-serif;}
 #ManageAccountUpgradesContainer h2,#PaymentMethodsContainer h2{text-align:center;}
 .RecreationNote{color:#666;}

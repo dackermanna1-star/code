@@ -386,20 +386,31 @@ function profilePage(ctx) {
   const body = `
 <div id="EditProfileContainer">
   <h2>Edit Profile</h2>
-  <form method="post">
+  <form method="post" id="EditProfileForm" style="margin:0">
     ${note ? `<p class="Attention" style="text-align:center">${h(note)}</p>` : ''}
-    <fieldset><legend>Update your age-group</legend>
-      <div class="Row"><input type="radio" id="a1" name="agegroup" value="1"${u.under13 ? ' checked' : ''}/><label for="a1">Under 13 years</label><br/><input type="radio" id="a2" name="agegroup" value="2"${!u.under13 ? ' checked' : ''}/><label for="a2">13 years or older</label></div></fieldset>
-    <fieldset><legend>Update your chat mode</legend>
-      <div class="Row"><input type="radio" id="c1" name="chatmode" value="false"${!u.superSafe ? ' checked' : ''}/><label for="c1">Safe Chat</label><br/><input type="radio" id="c2" name="chatmode" value="true"${u.superSafe ? ' checked' : ''}/><label for="c2">SuperSafe Chat</label></div></fieldset>
-    <fieldset><legend>Change your password</legend>
-      <div class="Row"><label class="Label">New Password:</label> <input type="password" name="newpassword" class="TextBox" maxlength="10"/><br/><br/><label class="Label">Confirm Password:</label> <input type="password" name="confirmpassword" class="TextBox" maxlength="10"/></div></fieldset>
-    <fieldset><legend>Update Email Address</legend>
-      <div class="Row"><label class="Label">Email:</label> <input type="text" name="email" class="TextBox" value="${h(u.email)}"/></div></fieldset>
-    <fieldset><legend>Update your personal blurb</legend>
-      <div class="Row"><textarea name="blurb" class="MultilineTextBox" rows="8" cols="60" maxlength="1000">${h(u.blurb)}</textarea></div></fieldset>
-    <div class="Buttons"><input type="submit" class="Button" value="Update"/> <a class="Button" href="/User.aspx">Cancel</a></div>
+    <div id="AgeGroup"><fieldset title="Update your age-group"><legend>Update your age-group</legend>
+      <div class="Suggestion">This is used to customize your ROBLOX experience. Users under 13 years are only shown pre-approved images.</div>
+      <div class="AgeGroupRow"><table border="0"><tr><td><input type="radio" id="a1" name="agegroup" value="1"${u.under13 ? ' checked="checked"' : ''}/><label for="a1">Under 13 years</label></td></tr><tr><td><input type="radio" id="a2" name="agegroup" value="2"${!u.under13 ? ' checked="checked"' : ''}/><label for="a2">13 years or older</label></td></tr></table></div>
+    </fieldset></div>
+    <div id="ChatMode"><fieldset title="Update your chat mode"><legend>Update your chat mode</legend>
+      <div class="Suggestion">All in-game chat is subject to profanity filtering and moderation. For enhanced chat safety, choose SuperSafe Chat; only chat from pre-approved menus will be shown to you.</div>
+      <div class="ChatModeRow"><table border="0"><tr><td><input type="radio" id="c1" name="chatmode" value="false"${!u.superSafe ? ' checked="checked"' : ''}/><label for="c1">Safe Chat</label></td></tr><tr><td><input type="radio" id="c2" name="chatmode" value="true"${u.superSafe ? ' checked="checked"' : ''}/><label for="c2">SuperSafe Chat</label></td></tr></table></div>
+    </fieldset></div>
+    <div id="ResetPassword"><fieldset title="Reset your password"><legend>Change your password</legend>
+      <div class="Suggestion">Click the button below to change your password.</div>
+      <div class="ResetPasswordRow">&nbsp;<a href="#" onclick="this.style.display='none';document.getElementById('NewPasswordFields').style.display='block';return false;">Change Password</a>
+        <div id="NewPasswordFields" style="display:${note ? 'block' : 'none'};font-size:.8em;line-height:2.6em;"><label class="Label" for="np">New Password:</label>&nbsp;<input type="password" id="np" name="newpassword" class="TextBox" maxlength="10"/><br/><label class="Label" for="cp">Confirm Password:</label>&nbsp;<input type="password" id="cp" name="confirmpassword" class="TextBox" maxlength="10"/></div>
+      </div>
+    </fieldset></div>
+    <div id="EnterEmail"><fieldset title="Update Email Address"><legend>Update Email Address</legend>
+      <div class="EmailRow"><label for="em" class="Label">Email:</label>&nbsp;<input type="text" id="em" name="email" class="TextBox" value="${h(u.email)}"/></div>
+    </fieldset></div>
+    <div id="Blurb"><fieldset title="Update your personal blurb"><legend>Update your personal blurb</legend>
+      <div class="Suggestion">Describe yourself here (max. 1000 characters). Make sure not to provide any details that can be used to identify you outside ROBLOX.</div>
+      <div class="BlurbRow"><textarea name="blurb" rows="2" cols="20" class="MultilineTextBox" maxlength="1000">${h(u.blurb)}</textarea></div>
+    </fieldset></div>
   </form>
+  <div class="Buttons"><a class="Button" href="#" onclick="document.getElementById('EditProfileForm').submit();return false;">Update</a>&nbsp;<a class="Button" href="/User.aspx">Cancel</a></div>
 </div>`;
   return ctx.send(page(ctx, { body }));
 }
