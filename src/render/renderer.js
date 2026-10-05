@@ -102,7 +102,7 @@ export class Renderer {
     this.scene.add(this.hemi);
 
     // Player lantern: soft warm fill so the area around the player always reads.
-    this.lantern = new THREE.PointLight(0xffe2c4, 12, 16, 1.5);
+    this.lantern = new THREE.PointLight(0xffe2c4, 15, 16, 1.5);
     this.lantern.position.set(0.25, 0.1, 0.2);
     this.camera.add(this.lantern);
     this.viewLantern = new THREE.PointLight(0xffc890, 3, 6, 1.5);
@@ -170,7 +170,7 @@ export class Renderer {
       m.position.set(Math.cos(a) * 8, 1.5 + (i % 2), Math.sin(a) * 8);
       env.add(m);
     }
-    const cool = new THREE.Mesh(new THREE.SphereGeometry(1.5, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.6, 0.8, 1.6) }));
+    const cool = new THREE.Mesh(new THREE.SphereGeometry(1.5, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.3, 0.38, 0.6) }));
     cool.position.set(0, 9, 0);
     env.add(cool);
     const pmrem = new THREE.PMREMGenerator(this.renderer);

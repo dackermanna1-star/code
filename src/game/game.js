@@ -34,7 +34,7 @@ export class Game {
     this.assets = sharedAssets(this.renderer.envMap);
     this.fx = new FX(this.renderer, this.assets);
     this.flames = new FlameSystem(this.renderer.scene, this.assets.tex.glow);
-    this.settings = this._load(SETTINGS_KEY, { master: 0.8, sfx: 0.9, music: 0.5, sens: 1, fov: 78, shake: 1, gore: 1, quality: 'high', invertY: false });
+    this.settings = this._load(SETTINGS_KEY, { master: 0.8, sfx: 0.9, music: 0.5, sens: 1, fov: 78, shake: 1, gore: 1, quality: 'high', invertY: false, brightness: 1.15 });
     this.meta = this._load(META_KEY, { runs: 0, bestFloor: 0, totalKills: 0, bossKills: 0, secrets: 0, wins: 0, bestTime: 0, lastClass: 'wanderer' });
     this.applySettings();
     this.persistent = [...this.renderer.scene.children];
@@ -107,6 +107,7 @@ export class Game {
     if (this.input) this.input.sensitivity = s.sens;
     this.fx.gore = s.gore;
     this.renderer.setQuality(s.quality);
+    this.renderer.renderer.toneMappingExposure = s.brightness ?? 1.15;
     this.renderer.camera.far = s.quality === 'low' ? 38 : 48;
     this.renderer.camera.updateProjectionMatrix();
   }

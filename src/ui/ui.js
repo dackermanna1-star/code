@@ -231,6 +231,7 @@ export class UI {
       slider('Mouse sensitivity', 'sens', 0.2, 3, 0.05, (v) => v.toFixed(2)),
       slider('Field of view', 'fov', 60, 105, 1, (v) => `${v}°`),
       slider('Screen shake', 'shake', 0, 1.5, 0.05, fmtPct),
+      slider('Brightness', 'brightness', 0.7, 2, 0.05, (v) => v.toFixed(2)),
       choice('Gore', 'gore', [[0, 'Off'], [1, 'On'], [1.6, 'Extra']]),
       choice('Graphics', 'quality', [['low', 'Low'], ['medium', 'Medium'], ['high', 'High']]),
       choice('Invert Y', 'invertY', [[false, 'Off'], [true, 'On']]),

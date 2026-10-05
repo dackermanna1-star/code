@@ -50,7 +50,7 @@ function extrude(shape, depth, bevel = 0.006) {
 function mats(rarity, fx) {
   const A = sharedAssets();
   const tint = [0xc8c8cc, 0xd0d6dc, 0xb8c8e8, 0x9a90b0, 0xe8d8b0][rarity] || 0xc8c8cc;
-  const blade = addRim(new THREE.MeshStandardMaterial({ map: A.metal.map, normalMap: A.metal.normalMap, color: tint, metalness: 0.6, roughness: rarity >= 3 ? 0.26 : 0.36, envMap: A.envMap, envMapIntensity: 1.6 }), 0xffd8a0, 0.35, 3);
+  const blade = addRim(new THREE.MeshStandardMaterial({ map: A.metal.map, normalMap: A.metal.normalMap, color: tint, metalness: 0.6, roughness: rarity >= 3 ? 0.26 : 0.38, envMap: A.envMap, envMapIntensity: 1.0 }), 0xffd8a0, 0.3, 3);
   if (fx) {
     blade.emissive = new THREE.Color(fxColor(fx));
     blade.emissiveIntensity = 0.35;
