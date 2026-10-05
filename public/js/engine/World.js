@@ -75,6 +75,7 @@ export class World {
     this.scene.add(part.mesh);
     if (part.body) this.physics.addBody(part.body);
     if (part.body && !part.anchored) this.dynamicParts.add(part);
+    if (this.shadows) this._shadowFlags(part);
     return part;
   }
 
@@ -249,8 +250,38 @@ export class World {
     this._checkTouches();
   }
 
-  render() {
+  /**
+   * 2008 stencil shadows: hard-edged, cast by characters and moving parts
+   * onto everything else. Approximated with a basic (unfiltered) shadow map
+   * that follows the camera's focus.
+   */
+  enableShadows() {
+    this.shadows = true;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.BasicShadowMap;
+    const sun = this.sun;
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    const c = sun.shadow.camera;
+    c.left = -70; c.right = 70; c.top = 70; c.bottom = -70; c.near = 1; c.far = 400;
+    sun.shadow.bias = -0.0008;
+    this.scene.add(sun.target);
+    for (const p of this.parts) this._shadowFlags(p);
+  }
+
+  _shadowFlags(part) {
+    part.mesh.receiveShadow = true;
+    part.mesh.castShadow = !part.anchored || !!part.kinematic;
+  }
+
+  render(focus) {
     if (this.skyMesh) this.skyMesh.position.copy(this.camera.position);
+    if (this.shadows) {
+      const f = focus || this.camera.position;
+      const dir = new THREE.Vector3(-0.4, 1, -0.6).normalize();
+      this.sun.target.position.set(Math.round(f.x / 4) * 4, Math.round(f.y / 4) * 4, Math.round(f.z / 4) * 4);
+      this.sun.position.copy(this.sun.target.position).addScaledVector(dir, 200);
+    }
     this.renderer.render(this.scene, this.camera);
   }
 

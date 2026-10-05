@@ -27,6 +27,7 @@ function postJSON(url, body, beacon = false) {
 const placeHook = { update: null };
 const game = new Game({ canvas, place: placeHook });
 const gui = new Gui(game, guiRoot, { buildMode: false });
+game.world.enableShadows();
 window.game = game; // handy for debugging from the console
 
 function resize() { game.resize(window.innerWidth, window.innerHeight); }

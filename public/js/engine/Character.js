@@ -51,6 +51,7 @@ export class Character {
     }
     this.model = new CharacterModel(this.appearance);
     this.root = this.model.root;
+    if (world.shadows) this.root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     this.root.visible = false;
     world.scene.add(this.root);
 

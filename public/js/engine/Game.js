@@ -316,7 +316,7 @@ export class Game {
     }
     this.camera.update(dt);
     this.gui?.update(dt);
-    this.world.render();
+    this.world.render(this.camera.focus);
   }
 
   resize(w, h) {

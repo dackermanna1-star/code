@@ -290,6 +290,7 @@ export class Part {
     this.body.allowSleep = false;
     this.kinematic = true;
     this.world.kinematicParts.add(this);
+    if (this.world.shadows) this.mesh.castShadow = true;
   }
 
   setColor(colorNum) {
@@ -329,6 +330,7 @@ export class Part {
     this.body.collisionFilterGroup = GROUP.DYNAMIC;
     this.body.wakeUp();
     this.world.dynamicParts.add(this);
+    if (this.world.shadows) this.mesh.castShadow = true;
   }
 
   /** Register a Touched handler: fn(other) where other is a Character or Part. */
