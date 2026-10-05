@@ -128,19 +128,41 @@ function inboxPage(ctx) {
   ${showAd ? `<div class="Ads_WideSkyscraper">${ads.skyscraper()}</div>` : ''}
   <div id="InboxPane">
     <h2>Inbox</h2>
-    <form method="post" action="/My/Inbox.aspx">
-      <table class="InboxGrid" cellspacing="0" rules="all" border="1">
-        <tr class="InboxHeader"><th><input type="checkbox" onclick="rbxCheckAll(this)"/></th><th>Subject</th><th>From</th><th>Date</th></tr>
-        ${shown.map((m) => { const from = db.userById(m.fromId); const href = m.kind === 'r' ? `/My/FriendInvitation.aspx?InvitationID=${m.id}` : `/My/PrivateMessage.aspx?MessageID=${m.id}`; return `<tr class="InboxRow${m.read ? '' : '_Unread'}" onclick="if(event.target.type!=='checkbox')location.href='${href}'"><td><input type="checkbox" name="sel_${m.kind === 'r' ? 'r' : ''}${m.id}" value="1"/></td><td><a href="${href}">${h(m.subject)}</a></td><td><a href="/User.aspx?ID=${from?.id}">${h(from?.name)}${from?.id === 1 ? ' [System Message]' : ''}</a></td><td>${longDate(m.t)}</td></tr>`; }).join('')}
-        ${!shown.length ? '<tr><td colspan="4" class="NoResults">You have no messages.</td></tr>' : ''}
-        ${pages > 1 ? `<tr class="InboxPager"><td colspan="4">${Array.from({ length: pages }, (_, i) => (i + 1 === p ? `<span>${i + 1}</span>` : `<a href="/My/Inbox.aspx?p=${i + 1}">${i + 1}</a>`)).join(' ')}</td></tr>` : ''}
+    <form method="post" action="/My/Inbox.aspx" id="InboxForm" style="margin:0">
+      <div id="Inbox"><div>
+      <table cellspacing="0" cellpadding="3" border="0" style="width:726px;border-collapse:collapse;">
+        <tr class="InboxHeader"><th align="left" scope="col"><input type="checkbox" onclick="rbxCheckAll(this)"/></th><th align="left" scope="col"><a href="/My/Inbox.aspx">Subject</a></th><th align="left" scope="col"><a href="/My/Inbox.aspx">From</a></th><th align="left" scope="col"><a href="/My/Inbox.aspx">Date</a></th></tr>
+        ${shown.map((m) => { const from = db.userById(m.fromId); const href = m.kind === 'r' ? `/My/FriendInvitation.aspx?InvitationID=${m.id}` : `/My/PrivateMessage.aspx?MessageID=${m.id}`; return `<tr class="InboxRow${m.read ? '' : '_Unread'}" onclick="if(event.target.type!=='checkbox')location.href='${href}'"><td><span style="display:inline-block;width:25px;"><input type="checkbox" name="sel_${m.kind === 'r' ? 'r' : ''}${m.id}" value="1"/></span></td><td align="left"><a href="${href}">${h(m.subject)}</a></td><td align="left"><a href="/User.aspx?ID=${from?.id}" title="Visit ${h(from?.name)}'s Home Page">${h(from?.name)}${from?.id === 1 ? ' [System Message]' : ''}</a></td><td align="left">${longDate(m.t)}</td></tr>`; }).join('')}
+        ${!shown.length ? '<tr class="InboxRow"><td colspan="4" class="NoResults">You have no messages.</td></tr>' : ''}
+        ${pages > 1 ? `<tr class="InboxPager"><td colspan="4"><table border="0"><tr>${Array.from({ length: pages }, (_, i) => `<td>${i + 1 === p ? `<span>${i + 1}</span>` : `<a href="/My/Inbox.aspx?p=${i + 1}">${i + 1}</a>`}</td>`).join('')}</tr></table></td></tr>` : ''}
       </table>
-      <div class="InboxButtons"><input type="submit" class="Button" value="Delete"/> <a class="Button" href="/User.aspx">Cancel</a></div>
+      </div></div>
+      <div class="Buttons">
+        <a class="Button" href="#" onclick="document.getElementById('InboxForm').submit();return false;">Delete</a>
+        <a class="Button" href="/User.aspx">Cancel</a>
+      </div>
     </form>
   </div>
   <div style="clear:both"></div>
 </div>`;
   return ctx.send(page(ctx, { body }));
+}
+
+/** The 2008 PrivateMessage.aspx frame: a 160px ad pane, then the message pane. */
+function messageShell(ctx, inner) {
+  return `
+<div class="MessageContainer">
+  <div id="AdsPane">${ctx.user && !ctx.user.bc ? `<div class="Ads_WideSkyscraper" style="border:0">${ads.skyscraper()}</div>` : ''}</div>
+  <div id="MessagePane">${inner}
+  </div>
+  <div style="clear: both;"></div>
+</div>`;
+}
+
+/** Reply quote header date, e.g. "12/27/2007 at 4:40 PM". */
+function quoteDate(t) {
+  const [d, time, ampm] = longDate(t).split(' ');
+  return `${d} at ${time.replace(/:\d\d$/, '')} ${ampm}`;
 }
 
 function messagePage(ctx) {
@@ -165,65 +187,84 @@ function messagePage(ctx) {
         if (ctx.form.action === 'senddelete' && mid && ctx.state.messages[mid]?.toId === u.id) ctx.state.messages[mid].deletedByRecipient = true;
         if (to.isBot) require('../bots').scheduleReply(to, u, subject, text);
         db.save();
-        return ctx.send(page(ctx, { body: `<div class="MessageContainer"><div id="Message"><h3>Message Sent</h3><p>Your message has been sent to ${h(to.name)}.</p><p><a class="Button" href="/My/Inbox.aspx">Continue</a></p></div></div>` }));
+        return ctx.send(page(ctx, { body: messageShell(ctx, `
+    <div id="Confirmation">
+      <h3>Message Sent</h3>
+      <div id="Message">Your message has been sent to ${h(to.name)}.</div>
+      <div class="Buttons"><a class="Button" href="/My/Inbox.aspx">Continue</a></div>
+      <div style="clear:both"></div>
+    </div>`) }));
       }
     }
   }
-  if (mid && !ctx.query.reply) {
-    const m = ctx.state.messages[mid];
+  let m = null;
+  if (mid) {
+    m = ctx.state.messages[mid];
     if (!m || (m.toId !== u.id && m.fromId !== u.id)) return ctx.redirect('/My/Inbox.aspx');
     if (m.toId === u.id && !m.read) { m.read = true; db.save(); }
+  }
+  const reply = !!(m && ctx.query.reply && m.toId === u.id && m.fromId !== 1);
+  let reader = '';
+  if (m) {
     const from = db.userById(m.fromId);
-    const body = `
-<div class="MessageContainer"><div id="MessagePane">
-  <h3>Private Message</h3>
-  <div class="MessageReaderContainer"><div id="Message">
-    <div class="MessageHeader">
-      <div class="Avatar">${v.avatarThumb(from, 100, 100)}</div>
-      <div><span class="Label">Date:</span> ${longDate(m.t)}</div>
-      <div><span class="Label">Author:</span> ${v.userLink(from)}</div>
-      <div><span class="Label">Subject:</span> ${h(m.subject)}</div>
+    const canReply = m.fromId !== u.id && m.fromId !== 1;
+    reader = `
+    <h3>Private Message</h3>
+    <div class="MessageReaderContainer">
+      <div id="Message">
+        <table width="100%"><tr valign="top">
+          <td style="width:8em">
+            <div id="DateSent">${longDate(m.t)}</div>
+            <div id="Author"><a title="${h(from?.name)}">${v.avatarThumb(from, 64, 64)}</a><br/><a href="/User.aspx?ID=${from?.id}" title="Visit ${h(from?.name)}'s Home Page">${h(from?.name)}</a></div>
+            <div id="Subject">${h(m.subject)}<br/><br/>
+              <div class="ReportAbusePanel"><span class="AbuseIcon"><a href="/AbuseReport/Message.aspx?ID=${m.id}"><img src="/images/abuse.png" alt="Report Abuse" border="0"/></a></span> <span class="AbuseButton"><a href="/AbuseReport/Message.aspx?ID=${m.id}">Report Abuse</a></span></div>
+            </div>
+          </td>
+          <td><div class="Body"><div class="MultilineTextBox">${h(m.body).replace(/\n/g, '<br/>')}</div></div></td>
+        </tr></table>
+      </div>
       <div style="clear:both"></div>
     </div>
-    <div class="Body">${h(m.body).replace(/\n/g, '<br/>')}</div>
+    <form method="post" id="DeleteMessageForm" action="/My/PrivateMessage.aspx?MessageID=${m.id}" style="margin:0"><input type="hidden" name="action" value="delete"/></form>
     <div class="Buttons">
       <a class="Button" href="/My/Inbox.aspx">Cancel</a>
-      <form method="post" style="display:inline"><input type="hidden" name="action" value="delete"/><input type="submit" class="Button" value="Delete"/></form>
-      ${m.fromId !== u.id && from.id !== 1 ? `<a class="Button" href="/My/PrivateMessage.aspx?MessageID=${m.id}&amp;reply=1">Reply</a>` : ''}
-      <a class="Button" href="/AbuseReport/Message.aspx?ID=${m.id}">Report Abuse</a>
+      ${m.toId === u.id ? '<a class="Button" href="#" onclick="document.getElementById(\'DeleteMessageForm\').submit();return false;">Delete</a>' : ''}
+      ${canReply ? `<a class="Button" href="/My/PrivateMessage.aspx?MessageID=${m.id}&amp;reply=1">Reply</a>` : ''}
     </div>
-  </div><div style="clear:both"></div></div>
-</div></div>`;
-    return ctx.send(page(ctx, { body }));
+    <div style="clear:both"></div>`;
+    if (!reply) return ctx.send(page(ctx, { body: messageShell(ctx, reader) }));
   }
   // compose / reply
-  let to = rid ? db.userById(Number(rid)) : null;
-  let subject = '', quoted = '';
-  if (mid) {
-    const m = ctx.state.messages[mid];
-    if (m && m.toId === u.id) { to = db.userById(m.fromId); subject = m.subject.startsWith('RE: ') ? m.subject : 'RE: ' + m.subject; quoted = `\n\n------------------------------\nOn ${longDate(m.t)}, ${to.name} wrote:\n${m.body}`; }
-  }
+  const to = reply ? db.userById(m.fromId) : (rid ? db.userById(Number(rid)) : null);
   if (!to) return ctx.redirect('/My/Inbox.aspx');
-  const body = `
-<div class="MessageContainer"><div id="MessagePane">
-  <h3>Your Message</h3>
-  <div id="MessageEditorContainer" class="MessageEditor">
-    <form method="post" action="/My/PrivateMessage.aspx?${v.qs({ MessageID: mid, RecipientID: rid, reply: mid ? 1 : null })}">
-      <input type="hidden" name="to" value="${to.id}"/>
-      <table class="MessageFields">
-        <tr><td class="Label">From:</td><td>${h(u.name)}</td></tr>
-        <tr><td class="Label">Send To:</td><td>${v.userLink(to)}</td></tr>
-        <tr><td class="Label">Subject:</td><td><input type="text" name="subject" class="TextBox" style="width:400px" maxlength="64" value="${h(subject)}"/></td></tr>
-        <tr><td class="Label" valign="top">Message:</td><td><textarea name="body" class="MultilineTextBox" style="width:400px;height:250px">${h(quoted)}</textarea></td></tr>
-      </table>
-      <div class="Buttons">
-        <button class="Button" name="action" value="send">Send</button>
-        ${mid ? '<button class="Button" name="action" value="senddelete">Send &amp; Delete</button>' : ''}
-        <a class="Button" href="${mid ? `/My/PrivateMessage.aspx?MessageID=${mid}` : `/User.aspx?ID=${to.id}`}">Cancel</a>
+  const subject = reply ? `RE: ${m.subject}` : '';
+  const quoted = reply ? `\n\n\n------------------------------\nOn ${quoteDate(m.t)} ${to.name} wrote:\n\n${m.body}` : '';
+  const editor = `
+    <h3>Your Message</h3>
+    <form method="post" id="MessageEditorForm" style="margin:0" action="/My/PrivateMessage.aspx?${v.qs({ MessageID: mid, RecipientID: rid, reply: reply ? 1 : null })}">
+    <input type="hidden" name="to" value="${to.id}"/><input type="hidden" name="action" value="send"/>
+    <div id="MessageEditorContainer">
+      <div class="MessageEditor">
+        <table width="100%"><tr valign="top">
+          <td style="width:12em">
+            <div id="From"><span class="Label">From:</span> <span class="Field">${h(u.name)}</span></div>
+            <div id="To"><span class="Label">Send To:</span> <span class="Field">${h(to.name)}</span></div>
+          </td>
+          <td style="padding:0 24px 6px 12px">
+            <div id="Subject"><div class="Label"><label for="txtSubject">Subject:</label></div><div class="Field"><input type="text" id="txtSubject" name="subject" class="TextBox" style="width:100%;" maxlength="64" value="${h(subject)}"/></div></div>
+            <div class="Body"><div class="Label"><label for="txtBody">Message:</label></div><textarea id="txtBody" name="body" rows="2" cols="20" class="MultilineTextBox" style="width:100%;">${h(quoted)}</textarea></div>
+          </td>
+        </tr></table>
       </div>
+      <div style="clear:both"></div>
+    </div>
     </form>
-  </div>
-</div></div>`;
+    <div class="Buttons">
+      <a class="Button" href="#" onclick="var f=document.getElementById('MessageEditorForm');f.elements.action.value='send';f.submit();return false;">Send</a>
+      ${reply ? `<a class="Button" href="#" onclick="var f=document.getElementById('MessageEditorForm');f.elements.action.value='senddelete';f.submit();return false;">Send &amp; Delete</a>` : `<a class="Button" href="/User.aspx?ID=${to.id}">Cancel</a>`}
+    </div>
+    <div style="clear:both"></div>`;
+  const body = messageShell(ctx, reader + editor);
   return ctx.send(page(ctx, { body }));
 }
 
@@ -243,7 +284,13 @@ function friendRequest(ctx) {
     db.save();
     msg = `Your friend request has been sent to ${h(target.name)}.`;
   }
-  return ctx.send(page(ctx, { body: `<div class="MessageContainer"><div id="Message"><h3>Friend Request</h3><p>${msg}</p><p><a class="Button" href="/User.aspx?ID=${target.id}">Continue</a></p></div></div>` }));
+  return ctx.send(page(ctx, { body: messageShell(ctx, `
+    <div id="Confirmation">
+      <h3>Friend Request</h3>
+      <div id="Message">${msg}</div>
+      <div class="Buttons"><a class="Button" href="/User.aspx?ID=${target.id}">Continue</a></div>
+      <div style="clear:both"></div>
+    </div>`) }));
 }
 
 function friendInvitation(ctx) {
@@ -262,23 +309,36 @@ function friendInvitation(ctx) {
     return ctx.redirect('/My/Inbox.aspx');
   }
   if (!r.read) { r.read = true; db.save(); }
+  const act = (a, label) => `<a class="Button" href="#" onclick="var f=document.getElementById('InvitationForm');f.elements.action.value='${a}';f.submit();return false;">${label}</a>`;
   const body = `
-<div id="InvitationContainer"><div id="InvitationPane">
-  <h3>Friend Request</h3>
-  <div class="MessageReaderContainer Invitation">
-    <div class="Avatar">${v.avatarThumb(from, 100, 100)}</div>
-    <p><span class="Label">Date:</span> ${longDate(r.t)}</p>
-    <p><span class="Label">From:</span> ${v.userLink(from)}</p>
-    <p>${h(from.name)} would like to be your friend on ROBLOX.</p>
-    <form method="post">
-      <button class="Button" name="action" value="accept">Accept</button>
-      <button class="Button" name="action" value="decline">Decline</button>
-      <button class="Button" name="action" value="cancel">Cancel</button>
-      <a href="/AbuseReport/User.aspx?ID=${from.id}">Report Abuse</a>
-    </form>
-    <div style="clear:both"></div>
+<div id="InvitationContainer">
+  <div id="AdsPane">${!u.bc ? `<div class="Ads_WideSkyscraper" style="border:0">${ads.skyscraper()}</div>` : ''}</div>
+  <div id="InvitationPane">
+    <h3>Friend Request</h3>
+    <div class="MessageReaderContainer">
+      <div id="Message">
+        <table width="100%"><tr valign="top">
+          <td style="width:8em">
+            <div id="DateSent">${longDate(r.t)}</div>
+            <div id="Author"><a title="${h(from.name)}">${v.avatarThumb(from, 64, 64)}</a><br/><a href="/User.aspx?ID=${from.id}" title="Visit ${h(from.name)}'s Home Page">${h(from.name)}</a></div>
+            <div id="Subject">Friend Request<br/><br/>
+              <div class="ReportAbusePanel"><span class="AbuseIcon"><a href="/AbuseReport/User.aspx?ID=${from.id}"><img src="/images/abuse.png" alt="Report Abuse" border="0"/></a></span> <span class="AbuseButton"><a href="/AbuseReport/User.aspx?ID=${from.id}">Report Abuse</a></span></div>
+            </div>
+          </td>
+          <td><div class="Body"><div class="MultilineTextBox">${h(r.text || '').replace(/\n/g, '<br/>')}</div></div></td>
+        </tr></table>
+      </div>
+      <div style="clear:both"></div>
+    </div>
+    <form method="post" id="InvitationForm" style="margin:0"><input type="hidden" name="action" value="cancel"/></form>
+    <div class="Buttons">
+      <a class="Button" href="/My/Inbox.aspx">Cancel</a>
+      ${act('decline', 'Decline')}
+      ${act('accept', 'Accept')}
+    </div>
   </div>
-</div></div>`;
+  <div style="clear: both;"></div>
+</div>`;
   return ctx.send(page(ctx, { body }));
 }
 
@@ -293,11 +353,13 @@ function editFriends(ctx) {
   const friends = u.friends.map((id) => db.userById(id)).filter(Boolean);
   const rows = [];
   for (let i = 0; i < friends.length; i += 6) rows.push(friends.slice(i, i + 6));
+  const { friendCell } = require('./user');
   const body = `
 <div id="FriendsContainer">
   <div id="Friends">
     <h4>My Friends (${friends.length})</h4>
-    <table cellspacing="0" border="0" align="center">${rows.map((r) => `<tr>${r.map((f) => `<td><div class="Friend"><div class="Avatar"><a href="/User.aspx?ID=${f.id}">${v.avatarThumb(f, 100, 100)}</a></div><div class="Summary"><a href="/User.aspx?ID=${f.id}">${h(f.name)}</a></div><div class="Options"><form method="post"><input type="hidden" name="remove" value="${f.id}"/><input type="submit" class="Button" value="Delete"/></form></div></div></td>`).join('')}</tr>`).join('')}</table>
+    <div style="text-align:center;">Pages: </div>
+    <table cellspacing="0" align="center" border="0">${rows.map((r) => `<tr>${r.map((f) => `<td>${friendCell(f, `<div class="Options"><form method="post" style="margin:0"><input type="hidden" name="remove" value="${f.id}"/><input type="submit" value="Delete"/></form></div>`)}</td>`).join('')}</tr>`).join('')}</table>
     ${!friends.length ? '<div class="NoResults">You don\'t have any ROBLOX friends.</div>' : ''}
   </div>
 </div>`;
@@ -351,8 +413,7 @@ function accountBalance(ctx) {
     const rows = [['LoginAward', 'Login Award'], ['PlaceTrafficAward', 'Place Traffic Award'], ['SaleOfGoods', 'Sale of Goods']];
     const tr = rows.reduce((a, [k]) => a + sum(since, k, 'robux'), 0), tt = rows.reduce((a, [k]) => a + sum(since, k, 'tix'), 0);
     return `<div class="Earnings_Period"><h4>${label}</h4>
-      <div class="Earnings_Header"><div class="Label">&nbsp;</div><div class="Field"><b>ROBUX</b></div><div class="Field"><b>Tickets</b></div><div style="clear:both"></div></div>
-      ${rows.map(([k, lbl]) => `<div class="Earnings_${k}"><div class="Label">${lbl}</div><div class="Field">${commas(sum(since, k, 'robux'))}</div><div class="Field">${commas(sum(since, k, 'tix'))}</div><div style="clear:both"></div></div>`).join('')}
+      ${rows.map(([k, lbl]) => `<div class="Earnings_${k}"><div class="Label">${lbl}</div><div class="Field">${sum(since, k, 'robux') ? commas(sum(since, k, 'robux')) : '&nbsp;'}</div><div class="Field">${commas(sum(since, k, 'tix'))}</div><div style="clear:both"></div></div>`).join('')}
       <div class="Earnings_PeriodTotal"><div class="Label">Total:</div><div class="Field">${commas(tr)}</div><div class="Field">${commas(tt)}</div><div style="clear:both"></div></div></div>`;
   };
   const body = `
@@ -360,18 +421,15 @@ function accountBalance(ctx) {
   <h2>My Account Balance</h2>
   <div id="AboutRobux">
     <h3>What are ROBUX?</h3>
-    <p>ROBUX are the principle currency of Robloxia. Citizens in the Builders Club receive a daily allowance of ROBUX to help them live a comfortable life of leisure.</p>
+    <p>ROBUX are the principle currency of Robloxia. Citizens in the Builders Club receive a daily allowance of ROBUX to help them live a comfortable life of leisure. For this and other benefits, consider joining the <a href="/Upgrades/BuildersClub.aspx">Builders Club</a>!</p>
     <h3>What are Tickets?</h3>
-    <p>Robloxian Tickets are similar to tickets you win in an arcade. You play the game, get tickets, and are rewarded with fabulous prizes. Tickets are granted to citizens who are helping to expand and improve Robloxia.</p>
+    <p>Robloxian Tickets are similar to tickets you win in an arcade. You play the game, get tickets, and are rewarded with fabulous prizes. Tickets are granted to citizens who are helping to expand and improve Robloxia. The primary way to get tickets is to make a cool place, and then get people to visit it. You can also get the daily login bonus, just by showing up!</p>
     <h3>Where do I buy things?</h3>
-    <p>Spend your ROBUX and Tickets in the <a href="/Catalog.aspx">ROBLOX Catalog</a>.</p>
-  </div>
-  <div class="Balances">
-    <p class="Balance Robux">${commas(u.robux)} ROBUX</p>
-    <p class="Balance Tickets">${commas(u.tix)} Tickets</p>
+    <p>Browse the <a href="/Catalog.aspx">ROBLOX Catalog</a></p>
   </div>
   <div id="Earnings">
     <h3>Earnings</h3>
+    <div><div class="Label"></div><div class="Field"><img src="/images/Robux.png" alt="Robux" border="0"/></div><div class="Field"><img src="/images/Tickets.png" alt="Tickets" border="0"/></div><div style="clear:both"></div></div>
     ${period('Past Day', now - 86400000)}${period('Past Week', now - 7 * 86400000)}${period('Past Month', now - 30 * 86400000)}${period('All Time', 0)}
   </div>
   <div style="clear:both"></div>
@@ -400,26 +458,38 @@ function configurePlace(ctx) {
     db.save();
     return ctx.redirect(`/User.aspx`);
   }
+  const templates = [['happyhome', 'Happy Home in Robloxia'], ['brickbattle', 'Starting BrickBattle Map'], ['baseplate', 'Empty Baseplate']];
+  const tcell = ([k, label]) => `<td align="center" valign="middle"><form method="post" style="margin:0" onsubmit="return confirm('Reset your place? This cannot be undone.')"><input type="hidden" name="action" value="reset"/><input type="hidden" name="template" value="${k}"/><a href="#" title="${label}" onclick="var f=this.parentNode;if(f.onsubmit())f.submit();return false;">${v.thumb({ kind: 'place', w: 120, h: 70, key: `template-${k}-v4`, alt: label, data: { script: 'personal', theme: k, name: label } })}</a></form><span>${label}</span></td>`;
   const body = `
 <div id="ConfigurePlaceContainer">
   <h2>Configure Place</h2>
-  <form method="post">
-    <div id="PlaceName"><label class="Label">Name:</label><br/><input type="text" name="name" class="TextBox" style="width:400px" maxlength="50" value="${h(pl.name)}"/></div>
-    <div id="PlaceThumbnail">${v.placeThumb(pl, 420, 230)}</div>
-    <div id="PlaceDescription"><label class="Label">Description:</label><br/><textarea name="desc" class="MultilineTextBox" rows="8" style="width:400px">${h(pl.desc)}</textarea></div>
-    <div id="PlaceAccess"><fieldset><legend>Access</legend><div class="Suggestion">This determines who can access your place.</div>
-      <div class="PlaceAccessRow"><input type="radio" id="ap" name="access" value="public"${pl.public ? ' checked' : ''}/><label for="ap">Public: Anybody can visit my place</label><br/><input type="radio" id="af" name="access" value="friends"${!pl.public ? ' checked' : ''}/><label for="af">Friends: Only my friends can visit my place</label></div></fieldset></div>
-    <div id="PlaceCopyProtection"><fieldset><legend>Copy Protection</legend><div class="Suggestion">Checking this will prevent your place from being copied but will also make it available to others only in online mode.</div>
-      <div class="CopyProtectionRow"><input type="checkbox" id="cl" name="copylock" value="1"${pl.copylocked ? ' checked' : ''}/><label for="cl">Copy-Lock my place</label></div></fieldset></div>
-    <div class="Buttons" style="text-align:center;margin:10px"><input type="submit" class="Button" value="Update"/> <a class="Button" href="/User.aspx">Cancel</a></div>
+  <form method="post" id="ConfigurePlaceForm">
+    <div id="PlaceName"><span class="Label">Name:</span><br/><input type="text" name="name" class="TextBox" maxlength="50" value="${h(pl.name)}"/></div>
+    <div id="PlaceThumbnail"><a title="${h(pl.name)}">${v.placeThumb(pl, 420, 230)}</a></div>
+    <div id="PlaceDescription"><span class="Label">Description:</span><br/><textarea name="desc" class="MultilineTextBox" rows="2" cols="20">${h(pl.desc)}</textarea></div>
+    <div id="PlaceAccess"><fieldset title="Access"><legend>Access</legend><div class="Suggestion">This determines who can access your place.</div>
+      <div class="PlaceAccessRow"><img src="/images/public.png" alt="Public" border="0"/><input type="radio" id="ap" name="access" value="public"${pl.public ? ' checked="checked"' : ''}/><label for="ap">Public: Anybody can visit my place</label><br/><img src="/images/locked.png" alt="Friends-only" border="0"/><input type="radio" id="af" name="access" value="friends"${!pl.public ? ' checked="checked"' : ''}/><label for="af">Friends: Only my friends can visit my place</label></div></fieldset></div>
+    <div id="PlaceCopyProtection"><fieldset title="Copy Protection"><legend>Copy Protection</legend><div class="Suggestion">Checking this will prevent your place from being copied but will also make it available to others only in online mode.</div>
+      <div class="CopyProtectionRow"><input type="checkbox" id="cl" name="copylock" value="1"${pl.copylocked ? ' checked="checked"' : ''}/><label for="cl">Copy-Lock my place</label></div></fieldset></div>
   </form>
-  <div id="PlaceReset"><fieldset><legend>Reset Place</legend><div class="Suggestion">Only do this if you want to reset your place to one of our starting templates. This will cause you to lose any changes you have made and cannot be un-done.</div>
-    <form method="post" onsubmit="return confirm('Reset your place? This cannot be undone.')"><input type="hidden" name="action" value="reset"/>
-      <table class="ResetTemplates"><tr>
-        ${[['happyhome', 'Happy Home in Robloxia'], ['brickbattle', 'Starting BrickBattle Map'], ['baseplate', 'Empty Baseplate']].map(([k, label]) => `<td><label><input type="radio" name="template" value="${k}"${k === 'happyhome' ? ' checked' : ''}/><br/>${v.thumb({ kind: 'place', w: 120, h: 70, key: `template-${k}-v4`, data: { script: 'personal', theme: k, name: label } })}<br/>${label}</label></td>`).join('')}
-      </tr></table>
-      <div style="text-align:center"><input type="submit" class="Button" value="Reset Place"/></div>
-    </form></fieldset></div>
+  <div id="PlaceReset">
+    <div class="popupControl" id="ResetPlacePopup" style="width:400px;">
+      <div>
+        <div align="right"><a class="PopUpOption" href="#" onclick="document.getElementById('ResetPlacePopup').style.visibility='hidden';return false;">[ close window ]</a></div>
+        <div class="PopUpInstruction">To reset your place, click an image below:</div>
+        <table cellspacing="0" cellpadding="10" align="Center" border="0">
+          <tr>${tcell(templates[0])}${tcell(templates[1])}</tr>
+          <tr>${tcell(templates[2])}<td></td></tr>
+        </table>
+      </div>
+    </div>
+    <fieldset title="Reset Place"><legend>Reset Place</legend><div class="Suggestion">Only do this if you want to reset your place to one of our starting templates. This will cause you to lose any changes you have made and cannot be un-done.</div>
+      <div class="ResetPlaceRow"><div class="Button" style="width:80px;" onclick="document.getElementById('ResetPlacePopup').style.visibility='visible';">Reset Place</div></div>
+    </fieldset>
+  </div>
+  <div class="Buttons">
+    <a class="Button" href="#" onclick="document.getElementById('ConfigurePlaceForm').submit();return false;">Update</a>&nbsp;<a class="Button" href="/User.aspx">Cancel</a>
+  </div>
 </div>`;
   return ctx.send(page(ctx, { body }));
 }

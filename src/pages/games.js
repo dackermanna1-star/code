@@ -177,25 +177,24 @@ function placePage(ctx, pl) {
         ${ctx.user ? `<form method="post" action="${back}&amp;favorite=1" style="display:inline"><a href="#" onclick="this.parentNode.submit();return false;">${isFav ? 'Unfavorite' : 'Favorite'}</a></form>` : '<a href="/Login/Default.aspx">Favorite</a>'}
       </div>
       <div class="PlayGames">
-        <div><img src="/images/public.png" alt="" border="0"/>&nbsp;Public &nbsp; <img src="/images/CopyLocked.png" alt="" border="0"/> Copy Protection: CopyLocked</div>
-        <div style="margin-top:8px">
-          <a class="Button" href="#" onclick="return rbxVisit(${pl.id},'online')">Visit Online</a>
-          &nbsp;&nbsp;&nbsp;<a class="Button" href="#" onclick="return rbxVisit(${pl.id},'solo')">Visit Solo</a>
-        </div>
+        <div><span><img src="/images/public.png" alt="Public" border="0"/>&nbsp;Public</span>
+          <img src="/images/CopyLocked.png" alt="CopyLocked" border="0"/> Copy Protection: CopyLocked </div>
+        <div style="display:inline"><a class="Button" href="#" onclick="return rbxVisit(${pl.id},'online')">Visit Online</a></div>
+        <div style="display:inline">&nbsp;&nbsp;&nbsp;<a class="Button" href="#" onclick="return rbxVisit(${pl.id},'solo')">Visit Solo</a></div>
       </div>
       <div style="clear:both"></div>
     </div>
-    <div class="TabbedInfoContainer">
+    <div style="margin: 10px; width: 703px;">
       <div class="ajax__tab_xp" id="TabbedInfo">
-        <div class="ajax__tab_header">
-          <span class="ajax__tab_tab ajax__tab_active" data-tab="GamesTab" onclick="rbxTab(this)"><h3>Games</h3></span><span class="ajax__tab_tab" data-tab="CommentaryTab" onclick="rbxTab(this)"><h3>Commentary</h3></span>
+        <div class="ajax__tab_header" id="TabbedInfo_header">
+          <span class="ajax__tab_tab ajax__tab_active" data-tab="GamesTab" onclick="rbxTab(this)"><h3 style="color: #555;">Games</h3></span><span class="ajax__tab_tab" data-tab="CommentaryTab" onclick="rbxTab(this)"><h3 style="color: #555;">Commentary</h3></span>
         </div>
-        <div class="ajax__tab_body">
+        <div class="ajax__tab_body" id="TabbedInfo_body">
           <div id="GamesTab" class="ajax__tab_panel">
-            <div class="RunningGames">
-              ${servers.length ? `<table cellspacing="0" border="0" width="100%">${servers.map((s) => `<tr><td><div class="GameInstance">
-                <div>${s.players.map((u) => `<a title="${h(u.name)}" href="/User.aspx?ID=${u.id}">${v.avatarThumb(u, 48, 48)}</a>`).join(' ')}</div>
-                <div>${s.count} players of ${pl.maxPlayers} max<br/><a class="Button" href="#" onclick="return rbxVisit(${pl.id},'online')">Join</a> &nbsp; ID: ${s.id}</div>
+            <div id="RunningGamesUpdatePanel">
+              ${servers.length ? `<table cellspacing="0" border="0" width="100%">${servers.map((s) => `<tr><td><div class="GameInstance" style="margin: 3px 0">
+                <div style="float: right;">${s.players.map((u) => `<a title="${h(u.name)}" href="/User.aspx?ID=${u.id}" style="display:inline-block;">${v.avatarThumb(u, 48, 48)}</a>`).join(' ')}</div>
+                <div style="text-align: left;">${s.count} players of ${pl.maxPlayers} max<br/><a class="Button" href="#" onclick="return rbxVisit(${pl.id},'online')">Join</a>&nbsp;&nbsp;</div>
               </div></td></tr>`).join('')}</table>` : '<div class="GameInstance">No games are running right now.</div>'}
               <div class="RefreshRunningGames"><a class="Button" href="${back}">Refresh</a></div>
             </div>

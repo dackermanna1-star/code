@@ -146,7 +146,8 @@ function messageIcon() {
   x.beginPath(); x.moveTo(0.5, 0.5); x.lineTo(8, 7); x.lineTo(15.5, 0.5); x.stroke();
   return c;
 }
-function dot(color) { return () => { const c = C(12, 12), x = c.getContext('2d'); const g = x.createRadialGradient(4, 4, 1, 6, 6, 6); g.addColorStop(0, '#fff'); g.addColorStop(0.4, color); g.addColorStop(1, '#333'); x.fillStyle = g; x.beginPath(); x.arc(6, 6, 5, 0, 7); x.fill(); return c; }; }
+// 7x7 flat dot with a dark rim, like the 2008 OnlineStatusIndicator gifs
+function dot(color) { return () => { const c = C(7, 7), x = c.getContext('2d'); x.fillStyle = '#09090a'; x.beginPath(); x.arc(3.5, 3.5, 3.5, 0, 7); x.fill(); x.fillStyle = color; x.beginPath(); x.arc(3.5, 3.5, 2.6, 0, 7); x.fill(); return c; }; }
 function publicIcon() {
   const c = C(16, 16), x = c.getContext('2d');
   const g = x.createRadialGradient(6, 5, 1, 8, 8, 8); g.addColorStop(0, '#bfe0ff'); g.addColorStop(1, '#2060c0');
@@ -316,28 +317,50 @@ const BADGES = {
 
 // ---------------------------------------------------------------- Builders Club art
 function joinBC() {
+  // The 2008 header was a blocky italic pixel font (yellow, dark drop shadow)
+  // on blue studs. Draw the text small with hard (thresholded) edges and blow
+  // it up 3x with nearest-neighbour sampling, slanted like the original.
   const c = C(900, 43), x = c.getContext('2d');
-  x.fillStyle = '#1a5ab8'; x.fillRect(0, 0, 900, 43);
-  for (let i = 0; i < 900; i += 10) for (let j = 0; j < 43; j += 10) { x.fillStyle = 'rgba(255,255,255,.18)'; x.beginPath(); x.arc(i + 5, j + 5, 3, 0, 7); x.fill(); x.fillStyle = 'rgba(0,0,0,.18)'; x.beginPath(); x.arc(i + 6, j + 6, 3, 0, 7); x.fill(); }
-  x.font = "bold 34px 'Courier New', monospace"; x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.lineWidth = 5; x.strokeStyle = '#000'; x.strokeText('JOIN BUILDERS CLUB NOW!', 450, 23);
-  x.fillStyle = '#ffe23a'; x.fillText('JOIN BUILDERS CLUB NOW!', 450, 23);
+  x.fillStyle = '#1f5cb0'; x.fillRect(0, 0, 900, 43);
+  for (let i = 0; i < 900; i += 8) for (let j = 0; j < 43; j += 8) { x.fillStyle = 'rgba(255,255,255,.13)'; x.beginPath(); x.arc(i + 4, j + 4, 2.6, 0, 7); x.fill(); x.fillStyle = 'rgba(0,0,0,.16)'; x.beginPath(); x.arc(i + 5, j + 5, 2.6, 0, 7); x.fill(); }
+  const text = 'JOIN BUILDERS CLUB NOW!', adv = 9;
+  const mask = (color) => {
+    const m = C(text.length * adv + 4, 14), mx = m.getContext('2d');
+    mx.font = "bold 12px 'DejaVu Sans Mono', 'Courier New', monospace"; mx.textBaseline = 'top'; mx.fillStyle = color;
+    mx.strokeStyle = color; mx.lineWidth = 0.7;
+    [...text].forEach((ch, i) => { mx.fillText(ch, 1 + i * adv, 1); mx.strokeText(ch, 1 + i * adv, 1); });
+    const d = mx.getImageData(0, 0, m.width, m.height);
+    for (let i = 3; i < d.data.length; i += 4) d.data[i] = d.data[i] > 100 ? 255 : 0;
+    mx.putImageData(d, 0, 0);
+    return m;
+  };
+  const yellow = mask('#fff23c'), dark = mask('#1b1b10');
+  const W = yellow.width * 3, left = (900 - W) / 2 + 8;
+  x.imageSmoothingEnabled = false;
+  x.save(); x.transform(1, 0, -0.25, 1, 0, 0);
+  x.drawImage(dark, left + 3 + 9, 3 + 3, W, 42); x.drawImage(yellow, left + 9, 3, W, 42);
+  x.restore();
   return c;
 }
 function bcButton(label, price, app, bestDeal) {
   return () => {
     const c = C(214, 156), x = c.getContext('2d');
     roundRect(x, 2, 2, 210, 152, 12);
-    const g = x.createLinearGradient(0, 0, 0, 156); g.addColorStop(0, '#cfe0ff'); g.addColorStop(0.5, '#6a9ae8'); g.addColorStop(1, '#2d5cb8');
-    x.fillStyle = g; x.fill(); x.lineWidth = 3; x.strokeStyle = '#d8d8d8'; x.stroke();
-    const fig = render3d(figure(app), 120, 140, { side: -0.25, pad: 1.0 });
-    x.drawImage(fig, 92, 12, 118, 140);
-    x.font = `italic bold 26px ${COMIC}`; x.lineWidth = 4; x.strokeStyle = '#1b2a6e'; x.strokeText(label, 14, 34); x.fillStyle = '#ffe23a'; x.fillText(label, 14, 34);
-    x.font = 'bold 34px Verdana, sans-serif'; x.lineWidth = 4; x.strokeStyle = '#1b2a6e'; x.strokeText(price[0], 14, 92); x.fillStyle = '#fff'; x.fillText(price[0], 14, 92);
+    const g = x.createRadialGradient(80, 60, 10, 105, 78, 150); g.addColorStop(0, '#b9cdee'); g.addColorStop(0.55, '#5f86c8'); g.addColorStop(1, '#2a56a8');
+    x.fillStyle = g; x.fill();
+    x.save(); x.clip();
+    const fig = render3d(figure(app), 130, 160, { side: -0.25, pad: 1.0 });
+    x.drawImage(fig, 88, 34, 130, 160);
+    x.restore();
+    roundRect(x, 2, 2, 210, 152, 12); x.lineWidth = 3; x.strokeStyle = '#d4d4d4'; x.stroke();
+    x.lineJoin = 'round';
+    x.font = `italic bold 27px ${COMIC}`; x.lineWidth = 4; x.strokeStyle = '#000'; x.strokeText(label, 14, 38); x.fillStyle = '#ffe23a'; x.fillText(label, 14, 38);
+    x.font = `bold 40px ${COMIC}`; x.lineWidth = 4; x.strokeStyle = '#000'; x.strokeText(price[0], 12, 96); x.fillStyle = '#fff'; x.fillText(price[0], 12, 96);
     const w0 = x.measureText(price[0]).width;
-    x.font = 'bold 16px Verdana'; x.strokeText(price[1], 16 + w0, 74); x.fillText(price[1], 16 + w0, 74);
-    x.font = 'bold 11px Verdana'; x.strokeText('USD', 18 + w0, 90); x.fillText('USD', 18 + w0, 90);
-    if (bestDeal) { x.save(); x.translate(186, 26); x.rotate(Math.PI / 4); x.fillStyle = '#f5cd2f'; x.fillRect(-40, -11, 80, 22); x.fillStyle = '#c4281c'; x.font = 'bold 12px Verdana'; x.textAlign = 'center'; x.fillText('BEST DEAL', 0, 5); x.restore(); }
+    x.font = `bold 17px ${COMIC}`; x.lineWidth = 3; x.strokeText(price[1], 15 + w0, 76); x.fillText(price[1], 15 + w0, 76);
+    x.fillStyle = '#000'; x.fillRect(15 + w0, 80, x.measureText(price[1]).width, 2);
+    x.font = `italic bold 12px ${COMIC}`; x.fillStyle = '#000'; x.fillText('USD', 15 + w0, 96);
+    if (bestDeal) { x.save(); x.translate(186, 26); x.rotate(Math.PI / 4); x.fillStyle = '#f5cd2f'; x.fillRect(-40, -11, 80, 22); x.fillStyle = '#000'; x.font = 'bold 12px Verdana, sans-serif'; x.textAlign = 'center'; x.fillText('BEST DEAL', 0, 5); x.restore(); }
     return c;
   };
 }
@@ -424,10 +447,11 @@ export const IMAGES = {
   'Robux.png': robuxIcon,
   'Tickets.png': ticketsIcon,
   'Message.gif': messageIcon,
-  'OnlineStatusIndicator_IsOnline.gif': dot('#2aa02a'),
-  'OnlineStatusIndicator_IsOffline.gif': dot('#9a9a9a'),
+  'OnlineStatusIndicator_IsOnline.gif': dot('#00ff00'),
+  'OnlineStatusIndicator_IsOffline.gif': dot('#ff0000'),
   'public.png': publicIcon,
   'CopyLocked.png': lockIcon,
+  'locked.png': lockIcon,
   'abuse.png': abuseIcon,
   'ProgressIndicator2.gif': spinner,
   'NewFrontPageGuy.png': () => render3d(figure(BUILDERMAN), 115, 130, { pad: 1.02 }),
@@ -477,6 +501,8 @@ export const IMAGES = {
 };
 
 window.generateAll = async () => {
+  // canvas text only uses faces that are already loaded
+  await Promise.all(["12px 'Comic Sans MS'", "bold 12px 'Comic Sans MS'", "italic bold 12px 'Comic Sans MS'"].map((f) => document.fonts.load(f).catch(() => {})));
   await document.fonts.ready;
   const out = {};
   for (const [name, fn] of Object.entries(IMAGES)) {

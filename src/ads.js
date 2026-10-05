@@ -18,7 +18,7 @@ const SKYSCRAPERS = [
 
 let n = 0;
 function leaderboard() {
-  return `<div class="AdLabel">Advertisement</div>${LEADERBOARDS[n++ % LEADERBOARDS.length]}`;
+  return LEADERBOARDS[n++ % LEADERBOARDS.length];
 }
 function skyscraper() {
   return SKYSCRAPERS[n++ % SKYSCRAPERS.length];

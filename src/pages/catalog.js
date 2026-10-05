@@ -84,7 +84,7 @@ function catalogPage(ctx) {
   <div class="Assets">
     <span class="AssetsDisplaySet">${label}</span>
     ${v.pager(p, pages, (n) => url({ p: n }), 'HeaderPager', '')}
-    ${shown.length ? `<table cellspacing="0" align="Center" border="0" width="100%">${rows.map((r) => `<tr>${r.map(cell).join('')}${'<td width="20%"></td>'.repeat(5 - r.length)}</tr>`).join('')}</table>` : '<div class="NoResults">No items found.</div>'}
+    ${shown.length ? `<table cellspacing="0" align="Center" border="0" width="735">${rows.map((r) => `<tr>${r.map(cell).join('')}${'<td width="20%"></td>'.repeat(5 - r.length)}</tr>`).join('')}</table>` : '<div class="NoResults">No items found.</div>'}
     ${v.pager(p, pages, (n) => url({ p: n }), 'FooterPager', '')}
   </div>
   <div style="clear:both"></div>
@@ -124,10 +124,10 @@ function itemPage(ctx) {
   const typeLabel = v.TYPE_LABEL[it.type];
   const buyBtn = (cur, label) => (ctx.user ? `<a class="Button" href="#" onclick="return rbxPurchase(${it.id},'${cur}')">${label}</a>` : `<a class="Button" href="/Login/Default.aspx?ReturnUrl=${encodeURIComponent(back)}">${label}</a>`);
   let purchase = '';
-  if (!owned && it.forSale) {
+  if (it.forSale) {
     if (it.tix != null) purchase += `<div id="TicketsPurchase"><div id="PriceInTickets">Tx: ${commas(it.tix)}</div><div id="BuyWithTickets">${buyBtn('tix', 'Buy with Tx')}</div></div>`;
     if (it.robux != null) purchase += `<div id="RobuxPurchase"><div id="PriceInRobux">R$: ${commas(it.robux)}</div><div id="BuyWithRobux">${buyBtn('robux', 'Buy with R$')}</div></div>`;
-  } else if (!owned && it.publicDomain) {
+  } else if (it.publicDomain) {
     purchase = `<div id="PublicDomainPurchase"><div id="PricePublicDomain">Free</div><div id="BuyForFree">${ctx.user ? `<a class="Button" href="#" onclick="return rbxPurchase(${it.id},'free')">Take One!</a>` : `<a class="Button" href="/Login/Default.aspx">Take One!</a>`}</div></div>`;
   } else if (!owned && it.bcOnly) {
     purchase = '<div class="OffSale">Builders Club members receive this hat. <a href="/Upgrades/BuildersClub.aspx">Join Builders Club</a></div>';
@@ -165,7 +165,6 @@ var rbxItem = ${JSON.stringify({ id: it.id, name: it.name, type: typeLabel, crea
         </div>
         <div id="LastUpdate">Updated: ${timeAgo(it.updated)}</div>
         <div id="Favorited">Favorited: ${commas(it.favorited)} times</div>
-        <div id="NumberSold">Number Sold: ${commas(it.sales)}</div>
         <div>
           <div id="DescriptionLabel">Description:</div>
           <div id="Description">${h(it.desc || '') || '&nbsp;'}</div>
@@ -175,13 +174,13 @@ var rbxItem = ${JSON.stringify({ id: it.id, name: it.name, type: typeLabel, crea
       <div id="Actions">
         ${ctx.user ? `<form method="post" action="${back}&amp;favorite=1" style="display:inline"><a href="#" onclick="this.parentNode.submit();return false;">${isFav ? 'Unfavorite' : 'Favorite'}</a></form>` : '<a href="/Login/Default.aspx">Favorite</a>'}
       </div>
-      ${owned ? `<div id="Ownership">You own this item${['Hat', 'Shirt', 'Pants', 'TShirt'].includes(it.type) ? `<br/><a class="Button" href="/My/Character.aspx?wear=${it.id}">Wear It</a>` : ''}</div>` : ''}
+      ${owned ? '<div id="Ownership">You own this item</div>' : ''}
       <div style="clear:both"></div>
     </div>
-    <div class="TabbedInfoContainer">
+    <div style="margin: 10px; width: 703px;">
       <div class="ajax__tab_xp" id="TabbedInfo">
-        <div class="ajax__tab_header"><span class="ajax__tab_tab ajax__tab_active"><h3>Commentary</h3></span></div>
-        <div class="ajax__tab_body"><div class="ajax__tab_panel">${games.commentsBlock(ctx, 'item:' + it.id, back, `Comment on this ${typeLabel}`)}</div></div>
+        <div class="ajax__tab_header" id="TabbedInfo_header"><span class="ajax__tab_tab ajax__tab_active"><h3 style="color: #555;">Commentary</h3></span></div>
+        <div class="ajax__tab_body" id="TabbedInfo_body"><div class="ajax__tab_panel">${games.commentsBlock(ctx, 'item:' + it.id, back, `Comment on this ${typeLabel}`)}</div></div>
       </div>
     </div>
   </div>

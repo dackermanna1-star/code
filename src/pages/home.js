@@ -48,8 +48,9 @@ function defaultPage(ctx) {
   <div id="SignInPane">
     <div id="LoginViewContainer">${signIn}
     </div>
+    ${u ? `<div id="ForParents_SignedIn"><a title="ROBLOX is kid-safe!" href="/Parents.aspx"><img title="ROBLOX is kid-safe!" src="/images/COPPASeal-125x125.png" alt="ROBLOX is kid-safe!" border="0" width="125" height="125"/></a></div>` : `
     <br/>
-    <div id="Figure"><img src="/images/NewFrontPageGuy.png" border="0" alt="Figure"/></div>
+    <div id="Figure"><img src="/images/NewFrontPageGuy.png" border="0" alt="Figure"/></div>`}
   </div>
   <div id="RobloxAtAGlance">
     <h2>ROBLOX Virtual Playworld</h2>
@@ -65,16 +66,19 @@ function defaultPage(ctx) {
         <div class="TrailerCaption">ROBLOX &mdash; Think. Create.</div>
       </div>
     </div>
-    <div id="Install">
+    ${u ? `<div id="Install">
+      <div id="CompatibilityNote"></div>
+      <div id="DownloadAndPlay"></div>
+    </div>` : `<div id="Install">
       <div id="CompatibilityNote"><div>Works with your<br/>Windows PC!</div></div>
-      <div id="DownloadAndPlay"><a href="${u ? '/Games.aspx' : '/Login/New.aspx'}"><img src="/images/DownloadAndPlay.png" alt="FREE - Download and Play!" border="0"/></a></div>
+      <div id="DownloadAndPlay"><a href="/Login/New.aspx"><img src="/images/DownloadAndPlay.png" alt="FREE - Download and Play!" border="0"/></a></div>
     </div>
-    <div id="ForParents"><a href="/Parents.aspx" title="for parents"><img src="/images/COPPASeal-125x125.png" alt="for parents" border="0" width="125" height="125"/></a></div>
+    <div id="ForParents"><a href="/Parents.aspx" title="for parents"><img src="/images/COPPASeal-125x125.png" alt="for parents" border="0" width="125" height="125"/></a></div>`}
   </div>
   <div id="UserPlacesPane">
     <div id="UserPlaces_Content">
-      <table cellspacing="0" border="0"><tr>
-        ${places.map((p) => `<td><div class="UserPlace"><a href="/Item.aspx?ID=${p.id}" title="${h(p.name)}">${v.placeThumb(p, 120, 70)}</a></div></td>`).join('')}
+      <table cellspacing="0" border="0" width="100%"><tr>
+        ${places.map((p) => `<td class="UserPlace"><a href="/Item.aspx?ID=${p.id}" title="${h(p.name)}">${v.placeThumb(p, 120, 70)}</a></td>`).join('')}
       </tr></table>
     </div>
     <div id="UserPlaces_Header">

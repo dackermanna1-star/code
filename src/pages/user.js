@@ -38,13 +38,11 @@ function placePane(ctx, owner, isOwner) {
       <div class="Place">
         <div class="PlayStatus"><img src="/images/public.png" alt="" border="0"/>&nbsp;Public</div>
         <div class="PlayOptions">
-          <a class="Button" href="#" onclick="return rbxVisit(${pl.id},'online')">Visit Online</a>
-          <a class="Button" href="#" onclick="return rbxVisit(${pl.id},'solo')">Visit Solo</a>
-          ${isOwner && pl.script === 'personal' ? `<a class="Button" href="#" onclick="return rbxVisit(${pl.id},'edit')">Edit</a>` : ''}
+          <a class="Button" href="#" onclick="return rbxVisit(${pl.id},'online')">Visit Online</a>&nbsp;&nbsp;&nbsp;<a class="Button" href="#" onclick="return rbxVisit(${pl.id},'solo')">Visit Solo</a>${isOwner && pl.script === 'personal' ? `&nbsp;&nbsp;&nbsp;<a class="Button" href="#" onclick="return rbxVisit(${pl.id},'edit')">Edit</a>` : ''}
         </div>
         <div class="Statistics">Visited ${commas(pl.visits)} times (${commas(Math.round(pl.visits / 60))} last week)</div>
         <div class="Thumbnail"><a href="/Item.aspx?ID=${pl.id}" title="${h(pl.name)}">${v.placeThumb(pl, 420, 230)}</a></div>
-        <div class="Description">${h(pl.desc || '')}</div>
+        ${pl.desc ? `<div class="Description">${h(pl.desc)}</div>` : ''}
         ${isOwner ? `<div class="Configuration"><a href="/My/Place.aspx?PlaceID=${pl.id}">Configure this Place</a></div>` : ''}
       </div>
     </div>`).join('');
@@ -53,7 +51,6 @@ function placePane(ctx, owner, isOwner) {
     <div id="UserPlaces">
       <h4>Showcase</h4>
       ${items || '<div class="NoResults">This user has no places.</div>'}
-      <div class="PanelFooter">&nbsp;</div>
     </div>
   </div>`;
 }
@@ -67,7 +64,7 @@ function friendsPane(ctx, owner, isOwner) {
   <div id="FriendsPane">
     <div id="Friends">
       <h4>${isOwner ? 'My Friends' : `${h(owner.name)}'s Friends`} <a href="/Friends.aspx?UserID=${owner.id}">See all ${friends.length}</a>${isOwner ? ' (<a href="/My/EditFriends.aspx">Edit</a>)' : ''}</h4>
-      ${shown.length ? `<table cellspacing="0" border="0" align="center">${rows.map((r) => `<tr>${r.map((f) => `<td><div class="Friend"><div class="Avatar"><a href="/User.aspx?ID=${f.id}" title="${h(f.name)}">${v.avatarThumb(f, 100, 100)}</a></div><div class="Summary"><span class="OnlineStatus"><img src="/images/${v.isOnline(f) ? 'OnlineStatusIndicator_IsOnline' : 'OnlineStatusIndicator_IsOffline'}.gif" alt="" border="0"/></span>&nbsp;<span class="Name"><a href="/User.aspx?ID=${f.id}">${h(f.name)}</a></span></div></div></td>`).join('')}</tr>`).join('')}</table>`
+      ${shown.length ? `<table cellspacing="0" border="0" align="center">${rows.map((r) => `<tr>${r.map((f) => `<td>${friendCell(f)}</td>`).join('')}</tr>`).join('')}</table>`
     : `<div class="NoResults">${isOwner ? "You don't have any ROBLOX friends." : `${h(owner.name)} doesn't have any ROBLOX friends.`}</div>`}
     </div>
   </div>`;
@@ -82,12 +79,11 @@ function favoritesPane(ctx, owner) {
   <div id="FavoritesPane">
     <div id="Favorites">
       <h4>Favorites</h4>
-      <div class="FavoritesSelector"><select onchange="location.href='/User.aspx?ID=${owner.id}&amp;favcat='+this.value+'#Favorites'">${opts}</select></div>
       <div id="FavoritesContent">
         ${list.length ? `<table cellspacing="0" border="0" align="center"><tr>${list.map((x) => `<td class="Asset" valign="top"><div class="AssetThumbnail"><a href="/Item.aspx?ID=${x.id}" title="${h(x.name)}">${cat === 'Place' ? v.placeThumb(x, 110, 110) : v.assetThumb(x, 110, 110)}</a></div><div class="AssetDetails"><div class="AssetName"><a href="/Item.aspx?ID=${x.id}">${h(x.name)}</a></div></div></td>`).join('')}</tr></table>`
-    : '<div class="NoResults">No favorites in this category.</div>'}
+    : `<div class="NoResults">${h(owner.name)} has not chosen any favorite ${STUFF_CATS.find((c) => c[0] === cat)[1].toLowerCase()}.</div>`}
       </div>
-      <div class="PanelFooter">&nbsp;</div>
+      <div class="PanelFooter">Category:&nbsp;<select onchange="location.href='/User.aspx?ID=${owner.id}&amp;favcat='+this.value+'#Favorites'">${opts}</select></div>
     </div>
   </div>`;
 }
@@ -191,6 +187,9 @@ function userPage(ctx) {
   const isOwner = ctx.user && ctx.user.id === owner.id && !forcePublic;
   if (!isOwner && (!ctx.user || ctx.user.id !== owner.id)) { owner.profileViews = (owner.profileViews || 0) + 1; db.save(); }
 
+  const bcStrip = owner.bc ? `
+      <div class="Header"><h4 class="BCStatus">Builders Club Member</h4></div>` : '';
+  const avatarBox = (inner) => `<div style="left: 0px; float: left; position: relative; top: 0px">${inner}</div>`;
   const profile = isOwner ? `
     <div id="ProfilePane">
       <table width="100%" bgcolor="lightsteelblue" cellpadding="6" cellspacing="0">
@@ -198,8 +197,7 @@ function userPage(ctx) {
         <tr><td>
           <span>Your ROBLOX:</span><br/>
           <a href="/User.aspx?ID=${owner.id}">http://www.roblox.com/User.aspx?ID=${owner.id}</a><br/><br/>
-          <div><a href="/My/Character.aspx" title="${h(owner.name)}">${v.avatarThumb(owner, 180, 220)}</a><br/></div>
-          ${owner.bc ? '<p class="BCStatus">Builders Club Member</p>' : ''}
+          ${avatarBox(`<a href="/My/Character.aspx" title="${h(owner.name)}" style="display:inline-block;height:220px;width:180px;">${v.avatarThumb(owner, 180, 220)}</a><br/>`)}
           <p><a href="/My/AccountUpgrades/Manage.aspx">Upgrades</a></p>
           <p><a href="/My/AccountBalance.aspx">Account Balance</a></p>
           <p><a href="/My/Inbox.aspx">Inbox</a>&nbsp;</p>
@@ -208,22 +206,26 @@ function userPage(ctx) {
           <p><a href="/User.aspx?ForcePublicView=true&amp;id=${owner.id}">View Profile</a></p>
           <p><a href="/My/InviteAFriend.aspx">Share ROBLOX</a></p>
         </td></tr>
-      </table>
+      </table>${bcStrip}
     </div>` : `
     <div id="ProfilePane">
-      <h4>${h(owner.name)}</h4>
-      <div class="ProfileBody">
-        ${v.onlineStatus(owner)}<br/>
-        <span>${h(owner.name)}'s ROBLOX:</span><br/>
-        <a href="/User.aspx?ID=${owner.id}">http://www.roblox.com/User.aspx?ID=${owner.id}</a><br/><br/>
-        <div>${v.avatarThumb(owner, 180, 220)}</div>
-        ${owner.blurb ? `<p class="Blurb">${h(owner.blurb).replace(/\n/g, '<br/>')}</p>` : ''}
-        <p>
-          <a href="/My/PrivateMessage.aspx?RecipientID=${owner.id}">Send Message</a> &nbsp;
-          ${ctx.user && ctx.user.friends.includes(owner.id) ? '<span>Friends</span>' : `<a href="/My/FriendRequest.aspx?UserID=${owner.id}">Send Friend Request</a>`}
-        </p>
-        <p><a href="/AbuseReport/User.aspx?ID=${owner.id}"><img src="/images/abuse.png" alt="" border="0" style="vertical-align:middle"/> Report Abuse</a></p>
-      </div>
+      <table width="100%" bgcolor="lightsteelblue" cellpadding="6" cellspacing="0">
+        <tr><td><span class="Title">${h(owner.name)}</span><br/>
+          ${v.onlineStatus(owner)}
+        </td></tr>
+        <tr><td>
+          <span>${h(owner.name)}'s ROBLOX:</span><br/>
+          <a href="/User.aspx?ID=${owner.id}">http://www.roblox.com/User.aspx?ID=${owner.id}</a><br/><br/>
+          ${avatarBox(`<a title="${h(owner.name)}" style="display:inline-block;height:220px;width:180px;">${v.avatarThumb(owner, 180, 220)}</a><br/>
+            <div class="ReportAbusePanel">
+              <span class="AbuseIcon"><a href="/AbuseReport/User.aspx?ID=${owner.id}"><img src="/images/abuse.png" alt="Report Abuse" border="0"/></a></span>
+              <span class="AbuseButton"><a href="/AbuseReport/User.aspx?ID=${owner.id}">Report Abuse</a></span>
+            </div>`)}
+          <p><a href="/My/PrivateMessage.aspx?RecipientID=${owner.id}">Send Message</a></p>
+          <p>${ctx.user && ctx.user.friends.includes(owner.id) ? '' : `<a href="/My/FriendRequest.aspx?UserID=${owner.id}">Send Friend Request</a>`}</p>
+          <p><span>${h(owner.blurb || '').replace(/\n/g, '<br/>')}</span></p>
+        </td></tr>
+      </table>${bcStrip}
     </div>`;
 
   const body = `
@@ -245,6 +247,12 @@ function userPage(ctx) {
   return ctx.send(page(ctx, { body }));
 }
 
+/** One friend tile (avatar, online dot with its 2008 tooltip text, name). */
+function friendCell(f, options = '') {
+  const status = v.isOnline(f) ? `${h(f.name)} is online at ${h(f.playingPlaceName || 'Website')}.` : `${h(f.name)} is offline (last seen at ${v.longDate(f.lastOnline)}).`;
+  return `<div class="Friend"><div class="Avatar"><a href="/User.aspx?ID=${f.id}" title="${h(f.name)}">${v.avatarThumb(f, 100, 100)}</a></div><div class="Summary"><span class="OnlineStatus"><img src="/images/${v.isOnline(f) ? 'OnlineStatusIndicator_IsOnline' : 'OnlineStatusIndicator_IsOffline'}.gif" alt="${status}" title="${status}" border="0"/></span>&nbsp;<span class="Name"><a href="/User.aspx?ID=${f.id}">${h(f.name)}</a></span></div>${options}</div>`;
+}
+
 function friendsPage(ctx) {
   const owner = db.userById(Number(ctx.query.UserID || ctx.query.userid || ctx.user?.id));
   if (!owner) return ctx.redirect('/Browse.aspx');
@@ -255,15 +263,16 @@ function friendsPage(ctx) {
   const shown = friends.slice((p - 1) * per, p * per);
   const rows = [];
   for (let i = 0; i < shown.length; i += 6) rows.push(shown.slice(i, i + 6));
+  const pager = `<div align="center">Pages: ${p > 1 ? `<a href="/Friends.aspx?UserID=${owner.id}&amp;p=${p - 1}">&lt;&lt; Previous</a> ` : ''}${p < pages ? `<a href="/Friends.aspx?UserID=${owner.id}&amp;p=${p + 1}">Next &gt;&gt;</a>` : ''}</div>`;
   const body = `
 <div id="FriendsContainer">
   <div id="Friends">
     <h4>${h(owner.name)}'s Friends (${friends.length})</h4>
+    ${pager}
     <table cellspacing="0" border="0" align="center">
-      ${rows.map((r) => `<tr>${r.map((f) => `<td><div class="Friend"><div class="Avatar"><a href="/User.aspx?ID=${f.id}" title="${h(f.name)}">${v.avatarThumb(f, 100, 100)}</a></div><div class="Summary"><span class="OnlineStatus"><img src="/images/${v.isOnline(f) ? 'OnlineStatusIndicator_IsOnline' : 'OnlineStatusIndicator_IsOffline'}.gif" alt="${v.isOnline(f) ? `${h(f.name)} is online at Website` : `${h(f.name)} is offline (last seen at ${v.longDate(f.lastOnline)})`}" title="${v.isOnline(f) ? `${h(f.name)} is online at Website` : `${h(f.name)} is offline (last seen at ${v.longDate(f.lastOnline)})`}" border="0"/></span>&nbsp;<span class="Name"><a href="/User.aspx?ID=${f.id}">${h(f.name)}</a></span></div></div></td>`).join('')}</tr>`).join('')}
+      ${rows.map((r) => `<tr>${r.map((f) => `<td>${friendCell(f)}</td>`).join('')}</tr>`).join('')}
     </table>
     ${!friends.length ? `<div class="NoResults">${h(owner.name)} doesn't have any ROBLOX friends.</div>` : ''}
-    <div class="FriendsPager">Pages: ${p > 1 ? `<a href="/Friends.aspx?UserID=${owner.id}&amp;p=${p - 1}">&lt;&lt; Previous</a> ` : ''}${p < pages ? `<a href="/Friends.aspx?UserID=${owner.id}&amp;p=${p + 1}">Next &gt;&gt;</a>` : ''}</div>
   </div>
 </div>`;
   return ctx.send(page(ctx, { body }));
@@ -303,4 +312,4 @@ function badgesPage(ctx) {
   return ctx.send(page(ctx, { body }));
 }
 
-module.exports = { routes: { '/user.aspx': userPage, '/friends.aspx': friendsPage, '/badges.aspx': badgesPage }, BADGES };
+module.exports = { routes: { '/user.aspx': userPage, '/friends.aspx': friendsPage, '/badges.aspx': badgesPage }, BADGES, friendCell };

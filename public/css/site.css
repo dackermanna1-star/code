@@ -2,6 +2,12 @@
    house ads, the place launcher modal, a few page bits whose original
    rules weren't captured, the blog/wiki pages, and the notes page. */
 
+/* The 2008 stylesheet names Verdana (often with no generic fallback, so a
+   machine without it drops to the default serif). Where Verdana is missing
+   use DejaVu Sans / Bitstream Vera Sans, its close free counterpart. */
+@font-face{font-family:Verdana;src:local('Verdana'),local('DejaVu Sans'),local('DejaVuSans'),local('Bitstream Vera Sans');font-weight:normal;font-style:normal;}
+@font-face{font-family:Verdana;src:local('Verdana Bold'),local('Verdana-Bold'),local('DejaVu Sans Bold'),local('DejaVuSans-Bold'),local('Bitstream Vera Sans Bold');font-weight:bold;font-style:normal;}
+
 body{background:#fff;}
 img{border:0;}
 .modalBackground{position:fixed;left:0;top:0;width:100%;height:100%;z-index:1000;}
@@ -49,20 +55,18 @@ img{border:0;}
 .DemoNote{color:#666;font-size:.9em;margin-top:16px;}
 #Sidebars{float:right;width:260px;}
 
+/* IE6/7 (most 2008 visitors) gave width-set boxes "hasLayout", so they
+   enclosed their floats; emulate that where the 2008 CSS relied on it. */
+#UserStatisticsPane #UserStatistics .Statistic{overflow:hidden;}
+.Accoutrements{overflow:hidden;}
+#MyAccountBalanceContainer #Earnings{overflow:hidden;}
+
 /* profile bits not captured in the CSS */
-#ProfilePane .ProfileBody{padding:8px;}
-#ProfilePane .Blurb{text-align:left;padding:0 20px;}
-.BCStatus{color:#6e99c9;font-weight:bold;}
 #UserPlaces .AccordionBody{border-bottom:solid 1px #000;}
 #UserPlaces .Place .Thumbnail img{display:block;margin:0 auto;}
-#Friends h4{background:#ccc;border-bottom:solid 1px #000;color:#333;margin:0 0 5px;padding:2px;text-align:center;font-family:'Comic Sans MS',Verdana,sans-serif;}
-.FavoritesSelector{text-align:center;margin:6px;}
 #FavoritesContent .Asset,#FriendRequests .Friend{text-align:left;}
 #FavoritesContent .AssetThumbnail{border:solid 1px #000;width:110px;height:110px;}
 .FriendRequestsPane h4{background:#ccc;border-bottom:solid 1px #000;margin:0;}
-#FriendsContainer{font-family:Verdana,sans-serif;}
-#FriendsContainer #Friends h4{font-size:1.4em;}
-.FriendsPager{text-align:center;margin:10px;}
 .Badge .BadgeLabel{font-size:.9em;}
 
 /* catalog/item */
@@ -74,14 +78,14 @@ img{border:0;}
 #ItemContainer .OffSale{color:#900;margin:4px 0 8px;}
 .PurchaseNotice{background:#ffd;border:1px solid #cc0;padding:6px;margin:0 0 8px;}
 .PurchaseNotice.Error{background:#fee;border-color:#c00;color:#900;}
-#ItemContainer .GameInstance{background:#fff;border:solid 1px #000;margin:6px auto;padding:6px;width:390px;}
-#ItemContainer .GameInstance img{vertical-align:middle;}
-.ajax__tab_xp .ajax__tab_header{border-bottom:solid 1px #999;padding-left:5px;margin-top:10px;}
-.ajax__tab_xp .ajax__tab_tab{display:inline-block;cursor:pointer;background:#ddd;border:1px solid #999;border-bottom:0;margin-right:2px;}
-.ajax__tab_xp .ajax__tab_tab h3{display:inline;margin:0;padding:3px 10px;font-size:1em;letter-spacing:.1em;}
-.ajax__tab_xp .ajax__tab_active{background:#fff;position:relative;top:1px;}
-.ajax__tab_xp .ajax__tab_body{border:1px solid #999;border-top:0;background:#fff;padding:8px;}
-.CommentsContainer .PostAComment h3{font-size:1.2em;}
+/* AJAX Control Toolkit TabContainer, "xp" theme (drawn without its images) */
+.ajax__tab_xp .ajax__tab_header{font:11px Verdana,Tahoma,Helvetica,sans-serif;border-bottom:solid 1px #919b9c;padding:0 0 0 2px;white-space:nowrap;}
+.ajax__tab_xp .ajax__tab_tab{display:inline-block;cursor:pointer;margin:0 1px 0 0;padding:3px 6px 2px;background:#f2f2ee linear-gradient(#fff,#ecebe6);border:solid 1px #919b9c;border-bottom:0;border-radius:3px 3px 0 0;position:relative;top:1px;vertical-align:bottom;}
+.ajax__tab_xp .ajax__tab_tab:hover{border-top-color:#f9b934;}
+.ajax__tab_xp .ajax__tab_tab h3{margin:0;padding:0;}
+.ajax__tab_xp .ajax__tab_active,.ajax__tab_xp .ajax__tab_active:hover{background:#fcfcfe;border-top:solid 3px #f9b934;padding-top:3px;padding-bottom:3px;z-index:1;}
+.ajax__tab_xp .ajax__tab_body{font:10pt Verdana,Tahoma,Helvetica,sans-serif;border:solid 1px #919b9c;border-top:0;background:#fff;padding:8px;}
+#ItemContainer .ajax__tab_body{font-size:1em;}
 
 /* character page */
 #CustomizeCharacterContainer .CharacterViewer{text-align:center;}
@@ -93,40 +97,12 @@ img{border:0;}
 .popupControl td{padding:0;}
 
 /* inbox / messages */
-#InboxContainer .InboxGrid{width:100%;border-collapse:collapse;border:solid 1px #000;}
-#InboxContainer .InboxGrid td,#InboxContainer .InboxGrid th{padding:4px 6px;text-align:left;border-color:#ccc;}
-#InboxContainer .InboxHeader th{color:#fff;}
-.MessageContainer #Message,.MessageContainer .MessageReaderContainer{font-family:Verdana,sans-serif;}
-.MessageReaderContainer .MessageHeader .Avatar{float:left;margin-right:10px;}
-.MessageReaderContainer .Body{clear:both;border-top:dashed 1px #555;margin-top:10px;padding-top:10px;line-height:1.6em;}
-.MessageReaderContainer .Buttons{margin-top:10px;}
-.MessageEditor .MessageFields td{padding:4px;}
-.MessageContainer .Buttons{margin-top:10px;}
-#InvitationContainer .Invitation .Avatar{float:left;margin-right:10px;}
 
 /* people */
-#BrowseContainer{font-family:Verdana,sans-serif;text-align:center;}
-#BrowseContainer .BrowseMenu{margin:5px 0 10px;}
-#BrowseContainer .BrowseSearch{margin-bottom:10px;}
-#BrowseContainer .Grid{margin:0 auto;text-align:center;}
-#BrowseContainer .GridHeader th{padding:4px;}
-#BrowseContainer .GridItem td{padding:4px;}
-#BrowseContainer .GridPager span{color:#fff;}
-#BrowseContainer .GridPager a{color:#00f;}
-.Blurb{color:#333;font-size:.9em;}
+#BrowseContainer{text-align:center;}
 
 /* account pages */
-#MyAccountBalanceContainer .Balances .Balance{font-size:1.4em;margin:12px 0 0 15px;}
-#MyAccountBalanceContainer .Balances .Robux{color:Green;}
-#MyAccountBalanceContainer .Balances .Tickets{color:#fbb117;}
-#MyAccountBalanceContainer .Earnings_Header{padding:0 0 0 80px;}
-#MyAccountBalanceContainer .Earnings_Header .Label{float:left;width:400px;}
 #EditProfileContainer fieldset .Row{padding:8px 20px;}
-#ConfigurePlaceContainer{font-family:Verdana,sans-serif;}
-#ConfigurePlaceContainer h2{background:#ccc;border-bottom:solid 1px #000;margin:0;text-align:center;}
-#ConfigurePlaceContainer #PlaceDescription{width:420px;margin:10px auto;}
-.ResetTemplates{margin:0 auto;}
-.ResetTemplates td{text-align:center;padding:6px;font-size:.9em;}
 #ManageAccountUpgradesContainer,#PaymentMethodsContainer{font-family:Verdana,sans-serif;}
 #ManageAccountUpgradesContainer h2,#PaymentMethodsContainer h2{text-align:center;}
 .RecreationNote{color:#666;}
@@ -136,10 +112,10 @@ img{border:0;}
 /* Builders Club */
 #JoinBuildersClubNow{border-bottom:solid 1px #000;}
 #JoinBuildersClubNow img{display:block;}
-#MembershipOptions .MembershipOption{text-align:center;}
-#CancelBuildersClubContainer{float:right;width:290px;margin:30px 90px 20px 0;padding:0!important;background:#eee!important;}
-#CancelBuildersClubContainer h4{background:#ccc;border-bottom:solid 1px #000;margin:0;text-align:center;}
-#CancelBuildersClubContainer .CancelBody{padding:10px 30px;text-align:center;}
+
+#ConfigurePlaceContainer #PlaceReset{position:relative;}
+#ConfigurePlaceContainer #ResetPlacePopup{left:10px;top:0;z-index:10;}
+#ConfigurePlaceContainer #PlaceDescription .MultilineTextBox{height:150px;}
 
 /* parents */
 .ParentsContainer:after{content:'';display:block;clear:both;}

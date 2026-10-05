@@ -1,6 +1,7 @@
 // The site "master page": banner, alerts, navigation, ads and footer, as on
 // roblox.com in mid-2008 (markup and ids follow the archived pages).
 'use strict';
+const clock = require('./clock');
 const { h, commas } = require('./util');
 const ads = require('./ads');
 
@@ -18,11 +19,11 @@ function header(ctx) {
     auth = `<span id="ctl00_lnLoginName">Logged in as ${h(u.name)} | </span><a id="ctl00_lsLoginStatus" href="/Login/Logout.aspx">Logout</a>`;
     settings = `<span id="ctl00_lSettings">Age: ${u.under13 ? 'Under 13' : '13+'}, Chat Mode: ${u.superSafe ? 'SuperSafe' : 'Safe'}</span>`;
     const unread = unreadCount(ctx.state, u);
-    alerts = `<div id="AlertSpace">
+    alerts = `<table style="width:100%;height:100%"><tr><td valign="middle"><div id="AlertSpace">
       ${unread ? `<div id="MessageAlert"><a class="MessageAlertIcon" href="/My/Inbox.aspx"><img src="/images/Message.gif" alt="Messages" border="0"/></a>&nbsp;<a class="MessageAlertCaption" href="/My/Inbox.aspx">${unread} new message${unread === 1 ? '' : 's'}</a></div>` : ''}
       ${u.robux || u.bc ? `<div id="RobuxAlert"><a class="RobuxAlertIcon" href="/My/AccountBalance.aspx"><img src="/images/Robux.png" alt="ROBUX" border="0"/></a>&nbsp;<a class="RobuxAlertCaption" href="/My/AccountBalance.aspx">${commas(u.robux)} ROBUX</a></div>` : ''}
       <div id="TicketsAlert"><a class="TicketsAlertIcon" href="/My/AccountBalance.aspx"><img src="/images/Tickets.png" alt="Tickets" border="0"/></a>&nbsp;<a class="TicketsAlertCaption" href="/My/AccountBalance.aspx">${commas(u.tix)} Tickets</a></div>
-    </div>`;
+    </div></td></tr></table>`;
   } else {
     auth = `<span><a id="ctl00_BannerOptionsLoginView_BannerOptions_Anonymous_LoginHyperLink" href="/Login/Default.aspx">Login</a></span>`;
     alerts = `<table style="width:100%;height:100%"><tr><td valign="middle"><a class="SignUpAndPlay" title="Sign-up and Play!" href="/Login/New.aspx?ReturnUrl=%2fGames.aspx" style="display:inline-block;cursor:pointer;"><img src="/images/BannerPlay.png" border="0" alt="Sign-up and Play!"/></a></td></tr></table>`;
@@ -39,7 +40,7 @@ function header(ctx) {
     item('News', 'News', '/News.aspx', '&nbsp;<a id="ctl00_Menu_hlNewsFeed" href="/News.aspx?feed=rss"><img src="/images/feed-icons/feed-icon-14x14.png" alt="RSS" border="0"/></a>'),
     item('Parents', 'Parents', '/Parents.aspx'),
     item('Help', 'Help', '/Help/Default.aspx'),
-  ].join(sep);
+  ].join(`\n      ${sep}\n      `);
   return `
   <div id="Header">
     <div id="Banner">
@@ -59,8 +60,8 @@ function footer() {
   <div id="Footer">
     <hr/>
     <p class="Legalese">
-      ROBLOX, "Online Building Toy", characters, logos, names, and all related indicia are trademarks of <a id="ctl00_rbxFooter_hlRobloxCorporation" href="/info/About.aspx">ROBLOX Corporation</a>, &copy;2008. Patents pending.
-      <br/>ROBLOX Corp. is not affliated with Lego, MegaBloks, Bionicle, Pokemon, Nintendo, Lincoln Logs, Yu Gi Oh, K'nex, Tinkertoys, Erector Set, or the Pirates of the Caribbean. ARrrr!
+      ROBLOX, "Online Building Toy", characters, logos, names, and all related indicia are trademarks of <a id="ctl00_rbxFooter_hlRobloxCorporation" href="/info/About.aspx">ROBLOX Corporation</a>, &copy;${new Date(clock.now()).getFullYear()}. Patents pending.
+      <br/>ROBLOX Corp. is not affiliated with Lego, MegaBloks, Bionicle, Pokemon, Nintendo, Lincoln Logs, Yu Gi Oh, K'nex, Tinkertoys, Erector Set, or the Pirates of the Caribbean. ARrrr!
       <br/>Use of this site signifies your acceptance of the <a id="ctl00_rbxFooter_hlTermsOfService" href="/info/TermsOfService.aspx">Terms and Conditions</a>.
       <br/><a id="ctl00_rbxFooter_hlPrivacyPolicy" href="/info/Privacy.aspx">Privacy Policy</a> &nbsp;|&nbsp; <a href="/info/ContactUs.aspx">Contact Us</a> &nbsp;|&nbsp; <a id="ctl00_rbxFooter_hlAboutRoblox" href="/info/About.aspx">About Us</a> &nbsp;|&nbsp; <a id="ctl00_rbxFooter_HyperLink1" href="/info/Jobs.aspx">Jobs</a>
     </p>

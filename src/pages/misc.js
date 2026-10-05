@@ -1,6 +1,7 @@
 // Builders Club, Parents, News (the ROBLOX blog), Help (the ROBLOX wiki),
 // the info/ footer pages and the recreation's research/sources page.
 'use strict';
+const clock = require('../clock');
 const fs = require('fs');
 const path = require('path');
 const { page } = require('../layout');
@@ -14,9 +15,18 @@ function buildersClub(ctx) {
 <div id="BuildersClubContainer">
   <div id="JoinBuildersClubNow"><img src="/images/JoinBuildersClubNow.png" alt="Join Builders Club Now!" border="0"/></div>
   <div id="MembershipOptions">
-    <div id="OneMonth" class="MembershipOption"><a href="/Upgrades/PaymentMethods.aspx?ap=2"><img src="/images/BuyBCMonthly.png" alt="Monthly $5.95" border="0"/></a><br/><a href="/Upgrades/PaymentMethods.aspx?ap=2"><b>Get Monthly</b></a></div>
-    <div id="SixMonths" class="MembershipOption"><a href="/Upgrades/PaymentMethods.aspx?ap=3"><img src="/images/BuyBC6Months.png" alt="6 Months $29.95" border="0"/></a><br/><a href="/Upgrades/PaymentMethods.aspx?ap=3"><b>Get 6 Months</b></a></div>
-    <div id="TwelveMonths" class="MembershipOption"><a href="/Upgrades/PaymentMethods.aspx?ap=4"><img src="/images/BuyBC12Months.png" alt="12 Months $57.95" border="0"/></a><br/><a href="/Upgrades/PaymentMethods.aspx?ap=4"><b>Get 12 Months</b></a></div>
+    <div id="OneMonth">
+      <div class="BuildersClubButton"><a href="/Upgrades/PaymentMethods.aspx?ap=2"><img src="/images/BuyBCMonthly.png" alt="Get Monthly" border="0"/></a></div>
+      <div class="Label"><a href="/Upgrades/PaymentMethods.aspx?ap=2">Get Monthly</a></div>
+    </div>
+    <div id="SixMonths">
+      <div class="BuildersClubButton"><a href="/Upgrades/PaymentMethods.aspx?ap=3"><img src="/images/BuyBC6Months.png" alt="Get 6 Months" border="0"/></a></div>
+      <div class="Label"><a href="/Upgrades/PaymentMethods.aspx?ap=3">Get 6 Months</a></div>
+    </div>
+    <div id="TwelveMonths">
+      <div class="BuildersClubButton"><a href="/Upgrades/PaymentMethods.aspx?ap=4"><img src="/images/BuyBC12Months.png" alt="Get 12 Months" border="0"/></a></div>
+      <div class="Label"><a href="/Upgrades/PaymentMethods.aspx?ap=4">Get 12 Months</a></div>
+    </div>
     <div style="clear:both"></div>
   </div>
   <div id="WhyJoin">
@@ -30,11 +40,11 @@ function buildersClub(ctx) {
     </ul>
     <p>For more information, read our <a href="/Parents/BuildersClub.aspx">Builders Club FAQs</a>.</p>
   </div>
-  <div id="CancelBuildersClubContainer">
-    <h4>${u && u.bc ? 'Your Membership' : 'Cancel Membership'}</h4>
-    <div class="CancelBody">
-      ${u && u.bc ? `<p>You are a member of the Builders Club!</p><form method="post" action="/Upgrades/PaymentMethods.aspx?cancel=1"><input type="submit" class="Button" value="Cancel Membership"/></form>` : `<p>Cancel automatic monthly card charges anytime within billing cycle</p><p>Memberships are non-refundable</p><p><a class="Button" href="#">Cancel Membership</a></p>`}
-    </div>
+  <div id="Cancellation">
+    <h4>Cancel Membership</h4>
+    <p>Cancel automatic monthly card charges anytime within billing cycle</p>
+    <p>Memberships are non-refundable</p>
+    <div class="CancelButton">${u && u.bc ? `<form method="post" action="/Upgrades/PaymentMethods.aspx?cancel=1" style="margin:0"><a class="Button" href="#" onclick="this.parentNode.submit();return false;">Cancel Membership</a></form>` : '<a class="Button" href="/My/AccountUpgrades/Manage.aspx">Cancel Membership</a>'}</div>
   </div>
   <div style="clear:both"></div>
 </div>`;
@@ -120,7 +130,7 @@ function parentSub(key) {
 // Post titles/dates below are real 2008 blog posts mentioned in the research;
 // the short summaries are this recreation's own wording.
 const POSTS = [
-  { date: 'November 21, 2008', title: 'Trade Currency', author: 'Telamon', cat: 'Release Notes', text: 'You can now trade ROBUX and Tickets with other players on the new currency exchange. (Recreation summary. The exchange came after this recreation\'s mid-2008 target, so it is not included here.)' },
+  { date: 'November 21, 2008', title: 'Trade Currency', author: 'Telamon', cat: 'Release Notes', text: 'You can now trade ROBUX and Tickets with other players on the new currency exchange. (Recreation summary.)' },
   { date: 'October 11, 2008', title: "Yorick's Resting Place", author: 'Telamon', cat: 'Contests', text: 'The Halloween event place is open. Solve the riddles of the Riddling Skull! (Recreation summary.)' },
   { date: 'August 1, 2008', title: 'Olympics Contest', author: 'ReeseMcBlox', cat: 'Contests', text: 'Build your own Olympic event! (Recreation summary.)' },
   { date: 'April 24, 2008', title: 'ROBLOX Brings You...', author: 'Telamon', cat: 'Release Notes', text: 'Shirts and Pants! Builders Club members can now design full shirts and pants using the clothing template, and sell them in the Catalog. The old "shirts" are now called T-Shirts. Favorites and a new character page with a wardrobe also arrived. (Recreation summary of the release.)' },
@@ -128,12 +138,15 @@ const POSTS = [
   { date: 'February 24, 2008', title: 'We Accept PayPal', author: 'builderman', cat: 'News', text: 'You can now pay for Builders Club using PayPal. (Recreation summary.)' },
 ];
 
+// A post appears once the site clock reaches its day (midnight Pacific, UTC-8).
+function postTime(p) { return Date.parse(`${p.date} 00:00:00 GMT-0800`); }
+
 function newsPage(ctx) {
   const body = `
 <div id="BlogContainer">
   <div class="BlogHeader"><h1>Roblox Developers' Journal</h1><div class="BlogTagline">The Roblog</div></div>
   <div class="BlogMain">
-    ${POSTS.map((p) => `<div class="BlogPost"><h2>${h(p.title)}</h2><div class="BlogMeta">${p.date} by ${h(p.author)} &middot; Filed under ${h(p.cat)}</div><p>${h(p.text)}</p></div>`).join('')}
+    ${POSTS.filter((p) => postTime(p) <= clock.now()).map((p) => `<div class="BlogPost"><h2>${h(p.title)}</h2><div class="BlogMeta">${p.date} by ${h(p.author)} &middot; Filed under ${h(p.cat)}</div><p>${h(p.text)}</p></div>`).join('')}
   </div>
   <div class="BlogSidebar">
     <h3>Categories</h3>
