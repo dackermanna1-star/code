@@ -680,12 +680,134 @@ function buildBomber(opts) {
   return rig;
 }
 
-const BUILDERS = { skeleton: buildSkeleton, goblin: buildGoblin, ghoul: buildGhoul, brute: buildBrute, cultist: buildCultist, knight: buildKnight, bomber: buildBomber };
+// ------------------------------------------------------------------ humans (bandits & sellswords)
+
+const SKIN_TONES = [0xd0a27e, 0xb07c58, 0x8a5c3e, 0xe0b898, 0x6a4430, 0xc49070];
+const HAIR = [0x2a1c12, 0x4a3018, 0x1a1410, 0x6a4a2a, 0x8a7a6a, 0x3a2410];
+const CLOTH = [0x6a3a2a, 0x3e4a32, 0x4a4256, 0x6a5a3a, 0x3a2e2a, 0x5a2424];
+
+// Plain eyes (whites and pupils, no glow) so living foes read differently from the undead.
+function humanEyes(rig, z = 0.088) {
+  const white = mat.plain(0xe8e2d4, 0.4, 0xffeedd, 0.1);
+  for (const [s] of SIDES) {
+    rig.add('head', ell(0.016, 0.011, 0.008, 8, 6), white, s * 0.036, 0.135, z);
+    rig.add('head', ell(0.007, 0.007, 0.004, 6, 4), VOID, s * 0.036, 0.135, z + 0.007);
+  }
+}
+
+function buildHuman(opts) {
+  const v = opts.variant || 'cutthroat';
+  const look = opts.look ?? 0;
+  const heavy = v === 'sellsword';
+  const rig = new Rig({ scale: opts.scale || (heavy ? 1.1 : 1), shoulderW: heavy ? 0.22 : 0.2, torso: heavy ? 0.58 : 0.56, headR: 0.12 });
+  const P = rig.P;
+  const gy = -(P.hipH - P.thigh - P.shin);
+  const skin = mat.skin(SKIN_TONES[look % SKIN_TONES.length], 0xffccaa, 0.22);
+  const hairM = mat.plain(HAIR[(look >> 1) % HAIR.length], 0.85, 0x998877, 0.15);
+  const shirt = mat.cloth(opts.tint || CLOTH[(look >> 2) % CLOTH.length], 0xaa8877, 0.2);
+  const pants = mat.cloth([0x2e2a26, 0x3a3226, 0x2a2e34, 0x40342a][look % 4], 0x887766, 0.15);
+  const leather = mat.leather([0x5e3e26, 0x4a3020, 0x6a4a2e][look % 3]);
+  const dark = mat.leather(0x261a12);
+  const iron = mat.metal(0x8a8a90, 0.4, 0xccddff, 0.3);
+  const brass = std(0xa8803a, { metal: 0.85, rough: 0.35, rim: 0xffcc88, rimStrength: 0.2 });
+  const chain = std(0x6a6a72, { map: T().cloth.map, normalMap: T().cloth.normalMap, normalScale: 1.6, metal: 0.75, rough: 0.5, rim: 0x99aacc, rimStrength: 0.2 });
+  const bearded = heavy || look % 3 === 1;
+  // hips: trousers, belt, pouch
+  rig.add('pelvis', ell(0.15, 0.1, 0.115, 12, 8), pants, 0, -0.01, 0);
+  rig.add('pelvis', torus(0.15, 0.02, 5, 18), dark, 0, 0.05, 0, Math.PI / 2, 0, 0).scale.set(1, 0.85, 1);
+  rig.add('pelvis', rbox(0.05, 0.045, 0.02, 0.008), brass, 0, 0.05, 0.135);
+  rig.add('pelvis', rbox(0.08, 0.09, 0.05, 0.02), leather, -0.14, -0.02, 0.06, 0, 0.5, 0);
+  // torso: shirt underneath, outer layer per variant
+  rig.add('spine', lathe([[0.135, -0.02], [0.14, 0.12], [0.155, 0.27]], 14), shirt, 0, 0, 0).scale.set(1, 1, 0.82);
+  const outer = heavy ? chain : v === 'spearman' ? mat.cloth(0x8a7a5a, 0xccbb99, 0.2) : leather;
+  rig.add('chest', lathe([[0.16, -0.07], [0.19, 0.1], [0.19, 0.22], [0.13, 0.29], [0.07, 0.31]], 16), outer, 0, 0, 0).scale.set(1.05, 1, 0.8);
+  for (const [s] of SIDES) rig.add('chest', ell(0.075, 0.07, 0.075, 10, 8), heavy ? chain : shirt, s * 0.2, 0.23, 0);
+  if (v === 'spearman') {
+    // quilted gambeson ridges and a scarf
+    for (let i = 0; i < 4; i++) rig.add('chest', torus(0.188 - Math.abs(i - 1.5) * 0.006, 0.008, 4, 18), outer, 0, 0.0 + i * 0.065, 0, Math.PI / 2, 0, 0).scale.set(1.05, 0.8, 1);
+    rig.add('chest', torus(0.09, 0.03, 6, 14), mat.cloth(0x7a2a22, 0xff8866, 0.2), 0, 0.29, 0.01, Math.PI / 2 - 0.2, 0, 0);
+  } else if (heavy) {
+    // mail hauberk skirt, steel pauldron, leather harness
+    rig.add('pelvis', lathe([[0.165, 0.06], [0.185, -0.12], [0.215, -0.26]], 16), chain, 0, 0, 0).scale.set(1, 1, 0.85);
+    rig.add('chest', dome(0.13, Math.PI / 2, 12, 6, 0.85), iron, 0.23, 0.26, 0, 0, 0, -0.55);
+    rig.add('chest', lathe([[0.135, 0], [0.145, -0.05]], 12, 0, Math.PI), iron, 0.24, 0.2, 0, 0, 0, -0.55);
+    rig.seg('chest', unitCyl(0.016, 5), dark, [0.18, 0.27, 0.12], [-0.15, -0.04, 0.15]);
+    rig.seg('chest', unitCyl(0.016, 5), dark, [0.18, 0.27, -0.12], [-0.15, -0.04, -0.13]);
+  } else {
+    // open leather jerkin with laces over the shirt, a bandolier of knives
+    rig.add('chest', rbox(0.07, 0.24, 0.02, 0.008), shirt, 0, 0.1, 0.152);
+    for (let i = 0; i < 4; i++) rig.add('chest', rbox(0.06, 0.006, 0.006, 0.002), dark, 0, 0.02 + i * 0.055, 0.162);
+    rig.seg('chest', unitCyl(0.02, 5), dark, [0.17, 0.26, 0.04], [-0.14, -0.05, 0.14]);
+    if (v === 'cutthroat') for (let i = 0; i < 3; i++) rig.add('chest', rbox(0.018, 0.07, 0.008, 0.004), iron, 0.08 - i * 0.07, 0.17 - i * 0.065, 0.17, 0, 0, 0.75);
+  }
+  if (v === 'crossbow') {
+    // quiver of bolts on the back
+    rig.add('chest', cyl(0.045, 0.04, 0.32, 8), leather, 0.08, 0.05, -0.16, 0.25, 0, -0.35);
+    for (let i = 0; i < 4; i++) rig.add('chest', cyl(0.005, 0.005, 0.14, 4), mat.plain(0x8a6a4a), 0.12 + (i % 2) * 0.02, 0.24 + (i >> 1) * 0.01, -0.12 - (i % 2) * 0.02, 0.25, 0, -0.35);
+  }
+  rig.add('neck', limb(0.1, [[0, 0.05], [1, 0.055]], 8), skin, 0, 0.08, 0);
+  // head: skull, jaw, nose, ears, brows, mouth
+  const hd = 'head';
+  rig.add(hd, ell(0.092, 0.105, 0.104, 14, 10), skin, 0, 0.135, 0);
+  rig.add(hd, ell(0.072, 0.05, 0.075, 10, 8), skin, 0, 0.065, 0.025);
+  rig.add(hd, G('hNose', () => warp(new THREE.ConeGeometry(0.016, 0.05, 6, 2), (q) => { q.z *= 1.4; })), skin, 0, 0.105, 0.1, -Math.PI / 2 - 0.5, 0, 0);
+  for (const [s] of SIDES) {
+    rig.add(hd, ell(0.014, 0.026, 0.02, 6, 5), skin, s * 0.092, 0.115, -0.005);
+    rig.add(hd, rbox(0.036, 0.009, 0.014, 0.004), hairM, s * 0.036, 0.155, 0.088, 0, 0, -s * 0.15);
+  }
+  rig.add(hd, rbox(0.04, 0.006, 0.01, 0.003), mat.plain(0x5a2a22, 0.8), 0, 0.068, 0.095);
+  humanEyes(rig);
+  if (bearded) rig.add(hd, G('beard', () => warp(new THREE.SphereGeometry(1, 12, 9, 0, TAU, Math.PI * 0.45, Math.PI * 0.55), (q) => { q.x *= 0.078; q.y *= 0.08; q.z *= 0.075; })), hairM, 0, 0.085, 0.03);
+  if (v === 'cutthroat') {
+    // deep hood and a cloth mask over the lower face
+    const hoodM = mat.cloth([0x3a3428, 0x2e2a30, 0x4a2a22][look % 3], 0xaa9977, 0.25, THREE.DoubleSide);
+    rig.add(hd, G('banditHood', () => warp(new THREE.LatheGeometry([[0.135, -0.03], [0.13, 0.08], [0.122, 0.18], [0.09, 0.24], [0.03, 0.27], [0.001, 0.275]].map(([r, y]) => new THREE.Vector2(r, y)), 18, 0.85, TAU - 1.7), (q) => { q.z -= Math.max(0, q.y - 0.18) * 0.4; })), hoodM, 0, 0.0, -0.005);
+    rig.add(hd, G('banditMask', () => new THREE.SphereGeometry(1, 12, 8, Math.PI / 2 - 1.1, 2.2, Math.PI * 0.42, Math.PI * 0.4).scale(0.1, 0.11, 0.105)), hoodM, 0, 0.1, 0.008);
+  } else if (v === 'crossbow') {
+    // wide-brimmed hat over short hair
+    rig.add(hd, dome(0.098, Math.PI / 2, 12, 6, 0.9), hairM, 0, 0.14, -0.005);
+    const hat = mat.leather(0x3a2a1c);
+    rig.add(hd, cyl(0.075, 0.095, 0.1, 12), hat, 0, 0.24, -0.005);
+    rig.add(hd, cyl(0.19, 0.19, 0.012, 18), hat, 0, 0.195, -0.005, 0.08, 0, 0);
+    rig.add(hd, torus(0.09, 0.008, 4, 14), mat.cloth(0x7a2a1a), 0, 0.205, -0.005, Math.PI / 2, 0, 0);
+  } else if (v === 'spearman') {
+    // kettle hat
+    rig.add(hd, dome(0.11, Math.PI / 2, 12, 6, 0.95), iron, 0, 0.15, 0);
+    rig.add(hd, G('kettleBrim', () => new THREE.CylinderGeometry(0.17, 0.15, 0.03, 18, 1, true)), iron, 0, 0.145, 0);
+    rig.add(hd, torus(0.11, 0.01, 4, 16), iron, 0, 0.152, 0, Math.PI / 2, 0, 0);
+  } else {
+    // nasal helm with a mail aventail
+    rig.add(hd, lathe([[0.108, 0.1], [0.112, 0.16], [0.09, 0.24], [0.04, 0.275], [0.001, 0.28]], 14), iron, 0, 0.0, 0);
+    rig.add(hd, rbox(0.016, 0.075, 0.016, 0.006), iron, 0, 0.125, 0.11);
+    rig.add(hd, lathe([[0.12, 0.0], [0.11, 0.1]], 14, Math.PI * 0.35, Math.PI * 1.3), chain, 0, 0.0, -0.005);
+  }
+  if (v !== 'cutthroat' && v !== 'sellsword' && look % 2 === 0) rig.add(hd, dome(0.096, Math.PI * 0.45, 12, 5, 0.95), hairM, 0, 0.145, -0.01);
+  // arms: sleeve, forearm, bracer, hands
+  for (const [s, S] of SIDES) {
+    rig.add('shoulder' + S, limb(P.upper, [[0, 0.062], [0.3, 0.06], [1, 0.048]], 10), heavy ? chain : shirt);
+    rig.add('elbow' + S, ell(0.042, 0.042, 0.042, 8, 6), skin);
+    rig.add('elbow' + S, limb(P.fore, [[0, 0.044], [0.3, 0.048], [1, 0.034]], 10), skin);
+    rig.add('elbow' + S, lathe([[0.05, -0.02], [0.054, 0.08], [0.047, 0.15]], 10), heavy ? iron : leather, 0, -P.fore * 0.82, 0);
+    hand(rig, 'hand' + S, skin, s, S === 'R' || heavy ? { w: 0.075, l: 0.07, t: 0.034, fist: true, fr: 0.014 } : { w: 0.07, l: 0.065, t: 0.026, fingers: 4, fl: 0.06, fr: 0.0095, curl: 0.6 });
+    rig.add('hip' + S, limb(P.thigh, [[0, 0.075], [0.3, 0.072], [1, 0.054]], 10), pants);
+    rig.add('knee' + S, ell(0.05, 0.05, 0.05, 8, 6), pants, 0, 0, 0.008);
+    rig.add('knee' + S, limb(P.shin, [[0, 0.052], [0.3, 0.056], [1, 0.042]], 10), pants);
+    rig.add('knee' + S, lathe([[0.06, -P.shin - 0.01], [0.064, -P.shin * 0.55], [0.068, -P.shin * 0.45]], 12), dark);
+    foot(rig, 'foot' + S, dark, gy, { w: 0.095, l: 0.24, h: 0.07 });
+  }
+  rig.basePose = v === 'crossbow'
+    ? { spine: [0.05, 0, 0], shoulderR: [-1.4, 0.15, 0.05], elbowR: [-0.12, 0, 0], shoulderL: [-1.1, 0, -0.35], elbowL: [-0.75, 0, 0], hipL: [-0.04, 0, 0.04], hipR: [0.04, 0, -0.04], kneeL: [0.08, 0, 0] }
+    : { spine: [0.05, 0, 0], shoulderL: [-0.05, 0, 0.1], shoulderR: [-0.05, 0, -0.1], elbowL: [-0.3, 0, 0], elbowR: [-0.15, 0, 0], hipL: [-0.04, 0, 0.04], hipR: [0.04, 0, -0.04], kneeL: [0.08, 0, 0], kneeR: [0.04, 0, 0] };
+  rig.variantKey = v + ':' + (look % 6) + ':' + bearded;
+  return rig;
+}
+
+const BUILDERS = { human: buildHuman, skeleton: buildSkeleton, goblin: buildGoblin, ghoul: buildGhoul, brute: buildBrute, cultist: buildCultist, knight: buildKnight, bomber: buildBomber };
 
 export function buildBody(kind, opts = {}) {
   const rig = (BUILDERS[kind] || buildSkeleton)(opts);
   // same kind + same optional gear = identical geometry, so merged meshes can be shared
-  rig.cacheKey = [kind, !!opts.crown, !!opts.cape, !!opts.armor, !!opts.apron, !!opts.plume].join('|');
+  rig.cacheKey = [kind, !!opts.crown, !!opts.cape, !!opts.armor, !!opts.apron, !!opts.plume, rig.variantKey || ''].join('|');
   return rig;
 }
 
@@ -836,6 +958,70 @@ function makeWeapon(kind) {
       add(cone(0.035, 0.1, 6), A.darkMetal, 0, 0.82, 0);
       length = 0.8;
       break;
+    case 'hatchet': {
+      add(G('eHatchetHaft', () => warp(new THREE.CylinderGeometry(0.02, 0.026, 0.62, 7, 6), (q) => { q.x += Math.sin(q.y * 4) * 0.01; })), wood, 0, 0.22, 0);
+      add(G('eHatchet', () => {
+        const sh = new THREE.Shape();
+        sh.moveTo(0, -0.04); sh.lineTo(0.05, -0.05); sh.quadraticCurveTo(0.17, -0.08, 0.2, 0.0); sh.quadraticCurveTo(0.2, 0.09, 0.15, 0.12); sh.quadraticCurveTo(0.08, 0.06, 0.0, 0.05); sh.lineTo(0, -0.04);
+        const ge = new THREE.ExtrudeGeometry(sh, { depth: 0.014, bevelEnabled: true, bevelThickness: 0.006, bevelSize: 0.008, bevelSegments: 1, curveSegments: 6 });
+        ge.translate(0, 0, -0.007);
+        return ge;
+      }), rust, 0.015, 0.47, 0);
+      add(rbox(0.05, 0.1, 0.045, 0.012), A.darkMetal, 0, 0.48, 0);
+      grip(0.12, 0.024, -0.04);
+      length = 0.62;
+      break;
+    }
+    case 'spear':
+      add(G('eSpearHaft', () => new THREE.CylinderGeometry(0.019, 0.022, 1.9, 7)), wood, 0, 0.3, 0);
+      add(G('eSpearHead', () => {
+        const sh = new THREE.Shape();
+        sh.moveTo(-0.032, 0); sh.quadraticCurveTo(-0.055, 0.1, 0, 0.3); sh.quadraticCurveTo(0.055, 0.1, 0.032, 0); sh.lineTo(-0.032, 0);
+        const ge = new THREE.ExtrudeGeometry(sh, { depth: 0.012, bevelEnabled: true, bevelThickness: 0.006, bevelSize: 0.006, bevelSegments: 1, curveSegments: 6 });
+        ge.translate(0, 0, -0.006);
+        return ge;
+      }), steel, 0, 1.25, 0);
+      add(cyl(0.026, 0.02, 0.07, 8), A.darkMetal, 0, 1.24, 0);
+      add(G('eSpearTassel', () => new THREE.ConeGeometry(0.035, 0.12, 6, 1, true)), mat.cloth(0x8a2a1a, 0xff8866, 0.2, THREE.DoubleSide), 0, 1.15, 0, Math.PI, 0, 0);
+      add(cyl(0.024, 0.024, 0.06, 7), A.darkMetal, 0, -0.64, 0);
+      length = 1.55;
+      break;
+    case 'crossbow': {
+      add(rbox(0.05, 0.62, 0.06, 0.015), wood, 0, 0.18, 0.0);
+      add(rbox(0.045, 0.16, 0.08, 0.015), wood, 0, -0.12, -0.035, 0.35, 0, 0);
+      add(tube('eXbowLimbs', [[-0.3, 0.42, -0.02], [-0.15, 0.46, 0.0], [0, 0.47, 0.01], [0.15, 0.46, 0.0], [0.3, 0.42, -0.02]], 0.014, 12, 5), A.darkMetal, 0, 0, 0);
+      add(cyl(0.003, 0.003, 0.6, 3), std(0xdddddd, { rough: 0.6 }), 0, 0.36, 0.015, 0, 0, Math.PI / 2);
+      add(cyl(0.006, 0.006, 0.36, 4), mat.plain(0x8a6a4a), 0, 0.42, 0.04);
+      add(cone(0.012, 0.05, 4), steel, 0, 0.62, 0.04);
+      add(rbox(0.02, 0.06, 0.03, 0.006), A.darkMetal, 0, 0.0, 0.04);
+      length = 0.7;
+      break;
+    }
+    case 'greataxe': {
+      add(G('eGreatHaft', () => new THREE.CylinderGeometry(0.026, 0.03, 1.45, 8)), wood, 0, 0.42, 0);
+      add(G('eGreatAxe', () => {
+        const sh = new THREE.Shape();
+        sh.moveTo(-0.24, -0.16); sh.quadraticCurveTo(-0.3, 0.0, -0.24, 0.16); sh.quadraticCurveTo(-0.1, 0.08, -0.04, 0.05); sh.lineTo(0.04, 0.05);
+        sh.quadraticCurveTo(0.1, 0.08, 0.24, 0.16); sh.quadraticCurveTo(0.3, 0.0, 0.24, -0.16); sh.quadraticCurveTo(0.1, -0.08, 0.04, -0.05); sh.lineTo(-0.04, -0.05);
+        sh.quadraticCurveTo(-0.1, -0.08, -0.24, -0.16);
+        const ge = new THREE.ExtrudeGeometry(sh, { depth: 0.018, bevelEnabled: true, bevelThickness: 0.008, bevelSize: 0.01, bevelSegments: 1, curveSegments: 8 });
+        ge.translate(0, 0, -0.009);
+        return ge;
+      }), steel, 0, 1.0, 0);
+      add(rbox(0.09, 0.13, 0.06, 0.015), A.darkMetal, 0, 1.0, 0);
+      add(cone(0.03, 0.12, 5), A.darkMetal, 0, 1.15, 0);
+      grip(0.3, 0.03, -0.05);
+      length = 1.25;
+      break;
+    }
+    case 'buckler': {
+      const face = std(0x5a4030, { map: A.wood.map, normalMap: A.wood.normalMap, rough: 0.8, rim: 0xffccaa, rimStrength: 0.2 });
+      add(G('eBuckler', () => new THREE.CylinderGeometry(0.2, 0.2, 0.035, 16).rotateX(Math.PI / 2)), face, 0, 0, 0);
+      add(torus(0.2, 0.016, 4, 18), A.darkMetal, 0, 0, 0);
+      add(dome(0.07, Math.PI / 2, 10, 5).clone().rotateX(Math.PI / 2), A.darkMetal, 0, 0, 0.015);
+      length = 0.25;
+      break;
+    }
     default:
       length = 0.3;
   }
@@ -1033,4 +1219,54 @@ export function buildMimic(scale) {
   }
   g.scale.setScalar(scale);
   return { group: g, lid, tongue, height: 0.9, flashMats: [wood, legM, flesh] };
+}
+
+// Giant cave spider: furred body with a marked abdomen, eight jointed legs that the animator walks.
+export function buildSpider(scale) {
+  const g = new THREE.Group();
+  const body = new THREE.Group();
+  body.position.y = 0.34;
+  g.add(body);
+  const hide = mat.skin(0x2e2622, 0xff8866, 0.35);
+  const shell = std(0x1c1614, { ...tx('leather'), normalScale: 1.2, rough: 0.45, rim: 0xff7755, rimStrength: 0.4 });
+  const mark = new THREE.MeshStandardMaterial({ color: 0xaa1a10, emissive: 0x5a0805, roughness: 0.5 });
+  const fang = mat.plain(0x1a0e0a, 0.3, 0xffaa88, 0.2);
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff3322 });
+  eyeMat.color.multiplyScalar(2);
+  _place(body, ell(0.15, 0.1, 0.17, 12, 9), shell, 0, 0, 0.1);
+  _place(body, G('spAbdomen', () => warp(new THREE.SphereGeometry(1, 16, 12), (q) => { q.x *= 0.23; q.y *= 0.19 + Math.max(0, q.y) * 0.03; q.z *= 0.3; q.y += Math.sin(q.z * 20) * 0.006; })), hide, 0, 0.07, -0.3);
+  _place(body, ell(0.06, 0.02, 0.1, 8, 6), mark, 0, 0.255, -0.3);
+  for (const [s] of SIDES) {
+    _place(body, ell(0.025, 0.015, 0.05, 6, 5), mark, s * 0.07, 0.22, -0.4, 0, s * 0.4, 0);
+    // fangs and palps
+    _place(body, G('spFang', () => warp(new THREE.ConeGeometry(0.022, 0.1, 6, 2), (q) => { const t = q.y / 0.1 + 0.5; q.z += t * t * 0.03; })), fang, s * 0.035, -0.06, 0.25, Math.PI + 0.3, 0, 0);
+    _place(body, ell(0.025, 0.025, 0.05, 6, 5), hide, s * 0.07, -0.02, 0.26, 0.4, 0, 0);
+    // eight eyes in two rows
+    for (let i = 0; i < 2; i++) _place(body, ell(0.016 - i * 0.004, 0.016 - i * 0.004, 0.01, 6, 5), eyeMat, s * (0.025 + i * 0.03), 0.07 - i * 0.012, 0.255 - i * 0.012);
+    for (let i = 0; i < 2; i++) _place(body, ell(0.009, 0.009, 0.006, 5, 4), eyeMat, s * (0.035 + i * 0.03), 0.095, 0.24 - i * 0.02);
+  }
+  // legs: hip pivot -> femur up and out -> tibia down to the floor
+  const legs = [];
+  const angles = [0.75, 0.3, -0.2, -0.65];
+  for (const [s] of SIDES) {
+    angles.forEach((a, i) => {
+      const hip = new THREE.Group();
+      hip.position.set(s * 0.11, 0.0, 0.12 - i * 0.07);
+      hip.rotation.y = s > 0 ? -a : Math.PI + a;
+      const reach = 0.62 - Math.abs(i - 1.5) * 0.04;
+      const knee = [0.3, 0.24, 0], footP = [reach, -0.34, 0];
+      for (const [p0, p1, r0, r1] of [[[0, 0, 0], knee, 0.032, 0.026], [knee, footP, 0.024, 0.01]]) {
+        const o = new THREE.Mesh(unitTaper(r0, r1, 6), hide);
+        o.position.set((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, 0);
+        o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(p1[0] - p0[0], p1[1] - p0[1], 0).normalize());
+        o.scale.set(1, Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), 1);
+        hip.add(o);
+      }
+      _place(hip, ell(0.034, 0.034, 0.034, 7, 5), hide, ...knee);
+      body.add(hip);
+      legs.push({ hip, side: s, i, baseY: hip.rotation.y, phase: (i % 2 === 0) === (s > 0) ? 0 : Math.PI });
+    });
+  }
+  g.scale.setScalar(scale * 1.2);
+  return { group: g, body, legs, height: 0.6, flashMats: [hide, shell] };
 }

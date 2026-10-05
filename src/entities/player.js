@@ -411,6 +411,13 @@ export class Player {
       if (this.buffs[k].t <= 0) { delete this.buffs[k]; buffsChanged = true; }
     }
     if (buffsChanged) this.refreshStats();
+    if (this.buffs.poisoned) {
+      this.poisonT = (this.poisonT ?? 0.8) - dt;
+      if (this.poisonT <= 0) {
+        this.poisonT = 0.8;
+        this._applyDamage(1 + Math.ceil(this.game.floor * 0.5), { type: 'poison' }, true);
+      }
+    }
     if (this.buffs.burning) {
       this.burnT -= dt;
       if (this.burnT <= 0) {
@@ -910,7 +917,7 @@ export class Player {
     if (t.isEnemy) {
       const mult = a.move.mult * (a.heavy ? (0.55 + 0.45 * a.charge) * s.heavyDamage : 1);
       const info = {
-        base: s.weaponDamage * mult, dir: knockDir, point: h.point, swingDir: swingTan.clone(), heavy: a.heavy, melee: true,
+        base: s.weaponDamage * mult, dir: knockDir, point: h.point, swingDir: swingTan.clone(), heavy: a.heavy, melee: true, shieldBreak: !!s.weaponDef.shieldBreak,
         knockback: s.knockback * (a.heavy ? 1.9 + a.charge * 0.6 : 1) * (a.move.mult > 1.2 ? 1.3 : 1),
         stagger: s.stagger * (a.heavy ? 2.2 : 1) * a.move.mult, source: 'player', head: h.part === 'head',
         dismember: (W.dismember || 1) * (a.heavy ? 1.6 : 1), overhead: !!a.move.overhead,

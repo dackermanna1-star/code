@@ -13,8 +13,14 @@ export const F = {
   GATE: 64,
 };
 
-const ENEMY_COST = { bat: 0.5, slime: 1, skeleton: 1, goblin: 0.85, skeletonArcher: 1.2, ghoul: 1.15, cultist: 1.5, bomber: 1, knight: 2, brute: 2.6 };
-const MIN_FLOOR = { bat: 1, slime: 1, skeleton: 1, goblin: 1, skeletonArcher: 1, ghoul: 1, cultist: 2, bomber: 2, knight: 3, brute: 2 };
+const ENEMY_COST = {
+  bat: 0.5, slime: 1, skeleton: 1, goblin: 0.85, skeletonArcher: 1.2, ghoul: 1.15, cultist: 1.5, bomber: 1, knight: 2, brute: 2.6,
+  bandit: 1.2, banditArcher: 1.3, spearman: 1.5, sellsword: 2.6, spider: 0.9, skeletonGuard: 1.6,
+};
+const MIN_FLOOR = {
+  bat: 1, slime: 1, skeleton: 1, goblin: 1, skeletonArcher: 1, ghoul: 1, cultist: 2, bomber: 2, knight: 3, brute: 2,
+  bandit: 1, banditArcher: 1, spider: 1, spearman: 2, skeletonGuard: 2, sellsword: 3,
+};
 
 class MinHeap {
   constructor() { this.a = []; }
@@ -539,7 +545,7 @@ function tryGenerate(rng, floor, theme) {
     return out;
   };
 
-  const budgetFor = (r) => (2.2 + floor * 0.95) * Math.sqrt((r.w * r.h) / 30) * rng.range(0.85, 1.2);
+  const budgetFor = (r) => (3.4 + floor * 1.1) * Math.sqrt((r.w * r.h) / 30) * rng.range(0.85, 1.2);
 
   // decorations (also used as cover / physics toys)
   const decorate = (r) => {

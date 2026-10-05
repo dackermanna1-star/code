@@ -2,8 +2,8 @@
 // knockback & knockdowns (live ragdolls), status effects, elites, death ragdolls and gore.
 import * as THREE from 'three';
 import { blendPose, walkPose, POSES } from './rig.js';
-import { buildBody, buildEnemyWeapon, buildSlime, buildBat, buildMimic } from './enemy-models.js';
-import { ENEMIES, BOSSES, ATTACKS, ELITE_AFFIXES } from './enemy-defs.js';
+import { buildBody, buildEnemyWeapon, buildSlime, buildBat, buildMimic, buildSpider } from './enemy-models.js';
+import { ENEMIES, BOSSES, ATTACKS, ELITE_AFFIXES, BALANCE } from './enemy-defs.js';
 import { Ragdoll, J, partOfFrame } from '../physics/ragdoll.js';
 import { RigidBody } from '../physics/bodies.js';
 import { addRim } from '../render/renderer.js';
@@ -36,10 +36,9 @@ export class Enemy {
       const keys = Object.keys(ELITE_AFFIXES).filter((k) => !(def.flying && k === 'explosive'));
       for (let i = 0; i < this.elite && keys.length; i++) this.affixes.push(keys.splice(Math.floor(Math.random() * keys.length), 1)[0]);
     }
-    const hpScale = 1 + 0.38 * (floor - 1);
-    const dmgScale = 1 + 0.2 * (floor - 1);
-    let hp = def.hp * (this.boss ? 1 + 0.25 * (floor - 1) : hpScale);
-    let dmg = def.dmg * (this.boss ? 1 + 0.12 * (floor - 1) : dmgScale);
+    const B = BALANCE;
+    let hp = def.hp * (this.boss ? B.bossHp * (1 + B.bossHpPerFloor * (floor - 1)) : B.hp * (1 + B.hpPerFloor * (floor - 1)));
+    let dmg = def.dmg * B.dmg * (1 + (this.boss ? B.bossDmgPerFloor : B.dmgPerFloor) * (floor - 1));
     let scale = def.scale || 1;
     if (this.elite) { hp *= 2.3; dmg *= 1.25; scale *= 1.16; }
     if (this.miniboss) { hp *= 2.2; dmg *= 1.15; scale *= 1.15; }
@@ -119,8 +118,9 @@ export class Enemy {
     if (kind === 'slime') return this._buildSlime(scale);
     if (kind === 'bat') return this._buildBat(scale);
     if (kind === 'mimic') return this._buildMimic(scale);
+    if (kind === 'spider') return this._buildSpider(scale);
     const baseScale = { goblin: 0.72, brute: 1.35, knight: 1.08, bomber: 0.85 }[kind] || 1;
-    const rig = (this.rig = buildBody(kind, { scale: baseScale * scale, tint: def.tint, eyeColor: def.eyeColor, crown: def.crown, cape: def.cape, armor: def.armor || (kind === 'skeleton' && this.game.floor >= 3), apron: def.apron, plume: def.plume, tabard: def.tabard }));
+    const rig = (this.rig = buildBody(kind, { scale: baseScale * scale, tint: def.tint, eyeColor: def.eyeColor, crown: def.crown, cape: def.cape, armor: def.armor || (kind === 'skeleton' && this.game.floor >= 3), apron: def.apron, plume: def.plume, tabard: def.tabard, variant: def.variant, look: Math.floor(Math.random() * 64) }));
     rig.optimize();
     this.root.add(rig.root);
     this.height = (rig.P.hipH + rig.P.torso + 0.3) * rig.scale;
@@ -131,6 +131,12 @@ export class Enemy {
         rig.bones.handL.add(w.group);
         w.group.position.set(0, -0.06, 0.05);
         w.group.rotation.set(Math.PI / 2, 0, 0);
+      } else if (def.weapon === 'crossbow') {
+        // shouldered and levelled along the forearm
+        rig.bones.handR.add(w.group);
+        w.group.position.set(0, -0.05, 0.0);
+        w.group.rotation.set(Math.PI, 0, 0);
+        rig.aims = true;
       } else {
         rig.bones.handR.add(w.group);
         w.group.position.set(0, -0.06, 0.02);
@@ -138,11 +144,12 @@ export class Enemy {
       }
       w.group.traverse((o) => { if (o.isMesh && o.material.userData && !o.material.userData.flash) addRim(o.material, 0x8899bb, 0.25); });
     }
-    if (def.offhand === 'shield') {
-      const s = buildEnemyWeapon('shield', 1);
+    if (def.offhand) {
+      const s = buildEnemyWeapon(def.offhand, 1);
       this.shieldMesh = s.group;
       rig.bones.handL.add(s.group);
-      s.group.position.set(0.02, -0.1, 0.12);
+      if (def.offhand === 'buckler') s.group.position.set(0.03, -0.08, 0.1);
+      else s.group.position.set(0.02, -0.1, 0.12);
       s.group.rotation.set(0, 0, 0);
     }
     // glint sprite for attack telegraphs
@@ -192,6 +199,14 @@ export class Enemy {
     const m = buildMimic(scale);
     this.root.add(m.group);
     this.mimic = { group: m.group, lid: m.lid, tongue: m.tongue };
+    this.height = m.height;
+    this.flashMats = m.flashMats;
+  }
+
+  _buildSpider(scale) {
+    const m = buildSpider(scale);
+    this.root.add(m.group);
+    this.spider = m;
     this.height = m.height;
     this.flashMats = m.flashMats;
   }
@@ -261,7 +276,7 @@ export class Enemy {
     if (this.spawnT >= 0 || this.state === 'dormant') return { killed: false, damage: 0 };
     const p = game.player;
     // shields block light frontal hits
-    if (this.def.shield && info.melee && !info.heavy && !info.kick && this.state !== 'stagger' && this.vulnerable <= 0 && !this.ragdoll && (!this.attack || this.attack.phase === 'rec' || Math.random() < 0.6)) {
+    if (this.def.shield && info.melee && !info.heavy && !info.kick && !info.shieldBreak && this.state !== 'stagger' && this.vulnerable <= 0 && !this.ragdoll && (!this.attack || this.attack.phase === 'rec' || Math.random() < 0.6)) {
       const f = this.forward(_v2);
       if (-(f.x * info.dir.x + f.z * info.dir.z) > 0.2 || this.isFacingPlayer(0.4)) {
         const sp = this.chestPos().addScaledVector(f, 0.4);
@@ -517,6 +532,23 @@ export class Enemy {
       body.ang.set(rand(-8, 8), rand(-8, 8), rand(-8, 8));
       game.physics.add(body);
       game.fx.blood(wp, dir, 0.6);
+    } else if (this.spider) {
+      // legs curl up and the carcass flips over
+      const sp = this.spider;
+      for (const l of sp.legs) l.hip.rotation.z = -0.9;
+      const wp = sp.group.getWorldPosition(new THREE.Vector3());
+      const wq = sp.group.getWorldQuaternion(new THREE.Quaternion());
+      this.root.remove(sp.group);
+      game.renderer.scene.add(sp.group);
+      const s = sp.group.scale.x;
+      const body = new RigidBody({ type: 'box', hx: 0.3 * s, hy: 0.14 * s, hz: 0.4 * s }, { mass: 0.8, mesh: sp.group, life: 30, fade: 2, collideBodies: false });
+      sp.group.children[0].position.y = 0;
+      body.pos.copy(wp).setY(0.3 * s);
+      body.quat.copy(wq);
+      body.vel.copy(dir).multiplyScalar(knock * 0.6 + 1).setY(3);
+      body.ang.set(dir.z * 9 + rand(-2, 2), rand(-3, 3), -dir.x * 9 + rand(-2, 2));
+      game.physics.add(body);
+      game.fx.blood(wp.clone().setY(0.4), dir, 1.2, 'ichor', BLOOD.ichor);
     } else if (this.mimic) {
       const p = this.chestPos();
       game.fx.debris(p, 'wood', 18, 6);
@@ -1229,6 +1261,7 @@ export class Enemy {
     if (res.damage > 0) {
       if (this.has('vampiric')) { this.hp = Math.min(this.maxHp, this.hp + res.damage * 0.5); game.fx.magic(this.chestPos(), 0xff2244, 8, 1.5); }
       if (this.has('burning')) game.player.addBuff('burning', 2, {});
+      if (d.poison) game.player.addBuff('poisoned', 4, {});
       game.audio.hitFlesh(p.chestPos(), 0.8);
     }
     if (d.guardBreak && res.blocked) {
@@ -1262,6 +1295,7 @@ export class Enemy {
     if (this.slime) return this._animSlime(dt);
     if (this.bat) return this._animBat(dt);
     if (this.mimic) return this._animMimic(dt);
+    if (this.spider) return this._animSpider(dt);
     const rig = this.rig;
     if (!rig) return;
     rig.resetPose();
@@ -1274,7 +1308,7 @@ export class Enemy {
     rig.bones.chest.rotation.x += Math.sin(t * 2 + this.uid) * 0.03;
     if (rig.basePose) blendPose(rig, rig.basePose, 1);
     if (this.def.hunch) blendPose(rig, POSES.hunch, 1);
-    if (this.alerted && !A) blendPose(rig, POSES.guard, 0.7);
+    if (this.alerted && !A && !rig.aims) blendPose(rig, POSES.guard, 0.7);
     if (this.def.float || this.def.body === 'cultist') rig.bones.pelvis.position.y += this.def.float ? 0.35 + Math.sin(t * 2) * 0.1 : 0;
     if (A && A.def.pose) {
       const [wp, hp] = A.def.pose;
@@ -1338,6 +1372,24 @@ export class Enemy {
     b.wr.rotation.z = flap;
     if (!this.attack || this.attack.def.kind !== 'dive' || this.attack.phase !== 'act') b.group.position.y = damp(b.group.position.y, 1.8 + Math.sin(t * 3 + this.uid) * 0.25, 4, 1 / 60);
     b.group.rotation.x = this.react.x * 0.2;
+  }
+
+  _animSpider(dt) {
+    const sp = this.spider;
+    const A = this.attack;
+    this.walkPhase += dt * (4 + this.moveAmt * 14);
+    const amt = Math.min(1, this.moveAmt * 1.3);
+    for (const l of sp.legs) {
+      const ph = this.walkPhase + l.phase + l.i * 0.6;
+      l.hip.rotation.y = l.baseY + Math.sin(ph) * 0.28 * amt;
+      l.hip.rotation.z = Math.max(0, Math.cos(ph)) * 0.35 * amt + Math.sin(this.game.time * 3 + l.i) * 0.03;
+    }
+    let pitch = 0, lift = 0;
+    if (A && A.phase === 'wind') { const k = Math.min(1, A.t / A.wind); pitch = -0.35 * k; lift = 0.05 * k; for (const l of sp.legs) if (l.i === 0) l.hip.rotation.z += 0.7 * k; }
+    else if (A && A.phase === 'act') pitch = 0.2;
+    sp.body.rotation.x = damp(sp.body.rotation.x, pitch + this.react.x * 0.15, 14, dt);
+    sp.body.rotation.z = this.react.z * 0.12;
+    sp.body.position.y = 0.34 + lift + Math.abs(Math.sin(this.walkPhase)) * 0.025 * amt;
   }
 
   _animMimic() {

@@ -183,6 +183,71 @@ export function makeWeaponModel(item) {
       length = 0.96; bladeFrom = 0.7;
       break;
     }
+    case 'rapier': {
+      const blade = add(g, extrude(bladeShape(0.92, 0.026, 0.12, 0.6), 0.008, 0.003), M.blade, 0, 0.1, 0);
+      withBlood(blade);
+      // swept hilt: cup guard, quillons and a knuckle bow
+      add(g, new THREE.SphereGeometry(0.045, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).rotateX(Math.PI), M.accent, 0, 0.12, 0);
+      add(g, new THREE.CylinderGeometry(0.008, 0.008, 0.22, 6).rotateZ(Math.PI / 2), M.accent, 0, 0.09, 0);
+      const bow = add(g, new THREE.TorusGeometry(0.075, 0.007, 4, 12, Math.PI), M.accent, 0.0, 0.015, 0.0);
+      bow.rotation.set(0, Math.PI / 2, Math.PI / 2);
+      add(g, new THREE.CylinderGeometry(0.016, 0.018, 0.14, 8), M.grip, 0, 0.0, 0);
+      add(g, new THREE.SphereGeometry(0.026, 8, 6), M.accent, 0, -0.085, 0);
+      if (gemOn) add(g, new THREE.OctahedronGeometry(0.016), M.gem, 0, 0.13, 0.03);
+      length = 1.02; bladeFrom = 0.15;
+      break;
+    }
+    case 'greataxe': {
+      add(g, new THREE.CylinderGeometry(0.024, 0.029, 1.32, 8), M.grip, 0, 0.36, 0);
+      const s = new THREE.Shape();
+      s.moveTo(0, -0.09); s.lineTo(0.06, -0.1); s.quadraticCurveTo(0.24, -0.2, 0.27, -0.02);
+      s.quadraticCurveTo(0.29, 0.18, 0.2, 0.25); s.quadraticCurveTo(0.12, 0.12, 0.0, 0.09); s.lineTo(0, -0.09);
+      const head = add(g, extrude(s, 0.022, 0.008), M.blade, 0.02, 0.9, 0);
+      withBlood(head);
+      const back = add(g, extrude(s, 0.018, 0.006), M.blade, -0.02, 0.9, 0);
+      back.rotation.y = Math.PI;
+      back.scale.set(0.55, 0.6, 1);
+      add(g, new THREE.BoxGeometry(0.07, 0.2, 0.06), M.accent, 0, 0.9, 0);
+      add(g, new THREE.ConeGeometry(0.028, 0.12, 5), M.accent, 0, 1.06, 0);
+      for (const y of [-0.1, 0.05]) add(g, new THREE.CylinderGeometry(0.033, 0.033, 0.03, 8), M.accent, 0, y, 0);
+      if (gemOn) add(g, new THREE.OctahedronGeometry(0.022), M.gem, 0, 0.9, 0.035);
+      length = 1.2; bladeFrom = 0.75;
+      break;
+    }
+    case 'scythe': {
+      add(g, new THREE.CylinderGeometry(0.021, 0.025, 1.3, 8), M.grip, 0, 0.33, 0);
+      const s = new THREE.Shape();
+      s.moveTo(0, 0); s.quadraticCurveTo(0.26, 0.14, 0.55, -0.08); s.quadraticCurveTo(0.28, 0.03, 0, -0.07); s.lineTo(0, 0);
+      const blade = add(g, extrude(s, 0.012, 0.005), M.blade, 0.01, 0.95, 0);
+      withBlood(blade);
+      add(g, new THREE.BoxGeometry(0.06, 0.09, 0.05), M.accent, 0, 0.95, 0);
+      add(g, new THREE.CylinderGeometry(0.018, 0.018, 0.2, 6).rotateZ(Math.PI / 2), M.grip, 0.09, 0.45, 0);
+      add(g, new THREE.CylinderGeometry(0.03, 0.03, 0.05, 8), M.accent, 0, -0.3, 0);
+      if (gemOn) add(g, new THREE.OctahedronGeometry(0.02), M.gem, 0, 0.95, 0.03);
+      length = 1.2; bladeFrom = 0.85;
+      break;
+    }
+    case 'flail': {
+      add(g, new THREE.CylinderGeometry(0.021, 0.025, 0.42, 8), M.grip, 0, 0.1, 0);
+      add(g, new THREE.CylinderGeometry(0.03, 0.03, 0.05, 8), M.accent, 0, 0.33, 0);
+      add(g, new THREE.CylinderGeometry(0.03, 0.03, 0.04, 8), M.accent, 0, -0.12, 0);
+      // a short arc of chain links ending in the spiked ball
+      for (let i = 0; i < 7; i++) {
+        const link = add(g, new THREE.TorusGeometry(0.022, 0.007, 4, 8), M.accent, Math.sin(i * 0.3) * 0.045, 0.37 + i * 0.038, 0);
+        link.rotation.y = i % 2 ? Math.PI / 2 : 0;
+      }
+      const ball = add(g, new THREE.IcosahedronGeometry(0.088, 1), M.blade, 0.09, 0.7, 0);
+      withBlood(ball);
+      for (let i = 0; i < 10; i++) {
+        const a = i * 2.4, b = Math.acos(1 - 2 * ((i + 0.5) / 10));
+        const d = new THREE.Vector3(Math.sin(b) * Math.cos(a), Math.cos(b), Math.sin(b) * Math.sin(a));
+        const sp = add(g, new THREE.ConeGeometry(0.02, 0.08, 4), M.accent, 0.09 + d.x * 0.095, 0.7 + d.y * 0.095, d.z * 0.095);
+        sp.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d);
+      }
+      if (gemOn) add(g, new THREE.OctahedronGeometry(0.018), M.gem, 0, 0.33, 0.032);
+      length = 0.8; bladeFrom = 0.55;
+      break;
+    }
     default: {
       add(g, new THREE.BoxGeometry(0.05, 0.6, 0.02), M.blade, 0, 0.3, 0);
     }

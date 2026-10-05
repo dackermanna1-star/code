@@ -504,7 +504,7 @@ export class UI {
     if (bk !== this._bk) {
       this._bk = bk;
       this.buffsEl.innerHTML = '';
-      const names = { rage: 'Rage', iron: 'Ironskin', swift: 'Quicksilver', frenzy: 'Frenzy', haste: 'Haste', blessing: 'Blessed', curse: 'Cursed', blessed: 'Regeneration', chilled: 'Chilled', burning: 'Burning' };
+      const names = { rage: 'Rage', iron: 'Ironskin', swift: 'Quicksilver', frenzy: 'Frenzy', haste: 'Haste', blessing: 'Blessed', curse: 'Cursed', blessed: 'Regeneration', chilled: 'Chilled', burning: 'Burning', poisoned: 'Poisoned' };
       for (const [k, b] of Object.entries(p.buffs)) this.buffsEl.append(h('span', { class: 'buff ' + k }, `${names[k] || k}${b.stacks > 1 ? ' x' + b.stacks : ''} ${Math.ceil(b.t)}s`));
     }
 

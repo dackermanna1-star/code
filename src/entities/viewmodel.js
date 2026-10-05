@@ -62,6 +62,10 @@ const PROFILES = {
   spear: { radius: 0.36, idleShift: 0, spear: true },
   greatsword: { radius: 0.42, idleShift: -0.02, twoHand: true },
   hammer: { radius: 0.42, idleShift: -0.02, twoHand: true },
+  rapier: { radius: 0.42, idleShift: 0.01 },
+  greataxe: { radius: 0.42, idleShift: -0.02, twoHand: true },
+  scythe: { radius: 0.4, idleShift: -0.02, twoHand: true },
+  flail: { radius: 0.44, idleShift: 0 },
 };
 
 export class ViewModel {

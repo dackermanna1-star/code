@@ -29,8 +29,17 @@ export const ATTACKS = {
   leapSlam: { kind: 'leap', range: 14, minRange: 4, wind: 0.7, act: 0.9, rec: 1.0, dmg: 1.8, arc: 360, radius: 3.4, slam: true, pose: ['crouch', 'leap'], knock: 11, speed: 0, jump: 9, cd: [6, 9] },
   volley: { kind: 'projectile', range: 20, minRange: 0, wind: 1.0, act: 0.05, rec: 0.7, dmg: 0.8, pose: ['castWind', 'castHit'], proj: 'fireball', speed: 14, count: 5, spread: 0.5, cd: [4, 6] },
   firewall: { kind: 'nova', range: 6, wind: 1.2, act: 0.1, rec: 0.8, dmg: 1.3, radius: 6.5, pose: ['castWind', 'castHit'], knock: 9, unblockable: true, ring: true, cd: [8, 11] },
+  chop: { kind: 'melee', range: 2.3, wind: 0.5, act: 0.11, rec: 0.45, dmg: 1.1, arc: 75, pose: ['overWind', 'overHit'], knock: 4, cd: [0.9, 1.7] },
+  bolt: { kind: 'projectile', range: 19, minRange: 3, wind: 1.15, act: 0.05, rec: 0.75, dmg: 1.35, pose: ['aimWind', 'aimShot'], proj: 'arrow', speed: 32, cd: [2.2, 3.4] },
+  pike: { kind: 'melee', range: 3.3, wind: 0.6, act: 0.12, rec: 0.55, dmg: 1.15, arc: 30, pose: ['stabWind', 'stabHit'], knock: 5, cd: [1.1, 2] },
+  cleave: { kind: 'melee', range: 3.0, wind: 1.05, act: 0.16, rec: 0.85, dmg: 1.7, arc: 130, pose: ['sweepWind', 'sweepHit'], knock: 9, unblockable: true, cd: [3, 4.5] },
+  spiderBite: { kind: 'melee', range: 1.9, wind: 0.3, act: 0.1, rec: 0.35, dmg: 1, arc: 80, knock: 2, poison: true, cd: [0.7, 1.4] },
   combo3: { kind: 'melee', range: 2.8, wind: 0.5, act: 0.12, rec: 0.3, dmg: 1, arc: 100, pose: ['slashWind', 'slashHit'], knock: 4, chain: 3, cd: [2, 3] },
 };
+
+// Global tuning: regular foes take several hits from a fresh weapon instead of folding to one swing,
+// and both health and damage keep pace with the player's gear and level-up boons on deeper floors.
+export const BALANCE = { hp: 1.55, bossHp: 1.3, dmg: 1.15, hpPerFloor: 0.42, dmgPerFloor: 0.22, bossHpPerFloor: 0.28, bossDmgPerFloor: 0.13 };
 
 export const ENEMIES = {
   skeleton: {
@@ -72,6 +81,30 @@ export const ENEMIES = {
   bat: {
     name: 'Cave Bat', body: 'bat', hp: 9, dmg: 5, speed: 6.5, mass: 0.2, poise: 1, radius: 0.35,
     xp: 2, gold: [0, 1], blood: 'blood', voice: 'bat', attacks: ['dive'], flying: true, sight: 14,
+  },
+  bandit: {
+    name: 'Bandit Cutthroat', body: 'human', variant: 'cutthroat', weapon: 'hatchet', hp: 40, dmg: 9, speed: 4.6, mass: 1, poise: 18, radius: 0.42,
+    xp: 6, gold: [4, 10], blood: 'blood', voice: 'human', attacks: ['slash', 'chop', 'lunge'], skirmish: true, sight: 16,
+  },
+  banditArcher: {
+    name: 'Bandit Crossbowman', body: 'human', variant: 'crossbow', weapon: 'crossbow', hp: 30, dmg: 10, speed: 3.6, mass: 1, poise: 14, radius: 0.42,
+    xp: 7, gold: [4, 10], blood: 'blood', voice: 'human', attacks: ['bolt'], ranged: true, prefer: 11, sight: 20,
+  },
+  spearman: {
+    name: 'Brigand Spearman', body: 'human', variant: 'spearman', weapon: 'spear', hp: 55, dmg: 11, speed: 3.5, mass: 1.3, poise: 30, radius: 0.44,
+    xp: 8, gold: [5, 12], blood: 'blood', voice: 'human', attacks: ['pike', 'thrust', 'sweep'], sight: 16,
+  },
+  sellsword: {
+    name: 'Sellsword', body: 'human', variant: 'sellsword', weapon: 'greataxe', hp: 115, dmg: 17, speed: 3.2, mass: 2.4, poise: 70, radius: 0.5,
+    xp: 15, gold: [10, 22], blood: 'blood', voice: 'human', attacks: ['overhead', 'sweep', 'cleave', 'combo3'], armored: true, sight: 16,
+  },
+  spider: {
+    name: 'Cave Spider', body: 'spider', hp: 28, dmg: 7, speed: 5.6, mass: 0.7, poise: 8, radius: 0.48,
+    xp: 5, gold: [0, 2], blood: 'ichor', voice: 'spider', attacks: ['spiderBite', 'pounce'], skirmish: true, sight: 14,
+  },
+  skeletonGuard: {
+    name: 'Skeleton Guard', body: 'skeleton', weapon: 'spear', offhand: 'buckler', armor: true, hp: 62, dmg: 11, speed: 3.1, mass: 1.6, poise: 40, radius: 0.44,
+    xp: 9, gold: [3, 8], blood: 'bone', voice: 'skeleton', attacks: ['pike', 'thrust', 'shieldBash'], shield: true, sight: 15, eyeColor: 0xffaa44,
   },
   mimic: {
     name: 'Mimic', body: 'mimic', hp: 80, dmg: 16, speed: 4.2, mass: 2.5, poise: 40, radius: 0.6,

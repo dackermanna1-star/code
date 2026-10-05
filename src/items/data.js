@@ -65,6 +65,34 @@ export const WEAPONS = {
     heavy: S(65, -48, 89, [0.0, 0.24, 0.5], 2.4, { overhead: true, slam: 4.5 }),
     desc: 'Slow, devastating, and sends enemies flying. Overheads shake the ground.',
   },
+  rapier: {
+    name: 'Rapier', names: ['Rapier', 'Estoc', 'Smallsword', 'Duelling Blade'], dmg: 11, speed: 1.3, reach: 2.95, knock: 2.5, stagger: 12,
+    crit: 0.14, critMult: 0.4, stamina: 6, cleave: 1, model: 'rapier', weight: 0.7,
+    combo: [T([0.07, 0.1, 0.15]), T([0.07, 0.1, 0.15], 1.05), S(45, -45, 8, [0.09, 0.11, 0.16]), T([0.06, 0.1, 0.16], 1.3)],
+    heavy: T([0.0, 0.16, 0.32], 2.6, { lunge: 6 }),
+    desc: 'Precise, far-reaching thrusts with deadly critical hits.',
+  },
+  greataxe: {
+    name: 'Battleaxe', names: ['Battleaxe', 'Greataxe', 'Headsman\'s Axe', 'Bearded Greataxe'], dmg: 29, speed: 0.6, reach: 2.85, knock: 9, stagger: 45,
+    crit: 0.05, stamina: 18, cleave: 4, model: 'greataxe', weight: 2.4, bleed: 0.35, dismember: 2.2,
+    combo: [S(80, -85, 15, [0.22, 0.2, 0.36]), S(60, -45, 88, [0.24, 0.2, 0.42], 1.45, { overhead: true })],
+    heavy: S(90, -95, 6, [0.0, 0.24, 0.46], 2.5),
+    desc: 'Brutal two-handed chops. Bleeds and severs limbs.',
+  },
+  scythe: {
+    name: 'Scythe', names: ['Scythe', 'War Scythe', 'Reaper', 'Harvester'], dmg: 18, speed: 0.85, reach: 3.3, knock: 4.5, stagger: 20,
+    crit: 0.08, stamina: 13, cleave: 6, model: 'scythe', weight: 1.6, bleed: 0.3,
+    combo: [S(95, -100, 6, [0.15, 0.18, 0.28]), S(-95, 100, -6, [0.15, 0.18, 0.28]), S(85, -60, 40, [0.18, 0.2, 0.32], 1.35)],
+    heavy: S(120, -120, 4, [0.0, 0.26, 0.4], 2.2),
+    desc: 'Huge reaping arcs that cut through whole crowds and make them bleed.',
+  },
+  flail: {
+    name: 'Flail', names: ['Flail', 'Morning Flail', 'Chain Mace', 'Threshing Flail'], dmg: 19, speed: 0.78, reach: 2.6, knock: 8, stagger: 40,
+    crit: 0.05, stamina: 13, cleave: 2, model: 'flail', weight: 1.7, crushing: 1.3, shieldBreak: true,
+    combo: [S(70, -80, 30, [0.16, 0.16, 0.28]), S(-70, 80, -25, [0.16, 0.16, 0.28]), S(55, -40, 88, [0.2, 0.18, 0.34], 1.45, { overhead: true, slam: 2.5 })],
+    heavy: S(62, -45, 88, [0.0, 0.22, 0.42], 2.6, { overhead: true, slam: 3.5 }),
+    desc: 'The swinging head wraps around shields: blows can never be blocked.',
+  },
 };
 
 // Affixes apply to weapons (w), armor (a), trinkets (t). v: [min, max] rolled value.

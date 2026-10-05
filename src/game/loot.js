@@ -465,7 +465,7 @@ function beamTexture() {
 }
 
 function makeWeaponModelLength(item) {
-  return { sword: 0.96, dagger: 0.4, axe: 0.72, mace: 0.66, spear: 1.62, greatsword: 1.42, hammer: 0.96 }[item.base] || 0.8;
+  return { sword: 0.96, dagger: 0.4, axe: 0.72, mace: 0.66, spear: 1.62, greatsword: 1.42, hammer: 0.96, rapier: 1.05, greataxe: 1.3, scythe: 1.25, flail: 0.9 }[item.base] || 0.8;
 }
 
 export { RARITY, RELICS, WEAPONS, makeWeapon, rollRarity };

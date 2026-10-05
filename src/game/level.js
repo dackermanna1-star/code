@@ -53,7 +53,8 @@ export class Level {
     this.projectiles = [];
     this.pendingWaves = new Map();
     this.attackTokens = 0;
-    this.maxTokens = 2 + Math.floor(game.floor / 2);
+    // how many foes may commit to an attack at once
+    this.maxTokens = Math.min(5, 2 + Math.floor(game.floor * 0.6));
     this.roomState = new Map();
     this.currentRoom = null;
     this.boss = null;

@@ -247,6 +247,8 @@ export const POSES = {
   leap: { hipL: [-1.4, 0, 0], kneeL: [1.4, 0, 0], hipR: [0.3, 0, 0], kneeR: [0.6, 0, 0], shoulderR: [-2.6, 0, 0.4], shoulderL: [-2.6, 0, -0.4], spine: [0.2, 0, 0] },
   lie: { hipL: [0.1, 0, 0.1], hipR: [0.1, 0, -0.1], shoulderR: [0.3, 0, 0.6], shoulderL: [0.3, 0, -0.6] },
   hunch: { spine: [0.45, 0, 0], neck: [-0.5, 0, 0], shoulderR: [-0.3, 0, 0.1], shoulderL: [-0.3, 0, -0.1] },
+  aimWind: { spine: [0, 0.12, 0], neck: [0, -0.1, 0], shoulderR: [-0.06, 0, 0] },
+  aimShot: { spine: [-0.06, 0.12, 0], shoulderR: [0.25, 0, 0], elbowR: [-0.2, 0, 0] },
   fly: { shoulderR: [0, 0, 1.2], shoulderL: [0, 0, -1.2], hipL: [0.2, 0, 0], hipR: [0.2, 0, 0], kneeL: [0.4, 0, 0], kneeR: [0.4, 0, 0] },
 };
 

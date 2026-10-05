@@ -484,6 +484,19 @@ export class AudioSystem {
         this._osc(v, 'sine', rnd(3500, 5000), 2500, t, 0.08, 0.2);
         break;
       }
+      case 'human': {
+        // rough shouts and grunts
+        const p = rnd(105, 135);
+        const end = mood === 'death' ? p * 0.6 : mood === 'attack' ? p * 1.15 : mood === 'hurt' ? p * 1.25 : p * 0.9;
+        this._formant(v, t, p, end, dur, mood === 'attack' || mood === 'alert' ? ah : uh, 0.6, 'sawtooth');
+        this._noise(v, t, dur * 0.7, 0.18, { type: 'bandpass', f0: 1800, f1: 900, q: 2 }, 0.04);
+        break;
+      }
+      case 'spider': {
+        this._noise(v, t, dur, 0.55, { type: 'highpass', f0: 3200, f1: 5200, q: 0.8 }, 0.05);
+        for (let i = 0; i < 5; i++) this._noise(v, t + i * rnd(0.03, 0.06), 0.015, 0.4, { type: 'bandpass', f0: rnd(2500, 4200), q: 6 });
+        break;
+      }
       case 'slime': {
         this._osc(v, 'sine', 220, 90, t, dur, 0.5);
         this._noise(v, t, dur, 0.4, { type: 'bandpass', f0: 500, f1: 200, q: 6 });
