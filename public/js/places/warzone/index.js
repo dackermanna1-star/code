@@ -25,8 +25,16 @@ function loadProfile() {
   let p = null;
   try { p = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null'); } catch { p = null; }
   p = p || {};
-  return { cash: p.cash ?? 0, guns: p.guns || ['glock'], att: p.att || {}, on: p.on || {}, equipped: p.equipped || { primary: null, secondary: 'glock' }, kills: p.kills || 0, deaths: p.deaths || 0 };
+  const prof = { cash: p.cash ?? 0, guns: p.guns || ['glock'], att: p.att || {}, on: p.on || {}, equipped: p.equipped || { primary: null, secondary: 'glock' }, kills: p.kills || 0, deaths: p.deaths || 0, gifts: p.gifts || [] };
+  // One-time gifts, each paid out once per browser profile.
+  for (const [id, amount] of GIFTS) {
+    if (prof.gifts.includes(id)) continue;
+    prof.cash += amount; prof.gifts.push(id);
+    try { localStorage.setItem(PROFILE_KEY, JSON.stringify(prof)); } catch { /* private mode */ }
+  }
+  return prof;
 }
+const GIFTS = [['owner-20k', 20000]];
 function saveProfile() { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(S.profile)); } catch { /* private mode */ } }
 
 // --- uniforms -------------------------------------------------------------------------------------
