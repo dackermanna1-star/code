@@ -218,6 +218,7 @@ export class CopBrain extends Walker(GunnerBrain) {
   }
   idleChat() {}
   isEnemy(o) { return !this.dormant && o.team && o.team === S.crewTeam; }
+  onSpot(enemy) { S.onCopSpot?.(this, enemy); }
   think() {
     const ch = this.ch, world = this.game.world;
     if (this.dormant) { this.target = null; ch.freeze(true); return; }

@@ -88,7 +88,10 @@ export function startChase(game) {
   S.targets.length = 0;
   game.labelVisible = () => false;
   S.van.userData.setDoors(1);
-  S.ui.clearSubs(); window.speechSynthesis?.cancel();
+  S.ui.clearSubs(); window.speechSynthesis?.cancel(); S.ui.setKeys('');
+  // a line of the route for the minimap
+  C.routePts = [];
+  for (let s2 = -200; s2 < S.city.routeLength; s2 += 25) { const p = routePose(s2).p; C.routePts.push([p.x, p.z]); }
   // your gunman filled a bag of their own on the way out
   S.crewBag = 0;
   if (crew && S.doors.vault) {
@@ -247,7 +250,7 @@ export function updateChase(game, dt) {
   if (C.heli && !C.heli.dead) blips.push({ x: C.heli.model.position.x, z: C.heli.model.position.z, color: '#ff3a3a', shape: 'sq', edge: true });
   const tp = routePose(C.tunnelS).p; blips.push({ x: tp.x, z: tp.z, color: '#ffd020', shape: 'star', edge: true });
   S.minimap.range = 160;
-  S.minimap.draw(van.position.x, van.position.z, cam.yaw, blips);
+  if ((C.mmT = (C.mmT || 0) - dt) <= 0) { C.mmT = 1 / 30; S.minimap.draw(van.position.x, van.position.z, cam.yaw, blips, C.routePts); }
   // losing the cops in the tunnel
   if (!C.lost && C.s > C.tunnelS - 120) {
     C.lost = true;

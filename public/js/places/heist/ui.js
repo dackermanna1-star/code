@@ -209,7 +209,8 @@ export class PlanningBoard {
             <li>Get through the STAFF door (keycard, or blow it).</li>
             <li>Hack the vault gate. Drill the vault.</li>
             <li>Bag the cash and gold (hold <b>E</b>).</li>
-            <li>Out the back to the van. Lose the cops.</li></ol></div>
+            <li>Out the back to the van. Lose the cops.</li></ol>
+            <div style="margin-top:8px;font-size:11px;border-top:1px dashed #999;padding-top:6px"><b>CONTROLS</b><br>Click the game to use the mouse · click: shoot<br>E: aim (tap) / use &amp; grab (hold) · F: shout<br>G: mask · R: reload · Shift: sprint · 1/2: guns · M: mute</div></div>
           <div class="photo"><canvas class="bankpic" width="240" height="120"></canvas><span>the target</span></div>
         </div>
         <div class="crew">
@@ -357,16 +358,24 @@ export class Minimap {
     for (const r of rects) R(r.x0, r.x1, r.z0, r.z1, r.col);
     this.img = m; this.S = S; this.ext = ext;
   }
-  draw(cx, cz, yaw, blips) {
+  draw(cx, cz, yaw, blips, route = null) {
     const c = this.canvas, x = c.getContext('2d'), w = c.width, h = c.height;
     const k = (w / 2) / this.range; // px per stud
     x.save();
-    x.fillStyle = '#2a2a2a'; x.fillRect(0, 0, w, h);
+    x.fillStyle = route ? '#5a6a4a' : '#2a2a2a'; x.fillRect(0, 0, w, h);
     x.beginPath(); x.arc(w / 2, h / 2, w / 2, 0, Math.PI * 2); x.clip();
     x.translate(w / 2, h / 2);
     x.rotate(yaw);
-    const s = k / this.S;
-    x.drawImage(this.img, (-cx - this.ext) * k, (-cz - this.ext) * k, this.img.width * s, this.img.height * s);
+    if (route) {
+      // the getaway: just the road you're on
+      x.strokeStyle = '#3a3a3c'; x.lineWidth = 9; x.lineJoin = 'round'; x.beginPath();
+      route.forEach(([px, pz], i) => (i ? x.lineTo((px - cx) * k, (pz - cz) * k) : x.moveTo((px - cx) * k, (pz - cz) * k)));
+      x.stroke();
+      x.strokeStyle = '#8a7ad8'; x.lineWidth = 3; x.stroke();
+    } else {
+      const s = k / this.S;
+      x.drawImage(this.img, (-cx - this.ext) * k, (-cz - this.ext) * k, this.img.width * s, this.img.height * s);
+    }
     for (const b of blips) {
       const bx = (b.x - cx) * k, bz = (b.z - cz) * k;
       let px = bx, pz = bz;

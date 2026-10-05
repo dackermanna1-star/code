@@ -35,6 +35,9 @@ export const WHO = {
   staff: { name: 'Bank staff', color: '#dddddd', voice: 5, pitch: 1.2, rate: 1.2 },
 };
 export function say(who, text, secs = 4, speakIt = true) {
+  // once you're in the van, only the people in the van talk
+  if (S.phase === 'chase' && who !== 'driver' && who !== 'crew') return;
+  if (S.phase === 'over') return;
   const w = WHO[who] || { name: who, color: '#fff' };
   S.ui.say(w.name, text, secs, w.color);
   if (speakIt) A.speak(text.replace(/<[^>]+>/g, ''), { pitch: w.pitch, rate: w.rate, voice: w.voice });
@@ -74,6 +77,17 @@ export function setupHeist(game) {
   S.onHitCharacter = (shooter, victim) => { if (victim.player?.brain instanceof CivBrain && victim.player.brain.state === 'idle' && !S.loud && shooter.isLocal) goLoud('shots'); };
   S.onManagerErrand = (out) => { if (out && !S.loud && S.phase === 'casing' && !S.flags.keycard) say('lenny', 'The manager just went for coffee. His <b>office is empty</b> - now\'s your chance.', 4); };
   S.onExit = (close) => { A.stopAll(); close(); };
+  // officers shout when they see you (not too often)
+  S.onCopSpot = (brain) => {
+    const world = S.game.world;
+    if (world.time < (S.copLineT || 0) || Math.random() < 0.5 || S.phase !== 'loud') return;
+    S.copLineT = world.time + rr(7, 12);
+    const kind = brain.kind;
+    const lines = kind === 'guard' ? ['Freeze! Security!', 'Drop the gun!', 'Nobody move!'] : kind === 'police' ? ['Police! Drop your weapon!', 'Shots fired! Shots fired!', 'Suspect spotted!', 'Hands where I can see them!', 'Get down on the ground!'] : ['SWAT! Move in!', 'Contact! Engaging!', 'Hostile spotted, light him up!', 'Breach and clear!'];
+    const w = WHO.cops; const old = w.name; w.name = brain.player.name;
+    say('cops', pick(lines), 2.2, Math.random() < 0.6);
+    w.name = old;
+  };
   bindCombat(S);
   window.__heist = S; S.V = THREE.Vector3; S.debug = debugApi(game);
 
@@ -159,8 +173,8 @@ export function setupHeist(game) {
 
 function debugApi(game) {
   return {
-    loud: () => { if (S.phase === 'plan' || S.phase === 'intro') { S.board?.close(); beginHeist(game, S.board?.choice || {}); S.skipIntro = true; } goLoud('debug'); },
-    start: (choice = {}) => { S.board?.close(); beginHeist(game, { ...(S.board?.choice || {}), ...choice }); S.skipIntro = true; },
+    loud: () => { if (S.phase === 'plan') { S.board?.close(); beginHeist(game, S.board?.choice || {}); } S.skipIntro = true; goLoud('debug'); },
+    start: (choice = {}) => { if (S.phase !== 'plan') return; S.board?.close(); beginHeist(game, { ...(S.board?.choice || {}), ...choice }); S.skipIntro = true; },
     keycard: () => { S.flags.keycard = true; S.bank.keycard.visible = false; },
     openAll: () => { openDoor('keycard'); openDoor('gate'); },
     drillDone: () => { if (S.drill) S.drill.progress = 0.999; },
@@ -311,7 +325,7 @@ export function goLoud(reason) {
     world.delay(2, () => say('lenny', 'Alarm\'s dead, nobody\'s called it in yet. Use the time!', 4));
   }
   // the driver brings the van round the back
-  world.delay(4, () => { say('driver', 'I\'m moving the van to the alley out back. Exit through the <b>cash room</b>.', 4.5); S.vanAlley = true; });
+  world.delay(4, () => { S.vanAlley = true; if (S.phase === 'loud') say('driver', 'I\'m moving the van to the alley out back. Exit through the <b>cash room</b>.', 4.5); });
   updateObjectives();
 }
 
@@ -935,7 +949,7 @@ export function updateHeist(game, dt) {
   S.ui.setTimers(timers);
   const me = game.localPlayer?.character;
   S.ui.setVitals(me?.alive ? me.health : 0, S.armor, S.armorMax, S.lives);
-  S.ui.setKeys(S.masked ? '' : 'Mask up <b>G</b>');
+  S.ui.setKeys(!S.masked ? 'Mask up <b>G</b>' : world.time - (S.loudAt || 0) < 30 ? 'Shout <b>F</b><br>Interact: hold <b>E</b><br>Aim: tap <b>E</b> / right click<br>Reload <b>R</b> &nbsp;Sprint <b>Shift</b>' : '');
   if ((S.mmT = (S.mmT || 0) - dt) <= 0) { S.mmT = 1 / 30; drawMinimap(game); }
   if (S.shake > 0) { cam.yaw += (Math.random() - 0.5) * S.shake * 0.03; cam.elevation += (Math.random() - 0.5) * S.shake * 0.03; S.shake = Math.max(0, S.shake - dt * 1.5); }
 }

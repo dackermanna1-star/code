@@ -365,7 +365,7 @@ export class GunnerBrain extends BotBrain {
   /** Spot an enemy, noticing a new one takes a moment. Returns the enemy (or null). */
   scan() {
     const enemy = this.findEnemy();
-    if (enemy && enemy !== this.enemy) { this.engagedAt = this.game.world.time + rr(0.25, 0.65) / this.skill; this.aimErr = 1; }
+    if (enemy && enemy !== this.enemy) { this.engagedAt = this.game.world.time + rr(0.25, 0.65) / this.skill; this.aimErr = 1; this.onSpot?.(enemy); }
     this.enemy = enemy;
     const gun = this.ch.tool;
     if (gun instanceof Gun && gun.ammo === 0 && !gun.reloading) {
