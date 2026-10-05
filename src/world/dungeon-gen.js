@@ -180,8 +180,8 @@ function tryGenerate(rng, floor, theme) {
   const doorCells = [];
   const doorAt = new Map();
   const tooClose = (x, y) => doorCells.some((d) => Math.abs(d.x - x) + Math.abs(d.y - y) < 3);
-  const makeDoor = (k) => {
-    const cands = pairs.get(k);
+  const makeDoor = (k, accept = null) => {
+    const cands = accept ? (pairs.get(k) || []).filter(accept) : pairs.get(k);
     if (!cands || !cands.length) return null;
     const mid = (cands.length - 1) / 2;
     const order = cands.map((c, i) => [Math.abs(i - mid) + rng.range(0, 2.2), c]).sort((p, q) => p[0] - q[0]);
@@ -232,10 +232,17 @@ function tryGenerate(rng, floor, theme) {
     const oq = Math.floor(q / 4096) === boss.id ? q % 4096 : Math.floor(q / 4096);
     return (isHall(oq) ? 1 : 0) - (isHall(op) ? 1 : 0) + (rng.next() - 0.5) * 0.5;
   });
-  const bossDoor = makeDoor(bossPairs[0]);
+  // the boss hall is an octagon: its doorway must open onto a flat side, not a cut-off corner
+  const OCT = 3;
+  const onFlatSide = (c) => {
+    const [x, y] = c.a === boss.id ? c.ia : c.ib;
+    return Math.min(x - boss.x, boss.x + boss.w - 1 - x) + Math.min(y - boss.y, boss.y + boss.h - 1 - y) >= OCT;
+  };
+  let bossDoor = null, bossKey = null;
+  for (const k of bossPairs) { bossDoor = makeDoor(k, onFlatSide); if (bossDoor) { bossKey = k; break; } }
   if (!bossDoor) return null;
   bossDoor.tree = true;
-  treeKeys.add(bossPairs[0]);
+  treeKeys.add(bossKey);
 
   // ---------------------------------------------------------------- start (foyer) & graph depth
   const bfsRooms = (src) => {
@@ -456,12 +463,22 @@ function tryGenerate(rng, floor, theme) {
   }
   for (const r of rooms) {
     if (r.shape === 'octagon') {
-      const k = 3;
+      const k = OCT;
+      // keep a walkway from every entrance straight into the uncut part of the hall
+      const keep = new Set();
+      for (const e of r.entrances) {
+        const [sx, sy] = { N: [0, 1], S: [0, -1], W: [1, 0], E: [-1, 0] }[e.side];
+        for (let x = e.ix, y = e.iy, n = 0; n < k + 1; n++, x += sx, y += sy) {
+          keep.add(idx(x, y));
+          const dx = Math.min(x - r.x, r.x + r.w - 1 - x), dy = Math.min(y - r.y, r.y + r.h - 1 - y);
+          if (dx + dy >= k) break;
+        }
+      }
       for (let y = 0; y < r.h; y++) for (let x = 0; x < r.w; x++) {
         const dx = Math.min(x, r.w - 1 - x), dy = Math.min(y, r.h - 1 - y);
         if (dx + dy < k) {
           const i = idx(r.x + x, r.y + y);
-          if (r.entrances.some((e) => Math.abs(e.ix - (r.x + x)) + Math.abs(e.iy - (r.y + y)) <= 1)) continue;
+          if (keep.has(i) || r.entrances.some((e) => Math.abs(e.ix - (r.x + x)) + Math.abs(e.iy - (r.y + y)) <= 1)) continue;
           cells[i] = C.SOLID;
           roomOf[i] = -1;
         }
