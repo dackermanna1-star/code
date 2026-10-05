@@ -1,0 +1,38 @@
+/* 2008-style look for the single-file menu (Verdana, light-blue navigation bar, grey boxes) */
+body.menu{margin:0;background:#fff;font:12px Verdana,Arial,sans-serif;color:#000;}
+#Container{width:900px;max-width:100%;margin:0 auto;}
+#Header{display:flex;align-items:center;gap:16px;padding:10px 0 6px;border-bottom:1px solid #000;}
+#Tag{font:bold 22px Arial,sans-serif;color:#3b3b9a;line-height:1.1;}
+#Nav{background:#6e99c9;border:1px solid #000;margin:8px 0;padding:6px 12px;text-align:center;color:#fff;font:16px 'Comic Sans MS','Comic Neue',cursive;}
+#Nav a{color:#fff;text-decoration:none;}
+#Nav a.on,#Nav a:hover{text-decoration:underline;}
+#Body h2{font:normal 24px 'Comic Sans MS','Comic Neue',cursive;margin:8px 0 10px;}
+#Games{border-collapse:collapse;width:100%;}
+#Games td{border-bottom:1px dashed #999;padding:8px 6px;vertical-align:top;}
+#Games td.thumb{width:162px;}
+#Games canvas{border:1px solid #000;background:#000;display:block;}
+#Games .name{font-weight:bold;color:#0000ff;font-size:13px;}
+#Games .by{color:#666;margin:2px 0 4px;}#Games .by span{color:#00f;}
+#Games .desc{color:#333;margin-bottom:6px;max-width:640px;}
+.Button{font:bold 12px Verdana,sans-serif;background:#ddd;border:1px solid #777;border-radius:0;padding:3px 10px;cursor:pointer;}
+.Button:hover{background:#eee;}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start;}
+.box{border:1px solid #000;background:#fff;}
+.box h4{margin:0;background:#ccc;border-bottom:1px solid #000;text-align:center;font:11px Verdana,sans-serif;padding:2px;}
+#Preview canvas{display:block;margin:6px;}
+#Wardrobe{padding-bottom:6px;width:250px;}#Wardrobe p{margin:8px 10px;}#Wardrobe select,#Wardrobe input{width:220px;font:11px Verdana,sans-serif;}
+#Colors{width:250px;}#Colors p{margin:6px 10px;text-align:center;}
+#Mannequin{position:relative;width:120px;height:130px;margin:6px auto;}
+#Mannequin .bp{position:absolute;border:1px solid #444;cursor:pointer;}
+#Mannequin .bp.sel{outline:2px solid #00f;}
+#Mannequin .head{left:43px;top:0;width:34px;height:34px;}
+#Mannequin .torso{left:30px;top:36px;width:60px;height:56px;}
+#Mannequin .rightArm{left:0;top:36px;width:28px;height:56px;}
+#Mannequin .leftArm{left:92px;top:36px;width:28px;height:56px;}
+#Mannequin .rightLeg{left:30px;top:94px;width:29px;height:36px;}
+#Mannequin .leftLeg{left:61px;top:94px;width:29px;height:36px;}
+#Palette{display:grid;grid-template-columns:repeat(8,24px);gap:3px;justify-content:center;margin:8px 0 10px;}
+#Palette .sw{width:24px;height:24px;border:1px solid #333;cursor:pointer;}
+#TabHelp li{margin:6px 0;}
+.small{color:#888;font-size:10px;}
+#Footer{border-top:1px solid #999;margin:16px 0;padding-top:6px;text-align:center;color:#888;font-size:10px;}

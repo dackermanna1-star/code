@@ -80,6 +80,7 @@ function report(leaving) {
 function closeWindow() {
   game.running = false;
   report(true);
+  if (window.RBX_EXIT) { window.RBX_EXIT(); return; } // the single-file version goes back to its menu
   window.close();
   // the window was not opened by the site (e.g. a direct link): go back instead
   setTimeout(() => { location.href = `/Item.aspx?ID=${JOIN.placeId}`; }, 150);

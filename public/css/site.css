@@ -18,7 +18,6 @@ img{border:0;}
 #PlaceLauncher .LauncherButtons{margin-top:6px;}
 
 /* house ads in the ad slots */
-.AdLabel{font:9px Verdana,sans-serif;color:#999;text-align:right;width:728px;margin:0 auto;}
 .HouseAd{display:block;position:relative;overflow:hidden;text-decoration:none!important;color:#fff!important;font-family:'Comic Sans MS',Verdana,sans-serif;}
 .HouseAd728{width:728px;height:90px;margin:0 auto 2px;}
 .HouseAd160{width:160px;height:600px;}
@@ -61,13 +60,13 @@ img{border:0;}
 .Accoutrements{overflow:hidden;}
 #CustomizeCharacterContainer .AttireChooser{margin-bottom:10px;}
 #MyAccountBalanceContainer #Earnings{overflow:hidden;}
+/* these were <button>/<input> elements in 2008, which take up line height */
+#ItemContainer .PlayGames .Button,#ItemContainer .GameInstance .Button,#ItemContainer .RefreshRunningGames .Button,#UserPlaces .Place .PlayOptions .Button{display:inline-block;margin-top:4px;}
 
 /* profile bits not captured in the CSS */
-#UserPlaces .AccordionBody{border-bottom:solid 1px #000;}
 #UserPlaces .Place .Thumbnail img{display:block;margin:0 auto;}
 #FavoritesContent .Asset,#FriendRequests .Friend{text-align:left;}
 #FavoritesContent .AssetThumbnail{border:solid 1px #000;width:110px;height:110px;}
-.FriendRequestsPane h4{background:#ccc;border-bottom:solid 1px #000;margin:0;}
 .Badge .BadgeLabel{font-size:.9em;}
 
 /* catalog/item */
