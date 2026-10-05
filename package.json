@@ -1,0 +1,27 @@
+{
+  "name": "delve",
+  "version": "1.0.0",
+  "description": "A first-person roguelike dungeon crawler built with three.js",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "start": "node scripts/dev.mjs",
+    "build": "node scripts/build.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dackermanna1-star/code.git"
+  },
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dackermanna1-star/code/issues"
+  },
+  "homepage": "https://github.com/dackermanna1-star/code#readme",
+  "dependencies": {
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  },
+  "private": true,
+  "type": "module"
+}
