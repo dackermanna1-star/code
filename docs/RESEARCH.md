@@ -49,7 +49,7 @@ September 2008 was chosen because it is late enough to include everything that 2
 - Games listed on the Games page that are not playable here reply with the real 2008 message "There are no game servers available at this time. Please try again later". Their thumbnails are simple brick scenes suggested by each title.
 
 ### Deliberately left out (not 2008)
-Groups, statuses, the feed and best friends (July 2009); user-made badges (2009); faces in the catalog (January 2009); gear (May 2009); hair (June 2009); trading and the currency exchange (late November 2008, after the site's start date); /My/Home.aspx (2009 or later).
+Ratings and voting: 2008 pages show only how many times a place was Visited and Favorited (the profile "Voting Accuracy" stat belongs to later profiles). Groups, statuses, the feed and best friends (July 2009); user-made badges (2009); faces in the catalog (January 2009); gear (May 2009); hair (June 2009); trading and the currency exchange (late November 2008, after the site's start date); /My/Home.aspx (2009 or later).
 
 ## Catalog and avatar
 
