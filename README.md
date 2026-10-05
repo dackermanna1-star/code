@@ -79,7 +79,8 @@ island (about 900 blocks across) in an ocean that goes on to the horizon in ever
   come near, and snakes in the jungle (green tree boa, banded krait, carpet python) that coil and
   hiss when you get close and bite with venom if you keep coming (sneak to pass them), plus
   jungle fowl and wild boar. Seagulls wheel over the beaches by day and schools of reef fish
-  (yellow tangs, clownfish, blue tangs, angelfish) swim in the lagoon.
+  (yellow tangs, clownfish, blue tangs, angelfish) swim in the lagoon; fireflies blink in the
+  jungle at night.
 * **Sound**: waves breaking on the beach, the jungle's daytime chorus of cicadas and birds with
   exotic bird calls, frogs, crickets and katydids at night, gulls over the shore.
 

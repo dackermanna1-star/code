@@ -1,7 +1,7 @@
 /**
  * Ambient island life (tropical island worlds): seagulls wheeling over the beaches and lagoon by
- * day, and schools of reef fish (yellow tangs, clownfish, blue tangs, angelfish) swimming in the
- * lagoon around the player. They are scenery, not entities: cheap meshes in the G-buffer (so
+ * day, schools of reef fish (yellow tangs, clownfish, blue tangs, angelfish) swimming in the
+ * lagoon around the player, and fireflies blinking in the jungle and palm groves at night. They are scenery, not entities: cheap meshes in the G-buffer (so
  * they are lit, shadowed, fogged and refracted under the water like everything else), placed
  * around the player and relocated as the player travels.
  */
@@ -11,7 +11,7 @@ import type { Game } from '../game';
 import type { GameSystem } from '../systems';
 import { createEntityMaterial, setEntityLight } from '../../render/entityMaterial';
 import { BIOMES } from '../../world/biomes';
-import { T_LIQUID } from '../../world/blocks/registry';
+import { BLOCKS as BLOCK_DEFS, T_LIQUID } from '../../world/blocks/registry';
 
 const SEA = 63;
 
@@ -77,7 +77,7 @@ function fishGeometry(col: (p: THREE.Vector3) => number, size: number) {
     [new THREE.SphereGeometry(1, 10, 8).scale(0.022, 0.05, 0.075), col],
     [new THREE.ConeGeometry(0.035, 0.05, 4).rotateX(Math.PI / 2).scale(0.3, 1.2, 1).translate(0, 0, 0.1), col],
     [new THREE.ConeGeometry(0.03, 0.05, 4).scale(0.25, 1, 1.4).translate(0, 0.055, 0.01), col],
-  ]).scale(size, size, size);
+  ]).scale(size * 1.6, size * 1.6, size * 1.6);
 }
 
 interface School {
@@ -102,6 +102,8 @@ export class IslandLifeSystem implements GameSystem {
   private gulls: Gull[] = [];
   private schools: School[] = [];
   private gullMat: THREE.RawShaderMaterial | null = null;
+  private flies: { m: THREE.Mesh; home: THREE.Vector3; ph: number; rate: number }[] = [];
+  private flyMat: THREE.RawShaderMaterial | null = null;
   private fishMat: THREE.RawShaderMaterial | null = null;
   private time = 0;
   private relocate = 0;
@@ -133,6 +135,16 @@ export class IslandLifeSystem implements GameSystem {
       for (const o of [root, wr, wl, ...root.children]) o.frustumCulled = false;
       this.scene.add(root);
       this.gulls.push({ root, wl, wr, cx: 0, cz: 0, r: 10, alt: 80, ang: 0, w: 0.3, flapT: 0, flap: 0, seed: Math.random() * 100 });
+    }
+    // fireflies: tiny emissive motes
+    this.flyMat = createEntityMaterial({ color: 0xd8ff6a, emissive: 6, roughness: 1 });
+    const fg = new THREE.SphereGeometry(0.035, 6, 4);
+    for (let i = 0; i < 40; i++) {
+      const m = new THREE.Mesh(fg, this.flyMat);
+      m.frustumCulled = false;
+      m.visible = false;
+      this.scene.add(m);
+      this.flies.push({ m, home: new THREE.Vector3(), ph: Math.random() * 10, rate: 0.6 + Math.random() * 0.8 });
     }
     this.fishMat = createEntityMaterial({ vertexColors: true, roughness: 0.35, sss: 0.2 });
     for (let s = 0; s < 6; s++) {
@@ -174,6 +186,40 @@ export class IslandLifeSystem implements GameSystem {
     }
     this.updateGulls(game, dt);
     this.updateSchools(game, dt);
+    this.updateFlies(game, dt);
+  }
+
+  // ---------------------------------------------------------------- fireflies
+  private updateFlies(game: Game, dt: number) {
+    if (this.flyMat) setEntityLight(this.flyMat, 0xf000);
+    const night = game.skyLightFactor < 0.35;
+    const p = game.player.pos, w = game.world;
+    for (const f of this.flies) {
+      if (!night) { f.m.visible = false; continue; }
+      if (!f.m.visible || f.home.distanceToSquared(p) > 30 * 30) {
+        // a spot in the undergrowth near the player (jungle and palm groves only)
+        f.m.visible = false;
+        const a = Math.random() * Math.PI * 2, d = 4 + Math.random() * 18;
+        const x = Math.floor(p.x + Math.cos(a) * d), z = Math.floor(p.z + Math.sin(a) * d);
+        if (!w.isLoaded(x, z)) continue;
+        const b = BIOMES[w.getBiome(x, z)]?.name ?? '';
+        if (!/jungle|palm_grove/.test(b)) continue;
+        let y = w.getHeight(x, z);
+        while (y > SEA && w.getBlock(x, y - 1, z) !== 0 && !/grass_block|podzol|dirt/.test(this.blockName(game, x, y - 1, z))) y--;
+        f.home.set(x + 0.5, y + 0.6 + Math.random() * 1.8, z + 0.5);
+        f.m.visible = true;
+      }
+      f.ph += dt * f.rate;
+      const t = f.ph;
+      f.m.position.set(f.home.x + Math.sin(t * 0.7) * 1.2, f.home.y + Math.sin(t * 1.3) * 0.4, f.home.z + Math.cos(t * 0.5) * 1.2);
+      // blink: a soft pulse every few seconds
+      const blink = Math.max(0, Math.sin(t * 2.1)) ** 6;
+      f.m.scale.setScalar(0.15 + blink);
+    }
+  }
+
+  private blockName(game: Game, x: number, y: number, z: number): string {
+    return BLOCK_DEFS[game.world.getBlock(x, y, z) >>> 4]?.name ?? 'air';
   }
 
   // ---------------------------------------------------------------- gulls
@@ -314,6 +360,7 @@ export class IslandLifeSystem implements GameSystem {
   }
 
   onWorldChange() {
+    for (const f of this.flies) f.m.visible = false;
     for (const g of this.gulls) g.root.visible = false;
     for (const s of this.schools) for (const m of s.meshes) m.visible = false;
     this.relocate = 0;
