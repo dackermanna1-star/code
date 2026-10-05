@@ -110,6 +110,10 @@ Ratings and voting: 2008 pages show only how many times a place was Visited and 
 - Added on request as a user-made place. It deliberately uses modern effects that 2008 ROBLOX did not have: its own GUI and buy menu, physically based lighting, rag-doll deaths, blood effects, and detailed weapon models.
 - The map, guns, factions and rules are original to this project. The weapons are modelled after real firearms (Glock 17, Desert Eagle, MP5, Remington 870, AK-47, M4A1, M249, M24), but their game statistics are invented for balance.
 
+### Bank Heist (not a 2008 recreation)
+- Added on request as a user-made place in the style of a modern heist game (a planning board with crew cuts, masks, hostages, a hacking minigame, a drilled vault, a police response in waves, a getaway chase and a results screen). Like Desert Strike, it uses modern effects on purpose, and it reuses Desert Strike's guns, viewmodel, ballistics and blood.
+- The bank, city, crew, police and rules are original to this project. Names of businesses, crew members and products are made up (Robloxia-themed). The voices use the browser's speech synthesis, and all sounds and music are synthesized.
+
 ### Personal places
 - **Verified:** the three starting templates (Happy Home in Robloxia, Starting BrickBattle Map, Empty Baseplate), the Tools and Insert menus in your own place, and the save-on-exit dialog.
 

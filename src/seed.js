@@ -435,18 +435,26 @@ function seed() {
  * databases get them without a reseed (which would reset the demo account).
  */
 function ensureExtraPlaces(state) {
-  const DESERT = 3104570;
-  if (state.places[DESERT]) return false;
   const owner = state.users[1600000] || Object.values(state.users)[0];
   const now = clock.now();
-  state.places[DESERT] = {
-    id: DESERT, name: 'Desert Strike [BETA]', creatorId: owner.id,
-    desc: 'Coalition vs Militia in a desert town! Start with a pistol, earn cash for every kill and buy better guns and attachments (press B). Click the game to use the mouse, click to shoot, E to aim down the sights, R to reload, Shift to sprint. First team to 50 kills wins!',
-    created: now - 3 * DAY, updated: now - 0.1 * DAY, visits: 1873, favorited: 214, online: 37, playedRecent: 960,
-    script: 'warzone', theme: null, public: true, copylocked: true, featured: true, maxPlayers: 12,
+  let added = false;
+  const add = (id, place) => {
+    if (state.places[id]) return;
+    state.places[id] = { id, creatorId: owner.id, theme: null, public: true, copylocked: true, featured: true, ...place };
+    state.comments['place:' + id] = [];
+    added = true;
   };
-  state.comments['place:' + DESERT] = [];
-  return true;
+  add(3104570, {
+    name: 'Desert Strike [BETA]',
+    desc: 'Coalition vs Militia in a desert town! Start with a pistol, earn cash for every kill and buy better guns and attachments (press B). Click the game to use the mouse, click to shoot, E to aim down the sights, R to reload, Shift to sprint. First team to 50 kills wins!',
+    created: now - 3 * DAY, updated: now - 0.1 * DAY, visits: 1873, favorited: 214, online: 37, playedRecent: 960, script: 'warzone', maxPlayers: 12,
+  });
+  add(3104571, {
+    name: 'Bank Heist [BETA]',
+    desc: 'Rob the First Robloxia Bank! Pick your crew, mask up (G), keep the hostages down, hack the vault gate, drill the vault and grab the cash and gold - then fight your way out to the getaway van and lose the cops. Click to shoot, E to aim, F to shout, R to reload, hold E to interact.',
+    created: now - 1 * DAY, updated: now - 0.05 * DAY, visits: 942, favorited: 188, online: 29, playedRecent: 610, script: 'heist', maxPlayers: 4,
+  });
+  return added;
 }
 
 module.exports = { seed, SEED_VERSION, defaultColors, PALETTE32, ensureExtraPlaces };

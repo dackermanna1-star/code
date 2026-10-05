@@ -22,7 +22,7 @@ function uploadThumb(ctx) {
 }
 
 /** How many simulated players join each kind of place. */
-const BOT_COUNT = { teapots: 6, paintball: 9, obby: 5, mummy: 7, crossroads: 7, personal: 0, warzone: 11 };
+const BOT_COUNT = { teapots: 6, paintball: 9, obby: 5, mummy: 7, crossroads: 7, personal: 0, warzone: 11, heist: 0 };
 
 function joinInfo(ctx) {
   const pl = db.placeById(Number(ctx.query.placeId || ctx.query.placeid));

@@ -87,6 +87,7 @@ export class Character {
     this.state = 'Standing';
     this.facing = yaw;
     this.creatorTag = null;
+    if (this.frozen) { this.frozen = false; this.body.type = CANNON.Body.DYNAMIC; this.body.updateMassProperties(); }
     this.body.position.set(position.x, position.y + 3, position.z); // position = feet
     this.body.velocity.set(0, 0, 0);
     if (!this.world.physics.bodies.includes(this.body)) this.world.physics.addBody(this.body);
@@ -294,8 +295,20 @@ export class Character {
     return best;
   }
 
+  /**
+   * Stop simulating a character that is standing still (crowds of NPCs);
+   * it still blocks others and can be hit. freeze(false) to walk again.
+   */
+  freeze(on) {
+    if (!!this.frozen === on || !this.alive) return;
+    this.frozen = on;
+    this.body.type = on ? CANNON.Body.KINEMATIC : CANNON.Body.DYNAMIC;
+    this.body.velocity.set(0, 0, 0);
+    this.body.updateMassProperties();
+  }
+
   _substep() {
-    if (!this.alive) return;
+    if (!this.alive || this.frozen) return;
     const h = 1 / 120;
     const b = this.body;
     const vy = b.velocity.y;
@@ -383,6 +396,7 @@ export class Character {
     const b = this.body;
     const p = b.interpolatedPosition || b.position;
     this.root.position.set(p.x, p.y, p.z);
+    if (this.rootDrop) this.root.position.y -= this.rootDrop; // e.g. sitting on the floor
 
     // state machine
     const hv = Math.hypot(this.input.move.x, this.input.move.z);
@@ -476,6 +490,8 @@ export class Character {
       if (this.tool?.armPose) this.tool.armPose(this, des, M);
     }
     if (pose === 'Jumping' || pose === 'FreeFall') M.rh = M.lh = 0.1;
+    // a place script can pose the character (hands up, sitting on the floor)
+    if (this.pose) this.pose(this, des, M, pose);
     const steps = dt * 60;
     for (const k of ['rs', 'ls', 'rh', 'lh']) {
       const target = des[k];

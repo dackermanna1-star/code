@@ -289,6 +289,24 @@ export const sounds = {
     g.connect(master);
     fn(c, g, c.currentTime + 0.005, KIT);
   },
+  /**
+   * A looping sound defined outside this file: fn(ctx, out, t, kit) builds
+   * the nodes and returns {stop(t), ...controls}. Returns that handle plus
+   * setVolume(v) (0..1, smoothed).
+   */
+  customLoop(fn, volume = 1) {
+    const c = unlocked ? ac() : null;
+    if (!c || muted) return { stop() {}, setVolume() {}, dead: true };
+    const g = c.createGain(); g.gain.value = volume; g.connect(master);
+    const h = fn(c, g, c.currentTime + 0.005, KIT) || {};
+    return {
+      ...h, ctx: c,
+      stop: () => { try { h.stop?.(c.currentTime + 0.05); } catch { /* already stopped */ } g.gain.setTargetAtTime(0, c.currentTime, 0.02); setTimeout(() => g.disconnect(), 300); },
+      setVolume: (v) => g.gain.setTargetAtTime(Math.max(0, v), c.currentTime, 0.06),
+    };
+  },
+  /** Distance attenuation used by play()/custom(), for places that pan their own loops. */
+  falloff(position, volume = 1) { return this._gain(position, volume); },
   /** Start a looping sound (rocket whoosh). Returns a handle with stop(). */
   loop(name, volume = 1) {
     const c = unlocked ? ac() : null;

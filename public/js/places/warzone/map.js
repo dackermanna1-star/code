@@ -10,20 +10,20 @@ const rr = (a, b) => a + rand() * (b - a);
 const pick = (a) => a[Math.floor(rand() * a.length)];
 
 // --- textures ----------------------------------------------------------------------------------
-function canvas(w, h, draw) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); return c; }
-function noise(x, w, h, amount, scale = 1) {
+export function canvas(w, h, draw) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); return c; }
+export function noise(x, w, h, amount, scale = 1) {
   const img = x.getImageData(0, 0, w, h), d = img.data;
   for (let i = 0; i < d.length; i += 4) { const n = (Math.random() - 0.5) * amount; d[i] = Math.max(0, Math.min(255, d[i] + n * scale)); d[i + 1] = Math.max(0, Math.min(255, d[i + 1] + n)); d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + n * 0.9)); }
   x.putImageData(img, 0, 0);
 }
-function blotches(x, w, h, n, color, rmin, rmax) {
+export function blotches(x, w, h, n, color, rmin, rmax) {
   for (let i = 0; i < n; i++) {
     const cx = Math.random() * w, cy = Math.random() * h, r = rmin + Math.random() * (rmax - rmin);
     const g = x.createRadialGradient(cx, cy, 0, cx, cy, r); g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
     x.fillStyle = g; x.fillRect(cx - r, cy - r, r * 2, r * 2);
   }
 }
-function toTex(c, srgb = true) {
+export function toTex(c, srgb = true) {
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8;
   if (srgb) t.colorSpace = THREE.SRGBColorSpace;
   return t;
@@ -155,7 +155,7 @@ function mats() {
 
 // UVs in studs, so textures tile at a fixed real size on any box
 const uvCache = new Map();
-function uvBox(sx, sy, sz, tile) {
+export function uvBox(sx, sy, sz, tile) {
   const key = `${sx},${sy},${sz},${tile}`;
   if (uvCache.has(key)) return uvCache.get(key);
   const g = new THREE.BoxGeometry(sx, sy, sz);
@@ -481,12 +481,12 @@ export function buildMap(world, opts = {}) {
  * Merge the static decoration meshes that share a material into one mesh each
  * (thousands of windows, sills and rubble become a handful of draw calls).
  */
-function mergeStatic(root) {
+export function mergeStatic(root) {
   root.updateMatrixWorld(true);
   const groups = new Map();
   const victims = [];
   root.traverse((o) => {
-    if (!o.isMesh || o.isLine || !o.geometry.attributes.uv || !o.geometry.attributes.normal || Array.isArray(o.material) || o.material.transparent) return;
+    if (!o.isMesh || o.isLine || !o.visible || !o.geometry.attributes.uv || !o.geometry.attributes.normal || Array.isArray(o.material) || o.material.transparent) return;
     const k = o.material.uuid + (o.castShadow ? 's' : '');
     if (!groups.has(k)) groups.set(k, { mat: o.material, shadow: o.castShadow, list: [] });
     groups.get(k).list.push(o);

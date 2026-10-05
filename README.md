@@ -41,6 +41,12 @@ The first start creates `data/db.json`. The site's clock starts on September 1, 
 - **Desert Strike [BETA]**: a modern-style team shooter (Coalition vs Militia) in a desert town, made by Robloxian2008. It is not a 2008 recreation.
   - You start with a Glock and earn cash per kill to buy guns and attachments: press **B** for the armory. Unlocks are saved in your browser.
   - Click the game to use the mouse, click to shoot, **E** to aim down the sights, R to reload, Shift to sprint, 1/2 to switch guns.
+- **Bank Heist [BETA]**: rob the First Robloxia Bank, made by Robloxian2008. Like Desert Strike, it is a modern-style game, not a 2008 recreation.
+  - Plan the job first: pick a gunman, hacker and driver (better crew members take a bigger cut), your guns, mask, armor and difficulty.
+  - Walk in like a customer. If nobody sees you, you can steal the manager's keycard and cut the silent alarm for a head start and a bonus.
+  - **G** puts your mask on, **F** shouts at the hostages to keep them down, hold **E** to grab loot and use things (tap **E** to aim), R to reload, Shift to sprint, M to mute.
+  - Get through the STAFF ONLY door, hack the vault gate, drill the vault while the police (and later SWAT) attack, bag the cash and gold, and leave by the back door. Then shoot the police cars and helicopter from the back of the van until you reach the tunnel.
+  - Your cut goes into a heist account saved in your browser, and a little of it goes into your Desert Strike cash.
 - **Your own place**: on your My ROBLOX page, click Edit under your place.
   - **Tools** gives the Grab, Clone and Delete build tools.
   - **Insert** adds bricks and the models you own.

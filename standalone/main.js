@@ -48,6 +48,7 @@ const PLACES = [
   { id: 2611430, name: 'The Mummy', creator: 'PharaohKing77', script: 'mummy', bots: 7, desc: 'One player is the MUMMY. If the mummy touches you, you become a mummy too! Explorers: survive until the timer runs out. Mummies: get everyone!' },
   { id: 1818, name: 'Crossroads', creator: 'ROBLOX', script: 'crossroads', bots: 7, desc: 'The classic ROBLOX brick battle map. Four areas connected by bridges: grab the tools and bloxx your friends!' },
   { id: 3104570, name: 'Desert Strike [BETA]', creator: 'Robloxian2008', script: 'warzone', bots: 11, desc: 'Coalition vs Militia in a desert town! Start with a pistol, earn cash for every kill and buy better guns and attachments (press B). Click the game to use the mouse, click to shoot, E to aim down the sights, R to reload, Shift to sprint. First team to 50 kills wins!' },
+  { id: 3104571, name: 'Bank Heist [BETA]', creator: 'Robloxian2008', script: 'heist', bots: 0, desc: 'Rob the First Robloxia Bank! Pick your crew, mask up (G), keep the hostages down, hack the vault gate, drill the vault and grab the cash and gold - then fight your way out to the getaway van and lose the cops. Click to shoot, E to aim, F to shout, R to reload, hold E to interact.' },
   { id: 1600001, name: 'My Place', creator: 'you', script: 'personal', bots: 0, desc: 'Your own place, started from "Happy Home in Robloxia". Use the Tools and Insert menus at the top of the game window to build, and save when you leave.' },
 ];
 
@@ -168,6 +169,7 @@ function menu() {
           <li><b>Turn the camera:</b> the Left and Right arrow keys, or hold the right mouse button and drag. <b>Zoom:</b> I and O, or the mouse wheel. <b>Tilt:</b> Page Up / Page Down.</li>
           <li><b>Tools:</b> press 1-9, then click to use. <b>Chat:</b> press "/" or click the chat bar; the speech bubble opens Safe Chat.</li>
           <li><b>Desert Strike:</b> click the game to use the mouse, click to shoot, <b>E</b> to aim down the sights, R to reload, Shift to sprint, 1/2 to switch guns, <b>B</b> for the buy menu.</li>
+          <li><b>Bank Heist:</b> pick your crew on the planning board, then <b>G</b> to put on your mask, <b>F</b> to shout at the hostages, hold <b>E</b> to grab loot and use things (tap <b>E</b> to aim), R to reload, Shift to sprint, M to mute.</li>
           <li><b>Leave a game:</b> Exit, at the top of the game window.</li>
           <li>The other players are simulated. Your character and your place are saved in this browser.</li>
         </ul>

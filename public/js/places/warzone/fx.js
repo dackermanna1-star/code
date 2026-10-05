@@ -324,7 +324,7 @@ export class Effects {
     }
     const corpse = { debris, joints, age: 0, pool: null, poolSize: 0, wound: debris[hitLimbIndex] || debris[0] };
     this.corpses.push(corpse);
-    while (this.corpses.length > 14) this.removeCorpse(this.corpses[0]);
+    while (this.corpses.length > (this.maxCorpses || 14)) this.removeCorpse(this.corpses[0]);
   }
 
   removeCorpse(c) {
@@ -376,7 +376,7 @@ export class Effects {
         } else c.pool = { material: { dispose() {} }, isFake: true };
       }
       if (c.pool && !c.pool.isFake && c.pool.scale.x < c.poolMax) c.pool.scale.setScalar(Math.min(c.poolMax, c.pool.scale.x + dt * 1.1 * (1 - c.pool.scale.x / c.poolMax + 0.08)));
-      if (c.age > 45) this.removeCorpse(c);
+      if (c.age > (this.corpseLife || 45)) this.removeCorpse(c);
     }
   }
 }
