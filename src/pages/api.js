@@ -13,7 +13,7 @@ const { PLAYABLE } = require('./games');
 const THUMB_RE = /^(avatar|asset|place)-[A-Za-z0-9-]+-\d{2,3}x\d{2,3}\.png$/;
 
 function uploadThumb(ctx) {
-  const j = ctx.json || {};
+  const j = ctx.body || {};
   if (!THUMB_RE.test(j.file || '') || typeof j.data !== 'string' || !j.data.startsWith('data:image/png;base64,')) return ctx.json({ ok: false }, 400);
   const buf = Buffer.from(j.data.slice(22), 'base64');
   if (buf.length > 1.5 * 1024 * 1024 || buf.readUInt32BE(0) !== 0x89504e47) return ctx.json({ ok: false }, 400);
@@ -52,7 +52,7 @@ function joinInfo(ctx) {
 }
 
 function visit(ctx) {
-  const pl = db.placeById(Number(ctx.json?.placeId));
+  const pl = db.placeById(Number(ctx.body?.placeId));
   if (!pl) return ctx.json({ ok: false });
   pl.visits++;
   if (ctx.user) {
@@ -71,7 +71,7 @@ function visit(ctx) {
 
 function report(ctx) {
   const u = ctx.user;
-  const j = ctx.json || {};
+  const j = ctx.body || {};
   if (!u) return ctx.json({ ok: false });
   const ko = Math.max(0, Math.min(500, Number(j.knockouts) || 0));
   const wo = Math.max(0, Math.min(500, Number(j.wipeouts) || 0));
@@ -90,7 +90,7 @@ function report(ctx) {
 
 function savePlace(ctx) {
   const u = ctx.user;
-  const j = ctx.json || {};
+  const j = ctx.body || {};
   const pl = db.placeById(Number(j.placeId));
   if (!u || !pl || pl.creatorId !== u.id) return ctx.json({ ok: false }, 403);
   if (!Array.isArray(j.build) || j.build.length > 5000) return ctx.json({ ok: false }, 400);

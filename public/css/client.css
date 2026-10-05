@@ -17,6 +17,10 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000;}
 .rbx-topbar a:hover{background:rgb(177,177,177);}
 .rbx-topbar a.disabled{color:rgb(156,156,156);cursor:default;}
 .rbx-topbar a.disabled:hover{background:rgba(177,177,177,.5);}
+.rbx-dropdown{position:absolute;z-index:30;pointer-events:auto;min-width:100px;background:rgba(177,177,177,.85);font-size:14px;}
+.rbx-dropdown a{display:block;padding:0 10px;height:20px;line-height:20px;color:rgb(77,77,77);cursor:pointer;white-space:nowrap;}
+.rbx-dropdown a:hover{background:rgb(200,200,200);}
+.rbx-dropdown a.disabled{color:rgb(156,156,156);cursor:default;}
 
 /* chat log: top-left, "Name;  message" */
 .rbx-chatlog{position:absolute;left:23px;top:29px;max-width:60%;}

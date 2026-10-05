@@ -222,7 +222,7 @@ export default {
     if (ctx.thumbnail) {
       for (const c of S.castles) makeFlag(world, c === S.castles[0] ? red : blue, c.standPos);
     }
-    return { thumbnail: { cam: [70, 34, 40], look: [0, 4, -60] } };
+    return { thumbnail: { cam: [46, 30, -62], look: [0, 6, -126] } };
   },
 
   setup(game) {

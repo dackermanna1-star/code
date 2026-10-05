@@ -422,7 +422,7 @@ export class Character {
       const d = this._lastDesired;
       des.rs = d + this._lastFudge; des.ls = d - this._lastFudge; des.rh = -d; des.lh = -d;
       M.rh = M.lh = 0.1;
-      if (this.tool) {
+      if (this.tool && !this.tool.hopperBin) {
         if (this.animClock > this.toolAnimUntil) this.toolAnim = 'None';
         if (this.toolAnim === 'None') des.rs = 1.57;
         else if (this.toolAnim === 'Slash') { M.rs = 0.5; des.rs = 0; }

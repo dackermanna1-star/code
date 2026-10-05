@@ -36,7 +36,7 @@ async function router(req, res, url, body) {
   }
 
   const ctx = {
-    req, res, url, query, form, json, cookies, user, method: req.method, path: pathLower,
+    req, res, url, query, form, body: json, cookies, user, method: req.method, path: pathLower,
     db, state,
     send(html, status = 200, headers = {}) {
       res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', ...this._headers, ...headers });

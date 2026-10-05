@@ -4,6 +4,7 @@
 // reconstructions in docs/RESEARCH.md). The three personal-place templates
 // are the 2008 "Reset Place" choices.
 import * as THREE from 'three';
+import { spawnLocation } from './common.js';
 
 let seed = 1;
 const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
@@ -60,7 +61,7 @@ export const THEMES = {
     w.brick([4, 0.4, 30], [0, 0.2, -23], 1, { top: 'Smooth' });
     for (let i = 0; i < 14; i++) w.add({ size: [4, 1.2, 2], position: [14 + (i % 4) * 4.2, 0.6 + Math.floor(i / 4) * 1.2, -14], color: pick([21, 23, 24, 37, 1, 26]) });
     tree(w, -16, -12); tree(w, 18, 10);
-    w.brick([6, 1.2, 6], [0, 0.6, -40], 194, { shape: 'Block' });
+    spawnLocation(w, 0, 1.2, -40, { yaw: Math.PI });
     return { cam: [34, 22, -46], look: [0, 4, 0] };
   },
   brickbattle(w) {
@@ -69,13 +70,14 @@ export const THEMES = {
       w.brick([16, 1.2, 16], [x, 0.6, z], c);
       w.brick([12, 20, 12], [x, 11, z], 194);
       w.brick([16, 1.2, 16], [x, 21.6, z], c);
+      spawnLocation(w, x, 23.4, z, { color: c });
     }
     w.brick([80, 1.2, 4], [0, 21.6, -40], 199);
     return { cam: [90, 60, -90], look: [0, 6, 0] };
   },
   baseplate(w) {
     baseplate(w, 28);
-    w.brick([6, 1.2, 6], [0, 0.6, 0], 194);
+    spawnLocation(w, 0, 1.2, 0);
     return { cam: [30, 20, -30], look: [0, 0, 0] };
   },
   ocean(w) {

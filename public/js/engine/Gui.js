@@ -190,6 +190,33 @@ export class Gui {
     }
   }
 
+  /** A drop-down list under a top-bar button (Tools / Insert in your own place). */
+  dropdown(anchor, items) {
+    this.closeDropdown();
+    const m = document.createElement('div');
+    m.className = 'rbx-dropdown';
+    const r = anchor.getBoundingClientRect(), rr = this.root.getBoundingClientRect();
+    m.style.left = (r.left - rr.left) + 'px';
+    m.style.top = (r.bottom - rr.top) + 'px';
+    m.innerHTML = items.map((it, i) => `<a data-i="${i}" class="${it.disabled ? 'disabled' : ''}">${esc(it.label)}</a>`).join('') || '<a class="disabled">(empty)</a>';
+    m.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      const a = e.target.closest('a');
+      if (!a || a.classList.contains('disabled')) return;
+      sounds.play('click', null, 0.6);
+      this.closeDropdown();
+      items[Number(a.dataset.i)].action?.();
+    });
+    this.root.appendChild(m);
+    this._dropdown = m;
+    setTimeout(() => window.addEventListener('mousedown', this._closeDD = () => this.closeDropdown(), { once: true }), 0);
+  }
+
+  closeDropdown() {
+    if (this._dropdown) { this._dropdown.remove(); this._dropdown = null; }
+    if (this._closeDD) { window.removeEventListener('mousedown', this._closeDD); this._closeDD = null; }
+  }
+
   openDialog(title, html, buttons = [{ label: 'OK' }]) {
     const d = this.dialog;
     d.innerHTML = `<div class="rbx-win"><div class="rbx-win-title"><span>${esc(title)}</span><a class="rbx-win-x" title="Close">&#215;</a></div><div class="rbx-win-body">${html}</div>

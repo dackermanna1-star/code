@@ -32,10 +32,10 @@ export class Tool {
     this.onUnequipped?.(ch);
     this.holder = null;
   }
-  /** Mouse click with the tool out. target = mouse hit point (Vector3). */
-  activate(target) {
+  /** Mouse click with the tool out. target = mouse hit point (Vector3), hit = full mouse hit. */
+  activate(target, hit) {
     if (!this.enabled || !this.holder || !this.holder.alive) return;
-    this.onActivated(this.holder, target);
+    this.onActivated(this.holder, target, hit);
   }
   onActivated() {}
   cooldown(seconds) {
@@ -432,7 +432,7 @@ export class Trowel extends Tool {
       for (let x = -6; x < 6; x += 4) {
         const at = target.clone().addScaledVector(right, x + 2).add(new THREE.Vector3(0, y + 0.6, 0));
         this.world.delay(0.04 * k++, () => {
-          const b = this.world.add({ size: [4, 1.2, 2], position: [at.x, at.y, at.z], color, anchored: true });
+          const b = this.world.add({ size: [4, 1.2, 2], position: [at.x, at.y, at.z], color, anchored: true, tags: ['temporary'] });
           b.setQuaternion(quat);
           bricks.push(b);
           this.world.delay(15, () => b.destroy());

@@ -35,9 +35,12 @@ function spawnDecal() {
  * A 6 x 1.2 x 6 SpawnLocation (smooth top with the spawn decal). `top` is the
  * height of the plate's upper face; yaw is the direction players face.
  */
+export { spawnDecal };
 export function spawnLocation(world, x, top, z, opts = {}) {
   const p = world.add({ name: 'SpawnLocation', size: [6, 1.2, 6], position: [x, top - 0.6, z], color: opts.color ?? 194, top: 'Smooth', bottom: 'Inlets' });
-  p.addDecal('Top', spawnDecal());
+  const tex = spawnDecal();
+  p.addDecal('Top', tex);
+  p.decals = [{ face: 'Top', texture: tex }];
   p.userData.yaw = opts.yaw ?? 0;
   if (opts.game) opts.game.addSpawn(p, { team: opts.team, neutral: opts.neutral });
   return p;
