@@ -347,6 +347,56 @@ export function makeClothTexture(hex = '#7a2a2a', seed = 6) {
   return { map: tex(P.toCanvas()), normalMap: tex(P.normalCanvas(1.5), false) };
 }
 
+// Near-white tileable detail textures for creatures and gear; the material colour supplies the hue.
+// kind: skin (mottling + pores), bone (streaks, pits, hairline cracks), leather (pebbled grain, scuffs).
+export function makeDetailTexture(kind, seed = 21) {
+  const size = kind === 'skin' ? 256 : 128;
+  const P = new Painter(size);
+  const rng = new RNG(seed);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = y * size + x;
+      const u = x / size, v = y / size;
+      let s = 1, h = 0.5;
+      if (kind === 'skin') {
+        const mott = fbm(u, v, 4, 4, seed);
+        const blotch = fbm(u, v, 3, 2, seed + 5);
+        const pores = vnoise(u, v, 96, seed + 9);
+        const veins = Math.abs(fbm(u, v, 6, 3, seed + 13) - 0.5);
+        s = 0.86 + mott * 0.22 - Math.max(0, blotch - 0.62) * 0.6 - (veins < 0.02 ? 0.1 : 0);
+        h = mott * 0.35 + pores * 0.25 + (veins < 0.02 ? 0.15 : 0);
+      } else if (kind === 'bone') {
+        const streak = fbm(u * 0.25, v, 8, 3, seed);
+        const pit = vnoise(u, v, 48, seed + 3);
+        s = 0.84 + streak * 0.24 - (pit > 0.82 ? 0.18 : 0);
+        h = streak * 0.3 - (pit > 0.82 ? 0.25 : 0) + 0.4;
+      } else {
+        const grain = vnoise(u, v, 64, seed);
+        const grain2 = vnoise(u, v, 32, seed + 1);
+        const wear = fbm(u, v, 4, 3, seed + 2);
+        const cell = Math.min(grain, grain2);
+        s = 0.8 + wear * 0.3 + (cell < 0.25 ? -0.1 : 0.05) + Math.max(0, wear - 0.65) * 0.5;
+        h = cell * 0.6 + wear * 0.2;
+      }
+      P.r[i] = s; P.g[i] = s * (kind === 'bone' ? 0.98 : 1); P.b[i] = s * (kind === 'bone' ? 0.93 : 1); P.h[i] = h;
+    }
+  }
+  if (kind === 'bone') paintCracks(P, rng, 3, 0.7);
+  if (kind === 'skin') {
+    // a few scars / scratches
+    for (let k = 0; k < 6; k++) {
+      let x = rng.range(0, size), y = rng.range(0, size);
+      const a = rng.range(0, Math.PI), len = rng.range(10, 40);
+      for (let t = 0; t < len; t++) {
+        const i = ((Math.floor(y) + size) % size) * size + ((Math.floor(x) + size) % size);
+        P.r[i] *= 0.82; P.g[i] *= 0.78; P.b[i] *= 0.8; P.h[i] += 0.25;
+        x += Math.cos(a); y += Math.sin(a);
+      }
+    }
+  }
+  return { map: tex(P.toCanvas()), normalMap: tex(P.normalCanvas(kind === 'skin' ? 3 : 2.5), false) };
+}
+
 // Glowing lava / molten crack texture (emissive map).
 export function makeLavaTexture(seed = 7) {
   const size = 256;

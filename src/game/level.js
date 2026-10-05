@@ -317,7 +317,8 @@ export class Level {
     return out;
   }
 
-  collideObstacles(pos, r) {
+  // prev (optional): where the point was last step, so fast things can't tunnel through thin panels
+  collideObstacles(pos, r, prev = null) {
     const set = this._nearObstacles(pos.x, pos.z, r, this._tmpSet || (this._tmpSet = new Set()));
     for (const o of set) {
       if (pos.y > (o.h ?? 2) + 0.2) continue;
@@ -331,6 +332,13 @@ export class Level {
           pos.z = o.z + (dz / d) * rr;
         }
       } else {
+        if (prev && pos.x > o.x0 - r && pos.x < o.x1 + r && pos.z > o.z0 - r && pos.z < o.z1 + r) {
+          // came from outside: leave on the side it came from
+          if (prev.x <= o.x0 - r) { pos.x = o.x0 - r; continue; }
+          if (prev.x >= o.x1 + r) { pos.x = o.x1 + r; continue; }
+          if (prev.z <= o.z0 - r) { pos.z = o.z0 - r; continue; }
+          if (prev.z >= o.z1 + r) { pos.z = o.z1 + r; continue; }
+        }
         const px = Math.max(o.x0, Math.min(pos.x, o.x1)), pz = Math.max(o.z0, Math.min(pos.z, o.z1));
         let dx = pos.x - px, dz = pos.z - pz;
         const d2 = dx * dx + dz * dz;
@@ -597,7 +605,7 @@ export class Level {
     for (let i = this.enemies.length - 1; i >= 0; i--) if (this.enemies[i].dead) this.enemies.splice(i, 1);
 
     // ragdolls
-    const obstacles = (pos, r) => this.collideObstacles(pos, r);
+    const obstacles = (pos, r, prev) => this.collideObstacles(pos, r, prev);
     const steps = dt > 1 / 45 ? 2 : 1;
     for (const rd of this.ragdolls) {
       for (let s = 0; s < steps; s++) rd.step(dt / steps, world, obstacles);

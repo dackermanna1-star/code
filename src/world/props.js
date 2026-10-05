@@ -9,6 +9,7 @@ import { raySphere, rand, randInt } from '../core/math.js';
 import { explode } from '../game/combat.js';
 
 const _v = new THREE.Vector3();
+const _v2 = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
 
 // ---------------------------------------------------------------- breakable physics props
@@ -258,26 +259,47 @@ export class Door {
     }
     this.mesh = pivot;
     const cxw = (d.cx + 0.5) * TILE, czw = (d.cy + 0.5) * TILE;
-    // door sits on the room-side boundary of the cell
-    const half = TILE / 2;
+    // door hangs on the room-side boundary of the corridor cell
     const side = d.side;
     let x = cxw, z = czw, rot = 0;
     if (side === 'E') { x = d.cx * TILE + 0.05; z = czw - 0.83; rot = -Math.PI / 2; }
     else if (side === 'W') { x = (d.cx + 1) * TILE - 0.05; z = czw + 0.83; rot = Math.PI / 2; }
     else if (side === 'S') { z = d.cy * TILE + 0.05; x = cxw + 0.83; rot = Math.PI; }
     else { z = (d.cy + 1) * TILE - 0.05; x = cxw - 0.83; rot = 0; }
-    void half;
     pivot.position.set(x, 0, z);
     pivot.rotation.y = rot;
     this.baseRot = rot;
     this.openAmt = 0;
     this.target = 0;
     this.open = false;
-    this.pos = new THREE.Vector3(cxw, 1.2, czw);
-    this.center = new THREE.Vector3(cxw, 1.4, czw);
+    // the closed panel is a thin slab: walk right up to it from either side
+    const ht = d.kind === 'boss' ? 0.09 : 0.07;
+    const alongX = side === 'E' || side === 'W';
+    this.normal = alongX ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 0, 1);
+    const px = alongX ? x : cxw, pz = alongX ? czw : z;
+    this.pos = new THREE.Vector3(px, 1.2, pz);
+    this.center = new THREE.Vector3(px, 1.4, pz);
+    const box = alongX
+      ? { x0: px - ht, x1: px + ht, z0: d.cy * TILE, z1: (d.cy + 1) * TILE }
+      : { x0: d.cx * TILE, x1: (d.cx + 1) * TILE, z0: pz - ht, z1: pz + ht };
+    this.obstacle = { type: 'box', ...box, h: 3, door: this, onHit: (g, p) => this.onStrike(g, p) };
+    this.thin = { ...box, y1: 2.95, cx: d.cx, cz: d.cy, door: this };
+    game.level.addObstacle(this.obstacle);
+    game.world.thinWalls.push(this.thin);
+    // monsters shoulder through plain doors, but never locked or boss doors
+    this.cell = d.cy * game.world.W + d.cx;
+    if (d.kind !== 'wood') game.world.navBlocked[this.cell] = 1;
+    game.world.mapMark[this.cell] = 1;
+    this.enemyCheck = Math.random() * 0.3;
     game.renderer.scene.add(pivot);
-    game.world.blocked[d.cy * game.world.W + d.cx] = 1;
     void roomCellSide;
+  }
+
+  // interaction anchor: just in front of the panel on the viewer's side, so sight checks don't hit it
+  focusPos(eye) {
+    const n = this.normal;
+    const s = Math.sign((eye.x - this.center.x) * n.x + (eye.z - this.center.z) * n.z) || 1;
+    return _v2.copy(this.center).addScaledVector(n, s * 0.15);
   }
 
   label() {
@@ -307,7 +329,11 @@ export class Door {
     const mult = { E: 1, W: -1, S: 1, N: -1 }[this.side] || 1;
     this.target = 1.75 * (away || 1) * mult;
     this.speed = kicked ? 14 : 4;
-    game.world.blocked[this.cy * game.world.W + this.cx] = 0;
+    game.level.removeObstacle(this.obstacle);
+    const tw = game.world.thinWalls, ti = tw.indexOf(this.thin);
+    if (ti >= 0) tw.splice(ti, 1);
+    game.world.navBlocked[this.cell] = 0;
+    game.world.mapMark[this.cell] = 0;
     game.world.flowCell = -1;
     game.audio.door(this.pos, kicked);
     if (kicked) {
@@ -349,6 +375,22 @@ export class Door {
     const k = 1 - Math.exp(-(this.speed || 4) * dt);
     this.openAmt += (this.target - this.openAmt) * k;
     this.mesh.rotation.y = this.baseRot + this.openAmt;
+    // hunting monsters barge through closed wooden doors
+    if (this.open || this.kind !== 'wood') return;
+    this.enemyCheck -= dt;
+    if (this.enemyCheck > 0) return;
+    this.enemyCheck = 0.2;
+    const game = this.game;
+    for (const e of game.level.enemies) {
+      if (e.dead || !e.alerted || e.ragdoll || e.state === 'knockdown' || e.state === 'dormant') continue;
+      const dx = e.pos.x - this.center.x, dz = e.pos.z - this.center.z;
+      const side = Math.abs(dx * this.normal.x + dz * this.normal.z);
+      const along = Math.abs(dx * this.normal.z + dz * this.normal.x);
+      if (side < e.radius + 0.35 && along < TILE * 0.5) {
+        this.openDoor(game, e.pos, false);
+        break;
+      }
+    }
   }
 }
 
@@ -366,26 +408,40 @@ export class Gate {
     this.closed = false;
     this.y = height + 0.2;
     this.pos = new THREE.Vector3(x, 1.5, z);
+    // bars run across the cell centre: a thin slab that blocks movement, not sight
+    this.alongX = g.axis === 'x';
+    const ht = 0.08;
+    this.obstacle = this.alongX
+      ? { type: 'box', x0: x - ht, x1: x + ht, z0: g.cy * TILE, z1: (g.cy + 1) * TILE, h: 4 }
+      : { type: 'box', x0: g.cx * TILE, x1: (g.cx + 1) * TILE, z0: z - ht, z1: z + ht, h: 4 };
     game.renderer.scene.add(this.mesh);
   }
 
   close(game) {
     if (this.closed) return;
     this.closed = true;
-    const i = this.cy * game.world.W + this.cx;
-    game.world.blocked[i] = 1;
+    game.level.addObstacle(this.obstacle);
+    game.world.navBlocked[this.cy * game.world.W + this.cx] = 1;
+    game.world.mapMark[this.cy * game.world.W + this.cx] = 1;
     game.world.flowCell = -1;
-    // shove out anything standing in the doorway
+    // shove anyone standing under the bars onto the room's side
+    const room = game.world.rooms[this.roomId];
     const p = game.player;
-    const cx = (this.cx + 0.5) * TILE, cz = (this.cy + 0.5) * TILE;
-    if (Math.abs(p.pos.x - cx) < TILE / 2 + 0.4 && Math.abs(p.pos.z - cz) < TILE / 2 + 0.4) game.world.collideCircle(p.pos, p.radius);
+    const along = this.alongX ? 'x' : 'z';
+    const c = this.pos[along];
+    const roomC = room ? (this.alongX ? (room.x + room.w / 2) * TILE : (room.y + room.h / 2) * TILE) : c;
+    const into = Math.sign(roomC - c) || 1;
+    const across = this.alongX ? 'z' : 'x';
+    if (Math.abs(p.pos[along] - c) < p.radius + 0.1 && Math.abs(p.pos[across] - this.pos[across]) < TILE / 2 + p.radius) p.pos[along] = c + into * (p.radius + 0.12);
     game.audio.gate(this.pos, true);
   }
 
   open(game) {
     if (!this.closed) return;
     this.closed = false;
-    game.world.blocked[this.cy * game.world.W + this.cx] = 0;
+    game.level.removeObstacle(this.obstacle);
+    game.world.navBlocked[this.cy * game.world.W + this.cx] = 0;
+    game.world.mapMark[this.cy * game.world.W + this.cx] = 0;
     game.world.flowCell = -1;
     game.audio.gate(this.pos, false);
   }

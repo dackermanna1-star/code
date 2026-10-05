@@ -15,6 +15,9 @@ export class World {
     const N = d.W * d.H;
     this.blocked = new Uint8Array(N); // dynamic blockers (closed doors, gates, secret walls)
     this.navBlocked = new Uint8Array(N); // blocks AI pathing only
+    // thin vertical slabs (closed door panels) that stop rays and sight lines but not whole cells
+    this.thinWalls = [];
+    this.mapMark = new Uint8Array(N); // closed doors / gates, for the map
     this.seen = new Uint8Array(N);
     this.flow = new Int16Array(N).fill(-1);
     this.flowCell = -1;
@@ -115,8 +118,45 @@ export class World {
     return { x: nx / l, z: nz / l };
   }
 
-  // Grid DDA raycast against walls + floor + ceiling. Returns {dist, x,y,z, nx,ny,nz, cx, cz} or null.
+  // Raycast against walls + floor + ceiling + thin walls. Returns {dist, x,y,z, nx,ny,nz, cx, cz} or null.
   raycast(ox, oy, oz, dx, dy, dz, maxDist) {
+    const hit = this._raycastGrid(ox, oy, oz, dx, dy, dz, maxDist);
+    if (!this.thinWalls.length) return hit;
+    let best = hit, bd = hit ? hit.dist : maxDist;
+    for (const w of this.thinWalls) {
+      // slab test against the panel's box
+      let t0 = 0, t1 = bd, ax = -1, sgn = 0;
+      if (Math.abs(dx) < 1e-9) { if (ox < w.x0 || ox > w.x1) continue; }
+      else {
+        let ta = (w.x0 - ox) / dx, tb = (w.x1 - ox) / dx, s2 = -1;
+        if (ta > tb) { const tmp = ta; ta = tb; tb = tmp; s2 = 1; }
+        if (ta > t0) { t0 = ta; ax = 0; sgn = s2; }
+        if (tb < t1) t1 = tb;
+      }
+      if (Math.abs(dy) < 1e-9) { if (oy < 0 || oy > w.y1) continue; }
+      else {
+        let ta = -oy / dy, tb = (w.y1 - oy) / dy, s2 = -1;
+        if (ta > tb) { const tmp = ta; ta = tb; tb = tmp; s2 = 1; }
+        if (ta > t0) { t0 = ta; ax = 1; sgn = s2; }
+        if (tb < t1) t1 = tb;
+      }
+      if (Math.abs(dz) < 1e-9) { if (oz < w.z0 || oz > w.z1) continue; }
+      else {
+        let ta = (w.z0 - oz) / dz, tb = (w.z1 - oz) / dz, s2 = -1;
+        if (ta > tb) { const tmp = ta; ta = tb; tb = tmp; s2 = 1; }
+        if (ta > t0) { t0 = ta; ax = 2; sgn = s2; }
+        if (tb < t1) t1 = tb;
+      }
+      // rays starting inside a panel ignore it
+      if (ax < 0 || t0 > t1 || t0 >= bd) continue;
+      bd = t0;
+      best = this._hit(t0, ox, oy, oz, dx, dy, dz, ax === 0 ? sgn : 0, ax === 1 ? sgn : 0, ax === 2 ? sgn : 0, w.cx, w.cz);
+      best.thin = w;
+    }
+    return best;
+  }
+
+  _raycastGrid(ox, oy, oz, dx, dy, dz, maxDist) {
     let cx = Math.floor(ox / TILE), cz = Math.floor(oz / TILE);
     const stepX = dx > 0 ? 1 : -1, stepZ = dz > 0 ? 1 : -1;
     const tDeltaX = dx !== 0 ? Math.abs(TILE / dx) : Infinity;

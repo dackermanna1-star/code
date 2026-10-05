@@ -163,6 +163,7 @@ export class Game {
     this.physics = new PhysicsWorld(null);
     this.level = new Level(this, dungeon);
     this.physics.world = this.world;
+    this.physics.level = this.level;
     this.fx.setWorld(this.world, theme);
     const p = this.player;
     p.orbit.length = 0;
@@ -550,7 +551,7 @@ export class Game {
     for (const it of this.level.interactables) {
       const label = it.label && it.label();
       if (!label) continue;
-      consider(it, it.center || it.pos, it.radius || 0.9, label);
+      consider(it, it.focusPos ? it.focusPos(eye) : it.center || it.pos, it.radius || 0.9, label);
     }
     for (const it of this.loot.items) {
       const pos = this.loot.itemPos(it);

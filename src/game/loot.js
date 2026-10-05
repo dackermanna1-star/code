@@ -381,8 +381,8 @@ export class LootManager {
         }
         if (world.solidAt(s.pos.x, s.pos.z)) { s.pos.x -= s.vel.x * dt * 2; s.pos.z -= s.vel.z * dt * 2; s.vel.x *= -0.5; s.vel.z *= -0.5; }
       }
-      s.mesh.position.set(s.pos.x, s.pos.y + (s.rest ? Math.sin(s.t * 3) * 0.06 : 0), s.pos.z);
-      s.mesh.rotation.y += dt * 1.5;
+      s.mesh.position.copy(s.pos);
+      s.mesh.rotation.y += dt * (s.rest ? 0.6 : 1.5);
     }
     // gear items
     for (const it of this.items) {
@@ -395,8 +395,8 @@ export class LootManager {
           const fy = world.floorAt(h.x, h.z) + 0.75;
           if (world.solidAt(h.x, h.z)) { h.x -= it.vel.x * dt * 2; h.z -= it.vel.z * dt * 2; it.vel.x *= -0.4; it.vel.z *= -0.4; }
           if (h.y < fy && it.vel.y < 0) { h.y = fy; it.landed = true; it.baseY = fy; }
-        } else h.y = it.baseY + Math.sin(it.t * 2.2) * 0.08;
-        it.disp.rotation.y += dt * 1.2;
+        } else h.y = it.baseY + Math.sin(it.t * 1.6) * 0.04;
+        it.disp.rotation.y += dt * 0.8;
         if (it.disp.userData.spin) for (const s of it.disp.userData.spin) s.rotation.y += dt * 2;
       }
       const pos = this.itemPos(it);

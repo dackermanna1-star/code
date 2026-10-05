@@ -1,7 +1,8 @@
 // Enemies: perception, tactical AI with attack tokens, telegraphed attacks, poise/stagger,
 // knockback & knockdowns (live ragdolls), status effects, elites, death ragdolls and gore.
 import * as THREE from 'three';
-import { buildBody, buildEnemyWeapon, blendPose, walkPose, POSES } from './rig.js';
+import { blendPose, walkPose, POSES } from './rig.js';
+import { buildBody, buildEnemyWeapon, buildSlime, buildBat, buildMimic } from './enemy-models.js';
 import { ENEMIES, BOSSES, ATTACKS, ELITE_AFFIXES } from './enemy-defs.js';
 import { Ragdoll, J, partOfFrame } from '../physics/ragdoll.js';
 import { RigidBody } from '../physics/bodies.js';
@@ -172,107 +173,27 @@ export class Enemy {
   }
 
   _buildSlime(scale) {
-    const g = new THREE.Group();
-    const s = scale * 1.1;
-    const body = new THREE.Mesh(new THREE.SphereGeometry(0.55, 16, 12), addRim(new THREE.MeshStandardMaterial({ color: 0x5ad040, roughness: 0.15, metalness: 0, transparent: true, opacity: 0.78, emissive: 0x0a3a06 }), 0xccffaa, 0.6));
-    body.position.y = 0.45;
-    const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.2, 0), new THREE.MeshStandardMaterial({ color: 0x2a6a1a, emissive: 0x204a10, flatShading: true }));
-    core.position.y = 0.42;
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
-    const eyeW = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    for (const x of [-0.16, 0.16]) {
-      const e = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), eyeW);
-      e.position.set(x, 0.6, 0.42);
-      const p = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 4), eyeMat);
-      p.position.set(x, 0.6, 0.49);
-      g.add(e, p);
-    }
-    g.add(body, core);
-    g.scale.setScalar(s);
-    this.root.add(g);
-    this.slime = { group: g, body, squash: 0, base: s };
-    this.height = 0.9 * s;
-    this.flashMats = [body.material];
+    const m = buildSlime(scale);
+    this.root.add(m.group);
+    this.slime = { group: m.group, body: m.body, squash: 0, base: m.base };
+    this.height = m.height;
+    this.flashMats = m.flashMats;
   }
 
   _buildBat(scale) {
-    const g = new THREE.Group();
-    const mat = addRim(new THREE.MeshStandardMaterial({ color: 0x3a2a30, roughness: 0.8 }), 0xff8899, 0.4);
-    const body = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), mat);
-    body.scale.set(1, 0.9, 1.3);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), mat);
-    head.position.set(0, 0.06, 0.18);
-    const ear = new THREE.ConeGeometry(0.035, 0.12, 4);
-    const e1 = new THREE.Mesh(ear, mat); e1.position.set(-0.05, 0.16, 0.16);
-    const e2 = new THREE.Mesh(ear, mat); e2.position.set(0.05, 0.16, 0.16);
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff3322 });
-    eyeMat.color.multiplyScalar(2);
-    const ey1 = new THREE.Mesh(new THREE.SphereGeometry(0.02, 4, 4), eyeMat); ey1.position.set(-0.04, 0.08, 0.27);
-    const ey2 = new THREE.Mesh(new THREE.SphereGeometry(0.02, 4, 4), eyeMat); ey2.position.set(0.04, 0.08, 0.27);
-    const wingShape = new THREE.Shape();
-    wingShape.moveTo(0, 0);
-    wingShape.lineTo(0.55, 0.12);
-    wingShape.lineTo(0.48, -0.05);
-    wingShape.lineTo(0.36, 0.02);
-    wingShape.lineTo(0.26, -0.1);
-    wingShape.lineTo(0.14, -0.02);
-    wingShape.lineTo(0, -0.1);
-    const wingGeo = new THREE.ShapeGeometry(wingShape);
-    wingGeo.rotateX(-Math.PI / 2);
-    const wingMat = new THREE.MeshStandardMaterial({ color: 0x2a1a20, roughness: 0.9, side: THREE.DoubleSide });
-    const wl = new THREE.Group(), wr = new THREE.Group();
-    const ml = new THREE.Mesh(wingGeo, wingMat); ml.scale.x = -1;
-    const mr = new THREE.Mesh(wingGeo, wingMat);
-    wl.add(ml); wr.add(mr);
-    wl.position.x = -0.1; wr.position.x = 0.1;
-    g.add(body, head, e1, e2, ey1, ey2, wl, wr);
-    g.scale.setScalar(scale * 1.2);
-    g.position.y = 1.8;
-    this.root.add(g);
-    this.bat = { group: g, wl, wr };
-    this.height = 0.3;
-    this.flashMats = [mat];
+    const m = buildBat(scale);
+    this.root.add(m.group);
+    this.bat = { group: m.group, wl: m.wl, wr: m.wr };
+    this.height = m.height;
+    this.flashMats = m.flashMats;
   }
 
   _buildMimic(scale) {
-    const A = sharedAssets();
-    const g = new THREE.Group();
-    const wood = addRim(new THREE.MeshStandardMaterial({ map: A.wood.map, color: 0x9a7050, roughness: 0.8 }), 0xff6644, 0.4);
-    const base = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.5, 0.7), wood);
-    base.position.y = 0.25;
-    const lid = new THREE.Group();
-    lid.position.set(0, 0.5, -0.35);
-    const lidM = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.32, 0.7), wood);
-    lidM.position.set(0, 0.16, 0.35);
-    lid.add(lidM);
-    const toothMat = new THREE.MeshStandardMaterial({ color: 0xeeeedd, roughness: 0.5 });
-    for (let i = 0; i < 8; i++) {
-      const t = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.14, 4), toothMat);
-      t.position.set(-0.45 + i * 0.13, 0.52, 0.32);
-      t.rotation.x = Math.PI;
-      g.add(t);
-      const t2 = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.12, 4), toothMat);
-      t2.position.set(-0.45 + i * 0.13, -0.02, 0.7);
-      lid.add(t2);
-    }
-    const tongue = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 0.5), new THREE.MeshStandardMaterial({ color: 0xaa2244, roughness: 0.3 }));
-    tongue.position.set(0, 0.48, 0.4);
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffdd33 });
-    eyeMat.color.multiplyScalar(2);
-    const e1 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 4), eyeMat); e1.position.set(-0.25, 0.26, 0.66);
-    const e2 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 4), eyeMat); e2.position.set(0.25, 0.26, 0.66);
-    lid.add(e1, e2);
-    g.add(base, lid, tongue);
-    for (const x of [-0.4, 0.4]) for (const z of [-0.2, 0.2]) {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.03, 0.3, 5), new THREE.MeshStandardMaterial({ color: 0x4a2a2a }));
-      leg.position.set(x, 0.02, z);
-      g.add(leg);
-    }
-    g.scale.setScalar(scale);
-    this.root.add(g);
-    this.mimic = { group: g, lid, tongue };
-    this.height = 0.9;
-    this.flashMats = [wood];
+    const m = buildMimic(scale);
+    this.root.add(m.group);
+    this.mimic = { group: m.group, lid: m.lid, tongue: m.tongue };
+    this.height = m.height;
+    this.flashMats = m.flashMats;
   }
 
   setFlash(v) {
@@ -503,8 +424,8 @@ export class Enemy {
     this._endAttack();
     const joints = this.rig.jointPositions();
     const vel = new THREE.Vector3(this.vel.x, Math.min(8, knock * 0.4) + 1.5, this.vel.z);
-    this.ragdoll = new Ragdoll(game.renderer.scene, joints, this.rig.parts, vel, { scale: this.rig.scale, owner: this });
-    if (info.point) this.ragdoll.impulse(info.point, info.dir.clone().multiplyScalar(knock * 0.6), 0.8);
+    this.ragdoll = new Ragdoll(game.renderer.scene, joints, this.rig.parts, vel, { scale: this.rig.scale, owner: this, rest: this.rig.neutralJoints() });
+    if (info.point) this.ragdoll.impulse(info.point, info.dir.clone().multiplyScalar(Math.min(knock, 15) * 0.6), 0.8);
     game.level.ragdolls.add(this.ragdoll);
     this.state = 'knockdown';
     this.knockdownT = rand(1.3, 1.9);
@@ -536,15 +457,16 @@ export class Enemy {
     if (this.lightSrc) { game.renderer.removeDynamic(this.lightSrc); this.lightSrc = null; }
     game.audio.voice(this.pos, this.def.voice, 'death');
     const dir = (info.dir || _v.set(0, 0, 1)).clone();
-    const knock = (info.knockback || 3) / Math.max(0.5, this.mass * 0.7);
+    // bodies get thrown hard, but not launched like paper: cap the launch so the skeleton stays together
+    const knock = Math.min(15, (info.knockback || 3) / Math.max(0.5, this.mass * 0.7));
     const gore = game.fx.gore;
 
     if (this.rig) {
       let rd = this.ragdoll;
       if (!rd) {
         const joints = this.rig.jointPositions();
-        const vel = new THREE.Vector3(this.vel.x * 0.6 + dir.x * knock * 0.7, (info.heavy || info.explosion ? Math.min(9, knock * 0.5) + 2 : 1.5) + (info.overhead ? -2 : 0), this.vel.z * 0.6 + dir.z * knock * 0.7);
-        rd = this.ragdoll = new Ragdoll(game.renderer.scene, joints, this.rig.parts, vel, { scale: this.rig.scale, owner: this });
+        const vel = new THREE.Vector3(this.vel.x * 0.6 + dir.x * knock * 0.7, (info.explosion ? Math.min(8, knock * 0.5) + 2 : info.heavy ? Math.min(4.5, knock * 0.3) + 1.5 : 1.2) + (info.overhead ? -2 : 0), this.vel.z * 0.6 + dir.z * knock * 0.7);
+        rd = this.ragdoll = new Ragdoll(game.renderer.scene, joints, this.rig.parts, vel, { scale: this.rig.scale, owner: this, rest: this.rig.neutralJoints() });
         game.level.ragdolls.add(rd);
       }
       if (info.point) rd.impulse(info.point, dir.clone().multiplyScalar(knock * (info.heavy ? 1.2 : 0.7)), 0.9);
@@ -1350,6 +1272,7 @@ export class Enemy {
     if (!(A && (A.def.kind === 'leap' || A.def.kind === 'charge') && A.phase === 'act')) walkPose(rig, this.walkPhase, this.moveAmt, this.moveAmt > 0.7);
     // breathing
     rig.bones.chest.rotation.x += Math.sin(t * 2 + this.uid) * 0.03;
+    if (rig.basePose) blendPose(rig, rig.basePose, 1);
     if (this.def.hunch) blendPose(rig, POSES.hunch, 1);
     if (this.alerted && !A) blendPose(rig, POSES.guard, 0.7);
     if (this.def.float || this.def.body === 'cultist') rig.bones.pelvis.position.y += this.def.float ? 0.35 + Math.sin(t * 2) * 0.1 : 0;

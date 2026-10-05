@@ -695,7 +695,7 @@ export class UI {
         if (world.flags[i] & F.SECRET && world.blocked[i]) { ctx.fillStyle = '#2a2622'; ctx.fillRect(x * cell, y * cell, cell, cell); continue; }
         ctx.fillStyle = c === C.PIT ? '#120c0a' : c === C.LAVA ? '#a83a10' : world.flags[i] & F.WATER ? '#2e5a62' : world.roomOf[i] >= 0 ? '#6e655a' : '#57504a';
         ctx.fillRect(x * cell, y * cell, cell + 0.5, cell + 0.5);
-        if (world.blocked[i]) { ctx.fillStyle = '#b07a3a'; ctx.fillRect(x * cell + cell * 0.2, y * cell + cell * 0.2, cell * 0.6, cell * 0.6); }
+        if (world.mapMark[i] || world.blocked[i]) { ctx.fillStyle = '#b07a3a'; ctx.fillRect(x * cell + cell * 0.2, y * cell + cell * 0.2, cell * 0.6, cell * 0.6); }
       }
     }
     // room icons
