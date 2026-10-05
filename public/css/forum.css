@@ -1,0 +1,32 @@
+/* ROBLOX Forum: the ASP.NET Forums "default" skin (2007-2008), rules from the
+   archived /Forum/skins/default/style/default.css. */
+#ForumContainer{font:8pt Verdana,Arial,Helvetica,sans-serif;color:#000;}
+#ForumContainer a.linkSmallBold,#ForumContainer a.linkMenuSink{font-weight:bold;}
+#ForumContainer a.linkSmall,#ForumContainer a.linkSmallBold,#ForumContainer a.linkMenuSink{color:navy;font-size:.9em;}
+#ForumContainer a.linkSmallBold:hover,#ForumContainer a.linkMenuSink:hover{color:#DD6900;}
+#ForumContainer .userOnlineLinkBold,#ForumContainer a.userOnlineLinkBold{font-weight:bold;color:#0055E7;}
+#ForumContainer a.menuTextLink{font-size:.9em;text-decoration:none;color:#013DA4;}
+#ForumContainer a.menuTextLink:hover{color:#000;}
+#ForumContainer a.menuTextLink img{vertical-align:middle;margin-right:2px;}
+#ForumContainer .ForumMenu{text-align:right;margin:4px 0 10px;}
+#ForumContainer .searchItem{background-color:#DDEEFF;}
+#ForumContainer .searchAlternatingItem{background-color:#FFFFFF;}
+#ForumContainer td.flatViewSpacing{height:2px;background-color:#80B7FF;}
+#ForumContainer th{background:#4455aa url(/images/forum/forumHeaderBackground.gif);}
+#ForumContainer td.forumHeaderBackgroundAlternate{background:#EBEDF6 url(/images/forum/forumHeaderBackgroundAlternate.gif);}
+#ForumContainer .validationWarningSmall{color:Red;font-size:.9em;}
+#ForumContainer .normalTextSmall{font-size:1em;}
+#ForumContainer .normalTextSmallBold{font-size:1em;font-weight:bold;}
+#ForumContainer .normalTextSmaller{font-size:.9em;}
+#ForumContainer .tableHeaderText{color:white;font-size:.9em;font-weight:bold;}
+#ForumContainer .tableBorder{border:1px #013DA4 solid;background-color:#FFFFFF;}
+#ForumContainer td.forumRow{background-color:#DDEEFF;}
+#ForumContainer td.forumAlternate{background-color:#DAE7FD;}
+#ForumContainer td.forumRowHighlight{background-color:#D4D9EC;}
+#ForumContainer .forumTitle,#ForumContainer a.forumTitle{font-size:1em;font-weight:bold;color:#013DA4;}
+#ForumContainer a.forumTitle:hover{color:#DD6900;}
+#ForumContainer .forumName{font-weight:bold;font-size:16px;text-decoration:none;color:navy;}
+#ForumContainer select{font:bold .9em Verdana,Arial,sans-serif;background-color:#DAE7FD;border-color:Black;}
+#ForumContainer textarea{font:.9em Verdana,Arial,sans-serif;background-color:White;border-color:Black;}
+#ForumContainer .ForumBreadcrumb{margin:4px 0 8px;}
+#ForumContainer .PostFooter{margin-top:12px;text-align:right;}

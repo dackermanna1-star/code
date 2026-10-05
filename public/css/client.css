@@ -1,0 +1,113 @@
+/* ROBLOX client window (2008). The engine drew its HUD with a Comic Sans
+   bitmap font (content/fonts/comics.fnt); Comic Neue stands in where
+   Comic Sans MS is not installed. */
+@font-face{font-family:'Comic Sans MS';src:local('Comic Sans MS'),local('ComicSansMS'),url(/fonts/ComicNeue-Regular.woff2) format('woff2');font-weight:normal;}
+@font-face{font-family:'Comic Sans MS';src:local('Comic Sans MS Bold'),local('ComicSansMS-Bold'),url(/fonts/ComicNeue-Bold.woff2) format('woff2');font-weight:bold;}
+
+html,body{margin:0;height:100%;overflow:hidden;background:#000;}
+#Viewport{position:fixed;inset:0;}
+#Viewport canvas{display:block;width:100%;height:100%;}
+.rbx-gui{position:fixed;inset:0;pointer-events:none;font-family:'Comic Sans MS','Comic Neue',cursive;color:#fff;user-select:none;-webkit-user-select:none;}
+.rbx-gui > *{pointer-events:auto;}
+.rbx-gui .rbx-labels,.rbx-gui .rbx-chatlog,.rbx-gui .rbx-message,.rbx-gui .rbx-joinbox,.rbx-gui .rbx-hint,.rbx-gui .rbx-health,.rbx-gui .rbx-fp-tip{pointer-events:none;}
+
+/* top menu bar: 100x20 buttons, grey 50% */
+.rbx-topbar{position:absolute;left:0;top:0;display:flex;}
+.rbx-topbar a{display:block;width:100px;height:20px;line-height:20px;font-size:14px;color:rgb(77,77,77);background:rgba(177,177,177,.5);cursor:pointer;text-decoration:none;white-space:nowrap;}
+.rbx-topbar a:hover{background:rgb(177,177,177);}
+.rbx-topbar a.disabled{color:rgb(156,156,156);cursor:default;}
+.rbx-topbar a.disabled:hover{background:rgba(177,177,177,.5);}
+
+/* chat log: top-left, "Name;  message" */
+.rbx-chatlog{position:absolute;left:23px;top:29px;max-width:60%;}
+.rbx-chatline{display:table;font-size:16px;line-height:16px;background:rgba(153,153,153,.4);padding:0 3px 1px 1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.rbx-chatname{text-shadow:0 0 1px rgba(0,0,0,.35);}
+.rbx-chatsys{color:#fff;}
+
+/* chat bar: full-width dark strip at the bottom */
+.rbx-chatbar{position:absolute;left:0;right:0;bottom:0;height:20px;background:rgb(64,64,64);}
+.rbx-chatbar input{width:100%;height:20px;box-sizing:border-box;border:0;outline:0;background:transparent;color:#000;font:15px 'Comic Sans MS','Comic Neue',cursive;padding:0 3px;}
+.rbx-chatbar input::placeholder{color:#e0e0e0;}
+.chatting .rbx-chatbar{background:#fff;}
+
+/* player list: top-right */
+.rbx-playerlist{position:absolute;right:10px;top:10px;min-width:16.5%;background:rgba(153,153,153,.6);pointer-events:none;}
+.rbx-playerlist table{border-collapse:collapse;width:100%;font-size:14px;line-height:16px;}
+.rbx-playerlist th,.rbx-playerlist td{padding:1px 5px;text-align:left;white-space:nowrap;font-weight:normal;}
+.rbx-playerlist th{color:#fff;}
+.rbx-playerlist .st{text-align:right;color:inherit;}
+.rbx-playerlist th.st{color:#fff;}
+.rbx-playerlist tr.team td{border-bottom:2px solid;padding-top:3px;}
+
+/* health: vertical 12x112 bar, right edge, vertically centred */
+.rbx-health{position:absolute;right:31px;top:50%;width:66px;height:137px;transform:translateY(-50%);}
+.rbx-health-bar{position:absolute;left:27px;top:0;width:12px;height:112px;background:#f00;}
+.rbx-health-fill{position:absolute;left:0;right:0;bottom:0;height:100%;background:rgb(129,197,22);}
+.rbx-health-label{position:absolute;left:0;right:0;top:113px;height:24px;line-height:24px;text-align:center;color:#00f;font-size:17px;}
+
+/* backpack: square slots along the bottom-left */
+.rbx-backpack{position:absolute;left:0;bottom:20px;display:none;background:rgba(180,180,180,.5);}
+.rbx-slot{position:relative;width:13.3vh;height:13.3vh;max-width:80px;max-height:80px;min-width:52px;min-height:52px;cursor:pointer;}
+.rbx-slot:hover{background:rgba(255,255,0,.55);}
+.rbx-slot:active{background:rgba(60,110,255,.7);}
+.rbx-slot.sel{outline:2px solid #fff;outline-offset:-2px;background:rgba(255,255,255,.25);}
+.rbx-slot img{position:absolute;left:15%;top:15%;width:70%;height:70%;}
+.rbx-slot-name{position:absolute;left:4px;right:4px;top:30%;font-size:13px;text-align:center;}
+.rbx-slot-num{position:absolute;left:2px;bottom:2px;width:20%;min-width:12px;height:20%;min-height:12px;background:rgb(170,170,170);color:#fff;font-size:12px;line-height:1;display:flex;align-items:center;justify-content:center;}
+
+/* Safe Chat speech bubble + menu */
+.rbx-safechat-btn{position:absolute;left:2%;top:74%;width:40px;height:29px;background:url(data:,) no-repeat center/contain;cursor:pointer;}
+.rbx-safechat-menu{position:absolute;left:calc(2% + 46px);top:46%;}
+.sc-col{position:absolute;width:140px;}
+.sc-item{width:140px;height:24px;line-height:24px;box-sizing:border-box;background:#fff;border:1px solid #444;margin-top:-1px;color:#000;font-size:12px;padding:0 6px;white-space:nowrap;overflow:hidden;cursor:pointer;}
+.sc-item:hover{background:#ffff99;}
+.sc-branch:after{content:'\25B6';float:right;font-size:9px;color:#666;}
+
+/* Report button: black bold "Report" on light grey with a magenta border */
+.rbx-report{position:absolute;right:14px;bottom:108px;padding:0 4px;height:18px;line-height:18px;background:#d8d8d8;border:1px solid #c000c0;color:#000;font:bold 14px Arial,Helvetica,sans-serif;cursor:pointer;}
+.rbx-report:hover{background:#fff;color:#e00000;}
+.rbx-report:active{background:#ffee33;color:#e00000;}
+.rbx-report-face{display:none;position:absolute;left:50%;top:-30px;width:28px;height:28px;margin-left:-14px;background-size:contain;}
+.rbx-report:hover .rbx-report-face,.rbx-report:active .rbx-report-face{display:block;}
+
+/* camera buttons: 2x2 grid in the bottom-right corner */
+.rbx-camctrl{position:absolute;right:6px;bottom:22px;width:72px;display:flex;flex-wrap:wrap;}
+.rbx-cam{display:block;width:35px;height:35px;margin:0 1px 1px 0;background-size:28px 28px;background-position:center;background-repeat:no-repeat;cursor:pointer;}
+.rbx-fp-tip{display:none;position:absolute;right:6px;bottom:126px;padding:3px 8px;background:rgb(70,70,70);color:#fff;font-size:13px;text-align:center;}
+
+/* Message: whole screen, grey 50%; Hint: black bar at the bottom */
+.rbx-message{display:none;position:absolute;inset:0;background:rgba(153,153,153,.5);align-items:center;justify-content:center;}
+.rbx-message-text{max-width:80%;text-align:center;font-size:18px;color:#fff;-webkit-text-stroke:0;text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;white-space:pre-wrap;}
+.rbx-hint{display:none;position:absolute;left:0;right:0;bottom:20px;height:20px;line-height:20px;background:#000;color:rgb(225,225,225);font-size:16px;text-align:center;white-space:nowrap;overflow:hidden;}
+.rbx-joinbox{display:none;position:absolute;left:20%;width:60%;top:42%;min-height:60px;box-sizing:border-box;background:rgba(180,180,180,.5);border:3px solid #fff;align-items:center;justify-content:center;}
+.rbx-joinbox-text{font-size:18px;color:#fff;text-align:center;padding:10px;white-space:pre-wrap;text-shadow:0 0 2px rgba(0,0,0,.5);}
+
+/* name labels over heads */
+.rbx-labels{position:absolute;inset:0;overflow:hidden;}
+.rbx-nametag{position:absolute;left:0;top:0;text-align:center;white-space:nowrap;}
+.rbx-nametag .n{color:#fff;text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;line-height:1.1;}
+.rbx-nametag .hb{margin:1px auto 0;background:#f00;}
+.rbx-nametag .hb div{height:100%;background:rgb(129,197,22);}
+
+/* dialogs (Help..., Report): a plain Windows-style window */
+.rbx-dialog{display:none;position:absolute;inset:0;}
+.rbx-win{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);min-width:320px;max-width:560px;background:#ece9d8;border:1px solid #0a246a;box-shadow:2px 2px 0 rgba(0,0,0,.35);color:#000;font:12px Tahoma,Verdana,Arial,sans-serif;}
+.rbx-win-title{background:linear-gradient(#0a5fd8,#0842a8);color:#fff;font-weight:bold;padding:4px 6px;display:flex;justify-content:space-between;align-items:center;}
+.rbx-win-x{color:#fff;background:#c84030;border:1px solid #fff;width:16px;height:16px;line-height:14px;text-align:center;cursor:pointer;text-decoration:none;font-weight:bold;}
+.rbx-win-body{padding:10px 12px;max-height:60vh;overflow:auto;}
+.rbx-win-body table{border-collapse:collapse;}
+.rbx-win-body td{padding:3px 8px 3px 0;vertical-align:top;}
+.rbx-win-body td:first-child{font-weight:bold;white-space:nowrap;}
+.rbx-win-body h3{margin:0 0 6px;font-size:13px;}
+.rbx-win-buttons{padding:0 12px 10px;text-align:right;}
+.rbx-win-buttons button{min-width:72px;margin-left:6px;font:12px Tahoma,Verdana,sans-serif;}
+
+/* the in-place build menus (Tools / Insert in your own place) */
+.rbx-popup{position:absolute;top:20px;background:rgba(177,177,177,.95);border:1px solid #777;min-width:160px;font-size:14px;color:rgb(77,77,77);}
+.rbx-popup div{padding:2px 10px;cursor:pointer;white-space:nowrap;}
+.rbx-popup div:hover{background:#fff;}
+
+/* when a Hint is showing, the backpack and camera buttons sit above it */
+.has-hint .rbx-backpack{bottom:40px;}
+.has-hint .rbx-camctrl{bottom:42px;}
+.has-hint .rbx-report{bottom:128px;}

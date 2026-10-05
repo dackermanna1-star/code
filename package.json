@@ -1,0 +1,12 @@
+{
+  "name": "roblox-2008-recreation",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A research-driven recreation of the ROBLOX website and client circa 2008 (non-commercial, unpublished).",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": { "node": ">=18" },
+  "license": "UNLICENSED"
+}
