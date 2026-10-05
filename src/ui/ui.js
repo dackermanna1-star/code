@@ -54,7 +54,9 @@ export class UI {
     this.xpFill = h('div', { class: 'fill' });
     this.lvlEl = h('div', { class: 'lvl' }, '1');
     this.buffsEl = h('div', { class: 'buffs' });
+    this.lvlUpEl = h('div', { class: 'lvlup hidden' }, 'LEVEL UP! ', h('kbd', {}, 'L'), ' or leave combat');
     hud.append(h('div', { class: 'hud-bl' },
+      this.lvlUpEl,
       this.buffsEl,
       h('div', { class: 'bar hp' }, this.hpLag, this.hpFill, this.hpText),
       h('div', { class: 'bar st' }, this.stFill),
@@ -198,7 +200,7 @@ export class UI {
     const rows = [
       ['WASD', 'Move'], ['Mouse', 'Look'], ['LMB', 'Attack (hold: heavy)'], ['RMB', 'Block (tap on hit: parry)'],
       ['Shift', 'Dodge'], ['Space', 'Jump'], ['F', 'Kick'], ['E', 'Interact / pick up'], ['Q', 'Drink potion'], ['G', 'Throw bomb'],
-      ['3', 'Elixir'], ['R', 'Ability'], ['X / Wheel', 'Swap weapon'], ['Tab', 'Character'], ['M', 'Map'], ['Esc', 'Pause'],
+      ['3', 'Elixir'], ['R', 'Ability'], ['L', 'Level-up choice'], ['X / Wheel', 'Swap weapon'], ['Tab', 'Character'], ['M', 'Map'], ['Esc', 'Pause'],
     ];
     return h('div', { class: 'controls' }, ...rows.map(([k, v]) => h('div', { class: 'ctl' }, h('kbd', {}, k), h('span', {}, v))));
   }
@@ -467,6 +469,7 @@ export class UI {
     this.stFill.parentElement.classList.toggle('empty', p.stamina < 15);
     this.xpFill.style.width = `${(p.xp / p.xpNext) * 100}%`;
     this.lvlEl.textContent = p.level;
+    this.lvlUpEl.classList.toggle('hidden', !(g.pendingLevelUps > 0));
 
     // belt
     this.slots.potion.count.textContent = p.potions;

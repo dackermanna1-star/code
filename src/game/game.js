@@ -8,6 +8,7 @@ import { RNG, randomSeedString } from '../core/rng.js';
 import { sharedAssets } from '../render/materials.js';
 import { themeForFloor } from '../render/themes.js';
 import { FX } from '../render/fx.js';
+import { FlameSystem } from '../render/batching.js';
 import { PhysicsWorld, RigidBody } from '../physics/bodies.js';
 import { generateDungeon } from '../world/dungeon-gen.js';
 import { Level } from './level.js';
@@ -32,6 +33,7 @@ export class Game {
     this.audio = audio;
     this.assets = sharedAssets(this.renderer.envMap);
     this.fx = new FX(this.renderer, this.assets);
+    this.flames = new FlameSystem(this.renderer.scene, this.assets.tex.glow);
     this.settings = this._load(SETTINGS_KEY, { master: 0.8, sfx: 0.9, music: 0.5, sens: 1, fov: 78, shake: 1, gore: 1, quality: 'high', invertY: false });
     this.meta = this._load(META_KEY, { runs: 0, bestFloor: 0, totalKills: 0, bossKills: 0, secrets: 0, wins: 0, bestTime: 0, lastClass: 'wanderer' });
     this.applySettings();
@@ -139,6 +141,7 @@ export class Game {
     if (this.level) this.level.dispose();
     this.loot.clear();
     this.fx.clear();
+    this.flames.clear();
     this.scheduled.length = 0;
     this.renderer.setTheme(theme);
     const dungeon = generateDungeon(this.seed, n, theme);
@@ -162,6 +165,8 @@ export class Game {
     this.ui.onFloorLoaded();
     if (this.player.stats.revealSecrets) this.revealSecrets();
     audio.setMusic(true, 0);
+    // pre-compile shaders for everything on the floor to avoid hitches on first sight
+    try { this.renderer.renderer.compile(this.renderer.scene, this.renderer.camera); } catch { /* optional */ }
   }
 
   descend() {
@@ -205,6 +210,7 @@ export class Game {
     if (this.level) { this.level.dispose(); this.level = null; }
     if (this.loot) this.loot.clear();
     this.fx.clear();
+    this.flames.clear();
     this.player = null;
     this.state = 'menu';
     audio.setMusic(false);
@@ -602,7 +608,9 @@ export class Game {
       else if (input.actionPressed('map')) this.openMap();
       else if (input.actionPressed('interact')) this._interact();
       else if (input.actionPressed('pause')) { this.pause(); input.exitLock(); }
-      if (this.pendingLevelUps > 0 && this.player.atk.state === 'idle' && !this.player.dead) {
+      // level-up choices open on demand (L) or automatically once the fight is over
+      const inCombat = this.level && this.level.enemies.some((e) => !e.dead && e.alerted && e.pos.distanceToSquared(this.player.pos) < 18 * 18);
+      if (this.pendingLevelUps > 0 && this.player.atk.state === 'idle' && !this.player.dead && (input.pressed.has('KeyL') || !inCombat)) {
         this.state = 'levelup';
         this.input.exitLock();
         this.ui.showLevelUp();
@@ -644,6 +652,7 @@ export class Game {
       this._updateFocus();
     }
     this.fx.update(dt, this.renderer.camera);
+    if (this.level) this.flames.update(this.time + this.realTime * 0.0, this.renderer.camera.position, this.renderer.renderer.domElement.height);
 
     // post-processing state
     const post = this.renderer.post;

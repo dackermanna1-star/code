@@ -1,5 +1,7 @@
-// Production build: dist/index.html + dist/build/main.js, plus a single-file dist/standalone.html
-// that can be opened directly from disk (no server needed).
+// Production build:
+//   dist/index.html + dist/build/main.js   (static hosting)
+//   dist/standalone.html                    (single self-contained file, open from disk)
+//   dist/artifact.html                      (body-only variant for hosts that supply the document skeleton)
 import * as esbuild from 'esbuild';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -31,3 +33,16 @@ const standalone = html
   .replace(/<script type="module" src="build\/main.js"><\/script>/, () => `<script>\n${js}\n</script>`);
 fs.writeFileSync(path.join(out, 'standalone.html'), standalone);
 console.log(`standalone.html: ${(standalone.length / 1024).toFixed(0)} KB`);
+
+const fonts = (html.match(/<link rel="stylesheet" href="https:\/\/fonts[^>]+>/) || [''])[0];
+const artifact = [
+  '<title>Delve</title>',
+  '<link rel="preconnect" href="https://fonts.googleapis.com" />',
+  fonts,
+  `<style>\n:root { color-scheme: dark; }\n${css}\n</style>`,
+  '<div id="app"></div>',
+  '<div id="ui"></div>',
+  `<script>\n${js}\n</script>`,
+].join('\n');
+fs.writeFileSync(path.join(out, 'artifact.html'), artifact);
+console.log(`artifact.html: ${(artifact.length / 1024).toFixed(0)} KB`);

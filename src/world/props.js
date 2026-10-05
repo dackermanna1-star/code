@@ -2,6 +2,7 @@
 // traps, shrines, merchant, pedestals and the exit portal.
 import * as THREE from 'three';
 import * as M from './prop-meshes.js';
+import { harvestFlames, mergeStatic } from '../render/batching.js';
 import { RigidBody } from '../physics/bodies.js';
 import { TILE } from './constants.js';
 import { raySphere, rand, randInt } from '../core/math.js';
@@ -33,7 +34,7 @@ export class Breakable {
         shape = { type: 'cyl', r, hy: h / 2 }; mass = 1; hp = 1; y = h / 2; break;
       }
     }
-    if (kind === 'chair') mesh.children.forEach((c) => (c.position.y -= 0.0));
+    if (kind !== 'pot') mesh = mergeStatic(mesh);
     this.hp = hp;
     this.mesh = mesh;
     game.renderer.scene.add(mesh);
@@ -669,6 +670,7 @@ export class Shrine {
     this.def = SHRINES[e.kind];
     this.mesh = M.makeShrine(e.kind, game.level.mats);
     this.mesh.position.set(e.x, 0, e.z);
+    harvestFlames(this.mesh, game.flames);
     this.pos = new THREE.Vector3(e.x, 1.0, e.z);
     this.radius = 1.3;
     this.used = false;
@@ -799,16 +801,19 @@ export class Shop {
     this.merchant = M.makeMerchant();
     const mx = e.x, mz = e.z - 1.6;
     this.merchant.position.set(mx, 0, mz);
+    this.merchant.rotation.y = 0;
+    harvestFlames(this.merchant, game.flames);
     game.renderer.scene.add(this.merchant);
     this.pos = new THREE.Vector3(mx, 1.6, mz);
     this.radius = 0.8;
     this.flames = this.merchant.userData.flames;
     game.level.addObstacle({ type: 'circle', x: mx, z: mz, r: 0.7, h: 2 });
     // counter
-    const counter = M.makeTable();
+    let counter = M.makeTable();
     counter.position.set(mx, 0, mz + 0.9);
+    harvestFlames(counter, game.flames);
+    counter = mergeStatic(counter);
     game.renderer.scene.add(counter);
-    this.flames.push(...(counter.userData.flames || []));
     game.level.addObstacle({ type: 'box', x0: mx - 0.95, z0: mz + 0.4, x1: mx + 0.95, z1: mz + 1.4, h: 1 });
     game.renderer.addLightSource(new THREE.Vector3(mx + 0.5, 2.2, mz + 0.5), 0xffcc77, 14, 10, 0.4);
     // wares on pedestals
@@ -838,10 +843,7 @@ export class Shop {
   update(dt) {
     const g = this.game;
     for (const f of this.flames) M.animateFlame(f, g.time);
-    // merchant faces the player
     const p = g.player.pos;
-    const a = Math.atan2(p.x - this.merchant.position.x, p.z - this.merchant.position.z);
-    this.merchant.rotation.y += (a - this.merchant.rotation.y) * Math.min(1, dt * 3);
     this.merchant.userData.torso.scale.y = 0.9 + Math.sin(g.time * 2) * 0.02;
     if (!this.greeted && p.distanceTo(this.merchant.position) < 7) {
       this.greeted = true;

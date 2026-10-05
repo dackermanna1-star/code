@@ -22,32 +22,18 @@ function lathe(points, segs = 14) {
 
 // ---------- flames ----------
 
-const flameGeoOuter = () => cached('flameO', () => { const g = new THREE.ConeGeometry(0.09, 0.32, 8, 1, true); g.translate(0, 0.16, 0); return g; });
-const flameGeoInner = () => cached('flameI', () => { const g = new THREE.ConeGeometry(0.05, 0.2, 8, 1, true); g.translate(0, 0.1, 0); return g; });
-
 export function makeFlame(scale = 1, color = 0xff9a4a) {
-  const A = sharedAssets();
-  const g = new THREE.Group();
-  const outer = new THREE.Mesh(flameGeoOuter(), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
-  const inner = new THREE.Mesh(flameGeoInner(), new THREE.MeshBasicMaterial({ color: 0xfff0b0, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
-  outer.material.color.multiplyScalar(2.2);
-  inner.material.color.multiplyScalar(2.5);
-  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: A.tex.glow, color, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
-  glow.scale.set(0.9, 0.9, 1);
-  glow.position.y = 0.12;
-  g.add(outer, inner, glow);
-  g.scale.setScalar(scale);
-  g.userData.flame = { outer, inner, glow, seed: Math.random() * 100, base: scale };
-  return g;
+  // A marker; the level harvests these into the instanced FlameSystem after placing props.
+  const marker = new THREE.Object3D();
+  marker.userData.flameSpec = { scale, color };
+  return marker;
 }
 
 export function animateFlame(f, t) {
   const d = f.userData.flame;
+  if (!d) return;
   const k = Math.sin(t * 13 + d.seed) * 0.12 + Math.sin(t * 29 + d.seed * 2) * 0.08;
   d.outer.scale.set(1 - k * 0.5, 1 + k, 1 - k * 0.5);
-  d.inner.scale.set(1, 1 + k * 1.4, 1);
-  d.outer.rotation.y = t * 2 + d.seed;
-  d.glow.material.opacity = 0.45 + k * 0.6;
 }
 
 // ---------- lights & architecture ----------

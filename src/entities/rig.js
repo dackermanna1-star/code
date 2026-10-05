@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { addRim } from '../render/renderer.js';
 import { sharedAssets } from '../render/materials.js';
 import { J } from '../physics/ragdoll.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const BONE_FRAME = {
   pelvis: 'pelvis', spine: 'torso', chest: 'torso', neck: 'head', head: 'head',
@@ -83,6 +84,45 @@ export class Rig {
   limb(boneName, len, r0, r1, mat, segs = 6) {
     const g = G(`limb${len.toFixed(3)}_${r0}_${r1}_${segs}`, () => { const c = new THREE.CylinderGeometry(r0, r1, len, segs); c.translate(0, -len / 2, 0); return c; });
     return this.add(boneName, g, mat);
+  }
+
+  // Merge meshes that share a bone and a material into one draw call (ragdoll frames are per bone,
+  // so dismemberment is unaffected).
+  optimize() {
+    const out = [];
+    const byBone = new Map();
+    for (const p of this.parts) {
+      if (!p.mesh.isMesh || p.mesh.parent !== this.bones[p.bone]) { out.push(p); continue; }
+      const key = p.bone;
+      if (!byBone.has(key)) byBone.set(key, new Map());
+      const mats = byBone.get(key);
+      if (!mats.has(p.mesh.material)) mats.set(p.mesh.material, []);
+      mats.get(p.mesh.material).push(p);
+    }
+    for (const [bone, mats] of byBone) {
+      for (const [mat, list] of mats) {
+        if (list.length === 1) { out.push(list[0]); continue; }
+        const geos = [];
+        let ok = true;
+        for (const p of list) {
+          p.mesh.updateMatrix();
+          const g = p.mesh.geometry.index ? p.mesh.geometry.clone() : null;
+          if (!g || !g.attributes.uv || !g.attributes.normal) { ok = false; break; }
+          for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+          g.applyMatrix4(p.mesh.matrix);
+          geos.push(g);
+        }
+        const merged = ok ? mergeGeometries(geos, false) : null;
+        if (!merged) { out.push(...list); continue; }
+        merged.computeBoundingSphere();
+        const m = new THREE.Mesh(merged, mat);
+        for (const p of list) p.mesh.removeFromParent();
+        this.bones[bone].add(m);
+        out.push({ mesh: m, frame: list[0].frame, bone });
+      }
+    }
+    this.parts = out;
+    return this;
   }
 
   setFlash(v) {

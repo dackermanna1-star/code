@@ -134,8 +134,15 @@ export class LootManager {
     const color = new THREE.Color(itemColor(item));
     const A = sharedAssets();
     if (item.rarity >= 1) {
-      const beam = new THREE.Mesh(BEAM_GEO(), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.25 + item.rarity * 0.08, blending: THREE.AdditiveBlending, depthWrite: false, map: A.tex.softGlow, side: THREE.DoubleSide }));
-      beam.scale.set(0.3 + item.rarity * 0.08, 1.5 + item.rarity * 0.6, 0.3 + item.rarity * 0.08);
+      const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.35 + item.rarity * 0.1, blending: THREE.AdditiveBlending, depthWrite: false, map: beamTexture(), side: THREE.DoubleSide });
+      const beam = new THREE.Group();
+      for (let k = 0; k < 2; k++) {
+        const pl = new THREE.Mesh(BEAM_GEO(), mat);
+        pl.rotation.y = k * Math.PI / 2;
+        beam.add(pl);
+      }
+      beam.scale.set(0.35 + item.rarity * 0.06, 1.6 + item.rarity * 0.7, 1);
+      beam.userData.mat = mat;
       g.renderer.scene.add(beam);
       it.beam = beam;
     }
@@ -396,7 +403,7 @@ export class LootManager {
       const fy = world.floorAt(pos.x, pos.z);
       if (it.beam) {
         it.beam.position.set(pos.x, fy + it.beam.scale.y * 0.5, pos.z);
-        it.beam.material.opacity = (0.2 + it.item.rarity * 0.07) * (0.8 + Math.sin(it.t * 3) * 0.2);
+        it.beam.userData.mat.opacity = (0.35 + it.item.rarity * 0.1) * (0.8 + Math.sin(it.t * 3) * 0.2);
       }
       it.glow.position.set(pos.x, Math.max(fy + 0.15, pos.y - 0.2), pos.z);
       if (it.light) it.light.pos.set(pos.x, fy + 0.8, pos.z);
@@ -433,8 +440,29 @@ export class LootManager {
 
 const BEAM_GEO = (() => {
   let geo = null;
-  return () => geo || (geo = new THREE.CylinderGeometry(0.5, 0.5, 1, 12, 1, true));
+  return () => geo || (geo = new THREE.PlaneGeometry(1, 1));
 })();
+
+let _beamTex = null;
+function beamTexture() {
+  if (_beamTex) return _beamTex;
+  const c = document.createElement('canvas');
+  c.width = 32;
+  c.height = 128;
+  const x = c.getContext('2d');
+  const img = x.createImageData(32, 128);
+  for (let j = 0; j < 128; j++) for (let i = 0; i < 32; i++) {
+    const u = Math.abs(i / 31 - 0.5) * 2;
+    const v = j / 127; // 0 top .. 1 bottom
+    const a = Math.pow(1 - u, 2.2) * Math.pow(v, 1.6);
+    const k = (j * 32 + i) * 4;
+    img.data[k] = img.data[k + 1] = img.data[k + 2] = 255;
+    img.data[k + 3] = Math.round(a * 255);
+  }
+  x.putImageData(img, 0, 0);
+  _beamTex = new THREE.CanvasTexture(c);
+  return _beamTex;
+}
 
 function makeWeaponModelLength(item) {
   return { sword: 0.96, dagger: 0.4, axe: 0.72, mace: 0.66, spear: 1.62, greatsword: 1.42, hammer: 0.96 }[item.base] || 0.8;

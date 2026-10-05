@@ -183,6 +183,18 @@ export class Renderer {
     this.quality = q;
     this.resize();
     this.bloom.enabled = q !== 'low';
+    // fewer dynamic lights on lower settings (each light costs per-pixel shading)
+    const want = q === 'low' ? 6 : q === 'medium' ? 9 : 12;
+    while (this.pool.length > want) {
+      const l = this.pool.pop();
+      this.scene.remove(l);
+    }
+    while (this.pool.length < want) {
+      const l = new THREE.PointLight(0xffffff, 0, 12, 1.5);
+      l.userData.src = null;
+      this.scene.add(l);
+      this.pool.push(l);
+    }
   }
 
   resize() {

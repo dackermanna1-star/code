@@ -44,6 +44,8 @@ kbd { display: inline-block; min-width: 1.3em; padding: 1px 6px; border: 1px sol
 .lvl { font-family: var(--title); font-weight: 800; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid var(--edge); background: rgba(0,0,0,0.6); color: var(--gold); font-size: 13px; }
 .bar.xp { flex: 1; height: 5px; margin: 0; }
 .bar.xp .fill { background: linear-gradient(90deg, #6a8cff, #b7a5ff); }
+.lvlup { font-family: var(--title); font-weight: 800; color: #ffe08a; letter-spacing: 0.08em; margin-bottom: 6px; animation: lvlpulse 1s ease-in-out infinite; text-shadow: 0 0 12px rgba(255, 200, 80, 0.7), 0 2px 2px #000; }
+@keyframes lvlpulse { 50% { opacity: 0.55; } }
 .buffs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
 .buff { font-size: 12px; padding: 1px 7px; border-radius: 10px; background: rgba(60, 50, 30, 0.75); border: 1px solid var(--edge); }
 .buff.curse, .buff.chilled, .buff.burning { border-color: #c0262d; color: #ff9a9a; }
@@ -159,7 +161,7 @@ kbd { display: inline-block; min-width: 1.3em; padding: 1px 6px; border: 1px sol
 #overlay.open { display: flex; background: radial-gradient(ellipse at center, rgba(20,14,12,0.55), rgba(0,0,0,0.92)); }
 #overlay.open.menu { background: radial-gradient(ellipse at 50% 30%, #2a1a14 0%, #0a0708 60%, #000 100%); }
 #overlay .embers { position: fixed; inset: 0; pointer-events: none; }
-.panel { position: relative; max-width: 1100px; width: calc(100% - 32px); padding: 26px 30px; box-sizing: border-box; background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; box-shadow: 0 20px 80px rgba(0,0,0,0.9), inset 0 0 40px rgba(0,0,0,0.6); text-align: center; animation: panelIn 0.35s ease-out; margin: 16px; }
+.panel { position: relative; max-width: 1100px; width: calc(100% - 32px); padding: 26px 30px; box-sizing: border-box; margin: auto !important; background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; box-shadow: 0 20px 80px rgba(0,0,0,0.9), inset 0 0 40px rgba(0,0,0,0.6); text-align: center; animation: panelIn 0.35s ease-out; margin: 16px; }
 @keyframes panelIn { from { opacity: 0; transform: translateY(14px) scale(0.98); } }
 .panel.menu { background: transparent; border: none; box-shadow: none; }
 .panel h2 { font-family: var(--title); letter-spacing: 0.12em; margin: 0 0 10px; color: #f0dfb8; }

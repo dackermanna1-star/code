@@ -120,6 +120,7 @@ export class Enemy {
     if (kind === 'mimic') return this._buildMimic(scale);
     const baseScale = { goblin: 0.72, brute: 1.35, knight: 1.08, bomber: 0.85 }[kind] || 1;
     const rig = (this.rig = buildBody(kind, { scale: baseScale * scale, tint: def.tint, eyeColor: def.eyeColor, crown: def.crown, cape: def.cape, armor: def.armor || (kind === 'skeleton' && this.game.floor >= 3), apron: def.apron, plume: def.plume, tabard: def.tabard }));
+    rig.optimize();
     this.root.add(rig.root);
     this.height = (rig.P.hipH + rig.P.torso + 0.3) * rig.scale;
     if (def.weapon) {
@@ -553,7 +554,7 @@ export class Enemy {
       if (gore > 0) {
         const overkill = -this.hp / this.maxHp;
         const unique = game.player.stats.unique;
-        let chance = 0.18 * (info.dismember || 1) * (info.crit ? 1.6 : 1) * (info.heavy ? 1.5 : 1) * (1 + overkill * 2) * gore;
+        let chance = 0.18 * (info.dismember || 1) * (info.crit ? 1.6 : 1) * (info.heavy ? 1.5 : 1) * (1 + Math.min(1, overkill) * 2) * gore;
         if (this.def.blood === 'bone') chance = Math.max(chance, 0.6);
         if ((info.head && (info.heavy || info.crit || info.overhead)) || (unique.decap && info.source === 'player')) severs.push('head');
         else if (Math.random() < chance * 0.6) severs.push('head');
@@ -698,8 +699,7 @@ export class Enemy {
       // dropped in a pit while knocked down
       const cell = game.world.cellAt(pel.x, pel.z);
       if ((cell === C.PIT && pel.y < -1.4) || (cell === C.LAVA && pel.y < 0)) { this._hazardDeath(game, cell); return; }
-      if (this.knockdownT <= 0 && rd.still > 0.2) this._getUp(game);
-      else if (this.knockdownT < -2) this._getUp(game);
+      if (this.knockdownT <= 0 && (rd.still > 0.1 || this.knockdownT < -0.8)) this._getUp(game);
       this._updateHitSpheres();
       return;
     }
@@ -1273,6 +1273,16 @@ export class Enemy {
 
   _landHit(game, d) {
     const p = game.player;
+    if (d.kind === 'hop' && this.slime) {
+      // squelchy landing: small splash, hurts only on contact
+      game.audio.slimeHit(this.pos, this.sizeScale > 0.9);
+      game.fx.blood(this.pos.clone().setY(0.2), UP, 0.4, 'goo');
+      const r = (d.radius || 1.5) * Math.max(0.6, this.sizeScale);
+      if (p.pos.distanceTo(_v.set(this.pos.x, p.pos.y, this.pos.z)) < r && p.pos.y < 0.6) {
+        p.takeDamage({ amount: Math.round(this.dmg * d.dmg), dir: _v.set(p.pos.x - this.pos.x, 0, p.pos.z - this.pos.z).normalize().clone(), knock: 3, attacker: this, melee: true });
+      }
+      return;
+    }
     if (d.slam || d.kind === 'hop') {
       const r = d.radius || 2;
       this._shockwave(game, this.pos.clone(), r * (this.def.scale || 1) * (d.slam ? 0.8 : 1) + (d.slam ? 0.8 : 0), d);

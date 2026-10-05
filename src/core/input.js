@@ -73,12 +73,16 @@ export class Input {
       this.mouse.wheel += Math.sign(e.deltaY);
     }, { passive: true });
 
+    this.everLocked = false;
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === this.el;
+      if (this.locked) { this.everLocked = true; this.lockFailed = false; }
       if (this.onLockChange) this.onLockChange(this.locked);
     });
     document.addEventListener('pointerlockerror', () => {
-      // Sandboxed frames may forbid pointer lock: fall back to raw mouse movement.
+      // Sandboxed frames may forbid pointer lock entirely: fall back to raw mouse movement.
+      // (A refusal after a successful lock is just the browser's re-lock cooldown.)
+      if (this.everLocked) return;
       this.lockFailed = true;
       if (this.onLockChange) this.onLockChange(false, true);
     });
@@ -91,9 +95,9 @@ export class Input {
     }
     try {
       const p = this.el.requestPointerLock();
-      if (p && p.catch) p.catch(() => { this.lockFailed = true; });
+      if (p && p.catch) p.catch(() => { if (!this.everLocked) this.lockFailed = true; });
     } catch {
-      this.lockFailed = true;
+      if (!this.everLocked) this.lockFailed = true;
     }
   }
 

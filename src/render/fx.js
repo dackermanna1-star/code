@@ -312,6 +312,18 @@ export class FX {
   }
 
   update(dt, camera) {
+    // ambient dust motes drifting around the viewer
+    if (this.world && dt > 0) {
+      this._dustAcc = (this._dustAcc || 0) + dt * 14;
+      while (this._dustAcc >= 1) {
+        this._dustAcc -= 1;
+        const p = camera.position;
+        const pos = new THREE.Vector3(p.x + rand(-6, 6), p.y + rand(-1.4, 2), p.z + rand(-6, 6));
+        if (this.world.solidAt(pos.x, pos.z)) continue;
+        const life = rand(4, 7);
+        this.glow.spawn({ pos, vel: new THREE.Vector3(rand(-0.06, 0.06), rand(-0.03, 0.05), rand(-0.06, 0.06)), color: new THREE.Color(0xffe2b8), life, max: life, size: rand(0.02, 0.035), size1: 0.02, grav: 0, drag: 0, floor: false, alpha: 0.35, fadeIn: 0.3 });
+      }
+    }
     const h = this.renderer.renderer.domElement.height;
     this.glow.mat.uniforms.scale.value = h * 0.5;
     this.smoke.mat.uniforms.scale.value = h * 0.5;

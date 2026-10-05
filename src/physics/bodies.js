@@ -121,6 +121,7 @@ export class PhysicsWorld {
       }
       if (!b.alive) {
         this.bodies.splice(i, 1);
+        if (b.mesh) b.mesh.removeFromParent();
         if (onRemove) onRemove(b);
         continue;
       }

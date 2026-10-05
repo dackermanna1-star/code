@@ -6,6 +6,7 @@ import { World } from '../world/world.js';
 import { TILE, C } from '../world/constants.js';
 import { F } from '../world/dungeon-gen.js';
 import * as M from '../world/prop-meshes.js';
+import { harvestFlames, mergeStatic } from '../render/batching.js';
 import { Breakable, Chest, Door, Gate, SecretWall, Trap, Shrine, Shop, Pedestal, Exit } from '../world/props.js';
 import { Enemy, Corpse } from '../entities/enemy.js';
 import { BOSS_ORDER } from '../entities/enemy-defs.js';
@@ -70,14 +71,15 @@ export class Level {
     const r = this.game.renderer;
     const theme = this.theme;
     for (const t of this.d.torches) {
-      const m = M.makeTorch(theme.torch);
-      m.position.set(t.x, t.y, t.z);
-      m.rotation.y = Math.atan2(t.nx, t.nz);
+      const raw = M.makeTorch(theme.torch);
+      raw.position.set(t.x, t.y, t.z);
+      raw.rotation.y = Math.atan2(t.nx, t.nz);
+      raw.updateMatrixWorld(true);
+      const lp = raw.localToWorld(raw.userData.lightOffset.clone());
+      harvestFlames(raw, this.game.flames);
+      const m = mergeStatic(raw);
       this.group.add(m);
-      this.flames.push(...m.userData.flames);
       this.cullables.push(m);
-      m.updateMatrixWorld(true);
-      const lp = m.localToWorld(m.userData.lightOffset.clone());
       r.addLightSource(lp, theme.torch, 26, 14, 0.8);
     }
     // lava glow
@@ -221,12 +223,13 @@ export class Level {
         m = M.makeBanner();
         m.position.set(e.wallX ?? e.x, 0, e.wallZ ?? e.z);
         m.rotation.y = rot;
+        m = mergeStatic(m);
         this.group.add(m);
         this.cullables.push(m);
         return;
       }
-      case 'chains': m = M.makeChains(rand(1.2, 2.4)); m.position.y = e.y; break;
-      case 'cobweb': m = M.makeCobweb(); m.position.y = e.y - 0.02; break;
+      case 'chains': m = M.makeChains(rand(1.2, 2.4)); m.position.y = e.y ?? (room ? room.ceil : 4); break;
+      case 'cobweb': m = M.makeCobweb(); m.position.y = (e.y ?? (room ? room.ceil : 4)) - 0.02; break;
       case 'bones': m = M.makeBones(); break;
       case 'cage': m = M.makeCage(); obstacle = { type: 'circle', x: e.x, z: e.z, r: 0.55, h: 2 }; break;
       case 'rug': m = M.makeRug(e.w || 3, e.h || 2); break;
@@ -238,8 +241,9 @@ export class Level {
     m.position.set(e.x, y, e.z);
     if (e.type !== 'rug') m.rotation.y = rot;
     else m.rotation.z = rot;
+    harvestFlames(m, this.game.flames);
+    if (e.type !== 'rug') m = mergeStatic(m);
     this.group.add(m);
-    if (m.userData.flames) this.flames.push(...m.userData.flames);
     this.cullables.push(m);
     if (obstacle) this.addObstacle(obstacle);
   }
@@ -715,8 +719,15 @@ export class Level {
     for (const s of this.stuck) s.mesh.removeFromParent();
     // everything else hangs off the scene: rebuild scene children except persistent ones
     const scene = game.renderer.scene;
-    const keep = new Set(game.persistent);
-    for (const child of [...scene.children]) if (!keep.has(child)) scene.remove(child);
+    const keep = new Set([...game.persistent, ...game.renderer.pool, game.renderer.camera]);
+    const geos = new Set();
+    for (const child of [...scene.children]) {
+      if (keep.has(child)) continue;
+      child.traverse((o) => { if (o.geometry && !o.isInstancedMesh) geos.add(o.geometry); });
+      scene.remove(child);
+    }
+    // free GPU buffers (shared cached geometries simply re-upload on next use)
+    for (const g of geos) g.dispose();
     game.renderer.clearLights();
     game.physics.clear();
     this.enemies.length = 0;

@@ -82,27 +82,27 @@ export const ENEMIES = {
 export const BOSSES = {
   butcher: {
     name: 'Gorgath the Butcher', title: 'Gorger of the Crypt', body: 'brute', weapon: 'cleaver', scale: 1.9, apron: true,
-    hp: 520, dmg: 22, speed: 3.3, mass: 8, poise: 9999, radius: 0.95, xp: 80, gold: [60, 90], blood: 'blood', voice: 'boss',
+    hp: 420, dmg: 22, speed: 3.3, mass: 8, poise: 9999, radius: 0.95, xp: 80, gold: [60, 90], blood: 'blood', voice: 'boss',
     attacks: ['sweep', 'smash', 'charge', 'combo3', 'leapSlam'], phase2: ['spin', 'charge', 'leapSlam', 'combo3', 'smash'], rim: 0xff5533,
   },
   hollowking: {
     name: 'The Hollow King', title: 'Lord of Bones', body: 'skeleton', weapon: 'greatsword', scale: 1.85, crown: true, cape: true, eyeColor: 0x66ffff, armor: true,
-    hp: 600, dmg: 21, speed: 3.6, mass: 7, poise: 9999, radius: 0.85, xp: 90, gold: [70, 100], blood: 'bone', voice: 'skeleton',
+    hp: 520, dmg: 21, speed: 3.6, mass: 7, poise: 9999, radius: 0.85, xp: 90, gold: [70, 100], blood: 'bone', voice: 'skeleton',
     attacks: ['combo3', 'overhead', 'sweep', 'summon', 'leapSlam'], phase2: ['combo3', 'spin', 'summon', 'leapSlam', 'firewall'], rim: 0x66ccff, summon: 'skeleton',
   },
   pyromancer: {
     name: 'Ignis, the Ember Prophet', title: 'Voice of the Flame', body: 'cultist', weapon: 'staff', scale: 1.7, eyeColor: 0xffaa22, tint: 0x5a1a10,
-    hp: 560, dmg: 18, speed: 3.2, mass: 6, poise: 9999, radius: 0.75, xp: 95, gold: [70, 110], blood: 'blood', voice: 'cultist', float: true,
+    hp: 480, dmg: 18, speed: 3.2, mass: 6, poise: 9999, radius: 0.75, xp: 95, gold: [70, 110], blood: 'blood', voice: 'cultist', float: true,
     attacks: ['volley', 'fireball', 'nova', 'summon'], phase2: ['volley', 'firewall', 'summon', 'nova'], rim: 0xff8822, summon: 'cultist', teleport: true, ranged: true, prefer: 9,
   },
   warden: {
     name: 'The Iron Warden', title: 'Keeper of the Forge', body: 'knight', weapon: 'mace', offhand: 'shield', scale: 1.95, tint: 0x6a5a50, plume: true, eyeColor: 0xff6622,
-    hp: 760, dmg: 26, speed: 3.1, mass: 10, poise: 9999, radius: 0.95, xp: 110, gold: [90, 130], blood: 'blood', voice: 'knight',
+    hp: 660, dmg: 26, speed: 3.1, mass: 10, poise: 9999, radius: 0.95, xp: 110, gold: [90, 130], blood: 'blood', voice: 'knight',
     attacks: ['shieldBash', 'smash', 'charge', 'sweep', 'leapSlam'], phase2: ['spin', 'leapSlam', 'charge', 'smash', 'firewall'], rim: 0xff7733, armored: true,
   },
   abyssal: {
     name: 'The Abyssal Knight', title: 'End of All Paths', body: 'knight', weapon: 'greatsword', scale: 2.0, tint: 0x2a2038, tabard: 0x4a1a6a, plume: true, eyeColor: 0xdd66ff,
-    hp: 950, dmg: 28, speed: 3.8, mass: 10, poise: 9999, radius: 0.95, xp: 150, gold: [120, 180], blood: 'ichor', voice: 'knight',
+    hp: 860, dmg: 28, speed: 3.8, mass: 10, poise: 9999, radius: 0.95, xp: 150, gold: [120, 180], blood: 'ichor', voice: 'knight',
     attacks: ['combo3', 'leapSlam', 'volley', 'sweep', 'charge'], phase2: ['combo3', 'spin', 'firewall', 'leapSlam', 'summon', 'volley'], rim: 0xbb66ff, summon: 'knight',
   },
 };

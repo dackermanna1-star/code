@@ -35,6 +35,7 @@ The game needs a desktop browser with WebGL 2, a mouse and a keyboard.
 | G | Throw a bomb |
 | 3 | Drink an elixir |
 | R | Use your ability |
+| L | Open level-up choices (they also open by themselves once a fight ends) |
 | X / mouse wheel | Swap between your two weapons |
 | Tab | Character sheet |
 | M | Map |
