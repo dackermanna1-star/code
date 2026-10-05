@@ -143,65 +143,34 @@ export function trussTexture() {
 }
 
 // The classic default face: two tall black ovals and a thin smile.
-export function faceTexture(kind = 'Smile') {
-  const key = 'face:' + kind;
+export function faceTexture() {
+  const key = 'face';
   if (cache.has(key)) return cache.get(key);
   const S = 256;
   const c = makeCanvas(S, S);
   const ctx = c.getContext('2d');
   ctx.clearRect(0, 0, S, S);
-  drawFace(ctx, S, kind);
+  drawFace(ctx, S);
   const tex = finish(c, key, { srgb: true });
   tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.userData.shared = true;
   return tex;
 }
 
-export function drawFace(ctx, S, kind) {
+// The default face was the only face in 2008 (faces became catalog items in
+// January 2009), so there is just the one. Proportions measured from the
+// 2008 client's face.png (see docs/RESEARCH.md).
+export function drawFace(ctx, S) {
   ctx.fillStyle = '#000';
-  ctx.strokeStyle = '#000';
-  ctx.lineCap = 'round';
   const eye = (x, y, rx, ry) => { ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill(); };
-  switch (kind) {
-    case 'Smile':
-    default:
-      // classic face: two tall ovals and a crescent smile, thickest at the bottom
-      eye(S * 0.405, S * 0.4, S * 0.034, S * 0.07);
-      eye(S * 0.595, S * 0.4, S * 0.034, S * 0.07);
-      ctx.beginPath();
-      ctx.arc(S * 0.5, S * 0.5, S * 0.215, Math.PI * 0.16, Math.PI * 0.84, false);
-      ctx.arc(S * 0.5, S * 0.465, S * 0.215, Math.PI * 0.82, Math.PI * 0.18, true);
-      ctx.closePath();
-      ctx.fill();
-      break;
-    case 'Check It': // half-lidded eyes, smirk
-      ctx.lineWidth = S * 0.02;
-      eye(S * 0.39, S * 0.44, S * 0.03, S * 0.045);
-      eye(S * 0.61, S * 0.44, S * 0.03, S * 0.045);
-      ctx.beginPath(); ctx.moveTo(S * 0.33, S * 0.385); ctx.lineTo(S * 0.45, S * 0.385); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(S * 0.55, S * 0.385); ctx.lineTo(S * 0.67, S * 0.385); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(S * 0.4, S * 0.64); ctx.quadraticCurveTo(S * 0.55, S * 0.68, S * 0.65, S * 0.6); ctx.stroke();
-      break;
-    case 'Chill':
-      ctx.lineWidth = S * 0.022;
-      ctx.beginPath(); ctx.arc(S * 0.39, S * 0.45, S * 0.045, Math.PI, 0); ctx.stroke();
-      ctx.beginPath(); ctx.arc(S * 0.61, S * 0.45, S * 0.045, Math.PI, 0); ctx.stroke();
-      ctx.beginPath(); ctx.arc(S * 0.5, S * 0.5, S * 0.14, Math.PI * 0.25, Math.PI * 0.75); ctx.stroke();
-      break;
-    case 'Silly Fun':
-      eye(S * 0.39, S * 0.42, S * 0.035, S * 0.06);
-      eye(S * 0.61, S * 0.42, S * 0.035, S * 0.06);
-      ctx.beginPath(); ctx.moveTo(S * 0.32, S * 0.58);
-      ctx.quadraticCurveTo(S * 0.5, S * 0.78, S * 0.68, S * 0.58); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = '#d9534f';
-      ctx.beginPath(); ctx.ellipse(S * 0.55, S * 0.66, S * 0.06, S * 0.05, 0, 0, Math.PI * 2); ctx.fill();
-      break;
-    case 'Laughing':
-      ctx.lineWidth = S * 0.022;
-      ctx.beginPath(); ctx.arc(S * 0.39, S * 0.44, S * 0.045, Math.PI, 0); ctx.stroke();
-      ctx.beginPath(); ctx.arc(S * 0.61, S * 0.44, S * 0.045, Math.PI, 0); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(S * 0.33, S * 0.56); ctx.quadraticCurveTo(S * 0.5, S * 0.8, S * 0.67, S * 0.56); ctx.closePath(); ctx.fill();
-      break;
-  }
+  // two tall ovals and a crescent smile, thickest at the bottom
+  eye(S * 0.405, S * 0.4, S * 0.034, S * 0.07);
+  eye(S * 0.595, S * 0.4, S * 0.034, S * 0.07);
+  ctx.beginPath();
+  ctx.arc(S * 0.5, S * 0.5, S * 0.215, Math.PI * 0.16, Math.PI * 0.84, false);
+  ctx.arc(S * 0.5, S * 0.465, S * 0.215, Math.PI * 0.82, Math.PI * 0.18, true);
+  ctx.closePath();
+  ctx.fill();
 }
 
 // Classic 2008 sky ("null_plainsky"): peach, sun-lit cloud cover with

@@ -1,6 +1,7 @@
 // Endpoints used by page scripts and the game client (thumbnails, joining a
 // game, visit counting, leaderboard stats, saving a personal place).
 'use strict';
+const clock = require('../clock');
 const fs = require('fs');
 const path = require('path');
 const db = require('../db');
@@ -57,7 +58,7 @@ function visit(ctx) {
   if (ctx.user) {
     economy.placeTraffic(pl, ctx.user);
     ctx.user.playingPlaceName = pl.name;
-    ctx.user.lastOnline = Date.now();
+    ctx.user.lastOnline = clock.now();
     const owner = db.userById(pl.creatorId);
     if (owner && pl.script === 'personal') {
       if (pl.visits >= 100 && !owner.badges.includes('Homestead')) owner.badges.push('Homestead');
@@ -82,7 +83,7 @@ function report(ctx) {
   if (u.knockouts >= 100) give('Warrior');
   if (u.knockouts >= 250 && u.knockouts > u.wipeouts) give('Bloxxer');
   if (j.leaving) u.playingPlaceName = null;
-  u.lastOnline = Date.now();
+  u.lastOnline = clock.now();
   db.save();
   return ctx.json({ ok: true, badges: award });
 }
@@ -98,7 +99,7 @@ function savePlace(ctx) {
     q: (b.q || [0, 0, 0, 1]).slice(0, 4).map(Number), c: Number(b.c) || 194, sh: ['Block', 'Ball', 'Cylinder'].includes(b.sh) ? b.sh : 'Block',
     a: b.a !== false, t: Number(b.t) || 0, m: typeof b.m === 'string' ? b.m.slice(0, 20) : undefined,
   }));
-  pl.updated = Date.now();
+  pl.updated = clock.now();
   pl.thumbVersion = (pl.thumbVersion || 0) + 1;
   db.save();
   return ctx.json({ ok: true });

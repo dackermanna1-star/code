@@ -1,6 +1,7 @@
 // The /My/ pages: Change Character, Inbox & private messages, friends and
 // friend requests, Edit Profile, Account Balance, Configure Place, Share ROBLOX.
 'use strict';
+const clock = require('../clock');
 const { page } = require('../layout');
 const db = require('../db');
 const v = require('../views');
@@ -160,7 +161,7 @@ function messagePage(ctx) {
       const text = String(ctx.form.body || '').slice(0, 2000);
       if (to && text.trim()) {
         const id = db.nextId('message');
-        ctx.state.messages[id] = { id, fromId: u.id, toId: to.id, subject, body: text, t: Date.now(), read: false };
+        ctx.state.messages[id] = { id, fromId: u.id, toId: to.id, subject, body: text, t: clock.now(), read: false };
         if (ctx.form.action === 'senddelete' && mid && ctx.state.messages[mid]?.toId === u.id) ctx.state.messages[mid].deletedByRecipient = true;
         if (to.isBot) require('../bots').scheduleReply(to, u, subject, text);
         db.save();
@@ -237,7 +238,7 @@ function friendRequest(ctx) {
   else if (Object.values(ctx.state.friendRequests).some((r) => r.fromId === u.id && r.toId === target.id && !r.handled)) msg = `You have already sent a friend request to ${h(target.name)}.`;
   else {
     const id = db.nextId('request');
-    ctx.state.friendRequests[id] = { id, fromId: u.id, toId: target.id, t: Date.now(), handled: false, read: false };
+    ctx.state.friendRequests[id] = { id, fromId: u.id, toId: target.id, t: clock.now(), handled: false, read: false };
     if (target.isBot) require('../bots').scheduleFriendAccept(target, u, id);
     db.save();
     msg = `Your friend request has been sent to ${h(target.name)}.`;
@@ -344,7 +345,7 @@ function profilePage(ctx) {
 function accountBalance(ctx) {
   if (!ctx.requireLogin()) return;
   const u = ctx.user;
-  const now = Date.now();
+  const now = clock.now();
   const sum = (since, kind, cur) => (u.earnings || []).filter((e) => e.t >= since && e.kind === kind).reduce((a, e) => a + e[cur], 0);
   const period = (label, since) => {
     const rows = [['LoginAward', 'Login Award'], ['PlaceTrafficAward', 'Place Traffic Award'], ['SaleOfGoods', 'Sale of Goods']];
@@ -387,13 +388,13 @@ function configurePlace(ctx) {
     if (f.action === 'reset') {
       pl.theme = ['happyhome', 'brickbattle', 'baseplate'].includes(f.template) ? f.template : 'happyhome';
       pl.build = null;
-      pl.updated = Date.now();
+      pl.updated = clock.now();
     } else {
       pl.name = String(f.name || pl.name).slice(0, 50) || pl.name;
       pl.desc = String(f.desc || '').slice(0, 1000);
       pl.public = f.access !== 'friends';
       pl.copylocked = !!f.copylock;
-      pl.updated = Date.now();
+      pl.updated = clock.now();
     }
     pl.thumbVersion = (pl.thumbVersion || 0) + 1;
     db.save();

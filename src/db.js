@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const clock = require('./clock');
 
 const DATA_DIR = process.env.ROBLOX_DATA_DIR || path.join(__dirname, '..', 'data');
 const FILE = path.join(DATA_DIR, 'db.json');
@@ -23,10 +24,14 @@ function load() {
     }
   }
   const { SEED_VERSION } = require('./seed');
+  // the 2008 site clock keeps running across restarts and reseeds
+  const realStart = (state && state.clockRealStart) || Date.now();
+  clock.init(realStart);
   if (!state || state.seedVersion !== SEED_VERSION) {
     const { seed } = require('./seed');
     const old = state;
     state = seed();
+    state.clockRealStart = realStart;
     // keep accounts people created themselves across reseeds
     if (old && old.users) {
       for (const u of Object.values(old.users)) {

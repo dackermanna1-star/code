@@ -1,5 +1,6 @@
 // Login, sign up ("Sign Up and Play"), logout, password reset.
 'use strict';
+const clock = require('../clock');
 const { page } = require('../layout');
 const db = require('../db');
 const { h } = require('../util');
@@ -65,7 +66,7 @@ function signupPage(ctx) {
     if (!errName && !errPass && !errConfirm) {
       const state = ctx.state;
       const id = db.nextId('user');
-      const now = Date.now();
+      const now = clock.now();
       const u = {
         id, name, password: db.hashPassword(pass), created: now, blurb: '', robux: 0, tix: 0, bc: false, admin: false,
         under13: f.agegroup === '1', superSafe: f.chatmode === 'true', email: f.email || '',

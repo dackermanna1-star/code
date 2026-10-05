@@ -40,7 +40,8 @@ function render3d(build, w, h, camOpts = {}) {
 function figure(app) {
   return (scene) => { const m = new CharacterModel(app); scene.add(m.root); return m.root; };
 }
-const BUILDERMAN = { colors: { head: 24, torso: 106, leftArm: 26, rightArm: 26, leftLeg: 26, rightLeg: 26 }, face: 'Smile', hats: ['BCHardHat'], shirt: null, pants: null, tshirt: { style: 'wrench' } };
+// colours sampled from the archived NewFrontPageGuy.png
+const BUILDERMAN = { colors: { head: 3, torso: 105, leftArm: 26, rightArm: 26, leftLeg: 26, rightLeg: 26 }, face: 'Smile', hats: ['BCHardHat'], shirt: null, pants: null, tshirt: { style: 'wrench' } };
 
 // ---------------------------------------------------------------- the ROBLOX logo
 function logo(w = 267, h = 70) {
@@ -479,7 +480,11 @@ window.generateAll = async () => {
   await document.fonts.ready;
   const out = {};
   for (const [name, fn] of Object.entries(IMAGES)) {
-    const c = await fn();
+    let c = await fn();
+    if (name.endsWith('.jpg')) { // JPEGs have no alpha: flatten onto white like the originals
+      const f = C(c.width, c.height), x = f.getContext('2d');
+      x.fillStyle = '#fff'; x.fillRect(0, 0, f.width, f.height); x.drawImage(c, 0, 0); c = f;
+    }
     out[name] = c.toDataURL(name.endsWith('.jpg') ? 'image/jpeg' : 'image/png', 0.92);
   }
   return out;

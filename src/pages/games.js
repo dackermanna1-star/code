@@ -1,5 +1,6 @@
 // Games.aspx and the place page (places were shown through Item.aspx by mid-2008).
 'use strict';
+const clock = require('../clock');
 const { page } = require('../layout');
 const db = require('../db');
 const v = require('../views');
@@ -13,7 +14,7 @@ const PLAYABLE = new Set(['teapots', 'paintball', 'obby', 'mummy', 'crossroads',
 /** Players online drifts a little over time so the page feels alive. */
 function onlineNow(p) {
   if (!p.online) return 0;
-  const slot = Math.floor(Date.now() / 600000);
+  const slot = Math.floor(clock.now() / 600000);
   const wobble = Math.sin(slot * 1.7 + p.id) * 0.12;
   return Math.max(1, Math.round(p.online * (1 + wobble)));
 }
@@ -118,7 +119,7 @@ function handleCommentPost(ctx, key) {
   if (ctx.method !== 'POST' || !ctx.user || !ctx.query.comment) return false;
   const text = String(ctx.form.comment || '').trim().slice(0, 200);
   if (text) {
-    (ctx.state.comments[key] ||= []).push({ userId: ctx.user.id, text, t: Date.now() });
+    (ctx.state.comments[key] ||= []).push({ userId: ctx.user.id, text, t: clock.now() });
     db.save();
   }
   return true;

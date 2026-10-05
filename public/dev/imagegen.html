@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Image generator</title>
+<link rel="stylesheet" href="/css/AllCSS.css">
+<script type="importmap">{"imports":{"three":"/js/vendor/three.module.min.js"}}</script>
+<style>body{background:#ccc;font:12px Verdana}#out img{margin:4px;border:1px dashed #888;background:#fff;vertical-align:top}</style>
+</head>
+<body>
+<p>Development page: redraws the site images (see tools/build-images.js). <button id="go">Preview</button></p>
+<div id="out"></div>
+<script type="module">
+import './imagegen.js';
+document.getElementById('go').onclick = async () => {
+  const all = await window.generateAll();
+  const out = document.getElementById('out');
+  out.innerHTML = '';
+  for (const [name, url] of Object.entries(all)) { const i = new Image(); i.src = url; i.title = name; out.appendChild(i); }
+};
+window.imagegenReady = true;
+</script>
+<span style="font-family:'Comic Sans MS'">.</span>
+</body>
+</html>

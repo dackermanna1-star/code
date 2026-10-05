@@ -1,13 +1,14 @@
 // ROBUX and Tickets: the 2008 rules. 10 Tix login award per day, 15 R$ per
 // day for Builders Club, place traffic awards and sale of goods.
 'use strict';
+const clock = require('./clock');
 const db = require('./db');
 
 function dayKey(t) { return new Date(t).toDateString(); }
 
 function addEarning(user, kind, robux, tix) {
   user.earnings = user.earnings || [];
-  user.earnings.push({ t: Date.now(), kind, robux, tix });
+  user.earnings.push({ t: clock.now(), kind, robux, tix });
   if (user.earnings.length > 2000) user.earnings.splice(0, user.earnings.length - 2000);
   user.robux += robux;
   user.tix += tix;
@@ -15,7 +16,7 @@ function addEarning(user, kind, robux, tix) {
 
 /** Grant the daily allowance if a new day started. Returns true if anything changed. */
 function dailyAllowance(user) {
-  const now = Date.now();
+  const now = clock.now();
   if (user.lastAllowance && dayKey(user.lastAllowance) === dayKey(now)) return false;
   user.lastAllowance = now;
   addEarning(user, 'LoginAward', user.bc ? 15 : 0, 10);

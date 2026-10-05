@@ -1,12 +1,13 @@
 // Shared view helpers: thumbnails, links, pagers, prices, online status.
 'use strict';
+const clock = require('./clock');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const db = require('./db');
 const { h, commas, timeAgo, longDate } = require('./util');
 
-const THUMB_VERSION = 4; // bump to re-render every cached thumbnail
+const THUMB_VERSION = 5; // bump to re-render every cached thumbnail
 
 /** Resolve a user's worn items into the appearance the 3D renderer needs. */
 function appearanceOf(user) {
@@ -58,7 +59,7 @@ function userLink(user) {
   return `<a href="/User.aspx?ID=${user.id}">${h(user.name)}</a>`;
 }
 
-function isOnline(user) { return user && Date.now() - (user.lastOnline || 0) < 5 * 60000; }
+function isOnline(user) { return user && clock.now() - (user.lastOnline || 0) < 5 * 60000; }
 
 function onlineStatus(user) {
   if (isOnline(user)) return `<span class="UserOnlineMessage">[ Online: ${h(user.playingPlaceName || 'Website')} ]</span>`;

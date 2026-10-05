@@ -9,11 +9,12 @@
 //  * Everything else (ordinary members, forum threads, messages, comments,
 //    user-made clothing) is fictional filler written in the style of the era.
 'use strict';
+const clock = require('./clock');
 const crypto = require('crypto');
 
-const SEED_VERSION = 7;
+const SEED_VERSION = 8;
 const DAY = 86400000;
-const NOW = Date.now();
+let NOW = 0; // set from the site clock when seeding
 const ago = (days) => NOW - Math.round(days * DAY);
 
 function hashPassword(password) {
@@ -36,52 +37,52 @@ const NOOB = { head: 24, torso: 23, leftArm: 24, rightArm: 24, leftLeg: 119, rig
 const ROBLOX_HATS = [
   // 2007
   { id: 1028606, name: 'Red Baseball Cap', model: 'RedBaseballCap', created: '2007-05-30', robux: 7, desc: 'Colored a bombastic red, with a stylish looking R on the front.' },
-  { id: 1028728, name: 'Blue Baseball Cap', model: 'BlueBaseballCap', created: '2007-05-30', robux: 24, desc: 'A blue baseball cap with the Bricksmith logo.' },
-  { id: 1028715, name: 'Purple Banded Top Hat', model: 'PurpleBandedTopHat', created: '2007-05-30', robux: 500, unverifiedPrice: true, desc: 'A distinguished black top hat with a purple band.' },
+  { id: 1028728, name: 'Blue Baseball Cap', model: 'BlueBaseballCap', created: '2007-05-30', robux: 24, desc: '' },
+  { id: 1028715, name: 'Purple Banded Top Hat', model: 'PurpleBandedTopHat', created: '2007-05-30', robux: 5000, unverifiedPrice: true, desc: '' },
   { id: 1028720, name: 'Classic ROBLOX Viking Helm', model: 'VikingHelm', created: '2007-05-30', robux: 125, desc: 'A sturdy Nordic helm fit for Erik the Red!' },
-  { id: 1028793, name: 'ROBLOX Classic Police Cap', model: 'PoliceCap', created: '2007-05-30', robux: 125, desc: 'Keep the peace in Robloxia.' },
-  { id: 1028859, name: "Pirate Captain's Hat", model: 'PirateCaptainsHat', created: '2007-05-30', robux: 200, unverifiedPrice: true, desc: 'Yarr! The hat of a true captain of the high seas.' },
+  { id: 1028793, name: 'ROBLOX Classic Police Cap', model: 'PoliceCap', created: '2007-05-30', robux: 125, desc: '' },
+  { id: 1028859, name: "Pirate Captain's Hat", model: 'PirateCaptainsHat', created: '2007-05-30', robux: 2000, unverifiedPrice: true, desc: '' },
   { id: 1029025, name: 'The Classic ROBLOX Fedora', model: 'Fedora', created: '2007-05-31', robux: 900, desc: 'A black felt fedora. Ideal for 1920s journalists, detectives, and Linux hackers.' },
-  { id: 1029597, name: 'Brown Cowboy Hat', model: 'BrownCowboyHat', created: '2007-06-01', robux: 214, desc: 'Yeehaw!' },
+  { id: 1029597, name: 'Brown Cowboy Hat', model: 'BrownCowboyHat', created: '2007-06-01', robux: 214, desc: '' },
   { id: 1033722, name: 'Straw Hat', model: 'StrawHat', created: '2007-06-11', robux: 98, desc: 'Made from the finest straws.' },
   { id: 1045408, name: 'Teapot Hat', model: 'TeapotHat', created: '2007-06-29', robux: 1337, creatorName: 'ROBLOX', desc: 'omg y is ur hed a teepawt??' },
-  { id: 1048037, name: 'Bighead', model: 'Bighead', created: '2007-07-02', robux: 70, desc: 'Your head, only bigger.' },
-  { id: 1049198, name: "ROBLOX Classic: Wizard's Hat", model: 'WizardHat', created: '2007-07-03', robux: 50, desc: 'A tall hat for a wise wizard.' },
+  { id: 1048037, name: 'Bighead', model: 'Bighead', created: '2007-07-02', robux: 70, desc: '' },
+  { id: 1049198, name: "ROBLOX Classic: Wizard's Hat", model: 'WizardHat', created: '2007-07-03', robux: 50, desc: '' },
   { id: 1081239, name: 'Bucket', model: 'Bucket', created: '2007-08-02', tix: 7331, desc: 'I HAS A BUCKET.' },
-  { id: 1082932, name: 'Traffic Cone', model: 'TrafficCone', created: '2007-08-03', tix: 1000, desc: 'Caution: wearer may be a construction zone.' },
-  { id: 1080950, name: 'Headstack', model: 'Headstack', created: '2007-08-02', tix: 280, desc: 'Two heads are better than one.' },
-  { id: 1081381, name: 'Firefighter Helmet', model: 'FirefighterHelmet', created: '2007-08-02', tix: 40, desc: 'For the bravest Robloxians.' },
-  { id: 1081366, name: 'Astronaut Helmet', model: 'AstronautHelmet', created: '2007-08-02', tix: 115, desc: 'One small step for a Robloxian.' },
+  { id: 1082932, name: 'Traffic Cone', model: 'TrafficCone', created: '2007-08-03', tix: 1000, desc: '' },
+  { id: 1080950, name: 'Headstack', model: 'Headstack', created: '2007-08-02', tix: 280, desc: '' },
+  { id: 1081381, name: 'Firefighter Helmet', model: 'FirefighterHelmet', created: '2007-08-02', tix: 40, desc: '' },
+  { id: 1081366, name: 'Astronaut Helmet', model: 'AstronautHelmet', created: '2007-08-02', tix: 115, desc: '' },
   { id: 1080949, name: 'Bunny Ears', model: 'BunnyEars', created: '2007-08-02', robux: 242, desc: 'They keep going and going and going.' },
-  { id: 1090508, name: 'Mushroom Hat', model: 'MushroomHat', created: '2007-08-09', tix: 80, desc: 'ONE ^' },
-  { id: 1090511, name: 'Sapling', model: 'Sapling', created: '2007-08-09', tix: 100, desc: 'A little tree grows from your head.' },
-  { id: 1098282, name: 'Lampshade', model: 'Lampshade', created: '2007-08-15', tix: 25, desc: 'The life of the party.' },
+  { id: 1090508, name: 'Mushroom Hat', model: 'MushroomHat', created: '2007-08-09', tix: 80, desc: '' },
+  { id: 1090511, name: 'Sapling', model: 'Sapling', created: '2007-08-09', tix: 100, desc: '' },
+  { id: 1098282, name: 'Lampshade', model: 'Lampshade', created: '2007-08-15', tix: 27, desc: '' },
   { id: 1098271, name: 'Mouse Ears', model: 'MouseEars', created: '2007-08-15', tix: 30, desc: 'These black circles look astonishingly similar to mouse ears.' },
-  { id: 1098284, name: 'Ribbons', model: 'Ribbons', created: '2007-08-15', tix: 20, desc: 'Two pretty bows.' },
-  { id: 1098272, name: 'Little Fluffy Cloud', model: 'LittleFluffyCloud', created: '2007-08-15', tix: 85, desc: 'Your own personal weather.' },
-  { id: 1098278, name: 'Satellite Dish', model: 'SatelliteDish', created: '2007-08-15', tix: 325, desc: 'Picks up 500 channels of ROBLOX.' },
+  { id: 1098284, name: 'Ribbons', model: 'Ribbons', created: '2007-08-15', tix: 20, desc: '' },
+  { id: 1098272, name: 'Little Fluffy Cloud', model: 'LittleFluffyCloud', created: '2007-08-15', tix: 85, desc: '' },
+  { id: 1098278, name: 'Satellite Dish', model: 'SatelliteDish', created: '2007-08-15', tix: 325, desc: '' },
   { id: 1098277, name: 'Santa Hat', model: 'SantaHat', created: '2007-08-15', robux: 37, desc: 'August is a fitting time for a Santa Hat.' },
-  { id: 1098285, name: 'Stage Prop', model: 'StageProp', created: '2007-08-15', tix: 50, desc: 'It only looks painful.' },
-  { id: 1082936, name: 'Floppy Fish', model: 'FloppyFish', created: '2007-08-03', tix: 60, desc: 'Something smells fishy.' },
-  { id: 1090516, name: 'Screw', model: 'Screw', created: '2007-08-09', tix: 70, desc: 'Got a screw loose?' },
-  { id: 1136591, name: 'Biology Textbook', model: 'BiologyTextbook', created: '2007-09-12', tix: 90, desc: 'Back to school.' },
-  { id: 1139753, name: 'Chemistry Textbook', model: 'ChemistryTextbook', created: '2007-09-14', tix: 90, desc: 'Back to school.' },
-  { id: 1098274, name: 'Game Input Device', model: 'GameInputDevice', created: '2007-08-15', tix: 125, desc: 'Up up down down left right left right.' },
-  { id: 1082935, name: 'Headrow', model: 'Headrow', created: '2007-08-03', tix: 210, desc: 'Heads to the left of me, heads to the right.' },
-  { id: 1098276, name: 'Hammerhead', model: 'Hammerhead', created: '2007-08-15', tix: 250, desc: 'A hammer for a head.' },
-  { id: 1086818, name: 'T-Bone Visor', model: 'TBoneVisor', created: '2007-08-06', tix: 400, desc: 'Medium rare.' },
-  { id: 1158038, name: 'Classic ROBLOX Pumpkin Head', model: 'PumpkinHead', created: '2007-10-04', robux: 250, offsale: true, desc: 'Only available in October!' },
-  { id: 1165243, name: 'Witch Hat', model: 'WitchHat', created: '2007-10-10', robux: 75, offsale: true, desc: 'Double, double toil and trouble.' },
-  { id: 1235487, name: 'Elf Hat', model: 'ElfHat', created: '2007-11-27', tix: 50, desc: "Santa's little helper." },
-  { id: 1080951, name: 'Builders Club Hard Hat', model: 'BCHardHat', created: '2007-08-02', bcOnly: true, desc: 'Members of the Builders Club receive this exclusive construction hard hat.' },
+  { id: 1098285, name: 'Stage Prop', model: 'StageProp', created: '2007-08-15', tix: 50, desc: '' },
+  { id: 1082936, name: 'Floppy Fish', model: 'FloppyFish', created: '2007-08-03', tix: 60, desc: '' },
+  { id: 1090516, name: 'Screw', model: 'Screw', created: '2007-08-09', tix: 70, desc: '' },
+  { id: 1136591, name: 'Biology Textbook', model: 'BiologyTextbook', created: '2007-09-12', tix: 90, desc: '' },
+  { id: 1139753, name: 'Chemistry Textbook', model: 'ChemistryTextbook', created: '2007-09-14', tix: 90, desc: '' },
+  { id: 1098274, name: 'Game Input Device', model: 'GameInputDevice', created: '2007-08-15', tix: 125, desc: '' },
+  { id: 1082935, name: 'Headrow', model: 'Headrow', created: '2007-08-03', tix: 210, desc: '' },
+  { id: 1098276, name: 'Hammerhead', model: 'Hammerhead', created: '2007-08-15', tix: 250, desc: '' },
+  { id: 1086818, name: 'T-Bone Visor', model: 'TBoneVisor', created: '2007-08-06', tix: 400, desc: '' },
+  { id: 1158038, name: 'Classic ROBLOX Pumpkin Head', model: 'PumpkinHead', created: '2007-10-04', robux: 250, offsale: true, desc: '' },
+  { id: 1165243, name: 'Witch Hat', model: 'WitchHat', created: '2007-10-10', robux: 75, offsale: true, desc: '' },
+  { id: 1235487, name: 'Elf Hat', model: 'ElfHat', created: '2007-11-27', tix: 50, desc: '' },
+  { id: 1080951, name: 'Builders Club Hard Hat', model: 'BCHardHat', created: '2007-08-02', bcOnly: true, desc: '' },
   // 2008
   { id: 1309911, name: 'Ninja Mask of Shadows', model: 'NinjaMask', created: '2008-01-02', robux: 12, desc: 'The Ninjas of Shadow strike from the darkness...' },
   { id: 1309918, name: 'Blue Winter Cap', model: 'BlueWinterCap', created: '2008-01-02', tix: 29, desc: 'Freezing to death is for chumps.' },
-  { id: 1365767, name: 'Valkyrie Helm', model: 'ValkyrieHelm', created: '2008-01-26', tix: 30000, desc: 'Worn by the warrior maidens of Robloxia.' },
+  { id: 1365767, name: 'Valkyrie Helm', model: 'ValkyrieHelm', created: '2008-01-26', tix: 30000, desc: '' },
   { id: 1374258, name: 'Chef Hat', model: 'ChefHat', created: '2008-01-28', tix: 35, desc: 'Anyone can cook! ...if you can afford this hat.' },
   { id: 1374269, name: 'Kitty Ears', model: 'KittyEars', created: '2008-01-31', tix: 30, desc: 'MY EARS. LET ME SHOW YOU THEM.' },
-  { id: 1459035, name: 'ROBLOX Visor', model: 'RobloxVisor', created: '2008-02-28', tix: 8, desc: 'Keep cool under this ROBLOX visor.' },
-  { id: 1590045, name: 'Football Helmet', model: 'FootballHelmet', created: '2008-03-31', tix: 102, desc: 'Hut! Hut! Hike!' },
+  { id: 1459035, name: '2008 ROBLOX Visor', model: 'RobloxVisor', created: '2008-02-28', tix: 8, desc: '' },
+  { id: 1590045, name: 'Football Helmet', model: 'FootballHelmet', created: '2008-03-31', tix: 102, desc: '' },
 ];
 
 // ROBLOX-made T-shirts on sale in Dec 2007 (prices from the archived catalog).
@@ -99,14 +100,14 @@ const ROBLOX_TSHIRTS_ROBUX = [
 
 // Shirts and Pants released with the clothing update of Apr 24, 2008.
 const ROBLOX_CLOTHING = [
-  { id: 1804770, type: 'Shirt', name: 'Battle Shirt of Awesomeness', tix: 200, created: '2008-04-24', spec: { style: 'battle', color: '#3a3f47', color2: '#c4281c', color3: '#d8b040' }, desc: 'Armor for the most awesome of battles.' },
-  { id: 1804767, type: 'Pants', name: 'Battle Pants of Awesomeness', tix: 200, created: '2008-04-24', spec: { style: 'battle', color: '#3a3f47', color2: '#c4281c', shoes: '#222222' }, desc: 'Armor for the most awesome of battles.' },
+  { id: 1804770, type: 'Shirt', name: 'Battle Shirt of Awesomeness', tix: 200, created: '2008-04-24', spec: { style: 'battle', color: '#3a3f47', color2: '#c4281c', color3: '#d8b040' }, desc: '' },
+  { id: 1804767, type: 'Pants', name: 'Battle Pants of Awesomeness', tix: 200, created: '2008-04-24', spec: { style: 'battle', color: '#3a3f47', color2: '#c4281c', shoes: '#222222' }, desc: '' },
   { id: 1812625, type: 'Pants', name: 'Grey Wizard Robes', robux: 25, created: '2008-04-24', creatorName: 'SonOfSevenless', spec: { style: 'robe', color: '#8a8a8a', color2: '#6a6a6a' }, desc: "The robes don't make the wizard. But they do make you look totally sweet." },
   { id: 1882758, type: 'Pants', name: 'Red Wizard Robes', robux: 25, created: '2008-04-30', creatorName: 'SonOfSevenless', spec: { style: 'robe', color: '#a8261c', color2: '#7a1a12' }, desc: 'Perfect for the fire mage.' },
-  { id: 1804726, type: 'Shirt', name: 'Camo-Shirt', tix: 40, unverifiedPrice: true, created: '2008-04-24', spec: { style: 'camo', color: '#4b5a33' }, desc: 'Blend in.' },
-  { id: 1804865, type: 'Shirt', name: 'Stanford Sweatshirt', tix: 60, unverifiedPrice: true, created: '2008-04-24', spec: { style: 'long', color: '#8c1515', color2: '#ffffff', text: 'STANFORD' }, desc: 'Go Cardinal!' },
-  { id: 1804746, type: 'Shirt', name: 'White Shirt', tix: 10, unverifiedPrice: true, created: '2008-04-24', spec: { style: 'tee', color: '#f2f2f2' }, desc: 'A plain white shirt.' },
-  { id: 1804738, type: 'Pants', name: 'Jeans', tix: 10, unverifiedPrice: true, created: '2008-04-24', spec: { style: 'jeans', color: '#3b5b8f', shoes: '#2a2a2a' }, desc: 'Classic blue jeans.' },
+  { id: 1804726, type: 'Shirt', name: 'Camo-Shirt', tix: 40, unverifiedPrice: true, created: '2008-04-24', spec: { style: 'camo', color: '#4b5a33' }, desc: '' },
+  { id: 1804865, type: 'Shirt', name: 'Stanford Sweatshirt', tix: 60, unverifiedPrice: true, created: '2008-04-24', spec: { style: 'long', color: '#8c1515', color2: '#ffffff', text: 'STANFORD' }, desc: '' },
+  { id: 1804746, type: 'Shirt', name: 'White Shirt', tix: 10, unverifiedPrice: true, created: '2008-04-24', spec: { style: 'tee', color: '#f2f2f2' }, desc: '' },
+  { id: 1804738, type: 'Pants', name: 'Jeans', tix: 10, unverifiedPrice: true, created: '2008-04-24', spec: { style: 'jeans', color: '#3b5b8f', shoes: '#2a2a2a' }, desc: '' },
 ];
 
 // Fictional member-made clothing (community filler).
@@ -178,6 +179,7 @@ const LISTED_GAMES = [
 ];
 
 function seed() {
+  NOW = clock.now();
   const state = {
     seedVersion: SEED_VERSION,
     users: {}, places: {}, items: {}, messages: {}, friendRequests: {},

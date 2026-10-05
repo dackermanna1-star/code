@@ -84,7 +84,7 @@ function catalogPage(ctx) {
   <div class="Assets">
     <span class="AssetsDisplaySet">${label}</span>
     ${v.pager(p, pages, (n) => url({ p: n }), 'HeaderPager', '')}
-    ${shown.length ? `<table cellspacing="0" align="Center" border="0" width="100%">${rows.map((r) => `<tr>${r.map(cell).join('')}</tr>`).join('')}</table>` : '<div class="NoResults">No items found.</div>'}
+    ${shown.length ? `<table cellspacing="0" align="Center" border="0" width="100%">${rows.map((r) => `<tr>${r.map(cell).join('')}${'<td width="20%"></td>'.repeat(5 - r.length)}</tr>`).join('')}</table>` : '<div class="NoResults">No items found.</div>'}
     ${v.pager(p, pages, (n) => url({ p: n }), 'FooterPager', '')}
   </div>
   <div style="clear:both"></div>

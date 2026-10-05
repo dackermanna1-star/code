@@ -1,5 +1,6 @@
 // Request routing: ASP.NET-style, case-insensitive ".aspx" / ".ashx" paths.
 'use strict';
+const clock = require('./clock');
 const crypto = require('crypto');
 const db = require('./db');
 const { parseCookies, parseForm } = require('./util');
@@ -76,7 +77,7 @@ async function router(req, res, url, body) {
   };
 
   if (user) {
-    const now = Date.now();
+    const now = clock.now();
     user.lastOnline = now;
     user.lastLocation = user.playingPlace ? user.lastLocation : 'Website';
     // Daily Tickets (and Builders Club ROBUX) allowance.

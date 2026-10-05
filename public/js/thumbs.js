@@ -30,14 +30,27 @@ function lights(scene) {
 
 /** Frame an object: 3/4 view from the front-left, slightly above. */
 function frame(object, w, h, opts = {}) {
+  // Point the camera at the object from the classic 3/4 angle, then pull it back
+  // until the projected bounding box just fits (fill = fraction of the image).
   const box = new THREE.Box3().setFromObject(object);
-  const size = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
-  const cam = new THREE.PerspectiveCamera(opts.fov || 30, w / h, 0.05, 500);
-  const dir = new THREE.Vector3(opts.side ?? -0.42, opts.up ?? 0.28, -1).normalize(); // camera in front (-Z) and to the character's left
-  const radius = Math.max(size.y / 2 / Math.tan((cam.fov * Math.PI) / 360), (Math.max(size.x, size.z) / 2) / Math.tan((cam.fov * Math.PI) / 360) / cam.aspect);
-  cam.position.copy(center).addScaledVector(dir, radius * (opts.pad || 1.18) + Math.max(size.x, size.z) / 2);
-  cam.lookAt(center);
+  const corners = [];
+  for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) corners.push(new THREE.Vector3(x, y, z));
+  const cam = new THREE.PerspectiveCamera(opts.fov || 30, w / h, 0.05, 1000);
+  const dir = new THREE.Vector3(opts.side ?? -0.42, opts.up ?? 0.28, -1).normalize(); // in front (-Z), to the character's left
+  const fill = 1 / (opts.pad || 1.18);
+  const place = (d) => {
+    cam.position.copy(center).addScaledVector(dir, d);
+    cam.lookAt(center);
+    cam.updateMatrixWorld(); cam.updateProjectionMatrix();
+    let ext = 0;
+    const v = new THREE.Vector3();
+    for (const c of corners) { v.copy(c).project(cam); ext = Math.max(ext, Math.abs(v.x), Math.abs(v.y)); }
+    return ext;
+  };
+  let lo = 0.1, hi = 2000;
+  for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; if (place(mid) > fill) lo = mid; else hi = mid; }
+  place(hi);
   return cam;
 }
 
@@ -55,7 +68,7 @@ function renderAvatar(app, w, h) {
   lights(scene);
   const model = new CharacterModel(app);
   scene.add(model.root);
-  const cam = frame(model.root, w, h, { pad: w === h ? 1.12 : 1.05 });
+  const cam = frame(model.root, w, h, { pad: 1.06 });
   const url = snapshot(scene, cam, w, h);
   model.dispose();
   return url;
@@ -99,7 +112,7 @@ function renderHat(model, w, h) {
   const hat = buildHat(model);
   if (!hat) return null;
   scene.add(hat);
-  const cam = frame(hat, w, h, { up: 0.35, pad: 1.25 });
+  const cam = frame(hat, w, h, { up: 0.35, pad: 1.12 });
   return snapshot(scene, cam, w, h);
 }
 
@@ -115,7 +128,7 @@ async function renderModel(model, w, h) {
   lights(scene);
   const obj = buildModelPreview(model);
   scene.add(obj);
-  const cam = frame(obj, w, h, { up: 0.45, pad: 1.2 });
+  const cam = frame(obj, w, h, { up: 0.45, pad: 1.08 });
   return snapshot(scene, cam, w, h);
 }
 

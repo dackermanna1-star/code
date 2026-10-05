@@ -3,7 +3,7 @@
 //   arms and legs 1x2x1. Clothing uses the 585x559 shirt/pants template.
 import * as THREE from 'three';
 import { brickColor } from './BrickColor.js';
-import { drawFace } from './textures.js';
+import { headGeometry, faceGeometry, faceTexture } from './headshape.js';
 import { buildHat } from './hats.js';
 import { drawClothing } from './clothing.js';
 
@@ -46,38 +46,6 @@ function templateBox(sx, sy, sz, regions) {
     const V = 1 - (ry + 0.5 + (1 - t) * (rh - 1)) / TEMPLATE_H;
     uv.setXY(i, U, V);
   }
-  return g;
-}
-
-let headGeo = null;
-function headGeometry() {
-  if (headGeo) return headGeo;
-  // Rounded cylinder ~1.2 studs wide/tall (2x1x1 part with head mesh scaled 1.25).
-  const R = 0.62, H = 0.62, r = 0.2;
-  const pts = [];
-  pts.push(new THREE.Vector2(0, -H));
-  for (let i = 0; i <= 6; i++) {
-    const a = -Math.PI / 2 + (i / 6) * (Math.PI / 2);
-    pts.push(new THREE.Vector2(R - r + Math.cos(a) * r, -H + r + Math.sin(a) * r));
-  }
-  for (let i = 0; i <= 6; i++) {
-    const a = (i / 6) * (Math.PI / 2);
-    pts.push(new THREE.Vector2(R - r + Math.cos(a) * r, H - r + Math.sin(a) * r));
-  }
-  pts.push(new THREE.Vector2(0, H));
-  headGeo = new THREE.LatheGeometry(pts, 28);
-  return headGeo;
-}
-
-let faceGeo = null;
-function faceGeometry() {
-  if (faceGeo) return faceGeo;
-  // A front-facing curved patch slightly outside the head cylinder.
-  const g = new THREE.CylinderGeometry(0.635, 0.635, 1.2, 24, 1, true, Math.PI - Math.PI * 0.42, Math.PI * 0.84);
-  // remap uvs so the whole decal spans the patch
-  const uv = g.attributes.uv;
-  for (let i = 0; i < uv.count; i++) uv.setX(i, uv.getX(i));
-  faceGeo = g;
   return g;
 }
 
@@ -183,12 +151,7 @@ export class CharacterModel {
     head.position.y = 0.5 + 0.05;
     this.neck.add(head);
     this.head = head;
-    const fc = document.createElement('canvas');
-    fc.width = fc.height = 256;
-    drawFace(fc.getContext('2d'), 256, a.face || 'Smile');
-    const ft = new THREE.CanvasTexture(fc);
-    ft.colorSpace = THREE.SRGBColorSpace;
-    const face = new THREE.Mesh(faceGeometry(), new THREE.MeshPhongMaterial({ map: ft, transparent: true, depthWrite: false, shininess: 10 }));
+    const face = new THREE.Mesh(faceGeometry(), new THREE.MeshPhongMaterial({ map: faceTexture(), transparent: true, depthWrite: false, shininess: 10 }));
     head.add(face);
     // hats
     this.hats = [];
@@ -248,7 +211,7 @@ export class CharacterModel {
     this.root.traverse((o) => {
       if (o.material) {
         const ms = Array.isArray(o.material) ? o.material : [o.material];
-        for (const m of ms) { if (m.map) m.map.dispose(); m.dispose(); }
+        for (const m of ms) { if (m.map && !m.map.userData.shared) m.map.dispose(); m.dispose(); }
       }
     });
   }

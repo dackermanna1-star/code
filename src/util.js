@@ -1,4 +1,5 @@
 'use strict';
+const clock = require('./clock');
 
 function parseCookies(header) {
   const out = {};
@@ -27,7 +28,7 @@ function commas(n) {
 }
 
 /** "4 hours ago", "1 day ago", "49 minutes ago" -- as on the 2008 Games page. */
-function timeAgo(ms, now = Date.now()) {
+function timeAgo(ms, now = clock.now()) {
   const s = Math.max(0, (now - ms) / 1000);
   const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'} ago`;
   if (s < 60) return plural(Math.max(1, Math.floor(s)), 'second');

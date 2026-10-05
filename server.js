@@ -58,7 +58,7 @@ const server = http.createServer(async (req, res) => {
     // Static assets
     const lower = pathname.toLowerCase();
     if (lower.startsWith('/thumbs/')) return serveFile(res, path.join(THUMBS, path.basename(pathname)), req);
-    if (/^\/(css|js|images|game\/client|sounds|fonts)\//i.test(pathname) || lower === '/favicon.ico') {
+    if (/^\/(css|js|images|game\/client|sounds|fonts|dev)\//i.test(pathname) || lower === '/favicon.ico') {
       const p = pathname.replace(/^\/game\/client\//i, '/game/');
       return serveFile(res, path.join(PUBLIC, p), req);
     }

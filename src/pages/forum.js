@@ -1,5 +1,6 @@
 // ROBLOX Forum (ASP.NET Forums "default" skin, as used in 2007-2008).
 'use strict';
+const clock = require('../clock');
 const db = require('../db');
 const v = require('../views');
 const { page } = require('../layout');
@@ -7,7 +8,7 @@ const { h, commas, clampInt } = require('../util');
 
 function fdate(t) {
   const d = new Date(t);
-  const now = new Date();
+  const now = new Date(clock.now());
   let hr = d.getHours(); const ampm = hr >= 12 ? 'PM' : 'AM'; hr = hr % 12 || 12;
   const time = `${String(hr).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} ${ampm}`;
   if (d.toDateString() === now.toDateString()) return `<b>Today @ ${time}</b>`;
@@ -28,7 +29,7 @@ function forumPage(ctx, title, inner) {
     </table><br/><br/>
     <table class="tableBorder" width="100%" cellspacing="1" cellpadding="3">
       <tr><th class="tableHeaderText" colspan="2" align="left">&nbsp;Who is Online</th></tr>
-      <tr><td class="forumRow" valign="top"><span class="normalTextSmaller">There are currently: <br/><b>${30 + (Math.floor(Date.now() / 60000) % 40)}</b> anonymous users online.<br/><br/><b>${online.length}</b> registered users online: ${online.slice(0, 20).map((u) => `<a class="userOnlineLinkBold" href="/User.aspx?ID=${u.id}">${h(u.name)}</a>`).join(', ')}</span></td></tr>
+      <tr><td class="forumRow" valign="top"><span class="normalTextSmaller">There are currently: <br/><b>${30 + (Math.floor(clock.now() / 60000) % 40)}</b> anonymous users online.<br/><br/><b>${online.length}</b> registered users online: ${online.slice(0, 20).map((u) => `<a class="userOnlineLinkBold" href="/User.aspx?ID=${u.id}">${h(u.name)}</a>`).join(', ')}</span></td></tr>
     </table>`;
   const menu = `<div class="ForumMenu"><a class="menuTextLink" href="/Forum/Default.aspx"><img src="/images/forum/icon_mini_home.gif" border="0" alt=""/>Home</a> &nbsp;<a class="menuTextLink" href="/Forum/Search/default.aspx"><img src="/images/forum/icon_mini_search.gif" border="0" alt=""/>Search</a> &nbsp;${ctx.user ? `<a class="menuTextLink" href="/User.aspx"><img src="/images/forum/icon_mini_profile.gif" border="0" alt=""/>Profile</a> &nbsp;<a class="menuTextLink" href="/Forum/Default.aspx"><img src="/images/forum/icon_mini_myforums.gif" border="0" alt=""/>MyForums</a>` : `<a class="menuTextLink" href="/Login/New.aspx"><img src="/images/forum/icon_mini_register.gif" border="0" alt=""/>Register</a>`}</div>`;
   void F;
@@ -57,7 +58,7 @@ function lastPost(F, fid) {
 
 function defaultPage(ctx) {
   const F = ctx.state.forum;
-  const now = new Date();
+  const now = new Date(clock.now());
   const rows = F.groups.map((g) => `
     <tr><td class="forumHeaderBackgroundAlternate" colspan="5" height="20"><a class="forumTitle" href="/Forum/Default.aspx">${h(g.name)}</a></td></tr>
     ${g.forums.map((fid) => {
@@ -150,8 +151,8 @@ function addPost(ctx) {
     if (!body || (!t && !subject)) err = 'Please enter a subject and a message.';
     else {
       const pid = db.nextId('forumPost');
-      const thread = t || (F.threads[pid] = { id: pid, forumId: fid, subject, posts: [], views: 0, t: Date.now() });
-      F.posts[pid] = { id: pid, userId: ctx.user.id, body, t: Date.now(), threadId: thread.id };
+      const thread = t || (F.threads[pid] = { id: pid, forumId: fid, subject, posts: [], views: 0, t: clock.now() });
+      F.posts[pid] = { id: pid, userId: ctx.user.id, body, t: clock.now(), threadId: thread.id };
       thread.posts.push(pid);
       ctx.user.forumPosts = (ctx.user.forumPosts || 0) + 1;
       db.save();
