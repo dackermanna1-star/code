@@ -181,45 +181,44 @@ export class World {
   onExplosion(fn) { (this.explosionListeners ||= []).push(fn); }
 
   spawnExplosionEffect(pos, radius) {
-    // 2008 explosions: an expanding orange/yellow fireball with sparks.
+    // 2008 explosions: textures/explosion.png (an orange-yellow billowing
+    // fireball) drawn additively as a burst of particles flying outward for
+    // about a second (docs/RESEARCH.md, "Explosion visual"; the particle
+    // numbers follow Super Nostalgia Zone's emulation, scaled down).
+    const tex = explosionTexture();
     const group = new THREE.Group();
-    const ball = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 16, 12),
-      new THREE.MeshBasicMaterial({ color: 0xffb030, transparent: true, opacity: 0.9, depthWrite: false })
-    );
-    const core = new THREE.Mesh(
-      new THREE.SphereGeometry(0.6, 12, 8),
-      new THREE.MeshBasicMaterial({ color: 0xfff2a0, transparent: true, opacity: 1, depthWrite: false })
-    );
-    group.add(ball, core);
-    const sparks = [];
-    for (let i = 0; i < 24; i++) {
-      const s = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), new THREE.MeshBasicMaterial({ color: i % 2 ? 0xff6a00 : 0xffd000 }));
-      const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.2, Math.random() - 0.5).normalize();
-      sparks.push({ s, v: dir.multiplyScalar(30 + Math.random() * 30) });
-      group.add(s);
-    }
     group.position.copy(pos);
     this.scene.add(group);
-    let t = 0;
+    const parts = [];
+    const emit = (n) => {
+      for (let i = 0; i < n; i++) {
+        const m = new THREE.SpriteMaterial({ map: tex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, color: 0xffffff });
+        const s = new THREE.Sprite(m);
+        const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+        s.material.rotation = Math.random() * Math.PI * 2;
+        group.add(s);
+        parts.push({ s, v: dir.multiplyScalar((20 + Math.random() * 5) * Math.max(0.6, radius / 4)), age: 0, life: 0.3 + Math.random() * 0.2 });
+      }
+    };
+    let t = 0, emitted = 0;
     const off = this.onUpdate((dt) => {
       t += dt;
-      const k = t / 0.6;
-      const r = radius * (0.4 + k * 1.3);
-      ball.scale.setScalar(r);
-      core.scale.setScalar(r * 0.7);
-      ball.material.opacity = Math.max(0, 0.9 - k);
-      core.material.opacity = Math.max(0, 1 - k * 1.4);
-      for (const sp of sparks) {
-        sp.v.y -= 60 * dt;
-        sp.s.position.addScaledVector(sp.v, dt);
+      while (emitted < 6 && t >= emitted * 0.12) { emit(22); emitted++; }
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const p = parts[i];
+        p.age += dt;
+        const k = p.age / p.life;
+        if (k >= 1) { group.remove(p.s); p.s.material.dispose(); parts.splice(i, 1); continue; }
+        p.s.position.addScaledVector(p.v, dt);
+        p.s.scale.setScalar(3 - 0.4 * k);
+        const c = 1 - 0.5 * k; // white -> 50% grey
+        p.s.material.color.setRGB(c, c, c);
+        p.s.material.opacity = 1 - k;
       }
-      if (k >= 1) {
-        off();
-        this.scene.remove(group);
-      }
+      if (emitted >= 6 && !parts.length) { off(); this.scene.remove(group); }
     });
   }
+
 
   resize(w, h) {
     this.renderer.setSize(w, h, false);
@@ -336,4 +335,28 @@ export function obbIntersectsAABB(o, box) {
     }
   }
   return true;
+}
+
+let _explosionTex = null;
+function explosionTexture() {
+  if (_explosionTex) return _explosionTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const x = c.getContext('2d');
+  x.fillStyle = '#000'; x.fillRect(0, 0, 128, 128);
+  // billowing puffs: overlapping radial blobs, yellow core, orange edges
+  let seed = 3;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < 26; i++) {
+    const a = rnd() * Math.PI * 2, d = rnd() * 30;
+    const cx = 64 + Math.cos(a) * d, cy = 64 + Math.sin(a) * d, r = 14 + rnd() * 18;
+    const g = x.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, 'rgba(255,230,140,0.55)');
+    g.addColorStop(0.5, 'rgba(255,140,30,0.35)');
+    g.addColorStop(1, 'rgba(120,30,0,0)');
+    x.fillStyle = g; x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fill();
+  }
+  _explosionTex = new THREE.CanvasTexture(c);
+  _explosionTex.colorSpace = THREE.SRGBColorSpace;
+  return _explosionTex;
 }
