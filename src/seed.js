@@ -12,7 +12,7 @@
 const clock = require('./clock');
 const crypto = require('crypto');
 
-const SEED_VERSION = 8;
+const SEED_VERSION = 9;
 const DAY = 86400000;
 let NOW = 0; // set from the site clock when seeding
 const ago = (days) => NOW - Math.round(days * DAY);
@@ -385,10 +385,10 @@ function seed() {
   // --- forum (ASP.NET Forums layout; groups/forums as of 2008, threads fictional)
   const F = state.forum;
   const groups = [
-    ['ROBLOX', [[13, 'General Discussion', 'This is the place for conversation about all things ROBLOX'], [14, 'Creations Gallery', 'Discuss your ROBLOX creations and share the secrets of your success'], [21, 'Suggestions, Feedback, and Ideas', 'Do you have a suggestion for how to make ROBLOX better? Let us know!'], [5, 'Off Topic', 'Feel like talking about stuff other than ROBLOX? Do it here.']]],
-    ['Help Center', [[10, 'Building Help', 'Learn the ins and outs of building structures and machines in ROBLOX.'], [11, 'Scripting Help', 'Need help with a script you are writing? For advanced ROBLOX users.'], [9, 'Technical Problems and Bug Reports', 'Are you having trouble installing or upgrading ROBLOX? Found a bug?']]],
-    ['Fun', [[18, 'Role-Playing', 'Does your Robloxian want to fly to the moon? Play out your stories here.'], [38, 'ROBLOXiwood', 'The forum for movie-makers!'], [19, 'Rate My Robloxian', 'Show the world of ROBLOX your character and see what they think.']]],
-    ['Entertainment', [[26, 'Sports', 'Show off your ROBLOX athlete and talk about sports.'], [27, 'Music', 'Does your Robloxian rock? Talk about music.'], [28, 'Movies/TV/Books', 'Does your Robloxian belong on the silver screen?']]],
+    ['ROBLOX', [[13, 'General Discussion', 'This is the place for conversation about all things ROBLOX. Posts not pertaining to ROBLOX will be mercilessly pruned by our crack squad of moderators.'], [14, 'Creations Gallery', 'Discuss your ROBLOX creations and share the secrets of your success. Post requests for help building and scripting here.'], [21, 'Suggestions, Feedback, and Ideas', 'Do you have a suggestion for how to make ROBLOX better? Share your feedback here.'], [5, 'Off Topic', 'Feel like talking about stuff other than ROBLOX? Post here.']]],
+    ['Help Center', [[10, 'Building Help', 'Learn the ins and outs of building structures in ROBLOX here! Share your techniques with other builders, discuss designs, and draft plans.'], [11, 'Scripting Help', 'Need help with a script you are writing? Need to edit an existing script? Want to share your devious programming skills? For advanced ROBLOX users.'], [9, 'Technical Problems and Bug Reports', 'Are you having trouble installing or upgrading ROBLOX? Account troubles? Website problems? Have you found a bug? Post here!']]],
+    ['Fun', [[18, 'Role-Playing', 'Does your Robloxian want to fly to the moon? Command a ship? Lay siege to a castle? Start a role-playing thread here.'], [38, 'ROBLOXiwood', 'The forum for movie-makers!'], [19, 'Rate My Robloxian', 'Show the world of ROBLOX your character. Get feedback on your outfit.']]],
+    ['Entertainment', [[26, 'Sports', 'Show off your ROBLOX athlete. Or just hang out with other ROBLOX fans.'], [27, 'Music', 'Does your Robloxian rock? Let people know. Or just talk about your favorite bands.'], [28, 'Movies/TV/Books', 'Does your Robloxian belong on the silver screen, or in the pages of a novel? Show off your ROBLOX movie star, discuss your favorite TV series, films, and the books you love.']]],
   ];
   for (const [gname, forums] of groups) {
     F.groups.push({ name: gname, forums: forums.map((f) => f[0]) });

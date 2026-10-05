@@ -3,6 +3,8 @@
 // Zero dependencies: plain Node http, a JSON file database and server-side
 // rendered ".aspx" pages, mirroring the URL structure of the 2008 site.
 'use strict';
+// ROBLOX was in California: show all site dates and times in Pacific time.
+process.env.TZ = process.env.TZ || 'America/Los_Angeles';
 const http = require('http');
 const fs = require('fs');
 const path = require('path');

@@ -94,7 +94,7 @@ img{border:0;}
 #CustomizeCharacterContainer .Asset{position:relative;}
 #CustomizeCharacterContainer .WearForm{display:inline;}
 .popupControl{padding:2px;z-index:500;}
-.popupControl td{padding:0;}
+#CustomizeCharacterContainer .popupControl td{padding:0;}
 
 /* inbox / messages */
 #InvitationContainer .MultilineTextBox{height:250px;min-height:250px;}
