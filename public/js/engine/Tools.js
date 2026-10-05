@@ -332,7 +332,7 @@ export class PaintballGun extends Tool {
     super(game, { name: opts.name || 'PaintballGun' });
     this.reload = opts.reload ?? 0.5;
     this.speed = opts.speed ?? 100;
-    this.damageAmount = opts.damage ?? 2;
+    this.damageAmount = opts.damage ?? 20; // TakeDamage(20) in the 2007 tool script
   }
   build() {
     const g = new THREE.Group();

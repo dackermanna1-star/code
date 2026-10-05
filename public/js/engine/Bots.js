@@ -94,7 +94,8 @@ export class BotBrain {
     // gap ahead -> jump if the target is beyond it (and we mean to cross)
     if (ch.grounded && this.jumpCooldown <= 0 && this.jumpGaps !== false) {
       const ahead = new THREE.Vector3(p.x + d.x * 2.2, feet + 0.5, p.z + d.z * 2.2);
-      const ground = this.ray(ahead, ahead.clone().add(new THREE.Vector3(0, -6, 0)));
+      let ground = this.ray(ahead, ahead.clone().add(new THREE.Vector3(0, -6, 0)));
+      if (ground && ground.body.part?.tags.has('deadly')) ground = null; // invisible kill floor: treat as a gap
       if (!ground && dist > 3) {
         if (this.allowGapJumps) { ch.input.jump = true; this.jumpCooldown = 0.5; }
         else if (!this.dontAvoidEdges) { ch.input.move.set(0, 0, 0); this.target = null; }

@@ -191,6 +191,21 @@ const SHIRTS = {
       rect(ctx, REGIONS[limb].Bottom, plate);
     }
   },
+  wrap(ctx, s) {
+    // bandage wrappings (for The Mummy)
+    const base = s.color || '#e8e2cc';
+    const paint = (x, y, w, h, seedOff) => {
+      ctx.fillStyle = base; ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
+      const rnd = seeded(31 + seedOff);
+      ctx.lineWidth = 2;
+      for (let yy = y + 4; yy < y + h; yy += 7 + rnd() * 5) {
+        ctx.strokeStyle = rnd() < 0.5 ? '#b8ae90' : '#cfc6a8';
+        ctx.beginPath(); ctx.moveTo(x - 1, yy); ctx.lineTo(x + w + 1, yy + (rnd() - 0.5) * 10); ctx.stroke();
+      }
+    };
+    let k = 0;
+    for (const set of [REGIONS.torso, REGIONS.rightLimb, REGIONS.leftLimb]) for (const r of Object.values(set)) paint(...r, k++);
+  },
   suit(ctx, s) { SHIRTS.jacket(ctx, { color: s.color || '#1b1b1b', color2: '#f2f2f2', color3: s.color3 || '#a01818' }); },
 };
 
@@ -343,6 +358,7 @@ const PANTS = {
       }
     }
   },
+  wrap(ctx, s) { SHIRTS.wrap(ctx, s); },
   camo(ctx, s) {
     PANTS.plain(ctx, { color: s.color || '#4b5a33', shoes: s.shoes || '#2a2a2a' });
     camoBlobs(ctx, [REGIONS.rightLimb, REGIONS.leftLimb], s.blobs);

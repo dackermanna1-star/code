@@ -123,6 +123,12 @@ export class Gui {
     this.setCursor('arrow');
   }
 
+  /** Tools and Insert are only usable while building in your own place. */
+  setBuildMode(on) {
+    this.buildMode = !!on;
+    for (const a of this.root.querySelectorAll('.rbx-topbar [data-act="tools"], .rbx-topbar [data-act="insert"]')) a.classList.toggle('disabled', !on);
+  }
+
   // --- cursors ---------------------------------------------------------------------
   setCursor(kind) {
     if (this._cursor === kind) return;

@@ -174,7 +174,11 @@ export class World {
       }
     }
     this.spawnExplosionEffect(pos, radius);
+    for (const fn of this.explosionListeners || []) fn(pos, radius, opts);
   }
+
+  /** Scripts can watch explosions (e.g. to loosen bricks that were joined by studs). */
+  onExplosion(fn) { (this.explosionListeners ||= []).push(fn); }
 
   spawnExplosionEffect(pos, radius) {
     // 2008 explosions: an expanding orange/yellow fireball with sparks.

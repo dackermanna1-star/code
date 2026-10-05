@@ -132,7 +132,10 @@ export class Game {
   spawnPlayer(player) {
     if (player.respawnTimer) { this.world.cancel(player.respawnTimer); player.respawnTimer = null; }
     if (player.character) player.character.destroy();
-    const ch = new Character(this.world, { name: player.name, appearance: player.appearance, isLocal: player.isLocal, player, teamColor: player.team ? player.team.color : null });
+    // a place script may dress a player up (appearanceOverride), which also
+    // skips the team colouring
+    const ov = player.appearanceOverride;
+    const ch = new Character(this.world, { name: player.name, appearance: ov || player.appearance, isLocal: player.isLocal, player, teamColor: !ov && player.team ? player.team.color : null });
     player.character = ch;
     const sp = this.pickSpawn(player);
     ch.spawn(sp.position, sp.yaw, this.forceFieldTime);

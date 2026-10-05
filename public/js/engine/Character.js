@@ -286,6 +286,10 @@ export class Character {
           gb.velocity.z + (w.x * r.y - w.y * r.x)
         );
         this.facing += w.y * h;
+      } else if (gb.part?.surfaceVelocity) {
+        // an anchored part with its Velocity set: a conveyor
+        const sv = gb.part.surfaceVelocity;
+        platformVel = new CANNON.Vec3(sv.x, 0, sv.z);
       }
       b.velocity.y = platformVel ? platformVel.y : 0;
       
