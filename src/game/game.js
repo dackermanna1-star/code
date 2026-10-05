@@ -134,6 +134,16 @@ export class Game {
     this.ui.showHUD();
     this.state = 'playing';
     this.input.requestLock();
+    if (this.meta.runs <= 3) {
+      const tips = [
+        'Left click to attack. Hold it to charge a heavy blow.',
+        'Right click blocks. Raise your guard just as a blow lands to PARRY.',
+        'Shift dodges through attacks. Red-glowing attacks cannot be blocked.',
+        'F kicks: smash doors, break shields, punt foes into spikes and walls.',
+        'Strike cracked walls to find secrets. Press Tab to see your build.',
+      ];
+      tips.forEach((t, i) => this.schedule(3 + i * 7, () => { if (this.state === 'playing') this.ui.toast(t, 'info'); }, true));
+    }
   }
 
   loadFloor(n) {

@@ -84,3 +84,13 @@ src/
   game/      game loop & run lifecycle, level/room events, combat resolution, loot manager
   ui/        HUD, minimap, tooltips, menus
 ```
+
+## Debug start
+
+For testing, the dev server accepts URL parameters that skip the menu:
+
+```
+http://localhost:8000/?autostart&floor=3&seed=ABC123&class=brute&god
+```
+
+`floor` picks the starting depth, `seed` fixes the run, `class` picks a starting class (it doesn't have to be unlocked), and `god` makes you invulnerable. `window.__game` exposes the running game in the console.
