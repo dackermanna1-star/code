@@ -19,6 +19,7 @@ public final class AppRegistry {
 		APPS.put(info.id(), info);
 	}
 
+	/** App by id, or null. */
 	public static @Nullable AppInfo get(String id) {
 		return APPS.get(id);
 	}

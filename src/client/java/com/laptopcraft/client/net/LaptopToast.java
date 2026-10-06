@@ -24,6 +24,9 @@ public final class LaptopToast implements Toast {
 	private final List<String> lines;
 	private Toast.Visibility visibility = Toast.Visibility.SHOW;
 
+	/**
+	 * @param icon notification icon key (see {@code Icons.notification})
+	 */
 	public LaptopToast(String icon, String title, String message) {
 		this.icon = icon;
 		this.title = title;

@@ -67,14 +67,17 @@ public final class Dialog {
 		}
 	}
 
+	/** Message box with an OK button. */
 	public static Dialog alert(String title, String message) {
 		return new Dialog(Kind.ALERT, title, message, Icons.INFO, null, null, null, "", "OK", "");
 	}
 
+	/** Message box with a custom icon and OK callback. */
 	public static Dialog alert(String title, String message, Identifier icon, @Nullable Runnable onOk) {
 		return new Dialog(Kind.ALERT, title, message, icon, onOk, null, null, "", "OK", "");
 	}
 
+	/** Yes/No question. */
 	public static Dialog confirm(String title, String message, Runnable onYes) {
 		return new Dialog(Kind.CONFIRM, title, message, Icons.WARNING, onYes, null, null, "", "Yes", "No");
 	}
@@ -84,6 +87,7 @@ public final class Dialog {
 		return new Dialog(Kind.CONFIRM, title, message, Icons.WARNING, onYes, null, onNo, "", yesLabel, noLabel);
 	}
 
+	/** Text input dialog; {@code onOk} gets the trimmed text. */
 	public static Dialog prompt(String title, String label, String initial, Consumer<String> onOk) {
 		return new Dialog(Kind.PROMPT, title, label, null, null, onOk, null, initial, "OK", "Cancel");
 	}
@@ -101,10 +105,12 @@ public final class Dialog {
 		return this;
 	}
 
+	/** True once answered or dismissed. */
 	public boolean isDone() {
 		return done;
 	}
 
+	/** Dialog kind. */
 	public Kind kind() {
 		return kind;
 	}
@@ -182,21 +188,25 @@ public final class Dialog {
 		return Gfx.hovered(mx, my, bx, by, bw, bh);
 	}
 
+	/** Input in host coordinates (always consumed: the dialog is modal). */
 	public boolean mouseClicked(double mx, double my, int button) {
 		ui.mouseClicked(mx, my, button);
 		return true;
 	}
 
+	/** See {@link #mouseClicked}. */
 	public boolean mouseReleased(double mx, double my, int button) {
 		ui.mouseReleased(mx, my, button);
 		return true;
 	}
 
+	/** See {@link #mouseClicked}. */
 	public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
 		ui.mouseDragged(mx, my, button, dx, dy);
 		return true;
 	}
 
+	/** Enter = OK, Esc = cancel; other keys go to the text field. */
 	public boolean keyPressed(int key, int scan, int mods) {
 		if (key == GLFW.GLFW_KEY_ESCAPE) {
 			if (kind == Kind.ALERT) {
@@ -218,6 +228,7 @@ public final class Dialog {
 		return true;
 	}
 
+	/** Typed characters go to the text field. */
 	public boolean charTyped(int cp, int mods) {
 		ui.charTyped(cp, mods);
 		return true;

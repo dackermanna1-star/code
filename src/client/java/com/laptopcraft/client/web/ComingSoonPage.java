@@ -9,6 +9,7 @@ public class ComingSoonPage extends WebPage {
 	private final PlaceholderSite site;
 	private final WebUrl url;
 
+	/** Page for {@code url} of a placeholder site. */
 	public ComingSoonPage(PlaceholderSite site, WebUrl url) {
 		this.site = site;
 		this.url = url;

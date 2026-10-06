@@ -11,6 +11,7 @@ public final class CubeLogo {
 	private CubeLogo() {
 	}
 
+	/** Draws the logo (size×size) with an ARGB tint. */
 	public static void draw(GuiGraphics g, int x, int y, int size, int tint) {
 		if (Gfx.textureExists(Icons.LOGO)) {
 			Gfx.icon(g, Icons.LOGO, x, y, size, tint);

@@ -55,6 +55,7 @@ public final class Notifications {
 		this.onActivate = handler;
 	}
 
+	/** Shows a toast and adds it to the history. */
 	public void push(String icon, String title, String message) {
 		Entry e = new Entry(icon == null ? "info" : icon, title == null ? "" : title, message == null ? "" : message, Ease.now());
 		history.add(0, e);
@@ -71,19 +72,23 @@ public final class Notifications {
 		}
 	}
 
+	/** Notification history of this session, newest first. */
 	public List<Entry> history() {
 		return Collections.unmodifiableList(history);
 	}
 
+	/** Clears the history (notification center "Clear all"). */
 	public void clearHistory() {
 		history.clear();
 		unseen = 0;
 	}
 
+	/** Number of notifications since the notification center was last opened. */
 	public int unseen() {
 		return unseen;
 	}
 
+	/** Resets {@link #unseen()}. */
 	public void markSeen() {
 		unseen = 0;
 	}
@@ -107,6 +112,7 @@ public final class Notifications {
 		return 18 + lines * 10 + 4;
 	}
 
+	/** Renders the toast stack at the top-right of the display. */
 	public void render(GuiGraphics g, int displayW, int topY, int mouseX, int mouseY) {
 		if (toasts.isEmpty()) {
 			return;

@@ -33,6 +33,7 @@ public class WidgetGroup {
 		return widget;
 	}
 
+	/** Removes a widget. */
 	public void remove(Widget widget) {
 		widgets.remove(widget);
 		if (focused == widget) {
@@ -43,16 +44,19 @@ public class WidgetGroup {
 		}
 	}
 
+	/** Removes all widgets. */
 	public void clear() {
 		widgets.clear();
 		focused = null;
 		pressed = null;
 	}
 
+	/** The widgets in render order (read-only). */
 	public List<Widget> widgets() {
 		return Collections.unmodifiableList(widgets);
 	}
 
+	/** The focused widget, or null. */
 	public @Nullable Widget focused() {
 		return focused;
 	}
@@ -71,6 +75,7 @@ public class WidgetGroup {
 		}
 	}
 
+	/** Renders all widgets, then overlays (open dropdowns), then tooltips. */
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
 		Widget top = topAt(mouseX, mouseY);
 		for (Widget w : widgets) {
@@ -107,6 +112,7 @@ public class WidgetGroup {
 		return null;
 	}
 
+	/** Routes a click (focus + capture). Returns true if a widget was hit. */
 	public boolean mouseClicked(double mx, double my, int button) {
 		// An open dropdown list may extend outside its own bounds: give it the first chance.
 		for (int i = widgets.size() - 1; i >= 0; i--) {
@@ -137,16 +143,19 @@ public class WidgetGroup {
 		return true;
 	}
 
+	/** Releases the captured widget. */
 	public boolean mouseReleased(double mx, double my, int button) {
 		Widget p = pressed;
 		pressed = null;
 		return p != null && p.visible && p.mouseReleased(mx, my, button);
 	}
 
+	/** Drag goes to the widget that received the press. */
 	public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
 		return pressed != null && pressed.visible && pressed.enabled && pressed.mouseDragged(mx, my, button, dx, dy);
 	}
 
+	/** Wheel goes to the top-most widget under the mouse. */
 	public boolean mouseScrolled(double mx, double my, double amount) {
 		for (int i = widgets.size() - 1; i >= 0; i--) {
 			Widget w = widgets.get(i);
@@ -163,7 +172,15 @@ public class WidgetGroup {
 		return false;
 	}
 
+	/** Esc closes open overlays; keys go to the focused widget; Tab cycles focus. */
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+			for (Widget w : widgets) {
+				if (w.visible && w.hasOverlay() && w.closeOverlay()) {
+					return true;
+				}
+			}
+		}
 		if (focused != null && focused.visible && focused.enabled && focused.keyPressed(keyCode, scanCode, modifiers)) {
 			return true;
 		}
@@ -173,10 +190,12 @@ public class WidgetGroup {
 		return false;
 	}
 
+	/** Characters go to the focused widget. */
 	public boolean charTyped(int codePoint, int modifiers) {
 		return focused != null && focused.visible && focused.enabled && focused.charTyped(codePoint, modifiers);
 	}
 
+	/** Ticks all widgets. */
 	public void tick() {
 		for (Widget w : widgets) {
 			w.tick();

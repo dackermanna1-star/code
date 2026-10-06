@@ -23,6 +23,7 @@ public class Toggle extends Widget {
 	private float anim;
 	private long last = -1;
 
+	/** Labeled switch (label left, switch at the right edge). */
 	public Toggle(String label, boolean value, @Nullable Consumer<Boolean> onChange) {
 		this.label = label;
 		this.value = value;
@@ -30,10 +31,12 @@ public class Toggle extends Widget {
 		this.anim = value ? 1f : 0f;
 	}
 
+	/** Bare switch (about 22×12). */
 	public Toggle(boolean value, @Nullable Consumer<Boolean> onChange) {
 		this("", value, onChange);
 	}
 
+	/** Sets the state without calling onChange. */
 	public void setValue(boolean v) {
 		this.value = v;
 	}

@@ -20,14 +20,17 @@ public final class OSSounds {
 		enabled = on;
 	}
 
+	/** True if UI sounds are on. */
 	public static boolean enabled() {
 		return enabled;
 	}
 
+	/** Plays a UI sound at full volume (if sounds are on). */
 	public static void play(SoundEvent sound, float pitch) {
 		play(sound, pitch, 1f);
 	}
 
+	/** Plays a UI sound (if sounds are on). */
 	public static void play(SoundEvent sound, float pitch, float volume) {
 		if (!enabled || sound == null) {
 			return;
@@ -40,22 +43,27 @@ public final class OSSounds {
 		Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(sound, pitch, volume));
 	}
 
+	/** Soft click. */
 	public static void click() {
 		play(ModSounds.LAPTOP_CLICK, 1f, 0.6f);
 	}
 
+	/** Notification chime. */
 	public static void notification() {
 		play(ModSounds.LAPTOP_NOTIFY, 1f, 0.8f);
 	}
 
+	/** Error buzz. */
 	public static void error() {
 		play(ModSounds.LAPTOP_ERROR, 1f, 0.8f);
 	}
 
+	/** Boot chime. */
 	public static void boot() {
 		play(ModSounds.LAPTOP_BOOT, 1f, 0.9f);
 	}
 
+	/** Shutdown sound. */
 	public static void shutdown() {
 		play(ModSounds.LAPTOP_SHUTDOWN, 1f, 0.9f);
 	}

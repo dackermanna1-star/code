@@ -33,12 +33,14 @@ public class IconButton extends Widget {
 	public boolean round;
 	private boolean pressed;
 
+	/** Button showing an icon texture. */
 	public IconButton(@Nullable Identifier icon, @Nullable String tooltip, @Nullable Runnable onClick) {
 		this.icon = icon;
 		this.tooltip = tooltip;
 		this.onClick = onClick;
 	}
 
+	/** Button drawing a custom glyph (e.g. from {@link Glyphs}) of painterW×painterH. */
 	public IconButton(BiConsumer<GuiGraphics, Integer> painter, int painterW, int painterH, @Nullable String tooltip, @Nullable Runnable onClick) {
 		this.painter = painter;
 		this.painterW = painterW;

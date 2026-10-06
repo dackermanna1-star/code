@@ -55,10 +55,12 @@ public final class Themes {
 		return t;
 	}
 
+	/** Dark theme with the given accent. */
 	public static Theme dark(int accent) {
 		return of(true, accent);
 	}
 
+	/** Light theme with the given accent. */
 	public static Theme light(int accent) {
 		return of(false, accent);
 	}

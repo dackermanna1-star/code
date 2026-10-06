@@ -32,22 +32,28 @@ public class TabBar extends Widget {
 	private float animW = -1;
 	private long last = -1;
 
+	/**
+	 * @param onChange receives the newly selected index
+	 */
 	public TabBar(List<String> labels, @Nullable IntConsumer onChange) {
 		this.labels.addAll(labels);
 		this.onChange = onChange;
 	}
 
+	/** Sets the style; returns this. */
 	public TabBar style(Style s) {
 		this.style = s;
 		return this;
 	}
 
+	/** Replaces the tab labels. */
 	public void setLabels(List<String> newLabels) {
 		labels.clear();
 		labels.addAll(newLabels);
 		selected = Math.max(0, Math.min(selected, labels.size() - 1));
 	}
 
+	/** Selected tab index. */
 	public int getSelected() {
 		return selected;
 	}

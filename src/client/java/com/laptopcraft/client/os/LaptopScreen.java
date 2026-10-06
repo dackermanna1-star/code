@@ -49,10 +49,12 @@ public class LaptopScreen extends Screen {
 		}
 	}
 
+	/** The running OS. */
 	public CubeOS os() {
 		return os;
 	}
 
+	/** The laptop session shown by this screen. */
 	public ClientLaptopSession session() {
 		return session;
 	}

@@ -19,6 +19,7 @@ public abstract class WebPage {
 	/** Browser services for this tab. Injected before {@link #init()}. */
 	protected PageContext page;
 
+	/** Called once after {@link #page} is injected (build widgets, read site state). */
 	public void init() {
 	}
 
@@ -41,10 +42,12 @@ public abstract class WebPage {
 		return false;
 	}
 
+	/** Document coords. */
 	public boolean mouseReleased(double x, double y, int button) {
 		return false;
 	}
 
+	/** Document coords; drag values are deltas. */
 	public boolean mouseDragged(double x, double y, int button, double dragX, double dragY) {
 		return false;
 	}
@@ -54,10 +57,12 @@ public abstract class WebPage {
 		return false;
 	}
 
+	/** Keys not used by the browser (address bar shortcuts come first). Return true if consumed. */
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
 		return false;
 	}
 
+	/** Typed characters (only when the address bar is not focused). */
 	public boolean charTyped(int codePoint, int modifiers) {
 		return false;
 	}
@@ -70,6 +75,7 @@ public abstract class WebPage {
 	public void onShow() {
 	}
 
+	/** No longer the visible page (navigated away, tab switched or closed). */
 	public void onHide() {
 	}
 

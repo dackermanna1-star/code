@@ -80,14 +80,17 @@ public class ScrollState {
 		return Math.round(target);
 	}
 
+	/** Largest valid offset. */
 	public int maxOffset() {
 		return Math.max(0, contentHeight - viewportHeight);
 	}
 
+	/** Content height set by {@link #setContent}. */
 	public int contentHeight() {
 		return contentHeight;
 	}
 
+	/** Viewport height set by {@link #setContent}. */
 	public int viewportHeight() {
 		return viewportHeight;
 	}
@@ -108,6 +111,7 @@ public class ScrollState {
 		target = clamp(y);
 	}
 
+	/** Animated relative scroll. */
 	public void scrollBy(double delta) {
 		target = clamp((float) (target + delta));
 	}
@@ -121,10 +125,12 @@ public class ScrollState {
 		}
 	}
 
+	/** Jumps to the top. */
 	public void scrollToTop() {
 		scrollTo(0);
 	}
 
+	/** Jumps to the bottom. */
 	public void scrollToBottom() {
 		scrollTo(maxOffset());
 	}
@@ -138,6 +144,7 @@ public class ScrollState {
 		return true;
 	}
 
+	/** True while the thumb is dragged. */
 	public boolean isDragging() {
 		return dragging;
 	}
@@ -205,6 +212,7 @@ public class ScrollState {
 		return true;
 	}
 
+	/** Ends a thumb drag; returns true if one was active. */
 	public boolean mouseReleased() {
 		boolean was = dragging;
 		dragging = false;

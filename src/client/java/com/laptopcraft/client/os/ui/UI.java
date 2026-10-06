@@ -30,10 +30,12 @@ public final class UI {
 		theme = newTheme;
 	}
 
+	/** The Minecraft client. */
 	public static Minecraft mc() {
 		return Minecraft.getInstance();
 	}
 
+	/** The Minecraft font. */
 	public static Font font() {
 		return Minecraft.getInstance().font;
 	}
@@ -58,6 +60,7 @@ public final class UI {
 				|| (InputQuirks.REPLACE_CTRL_KEY_WITH_CMD_KEY && (down(GLFW.GLFW_KEY_LEFT_SUPER) || down(GLFW.GLFW_KEY_RIGHT_SUPER)));
 	}
 
+	/** Live state of the alt keys. */
 	public static boolean altDown() {
 		return down(GLFW.GLFW_KEY_LEFT_ALT) || down(GLFW.GLFW_KEY_RIGHT_ALT);
 	}
@@ -93,15 +96,18 @@ public final class UI {
 		return (modifiers & GLFW.GLFW_MOD_CONTROL) != 0 || (InputQuirks.REPLACE_CTRL_KEY_WITH_CMD_KEY && (modifiers & GLFW.GLFW_MOD_SUPER) != 0);
 	}
 
+	/** True if the GLFW modifier bits contain alt. */
 	public static boolean hasAlt(int modifiers) {
 		return (modifiers & GLFW.GLFW_MOD_ALT) != 0;
 	}
 
+	/** System clipboard text ("" if empty). */
 	public static String getClipboard() {
 		String s = Minecraft.getInstance().keyboardHandler.getClipboard();
 		return s == null ? "" : s;
 	}
 
+	/** Copies text to the system clipboard (ignored if empty). */
 	public static void setClipboard(String text) {
 		if (text != null && !text.isEmpty()) {
 			Minecraft.getInstance().keyboardHandler.setClipboard(text);

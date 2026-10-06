@@ -37,6 +37,11 @@ public final class OSDataImpl implements OSData {
 	private int filesVersion;
 	private @Nullable Runnable onTooLarge;
 
+	/**
+	 * @param root    the os-data compound (edited in place)
+	 * @param pos     laptop position used for sync packets
+	 * @param offline true = never send anything
+	 */
 	public OSDataImpl(CompoundTag root, BlockPos pos, boolean offline) {
 		this.root = root;
 		this.pos = pos;
@@ -344,6 +349,7 @@ public final class OSDataImpl implements OSData {
 
 	// ------------------------------------------------------------------ sync
 
+	/** True if changes wait to be sent. */
 	public boolean hasPendingChanges() {
 		return !dirty.isEmpty() || !deleted.isEmpty();
 	}

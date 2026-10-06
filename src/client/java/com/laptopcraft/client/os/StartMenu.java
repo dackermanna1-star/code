@@ -68,6 +68,7 @@ public final class StartMenu {
 		search.onEnter = s -> launchSelected();
 	}
 
+	/** True while the start menu is open. */
 	public boolean isOpen() {
 		return open;
 	}

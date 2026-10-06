@@ -47,6 +47,7 @@ public final class Glyphs {
 		g.fill(x + m, y, x + m + 1, y + size, color);
 	}
 
+	/** Minus sign. */
 	public static void minus(GuiGraphics g, int x, int y, int size, int color) {
 		int m = size / 2;
 		g.fill(x, y + m, x + size, y + m + 1, color);
@@ -60,6 +61,7 @@ public final class Glyphs {
 		}
 	}
 
+	/** Chevron pointing right. */
 	public static void chevronRight(GuiGraphics g, int x, int y, int half, int color) {
 		for (int i = 0; i <= half; i++) {
 			px(g, x + i, y + i, color);
@@ -75,6 +77,7 @@ public final class Glyphs {
 		}
 	}
 
+	/** Chevron pointing up. */
 	public static void chevronUp(GuiGraphics g, int x, int y, int half, int color) {
 		for (int i = 0; i <= half; i++) {
 			px(g, x + i, y + half - i, color);

@@ -28,25 +28,30 @@ public final class Ease {
 		return clamp01((now() - startMs) / (float) durationMs);
 	}
 
+	/** Clamps to [0, 1]. */
 	public static float clamp01(float t) {
 		return t < 0f ? 0f : (t > 1f ? 1f : t);
 	}
 
+	/** Fast start, gentle stop. */
 	public static float outCubic(float t) {
 		float f = 1f - clamp01(t);
 		return 1f - f * f * f;
 	}
 
+	/** Gentle start, fast stop. */
 	public static float inCubic(float t) {
 		float c = clamp01(t);
 		return c * c * c;
 	}
 
+	/** Gentle start and stop. */
 	public static float inOutCubic(float t) {
 		float c = clamp01(t);
 		return c < 0.5f ? 4f * c * c * c : 1f - (float) Math.pow(-2f * c + 2f, 3) / 2f;
 	}
 
+	/** Quadratic ease-out. */
 	public static float outQuad(float t) {
 		float c = clamp01(t);
 		return 1f - (1f - c) * (1f - c);
@@ -60,11 +65,13 @@ public final class Ease {
 		return 1f + c3 * (float) Math.pow(c - 1f, 3) + c1 * (float) Math.pow(c - 1f, 2);
 	}
 
+	/** Hermite smoothstep. */
 	public static float smoothstep(float t) {
 		float c = clamp01(t);
 		return c * c * (3f - 2f * c);
 	}
 
+	/** Linear interpolation from a to b. */
 	public static float lerp(float t, float a, float b) {
 		return a + (b - a) * t;
 	}

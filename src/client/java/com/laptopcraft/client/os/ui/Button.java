@@ -37,26 +37,31 @@ public class Button extends Widget {
 	public boolean clickSound = true;
 	private boolean pressed;
 
+	/** Text button (style SECONDARY). */
 	public Button(String label, @Nullable Runnable onClick) {
 		this.label = label;
 		this.onClick = onClick;
 	}
 
+	/** Button with icon and label. */
 	public Button(String label, @Nullable Identifier icon, @Nullable Runnable onClick) {
 		this(label, onClick);
 		this.icon = icon;
 	}
 
+	/** Sets the style; returns this. */
 	public Button style(Style style) {
 		this.style = style;
 		return this;
 	}
 
+	/** Sets the icon; returns this. */
 	public Button icon(@Nullable Identifier icon) {
 		this.icon = icon;
 		return this;
 	}
 
+	/** Sets the hover tooltip; returns this. */
 	public Button tooltip(@Nullable String tooltip) {
 		this.tooltip = tooltip;
 		return this;

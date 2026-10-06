@@ -73,10 +73,12 @@ public final class WindowManager {
 		return Collections.unmodifiableList(windows);
 	}
 
+	/** The focused window, or null (desktop focused / all minimized). */
 	public @Nullable OSWindow focused() {
 		return focused != null && focused.isInteractive() ? focused : null;
 	}
 
+	/** Open windows of an app, bottom to top. */
 	public List<OSWindow> windowsOf(String appId) {
 		List<OSWindow> out = new ArrayList<>();
 		for (OSWindow w : windows) {
@@ -87,6 +89,7 @@ public final class WindowManager {
 		return out;
 	}
 
+	/** True while a window is being moved or resized. */
 	public boolean isDraggingOrResizing() {
 		return dragging != null || resizing != null;
 	}
@@ -215,6 +218,7 @@ public final class WindowManager {
 		return null;
 	}
 
+	/** Brings a window to the front (restores it if minimized). */
 	public void focus(OSWindow win) {
 		if (win.minimized) {
 			restore(win);
@@ -230,6 +234,7 @@ public final class WindowManager {
 		focused = null;
 	}
 
+	/** Minimizes to the taskbar (animated). */
 	public void minimize(OSWindow win) {
 		if (win.minimized || win.anim == OSWindow.Anim.CLOSE) {
 			return;
@@ -244,6 +249,7 @@ public final class WindowManager {
 		}
 	}
 
+	/** Restores a minimized window (animated). */
 	public void restore(OSWindow win) {
 		win.minimized = false;
 		win.anim = OSWindow.Anim.RESTORE;
@@ -253,6 +259,7 @@ public final class WindowManager {
 		focused = win;
 	}
 
+	/** Maximizes or restores a window. */
 	public void toggleMaximize(OSWindow win) {
 		if (win.maximized) {
 			win.maximized = false;
@@ -297,7 +304,15 @@ public final class WindowManager {
 					fitMaximized(w);
 				} else {
 					clampWindow(w);
+					// after a display resize, pull windows that fit back fully into view
+					if (w.w <= deskW) {
+						w.x = Math.max(0, Math.min(w.x, deskW - w.w));
+					}
+					if (w.h <= deskH) {
+						w.y = Math.max(0, Math.min(w.y, deskH - w.h));
+					}
 				}
+				w.checkResize();
 			}
 		}
 	}

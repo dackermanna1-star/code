@@ -39,6 +39,7 @@ public final class Gfx {
 	public static final int TOP_LEFT = 1, TOP_RIGHT = 2, BOTTOM_LEFT = 4, BOTTOM_RIGHT = 8;
 	public static final int TOP = TOP_LEFT | TOP_RIGHT, BOTTOM = BOTTOM_LEFT | BOTTOM_RIGHT, ALL = TOP | BOTTOM;
 
+	/** 9×9 emerald glyph texture. */
 	public static final Identifier EMERALD_TEXTURE = Identifier.fromNamespaceAndPath("laptopcraft", "textures/gui/os/emerald.png");
 
 	private static final Map<Identifier, Boolean> EXISTS = new HashMap<>();
@@ -82,6 +83,7 @@ public final class Gfx {
 
 	// ------------------------------------------------------------------------------------------ shapes
 
+	/** Filled rectangle (skipped if fully transparent). */
 	public static void rect(GuiGraphics g, int x, int y, int w, int h, int color) {
 		if (w > 0 && h > 0 && (color >>> 24) != 0) {
 			g.fill(x, y, x + w, y + h, color);
@@ -99,10 +101,12 @@ public final class Gfx {
 		rect(g, x + w - 1, y + 1, 1, h - 2, color);
 	}
 
+	/** 1px horizontal line. */
 	public static void hline(GuiGraphics g, int x, int y, int w, int color) {
 		rect(g, x, y, w, 1, color);
 	}
 
+	/** 1px vertical line. */
 	public static void vline(GuiGraphics g, int x, int y, int h, int color) {
 		rect(g, x, y, 1, h, color);
 	}
@@ -181,6 +185,7 @@ public final class Gfx {
 		roundBorder(g, x, y, w, h, radius, borderColor);
 	}
 
+	/** Vertical gradient. */
 	public static void gradientV(GuiGraphics g, int x, int y, int w, int h, int top, int bottom) {
 		if (w > 0 && h > 0) {
 			g.fillGradient(x, y, x + w, y + h, top, bottom);
@@ -257,26 +262,32 @@ public final class Gfx {
 
 	// ------------------------------------------------------------------------------------------ text
 
+	/** Pixel width of a string in the Minecraft font. */
 	public static int width(String str) {
 		return font().width(str);
 	}
 
+	/** Text without shadow. */
 	public static void text(GuiGraphics g, String str, int x, int y, int color) {
 		g.drawString(font(), str, x, y, color, false);
 	}
 
+	/** Text with the vanilla drop shadow. */
 	public static void textShadow(GuiGraphics g, String str, int x, int y, int color) {
 		g.drawString(font(), str, x, y, color, true);
 	}
 
+	/** Text centered on {@code cx}. */
 	public static void textCentered(GuiGraphics g, String str, int cx, int y, int color) {
 		g.drawString(font(), str, cx - font().width(str) / 2, y, color, false);
 	}
 
+	/** Centered text with shadow. */
 	public static void textCenteredShadow(GuiGraphics g, String str, int cx, int y, int color) {
 		g.drawString(font(), str, cx - font().width(str) / 2, y, color, true);
 	}
 
+	/** Right-aligned text ending at {@code rx}. */
 	public static void textRight(GuiGraphics g, String str, int rx, int y, int color) {
 		g.drawString(font(), str, rx - font().width(str), y, color, false);
 	}
@@ -286,6 +297,7 @@ public final class Gfx {
 		g.drawString(font(), ellipsize(str, maxW), x, y, color, false);
 	}
 
+	/** Clipped text with shadow. */
 	public static void textClippedShadow(GuiGraphics g, String str, int x, int y, int maxW, int color) {
 		g.drawString(font(), ellipsize(str, maxW), x, y, color, true);
 	}
@@ -299,6 +311,7 @@ public final class Gfx {
 		g.pose().popMatrix();
 	}
 
+	/** Scaled text with shadow. */
 	public static void textScaledShadow(GuiGraphics g, String str, int x, int y, float scale, int color) {
 		g.pose().pushMatrix();
 		g.pose().translate(x, y);
@@ -307,11 +320,13 @@ public final class Gfx {
 		g.pose().popMatrix();
 	}
 
+	/** Scaled text centered on {@code cx}. */
 	public static void textCenteredScaled(GuiGraphics g, String str, int cx, int y, float scale, int color) {
 		int w = Math.round(font().width(str) * scale);
 		textScaled(g, str, cx - w / 2, y, scale, color);
 	}
 
+	/** Scaled centered text with shadow. */
 	public static void textCenteredScaledShadow(GuiGraphics g, String str, int cx, int y, float scale, int color) {
 		int w = Math.round(font().width(str) * scale);
 		textScaledShadow(g, str, cx - w / 2, y, scale, color);
@@ -524,6 +539,7 @@ public final class Gfx {
 		g.blit(RenderPipelines.GUI_TEXTURED, id, x, y, u, v, w, h, uw, vh, texW, texH, tint);
 	}
 
+	/** Renders an item stack (16×16). */
 	public static void item(GuiGraphics g, ItemStack stack, int x, int y) {
 		g.renderItem(stack, x, y);
 	}
@@ -623,6 +639,7 @@ public final class Gfx {
 
 	// ------------------------------------------------------------------------------------------ misc
 
+	/** Point-in-rectangle test. */
 	public static boolean hovered(double mx, double my, int x, int y, int w, int h) {
 		return mx >= x && my >= y && mx < x + w && my < y + h;
 	}
@@ -632,6 +649,7 @@ public final class Gfx {
 		g.enableScissor(x, y, x + Math.max(0, w), y + Math.max(0, h));
 	}
 
+	/** Ends the scissor started by {@link #scissor}. */
 	public static void endScissor(GuiGraphics g) {
 		g.disableScissor();
 	}

@@ -14,10 +14,12 @@ public final class OSClock {
 	private OSClock() {
 	}
 
+	/** Hour of day 0–23. */
 	public static int hours(long dayTime) {
 		return (int) ((Math.floorMod(dayTime, 24000L) / 1000 + 6) % 24);
 	}
 
+	/** Minute 0–59. */
 	public static int minutes(long dayTime) {
 		return (int) (Math.floorMod(dayTime, 1000L) * 60 / 1000);
 	}
@@ -42,6 +44,7 @@ public final class OSClock {
 		return (int) Math.floorMod(Math.floorDiv(dayTime, 24000L), 8L);
 	}
 
+	/** "Full Moon", "Waning Gibbous", ... for a vanilla phase index. */
 	public static String moonPhaseName(int phase) {
 		return MOON_PHASES[Math.floorMod(phase, 8)];
 	}

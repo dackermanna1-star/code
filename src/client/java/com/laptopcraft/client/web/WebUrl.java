@@ -138,16 +138,19 @@ public record WebUrl(String host, String path, Map<String, String> query) {
 		return i >= 0 && i < s.size() ? s.get(i) : "";
 	}
 
+	/** Same host with a new path and no query. */
 	public WebUrl withPath(String newPath) {
 		return new WebUrl(host, newPath, Map.of());
 	}
 
+	/** Copy with one query parameter set. */
 	public WebUrl withParam(String key, String value) {
 		Map<String, String> m = new LinkedHashMap<>(query);
 		m.put(key, value);
 		return new WebUrl(host, path, m);
 	}
 
+	/** Copy without the query parameter. */
 	public WebUrl withoutParam(String key) {
 		Map<String, String> m = new LinkedHashMap<>(query);
 		m.remove(key);
@@ -188,6 +191,7 @@ public record WebUrl(String host, String path, Map<String, String> query) {
 		return URLEncoder.encode(s, StandardCharsets.UTF_8);
 	}
 
+	/** URL-decodes a query component ('+' → space). */
 	public static String decode(String s) {
 		try {
 			return URLDecoder.decode(s, StandardCharsets.UTF_8);

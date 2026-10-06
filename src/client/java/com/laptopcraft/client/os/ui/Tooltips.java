@@ -24,6 +24,7 @@ public final class Tooltips {
 		y = guiY;
 	}
 
+	/** Drops the pending tooltip. */
 	public static void clear() {
 		text = null;
 	}

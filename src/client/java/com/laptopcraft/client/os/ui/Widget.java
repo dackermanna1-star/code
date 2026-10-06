@@ -40,6 +40,7 @@ public abstract class Widget {
 	protected void onBoundsChanged() {
 	}
 
+	/** True if visible and the point is inside the bounds. */
 	public boolean contains(double mx, double my) {
 		return visible && mx >= x && my >= y && mx < x + w && my < y + h;
 	}
@@ -47,14 +48,17 @@ public abstract class Widget {
 	/** Renders the widget. {@code mouseX/mouseY} are local coords (MIN_VALUE/2 when not hovered). */
 	public abstract void render(GuiGraphics g, int mouseX, int mouseY, float partialTick);
 
+	/** Mouse press inside or outside the widget (check {@link #contains}). */
 	public boolean mouseClicked(double mx, double my, int button) {
 		return false;
 	}
 
+	/** Mouse release. */
 	public boolean mouseReleased(double mx, double my, int button) {
 		return false;
 	}
 
+	/** Drag after a press on this widget; dx/dy are deltas. */
 	public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
 		return false;
 	}
@@ -64,10 +68,12 @@ public abstract class Widget {
 		return false;
 	}
 
+	/** Key press while focused. */
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
 		return false;
 	}
 
+	/** Typed character while focused. */
 	public boolean charTyped(int codePoint, int modifiers) {
 		return false;
 	}
@@ -81,6 +87,11 @@ public abstract class Widget {
 
 	/** True while the widget shows an overlay that should get mouse events first (open dropdown). */
 	public boolean hasOverlay() {
+		return false;
+	}
+
+	/** Closes an open overlay (Esc). Returns true if something was closed. */
+	public boolean closeOverlay() {
 		return false;
 	}
 
@@ -98,14 +109,17 @@ public abstract class Widget {
 		return false;
 	}
 
+	/** True if the widget has keyboard focus. */
 	public boolean isFocused() {
 		return focused;
 	}
 
+	/** Gives or removes keyboard focus. */
 	public void setFocused(boolean focused) {
 		this.focused = focused;
 	}
 
+	/** The current theme. */
 	protected Theme theme() {
 		return UI.theme();
 	}

@@ -32,6 +32,9 @@ public class Slider extends Widget {
 	public @Nullable Function<Double, String> formatter;
 	private boolean dragging;
 
+	/**
+	 * @param onChange called continuously while dragging
+	 */
 	public Slider(double min, double max, double value, @Nullable Consumer<Double> onChange) {
 		this.min = min;
 		this.max = max;
@@ -54,10 +57,12 @@ public class Slider extends Widget {
 		return Math.max(4, w - 10 - labelWidth());
 	}
 
+	/** Value as 0..1 of the range. */
 	public double fraction() {
 		return max <= min ? 0 : (value - min) / (max - min);
 	}
 
+	/** Sets the value (clamped/snapped) and calls onChange if it changed. */
 	public void setValue(double v) {
 		double nv = Math.max(min, Math.min(max, v));
 		if (step > 0) {

@@ -15,6 +15,7 @@ public final class PlayerFace {
 	private PlayerFace() {
 	}
 
+	/** Draws the face (with hat layer) at size×size. */
 	public static void draw(GuiGraphics g, int x, int y, int size) {
 		draw(g, x, y, size, 0xFFFFFFFF);
 	}
@@ -24,6 +25,7 @@ public final class PlayerFace {
 		PlayerFaceRenderer.draw(g, skin(), x, y, size, tint);
 	}
 
+	/** The local player's skin (default skin as fallback). */
 	public static PlayerSkin skin() {
 		Minecraft mc = Minecraft.getInstance();
 		try {

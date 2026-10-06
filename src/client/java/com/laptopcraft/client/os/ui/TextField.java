@@ -48,16 +48,21 @@ public class TextField extends Widget {
 	/** Optional text color override (0 = theme). */
 	public int textColor;
 
+	/**
+	 * @param placeholder hint shown while empty
+	 */
 	public TextField(String placeholder) {
 		this.placeholder = placeholder;
 	}
 
+	/** Field without placeholder. */
 	public TextField() {
 		this("");
 	}
 
 	// ------------------------------------------------------------------ state
 
+	/** Current text. */
 	public String getText() {
 		return text;
 	}
@@ -73,10 +78,12 @@ public class TextField extends Widget {
 		scrollX = 0;
 	}
 
+	/** Caret index. */
 	public int getCursor() {
 		return cursor;
 	}
 
+	/** Moves the caret; {@code extendSelection} keeps the anchor (shift-select). */
 	public void setCursor(int pos, boolean extendSelection) {
 		cursor = Math.max(0, Math.min(pos, text.length()));
 		if (!extendSelection) {
@@ -85,15 +92,18 @@ public class TextField extends Widget {
 		lastInput = Ease.now();
 	}
 
+	/** Selects the whole text. */
 	public void selectAll() {
 		anchor = 0;
 		cursor = text.length();
 	}
 
+	/** True if some text is selected. */
 	public boolean hasSelection() {
 		return anchor != cursor;
 	}
 
+	/** The selected text (may be empty). */
 	public String getSelectedText() {
 		return text.substring(Math.min(anchor, cursor), Math.max(anchor, cursor));
 	}

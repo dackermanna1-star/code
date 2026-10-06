@@ -27,6 +27,7 @@ public final class BuiltinApps {
 		AppRegistry.register(new AppInfo(id, name, Icons.app(id), factory, w, h, minW, minH, single, cat));
 	}
 
+	/** Registers all built-in apps (called by {@link OSBootstrap}). */
 	public static void register() {
 		reg("settings", "Settings", SettingsApp::new, 380, 270, 260, 180, true, AppCategory.SYSTEM);
 		reg("files", "Files", FilesApp::new, 360, 250, 220, 150, false, AppCategory.SYSTEM);

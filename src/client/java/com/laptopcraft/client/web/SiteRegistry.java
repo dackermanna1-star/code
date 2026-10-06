@@ -20,6 +20,7 @@ public final class SiteRegistry {
 		SITES.put(site.host().toLowerCase(Locale.ROOT), site);
 	}
 
+	/** Site for a host (case-insensitive), or null if unknown. */
 	public static @Nullable Site get(String host) {
 		return host == null ? null : SITES.get(host.toLowerCase(Locale.ROOT));
 	}

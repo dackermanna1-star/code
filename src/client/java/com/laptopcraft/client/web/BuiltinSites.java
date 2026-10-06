@@ -14,6 +14,7 @@ public final class BuiltinSites {
 	private BuiltinSites() {
 	}
 
+	/** Registers all built-in sites (called by {@code OSBootstrap}). */
 	public static void register() {
 		SiteRegistry.register(new BloogleSite());
 		SiteRegistry.register(new EmerazonSite());

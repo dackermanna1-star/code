@@ -16,6 +16,7 @@ public final class ClientNetworking {
 	private ClientNetworking() {
 	}
 
+	/** Registers all client packet receivers and the disconnect hook. */
 	public static void init() {
 		ClientPlayNetworking.registerGlobalReceiver(ModPayloads.OpenLaptop.TYPE, (payload, context) -> {
 			Minecraft mc = context.client();

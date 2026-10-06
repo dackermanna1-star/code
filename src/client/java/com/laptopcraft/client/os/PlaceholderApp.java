@@ -11,6 +11,9 @@ import net.minecraft.client.gui.GuiGraphics;
 public class PlaceholderApp extends App {
 	private final String appId;
 
+	/**
+	 * @param appId id of the app this placeholder stands in for
+	 */
 	public PlaceholderApp(String appId) {
 		this.appId = appId;
 	}

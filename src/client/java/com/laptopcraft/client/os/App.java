@@ -48,6 +48,7 @@ public abstract class App {
 		return false;
 	}
 
+	/** Local coords. Delivered to the window that received the press. */
 	public boolean mouseReleased(double x, double y, int button) {
 		return false;
 	}
@@ -67,6 +68,7 @@ public abstract class App {
 		return false;
 	}
 
+	/** A typed character (already filtered by GLFW; use {@code UI.isTypeable}). */
 	public boolean charTyped(int codePoint, int modifiers) {
 		return false;
 	}

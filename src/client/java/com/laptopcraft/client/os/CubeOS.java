@@ -81,15 +81,18 @@ public final class CubeOS {
 			}
 		});
 		session.account().setNotifier(this::notify);
+		session.data().setOnTooLarge(() -> notify("error", "Couldn't save", "A file or app's data is too large to store on the laptop."));
 		refreshSettings();
 	}
 
 	// ------------------------------------------------------------------ accessors
 
+	/** The laptop session. */
 	public ClientLaptopSession session() {
 		return session;
 	}
 
+	/** Laptop storage. */
 	public OSData data() {
 		return session.data();
 	}
@@ -98,14 +101,17 @@ public final class CubeOS {
 		return session.data();
 	}
 
+	/** The player's account. */
 	public AccountView account() {
 		return session.account();
 	}
 
+	/** Current theme (from settings). */
 	public Theme theme() {
 		return theme;
 	}
 
+	/** The window manager. */
 	public WindowManager windows() {
 		return windows;
 	}
@@ -118,14 +124,17 @@ public final class CubeOS {
 		return startMenu;
 	}
 
+	/** Toasts and notification history. */
 	public Notifications notifications() {
 		return notifications;
 	}
 
+	/** Display width. */
 	public int width() {
 		return width;
 	}
 
+	/** Display height (including the taskbar). */
 	public int height() {
 		return height;
 	}
@@ -144,10 +153,12 @@ public final class CubeOS {
 		return screen != null && Minecraft.getInstance().screen == screen;
 	}
 
+	/** User name shown by the OS. */
 	public String username() {
 		return OSSettings.username(data(), session.ownerName());
 	}
 
+	/** Milliseconds since the last boot. */
 	public long uptimeMillis() {
 		return Ease.now() - bootedAt;
 	}
@@ -162,20 +173,24 @@ public final class CubeOS {
 		return session.offlineTicks();
 	}
 
+	/** Level game time (simulated offline). */
 	public long gameTime() {
 		ClientLevel l = level();
 		return l != null ? l.getGameTime() : ClientLaptopSession.OFFLINE_GAME_TIME + offlineTicks();
 	}
 
+	/** Level day time (simulated offline). */
 	public long dayTime() {
 		ClientLevel l = level();
 		return l != null ? l.getDayTime() : ClientLaptopSession.OFFLINE_DAY_TIME + offlineTicks();
 	}
 
+	/** Formatted clock respecting the 24 h setting. */
 	public String clockText() {
 		return OSClock.format(dayTime(), OSSettings.clock24h(data()));
 	}
 
+	/** Vanilla moon phase index 0–7 (0 = full moon). */
 	public int moonPhase() {
 		ClientLevel l = level();
 		if (l != null) {
@@ -193,6 +208,7 @@ public final class CubeOS {
 		return h < 6 || h >= 19;
 	}
 
+	/** "Sunny", "Clear night", "Rain" or "Thunderstorm". */
 	public String weatherText() {
 		ClientLevel l = level();
 		if (l != null && l.isThundering()) {
@@ -204,6 +220,7 @@ public final class CubeOS {
 		return isNight() ? "Clear night" : "Sunny";
 	}
 
+	/** Font glyph matching {@link #weatherText()}. */
 	public String weatherGlyph() {
 		ClientLevel l = level();
 		if (l != null && l.isThundering()) {
@@ -314,6 +331,7 @@ public final class CubeOS {
 		}
 	}
 
+	/** Restarts: shutdown animation, closes all windows, boots again. */
 	public void restart() {
 		closeOverlays();
 		phase = Phase.RESTART;
@@ -321,6 +339,7 @@ public final class CubeOS {
 		OSSounds.shutdown();
 	}
 
+	/** Shuts down: closes everything, closes the lid and the screen; the next open boots fresh. */
 	public void shutdown() {
 		closeOverlays();
 		phase = Phase.SHUTDOWN;
@@ -388,6 +407,7 @@ public final class CubeOS {
 		return w;
 	}
 
+	/** Opens the browser (or a new tab in it) at {@code url}. */
 	public void openUrl(String url) {
 		openApp("browser", url);
 	}
@@ -406,11 +426,13 @@ public final class CubeOS {
 		}
 	}
 
+	/** Shows an OS notification (toast + history + sound). */
 	public void notify(String icon, String title, String message) {
 		notifications.push(icon, title, message);
 		OSSounds.notification();
 	}
 
+	/** Shows a context menu (replaces any open one). */
 	public void showContextMenu(ContextMenu menu) {
 		this.contextMenu = menu;
 		this.popup = null;
@@ -439,6 +461,7 @@ public final class CubeOS {
 		startMenu.toggle();
 	}
 
+	/** Opens the start menu. */
 	public void openStartMenu() {
 		popup = null;
 		contextMenu = null;

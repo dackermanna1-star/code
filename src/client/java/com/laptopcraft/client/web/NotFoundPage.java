@@ -22,6 +22,7 @@ public class NotFoundPage extends WebPage {
 	private final WebUrl url;
 	private int linksY;
 
+	/** 404 page for {@code url}. */
 	public NotFoundPage(WebUrl url) {
 		this.url = url;
 	}

@@ -95,26 +95,32 @@ public final class ClientLaptopSession {
 		AccountViewImpl.online().reset();
 	}
 
+	/** Cached (sleeping) session of the laptop at {@code pos}, if any. */
 	public static @Nullable ClientLaptopSession cached(BlockPos pos) {
 		return CACHE.get(pos);
 	}
 
+	/** Laptop position ({@link #OFFLINE_POS} for the dev laptop). */
 	public BlockPos pos() {
 		return pos;
 	}
 
+	/** True for the offline dev laptop. */
 	public boolean offline() {
 		return offline;
 	}
 
+	/** Name of the laptop owner (default user name). */
 	public String ownerName() {
 		return ownerName;
 	}
 
+	/** The laptop's storage. */
 	public OSDataImpl data() {
 		return data;
 	}
 
+	/** The account view used by this session. */
 	public AccountViewImpl account() {
 		return account;
 	}
@@ -137,6 +143,7 @@ public final class ClientLaptopSession {
 		return (Util.getMillis() - offlineStart) / 50L;
 	}
 
+	/** True once the OS has been created (the laptop was opened before). */
 	public boolean hasOs() {
 		return os != null;
 	}

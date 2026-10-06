@@ -80,10 +80,12 @@ public final class AccountViewImpl implements AccountView {
 		this.lastError = message;
 	}
 
+	/** Laptop used as delivery address for purchases. */
 	public void setLaptopPos(BlockPos pos) {
 		this.laptopPos = pos;
 	}
 
+	/** Receiver of simulated notifications (offline mode). */
 	public void setNotifier(@Nullable Notifier n) {
 		this.notifier = n;
 	}

@@ -17,7 +17,8 @@ import org.jspecify.annotations.Nullable;
  * {@code theme dark|light}, {@code accent <AARRGGBB>}, {@code password <pw>|none}, {@code lock}, {@code startmenu},
  * {@code focus <appId>}, {@code size <w> <h>}, {@code move <x> <y>}, {@code alert|confirm|prompt} (dialog in the
  * focused window), {@code sysdialog}, {@code notifcenter}, {@code calendar}, {@code about}, {@code newfile},
- * {@code sleep}, {@code restart}, {@code shutdown}, {@code crashtest}, {@code toast <icon> <title>|<msg>} (vanilla toast).
+ * {@code sleep}, {@code restart}, {@code shutdown}, {@code crashtest}, {@code toast <icon> <title>|<msg>} (vanilla toast),
+ * {@code widgets} (widget gallery), {@code widgets-page <0..2>}, {@code widgets-dropdown}.
  */
 public final class DevHooks {
 	private DevHooks() {
@@ -123,6 +124,23 @@ public final class DevHooks {
 			case "sleep" -> ensureLaptop().sleep();
 			case "restart" -> ensureLaptop().restart();
 			case "shutdown" -> ensureLaptop().shutdown();
+			case "widgets" -> {
+				CubeOS os = ensureLaptop();
+				if (AppRegistry.get("widgets") == null) {
+					AppRegistry.register(new AppInfo("widgets", "Widget Gallery", Icons.SETTINGS, WidgetGalleryApp::new, 420, 300, 260, 200, true, AppCategory.SYSTEM));
+				}
+				os.openApp("widgets", null);
+			}
+			case "widgets-page" -> withFocused(w -> {
+				if (w.app instanceof WidgetGalleryApp gallery) {
+					gallery.page(Integer.parseInt(rest.trim()));
+				}
+			});
+			case "widgets-dropdown" -> withFocused(w -> {
+				if (w.app instanceof WidgetGalleryApp gallery) {
+					gallery.openDropdown();
+				}
+			});
 			case "crashtest" -> {
 				CubeOS os = ensureLaptop();
 				if (AppRegistry.get("crashtest") == null) {

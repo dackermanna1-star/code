@@ -60,11 +60,13 @@ public class TextArea extends Widget {
 	/** Optional text color override (0 = theme). */
 	public int textColor;
 
+	/** Empty editor (max 20 000 characters). */
 	public TextArea() {
 	}
 
 	// ------------------------------------------------------------------ text state
 
+	/** Current text. */
 	public String getText() {
 		return text;
 	}
@@ -83,10 +85,12 @@ public class TextArea extends Widget {
 		scroll.scrollTo(0);
 	}
 
+	/** Caret index. */
 	public int getCursor() {
 		return cursor;
 	}
 
+	/** Moves the caret (and scrolls to it); {@code extend} keeps the selection anchor. */
 	public void setCursor(int pos, boolean extend) {
 		cursor = clampIndex(pos);
 		if (!extend) {
@@ -96,14 +100,17 @@ public class TextArea extends Widget {
 		revealCaret();
 	}
 
+	/** True if some text is selected. */
 	public boolean hasSelection() {
 		return cursor != anchor;
 	}
 
+	/** The selected text. */
 	public String getSelectedText() {
 		return text.substring(Math.min(cursor, anchor), Math.max(cursor, anchor));
 	}
 
+	/** Selects everything. */
 	public void selectAll() {
 		anchor = 0;
 		cursor = text.length();
@@ -129,6 +136,7 @@ public class TextArea extends Widget {
 		return new int[] {line, col};
 	}
 
+	/** The editor's scroll state. */
 	public ScrollState scroll() {
 		return scroll;
 	}

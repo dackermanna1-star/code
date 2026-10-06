@@ -27,6 +27,7 @@ public final class ContextMenu {
 	private final long openedAt = Ease.now();
 	private int keyIndex = -1;
 
+	/** Menu anchored at (ax, ay), kept inside [0, boundsW) × [0, boundsH). */
 	public ContextMenu(List<MenuItem> items, double ax, double ay, int boundsW, int boundsH) {
 		this(items, ax, ay, boundsW, boundsH, false);
 	}
@@ -72,10 +73,12 @@ public final class ContextMenu {
 		this.openUp = up;
 	}
 
+	/** True if the point is inside the menu. */
 	public boolean contains(double mx, double my) {
 		return Gfx.hovered(mx, my, x, y, w, h);
 	}
 
+	/** Draws the menu (display coordinates). */
 	public void render(GuiGraphics g, int mouseX, int mouseY) {
 		Theme t = UI.theme();
 		float a = Ease.outCubic(Ease.progress(openedAt, 110));

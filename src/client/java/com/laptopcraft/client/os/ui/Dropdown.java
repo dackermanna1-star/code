@@ -34,26 +34,34 @@ public class Dropdown<T> extends Widget {
 	public boolean openUp;
 	private long openedAt;
 
+	/**
+	 * @param labeler text shown for an option
+	 * @param onChange called when the user picks another option
+	 */
 	public Dropdown(List<T> options, Function<T, String> labeler, @Nullable Consumer<T> onChange) {
 		this.options.addAll(options);
 		this.labeler = labeler;
 		this.onChange = onChange;
 	}
 
+	/** Replaces the options (selection index is clamped). */
 	public void setOptions(List<T> newOptions) {
 		options.clear();
 		options.addAll(newOptions);
 		selected = Math.max(0, Math.min(selected, options.size() - 1));
 	}
 
+	/** The options (live list). */
 	public List<T> options() {
 		return options;
 	}
 
+	/** Selected option (null if there are none). */
 	public @Nullable T getSelected() {
 		return options.isEmpty() ? null : options.get(selected);
 	}
 
+	/** Selected index. */
 	public int getSelectedIndex() {
 		return selected;
 	}
@@ -71,12 +79,21 @@ public class Dropdown<T> extends Widget {
 		}
 	}
 
+	/** True while the list is open. */
 	public boolean isOpen() {
 		return open;
 	}
 
+	/** Closes the list. */
 	public void close() {
 		open = false;
+	}
+
+	@Override
+	public boolean closeOverlay() {
+		boolean was = open;
+		open = false;
+		return was;
 	}
 
 	@Override

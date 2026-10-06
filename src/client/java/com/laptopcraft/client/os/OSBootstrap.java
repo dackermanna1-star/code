@@ -7,6 +7,7 @@ public final class OSBootstrap {
 	private OSBootstrap() {
 	}
 
+	/** Called from the client entrypoint. */
 	public static void init() {
 		BuiltinApps.register();
 		BuiltinSites.register();

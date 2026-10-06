@@ -53,6 +53,9 @@ public class ListView<T> extends Widget {
 	/** Draw a background + border around the list. */
 	public boolean bordered;
 
+	/**
+	 * @param labeler row text for the default renderer
+	 */
 	public ListView(Function<T, String> labeler) {
 		this.labeler = labeler;
 	}
@@ -65,14 +68,17 @@ public class ListView<T> extends Widget {
 		selected = sel == null ? -1 : items.indexOf(sel);
 	}
 
+	/** The items (live list). */
 	public List<T> items() {
 		return items;
 	}
 
+	/** Selected item or null. */
 	public @Nullable T getSelected() {
 		return selected >= 0 && selected < items.size() ? items.get(selected) : null;
 	}
 
+	/** Selected index or -1. */
 	public int getSelectedIndex() {
 		return selected;
 	}
@@ -85,6 +91,7 @@ public class ListView<T> extends Widget {
 		}
 	}
 
+	/** The list's scroll state. */
 	public ScrollState scroll() {
 		return scroll;
 	}

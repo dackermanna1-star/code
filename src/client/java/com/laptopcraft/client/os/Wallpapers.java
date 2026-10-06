@@ -19,6 +19,7 @@ public final class Wallpapers {
 	public record Wallpaper(String id, String name) {
 	}
 
+	/** All picture wallpapers (default first). */
 	public static final List<Wallpaper> ALL = List.of(
 			new Wallpaper("meadow", "Meadow"),
 			new Wallpaper("sunset", "Sunset"),
@@ -48,6 +49,7 @@ public final class Wallpapers {
 	private Wallpapers() {
 	}
 
+	/** Texture of a picture wallpaper id. */
 	public static Identifier texture(String id) {
 		return Identifier.fromNamespaceAndPath("laptopcraft", "textures/gui/wallpapers/" + id + ".png");
 	}
