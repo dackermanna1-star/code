@@ -23,6 +23,7 @@ loom {
 	runs.configureEach {
 		if (name == "clientGameTest") {
 			vmArg "-Dlaptopcraft.scriptFile=${file('build/lc-script.txt').absolutePath}"
+			vmArg "-Xmx2G"
 		}
 	}
 
