@@ -98,6 +98,8 @@ function wedgeGeometry(sx, sy, sz) {
 
 let nextId = 1;
 
+const _obbM = new THREE.Matrix4();
+
 export class Part {
   constructor(world, props = {}) {
     this.id = nextId++;
@@ -151,13 +153,16 @@ export class Part {
     return FACE_ORDER.map((f) => getMaterial(this.color, this.surfaces[f], this.transparency, this.reflectance, extra));
   }
 
+  /** The one material of a ball or cylinder. */
+  _single() { return getMaterial(this.color, 'Smooth', this.transparency, this.reflectance, this.material === 'Neon' ? 'neon' : ''); }
+
   _buildMesh(props) {
     const { x: sx, y: sy, z: sz } = this.size;
     let mesh;
     switch (this.shape) {
       case 'Ball': {
         const r = Math.min(sx, sy, sz) / 2;
-        mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 16), getMaterial(this.color, 'Smooth', this.transparency, this.reflectance));
+        mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 16), this._single());
         break;
       }
       case 'Cylinder': {
@@ -165,7 +170,7 @@ export class Part {
         const r = Math.min(sy, sz) / 2;
         const g = new THREE.CylinderGeometry(r, r, sx, 24);
         g.rotateZ(Math.PI / 2);
-        mesh = new THREE.Mesh(g, getMaterial(this.color, 'Smooth', this.transparency, this.reflectance));
+        mesh = new THREE.Mesh(g, this._single());
         break;
       }
       case 'Wedge':
@@ -298,14 +303,14 @@ export class Part {
   setColor(colorNum) {
     this.color = colorNum;
     if (Array.isArray(this.mesh.material)) this.mesh.material = this._materials();
-    else this.mesh.material = getMaterial(colorNum, 'Smooth', this.transparency, this.reflectance);
+    else this.mesh.material = this._single();
   }
 
   setTransparency(t) {
     this.transparency = t;
     this.mesh.visible = t < 1;
     if (Array.isArray(this.mesh.material)) this.mesh.material = this._materials();
-    else this.mesh.material = getMaterial(this.color, 'Smooth', t, this.reflectance);
+    else this.mesh.material = this._single();
   }
 
   setCanCollide(on) {
@@ -346,7 +351,7 @@ export class Part {
   getOBB(out = {}) {
     out.center = out.center || new THREE.Vector3();
     out.center.copy(this.mesh.position);
-    const m = new THREE.Matrix4().makeRotationFromQuaternion(this.mesh.quaternion);
+    const m = _obbM.makeRotationFromQuaternion(this.mesh.quaternion);
     out.axes = out.axes || [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
     m.extractBasis(out.axes[0], out.axes[1], out.axes[2]);
     out.half = out.half || new THREE.Vector3();

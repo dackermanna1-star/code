@@ -308,8 +308,12 @@ export class World {
     for (const part of this.touchParts) {
       if (part.destroyed || !part.touchHandlers.length) continue;
       part.getOBB(obb);
+      const reach = obb.half.length() + 3.2;
       for (const ch of this.characters) {
         if (!ch.alive && !part.touchesDead) continue;
+        // (too far away to touch it)
+        const cp = ch.root.position;
+        if (Math.abs(cp.x - obb.center.x) > reach || Math.abs(cp.y - obb.center.y) > reach || Math.abs(cp.z - obb.center.z) > reach) continue;
         const box = ch.getTouchAABB();
         if (obbIntersectsAABB(obb, box)) {
           for (const h of part.touchHandlers) h(ch, part);

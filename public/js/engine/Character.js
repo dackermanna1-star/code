@@ -348,15 +348,15 @@ export class Character {
     }
 
     // Climbing: walking into a truss climbs it.
-    let climbing = false;
+    let climbing = false, climbTop = false;
     if (move.lengthSq() > 0.01 && !this.platformStand) {
       const dir = move.clone().normalize();
-      for (const hy of [-1.5, 0, 1.5]) {
+      for (const hy of [-1.5, 0, 1.5, -2.6]) {
         const from = new CANNON.Vec3(b.position.x, b.position.y + hy, b.position.z);
         const to = new CANNON.Vec3(b.position.x + dir.x * 1.6, b.position.y + hy, b.position.z + dir.z * 1.6);
         const r = this._rayResult; r.reset();
         this.world.physics.raycastClosest(from, to, { collisionFilterMask: GROUP.WORLD | GROUP.DYNAMIC, skipBackfaces: true }, r);
-        if (r.hasHit && r.body.part && (r.body.part.shape === 'Truss' || r.body.part.tags.has('climbable'))) { climbing = true; break; }
+        if (r.hasHit && r.body.part && (r.body.part.shape === 'Truss' || r.body.part.tags.has('climbable'))) { climbing = true; climbTop = hy === -2.6; break; }
       }
     }
 
@@ -374,7 +374,8 @@ export class Character {
     }
 
     if (climbing) {
-      b.velocity.y = speed * 0.7;
+      // at the top only the feet still touch it: pop up over the edge
+      b.velocity.y = climbTop ? Math.max(speed * 0.7, 22) : speed * 0.7;
       this.grounded = false;
       this.climbing = true;
     } else {

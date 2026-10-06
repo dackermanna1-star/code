@@ -459,6 +459,11 @@ function ensureExtraPlaces(state) {
     desc: 'Survive natural disasters on five maps! Tornadoes, tsunamis, floods, earthquakes, meteor showers, volcanic eruptions, thunderstorms, fires, acid rain and blizzards. Get up high, get inside or get out of the way - survivors get a point. Can you survive them all?',
     created: now - 0.5 * DAY, updated: now - 0.02 * DAY, visits: 3120, favorited: 402, online: 58, playedRecent: 1480, script: 'disasters', maxPlayers: 12,
   });
+  add(3104573, {
+    name: 'MEGA OBBY (32 Stages!)',
+    desc: 'Climb 32 stages through five zones - Sky Meadows, Volcano Isles, Neon City, Frozen Peaks and the Cosmic Void! Trampolines, trusses, rising lava, fire spinners, laser gates, a glass bridge, swinging axes, an avalanche, low gravity and more. Checkpoints save your stage. Can you reach the top of the Mega Tower? (Press R to reset.)',
+    created: now - 0.2 * DAY, updated: now - 0.01 * DAY, visits: 2264, favorited: 371, online: 44, playedRecent: 1190, script: 'megaobby', maxPlayers: 12,
+  });
   return added;
 }
 

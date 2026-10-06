@@ -14,6 +14,7 @@ export const PLACES = {
   warzone: () => import('./warzone/index.js'),
   heist: () => import('./heist/index.js'),
   disasters: () => import('./disasters/index.js'),
+  megaobby: () => import('./megaobby/index.js'),
 };
 
 export async function loadPlace(script) {
