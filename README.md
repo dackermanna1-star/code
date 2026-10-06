@@ -2,7 +2,7 @@
 
 A voxel action RPG that runs in the browser. Fight down through an endless, procedurally generated dungeon as the Warden, collect loot, and see how deep you can go.
 
-The whole game is one file, `index.html`. Graphics use Three.js, loaded from a CDN. All models are built from voxels in code, and all sound is synthesized with the Web Audio API, so there are no image, model or audio assets.
+The whole game is one file, `index.html`. Graphics use Three.js, loaded from a CDN. Characters and monsters are built from voxels in code, furniture and props come from a public-domain (CC0) model pack embedded in the file, and all sound is synthesized with the Web Audio API.
 
 ## Playing
 
@@ -31,18 +31,28 @@ Progress (character, gear, gold, best depth and settings) is saved to `localStor
 
 Choose the control scheme under **Settings**. On touch screens a virtual joystick and a cluster of skill buttons appear automatically.
 
-In the inventory you can drag items, or right-click to equip. Shift + right-click sells an item at a vendor, and Ctrl + right-click salvages it.
+In the inventory you can drag items, or right-click to equip. Shift + right-click sells an item, and Ctrl + right-click salvages it into riftshards, which the Gamble button turns into random gear.
 
 ## What's in it
 
 - **Dungeon.** Rooms are joined by spanning-tree corridors with extra loops. Floors include ledges, bridges over chasms, hazards that appear as you go deeper, secret breakable walls, shrines, a treasure goblin and a fog-of-war minimap.
+- **Furnished rooms.** Rooms are themed per biome: libraries, bedchambers, barracks, dining halls, storerooms, chapels, prisons, ossuaries, armouries, forges, alchemy labs, cave camps and bannered hallways. Each theme has its own furniture, clutter you can smash, rugs and wall decor.
 - **Biomes.** Five biomes, each with its own palette, props and ambient sound: Crypt, Flooded Catacombs, Fungal Caverns, Molten Forge and the Abyss. After floor 20 the cycle repeats at a higher tier.
 - **Bosses.** Every fifth floor is a boss arena. Bosses have two or three phases, telegraphed attacks and summoned adds.
 - **Enemies.** Fifteen-plus enemy types, each with its own behaviour, plus champion and rare elite packs with affixes such as Molten, Frozen, Arcane, Waller and Teleporter.
 - **The Warden.** Six skills, each with three runes. Stats are Strength, Agility, Vitality and Intellect, and you get points to spend on every level-up. Fury is the resource for most skills.
 - **Loot.** Rarities run Common, Magic, Rare, Legendary and Set, with randomized affixes and legendary powers. Gear has 9 slots and changes how the Warden looks. You can sell or salvage what you don't need.
-- **Combat feel.** Hit-stop, screen shake, hit-flash, knockback, ragdolls and gibs.
+- **Combat feel.** Hit-stop, screen shake, hit-flash, impact flashes, blood spray and splatter, ragdolls and gibs. Bodies stay where they fall for the rest of the floor.
+
+## Credits
+
+All third-party assets are public domain (CC0); no attribution is required, but credit is given anyway:
+
+- Furniture, props, banners and chests: [KayKit Dungeon Remastered](https://github.com/KayKit-Game-Assets/KayKit-Dungeon-Remastered-1.0) by Kay Lousberg ([kaylousberg.com](https://www.kaylousberg.com)).
+- Floor and wall tiles: the [Dungeon Crawl Stone Soup](https://github.com/crawl/crawl) tileset ([CC0 release on OpenGameArt](https://opengameart.org/content/dungeon-crawl-32x32-tiles)).
+
+These are compressed and embedded in `index.html`, so the only things fetched from the network are Three.js and the fonts.
 
 ## Code layout
 
-`index.html` is assembled from sections that are marked with banner comments, in this order: CONFIG, UTILS, AUDIO, RENDER, FX, RAGDOLL, DUNGEON, WORLD, PATHFINDING, MODELS, ENTITIES, ENEMIES, BOSSES, SKILLS, LOOT, UI and GAME. Balance numbers (scaling, drop rates, skill values) live in the `CONFIG` object near the top of the script.
+`index.html` is assembled from sections that are marked with banner comments, in this order: CONFIG, UTILS, AUDIO, RENDER, PROCEDURAL TEXTURES, EMBEDDED ASSETS, ASSET LOADER, FX, RAGDOLL, DUNGEON, ROOM THEMES, WORLD, FURNITURE, PATHFINDING, MODELS, ENTITIES, ENEMIES, BOSSES, SKILLS, LOOT, UI and GAME. Balance numbers (scaling, drop rates, skill values) live in the `CONFIG` object near the top of the script.
