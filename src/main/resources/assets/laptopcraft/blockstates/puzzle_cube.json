@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "state=0": {
+      "model": "laptopcraft:block/puzzle_cube_0"
+    },
+    "state=1": {
+      "model": "laptopcraft:block/puzzle_cube_1"
+    },
+    "state=2": {
+      "model": "laptopcraft:block/puzzle_cube_2"
+    },
+    "state=3": {
+      "model": "laptopcraft:block/puzzle_cube_3"
+    }
+  }
+}

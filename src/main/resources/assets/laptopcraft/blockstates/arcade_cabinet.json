@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=north,half=lower": {
+      "model": "laptopcraft:block/arcade_cabinet_lower"
+    },
+    "facing=east,half=lower": {
+      "model": "laptopcraft:block/arcade_cabinet_lower",
+      "y": 90
+    },
+    "facing=south,half=lower": {
+      "model": "laptopcraft:block/arcade_cabinet_lower",
+      "y": 180
+    },
+    "facing=west,half=lower": {
+      "model": "laptopcraft:block/arcade_cabinet_lower",
+      "y": 270
+    },
+    "facing=north,half=upper": {
+      "model": "laptopcraft:block/arcade_cabinet_upper"
+    },
+    "facing=east,half=upper": {
+      "model": "laptopcraft:block/arcade_cabinet_upper",
+      "y": 90
+    },
+    "facing=south,half=upper": {
+      "model": "laptopcraft:block/arcade_cabinet_upper",
+      "y": 180
+    },
+    "facing=west,half=upper": {
+      "model": "laptopcraft:block/arcade_cabinet_upper",
+      "y": 270
+    }
+  }
+}

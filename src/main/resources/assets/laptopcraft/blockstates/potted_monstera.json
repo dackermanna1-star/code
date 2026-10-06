@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "laptopcraft:block/potted_monstera"
+    },
+    "facing=east": {
+      "model": "laptopcraft:block/potted_monstera",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "laptopcraft:block/potted_monstera",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "laptopcraft:block/potted_monstera",
+      "y": 270
+    }
+  }
+}

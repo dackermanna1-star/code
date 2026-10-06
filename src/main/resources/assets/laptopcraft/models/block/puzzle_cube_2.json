@@ -1,0 +1,182 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "all": "laptopcraft:block/toys/puzzle_cube_2",
+    "particle": "laptopcraft:block/toys/puzzle_cube_2"
+  },
+  "elements": [
+    {
+      "from": [
+        1.5,
+        0,
+        1.5
+      ],
+      "to": [
+        14.5,
+        13,
+        14.5
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0.0,
+            0.0,
+            3.25,
+            3.25
+          ],
+          "texture": "#all"
+        },
+        "south": {
+          "uv": [
+            3.25,
+            0.0,
+            6.5,
+            3.25
+          ],
+          "texture": "#all"
+        },
+        "east": {
+          "uv": [
+            6.5,
+            0.0,
+            9.75,
+            3.25
+          ],
+          "texture": "#all"
+        },
+        "west": {
+          "uv": [
+            9.75,
+            0.0,
+            13.0,
+            3.25
+          ],
+          "texture": "#all"
+        },
+        "up": {
+          "uv": [
+            0.0,
+            3.25,
+            3.25,
+            6.5
+          ],
+          "texture": "#all"
+        },
+        "down": {
+          "uv": [
+            3.25,
+            3.25,
+            6.5,
+            6.5
+          ],
+          "texture": "#all",
+          "cullface": "down"
+        }
+      }
+    }
+  ],
+  "display": {
+    "gui": {
+      "rotation": [
+        30,
+        225,
+        0
+      ],
+      "translation": [
+        -0.0,
+        0.874,
+        0.505
+      ],
+      "scale": [
+        0.6731,
+        0.6731,
+        0.6731
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        3,
+        0
+      ],
+      "scale": [
+        0.2692,
+        0.2692,
+        0.2692
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        -0.0,
+        0.808,
+        -0.0
+      ],
+      "scale": [
+        0.5385,
+        0.5385,
+        0.5385
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        75,
+        45,
+        0
+      ],
+      "translation": [
+        0,
+        2.5,
+        0
+      ],
+      "scale": [
+        0.4038,
+        0.4038,
+        0.4038
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        45,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.4308,
+        0.4308,
+        0.4308
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.4308,
+        0.4308,
+        0.4308
+      ]
+    }
+  }
+}

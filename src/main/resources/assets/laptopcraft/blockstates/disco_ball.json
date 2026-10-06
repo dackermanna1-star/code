@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "hanging=true": {
+      "model": "laptopcraft:block/disco_ball"
+    },
+    "hanging=false": {
+      "model": "laptopcraft:block/disco_ball_standing"
+    }
+  }
+}

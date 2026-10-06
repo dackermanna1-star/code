@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "laptopcraft:block/neon_sign"
+    },
+    "facing=east": {
+      "model": "laptopcraft:block/neon_sign",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "laptopcraft:block/neon_sign",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "laptopcraft:block/neon_sign",
+      "y": 270
+    }
+  }
+}
