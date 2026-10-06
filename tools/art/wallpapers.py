@@ -137,7 +137,7 @@ class Scene:
 			col = col * (1 - depth) + C(bottom) * depth
 		if snow_lit:
 			# ragged but continuous snow line: smooth noise plus thin "gullies" of snow running down
-			n = (noise1d(W, 10, self.seed + 77, 2) - 0.5) * 18
+			n = (noise1d(W, 32, self.seed + 77, 3) - 0.5) * 16
 			gully = np.where(noise1d(W, 3, self.seed + 78, 1) > 0.8, 6.0, 0.0)
 			line = np.round((snowline + n + gully) / block) * block
 			line = np.repeat(line[::block], block)[:W]
@@ -650,8 +650,8 @@ def ocean():
 	s = Scene(41)
 	wl = 98
 	s.vgrad([(0, "#3a9be8"), (0.6, "#8fd3ff"), (1, "#d9f4ff")], 0, wl)
-	square_sun(s, 60, 30, 18, glow_r=70, glow_s=0.5)
 	s.clouds(10, 52, 0.38, (6, 3), seed_off=2, scale=50)
+	square_sun(s, 300, 26, 18, glow_r=70, glow_s=0.5)
 	# island with oak
 	hi = np.full(W, float(wl))
 	for x in range(330, 430):
@@ -716,20 +716,39 @@ def ocean():
 				hh = 8 + (dx + 4)
 				s.rect(x + dx - 1, base - hh, x + dx + 2, base + 1, c0)
 				s.rect(x + dx - 1, base - hh, x + dx + 2, base - hh + 1, c1)
-	# fish
-	def fish(x, y, body, fin, flip=False):
-		d = -1 if flip else 1
-		s.rect(x, y, x + 8 * d if d > 0 else x + 1, y + 4, body) if d > 0 else s.rect(x - 7, y, x + 1, y + 4, body)
-		tx = x - 3 if d > 0 else x + 1
-		s.rect(tx, y - 1, tx + 3, y + 5, fin)
-		ex = x + 6 if d > 0 else x - 6
-		s.px(ex, y + 1, "#111111")
-		s.rect(x + 2 if d > 0 else x - 4, y + 1, x + 3 if d > 0 else x - 3, y + 3, "#ffffff")
-	fish(120, 150, "#ff8a2a", "#ffffff")
-	fish(140, 160, "#ff8a2a", "#ffffff")
-	fish(360, 130, "#ffd23f", "#3d5bf2", flip=True)
-	fish(250, 190, "#9ec7d9", "#7aa5b8")
-	fish(262, 198, "#9ec7d9", "#7aa5b8")
+	# fish & a sea turtle (pixel sprites, 1 char = 1 art pixel)
+	sprites = {
+		"clown": ["....OOO....", "T..OWOOWOO.", "TTOOWOOWOEO", "T..OWOOWOO.", "....OOO...."],
+		"tang": [".....BBB...", "Y..BBBBBBB.", "YYBBBBBBBEB", "Y..BBBBBBB.", ".....BBB..."],
+		"cod": ["...GGGG....", "G.GGGGGGG..", "GGGGGGGGGEG", "G.LLLLLLL..", "...LLLL...."],
+	}
+	pal = {"O": "#ff8a2a", "W": "#ffffff", "T": "#ff8a2a", "E": "#111111", "B": "#3d6bf2", "Y": "#ffd23f",
+		"G": "#9ec7d9", "L": "#d7e8ef"}
+
+	def sprite_at(rows, x, y, flip=False, k=2):
+		for j, row in enumerate(rows):
+			row = row[::-1] if flip else row
+			for i, ch in enumerate(row):
+				if ch != ".":
+					s.rect(x + i * k, y + j * k, x + i * k + k, y + j * k + k, pal[ch])
+	sprite_at(sprites["clown"], 110, 140)
+	sprite_at(sprites["clown"], 136, 156)
+	sprite_at(sprites["tang"], 352, 124, flip=True)
+	sprite_at(sprites["cod"], 236, 186, k=1)
+	sprite_at(sprites["cod"], 252, 194, k=1)
+	sprite_at(sprites["cod"], 244, 202, k=1)
+	# sea turtle
+	turtle = [
+		"......SSSSSS......",
+		"....SSDSSDSSSS....",
+		"..FSSSSSSDSSSSS.HH",
+		"FFSSDSSSSSSSDSSHHE",
+		"..FSSSSSDSSSSSS.HH",
+		"....SSSSSSSSSS....",
+		"....FF......FF....",
+	]
+	pal.update({"S": "#5b8f3a", "D": "#3f6b27", "F": "#8fcf6a", "H": "#8fcf6a"})
+	sprite_at(turtle, 300, 160, k=2)
 	# bubbles
 	for _ in range(26):
 		x, y = int(r.integers(0, W)), int(r.integers(wl + 8, 240))
@@ -752,6 +771,14 @@ def nether():
 		s.rect(x + 9, fy + 8, x + 10, fy + 70, "#43141b")
 	for x in range(0, W, 10):
 		s.rect(x, fy - 7, x + 4, fy - 4, "#42121a")
+	for x in range(-10, W, 34):  # arches between the piers
+		for k in range(8):
+			w = int(round(math.sqrt(max(0, 64 - (k - 8) ** 2)) * 1.0))
+			s.rect(x + 18, fy + 8 + k, x + 18 + max(0, 8 - w) + 1, fy + 9 + k, "#2e0c12")
+			s.rect(x + 42 - max(0, 8 - w) - 1, fy + 8 + k, x + 42, fy + 9 + k, "#2e0c12")
+	for x in range(0, W, 6):  # brick courses
+		s.px(x, fy + 2, "#2a0b10")
+		s.px(x + 3, fy + 5, "#2a0b10")
 	# haze over the fortress
 	s.put(C("#5a160c"), YS >= fy - 8, 0.35)
 	# netherrack cliffs left/right
@@ -794,6 +821,31 @@ def nether():
 		for (dx, dy) in ((0, 0), (5, 0), (2, 5), (7, 4), (4, 9)):
 			s.rect(gx + dx, gy + dy, gx + dx + 5, gy + dy + 5, "#f6c95b")
 			s.rect(gx + dx + 1, gy + dy + 1, gx + dx + 3, gy + dy + 3, "#fff2b0")
+	# huge crimson & warped fungi on the cliff tops
+	def fungus(x, ground, cap, cap_dark, stem, wart):
+		s.rect(x - 2, ground - 26, x + 2, ground + 1, stem)
+		s.rect(x - 2, ground - 26, x - 1, ground + 1, "#ffffff", 0.12)
+		s.rect(x - 14, ground - 40, x + 14, ground - 26, cap)
+		s.rect(x - 10, ground - 44, x + 10, ground - 40, cap)
+		s.rect(x - 14, ground - 28, x + 14, ground - 26, cap_dark)
+		for (dx, dy) in ((-10, -36), (4, -42), (8, -32), (-4, -30), (12, -38)):
+			s.rect(x + dx, ground + dy, x + dx + 2, ground + dy + 2, wart)
+		for dx in (-13, -7, 6, 12):  # vines
+			s.rect(x + dx, ground - 26, x + dx + 1, ground - 26 + 6 + (dx % 5), cap_dark)
+	fungus(40, int(hl[40]), "#b3262a", "#7d1418", "#8a3a52", "#ff9b4a")
+	fungus(452, int(hl[452]), "#1f8f86", "#14615b", "#3a2d5a", "#ffb35a")
+	# a ghast drifting by
+	gx, gy = 330, 52
+	s.rect(gx, gy, gx + 24, gy + 24, "#f2f0f0")
+	s.rect(gx, gy + 20, gx + 24, gy + 24, "#d9d4d4")
+	s.rect(gx + 4, gy + 8, gx + 8, gy + 10, "#2a2a2a")
+	s.rect(gx + 15, gy + 8, gx + 19, gy + 10, "#2a2a2a")
+	s.rect(gx + 4, gy + 10, gx + 6, gy + 13, "#9a9a9a")
+	s.rect(gx + 17, gy + 10, gx + 19, gy + 13, "#9a9a9a")
+	s.rect(gx + 9, gy + 15, gx + 15, gy + 17, "#2a2a2a")
+	for i, dx in enumerate((2, 7, 12, 17, 21)):
+		ln = (10, 14, 8, 12, 9)[i]
+		s.rect(gx + dx, gy + 24, gx + dx + 2, gy + 24 + ln, "#e8e4e4")
 	# embers
 	for _ in range(70):
 		x, y = int(r.integers(0, W)), int(r.integers(30, 220))

@@ -365,7 +365,7 @@ def write_ogg(x: np.ndarray, rel: str) -> str:
 			w.setframerate(SR)
 			w.writeframes(pcm.tobytes())
 		subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", wav, "-ac", "1", "-ar", str(SR), "-c:a", "libvorbis",
-			"-q:a", "6", "-map_metadata", "-1", path], check=True)
+			"-q:a", "6", "-map_metadata", "-1", "-fflags", "+bitexact", "-flags:a", "+bitexact", path], check=True)
 	return path
 
 
