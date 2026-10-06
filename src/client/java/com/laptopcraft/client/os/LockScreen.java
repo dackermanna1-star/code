@@ -76,9 +76,11 @@ final class LockScreen {
 		int clockY = Math.max(10, h / 5 - Math.round((1f - in) * 10));
 		int tw = Gfx.width(time) * scale;
 		int a = Math.round(255 * in);
-		Gfx.textScaledShadow(g, time, (w - tw) / 2, clockY, scale, Gfx.withAlpha(0xFFFFFFFF, a));
+		Gfx.textScaled(g, time, (w - tw) / 2 + 1, clockY + 2, scale, Gfx.withAlpha(0xFF000000, Math.round(a * 0.3f)));
+		Gfx.textScaled(g, time, (w - tw) / 2, clockY, scale, Gfx.withAlpha(0xFFFFFFFF, a));
 		if (!ampm.isEmpty()) {
-			Gfx.textScaledShadow(g, ampm, (w + tw) / 2 + 3, clockY + scale * 7 - 16, 2, Gfx.withAlpha(0xFFFFFFFF, a));
+			Gfx.textScaled(g, ampm, (w + tw) / 2 + 4, clockY + scale * 7 - 15, 2, Gfx.withAlpha(0xFF000000, Math.round(a * 0.3f)));
+			Gfx.textScaled(g, ampm, (w + tw) / 2 + 3, clockY + scale * 7 - 16, 2, Gfx.withAlpha(0xFFFFFFFF, a));
 		}
 		String sub = "Day " + OSClock.day(dayTime) + "  ·  " + OSClock.partOfDay(dayTime) + "  ·  " + os.weatherGlyph() + " " + os.weatherText();
 		Gfx.textCenteredShadow(g, sub, w / 2, clockY + scale * 8 + 6, Gfx.withAlpha(0xFFEDEDED, a));

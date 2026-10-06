@@ -17,7 +17,7 @@ public final class Desktop {
 	/** App shortcuts shown on the desktop (if registered). */
 	public static final List<String> SHORTCUTS = List.of("browser", "files", "mail", "notepad", "calculator", "paint", "music",
 			"minesweeper", "snake", "game2048", "settings");
-	private static final int CELL_W = 58;
+	private static final int CELL_W = 68;
 	private static final int CELL_H = 58;
 	private static final int MARGIN = 6;
 

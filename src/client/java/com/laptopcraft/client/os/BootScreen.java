@@ -2,6 +2,7 @@ package com.laptopcraft.client.os;
 
 import com.laptopcraft.client.os.ui.Ease;
 import com.laptopcraft.client.os.ui.Gfx;
+import com.laptopcraft.client.os.ui.Glyphs;
 import net.minecraft.client.gui.GuiGraphics;
 
 /** Boot, restart and shutdown visuals. Stateless; times are milliseconds since the phase started. */
@@ -33,10 +34,10 @@ final class BootScreen {
 		int size = h >= 280 ? 64 : 48;
 		int cx = w / 2;
 		int ly = h / 2 - size / 2 - 22 + Math.round((1f - logoIn) * 8);
-		// soft glow behind the logo
+		// soft round glow behind the logo
 		for (int i = 4; i >= 1; i--) {
-			int r = size / 2 + i * 6;
-			Gfx.roundRect(g, cx - r, ly + size / 2 - r, r * 2, r * 2, 6, Gfx.withAlpha(0xFF3D8BFD, Math.round(10 * a)));
+			int d = size + i * 14;
+			Glyphs.circle(g, cx - d / 2, ly + size / 2 - d / 2, d, Gfx.withAlpha(0xFF3D8BFD, Math.round(9 * a)));
 		}
 		CubeLogo.draw(g, cx - size / 2, ly, size, Gfx.withAlpha(0xFFFFFFFF, Math.round(255 * a)));
 		Gfx.textCenteredScaled(g, "CubeOS", cx, ly + size + 8, 2f, Gfx.withAlpha(0xFFFFFFFF, Math.round(255 * a)));

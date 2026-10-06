@@ -18,12 +18,20 @@ import org.lwjgl.glfw.GLFW;
  * (Lock, Sleep, Restart, Shut down). Slides up from the taskbar.
  */
 public final class StartMenu {
-	private static final int TILE_W = 52;
+	private static final int TILE_W = 50;
 	private static final int TILE_H = 50;
 	private static final int CAT_H = 14;
 	private static final int ROW_H = 20;
 	private static final int HEADER_H = 54;
 	private static final int FOOTER_H = 26;
+
+	/** A placed app tile (body-relative y). */
+	private record Tile(AppInfo app, int x, int y) {
+	}
+
+	/** A placed category header (body-relative y). */
+	private record Header(String text, int x, int y) {
+	}
 
 	/** A search hit: an app or a file. */
 	private record Hit(@Nullable AppInfo app, @Nullable String file) {
@@ -44,6 +52,9 @@ public final class StartMenu {
 	private int selected;
 	private final List<Hit> hits = new ArrayList<>();
 	private final String[] powerLabels = {"Lock", "Sleep", "Restart", "Shut down"};
+	private final List<Tile> tiles = new ArrayList<>();
+	private final List<Header> headers = new ArrayList<>();
+	private int gridContentH;
 
 	StartMenu(CubeOS os) {
 		this.os = os;
@@ -173,7 +184,7 @@ public final class StartMenu {
 		}
 		Gfx.scissor(g, 0, 0, os.width(), os.desktopHeight());
 		Gfx.shadow(g, x, yy, w, h, 10, Math.round(0x70 * a));
-		int bg = t.dark() ? 0xF2202226 : 0xF5F7F8FA;
+		int bg = t.dark() ? 0xFF202226 : 0xFFF7F8FA;
 		Gfx.panel(g, x, yy, w, h, 6, Gfx.fade(bg, a), Gfx.fade(t.border(), a));
 
 		// header: face + name + search
@@ -229,40 +240,67 @@ public final class StartMenu {
 		Gfx.endScissor(g);
 	}
 
-	private void renderGrid(GuiGraphics g, Theme t, int bodyY, int bodyH, int mouseX, int mouseY, float a) {
+	/**
+	 * Flow layout: each category is a section (header + tiles); small sections share a row
+	 * (e.g. "Productivity" and "Internet" side by side) so everything fits without scrolling.
+	 */
+	private void layoutGrid() {
+		tiles.clear();
+		headers.clear();
 		int cols = Math.max(1, (w - 16) / TILE_W);
-		int gridW = cols * TILE_W;
-		int gx = x + (w - gridW) / 2;
-		int content = 4;
-		for (AppCategory c : AppCategory.values()) {
-			int n = AppRegistry.byCategory(c).size();
-			if (n > 0) {
-				content += CAT_H + ((n + cols - 1) / cols) * TILE_H + 2;
-			}
-		}
-		scroll.setContent(content, bodyH);
-		int cy = bodyY + 4 - scroll.offset();
-		boolean inBody = Gfx.hovered(mouseX, mouseY, x, bodyY, w, bodyH);
+		int gx = (w - cols * TILE_W) / 2;
+		int col = 0;
+		int lineY = 4;
+		int lineRows = 0;
 		for (AppCategory c : AppCategory.values()) {
 			List<AppInfo> apps = AppRegistry.byCategory(c);
 			if (apps.isEmpty()) {
 				continue;
 			}
-			Gfx.text(g, c.displayName(), gx + 4, cy + 3, Gfx.fade(t.textDim(), a));
-			cy += CAT_H;
-			for (int i = 0; i < apps.size(); i++) {
-				AppInfo app = apps.get(i);
-				int tx = gx + (i % cols) * TILE_W;
-				int ty = cy + (i / cols) * TILE_H;
-				boolean hov = inBody && Gfx.hovered(mouseX, mouseY, tx + 1, ty, TILE_W - 2, TILE_H - 2);
-				if (hov) {
-					Gfx.roundRect(g, tx + 1, ty, TILE_W - 2, TILE_H - 2, 4, t.hover());
-				}
-				Gfx.icon(g, app.icon(), tx + (TILE_W - 32) / 2, ty + 3, 32, Gfx.withAlpha(0xFFFFFFFF, Math.round(255 * a)));
-				String label = Gfx.ellipsize(app.name(), TILE_W - 4);
-				Gfx.textCentered(g, label, tx + TILE_W / 2, ty + 38, Gfx.fade(t.text(), a));
+			int span = Math.min(cols, apps.size());
+			int rows = (apps.size() + cols - 1) / cols;
+			if (col > 0 && col + span > cols) {
+				lineY += CAT_H + lineRows * TILE_H + 4;
+				col = 0;
+				lineRows = 0;
 			}
-			cy += ((apps.size() + cols - 1) / cols) * TILE_H + 2;
+			int sx = gx + col * TILE_W;
+			headers.add(new Header(c.displayName(), sx + 4, lineY + 3));
+			for (int i = 0; i < apps.size(); i++) {
+				tiles.add(new Tile(apps.get(i), sx + (i % span) * TILE_W, lineY + CAT_H + (i / span) * TILE_H));
+			}
+			lineRows = Math.max(lineRows, rows);
+			col += span;
+			if (col >= cols) {
+				lineY += CAT_H + lineRows * TILE_H + 4;
+				col = 0;
+				lineRows = 0;
+			}
+		}
+		gridContentH = lineY + (col > 0 ? CAT_H + lineRows * TILE_H + 4 : 0);
+	}
+
+	private void renderGrid(GuiGraphics g, Theme t, int bodyY, int bodyH, int mouseX, int mouseY, float a) {
+		layoutGrid();
+		scroll.setContent(gridContentH, bodyH);
+		int oy = bodyY - scroll.offset();
+		boolean inBody = Gfx.hovered(mouseX, mouseY, x, bodyY, w, bodyH);
+		for (Header hd : headers) {
+			Gfx.text(g, hd.text(), x + hd.x(), oy + hd.y(), Gfx.fade(t.textDim(), a));
+		}
+		for (Tile tile : tiles) {
+			int tx = x + tile.x();
+			int ty = oy + tile.y();
+			boolean hov = inBody && Gfx.hovered(mouseX, mouseY, tx + 1, ty, TILE_W - 2, TILE_H - 2);
+			if (hov) {
+				Gfx.roundRect(g, tx + 1, ty, TILE_W - 2, TILE_H - 2, 4, t.hover());
+			}
+			Gfx.icon(g, tile.app().icon(), tx + (TILE_W - 32) / 2, ty + 3, 32, Gfx.withAlpha(0xFFFFFFFF, Math.round(255 * a)));
+			String label = Gfx.ellipsize(tile.app().name(), TILE_W - 4);
+			Gfx.textCentered(g, label, tx + TILE_W / 2, ty + 38, Gfx.fade(t.text(), a));
+			if (hov && !label.equals(tile.app().name())) {
+				Gfx.tooltip(g, tile.app().name(), mouseX, mouseY);
+			}
 		}
 	}
 
@@ -348,28 +386,19 @@ public final class StartMenu {
 			}
 			return true;
 		}
-		int cols = Math.max(1, (w - 16) / TILE_W);
-		int gx = x + (w - cols * TILE_W) / 2;
-		int cy = bodyY + 4 - scroll.offset();
-		for (AppCategory c : AppCategory.values()) {
-			List<AppInfo> apps = AppRegistry.byCategory(c);
-			if (apps.isEmpty()) {
-				continue;
-			}
-			cy += CAT_H;
-			for (int i = 0; i < apps.size(); i++) {
-				int tx = gx + (i % cols) * TILE_W;
-				int ty = cy + (i / cols) * TILE_H;
-				if (Gfx.hovered(mx, my, tx + 1, ty, TILE_W - 2, TILE_H - 2)) {
-					if (button == 0) {
-						OSSounds.click();
-						close();
-						os.openApp(apps.get(i).id(), null);
-					}
-					return true;
+		layoutGrid();
+		int oy = bodyY - scroll.offset();
+		for (Tile tile : tiles) {
+			int tx = x + tile.x();
+			int ty = oy + tile.y();
+			if (Gfx.hovered(mx, my, tx + 1, ty, TILE_W - 2, TILE_H - 2)) {
+				if (button == 0) {
+					OSSounds.click();
+					close();
+					os.openApp(tile.app().id(), null);
 				}
+				return true;
 			}
-			cy += ((apps.size() + cols - 1) / cols) * TILE_H + 2;
 		}
 		return true;
 	}

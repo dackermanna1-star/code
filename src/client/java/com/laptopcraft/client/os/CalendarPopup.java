@@ -20,7 +20,7 @@ final class CalendarPopup extends Popup {
 	void render(GuiGraphics g, int mouseX, int mouseY) {
 		Theme t = UI.theme();
 		int gridW = CELL_W * 8;
-		layout(os.width(), os.desktopHeight(), gridW + 20, 216);
+		layout(os.width(), os.desktopHeight(), gridW + 20, 192);
 		int yy = y + slide();
 		Gfx.shadow(g, x, yy, w, h, 8, 0x60);
 		Gfx.panel(g, x, yy, w, h, 6, t.surface(), t.border());
@@ -72,8 +72,7 @@ final class CalendarPopup extends Popup {
 				Gfx.textCentered(g, Integer.toString(d), cx + CELL_W / 2, cy + 6, col);
 			}
 		}
-		Gfx.textCentered(g, "Full moons bring slime and werewolf rumors.", x + w / 2, yy + h - 14,
-				Gfx.fade(t.textDim(), 0.8f));
+		Gfx.textCentered(g, Gfx.ellipsize("Slimes love full moons!", w - 16), x + w / 2, yy + h - 14, Gfx.fade(t.textDim(), 0.8f));
 	}
 
 	/** Pixel moon with the lit part for the vanilla phase index (0 = full ... 4 = new). */
@@ -82,7 +81,8 @@ final class CalendarPopup extends Popup {
 		int dark = t.dark() ? 0xFF3A3D44 : 0xFFB9BEC7;
 		// fraction of the disc that is dark and from which side
 		float[] darkFrac = {0f, 0.25f, 0.5f, 0.75f, 1f, 0.75f, 0.5f, 0.25f};
-		boolean fromLeft = phase >= 1 && phase <= 3;
+		// waning (1..3): lit on the left; waxing (5..7): lit on the right
+		boolean fromLeft = phase >= 5;
 		float f = darkFrac[Math.floorMod(phase, 8)];
 		float r = d / 2f;
 		for (int row = 0; row < d; row++) {

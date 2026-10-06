@@ -205,25 +205,28 @@ public final class Gfx {
 		shadow(g, x, y, w, h, size, 0x50);
 	}
 
-	/** Soft drop shadow with a custom maximum alpha (0–255). The shadow is offset 1px downwards. */
+	/**
+	 * Soft drop shadow with a custom maximum alpha (0–255), offset 1px downwards. Drawn as stacked
+	 * translucent rounded layers so corners stay round; draw it before the (opaque) shape itself.
+	 */
 	public static void shadow(GuiGraphics g, int x, int y, int w, int h, int size, int maxAlpha) {
 		if (w <= 0 || h <= 0 || size <= 0 || maxAlpha <= 0) {
 			return;
 		}
 		int oy = 1;
-		for (int d = 1; d <= size; d++) {
+		float max = Math.min(255, maxAlpha) / 255f;
+		float nextTotal = 0f;
+		for (int d = size; d >= 1; d--) {
 			float f = (size - d + 1) / (float) (size + 1);
-			int a = Math.round(maxAlpha * f * f);
-			if (a <= 0) {
+			float total = max * f * f;
+			// alpha of this layer so that the composited coverage at distance d equals "total"
+			float a = 1f - (1f - total) / Math.max(0.0001f, 1f - nextTotal);
+			nextTotal = total;
+			int ai = Math.round(a * 255f);
+			if (ai <= 0) {
 				continue;
 			}
-			int col = a << 24;
-			int cut = (d + 1) / 2;
-			int x0 = x - d, y0 = y - d + oy, ww = w + 2 * d, hh = h + 2 * d;
-			rect(g, x0 + cut, y0, ww - 2 * cut, 1, col);
-			rect(g, x0 + cut, y0 + hh - 1, ww - 2 * cut, 1, col);
-			rect(g, x0, y0 + cut, 1, hh - 2 * cut, col);
-			rect(g, x0 + ww - 1, y0 + cut, 1, hh - 2 * cut, col);
+			roundRect(g, x - d, y - d + oy, w + 2 * d, h + 2 * d, Math.min(6, 2 + d / 2), ai << 24);
 		}
 	}
 

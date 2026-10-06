@@ -62,6 +62,27 @@ public final class UI {
 		return down(GLFW.GLFW_KEY_LEFT_ALT) || down(GLFW.GLFW_KEY_RIGHT_ALT);
 	}
 
+	/**
+	 * GLFW modifier bits from the live keyboard state (shift=1, ctrl=2, alt=4, super=8). Merged into
+	 * key events by the laptop screen so shortcuts also work with synthetic input.
+	 */
+	public static int liveModifiers() {
+		int m = 0;
+		if (shiftDown()) {
+			m |= GLFW.GLFW_MOD_SHIFT;
+		}
+		if (down(GLFW.GLFW_KEY_LEFT_CONTROL) || down(GLFW.GLFW_KEY_RIGHT_CONTROL)) {
+			m |= GLFW.GLFW_MOD_CONTROL;
+		}
+		if (altDown()) {
+			m |= GLFW.GLFW_MOD_ALT;
+		}
+		if (down(GLFW.GLFW_KEY_LEFT_SUPER) || down(GLFW.GLFW_KEY_RIGHT_SUPER)) {
+			m |= GLFW.GLFW_MOD_SUPER;
+		}
+		return m;
+	}
+
 	/** True if the GLFW modifier bits contain shift. */
 	public static boolean hasShift(int modifiers) {
 		return (modifiers & GLFW.GLFW_MOD_SHIFT) != 0;

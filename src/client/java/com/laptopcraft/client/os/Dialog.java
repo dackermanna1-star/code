@@ -145,7 +145,7 @@ public final class Dialog {
 		List<String> lines = Gfx.wrap(message, Math.max(20, bw - textX - 12));
 		int lineCount = Math.min(lines.size(), 12);
 		int msgH = Math.max(lineCount * 10, logo ? 34 : icon != null ? 18 : 0);
-		bh = 26 + msgH + (field != null ? 24 : 0) + 30;
+		bh = 26 + msgH + (field != null ? 26 : 0) + 12 + 26;
 		bh = Math.min(bh, hh - 8);
 		bx = hx + (hw - bw) / 2;
 		by = hy + (hh - bh) / 2 + Math.round((1f - a) * 6);
@@ -165,8 +165,9 @@ public final class Dialog {
 		if (field != null) {
 			field.setBounds(bx + 12, fy, bw - 24, 18);
 		}
-		int btnY = by + bh - 26;
+		int btnY = by + bh - 25;
 		Gfx.rect(g, bx + 1, btnY - 6, bw - 2, 1, Gfx.withAlpha(t.border(), 0x80));
+		Gfx.roundRect(g, bx + 1, btnY - 5, bw - 2, bh - (btnY - 5 - by) - 1, 4, t.dark() ? 0x22000000 : 0x0A000000, Gfx.BOTTOM);
 		int okW = Math.max(56, ok.preferredWidth());
 		ok.setBounds(bx + bw - 10 - okW, btnY, okW, 18);
 		if (cancel != null) {

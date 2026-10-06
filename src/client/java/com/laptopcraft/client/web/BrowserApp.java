@@ -16,7 +16,6 @@ import com.laptopcraft.client.os.ui.UI;
 import com.mojang.blaze3d.platform.cursor.CursorTypes;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.function.BooleanSupplier;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
@@ -42,8 +41,11 @@ public class BrowserApp extends App {
 	private static final int BTN = 20;
 	private static final long LOAD_MS = 420;
 
-	/** A bookmark. */
-	private record Bookmark(String url, String name) {
+	/** A bookmark (host cached for per-frame lookups). */
+	private record Bookmark(String url, String name, String host) {
+		Bookmark(String url, String name) {
+			this(url, name, WebUrl.parse(url).host());
+		}
 	}
 
 	private enum Press {
@@ -484,7 +486,8 @@ public class BrowserApp extends App {
 		if (s.isEmpty()) {
 			return;
 		}
-		boolean looksLikeUrl = !s.contains(" ") && (s.contains(".") || s.contains("/") || s.toLowerCase(Locale.ROOT).startsWith("http"));
+		// text without a '.' or with spaces is a Bloogle search
+		boolean looksLikeUrl = !s.contains(" ") && s.contains(".");
 		String target = looksLikeUrl ? s : "bloogle.mc/search?q=" + WebUrl.encode(s);
 		Tab t = tab();
 		if (t == null) {
@@ -644,13 +647,13 @@ public class BrowserApp extends App {
 			Gfx.roundRect(g, starX, ay + 1, 16, 16, 8, t.hover());
 			Gfx.tooltip(g, starred ? "Remove bookmark" : "Bookmark this page", mouseX, mouseY);
 		}
-		Glyphs.star(g, starX + 4, ay + 4, starred, starred ? 0xFFF5B400 : t.textDim());
+		Gfx.text(g, starred ? "★" : "☆", starX + 4, ay + 5, starred ? 0xFFF5B400 : (sh ? t.text() : t.textDim()));
 
 		// bookmarks bar
 		int by = ty + TOOL_H;
 		int bx = 6;
 		for (Bookmark b : bookmarks) {
-			Site s = SiteRegistry.get(WebUrl.parse(b.url()).host());
+			Site s = SiteRegistry.get(b.host());
 			int bw = Gfx.width(b.name()) + 16;
 			if (bx + bw > w - 6) {
 				break;
@@ -661,6 +664,11 @@ public class BrowserApp extends App {
 				hoverLink = b.url();
 			}
 			int dot = s != null ? s.themeColor() | 0xFF000000 : t.accent();
+			if (t.dark() && Gfx.luminance(dot) < 0.22f) {
+				dot = Gfx.lighten(dot, 0.45f);
+			} else if (!t.dark() && Gfx.luminance(dot) > 0.85f) {
+				dot = Gfx.darken(dot, 0.3f);
+			}
 			Gfx.roundRect(g, bx + 4, by + 5, 6, 6, 2, dot);
 			Gfx.text(g, b.name(), bx + 13, by + 4, t.text());
 			bx += bw + 2;

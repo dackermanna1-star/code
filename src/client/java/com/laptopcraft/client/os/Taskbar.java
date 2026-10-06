@@ -168,7 +168,7 @@ public final class Taskbar {
 		if (hov != null && Ease.now() - hoverSince > 500 && pressed == null) {
 			String tip = tooltip(hov, h24);
 			if (tip != null) {
-				Gfx.tooltip(g, tip, mouseX, top - 22);
+				Gfx.tooltip(g, tip, mouseX, top - 30);
 			}
 		}
 	}

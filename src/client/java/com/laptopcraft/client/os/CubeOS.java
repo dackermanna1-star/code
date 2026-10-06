@@ -230,6 +230,13 @@ public final class CubeOS {
 
 	// ------------------------------------------------------------------ lifecycle
 
+	/** Updates the display size (called on screen init/resize, and every frame by render). */
+	void resize(int w, int h) {
+		this.width = w;
+		this.height = h;
+		windows.layout(w, desktopHeight());
+	}
+
 	void attach(LaptopScreen s) {
 		this.screen = s;
 		refreshSettings();

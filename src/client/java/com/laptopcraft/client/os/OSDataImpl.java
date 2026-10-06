@@ -27,7 +27,7 @@ public final class OSDataImpl implements OSData {
 	/** Stay below the 32767 byte C2S payload limit. */
 	private static final int MAX_SYNC_BYTES = 30000;
 
-	private CompoundTag root;
+	private final CompoundTag root;
 	private final BlockPos pos;
 	private final boolean offline;
 	private final Set<String> dirty = new LinkedHashSet<>();
@@ -43,10 +43,39 @@ public final class OSDataImpl implements OSData {
 		this.offline = offline;
 	}
 
-	/** Replaces the whole tree with fresh server data (laptop reopened). Unsent changes are flushed first. */
+	/**
+	 * Takes fresh server data (laptop reopened). Unsent changes are flushed first. The existing compound
+	 * objects are updated in place, so apps that keep a reference to their {@code appState()} stay valid.
+	 */
 	public void replaceRoot(CompoundTag newRoot) {
 		flush();
-		this.root = newRoot;
+		for (String section : List.of("settings", "files", "apps")) {
+			CompoundTag target = section(section);
+			CompoundTag source = newRoot.getCompoundOrEmpty(section);
+			for (String key : new ArrayList<>(target.keySet())) {
+				if (!source.contains(key)) {
+					target.remove(key);
+				}
+			}
+			for (String key : source.keySet()) {
+				Tag value = source.get(key);
+				if (value instanceof CompoundTag src && target.get(key) instanceof CompoundTag dst) {
+					for (String k : new ArrayList<>(dst.keySet())) {
+						dst.remove(k);
+					}
+					for (String k : src.keySet()) {
+						dst.put(k, src.get(k).copy());
+					}
+				} else if (value != null) {
+					target.put(key, value.copy());
+				}
+			}
+		}
+		for (String key : newRoot.keySet()) {
+			if (!key.equals("settings") && !key.equals("files") && !key.equals("apps")) {
+				root.put(key, newRoot.get(key).copy());
+			}
+		}
 		settingsVersion++;
 		filesVersion++;
 	}

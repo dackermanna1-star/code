@@ -17,7 +17,7 @@ import org.jspecify.annotations.Nullable;
  * {@code theme dark|light}, {@code accent <AARRGGBB>}, {@code password <pw>|none}, {@code lock}, {@code startmenu},
  * {@code focus <appId>}, {@code size <w> <h>}, {@code move <x> <y>}, {@code alert|confirm|prompt} (dialog in the
  * focused window), {@code sysdialog}, {@code notifcenter}, {@code calendar}, {@code about}, {@code newfile},
- * {@code sleep}, {@code restart}, {@code shutdown}, {@code crashtest}.
+ * {@code sleep}, {@code restart}, {@code shutdown}, {@code crashtest}, {@code toast <icon> <title>|<msg>} (vanilla toast).
  */
 public final class DevHooks {
 	private DevHooks() {
@@ -74,6 +74,14 @@ public final class DevHooks {
 				}
 			}
 			case "notify" -> notify(ensureLaptop(), "info", rest);
+			case "toast" -> {
+				// vanilla toast as shown while the laptop is closed: toast <icon> <title>|<msg>
+				String[] a = rest.split("\\s+", 2);
+				String spec = a.length > 1 ? a[1] : "";
+				int bar = spec.indexOf('|');
+				Minecraft.getInstance().getToastManager().addToast(new com.laptopcraft.client.net.LaptopToast(a[0],
+						bar < 0 ? spec : spec.substring(0, bar), bar < 0 ? "" : spec.substring(bar + 1)));
+			}
 			case "notifyicon" -> {
 				String[] a = rest.split("\\s+", 2);
 				notify(ensureLaptop(), a[0], a.length > 1 ? a[1] : "");

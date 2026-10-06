@@ -2,6 +2,7 @@ package com.laptopcraft.client.os;
 
 import com.laptopcraft.client.os.ui.Gfx;
 import com.laptopcraft.client.os.ui.Tooltips;
+import com.laptopcraft.client.os.ui.UI;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
@@ -60,6 +61,7 @@ public class LaptopScreen extends Screen {
 	protected void init() {
 		Gfx.clearTextureCache();
 		computeLayout();
+		os.resize(dispW, dispH);
 		os.attach(this);
 	}
 
@@ -181,7 +183,8 @@ public class LaptopScreen extends Screen {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
-		if (os.keyPressed(event.key(), event.scancode(), event.modifiers())) {
+		int mods = event.modifiers() | UI.liveModifiers();
+		if (os.keyPressed(event.key(), event.scancode(), mods)) {
 			return true;
 		}
 		if (event.isEscape()) {
@@ -192,7 +195,7 @@ public class LaptopScreen extends Screen {
 
 	@Override
 	public boolean charTyped(CharacterEvent event) {
-		os.charTyped(event.codepoint(), event.modifiers());
+		os.charTyped(event.codepoint(), event.modifiers() | UI.liveModifiers());
 		return true;
 	}
 
