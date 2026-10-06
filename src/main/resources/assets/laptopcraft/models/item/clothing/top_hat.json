@@ -1,0 +1,532 @@
+{
+  "textures": {
+    "skin": "laptopcraft:item/clothing/hat/top_hat",
+    "particle": "laptopcraft:item/clothing/hat/top_hat"
+  },
+  "elements": [
+    {
+      "from": [
+        2,
+        3.7,
+        2
+      ],
+      "to": [
+        14,
+        4.45,
+        14
+      ],
+      "name": "brim",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            14,
+            6,
+            14.5
+          ],
+          "texture": "#skin"
+        },
+        "south": {
+          "uv": [
+            6,
+            14,
+            12,
+            14.5
+          ],
+          "texture": "#skin"
+        },
+        "east": {
+          "uv": [
+            0,
+            14.5,
+            6,
+            15
+          ],
+          "texture": "#skin"
+        },
+        "west": {
+          "uv": [
+            6,
+            14.5,
+            12,
+            15
+          ],
+          "texture": "#skin"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            6,
+            6
+          ],
+          "texture": "#skin"
+        },
+        "down": {
+          "uv": [
+            6,
+            0,
+            12,
+            6
+          ],
+          "texture": "#skin"
+        }
+      }
+    },
+    {
+      "from": [
+        1.4,
+        4.45,
+        5.5
+      ],
+      "to": [
+        2,
+        5.2,
+        10.5
+      ],
+      "name": "brim_curl_l",
+      "faces": {
+        "north": {
+          "uv": [
+            7.5,
+            15.5,
+            8,
+            16
+          ],
+          "texture": "#skin"
+        },
+        "south": {
+          "uv": [
+            8,
+            15.5,
+            8.5,
+            16
+          ],
+          "texture": "#skin"
+        },
+        "east": {
+          "uv": [
+            12,
+            15,
+            14.5,
+            15.5
+          ],
+          "texture": "#skin"
+        },
+        "west": {
+          "uv": [
+            0,
+            15.5,
+            2.5,
+            16
+          ],
+          "texture": "#skin"
+        },
+        "up": {
+          "uv": [
+            12,
+            10,
+            12.5,
+            12.5
+          ],
+          "texture": "#skin"
+        }
+      }
+    },
+    {
+      "from": [
+        14,
+        4.45,
+        5.5
+      ],
+      "to": [
+        14.6,
+        5.2,
+        10.5
+      ],
+      "name": "brim_curl_r",
+      "faces": {
+        "north": {
+          "uv": [
+            8.5,
+            15.5,
+            9,
+            16
+          ],
+          "texture": "#skin"
+        },
+        "south": {
+          "uv": [
+            9,
+            15.5,
+            9.5,
+            16
+          ],
+          "texture": "#skin"
+        },
+        "east": {
+          "uv": [
+            2.5,
+            15.5,
+            5,
+            16
+          ],
+          "texture": "#skin"
+        },
+        "west": {
+          "uv": [
+            5,
+            15.5,
+            7.5,
+            16
+          ],
+          "texture": "#skin"
+        },
+        "up": {
+          "uv": [
+            12.5,
+            10,
+            13,
+            12.5
+          ],
+          "texture": "#skin"
+        }
+      }
+    },
+    {
+      "from": [
+        4.25,
+        4.45,
+        4.25
+      ],
+      "to": [
+        11.75,
+        12.2,
+        11.75
+      ],
+      "name": "crown",
+      "faces": {
+        "north": {
+          "uv": [
+            12,
+            0,
+            16,
+            4
+          ],
+          "texture": "#skin"
+        },
+        "south": {
+          "uv": [
+            0,
+            6,
+            4,
+            10
+          ],
+          "texture": "#skin"
+        },
+        "east": {
+          "uv": [
+            4,
+            6,
+            8,
+            10
+          ],
+          "texture": "#skin"
+        },
+        "west": {
+          "uv": [
+            8,
+            6,
+            12,
+            10
+          ],
+          "texture": "#skin"
+        },
+        "up": {
+          "uv": [
+            12,
+            6,
+            16,
+            10
+          ],
+          "texture": "#skin"
+        },
+        "down": {
+          "uv": [
+            0,
+            10,
+            4,
+            14
+          ],
+          "texture": "#skin"
+        }
+      }
+    },
+    {
+      "from": [
+        4.05,
+        11.45,
+        4.05
+      ],
+      "to": [
+        11.95,
+        12.3,
+        11.95
+      ],
+      "name": "crown_lip",
+      "faces": {
+        "north": {
+          "uv": [
+            12,
+            14.5,
+            16,
+            15
+          ],
+          "texture": "#skin"
+        },
+        "south": {
+          "uv": [
+            0,
+            15,
+            4,
+            15.5
+          ],
+          "texture": "#skin"
+        },
+        "east": {
+          "uv": [
+            4,
+            15,
+            8,
+            15.5
+          ],
+          "texture": "#skin"
+        },
+        "west": {
+          "uv": [
+            8,
+            15,
+            12,
+            15.5
+          ],
+          "texture": "#skin"
+        },
+        "up": {
+          "uv": [
+            4,
+            10,
+            8,
+            14
+          ],
+          "texture": "#skin"
+        },
+        "down": {
+          "uv": [
+            8,
+            10,
+            12,
+            14
+          ],
+          "texture": "#skin"
+        }
+      }
+    },
+    {
+      "from": [
+        11.95,
+        5.3,
+        6.8
+      ],
+      "to": [
+        11.95,
+        7.9,
+        8.6
+      ],
+      "name": "card",
+      "rotation": {
+        "axis": "x",
+        "angle": -14,
+        "origin": [
+          11.95,
+          5.3,
+          8
+        ]
+      },
+      "faces": {
+        "east": {
+          "uv": [
+            13,
+            10,
+            14,
+            11.5
+          ],
+          "texture": "#skin"
+        },
+        "west": {
+          "uv": [
+            14,
+            10,
+            15,
+            11.5
+          ],
+          "texture": "#skin"
+        }
+      }
+    }
+  ],
+  "display": {
+    "head": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        13.28,
+        0
+      ],
+      "scale": [
+        1.6,
+        1.6,
+        1.6
+      ]
+    },
+    "gui": {
+      "rotation": [
+        30,
+        200,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.7955,
+        0.7955,
+        0.7955
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        2,
+        0
+      ],
+      "scale": [
+        0.4924,
+        0.4924,
+        0.4924
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.8333,
+        0.8333,
+        0.8333
+      ]
+    },
+    "on_shelf": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.8333,
+        0.8333,
+        0.8333
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        75,
+        45,
+        0
+      ],
+      "translation": [
+        0,
+        2.5,
+        0
+      ],
+      "scale": [
+        0.4924,
+        0.4924,
+        0.4924
+      ]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [
+        75,
+        45,
+        0
+      ],
+      "translation": [
+        0,
+        2.5,
+        0
+      ],
+      "scale": [
+        0.4924,
+        0.4924,
+        0.4924
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        45,
+        0
+      ],
+      "translation": [
+        1,
+        2,
+        0
+      ],
+      "scale": [
+        0.4242,
+        0.4242,
+        0.4242
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        225,
+        0
+      ],
+      "translation": [
+        1,
+        2,
+        0
+      ],
+      "scale": [
+        0.4242,
+        0.4242,
+        0.4242
+      ]
+    }
+  }
+}

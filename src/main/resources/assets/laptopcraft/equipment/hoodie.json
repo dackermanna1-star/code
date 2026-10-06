@@ -1,0 +1,15 @@
+{
+  "layers": {
+    "humanoid": [
+      {
+        "texture": "laptopcraft:hoodie",
+        "dyeable": {
+          "color_when_undyed": 2894643
+        }
+      },
+      {
+        "texture": "laptopcraft:hoodie_overlay"
+      }
+    ]
+  }
+}

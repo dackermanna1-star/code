@@ -1,0 +1,586 @@
+{
+  "textures": {
+    "skin": "laptopcraft:item/clothing/hat/baseball_cap",
+    "particle": "laptopcraft:item/clothing/hat/baseball_cap"
+  },
+  "elements": [
+    {
+      "from": [
+        3.4,
+        6.7716,
+        5.6445
+      ],
+      "to": [
+        12.6,
+        8.9716,
+        14.8445
+      ],
+      "name": "shell",
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            4.5,
+            9.5,
+            5.5
+          ],
+          "texture": "#skin"
+        },
+        "south": {
+          "uv": [
+            9.5,
+            4.5,
+            14,
+            5.5
+          ],
+          "texture": "#skin"
+        },
+        "east": {
+          "uv": [
+            0,
+            7,
+            4.5,
+            8
+          ],
+          "texture": "#skin"
+        },
+        "west": {
+          "uv": [
+            4.5,
+            7,
+            9,
+            8
+          ],
+          "texture": "#skin"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            4.5,
+            4.5
+          ],
+          "texture": "#skin"
+        },
+        "down": {
+          "uv": [
+            4.5,
+            0,
+            9,
+            4.5
+          ],
+          "texture": "#skin"
+        }
+      }
+    },
+    {
+      "from": [
+        3.9,
+        8.9716,
+        6.1445
+      ],
+      "to": [
+        12.1,
+        9.6716,
+        14.3445
+      ],
+      "name": "crown",
+      "faces": {
+        "north": {
+          "uv": [
+            9,
+            7,
+            13,
+            7.5
+          ],
+          "texture": "#skin"
+        },
+        "south": {
+          "uv": [
+            0,
+            8,
+            4,
+            8.5
+          ],
+          "texture": "#skin"
+        },
+        "east": {
+          "uv": [
+            4,
+            8,
+            8,
+            8.5
+          ],
+          "texture": "#skin"
+        },
+        "west": {
+          "uv": [
+            8,
+            8,
+            12,
+            8.5
+          ],
+          "texture": "#skin"
+        },
+        "up": {
+          "uv": [
+            9,
+            0,
+            13,
+            4
+          ],
+          "texture": "#skin"
+        }
+      }
+    },
+    {
+      "from": [
+        7.4,
+        9.6716,
+        9.6445
+      ],
+      "to": [
+        8.6,
+        10.1716,
+        10.8445
+      ],
+      "name": "button",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            9,
+            0.5,
+            9.5
+          ],
+          "texture": "#skin"
+        },
+        "south": {
+          "uv": [
+            0.5,
+            9,
+            1,
+            9.5
+          ],
+          "texture": "#skin"
+        },
+        "east": {
+          "uv": [
+            1,
+            9,
+            1.5,
+            9.5
+          ],
+          "texture": "#skin"
+        },
+        "west": {
+          "uv": [
+            1.5,
+            9,
+            2,
+            9.5
+          ],
+          "texture": "#skin"
+        },
+        "up": {
+          "uv": [
+            2,
+            9,
+            2.5,
+            9.5
+          ],
+          "texture": "#skin"
+        }
+      }
+    },
+    {
+      "from": [
+        4.8,
+        6.7716,
+        1.0445
+      ],
+      "to": [
+        11.2,
+        7.3216,
+        5.6445
+      ],
+      "name": "visor",
+      "rotation": {
+        "axis": "x",
+        "angle": -12,
+        "origin": [
+          8,
+          7.3716,
+          5.6445
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            12,
+            8,
+            15,
+            8.5
+          ],
+          "texture": "#skin"
+        },
+        "south": {
+          "uv": [
+            0,
+            8.5,
+            3,
+            9
+          ],
+          "texture": "#skin"
+        },
+        "east": {
+          "uv": [
+            3,
+            8.5,
+            5.5,
+            9
+          ],
+          "texture": "#skin"
+        },
+        "west": {
+          "uv": [
+            5.5,
+            8.5,
+            8,
+            9
+          ],
+          "texture": "#skin"
+        },
+        "up": {
+          "uv": [
+            13,
+            0,
+            16,
+            2.5
+          ],
+          "texture": "#skin"
+        },
+        "down": {
+          "uv": [
+            0,
+            4.5,
+            3,
+            7
+          ],
+          "texture": "#skin"
+        }
+      }
+    },
+    {
+      "from": [
+        11.2,
+        6.7716,
+        1.8445
+      ],
+      "to": [
+        12.2,
+        7.3216,
+        5.6445
+      ],
+      "name": "visor_r",
+      "rotation": {
+        "axis": "x",
+        "angle": -12,
+        "origin": [
+          8,
+          7.3716,
+          5.6445
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            2.5,
+            9,
+            3,
+            9.5
+          ],
+          "texture": "#skin"
+        },
+        "south": {
+          "uv": [
+            3,
+            9,
+            3.5,
+            9.5
+          ],
+          "texture": "#skin"
+        },
+        "east": {
+          "uv": [
+            8,
+            8.5,
+            10,
+            9
+          ],
+          "texture": "#skin"
+        },
+        "west": {
+          "uv": [
+            10,
+            8.5,
+            12,
+            9
+          ],
+          "texture": "#skin"
+        },
+        "up": {
+          "uv": [
+            3,
+            4.5,
+            3.5,
+            6.5
+          ],
+          "texture": "#skin"
+        },
+        "down": {
+          "uv": [
+            3.5,
+            4.5,
+            4,
+            6.5
+          ],
+          "texture": "#skin"
+        }
+      }
+    },
+    {
+      "from": [
+        3.8,
+        6.7716,
+        1.8445
+      ],
+      "to": [
+        4.8,
+        7.3216,
+        5.6445
+      ],
+      "name": "visor_l",
+      "rotation": {
+        "axis": "x",
+        "angle": -12,
+        "origin": [
+          8,
+          7.3716,
+          5.6445
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            3.5,
+            9,
+            4,
+            9.5
+          ],
+          "texture": "#skin"
+        },
+        "south": {
+          "uv": [
+            4,
+            9,
+            4.5,
+            9.5
+          ],
+          "texture": "#skin"
+        },
+        "east": {
+          "uv": [
+            12,
+            8.5,
+            14,
+            9
+          ],
+          "texture": "#skin"
+        },
+        "west": {
+          "uv": [
+            14,
+            8.5,
+            16,
+            9
+          ],
+          "texture": "#skin"
+        },
+        "up": {
+          "uv": [
+            4,
+            4.5,
+            4.5,
+            6.5
+          ],
+          "texture": "#skin"
+        },
+        "down": {
+          "uv": [
+            4.5,
+            4.5,
+            5,
+            6.5
+          ],
+          "texture": "#skin"
+        }
+      }
+    }
+  ],
+  "display": {
+    "head": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        6.1254,
+        -3.5913
+      ],
+      "scale": [
+        1.6,
+        1.6,
+        1.6
+      ]
+    },
+    "gui": {
+      "rotation": [
+        30,
+        200,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.767,
+        0.767,
+        0.767
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        2,
+        0
+      ],
+      "scale": [
+        0.4748,
+        0.4748,
+        0.4748
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.8036,
+        0.8036,
+        0.8036
+      ]
+    },
+    "on_shelf": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.8036,
+        0.8036,
+        0.8036
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        75,
+        45,
+        0
+      ],
+      "translation": [
+        0,
+        2.5,
+        0
+      ],
+      "scale": [
+        0.4748,
+        0.4748,
+        0.4748
+      ]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [
+        75,
+        45,
+        0
+      ],
+      "translation": [
+        0,
+        2.5,
+        0
+      ],
+      "scale": [
+        0.4748,
+        0.4748,
+        0.4748
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        45,
+        0
+      ],
+      "translation": [
+        1,
+        2,
+        0
+      ],
+      "scale": [
+        0.4091,
+        0.4091,
+        0.4091
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        225,
+        0
+      ],
+      "translation": [
+        1,
+        2,
+        0
+      ],
+      "scale": [
+        0.4091,
+        0.4091,
+        0.4091
+      ]
+    }
+  }
+}
