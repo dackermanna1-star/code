@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import * as CANNON from '../vendor/cannon-es.js';
 import { Part, GROUP } from './Part.js';
 import { skyTexture } from './textures.js';
+import { SparseCollisionMatrix, StaticGridBroadphase } from './broadphase.js';
 
 export const GRAVITY = 196.2; // studs/s^2 (ROBLOX default Workspace gravity)
 const FIXED_DT = 1 / 120;
@@ -34,6 +35,9 @@ export class World {
 
     this.physics = new CANNON.World({ gravity: new CANNON.Vec3(0, -GRAVITY, 0) });
     this.physics.broadphase = new CANNON.SAPBroadphase(this.physics);
+    // cannon's dense pair matrix costs N^2 per step; keep only touching pairs
+    this.physics.collisionMatrix = new SparseCollisionMatrix();
+    this.physics.collisionMatrixPrevious = new SparseCollisionMatrix();
     this.physics.allowSleep = true;
     this.physics.solver.iterations = 12;
     this.defaultPhysMaterial = new CANNON.Material('plastic');
@@ -255,6 +259,14 @@ export class World {
    * onto everything else. Approximated with a basic (unfiltered) shadow map
    * that follows the camera's focus.
    */
+  /** For places with thousands of anchored parts: a grid broadphase (see broadphase.js). */
+  useStaticGrid(cell = 16) {
+    const old = this.physics.broadphase;
+    if (old?._addBodyHandler) { this.physics.removeEventListener('addBody', old._addBodyHandler); this.physics.removeEventListener('removeBody', old._removeBodyHandler); }
+    this.physics.broadphase = new StaticGridBroadphase(cell);
+    this.physics.broadphase.setWorld(this.physics);
+  }
+
   enableShadows() {
     this.shadows = true;
     this.renderer.shadowMap.enabled = true;

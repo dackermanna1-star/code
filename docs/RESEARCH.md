@@ -114,6 +114,17 @@ Ratings and voting: 2008 pages show only how many times a place was Visited and 
 - Added on request as a user-made place in the style of a modern heist game (a planning board with crew cuts, masks, hostages, a hacking minigame, a drilled vault, a police response in waves, a getaway chase and a results screen). Like Desert Strike, it uses modern effects on purpose, and it reuses Desert Strike's guns, viewmodel, ballistics and blood.
 - The bank, city, crew, police and rules are original to this project. Names of businesses, crew members and products are made up (Robloxia-themed). The voices use the browser's speech synthesis, and all sounds and music are synthesized.
 
+### Natural Disaster Survival (not a 2008 recreation)
+- Added on request. The real game was made by Stickmasterluke in 2011, so it is outside the 2008 period. This version is a user-made place in its style:
+  - an intermission in a sky lobby
+  - a random map and a random disaster with a warning
+  - a point for each survivor
+- The five maps are original. Some take their names from classic NDS maps (Happy Home of Robloxia, Glass Office, Furious Fire Station, Lighthouse Point, Rakish Refinery), but every layout here is invented. Each fills the whole island with streets, buildings and props.
+- The disasters' behaviour, timings and damage are invented for this project:
+  - tornado, tsunami, flash flood, earthquake, meteor shower, volcanic eruption, thunderstorm, fire, acid rain and blizzard
+- Buildings are anchored classic bricks merged into a few meshes per area. A disaster breaks bricks loose one at a time, and loose debris is capped.
+- With thousands of anchored parts, cannon-es's SAP broadphase and dense collision matrix grew with the square of the part count. The place therefore uses a grid broadphase for static bodies (`public/js/engine/broadphase.js`). Every place now uses a sparse collision matrix.
+
 ### Personal places
 - **Verified:** the three starting templates (Happy Home in Robloxia, Starting BrickBattle Map, Empty Baseplate), the Tools and Insert menus in your own place, and the save-on-exit dialog.
 

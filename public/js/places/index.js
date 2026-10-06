@@ -13,6 +13,7 @@ export const PLACES = {
   personal: () => import('./personal.js'),
   warzone: () => import('./warzone/index.js'),
   heist: () => import('./heist/index.js'),
+  disasters: () => import('./disasters/index.js'),
 };
 
 export async function loadPlace(script) {

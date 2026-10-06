@@ -454,6 +454,11 @@ function ensureExtraPlaces(state) {
     desc: 'Rob the First Robloxia Bank! Pick your crew, mask up (G), keep the hostages down, hack the vault gate, drill the vault and grab the cash and gold - then fight your way out to the getaway van and lose the cops. Click to shoot, E to aim, F to shout, R to reload, hold E to interact.',
     created: now - 1 * DAY, updated: now - 0.05 * DAY, visits: 942, favorited: 188, online: 29, playedRecent: 610, script: 'heist', maxPlayers: 4,
   });
+  add(3104572, {
+    name: 'Natural Disaster Survival',
+    desc: 'Survive natural disasters on five maps! Tornadoes, tsunamis, floods, earthquakes, meteor showers, volcanic eruptions, thunderstorms, fires, acid rain and blizzards. Get up high, get inside or get out of the way - survivors get a point. Can you survive them all?',
+    created: now - 0.5 * DAY, updated: now - 0.02 * DAY, visits: 3120, favorited: 402, online: 58, playedRecent: 1480, script: 'disasters', maxPlayers: 12,
+  });
   return added;
 }
 

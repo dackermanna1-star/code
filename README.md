@@ -47,6 +47,15 @@ The first start creates `data/db.json`. The site's clock starts on September 1, 
   - **G** puts your mask on, **F** shouts at the hostages to keep them down, hold **E** to grab loot and use things (tap **E** to aim), R to reload, Shift to sprint, M to mute.
   - Get through the STAFF ONLY door, hack the vault gate, drill the vault while the police (and later SWAT) attack, bag the cash and gold, and leave by the back door. Then shoot the police cars and helicopter from the back of the van until you reach the tunnel.
   - Your cut goes into a heist account saved in your browser, and a little of it goes into your Desert Strike cash.
+- **Natural Disaster Survival**: wait in the sky lobby, then get dropped onto one of five maps and survive the disaster. Survivors score a point. This is a user-made game in the style of the 2011 original, not a 2008 recreation.
+  - Each map fills the whole island:
+    - Happy Home of Robloxia: a suburb.
+    - Glass Office: downtown, with a tower, shops, a bank, a church, flats and a parking garage.
+    - Furious Fire Station: a small town with a town hall, a police station and a diner.
+    - Lighthouse Point: a fishing village with a headland, a beach and a pier.
+    - Rakish Refinery: tanks, cracking towers, a warehouse and a container yard.
+  - There are ten disasters: tornado, tsunami, flash flood, earthquake, meteor shower, volcanic eruption, thunderstorm, fire, acid rain and blizzard. Buildings break apart brick by brick.
+  - Read the warning. Get up high for floods and tsunamis, get inside for acid rain, blizzards and meteors, and get out into the open for earthquakes and fires. You can swim, but stamina and breath run out.
 - **Your own place**: on your My ROBLOX page, click Edit under your place.
   - **Tools** gives the Grab, Clone and Delete build tools.
   - **Insert** adds bricks and the models you own.

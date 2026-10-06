@@ -187,7 +187,7 @@ export class Part {
   _buildBody(props) {
     if (props.noPhysics) return null;
     const { x: sx, y: sy, z: sz } = this.size;
-    let shape;
+    let shape, shapeOffset = null;
     switch (this.shape) {
       case 'Ball':
         shape = new CANNON.Sphere(Math.min(sx, sy, sz) / 2);
@@ -198,13 +198,15 @@ export class Part {
         break;
       }
       case 'Wedge': {
-        const x = sx / 2, y = sy / 2, z = sz / 2;
+        // vertices are given about the wedge's centroid (the slope passes
+        // through the box centre, which cannon would take for the inside)
+        const x = sx / 2, y = sy / 2, z = sz / 2, cy = -y / 3, cz = z / 3;
         const verts = [
-          new CANNON.Vec3(-x, -y, -z), new CANNON.Vec3(x, -y, -z), new CANNON.Vec3(x, -y, z), new CANNON.Vec3(-x, -y, z),
-          new CANNON.Vec3(-x, y, z), new CANNON.Vec3(x, y, z),
-        ];
+          [-x, -y, -z], [x, -y, -z], [x, -y, z], [-x, -y, z], [-x, y, z], [x, y, z],
+        ].map(([a, b, c]) => new CANNON.Vec3(a, b - cy, c - cz));
         const faces = [[0, 1, 2, 3], [3, 2, 5, 4], [0, 4, 5, 1], [0, 3, 4], [1, 5, 2]];
         shape = new CANNON.ConvexPolyhedron({ vertices: verts, faces });
+        shapeOffset = new CANNON.Vec3(0, cy, cz);
         break;
       }
       case 'Mesh':
@@ -226,7 +228,7 @@ export class Part {
       q.setFromEuler(0, 0, Math.PI / 2);
       body.addShape(shape, new CANNON.Vec3(), q);
     } else {
-      body.addShape(shape);
+      body.addShape(shape, shapeOffset || undefined);
     }
     if (!this.canCollide) {
       body.collisionResponse = false;
