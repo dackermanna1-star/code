@@ -19,6 +19,8 @@ const FACE_ORDER = ['Right', 'Left', 'Top', 'Bottom', 'Back', 'Front']; // three
 
 const materialCache = new Map();
 function getMaterial(colorNum, surface, transparency, reflectance, extra = '') {
+  // (materials are cached for good: don't make one for every in-between value)
+  transparency = Math.round(transparency * 50) / 50; reflectance = Math.round(reflectance * 50) / 50;
   const key = `${colorNum}|${surface}|${transparency}|${reflectance}|${extra}`;
   let m = materialCache.get(key);
   if (m) return m;

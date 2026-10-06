@@ -662,7 +662,8 @@ export const STAGES = [
       // they wait for a flash, then jump while they still remember where it was
       k.go(r, { hard: 0.55, cond: (bot) => bot.skill > 0.9 ? phase(C.world.time, P) < 2.0 : phase(C.world.time, P) < 1.3, timing: true });
     }
-    k.every((t) => { const ph = phase(t, P), a = ph < show ? 0.25 + 0.75 * (ph / show) : 1; for (const p of parts) if (Math.abs((p._a ?? -1) - a) > 0.04) { p._a = a; p.setTransparency(a > 0.99 ? 1 : a); } });
+    // (in steps: every transparency is a material of its own)
+    k.every((t) => { const ph = phase(t, P), a = ph < show ? Math.round((0.25 + 0.75 * (ph / show)) * 10) / 10 : 1; for (const p of parts) if (p._a !== a) { p._a = a; p.setTransparency(a); } });
     void vis;
     return k.end(4, 0);
   } },

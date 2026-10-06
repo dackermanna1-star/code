@@ -328,7 +328,7 @@ function makeContext(world) {
       glassSound(g.p.mesh.position);
       const c = g.p.mesh.position;
       for (let i = 0; i < 10; i++) {
-        const s = world.add({ size: [rnd(0.6, 1.6), 0.2, rnd(0.6, 1.6)], position: [c.x + rnd(-2, 2), c.y, c.z + rnd(-2, 2)], rotation: [rnd(0, 90), rnd(0, 90), 0], color: 1, transparency: 0.45, anchored: false, canCollide: false, top: 'Smooth', bottom: 'Smooth', name: 'Shard' });
+        const s = world.add({ size: [0.8 + (i % 3) * 0.4, 0.2, 0.6 + (i % 4) * 0.3], position: [c.x + rnd(-2, 2), c.y, c.z + rnd(-2, 2)], rotation: [rnd(0, 90), rnd(0, 90), 0], color: 1, transparency: 0.45, anchored: false, canCollide: false, top: 'Smooth', bottom: 'Smooth', name: 'Shard' });
         s.body.velocity.set(rnd(-6, 6), rnd(-4, 6), rnd(-6, 6));
         s.body.angularVelocity.set(rnd(-8, 8), rnd(-8, 8), rnd(-8, 8));
         world.delay(2.5, () => s.destroy());
