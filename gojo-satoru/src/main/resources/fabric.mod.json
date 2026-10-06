@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "gojo",
+  "version": "${version}",
+  "name": "Gojo Satoru",
+  "description": "Become the strongest. Limitless: Infinity, Blue, Red, Hollow Purple and Domain Expansion: Infinite Void.",
+  "authors": ["dackermanna1"],
+  "license": "MIT",
+  "icon": "assets/gojo/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.gojosatoru.GojoMod"],
+    "client": ["com.gojosatoru.client.GojoClient"]
+  },
+  "mixins": [
+    {"config": "gojo.client.mixins.json", "environment": "client"}
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": ">=0.141.0"
+  }
+}
