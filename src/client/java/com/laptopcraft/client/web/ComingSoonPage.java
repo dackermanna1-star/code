@@ -21,6 +21,11 @@ public class ComingSoonPage extends WebPage {
 	}
 
 	@Override
+	public int contentHeight(int width, int viewportHeight) {
+		return Math.max(viewportHeight, 44 + 20 + 120);
+	}
+
+	@Override
 	public int background() {
 		return 0xFFF7F7F9;
 	}

@@ -158,7 +158,11 @@ public class LaptopScreen extends Screen {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-		os.mouseClicked(event.x() - dispX, event.y() - dispY, event.button(), doubleClick);
+		double x = event.x() - dispX, y = event.y() - dispY;
+		if (x < 0 || y < 0 || x >= dispW || y >= dispH) {
+			return true; // bezel / outside the laptop: nothing to click
+		}
+		os.mouseClicked(x, y, event.button(), doubleClick);
 		return true;
 	}
 
