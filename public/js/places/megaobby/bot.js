@@ -26,7 +26,7 @@ export function groundVel(ch, out) {
   if (b.type === CANNON.Body.KINEMATIC) {
     const p = ch.body.position, w = b.angularVelocity;
     const rx = p.x - b.position.x, ry = p.y - 3 - b.position.y, rz = p.z - b.position.z;
-    out.set(b.velocity.x + (w.y * rz - w.z * ry), 0, b.velocity.z + (w.z * rx - w.x * rz));
+    out.set(b.velocity.x + (w.y * rz - w.z * ry), 0, b.velocity.z + (w.x * ry - w.y * rx));
   } else if (g.surfaceVelocity) out.set(g.surfaceVelocity.x, 0, g.surfaceVelocity.z);
   return out;
 }
@@ -152,13 +152,17 @@ export class ObbyBot extends BotBrain {
     if (s.early > 0) { if ((s.early -= dt) <= 0) s.go = true; return !!s.go; }
     if (s.hes == null) {
       const f = this.fails.get(this.stage)?.get(this.si) || 0;
-      s.hes = !st.hurry && !st.speed && (st.hard ?? 0) >= 0.45 && Math.random() < (1 - this.skill) * 1.6 + f * 0.1 ? rnd(0.3, 1.6) : 0;
+      // (nobody stands around thinking on something that moves)
+      s.hes = !st.hurry && !st.speed && !this.ch.groundPart?.kinematic && (st.hard ?? 0) >= 0.45 && Math.random() < (1 - this.skill) * 1.6 + f * 0.1 ? rnd(0.3, 1.6) : 0;
     }
     if (s.hes > 0) { s.hes -= dt; return false; }
-    if (st.cond && !st.cond(this)) { s.rt = null; return false; }
-    if (s.rt == null) s.rt = st.cond ? this.reactTime() : 0;
-    if ((s.rt -= dt) > 0) return false;
-    if (st.cond && !st.cond(this)) { s.rt = null; return false; }
+    if (st.cond) {
+      // it looks every so often (as often as it can react), and goes when it's the moment:
+      // slow ones miss short windows and wait for the next
+      if ((s.rt = (s.rt ?? 0) - dt) > 0) return false;
+      s.rt = st.quick ? 0 : this.reactTime();
+      if (!st.cond(this)) return false;
+    }
     s.go = true;
     return true;
   }
@@ -196,7 +200,7 @@ export class ObbyBot extends BotBrain {
     this._last.copy(p);
     if (this.stuckT > 1.5 && ch.grounded) { ch.input.jump = true; this.stuckT = 0.5; }
     const step = this.route[this.si];
-    const patient = step && (step.type === 'win' || step.type === 'custom');
+    const patient = step && (step.type === 'win' || step.type === 'custom' || step.type === 'wait');
     if (this.stepT > (patient ? 90 : 35)) { this.stepT = 0; this.reset('stuck'); }
   }
   reset() { const ch = this.ch; if (ch?.alive) { ch.lastCause = 'reset'; ch.breakJoints(); } }
@@ -207,13 +211,13 @@ export class ObbyBot extends BotBrain {
     const route = this.route;
     let best = -1, bd = 3.4;
     for (let i = 0; i < route.length; i++) {
-      const e = endOf(route[i]);
+      const e = endOf(route[i], this);
       if (!e) continue;
       const d = hd(e, p) + Math.abs(e.y - feet) * 1.5;
       if (d < bd) { bd = d; best = i; }
     }
     this.s = {};
-    if (best >= 0) { this.si = best + 1; return; }
+    if (best >= 0) { this.si = route[best].type === 'ride' ? best : best + 1; return; }
     const sp = this.stageDef.spawn.at;
     if (hd(sp, p) < 6 && Math.abs(sp.y - feet) < 2) { this.si = 0; return; }
     this.si = -1; this.lostT = 0;
@@ -228,7 +232,7 @@ export class ObbyBot extends BotBrain {
     if (this.si >= 0) return;
     let best = null, bd = 16;
     for (const st of this.route) {
-      const e = endOf(st);
+      const e = endOf(st, this);
       if (e && Math.abs(e.y - feet) < 1.2 && hd(e, p) < bd) { bd = hd(e, p); best = e; }
     }
     if (best) this.goTo(best, 0.3);
@@ -247,7 +251,7 @@ export class ObbyBot extends BotBrain {
         const t = res(st.p, this);
         // run straight into a jump that comes next (no stopping at the edge)
         const nx = this.route[this.si + 1];
-        const runUp = nx?.type === 'jump' && !nx.from && !nx.cond && (nx.hurry || nx.speed || (nx.hard ?? 0) < 0.45 || this.skill > 0.88);
+        const runUp = nx?.type === 'jump' && !nx.from && (!nx.cond || nx.quick) && (nx.hurry || nx.speed || (nx.hard ?? 0) < 0.45 || this.skill > 0.88);
         const d = this.goTo(t, 0.15, { full: !!(st.cond || st.pass || st.hurry || runUp), rel: st.rel });
         if (st.pass) { const f = st.pass; if ((p.x - t.x) * f.x + (p.z - t.z) * f.z > -(st.r ?? 1)) return true; }
         if (d < (st.r ?? 1) && Math.abs(feet - t.y) < 2.5) return true;
@@ -305,16 +309,20 @@ export class ObbyBot extends BotBrain {
     s.ph ??= 'to';
     if (s.ph === 'to') {
       const from = st.from ? res(st.from, this) : null;
-      if (from && (this.goTo(from, 0.12) > 0.45 || !ch.grounded)) return false;
+      // (in a hurry - crumbling tiles, a speed boost - near enough is good enough)
+      if (from && (this.goTo(from, 0.12, { full: st.hurry || st.speed }) > (st.hurry || st.speed ? 1 : 0.45) || !ch.grounded)) return false;
       s.ph = 'ready';
     }
     if (s.ph === 'ready') {
-      this.hold(s, ch.groundPart?.kinematic);
+      // on a moving platform, move with it; on a roller, keep your place
+      const g = ch.groundPart?.body, w = g?.angularVelocity;
+      this.hold(s, ch.groundPart?.kinematic && Math.abs(w.x) + Math.abs(w.z) < 0.1);
       if (!ch.grounded) return false;
       if (!this.ready(st, s, dt)) return false;
       // someone's still standing on a small landing spot: give them a moment
       const L = res(st.p, this);
-      if ((s.queue ??= 0) < 2.5 && this.someoneAt(L)) { s.queue += dt; return false; }
+      // (only on solid ground, and not when timing matters: nobody waits on a moving thing)
+      if (!st.hurry && !st.cond && !ch.groundPart?.kinematic && (s.queue ??= 0) < 1.2 && this.someoneAt(L)) { s.queue += dt; return false; }
       s.ph = 'go'; s.t = 0;
       if (!s.early && this.slip(st)) {
         // a slip: aimed a bit off (short, long or to the side)
@@ -372,8 +380,9 @@ export class ObbyBot extends BotBrain {
   }
 }
 
-/** Where a step leaves you (for working out where you are), if it's a fixed place. */
-function endOf(st) {
-  if (st.type === 'walk' || st.type === 'jump' || st.type === 'climb' || st.type === 'bounce') return typeof st.p === 'function' ? null : st.p;
+/** Where a step leaves you (for working out where you are): a place, or where a moving thing is now. */
+function endOf(st, bot) {
+  if (st.type === 'walk' || st.type === 'jump' || st.type === 'climb' || st.type === 'bounce') return typeof st.p === 'function' ? st.p(bot) : st.p;
+  if (st.type === 'ride') return st.hold(bot);
   return null;
 }

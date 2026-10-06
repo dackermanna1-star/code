@@ -65,6 +65,12 @@ The first start creates `data/db.json`. The site's clock starts on September 1, 
     3. A summoned black hole tears around the island and swallows everything, clowns included.
   - In the lobby, the **Pick the disaster** menu chooses the disaster and the map (or Random). Your pick stays set for every round, and **Start Now** skips the wait.
   - Read the warning. Get up high for floods and tsunamis, get inside for acid rain, blizzards and meteors, and get out into the open for earthquakes and fires. You can swim, but stamina and breath run out.
+- **MEGA OBBY (32 Stages!)**: a big, hard obby that spirals up round the Mega Tower, made by Robloxian2008. Like the games above, it is a modern-style user-made place, not a 2008 recreation.
+  - Five zones: Sky Meadows, Volcano Isles, Neon City, Frozen Peaks and the Cosmic Void. Each has its own sky, light and weather.
+  - The stages include trampolines, truss towers, conveyors, crushers, crumbling and rising lava, fire spinners, laser gates, sliding and spinning platforms, elevators, a glass bridge (one panel in each pair breaks), a disco floor, swinging axes, an avalanche, blizzard gusts, a bobsled run, low gravity, an invisible path, a speed run, the Gauntlet and the Final Ascent.
+  - Touch a checkpoint to save your stage. Fall or touch something deadly and you respawn there after two seconds. Press **R** to reset.
+  - Reach the top to win. The timer and your deaths are shown, and the PLAY AGAIN pad starts a new run.
+  - The other players have skill levels: good ones are fast and rarely fall, new ones hesitate, mistime things and die a lot, but they all get there in the end.
 - **Your own place**: on your My ROBLOX page, click Edit under your place.
   - **Tools** gives the Grab, Clone and Delete build tools.
   - **Insert** adds bricks and the models you own.

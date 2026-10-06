@@ -39,15 +39,17 @@ export function boardTex(text, bg, fg, w = 512, h = 192, border = 'rgba(255,255,
 // --- checkpoints ----------------------------------------------------------------------------------------------------
 function checkpoint(k, stage, C) {
   const z = ZONES[stage.zone];
-  k.plat(0, 0, 0, 10, 10, z.pad, { top: 'Smooth' });
-  for (const [x, zz, sx, sz] of [[0, -4.85, 10, 0.3], [0, 4.85, 10, 0.3], [-4.85, 0, 0.3, 9.4], [4.85, 0, 0.3, 9.4]]) k.box(x, 0.06, zz, sx, 0.15, sz, z.trim, { material: 'Neon', top: 'Smooth' });
+  // a round pad (the course turns at each checkpoint, and a square one's corners would stick out over the stages)
+  k.box(0, -0.6, 0, 1.2, 10.8, 10.8, z.pad, { shape: 'Cylinder', rotation: [0, 0, 90] });
+  k.box(0, -0.68, 0, 1.2, 11.3, 11.3, z.trim, { shape: 'Cylinder', rotation: [0, 0, 90], material: 'Neon', noPhysics: true });
   k.box(0, 0.05, 0, 0.1, 3.4, 3.4, z.trim, { material: 'Neon', top: 'Smooth', shape: 'Cylinder', rotation: [0, 0, 90], noPhysics: true });
   // the flag (it turns green when you've got this checkpoint) and the number
-  k.box(-4.2, 4, 4.2, 0.4, 8, 0.4, 1, { top: 'Smooth' });
-  const flag = k.dp({ size: [0.2, 2.4, 3.4], position: [-4.2, 6.6, 2.4], color: z.flag, noPhysics: true, top: 'Smooth', bottom: 'Smooth' });
-  const sign = k.dp({ size: [6, 2.4, 0.3], position: [2, 7.2, 4.6], color: 26, noPhysics: true, top: 'Smooth', bottom: 'Smooth' });
+  k.box(-3.5, 4, 3.5, 0.4, 8, 0.4, 1, { top: 'Smooth', noPhysics: true });
+  const flag = k.dp({ size: [0.2, 2.4, 3.4], position: [-3.5, 6.6, 1.7], color: z.flag, noPhysics: true, top: 'Smooth', bottom: 'Smooth' });
+  // the sign, at the front corner (facing you as you arrive, and from the spawn)
+  const sign = k.dp({ size: [4.2, 1.7, 0.3], position: [3.3, 6.3, -3.4], color: 26, noPhysics: true, top: 'Smooth', bottom: 'Smooth' });
   sign.addDecal('Back', boardTex(`STAGE ${stage.n}\n${stage.name}`, '#151a22', z.color, 512, 205, z.color));
-  for (const s of [-1, 1]) k.box(2 + s * 2.7, 3, 4.6, 0.3, 6, 0.3, 26, { noPhysics: true });
+  for (const s of [-1, 1]) k.box(3.3 + s * 1.8, 2.75, -3.4, 0.3, 5.5, 0.3, 26, { noPhysics: true });
   const trig = k.dp({ size: [9.5, 5, 9.5], position: [0, 2.5, 0], transparency: 1, canCollide: false, name: 'Checkpoint' });
   trig.onTouched((ch) => C.reach?.(ch, stage.index));
   stage.flag = flag;
@@ -69,13 +71,17 @@ function scenery(k, stage, len, R) {
     spots.push([side * out, r(-22, 10), -r(0, len)]);
   }
   for (const [x, y, z] of spots) {
+    // (not inside the Mega Tower)
+    const w = k.W(x, y, z);
+    if (Math.hypot(w.x, w.z) < 40) continue;
     if (zone === 'meadow') {
       const s = r(8, 15), c = [37, 119, 28][Math.floor(r(0, 3))];
       box(x, y, z, s, 2, s, c, { top: 'Studs' });
       for (let j = 1; j <= 3; j++) box(x, y - 1 - j * 1.8, z, s * (1 - j * 0.24), 1.8, s * (1 - j * 0.24), j % 2 ? 192 : 217);
       box(x + r(-1, 1), y + 3.5, z + r(-1, 1), 1, 5, 1, 217); ball(x, y + 7.5, z, r(5, 7), 28);
       for (let j = 0; j < 4; j++) ball(x + r(-s / 2.5, s / 2.5), y + 1.3, z + r(-s / 2.5, s / 2.5), 0.9, [21, 24, 1, 22][j]);
-      if (rand() < 0.6) for (let j = 0; j < 5; j++) ball(x + r(-14, 14), y + r(18, 30), z + r(-14, 14), r(5, 10), 1, { transparency: 0.15 });
+      // a cloud drifting below
+      if (rand() < 0.6) for (let j = 0; j < 4; j++) ball(x + r(-12, 12), r(-36, -26), z + r(-12, 12), r(9, 15), 1, { transparency: 0.35, material: 'Neon' });
     } else if (zone === 'volcano') {
       const h = r(14, 30);
       for (let j = 0; j < 4; j++) box(x + r(-1, 1), y - 10 + j * h / 4, z + r(-1, 1), (4 - j) * 2.5, h / 4 + 1, (4 - j) * 2.4, j % 2 ? 199 : 26, { rotation: [0, r(0, 90), 0] });
@@ -83,11 +89,12 @@ function scenery(k, stage, len, R) {
       if (rand() < 0.7) box(x + r(3, 5), y - 6 + h / 2, z, 1.2, h, 1.2, 106, { material: 'Neon', transparency: 0.1 });
       box(x + r(-8, 8), y - 18, z + r(-8, 8), r(8, 14), 1, r(8, 14), 106, { material: 'Neon' });
     } else if (zone === 'neon') {
-      const h = r(30, 70), w = r(8, 14);
-      box(x, y - 40 + h / 2, z, w, h, w, [26, 149, 199][Math.floor(r(0, 3))]);
+      // the city is below you: towers whose roofs stay under the course
+      const top = r(-24, -10), y0 = -90, h = top - y0, w = r(8, 14), xx = Math.sign(x) * (26 + Math.abs(x));
+      box(xx, y0 + h / 2, z, w, h, w, [26, 149, 199][Math.floor(r(0, 3))]);
       const col = [104, 107, 22, 23][Math.floor(r(0, 4))];
-      for (let yy = 4; yy < h - 2; yy += 6) box(x, y - 40 + yy, z, w + 0.2, 0.5, w + 0.2, col, { material: 'Neon' });
-      box(x, y - 40 + h + 4, z, 0.5, 8, 0.5, 194); ball(x, y - 40 + h + 8.5, z, 1.2, 21, { material: 'Neon' });
+      for (let yy = 4; yy < h - 2; yy += 6) box(xx, y0 + yy, z, w + 0.2, 0.5, w + 0.2, col, { material: 'Neon' });
+      box(xx, top + 3, z, 0.5, 6, 0.5, 194); ball(xx, top + 6.5, z, 1.2, 21, { material: 'Neon' });
     } else if (zone === 'frozen') {
       const s = r(10, 18);
       box(x, y - 4, z, s, 8, s * 0.8, 1, { rotation: [0, r(0, 90), r(-8, 8)] });
@@ -102,8 +109,9 @@ function scenery(k, stage, len, R) {
       const d = r(12, 34);
       ball(x * 1.6, y + r(-10, 30), z, d, [104, 110, 23, 106, 24][Math.floor(r(0, 5))], { material: rand() < 0.4 ? 'Neon' : 'Plastic' });
       if (rand() < 0.5) k.sp({ shape: 'Cylinder', size: [0.6, d * 1.8, d * 1.8], position: [x * 1.6, y + 10, z], rotation: [r(-30, 30), 0, 90 + r(-30, 30)], color: 1, transparency: 0.5, ...DECO });
-      for (let j = 0; j < 6; j++) box(x + r(-20, 20), y + r(-20, 20), z + r(-20, 20), r(1, 4), r(1, 3), r(1, 4), 199, { rotation: [r(0, 90), r(0, 90), r(0, 90)] });
-      for (let j = 0; j < 8; j++) ball(x + r(-40, 40), y + r(-10, 50), z + r(-40, 40), r(0.5, 1.2), 1, { material: 'Neon' });
+      // a few asteroids drifting below, and stars
+      for (let j = 0; j < 3; j++) ball(x * 1.4 + r(-10, 10), r(-30, -10), z + r(-12, 12), r(2, 5), [199, 25, 194][j]);
+      for (let j = 0; j < 4; j++) ball(x * 1.6 + r(-30, 30), r(15, 60), z + r(-30, 30), r(0.6, 1.4), 1, { material: 'Neon' });
     }
   }
   void R;
@@ -159,7 +167,7 @@ export function buildCourse(world, st, C) {
   const rand = rng(7);
   for (let i = 0; i < 70; i++) {
     const a = rand() * Math.PI * 2, d = 120 + rand() * 600;
-    st.add({ shape: 'Ball', size: [40, 40, 40].map((v) => v * (0.5 + rand())), position: [Math.cos(a) * d, -40 + rand() * 12, Math.sin(a) * d], color: 1, transparency: 0.25, ...DECO });
+    st.add({ shape: 'Ball', size: [40, 40, 40].map((v) => v * (0.5 + rand())), position: [Math.cos(a) * d, -40 + rand() * 12, Math.sin(a) * d], color: 1, transparency: 0.3, material: 'Neon', ...DECO });
   }
   return { stages, kit: k, warnings: k.warnings };
 }

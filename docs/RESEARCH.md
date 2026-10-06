@@ -132,6 +132,12 @@ Ratings and voting: 2008 pages show only how many times a place was Visited and 
 - Buildings are anchored classic bricks merged into a few meshes per area. A disaster breaks bricks loose one at a time, and loose debris is capped.
 - With thousands of anchored parts, cannon-es's SAP broadphase and dense collision matrix grew with the square of the part count. The place therefore uses a grid broadphase for static bodies (`public/js/engine/broadphase.js`). Every place now uses a sparse collision matrix.
 
+### MEGA OBBY (not a 2008 recreation)
+- Added on request: a big, difficult obby with 32 stages, in the style of the long obbies made after 2008. The course, stage names, zones and rules are all original to this project. Trusses (2009) are used, and the place uses its own GUI, skies, fog and particles.
+- Every jump on the course is checked when it is built against what a character can do (walk speed 16, jump power 50, gravity 196.2), so all of it is passable. Moving obstacles run from the clock, so they are the same every time and can be timed.
+- The simulated players follow a route that each stage writes as it is built (walk, jump, climb, ride, wait for the moment). Each bot has a skill level that sets its reaction time, how often it hesitates, and how often it mistimes or misjudges something. Bots remember which glass panels broke and get more careful where they died before.
+- Players pass through each other on this course, as in most modern obbies.
+
 ### Personal places
 - **Verified:** the three starting templates (Happy Home in Robloxia, Starting BrickBattle Map, Empty Baseplate), the Tools and Insert menus in your own place, and the save-on-exit dialog.
 

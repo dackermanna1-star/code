@@ -37,24 +37,58 @@ function laser(k, C, x, y0, z, w, h, P, onFor, off) {
   const offFor = (t, dur) => { const ph = phase(t, P, off); return ph >= onFor && P - ph >= dur; };
   return { part: p, isOn, offFor };
 }
-/** A spinning bar about a vertical axis: returns time-to-hit helpers for a point. */
+/** A spinning bar about a vertical axis (and a test for whether it covers a point). */
 function spinBar(k, C, cx, y, cz, len, thick, omega, theta0, o = {}) {
   const angle = (t) => omega * t + theta0;
   const r = k.rotor({ size: [len, thick, thick], position: [cx, y, cz], color: o.color ?? 21, material: o.neon === false ? 'Plastic' : 'Neon', top: 'Smooth', bottom: 'Smooth', name: 'SpinBar' }, [cx, y, cz], [0, 1, 0], angle);
   if (o.deadly !== false) r.part.onTouched((ch) => C.kill(ch, o.cause || 'spinner'));
   else r.part.onTouched((ch) => C.fling(ch, r.part, 70));
   const F = k.F;
-  /** Seconds until the bar sweeps over world point p, and how long it overlaps it. */
-  const hit = (p, t) => {
+  /** Is (world) point p under the bar at time t? (anyY: whatever its height) */
+  const covers = (p, t, anyY) => {
     const q = F.L(p); const lx = q.x - cx, lz = q.z - cz, rr = Math.hypot(lx, lz);
-    if (rr < 0.5) return { t: 0, hw: 99 };
-    const phi = Math.atan2(-lz, lx), th = angle(t);
-    const d = omega > 0 ? phi - th : th - phi;
-    const delta = ((d % Math.PI) + Math.PI) % Math.PI;
-    const hw = (1.05 + thick / 2) / rr / Math.abs(omega);
-    return { t: delta / Math.abs(omega), hw };
+    if (rr > len / 2 + 1.3 || (!anyY && Math.abs(q.y - 3 - y) > 3)) return false;
+    if (rr < 1.5) return true;
+    const d = ((((Math.atan2(-lz, lx) - angle(t)) % Math.PI) + Math.PI) % Math.PI);
+    return Math.min(d, Math.PI - d) < (1.05 + thick / 2) / rr;
   };
-  return { r, hit, y, thick };
+  /** How far (radians) the nearest arm behind local direction phi is from it (for a bar turning +). */
+  const behind = (phi, t) => (((phi - angle(t)) % Math.PI) + Math.PI) % Math.PI;
+  return { r, covers, behind, y, thick };
+}
+/**
+ * Hop a spinning bar: look ahead along where you're walking, and jump when
+ * it's about to sweep there (so you're over it as it passes) - unless that
+ * would put your head into another bar above.
+ */
+const _hp = new THREE.Vector3();
+function hopOver(bot, C, low, highs = []) {
+  const ch = bot.ch;
+  if (!ch.grounded) return;
+  const p = ch.rootPosition, v = ch.body.velocity, t = C.world.time;
+  const at = (s) => _hp.set(p.x + v.x * s, p.y, p.z + v.z * s);
+  let first = -1;
+  for (let s = 0; s <= 0.3; s += 0.02) if (low.covers(at(s), t + s)) { first = s; break; }
+  if (first < 0.03 || first > 0.15) return;
+  for (const h of highs) for (let s = 0; s <= 0.52; s += 0.02) if (h.covers(at(s), t + s, true)) return;
+  bot.forceJump = true;
+}
+/** Is anybody (but you) in this local box of the stage? (so you don't follow them onto crumbling tiles) */
+function busy(k, C, x0, x1, z0, z1) {
+  const F = k.F;
+  let went = -9;
+  const fn = (bot) => {
+    if (C.world.time - went < 1.5) return true; // someone's just gone
+    for (const ch of C.world.characters) {
+      if (ch === bot.ch || !ch.alive) continue;
+      const q = F.L(ch.rootPosition);
+      if (q.x > x0 && q.x < x1 && q.z > z0 && q.z < z1 && Math.abs(q.y - 3) < 4) return true;
+    }
+    return false;
+  };
+  /** (call when you go) */
+  fn.go = () => { went = C.world.time; return true; };
+  return fn;
 }
 /** A platform falling away shortly after someone steps on it (back a few seconds later). */
 function faller(k, C, x, y, z, sx, sz, color, delay = 0.5, back = 3.5, o = {}) {
@@ -222,7 +256,10 @@ export const STAGES = [
   } },
   { name: 'Crumbling Path', zone: 1, build(k, C) {
     const tiles = [[0, -8.5], [2, -14], [-1, -19.5], [2, -25], [-2, -30.5], [1, -36], [-1, -41.5], [1, -47]];
-    for (const [x, z] of tiles) k.go(faller(k, C, x, 0, z, 4, 4, 25, 0.55, 3.5), { hurry: true, hard: 0.3 });
+    // (wait on the checkpoint until the path is all back up: no following someone too closely)
+    const fs = [], others = busy(k, C, -5, 5, -50, -6);
+    k.wait((bot) => fs.every((t) => t.f.state === 'idle') && !others(bot) && others.go());
+    for (const [x, z] of tiles) { const t = faller(k, C, x, 0, z, 4, 4, 25, 0.55, 3.5); fs.push(t); k.go(t, { hurry: true, hard: 0.3, quick: true, cond: () => t.f.state === 'idle' }); }
     return k.end(3, 1);
   } },
   { name: 'Rising Lava', zone: 1, build(k, C) {
@@ -250,15 +287,7 @@ export const STAGES = [
     k.plat(0, 0, -34, 4, 4, 199);
     k.walk(0, 0, -7); k.walk(6.5, 0, -15); k.walk(6.5, 0, -25); k.walk(0, 0, -33);
     k.cur = rect(0, 0, -34, 4, 4);
-    k.stage.tick = (bot) => {
-      const p = bot.ch.rootPosition, t = C.world.time;
-      if (bot.ch.grounded) {
-        const a = low.hit(p, t), b = high.hit(p, t);
-        const start = a.t - a.hw;
-        const highClear = b.t - b.hw > 0.62 || b.t + b.hw < 0;
-        if (start > 0 && start < 0.1 && highClear) bot.forceJump = true;
-      }
-    };
+    k.stage.tick = (bot) => hopOver(bot, C, low, [high]);
     return k.end(4, 1);
   } },
 
@@ -279,7 +308,8 @@ export const STAGES = [
     const zs = [-11.5, -20.5, -29.5, -38.5];
     const xs = zs.map((z, i) => (t) => A * Math.sin(2 * Math.PI * (t / P) + i * 1.6));
     const ms = zs.map((z, i) => k.mover({ size: [5, 1.2, 5], position: [0, -0.6, z], color: [104, 107, 23, 22][i], top: 'Smooth' }, (t) => ({ x: xs[i](t), y: -0.6, z })));
-    const live = (i, dz = 0) => () => { const w = ms[i].world(C.world.time); return w.add(k.F.D(0, 0.6, dz)); };
+    const F = k.F; // (this stage's frame: k.F moves on to the next stage)
+    const live = (i, dz = 0) => () => { const w = ms[i].world(C.world.time); return w.add(F.D(0, 0.6, dz)); };
     k.walk(0, 0, -4.6, { r: 0.5 });
     // onto the first: when it'll be in front of you
     k.push({ type: 'jump', p: live(0, 1.2), cond: () => Math.abs(xs[0](C.world.time + 0.45)) < 0.9, hard: 0.5, timing: true });
@@ -299,13 +329,14 @@ export const STAGES = [
     const L2 = k.mover({ size: [5, 1.2, 5], position: [0, 13.4, -24.5], color: 104, top: 'Smooth' }, (t) => ({ x: 0, y: lift(t, 3.5, 14, 28) - 0.6, z: -24.5 }));
     const B = k.plat(0, 28, -31.5, 6, 4, 26, { top: 'Smooth' });
     for (const [z, y0, y1] of [[-10.5, -2, 16], [-24.5, 12, 30]]) for (const s of [-1, 1]) k.box(s * 3, (y0 + y1) / 2, z, 0.5, y1 - y0, 0.5, 107, { material: 'Neon' });
-    const top = (m) => () => m.world(C.world.time).add(k.F.D(0, 0.6, -1.2));
+    const F = k.F;
+    const top = (m) => () => m.world(C.world.time).add(F.D(0, 0.6, -1.2));
     k.walk(0, 0, -4.6, { r: 0.5 });
-    k.push({ type: 'jump', p: () => L1.world(C.world.time).add(k.F.D(0, 0.6, 0.8)), cond: () => phase(C.world.time + 0.3, 7, 0) < 1.2, hard: 0.3, timing: true });
+    k.push({ type: 'jump', p: () => L1.world(C.world.time).add(F.D(0, 0.6, 0.8)), cond: () => phase(C.world.time + 0.3, 7, 0) < 1.2, hard: 0.3, timing: true });
     k.push({ type: 'ride', hold: top(L1), cond: () => lift(C.world.time, 0, 0, 14) > 13.8 });
     k.push({ type: 'jump', p: k.W(0, 14, -16.6), hard: 0.3 });
     k.walk(0, 14, -19, { r: 0.5 });
-    k.push({ type: 'jump', p: () => L2.world(C.world.time).add(k.F.D(0, 0.6, 0.8)), cond: () => phase(C.world.time + 0.3, 7, 3.5) < 1.2, hard: 0.3, timing: true });
+    k.push({ type: 'jump', p: () => L2.world(C.world.time).add(F.D(0, 0.6, 0.8)), cond: () => phase(C.world.time + 0.3, 7, 3.5) < 1.2, hard: 0.3, timing: true });
     k.push({ type: 'ride', hold: top(L2), cond: () => lift(C.world.time, 3.5, 14, 28) > 27.8 });
     k.push({ type: 'jump', p: k.W(0, 28, -30.6), hard: 0.3 });
     k.cur = B; void A;
@@ -347,6 +378,7 @@ export const STAGES = [
         type: 'custom', run(bot, dt, s) {
           if (s.choice == null) {
             const known = row.findIndex((g) => g.broken || g.seenBroken);
+            bot.mem.glassPrev = bot.mem.glassChoice;
             s.choice = known >= 0 ? 1 - known : (Math.random() < 0.55 + bot.skill * 0.35 ? row.findIndex((g) => g.ok) : (Math.random() < 0.5 ? 0 : 1));
             s.wait = r === 0 ? rnd(0.3, 1.2) * (1.4 - bot.skill) : rnd(0.1, 0.6) * (1.3 - bot.skill);
           }
@@ -355,7 +387,8 @@ export const STAGES = [
         },
       });
       const target = (bot) => { const g = row[bot.mem.glassChoice ?? 0]; const lp = F.L(bot.ch.rootPosition); return F.W(g.x + clamp(lp.x - g.x, -1.2, 1.2), 0, g.z + 1.2); };
-      const takeoff = (bot) => { const lp = F.L(bot.ch.rootPosition); const g = row[bot.mem.glassChoice ?? 0]; return F.W(r === 0 ? g.x * 0.6 : clamp(g.x, lp.x - 1.5, lp.x + 1.5), 0, r === 0 ? -4.6 : -9 - (r - 1) * 6.5 - 1.8); };
+      // (from the far edge of the panel you're on, as near the next one as you can get)
+      const takeoff = (bot) => { const g = row[bot.mem.glassChoice ?? 0]; if (r === 0) return F.W(g.x * 0.6, 0, -4.6); const pg = panels[r - 1][bot.mem.glassPrev ?? 0]; return F.W(clamp(g.x, pg.x - 1.5, pg.x + 1.5), 0, -9 - (r - 1) * 6.5 - 1.7); };
       k.push({ type: 'jump', from: takeoff, p: target, hard: 0.35 });
     }
     k.cur = rect(0, 0, -9 - (rows - 1) * 6.5, 10, 4.5);
@@ -379,16 +412,16 @@ export const STAGES = [
     const W = (t) => C.world.time + t;
     // pad -> plank 1
     k.walk(0, 0, -4.6, { r: 0.5 });
-    k.push({ type: 'jump', p: p1.tip(1, 5.2), cond: () => p1.aligned(W(0.4), 0.13), hard: 0.6, timing: true });
+    k.push({ type: 'jump', p: p1.tip(1, 5.2), cond: () => p1.aligned(W(0.4), 0.16), hard: 0.6, timing: true });
     k.push({ type: 'walk', p: p1.center, r: 0.7 });
-    k.push({ type: 'wait', cond: () => p1.aligned(W(0.42), 0.1) });
+    k.push({ type: 'wait', cond: () => p1.aligned(W(0.42), 0.15) });
     k.push({ type: 'walk', p: p1.tip(-1, 5.6), r: 0.5, rel: true });
     k.push({ type: 'jump', p: k.W(0, 0, -26.2), hard: 0.5 });
     // island -> plank 2
     k.walk(0, 0, -27.9, { r: 0.4 });
-    k.push({ type: 'jump', p: p2.tip(1, 5.2), cond: () => p2.aligned(W(0.4), 0.13), hard: 0.6, timing: true });
+    k.push({ type: 'jump', p: p2.tip(1, 5.2), cond: () => p2.aligned(W(0.4), 0.16), hard: 0.6, timing: true });
     k.push({ type: 'walk', p: p2.center, r: 0.7 });
-    k.push({ type: 'wait', cond: () => p2.aligned(W(0.42), 0.1) });
+    k.push({ type: 'wait', cond: () => p2.aligned(W(0.42), 0.15) });
     k.push({ type: 'walk', p: p2.tip(-1, 5.6), r: 0.5, rel: true });
     k.push({ type: 'jump', p: k.W(0, 0, -50.2), hard: 0.5 });
     k.cur = rect(0, 0, -39, 3, 14); void isl;
@@ -438,14 +471,15 @@ export const STAGES = [
           }
         }
         if (s.goal != null) {
-          const target = s.goal >= rows ? F.W(0, 0, rowZ(rows - 1) - 6) : F.W(s.lane, 0, rowZ(s.goal));
+          const target = s.goal >= rows ? F.W(0, 0, rowZ(rows - 1) - 6.5) : F.W(s.lane, 0, rowZ(s.goal));
           if (bot.goTo(target, 0.3) < 0.6) { s.row = s.goal; s.goal = null; }
         } else bot.goTo(s.row < 0 ? F.W(0, 0, -3.5) : F.W(s.lane, 0, rowZ(s.row)), 0.3);
         return false;
       },
     });
     k.cur = rect(0, 0, rowZ(rows - 1), 10.5, 3.5);
-    return k.end(0, 0, 0, { noRoute: true });
+    // (a step off the floor before the checkpoint, so nobody gets it while still on a tile)
+    return k.end(1.2, 0, 0, { noRoute: true });
   } },
 
   // ===== ZONE 4: FROZEN PEAKS =====
@@ -544,11 +578,12 @@ export const STAGES = [
   { name: 'Cracking Ice', zone: 3, build(k, C) {
     const cols = [-4.5, 0, 4.5];
     const rowZ = (r) => -8 - r * 5;
-    const path = [1, 0, 0, 1, 2, 2, 1];
+    const path = [1, 0, 0, 1, 2, 2, 1], fs = [], others = busy(k, C, -7, 7, -40, -5.5);
+    k.wait((bot) => fs.every((t) => t.f.state === 'idle') && !others(bot) && others.go());
     for (let r = 0; r < 7; r++) for (let c = 0; c < 3; c++) {
       if ((r * 7 + c * 3) % 5 === 1 && path[r] !== c) continue; // a few holes
       const t = faller(k, C, cols[c], 0, rowZ(r), 4, 4, (r + c) % 2 ? 45 : 11, 0.45, 4, { props: { transparency: 0.2, top: 'Smooth' } });
-      if (path[r] === c) k.go(t, { hurry: true, hard: 0.35 });
+      if (path[r] === c) { fs.push(t); k.go(t, { hurry: true, hard: 0.35, quick: true, cond: () => t.f.state === 'idle' }); }
     }
     return k.end(3, 1);
   } },
@@ -572,9 +607,9 @@ export const STAGES = [
     slide.surfaceVelocity = k.D(0, 0, -24);
     slide.addDecal('Top', C.arrowTex(null, 9, 90, 24), { color: 0xd8f0ff });
     for (const s of [-1, 1]) k.box(s * 4.8, 0.75, -50, 0.6, 1.5, 90, 1);
-    const blocks = [[2.5, -18, 4], [-2.5, -36, 4], [0, -54, 3.5], [2, -72, 5]];
+    const blocks = [[2.5, -18, 4], [-2.5, -36, 4], [0, -54, 3], [2, -72, 5]];
     for (const [x, z, w] of blocks) k.kill(x, 1, z, w, 2, 3);
-    const lanes = [[-2.6, -8], [-2.6, -20.5], [2.6, -33], [2.6, -38.5], [2.8, -50], [2.8, -56.5], [-2.6, -69], [-2.6, -74.5], [0, -86]];
+    const lanes = [[-2.6, -8], [-2.6, -20.5], [2.6, -33], [2.6, -38.5], [3.0, -50], [3.0, -56.5], [-2.6, -69], [-2.6, -74.5], [0, -86]];
     const fwd = k.D(0, 0, -1);
     for (const [x, z] of lanes) k.walk(x, 0, z, { r: 1.2, pass: fwd });
     k.cur = rect(0, 0, -50, 9, 90);
@@ -649,14 +684,17 @@ export const STAGES = [
     pad.addDecal('Top', C.arrowTex(null, 6, 6, 8), { color: 0x10ffe0 });
     k.plat(0, 0, -8, 6, 6, 149);
     pad.onTouched((ch) => { if (ch.alive) { if (!ch.speedUntil || ch.speedUntil < C.world.time + 3) C.sfx('boost', pad.mesh.position, ch); ch.speedUntil = C.world.time + 3.6; } });
-    const tile = (z) => faller(k, C, 0, 0, z, 4, 3.9, 110, 0.18, 3, { props: { material: 'Neon', top: 'Smooth' } });
+    const fs = [], tile = (z) => fs.push(faller(k, C, 0, 0, z, 4, 3.9, 110, 0.18, 3, { props: { material: 'Neon', top: 'Smooth' } }));
     for (let z = -13; z >= -45; z -= 4) tile(z);
     for (let z = -61; z >= -77; z -= 4) tile(z);
     k.plat(0, 0, -95, 8, 8, 149);
-    k.walk(0, 0, -8, { r: 1 });
-    k.walk(0, 0, -46.4, { r: 0.6 });
+    // the whole track has to be there: wait for the one in front to get across
+    const others = busy(k, C, -5, 5, -90, -10);
+    k.wait((bot) => fs.every((t) => t.f.state === 'idle') && !others(bot) && others.go());
+    k.walk(0, 0, -8, { r: 1, hurry: true });
+    k.walk(0, 0, -46.4, { r: 0.6, hurry: true });
     k.jumpTo([0, 0, -46.4], [0, 0, -60], { speed: 36, hard: 0.4 });
-    k.walk(0, 0, -78.4, { r: 0.6 });
+    k.walk(0, 0, -78.4, { r: 0.6, hurry: true });
     k.jumpTo([0, 0, -78.4], [0, 0, -92], { speed: 36, hard: 0.4 });
     k.cur = rect(0, 0, -95, 8, 8);
     return k.end(4, 1);
@@ -666,8 +704,9 @@ export const STAGES = [
     const xs = (t) => 6 * Math.sin(2 * Math.PI * t / 3.6);
     const S = k.mover({ size: [5, 1.2, 5], position: [0, -0.6, -11.5], color: 104, top: 'Smooth' }, (t) => ({ x: xs(t), y: -0.6, z: -11.5 }));
     k.walk(0, 0, -4.6, { r: 0.5 });
-    k.push({ type: 'jump', p: () => S.world(C.world.time).add(k.F.D(0, 0.6, 1)), cond: () => Math.abs(xs(C.world.time + 0.45)) < 0.9, hard: 0.55, timing: true });
-    k.push({ type: 'ride', hold: () => S.world(C.world.time).add(k.F.D(0, 0.6, -1.2)), cond: () => Math.abs(xs(C.world.time + 0.4)) < 0.9 });
+    const F = k.F;
+    k.push({ type: 'jump', p: () => S.world(C.world.time).add(F.D(0, 0.6, 1)), cond: () => Math.abs(xs(C.world.time + 0.45)) < 0.9, hard: 0.55, timing: true });
+    k.push({ type: 'ride', hold: () => S.world(C.world.time).add(F.D(0, 0.6, -1.2)), cond: () => Math.abs(xs(C.world.time + 0.4)) < 0.9 });
     k.push({ type: 'jump', p: k.W(0, 0, -18.6), hard: 0.4 });
     const l1 = k.plat(0, 0, -20.5, 6, 6, 149);
     // ...a laser gate...
@@ -691,14 +730,10 @@ export const STAGES = [
     k.box(0, 1.5, -59, 3, 2.6, 2.6, 149, { shape: 'Cylinder', rotation: [0, 0, 90] });
     const bar = spinBar(k, C, 0, 0.6, -59, 13.6, 0.8, 1.6, 0.5, { cause: 'fire' });
     k.cur = rect(0, 0, -43, 4, 12);
-    k.jumpTo([0, 0, -48.6], [0, 0, -53.2], { hard: 0.4 });
-    k.walk(5.2, 0, -59, { r: 0.6 }); k.walk(0, 0, -65.2, { r: 0.6 });
-    k.stage.tick = (bot) => {
-      const p = bot.ch.rootPosition;
-      if (!bot.ch.grounded) return;
-      const a = bar.hit(p, C.world.time), start = a.t - a.hw;
-      if (start > 0 && start < 0.1) bot.forceJump = true;
-    };
+    // jump on just ahead of an arm (it turns 0.8 rad while you're in the air) and run round ahead of it: it's slower than you
+    k.jumpTo([0, 0, -48.6], [0, 0, -53.2], { hard: 0.5, timing: true, cond: () => { const d = bar.behind(-Math.PI / 2, C.world.time); return d > 1.3 && d < 1.65; } });
+    k.walk(5.2, 0, -59, { r: 0.8, hurry: true }); k.walk(0, 0, -65.2, { r: 0.6, hurry: true });
+    k.stage.tick = (bot) => hopOver(bot, C, bar);
     k.cur = rect(0, 0, -59, 9, 9); void l1;
     return k.end(3, 1);
   } },
@@ -711,7 +746,8 @@ export const STAGES = [
     k.kill(7.25, 4.75, -16, 1.5, 0.5, 4);
     k.walk(1.4, 2, -10.6, { r: 0.4 }); k.jumpTo([1.4, 2, -10.6], [5, 4.5, -15.2], { hard: 0.6 }); k.cur = rect(5, 4.5, -16, 2, 4); void f2;
     // crumbling
-    k.go(faller(k, C, 6, 7, -24, 4, 4, 24, 0.45, 3), { hurry: true, hard: 0.5 });
+    const f3 = faller(k, C, 6, 7, -24, 4, 4, 24, 0.45, 3);
+    k.go(f3, { hurry: true, hard: 0.5, quick: true, cond: () => f3.f.state === 'idle' });
     k.go(k.plat(0, 9.5, -30, 4, 4, 127), { hard: 0.5 });
     // sliding
     const zs = (t) => -24 + 3 * Math.sin(t * 1.4);

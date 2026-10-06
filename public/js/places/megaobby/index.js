@@ -141,7 +141,7 @@ const LOOK = {
   meadow: { fog: 0xcfe6fb, near: 260, far: 1500, sky: 0xe8eef6, ground: 0x9a948a, amb: 1.45, sun: 0xffffff, sunI: 1.35, air: null },
   volcano: { fog: 0x5a2416, near: 140, far: 950, sky: 0xffc8a0, ground: 0x5a2a1a, amb: 1.3, sun: 0xffa060, sunI: 1.35, air: { color: 0xff8a30, size: 0.45, vy: 5, sway: 1.5, opacity: 0.9 } },
   neon: { fog: 0x1a0a33, near: 160, far: 1100, sky: 0xb8a8ff, ground: 0x302050, amb: 1.05, sun: 0xc8b8ff, sunI: 0.85, air: { color: 0xd070ff, size: 0.3, vy: 0.6, sway: 0.8, opacity: 0.7 } },
-  frozen: { fog: 0xe2f1ff, near: 110, far: 850, sky: 0xeaf6ff, ground: 0xb0c8d8, amb: 1.5, sun: 0xf0f8ff, sunI: 1.3, air: { color: 0xffffff, size: 0.55, vy: -7, sway: 2.2, opacity: 0.95 } },
+  frozen: { fog: 0xe2f1ff, near: 200, far: 1200, sky: 0xeaf6ff, ground: 0xb0c8d8, amb: 1.5, sun: 0xf0f8ff, sunI: 1.3, air: { color: 0xffffff, size: 0.55, vy: -7, sway: 2.2, opacity: 0.95 } },
   cosmos: { fog: 0x0a0618, near: 220, far: 1700, sky: 0xc8c0ff, ground: 0x302848, amb: 1.1, sun: 0xe0e0ff, sunI: 1.05, air: { color: 0xbfd0ff, size: 0.25, vy: 0.3, sway: 0.4, opacity: 0.8 } },
 };
 class Atmosphere {
@@ -151,7 +151,7 @@ class Atmosphere {
     this.mat = new THREE.ShaderMaterial({
       uniforms: { a: { value: this.tex.meadow }, b: { value: this.tex.meadow }, k: { value: 0 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: 'uniform sampler2D a; uniform sampler2D b; uniform float k; varying vec2 vUv; void main(){ gl_FragColor = mix(texture2D(a, vUv), texture2D(b, vUv), k); #include <colorspace_fragment>\n }',
+      fragmentShader: 'uniform sampler2D a; uniform sampler2D b; uniform float k; varying vec2 vUv; void main(){ gl_FragColor = mix(texture2D(a, vUv), texture2D(b, vUv), k);\n#include <colorspace_fragment>\n}',
       side: THREE.BackSide, depthWrite: false, fog: false,
     });
     if (world.skyMesh) world.scene.remove(world.skyMesh);
@@ -413,7 +413,7 @@ export default {
       if (!p?.obby || !ch.alive || (p.obby.stage === 0 && !p.obby.won)) return;
       newRun(p);
       const sp = p.spawnOverride.position;
-      ch.body.position.set(sp.x, sp.y + 3, sp.z); ch.body.velocity.set(0, 0, 0);
+      ch.body.position.set(sp.x, sp.y + 3, sp.z); ch.root.position.set(sp.x, sp.y + 3, sp.z); ch.body.velocity.set(0, 0, 0);
       ch.facing = p.spawnOverride.yaw;
       if (p.isLocal) {
         S.stages.forEach((s) => s.flag?.setColor(ZONES[s.zone].flag));
@@ -459,7 +459,7 @@ export default {
     });
     // for testing
     S.debug = {
-      stage: (i, p = game.localPlayer) => { p.obby.stage = i; p.stats.Stage = i + 1; p.spawnOverride = spawnFor(i); const ch = p.character; if (ch?.alive) { const sp = p.spawnOverride.position; ch.body.position.set(sp.x, sp.y + 3, sp.z); ch.body.velocity.set(0, 0, 0); ch.facing = p.spawnOverride.yaw; } p.brain?.enterStage?.(i); },
+      stage: (i, p = game.localPlayer) => { p.obby.stage = i; p.stats.Stage = i + 1; p.spawnOverride = spawnFor(i); const ch = p.character; if (ch?.alive) { const sp = p.spawnOverride.position; ch.body.position.set(sp.x, sp.y + 3, sp.z); ch.root.position.set(sp.x, sp.y + 3, sp.z); ch.body.velocity.set(0, 0, 0); ch.facing = p.spawnOverride.yaw; } p.brain?.enterStage?.(i); },
       bots: () => game.players.filter((q) => q.brain instanceof ObbyBot),
     };
     window.__mob = S;

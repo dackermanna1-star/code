@@ -38,7 +38,7 @@ export class Kit {
     this.c = Math.cos(yaw); this.s = Math.sin(yaw);
     stage.route = stage.route || [];
     stage.origin = this.O.clone(); stage.yaw = yaw;
-    this.cur = rect(0, 0, 0, 10, 10);
+    this.cur = rect(0, 0, 0, 8, 10); // (the round checkpoint pad: you can take off from its front edge)
     this.F = this.frame();
   }
   /** This stage's frame, frozen (for code that runs later, while the game plays). */
