@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "IIT",
+    " FI",
+    "  I"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "T": "minecraft:tnt",
+    "F": "minecraft:flint_and_steel"
+  },
+  "result": {
+    "id": "tntgun:tnt_gun",
+    "count": 1
+  }
+}

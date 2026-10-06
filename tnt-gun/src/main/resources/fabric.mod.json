@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "tntgun",
+  "version": "${version}",
+  "name": "TNT Gun",
+  "description": "A gun that shoots TNT.",
+  "authors": ["dackermanna1"],
+  "license": "MIT",
+  "icon": "assets/tntgun/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.tntgun.TntGunMod"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
