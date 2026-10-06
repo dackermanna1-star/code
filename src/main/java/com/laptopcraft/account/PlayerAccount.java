@@ -23,6 +23,10 @@ public final class PlayerAccount {
 	/** Pending orders per player (keeps the order list bounded: pending orders are never trimmed). */
 	public static final int MAX_PENDING_ORDERS = 20;
 	public static final int MAX_BALANCE = 1_000_000_000;
+	public static final int MAX_FROM = 64;
+	public static final int MAX_SUBJECT = 128;
+	public static final int MAX_BODY = 2000;
+	public static final int MAX_LINK = 256;
 
 	public static final Codec<PlayerAccount> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.STRING.optionalFieldOf("name", "").forGetter(a -> a.name),
@@ -102,8 +106,12 @@ public final class PlayerAccount {
 
 	// ------------------------------------------------------------------ mail
 
+	/**
+	 * Adds a mail (newest first), trimming the inbox to {@link #MAX_MAIL}. Texts are clipped so a full inbox
+	 * plus a full laptop still fit in one {@code OpenLaptop} packet (1 MiB).
+	 */
 	public Mail addMail(String from, String subject, String body, String link, long time) {
-		Mail m = new Mail(nextMailId++, from, subject, body, time, false, link);
+		Mail m = new Mail(nextMailId++, clip(from, MAX_FROM), clip(subject, MAX_SUBJECT), clip(body, MAX_BODY), time, false, clip(link, MAX_LINK));
 		mail.addFirst(m);
 		while (mail.size() > MAX_MAIL) {
 			mail.removeLast();
@@ -210,5 +218,9 @@ public final class PlayerAccount {
 
 	public @Nullable DeliveryTarget target(long orderId) {
 		return targets.get(orderId);
+	}
+
+	private static String clip(String s, int max) {
+		return s.length() <= max ? s : s.substring(0, max - 3) + "...";
 	}
 }

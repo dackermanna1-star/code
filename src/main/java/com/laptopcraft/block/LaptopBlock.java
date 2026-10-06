@@ -136,6 +136,10 @@ public class LaptopBlock extends BaseEntityBlock {
 			laptop.setOwner(player);
 		}
 		LaptopSessions.open(player, pos);
+		if (!ServerPlayNetworking.canSend(player, ModPayloads.OpenLaptop.TYPE)) {
+			LaptopCraft.LOGGER.debug("{} can't receive the CubeOS screen (client without LaptopCraft?)", player.getGameProfile().name());
+			return;
+		}
 		String owner = laptop.ownerName();
 		if (owner.length() > 64) {
 			owner = owner.substring(0, 64);

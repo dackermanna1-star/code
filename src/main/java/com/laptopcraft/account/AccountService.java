@@ -1,6 +1,7 @@
 package com.laptopcraft.account;
 
 import com.laptopcraft.LaptopCraft;
+import com.laptopcraft.delivery.OrderService;
 import com.laptopcraft.network.ModPayloads;
 import java.util.UUID;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -113,6 +114,28 @@ public final class AccountService {
 		return after;
 	}
 
+	// ------------------------------------------------------------------ shop & bank (facade)
+
+	/** Validates and places an order; see {@link OrderService#purchase}. */
+	public static void purchase(ServerPlayer player, ModPayloads.Purchase request) {
+		OrderService.purchase(player, request);
+	}
+
+	/** Moves {@code amount} emeralds from the inventory into the wallet; see {@link BankService}. */
+	public static void deposit(ServerPlayer player, int amount) {
+		BankService.deposit(player, amount);
+	}
+
+	/** Deposits every emerald (and emerald block) in the player's inventory. */
+	public static void depositAll(ServerPlayer player) {
+		BankService.depositAll(player);
+	}
+
+	/** Pays out {@code amount} emeralds from the wallet into the inventory. */
+	public static void withdraw(ServerPlayer player, int amount) {
+		BankService.withdraw(player, amount);
+	}
+
 	// ------------------------------------------------------------------ mail
 
 	/**
@@ -121,7 +144,7 @@ public final class AccountService {
 	 * @param link in-game URL for the Mail app's button, or "" for none
 	 */
 	public static Mail sendMail(ServerPlayer player, String from, String subject, String body, String link, boolean notify) {
-		Mail mail = account(player).addMail(clip(from, 64), clip(subject, 128), clip(body, 8000), clip(link, 256), now(player.level().getServer()));
+		Mail mail = account(player).addMail(from, subject, body, link, now(player.level().getServer()));
 		sync(player);
 		if (notify) {
 			notify(player, "mail", "New mail from " + mail.from(), mail.subject());
@@ -140,7 +163,7 @@ public final class AccountService {
 		if (account == null) {
 			return false;
 		}
-		account.addMail(clip(from, 64), clip(subject, 128), clip(body, 8000), clip(link, 256), now(server));
+		account.addMail(from, subject, body, link, now(server));
 		markDirty(server);
 		return true;
 	}
@@ -163,7 +186,7 @@ public final class AccountService {
 		}
 	}
 
-	static String clip(String s, int max) {
+	private static String clip(String s, int max) {
 		return s.length() <= max ? s : s.substring(0, max);
 	}
 }

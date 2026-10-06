@@ -50,8 +50,8 @@ public final class OrderService {
 	}
 
 	private record PricedLine(Product product, int quantity) {
-		int price() {
-			return product.price() * quantity;
+		long price() {
+			return (long) product.price() * quantity;
 		}
 	}
 
@@ -124,9 +124,9 @@ public final class OrderService {
 			account.addTransaction(now, -total, orderTitle(store, restaurant, id));
 		}
 		account.addOrder(order, new DeliveryTarget(id, dimension, laptopPos, request.deliverToPlayer()));
-		AccountService.sendMail(player, store == Store.ENDER_EATS ? MailTemplates.FROM_ENDER_EATS : MailTemplates.FROM_EMERAZON,
+		account.addMail(store == Store.ENDER_EATS ? MailTemplates.FROM_ENDER_EATS : MailTemplates.FROM_EMERAZON,
 				receiptSubject(store, restaurant, lines, id), receiptBody(player, order, restaurant, lines, free, seconds),
-				ordersLink(store), false);
+				ordersLink(store), now);
 
 		int units = lines.stream().mapToInt(PricedLine::quantity).sum();
 		String eta = "~" + duration(seconds);
@@ -205,7 +205,8 @@ public final class OrderService {
 		long id = account.nextOrderId();
 		int qty = Math.clamp(quantity, 1, Catalog.MAX_UNITS_PER_LINE);
 		String restaurantId = product.store() == Store.ENDER_EATS ? product.restaurantId() : "";
-		Order order = new Order(id, product.store(), restaurantId, List.of(new OrderLine(product.id(), qty)), product.price() * qty, 0, 0, 0,
+		int value = (int) Math.min(PlayerAccount.MAX_BALANCE, (long) product.price() * qty);
+		Order order = new Order(id, product.store(), restaurantId, List.of(new OrderLine(product.id(), qty)), value, 0, 0, 0,
 				DeliveryOption.EXPRESS, now, now + Math.max(1, delaySeconds) * 20L, OrderStatus.PENDING, "Gift for " + recipient.getGameProfile().name());
 		account.addOrder(order, new DeliveryTarget(id, recipient.level().dimension(), recipient.blockPosition(), true));
 		AccountService.sendMail(recipient, product.store() == Store.ENDER_EATS ? MailTemplates.FROM_ENDER_EATS : MailTemplates.FROM_EMERAZON,
