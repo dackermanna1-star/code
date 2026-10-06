@@ -79,8 +79,9 @@ public final class Taskbar {
 		Gfx.rect(g, 0, top, width, HEIGHT, bg);
 		Gfx.rect(g, 0, top, width, 1, t.dark() ? 0x33FFFFFF : 0x22000000);
 
-		// ---- tray (right to left)
-		int rx = width - 4;
+		// ---- tray (right to left); the thin sliver at the edge is "Show desktop"
+		slots.add(new Slot("peek", null, width - 6, 6));
+		int rx = width - 8;
 		boolean h24 = OSSettings.clock24h(os.data());
 		String time = os.clockText();
 		String day = "Day " + OSClock.day(os.dayTime());
@@ -154,6 +155,12 @@ public final class Taskbar {
 						badge(g, s.x() + 10, top + 1, n, t.accent());
 					}
 				}
+				case "peek" -> {
+					Gfx.rect(g, s.x(), top + 5, 1, HEIGHT - 10, t.dark() ? 0x40FFFFFF : 0x30000000);
+					if (h) {
+						Gfx.rect(g, s.x() + 1, top + 1, s.w() - 1, HEIGHT - 1, t.hover());
+					}
+				}
 				case "clock" -> {
 					hoverBg(g, s, h, down, t);
 					int cx = s.x() + s.w() / 2;
@@ -195,6 +202,7 @@ public final class Taskbar {
 			case "sound" -> OSSettings.sounds(os.data()) ? "Sounds on (click to mute)" : "Sounds muted (click to unmute)";
 			case "bell" -> "Notifications";
 			case "clock" -> OSClock.format(os.dayTime(), h24) + " · " + OSClock.moonPhaseName(os.moonPhase()) + " · " + os.weatherText();
+			case "peek" -> "Show desktop";
 			default -> null;
 		};
 	}
@@ -302,6 +310,9 @@ public final class Taskbar {
 
 	private void activate(Slot s) {
 		OSSounds.click();
+		if (!s.kind().equals("bell") && !s.kind().equals("clock")) {
+			os.closePopup();
+		}
 		switch (s.kind()) {
 			case "start" -> os.toggleStartMenu();
 			case "app" -> clickApp(s.appId());
@@ -317,6 +328,7 @@ public final class Taskbar {
 			}
 			case "bell" -> os.togglePopup("bell");
 			case "clock" -> os.togglePopup("clock");
+			case "peek" -> os.windows().toggleShowDesktop();
 			default -> {
 			}
 		}

@@ -451,6 +451,11 @@ public final class CubeOS {
 		};
 	}
 
+	/** Closes the calendar / notification center flyout. */
+	void closePopup() {
+		popup = null;
+	}
+
 	boolean popupAnchor(String anchor) {
 		return popup != null && popup.anchor().equals(anchor);
 	}

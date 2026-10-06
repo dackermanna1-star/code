@@ -863,6 +863,32 @@ public final class WindowManager {
 		return w.safeBool(() -> w.app.charTyped(cp, mods));
 	}
 
+	private final List<OSWindow> hiddenByShowDesktop = new ArrayList<>();
+
+	/** "Show desktop": minimizes all windows, or restores them if the desktop is already shown. */
+	public void toggleShowDesktop() {
+		List<OSWindow> visible = new ArrayList<>();
+		for (OSWindow w : windows) {
+			if (w.isInteractive()) {
+				visible.add(w);
+			}
+		}
+		if (!visible.isEmpty()) {
+			hiddenByShowDesktop.clear();
+			hiddenByShowDesktop.addAll(visible);
+			for (OSWindow w : visible) {
+				minimize(w);
+			}
+			return;
+		}
+		for (OSWindow w : hiddenByShowDesktop) {
+			if (windows.contains(w) && w.minimized) {
+				restore(w);
+			}
+		}
+		hiddenByShowDesktop.clear();
+	}
+
 	/** Alt+Tab style: focus the next window (cycling through minimized ones too). */
 	void cycleFocus() {
 		if (windows.isEmpty()) {
@@ -887,6 +913,10 @@ public final class WindowManager {
 		}
 		if (alt && key == GLFW.GLFW_KEY_TAB) {
 			cycleFocus();
+			return true;
+		}
+		if ((mods & GLFW.GLFW_MOD_SUPER) != 0 && key == GLFW.GLFW_KEY_D) {
+			toggleShowDesktop();
 			return true;
 		}
 		if (w != null && (mods & GLFW.GLFW_MOD_SUPER) != 0) {

@@ -197,8 +197,7 @@ public class BrowserApp extends App {
 		address.maxLength = 256;
 		address.onEnter = this::submitAddress;
 		loadBookmarks();
-		openTab(WebUrl.parse(homepage()), true);
-		tabs.get(0).pristine = true;
+		newHomeTab();
 	}
 
 	@Override
@@ -352,6 +351,15 @@ public class BrowserApp extends App {
 		load(t, url, true);
 	}
 
+	/** Opens a new tab at the home page; it counts as "pristine" until the user navigates. */
+	private void newHomeTab() {
+		openTab(WebUrl.parse(homepage()), true);
+		Tab t = tab();
+		if (t != null && t.history.size() == 1) {
+			t.pristine = true;
+		}
+	}
+
 	private void switchTo(int index) {
 		Tab old = tab();
 		active = Math.max(0, Math.min(index, tabs.size() - 1));
@@ -372,15 +380,15 @@ public class BrowserApp extends App {
 		if (i < 0) {
 			return;
 		}
+		if (tabs.size() == 1) {
+			// closing the last tab closes the browser (like real browsers)
+			ctx.close();
+			return;
+		}
 		if (t.page != null) {
 			safe(t, () -> t.page.onHide());
 		}
 		tabs.remove(i);
-		if (tabs.isEmpty()) {
-			ctx.close();
-			openTab(WebUrl.parse(homepage()), true);
-			return;
-		}
 		if (active >= i) {
 			active = Math.max(0, active - 1);
 		}
@@ -852,14 +860,14 @@ public class BrowserApp extends App {
 		}
 		if (tabs.size() < MAX_TABS && Gfx.hovered(x, y, plusX(), 4, 18, 16)) {
 			UI.playClick();
-			openTab(WebUrl.parse(homepage()), true);
+			newHomeTab();
 			focusAddress();
 		}
 	}
 
 	private void tabMenu(Tab t, double x, double y) {
 		List<MenuItem> items = new ArrayList<>();
-		items.add(MenuItem.of("New tab", () -> openTab(WebUrl.parse(homepage()), true)).shortcut("Ctrl+T"));
+		items.add(MenuItem.of("New tab", this::newHomeTab).shortcut("Ctrl+T").enabled(tabs.size() < MAX_TABS));
 		items.add(MenuItem.of("Reload", t::reload).shortcut("F5"));
 		items.add(MenuItem.of("Duplicate", () -> openTab(t.current(), true)).enabled(tabs.size() < MAX_TABS));
 		items.add(MenuItem.separator());
@@ -990,7 +998,7 @@ public class BrowserApp extends App {
 		}
 		if (ctrl && key == GLFW.GLFW_KEY_T) {
 			if (tabs.size() < MAX_TABS) {
-				openTab(WebUrl.parse(homepage()), true);
+				newHomeTab();
 				focusAddress();
 			}
 			return true;
