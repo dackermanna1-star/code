@@ -22,6 +22,7 @@ export function headGeometry() {
   }
   pts.push(new THREE.Vector2(0, H));
   headGeo = new THREE.LatheGeometry(pts, 28);
+  headGeo.userData.shared = true;
   return headGeo;
 }
 
@@ -34,6 +35,7 @@ export function faceGeometry() {
   const uv = g.attributes.uv;
   for (let i = 0; i < uv.count; i++) uv.setX(i, uv.getX(i));
   faceGeo = g;
+  g.userData.shared = true;
   return g;
 }
 

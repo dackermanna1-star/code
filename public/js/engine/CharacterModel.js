@@ -209,6 +209,9 @@ export class CharacterModel {
 
   dispose() {
     this.root.traverse((o) => {
+      if (o.userData.shared) return; // (a model shared by many: a gun, a hat from a kit)
+      // the body parts' boxes are made for each character: free them too
+      if (o.geometry && !o.geometry.userData.shared) o.geometry.dispose();
       if (o.material) {
         const ms = Array.isArray(o.material) ? o.material : [o.material];
         for (const m of ms) { if (m.map && !m.map.userData.shared) m.map.dispose(); m.dispose(); }

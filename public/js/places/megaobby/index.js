@@ -57,7 +57,7 @@ class Gui {
       <div class="toast"></div>
       <div class="win"><h2>YOU BEAT THE MEGA OBBY!</h2><div></div><small>Step on the PLAY AGAIN pad to go round again</small></div>
       <div class="dead"></div>
-      <div class="help">Climb to the top of the Mega Obby!<br>WASD move · Space jump · R reset · right-drag look · I/O zoom</div>`;
+      <div class="help">Climb to the top of the Mega Obby!<br>WASD move · Space jump · R reset · right-drag look · I/O zoom<br>Say "tp 15" in chat to go to stage 15</div>`;
     root.appendChild(el);
     const q = (s) => el.querySelector(s);
     Object.assign(this, { el, st: q('.st'), nm: q('.nm'), bar: q('.prog u'), info: q('.info'), fx: q('.fx'), banner: q('.banner'), toast: q('.toast'), win: q('.win'), dead: q('.dead'), help: q('.help') });
@@ -348,6 +348,11 @@ function spawnFor(i) {
   const a = Math.random() * Math.PI * 2, r = Math.random() * 2.2;
   return { position: st.spawn.at.clone().add(V(Math.cos(a) * r, 0, Math.sin(a) * r)), yaw: st.spawn.yaw };
 }
+// your best stage is kept in the browser, so you carry on where you got to
+const SAVE = 'rbx2008:megaobby';
+const loadSave = () => { try { return JSON.parse(localStorage.getItem(SAVE)) || {}; } catch { return {}; } };
+const keepBest = (i) => { try { const s = loadSave(); if (!(s.best >= i)) localStorage.setItem(SAVE, JSON.stringify({ ...s, best: i })); } catch { /* private mode */ } };
+
 function newRun(p) { p.obby = { stage: 0, won: false, deaths: 0, t0: S.world.time, time: null }; p.stats.Stage = 1; p.spawnOverride = spawnFor(0); }
 
 // --- the place --------------------------------------------------------------------------------------------------------------------------
@@ -378,6 +383,22 @@ export default {
     const O = { stages: S.stages, C, game };
     S.O = O;
 
+    /** Put a player on a stage's checkpoint (teleporting them there if they're alive). */
+    const goToStage = (p, i) => {
+      p.obby.stage = i; p.stats.Stage = i + 1; p.spawnOverride = spawnFor(i);
+      const ch = p.character;
+      if (ch?.alive) {
+        const sp = p.spawnOverride.position;
+        ch.body.position.set(sp.x, sp.y + 3, sp.z); ch.root.position.set(sp.x, sp.y + 3, sp.z); ch.body.velocity.set(0, 0, 0);
+        ch.facing = p.spawnOverride.yaw;
+        if (p.isLocal) { game.camera.yaw = ch.facing; game.camera.focus.copy(ch.body.position); }
+      }
+      if (p.isLocal) S.stages.forEach((s, j) => s.flag?.setColor(j <= i ? 37 : ZONES[s.zone].flag));
+      p.brain?.enterStage?.(i);
+      game.gui?.onPlayersChanged();
+    };
+    S.goToStage = goToStage;
+
     C.reach = (ch, i) => {
       const p = ch.player;
       if (!p?.obby || !ch.alive || i <= p.obby.stage) return;
@@ -386,6 +407,7 @@ export default {
       p.spawnOverride = spawnFor(i);
       game.gui?.onPlayersChanged();
       if (p.isLocal) {
+        keepBest(i);
         for (let j = 0; j <= i; j++) S.stages[j].flag?.setColor(37);
         sounds.play('ping', null, 0.7);
         const s = S.stages[i];
@@ -429,6 +451,12 @@ export default {
     game.on('playerAdded', (p) => {
       newRun(p);
       if (p.isBot) p.brain = new ObbyBot(game, p, O);
+      // back again: start from the furthest checkpoint you got to
+      const best = p.isLocal ? Math.min(S.stages.length - 1, loadSave().best | 0) : 0;
+      if (best > 0) {
+        goToStage(p, best);
+        world.delay(1.5, () => game.systemChat(`Welcome back! You're on stage ${best + 1}. (Say "tp 1" to start from the beginning, or "tp" and a stage number to go to any stage.)`));
+      } else if (p.isLocal) world.delay(1.5, () => game.systemChat('Tip: say "tp" and a stage number (like "tp 15") to go to that stage.'));
     });
     game.on('spawned', (p, ch) => {
       // obby players don't bump each other off the course
@@ -447,6 +475,16 @@ export default {
       }
     });
     game.on('chatted', (p, text) => {
+      // "tp 15" (or "/tp 15", "stage 15"): go to that stage's checkpoint
+      const m = p.isLocal && /^\s*\/?(?:tp|stage|goto)\s*(\d+)\s*$/i.exec(text);
+      if (m) {
+        const n = Math.max(1, Math.min(S.stages.length, Number(m[1])));
+        goToStage(p, n - 1);
+        if (p.character?.alive) p.character.speedUntil = 0;
+        S.gui.showToast(`TELEPORTED<small>Stage ${n}: ${S.stages[n - 1].name}</small>`, '#7cc8ff', 'rgba(20,50,100,.85)');
+        sounds.play('ping', null, 0.6);
+        return;
+      }
       // people answer "what stage are you on?"
       if (!p.isLocal || !/stage/i.test(text) || !/\?|what|wat|which/i.test(text)) return;
       const bots = game.players.filter((q) => q.brain instanceof ObbyBot);
@@ -459,7 +497,7 @@ export default {
     });
     // for testing
     S.debug = {
-      stage: (i, p = game.localPlayer) => { p.obby.stage = i; p.stats.Stage = i + 1; p.spawnOverride = spawnFor(i); const ch = p.character; if (ch?.alive) { const sp = p.spawnOverride.position; ch.body.position.set(sp.x, sp.y + 3, sp.z); ch.root.position.set(sp.x, sp.y + 3, sp.z); ch.body.velocity.set(0, 0, 0); ch.facing = p.spawnOverride.yaw; } p.brain?.enterStage?.(i); },
+      stage: (i, p = game.localPlayer) => goToStage(p, i),
       bots: () => game.players.filter((q) => q.brain instanceof ObbyBot),
     };
     window.__mob = S;
