@@ -344,6 +344,11 @@ svg.ic.fill { fill: currentColor; stroke: none; }
 .inv-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--s3); }
 .goldline { display: inline-flex; align-items: center; gap: 0.4rem; font: 600 var(--fs-15) var(--f-mono); color: var(--gold); }
 .goldline .ic { width: 1rem; height: 1rem; }
+.wallet { display: inline-flex; align-items: center; gap: var(--s4); }
+.shardline { color: var(--fg); }
+.shardline .ic { color: var(--fg-2); }
+.btn.dim { opacity: 0.45; }
+.tt-foot svg.ic.xs { vertical-align: -0.12em; margin-left: 0.15rem; color: var(--fg-2); }
 #inv-grid { display: grid; grid-template-columns: repeat(6, var(--slot)); gap: var(--slot-gap); justify-content: space-between; }
 .cell {
   position: relative; width: var(--slot); height: var(--slot); border-radius: var(--radius-sm); background: var(--cell); border: 1px solid var(--hair);
@@ -763,13 +768,15 @@ body.touch #panel-char.open ~ #panel-inv.open { opacity: 0; }
 <aside id="panel-inv" class="panel side right glass">
   <header><div class="ttl"><h2>Inventory</h2></div><button class="btn-icon" data-close="inv"><svg class="ic sm"><use href="#i-close"/></svg></button></header>
   <div class="body">
-    <div class="inv-head"><span class="goldline"><svg class="ic"><use href="#i-coin"/></svg><span id="inv-gold">0</span></span><span class="micro" id="inv-count">0 / 48</span></div>
+    <div class="inv-head"><span class="wallet"><span class="goldline" title="Gold"><svg class="ic"><use href="#i-coin"/></svg><span id="inv-gold">0</span></span><span class="goldline shardline" title="Riftshards — salvage items to earn them"><svg class="ic"><use href="#i-crystal"/></svg><span id="inv-shards">0</span></span></span><span class="micro" id="inv-count">0 / 48</span></div>
     <div id="inv-grid"></div>
     <div class="inv-actions">
       <button class="btn" id="btn-selljunk">Sell junk <span class="mono" id="junk-val"></span></button>
+      <button class="btn" id="btn-salvagejunk">Salvage junk <span class="mono" id="junk-shards"></span></button>
       <button class="btn" id="btn-buypotion"><svg class="ic sm"><use href="#i-potion"/></svg>Potion <span class="mono" id="potion-price"></span></button>
+      <button class="btn" id="btn-gamble" title="Spend riftshards on a random item with better odds"><svg class="ic sm"><use href="#i-crystal"/></svg>Gamble <span class="mono" id="gamble-price"></span></button>
     </div>
-    <div class="inv-hint micro" id="inv-hint">Right-click to equip · Shift + right-click to sell</div>
+    <div class="inv-hint micro" id="inv-hint">Right-click to equip · Shift + right-click to sell · Ctrl + right-click to salvage</div>
   </div>
 </aside>
 
@@ -948,21 +955,23 @@ const CONFIG = {
     meteor: { mult: 2.8, cost: 40, cd: 40, radius: 6.5, count: 10, dur: 2.8, range: 18, impactR: 2.7 },
   },
   difficulty: {
-    hpGrowth: 1.205, hpLinear: 0.03, dmgGrowth: 1.135, dmgLinear: 0.02,
+    hpGrowth: 1.24, hpLinear: 0.04, dmgGrowth: 1.15, dmgLinear: 0.025,
     tierHp: 2.6, tierDmg: 1.8,
     densityBase: 0.85, densityPerFloor: 0.075, densityMax: 2.4,
     eliteBase: 0.05, elitePerFloor: 0.03, eliteMax: 0.6, rareShare: 0.42,
-    champion: { hp: 3.0, dmg: 1.25, xp: 3, speed: 1.06 },
-    rare: { hp: 5.0, dmg: 1.45, xp: 6, speed: 1.1 },
+    champion: { hp: 3.2, dmg: 1.25, xp: 3, speed: 1.06 },
+    rare: { hp: 5.5, dmg: 1.45, xp: 6, speed: 1.1 },
     minion: { hp: 1.3, dmg: 1.1, xp: 1.4, speed: 1.0 },
     xpGrowth: 0.24,
     armorK: 80, armorPerFloor: 22,
   },
   loot: {
-    itemChance: 0.085, itemPerFloor: 0.002, goldChance: 0.38, globeChance: 0.17, potionChance: 0.025,
+    itemChance: 0.07, itemPerFloor: 0.002, goldChance: 0.38, globeChance: 0.17, potionChance: 0.025,
     breakGold: 0.35, breakItem: 0.045, breakPotion: 0.05,
     goldBase: 5, goldPerFloor: 2.4,
     sellMult: { common: 1, magic: 2.5, rare: 6, legendary: 14, set: 14 },
+    salvage: { common: 1, magic: 2, rare: 5, legendary: 15, set: 15 },   // riftshards per item
+    gambleCost: 20, gambleWeights: { magic: 52, rare: 40, legendary: 5, set: 3 },
   },
   hazards: { spikes: 2, vents: 4, poison: 6, blades: 8 },
   fx: { hitStopLight: 0.035, hitStopHeavy: 0.065, maxRagdolls: 14, maxParticles: 4200, maxSmoke: 900, maxDebris: 900, maxDecals: 260, maxDamageNumbers: 70, ragdollLife: 3.4 },
@@ -995,11 +1004,11 @@ function xpToNext(level) { const x = CONFIG.xp; return Math.round(x.base * Math.
 function armorK(f) { return CONFIG.difficulty.armorK + CONFIG.difficulty.armorPerFloor * f; }
 function rarityWeights(f) {
   return {
-    common: Math.max(12, 62 - f * 2.4),
+    common: Math.max(15, 64 - f * 2.2),
     magic: 30 + Math.min(f, 15) * 0.6,
-    rare: 6 + f * 1.25,
-    legendary: 0.8 + f * 0.17,
-    set: f >= 3 ? 0.4 + f * 0.09 : 0,
+    rare: 3 + f * 0.85,
+    legendary: 0.5 + f * 0.12,
+    set: f >= 3 ? 0.3 + f * 0.06 : 0,
   };
 }
 
@@ -1103,11 +1112,11 @@ const ELITE_NAME_B = ['gar', 'dred', 'mire', 'thul', 'vane', 'grist', 'mor', 'sk
 const ELITE_TITLE = ['the Unbroken', 'the Hollow', 'Gravemaw', 'the Rotting', 'Bonecaller', 'the Patient', 'Ashborn', 'the Drowned', 'Nightglass', 'the Starved', 'Ironjaw', 'the Faceless'];
 
 const BOSSES = {
-  crypt:     { id: 'warden',     name: 'The Bone Warden',       title: 'Keeper of the First Ossuary', model: 'boneWarden', hp: 1500, dmg: 1, speed: 2.6, radius: 1.6, adds: 'grunt' },
-  catacombs: { id: 'matriarch',  name: 'The Drowned Matriarch', title: 'Mother of the Sunken Choir',  model: 'matriarch',  hp: 1500, dmg: 1, speed: 2.4, radius: 1.5, adds: 'drowned' },
-  caverns:   { id: 'broodqueen', name: 'The Brood Queen',       title: 'She Who Spins the Dark',      model: 'broodQueen', hp: 1600, dmg: 1, speed: 3.0, radius: 1.9, adds: 'spiderling' },
-  forge:     { id: 'forgemaster',name: 'The Forgemaster',       title: 'Anvil of the Molten Deep',    model: 'forgemaster',hp: 1750, dmg: 1, speed: 2.2, radius: 1.8, adds: 'imp' },
-  abyss:     { id: 'herald',     name: 'The Void Herald',       title: 'Voice of the Endless Fall',   model: 'herald',     hp: 1700, dmg: 1, speed: 2.8, radius: 1.6, adds: 'tendril' },
+  crypt:     { id: 'warden',     name: 'The Bone Warden',       title: 'Keeper of the First Ossuary', model: 'boneWarden', hp: 2000, dmg: 1, speed: 2.6, radius: 1.6, adds: 'grunt' },
+  catacombs: { id: 'matriarch',  name: 'The Drowned Matriarch', title: 'Mother of the Sunken Choir',  model: 'matriarch',  hp: 2000, dmg: 1, speed: 2.4, radius: 1.5, adds: 'drowned' },
+  caverns:   { id: 'broodqueen', name: 'The Brood Queen',       title: 'She Who Spins the Dark',      model: 'broodQueen', hp: 2100, dmg: 1, speed: 3.0, radius: 1.9, adds: 'spiderling' },
+  forge:     { id: 'forgemaster',name: 'The Forgemaster',       title: 'Anvil of the Molten Deep',    model: 'forgemaster',hp: 2300, dmg: 1, speed: 2.2, radius: 1.8, adds: 'imp' },
+  abyss:     { id: 'herald',     name: 'The Void Herald',       title: 'Voice of the Endless Fall',   model: 'herald',     hp: 2250, dmg: 1, speed: 2.8, radius: 1.6, adds: 'tendril' },
 };
 
 // --------------------------------------------------------------------
@@ -1163,10 +1172,10 @@ const SKILL_KEYS = {
 const RARITIES = ['common', 'magic', 'rare', 'legendary', 'set'];
 const RARITY = {
   common:    { label: 'Common',    color: '#cfcdc5', hex: 0xcfcdc5, mult: 1.0,  rank: 0 },
-  magic:     { label: 'Magic',     color: '#6f9cff', hex: 0x6f9cff, mult: 1.08, rank: 1 },
-  rare:      { label: 'Rare',      color: '#f1d04b', hex: 0xf1d04b, mult: 1.16, rank: 2 },
-  legendary: { label: 'Legendary', color: '#ff8a2a', hex: 0xff8a2a, mult: 1.3,  rank: 4 },
-  set:       { label: 'Set',       color: '#43d67f', hex: 0x43d67f, mult: 1.26, rank: 3 },
+  magic:     { label: 'Magic',     color: '#6f9cff', hex: 0x6f9cff, mult: 1.06, rank: 1 },
+  rare:      { label: 'Rare',      color: '#f1d04b', hex: 0xf1d04b, mult: 1.12, rank: 2 },
+  legendary: { label: 'Legendary', color: '#ff8a2a', hex: 0xff8a2a, mult: 1.2,  rank: 4 },
+  set:       { label: 'Set',       color: '#43d67f', hex: 0x43d67f, mult: 1.18, rank: 3 },
 };
 const SLOTS = ['weapon', 'offhand', 'helm', 'chest', 'gloves', 'boots', 'ring1', 'ring2', 'amulet'];
 const SLOT_LABEL = { weapon: 'Weapon', offhand: 'Off-hand', helm: 'Helm', chest: 'Chest', gloves: 'Gloves', boots: 'Boots', ring1: 'Ring', ring2: 'Ring', amulet: 'Amulet', ring: 'Ring' };
@@ -1229,11 +1238,11 @@ const STATS = {
 };
 const ALL_SLOTS = ['weapon', 'offhand', 'helm', 'chest', 'gloves', 'boots', 'ring', 'amulet'];
 const AFFIX_POOL = {
-  str:       { w: 10, slots: ALL_SLOTS, r: i => [3 + i * 0.7, 6 + i * 1.3] },
-  agi:       { w: 10, slots: ALL_SLOTS, r: i => [3 + i * 0.7, 6 + i * 1.3] },
-  vit:       { w: 10, slots: ALL_SLOTS, r: i => [3 + i * 0.7, 6 + i * 1.3] },
-  int:       { w: 10, slots: ALL_SLOTS, r: i => [3 + i * 0.7, 6 + i * 1.3] },
-  dmgPct:    { w: 6, slots: ['weapon', 'gloves', 'ring', 'amulet', 'offhand'], r: i => [4 + i * 0.25, 8 + i * 0.45] },
+  str:       { w: 10, slots: ALL_SLOTS, r: i => [2 + i * 0.45, 4 + i * 0.8] },
+  agi:       { w: 10, slots: ALL_SLOTS, r: i => [2 + i * 0.45, 4 + i * 0.8] },
+  vit:       { w: 10, slots: ALL_SLOTS, r: i => [2 + i * 0.45, 4 + i * 0.8] },
+  int:       { w: 10, slots: ALL_SLOTS, r: i => [2 + i * 0.45, 4 + i * 0.8] },
+  dmgPct:    { w: 6, slots: ['weapon', 'gloves', 'ring', 'amulet', 'offhand'], r: i => [3 + i * 0.2, 6 + i * 0.35] },
   atkSpd:    { w: 5, slots: ['weapon', 'gloves', 'ring', 'amulet'], r: i => [3, 6 + i * 0.12] },
   critCh:    { w: 5, slots: ['helm', 'gloves', 'ring', 'amulet', 'offhand'], r: i => [1.5, 3 + i * 0.08] },
   critDmg:   { w: 5, slots: ['weapon', 'gloves', 'ring', 'amulet'], r: i => [8, 15 + i * 1.0] },
@@ -1299,11 +1308,8 @@ const SHRINES = [
 // =====================================================================
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
-const invLerp = (a, b, v) => clamp((v - a) / (b - a), 0, 1);
 const damp = (a, b, lambda, dt) => lerp(a, b, 1 - Math.exp(-lambda * dt));
-const smoothstep = (a, b, v) => { const t = invLerp(a, b, v); return t * t * (3 - 2 * t); };
 const easeOutCubic = t => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
-const easeInCubic = t => t * t * t;
 const easeOutBack = (t, s = 1.9) => { t = clamp(t, 0, 1) - 1; return 1 + (s + 1) * t * t * t + s * t * t; };
 const easeInOut = t => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 const rnd = (a = 0, b = 1) => a + Math.random() * (b - a);
@@ -1378,13 +1384,6 @@ function h(tag, cls, html) { const e = document.createElement(tag); if (cls) e.c
 const icon = (id, cls = '') => `<svg class="ic ${cls}"><use href="#i-${id}"/></svg>`;
 const glyph = r => `<span class="r-dot" style="--rc:var(--r-${r})"><svg viewBox="0 0 10 10"><use href="#g-${r}"/></svg></span>`;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-
-// Generic object pool
-class Pool {
-  constructor(create, reset) { this.create = create; this.reset = reset; this.free = []; }
-  get() { const o = this.free.length ? this.free.pop() : this.create(); return o; }
-  put(o) { if (this.reset) this.reset(o); this.free.push(o); }
-}
 
 // Uniform spatial grid over the floor (rebuilt every tick, no allocations)
 class SpatialGrid {
@@ -1699,6 +1698,13 @@ const AUDIO = {
     const d = this.route(pos, 0.5, 0.25), t = this.now;
     this.osc(d, 'triangle', 2093, 2093, t, 0.08, 0.05);
     this.osc(d, 'triangle', 2637, 2637, t + 0.045, 0.12, 0.04);
+  },
+  salvage() {
+    if (!this.gate('salvage', 0.06)) return;
+    const d = this.route(null, 0.6, 0.3), t = this.now;
+    this.nz(d, t, 0.14, 0.2, 'bandpass', 2600, 700, 1.2);
+    this.osc(d, 'triangle', 1480, 620, t, 0.16, 0.05);
+    this.osc(d, 'sine', 2793.8, 2793.8, t + 0.08, 0.3, 0.03, 0.01);
   },
   globe() {
     const d = this.route(null, 0.7, 0.4), t = this.now;
@@ -2254,7 +2260,7 @@ const FX = {
     const s = (R.height * R.pr) / (2 * Math.tan((R.camera.fov * DEG) / 2));
     this.add.uScale.value = s; this.round.uScale.value = s; this.smoke.uScale.value = s;
   },
-  update(dt) { this.add.update(dt); this.round.update(dt); this.smoke.update(dt); DEBRIS.update(dt); TELE.update(dt); RINGS.update(dt); ARCS.update(dt); BOLTS.update(dt); BEAMS.update(dt); GHOSTS.update(dt); },
+  update(dt) { this.add.update(dt); this.round.update(dt); this.smoke.update(dt); DEBRIS.update(dt); RINGS.update(dt); ARCS.update(dt); BOLTS.update(dt); BEAMS.update(dt); GHOSTS.update(dt); },
   clear() { this.add.clear(); this.round.clear(); this.smoke.clear(); DEBRIS.clear(); DECALS.clear(); TELE.clear(); RINGS.clear(); ARCS.clear(); BOLTS.clear(); BEAMS.clear(); GHOSTS.clear(); },
 
   // ------- emitters -------
@@ -3267,7 +3273,6 @@ function genAttempt(floor, seed, simple) {
   }
 
   // ---- 9. solids: pillars, low walls, collapsed rubble ----
-  const isInterior = (r, x, y, m) => x >= r.x + m && y >= r.y + m && x < r.x + r.w - m && y < r.y + r.h - m;
   for (const r of rooms) {
     if (r.type === 'pillared') {
       for (let y = r.y + 2; y < r.y + r.h - 2; y += 3) for (let x = r.x + 2; x < r.x + r.w - 2; x += 3) {
@@ -3666,6 +3671,7 @@ function makeLiquidMaterial(a, b, glow, flow, alpha, pix = 4) {
   });
 }
 const GLOBAL_TIME = { value: 0 };
+const WALK_OFFS = [0, 1.05, -1.05, 0.55, -0.55];
 const FOG_COLOR = { value: new THREE.Color(0) };
 
 class World {
@@ -3722,14 +3728,13 @@ class World {
   }
   // Walkable straight line for a body of radius r (used for direct chasing)
   walkLine(ax, az, bx, bz, r, refH, pitsBlock = true) {
-    const T = CONFIG.tile;
     const dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz);
     if (len < 0.01) return true;
     const nx = -dz / len * r, nz = dx / len * r;
-    const steps = Math.ceil(len / (T * 0.4));
+    const steps = Math.ceil(len / 0.3);
     for (let i = 1; i <= steps; i++) {
       const t = i / steps, x = ax + dx * t, z = az + dz * t;
-      for (const o of [0, 1, -1]) {
+      for (const o of WALK_OFFS) {
         const k = this.idx(x + nx * o, z + nz * o);
         if (this.blocksMove(k, refH, pitsBlock)) return false;
       }
@@ -4277,7 +4282,7 @@ const PROPS = {
     const mm = new THREE.Matrix4(), rot = new THREE.Matrix4();
     const base = vb.mat ? vb.mat.clone() : new THREE.Matrix4();
     const shards = [[0, 0.6, 0, 0.22, 1.1, 0.22, 0.15], [0.22, 0.45, 0.1, 0.16, 0.7, 0.16, -0.4], [-0.2, 0.4, -0.08, 0.15, 0.6, 0.15, 0.5]];
-    for (const [x, y, z, w, hh, d, a] of shards) {
+    for (const [x, , z, w, hh, d, a] of shards) {
       rot.makeRotationZ(a); mm.copy(base).multiply(new THREE.Matrix4().makeTranslation(x, 0.3, z)).multiply(rot);
       vb.setMatrix(mm); vb.box(0, hh / 2, 0, w, hh, d, c, 1.8);
     }
@@ -4474,7 +4479,6 @@ const PROPS = {
     vb.box(0, 0.05, 0, 0.3, 0.1, 0.3, d, 0.3).box(0.15, 0.08, 0.1, 0.18, 0.06, 0.18, g, 0.5).box(-0.08, 0.13, -0.05, 0.16, 0.06, 0.16, g, 0.6).box(0.05, 0.18, 0.05, 0.12, 0.05, 0.12, g, 0.7);
   },
 };
-function PROP_GEO_CLEAR() { for (const g of PROP_GEO_CACHE.values()) g.dispose(); PROP_GEO_CACHE.clear(); }
 
 
 // =====================================================================
@@ -4547,7 +4551,7 @@ const PATH = {
         if (nx < 0 || nz < 0 || nx >= W || nz >= this.H) continue;
         const nk = nz * W + nx;
         if (this.closed[nk] === gen || !this.passable(k, nk)) continue;
-        if (dx && dz && (!this.passable(k, z * W + nx) || !this.passable(k, nz * W + x))) continue;
+        if (dx && dz && (!this.passable(k, z * W + nx) || !this.passable(k, nz * W + x) || !this.passable(nk, z * W + nx) || !this.passable(nk, nz * W + x))) continue;
         let cost = dx && dz ? Math.SQRT2 : 1;
         const t = w.tiles[nk];
         if (t === TILE.POISON && avoidPoison) cost *= 5;
@@ -4565,6 +4569,7 @@ const PATH = {
     if (!raw.length) return null;
     const pts = raw.map(k => ({ x: ((k % W) + 0.5) * T, z: (((k / W) | 0) + 0.5) * T }));
     if (best === e) pts[pts.length - 1] = { x: tx, z: tz };
+    if (opts.raw) return pts;
     return this.smooth(sx, sz, pts, opts.radius || 0.45);
   },
   smooth(sx, sz, pts, r) {
@@ -4911,13 +4916,13 @@ const MODELS = {
     const S = 0x93aca7, R = 0x1b3034, D = 0x0f1d20, W = 0x24503c, G = 0x4ff0e0;
     const parts = biped({
       hip: 1.0, torsoH: 0.78, shoulder: 0.32, armLen: 0.8, legX: 0.14, bodyRot: [0.22, 0, 0], headRot: [0.1, 0, 0],
-      body: [[0, 0.38, 0, 0.56, 0.78, 0.36, R], [0, 0.6, 0.12, 0.4, 0.3, 0.14, S], [0, 0.78, 0, 0.66, 0.1, 0.4, D], [0, 0.4, 0.185, 0.06, 0.5, 0.02, G, 1.6]],
-      head: [[0, 0.2, 0, 0.36, 0.4, 0.38, S], ...eyes(0.24, 0.195, 0.08, G, 0.06, 5), [0, 0.08, 0.19, 0.16, 0.04, 0.02, 0x0a1414], ...[-0.16, -0.08, 0, 0.08, 0.16].map((x, i) => [x, 0.46 + (i % 2) * 0.06, -0.02, 0.06, 0.2 + (i === 2 ? 0.12 : 0), 0.06, G, 1.8])],
+      body: [[0, 0.38, 0, 0.56, 0.78, 0.36, R], [0, 0.6, 0.12, 0.4, 0.3, 0.14, S], [0, 0.78, 0, 0.66, 0.1, 0.4, D], [0, 0.4, 0.185, 0.06, 0.5, 0.02, G, 0.9]],
+      head: [[0, 0.2, 0, 0.36, 0.4, 0.38, S], ...eyes(0.24, 0.195, 0.08, G, 0.06, 3.5), [0, 0.08, 0.19, 0.16, 0.04, 0.02, 0x0a1414], ...[-0.16, -0.08, 0, 0.08, 0.16].map((x, i) => [x, 0.46 + (i % 2) * 0.06, -0.02, 0.06, 0.2 + (i === 2 ? 0.12 : 0), 0.06, G, 0.9])],
       armL: [...limb(0.76, 0.11, S), [0, -0.4, 0, 0.16, 0.5, 0.16, R]],
       armR: [...limb(0.76, 0.11, S), [0, -0.4, 0, 0.16, 0.5, 0.16, R]],
       legL: [[0, -0.5, 0, 0.32, 1.0, 0.4, R], [0, -0.9, 0.1, 0.34, 0.2, 0.2, D]],
       legR: [[0, -0.5, 0, 0.32, 1.0, 0.4, R], [0, -0.9, 0.1, 0.34, 0.2, 0.2, D]],
-      weapon: [[0, 0.3, 0, 0.06, 2.2, 0.06, 0x40514f], [0, 1.42, 0, 0.36, 0.06, 0.06, 0x40514f], [-0.16, 1.56, 0, 0.05, 0.26, 0.05, G, 2.5], [0, 1.6, 0, 0.05, 0.34, 0.05, G, 2.5], [0.16, 1.56, 0, 0.05, 0.26, 0.05, G, 2.5]],
+      weapon: [[0, 0.3, 0, 0.06, 2.2, 0.06, 0x40514f], [0, 1.42, 0, 0.36, 0.06, 0.06, 0x40514f], [-0.16, 1.56, 0, 0.05, 0.26, 0.05, G, 1.4], [0, 1.6, 0, 0.05, 0.34, 0.05, G, 1.4], [0.16, 1.56, 0, 0.05, 0.26, 0.05, G, 1.4]],
       wPivot: [0, -0.78, 0.06], wEnd: [0, 1.6, 0],
       extra: [{ name: 'hair', parent: 'head', pivot: [0, 0.3, -0.12], boxes: [-0.15, -0.08, 0, 0.08, 0.15].map((x, i) => [x, -0.5 - (i % 2) * 0.1, -0.06, 0.06, 1.0 + (i % 2) * 0.2, 0.06, i % 2 ? W : 0x173a2b]), end: [0, -1.0, 0], joint: 'head', jend: 'a', r: 0.08 }],
     });
@@ -5318,6 +5323,11 @@ function hitEnemy(e, dmg, o = {}) {
       for (const n of ENT.nearby(e.pos.x, e.pos.z, 3.2)) if (n !== e && !n.dead && hyp(n.pos.x - e.pos.x, n.pos.z - e.pos.z) < 3.2) hitEnemy(n, dmg * p.stats.areaDmg, { aoeProc: true, quiet: false, fromX: e.pos.x, fromZ: e.pos.z, noLoh: true });
     }
   }
+  if (e.def.sporeOnHit && !o.dot && e.hp > 0 && GAME.time > (e.sp.sporeT || 0) && chance(e.def.sporeOnHit)) {
+    e.sp.sporeT = GAME.time + 1.6;
+    ZONES.spawn('poison', e.pos.x, e.pos.z, 2.0, 2.6, e.dmg * 0.5, { source: e });
+    FX.burst(_v1.set(e.pos.x, e.pos.y + 1.4, e.pos.z), 0x9dff6a, 18, 3, 0.18, 0.7, { round: true, grav: -1 });
+  }
   if (e.hp <= 0) killEnemy(e, Object.assign({ overkill: -e.hp }, o));
   return true;
 }
@@ -5347,7 +5357,12 @@ function killEnemy(e, o = {}) {
     e.model = null;
     if (def.death !== 'bone') DECALS.add(e.pos.x, e.pos.z, rnd(0.6, 1.0), 0x2a0306, rnd(0, TAU), 0.85);
   }
-  if (def.death === 'explode' && !e.exploded) e.explode(0.75);
+  if (def.death === 'explode' && !e.exploded) {
+    // a dying bloater still bursts — after a short, visible warning
+    e.exploded = true;
+    const ghost = { pos: e.pos.clone(), dmg: e.dmg, def, exploded: false, id: -1, dead: true };
+    TELE.circle(ghost.pos.x, ghost.pos.z, def.blast * 0.8, 0.4, { color: 0xffa02a, onDone: () => Enemy.prototype.explode.call(ghost, 0.75) });
+  }
   // rewards
   if (e.type !== 'spiderling' || chance(0.5)) p.gainXp(Math.round(e.xpValue));
   LOOT.onEnemyDeath(e);
@@ -5366,7 +5381,6 @@ function killEnemy(e, o = {}) {
   if (e.affixes && e.affixes.includes('molten')) moltenDeath(e);
   if (e.onDeath) e.onDeath(o);
   if (e.isBoss) BOSS_AI.onDeath(e);
-  if (GAME.run) GAME.run.bestKillT = 0;
 }
 function aoeDamage(x, z, r, mult, elem, o = {}) {
   const p = ENT.player;
@@ -5709,7 +5723,7 @@ class Player {
     this.level = 1; this.xp = 0; this.statPoints = 0;
     this.alloc = { str: 0, agi: 0, vit: 0, int: 0 };
     this.equip = {}; this.inventory = new Array(CONFIG.player.invSize).fill(null);
-    this.gold = 0; this.potions = CONFIG.player.potionStart;
+    this.gold = 0; this.shards = 0; this.potions = CONFIG.player.potionStart;
     this.runes = { cleave: null, bolt: null, slam: null, dash: null, whirl: null, meteor: null };
     this.newRunes = new Set();
     this.cd = { slam: 0, dash: 0, meteor: 0, potion: 0 }; this.dashCharges = 1;
@@ -5734,10 +5748,10 @@ class Player {
     this.level = s.level; this.xp = s.xp; this.statPoints = s.statPoints || 0; this.alloc = Object.assign(this.alloc, s.alloc);
     this.equip = s.equip || {}; this.inventory = (s.inventory || []).slice(0, CONFIG.player.invSize);
     while (this.inventory.length < CONFIG.player.invSize) this.inventory.push(null);
-    this.gold = s.gold || 0; this.potions = s.potions ?? CONFIG.player.potionStart; this.runes = Object.assign(this.runes, s.runes || {});
+    this.gold = s.gold || 0; this.shards = s.shards || 0; this.potions = s.potions ?? CONFIG.player.potionStart; this.runes = Object.assign(this.runes, s.runes || {});
   }
   serialize() {
-    return { level: this.level, xp: this.xp, statPoints: this.statPoints, alloc: this.alloc, equip: this.equip, inventory: this.inventory, gold: this.gold, potions: this.potions, runes: this.runes, hp: this.hp, fury: this.fury };
+    return { level: this.level, xp: this.xp, statPoints: this.statPoints, alloc: this.alloc, equip: this.equip, inventory: this.inventory, gold: this.gold, shards: this.shards, potions: this.potions, runes: this.runes, hp: this.hp, fury: this.fury };
   }
   headPos() { return _v4.set(this.pos.x, this.pos.y + 2.25, this.pos.z); }
   has(power) { return this.stats.powers.has(power); }
@@ -6038,20 +6052,24 @@ class Enemy {
     if (this.packId >= 0) for (const e of ENT.enemies) if (e !== this && e.packId === this.packId && !e.aggro && e.distTo(this) < 18) e.alert();
     for (const e of ENT.nearby(this.pos.x, this.pos.z, 7)) if (!e.aggro && !e.disguised && e.def.ai !== 'goblin' && e.distTo(this) < 7) e.alert();
   }
-  freeze(t) { if (this.isBoss) return; this.frozenT = Math.max(this.frozenT, t); this.action = null; TELE.cancelOwner(this); AUDIO.freeze(this.pos); FX.burst(_v1.set(this.pos.x, this.pos.y + 1, this.pos.z), 0x9ae8ff, 14, 3, 0.1, 0.5, { hdr: 1.8 }); }
+  freeze(t) { if (this.isBoss) return; this.frozenT = Math.max(this.frozenT, t); this.action = null; TELE.cancelOwner(this); if (this.sp) this.sp.fusing = false; AUDIO.freeze(this.pos); FX.burst(_v1.set(this.pos.x, this.pos.y + 1, this.pos.z), 0x9ae8ff, 14, 3, 0.1, 0.5, { hdr: 1.8 }); }
   stun(t) { if (this.isBoss) { this.stunT = Math.max(this.stunT, t * 0.15); return; } this.stunT = Math.max(this.stunT, t); this.action = null; TELE.cancelOwner(this); if (this.sp) { this.sp.lunging = 0; this.sp.fusing = false; } }
   // -------------------------------------------------------- movement
   moveToward(tx, tz, mult, dt) {
     const w = WORLD.current;
     let gx = tx, gz = tz;
     const refH = this.groundH() > -5 ? this.groundH() : 0;
-    const direct = w.walkLine(this.pos.x, this.pos.z, tx, tz, this.radius * 0.85, refH);
+    const wt = this.watch || (this.watch = { t: 0, d: 1e9, raw: 0 });
+    wt.raw = Math.max(0, wt.raw - dt);
+    const dG = hyp(tx - this.pos.x, tz - this.pos.z);
+    if (dG < wt.d - 0.25) { wt.d = dG; wt.t = 0; } else if ((wt.t += dt) > 1.0) { wt.t = 0; wt.d = dG; wt.raw = 2.5; this.path = null; }
+    const direct = wt.raw <= 0 && w.walkLine(this.pos.x, this.pos.z, tx, tz, this.radius * 0.85, refH);
     if (!direct) {
       this.pathT -= dt;
       const moved = !this.pathGoal || hyp(this.pathGoal.x - tx, this.pathGoal.z - tz) > 2.5;
       if ((!this.path || this.pathT <= 0 || moved) && PATH.budget > 0) {
         PATH.budget--;
-        this.path = PATH.find(this.pos.x, this.pos.z, tx, tz, { radius: this.radius * 0.8, max: 2500 });
+        this.path = PATH.find(this.pos.x, this.pos.z, tx, tz, { radius: this.radius * 0.8, max: 2500, raw: wt.raw > 0 });
         this.pathIdx = 0; this.pathT = rnd(0.5, 0.9); this.pathGoal = { x: tx, z: tz };
       }
       if (this.path && this.pathIdx < this.path.length) {
@@ -6141,7 +6159,7 @@ class Enemy {
     if (this.affixState) updateAffixes(this, dt, p);
     if (this.sp.trailDef || def.trail) {
       this.sp.trailT = (this.sp.trailT || 0) - dt;
-      if (this.sp.trailT <= 0 && this.moving > 0.1) { this.sp.trailT = def.trail.every; ZONES.spawn('fire', this.pos.x, this.pos.z, 1.1, def.trail.life, this.dmg * def.trail.dps * 4, { source: this }); }
+      if (this.sp.trailT <= 0 && this.moving > 0.1) { this.sp.trailT = def.trail.every; ZONES.spawn('fire', this.pos.x, this.pos.z, 1.1, def.trail.life, this.dmg * def.trail.dps * 1.4, { source: this }); }
     }
   }
   idle(dt) {
@@ -6387,7 +6405,7 @@ const AI = {
   exploder(e, dt, p) {
     if (e.sp.fusing) {
       e.sp.fuseT += dt;
-      if (e.sp.fuseT >= e.def.fuse) { e.explode(1); killEnemy(e, { gib: true, force: 6 }); }
+      if (e.sp.fuseT >= e.def.fuse) { e.explode(1); e.exploded = true; killEnemy(e, { gib: true, force: 6 }); }
       return;
     }
     const d = e.distTo(p);
@@ -6875,7 +6893,7 @@ class Boss extends Enemy {
     const m = this.model; if (!m) return;
     if (this.leap) m.root.position.y = this.y;
     if (this.anim.spin !== undefined && this.storm) m.inner.rotation.y = this.anim.spin;
-    if (this.invulnT > 0) m.material.emissive.setRGB(0.3, 0.3, 0.35).multiplyScalar(0.5 + 0.5 * Math.sin(this.anim.t * 20));
+    if (this.invulnT > 0) m.material.emissive.setRGB(0.1, 0.1, 0.12).multiplyScalar(0.5 + 0.5 * Math.sin(this.anim.t * 20));
   }
 }
 
@@ -6887,7 +6905,7 @@ function bossSummon(b, type, n) {
     const k = w.idx(x, z); if (k < 0 || w.tiles[k] !== TILE.FLOOR) continue;
     TELE.circle(x, z, 1.2, 0.8, { color: new THREE.Color(GAME.biome.accent).getHex(), onDone: () => {
       if (b.dead) return;
-      const e = new Enemy(type, x, z, {}); e.aggro = true; e.xpValue *= 0.4;
+      const e = new Enemy(type, x, z, {}); e.aggro = true; e.xpValue *= 0.4; e.isAdd = true;
       FX.pillar(_v1.set(x, e.y, z), new THREE.Color(GAME.biome.accent).getHex(), 24, 4);
       FX.dust(_v1, 8);
     } });
@@ -7122,7 +7140,8 @@ const BOSS_AI = {
     FX.explosion(_v1.copy(pos).setY(pos.y + 2), 6, new THREE.Color(GAME.biome.accent).getHex());
     FX.pillar(pos, new THREE.Color(GAME.biome.accent).getHex(), 140, 12);
     CAM.shake(1); AUDIO.explosion(pos, 3); AUDIO.bossRoar(pos);
-    for (const e of ENT.enemies) if (!e.dead && e !== b) ENT.after(rnd(0.2, 1.2), () => { if (!e.dead) killEnemy(e, { force: 10, gib: true }); });
+    const w = WORLD.current, aid = w && w.data.arena ? w.data.arena.id : -2;
+    for (const e of ENT.enemies) { if (e.dead || e === b) continue; const k = w ? w.idx(e.pos.x, e.pos.z) : -1; if (e.isAdd || (k >= 0 && w.roomOf[k] === aid)) ENT.after(rnd(0.2, 1.2), () => { if (!e.dead) killEnemy(e, { force: 10, gib: true }); }); }
     ENT.after(1.2, () => {
       WORLD.current.sealGates(false);
       WORLD.current.activateExit();
@@ -7229,15 +7248,16 @@ const SKILLS_RT = {
         if (d <= reach) {
           if (!p.action && !p.whirling) this.startCleave(p, e.pos.x, e.pos.z);
           if (!I.lmb && !p.action) p.attackTarget = null;
-        } else { const s = this.follow(p, e.pos.x, e.pos.z, dt); mx = s.x; mz = s.z; }
+        } else { const s = this.follow(p, e.pos.x, e.pos.z, dt); mx = s.x; mz = s.z; if (!s.x && !s.z && !s.busy && !I.lmb) p.attackTarget = null; }
       }
     } else if (p.interact) {
       const it = p.interact, d = hyp(it.x - p.pos.x, it.z - p.pos.z);
-      if (d <= it.reach) { p.interact = null; p.path = null; if (!p.action) this.doInteract(p, it); }
-      else { const s = this.follow(p, it.x, it.z, dt); mx = s.x; mz = s.z; if (!s.x && !s.z && !p.path) p.interact = null; }
+      const wedged = it.kind === 'item' && p.watch && p.watch.stalls >= 2 && d <= it.reach + 1.0;
+      if (d <= it.reach || wedged) { p.interact = null; p.path = null; if (!p.action) this.doInteract(p, it); }
+      else { const s = this.follow(p, it.x, it.z, dt); mx = s.x; mz = s.z; if (!s.x && !s.z && !s.busy) p.interact = null; }
     } else if (p.moveTarget) {
       const s = this.follow(p, p.moveTarget.x, p.moveTarget.z, dt); mx = s.x; mz = s.z;
-      if (!s.x && !s.z) p.moveTarget = null;
+      if (!s.x && !s.z && !s.busy) p.moveTarget = null;
     }
     let moved = 0;
     if ((mx || mz) && !busy && p.rootT <= 0) {
@@ -7263,10 +7283,19 @@ const SKILLS_RT = {
     const d = hyp(x - p.pos.x, z - p.pos.z);
     if (d < 0.25) return { x: 0, z: 0 };
     const refH = w.floorAt(p.pos.x, p.pos.z);
-    if (w.walkLine(p.pos.x, p.pos.z, x, z, p.radius * 0.9, refH > -5 ? refH : 0) && PATH.sameLevel(p.pos.x, p.pos.z, x, z)) { p.path = null; return { x: (x - p.pos.x) / d, z: (z - p.pos.z) / d }; }
+    if (!(p.watch && p.watch.raw > 0) && w.walkLine(p.pos.x, p.pos.z, x, z, p.radius * 0.9, refH > -5 ? refH : 0) && PATH.sameLevel(p.pos.x, p.pos.z, x, z)) { p.path = null; return { x: (x - p.pos.x) / d, z: (z - p.pos.z) / d }; }
     p.pathT = (p.pathT || 0) - dt;
+    // progress watchdog: if a smoothed path stalls against geometry, fall back to tile centres
+    const W_ = p.watch || (p.watch = { t: 0, d: 1e9, raw: 0, stalls: 0, gx: x, gz: z });
+    if (hyp(W_.gx - x, W_.gz - z) > 4) { W_.t = 0; W_.d = 1e9; W_.raw = 0; W_.stalls = 0; }
+    W_.gx = x; W_.gz = z;
+    W_.raw = Math.max(0, W_.raw - dt);
+    const dGoal = hyp(x - p.pos.x, z - p.pos.z);
+    if (dGoal < W_.d - 0.25) { W_.d = dGoal; W_.t = 0; W_.stalls = 0; }
+    else if ((W_.t += dt) > 0.7) { W_.t = 0; W_.d = dGoal; W_.raw = 2.5; W_.stalls++; p.path = null; if (this.smashBlocker(p, x, z)) return { x: 0, z: 0, busy: true }; }
     if (!p.path || p.pathT <= 0 || !p.pathGoal || hyp(p.pathGoal.x - x, p.pathGoal.z - z) > 1.5) {
-      p.path = PATH.find(p.pos.x, p.pos.z, x, z, { radius: p.radius, max: 5000 }); p.pathIdx = 0; p.pathT = 0.6; p.pathGoal = { x, z };
+      p.path = PATH.find(p.pos.x, p.pos.z, x, z, { radius: p.radius, max: 5000, raw: W_.raw > 0 }); p.pathIdx = 0; p.pathT = 0.6; p.pathGoal = { x, z };
+      if (W_.raw > 0 && p.path && p.path.length > 1 && hyp(p.path[0].x - p.pos.x, p.path[0].z - p.pos.z) < 0.6) p.pathIdx = 1;
     }
     if (!p.path || !p.path.length) return { x: 0, z: 0 };
     let n = p.path[p.pathIdx];
@@ -7275,6 +7304,20 @@ const SKILLS_RT = {
     const dx = n.x - p.pos.x, dz = n.z - p.pos.z, l = hyp(dx, dz);
     if (l < 0.05) return { x: 0, z: 0 };
     return { x: dx / l, z: dz / l };
+  },
+  // a pot or crate wedged in the way gets cleaved rather than pushed against forever
+  smashBlocker(p, x, z) {
+    if (p.action || p.whirling) return false;
+    const w = WORLD.current, reach = this.cleaveRange(p), ga = angleOf(x - p.pos.x, z - p.pos.z);
+    let best = null, bd = 1e9;
+    for (const b of w.breakables) {
+      if (!b.alive) continue;
+      const d = hyp(b.x - p.pos.x, b.z - p.pos.z);
+      if (d < reach + b.r && d < bd && Math.abs(angDiff(ga, angleOf(b.x - p.pos.x, b.z - p.pos.z))) < 1.3) { best = b; bd = d; }
+    }
+    if (!best) return false;
+    this.startCleave(p, best.x, best.z);
+    return true;
   },
   setMoveTarget(p, x, z) {
     p.moveTarget = { x, z }; p.attackTarget = null; p.interact = null;
@@ -7705,7 +7748,7 @@ const LOOT = {
     const R_ = RARITY[rarity];
     const it = { uid: ITEM_UID++, slot, base: baseDef.id, icon: baseDef.icon, baseName, rarity, ilvl, affixes: [], isNew: true };
     if (slot === 'weapon') {
-      const d = (3 + ilvl * 1.9) * baseDef.dmg * R_.mult * rnd(0.88, 1.0);
+      const d = (4 + ilvl * 1.15) * baseDef.dmg * R_.mult * rnd(0.88, 1.0);
       it.dmgMin = Math.max(1, Math.round(d)); it.dmgMax = Math.max(it.dmgMin + 1, Math.round(d * rnd(1.5, 1.75)));
       it.speed = baseDef.speed;
     }
@@ -7800,8 +7843,8 @@ const LOOT = {
     }
     let items = 0, min = 'common', globes = chance(L.globeChance) ? 1 : 0, gold = chance(L.goldChance) ? 1 : 0;
     const ic = L.itemChance + f * L.itemPerFloor;
-    if (e.elite === 'champion') { items = chance(0.6) ? rndi(1, 2) : 0; globes = 1; gold = 1; }
-    else if (e.elite === 'rare') { items = rndi(2, 3); min = 'magic'; globes = 2; gold = 2; }
+    if (e.elite === 'champion') { items = chance(0.5) ? 1 : 0; globes = 1; gold = 1; }
+    else if (e.elite === 'rare') { items = rndi(1, 2); min = 'magic'; globes = 2; gold = 2; }
     else if (e.elite === 'minion') items = chance(ic * 1.6) ? 1 : 0;
     else items = chance(ic) ? 1 : 0;
     if (e.type === 'mimic') { items = rndi(3, 4); min = 'magic'; gold = 3; }
@@ -7829,7 +7872,7 @@ const LOOT = {
     LIGHTS.flash(_v1.set(c.x, c.y + 0.6, c.z), 0xffd27a, 90, 8, 0.6);
     FX.burst(_v1.set(c.x, c.y + 0.8, c.z), 0xffd27a, 24, 4, 0.1, 0.6, { grav: 2 });
     const list = [];
-    const n = c.vault ? rndi(3, 5) : rndi(1, 2);
+    const n = c.vault ? rndi(2, 3) : chance(0.3) ? 2 : 1;
     for (let i = 0; i < n; i++) list.push({ kind: 'item', item: this.makeItem(this.ilvl(c.vault ? 1 : 0), { min: i === 0 ? 'magic' : 'common' }) });
     const g = c.vault ? rndi(3, 5) : rndi(1, 3);
     for (let i = 0; i < g; i++) list.push({ kind: 'gold', amount: this.goldAmount(c.vault ? 1.5 : 1) });
@@ -7924,6 +7967,7 @@ const LOOT = {
           if (d.bounces < 1 && Math.abs(d.vel.y) > 3) { d.vel.y *= -0.32; d.vel.x *= 0.5; d.vel.z *= 0.5; d.bounces++; }
           else {
             d.landed = true; d.vel.x = d.vel.z = d.vel.y = 0;
+            this.settle(d, w);
             if (d.kind === 'item') { AUDIO.loot(d.item.rarity, d.pos); this.onItemLanded(d); }
             else if (d.kind === 'gold' && AUDIO.gate('goldland', 0.08)) AUDIO.gold(d.pos);
           }
@@ -7961,6 +8005,13 @@ const LOOT = {
       LIGHTS.flash(d.pos, RARITY[it.rarity].hex, 120, 10, 1.2);
       GAME.noteBestItem(it);
     } else if (it.rarity === 'rare') GAME.noteBestItem(it);
+  },
+  // keep landed drops clear of walls, ledges, pits and props so they can always be reached
+  settle(d, w) {
+    const fy = w.floorAt(d.pos.x, d.pos.z);
+    for (let i = 0; i < 3; i++) w.resolveCircle(d.pos, 0.6, fy, true, false);
+    const ny = w.floorAt(d.pos.x, d.pos.z);
+    if (ny > -5) d.pos.y = ny + (d.kind === 'globe' ? 0.6 : 0.02);
   },
   removeDrop(d, i) {
     if (d.mesh) R.scene.remove(d.mesh);
@@ -8020,13 +8071,45 @@ const LOOT = {
     AUDIO.gold(null); UI.toast('Sold', `${it.name} · +${fmtInt(it.value)} gold`, 'loot');
     UI.inventoryChanged(); UI.goldChanged();
   },
-  junkValue() { const p = ENT.player; let v = 0; for (const it of p.inventory) if (it && (it.rarity === 'common' || it.rarity === 'magic') && !this.isUpgrade(it)) v += it.value; return v; },
+  isJunk(it) { return !!it && (it.rarity === 'common' || it.rarity === 'magic') && !this.isUpgrade(it); },
+  junkValue() { let v = 0; for (const it of ENT.player.inventory) if (this.isJunk(it)) v += it.value; return v; },
+  junkShards() { let v = 0; for (const it of ENT.player.inventory) if (this.isJunk(it)) v += this.shardsFor(it); return v; },
   sellJunk() {
     const p = ENT.player; let v = 0, n = 0;
-    p.inventory.forEach((it, i) => { if (it && (it.rarity === 'common' || it.rarity === 'magic') && !this.isUpgrade(it)) { v += it.value; n++; p.inventory[i] = null; } });
+    p.inventory.forEach((it, i) => { if (this.isJunk(it)) { v += it.value; n++; p.inventory[i] = null; } });
     if (!n) { AUDIO.uiError(); UI.toast('No junk to sell', 'Upgrades and rare items are kept', 'warn'); return; }
     p.gold += v; AUDIO.gold(null);
     UI.toast(`Sold ${n} item${n > 1 ? 's' : ''}`, `+${fmtInt(v)} gold`, 'loot');
+    UI.inventoryChanged(); UI.goldChanged(); GAME.save();
+  },
+  // salvage breaks an item down into riftshards, the currency for gambling
+  shardsFor(it) { return CONFIG.loot.salvage[it.rarity] || 1; },
+  salvage(idx) {
+    const p = ENT.player, it = p.inventory[idx]; if (!it) return;
+    const n = this.shardsFor(it);
+    p.inventory[idx] = null; p.shards += n;
+    AUDIO.salvage(); UI.toast('Salvaged', `${it.name} · +${n} riftshard${n > 1 ? 's' : ''}`, 'loot');
+    UI.inventoryChanged(); UI.goldChanged();
+  },
+  salvageJunk() {
+    const p = ENT.player; let v = 0, n = 0;
+    p.inventory.forEach((it, i) => { if (this.isJunk(it)) { v += this.shardsFor(it); n++; p.inventory[i] = null; } });
+    if (!n) { AUDIO.uiError(); UI.toast('No junk to salvage', 'Upgrades and rare items are kept', 'warn'); return; }
+    p.shards += v; AUDIO.salvage();
+    UI.toast(`Salvaged ${n} item${n > 1 ? 's' : ''}`, `+${v} riftshard${v > 1 ? 's' : ''}`, 'loot');
+    UI.inventoryChanged(); UI.goldChanged(); GAME.save();
+  },
+  gamble() {
+    const p = ENT.player, cost = CONFIG.loot.gambleCost;
+    if (p.shards < cost) { UI.toast('Not enough riftshards', `${cost} needed · salvage items to earn more`, 'warn'); AUDIO.uiError(); return; }
+    const idx = p.inventory.indexOf(null);
+    if (idx < 0) { UI.toast('Inventory full', 'Sell or salvage something first', 'warn'); AUDIO.uiError(); return; }
+    const it = this.makeItem(this.ilvl(1), { rarity: wpick(Object.assign({}, CONFIG.loot.gambleWeights)) });
+    p.shards -= cost; p.inventory[idx] = it; it.isNew = true;
+    AUDIO.loot(it.rarity, null);
+    if (it.rarity === 'legendary' || it.rarity === 'set') UI.toast(it.rarity === 'set' ? 'Set item found' : 'Legendary found', it.name, it.rarity);
+    else UI.toast('Gambled', it.name, 'loot');
+    if (it.rarity !== 'magic') GAME.noteBestItem(it);
     UI.inventoryChanged(); UI.goldChanged(); GAME.save();
   },
   potionPrice() { return CONFIG.player.potionPrice + CONFIG.player.potionPricePerFloor * GAME.floor; },
@@ -8052,7 +8135,7 @@ const UI = {
   init() {
     const ids = ['hud', 'hud-floor', 'hud-biome', 'hud-time', 'hud-kills', 'buffs', 'minimap', 'minimap-canvas', 'bossbar', 'bb-kind', 'bb-name', 'bb-fill', 'bb-ghost', 'bb-bar', 'bb-tags', 'bb-val',
       'g-hp', 'g-fury', 'hp-val', 'fury-val', 'skillbar', 'slot-potion', 'potion-cnt', 'xpline', 'xp-fill', 'xp-lv', 'xp-pct', 'toasts', 'tutorial', 'prompt', 'worldui',
-      'scrim', 'panel-inv', 'panel-char', 'panel-skills', 'menu-pause', 'modal-settings', 'modal-controls', 'inv-grid', 'inv-gold', 'inv-count', 'junk-val', 'potion-price',
+      'scrim', 'panel-inv', 'panel-char', 'panel-skills', 'menu-pause', 'modal-settings', 'modal-controls', 'inv-grid', 'inv-gold', 'inv-shards', 'inv-count', 'junk-val', 'junk-shards', 'potion-price', 'gamble-price',
       'doll', 'ch-lv', 'ch-xp', 'ch-xpbar', 'ch-points', 'ch-attrs', 'ch-derived', 'skill-grid', 'tooltip', 'drag-ghost', 'itempop', 'cursor', 'fade', 'fullmap', 'fullmap-canvas', 'fm-title',
       'screen-title', 'screen-card', 'screen-death', 'card-num', 'card-name', 'card-sub', 'card-boss', 'd-title', 'd-stats', 'd-item', 'controls-body', 'settings-block',
       'pause-settings-slot', 'title-settings-slot', 'rec-floor', 'rec-runs', 'rec-level', 'btn-continue', 'continue-meta', 'cluster', 'joy', 'joy-knob', 'loading'];
@@ -8540,8 +8623,8 @@ const UI = {
       const fmt = (v, suf = '', dec = 0) => `<span class="${v > 0.05 ? 'up' : v < -0.05 ? 'down' : 'same'}">${v > 0 ? '+' : ''}${v.toFixed(dec)}${suf}</span>`;
       html += `<div class="tt-foot micro" style="justify-content:flex-start;gap:var(--s4)"><span>DPS ${fmt(ddps, '%', 1)}</span><span>Life ${fmt(dhp)}</span><span>Armor ${fmt(darm)}</span></div>`;
     }
-    const hint = opts.equipped ? (INPUT.touch ? 'Tap for options' : 'Right-click to unequip') : (INPUT.touch ? 'Tap for options' : `Right-click equip · Shift+right-click sell`);
-    html += `<div class="tt-foot micro"><span>${hint}</span><span class="mono" style="color:var(--gold)">${fmtInt(it.value)}g</span></div>`;
+    const hint = opts.equipped ? (INPUT.touch ? 'Tap for options' : 'Right-click to unequip') : (INPUT.touch ? 'Tap for options' : 'Right-click equip · +Shift sell · +Ctrl salvage');
+    html += `<div class="tt-foot micro"><span>${hint}</span><span class="mono"><span style="color:var(--gold)">${fmtInt(it.value)}g</span> · ${LOOT.shardsFor(it)}${icon('crystal', 'xs')}</span></div>`;
     return html;
   },
   showItemTip(it, anchor, opts = {}) {
@@ -8559,7 +8642,9 @@ const UI = {
       this.bindCell(c, () => ENT.player && ENT.player.inventory[i], { inv: i });
     }
     $('#btn-selljunk').addEventListener('click', () => LOOT.sellJunk());
+    $('#btn-salvagejunk').addEventListener('click', () => LOOT.salvageJunk());
     $('#btn-buypotion').addEventListener('click', () => LOOT.buyPotion());
+    $('#btn-gamble').addEventListener('click', () => LOOT.gamble());
   },
   DOLL: [
     { slot: 'helm', col: 1, row: 1 }, { slot: 'chest', col: 1, row: 2 }, { slot: 'weapon', col: 1, row: 3 }, { slot: 'ring1', col: 1, row: 4 },
@@ -8588,6 +8673,7 @@ const UI = {
       this.hideTip();
       if (ref.slot) LOOT.unequip(ref.slot);
       else if (e.shiftKey) LOOT.sell(ref.inv);
+      else if (e.ctrlKey || e.metaKey) LOOT.salvage(ref.inv);
       else LOOT.equipFromInventory(ref.inv);
     });
     c.addEventListener('pointerdown', e => {
@@ -8653,7 +8739,7 @@ const UI = {
     pop.innerHTML = '';
     const add = (label, fn, primary) => { const b = h('button', 'btn' + (primary ? ' primary' : ''), label); b.addEventListener('click', () => { fn(); pop.classList.remove('on'); this.hideTip(); }); pop.appendChild(b); };
     if (ref.slot) add('Unequip', () => LOOT.unequip(ref.slot), true);
-    else { add('Equip', () => LOOT.equipFromInventory(ref.inv), true); add(`Sell · ${fmtInt(it.value)}g`, () => LOOT.sell(ref.inv)); }
+    else { add('Equip', () => LOOT.equipFromInventory(ref.inv), true); add(`Sell · ${fmtInt(it.value)}g`, () => LOOT.sell(ref.inv)); add(`Salvage · ${LOOT.shardsFor(it)}`, () => LOOT.salvage(ref.inv)); }
     add('Close', () => {});
     this.showItemTip(it, this.tipAnchor(cell), { equipped: !!ref.slot, where: ref.slot ? 'right' : 'left' });
     const r = cell.getBoundingClientRect();
@@ -8675,10 +8761,14 @@ const UI = {
     const used = p.inventory.filter(Boolean).length;
     this.el['inv-count'].textContent = `${used} / ${p.inventory.length}`;
     this.el['inv-gold'].textContent = fmtInt(p.gold);
-    const jv = LOOT.junkValue();
+    this.el['inv-shards'].textContent = fmtInt(p.shards);
+    const jv = LOOT.junkValue(), js = LOOT.junkShards();
     this.el['junk-val'].textContent = jv ? '· ' + fmtInt(jv) : '';
+    this.el['junk-shards'].textContent = js ? '· ' + fmtInt(js) : '';
     this.el['potion-price'].textContent = '· ' + fmtInt(LOOT.potionPrice());
-    $('#inv-hint').textContent = INPUT.touch ? 'Tap an item for options' : 'Right-click to equip · Shift + right-click to sell · drag to move';
+    this.el['gamble-price'].textContent = '· ' + CONFIG.loot.gambleCost;
+    $('#btn-gamble').classList.toggle('dim', p.shards < CONFIG.loot.gambleCost);
+    $('#inv-hint').textContent = INPUT.touch ? 'Tap an item for options' : 'Right-click equip · Shift sell · Ctrl salvage · drag to move';
   },
   inventoryChanged() { if (this.open.inv || this.open.char) this.renderInventory(); },
   goldChanged() { if (this.open.inv) { this.el['inv-gold'].textContent = fmtInt(ENT.player.gold); this.renderInventory(); } },
@@ -8810,7 +8900,7 @@ const UI = {
       GAME.applySettings(); this.syncSettings(); GAME.saveSettings();
     }));
     blk.querySelectorAll('.toggle').forEach(t => t.addEventListener('click', () => { const k = t.dataset.set; GAME.settings[k] = !GAME.settings[k]; GAME.applySettings(); this.syncSettings(); GAME.saveSettings(); }));
-    blk.querySelectorAll('.seg').forEach(sg => sg.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; GAME.settings[sg.dataset.set] = b.dataset.v; GAME.applySettings(); this.syncSettings(); GAME.saveSettings(); }));
+    blk.querySelectorAll('.seg').forEach(sg => sg.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; GAME.settings[sg.dataset.set] = b.dataset.v; if (sg.dataset.set === 'quality') GAME.settings.qualityLocked = true; GAME.applySettings(); this.syncSettings(); GAME.saveSettings(); }));
   },
   syncSettings() {
     const S = GAME.settings, blk = this.el['settings-block'];
@@ -9255,7 +9345,7 @@ const GAME = {
   disposeFloor() {
     ENT.clear(); LOOT.clear(); FX.clear(); RAGDOLL.clear(); TELE.clear(); LIGHTS.clearFx();
     for (const L of UI.labels.slice()) UI.removeLabel(L);
-    for (const [e, np] of UI.plates) { np.el.classList.remove('on'); UI.platePool.push(np); } UI.plates.clear();
+    for (const np of UI.plates.values()) { np.el.classList.remove('on'); UI.platePool.push(np); } UI.plates.clear();
     for (const o of UI.dmg) { o.el.style.display = 'none'; UI.dmgPool.push(o.el); } UI.dmg.length = 0;
     this.disposeTitle();
     if (WORLD.current) { WORLD.current.dispose(); WORLD.current = null; }
@@ -9373,6 +9463,7 @@ const GAME = {
   // ------------------------------------------------------------- loop
   frame(now) {
     requestAnimationFrame(t => this.frame(t));
+    if (this.debugHold) { this.last = now; return; }
     const rdt = Math.min(0.1, Math.max(0, (now - (this.last || now)) / 1000));
     this.last = now;
     GLOBAL_TIME.value += rdt;
@@ -9393,6 +9484,7 @@ const GAME = {
         vdt = rdt * this.timeScale;
       }
     }
+    if (this.state === 'play' && !this.paused) this.watchPerf(rdt);
     const alpha = clamp(this.acc / CONFIG.sim.dt, 0, 1);
     const p = ENT.player;
     if (p && p.model) p.syncVisual(alpha, vdt);
@@ -9430,6 +9522,22 @@ const GAME = {
     this.render();
   },
   render() { R.composer.render(); },
+  // Drop render quality once if the first seconds of play run well below 60 fps.
+  watchPerf(rdt) {
+    const P = this.perf || (this.perf = { t: 0, n: 0, sum: 0, done: false });
+    if (P.done || this.settings.qualityLocked) return;
+    P.t += rdt; if (P.t < 1.5) return;
+    P.n++; P.sum += rdt;
+    if (P.n < 180) return;
+    const avg = P.sum / P.n;
+    P.n = 0; P.sum = 0;
+    if (avg > 0.0215 && this.settings.quality !== 'low') {
+      this.settings.quality = this.settings.quality === 'high' ? 'medium' : 'low';
+      this.applySettings(); this.saveSettings(); UI.syncSettings();
+      UI.toast('Render quality lowered', `Now ${this.settings.quality} · change it in Settings`, 'info');
+      if (this.settings.quality === 'low') P.done = true;
+    } else P.done = true;
+  },
   step(dt) {
     const p = ENT.player, w = WORLD.current;
     PATH.budget = 8;
@@ -9439,7 +9547,7 @@ const GAME = {
     for (let i = ENT.timers.length - 1; i >= 0; i--) { const t = ENT.timers[i]; t.t -= dt; if (t.t <= 0) { ENT.timers.splice(i, 1); t.fn(); } }
     if (p && !p.dead) { p.prev.copy(p.pos); p.update(dt); }
     updateEnemies(dt);
-    PROJ.update(dt); ZONES.update(dt); updateHazards(dt, this.time); SKILLS_RT.updateBlades(dt, this.time);
+    PROJ.update(dt); ZONES.update(dt); TELE.update(dt); updateHazards(dt, this.time); SKILLS_RT.updateBlades(dt, this.time);
     RAGDOLL.step(dt);
     LOOT.update(dt, this.time);
     if (p && !p.dead && w) {
@@ -9451,6 +9559,17 @@ const GAME = {
       }
     }
     INPUT.endStep();
+  },
+  spawnDebugPack(pk) { return spawnPack(pk).length; },
+  // Advance the simulation without rendering (used by automated playtests).
+  debugAdvance(sec) {
+    const dt = CONFIG.sim.dt, n = Math.round(sec / dt);
+    for (let i = 0; i < n && this.state === 'play'; i++) {
+      this.step(dt);
+      if (ENT.player && ENT.player.model) ENT.player.syncVisual(1, dt);
+      for (const e of ENT.enemies) if (!e.dead || e.fallT !== undefined) e.syncVisual(1, dt);
+      if (i % 4 === 0) FX.update(dt * 4);
+    }
   },
   updateTitle(dt) {
     const T = this.title; if (!T) return;
@@ -9475,7 +9594,7 @@ const GAME = {
 // ---------------------------------------------------------------------
 try {
   GAME.init();
-  window.DEPTHFALL = { GAME, ENT, WORLD, LOOT, UI, INPUT, CONFIG, R, CAM, SKILLS_RT, PATH, AUDIO, RAGDOLL, FX };
+  window.DEPTHFALL = { GAME, ENT, WORLD, LOOT, UI, INPUT, CONFIG, R, CAM, SKILLS_RT, PATH, AUDIO, RAGDOLL, FX, TELE, BOSS_AI, TILE, generateFloor, World };
 } catch (err) {
   const e = document.getElementById('ld-err');
   if (e) e.textContent = 'DEPTHFALL failed to start: ' + (err && err.message ? err.message : err);
