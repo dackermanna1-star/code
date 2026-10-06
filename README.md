@@ -54,11 +54,15 @@ The first start creates `data/db.json`. The site's clock starts on September 1, 
     - Furious Fire Station: a small town with a town hall, a police station and a diner.
     - Lighthouse Point: a fishing village with a headland, a beach and a pier.
     - Rakish Refinery: tanks, cracking towers, a warehouse and a container yard.
-  - There are eleven disasters: tornado, tsunami, flash flood, earthquake, meteor shower, volcanic eruption, thunderstorm, fire, acid rain, blizzard, and **Gojo vs Sukuna**. Buildings break apart brick by brick.
+  - There are twelve disasters: tornado, tsunami, flash flood, earthquake, meteor shower, volcanic eruption, thunderstorm, fire, acid rain, blizzard, **Gojo vs Sukuna** and **Total Chaos**. Buildings break apart brick by brick.
   - **Gojo vs Sukuna:** the two fight all over the island at full speed. You're a bystander who has to survive their fight.
     - Gojo uses Blue, Red, Hollow Purple, Infinity and Unlimited Void.
     - Sukuna uses Cleave, Dismantle, Fuga and Malevolent Shrine.
     - Either of them can win.
+  - **Total Chaos** runs three disasters back to back:
+    1. A poop storm: giant poops fall from the sky, and winged ones dive-bomb people.
+    2. Killer clowns with knives come out of the ground and hunt everyone down. Outrun them or get up high.
+    3. A summoned black hole tears around the island and swallows everything, clowns included.
   - In the lobby, the **Pick the disaster** menu chooses the disaster and the map (or Random). Your pick stays set for every round, and **Start Now** skips the wait.
   - Read the warning. Get up high for floods and tsunamis, get inside for acid rain, blizzards and meteors, and get out into the open for earthquakes and fires. You can swim, but stamina and breath run out.
 - **Your own place**: on your My ROBLOX page, click Edit under your place.

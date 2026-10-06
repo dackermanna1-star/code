@@ -126,6 +126,7 @@ const DISASTER_LINES = {
   meteor: ['meteors!!', 'take cover', 'omg fireballs', 'hide inside'], volcano: ['VOLCANO', 'the floor is lava lol', 'lava bombs!!', 'hide!!'],
   thunder: ['lightning!!', 'dont stand on the roof', 'zap lol', 'stay inside'], fire: ['FIRE', 'get away from the fire', 'its burning!!', 'run outside'],
   acid: ['acid rain!! go inside', 'get under something', 'ouch it burns', 'inside!!'], blizzard: ['its so cold', 'BLIZZARD go inside', 'brrr', 'get inside!!'],
+  chaos: ['is that... poop', 'POOP STORM lol', 'ew ew ew', 'what is happening', 'take cover!!'],
   jjk: ['GOJO VS SUKUNA', 'nah id win', 'stand proud', 'WE ARE SO DEAD', 'the strongest vs the strongest', 'hide!!!'],
 };
 class Survivor extends BotBrain {
@@ -153,6 +154,17 @@ class Survivor extends BotBrain {
     // thrown into the sea: swim back to the island
     if (ch.swimming && (Math.abs(p.x) > 110 || Math.abs(p.z) > 110)) { this.target = V(Math.max(-100, Math.min(100, p.x)), G, Math.max(-100, Math.min(100, p.z))); return; }
     if ((this.lag -= 0.35) > 0) { super.think(); return; }
+    // run from whatever is chasing you (killer clowns)
+    const threats = S.dState?.threats;
+    if (threats?.length) {
+      let near = null, nd = 32;
+      for (const t of threats) { const d = Math.hypot(t.x - p.x, t.z - p.z); if (d < nd) { nd = d; near = t; } }
+      if (near) {
+        const away = p.clone().sub(near).setY(0); if (away.lengthSq() < 0.01) away.set(1, 0, 0);
+        const t = p.clone().addScaledVector(away.normalize(), 28); t.x = Math.max(-100, Math.min(100, t.x)); t.z = Math.max(-100, Math.min(100, t.z));
+        this.target = t; return;
+      }
+    }
     if (this.strategy === 'away' && S.dState?.pos) {
       // run from the tornado
       const away = p.clone().sub(S.dState.pos).setY(0); const d = away.length();
@@ -221,7 +233,8 @@ export default {
       const cause = ch?.lastCause;
       const msg = { lightning: 'was struck by lightning', drowned: 'drowned', lava: 'was burned by lava', acid: 'melted in the acid rain', froze: 'froze to death', fire: 'burned to death', debris: 'was hit by debris', fell: 'fell to their death', blast: 'was blown up', crushed: 'was crushed',
         purple: 'was erased by Hollow Purple', blue: 'was crushed by Blue', red: 'was blasted by Red', cleave: 'was cleaved in half', dismantle: 'was dismantled',
-        shrine: 'was sliced up in the Malevolent Shrine', fuga: 'was incinerated by Fuga', void: 'was lost in the Unlimited Void', clash: 'got caught in the crossfire', worldslash: 'was cut along with the world' }[cause] || 'died';
+        shrine: 'was sliced up in the Malevolent Shrine', fuga: 'was incinerated by Fuga', void: 'was lost in the Unlimited Void', clash: 'got caught in the crossfire', worldslash: 'was cut along with the world',
+        poop: 'was flattened by a giant poop', stink: "couldn't handle the smell", clown: 'was stabbed by a killer clown', hole: 'was swallowed by the black hole' }[cause] || 'died';
       game.systemChat(`${p.name} ${msg}`);
       if (p.isLocal) S.gui.setDead(`You ${msg.replace('their', 'your')}.  Respawning in the lobby...`);
       if (p.brain && Math.random() < 0.5) world.delay(rnd(1, 3), () => p.brain.say(pick(CHAT_LINES.die)));
@@ -431,6 +444,8 @@ function makeContext() {
     get map() { return S.map; },
     chars: () => [...S.world.characters].filter((ch) => onIsland(ch)),
     guiRoot: S.gui.el,
+    /** Tell the bots to change plan mid-disaster (a disaster with stages). */
+    replan: (strategy) => { for (const p of S.game.players) if (p.brain instanceof Survivor && p.character?.alive && onIsland(p.character)) p.brain.plan(strategy); },
     hurt, kill, collapse, explode, shake, mark, ignite,
     snow: setSnow,
     set snowAmount(v) { S.snowAmount = v; },
@@ -518,7 +533,7 @@ function characterExtras(game, dt) {
       ch.walkSpeed = 10;
     } else {
       ch.stamina = Math.min(1, (ch.stamina ?? 1) + dt / 6);
-      ch.walkSpeed = 16;
+      ch.walkSpeed = ch.baseSpeed || 16;
     }
     if (head < lvl - 0.2) { ch.breath = Math.max(0, (ch.breath ?? 1) - dt / 9); if (ch.breath <= 0) { kill(ch, null, 'drowned'); continue; } }
     else ch.breath = Math.min(1, (ch.breath ?? 1) + dt / 2);

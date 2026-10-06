@@ -126,6 +126,9 @@ Ratings and voting: 2008 pages show only how many times a place was Visited and 
   - The fighters are classic R6 rigs with added hair and clothing parts.
   - Everything else is made for this project: the shrine and the effects, the synthesized sounds, the fight script and the damage numbers.
   - Their lines are short quotes and paraphrases, spoken with the browser's speech synthesis.
+- **Total Chaos** is another extra disaster added on request: a poop storm, then killer clowns, then a black hole. It is entirely original.
+  - The killer clowns are ordinary R6 characters with painted faces and knives, driven by a simple chase brain.
+  - The poops, the black hole and the circus music are all generated in code.
 - Buildings are anchored classic bricks merged into a few meshes per area. A disaster breaks bricks loose one at a time, and loose debris is capped.
 - With thousands of anchored parts, cannon-es's SAP broadphase and dense collision matrix grew with the square of the part count. The place therefore uses a grid broadphase for static bodies (`public/js/engine/broadphase.js`). Every place now uses a sparse collision matrix.
 
