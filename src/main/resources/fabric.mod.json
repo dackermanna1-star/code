@@ -1,0 +1,28 @@
+{
+	"schemaVersion": 1,
+	"id": "laptopcraft",
+	"version": "${version}",
+	"name": "LaptopCraft",
+	"description": "A fully working laptop for Minecraft: CubeOS desktop, apps, games and an in-game internet where you can shop and order deliveries.",
+	"authors": [
+		"dackermanna1"
+	],
+	"contact": {},
+	"license": "MIT",
+	"icon": "assets/laptopcraft/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.laptopcraft.LaptopCraft"
+		],
+		"client": [
+			"com.laptopcraft.client.LaptopCraftClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

@@ -1,0 +1,16 @@
+{
+	"schemaVersion": 1,
+	"id": "laptopcraft-gametest",
+	"version": "1.0.0",
+	"name": "LaptopCraft Screenshot Harness",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-client-gametest": [
+			"com.laptopcraft.gametest.ScreenshotHarness"
+		]
+	},
+	"depends": {
+		"laptopcraft": "*",
+		"fabric-client-gametest-api-v1": "*"
+	}
+}
