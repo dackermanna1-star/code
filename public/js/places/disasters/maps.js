@@ -1160,9 +1160,9 @@ function refinery(st) {
 }
 
 export const MAPS = [
-  { id: 'home', build: happyHome },
-  { id: 'office', build: glassOffice },
-  { id: 'firestation', build: fireStation },
-  { id: 'lighthouse', build: lighthouse },
-  { id: 'refinery', build: refinery },
+  { id: 'home', name: 'Happy Home', build: happyHome },
+  { id: 'office', name: 'Glass Office', build: glassOffice },
+  { id: 'firestation', name: 'Fire Station', build: fireStation },
+  { id: 'lighthouse', name: 'Lighthouse Point', build: lighthouse },
+  { id: 'refinery', name: 'Rakish Refinery', build: refinery },
 ];

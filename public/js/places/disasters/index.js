@@ -41,6 +41,19 @@ const CSS = `
 .nds .tint{position:absolute;inset:0;opacity:0;transition:opacity .3s;}
 .nds .dead{position:absolute;left:0;right:0;top:42%;text-align:center;font:bold 26px Arial;text-shadow:0 2px 4px #000;display:none;}
 .nds .help{position:absolute;right:14px;bottom:110px;font-size:12px;text-align:right;color:#eee;text-shadow:0 1px 2px #000;line-height:1.6;}
+.nds .pick{position:absolute;left:14px;top:150px;width:262px;max-height:calc(100% - 290px);overflow-y:auto;background:rgba(20,20,24,.85);border:2px solid rgba(255,255,255,.28);border-radius:8px;padding:9px 10px 10px;pointer-events:auto;display:none;font-size:12px;}
+.nds .pick h3{margin:2px 0 6px;font:bold 13px Arial;letter-spacing:1px;color:#ffdd44;cursor:pointer;user-select:none}
+.nds .pick h3 span{float:right;color:#aaa}
+.nds .pick h4{margin:9px 0 4px;font:bold 11px Arial;letter-spacing:1px;color:#bbb}
+.nds .pick .grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.nds .pick button{font:bold 11px Arial;color:#fff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);border-radius:4px;padding:5px 4px;text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nds .pick button:hover{background:rgba(255,255,255,.2)}
+.nds .pick button.on{background:rgba(255,221,68,.25);border-color:#ffdd44;color:#ffdd44}
+.nds .pick button.wide{grid-column:1/3;text-align:center}
+.nds .pick .go{display:block;width:100%;margin-top:9px;text-align:center;font-size:13px;padding:7px;background:#2f8a2f;border-color:#7cd860}
+.nds .pick .go:hover{background:#3aa83a}
+.nds .pick p{margin:6px 0 0;color:#aaa;font-size:11px;line-height:1.35}
+.nds .pick.min .body{display:none}
 `;
 class Gui {
   constructor(root) {
@@ -51,12 +64,39 @@ class Gui {
       <div class="surv"><h2>SURVIVORS</h2><div></div></div>
       <div class="meters"><div class="st"><i style="background:#ffd040"></i><span>STAMINA</span></div><div class="br"><i style="background:#5ac8ff"></i><span>BREATH</span></div></div>
       <div class="dead"></div>
+      <div class="pick"><h3>PICK THE DISASTER <span>&#9662;</span></h3><div class="body"></div></div>
       <div class="help">Survive the disaster!<br>WASD move · Space jump · right-drag look · I/O zoom</div>`;
     root.appendChild(el);
     const q = (s) => el.querySelector(s);
-    Object.assign(this, { el, bar: q('.bar'), warn: q('.warn'), surv: q('.surv'), meters: q('.meters'), tint: q('.tint'), dead: q('.dead'), help: q('.help') });
+    Object.assign(this, { el, bar: q('.bar'), warn: q('.warn'), surv: q('.surv'), meters: q('.meters'), tint: q('.tint'), dead: q('.dead'), help: q('.help'), pick: q('.pick') });
+    this.pick.querySelector('h3').onclick = () => { this.pick.classList.toggle('min'); this.pick.querySelector('h3 span').innerHTML = this.pick.classList.contains('min') ? '&#9656;' : '&#9662;'; };
+    // clicks on the menu are for the menu, not the game
+    for (const ev of ['mousedown', 'mouseup', 'click', 'contextmenu', 'wheel']) this.pick.addEventListener(ev, (e) => e.stopPropagation());
     setTimeout(() => { this.help.style.display = 'none'; }, 25000);
   }
+  /**
+   * The lobby menu: pick the disaster and the map (or leave them random).
+   * A pick sticks for every round until it is changed.
+   */
+  picker(disasters, maps, state, onStart) {
+    const body = this.pick.querySelector('.body');
+    const btn = (label, title, on, fn, cls = '') => { const b = document.createElement('button'); b.className = `${cls}${on ? ' on' : ''}`; b.innerHTML = label; b.title = title; b.onclick = (e) => { e.preventDefault(); fn(); draw(); b.blur(); }; return b; };
+    const draw = () => {
+      body.innerHTML = '';
+      const grid = (title, list, key) => {
+        const h = document.createElement('h4'); h.textContent = title; body.appendChild(h);
+        const g = document.createElement('div'); g.className = 'grid'; body.appendChild(g);
+        g.appendChild(btn('&#127922; Random', 'A different one each round', !state[key], () => { state[key] = null; }, 'wide'));
+        for (const it of list) g.appendChild(btn(`${it.icon ? it.icon + ' ' : ''}${it.name}`, it.name, state[key] === it.id, () => { state[key] = it.id; }));
+      };
+      grid('DISASTER', disasters, 'disaster');
+      grid('MAP', maps, 'map');
+      body.appendChild(btn('&#9654; START NOW', 'Skip the wait', false, onStart, 'go'));
+      const p = document.createElement('p'); p.textContent = 'Your pick is used every round until you change it.'; body.appendChild(p);
+    };
+    draw();
+  }
+  showPicker(on) { if (this._pk !== on) { this._pk = on; this.pick.style.display = on ? 'block' : 'none'; } }
   setBar(html) { if (this._bar !== html) { this._bar = html; this.bar.innerHTML = html; } }
   warning(d) {
     if (!d) { this.warn.style.display = 'none'; return; }
@@ -86,6 +126,7 @@ const DISASTER_LINES = {
   meteor: ['meteors!!', 'take cover', 'omg fireballs', 'hide inside'], volcano: ['VOLCANO', 'the floor is lava lol', 'lava bombs!!', 'hide!!'],
   thunder: ['lightning!!', 'dont stand on the roof', 'zap lol', 'stay inside'], fire: ['FIRE', 'get away from the fire', 'its burning!!', 'run outside'],
   acid: ['acid rain!! go inside', 'get under something', 'ouch it burns', 'inside!!'], blizzard: ['its so cold', 'BLIZZARD go inside', 'brrr', 'get inside!!'],
+  jjk: ['GOJO VS SUKUNA', 'nah id win', 'stand proud', 'WE ARE SO DEAD', 'the strongest vs the strongest', 'hide!!!'],
 };
 class Survivor extends BotBrain {
   constructor(game, player) {
@@ -162,7 +203,7 @@ export default {
       st: new Structure(world, { maxDebris: 190 }),
       water: new Water(world), weather: new Weather(world), sky: new Sky(world), flames: new Flames(world),
       gui: new Gui(game.gui.root),
-      phase: 'intermission', timer: 10, round: 0, lastMaps: [], lastDisasters: [],
+      phase: 'intermission', timer: 10, round: 0, lastMaps: [], lastDisasters: [], pick: { disaster: null, map: null },
       burning: new Map(), marks: [], shakeAmt: 0,
     };
     S.grass = [...world.parts].find((p) => p.name === 'Grass');
@@ -178,7 +219,9 @@ export default {
     game.on('died', (p) => {
       const ch = p.character;
       const cause = ch?.lastCause;
-      const msg = { lightning: 'was struck by lightning', drowned: 'drowned', lava: 'was burned by lava', acid: 'melted in the acid rain', froze: 'froze to death', fire: 'burned to death', debris: 'was hit by debris', fell: 'fell to their death', blast: 'was blown up', crushed: 'was crushed' }[cause] || 'died';
+      const msg = { lightning: 'was struck by lightning', drowned: 'drowned', lava: 'was burned by lava', acid: 'melted in the acid rain', froze: 'froze to death', fire: 'burned to death', debris: 'was hit by debris', fell: 'fell to their death', blast: 'was blown up', crushed: 'was crushed',
+        purple: 'was erased by Hollow Purple', blue: 'was crushed by Blue', red: 'was blasted by Red', cleave: 'was cleaved in half', dismantle: 'was dismantled',
+        shrine: 'was sliced up in the Malevolent Shrine', fuga: 'was incinerated by Fuga', void: 'was lost in the Unlimited Void', clash: 'got caught in the crossfire', worldslash: 'was cut along with the world' }[cause] || 'died';
       game.systemChat(`${p.name} ${msg}`);
       if (p.isLocal) S.gui.setDead(`You ${msg.replace('their', 'your')}.  Respawning in the lobby...`);
       if (p.brain && Math.random() < 0.5) world.delay(rnd(1, 3), () => p.brain.say(pick(CHAT_LINES.die)));
@@ -191,6 +234,7 @@ export default {
       build: (id) => { const t0 = performance.now(); S.st.clear(); const m = MAPS.find((q) => q.id === id); S.map = m.build(S.st, game.world); S.map.id = id; S.st.flush(); return { parts: S.st.parts.size, chunks: S.st.chunks.size, meshes: S.st.group.children.length, ms: Math.round(performance.now() - t0) }; },
       tp: (x, y, z) => { const ch = game.localPlayer?.character; if (ch) { ch.body.position.set(x, y + 3, z); ch.body.velocity.set(0, 0, 0); } },
     };
+    S.gui.picker(DISASTERS, MAPS, S.pick, () => { if (S.phase === 'intermission') S.timer = Math.min(S.timer, 3); });
     S.gui.setBar('Intermission');
   },
 
@@ -223,7 +267,8 @@ function onIsland(ch) { return ch.alive && ch.rootPosition.y < LOBBY.y - 25; }
 function roundLogic(game, dt) {
   const world = game.world;
   if (S.phase === 'intermission') {
-    S.gui.setBar(`Intermission ${fmt(S.timer)}<small>${game.players.length} players · next round starts soon</small>`);
+    const d = DISASTERS.find((x) => x.id === S.pick.disaster), m = MAPS.find((x) => x.id === S.pick.map);
+    S.gui.setBar(`Intermission ${fmt(S.timer)}<small>${d || m ? `Next: ${d ? `${d.icon} ${d.name}` : 'random disaster'} · ${m ? m.name : 'random map'}` : `${game.players.length} players · next round starts soon`}</small>`);
     if (S.timer <= 0) startRound(game);
   } else if (S.phase === 'prep') {
     S.gui.setBar(`Map: ${S.map.name}<small>Something is coming... ${fmt(S.timer)}</small>`);
@@ -261,8 +306,8 @@ function choose(list, last, force) {
 
 function startRound(game) {
   S.round++;
-  const mapDef = choose(MAPS, S.lastMaps, S.forceMap);
-  S.disaster = choose(DISASTERS, S.lastDisasters, S.forceDisaster);
+  const mapDef = choose(MAPS, S.lastMaps, S.forceMap || S.pick.map);
+  S.disaster = choose(DISASTERS, S.lastDisasters, S.forceDisaster || S.pick.disaster);
   S.forceMap = S.forceDisaster = null;
   S.lastMaps = [mapDef.id, ...S.lastMaps].slice(0, 2);
   S.lastDisasters = [S.disaster.id, ...S.lastDisasters].slice(0, 4);
@@ -385,6 +430,7 @@ function makeContext() {
     world: S.world, st: S.st, water: S.water, weather: S.weather, sky: S.sky, flames: S.flames, fx: S.fx,
     get map() { return S.map; },
     chars: () => [...S.world.characters].filter((ch) => onIsland(ch)),
+    guiRoot: S.gui.el,
     hurt, kill, collapse, explode, shake, mark, ignite,
     snow: setSnow,
     set snowAmount(v) { S.snowAmount = v; },
@@ -495,6 +541,7 @@ function characterExtras(game, dt) {
 // --- the HUD each frame -----------------------------------------------------------------------------------------------------------------
 function hudUpdate(game) {
   const ch = game.localPlayer?.character;
+  S.gui.showPicker(S.phase === 'intermission' || (!!ch?.alive && !onIsland(ch)));
   if (!ch?.alive) { S.gui.setMeters(1, 1); return; }
   S.gui.setMeters(ch.stamina ?? 1, ch.breath ?? 1);
   const t = game.world.time;

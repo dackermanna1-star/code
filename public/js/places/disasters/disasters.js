@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { G } from './maps.js';
 import { buildFunnel, buildWave, buildVolcano, lightningBolt, groundMark, tex } from './effects.js';
 import * as A from './audio.js';
+import { jjk } from './jjk.js';
 import { GROUP } from '../../engine/Part.js';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -468,4 +469,4 @@ const blizzard = {
   stop(D) { for (const ch of D.chars()) ch.windPush = null; A.stop('wind'); D.snow?.(false); },
 };
 
-export const DISASTERS = [tornado, tsunami, flood, quake, meteor, volcano, storm, fire, acid, blizzard];
+export const DISASTERS = [tornado, tsunami, flood, quake, meteor, volcano, storm, fire, acid, blizzard, jjk];

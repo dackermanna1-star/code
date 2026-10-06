@@ -122,6 +122,10 @@ Ratings and voting: 2008 pages show only how many times a place was Visited and 
 - The five maps are original. Some take their names from classic NDS maps (Happy Home of Robloxia, Glass Office, Furious Fire Station, Lighthouse Point, Rakish Refinery), but every layout here is invented. Each fills the whole island with streets, buildings and props.
 - The disasters' behaviour, timings and damage are invented for this project:
   - tornado, tsunami, flash flood, earthquake, meteor shower, volcanic eruption, thunderstorm, fire, acid rain and blizzard
+- **Gojo vs Sukuna** is a fan-made extra disaster added on request. It uses the two Jujutsu Kaisen characters and the names of their techniques: Blue, Red, Hollow Purple, Infinity, Unlimited Void, Cleave, Dismantle, Fuga, Malevolent Shrine and the World Cutting Slash.
+  - The fighters are classic R6 rigs with added hair and clothing parts.
+  - Everything else is made for this project: the shrine and the effects, the synthesized sounds, the fight script and the damage numbers.
+  - Their lines are short quotes and paraphrases, spoken with the browser's speech synthesis.
 - Buildings are anchored classic bricks merged into a few meshes per area. A disaster breaks bricks loose one at a time, and loose debris is capped.
 - With thousands of anchored parts, cannon-es's SAP broadphase and dense collision matrix grew with the square of the part count. The place therefore uses a grid broadphase for static bodies (`public/js/engine/broadphase.js`). Every place now uses a sparse collision matrix.
 
