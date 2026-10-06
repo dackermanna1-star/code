@@ -19,10 +19,15 @@ import org.lwjgl.glfw.GLFW;
  * Dev-only screenshot harness built on Fabric's client game tests. It launches the real client,
  * creates a creative flat world with a laptop in front of the player and then runs a script.
  *
+ * <p>Without a {@code world} step the script runs on the title screen: {@code dev:} commands then open an
+ * offline dev laptop (fast, no world needed — ideal for UI work). With {@code world}, a creative flat world
+ * is created with a laptop on a table in front of the player, and {@code use} opens it for real.
+ *
  * <p>The script is read from the file named by the {@code laptopcraft.scriptFile} system property
  * (default {@code build/lc-script.txt}). One step per line (or separated by ';'). Coordinates are
  * GUI coordinates (the harness uses a 1600x900 window with GUI scale 2, i.e. an 800x450 GUI).
  * <pre>
+ *   world                    create the test world (slow under software rendering: ~1-3 min)
  *   use                      right-click the laptop the player is looking at (opens CubeOS)
  *   wait:20                  wait N client ticks
  *   shot:name                screenshot, copied to build/lc-shots/name.png
@@ -41,6 +46,7 @@ import org.lwjgl.glfw.GLFW;
  */
 public class ScreenshotHarness implements FabricClientGameTest {
 	private int guiScale = 2;
+	private TestSingleplayerContext world;
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
@@ -48,23 +54,16 @@ public class ScreenshotHarness implements FabricClientGameTest {
 		Path shotDir = scriptFile.toAbsolutePath().getParent().resolve("lc-shots");
 		List<String> steps = readScript(scriptFile);
 
+		context.runOnClient(mc -> {
+			// Software rendering (llvmpipe) is CPU hungry: keep the frame rate and view distance low.
+			mc.options.guiScale().set(guiScale);
+			mc.options.framerateLimit().set(15);
+			mc.options.renderDistance().set(3);
+			mc.options.simulationDistance().set(5);
+		});
 		context.getInput().resizeWindow(1600, 900);
-		context.runOnClient(mc -> mc.options.guiScale().set(guiScale));
 
-		try (TestSingleplayerContext world = context.worldBuilder()
-				.adjustSettings(s -> s.setGameMode(net.minecraft.client.gui.screens.worldselection.WorldCreationUiState.SelectedGameMode.CREATIVE))
-				.create()) {
-			world.getClientWorld().waitForChunksRender();
-			world.getServer().runCommand("time set 6000");
-			world.getServer().runCommand("gamerule advance_time false");
-			world.getServer().runCommand("weather clear");
-			// Player stands at the world spawn of the flat test world; put a laptop on a table in front.
-			world.getServer().runCommand("tp @p 0.5 -60 0.5 180 35");
-			world.getServer().runCommand("setblock 0 -60 -1 minecraft:oak_planks");
-			world.getServer().runCommand("setblock 0 -59 -1 laptopcraft:laptop[facing=south]");
-			context.waitTicks(10);
-			world.getClientWorld().waitForChunksRender();
-
+		try {
 			for (String raw : steps) {
 				String step = raw.trim();
 				if (step.isEmpty() || step.startsWith("#")) {
@@ -72,20 +71,53 @@ public class ScreenshotHarness implements FabricClientGameTest {
 				}
 				System.out.println("[LC-HARNESS] step: " + step);
 				try {
-					runStep(context, world, step, shotDir);
+					runStep(context, step, shotDir);
 				} catch (Throwable t) {
 					System.out.println("[LC-HARNESS] step failed: " + step + " -> " + t);
 					t.printStackTrace(System.out);
 				}
 			}
+		} finally {
+			if (world != null) {
+				world.close();
+			}
 		}
 	}
 
-	private void runStep(ClientGameTestContext context, TestSingleplayerContext world, String step, Path shotDir) throws Exception {
+	private void createWorld(ClientGameTestContext context) {
+		// World creation is slow under software rendering; create it with a small window, then grow it.
+		context.getInput().resizeWindow(640, 360);
+		world = context.worldBuilder()
+				.adjustSettings(s -> s.setGameMode(net.minecraft.client.gui.screens.worldselection.WorldCreationUiState.SelectedGameMode.CREATIVE))
+				.create();
+		waitForChunks(context);
+		world.getServer().runCommand("time set 6000");
+		world.getServer().runCommand("weather clear");
+		// Player stands at the world spawn of the flat test world; put a laptop on a table in front.
+		world.getServer().runCommand("tp @p 0.5 -60 0.5 180 35");
+		world.getServer().runCommand("setblock 0 -60 -1 minecraft:oak_planks");
+		world.getServer().runCommand("setblock 0 -59 -1 laptopcraft:laptop[facing=south]");
+		context.waitTicks(10);
+		context.getInput().resizeWindow(1600, 900);
+		waitForChunks(context);
+	}
+
+	private void waitForChunks(ClientGameTestContext context) {
+		try {
+			world.getClientWorld().waitForChunksRender();
+		} catch (AssertionError e) {
+			// Software rendering can be too slow for the default timeout; carry on regardless.
+			System.out.println("[LC-HARNESS] chunks not fully rendered yet: " + e.getMessage());
+			context.waitTicks(40);
+		}
+	}
+
+	private void runStep(ClientGameTestContext context, String step, Path shotDir) throws Exception {
 		int colon = step.indexOf(':');
 		String op = (colon < 0 ? step : step.substring(0, colon)).toLowerCase(Locale.ROOT);
 		String arg = colon < 0 ? "" : step.substring(colon + 1);
 		switch (op) {
+			case "world" -> createWorld(context);
 			case "use" -> {
 				context.getInput().pressMouse(GLFW.GLFW_MOUSE_BUTTON_RIGHT);
 				context.waitTicks(5);
@@ -149,6 +181,9 @@ public class ScreenshotHarness implements FabricClientGameTest {
 				context.waitTicks(2);
 			}
 			case "cmd" -> {
+				if (world == null) {
+					throw new IllegalStateException("cmd: needs a 'world' step first");
+				}
 				world.getServer().runCommand(arg);
 				context.waitTicks(2);
 			}
@@ -230,11 +265,9 @@ public class ScreenshotHarness implements FabricClientGameTest {
 			System.out.println("[LC-HARNESS] could not read script " + file + ": " + e);
 		}
 		if (out.isEmpty()) {
+			out.add("dev:skipboot");
 			out.add("wait:20");
-			out.add("shot:world");
-			out.add("use");
-			out.add("wait:100");
-			out.add("shot:laptop");
+			out.add("shot:desktop");
 		}
 		return out;
 	}

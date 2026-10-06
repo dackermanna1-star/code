@@ -15,6 +15,7 @@ elif [ -n "${1:-}" ]; then
 fi
 rm -rf build/lc-shots
 export LIBGL_ALWAYS_SOFTWARE=1
+export LP_NUM_THREADS=2
 export MESA_GL_VERSION_OVERRIDE=4.5
 export MESA_GLSL_VERSION_OVERRIDE=450
 set +e
