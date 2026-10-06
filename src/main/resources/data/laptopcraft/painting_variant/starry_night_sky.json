@@ -1,0 +1,15 @@
+{
+  "asset_id": "laptopcraft:starry_night_sky",
+  "author": {
+    "color": "gray",
+    "translate": "painting.laptopcraft.starry_night_sky.author",
+    "fallback": "Vincent van Golem"
+  },
+  "height": 3,
+  "title": {
+    "color": "yellow",
+    "translate": "painting.laptopcraft.starry_night_sky.title",
+    "fallback": "The Starry Night Sky"
+  },
+  "width": 4
+}

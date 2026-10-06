@@ -1,0 +1,15 @@
+{
+  "asset_id": "laptopcraft:mona_llama",
+  "author": {
+    "color": "gray",
+    "translate": "painting.laptopcraft.mona_llama.author",
+    "fallback": "Leonardo da Villager"
+  },
+  "height": 3,
+  "title": {
+    "color": "yellow",
+    "translate": "painting.laptopcraft.mona_llama.title",
+    "fallback": "Mona Llama"
+  },
+  "width": 2
+}

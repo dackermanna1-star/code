@@ -1,0 +1,15 @@
+{
+  "asset_id": "laptopcraft:steve_portrait",
+  "author": {
+    "color": "gray",
+    "translate": "painting.laptopcraft.steve_portrait.author",
+    "fallback": "Steve (probably)"
+  },
+  "height": 1,
+  "title": {
+    "color": "yellow",
+    "translate": "painting.laptopcraft.steve_portrait.title",
+    "fallback": "Portrait of Steve"
+  },
+  "width": 1
+}

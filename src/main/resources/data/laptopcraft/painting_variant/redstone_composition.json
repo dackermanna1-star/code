@@ -1,0 +1,15 @@
+{
+  "asset_id": "laptopcraft:redstone_composition",
+  "author": {
+    "color": "gray",
+    "translate": "painting.laptopcraft.redstone_composition.author",
+    "fallback": "Piet Minedrian"
+  },
+  "height": 2,
+  "title": {
+    "color": "yellow",
+    "translate": "painting.laptopcraft.redstone_composition.title",
+    "fallback": "Composition with Redstone"
+  },
+  "width": 2
+}

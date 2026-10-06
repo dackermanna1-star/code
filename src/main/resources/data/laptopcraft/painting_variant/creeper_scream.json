@@ -1,0 +1,15 @@
+{
+  "asset_id": "laptopcraft:creeper_scream",
+  "author": {
+    "color": "gray",
+    "translate": "painting.laptopcraft.creeper_scream.author",
+    "fallback": "Edvard Munchcraft"
+  },
+  "height": 2,
+  "title": {
+    "color": "yellow",
+    "translate": "painting.laptopcraft.creeper_scream.title",
+    "fallback": "The Creeper Scream"
+  },
+  "width": 2
+}

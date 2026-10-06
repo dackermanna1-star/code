@@ -1,0 +1,15 @@
+{
+  "asset_id": "laptopcraft:sunflower_field",
+  "author": {
+    "color": "gray",
+    "translate": "painting.laptopcraft.sunflower_field.author",
+    "fallback": "Claude Mobnet"
+  },
+  "height": 2,
+  "title": {
+    "color": "yellow",
+    "translate": "painting.laptopcraft.sunflower_field.title",
+    "fallback": "Sunflower Field"
+  },
+  "width": 4
+}
