@@ -598,6 +598,7 @@ body.touch { --gauge: 4.25rem; --minimap: 7.5rem; --edge: 0.9rem; }
 .tbar .btn-icon.notify .badge { display: block; }
 body.touch .panel.side { width: min(24rem, 92vw); }
 body.touch #panel-char.open ~ #panel-inv.open { opacity: 0; }
+body.touch #tutorial { width: calc(100vw - 30rem); min-width: 14rem; bottom: calc(var(--edge) + var(--gauge) + 1.4rem); }
 
 @media (max-width: 760px) {
   .skill-grid { grid-template-columns: 1fr; }
@@ -8532,7 +8533,12 @@ const SKILLS_RT = {
     W_.raw = Math.max(0, W_.raw - dt);
     const dGoal = hyp(x - p.pos.x, z - p.pos.z);
     if (dGoal < W_.d - 0.25) { W_.d = dGoal; W_.t = 0; W_.stalls = 0; }
-    else if ((W_.t += dt) > 0.7) { W_.t = 0; W_.d = dGoal; W_.raw = 2.5; W_.stalls++; p.path = null; if (this.smashBlocker(p, x, z)) return { x: 0, z: 0, busy: true }; }
+    else if ((W_.t += dt) > 0.7) {
+      W_.t = 0; W_.d = dGoal; W_.raw = 2.5; W_.stalls++;
+      const smashed = this.smashBlocker(p, x, z);
+      p.path = null;
+      if (smashed) return { x: 0, z: 0, busy: true };
+    }
     if (!p.path || p.pathT <= 0 || !p.pathGoal || hyp(p.pathGoal.x - x, p.pathGoal.z - z) > 1.5) {
       p.path = PATH.find(p.pos.x, p.pos.z, x, z, { radius: p.radius, max: 5000, raw: W_.raw > 0 }); p.pathIdx = 0; p.pathT = 0.6; p.pathGoal = { x, z };
       if (W_.raw > 0 && p.path && p.path.length > 1 && hyp(p.path[0].x - p.pos.x, p.path[0].z - p.pos.z) < 0.6) p.pathIdx = 1;
@@ -8548,6 +8554,9 @@ const SKILLS_RT = {
   // a pot or crate wedged in the way gets cleaved rather than pushed against forever
   smashBlocker(p, x, z) {
     if (p.action || p.whirling) return false;
+    // aim along the way we are actually trying to walk (the next path node), not at the final goal
+    const n = p.path && p.path[p.pathIdx];
+    if (n) { x = n.x; z = n.z; }
     const w = WORLD.current, reach = this.cleaveRange(p), ga = angleOf(x - p.pos.x, z - p.pos.z);
     let best = null, bd = 1e9;
     for (const b of w.breakables) {
@@ -10172,7 +10181,7 @@ const UI = {
     const defs = [
       { id: 'cleave', icon: 'cleave', main: true },
       { id: 'bolt', icon: 'bolt', a: 180, r: 6.6 }, { id: 'slam', icon: 'slam', a: 140, r: 6.6 }, { id: 'dash', icon: 'dash', a: 100, r: 6.6 },
-      { id: 'whirl', icon: 'whirl', a: 205, r: 10.2 }, { id: 'meteor', icon: 'meteor', a: 160, r: 10.2 }, { id: 'potion', icon: 'potion', a: 118, r: 10.2 },
+      { id: 'whirl', icon: 'whirl', a: 172, r: 10.2 }, { id: 'meteor', icon: 'meteor', a: 136, r: 10.2 }, { id: 'potion', icon: 'potion', a: 102, r: 10.2 },
     ];
     this.tbtns = {};
     for (const d of defs) {
