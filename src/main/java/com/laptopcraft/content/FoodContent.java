@@ -157,7 +157,7 @@ public final class FoodContent {
 				"Flaky crust, real golden apples, a whole minute of Absorption. Notch would be proud.",
 				12, GOLDEN_APPLE_PIE, 1, 50, 777, "Chef's Pick");
 		m.add("cupcakes", DESSERTS, "Sweet Berry Cupcakes (2)",
-				"Fluffy vanilla cupcakes with pink frosting and a sweet berry on top. Instagram-able. Er, Squawker-able.",
+				"Fluffy vanilla cupcakes with pink frosting and a sweet berry on top. Instagram-able. Er, BlockTube-able.",
 				4, CUPCAKE, 2, 48, 1504, "Best Seller");
 		m.add("donut_trio", DESSERTS, "Sprinkle Donut Trio",
 				"Three glazed donuts with rainbow sprinkles. Unlike a Wither, these have holes on purpose.",
