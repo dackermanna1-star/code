@@ -1,11 +1,19 @@
 package com.laptopcraft.client.web.sites.endereats;
 
 import com.laptopcraft.client.web.PlaceholderSite;
+import com.laptopcraft.client.web.WebPage;
+import com.laptopcraft.client.web.WebUrl;
 import java.util.List;
 
-/** Placeholder for Ender Eats (endereats.mc) — replaced by the real site implementation. */
+/** Ender Eats (endereats.mc) — food delivered by teleporting Enderman couriers. */
 public class EnderEatsSite extends PlaceholderSite {
 	public EnderEatsSite() {
-		super("endereats.mc", "Ender Eats", "Hungry? Food teleported to your door by Endermen.", "endereats", "endereats_logo", 0xFF7B3FE4, List.of("food", "eat", "restaurant", "pizza", "delivery", "hungry"));
+		super("endereats.mc", "Ender Eats", "Hungry? Your food teleports to you in seconds.", "endereats", "endereats_logo", 0xFF2A1B3D,
+				List.of("food", "eat", "delivery", "pizza", "burger", "sushi", "taco", "restaurant", "hungry", "uber", "dinner", "lunch"));
+	}
+
+	@Override
+	public WebPage createPage(WebUrl url) {
+		return new EnderEatsPage(this, url);
 	}
 }

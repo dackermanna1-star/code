@@ -80,6 +80,9 @@ public class ScreenshotHarness implements FabricClientGameTest {
 		} finally {
 			if (world != null) {
 				world.close();
+			} else {
+				// Client game tests must end on the title screen.
+				context.setScreen(net.minecraft.client.gui.screens.TitleScreen::new);
 			}
 		}
 	}
