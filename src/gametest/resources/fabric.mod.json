@@ -1,0 +1,15 @@
+{
+	"schemaVersion": 1,
+	"id": "visceral-gametest",
+	"version": "1.0.0",
+	"name": "Visceral Game Tests",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-client-gametest": [
+			"dev.visceral.test.VisceralClientGameTest"
+		]
+	},
+	"depends": {
+		"visceral": "*"
+	}
+}

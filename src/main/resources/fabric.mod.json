@@ -1,0 +1,37 @@
+{
+	"schemaVersion": 1,
+	"id": "visceral",
+	"version": "${version}",
+	"name": "Visceral",
+	"description": "Advanced wounds, blood and ragdolls. Blades leave bleeding cuts, fists leave bruises that change colour as they heal, blood sprays, drips, stains and pools realistically, and creatures collapse into physics-driven ragdolls when they die.",
+	"authors": [
+		"dackermanna1-star"
+	],
+	"contact": {
+		"sources": "https://github.com/dackermanna1-star/code"
+	},
+	"license": "MIT",
+	"icon": "assets/visceral/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"dev.visceral.Visceral"
+		],
+		"client": [
+			"dev.visceral.client.VisceralClient"
+		]
+	},
+	"mixins": [
+		"visceral.mixins.json",
+		{
+			"config": "visceral.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.17.0",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

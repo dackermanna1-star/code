@@ -1,0 +1,21 @@
+{
+	"required": true,
+	"package": "dev.visceral.client.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"ClientPacketListenerMixin",
+		"EntityRenderDispatcherMixin",
+		"EntityRendererMixin",
+		"LevelRendererMixin",
+		"LivingEntityClientMixin",
+		"LivingEntityRendererMixin",
+		"ModelFeatureRendererMixin",
+		"ModelPartAccessor"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

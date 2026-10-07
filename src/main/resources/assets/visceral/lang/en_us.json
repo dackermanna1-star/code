@@ -1,0 +1,8 @@
+{
+  "effect.visceral.bleeding": "Bleeding",
+  "death.attack.visceral.bleeding": "%1$s bled to death",
+  "death.attack.visceral.bleeding.player": "%1$s bled out while fighting %2$s",
+  "commands.visceral.clear": "Cleared %s blood decals and %s ragdolls",
+  "commands.visceral.reload": "Reloaded Visceral config",
+  "commands.visceral.stats": "Visceral: %s decals, %s droplets, %s ragdolls (%s simulating)"
+}
