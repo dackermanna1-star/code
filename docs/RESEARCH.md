@@ -152,6 +152,13 @@ Ratings and voting: 2008 pages show only how many times a place was Visited and 
   - He moves around a graph of points through the corridors and rooms and finds his routes with A*.
   - What he sees depends on line of sight, your light and your flashlight. What he hears depends on your footsteps (by surface and gait), doors and your breathing.
 
+### The Elevator (not a 2008 recreation)
+- Added on request: an elevator game in the style of the "elevator" games that came after 2008 (the idea goes back to Elevator: Source, a 2010 Garry's Mod map, and the ROBLOX elevator games that followed). The building, the thirty floors, the passengers and every line of dialogue are original to this project.
+- One elevator car stays put. Each floor is built in front of its doors while they are shut and taken down again after they close, so only one floor exists at a time. The car's indicator counts through the floor numbers while it "travels".
+- Each floor is a small script with its own sky, light, fog, sounds, music, hazards, a bonus, and something that happens as the doors close. The kit they share merges their bricks into a few meshes and tracks every part, model, light, sound and timer so a floor can be removed cleanly.
+- All sound is synthesized with WebAudio, including the elevator music (a small step sequencer plays the bossa nova muzak and each floor's tune).
+- The other players are bots with a bravery, a chance of dawdling and a chance of jumping a lot. They walk out through the doorway, visit a few places on the floor, say something about it, and usually come back in time. Some floors steer them (going for the idol, running from the dinosaur).
+
 ### Personal places
 - **Verified:** the three starting templates (Happy Home in Robloxia, Starting BrickBattle Map, Empty Baseplate), the Tools and Insert menus in your own place, and the save-on-exit dialog.
 

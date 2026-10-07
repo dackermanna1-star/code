@@ -471,7 +471,7 @@ function ensureExtraPlaces(state) {
   });
   add(3104575, {
     name: 'The Elevator',
-    desc: 'Get in the elevator. The doors close, and up you go - stopping at random floors on the way to the top. A beach. A room where the floor is lava. A disco. A haunted hallway. The moon. A field of cows (and a UFO). The void. Step out and look around if you dare, but get back in before the doors close! Make it to the penthouse to finish the ride. (Click the buttons by the door: one holds the doors for your friends.)',
+    desc: 'Get in the elevator. The doors close, and up you go - stopping at 10 random floors out of 30 on the way to the top. A beach. A room where the floor is lava. A disco. The moon. A jungle temple. A minefield. A museum where the statues move when you look away. A bowling lane where YOU are the pins. Step out and look around if you dare, but get back in before the doors close! Every floor has a secret bonus. Make it to the penthouse to finish the ride. (Click the buttons by the door: one holds the doors for your friends.)',
     created: now - 0.05 * DAY, updated: now - 0.002 * DAY, visits: 2788, favorited: 455, online: 63, playedRecent: 1655, script: 'elevator', maxPlayers: 12,
   });
   return added;
