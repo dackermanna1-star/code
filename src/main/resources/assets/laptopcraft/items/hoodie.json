@@ -1,0 +1,12 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "laptopcraft:item/clothing/hoodie",
+    "tints": [
+      {
+        "type": "minecraft:dye",
+        "default": -13882573
+      }
+    ]
+  }
+}

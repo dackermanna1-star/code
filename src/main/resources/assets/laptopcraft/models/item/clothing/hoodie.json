@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "laptopcraft:item/clothing/hoodie",
+    "layer1": "laptopcraft:item/clothing/hoodie_overlay"
+  }
+}
