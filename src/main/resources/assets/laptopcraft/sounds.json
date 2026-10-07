@@ -1,0 +1,75 @@
+{
+  "laptop.boot": {
+    "subtitle": "subtitles.laptopcraft.laptop.boot",
+    "sounds": [
+      "laptopcraft:laptop/boot"
+    ]
+  },
+  "laptop.shutdown": {
+    "subtitle": "subtitles.laptopcraft.laptop.shutdown",
+    "sounds": [
+      "laptopcraft:laptop/shutdown"
+    ]
+  },
+  "laptop.click": {
+    "subtitle": "subtitles.laptopcraft.laptop.click",
+    "sounds": [
+      "laptopcraft:laptop/click1",
+      "laptopcraft:laptop/click2",
+      "laptopcraft:laptop/click3"
+    ]
+  },
+  "laptop.notify": {
+    "subtitle": "subtitles.laptopcraft.laptop.notify",
+    "sounds": [
+      "laptopcraft:laptop/notify"
+    ]
+  },
+  "laptop.error": {
+    "subtitle": "subtitles.laptopcraft.laptop.error",
+    "sounds": [
+      "laptopcraft:laptop/error"
+    ]
+  },
+  "laptop.lid": {
+    "subtitle": "subtitles.laptopcraft.laptop.lid",
+    "sounds": [
+      "laptopcraft:laptop/lid1",
+      "laptopcraft:laptop/lid2"
+    ]
+  },
+  "shop.purchase": {
+    "subtitle": "subtitles.laptopcraft.shop.purchase",
+    "sounds": [
+      "laptopcraft:shop/purchase"
+    ]
+  },
+  "delivery.arrive": {
+    "subtitle": "subtitles.laptopcraft.delivery.arrive",
+    "sounds": [
+      "laptopcraft:delivery/arrive"
+    ]
+  },
+  "delivery.unbox": {
+    "subtitle": "subtitles.laptopcraft.delivery.unbox",
+    "sounds": [
+      "laptopcraft:delivery/unbox1",
+      "laptopcraft:delivery/unbox2"
+    ]
+  },
+  "toy.squeak": {
+    "subtitle": "subtitles.laptopcraft.toy.squeak",
+    "sounds": [
+      "laptopcraft:toy/squeak1",
+      "laptopcraft:toy/squeak2",
+      "laptopcraft:toy/squeak3"
+    ]
+  },
+  "toy.pop": {
+    "subtitle": "subtitles.laptopcraft.toy.pop",
+    "sounds": [
+      "laptopcraft:toy/pop1",
+      "laptopcraft:toy/pop2"
+    ]
+  }
+}

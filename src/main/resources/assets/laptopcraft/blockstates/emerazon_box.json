@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "laptopcraft:block/emerazon_box"
+    },
+    "facing=east": {
+      "model": "laptopcraft:block/emerazon_box",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "laptopcraft:block/emerazon_box",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "laptopcraft:block/emerazon_box",
+      "y": 270
+    }
+  }
+}
