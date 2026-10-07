@@ -69,10 +69,10 @@ def rot_matrix(rot):
 	return Z @ Y @ X
 
 
-def render(model_path, yaw=225, pitch=30, scale=14, size=360, night=False):
+def render(model_path, yaw=225, pitch=30, scale=14, size=360, night=False, offset=(0.0, 0.0), bg=None):
 	model = json.load(open(os.path.join(ASSETS, "models", model_path + ".json")))
 	img = np.zeros((size, size, 4), np.float32)
-	img[..., :3] = 0.12 if night else 0.75
+	img[..., :3] = bg if bg is not None else (0.12 if night else 0.75)
 	img[..., 3] = 1
 	zbuf = np.full((size, size), -1e9, np.float32)
 	ya, pa = math.radians(yaw), math.radians(pitch)
@@ -97,7 +97,7 @@ def render(model_path, yaw=225, pitch=30, scale=14, size=360, night=False):
 				continue
 			# screen coords
 			def scr(p):
-				return np.array([size / 2 + p[0] * scale, size / 2 - p[1] * scale])
+				return np.array([size / 2 + offset[0] + p[0] * scale, size / 2 - offset[1] - p[1] * scale])
 			s0, s1, s2 = scr(p0), scr(p1), scr(p2)
 			M = np.array([[s1[0] - s0[0], s2[0] - s0[0]], [s1[1] - s0[1], s2[1] - s0[1]]])
 			if abs(np.linalg.det(M)) < 1e-6:
@@ -149,7 +149,26 @@ def sheet(paths, out, night=False):
 	S.save(out)
 
 
+def gui_sheet(paths, out, zoom=6):
+	"""Renders inventory icons exactly like the GUI display transform (16px slot, x zoom)."""
+	slot = 16 * zoom
+	pad = 4
+	S = Image.new("RGBA", ((slot + pad) * len(paths) + pad, slot + 2 * pad), (139, 139, 139, 255))
+	for i, p in enumerate(paths):
+		model = json.load(open(os.path.join(ASSETS, "models", p + ".json")))
+		gui = model["display"]["gui"]
+		rx, ry, _ = gui["rotation"]
+		s = gui["scale"][0]
+		tx, ty, _ = gui["translation"]
+		im = render(p, ry, rx, scale=s * zoom, size=slot, offset=(tx * zoom, ty * zoom), bg=0.545)
+		S.paste(im, (pad + i * (slot + pad), pad))
+	S.save(out)
+
+
 if __name__ == "__main__":
+	if sys.argv[1] == "--gui":
+		gui_sheet(sys.argv[3:], sys.argv[2])
+		sys.exit(0)
 	night = "--night" in sys.argv
 	args = [a for a in sys.argv[1:] if a != "--night"]
 	sheet(args[1:], args[0], night)

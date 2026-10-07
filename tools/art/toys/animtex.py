@@ -276,29 +276,31 @@ def arcade_frames(n=16):
 		for (sx, sy) in ((1, 4), (7, 6), (4, 5)):
 			if (t + sx) % 4 != 0:
 				px[sx, sy] = c("3a3a6a")
+		# 3x3 creeper faces marching side to side (two on top, one below, out of phase)
 		march = [0, 1, 2, 1][(t // 4) % 4]
-		for row in range(2):
-			for k in range(3):
-				x0 = march + k * 3
-				y0 = row * 2 + (1 if (t // 8) % 2 else 0) * 0
-				col = c("5cdc4a") if row == 0 else c("3fae3a")
-				px[x0, y0] = col
-				px[x0 + 1, y0] = col
-				if (t // 2) % 2 == 0:
-					px[x0, y0 + 1] = shade(col, 0.6)
-				else:
-					px[x0 + 1, y0 + 1] = shade(col, 0.6)
+		face = ["GGG", "KGK", "GKG"]
+		face_b = ["GGG", "GGG", "GKG"]  # blink on alternate frames
+
+		def creeper(x0, y0, col):
+			rows = face if (t // 2) % 2 == 0 else face_b
+			for yy, r in enumerate(rows):
+				for xx, ch in enumerate(r):
+					px[x0 + xx, y0 + yy] = col if ch == "G" else c("0b1a0b")
+
+		creeper(march, 0, c("5cdc4a"))
+		creeper(march + 4, 0, c("5cdc4a"))
+		creeper(2 + (2 - march), 4, c("3fae3a"))
 		ship_x = [3, 4, 5, 6, 5, 4, 3, 2, 1, 2, 3, 4, 5, 4, 3, 2][t]
 		px[ship_x, 8] = c("4fd8ff")
-		px[ship_x - 1 if ship_x > 0 else 0, 8] = c("2a8fd0")
-		px[ship_x + 1 if ship_x < 8 else 8, 8] = c("2a8fd0")
+		px[max(0, ship_x - 1), 8] = c("2a8fd0")
+		px[min(8, ship_x + 1), 8] = c("2a8fd0")
 		px[ship_x, 7] = c("bff4ff")
 		shot_y = 6 - (t % 4) * 2
-		if shot_y >= 2:
+		if shot_y >= 0 and px[ship_x, shot_y][1] < 100:
 			px[ship_x, shot_y] = c("fff27a")
 		if t % 8 == 5:  # boom!
-			px[4, 1] = c("ffb03a")
-			px[3, 0] = px[5, 2] = c("ff6a3a")
+			px[4, 3] = c("ffb03a")
+			px[3, 3] = px[5, 3] = c("ff6a3a")
 		frames.append(im)
 	return frames
 

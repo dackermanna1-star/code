@@ -444,13 +444,29 @@ def _centered(rot, scale, center):
 	return [round(-v[0], 3), round(-v[1], 3), round(-v[2], 3)]
 
 
+GUI_ROT = [30, 210, 0]  # a little more frontal than vanilla's 225 so faces/screens read well in the inventory
+
+
+def projected_size(lo, hi, rot) -> float:
+	"""Largest screen extent (model px) of the bounding box after the display rotation."""
+	r = _rot_xyz(*rot)
+	xs, ys = [], []
+	for x in (lo[0], hi[0]):
+		for y in (lo[1], hi[1]):
+			for z in (lo[2], hi[2]):
+				p = _apply(r, [x - 8, y - 8, z - 8])
+				xs.append(p[0])
+				ys.append(p[1])
+	return max(max(xs) - min(xs), max(ys) - min(ys))
+
+
 def display_for(model: Model) -> dict:
 	lo, hi = model.bounds()
-	ext = max(hi[i] - lo[i] for i in range(3))
 	center = [(lo[i] + hi[i]) / 2 for i in range(3)]
-	k = max(1.0, min(1.75, 14.0 / max(ext, 6))) * model.display_scale
-	gui_rot = [30, 225, 0]
-	gui_s = round(0.625 * k, 4)
+	gui_rot = GUI_ROT
+	# vanilla full blocks project to ~15.7 GUI px at scale 0.625; aim for ~15 px, never upscale crazily
+	gui_s = round(min(1.3, 15.0 / projected_size(lo, hi, gui_rot)) * model.display_scale, 4)
+	k = min(1.7, gui_s / 0.625)  # same relative size elsewhere (capped so tiny toys are not giant in hand)
 	fixed_s = round(0.5 * k, 4)
 	return {
 		"gui": {"rotation": gui_rot, "translation": _centered(gui_rot, gui_s, center), "scale": [gui_s] * 3},

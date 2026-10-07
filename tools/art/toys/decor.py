@@ -644,7 +644,6 @@ def arcade_item():
 	m = Model("block/arcade_cabinet_item", TEX + "arcade_cabinet")
 	m.extra_textures = dict(upper.extra_textures)
 	m.elems = [e for e in lower.elems if e.to[1] <= 16.5] + upper.elems
-	m.display_scale = 0.62
 	return m
 
 

@@ -59,10 +59,13 @@ public class ToggleDecorBlock extends FacingDecorBlock {
 
 	@Override
 	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+		if (level.isClientSide()) {
+			return InteractionResult.SUCCESS;
+		}
 		boolean lit = !state.getValue(LIT);
 		level.setBlock(pos, state.setValue(LIT, lit), Block.UPDATE_ALL);
 		level.playSound(null, pos, lit ? onSound : offSound, SoundSource.BLOCKS, 0.7F, lit ? 1.1F : 0.9F);
-		if (lit && messagePrefix != null && !level.isClientSide()) {
+		if (lit && messagePrefix != null) {
 			int n = level.getRandom().nextInt(messages);
 			player.displayClientMessage(Component.translatable(messagePrefix + "." + n).withStyle(ChatFormatting.YELLOW), true);
 		}

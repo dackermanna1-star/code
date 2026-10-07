@@ -53,10 +53,13 @@ public class PuzzleCubeBlock extends Block {
 
 	@Override
 	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+		if (!(level instanceof ServerLevel serverLevel)) {
+			return InteractionResult.SUCCESS;
+		}
 		int next = (state.getValue(STATE) + 1) % STATES;
 		level.setBlock(pos, state.setValue(STATE, next), Block.UPDATE_ALL);
 		level.playSound(null, pos, SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 0.4F, 1.6F + level.getRandom().nextFloat() * 0.3F);
-		if (next == 0 && level instanceof ServerLevel serverLevel) {
+		if (next == 0) {
 			level.playSound(null, pos, SoundEvents.PLAYER_LEVELUP, SoundSource.BLOCKS, 0.5F, 1.4F);
 			serverLevel.sendParticles(ParticleTypes.HAPPY_VILLAGER, pos.getX() + 0.5, pos.getY() + 0.9, pos.getZ() + 0.5, 12, 0.35, 0.25, 0.35, 0.0);
 			player.displayClientMessage(Component.translatable("block.laptopcraft.puzzle_cube.solved").withStyle(ChatFormatting.GOLD), true);
