@@ -41,9 +41,9 @@ export class Passenger {
     this.chatT = rnd(6, 16); this.watchT = rnd(4, 12);
     ch.on('died', () => this.died());
     ch.pose = (c, des, M, pose) => {
-      if (def.watch && this.watchT < 1.2 && pose === 'Standing') { des.ls = 1.6; M.ls = 0.25; }
-      if (def.prop === 'pizza' && pose !== 'Seated') { des.rs = 1.5; des.ls = 1.5; M.rs = M.ls = 0.3; }
-      if (def.prop === 'camera' && pose !== 'Seated') { des.rs = 1.3; des.ls = 1.3; }
+      if (def.watch && this.watchT < 1.2 && pose === 'Standing') { des.ls = -1.6; M.ls = 0.25; }
+      if (def.prop === 'pizza' && pose !== 'Seated') { des.rs = 1.5; des.ls = -1.5; M.rs = M.ls = 0.3; }
+      if (def.prop === 'camera' && pose !== 'Seated') { des.rs = 1.3; des.ls = -1.3; }
     };
   }
   get alive() { return this.ch.alive; }

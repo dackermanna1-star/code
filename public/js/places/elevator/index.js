@@ -90,7 +90,10 @@ export default {
       if (p.isLocal) { E.ui.setDead(`You ${youMsg(msg)}.`, 'Respawning in the elevator...'); const f = E.log[E.log.length - 1]; if (f) f.died = true; }
       if (p.brain && Math.random() < 0.55) world.delay(rnd(1, 3), () => p.brain.say(deathLine()));
     });
-    game.on('chatted', (p, text) => { E.ui.bubble('p' + p.id, text, () => (p.character?.alive ? p.character.headPosition : null)); });
+    game.on('chatted', (p, text) => {
+      E.ui.bubble('p' + p.id, text, () => (p.character?.alive ? p.character.headPosition : null));
+      if (E.phase === 'open' || E.phase === 'closing') try { E.cur?.def.chatted?.(E.cur.F, p, text); } catch (e) { console.error(e); }
+    });
     // the buttons by the doors
     game.on('mouseDown', (hit) => {
       if (hit?.part !== E.car.panel) return;
@@ -334,7 +337,15 @@ function mix(dt) {
   A.songVolume('car', inside ? 0.18 + (1 - open) * 0.14 : 0.04 * (1 - open) + 0.02);
   A.songVolume('floor', E.cur ? (inside ? 0.12 + open * 0.2 : 0.42) * (E.phase === 'travel' ? 0 : 1) : 0);
   if (travel > 0.1) E.shakeAmt = Math.max(E.shakeAmt, 0.08 * travel);
-  void dt;
+  // (if the sound wasn't allowed to start yet - nobody had clicked - try again)
+  E.audioT = (E.audioT || 0) - dt;
+  if (E.audioT <= 0) {
+    E.audioT = 1.5;
+    if (!E.travel || E.travel.dead) E.travel = A.travel();
+    if (!A.songPlaying('car')) A.playSong('car', 'muzak', 0.3);
+    const want = E.cur && E.phase !== 'travel' && !E.cur.songPaused ? E.cur.def.music : null;
+    if (want && !A.songPlaying('floor')) A.playSong('floor', want, 0.4);
+  }
 }
 const fmt = (s) => `${Math.max(0, Math.ceil(s))}`;
 function hud(game, dt) {

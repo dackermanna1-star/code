@@ -17,8 +17,9 @@ export function palm(F, x, z, h = 16, lean = 10) {
   return g;
 }
 /** Swimming in water whose surface is at level (for characters inside the region test). */
-export function swim(F, level, inWater) {
+export function swim(F, level0, inWater) {
   F.every(0, (dt) => {
+    const level = typeof level0 === 'function' ? level0() : level0;
     for (const ch of F.chars()) {
       const p = ch.rootPosition, feet = p.y - 3;
       if (!inWater(p) || feet > level - 2.4) { if (ch.swimming) { ch.swimming = false; ch.walkSpeed = 16; } continue; }
@@ -211,7 +212,7 @@ export const disco = {
     F.every(0, () => {
       for (const ch of F.chars()) {
         const p = ch.rootPosition, on = Math.abs(p.x) < 16 && p.z < -18.5 && p.z > -43.5;
-        if (on && !ch.pose) { ch.pose = (c, des, M) => { if (F.state.freeze) return; const b = F.t * 4.07; if (c.input.move.lengthSq() > 0.01) return; des.rs = Math.sin(b) > 0 ? 3 : 0.5; des.ls = Math.sin(b) > 0 ? 0.5 : 3; M.rs = M.ls = 0.4; }; F.state.dancing.add(ch); }
+        if (on && !ch.pose) { ch.pose = (c, des, M) => { if (F.state.freeze) return; const b = F.t * 4.07; if (c.input.move.lengthSq() > 0.01) return; des.rs = Math.sin(b) > 0 ? 3 : 0.5; des.ls = Math.sin(b) > 0 ? -0.5 : -3; M.rs = M.ls = 0.4; }; F.state.dancing.add(ch); }
         else if (!on && F.state.dancing.has(ch)) { ch.pose = null; F.state.dancing.delete(ch); }
       }
     });
@@ -230,7 +231,7 @@ export const disco = {
     // musical statues: the music stops - anyone moving on the dance floor gets thrown off it
     S.nextFreeze -= dt;
     if (!S.freeze && S.nextFreeze <= 0 && F.E.cur.time - t > 6) {
-      S.freeze = true; S.freezeT = 2.6; A.stopSong('floor'); A.errorSound();
+      S.freeze = true; S.freezeT = 2.6; A.stopSong('floor'); F.E.cur.songPaused = true; A.errorSound();
       F.say('DJ', 'FREEZE!!', S.dancers[0]);
       for (const ch of S.dancing) ch.input.move?.set?.(0, 0, 0);
     }
@@ -244,7 +245,7 @@ export const disco = {
       // (the bots mostly hold still; some don't)
       for (const p of F.E.game.players) if (p.brain && S.dancing.has(p.character)) { if (!p.brain.wobbly) p.brain.wobbly = Math.random() < 0.25 ? 1 : -1; if (p.brain.wobbly < 0) { p.brain.target = null; p.character.input.move.set(0, 0, 0); } }
       if (S.freezeT <= 0) {
-        S.freeze = false; S.nextFreeze = rnd(6, 9); A.playSong('floor', 'disco', 0.4);
+        S.freeze = false; S.nextFreeze = rnd(6, 9); F.E.cur.songPaused = false; A.playSong('floor', 'disco', 0.4);
         for (const ch of S.dancing) if (ch.alive && !ch.platformStand) { const n = (S.frozeOK.get(ch) || 0) + 1; S.frozeOK.set(ch, n); if (n === 2) F.bonus(ch, 'Statue Champion', 2); }
         for (const p of F.E.game.players) if (p.brain) p.brain.wobbly = 0;
       }

@@ -361,6 +361,32 @@ const SONGS = {
       if (s % 8 === 0) I.bell(c, out, t, [60, 65, 67, 60][Math.floor(s / 8) % 4] + 12, L * 8, 0.03);
     },
   },
+  // inside the computer: a driving arpeggio and four on the floor
+  cyber: {
+    bpm: 132, steps: 64,
+    play(c, out, t, s, L) {
+      const b = s % 16, bar = Math.floor(s / 16) % 4;
+      const r = [45, 41, 43, 40][bar];
+      if (b % 4 === 0) I.kick(c, out, t, 0.4);
+      if (b % 4 === 2) I.hat(c, out, t, 0.05, 0.05);
+      if (b === 4 || b === 12) I.snare(c, out, t, 0.1);
+      I.pluck(c, out, t, r + 24 + [0, 7, 12, 15, 12, 7, 3, 7][s % 8], L * 0.9, 0.02, 'square');
+      if (b % 2 === 0) I.bass(c, out, t, r, L * 1.4, 0.16);
+      if (b === 0) I.pad(c, out, t, r + 12, L * 16, 0.02);
+    },
+  },
+  // the pizza party: happy birthday on a toy piano, again and again
+  birthday: {
+    bpm: 150, steps: 96, // 3/4
+    play(c, out, t, s, L) {
+      const mel = [[0, 67, 1.5], [3, 67, 0.5], [4, 69, 2], [8, 67, 2], [12, 72, 2], [16, 71, 4], [24, 67, 1.5], [27, 67, 0.5], [28, 69, 2], [32, 67, 2], [36, 74, 2], [40, 72, 4], [48, 67, 1.5], [51, 67, 0.5], [52, 79, 2], [56, 76, 2], [60, 72, 2], [64, 71, 2], [68, 69, 4], [72, 77, 1.5], [75, 77, 0.5], [76, 76, 2], [80, 72, 2], [84, 74, 2], [88, 72, 4]];
+      for (const [at, n, len] of mel) if (s === at) I.bell(c, out, t, n + 12, L * len * 2, 0.045);
+      const chords = [48, 48, 55, 55, 55, 48, 48, 53, 48, 55, 48, 48];
+      const bar = Math.floor(s / 8) % 12, b = s % 8;
+      if (b === 0) I.bass(c, out, t, chords[bar] - 12, L * 3, 0.14);
+      if (b === 4 || b === 6) chord(I.chip, c, out, t, [chords[bar] + 4, chords[bar] + 7], L * 0.8, 0.012);
+    },
+  },
   // dread: a slow pulse and a pad (the hallway, the tomb)
   dread: {
     bpm: 60, steps: 32,
@@ -381,7 +407,7 @@ export function playSong(channel, id, vol = 0.5) {
   const h = sounds.customLoop((c, out) => ({ c, out }), vol);
   if (h.dead) return null;
   const S = { id, h, c: h.ctx, out: h.out, step: 0, next: h.ctx.currentTime + 0.12, dead: false };
-  const L = 60 / song.bpm / (id === 'circus' ? 2 : 4);
+  const L = 60 / song.bpm / (id === 'circus' || id === 'birthday' ? 2 : 4);
   S.timer = setInterval(() => {
     const c = S.c;
     while (S.next < c.currentTime + 0.3) {

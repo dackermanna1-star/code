@@ -124,7 +124,7 @@ function coneGeo() { return _cone ||= new THREE.ConeGeometry(0.5, 1, 14); }
 // --- puppets: people moved by script (no physics) -----------------------------------------------------------------------------------------
 /**
  * A character model that walks where it's told: feet at pos, facing yaw (0 = -z). o: {scale, faceTex, hat (fn(head)), speed}.
- * Each frame: update(dt). Poses: this.pose = fn(p, t) can set angles; walking swings the limbs like the classic Animate script.
+ * Each frame: update(dt). Poses: this.pose = fn(a, t, moving) can set the limb angles a.rs/ls/rh/lh (positive swings forward); walking swings the limbs like the classic Animate script.
  */
 export class Puppet {
   constructor(world, appearance, o = {}) {
@@ -172,9 +172,9 @@ export class Puppet {
     }
     const a = this.arms;
     const sw = moving ? Math.sin(this.t * 9 * Math.min(1.6, this.speed / 14)) : Math.sin(this.t * 1.2) * 0.1;
-    a.rs = sw; a.ls = sw; a.rh = -sw; a.lh = -sw;
+    a.rs = sw; a.ls = -sw; a.rh = -sw; a.lh = sw;
     if (this.pose) this.pose(a, this.t, moving);
-    this.model.setAngles(a.rs, a.ls, a.rh, a.lh);
+    this.model.setAngles(a.rs, -a.ls, a.rh, -a.lh); // (positive = forward, for every limb)
     this._apply();
   }
   _apply() { this.root.position.copy(this.pos); this.root.rotation.set(0, this.yaw, 0); }
@@ -340,6 +340,17 @@ export class FloorKit {
   /** Weaker gravity (k = fraction of normal) for everyone out of the elevator (or for whom test(pos) is true). */
   gravity(k, test) { this.every(0, (dt) => { for (const ch of this.chars({ outside: true })) if (!test || test(ch.rootPosition)) { ch.body.velocity.y += 196.2 * (1 - k) * dt; ch.lowG = true; } }); }
   hurt(ch, dmg, msg) { this.E.hurt(ch, dmg, msg); }
+  /** Slippery ground wherever test(pos) is true: people speed up and slow down slowly. */
+  ice(test, grip = 1.4) {
+    this.every(0, (dt) => {
+      for (const ch of this.chars()) {
+        if (!ch.grounded || !test(ch.rootPosition)) { if (ch.grounded) ch.iceMove = null; continue; }
+        const m = ch.input.move;
+        if (!ch.iceMove) ch.iceMove = m.clone();
+        ch.iceMove.lerp(m, Math.min(1, dt * grip)); m.copy(ch.iceMove);
+      }
+    });
+  }
   /** Knock a character flying: velocity v (Vector3), helpless for secs. */
   fling(ch, v, secs = 1) {
     if (!ch.alive) return;
@@ -353,12 +364,36 @@ export class FloorKit {
   puppet(appearance, o = {}) { const p = new Puppet(this.world, appearance, o); this.puppets.push(p); if (o.at) p.place(...o.at); return p; }
   // --- effects
   light(pos, color, intensity, distance) { const h = this.E.env.light(pos, color, intensity, distance); this.lights.push(h); return h; }
-  burst(kind, pos, n, o) { this.fx.burst(this.fx.mats[kind] || kind, pos, n, o); }
+  /** Particles: kind is one of the effect materials ('dust', 'spark', ...) or a colour (0xffffff). */
+  burst(kind, pos, n, o) {
+    let m = this.fx.mats[kind] || kind;
+    if (typeof kind === 'number') m = this.fx.mats['c' + kind] ||= new THREE.SpriteMaterial({ map: this.fx.mats.dust.map, color: kind, transparent: true, opacity: 0.8, depthWrite: false });
+    this.fx.burst(m, pos, n, o);
+  }
   flame(get, size, life) { const h = this.E.flames.add(typeof get === 'function' ? get : () => get, size, life); this.objects.push({ flame: h }); return h; }
   shake(a) { this.E.shake(a); }
   /** Something said out loud by someone on the floor (chat line + speech bubble over obj). */
   say(name, text, obj) { this.E.say(name, text, obj); }
   bonus(ch, label, pts = 1) { this.E.bonus(ch, label, pts); }
+  /**
+   * Something to grab (a bonus): the first character to come within r of obj (a model, or a point) gets fn(ch).
+   * The model disappears (unless o.keep) with a sparkle. Returns a handle: {taken}.
+   */
+  pickup(obj, r, fn, o = {}) {
+    const h = { taken: false };
+    const at = () => (obj.isVector3 ? obj : obj.getWorldPosition(V())).clone().add(o.offset || V());
+    this.every(0, () => {
+      if (h.taken || (obj.visible === false && !o.keep)) return;
+      const p = at();
+      for (const ch of this.chars()) if (ch.rootPosition.distanceTo(p) < r) { h.taken = true; if (!o.keep && !obj.isVector3) obj.visible = false; A.sparkle(p); fn(ch, p); break; }
+    });
+    return h;
+  }
+  /** Keep a model turning (and bobbing). */
+  spin(obj, speed = 1, bob = 0) { const y0 = obj.position.y; this.every(0, (dt, t) => { obj.rotation.y += dt * speed; if (bob) obj.position.y = y0 + Math.sin(t * 2) * bob; }); return obj; }
+  /** Sit a character down (where it stands) until it moves. */
+  sit(ch, drop = 1.5) { if (ch.sat) return; ch.sat = true; ch.rootDrop = drop; }
+  unsit(ch) { if (!ch.sat) return; ch.sat = false; ch.rootDrop = 0; }
   /** A looping sound for the life of the floor. */
   sound(handle, name) { this.loops.push(name); return handle; }
   // --- time
@@ -386,6 +421,7 @@ export class FloorKit {
     for (const p of this.puppets) p.remove();
     for (const n of this.npcs) n.destroy?.();
     for (const l of this.lights) l.off();
+    for (const ch of this.world.characters) { this.unsit(ch); ch.iceMove = null; if (ch.swimming) { ch.swimming = false; ch.walkSpeed = ch.npc ? 13 : 16; } }
     this.world.scene.remove(this.st.group);
     this.parts = []; this.objects = []; this.puppets = []; this.npcs = []; this.lights = []; this.updaters = []; this.timers = []; this.loops = [];
   }
