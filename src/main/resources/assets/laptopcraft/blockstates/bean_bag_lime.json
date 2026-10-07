@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "laptopcraft:block/bean_bag_lime"
+    },
+    "facing=east": {
+      "model": "laptopcraft:block/bean_bag_lime",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "laptopcraft:block/bean_bag_lime",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "laptopcraft:block/bean_bag_lime",
+      "y": 270
+    }
+  }
+}

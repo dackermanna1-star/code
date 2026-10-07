@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "laptopcraft:block/sniffer_plush"
+    },
+    "facing=east": {
+      "model": "laptopcraft:block/sniffer_plush",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "laptopcraft:block/sniffer_plush",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "laptopcraft:block/sniffer_plush",
+      "y": 270
+    }
+  }
+}

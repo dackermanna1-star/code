@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "laptopcraft:block/teddy_bear"
+    },
+    "facing=east": {
+      "model": "laptopcraft:block/teddy_bear",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "laptopcraft:block/teddy_bear",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "laptopcraft:block/teddy_bear",
+      "y": 270
+    }
+  }
+}

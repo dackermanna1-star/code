@@ -1,0 +1,376 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "all": "laptopcraft:block/decor/arcade_cabinet",
+    "particle": "laptopcraft:block/decor/arcade_cabinet",
+    "screen": "laptopcraft:block/decor/arcade_screen"
+  },
+  "elements": [
+    {
+      "from": [
+        2,
+        0,
+        5
+      ],
+      "to": [
+        14,
+        15,
+        15
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            8.75,
+            0.0,
+            11.75,
+            3.75
+          ],
+          "texture": "#all"
+        },
+        "south": {
+          "uv": [
+            11.75,
+            0.0,
+            14.75,
+            3.75
+          ],
+          "texture": "#all"
+        },
+        "east": {
+          "uv": [
+            0.0,
+            4.0,
+            2.5,
+            7.75
+          ],
+          "texture": "#all"
+        },
+        "west": {
+          "uv": [
+            0.0,
+            4.0,
+            2.5,
+            7.75
+          ],
+          "texture": "#all"
+        },
+        "up": {
+          "uv": [
+            0.0,
+            7.75,
+            3.0,
+            10.25
+          ],
+          "texture": "#all"
+        }
+      }
+    },
+    {
+      "from": [
+        2,
+        0,
+        4
+      ],
+      "to": [
+        14,
+        11,
+        5
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            11.5,
+            4.0,
+            14.5,
+            6.75
+          ],
+          "texture": "#all"
+        },
+        "east": {
+          "uv": [
+            14.5,
+            4.0,
+            14.75,
+            6.75
+          ],
+          "texture": "#all"
+        },
+        "west": {
+          "uv": [
+            14.5,
+            4.0,
+            14.75,
+            6.75
+          ],
+          "texture": "#all"
+        },
+        "up": {
+          "uv": [
+            10.75,
+            10.25,
+            13.75,
+            10.5
+          ],
+          "texture": "#all"
+        }
+      }
+    },
+    {
+      "from": [
+        3.5,
+        1,
+        3.95
+      ],
+      "to": [
+        12.5,
+        10,
+        3.95
+      ],
+      "shade": false,
+      "light_emission": 15,
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            9,
+            9
+          ],
+          "texture": "#screen"
+        }
+      }
+    },
+    {
+      "from": [
+        2,
+        11,
+        2.5
+      ],
+      "to": [
+        14,
+        15,
+        5
+      ],
+      "light_emission": 15,
+      "faces": {
+        "north": {
+          "uv": [
+            3.0,
+            7.75,
+            6.0,
+            8.75
+          ],
+          "texture": "#all"
+        },
+        "south": {
+          "uv": [
+            6.0,
+            7.75,
+            9.0,
+            8.75
+          ],
+          "texture": "#all"
+        },
+        "east": {
+          "uv": [
+            9.0,
+            7.75,
+            9.75,
+            8.75
+          ],
+          "texture": "#all"
+        },
+        "west": {
+          "uv": [
+            9.0,
+            7.75,
+            9.75,
+            8.75
+          ],
+          "texture": "#all"
+        },
+        "up": {
+          "uv": [
+            3.0,
+            10.25,
+            6.0,
+            11.0
+          ],
+          "texture": "#all"
+        },
+        "down": {
+          "uv": [
+            3.0,
+            10.25,
+            6.0,
+            11.0
+          ],
+          "texture": "#all"
+        }
+      }
+    },
+    {
+      "from": [
+        2,
+        15,
+        2.5
+      ],
+      "to": [
+        14,
+        16,
+        15
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0.0,
+            11.0,
+            3.0,
+            11.25
+          ],
+          "texture": "#all"
+        },
+        "south": {
+          "uv": [
+            0.0,
+            11.0,
+            3.0,
+            11.25
+          ],
+          "texture": "#all"
+        },
+        "east": {
+          "uv": [
+            7.5,
+            10.25,
+            10.75,
+            10.5
+          ],
+          "texture": "#all"
+        },
+        "west": {
+          "uv": [
+            7.5,
+            10.25,
+            10.75,
+            10.5
+          ],
+          "texture": "#all"
+        },
+        "up": {
+          "uv": [
+            2.5,
+            4.0,
+            5.5,
+            7.25
+          ],
+          "texture": "#all"
+        }
+      }
+    }
+  ],
+  "display": {
+    "gui": {
+      "rotation": [
+        30,
+        210,
+        0
+      ],
+      "translation": [
+        0.253,
+        -0.219,
+        0.379
+      ],
+      "scale": [
+        0.6736,
+        0.6736,
+        0.6736
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        3,
+        0
+      ],
+      "scale": [
+        0.2694,
+        0.2694,
+        0.2694
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        -0.0,
+        -0.0,
+        -0.404
+      ],
+      "scale": [
+        0.5389,
+        0.5389,
+        0.5389
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        75,
+        45,
+        0
+      ],
+      "translation": [
+        0,
+        2.5,
+        0
+      ],
+      "scale": [
+        0.4042,
+        0.4042,
+        0.4042
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        45,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.4311,
+        0.4311,
+        0.4311
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.4311,
+        0.4311,
+        0.4311
+      ]
+    }
+  }
+}

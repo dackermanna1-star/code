@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "laptopcraft:block/gaming_chair"
+    },
+    "facing=east": {
+      "model": "laptopcraft:block/gaming_chair",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "laptopcraft:block/gaming_chair",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "laptopcraft:block/gaming_chair",
+      "y": 270
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "laptopcraft:block/globe"
+    },
+    "facing=east": {
+      "model": "laptopcraft:block/globe",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "laptopcraft:block/globe",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "laptopcraft:block/globe",
+      "y": 270
+    }
+  }
+}
