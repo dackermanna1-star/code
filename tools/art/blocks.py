@@ -505,8 +505,8 @@ def box(frm, to, faces, **extra):
 DISPLAY_LAPTOP = {
 	"gui": {"rotation": [28, 210, 0], "translation": [2.5, 2.0, 0], "scale": [0.92, 0.92, 0.92]},
 	"ground": {"rotation": [0, 0, 0], "translation": [0, 3, 0], "scale": [0.35, 0.35, 0.35]},
-	"fixed": {"rotation": [-90, 0, 0], "translation": [0, 0, -1.5], "scale": [0.75, 0.75, 0.75]},
-	"thirdperson_righthand": {"rotation": [75, 225, 0], "translation": [0, 2.5, 1.5], "scale": [0.45, 0.45, 0.45]},
+	"fixed": {"rotation": [0, 0, 0], "translation": [0, 1, -4], "scale": [0.75, 0.75, 0.75]},
+	"thirdperson_righthand": {"rotation": [90, 180, 0], "translation": [0, 3, 2], "scale": [0.45, 0.45, 0.45]},
 	"firstperson_righthand": {"rotation": [0, 165, 0], "translation": [1, 2.5, 0], "scale": [0.36, 0.36, 0.36]},
 	"firstperson_lefthand": {"rotation": [0, 165, 0], "translation": [1, 2.5, 0], "scale": [0.36, 0.36, 0.36]},
 }
