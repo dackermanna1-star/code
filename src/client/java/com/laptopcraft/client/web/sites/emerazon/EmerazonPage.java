@@ -678,7 +678,7 @@ public class EmerazonPage extends KitPage {
 			String who = REVIEWERS[(int) (Kit.rand(p.id(), 20 + i) * REVIEWERS.length)];
 			int stars = Math.max(10, Math.min(50, (p.rating() + (int) ((Kit.rand(p.id(), 40 + i) - 0.35) * 30)) / 10 * 10));
 			Gfx.roundRect(g, x + 8, ry, 12, 12, 6, Gfx.lerp(0xFF5C6BC0, 0xFFEF6C00, (float) Kit.rand(who, 1)));
-			Gfx.textCentered(g, who.substring(0, 1), x + 14, ry + 2, 0xFFFFFFFF);
+			Gfx.textCentered(g, Kit.initial(who), x + 14, ry + 2, 0xFFFFFFFF);
 			Gfx.text(g, who, x + 24, ry + 2, TEXT);
 			Kit.stars(g, x + 8, ry + 15, stars, STAR, STAR_OFF);
 			Gfx.textClipped(g, reviewTitle(p, stars, i), x + 52, ry + 15, w - 70, TEXT);

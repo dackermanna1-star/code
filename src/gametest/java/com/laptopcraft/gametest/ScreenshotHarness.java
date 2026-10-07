@@ -90,9 +90,19 @@ public class ScreenshotHarness implements FabricClientGameTest {
 	private void createWorld(ClientGameTestContext context) {
 		// World creation is slow under software rendering; create it with a small window, then grow it.
 		context.getInput().resizeWindow(640, 360);
-		world = context.worldBuilder()
-				.adjustSettings(s -> s.setGameMode(net.minecraft.client.gui.screens.worldselection.WorldCreationUiState.SelectedGameMode.CREATIVE))
-				.create();
+		try {
+			world = context.worldBuilder()
+					.adjustSettings(s -> s.setGameMode(net.minecraft.client.gui.screens.worldselection.WorldCreationUiState.SelectedGameMode.CREATIVE))
+					.create();
+		} catch (AssertionError slow) {
+			// Software rendering makes spawn preparation slower than Fabric's 60 s budget: keep waiting ourselves.
+			System.out.println("[LC-HARNESS] world still loading, waiting longer…");
+			context.waitFor(mc -> mc.level != null && !(mc.screen instanceof net.minecraft.client.gui.screens.LevelLoadingScreen), 6000);
+			net.minecraft.server.MinecraftServer server = context.computeOnClient(Minecraft::getSingleplayerServer);
+			Path save = context.computeOnClient(mc -> mc.getLevelSource().getBaseDir().resolve("harness"));
+			world = new net.fabricmc.fabric.impl.client.gametest.context.TestSingleplayerContextImpl(context,
+					new net.fabricmc.fabric.impl.client.gametest.world.TestWorldSaveImpl(context, save), server);
+		}
 		waitForChunks(context);
 		world.getServer().runCommand("time set 6000");
 		world.getServer().runCommand("weather clear");

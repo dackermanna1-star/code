@@ -62,6 +62,11 @@ public final class Kit {
 		return 40;
 	}
 
+	/** Upper-case first letter for avatar circles ("?" for empty names). */
+	public static String initial(String name) {
+		return name == null || name.isBlank() ? "?" : name.strip().substring(0, 1).toUpperCase(java.util.Locale.ROOT);
+	}
+
 	public static String rating(int rating) {
 		return (rating / 10) + "." + (rating % 10);
 	}

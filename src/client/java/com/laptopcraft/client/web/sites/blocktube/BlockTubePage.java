@@ -176,7 +176,7 @@ public class BlockTubePage extends KitPage {
 		search.setBounds(sx, sy + 5, Math.max(60, sw), 16);
 		int ax = width - 22;
 		Gfx.roundRect(g, ax, sy + 5, 16, 16, 8, 0xFF7E57C2);
-		Gfx.textCentered(g, page.app().username().substring(0, 1).toUpperCase(Locale.ROOT), ax + 8, sy + 9, 0xFFFFFFFF);
+		Gfx.textCentered(g, Kit.initial(page.app().username()), ax + 8, sy + 9, 0xFFFFFFFF);
 		if (width > 380 && region(g, ax - 60, sy + 5, 54, 16, () -> page.navigate("blocktube.mc/feed/library"))) {
 			Gfx.roundRect(g, ax - 60, sy + 5, 54, 16, 8, chip());
 		}
@@ -342,13 +342,13 @@ public class BlockTubePage extends KitPage {
 		Gfx.text(g, Gfx.formatNumber(1200 + (long) (Kit.rand(v.id(), 5) * 9000)) + " Comments", 10, iy, fg());
 		iy += 14;
 		Gfx.roundRect(g, 10, iy, 16, 16, 8, 0xFF7E57C2);
-		Gfx.textCentered(g, page.app().username().substring(0, 1).toUpperCase(Locale.ROOT), 18, iy + 4, 0xFFFFFFFF);
+		Gfx.textCentered(g, Kit.initial(page.app().username()), 18, iy + 4, 0xFFFFFFFF);
 		comment.setBounds(32, iy, Math.max(80, mainW - 92), 16);
 		button(g, 10 + mainW - 54, iy, 54, 16, "Comment", 0xFF3EA6FF, 0xFF0F0F0F, () -> postComment(comment.getText()));
 		iy += 24;
 		for (String[] c : comments) {
 			Gfx.roundRect(g, 10, iy, 16, 16, 8, Gfx.lerp(0xFF5C6BC0, 0xFFEF6C00, (float) Kit.rand(c[0], 2)));
-			Gfx.textCentered(g, c[0].substring(0, 1), 18, iy + 4, 0xFFFFFFFF);
+			Gfx.textCentered(g, Kit.initial(c[0]), 18, iy + 4, 0xFFFFFFFF);
 			Gfx.text(g, "@" + c[0].replace(" ", "") + "  " + c[2], 32, iy, dim());
 			iy += 10 + Gfx.textWrapped(g, c[1], 32, iy + 10, mainW - 24, 10, fg());
 			Gfx.text(g, "▲ " + c[3] + "   ▼   Reply", 32, iy + 2, dim());

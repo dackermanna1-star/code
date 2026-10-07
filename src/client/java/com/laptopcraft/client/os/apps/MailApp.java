@@ -117,7 +117,7 @@ public class MailApp extends KitApp {
 					Gfx.rect(g, lx, y, listW, rowH, sel ? t.selection() : hov ? t.hover() : t.bg());
 					Gfx.rect(g, lx + 4, y + rowH - 1, listW - 8, 1, t.border());
 					Gfx.roundRect(g, lx + 5, y + 6, 18, 18, 9, avatarColor(m.from()));
-					Gfx.textCentered(g, m.from().substring(0, 1).toUpperCase(Locale.ROOT), lx + 14, y + 11, 0xFFFFFFFF);
+					Gfx.textCentered(g, Kit.initial(m.from()), lx + 14, y + 11, 0xFFFFFFFF);
 					int tc = m.read() ? t.textDim() : t.text();
 					Gfx.textClipped(g, m.from(), lx + 28, y + 4, listW - 56, tc);
 					Gfx.textRight(g, ago(m.time()), lx + listW - 6, y + 4, t.textDim());
@@ -161,7 +161,7 @@ public class MailApp extends KitApp {
 		}
 		y += 4;
 		Gfx.roundRect(g, px + 10, y, 20, 20, 10, avatarColor(open.from()));
-		Gfx.textCentered(g, open.from().substring(0, 1).toUpperCase(Locale.ROOT), px + 20, y + 6, 0xFFFFFFFF);
+		Gfx.textCentered(g, Kit.initial(open.from()), px + 20, y + 6, 0xFFFFFFFF);
 		Gfx.textClipped(g, open.from(), px + 36, y + 2, pw - 120, t.text());
 		Gfx.text(g, Kit.when(open.time()), px + 36, y + 12, t.textDim());
 		long id = open.id();
