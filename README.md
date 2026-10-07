@@ -97,6 +97,18 @@ The first start creates `data/db.json`. The site's clock starts on September 1, 
   - **Floors** counts the floors you survived (plus bonuses), **Rides** the rides you finished, and **Wipeouts** your deaths. Dying sends you back to the elevator.
   - Other passengers get on and off: a businessman, a skeleton, a man on fire, a grandmother, the pizza guy and more. The other players decide for themselves whether to step out, and some of them dawdle.
   - Click the buttons by the doors: **Open** holds the doors, **Close** hurries them, and the alarm bell annoys everyone. The floor buttons do nothing.
+- **The Outbreak**: a survival game in the style of DayZ, made by Robloxian2008. Like the games above, it is a modern-style user-made place, not a 2008 recreation. It is single-player.
+  - South Karevia is about two kilometres across: the port city of Morovsk, two towns, seven villages, farms, a castle on a hill, a lighthouse, a radio station, the Object 47 military base, Dolina Airfield and four bandit camps. Roads, a river and a lake join them up, with forests, fields, hills and mountains around them.
+  - About 480 buildings: houses, cottages, flats, shops, a supermarket, a pharmacy, bars, offices, a school, churches, a hospital and clinics, police and fire stations, garages, warehouses, barns, barracks, hangars, a control tower and bunkers. Their interiors are furnished room by room (kitchens, living rooms, bedrooms, bathrooms, offices, classrooms, hospital wards, dormitories, armouries) as you come near.
+  - You start on the coast with a shirt, jeans, a flashlight and one bandage. When you die, the character is gone for good. Your body stays where it fell with everything you carried, so you can go back for it. The game saves while you are alive.
+  - Survival: food, water, stamina, blood, bleeding wounds, broken legs, food poisoning and sickness, cold, getting wet, and the condition of everything you own.
+  - Looting: about 90 kinds of item. Each kind of building has its own loot table: food in kitchens and shops, medicine in the pharmacy and hospital, guns at the police station and the base. Clothes give you pockets, vests and backpacks give you more, and the inventory is a grid you drag things around in. Looted spots fill up again after a while.
+  - Guns: pistols, an MP5, a pump shotgun, the AKM, the M4, the M249 and the M24, with magazines you fill with rounds, attachments (sights, a scope, a suppressor, a grip, a laser), fire modes, bullet drop and travel time, and jams in worn-out guns. Melee weapons, from a kitchen knife to a sledgehammer, have a light swing, a heavy swing and a block.
+  - The infected wander the towns. They hear your footsteps and gunshots, see you in daylight more easily than at night, and bash through doors. Soldiers, police, doctors and civilians look different.
+  - Bandits travel in groups of 2 to 4. They hold their camps and walk the roads, take cover, flank you and loot your body.
+  - Events: helicopters crash and burn, with military loot and dead soldiers around the wreck. Cargo planes drop supply crates under parachutes, marked with red smoke. Road flares draw the infected.
+  - Day and night, and weather: clear, cloudy, overcast, rain, storms with lightning, and fog.
+  - **WASD** move, **Shift** sprint, **Ctrl** walk, **C** crouch, **Z** prone, **Space** jump, **Left mouse** fire or swing, **Right mouse** aim or block, **R** reload, **B** fire mode, **F** interact, **Tab** inventory, **M** map, **V** first or third person, **L** flashlight, **1–9** hotbar, **H** put away, **Esc** pause.
 - **Your own place**: on your My ROBLOX page, click Edit under your place.
   - **Tools** gives the Grab, Clone and Delete build tools.
   - **Insert** adds bricks and the models you own.

@@ -183,6 +183,17 @@ export class Terrain {
         h[j * N + i] = v;
       }
     }
+    // weather the high ground: the tops rounded off and a little lower, so peaks read as old mountains, not cones
+    const tmp = new Float32Array(N * N), R = 3;
+    for (let pass = 0; pass < 3; pass++) {
+      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { let a = 0, c = 0; for (let k = -R; k <= R; k++) { const ii = i + k; if (ii < 0 || ii >= N) continue; a += h[j * N + ii]; c++; } tmp[j * N + i] = a / c; }
+      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+        let a = 0, c = 0; for (let k = -R; k <= R; k++) { const jj = j + k; if (jj < 0 || jj >= N) continue; a += tmp[jj * N + i]; c++; }
+        const idx = j * N + i, w = smooth(110, 300, h[idx]) * 0.85;
+        if (w > 0) h[idx] = lerp(h[idx], a / c, w);
+      }
+    }
+    for (let k = 0; k < N * N; k++) if (h[k] > 260) h[k] = 260 + (h[k] - 260) * 0.75;
     // the sea
     for (let k = 0; k < N * N; k++) if (h[k] < 0.4) { this.water[k] = 0; }
   }

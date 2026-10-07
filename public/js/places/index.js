@@ -28,6 +28,11 @@ export async function loadPlace(script) {
 
 /** Render a place thumbnail (2008 place thumbnails were in-game screenshots). */
 export async function renderPlaceThumbnail(renderer, data, w, h) {
+  // a place too big to build just for its picture brings one with it
+  if (data.script && PLACES[data.script]) {
+    const place = await loadPlace(data.script);
+    if (place.thumbnailImage) return fitImage(place.thumbnailImage, w, h);
+  }
   const world = new World(null, { renderer });
   let view;
   if (data.script && PLACES[data.script]) {
@@ -51,4 +56,19 @@ export async function renderPlaceThumbnail(renderer, data, w, h) {
   if (world.skyMesh) world.skyMesh.position.copy(world.camera.position);
   renderer.render(world.scene, world.camera);
   return renderer.domElement.toDataURL('image/png');
+}
+
+/** An image URL drawn to fill w x h (cropped to fit), as a PNG data URL. */
+function fitImage(src, w, h) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const k = Math.max(w / img.width, h / img.height), dw = img.width * k, dh = img.height * k;
+      c.getContext('2d').drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+      resolve(c.toDataURL('image/png'));
+    };
+    img.onerror = reject;
+    img.src = src;
+  });
 }

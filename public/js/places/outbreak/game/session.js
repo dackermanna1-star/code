@@ -20,6 +20,7 @@ import { Nav, tagLinks } from './nav.js';
 import { Hands, Actions } from './weapons.js';
 import { Audio } from './audio.js';
 import { Events } from './events.js';
+import { Gear } from './gear.js';
 import { Hud } from '../ui/hud.js';
 import { InventoryUI } from '../ui/inventory.js';
 import { MapUI } from '../ui/map.js';
@@ -61,6 +62,7 @@ export class Session {
     O.audio = new Audio();
     O.stats = { zombies: 0, bandits: 0, time: 0, distance: 0 };
     O.events = new Events(world);
+    O.gear = new Gear(world);
     // the static loot spots, and the ones that come with furniture
     for (const L of O.kit.loot) O.loot.addSpot(L);
     O.buildings.onFurnish = (B, out, loaded) => { for (const L of out.loot) loaded ? O.loot.addSpot(L) : O.loot.removeSpot(L); };
@@ -362,6 +364,7 @@ export class Session {
     }
     O.fx.update(dt);
     O.crowd.update(cam.position);
+    O.gear.update(O.player?.person, O.inv, live && O.player?.third && O.player.alive);
     this._rain(dt);
     O.audio.update(dt);
     O.hud.update(dt);

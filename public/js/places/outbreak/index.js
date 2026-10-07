@@ -23,11 +23,13 @@ import { placeProps } from './build/placeProps.js';
 import { Phys } from './physics.js';
 import { photoTextures } from './textures.js';
 import { Post } from './post.js';
+import { THUMB } from './thumb.js';
 import { Session } from './game/session.js';
 import { makeItem } from './game/inventory.js';
 import { sounds } from '../../engine/Sound.js';
 
 export default {
+  thumbnailImage: THUMB,
   build(world, ctx = {}) {
     for (const k of Object.keys(O)) delete O[k];
     O.world = world; O.thumb = !!ctx.thumbnail;

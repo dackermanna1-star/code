@@ -65,8 +65,8 @@ void main() {
 
 /** Keyframes over the day (hour -> colours and light). */
 const KEYS = [
-  { h: 0, zen: 0x02040a, hor: 0x0a1220, sun: 0x000000, sunI: 0, amb: [0x2a3550, 0x0a0a10, 0.12], moonI: 0.22 },
-  { h: 4.5, zen: 0x040814, hor: 0x141c30, sun: 0x000000, sunI: 0, amb: [0x2a3550, 0x0a0a10, 0.14], moonI: 0.2 },
+  { h: 0, zen: 0x02040a, hor: 0x0a1220, sun: 0x000000, sunI: 0, amb: [0x2e3a58, 0x0c0c14, 0.2], moonI: 0.34 },
+  { h: 4.5, zen: 0x040814, hor: 0x141c30, sun: 0x000000, sunI: 0, amb: [0x2e3a58, 0x0c0c14, 0.2], moonI: 0.3 },
   { h: 5.6, zen: 0x1a2a50, hor: 0xd88a5a, sun: 0xff8a40, sunI: 0.5, amb: [0x6a7898, 0x3a2a24, 0.35], moonI: 0.05 },
   { h: 7, zen: 0x3a68b0, hor: 0xf0c8a0, sun: 0xffc890, sunI: 1.8, amb: [0x9ab0d0, 0x5a4a3a, 0.6], moonI: 0 },
   { h: 9, zen: 0x3f74c4, hor: 0xc8dcf0, sun: 0xfff2e0, sunI: 2.7, amb: [0xb0c8e8, 0x6a5e48, 0.75], moonI: 0 },
@@ -74,8 +74,8 @@ const KEYS = [
   { h: 17, zen: 0x3a6ab8, hor: 0xd8d0c0, sun: 0xfff0d8, sunI: 2.5, amb: [0xb0c4e0, 0x6a5a44, 0.72], moonI: 0 },
   { h: 18.8, zen: 0x2a4a90, hor: 0xf09a5a, sun: 0xff9a50, sunI: 1.3, amb: [0x8a90b0, 0x4a3628, 0.5], moonI: 0 },
   { h: 19.7, zen: 0x141e40, hor: 0x9a5a4a, sun: 0xff6a30, sunI: 0.3, amb: [0x4a5070, 0x20181a, 0.25], moonI: 0.08 },
-  { h: 20.6, zen: 0x050a18, hor: 0x1a2236, sun: 0x000000, sunI: 0, amb: [0x2a3550, 0x0a0a10, 0.14], moonI: 0.2 },
-  { h: 24, zen: 0x02040a, hor: 0x0a1220, sun: 0x000000, sunI: 0, amb: [0x2a3550, 0x0a0a10, 0.12], moonI: 0.22 },
+  { h: 20.6, zen: 0x050a18, hor: 0x1a2236, sun: 0x000000, sunI: 0, amb: [0x2e3a58, 0x0c0c14, 0.2], moonI: 0.3 },
+  { h: 24, zen: 0x02040a, hor: 0x0a1220, sun: 0x000000, sunI: 0, amb: [0x2e3a58, 0x0c0c14, 0.2], moonI: 0.34 },
 ];
 const _c1 = new THREE.Color(), _c2 = new THREE.Color();
 function lerpHex(a, b, t, out) { _c1.setHex(a); _c2.setHex(b); return out.copy(_c1).lerp(_c2, t); }

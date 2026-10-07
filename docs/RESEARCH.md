@@ -159,6 +159,30 @@ Ratings and voting: 2008 pages show only how many times a place was Visited and 
 - All sound is synthesized with WebAudio, including the elevator music (a small step sequencer plays the bossa nova muzak and each floor's tune).
 - The other players are bots with a bravery, a chance of dawdling and a chance of jumping a lot. They walk out through the doorway, visit a few places on the floor, say something about it, and usually come back in time. Some floors steer them (going for the idol, running from the dinosaur).
 
+### The Outbreak (not a 2008 recreation)
+- Added on request: a single-player survival game in the style of DayZ (2013 and later). South Karevia, its places, people and story are original to this project.
+- The world is generated in code from a fixed seed:
+  - a height map (8-stud cells) shaped by noise, with mountains along the north and west and the high ground weathered so the peaks are rounded;
+  - the coast, a river and a lake;
+  - roads graded into the land, with bridges;
+  - streets laid out inside the towns, then building lots along them, with the ground levelled under each building.
+- Buildings come from about 30 templates. They are made with a box kit that merges everything into a few meshes per 256-stud square:
+  - Insides are drawn only within about 300 studs, and small details within about 650.
+  - Furniture is built lazily, one room per frame, for the buildings near you, and taken down again when you leave.
+  - Doors are instanced and swing open, and break when bashed. Windows break when shot.
+- Rendering:
+  - photo textures in a texture array, with normal maps and per-face tints, patterns and grime;
+  - a sky with a sun, moon and stars, and moving clouds;
+  - fog, shadows, and water with reflections and foam;
+  - about 100,000 instanced trees with billboard stand-ins far away, and instanced grass placed and blown by the wind on the graphics card;
+  - tone mapping, a vignette and colour grading that drain as you lose blood.
+- The infected and bandits are all drawn as one instanced crowd of block figures, with one outfit atlas.
+  - They move with the same collision as the player (upright cylinders against rotated boxes) and route through doorways and up stairs room by room.
+  - Bullets are simulated with gravity and drag and tested against each limb's box.
+- Every sound is synthesized with WebAudio and placed left and right of you, and muffled behind walls: footsteps for each surface, gunshots and their echo off the hills, the infected, bandit shouts, doors, glass, the helicopter, rain, wind, birds, crickets and your heartbeat.
+- Photo textures: CC0 scans from Poly Haven (https://polyhaven.com), shrunk to 512 pixels (normal maps 256) and packed into one module by `tools/pack-outbreak-textures.py`.
+- The guns and the first-person view model come from Desert Strike.
+
 ### Personal places
 - **Verified:** the three starting templates (Happy Home in Robloxia, Starting BrickBattle Map, Empty Baseplate), the Tools and Insert menus in your own place, and the save-on-exit dialog.
 
@@ -178,6 +202,9 @@ Ratings and voting: 2008 pages show only how many times a place was Visited and 
 - Novetus (2008 join script, settings and classic colours): https://github.com/Novetus/Novetus_src
 - ROBLOX's own open-sourced classic places (Rocket Arena, Glass Houses, Haunted Mansion, Rocket Fight Advanced and others): https://github.com/Roblox/Old-Open-Source-Levels
 - Old place files: https://github.com/MisoNotSoupx/Old-Roblox-Place-Archive
+
+### Assets
+- Poly Haven, CC0 textures (ground, plaster, brick, concrete, roof tiles, corrugated iron, planks, floors, tiles, asphalt, bark and more), used by The Outbreak: https://polyhaven.com/textures
 
 ### Recreations used for comparison
 - Super Nostalgia Zone, a 2008 recreation by MaximumADHD (HUD, messages, camera, force fields, explosions and 2008 item tables): https://github.com/MaximumADHD/Super-Nostalgia-Zone
