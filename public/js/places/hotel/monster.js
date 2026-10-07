@@ -561,9 +561,10 @@ export class Monster {
   }
   _killFrame(dt) {
     const s = this.st, A = this.anim, P = H.player;
-    A.gait = 'stand'; A.jaw = 1.25; A.reach = 1; A.spread = 0.25; A.shake = 1; A.hunch = 0.35; A.headRoll = 0.4; A.lean = 0.45; A.crouch = 0.5;
+    // (arms flung wide to take you from both sides - not straight at you, where they'd put his face in shadow)
+    A.gait = 'stand'; A.jaw = 1.25; A.reach = 0.5; A.spread = 0.9; A.shake = 1; A.hunch = 0.35; A.headRoll = 0.4; A.lean = 0.45; A.crouch = 0.5;
     // lunge in until his face fills your eyes
-    const target = this.killCam.clone().addScaledVector(this.killDir, 1.55);
+    const target = this.killCam.clone().addScaledVector(this.killDir, 1.9);
     const want = Math.atan2(this.killCam.x - this.pos.x, this.killCam.z - this.pos.z);
     this.yaw += clamp(angDiff(want, this.yaw), -dt * 20, dt * 20);
     const k = Math.min(1, s * 5);
@@ -573,7 +574,8 @@ export class Monster {
     const want2 = this.pos.clone().add(target.clone().sub(_w).multiplyScalar(k));
     want2.y = Math.max(this.killFrom.y - 1.2, Math.min(this.killFrom.y + 1, want2.y));
     this.pos.lerp(want2, Math.min(1, dt * 18));
-    if (P?.override) { P.override.look = this.head.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.06, 0.05 + (Math.random() - 0.5) * 0.06, 0)); P.override.pos = this.killCam.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.12 * (1 - s), (Math.random() - 0.5) * 0.12 * (1 - s), 0)); }
+    // (framed on the mouth, so the eyes and the whole open jaw are in your face)
+    if (P?.override) { P.override.look = this.head.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.06, -0.32 + (Math.random() - 0.5) * 0.06, 0)); P.override.pos = this.killCam.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.12 * (1 - s), (Math.random() - 0.5) * 0.12 * (1 - s), 0)); }
     if (s > 1.35 && !this.blacked) { this.blacked = true; H.post?.fadeOut(0.06); }
     if (s > 1.6) { this.blacked = false; this.despawn(); H.story?.died(); }
   }

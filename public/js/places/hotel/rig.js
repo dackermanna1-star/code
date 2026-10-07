@@ -33,7 +33,7 @@ function mats() {
     // (the porcelain is old and greyed: pure white would burn out in the flashlight and hide the cracks)
     mask: new THREE.MeshStandardMaterial({ map: T.maskTexture(), color: 0xc8c0b4, roughness: 0.3, metalness: 0, envMap: env, envMapIntensity: 0.35 }),
     hairCap: new THREE.MeshStandardMaterial({ color: 0x070606, roughness: 0.6 }),
-    hair: new THREE.MeshStandardMaterial({ color: 0x090707, roughness: 0.68, side: THREE.DoubleSide, alphaMap: T.hairStrands(), alphaTest: 0.4 }),
+    hair: new THREE.MeshStandardMaterial({ color: 0x060505, roughness: 0.68, side: THREE.DoubleSide, alphaMap: T.hairStrands(), alphaTest: 0.4 }),
     teeth: new THREE.MeshStandardMaterial({ color: 0xc4b48c, roughness: 0.3 }),
     teethBad: new THREE.MeshStandardMaterial({ color: 0x5a4a30, roughness: 0.5 }),
     gum: new THREE.MeshStandardMaterial({ color: 0x3a0505, roughness: 0.22 }),
@@ -287,9 +287,11 @@ export class Rig {
     this.head.getWorldDirection(_f);
     let s = 0.16;
     if (P?.flashOn && P.camDir) s += smooth(0.9, 0.985, -_d.dot(P.camDir)) * clamp(1.5 - dist / 50, 0, 1) * 1.3;
-    s *= smooth(0.1, 0.55, _f.dot(_d)) * clamp((dist - 1.6) / 6, 0.1, 1);
-    this.shineMat.opacity = s;
-    this.eyeMat.emissiveIntensity = 0.04 + s * 1.5;
+    s *= smooth(0.1, 0.55, _f.dot(_d));
+    // the halo is for a distance (two lights down a dark corridor); up close it's the irises themselves that burn
+    const far = clamp((dist - 2.5) / 6, 0, 1);
+    this.shineMat.opacity = s * far;
+    this.eyeMat.emissiveIntensity = 0.05 + s * 1.5 * Math.max(far, 0.5);
   }
   /** World positions of his eyes and head. */
   headWorld(v = new THREE.Vector3()) { this.head.updateWorldMatrix(true, false); return v.setFromMatrixPosition(this.head.matrixWorld).add(new THREE.Vector3(0, 0.1, 0)); }

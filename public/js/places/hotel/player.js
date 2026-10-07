@@ -256,17 +256,18 @@ export class Player {
     k *= this._flk * (0.55 + Math.min(1, this.battery * 4) * 0.45);
     // your eyes adjust: right up against something the beam doesn't burn it white
     const cam0 = this.world.camera;
-    this._adT = (this._adT || 0) - dt;
-    if (this._adT <= 0 && this._flashDir) {
-      this._adT = 0.08;
+    if (this._flashDir) {
       _a.copy(cam0.position).addScaledVector(this._flashDir, 14);
       const hit = this.world.raycast(cam0.position, _a, { mask: GROUP.WORLD });
       let d = hit ? hit.distance : 14;
       const M = H.monster;
       if (M?.visibleBody) for (const y of [0, 4.5]) { _b.copy(M.head).y -= y; const md = _b.distanceTo(cam0.position); if (md < d && _b.sub(cam0.position).normalize().dot(this._flashDir) > 0.88) d = md; }
       this._adWant = Math.max(0.03, Math.min(1, Math.pow(d / 10, 1.6)));
+      this._adD = d;
     }
-    this._ad = (this._ad ?? 1) + ((this._adWant ?? 1) - (this._ad ?? 1)) * Math.min(1, dt * 8);
+    // (it clamps down at once when something's suddenly close - and opens up again more slowly)
+    const adW = this._adWant ?? 1, ad0 = this._ad ?? 1;
+    this._ad = ad0 + (adW - ad0) * Math.min(1, dt * (adW < ad0 ? 30 : 5));
     s.intensity = 760 * k * this._ad;
     this.bounce.intensity = 0;
     this.lensMat.color.setRGB(0.25 + 3 * k, 0.24 + 2.8 * k, 0.2 + 2.4 * k);
@@ -277,7 +278,8 @@ export class Player {
     this._flashDir.lerp(_v, Math.min(1, dt * 16)).normalize();
     const off = new THREE.Vector3(0.55, -0.55, -0.2).applyQuaternion(cam.quaternion);
     s.position.copy(cam.position).add(off);
-    s.target.position.copy(s.position).addScaledVector(this._flashDir, 12);
+    // (aimed at what you're looking at, so up close the beam still lands on it, not beside it)
+    s.target.position.copy(cam.position).addScaledVector(this._flashDir, Math.max(1.2, Math.min(12, this._adD ?? 12)));
     s.target.updateMatrixWorld();
     s.visible = k > 0.01;
     // the light where you're standing (for how well he can see you)
