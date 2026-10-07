@@ -69,7 +69,7 @@ export function tubeLight(x, ceil, z, ry = 0, o = {}) {
   const M = H.M, b = at(x, ceil, z, ry);
   b.box(0, -0.2, 0, 4.4, 0.25, 0.7, M.steel);
   for (const s of [-1, 1]) b.cyl(s * 1.8, 0.25, 0, 0.02, 0.02, 0.6, M.iron, { seg: 4 });
-  const fx = H.lights.add({ pos: b.W(0, -0.6, 0), color: o.color ?? 0xd8e8ff, power: o.power ?? 26, range: o.range ?? 18, circuit: o.circuit || 'main', flicker: o.flicker ?? 0.12, emergency: o.emergency ?? 0, kind: 'tube', halo: 1.8, broken: o.broken, room: o.room });
+  const fx = H.lights.add({ pos: b.W(0, -0.6, 0), color: o.color ?? 0xd8e8ff, power: o.power ?? 32, range: o.range ?? 20, circuit: o.circuit || 'main', flicker: o.flicker ?? 0.12, emergency: o.emergency ?? 0, kind: 'tube', halo: 1.8, broken: o.broken, room: o.room });
   H.lights.glow(fx, 'tube', WM(b, 0, -0.42, 0.15), 1.2);
   H.lights.glow(fx, 'tube', WM(b, 0, -0.42, -0.15), 1.2);
   return fx;

@@ -307,8 +307,22 @@ export function mergeGeos(list) {
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(pos.length).fill(1), 3));
   g.setIndex(idx);
   return g;
+}
+/**
+ * The hotel's materials use vertex colours (for tints in the merged batches). A mesh made on its own needs a white
+ * colour attribute or it renders black: give every such mesh under root one.
+ */
+export function fixColors(root) {
+  root.traverse((o) => {
+    if (!o.isMesh || !o.geometry?.attributes?.position) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    if (!mats.some((m) => m?.vertexColors) || o.geometry.attributes.color) return;
+    const n = o.geometry.attributes.position.count;
+    o.geometry.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(n * 3).fill(1), 3));
+  });
 }
 /** Bake a list of [geometry, matrix] into one geometry (for animated objects made of many pieces). */
 export function bake(list) {

@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { H } from './state.js';
 import { bake, boxGeo, cylGeo, sphereGeo, M4 } from './kit.js';
 import * as T from './textures.js';
+import { GROUP } from '../../engine/Part.js';
 
 export const EYE = 6.1;
 const CROUCH = 2.5;
@@ -14,7 +15,7 @@ const SPEED = { walk: 10.5, run: 17.5, crouch: 5.4 };
 const STRIDE = { walk: 4.2, run: 5.6, crouch: 2.9 };
 const NOISE = { walk: 8, run: 24, crouch: 2.4 };
 const SURF = { carpet: 0.65, wood: 1.05, marble: 1.25, tile: 1.2, concrete: 1.0, metal: 1.35, grass: 0.55, gravel: 1.15 };
-const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler(0, 0, 0, 'YXZ');
+const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler(0, 0, 0, 'YXZ'), _a = new THREE.Vector3(), _b = new THREE.Vector3();
 
 const SETTINGS = 'rbx2008:hotel:settings';
 export function loadSettings() {
@@ -53,7 +54,7 @@ export class Player {
 
   // --- the flashlight ---------------------------------------------------------------------------------------------------------
   _makeFlashlight() {
-    const s = new THREE.SpotLight(0xffeedd, 0, 80, 0.6, 0.7, 2);
+    const s = new THREE.SpotLight(0xffeedd, 0, 95, 0.64, 0.75, 2);
     s.castShadow = true;
     s.shadow.mapSize.set(1024, 1024);
     s.shadow.bias = -0.0004; s.shadow.normalBias = 0.02;
@@ -253,7 +254,20 @@ export class Player {
     this._fl = (this._fl || 0) - dt;
     if (this._fl <= 0) { this._flk = 1; const lowB = this.battery < 0.15 ? (0.15 - this.battery) * 4 : 0; const p = near * 0.8 + lowB; if (Math.random() < p) { this._flk = Math.random() < 0.5 ? 0.05 : 0.4 + Math.random() * 0.4; this._fl = 0.03 + Math.random() * 0.12; } else this._fl = 0.05 + Math.random() * 0.25; }
     k *= this._flk * (0.55 + Math.min(1, this.battery * 4) * 0.45);
-    s.intensity = 420 * k;
+    // your eyes adjust: right up against something the beam doesn't burn it white
+    const cam0 = this.world.camera;
+    this._adT = (this._adT || 0) - dt;
+    if (this._adT <= 0 && this._flashDir) {
+      this._adT = 0.08;
+      _a.copy(cam0.position).addScaledVector(this._flashDir, 14);
+      const hit = this.world.raycast(cam0.position, _a, { mask: GROUP.WORLD });
+      let d = hit ? hit.distance : 14;
+      const M = H.monster;
+      if (M?.visibleBody) for (const y of [0, 4.5]) { _b.copy(M.head).y -= y; const md = _b.distanceTo(cam0.position); if (md < d && _b.sub(cam0.position).normalize().dot(this._flashDir) > 0.88) d = md; }
+      this._adWant = Math.max(0.1, Math.min(1, Math.pow(d / 9, 1.25)));
+    }
+    this._ad = (this._ad ?? 1) + ((this._adWant ?? 1) - (this._ad ?? 1)) * Math.min(1, dt * 8);
+    s.intensity = 760 * k * this._ad;
     this.bounce.intensity = 0;
     this.lensMat.color.setRGB(0.25 + 3 * k, 0.24 + 2.8 * k, 0.2 + 2.4 * k);
     this.handGlow.intensity = 0.6 * k;

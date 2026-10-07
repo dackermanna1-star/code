@@ -98,13 +98,14 @@ export class Post {
     u.grain.value = 0.04 + fear * 0.05;
     u.blur.value = o.blur || 0;
     u.gamma.value = 1 / this.brightness;
-    u.exposure.value = (o.exposure ?? 1) * (0.85 + this.brightness * 0.15);
+    u.exposure.value = (o.exposure ?? 1) * 1.9 * (0.75 + this.brightness * 0.25);
   }
   render() {
     const r = this.world.renderer, w = this.world;
     r.setRenderTarget(this.rt);
     r.clear();
     r.render(w.scene, w.camera);
+    this.info = { calls: r.info.render.calls, tris: r.info.render.triangles };
     if (this.vmScene.children.length > 1 && this.vmVisible !== false) {
       this.vmCam.aspect = w.camera.aspect; this.vmCam.fov = w.camera.fov; this.vmCam.updateProjectionMatrix();
       const ac = r.autoClear;

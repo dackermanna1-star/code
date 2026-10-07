@@ -297,7 +297,7 @@ export function hangingBulb(x, ceil, z, o = {}) {
   const M = H.M, b = at(x, ceil, z, 0), drop = o.drop ?? 2.5;
   b.cyl(0, -drop / 2, 0, 0.02, 0.02, drop, M.black, { seg: 3 });
   b.cyl(0, -drop - 0.15, 0, 0.12, 0.12, 0.3, M.brass, { seg: 6 });
-  const fx = H.lights.add({ pos: b.W(0, -drop - 0.5, 0), color: o.color ?? 0xffb060, power: o.power ?? 14, range: o.range ?? 14, circuit: o.circuit || 'main', flicker: o.flicker ?? 0.15, emergency: o.emergency ?? 0, halo: 1.4, broken: o.broken, room: o.room });
+  const fx = H.lights.add({ pos: b.W(0, -drop - 0.5, 0), color: o.color ?? 0xffb060, power: o.power ?? 20, range: o.range ?? 17, circuit: o.circuit || 'main', flicker: o.flicker ?? 0.15, emergency: o.emergency ?? 0, halo: 1.4, broken: o.broken, room: o.room });
   H.lights.glow(fx, 'bulb', WM(b, 0, -drop - 0.45, 0, 0, 0, 0, 1.4), 2);
   return fx;
 }
@@ -306,7 +306,7 @@ export function cageLight(x, y, z, ry, o = {}) {
   const M = H.M, b = at(x, y, z, ry);
   b.box(0, 0, 0.1, 0.8, 0.8, 0.2, M.iron);
   b.sphere(0, 0, 0.3, 0.38, M.iron, { seg: 6, s: [1, 1, 0.7] });
-  const fx = H.lights.add({ pos: b.W(0, 0, 1.0), color: o.color ?? 0xffc080, power: o.power ?? 9, range: o.range ?? 12, circuit: o.circuit || 'main', flicker: o.flicker ?? 0.12, emergency: o.emergency ?? 0, halo: 1.3, broken: o.broken, room: o.room });
+  const fx = H.lights.add({ pos: b.W(0, 0, 1.0), color: o.color ?? 0xffc080, power: o.power ?? 16, range: o.range ?? 16, circuit: o.circuit || 'main', flicker: o.flicker ?? 0.12, emergency: o.emergency ?? 0, halo: 1.3, broken: o.broken, room: o.room });
   H.lights.glow(fx, 'bulb', WM(b, 0, 0, 0.35, 0, 0, 0, 1.3), 1.6);
   return fx;
 }

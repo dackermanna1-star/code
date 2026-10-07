@@ -52,6 +52,7 @@ export function pickup(id, o) {
   g.position.copy(o.pos); g.rotation.set(o.rx || 0, o.ry || 0, o.rz || 0);
   if (o.scale) g.scale.setScalar(o.scale);
   H.world.scene.add(g);
+  H.fixColors?.(g);
   const name = o.name || ITEMS[o.give || id]?.name || id;
   const it = {
     id, g, taken: false,

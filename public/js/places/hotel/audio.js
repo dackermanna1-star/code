@@ -403,6 +403,20 @@ export class HotelAudio {
     }, { ref: 9, roll: 1.1, vol: 1.1 });
   }
   mRun(pos) { this.play(pos, (out, t) => { for (const d of [0, 0.09]) { const o = this.osc('sine', 70), g = this.gain(0); o.frequency.exponentialRampToValueAtTime(38, t + d + 0.15); this.env(g.gain, t + d, 0.003, 0.9, 0.22); this.chain(o, g, out); o.start(t + d); o.stop(t + d + 0.3); const n = this.src('white'), f = this.filt('bandpass', 1400, 1), ng = this.gain(0); this.env(ng.gain, t + d, 0.002, 0.3, 0.06); this.chain(n, f, ng, out); n.start(t + d, Math.random()); n.stop(t + d + 0.1); } }, { ref: 10, vol: 1.2 }); }
+  /** Running after you: a wet, rattling snarl. */
+  mRasp(pos, v = 1) {
+    this.play(pos, (out, t) => {
+      const dur = rnd(0.45, 0.85);
+      const d = this.c.createWaveShaper(); d.curve = this.shaper; const g = this.gain(0); this.chain(d, g, out);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.55 * v, t + 0.07); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      const o = this.osc('sawtooth', rnd(68, 92)); o.frequency.linearRampToValueAtTime(rnd(52, 66), t + dur);
+      const f = this.filt('bandpass', rnd(330, 460), 1.4), og = this.gain(0.3);
+      const am = this.osc('square', rnd(26, 38)), amg = this.gain(0.3); am.connect(amg); amg.connect(og.gain);
+      this.chain(o, f, og, d);
+      const n = this.src('pink'), nf = this.filt('bandpass', 1300, 1.1), ng = this.gain(0.35); this.chain(n, nf, ng, d);
+      o.start(t); o.stop(t + dur + 0.05); am.start(t); am.stop(t + dur + 0.05); n.start(t, Math.random()); n.stop(t + dur + 0.05);
+    }, { ref: 10, vol: 1.1, rev: 0.8 });
+  }
   sniff(pos) { this.play(pos, (out, t) => { for (let i = 0; i < 4; i++) { const tt = t + i * 0.16; const n = this.src('pink'), f = this.filt('bandpass', 2600, 2.5), g = this.gain(0); g.gain.setValueAtTime(0.0001, tt); g.gain.exponentialRampToValueAtTime(0.5, tt + 0.07); g.gain.exponentialRampToValueAtTime(0.0001, tt + 0.13); this.chain(n, f, g, out); n.start(tt, Math.random()); n.stop(tt + 0.15); } }, { ref: 5 }); }
   crack(pos) { this.play(pos, (out, t) => { for (let i = 0; i < 6; i++) { const tt = t + Math.random() * 0.4; const n = this.src('white'), f = this.filt('bandpass', rnd(1500, 4000), 3), g = this.gain(0); this.env(g.gain, tt, 0.001, 0.35, 0.02); this.chain(n, f, g, out); n.start(tt, Math.random()); n.stop(tt + 0.04); } }, { ref: 5 }); }
   /** He hums the waltz to himself (a few notes, wrong). */

@@ -13,23 +13,32 @@ const PI = Math.PI;
 const G = () => new THREE.Group();
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const _l = new THREE.Vector3(), _e = new THREE.Vector3(), _d = new THREE.Vector3(), _f = new THREE.Vector3();
 
-let MATS = null;
+let MATS = null, MATS_M = null;
 function mats() {
-  if (MATS) return MATS;
+  if (MATS && MATS_M === H.M) return MATS;
+  MATS_M = H.M;
   const env = H.M?.chrome?.envMap || null;
+  // the shirt front's UVs are its shape's coordinates: fit the stained shirt to them
+  const shirtMap = T.shirtBlood(); shirtMap.repeat.set(1 / 0.64, 1 / 1.62); shirtMap.offset.set(0.5, 0.2 / 1.62);
   MATS = {
     coat: new THREE.MeshStandardMaterial({ map: T.fabric('coat', '#141418', 61, { weave: true }), color: 0x6a6a72, roughness: 0.7, metalness: 0.05 }),
-    shirt: new THREE.MeshStandardMaterial({ map: T.fabric('shirt', '#a8a294', 62, { mottle: 0.5 }), roughness: 0.85 }),
+    shirt: new THREE.MeshStandardMaterial({ map: shirtMap, roughness: 0.8 }),
     tie: new THREE.MeshStandardMaterial({ color: 0x4a0508, roughness: 0.5 }),
-    skin: new THREE.MeshStandardMaterial({ color: 0x8c877e, roughness: 0.5 }),
+    skin: new THREE.MeshStandardMaterial({ color: 0xc4bdb0, roughness: 0.45 }),
     nail: new THREE.MeshStandardMaterial({ color: 0x1a1412, roughness: 0.3 }),
-    mask: new THREE.MeshStandardMaterial({ map: T.maskTexture(), roughness: 0.17, metalness: 0, envMap: env, envMapIntensity: 0.6 }),
-    hair: new THREE.MeshStandardMaterial({ color: 0x070606, roughness: 0.75, side: THREE.DoubleSide }),
-    teeth: new THREE.MeshStandardMaterial({ color: 0xd8d0b8, roughness: 0.35 }),
-    gum: new THREE.MeshStandardMaterial({ color: 0x3a0606, roughness: 0.6 }),
+    // (the porcelain is old and greyed: pure white would burn out in the flashlight and hide the cracks)
+    mask: new THREE.MeshStandardMaterial({ map: T.maskTexture(), color: 0xc8c0b4, roughness: 0.3, metalness: 0, envMap: env, envMapIntensity: 0.35 }),
+    hairCap: new THREE.MeshStandardMaterial({ color: 0x070606, roughness: 0.6 }),
+    hair: new THREE.MeshStandardMaterial({ color: 0x0b0908, roughness: 0.42, side: THREE.DoubleSide, alphaMap: T.hairStrands(), alphaTest: 0.4 }),
+    teeth: new THREE.MeshStandardMaterial({ color: 0xc4b48c, roughness: 0.3 }),
+    teethBad: new THREE.MeshStandardMaterial({ color: 0x5a4a30, roughness: 0.5 }),
+    gum: new THREE.MeshStandardMaterial({ color: 0x3a0505, roughness: 0.22 }),
     void: new THREE.MeshBasicMaterial({ color: 0x000000 }),
-    eye: new THREE.MeshBasicMaterial({ color: new THREE.Color(4.5, 4.1, 3.2) }),
+    eye: new THREE.MeshStandardMaterial({ map: T.eyeball(), roughness: 0.06, metalness: 0, emissive: 0xffffff, emissiveMap: T.eyeshine(), emissiveIntensity: 0.1, envMap: env, envMapIntensity: 0.8 }),
+    shine: new THREE.SpriteMaterial({ map: T.glowDot(), color: 0xffd890, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0 }),
     brass: H.M?.brass || new THREE.MeshStandardMaterial({ color: 0xb08a3a, metalness: 0.9, roughness: 0.35 }),
     shoe: new THREE.MeshStandardMaterial({ color: 0x060606, roughness: 0.25, metalness: 0.1 }),
   };
@@ -91,31 +100,47 @@ export class Rig {
     }
     // neck, head: hair behind and round the mask
     mesh(new THREE.CylinderGeometry(0.2, 0.26, 1.0, 8).translate(0, 0.45, 0), m.skin, this.neck);
-    mesh(new THREE.SphereGeometry(0.68, 14, 10).scale(0.95, 1.15, 0.98), m.hair, this.head, 0, 0.12, -0.12);
+    mesh(new THREE.SphereGeometry(0.68, 14, 10).scale(0.95, 1.15, 0.98), m.hairCap, this.head, 0, 0.12, -0.12);
+    // lank black hair: hanks of greasy strands all round, hanging past his shoulders
     this.strands = [];
-    for (let i = 0; i < 13; i++) {
-      const a = PI * 0.25 + (i / 12) * PI * 1.5, p = G();
-      p.position.set(Math.cos(a) * 0.6, 0.55, Math.sin(a) * 0.55 - 0.12); p.rotation.y = -a + PI / 2;
+    const hr = T.rng(12);
+    for (let i = 0; i < 18; i++) {
+      const a = PI * 0.22 + (i / 17) * PI * 1.56, p = G();
+      p.position.set(Math.cos(a) * 0.6, 0.6, Math.sin(a) * 0.55 - 0.12); p.rotation.y = -a + PI / 2;
       this.head.add(p);
-      const len = 1.6 + (i % 4) * 0.45;
-      mesh(new THREE.PlaneGeometry(0.22, len).translate(0, -len / 2, 0), m.hair, p).rotation.y = (i % 2 ? 0.4 : -0.4);
-      this.strands.push({ p, a, ph: Math.random() * 6 });
+      const len = 1.5 + hr() * 1.6;
+      const h = mesh(new THREE.PlaneGeometry(0.42, len).translate(0, -len / 2, 0), m.hair, p); h.rotation.y = (i % 2 ? 0.4 : -0.4); h.castShadow = false;
+      this.strands.push({ p, a, ph: hr() * 6 });
+    }
+    // hanks hanging down in front of the mask's edges, framing it
+    for (const [x0, len, rz] of [[-0.64, 1.9, 0.1], [-0.55, 1.5, 0.06], [-0.48, 1.1, -0.02], [0.49, 1.3, -0.05], [0.57, 1.8, -0.12], [0.65, 1.6, -0.1]]) {
+      const p = G(); p.position.set(x0, 0.82, 0.65 - x0 * x0 * 0.62); p.rotation.set(-0.1, 0, rz); this.head.add(p);
+      const h = mesh(new THREE.PlaneGeometry(0.2, len).translate(0, -len / 2, 0), m.hair, p); h.rotation.y = x0 < 0 ? 0.35 : -0.35; h.castShadow = false;
+      this.strands.push({ p, a: 0, ph: hr() * 6, front: true });
     }
     // the mask (upper face on the head, the chin on the jaw)
     mesh(maskGeo(0.305, 0.988), m.mask, this.head, 0, 0.12, 0.62).castShadow = false;
     const chin = mesh(maskGeo(0.012, 0.305), m.mask, this.jaw, 0, 0.24, 0.72); chin.castShadow = false;
     // behind the grin: a black mouth, gums and long teeth
     mesh(new THREE.SphereGeometry(0.42, 10, 8).scale(1.2, 0.8, 0.7), m.void, this.head, 0, -0.22, 0.24);
+    // too many teeth, crooked, some of them rotten, some missing
+    const tr = T.rng(5);
     for (let i = -6; i <= 6; i++) {
-      const x = i * 0.065, zc = 0.5 - x * x * 0.6;
-      mesh(new THREE.ConeGeometry(0.03, 0.17 + (i % 3 === 0 ? 0.08 : 0), 4).rotateX(PI), m.teeth, this.head, x, -0.27, zc);
-      mesh(new THREE.ConeGeometry(0.03, 0.15 + (i % 2 ? 0.06 : 0), 4), m.teeth, this.jaw, x, -0.2, zc + 0.08);
+      const x = i * 0.065 + (tr() - 0.5) * 0.016, zc = 0.5 - x * x * 0.6;
+      if (i !== -4 && i !== 3) { const u = mesh(new THREE.ConeGeometry(0.024 + tr() * 0.016, 0.13 + tr() * 0.16, 5).rotateX(PI), tr() < 0.25 ? m.teethBad : m.teeth, this.head, x, -0.27, zc); u.rotation.set((tr() - 0.5) * 0.35, 0, (tr() - 0.5) * 0.4); }
+      if (i !== 5) { const d = mesh(new THREE.ConeGeometry(0.024 + tr() * 0.016, 0.11 + tr() * 0.14, 5), tr() < 0.25 ? m.teethBad : m.teeth, this.jaw, x, -0.2, zc + 0.08); d.rotation.set((tr() - 0.5) * 0.35, 0, (tr() - 0.5) * 0.4); }
     }
     mesh(new THREE.BoxGeometry(0.9, 0.06, 0.3), m.gum, this.head, 0, -0.18, 0.36);
     mesh(new THREE.BoxGeometry(0.85, 0.06, 0.3), m.gum, this.jaw, 0, -0.27, 0.44);
-    // the eyes: tiny points of light deep in the black hollows
-    this.eyes = [];
-    for (const s of [-1, 1]) { const e = mesh(new THREE.SphereGeometry(0.04, 8, 6), m.eye, this.head, s * 0.3, 0.33, 0.566); e.castShadow = false; this.eyes.push(e); }
+    // the eyes: real ones, wet and bloodshot, behind the mask's eyeholes - they follow you - and they shine in a torch beam
+    this.eyes = []; this.shines = [];
+    this.eyeMat = m.eye.clone(); this.shineMat = m.shine.clone();
+    for (const s of [-1, 1]) {
+      const e = G(); e.position.set(s * 0.3, 0.335, 0.497); this.head.add(e);
+      mesh(new THREE.SphereGeometry(0.1, 16, 12), this.eyeMat, e).castShadow = false;
+      this.eyes.push(e);
+      const sp = new THREE.Sprite(this.shineMat); sp.position.set(s * 0.3, 0.335, 0.62); sp.scale.setScalar(0.34); this.head.add(sp); this.shines.push(sp);
+    }
     // arms: shoulder, elbow, wrist; long fingers
     this.arms = [];
     for (const s of [-1, 1]) {
@@ -166,7 +191,7 @@ export class Rig {
     this.root.traverse((o) => { if (o.isMesh) o.frustumCulled = true; });
     // animation state
     this.t = Math.random() * 10; this.phase = 0; this.tw = { t: 0, roll: 0, yaw: 0, target: { roll: 0, yaw: 0 } };
-    this.p = { gait: 'stand', speed: 0, hunch: 0.35, jaw: 0, reach: 0, spread: 0, crouch: 0, headYaw: 0, headPitch: 0, headRoll: 0.15, sniff: 0, lean: 0, shake: 0 };
+    this.p = { gait: 'stand', speed: 0, hunch: 0.5, jaw: 0, reach: 0, spread: 0, crouch: 0, headYaw: 0, headPitch: 0, headRoll: 0.15, sniff: 0, lean: 0, shake: 0 };
     this.cur = { ...this.p, crawl: 0 };
     if (o.scale) this.root.scale.setScalar(o.scale);
   }
@@ -239,9 +264,28 @@ export class Rig {
     }
     // the coat tails and the hair swing behind him
     for (const tl of this.tails) tl.rotation.x = lerp(-0.08 - moving * 0.25 + Math.sin(ph * 2) * 0.06 * moving, -1.0 + Math.sin(g * 2) * 0.25, cr);
-    for (const s of this.strands) { s.p.rotation.x = 0.1 + Math.sin(t * 1.4 + s.ph) * 0.06 + moving * 0.25 + cr * 0.8; s.p.rotation.z = Math.sin(t * 1.1 + s.ph) * 0.05; }
+    for (const s of this.strands) { if (s.front) { s.p.rotation.x = -0.12 + Math.sin(t * 1.4 + s.ph) * 0.04 - cr * 0.3; continue; } s.p.rotation.x = 0.1 + Math.sin(t * 1.1 + s.ph) * 0.06 + moving * 0.25 + cr * 0.8; s.p.rotation.z = Math.sin(t * 1.1 + s.ph) * 0.05; }
     this.keyring.rotation.z = Math.sin(ph * 2) * 0.3 * moving;
     this.keyring.rotation.x = Math.sin(ph) * 0.2 * moving;
+    if (q.look) this._eyes(q.look);
+  }
+  /** His eyes turn to find you, wherever his head is pointing; in your beam they shine like an animal's. */
+  _eyes(look) {
+    this.head.updateWorldMatrix(true, false);
+    _l.copy(look); this.head.worldToLocal(_l);
+    for (const e of this.eyes) {
+      const dx = _l.x - e.position.x, dy = _l.y - e.position.y, dz = _l.z - e.position.z;
+      e.rotation.set(clamp(Math.atan2(-dy, Math.hypot(dx, dz)), -0.45, 0.45), clamp(Math.atan2(dx, dz), -0.55, 0.55), 0);
+    }
+    const P = H.player;
+    _e.setFromMatrixPosition(this.head.matrixWorld);
+    _d.copy(look).sub(_e); const dist = _d.length(); _d.divideScalar(dist || 1);
+    this.head.getWorldDirection(_f);
+    let s = 0.16;
+    if (P?.flashOn && P.camDir) s += smooth(0.9, 0.985, -_d.dot(P.camDir)) * clamp(1.5 - dist / 50, 0, 1) * 1.3;
+    s *= smooth(0.1, 0.55, _f.dot(_d)) * clamp((dist - 1.6) / 6, 0.1, 1);
+    this.shineMat.opacity = s;
+    this.eyeMat.emissiveIntensity = 0.04 + s * 1.5;
   }
   /** World positions of his eyes and head. */
   headWorld(v = new THREE.Vector3()) { this.head.updateWorldMatrix(true, false); return v.setFromMatrixPosition(this.head.matrixWorld).add(new THREE.Vector3(0, 0.1, 0)); }

@@ -106,7 +106,7 @@ export function materials(renderer) {
   M.pegboard = std({ map: T.pegboard(), roughness: 0.8, tile: [1, 1] });
   M.stained = new THREE.MeshStandardMaterial({ map: T.stainedGlass(), emissiveMap: T.stainedGlass(), emissive: 0xffffff, emissiveIntensity: 0.08, roughness: 0.4 });
   // the storm outside
-  M.window = new THREE.MeshStandardMaterial({ map: T.nightWindow(), emissiveMap: T.nightWindow(), emissive: 0xffffff, emissiveIntensity: 0.25, roughness: 0.1, metalness: 0.2 });
+  M.window = new THREE.MeshStandardMaterial({ map: T.nightWindow(), emissiveMap: T.nightWindow(), emissive: 0xffffff, emissiveIntensity: 0.9, roughness: 0.1, metalness: 0.2 });
   M.rain = new THREE.MeshBasicMaterial({ map: T.rainStreaks(), transparent: true, opacity: 0.7, depthWrite: false });
   M.rain.map.repeat.set(2, 1);
   // odds and ends

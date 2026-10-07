@@ -35,7 +35,7 @@ export class Monster {
     this.t = 0; this.st = 0; // time in state
     this.rage = false; this.finale = false;
     this.recent = [];
-    this.anim = { gait: 'stand', hunch: 0.35, jaw: 0, reach: 0, spread: 0, crouch: 0, headYaw: 0, headPitch: 0.1, headRoll: 0.15, sniff: 0, lean: 0, shake: 0 };
+    this.anim = { gait: 'stand', hunch: 0.5, jaw: 0, reach: 0, spread: 0, crouch: 0, headYaw: 0, headPitch: 0.1, headRoll: 0.15, sniff: 0, lean: 0, shake: 0 };
     this.speedNow = 0;
     this.stepAcc = 0;
     this.checking = null;
@@ -57,6 +57,7 @@ export class Monster {
     const car = H.nav.get(id + ':i'), front = H.nav.get(id + ':o');
     const lift = this._lift(id);
     const from = o.from ?? (floor === 'F3' ? 1 : 3);
+    this.patrolT = 0;
     this.state = 'ride'; this.st = 0; this.ride = { id, car, front, lift, floor, from, to: FNUM[floor], t: 0, dur: o.ride ?? 5, then: o.then || 'patrol', opened: false };
     this.node = car; this.pos.copy(car.p); this.yaw = Math.PI; // facing out of the car (+z)
     this.active = true; this.visibleBody = true; this.root.visible = true;
@@ -96,7 +97,7 @@ export class Monster {
     this.goTo(H.nav.get(step), { speed: s.o.speed });
   }
   investigate(p, loud = false) {
-    if (!this.active || ['off', 'ride', 'kill', 'spot', 'script', 'leave', 'chase'].includes(this.state)) return;
+    if (!this.active || ['off', 'ride', 'kill', 'spot', 'script', 'leave', 'chase', 'recoil'].includes(this.state)) return;
     const n = H.nav.nearest(p, { floor: this.floor, maxDy: 6 });
     if (!n) return;
     this.state = 'investigate'; this.st = 0; this.target = p.clone(); this.loud = loud;
@@ -104,14 +105,21 @@ export class Monster {
     if (Math.random() < 0.5 || loud) H.audio?.sniff(this.head);
   }
   startChase() {
-    this.state = 'chase'; this.st = 0; this.aware = 1; this.repath = 0;
+    // if you've already vanished (into a wardrobe he didn't see you get into), he hunts round instead
+    if (H.player?.hidden && this.t - this.seenT > 0.8) { this._search(this.lastSeen || this.pos); return; }
+    this.state = 'chase'; this.st = 0; this.aware = Math.max(this.aware, 1); this.repath = 0;
     H.story?.event('m:chase');
   }
 
   // --- moving about -------------------------------------------------------------------------------------------------------------------------
   goTo(target, o = {}) {
     const from = this.path && this.pi < this.path.length && this.path[this.pi] ? this.path[this.pi] : (this.node || H.nav.nearest(this.pos, { floor: this.floor }));
-    const to = target instanceof THREE.Vector3 ? H.nav.nearest(target, { floor: this.floor, maxDy: 8 }) : target;
+    // (at the end he follows you anywhere - up the stairs included - so he looks for the point nearest you on your floor)
+    let to = target;
+    if (target instanceof THREE.Vector3) {
+      const fl = this.finale ? playerFloor(target) : this.floor;
+      to = H.nav.nearest(target, { floor: fl === 'F2' ? 'S' : fl, maxDy: 8 }) || (this.finale ? H.nav.nearest(target, { maxDy: 8 }) : null);
+    }
     if (!from || !to) { this.path = null; return false; }
     const p = H.nav.path(from, to, { stairs: this.finale || o.stairs, elevator: o.elevator });
     if (!p) { this.path = null; return false; }
@@ -199,7 +207,7 @@ export class Monster {
     return vis;
   }
   hear(pos, r, kind) {
-    if (!this.active || ['off', 'ride', 'kill', 'spot', 'leave'].includes(this.state)) return;
+    if (!this.active || ['off', 'ride', 'kill', 'spot', 'leave', 'recoil'].includes(this.state)) return;
     if (Math.abs(pos.y - this.pos.y) > 9) return;
     const d = pos.distanceTo(this.pos);
     let R = r * (this.rage ? 1.3 : 1);
@@ -219,7 +227,7 @@ export class Monster {
     if (this.state === 'off') { this.rig.root.visible = false; return; }
     const P = H.player;
     const A = this.anim;
-    A.gait = 'stand'; A.jaw = 0; A.reach = 0; A.spread = 0; A.crouch = 0; A.lean = 0; A.sniff = 0; A.shake = 0; A.headPitch = 0.08;
+    A.gait = 'stand'; A.jaw = 0; A.reach = 0; A.spread = 0; A.crouch = 0; A.lean = 0; A.sniff = 0; A.shake = 0; A.headPitch = 0.08; A.hunch = 0.5; A.headRoll = 0.3;
     let speed = 0;
     const vis = this.state !== 'ride' ? this.sight() : 0;
     const seen = vis > 0;
@@ -253,6 +261,11 @@ export class Monster {
         break;
       }
       case 'patrol': {
+        // at the end there's no giving up: the moment you're out of hiding he's coming again
+        if (this.finale && P && !P.hidden && P.mode === 'play' && this.st > 1.2) { this.startChase(); break; }
+        // he doesn't stay on one floor all night: after a while without finding anyone he moves on
+        this.patrolT = (this.patrolT || 0) + dt;
+        if (this.patrolT > (this.patrolMax || 75) && !this.finale && !H.story?.keepHunting?.()) { this.patrolT = 0; this.leave(); break; }
         if (this.wait > 0) { this.wait -= dt; A.headYaw = Math.sin(this.t * 0.9) * 0.9; A.headRoll = 0.25; if (this.wait <= 0) this.path = null; break; }
         if (!this.path || this.pi >= this.path.length) { if (!this._pickPatrol()) { this.wait = 2; } else if (Math.random() < 0.3) H.audio?.mHum(this.head); }
         speed = SPEED.patrol * (this.rage ? 1.15 : 1);
@@ -261,7 +274,7 @@ export class Monster {
         A.gait = 'walk'; A.headRoll = 0.12 + Math.sin(this.t * 0.4) * 0.12;
         A.headYaw = Math.sin(this.t * 0.6) * 0.5;
         this._maybeCheckNearby(dt);
-        if (this.aware >= 1) this._spot();
+        if (this.aware >= 1 && seen) this._spot();
         break;
       }
       case 'investigate': {
@@ -269,7 +282,7 @@ export class Monster {
         A.gait = 'walk'; A.hunch = 0.5; A.headPitch = 0.0;
         if (this.target) lookAt(this.target, 0.7);
         if (this._move(dt, speed) === 'done') { this._search(this.target); }
-        if (this.aware >= 1) this._spot();
+        if (this.aware >= 1 && seen) this._spot();
         break;
       }
       case 'spot': {
@@ -290,10 +303,16 @@ export class Monster {
         A.gait = 'crawl'; A.jaw = 0.35; A.hunch = 0.4;
         speed = this.finale ? this._finaleSpeed() : this.rage ? SPEED.rage : SPEED.chase;
         if (P) lookAt(P.pos, 0.9);
+        // you hear him the whole way: snarling, and at the end shrieking
+        this.raspT = (this.raspT ?? 0.8) - dt;
+        if (this.raspT <= 0) { this.raspT = rnd(2, 3.8); H.audio?.mRasp(this.head, this.finale ? 1.25 : 1); }
+        if (this.finale) { this.shriekT = (this.shriekT ?? 6) - dt; if (this.shriekT <= 0) { this.shriekT = rnd(6, 10); H.audio?.scream(this.head, 0.5); } }
         const pp = P?.pos;
         this.repath -= dt;
-        const goal = seen ? pp : this.lastSeen;
-        if (goal && (this.repath <= 0 || !this.path)) { this.repath = seen ? 0.3 : 1; this.goTo(goal); }
+        // (at the end he doesn't need to see you: he knows)
+        const goal = seen || this.finale ? pp : this.lastSeen;
+        if (goal && (this.repath <= 0 || !this.path)) { this.repath = seen ? 0.3 : this.finale ? 0.5 : 1; this.goTo(goal); }
+        if (this.finale && P?.hidden && !this.ripSpot && this.t - this.seenT > 0.8) { this._search(pp); break; }
         if (P?.hidden && this.t - this.seenT < 0.8 && !this.ripSpot) this.ripSpot = P.spot; // he saw you get in
         if (this.ripSpot) { this._rip(this.ripSpot, dt); break; }
         const res = this._move(dt, speed);
@@ -301,10 +320,10 @@ export class Monster {
         if (pp && !P.hidden && P.mode === 'play' && Math.hypot(pp.x - this.pos.x, pp.z - this.pos.z) < 2.9 && Math.abs(pp.y - this.pos.y) < 4) { this.kill(); break; }
         // the stairs are safe (until the end)
         if (!this.finale && P && H.stairBox?.containsPoint(pp) && !seen) { this._stareAtStairs(); break; }
-        if (!seen && (res === 'done' || !this.path)) {
+        if (!seen && !this.finale && (res === 'done' || !this.path)) {
           if (this.t - this.seenT > 1.5) this._search(this.lastSeen);
         }
-        if (!seen && this.t - this.seenT > 9) this._search(this.lastSeen);
+        if (!seen && !this.finale && this.t - this.seenT > 9) this._search(this.lastSeen);
         break;
       }
       case 'search': {
@@ -314,7 +333,7 @@ export class Monster {
         if (this.wait > 0) { this.wait -= dt; A.gait = 'stand'; if (this.wait <= 0) this.path = null; }
         else if (!this.path || this.pi >= this.path.length) this._nextSearch();
         else { const res = this._move(dt, speed); if (res === 'done') { if (this.pendingCheck) { this._beginCheck(this.pendingCheck); this.pendingCheck = null; } else this.wait = rnd(1, 2.5); } }
-        if (this.aware >= 0.7) this._spot(true);
+        if (this.aware >= 0.7 && seen) this._spot(true);
         if (this.st > 32) this._endSearch();
         break;
       }
@@ -354,7 +373,7 @@ export class Monster {
       }
       case 'stare': {
         A.headRoll = 0.9; A.jaw = 0.15;
-        if (this.aware >= 1) { this._spot(); break; }
+        if (this.aware >= 1 && seen) { this._spot(); break; }
         if (P) { lookAt(P.pos, 1); const want = Math.atan2(P.pos.x - this.pos.x, P.pos.z - this.pos.z); this.yaw += clamp(angDiff(want, this.yaw), -dt * 1.5, dt * 1.5); }
         if (this.st > (this.stareFor || 5)) { this.stareFor = 0; if (this.afterStare) { const f = this.afterStare; this.afterStare = null; f(); } else this.leave(); }
         break;
@@ -365,7 +384,7 @@ export class Monster {
         if (L.stage === 0) {
           speed = SPEED.patrol * 1.1;
           if (this._move(dt, speed) === 'done') { L.stage = 1; L.t = 0; L.lift.me?.setOpen(true); H.audio?.ding(L.front.p); }
-          if (this.aware >= 1) this._spot();
+          if (this.aware >= 1 && seen) this._spot();
         } else if (L.stage === 1) {
           A.gait = 'stand'; L.t += dt;
           if (L.t > 1.6) { L.stage = 2; this.path = [L.front, L.car]; this.pi = 1; }
@@ -394,10 +413,21 @@ export class Monster {
         speed = this.pathSpeed || SPEED.patrol;
         A.gait = speed > 12 ? 'crawl' : 'walk';
         if (this._move(dt, speed) === 'done') this._nextScript();
-        if (this.scr?.o.watch && this.aware >= 1) this._spot();
+        if (this.scr?.o.watch && this.aware >= 1 && seen) this._spot();
+        break;
+      }
+      case 'recoil': {
+        // the doors open on the night and he rears back from it, shrieking - the hotel won't let him out
+        const s = this.st;
+        A.gait = 'stand'; A.jaw = 1.25; A.spread = s < 1.1 ? 1 : 0.4; A.shake = s < 1.3 ? 1 : 0.3; A.hunch = 0.05; A.headPitch = -0.35; A.headRoll = 0.25 + Math.sin(this.t * 9) * 0.15;
+        const back = Math.max(0, 1 - s) * 3.2 * dt;
+        this.pos.x -= Math.sin(this.yaw) * back; this.pos.z -= Math.cos(this.yaw) * back;
+        if (P) lookAt(P.pos, 1);
+        if (s > 1.9) { this.path = null; this.startChase(); }
         break;
       }
       case 'kill': this._killFrame(dt); break;
+      case 'pose': Object.assign(A, this.poseAnim || {}); if (this.poseAnim?.gait === 'crawl' || this.poseAnim?.gait === 'walk') { this.moved = (this.poseAnim.v || 8) * dt; this.speedNow = this.poseAnim.v || 8; } break;
       default: break;
     }
     // where he's looking from
@@ -405,6 +435,7 @@ export class Monster {
     this.root.rotation.set(0, this.yaw, 0);
     this.root.visible = this.visibleBody;
     A.speed = this.speedNow / 6; A.moved = this.state === 'kill' ? 0 : (this.moved || 0); this.moved = 0;
+    A.look = P?.camPos;
     if (A.gait === 'stand') A.speed = 0;
     this.rig.update(dt, A);
     this.rig.headWorld(this.head);
@@ -441,12 +472,14 @@ export class Monster {
   }
   _spot(fromSearch = false) {
     if (this.state === 'spot' || this.state === 'chase') return;
+    this.patrolT = 0;
     this.state = 'spot'; this.st = 0; this.screamed = false; this.path = null;
     if (fromSearch) this.st = 0.5;
     H.story?.event('m:spot');
   }
   _search(around) {
     this.state = 'search'; this.st = 0; this.searching = true; this.ripSpot = null;
+    this.aware = Math.min(this.aware, 0.35);
     const at = around || this.pos;
     // the hiding places nearest where he lost you (the one you're in is likely among them)
     const spots = H.spots.filter((s) => s.node && s.node.floor === this.floor && s.front.distanceTo(at) < 26).sort((a, b) => a.front.distanceTo(at) - b.front.distanceTo(at)).slice(0, 3);
@@ -492,10 +525,18 @@ export class Monster {
     this._nextScript();
   }
   _finaleSpeed() {
+    // rubber-banded: never far behind, never quite as fast as you running flat out (you have to keep going)
     const P = H.player; if (!P) return SPEED.chase;
     const d = this.pos.distanceTo(P.pos);
-    if (H.story?.cutting) return clamp(d / 2.6, 6, 15);
-    return d > 24 ? 19.5 : d > 14 ? 16.2 : d < 7 ? 13.6 : 15.2;
+    // while you're cutting the chain he closes in - he's right at your back as it gives
+    if (H.story?.cutting) return clamp((d - 2.6) / 1.2, 1, 15);
+    return d > 20 ? 19.5 : d > 11 ? 17 : d < 6 ? 14 : 16;
+  }
+  /** The front doors swing open: he flinches back from the outside. */
+  recoil() {
+    if (!this.active || ['off', 'kill', 'recoil'].includes(this.state)) return;
+    this.state = 'recoil'; this.st = 0; this.path = null; this.ripSpot = null;
+    H.audio?.scream(this.head, 1.15);
   }
 
   // --- the end of you --------------------------------------------------------------------------------------------------------------------------
@@ -514,22 +555,23 @@ export class Monster {
     if (_v.lengthSq() > 0.1) this.killDir.copy(_v.normalize());
     P.override = { pos: this.killCam.clone(), look: this.head.clone(), fov: 66 };
     H.audio?.jumpscare();
-    H.post?.hit(1.3, 0x7a0000);
+    H.post?.hit(1.0, 0x5a0000);
     P.shake(1.6);
     H.story?.event('m:kill');
   }
   _killFrame(dt) {
     const s = this.st, A = this.anim, P = H.player;
-    A.gait = 'stand'; A.jaw = 1.25; A.reach = 1; A.spread = 0.25; A.shake = 1; A.hunch = 0.2; A.headRoll = 0.4; A.lean = 0.3;
+    A.gait = 'stand'; A.jaw = 1.25; A.reach = 1; A.spread = 0.25; A.shake = 1; A.hunch = 0.35; A.headRoll = 0.4; A.lean = 0.45; A.crouch = 0.5;
     // lunge in until his face fills your eyes
     const target = this.killCam.clone().addScaledVector(this.killDir, 1.55);
     const want = Math.atan2(this.killCam.x - this.pos.x, this.killCam.z - this.pos.z);
     this.yaw += clamp(angDiff(want, this.yaw), -dt * 20, dt * 20);
     const k = Math.min(1, s * 5);
     // place him so his head lands on target
-    this.root.position.copy(this.pos); this.root.rotation.set(0, this.yaw, 0); this.rig.update(0, A);
+    this.root.position.copy(this.pos); this.root.rotation.set(0, this.yaw, 0); A.look = this.killCam; this.rig.update(0, A);
     this.rig.headWorld(_w);
     const want2 = this.pos.clone().add(target.clone().sub(_w).multiplyScalar(k));
+    want2.y = Math.max(this.killFrom.y - 1.2, Math.min(this.killFrom.y + 1, want2.y));
     this.pos.lerp(want2, Math.min(1, dt * 18));
     if (P?.override) { P.override.look = this.head.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.06, 0.05 + (Math.random() - 0.5) * 0.06, 0)); P.override.pos = this.killCam.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.12 * (1 - s), (Math.random() - 0.5) * 0.12 * (1 - s), 0)); }
     if (s > 1.35 && !this.blacked) { this.blacked = true; H.post?.fadeOut(0.06); }
@@ -551,5 +593,5 @@ export class Apparition {
     for (let i = 0; i < 20; i++) this.rig.update(0.05, this.pose);
   }
   hide() { this.rig.root.visible = false; this.on = false; }
-  update(dt) { if (this.on) this.rig.update(dt * 0.3, this.pose); }
+  update(dt) { if (this.on) { this.pose.look = H.player?.camPos; this.rig.update(dt * 0.3, this.pose); } }
 }

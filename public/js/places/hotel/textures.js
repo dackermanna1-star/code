@@ -617,51 +617,142 @@ export function painting(kind, seed = 1) {
 /** The porcelain mask, drawn centred at (cx, cy), scale s (1 = 512 px canvas face). */
 function maskFaceDraw(x, cx, cy, s, full = true) {
   x.save(); x.translate(cx, cy); x.scale(s, s);
-  const g = x.createRadialGradient(-40, -60, 20, 0, 0, 300);
-  g.addColorStop(0, '#fbf8f2'); g.addColorStop(0.6, '#e6e0d6'); g.addColorStop(1, '#a8a296');
-  x.fillStyle = g; x.beginPath(); x.ellipse(0, 0, 200, 250, 0, 0, 7); x.fill();
-  // cheeks
-  for (const sx of [-1, 1]) { const cg = x.createRadialGradient(sx * 110, 60, 4, sx * 110, 60, 60); cg.addColorStop(0, 'rgba(210,90,90,0.35)'); cg.addColorStop(1, 'rgba(210,90,90,0)'); x.fillStyle = cg; x.beginPath(); x.arc(sx * 110, 60, 60, 0, 7); x.fill(); }
-  // high, thin painted brows
-  x.strokeStyle = '#1a1414'; x.lineWidth = 6; x.lineCap = 'round';
-  for (const sx of [-1, 1]) { x.beginPath(); x.moveTo(sx * 30, -120); x.quadraticCurveTo(sx * 90, -170, sx * 150, -110); x.stroke(); }
-  // eyes: long black hollows
-  x.fillStyle = '#050404';
+  // a long porcelain face, yellowed at the edges
+  const g = x.createRadialGradient(-30, -70, 20, 0, 0, 290);
+  g.addColorStop(0, '#fdfaf3'); g.addColorStop(0.55, '#e4ddcf'); g.addColorStop(0.85, '#b8ae98'); g.addColorStop(1, '#7a705e');
+  x.fillStyle = g; x.beginPath(); x.ellipse(0, 0, 196, 252, 0, 0, 7); x.fill();
+  // rouged cheeks, too high
+  for (const sx of [-1, 1]) { const cg = x.createRadialGradient(sx * 112, 40, 4, sx * 112, 40, 62); cg.addColorStop(0, 'rgba(200,60,70,0.45)'); cg.addColorStop(1, 'rgba(200,60,70,0)'); x.fillStyle = cg; x.beginPath(); x.arc(sx * 112, 40, 62, 0, 7); x.fill(); }
+  // thin painted brows, arched in surprise
+  x.strokeStyle = '#140e0e'; x.lineWidth = 7; x.lineCap = 'round';
+  for (const sx of [-1, 1]) { x.beginPath(); x.moveTo(sx * 26, -128); x.quadraticCurveTo(sx * 92, -190, sx * 156, -118); x.stroke(); }
+  // the eyes: big black hollows, slanted, with a ring of grime round them
   for (const sx of [-1, 1]) {
-    x.beginPath(); x.moveTo(sx * 30, -64); x.bezierCurveTo(sx * 60, -104, sx * 130, -96, sx * 156, -56); x.bezierCurveTo(sx * 120, -36, sx * 60, -34, sx * 30, -64); x.fill();
-    // a tear of black running down
-    x.beginPath(); x.moveTo(sx * 96, -40); x.quadraticCurveTo(sx * 92, 20, sx * 100, 70); x.lineTo(sx * 104, 70); x.quadraticCurveTo(sx * 100, 10, sx * 106, -40); x.fill();
+    const rg = x.createRadialGradient(sx * 92, -68, 20, sx * 92, -68, 92); rg.addColorStop(0, 'rgba(40,20,16,0.6)'); rg.addColorStop(1, 'rgba(40,20,16,0)');
+    x.fillStyle = rg; x.beginPath(); x.arc(sx * 92, -68, 92, 0, 7); x.fill();
+    x.fillStyle = '#030202';
+    x.beginPath(); x.moveTo(sx * 24, -62); x.bezierCurveTo(sx * 50, -118, sx * 140, -112, sx * 166, -52); x.bezierCurveTo(sx * 130, -24, sx * 58, -22, sx * 24, -62); x.fill();
+    // black tears running down from them
+    x.beginPath(); x.moveTo(sx * 84, -34); x.quadraticCurveTo(sx * 80, 40, sx * 90, 96); x.lineTo(sx * 98, 96); x.quadraticCurveTo(sx * 92, 30, sx * 102, -34); x.fill();
+    x.beginPath(); x.arc(sx * 94, 98, 6, 0, 7); x.fill();
   }
-  // the grin: ear to ear
-  x.fillStyle = '#7a1018';
-  x.beginPath(); x.moveTo(-170, 64); x.bezierCurveTo(-120, 150, 120, 150, 170, 64); x.bezierCurveTo(120, 126, -120, 126, -170, 64); x.fill();
-  x.fillStyle = '#0a0606';
-  x.beginPath(); x.moveTo(-160, 72); x.bezierCurveTo(-110, 140, 110, 140, 160, 72); x.bezierCurveTo(110, 120, -110, 120, -160, 72); x.fill();
-  // teeth
-  x.fillStyle = '#e8e0cc';
-  for (let i = -14; i <= 14; i++) {
-    const tx = i * 10.5, ty = 98 + (i * i) * -0.05 + 8;
-    x.beginPath(); x.moveTo(tx - 4, ty - 10 + Math.abs(i) * 0.6); x.lineTo(tx + 4, ty - 10 + Math.abs(i) * 0.6); x.lineTo(tx, ty + 2); x.fill();
-    x.beginPath(); x.moveTo(tx - 4, ty + 16 - Math.abs(i) * 0.5); x.lineTo(tx + 4, ty + 16 - Math.abs(i) * 0.5); x.lineTo(tx, ty + 4); x.fill();
+  // the grin: ear to ear, the lips painted dark red, the mouth black, full of little teeth
+  x.fillStyle = '#6a0a12';
+  x.beginPath(); x.moveTo(-182, 52); x.bezierCurveTo(-130, 172, 130, 172, 182, 52); x.bezierCurveTo(130, 128, -130, 128, -182, 52); x.fill();
+  x.fillStyle = '#050303';
+  x.beginPath(); x.moveTo(-170, 62); x.bezierCurveTo(-118, 160, 118, 160, 170, 62); x.bezierCurveTo(118, 118, -118, 118, -170, 62); x.fill();
+  x.fillStyle = '#e8e0c8';
+  for (let i = -15; i <= 15; i++) {
+    const tx = i * 10.5, up = 92 + (i * i) * -0.075 + 12, lo = 132 - (i * i) * 0.12;
+    x.beginPath(); x.moveTo(tx - 4.5, up - 8); x.lineTo(tx + 4.5, up - 8); x.lineTo(tx, up + 10); x.fill();
+    x.beginPath(); x.moveTo(tx - 4.5, lo + 6); x.lineTo(tx + 4.5, lo + 6); x.lineTo(tx, lo - 10); x.fill();
   }
+  // the corners of the mouth turn up into cuts
+  x.strokeStyle = '#3a0608'; x.lineWidth = 4;
+  for (const sx of [-1, 1]) { x.beginPath(); x.moveTo(sx * 178, 54); x.quadraticCurveTo(sx * 196, 30, sx * 190, 4); x.stroke(); }
   if (full) {
     // cracks and chips
-    x.strokeStyle = 'rgba(30,25,20,0.85)'; x.lineWidth = 3;
-    x.beginPath(); x.moveTo(-40, -250); x.lineTo(-56, -190); x.lineTo(-36, -150); x.lineTo(-70, -100); x.lineTo(-62, -70); x.stroke();
-    x.lineWidth = 2; x.beginPath(); x.moveTo(-56, -190); x.lineTo(-96, -176); x.moveTo(-36, -150); x.lineTo(-8, -136); x.lineTo(4, -110); x.stroke();
-    x.beginPath(); x.moveTo(150, 140); x.lineTo(120, 170); x.lineTo(128, 210); x.moveTo(120, 170); x.lineTo(84, 186); x.stroke();
-    x.fillStyle = 'rgba(70,60,50,0.7)'; x.beginPath(); x.moveTo(176, -40); x.lineTo(196, -30); x.lineTo(188, 10); x.lineTo(170, -6); x.fill();
+    x.strokeStyle = 'rgba(30,22,18,0.9)'; x.lineWidth = 3;
+    x.beginPath(); x.moveTo(-40, -252); x.lineTo(-56, -190); x.lineTo(-34, -150); x.lineTo(-72, -100); x.lineTo(-62, -66); x.stroke();
+    x.lineWidth = 2; x.beginPath(); x.moveTo(-56, -190); x.lineTo(-98, -176); x.moveTo(-34, -150); x.lineTo(-6, -136); x.lineTo(6, -108); x.stroke();
+    x.beginPath(); x.moveTo(150, 150); x.lineTo(120, 180); x.lineTo(128, 220); x.moveTo(120, 180); x.lineTo(84, 196); x.stroke();
+    x.fillStyle = 'rgba(60,50,40,0.75)'; x.beginPath(); x.moveTo(176, -40); x.lineTo(196, -30); x.lineTo(188, 10); x.lineTo(170, -6); x.fill();
+    // old blood, spattered on the chin
+    const r = rng(66);
+    for (let i = 0; i < 30; i++) { x.fillStyle = `rgba(90,10,12,${0.3 + r() * 0.5})`; x.beginPath(); x.arc((r() - 0.5) * 220, 170 + r() * 70, 2 + r() * 7, 0, 7); x.fill(); }
   }
   x.restore();
 }
 export function maskTexture() {
-  return canvasTex('mask', 512, 512, (x, w, h) => {
+  return canvasTex('mask2', 512, 512, (x, w, h) => {
     x.fillStyle = '#0a0808'; x.fillRect(0, 0, w, h);
     maskFaceDraw(x, w / 2, h / 2, 1, true);
     // dirt in the corners of the eyes and mouth
     const d = x.getImageData(0, 0, w, h), p = d.data, n = fbm(512, 512, 31, 8, 4);
     for (let i = 0, j = 0; i < p.length; i += 4, j++) { const k = 0.82 + n[j] * 0.3; p[i] *= k; p[i + 1] *= k * 0.98; p[i + 2] *= k * 0.95; }
     x.putImageData(d, 0, 0);
+  }, { clamp: true });
+}
+
+/** His eyes: wet, yellowed and bloodshot, a pale iris and a pinprick pupil (the iris faces +z on a sphere). */
+export function eyeball() {
+  return canvasTex('eyeball', 256, 128, (x, w, h) => {
+    const r = rng(77), cx = w * 0.25, cy = h / 2;
+    const g = x.createRadialGradient(cx, cy, 10, cx, cy, 90);
+    g.addColorStop(0, '#e6dcc0'); g.addColorStop(0.45, '#d2c09a'); g.addColorStop(0.8, '#a86a50'); g.addColorStop(1, '#5a2018');
+    x.fillStyle = '#5a2018'; x.fillRect(0, 0, w, h);
+    x.fillStyle = g; x.fillRect(0, 0, w * 0.6, h);
+    // the veins crawl in from the edges towards the iris
+    for (let i = 0; i < 26; i++) {
+      const a = r() * Math.PI * 2;
+      let px = cx + Math.cos(a) * 70, py = cy + Math.sin(a) * 50, ang = a + Math.PI;
+      x.strokeStyle = `rgba(${150 + r() * 60},${10 + r() * 20},${14 + r() * 20},${0.5 + r() * 0.4})`; x.lineWidth = 0.6 + r() * 1.6;
+      x.beginPath(); x.moveTo(px, py);
+      for (let k = 0; k < 6; k++) { ang += (r() - 0.5) * 1.1; px += Math.cos(ang) * 7; py += Math.sin(ang) * 7; x.lineTo(px, py); if (Math.hypot(px - cx, py - cy) < 22) break; }
+      x.stroke();
+    }
+    // the iris: pale and clouded, a dark rim
+    const ig = x.createRadialGradient(cx, cy, 2, cx, cy, 19);
+    ig.addColorStop(0, '#8a8050'); ig.addColorStop(0.35, '#c8c088'); ig.addColorStop(0.8, '#9a8a50'); ig.addColorStop(1, '#2a1a08');
+    x.fillStyle = ig; x.beginPath(); x.arc(cx, cy, 19, 0, 7); x.fill();
+    x.strokeStyle = 'rgba(60,40,10,0.5)'; x.lineWidth = 0.8;
+    for (let i = 0; i < 40; i++) { const a = (i / 40) * Math.PI * 2; x.beginPath(); x.moveTo(cx + Math.cos(a) * 5, cy + Math.sin(a) * 5); x.lineTo(cx + Math.cos(a) * 17, cy + Math.sin(a) * 17); x.stroke(); }
+    // the pupil: a pinprick
+    x.fillStyle = '#000'; x.beginPath(); x.arc(cx, cy, 3.2, 0, 7); x.fill();
+  }, { clamp: false });
+}
+/** The glow of his eyes in the beam (the iris only), for the emissive map. */
+export function eyeshine() {
+  return canvasTex('eyeshine', 256, 128, (x, w, h) => {
+    x.fillStyle = '#000'; x.fillRect(0, 0, w, h);
+    const cx = w * 0.25, cy = h / 2, g = x.createRadialGradient(cx, cy, 3, cx, cy, 20);
+    g.addColorStop(0, '#000'); g.addColorStop(0.2, '#fff'); g.addColorStop(0.75, '#c8b070'); g.addColorStop(1, '#000');
+    x.fillStyle = g; x.beginPath(); x.arc(cx, cy, 20, 0, 7); x.fill();
+  });
+}
+/** A soft round glow (for sprites). */
+export function glowDot() {
+  return canvasTex('glowdot', 64, 64, (x, w, h) => {
+    const g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+    g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.15, 'rgba(255,240,200,0.8)'); g.addColorStop(0.45, 'rgba(255,200,120,0.15)'); g.addColorStop(1, 'rgba(255,200,120,0)');
+    x.fillStyle = g; x.fillRect(0, 0, w, h);
+  }, { clamp: true });
+}
+/** Lank, greasy hair: strands, see-through between them (white = hair, for an alpha map). */
+export function hairStrands() {
+  return canvasTex('hair', 64, 256, (x, w, h) => {
+    const r = rng(91);
+    x.fillStyle = '#000'; x.fillRect(0, 0, w, h);
+    for (let i = 0; i < 26; i++) {
+      let px = r() * w; const wd = 1 + r() * 3.5, end = h * (0.55 + r() * 0.45);
+      x.strokeStyle = `rgba(255,255,255,${0.7 + r() * 0.3})`; x.lineWidth = wd; x.lineCap = 'round';
+      x.beginPath(); x.moveTo(px, 0);
+      for (let y = 0; y < end; y += 16) { px += (r() - 0.5) * 3; x.lineTo(Math.max(1, Math.min(w - 1, px)), y); }
+      x.stroke();
+    }
+    // a solid band at the top where it grows from the scalp
+    const g = x.createLinearGradient(0, 0, 0, 40); g.addColorStop(0, '#fff'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g; x.fillRect(0, 0, w, 40);
+  }, { linear: true, clamp: true });
+}
+/** His shirt front: once white, now yellowed - and stained from the collar down where something ran out of his mouth. */
+export function shirtBlood() {
+  return canvasTex('shirtBlood', 128, 256, (x, w, h) => {
+    const r = rng(44);
+    x.fillStyle = '#b4ac98'; x.fillRect(0, 0, w, h);
+    mottle(x, w, h, 45, 0.35, 2, 4);
+    stains(x, w, h, 6, 46, 1.4);
+    // the big stain under the collar, and drips running down from it
+    const g = x.createRadialGradient(w / 2, 6, 4, w / 2, 10, 70);
+    g.addColorStop(0, 'rgba(60,6,6,0.95)'); g.addColorStop(0.5, 'rgba(80,12,10,0.75)'); g.addColorStop(1, 'rgba(90,20,14,0)');
+    x.fillStyle = g; x.fillRect(0, 0, w, 90);
+    for (let i = 0; i < 9; i++) {
+      const px = w / 2 + (r() - 0.5) * 70, len = 60 + r() * 170, wd = 2 + r() * 6;
+      x.fillStyle = `rgba(${60 + r() * 30},${6 + r() * 8},${6 + r() * 8},${0.6 + r() * 0.35})`;
+      x.beginPath(); x.moveTo(px - wd / 2, 20); x.lineTo(px + wd / 2, 20); x.lineTo(px + wd * 0.3, len); x.arc(px, len, wd * 0.5, 0, Math.PI); x.lineTo(px - wd * 0.3, 20); x.fill();
+    }
+    for (let i = 0; i < 40; i++) { x.fillStyle = `rgba(70,8,8,${0.3 + r() * 0.5})`; x.beginPath(); x.arc(r() * w, r() * h * 0.7, 0.8 + r() * 2.5, 0, 7); x.fill(); }
+    grain(x, w, h, 0.05, 47);
   }, { clamp: true });
 }
 

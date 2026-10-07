@@ -211,7 +211,7 @@ export class Story {
     else if (!f('frontTried')) o = OBJ.lobby;
     else if (!f('power')) {
       const n = this.fusesIn + H.inv.count('fuse');
-      if (n >= 3 && this.fusesIn < 3) o = OBJ.lever;
+      if (n >= 3) o = this.fusesIn >= 3 ? 'Throw the main lever on the fuse box' : OBJ.lever;
       else if (f('boxSeen') || f('log')) o = `Find the three fuses (${n}/3)${f('log') ? ' - the office, the cold store, the piano' : ' - the maintenance log may say where'}`;
       else if (f('bTried')) o = 'The basement door has no power. Find the electrical room, behind the lobby';
       else o = 'The front doors are chained. There must be tools in the basement - take the stairs down';
@@ -229,10 +229,10 @@ export class Story {
   }
   _placeFuse(i, silent = false) {
     const O = H.obj, sl = O.fuseBox.slots[i];
-    this.set('slot' + i); this.fusesIn++;
+    this.set('slot' + i); this.set('boxSeen'); this.fusesIn++;
     const m = new THREE.Group();
     m.add(new THREE.Mesh(cylGeo(0.16, 0.16, 0.7, 10), H.M.glass), new THREE.Mesh(bake([[cylGeo(0.19, 0.19, 0.18, 10), M4(0, 0.36, 0)], [cylGeo(0.19, 0.19, 0.18, 10), M4(0, -0.36, 0)]]), H.M.brass));
-    m.position.copy(sl.pos).add(V(0, 0, 0)); H.world.scene.add(m);
+    m.position.copy(sl.pos).add(V(0, 0, 0)); H.world.scene.add(m); H.fixColors?.(m);
     if (!silent) { H.audio?.unlock(sl.pos); this.save(); this.objective(); if (this.fusesIn === 3) H.ui.toast('All three fuses are in. Now the lever.'); }
   }
   _bell() {
@@ -328,6 +328,7 @@ export class Story {
     O.front.locked = false; O.front.sealed = false;
     O.front.setOpen(true, true);
     H.player.shake(0.8);
+    H.monster?.recoil();
     this.objective();
   }
 
@@ -557,6 +558,8 @@ export class Story {
     const near = M.active ? Math.max(0, 1 - M.pos.distanceTo(pp) / 26) : 0;
     P.fear += ((M.state === 'chase' ? 1 : near) - P.fear) * Math.min(1, dt * 1.5);
     this.dread = this.area() === 'stairs' ? 0.6 : this.area() === 'basement' ? 1.4 : 1;
+    // let go of the cutters and he stops holding back
+    if (this.cutting && !P.holdIt) this.cutting = false;
     // the porch: going out of the doors
     if (this.finale && this.has('chainCut') && pp.z > 62.5 && !this.ended) this._ending();
     // the storm
@@ -573,9 +576,10 @@ export class Story {
       let v = 0; for (const [at, d, a] of seq) if (t > at && t < at + d) v = Math.max(v, a * (1 - (t - at) / d));
       L.lightning = v;
       const out = this.area() === 'outside';
-      H.world.ambient.intensity = 0.05 + (out ? 0.12 : 0) + v * (out ? 2.2 : 0.06);
+      H.world.ambient.intensity = 0.12 + (out ? 0.16 : 0) + v * (out ? 2.6 : 0.1);
+      if (H.moon) H.moon.intensity = out ? 0.45 + v * 4 : 0;
       if (t > 1.5) { this.flash = null; L.lightning = 0; }
-    } else H.world.ambient.intensity = this.area() === 'outside' ? 0.17 : 0.05;
+    } else { const out = this.area() === 'outside'; H.world.ambient.intensity = out ? 0.28 : 0.12; if (H.moon) H.moon.intensity = out ? 0.45 : 0; }
   }
   lightning(dist = 0.5) {
     this.flash = { t: 0, seq: [[0, 0.08, 1], [0.12, 0.05, 0.5], [0.22, 0.25, 0.9]] };

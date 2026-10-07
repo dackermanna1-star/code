@@ -31,6 +31,8 @@ const CSS = `
 .hh .sub i{color:#a8a090}
 .hh .hint{position:absolute;left:28px;bottom:28px;font:13px Arial,sans-serif;color:#d8d0c0;text-shadow:0 1px 2px #000;opacity:0;transition:opacity .6s;line-height:1.8}
 .hh .hint.on{opacity:.9}
+.hh.cine .obj,.hh.cine .hint,.hh.cine .inv,.hh.cine .batt,.hh.cine .bars,.hh.cine .prompt,.hh.cine .cross,.hh.cine .ring{visibility:hidden}
+.hh.scr .obj,.hh.scr .hint,.hh.scr .inv,.hh.scr .batt,.hh.scr .bars,.hh.scr .sub,.hh.scr .toast,.hh.scr .prompt,.hh.scr .cross,.hh.scr .ring{visibility:hidden}
 .hh .inv{position:absolute;right:26px;bottom:26px;display:flex;gap:8px;opacity:0;transition:opacity .6s}
 .hh .inv.on{opacity:1}
 .hh .chip{display:flex;align-items:center;gap:6px;background:rgba(10,8,6,.62);border:1px solid rgba(200,170,110,.4);border-radius:4px;padding:4px 9px 4px 6px;font-size:13px}
@@ -218,6 +220,9 @@ export class UI {
   update(dt) {
     const p = H.player;
     if (!p) return;
+    // nothing on screen but him while he has you (and in the cutscenes, but for what's said)
+    this.el.classList.toggle('cine', p.mode === 'dead' || p.mode === 'cut' || p.mode === 'end');
+    this.el.classList.toggle('scr', !!(this.deadOpen || this.endOpen));
     this.stam.classList.toggle('on', p.stamina < 0.99 && p.mode === 'play');
     this.stam.firstElementChild.style.width = `${p.stamina * 100}%`;
     this.stam.firstElementChild.style.background = p.tired ? '#c05030' : '';
@@ -339,7 +344,8 @@ export class UI {
   }
   death(line, onRetry) {
     this.deadOpen = true;
-    this._retry = () => { if (!this.deadOpen) return; this.deadOpen = false; this.deathEl.classList.remove('on'); onRetry(); };
+    this._retry = () => { if (!this.deadOpen) return; this.deadOpen = false; this.deathEl.classList.remove('on'); this.el.classList.remove('scr'); onRetry(); };
+    this.el.classList.add('scr');
     this.deathEl.innerHTML = `<h1>${line[0]}</h1><p>${line[1]}</p><div class="menu"><button class="mb" data-a="retry">Try again</button></div><div class="ctl">Space to try again</div>`;
     this.deathEl.classList.add('on', 'fadein');
     this.deathEl.querySelector('[data-a=retry]').onclick = () => this._retry();
@@ -347,6 +353,7 @@ export class UI {
   }
   ending(stats, onLeave, onAgain) {
     this.endOpen = true;
+    this.el.classList.add('scr');
     this.endEl.innerHTML = `<h1 style="font-size:46px">CHECKED OUT</h1><h2>You escaped the Ravenhurst Hotel.</h2>
       <div class="stats">Time: <b>${stats.time}</b> &nbsp;·&nbsp; Caught: <b>${stats.deaths}</b> time${stats.deaths === 1 ? '' : 's'} &nbsp;·&nbsp; Notes found: <b>${stats.notes}</b><br><i>"Thank you for staying with us. We look forward to your return."</i></div>
       <div class="menu"><button class="mb" data-a="again">Check in again</button><button class="mb dim" data-a="leave">Leave</button></div>`;

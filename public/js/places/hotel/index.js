@@ -11,7 +11,7 @@ import { sounds } from '../../engine/Sound.js';
 import { H } from './state.js';
 import * as T from './textures.js';
 import { materials } from './materials.js';
-import { Kit } from './kit.js';
+import { Kit, fixColors } from './kit.js';
 import { Lights } from './lights.js';
 import { Interact } from './interact.js';
 import { Nav } from './nav.js';
@@ -50,18 +50,23 @@ export default {
     nav.link('cB:-70', 'sD:-15', { door: O.dStairsB, stairs: true });
     H.kit.flush();
     H.lights.finalize();
+    fixColors(world.scene);
     if (!ctx.thumbnail) nav.autoLink(17);
     // the look: black, no sun, just a breath of moonlight
     world.setSkyColor(0x000000);
     world.scene.fog = new THREE.Fog(0x000000, 60, 230);
     H.lights.setFog(60, 230);
-    world.ambient.color.set(0x8494b8); world.ambient.groundColor.set(0x1a1410); world.ambient.intensity = 0.05;
+    world.ambient.color.set(0x8494b8); world.ambient.groundColor.set(0x2a2018); world.ambient.intensity = 0.12;
     world.sun.intensity = 0; world.fill.intensity = 0; world.sun.castShadow = false;
     world.scene.remove(world.sun); world.scene.remove(world.fill);
+    // moonlight, for when you're outside (it would shine through the walls, so it's off indoors)
+    H.moon = new THREE.DirectionalLight(0x8a9ad0, 0);
+    H.moon.position.set(-60, 120, 160); H.moon.target.position.set(0, 0, 40);
+    world.scene.add(H.moon, H.moon.target);
     const cam = world.camera; cam.near = 0.05; cam.far = 700; cam.fov = 70; cam.updateProjectionMatrix();
     if (ctx.thumbnail) {
       // for the place's picture: the lobby with the lights on
-      H.lights.power = true; world.ambient.intensity = 0.6;
+      H.lights.power = true; world.ambient.intensity = 0.6; H.moon.intensity = 0.4;
       H.lights.update(0.016, new THREE.Vector3(...THUMB.cam));
     }
     return { thumbnail: THUMB };
@@ -81,6 +86,8 @@ export default {
     H.monster = new Monster();
     H.story = new Story(game);
     H.atmos = new Atmos(world);
+    fixColors(world.scene); fixColors(H.post.vmScene);
+    H.fixColors = fixColors;
     H.playerName = ctx.info?.player?.name || 'Guest';
     // the engine's own bits we don't want here
     const play = sounds.play.bind(sounds);
@@ -127,7 +134,11 @@ export default {
       flag: (f) => { H.story.set(f); H.story.objective(); },
       event: (e) => H.story.event(e),
       arrive: (f = 'F3', o = {}) => H.monster.arrive(f, o),
-      stats: () => ({ tris: H.kit.stats.tris, batches: H.kit.stats.batches, colliders: H.kit.colliders.length, fixtures: H.lights.fixtures.length, nodes: H.nav.nodes.length, links: H.nav.nodes.reduce((s, n) => s + n.links.length, 0) / 2, calls: world.renderer.info.render.calls, frameTris: world.renderer.info.render.triangles }),
+      pose: (x, y, z, yaw, anim = {}) => { const M = H.monster; M.pos.set(x, y, z); M.yaw = yaw; M.path = null; M.active = true; M.visibleBody = true; M.root.visible = true; M.state = 'pose'; M.poseAnim = anim; return 1; },
+      put: (id, state = 'stare', yaw = null) => { const M = H.monster, n = H.nav.get(id); M.node = n; M.pos.copy(n.p); M.path = null; M.active = true; M.visibleBody = true; M.root.visible = true; M.state = state; M.st = 0; M.stareFor = 9999; if (yaw != null) M.yaw = yaw; return [n.p.x, n.p.y, n.p.z]; },
+      // run along a route at speed (testing): the body is moved, the camera follows
+      auto: (pts, speed = 16) => { const P = H.player; let i = 0; H.autoDone = false; const off = world.onUpdate((dt) => { const ch = P.ch; if (!ch || i >= pts.length || P.mode !== 'play') { off(); H.autoDone = true; return; } const p = ch.body.position, t = pts[i]; const dx = t[0] - p.x, dy = t[1] + 3 - p.y, dz = t[2] - p.z, L = Math.hypot(dx, dy, dz), st = speed * dt; if (L <= st) { p.set(t[0], t[1] + 3.05, t[2]); i++; } else { p.x += dx / L * st; p.y += dy / L * st; p.z += dz / L * st; } ch.body.velocity.set(0, 0, 0); P.yaw = Math.atan2(-dx, -dz); P.running = true; for (const d of H.doors) if (d.center.distanceTo(new THREE.Vector3(p.x, d.center.y, p.z)) < 4 && !d.isOpen && !d.locked) d.setOpen(true); }); return pts.length; },
+      stats: () => ({ tris: H.kit.stats.tris, batches: H.kit.stats.batches, colliders: H.kit.colliders.length, fixtures: H.lights.fixtures.length, nodes: H.nav.nodes.length, links: H.nav.nodes.reduce((s, n) => s + n.links.length, 0) / 2, calls: H.post?.info?.calls, frameTris: H.post?.info?.tris, programs: world.renderer.info.programs?.length, textures: world.renderer.info.memory.textures, geometries: world.renderer.info.memory.geometries }),
     };
   },
 
