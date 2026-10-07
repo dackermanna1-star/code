@@ -72,7 +72,7 @@ videos on **BlockTube**. Whatever you buy really gets **delivered into your worl
 | `/laptopcraft mail <player> "<subject>" <message>` | op | Send a CubeMail |
 
 ## Installing
-1. Install [Fabric Loader](https://fabricmc.net/use/) 0.19.5 or newer for Minecraft **1.21.11**.
+1. Install [Fabric Loader](https://fabricmc.net/use/) 0.17.3 or newer for Minecraft **1.21.11**.
 2. Put [Fabric API](https://modrinth.com/mod/fabric-api) and `laptopcraft-1.0.0.jar` (from `build/libs/`) into your `mods` folder.
 3. Launch the game, find the laptop in the **LaptopCraft** creative tab or craft it, place it and right-click.
 
