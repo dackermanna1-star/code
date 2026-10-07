@@ -332,9 +332,7 @@ export class Crowd {
   /** Where someone's right hand is (for holding things): a matrix. */
   handMatrix(p, out = new THREE.Matrix4()) {
     if (!p.handR) return null;
-    _q.setFromEuler(_e.set(0, p.yaw, 0));
-    out.compose(_v.set(p.x, p.y, p.z), _q, _s.set(p.scale || 1, p.scale || 1, p.scale || 1)).multiply(p.handR).multiply(_t.makeTranslation(0, -0.95, 0.1));
-    return out;
+    return out.copy(p.mats[3]).multiply(_t.makeTranslation(0, -0.95, 0.1)); // (the right arm, as drawn: lying down too)
   }
 }
 

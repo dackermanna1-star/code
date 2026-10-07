@@ -120,7 +120,7 @@ export class Session {
     this.state = 'title';
     O.input.ui = true; O.input.unlock();
     O.hour = 19.1; O.sky.setWeather('cloudy', true);
-    O.weapons.vm.visible = false; O.weapons.held.visible = false; O.post.vmVisible = false;
+    O.weapons.vm.visible = false; O.weapons.held.visible = false; O.post.vmVisible = false; O.weapons.light.intensity = 0;
     O.events.silence();
     O.menus.showTitle(!!load(SAVE));
     O.post.fadeIn(2);
@@ -315,7 +315,7 @@ export class Session {
       // your figure (seen in third person and in shadows)
       const pp = P.person;
       pp.x = P.pos.x; pp.y = P.pos.y; pp.z = P.pos.z; pp.yaw = P.yaw + Math.PI;
-      pp.invisible = !P.third;
+      pp.invisible = P.camDist < 2; // (aiming in third person goes to your eyes)
       pp.hidden = !P.alive; // (your corpse takes over)
       const ps = pp.pose;
       ps.walk = (ps.walk || 0) + dt * Math.hypot(P.vel.x, P.vel.z) * 0.6; ps.stride = Math.min(1, Math.hypot(P.vel.x, P.vel.z) / 12);
@@ -364,7 +364,7 @@ export class Session {
     }
     O.fx.update(dt);
     O.crowd.update(cam.position);
-    O.gear.update(O.player?.person, O.inv, live && O.player?.third && O.player.alive);
+    O.gear.update(O.player?.person, O.inv, live && O.player?.alive && O.player.camDist >= 2);
     this._rain(dt);
     O.audio.update(dt);
     O.hud.update(dt);

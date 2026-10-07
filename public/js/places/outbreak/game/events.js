@@ -448,7 +448,8 @@ export class Events {
   }
   _release(spot, y) {
     const g = crateModel();
-    g.position.set(spot.x, y, spot.z);
+    const fall = (y - spot.y) / 9; // seconds in the air
+    g.position.set(spot.x, y, spot.z - (O.sky.w.wind || 0.3) * 3 * fall);
     this.world.scene.add(g);
     this.drops.push({ x: spot.x, z: spot.z, y, ground: spot.y, group: g, vy: -9, landed: false, t: 0 });
   }

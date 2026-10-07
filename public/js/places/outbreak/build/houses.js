@@ -217,7 +217,7 @@ export function hay(K, x, y, z) {
   K.cyl(x, y, z, 1.9, 3.4, mat('fabric', 0xd8b868), { seg: 10, top: mat('fabric', 0xc8a050), mat: 'cloth', foot: true });
 }
 
-/** A ladder: rungs between two rails, height h, climbed (by the player) facing -z of its frame. */
+/** A ladder: rungs between two rails, height h, climbed (by the player) from the -z side of its frame, facing +z. */
 export function ladder(K, x, y, z, h, yaw = 0) {
   K.push(x, y, z, yaw);
   for (const s of [-1, 1]) K.box(s * 0.8, h / 2, 0, 0.12, h / 2, 0.12, S.fascia, { col: false });

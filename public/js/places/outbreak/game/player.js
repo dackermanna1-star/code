@@ -209,7 +209,10 @@ export class Player {
       // over the right shoulder, pulled in if a wall's in the way
       const back = new THREE.Vector3(0, 0, 1).applyQuaternion(cam.quaternion);
       const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
-      const o = new THREE.Vector3(px, eye.y + 0.6, pz).addScaledVector(right, 1.6 * Math.min(1, this.camDist / 7.5));
+      let side = 1.6 * Math.min(1, this.camDist / 7.5);
+      const hs = O.phys.ray(px, eye.y + 0.6, pz, right.x, right.y, right.z, side + 0.4, { skip: (b) => b.noStand && b.y > eye.y + 4 });
+      if (hs) side = Math.max(0, hs.d - 0.4);
+      const o = new THREE.Vector3(px, eye.y + 0.6, pz).addScaledVector(right, side);
       let d = this.camDist;
       const h = O.phys.ray(o.x, o.y, o.z, back.x, back.y, back.z, d + 0.5, { skip: (b) => b.noStand && b.y > o.y + 4 });
       if (h) d = Math.max(0.3, h.d - 0.6);
@@ -242,10 +245,10 @@ export class Player {
       return;
     }
   }
-  /** Onto a ladder (from the top: a little way down it). Its climbing side is the frame's +z. */
+  /** Onto a ladder (from the top: a little way down it). You climb on the frame's -z side. */
   grab(l, fromTop = false) {
     this.ladder = l; this.stance = 'stand';
-    this.ladderSide = [Math.sin(l.yaw || 0), Math.cos(l.yaw || 0)];
+    this.ladderSide = [-Math.sin(l.yaw || 0), -Math.cos(l.yaw || 0)]; // you hang on its -z side; the top steps off to +z
     if (fromTop) { this.pos.set(l.x + this.ladderSide[0] * 1.15, l.y + l.h - 2.2, l.z + this.ladderSide[1] * 1.15); this.yaw = Math.atan2(this.ladderSide[0], this.ladderSide[1]); }
     this.vel.set(0, 0, 0);
     O.audio?.ladder();
@@ -293,7 +296,7 @@ export class Player {
     // bodies
     if (!best) {
       const body = O.bodies?.lookAt(e, d, reach);
-      if (body) best = { kind: 'body', body };
+      if (body && Math.hypot(body.x - e.x, body.y + 0.6 - e.y, body.z - e.z) < wallD + 1.5) best = { kind: 'body', body };
     }
     // wells and pumps (water)
     if (!best && hit && hit.box && hit.box.well) best = { kind: 'well' };

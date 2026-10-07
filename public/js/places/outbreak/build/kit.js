@@ -503,14 +503,14 @@ export class Kit {
     const cen = this.world(x, y, z, [0, 0, 0]);
     // the hinge: one end of the doorway
     const hx = cen[0] + hs * (w / 2) * c, hz = cen[2] - hs * (w / 2) * s;
-    const D = { id: this.doors.length, b: this.cur?.id ?? -1, kind, x: cen[0], y: cen[1], z: cen[2], hx, hz, yaw, w, h, hinge: hs, open: o.open ?? (this.r() < 0.25 ? 1 : 0), target: 0, side: o.side ?? 1, locked: !!o.locked, hp: kind === 'metal' ? 220 : kind === 'gate' ? 160 : 100, box: null, link: o.link || null };
+    const D = { id: this.doors.length, b: this.cur?.id ?? -1, kind, x: cen[0], y: cen[1], z: cen[2], hx, hz, yaw, w, h, hinge: hs, open: o.open ?? (this.r() < 0.25 ? 1 : 0), target: 0, side: o.side ?? 1, locked: !!o.locked, hp: kind === 'metal' ? 220 : kind === 'gate' ? 160 : kind === 'glass' ? 40 : kind === 'plank' ? 70 : 110, box: null, link: o.link || null };
     D.target = D.open;
     if (o.link) o.link.door = D;
     this.doors.push(D);
     this.cur?.doors.push(D);
     return D;
   }
-  /** A ladder (local base point, height h): climbed facing the frame's -z. */
+  /** A ladder (local base point, height h): climbed from the frame's -z side, facing +z (where the top lets you off). */
   ladderAt(x, y, z, h) {
     const p = this.world(x, y, z, [0, 0, 0]);
     const L = { x: p[0], y: p[1], z: p[2], h, yaw: this.w.yaw, b: this.cur?.id ?? -1 };

@@ -77,7 +77,7 @@ export function tower(K, s) {
   for (const [x0, z0, x1, z1] of [[-hw, hw - 0.3, hw, hw], [-hw, -hw, hw, -hw + 0.3], [hw - 0.3, -hw + 0.3, hw, hw - 0.3]]) K.span(x0, H + 0.6, z0, x1, H + 3.6, z1, camp ? plank : mat('planks', 0x8a9a7a), {});
   K.span(-hw, H + 0.6, -hw + 0.3, -hw + 0.3, H + 3.6, hw - 2.4, plank, {}); // leave a gap for the ladder
   K.quad([-hw - 1, H + 6.6, hw + 1], [hw + 1, H + 6.6, hw + 1], [hw + 1, H + 7.6, -hw - 1], [-hw - 1, H + 7.6, -hw - 1], camp ? mat('planks', 0x8a7a60) : mat('metalRust'), { back: S.fascia });
-  if (!camp) sandbags(K, -hw + 0.8, hw - 1.2, hw - 0.8, hw - 1.2, 2, { y: H + 0.6 });
+  if (!camp) sandbags(K, -hw + 3.4, hw - 1.2, hw - 0.8, hw - 1.2, 2, { y: H + 0.6 }); // (clear of the top of the ladder)
   ladder(K, -hw - 0.3, 0, hw - 1.3, H + 0.6, Math.PI / 2);
   K.room(-hw, -hw, hw, hw, H + 0.6, 6, 'tower');
   K.lootAt(0, H + 0.65, 0, camp ? 'hunting' : 'military', { spread: 2 });

@@ -178,7 +178,7 @@ export class Survival {
   status() {
     return { health: this.health / 100, blood: this.blood / 100, energy: this.energy / 100, water: this.water / 100, heat: this.heat, wet: this.wet, wounds: this.wounds, brokenLeg: this.brokenLeg, sick: this.sick, pain: this.pain > 0 && this.painkiller <= 0 };
   }
-  save() { const { health, blood, energy, water, heat, wet, wounds, brokenLeg, sick, painkiller, morphine, vitamins } = this; return { health, blood, energy, water, heat, wet, wounds, brokenLeg, sick, painkiller, morphine, vitamins }; }
+  save() { const { health, blood, energy, water, heat, wet, wounds, brokenLeg, sick, painkiller, morphine, vitamins, clean } = this; return { health, blood, energy, water, heat, wet, wounds, brokenLeg, sick, painkiller, morphine, vitamins, clean }; }
   load(o) { Object.assign(this, o || {}); this.alive = this.health > 0 && this.blood > 0; }
 }
 

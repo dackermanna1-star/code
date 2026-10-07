@@ -1,5 +1,4 @@
-// What you're wearing and carrying, on your figure: seen in third person, in
-// your shadow and on your body after you die. A helmet, cap, beanie or fur
+// What you're wearing and carrying, on your figure, seen in third person. A helmet, cap, beanie or fur
 // hat on the head; a vest over the shirt; a backpack sized to its capacity;
 // the gun in your hands and the long gun or melee weapon slung on your back.
 // Each piece follows a limb's matrix from the crowd every frame.

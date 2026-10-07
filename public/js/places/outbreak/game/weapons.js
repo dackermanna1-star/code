@@ -155,7 +155,7 @@ export class Hands {
     this.kickV += (-this.kick * 60 - this.kickV * 14) * dt;
     this.kick += this.kickV * dt;
     // hotbar and holster
-    for (let i = 0; i < 9; i++) if (input.pressed.has(String(i + 1))) { const h = O.inv.hot(i); if (h) { if (h === it) this.holster(); else this.take(h); } }
+    for (let i = 0; i < 9; i++) if (input.pressed.has('code:Digit' + (i + 1)) || input.pressed.has(String(i + 1))) { const h = O.inv.hot(i); if (h) { if (h === it) this.holster(); else this.take(h); } }
     if (input.pressed.has('h')) this.holster();
     if (input.pressed.has('b') && d?.auto) { this.fireMode = this.fireMode === 'auto' ? 'semi' : 'auto'; playMech('slide'); O.hud?.note(this.fireMode === 'auto' ? 'Full auto' : 'Single shot', 1.2); }
     if (input.pressed.has('l')) this.toggleLight();
@@ -357,7 +357,7 @@ export class Hands {
   /** The light you have: a flashlight in your hands, or the head torch you're wearing. */
   lightSource() {
     const h = this.item, head = O.inv.slots.head;
-    if (h && def(h).light) return h;
+    if (h && def(h).light && (h.on || !head?.on || !def(head).light)) return h;
     if (head && def(head).light) return head;
     return null;
   }
@@ -456,7 +456,7 @@ export class Hands {
     if (d.gun) {
       out.ammo = d.internal ? it.rounds + (it.chamber ? 1 : 0) : (it.mag ? it.mag.n : 0) + (it.chamber ? 1 : 0);
       out.cap = d.internal || (it.mag ? ITEMS[it.mag.id].cap : 0);
-      out.spare = d.internal ? O.inv.rounds(d.cal) : O.inv.magsFor(d).filter((m) => m !== it.mag).length;
+      out.spare = d.internal ? O.inv.rounds(d.cal) : O.inv.magsFor(d).filter((m) => m !== it.mag && m.n > 0).length;
       out.spareKind = d.internal ? 'rounds' : 'mags';
       out.loose = O.inv.rounds(d.cal);
       out.fire = d.auto ? this.fireMode : d.pump ? 'pump' : d.bolt ? 'bolt' : 'semi';
