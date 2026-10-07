@@ -474,6 +474,11 @@ function ensureExtraPlaces(state) {
     desc: 'Get in the elevator. The doors close, and up you go - stopping at 10 random floors out of 30 on the way to the top. A beach. A room where the floor is lava. A disco. The moon. A jungle temple. A minefield. A museum where the statues move when you look away. A bowling lane where YOU are the pins. Step out and look around if you dare, but get back in before the doors close! Every floor has a secret bonus. Make it to the penthouse to finish the ride. (Click the buttons by the door: one holds the doors for your friends.)',
     created: now - 0.05 * DAY, updated: now - 0.002 * DAY, visits: 2788, favorited: 455, online: 63, playedRecent: 1655, script: 'elevator', maxPlayers: 12,
   });
+  add(3104576, {
+    name: 'The Outbreak',
+    desc: 'South Karevia, three weeks after the outbreak. You wake on the coast with a shirt, a flashlight and one bandage. Find food and water. Find a weapon. The dead walk the towns, bandits hold the roads, and the military base in the hills is full of guns - and the dead soldiers who carried them. Melee and gunfights, looting, hunger, thirst, bleeding, broken legs, a day and night cycle and weather. When you die, you lose everything. How long can you last?',
+    created: now - 0.02 * DAY, updated: now - 0.001 * DAY, visits: 4120, favorited: 802, online: 117, playedRecent: 2903, script: 'outbreak', maxPlayers: 1,
+  });
   return added;
 }
 

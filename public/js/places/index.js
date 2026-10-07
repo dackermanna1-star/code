@@ -17,6 +17,7 @@ export const PLACES = {
   megaobby: () => import('./megaobby/index.js'),
   hotel: () => import('./hotel/index.js'),
   elevator: () => import('./elevator/index.js'),
+  outbreak: () => import('./outbreak/index.js'),
 };
 
 export async function loadPlace(script) {

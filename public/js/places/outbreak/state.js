@@ -1,0 +1,3 @@
+// Shared state for the Outbreak (one game at a time), so the modules can
+// find each other: O.world, O.terrain, O.player, O.ui ...
+export const O = {};
