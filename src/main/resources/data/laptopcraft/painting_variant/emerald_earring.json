@@ -1,0 +1,15 @@
+{
+  "asset_id": "laptopcraft:emerald_earring",
+  "author": {
+    "color": "gray",
+    "translate": "painting.laptopcraft.emerald_earring.author",
+    "fallback": "Johannes Ver-Miner"
+  },
+  "height": 2,
+  "title": {
+    "color": "yellow",
+    "translate": "painting.laptopcraft.emerald_earring.title",
+    "fallback": "Villager with an Emerald Earring"
+  },
+  "width": 2
+}

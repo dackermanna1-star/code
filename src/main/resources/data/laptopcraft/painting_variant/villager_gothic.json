@@ -1,0 +1,15 @@
+{
+  "asset_id": "laptopcraft:villager_gothic",
+  "author": {
+    "color": "gray",
+    "translate": "painting.laptopcraft.villager_gothic.author",
+    "fallback": "Grant Oakwood"
+  },
+  "height": 2,
+  "title": {
+    "color": "yellow",
+    "translate": "painting.laptopcraft.villager_gothic.title",
+    "fallback": "Villager Gothic"
+  },
+  "width": 2
+}

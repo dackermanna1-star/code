@@ -1,0 +1,15 @@
+{
+  "asset_id": "laptopcraft:diamond_still_life",
+  "author": {
+    "color": "gray",
+    "translate": "painting.laptopcraft.diamond_still_life.author",
+    "fallback": "Paul Cobblezanne"
+  },
+  "height": 2,
+  "title": {
+    "color": "yellow",
+    "translate": "painting.laptopcraft.diamond_still_life.title",
+    "fallback": "Still Life with Diamond Ore"
+  },
+  "width": 2
+}

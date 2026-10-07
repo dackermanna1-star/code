@@ -1,0 +1,15 @@
+{
+  "asset_id": "laptopcraft:cherry_grove_dawn",
+  "author": {
+    "color": "gray",
+    "translate": "painting.laptopcraft.cherry_grove_dawn.author",
+    "fallback": "Utagawa Hirobiome"
+  },
+  "height": 2,
+  "title": {
+    "color": "yellow",
+    "translate": "painting.laptopcraft.cherry_grove_dawn.title",
+    "fallback": "Cherry Grove at Dawn"
+  },
+  "width": 3
+}

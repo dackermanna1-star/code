@@ -1,0 +1,15 @@
+{
+  "asset_id": "laptopcraft:persistence_of_mining",
+  "author": {
+    "color": "gray",
+    "translate": "painting.laptopcraft.persistence_of_mining.author",
+    "fallback": "Salvador Dallay"
+  },
+  "height": 2,
+  "title": {
+    "color": "yellow",
+    "translate": "painting.laptopcraft.persistence_of_mining.title",
+    "fallback": "The Persistence of Mining"
+  },
+  "width": 3
+}

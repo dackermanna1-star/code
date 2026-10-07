@@ -1,0 +1,15 @@
+{
+  "asset_id": "laptopcraft:dragon_sunset",
+  "author": {
+    "color": "gray",
+    "translate": "painting.laptopcraft.dragon_sunset.author",
+    "fallback": "J.M.W. Turnip"
+  },
+  "height": 2,
+  "title": {
+    "color": "yellow",
+    "translate": "painting.laptopcraft.dragon_sunset.title",
+    "fallback": "Ender Dragon Sunset"
+  },
+  "width": 4
+}

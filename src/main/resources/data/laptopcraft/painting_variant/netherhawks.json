@@ -1,0 +1,15 @@
+{
+  "asset_id": "laptopcraft:netherhawks",
+  "author": {
+    "color": "gray",
+    "translate": "painting.laptopcraft.netherhawks.author",
+    "fallback": "Edward Hoglin"
+  },
+  "height": 2,
+  "title": {
+    "color": "yellow",
+    "translate": "painting.laptopcraft.netherhawks.title",
+    "fallback": "Netherhawks"
+  },
+  "width": 3
+}

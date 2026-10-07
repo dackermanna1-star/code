@@ -1,0 +1,15 @@
+{
+  "asset_id": "laptopcraft:great_wave",
+  "author": {
+    "color": "gray",
+    "translate": "painting.laptopcraft.great_wave.author",
+    "fallback": "Katsushika Hokusquid"
+  },
+  "height": 2,
+  "title": {
+    "color": "yellow",
+    "translate": "painting.laptopcraft.great_wave.title",
+    "fallback": "The Great Wave"
+  },
+  "width": 3
+}

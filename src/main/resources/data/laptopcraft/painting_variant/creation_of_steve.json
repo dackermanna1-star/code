@@ -1,0 +1,15 @@
+{
+  "asset_id": "laptopcraft:creation_of_steve",
+  "author": {
+    "color": "gray",
+    "translate": "painting.laptopcraft.creation_of_steve.author",
+    "fallback": "Michelangelo Buonarr-oak-ti"
+  },
+  "height": 1,
+  "title": {
+    "color": "yellow",
+    "translate": "painting.laptopcraft.creation_of_steve.title",
+    "fallback": "The Creation of Steve"
+  },
+  "width": 4
+}
