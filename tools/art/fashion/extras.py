@@ -14,10 +14,10 @@ def sunglasses_overlay(w=256, h=256):
     top = np.array([42, 30, 70], np.float32)
     bottom = np.array([150, 80, 40], np.float32)
     rgb = top[None, None, :] * (1 - v[..., None]) + bottom[None, None, :] * v[..., None]
-    alpha = 92 - 62 * v                                   # 92 at the top, 30 at the bottom
+    alpha = 80 - 56 * v                                   # 80 at the top, 24 at the bottom
     d = np.sqrt(((u - 0.5) / 0.5) ** 2 + ((v - 0.5) / 0.5) ** 2) / np.sqrt(2)
-    alpha += np.clip(d - 0.55, 0, 1) * 220                # vignette towards the corners
-    alpha = np.clip(alpha, 0, 200)
+    alpha += np.clip(d - 0.55, 0, 1) * 200                # vignette towards the corners
+    alpha = np.clip(alpha, 0, 150)
     img = np.dstack([rgb, alpha]).round().astype(np.uint8)
     return Image.fromarray(img, "RGBA")
 

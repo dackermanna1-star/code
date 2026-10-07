@@ -506,8 +506,8 @@ def flower_crown():
         spots.append((x / m * r, z / m * r))
     for k, (x, z) in enumerate(spots):
         petal, centre = flowers[(k * 5) % len(flowers)]
-        big = 0.95 if k % 3 else 1.15
-        y0 = 8.35
+        big = 1.1 if k % 3 else 1.3
+        y0 = 8.4 + 0.13 * (k % 3)   # staggered so overlapping petals never share a plane (no z-fighting)
         petal_c = rgb(petal)
 
         def petal_paint(t, petal_c=petal_c, cx=x, cz=z):
@@ -520,7 +520,7 @@ def flower_crown():
 
         rot = {"axis": "y", "angle": 45 if k % 2 else 0, "origin": (x, y0, z)}
         boxes.append(Box((x - big, y0, z - big), (x + big, y0 + 0.55, z + big), petal_paint, density=2, rot=rot, name="petals"))
-        boxes.append(Box((x - big * 0.42, y0 + 0.55, z - big * 0.42), (x + big * 0.42, y0 + 0.95, z + big * 0.42),
+        boxes.append(Box((x - big * 0.4, y0 + 0.55, z - big * 0.4), (x + big * 0.4, y0 + 1.0, z + big * 0.4),
                          gem(centre), faces=NO_DOWN, density=2, rot=dict(rot), name="centre"))
         # a leaf poking out between flowers
         if k % 2 == 0:
@@ -812,7 +812,7 @@ def headphones():
     corner_r = Box((3.2, 8.2, -0.85), (4.9, 8.9, 0.85), band, rot={"axis": "z", "angle": -42, "origin": (3.55, 8.55, 0)},
                    name="corner_r")
     right = [
-        Box((4.62, 5.4, -0.75), (5.32, 7.9, 0.75), band, name="side_r"),
+        Box((4.62, 6.0, -0.75), (5.32, 7.9, 0.75), band, faces=SIDES, name="side_r"),
         corner_r,
         Box((4.55, 2.1, -2.05), (5.35, 6.0, 2.05), pad, name="cushion_r"),
         Box((5.35, 2.4, -1.75), (6.55, 5.7, 1.75), shell, name="cup_r"),
