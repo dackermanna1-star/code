@@ -81,14 +81,22 @@ export class Gear {
     return info.group;
   }
 
+  /** Something that isn't a gun, held in the fist: its long side pointing out ahead of the hand. */
+  _held(it) {
+    const m = itemModel(it), g = new THREE.Group();
+    m.rotation.set(0, -Math.PI / 2, 0); m.position.set(0, 0, 0.35);
+    g.add(m);
+    g.scale.setScalar(1 / 0.92);
+    return g;
+  }
   /** person: the figure (its limb matrices are fresh from the crowd); show: whether to draw it all. */
   update(person, inv, show) {
     const s = inv?.slots || {};
-    const hands = s.hands && def(s.hands).gun ? s.hands : null;
+    const hands = s.hands || null;
     // a rifle or melee weapon not in your hands hangs across your back
     const slungIt = s.shoulder && s.shoulder !== s.hands ? s.shoulder : s.melee && s.melee !== s.hands ? s.melee : null;
     const head = this._set('head', s.head, headModel), vest = this._set('vest', s.vest, vestModel), back = this._set('back', s.back, packModel);
-    const gun = this._set('hands', hands, (it) => this._gun(it));
+    const gun = this._set('hands', hands, (it) => (def(it).gun ? this._gun(it) : this._held(it)));
     const slung = this._set('slung', slungIt, (it) => (def(it).gun ? this._gun(it) : itemModel(it)));
     const vis = show && person && !person.hidden && !person.culled && person.mats;
     for (const g of [head, vest, back, gun, slung]) if (g) g.visible = !!vis;
@@ -97,7 +105,7 @@ export class Gear {
     put(head, person.mats[0], _t.makeTranslation(0, 0.18, 0));
     put(vest, person.mats[1]);
     put(back, person.mats[1]);
-    if (gun) { const hm = O.crowd.handMatrix(person, new THREE.Matrix4()); if (hm) put(gun, hm, FIX); else gun.visible = false; }
+    if (gun) { const hm = O.crowd.handMatrix(person, new THREE.Matrix4()); if (hm) put(gun, hm, def(hands).gun ? FIX : null); else gun.visible = false; }
     if (slung) {
       // across the back, muzzle up and to the left
       const m = _t.makeTranslation(0.1, 0.1, back ? -1.45 : -0.75).multiply(_r.makeRotationZ(-0.85)).multiply(new THREE.Matrix4().makeRotationY(Math.PI / 2));

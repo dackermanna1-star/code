@@ -131,6 +131,8 @@ function buildAtlas() {
     const camoK = k % 3 === 0;
     add('b' + k, { skin: pick(SKIN), hair: pick(HAIR), face: k % 2 ? 'mask' : 'human', maskCol: pick(['#1e1e1e', '#3a4a2a', '#4a3a2a']), beard: r() < 0.5, shirt: camoK ? '#5a6a3a' : pick(['#2a2a2a', '#3a3a32', '#4a3a2a', '#2a3a2a']), pattern: camoK ? 'camo' : 'vest', vestCol: pick(['#3a3a2a', '#2a2a2a', '#4a4a3a']), pants: camoK ? '#5a6a3a' : pick(['#2a2a2a', '#3a3a2a', '#3a4a6a']), pantsPattern: camoK ? 'camo' : null, sleeves: 'long', gloves: '#1e1e1e', pack: r() < 0.6 ? pick(['#4a5a3a', '#5a4a3a']) : null, blood: r() < 0.3 ? 0.2 : 0 });
   }
+  // your bodies from earlier lives, each in what it died in
+  for (let k = 0; k < 3; k++) add('pc' + k, { skin: '#e0b896', shirt: '#d8d0b8', pants: '#3a4a6a', hair: '#3a2a1a', face: 'human', sleeves: 'short' });
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.anisotropy = 4;
   atlas = { canvas: c, g, tex: t };
@@ -140,10 +142,10 @@ export const ZOMBIE_OUTFITS = () => Object.keys(OUTFITS).filter((k) => k[0] === 
 export const BANDIT_OUTFITS = () => Object.keys(OUTFITS).filter((k) => k[0] === 'b');
 export function zombieKind(name) { return _cells[OUTFITS[name]]?.zkind || 'civ'; }
 
-/** Repaint the player's outfit from what they're wearing. */
-export function paintPlayer(o) {
+/** Repaint the player's outfit (or one of their old bodies') from what they're wearing. */
+export function paintPlayer(o, name = 'player') {
   const A = buildAtlas();
-  paint(A.g, OUTFITS.player, { skin: '#e0b896', hair: '#3a2a1a', face: 'human', sleeves: 'short', seed: 5, ...o });
+  paint(A.g, OUTFITS[name], { skin: '#e0b896', hair: '#3a2a1a', face: 'human', sleeves: 'short', seed: 5, ...o });
   A.tex.needsUpdate = true;
 }
 

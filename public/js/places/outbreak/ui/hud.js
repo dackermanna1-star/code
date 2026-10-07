@@ -138,6 +138,7 @@ export class Hud {
       this._hot();
     }
     // compass: your heading
+    this.comp.style.opacity = O.inv?.find((it) => it.id === 'compass') ? 1 : 0;
     const deg = ((-P.yaw * 180 / Math.PI) % 360 + 360) % 360;
     this.strip.style.left = (210 - (deg + 360) * 3) + 'px';
     // notes fade

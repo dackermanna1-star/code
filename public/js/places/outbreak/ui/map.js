@@ -25,7 +25,7 @@ export class MapUI {
     ].map(([c, t]) => `<div><span style="display:inline-block;width:18px;height:4px;background:${c};vertical-align:middle;margin-right:8px"></span>${t}</div>`).join('') + '<div style="margin-top:6px;color:#8a867c">Drag to move · Wheel to zoom · M to close</div>';
   }
   get isOpen() { return !this.el.classList.contains('hide'); }
-  open() { this.el.classList.remove('hide'); if (!this.img) this._render(); this.cx = O.player.pos.x; this.cz = O.player.pos.z; this.draw(); }
+  open() { this.el.classList.remove('hide'); if (!this.img) this._render(); if (O.inv?.find((it) => it.id === 'map')) { this.cx = O.player.pos.x; this.cz = O.player.pos.z; } this.draw(); }
   /** Keep the map on the screen: no empty space past its edges (or centred, when it's smaller than the screen). */
   _clamp() {
     const s = this._scale() / PX * CELL, W = innerWidth, H = innerHeight, S = this.S;
@@ -133,13 +133,17 @@ export class MapUI {
     g.imageSmoothingEnabled = true;
     g.drawImage(this.img, 0, 0);
     g.restore();
-    // you
+    // you (if you have a map of your own to find yourself on)
     const P = O.player;
+    const hasMap = !!O.inv?.find((it) => it.id === 'map');
+    this.el.querySelector('.title').textContent = hasMap ? 'South Karevia' : 'South Karevia  ·  find a map to see where you are';
+    if (hasMap) {
     const px = W / 2 + ((P.pos.x + HALF) / CELL * PX - mx) * s, pz = H / 2 + ((P.pos.z + HALF) / CELL * PX - mz) * s;
     g.save(); g.translate(px, pz); g.rotate(-P.yaw);
     g.fillStyle = '#e0483a'; g.strokeStyle = '#fff'; g.lineWidth = 2;
     g.beginPath(); g.moveTo(0, -14); g.lineTo(9, 10); g.lineTo(0, 5); g.lineTo(-9, 10); g.closePath(); g.fill(); g.stroke();
     g.restore();
+    }
     // where your old body lies
     for (const b of O.bodies.list) if (b.player) { const bx = W / 2 + ((b.x + HALF) / CELL * PX - mx) * s, bz = H / 2 + ((b.z + HALF) / CELL * PX - mz) * s; g.fillStyle = '#e8c070'; g.font = '700 16px Arial'; g.textAlign = 'center'; g.fillText('✖', bx, bz + 6); }
     // scale bar: 300 m

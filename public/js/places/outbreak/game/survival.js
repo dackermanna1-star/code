@@ -105,8 +105,8 @@ export class Survival {
     const a = armor * (1 - (o.armorPierce || 0));
     const dmg = amount * (1 - a);
     if (a > 0 && O.inv) { const it = o.part === 'head' ? O.inv.slots.head : O.inv.slots.vest; if (it) it.cond = Math.max(0, it.cond - amount * 0.004); }
-    this.health -= dmg;
-    this.blood -= o.blood !== undefined ? o.blood * (1 - a) : dmg * 0.35;
+    this.health = Math.max(0, this.health - dmg);
+    this.blood = Math.max(0, this.blood - (o.blood !== undefined ? o.blood * (1 - a) : dmg * 0.35));
     if (Math.random() < (o.bleed ?? 0.3) * (1 - a * 0.7)) { this.wounds = Math.min(6, this.wounds + 1); }
     if (o.part === 'leg' && dmg > 25 && Math.random() < 0.25) this.breakLeg();
     this.cause = o.cause || this.cause;

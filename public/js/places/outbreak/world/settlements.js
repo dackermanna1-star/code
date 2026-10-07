@@ -217,7 +217,7 @@ export function planSites(T) {
     if (s.noFlatten) { s.y = T.heightAt(s.x, s.z); continue; }
     const g = lotOK(T, s.x, s.z, s.w / 2, s.d / 2, s.yaw, { road: 9, coast: -1e9, drop: 1e9 });
     s.y = g ? Math.max(g.avg, g.hi - 1.0) : s.y;
-    T.clearGrass(s.x, s.z, s.w / 2, s.d / 2, s.yaw, 1.5);
+    T.clearGrass(s.x, s.z, s.w / 2, s.d / 2, s.yaw, 3.5); // (the mask is a 4-stud grid, blended: clear well past the walls)
   }
   T.updateSlope?.();
   return { sites, props, lots };

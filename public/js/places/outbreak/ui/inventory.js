@@ -56,6 +56,7 @@ export class InventoryUI {
       for (const it of b.items) { const sp = bg.space(it); if (sp) { it.x = sp[0]; it.y = sp[1]; it.rot = sp[2]; bg.items.push(it); } }
       bg.h = Math.max(2, bg.items.reduce((m, it) => Math.max(m, it.y + size(it)[1]), 0));
       this._section(vic, b.name, null, bg, { type: 'body', body: b });
+      for (const it of b.items) if (it.grid?.items.length) this._section(vic, def(it).name, it, it.grid, { type: 'body', body: b, grid: it.grid });
     }
     // --- your clothes and their pockets -------------------------------------------------------------------------------------------
     for (const s of ['torso', 'legs', 'vest', 'back']) {
@@ -180,8 +181,12 @@ export class InventoryUI {
   /** Where would it go if dropped here? */
   _target(ev) {
     const D = this.drag;
+    if (!D) return null;
     const el = document.elementFromPoint(ev.clientX, ev.clientY);
     if (!el) return null;
+    // onto something it goes with (a sight onto the rifle on your shoulder) comes before the slot it's in
+    const onto = el.closest('.ob-it');
+    if (onto && onto._it !== D.it && combineWith(D.it, onto._it)) return { type: 'onto', it: onto._it, src: onto._src, el: onto };
     const slot = el.closest('.ob-slot');
     if (slot?.dataset.slot) return { type: 'slot', slot: slot.dataset.slot, el: slot };
     if (slot?.dataset.hot !== undefined) return { type: 'hot', i: +slot.dataset.hot, el: slot };
@@ -214,10 +219,10 @@ export class InventoryUI {
   _up(ev) {
     const D = this.drag;
     if (!D) return;
+    const t = D.moved ? this._target(ev) : null;
     this._cancelDrag();
     if (!D.moved) return;
-    const t = this._target(ev);
-    if (t) this.moveTo(D.it, D.src, t, D.rot);
+    if (t) { this.moveTo(D.it, D.src, t, D.rot); O.session?.spill(D.it); }
     this.render(); O.hud?.changed();
   }
 
@@ -225,13 +230,13 @@ export class InventoryUI {
   /** Take an item out of where it is (ground, body, inventory). */
   _lift(it, src) {
     if (src.type === 'ground') { const w = O.loot.items.find((q) => q.it === it); if (w) O.loot.take(w); O.audio?.pickup(); return true; }
-    if (src.type === 'body') { const i = src.body.items.indexOf(it); if (i >= 0) src.body.items.splice(i, 1); O.audio?.pickup(); return true; }
+    if (src.type === 'body') { if (src.grid?.items.includes(it)) src.grid.take(it); else { const i = src.body.items.indexOf(it); if (i >= 0) src.body.items.splice(i, 1); } O.audio?.pickup(); return true; }
     return O.inv.detach(it);
   }
   /** Put it back where it was (when a move fails). */
   _restore(it, src) {
     if (src.type === 'ground') { O.loot.drop(it, O.player.pos.x, O.player.pos.y, O.player.pos.z); return; }
-    if (src.type === 'body') { src.body.items.push(it); return; }
+    if (src.type === 'body') { if (src.grid && src.grid.fits(it, it.x, it.y, it.rot)) src.grid.put(it, it.x, it.y, it.rot); else src.body.items.push(it); return; }
     if (src.type === 'slot') { O.inv.slots[src.slot] = it; return; }
     if (it._from?.grid && it._from.grid.fits(it, it.x, it.y, it.rot)) { it._from.grid.put(it, it.x, it.y, it.rot); return; }
     if (!O.inv.add(it)) O.loot.drop(it, O.player.pos.x, O.player.pos.y, O.player.pos.z);
@@ -336,6 +341,7 @@ export class InventoryUI {
       // pick it up: wear it, or pocket it, or hold it
       this._lift(it, src);
       if (!inv.add(it)) { if (!inv.slots.hands) inv.slots.hands = it; else this._restore(it, src); }
+      O.session?.spill(it);
       inv.changed(); O.weapons.refresh();
       if (d.wear) O.ui?.onWear?.();
     } else if (d.wear && inv.slots[d.wear.slot] !== it) { this._lift(it, src); const old = inv.wear(it); if (old && !inv.add(old)) O.loot.drop(old, O.player.pos.x, O.player.pos.y, O.player.pos.z); O.ui?.onWear?.(); }
@@ -364,6 +370,13 @@ export class InventoryUI {
       if (d.gun) for (const [slot, a] of Object.entries(it.attach || {})) if (a) acts.push(['Detach ' + (ITEMS[a]?.name || a), () => { it.attach[slot] = null; const o = makeItem(a); if (!inv.add(o)) O.loot.drop(o, O.player.pos.x, O.player.pos.y, O.player.pos.z); if (it === inv.slots.hands) { O.weapons.curUid = -1; O.weapons.refresh(); } inv.changed(); }]);
       if (d.stack > 1 && it.n > 1) acts.push(['Split', () => { const loc = inv.locate(it); const half = Math.floor(it.n / 2); const o = makeItem(it.id, { n: half, cond: it.cond }); const sp = loc?.grid?.space(o); if (sp) { it.n -= half; loc.grid.put(o, sp[0], sp[1], sp[2]); inv.changed(); } else O.hud?.note('No room to split it', 1.5); }]);
       if (d.refill && it.n > 0) acts.push(['Empty it', () => { it.n = 0; inv.changed(); }]);
+      // used on something else you have: a sight on a rifle, a battery in a torch, tape on a worn thing...
+      for (const b of inv.all()) {
+        if (b === it || b.id === it.id || !combineWith(it, b) || (d.ammo && def(b).magOf)) continue;
+        const nm = def(b).name;
+        const verb = d.attach ? 'Attach to ' : d.battery ? 'Put in ' : d.repair ? 'Repair ' : d.repairCloth ? 'Sew up ' : d.med?.purify ? 'Purify ' : d.magOf || d.ammo ? 'Load into ' : 'Use on ';
+        acts.push([verb + nm, () => { const bl = inv.locate(b); this._combine(it, src, b, bl?.slot ? { type: 'slot', slot: bl.slot } : { type: 'inv' }); this.render(); O.hud?.changed(); }]);
+      }
       for (let i = 0; i < 3; i++) void i;
       acts.push(['Drop', () => { if (it === inv.slots.hands) inv.slots.hands = null; this._lift(it, src); O.loot.drop(it, O.player.pos.x, O.player.pos.y, O.player.pos.z); inv.changed(); O.weapons.refresh(); }]);
     }

@@ -136,9 +136,15 @@ export class Session {
     inv.add(makeItem('bandage', { n: 1 }));
     // the hotbar: the torch and the bandage
     inv.all().forEach((it) => { const d = def(it); if (d.light) inv.setHot(0, it); if (d.med) inv.setHot(1, it); });
-    const s = SPAWNS[Math.floor(Math.random() * SPAWNS.length)];
-    const x = s[0] + (Math.random() - 0.5) * 120, z = s[1] + (Math.random() - 0.5) * 40;
-    O.player.place(x, z, (Math.random() - 0.5) * 1.2); // facing inland
+    let x, z, yaw;
+    for (let tries = 0; tries < 20; tries++) {
+      const s = SPAWNS[Math.floor(Math.random() * SPAWNS.length)];
+      x = s[0] + (Math.random() - 0.5) * 120; z = s[1] + (Math.random() - 0.5) * 40; yaw = (Math.random() - 0.5) * 1.2; // facing inland
+      const fx = x - Math.sin(yaw) * 6, fz = z - Math.cos(yaw) * 6;
+      if (O.terrain.waterAt(x, z) > O.terrain.heightAt(x, z) - 0.5) continue;
+      if (!(O.veg?.items || []).some((t) => (Math.abs(t.x - x) < 5 && Math.abs(t.z - z) < 5) || (Math.abs(t.x - fx) < 5 && Math.abs(t.z - fz) < 5))) break;
+    }
+    O.player.place(x, z, yaw);
     O.hour = 6.5 + Math.random() * 3.5;
     O.sky.setWeather(Math.random() < 0.6 ? 'clear' : 'cloudy', true);
     O.stats = { zombies: 0, bandits: 0, time: 0, distance: 0 };
@@ -211,9 +217,13 @@ export class Session {
   }
   /** A body of yours from this or an earlier life. */
   _corpse(c) {
-    const person = { x: c.x, y: c.y, z: c.z, yaw: c.yaw || 0, outfit: 'player', pose: { dead: 1, fallDir: 1, arms: null }, owner: { dead: true, deadT: 99 } };
-    O.crowd.add(person);
     const items = (c.items || []).map((o) => (o.uid ? o : deserItem(o))).filter(Boolean);
+    // dressed in what they died in (a picture of their own; the newest three)
+    this._pc = ((this._pc ?? -1) + 1) % 3;
+    const slots = {}; for (const it of items) { const w = def(it).wear; if (w && !slots[w.slot]) slots[w.slot] = it; }
+    paintPlayer(outfitOf(slots), 'pc' + this._pc);
+    const person = { x: c.x, y: c.y, z: c.z, yaw: c.yaw || 0, outfit: 'pc' + this._pc, pose: { dead: 1, fallDir: 1, arms: null }, owner: { dead: true, deadT: 99 } };
+    O.crowd.add(person);
     const body = O.bodies.add({ x: c.x, y: c.y, z: c.z, name: 'Your old body', items, person, owner: person.owner, player: true, t: 0, always: false, saved: c });
     // the newest three, no more
     const mine = O.bodies.list.filter((b) => b.player);
@@ -251,11 +261,21 @@ export class Session {
 
   /** Paint your clothes onto your figure and sleeves. */
   dress() {
-    const inv = O.inv, col = (s, f) => { const it = inv.slots[s]; return it ? (it.tint || def(it).color) : f; };
-    const torso = inv.slots.torso, legs = inv.slots.legs, vest = inv.slots.vest, back = inv.slots.back;
-    paintPlayer({ shirt: col('torso', '#d8c8a8'), pants: col('legs', '#8a6a5a'), sleeves: torso && /coat|jacket|hoodie|flannel|track/i.test(torso.id) ? 'long' : 'short', pattern: torso && def(torso).camo ? 'camo' : vest ? 'vest' : torso?.id === 'policeJacket' ? 'police' : torso?.id === 'tracktop' ? 'tracksuit' : null, vestCol: vest ? def(vest).color : null, pantsPattern: legs && def(legs).camo ? 'camo' : null, pack: back ? (back.tint || def(back).color) : null, face: inv.slots.head?.id === 'helmet' ? 'human' : 'human' });
-    O.weapons.setSleeves(torso && /coat|jacket|hoodie|flannel|track/i.test(torso.id) ? col('torso', '#8a8a7a') : '#e0b896');
+    const inv = O.inv, torso = inv.slots.torso;
+    paintPlayer(outfitOf(inv.slots));
+    O.weapons.setSleeves(torso && /coat|jacket|hoodie|flannel|track/i.test(torso.id) ? (torso.tint || def(torso).color) : '#e0b896');
     O.hud?.changed();
+  }
+  /** A piece of clothing (or a bag) picked up but not worn: what's in its pockets comes out into yours (or onto the ground). */
+  spill(it) {
+    if (!it?.grid?.items.length) return;
+    const inv = O.inv, d = def(it);
+    if (d.wear && inv.slots[d.wear.slot] === it) return;
+    if (!inv.locate(it)) return;
+    const P = O.player;
+    for (const c of it.grid.items.slice()) { it.grid.take(c); if (!inv.add(c)) O.loot.drop(c, P.pos.x, P.pos.y, P.pos.z); }
+    O.hud?.note('You empty the ' + d.name.toLowerCase(), 2);
+    inv.changed();
   }
 
   // --- each frame ---------------------------------------------------------------------------------------------------------------
@@ -376,8 +396,8 @@ export class Session {
     const scope = O.weapons?.aiming && O.weapons.aim > 0.9 && O.weapons.info?.scope && (O.weapons.info.scope === 'sniper' || O.weapons.info.scope === 'acog') ? 1 : 0;
     O.post.update(dt, {
       exposure: O.exposure * (live ? 1 : 1.05),
-      desat: live ? Math.max(0, (0.85 - blood) * 1.6) + (S?.health < 25 ? 0.2 : 0) : 0,
-      blur: live ? Math.max(0, (0.35 - blood) * 2.2) + (O.weapons?.supp || 0) * 0.15 : 0,
+      desat: live ? Math.min(0.92, Math.max(0, (0.85 - blood) * 1.6) + (S?.health < 25 ? 0.2 : 0)) : 0,
+      blur: live ? Math.min(0.8, Math.max(0, (0.35 - Math.max(0, blood)) * 2.2) + (O.weapons?.supp || 0) * 0.15) : 0,
       vignette: live ? Math.max(0, (0.6 - blood)) * 0.8 + (O.weapons?.supp || 0) * 0.3 + (scope ? 0 : 0) : 0.25,
       scope,
     });
@@ -442,6 +462,7 @@ export class Session {
         O.loot.take(w);
         const all = inv.add(it);
         if (!all) { if (!inv.slots.hands) { inv.slots.hands = it; inv.changed(); O.weapons.refresh(); } else O.loot.drop(it, P.pos.x, P.pos.y, P.pos.z); }
+        this.spill(it);
         O.audio.pickup(); O.hud.note(def(it).name, 1.6); this._autoHot(it);
         if (def(it).wear && Object.values(inv.slots).includes(it)) this.dress();
       }
@@ -502,5 +523,11 @@ export class Session {
   }
 }
 
+/** How someone looks in these clothes (slots: { torso, legs, vest, back, head }). */
+function outfitOf(slots) {
+  const col = (s, f) => { const it = slots[s]; return it ? (it.tint || def(it).color) : f; };
+  const torso = slots.torso, legs = slots.legs, vest = slots.vest, back = slots.back;
+  return { shirt: col('torso', '#d8c8a8'), pants: col('legs', '#8a6a5a'), sleeves: torso && /coat|jacket|hoodie|flannel|track/i.test(torso.id) ? 'long' : 'short', pattern: torso && def(torso).camo ? 'camo' : vest ? 'vest' : torso?.id === 'policeJacket' ? 'police' : torso?.id === 'tracktop' ? 'tracksuit' : null, vestCol: vest ? def(vest).color : null, pantsPattern: legs && def(legs).camo ? 'camo' : null, pack: back ? (back.tint || def(back).color) : null, face: 'human' };
+}
 function load(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } }
 function store(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { console.warn('outbreak: could not save', e); } }

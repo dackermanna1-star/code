@@ -10,7 +10,7 @@ export const F = {
   paint: mat('woodFine', 0xe8e4dc, { p: 4 }), paintGreen: mat('woodFine', 0x7a9a80, { p: 4 }),
   metal: mat('metal', 0x9a9c9e, { p: 4 }), metalDark: mat('metal', 0x4a4c4e, { p: 4 }), steel: mat('metalPlate', 0xb0b4b8),
   locker: mat('milMetal', 0x8a9aa0, { p: 4 }), olive: mat('milMetal', 0xffffff), rust: mat('rust', 0xffffff),
-  white: mat('plaster', 0xf2f2ee, { p: 5, r: 120 }), enamel: mat('whiteTiles', 0xf8f8f4, { p: 5, r: 60 }),
+  white: mat('plaster', 0xf2f2ee, { p: 5, r: 120 }), enamel: mat('plaster', 0xf6f6f2, { p: 5, r: 50 }),
   black: mat('plaster', 0x262626, { p: 5, r: 120 }), screen: mat('plaster', 0x101418, { p: 5, r: 40 }),
   fabric: [mat('fabric', 0x8a6a5a), mat('fabric', 0x5a6a7a), mat('fabric', 0x7a7a5a), mat('fabric', 0x9a5a4a), mat('fabric', 0x6a7a6a), mat('fabric', 0x8a8478)],
   sheet: mat('fabric', 0xe8e4dc, { p: 5 }), mattress: mat('fabric', 0xd8d0c0),

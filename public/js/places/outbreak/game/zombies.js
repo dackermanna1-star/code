@@ -261,6 +261,7 @@ export class Zombies {
       if (wp?.door && wp.door.open < 0.3 && !wp.door.broken && Math.hypot(wp.x - z.pos.x, wp.z - z.pos.z) < 4) {
         z.bashT = (z.bashT || 0) + dt;
         speed = 0;
+        z.t = Math.min(z.t, 12); // (a door being bashed holds their attention)
         if (z.bashT > 1.1) { z.bashT = 0; O.buildings?.damageDoor(wp.door, 9 + Math.random() * 6, true); O.audio?.bash(wp); z.person.pose.attack = 0.5; }
         z.yaw = Math.atan2(wp.x - z.pos.x, wp.z - z.pos.z);
       } else {
@@ -291,7 +292,7 @@ export class Zombies {
     for (const o of this.list) {
       if (o === z || o.dead) continue;
       const dx = z.pos.x - o.pos.x, dz = z.pos.z - o.pos.z, d2 = dx * dx + dz * dz;
-      if (d2 < 3.2 && d2 > 1e-4) { const d = Math.sqrt(d2), k = (1.8 - d) * 2; z.vel.x += dx / d * k; z.vel.z += dz / d * k; }
+      if (d2 < 4.8 && d2 > 1e-4) { const d = Math.sqrt(d2), k = (2.2 - d) * 5; z.vel.x += dx / d * k; z.vel.z += dz / d * k; }
     }
     // and out of your face: they close to arm's length, no nearer
     const P = O.player;

@@ -45,7 +45,15 @@ void main() {
   gl_FragColor.rgb += (hash(uv * res + fract(time * 7.13) * 91.0) - 0.5) * grain;
   gl_FragColor.rgb = pow(max(gl_FragColor.rgb, 0.0), vec3(gamma));
   // a scope: everything outside the circle is black
-  if (scope > 0.0) { vec2 sc = c * vec2(res.x / res.y, 1.0); float d = length(sc); gl_FragColor.rgb *= mix(1.0, smoothstep(0.43, 0.41, d), scope); }
+  if (scope > 0.0) {
+    vec2 sc = c * vec2(res.x / res.y, 1.0); float d = length(sc);
+    // the reticle: fine crosshairs, heavy posts from the edge, a gap in the middle
+    float px1 = 1.0 / res.y;
+    float thin = max(step(abs(sc.y), px1) * step(abs(sc.x), 0.43), step(abs(sc.x), px1) * step(abs(sc.y), 0.43)) * step(0.006, d);
+    float post = max(step(abs(sc.y), px1 * 3.0) * step(0.14, abs(sc.x)), step(abs(sc.x), px1 * 3.0) * step(0.14, abs(sc.y)));
+    gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.01), clamp(thin + post, 0.0, 1.0) * step(d, 0.43) * scope);
+    gl_FragColor.rgb *= mix(1.0, smoothstep(0.43, 0.41, d), scope);
+  }
   gl_FragColor.rgb *= 1.0 - fade;
 }`;
 
