@@ -117,7 +117,7 @@ export class Combat {
       if (dist > w.reach + 1.2 || Math.abs(dy) > 4.5) continue;
       const along = (dx * d.x + dz * d.z) / Math.max(0.01, dist * Math.hypot(d.x, d.z));
       if (along < 0.55 && dist > 1.6) continue;
-      if (dist < bd + 1.2) { bd = dist; best = p; }
+      if (dist < bd) { bd = dist; best = p; }
     }
     // a wall in the way?
     if (best) {

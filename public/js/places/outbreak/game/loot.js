@@ -116,6 +116,7 @@ export class Loot {
     this.grid = new Map(); // 64-stud cells -> spots
     this.taken = {}; // key -> time it was emptied
     this.gen = {}; // key -> how many times it has restocked
+    this.picked = {}; // key -> which of its rolls have been taken (a part-looted spot keeps the rest)
     this.items = []; // world items: { it, x, y, z, yaw, mesh, spot, r }
     this.dropped = []; // items people left (saved)
     this.t = 0; // game seconds (for restocking)
@@ -148,7 +149,7 @@ export class Loot {
     const tk = this.taken[s.key];
     if (tk !== undefined) {
       if (this.t - tk < RESPAWN) return;
-      delete this.taken[s.key]; this.gen[s.key] = (this.gen[s.key] || 0) + 1;
+      delete this.taken[s.key]; delete this.picked[s.key]; this.gen[s.key] = (this.gen[s.key] || 0) + 1;
     }
     const r = rng(hashStr(s.key) + (this.gen[s.key] || 0) * 7919 + 1);
     const n = s.n ?? (r() < 0.12 ? 2 : 1);
@@ -162,8 +163,10 @@ export class Loot {
       if (d.gun && d.mag && r() < 0.6) it.mag = makeItem(d.mag, { n: Math.floor(ITEMS[d.mag].cap * r() * 0.8) });
       if (d.gun && d.internal && r() < 0.5) it.rounds = Math.floor(d.internal * r());
       const sp = s.spread ?? 0.8;
-      const a = r() * Math.PI * 2, rr = r() * sp;
-      this._place(it, s.x + Math.cos(a) * rr, s.y, s.z + Math.sin(a) * rr, r() * Math.PI * 2, s);
+      const a = r() * Math.PI * 2, rr = r() * sp, yaw = r() * Math.PI * 2;
+      if (this.picked[s.key]?.includes(i)) continue; // taken already (after all the rolls, so the rest stay the same)
+      const w = this._place(it, s.x + Math.cos(a) * rr, s.y, s.z + Math.sin(a) * rr, yaw, s);
+      w.idx = i;
     }
   }
   despawn(s) {
@@ -188,7 +191,11 @@ export class Loot {
   /** Take an item off the ground (it's yours now). */
   take(w) {
     this._remove(w);
-    if (w.spot) { const l = w.spot.live; l.splice(l.indexOf(w), 1); if (!l.length) this.taken[w.spot.key] = this.t; }
+    if (w.spot) {
+      const l = w.spot.live; l.splice(l.indexOf(w), 1);
+      (this.picked[w.spot.key] ||= []).push(w.idx);
+      if (!l.length) this.taken[w.spot.key] = this.t;
+    }
     const di = this.dropped.indexOf(w); if (di >= 0) this.dropped.splice(di, 1);
     return w.it;
   }
@@ -215,10 +222,10 @@ export class Loot {
     this.spotsNear(pos.x, pos.z, R, (s) => { if (!s.spawned && Math.abs(s.y - pos.y) < 60) this.spawn(s); });
     for (const s of this.spots.values()) if (s.spawned && (Math.abs(s.x - pos.x) > R + 40 || Math.abs(s.z - pos.z) > R + 40)) this.despawn(s);
   }
-  save() { return { taken: this.taken, gen: this.gen, t: this.t, dropped: this.dropped.map((w) => ({ x: +w.x.toFixed(2), y: +w.y.toFixed(2), z: +w.z.toFixed(2), it: serItem(w.it) })) }; }
+  save() { return { taken: this.taken, gen: this.gen, picked: this.picked, t: this.t, dropped: this.dropped.map((w) => ({ x: +w.x.toFixed(2), y: +w.y.toFixed(2), z: +w.z.toFixed(2), it: serItem(w.it) })) }; }
   load(o, deser) {
     if (!o) return;
-    this.taken = o.taken || {}; this.gen = o.gen || {}; this.t = o.t || 0;
+    this.taken = o.taken || {}; this.gen = o.gen || {}; this.picked = o.picked || {}; this.t = o.t || 0;
     for (const d of o.dropped || []) { const it = deser(d.it); if (it) this.dropped.push(this._place(it, d.x, d.y, d.z, Math.random() * 6.28, null)); }
   }
 }
@@ -232,13 +239,13 @@ function rollCond(r, cat) {
 /** Plain data for an item (and what's in it). */
 export function serItem(it) {
   if (!it) return null;
-  return { id: it.id, n: it.n, cond: +it.cond.toFixed(3), tint: it.tint, attach: it.attach, chamber: it.chamber, rounds: it.rounds, mag: it.mag ? serItem(it.mag) : null, on: it.on, charge: it.charge, dirty: it.dirty, grid: it.grid ? it.grid.items.map((c) => ({ ...serItem(c), x: c.x, y: c.y, rot: c.rot })) : undefined };
+  return { id: it.id, n: it.n, cond: +it.cond.toFixed(3), tint: it.tint, attach: it.attach, chamber: it.chamber, rounds: it.rounds, mag: it.mag ? serItem(it.mag) : null, on: it.on, charge: it.charge, dirty: it.dirty, jammed: it.jammed || undefined, grid: it.grid ? it.grid.items.map((c) => ({ ...serItem(c), x: c.x, y: c.y, rot: c.rot })) : undefined };
 }
 export function deserItem(o) {
   if (!o || !ITEMS[o.id]) return null;
   const it = makeItem(o.id, { n: o.n, cond: o.cond, tint: o.tint, attach: o.attach, chamber: o.chamber, rounds: o.rounds, charge: o.charge });
   if (o.mag) it.mag = deserItem(o.mag);
-  it.on = !!o.on; it.dirty = !!o.dirty;
+  it.on = !!o.on; it.dirty = !!o.dirty; it.jammed = !!o.jammed;
   if (o.grid && it.grid) for (const c of o.grid) { const ci = deserItem(c); if (ci && it.grid.fits(ci, c.x | 0, c.y | 0, !!c.rot)) it.grid.put(ci, c.x | 0, c.y | 0, !!c.rot); }
   return it;
 }

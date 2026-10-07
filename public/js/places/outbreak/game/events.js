@@ -212,12 +212,22 @@ export class Events {
     this.flights = []; // things in the air: { kind, group, ... }
     this.drops = []; // crates: { x, y, z, group, spot, smoke, t }
     this.flares = []; // { x, y, z, mesh, light, t, sound }
+    this.booms = []; // explosion lights fading
     this.reset();
+  }
+  /** Quiet: every event loop stopped (paused, the title); they start again when the world goes on. */
+  silence() {
+    for (const o of [...this.flights, ...this.sites, ...this.flares]) if (o.sound && !o.sound.dead) { o.sound.stop(); o.sound = null; }
+  }
+  /** Give a model's geometry and own materials back to the graphics card. */
+  _dispose(g) {
+    const shared = new Set(Object.values(M));
+    g.traverse((m) => { m.geometry?.dispose(); if (m.material && !shared.has(m.material)) m.material.dispose(); });
   }
   /** A new life: two wrecks somewhere out there already, the first live events a while off. */
   reset() {
     for (const s of this.sites.slice()) this._removeSite(s);
-    for (const f of this.flights) { this.world.scene.remove(f.group); f.sound?.stop(); }
+    for (const f of this.flights) { this.world.scene.remove(f.group); this._dispose(f.group); f.sound?.stop(); }
     for (const d of this.drops.slice()) this._removeDrop(d);
     for (const f of this.flares.slice()) this._removeFlare(f);
     this.flights = [];
@@ -227,7 +237,7 @@ export class Events {
   }
 
   /** Somewhere a helicopter could have come down: open, level ground, away from towns and from p. */
-  _findSpot(near, dmin, dmax) {
+  _findSpot(near, dmin, dmax, apart = true) {
     const T = O.terrain;
     for (let tries = 0; tries < 40; tries++) {
       let x, z;
@@ -242,9 +252,13 @@ export class Events {
         if (Math.abs(h - y) > 5 || T.waterAt(x + ox, z + oz) > h - 1) { ok = false; break; }
       }
       if (!ok) continue;
+      // in the open: not in a wood (the trees would stand through it)
+      if ([[0, 0], [20, 0], [-20, 0], [0, 20], [0, -20]].some(([ox, oz]) => T.sample(T.forest, x + ox, z + oz) > 0.12)) continue;
+      if (O.veg?.items && O.veg.items.some((t) => Math.abs(t.x - x) < 26 && Math.abs(t.z - z) < 26)) continue;
       if (PLACES.some((p) => Math.hypot(p.x - x, p.z - z) < p.r + 60)) continue;
       if (O.plan?.sites.some((s) => Math.hypot(s.x - x, s.z - z) < 70)) continue;
-      if (this.sites.some((s) => Math.hypot(s.x - x, s.z - z) < 500)) continue;
+      if (this.sites.some((s) => Math.hypot(s.x - x, s.z - z) < (apart ? 500 : 60))) continue;
+      if (this.drops.some((d) => Math.hypot(d.x - x, d.z - z) < 60)) continue;
       if (O.player && !near && Math.hypot(O.player.pos.x - x, O.player.pos.z - z) < 600) continue;
       // not on a road
       if (T.roadW && T.sample(T.roadW, x, z) > 0.2) continue;
@@ -275,8 +289,7 @@ export class Events {
     // it burns: fire at the engines, smoke you can see from far off
     const [fx, fz] = W(-1.5, 2);
     const smoke = O.fx.smoke(fx, y + 11, fz, { color: [0.16, 0.15, 0.14], rate: 4.5, size: 7 });
-    const light = new THREE.PointLight(0xff7a30, 0, 70, 1.5); light.position.set(fx, y + 12, fz); this.world.scene.add(light);
-    const site = { id: ++SEQ, x, y, z, yaw, group: g, scorch: sc, boxes, smoke, light, fire: { x: fx, y: y + 10.5, z: fz }, spots: [], guards: [], guardT: 0, t: 0, sound: null };
+    const site = { id: ++SEQ, x, y, z, yaw, group: g, scorch: sc, boxes, smoke, light: null, fire: { x: fx, y: y + 10.5, z: fz }, spots: [], guards: [], guardT: 0, t: 0, sound: null };
     // the loot: in the cabin and spilled around it
     const key = 'heli' + Date.now().toString(36) + site.id;
     const places = [[3.2, 6, 1.5], [-2, -4, 1.2], [6.5, -3, 1.5], [-7, 8, 1.5], [4, 14, 1.5], [-5, -14, 1.5], [8, 8, 1.5]];
@@ -296,7 +309,8 @@ export class Events {
     return site;
   }
   _removeSite(s) {
-    this.world.scene.remove(s.group); this.world.scene.remove(s.scorch); this.world.scene.remove(s.light);
+    this.world.scene.remove(s.group); this.world.scene.remove(s.scorch); O.fx.freeLight(s.light);
+    this._dispose(s.group); s.scorch.geometry.dispose();
     for (const b of s.boxes) O.phys.remove(b);
     for (const sp of s.spots) O.loot.removeSpot(sp);
     const i = O.fx.smokes.indexOf(s.smoke); if (i >= 0) O.fx.smokes.splice(i, 1);
@@ -344,14 +358,14 @@ export class Events {
       O.fx.burst(e.x, e.y, e.z, 1, { color: [0.12, 0.12, 0.11], speed: 1, life: 6 + fall * 6, size: 3 + fall * 2, grow: 2.2, grav: -0.8, drag: 0.5, alpha: 0.6 });
       if (fall > 0.3 && Math.random() < 0.5) O.fx.burst(e.x, e.y, e.z, 1, { color: [1, 0.55, 0.2], speed: 2, life: 0.4, size: 1.6, grow: 1, grav: -2, alpha: 0.9 });
     }
-    if (f.sound?.dead) f.sound = loop3d(ROTOR);
+    if (!f.sound || f.sound.dead) f.sound = loop3d(ROTOR);
     place3d(f.sound, p, { ref: 60, max: 3200, roll: 0.75 });
     if (f.sound?.lfo) f.sound.lfo.frequency.setTargetAtTime(12.5 - fall * 3, f.sound.ctx.currentTime, 0.2);
     if (k >= 1 || p.y <= ground + 1.5 && k > 0.8) { this._impact(f); return false; }
     return true;
   }
   _impact(f) {
-    this.world.scene.remove(f.group); f.sound?.stop();
+    this.world.scene.remove(f.group); this._dispose(f.group); f.sound?.stop();
     const { x, z } = f.spot, y = O.terrain.heightAt(x, z);
     const site = this._wreck(x, z, f.group.rotation.y);
     this.explode(x, y + 5, z, 1.4);
@@ -363,8 +377,8 @@ export class Events {
     O.fx.burst(x, y, z, 40, { color: [1, 0.6, 0.22], speed: 22 * size, up: 1.2, life: 0.9, size: 3 * size, grow: 6, grav: -3, drag: 2.5, alpha: 1 });
     O.fx.burst(x, y, z, 30, { color: [0.18, 0.17, 0.16], speed: 14 * size, up: 1.5, life: 5, size: 5 * size, grow: 4, grav: -2, drag: 1.2, alpha: 0.8 });
     O.fx.burst(x, y, z, 26, { color: [0.3, 0.28, 0.25], speed: 30 * size, up: 2, life: 2.2, size: 0.6, grow: 0, grav: 30, drag: 0.3, alpha: 1 });
-    const L = new THREE.PointLight(0xffa050, 400 * size, 260, 1.4); L.position.set(x, y + 4, z); this.world.scene.add(L);
-    let k = 1; const fade = () => { k *= 0.86; L.intensity = 400 * size * k; if (k > 0.02) requestAnimationFrame(fade); else this.world.scene.remove(L); }; requestAnimationFrame(fade);
+    const L = O.fx.getLight('boom', 0xffa050, 260, 1.4);
+    if (L) { L.position.set(x, y + 4, z); this.booms.push({ L, k: 1, size }); }
     const cam = O.world.camera.position, d = Math.hypot(x - cam.x, z - cam.z);
     if (d < 1500 && O.phys.sees(cam.x, cam.y, cam.z, x, y + 10, z, { terrain: true })) O.post.hit(Math.max(0.05, 0.5 - d / 3000), 0xffc890);
     if (d < 160 && O.player) O.player.shake = Math.max(O.player.shake || 0, 1.2 - d / 160);
@@ -377,8 +391,9 @@ export class Events {
     const P = O.player.pos, d = Math.hypot(s.x - P.x, s.z - P.z);
     // the fire: flickering light and flames while it burns (twenty minutes, then just smoulders)
     const burning = s.t < 1200;
-    if (d < 900) {
-      s.light.intensity = burning ? 45 + Math.sin(s.t * 13) * 9 + Math.sin(s.t * 31) * 7 + Math.random() * 6 : 0;
+    if (d < 900 && burning) {
+      if (!s.light) { s.light = O.fx.getLight(s, 0xff7a30, 70, 1.5); s.light?.position.set(s.fire.x, s.fire.y + 1.5, s.fire.z); }
+      if (s.light) s.light.intensity = 45 + Math.sin(s.t * 13) * 9 + Math.sin(s.t * 31) * 7 + Math.random() * 6;
       if (burning && d < 400) {
         s.flameT = (s.flameT || 0) - dt;
         if (s.flameT <= 0) {
@@ -387,7 +402,7 @@ export class Events {
           O.fx.burst(f.x + rnd(-2.5, 2.5), f.y + rnd(-1, 1), f.z + rnd(-2.5, 2.5), 1, { color: [1, rnd(0.45, 0.65), 0.18], speed: 3, dir: { x: 0, y: 1, z: 0 }, spread: 0.4, life: 0.7, size: rnd(1.2, 2.2), grow: -0.8, grav: -6, drag: 1, alpha: 0.95 });
         }
       }
-    } else s.light.intensity = 0;
+    } else if (s.light) { O.fx.freeLight(s.light); s.light = null; }
     if (!burning && s.smoke.rate > 1.5) { s.smoke.rate = 1.5; s.smoke.color = [0.3, 0.29, 0.28]; }
     // the crackle of it
     if (burning && d < 120) { if (!s.sound || s.sound.dead) s.sound = loop3d(FIRE); place3d(s.sound, { x: s.fire.x, y: s.fire.y, z: s.fire.z }, { ref: 10, max: 120, roll: 1.1, vol: 0.7 }); }
@@ -411,7 +426,7 @@ export class Events {
   // --- supply drop --------------------------------------------------------------------------------------------------------------------
   startDrop() {
     const P = O.player.pos;
-    const spot = this._findSpot(P, 260, 520);
+    const spot = this._findSpot(P, 260, 520, false);
     if (!spot) return false;
     const dir = new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5).normalize();
     const alt = Math.max(spot.y, O.terrain.heightAt(P.x, P.z)) + 300;
@@ -426,9 +441,9 @@ export class Events {
     const k = Math.min(1, f.t / f.dur);
     f.group.position.lerpVectors(f.start, f.end, k);
     if (!f.dropped && k >= 0.5) { f.dropped = true; this._release(f.spot, f.group.position.y - 12); }
-    if (f.sound?.dead) f.sound = loop3d(DRONE);
+    if (!f.sound || f.sound.dead) f.sound = loop3d(DRONE);
     place3d(f.sound, f.group.position, { ref: 120, max: 4200, roll: 0.6, vol: 1.2 });
-    if (k >= 1) { this.world.scene.remove(f.group); f.sound?.stop(); return false; }
+    if (k >= 1) { this.world.scene.remove(f.group); this._dispose(f.group); f.sound?.stop(); return false; }
     return true;
   }
   _release(spot, y) {
@@ -450,7 +465,7 @@ export class Events {
         d.landed = true; d.landT = 0;
         g.position.y = gy; g.rotation.x = g.rotation.z = 0;
         d.x = g.position.x; d.z = g.position.z; d.y = gy;
-        O.audio?.land(30);
+        O.audio?.land(30, { x: d.x, y: gy, z: d.z });
         O.fx.burst(d.x, gy + 0.5, d.z, 18, { color: [0.45, 0.4, 0.32], speed: 8, up: 0.4, life: 1.4, size: 1.6, grow: 2, grav: 2 });
         // the crate: solid, its smoke red, its contents beside it
         d.box = O.phys.add(d.x, gy + 2.2, d.z, 3, 2.2, 2.1, g.rotation.y, 'wood');
@@ -469,7 +484,9 @@ export class Events {
       // the chute settles over to one side
       d.landT += dt;
       const k = Math.min(1, d.landT / 3);
-      ud.chute.rotation.z = k * 1.35; ud.chute.position.x = k * 6; ud.chute.position.y = -k * 3; ud.chute.scale.y = 1 - k * 0.7;
+      // collapsed: the canopy sinks down beside the crate and lies flat on the ground
+      ud.chute.position.set(k * 13, -k * 2.7, 0); ud.chute.scale.set(1, 1 - k * 0.89, 1);
+      ud.chute.children.forEach((c) => { if (c.isLineSegments) c.visible = k < 0.4; });
     }
     // gone after an hour, if you're not near
     const P = O.player.pos;
@@ -477,7 +494,7 @@ export class Events {
     return true;
   }
   _removeDrop(d) {
-    this.world.scene.remove(d.group);
+    this.world.scene.remove(d.group); this._dispose(d.group);
     if (d.box) O.phys.remove(d.box);
     for (const sp of d.spots || []) O.loot.removeSpot(sp);
     const i = O.fx.smokes.indexOf(d.smoke); if (i >= 0) O.fx.smokes.splice(i, 1);
@@ -498,7 +515,7 @@ export class Events {
     mesh.rotation.z = Math.PI / 2; mesh.rotation.y = Math.random() * TAU; mesh.position.set(x, y + 0.16, z);
     mesh.material.emissiveIntensity = 2;
     this.world.scene.add(mesh);
-    const light = new THREE.PointLight(0xff3018, 40, 70, 1.6); light.position.set(x, y + 1.2, z); this.world.scene.add(light);
+    const light = O.fx.getLight('flare', 0xff3018, 70, 1.6); light?.position.set(x, y + 1.2, z);
     const smoke = O.fx.smoke(x, y + 0.5, z, { color: [0.6, 0.3, 0.28], rate: 3, size: 1.2, life: 160 });
     this.flares.push({ x, y, z, mesh, light, smoke, t: 0, life: 160, hearT: 0, sound: null });
     O.hud?.note('The flare will draw the infected', 2.5);
@@ -507,7 +524,7 @@ export class Events {
     f.t += dt;
     const left = f.life - f.t;
     const k = left < 10 ? Math.max(0, left / 10) : 1;
-    f.light.intensity = (34 + Math.sin(f.t * 23) * 8 + Math.random() * 10) * k;
+    if (f.light) f.light.intensity = (34 + Math.sin(f.t * 23) * 8 + Math.random() * 10) * k;
     f.mesh.material.emissiveIntensity = 2 * k;
     if (Math.random() < 0.6 * k) O.fx.burst(f.x, f.y + 0.3, f.z, 1, { color: [1, 0.35, 0.2], speed: 3, up: 1.5, life: 0.35, size: 0.18, grow: 0, grav: 12, alpha: 1 });
     f.hearT -= dt;
@@ -519,7 +536,7 @@ export class Events {
     return true;
   }
   _removeFlare(f) {
-    this.world.scene.remove(f.mesh); this.world.scene.remove(f.light); f.sound?.stop();
+    this.world.scene.remove(f.mesh); f.mesh.geometry.dispose(); f.mesh.material.dispose(); O.fx.freeLight(f.light); f.sound?.stop();
     const i = O.fx.smokes.indexOf(f.smoke); if (i >= 0) O.fx.smokes.splice(i, 1);
     const j = this.flares.indexOf(f); if (j >= 0) this.flares.splice(j, 1);
   }
@@ -538,5 +555,6 @@ export class Events {
     for (const s of this.sites.slice()) this._site(s, dt);
     for (const d of this.drops.slice()) this._drop(d, dt);
     for (const f of this.flares.slice()) this._flare(f, dt);
+    for (const b of this.booms.slice()) { b.k *= Math.exp(-dt * 9); b.L.intensity = 400 * b.size * b.k; if (b.k < 0.02) { O.fx.freeLight(b.L); this.booms.splice(this.booms.indexOf(b), 1); } }
   }
 }

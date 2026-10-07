@@ -58,7 +58,7 @@ class Bandit {
     this.suppressed = 2;
     if (this.hp <= 0) { this.die(dir, by); return; }
     // they know where it came from
-    if (by?.pos) { this.squad.spot(by, this); this.hurtT = 3; }
+    if (by?.pos && by.squad !== this.squad) { if (by.squad || by === O.player) this.squad.spot(by, this); else this.zTarget = by; this.hurtT = 3; }
     if (this.hp < 35 && Math.random() < 0.6) this.retreat = 8;
     O.audio?.voice('hurt', this.pos);
   }
@@ -149,7 +149,7 @@ export class Bandits {
       }
     }
     for (const s of this.squads.slice()) {
-      if (s.kind === 'roam' && s.alive.every((m) => Math.hypot(m.pos.x - P.pos.x, m.pos.z - P.pos.z) > 900)) this._despawn(s);
+      if (s.kind === 'roam' && s.members.every((m) => Math.hypot(m.pos.x - P.pos.x, m.pos.z - P.pos.z) > 900)) this._despawn(s);
       if (!s.alive.length && s.kind === 'camp') { s.home.clearedT = 1800; }
     }
   }
@@ -170,7 +170,7 @@ export class Bandits {
   }
   _modelOf(id) { return ITEMS[id].gun; }
   _despawn(s) {
-    for (const m of s.members) { O.crowd.remove(m.person); if (m.model) this.world.scene.remove(m.model); O.bodies.removeOwner(m); }
+    for (const m of s.members) { m.removed = true; O.crowd.remove(m.person); if (m.model) this.world.scene.remove(m.model); O.bodies.removeOwner(m); }
     this.squads.splice(this.squads.indexOf(s), 1);
   }
   hear(x, y, z, r, src) {
@@ -231,7 +231,8 @@ export class Bandits {
       else m.canSee = null;
       // infected right on top of them
       if (!m.canSee) for (const z of O.zombies?.list || []) if (!z.dead && Math.hypot(z.pos.x - m.pos.x, z.pos.z - m.pos.z) < 22 && z.state === 'chase') { m.zTarget = z; break; }
-      if (m.zTarget?.dead) m.zTarget = null;
+      const zt = m.zTarget;
+      if (zt && (zt.dead || !O.zombies.list.includes(zt) || Math.hypot(zt.pos.x - m.pos.x, zt.pos.z - m.pos.z) > 45 || !O.phys.sees(m.pos.x, m.pos.y + 4.4, m.pos.z, zt.pos.x, zt.pos.y + 3.5, zt.pos.z))) m.zTarget = null;
     }
     const T = s.target;
     if (m.state === 'combat' && T) {
@@ -249,7 +250,7 @@ export class Bandits {
       // aim at them and shoot when you can see them
       if (tp) { m.aimYaw = Math.atan2(tp.x - m.pos.x, tp.z - m.pos.z); }
       if (m.canSee && m.react <= 0 && (!atCover || m.peek) && m.reloadT <= 0) this._shoot(m, T, dt);
-    } else if (m.zTarget && !m.zTarget.dead) {
+    } else if (m.zTarget && !m.zTarget.dead && (m.state !== 'combat' || !T)) {
       m.aimYaw = Math.atan2(m.zTarget.pos.x - m.pos.x, m.zTarget.pos.z - m.pos.z);
       m.goal = null;
       this._shoot(m, m.zTarget, dt);
@@ -317,7 +318,7 @@ export class Bandits {
     const gd = m.gd;
     const eye = new THREE.Vector3(m.pos.x, m.pos.y + (m.crouch > 0.5 ? 3.0 : 4.4), m.pos.z);
     const isP = T === O.player;
-    const aimAt = new THREE.Vector3(T.pos.x, T.pos.y + (isP ? O.player.eye - 1.2 : 3.2), T.pos.z);
+    const aimAt = new THREE.Vector3(T.pos.x, T.pos.y + (isP ? Math.max(0.6, O.player.eye - 1.2) : 3.2), T.pos.z);
     const dir = aimAt.sub(eye); const dist = dir.length(); dir.normalize();
     // lead a moving target (badly)
     const tv = T.vel || new THREE.Vector3();

@@ -15,7 +15,7 @@ const PUFF = () => tex((g, s) => { const gr = g.createRadialGradient(s / 2, s / 
 const HOLE = () => tex((g, s) => { g.clearRect(0, 0, s, s); const gr = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); gr.addColorStop(0, 'rgba(10,8,6,1)'); gr.addColorStop(0.25, 'rgba(20,16,12,0.95)'); gr.addColorStop(0.45, 'rgba(60,50,40,0.5)'); gr.addColorStop(1, 'rgba(60,50,40,0)'); g.fillStyle = gr; g.fillRect(0, 0, s, s); });
 const SPLAT = () => tex((g, s) => {
   g.clearRect(0, 0, s, s);
-  for (let i = 0; i < 18; i++) { const a = Math.random() * 6.28, r = Math.random() * s * 0.38; g.fillStyle = `rgba(${70 + Math.random() * 40},4,4,${0.6 + Math.random() * 0.4})`; g.beginPath(); g.arc(s / 2 + Math.cos(a) * r, s / 2 + Math.sin(a) * r, 2 + Math.random() * s * 0.12, 0, 7); g.fill(); }
+  for (let i = 0; i < 18; i++) { const a = Math.random() * 6.28, r = Math.random() * s * 0.38; g.fillStyle = `rgba(${150 + Math.random() * 50},${8 + Math.random() * 10},6,${0.6 + Math.random() * 0.4})`; g.beginPath(); g.arc(s / 2 + Math.cos(a) * r, s / 2 + Math.sin(a) * r, 2 + Math.random() * s * 0.12, 0, 7); g.fill(); }
 }, 128);
 
 export class FX {
@@ -51,12 +51,14 @@ void main() { vec4 t = texture2D(map, vUv); gl_FragColor = vec4(vCol.rgb, t.a * 
     this.holeTex = HOLE(); this.splatTex = SPLAT();
     this.decals = [];
     this.holeMat = new THREE.MeshStandardMaterial({ map: this.holeTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, roughness: 0.9 });
-    this.bloodMat = new THREE.MeshStandardMaterial({ map: this.splatTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, roughness: 0.35, color: 0xaa2020 });
+    this.bloodMat = new THREE.MeshStandardMaterial({ map: this.splatTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, roughness: 0.35, color: 0x9a1a14 });
     this.quad = new THREE.PlaneGeometry(1, 1);
     // the muzzle flash light (one, reused)
-    this.flashLight = new THREE.PointLight(0xffb060, 0, 40, 1.6);
+    this.flashLight = new THREE.PointLight(0xffa050, 0, 30, 2);
     world.scene.add(this.flashLight);
     this.flashT = 0;
+    // a few more for fires, flares and explosions, made now: adding lights later rebuilds every shader
+    this.pool = Array.from({ length: 5 }, () => { const l = new THREE.PointLight(0xffffff, 0, 60, 1.6); l.user = null; world.scene.add(l); return l; });
     this.smokes = [];
   }
 
@@ -91,6 +93,13 @@ void main() { vec4 t = texture2D(map, vUv); gl_FragColor = vec4(vCol.rgb, t.a * 
       this.decal(x + dir.x * 2, g + 0.04, z + dir.z * 2, 0, 1, 0, heavy ? 2.6 : 1.6, this.bloodMat);
     }
   }
+  /** A drop of your blood falling (when you're bleeding). */
+  drip() {
+    const P = O.player; if (!P) return;
+    const x = P.pos.x + (Math.random() - 0.5) * 1.2, z = P.pos.z + (Math.random() - 0.5) * 1.2;
+    this.burst(x, P.pos.y + 2.2, z, 1, { color: [0.45, 0.02, 0.02], speed: 0.5, dir: { x: 0, y: -1, z: 0 }, spread: 0.2, life: 0.45, size: 0.09, grow: 0, grav: 25, alpha: 1 });
+    if (Math.random() < 0.6) this.decal(x, O.phys.groundAt(x, P.pos.y + 1, z, 0.2, 4) + 0.03, z, 0, 1, 0, 0.35 + Math.random() * 0.3, this.bloodMat);
+  }
   /** A flat mark on a surface. */
   decal(x, y, z, nx, ny, nz, size, mat = this.holeMat) {
     const m = new THREE.Mesh(this.quad, mat);
@@ -103,7 +112,15 @@ void main() { vec4 t = texture2D(map, vUv); gl_FragColor = vec4(vCol.rgb, t.a * 
     this.decals.push(m);
     if (this.decals.length > 160) { const o = this.decals.shift(); this.world.scene.remove(o); }
   }
-  muzzle(x, y, z) { this.flashLight.position.set(x, y, z); this.flashLight.intensity = 60; this.flashT = 0.05; }
+  /** Borrow a light from the pool (null if they're all in use); give it back with freeLight. */
+  getLight(owner, color, dist = 60, decay = 1.6) {
+    const l = this.pool.find((q) => !q.user);
+    if (!l) return null;
+    l.user = owner; l.color.set(color); l.distance = dist; l.decay = decay; l.intensity = 0;
+    return l;
+  }
+  freeLight(l) { if (l) { l.user = null; l.intensity = 0; } }
+  muzzle(x, y, z) { this.flashLight.position.set(x, y, z); this.flashLight.intensity = 14 / Math.max(1, O.exposure ?? 1); this.flashT = 0.04; }
   /** A column of smoke rising from (x, y, z) (crash sites, flares). */
   smoke(x, y, z, o = {}) { const s = { x, y, z, t: 0, life: o.life ?? 1e9, color: o.color || [0.35, 0.34, 0.33], rate: o.rate ?? 6, size: o.size ?? 6 }; this.smokes.push(s); return s; }
 
@@ -118,6 +135,7 @@ void main() { vec4 t = texture2D(map, vUv); gl_FragColor = vec4(vCol.rgb, t.a * 
       while (s.acc > 1) { s.acc -= 1; this.burst(s.x + (Math.random() - 0.5) * 3, s.y, s.z + (Math.random() - 0.5) * 3, 1, { color: s.color, speed: 1.5, dir: { x: 0.25, y: 1, z: 0.1 }, spread: 0.3, life: 14, size: s.size, grow: 1.3, grav: -1.5, drag: 0.05, alpha: 0.55 }); }
     }
     const P = this.ps, pos = this.aPos.array, col = this.aCol.array;
+    const Lsky = (O.sky ? Math.min(1.1, 0.2 + (O.sky.state?.light ?? 1) * 0.9) : 1) / Math.max(1, O.exposure ?? 1) ** 1.3;
     let n = 0;
     for (let i = P.length - 1; i >= 0; i--) {
       const p = P[i];
@@ -129,8 +147,8 @@ void main() { vec4 t = texture2D(map, vUv); gl_FragColor = vec4(vCol.rgb, t.a * 
       p.size += p.grow * dt;
       const f = p.life / p.max;
       pos[n * 4] = p.x; pos[n * 4 + 1] = p.y; pos[n * 4 + 2] = p.z; pos[n * 4 + 3] = p.size;
-      // lit a little by the sky
-      const L = O.sky ? Math.min(1.2, 0.25 + (O.sky.state?.light ?? 1)) : 1;
+      // lit by the sky (dimmer seen from indoors, where the eye is adjusted up)
+      const L = Lsky;
       col[n * 4] = p.r * L; col[n * 4 + 1] = p.g * L; col[n * 4 + 2] = p.b * L; col[n * 4 + 3] = p.a * Math.min(1, f * 2.5);
       n++;
     }

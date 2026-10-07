@@ -55,8 +55,9 @@ export class Menus {
   showDead(cause, stats) {
     this.hideAll();
     this.dead.querySelector('.cause').textContent = 'Killed by ' + cause;
-    const mins = Math.floor(stats.time / 60), hrs = Math.floor(mins / 60);
-    this.dead.querySelector('.stats').innerHTML = `<div><b>${hrs ? hrs + 'h ' : ''}${mins % 60}m</b>Survived</div><div><b>${stats.zombies}</b>Infected killed</div><div><b>${stats.bandits}</b>Bandits killed</div><div><b>${(stats.distance * 0.33 / 1000).toFixed(1)} km</b>Travelled</div>`;
+    const secs = Math.floor(stats.time), mins = Math.floor(secs / 60), hrs = Math.floor(mins / 60);
+    const lived = hrs ? `${hrs}h ${mins % 60}m` : mins ? `${mins}m ${secs % 60}s` : `${secs}s`;
+    this.dead.querySelector('.stats').innerHTML = `<div><b>${lived}</b>Survived</div><div><b>${stats.zombies}</b>Infected killed</div><div><b>${stats.bandits}</b>Bandits killed</div><div><b>${(stats.distance * 0.33 / 1000).toFixed(1)} km</b>Travelled</div>`;
     this._buttons(this.dead, [['Start a new life', () => O.session.newGame()], ['Quit to title', () => O.session.quitToTitle()]]);
     this.dead.classList.remove('hide');
   }

@@ -71,9 +71,9 @@ export class Hands {
   /** Something new came into your hands (or left them). */
   refresh() {
     const it = this.item;
-    if (it === this.cur && this.curUid === it?.uid) return;
+    if (it ? it === this.cur && this.curUid === it.uid : !this.cur && this.mode === 'fists') return;
     this.cur = it; this.curUid = it?.uid;
-    this.busy = null; this.swing = null; this.charge = 0;
+    this.busy = null; this.swing = null; this.charge = 0; this.blocking = false; this.info = null;
     this.vm.setWeapon(null);
     this.itemHolder.clear();
     const d = it ? def(it) : null;
@@ -192,7 +192,7 @@ export class Hands {
       const B = this.busy;
       if (B.kind === 'shell' && B.t >= B.dur) {
         // one shell in, then the next (until full, out, or you want to shoot)
-        it.rounds++; O.inv.takeRounds(d.cal, 1); playMech('shell');
+        if (O.inv.takeRounds(d.cal, 1)) it.rounds++; playMech('shell');
         if (!B.stop && it.rounds < d.internal && O.inv.rounds(d.cal) > 0) { B.t = 0; this.vm.play('shell', B.dur); }
         else { this.busy = null; if (!it.chamber && it.rounds > 0) this._cycle(it, d); }
       } else if (B.t >= B.dur) { const f = B.done; this.busy = null; f?.(); }
@@ -251,7 +251,8 @@ export class Hands {
       return;
     }
     if (d.internal) {
-      if (it.rounds >= d.internal) { if (!it.chamber && it.rounds > 0) this._cycle(it, d); return; }
+      if (!it.chamber && it.rounds > 0 && (it.rounds >= d.internal || inv.rounds(d.cal) <= 0)) { this._cycle(it, d); return; }
+      if (it.rounds >= d.internal) return;
       if (inv.rounds(d.cal) <= 0) { O.hud?.note('No ' + d.cal + ' rounds', 2); return; }
       this.busy = { kind: 'shell', t: 0, dur: d.bolt ? 0.7 : 0.55 };
       this.vm.play('shell', this.busy.dur);
@@ -264,7 +265,7 @@ export class Hands {
       const dur = (d.pistol ? 1.6 : d.mag === 'boxM249' ? 4.5 : 2.3) * (it.chamber ? 1 : 1.12);
       this.busy = { kind: 'mag', t: 0, dur, done: () => {
         const old = it.mag;
-        inv.detach(best);
+        if (!inv.detach(best)) return; // (it went somewhere else meanwhile)
         it.mag = best;
         if (old) { if (!inv.add(old, { noWear: true })) O.loot.drop(old, O.player.pos.x, O.player.pos.y, O.player.pos.z); }
         if (!it.chamber && it.mag.n > 0) { it.mag.n--; it.chamber = true; }
@@ -277,10 +278,10 @@ export class Hands {
     // no spare magazine: thumb loose rounds into the one in the gun
     if (it.mag && it.mag.n < ITEMS[it.mag.id].cap && inv.rounds(d.cal) > 0) {
       const n = Math.min(ITEMS[it.mag.id].cap - it.mag.n, inv.rounds(d.cal));
-      O.actions.start({ label: 'Loading rounds', time: Math.min(8, 0.35 * n), done: () => { const got = inv.takeRounds(d.cal, n); it.mag.n += got; if (!it.chamber && it.mag.n > 0) { it.mag.n--; it.chamber = true; playMech('rack'); } O.hud?.changed(); }, tick: () => { if (Math.random() < 0.3) playMech('shell'); } });
+      O.actions.start({ label: 'Loading rounds', time: Math.min(8, 0.35 * n), done: () => { if (!it.mag) return; const got = inv.takeRounds(d.cal, Math.min(n, ITEMS[it.mag.id].cap - it.mag.n)); it.mag.n += got; if (!it.chamber && it.mag.n > 0) { it.mag.n--; it.chamber = true; playMech('rack'); } O.hud?.changed(); }, tick: () => { if (Math.random() < 0.3) playMech('shell'); } });
       return;
     }
-    if (!it.chamber && it.mag?.n > 0) { this.busy = { kind: 'rack', t: 0, dur: 0.8, done: () => { it.mag.n--; it.chamber = true; } }; playMech('rack'); return; }
+    if (!it.chamber && it.mag?.n > 0) { this.busy = { kind: 'rack', t: 0, dur: 0.8, done: () => { if (it.mag?.n > 0 && !it.chamber) { it.mag.n--; it.chamber = true; } } }; playMech('rack'); return; }
     O.hud?.note(it.mag ? 'No more ' + d.cal + ' rounds' : 'You have no magazine for this', 2);
   }
   suppress(k) { this.supp = Math.min(1, this.supp + k); }

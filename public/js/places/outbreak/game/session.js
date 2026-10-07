@@ -95,6 +95,10 @@ export class Session {
     this.applySettings();
     // leaving or switching tabs: save
     this._onHide = () => { if (document.visibilityState === 'hidden') this.save(); };
+    // the browser let go of the mouse (Esc does that before the page hears it): pause
+    document.addEventListener('pointerlockchange', () => {
+      if (!O.input.locked && this.state === 'play' && !O.ui.open && !O.input.forceLocked) { this.pause(); this._pausedAt = performance.now(); }
+    });
     document.addEventListener('visibilitychange', this._onHide);
     window.addEventListener('beforeunload', () => this.save());
     this._prevPlace = null;
@@ -114,6 +118,8 @@ export class Session {
     this.state = 'title';
     O.input.ui = true; O.input.unlock();
     O.hour = 19.1; O.sky.setWeather('cloudy', true);
+    O.weapons.vm.visible = false; O.weapons.held.visible = false; O.post.vmVisible = false;
+    O.events.silence();
     O.menus.showTitle(!!load(SAVE));
     O.post.fadeIn(2);
   }
@@ -130,7 +136,7 @@ export class Session {
     inv.all().forEach((it) => { const d = def(it); if (d.light) inv.setHot(0, it); if (d.med) inv.setHot(1, it); });
     const s = SPAWNS[Math.floor(Math.random() * SPAWNS.length)];
     const x = s[0] + (Math.random() - 0.5) * 120, z = s[1] + (Math.random() - 0.5) * 40;
-    O.player.place(x, z, Math.PI + (Math.random() - 0.5));
+    O.player.place(x, z, (Math.random() - 0.5) * 1.2); // facing inland
     O.hour = 6.5 + Math.random() * 3.5;
     O.sky.setWeather(Math.random() < 0.6 ? 'clear' : 'cloudy', true);
     O.stats = { zombies: 0, bandits: 0, time: 0, distance: 0 };
@@ -143,23 +149,26 @@ export class Session {
     if (!S) return this.newGame();
     this._reset();
     O.inv = Inventory.load(S.inv);
-    O.inv.onChange = () => { O.hud?.changed(); };
+    O.inv.onChange = () => { if (O.invUI) O.invUI._dirty = true; O.hud?.changed(); };
     O.survival.load(S.survival);
     O.player.place(S.pos[0], S.pos[2], S.yaw, S.pos[1]);
     O.player.stance = S.stance || 'stand';
     O.hour = S.hour ?? 10;
     O.sky.setWeather(S.weather || 'clear', true);
     O.stats = S.stats || O.stats;
+    O.player.distance = S.stats?.distance || 0;
     this._start();
   }
   _reset() {
+    O.actions.cancel();
+    O.events.reset();
     O.zombies.clear(); O.bandits.clear();
     O.bodies.list = O.bodies.list.filter((b) => b.player);
-    O.inv = new Inventory(); O.inv.onChange = () => { O.hud?.changed(); };
+    O.inv = new Inventory(); O.inv.onChange = () => { if (O.invUI) O.invUI._dirty = true; O.hud?.changed(); };
     O.survival = new Survival();
     O.player.alive = true; O.player.third = false; O.player.vel.set(0, 0, 0); O.player.stamina = 100; O.player.distance = 0; O.player.stance = 'stand';
     O.player.person.pose = { arms: null };
-    O.weapons.cur = null; O.weapons.curUid = undefined; O.weapons.refresh();
+    O.weapons.cur = null; O.weapons.curUid = -1; O.weapons.refresh();
   }
   _start() {
     this.state = 'play';
@@ -188,14 +197,14 @@ export class Session {
     // everything you had goes with your body
     const items = [];
     for (const s of ['hands', 'shoulder', 'melee', 'head', 'torso', 'vest', 'legs', 'back']) { const it = O.inv.slots[s]; if (it) items.push(it); }
-    const body = this._corpse({ x: O.player.pos.x, y: O.player.pos.y, z: O.player.pos.z, yaw: O.player.yaw, items: items.map(serItem), t: Date.now() });
+    const body = this._corpse({ x: O.player.pos.x, y: O.player.pos.y, z: O.player.pos.z, yaw: O.player.yaw + Math.PI, items: items.map(serItem), t: Date.now() });
     O.playerBodyOwner = body.owner;
     localStorage.removeItem(SAVE);
     this.saveWorld();
     // fall over, see yourself lying there
     O.player.third = true;
     O.post.fadeOut(4);
-    setTimeout(() => { if (this.state === 'dead') { O.input.ui = true; O.input.unlock(); O.menus.showDead(cause || 'unknown causes', { ...O.stats, time: O.stats.time, distance: O.player.distance }); O.post.fadeIn(1); } }, 3500);
+    this.deadT = 0; this.deadCause = cause || 'unknown causes';
     O.audio?.hurt(30);
   }
   /** A body of yours from this or an earlier life. */
@@ -270,7 +279,7 @@ export class Session {
     if (I.pressed.has('escape')) {
       if (O.invUI.isOpen || O.mapUI.isOpen) O.ui.close();
       else if (this.state === 'play') this.pause();
-      else if (this.state === 'paused') this.resume();
+      else if (this.state === 'paused' && performance.now() - (this._pausedAt || 0) > 300) { this.saveSettings(); this.resume(); }
     }
     if (this.state === 'play') {
       if (I.pressed.has('tab') || I.pressed.has('i')) { if (O.invUI.isOpen) O.ui.close(); else { O.mapUI.close(); O.invUI.open(); this._uiChanged(); } }
@@ -289,6 +298,13 @@ export class Session {
       }
       const inp = playing ? I : { keys: new Set(), pressed: new Set(), buttons: new Set(), clicked: new Set(), mx: 0, my: 0 };
       if (P.alive) P.update(dt, inp); else this._deadCam(dt);
+      // a few seconds after you die: the screen that says so
+      if (this.state === 'dead' && this.deadT >= 0 && (this.deadT += dt) > 3.5) {
+        this.deadT = -1;
+        O.input.ui = true; O.input.unlock();
+        O.menus.showDead(this.deadCause, { ...O.stats, distance: O.player.distance });
+        O.post.fadeIn(1);
+      }
       O.weapons.update(dt, inp);
       O.actions.update(dt);
       O.survival.update(dt, { moving: P.moving > 0.2, sprinting: P.mode === 'sprint', indoors: P.indoors, hour: O.hour, weather: O.sky.w, exhausted: P.stamina < 15 });
@@ -297,8 +313,8 @@ export class Session {
       // your figure (seen in third person and in shadows)
       const pp = P.person;
       pp.x = P.pos.x; pp.y = P.pos.y; pp.z = P.pos.z; pp.yaw = P.yaw + Math.PI;
-      pp.invisible = !P.third || !P.alive && false;
-      pp.hidden = false;
+      pp.invisible = !P.third;
+      pp.hidden = !P.alive; // (your corpse takes over)
       const ps = pp.pose;
       ps.walk = (ps.walk || 0) + dt * Math.hypot(P.vel.x, P.vel.z) * 0.6; ps.stride = Math.min(1, Math.hypot(P.vel.x, P.vel.z) / 12);
       ps.crouch = P.stance === 'crouch' ? 1 : 0; ps.prone = P.stance === 'prone' ? 1 : 0;
@@ -329,6 +345,7 @@ export class Session {
     }
     O.sky.update(dt, O.hour, cam.position);
     O.sky.updateEnv(world.renderer, world.scene);
+    if (!live || this.state === 'paused') O.events.silence();
     O.water.update(dt, O.sky);
     O.terrainView.update(cam);
     O.veg.update(dt, cam, O.sky);
@@ -418,12 +435,19 @@ export class Session {
       O.combat.noise(d.x, d.y, d.z, 10, P);
     } else if (f.kind === 'item') {
       const w = f.item, it = w.it, inv = O.inv;
-      if (inv.canAdd(it)) { O.loot.take(w); inv.add(it); O.audio.pickup(); O.hud.note(def(it).name, 1.6); this._autoHot(it); }
+      if (inv.canAdd(it)) {
+        O.loot.take(w);
+        const all = inv.add(it);
+        if (!all) { if (!inv.slots.hands) { inv.slots.hands = it; inv.changed(); O.weapons.refresh(); } else O.loot.drop(it, P.pos.x, P.pos.y, P.pos.z); }
+        O.audio.pickup(); O.hud.note(def(it).name, 1.6); this._autoHot(it);
+        if (def(it).wear && Object.values(inv.slots).includes(it)) this.dress();
+      }
       else if (!inv.slots.hands) { O.loot.take(w); inv.slots.hands = it; inv.changed(); O.weapons.refresh(); O.audio.pickup(); }
       else O.hud.note('No room. Open your inventory (Tab) to make space.', 2.5);
     } else if (f.kind === 'body') {
       O.mapUI.close(); O.invUI.open(); this._uiChanged();
     } else if (f.kind === 'well') this._water(false);
+    else if (f.kind === 'ladder') P.grab(f.ladder, true);
   }
   _water(dirty) {
     const S = O.survival, inv = O.inv;

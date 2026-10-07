@@ -263,9 +263,9 @@ export class Crowd {
     _q.setFromEuler(_e.set(0, p.yaw, 0));
     _m.compose(_v.set(p.x, p.y, p.z), _q, _s.set(s, s, s));
     const fall = dead * (Math.PI / 2) * (P.fallDir || 1) + prone * (-Math.PI / 2);
+    // (lying down: lifted so the body rests on the ground rather than through it)
+    if (dead || prone) { _m.multiply(_t.makeTranslation(0, 0.5 * Math.max(dead, prone), 0)); }
     if (fall) { _r.makeRotationX(-fall); _m.multiply(_r); }
-    // (lying down: lift so the body rests on the ground rather than through it)
-    if (dead || prone) { _t.makeTranslation(0, 0, 0); }
     const lowered = crouch * 1.25;
     const lean = (P.lean || 0) + crouch * 0.35 + (P.arms === 'zombie' ? 0.18 : 0);
     const hipY = 2 - lowered;

@@ -31,7 +31,9 @@ void main() {
   vec2 drift = vec2(time * 0.012, time * 0.007) + vec2(0.0, time * flow);
   vec3 n1 = texture2D(nMap, p / 70.0 + drift).xyz * 2.0 - 1.0;
   vec3 n2 = texture2D(nMap, p / 23.0 * mat2(0.8, -0.6, 0.6, 0.8) - drift * 1.7).xyz * 2.0 - 1.0;
-  vec3 n = normalize(vec3(n1.xy + n2.xy * 0.6, 1.0 / rough));
+  // calmer further off (the ripples are too small to see; strong normals there just sparkle)
+  float far = smoothstep(25.0, 700.0, length(cameraPosition - vW));
+  vec3 n = normalize(vec3((n1.xy + n2.xy * 0.6) * mix(0.6, 0.16, far), 1.0 / rough));
   n = normalize(vec3(n.x, n.z, n.y));
   vec3 v = normalize(cameraPosition - vW);
   float depth = max(0.0, vW.y - hAt(p));

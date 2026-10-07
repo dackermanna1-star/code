@@ -113,15 +113,17 @@ export class Player {
       // jumping
       if (input.pressed.has(' ') && this.grounded && this.stance === 'stand' && this.stamina > 10 && !broken && !this.swimming) { this.vel.y = 24; this.grounded = false; this.stamina -= 12; this.fallFrom = this.pos.y; O.audio?.jump(); }
       // grabbing a ladder you walk into
-      if (fz < 0) this._findLadder();
+      this.ladderOff = Math.max(0, (this.ladderOff || 0) - dt);
+      if (fz < 0 && this.ladderOff <= 0) this._findLadder();
       // water
       const wl = T.waterAt(this.pos.x, this.pos.z);
       const depth = wl - this.pos.y;
-      this.swimming = depth > 3.6;
+      this.swimming = depth > (this.swimming ? 2.9 : 3.6);
       if (this.swimming) {
         this.stance = 'stand';
         this.vel.y = (wl - 3.3 - this.pos.y) * 3;
         this.pos.x += this.vel.x * dt; this.pos.z += this.vel.z * dt;
+        O.phys._push(this.pos, 1.05, 5, 0.8, this.vel);
         const g = O.phys.groundAt(this.pos.x, this.pos.y + 1, this.pos.z, 0.6, 2);
         if (g > this.pos.y) this.pos.y = g;
         this.pos.y += this.vel.y * dt;
@@ -236,13 +238,17 @@ export class Player {
       const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);
       if (-(dx * fx + dz * fz) / Math.max(0.01, Math.hypot(dx, dz)) < 0.4) continue;
       this.ladder = l; this.stance = 'stand';
-      // hang on the side you came from
-      const L2 = Math.hypot(dx, dz) || 1;
-      this.ladderSide = [dx / L2, dz / L2];
-      this.vel.set(0, 0, 0);
-      O.audio?.ladder();
+      this.grab(l);
       return;
     }
+  }
+  /** Onto a ladder (from the top: a little way down it). Its climbing side is the frame's +z. */
+  grab(l, fromTop = false) {
+    this.ladder = l; this.stance = 'stand';
+    this.ladderSide = [Math.sin(l.yaw || 0), Math.cos(l.yaw || 0)];
+    if (fromTop) { this.pos.set(l.x + this.ladderSide[0] * 1.15, l.y + l.h - 2.2, l.z + this.ladderSide[1] * 1.15); this.yaw = Math.atan2(this.ladderSide[0], this.ladderSide[1]); }
+    this.vel.set(0, 0, 0);
+    O.audio?.ladder();
   }
   _climb(dt, fz, input) {
     const l = this.ladder;
@@ -258,9 +264,9 @@ export class Player {
       this.pos.y = l.y + l.h + 0.2;
       this.pos.x -= this.ladderSide[0] * 2.6; this.pos.z -= this.ladderSide[1] * 2.6;
       this.pos.y = O.phys.groundAt(this.pos.x, this.pos.y + 1.5, this.pos.z, 0.6, 3);
-      this.ladder = null; this.grounded = true;
+      this.ladder = null; this.grounded = true; this.ladderOff = 0.6;
     } else if (this.pos.y <= l.y + 0.05 && up < 0) { this.pos.y = l.y; this.ladder = null; this.grounded = true; }
-    if (input.pressed.has(' ')) { this.ladder = null; this.vel.set(this.ladderSide[0] * 6, 0, this.ladderSide[1] * 6); this.fallFrom = this.pos.y; }
+    if (input.pressed.has(' ')) { this.ladder = null; this.ladderOff = 0.5; this.vel.set(this.ladderSide[0] * 6, 0, this.ladderSide[1] * 6); this.fallFrom = this.pos.y; }
   }
 
   /** What's in front of you that F would use: a door, an item, a body, a well. */
@@ -291,6 +297,11 @@ export class Player {
     }
     // wells and pumps (water)
     if (!best && hit && hit.box && hit.box.well) best = { kind: 'well' };
+    // the top of a ladder: climb down
+    if (!best && !this.ladder) for (const l of O.buildings?.ladders || []) {
+      if (Math.abs(this.pos.y - (l.y + l.h)) > 1.6 || Math.hypot(this.pos.x - l.x, this.pos.z - l.z) > 3.2) continue;
+      best = { kind: 'ladder', ladder: l }; break;
+    }
     this.focus = best;
   }
 }

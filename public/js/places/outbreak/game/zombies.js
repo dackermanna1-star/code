@@ -121,7 +121,7 @@ export class Zombies {
       if (rooms && Math.random() < 0.55) {
         // a room near there
         const R = O.nav.roomAt(x, sy + 1, z) || nearestRoom(x, z, 50);
-        if (R && R.y < sy + 25) { sx = R.x + (Math.random() - 0.5) * R.hx; sz = R.z + (Math.random() - 0.5) * R.hz; sy = R.y; }
+        if (R && R.y < sy + 25) { const lx = (Math.random() - 0.5) * R.hx, lz = (Math.random() - 0.5) * R.hz; sx = R.x + lx * (R.c ?? 1) + lz * (R.s ?? 0); sz = R.z - lx * (R.s ?? 0) + lz * (R.c ?? 1); sy = R.y; }
       }
       if (O.terrain.waterAt(sx, sz) > sy - 1) continue;
       // in your view and close? try elsewhere
@@ -208,7 +208,7 @@ export class Zombies {
     // states
     if (z.state === 'chase') {
       const prey = z.prey || P;
-      if (!prey.alive && prey === P) { z.state = 'wander'; z.target = null; return; }
+      if (!prey.alive || prey.removed || prey.dead) { z.state = 'wander'; z.target = z.prey = null; return; }
       const can = O.phys.sees(z.pos.x, z.pos.y + 4.4, z.pos.z, prey.pos.x, prey.pos.y + 3, prey.pos.z);
       if (can) { z.lastSeen = prey.pos.clone(); z.giveUp = 8; } else { z.giveUp -= dt; if (z.giveUp <= 0) { z.state = 'alert'; z.target = z.lastSeen || prey.pos.clone(); z._routeTo(z.target); } }
       z.target = can ? prey.pos : (z.lastSeen || prey.pos);
@@ -220,7 +220,7 @@ export class Zombies {
         z.attackT += dt;
         if (!z.struck && z.attackT > 0.45) {
           z.struck = true;
-          if (d < 3.6 && dy < 3) {
+          if (d < 3.6 && dy < 3 && O.phys.sees(z.pos.x, z.pos.y + 4.4, z.pos.z, prey.pos.x, prey.pos.y + 3, prey.pos.z)) {
             if (prey === P) {
               const blocking = O.weapons?.blocking && facingTo(P, z) > 0.6;
               const dmg = (6 + Math.random() * 8) * (blocking ? 0.25 : 1) * (z.kind === 'soldier' ? 1.2 : 1);
@@ -232,7 +232,7 @@ export class Zombies {
           }
         }
         if (z.attackT > 1.05) { z.attackT = 0; z.struck = false; }
-      } else if (d < 2.9 && dy < 3 && z.stagger <= 0) { z.attackT = 0.0001; z.struck = false; O.audio?.zombie('attack', z.pos); }
+      } else if (can && d < 2.9 && dy < 3 && z.stagger <= 0) { z.attackT = 0.0001; z.struck = false; O.audio?.zombie('attack', z.pos); }
     } else if (z.state === 'alert') {
       if (!z.target || z.t > 25) { z.state = 'wander'; z.target = null; }
       else if (Math.hypot(z.target.x - z.pos.x, z.target.z - z.pos.z) < 3) { z.state = 'idle'; z.t = 0; z.target = null; }
@@ -240,6 +240,7 @@ export class Zombies {
       if (!z.target || z.t > 14 || Math.hypot(z.target.x - z.pos.x, z.target.z - z.pos.z) < 2) {
         z.t = 0;
         if (Math.random() < 0.4) { z.state = 'idle'; z.target = null; }
+        else if (z.home && Math.hypot(z.home.x - z.pos.x, z.home.z - z.pos.z) > 25) { z.target = new THREE.Vector3(z.home.x + (Math.random() - 0.5) * 20, z.pos.y, z.home.z + (Math.random() - 0.5) * 20); z.route = []; }
         else { const a = Math.random() * TAU; z.target = new THREE.Vector3(z.pos.x + Math.cos(a) * 14, z.pos.y, z.pos.z + Math.sin(a) * 14); z.route = []; }
       }
     } else if (z.state === 'idle') {
@@ -292,6 +293,16 @@ export class Zombies {
       const dx = z.pos.x - o.pos.x, dz = z.pos.z - o.pos.z, d2 = dx * dx + dz * dz;
       if (d2 < 3.2 && d2 > 1e-4) { const d = Math.sqrt(d2), k = (1.8 - d) * 2; z.vel.x += dx / d * k; z.vel.z += dz / d * k; }
     }
+    // and out of your face: they close to arm's length, no nearer
+    const P = O.player;
+    if (P?.alive && Math.abs(z.pos.y - P.pos.y) < 4) {
+      const dx = z.pos.x - P.pos.x, dz = z.pos.z - P.pos.z, d2 = dx * dx + dz * dz, R = 2.3;
+      if (d2 < R * R && d2 > 1e-4) {
+        const d = Math.sqrt(d2), nx = dx / d, nz = dz / d, into = -(z.vel.x * nx + z.vel.z * nz);
+        if (into > 0) { z.vel.x += nx * into; z.vel.z += nz * into; }
+        z.vel.x += nx * (R - d) * 5; z.vel.z += nz * (R - d) * 5;
+      }
+    }
     const res = O.phys.moveBody(z.pos, z.vel, dt, { r: 1.0, h: 5, step: 1.7, grounded: z.grounded });
     z.grounded = res.grounded;
     // fell in the water: drown slowly, really just keep them out
@@ -342,7 +353,14 @@ function facingTo(P, z) {
 /** Dead people you can go through the pockets of. */
 export class Bodies {
   constructor() { this.list = []; }
-  add(b) { this.list.push(b); if (this.list.length > 60) this.list.shift(); return b; }
+  add(b) {
+    this.list.push(b);
+    if (this.list.length > 60) {
+      const i = this.list.findIndex((x) => !x.player);
+      if (i >= 0) { const old = this.list.splice(i, 1)[0]; if (old.person && !old.owner?.squad && !O.zombies.list.includes(old.owner)) O.crowd.remove(old.person); }
+    }
+    return b;
+  }
   removeOwner(o) { const i = this.list.findIndex((b) => b.owner === o); if (i >= 0) this.list.splice(i, 1); }
   /** The body you're looking at (near the line from e along d). */
   lookAt(e, d, reach) {

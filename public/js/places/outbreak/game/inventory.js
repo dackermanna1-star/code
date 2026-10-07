@@ -158,12 +158,13 @@ export class Inventory {
   /** Total weight carried (kg). */
   weight() {
     let w = 0;
-    const add = (it) => { const d = def(it); w += d.weight * (d.stack > 1 ? it.n : 1); if (it.mag) add(it.mag); if (d.ammo) w += 0; };
+    const add = (it) => { const d = def(it); w += d.weight * (d.stack > 1 ? it.n : 1); if (it.mag) add(it.mag); };
     for (const it of this.all()) add(it);
     return w;
   }
   /** Armour against a hit to `part` (0..1), and warmth (0..1+) from what you wear. */
   armor(part) {
+    if (part !== 'head' && part !== 'torso') return 0;
     const s = part === 'head' ? this.slots.head : this.slots.vest;
     const d = s ? def(s) : null;
     return d?.wear?.armor ? d.wear.armor * Math.max(0.2, s.cond) : (part === 'torso' && this.slots.torso ? (def(this.slots.torso).wear.armor || 0) : 0);
@@ -175,7 +176,7 @@ export class Inventory {
   setHot(i, it) { for (let k = 0; k < 9; k++) if (this.hotbar[k] === it.uid) this.hotbar[k] = null; this.hotbar[i] = it.uid; this.changed(); }
   /** Plain data for saving. */
   save() {
-    const ser = (it) => it && ({ id: it.id, n: it.n, cond: +it.cond.toFixed(3), x: it.x, y: it.y, rot: it.rot, tint: it.tint, attach: it.attach, chamber: it.chamber, rounds: it.rounds, mag: it.mag ? ser(it.mag) : null, on: it.on, charge: it.charge, dirty: it.dirty, uid: it.uid, grid: it.grid ? it.grid.items.map(ser) : undefined });
+    const ser = (it) => it && ({ id: it.id, n: it.n, cond: +it.cond.toFixed(3), x: it.x, y: it.y, rot: it.rot, tint: it.tint, attach: it.attach, chamber: it.chamber, rounds: it.rounds, mag: it.mag ? ser(it.mag) : null, on: it.on, charge: it.charge, dirty: it.dirty, jammed: it.jammed || undefined, uid: it.uid, grid: it.grid ? it.grid.items.map(ser) : undefined });
     return { slots: Object.fromEntries(SLOTS.map((s) => [s, ser(this.slots[s])])), hotbar: this.hotbar };
   }
   static load(data) {
@@ -185,7 +186,7 @@ export class Inventory {
       if (!o || !ITEMS[o.id]) return null;
       const it = makeItem(o.id, { n: o.n, cond: o.cond, tint: o.tint, attach: o.attach, chamber: o.chamber, rounds: o.rounds, charge: o.charge });
       if (o.mag) it.mag = de(o.mag);
-      it.on = !!o.on; it.dirty = !!o.dirty; it.rot = !!o.rot; it.x = o.x | 0; it.y = o.y | 0;
+      it.on = !!o.on; it.dirty = !!o.dirty; it.jammed = !!o.jammed; it.rot = !!o.rot; it.x = o.x | 0; it.y = o.y | 0;
       uidMap.set(o.uid, it.uid);
       if (o.grid && it.grid) for (const c of o.grid) { const ci = de(c); if (ci && it.grid.fits(ci, ci.x, ci.y, ci.rot)) it.grid.put(ci, ci.x, ci.y, ci.rot); }
       return it;

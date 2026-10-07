@@ -34,9 +34,11 @@ export class Grass {
     // the mask textures
     const FN = T.fineN;
     this.maskTex = new THREE.DataTexture(T.fine, FN, FN, THREE.RedFormat, THREE.UnsignedByteType);
+    this.maskTex.unpackAlignment = 1; // rows of an odd number of bytes
     this.maskTex.minFilter = this.maskTex.magFilter = THREE.LinearFilter; this.maskTex.generateMipmaps = false; this.maskTex.needsUpdate = true;
     const fd = new Uint8Array(N * N); for (let i = 0; i < N * N; i++) fd[i] = Math.round(T.field[i] * 255);
     this.fieldTex = new THREE.DataTexture(fd, N, N, THREE.RedFormat, THREE.UnsignedByteType);
+    this.fieldTex.unpackAlignment = 1;
     this.fieldTex.minFilter = this.fieldTex.magFilter = THREE.LinearFilter; this.fieldTex.generateMipmaps = false; this.fieldTex.needsUpdate = true;
     this.uni = {
       hMap: terrainView.uniforms.hMap, wT0: terrainView.uniforms.wT0, wT1: terrainView.uniforms.wT1, gMask: { value: this.maskTex }, fieldT: { value: this.fieldTex },
@@ -105,6 +107,7 @@ green = mix(green, vec3(0.55, 0.62, 0.35), forest * 0.6);
 vTint = green * (0.85 + r4 * 0.3);`);
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', '#include <common>\nvarying vec3 vTint; varying float vRoot;')
+        .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\nnormal = normalize(vNormal); // both sides of a blade face up (else the backs go black)')
         .replace('#include <map_fragment>', `#include <map_fragment>
 ${flowers ? '' : 'diffuseColor.rgb *= vTint;'}
 diffuseColor.rgb *= mix(0.6, 1.1, smoothstep(0.0, 0.8, vRoot));`);

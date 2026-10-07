@@ -188,6 +188,7 @@ export const LOOT_EXTRA = { kitchen: 'home', clothes: 'home', office: 'home', sc
 
 /** Pick an item id from a table (or null). r: a random function. */
 export function rollLoot(cat, r = Math.random) {
+  if (LOOT_EXTRA[cat] && r() < 0.3) cat = LOOT_EXTRA[cat];
   const t = LOOT[cat] || LOOT.home;
   let tot = 0; for (const [, w] of t) tot += w;
   let x = r() * tot;

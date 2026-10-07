@@ -55,7 +55,7 @@ export class Audio {
     }, null, 0.55);
   }
   jump() { this.cloth(0.8); }
-  land(drop) { this.play((c, out, t, K) => { const n = K.noise(c, 'brown'); const g = c.createGain(); K.env(g, t, 0.003, Math.min(1.2, 0.3 + drop * 0.03), 0.15); K.chain(n, K.filt(c, 'lowpass', 400), g, out); n.start(t); n.stop(t + 0.25); }, null, 0.7); }
+  land(drop, pos = null) { this.play((c, out, t, K) => { const n = K.noise(c, 'brown'); const g = c.createGain(); K.env(g, t, 0.003, Math.min(1.2, 0.3 + drop * 0.03), 0.15); K.chain(n, K.filt(c, 'lowpass', 400), g, out); n.start(t); n.stop(t + 0.25); }, pos, 0.7, pos ? { ref: 20, max: 700 } : undefined); }
   cloth(v = 0.5) { this.play((c, out, t, K) => { const n = K.noise(c); const g = c.createGain(); K.env(g, t, 0.02, 0.25 * v, 0.18); K.chain(n, K.filt(c, 'bandpass', 2400, 0.7), g, out); n.start(t); n.stop(t + 0.3); }, null, 0.5); }
   ladder() { this.rung(); }
   rung() { this.play((c, out, t, K) => { const o = c.createOscillator(); o.frequency.value = rnd(300, 380); const g = c.createGain(); K.env(g, t, 0.002, 0.25, 0.08); o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.1); const n = K.noise(c); const ng = c.createGain(); K.env(ng, t, 0.002, 0.2, 0.04); K.chain(n, K.filt(c, 'bandpass', 3000, 2), ng, out); n.start(t); n.stop(t + 0.06); }, null, 0.6); }
@@ -196,7 +196,7 @@ export class Audio {
       }
     }
     // your heart and your breath
-    if (S && S.alive) {
+    if (S && S.alive && O.session?.state === 'play') {
       this.heartT -= dt;
       if (S.blood < 55 && this.heartT <= 0) { this.heartT = 0.45 + S.blood / 100; this.play((c, out, t) => { for (const [dt2, f] of [[0, 55], [0.16, 48]]) { const o = c.createOscillator(); o.frequency.value = f; const g = c.createGain(); g.gain.setValueAtTime(0.0001, t + dt2); g.gain.exponentialRampToValueAtTime(0.5 * (1 - S.blood / 60), t + dt2 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dt2 + 0.16); o.connect(g); g.connect(out); o.start(t + dt2); o.stop(t + dt2 + 0.2); } }, null, 0.8); }
       this.breathT -= dt;

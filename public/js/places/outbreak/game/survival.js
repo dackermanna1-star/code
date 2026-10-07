@@ -84,6 +84,7 @@ export class Survival {
     this.painkiller = Math.max(0, this.painkiller - dt);
     this.morphine = Math.max(0, this.morphine - dt);
     this.vitamins = Math.max(0, this.vitamins - dt);
+    this.clean = Math.max(0, (this.clean || 0) - dt);
     this.pain = Math.max(0, this.pain - dt);
     if (this.brokenLeg && this.morphine <= 0) { this.pain = Math.max(this.pain, 5); this.note('leg', 'Your leg is broken', 90); }
     // how steady your hands are
@@ -105,7 +106,7 @@ export class Survival {
     const dmg = amount * (1 - a);
     if (a > 0 && O.inv) { const it = o.part === 'head' ? O.inv.slots.head : O.inv.slots.vest; if (it) it.cond = Math.max(0, it.cond - amount * 0.004); }
     this.health -= dmg;
-    this.blood -= (o.blood ?? dmg * 0.35);
+    this.blood -= o.blood !== undefined ? o.blood * (1 - a) : dmg * 0.35;
     if (Math.random() < (o.bleed ?? 0.3) * (1 - a * 0.7)) { this.wounds = Math.min(6, this.wounds + 1); }
     if (o.part === 'leg' && dmg > 25 && Math.random() < 0.25) this.breakLeg();
     this.cause = o.cause || this.cause;
@@ -157,7 +158,7 @@ export class Survival {
     if (m.bandage) {
       if (this.wounds <= 0 && !m.health) return { fail: 'You aren’t bleeding.' };
       if (m.all) this.wounds = 0; else this.wounds = Math.max(0, this.wounds - 1);
-      if (m.dirty && Math.random() < m.dirty) this.poison(0.25);
+      if (m.dirty && !(this.clean > 0) && Math.random() < m.dirty) this.poison(0.25);
       if (m.health) this.health = clamp(this.health + m.health, 0, 100);
       return { ok: true, msg: m.all ? 'You patch yourself up' : this.wounds ? 'One wound is bandaged' : 'The bleeding has stopped' };
     }
@@ -168,7 +169,7 @@ export class Survival {
     if (m.cureFood) { this.sick = Math.max(0, this.sick - 0.6); return { ok: true, msg: 'Your stomach settles' }; }
     if (m.vitamins) { this.vitamins = Math.max(this.vitamins, m.vitamins); return { ok: true, msg: 'You take some vitamins' }; }
     if (m.blood) { this.blood = clamp(this.blood + m.blood, 0, 100); return { ok: true, msg: 'Some colour comes back' }; }
-    if (m.disinfect) { return { ok: true, msg: 'You clean your wounds' }; }
+    if (m.disinfect) { this.clean = 900; this.sick = Math.max(0, this.sick - 0.15); return { ok: true, msg: 'You clean your wounds' }; }
     if (m.purify) return { fail: 'Use them on a bottle of water.' };
     return { ok: true, msg: 'You take the pills' };
   }

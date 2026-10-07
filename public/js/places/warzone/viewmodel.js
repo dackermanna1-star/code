@@ -130,7 +130,7 @@ export class ViewModel {
     shell.position.copy(this.gun.group.localToWorld(this.gun.eject.clone()));
     shell.rotation.set(Math.random(), Math.random(), Math.PI / 2);
     this.scene.add(shell);
-    this.brass.push({ m: shell, v: new THREE.Vector3(0.9 + Math.random() * 0.6, 0.9 + Math.random() * 0.5, 0.2 + Math.random() * 0.3), w: new THREE.Vector3(Math.random() * 30, Math.random() * 30, 20), age: 0 });
+    this.brass.push({ m: shell, v: new THREE.Vector3(0.9 + Math.random() * 0.6, 0.9 + Math.random() * 0.5, -0.1 - Math.random() * 0.25), w: new THREE.Vector3(Math.random() * 30, Math.random() * 30, 20), age: 0 });
     playBrass(null);
   }
 
@@ -271,7 +271,7 @@ export class ViewModel {
     this.gun.group.updateMatrixWorld(true);
     shell.position.copy(this.gun.group.localToWorld(this.gun.eject.clone()));
     this.scene.add(shell);
-    this.brass.push({ m: shell, v: new THREE.Vector3(1.0, 1.2, 0.2), w: new THREE.Vector3(20, 10, 15), age: 0 });
+    this.brass.push({ m: shell, v: new THREE.Vector3(1.0, 1.2, -0.15), w: new THREE.Vector3(20, 10, 15), age: 0 });
     playBrass(null);
   }
 

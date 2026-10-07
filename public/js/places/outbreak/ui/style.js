@@ -94,6 +94,7 @@ export const CSS = `
 .ob-slot .lab{position:absolute;left:5px;top:3px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#7a766c}
 .ob-slot.hl{border-color:#e8c070;background:rgba(232,192,112,.1)}
 .ob-tip.hide{display:none}
+.ob-tip,.ob-menu,.ob-ghost{color:#e9e5db;font-family:"DIN Alternate","Bahnschrift","Barlow Condensed","Roboto Condensed","Arial Narrow",Arial,sans-serif;user-select:none;-webkit-user-select:none;letter-spacing:.02em;box-sizing:border-box}
 .ob-tip{position:fixed;z-index:100;pointer-events:none;max-width:300px;padding:10px 12px;background:rgba(10,12,11,.94);border:1px solid rgba(255,255,255,.12);border-radius:3px;font-size:13px;line-height:1.35}
 .ob-tip .t{font-size:15px;color:#fff;margin-bottom:3px}
 .ob-tip .d{color:#b8b2a4}
@@ -118,12 +119,12 @@ export const CSS = `
 .ob-title .menu{width:320px}
 .ob-title .foot{position:absolute;left:9vw;bottom:28px;font-size:12px;color:#7a766c;letter-spacing:.08em}
 .ob-dead{flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(40,0,0,.35),rgba(0,0,0,.92));backdrop-filter:none}
-.ob-dead .big{font-size:64px;letter-spacing:.5em;text-indent:.5em;font-weight:300;color:#d8d2c4;animation:obdead 3s}
+.ob-dead .big{font-size:64px;letter-spacing:.5em;text-indent:.5em;font-weight:400;color:#e9e5db;text-shadow:0 2px 24px rgba(160,20,10,.6),0 1px 2px #000;animation:obdead 2.2s}
 @keyframes obdead{from{opacity:0;letter-spacing:.9em}}
 .ob-dead .cause{color:#b8b2a4;margin:12px 0 30px;letter-spacing:.12em}
 .ob-dead .stats{display:flex;gap:40px;margin-bottom:40px}
 .ob-dead .stats div{text-align:center;font-size:12px;letter-spacing:.2em;color:#8a867c;text-transform:uppercase}
-.ob-dead .stats b{display:block;font-size:30px;color:#e9e5db;letter-spacing:.04em;font-weight:400}
+.ob-dead .stats b{display:block;text-transform:none;font-size:30px;color:#e9e5db;letter-spacing:.04em;font-weight:400}
 .ob-pause{flex-direction:column;align-items:flex-start;justify-content:center;padding-left:9vw}
 .ob-set{width:440px;padding:6px 18px 16px}
 .ob-set label{display:flex;align-items:center;justify-content:space-between;margin:10px 0;font-size:14px;color:#cfc9bb}

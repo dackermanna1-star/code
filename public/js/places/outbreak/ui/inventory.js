@@ -130,7 +130,7 @@ export class InventoryUI {
     else if (d.uses || d.refill) q = (it.n ?? 0) + (d.refill ? '' : '');
     e.innerHTML = `<img src="${iconURL(it, !inSlot && it.rot)}"><div class="q">${q}</div><div class="cd" style="background:${c[2]}"></div>`;
     e._it = it; e._src = src;
-    e.addEventListener('pointerdown', (ev) => { if (ev.button === 0) this._startDrag(ev, it, src, e); else if (ev.button === 2) this._contextMenu(ev, it, src); });
+    e.addEventListener('pointerdown', (ev) => { if (ev.button === 0) this._startDrag(ev, it, src, e); else if (ev.button === 2) { ev.stopPropagation(); this._contextMenu(ev, it, src); } });
     e.addEventListener('dblclick', () => this._quick(it, src));
     e.addEventListener('pointerenter', (ev) => this._showTip(ev, it));
     e.addEventListener('pointerleave', () => this.tip.classList.add('hide'));
@@ -247,6 +247,7 @@ export class InventoryUI {
         if (t.src.type === 'body') { if (src.type === 'body') return; this._lift(it, src); t.src.body.items.push(it); return; }
         return;
       }
+      if (it.grid?.items.length && t.src.owner !== undefined) { O.hud?.note('Empty it first', 1.5); return; }
       if (!t.grid.fits(it, t.x, t.y, rot, it)) { O.audio?.ui(); return; }
       const from = inv.locate(it);
       it._from = from;
@@ -336,6 +337,7 @@ export class InventoryUI {
       this._lift(it, src);
       if (!inv.add(it)) { if (!inv.slots.hands) inv.slots.hands = it; else this._restore(it, src); }
       inv.changed(); O.weapons.refresh();
+      if (d.wear) O.ui?.onWear?.();
     } else if (d.wear && inv.slots[d.wear.slot] !== it) { this._lift(it, src); const old = inv.wear(it); if (old && !inv.add(old)) O.loot.drop(old, O.player.pos.x, O.player.pos.y, O.player.pos.z); O.ui?.onWear?.(); }
     else if (d.gun || d.melee || d.light || d.zoom) O.weapons.take(it);
     else if (d.food || d.drink || d.med) { O.ui.close(); O.weapons.use(it); }
@@ -355,10 +357,10 @@ export class InventoryUI {
       if (d.wear && inv.slots[d.wear.slot] !== it) acts.push(['Wear', () => this._quick(it, src)]);
       if (inv.slots.hands !== it) acts.push(['Take in hands', () => O.weapons.take(it)]);
       if (d.light) acts.push([it.on ? 'Switch off' : 'Switch on', () => O.weapons.toggleLight(it)]);
-      if (d.magOf && it.n > 0) acts.push(['Unload rounds', () => { const id = CALIBRES[d.magOf].item; const box = makeItem(id, { n: it.n }); it.n = 0; if (!inv.add(box)) O.loot.drop(box, O.player.pos.x, O.player.pos.y, O.player.pos.z); inv.changed(); }]);
+      if (d.magOf && it.n > 0) acts.push(['Unload rounds', () => { const id = CALIBRES[d.magOf].item; let left = it.n; it.n = 0; while (left > 0) { const k = Math.min(ITEMS[id].stack, left); left -= k; const box = makeItem(id, { n: k }); if (!inv.add(box)) O.loot.drop(box, O.player.pos.x, O.player.pos.y, O.player.pos.z); } inv.changed(); }]);
       if (d.magOf && it.n < d.cap && inv.rounds(d.magOf) > 0) acts.push(['Load rounds', () => { const am = inv.find((x) => def(x).ammo === d.magOf); if (am) this._loadMag(it, am, { type: 'inv' }); }]);
       if (d.gun && it.mag) acts.push(['Remove magazine', () => { const m = it.mag; it.mag = null; if (!inv.add(m, { noWear: true })) O.loot.drop(m, O.player.pos.x, O.player.pos.y, O.player.pos.z); if (it === inv.slots.hands) { O.weapons.curUid = -1; O.weapons.refresh(); } inv.changed(); }]);
-      if (d.gun && d.internal && (it.rounds > 0 || it.chamber)) acts.push(['Unload rounds', () => { const n = it.rounds + (it.chamber ? 1 : 0); it.rounds = 0; it.chamber = false; const box = makeItem(CALIBRES[d.cal].item, { n }); if (!inv.add(box)) O.loot.drop(box, O.player.pos.x, O.player.pos.y, O.player.pos.z); inv.changed(); }]);
+      if (d.gun && d.internal && (it.rounds > 0 || it.chamber)) acts.push(['Unload rounds', () => { let left = it.rounds + (it.chamber ? 1 : 0); it.rounds = 0; it.chamber = false; const id = CALIBRES[d.cal].item; while (left > 0) { const k = Math.min(ITEMS[id].stack, left); left -= k; const box = makeItem(id, { n: k }); if (!inv.add(box)) O.loot.drop(box, O.player.pos.x, O.player.pos.y, O.player.pos.z); } inv.changed(); }]);
       if (d.gun) for (const [slot, a] of Object.entries(it.attach || {})) if (a) acts.push(['Detach ' + (ITEMS[a]?.name || a), () => { it.attach[slot] = null; const o = makeItem(a); if (!inv.add(o)) O.loot.drop(o, O.player.pos.x, O.player.pos.y, O.player.pos.z); if (it === inv.slots.hands) { O.weapons.curUid = -1; O.weapons.refresh(); } inv.changed(); }]);
       if (d.stack > 1 && it.n > 1) acts.push(['Split', () => { const loc = inv.locate(it); const half = Math.floor(it.n / 2); const o = makeItem(it.id, { n: half, cond: it.cond }); const sp = loc?.grid?.space(o); if (sp) { it.n -= half; loc.grid.put(o, sp[0], sp[1], sp[2]); inv.changed(); } else O.hud?.note('No room to split it', 1.5); }]);
       if (d.refill && it.n > 0) acts.push(['Empty it', () => { it.n = 0; inv.changed(); }]);

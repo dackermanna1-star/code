@@ -79,7 +79,7 @@ export class Hud {
     const P = O.player, S = O.survival, W = O.weapons;
     const show = (e, v) => e.classList.toggle('hide', !v);
     const playing = O.session?.state === 'play';
-    this.root.classList.toggle('hide', !playing && O.session?.state !== 'dead');
+    this.root.classList.toggle('hide', !playing);
     if (!P || !S) return;
     const ui = O.ui?.open;
     // the dot: not while aiming down the sights or in a screen
@@ -94,6 +94,7 @@ export class Hud {
       else if (f.kind === 'item') { const d = def(f.item.it); pr = `<span class="ob-key">F</span>Take ${d.name}${f.item.it.n > 1 ? ' (' + f.item.it.n + ')' : ''}<span class="ob-key">TAB</span><span class="sub">Inventory</span>`; }
       else if (f.kind === 'body') pr = `<span class="ob-key">F</span>Search ${f.body.name.toLowerCase()} <span class="sub">(${f.body.items.length} item${f.body.items.length === 1 ? '' : 's'})</span>`;
       else if (f.kind === 'well') pr = `<span class="ob-key">F</span>Drink / fill a bottle`;
+      else if (f.kind === 'ladder') pr = `<span class="ob-key">F</span>Climb down`;
     }
     if (P.ladder) pr = '<span class="ob-key">W</span>Climb <span class="ob-key">S</span>Down <span class="ob-key">SPACE</span>Let go';
     if (pr !== this._pr) { this.prompt.innerHTML = pr; this._pr = pr; }
