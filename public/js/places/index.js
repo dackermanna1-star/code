@@ -16,6 +16,7 @@ export const PLACES = {
   disasters: () => import('./disasters/index.js'),
   megaobby: () => import('./megaobby/index.js'),
   hotel: () => import('./hotel/index.js'),
+  elevator: () => import('./elevator/index.js'),
 };
 
 export async function loadPlace(script) {

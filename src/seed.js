@@ -469,6 +469,11 @@ function ensureExtraPlaces(state) {
     desc: 'You wake up in Room 313 of the Ravenhurst Hotel at 3:33 in the morning. The power is out, the front doors are chained, and the Night Manager is walking the halls. Find a way out - and don\'t let him see you. Hide in wardrobes, hold your breath, watch the lights. (Single player. Best with headphones, in the dark.) Click the game to look around, WASD to move, Shift to run, C to crouch, F for your flashlight, E to use things.',
     created: now - 0.1 * DAY, updated: now - 0.005 * DAY, visits: 1531, favorited: 309, online: 21, playedRecent: 870, script: 'hotel', maxPlayers: 1,
   });
+  add(3104575, {
+    name: 'The Elevator',
+    desc: 'Get in the elevator. The doors close, and up you go - stopping at random floors on the way to the top. A beach. A room where the floor is lava. A disco. A haunted hallway. The moon. A field of cows (and a UFO). The void. Step out and look around if you dare, but get back in before the doors close! Make it to the penthouse to finish the ride. (Click the buttons by the door: one holds the doors for your friends.)',
+    created: now - 0.05 * DAY, updated: now - 0.002 * DAY, visits: 2788, favorited: 455, online: 63, playedRecent: 1655, script: 'elevator', maxPlayers: 12,
+  });
   return added;
 }
 
