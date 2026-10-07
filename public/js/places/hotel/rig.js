@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { H } from './state.js';
 import * as T from './textures.js';
+import { bake, M4 } from './kit.js';
 
 const PI = Math.PI;
 const G = () => new THREE.Group();
@@ -32,7 +33,7 @@ function mats() {
     // (the porcelain is old and greyed: pure white would burn out in the flashlight and hide the cracks)
     mask: new THREE.MeshStandardMaterial({ map: T.maskTexture(), color: 0xc8c0b4, roughness: 0.3, metalness: 0, envMap: env, envMapIntensity: 0.35 }),
     hairCap: new THREE.MeshStandardMaterial({ color: 0x070606, roughness: 0.6 }),
-    hair: new THREE.MeshStandardMaterial({ color: 0x0b0908, roughness: 0.42, side: THREE.DoubleSide, alphaMap: T.hairStrands(), alphaTest: 0.4 }),
+    hair: new THREE.MeshStandardMaterial({ color: 0x090707, roughness: 0.68, side: THREE.DoubleSide, alphaMap: T.hairStrands(), alphaTest: 0.4 }),
     teeth: new THREE.MeshStandardMaterial({ color: 0xc4b48c, roughness: 0.3 }),
     teethBad: new THREE.MeshStandardMaterial({ color: 0x5a4a30, roughness: 0.5 }),
     gum: new THREE.MeshStandardMaterial({ color: 0x3a0505, roughness: 0.22 }),
@@ -81,16 +82,18 @@ export class Rig {
     // waist and torso: the tailcoat
     mesh(new THREE.CylinderGeometry(0.62, 0.7, 1.1, 10).scale(1.15, 1, 0.75), m.coat, this.hips, 0, 0.1, 0);
     mesh(new THREE.CylinderGeometry(0.72, 0.6, 1.8, 10).translate(0, 0.9, 0).scale(1.1, 1, 0.68), m.coat, this.spine);
-    mesh(new THREE.CylinderGeometry(0.98, 0.74, 1.65, 10).translate(0, 0.65, 0).scale(1.0, 1, 0.62), m.coat, this.chest);
-    mesh(new THREE.SphereGeometry(0.62, 10, 6, 0, PI * 2, 0, PI / 2).scale(1.6, 0.5, 0.75), m.coat, this.chest, 0, 1.45, 0);
+    // (the static pieces of each part are merged, to keep him cheap to draw)
+    mesh(bake([
+      [new THREE.CylinderGeometry(0.98, 0.74, 1.65, 10).translate(0, 0.65, 0).scale(1.0, 1, 0.62), M4()],
+      [new THREE.SphereGeometry(0.62, 10, 6, 0, PI * 2, 0, PI / 2).scale(1.6, 0.5, 0.75), M4(0, 1.45, 0)],
+      ...[-1, 1].map((s) => [new THREE.BoxGeometry(0.3, 1.6, 0.06).rotateZ(s * -0.32), M4(s * 0.3, 0.75, 0.5)]),
+    ]), m.coat, this.chest);
     // shirt front, bow tie, lapels, the badge
     const shirt = new THREE.Shape(); shirt.moveTo(-0.32, 1.42); shirt.lineTo(0.32, 1.42); shirt.lineTo(0.05, -0.2); shirt.lineTo(-0.05, -0.2);
     mesh(new THREE.ShapeGeometry(shirt), m.shirt, this.chest, 0, 0, 0.47);
-    mesh(new THREE.ShapeGeometry(shirt).scale(0.9, 1.15, 1), m.shirt, this.spine, 0, 0.5, 0.5).visible = false;
-    for (const s of [-1, 1]) { mesh(new THREE.ConeGeometry(0.16, 0.36, 4).rotateZ(s * PI / 2), m.tie, this.chest, s * 0.15, 1.38, 0.52); mesh(new THREE.BoxGeometry(0.3, 1.6, 0.06).rotateZ(s * -0.32), m.coat, this.chest, s * 0.3, 0.75, 0.5); }
-    mesh(new THREE.SphereGeometry(0.06, 6, 4), m.tie, this.chest, 0, 1.38, 0.55);
-    mesh(new THREE.BoxGeometry(0.38, 0.16, 0.04), m.brass, this.chest, -0.48, 0.95, 0.47);
-    for (let i = 0; i < 3; i++) mesh(new THREE.SphereGeometry(0.05, 6, 4), m.brass, this.spine, 0.18, 0.4 + i * 0.45, 0.5);
+    mesh(bake([...[-1, 1].map((s) => [new THREE.ConeGeometry(0.16, 0.36, 4).rotateZ(s * PI / 2), M4(s * 0.15, 1.38, 0.52)]), [new THREE.SphereGeometry(0.06, 6, 4), M4(0, 1.38, 0.55)]]), m.tie, this.chest);
+    mesh(bake([[new THREE.BoxGeometry(0.38, 0.16, 0.04), M4(-0.48, 0.95, 0.47)]]), m.brass, this.chest).castShadow = false;
+    mesh(bake([0, 1, 2].map((i) => [new THREE.SphereGeometry(0.05, 6, 4), M4(0.18, 0.4 + i * 0.45, 0.5)])), m.brass, this.spine).castShadow = false;
     // the tails of the coat
     this.tails = [];
     for (const s of [-1, 1]) {
@@ -124,12 +127,14 @@ export class Rig {
     // behind the grin: a black mouth, gums and long teeth
     mesh(new THREE.SphereGeometry(0.42, 10, 8).scale(1.2, 0.8, 0.7), m.void, this.head, 0, -0.22, 0.24);
     // too many teeth, crooked, some of them rotten, some missing
-    const tr = T.rng(5);
+    const tr = T.rng(5), up = [[], []], lo = [[], []];
     for (let i = -6; i <= 6; i++) {
       const x = i * 0.065 + (tr() - 0.5) * 0.016, zc = 0.5 - x * x * 0.6;
-      if (i !== -4 && i !== 3) { const u = mesh(new THREE.ConeGeometry(0.024 + tr() * 0.016, 0.13 + tr() * 0.16, 5).rotateX(PI), tr() < 0.25 ? m.teethBad : m.teeth, this.head, x, -0.27, zc); u.rotation.set((tr() - 0.5) * 0.35, 0, (tr() - 0.5) * 0.4); }
-      if (i !== 5) { const d = mesh(new THREE.ConeGeometry(0.024 + tr() * 0.016, 0.11 + tr() * 0.14, 5), tr() < 0.25 ? m.teethBad : m.teeth, this.jaw, x, -0.2, zc + 0.08); d.rotation.set((tr() - 0.5) * 0.35, 0, (tr() - 0.5) * 0.4); }
+      if (i !== -4 && i !== 3) { const g = new THREE.ConeGeometry(0.024 + tr() * 0.016, 0.13 + tr() * 0.16, 5).rotateX(PI); up[tr() < 0.25 ? 1 : 0].push([g, M4(x, -0.27, zc, (tr() - 0.5) * 0.35, 0, (tr() - 0.5) * 0.4)]); }
+      if (i !== 5) { const g = new THREE.ConeGeometry(0.024 + tr() * 0.016, 0.11 + tr() * 0.14, 5); lo[tr() < 0.25 ? 1 : 0].push([g, M4(x, -0.2, zc + 0.08, (tr() - 0.5) * 0.35, 0, (tr() - 0.5) * 0.4)]); }
     }
+    up.forEach((l, k) => { if (l.length) mesh(bake(l), k ? m.teethBad : m.teeth, this.head).castShadow = false; });
+    lo.forEach((l, k) => { if (l.length) mesh(bake(l), k ? m.teethBad : m.teeth, this.jaw).castShadow = false; });
     mesh(new THREE.BoxGeometry(0.9, 0.06, 0.3), m.gum, this.head, 0, -0.18, 0.36);
     mesh(new THREE.BoxGeometry(0.85, 0.06, 0.3), m.gum, this.jaw, 0, -0.27, 0.44);
     // the eyes: real ones, wet and bloodshot, behind the mask's eyeholes - they follow you - and they shine in a torch beam
@@ -185,8 +190,7 @@ export class Rig {
     }
     // his keys, on a ring at his hip
     const kr = G(); kr.position.set(0.85, -0.3, 0.2); this.hips.add(kr);
-    mesh(new THREE.TorusGeometry(0.22, 0.03, 6, 14), m.brass, kr);
-    for (let i = 0; i < 6; i++) { const k = mesh(new THREE.BoxGeometry(0.05, 0.42, 0.02).translate(0, -0.21, 0), m.brass, kr, Math.cos(i) * 0.15, -0.2, Math.sin(i) * 0.05); k.rotation.z = (i - 2.5) * 0.15; }
+    mesh(bake([[new THREE.TorusGeometry(0.22, 0.03, 6, 14), M4()], ...[0, 1, 2, 3, 4, 5].map((i) => [new THREE.BoxGeometry(0.05, 0.42, 0.02).translate(0, -0.21, 0), M4(Math.cos(i) * 0.15, -0.2, Math.sin(i) * 0.05, 0, 0, (i - 2.5) * 0.15)])]), m.brass, kr).castShadow = false;
     this.keyring = kr;
     this.root.traverse((o) => { if (o.isMesh) o.frustumCulled = true; });
     // animation state

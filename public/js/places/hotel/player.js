@@ -19,7 +19,7 @@ const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Eule
 
 const SETTINGS = 'rbx2008:hotel:settings';
 export function loadSettings() {
-  try { return { sens: 1, invert: false, brightness: 1, volume: 0.8, ...JSON.parse(localStorage.getItem(SETTINGS) || '{}') }; } catch { return { sens: 1, invert: false, brightness: 1, volume: 0.8 }; }
+  try { return { sens: 1, invert: false, brightness: 1, volume: 0.8, quality: 2, ...JSON.parse(localStorage.getItem(SETTINGS) || '{}') }; } catch { return { sens: 1, invert: false, brightness: 1, volume: 0.8, quality: 2 }; }
 }
 export function saveSettings(s) { try { localStorage.setItem(SETTINGS, JSON.stringify(s)); } catch { /* private mode */ } }
 
@@ -58,7 +58,7 @@ export class Player {
     s.castShadow = true;
     s.shadow.mapSize.set(1024, 1024);
     s.shadow.bias = -0.0004; s.shadow.normalBias = 0.02;
-    s.shadow.camera.near = 0.4; s.shadow.camera.far = 75;
+    s.shadow.camera.near = 0.4; s.shadow.camera.far = 50;
     s.map = beamCookie();
     this.world.scene.add(s, s.target);
     this.spotLight = s;
@@ -264,7 +264,7 @@ export class Player {
       let d = hit ? hit.distance : 14;
       const M = H.monster;
       if (M?.visibleBody) for (const y of [0, 4.5]) { _b.copy(M.head).y -= y; const md = _b.distanceTo(cam0.position); if (md < d && _b.sub(cam0.position).normalize().dot(this._flashDir) > 0.88) d = md; }
-      this._adWant = Math.max(0.1, Math.min(1, Math.pow(d / 9, 1.25)));
+      this._adWant = Math.max(0.03, Math.min(1, Math.pow(d / 10, 1.6)));
     }
     this._ad = (this._ad ?? 1) + ((this._adWant ?? 1) - (this._ad ?? 1)) * Math.min(1, dt * 8);
     s.intensity = 760 * k * this._ad;

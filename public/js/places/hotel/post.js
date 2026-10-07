@@ -74,6 +74,14 @@ export class Post {
     // replace the world's render
     world.render = () => this.render();
   }
+  /** Smooth edges or not (rebuilds the target). */
+  setSamples(n) {
+    if (this.rt.samples === n) return;
+    const size = this.world.renderer.getDrawingBufferSize(new THREE.Vector2());
+    this.rt.dispose();
+    this.rt = new THREE.WebGLRenderTarget(Math.max(2, size.x), Math.max(2, size.y), { type: THREE.HalfFloatType, samples: n, depthBuffer: true });
+    this.mat.uniforms.tDiffuse.value = this.rt.texture;
+  }
   resize() {
     const size = this.world.renderer.getDrawingBufferSize(new THREE.Vector2());
     this.rt.setSize(Math.max(2, size.x), Math.max(2, size.y));

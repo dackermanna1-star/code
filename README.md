@@ -82,10 +82,10 @@ The first start creates `data/db.json`. The site's clock starts on September 1, 
   - The Night Manager:
     - He rides the lifts between floors. The dial over each lift shows where he is.
     - He hears footsteps (running is loud, crouching is quiet, carpet is quieter than marble), doors, and the bell.
-    - He sees you more easily when your flashlight is pointed at him or you stand in the light.
+    - He sees you more easily when your flashlight is pointed at him or you stand in the light. His eyes shine back in the beam, so a pair of lights at the end of a dark corridor means he's there.
     - Lights flicker when he's near.
     - Hide in wardrobes and lockers, and hold your breath when he checks them. If he sees you get in, hiding won't save you.
-    - He doesn't take the stairs. Until the end.
+    - He doesn't take the stairs. Until the end, when he follows you anywhere and you have to outrun him to the front doors.
   - Notes around the hotel tell the story and give the clues: the key box code, where the three fuses are, where the bolt cutters went.
   - Checkpoints are saved in your browser, so **Continue** picks up where you left off. The title screen sets brightness, mouse sensitivity, volume and invert-Y.
   - Click the game to look around with the mouse. **WASD** walk, **Shift** run, **C** crouch, **E** use and hide, **F** flashlight, **Space** hold your breath while hiding, **R** change the batteries, **Tab** objective, **Esc** pause.

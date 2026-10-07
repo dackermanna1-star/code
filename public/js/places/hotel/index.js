@@ -43,7 +43,8 @@ export default {
     H.interact = new Interact(world);
     H.nav = new Nav(world);
     H.inv = new Inventory();
-    buildF3(); buildStairwell(); buildF1(); buildLobby(); buildBasement(); buildExterior();
+    buildF3(); buildStairwell(); buildF1(); buildLobby(); buildBasement();
+    H.kit.tag = 'ext'; buildExterior(); H.kit.tag = null;
     const nav = H.nav, O = H.obj;
     nav.link('c3:-70', 'sD:30', { door: O.dStairs3, stairs: true });
     nav.link('c1:-70', 'sD:0', { door: O.dStairs1, stairs: true });
@@ -74,15 +75,23 @@ export default {
 
   setup(game, ctx = {}) {
     const world = game.world;
-    world.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
-    game.resize(window.innerWidth, window.innerHeight);
     H.game = game;
     H.post = new Post(world);
-    H.post.resize();
     window.addEventListener('resize', () => H.post.resize());
+    // graphics: High has the flashlight's shadows and smooth edges; Low draws fewer pixels and skips both
+    H.applyQuality = (q) => {
+      const hi = q !== 1;
+      world.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, hi ? 1.25 : 0.8));
+      game.resize(window.innerWidth, window.innerHeight);
+      H.post.setSamples(hi ? 4 : 0);
+      H.post.resize();
+      world.renderer.shadowMap.enabled = hi;
+      if (H.player?.spotLight) H.player.spotLight.castShadow = hi;
+    };
     H.ui = new UI(game);
     H.audio = new HotelAudio();
     H.player = new Player(game);
+    H.applyQuality(H.player.settings.quality);
     H.monster = new Monster();
     H.story = new Story(game);
     H.atmos = new Atmos(world);
@@ -104,7 +113,7 @@ export default {
     const tick = game.tick.bind(game);
     game.tick = (dt) => {
       if (H.paused || H.ui.titleOpen || H.ui.deadOpen || H.ui.endOpen) {
-        if (H.ui.titleOpen) { H.lights.update(dt, world.camera.position); H.post.update(dt, {}); H.atmos.update(dt); }
+        if (H.ui.titleOpen) { H.lights.update(dt, world.camera.position); H.kit.cull(world.camera.position); H.post.update(dt, {}); H.atmos.update(dt); }
         world.render();
         return;
       }
@@ -153,6 +162,7 @@ export default {
     for (const list of Object.values(H.elev)) for (const e of list) e.update(dt);
     H.obj.keyBox.update(dt);
     H.lights.update(dt, cam.position);
+    H.kit.cull(cam.position);
     const P = H.player;
     H.post.update(dt, { fear: P.fear * (P.mode === 'hide' ? 1.2 : 1), breath: P.holding ? 1 - P.breath : 0, blur: P.mode === 'dead' ? 2 : 0 });
     H.audio.update(dt, cam);

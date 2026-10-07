@@ -89,6 +89,7 @@ const CSS = `
 .hh .scrn .mb.dim{opacity:.55}
 .hh .scrn .set{display:grid;grid-template-columns:150px 200px 40px;gap:10px 14px;align-items:center;font:13px Arial;color:#b8a888;margin:6px 0 14px;text-align:left}
 .hh .scrn .set input[type=range]{width:200px;accent-color:#a08850}
+.hh .scrn .set select{width:200px;background:#120e0a;color:#d8c8a0;border:1px solid #5a4a30;font:13px Arial;padding:3px 4px}
 .hh .scrn .calib{display:flex;align-items:center;gap:14px;margin:4px 0 10px;font:12px Arial;color:#8a7a5a}
 .hh .scrn .ctl{font:12px Arial;color:#8a7a60;line-height:1.9;margin-top:6px}
 .hh .scrn .ctl b{color:#c8b888;font-weight:normal;border:1px solid rgba(200,184,136,.4);border-radius:3px;padding:0 5px;margin:0 2px}
@@ -204,7 +205,7 @@ export class UI {
     const p = H.player;
     if (p?.hasFlash) chips.push(`<div class="chip">${ICON.flash}Flashlight</div>`);
     for (const [id, n] of inv.items) {
-      const it = ITEMS[id]; if (!it) continue;
+      const it = ITEMS[id]; if (!it || id === 'flashlight') continue; // (the flashlight has its own chip, above)
       chips.push(`<div class="chip">${ICON[it.icon] || ''}${it.name}${n > 1 ? ` <b>x${n}</b>` : ''}</div>`);
     }
     this.invEl.innerHTML = chips.join('');
@@ -296,6 +297,7 @@ export class UI {
         <span>Mouse sensitivity</span><input type="range" min="0.3" max="2.5" step="0.05" value="${s.sens}" data-k="sens"><span class="v"></span>
         <span>Volume</span><input type="range" min="0" max="1" step="0.05" value="${s.volume}" data-k="volume"><span class="v"></span>
         <span>Invert mouse</span><input type="checkbox" ${s.invert ? 'checked' : ''} data-k="invert"><span></span>
+        <span>Graphics</span><select data-k="quality"><option value="2"${s.quality !== 1 ? ' selected' : ''}>High (shadows, smooth edges)</option><option value="1"${s.quality === 1 ? ' selected' : ''}>Low (faster)</option></select><span></span>
       </div>`;
   }
   _wireSettings(box) {
@@ -304,9 +306,10 @@ export class UI {
       for (const inp of box.querySelectorAll('[data-k]')) {
         const k = inp.dataset.k;
         s[k] = inp.type === 'checkbox' ? inp.checked : Number(inp.value);
-        const v = inp.nextElementSibling; if (v && inp.type !== 'checkbox') v.textContent = k === 'volume' ? `${Math.round(s[k] * 100)}%` : s[k].toFixed(2);
+        const v = inp.nextElementSibling; if (v && inp.type !== 'checkbox' && inp.tagName !== 'SELECT') v.textContent = k === 'volume' ? `${Math.round(s[k] * 100)}%` : s[k].toFixed(2);
       }
       saveSettings(s);
+      if (s.quality !== this._q) { this._q = s.quality; H.applyQuality?.(s.quality); }
       if (H.post) H.post.brightness = s.brightness;
       H.audio?.setVolume(s.volume);
       drawCalib(box.querySelector('.calibcv'), s.brightness);

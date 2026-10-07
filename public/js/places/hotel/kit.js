@@ -32,12 +32,13 @@ export class Kit {
     this.meshes = [];
     this.colliders = [];
     this.stats = { tris: 0, batches: 0 };
+    this.tag = null; // what's being built goes in batches of its own with this tag ('ext': the outside)
   }
 
   _batch(mat, cast, x, y, z) {
-    const key = `${mat.uuid}|${cast ? 1 : 0}|${Math.floor(x / this.cell)},${Math.floor(y / 14)},${Math.floor(z / this.cell)}`;
+    const key = `${this.tag || ''}|${mat.uuid}|${cast ? 1 : 0}|${Math.floor(x / this.cell)},${Math.floor(y / 14)},${Math.floor(z / this.cell)}`;
     let b = this.batches.get(key);
-    if (!b) { b = { mat, cast, pos: [], nrm: [], uv: [], col: [], idx: [] }; this.batches.set(key, b); }
+    if (!b) { b = { mat, cast, tag: this.tag, pos: [], nrm: [], uv: [], col: [], idx: [] }; this.batches.set(key, b); }
     return b;
   }
   _tile(mat, o) { const t = o.tile ?? mat.userData.tile ?? 4; return Array.isArray(t) ? t : [t, t]; }
@@ -245,8 +246,9 @@ export class Kit {
       g.setAttribute('uv', new THREE.Float32BufferAttribute(b.uv, 2));
       g.setAttribute('color', new THREE.Float32BufferAttribute(b.col, 3));
       g.setIndex(b.pos.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(b.idx, 1) : new THREE.Uint16BufferAttribute(b.idx, 1));
-      g.computeBoundingSphere();
+      g.computeBoundingSphere(); g.computeBoundingBox();
       const mesh = new THREE.Mesh(g, b.mat);
+      mesh.userData.bb = g.boundingBox; mesh.userData.tag = b.tag;
       mesh.castShadow = b.cast; mesh.receiveShadow = true;
       mesh.matrixAutoUpdate = false; mesh.updateMatrix();
       if (b.mat.transparent) mesh.renderOrder = 2;
@@ -255,6 +257,30 @@ export class Kit {
       this.stats.tris += b.idx.length / 3; this.stats.batches++;
     }
     this.batches.clear();
+  }
+  /**
+   * Don't draw what can't be seen from where you are: the other floors - except up and down the atrium
+   * (from the lobby or the gallery) and the stairwell (from inside it). Only redone when that changes.
+   */
+  cull(cam) {
+    const y = cam.y;
+    // outside: the outside of the building, and the lobby through the glass doors
+    const out = cam.z > 60.6 || cam.x > 93;
+    const band = out ? [-30, 17] : y > 22 ? [27, 80] : y > -6 ? [-2, 17] : [-17, -0.5];
+    const atrium = out || (y > -6 && cam.x > -24 && cam.x < 24 && cam.z > -16 && cam.z < 64);
+    const stairs = cam.x < -71 && cam.z > -7 && cam.z < 25;
+    const key = `${out}|${band[0]}|${atrium}|${stairs}`;
+    if (key === this._cullKey) return;
+    this._cullKey = key;
+    for (const m of this.meshes) {
+      const b = m.userData.bb;
+      if (!b) continue;
+      // (313's tower is built with the third floor: from outside you need its walls round the window)
+      let vis = out ? m.userData.tag === 'ext' || (b.max.x > 80 && b.max.y > 28) : b.max.y >= band[0] && b.min.y <= band[1];
+      if (!vis && atrium && b.max.y > -2 && b.max.x > -24 && b.min.x < 24 && b.max.z > -16 && b.min.z < 64) vis = true;
+      if (!vis && stairs && b.min.x < -70) vis = true;
+      m.visible = vis;
+    }
   }
 }
 

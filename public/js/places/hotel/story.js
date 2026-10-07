@@ -368,9 +368,11 @@ export class Story {
       t += dt;
       const k = Math.min(1, t / 1.2), e = k * k * (3 - 2 * k);
       P.override.look = look0.clone().lerp(door, e);
-      if (t > 1.2) P.override.pos.lerp(V(0, 3.2, 88), Math.min(1, dt * 0.35));
+      // back away down the steps, then off the drive to the right, where 313's window can be seen past the east wing
+      if (t > 1.2) P.override.pos.lerp(t < 5 ? V(0, 3.2, 84) : V(30, 8, 98), Math.min(1, dt * 0.35));
       if (t > 3.0 && !this._slam) { this._slam = true; this.app.hide(); O.front.setOpen(false, true); H.audio?.doorSlam(door); }
-      if (t > 4.2) { const k2 = Math.min(1, (t - 4.2) / 3); P.override.look = door.clone().lerp(V(86, 36, 12), k2 * k2 * (3 - 2 * k2)); }
+      // ...and up to the third floor, where a window has lit: room 313's (the camera closes in on it)
+      if (t > 4.2) { const k2 = Math.min(1, (t - 4.2) / 3), e2 = k2 * k2 * (3 - 2 * k2); P.override.look = door.clone().lerp(V(86, 36.2, 11.7), e2); P.override.fov = 64 - 42 * e2; }
       if (t > 6.6 && !this._lit) { this._lit = true; O.window313Out.glow.material.opacity = 0.55; H.audio?.knock(V(86, 36, 12), 1, 0.3); }
       if (t > 7.8) O.window313Out.fig.material.opacity = Math.min(1, (t - 7.8) * 1.5);
       if (t > 10.5 && !this._fade) { this._fade = true; H.post.fadeOut(2); }
