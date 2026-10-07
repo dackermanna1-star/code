@@ -97,6 +97,9 @@ export const ROAD_STYLE = {
   road: { w: 17, shoulder: 8, tex: 'asphalt', lines: true },
   dirt: { w: 14, shoulder: 6, tex: 'track', lines: false },
   track: { w: 9, shoulder: 5, tex: 'track', lines: false },
+  street: { w: 15, shoulder: 3, tex: 'asphalt', lines: true },
+  lane: { w: 9, shoulder: 3, tex: 'track', lines: false },
+  base: { w: 14, shoulder: 3, tex: 'asphalt', lines: false },
 };
 
 /** Where you might wake up: along the coast. */

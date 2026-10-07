@@ -65,6 +65,14 @@ function gridGeometry() {
 }
 
 export class TerrainView {
+  /** Cut holes in the land (T.holes with render: true). */
+  setHoles(list) {
+    const h = this.uniforms.holes.value, y = this.uniforms.holeYaw.value;
+    let i = 0;
+    for (const q of list) { if (!q.render || i >= 8) continue; h[i].set(q.x, q.z, q.hx, q.hz); y[i] = q.yaw; i++; }
+    for (; i < 8; i++) h[i].set(0, 0, -1, -1);
+  }
+
   constructor(world, T, photos) {
     this.world = world; this.T = T;
     const W = T.weights();
@@ -82,6 +90,8 @@ export class TerrainView {
       hMap: { value: this.hTex }, wT0: { value: wt[0] }, wT1: { value: wt[1] }, wT2: { value: wt[2] },
       gCol: photos.groundCol, gNor: photos.groundNor, noiseT: { value: noiseTex() },
       uScale: { value: SCALE }, uRough: { value: ROUGH }, uTint: { value: TINT }, wet: { value: 0 },
+      // places the land is cut away (bunker shafts): centre x, z, half sizes; turn
+      holes: { value: Array.from({ length: 8 }, () => new THREE.Vector4(0, 0, -1, -1)) }, holeYaw: { value: new Array(8).fill(0) },
     };
     this.uniforms = uni;
     const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0 });
@@ -108,12 +118,20 @@ uniform sampler2DArray gCol, gNor;
 uniform sampler2D wT0, wT1, wT2, noiseT;
 uniform float uScale[9], uRough[9], wet;
 uniform vec3 uTint[9];
+uniform vec4 holes[8]; uniform float holeYaw[8];
 varying vec3 vW; varying vec3 vWN;
 float gWeights[9];
 vec3 gNormalT;
 float gRough;
 float lum(vec3 c) { return dot(c, vec3(0.3, 0.59, 0.11)); }`)
         .replace('#include <map_fragment>', `
+for (int i = 0; i < 8; i++) {
+  vec4 h = holes[i];
+  if (h.z < 0.0) continue;
+  vec2 d = vW.xz - h.xy; float c = cos(holeYaw[i]), s = sin(holeYaw[i]);
+  vec2 l = vec2(d.x * c - d.y * s, d.x * s + d.y * c);
+  if (abs(l.x) < h.z && abs(l.y) < h.w) discard;
+}
 {
   vec2 wuv = ((vW.xz + ${HALF.toFixed(1)}) / ${CELL.toFixed(1)} + 0.5) / ${N.toFixed(1)};
   vec4 a = texture(wT0, wuv), b = texture(wT1, wuv); float c = texture(wT2, wuv).r;

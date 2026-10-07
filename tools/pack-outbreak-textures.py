@@ -56,6 +56,16 @@ SURF = [
     ('track', 'muddy_tracks', True),
     ('bark', 'pine_bark', True),
     ('bark2', 'bark_willow', True),
+    ('stone', 'castle_wall_slates', True),
+    ('fabric', 'hessian_230', True),
+    ('woodFine', 'fine_grained_wood', True),
+    ('metalPlate', 'metal_plate', True),
+    ('milMetal', 'green_metal_rust', True),
+    ('wallpaper', 'decrepit_wallpaper', True),
+    ('linoleum', 'old_linoleum_flooring_01', True),
+    ('whiteTiles', 'long_white_tiles', True),
+    ('woodPaint', 'wood_peeling_paint_weathered', True),
+    ('concFloor', 'concrete_floor_worn_001', True),
 ]
 
 
@@ -64,7 +74,11 @@ def fetch(asset, kind):
     path = os.path.join(CACHE, sub, asset + '.jpg') if sub else os.path.join(CACHE, asset + '.jpg')
     if not os.path.exists(path):
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        url = f'https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/{asset}/{asset}_{kind}_1k.jpg'
+        # ask the API where the file is (most colour maps are '_diff', a few are '_col')
+        req = urllib.request.Request(f'https://api.polyhaven.com/files/{asset}', headers={'User-Agent': 'outbreak-texture-packer'})
+        with urllib.request.urlopen(req) as r:
+            files = json.load(r)
+        url = files['Diffuse' if kind == 'diff' else kind]['1k']['jpg']['url']
         print('downloading', url)
         urllib.request.urlretrieve(url, path)
     return Image.open(path).convert('RGB')

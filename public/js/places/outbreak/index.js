@@ -15,6 +15,11 @@ import { Water } from './world/water.js';
 import { Roads } from './world/roads.js';
 import { Vegetation } from './world/vegetation.js';
 import { Grass } from './world/grass.js';
+import { planStreets, planSites } from './world/settlements.js';
+import { Buildings } from './world/buildings.js';
+import { Kit } from './build/kit.js';
+import { TEMPLATES } from './build/index.js';
+import { placeProps } from './build/placeProps.js';
 import { Phys } from './physics.js';
 import { photoTextures } from './textures.js';
 import { Post } from './post.js';
@@ -27,13 +32,30 @@ export default {
     O.world = world; O.thumb = !!ctx.thumbnail;
     const t0 = performance.now();
     O.photos = photoTextures(world.renderer);
-    O.terrain = new Terrain(47).generate();
+    O.terrain = new Terrain(47).generate({ streets: planStreets });
+    // where every building goes (this levels the ground under them, so it comes before the land is drawn)
+    O.plan = planSites(O.terrain);
     O.terrainView = new TerrainView(world, O.terrain, O.photos);
     O.phys = new Phys(O.terrain);
+    const K = new Kit(O.phys);
+    K.lazy = true; // furniture is built only near you
+    for (const s of O.plan.sites) { K.begin(s); TEMPLATES[s.tpl].build(K, s); K.end(); }
+    const extra = placeProps(K, O.terrain, O.plan);
+    O.camps = extra.camps;
+    O.kit = K;
+    // holes in the land (bunkers): cut away inside the blockhouse, ignored underneath by anyone down there
+    O.terrain.holes = [];
+    for (const B of K.buildings) for (const [h, render] of [[B.hole, true], [B.under, false]]) {
+      if (!h) continue;
+      const c = Math.cos(B.yaw), sn = Math.sin(B.yaw);
+      O.terrain.holes.push({ x: B.x + h.lx * c + h.lz * sn, z: B.z - h.lx * sn + h.lz * c, hx: h.hx, hz: h.hz, yaw: B.yaw, c: Math.cos(B.yaw), s: Math.sin(B.yaw), render });
+    }
+    O.terrainView.setHoles(O.terrain.holes);
+    O.buildings = new Buildings(world, K, O.photos, O.phys);
     O.roads = new Roads(world, O.terrain, O.photos);
     O.sky = new Sky(world);
     O.water = new Water(world, O.terrain);
-    O.veg = new Vegetation(world, O.terrain, O.phys);
+    O.veg = new Vegetation(world, O.terrain, O.phys, { extra: extra.trees });
     O.grass = new Grass(world, O.terrain, O.terrainView);
     O.buildMs = performance.now() - t0;
     const cam = world.camera; cam.near = 0.12; cam.far = 7000; cam.fov = 72; cam.updateProjectionMatrix();
@@ -78,7 +100,7 @@ export default {
       look: (x, y, z, tx, ty, tz) => { O.fly.pos.set(x, y, z); const d = new THREE.Vector3(tx - x, ty - y, tz - z); O.fly.yaw = Math.atan2(-d.x, -d.z); O.fly.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); },
       time: (h) => { O.hour = h; },
       weather: (w) => O.sky.setWeather(w, true),
-      info: () => ({ build: Math.round(O.buildMs), gen: O.terrain.genMs, tiles: O.terrainView.tiles, calls: O.post.info?.calls, tris: O.post.info?.tris, trees: O.veg.items.length, near: O.veg.nearCount, far: O.veg.farCount, boxes: O.phys.count }),
+      info: () => ({ build: Math.round(O.buildMs), gen: O.terrain.genMs, sites: O.plan.sites.length, bverts: O.buildings.verts, binner: O.buildings.innerVerts, doors: O.kit.doors.length, tiles: O.terrainView.tiles, calls: O.post.info?.calls, tris: O.post.info?.tris, trees: O.veg.items.length, near: O.veg.nearCount, far: O.veg.farCount, boxes: O.phys.count }),
     };
   },
 
@@ -103,8 +125,13 @@ export default {
     O.water.update(dt, O.sky);
     O.terrainView.update(cam);
     O.veg.update(dt, cam, O.sky);
+    O.buildings.update(dt, cam, O.sky);
     O.grass.update(dt, cam, O.sky);
-    O.post.update(dt, { exposure: 1.0 });
+    // eyes adjusting: brighter indoors (something overhead), back again outside
+    O._roofT = (O._roofT ?? 0) - dt;
+    if (O._roofT <= 0) { O._roofT = 0.25; const h = O.phys.ray(cam.position.x, cam.position.y, cam.position.z, 0, 1, 0, 40, { terrain: false }); O._indoor = !!h; }
+    O.exposure = (O.exposure ?? 1) + ((O._indoor ? 1.75 : 1.0) - (O.exposure ?? 1)) * Math.min(1, dt * 1.5);
+    O.post.update(dt, { exposure: O.exposure });
   },
 
   onExit(game, close) { game.gui.root.classList.remove('ob-mode'); close(); },

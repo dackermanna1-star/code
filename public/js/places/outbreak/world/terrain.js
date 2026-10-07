@@ -63,6 +63,7 @@ export class Terrain {
     this.field = new Float32Array(N * N);
     this.town = new Float32Array(N * N);
     this.roadW = new Float32Array(N * N); // how much of a road (or its shoulder) is here
+    this.pavedW = new Float32Array(N * N); // the same for asphalt roads only
     this.water = new Float32Array(N * N).fill(-1e9); // water surface height (-1e9 = none)
     this.riverD = new Float32Array(N * N).fill(1e9);
     this.coast = new Float32Array(N * N); // distance inland from the sea
@@ -131,12 +132,14 @@ export class Terrain {
     return Math.min(dS, dE);
   }
 
-  generate() {
+  /** o.streets(T): extra roads (the towns' streets) to lay with the others. */
+  generate(o = {}) {
     const t0 = Date.now();
     this._base();
     this._river();
     this._lake();
     this._places();
+    this.extraRoads = o.streets ? o.streets(this) : [];
     this._roads();
     this._masks();
     this.genMs = Date.now() - t0;
@@ -156,7 +159,8 @@ export class Terrain {
         // the mountains along the north and the west
         const mN = smooth(-1300, -2950, z), mW = smooth(-1500, -3000, x), mE = smooth(1700, 3000, x) * smooth(500, -2500, z);
         const m = Math.max(mN, mW * 0.85, mE * 0.7);
-        const mountains = m > 0.001 ? m * (360 * Math.pow(n.ridged(wx / 950, wz / 950, 5), 1.25) + 90) : 0;
+        // ridges, but worn down: fewer fine octaves, and a broad swell under them so the peaks aren't spikes
+        const mountains = m > 0.001 ? m * (250 * Math.pow(n.ridged(wx / 1100, wz / 1100, 4, 2.0, 0.42), 1.6) + 120 * (0.5 + 0.5 * n.fbm(wx / 1400 + 7, wz / 1400 - 3, 3)) + 60) : 0;
         let land = base + hills + mountains;
         // a few named hills
         for (const p of HILLS) { const d2 = ((x - p.x) ** 2 + (z - p.z) ** 2) / (p.r * p.r); if (d2 < 4) land += p.h * Math.exp(-d2 * 1.6); }
@@ -252,7 +256,8 @@ export class Terrain {
           if (d > R) continue;
           const idx = j * N + i;
           if (this.water[idx] > -1e8 && h[idx] < 0.5) continue;
-          const k = flat * (1 - smooth(r * 0.8, R, d));
+          // (near the sea the land keeps its own slope down to the beach - no cliffs round coastal towns)
+          const k = flat * (1 - smooth(r * 0.8, R, d)) * smooth(15, 150, this.coast[idx]);
           h[idx] = lerp(h[idx], Math.max(lvl, h[idx] < 1 ? h[idx] : lvl), k);
           this.town[idx] = Math.max(this.town[idx], 1 - smooth(r * 0.7, R, d));
         }
@@ -282,7 +287,7 @@ export class Terrain {
   _roads() {
     const h = this.h;
     const target = new Float32Array(N * N), weight = new Float32Array(N * N);
-    for (const def of ROADS) {
+    for (const def of [...ROADS, ...this.extraRoads]) {
       const st = ROAD_STYLE[def.type];
       const pts = spline(def.pts, 6);
       if (pts.length < 2) continue;
@@ -301,7 +306,7 @@ export class Terrain {
       const bridge = new Uint8Array(pts.length);
       for (let k = 0; k < pts.length; k++) {
         const rd = this.sample(this.riverD, pts[k].x, pts[k].z);
-        if (rd < RIVER.w * 0.5 + 14 && def.type !== 'dirt' && def.type !== 'track') bridge[k] = 1;
+        if (rd < RIVER.w * 0.5 + 14 && (def.type === 'highway' || def.type === 'road')) bridge[k] = 1;
       }
       if (bridge.some((b) => b)) {
         let k0 = bridge.indexOf(1), k1 = bridge.lastIndexOf(1);
@@ -313,7 +318,7 @@ export class Terrain {
         for (let k = k1 + 1; k < y.length; k++) { const ds = pts[k].d - pts[k - 1].d; if (y[k] >= y[k - 1] - grade * ds) break; y[k] = y[k - 1] - grade * ds; }
         this.bridges.push({ pts: pts.slice(k0, k1 + 1), y: y.slice(k0, k1 + 1), w: st.w });
       }
-      const road = { type: def.type, w: st.w, style: st, pts: pts.map((p, k) => ({ x: p.x, z: p.z, d: p.d, y: y[k], bridge: bridge[k] })) };
+      const road = { type: def.type, w: st.w, style: st, place: def.place, pts: pts.map((p, k) => ({ x: p.x, z: p.z, d: p.d, y: y[k], bridge: bridge[k] })) };
       this.roads.push(road);
       const reach = st.w / 2 + st.shoulder + 26;
       for (let k = 0; k < pts.length - 1; k++) {
@@ -324,6 +329,7 @@ export class Terrain {
           if (w > weight[idx]) { weight[idx] = w; target[idx] = lerp(y[k], y[k + 1], t) - 0.15; }
           const rw = 1 - smooth(st.w / 2 - 2, st.w / 2 + st.shoulder, d);
           if (rw > this.roadW[idx]) this.roadW[idx] = rw;
+          if (st.tex === 'asphalt') { const pw = 1 - smooth(st.w / 2 - 1, st.w / 2 + 1, d); if (pw > this.pavedW[idx]) this.pavedW[idx] = pw; }
         });
       }
     }
@@ -409,6 +415,16 @@ export class Terrain {
         const v = a + (b - a) * tz;
         this.fine[k] = v <= 0 ? 0 : Math.round(255 * clamp(v));
       }
+    }
+  }
+
+  /** Work the slopes out again (after building pads have been levelled). */
+  updateSlope() {
+    const h = this.h;
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const i0 = Math.max(0, i - 1), i1 = Math.min(N - 1, i + 1), j0 = Math.max(0, j - 1), j1 = Math.min(N - 1, j + 1);
+      const dx = (h[j * N + i1] - h[j * N + i0]) / ((i1 - i0) * CELL), dz = (h[j1 * N + i] - h[j0 * N + i]) / ((j1 - j0) * CELL);
+      this.slope[j * N + i] = Math.atan(Math.hypot(dx, dz));
     }
   }
 

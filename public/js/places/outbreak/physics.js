@@ -72,6 +72,7 @@ export class Phys {
    */
   groundAt(x, y, z, r = 0.6, step = 1.6) {
     let g = this.T.heightAt(x, z), box = null;
+    if (this.T.holes && this.holeAt(x, z, y, g)) g = -1e9;
     this.query(x - r, z - r, x + r, z + r, (b) => {
       if (!b.solid || b.noStand) return;
       const top = b.y + b.hy;
@@ -219,9 +220,22 @@ export class Phys {
     this._n = [nx * b.c + nz * b.s, ny, -nx * b.s + nz * b.c];
     return t0;
   }
+  /**
+   * Is (x, z) somewhere the land doesn't count? Inside a cut-away hole always;
+   * over an underground room only if you're down in it (y well below the surface).
+   */
+  holeAt(x, z, y, g) {
+    for (const h of this.T.holes) {
+      const dx = x - h.x, dz = z - h.z, lx = dx * h.c - dz * h.s, lz = dx * h.s + dz * h.c;
+      if (Math.abs(lx) < h.hx && Math.abs(lz) < h.hz) { if (h.render || y < g - 2.5) return true; }
+    }
+    return false;
+  }
+
   /** March along a ray over the land (then home in on the crossing). */
   rayTerrain(ox, oy, oz, dx, dy, dz, max) {
     const T = this.T;
+    if (T.holes && this.holeAt(ox, oz, oy, T.heightAt(ox, oz))) return null;
     let t = 0, prev = oy - T.heightAt(ox, oz);
     if (prev < 0) return 0;
     const stepBase = 3;

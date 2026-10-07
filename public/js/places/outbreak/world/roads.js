@@ -24,6 +24,11 @@ function ribbon(T, road, out) {
       out.info.push(u, pts[k].d, w);
     }
     if (k < n - 1) for (let q = 0; q < ACROSS - 1; q++) {
+      // a dirt track doesn't get drawn over the asphalt where it joins a paved road
+      if (road.style.tex !== 'asphalt') {
+        const mx = (pts[k].x + pts[k + 1].x) / 2, mz = (pts[k].z + pts[k + 1].z) / 2;
+        if (T.sample(T.pavedW, mx, mz) > 0.35) continue;
+      }
       const i0 = base + k * ACROSS + q, i1 = i0 + 1, j0 = i0 + ACROSS, j1 = j0 + 1;
       out.idx.push(i0, i1, j0, i1, j1, j0);
     }
@@ -88,7 +93,7 @@ export class Roads {
   constructor(world, T, photos) {
     this.world = world;
     const groups = { paved: { pos: [], info: [], idx: [] }, dirt: { pos: [], info: [], idx: [] } };
-    for (const r of T.roads) ribbon(T, r, r.type === 'highway' || r.type === 'road' ? groups.paved : groups.dirt);
+    for (const r of T.roads) ribbon(T, r, r.style.tex === 'asphalt' ? groups.paved : groups.dirt);
     this.meshes = [];
     const mk = (g, mat, order) => {
       const geo = new THREE.BufferGeometry();
