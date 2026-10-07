@@ -204,6 +204,8 @@ export class Kit {
     const w = this.w, b = this.b;
     const ao0 = o.ao ?? this.ao;
     const p = this._p;
+    // a pane in a building's own glass: remember where its faces are, so it can be broken later
+    const gv0 = o.glass && cell.key !== undefined ? cell.glass.nv : -1;
     for (let f = 0; f < 6; f++) {
       const F = FACES[f], name = F.name;
       if (skip && skip.includes(name)) continue;
@@ -238,6 +240,7 @@ export class Kit {
     if (o.col !== false && this.phys) {
       const c = this.world(x, y, z, this._q);
       const bx = this.phys.add(c[0], c[1], c[2], hx, hy, hz, w.yaw, o.mat || pick(m, 'px')?.phys || 'concrete', o.glass ? { glass: true, noStand: o.noStand, building: this.cur?.id } : o.extra ? { ...o.extra, noStand: o.noStand, building: this.cur?.id } : { noStand: o.noStand, building: this.cur?.id });
+      if (gv0 >= 0) { bx.gkey = cell.key; bx.gv0 = gv0; bx.gv1 = cell.glass.nv; }
       this.boxes++;
       this._keep(bx);
       return bx;
@@ -340,7 +343,7 @@ export class Kit {
     this._bbox(x, z, r, r);
     if (o.col !== false && this.phys) {
       const c = this.world(x, y + h / 2, z, this._q);
-      const bx = this.phys.add(c[0], c[1], c[2], r * 0.9, h / 2, r * 0.9, w.yaw, o.mat || m.phys, { noStand: o.noStand, building: this.cur?.id });
+      const bx = this.phys.add(c[0], c[1], c[2], r * 0.9, h / 2, r * 0.9, w.yaw, o.mat || m.phys, { ...o.extra, noStand: o.noStand, building: this.cur?.id });
       this.boxes++;
       this._keep(bx);
       return bx;

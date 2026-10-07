@@ -86,7 +86,7 @@ function woodpileParts(K, x, y, z, yaw) {
 
 export function well(K, x, y, z) { K.details(() => wellParts(K, x, y, z)); }
 function wellParts(K, x, y, z) {
-  K.cyl(x, y, z, 2.2, 3, mat('stone', 0xb0a8a0), { seg: 10, top: mat('stone', 0x8a8480) });
+  K.cyl(x, y, z, 2.2, 3, mat('stone', 0xb0a8a0), { seg: 10, top: mat('stone', 0x8a8480), extra: { well: true } });
   K.box(x, y + 3.05, z, 1.8, 0.05, 1.8, mat('plaster', 0x101010, { p: 5 }), { col: false });
   for (const s of [-1, 1]) K.box(x + s * 1.9, y + 5, z, 0.2, 2.2, 0.2, P.post, { col: false });
   K.quad([x - 2.6, y + 6.6, z + 2], [x + 2.6, y + 6.6, z + 2], [x + 2.6, y + 8, z], [x - 2.6, y + 8, z], mat('planks', 0x8a7a68), { both: true });

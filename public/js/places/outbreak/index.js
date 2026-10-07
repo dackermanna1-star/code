@@ -23,8 +23,9 @@ import { placeProps } from './build/placeProps.js';
 import { Phys } from './physics.js';
 import { photoTextures } from './textures.js';
 import { Post } from './post.js';
-
-const UI_CSS = `.rbx-gui.ob-mode > :not(.ob){display:none!important}`;
+import { Session } from './game/session.js';
+import { makeItem } from './game/inventory.js';
+import { sounds } from '../../engine/Sound.js';
 
 export default {
   build(world, ctx = {}) {
@@ -67,72 +68,51 @@ export default {
   setup(game) {
     const world = game.world;
     O.game = game;
-    if (!document.getElementById('ob-css')) { const st = document.createElement('style'); st.id = 'ob-css'; st.textContent = UI_CSS; document.head.appendChild(st); }
-    game.gui.root.classList.add('ob-mode');
-    const ui = document.createElement('div'); ui.className = 'ob'; game.gui.root.appendChild(ui); O.uiRoot = ui;
     O.post = new Post(world);
     world.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
     game.resize(window.innerWidth, window.innerHeight);
     O.post.resize();
-    window.addEventListener('resize', () => O.post.resize());
-    O.post.fadeIn(1.5);
+    window.addEventListener('resize', () => { O.post.resize(); O.mapUI?.draw(); });
     const sun = world.sun;
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     const sc = sun.shadow.camera; sc.left = -140; sc.right = 140; sc.top = 140; sc.bottom = -140; sc.near = 10; sc.far = 1400; sc.updateProjectionMatrix();
     sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.6;
     world.scene.add(sun.target);
-    // the engine's own camera and input don't apply here
+    // the engine's own camera, keys, sounds and character don't apply here
     game.camera.update = () => {};
     game.camera.zoom = () => {}; game.camera.pan = () => {}; game.camera.tilt = () => {};
     game.updateLocalInput = () => {};
-    game.respawnTime = null;
+    game.equip = () => {};
+    game.gui.focusChat = () => {};
+    game.respawnTime = null; game.forceFieldTime = 0;
     game.setStats([]);
+    const play = sounds.play.bind(sounds);
+    sounds.play = (name, ...a) => { if (['step', 'jump', 'swoosh', 'landing', 'uuhhh', 'camclick', 'ping', 'click'].includes(name)) return; play(name, ...a); };
     game.on('spawned', (p, ch) => { if (p.isLocal) { ch.root.visible = false; ch.freeze?.(true); } });
-    // a free camera for now
-    O.fly = { pos: new THREE.Vector3(-1900, 60, 2250), yaw: 0.6, pitch: -0.08 };
-    const cv = game.canvas;
-    cv.addEventListener('mousedown', () => cv.requestPointerLock?.());
-    window.addEventListener('mousemove', (e) => { if (document.pointerLockElement !== cv) return; O.fly.yaw -= e.movementX * 0.002; O.fly.pitch = Math.max(-1.5, Math.min(1.5, O.fly.pitch - e.movementY * 0.002)); });
+    O.session = new Session(game);
+    O.session.init();
+    // hooks for tests: a free camera, teleporting, the time and the weather
     window.__ob = {
       O, THREE,
-      cam: (x, y, z, yaw = 0, pitch = 0) => { O.fly.pos.set(x, y, z); O.fly.yaw = yaw; O.fly.pitch = pitch; },
-      look: (x, y, z, tx, ty, tz) => { O.fly.pos.set(x, y, z); const d = new THREE.Vector3(tx - x, ty - y, tz - z); O.fly.yaw = Math.atan2(-d.x, -d.z); O.fly.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); },
+      cam: (x, y, z, yaw = 0, pitch = 0) => { O.freeCam = { pos: new THREE.Vector3(x, y, z), yaw, pitch }; },
+      look: (x, y, z, tx, ty, tz) => { const d = new THREE.Vector3(tx - x, ty - y, tz - z); O.freeCam = { pos: new THREE.Vector3(x, y, z), yaw: Math.atan2(-d.x, -d.z), pitch: Math.atan2(d.y, Math.hypot(d.x, d.z)) }; },
+      free: () => { O.freeCam = null; },
+      tp: (x, z, yaw = 0) => { O.player.place(x, z, yaw); O.buildings.furnishNear(x, z); },
+      give: (id, o) => { const it = makeItem(id, o); if (!O.inv.add(it)) O.loot.drop(it, O.player.pos.x, O.player.pos.y, O.player.pos.z); O.hud.changed(); return it; },
+      hold: (id, o) => { const it = makeItem(id, o); O.inv.slots.hands = it; O.inv.changed(); O.weapons.refresh(); return it; },
+      zombie: (d = 25, a = 0) => { const P = O.player, x = P.pos.x - Math.sin(P.yaw + a) * d, z = P.pos.z - Math.cos(P.yaw + a) * d; return O.zombies.add(x, O.phys.groundAt(x, P.pos.y + 4, z, 0.6, 10), z); },
+      face: (x, z) => { const P = O.player; P.yaw = Math.atan2(-(x - P.pos.x), -(z - P.pos.z)); },
       time: (h) => { O.hour = h; },
       weather: (w) => O.sky.setWeather(w, true),
-      info: () => ({ build: Math.round(O.buildMs), gen: O.terrain.genMs, sites: O.plan.sites.length, bverts: O.buildings.verts, binner: O.buildings.innerVerts, doors: O.kit.doors.length, tiles: O.terrainView.tiles, calls: O.post.info?.calls, tris: O.post.info?.tris, trees: O.veg.items.length, near: O.veg.nearCount, far: O.veg.farCount, boxes: O.phys.count }),
+      info: () => ({ build: Math.round(O.buildMs), gen: O.terrain.genMs, sites: O.plan.sites.length, bverts: O.buildings.verts, binner: O.buildings.innerVerts, doors: O.kit.doors.length, tiles: O.terrainView.tiles, calls: O.post.info?.calls, tris: O.post.info?.tris, trees: O.veg.items.length, near: O.veg.nearCount, far: O.veg.farCount, boxes: O.phys.count, state: O.session.state, zombies: O.zombies.active, bandits: O.bandits.list.filter((m) => !m.dead).length, items: O.loot.items.length }),
     };
   },
 
   update(game, dt) {
-    if (!O.post) return;
-    const world = game.world, cam = world.camera, f = O.fly, k = game.keys;
-    const sp = (k.has('shift') ? 400 : 80) * dt;
-    const fw = new THREE.Vector3(-Math.sin(f.yaw) * Math.cos(f.pitch), Math.sin(f.pitch), -Math.cos(f.yaw) * Math.cos(f.pitch));
-    const rt = new THREE.Vector3(Math.cos(f.yaw), 0, -Math.sin(f.yaw));
-    if (k.has('w')) f.pos.addScaledVector(fw, sp);
-    if (k.has('s')) f.pos.addScaledVector(fw, -sp);
-    if (k.has('d')) f.pos.addScaledVector(rt, sp);
-    if (k.has('a')) f.pos.addScaledVector(rt, -sp);
-    if (k.has('e')) f.pos.y += sp;
-    if (k.has('q')) f.pos.y -= sp;
-    f.pos.y = Math.max(f.pos.y, O.terrain.heightAt(f.pos.x, f.pos.z) + 2);
-    cam.position.copy(f.pos);
-    cam.quaternion.setFromEuler(new THREE.Euler(f.pitch, f.yaw, 0, 'YXZ'));
-    cam.updateMatrixWorld();
-    O.sky.update(dt, O.hour, cam.position);
-    O.sky.updateEnv(world.renderer, world.scene);
-    O.water.update(dt, O.sky);
-    O.terrainView.update(cam);
-    O.veg.update(dt, cam, O.sky);
-    O.buildings.update(dt, cam, O.sky);
-    O.grass.update(dt, cam, O.sky);
-    // eyes adjusting: brighter indoors (something overhead), back again outside
-    O._roofT = (O._roofT ?? 0) - dt;
-    if (O._roofT <= 0) { O._roofT = 0.25; const h = O.phys.ray(cam.position.x, cam.position.y, cam.position.z, 0, 1, 0, 40, { terrain: false }); O._indoor = !!h; }
-    O.exposure = (O.exposure ?? 1) + ((O._indoor ? 1.75 : 1.0) - (O.exposure ?? 1)) * Math.min(1, dt * 1.5);
-    O.post.update(dt, { exposure: O.exposure });
+    if (!O.session) return;
+    O.session.update(dt);
   },
 
-  onExit(game, close) { game.gui.root.classList.remove('ob-mode'); close(); },
+  onExit(game, close) { O.session?.save(); O.input?.unlock(); game.gui.root.classList.remove('ob-mode'); close(); },
 };

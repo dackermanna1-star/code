@@ -6,6 +6,7 @@ let ctx = null;
 let master = null;
 let listener = null; // THREE.Vector3 of the camera
 let muted = false;
+let level = 1; // master volume (places with a volume setting)
 let unlocked = false; // browsers only allow audio after a user gesture
 const loops = new Map();
 
@@ -15,7 +16,7 @@ function ac() {
     if (!AC) return null;
     ctx = new AC();
     master = ctx.createGain();
-    master.gain.value = 0.5;
+    master.gain.value = 0.5 * level;
     master.connect(ctx.destination);
   }
   if (ctx.state === 'suspended') ctx.resume();
@@ -252,7 +253,8 @@ const KIT = { noise, noiseBuffer, env, filt, chain };
 
 export const sounds = {
   setListener(v) { listener = v; },
-  setMuted(m) { muted = m; if (master) master.gain.value = m ? 0 : 0.5; },
+  setMuted(m) { muted = m; if (master) master.gain.value = m ? 0 : 0.5 * level; },
+  setVolume(v) { level = Math.max(0, Math.min(1.5, v)); if (master && !muted) master.gain.value = 0.5 * level; },
   get muted() { return muted; },
   unlock() { unlocked = true; ac(); },
   _gain(position, volume) {

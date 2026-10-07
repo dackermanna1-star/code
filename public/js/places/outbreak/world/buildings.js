@@ -6,6 +6,7 @@
 // darkens it with grime, and lets less of the sky's light in indoors. Rain
 // makes the outside wet and shiny.
 import * as THREE from 'three';
+import { O } from '../state.js';
 import { noiseTex } from '../textures.js';
 import { Kit, VB } from '../build/kit.js';
 
@@ -120,14 +121,15 @@ export class Buildings {
     this.meshes = [];
     this.inner = []; // { mesh, x, z }: drawn only when you're near
     this.detail = []; // small things: drawn at middle distance
+    this.glassMeshes = new Map(); // cell key -> its glass
     let verts = 0, tris = 0, innerVerts = 0, detailVerts = 0;
     const mk = (a, material, o = {}) => {
       const m = new THREE.Mesh(geometryOf(a), material);
       m.castShadow = !!o.shadow; m.receiveShadow = true;
       m.matrixAutoUpdate = false; m.updateMatrix();
       if (o.order) m.renderOrder = o.order;
-      // the arrays aren't needed once they're on the graphics card
-      for (const at of Object.values(m.geometry.attributes)) at.onUpload(freeArray);
+      // the arrays aren't needed once they're on the graphics card (but glass keeps its positions, to break)
+      for (const [k, at] of Object.entries(m.geometry.attributes)) if (!(o.keepPos && k === 'position')) at.onUpload(freeArray);
       m.geometry.index.onUpload(freeArray);
       world.scene.add(m); this.meshes.push(m);
       return m;
@@ -140,7 +142,7 @@ export class Buildings {
       const ad = c.detail.arrays();
       if (ad.nv) { const m = mk(ad, this.mat, { shadow: true }); m.visible = false; this.detail.push({ mesh: m, x: c.x, z: c.z }); detailVerts += ad.nv; tris += ad.idx.length / 3; }
       const gl = c.glass.arrays();
-      if (gl.nv) mk(gl, this.glassMat, { order: 2 });
+      if (gl.nv) this.glassMeshes.set(c.key, mk(gl, this.glassMat, { order: 2, keepPos: true }));
       // free the build buffers
       c.opaque = c.inner = c.detail = c.glass = null;
     }
@@ -267,6 +269,41 @@ export class Buildings {
     }
     if (d.box && this.phys) this.phys.move(d.box, x, d.y + d.h / 2, z, ang);
     d.cx = x; d.cz = z; d.ang = ang;
+  }
+
+  /** A pane shot or smashed: it's gone (its faces collapse to nothing), with shards falling. */
+  breakGlass(box, at) {
+    const m = this.glassMeshes.get(box.gkey);
+    if (m && box.gv1 > box.gv0) {
+      const pos = m.geometry.attributes.position, a = pos.array;
+      const x = a[box.gv0 * 3], y = a[box.gv0 * 3 + 1], z = a[box.gv0 * 3 + 2];
+      for (let v = box.gv0; v < box.gv1; v++) { a[v * 3] = x; a[v * 3 + 1] = y; a[v * 3 + 2] = z; }
+      pos.needsUpdate = true;
+    }
+    box.brokenGlass = true;
+    // shards: a shower of them, falling
+    const fx = O.fx;
+    if (fx) {
+      const p = at || box;
+      fx.burst(p.x, p.y, p.z, 26, { color: [0.75, 0.85, 0.9], speed: 5, up: 0.4, life: 1.1, size: 0.14, grow: 0, grav: 30, drag: 0.4, alpha: 0.9 });
+    }
+  }
+  /** A door taking a beating (from shots, blows, or the infected): enough and it comes off its hinges. */
+  damageDoor(d, dmg, byZombie = false) {
+    if (d.broken) return;
+    const tough = d.kind === 'metal' ? 220 : d.kind === 'gate' ? 160 : d.kind === 'glass' ? 40 : d.kind === 'plank' ? 70 : 110;
+    d.hp = (d.hp ?? tough) - dmg;
+    if (d.hp > 0) return;
+    d.broken = true;
+    d.target = 1; d.open = 1;
+    // gone: the leaf disappears, its box with it
+    if (d.mesh) { this._m.makeScale(0, 0, 0); d.mesh.setMatrixAt(d.index, this._m); d.mesh.instanceMatrix.needsUpdate = true; }
+    if (d.box) { this.phys.remove(d.box); d.box = null; }
+    this.moving.delete(d);
+    const fx = O.fx;
+    if (fx) fx.burst(d.x, d.y + d.h / 2, d.z, 24, { color: d.kind === 'metal' || d.kind === 'gate' ? [0.4, 0.4, 0.4] : d.kind === 'glass' ? [0.75, 0.85, 0.9] : [0.45, 0.32, 0.2], speed: 7, up: 0.6, life: 0.9, size: 0.3, grow: 0, grav: 25, drag: 0.8 });
+    O.audio?.breakDoor?.({ x: d.x, y: d.y + 3, z: d.z });
+    if (byZombie) O.combat?.noise(d.x, d.y, d.z, 40, null);
   }
 
   /** Open or shut a door (to = 0..1), or toggle it. */
