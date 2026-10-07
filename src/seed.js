@@ -464,6 +464,11 @@ function ensureExtraPlaces(state) {
     desc: 'Climb 32 stages through five zones - Sky Meadows, Volcano Isles, Neon City, Frozen Peaks and the Cosmic Void! Trampolines, trusses, rising lava, fire spinners, laser gates, a glass bridge, swinging axes, an avalanche, low gravity and more. Checkpoints save your stage. Can you reach the top of the Mega Tower? (Press R to reset.)',
     created: now - 0.2 * DAY, updated: now - 0.01 * DAY, visits: 2264, favorited: 371, online: 44, playedRecent: 1190, script: 'megaobby', maxPlayers: 12,
   });
+  add(3104574, {
+    name: 'Escape the Haunted Hotel',
+    desc: 'You wake up in Room 313 of the Ravenhurst Hotel at 3:33 in the morning. The power is out, the front doors are chained, and the Night Manager is walking the halls. Find a way out - and don\'t let him see you. Hide in wardrobes, hold your breath, watch the lights. (Single player. Best with headphones, in the dark.) Click the game to look around, WASD to move, Shift to run, C to crouch, F for your flashlight, E to use things.',
+    created: now - 0.1 * DAY, updated: now - 0.005 * DAY, visits: 1531, favorited: 309, online: 21, playedRecent: 870, script: 'hotel', maxPlayers: 1,
+  });
   return added;
 }
 

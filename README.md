@@ -71,6 +71,24 @@ The first start creates `data/db.json`. The site's clock starts on September 1, 
   - Touch a checkpoint to save your stage. Fall or touch something deadly and you respawn there after two seconds. Press **R** to reset.
   - Reach the top to win. The timer and your deaths are shown, and the PLAY AGAIN pad starts a new run.
   - The other players have skill levels: good ones are fast and rarely fall, new ones hesitate, mistime things and die a lot, but they all get there in the end.
+- **Escape the Haunted Hotel**: a single-player, first-person horror game, made by Robloxian2008. Like the games above, it is a modern-style user-made place, not a 2008 recreation. Best played with headphones, in the dark.
+  - You wake in Room 313 of the Ravenhurst Hotel at 3:33 a.m. The power is out, the front doors are chained, and the Night Manager walks the halls. Get out.
+  - The hotel has five levels:
+    - The third floor: a long corridor of guest rooms, the Linen Room, the lifts, and a gallery over the atrium.
+    - The service stairs.
+    - The ground floor: the grand lobby under a four-storey atrium, the front desk, the manager's office, the kitchen and cold store, the restaurant and bar, and the ballroom.
+    - The basement: the workshop, storage, the laundry and the boiler room.
+    - The grounds outside.
+  - The Night Manager:
+    - He rides the lifts between floors. The dial over each lift shows where he is.
+    - He hears footsteps (running is loud, crouching is quiet, carpet is quieter than marble), doors, and the bell.
+    - He sees you more easily when your flashlight is pointed at him or you stand in the light.
+    - Lights flicker when he's near.
+    - Hide in wardrobes and lockers, and hold your breath when he checks them. If he sees you get in, hiding won't save you.
+    - He doesn't take the stairs. Until the end.
+  - Notes around the hotel tell the story and give the clues: the key box code, where the three fuses are, where the bolt cutters went.
+  - Checkpoints are saved in your browser, so **Continue** picks up where you left off. The title screen sets brightness, mouse sensitivity, volume and invert-Y.
+  - Click the game to look around with the mouse. **WASD** walk, **Shift** run, **C** crouch, **E** use and hide, **F** flashlight, **Space** hold your breath while hiding, **R** change the batteries, **Tab** objective, **Esc** pause.
 - **Your own place**: on your My ROBLOX page, click Edit under your place.
   - **Tools** gives the Grab, Clone and Delete build tools.
   - **Insert** adds bricks and the models you own.

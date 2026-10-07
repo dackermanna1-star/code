@@ -138,6 +138,20 @@ Ratings and voting: 2008 pages show only how many times a place was Visited and 
 - The simulated players follow a route that each stage writes as it is built (walk, jump, climb, ride, wait for the moment). Each bot has a skill level that sets its reaction time, how often it hesitates, and how often it mistimes or misjudges something. Bots remember which glass panels broke and get more careful where they died before.
 - Players pass through each other on this course, as in most modern obbies.
 
+### Escape the Haunted Hotel (not a 2008 recreation)
+- Added on request: a single-player, first-person horror game in the style of the horror games made long after 2008. The Ravenhurst Hotel, its 1952 fire, the Night Manager (Edmund Hale), the notes and every line of dialogue are original to this project.
+- The game draws its own picture rather than using the 2008 look:
+  - Textured physically based materials, lit only by the hotel's own lamps and a shadow-casting flashlight.
+  - A small pool of real lights is handed to the lamps nearest the player each frame.
+  - Tone mapping, film grain and a vignette.
+  - Its own interface (the 2008 game HUD is hidden).
+- Every texture is drawn in code on canvases: the wallpapers, carpets, marble, tiles, paintings, signs, notes and the porcelain mask.
+- Every sound is synthesized with WebAudio and placed in 3D: the storm, footsteps for each floor surface, doors, the lift, the telephone, the music box, the piano and gramophone, the chase music, and his footsteps, breathing and scream. The voices on the telephone and the tannoy use the browser's speech synthesis, with subtitles.
+- The Night Manager:
+  - His body is built from separate parts and posed procedurally every frame.
+  - He moves around a graph of points through the corridors and rooms and finds his routes with A*.
+  - What he sees depends on line of sight, your light and your flashlight. What he hears depends on your footsteps (by surface and gait), doors and your breathing.
+
 ### Personal places
 - **Verified:** the three starting templates (Happy Home in Robloxia, Starting BrickBattle Map, Empty Baseplate), the Tools and Insert menus in your own place, and the save-on-exit dialog.
 
