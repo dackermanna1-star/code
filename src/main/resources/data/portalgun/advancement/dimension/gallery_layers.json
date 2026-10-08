@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:gallery_layers"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:portal_fluid"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.gallery_layers.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.gallery_layers.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

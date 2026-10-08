@@ -1,0 +1,92 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.alien_hum",
+      "additions": {
+        "sound": "minecraft:ambient.warped_forest.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.nether.warped_forest",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.nether.warped_forest",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:warped_spore"
+        },
+        "probability": 0.012
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#123a40"
+  },
+  "carvers": [
+    "portalgun:sporewood_cave",
+    "portalgun:sporewood_canyon"
+  ],
+  "downfall": 0.66,
+  "effects": {
+    "water_color": "#2a7a8a",
+    "grass_color": "#2f6b5a",
+    "foliage_color": "#3fc9c0",
+    "dry_foliage_color": "#3fc9c0"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:sporewood/ore_coal",
+      "portalgun:sporewood/ore_iron",
+      "portalgun:sporewood/ore_copper",
+      "portalgun:sporewood/ore_gold",
+      "portalgun:sporewood/ore_redstone",
+      "portalgun:sporewood/ore_lapis",
+      "portalgun:sporewood/ore_diamond",
+      "portalgun:sporewood/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:sporewood/spring"
+    ],
+    [
+      "portalgun:sporewood/glowcap_forest/0_giantplant",
+      "portalgun:sporewood/glowcap_forest/1_giantplant",
+      "portalgun:sporewood/glowcap_forest/2_patch",
+      "portalgun:sporewood/glowcap_forest/3_patch",
+      "portalgun:sporewood/glowcap_forest/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

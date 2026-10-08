@@ -1,6 +1,806 @@
 {
- "dimensions": [],
- "blocks": [],
- "items": [],
+ "dimensions": [
+  {
+   "id": "sporewood",
+   "code": "D-716",
+   "name": "Sporewood",
+   "tagline": "Twilight forests of towering glowcaps",
+   "description": "A world locked in permanent dusk where mushrooms grow taller than trees and glow in teal and violet. Spores drift through the air like snow. Sporelings wander the moss, but something tall and thin stalks the darker hollows.",
+   "danger": 2,
+   "color": "#3fc9c0",
+   "platform": "portalgun:sporewood_rock",
+   "arrival": "surface",
+   "arrivalY": 76,
+   "effects": [],
+   "sky": [
+    {
+     "texture": "portalgun:textures/environment/sporewood_0.png",
+     "size": 55.0,
+     "yaw": 40.0,
+     "pitch": 35.0,
+     "roll": 0.0,
+     "speed": 0.0,
+     "alpha": 1.0,
+     "additive": false
+    }
+   ],
+   "creatures": [],
+   "biomes": [
+    "glowcap_forest",
+    "puffball_meadows",
+    "rotting_hollow"
+   ],
+   "style": "hills",
+   "icon": "portalgun:glowcap_slice"
+  },
+  {
+   "id": "gallery_hills",
+   "code": "GAL-00",
+   "name": "Gallery: Hills",
+   "tagline": "Terrain style test: hills",
+   "description": "Throwaway test dimension for the 'hills' terrain style.",
+   "danger": 1,
+   "color": "#888888",
+   "platform": "minecraft:stone",
+   "arrival": "surface",
+   "arrivalY": 76,
+   "effects": [],
+   "sky": [
+    {
+     "texture": "portalgun:textures/environment/gallery_hills_0.png",
+     "size": 50.0,
+     "yaw": 30.0,
+     "pitch": 40.0,
+     "roll": 0.0,
+     "speed": 0.0,
+     "alpha": 1.0,
+     "additive": false
+    }
+   ],
+   "creatures": [],
+   "biomes": [
+    "gallery_hills_biome"
+   ],
+   "style": "hills"
+  },
+  {
+   "id": "gallery_mountains",
+   "code": "GAL-01",
+   "name": "Gallery: Mountains",
+   "tagline": "Terrain style test: mountains",
+   "description": "Throwaway test dimension for the 'mountains' terrain style.",
+   "danger": 1,
+   "color": "#888888",
+   "platform": "minecraft:stone",
+   "arrival": "surface",
+   "arrivalY": 82,
+   "effects": [],
+   "sky": [
+    {
+     "texture": "portalgun:textures/environment/gallery_mountains_0.png",
+     "size": 24.0,
+     "yaw": 120.0,
+     "pitch": 55.0,
+     "roll": 0.0,
+     "speed": 0.0,
+     "alpha": 1.0,
+     "additive": false
+    }
+   ],
+   "creatures": [],
+   "biomes": [
+    "gallery_mountains_biome"
+   ],
+   "style": "mountains"
+  },
+  {
+   "id": "gallery_flat",
+   "code": "GAL-02",
+   "name": "Gallery: Flat",
+   "tagline": "Terrain style test: flat",
+   "description": "Throwaway test dimension for the 'flat' terrain style.",
+   "danger": 1,
+   "color": "#888888",
+   "platform": "minecraft:stone",
+   "arrival": "surface",
+   "arrivalY": 68,
+   "effects": [],
+   "sky": [],
+   "creatures": [],
+   "biomes": [
+    "gallery_flat_biome"
+   ],
+   "style": "flat"
+  },
+  {
+   "id": "gallery_islands",
+   "code": "GAL-03",
+   "name": "Gallery: Islands",
+   "tagline": "Terrain style test: islands",
+   "description": "Throwaway test dimension for the 'islands' terrain style.",
+   "danger": 1,
+   "color": "#888888",
+   "platform": "minecraft:stone",
+   "arrival": "surface",
+   "arrivalY": 65,
+   "effects": [],
+   "sky": [],
+   "creatures": [],
+   "biomes": [
+    "gallery_islands_biome"
+   ],
+   "style": "islands"
+  },
+  {
+   "id": "gallery_ocean",
+   "code": "GAL-04",
+   "name": "Gallery: Ocean",
+   "tagline": "Terrain style test: ocean",
+   "description": "Throwaway test dimension for the 'ocean' terrain style.",
+   "danger": 1,
+   "color": "#888888",
+   "platform": "minecraft:stone",
+   "arrival": "surface",
+   "arrivalY": 42,
+   "effects": [],
+   "sky": [],
+   "creatures": [],
+   "biomes": [
+    "gallery_ocean_biome"
+   ],
+   "style": "ocean"
+  },
+  {
+   "id": "gallery_sky_islands",
+   "code": "GAL-05",
+   "name": "Gallery: Sky Islands",
+   "tagline": "Terrain style test: sky_islands",
+   "description": "Throwaway test dimension for the 'sky_islands' terrain style.",
+   "danger": 1,
+   "color": "#888888",
+   "platform": "minecraft:stone",
+   "arrival": "void",
+   "arrivalY": 112,
+   "effects": [],
+   "sky": [
+    {
+     "texture": "portalgun:textures/environment/gallery_sky_islands_0.png",
+     "size": 70.0,
+     "yaw": 200.0,
+     "pitch": 30.0,
+     "roll": 0.0,
+     "speed": 0.0,
+     "alpha": 1.0,
+     "additive": false
+    }
+   ],
+   "creatures": [],
+   "biomes": [
+    "gallery_sky_islands_biome"
+   ],
+   "style": "sky_islands"
+  },
+  {
+   "id": "gallery_caves",
+   "code": "GAL-06",
+   "name": "Gallery: Caves",
+   "tagline": "Terrain style test: caves",
+   "description": "Throwaway test dimension for the 'caves' terrain style.",
+   "danger": 1,
+   "color": "#888888",
+   "platform": "minecraft:stone",
+   "arrival": "cave",
+   "arrivalY": 66,
+   "effects": [],
+   "sky": [],
+   "creatures": [],
+   "biomes": [
+    "gallery_caves_biome"
+   ],
+   "style": "caves"
+  },
+  {
+   "id": "gallery_planetoids",
+   "code": "GAL-07",
+   "name": "Gallery: Planetoids",
+   "tagline": "Terrain style test: planetoids",
+   "description": "Throwaway test dimension for the 'planetoids' terrain style.",
+   "danger": 1,
+   "color": "#888888",
+   "platform": "minecraft:end_stone",
+   "arrival": "void",
+   "arrivalY": 98,
+   "effects": [],
+   "sky": [
+    {
+     "texture": "portalgun:textures/environment/gallery_planetoids_0.png",
+     "size": 110.0,
+     "yaw": 60.0,
+     "pitch": 35.0,
+     "roll": 0.0,
+     "speed": 0.0,
+     "alpha": 1.0,
+     "additive": false
+    },
+    {
+     "texture": "portalgun:textures/environment/gallery_planetoids_1.png",
+     "size": 140.0,
+     "yaw": 250.0,
+     "pitch": 60.0,
+     "roll": 0.0,
+     "speed": 0.0,
+     "alpha": 0.8,
+     "additive": false
+    },
+    {
+     "texture": "portalgun:textures/environment/gallery_planetoids_2.png",
+     "size": 60.0,
+     "yaw": 150.0,
+     "pitch": 70.0,
+     "roll": 0.0,
+     "speed": 0.0,
+     "alpha": 1.0,
+     "additive": false
+    }
+   ],
+   "creatures": [],
+   "biomes": [
+    "gallery_planetoids_biome"
+   ],
+   "style": "planetoids"
+  },
+  {
+   "id": "gallery_pillars",
+   "code": "GAL-08",
+   "name": "Gallery: Pillars",
+   "tagline": "Terrain style test: pillars",
+   "description": "Throwaway test dimension for the 'pillars' terrain style.",
+   "danger": 1,
+   "color": "#888888",
+   "platform": "minecraft:andesite",
+   "arrival": "surface",
+   "arrivalY": 52,
+   "effects": [],
+   "sky": [],
+   "creatures": [],
+   "biomes": [
+    "gallery_pillars_biome"
+   ],
+   "style": "pillars"
+  },
+  {
+   "id": "gallery_terraces",
+   "code": "GAL-09",
+   "name": "Gallery: Terraces",
+   "tagline": "Terrain style test: terraces",
+   "description": "Throwaway test dimension for the 'terraces' terrain style.",
+   "danger": 1,
+   "color": "#888888",
+   "platform": "minecraft:stone",
+   "arrival": "surface",
+   "arrivalY": 74,
+   "effects": [],
+   "sky": [],
+   "creatures": [],
+   "biomes": [
+    "gallery_terraces_biome"
+   ],
+   "style": "terraces"
+  },
+  {
+   "id": "gallery_canyons",
+   "code": "GAL-10",
+   "name": "Gallery: Canyons",
+   "tagline": "Terrain style test: canyons",
+   "description": "Throwaway test dimension for the 'canyons' terrain style.",
+   "danger": 1,
+   "color": "#888888",
+   "platform": "minecraft:terracotta",
+   "arrival": "surface",
+   "arrivalY": 98,
+   "effects": [],
+   "sky": [],
+   "creatures": [],
+   "biomes": [
+    "gallery_canyons_biome"
+   ],
+   "style": "canyons"
+  },
+  {
+   "id": "gallery_sponge",
+   "code": "GAL-11",
+   "name": "Gallery: Sponge",
+   "tagline": "Terrain style test: sponge",
+   "description": "Throwaway test dimension for the 'sponge' terrain style.",
+   "danger": 1,
+   "color": "#888888",
+   "platform": "minecraft:yellow_terracotta",
+   "arrival": "surface",
+   "arrivalY": 76,
+   "effects": [],
+   "sky": [],
+   "creatures": [],
+   "biomes": [
+    "gallery_sponge_biome"
+   ],
+   "style": "sponge"
+  },
+  {
+   "id": "gallery_inverted",
+   "code": "GAL-12",
+   "name": "Gallery: Inverted",
+   "tagline": "Terrain style test: inverted",
+   "description": "Throwaway test dimension for the 'inverted' terrain style.",
+   "danger": 1,
+   "color": "#888888",
+   "platform": "minecraft:stone",
+   "arrival": "surface",
+   "arrivalY": 82,
+   "effects": [],
+   "sky": [],
+   "creatures": [],
+   "biomes": [
+    "gallery_inverted_biome"
+   ],
+   "style": "inverted"
+  },
+  {
+   "id": "gallery_cubes",
+   "code": "GAL-13",
+   "name": "Gallery: Cubes",
+   "tagline": "Terrain style test: cubes",
+   "description": "Throwaway test dimension for the 'cubes' terrain style.",
+   "danger": 1,
+   "color": "#888888",
+   "platform": "minecraft:light_gray_concrete",
+   "arrival": "surface",
+   "arrivalY": 72,
+   "effects": [],
+   "sky": [
+    {
+     "texture": "portalgun:textures/environment/gallery_cubes_0.png",
+     "size": 90.0,
+     "yaw": 90.0,
+     "pitch": 12.0,
+     "roll": 0.0,
+     "speed": 0.0,
+     "alpha": 1.0,
+     "additive": false
+    }
+   ],
+   "creatures": [],
+   "biomes": [
+    "gallery_cubes_biome"
+   ],
+   "style": "cubes"
+  },
+  {
+   "id": "gallery_craters",
+   "code": "GAL-14",
+   "name": "Gallery: Craters",
+   "tagline": "Terrain style test: craters",
+   "description": "Throwaway test dimension for the 'craters' terrain style.",
+   "danger": 1,
+   "color": "#888888",
+   "platform": "minecraft:andesite",
+   "arrival": "surface",
+   "arrivalY": 72,
+   "effects": [],
+   "sky": [
+    {
+     "texture": "portalgun:textures/environment/gallery_craters_0.png",
+     "size": 80.0,
+     "yaw": 40.0,
+     "pitch": 40.0,
+     "roll": 0.0,
+     "speed": 0.0,
+     "alpha": 1.0,
+     "additive": false
+    }
+   ],
+   "creatures": [],
+   "biomes": [
+    "gallery_craters_biome"
+   ],
+   "style": "craters"
+  },
+  {
+   "id": "gallery_dunes",
+   "code": "GAL-15",
+   "name": "Gallery: Dunes",
+   "tagline": "Terrain style test: dunes",
+   "description": "Throwaway test dimension for the 'dunes' terrain style.",
+   "danger": 1,
+   "color": "#888888",
+   "platform": "minecraft:sandstone",
+   "arrival": "surface",
+   "arrivalY": 72,
+   "effects": [],
+   "sky": [
+    {
+     "texture": "portalgun:textures/environment/gallery_dunes_0.png",
+     "size": 50.0,
+     "yaw": 10.0,
+     "pitch": 70.0,
+     "roll": 0.0,
+     "speed": 0.0,
+     "alpha": 1.0,
+     "additive": true
+    }
+   ],
+   "creatures": [],
+   "biomes": [
+    "gallery_dunes_biome"
+   ],
+   "style": "dunes"
+  },
+  {
+   "id": "gallery_spikes",
+   "code": "GAL-16",
+   "name": "Gallery: Spikes",
+   "tagline": "Terrain style test: spikes",
+   "description": "Throwaway test dimension for the 'spikes' terrain style.",
+   "danger": 1,
+   "color": "#888888",
+   "platform": "minecraft:deepslate",
+   "arrival": "surface",
+   "arrivalY": 68,
+   "effects": [],
+   "sky": [],
+   "creatures": [],
+   "biomes": [
+    "gallery_spikes_biome"
+   ],
+   "style": "spikes"
+  },
+  {
+   "id": "gallery_blobs",
+   "code": "GAL-17",
+   "name": "Gallery: Blobs",
+   "tagline": "Terrain style test: blobs",
+   "description": "Throwaway test dimension for the 'blobs' terrain style.",
+   "danger": 1,
+   "color": "#888888",
+   "platform": "minecraft:pink_terracotta",
+   "arrival": "surface",
+   "arrivalY": 74,
+   "effects": [],
+   "sky": [
+    {
+     "texture": "portalgun:textures/environment/gallery_blobs_0.png",
+     "size": 60.0,
+     "yaw": 300.0,
+     "pitch": 50.0,
+     "roll": 0.0,
+     "speed": 0.0,
+     "alpha": 1.0,
+     "additive": false
+    }
+   ],
+   "creatures": [],
+   "biomes": [
+    "gallery_blobs_biome"
+   ],
+   "style": "blobs"
+  },
+  {
+   "id": "gallery_cells",
+   "code": "GAL-18",
+   "name": "Gallery: Cells",
+   "tagline": "Terrain style test: cells",
+   "description": "Throwaway test dimension for the 'cells' terrain style.",
+   "danger": 1,
+   "color": "#888888",
+   "platform": "minecraft:honeycomb_block",
+   "arrival": "cave",
+   "arrivalY": 66,
+   "effects": [],
+   "sky": [],
+   "creatures": [],
+   "biomes": [
+    "gallery_cells_biome"
+   ],
+   "style": "cells"
+  },
+  {
+   "id": "gallery_layers",
+   "code": "GAL-19",
+   "name": "Gallery: Layers",
+   "tagline": "Terrain style test: layers",
+   "description": "Throwaway test dimension for the 'layers' terrain style.",
+   "danger": 1,
+   "color": "#888888",
+   "platform": "minecraft:smooth_stone",
+   "arrival": "void",
+   "arrivalY": 98,
+   "effects": [],
+   "sky": [
+    {
+     "texture": "portalgun:textures/environment/gallery_layers_0.png",
+     "size": 160.0,
+     "yaw": 0.0,
+     "pitch": 45.0,
+     "roll": 0.0,
+     "speed": 0.0,
+     "alpha": 1.0,
+     "additive": true
+    }
+   ],
+   "creatures": [],
+   "biomes": [
+    "gallery_layers_biome"
+   ],
+   "style": "layers"
+  }
+ ],
+ "blocks": [
+  {
+   "id": "sporemoss",
+   "name": "Sporemoss",
+   "kind": "grass",
+   "dimension": "sporewood",
+   "hardness": 0.6,
+   "resistance": -1.0,
+   "sound": "moss",
+   "light": 0,
+   "map": "color_cyan",
+   "friction": 0.6,
+   "jump": 1.0,
+   "speed": 1.0,
+   "bounce": 0.0,
+   "damage": 0.0,
+   "flammable": false,
+   "layer": "solid",
+   "emissive": false,
+   "creative": true,
+   "tool": "shovel",
+   "xp": [
+    0,
+    0
+   ],
+   "color": "#316d5b"
+  },
+  {
+   "id": "spore_soil",
+   "name": "Spore Soil",
+   "kind": "soil",
+   "dimension": "sporewood",
+   "hardness": 0.5,
+   "resistance": -1.0,
+   "sound": "gravel",
+   "light": 0,
+   "map": "color_purple",
+   "friction": 0.6,
+   "jump": 1.0,
+   "speed": 1.0,
+   "bounce": 0.0,
+   "damage": 0.0,
+   "flammable": false,
+   "layer": "solid",
+   "emissive": false,
+   "creative": true,
+   "tool": "shovel",
+   "xp": [
+    0,
+    0
+   ],
+   "color": "#423245"
+  },
+  {
+   "id": "sporewood_rock",
+   "name": "Sporewood Rock",
+   "kind": "stone",
+   "dimension": "sporewood",
+   "hardness": 1.5,
+   "resistance": -1.0,
+   "sound": "stone",
+   "light": 0,
+   "map": "color_gray",
+   "friction": 0.6,
+   "jump": 1.0,
+   "speed": 1.0,
+   "bounce": 0.0,
+   "damage": 0.0,
+   "flammable": false,
+   "layer": "solid",
+   "emissive": false,
+   "creative": true,
+   "tool": "pickaxe",
+   "xp": [
+    0,
+    0
+   ],
+   "color": "#4a4e5f"
+  },
+  {
+   "id": "glowcap_stem",
+   "name": "Glowcap Stem",
+   "kind": "log",
+   "dimension": "sporewood",
+   "hardness": 1.5,
+   "resistance": -1.0,
+   "sound": "wood",
+   "light": 0,
+   "map": "wool",
+   "friction": 0.6,
+   "jump": 1.0,
+   "speed": 1.0,
+   "bounce": 0.0,
+   "damage": 0.0,
+   "flammable": false,
+   "layer": "solid",
+   "emissive": false,
+   "creative": true,
+   "tool": "axe",
+   "xp": [
+    0,
+    0
+   ],
+   "color": "#dad3c1"
+  },
+  {
+   "id": "teal_glowcap",
+   "name": "Teal Glowcap",
+   "kind": "mushroom_cap",
+   "dimension": "sporewood",
+   "hardness": 0.4,
+   "resistance": -1.0,
+   "sound": "wood",
+   "light": 12,
+   "map": "color_cyan",
+   "friction": 0.6,
+   "jump": 1.0,
+   "speed": 1.0,
+   "bounce": 0.0,
+   "damage": 0.0,
+   "flammable": false,
+   "layer": "solid",
+   "emissive": true,
+   "creative": true,
+   "tool": "axe",
+   "xp": [
+    0,
+    0
+   ],
+   "color": "#2ea8a9"
+  },
+  {
+   "id": "violet_glowcap",
+   "name": "Violet Glowcap",
+   "kind": "mushroom_cap",
+   "dimension": "sporewood",
+   "hardness": 0.4,
+   "resistance": -1.0,
+   "sound": "wood",
+   "light": 12,
+   "map": "color_purple",
+   "friction": 0.6,
+   "jump": 1.0,
+   "speed": 1.0,
+   "bounce": 0.0,
+   "damage": 0.0,
+   "flammable": false,
+   "layer": "solid",
+   "emissive": true,
+   "creative": true,
+   "tool": "axe",
+   "xp": [
+    0,
+    0
+   ],
+   "color": "#a54bb6"
+  },
+  {
+   "id": "glowcap_sprout",
+   "name": "Glowcap Sprout",
+   "kind": "plant",
+   "dimension": "sporewood",
+   "hardness": 0.0,
+   "resistance": -1.0,
+   "sound": "fungus",
+   "light": 7,
+   "map": "stone",
+   "friction": 0.6,
+   "jump": 1.0,
+   "speed": 1.0,
+   "bounce": 0.0,
+   "damage": 0.0,
+   "flammable": false,
+   "layer": "cutout",
+   "emissive": true,
+   "creative": true,
+   "xp": [
+    0,
+    0
+   ],
+   "color": "#7ca69c"
+  },
+  {
+   "id": "spore_puff",
+   "name": "Spore Puff",
+   "kind": "plant",
+   "dimension": "sporewood",
+   "hardness": 0.0,
+   "resistance": -1.0,
+   "sound": "fungus",
+   "light": 0,
+   "map": "stone",
+   "friction": 0.6,
+   "jump": 1.0,
+   "speed": 1.0,
+   "bounce": 0.0,
+   "damage": 0.0,
+   "flammable": false,
+   "layer": "cutout",
+   "emissive": false,
+   "creative": true,
+   "particle": "minecraft:spore_blossom_air",
+   "xp": [
+    0,
+    0
+   ],
+   "color": "#a497b6"
+  },
+  {
+   "id": "hanging_glowroot",
+   "name": "Hanging Glowroot",
+   "kind": "hanging_plant",
+   "dimension": "sporewood",
+   "hardness": 0.0,
+   "resistance": -1.0,
+   "sound": "cave_vines",
+   "light": 9,
+   "map": "stone",
+   "friction": 0.6,
+   "jump": 1.0,
+   "speed": 1.0,
+   "bounce": 0.0,
+   "damage": 0.0,
+   "flammable": false,
+   "layer": "cutout",
+   "emissive": true,
+   "creative": true,
+   "xp": [
+    0,
+    0
+   ],
+   "color": "#47bcb5"
+  }
+ ],
+ "items": [
+  {
+   "id": "glowcap_slice",
+   "name": "Glowcap Slice",
+   "kind": "food",
+   "stack": 64,
+   "rarity": "common",
+   "glint": false,
+   "dimension": "sporewood",
+   "lore": "Tastes like blue raspberry and dirt",
+   "food": {
+    "nutrition": 4,
+    "saturation": 0.4,
+    "always": false,
+    "fast": false,
+    "effects": [
+     {
+      "id": "minecraft:night_vision",
+      "duration": 600,
+      "amplifier": 0,
+      "chance": 1.0
+     }
+    ]
+   }
+  },
+  {
+   "id": "stalker_spore",
+   "name": "Stalker Spore",
+   "kind": "material",
+   "stack": 64,
+   "rarity": "uncommon",
+   "glint": false,
+   "dimension": "sporewood"
+  }
+ ],
  "creatures": []
 }

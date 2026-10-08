@@ -1,0 +1,72 @@
+{
+  "attributes": {
+    "minecraft:visual/water_fog_color": "#101e39"
+  },
+  "carvers": [],
+  "downfall": 0.5,
+  "effects": {
+    "water_color": "#3f76e4",
+    "grass_color": "#79c05a",
+    "foliage_color": "#59ae30",
+    "dry_foliage_color": "#59ae30"
+  },
+  "features": [
+    [],
+    [
+      "portalgun:gallery_cubes/gallery_cubes_biome/12_lake"
+    ],
+    [
+      "portalgun:gallery_cubes/gallery_cubes_biome/5_boulder",
+      "portalgun:gallery_cubes/gallery_cubes_biome/13_geode"
+    ],
+    [],
+    [
+      "portalgun:gallery_cubes/gallery_cubes_biome/6_spire",
+      "portalgun:gallery_cubes/gallery_cubes_biome/8_structure",
+      "portalgun:gallery_cubes/gallery_cubes_biome/9_structure"
+    ],
+    [],
+    [
+      "portalgun:gallery_cubes/ore_coal",
+      "portalgun:gallery_cubes/ore_iron",
+      "portalgun:gallery_cubes/ore_copper",
+      "portalgun:gallery_cubes/ore_gold",
+      "portalgun:gallery_cubes/ore_redstone",
+      "portalgun:gallery_cubes/ore_lapis",
+      "portalgun:gallery_cubes/ore_diamond",
+      "portalgun:gallery_cubes/ore_emerald",
+      "portalgun:gallery_cubes/gallery_cubes_biome/10_ore",
+      "portalgun:gallery_cubes/gallery_cubes_biome/11_disk"
+    ],
+    [
+      "portalgun:gallery_cubes/gallery_cubes_biome/7_crystalcluster"
+    ],
+    [],
+    [
+      "minecraft:flower_default",
+      "portalgun:gallery_cubes/gallery_cubes_biome/0_tree",
+      "portalgun:gallery_cubes/gallery_cubes_biome/1_giantplant",
+      "portalgun:gallery_cubes/gallery_cubes_biome/2_giantplant",
+      "portalgun:gallery_cubes/gallery_cubes_biome/3_patch",
+      "portalgun:gallery_cubes/gallery_cubes_biome/4_patch",
+      "portalgun:gallery_cubes/gallery_cubes_biome/15_patch",
+      "portalgun:gallery_cubes/gallery_cubes_biome/16_patch",
+      "portalgun:gallery_cubes/gallery_cubes_biome/17_patch",
+      "portalgun:gallery_cubes/gallery_cubes_biome/18_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

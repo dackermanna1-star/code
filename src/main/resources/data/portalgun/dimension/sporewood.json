@@ -1,0 +1,48 @@
+{
+  "type": "portalgun:sporewood",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:sporewood",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:glowcap_forest",
+          "parameters": {
+            "temperature": 0.0,
+            "humidity": 0.4,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:puffball_meadows",
+          "parameters": {
+            "temperature": 0.6,
+            "humidity": -0.3,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:rotting_hollow",
+          "parameters": {
+            "temperature": -0.6,
+            "humidity": 0.7,
+            "continentalness": -0.4,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

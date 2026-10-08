@@ -1,0 +1,11 @@
+{
+  "type": "portalgun:gallery_planetoids",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:gallery_planetoids",
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "portalgun:gallery_planetoids_biome"
+    }
+  }
+}

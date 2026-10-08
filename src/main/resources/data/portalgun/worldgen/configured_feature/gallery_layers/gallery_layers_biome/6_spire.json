@@ -1,0 +1,37 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "minecraft:calcite"
+          },
+          "weight": 2
+        },
+        {
+          "data": {
+            "Name": "minecraft:dripstone_block"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 8,
+      "max_inclusive": 16
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 1,
+      "max_inclusive": 3
+    },
+    "lean": 0.3,
+    "hanging": false,
+    "tip": {
+      "Name": "minecraft:amethyst_block"
+    }
+  }
+}

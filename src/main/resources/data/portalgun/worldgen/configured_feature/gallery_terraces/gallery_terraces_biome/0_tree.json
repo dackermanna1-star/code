@@ -1,0 +1,96 @@
+{
+  "type": "minecraft:tree",
+  "config": {
+    "trunk_provider": {
+      "type": "minecraft:simple_state_provider",
+      "state": {
+        "Name": "minecraft:cherry_log"
+      }
+    },
+    "foliage_provider": {
+      "type": "minecraft:simple_state_provider",
+      "state": {
+        "Name": "minecraft:cherry_leaves"
+      }
+    },
+    "trunk_placer": {
+      "type": "minecraft:cherry_trunk_placer",
+      "base_height": 5,
+      "height_rand_a": 3,
+      "height_rand_b": 0,
+      "branch_count": {
+        "type": "minecraft:weighted_list",
+        "distribution": [
+          {
+            "data": 1,
+            "weight": 1
+          },
+          {
+            "data": 2,
+            "weight": 1
+          },
+          {
+            "data": 3,
+            "weight": 1
+          }
+        ]
+      },
+      "branch_horizontal_length": {
+        "type": "minecraft:uniform",
+        "min_inclusive": 2,
+        "max_inclusive": 4
+      },
+      "branch_start_offset_from_top": {
+        "min_inclusive": -4,
+        "max_inclusive": -3
+      },
+      "branch_end_offset_from_top": {
+        "type": "minecraft:uniform",
+        "min_inclusive": -1,
+        "max_inclusive": 0
+      }
+    },
+    "foliage_placer": {
+      "type": "minecraft:cherry_foliage_placer",
+      "radius": 4,
+      "offset": 0,
+      "height": 5,
+      "wide_bottom_layer_hole_chance": 0.25,
+      "corner_hole_chance": 0.25,
+      "hanging_leaves_chance": 0.16666667,
+      "hanging_leaves_extension_chance": 0.33333334
+    },
+    "minimum_size": {
+      "type": "minecraft:two_layers_feature_size",
+      "limit": 1,
+      "lower_size": 0,
+      "upper_size": 2
+    },
+    "dirt_provider": {
+      "type": "minecraft:simple_state_provider",
+      "state": {
+        "Name": "minecraft:dirt"
+      }
+    },
+    "force_dirt": false,
+    "ignore_vines": true,
+    "decorators": [
+      {
+        "type": "minecraft:attached_to_leaves",
+        "probability": 0.18,
+        "exclusion_radius_xz": 1,
+        "exclusion_radius_y": 0,
+        "required_empty_blocks": 1,
+        "block_provider": {
+          "type": "minecraft:simple_state_provider",
+          "state": {
+            "Name": "minecraft:glowstone"
+          }
+        },
+        "directions": [
+          "down"
+        ]
+      }
+    ]
+  }
+}

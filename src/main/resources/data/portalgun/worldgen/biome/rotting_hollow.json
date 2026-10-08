@@ -1,0 +1,80 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.eerie_choir",
+      "additions": {
+        "sound": "minecraft:ambient.soul_sand_valley.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:crimson_spore"
+        },
+        "probability": 0.02
+      }
+    ],
+    "minecraft:visual/fog_color": "#1a2a30",
+    "minecraft:visual/fog_end_distance": 70.0,
+    "minecraft:visual/fog_start_distance": 24.0,
+    "minecraft:visual/sky_fog_end_distance": 105.0,
+    "minecraft:visual/water_fog_color": "#0e0b12"
+  },
+  "carvers": [
+    "portalgun:sporewood_cave",
+    "portalgun:sporewood_canyon"
+  ],
+  "downfall": 0.78,
+  "effects": {
+    "water_color": "#3a2b4a",
+    "grass_color": "#245048"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:sporewood/ore_coal",
+      "portalgun:sporewood/ore_iron",
+      "portalgun:sporewood/ore_copper",
+      "portalgun:sporewood/ore_gold",
+      "portalgun:sporewood/ore_redstone",
+      "portalgun:sporewood/ore_lapis",
+      "portalgun:sporewood/ore_diamond",
+      "portalgun:sporewood/ore_emerald",
+      "portalgun:sporewood/rotting_hollow/2_disk"
+    ],
+    [],
+    [
+      "portalgun:sporewood/spring"
+    ],
+    [
+      "portalgun:sporewood/rotting_hollow/0_giantplant",
+      "portalgun:sporewood/rotting_hollow/1_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.5
+}

@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:deepslate",
+    "portalgun:spore_soil",
+    "portalgun:sporemoss",
+    "portalgun:sporewood_rock",
+    "#minecraft:overworld_carver_replaceables"
+  ]
+}

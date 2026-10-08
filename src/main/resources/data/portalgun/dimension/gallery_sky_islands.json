@@ -1,0 +1,11 @@
+{
+  "type": "portalgun:gallery_sky_islands",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:gallery_sky_islands",
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "portalgun:gallery_sky_islands_biome"
+    }
+  }
+}

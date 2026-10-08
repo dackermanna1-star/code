@@ -161,7 +161,7 @@ public final class SafeSpotFinder {
 	}
 
 	private static boolean isHazard(BlockState s) {
-		return s.is(Blocks.LAVA) || s.is(Blocks.MAGMA_BLOCK) || s.is(Blocks.CACTUS) || s.is(BlockTags.FIRE)
+		return s.is(dev.portalgun.registry.ModBlocks.HAZARDS) || s.is(Blocks.LAVA) || s.is(Blocks.MAGMA_BLOCK) || s.is(Blocks.CACTUS) || s.is(BlockTags.FIRE)
 			|| s.is(Blocks.SWEET_BERRY_BUSH) || s.is(Blocks.POWDER_SNOW) || s.is(Blocks.WITHER_ROSE)
 			|| s.is(Blocks.POINTED_DRIPSTONE) || s.is(Blocks.CAMPFIRE) || s.is(Blocks.SOUL_CAMPFIRE);
 	}

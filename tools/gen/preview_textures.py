@@ -8,6 +8,7 @@ checkerboard; everything is upscaled with nearest-neighbour and labelled.
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -15,7 +16,8 @@ from PIL import Image, ImageDraw, ImageFont
 
 from . import textures as T
 
-DEFAULT_OUT = Path("/tmp/claude-0/-home-user-code/ffde1e93-947b-5042-9ce8-22860616ebef/scratchpad/assets")
+DEFAULT_OUT = Path(os.environ.get(
+    "TEXTURE_PREVIEW_DIR", "/tmp/claude-0/-home-user-code/ffde1e93-947b-5042-9ce8-22860616ebef/scratchpad/assets"))
 
 # ---------------------------------------------------------------- palettes
 GREY = ["#3f3f44", "#5a5a60", "#76767c", "#8f8f94", "#a9a9ad"]
@@ -281,7 +283,7 @@ def render_items(out, filters, scale=8):
             continue
         p, acc = ITEM_PALS[kind]
         cells.append((kind, single(T.item_icon(kind, p, "a", accent=acc), scale)))
-        alt = ALT_PALS[ITEM_KINDS.index(kind) % len(ALT_PALS)]
+        alt = ALT_PALS[(ITEM_KINDS.index(kind) * 5 + 3) % len(ALT_PALS)]
         cells.append((kind + " alt", single(T.item_icon(kind, alt, "b"), scale)))
     if not cells:
         return []
@@ -312,7 +314,8 @@ def render_misc(out, filters, scale=8):
     if _match("helpers", filters) or _match("misc", filters):
         st = T.stone(GREY, "h")
         cells.append(("tint(stone,#4fae49,.6)", single(T.tint(st, "#4fae49", 0.6), scale)))
-        cells.append(("shift(GREY,hue 200,sat 3)", single(T.stone(T.shift(GREY, 200, 3), "h"), scale)))
+        cells.append(("shift(BROWN,200,1.4)", single(T.stone(T.shift(BROWN, 200, 1.4), "h"), scale)))
+        cells.append(('pal("#30304a",..) 3 cols', single(T.stone(T.pal("#30304a", "#55557a", "#8080a8"), "p"), scale)))
         strip, meta = T.animated(T.portal_fluid_frames("a"))
         cells.append(("animated strip", single(strip.crop((0, 0, 16, 16)), scale)))
     if not cells:

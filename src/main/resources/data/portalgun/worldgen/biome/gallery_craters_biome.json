@@ -1,0 +1,80 @@
+{
+  "attributes": {
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#101e39"
+  },
+  "carvers": [],
+  "downfall": 0.5,
+  "effects": {
+    "water_color": "#3f76e4",
+    "grass_color": "#79c05a",
+    "foliage_color": "#59ae30",
+    "dry_foliage_color": "#59ae30"
+  },
+  "features": [
+    [],
+    [
+      "portalgun:gallery_craters/gallery_craters_biome/12_lake"
+    ],
+    [
+      "portalgun:gallery_craters/gallery_craters_biome/5_boulder",
+      "portalgun:gallery_craters/gallery_craters_biome/13_geode"
+    ],
+    [],
+    [
+      "portalgun:gallery_craters/gallery_craters_biome/6_spire",
+      "portalgun:gallery_craters/gallery_craters_biome/8_structure",
+      "portalgun:gallery_craters/gallery_craters_biome/9_structure"
+    ],
+    [],
+    [
+      "portalgun:gallery_craters/ore_coal",
+      "portalgun:gallery_craters/ore_iron",
+      "portalgun:gallery_craters/ore_copper",
+      "portalgun:gallery_craters/ore_gold",
+      "portalgun:gallery_craters/ore_redstone",
+      "portalgun:gallery_craters/ore_lapis",
+      "portalgun:gallery_craters/ore_diamond",
+      "portalgun:gallery_craters/ore_emerald",
+      "portalgun:gallery_craters/gallery_craters_biome/10_ore",
+      "portalgun:gallery_craters/gallery_craters_biome/11_disk"
+    ],
+    [
+      "portalgun:gallery_craters/gallery_craters_biome/7_crystalcluster"
+    ],
+    [],
+    [
+      "minecraft:flower_default",
+      "portalgun:gallery_craters/gallery_craters_biome/0_tree",
+      "portalgun:gallery_craters/gallery_craters_biome/1_giantplant",
+      "portalgun:gallery_craters/gallery_craters_biome/2_giantplant",
+      "portalgun:gallery_craters/gallery_craters_biome/3_patch",
+      "portalgun:gallery_craters/gallery_craters_biome/4_patch",
+      "portalgun:gallery_craters/gallery_craters_biome/15_patch",
+      "portalgun:gallery_craters/gallery_craters_biome/16_patch",
+      "portalgun:gallery_craters/gallery_craters_biome/17_patch",
+      "portalgun:gallery_craters/gallery_craters_biome/18_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

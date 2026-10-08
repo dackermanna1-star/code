@@ -4,6 +4,7 @@
     cd tools && python3 generate.py            # everything (sounds are cached)
     python3 generate.py --sounds               # also re-synthesize sounds
     python3 generate.py --only sporewood,abyssia   # restrict dimensions (for quick iteration)
+    python3 generate.py --gallery              # also build throwaway test dims gallery_<style> (one per terrain style)
 
 All files under src/main/resources/assets/portalgun and data/portalgun are generated - edit the
 generators/specs in tools/gen instead of the output.
@@ -66,6 +67,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sounds", action="store_true", help="re-synthesize sounds")
     ap.add_argument("--only", default="", help="comma separated dimension ids to generate (debug)")
+    ap.add_argument("--gallery", action="store_true", help="also generate gallery_<style> terrain test dimensions")
     args = ap.parse_args()
     t0 = time.time()
     _clean()
@@ -95,7 +97,7 @@ def main():
         content = None
     if content is not None:
         only = [s for s in args.only.split(",") if s]
-        spec = content.build(RES, lang, sound_table, only=only)
+        spec = content.build(RES, lang, sound_table, only=only, gallery=args.gallery)
         dims = spec["dimensions"]
 
     core_assets.advancements(DATA, lang, dims)

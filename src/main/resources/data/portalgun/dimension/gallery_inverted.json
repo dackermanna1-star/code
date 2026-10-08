@@ -1,0 +1,11 @@
+{
+  "type": "portalgun:gallery_inverted",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:gallery_inverted",
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "portalgun:gallery_inverted_biome"
+    }
+  }
+}

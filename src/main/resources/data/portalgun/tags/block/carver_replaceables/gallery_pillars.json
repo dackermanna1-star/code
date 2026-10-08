@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:andesite",
+    "minecraft:dirt",
+    "minecraft:grass_block",
+    "#minecraft:overworld_carver_replaceables"
+  ]
+}

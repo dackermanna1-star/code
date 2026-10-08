@@ -457,47 +457,63 @@ class _Ctx:
 # =============================================================================================
 # One-shots
 # =============================================================================================
+# portal.open variants differ in structure, not just pitch (PortalEntity already randomizes pitch 0.9-1.1):
+# pitch scale, rise time, decay, sweep curve, bubble cloud size/spread, blorp pattern, swirl speed,
+# vwoom wah peak, sub thump level
+_OPEN_VARIANTS = (
+    dict(pm=1.0, tp=0.30, dk=0.30, sweep=1.4, nbub=80, spread=0.14, swirl=(2.5, 8.0), wah=2000.0, sub=0.5,
+         blorps=((0.0, 190.0), (0.06, 150.0), (0.15, 128.0), (0.28, 172.0), (0.4, 140.0))),
+    dict(pm=0.88, tp=0.38, dk=0.40, sweep=1.9, nbub=40, spread=0.24, swirl=(1.2, 4.5), wah=1200.0, sub=0.9,
+         blorps=((0.03, 150.0), (0.24, 118.0), (0.5, 136.0))),
+    dict(pm=1.13, tp=0.22, dk=0.26, sweep=1.05, nbub=140, spread=0.09, swirl=(4.5, 13.0), wah=3000.0, sub=0.0,
+         blorps=((-0.02, 220.0), (0.03, 185.0), (0.07, 205.0), (0.12, 160.0), (0.17, 195.0), (0.23, 150.0),
+                 (0.3, 175.0))),
+)
+
+
 def _portal_open(v):
-    pm, tp, dk = ((1.0, 0.30, 0.30), (0.88, 0.34, 0.34), (1.13, 0.26, 0.27))[v]
+    P = _OPEN_VARIANTS[v]
+    pm, tp, dk = P["pm"], P["tp"], P["dk"]
     c = _Ctx(f"portal_open{v}", 1.25, loop=False)
     t = c.t
     rise = np.clip(t / tp, 0.0, 1.0)
     after = np.maximum(t - tp, 0.0)
     env = np.where(t < tp, rise ** 2.4, np.exp(-after / dk))
     # 1. resonant noise whoosh that sweeps up into the opening and back down
-    fc = np.where(t < tp, 230.0 * (2900.0 / 230.0) ** (rise ** 1.4), 320.0 + 2580.0 * np.exp(-after / 0.16)) * pm
+    fc = np.where(t < tp, 230.0 * (2900.0 / 230.0) ** (rise ** P["sweep"]), 320.0 + 2580.0 * np.exp(-after / 0.16)) * pm
     w = c.white("whoosh")
     whoosh = (_svf(w, fc, 2.6, "bpn") + 0.3 * _svf(w, fc * 1.7, 0.7, "lp")) * env
     # 2. swirl: flanger whose sweep speeds up as the portal spins open
-    rate = 2.5 + 8.0 * np.where(t < tp, rise, np.exp(-after / 0.45))
+    r0, r1 = P["swirl"]
+    rate = r0 + r1 * np.where(t < tp, rise, np.exp(-after / 0.45))
     sw = np.sin(TAU * np.cumsum(rate) / SR)
     d = (2.2 + 1.7 * sw) * SR / 1000.0
     swirl = whoosh + 0.85 * _vdelay(whoosh, d) - 0.4 * _vdelay(whoosh, 2.3 * d)
     # 3. wet gurgle: a cloud of bubbles around the opening + a few fat blorps
     r = c.rng("bub")
     bub = c.zeros()
-    for _ in range(80):
-        tb = tp - 0.12 + r.gamma(1.5, 0.14)
+    for _ in range(P["nbub"]):
+        tb = tp - 0.12 + r.gamma(1.5, P["spread"])
         if tb < 0 or tb > c.sec - 0.05:
             continue
         f0 = pm * np.exp(r.uniform(np.log(260.0), np.log(1500.0)))
         amp = r.uniform(0.2, 1.0) * (0.2 + env[_ns(tb)]) * (500.0 / f0) ** 0.3
         c.add(bub, _bubble(f0, xi=r.uniform(0.1, 0.45)) * amp, _ns(tb))
-    for dt, f0 in ((0.0, 190.0), (0.06, 150.0), (0.15, 128.0), (0.28, 172.0), (0.4, 140.0)):
+    for dt, f0 in P["blorps"]:
         c.add(bub, (1.8 if dt < 0.2 else 1.1) * _bubble(f0 * pm * r.uniform(0.9, 1.1), xi=0.6), _ns(tp + dt))
     # 4. vowel-like "vwoom" (resonant wah on a low buzz)
     bump = np.where(t < tp, rise ** 1.6, np.exp(-after / 0.3))
     f = pm * (58.0 + 95.0 * bump) * (1.0 + 0.035 * np.sin(TAU * 7.0 * t))
     src = _saw(np.cumsum(f) / SR, f)
-    vw = _svf(src, (180.0 + 2000.0 * bump ** 1.5) * pm, 4.5, "lp") * env
+    vw = _svf(src, (180.0 + P["wah"] * bump ** 1.5) * pm, 4.5, "lp") * env
     vw = vw + 0.7 * _vdelay(vw, d)
     # 5. sub thump at the moment of opening
     st = t - (tp - 0.02)
     fsub = 36.0 + 32.0 * np.exp(-np.maximum(st, 0.0) / 0.08)
     sub = np.sin(TAU * np.cumsum(fsub) / SR) * np.where(st < 0, 0.0, np.minimum(1.0, np.maximum(st, 0) / 0.015)
                                                        * np.exp(-np.maximum(st, 0) / 0.17))
-    mix = 1.0 * _pkn(swirl) + 0.6 * _pkn(bub) + 0.3 * _pkn(vw) + 0.5 * _pkn(sub)
-    return c.reverb(mix, 0.9, 0.22, damp=0.8, key="room")
+    mix = 1.0 * _pkn(swirl) + 0.6 * _pkn(bub) + 0.3 * _pkn(vw) + P["sub"] * _pkn(sub)
+    return _fade(c.reverb(mix, 0.9, 0.22, damp=0.8, key="room"), 0.0, 0.25)
 
 
 def _portal_close(v):
@@ -572,14 +588,18 @@ def _portal_travel(v):
 
 
 def _portal_idle(v):
-    c = _Ctx("portal_idle", 2.6, loop=False)
+    """PortalEntity retriggers this every 70 ticks (3.5 s) at pitch 0.9-1.1 (3.5-4.3 s at the file's
+    pitch), so it is longer than that and has long equal-power fades: consecutive instances always
+    overlap and crossfade instead of leaving a gap (summed level stays within about -1.4..+2.8 dB)."""
+    c = _Ctx("portal_idle", 4.7, loop=False)
     t = c.t
     wob = 1.0 + 0.003 * np.sin(TAU * 0.4 * t)
     hum = np.zeros(c.n)
-    for k, (rr, a) in enumerate(((1.0, 1.0), (2.0, 0.55), (3.0, 0.3), (4.01, 0.15), (5.03, 0.08))):
+    # the 58 Hz fundamental sits under harmonics 2-4 so the hum survives small speakers
+    for k, (rr, a) in enumerate(((1.0, 0.45), (2.0, 0.6), (3.0, 0.42), (4.01, 0.25), (5.03, 0.12), (6.02, 0.06))):
         hum += a * np.sin(TAU * np.cumsum(58.0 * rr * wob) / SR + k)
     hum *= 0.7 + 0.3 * np.sin(TAU * 0.9 * t)
-    hum = c.filt(hum, _rbj("lp", 500.0, 0.7))
+    hum = c.filt(hum, _rbj("lp", 600.0, 0.7))
     swirl = c.shape(c.white("swirl"), lambda f: _band(f, 450.0, 0.8))
     d = (2.5 + 2.0 * np.sin(TAU * 0.7 * t)) * SR / 1000.0
     swirl = (swirl + 0.9 * c.vdelay(swirl, d)) * (0.6 + 0.4 * np.sin(TAU * 0.45 * t + 1.0))
@@ -588,25 +608,49 @@ def _portal_idle(v):
     for p in c.poisson(16.0, "bubbles"):
         f0 = np.exp(r.uniform(np.log(300.0), np.log(1100.0)))
         c.add(bub, _bubble(f0, xi=r.uniform(0.1, 0.4)) * r.uniform(0.15, 0.6), p)
-    for tb in (0.5, 1.3, 1.9):
+    for tb in (0.7, 1.5, 2.2, 3.1, 3.8):
         c.add(bub, 0.9 * _bubble(r.uniform(140.0, 230.0), xi=0.5), _ns(tb + r.uniform(-0.1, 0.1)))
     mix = 0.7 * _rmsn(hum) + 0.35 * _rmsn(swirl) + 0.5 * _pkn(bub) * 3.0
     mix = c.reverb(mix, 0.8, 0.2, damp=0.8)
-    return _fade(mix, 0.4, 0.7)
+    a, b = _ns(0.8), _ns(1.1)
+    mix[:a] *= np.sin(0.5 * np.pi * np.arange(a) / a)
+    mix[-b:] *= np.cos(0.5 * np.pi * np.arange(1, b + 1) / b)
+    return mix
+
+
+# gun.fire variants: v0 classic zap, v1 bright double-chirp with more crack, v2 darker sub-harmonic FM
+# "bwow" with a ray-gun warble, a heavier body and little crack
+_FIRE_VARIANTS = (
+    dict(f0=2700.0, tau=0.045, ratio=1.41, fend=320.0, idx=3.2, chirps=((0.0, 1.0),), warble=0.0,
+         tone=1.0, buzz=0.35, crack=0.35, body=0.45, fizz=0.25),
+    dict(f0=3200.0, tau=0.036, ratio=2.0, fend=380.0, idx=2.4, chirps=((0.0, 1.0), (0.06, 0.55)), warble=0.0,
+         tone=1.0, buzz=0.2, crack=0.55, body=0.3, fizz=0.35),
+    dict(f0=2300.0, tau=0.08, ratio=0.5, fend=240.0, idx=4.0, chirps=((0.0, 1.0),), warble=0.07,
+         tone=0.9, buzz=0.6, crack=0.15, body=0.7, fizz=0.12),
+)
 
 
 def _gun_fire(v):
-    f0, tau, ratio, fend = ((2700.0, 0.045, 1.41, 320.0), (3200.0, 0.036, 2.0, 380.0), (2300.0, 0.055, 1.73, 280.0))[v]
+    P = _FIRE_VARIANTS[v]
     c = _Ctx(f"gun_fire{v}", 0.38, loop=False)
     t = c.t
-    f = fend + (f0 - fend) * np.exp(-t / tau)
-    ph = np.cumsum(f) / SR
-    idx = 3.2 * np.exp(-t / 0.05)
-    tone = np.sin(TAU * ph + idx * np.sin(TAU * ratio * ph))
-    tone = 0.6 * tone + 0.4 * np.tanh(2.5 * tone)
-    tone += 0.5 * np.sin(TAU * ph * 1.012 + 0.7 * idx * np.sin(TAU * ratio * 1.012 * ph))
-    tone *= np.minimum(1.0, t / 0.002) * np.exp(-t / 0.1)
-    buzz = np.sin(TAU * ph * 0.5) * (0.5 + 0.5 * np.sin(TAU * 52.0 * t)) * _decaying(c.n, 0.07)
+    tone = c.zeros()
+    buzz = c.zeros()
+    for k, (dt, amp) in enumerate(P["chirps"]):
+        tk = np.maximum(t - dt, 0.0)
+        on = (t >= dt).astype(float)
+        sc = 0.86 ** k  # later chirps start a little lower
+        # fast FM drop, then the carrier keeps gliding down while it decays (a zap, not a held beep)
+        f = (P["fend"] + (P["f0"] * sc - P["fend"]) * np.exp(-tk / P["tau"])) * (1.0 - 0.35 * tk / 0.38)
+        f = f * (1.0 + P["warble"] * np.sin(TAU * 27.0 * tk) * np.minimum(1.0, tk / 0.03))
+        ph = np.cumsum(f * on) / SR
+        idx = P["idx"] * np.exp(-tk / 0.05)
+        tn = np.sin(TAU * ph + idx * np.sin(TAU * P["ratio"] * ph))
+        tn = 0.6 * tn + 0.4 * np.tanh(2.5 * tn)
+        tn += 0.5 * np.sin(TAU * ph * 1.012 + 0.7 * idx * np.sin(TAU * P["ratio"] * 1.012 * ph))
+        tone += amp * tn * on * np.minimum(1.0, tk / 0.002) * np.exp(-tk / 0.055)
+        buzz += amp * on * np.sin(TAU * ph * 0.5) * (0.5 + 0.5 * np.sin(TAU * 52.0 * tk)) * \
+            np.minimum(1.0, tk / 0.002) * np.exp(-tk / 0.07)
     r = c.rng("crack")
     crack = c.filt(r.standard_normal(c.n), _rbj("hp", 2500.0, 0.7)) * np.exp(-t / 0.011)
     fb = 60.0 + 170.0 * np.exp(-t / 0.04)
@@ -618,7 +662,8 @@ def _gun_fire(v):
             continue
         a = r.uniform(0.2, 1.0) * np.exp(-tb / 0.12)
         c.add(fizz, _bubble(np.exp(r.uniform(np.log(1800.0), np.log(5500.0))), xi=0.4) * a, _ns(tb))
-    mix = 1.0 * _pkn(tone) + 0.35 * _pkn(buzz) + 0.35 * _pkn(crack) + 0.45 * _pkn(body) + 0.25 * _pkn(fizz)
+    mix = (P["tone"] * _pkn(tone) + P["buzz"] * _pkn(buzz) + P["crack"] * _pkn(crack) + P["body"] * _pkn(body)
+           + P["fizz"] * _pkn(fizz))
     return c.reverb(mix, 0.35, 0.16, damp=1.0, key="slap")
 
 
@@ -679,17 +724,20 @@ def _gun_reload(v):
 
 
 def _gun_dial(v):
-    fq = (1320.0, 990.0)[v]
+    fq, body_f = ((1320.0, (640.0, 1530.0, 2710.0)), (990.0, (560.0, 1340.0, 2450.0)))[v]
     c = _Ctx(f"gun_dial{v}", 0.14, loop=False)
     t = c.t
     r = c.rng("x")
     f = fq * (1.0 + 0.04 * np.exp(-t / 0.01))
     ph = np.cumsum(f) / SR
-    beep = (np.sin(TAU * ph) + 0.18 * np.sin(3 * TAU * ph) + 0.08 * np.sin(5 * TAU * ph)) * _decaying(c.n, 0.045, 0.002)
+    beep = (np.sin(TAU * ph) + 0.18 * np.sin(3 * TAU * ph) + 0.08 * np.sin(5 * TAU * ph)) * _decaying(c.n, 0.03, 0.002)
+    # detent: bright tick + a short plastic body + a puff of noise, so it reads as a mechanism, not a sine
     y = c.zeros()
     c.add(y, _modal((4500.0, 7100.0), (0.003, 0.002), (1.0, 0.5), 0.02), 0)
-    c.add(y, 0.4 * _click(r, hp=3000.0), 0)
-    return 0.6 * _pkn(y) + _pkn(beep)
+    c.add(y, 0.5 * _click(r, hp=3000.0), 0)
+    c.add(y, 0.8 * _modal(body_f, (0.009, 0.006, 0.004), (1.0, 0.6, 0.4), 0.05, phases=r.uniform(0, TAU, 3)), _ns(0.001))
+    puff = c.filt(c.white("puff"), _rbj("bp", 2600.0, 0.9)) * _decaying(c.n, 0.006, 0.0005)
+    return 0.8 * _pkn(y) + 0.3 * _pkn(puff) + 0.55 * _pkn(beep)
 
 
 def _orb_shoot(v):
@@ -761,12 +809,13 @@ def _dimension_arrive(v):
 # Ambient loops
 # =============================================================================================
 def _amb_wind_howl(c):
-    gust = c.u(0.09, "gust", lo=0.1, hi=1.0) ** 1.3
+    # gust floor high enough that the lulls keep some hiss (3 s short-term loudness range ~8 dB)
+    gust = c.u(0.09, "gust", lo=0.4, hi=1.0)
     g = gust * c.u(0.8, "flutter", lo=0.55, hi=1.0)
 
     def body_gain(ci, f):
         G = g[ci]
-        fc = 220.0 + 1500.0 * G ** 1.5
+        fc = 320.0 + 1600.0 * G ** 1.3
         return G * (60.0 / np.maximum(f, 60.0)) ** 0.5 * _lp(f, fc, 2) * _hp(f, 70.0, 2)
 
     body = c.stft(c.white("body"), body_gain)
@@ -923,7 +972,7 @@ def _amb_wet_squelch(c):
     for p in c.poisson(6.0, "small"):
         small_f = np.exp(r.uniform(np.log(250.0), np.log(800.0)))
         c.add(small, _bubble(small_f, xi=0.4, damp_mul=1.4) * r.uniform(0.2, 0.6), p)
-    mix = 0.7 * _pkn(beat) + 0.9 * _pkn(sq) + 0.25 * _pkn(drip) + 0.3 * _rmsn(bed) * 0.4 + 0.25 * _pkn(small)
+    mix = 0.7 * _pkn(beat) + 0.9 * _pkn(sq) + 0.25 * _pkn(drip) + 0.12 * _rmsn(bed) + 0.25 * _pkn(small)
     return c.reverb(mix, 0.9, 0.3, damp=0.6)
 
 
@@ -1019,7 +1068,10 @@ def _amb_deep_ocean(c):
     calls = c.reverb(calls, 4.5, 0.9, damp=0.35, key="deep", dry=0.4)
     mix = 0.45 * _rmsn(bed) + 0.06 * _rmsn(far) + 2.4 * _pkn(calls) + 0.35 * _pkn(bub)
     mix = c.reverb(mix, 2.0, 0.25, damp=0.4)
-    return c.filt(mix, _rbj("lp", 2200.0, 0.7))
+    mix = c.filt(mix, _rbj("lp", 2200.0, 0.7))
+    # a 2-8 kHz floor ~38 dB under the bed (silt hiss): masks Vorbis edge noise at the loop seam
+    floor = c.shape(c.white("floor"), lambda f: _hp(f, 2000.0, 2) * _lp(f, 8000.0, 2))
+    return mix + 0.012 * np.sqrt(np.mean(mix * mix)) * _rmsn(floor)
 
 
 def _amb_volcanic_rumble(c):
@@ -1031,13 +1083,19 @@ def _amb_volcanic_rumble(c):
         return s * _lp(f, 70.0 + 80.0 * s, 3) * _hp(f, 28.0, 2) * (40.0 / np.maximum(f, 40.0)) ** 0.3
 
     rumble = c.stft(c.white("rumble"), rumble_gain)
-    roar = c.shape(c.white("roar"), lambda f: _band(f, 600.0, 1.0)) * c.u(0.15, "roar", lo=0.3, hi=1.0)
+    # the roar (300-1000 Hz) swells with the rumble, so the surges stay audible on small speakers
+    rf = 480.0 * 2.0 ** (0.5 * c.smooth(0.08, "roarf"))
+
+    def roar_gain(ci, f):
+        return (0.35 + 0.65 * surge[ci]) * _band(f, rf[ci], 0.9) * (1.0 + 0.6 * _band(f, 2.0 * rf[ci], 0.5))
+
+    roar = c.stft(c.white("roar"), roar_gain) * c.u(0.15, "roar", lo=0.3, hi=1.0)
     blorp = c.zeros()
     for p in c.poisson(1.1, "blorp"):
         f0 = r.uniform(60.0, 170.0)
         c.add(blorp, _bubble(f0, xi=r.uniform(0.4, 0.9), damp_mul=1.8, maxdur=0.7) * r.uniform(0.5, 1.0), p)
-        pop = _filt(r.standard_normal(_ns(0.05)) * _decaying(_ns(0.05), 0.01, 0.001), [_rbj("lp", 700.0, 0.7)])
-        c.add(blorp, 0.4 * pop, p + _ns(0.06 + r.uniform(0, 0.05)))
+        pop = _filt(r.standard_normal(_ns(0.05)) * _decaying(_ns(0.05), 0.01, 0.001), [_rbj("lp", 1400.0, 0.7)])
+        c.add(blorp, 0.8 * pop, p + _ns(0.06 + r.uniform(0, 0.05)))
     imp = c.zeros()
     pos = c.poisson(6.0, "crk", intensity=c.u(0.3, "crkd") ** 2)
     np.add.at(imp, pos, np.minimum(r.pareto(1.8, len(pos)) + 1.0, 12.0) * r.choice([-1.0, 1.0], len(pos)))
@@ -1047,10 +1105,12 @@ def _amb_volcanic_rumble(c):
         n2 = _ns(3.0)
         w = c.rng("boom", i).standard_normal(n2)
         b = _filt(w, [_rbj("lp", 120.0, 0.7)]) * _decaying(n2, 0.5, 0.02) * 4.0
+        # rocky crumble on top of the sub boom
+        b += _filt(w, [_rbj("bp", 380.0, 0.9), _rbj("lp", 1500.0, 0.7)]) * _decaying(n2, 0.35, 0.01) * 2.4
         b += _thump(70.0, 38.0, 0.08, 0.5, 3.0, 0.01)
         c.add(booms, b, _ns(frac * c.sec))
     booms = c.reverb(booms, 3.0, 0.6, damp=0.4, key="boom")
-    mix = 0.6 * _rmsn(rumble) + 0.2 * _rmsn(roar) + 1.6 * _pkn(blorp) + 0.7 * _pkn(crackle) + 2.0 * _pkn(booms)
+    mix = 0.6 * _rmsn(rumble) + 0.45 * _rmsn(roar) + 1.6 * _pkn(blorp) + 0.7 * _pkn(crackle) + 2.0 * _pkn(booms)
     return c.reverb(mix, 1.5, 0.2, damp=0.5)
 
 
@@ -1165,7 +1225,7 @@ def _amb_jungle_night(c):
             c.add(hoot, hoot_s, p + _ns(j * 0.5))
     bed = c.shape(c.white("bed"), lambda f: _lp(f, 400.0, 2) * _hp(f, 40.0)) * c.u(0.1, "bedam", lo=0.6, hi=1.0)
     mix = (0.35 * _pkn(crick) + 0.3 * _pkn(chorus) + 0.12 * _pkn(kat) + 0.55 * _pkn(frogs)
-           + 0.25 * _pkn(hoot) + 0.12 * _rmsn(bed) * 0.3)
+           + 0.25 * _pkn(hoot) + 0.036 * _rmsn(bed))
     return c.reverb(mix, 1.2, 0.22, damp=0.9)
 
 
@@ -1204,7 +1264,7 @@ def _amb_neon_synth(c):
         env = _smoothstep(tp / (2 * xf)) * _smoothstep((seg + 2 * xf - tp) / (2 * xf))
         for m in pad_notes:
             f = float(_midi(m))
-            for j, cents in enumerate((-7.0, 0.0, 7.0)):
+            for cents in (-7.0, 0.0, 7.0):
                 fj = f * 2.0 ** (cents / 1200.0)
                 ph = fj * tp + r.random()
                 c.add(pad, _saw(ph, fj) * env * 0.33, _ns(t0 - xf))
@@ -1282,6 +1342,7 @@ def _amb_glitch_noise(c):
         c.add(ev, e, _ns(tt))
         if r.random() < 0.3:  # echoing repeat of the same glitch
             c.add(ev, e * 0.4, _ns(tt + r.uniform(0.1, 0.3)))
+    ev = c.filt(ev, _rbj("lp", 8500.0, 0.7))  # keep the crushed edges from getting shrill
     hum = c.sine(c.qf(50.0)) + 0.4 * c.sine(c.qf(100.0), 1.0) + 0.2 * c.sine(c.qf(150.0), 2.0)
     hum *= c.u(0.1, "hum", lo=0.5, hi=1.0)
     hiss = c.shape(c.white("hiss"), lambda f: _hp(f, 5000.0) * _lp(f, 12000.0))
@@ -1488,7 +1549,7 @@ def _amb_hive_drone(c):
     T = c.t
     for i in range(5):
         tc = (i + r.uniform(0.2, 0.8)) * c.sec / 5
-        x = (np.mod(T - tc + c.sec / 2, c.sec) - c.sec / 2) * r.uniform(1.5, 3.0)
+        x = (np.mod(T - tc + c.sec / 2, c.sec) - c.sec / 2) * r.uniform(0.8, 1.6)
         dist = np.sqrt(x * x + r.uniform(0.6, 1.2) ** 2)
         base = r.uniform(190.0, 250.0)
         f = base * (1.0 - 0.05 * x / dist) * (1.0 + 0.01 * c.smooth(3.0, "fj", i))
@@ -1497,7 +1558,7 @@ def _amb_hive_drone(c):
     fly = c.filt(fly, _rbj("hp", 150.0, 0.7), _rbj("peak", 600.0, 1.2, 5.0), _rbj("lp", 3500.0, 0.7))
     hum = c.sine(c.qf(110.0)) + 0.5 * c.sine(c.qf(220.4), 1.0) + 0.25 * c.sine(c.qf(330.0), 2.0)
     hum *= c.u(0.08, "hum", lo=0.5, hi=1.0)
-    mix = _rmsn(hive) + 0.25 * _rmsn(hum) + 0.9 * _pkn(fly) * 2.5
+    mix = 0.6 * _rmsn(hive) + 0.2 * _rmsn(hum) + 3.2 * _pkn(fly)
     return c.reverb(mix, 1.0, 0.25, damp=0.8)
 
 
@@ -1540,11 +1601,25 @@ def _amb_tidal_waves(c):
 
 
 def _amb_dark_void(c):
-    drone = (c.sine(36.71) + 0.8 * c.sine(36.71 + 0.07, 1.0) + 0.6 * c.sine(55.0, 2.0) + 0.5 * c.sine(55.12, 3.0)
-             + 0.25 * c.sine(73.42, 4.0))
-    drone = np.tanh(1.4 * drone / np.max(np.abs(drone)) * 1.5) * c.u(0.03, "dam", lo=0.6, hi=1.0)
+    # D / A sub drone (beating pairs) ...
+    d = (c.sine(36.71) + 0.8 * c.sine(36.71 + 0.07, 1.0) + 0.6 * c.sine(55.0, 2.0) + 0.5 * c.sine(55.12, 3.0)
+         + 0.25 * c.sine(73.42, 4.0))
+    d /= np.max(np.abs(d))
+    # ... with explicit 2nd-5th partials of both roots, slowly breathing, driven into saturation so the
+    # bed keeps an audible growl (100-500 Hz) on small speakers instead of being pure sub energy
+    ov = c.zeros()
+    for k, (f, a) in enumerate(((73.42, 0.5), (110.0, 0.45), (110.13, 0.3), (146.84, 0.32), (165.0, 0.28),
+                                (183.55, 0.2), (220.0, 0.2), (275.0, 0.1))):
+        ov += a * c.sine(f, 0.5 + k) * c.u(0.04 + 0.01 * k, "ova", k, lo=0.3, hi=1.0)
+    drone = np.tanh(3.5 * (d + 0.9 * ov / np.max(np.abs(ov))) / 1.5)
+    drone = c.filt(drone, _rbj("lp", 900.0, 0.7))
+    growl_f = 260.0 * 2.0 ** (0.8 * c.u(0.05, "gf"))
+    drone = c.stft(drone, lambda ci, f: 0.6 + 1.4 * _band(f, growl_f[ci], 0.5)) * c.u(0.03, "dam", lo=0.6, hi=1.0)
     sub = c.shape(c.white("sub"), lambda f: _lp(f, 90.0, 3) * _hp(f, 25.0))
-    breath = c.shape(c.white("breath"), lambda f: _band(f, 170.0, 0.6)) * (0.5 + 0.5 * c.lfo(4.0 / c.sec)) ** 2
+    breath = c.shape(c.white("breath"), lambda f: _band(f, 300.0, 0.6)) * (0.5 + 0.5 * c.lfo(4.0 / c.sec)) ** 2
+    # faint airy whisper (1-3 kHz) and a 2-8 kHz floor far below it: masks Vorbis edge noise at the seam
+    airy = c.shape(c.white("air"), lambda f: _band(f, 1800.0, 0.7)) * c.u(0.07, "airam", lo=0.25, hi=1.0)
+    floor = c.shape(c.white("floor"), lambda f: _hp(f, 2000.0, 2) * _lp(f, 8000.0, 2))
     r = c.rng("ev")
     ev = c.zeros()
     kinds = (0, 1, 2)
@@ -1571,8 +1646,8 @@ def _amb_dark_void(c):
             tail = np.convolve(burst, _ir(2.5, ("void", "sw"), 0.6, 0.0))[: _ns(2.8)]
             c.add(ev, 1.5 * _pkn(tail[::-1]), _ns(start))
     ev = c.reverb(ev, 6.0, 0.8, damp=0.5, key="void", dry=0.35)
-    mix = _rmsn(drone) + 0.35 * _rmsn(sub) + 0.15 * _rmsn(breath) + 1.0 * _pkn(ev)
-    return mix
+    return (_rmsn(drone) + 0.25 * _rmsn(sub) + 0.25 * _rmsn(breath) + 0.03 * _rmsn(airy) + 0.008 * _rmsn(floor)
+            + 1.3 * _pkn(ev))
 
 
 def _amb_sizzle_toxic(c):
@@ -1622,41 +1697,48 @@ _ONE_SHOTS = (
     ("dimension.arrive", "dimension/arrive", _dimension_arrive, 1, "Dimension shimmers"),
 )
 
-# name, seconds, generator, subtitle
+# name, seconds, generator.  Loops carry no subtitle (vanilla convention for ambient.*.loop events:
+# a loop's subtitle would sit on screen for as long as the player stays in the biome).
 _AMBIENT = (
-    ("wind_howl", 30.0, _amb_wind_howl, "Wind howls"),
-    ("alien_hum", 28.0, _amb_alien_hum, "Alien hum drones"),
-    ("bubbling", 26.0, _amb_bubbling, "Liquid bubbles"),
-    ("crystal_chimes", 30.0, _amb_crystal_chimes, "Crystals chime"),
-    ("wet_squelch", 30.0, _amb_wet_squelch, "Something squelches"),
-    ("electric_buzz", 30.0, _amb_electric_buzz, "Static crackles"),
-    ("deep_ocean", 36.0, _amb_deep_ocean, "Deep water moans"),
-    ("volcanic_rumble", 30.0, _amb_volcanic_rumble, "Ground rumbles"),
-    ("eerie_choir", 32.0, _amb_eerie_choir, "Ghostly voices sing"),
-    ("jungle_night", 28.0, _amb_jungle_night, "Night critters chirp"),
-    ("neon_synth", 24.0, _amb_neon_synth, "Synth music hums"),
-    ("glitch_noise", 28.0, _amb_glitch_noise, "Reality glitches"),
-    ("cosmic_drone", 36.0, _amb_cosmic_drone, "Cosmic drone swells"),
-    ("cozy_breeze", 30.0, _amb_cozy_breeze, "Breeze rustles"),
-    ("clockwork", 24.0, _amb_clockwork, "Gears tick"),
-    ("candy_chime", 28.8, _amb_candy_chime, "Music box twinkles"),
-    ("hive_drone", 26.0, _amb_hive_drone, "Swarm buzzes"),
-    ("tidal_waves", 32.0, _amb_tidal_waves, "Waves wash ashore"),
-    ("dark_void", 36.0, _amb_dark_void, "The void rumbles"),
-    ("sizzle_toxic", 24.0, _amb_sizzle_toxic, "Acid sizzles"),
+    ("wind_howl", 30.0, _amb_wind_howl),
+    ("alien_hum", 28.0, _amb_alien_hum),
+    ("bubbling", 26.0, _amb_bubbling),
+    ("crystal_chimes", 30.0, _amb_crystal_chimes),
+    ("wet_squelch", 30.0, _amb_wet_squelch),
+    ("electric_buzz", 30.0, _amb_electric_buzz),
+    ("deep_ocean", 36.0, _amb_deep_ocean),
+    ("volcanic_rumble", 30.0, _amb_volcanic_rumble),
+    ("eerie_choir", 32.0, _amb_eerie_choir),
+    ("jungle_night", 28.0, _amb_jungle_night),
+    ("neon_synth", 24.0, _amb_neon_synth),
+    ("glitch_noise", 28.0, _amb_glitch_noise),
+    ("cosmic_drone", 36.0, _amb_cosmic_drone),
+    ("cozy_breeze", 30.0, _amb_cozy_breeze),
+    ("clockwork", 24.0, _amb_clockwork),
+    ("candy_chime", 28.8, _amb_candy_chime),
+    ("hive_drone", 26.0, _amb_hive_drone),
+    ("tidal_waves", 32.0, _amb_tidal_waves),
+    ("dark_void", 36.0, _amb_dark_void),
+    ("sizzle_toxic", 24.0, _amb_sizzle_toxic),
 )
 
 AMBIENT_NAMES = [a[0] for a in _AMBIENT]
 AMBIENT_LOOPS = ["ambient." + a for a in AMBIENT_NAMES]
-SUBTITLES = {}
-for _ev, _p, _fn, _cnt, _sub in _ONE_SHOTS:
-    SUBTITLES[f"subtitles.{NAMESPACE}.{_ev}"] = _sub
-for _name, _sec, _fn, _sub in _AMBIENT:
-    SUBTITLES[f"subtitles.{NAMESPACE}.ambient.{_name}"] = _sub
+SUBTITLES = {f"subtitles.{NAMESPACE}.{_ev}": _sub for _ev, _p, _fn, _cnt, _sub in _ONE_SHOTS}
 
 ONESHOT_PEAK_DB = -1.0
-LOOP_PEAK_DB = -6.0
-LOOP_TARGET_LUFS = -24.0
+# peak overrides, by event or by file: the dial tick (UI feedback, played at pitch 1.2 on every selection)
+# sits ~2 dB under gun.fire, level with gun.empty; the hottest variants of gun.fire / portal.open are
+# trimmed to their siblings' loudness
+ONESHOT_PEAK_OVERRIDE_DB = {"gun.dial": -5.0, "gun/fire2": -4.5, "portal/open3": -2.5}
+# Ambient loops sit in minecraft:audio/ambient_sounds next to (and under) the vanilla biome loops, whose
+# effective loudness (file x sounds.json volume) is about -38 (basalt deltas) to -47 LUFS (soul sand valley).
+LOOP_TARGET_LUFS = -36.0
+LOOP_PEAK_DB = -16.0
+# Loudness is matched on the band small speakers / earbuds reproduce: a loop that loses more than
+# LOOP_LF_ALLOWANCE_DB behind a 150 Hz high-pass gets half of the excess back.
+LOOP_AUDIBLE_HP = 150.0
+LOOP_LF_ALLOWANCE_DB = 3.0
 
 
 def _bs1770_mag(N):
@@ -1683,10 +1765,10 @@ def lufs(x):
     return float(-0.691 + 10 * np.log10(ms2.mean()))
 
 
-def _master_oneshot(x):
+def _master_oneshot(x, peak_db=ONESHOT_PEAK_DB):
     x = _filt(x, [_rbj("hp", 25.0, 0.7)])
     x = _fade(x, 0.001, min(0.03, len(x) / SR * 0.2))
-    return x * (_db(ONESHOT_PEAK_DB) / np.max(np.abs(x)))
+    return x * (_db(peak_db) / np.max(np.abs(x)))
 
 
 def _soft_limit(x, ceiling, knee=0.7):
@@ -1698,18 +1780,61 @@ def _soft_limit(x, ceiling, knee=0.7):
     return np.sign(x) * (np.minimum(a, th) + h * np.tanh(over / h))
 
 
+def _audible(x):
+    """What a laptop speaker / earbud leaves of a loop: everything below ~LOOP_AUDIBLE_HP is gone."""
+    return _shape(x, lambda f: _hp(f, LOOP_AUDIBLE_HP, 4), circular=True)
+
+
+def loop_loudness(x):
+    """Loudness the loops are matched on: BS.1770 integrated loudness, except that a loop whose
+    audible band (> LOOP_AUDIBLE_HP) is more than LOOP_LF_ALLOWANCE_DB quieter than its full band
+    is credited with half of the excess, so sub-heavy beds are not matched on energy nobody hears."""
+    full = lufs(x)
+    excess = full - lufs(_audible(x)) - LOOP_LF_ALLOWANCE_DB
+    return full - 0.5 * max(0.0, excess)
+
+
+def _circ_sums(e, cand, a, b):
+    """For each start s in cand: sum of e over [s+a, s+b), wrapping around (|a|, |b| <= len(e))."""
+    n = len(e)
+    cs = np.concatenate([[0.0], np.cumsum(np.concatenate([e, e, e]))])
+    return cs[cand + n + b] - cs[cand + n + a]
+
+
+def _seam_offset(x, w=2048, step=32):
+    """Rotation (in samples) that puts the loop seam on a busy, high-frequency-rich moment.
+
+    Vorbis codes the first and last block of a stand-alone file against implied silence, so the
+    decoded file carries a little broadband codec noise right at the seam (at the level of the codec
+    error elsewhere, -40..-65 dB). In a bed with no treble of its own (sub drones) that noise is a
+    faint tick on every repeat; where the music already has >2 kHz content it is masked. Every
+    candidate is scored by the >2 kHz energy on the weaker side of the seam (one long block each side)
+    relative to the total energy there; the loudest 10 % of moments are skipped so the file does not
+    open on a thunder clap. Rotating a periodic signal keeps it seamless."""
+    n = len(x)
+    cand = np.arange(0, n, step)
+    hf = _shape(x, lambda f: _hp(f, 2000.0, 4), circular=True)
+    e_hf, e = hf * hf, x * x
+    left, right = _circ_sums(e_hf, cand, -w, 0), _circ_sums(e_hf, cand, 0, w)
+    score = np.minimum(left, right) / (_circ_sums(e, cand, -w, w) + 1e-30)
+    level = _circ_sums(e, cand, -_ns(0.2), _ns(0.2))
+    score[level > np.percentile(level, 90.0)] = -1.0
+    return int(cand[int(np.argmax(score))])
+
+
 def _master_loop(x, max_squash_db=5.0):
-    """DC/rumble cleanup, loudness to ~LOOP_TARGET_LUFS with peaks held at LOOP_PEAK_DB.
+    """DC/rumble cleanup, seam placement, loudness to ~LOOP_TARGET_LUFS with peaks held at LOOP_PEAK_DB.
     Rare peaks (thunder, ticks) are soft-limited by at most max_squash_db instead of turning the
     whole loop down. Everything is memoryless or circular, so the loop stays seamless."""
     x = x - np.mean(x)
     x = _filt(x, [_rbj("hp", 25.0, 0.7)], circular=True)
+    x = np.roll(x, -_seam_offset(x))
     ceiling = _db(LOOP_PEAK_DB)
-    g = _db(LOOP_TARGET_LUFS - lufs(x))
+    g = _db(LOOP_TARGET_LUFS - loop_loudness(x))
     g = min(g, ceiling * _db(max_squash_db) / np.max(np.abs(x)))
     y = _soft_limit(x * g, ceiling)
     # limiting lowers loudness slightly; one correction pass (never above the ceiling)
-    g2 = min(_db(LOOP_TARGET_LUFS - lufs(y)), ceiling / np.max(np.abs(y)))
+    g2 = min(_db(LOOP_TARGET_LUFS - loop_loudness(y)), ceiling / np.max(np.abs(y)))
     return y * min(g2, 1.0) if g2 < 1.0 else y
 
 
@@ -1719,8 +1844,9 @@ def _variants():
     for ev, base, fn, cnt, _sub in _ONE_SHOTS:
         for i in range(cnt):
             rel = f"{base}{i + 1}" if cnt > 1 else base
-            out.append((ev, rel, (lambda fn=fn, i=i: _master_oneshot(fn(i))), False))
-    for name, sec, fn, _sub in _AMBIENT:
+            peak = ONESHOT_PEAK_OVERRIDE_DB.get(rel, ONESHOT_PEAK_OVERRIDE_DB.get(ev, ONESHOT_PEAK_DB))
+            out.append((ev, rel, (lambda fn=fn, i=i, peak=peak: _master_oneshot(fn(i), peak)), False))
+    for name, sec, fn in _AMBIENT:
         out.append(("ambient." + name, "ambient/" + name,
                     (lambda fn=fn, name=name, sec=sec: _master_loop(fn(_Ctx("amb_" + name, sec, loop=True)))), True))
     return out
@@ -1744,12 +1870,40 @@ def encode_ogg(x, path):
 
 
 def write_all(sounds_root):
-    """Synthesize every sound into sounds_root (.../assets/portalgun/sounds) and return sounds.json."""
+    """Synthesize every sound into sounds_root (.../assets/portalgun/sounds) and return sounds.json.
+    Loops are streamed and have no subtitle; one-shots are plain names with a subtitle."""
     table = {}
     for ev, rel, thunk, loop in _variants():
         x = thunk()
         encode_ogg(x, os.path.join(sounds_root, rel + ".ogg"))
-        entry = table.setdefault(ev, {"sounds": [], "subtitle": f"subtitles.{NAMESPACE}.{ev}"})
+        entry = table.setdefault(ev, {"sounds": []} if loop else
+                                 {"sounds": [], "subtitle": f"subtitles.{NAMESPACE}.{ev}"})
         ref = f"{NAMESPACE}:{rel}"
         entry["sounds"].append({"name": ref, "stream": True} if loop else ref)
     return table
+
+
+def source_hash():
+    """Fingerprint of the synthesis code (this module + gen.noise). Output is a pure function of it,
+    so a cache of write_all() results keyed on this value can never go stale."""
+    h = 2166136261
+    here = os.path.dirname(os.path.abspath(__file__))
+    for fn in ("sounds.py", "noise.py"):
+        with open(os.path.join(here, fn), "rb") as f:
+            for byte in f.read():
+                h = ((h ^ byte) * 16777619) & 0xFFFFFFFF
+    return f"{h:08x}"
+
+
+def verify(sounds_root):
+    """Re-render everything into a temp dir; return the relpaths whose .ogg under sounds_root differs
+    (or is missing). Empty list == the committed audio is exactly the generator output."""
+    import tempfile
+    bad = []
+    with tempfile.TemporaryDirectory() as tmp:
+        write_all(tmp)
+        for _ev, rel, _thunk, _loop in _variants():
+            a, b = os.path.join(tmp, rel + ".ogg"), os.path.join(sounds_root, rel + ".ogg")
+            if not os.path.exists(b) or open(a, "rb").read() != open(b, "rb").read():
+                bad.append(rel)
+    return bad

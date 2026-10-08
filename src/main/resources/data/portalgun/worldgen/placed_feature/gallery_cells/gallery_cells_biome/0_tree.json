@@ -1,0 +1,24 @@
+{
+  "feature": "portalgun:gallery_cells/gallery_cells_biome/0_tree",
+  "placement": [
+    {
+      "type": "minecraft:count_on_every_layer",
+      "count": 2
+    },
+    {
+      "type": "minecraft:block_predicate_filter",
+      "predicate": {
+        "type": "minecraft:has_sturdy_face",
+        "offset": [
+          0,
+          -1,
+          0
+        ],
+        "direction": "up"
+      }
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

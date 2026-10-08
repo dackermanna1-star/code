@@ -1,0 +1,27 @@
+{
+  "feature": "portalgun:gallery_caves/gallery_caves_biome/12_lake",
+  "placement": [
+    {
+      "type": "minecraft:rarity_filter",
+      "chance": 20
+    },
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:height_range",
+      "height": {
+        "type": "minecraft:uniform",
+        "min_inclusive": {
+          "absolute": 6
+        },
+        "max_inclusive": {
+          "absolute": 248
+        }
+      }
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

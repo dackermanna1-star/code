@@ -33,9 +33,9 @@ public class PortalGunClientTest implements FabricClientGameTest {
 		}
 		try (TestSingleplayerContext sp = context.worldBuilder().create()) {
 			sp.getClientWorld().waitForChunksRender();
-			sp.getServer().runCommand("gamerule doDaylightCycle false");
-			sp.getServer().runCommand("gamerule doWeatherCycle false");
-			sp.getServer().runCommand("gamerule doMobSpawning true");
+			sp.getServer().runCommand("gamerule advance_time false");
+			sp.getServer().runCommand("gamerule advance_weather false");
+			sp.getServer().runCommand("gamerule spawn_mobs true");
 			sp.getServer().runCommand("time set 6000");
 			sp.getServer().runCommand("weather clear");
 			if (mode.startsWith("tour")) {
@@ -116,7 +116,7 @@ public class PortalGunClientTest implements FabricClientGameTest {
 		}
 		context.runOnClient(mc -> mc.options.hideGui = true);
 		for (Destination d : targets) {
-			sp.getServer().runCommand("portalgun goto " + d.id().getPath());
+			sp.getServer().runCommand("execute as @a run portalgun goto " + d.id().getPath());
 			context.waitFor(mc -> mc.level != null && mc.level.dimension().identifier().equals(d.id()), 400);
 			sp.getClientWorld().waitForChunksRender();
 			context.waitTicks(40);
@@ -132,7 +132,6 @@ public class PortalGunClientTest implements FabricClientGameTest {
 				sp.getClientWorld().waitForChunksRender();
 				context.takeScreenshot("tour_" + d.id().getPath() + "_" + v);
 			}
-			Minecraft.getInstance();
 		}
 	}
 }

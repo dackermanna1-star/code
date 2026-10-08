@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:pink_terracotta",
+    "minecraft:red_terracotta",
+    "#minecraft:overworld_carver_replaceables"
+  ]
+}

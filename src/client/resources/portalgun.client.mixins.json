@@ -2,7 +2,9 @@
 	"required": true,
 	"package": "dev.portalgun.mixin.client",
 	"compatibilityLevel": "JAVA_21",
-	"client": [],
+	"client": [
+		"SkyRendererMixin"
+	],
 	"injectors": {
 		"defaultRequire": 1
 	}

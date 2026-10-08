@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "portalgun:block/glowcap_stem_end",
+    "side": "portalgun:block/glowcap_stem_side"
+  }
+}

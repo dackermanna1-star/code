@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:coarse_dirt",
+    "minecraft:deepslate",
+    "minecraft:podzol",
+    "#minecraft:overworld_carver_replaceables"
+  ]
+}

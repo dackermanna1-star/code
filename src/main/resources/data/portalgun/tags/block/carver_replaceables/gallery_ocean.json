@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:gravel",
+    "minecraft:sand",
+    "minecraft:sandstone",
+    "minecraft:stone",
+    "#minecraft:overworld_carver_replaceables"
+  ]
+}

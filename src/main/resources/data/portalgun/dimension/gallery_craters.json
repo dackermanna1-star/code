@@ -1,0 +1,11 @@
+{
+  "type": "portalgun:gallery_craters",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:gallery_craters",
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "portalgun:gallery_craters_biome"
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:ore",
+  "config": {
+    "size": 9,
+    "discard_chance_on_air_exposure": 0.0,
+    "targets": [
+      {
+        "target": {
+          "predicate_type": "minecraft:tag_match",
+          "tag": "portalgun:ore_replaceables/sporewood"
+        },
+        "state": {
+          "Name": "minecraft:iron_ore"
+        }
+      },
+      {
+        "target": {
+          "predicate_type": "minecraft:tag_match",
+          "tag": "portalgun:deep_ore_replaceables/sporewood"
+        },
+        "state": {
+          "Name": "minecraft:deepslate_iron_ore"
+        }
+      }
+    ]
+  }
+}

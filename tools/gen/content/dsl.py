@@ -76,6 +76,20 @@ class Block:
     sound: str = "stone"               # stone,grass,wood,sand,gravel,glass,amethyst,slime,wool,metal,bone,moss,
     #                                    snow,coral,honey,mud,nether,fungus,basalt,calcite,sculk,chain,copper,
     #                                    cherry,bamboo,froglight,deepslate,tuff,dripstone,soul_sand,powder_snow
+    # Full list accepted by Java (dev/portalgun/block/BlockLookups.SOUNDS): empty wood gravel grass lily_pad stone
+    #   metal glass wool sand snow powder_snow ladder anvil slime(_block) honey(_block) wet_grass coral(_block) bamboo
+    #   bamboo_sapling scaffolding sweet_berry_bush crop hard_crop vine nether_wart lantern stem nylium fungus roots
+    #   shroomlight weeping_vines twisting_vines soul_sand soul_soil basalt wart_block netherrack nether nether_bricks
+    #   nether_sprouts nether_ore bone(_block) netherite(_block) ancient_debris lodestone chain nether_gold_ore
+    #   gilded_blackstone candle amethyst amethyst_cluster crystal small/medium/large_amethyst_bud tuff tuff_bricks
+    #   polished_tuff calcite dripstone(_block) pointed_dripstone copper copper_bulb copper_grate cave_vines
+    #   spore_blossom cactus_flower azalea flowering_azalea moss_carpet pink_petals petals leaf_litter moss
+    #   big_dripleaf small_dripleaf rooted_dirt hanging_roots azalea_leaves leaves sculk_sensor sculk_catalyst sculk
+    #   sculk_vein sculk_shrieker glow_lichen deepslate deepslate_bricks deepslate_tiles polished_deepslate froglight
+    #   frogspawn mangrove_roots muddy_mangrove_roots mud mud_bricks packed_mud hanging_sign bamboo_wood nether_wood
+    #   cherry(_wood) cherry_sapling cherry_leaves chiseled_bookshelf suspicious_sand suspicious_gravel decorated_pot
+    #   trial_spawner sponge wet_sponge vault creaking_heart heavy_core cobweb spawner resin resin_bricks iron
+    #   dried_ghast
     light: int = 0                     # light level 0-15
     tool: Optional[str] = None         # pickaxe/axe/shovel/hoe/None(hand); default by kind
     map_color: str = "stone"           # a vanilla MapColor name (lower case, e.g. "color_purple", "grass", "sand")

@@ -1,0 +1,11 @@
+{
+  "type": "portalgun:gallery_flat",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:gallery_flat",
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "portalgun:gallery_flat_biome"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "feature": "portalgun:gallery_sky_islands/gallery_sky_islands_biome/5_boulder",
+  "placement": [
+    {
+      "type": "minecraft:rarity_filter",
+      "chance": 2
+    },
+    {
+      "type": "minecraft:count_on_every_layer",
+      "count": 1
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}
