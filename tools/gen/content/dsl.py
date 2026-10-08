@@ -108,6 +108,10 @@ class Block:
     fruit: Optional[str] = None        # plant: item dropped when broken (in addition to/instead of itself)
     tint: Optional[str] = None         # optional color multiplied onto the textures at generation time
     creative: bool = True              # list in the creative tab
+    effect_seconds: float = 5          # duration of `effect` per contact
+    effect_amplifier: int = 0
+    damage_type: Optional[str] = None  # hazard flavour: hot_floor (default) cactus magic freeze wither generic
+    #                                    sweet_berry_bush lightning
 
 
 @dataclass

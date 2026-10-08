@@ -14,7 +14,7 @@
     "max_inclusive": 7
   },
   "monster_spawn_block_light_limit": 0,
-  "skybox": "overworld",
+  "skybox": "end",
   "cardinal_light": "default",
   "attributes": {
     "minecraft:audio/ambient_sounds": {

@@ -161,13 +161,17 @@ def placement(fc: FCtx, f: Feature, ground_check=False, solid_below=False):
 
 
 # ----------------------------------------------------------------------------------------------- block helpers
+WATERLOGGABLE = {"plant", "crystal_cluster", "hanging_plant", "vine"}
+
+
 def plant_state(fc, ref, where):
     kind = fc.ctx.kind(ref)
+    extra = {"waterlogged": "true"} if (where == "underwater" and kind in WATERLOGGABLE) else {}
     if kind == "crystal_cluster":
-        return state(ref, facing="down" if where == "cave_ceiling" else "up")
+        return state(ref, facing="down" if where == "cave_ceiling" else "up", **extra)
     if kind == "vine":
-        return state(ref, up="true") if where == "cave_ceiling" else state(ref, down="true")
-    return state(ref)
+        return state(ref, up="true", **extra) if where == "cave_ceiling" else state(ref, down="true", **extra)
+    return state(ref, **extra)
 
 
 def is_plantish(fc, ref):
@@ -205,6 +209,11 @@ def _patch_feature(fc, f: Patch):
             preds.append({"type": "minecraft:has_sturdy_face", "offset": [0, -1, 0], "direction": "up"})
     if where == "water_surface":
         preds.append({"type": "minecraft:matching_fluids", "offset": [0, -1, 0], "fluids": ["minecraft:water"]})
+    elif where in ("surface", "cave_floor"):
+        # never on top of water/lava (carpets and many plants would happily sit on a fluid surface)
+        preds.append({"type": "minecraft:not", "predicate": {"type": "minecraft:matching_fluids", "offset": [0, -1, 0],
+                                                              "fluids": ["minecraft:water", "minecraft:flowing_water",
+                                                                         "minecraft:lava", "minecraft:flowing_lava"]}})
     inner = {"feature": {"type": "minecraft:simple_block", "config": {"to_place": provider}},
              "placement": [{"type": "minecraft:block_predicate_filter", "predicate": {"type": "minecraft:all_of", "predicates": preds}}]}
     y_spread = 1 if where in ("water_surface",) else (2 if where in ("cave_floor", "cave_ceiling") else 3)

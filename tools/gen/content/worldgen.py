@@ -21,11 +21,12 @@ mountains    ridged ranges + valleys.  coverage (0.55) fraction of mountainous l
                                        rivers (0); cliffs default True
 flat         plains/salt flats/swamp.  ponds (0.3) 0..1 how many shallow pools dip below sea_level
 islands      archipelago.              coverage (0.35) land fraction; depth (20) ocean depth; island_height (amplitude);
-                                       beach_block (default minecraft:sand when unset? no - biome top) beach_height (3)
+                                       set beach_block (e.g. "minecraft:sand") for sandy shores; beach_height (3)
 ocean        deep ocean + atolls.      depth (34) sea floor depth below sea_level; atolls (0.08) island fraction;
                                        ridges (0.5) sea-floor ridge strength
-sky_islands  floating islands in void. layers (2) island tiers; coverage (0.33); thickness (28) underside depth;
-                                       spacing (70) between tiers; debris (0.25) small floating rocks; island_size (1.0)
+sky_islands  floating islands in void. layers (2) island tiers; coverage (0.38) island fraction per tier;
+                                       thickness (30) underside depth; spacing (72) between tiers; island_size (1.0);
+                                       debris (0.3) small satellite islets (0 = none)
 caves        nether-like cavern world (roof + bedrock ceiling, cardinal light = nether).  openness (0.5) 0..1 size of
                                        caverns; pillars (0.3) floor-to-ceiling columns; shelves (0.3) cave ledges.
                                        Default height range when left at -64/384: min_y 0, height 256.
@@ -38,9 +39,11 @@ canyons      plateau cut by canyons.   depth (amplitude*1.5); width (0.5) 0..1 c
                                        (0 = smooth walls); rivers - canyon floors below sea_level hold water
 sponge       holey cheese terrain.     holes (0.5) 0..1 amount of voids; hole_size (1.0)
 inverted     upside-down world.        ceiling (height+130) underside base y; hang (amplitude*2.2) hanging mountain depth;
+                                       holes (0.22) fraction of open sky in the stone ceiling;
                                        floor (0.3) coverage of walkable islands at `height`; roof always on
-cubes        voxel mesas + floating cubes.  step (8) mesa step; cell_size (36); min_size (4); max_size (11);
-                                       probability (0.45) cube chance per cell; floating (True)
+cubes        voxel mesas (crisp 4x4-block columns, not interpolated) + floating cubes (Java cell_shapes).
+                                       step (8) mesa step; cell_size (36); min_size (4); max_size (11) cube half-size;
+                                       probability (0.45) cube chance per cell; floating (True); y_min/y_max cube band
 craters      cratered plains (moon).   cell_size (96); min_radius (10); max_radius (38); depth (0.45) bowl depth
                                        ratio; rim (0.25) rim height ratio; probability (0.6)
 dunes        dune seas.                wavelength (56); direction (35 deg); dune_height (amplitude); cross (0.25)
@@ -82,14 +85,14 @@ STYLE_DEFAULTS = {
     "flat": dict(ponds=0.3),
     "islands": dict(coverage=0.35, depth=20, beach_height=3),
     "ocean": dict(depth=34, atolls=0.08, ridges=0.5),
-    "sky_islands": dict(layers=2, coverage=0.33, thickness=28, spacing=70, debris=0.25, island_size=1.0),
+    "sky_islands": dict(layers=2, coverage=0.38, thickness=30, spacing=72, debris=0.3, island_size=1.0),
     "caves": dict(openness=0.5, pillars=0.3, shelves=0.3),
     "planetoids": dict(cell_size=72, min_radius=7, max_radius=22, probability=0.55, shape="sphere"),
     "pillars": dict(coverage=0.22, pillar_size=1.0, round=True, cliffs=True),
     "terraces": dict(step=6, smoothness=0.25, rivers=0.3),
     "canyons": dict(width=0.5, step=7, cliffs=True),
     "sponge": dict(holes=0.5, hole_size=1.0),
-    "inverted": dict(floor=0.3),
+    "inverted": dict(floor=0.3, holes=0.22),
     "cubes": dict(step=8, cell_size=36, min_size=4, max_size=11, probability=0.45, floating=True),
     "craters": dict(cell_size=96, min_radius=10, max_radius=38, depth=0.45, rim=0.25, probability=0.6),
     "dunes": dict(wavelength=56, direction=35, cross=0.25),
@@ -122,7 +125,7 @@ def has_roof(t):
 
 
 def default_arrival(t):
-    if t.style == "caves" or (t.style == "cells" and has_roof(t)):
+    if t.style in ("caves", "inverted") or (t.style == "cells" and has_roof(t)):
         return "cave"
     if t.style in ("sky_islands", "planetoids", "layers"):
         return "void"
@@ -250,9 +253,12 @@ class Terrain:
         ridge = df.clamp(ridge, 0, 1)
         sharp = df.add(df.mul(df.square(ridge), 1 - P["peaks"]), df.mul(df.cube(ridge), P["peaks"]))
         hills = self.N("hills", -7, [1, 1, 0.5])
+        # jagged high-frequency crags that only show up on the ridges
+        jag = df.mul(df.abs_(self.N("jag", -5, [1, 1])), df.mul(df.mul(mask, sharp), 0.35 * A))
         H = df.add(float(t.height),
                    df.mul(hills, 0.3 * A),
                    df.mul(mask, df.add(df.mul(sharp, 1.9 * A), df.mul(hills, 0.25 * A))),
+                   jag,
                    df.mul(self.N("detail", -5, [1, 0.5]), 0.08 * A),
                    -0.25 * A)
         H = df.col(self.rivers(H, P["rivers"]))
@@ -312,31 +318,26 @@ class Terrain:
         t, P = self.t, self.P
         A = t.amplitude
         layers = max(1, int(P["layers"]))
+        sz = 1.0 / max(0.2, P["island_size"])
         Ds = []
         for i in range(layers):
             base = t.height + (i - (layers - 1) / 2.0) * P["spacing"]
-            sz = 1.0 / max(0.2, P["island_size"])
-            m = self.N(f"island{i}", -7, [1, 1, 0.5], sz)
-            t0 = q(P["coverage"])
-            inside = df.sub(m, t0)
-            mm = df.clamp(df.mul(inside, 1.25), 0, 1)
-            top = df.col(df.add(base, df.mul(self.N(f"top{i}", -6, [1, 1]), 0.3 * A), df.mul(mm, 6.0)))
-            drip = df.mul(df.abs_(self.N(f"drip{i}", -4, [1, 0.5])), 0.35)
-            depth = df.mul(df.add(df.mul(mm, df.sub(2.0, mm)), df.mul(drip, mm)), float(P["thickness"]))
-            bottom = df.col(df.sub(base - 2.0, depth))
-            Di = df.min_all([df.sub(top, df.Y), df.sub(df.Y, bottom), df.mul(inside, 60.0)])
-            Ds.append(Di)
+            fields = [("island", -8, [1, 1, 0.5], P["coverage"], float(P["thickness"]), 8.0, 1.25, 0.0)]
+            if P["debris"] > 0:
+                fields.append(("islet", -6, [1, 0.5], P["debris"] * 0.22, float(P["thickness"]) * 0.45, 3.0, 2.5, 22.0))
+            for kind, first, amps, cov, thick, dome, sharp, spread in fields:
+                m = self.N(f"{kind}{i}", first, amps, sz)
+                t0 = q(cov)
+                inside = df.sub(m, t0)
+                mm = df.clamp(df.mul(inside, sharp), 0, 1)
+                b = df.add(base, df.mul(self.N(f"{kind}off{i}", -7, [1]), spread)) if spread else float(base)
+                top = df.col(df.add(b, df.mul(self.N(f"top{i}", -6, [1, 1]), 0.3 * A), df.mul(mm, dome)))
+                drip = df.mul(df.abs_(self.N(f"drip{i}", -4, [1, 0.5])), 0.35)
+                depth = df.mul(df.add(df.mul(mm, df.sub(2.0, mm)), df.mul(drip, mm)), thick)
+                bottom = df.col(df.sub(df.sub(b, 2.0), depth))
+                Ds.append(df.min_all([df.sub(top, df.Y), df.sub(df.Y, bottom), df.mul(inside, 60.0)]))
         D = df.add(df.max_all(Ds), self.rough(0.8, 1.0))
-        if P["debris"] > 0:
-            n = self.N3("debris", -4, [1, 0.5], 1.0, 1.2)
-            span = (layers - 1) / 2.0 * P["spacing"] + 40
-            band = df.min_(df.ygrad(t.height - span, t.height - span + 15, -30, 0),
-                           df.ygrad(t.height + span - 15, t.height + span, 0, -30))
-            D = df.max_(D, df.add(df.mul(df.sub(n, 1.55 - P["debris"] * 0.4), 30.0), band))
-        H = None
-        if layers == 1:
-            H = None
-        return {"D": D, "H": H}
+        return {"D": D, "H": None}
 
     def _caves_style(self):
         t, P = self.t, self.P
@@ -435,6 +436,10 @@ class Terrain:
         Hc = df.col(df.sub(ceil_y, df.add(df.mul(df.add(1.0, self.N("hills", -7, [1, 1])), 0.45 * A),
                                           df.mul(df.mul(ridge, mask), hang))))
         Dc = df.add(df.sub(df.Y, Hc), self.rough(1.0, 0.6))
+        if P["holes"] > 0:
+            # gaps in the stone sky let daylight (and rain) through
+            hole = self.N("holes", -7, [1, 1])
+            Dc = df.min_(Dc, df.mul(df.sub(q(P["holes"]), hole), 60.0))
         D = Dc
         if P["floor"] > 0:
             m = self.N("floor", -7, [1, 1, 0.5])
@@ -452,15 +457,17 @@ class Terrain:
         A = t.amplitude
         raw = df.add(float(t.height), df.mul(self.N("hills", -7, [1, 1]), 0.8 * A), df.mul(self.N("base", -9, [1]), 0.4 * A))
         H = df.col(df.staircase(raw, t.height - 2 * A - 10, t.height + 2 * A + 10, P["step"], 0.04))
-        D = df.sub(H, df.Y)
+        # evaluated per block (not interpolated): flat_cache holds H per 4x4 column -> crisp voxel mesas
+        crisp = df.mul(df.sub(H, df.Y), 1.0 / 16.0)
         if P["floating"] and has_java("cell_shapes"):
             k = self.key("cubes", -4, [1])
             y0 = int(P.get("y_min", t.height - 10))
             y1 = int(P.get("y_max", t.height + 2 * A + 70))
             mx = float(P["max_size"])
             cubes = df.pg_cell_shapes(k, "cube", P["cell_size"], P["min_size"], mx, y0, y1, P["probability"])
-            self.crisp = df.range_choice(df.Y, y0 - mx - 2, y1 + mx + 2, cubes, -1.0)
-        return {"D": D, "H": H}
+            crisp = df.max_(crisp, df.range_choice(df.Y, y0 - mx - 2, y1 + mx + 2, cubes, -1.0))
+        self.crisp = crisp
+        return {"D": -40.0, "H": H}
 
     def _craters(self):
         t, P = self.t, self.P
@@ -563,8 +570,8 @@ class Terrain:
             Ds.append(df.add(df.min_(slab, solid), self.rough(0.4, 1.0)))
         D = df.max_all(Ds)
         if P["columns"] > 0:
-            cn = self.N("columns", -4, [1])
-            col_d = df.mul(df.sub(cn, 1.6 - P["columns"]), 20.0)
+            cn = self.N("columns", -5, [1])
+            col_d = df.mul(df.sub(cn, 1.55 - P["columns"]), 24.0)
             band = df.ygrad(lowest + (n - 1) * sp, lowest + (n - 1) * sp + 6, 0, -60)
             D = df.max_(D, df.add(col_d, band))
         return {"D": D, "H": ground}
@@ -679,7 +686,7 @@ def climate_noise(terrain: Terrain, name, first, amps):
     P = terrain.P
     size = float(P.get("biome_size", 320))
     k = terrain.key(name, first, amps)
-    return df.mul(df.shifted(k, 300.0 / max(32.0, size), 0.0), 2.2)
+    return df.mul(df.shifted(k, 400.0 / max(32.0, size), 0.0), 2.2)
 
 
 def emit_noise_settings(ctx, dim):
@@ -884,7 +891,9 @@ def emit_timeline(ctx, dim):
     sky = dim.sky
     day = _day()
     if sky.time == "cycle":
-        tls = ["#minecraft:universal"]
+        if not sky.sunrise_color and not sky.moon_phase:
+            return "#minecraft:in_overworld", False
+        tls = ["minecraft:villager_schedule"]   # (a list may not contain tags; this is #minecraft:universal)
         if sky.sunrise_color:
             custom = json.loads(json.dumps(day))
             col = hex_argb(sky.sunrise_color)
@@ -905,6 +914,8 @@ def emit_timeline(ctx, dim):
     tick = fixed_tick(sky)
     tracks = {}
     for name, tr in day["tracks"].items():
+        if name in ("minecraft:visual/sky_color", "minecraft:visual/fog_color"):
+            continue   # fixed-time worlds show Sky.sky_color / fog_color exactly as specified (no day/night dimming)
         v = sample_track(tr, day.get("period_ticks", 24000), tick)
         if name == "minecraft:visual/sunrise_sunset_color" and sky.sunrise_color:
             v = hex_argb(sky.sunrise_color)

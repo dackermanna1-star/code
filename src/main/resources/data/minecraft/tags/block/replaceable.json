@@ -2,6 +2,9 @@
   "replace": false,
   "values": [
     "portalgun:glowcap_sprout",
-    "portalgun:spore_puff"
+    "portalgun:spore_puff",
+    "portalgun:gb_plant",
+    "portalgun:gb_tall",
+    "portalgun:gb_vine"
   ]
 }

@@ -49,7 +49,7 @@
       "argument1": {
         "type": "minecraft:shifted_noise",
         "noise": "portalgun:gallery_mountains/temperature",
-        "xz_scale": 0.9375,
+        "xz_scale": 1.25,
         "y_scale": 0.0,
         "shift_x": "minecraft:shift_x",
         "shift_y": 0.0,
@@ -62,7 +62,7 @@
       "argument1": {
         "type": "minecraft:shifted_noise",
         "noise": "portalgun:gallery_mountains/humidity",
-        "xz_scale": 0.9375,
+        "xz_scale": 1.25,
         "y_scale": 0.0,
         "shift_x": "minecraft:shift_x",
         "shift_y": 0.0,
@@ -88,52 +88,184 @@
                     "type": "minecraft:add",
                     "argument1": {
                       "type": "minecraft:add",
-                      "argument1": 80.0,
+                      "argument1": {
+                        "type": "minecraft:add",
+                        "argument1": 80.0,
+                        "argument2": {
+                          "type": "minecraft:mul",
+                          "argument1": {
+                            "type": "minecraft:mul",
+                            "argument1": {
+                              "type": "minecraft:noise",
+                              "noise": "portalgun:gallery_mountains/hills",
+                              "xz_scale": 1.0,
+                              "y_scale": 0.0
+                            },
+                            "argument2": 2.0
+                          },
+                          "argument2": 13.5
+                        }
+                      },
                       "argument2": {
                         "type": "minecraft:mul",
                         "argument1": {
-                          "type": "minecraft:mul",
-                          "argument1": {
-                            "type": "minecraft:noise",
-                            "noise": "portalgun:gallery_mountains/hills",
-                            "xz_scale": 1.0,
-                            "y_scale": 0.0
+                          "type": "minecraft:clamp",
+                          "input": {
+                            "type": "minecraft:add",
+                            "argument1": 0.6100000000000001,
+                            "argument2": {
+                              "type": "minecraft:mul",
+                              "argument1": {
+                                "type": "minecraft:mul",
+                                "argument1": {
+                                  "type": "minecraft:noise",
+                                  "noise": "portalgun:gallery_mountains/mask",
+                                  "xz_scale": 1.0,
+                                  "y_scale": 0.0
+                                },
+                                "argument2": 2.0
+                              },
+                              "argument2": 1.25
+                            }
                           },
-                          "argument2": 2.0
+                          "min": 0.0,
+                          "max": 1.0
                         },
-                        "argument2": 13.5
-                      }
-                    },
-                    "argument2": {
-                      "type": "minecraft:mul",
-                      "argument1": {
-                        "type": "minecraft:clamp",
-                        "input": {
+                        "argument2": {
                           "type": "minecraft:add",
-                          "argument1": 0.6100000000000001,
+                          "argument1": {
+                            "type": "minecraft:mul",
+                            "argument1": {
+                              "type": "minecraft:add",
+                              "argument1": {
+                                "type": "minecraft:mul",
+                                "argument1": {
+                                  "type": "minecraft:square",
+                                  "argument": {
+                                    "type": "minecraft:clamp",
+                                    "input": {
+                                      "type": "minecraft:add",
+                                      "argument1": 1.0,
+                                      "argument2": {
+                                        "type": "minecraft:mul",
+                                        "argument1": {
+                                          "type": "minecraft:abs",
+                                          "argument": {
+                                            "type": "minecraft:mul",
+                                            "argument1": {
+                                              "type": "minecraft:noise",
+                                              "noise": "portalgun:gallery_mountains/ridge",
+                                              "xz_scale": 1.0,
+                                              "y_scale": 0.0
+                                            },
+                                            "argument2": 2.0
+                                          }
+                                        },
+                                        "argument2": -1.0
+                                      }
+                                    },
+                                    "min": 0.0,
+                                    "max": 1.0
+                                  }
+                                },
+                                "argument2": 0.4
+                              },
+                              "argument2": {
+                                "type": "minecraft:mul",
+                                "argument1": {
+                                  "type": "minecraft:cube",
+                                  "argument": {
+                                    "type": "minecraft:clamp",
+                                    "input": {
+                                      "type": "minecraft:add",
+                                      "argument1": 1.0,
+                                      "argument2": {
+                                        "type": "minecraft:mul",
+                                        "argument1": {
+                                          "type": "minecraft:abs",
+                                          "argument": {
+                                            "type": "minecraft:mul",
+                                            "argument1": {
+                                              "type": "minecraft:noise",
+                                              "noise": "portalgun:gallery_mountains/ridge",
+                                              "xz_scale": 1.0,
+                                              "y_scale": 0.0
+                                            },
+                                            "argument2": 2.0
+                                          }
+                                        },
+                                        "argument2": -1.0
+                                      }
+                                    },
+                                    "min": 0.0,
+                                    "max": 1.0
+                                  }
+                                },
+                                "argument2": 0.6
+                              }
+                            },
+                            "argument2": 85.5
+                          },
                           "argument2": {
                             "type": "minecraft:mul",
                             "argument1": {
                               "type": "minecraft:mul",
                               "argument1": {
                                 "type": "minecraft:noise",
-                                "noise": "portalgun:gallery_mountains/mask",
+                                "noise": "portalgun:gallery_mountains/hills",
                                 "xz_scale": 1.0,
                                 "y_scale": 0.0
                               },
                               "argument2": 2.0
                             },
-                            "argument2": 1.25
+                            "argument2": 11.25
                           }
-                        },
-                        "min": 0.0,
-                        "max": 1.0
+                        }
+                      }
+                    },
+                    "argument2": {
+                      "type": "minecraft:mul",
+                      "argument1": {
+                        "type": "minecraft:abs",
+                        "argument": {
+                          "type": "minecraft:mul",
+                          "argument1": {
+                            "type": "minecraft:noise",
+                            "noise": "portalgun:gallery_mountains/jag",
+                            "xz_scale": 1.0,
+                            "y_scale": 0.0
+                          },
+                          "argument2": 2.0
+                        }
                       },
                       "argument2": {
-                        "type": "minecraft:add",
+                        "type": "minecraft:mul",
                         "argument1": {
                           "type": "minecraft:mul",
                           "argument1": {
+                            "type": "minecraft:clamp",
+                            "input": {
+                              "type": "minecraft:add",
+                              "argument1": 0.6100000000000001,
+                              "argument2": {
+                                "type": "minecraft:mul",
+                                "argument1": {
+                                  "type": "minecraft:mul",
+                                  "argument1": {
+                                    "type": "minecraft:noise",
+                                    "noise": "portalgun:gallery_mountains/mask",
+                                    "xz_scale": 1.0,
+                                    "y_scale": 0.0
+                                  },
+                                  "argument2": 2.0
+                                },
+                                "argument2": 1.25
+                              }
+                            },
+                            "min": 0.0,
+                            "max": 1.0
+                          },
+                          "argument2": {
                             "type": "minecraft:add",
                             "argument1": {
                               "type": "minecraft:mul",
@@ -201,23 +333,9 @@
                               },
                               "argument2": 0.6
                             }
-                          },
-                          "argument2": 85.5
+                          }
                         },
-                        "argument2": {
-                          "type": "minecraft:mul",
-                          "argument1": {
-                            "type": "minecraft:mul",
-                            "argument1": {
-                              "type": "minecraft:noise",
-                              "noise": "portalgun:gallery_mountains/hills",
-                              "xz_scale": 1.0,
-                              "y_scale": 0.0
-                            },
-                            "argument2": 2.0
-                          },
-                          "argument2": 11.25
-                        }
+                        "argument2": 15.749999999999998
                       }
                     }
                   },
@@ -262,52 +380,184 @@
               "type": "minecraft:add",
               "argument1": {
                 "type": "minecraft:add",
-                "argument1": 80.0,
+                "argument1": {
+                  "type": "minecraft:add",
+                  "argument1": 80.0,
+                  "argument2": {
+                    "type": "minecraft:mul",
+                    "argument1": {
+                      "type": "minecraft:mul",
+                      "argument1": {
+                        "type": "minecraft:noise",
+                        "noise": "portalgun:gallery_mountains/hills",
+                        "xz_scale": 1.0,
+                        "y_scale": 0.0
+                      },
+                      "argument2": 2.0
+                    },
+                    "argument2": 13.5
+                  }
+                },
                 "argument2": {
                   "type": "minecraft:mul",
                   "argument1": {
-                    "type": "minecraft:mul",
-                    "argument1": {
-                      "type": "minecraft:noise",
-                      "noise": "portalgun:gallery_mountains/hills",
-                      "xz_scale": 1.0,
-                      "y_scale": 0.0
+                    "type": "minecraft:clamp",
+                    "input": {
+                      "type": "minecraft:add",
+                      "argument1": 0.6100000000000001,
+                      "argument2": {
+                        "type": "minecraft:mul",
+                        "argument1": {
+                          "type": "minecraft:mul",
+                          "argument1": {
+                            "type": "minecraft:noise",
+                            "noise": "portalgun:gallery_mountains/mask",
+                            "xz_scale": 1.0,
+                            "y_scale": 0.0
+                          },
+                          "argument2": 2.0
+                        },
+                        "argument2": 1.25
+                      }
                     },
-                    "argument2": 2.0
+                    "min": 0.0,
+                    "max": 1.0
                   },
-                  "argument2": 13.5
-                }
-              },
-              "argument2": {
-                "type": "minecraft:mul",
-                "argument1": {
-                  "type": "minecraft:clamp",
-                  "input": {
+                  "argument2": {
                     "type": "minecraft:add",
-                    "argument1": 0.6100000000000001,
+                    "argument1": {
+                      "type": "minecraft:mul",
+                      "argument1": {
+                        "type": "minecraft:add",
+                        "argument1": {
+                          "type": "minecraft:mul",
+                          "argument1": {
+                            "type": "minecraft:square",
+                            "argument": {
+                              "type": "minecraft:clamp",
+                              "input": {
+                                "type": "minecraft:add",
+                                "argument1": 1.0,
+                                "argument2": {
+                                  "type": "minecraft:mul",
+                                  "argument1": {
+                                    "type": "minecraft:abs",
+                                    "argument": {
+                                      "type": "minecraft:mul",
+                                      "argument1": {
+                                        "type": "minecraft:noise",
+                                        "noise": "portalgun:gallery_mountains/ridge",
+                                        "xz_scale": 1.0,
+                                        "y_scale": 0.0
+                                      },
+                                      "argument2": 2.0
+                                    }
+                                  },
+                                  "argument2": -1.0
+                                }
+                              },
+                              "min": 0.0,
+                              "max": 1.0
+                            }
+                          },
+                          "argument2": 0.4
+                        },
+                        "argument2": {
+                          "type": "minecraft:mul",
+                          "argument1": {
+                            "type": "minecraft:cube",
+                            "argument": {
+                              "type": "minecraft:clamp",
+                              "input": {
+                                "type": "minecraft:add",
+                                "argument1": 1.0,
+                                "argument2": {
+                                  "type": "minecraft:mul",
+                                  "argument1": {
+                                    "type": "minecraft:abs",
+                                    "argument": {
+                                      "type": "minecraft:mul",
+                                      "argument1": {
+                                        "type": "minecraft:noise",
+                                        "noise": "portalgun:gallery_mountains/ridge",
+                                        "xz_scale": 1.0,
+                                        "y_scale": 0.0
+                                      },
+                                      "argument2": 2.0
+                                    }
+                                  },
+                                  "argument2": -1.0
+                                }
+                              },
+                              "min": 0.0,
+                              "max": 1.0
+                            }
+                          },
+                          "argument2": 0.6
+                        }
+                      },
+                      "argument2": 85.5
+                    },
                     "argument2": {
                       "type": "minecraft:mul",
                       "argument1": {
                         "type": "minecraft:mul",
                         "argument1": {
                           "type": "minecraft:noise",
-                          "noise": "portalgun:gallery_mountains/mask",
+                          "noise": "portalgun:gallery_mountains/hills",
                           "xz_scale": 1.0,
                           "y_scale": 0.0
                         },
                         "argument2": 2.0
                       },
-                      "argument2": 1.25
+                      "argument2": 11.25
                     }
-                  },
-                  "min": 0.0,
-                  "max": 1.0
+                  }
+                }
+              },
+              "argument2": {
+                "type": "minecraft:mul",
+                "argument1": {
+                  "type": "minecraft:abs",
+                  "argument": {
+                    "type": "minecraft:mul",
+                    "argument1": {
+                      "type": "minecraft:noise",
+                      "noise": "portalgun:gallery_mountains/jag",
+                      "xz_scale": 1.0,
+                      "y_scale": 0.0
+                    },
+                    "argument2": 2.0
+                  }
                 },
                 "argument2": {
-                  "type": "minecraft:add",
+                  "type": "minecraft:mul",
                   "argument1": {
                     "type": "minecraft:mul",
                     "argument1": {
+                      "type": "minecraft:clamp",
+                      "input": {
+                        "type": "minecraft:add",
+                        "argument1": 0.6100000000000001,
+                        "argument2": {
+                          "type": "minecraft:mul",
+                          "argument1": {
+                            "type": "minecraft:mul",
+                            "argument1": {
+                              "type": "minecraft:noise",
+                              "noise": "portalgun:gallery_mountains/mask",
+                              "xz_scale": 1.0,
+                              "y_scale": 0.0
+                            },
+                            "argument2": 2.0
+                          },
+                          "argument2": 1.25
+                        }
+                      },
+                      "min": 0.0,
+                      "max": 1.0
+                    },
+                    "argument2": {
                       "type": "minecraft:add",
                       "argument1": {
                         "type": "minecraft:mul",
@@ -375,23 +625,9 @@
                         },
                         "argument2": 0.6
                       }
-                    },
-                    "argument2": 85.5
+                    }
                   },
-                  "argument2": {
-                    "type": "minecraft:mul",
-                    "argument1": {
-                      "type": "minecraft:mul",
-                      "argument1": {
-                        "type": "minecraft:noise",
-                        "noise": "portalgun:gallery_mountains/hills",
-                        "xz_scale": 1.0,
-                        "y_scale": 0.0
-                      },
-                      "argument2": 2.0
-                    },
-                    "argument2": 11.25
-                  }
+                  "argument2": 15.749999999999998
                 }
               }
             },
@@ -440,52 +676,184 @@
                             "type": "minecraft:add",
                             "argument1": {
                               "type": "minecraft:add",
-                              "argument1": 80.0,
+                              "argument1": {
+                                "type": "minecraft:add",
+                                "argument1": 80.0,
+                                "argument2": {
+                                  "type": "minecraft:mul",
+                                  "argument1": {
+                                    "type": "minecraft:mul",
+                                    "argument1": {
+                                      "type": "minecraft:noise",
+                                      "noise": "portalgun:gallery_mountains/hills",
+                                      "xz_scale": 1.0,
+                                      "y_scale": 0.0
+                                    },
+                                    "argument2": 2.0
+                                  },
+                                  "argument2": 13.5
+                                }
+                              },
                               "argument2": {
                                 "type": "minecraft:mul",
                                 "argument1": {
-                                  "type": "minecraft:mul",
-                                  "argument1": {
-                                    "type": "minecraft:noise",
-                                    "noise": "portalgun:gallery_mountains/hills",
-                                    "xz_scale": 1.0,
-                                    "y_scale": 0.0
+                                  "type": "minecraft:clamp",
+                                  "input": {
+                                    "type": "minecraft:add",
+                                    "argument1": 0.6100000000000001,
+                                    "argument2": {
+                                      "type": "minecraft:mul",
+                                      "argument1": {
+                                        "type": "minecraft:mul",
+                                        "argument1": {
+                                          "type": "minecraft:noise",
+                                          "noise": "portalgun:gallery_mountains/mask",
+                                          "xz_scale": 1.0,
+                                          "y_scale": 0.0
+                                        },
+                                        "argument2": 2.0
+                                      },
+                                      "argument2": 1.25
+                                    }
                                   },
-                                  "argument2": 2.0
+                                  "min": 0.0,
+                                  "max": 1.0
                                 },
-                                "argument2": 13.5
-                              }
-                            },
-                            "argument2": {
-                              "type": "minecraft:mul",
-                              "argument1": {
-                                "type": "minecraft:clamp",
-                                "input": {
+                                "argument2": {
                                   "type": "minecraft:add",
-                                  "argument1": 0.6100000000000001,
+                                  "argument1": {
+                                    "type": "minecraft:mul",
+                                    "argument1": {
+                                      "type": "minecraft:add",
+                                      "argument1": {
+                                        "type": "minecraft:mul",
+                                        "argument1": {
+                                          "type": "minecraft:square",
+                                          "argument": {
+                                            "type": "minecraft:clamp",
+                                            "input": {
+                                              "type": "minecraft:add",
+                                              "argument1": 1.0,
+                                              "argument2": {
+                                                "type": "minecraft:mul",
+                                                "argument1": {
+                                                  "type": "minecraft:abs",
+                                                  "argument": {
+                                                    "type": "minecraft:mul",
+                                                    "argument1": {
+                                                      "type": "minecraft:noise",
+                                                      "noise": "portalgun:gallery_mountains/ridge",
+                                                      "xz_scale": 1.0,
+                                                      "y_scale": 0.0
+                                                    },
+                                                    "argument2": 2.0
+                                                  }
+                                                },
+                                                "argument2": -1.0
+                                              }
+                                            },
+                                            "min": 0.0,
+                                            "max": 1.0
+                                          }
+                                        },
+                                        "argument2": 0.4
+                                      },
+                                      "argument2": {
+                                        "type": "minecraft:mul",
+                                        "argument1": {
+                                          "type": "minecraft:cube",
+                                          "argument": {
+                                            "type": "minecraft:clamp",
+                                            "input": {
+                                              "type": "minecraft:add",
+                                              "argument1": 1.0,
+                                              "argument2": {
+                                                "type": "minecraft:mul",
+                                                "argument1": {
+                                                  "type": "minecraft:abs",
+                                                  "argument": {
+                                                    "type": "minecraft:mul",
+                                                    "argument1": {
+                                                      "type": "minecraft:noise",
+                                                      "noise": "portalgun:gallery_mountains/ridge",
+                                                      "xz_scale": 1.0,
+                                                      "y_scale": 0.0
+                                                    },
+                                                    "argument2": 2.0
+                                                  }
+                                                },
+                                                "argument2": -1.0
+                                              }
+                                            },
+                                            "min": 0.0,
+                                            "max": 1.0
+                                          }
+                                        },
+                                        "argument2": 0.6
+                                      }
+                                    },
+                                    "argument2": 85.5
+                                  },
                                   "argument2": {
                                     "type": "minecraft:mul",
                                     "argument1": {
                                       "type": "minecraft:mul",
                                       "argument1": {
                                         "type": "minecraft:noise",
-                                        "noise": "portalgun:gallery_mountains/mask",
+                                        "noise": "portalgun:gallery_mountains/hills",
                                         "xz_scale": 1.0,
                                         "y_scale": 0.0
                                       },
                                       "argument2": 2.0
                                     },
-                                    "argument2": 1.25
+                                    "argument2": 11.25
                                   }
-                                },
-                                "min": 0.0,
-                                "max": 1.0
+                                }
+                              }
+                            },
+                            "argument2": {
+                              "type": "minecraft:mul",
+                              "argument1": {
+                                "type": "minecraft:abs",
+                                "argument": {
+                                  "type": "minecraft:mul",
+                                  "argument1": {
+                                    "type": "minecraft:noise",
+                                    "noise": "portalgun:gallery_mountains/jag",
+                                    "xz_scale": 1.0,
+                                    "y_scale": 0.0
+                                  },
+                                  "argument2": 2.0
+                                }
                               },
                               "argument2": {
-                                "type": "minecraft:add",
+                                "type": "minecraft:mul",
                                 "argument1": {
                                   "type": "minecraft:mul",
                                   "argument1": {
+                                    "type": "minecraft:clamp",
+                                    "input": {
+                                      "type": "minecraft:add",
+                                      "argument1": 0.6100000000000001,
+                                      "argument2": {
+                                        "type": "minecraft:mul",
+                                        "argument1": {
+                                          "type": "minecraft:mul",
+                                          "argument1": {
+                                            "type": "minecraft:noise",
+                                            "noise": "portalgun:gallery_mountains/mask",
+                                            "xz_scale": 1.0,
+                                            "y_scale": 0.0
+                                          },
+                                          "argument2": 2.0
+                                        },
+                                        "argument2": 1.25
+                                      }
+                                    },
+                                    "min": 0.0,
+                                    "max": 1.0
+                                  },
+                                  "argument2": {
                                     "type": "minecraft:add",
                                     "argument1": {
                                       "type": "minecraft:mul",
@@ -553,23 +921,9 @@
                                       },
                                       "argument2": 0.6
                                     }
-                                  },
-                                  "argument2": 85.5
+                                  }
                                 },
-                                "argument2": {
-                                  "type": "minecraft:mul",
-                                  "argument1": {
-                                    "type": "minecraft:mul",
-                                    "argument1": {
-                                      "type": "minecraft:noise",
-                                      "noise": "portalgun:gallery_mountains/hills",
-                                      "xz_scale": 1.0,
-                                      "y_scale": 0.0
-                                    },
-                                    "argument2": 2.0
-                                  },
-                                  "argument2": 11.25
-                                }
+                                "argument2": 15.749999999999998
                               }
                             }
                           },
@@ -698,52 +1052,184 @@
                                     "type": "minecraft:add",
                                     "argument1": {
                                       "type": "minecraft:add",
-                                      "argument1": 80.0,
+                                      "argument1": {
+                                        "type": "minecraft:add",
+                                        "argument1": 80.0,
+                                        "argument2": {
+                                          "type": "minecraft:mul",
+                                          "argument1": {
+                                            "type": "minecraft:mul",
+                                            "argument1": {
+                                              "type": "minecraft:noise",
+                                              "noise": "portalgun:gallery_mountains/hills",
+                                              "xz_scale": 1.0,
+                                              "y_scale": 0.0
+                                            },
+                                            "argument2": 2.0
+                                          },
+                                          "argument2": 13.5
+                                        }
+                                      },
                                       "argument2": {
                                         "type": "minecraft:mul",
                                         "argument1": {
-                                          "type": "minecraft:mul",
-                                          "argument1": {
-                                            "type": "minecraft:noise",
-                                            "noise": "portalgun:gallery_mountains/hills",
-                                            "xz_scale": 1.0,
-                                            "y_scale": 0.0
+                                          "type": "minecraft:clamp",
+                                          "input": {
+                                            "type": "minecraft:add",
+                                            "argument1": 0.6100000000000001,
+                                            "argument2": {
+                                              "type": "minecraft:mul",
+                                              "argument1": {
+                                                "type": "minecraft:mul",
+                                                "argument1": {
+                                                  "type": "minecraft:noise",
+                                                  "noise": "portalgun:gallery_mountains/mask",
+                                                  "xz_scale": 1.0,
+                                                  "y_scale": 0.0
+                                                },
+                                                "argument2": 2.0
+                                              },
+                                              "argument2": 1.25
+                                            }
                                           },
-                                          "argument2": 2.0
+                                          "min": 0.0,
+                                          "max": 1.0
                                         },
-                                        "argument2": 13.5
-                                      }
-                                    },
-                                    "argument2": {
-                                      "type": "minecraft:mul",
-                                      "argument1": {
-                                        "type": "minecraft:clamp",
-                                        "input": {
+                                        "argument2": {
                                           "type": "minecraft:add",
-                                          "argument1": 0.6100000000000001,
+                                          "argument1": {
+                                            "type": "minecraft:mul",
+                                            "argument1": {
+                                              "type": "minecraft:add",
+                                              "argument1": {
+                                                "type": "minecraft:mul",
+                                                "argument1": {
+                                                  "type": "minecraft:square",
+                                                  "argument": {
+                                                    "type": "minecraft:clamp",
+                                                    "input": {
+                                                      "type": "minecraft:add",
+                                                      "argument1": 1.0,
+                                                      "argument2": {
+                                                        "type": "minecraft:mul",
+                                                        "argument1": {
+                                                          "type": "minecraft:abs",
+                                                          "argument": {
+                                                            "type": "minecraft:mul",
+                                                            "argument1": {
+                                                              "type": "minecraft:noise",
+                                                              "noise": "portalgun:gallery_mountains/ridge",
+                                                              "xz_scale": 1.0,
+                                                              "y_scale": 0.0
+                                                            },
+                                                            "argument2": 2.0
+                                                          }
+                                                        },
+                                                        "argument2": -1.0
+                                                      }
+                                                    },
+                                                    "min": 0.0,
+                                                    "max": 1.0
+                                                  }
+                                                },
+                                                "argument2": 0.4
+                                              },
+                                              "argument2": {
+                                                "type": "minecraft:mul",
+                                                "argument1": {
+                                                  "type": "minecraft:cube",
+                                                  "argument": {
+                                                    "type": "minecraft:clamp",
+                                                    "input": {
+                                                      "type": "minecraft:add",
+                                                      "argument1": 1.0,
+                                                      "argument2": {
+                                                        "type": "minecraft:mul",
+                                                        "argument1": {
+                                                          "type": "minecraft:abs",
+                                                          "argument": {
+                                                            "type": "minecraft:mul",
+                                                            "argument1": {
+                                                              "type": "minecraft:noise",
+                                                              "noise": "portalgun:gallery_mountains/ridge",
+                                                              "xz_scale": 1.0,
+                                                              "y_scale": 0.0
+                                                            },
+                                                            "argument2": 2.0
+                                                          }
+                                                        },
+                                                        "argument2": -1.0
+                                                      }
+                                                    },
+                                                    "min": 0.0,
+                                                    "max": 1.0
+                                                  }
+                                                },
+                                                "argument2": 0.6
+                                              }
+                                            },
+                                            "argument2": 85.5
+                                          },
                                           "argument2": {
                                             "type": "minecraft:mul",
                                             "argument1": {
                                               "type": "minecraft:mul",
                                               "argument1": {
                                                 "type": "minecraft:noise",
-                                                "noise": "portalgun:gallery_mountains/mask",
+                                                "noise": "portalgun:gallery_mountains/hills",
                                                 "xz_scale": 1.0,
                                                 "y_scale": 0.0
                                               },
                                               "argument2": 2.0
                                             },
-                                            "argument2": 1.25
+                                            "argument2": 11.25
                                           }
-                                        },
-                                        "min": 0.0,
-                                        "max": 1.0
+                                        }
+                                      }
+                                    },
+                                    "argument2": {
+                                      "type": "minecraft:mul",
+                                      "argument1": {
+                                        "type": "minecraft:abs",
+                                        "argument": {
+                                          "type": "minecraft:mul",
+                                          "argument1": {
+                                            "type": "minecraft:noise",
+                                            "noise": "portalgun:gallery_mountains/jag",
+                                            "xz_scale": 1.0,
+                                            "y_scale": 0.0
+                                          },
+                                          "argument2": 2.0
+                                        }
                                       },
                                       "argument2": {
-                                        "type": "minecraft:add",
+                                        "type": "minecraft:mul",
                                         "argument1": {
                                           "type": "minecraft:mul",
                                           "argument1": {
+                                            "type": "minecraft:clamp",
+                                            "input": {
+                                              "type": "minecraft:add",
+                                              "argument1": 0.6100000000000001,
+                                              "argument2": {
+                                                "type": "minecraft:mul",
+                                                "argument1": {
+                                                  "type": "minecraft:mul",
+                                                  "argument1": {
+                                                    "type": "minecraft:noise",
+                                                    "noise": "portalgun:gallery_mountains/mask",
+                                                    "xz_scale": 1.0,
+                                                    "y_scale": 0.0
+                                                  },
+                                                  "argument2": 2.0
+                                                },
+                                                "argument2": 1.25
+                                              }
+                                            },
+                                            "min": 0.0,
+                                            "max": 1.0
+                                          },
+                                          "argument2": {
                                             "type": "minecraft:add",
                                             "argument1": {
                                               "type": "minecraft:mul",
@@ -811,23 +1297,9 @@
                                               },
                                               "argument2": 0.6
                                             }
-                                          },
-                                          "argument2": 85.5
+                                          }
                                         },
-                                        "argument2": {
-                                          "type": "minecraft:mul",
-                                          "argument1": {
-                                            "type": "minecraft:mul",
-                                            "argument1": {
-                                              "type": "minecraft:noise",
-                                              "noise": "portalgun:gallery_mountains/hills",
-                                              "xz_scale": 1.0,
-                                              "y_scale": 0.0
-                                            },
-                                            "argument2": 2.0
-                                          },
-                                          "argument2": 11.25
-                                        }
+                                        "argument2": 15.749999999999998
                                       }
                                     }
                                   },

@@ -58,6 +58,24 @@ AMBIENT_LOOPS = {"wind_howl", "alien_hum", "bubbling", "crystal_chimes", "wet_sq
                  "clockwork", "candy_chime", "hive_drone", "tidal_waves", "dark_void", "sizzle_toxic"}
 
 _LISTS = {}
+_JAVA_LOOKUPS = None
+
+
+def java_lookups():
+    """(sound names, map colour names) accepted by W2's BlockLookups (parsed from the Java source), or (None, None)."""
+    global _JAVA_LOOKUPS
+    if _JAVA_LOOKUPS is None:
+        from .common import JAVA_MAIN
+        p = os.path.join(JAVA_MAIN, "dev", "portalgun", "block", "BlockLookups.java")
+        try:
+            with open(p, encoding="utf-8") as f:
+                src = f.read()
+            sounds = set(re.findall(r'\bs\("([a-z0-9_]+)"', src))
+            maps = set(re.findall(r'Map\.entry\("([a-z0-9_]+)"', src)) | set(re.findall(r'MAP_COLORS\.put\("([a-z0-9_]+)"', src))
+            _JAVA_LOOKUPS = (sounds or None, maps or None)
+        except OSError:
+            _JAVA_LOOKUPS = (None, None)
+    return _JAVA_LOOKUPS
 
 
 def vanilla(name):
@@ -226,8 +244,11 @@ def validate_dimension(dim, global_blocks, global_items, creature_ids_by_dim):
             if role not in BLOCK_KINDS[b.kind]:
                 r.warn(w, f"texture role {role!r} unused by kind {b.kind!r}")
             _check_tex(r, f"{w}.textures.{role}", tx)
-        if b.sound not in SOUNDS:
-            r.warn(w, f"sound {b.sound!r} is not a known vanilla SoundType name")
+        jsounds, jmaps = java_lookups()
+        if b.sound not in (jsounds or SOUNDS):
+            r.warn(w, f"sound {b.sound!r} is not a SoundType name known to BlockLookups (falls back to the kind default)")
+        if jmaps and b.map_color not in jmaps:
+            r.warn(w, f"map_color {b.map_color!r} is not a MapColor name known to BlockLookups")
         if not (0 <= b.light <= 15):
             r.err(w, "light must be 0..15")
         if b.drop and not refs.item_ok(b.drop):

@@ -49,7 +49,7 @@
       "argument1": {
         "type": "minecraft:shifted_noise",
         "noise": "portalgun:gallery_pillars/temperature",
-        "xz_scale": 0.9375,
+        "xz_scale": 1.25,
         "y_scale": 0.0,
         "shift_x": "minecraft:shift_x",
         "shift_y": 0.0,
@@ -62,7 +62,7 @@
       "argument1": {
         "type": "minecraft:shifted_noise",
         "noise": "portalgun:gallery_pillars/humidity",
-        "xz_scale": 0.9375,
+        "xz_scale": 1.25,
         "y_scale": 0.0,
         "shift_x": "minecraft:shift_x",
         "shift_y": 0.0,

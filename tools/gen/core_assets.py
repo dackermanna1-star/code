@@ -21,8 +21,9 @@ def _face(tex, uv=None, cull=None, rotation=None, tint=None):
     return f
 
 
-def _box(frm, to, tex, faces=None, rotation=None, name=None, uv_all=None):
-    """Element with the same texture on every face (uv auto from the box unless given)."""
+def _box(frm, to, tex, faces=None, rotation=None, name=None, uv_all=None, face_uv=None):
+    """Element with the same texture on every face (uv auto from the box unless given).
+    ``face_uv`` maps a side to an explicit uv (e.g. {"up": [0, 0, 16, 16]})."""
     fx, fy, fz = frm
     tx, ty, tz = to
     auto = {
@@ -38,7 +39,7 @@ def _box(frm, to, tex, faces=None, rotation=None, name=None, uv_all=None):
         t = (faces or {}).get(side, tex)
         if t is None:
             continue
-        uv = uv_all or [max(0, min(16, v)) for v in auto[side]]
+        uv = (face_uv or {}).get(side) or uv_all or [max(0, min(16, v)) for v in auto[side]]
         out_faces[side] = {"texture": t, "uv": uv}
     e = {"from": list(frm), "to": list(to), "faces": out_faces}
     if rotation:
@@ -70,7 +71,8 @@ def portal_gun_model():
              rotation={"angle": 45, "axis": "y", "origin": [8, 9, 4.75]}),
         _box((7.25, 11.5, 4), (8.75, 12, 5.5), dark, name="canister_cap"),
         # display housing + screen on top at the back
-        _box((6.25, 7.5, 8), (9.75, 8.5, 12), dark, faces={"up": screen}, name="display"),
+        # (the screen face shows the whole gun_screen texture, not the auto-uv window)
+        _box((6.25, 7.5, 8), (9.75, 8.5, 12), dark, faces={"up": screen}, face_uv={"up": full}, name="display"),
         # handle at the back, angled down
         _box((6.75, 1.0, 10.5), (9.25, 4.5, 13), dark, name="handle",
              rotation={"angle": -22.5, "axis": "x", "origin": [8, 4, 12]}),

@@ -391,6 +391,10 @@ def emit_block(ctx, b):
         spec["particle"] = b.particle
     if b.effect:
         spec["effect"] = b.effect
+        spec["effectSeconds"] = int(round(b.effect_seconds))
+        spec["effectAmplifier"] = int(b.effect_amplifier)
+    if b.damage_type:
+        spec["damageType"] = b.damage_type
     if b.fruit:
         spec["fruit"] = full_id(b.fruit)
     if b.drop:

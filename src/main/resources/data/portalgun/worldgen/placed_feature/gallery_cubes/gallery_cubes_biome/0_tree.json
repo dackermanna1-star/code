@@ -2,10 +2,6 @@
   "feature": "portalgun:gallery_cubes/gallery_cubes_biome/0_tree",
   "placement": [
     {
-      "type": "minecraft:count",
-      "count": 2
-    },
-    {
       "type": "minecraft:in_square"
     },
     {

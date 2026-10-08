@@ -2,10 +2,6 @@
   "feature": "portalgun:gallery_hills/gallery_hills_biome/0_tree",
   "placement": [
     {
-      "type": "minecraft:count",
-      "count": 2
-    },
-    {
       "type": "minecraft:in_square"
     },
     {

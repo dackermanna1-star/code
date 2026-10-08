@@ -1,0 +1,90 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.crystal_chimes"
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16744640,
+          "scale": 1.2
+        },
+        "probability": 0.004
+      },
+      {
+        "particle": {
+          "type": "minecraft:firefly"
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#102839"
+  },
+  "carvers": [],
+  "downfall": 0.5,
+  "effects": {
+    "water_color": "#3fa0e4"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:gallery_blocks/gallery_blocks_biome/9_boulder"
+    ],
+    [],
+    [
+      "portalgun:gallery_blocks/gallery_blocks_biome/10_spire",
+      "portalgun:gallery_blocks/gallery_blocks_biome/12_structure",
+      "portalgun:gallery_blocks/gallery_blocks_biome/13_structure"
+    ],
+    [],
+    [
+      "portalgun:gallery_blocks/ore_coal",
+      "portalgun:gallery_blocks/ore_iron",
+      "portalgun:gallery_blocks/ore_copper",
+      "portalgun:gallery_blocks/ore_gold",
+      "portalgun:gallery_blocks/ore_redstone",
+      "portalgun:gallery_blocks/ore_lapis",
+      "portalgun:gallery_blocks/ore_diamond",
+      "portalgun:gallery_blocks/ore_emerald",
+      "portalgun:gallery_blocks/gallery_blocks_biome/14_ore",
+      "portalgun:gallery_blocks/gallery_blocks_biome/15_disk"
+    ],
+    [
+      "portalgun:gallery_blocks/gallery_blocks_biome/7_patch",
+      "portalgun:gallery_blocks/gallery_blocks_biome/11_crystalcluster"
+    ],
+    [],
+    [
+      "portalgun:gallery_blocks/gallery_blocks_biome/0_tree",
+      "portalgun:gallery_blocks/gallery_blocks_biome/1_giantplant",
+      "portalgun:gallery_blocks/gallery_blocks_biome/2_patch",
+      "portalgun:gallery_blocks/gallery_blocks_biome/3_patch",
+      "portalgun:gallery_blocks/gallery_blocks_biome/4_patch",
+      "portalgun:gallery_blocks/gallery_blocks_biome/5_patch",
+      "portalgun:gallery_blocks/gallery_blocks_biome/6_patch",
+      "portalgun:gallery_blocks/gallery_blocks_biome/8_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

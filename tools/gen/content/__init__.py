@@ -60,10 +60,11 @@ def _dimension_info(dim, terrain, sky_entries, creature_ids):
     arrival = dim.arrival or default_arrival(t)
     if dim.arrival_y is not None:
         ay = int(dim.arrival_y)
-    elif arrival == "void":
+    elif arrival == "void" or t.fluid == "minecraft:air":
         ay = int(t.height + 2)
     else:
-        ay = int(t.height + 2)
+        # never build an emergency platform under the sea
+        ay = int(max(t.height, t.sea_level) + 2)
     info = {
         "id": dim.id, "code": dim.code, "name": dim.name, "tagline": dim.tagline, "description": dim.description,
         "danger": int(dim.danger), "color": dim.color,
@@ -108,7 +109,9 @@ def build_dimension(dim, res_dir, lang, sound_table, tags, C, spec):
                 if c.id in built:
                     creature_cat[c.id] = C.spawn_category(c)
                     creature_ids.append(c.id)
-            creatures_ok = True
+            creatures_ok = common.java_registers_creatures()
+            if not creatures_ok:
+                warn(f"{dim.id}: Java does not register spec creatures yet - their biome spawners are left out")
         except Exception as e:
             warn(f"{dim.id}: creatures.build_creatures failed ({e!r}) - creatures/spawns skipped")
             traceback.print_exc(limit=4, file=sys.stderr)

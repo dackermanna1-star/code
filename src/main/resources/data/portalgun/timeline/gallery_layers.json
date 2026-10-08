@@ -4,7 +4,7 @@
       "keyframes": [
         {
           "ticks": 0,
-          "value": false
+          "value": true
         }
       ],
       "modifier": "or"
@@ -13,7 +13,7 @@
       "keyframes": [
         {
           "ticks": 0,
-          "value": false
+          "value": true
         }
       ],
       "modifier": "or"
@@ -31,7 +31,7 @@
       "keyframes": [
         {
           "ticks": 0,
-          "value": false
+          "value": true
         }
       ],
       "modifier": "or"
@@ -40,7 +40,7 @@
       "keyframes": [
         {
           "ticks": 0,
-          "value": false
+          "value": true
         }
       ]
     },
@@ -48,7 +48,7 @@
       "keyframes": [
         {
           "ticks": 0,
-          "value": true
+          "value": false
         }
       ],
       "modifier": "or"
@@ -57,7 +57,7 @@
       "keyframes": [
         {
           "ticks": 0,
-          "value": 1.0
+          "value": 0.26666668
         }
       ],
       "modifier": "multiply"
@@ -75,16 +75,7 @@
       "keyframes": [
         {
           "ticks": 0,
-          "value": "#ffffffff"
-        }
-      ],
-      "modifier": "multiply"
-    },
-    "minecraft:visual/fog_color": {
-      "keyframes": [
-        {
-          "ticks": 0,
-          "value": "#ffffff"
+          "value": "#ff191926"
         }
       ],
       "modifier": "multiply"
@@ -93,24 +84,15 @@
       "keyframes": [
         {
           "ticks": 0,
-          "value": 539.9999999998817
+          "value": 315.73789071295937
         }
       ]
-    },
-    "minecraft:visual/sky_color": {
-      "keyframes": [
-        {
-          "ticks": 0,
-          "value": "#ffffff"
-        }
-      ],
-      "modifier": "multiply"
     },
     "minecraft:visual/sky_light_color": {
       "keyframes": [
         {
           "ticks": 0,
-          "value": "#ffffff"
+          "value": "#7a7aff"
         }
       ],
       "modifier": "multiply"
@@ -119,7 +101,7 @@
       "keyframes": [
         {
           "ticks": 0,
-          "value": 1.0
+          "value": 0.24
         }
       ],
       "modifier": "multiply"
@@ -128,7 +110,7 @@
       "keyframes": [
         {
           "ticks": 0,
-          "value": 359.99999999988165
+          "value": 135.7378907129594
         }
       ]
     },
@@ -136,7 +118,7 @@
       "keyframes": [
         {
           "ticks": 0,
-          "value": 0.0
+          "value": 0.5
         }
       ],
       "modifier": "maximum"
@@ -145,7 +127,7 @@
       "keyframes": [
         {
           "ticks": 0,
-          "value": 359.99999999988165
+          "value": 135.7378907129594
         }
       ]
     },
@@ -153,7 +135,7 @@
       "keyframes": [
         {
           "ticks": 0,
-          "value": "#00ffe533"
+          "value": "#00b33333"
         }
       ]
     }

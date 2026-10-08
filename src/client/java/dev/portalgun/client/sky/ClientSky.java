@@ -66,25 +66,6 @@ public final class ClientSky {
 	public static void init() {
 		// pipelines are registered by the static initialiser so they are precompiled with the vanilla ones
 		PortalGunMod.LOGGER.debug("Sky body pipelines: {}, {}", BODY_TRANSLUCENT.getLocation(), BODY_ADDITIVE.getLocation());
-		if (System.getenv("PORTALGUN_W2_SKYCHECK") != null) {
-			// TEMPORARY verification hook (W2): keep the camera aimed at the first sky body
-			net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(mc -> {
-				if (mc.player == null || mc.level == null) {
-					return;
-				}
-				ContentSpec.DimensionInfo info = Destinations.info(mc.level.dimension().identifier());
-				if (info == null || info.sky == null || info.sky.isEmpty()) {
-					return;
-				}
-				ContentSpec.Celestial b = info.sky.get(0);
-				float yaw = b.yaw;
-				float pitch = -Math.min(80.0F, b.pitch);
-				mc.player.setYRot(yaw);
-				mc.player.setXRot(pitch);
-				mc.player.yRotO = yaw;
-				mc.player.xRotO = pitch;
-			});
-		}
 	}
 
 	private static GpuBuffer quad() {

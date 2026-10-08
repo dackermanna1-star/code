@@ -17,6 +17,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -131,6 +132,28 @@ public class PortalGunClientTest implements FabricClientGameTest {
 				context.waitTicks(8);
 				sp.getClientWorld().waitForChunksRender();
 				context.takeScreenshot("tour_" + d.id().getPath() + "_" + v);
+			}
+			if ("1".equals(System.getenv("PORTALGUN_TOUR_AERIAL"))) {
+				// extra high vantage point to judge the terrain shape (env PORTALGUN_TOUR_AERIAL=1)
+				GameType[] prev = new GameType[1];
+				double[] home = new double[3];
+				sp.getServer().runOnServer(server -> {
+					ServerPlayer p = server.getPlayerList().getPlayers().get(0);
+					prev[0] = p.gameMode();
+					home[0] = p.getX();
+					home[1] = p.getY();
+					home[2] = p.getZ();
+					p.setGameMode(GameType.SPECTATOR);
+					p.connection.teleport(p.getX(), p.getY() + 40, p.getZ(), 30.0F, 38.0F);
+				});
+				context.waitTicks(12);
+				sp.getClientWorld().waitForChunksRender();
+				context.takeScreenshot("tour_" + d.id().getPath() + "_3");
+				sp.getServer().runOnServer(server -> {
+					ServerPlayer p = server.getPlayerList().getPlayers().get(0);
+					p.connection.teleport(home[0], home[1], home[2], 0.0F, 0.0F);
+					p.setGameMode(prev[0]);
+				});
 			}
 		}
 	}

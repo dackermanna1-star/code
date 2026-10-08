@@ -1,6 +1,8 @@
 {
   "replace": false,
   "values": [
-    "portalgun:hanging_glowroot"
+    "portalgun:hanging_glowroot",
+    "portalgun:gb_hanging",
+    "portalgun:gb_vine"
   ]
 }

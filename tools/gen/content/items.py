@@ -29,4 +29,5 @@ def emit_item(ctx, it):
                         "effects": [{"id": e.id, "duration": int(round(e.seconds * 20)), "amplifier": int(e.amplifier),
                                      "chance": float(e.chance)} for e in f.effects]}
         ctx.tags.add("item", f"{NS}:foods", f"{NS}:{it.id}")
+        ctx.lang[f"tag.item.{NS}.foods"] = "Multiverse Foods"
     return spec

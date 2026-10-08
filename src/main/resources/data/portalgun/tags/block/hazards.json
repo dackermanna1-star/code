@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
+    "portalgun:gb_hazard",
     "minecraft:magma_block"
   ]
 }

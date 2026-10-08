@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "portalgun:sporemoss"
+    "portalgun:sporemoss",
+    "portalgun:gb_grass"
   ]
 }

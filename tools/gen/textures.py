@@ -227,8 +227,20 @@ def save(img, path):
     return p
 
 
-def animated(frames, frametime=2, interpolate=True):
-    """Stack frames into a vertical strip; returns (strip, mcmeta_dict)."""
+def animated(frames, frametime=None, interpolate=None):
+    """Stack frames into a vertical strip; returns (strip, mcmeta_dict).
+
+    ``frametime`` / ``interpolate`` default to what the generator stored in the first frame's
+    ``info`` (``"frametime"``, ``"interpolate"``), else 2 / True.  Strips with small discrete
+    moving details (bubbles, sparks) or per-frame noise -- ``gun_canister_frames``,
+    ``portal_fluid_frames`` and ``static_noise`` strips -- must use ``interpolate=False``:
+    interpolation cross-fades those details (they blink instead of moving).  Those generators
+    tag their frames accordingly, so ``animated(frames)`` does the right thing."""
+    info = getattr(frames[0], "info", {}) or {}
+    if frametime is None:
+        frametime = info.get("frametime", 2)
+    if interpolate is None:
+        interpolate = info.get("interpolate", True)
     w, h = frames[0].size
     strip = Image.new("RGBA", (w, h * len(frames)), (0, 0, 0, 0))
     for i, f in enumerate(frames):
@@ -236,12 +248,19 @@ def animated(frames, frametime=2, interpolate=True):
     return strip, {"animation": {"frametime": int(frametime), "interpolate": bool(interpolate)}}
 
 
-def save_animated(frames, path, frametime=2, interpolate=True):
-    """Write ``path`` (strip png) and ``path + '.mcmeta'``."""
+def save_animated(frames, path, frametime=None, interpolate=None):
+    """Write ``path`` (strip png) and ``path + '.mcmeta'`` (see ``animated`` for the defaults)."""
     strip, meta = animated(frames, frametime, interpolate)
     p = save(strip, path)
     Path(str(p) + ".mcmeta").write_text(json.dumps(meta, indent=2) + "\n")
     return p
+
+
+def _tag_frames(frames, frametime=2, interpolate=False):
+    for f in frames:
+        f.info["frametime"] = frametime
+        f.info["interpolate"] = interpolate
+    return frames
 
 
 # =========================================================================
@@ -799,7 +818,7 @@ def log_top(bark_pal, ring_pal, seed):
 
 def planks(pal, seed):
     """Four 4px boards with grain, dark seams and staggered end joints."""
-    r = _ramp(pal, 5)
+    r = _ramp(pal, 5, 0.0, 0.86)
     grain = 0.55 * _vn(8, 1, seed + ":g") + 0.25 * _vn(4, 1, seed + ":h") + 0.3 * _white(seed + ":w")
     idx = _levels(grain, [0.08, 0.3, 0.42, 0.2]) + 1  # 1..4
     xx, yy = _grid()
@@ -891,11 +910,11 @@ def mushroom_cap(pal, seed, spots_pal=None):
 
 
 def mushroom_stem(pal, seed):
-    """Pale stem: fine vertical fibres."""
-    r = _ramp(pal, 4, 0.0, 0.9)
-    f = _grain(seed, w4=0, w2=0, w1=0, ww=0.3, extra=[(1, 6, 0.55), (2, 3, 0.25), (1, 2, 0.2)])
-    idx = _blevels(f, [0.1, 0.3, 0.42, 0.18])
-    return _render(idx, r)
+    """Pale stem: fine, soft vertical fibres."""
+    r = _ramp(pal, 4, 0.05, 0.85)
+    f = _grain(seed, w4=0, w2=0, w1=0, ww=0.45, extra=[(1, 4, 0.42), (2, 3, 0.18), (1, 2, 0.22)])
+    idx = _blevels(f, [0.08, 0.3, 0.44, 0.18])
+    return _render(_declash(idx, 3), r)
 
 
 def crystal(pal, seed, shards=7):
@@ -903,8 +922,8 @@ def crystal(pal, seed, shards=7):
     r = _xramp(pal, 5, light=1)  # 6 shades, 5 = edge highlight
     xx, yy = _grid()
     X, Y = xx + 0.5, yy + 0.5
-    f = 0.5 * _vn(4, 4, seed + ":bg") + 0.5 * _white(seed + ":w")
-    idx = _levels(f, [0.5, 0.35, 0.15])  # background 0..2
+    f = _grain(seed + ":bg", w4=0.12, w2=0.4, w1=0.25, ww=0.45)
+    idx = _blevels(f, [0.5, 0.35, 0.15])  # background 0..2
     R = _R(seed, "s")
     for s in range(shards):
         cx, cy = R.random() * S, R.random() * S
@@ -1136,9 +1155,11 @@ def rust(pal, seed):
     metal_pal = shift(pal, 0, 0.18, 0.85)
     out = _arr(metal(metal_pal, seed + ":m"))
     # patch mask: medium-scale clumps (no tile-scale blob) covering ~55% of the plate
-    f = _grain(seed + ":p", w4=0.15, w2=0.55, w1=0.2, ww=0.25)
-    cover = _blevels(f, [0.45, 0.55]) == 1
-    shade = _blevels(_grain(seed + ":s", w4=0.05, w2=0.3, w1=0.3, ww=0.6), [0.12, 0.3, 0.38, 0.2])  # 0..3
+    f = _grain(seed + ":p", w4=0.15, w2=0.6, w1=0.2, ww=0.15)
+    xx, yy = _grid()
+    frame = (np.minimum(np.minimum(xx, yy), np.minimum(S - 1 - xx, S - 1 - yy)) == 0)
+    cover = (_blevels(f, [0.56, 0.44]) == 1) & ~(frame & (_white(seed + ":fr") < 0.7))
+    shade = _blevels(_grain(seed + ":s", w4=0.1, w2=0.45, w1=0.25, ww=0.35), [0.12, 0.3, 0.38, 0.2])  # 0..3
     edge = cover & ~(_roll(cover, 1, 0) & _roll(cover, -1, 0) & _roll(cover, 0, 1) & _roll(cover, 0, -1))
     k = np.where(edge, np.maximum(shade, 2), shade + 1)  # flaky lighter rim
     out[cover, :3] = r[np.clip(k[cover], 0, 4)]
@@ -1160,8 +1181,8 @@ def circuit(bg_pal, trace_pal, seed):
     """Circuit board: noisy substrate, wrapping traces with pads, and a chip."""
     bg = _ramp(bg_pal, 4)
     tr = _xramp(trace_pal, 3, light=1)
-    f = 0.5 * _vn(4, 4, seed + ":a") + 0.5 * _white(seed + ":w")
-    bidx = _levels(f, [0.08, 0.5, 0.34, 0.08])
+    f = _grain(seed, w4=0.1, w2=0.35, w1=0.25, ww=0.5)
+    bidx = _blevels(f, [0.08, 0.5, 0.34, 0.08])
     occ = np.zeros((S, S), bool)
     tidx = np.full((S, S), -1)
     R = _R(seed, "tr")
@@ -1231,15 +1252,15 @@ def circuit(bg_pal, trace_pal, seed):
 
 def flesh(pal, vein_pal, seed):
     """Fleshy bulging cells with wet highlights, crossed by 1px branching veins."""
-    r = _xramp(pal, 5, light=1, hi=0.9)
+    r = _xramp(pal, 5, light=1, lo=0.22, hi=0.9)
     v = _ramp(vein_pal, 3)
     c = _cells(4, 4, seed + ":c", jitter=1.0, extra=2)
     edge = c["d2"] - c["d1"]
     bulge = 1 - np.clip(c["d1"] / 3.4, 0, 1)
     light = np.clip((-c["dx"] - c["dy"]) / 4, -1, 1)
     f = _hipass(0.5 * _nrm(bulge) + 0.32 * _nrm(light) + 0.28 * _nrm(_white(seed + ":w")))
-    idx = _blevels(f, [0.1, 0.24, 0.32, 0.24, 0.1])
-    idx = np.where(edge < 0.55, np.maximum(idx - 2, 0), idx)  # soft creases between cells
+    idx = _blevels(f, [0.06, 0.22, 0.38, 0.24, 0.1])
+    idx = np.where(edge < 0.5, np.maximum(idx - 1, 0), idx)  # soft creases between cells
     out = _arr(_render(idx, r))
     # branching veins: random walks that wrap, each spawning short side branches
     R = _R(seed, "veins")
@@ -1256,11 +1277,16 @@ def flesh(pal, vein_pal, seed):
                 walk(x, y, ang + R.choice([-1, 1]) * R.uniform(0.7, 1.2), int(R.integers(2, 5)), 1, depth + 1)
 
     for (sx, sy) in _spread_pts(R, 2, 7.0):
-        walk(sx, sy, R.uniform(0, math.tau), int(R.integers(9, 15)), 2, 0)
+        walk(sx, sy, R.uniform(0, math.tau), int(R.integers(12, 18)), 2, 0)
     main = vein == 2
     thin = vein == 1
-    out[main, :3] = v[0]
-    out[thin, :3] = v[1]
+    # veins must read against any flesh tone: pull them toward the vein palette's dark end and
+    # keep at least ~45 luminance below the flesh they cross
+    flesh_l = _lum(out[..., :3])
+    vdark = np.array(v[0], float)
+    vmid = np.array(v[1], float)
+    out[main, :3] = np.where((flesh_l[main] - _lum(vdark) < 45)[:, None], _mix(vdark, [0, 0, 0], 0.4), vdark)
+    out[thin, :3] = np.where((flesh_l[thin] - _lum(vmid) < 30)[:, None], vdark, vmid)
     # a lit edge on the vein (raised), top-left of each main vein pixel
     lit = ~main & ~thin & _roll(main, -1, 0)
     out[lit, :3] = _mix(out[lit, :3], v[2], 0.55)
@@ -1275,29 +1301,32 @@ def flesh(pal, vein_pal, seed):
 
 
 def goo(pal, seed, alpha=200):
-    """Semi-translucent goo with fine swirls and a couple of ringed bubbles."""
+    """Semi-translucent goo with smooth fine swirls (period 8, never tile-sized) and a couple of
+    ringed bubbles."""
     r = _xramp(pal, 4, light=1, hi=0.9)
     xx, yy = _grid()
-    w = _grain(seed + ":w", w4=0.15, w2=0.5, w1=0.2, ww=0.0)
-    s = np.sin((xx + yy) * 2 * math.pi / 8 + 1.6 * _nrm(w)) * 0.5 + 0.5
-    f = _hipass(0.7 * _nrm(s) + 0.3 * _nrm(_white(seed + ":n")))
-    idx = _blevels(f, [0.22, 0.42, 0.26, 0.1])
+    w = _grain(seed + ":w", w4=0.15, w2=0.5, w1=0.15, ww=0.0)
+    s = np.sin((xx + yy) * 2 * math.pi / 8 + 1.3 * _nrm(w))
+    f = _hipass(0.85 * _nrm(s) + 0.15 * _nrm(_white(seed + ":n")))
+    idx = _blevels(f, [0.2, 0.45, 0.25, 0.1])
     out = _arr(_render(idx, r))
     out[..., 3] = alpha - 20 + 40 * idx / 3
     R = _R(seed, "b")
-    for (cx, cy) in _spread_pts(R, int(R.integers(2, 4)), 6.5):
-        rad = 1.0 + R.random() * 0.9
+    for (cx, cy) in _spread_pts(R, int(R.integers(2, 4)), 7.0):
+        rad = 1.5 + R.random() * 0.9
         for (x, y) in _disc_pts(cx, cy, rad):
             dd = math.hypot(x + 0.5 - cx, y + 0.5 - cy)
             X, Y = x % S, y % S
+            # ring lit on the lower right, shadowed upper left, darker core: the bubble's mean
+            # brightness matches the goo around it (no light/dark quadrant -> no 16px grid)
             if dd > rad - 0.95:
                 lit = (x + 0.5 - cx) + (y + 0.5 - cy) > 0
-                out[Y, X, :3] = r[3] if lit else r[2]
+                out[Y, X, :3] = r[3] if lit else r[0]
                 out[Y, X, 3] = min(255, alpha + 30)
             else:
                 out[Y, X, :3] = r[1]
                 out[Y, X, 3] = alpha - 60
-        hx, hy = int(cx - rad * 0.5), int(cy - rad * 0.5)
+        hx, hy = int(cx - rad * 0.45), int(cy - rad * 0.45)
         out[hy % S, hx % S, :3] = r[4]
         out[hy % S, hx % S, 3] = 250
     return _img(out)
@@ -1860,14 +1889,18 @@ def plastic(hex_color, seed):
 
 
 def static_noise(seed, frame=0):
-    """TV static: random greys with a couple of brighter / darker scanlines."""
+    """TV static: random greys with a couple of brighter / darker scanlines.
+
+    Animate by generating ``frame=0..n-1`` and stacking them with ``animated(frames,
+    interpolate=False)`` -- interpolating per-frame noise just produces a grey blur.  The
+    returned image is tagged so ``animated(frames)`` already uses ``interpolate=False``."""
     g = np.array([[16, 16, 18], [64, 64, 68], [118, 118, 122], [178, 178, 182], [236, 236, 238]], float)
     R = _R(seed, f"st{frame}")
     w = R.random((S, S))
     rows = R.random(S)
     w = w + np.where(rows > 0.85, 0.25, 0)[:, None] - np.where(rows < 0.12, 0.25, 0)[:, None]
     idx = _levels(w, [0.18, 0.24, 0.24, 0.2, 0.14])
-    return _render(idx, g)
+    return _tag_frames([_render(idx, g)], 1, False)[0]
 
 
 _GLITCH = ["#000000", "#ff00ff", "#00ffff", "#00ff66", "#ffffff", "#2b0b3a", "#ff2b4e", "#1a1aff"]
@@ -1917,8 +1950,8 @@ def marble(pal, seed):
     xx, yy = _grid()
     t = 2 * ((xx + yy * 0.5) / 16 + 1.4 * _fbm2(8, 8, seed + ":t", 3))
     vein = _contour(t, 2, 1)
-    base = 0.6 * _vn(8, 8, seed + ":b") + 0.4 * _white(seed + ":w")
-    idx = 2 + _levels(base, [0.25, 0.5, 0.25])  # 2..4
+    base = _grain(seed + ":b", w4=0.14, w2=0.55, w1=0.2, ww=0.25)
+    idx = 2 + _blevels(base, [0.3, 0.58, 0.12])  # 2..4, the top shade only in small clumps
     near = _roll(vein, 0, 1) | _roll(vein, 1, 0)
     idx = np.where(near & ~vein, np.minimum(idx, 2), idx)
     idx = np.where(vein, 1, idx)
@@ -1978,9 +2011,9 @@ def basalt_top(pal, seed):
 
 def clay(pal, seed):
     """Smooth clay: very low contrast fine mottling, a few specks."""
-    r = _ramp(pal, 4, 0.2, 0.85)
-    f = _grain(seed, w4=0.1, w2=0.35, w1=0.25, ww=0.45)
-    idx = _blevels(f, [0.06, 0.42, 0.44, 0.08])
+    r = _ramp(pal, 4, 0.3, 0.78)
+    f = _grain(seed, w4=0.1, w2=0.3, w1=0.25, ww=0.5)
+    idx = _blevels(f, [0.05, 0.43, 0.45, 0.07])
     return _render(_declash(idx, 3), r)
 
 
@@ -2027,14 +2060,22 @@ class _Cv:
         self.w, self.h = w, h
         self.a = np.zeros((h, w, 4))
 
-    def px(self, x, y, c, alpha=255):
+    def _map(self, x, y):
+        """Canonical pixel -> canvas pixel (applies the active item transform, if any)."""
         x, y = int(math.floor(x)), int(math.floor(y))
+        if _XF is not None and (self.w, self.h) == (S, S):
+            fx, fy = _XF.fwd(x + 0.5, y + 0.5)
+            x, y = int(math.floor(fx)), int(math.floor(fy))
+        return x, y
+
+    def px(self, x, y, c, alpha=255):
+        x, y = self._map(x, y)
         if 0 <= x < self.w and 0 <= y < self.h:
             self.a[y, x, :3] = np.asarray(c, float)[:3]
             self.a[y, x, 3] = alpha
 
     def has(self, x, y):
-        x, y = int(math.floor(x)), int(math.floor(y))
+        x, y = self._map(x, y)
         return 0 <= x < self.w and 0 <= y < self.h and self.a[y, x, 3] > 0
 
     def line(self, x0, y0, x1, y1, c, alpha=255):
@@ -2070,8 +2111,49 @@ class _Cv:
         return _img(self.a)
 
 
+class _Xform:
+    """Canonical -> image affine transform (mirror, rotation, scale, shift about a centre) used
+    to vary item icon shapes per seed.  While one is active (``_XF``), ``_mgrid`` returns
+    canonical coordinates for every image pixel and ``_Cv.px`` maps canonical pixels to the
+    image, so every shape helper follows the transform automatically."""
+
+    def __init__(self, ang=0.0, scale=1.0, mirror=False, dx=0.0, dy=0.0, cx=8.0, cy=8.0):
+        self.cx, self.cy, self.dx, self.dy = cx, cy, dx, dy
+        self.mx = -1.0 if mirror else 1.0
+        c, s_ = math.cos(ang) * scale, math.sin(ang) * scale
+        # image = centre + shift + M @ (canonical - centre),  M = rot*scale @ diag(mx, 1)
+        self.m = np.array([[c * self.mx, -s_], [s_ * self.mx, c]])
+        self.mi = np.linalg.inv(self.m)
+
+    def fwd(self, x, y):
+        u, v = x - self.cx, y - self.cy
+        return (self.cx + self.dx + self.m[0, 0] * u + self.m[0, 1] * v,
+                self.cy + self.dy + self.m[1, 0] * u + self.m[1, 1] * v)
+
+    def inv(self, X, Y):
+        u, v = X - self.cx - self.dx, Y - self.cy - self.dy
+        return (self.cx + self.mi[0, 0] * u + self.mi[0, 1] * v,
+                self.cy + self.mi[1, 0] * u + self.mi[1, 1] * v)
+
+    def vec_inv(self, vx, vy):
+        """Image-space direction -> canonical direction (for keeping the light top-left)."""
+        return self.mi[0, 0] * vx + self.mi[0, 1] * vy, self.mi[1, 0] * vx + self.mi[1, 1] * vy
+
+
+_XF = None  # active _Xform while an item icon is drawn
+
+
 def _mgrid(w=S, h=S):
     yy, xx = np.mgrid[0:h, 0:w]
+    X, Y = xx + 0.5, yy + 0.5
+    if _XF is not None and (w, h) == (S, S):
+        return _XF.inv(X, Y)
+    return X, Y
+
+
+def _igrid():
+    """Image-space pixel centres (ignores the item transform)."""
+    yy, xx = np.mgrid[0:S, 0:S]
     return xx + 0.5, yy + 0.5
 
 
@@ -2146,6 +2228,10 @@ def _sphere(cx, cy, rad, w=S, h=S, light=(-0.55, -0.65, 0.55)):
     m = r2 <= 1.0
     nz = np.sqrt(np.clip(1 - r2, 0, 1))
     L = np.array(light, float)
+    if _XF is not None and (w, h) == (S, S):  # keep the light top-left in image space
+        lx, ly = _XF.vec_inv(L[0], L[1])
+        n0 = math.hypot(L[0], L[1]) / max(1e-9, math.hypot(lx, ly))
+        L[0], L[1] = lx * n0, ly * n0
     L /= np.linalg.norm(L)
     s = np.clip(dx * L[0] + dy * L[1] + nz * L[2], 0, 1)
     return m, np.where(m, s, 0)
@@ -2244,7 +2330,7 @@ def _plot(cv, pts, color_fn):
 
 def grass_tuft(pal, seed):
     """Short grass: a fan of 1px blades, darker at the base, light tips."""
-    r = _ramp(pal, 5)
+    r = _ramp(pal, 5, 0.0, 0.85)  # near-white palette tops stay for tiny tips only
     cv = _Cv()
     R = _R(seed, "t")
     nb = int(R.integers(7, 10))
@@ -2268,7 +2354,7 @@ def grass_tuft(pal, seed):
 
 
 def _tall_plant(pal, seed):
-    r = _ramp(pal, 5)
+    r = _ramp(pal, 5, 0.0, 0.85)
     cv = _Cv(S, 2 * S)
     R = _R(seed, "tall")
     blades = []
@@ -2588,7 +2674,7 @@ def sprout(pal, seed):
 
 def fern(pal, seed):
     """Fern: arching fronds with alternating leaflets."""
-    r = _ramp(pal, 5)
+    r = _ramp(pal, 5, 0.0, 0.85)
     R = _R(seed, "f")
     cv = _Cv()
     n = int(R.integers(4, 6))
@@ -2659,7 +2745,7 @@ def crystal_shard_sprite(pal, seed, count=3):
 
 def coral_fan(pal, seed):
     """Sea fan: forking branches spreading from the base, joined by a sparse lace."""
-    r = _xramp(pal, 4, light=1)
+    r = _xramp(pal, 4, light=1, hi=0.85)
     R = _R(seed, "cf")
     cv = _Cv()
     ox, oy = 7.5 + R.uniform(-0.5, 0.5), 15.5
@@ -2694,7 +2780,7 @@ def coral_fan(pal, seed):
 
 def reeds(pal, seed, head_hex="#6b4226"):
     """Reeds / cattails: thin segmented stalks, long leaves, a few seed heads."""
-    r = _ramp(pal, 5)
+    r = _ramp(pal, 5, 0.0, 0.85)
     hr = _color_ramp(head_hex, 4, spread=0.9)
     R = _R(seed, "r")
     cv = _Cv()
@@ -2728,7 +2814,7 @@ def reeds(pal, seed, head_hex="#6b4226"):
 
 def thorn_bush(pal, seed):
     """Tangle of thin branching stems bristling with sharp thorns."""
-    r = _xramp(pal, 4, light=1)
+    r = _xramp(pal, 4, light=1, hi=0.8)
     R = _R(seed, "tb")
     cv = _Cv()
     segs = []
@@ -2971,7 +3057,7 @@ def puffball(pal, seed):
 
 def tendril(pal, seed):
     """Curling tendrils rising from the ground, each ending in a spiral curl."""
-    r = _ramp(pal, 5)
+    r = _ramp(pal, 5, 0.0, 0.88)
     R = _R(seed, "t")
     cv = _Cv()
     n = int(R.integers(2, 4))
@@ -2999,7 +3085,7 @@ def tendril(pal, seed):
 
 def vine_overlay(pal, seed):
     """Sparse hanging vine strands with leaves on transparent (tiles both ways)."""
-    r = _ramp(pal, 5)
+    r = _ramp(pal, 5, 0.0, 0.85)
     R = _R(seed, "v")
     cv = _Cv()
     n = int(R.integers(2, 4))
@@ -3029,7 +3115,7 @@ def vine_overlay(pal, seed):
 
 def lily_pad(pal, seed):
     """Top-down floating pad with a notch, radial veins and a darker rim."""
-    r = _ramp(pal, 5)
+    r = _ramp(pal, 5, 0.0, 0.85)
     R = _R(seed, "lp")
     X, Y = _mgrid()
     cx, cy = 8.0, 8.0
@@ -3054,7 +3140,7 @@ def lily_pad(pal, seed):
 def sapling(trunk_pal, leaf_pal, seed):
     """Young tree: thin trunk and a clumpy leafy crown with a few gaps."""
     tr = _ramp(trunk_pal, 4)
-    lr = _xramp(leaf_pal, 4, light=1)
+    lr = _xramp(leaf_pal, 4, light=1, hi=0.8)
     R = _R(seed, "sp")
     cv = _Cv()
     tx = 7 + int(R.integers(0, 2))
@@ -3080,7 +3166,7 @@ def sapling(trunk_pal, leaf_pal, seed):
 
 def berry_bush(leaf_pal, berry_hex, seed):
     """Round leafy bush dotted with glossy berries."""
-    lr = _xramp(leaf_pal, 4, light=1)
+    lr = _xramp(leaf_pal, 4, light=1, hi=0.8)
     br = _color_ramp(berry_hex, 4, spread=0.9)
     R = _R(seed, "bb")
     cv = _Cv()
@@ -3238,239 +3324,507 @@ def _acc(accent, default):
     return _rgb(accent if accent is not None else default)[:3]
 
 
+def _hit(m, x, y):
+    """Is canonical pixel (x, y) inside image-space mask ``m``? (follows the item transform)"""
+    x, y = int(math.floor(x)), int(math.floor(y))
+    if _XF is not None:
+        fx, fy = _XF.fwd(x + 0.5, y + 0.5)
+        x, y = int(math.floor(fx)), int(math.floor(fy))
+    return 0 <= x < S and 0 <= y < S and bool(m[y, x])
+
+
+def _spec(cv, m, hot, warm=None, depth=2, bias=1.1):
+    """Specular glint on the upper-left interior of ``m``, placed in image space so it stays
+    top-left whatever transform (mirror/rotation) the shape was drawn with."""
+    X, Y = _igrid()
+    d = _dist_in(m)
+    cand = m & (d >= depth)
+    if not cand.any():
+        cand = m & (d >= 1)
+        if not cand.any():
+            return None
+    score = np.where(cand, X + Y * bias, 1e9)
+    y, x = np.unravel_index(np.argmin(score), score.shape)
+    cv.a[y, x, :3] = np.asarray(hot, float)[:3]
+    if warm is not None:
+        for (ny, nx) in ((y, x + 1), (y + 1, x)):
+            if 0 <= nx < S and 0 <= ny < S and cand[ny, nx]:
+                cv.a[ny, nx, :3] = np.asarray(warm, float)[:3]
+    return x, y
+
+
+def _jag(R, n, amp):
+    """``n`` random offsets in [-amp, amp] (jagged / broken edges)."""
+    return [R.uniform(-amp, amp) for _ in range(n)]
+
+
+def _catmull(pts, steps=10):
+    """Catmull-Rom spline through ``pts`` (list of (x, y)); returns dense points."""
+    P = [pts[0]] + list(pts) + [pts[-1]]
+    out = []
+    for i in range(1, len(P) - 2):
+        p0, p1, p2, p3 = P[i - 1], P[i], P[i + 1], P[i + 2]
+        for k in range(steps):
+            t = k / steps
+            t2, t3 = t * t, t * t * t
+            out.append(tuple(0.5 * ((2 * p1[j]) + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2
+                                    + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3) for j in (0, 1)))
+    out.append(tuple(pts[-1]))
+    return out
+
+
 def _it_meat(cv, r, R, accent, cooked=False):
-    m = _rellipse(7.5, 8.5, 6.2, 4.3, -0.55)
-    m &= ~(_rellipse(13.0, 4.5, 2.2, 1.8, 0.3))
-    m |= _rellipse(4.0, 12.0, 2.6, 2.0, -0.5)
+    ang = R.uniform(-0.72, -0.38)
+    rx, ry = R.uniform(5.5, 6.3), R.uniform(3.9, 4.7)
+    cx, cy = 8.6 + R.uniform(-0.4, 0.4), 7.6 + R.uniform(-0.4, 0.4)
+    ca, sa = math.cos(ang), math.sin(ang)
+    m = _rellipse(cx, cy, rx, ry, ang)
+    if R.random() < 0.6:  # a bite out of the upper edge
+        t = R.uniform(-0.3, 0.5)
+        m &= ~_ellipse(cx + ca * rx * t + sa * ry * 1.05, cy + sa * rx * t - ca * ry * 1.05, 1.7, 1.5)
+    # bone end sticking out of the lower-left
+    b0 = (cx - ca * rx * 0.55, cy - sa * rx * 0.55)
+    b1 = (cx - ca * (rx + 1.4), cy - sa * (rx + 1.4))
+    bone = _thick([b0, b1], rad=0.85) | _ellipse(b1[0] - sa * 1.0, b1[1] + ca * 1.0, 1.15, 1.15) \
+        | _ellipse(b1[0] + sa * 1.0, b1[1] - ca * 1.0, 1.15, 1.15)
+    bone &= ~m
     _fill(cv, m, r, 1, 4, depth=2.5)
+    bc = _color_ramp("#efe7d2", 3, spread=0.55)
+    cv.paint(bone, 1 + _quant(_shade(bone, depth=1.2), 2), bc)
+    inner = _dist_in(m) > 1
     X, Y = _mgrid()
     if cooked:
-        for k in (-3, 1, 5):
-            line = m & (np.abs((X - Y) - k) < 0.6) & (_dist_in(m) > 1)
-            cv.paint(line, np.full((S, S), 0), r)
-        for (x, y) in ((5, 7), (9, 5), (6, 10)):
-            if m[y, x]:
-                cv.px(x, y, r[5])
+        off = R.uniform(0, 3.5)
+        gap = R.uniform(3.2, 4.2)
+        u = (X - Y) - off
+        lines = m & inner & (np.abs(((u + 40) % gap) - gap / 2) < 0.5)
+        cv.paint(lines, np.full((S, S), 0), r)
     else:
         fat = _acc(accent, _hex(_mix(r[5], [255, 244, 240], 0.6)))
-        for (ox, oy) in ((6, 6), (8, 10)):
-            pts = _curve(ox - 2, oy + 2, ox + 4, oy - 2, bend=1.2, steps=12)
+        for _ in range(2):
+            t0 = R.uniform(-0.6, 0.5)
+            ox, oy = cx + ca * rx * t0, cy + sa * rx * t0
+            pts = _curve(ox - 2.2, oy + 1.6 * R.choice([-1, 1]), ox + 2.6, oy - 1.2, bend=R.uniform(-1.5, 1.5), steps=14)
             for (x, y) in pts:
-                if m[int(y) % S, int(x) % S] and _dist_in(m)[int(y) % S, int(x) % S] > 1:
+                if _hit(m & inner, x, y):
                     cv.px(x, y, fat)
-        cv.px(5, 6, r[5])
+    _spec(cv, m, r[5], depth=2)
 
 
 def _it_gem(cv, r, R, accent):
-    pts = [(2.5, 6.5), (5.5, 2.5), (10.5, 2.5), (13.5, 6.5), (8.0, 14.0)]
-    m = _poly(pts)
+    cut = ("brilliant", "step", "pear")[int(R.integers(0, 3))]
     X, Y = _mgrid()
-    idx = np.full((S, S), 3)
-    crown = Y < 6.5
-    idx = np.where(crown & (X < 5.5), 4, idx)
-    idx = np.where(crown & (X >= 5.5) & (X < 10.5), 5, idx)
-    idx = np.where(crown & (X >= 10.5), 3, idx)
-    idx = np.where(crown & (Y < 4) & (X >= 5.5) & (X < 10.5), 4, idx)
-    idx = np.where(~crown & (X < 6), 3, idx)
-    idx = np.where(~crown & (X >= 6) & (X < 10), 2, idx)
-    idx = np.where(~crown & (X >= 10), 1, idx)
-    idx = np.where((np.abs(Y - 6.5) < 0.5), np.maximum(idx - 1, 1), idx)
-    cv.paint(m, idx, r)
-    cv.px(6, 4, [255, 255, 255])
-    cv.px(5, 5, [255, 255, 255])
+    if cut == "step":
+        a, b = R.uniform(2.5, 3.5), R.uniform(2.3, 3.0)
+        pts = [(2.5 + a - 1, 2.5), (13.5 - a + 1, 2.5), (13.5, 2.5 + b), (13.5, 13.5 - b), (13.5 - a + 1, 13.5),
+               (2.5 + a - 1, 13.5), (2.5, 13.5 - b), (2.5, 2.5 + b)]
+        m = _poly(pts)
+        table = (X > 5.2) & (X < 10.8) & (Y > 5.0) & (Y < 11.0)
+        d = np.stack([Y - 2.5, X - 2.5, 13.5 - Y, 13.5 - X])  # top, left, bottom, right bands
+        band = np.argmin(d, axis=0)
+        idx = np.array([5, 4, 1, 2])[band]
+        idx = np.where(table, 3, idx)
+        idx = np.where(table & (X + Y < 13), 4, idx)
+        cv.paint(m, idx, r)
+    elif cut == "pear":
+        m = _ellipse(8.0, 9.6, 5.0, 4.6) | _poly([(3.6, 8.2), (8.0, 1.8), (12.4, 8.2)])
+        th = np.arctan2(Y - 9.0, X - 8.0)
+        sector = np.floor(((th + math.pi) / (math.pi / 3)) % 6).astype(int)
+        idx = np.array([4, 4, 5, 3, 2, 2])[sector]
+        idx = np.where(np.hypot(X - 8, Y - 9.0) < 2.0, 3, idx)
+        cv.paint(m, idx, r)
+    else:
+        w = R.uniform(-0.6, 0.6)
+        ch = R.uniform(5.8, 7.2)
+        pts = [(2.5 + w, ch), (5.5, 2.5), (10.5, 2.5), (13.5 - w, ch), (8.0 + R.uniform(-0.5, 0.5), 14.0)]
+        m = _poly(pts)
+        idx = np.full((S, S), 3)
+        crown = Y < ch
+        idx = np.where(crown & (X < 5.5), 4, idx)
+        idx = np.where(crown & (X >= 5.5) & (X < 10.5), 5, idx)
+        idx = np.where(crown & (X >= 10.5), 3, idx)
+        idx = np.where(crown & (Y < 4) & (X >= 5.5) & (X < 10.5), 4, idx)
+        idx = np.where(~crown & (X < 6), 3, idx)
+        idx = np.where(~crown & (X >= 6) & (X < 10), 2, idx)
+        idx = np.where(~crown & (X >= 10), 1, idx)
+        idx = np.where((np.abs(Y - ch) < 0.5), np.maximum(idx - 1, 1), idx)
+        cv.paint(m, idx, r)
+    _spec(cv, m, [255, 255, 255], r[5], depth=2)
 
 
-def _it_orb(cv, r, R, accent, rad=5.6, cx=8.0, cy=8.0):
+def _it_orb(cv, r, R, accent, rad=None, cx=8.0, cy=8.0):
+    rad = R.uniform(5.2, 5.9) if rad is None else rad
     m, s = _sphere(cx, cy, rad)
     idx = 1 + _quant(s, 5)
     X, Y = _mgrid()
     rim = m & (np.hypot(X - cx, Y - cy) > rad - 1.2) & ((X - cx) + (Y - cy) > 2)
     idx = np.where(rim, np.minimum(idx + 1, 3), idx)
+    style = int(R.integers(0, 3))
+    if style == 1:  # swirling inner band
+        th = np.arctan2(Y - cy, X - cx)
+        d = np.hypot(X - cx, Y - cy)
+        band = m & (np.abs(((th / math.tau + d / (rad * 1.3) + R.random()) % 1.0) - 0.5) < 0.1) & (d < rad - 1.2)
+        idx = np.where(band, np.maximum(idx - 1, 1), idx)
+    elif style == 2:  # glowing core
+        a = R.uniform(0, math.tau)
+        core = np.hypot(X - cx - 1.2 * math.cos(a), Y - cy - 1.2 * math.sin(a)) < 1.6
+        idx = np.where(core & m, 5, idx)
     cv.paint(m, idx, r)
-    hx, hy = int(cx - rad * 0.45), int(cy - rad * 0.45)
-    cv.px(hx, hy, [255, 255, 255])
-    cv.px(hx + 1, hy, r[5])
-    cv.px(hx, hy + 1, r[5])
+    _spec(cv, m, [255, 255, 255], r[5], depth=2)
 
 
 def _it_shard(cv, r, R, accent):
-    pts = [(2.5, 13.5), (2.5, 10.5), (10.0, 2.5), (13.5, 2.0), (13.0, 5.5), (5.5, 13.5)]
+    """Jagged triangular crystal fragment with a broken base edge and two facets."""
+    tip = (13.6 + R.uniform(-0.4, 0.2), 2.0 + R.uniform(-0.2, 0.6))
+    A = (2.2 + R.uniform(0, 0.8), 7.4 + R.uniform(-0.6, 1.4))
+    B = (8.2 + R.uniform(-0.6, 1.4), 13.9 + R.uniform(-0.4, 0.1))
+    base = []
+    n = int(R.integers(3, 5))
+    ex, ey = B[0] - A[0], B[1] - A[1]
+    L = math.hypot(ex, ey)
+    nx_, ny_ = -ey / L, ex / L  # points away from the tip (outward)
+    for i in range(1, n + 1):
+        t = i / (n + 1) + R.uniform(-0.05, 0.05)
+        o = (1.0 if i % 2 else -0.8) * R.uniform(0.6, 1.3)
+        base.append((A[0] + ex * t + nx_ * o, A[1] + ey * t + ny_ * o))
+    kt = R.uniform(0.35, 0.65)
+    K = (B[0] + (tip[0] - B[0]) * kt + R.uniform(0.2, 0.8), B[1] + (tip[1] - B[1]) * kt + R.uniform(0.0, 0.5))
+    pts = [tip, A] + base + [B, K]
     m = _poly(pts)
     X, Y = _mgrid()
-    side = (X + Y) - 15.5
-    idx = np.where(side < -0.5, 4, np.where(side < 1.0, 3, 2))
-    idx = np.where(np.abs(side + 1.0) < 0.6, 5, idx)
+    P = base[len(base) // 2]
+    side = (X - tip[0]) * (P[1] - tip[1]) - (Y - tip[1]) * (P[0] - tip[0])
+    dist = np.abs(side) / math.hypot(P[0] - tip[0], P[1] - tip[1])
+    idx = np.where(side > 0, 4, 2)
+    idx = np.where((side > 0) & (dist > 2.2), 3, idx)
+    idx = np.where(dist < 0.55, 5, idx)
     cv.paint(m, idx, r)
-    cv.px(12, 3, [255, 255, 255])
+    d = _dist_in(m)
+    cv.a[m & (d <= 1) & (side < 0), :3] = r[1]
+    _spec(cv, m, [255, 255, 255], depth=1)
 
 
 def _it_goo(cv, r, R, accent):
-    X, Y = _mgrid()
-    m = _ellipse(8.0, 9.2, 5.8, 4.8) | _ellipse(7.0, 5.6, 3.2, 2.4)
-    m |= _ellipse(11.5, 13.6, 1.3, 1.5) | _ellipse(11.0, 12.5, 1.4, 1.2)
-    m &= ~_ellipse(3.0, 13.8, 1.6, 1.2)
-    _fill(cv, m, r, 1, 4, depth=2.8)
-    for (x, y, k) in ((5, 6, 5), (6, 5, 5), (4, 7, 4), (5, 7, 4), (10, 9, 4), (9, 10, 3), (11, 13, 4)):
-        cv.px(x, y, r[k])
+    """Slime ball sagging into short drips (plus a falling droplet), with a glossy highlight."""
+    cx, cy = 8.0 + R.uniform(-0.4, 0.4), 7.4 + R.uniform(-0.4, 0.4)
+    rx, ry = R.uniform(5.5, 6.1), R.uniform(4.2, 4.8)
+    m = _rellipse(cx, cy, rx, ry, R.uniform(-0.1, 0.1))
+    xs = R.choice([-3.4, -2.2, 1.8, 3.2], 2, replace=False)
+    drops = []
+    for k, dx in enumerate(xs):
+        x = cx + dx
+        ln = R.uniform(1.2, 2.6)
+        top = cy + ry * math.sqrt(max(0.0, 1 - (dx / rx) ** 2)) - 0.8
+        m |= _thick([(x, top), (x, top + ln)], rad=0.95)
+        m |= _ellipse(x, top + ln + 0.2, 1.25, 1.2)
+        drops.append((x, top + ln + 0.2))
+    if R.random() < 0.7:
+        x, y = drops[int(R.integers(0, 2))]
+        if y + 2.8 < 15.0:
+            m |= _ellipse(x + 0.2, y + 2.6, 0.75, 0.85)
+    s = _shade(m, depth=2.8)
+    cv.paint(m, 1 + _quant(s, 4), r)
+    for _ in range(int(R.integers(1, 3))):  # trapped bubbles
+        bx, by = cx + R.uniform(-1.5, 3.0), cy + R.uniform(-0.5, 2.0)
+        if _hit(m, bx, by) and _hit(m, bx + 1, by + 1):
+            cv.px(bx, by, r[4])
+            cv.px(bx + 1, by + 1, r[2])
+    hp = _spec(cv, m, r[5], r[5], depth=2)
+    if hp:
+        hx, hy = hp
+        for (x, y) in ((hx + 2, hy - 1), (hx + 3, hy - 1), (hx - 1, hy + 2)):
+            if 0 <= x < S and 0 <= y < S and m[y, x] and _dist_in(m)[y, x] > 1:
+                cv.a[y, x, :3] = r[4]
 
 
 def _it_feather(cv, r, R, accent):
-    m, u, v = _lens(2.5, 13.5, 13.5, 2.5, 3.2)
+    """Long narrow vane on a quill that sticks out past the vane at the base, with barb notches."""
+    x0, y0 = 2.0 + R.uniform(0, 0.6), 14.2
+    x1, y1 = 13.4, 2.4 + R.uniform(-0.3, 0.6)
+    bend = R.uniform(-1.4, 1.4)
+    quill = _curve(x0, y0, x1, y1, bend=bend, steps=40)
     X, Y = _mgrid()
-    notch = (np.abs(((u * 0.9) % 4) - 2) < 0.5) & (np.abs(v) > 1.5)
-    m &= ~notch
+    t0 = R.uniform(0.2, 0.27)  # bare quill below the vane
+    wl, wr = R.uniform(2.5, 3.1), R.uniform(1.7, 2.4)
+    if R.random() < 0.5:
+        wl, wr = wr, wl
+    # distance along / across the (curved) quill: nearest quill sample per pixel
+    P = np.array(quill)
+    dxs = X[None] - P[:, 0, None, None]
+    dys = Y[None] - P[:, 1, None, None]
+    dist = np.hypot(dxs, dys)
+    j = np.argmin(dist, axis=0)
+    t = j / (len(P) - 1)
+    tx = np.gradient(P[:, 0])[j]
+    ty = np.gradient(P[:, 1])[j]
+    v = (np.take_along_axis(dxs, j[None], 0)[0] * ty - np.take_along_axis(dys, j[None], 0)[0] * tx) / \
+        (np.hypot(tx, ty) + 1e-9)
+    tt = np.clip((t - t0) / (1 - t0), 0, 1)
+    prof = np.sin(np.clip(tt, 0, 1) * math.pi) ** 0.55 * (0.55 + 0.45 * (1 - tt))
+    half = np.where(v < 0, wl, wr) * prof
+    vane = (t > t0) & (np.abs(v) <= half + 0.2) & (dist.min(0) < 4.5)
+    # barb notches: thin V cuts from the edge toward the quill
+    for _ in range(int(R.integers(2, 4))):
+        tn = R.uniform(0.35, 0.85)
+        sd = R.choice([-1, 1])
+        cut = (np.abs(t - tn) < 0.018 + 0.03 * np.abs(v) / 3.0) & (np.sign(v) == sd) & (np.abs(v) > 0.9)
+        vane &= ~cut
     idx = np.where(v < 0, 4, 3)
-    idx = np.where(np.abs(v) > 2.0, idx - 1, idx)
-    cv.paint(m, idx, r)
-    for (x, y) in _line_pts(2, 13, 12, 3):
-        cv.px(x, y, r[1] if x < 5 else r[5])
+    idx = np.where(np.abs(v) > half * 0.7, idx - 1, idx)
+    cv.paint(vane, idx, r)
+    # down fluff near the vane base
+    for k in range(int(R.integers(1, 3))):
+        qx, qy = quill[int(len(quill) * (t0 + 0.04))]
+        sd = 1 if k % 2 else -1
+        cv.px(qx - 1 + sd, qy + 1 + k, r[2])
+    # the quill (rachis): light inside the vane, darker bare shaft
+    _plot(cv, quill, lambda t: r[1] if t < t0 else (r[5] if t < 0.92 else None))
 
 
 def _it_scale(cv, r, R, accent):
-    m = _ellipse(8.0, 7.0, 5.6, 5.4) | _poly([(3.0, 8.0), (13.0, 8.0), (8.0, 14.5)])
-    s = _shade(m, depth=2.5)
-    idx = 1 + _quant(s, 4)
+    """Armour scale: a smooth pointed shield plate with ridged growth rows (arcs parallel to its
+    rounded top edge) and a lit rim."""
+    w = R.uniform(5.2, 6.0)
+    top = R.uniform(2.2, 3.0)
+    tipy = R.uniform(13.9, 14.6)
     X, Y = _mgrid()
-    d = np.hypot(X - 8, Y - 14)
-    ridge = (np.abs(d % 3.5 - 1.75) < 0.4) & (_dist_in(m) > 1)
-    idx = np.where(ridge, np.maximum(idx - 1, 1), idx)
+    ry = 3.4
+    m = _ellipse(8.0, top + ry, w, ry) & (Y < top + ry + 0.2)
+    m |= _poly([(8.0 - w, top + ry - 0.2), (8.0 + w, top + ry - 0.2), (8.0, tipy)])
+    s = _shade(m, depth=2.5)
+    idx = 2 + _quant(s, 3)  # 2..4
+    # distance below the top edge (constant along arcs parallel to it)
+    edge_y = top + ry - ry * np.sqrt(np.clip(1 - ((X - 8.0) / w) ** 2, 0, 1))
+    below = Y - edge_y
+    gap = R.uniform(2.6, 3.2)
+    nrow = int(R.integers(2, 4))
+    for k in range(1, nrow + 1):
+        line = m & (np.abs(below - k * gap) < 0.5) & (_dist_in(m) > 1)
+        lit = m & (np.abs(below - k * gap - 1.0) < 0.5) & (_dist_in(m) > 1)
+        idx = np.where(line, 1, idx)
+        idx = np.where(lit, np.minimum(idx + 1, 5), idx)
+    rim = m & (below < 1.0) & (X < 8.0 + w * 0.4)
+    idx = np.where(rim, 5, idx)
     cv.paint(m, idx, r)
-    cv.px(6, 4, r[5])
-    cv.px(5, 5, r[5])
 
 
 def _it_fang(cv, r, R, accent):
-    pts = [(5.0, 2.5), (11.5, 2.5), (11.0, 6.5), (9.0, 10.5), (5.5, 14.0), (6.0, 9.5)]
-    m = _poly(pts)
+    """Curved tooth hanging from a strip of gum."""
+    ln = R.uniform(10.0, 12.0)
+    bend = R.uniform(1.0, 3.2) * R.choice([-1, 1])
+    root_w = R.uniform(2.8, 3.6)
+    spine = _curve(8.0, 3.0, 8.0 + bend * 0.6, 3.0 + ln, bend=bend, steps=30)
+    m = np.zeros((S, S), bool)
+    for i, (x, y) in enumerate(spine):
+        t = i / (len(spine) - 1)
+        rr = root_w * (1 - t) ** 0.9 + 0.35
+        m |= _ellipse(x, y, rr, 0.9)
     _fill(cv, m, r, 2, 5, depth=2.0)
     gum = _acc(accent, "#b8404a")
     gr = _color_ramp(_hex(gum), 3)
-    for x in range(5, 12):
+    gw = int(root_w + 1.5)
+    for x in range(8 - gw, 8 + gw + 1):
         cv.px(x, 2, gr[1])
         cv.px(x, 3, gr[2] if x < 8 else gr[1])
+    _spec(cv, m, r[5], depth=1)
 
 
 def _it_eyeball(cv, r, R, accent):
-    m, s = _sphere(8.0, 8.0, 5.6)
+    m, s = _sphere(8.0, 8.0, R.uniform(5.3, 5.8))
     cv.paint(m, 2 + _quant(s, 4), r)
     ic = _color_ramp(_hex(_acc(accent, "#2d8bd6")), 4)
-    im_, s2 = _sphere(9.0, 8.5, 2.7)
+    lx, ly = R.uniform(-1.6, 1.6), R.uniform(-1.2, 1.4)
+    ir = R.uniform(2.3, 3.0)
+    im_, s2 = _sphere(8.0 + lx, 8.0 + ly, ir)
     X, Y = _mgrid()
-    cv.paint(im_, np.where((X - 9) + (Y - 8.5) < 0, 2, 1), ic)
-    cv.px(9, 8, [14, 10, 12])
-    cv.px(9, 9, [14, 10, 12])
-    cv.px(8, 7, [255, 255, 255])
-    vein = [190, 40, 50]
-    for (x, y) in ((3, 9), (4, 10), (12, 5), (13, 6), (12, 11)):
-        if m[y, x]:
-            cv.px(x, y, _mix(r[3], vein, 0.6))
+    cv.paint(im_ & m, np.where((X - 8 - lx) + (Y - 8 - ly) < 0, 2, 1), ic)
+    px, py = 8.0 + lx, 8.0 + ly
+    if R.random() < 0.35:  # slit pupil
+        for k in (-1, 0, 1):
+            cv.px(px, py + k, [14, 10, 12])
+    else:
+        cv.px(px, py, [14, 10, 12])
+        cv.px(px, py + 1, [14, 10, 12])
+    vein = _mix(r[3], [190, 40, 50], 0.6)
+    for _ in range(int(R.integers(3, 6))):
+        a = R.uniform(0, math.tau)
+        for k in (4.6, 3.8):
+            x, y = 8 + k * math.cos(a), 8 + k * math.sin(a)
+            if _hit(m, x, y) and not _hit(im_, x, y):
+                cv.px(x, y, vein)
+            a += R.uniform(-0.3, 0.3)
+    _spec(cv, m, [255, 255, 255], depth=2)
 
 
 def _it_spore(cv, r, R, accent):
-    m = _ellipse(8.0, 8.0, 4.2, 4.2)
-    for k in range(8):
-        a = k * math.pi / 4 + R.uniform(-0.2, 0.2)
-        m |= _thick([(8 + 3.5 * math.cos(a), 8 + 3.5 * math.sin(a)), (8 + 6.2 * math.cos(a), 8 + 6.2 * math.sin(a))], rad=0.6)
-    idx = _fill(cv, m, r, 1, 4, depth=2.0)
-    for (x, y) in ((6, 7), (9, 6), (8, 9), (10, 9), (6, 10)):
-        if m[y, x]:
-            cv.px(x, y, r[5] if (x + y) % 2 else r[1])
+    rad = R.uniform(3.8, 4.5)
+    m = _ellipse(8.0, 8.0, rad, rad)
+    n = int(R.choice([6, 7, 8, 9]))
+    a0 = R.uniform(0, 1)
+    for k in range(n):
+        a = a0 + k * math.tau / n + R.uniform(-0.2, 0.2)
+        ln = R.uniform(5.6, 6.6)
+        m |= _thick([(8 + (rad - 0.6) * math.cos(a), 8 + (rad - 0.6) * math.sin(a)),
+                     (8 + ln * math.cos(a), 8 + ln * math.sin(a))], rad=0.6)
+    _fill(cv, m, r, 1, 4, depth=2.0)
+    for _ in range(int(R.integers(3, 6))):
+        x, y = 8 + R.uniform(-2.5, 2.5), 8 + R.uniform(-2.5, 2.5)
+        if _hit(m, x, y):
+            cv.px(x, y, r[5] if R.random() < 0.5 else r[1])
 
 
 def _it_dust(cv, r, R, accent):
+    """A small pile of glittering powder (a mound ~9px wide, centred in the slot)."""
     X, Y = _mgrid()
-    mound = _ellipse(8.0, 14.0, 6.6, 4.6) & (Y < 15)
+    cx = 8.0 + R.uniform(-0.5, 0.5)
+    base = R.uniform(12.2, 12.8)
+    rx, ry = R.uniform(4.4, 5.0), R.uniform(6.0, 7.0)
+    peak = R.uniform(-0.8, 0.8)
+    mound = _ellipse(cx + peak * np.clip((base - Y) / ry, 0, 1), base, rx, ry) & (Y < base + 0.2)
+    mound |= _ellipse(cx, base - 0.2, rx + 0.5, 1.4) & (Y < base + 0.7)
     w = R.random((S, S))
     s = _shade(mound, depth=3.0)
     idx = 2 + _quant(np.clip(s * 0.7 + 0.3 * w, 0, 0.999), 3)
     idx = np.where((w > 0.86) & (_dist_in(mound) > 1), 5, idx)
     cv.paint(mound, idx, r)
-    for (x, y, k) in ((2, 13, 4), (14, 12, 3), (13, 14, 4), (3, 11, 5)):
-        cv.px(x, y, r[k])
+    for _ in range(int(R.integers(3, 6))):  # loose grains and sparkles around the pile
+        side = R.choice([-1, 1])
+        x = cx + side * (rx + R.uniform(1.0, 2.2))
+        y = base + 0.5 - R.uniform(0, 3.0)
+        cv.px(x, y, r[int(R.integers(3, 6))])
 
 
 def _it_bone(cv, r, R, accent):
-    m = _thick([(4.5, 11.5), (11.5, 4.5)], rad=1.1)
-    m |= _ellipse(3.0, 11.0, 1.7, 1.7) | _ellipse(5.0, 13.0, 1.7, 1.7)
-    m |= _ellipse(11.0, 3.0, 1.7, 1.7) | _ellipse(13.0, 5.0, 1.7, 1.7)
+    ln = R.uniform(4.3, 5.4)
+    k = R.uniform(1.5, 1.9)
+    ang = -math.pi / 4 + R.uniform(-0.25, 0.25)
+    c, s_ = math.cos(ang), math.sin(ang)
+    a = (8.0 - c * ln, 8.0 - s_ * ln)
+    b = (8.0 + c * ln, 8.0 + s_ * ln)
+    m = _thick([a, b], rad=R.uniform(0.95, 1.25))
+    for (px, py), sg in ((a, -1), (b, 1)):
+        m |= _ellipse(px + sg * c * 0.6 - s_ * 1.2, py + sg * s_ * 0.6 + c * 1.2, k, k)
+        m |= _ellipse(px + sg * c * 0.6 + s_ * 1.2, py + sg * s_ * 0.6 - c * 1.2, k, k)
     _fill(cv, m, r, 2, 5, depth=1.6)
 
 
 def _it_shell(cv, r, R, accent):
+    """Scallop shell: a ribbed fan with a wavy rim and two small 'ears' at the hinge."""
     X, Y = _mgrid()
-    cx, cy = 8.0, 13.0
-    d = np.hypot(X - cx, Y - cy)
-    th = np.arctan2(Y - cy, X - cx)
-    edge = 10.5 + 0.6 * np.cos(th * 18)
-    m = (d < edge) & (th < -0.35) & (th > -math.pi + 0.35)
-    m |= (X > 5.5) & (X < 10.5) & (Y > 11.5) & (Y < 14.5)
-    rib = np.abs(((th + math.pi) * 18 / math.pi) % 2 - 1) < 0.35
+    cx, cy = 8.0, R.uniform(12.8, 13.3)
+    sy = R.uniform(1.1, 1.22)  # a little taller than a half disc
+    d = np.hypot(X - cx, (Y - cy) / sy)
+    th = np.arctan2((Y - cy) / sy, X - cx)  # -pi..0 is the upper half
+    nrib = int(R.integers(7, 11))
+    rad = R.uniform(6.7, 7.1)
+    spread = R.uniform(0.18, 0.32)  # angle cut on each side
+    span = math.pi - 2 * spread
+    f = ((-th) - spread) / span  # 0..1 across the fan
+    edge = rad + 0.5 * np.cos(f * nrib * math.tau)
+    m = (d < edge) & (f >= 0) & (f <= 1)
+    ear = R.uniform(2.4, 3.2)
+    m |= (np.abs(X - cx) < ear) & (Y > cy - 1.6) & (Y < cy + 1.2)
+    rib = np.abs((f * nrib) % 1.0 - 0.5) > 0.32
     idx = np.where(rib, 2, 4)
     idx = np.where(X < cx - 1, idx + 1, idx)
-    idx = np.where(d < 4, idx - 1, idx)
+    idx = np.where(d < 3, idx - 1, idx)
+    gr = (np.abs(d - rad * 0.55) < 0.45) & (f > 0.05) & (f < 0.95)  # a growth ring
+    idx = np.where(gr, np.maximum(idx - 1, 1), idx)
     cv.paint(m, np.clip(idx, 1, 5), r)
 
 
 def _it_fruit(cv, r, R, accent):
-    m = _ellipse(6.5, 9.0, 4.6, 4.8) | _ellipse(9.5, 9.0, 4.6, 4.8)
-    m &= ~_ellipse(8.0, 3.6, 1.2, 1.2)
+    kind = int(R.integers(0, 3))
+    if kind == 0:  # apple: two lobes
+        m = _ellipse(6.5, 9.0, 4.6, 4.8) | _ellipse(9.5, 9.0, 4.6, 4.8)
+        m &= ~_ellipse(8.0, 3.6, 1.2, 1.2)
+        top = 4
+    elif kind == 1:  # pear
+        m = _ellipse(8.0, 10.2, 4.8, 4.2) | _ellipse(8.0, 6.0, 2.9, 3.2)
+        top = 3
+    else:  # round citrus with a navel dimple
+        m = _ellipse(8.0, 8.8, 5.4, 5.2)
+        top = 4
     _fill(cv, m, r, 1, 4, depth=3.0)
-    cv.px(5, 7, r[5])
-    cv.px(5, 8, r[5])
-    cv.px(6, 6, r[5])
+    _spec(cv, m, r[5], r[5], depth=2)
     stem = _color_ramp("#6b4226", 3)
-    cv.px(8, 4, stem[1])
-    cv.px(8, 3, stem[2])
-    cv.px(9, 2, stem[2])
+    sb = R.choice([-1, 1])
+    cv.px(8, top, stem[1])
+    cv.px(8, top - 1, stem[2])
+    cv.px(8 + (sb if R.random() < 0.5 else 0), top - 2, stem[2])
     lf = _color_ramp(_hex(_acc(accent, "#4f9a2c")), 3)
-    for (x, y, k) in ((10, 2, 2), (11, 2, 2), (11, 3, 1), (12, 2, 1), (10, 3, 1)):
-        cv.px(x, y, lf[k])
+    ls = R.choice([-1, 1])
+    for (x, y, k) in ((1, -2, 2), (2, -2, 2), (2, -1, 1), (3, -2, 1), (1, -1, 1)):
+        cv.px(8 + ls * x, top + y, lf[k])
 
 
 def _it_berry(cv, r, R, accent):
-    for (cx, cy) in ((5.5, 10.5), (10.5, 10.5), (8.0, 6.5)):
-        m, s = _sphere(cx, cy, 2.9)
+    layouts = [((5.5, 10.5), (10.5, 10.5), (8.0, 6.5)),
+               ((5.0, 11.0), (9.0, 11.5), (11.0, 7.5), (6.8, 7.0)),
+               ((8.0, 11.2), (5.0, 8.0), (11.0, 8.0)),
+               ((4.8, 9.6), (8.0, 11.6), (11.2, 9.6), (8.0, 7.0))]
+    lay = layouts[int(R.integers(0, len(layouts)))]
+    rad = 2.9 if len(lay) == 3 else 2.5
+    for (cx, cy) in lay:
+        cx, cy = cx + R.uniform(-0.3, 0.3), cy + R.uniform(-0.3, 0.3)
+        m, s = _sphere(cx, cy, rad + R.uniform(-0.2, 0.2))
         layer = _Cv()
         layer.paint(m, 1 + _quant(s, 4), r)
-        layer.px(cx - 1.2, cy - 1.2, [255, 255, 255])
+        _spec(layer, m, [255, 255, 255], depth=1)
         cv.over(layer)
     lf = _color_ramp(_hex(_acc(accent, "#4f9a2c")), 3)
-    cv.px(8, 3, lf[1])
-    cv.px(9, 2, lf[2])
-    cv.px(10, 2, lf[2])
-    cv.px(7, 2, lf[1])
+    top = min(y for _, y in lay) - rad - 0.2
+    ls = R.choice([-1, 1])
+    cv.px(8, top, lf[1])
+    cv.px(8 + ls, top - 1, lf[2])
+    cv.px(8 + 2 * ls, top - 1, lf[2])
+    cv.px(8 - ls, top - 1, lf[1])
 
 
 def _it_jelly(cv, r, R, accent):
     X, Y = _mgrid()
-    m = (X > 2.5) & (X < 13.5) & (Y > 4.5) & (Y < 13.5)
-    m &= ~(((X < 3.5) | (X > 12.5)) & ((Y < 5.5) | (Y > 12.5)))
-    m |= _ellipse(8, 4.8, 5.0, 1.4)
+    x0, x1 = 2.5 + R.uniform(0, 1.0), 13.5 - R.uniform(0, 1.0)
+    y0, y1 = 4.5 + R.uniform(0, 1.2), 13.5 - R.uniform(0, 0.6)
+    m = (X > x0) & (X < x1) & (Y > y0) & (Y < y1)
+    m &= ~(((X < x0 + 1) | (X > x1 - 1)) & ((Y < y0 + 1) | (Y > y1 - 1)))
+    m |= _ellipse((x0 + x1) / 2, y0 + 0.3, (x1 - x0) / 2 - 0.5, 1.4)
+    if R.random() < 0.6:  # a wobbly drip down one side
+        dx = R.uniform(x0 + 1.5, x1 - 2.5)
+        m |= _ellipse(dx, y1 + 0.2, 1.1, 1.3)
     idx = np.full((S, S), 3)
-    idx = np.where(Y < 7, 4, idx)
-    idx = np.where(X > 11, 2, idx)
-    idx = np.where(Y > 11.5, 2, idx)
+    idx = np.where(Y < y0 + 2.5, 4, idx)
+    idx = np.where(X > x1 - 2.5, 2, idx)
+    idx = np.where(Y > y1 - 2, 2, idx)
     cv.paint(m, idx, r)
-    for (x, y, k) in ((4, 5, 5), (5, 5, 5), (4, 6, 5), (9, 9, 4), (10, 9, 5), (6, 11, 4)):
-        cv.px(x, y, r[k])
+    for _ in range(int(R.integers(2, 4))):  # suspended bubbles
+        bx, by = R.uniform(x0 + 2, x1 - 3), R.uniform(y0 + 3, y1 - 2.5)
+        cv.px(bx, by, r[5])
+        cv.px(bx + 1, by + 1, r[4])
+    _spec(cv, m, r[5], r[5], depth=1)
 
 
 def _it_horn(cv, r, R, accent):
-    pts = _curve(3.5, 13.0, 12.5, 2.5, bend=-4.0, steps=40)
+    bend = -R.uniform(2.5, 5.0)
+    pts = _curve(3.5 + R.uniform(-0.5, 0.5), 13.0, 12.5, 2.5 + R.uniform(-0.3, 1.0), bend=bend, steps=40)
+    base_w = R.uniform(2.3, 2.9)
     m = np.zeros((S, S), bool)
     for i, (x, y) in enumerate(pts):
-        rad = 2.6 * (1 - i / len(pts)) + 0.5
+        rad = base_w * (1 - i / len(pts)) + 0.5
         m |= _ellipse(x, y, rad, rad)
     s = _shade(m, depth=1.8)
     idx = 1 + _quant(s, 4)
     X, Y = _mgrid()
-    ring = (np.abs(((X + Y) % 3.0) - 1.5) < 0.45) & (X + Y < 14)
+    gap = R.uniform(2.6, 3.4)
+    ring = (np.abs(((X + Y) % gap) - gap / 2) < 0.45) & (X + Y < 14 + R.uniform(-1, 2))
     idx = np.where(ring, np.maximum(idx - 1, 1), idx)
     cv.paint(m, idx, r)
+    tip = pts[-1]
+    cv.px(tip[0], tip[1], r[5])
 
 
 def _it_core(cv, r, R, accent):
-    m, s = _sphere(8.0, 8.0, 4.4)
+    rad = R.uniform(4.0, 4.7)
+    m, s = _sphere(8.0, 8.0, rad)
     X, Y = _mgrid()
     d = np.hypot(X - 8, Y - 8)
     idx = np.where(d < 1.8, 5, np.where(d < 3.2, 4, 3))
@@ -3478,32 +3832,47 @@ def _it_core(cv, r, R, accent):
     cv.paint(m, idx, r)
     cv.px(8, 7, [255, 255, 255])
     ring_c = _color_ramp(_hex(_acc(accent, "#9aa3ad")), 4)
-    ring = _rellipse(8.0, 8.0, 7.0, 2.6, -0.6) & ~_rellipse(8.0, 8.0, 5.6, 1.4, -0.6)
-    front = ring & ((Y - 8) + (X - 8) * 0.6 > -0.5)
+    tilt = R.uniform(-0.8, -0.35) * R.choice([1, -1])
+    flat = R.uniform(2.2, 3.0)
+    ring = _rellipse(8.0, 8.0, 7.0, flat, tilt) & ~_rellipse(8.0, 8.0, 5.6, flat - 1.2, tilt)
+    front = ring & ((Y - 8) * math.cos(tilt) - (X - 8) * math.sin(tilt) > -0.5)
     back = ring & ~front & ~m
     cv.paint(back, np.full((S, S), 1), ring_c)
     cv.paint(front, np.where(X < 8, 3, 2), ring_c)
 
 
 def _it_ingot(cv, r, R, accent):
-    top = _poly([(2.5, 8.5), (5.5, 5.0), (13.5, 5.0), (11.0, 8.5)])
-    front = _poly([(2.0, 8.5), (11.0, 8.5), (11.0, 12.0), (2.0, 12.0)])
-    side = _poly([(11.0, 8.5), (13.5, 5.0), (14.0, 5.0), (14.0, 9.0), (11.0, 12.0)])
+    L = R.uniform(-1.0, 0.6)
+    H = R.uniform(-0.6, 0.6)
+    top = _poly([(2.5, 8.5 + H), (5.5, 5.0 + H), (13.5 + L, 5.0 + H), (11.0 + L, 8.5 + H)])
+    front = _poly([(2.0, 8.5 + H), (11.0 + L, 8.5 + H), (11.0 + L, 12.0), (2.0, 12.0)])
+    side = _poly([(11.0 + L, 8.5 + H), (13.5 + L, 5.0 + H), (14.0 + L, 5.0 + H), (14.0 + L, 9.0), (11.0 + L, 12.0)])
     cv.paint(front, np.full((S, S), 3), r)
     cv.paint(side, np.full((S, S), 2), r)
     cv.paint(top, np.full((S, S), 4), r)
-    for x in range(5, 13):
-        cv.px(x, 5, r[5])
-    cv.px(3, 8, r[5])
-    cv.px(4, 7, r[5])
-    for x in range(3, 11):
+    for x in range(5, int(13 + L)):
+        cv.px(x, 5 + H, r[5])
+    cv.px(3, 8 + H, r[5])
+    cv.px(4, 7 + H, r[5])
+    for x in range(3, int(11 + L)):
         cv.px(x, 11, r[2])
-    cv.px(4, 9, r[4])
-    cv.px(5, 9, r[4])
+    if R.random() < 0.5:  # stamped mark on the top face
+        mx = R.uniform(6, 9)
+        cv.px(mx, 6.5 + H, r[3])
+        cv.px(mx + 1, 6.5 + H, r[3])
+    else:
+        cv.px(4, 9 + H, r[4])
+        cv.px(5, 9 + H, r[4])
 
 
 def _it_crystal(cv, r, R, accent):
-    for (cx, w, top, base, tilt) in ((5.0, 3, 7.0, 14, -0.3), (8.5, 5, 2.0, 14, 0.05)):
+    n = int(R.choice([2, 2, 3]))
+    specs = [(8.5 + R.uniform(-0.5, 0.5), 5, R.uniform(1.5, 3.0), R.uniform(-0.1, 0.12))]
+    specs.append((4.8 + R.uniform(-0.4, 0.4), 3, R.uniform(5.5, 8.0), R.uniform(-0.45, -0.2)))
+    if n == 3:
+        specs.append((11.8 + R.uniform(-0.3, 0.3), 3, R.uniform(7.5, 9.5), R.uniform(0.2, 0.45)))
+    for (cx, w, top, tilt) in sorted(specs, key=lambda q: q[1]):
+        base = 14
         hw = w / 2
         local = [(-hw, 0), (-hw, -(base - top) + hw * 1.3), (0, -(base - top)), (hw, -(base - top) + hw * 1.3), (hw, 0)]
         ca, sa = math.cos(tilt), math.sin(tilt)
@@ -3521,98 +3890,148 @@ def _it_crystal(cv, r, R, accent):
 
 
 def _it_leaf(cv, r, R, accent):
-    m, u, v = _lens(3.0, 13.0, 13.5, 2.5, 3.6)
+    """Broad ovate leaf (widest near its base) on a short stalk, with paired side veins."""
+    x0, y0 = 4.2 + R.uniform(-0.4, 0.4), 11.8 + R.uniform(-0.4, 0.4)
+    x1, y1 = 13.4, 2.6 + R.uniform(-0.3, 0.5)
+    X, Y = _mgrid()
+    L = math.hypot(x1 - x0, y1 - y0)
+    ux, uy = (x1 - x0) / L, (y1 - y0) / L
+    u = (X - x0) * ux + (Y - y0) * uy
+    v = -(X - x0) * uy + (Y - y0) * ux
+    t = u / L
+    wmax = R.uniform(4.0, 4.8)
+    half = wmax * np.clip(np.sin(np.clip(t, 0, 1) * math.pi) ** 0.7 * (1.15 - 0.5 * t), 0, 1)
+    m = (t >= 0) & (t <= 1) & (np.abs(v) <= half + 0.15)
+    if R.random() < 0.5:  # serrated edge
+        m &= ~((np.abs(v) > half - 0.6) & (((u * 1.4) % 2.0) < 0.7) & (t > 0.15) & (t < 0.9))
     idx = np.where(v < 0, 4, 3)
-    idx = np.where(np.abs(v) > 2.4, idx - 1, idx)
-    vein = (np.abs(v) < 0.5) | ((np.abs((u - np.abs(v) * 1.2) % 3.5) < 0.5) & (np.abs(v) < 2.2))
-    idx = np.where(vein, 5, idx)
+    idx = np.where(np.abs(v) > half - 1.0, idx - 1, idx)
+    mid = np.abs(v) < 0.5
+    gap = R.uniform(2.6, 3.4)
+    side = (np.abs(((u - np.abs(v) * 1.1) % gap) - gap / 2) < 0.42) & (np.abs(v) < half - 1.0) & (t > 0.1)
+    idx = np.where(mid | side, np.where(v < 0, 5, 2), idx)
     cv.paint(m, idx, r)
-    cv.px(2, 14, r[1])
-    cv.px(3, 13, r[2])
+    # stalk
+    for k in range(1, 4):
+        cv.px(x0 - ux * k, y0 - uy * k, r[1] if k > 1 else r[2])
 
 
 def _it_seed(cv, r, R, accent):
-    for (cx, cy, a) in ((5.0, 6.5, 0.7), (10.5, 5.5, -0.5), (7.5, 11.0, 0.1)):
-        m = _rellipse(cx, cy, 2.5, 1.7, a)
+    n = int(R.choice([2, 3, 3, 4]))
+    spots = [(5.0, 6.5), (10.5, 5.5), (7.5, 11.0), (11.5, 10.5)]
+    R.shuffle(spots)
+    striped = R.random() < 0.5
+    for (cx, cy) in spots[:n]:
+        a = R.uniform(-0.9, 0.9)
+        m = _rellipse(cx + R.uniform(-0.5, 0.5), cy + R.uniform(-0.5, 0.5), R.uniform(2.2, 2.7), R.uniform(1.4, 1.8), a)
         layer = _Cv()
         _fill(layer, m, r, 1, 4, depth=1.5)
-        layer.px(cx - 1, cy - 1, r[5])
+        if striped:
+            X, Y = _mgrid()
+            st = m & (np.abs(((X - cx) * math.cos(a) + (Y - cy) * math.sin(a)) % 2.0 - 1.0) < 0.35) & (_dist_in(m) > 1)
+            layer.a[st, :3] = r[1]
+        _spec(layer, m, r[5], depth=1)
         _outline(layer, 0.45)
         cv.over(layer)
 
 
 def _it_mushroom(cv, r, R, accent):
     stem = _color_ramp(_hex(_acc(None, "#e6dcc8")), 4, spread=0.6)
-    for y in range(9, 15):
+    sh = int(R.integers(8, 11))
+    for y in range(sh, 15):
         cv.px(6, y, stem[3])
         cv.px(7, y, stem[2])
         cv.px(8, y, stem[2])
         cv.px(9, y, stem[1])
     X, Y = _mgrid()
-    cap = _ellipse(8.0, 9.0, 6.5, 6.0) & (Y < 9.0)
+    cw = R.uniform(5.8, 6.8)
+    chh = R.uniform(5.0, 6.6)
+    if R.random() < 0.3:  # conical cap
+        cap = _poly([(8 - cw, sh + 0.2), (8.0, sh - chh - 0.5), (8 + cw, sh + 0.2)]) & (Y < sh)
+    else:
+        cap = _ellipse(8.0, sh, cw, chh) & (Y < sh)
     _fill(cv, cap, r, 1, 4, depth=2.5)
-    for x in range(3, 13):
-        cv.px(x, 8, r[1])
+    for x in range(int(8 - cw + 1), int(8 + cw)):
+        cv.px(x, sh - 1, r[1])
     spot = _acc(accent, _hex(_mix(_lighter(r[4], 0.8), [255, 255, 255], 0.5)))
-    for (x, y) in ((5, 5), (6, 5), (9, 4), (11, 6), (7, 7)):
-        cv.px(x, y, spot)
+    cand = [(5, sh - 4), (6, sh - 4), (9, sh - 5), (11, sh - 3), (7, sh - 2), (4, sh - 2), (10, sh - 2), (8, sh - 6)]
+    R.shuffle(cand)
+    for (x, y) in cand[: int(R.integers(3, 6))]:
+        if _hit(cap & (_dist_in(cap) > 1), x, y):
+            cv.px(x, y, spot)
 
 
 def _it_candy(cv, r, R, accent):
-    body = _rellipse(8.0, 8.0, 3.8, 3.0, -0.785)
+    body = _rellipse(8.0, 8.0, R.uniform(3.4, 4.1), R.uniform(2.7, 3.2), -0.785)
     stripe = _acc(accent, "#ffffff")
     X, Y = _mgrid()
     s = _shade(body, depth=2.0)
     idx = 1 + _quant(s, 4)
     cv.paint(body, idx, r)
-    band = body & (np.abs(((X + Y) % 3.0) - 1.5) < 0.5)
+    gap = float(R.choice([3.0, 4.0]))
+    band = body & (np.abs(((X + Y + R.uniform(0, gap)) % gap) - gap / 2) < 0.5)
     cv.a[band, :3] = _mix(stripe, cv.a[band, :3], 0.25)
     wr = _xramp([_hex(_darker(r[3], 0.9)), _hex(r[3]), _hex(r[4])], 3)
+    big = R.uniform(2.0, 2.8)
     for (sx, sy, d) in ((4.0, 12.0, -1), (12.0, 4.0, 1)):
-        bow = _poly([(sx - d * 1.0, sy + d * 1.0), (sx + d * 2.5, sy + d * 0.5), (sx - d * 0.5, sy - d * 2.5)])
+        bow = _poly([(sx - d * 1.0, sy + d * 1.0), (sx + d * big, sy + d * 0.5), (sx - d * 0.5, sy - d * big)])
         bow |= _ellipse(sx + d * 0.3, sy - d * 0.3, 1.0, 1.0)
         cv.paint(bow & ~body, np.where(X + Y < 16, 2, 1), wr)
 
 
 def _it_slice(cv, r, R, accent):
     X, Y = _mgrid()
-    cx, cy = 8.0, 4.0
+    cx, cy = 8.0, R.uniform(3.4, 4.6)
+    rad = R.uniform(7.2, 7.8)
     d = np.hypot(X - cx, Y - cy)
-    m = (d < 7.6) & (Y > cy + 0.5)
+    m = (d < rad) & (Y > cy + 0.5)
     rind = _color_ramp(_hex(_acc(accent, "#3f9a2c")), 4)
     idx = np.where(d < 3, 4, 3)
     idx = np.where(X > cx + 2, idx - 1, idx)
     cv.paint(m, idx, r)
-    band = m & (d > 6.2)
-    cv.paint(band, np.where(d > 6.9, 1, 2), rind)
-    pale = m & (d > 5.4) & (d <= 6.2)
+    band = m & (d > rad - 1.4)
+    cv.paint(band, np.where(d > rad - 0.7, 1, 2), rind)
+    pale = m & (d > rad - 2.2) & (d <= rad - 1.4)
     cv.a[pale, :3] = _mix(cv.a[pale, :3], [250, 240, 220], 0.5)
-    for (x, y) in ((6, 7), (9, 8), (8, 10), (4, 6), (11, 6)):
-        if m[y, x] and d[y, x] < 5.2:
+    for _ in range(int(R.integers(4, 7))):
+        a = R.uniform(0.35, math.pi - 0.35)
+        dd = R.uniform(2.0, rad - 2.8)
+        x, y = cx + dd * math.cos(a), cy + dd * math.sin(a)
+        if _hit(m, x, y):
             cv.px(x, y, [30, 20, 18])
 
 
 def _it_cheese(cv, r, R, accent):
-    top = _poly([(2.0, 7.5), (13.5, 4.0), (14.0, 7.5)])
-    front = _poly([(2.0, 7.5), (14.0, 7.5), (14.0, 13.0), (2.0, 13.0)])
+    tip = R.uniform(3.4, 5.0)
+    bot = R.uniform(12.4, 13.4)
+    top = _poly([(2.0, 7.5), (13.5, tip), (14.0, 7.5)])
+    front = _poly([(2.0, 7.5), (14.0, 7.5), (14.0, bot), (2.0, bot)])
     cv.paint(front, np.full((S, S), 3), r)
     cv.paint(top, np.full((S, S), 5), r)
     for x in range(2, 15):
         cv.px(x, 7, r[4])
-    for (x, y, rad) in ((5, 10, 1.2), (10.5, 11, 1.4), (12, 9, 0.8)):
+    holes = [(5, 10, 1.2), (10.5, 11, 1.4), (12, 9, 0.8), (7.5, 11.5, 0.9), (4, 12, 0.7)]
+    R.shuffle(holes)
+    for (x, y, rad) in holes[: int(R.integers(2, 4))]:
         for (px, py) in _disc_pts(x, y, rad):
-            cv.px(px, py, r[1])
+            if 8 <= py < bot - 0.5:
+                cv.px(px, py, r[1])
         cv.px(x - 1, y - 1, r[2])
-    cv.px(10, 5, r[3])
-    cv.px(11, 5, r[3])
+    hx = R.uniform(9, 12)
+    cv.px(hx, 6, r[3])
+    cv.px(hx + 1, 6, r[3])
 
 
-def _bottle(cv, liquid_ramp, glass=None, cork=None, fill_top=7.5, swirl=None):
+def _bottle(cv, liquid_ramp, glass=None, cork=None, fill_top=7.5, swirl=None, flask=False):
     """Vanilla potion silhouette: neck + round body, ``liquid_ramp`` 5 shades."""
     glass = np.array([[200, 214, 220], [228, 236, 240], [252, 254, 255]], float) if glass is None else glass
     cork = _color_ramp(cork or "#9c6b3f", 3)
     X, Y = _mgrid()
-    body = _ellipse(8.0, 10.0, 5.4, 4.8)
+    if flask:  # conical lab flask
+        body = _poly([(7.0, 5.0), (9.0, 5.0), (13.4, 13.6), (2.6, 13.6)]) | _ellipse(8.0, 13.0, 5.2, 1.4)
+        body &= Y < 14.5
+    else:
+        body = _ellipse(8.0, 10.0, 5.4, 4.8)
     neck = (X > 6) & (X < 10) & (Y > 2) & (Y < 6.5)
     lip = (X > 5) & (X < 11) & (Y > 3) & (Y < 4.2)
     m = body | neck | lip
@@ -3632,7 +4051,8 @@ def _bottle(cv, liquid_ramp, glass=None, cork=None, fill_top=7.5, swirl=None):
     cv.a[air, :3] = _mix(glass[0], liquid_ramp[2], 0.25)
     # glass highlights and cork
     for (x, y) in ((4, 9), (4, 10), (5, 8)):
-        cv.px(x, y, glass[2])
+        if _hit(body, x, y):
+            cv.px(x, y, glass[2])
     for y in (1, 2):
         for x in (6, 7, 8, 9):
             cv.px(x, y, cork[1] if x > 7 else cork[2])
@@ -3640,34 +4060,76 @@ def _bottle(cv, liquid_ramp, glass=None, cork=None, fill_top=7.5, swirl=None):
 
 
 def _it_bottle(cv, r, R, accent):
-    _bottle(cv, r[1:6], cork=accent)
+    _bottle(cv, r[1:6], cork=accent, fill_top=R.uniform(6.5, 9.5), flask=R.random() < 0.35)
+    for _ in range(int(R.integers(1, 3))):
+        cv.px(R.uniform(6, 10), R.uniform(10, 13), r[5])
 
 
-def _egg_mask(cx=8.0, cy=8.6, rx=5.2, ry=6.4):
+def _egg_mask(cx=8.0, cy=8.6, rx=5.2, ry=6.4, p=2.4):
     """Rounded egg silhouette (narrower top) used by spawn eggs and the egg icon."""
     X, Y = _mgrid()
     t = np.clip((Y - (cy - ry)) / (2 * ry), 0, 1)
     rxx = rx * (0.72 + 0.28 * np.sqrt(t))
-    return np.abs((X - cx) / rxx) ** 2.4 + np.abs((Y - cy) / ry) ** 2.4 <= 1
+    return np.abs((X - cx) / rxx) ** p + np.abs((Y - cy) / ry) ** p <= 1
+
+
+_EGG_SPOT_SHAPES = [
+    [(0, 0)], [(0, 0), (1, 0)], [(0, 0), (0, 1)], [(0, 0), (1, 0), (0, 1), (1, 1)],
+    [(0, 0), (1, 0), (1, 1)], [(1, 0), (0, 1), (1, 1), (2, 1)], [(0, 0), (1, 0), (2, 0), (1, 1)],
+]
+_EGG_SPOT_W = [0.16, 0.18, 0.14, 0.2, 0.12, 0.1, 0.1]
+
+
+def _egg_spots(R, inner, n, cx=8.0, cy=8.6, tries=160):
+    """Place ``n`` small spots of mixed shape at jittered random positions inside ``inner``.
+
+    Spots keep a 1px gap from each other, and a spot is rejected when it would form a
+    left/right mirrored pair with an existing one in the upper half of the egg (two spots at
+    the same height either side of the centre line read as a pair of eyes -> a face)."""
+    spots = np.zeros(inner.shape, bool)
+    centres = []
+    w = np.array(_EGG_SPOT_W) / sum(_EGG_SPOT_W)
+    for _ in range(tries):
+        if len(centres) >= n:
+            break
+        shp = _EGG_SPOT_SHAPES[int(R.choice(len(_EGG_SPOT_SHAPES), p=w))]
+        x0, y0 = int(R.integers(2, 14)), int(R.integers(2, 15))
+        cells = [(x0 + dx, y0 + dy) for (dx, dy) in shp]
+        if not all(0 <= x < S and 0 <= y < S and inner[y, x] for (x, y) in cells):
+            continue
+        if any(spots[max(0, y - 1):y + 2, max(0, x - 1):x + 2].any() for (x, y) in cells):
+            continue
+        sx = np.mean([c[0] for c in cells]) + 0.5
+        sy = np.mean([c[1] for c in cells]) + 0.5
+        face = False
+        for (ox, oy) in centres:
+            if min(sy, oy) < cy + 1.0 and abs(sy - oy) <= 1.6 and (sx - cx) * (ox - cx) < 0 \
+                    and abs((sx - cx) + (ox - cx)) <= 2.0:
+                face = True
+                break
+        if face:
+            continue
+        for (x, y) in cells:
+            spots[y, x] = True
+        centres.append((sx, sy))
+    return spots
 
 
 def _it_egg(cv, r, R, accent):
-    m = _egg_mask(8.0, 8.3, 4.8, 5.9)
+    m = _egg_mask(8.0, 8.4, R.uniform(5.0, 5.5), R.uniform(6.0, 6.4), p=2.05)
     _fill(cv, m, r, 1, 4, depth=3.0)
     if accent is not None:
         sc = _color_ramp(_hex(_acc(accent, "#000")), 3)
-        inner = _dist_in(m) >= 2
-        for (x, y) in ((6, 6), (9, 9), (6, 11), (10, 5), (11, 11)):
-            if inner[y, x] and inner[y, x + 1]:
-                cv.px(x, y, sc[1])
-                cv.px(x + 1, y, sc[0])
-    cv.px(6, 4, r[5])
-    cv.px(5, 5, r[5])
+        spots = _egg_spots(R, _dist_in(m) >= 2, int(R.integers(4, 7)), cy=8.3)
+        X, Y = _igrid()
+        cv.a[spots, :3] = np.where(((X + Y) % 2 < 1)[spots][:, None], sc[1], sc[0])
+    _spec(cv, m, r[5], r[5], depth=2)
 
 
 def _it_chip(cv, r, R, accent):
     pin = np.array([[120, 124, 130], [176, 182, 188], [226, 230, 234]], float)
-    for k in range(4, 12, 2):
+    step = int(R.choice([2, 2, 3]))
+    for k in range(4, 12, step):
         for (x, y) in ((k, 2), (k, 3), (k, 12), (k, 13), (2, k), (3, k), (12, k), (13, k)):
             cv.px(x, y, pin[2] if (x in (2, 3) or y in (2, 3)) else pin[1])
     X, Y = _mgrid()
@@ -3676,37 +4138,54 @@ def _it_chip(cv, r, R, accent):
     idx = np.where((Y < 6) | (X < 6), 2, idx)
     cv.paint(body, idx, r)
     glow = _color_ramp(_hex(_acc(accent, "#38f5ff")), 3)
-    for (x, y, k) in ((7, 7, 2), (8, 7, 1), (7, 8, 1), (8, 8, 0)):
-        cv.px(x, y, glow[k])
+    gx, gy = 7 + int(R.integers(-1, 2)), 7 + int(R.integers(-1, 2))
+    if R.random() < 0.5:
+        for (x, y, k) in ((gx, gy, 2), (gx + 1, gy, 1), (gx, gy + 1, 1), (gx + 1, gy + 1, 0)):
+            cv.px(x, y, glow[k])
+    else:  # a little lit trace
+        for i in range(3):
+            cv.px(6 + i, gy, glow[2 - (i == 2)])
+        cv.px(8, gy + 1, glow[1])
+        cv.px(8, gy + 2, glow[0])
     cv.px(5, 5, r[4])
 
 
 def _it_bolt(cv, r, R, accent):
-    shaft = _thick([(3.5, 12.5), (9.0, 7.0)], rad=1.3)
+    """Hex-head bolt with a long threaded shank and a pointed end."""
     X, Y = _mgrid()
-    thread = shaft & (((X - Y) % 2.0) < 1.0)
-    cv.paint(shaft, np.where(thread, 2, 3), r)
-    cx, cy = 11.0, 5.0
-    hexm = _poly([(cx + 3.4 * math.cos(a), cy + 3.4 * math.sin(a)) for a in [k * math.pi / 3 + 0.26 for k in range(6)]])
-    ang = np.arctan2(Y - cy, X - cx)
-    facet = np.floor(((ang + math.pi) / (math.pi / 3)) % 6).astype(int)
-    shade_of = np.array([4, 5, 5, 3, 2, 2])
-    d = np.hypot(X - cx, Y - cy)
-    idx = np.where(d < 1.8, 4, shade_of[facet])
-    cv.paint(hexm, idx, r)
-    for (x, y) in ((10, 6), (11, 5), (12, 4)):
-        cv.px(x, y, r[1])
+    hw = R.uniform(2.8, 3.3)
+    sl = R.uniform(13.0, 14.0)
+    sw = R.uniform(1.1, 1.4)
+    head_bot = 5.0
+    shank = (np.abs(X - 8.0) < sw) & (Y > head_bot) & (Y < sl)
+    shank |= _poly([(8.0 - sw, sl - 0.2), (8.0 + sw, sl - 0.2), (8.0, sl + 1.4)])
+    thread = ((Y + (X - 8.0) * 0.5) % 2.0) < 1.0
+    sidx = np.where(thread, 4, 2)
+    sidx = np.where((X > 8.6) & thread, 3, sidx)
+    cv.paint(shank, sidx, r)
+    topf = _poly([(8 - hw, 2.6), (8 - hw / 2, 1.5), (8 + hw / 2, 1.5), (8 + hw, 2.6), (8 + hw / 2, 3.7), (8 - hw / 2, 3.7)])
+    front = _poly([(8 - hw, 2.6), (8 + hw, 2.6), (8 + hw, head_bot), (8 + hw / 2, head_bot + 0.9),
+                   (8 - hw / 2, head_bot + 0.9), (8 - hw, head_bot)]) & ~topf
+    fidx = np.where(X < 8 - hw / 2, 4, np.where(X < 8 + hw / 2, 3, 2))
+    cv.paint(front, fidx, r)
+    cv.paint(topf, np.where(X < 8.5, 5, 4), r)
+    if R.random() < 0.45:  # a nut part way down the shank
+        ny = R.uniform(9.0, 11.0)
+        nut = (np.abs(X - 8.0) < sw + 1.3) & (Y > ny) & (Y < ny + 1.8)
+        cv.paint(nut, np.where(X < 8, 4, 2), r)
 
 
 def _it_star(cv, r, R, accent):
     pts = []
+    rot = R.uniform(-0.25, 0.25)
+    inner = R.uniform(2.6, 3.3)
     for k in range(10):
-        a = -math.pi / 2 + k * math.pi / 5
-        rad = 7.0 if k % 2 == 0 else 3.0
+        a = -math.pi / 2 + rot + k * math.pi / 5
+        rad = 7.0 if k % 2 == 0 else inner
         pts.append((8.0 + rad * math.cos(a), 8.6 + rad * math.sin(a)))
     m = _poly(pts)
     _fill(cv, m, r, 2, 5, depth=2.0)
-    cv.px(7, 6, [255, 255, 255])
+    _spec(cv, m, [255, 255, 255], depth=2)
 
 
 def _it_coin(cv, r, R, accent):
@@ -3716,15 +4195,22 @@ def _it_coin(cv, r, R, accent):
     idx = np.where(d > 4.6, np.where((X - 8) + (Y - 8) < 0, 5, 2), 3)
     idx = np.where((d > 3.6) & (d <= 4.6), np.where((X - 8) + (Y - 8) < 0, 2, 4), idx)
     cv.paint(m, idx, r)
-    # embossed star
-    pts = []
-    for k in range(10):
-        a = -math.pi / 2 + k * math.pi / 5
-        rad = 2.8 if k % 2 == 0 else 1.2
-        pts.append((8.0 + rad * math.cos(a), 8.2 + rad * math.sin(a)))
-    st = _poly(pts)
+    emb = int(R.integers(0, 3))
+    if emb == 0:  # embossed star
+        pts = []
+        for k in range(10):
+            a = -math.pi / 2 + k * math.pi / 5
+            rad = 2.8 if k % 2 == 0 else 1.2
+            pts.append((8.0 + rad * math.cos(a), 8.2 + rad * math.sin(a)))
+        st = _poly(pts)
+    elif emb == 1:  # square hole (cash coin)
+        st = (np.abs(X - 8) < 1.6) & (np.abs(Y - 8) < 1.6)
+        cv.paint(st, np.full((S, S), 1), r)
+        st = ((np.abs(X - 8) < 2.6) & (np.abs(Y - 8) < 2.6)) & ~st & ((X - 8) + (Y - 8) > 0)
+    else:  # embossed ring / gem dot
+        st = (d < 2.4) & (d > 1.2)
     cv.paint(st, np.where(X + Y < 16, 5, 4), r)
-    cv.px(4, 4, [255, 255, 255])
+    _spec(cv, m, [255, 255, 255], depth=1)
 
 
 def _it_flower(cv, r, R, accent):
@@ -3732,99 +4218,171 @@ def _it_flower(cv, r, R, accent):
     stem = _color_ramp("#4f9a2c", 3)
     for (x, y) in ((8, 10), (8, 11), (7, 12), (7, 13), (7, 14)):
         cv.px(x, y, stem[1])
-    cv.px(9, 12, stem[2])
-    cv.px(10, 11, stem[2])
+    ls = R.choice([-1, 1])
+    cv.px(8 + ls, 12, stem[2])
+    cv.px(8 + 2 * ls, 11, stem[2])
     X, Y = _mgrid()
     cx, cy = 8.0, 6.0
     dx, dy = X - cx, Y - cy
     d = np.hypot(dx, dy)
     ang = np.arctan2(dy, dx)
-    petal = np.cos(ang * 5 + 0.3) * 1.3 + 3.9
+    npet = int(R.choice([4, 5, 5, 6]))
+    petal = np.cos(ang * npet + R.uniform(0, math.tau)) * R.uniform(1.0, 1.5) + R.uniform(3.6, 4.2)
     m = d < petal
     idx = np.where(dx + dy < -1, 5, np.where(dx + dy > 2, 3, 4))
     idx = np.where(d > petal - 1, idx - 1, idx)
     cv.paint(m, idx, r)
-    cv.paint(d < 1.6, np.where(dx + dy < 0, 2, 1), cc)
+    cv.paint(d < R.uniform(1.3, 1.9), np.where(dx + dy < 0, 2, 1), cc)
 
 
 def _it_tentacle(cv, r, R, accent):
-    pts = _curve(3.0, 14.0, 11.0, 4.0, bend=-3.5, steps=40)
+    """Tapering tentacle rising from the lower left and curling into an open loop at its tip,
+    with pale suction cups along its inner side."""
+    j = lambda a, s=0.45: a + R.uniform(-s, s)  # noqa: E731
+    ctrl = [(j(3.2), 13.0), (j(4.2), 10.2), (j(6.2), 6.8), (j(9.0), 4.2), (12.2, j(3.2, 0.3)), (13.4, j(5.4, 0.3)),
+            (13.0, 8.2), (11.2, 9.2), (9.8, 7.8), (10.6, 6.2)]
+    pts = _catmull(ctrl, 8)
+    w0 = R.uniform(2.0, 2.4)
     m = np.zeros((S, S), bool)
-    for i, (x, y) in enumerate(pts):
-        rad = 2.4 * (1 - i / len(pts)) + 0.7
-        m |= _ellipse(x, y, rad, rad)
-    tip = []
-    ex, ey = pts[-1]
-    for k in range(14):
-        a = -math.pi / 2 + k / 14 * 1.4 * math.pi
-        tip.append((ex + 1.6 * math.cos(a) + 1.4, ey + 1.6 * math.sin(a)))
-    for (x, y) in tip:
-        m |= _ellipse(x, y, 0.75, 0.75)
+    radii = []
+    n = len(pts)
+    for i, (px, py) in enumerate(pts):
+        t = i / (n - 1)
+        rad = w0 * (1 - t) ** 1.4 + 0.45
+        radii.append(rad)
+        m |= _ellipse(px, py, rad, rad)
     _fill(cv, m, r, 1, 4, depth=1.8)
     suck = _color_ramp(_hex(_acc(accent, _hex(_lighter(r[4], 0.5)))), 3)
-    for i in range(4, len(pts) - 8, 6):
-        x, y = pts[i]
-        cv.px(x + 1.5, y + 0.8, suck[2])
+    gap = int(R.integers(5, 7))
+    for i in range(2, int(n * 0.62), gap):
+        px, py = pts[i]
+        qx, qy = pts[i + 1]
+        tx, ty = qx - px, qy - py
+        Lt = math.hypot(tx, ty) or 1
+        nx_, ny_ = -ty / Lt, tx / Lt  # right of the heading = inside of the clockwise curl
+        off = radii[i] * 0.55
+        sx, sy = px + nx_ * off, py + ny_ * off
+        if _hit(m & (_dist_in(m) > 1), sx, sy):
+            cv.px(sx, sy, suck[2])
 
 
 def _it_wing(cv, r, R, accent):
-    arm = _curve(2.0, 8.0, 14.0, 2.5, bend=-1.8, steps=30)
-    feathers = []
-    n = 6
-    for i in range(n):
-        t = 0.12 + i * (0.84 / (n - 1))
-        ax, ay = arm[int(t * (len(arm) - 1))]
-        ln = 4.5 + i * 1.0
-        ang = math.radians(115 - i * 6)
-        feathers.append((ax, ay, ax + math.cos(ang) * ln, ay + math.sin(ang) * ln, i))
-    for (x0, y0, x1, y1, i) in reversed(feathers):
-        m, u, v = _lens(x0, y0, x1, y1, 1.7)
-        layer = _Cv()
-        layer.paint(m, np.where(v > 0, 4, 3) - (i % 2), r)
-        _inner_outline(layer, 0.72)
-        cv.over(layer)
-    am = _thick(arm, rad=1.25)
+    """Spread wing: an arm along the top with coverts and separated, swept-back primary
+    feathers hanging from it (or, for some seeds, a bat-like membrane wing)."""
     X, Y = _mgrid()
-    cv.paint(am, np.full((S, S), 4), r)
-    for (x, y) in arm[::2]:
-        cv.px(x, y - 1, r[5])
+    if R.random() < 0.65:
+        S0 = (1.8 + R.uniform(-0.3, 0.3), 5.8 + R.uniform(-0.5, 0.5))
+        T0 = (14.0, 2.0 + R.uniform(0, 0.8))
+        ax, ay = T0[0] - S0[0], T0[1] - S0[1]
+        dl = math.radians(R.uniform(-28, -16))  # feathers sweep back toward the body
+        dx_, dy_ = math.sin(dl), math.cos(dl)
+        det = ax * dy_ - ay * dx_
+        px_, py_ = X - S0[0], Y - S0[1]
+        u = (px_ * dy_ - py_ * dx_) / det
+        v = (ax * py_ - ay * px_) / det
+        v = v + 1.2 * np.sin(np.clip(u, 0, 1) * math.pi)  # arched leading edge
+        nf = int(R.integers(4, 6))
+        uf = 0.22
+        fid = np.full((S, S), -1)
+        depth = np.full((S, S), 2.6 + 1.4 * u)  # covert depth
+        for k in range(nf):
+            a, b = uf + (1 - uf) * k / nf, uf + (1 - uf) * (k + 1) / nf
+            c = (a + b) / 2
+            Dk = 6.4 + 4.4 * (k / max(1, nf - 1)) ** 0.8 + R.uniform(-0.4, 0.4)
+            tipd = Dk - 2.4 * np.abs(u - c) / ((b - a) / 2)  # pointed feather tip
+            sel = (u >= a) & (u < b)
+            fid = np.where(sel, k, fid)
+            depth = np.where(sel, np.maximum(depth, tipd), depth)
+        m = (u >= 0) & (u <= 1.0) & (v >= -0.7) & (v <= depth)
+        cov = m & (v <= 2.4 + 1.2 * u)
+        idx = np.where(fid % 2 == 0, 3, 2)
+        idx = np.where(cov, 4, idx)
+        idx = np.where(m & (np.abs(v - (2.4 + 1.2 * u)) < 0.5), 3, idx)  # covert row edge
+        idx = np.where(v < 0.5, 5, idx)  # lit leading edge
+        sep = m & ~cov & (fid != _roll(fid, 0, -1))
+        idx = np.where(sep, 1, idx)
+        cv.paint(m, idx, r)
+    else:
+        J = (3.4 + R.uniform(-0.4, 0.4), 3.6 + R.uniform(-0.4, 0.4))
+        nf = 4
+        a0, a1 = math.radians(R.uniform(0, 8)), math.radians(R.uniform(84, 92))
+        tips = []
+        for k in range(nf):
+            a = a0 + (a1 - a0) * k / (nf - 1)
+            ln = R.uniform(10.5, 12.0) - (0.8 if 0 < k < nf - 1 else 0)
+            tips.append((J[0] + math.cos(a) * ln, J[1] + math.sin(a) * ln))
+        m = _poly([J] + tips)
+        for a_, b_ in zip(tips[:-1], tips[1:]):
+            mx, my = (a_[0] + b_[0]) / 2, (a_[1] + b_[1]) / 2
+            seg = math.hypot(b_[0] - a_[0], b_[1] - a_[1])
+            ox, oy = mx - J[0], my - J[1]
+            ol = math.hypot(ox, oy) or 1
+            m &= ~_ellipse(mx + ox / ol * seg * 0.35, my + oy / ol * seg * 0.35, seg * 0.52, seg * 0.52)
+        d = np.hypot(X - J[0], Y - J[1])
+        cv.paint(m, np.where(d < 6, 3, 2), r)
+        for tp in tips:
+            cv.paint(_thick([J, tp], rad=0.55), np.full((S, S), 4), r)
+        cv.paint(_ellipse(J[0] + 0.6, J[1] + 0.6, 1.6, 1.6), np.full((S, S), 5), r)
 
 
 def _it_petal(cv, r, R, accent):
-    m, u, v = _lens(4.0, 13.0, 11.5, 3.0, 4.0)
-    t = u / math.hypot(7.5, 10)
-    idx = np.clip((1 + t * 4).astype(int), 1, 4)
-    idx = np.where(v < -1.5, np.minimum(idx + 1, 5), idx)
-    idx = np.where(np.abs(v) < 0.45, np.maximum(idx - 1, 1), idx)
-    cv.paint(m, idx, r)
-    cv.px(8, 5, r[5])
+    """Flower petal: rounded, notched outer end narrowing to a pale base (no veins, no stalk)."""
+    X, Y = _mgrid()
+    w = R.uniform(4.0, 4.9)
+    cy = R.uniform(6.4, 7.4)
+    m = _ellipse(8.0, cy, w, R.uniform(4.6, 5.3))
+    m |= _poly([(8.0 - w * 0.75, cy + 2.0), (8.0 + w * 0.75, cy + 2.0), (8.0, 14.6)])
+    notch = R.uniform(1.6, 2.6)
+    m &= ~_poly([(8.0 - notch * 0.6, 1.0), (8.0 + notch * 0.6, 1.0), (8.0, 1.0 + notch + 0.6)])
+    # gradient: pale base -> saturated outer end, lit on the left
+    t = np.clip((14.5 - Y) / 12.5, 0, 1)
+    idx = np.where(t < 0.3, 5, np.where(t < 0.55, 4, 3))
+    idx = np.where((X > 8.0 + w * 0.35) & (t > 0.3), idx - 1, idx)
+    idx = np.where((X < 8.0 - w * 0.4) & (t > 0.3), np.minimum(idx + 1, 5), idx)
+    cv.paint(m, np.clip(idx, 1, 5), r)
+    # a faint crease down the middle
+    for y in range(int(cy), 13):
+        if _hit(m & (_dist_in(m) > 1), 8, y):
+            cv.px(8, y, r[3] if y < 10 else r[4])
 
 
 def _it_pearl(cv, r, R, accent):
-    m, s = _sphere(8.0, 8.5, 4.2)
+    rad = R.uniform(4.9, 5.4)
+    cx, cy = 8.0 + R.uniform(-0.3, 0.3), 8.4 + R.uniform(-0.3, 0.3)
+    m, s = _sphere(cx, cy, rad)
     cv.paint(m, 2 + _quant(s, 4), r)
-    cv.px(6, 6, [255, 255, 255])
-    cv.px(7, 6, r[5])
-    cv.px(6, 7, r[5])
-    tint_c = _mix(r[3], [200, 170, 230], 0.45)
-    cv.px(10, 11, tint_c)
-    cv.px(11, 10, tint_c)
+    X, Y = _igrid()
+    tint_c = _mix(r[3], [200, 170, 230] if R.random() < 0.5 else [170, 210, 230], 0.45)
+    a = R.uniform(0.3, 1.2)
+    luster = m & (np.abs(np.hypot(X - 8 - 1.2 * math.cos(a), Y - 8.4 - 1.2 * math.sin(a)) - rad * 0.75) < 0.5) & \
+        ((X - 8) + (Y - 8.4) > 1.5)
+    cv.a[luster, :3] = tint_c
+    _spec(cv, m, [255, 255, 255], r[5], depth=2)
 
 
 def _it_rod(cv, r, R, accent):
-    m = _thick([(3.0, 13.0), (13.0, 3.0)], rad=1.15)
+    ln = R.uniform(6.6, 7.4)
+    ang = -math.pi / 4 + R.uniform(-0.12, 0.12)
+    c, s_ = math.cos(ang), math.sin(ang)
+    a = (8.0 - c * ln, 8.0 - s_ * ln)
+    b = (8.0 + c * ln, 8.0 + s_ * ln)
+    m = _thick([a, b], rad=R.uniform(1.0, 1.3))
     X, Y = _mgrid()
-    seg = (np.abs(((X - Y) % 4.0)) < 1.0)
-    u = (X + Y)
-    idx = np.where(u < 16, 4, 3)
+    gap = R.uniform(3.4, 4.6)
+    u = (X - 8.0) * c + (Y - 8.0) * s_
+    v = -(X - 8.0) * s_ + (Y - 8.0) * c
+    seg = (np.abs((u + 20) % gap) < 0.8)
+    idx = np.where(v < 0, 4, 3)
     idx = np.where(seg, 2, idx)
     cv.paint(m, idx, r)
-    cv.px(12, 3, r[5])
-    cv.px(13, 4, r[5])
+    for (px, py) in (b,):
+        cap = _ellipse(px, py, 1.5, 1.5)
+        cv.paint(cap, np.where(X + Y < px + py, 5, 4), r)
 
 
 def _it_gear(cv, r, R, accent):
-    m, d = _gear_mask(8.0, 8.0, 6.6, 4.8, 8, 1.7, 0.2)
+    teeth = int(R.choice([6, 8, 8, 10]))
+    m, d = _gear_mask(8.0, 8.0, R.uniform(6.3, 6.8), R.uniform(4.6, 5.1), teeth, R.uniform(1.4, 2.1), R.uniform(0, 1))
     s = _shade(m, depth=1.5)
     idx = 1 + _quant(s, 5)
     idx = np.where((d > 2.3) & (d < 3.2), np.maximum(idx - 1, 1), idx)
@@ -3845,17 +4403,56 @@ ITEM_KINDS = ["meat_raw", "meat_cooked", "gem", "orb", "shard", "goo", "feather"
               "chip", "bolt", "star", "coin", "flower", "tentacle", "wing", "petal", "pearl", "rod", "gear"]
 
 
+# kind -> (max rotation in degrees, min scale, may mirror, extra lean in degrees)
+_ITEM_JITTER = {
+    "meat_raw": (12, 0.92, True, 0), "meat_cooked": (12, 0.92, True, 0), "gem": (0, 0.9, False, 0),
+    "orb": (0, 0.92, False, 0), "shard": (12, 0.9, True, 0), "goo": (6, 0.92, True, 0),
+    "feather": (10, 0.92, True, 0), "scale": (14, 0.88, True, 0), "fang": (10, 0.92, True, 0),
+    "eyeball": (0, 0.92, False, 0), "spore": (20, 0.92, False, 0), "dust": (0, 0.92, True, 0),
+    "bone": (10, 0.92, True, 0), "shell": (8, 0.9, False, 0), "fruit": (10, 0.92, True, 0),
+    "berry": (10, 0.92, True, 0), "jelly": (0, 0.92, False, 0), "horn": (10, 0.92, True, 0),
+    "core": (0, 0.92, False, 0), "ingot": (0, 0.94, False, 0), "crystal": (6, 0.92, True, 0),
+    "leaf": (10, 0.92, True, 0), "seed": (12, 0.94, True, 0), "mushroom": (6, 0.94, True, 0),
+    "candy": (10, 0.94, True, 0), "slice": (14, 0.94, True, 0), "cheese": (0, 0.94, True, 0),
+    "bottle": (0, 0.97, False, 0), "egg": (8, 0.94, False, 0), "chip": (0, 0.94, False, 0),
+    "bolt": (6, 0.92, True, 16), "star": (8, 0.92, False, 0), "coin": (0, 0.94, False, 0),
+    "flower": (10, 0.94, True, 0), "tentacle": (8, 0.92, True, 0), "wing": (8, 0.92, True, 0),
+    "petal": (14, 0.9, True, 28), "pearl": (0, 0.97, False, 0), "rod": (8, 0.94, True, 0),
+    "gear": (0, 0.94, False, 0),
+}
+
+
 def item_icon(kind, pal, seed, accent=None):
     """16x16 item icon of ``kind`` (see ITEM_KINDS) coloured by ``pal`` with a darker outline.
 
     ``accent`` (hex) colours a secondary detail: fat marbling, iris, leaf, cork, rind, spots...
+    The seed varies the shape of every kind: proportions, lean, mirroring (for asymmetric kinds)
+    and the positions of notches, spots and other details, so two dimensions using the same
+    kind get different icons, not just a different palette.
     """
+    global _XF
     if kind not in ITEM_KINDS:
         raise ValueError(f"unknown item kind {kind!r}; expected one of {ITEM_KINDS}")
     r = _xramp(pal, 5, light=1)  # 6 shades
-    R = _R(seed, "item:" + kind)
-    cv = _Cv()
-    globals()["_it_" + kind](cv, r, R, accent)
+    rot, smin, mir, lean = _ITEM_JITTER.get(kind, (6, 0.94, False, 0))
+    J = _R(seed, "itemxf:" + kind)
+    mirror = bool(mir and J.random() < 0.5)
+    ang = math.radians(J.uniform(-rot, rot) + lean * (-1 if mirror else 1))
+    scale = J.uniform(smin, 1.0)
+    prev = _XF
+    try:
+        for attempt in range(4):
+            _XF = _Xform(ang=ang, scale=scale, mirror=mirror, cy=8.5)
+            R = _R(seed, "item:" + kind)
+            cv = _Cv()
+            globals()["_it_" + kind](cv, r, R, accent)
+            m = cv.mask
+            # keep a 1px margin for the outline
+            if not (m[0].any() or m[-1].any() or m[:, 0].any() or m[:, -1].any()):
+                break
+            scale *= 0.93
+    finally:
+        _XF = prev
     _outline(cv, 0.45)
     return cv.img()
 
@@ -3871,57 +4468,58 @@ PORTAL_FLUID = ["#2e8a2c", "#5ec83a", "#7ed443", "#9be04a", "#d4f58c"]
 
 
 def _portal_liquid_idx(phase, seed):
-    """Swirling shade indices (1..4) for the bottle liquid at a given phase (radians)."""
+    """Swirling shade indices (1..4) for the bottle liquid at a given phase (radians).
+    Bands step two shades (1 <-> 3) across the whole liquid so the swirl reads clearly."""
     X, Y = _mgrid()
     cx, cy = 8.0, 10.2
     dx, dy = X - cx, Y - cy
     d = np.hypot(dx, dy)
     th = np.arctan2(dy, dx)
-    band = np.sin(2 * th + d * 1.25 - phase)
-    idx = np.where(band > 0.45, 3, np.where(band > -0.35, 2, 1))
-    idx = np.where(d < 1.6, 4, idx)
+    band = np.sin(2 * th + d * 1.1 - phase)
+    idx = np.where(band > 0.35, 3, np.where(band > -0.35, 2, 1))
+    idx = np.where(d < 1.3, 4, idx)
     idx = np.where((dx + dy < -4.5), np.minimum(idx + 1, 4), idx)
     return idx
 
 
-def portal_fluid_bottle(seed, phase=0.0):
-    """Glass potion bottle filled with glowing lime portal fluid."""
+def _portal_bottle(seed, t):
+    """Portal fluid bottle at loop position ``t`` in [0, 1) (shared by the static icon and the
+    animation so the static bottle equals frame 0)."""
     lr = np.array([_rgb(c)[:3] for c in PORTAL_FLUID])
     cv = _Cv()
-    _bottle(cv, lr, cork="#8a6a4a", fill_top=6.5, swirl=_portal_liquid_idx(phase, seed))
-    R = _R(seed, "pfb")
-    # glowing bubbles / sparkles in the fluid
-    for (x, y) in ((6, 11), (10, 9), (9, 12)):
-        if R.random() < 0.8:
-            cv.px(x, y, _rgb("#f0fbcf")[:3])
+    _bottle(cv, lr, cork="#8a6a4a", fill_top=6.5, swirl=_portal_liquid_idx(t * math.tau, seed))
+    body = _ellipse(8.0, 10.0, 5.4, 4.8)
+    inner = body & (_dist_in(body) > 1)
+    R = _R(seed, "pff")
+    spark = _rgb("#f0fbcf")[:3]
+    # three bubbles rising 1px per frame-step (one 6px rise per loop), never interpolated
+    for k in range(3):
+        bx = R.uniform(5.5, 10.5)
+        off = R.uniform(0, 1)
+        u = (off + t) % 1.0
+        by = 13.5 - u * 6.0
+        x, y = int(bx + 0.8 * math.sin(u * 6)), int(by)
+        if inner[y, x] and y > 7:
+            cv.px(x, y, spark)
     _outline(cv, 0.5)
     return cv.img()
 
 
-def portal_fluid_frames(seed, n=8):
-    """``n`` frames of the portal fluid bottle with the liquid swirling (loops seamlessly)."""
-    frames = []
-    lr = np.array([_rgb(c)[:3] for c in PORTAL_FLUID])
-    R = _R(seed, "pff")
-    bubbles = [(R.uniform(5, 11), R.uniform(0, 1)) for _ in range(3)]
-    for f in range(n):
-        ph = f / n * math.tau
-        cv = _Cv()
-        _bottle(cv, lr, cork="#8a6a4a", fill_top=6.5, swirl=_portal_liquid_idx(ph, seed))
-        body = _ellipse(8.0, 10.0, 5.4, 4.8) & (_dist_in(_ellipse(8.0, 10.0, 5.4, 4.8)) > 1)
-        for (bx, off) in bubbles:
-            t = (off + f / n) % 1.0
-            by = 13.5 - t * 6.0
-            x, y = int(bx + 0.8 * math.sin(t * 6)), int(by)
-            if body[y, x] and y > 7:
-                cv.px(x, y, _rgb("#f0fbcf")[:3])
-        _outline(cv, 0.5)
-        frames.append(cv.img())
-    return frames
+def portal_fluid_bottle(seed, phase=0.0):
+    """Glass potion bottle filled with glowing lime portal fluid (``phase`` in radians;
+    ``phase=0`` is identical to ``portal_fluid_frames(seed)[0]``)."""
+    return _portal_bottle(seed, (phase / math.tau) % 1.0)
+
+
+def portal_fluid_frames(seed, n=16):
+    """``n`` frames of the portal fluid bottle with the liquid swirling (loops seamlessly).
+    Tagged for ``interpolate=False`` (see ``animated``)."""
+    return _tag_frames([_portal_bottle(seed, f / n) for f in range(n)], 2, False)
 
 
 def spawn_egg(base_hex, spot_hex, seed):
-    """Spawn egg icon (vanilla silhouette) in ``base_hex`` with ``spot_hex`` spots."""
+    """Spawn egg icon (vanilla silhouette) in ``base_hex`` with 4-7 ``spot_hex`` spots of mixed
+    size at seed-jittered positions (mirrored pairs that would read as a face are rejected)."""
     br = _color_ramp(base_hex, 5, spread=0.85)
     sr = _color_ramp(spot_hex, 4, spread=0.85)
     R = _R(seed, "egg")
@@ -3931,33 +4529,22 @@ def spawn_egg(base_hex, spot_hex, seed):
     bidx = _quant(np.clip(s * 1.05, 0, 0.999), 5)
     cv.paint(m, bidx, br)
     inner = _dist_in(m) >= 2
-    spots = np.zeros((S, S), bool)
-    shapes = [[(0, 0), (1, 0), (0, 1), (1, 1)], [(0, 0), (1, 0), (2, 0), (0, 1), (1, 1)],
-              [(0, 0), (1, 0), (1, 1)], [(1, 0), (0, 1), (1, 1), (2, 1)], [(0, 0), (1, 0), (0, 1), (1, 1), (1, 2)]]
-    slots = [(6, 4), (9, 5), (4, 8), (10, 8), (7, 10), (5, 12), (10, 11), (8, 13)]
-    R.shuffle(slots)
-    placed, target = 0, int(R.integers(4, 7))
-    for (sx, sy) in slots:
-        if placed >= target:
-            break
-        sx = int(sx + R.integers(-1, 2))
-        shp = shapes[int(R.integers(0, len(shapes)))]
-        cells = [(sx + dx, sy + dy) for (dx, dy) in shp]
-        if not all(0 <= x < S and 0 <= y < S and inner[y, x] for (x, y) in cells):
-            continue
-        if any(spots[max(0, y - 1):y + 2, max(0, x - 1):x + 2].any() for (x, y) in cells):
-            continue
-        for (x, y) in cells:
-            spots[y, x] = True
-        placed += 1
+    spots = _egg_spots(R, inner, int(R.integers(4, 8)))
     sidx = np.clip(np.round(s * 3), 0, 3).astype(int)
     up = _roll(spots, 1, 0)
     left = _roll(spots, 0, 1)
     sidx = np.where(spots & (~up | ~left), np.minimum(sidx + 1, 3), sidx)
     cv.paint(spots, sidx, sr)
-    cv.px(6, 4, _lighter(br[4], 0.5))
-    cv.px(5, 5, br[4])
-    _outline(cv, 0.42)
+    _spec(cv, m, _lighter(br[4], 0.5), br[4], depth=2)
+    base_l = _lum(_rgb(base_hex)[:3])
+    if base_l < 40:
+        # very dark egg: a darkened outline would vanish into the body, so light the rim
+        X, Y = _igrid()
+        rim = m & (_dist_in(m) == 1) & ((X - 8) + (Y - 8.6) > -2)
+        cv.a[rim, :3] = _mix(cv.a[rim, :3], _lighter(br[3], 0.35), 0.55)
+        _outline(cv, color="#050506")
+    else:
+        _outline(cv, 0.42)
     return cv.img()
 
 
@@ -4001,16 +4588,59 @@ def gun_dark(seed):
 
 
 _FONT3x5 = {
-    "C": ["111", "100", "100", "100", "111"],
-    "1": ["010", "110", "010", "010", "111"],
-    "3": ["111", "001", "011", "001", "111"],
-    "7": ["111", "001", "010", "010", "010"],
-    "-": ["000", "000", "111", "000", "000"],
+    "0": ["111", "101", "101", "101", "111"], "1": ["010", "110", "010", "010", "111"],
+    "2": ["111", "001", "111", "100", "111"], "3": ["111", "001", "011", "001", "111"],
+    "4": ["101", "101", "111", "001", "001"], "5": ["111", "100", "111", "001", "111"],
+    "6": ["111", "100", "111", "101", "111"], "7": ["111", "001", "010", "010", "010"],
+    "8": ["111", "101", "111", "101", "111"], "9": ["111", "101", "111", "001", "111"],
+    "A": ["010", "101", "111", "101", "101"], "B": ["110", "101", "110", "101", "110"],
+    "C": ["111", "100", "100", "100", "111"], "D": ["110", "101", "101", "101", "110"],
+    "E": ["111", "100", "110", "100", "111"], "F": ["111", "100", "110", "100", "100"],
+    "G": ["011", "100", "101", "101", "011"], "H": ["101", "101", "111", "101", "101"],
+    "I": ["111", "010", "010", "010", "111"], "J": ["001", "001", "001", "101", "010"],
+    "K": ["101", "101", "110", "101", "101"], "L": ["100", "100", "100", "100", "111"],
+    "M": ["101", "111", "111", "101", "101"], "N": ["110", "101", "101", "101", "101"],
+    "O": ["010", "101", "101", "101", "010"], "P": ["110", "101", "110", "100", "100"],
+    "Q": ["010", "101", "101", "110", "011"], "R": ["110", "101", "110", "101", "101"],
+    "S": ["011", "100", "010", "001", "110"], "T": ["111", "010", "010", "010", "010"],
+    "U": ["101", "101", "101", "101", "111"], "V": ["101", "101", "101", "101", "010"],
+    "W": ["101", "101", "111", "111", "101"], "X": ["101", "101", "010", "101", "101"],
+    "Y": ["101", "101", "010", "010", "010"], "Z": ["111", "001", "010", "100", "111"],
+    "-": ["000", "000", "111", "000", "000"], " ": ["000", "000", "000", "000", "000"],
+    ".": ["000", "000", "000", "000", "010"], ":": ["000", "010", "000", "010", "000"],
+    "!": ["010", "010", "010", "000", "010"], "?": ["110", "001", "010", "000", "010"],
+    "/": ["001", "001", "010", "100", "100"], "+": ["000", "010", "111", "010", "000"],
 }
 
 
+def _glyphs(text):
+    """Validate ``text`` for the 3x5 screen font and split it into at most two lines of <= 3
+    characters.  Raises ValueError for unknown characters or text longer than 6 characters."""
+    t = str(text).upper()
+    bad = sorted({ch for ch in t if ch not in _FONT3x5})
+    if bad:
+        raise ValueError(f"gun_screen(): no glyph for {bad}; supported: {''.join(sorted(_FONT3x5))!r}")
+    if len(t) > 6:
+        raise ValueError(f"gun_screen(): text {text!r} is too long (max 3 characters per line, 2 lines)")
+    if len(t) <= 3:
+        return [t] if t else []
+    for sep in ("-", " "):  # prefer breaking after a separator: "C-137" -> "C-" / "137"
+        k = t.find(sep)
+        if 0 <= k:
+            a, b = t[:k + 1].rstrip(), t[k + 1:].lstrip()
+            if 0 < len(a) <= 3 and 0 < len(b) <= 3:
+                return [a, b]
+    h = (len(t) + 1) // 2
+    return [t[:h], t[h:]]
+
+
 def gun_screen(seed, text="137"):
-    """Dark bezel with a glowing orange-red display (scanlines + digits)."""
+    """Dark bezel with a glowing orange-red display (scanlines + up to 2 lines of 3x5 text).
+
+    ``text``: digits, A-Z and ``- . : ! ? / +``; up to 3 characters on one line (with a small
+    level meter under it) or up to 6 on two lines (split after a ``-``/space when possible).
+    Text is centred on the screen with at least 1px of screen on every side."""
+    lines = _glyphs(text)
     bezel = np.array([_rgb(c)[:3] for c in ["#1c1e21", "#2a2d31", "#3a3e43", "#4b5056"]])
     disp = np.array([_rgb(c)[:3] for c in ["#a8341a", "#d84a20", "#ff6a2a", "#ff9a5a", "#ffd2a8"]])
     out = np.zeros((S, S, 4))
@@ -4019,25 +4649,26 @@ def gun_screen(seed, text="137"):
     out[..., :3] = bezel[1]
     out[(yy == 0) | (xx == 0), :3] = bezel[3]
     out[(yy == S - 1) | (xx == S - 1), :3] = bezel[0]
-    inner = (xx >= 2) & (xx <= 13) & (yy >= 2) & (yy <= 13)
-    out[inner, :3] = disp[2]
-    out[inner & (yy % 2 == 1), :3] = disp[1]
-    edge = inner & ((xx == 2) | (xx == 13) | (yy == 2) | (yy == 13))
-    out[edge, :3] = disp[1]
-    out[((xx == 1) & (yy >= 1) & (yy <= 14)) | ((yy == 1) & (xx >= 1) & (xx <= 14)), :3] = bezel[0]
-    # digits
-    text = text[:3]
-    x0 = 8 - (len(text) * 4 - 1) // 2
-    for i, ch in enumerate(text):
-        g = _FONT3x5.get(ch, _FONT3x5["-"])
-        for gy, row in enumerate(g):
-            for gx, bit in enumerate(row):
-                if bit == "1":
-                    out[5 + gy, x0 + i * 4 + gx, :3] = disp[4]
-    # little bar meter
-    for x in range(4, 12):
-        out[11, x, :3] = disp[3] if x < 9 else disp[1]
-    out[3, 3, :3] = disp[4]
+    screen = (xx >= 1) & (xx <= 14) & (yy >= 1) & (yy <= 14)
+    out[screen, :3] = disp[2]
+    out[screen & (yy % 2 == 0), :3] = disp[1]  # scanlines
+    out[screen & ((yy == 1) | (yy == 14)), :3] = disp[0]  # dim top / bottom rows
+    out[screen & (xx == 1) & (yy <= 2), :3] = disp[0]
+    rows0 = [4] if len(lines) == 1 else [2, 8]
+    for line, y0 in zip(lines, rows0):
+        w = len(line) * 4 - 1
+        x0 = 1 + (14 - w) // 2  # centred in the 14px screen (>= 1px margin each side)
+        for i, ch in enumerate(line):
+            for gy, row in enumerate(_FONT3x5[ch]):
+                for gx, bit in enumerate(row):
+                    if bit == "1":
+                        out[y0 + gy, x0 + i * 4 + gx, :3] = disp[4]
+    if len(lines) <= 1:
+        # little level meter under the readout
+        R = _R(seed, "meter")
+        lvl = 4 + int(R.integers(3, 7))
+        for x in range(3, 13):
+            out[11, x, :3] = disp[3] if x < lvl else disp[0]
     return _img(out)
 
 
@@ -4058,19 +4689,22 @@ def gun_button(seed):
     return _img(out)
 
 
-def gun_canister_frames(seed, n=8):
-    """``n`` frames of bright green fluid swirling in a glass canister (seamless loop)."""
+def gun_canister_frames(seed, n=16):
+    """``n`` frames of bright green fluid swirling in a glass canister (seamless loop).
+
+    Bubbles rise exactly 1px per frame (16 frames = one 16px rise) and the strip is tagged
+    ``interpolate=False`` so they move instead of cross-fading (see ``animated``)."""
     pal_ = np.array([_rgb(c)[:3] for c in PORTAL_PALETTE])
     white_ = np.array([247, 252, 235], float)
     glass_hi = np.array([235, 250, 230], float)
     xx, yy = _grid()
     R = _R(seed, "can")
-    bubbles = [(int(R.integers(3, 13)), R.uniform(0, 1), R.choice([1, 1, 2])) for _ in range(5)]
-    warp = _vn(8, 8, seed + ":w")
+    bubbles = [(int(R.integers(3, 13)), int(R.integers(0, S)), int(R.choice([1, 1, 2]))) for _ in range(5)]
+    warp = _vn(4, 4, seed + ":w")
     frames = []
     for f in range(n):
         ph = f / n * math.tau
-        band = np.sin((xx * 0.8 + yy) * math.tau / 16 * 2 - ph + 2.0 * warp) \
+        band = np.sin((xx * 0.8 + yy) * math.tau / 16 * 2 - ph + 1.6 * warp) \
             + 0.5 * np.sin((xx - yy) * math.tau / 16 + ph)
         idx = np.where(band > 0.9, 3, np.where(band > 0.1, 2, np.where(band > -0.8, 1, 0)))
         out = np.zeros((S, S, 4))
@@ -4078,9 +4712,9 @@ def gun_canister_frames(seed, n=8):
         out[..., :3] = pal_[idx]
         # cylinder shading: darker at the sides
         out[(xx <= 1) | (xx >= 14), :3] *= 0.8
-        # bubbles rising 2px per frame (16px per loop)
+        # bubbles rising 1px per frame (S px per loop when n == S)
         for (bx, off, size) in bubbles:
-            by = int((S - (off * S + f * (S / n))) % S)
+            by = int((off - f * S / n) % S)
             out[by, bx, :3] = white_
             if size > 1:
                 out[by, (bx + 1) % S, :3] = white_
@@ -4092,4 +4726,4 @@ def gun_canister_frames(seed, n=8):
         out[:, 0, :3] = pal_[0] * 0.8
         out[:, S - 1, :3] = pal_[0] * 0.8
         frames.append(_img(out))
-    return frames
+    return _tag_frames(frames, 2, False)

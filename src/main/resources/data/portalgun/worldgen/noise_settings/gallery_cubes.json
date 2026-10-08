@@ -29,7 +29,7 @@
       "argument1": {
         "type": "minecraft:shifted_noise",
         "noise": "portalgun:gallery_cubes/temperature",
-        "xz_scale": 0.9375,
+        "xz_scale": 1.25,
         "y_scale": 0.0,
         "shift_x": "minecraft:shift_x",
         "shift_y": 0.0,
@@ -42,7 +42,7 @@
       "argument1": {
         "type": "minecraft:shifted_noise",
         "noise": "portalgun:gallery_cubes/humidity",
-        "xz_scale": 0.9375,
+        "xz_scale": 1.25,
         "y_scale": 0.0,
         "shift_x": "minecraft:shift_x",
         "shift_y": 0.0,
@@ -462,207 +462,7 @@
             "type": "minecraft:min",
             "argument1": {
               "type": "minecraft:max",
-              "argument1": {
-                "type": "minecraft:add",
-                "argument1": {
-                  "type": "minecraft:flat_cache",
-                  "argument": {
-                    "type": "minecraft:cache_2d",
-                    "argument": {
-                      "type": "minecraft:spline",
-                      "spline": {
-                        "coordinate": {
-                          "type": "minecraft:add",
-                          "argument1": {
-                            "type": "minecraft:add",
-                            "argument1": 70.0,
-                            "argument2": {
-                              "type": "minecraft:mul",
-                              "argument1": {
-                                "type": "minecraft:mul",
-                                "argument1": {
-                                  "type": "minecraft:noise",
-                                  "noise": "portalgun:gallery_cubes/hills",
-                                  "xz_scale": 1.0,
-                                  "y_scale": 0.0
-                                },
-                                "argument2": 2.0
-                              },
-                              "argument2": 14.4
-                            }
-                          },
-                          "argument2": {
-                            "type": "minecraft:mul",
-                            "argument1": {
-                              "type": "minecraft:mul",
-                              "argument1": {
-                                "type": "minecraft:noise",
-                                "noise": "portalgun:gallery_cubes/base",
-                                "xz_scale": 1.0,
-                                "y_scale": 0.0
-                              },
-                              "argument2": 2.0
-                            },
-                            "argument2": 7.2
-                          }
-                        },
-                        "points": [
-                          {
-                            "location": 16.0,
-                            "value": 16.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 23.68,
-                            "value": 16.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 24.0,
-                            "value": 24.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 31.68,
-                            "value": 24.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 32.0,
-                            "value": 32.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 39.68,
-                            "value": 32.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 40.0,
-                            "value": 40.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 47.68,
-                            "value": 40.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 48.0,
-                            "value": 48.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 55.68,
-                            "value": 48.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 56.0,
-                            "value": 56.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 63.68,
-                            "value": 56.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 64.0,
-                            "value": 64.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 71.68,
-                            "value": 64.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 72.0,
-                            "value": 72.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 79.68,
-                            "value": 72.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 80.0,
-                            "value": 80.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 87.68,
-                            "value": 80.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 88.0,
-                            "value": 88.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 95.68,
-                            "value": 88.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 96.0,
-                            "value": 96.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 103.68,
-                            "value": 96.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 104.0,
-                            "value": 104.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 111.68,
-                            "value": 104.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 112.0,
-                            "value": 112.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 119.68,
-                            "value": 112.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 120.0,
-                            "value": 120.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 127.68,
-                            "value": 120.0,
-                            "derivative": 0.0
-                          },
-                          {
-                            "location": 128.0,
-                            "value": 128.0,
-                            "derivative": 1.0
-                          }
-                        ]
-                      }
-                    }
-                  }
-                },
-                "argument2": {
-                  "type": "minecraft:mul",
-                  "argument1": "minecraft:y",
-                  "argument2": -1.0
-                }
-              },
+              "argument1": -40.0,
               "argument2": {
                 "type": "minecraft:y_clamped_gradient",
                 "from_y": -64,
@@ -683,22 +483,230 @@
         }
       },
       "argument2": {
-        "type": "minecraft:range_choice",
-        "input": "minecraft:y",
-        "min_inclusive": 47.0,
-        "max_exclusive": 189.0,
-        "when_in_range": {
-          "type": "portalgun:cell_shapes",
-          "noise": "portalgun:gallery_cubes/cubes",
-          "shape": "cube",
-          "cell_size": 36,
-          "min_radius": 4.0,
-          "max_radius": 11.0,
-          "y_min": 60,
-          "y_max": 176,
-          "probability": 0.45
+        "type": "minecraft:max",
+        "argument1": {
+          "type": "minecraft:mul",
+          "argument1": {
+            "type": "minecraft:add",
+            "argument1": {
+              "type": "minecraft:flat_cache",
+              "argument": {
+                "type": "minecraft:cache_2d",
+                "argument": {
+                  "type": "minecraft:spline",
+                  "spline": {
+                    "coordinate": {
+                      "type": "minecraft:add",
+                      "argument1": {
+                        "type": "minecraft:add",
+                        "argument1": 70.0,
+                        "argument2": {
+                          "type": "minecraft:mul",
+                          "argument1": {
+                            "type": "minecraft:mul",
+                            "argument1": {
+                              "type": "minecraft:noise",
+                              "noise": "portalgun:gallery_cubes/hills",
+                              "xz_scale": 1.0,
+                              "y_scale": 0.0
+                            },
+                            "argument2": 2.0
+                          },
+                          "argument2": 14.4
+                        }
+                      },
+                      "argument2": {
+                        "type": "minecraft:mul",
+                        "argument1": {
+                          "type": "minecraft:mul",
+                          "argument1": {
+                            "type": "minecraft:noise",
+                            "noise": "portalgun:gallery_cubes/base",
+                            "xz_scale": 1.0,
+                            "y_scale": 0.0
+                          },
+                          "argument2": 2.0
+                        },
+                        "argument2": 7.2
+                      }
+                    },
+                    "points": [
+                      {
+                        "location": 16.0,
+                        "value": 16.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 23.68,
+                        "value": 16.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 24.0,
+                        "value": 24.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 31.68,
+                        "value": 24.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 32.0,
+                        "value": 32.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 39.68,
+                        "value": 32.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 40.0,
+                        "value": 40.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 47.68,
+                        "value": 40.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 48.0,
+                        "value": 48.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 55.68,
+                        "value": 48.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 56.0,
+                        "value": 56.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 63.68,
+                        "value": 56.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 64.0,
+                        "value": 64.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 71.68,
+                        "value": 64.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 72.0,
+                        "value": 72.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 79.68,
+                        "value": 72.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 80.0,
+                        "value": 80.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 87.68,
+                        "value": 80.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 88.0,
+                        "value": 88.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 95.68,
+                        "value": 88.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 96.0,
+                        "value": 96.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 103.68,
+                        "value": 96.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 104.0,
+                        "value": 104.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 111.68,
+                        "value": 104.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 112.0,
+                        "value": 112.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 119.68,
+                        "value": 112.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 120.0,
+                        "value": 120.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 127.68,
+                        "value": 120.0,
+                        "derivative": 0.0
+                      },
+                      {
+                        "location": 128.0,
+                        "value": 128.0,
+                        "derivative": 1.0
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "argument2": {
+              "type": "minecraft:mul",
+              "argument1": "minecraft:y",
+              "argument2": -1.0
+            }
+          },
+          "argument2": 0.0625
         },
-        "when_out_of_range": -1.0
+        "argument2": {
+          "type": "minecraft:range_choice",
+          "input": "minecraft:y",
+          "min_inclusive": 47.0,
+          "max_exclusive": 189.0,
+          "when_in_range": {
+            "type": "portalgun:cell_shapes",
+            "noise": "portalgun:gallery_cubes/cubes",
+            "shape": "cube",
+            "cell_size": 36,
+            "min_radius": 4.0,
+            "max_radius": 11.0,
+            "y_min": 60,
+            "y_max": 176,
+            "probability": 0.45
+          },
+          "when_out_of_range": -1.0
+        }
       }
     },
     "vein_toggle": 0.0,

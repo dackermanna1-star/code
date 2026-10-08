@@ -80,15 +80,6 @@
       ],
       "modifier": "multiply"
     },
-    "minecraft:visual/fog_color": {
-      "keyframes": [
-        {
-          "ticks": 0,
-          "value": "#838386"
-        }
-      ],
-      "modifier": "multiply"
-    },
     "minecraft:visual/moon_angle": {
       "keyframes": [
         {
@@ -96,15 +87,6 @@
           "value": 270.2917332773882
         }
       ]
-    },
-    "minecraft:visual/sky_color": {
-      "keyframes": [
-        {
-          "ticks": 0,
-          "value": "#7b7b7b"
-        }
-      ],
-      "modifier": "multiply"
     },
     "minecraft:visual/sky_light_color": {
       "keyframes": [

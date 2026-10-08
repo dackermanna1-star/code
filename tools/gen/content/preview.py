@@ -264,7 +264,7 @@ class World:
                     px = (ix + 0.2 + 0.6 * h(ix, 0, iz, 1)) * cs
                     pz = (iz + 0.2 + 0.6 * h(ix, 0, iz, 3)) * cs
                     q = np.sqrt((X - px) ** 2 + (Z - pz) ** 2) / r
-                    sc = 0.4 + 0.6 * min(1.0, r / d["max_radius"]) if not np.isscalar(r) or True else 1.0
+                    sc = 0.4 + 0.6 * np.minimum(1.0, r / d["max_radius"])
                     bowl = np.where(q < 1, -d["depth"] * sc * np.clip(1 - q * q, 0, 1) ** 0.85, 0)
                     rim = d["rim"] * sc * np.exp(-((q - 1.0) / 0.25) ** 2)
                     out = out + np.where(on, bowl + rim, 0)
@@ -279,10 +279,10 @@ class World:
                     ix, iy, iz = cx + dx, cy + dy, cz + dz
                     on = h(ix, iy, iz, 4) < d["probability"]
                     r = d["min_radius"] + h(ix, iy, iz, 5) * (d["max_radius"] - d["min_radius"])
-                    px = (ix + 0.5) * cs + (h(ix, iy, iz, 1) - 0.5) * max(0, cs - 2 * r)
-                    pz = (iz + 0.5) * cs + (h(ix, iy, iz, 3) - 0.5) * max(0, cs - 2 * r)
+                    px = (ix + 0.5) * cs + (h(ix, iy, iz, 1) - 0.5) * np.maximum(0, cs - 2 * r)
+                    pz = (iz + 0.5) * cs + (h(ix, iy, iz, 3) - 0.5) * np.maximum(0, cs - 2 * r)
                     if t == "portalgun:cell_shapes":
-                        py = (iy + 0.5) * cs + (h(ix, iy, iz, 2) - 0.5) * max(0, cs - 2 * r)
+                        py = (iy + 0.5) * cs + (h(ix, iy, iz, 2) - 0.5) * np.maximum(0, cs - 2 * r)
                         on = on & (py >= d["y_min"]) & (py <= d["y_max"])
                         if d["shape"] == "cube":
                             q = np.maximum(np.maximum(np.abs(X - px), np.abs(Y - py)), np.abs(Z - pz)) / r
@@ -336,10 +336,17 @@ def render(dim, size=512, step=4, out_dir=None):
     X2, Z2 = np.meshgrid(xs, xs)
     ys = np.arange(miny + height - 4, miny, -6, dtype=float)
     top = np.full(X2.shape, np.nan)
+    roofed = st["surface_rule"] and "bedrock_roof" in json.dumps(st["surface_rule"])
+    seen_air = np.zeros(X2.shape, bool)
     for y in ys:
         Yv = np.full(X2.shape, y)
         dv = w.ev(dens, X2, Yv, Z2)
-        solid = (dv > 0) & np.isnan(top)
+        if roofed:
+            # cave worlds: first floor below the roof (solid under air)
+            solid = (dv > 0) & np.isnan(top) & seen_air
+            seen_air |= dv <= 0
+        else:
+            solid = (dv > 0) & np.isnan(top)
         top[solid] = y
     surf = np.nan_to_num(top, nan=miny)
     # hillshade
@@ -398,3 +405,38 @@ if __name__ == "__main__":
     for d in args:
         p, s = render(d)
         print(d, p, s, flush=True)
+
+
+def biome_map(dim, size=2048, step=16, out_dir=None):
+    """Render the multi_noise biome layout (approximate) - checks patch sizes and that every biome appears."""
+    w = World(dim)
+    router = w.settings["noise_router"]
+    with open(os.path.join(RES, "data", "portalgun", "dimension", dim + ".json")) as f:
+        src = json.load(f)["generator"]["biome_source"]
+    xs = np.arange(0, size, step, dtype=float)
+    X, Z = np.meshgrid(xs, xs)
+    Y = np.full(X.shape, 64.0)
+    if src["type"] == "minecraft:fixed":
+        print(dim, "fixed biome", src["biome"])
+        return None
+    T = w.ev(router["temperature"], X, Y, Z)
+    Hm = w.ev(router["vegetation"], X, Y, Z)
+    C = w.ev(router["continents"], X, Y, Z)
+    pts = src["biomes"]
+    best = np.full(X.shape, 1e9)
+    idx = np.zeros(X.shape, int)
+    for i, b in enumerate(pts):
+        p = b["parameters"]
+        d = (T - p["temperature"]) ** 2 + (Hm - p["humidity"]) ** 2 + (C - p["continentalness"]) ** 2
+        m = d < best
+        best = np.where(m, d, best)
+        idx = np.where(m, i, idx)
+    pal = np.array([[230, 80, 80], [80, 200, 90], [80, 120, 230], [230, 200, 60], [180, 90, 220], [60, 210, 210],
+                    [240, 140, 40], [150, 150, 150]], np.uint8)
+    img = Image.fromarray(pal[idx % len(pal)]).resize((512, 512), Image.NEAREST)
+    out_dir = out_dir or os.path.join(ROOT, "tools", ".cache", "preview")
+    os.makedirs(out_dir, exist_ok=True)
+    p = os.path.join(out_dir, dim + "_biomes.png")
+    img.save(p)
+    share = {pts[i]["biome"]: round(float((idx == i).mean()), 3) for i in range(len(pts))}
+    return p, share

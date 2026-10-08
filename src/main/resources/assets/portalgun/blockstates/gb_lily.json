@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/gb_lily"
+      },
+      {
+        "model": "portalgun:block/gb_lily",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/gb_lily",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/gb_lily",
+        "y": 270
+      }
+    ]
+  }
+}

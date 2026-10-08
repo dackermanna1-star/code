@@ -332,6 +332,26 @@ def java_text():
     return _JAVA_TEXT
 
 
+def java_registers_creatures() -> bool:
+    """True when module C's Java registers entity types from the content spec (biome spawners referencing an
+    unregistered entity would make the whole world fail to load)."""
+    env = os.environ.get("PORTALGUN_CREATURE_SPAWNS")
+    if env is not None:
+        return env == "1"
+    parts = []
+    for sub in ("dev/portalgun/creature", "dev/portalgun/registry/ModCreatures.java"):
+        pth = os.path.join(JAVA_MAIN, sub)
+        files = [pth] if pth.endswith(".java") else [os.path.join(dp, f) for dp, _, fs in os.walk(pth) for f in fs if f.endswith(".java")]
+        for fp in files:
+            try:
+                with open(fp, encoding="utf-8") as f:
+                    parts.append(f.read())
+            except OSError:
+                pass
+    t = "\n".join(parts)
+    return "ENTITY_TYPE" in t and "creatures" in t
+
+
 def java_multiface_vines() -> bool:
     """True when W2's vine block is a MultifaceSpreadeableBlock (required by minecraft:multiface_growth)."""
     env = os.environ.get("PORTALGUN_MULTIFACE")

@@ -5,6 +5,16 @@ Usage (from tools/):
 
 Full blocks are shown tiled 3x3 (to check seams), sprites/items single on a
 checkerboard; everything is upscaled with nearest-neighbour and labelled.
+
+Groups (pass any of them to restrict the run): blocks, terrain, plants, items, misc, stats.
+
+``stats`` writes ``tex_stats.png`` and prints a table with, per block, the wrap-edge vs
+interior neighbour difference, the low-frequency energy ratio (|k| <= 1.5), the 8x8
+quadrant-mean std and the luminance std; for the terrain blocks the same numbers over 12 seeds
+and several real palettes with a PASS/FAIL verdict (low-frequency ratio <= 0.06 and quadrant
+std <= 3 for the median seed, <= 0.09 / 4.5 for the worst); and per sprite / item kind the
+number of distinct alpha masks over 12 seeds (mirror images counted once).
+``--strict`` makes the run exit with status 1 when a terrain block FAILs.
 """
 from __future__ import annotations
 
@@ -12,6 +22,7 @@ import os
 import sys
 from pathlib import Path
 
+import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from . import textures as T
@@ -67,6 +78,8 @@ BLOCKS = [
     ("planks", lambda: [T.planks(WOOD, "a"), T.planks(TEAL, "b")]),
     ("leaves", lambda: [T.leaves(GREEN, "a"), T.leaves(PINK, "b", holes=0.15)]),
     ("mushroom_cap", lambda: [T.mushroom_cap(RED, "a"), T.mushroom_cap(BROWN, "b", spots_pal=[])]),
+    ("mushroom_cap sporewood", lambda: [T.mushroom_cap(P_CAP, "tealcap", spots_pal=["#b8fff0", "#e8fffa"]),
+                                        T.mushroom_cap(P_CAP2, "violetcap", spots_pal=["#ffd0ff", "#fff0ff"])]),
     ("mushroom_stem", lambda: [T.mushroom_stem(CREAM, "a"), T.mushroom_stem(BONE, "b")]),
     ("crystal", lambda: [T.crystal(TEAL, "a"), T.crystal(PURPLE, "b")]),
     ("glass", lambda: [T.glass(ICE, "a"), T.glass(LIME, "b")]),
@@ -85,6 +98,8 @@ BLOCKS = [
     ("toy_brick", lambda: [T.toy_brick("#d22b2b", "a"), T.toy_brick("#2b6fd2", "b")]),
     ("neon_grid", lambda: [T.neon_grid("#0d0b1f", "#ff3cf0", "a"), T.neon_grid("#06141a", "#38f5ff", "b")]),
     ("checker / missing", lambda: [T.checker("#222222", "#eeeeee"), T.missing_texture()]),
+    ("checker 3 / 6 (snapped)", lambda: [T.checker("#222222", "#eeeeee", 3), T.checker("#d22b2b", "#f0e0c0", 6)]),
+    ("tiles 6 / candy 3 (fit 16)", lambda: [T.tiles(TEAL, "c", size=6), T.candy_stripe("#5bd0ff", "#ffe2f2", "c", 3)]),
     ("cheese", lambda: [T.cheese(YELLOW, "a"), T.cheese(CREAM, "b")]),
     ("honeycomb", lambda: [T.honeycomb(YELLOW, "a"), T.honeycomb(PURPLE, "b")]),
     ("wax", lambda: [T.wax(YELLOW, "a"), T.wax(PINK, "b")]),
@@ -126,6 +141,7 @@ PLANTS = [
     ("flower orb/spiral", lambda: [T.flower(PURPLE, CYAN, "a", "orb"), T.flower(GREEN, PINK, "b", "spiral")]),
     ("mushroom dome/flat", lambda: [T.mushroom_sprite(RED, CREAM, "a", "dome"), T.mushroom_sprite(BROWN, CREAM, "b", "flat")]),
     ("mushroom tall/cluster", lambda: [T.mushroom_sprite(PURPLE, BONE, "a", "tall"), T.mushroom_sprite(CYAN, CREAM, "b", "cluster")]),
+    ("cluster c/d", lambda: [T.mushroom_sprite(RED, CREAM, "c", "cluster"), T.mushroom_sprite(P_CAP, CREAM, "d", "cluster")]),
     ("sprout", lambda: [T.sprout(GREEN, "a"), T.sprout(PINK, "b")]),
     ("fern", lambda: [T.fern(GREEN, "a"), T.fern(TEAL, "b")]),
     ("crystal_shard_sprite", lambda: [T.crystal_shard_sprite(PURPLE, "a"), T.crystal_shard_sprite(TEAL, "b", count=2)]),
@@ -134,23 +150,23 @@ PLANTS = [
     ("thorn_bush", lambda: [T.thorn_bush(BARK, "a"), T.thorn_bush(PURPLE, "b")]),
     ("eyeball_plant", lambda: [T.eyeball_plant(GREEN, "#f4efe6", "#2d8bd6", "a"), T.eyeball_plant(PURPLE, "#ffe9e0", "#d6262d", "b")]),
     ("bulb", lambda: [T.bulb(GREEN, CYAN, "a"), T.bulb(PURPLE, YELLOW, "b")]),
+    ("bulb c/d", lambda: [T.bulb(TEAL, ORANGE, "c"), T.bulb(GREEN, PINK, "d")]),
     ("lollipop_plant", lambda: [T.lollipop_plant("#f0ece2", ["#e8333b", "#f8f4f0"], "a"), T.lollipop_plant("#f0ece2", ["#5bd0ff", "#c58bff", "#ffffff"], "b")]),
     ("cactus_sprite", lambda: [T.cactus_sprite(GREEN, "a"), T.cactus_sprite(TEAL, "b")]),
     ("puffball", lambda: [T.puffball(CREAM, "a"), T.puffball(PURPLE, "b")]),
+    ("puffball sporewood", lambda: [T.puffball(["#8a7aa0", "#b3a3c8", "#d8ccec"], "puff"), T.puffball(RED, "c")]),
     ("tendril", lambda: [T.tendril(GREEN, "a"), T.tendril(PINK, "b")]),
     ("vine_overlay", lambda: [T.vine_overlay(GREEN, "a"), T.vine_overlay(PURPLE, "b")]),
     ("lily_pad", lambda: [T.lily_pad(GREEN, "a"), T.lily_pad(PINK, "b")]),
     ("sapling", lambda: [T.sapling(BARK, GREEN, "a"), T.sapling(PURPLE, TEAL, "b")]),
     ("berry_bush", lambda: [T.berry_bush(GREEN, "#d6262d", "a"), T.berry_bush(TEAL, "#ffd34e", "b")]),
     ("bone_sprite", lambda: [T.bone_sprite(BONE, "a"), T.bone_sprite(CREAM, "b")]),
+    ("bone_sprite c/d", lambda: [T.bone_sprite(BONE, "c"), T.bone_sprite(WHITE, "d")]),
     ("gear_sprite", lambda: [T.gear_sprite(METAL, "a"), T.gear_sprite(YELLOW, "b")]),
     ("wire_sprite", lambda: [T.wire_sprite(RED, "a"), T.wire_sprite(CYAN, "b")]),
 ]
 
-ITEM_KINDS = ["meat_raw", "meat_cooked", "gem", "orb", "shard", "goo", "feather", "scale", "fang",
-              "eyeball", "spore", "dust", "bone", "shell", "fruit", "berry", "jelly", "horn", "core",
-              "ingot", "crystal", "leaf", "seed", "mushroom", "candy", "slice", "cheese", "bottle", "egg",
-              "chip", "bolt", "star", "coin", "flower", "tentacle", "wing", "petal", "pearl", "rod", "gear"]
+ITEM_KINDS = T.ITEM_KINDS  # single source of truth: new kinds are previewed automatically
 
 ITEM_PALS = {
     "meat_raw": (PINK, None), "meat_cooked": (CHOC[1:] + ["#b07040"], None), "gem": (TEAL, None),
@@ -167,6 +183,14 @@ ITEM_PALS = {
 }
 
 ALT_PALS = [TEAL, ORANGE, PURPLE, GREEN, BLUEP, RED]
+DEFAULT_ITEM_PAL = (GREEN, None)
+
+# real palettes from the sporewood dimension (dark, low-saturation terrain)
+P_MOSS = ["#1d3b3a", "#245048", "#2f6b5a", "#3f8a6c", "#58a982"]
+P_SOIL = ["#2a1f2e", "#3a2b3d", "#4b3a4e", "#5d4a5f"]
+P_ROCK = ["#2b2d3a", "#3a3d4d", "#4a4e60", "#5c6074", "#6f7488"]
+P_CAP = ["#1a6f7a", "#1f8a92", "#28a8aa", "#3fc9c0", "#7ff0dc"]
+P_CAP2 = ["#6a2a7a", "#86339a", "#a443b6", "#c264d0", "#e39af0"]
 
 
 def _stack(top, bottom):
@@ -176,9 +200,9 @@ def _stack(top, bottom):
     return im
 
 
-def _font(size=14):
-    for p in ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-              "/usr/share/fonts/dejavu/DejaVuSans.ttf"):
+def _font(size=14, mono=False):
+    name = "DejaVuSansMono.ttf" if mono else "DejaVuSans.ttf"
+    for p in ("/usr/share/fonts/truetype/dejavu/" + name, "/usr/share/fonts/dejavu/" + name):
         try:
             return ImageFont.truetype(p, size)
         except OSError:
@@ -196,13 +220,13 @@ def _checker_bg(w, h, a=(104, 128, 160), b=(118, 142, 174), cell=8):
     return im
 
 
-def tile3(img, scale):
+def tile3(img, scale, n=3):
     w, h = img.size
-    big = Image.new("RGBA", (w * 3, h * 3), (0, 0, 0, 0))
-    for j in range(3):
-        for i in range(3):
+    big = Image.new("RGBA", (w * n, h * n), (0, 0, 0, 0))
+    for j in range(n):
+        for i in range(n):
             big.paste(img, (i * w, j * h))
-    big = big.resize((w * 3 * scale, h * 3 * scale), Image.NEAREST)
+    big = big.resize((w * n * scale, h * n * scale), Image.NEAREST)
     bg = _checker_bg(*big.size, cell=12)
     bg.alpha_composite(big)
     return bg
@@ -217,9 +241,20 @@ def single(img, scale, bg=True):
     return out
 
 
+def _fit_label(d, label, width, size=15):
+    """Font + text that fit ``width`` px: shrink the font down to 10px, then truncate with '..'."""
+    for sz in range(size, 9, -1):
+        font = _font(sz)
+        if d.textlength(label, font=font) <= width:
+            return font, label
+    font = _font(10)
+    while label and d.textlength(label + "..", font=font) > width:
+        label = label[:-1]
+    return font, label + ".."
+
+
 def sheet(cells, cols, path, title):
-    """cells: list of (label, image)."""
-    font = _font(15)
+    """cells: list of (label, image).  Labels are shrunk / truncated to the cell width."""
     tfont = _font(22)
     pad, lab = 10, 20
     cw = max(c[1].size[0] for c in cells)
@@ -233,7 +268,8 @@ def sheet(cells, cols, path, title):
     for k, (label, c) in enumerate(cells):
         x = pad + (k % cols) * (cw + pad)
         y = 40 + (k // cols) * (ch + lab + pad)
-        d.text((x, y), label, fill=(225, 225, 210), font=font)
+        font, text = _fit_label(d, label, cw)
+        d.text((x, y), text, fill=(225, 225, 210), font=font)
         im.alpha_composite(c, (x, y + lab))
     path.parent.mkdir(parents=True, exist_ok=True)
     im.convert("RGB").save(path)
@@ -259,6 +295,39 @@ def render_blocks(out, filters, per_sheet=18, scale=5):
     return paths
 
 
+# terrain blocks that cover most of every dimension: (name, generator, [palettes]) -- checked by
+# the stats group and shown 6x6 in tex_terrain.png (large areas show any 16px repetition)
+TERRAIN = [
+    ("stone", T.stone, [GREY, PURPLE, P_ROCK]),
+    ("dirt", T.dirt, [BROWN, P_SOIL, THREE]),
+    ("grass_top", T.grass_top, [GREEN, P_MOSS, TEAL]),
+    ("moss", T.moss, [GREEN, ORANGE]),
+    ("ash", T.ash, [GREY, EIGHT]),
+    ("obsidian_like", T.obsidian_like, [DARKOBS, ["#060a0a", "#0c1818", "#14302c", "#1f5045", "#3a8a6a"]]),
+    ("bone", T.bone, [BONE, CREAM]),
+    ("goo", T.goo, [LIME, PURPLE]),
+    ("wax", T.wax, [YELLOW, PINK]),
+    ("sand", T.sand, [SAND, PINK]),
+    ("snow", T.snow, [SNOW]),
+    ("clay", T.clay, [PINK]),
+    ("terracotta", T.terracotta, [TEAL, ["#7d4630", "#93543a", "#a0603f", "#ad6c4a"]]),
+    ("mushroom_stem", T.mushroom_stem, [CREAM]),
+]
+TERRAIN_LIMITS = dict(lf=0.06, quad=3.0, lf_worst=0.09, quad_worst=4.5)
+
+
+def render_terrain(out, filters, scale=3):
+    cells = []
+    for name, fn, pals in TERRAIN:
+        if not _match(name, filters):
+            continue
+        for k, p in enumerate(pals[:2]):
+            cells.append((f"{name} {'AB'[k]} 6x6", tile3(fn(p, f"t{k}"), scale, n=6)))
+    if not cells:
+        return []
+    return [sheet(cells, 6, out / "tex_terrain.png", "Terrain blocks tiled 6x6 (look for a 16px grid)")]
+
+
 def render_plants(out, filters, scale=8):
     cells = []
     for name, fn in PLANTS:
@@ -278,12 +347,12 @@ def render_plants(out, filters, scale=8):
 
 def render_items(out, filters, scale=8):
     cells = []
-    for kind in ITEM_KINDS:
+    for n, kind in enumerate(ITEM_KINDS):
         if not _match(kind, filters) and not _match("item", filters):
             continue
-        p, acc = ITEM_PALS[kind]
+        p, acc = ITEM_PALS.get(kind, DEFAULT_ITEM_PAL)
         cells.append((kind, single(T.item_icon(kind, p, "a", accent=acc), scale)))
-        alt = ALT_PALS[(ITEM_KINDS.index(kind) * 5 + 3) % len(ALT_PALS)]
+        alt = ALT_PALS[(n * 5 + 3) % len(ALT_PALS)]
         cells.append((kind + " alt", single(T.item_icon(kind, alt, "b"), scale)))
     if not cells:
         return []
@@ -300,16 +369,21 @@ def render_misc(out, filters, scale=8):
     if _match("bottle", filters) or _match("misc", filters):
         cells.append(("portal_fluid_bottle", single(T.portal_fluid_bottle("a"), scale)))
         for i, f in enumerate(T.portal_fluid_frames("a")):
-            cells.append((f"fluid frame {i}", single(f, scale)))
+            if i % 2 == 0:
+                cells.append((f"fluid frame {i}", single(f, scale)))
     if _match("egg", filters) or _match("misc", filters):
         for (b, s, sd) in [("#3d7a2a", "#1f2a14", "a"), ("#e8e2d6", "#c22b22", "b"),
-                           ("#6a3685", "#38f5ff", "c"), ("#e8c22a", "#4a2a0a", "d")]:
+                           ("#6a3685", "#38f5ff", "c"), ("#e8c22a", "#4a2a0a", "d"),
+                           ("#202020", "#ff3cf0", "e"), ("#f4f4f4", "#151515", "f")]:
             cells.append((f"spawn_egg {sd}", single(T.spawn_egg(b, s, sd), scale)))
     if _match("gun", filters) or _match("misc", filters):
         for name in ("gun_body", "gun_dark", "gun_screen", "gun_button"):
             cells.append((name, single(getattr(T, name)("a"), scale)))
+        for text in ("42", "C-137", "D-99"):
+            cells.append((f"gun_screen {text!r}", single(T.gun_screen("a", text), scale)))
         for i, f in enumerate(T.gun_canister_frames("a")):
-            cells.append((f"canister {i}", single(f, scale)))
+            if i % 2 == 0:
+                cells.append((f"canister {i}", single(f, scale)))
         cells.append(("gun_body 3x3", tile3(T.gun_body("a"), 3)))
     if _match("helpers", filters) or _match("misc", filters):
         st = T.stone(GREY, "h")
@@ -317,28 +391,181 @@ def render_misc(out, filters, scale=8):
         cells.append(("shift(BROWN,200,1.4)", single(T.stone(T.shift(BROWN, 200, 1.4), "h"), scale)))
         cells.append(('pal("#30304a",..) 3 cols', single(T.stone(T.pal("#30304a", "#55557a", "#8080a8"), "p"), scale)))
         strip, meta = T.animated(T.portal_fluid_frames("a"))
-        cells.append(("animated strip", single(strip.crop((0, 0, 16, 16)), scale)))
+        cells.append((f"animated strip interp={meta['animation']['interpolate']}",
+                      single(strip.crop((0, 0, 16, 16)), scale)))
     if not cells:
         return []
     return [sheet(cells, 8, out / "tex_misc.png", "Bottles, eggs, gun parts, helpers")]
 
 
+# ---------------------------------------------------------------- stats / automated checks
+
+def _lum(img):
+    a = np.asarray(img.convert("RGBA"), float)[:16, :16]
+    return 0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]
+
+
+def lowfreq_ratio(img):
+    """Share of (mean-free) luminance energy at the lowest non-zero frequencies, |k| <= 1.5
+    (structure at the scale of the whole tile, which repeats as a visible 16px grid)."""
+    L = _lum(img)
+    L = L - L.mean()
+    P = np.abs(np.fft.fft2(L)) ** 2
+    k = np.fft.fftfreq(16) * 16
+    K = np.hypot(k[None, :], k[:, None])
+    tot = P[K > 0].sum()
+    return float(P[(K > 0) & (K <= 1.5)].sum() / tot) if tot > 0 else 0.0
+
+
+def quad_std(img):
+    """Std of the four 8x8 quadrant mean luminances (a light/dark half repeats every 16px)."""
+    L = _lum(img)
+    return float(np.std([L[:8, :8].mean(), L[:8, 8:].mean(), L[8:, :8].mean(), L[8:, 8:].mean()]))
+
+
+def lum_std(img):
+    return float(_lum(img).std())
+
+
+def wrap_diff(img):
+    """(wrap-edge diff, mean interior diff, max interior diff): mean |dL| between the last and
+    first column/row vs between neighbouring interior columns/rows.  A seam shows up as a
+    wrap diff above every interior one."""
+    L = _lum(img)
+    cols = np.abs(np.diff(L, axis=1)).mean(0)
+    rows = np.abs(np.diff(L, axis=0)).mean(1)
+    wrap = max(np.abs(L[:, -1] - L[:, 0]).mean(), np.abs(L[-1, :] - L[0, :]).mean())
+    inner = np.concatenate([cols, rows])
+    return float(wrap), float(inner.mean()), float(inner.max())
+
+
+def mask_variety(fn, seeds=tuple("abcdefghijkl")):
+    """Number of distinct alpha masks over ``seeds`` (a mask and its mirror image count once)."""
+    keys = set()
+    for s in seeds:
+        m = np.asarray(fn(s).convert("RGBA"))[..., 3] > 0
+        keys.add(min(m.tobytes(), np.fliplr(m).tobytes()))
+    return len(keys)
+
+
+SPRITE_VARIETY = [
+    ("grass_tuft", lambda s: T.grass_tuft(GREEN, s)), ("flower daisy", lambda s: T.flower(GREEN, PINK, s, "daisy")),
+    ("flower tulip", lambda s: T.flower(GREEN, RED, s, "tulip")), ("flower bell", lambda s: T.flower(GREEN, BLUEP[2:], s, "bell")),
+    ("flower star", lambda s: T.flower(GREEN, YELLOW, s, "star")), ("flower orb", lambda s: T.flower(GREEN, CYAN, s, "orb")),
+    ("flower spiral", lambda s: T.flower(GREEN, PINK, s, "spiral")),
+    ("mushroom dome", lambda s: T.mushroom_sprite(RED, CREAM, s, "dome")),
+    ("mushroom flat", lambda s: T.mushroom_sprite(BROWN, CREAM, s, "flat")),
+    ("mushroom tall", lambda s: T.mushroom_sprite(PURPLE, BONE, s, "tall")),
+    ("mushroom cluster", lambda s: T.mushroom_sprite(CYAN, CREAM, s, "cluster")),
+    ("sprout", lambda s: T.sprout(GREEN, s)), ("fern", lambda s: T.fern(GREEN, s)),
+    ("crystal_shard_sprite", lambda s: T.crystal_shard_sprite(PURPLE, s)), ("coral_fan", lambda s: T.coral_fan(PINK, s)),
+    ("reeds", lambda s: T.reeds(GREEN, s)), ("thorn_bush", lambda s: T.thorn_bush(BARK, s)),
+    ("eyeball_plant", lambda s: T.eyeball_plant(GREEN, "#f4efe6", "#2d8bd6", s)), ("bulb", lambda s: T.bulb(GREEN, CYAN, s)),
+    ("lollipop_plant", lambda s: T.lollipop_plant("#f0ece2", ["#e8333b", "#f8f4f0"], s)),
+    ("cactus_sprite", lambda s: T.cactus_sprite(GREEN, s)), ("puffball", lambda s: T.puffball(CREAM, s)),
+    ("tendril", lambda s: T.tendril(GREEN, s)), ("vine_overlay", lambda s: T.vine_overlay(GREEN, s)),
+    ("lily_pad", lambda s: T.lily_pad(GREEN, s)), ("sapling", lambda s: T.sapling(BARK, GREEN, s)),
+    ("berry_bush", lambda s: T.berry_bush(GREEN, "#d6262d", s)), ("bone_sprite", lambda s: T.bone_sprite(BONE, s)),
+    ("gear_sprite", lambda s: T.gear_sprite(METAL, s)), ("wire_sprite", lambda s: T.wire_sprite(RED, s)),
+]
+# faces drawn as one framed panel (bevelled border) on purpose: the wrap edge is a frame, not a seam
+FRAMED = ("glass", "metal", "rust", "toy_brick", "lamp", "neon_grid", "sketch", "slime_block", "carpet_pattern")
+# kinds whose outline is a circle / box by design: few distinct masks is expected
+ROUND_KINDS = {"orb", "coin", "eyeball", "pearl", "core", "chip", "bottle", "gear", "egg", "jelly", "cheese", "ingot"}
+
+
+def collect_stats(seeds=tuple(f"s{i}" for i in range(12))):
+    """Compute all stats; returns (block_rows, terrain_rows, variety_rows, failures)."""
+    block_rows = []
+    for name, fn in BLOCKS:
+        for k, im in enumerate(fn()):
+            w, mi, mx = wrap_diff(im)
+            block_rows.append((f"{name} {'AB'[k]}", w, mi, mx, lowfreq_ratio(im), quad_std(im), lum_std(im)))
+    terrain_rows, failures = [], []
+    lim = TERRAIN_LIMITS
+    for name, fn, pals in TERRAIN:
+        for p in pals:
+            st = np.array([(lowfreq_ratio(im), quad_std(im), lum_std(im)) for im in (fn(p, s) for s in seeds)])
+            med, worst = np.median(st, 0), st.max(0)
+            ok = med[0] <= lim["lf"] and med[1] <= lim["quad"] and worst[0] <= lim["lf_worst"] \
+                and worst[1] <= lim["quad_worst"]
+            row = (f"{name} {p[0]}", med[0], worst[0], med[1], worst[1], med[2], "PASS" if ok else "FAIL")
+            terrain_rows.append(row)
+            if not ok:
+                failures.append(row)
+    variety_rows = [(name, mask_variety(fn), name in ()) for name, fn in SPRITE_VARIETY]
+    for kind in ITEM_KINDS:
+        variety_rows.append((f"item {kind}", mask_variety(lambda s, k=kind: T.item_icon(k, GREEN, s)), kind in ROUND_KINDS))
+    return block_rows, terrain_rows, variety_rows, failures
+
+
+def render_stats(out, filters):
+    block_rows, terrain_rows, variety_rows, failures = collect_stats()
+    lines = ["BLOCKS (one seed per variant)",
+             f"{'block':30s} {'wrap':>6s} {'in.mean':>7s} {'in.max':>7s} {'lowfreq':>8s} {'quadstd':>8s} {'lumstd':>7s}"]
+    for (n, w, mi, mx, lf, q, sd) in block_rows:
+        framed = any(n.startswith(f) for f in FRAMED)
+        flag = "  SEAM?" if w > mx + 8 and not framed else ("  (framed)" if w > mx + 8 else "")
+        lines.append(f"{n[:30]:30s} {w:6.1f} {mi:7.1f} {mx:7.1f} {lf:8.3f} {q:8.2f} {sd:7.1f}{flag}")
+    lim = TERRAIN_LIMITS
+    lines += ["", "TERRAIN over 12 seeds",
+              f"  limits: lowfreq med<={lim['lf']} worst<={lim['lf_worst']}; "
+              f"quadstd med<={lim['quad']} worst<={lim['quad_worst']}",
+              f"{'block palette':30s} {'lf med':>7s} {'lf max':>7s} {'q med':>6s} {'q max':>6s} {'lumstd':>7s}"]
+    for (n, lfm, lfx, qm, qx, sd, verdict) in terrain_rows:
+        lines.append(f"{n[:30]:30s} {lfm:7.3f} {lfx:7.3f} {qm:6.2f} {qx:6.2f} {sd:7.1f}  {verdict}")
+    lines += ["", "MASK VARIETY (distinct alpha masks over 12 seeds; mirror images count once)"]
+    for (n, v, round_) in variety_rows:
+        note = " (round/boxy by design)" if round_ else ("  LOW" if v < 6 else "")
+        lines.append(f"{n[:30]:30s} {v:3d}{note}")
+    text = "\n".join(lines)
+    print(text)
+    font = _font(12, mono=True)
+    lh = 15
+    cols = 3
+    per = (len(lines) + cols - 1) // cols
+    colw = int(max(font.getlength(ln) for ln in lines)) + 24
+    W, H = cols * colw + 20, per * lh + 50
+    im = Image.new("RGB", (W, H), (30, 30, 34))
+    d = ImageDraw.Draw(im)
+    d.text((10, 8), f"Texture stats - terrain failures: {len(failures)}", fill=(240, 240, 240), font=_font(20))
+    for i, ln in enumerate(lines):
+        c, r = divmod(i, per)
+        col = (255, 120, 110) if ("FAIL" in ln or "SEAM?" in ln or ln.endswith("LOW")) else (220, 220, 210)
+        d.text((10 + c * colw, 40 + r * lh), ln, fill=col, font=font)
+    path = out / "tex_stats.png"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    im.save(path)
+    return [path], failures
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    strict = "--strict" in argv
+    argv = [a for a in argv if a != "--strict"]
     out = DEFAULT_OUT
     if argv and ("/" in argv[0]):
         out = Path(argv.pop(0))
     filters = argv
     paths = []
-    groups = {"blocks": render_blocks, "plants": render_plants, "items": render_items, "misc": render_misc}
-    chosen = [g for g in groups if g in filters]
-    filters = [f for f in filters if f not in groups]
+    groups = {"blocks": render_blocks, "terrain": render_terrain, "plants": render_plants, "items": render_items,
+              "misc": render_misc}
+    chosen = [g for g in list(groups) + ["stats"] if g in filters]
+    filters = [f for f in filters if f not in groups and f != "stats"]
     for g, fn in groups.items():
         if chosen and g not in chosen:
             continue
         paths += fn(out, filters)
+    failures = []
+    if not chosen or "stats" in chosen:
+        p, failures = render_stats(out, filters)
+        paths += p
     for p in paths:
         print(p)
+    if failures:
+        print(f"{len(failures)} terrain block/palette combination(s) FAIL the tiling checks")
+        if strict:
+            sys.exit(1)
     return paths
 
 

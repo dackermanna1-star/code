@@ -6,11 +6,15 @@ to mono 44.1 kHz Ogg Vorbis (libvorbis -q:a 4) with ffmpeg.
     write_all(sounds_root) -> dict   renders every .ogg under sounds_root, returns the sounds.json dict
     render(path) -> np.ndarray       renders a single file in memory (e.g. "portal/open1",
                                      "ambient/wind_howl"), handy for previews/analysis
-    SUBTITLES                        subtitle translation keys -> English
+    verify(sounds_root) -> list      relpaths whose .ogg differs from a fresh render (stale audio check)
+    source_hash() -> str             fingerprint of the synthesis code (key a write_all cache on it)
+    SUBTITLES                        subtitle translation keys -> English (one-shots only)
     AMBIENT_LOOPS                    event names of the looping ambiences ("ambient.<name>")
 
 Ambient loops are built from periodic signals (circular FFT filtering / convolution, integer-cycle
 oscillators and LFOs, grains that wrap around the loop point), so the last sample flows into the first.
+They are mastered to sit with the vanilla biome loops (LOOP_TARGET_LUFS, matched on the audible band)
+and rotated so the seam falls on a busy moment where Vorbis' edge noise is masked.
 """
 import os
 import subprocess
