@@ -379,6 +379,7 @@ function startPlay() {
   const ev = E.ev;
   setPhase('play');
   E.camLocked = false;
+  E.ui.card(null);
   ev.t = 0;
   try { ev.def.start(E, ev); } catch (e) { console.error('start', ev.def.id, e); }
   A.playSong('music', 'action', 0.12);
