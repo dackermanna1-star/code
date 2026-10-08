@@ -173,11 +173,11 @@ def _color_ramp(c, n=6, spread=1.0):
     for i in range(n):
         if i < mid:
             k = 1 - spread * 0.17 * (mid - i)
-            out.append(_darker(c, max(0.15, k), hue=0.04 * (mid - i)))
+            out.append(_darker(c, max(0.15, k), hue=0.04 * (mid - i) * spread))
         elif i == mid:
             out.append(c.copy())
         else:
-            out.append(_lighter(c, min(0.9, spread * 0.22 * (i - mid)), hue=0.03 * (i - mid)))
+            out.append(_lighter(c, min(0.9, spread * 0.22 * (i - mid)), hue=0.03 * (i - mid) * spread))
     return np.array(out)
 
 
@@ -478,19 +478,20 @@ def sand(pal, seed):
 def gravel(pal, seed):
     """Loose pebbles of varied shade, each with a highlight and a dark rim."""
     r = _xramp(pal, 5, dark=1)
-    c = _cells(5, 5, seed, jitter=1.0, extra=1)
+    c = _cells(4, 4, seed, jitter=1.0, extra=2)
     R = _R(seed, "g")
     base = R.choice([1, 2, 2, 3, 3, 4], c["n"])
     ids = c["ids"]
     eu, el, ed, er = _edges(ids)
+    n = _white(seed + ":n")
     idx = base[ids].copy()
+    idx = np.where(n > 0.85, idx + 1, idx)
     idx = np.where(eu | el, idx + 1, idx)
     idx = np.where(eu & el, idx + 1, idx)
     idx = np.clip(idx, 1, 5)
-    w = _white(seed + ":j")
     joint = ed | er
-    idx = np.where(joint, np.where(w > 0.55, np.maximum(base[ids] - 1, 0), 0), idx)
-    idx = np.where(joint & ed & er, 0, idx)
+    idx = np.where(joint, np.maximum(base[ids] - 2, 0), idx)
+    idx = np.where(ed & er, 0, idx)
     return _render(idx, r)
 
 
@@ -911,15 +912,19 @@ def tiles(pal, seed, size=8):
 
 
 def metal(pal, seed):
-    """Riveted metal plate (one per block face) with bevel and brushed grain."""
+    """Riveted metal plate (one per block face) with bevel and brushed streaks."""
     r = _xramp(pal, 5, light=1)
     xx, yy = _grid()
-    brushed = 0.6 * _vn(8, 1, seed + ":b") + 0.4 * _white(seed + ":w")
-    idx = 2 + _levels(brushed, [0.3, 0.5, 0.2])  # 2..4
+    idx = np.full((S, S), 3)
     R = _R(seed, "m")
+    for _ in range(9):  # brushed streaks
+        x, y = int(R.integers(0, S)), int(R.integers(1, S - 2))
+        k = 2 if R.random() < 0.6 else 4
+        for i in range(int(R.integers(3, 7))):
+            _wput(idx, x + i, y, k)
     if R.random() < 0.5:  # optional horizontal centre seam
         idx = np.where(yy == 7, 1, idx)
-        idx = np.where(yy == 8, np.maximum(idx, 3), idx)
+        idx = np.where(yy == 8, 4, idx)
     idx = np.where((yy == 0) | (xx == 0), 4, idx)
     idx = np.where((yy == S - 2) | (xx == S - 2), np.minimum(idx, 2), idx)
     idx = np.where((yy == S - 1) | (xx == S - 1), 0, idx)
@@ -1582,19 +1587,20 @@ def slime_block(pal, seed):
 
 
 def plastic(hex_color, seed):
-    """Smooth plastic: flat colour, faint mottling and a soft diagonal sheen."""
-    r = _color_ramp(hex_color, 5, spread=0.45)
+    """Smooth plastic: flat colour, a few faint marks and a soft diagonal sheen."""
+    r = _color_ramp(hex_color, 5, spread=0.4)
     xx, yy = _grid()
-    f = _vn(8, 8, seed + ":a")
-    idx = 1 + _levels(f, [0.25, 0.6, 0.15])  # 1..3
+    idx = np.full((S, S), 2)
+    R = _R(seed, "s")
+    for _ in range(4):
+        x, y = (int(v) for v in R.integers(0, S, 2))
+        _wput(idx, x, y, 1)
+        if R.random() < 0.5:
+            _wput(idx, x + 1, y, 1)
     u = (xx + yy) % 16
     idx = np.where((u == 3) | (u == 4), 3, idx)
     idx = np.where(u == 3, 4, idx)
-    idx = np.where(u == 6, np.maximum(idx, 3), idx)
-    R = _R(seed, "s")
-    for _ in range(3):
-        x, y = (int(v) for v in R.integers(0, S, 2))
-        _wput(idx, x, y, 1)
+    idx = np.where(u == 6, 3, idx)
     return _render(idx, r)
 
 
@@ -1650,18 +1656,32 @@ def velvet(pal, seed):
     return _render(idx, r)
 
 
+def _contour(t, ax=0.0, ay=0.0):
+    """1px contour lines where floor(t) changes between neighbours.
+
+    ``t(x+16, y) == t + ax`` and ``t(x, y+16) == t + ay`` (integers) keep it seamless."""
+    xx, yy = _grid()
+    b = np.floor(t)
+    right = np.floor(_roll(t, 0, -1) + np.where(xx == S - 1, ax, 0))
+    down = np.floor(_roll(t, -1, 0) + np.where(yy == S - 1, ay, 0))
+    return (b != right) | (b != down)
+
+
 def marble(pal, seed):
-    """Polished marble: light base with thin continuous meandering veins."""
+    """Polished marble: light base with thin meandering diagonal veins."""
     r = _ramp(pal, 5)
-    t = _fbm2(8, 8, seed + ":t", 3) * 2.6
-    fr = np.abs(t - np.round(t))
+    xx, yy = _grid()
+    t = 2 * ((xx + yy * 0.5) / 16 + 1.4 * _fbm2(8, 8, seed + ":t", 3))
+    vein = _contour(t, 2, 1)
     base = 0.6 * _vn(8, 8, seed + ":b") + 0.4 * _white(seed + ":w")
     idx = 2 + _levels(base, [0.25, 0.5, 0.25])  # 2..4
-    idx = np.where(fr < 0.11, np.minimum(idx, 2), idx)
-    idx = np.where(fr < 0.06, 1, idx)
-    t2 = _fbm2(8, 8, seed + ":t2", 3) * 2.0
-    fr2 = np.abs(t2 - np.round(t2))
-    idx = np.where((fr2 < 0.03), 0, idx)
+    near = _roll(vein, 0, 1) | _roll(vein, 1, 0)
+    idx = np.where(near & ~vein, np.minimum(idx, 2), idx)
+    idx = np.where(vein, 1, idx)
+    t2 = 2 * ((xx * 0.5 - yy) / 16 + 1.2 * _fbm2(8, 8, seed + ":t2", 3))
+    v2 = _contour(t2, 1, -2)
+    idx = np.where(v2 & vein, 0, idx)
+    idx = np.where(v2 & ~vein & (_white(seed + ":v2") > 0.3), np.minimum(idx, 2), idx)
     return _render(idx, r)
 
 

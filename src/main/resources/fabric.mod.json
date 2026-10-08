@@ -4,18 +4,31 @@
 	"version": "${version}",
 	"name": "Portal Gun Multiverse",
 	"description": "A portal gun that rips open swirling green portals to 50 hand-crafted dimensions, each with its own terrain, biomes, blocks and creatures.",
-	"authors": ["dackermanna1-star"],
+	"authors": [
+		"dackermanna1-star"
+	],
 	"license": "MIT",
 	"icon": "assets/portalgun/icon.png",
 	"environment": "*",
 	"entrypoints": {
-		"main": ["dev.portalgun.PortalGunMod"],
-		"client": ["dev.portalgun.client.PortalGunClient"]
+		"main": [
+			"dev.portalgun.PortalGunMod"
+		],
+		"client": [
+			"dev.portalgun.client.PortalGunClient"
+		]
 	},
 	"depends": {
 		"fabricloader": ">=0.17.0",
 		"minecraft": "~1.21.11",
 		"java": ">=21",
 		"fabric-api": "*"
-	}
+	},
+	"mixins": [
+		{
+			"config": "portalgun.client.mixins.json",
+			"environment": "client"
+		},
+		"portalgun.mixins.json"
+	]
 }
