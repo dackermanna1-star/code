@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:gb_planks",
+      "required": false
+    }
+  ]
+}

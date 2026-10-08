@@ -4,6 +4,10 @@
     {
       "id": "portalgun:glowcap_slice",
       "required": false
+    },
+    {
+      "id": "portalgun:gb_fruit",
+      "required": false
     }
   ]
 }

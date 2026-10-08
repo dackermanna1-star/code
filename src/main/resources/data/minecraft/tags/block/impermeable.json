@@ -1,0 +1,17 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:gb_glass",
+      "required": false
+    },
+    {
+      "id": "portalgun:gb_ice",
+      "required": false
+    },
+    {
+      "id": "portalgun:gb_slime",
+      "required": false
+    }
+  ]
+}

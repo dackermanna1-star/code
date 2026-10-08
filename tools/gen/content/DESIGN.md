@@ -55,7 +55,7 @@ All config fields use vanilla codecs (BlockState as `{"Name": "...", "Properties
 | `portalgun:structure` | `kind`: string, `blocks`: map role→BlockState, `size`: IntProvider, `params`: map string→float (optional) |
 | `portalgun:tree` (optional) | for shapes vanilla `minecraft:tree` can't do (palm, twisted, mushroom_like): `log`, `leaves`, `decoration` (optional) BlockStates, `shape`, `height` IntProvider |
 
-Structure kinds and roles: `arch` (main), `ring` (main), `gear` (main, axle), `ribcage` (bone, spine), `lily_pad` (pad, flower),
+Structure kinds and roles: `arch` (main, alt), `ring` (main, alt), `gear` (main, axle), `ribcage` (bone, spine), `lily_pad` (pad, flower, vein),
 `monolith` (main), `geyser` (vent, mound) — vent is a `vent` kind block, `cuboids` (main, alt, trim), `tendril` (main, tip),
 `nest` (main, egg). Features must be robust: never place outside the 3x3-chunk region a feature may touch (keep
 horizontal extent ≤ 16 blocks from origin), never throw, use `WorldGenLevel#setBlock(pos, state, 2|16)` / `Feature.setBlock`.

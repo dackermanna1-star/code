@@ -55,7 +55,7 @@ public final class ModCreatures {
 	public static ContentSpec.CreatureSpec spec(EntityType<?> type) {
 		ContentSpec.CreatureSpec s = SPECS.get(type);
 		if (s == null) {
-			throw new IllegalStateException("No creature spec for " + EntityType.getKey(type));
+			throw new IllegalStateException("No creature spec for " + BuiltInRegistries.ENTITY_TYPE.getKey(type));
 		}
 		return s;
 	}
@@ -119,7 +119,8 @@ public final class ModCreatures {
 			.add(Attributes.ARMOR, spec.armor)
 			.add(Attributes.FOLLOW_RANGE, spec.follow)
 			.add(Attributes.KNOCKBACK_RESISTANCE, spec.knockbackResist)
-			.add(Attributes.STEP_HEIGHT, spec.height > 1.6 ? 1.0 : 0.6);
+			.add(Attributes.STEP_HEIGHT, spec.height > 1.6 ? 1.0 : 0.6)
+			.add(Attributes.TEMPT_RANGE, 10.0);
 		FabricDefaultAttributeRegistry.register(type, attrs);
 
 		registerSpawn(type, spec);

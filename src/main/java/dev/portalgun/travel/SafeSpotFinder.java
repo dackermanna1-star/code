@@ -37,6 +37,7 @@ public final class SafeSpotFinder {
 			return new Spot(Vec3.atBottomCenterOf(p), true);
 		}
 		BlockPos center = BlockPos.containing(near.x, Math.max(minY, Math.min(maxY, startY)), near.z);
+		BlockPos[] canopyFallback = new BlockPos[1];
 		// Spiral outward over a few chunks; first good column wins.
 		for (int r = 0; r <= 24; r += 3) {
 			int steps = r == 0 ? 1 : Math.max(8, r * 2);
@@ -46,11 +47,14 @@ public final class SafeSpotFinder {
 				int z = center.getZ() + (int) Math.round(Math.sin(a) * r);
 				BlockPos found = "cave".equals(mode)
 					? scanCave(level, x, z, center.getY(), minY, maxY)
-					: scanSurface(level, x, z, minY, maxY);
+					: scanSurface(level, x, z, minY, maxY, canopyFallback);
 				if (found != null) {
 					return new Spot(Vec3.atBottomCenterOf(found), false);
 				}
 			}
+		}
+		if (canopyFallback[0] != null) {
+			return new Spot(Vec3.atBottomCenterOf(canopyFallback[0]), false);
 		}
 		// Nothing safe nearby: make a little platform out of the dimension's platform block.
 		int y;
@@ -97,7 +101,7 @@ public final class SafeSpotFinder {
 		}
 	}
 
-	private static @Nullable BlockPos scanSurface(ServerLevel level, int x, int z, int minY, int maxY) {
+	private static @Nullable BlockPos scanSurface(ServerLevel level, int x, int z, int minY, int maxY, BlockPos[] canopyFallback) {
 		level.getChunk(x >> 4, z >> 4);
 		int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
 		if (top <= minY) {
@@ -105,13 +109,44 @@ public final class SafeSpotFinder {
 		}
 		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos(x, Math.min(top, maxY), z);
 		// walk down a little in case the heightmap top is a thin overhang/foliage
+		BlockPos canopyTop = null;
 		for (int i = 0; i < 6 && p.getY() > minY; i++) {
 			if (isStandable(level, p)) {
-				return p.immutable();
+				if (!isCanopy(level.getBlockState(p.below()))) {
+					return p.immutable();
+				}
+				canopyTop = p.immutable();
+				break;
 			}
 			p.move(Direction.DOWN);
 		}
+		if (canopyTop == null) {
+			return null;
+		}
+		// standing on a giant mushroom / tree crown: prefer the ground underneath it
+		// (stop at the first solid non-canopy block - that is the ground; never drop into caves below it)
+		p.move(Direction.DOWN);
+		for (int i = 0; i < 48 && p.getY() > minY; i++) {
+			p.move(Direction.DOWN);
+			BlockState s = level.getBlockState(p);
+			if (!s.getCollisionShape(level, p).isEmpty() && !isCanopy(s)) {
+				BlockPos feet = p.above();
+				if (isStandable(level, feet)) {
+					return feet;
+				}
+				break;
+			}
+		}
+		// no ground reachable in this column (e.g. inside a stem): remember the crown as a last resort
+		if (canopyFallback[0] == null) {
+			canopyFallback[0] = canopyTop;
+		}
 		return null;
+	}
+
+	private static boolean isCanopy(BlockState s) {
+		return s.is(BlockTags.LEAVES) || s.is(BlockTags.LOGS) || s.is(Blocks.RED_MUSHROOM_BLOCK) || s.is(Blocks.BROWN_MUSHROOM_BLOCK)
+			|| s.is(Blocks.MUSHROOM_STEM) || dev.portalgun.registry.ModBlocks.CANOPY.contains(s.getBlock());
 	}
 
 	private static @Nullable BlockPos scanCave(ServerLevel level, int x, int z, int startY, int minY, int maxY) {

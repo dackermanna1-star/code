@@ -176,6 +176,7 @@ def make_model(c):
         raise ValueError(f"unknown archetype {c.archetype!r} (expected one of {', '.join(ARCHETYPES)})")
     seed = stable_hash(c.id) % 100000
     K = Knobs(c.body, seed)
+    K.d.setdefault("_behavior", c.behavior)
     root, info = BUILDERS[c.archetype](c, K)
     unique_names(root)
     ground(root)
@@ -297,7 +298,7 @@ def creature_spec(c, dim_id, meta):
         "eyeHeight": meta["eyeHeight"], "scale": size,
         "shadow": round(min(3.0, max(0.2, meta["width"] * 0.6)), 3),
         "health": float(c.health), "damage": float(c.damage), "speed": float(c.speed),
-        "flySpeed": float((c.body or {}).get("fly_speed", max(0.1, c.speed * (1.6 if mv == "flying" else 0.9)))),
+        "flySpeed": float((c.body or {}).get("fly_speed", _fly_speed(c, mv))),
         "armor": float(c.armor), "follow": 32.0 if c.behavior == "hostile" else 20.0,
         "knockbackResist": float(min(1.0, max(0.0, (size - 1.0) * 0.4 + (0.3 if c.archetype == "golem" else 0)))),
         "behavior": c.behavior, "attack": attack, "abilities": [a for a in c.abilities],
@@ -326,6 +327,13 @@ def creature_spec(c, dim_id, meta):
         if a not in ABILITIES:
             warn(f"creature {c.id}: unknown ability {a!r} (known: {', '.join(ABILITIES)})")
     return spec
+
+
+def _fly_speed(c, mv):
+    """FLYING_SPEED attribute: travelFlying impulse ~ speed^2, terminal velocity ~ 11 x impulse."""
+    if mv == "floating":
+        return round(min(0.15, max(0.05, c.speed * 0.5)), 3)
+    return round(min(0.28, max(0.08, c.speed * 0.6)), 3)
 
 
 def _default_sound(c):

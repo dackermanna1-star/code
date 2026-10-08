@@ -30,6 +30,9 @@ public final class ModBlocks {
 	/** Blocks that hurt or otherwise make a spot unsafe to arrive on (data driven: data/portalgun/tags/block/hazards.json). */
 	public static final TagKey<Block> HAZARDS = TagKey.create(Registries.BLOCK, PortalGunMod.id("hazards"));
 
+	/** Spec blocks that form tree/mushroom canopies (log, leaves, mushroom_cap kinds): arrivals look below them for ground. */
+	public static final java.util.Set<Block> CANOPY = new java.util.HashSet<>();
+
 	private static final Map<String, Block> BY_ID = new LinkedHashMap<>();
 	private static final Map<String, ContentSpec.BlockSpec> SPEC_BY_ID = new LinkedHashMap<>();
 
@@ -52,6 +55,9 @@ public final class ModBlocks {
 			BLOCKS.add(block);
 			BY_ID.put(spec.id, block);
 			SPEC_BY_ID.put(spec.id, spec);
+			if ("log".equals(spec.kind) || "leaves".equals(spec.kind) || "mushroom_cap".equals(spec.kind)) {
+				CANOPY.add(block);
+			}
 
 			ResourceKey<Item> itemKey = ResourceKey.create(Registries.ITEM, PortalGunMod.id(spec.id));
 			Item.Properties props = new Item.Properties().setId(itemKey).useBlockDescriptionPrefix();

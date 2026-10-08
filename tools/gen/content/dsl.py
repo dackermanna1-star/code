@@ -178,7 +178,7 @@ class Celestial:
     texture: str                        # generator name in gen.sky_art: planet, ringed_planet, sun, moon, nebula, eye, ...
     colors: list[str] = field(default_factory=list)
     size: float = 30                    # vanilla sun is 30
-    yaw: float = 0                      # direction around the horizon (deg)
+    yaw: float = 0                      # compass direction like the F3 facing yaw (deg): 0 south, 90 west, 180 north, 270 east
     pitch: float = 60                   # elevation (deg, 90 = zenith)
     roll: float = 0
     speed: float = 0                    # deg per day of slow drift (0 = fixed)

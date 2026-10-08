@@ -1,0 +1,80 @@
+{
+  "attributes": {
+    "minecraft:visual/water_fog_color": "#101e39"
+  },
+  "carvers": [],
+  "downfall": 0.5,
+  "effects": {
+    "water_color": "#3f76e4",
+    "grass_color": "#79c05a",
+    "foliage_color": "#59ae30",
+    "dry_foliage_color": "#59ae30"
+  },
+  "features": [
+    [],
+    [
+      "portalgun:gallery_layers/gallery_layers_biome/12_lake"
+    ],
+    [
+      "portalgun:gallery_layers/gallery_layers_biome/5_boulder",
+      "portalgun:gallery_layers/gallery_layers_biome/13_geode",
+      "portalgun:gallery_layers/gallery_layers_biome/19_boulder"
+    ],
+    [],
+    [
+      "portalgun:gallery_layers/gallery_layers_biome/6_spire",
+      "portalgun:gallery_layers/gallery_layers_biome/8_structure",
+      "portalgun:gallery_layers/gallery_layers_biome/9_structure"
+    ],
+    [],
+    [
+      "portalgun:gallery_layers/ore_coal",
+      "portalgun:gallery_layers/ore_iron",
+      "portalgun:gallery_layers/ore_copper",
+      "portalgun:gallery_layers/ore_gold",
+      "portalgun:gallery_layers/ore_redstone",
+      "portalgun:gallery_layers/ore_lapis",
+      "portalgun:gallery_layers/ore_diamond",
+      "portalgun:gallery_layers/ore_emerald",
+      "portalgun:gallery_layers/gallery_layers_biome/10_ore",
+      "portalgun:gallery_layers/gallery_layers_biome/11_disk"
+    ],
+    [
+      "portalgun:gallery_layers/gallery_layers_biome/7_crystalcluster"
+    ],
+    [],
+    [
+      "minecraft:flower_default",
+      "portalgun:gallery_layers/gallery_layers_biome/0_tree",
+      "portalgun:gallery_layers/gallery_layers_biome/1_giantplant",
+      "portalgun:gallery_layers/gallery_layers_biome/2_giantplant",
+      "portalgun:gallery_layers/gallery_layers_biome/3_patch",
+      "portalgun:gallery_layers/gallery_layers_biome/4_patch",
+      "portalgun:gallery_layers/gallery_layers_biome/15_patch",
+      "portalgun:gallery_layers/gallery_layers_biome/16_patch",
+      "portalgun:gallery_layers/gallery_layers_biome/17_patch",
+      "portalgun:gallery_layers/gallery_layers_biome/18_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "minecraft:sheep",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

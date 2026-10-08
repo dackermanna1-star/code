@@ -160,7 +160,8 @@ public class CreatureOrb extends ThrowableProjectile {
 			return;
 		}
 		if (this.explode > 0) {
-			level.explode(this, this.getX(), this.getY(), this.getZ(), this.explode, this.fire > 0, Level.ExplosionInteraction.NONE);
+			level.explode(this, null, SpecCreature.SPARE_CREATURES, this.getX(), this.getY(), this.getZ(), this.explode, this.fire > 0,
+				Level.ExplosionInteraction.NONE);
 		} else {
 			level.sendParticles(new DustParticleOptions(this.getColor(), 1.4F), this.getX(), this.getY(), this.getZ(), 12, 0.2, 0.2, 0.2, 0.02);
 			ParticleOptions extra = this.extraParticle();

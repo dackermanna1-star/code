@@ -55,3 +55,9 @@ fabricApi {
 		eula = true
 	}
 }
+
+// Client gametests teleport between freshly generated dimensions; chunk generation + software rendering on small
+// machines can stall packet handling past the synchronizer's 10 s limit, which aborts the test spuriously.
+loom.runs.matching { it.name == "clientGameTest" }.configureEach {
+	vmArg "-Dfabric.client.gametest.disableNetworkSynchronizer=true"
+}

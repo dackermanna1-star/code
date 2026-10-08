@@ -195,10 +195,33 @@ def paint(root, tex_w, tex_h, creature, knobs, seed=1):
             _paint_face(cv, pal, c, face, u, v, fw, fh, L, A, pattern, seed, lo, hi, glow_eyes, knobs)
         if c.face:
             _paint_features(cv, pal, c, rects, glow_eyes, knobs, creature)
+        _sync_flat_faces(cv, c, rects)
     base, glow = cv.images()
     if not glow.getbbox():
         glow = None
     return base, glow
+
+
+def _sync_flat_faces(cv, c, rects):
+    """Zero-thickness cuboids (wings, fins, planes) have two coplanar faces; paint them identically so they never
+    z-fight with different pixels."""
+    w, h, d = c.size
+
+    def copy(src, dst, mirror):
+        su, sv, fw, fh = rects[src]
+        du, dv, _, _ = rects[dst]
+        for arr in (cv.rgb, cv.a, cv.glow):
+            block = arr[sv:sv + fh, su:su + fw].copy()
+            if mirror:
+                block = block[:, ::-1]
+            arr[dv:dv + fh, du:du + fw] = block
+
+    if h == 0 and w > 0 and d > 0:
+        copy("top", "bottom", False)
+    if d == 0 and w > 0 and h > 0:
+        copy("north", "south", True)
+    if w == 0 and d > 0 and h > 0:
+        copy("west", "east", True)
 
 
 def _bounds_y(root):
@@ -325,12 +348,16 @@ def _paint_face(cv, pal, c, face, u, v, fw, fh, L, A, pattern, seed, lo, hi, glo
     if mat == "gills":
         lvl += np.where((np.arange(fw)[None, :] + np.arange(fh)[:, None]) % 2 == 0, -0.8, 0.3)
     if mat in ("wing",) and K.str("kind", "") not in ("moth",):
-        # feathers: rows along the chord with dark tips
+        # feathers: coverts in the body colour, flight feathers (trailing half) in the secondary colour
         j = np.arange(fh)[:, None] * np.ones((1, fw))
         i = np.arange(fw)[None, :] * np.ones((fh, 1))
-        lvl += np.where((i % 3) == 0, -0.6, 0.2)
         if face in ("top", "bottom"):
-            lvl += np.where(j >= fh - 1, -1.2, 0)
+            front = j < fh * 0.45
+            mats = np.where(front, "body", "wing")
+            lvl += np.where(front, 0.3, np.where((i % 2) == 0, -0.7, 0.2))
+            lvl += np.where(j >= fh - 1, -1.0, 0)
+        else:
+            lvl += np.where((i % 3) == 0, -0.6, 0.2)
     if mat == "mothwing" and face in ("top", "bottom"):
         I_, J_ = np.meshgrid(np.arange(fw), np.arange(fh))
         cx, cy = (fw - 1) * 0.55, (fh - 1) * 0.5

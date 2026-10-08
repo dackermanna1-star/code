@@ -5,7 +5,10 @@
 	"name": "Portal Gun Multiverse Tests",
 	"environment": "*",
 	"entrypoints": {
-		"fabric-client-gametest": ["dev.portalgun.gametest.PortalGunClientTest"]
+		"fabric-client-gametest": [
+			"dev.portalgun.gametest.PortalGunClientTest",
+			"dev.portalgun.gametest.CreatureGalleryTest"
+		]
 	},
 	"depends": {
 		"portalgun": "*"

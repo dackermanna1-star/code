@@ -1,0 +1,11 @@
+{
+  "type": "portalgun:gallery_mountains",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:gallery_mountains",
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "portalgun:gallery_mountains_biome"
+    }
+  }
+}

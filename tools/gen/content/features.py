@@ -510,6 +510,10 @@ def build_feature(fc, f, biome, ore_tag):
         mods = []
         mods.append({"type": "minecraft:rarity_filter", "chance": int(f.chance) if f.chance else 12})
         mods.append({"type": "minecraft:in_square"})
+        # minecraft:lake fills origin..origin+15 and (for water) samples biomes there with zoom fuzz, which can
+        # reach 2 chunks east/south of the chunk being decorated -> "Requested chunk unavailable" crash. Centre
+        # the 16x16 footprint on the chunk instead (vanilla only ships lava lakes, which skip the biome lookup).
+        mods.append({"type": "minecraft:random_offset", "xz_spread": -8, "y_spread": 0})
         if f.where in ("cave_floor", "anywhere", "air") or fc.layered:
             a, b = fc.y_range(f, "cave_floor")
             mods.append(_hr(a, b))

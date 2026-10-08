@@ -38,6 +38,9 @@ def load_dimensions():
         dim = getattr(mod, "DIMENSION", None)
         if dim is None:
             continue
+        if getattr(mod, "TEST_ONLY", False):
+            # dev/test dimensions (e.g. the creature lab) ship only in --gallery builds
+            dim._test_only = True
         out.append(dim)
     return out, errors
 
@@ -172,6 +175,8 @@ def build(res_dir, lang, sound_table, only=(), gallery=False):
     if gallery or os.environ.get("PORTALGUN_GALLERY") == "1":
         from . import gallery as G
         dims.extend(G.gallery_dimensions())
+    else:
+        dims = [d for d in dims if not getattr(d, "_test_only", False)]
     from .validate import validate_all
     reports, gerr = validate_all(dims)
     for e in gerr:
@@ -186,6 +191,16 @@ def build(res_dir, lang, sound_table, only=(), gallery=False):
     for d in dims:
         for b in d.blocks:
             common.GLOBAL_BLOCKS.setdefault(b.id, b)
+    if not os.environ.get("PORTALGUN_JAVA_TYPES"):
+        # all Java modules are integrated now: a missing capability means a Java regression, not work in progress
+        missing = [n for n in common.ALL_JAVA_FEATURES + common.ALL_JAVA_DFS if not common.has_java(n)]
+        if missing:
+            warn(f"Java side does not register portalgun:{', portalgun:'.join(missing)} - terrain/features fall back "
+                 f"to vanilla-only versions")
+        if not common.java_registers_creatures():
+            warn("Java side does not register spec creatures - biome spawners are left out")
+        if not common.java_multiface_vines():
+            warn("Java vine block is not multiface - vine features fall back to simple patches")
     tags = Tags()
     C = _creature_module() if any(d.creatures for d in selected) else None
     built = 0

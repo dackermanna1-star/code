@@ -12,6 +12,18 @@
     {
       "id": "portalgun:violet_glowcap",
       "required": false
+    },
+    {
+      "id": "portalgun:gb_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:gb_planks",
+      "required": false
+    },
+    {
+      "id": "portalgun:gb_cap",
+      "required": false
     }
   ]
 }

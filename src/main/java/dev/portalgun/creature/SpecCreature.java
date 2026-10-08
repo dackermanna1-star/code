@@ -74,6 +74,14 @@ public class SpecCreature extends PathfinderMob implements RangedAttackMob {
 	public static final int FUSE = 30;
 	public static final int BURROW_TIME = 50;
 
+	/** Explosions caused by creatures (orbs, bursting blobs) never break blocks and spare other spec creatures. */
+	public static final net.minecraft.world.level.ExplosionDamageCalculator SPARE_CREATURES = new net.minecraft.world.level.ExplosionDamageCalculator() {
+		@Override
+		public boolean shouldDamageEntity(net.minecraft.world.level.Explosion explosion, Entity entity) {
+			return !(entity instanceof SpecCreature) && super.shouldDamageEntity(explosion, entity);
+		}
+	};
+
 	private ContentSpec.CreatureSpec spec;
 	private int oldSwell;
 	private int splitGeneration;
@@ -252,7 +260,15 @@ public class SpecCreature extends PathfinderMob implements RangedAttackMob {
 		this.goalSelector.addGoal(7, new LookAtPlayerGoal(this, Player.class, 8.0F));
 		this.goalSelector.addGoal(8, new RandomLookAroundGoal(this));
 		if (fights) {
-			HurtByTargetGoal hurt = new HurtByTargetGoal(this);
+			HurtByTargetGoal hurt = new HurtByTargetGoal(this) {
+				@Override
+				protected void alertOther(net.minecraft.world.entity.Mob other, LivingEntity target) {
+					// only rally creatures of the same kind (all spec creatures share one Java class)
+					if (other.getType() == SpecCreature.this.getType()) {
+						super.alertOther(other, target);
+					}
+				}
+			};
 			if (s.abilities.contains("swarm")) {
 				hurt.setAlertOthers();
 			}
@@ -629,7 +645,7 @@ public class SpecCreature extends PathfinderMob implements RangedAttackMob {
 	public void explode() {
 		if (this.level() instanceof ServerLevel level && this.isAlive()) {
 			float power = (float) (this.spec().extra.getOrDefault("explode", 2.5F) * Math.max(0.6F, this.spec().scale));
-			level.explode(this, this.getX(), this.getY(0.5), this.getZ(), power, Level.ExplosionInteraction.NONE);
+			level.explode(this, null, SPARE_CREATURES, this.getX(), this.getY(0.5), this.getZ(), power, false, Level.ExplosionInteraction.NONE);
 			this.dead = true;
 			this.triggerOnDeathMobEffects(level, RemovalReason.KILLED);
 			this.discard();

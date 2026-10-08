@@ -48,11 +48,34 @@ def neg(a):
     return mul(a, -1.0)
 
 
+def _static_range(x):
+    """(min, max) of a constant or y_clamped_gradient, None when unknown."""
+    if isinstance(x, (int, float)):
+        return float(x), float(x)
+    if isinstance(x, dict) and x.get("type") == "minecraft:y_clamped_gradient":
+        v0, v1 = x["from_value"], x["to_value"]
+        return min(v0, v1), max(v0, v1)
+    return None
+
+
 def min_(a, b):
+    # vanilla logs a warning for min/max of non-overlapping inputs; fold those statically
+    ra, rb = _static_range(a), _static_range(b)
+    if ra and rb:
+        if ra[1] <= rb[0]:
+            return _c(a)
+        if rb[1] <= ra[0]:
+            return _c(b)
     return {"type": "minecraft:min", "argument1": _c(a), "argument2": _c(b)}
 
 
 def max_(a, b):
+    ra, rb = _static_range(a), _static_range(b)
+    if ra and rb:
+        if ra[0] >= rb[1]:
+            return _c(a)
+        if rb[0] >= ra[1]:
+            return _c(b)
     return {"type": "minecraft:max", "argument1": _c(a), "argument2": _c(b)}
 
 

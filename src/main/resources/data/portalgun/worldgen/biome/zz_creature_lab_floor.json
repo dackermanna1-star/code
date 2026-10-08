@@ -24,7 +24,26 @@
   "spawn_costs": {},
   "spawners": {
     "monster": [],
-    "creature": [],
+    "creature": [
+      {
+        "type": "portalgun:lab_gummy_bear",
+        "weight": 1,
+        "minCount": 1,
+        "maxCount": 1
+      },
+      {
+        "type": "portalgun:lab_lollicorn",
+        "weight": 1,
+        "minCount": 1,
+        "maxCount": 1
+      },
+      {
+        "type": "portalgun:lab_longneck",
+        "weight": 1,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
     "ambient": [],
     "axolotls": [],
     "underground_water_creature": [],

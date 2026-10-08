@@ -1,0 +1,31 @@
+{
+  "feature": "portalgun:gallery_mountains/gallery_mountains_biome/6_spire",
+  "placement": [
+    {
+      "type": "minecraft:rarity_filter",
+      "chance": 6
+    },
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:heightmap",
+      "heightmap": "MOTION_BLOCKING_NO_LEAVES"
+    },
+    {
+      "type": "minecraft:block_predicate_filter",
+      "predicate": {
+        "type": "minecraft:has_sturdy_face",
+        "offset": [
+          0,
+          -1,
+          0
+        ],
+        "direction": "up"
+      }
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

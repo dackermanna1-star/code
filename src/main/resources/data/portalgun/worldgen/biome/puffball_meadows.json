@@ -62,7 +62,20 @@
   "spawn_costs": {},
   "spawners": {
     "monster": [],
-    "creature": [],
+    "creature": [
+      {
+        "type": "portalgun:sporeling",
+        "weight": 16,
+        "minCount": 3,
+        "maxCount": 6
+      },
+      {
+        "type": "portalgun:puffjelly",
+        "weight": 8,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
     "ambient": [],
     "axolotls": [],
     "underground_water_creature": [],

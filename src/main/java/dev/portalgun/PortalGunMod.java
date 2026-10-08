@@ -7,6 +7,7 @@ import dev.portalgun.registry.ModBlocks;
 import dev.portalgun.registry.ModCommands;
 import dev.portalgun.registry.ModComponents;
 import dev.portalgun.registry.ModCreatures;
+import dev.portalgun.registry.ModCriteria;
 import dev.portalgun.registry.ModEntities;
 import dev.portalgun.registry.ModItemGroups;
 import dev.portalgun.registry.ModItems;
@@ -42,6 +43,8 @@ public class PortalGunMod implements ModInitializer {
 		ModAttachments.init();
 		ModNetworking.init();
 		ModCommands.init();
+		ModCriteria.init();
+		dev.portalgun.debug.ServerSmokeTest.init();
 		DimensionEffects.init();
 		LOGGER.info("Portal Gun Multiverse loaded: {} dimensions, {} blocks, {} creatures",
 			ContentSpec.get().dimensions.size(), ContentSpec.get().blocks.size(), ContentSpec.get().creatures.size());

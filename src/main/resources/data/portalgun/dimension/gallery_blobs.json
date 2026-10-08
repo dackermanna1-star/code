@@ -1,0 +1,11 @@
+{
+  "type": "portalgun:gallery_blobs",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:gallery_blobs",
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "portalgun:gallery_blobs_biome"
+    }
+  }
+}

@@ -49,7 +49,7 @@ public class CreatureGalleryTest implements FabricClientGameTest {
 				ids.add(id);
 			}
 		}
-		String phases = System.getenv().getOrDefault("PORTALGUN_CREATURE_PHASES", "gallery,closeup,behavior");
+		String phases = System.getenv().getOrDefault("PORTALGUN_CREATURE_PHASES", "gallery,closeup,eggs,behavior,natural");
 		log("testing " + ids.size() + " creatures, phases " + phases);
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((victim, source, amount) -> {
 			Entity attacker = source.getEntity();
@@ -73,8 +73,14 @@ public class CreatureGalleryTest implements FabricClientGameTest {
 			if (phases.contains("closeup")) {
 				this.closeups(context, sp, ids);
 			}
+			if (phases.contains("eggs")) {
+				this.eggs(context, sp);
+			}
 			if (phases.contains("behavior")) {
 				this.behavior(context, sp, ids);
+			}
+			if (phases.contains("natural")) {
+				this.natural(context, sp);
 			}
 		}
 	}
@@ -123,7 +129,7 @@ public class CreatureGalleryTest implements FabricClientGameTest {
 				p.setGameMode(GameType.SPECTATOR);
 				ServerLevel level = p.level();
 				double baseX = 0.5;
-				double baseZ = 200.5 + gi * 40;
+				double baseZ = 20.5;
 				double total = 0;
 				double maxH = 0;
 				List<Double> widths = new ArrayList<>();
@@ -135,7 +141,7 @@ public class CreatureGalleryTest implements FabricClientGameTest {
 					maxH = Math.max(maxH, t.getHeight());
 				}
 				double x = baseX - total / 2;
-				double dist = Math.max(5.0, total * 0.75 + maxH * 0.5);
+				double dist = Math.max(4.0, total * 0.55 + maxH * 0.4);
 				int gy = groundY(level, (int) baseX, (int) (baseZ + dist));
 				for (int i = 0; i < group.size(); i++) {
 					String id = group.get(i);
@@ -146,7 +152,7 @@ public class CreatureGalleryTest implements FabricClientGameTest {
 					double y = gy + (mv.equals("flying") || mv.equals("floating") ? 0.6 : 0.0);
 					spawn(level, id, cx, y, baseZ + dist, 180.0F + 25.0F, false);
 				}
-				p.connection.teleport(baseX, gy + 1.2 + maxH * 0.55, baseZ, 0.0F, 14.0F);
+				p.connection.teleport(baseX, gy + 0.8 + maxH * 0.6 - p.getEyeHeight(), baseZ, 0.0F, 12.0F);
 			});
 			context.waitTicks(25);
 			sp.getClientWorld().waitForChunksRender();
@@ -168,14 +174,14 @@ public class CreatureGalleryTest implements FabricClientGameTest {
 				ServerLevel level = p.level();
 				EntityType<SpecCreature> t = ModCreatures.TYPES.get(id);
 				double size = Math.max(t.getHeight(), t.getWidth() * 1.2);
-				double dist = 1.6 + size * 1.5;
-				double cx = 1000.5 + (kk % 8) * 30;
-				double cz = 1000.5 + (kk / 8) * 30;
+				double dist = 1.1 + size * 1.0;
+				double cx = 0.5;
+				double cz = 40.5;
 				int gy = groundY(level, (int) cx, (int) (cz + dist));
 				String mv = ModCreatures.spec(t).movement;
 				double y = gy + (mv.equals("flying") || mv.equals("floating") ? 0.4 : 0.0);
 				spawn(level, id, cx, y, cz + dist, 180.0F + 35.0F, false);
-				p.connection.teleport(cx, y + t.getHeight() * 0.6 + size * 0.35, cz, 0.0F, 18.0F);
+				p.connection.teleport(cx, y + t.getHeight() * 0.5 + size * 0.45 - p.getEyeHeight(), cz, 0.0F, 22.0F);
 			});
 			context.waitTicks(15);
 			sp.getClientWorld().waitForChunksRender();
@@ -186,14 +192,72 @@ public class CreatureGalleryTest implements FabricClientGameTest {
 		}
 	}
 
+	/** Travel to a dimension with spec creatures and count what spawned naturally (env PORTALGUN_CREATURE_DIM, default sporewood). */
+	private void natural(ClientGameTestContext context, TestSingleplayerContext sp) {
+		String dim = System.getenv().getOrDefault("PORTALGUN_CREATURE_DIM", "sporewood");
+		sp.getServer().runCommand("gamerule spawn_mobs true");
+		sp.getServer().runOnServer(server -> player(server).setGameMode(GameType.SPECTATOR));
+		sp.getServer().runCommand("execute as @a run portalgun goto " + dim);
+		context.waitFor(mc -> mc.level != null && mc.level.dimension().identifier().getPath().equals(dim), 600);
+		sp.getClientWorld().waitForChunksRender();
+		for (int i = 0; i < 4; i++) {
+			context.waitTicks(100);
+			int round = i;
+			sp.getServer().runOnServer(server -> {
+				ServerPlayer p = player(server);
+				Map<String, Integer> counts = new java.util.TreeMap<>();
+				for (SpecCreature c : p.level().getEntitiesOfClass(SpecCreature.class, p.getBoundingBox().inflate(128))) {
+					counts.merge(EntityType.getKey(c.getType()).getPath(), 1, Integer::sum);
+				}
+				log("natural spawns in " + dim + " after " + (round + 1) * 5 + "s: " + counts);
+			});
+		}
+		sp.getServer().runOnServer(server -> {
+			ServerPlayer p = player(server);
+			SpecCreature nearest = null;
+			for (SpecCreature c : p.level().getEntitiesOfClass(SpecCreature.class, p.getBoundingBox().inflate(64))) {
+				if (nearest == null || c.distanceToSqr(p) < nearest.distanceToSqr(p)) {
+					nearest = c;
+				}
+			}
+			if (nearest != null) {
+				Vec3 d = nearest.position().subtract(p.position());
+				float yaw = (float) (Math.atan2(-d.x, d.z) * 180 / Math.PI);
+				double back = 3.0 + nearest.getBbHeight();
+				Vec3 cam = nearest.position().subtract(d.multiply(1, 0, 1).normalize().scale(back)).add(0, nearest.getBbHeight() * 0.5 + 0.6, 0);
+				p.connection.teleport(cam.x, cam.y - p.getEyeHeight(), cam.z, yaw, 15.0F);
+			}
+		});
+		context.waitTicks(20);
+		sp.getClientWorld().waitForChunksRender();
+		context.takeScreenshot("creature_natural_" + dim);
+		sp.getServer().runCommand("gamerule spawn_mobs false");
+	}
+
+	/** Hotbar + creative tab full of spawn eggs (checks the per-egg item textures/models). */
+	private void eggs(ClientGameTestContext context, TestSingleplayerContext sp) {
+		sp.getServer().runOnServer(server -> {
+			ServerPlayer p = player(server);
+			p.setGameMode(GameType.CREATIVE);
+			for (int i = 0; i < 9 && i < ModCreatures.SPAWN_EGGS.size(); i++) {
+				p.getInventory().setItem(i, new net.minecraft.world.item.ItemStack(ModCreatures.SPAWN_EGGS.get(i)));
+			}
+			p.connection.teleport(0.5, p.getY(), 0.5, 0.0F, 30.0F);
+		});
+		context.runOnClient(mc -> mc.options.hideGui = false);
+		context.waitTicks(10);
+		context.takeScreenshot("creature_eggs_hotbar");
+		context.runOnClient(mc -> mc.options.hideGui = true);
+	}
+
 	/** Spawn everything with AI around a survival player and log what each creature did. */
 	private void behavior(ClientGameTestContext context, TestSingleplayerContext sp, List<String> ids) {
 		Map<String, Vec3> start = new LinkedHashMap<>();
 		Map<String, Integer> uuids = new HashMap<>();
 		Map<String, double[]> stats = new ConcurrentHashMap<>();
 		HITS.clear();
-		double ox = -300.5;
-		double oz = -300.5;
+		double ox = 0.5;
+		double oz = -30.5;
 		sp.getServer().runOnServer(server -> {
 			ServerPlayer p = player(server);
 			ServerLevel level = p.level();
@@ -238,10 +302,35 @@ public class CreatureGalleryTest implements FabricClientGameTest {
 		});
 		for (int tick = 0; tick < 300; tick += 5) {
 			context.waitTicks(5);
+			int now = tick;
 			sp.getServer().runOnServer(server -> {
 				ServerLevel level = player(server).level();
 				ServerPlayer p = player(server);
 				p.setHealth(p.getMaxHealth());
+				if (now == 20 || now == 200) {
+					for (Map.Entry<String, Integer> en : uuids.entrySet()) {
+						if (level.getEntity(en.getValue()) instanceof SpecCreature c && c.isAlive()) {
+							var sp2 = c.spec();
+							if (now == 20 && sp2.behavior.equals("neutral")) {
+								// provoke neutral creatures
+								c.hurtServer(level, level.damageSources().playerAttack(p), 1.0F);
+							}
+							if (now == 200 && sp2.abilities.contains("split")) {
+								c.hurtServer(level, level.damageSources().playerAttack(p), 1000.0F);
+								log(en.getKey() + " killed for split test");
+							}
+						}
+					}
+				}
+				if (now == 295) {
+					for (String id : uuids.keySet()) {
+						int n = level.getEntitiesOfClass(SpecCreature.class, p.getBoundingBox().inflate(60),
+							e -> EntityType.getKey(e.getType()).getPath().equals(id)).size();
+						if (ModCreatures.spec(ModCreatures.TYPES.get(id)).abilities.contains("split")) {
+							log(id + " alive copies after split test: " + n);
+						}
+					}
+				}
 				for (Map.Entry<String, Integer> en : uuids.entrySet()) {
 					Entity e = level.getEntity(en.getValue());
 					double[] st = stats.get(en.getKey());
@@ -254,8 +343,9 @@ public class CreatureGalleryTest implements FabricClientGameTest {
 						if (c.isInWater()) {
 							st[3]++;
 						}
-					} else {
+					} else if (st[4] == 0) {
 						st[4] = 1;
+						log(en.getKey() + " gone: " + (e == null ? "null" : e.getRemovalReason() + " hp=" + ((SpecCreature) e).getHealth()));
 					}
 				}
 				for (CreatureOrb orb : level.getEntitiesOfClass(CreatureOrb.class, p.getBoundingBox().inflate(48))) {

@@ -2,6 +2,10 @@
   "replace": false,
   "values": [
     {
+      "id": "portalgun:gb_hazard",
+      "required": false
+    },
+    {
       "id": "minecraft:magma_block",
       "required": false
     }

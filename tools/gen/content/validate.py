@@ -21,8 +21,11 @@ WHERE = {"surface", "underwater", "cave_floor", "cave_ceiling", "air", "anywhere
 TREE_SHAPES = {"oak", "fancy", "birch", "spruce", "pine", "acacia", "dark_oak", "jungle", "mega_jungle", "cherry", "bush",
                "palm", "twisted", "mushroom_like"}
 PLANT_SHAPES = {"dome", "flat", "sphere", "cone", "flower", "puff", "umbrella", "palm", "tuft"}
-STRUCT_ROLES = {"arch": {"main"}, "ring": {"main"}, "gear": {"main", "axle"}, "ribcage": {"bone", "spine"},
-                "lily_pad": {"pad", "flower"}, "monolith": {"main"}, "geyser": {"vent", "mound"},
+# keep in sync with dev/portalgun/world/feature/Structures.java (c.role / c.optionalRole calls; "main" is the
+# fallback role Java accepts where a kind names its primary block differently)
+STRUCT_ROLES = {"arch": {"main", "alt"}, "ring": {"main", "alt"}, "gear": {"main", "axle"},
+                "ribcage": {"bone", "spine", "main"},
+                "lily_pad": {"pad", "flower", "vein", "main"}, "monolith": {"main"}, "geyser": {"vent", "mound", "main"},
                 "cuboids": {"main", "alt", "trim"}, "tendril": {"main", "tip"}, "nest": {"main", "egg"}}
 SKYBOXES = {"overworld", "end", "none"}
 MOON_PHASES = {"full_moon", "waning_gibbous", "third_quarter", "waning_crescent", "new_moon", "waxing_crescent",

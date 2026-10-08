@@ -1,9 +1,12 @@
-"""TEMPORARY creature test dimension (module C dev only) - DELETE before release.
+"""Creature test dimension (dev only; generated only by `generate.py --gallery`, so it never ships).
 
 Holds creatures of all 14 archetypes with varied body knobs so the creature pipeline can be previewed
 (python3 -m gen.content.creature_preview zz_creature_lab) and tested in game (PORTALGUN_TEST=creatures).
 """
 from gen.content.dsl import *
+
+# only generated with `generate.py --gallery` (never part of a release build)
+TEST_ONLY = True
 
 ROCK = ["#3a3a44", "#4a4a56", "#5a5a68", "#6c6c7a"]
 
@@ -22,7 +25,7 @@ C = [
                    "tail_kind": "thin"},
              behavior="passive", sounds="camel", pitch=0.8, health=40),
     Creature("lab_mud_croc", "Mud Croc", "quadruped", ["#4a5a2a", "#8a8a50", "#c0c070", "#ffe040"], pattern="scales",
-             body={"stance": "low", "leg_len": 3, "leg_w": 3, "body_len": 18, "body_h": 6, "body_w": 10, "snout": 6, "jaw": True,
+             body={"stance": "low", "ears": "none", "leg_len": 3, "leg_w": 3, "body_len": 18, "body_h": 6, "body_w": 10, "snout": 6, "jaw": True,
                    "spikes": 6, "tail": 3, "tail_len": 6, "eye_style": "slit", "head_size": 0.85},
              behavior="hostile", damage=5, health=24, sounds="hoglin", pitch=0.8, movement="amphibious", abilities=["charge"]),
     Creature("lab_thorn_hog", "Thorn Hog", "quadruped", ["#6a4a3a", "#3a2a20", "#e0d0a0", "#ff6020"], pattern="speckle",

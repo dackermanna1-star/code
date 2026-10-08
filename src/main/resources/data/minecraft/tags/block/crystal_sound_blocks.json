@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:gb_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:gb_cluster",
+      "required": false
+    }
+  ]
+}

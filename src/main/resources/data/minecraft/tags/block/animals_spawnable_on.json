@@ -4,6 +4,10 @@
     {
       "id": "portalgun:sporemoss",
       "required": false
+    },
+    {
+      "id": "portalgun:gb_grass",
+      "required": false
     }
   ]
 }

@@ -8,6 +8,14 @@
     {
       "id": "portalgun:spore_soil",
       "required": false
+    },
+    {
+      "id": "portalgun:gb_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:gb_soil",
+      "required": false
     }
   ]
 }

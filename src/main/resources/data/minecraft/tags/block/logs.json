@@ -4,6 +4,10 @@
     {
       "id": "portalgun:glowcap_stem",
       "required": false
+    },
+    {
+      "id": "portalgun:gb_log",
+      "required": false
     }
   ]
 }

@@ -1,0 +1,11 @@
+{
+  "type": "portalgun:gallery_dunes",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:gallery_dunes",
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "portalgun:gallery_dunes_biome"
+    }
+  }
+}

@@ -108,7 +108,9 @@ def build_head(parent, name, pivot, w, h, d, K, opts=None):
     back = o.get("back", 1)
     y0 = -h // 2
     z0 = -d + back
-    face = face_spec(K, o.get("eyes", 2), o.get("eye_size", 2 if w >= 6 else 1), o.get("eye_style", "round"),
+    beh = K.get("_behavior", "passive")
+    default_style = {"passive": "cute", "skittish": "cute", "neutral": "round", "hostile": "angry"}.get(beh, "round")
+    face = face_spec(K, o.get("eyes", 2), o.get("eye_size", 2 if w >= 6 else 1), o.get("eye_style") or default_style,
                      o.get("mouth", "none"))
     snout = K.num("snout", o.get("snout", 0), 0, 10)
     beak = K.num("beak", o.get("beak", 0), 0, 10) if K.get("beak") is not True else max(2, d // 2)
@@ -224,9 +226,15 @@ def build_head(parent, name, pivot, w, h, d, K, opts=None):
     if ant:
         ln = int(ant) if ant > 1 else 5
         for s in (-1, 1):
-            ap = head.child(f"{name}_antenna{'l' if s < 0 else 'r'}", (s * (w / 2 - 1.5), y0, z0 + 1), rot=(0.45, 0, -s * 0.35), nohit=True)
+            ap = head.child(f"{name}_antenna{'l' if s < 0 else 'r'}", (s * max(1.0, w / 2 - 1.5), y0, z0 + 1), rot=(0.45, 0, s * 0.45), nohit=True)
             ap.box(-0.5, -ln, -0.5, 1, ln, 1, "dark")
-            ap.box(-1, -ln - 2, -1, 2, 2, 2, "glow" if K.flag("glow_tips", True) else "accent")
+            if K.flag("glow_tips", False):
+                ap.box(-1, -ln - 2, -1, 2, 2, 2, "glow", pattern=False)
+            elif K.flag("feathery", False):
+                for k in range(1, ln, 2):
+                    ap.box(-1.5, -k - 1, -0.5, 3, 1, 0, "dark", pattern=False)
+            else:
+                ap.box(-0.5, -ln - 1, -0.5, 1, 1, 1, "accent", pattern=False)
             ap.anim("sway", axis="x", amp=0.12, speed=0.2, phase=0 if s < 0 else 1.3)
     # crest / mohawk
     if K.flag("crest", o.get("crest", False)):
@@ -240,10 +248,10 @@ def build_head(parent, name, pivot, w, h, d, K, opts=None):
     # mushroom cap on the head
     cap = K.str("head", "") in ("cap", "mushroom_cap", "mushroom") or K.flag("cap", False)
     if cap:
-        cw = ev(w + 6)
-        cd = d + 6 - (d % 2)
+        cw = ev(w + 8)
+        cd = d + 8 - (d % 2)
         ch_ = 3
-        hc = head.child(name + "_cap", (0, y0, z0 + d / 2))
+        hc = head.child(name + "_cap", (0, y0, z0 + d / 2), nohit=True)
         hc.box(-cw / 2, -ch_, -cd / 2, cw, ch_, cd, "cap", pattern=False)
         hc.box(-(cw - 4) / 2, -ch_ - 2, -(cd - 4) / 2, cw - 4, 2, cd - 4, "cap", pattern=False)
         hc.box(-(cw - 2) / 2, 0, -(cd - 2) / 2, cw - 2, 1, cd - 2, "gills", pattern=False)
@@ -311,8 +319,8 @@ def add_tail(parent, name, pivot, K, default_segs=1, default_len=6, width=2, dro
     elif kind in ("fan", "feather"):
         p.box(-3, -0.5, seg_len - 1, 6, 1, 5, "second", pattern=False)
     elif kind == "stinger":
-        p.cbox(0, 0, seg_len + 1.5, width + 1, width + 1, 3, "accent", pattern=False)
-        p.box(-0.5, -0.5 - 2, seg_len + 2.5, 1, 2, 1, "horn_tip", pattern=False)
+        p.cbox(0, 0, seg_len + 1, width, width, 2, "accent", pattern=False)
+        p.box(-0.5, -0.5 + 1, seg_len + 2, 1, 1, 2, "horn_tip", pattern=False)
     elif kind == "rattle":
         for j in range(3):
             p.cbox(0, 0, seg_len + 0.5 + j * 1.5, width + 1, width + 1, 1, "accent", pattern=False)
@@ -502,7 +510,7 @@ def build_biped(c, K):
         else:
             hw, hh, hd = (7 if thin else 8) * hs, (7 if thin else 8) * hs, (7 if thin else 8) * hs
         head, hb = build_head(body, "head", (0, hp[1] - hh / 2, td * 0.1), hw, hh, hd, K,
-                              {"back": int(hd / 2), "eye_style": "glow" if c.behavior == "hostile" else "round",
+                              {"back": int(hd / 2), "eye_style": "glow" if c.behavior == "hostile" else None,
                                "mouth": "frown" if c.behavior == "hostile" else "smile", "look": 1.0})
         if head_kind == "pumpkin":
             hb.mat = "second"
@@ -545,7 +553,7 @@ def build_raptor(c, K):
     np_.box(-nw / 2, -nw / 2, -neck - 1, nw, nw, neck + 2, "body")
     hs = K.num("head_size", 1.0, 0.4, 3)
     head, hb = build_head(np_, "head", (0, 0, -neck), 6 * hs, 5 * hs, 7 * hs, K,
-                          {"snout": 0, "eye_style": "slit" if c.behavior == "hostile" else "round",
+                          {"snout": 0, "eye_style": "slit" if c.behavior == "hostile" else None,
                            "mouth": "fangs" if c.behavior == "hostile" else "none", "look": 0.7})
     head.rot = (ang, 0, 0)
     add_tail(body, "tail", (0, -bh / 2 + 2, bl / 2), K, default_segs=2, default_len=6, width=3, droop=0.15)
@@ -565,6 +573,8 @@ def build_flyer(c, K):
     body = root.child("body", (0, 14, 0))
     body.anim("bob", axis="y", amp=0.8, speed=0.18)
     if kind in ("insect", "moth"):
+        if kind == "moth":
+            K.d.setdefault("feathery", True)
         # thorax + abdomen + head
         body.box(-bw / 2, -bh / 2, -bl / 3, bw, bh, int(bl / 2), "body", tag="body")
         ab = body.child("abdomen", (0, 0, bl / 6 + 1), rot=(-0.15, 0, 0))
@@ -575,7 +585,7 @@ def build_flyer(c, K):
         if K.flag("fluffy") or kind == "moth":
             body.box(-bw / 2, -bh / 2, -bl / 3, bw, bh, 2, "second", inflate=0.5, pattern=False)
         head, _ = build_head(body, "head", (0, 0, -bl / 3), bw + 1 if kind == "insect" else bw, bh, 4, K,
-                             {"back": 0, "eye_style": "compound", "eye_size": 2, "antennae": 4 if kind == "moth" else 3,
+                             {"back": 0, "eye_style": "compound", "eye_size": 2, "antennae": 5 if kind == "moth" else 3,
                               "mouth": "none", "look": 0.5})
         K.d["_wing_x"] = bw / 2 - 0.5
         add_wings(body, "wing", -bh / 2, -bl / 6, span, chord, K, kind="moth" if kind == "moth" else "insect",
@@ -627,6 +637,10 @@ def build_flyer(c, K):
 def build_floater(c, K):
     root = Part("root")
     kind = K.str("kind", "jelly")
+    if kind not in ("jelly", "ghost", "whale", "lantern", "balloon", "cloud", "orb", "wisp"):
+        import sys
+        print(f"  [creatures] WARNING: {c.id}: unknown floater kind {kind!r} - using jelly", file=sys.stderr)
+        kind = "jelly"
     tent = K.int("tentacles", {"jelly": 6, "ghost": 0, "whale": 0, "lantern": 1, "wisp": 0, "balloon": 1, "cloud": 0,
                                "orb": 0}.get(kind, 4), 0, 12)
     tl = K.num("tentacle_len", 8, 2, 30)
@@ -831,12 +845,21 @@ def build_crawler(c, K):
     body = root.child("body", (0, by, 0))
     body.box(-bw / 2, -bh / 2, -bl / 2, bw, bh, bl, "body", tag="body")
     if kind in ("spider", "ant"):
-        aw, ah, al = (bw + 4, bh + 3, bl + 3) if kind == "spider" else (bw + 1, bh + 1, bl + 2)
-        ab = body.child("abdomen", (0, -1 if kind == "spider" else 0, bl / 2), rot=(0.12, 0, 0))
+        aw, ah, al = (bw + 4, bh + 3, bl + 3) if kind == "spider" else (bw + 2, bh + 2, bl + 4)
+        ab = body.child("abdomen", (0, -1 if kind == "spider" else -0.5, bl / 2 + (0 if kind == "spider" else 1)),
+                        rot=(0.12 if kind == "spider" else 0.3, 0, 0))
+        if kind == "ant":
+            body.box(-1, -1, bl / 2, 2, 2, 2, "dark")
         ab.box(-aw / 2, -ah / 2, 0, aw, ah, al, "body")
         ab.anim("sway", axis="x", amp=0.04, speed=0.15)
         if K.flag("stinger"):
             ab.box(-0.5, 0, al, 1, 1, 2, "horn_tip", pattern=False)
+    crystals = K.int("crystals", 0, 0, 8)
+    cpar = body
+    for i in range(crystals):
+        sx = -1 if i % 2 else 1
+        cp = cpar.child(f"crystal{i}", (sx * (i % 3), -bh / 2, -bl / 4 + i * 2), rot=(0.25 * sx, 0, 0.4 * sx), nohit=True)
+        cp.box(-1, -4 - (i % 2) * 2, -1, 2, 4 + (i % 2) * 2, 2, "glow", pattern=False)
     if kind == "beetle" or K.flag("shell"):
         body.box(-bw / 2 - 0.5, -bh / 2 - 2, -bl / 2 + 1, bw + 1, 3, bl, "shell", pattern=False)
         body.box(-0.5, -bh / 2 - 2.1, -bl / 2 + 1, 1, 0, bl, "dark", pattern=False)
@@ -859,14 +882,17 @@ def build_crawler(c, K):
         spread = (t - 0.5) * 0.9
         for s in (-1, 1):
             name = f"leg{i}{'l' if s < 0 else 'r'}"
-            up_a = 1.9 if kind == "spider" else 1.35
-            lp = root.child(name, (s * (bw / 2 - 0.5), by + 1, z), rot=(0, -s * spread, -s * up_a))
-            lp.box(-1 if s < 0 else -1, 0, -1, 2, int(ll * 0.55), 2, "body" if kind != "spider" else "dark")
-            low = lp.child(name + "_low", (0, int(ll * 0.55), 0), rot=(0, 0, s * (up_a - 0.3)))
-            low.box(-0.5, -0.5, -0.5, 1, int(ll * 0.6) + 1, 1, "dark")
+            up_a = 1.95 if kind == "spider" else 1.45
+            hip = root.child(name, (s * (bw / 2 - 0.5), by + 1, z), rot=(0, -s * (t - 0.5) * 1.3, 0))
+            up_len = max(2, int(round(ll * 0.5)))
+            lw = 2 if (bw >= 8 or kind in ("spider", "crab")) else 1
+            lp = hip.child(name + "_up", (0, 0, 0), rot=(0, 0, -s * up_a))
+            lp.box(-lw / 2, 0, -lw / 2, lw, up_len, lw, "body" if kind in ("crab", "beetle") else "dark")
+            low = lp.child(name + "_low", (0, up_len - 0.5, 0), rot=(0, 0, s * (up_a - 0.35)))
+            low.box(-0.5, 0, -0.5, 1, int(round(ll * 0.65)) + 1, 1, "dark")
             ph = (i % 2) * PI + (0 if s < 0 else PI)
-            lp.anim("leg", axis="y", amp=0.35, phase=ph)
-            lp.anim("leg", axis="z", amp=0.2, phase=ph + PI / 2)
+            hip.anim("leg", axis="y", amp=0.4, phase=ph)
+            lp.anim("leg", axis="z", amp=0.25, phase=ph + PI / 2)
     # claws
     claws = K.flag("claws", kind in ("crab", "scorpion"))
     if claws:
@@ -905,7 +931,7 @@ def build_crawler(c, K):
     else:
         head, _ = build_head(body, "head", (0, 0, -bl / 2 + 0.5), max(4, (bw - 2) * hs), max(3, bh * hs), max(3, 5 * hs), K,
                              {"back": 0, "eyes": eyes_default, "eye_size": 1 if eyes_default > 2 else 2,
-                              "eye_style": "glow" if c.behavior == "hostile" else ("compound" if kind in ("ant", "beetle", "mite") else "round"),
+                              "eye_style": "glow" if c.behavior == "hostile" else ("compound" if kind in ("ant", "beetle", "mite") else None),
                               "mandibles": kind in ("ant", "spider", "beetle"), "antennae": 4 if kind in ("ant", "beetle") else 0,
                               "mouth": "none", "look": 0.5})
     return root, {"head": head}
@@ -947,7 +973,7 @@ def build_serpent(c, K):
     # head
     hw = ev(K.num("head_w", w + 2, 2, 40))
     hl = K.int("head_len", max(5, hw), 2, 40)
-    opts = {"back": 0, "look": 0.5, "eye_style": "slit" if c.behavior == "hostile" else "round",
+    opts = {"back": 0, "look": 0.5, "eye_style": "slit" if c.behavior == "hostile" else None,
             "mouth": "fangs" if c.behavior == "hostile" else "none"}
     if head_kind == "worm":
         head = body.child("head", (0, 0, 0))
