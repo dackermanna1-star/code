@@ -287,10 +287,15 @@ export class Ragdoll {
       const q = swingQuat(j, s[0], s[1], new CANNON.Quaternion());
       j.motor = { q, k: strength, gain };
     });
-    this.wake();
+    // (wakes the bodies, but a new pose doesn't count as the figure moving)
+    if (this.asleep) { this.asleep = false; for (const b of this.bodies) b.wakeUp(); }
   }
   /** Flailing: random poses, changed every few tenths of a second. */
-  flail(on, strength = 0.12) { this.flailing = on ? strength : 0; if (!on) this.pose(null); }
+  flail(on, strength = 0.12) {
+    if (!!this.flailing === !!on) return;
+    this.flailing = on ? strength : 0;
+    if (!on && this.poseName === 'flail') this.pose(null);
+  }
 
   // --- life cycle --------------------------------------------------------------------------------------------------------------
   wake() {
@@ -346,8 +351,9 @@ export class Ragdoll {
         this.flailT = 0.18 + Math.random() * 0.22;
         const r = (a, b) => a + Math.random() * (b - a);
         const k = this.flailing;
+        const still = this.still;
         this.pose([[r(-0.4, 0.6), r(-0.4, 0.4)], [r(-0.5, 2.5), r(0, 2.2)], [r(-0.5, 2.5), r(0, 2.2)], [r(-0.3, 1.6), r(0, 0.7)], [r(-0.3, 1.6), r(0, 0.7)]], k, 18);
-        this.poseName = 'flail';
+        this.poseName = 'flail'; this.still = still;
       }
     }
     const T = B[TORSO];
@@ -560,6 +566,7 @@ export function park(ch) {
 export function unpark(ch, feet, yaw) {
   ch.parked = false;
   ch.rag = null;
+  ch.lockFacing = null;
   ch.spawn(feet, yaw, 0);
   ch.body.velocity.set(0, 0, 0);
 }

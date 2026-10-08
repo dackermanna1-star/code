@@ -158,7 +158,7 @@ export class UI {
 
   // --- your score ------------------------------------------------------------------------------------------------------------------
   myScore(v, unit = '', label = 'YOUR SCORE') {
-    if (v == null) { this.meEl.style.display = 'none'; this.meLog.innerHTML = ''; this._c.mv = null; return; }
+    if (v == null) { this.meEl.style.display = 'none'; this.meLog.innerHTML = ''; this._c.mv = null; this.combo(1); return; }
     this.meEl.style.display = 'block';
     this._set('ml', this.meL, label);
     this._set('mv', this.meV, `${typeof v === 'number' ? fmtInt(v) : esc(v)}${unit ? `<span class="u"> ${esc(unit)}</span>` : ''}`);

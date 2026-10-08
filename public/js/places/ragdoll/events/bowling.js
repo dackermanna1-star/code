@@ -53,7 +53,7 @@ function buildVenue(K, E) {
     for (const dz of [-2.4, -1.2, 0, 1.2, 2.4]) K.geo(new THREE.ConeGeometry(0.35, 1.2, 3).rotateZ(-Math.PI / 2).rotateX(Math.PI / 2), colorMat(0xd8232a, 0.4), XL + 30 - Math.abs(dz) * 2, Y_LANE + 0.03, zc + dz, null, { noShadow: true });
   }
   // the pit and the back wall
-  K.span(XP, -3, Z0 - 2, XB, -2, ZW + 2, 'rubber');
+  K.span(XP, 0, Z0 - 2, XB, 0.2, ZW + 2, 'rubber');
   K.span(XB, -3, Z0 - 2, XB + 2, 14, ZW + 2, colorMat(0x15161a, 0.9));
   for (const s of [Z0 - 3, ZW + 3]) K.span(XS, 0, s - 1, XB + 2, 14, s + 1, 'concrete');
   // the canopy: steel frame, neon sign and a scoreboard over each lane
@@ -137,9 +137,9 @@ export default {
         a.off = clamp(a.off + dx * 4, -3, 3);
         a.ang = clamp(-a.off * 0.012, -0.04, 0.04);
         const ch = a.p.character; ch.body.position.z = a.zc + a.off; ch.body.interpolatedPosition.z = ch.body.position.z;
-        ch.facing = -Math.PI / 2 - a.ang * 4;
+        ch.facing = ch.lockFacing = -Math.PI / 2 - a.ang * 4;
       },
-      botAim: (a) => { const s = a.bot.skill; a.off = rnd(-1.5, 1.5) * (1.2 - s); a.ang = rnd(-0.02, 0.02) * (1.2 - s); a.bot.power = clamp(rnd(0.5, 0.8) + s * 0.25, 0.3, 1); a.bot.at = rnd(1.5, AIM_SECS - 1); const ch = a.p.character; ch.body.position.z = a.zc + a.off; },
+      botAim: (a) => { const s = a.bot.skill; a.off = rnd(-1.5, 1.5) * (1.2 - s); a.ang = rnd(-0.02, 0.02) * (1.2 - s); a.bot.power = clamp(rnd(0.5, 0.8) + s * 0.25, 0.3, 1); a.bot.at = rnd(1.5, AIM_SECS - 1); const ch = a.p.character; ch.body.position.z = a.zc + a.off; ch.facing = ch.lockFacing = -Math.PI / 2 - a.ang * 4; },
       launch: (a, pw) => {
         const ch = a.p.character;
         // lie down flat, head first down the lane (arms out in front like Superman)

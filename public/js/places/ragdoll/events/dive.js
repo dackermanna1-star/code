@@ -100,7 +100,7 @@ export default {
       E.stand(a.p, V(a.b.x, a.b.y, a.b.z - (k >= 8 ? 5 : 0)), Math.PI, true);
     });
   },
-  spectate: () => ({ position: V(rnd(-60, -50), 0.3, rnd(240, 260)), yaw: Math.PI / 2 }),
+  spectate: () => ({ position: V(rnd(-80, -58), 0.3, rnd(240, 260)), yaw: Math.PI / 2 }),
 
   start(E, ev) {
     ev.aimLeft = AIM_SECS;

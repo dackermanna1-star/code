@@ -81,6 +81,8 @@ export class Prop {
     b.previousQuaternion.copy(b.quaternion); b.interpolatedQuaternion.copy(b.quaternion);
     b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0);
     b.sleep();
+    // (a sleeping body isn't integrated, so its bounding box would stay where it last lay)
+    b.aabbNeedsUpdate = true; b.updateAABB();
     this.sync(true);
   }
   sync(force = false) {

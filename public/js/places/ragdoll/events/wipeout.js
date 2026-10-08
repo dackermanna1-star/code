@@ -41,7 +41,7 @@ function buildVenue(K, E) {
   const world = E.world, L = LAKE;
   // the lake: a sandy bed, banks, the water
   K.span(L.x0, L.bottom - 2, L.z0, L.x1, L.bottom, L.z1, 'sand');
-  for (const [x0, z0, x1, z1] of [[L.x0 - 4, L.z0 - 4, L.x1 + 4, L.z0], [L.x0 - 4, L.z1, L.x1 + 4, L.z1 + 4], [L.x0 - 4, L.z0, L.x0, L.z1], [L.x1, L.z0, L.x1 + 4, L.z1]]) K.span(x0, L.bottom - 2, z0, x1, 0, z1, 'stone');
+  for (const [x0, z0, x1, z1] of [[L.x0 - 4, L.z0 - 4, L.x1 + 4, L.z0], [L.x0 - 4, L.z1, L.x1 + 4, L.z1 + 4], [L.x0 - 4, L.z0, L.x0, L.z1], [L.x1, L.z0, L.x1 + 4, L.z1]]) K.span(x0, L.bottom - 2, z0, x1, 0.15, z1, 'stone');
   const water = new THREE.Mesh(new THREE.PlaneGeometry(L.x1 - L.x0, L.z1 - L.z0).rotateX(-Math.PI / 2), waterMaterial(0x2a7fa8, { repeat: [30, 13], opacity: 0.86, flow: 0.6 }));
   water.position.set((L.x0 + L.x1) / 2, L.y, (L.z0 + L.z1) / 2); water.renderOrder = 1;
   K.group.add(water);
@@ -146,7 +146,9 @@ function animate(v, dt, t) {
     const c = ((t + g.phase) % 2.6) / 2.6;
     const ext = c < 0.08 ? c / 0.08 : c < 0.2 ? 1 : c < 0.5 ? 1 - (c - 0.2) / 0.3 : 0;
     const z = g.home.z - g.s * ext * 13;
-    const vz = (z - g.b.position.z) / Math.max(dt, 1e-3);
+    // (from where it was put last frame: the physics has carried the body on since)
+    const vz = g.prevZ == null ? 0 : clamp((z - g.prevZ) / Math.max(dt, 1e-3), -70, 70);
+    g.prevZ = z;
     g.b.position.set(g.home.x, g.home.y, z); g.b.velocity.set(0, 0, vz);
     g.g.position.set(g.home.x, g.home.y, z);
     // the piston reaches from the glove back into its housing
@@ -252,7 +254,7 @@ export default {
     const v = ev.venue;
     if (ev.go > 0) {
       ev.go -= dt; ev.timer = Math.max(0, ev.go);
-      if (ev.go <= 0) for (const a of ev.ath) { const ch = a.p.character; if (ch?.frozen) ch.freeze(false); }
+      if (ev.go <= 0) for (const a of ev.ath) { const ch = a.p.character; if (ch?.frozen) { ch.freeze(false); ch.lockFacing = null; } }
       return false;
     }
     ev.raceT += dt;
@@ -335,7 +337,7 @@ function knock(E, a, vel, word) {
   if (word !== 'SPLASH!') { A.punch(p); E.fx.star(p, 1.2); A.ooh(0.7); E.park.crowd.excite(0.8); }
   E.ui.pop(word, p, word === 'SPLASH!' ? '#7cd8ff' : '#ffcf4a', a.p.isLocal ? 28 : 17);
   if (a.p.isLocal) { E.shake(1); E.followRag(rag, { dist: 20 }); }
-  if (a.bot) a.bot.wait = 0;
+  if (a.bot) { a.bot.wait = 0; a.bot.jumping = false; }
 }
 
 function respawn(E, a) {
@@ -343,7 +345,7 @@ function respawn(E, a) {
   const z = clamp(a.z, a.cp === 3 ? -6 : -18, a.cp === 3 ? 6 : 18);
   E.stand(a.p, V(x - (a.cp ? 0 : 0), Y, z), Math.PI / 2, false);
   a.downT = 0; a.immuneT = E.ev.t + 1.2;
-  if (a.bot) { a.ri = [0, 6, 9, 12][a.cp]; a.bot.wait = 0; }
+  if (a.bot) { a.ri = [0, 6, 9, 12][a.cp]; a.bot.wait = 0; a.bot.jumping = false; }
   if (a.p.isLocal) { E.followChar(a.p.character); const cam = E.game.camera; cam.yaw = Math.PI / 2; E.ui.toast('Back to the checkpoint!', '#7cd8ff', 1.5); }
 }
 

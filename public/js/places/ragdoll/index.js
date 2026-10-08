@@ -151,6 +151,9 @@ export default {
   update(game, dt) {
     if (!E.ui) return;
     E.impactsThisFrame = 0;
+    // no running on the spot while held on a start line (or lying as a rag doll)
+    const lc = game.localPlayer?.character;
+    if (lc && (lc.frozen || lc.parked)) { lc.input.move.set(0, 0, 0); lc.input.jump = false; }
     director(dt);
     freePlay(dt);
     E.prevKeys = new Set(E.keys);
@@ -183,6 +186,8 @@ E.stand = (p, feet, yaw = 0, frozen = true) => {
   ch.platformStand = false;
   ch.walkSpeed = WALK; ch.jumpPower = JUMP;
   if (frozen) ch.freeze(true);
+  // (a frozen figure keeps facing where it was put, whatever keys are held)
+  ch.lockFacing = frozen ? yaw : null;
   ch.pose = null;
   return ch;
 };
@@ -227,7 +232,7 @@ E.getUp = (a, at = null, yaw = null, then = null) => {
 };
 
 /** Slow the world down for a moment (the big ones). */
-E.slowmo = (k = 0.35, secs = 0.6) => { E.timeScale = k; E.slowT = secs * k; };
+E.slowmo = (k = 0.35, secs = 0.6) => { E.timeScale = k; E.slowT = secs; };
 E.shake = (a) => { E.shakeAmt = Math.max(E.shakeAmt, a); };
 
 // --- cameras ------------------------------------------------------------------------------------------------------------------------------------
@@ -236,6 +241,7 @@ function followChar(ch) {
   cam.fixed = null; E.camFx = null; E.camShot = null;
   cam.subject = ch;
   cam.distance = 18; cam.elevation = 0.32;
+  cam._updateFirstPerson?.();
 }
 function followRag(rag, o = {}) {
   const cam = E.game.camera;
@@ -244,6 +250,7 @@ function followRag(rag, o = {}) {
   cam.subject = rag.camSubject;
   cam.distance = o.dist ?? E.ev?.def.camDist ?? 26;
   if (o.elev != null) cam.elevation = o.elev;
+  cam._updateFirstPerson?.();
 }
 E.followRag = followRag;
 E.followChar = followChar;
@@ -291,7 +298,7 @@ function onImpact(a, h) {
     E.park.crowd.excite(Math.min(1, h.v / 70));
   }
   h.w = PART_W[h.part];
-  if (a.free) return;
+  if (a.free || E.phase !== 'play') return;
   try { E.ev?.def.impact?.(E, E.ev, a, h); } catch (e) { console.error(e); }
 }
 const BREAK_NAMES = ['RIBS', 'SKULL', 'RIGHT ARM', 'LEFT ARM', 'RIGHT LEG', 'LEFT LEG'];
@@ -302,7 +309,7 @@ function onBreak(a, part, h) {
   E.park.crowd.excite(1);
   if (Math.random() < 0.6) A.ooh(0.8);
   if (a.p.isLocal) { E.slowmo(0.3, 0.55); E.ui.flash(0.35, '#fff'); E.shake(1.5); }
-  if (a.free) return;
+  if (a.free || E.phase !== 'play') return;
   try { E.ev?.def.broke?.(E, E.ev, a, part, h); } catch (e) { console.error(e); }
 }
 function onSplash(a, i, v, pos) {
@@ -310,7 +317,7 @@ function onSplash(a, i, v, pos) {
   const w = E.rags.water.find((ww) => pos.x > ww.x0 && pos.x < ww.x1 && pos.z > ww.z0 && pos.z < ww.z1);
   const k = Math.min(2, v / 35);
   if (v > 6) { E.fx.splash(new THREE.Vector3(pos.x, 0, pos.z), k, w ? w.y : pos.y); A.splash(new THREE.Vector3(pos.x, pos.y, pos.z), k); }
-  if (a.free) return;
+  if (a.free || E.phase !== 'play') return;
   try { E.ev?.def.splash?.(E, E.ev, a, i, v, pos); } catch (e) { console.error(e); }
 }
 

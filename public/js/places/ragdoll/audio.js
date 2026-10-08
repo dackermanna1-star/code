@@ -235,6 +235,8 @@ export function playSong(ch, id, vol = 0.4) {
   const S = { id, h, c: h.ctx, out: h.out, step: 0, next: h.ctx.currentTime + 0.1, dead: false };
   const L = 60 / song.bpm / 4;
   S.timer = setInterval(() => {
+    // (after the tab was hidden, skip the notes that were missed rather than play them all at once)
+    if (S.next < S.c.currentTime) S.next = S.c.currentTime + 0.05;
     while (S.next < S.c.currentTime + 0.3) { try { song.play(S.c, S.out, S.next, S.step % song.steps, L); } catch { /* skip a note */ } S.step++; S.next += L; }
   }, 60);
   songs[ch] = S;

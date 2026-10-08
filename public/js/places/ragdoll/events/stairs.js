@@ -16,7 +16,7 @@ const ZB = -262, RISE = 3.5, RUN = 3.0, N = 22, X = 40;
 const Z_TOP = ZB - N * RUN, Y_TOP = N * RISE; // -343.6, 76.8
 const T0 = Z_TOP - 26, T1 = T0 - 44; // the temple's front and back rows of columns
 const LANE = 9;
-const AIM_SECS = 9, FALL_SECS = 15;
+const AIM_SECS = 9, FALL_SECS = 15, FLAIL_SECS = 5;
 const FOUNTAIN = { x: 0, z: -228, r: 12 };
 
 /** The top of the steps at z. */
@@ -161,7 +161,7 @@ function buildStairs(K, props, fires, world) {
   const F = FOUNTAIN;
   K.cyl(F.x, 0.9, F.z, F.r, 1.8, 'marble', { seg: 36, col: false });
   // the rim as a ring of boxes (so a body can land in the water)
-  for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; K.col(F.x + Math.cos(a) * (F.r - 0.6), 0.9, F.z + Math.sin(a) * (F.r - 0.6), 1.4, 1.8, F.r * 0.42, -a + Math.PI / 2); }
+  for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; K.col(F.x + Math.cos(a) * (F.r - 0.6), 0.9, F.z + Math.sin(a) * (F.r - 0.6), 1.4, 1.8, F.r * 0.42, -a); }
   K.cyl(F.x, 1.5, F.z, F.r - 1.1, 0.25, colorMat(0x3f9fd6, 0.06, 0.1, { transparent: true, opacity: 0.85 }), { col: false, seg: 36, noShadow: true });
   K.cyl(F.x, 4, F.z, 1.6, 6, 'marble', { seg: 14 });
   K.cyl(F.x, 7.3, F.z, 4, 0.8, 'marble', { seg: 22, col: false });
@@ -241,10 +241,10 @@ export default {
   update(E, ev, dt) {
     ev.aimLeft -= dt;
     const waiting = aimPhase(E, ev, dt, {
-      aim: (a, dx) => { a.aim = Math.max(-0.5, Math.min(0.5, a.aim - dx * 1.2)); a.p.character.facing = Math.PI + a.aim; },
-      botAim: (a) => { const s = a.bot.skill; a.bot.power = Math.min(1, rnd(0.35, 0.75) + s * 0.3); a.aim = rnd(-0.3, 0.3); a.p.character.facing = Math.PI + a.aim; a.bot.at = rnd(1.2, AIM_SECS - 1.5); },
+      aim: (a, dx) => { a.aim = Math.max(-0.5, Math.min(0.5, a.aim - dx * 1.2)); const ch = a.p.character; ch.facing = ch.lockFacing = Math.PI + a.aim; },
+      botAim: (a) => { const s = a.bot.skill; a.bot.power = Math.min(1, rnd(0.35, 0.75) + s * 0.3); a.aim = rnd(-0.3, 0.3); const ch = a.p.character; ch.facing = ch.lockFacing = Math.PI + a.aim; a.bot.at = rnd(1.2, AIM_SECS - 1.5); },
       launch: (a, pw) => {
-        const ch = a.p.character, f = ch.facing;
+        const ch = a.p.character, f = Math.PI + a.aim;
         const fx = -Math.sin(f), fz = -Math.cos(f);
         const rag = E.ragdoll(a);
         const fwd = 10 + 28 * pw, up = 9 + 14 * pw, spin = 4 * (0.6 + pw);
@@ -265,7 +265,8 @@ export default {
       if (a.done) continue;
       const rag = a.rag;
       if (!rag) { a.done = true; continue; }
-      if (a.p.isLocal) rag.flail(E.held(' ') && rag.still < 0.3, 0.16);
+      // (only while actually tumbling, and only for so long: no flapping about on the ground for points)
+      if (a.p.isLocal) { const on = E.held(' ') && rag.torso.velocity.length() > 6 && (a.flailT || 0) < FLAIL_SECS; if (on) a.flailT = (a.flailT || 0) + dt; rag.flail(on, 0.16); }
       else if (a.bot && !a.bot.flailed && ev.t - a.launchT > 0.3) { a.bot.flailed = true; if (Math.random() < 0.5) { rag.flail(true, 0.14); E.world.delay(rnd(0.6, 2), () => rag.alive && rag.flail(false)); } }
       // stuck on the steps? wriggle free (twice)
       a.stuckT = rag.still > 0.45 || rag.asleep ? (a.stuckT || 0) + dt : 0;
@@ -273,7 +274,7 @@ export default {
       if (stuck && a.p.isLocal) E.ui.hint(`stuck! press <b>SPACE</b> to wriggle free (${a.wriggles} left)`);
       if (stuck && ((a.p.isLocal && E.pressed(' ')) || (a.bot && a.stuckT > 0.5 + (1 - a.bot.skill) * 0.8))) {
         a.wriggles--; a.stuckT = 0;
-        const f = a.p.character.facing;
+        const f = Math.PI + a.aim;
         rag.push(-Math.sin(f) * rnd(12, 18), rnd(10, 15), -Math.cos(f) * rnd(12, 18), V(-Math.cos(f) * 5, rnd(-2, 2), Math.sin(f) * 5));
         A.swoosh(rag.position);
         if (a.p.isLocal) E.ui.hint(a.wriggles ? 'hold <b>SPACE</b> to flail' : '');
