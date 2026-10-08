@@ -2,46 +2,6 @@
   "replace": false,
   "values": [
     {
-      "id": "portalgun:lab_cinder_imp",
-      "required": false
-    },
-    {
-      "id": "portalgun:lab_drop_bat",
-      "required": false
-    },
-    {
-      "id": "portalgun:lab_eyebat",
-      "required": false
-    },
-    {
-      "id": "portalgun:lab_floating_eye",
-      "required": false
-    },
-    {
-      "id": "portalgun:lab_jelly",
-      "required": false
-    },
-    {
-      "id": "portalgun:lab_lantern",
-      "required": false
-    },
-    {
-      "id": "portalgun:lab_moth",
-      "required": false
-    },
-    {
-      "id": "portalgun:lab_puffbird",
-      "required": false
-    },
-    {
-      "id": "portalgun:lab_sky_whale",
-      "required": false
-    },
-    {
-      "id": "portalgun:lab_wraith",
-      "required": false
-    },
-    {
       "id": "portalgun:puffjelly",
       "required": false
     }

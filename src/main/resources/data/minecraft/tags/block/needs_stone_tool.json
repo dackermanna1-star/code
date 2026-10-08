@@ -1,9 +1,0 @@
-{
-  "replace": false,
-  "values": [
-    {
-      "id": "portalgun:gb_ore",
-      "required": false
-    }
-  ]
-}

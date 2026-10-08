@@ -1,6 +1,0 @@
-{
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "portalgun:item/lab_glitch_cube_spawn_egg"
-  }
-}

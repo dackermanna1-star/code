@@ -12,12 +12,16 @@ import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 /** Finds somewhere safe to stand near a target point, building a small platform when there is nowhere. */
 public final class SafeSpotFinder {
+	/** Sky light a spot under a tree/mushroom crown needs to count as forest floor rather than a cave. */
+	private static final int MIN_FLOOR_SKY_LIGHT = 7;
+
 	private SafeSpotFinder() {
 	}
 
@@ -131,7 +135,8 @@ public final class SafeSpotFinder {
 			BlockState s = level.getBlockState(p);
 			if (!s.getCollisionShape(level, p).isEmpty() && !isCanopy(s)) {
 				BlockPos feet = p.above();
-				if (isStandable(level, feet)) {
+				// open forest floor only: open air under the crown can also lead down into a ravine or cave mouth
+				if (isStandable(level, feet) && level.getBrightness(LightLayer.SKY, feet) >= MIN_FLOOR_SKY_LIGHT) {
 					return feet;
 				}
 				break;

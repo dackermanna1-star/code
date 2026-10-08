@@ -1,8 +1,0 @@
-{
-  "parent": "minecraft:block/cube_bottom_top",
-  "textures": {
-    "top": "portalgun:block/gb_grass_top",
-    "side": "portalgun:block/gb_grass_side",
-    "bottom": "portalgun:block/gb_grass_bottom"
-  }
-}

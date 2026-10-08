@@ -4,46 +4,6 @@
     {
       "id": "portalgun:sporewood_rock",
       "required": false
-    },
-    {
-      "id": "portalgun:gb_stone",
-      "required": false
-    },
-    {
-      "id": "portalgun:gb_glass",
-      "required": false
-    },
-    {
-      "id": "portalgun:gb_ice",
-      "required": false
-    },
-    {
-      "id": "portalgun:gb_glow",
-      "required": false
-    },
-    {
-      "id": "portalgun:gb_crystal",
-      "required": false
-    },
-    {
-      "id": "portalgun:gb_ore",
-      "required": false
-    },
-    {
-      "id": "portalgun:gb_hazard",
-      "required": false
-    },
-    {
-      "id": "portalgun:gb_vent",
-      "required": false
-    },
-    {
-      "id": "portalgun:gb_cluster",
-      "required": false
-    },
-    {
-      "id": "portalgun:gb_solid",
-      "required": false
     }
   ]
 }

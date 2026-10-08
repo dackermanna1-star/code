@@ -20,14 +20,20 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Headless smoke test for dedicated servers (and anything else running the server side), enabled only with
- * {@code -Dportalgun.smoketest=true}. On server start it generates chunks in every portal gun dimension (around the
- * origin and far away), finds an arrival spot, spawns every spec creature of the dimension there, lets the world tick
- * for a while and then logs a summary line per dimension and stops the server. Inert unless the property is set.
+ * {@code -Dportalgun.smoketest=true}. After the server starts it visits one portal gun dimension every
+ * {@value #GAP} ticks (so generated chunks can unload in between): generates chunks around the origin and far away,
+ * probes arrival spots, spawns every spec creature of the dimension at the arrival point (chunks force-loaded); once
+ * all dimensions are done the world ticks {@value #TICKS} more ticks, a summary is logged and the server stops.
+ * Inert unless the property is set.
  */
 public final class ServerSmokeTest {
 	private static final int TICKS = 200;
+	private static final int GAP = 40;
 	private static final List<Entity> SPAWNED = new ArrayList<>();
+	private static final java.util.ArrayDeque<ServerLevel> QUEUE = new java.util.ArrayDeque<>();
+	private static int dims;
 	private static int ticks = -1;
+	private static int wait = -1;
 
 	private ServerSmokeTest() {
 	}
@@ -42,13 +48,18 @@ public final class ServerSmokeTest {
 	}
 
 	private static void start(MinecraftServer server) {
-		int dims = 0;
 		for (ServerLevel level : server.getAllLevels()) {
-			Identifier id = level.dimension().identifier();
-			if (!id.getNamespace().equals(PortalGunMod.MOD_ID)) {
-				continue;
+			if (level.dimension().identifier().getNamespace().equals(PortalGunMod.MOD_ID)) {
+				QUEUE.add(level);
 			}
-			dims++;
+		}
+		dims = QUEUE.size();
+		wait = 0;
+	}
+
+	private static void visit(ServerLevel level) {
+		Identifier id = level.dimension().identifier();
+		{
 			ContentSpec.DimensionInfo info = Destinations.info(id);
 			long t0 = System.nanoTime();
 			int chunks = 0;
@@ -63,12 +74,34 @@ public final class ServerSmokeTest {
 				}
 			} catch (RuntimeException e) {
 				PortalGunMod.LOGGER.error("[smoketest] {}: chunk generation FAILED", id, e);
-				continue;
+				return;
 			}
 			long genMs = (System.nanoTime() - t0) / 1_000_000L;
 			int arrivalY = info != null ? info.arrivalY : 80;
 			SafeSpotFinder.Spot spot = SafeSpotFinder.find(level, new Vec3(0.5, arrivalY, 0.5));
+			// arrival quality at a few more places: y / sky light / block underfoot (platform marked with P)
+			StringBuilder probes = new StringBuilder();
+			int dark = 0;
+			for (int k = 1; k <= 8; k++) {
+				SafeSpotFinder.Spot sp = SafeSpotFinder.find(level, new Vec3(k * 613.5, arrivalY, -k * 389.5));
+				BlockPos f = BlockPos.containing(sp.pos());
+				int sky = level.getBrightness(net.minecraft.world.level.LightLayer.SKY, f);
+				if (sky < 7 && !"cave".equals(info != null ? info.arrival : "")) {
+					dark++;
+				}
+				probes.append(' ').append(f.getY()).append('/').append(sky).append(sp.builtPlatform() ? "P" : "")
+					.append('/').append(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(f.below()).getBlock()).getPath());
+			}
+			PortalGunMod.LOGGER.info("[smoketest] {}: arrival probes (y/sky/floor):{}{}", id, probes, dark > 0 ? "  <-- " + dark + " DARK" : "");
 			int spawned = 0;
+			// keep the arrival area loaded and entity-ticking although no player is around
+			int scx = BlockPos.containing(spot.pos()).getX() >> 4;
+			int scz = BlockPos.containing(spot.pos()).getZ() >> 4;
+			for (int dx = -1; dx <= 1; dx++) {
+				for (int dz = -1; dz <= 1; dz++) {
+					level.setChunkForced(scx + dx, scz + dz, true);
+				}
+			}
 			if (info != null) {
 				for (String cid : info.creatures) {
 					EntityType<?> type = ModCreatures.TYPES.get(cid);
@@ -88,15 +121,29 @@ public final class ServerSmokeTest {
 					spawned++;
 				}
 			}
-			PortalGunMod.LOGGER.info("[smoketest] {}: {} chunks in {} ms, arrival {} {} (platform={}), biome at arrival {}, {} creatures spawned",
-				id, chunks, genMs, info != null ? info.arrival : "?", BlockPos.containing(spot.pos()).toShortString(), spot.builtPlatform(),
+			BlockPos feet = BlockPos.containing(spot.pos());
+			PortalGunMod.LOGGER.info("[smoketest] {}: {} chunks in {} ms, arrival {} {} (platform={}, sky light {}, standing on {}), biome at arrival {}, {} creatures spawned",
+				id, chunks, genMs, info != null ? info.arrival : "?", feet.toShortString(), spot.builtPlatform(),
+				level.getBrightness(net.minecraft.world.level.LightLayer.SKY, feet),
+				net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(feet.below()).getBlock()),
 				level.getBiome(BlockPos.containing(spot.pos())).unwrapKey().map(k -> k.identifier().toString()).orElse("?"), spawned);
 		}
-		PortalGunMod.LOGGER.info("[smoketest] generated {} portal gun dimensions; ticking {} ticks", dims, TICKS);
-		ticks = 0;
 	}
 
 	private static void tick(MinecraftServer server) {
+		if (wait >= 0 && ++wait >= GAP) {
+			wait = 0;
+			ServerLevel next = QUEUE.poll();
+			if (next != null) {
+				visit(next);
+			}
+			if (QUEUE.isEmpty()) {
+				wait = -1;
+				PortalGunMod.LOGGER.info("[smoketest] visited {} portal gun dimensions; ticking {} ticks", dims, TICKS);
+				ticks = 0;
+			}
+			return;
+		}
 		if (ticks < 0) {
 			return;
 		}
@@ -108,6 +155,10 @@ public final class ServerSmokeTest {
 		for (Entity e : SPAWNED) {
 			if (e.isAlive()) {
 				alive++;
+				Vec3 home = e.position();
+				PortalGunMod.LOGGER.info("[smoketest] {} alive at {} hp {}/{}", e.getType().getDescriptionId(),
+					BlockPos.containing(home).toShortString(), e instanceof net.minecraft.world.entity.LivingEntity l ? l.getHealth() : 0,
+					e instanceof net.minecraft.world.entity.LivingEntity l2 ? l2.getMaxHealth() : 0);
 			} else {
 				PortalGunMod.LOGGER.info("[smoketest] {} is gone after {} ticks ({})", e.getType().getDescriptionId(), TICKS, e.getRemovalReason());
 			}

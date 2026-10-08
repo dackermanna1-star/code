@@ -1,7 +1,0 @@
-{
-  "parent": "minecraft:block/cube_column_horizontal",
-  "textures": {
-    "end": "portalgun:block/gb_log_end",
-    "side": "portalgun:block/gb_log_side"
-  }
-}

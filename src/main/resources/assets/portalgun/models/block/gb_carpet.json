@@ -1,7 +1,0 @@
-{
-  "parent": "minecraft:block/carpet",
-  "textures": {
-    "wool": "portalgun:block/gb_carpet",
-    "particle": "portalgun:block/gb_carpet"
-  }
-}

@@ -12,26 +12,6 @@
     {
       "id": "portalgun:hanging_glowroot",
       "required": false
-    },
-    {
-      "id": "portalgun:gb_leaves",
-      "required": false
-    },
-    {
-      "id": "portalgun:gb_plant",
-      "required": false
-    },
-    {
-      "id": "portalgun:gb_tall",
-      "required": false
-    },
-    {
-      "id": "portalgun:gb_hanging",
-      "required": false
-    },
-    {
-      "id": "portalgun:gb_vine",
-      "required": false
     }
   ]
 }

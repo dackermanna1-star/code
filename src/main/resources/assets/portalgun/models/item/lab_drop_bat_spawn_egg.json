@@ -1,6 +1,0 @@
-{
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "portalgun:item/lab_drop_bat_spawn_egg"
-  }
-}

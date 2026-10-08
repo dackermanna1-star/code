@@ -4,14 +4,6 @@
     {
       "id": "portalgun:hanging_glowroot",
       "required": false
-    },
-    {
-      "id": "portalgun:gb_hanging",
-      "required": false
-    },
-    {
-      "id": "portalgun:gb_vine",
-      "required": false
     }
   ]
 }
