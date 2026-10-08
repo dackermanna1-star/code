@@ -100,7 +100,7 @@ export class Combat {
     const zombie = owner?.walker !== undefined;
     // a body already dead: it jerks with the hit, and bleeds
     if (owner?.dead) {
-      hp.p.rag?.push({ x: _d.x, y: _d.y + 0.1, z: _d.z }, Math.min(14, 3 + dmg * 0.12), hp.part);
+      hp.p.rag?.push({ x: _d.x, y: _d.y * 0.3, z: _d.z }, Math.min(4, 1 + dmg * 0.03), hp.part);
       O.fx.blood(hp.point.x, hp.point.y, hp.point.z, _d, { zombie });
       O.audio?.flesh(hp.point);
       return;

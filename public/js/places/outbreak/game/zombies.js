@@ -55,8 +55,8 @@ class Zombie {
   die(dir, by, part, dmg = 30, o = {}) {
     this.dead = true; this.deadT = 0; this.state = 'dead';
     // the body goes limp and falls with the blow
-    const force = o.melee ? 9 + (o.stagger ? 7 : 0) : Math.min(24, 5 + dmg * 0.22);
-    O.ragdolls?.start(this.person, { vel: this.vel, dir: dir ? { x: dir.x, y: (dir.y || 0) + 0.12, z: dir.z } : null, force, part: part || 'torso', onSleep: (r) => { const c = r.center; O.fx?.pool(c.x, c.z, c.y, 2.6 + Math.random()); } });
+    const force = o.melee ? 3 + (o.stagger ? 2.5 : 0) : Math.min(7, 2 + dmg * 0.05);
+    O.ragdolls?.start(this.person, { vel: this.vel, dir: dir ? { x: dir.x, y: (dir.y || 0) * 0.3, z: dir.z } : null, force, part: part || 'torso', onSleep: (r) => { const c = r.center; O.fx?.pool(c.x, c.z, c.y, 2.6 + Math.random()); } });
     // fall away from the blow
     const fwd = { x: Math.sin(this.yaw), z: Math.cos(this.yaw) };
     this.person.pose.fallDir = dir && (dir.x * fwd.x + dir.z * fwd.z) > 0 ? -1 : 1;

@@ -4,8 +4,8 @@ import { O } from '../state.js';
 
 const KEYS = [
   ['W A S D', 'Move'], ['Shift', 'Sprint (hold) / hold breath (scoped)'], ['Ctrl', 'Walk (hold)'], ['C', 'Crouch'], ['Z', 'Go prone'], ['Space', 'Jump / let go of a ladder'],
-  ['Left mouse', 'Fire / swing (hold for a heavy swing) / use'], ['Right mouse', 'Aim down sights / block'], ['R', 'Reload / clear a jam'], ['B', 'Fire mode'],
-  ['F', 'Open doors, pick up, search bodies'], ['Tab', 'Inventory'], ['M', 'Map'], ['V', 'First / third person'], ['L', 'Flashlight'], ['1 – 9', 'Hotbar'], ['H', 'Put away what’s in your hands'], ['Esc', 'Pause'],
+  ['Left mouse', 'Fire / swing (hold for a heavy swing) / use'], ['Right mouse', 'Aim down sights (hold) / block'], ['T', 'Aim down sights (toggle)'], ['R', 'Reload / clear a jam'], ['B', 'Fire mode'],
+  ['F', 'Open doors, pick up, search bodies'], ['Tab', 'Inventory'], ['M', 'Map'], ['V', 'First / third person'], ['L', 'Flashlight'], ['1 – 9', 'Hotbar'], ['H', 'Put away what’s in your hands'], ['G', 'Fly mode (on / off)'], ['K', 'God mode (on / off)'], ['Esc', 'Pause'],
 ];
 
 export class Menus {

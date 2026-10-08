@@ -107,8 +107,10 @@ export class Player {
     this.vel.z += (wz - this.vel.z) * Math.min(1, dt * acc);
     this.moving = Math.hypot(this.vel.x, this.vel.z) / 13.5;
 
+    // --- flying (G): free movement where you look, through anything -------------------------------------------------------
+    if (this.flying) this._fly(dt, k, fx, fz);
     // --- ladders --------------------------------------------------------------------------------------------------------
-    if (this.ladder) { this._climb(dt, fz, input); }
+    else if (this.ladder) { this._climb(dt, fz, input); }
     else {
       // jumping
       if (input.pressed.has(' ') && this.grounded && this.stance === 'stand' && this.stamina > 10 && !broken && !this.swimming) { this.vel.y = 24; this.grounded = false; this.stamina -= 12; this.fallFrom = this.pos.y; O.audio?.jump(); }
@@ -136,8 +138,8 @@ export class Player {
           const drop = (this.fallFrom ?? this.pos.y) - this.pos.y;
           this.dip = Math.min(1.2, drop * 0.06);
           if (drop > 3) O.audio?.land(drop);
-          if (drop > 15) S?.fall(drop);
-          this.fallFrom = null;
+          if (drop > 15 && !this.safeLand) S?.fall(drop);
+          this.fallFrom = null; this.safeLand = false;
         }
         if (res.grounded) this.fallFrom = null;
         this.grounded = res.grounded;
@@ -244,6 +246,27 @@ export class Player {
       this.grab(l);
       return;
     }
+  }
+  /** Fly mode on or off (coming down from it doesn't hurt). */
+  toggleFly() {
+    this.flying = !this.flying;
+    this.ladder = null; this.swimming = false; this.stance = 'stand';
+    this.vel.set(0, 0, 0); this.fallFrom = null; this.safeLand = !this.flying;
+    O.hud?.note(this.flying ? 'Flying: WASD, Space up, Ctrl down, Shift fast · G to land' : 'Flying off', 2.5);
+  }
+  _fly(dt, k, fx, fz) {
+    const sp = k.has('shift') ? 160 : 45;
+    const cp = Math.cos(this.pitch), c = Math.cos(this.yaw), s = Math.sin(this.yaw);
+    // forward along where you look (pitch included), sideways flat
+    const fwd = [-s * cp, Math.sin(this.pitch), -c * cp], right = [c, 0, -s];
+    const up = (k.has(' ') ? 1 : 0) - (k.has('control') ? 1 : 0);
+    const want = [(-fz * fwd[0] + fx * right[0]) * sp, (-fz * fwd[1] + up) * sp, (-fz * fwd[2] + fx * right[2]) * sp];
+    this.vel.x += (want[0] - this.vel.x) * Math.min(1, dt * 6);
+    this.vel.y += (want[1] - this.vel.y) * Math.min(1, dt * 6);
+    this.vel.z += (want[2] - this.vel.z) * Math.min(1, dt * 6);
+    this.pos.addScaledVector(this.vel, dt);
+    this.pos.y = Math.max(this.pos.y, O.terrain.heightAt(this.pos.x, this.pos.z) - 2);
+    this.grounded = false; this.fallFrom = null; this.mode = 'idle'; this.moving = 0;
   }
   /** Onto a ladder (from the top: a little way down it). You climb on the frame's -z side. */
   grab(l, fromTop = false) {

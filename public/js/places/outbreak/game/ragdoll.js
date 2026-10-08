@@ -18,7 +18,7 @@ const PL = 0, PR = 1, SL = 2, SR = 3, HD = 4, HL = 5, HR = 6, FL = 7, FR = 8, CF
 const N = 10;
 const RAD = [0.45, 0.45, 0.5, 0.5, 0.62, 0.3, 0.3, 0.32, 0.32, 0.35];
 const PART_POINTS = { head: [HD], torso: [PL, PR, SL, SR, CF], armL: [HL, SL], armR: [HR, SR], legL: [FL, PL], legR: [FR, PR] };
-const GRAV = 46, ITER = 7, SLEEP_V = 0.012;
+const GRAV = 80, ITER = 7, SLEEP_V = 0.012; // (heavier than the world's gravity: bodies drop, they don't float)
 const _v = new THREE.Vector3(), _x = new THREE.Vector3(), _y = new THREE.Vector3(), _z = new THREE.Vector3(), _c = new THREE.Vector3();
 const _m = new THREE.Matrix4();
 
@@ -57,7 +57,7 @@ export class Ragdoll {
     apart(HL, HR, 0.6); apart(HL, CF, 0.9); apart(HR, CF, 0.9); apart(FL, CF, 2.0); apart(FR, CF, 2.0);
     void fix;
     // moving as they were when they died
-    if (o.vel) for (let i = 0; i < N; i++) { this.prev[i * 3] -= o.vel.x / 60; this.prev[i * 3 + 1] -= (o.vel.y || 0) / 60; this.prev[i * 3 + 2] -= o.vel.z / 60; }
+    if (o.vel) for (let i = 0; i < N; i++) { this.prev[i * 3] -= o.vel.x * 0.5 / 60; this.prev[i * 3 + 2] -= o.vel.z * 0.5 / 60; }
     this.boxes = []; this.bx = 1e9; this.bz = 1e9;
     this.t = 0; this.still = 0; this.asleep = !!o.asleep;
     this.onSleep = o.onSleep || null;
@@ -97,7 +97,7 @@ export class Ragdoll {
         const o = i * 3;
         const wl = T.waterAt(P[o], P[o + 2]);
         const wet = wl > P[o + 1];
-        const damp = wet ? 0.9 : 0.996;
+        const damp = wet ? 0.9 : 0.985;
         const vx = (P[o] - Q[o]) * damp, vy = (P[o + 1] - Q[o + 1]) * damp, vz = (P[o + 2] - Q[o + 2]) * damp;
         Q[o] = P[o]; Q[o + 1] = P[o + 1]; Q[o + 2] = P[o + 2];
         P[o] += vx; P[o + 1] += vy + (wet ? 4 : -GRAV) * h * h; P[o + 2] += vz;
@@ -143,7 +143,7 @@ export class Ragdoll {
         hit = true;
       }
       // friction: touching something takes most of the sliding out
-      if (hit) { Q[o] += (P[o] - Q[o]) * 0.35; Q[o + 2] += (P[o + 2] - Q[o + 2]) * 0.35; Q[o + 1] += (P[o + 1] - Q[o + 1]) * 0.2; }
+      if (hit) { Q[o] += (P[o] - Q[o]) * 0.6; Q[o + 2] += (P[o + 2] - Q[o + 2]) * 0.6; Q[o + 1] += (P[o + 1] - Q[o + 1]) * 0.5; }
     }
   }
 
@@ -194,6 +194,8 @@ export class Ragdolls {
   start(person, o = {}) {
     if (person.rag) { if (o.dir) person.rag.push(o.dir, o.force || 8, o.part); return person.rag; }
     if (!person.mats && !o.points) return null;
+    // (posed now, from where they are: someone killed far away or the moment they appeared hasn't been drawn yet)
+    if (!o.points && !o.mats) O.crowd?._pose(person);
     const r = new Ragdoll(person, o);
     person.rag = r;
     r._gather();

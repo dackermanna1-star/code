@@ -38,6 +38,8 @@ export class Survival {
   /** dt in seconds; ctx: { moving, sprinting, indoors, hour, weather, swimming } */
   update(dt, ctx) {
     if (!this.alive) return;
+    // god mode: always well
+    if (O.player?.god) { this.health = this.blood = this.energy = this.water = 100; this.wounds = 0; this.brokenLeg = false; this.sick = 0; this.heat = Math.max(this.heat, 0); this.pain = 0; }
     const sprint = ctx.sprinting ? 1 : 0;
     // metabolism: about an hour of play from full to empty, faster when running
     this.energy = clamp(this.energy - dt * (0.022 + 0.03 * sprint + (this.heat < -0.4 ? 0.02 : 0)), 0, 100);
@@ -100,7 +102,7 @@ export class Survival {
    * Armour (helmet, vest) takes a share off. Returns the damage taken.
    */
   hurt(amount, o = {}) {
-    if (!this.alive) return 0;
+    if (!this.alive || O.player?.god) return 0;
     const armor = O.inv ? O.inv.armor(o.part || 'torso') : 0;
     const a = armor * (1 - (o.armorPierce || 0));
     const dmg = amount * (1 - a);

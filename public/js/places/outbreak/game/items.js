@@ -115,7 +115,7 @@ def('opener', { name: 'Can Opener', cat: 'tool', desc: 'Opens tins properly.', w
 def('flashlight', { name: 'Flashlight', cat: 'tool', desc: 'Lights the way. Needs a battery. Use (or press L) to switch it on.', w: 1, h: 2, weight: 0.3, light: true, battery: 1, shape: 'torch', color: '#3a3a3a' });
 def('headtorch', { name: 'Head Torch', cat: 'clothing', desc: 'A torch on your forehead. Leaves your hands free.', w: 1, h: 1, weight: 0.15, light: true, battery: 1, wear: { slot: 'head', warmth: 0 }, shape: 'headtorch', color: '#c83a2a' });
 def('battery', { name: '9V Battery', cat: 'tool', desc: 'Powers a light for about an hour.', w: 1, h: 1, weight: 0.05, stack: 4, battery: true, shape: 'battery', color: '#c8a038' });
-def('map', { name: 'Map of South Karevia', cat: 'tool', desc: 'Shows where you are (M).', w: 1, h: 2, weight: 0.1, map: true, shape: 'mapitem', color: '#d8d0b0' });
+def('map', { name: 'Map of South Karevia', cat: 'tool', desc: 'Folded. Shows where you are (M).', w: 1, h: 1, weight: 0.1, map: true, shape: 'mapitem', color: '#d8d0b0' });
 def('compass', { name: 'Compass', cat: 'tool', desc: 'Shows your heading at the top of the screen.', w: 1, h: 1, weight: 0.05, compass: true, shape: 'compass', color: '#3a5a3a' });
 def('binoculars', { name: 'Binoculars', cat: 'tool', desc: 'Look a long way. Hold right mouse with them in your hands.', w: 2, h: 1, weight: 0.5, zoom: 4, shape: 'binoculars', color: '#2a2a2a' });
 def('tape', { name: 'Duct Tape', cat: 'tool', desc: 'Repairs a worn item one step.', w: 1, h: 1, weight: 0.2, uses: 3, repair: true, shape: 'tape', color: '#8a8a8a' });

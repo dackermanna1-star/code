@@ -96,7 +96,7 @@ export class Session {
       O.actions.cancel();
       O.player.flinch = 1;
       // (how you were hit last, for how you fall if it kills you)
-      O.player.lastHit = { dir, part, force: o.bullet ? Math.min(24, 5 + dmg * 0.22) : 9, t: performance.now() };
+      O.player.lastHit = { dir, part, force: o.bullet ? Math.min(7, 2 + dmg * 0.05) : 3, t: performance.now() };
     };
     this.applySettings();
     // leaving or switching tabs: save
@@ -142,6 +142,7 @@ export class Session {
     pistol.mag = makeItem('magMakarov', { n: 7 }); pistol.chamber = true;
     if (!inv.add(pistol)) inv.slots.hands = pistol;
     const extra = []; // (anything without room is left at your feet)
+    const map = makeItem('map'); if (!inv.add(map)) extra.push(map);
     for (let k = 0; k < 2; k++) { const m = makeItem('magMakarov', { n: 8 }); if (!inv.add(m)) extra.push(m); }
     // the hotbar: the pistol, the torch, the bandage
     inv.setHot(0, pistol);
@@ -185,7 +186,7 @@ export class Session {
     O.bodies.list = O.bodies.list.filter((b) => b.player);
     O.inv = new Inventory(); O.inv.onChange = () => { if (O.invUI) O.invUI._dirty = true; O.hud?.changed(); };
     O.survival = new Survival();
-    O.player.alive = true; O.player.third = false; O.player.vel.set(0, 0, 0); O.player.stamina = 100; O.player.distance = 0; O.player.stance = 'stand';
+    O.player.alive = true; O.player.third = false; O.player.flying = false; O.player.god = false; O.player.vel.set(0, 0, 0); O.player.stamina = 100; O.player.distance = 0; O.player.stance = 'stand';
     O.player.person.pose = { arms: null };
     O.weapons.cur = null; O.weapons.curUid = -1; O.weapons.refresh();
   }
@@ -220,7 +221,7 @@ export class Session {
     O.playerBodyOwner = body.owner;
     // you go limp where you stood, with whatever hit you last
     const P = O.player, lh = P.lastHit && performance.now() - P.lastHit.t < 1500 ? P.lastHit : null;
-    O.ragdolls.start(body.person, { mats: P.person.mats, vel: P.vel, dir: lh?.dir ? { x: lh.dir.x, y: (lh.dir.y || 0) + 0.12, z: lh.dir.z } : null, force: lh?.force, part: lh?.part, onSleep: (r) => { const c = r.center; O.fx.pool(c.x, c.z, c.y, 3.2); } });
+    O.ragdolls.start(body.person, { mats: P.person.mats, vel: P.vel, dir: lh?.dir ? { x: lh.dir.x, y: (lh.dir.y || 0) * 0.3, z: lh.dir.z } : null, force: lh?.force, part: lh?.part, onSleep: (r) => { const c = r.center; O.fx.pool(c.x, c.z, c.y, 3.2); } });
     localStorage.removeItem(SAVE);
     this.saveWorld();
     // fall over, see yourself lying there
@@ -333,6 +334,8 @@ export class Session {
         if (I.pressed.has('c')) P.setStance(P.stance === 'crouch' ? 'stand' : 'crouch');
         if (I.pressed.has('z')) P.setStance(P.stance === 'prone' ? 'stand' : 'prone');
         if (I.pressed.has('f')) this.interact();
+        if (I.pressed.has('g')) P.toggleFly();
+        if (I.pressed.has('k')) { P.god = !P.god; O.hud.note(P.god ? 'God mode on' : 'God mode off', 2); }
       }
       const inp = playing ? I : { keys: new Set(), pressed: new Set(), buttons: new Set(), clicked: new Set(), mx: 0, my: 0 };
       if (P.alive) P.update(dt, inp); else this._deadCam(dt);

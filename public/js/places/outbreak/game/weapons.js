@@ -73,7 +73,7 @@ export class Hands {
     const it = this.item;
     if (it ? it === this.cur && this.curUid === it.uid : !this.cur && this.mode === 'fists') return;
     this.cur = it; this.curUid = it?.uid;
-    this.busy = null; this.swing = null; this.charge = 0; this.blocking = false; this.info = null;
+    this.busy = null; this.swing = null; this.charge = 0; this.blocking = false; this.info = null; this.aimToggle = false;
     this.vm.setWeapon(null);
     this.itemHolder.clear();
     const d = it ? def(it) : null;
@@ -161,7 +161,10 @@ export class Hands {
     if (input.pressed.has('l')) this.toggleLight();
     const canAct = P.alive && !P.ladder && !P.swimming && !O.actions.cur;
     // aiming
-    const wantAim = input.buttons.has(2) && canAct && P.mode !== 'sprint' && (this.mode === 'gun' || d?.zoom);
+    // aim: hold the right button, or T to stay aimed (sprinting, or putting the gun away, ends it)
+    if (input.pressed.has('t') && (this.mode === 'gun' || d?.zoom)) this.aimToggle = !this.aimToggle;
+    if (P.mode === 'sprint' || !(this.mode === 'gun' || d?.zoom)) this.aimToggle = false;
+    const wantAim = (input.buttons.has(2) || this.aimToggle) && canAct && P.mode !== 'sprint' && (this.mode === 'gun' || d?.zoom);
     this.aiming = wantAim && !this.busy;
     this.aim += ((this.aiming ? 1 : 0) - this.aim) * Math.min(1, dt * 12);
     if (d?.zoom && this.aiming) this.adsFov = 72 / d.zoom;
