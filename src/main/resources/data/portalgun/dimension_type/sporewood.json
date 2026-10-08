@@ -7,7 +7,7 @@
   "height": 384,
   "logical_height": 384,
   "infiniburn": "#minecraft:infiniburn_overworld",
-  "ambient_light": 0.05,
+  "ambient_light": 0.12,
   "monster_spawn_light_level": {
     "type": "minecraft:uniform",
     "min_inclusive": 0,

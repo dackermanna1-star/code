@@ -304,7 +304,7 @@ def creature_spec(c, dim_id, meta):
         "behavior": c.behavior, "attack": attack, "abilities": [a for a in c.abilities],
         "fireImmune": bool(c.fire_immune), "glowEyes": bool(c.glow_eyes), "emissive": bool(c.emissive),
         "translucent": meta["translucent"], "placement": placement_of(c),
-        "spawnLight": c.spawn_light if c.spawn_light in ("any", "dark", "light") else "any",
+        "spawnLight": c.spawn_light if c.spawn_light in ("any", "dark") else "any",
         "sounds": _sound_ids(c.sounds or _default_sound(c), c.pitch), "xp": int(c.xp),
         "group": int(_attr(c, "group", 4) or 4),
         "trackingRange": int(_attr(c, "tracking", 0) or (16 if meta["width"] > 2.5 else 10)),

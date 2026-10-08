@@ -77,6 +77,17 @@ public class CrystalClusterFeature extends Feature<CrystalClusterFeature.Config>
 		}
 		int size = Math.max(2, Math.min(14, c.size().sample(rnd)));
 		Vec3 n = new Vec3(normal.getStepX(), normal.getStepY(), normal.getStepZ());
+		if (normal == Direction.UP && p.isFeatureAt(ox, ay - 1, oz)) {
+			return false; // not on top of a cap / crown
+		}
+		if (size >= 4) {
+			double half = size * 0.5;
+			Vec3 mid = new Vec3(ox + 0.5, ay + 0.5, oz + 0.5).add(n.scale(half + 1.0));
+			int skipBelow = normal == Direction.UP ? ay + 1 : p.minY();
+			if (p.crowded(mid.x, mid.y, mid.z, half * 0.8, half * 0.8, half * 0.8, skipBelow)) {
+				return false;
+			}
+		}
 		Vec3 base = new Vec3(ox + 0.5, ay + 0.5, oz + 0.5).subtract(n.scale(0.8));
 		// two perpendicular axes for the spray
 		Vec3 u = Math.abs(n.y) > 0.5 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0);

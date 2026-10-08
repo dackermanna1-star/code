@@ -156,6 +156,7 @@ def build_head(parent, name, pivot, w, h, d, K, opts=None):
         for s in (-1, 1):
             e = head.child(f"{name}_ear{'l' if s < 0 else 'r'}", (s * ex, y0, z0 + d * 0.6), nohit=True)
             e.box(-1.5, -2, -0.5, 3, 2, 1, "body", face={"inner_ear": True})
+            e.anim("sway", axis="z", amp=0.1, speed=0.13, phase=0 if s < 0 else 2.2)
     elif ears in ("floppy", "long", "bunny"):
         ln = 6 if ears == "floppy" else 7
         for s in (-1, 1):
@@ -196,7 +197,13 @@ def build_head(parent, name, pivot, w, h, d, K, opts=None):
             hp = head.child(f"{name}_horn{'l' if s < 0 else 'r'}", (s * (w / 2), y0 + 1, z0 + d * 0.5), nohit=True)
             hp.box(-1.5 + s * 1.0, -1, -2, 3, 3, 4, "horn")
             hp.box(-1 + s * 1.5, 1, -3, 2, 3, 2, "horn_tip")
-    elif horns in ("unicorn", "spiral"):
+    elif horns == "unicorn":
+        # candy-striped horn in the creature's own secondary/accent colours
+        hp = head.child(f"{name}_horn", (0, y0, z0 + 1), rot=(0.55, 0, 0), nohit=True)
+        hp.box(-1, -3, -1, 2, 3, 2, "candy", pattern=False)
+        hp.box(-0.5, -7, -0.5, 1, 4, 1, "candy", pattern=False)
+        hp.box(-0.5, -8, -0.5, 1, 1, 1, "glow", pattern=False)
+    elif horns == "spiral":
         hp = head.child(f"{name}_horn", (0, y0, z0 + 1), rot=(0.55, 0, 0), nohit=True)
         hp.box(-1, -3, -1, 2, 3, 2, "horn")
         hp.box(-0.5, -6, -0.5, 1, 3, 1, "horn_tip")
@@ -353,16 +360,22 @@ def add_wings(parent, name, y, z, span, chord, K, kind="feather", pairs=1, flap_
     for p_i in range(pairs):
         zz = z + p_i * (dz_pair if dz_pair is not None else chord * 0.9)
         for s in (-1, 1):
-            wp = parent.child(f"{name}{p_i}{'l' if s < 0 else 'r'}", (s * K.get('_wing_x', 2), y, zz), nohit=True)
+            # rest pose: wings slightly raised (dihedral) so they read as broad planes from the side, not edge-on sticks
+            dihedral = {"feather": 0.32, "membrane": 0.42, "paper": 0.25}.get(kind, 0.2)
+            wp = parent.child(f"{name}{p_i}{'l' if s < 0 else 'r'}", (s * K.get('_wing_x', 2), y, zz),
+                              rot=(0, 0, -s * dihedral), nohit=True)
             sp = int(round(span * (0.8 if p_i else 1.0)))
             ch = int(round(chord * (0.8 if p_i else 1.0)))
             mat = {"feather": "wing", "membrane": "membrane_dark", "insect": "membrane", "paper": "paper",
                    "moth": "mothwing", "leaf": "leaf"}.get(kind, "wing")
             if kind in ("feather",):
-                wp.box(0 if s > 0 else -sp, 0, -ch / 2, sp, 1, ch, mat, pattern=False)
-                wp.box((sp - 2) if s > 0 else -sp, 0.5, -ch / 2 + ch, 2, 0, 2, mat, pattern=False)
+                # leading-edge bar + a broad feathered plane, primaries poking out past the trailing edge at the tip
+                wp.box(0 if s > 0 else -sp, -1, -ch / 2, sp, 1, 1, "body", pattern=False)
+                wp.box(0 if s > 0 else -sp, 0, -ch / 2, sp, 0, ch, mat, pattern=False)
+                tip = max(2, sp // 3)
+                wp.box((sp - tip) if s > 0 else -sp, 0.01, ch / 2, tip, 0, 2, mat, pattern=False)
             elif kind == "membrane":
-                # bat/dragon: an arm bone + membrane
+                # bat/dragon: an arm bone along the leading edge + a membrane with finger bones and a scalloped edge
                 wp.box(0 if s > 0 else -sp, -1, -0.5, sp, 1, 1, "dark", pattern=False)
                 wp.box(0 if s > 0 else -sp, 0, -0.5, sp, 0, ch, mat, pattern=False)
             elif kind == "moth":
@@ -566,8 +579,8 @@ def build_flyer(c, K):
     bl = K.int("body_len", {"bird": 8, "bat": 5, "insect": 8, "moth": 7, "dragon": 14, "crane": 8}.get(kind, 8), 2, 40)
     bw = ev(K.num("body_w", {"bird": 5, "bat": 5, "insect": 4, "moth": 4, "dragon": 8, "crane": 4}.get(kind, 5), 2, 20))
     bh = K.int("body_h", {"bird": 5, "bat": 5, "insect": 4, "moth": 4, "dragon": 7, "crane": 4}.get(kind, 5), 2, 20)
-    span = K.num("wing_span", {"bird": 10, "bat": 9, "insect": 8, "moth": 9, "dragon": 18, "crane": 11}.get(kind, 10), 3, 48)
-    chord = K.num("wing_w", {"bird": 6, "bat": 6, "insect": 4, "moth": 8, "dragon": 10, "crane": 7}.get(kind, 6), 2, 30)
+    span = K.num("wing_span", {"bird": 11, "bat": 12, "insect": 8, "moth": 9, "dragon": 18, "crane": 12}.get(kind, 10), 3, 48)
+    chord = K.num("wing_w", {"bird": 7, "bat": 8, "insect": 4, "moth": 8, "dragon": 11, "crane": 7}.get(kind, 6), 2, 30)
     pairs = K.int("wings", 2 if kind == "insect" else 1, 1, 3)
     legs = K.int("legs", {"insect": 6, "moth": 0, "bat": 2, "bird": 2, "dragon": 4, "crane": 0}.get(kind, 2), 0, 8)
     body = root.child("body", (0, 14, 0))
@@ -669,52 +682,81 @@ def build_floater(c, K):
                 q.anim("tentacle", axis="x", amp=0.18, speed=0.1, phase=a * 2 + j * 0.8)
                 q.anim("tentacle", axis="z", amp=0.12, speed=0.08, phase=a + j * 0.8)
     elif kind == "ghost":
+        # a hooded shroud that narrows into a trailing wisp - no legs; ragged sleeves instead of arms
         w = ev(K.num("body_w", 8, 4, 20))
-        h = K.int("body_h", 14, 6, 30)
+        h = K.int("body_h", 12, 6, 30)
         d = K.int("body_d", 6, 3, 16)
-        body.box(-w / 2, -h, -d / 2, w, h, d, "body", tag="body")
-        tail = body.child("wisp", (0, 0, 0))
-        tail.box(-w / 2 + 1, 0, -d / 2 + 1, w - 2, 4, d - 2, "body")
-        t2 = tail.child("wisp2", (0, 4, 1))
-        t2.box(-w / 2 + 2, 0, -d / 2 + 1, w - 4, 4, d - 2, "second")
-        tail.anim("sway", axis="x", amp=0.25, speed=0.1)
-        t2.anim("sway", axis="x", amp=0.3, speed=0.1, phase=1)
+        body.box(-w / 2, -h, -d / 2, w, int(h * 0.55), d, "body", tag="body")
+        body.box(-w / 2 + 1, -h + int(h * 0.55), -d / 2 + 0.5, w - 2, h - int(h * 0.55), d - 1, "body")
+        segs = [(w - 3, 4, d - 2, "body"), (max(2, w - 5), 4, max(2, d - 3), "second"), (2, 3, 2, "second")]
+        parent, py, pz = body, 0, 0.5
+        for k, (sw, sl, sd, mat) in enumerate(segs):
+            wp = parent.child("wisp" if k == 0 else f"wisp{k + 1}", (0, py, pz), rot=(0.25 if k == 0 else 0.2, 0, 0))
+            wp.box(-sw / 2, 0, -sd / 2, sw, sl, sd, mat, pattern=False)
+            wp.anim("sway", axis="x", amp=0.18 + 0.08 * k, speed=0.1, phase=k * 0.9)
+            wp.anim("sway", axis="z", amp=0.08 + 0.05 * k, speed=0.07, phase=k * 1.3)
+            parent, py, pz = wp, sl, 0.4
         head, _ = build_head(body, "head", (0, -h - 3.5, 0), w - 1, 7, 7, K,
                              {"back": 3.5, "eye_style": "glow", "mouth": "open" if c.behavior == "hostile" else "none", "look": 1.0})
+        # hood rim around the face
+        head.box(-(w + 1) / 2, -7, -4.5, w + 1, 1, 8, "second", pattern=False)
         arms = K.int("arms", 2, 0, 4)
         for i in range(arms):
             s = -1 if i % 2 == 0 else 1
-            ap = body.child(f"arm{i}", (s * (w / 2 + 1), -h + 2 + (i // 2) * 4, 0), rot=(-0.4, 0, s * 0.2))
-            ap.box(-1, 0, -1, 2, 10, 2, "body")
-            ap.box(-1, 10, -2, 2, 2, 1, "dark", pattern=False)
-            ap.anim("arm", axis="x", amp=0.4, speed=0.2, phase=i)
+            ap = body.child(f"arm{i}", (s * (w / 2 + 0.5), -h + 2 + (i // 2) * 4, 0), rot=(-0.55, 0, s * 0.45))
+            ap.box(-1.5, 0, -1.5, 3, 4, 3, "body")
+            ap.box(-1, 4, -1, 2, 3, 2, "second", pattern=False)
+            ap.box(-0.5, 7, -1.5, 1, 2, 1, "dark", pattern=False)
+            ap.anim("arm", axis="x", amp=0.3, speed=0.2, phase=i)
+            ap.anim("sway", axis="z", amp=0.1 * s, speed=0.09, phase=i * 1.7)
     elif kind == "whale":
         bl = K.int("body_len", 26, 10, 60)
         bw = ev(K.num("body_w", 14, 6, 40))
         bh = K.int("body_h", 12, 6, 40)
-        body.box(-bw / 2, -bh, -bl / 2, bw, bh, bl, "body", tag="body")
-        body.box(-bw / 2 + 1, -1, -bl / 2 + 1, bw - 2, 2, bl - 4, "belly", pattern=False)
+        # chest (widest) -> narrower head with a rounded brow -> tapering rear -> tail stalk -> two swept flukes
+        cl = int(bl * 0.5)
+        z0 = -bl / 2 + int(bl * 0.22)
+        body.box(-bw / 2, -bh, z0, bw, bh, cl, "body", tag="body")
+        body.box(-bw / 2 + 1, -1, z0 + 1, bw - 2, 2, cl - 2, "belly", pattern=False, inflate=0.02)
         face = {"eyes": K.int("eyes", 2), "eye_size": K.int("eye_size", 2), "eye_style": K.str("eye_style", "cute"), "mouth": "smile"}
-        head = body.child("head", (0, -bh / 2, -bl / 2))
-        head.box(-bw / 2 + 1, -bh / 2 + 1, -6, bw - 2, bh - 1, 6, "body", face=face, tag="head")
+        hl = int(bl * 0.22)
+        head = body.child("head", (0, -bh / 2, z0))
+        head.box(-bw / 2 + 1, -bh / 2 + 1, -hl, bw - 2, bh - 1, hl, "body", face=face, tag="head")
+        head.box(-bw / 2 + 2, -bh / 2 + 3, -hl - 2, bw - 4, bh - 5, 2, "body")
+        head.box(-bw / 2 + 2, bh / 2 - 2, -hl, bw - 4, 2, hl, "belly", pattern=False, inflate=0.02)
         head.anim("look", amp=0.2)
+        rl = bl - cl - int(bl * 0.22)
+        rear = body.child("rear", (0, -bh / 2, z0 + cl), nohit=True)
+        rw, rh = ev(bw * 0.68), int(bh * 0.68)
+        rear.box(-rw / 2, -rh / 2, 0, rw, rh, rl, "body")
+        rear.box(-rw / 2 + 1, rh / 2 - 1, 0, rw - 2, 1, rl - 1, "belly", pattern=False, inflate=0.02)
+        rear.anim("tail", axis="x", amp=0.06, speed=0.08, phase=0.6)
         for s in (-1, 1):
-            f = body.child(f"fin{'l' if s < 0 else 'r'}", (s * bw / 2, -2, -bl / 2 + 8), rot=(0, 0, s * 0.4), nohit=True)
-            f.box(0 if s > 0 else -8, 0, -2, 8, 1, 5, "second")
+            f = body.child(f"fin{'l' if s < 0 else 'r'}", (s * bw / 2, -2, z0 + 3), rot=(0.2, 0, s * 0.45), nohit=True)
+            f.box(0 if s > 0 else -8, 0, -1, 8, 1, 4, "second")
+            f.box(0 if s > 0 else -5, 0.01, 3, 5, 0, 2, "second", pattern=False)
             f.anim("wing", axis="z", amp=0.3 * s, speed=0.1)
-        tail = body.child("tail", (0, -bh / 2, bl / 2), nohit=True)
-        tail.box(-2.5, -2.5, 0, 5, 5, 8, "body")
-        fl = tail.child("fluke", (0, 0, 8))
-        fl.box(-8, -0.5, -1, 16, 1, 5, "second")
+        sw = max(3, rw - 6)
+        tail = rear.child("tail", (0, 0, rl), nohit=True)
+        tail.box(-sw / 2, -1.5, 0, sw, 3, 6, "body")
         tail.anim("tail", axis="x", amp=0.2, speed=0.08)
-        fl.anim("tail", axis="x", amp=0.25, speed=0.08, phase=-0.8)
+        for s in (-1, 1):
+            fl = tail.child(f"fluke{'l' if s < 0 else 'r'}", (0, 0, 5), rot=(0, s * 0.45, 0))
+            fl.box(0 if s > 0 else -9, -0.5, -1, 9, 1, 4, "second")
+            fl.box((6 if s > 0 else -9), -0.5, 3, 3, 1, 1, "second", pattern=False)
+            fl.anim("tail", axis="x", amp=0.25, speed=0.08, phase=-0.8)
         if K.flag("fin_top", True):
-            body.box(-0.5, -bh - 3, 2, 1, 3, 5, "second", pattern=False, nohit=True)
+            body.box(-0.5, -bh - 3, z0 + cl - 6, 1, 3, 5, "second", pattern=False, nohit=True)
         spikes = K.int("spikes", 0, 0, 10)
-        add_spikes(body, 0, 0, -bh, -bl / 2 + 3, bl / 2 - 3, spikes, K)
+        add_spikes(body, 0, 0, -bh, z0 + 2, z0 + cl - 2, spikes, K)
         if K.flag("garden"):
-            for i in range(5):
-                body.box(-bw / 2 + 1 + (i * 3) % (bw - 2), -bh - 2, -bl / 2 + 3 + i * 4, 2, 2, 2, "accent", pattern=False, nohit=True)
+            # a little garden (moss tufts, flowers) growing on its back
+            n = max(3, min(7, cl // 3))
+            for i in range(n):
+                gx = -bw / 2 + 1.5 + ((i * 5) % max(1, bw - 4))
+                gz = z0 + 1.5 + i * (cl - 4) / max(1, n - 1) - (1 if i == n - 1 else 0)
+                body.box(gx, -bh - 1, gz, 2, 1, 2, "second", pattern=False, nohit=True)
+                body.box(gx + 0.5, -bh - 2 - (i % 2), gz + 0.5, 1, 1 + (i % 2), 1, "accent", pattern=False, nohit=True)
     elif kind in ("lantern", "balloon", "orb", "wisp", "cloud"):
         if kind == "lantern":
             w, h = ev(K.num("body_w", 8, 4, 20)), K.int("body_h", 10, 4, 24)
@@ -791,9 +833,10 @@ def build_blob(c, K):
         top.anim("squish", axis="y", amp=0.1, speed=0.2, phase=1)
         head = top
     elif shape == "round":
-        body.box(-s / 2 + 1, -s, -s / 2 + 1, s - 2, s, s - 2, "body", tag="body", face=face)
+        body.box(-s / 2 + 1, -s, -s / 2 + 1, s - 2, s, s - 2, "body", tag="body")
         body.box(-s / 2, -s + 2, -s / 2 + 2, s, s - 4, s - 4, "body")
-        body.box(-s / 2 + 2, -s + 2, -s / 2, s - 4, s - 4, s, "body")
+        # the front-most box carries the face (centred on the bulge, not hidden behind it at the bottom edge)
+        body.box(-s / 2 + 2, -s + 2, -s / 2, s - 4, s - 4, s, "body", face=face)
     elif shape == "drop":
         body.box(-s / 2, -s * 0.7, -s / 2, s, int(s * 0.7), s, "body", tag="body", face=face)
         body.box(-s / 2 + 2, -s * 0.7 - 3, -s / 2 + 2, s - 4, 3, s - 4, "body")
@@ -1361,16 +1404,24 @@ def build_snail(c, K):
         for i in range(4):
             w = ss - i * (ss // 4)
             shell.cbox(0, -2 - i * (ss // 4) - ss / 8, 0, max(2, w), ss // 4 + 1, max(2, w), "shell", pattern=False)
+        top_y = -2 - 3 * (ss // 4) - ss / 8 - (ss // 4 + 1) / 2
+        top_w = max(2, ss - 3 * (ss // 4))
     elif kind == "dome":
         shell.box(-ss / 2, -ss * 0.6, -ss / 2, ss, int(ss * 0.6), ss, "shell", pattern=False)
         shell.box(-ss / 2 + 2, -ss * 0.6 - 2, -ss / 2 + 2, ss - 4, 2, ss - 4, "shell", pattern=False)
+        top_y, top_w = -ss * 0.6 - 2, ss - 4
     else:  # spiral: big disc + smaller offset discs
         shell.box(-ss / 2 + 1, -ss, -ss / 2, ss - 2, ss, ss, "shell", pattern=False, face={"spiral": True})
         shell.box(-ss / 2, -ss + 2, -ss / 2 + 2, ss, ss - 4, ss - 4, "shell", pattern=False, face={"spiral": True})
         shell.box(-ss / 2 + 2, -ss - 1, -ss / 2 + 2, ss - 4, 1, ss - 4, "shell", pattern=False)
+        top_y, top_w = -ss - 1, ss - 4
     if K.flag("crystals"):
+        # rooted in the top of the shell (base sunk 1px in), spread over its width
+        half = max(0.0, top_w / 2 - 1.5)
         for i in range(3):
-            shell.box(-1 + (i - 1) * 3, -ss - 3 - (i % 2) * 2, -1 + i, 2, 3 + (i % 2) * 2, 2, "glow", pattern=False, nohit=True)
+            hgt = 3 + (i % 2) * 2
+            x = (i - 1) * half
+            shell.box(x - 1, top_y + 1 - hgt, -1 + (i - 1), 2, hgt, 2, "glow", pattern=False, nohit=True)
     return root, {"head": neck}
 
 

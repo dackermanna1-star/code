@@ -133,6 +133,7 @@ class Palette:
             "inner": np.array([96, 24, 36.]), "shell": S, "cap": S, "gills": mix(P, np.array([255, 250, 235.]), 0.4),
             "stem": P, "leaf": S, "beak": mix(A, np.array([240, 190, 60.]), 0.35), "beak_dark": mix(A, np.array([240, 190, 60.]), 0.35) * 0.6,
             "eye": np.array([238, 236, 228.]),
+            "candy": S,
         }
         self.ramps = {k: ramp(v) for k, v in base.items()}
         self.base = base
@@ -356,6 +357,9 @@ def _paint_face(cv, pal, c, face, u, v, fw, fh, L, A, pattern, seed, lo, hi, glo
             mats = np.where(front, "body", "wing")
             lvl += np.where(front, 0.3, np.where((i % 2) == 0, -0.7, 0.2))
             lvl += np.where(j >= fh - 1, -1.0, 0)
+            if fh >= 4:
+                # ragged flight-feather tips
+                alpha = np.where((j >= fh - 1) & ((i % 2) == 1), 0, alpha)
         else:
             lvl += np.where((i % 3) == 0, -0.6, 0.2)
     if mat == "mothwing" and face in ("top", "bottom"):
@@ -377,7 +381,31 @@ def _paint_face(cv, pal, c, face, u, v, fw, fh, L, A, pattern, seed, lo, hi, glo
         alpha = np.where(vein, 255, 200)
     if mat == "membrane_dark":
         i = np.arange(fw)[None, :] * np.ones((fh, 1))
-        lvl += np.where(i % 4 == 0, -1.0, 0)
+        j = np.arange(fh)[:, None] * np.ones((1, fw))
+        if face in ("top", "bottom") and fh >= 3 and fw >= 4:
+            # finger bones fanning from the wrist (leading edge) to the trailing edge, membrane scalloped between them
+            n = max(2, min(4, fw // 3))
+            bone = np.zeros((fh, fw), bool)
+            for k in range(n):
+                x0 = fw * (0.35 + 0.65 * k / n)
+                x1 = fw * (0.05 + 0.95 * (k + 0.5) / n)
+                xb = x0 + (x1 - x0) * j / max(1, fh - 1)
+                bone |= np.abs(i - xb) < 0.6
+            mats = np.where(bone, "dark", mats)
+            lvl += np.where(bone, 0.0, 0.6 + 0.4 * (j / max(1, fh - 1)))
+            last = j >= fh - 1
+            scallop = last & ~bone & (np.abs(((i * n / fw) % 1.0) - 0.5) < 0.3)
+            alpha = np.where(scallop, 0, alpha)
+        else:
+            lvl += np.where(i % 4 == 0, -1.0, 0)
+    if mat == "candy":
+        # barber-pole stripes: secondary / accent
+        i = np.arange(fw)[None, :] * np.ones((fh, 1))
+        j = np.arange(fh)[:, None] * np.ones((1, fw))
+        off = {"east": 1, "west": 1}.get(face, 0)
+        stripe = ((j + off) % 2) == 0
+        mats = np.where(stripe, "accent", mats)
+        lvl += np.where(stripe, 0.8, 0.4)
     if mat == "paper":
         i = np.arange(fw)[None, :] * np.ones((fh, 1))
         j = np.arange(fh)[:, None] * np.ones((1, fw))
@@ -389,7 +417,7 @@ def _paint_face(cv, pal, c, face, u, v, fw, fh, L, A, pattern, seed, lo, hi, glo
         i = np.arange(fw)[None, :] * np.ones((fh, 1))
         lvl += np.where(i == fw // 2, -1.0, 0)
     if pal.translucent and mat in ("body", "belly", "second", "stem"):
-        alpha = np.minimum(alpha, 175)
+        alpha = np.minimum(alpha, 150 if K.str("kind", "") == "ghost" else 175)
     for j in range(fh):
         for i in range(fw):
             m = mats[j, i]

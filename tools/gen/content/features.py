@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 import os
 
-from .common import (NS, full_id, has_java, int_provider, java_multiface_vines, simple_provider, state, warn,
+from .common import (NS, full_id, has_java, int_provider, is_leaves, java_multiface_vines, simple_provider, state, warn,
                      weighted_provider, write_json)
 from .dsl import (Boulder, CrystalCluster, Disk, Feature, Geode, GiantPlant, Lake, Ore, Patch, Spire, Structure, Tree,
                   Vanilla)
@@ -111,6 +111,15 @@ def _env_scan(direction):
             "allowed_search_condition": {"type": "minecraft:matching_blocks", "blocks": ["minecraft:air", "minecraft:cave_air"]}}
 
 
+def _shallow_pred(f):
+    """Lily pads & co. stay in shallows: no water `max_depth`+1 blocks below the surface block."""
+    d = int(getattr(f, "max_depth", 0) or 0)
+    if d <= 0:
+        return None
+    return {"type": "minecraft:not", "predicate": {"type": "minecraft:matching_fluids", "offset": [0, -(d + 1), 0],
+                                                   "fluids": ["minecraft:water", "minecraft:flowing_water"]}}
+
+
 def placement(fc: FCtx, f: Feature, ground_check=False, solid_below=False):
     """Placement modifiers for a feature according to its count/chance/where/y."""
     where = f.where
@@ -150,6 +159,8 @@ def placement(fc: FCtx, f: Feature, ground_check=False, solid_below=False):
         mods.append({"type": "minecraft:heightmap", "heightmap": "WORLD_SURFACE_WG"})
         mods.append({"type": "minecraft:block_predicate_filter",
                      "predicate": {"type": "minecraft:matching_fluids", "offset": [0, -1, 0], "fluids": ["minecraft:water"]}})
+        if _shallow_pred(f):
+            mods.append({"type": "minecraft:block_predicate_filter", "predicate": _shallow_pred(f)})
     elif where == "cave_floor":
         a, b = fc.y_range(f, where)
         mods.append(_hr(a, b))
@@ -216,6 +227,8 @@ def _patch_feature(fc, f: Patch):
             preds.append({"type": "minecraft:has_sturdy_face", "offset": [0, -1, 0], "direction": "up"})
     if where == "water_surface":
         preds.append({"type": "minecraft:matching_fluids", "offset": [0, -1, 0], "fluids": ["minecraft:water"]})
+        if _shallow_pred(f):
+            preds.append(_shallow_pred(f))
     elif where in ("surface", "cave_floor"):
         # never on top of water/lava (carpets and many plants would happily sit on a fluid surface)
         preds.append({"type": "minecraft:not", "predicate": {"type": "minecraft:matching_fluids", "offset": [0, -1, 0],
@@ -320,7 +333,7 @@ def _tree_feature(fc, f: Tree, biome):
                            "block_provider": {"type": "minecraft:simple_state_provider", "state": plant_state(fc, f.decoration, "cave_ceiling")},
                            "directions": ["down"]})
     return {"type": "minecraft:tree", "config": {
-        "trunk_provider": simple_provider(f.log), "foliage_provider": simple_provider(f.leaves),
+        "trunk_provider": simple_provider(f.log), "foliage_provider": simple_provider(f.leaves, **({"persistent": False} if is_leaves(f.leaves) else {})),
         "trunk_placer": trunk, "foliage_placer": foliage, "minimum_size": size,
         "dirt_provider": simple_provider(_dirt_for(fc, biome)), "force_dirt": False, "ignore_vines": True,
         "decorators": decorators}}

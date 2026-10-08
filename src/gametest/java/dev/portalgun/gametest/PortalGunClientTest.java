@@ -144,7 +144,9 @@ public class PortalGunClientTest implements FabricClientGameTest {
 					home[1] = p.getY();
 					home[2] = p.getZ();
 					p.setGameMode(GameType.SPECTATOR);
-					p.connection.teleport(p.getX(), p.getY() + 40, p.getZ(), 30.0F, 38.0F);
+					// roofed worlds (caves, inverted): a short hop up, looking up at the ceiling instead of into the rock
+					boolean roof = p.level().dimensionType().hasCeiling();
+					p.connection.teleport(p.getX(), p.getY() + (roof ? 10 : 40), p.getZ(), 30.0F, roof ? -28.0F : 38.0F);
 				});
 				context.waitTicks(12);
 				sp.getClientWorld().waitForChunksRender();

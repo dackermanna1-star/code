@@ -2,7 +2,7 @@
 from gen.content.dsl import *
 
 P_MOSS = ["#1d3b3a", "#245048", "#2f6b5a", "#3f8a6c", "#58a982"]
-P_SOIL = ["#2a1f2e", "#3a2b3d", "#4b3a4e", "#5d4a5f"]
+P_SOIL = ["#362a3b", "#47374b", "#5a485e", "#6e5b72"]
 P_ROCK = ["#2b2d3a", "#3a3d4d", "#4a4e60", "#5c6074", "#6f7488"]
 P_STEM = ["#b9b2a0", "#cfc8b4", "#e0dac8", "#efe9da"]
 P_CAP = ["#1a6f7a", "#1f8a92", "#28a8aa", "#3fc9c0", "#7ff0dc"]
@@ -21,7 +21,7 @@ DIMENSION = Dimension(
     terrain=Terrain(style="hills", stone="sporewood_rock", sea_level=58, height=74, amplitude=18, roughness=0.25,
                     deepslate="minecraft:deepslate"),
     sky=Sky(sky_color="#22405a", fog_color="#2b5a5c", fog_start=24, fog_end=140, cloud_color="#6688ccbb",
-            time="dusk", sunrise_color="#cc6a5acc", star_brightness=0.6, ambient_light=0.05,
+            time="dusk", sunrise_color="#cc6a5acc", star_brightness=0.6, ambient_light=0.12,
             bodies=[Celestial("planet", ["#7a4aa8", "#b37be0", "#e3c2ff"], size=55, yaw=40, pitch=35, seed="spore-moon")]),
     blocks=[
         Block("sporemoss", "Sporemoss", "grass", {
@@ -96,6 +96,8 @@ DIMENSION = Dimension(
               particles=[("minecraft:crimson_spore", 0.02)], ambient="eerie_choir",
               features=[
                   GiantPlant(stem="glowcap_stem", head="violet_glowcap", shape="flat", height=(5, 9), radius=(3, 4), count=4),
+                  GiantPlant(stem="glowcap_stem", head="teal_glowcap", shape="puff", height=(3, 6), radius=(2, 3), count=1),
+                  Patch(block="glowcap_sprout", count=4, tries=24),
                   Patch(block="hanging_glowroot", count=4, where="cave_ceiling"),
                   Disk(block="spore_soil", replace=["sporemoss"], radius=(2, 4), count=2),
               ],

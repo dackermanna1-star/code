@@ -56,6 +56,8 @@ public final class ContentSpec {
 		public int danger;
 		public String color;
 		public String platform = "minecraft:stone";
+		/** Block for the little islet built when the arrival point is open water (beach or biome top); null = platform. */
+		public String raft;
 		/** surface, cave or void - controls how arrival spots are searched. */
 		public String arrival = "surface";
 		public int arrivalY = 80;

@@ -60,13 +60,17 @@ public class BoulderFeature extends Feature<BoulderFeature.Config> {
 			}
 		} else {
 			int ground = p.groundBelow(ox, p.origin.getY() - 1, oz, 10);
-			if (ground == Integer.MIN_VALUE) {
+			if (ground == Integer.MIN_VALUE || p.isFeatureAt(ox, ground, oz)) {
 				return false;
 			}
 			cy = ground + 1 + ry * 0.35;
 		}
 		double cx = ox + 0.5;
 		double cz = oz + 0.5;
+		// only the part above ground must be free (grounded boulders sink into the terrain by design)
+		if (p.crowded(cx, cy, cz, rx * 1.1, ry * 1.1, rz * 1.1, c.floating() ? p.minY() : Mth.floor(cy + ry * 0.2))) {
+			return false;
+		}
 		Wobble wob = new Wobble(rnd, 5, 1.6 / Math.max(1.5, r));
 		// a few secondary lobes make the silhouette less spherical
 		int lobes = r >= 3 ? 1 + rnd.nextInt(3) : 0;

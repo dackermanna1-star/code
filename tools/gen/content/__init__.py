@@ -72,6 +72,8 @@ def _dimension_info(dim, terrain, sky_entries, creature_ids):
         "id": dim.id, "code": dim.code, "name": dim.name, "tagline": dim.tagline, "description": dim.description,
         "danger": int(dim.danger), "color": dim.color,
         "platform": full_id(dim.platform or t.stone),
+        "raft": full_id(dim.platform or (dim.terrain.params or {}).get("beach_block")
+                        or (dim.biomes[0].top if dim.biomes else None) or t.stone),
         "arrival": arrival, "arrivalY": ay,
         "effects": list(dim.effects), "sky": sky_entries,
         "creatures": creature_ids, "biomes": [b.id for b in dim.biomes],

@@ -4,6 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.WorldGenRegion;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.WorldGenLevel;
@@ -372,6 +373,62 @@ public final class Placer {
 			}
 		}
 		return this.set(x, y, z, Blocks.WATER.defaultBlockState());
+	}
+
+	/**
+	 * Whether the ellipsoid (centre, radii) is already occupied by something solid: another feature's cap, stem, spire or
+	 * leaves, or a hillside. Large features call this before building so they do not grow through each other. Samples a
+	 * 4x4x4 grid inside the ellipsoid (points below {@code minY} are skipped, so the ground under a feature never counts);
+	 * a couple of grazing hits are tolerated.
+	 */
+	public boolean crowded(double cx, double cy, double cz, double rx, double ry, double rz, int minY) {
+		int inside = 0;
+		int blocked = 0;
+		for (int i = 0; i < 4; i++) {
+			double ax = -0.75 + i * 0.5;
+			for (int j = 0; j < 4; j++) {
+				double ay = -0.75 + j * 0.5;
+				for (int k = 0; k < 4; k++) {
+					double az = -0.75 + k * 0.5;
+					if (ax * ax + ay * ay + az * az > 1.0) {
+						continue;
+					}
+					int x = Mth.floor(cx + ax * rx);
+					int y = Mth.floor(cy + ay * ry);
+					int z = Mth.floor(cz + az * rz);
+					if (y < minY || !this.inBounds(x, y, z)) {
+						continue;
+					}
+					inside++;
+					if (this.get(x, y, z).blocksMotion()) {
+						blocked++;
+					}
+				}
+			}
+		}
+		return blocked > Math.max(1, inside / 16);
+	}
+
+	/** Trunks, crowns and caps (vanilla or spec): ground that a large feature must not grow out of. */
+	public static boolean isFeatureBlock(BlockState s) {
+		return s.is(BlockTags.LOGS) || s.is(BlockTags.LEAVES) || s.is(Blocks.RED_MUSHROOM_BLOCK) || s.is(Blocks.BROWN_MUSHROOM_BLOCK)
+			|| s.is(Blocks.MUSHROOM_STEM) || dev.portalgun.registry.ModBlocks.CANOPY.contains(s.getBlock());
+	}
+
+	/** Whether the block at (x, y, z) is part of another feature (see {@link #isFeatureBlock}). */
+	public boolean isFeatureAt(int x, int y, int z) {
+		return this.inBounds(x, y, z) && isFeatureBlock(this.get(x, y, z));
+	}
+
+	/** Whether any of the points along a vertical column (x, y0..y1, z) is solid: a stem or trunk would hit something. */
+	public boolean columnBlocked(int x, int y0, int y1, int z) {
+		int step = Math.max(1, (y1 - y0) / 6);
+		for (int y = y0; y <= y1; y += step) {
+			if (this.inBounds(x, y, z) && this.get(x, y, z).blocksMotion()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public double nextRange(double lo, double hi) {

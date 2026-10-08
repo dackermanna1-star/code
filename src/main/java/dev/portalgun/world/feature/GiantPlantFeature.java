@@ -71,7 +71,8 @@ public class GiantPlantFeature extends Feature<GiantPlantFeature.Config> {
 			return false;
 		}
 		int baseY = ground + 1;
-		if (p.isLava(ox, baseY, oz)) {
+		// never sprout from the top of another mushroom cap / tree crown / trunk
+		if (p.isLava(ox, baseY, oz) || p.isFeatureAt(ox, ground, oz)) {
 			return false;
 		}
 		RandomSource rnd = p.random;
@@ -93,6 +94,12 @@ public class GiantPlantFeature extends Feature<GiantPlantFeature.Config> {
 			return false;
 		}
 
+		// keep clear of other features (caps through caps, stems through crowns) and hillsides
+		double ext = r * factor;
+		if (p.columnBlocked(ox, baseY + 2, baseY + h - 1, oz)
+			|| p.crowded(ox + 0.5, baseY + h + r * 0.35, oz + 0.5, ext + maxBend, Math.max(2.0, headTop * 0.6), ext + maxBend, baseY + 2)) {
+			return false;
+		}
 		double ang = rnd.nextDouble() * Math.PI * 2;
 		double bx = Math.cos(ang);
 		double bz = Math.sin(ang);

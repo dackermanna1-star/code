@@ -35,6 +35,7 @@ import net.minecraft.world.phys.Vec3;
  */
 public class CreatureGalleryTest implements FabricClientGameTest {
 	private static final Map<String, Set<String>> HITS = new ConcurrentHashMap<>();
+	private static final Set<String> SHOTS = ConcurrentHashMap.newKeySet();
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
@@ -54,9 +55,17 @@ public class CreatureGalleryTest implements FabricClientGameTest {
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((victim, source, amount) -> {
 			Entity attacker = source.getEntity();
 			if (victim instanceof ServerPlayer && attacker != null) {
-				HITS.computeIfAbsent(EntityType.getKey(attacker.getType()).getPath(), k -> ConcurrentHashMap.newKeySet()).add(source.getMsgId());
+				// orb hits share the "mob" message id with melee: tell them apart by the direct entity
+				String kind = source.getDirectEntity() instanceof CreatureOrb ? "orb" : source.getMsgId();
+				HITS.computeIfAbsent(EntityType.getKey(attacker.getType()).getPath(), k -> ConcurrentHashMap.newKeySet()).add(kind);
 			}
 			return true;
+		});
+		// every orb is seen the tick it enters the world (sampling every 5 ticks missed fast orbs that hit at once)
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents.ENTITY_LOAD.register((entity, world) -> {
+			if (entity instanceof CreatureOrb orb && orb.getOwner() != null) {
+				SHOTS.add(EntityType.getKey(orb.getOwner().getType()).getPath());
+			}
 		});
 		try (TestSingleplayerContext sp = context.worldBuilder().create()) {
 			sp.getClientWorld().waitForChunksRender();
@@ -106,6 +115,19 @@ public class CreatureGalleryTest implements FabricClientGameTest {
 		e.setPersistenceRequired();
 		level.addFreshEntity(e);
 		return e;
+	}
+
+	/** Digs (water=true) or refills a (2r+1)^2 x 3 pool whose surface is at y = top - 1. */
+	private static void pool(ServerLevel level, int x, int top, int z, int r, boolean water) {
+		for (int dx = -r; dx <= r; dx++) {
+			for (int dz = -r; dz <= r; dz++) {
+				for (int dy = 1; dy <= 3; dy++) {
+					BlockPos p = new BlockPos(x + dx, top - dy, z + dz);
+					level.setBlockAndUpdate(p, water ? Blocks.WATER.defaultBlockState()
+						: (dy == 1 ? Blocks.GRASS_BLOCK : Blocks.DIRT).defaultBlockState());
+				}
+			}
+		}
 	}
 
 	private static int groundY(ServerLevel level, int x, int z) {
@@ -180,6 +202,11 @@ public class CreatureGalleryTest implements FabricClientGameTest {
 				int gy = groundY(level, (int) cx, (int) (cz + dist));
 				String mv = ModCreatures.spec(t).movement;
 				double y = gy + (mv.equals("flying") || mv.equals("floating") ? 0.4 : 0.0);
+				if (mv.equals("swimming")) {
+					// photograph swimmers where they live: a pool sized to the creature, filled back in afterwards
+					pool(level, (int) Math.floor(cx), gy, (int) Math.floor(cz + dist), Math.max(2, (int) Math.ceil(t.getWidth())), true);
+					y = gy - 2.6 + Math.max(0.0, 1.2 - t.getHeight()) * 0.5;
+				}
 				spawn(level, id, cx, y, cz + dist, 180.0F + 35.0F, false);
 				p.connection.teleport(cx, y + t.getHeight() * 0.5 + size * 0.45 - p.getEyeHeight(), cz, 0.0F, 22.0F);
 			});
@@ -188,7 +215,27 @@ public class CreatureGalleryTest implements FabricClientGameTest {
 			context.takeScreenshot("creature_" + id);
 			context.waitTicks(6);
 			context.takeScreenshot("creature_" + id + "_b");
-			sp.getServer().runOnServer(server -> clear(player(server).level(), player(server).position(), 40));
+			if (ModCreatures.spec(ModCreatures.TYPES.get(id)).movement.equals("flying")) {
+				// wings are flat planes: also look at flyers from above, where the membrane/feathers show
+				sp.getServer().runOnServer(server -> {
+					ServerPlayer p = player(server);
+					EntityType<SpecCreature> t = ModCreatures.TYPES.get(id);
+					double size = Math.max(t.getHeight(), t.getWidth() * 1.2);
+					p.connection.teleport(p.getX(), p.getY() + 1.2 + size, p.getZ() + 0.4, 0.0F, 50.0F);
+				});
+				context.waitTicks(3);
+				context.takeScreenshot("creature_" + id + "_top");
+			}
+			sp.getServer().runOnServer(server -> {
+				clear(player(server).level(), player(server).position(), 40);
+				EntityType<SpecCreature> t = ModCreatures.TYPES.get(id);
+				if (ModCreatures.spec(t).movement.equals("swimming")) {
+					double size = Math.max(t.getHeight(), t.getWidth() * 1.2);
+					ServerLevel level = player(server).level();
+					int z = (int) Math.floor(40.5 + 1.1 + size);
+					pool(level, 0, groundY(level, 0, z), z, Math.max(2, (int) Math.ceil(t.getWidth())), false);
+				}
+			});
 		}
 	}
 
@@ -214,18 +261,30 @@ public class CreatureGalleryTest implements FabricClientGameTest {
 		}
 		sp.getServer().runOnServer(server -> {
 			ServerPlayer p = player(server);
-			SpecCreature nearest = null;
-			for (SpecCreature c : p.level().getEntitiesOfClass(SpecCreature.class, p.getBoundingBox().inflate(64))) {
-				if (nearest == null || c.distanceToSqr(p) < nearest.distanceToSqr(p)) {
-					nearest = c;
+			List<SpecCreature> found = new ArrayList<>(p.level().getEntitiesOfClass(SpecCreature.class, p.getBoundingBox().inflate(64)));
+			found.sort(java.util.Comparator.comparingDouble(c -> c.distanceToSqr(p)));
+			// nearest creature that can actually be seen: try 8 camera bearings around it, keep the first unobstructed one
+			boolean placed = false;
+			for (SpecCreature c : found) {
+				double back = 3.0 + c.getBbHeight();
+				Vec3 target = c.position().add(0, c.getBbHeight() * 0.5, 0);
+				for (int k = 0; k < 8 && !placed; k++) {
+					double a = k * Math.PI / 4;
+					Vec3 cam = target.add(Math.sin(a) * back, 0.6 + c.getBbHeight() * 0.2, Math.cos(a) * back);
+					var hit = p.level().clip(new net.minecraft.world.level.ClipContext(cam, target, net.minecraft.world.level.ClipContext.Block.VISUAL,
+						net.minecraft.world.level.ClipContext.Fluid.NONE, p));
+					if (hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS && p.level().getBlockState(BlockPos.containing(cam)).isAir()) {
+						Vec3 d = target.subtract(cam);
+						float yaw = (float) (Math.atan2(-d.x, d.z) * 180 / Math.PI);
+						float pitch = (float) (-Math.atan2(d.y, d.horizontalDistance()) * 180 / Math.PI);
+						p.connection.teleport(cam.x, cam.y - p.getEyeHeight(), cam.z, yaw, pitch);
+						log("natural shot: " + EntityType.getKey(c.getType()).getPath() + " at " + c.blockPosition());
+						placed = true;
+					}
 				}
-			}
-			if (nearest != null) {
-				Vec3 d = nearest.position().subtract(p.position());
-				float yaw = (float) (Math.atan2(-d.x, d.z) * 180 / Math.PI);
-				double back = 3.0 + nearest.getBbHeight();
-				Vec3 cam = nearest.position().subtract(d.multiply(1, 0, 1).normalize().scale(back)).add(0, nearest.getBbHeight() * 0.5 + 0.6, 0);
-				p.connection.teleport(cam.x, cam.y - p.getEyeHeight(), cam.z, yaw, 15.0F);
+				if (placed) {
+					break;
+				}
 			}
 		});
 		context.waitTicks(20);
@@ -256,6 +315,7 @@ public class CreatureGalleryTest implements FabricClientGameTest {
 		Map<String, Integer> uuids = new HashMap<>();
 		Map<String, double[]> stats = new ConcurrentHashMap<>();
 		HITS.clear();
+		SHOTS.clear();
 		double ox = 0.5;
 		double oz = -30.5;
 		sp.getServer().runOnServer(server -> {
@@ -371,6 +431,9 @@ public class CreatureGalleryTest implements FabricClientGameTest {
 				}
 				EntityType<SpecCreature> t = ModCreatures.TYPES.get(id);
 				var spec = ModCreatures.spec(t);
+				if (SHOTS.contains(id)) {
+					st[2] = Math.max(st[2], 2);
+				}
 				log(String.format("%-22s %-10s %-9s %-7s moved=%5.1f maxAlt=%4.1f target=%s shot=%s waterTicks=%3d gone=%s hits=%s", id, spec.movement,
 					spec.behavior, spec.attack, st[0], st[1], st[2] >= 1 ? "yes" : "no", st[2] >= 2 ? "yes" : "no", (int) st[3], st[4] > 0 ? "yes" : "no",
 					HITS.getOrDefault(id, Set.of())));

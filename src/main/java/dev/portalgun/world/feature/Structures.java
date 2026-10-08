@@ -29,7 +29,7 @@ final class Structures {
 	}
 
 	/** Ground y under the origin (first solid block), searching a bit up and down; MIN_VALUE when floating in air. */
-	private static int ground(Placer p) {
+	static int ground(Placer p) {
 		int ox = p.origin.getX();
 		int oz = p.origin.getZ();
 		return p.groundBelow(ox, p.origin.getY() + 2, oz, 16);

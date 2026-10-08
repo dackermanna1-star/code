@@ -58,11 +58,14 @@ public class SpecTreeFeature extends Feature<SpecTreeFeature.Config> {
 		int ox = p.origin.getX();
 		int oz = p.origin.getZ();
 		int ground = p.groundBelow(ox, p.origin.getY() - 1, oz, 8);
-		if (ground == Integer.MIN_VALUE || !Placer.isSoft(p.get(ox, ground + 1, oz))) {
+		if (ground == Integer.MIN_VALUE || !Placer.isSoft(p.get(ox, ground + 1, oz)) || p.isFeatureAt(ox, ground, oz)) {
 			return false;
 		}
 		int h = Math.min(height, p.maxY() - ground - 8);
 		if (h < 3) {
+			return false;
+		}
+		if (p.columnBlocked(ox, ground + 2, ground + h / 2, oz) || p.crowded(ox + 0.5, ground + 2 + h * 0.6, oz + 0.5, 5.0, h * 0.45, 5.0, ground + 2)) {
 			return false;
 		}
 		// trunk: a random walk whose heading slowly rotates

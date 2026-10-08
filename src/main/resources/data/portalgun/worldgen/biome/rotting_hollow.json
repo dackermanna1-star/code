@@ -52,7 +52,7 @@
       "portalgun:sporewood/ore_lapis",
       "portalgun:sporewood/ore_diamond",
       "portalgun:sporewood/ore_emerald",
-      "portalgun:sporewood/rotting_hollow/2_disk"
+      "portalgun:sporewood/rotting_hollow/4_disk"
     ],
     [],
     [
@@ -60,7 +60,9 @@
     ],
     [
       "portalgun:sporewood/rotting_hollow/0_giantplant",
-      "portalgun:sporewood/rotting_hollow/1_patch"
+      "portalgun:sporewood/rotting_hollow/1_giantplant",
+      "portalgun:sporewood/rotting_hollow/2_patch",
+      "portalgun:sporewood/rotting_hollow/3_patch"
     ],
     []
   ],

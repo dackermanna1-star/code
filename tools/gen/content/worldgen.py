@@ -37,9 +37,11 @@ pillars      spires above a low floor. coverage (0.22) pillar fraction; pillar_h
 terraces     stepped hills.            step (6) terrace height; smoothness (0.25) 0..1 riser softness; rivers (0.3)
 canyons      plateau cut by canyons.   depth (amplitude*1.5); width (0.5) 0..1 canyon width; step (7) wall terraces
                                        (0 = smooth walls); rivers - canyon floors below sea_level hold water
-sponge       holey cheese terrain.     holes (0.5) 0..1 amount of voids; hole_size (1.0)
-inverted     upside-down world.        ceiling (height+95) underside base y; hang (amplitude*2.2) hanging mountain depth;
-                                       holes (0.22) fraction of open sky in the stone ceiling;
+sponge       holey cheese terrain.     holes (0.5) 0..1 amount of voids; hole_size (1.0). Holes grow toward the
+                                       surface (open pits, arches, cheese cliffs) and stay dry above sea_level
+inverted     upside-down world.        ceiling (height+45) underside base y; hang (min(amplitude*2.2, 55% of the
+                                       gap)) hanging mountain depth; holes (0.3) fraction of open sky in the stone
+                                       ceiling (shafts of daylight; the rest is lit by ambient_light, default 0.25);
                                        floor (0.3) coverage of walkable islands at `height`; roof always on
 cubes        voxel mesas (crisp 4x4-block columns, not interpolated) + floating cubes (Java cell_shapes).
                                        step (8) mesa step; cell_size (36); min_size (4); max_size (11) cube half-size;
@@ -47,8 +49,10 @@ cubes        voxel mesas (crisp 4x4-block columns, not interpolated) + floating 
 craters      cratered plains (moon).   cell_size (96); min_radius (10); max_radius (38); depth (0.45) bowl depth
                                        ratio; rim (0.25) rim height ratio; probability (0.6)
 dunes        dune seas.                wavelength (56); direction (35 deg); dune_height (amplitude); cross (0.25)
-spikes       spike/thorn forests.      density (0.35) 0..1 spike count; spike_height (3*amplitude); thin (0.5)
-blobs        organic blobby terrain.   blobbiness (0.7) 3D lump strength; floating (0.3) floating lumps; squash (1.0)
+spikes       spike/thorn forests.      density (0.35) 0..1 spike count; spike_height (3*amplitude); thin (0.5);
+                                       cliffs default True (rock flanks)
+blobs        organic blobby terrain.   blobbiness (0.7) 3D lump strength (fades out above the surface so no
+                                       crumbs float); floating (0.3) big round floating lumps (cell_shapes); squash (1.0)
 cells        3D honeycomb chambers.    cell_size (30); wall (3.5) wall thickness; roof (True); open (0.0) 0..1
                                        removes upper walls (open-topped hive)
 layers       stacked floating strata.  count (4); spacing (34); thickness (9); holes (0.35) 0..1; wobble (6);
@@ -92,12 +96,12 @@ STYLE_DEFAULTS = {
     "terraces": dict(step=6, smoothness=0.25, rivers=0.3),
     "canyons": dict(width=0.5, step=7, cliffs=True),
     "sponge": dict(holes=0.5, hole_size=1.0),
-    "inverted": dict(floor=0.3, holes=0.22),
-    "cubes": dict(step=8, cell_size=36, min_size=4, max_size=11, probability=0.45, floating=True),
+    "inverted": dict(floor=0.3, holes=0.3),
+    "cubes": dict(step=8, cell_size=36, min_size=4, max_size=11, probability=0.45, floating=True, cliffs=True),
     "craters": dict(cell_size=96, min_radius=10, max_radius=38, depth=0.45, rim=0.25, probability=0.6),
     "dunes": dict(wavelength=56, direction=35, cross=0.25),
-    "spikes": dict(density=0.35, thin=0.5),
-    "blobs": dict(blobbiness=0.7, floating=0.3, squash=1.0),
+    "spikes": dict(density=0.35, thin=0.5, cliffs=True),
+    "blobs": dict(blobbiness=0.7, floating=0.3, squash=1.0, cliffs=True),
     "cells": dict(cell_size=30, wall=3.5, roof=True, open=0.0),
     "layers": dict(count=4, spacing=34, thickness=9, holes=0.35, wobble=6, columns=0.15),
 }
@@ -202,7 +206,7 @@ class Terrain:
         # keep the floor solid / the sky clear / the roof closed
         if ground:
             D = df.max_(D, df.ygrad(self.min_y, self.min_y + 5, 40, -40))
-        if self.roof:
+        if self.roof and getattr(self, "roof_closed", True):
             D = df.max_(D, df.ygrad(self.top - 6, self.top - 1, -40, 40))
         else:
             D = df.min_(D, df.ygrad(self.top - 20, self.top - 3, 60, -60))
@@ -417,20 +421,37 @@ class Terrain:
     def _sponge(self):
         t, P = self.t, self.P
         A = t.amplitude
-        H = df.col(df.add(float(t.height), df.mul(self.N("hills", -7, [1, 1, 0.5]), 0.65 * A),
-                          df.mul(self.N("base", -9, [1, 1]), 0.4 * A)))
+        sea = float(t.sea_level)
+        # taller, steeper relief than hills so there are cliffs for the holes to cut through
+        ridge = df.square(df.clamp(df.sub(1.0, df.abs_(self.N("ridge", -8, [1, 0.5]))), 0, 1))
+        H = df.col(df.add(float(t.height), df.mul(self.N("hills", -7, [1, 1, 0.5]), 0.8 * A),
+                          df.mul(self.N("base", -9, [1, 1]), 0.45 * A), df.mul(ridge, 0.9 * A)))
         base = self.surface(H, 0.6)
         hs = max(0.3, P["hole_size"])
         h3 = self.N3("holes", -5, [1, 0.5], 1.0 / hs, 1.0 / hs)
         thr = 1.05 - P["holes"] * 0.8
-        holes = df.mul(df.sub(thr, h3), 14.0 * hs)
+        # holes get bigger toward (and above) the typical surface: open pits, arches and swiss-cheese cliffs instead of
+        # buried caverns; none at/below sea level, where they would only fill with water
+        lift = df.ygrad(t.height - A - 12, t.height + 2, 0.0, 0.5 + 0.3 * P["holes"])
+        holes = df.mul(df.sub(df.sub(thr, lift), h3), 14.0 * hs)
+        if has_java("cell_shapes"):
+            # swiss-cheese bubbles: round voids scattered through the upper terrain - where they meet the surface
+            # they become round pits, windows in cliffs and little arches
+            k = self.key("bubbles", -4, [1])
+            rmax = 4.0 + 5.0 * hs
+            bub = df.pg_cell_shapes(k, "sphere", int(15 * hs + 4), 2.5 * hs + 1, rmax, int(sea + 3), int(t.height + A * 1.6 + 8),
+                                    min(0.95, 0.35 + P["holes"] * 0.7))
+            holes = df.min_(holes, df.mul(bub, -rmax))
+        holes = df.max_(holes, df.ygrad(sea + 1, sea + 6, 40.0, 0.0))
         return {"D": df.min_(base, holes), "H": H}
 
     def _inverted(self):
         t, P = self.t, self.P
         A = t.amplitude
-        ceil_y = float(P.get("ceiling", min(self.top - 30, t.height + 95)))
-        hang = float(P.get("hang", A * 2.2))
+        ceil_y = float(P.get("ceiling", min(self.top - 30, t.height + 45)))
+        hang = float(P.get("hang", min(A * 2.2, max(8.0, (ceil_y - t.height) * 0.55))))
+        # the stone sky is solid up to the build limit (no extra roof cap), so its holes are open to the real sky
+        self.roof_closed = False
         ridge = df.square(df.clamp(df.sub(1.0, df.abs_(self.N("ridge", -8, [1, 0.6]))), 0, 1))
         mask = df.clamp(df.add(0.5, df.mul(self.N("mask", -9, [1, 1]), 1.2)), 0, 1)
         Hc = df.col(df.sub(ceil_y, df.add(df.mul(df.add(1.0, self.N("hills", -7, [1, 1])), 0.45 * A),
@@ -529,12 +550,23 @@ class Terrain:
         A = t.amplitude
         H = df.col(df.add(float(t.height), df.mul(self.N("hills", -7, [1, 1]), 0.5 * A)))
         b3 = self.N3("blob", -5, [1, 0.6], 1.0, P["squash"])
-        D = df.add(df.sub(H, df.Y), df.mul(b3, P["blobbiness"] * (A * 1.1 + 6)))
+        amp = P["blobbiness"] * (A * 1.1 + 6)
+        # the 3D lumps fade out above the surface band so they shape bulges and overhangs but leave no crumbs in the air
+        top = t.height + A * 0.5 + amp * 0.3
+        fade = df.ygrad(top, top + 10, 1.0, 0.0)
+        D = df.add(df.sub(H, df.Y), df.mul(b3, df.mul(fade, amp)))
         if P["floating"] > 0:
-            f3 = self.N3("fblob", -5, [1], 1.0, 1.0)
-            lo, hi = t.height + A * 1.2, t.height + A * 3.5 + 20
-            band = df.min_(df.ygrad(lo, lo + 12, -40, 0), df.ygrad(hi - 12, hi, 0, -40))
-            D = df.max_(D, df.add(df.mul(df.sub(f3, 1.15 - P["floating"] * 0.45), 34.0), band))
+            lo, hi = int(t.height + A * 1.2 + 10), int(t.height + A * 3.5 + 30)
+            if has_java("cell_shapes"):
+                # floating flesh blobs on purpose: big, round, sparse
+                k = self.key("fblob", -4, [1])
+                rmax = 6.0 + 8.0 * P["floating"]
+                f = df.pg_cell_shapes(k, "blob", 56, 5, rmax, lo, hi, min(0.9, 0.25 + P["floating"] * 0.6))
+                D = df.max_(D, df.add(df.mul(f, rmax), df.mul(self.rough(0.3, 1.0), 0.5) if t.roughness > 0 else 0.0))
+            else:
+                f3 = self.N3("fblob", -6, [1], 1.0, 1.0)
+                band = df.min_(df.ygrad(lo, lo + 12, -40, 0), df.ygrad(hi - 12, hi, 0, -40))
+                D = df.max_(D, df.add(df.mul(df.sub(f3, 1.15 - P["floating"] * 0.45), 34.0), band))
         return {"D": D, "H": H}
 
     def _cells(self):
@@ -919,6 +951,9 @@ def emit_timeline(ctx, dim):
         v = sample_track(tr, day.get("period_ticks", 24000), tick)
         if name == "minecraft:visual/sunrise_sunset_color" and sky.sunrise_color:
             v = hex_argb(sky.sunrise_color)
+        if name == "minecraft:visual/sky_light_factor" and isinstance(v, (int, float)) and 0.3 < float(v) < 0.55:
+            # a world frozen at dusk/dawn must stay playable: vanilla twilight (~0.38) reads nearly black on dark ground
+            v = 0.55
         if name == "minecraft:visual/star_brightness" and sky.star_brightness is not None:
             v = max(float(v), float(sky.star_brightness))
         entry = {"keyframes": [{"ticks": 0, "value": v}]}
@@ -1028,7 +1063,7 @@ def emit_dimension_type(ctx, dim, terrain):
         "height": terrain.height,
         "logical_height": terrain.height,
         "infiniburn": "#minecraft:infiniburn_nether" if hot else "#minecraft:infiniburn_overworld",
-        "ambient_light": float(sky.ambient_light),
+        "ambient_light": float(sky.ambient_light if sky.ambient_light or t.style != "inverted" else 0.25),
         "monster_spawn_light_level": {"type": "minecraft:uniform", "min_inclusive": 0, "max_inclusive": light_max},
         "monster_spawn_block_light_limit": 0,
         "skybox": sky.skybox,

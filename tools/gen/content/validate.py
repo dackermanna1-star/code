@@ -100,6 +100,11 @@ def _ambient_loops():
     return AMBIENT_LOOPS
 
 
+# net.minecraft.world.entity.MobCategory names creatures may spawn under (misc is not a natural spawn category)
+MOB_CATEGORIES = {"monster", "creature", "ambient", "axolotls", "underground_water_creature", "water_creature",
+                  "water_ambient"}
+
+
 class Report:
     def __init__(self, dim_id):
         self.dim = dim_id
@@ -343,6 +348,13 @@ def validate_dimension(dim, global_blocks, global_items, creature_ids_by_dim):
     if dim.arrival and dim.arrival not in ("surface", "cave", "void"):
         r.err("arrival", f"{dim.arrival!r} not in surface/cave/void")
     for c in dim.creatures:
+        if c.category is not None and c.category not in MOB_CATEGORIES:
+            r.err(f"creature {c.id}", f"category {c.category!r} not in {sorted(MOB_CATEGORIES)}")
+        elif c.behavior == "hostile" and c.category not in (None, "monster"):
+            r.warn(f"creature {c.id}", f"hostile creature with category {c.category!r}: it will not despawn and "
+                                       f"counts against the {c.category} cap (use 'monster')")
+        if c.spawn_light not in ("any", "dark"):
+            r.err(f"creature {c.id}", f"spawn_light {c.spawn_light!r} not in any/dark")
         for d in c.drops:
             if not refs.item_ok(d.item):
                 r.err(f"creature {c.id}", f"drop {d.item!r} is not a known item")

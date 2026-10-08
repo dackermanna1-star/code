@@ -249,6 +249,7 @@ class Patch(Feature):
     tries: int = 32
     spread: int = 7
     blocks: Optional[list[tuple[str, int]]] = None   # weighted mix instead of `block`
+    max_depth: int = 4                  # where="water_surface": only over water at most this deep (0 = any depth)
 
 
 @dataclass

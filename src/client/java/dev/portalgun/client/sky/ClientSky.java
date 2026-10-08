@@ -140,26 +140,30 @@ public final class ClientSky {
 			pose.mulPose(Axis.XP.rotationDegrees(90.0F - body.pitch));
 			Matrix4fStack mv = RenderSystem.getModelViewStack();
 			mv.pushMatrix();
-			mv.mul(pose.last().pose());
-			mv.translate(0.0F, DISTANCE, 0.0F);
-			if (body.roll != 0.0F) {
-				mv.rotate(Axis.YP.rotationDegrees(body.roll));
+			try {
+				mv.mul(pose.last().pose());
+				mv.translate(0.0F, DISTANCE, 0.0F);
+				if (body.roll != 0.0F) {
+					mv.rotate(Axis.YP.rotationDegrees(body.roll));
+				}
+				float size = Math.max(0.5F, body.size);
+				mv.scale(size, 1.0F, size);
+				GpuBufferSlice transform = RenderSystem.getDynamicUniforms()
+					.writeTransform(mv, new Vector4f(1.0F, 1.0F, 1.0F, alpha), new Vector3f(), new Matrix4f());
+				try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder()
+					.createRenderPass(() -> "Portal Gun sky body", color, OptionalInt.empty(), depth, OptionalDouble.empty())) {
+					pass.setPipeline(body.additive ? BODY_ADDITIVE : BODY_TRANSLUCENT);
+					RenderSystem.bindDefaultUniforms(pass);
+					pass.setUniform("DynamicTransforms", transform);
+					pass.bindTexture("Sampler0", texture.getTextureView(), texture.getSampler());
+					pass.setVertexBuffer(0, vertices);
+					pass.setIndexBuffer(indexBuffer, indices.type());
+					pass.drawIndexed(0, 0, 6, 1);
+				}
+			} finally {
+				// never leak a model-view level: render() downgrades errors to a log line and keeps drawing every frame
+				mv.popMatrix();
 			}
-			float size = Math.max(0.5F, body.size);
-			mv.scale(size, 1.0F, size);
-			GpuBufferSlice transform = RenderSystem.getDynamicUniforms()
-				.writeTransform(mv, new Vector4f(1.0F, 1.0F, 1.0F, alpha), new Vector3f(), new Matrix4f());
-			try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder()
-				.createRenderPass(() -> "Portal Gun sky body", color, OptionalInt.empty(), depth, OptionalDouble.empty())) {
-				pass.setPipeline(body.additive ? BODY_ADDITIVE : BODY_TRANSLUCENT);
-				RenderSystem.bindDefaultUniforms(pass);
-				pass.setUniform("DynamicTransforms", transform);
-				pass.bindTexture("Sampler0", texture.getTextureView(), texture.getSampler());
-				pass.setVertexBuffer(0, vertices);
-				pass.setIndexBuffer(indexBuffer, indices.type());
-				pass.drawIndexed(0, 0, 6, 1);
-			}
-			mv.popMatrix();
 		}
 	}
 }

@@ -59,12 +59,12 @@ public class SpireFeature extends Feature<SpireFeature.Config> {
 		int anchor;
 		if (hanging) {
 			anchor = p.ceilingAbove(ox, p.origin.getY() + 1, oz, 12);
-			if (anchor == Integer.MAX_VALUE) {
+			if (anchor == Integer.MAX_VALUE || p.isFeatureAt(ox, anchor, oz)) {
 				return false;
 			}
 		} else {
 			anchor = p.groundBelow(ox, p.origin.getY() - 1, oz, 10);
-			if (anchor == Integer.MIN_VALUE) {
+			if (anchor == Integer.MIN_VALUE || p.isFeatureAt(ox, anchor, oz)) {
 				return false;
 			}
 		}
@@ -84,6 +84,13 @@ public class SpireFeature extends Feature<SpireFeature.Config> {
 			return false;
 		}
 		double leanDist = Math.max(0.0, Math.min(14.0 - r0 * 1.3, Mth.clamp(c.lean(), 0.0F, 1.0F) * h * 0.45));
+		// don't drive the spire through another feature (mushroom caps, crowns, arches) or into an overhang
+		double midY = anchor + dir * (2 + h * 0.5);
+		double reach = r0 * 0.8 + leanDist * 0.5 + 1.0;
+		if (p.crowded(ox + 0.5, midY, oz + 0.5, reach, Math.max(2.0, h * 0.5), reach, hanging ? p.minY() : anchor + 2)
+			|| p.columnBlocked(ox, hanging ? anchor - h : anchor + 2, hanging ? anchor - 2 : anchor + h, oz)) {
+			return false;
+		}
 		double la = rnd.nextDouble() * Math.PI * 2;
 		double lx = Math.cos(la);
 		double lz = Math.sin(la);

@@ -55,7 +55,7 @@ PALETTES = {
                    ground=("minecraft:hay_block", "minecraft:yellow_terracotta"), tree="oak", sky=dict(time="noon")),
     "inverted": dict(terrain=dict(stone="minecraft:stone", fluid="minecraft:air", sea_level=-64, height=80, amplitude=24,
                                   roughness=0.3, caves=False), ground=("minecraft:moss_block", "minecraft:dirt"), tree="oak",
-                     sky=dict(time="noon", fog_color="#a0b0c0")),
+                     sky=dict(time="noon", sky_color="#4a5868", fog_color="#3c4654", fog_start=30, fog_end=180)),
     "cubes": dict(terrain=dict(stone="minecraft:light_gray_concrete", height=70, amplitude=18, roughness=0.0, sea_level=50,
                                caves=False), ground=("minecraft:cyan_concrete", "minecraft:gray_concrete"), tree="bush",
                   sky=dict(time="dusk", sky_color="#301040", fog_color="#ff60a0", sunrise_color="#ffff40a0",
@@ -116,6 +116,11 @@ def _features(style, top, tree):
     ]
     if style in ("sky_islands", "planetoids", "layers", "inverted"):
         feats.append(Boulder(blocks=[("minecraft:white_wool", 1)], radius=(2, 4), count=1, chance=4, where="air"))
+    if style == "inverted":
+        # stalactites hanging from the stone sky, lanterns of glowstone among them
+        feats.append(Spire(blocks=[("minecraft:dripstone_block", 3), ("minecraft:stone", 1)], tip="minecraft:pointed_dripstone",
+                           height=(6, 16), radius=(1, 3), count=3, where="cave_ceiling", hanging=True))
+        feats.append(Patch(block="minecraft:glowstone", count=2, tries=8, where="cave_ceiling"))
     return feats
 
 

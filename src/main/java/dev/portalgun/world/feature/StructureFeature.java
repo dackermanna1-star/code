@@ -60,6 +60,41 @@ public class StructureFeature extends Feature<StructureFeature.Config> {
 		super(codec);
 	}
 
+	/** Free-standing structures need their volume free of other features (and of hillsides). */
+	private static boolean crowded(Placer p, String kind, int size) {
+		double hr;
+		double vr;
+		switch (kind) {
+			case "arch", "ring", "gear" -> {
+				hr = Math.min(10.0, Math.max(2.0, size * 0.7));
+				vr = Math.max(2.0, size * 0.5);
+			}
+			case "ribcage" -> {
+				hr = Math.min(10.0, Math.max(3.0, size * 0.9));
+				vr = Math.max(2.0, size * 0.4);
+			}
+			case "monolith" -> {
+				hr = Math.min(8.0, Math.max(2.0, size * 0.25));
+				vr = Math.max(3.0, size * 0.45);
+			}
+			case "cuboids" -> {
+				hr = Math.min(8.0, Math.max(2.0, size * 0.5));
+				vr = Math.max(2.0, size * 0.4);
+			}
+			default -> {
+				return false; // lily pads, geysers, tendrils, nests hug the ground / ceiling
+			}
+		}
+		int g = Structures.ground(p);
+		if (g == Integer.MIN_VALUE) {
+			return false;
+		}
+		if (p.isFeatureAt(p.origin.getX(), g, p.origin.getZ())) {
+			return true; // standing on a cap / crown / trunk
+		}
+		return p.crowded(p.origin.getX() + 0.5, g + 2 + vr, p.origin.getZ() + 0.5, hr, vr, hr, g + 2);
+	}
+
 	@Override
 	public boolean place(FeaturePlaceContext<Config> ctx) {
 		Config c = ctx.config();
@@ -67,6 +102,9 @@ public class StructureFeature extends Feature<StructureFeature.Config> {
 			Placer p = new Placer(ctx);
 			RandomSource rnd = ctx.random();
 			int size = c.size().sample(rnd);
+			if (crowded(p, c.kind(), size)) {
+				return false;
+			}
 			return switch (c.kind()) {
 				case "arch" -> Structures.arch(p, c, size);
 				case "ring" -> Structures.ring(p, c, size);

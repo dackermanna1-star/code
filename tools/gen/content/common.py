@@ -66,14 +66,28 @@ def state(ref: str, **props) -> dict:
     p = dict(_VANILLA_STATE_FIX.get(fid, {}))
     p.update(ref_props(ref))
     p.update({k: str(v).lower() if isinstance(v, bool) else str(v) for k, v in props.items()})
+    if "persistent" not in p and is_leaves(fid):
+        # leaves placed as terrain/decoration (surface, disk, ore, patch, geode...) are not connected to logs:
+        # without persistent=true LeavesBlock decays them on random tick. Tree foliage passes persistent=False.
+        p["persistent"] = "true"
     s = {"Name": fid}
     if p:
         s["Properties"] = p
     return s
 
 
-def simple_provider(ref: str) -> dict:
-    return {"type": "minecraft:simple_state_provider", "state": state(ref)}
+def is_leaves(ref: str) -> bool:
+    """Vanilla *_leaves or a spec block of kind 'leaves' (both are LeavesBlocks with a 'persistent' property)."""
+    fid = full_id(ref)
+    ns, path = fid.split(":", 1)
+    if ns == "minecraft":
+        return path.endswith("_leaves")
+    b = GLOBAL_BLOCKS.get(path) if ns == NS else None
+    return b is not None and getattr(b, "kind", None) == "leaves"
+
+
+def simple_provider(ref: str, **props) -> dict:
+    return {"type": "minecraft:simple_state_provider", "state": state(ref, **props)}
 
 
 def weighted_provider(entries) -> dict:

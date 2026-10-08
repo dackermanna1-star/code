@@ -40,7 +40,8 @@ public final class ModCreatures {
 	/** Spec creature types in spec order (id -> type). */
 	public static final Map<String, EntityType<SpecCreature>> TYPES = new LinkedHashMap<>();
 	private static final Map<EntityType<?>, ContentSpec.CreatureSpec> SPECS = new HashMap<>();
-	private static final Map<String, SoundEvent> SOUND_CACHE = new HashMap<>();
+	/** Read from the server thread and the client render thread at once in single-player. */
+	private static final Map<String, SoundEvent> SOUND_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
 
 	public static final EntityType<CreatureOrb> ORB = ModEntities.register("creature_orb",
 		EntityType.Builder.<CreatureOrb>of(CreatureOrb::new, MobCategory.MISC)

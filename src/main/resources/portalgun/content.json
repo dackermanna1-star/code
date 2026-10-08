@@ -9,6 +9,7 @@
    "danger": 2,
    "color": "#3fc9c0",
    "platform": "portalgun:sporewood_rock",
+   "raft": "portalgun:sporemoss",
    "arrival": "surface",
    "arrivalY": 76,
    "effects": [],
@@ -89,7 +90,7 @@
     0,
     0
    ],
-   "color": "#423245"
+   "color": "#503f54"
   },
   {
    "id": "sporewood_rock",

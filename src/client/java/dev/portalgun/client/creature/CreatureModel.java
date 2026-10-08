@@ -17,6 +17,8 @@ public class CreatureModel extends EntityModel<CreatureRenderState> {
 	private final boolean airborne;
 	private final boolean swimmer;
 	private final boolean hopper;
+	private final ModelPart body;
+	private final float breathPhase;
 
 	private record Animated(ModelPart part, CreatureGeometry.Anim[] anims, String name) {
 	}
@@ -29,6 +31,8 @@ public class CreatureModel extends EntityModel<CreatureRenderState> {
 		this.airborne = movement.equals("flying") || movement.equals("floating");
 		this.swimmer = movement.equals("swimming");
 		this.hopper = movement.equals("hopping") || geo.archetype.equals("hopper");
+		this.body = root.hasChild("body") ? root.getChild("body") : null;
+		this.breathPhase = geo.parts.size() * 1.37F + geo.archetype.length() * 0.61F;
 	}
 
 	private void collect(ModelPart part, CreatureGeometry.Part p) {
@@ -50,6 +54,13 @@ public class CreatureModel extends EntityModel<CreatureRenderState> {
 		float headPitch = s.xRot * Mth.DEG_TO_RAD;
 		float swing = s.attackAnim > 0 ? Mth.sin(s.attackAnim * Mth.PI) : 0.0F;
 		boolean inAir = !s.onGround && !s.isInWater;
+		if (this.body != null) {
+			// every creature breathes, even standing still with nothing else animated (golems, bears, frogs...)
+			float b = Mth.sin(t * 0.085F + this.breathPhase);
+			this.body.yScale *= 1.0F + 0.028F * b;
+			this.body.xScale *= 1.0F + 0.014F * b;
+			this.body.zScale *= 1.0F + 0.010F * b;
+		}
 		for (Animated a : this.animated) {
 			ModelPart part = a.part;
 			for (CreatureGeometry.Anim h : a.anims) {
@@ -97,8 +108,8 @@ public class CreatureModel extends EntityModel<CreatureRenderState> {
 						v = open * h.amp + h.rest;
 					}
 					case "look" -> {
-						part.yRot += headYaw * h.amp;
-						part.xRot += headPitch * h.amp + (s.charging ? 0.35F : 0.0F);
+						part.yRot += headYaw * h.amp + Mth.sin(t * 0.031F + this.breathPhase) * 0.06F;
+						part.xRot += headPitch * h.amp + (s.charging ? 0.35F : 0.0F) + Mth.sin(t * 0.053F + this.breathPhase * 2.0F) * 0.035F;
 						continue;
 					}
 					case "squish" -> {

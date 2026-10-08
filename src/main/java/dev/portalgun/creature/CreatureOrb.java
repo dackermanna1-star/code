@@ -20,6 +20,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.ThrowableProjectile;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.BlockHitResult;
@@ -160,8 +161,9 @@ public class CreatureOrb extends ThrowableProjectile {
 			return;
 		}
 		if (this.explode > 0) {
-			level.explode(this, null, SpecCreature.SPARE_CREATURES, this.getX(), this.getY(), this.getZ(), this.explode, this.fire > 0,
-				Level.ExplosionInteraction.NONE);
+			level.explode(this, null, SpecCreature.SPARE_CREATURES, this.getX(), this.getY(), this.getZ(), this.explode,
+				// ServerExplosion lights fires whenever asked, even with interaction NONE: respect mobGriefing like LargeFireball
+				this.fire > 0 && level.getGameRules().get(GameRules.MOB_GRIEFING), Level.ExplosionInteraction.NONE);
 		} else {
 			level.sendParticles(new DustParticleOptions(this.getColor(), 1.4F), this.getX(), this.getY(), this.getZ(), 12, 0.2, 0.2, 0.2, 0.02);
 			ParticleOptions extra = this.extraParticle();
@@ -190,6 +192,22 @@ public class CreatureOrb extends ThrowableProjectile {
 		super.addAdditionalSaveData(out);
 		out.putFloat("Damage", this.damage);
 		out.putInt("Color", this.getColor());
+		out.putFloat("Size", this.getSize());
+		out.putFloat("Explode", this.explode);
+		out.putFloat("Knockback", this.knockback);
+		out.putFloat("Fire", this.fire);
+		out.putFloat("Homing", this.homing);
+		out.putBoolean("Gravity", this.gravity);
+		if (this.particle != null) {
+			out.putString("Particle", this.particle);
+		}
+		if (this.effect != null && this.effect.id != null) {
+			ValueOutput e = out.child("Effect");
+			e.putString("id", this.effect.id);
+			e.putInt("duration", this.effect.duration);
+			e.putInt("amplifier", this.effect.amplifier);
+			e.putFloat("chance", this.effect.chance);
+		}
 	}
 
 	@Override
@@ -197,5 +215,20 @@ public class CreatureOrb extends ThrowableProjectile {
 		super.readAdditionalSaveData(in);
 		this.damage = in.getFloatOr("Damage", 3.0F);
 		this.entityData.set(DATA_COLOR, in.getIntOr("Color", 0x7CFF4A));
+		this.entityData.set(DATA_SIZE, Math.max(0.1F, Math.min(1.5F, in.getFloatOr("Size", 0.35F))));
+		this.explode = in.getFloatOr("Explode", 0.0F);
+		this.knockback = in.getFloatOr("Knockback", 0.0F);
+		this.fire = in.getFloatOr("Fire", 0.0F);
+		this.homing = in.getFloatOr("Homing", 0.0F);
+		this.gravity = in.getBooleanOr("Gravity", false);
+		this.particle = in.getString("Particle").orElse(null);
+		this.effect = in.child("Effect").flatMap(e -> e.getString("id").map(id -> {
+			ContentSpec.EffectSpec spec = new ContentSpec.EffectSpec();
+			spec.id = id;
+			spec.duration = e.getIntOr("duration", 100);
+			spec.amplifier = e.getIntOr("amplifier", 0);
+			spec.chance = e.getFloatOr("chance", 1.0F);
+			return spec;
+		})).orElse(null);
 	}
 }
