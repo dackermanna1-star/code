@@ -53,25 +53,30 @@ def _alpha_edge(rho, soft=0.025):
 def portal_core(size=256, seed="portal-core"):
     r, th, rho = _polar(size, seed)
     warp = fbm(size, size, size / 6, seed + "w", octaves=3, tile=False) - 0.5
-    # Archimedean spiral bands (3 arms) winding toward the center
-    s = 3 * th + 15.0 * rho + 4.0 * warp
-    band = 0.5 + 0.5 * np.sin(s)
-    band2 = 0.5 + 0.5 * np.sin(2 * th + 23.0 * rho + 6.0 * warp + 1.3)
-    col = _lerp(DARK, MID, band)
-    col = _lerp(col, DARKER, np.clip((band2 - 0.78) * 4, 0, 1) * 0.8)
-    col = _lerp(col, MID2, np.clip((band - 0.82) * 5, 0, 1))
+    fine = fbm(size, size, size / 14, seed + "f", octaves=2, tile=False) - 0.5
+    # many thin, wiggly spiral streaks like the cartoon portal
+    a = 3 * th + 24.0 * rho + 2.4 * warp + 3.0 * fine
+    b = 4 * th + 33.0 * rho + 3.0 * warp - 2.5 * fine + 1.1
+    c = 2 * th + 41.0 * rho + 4.0 * fine + 2.3
+    col = np.zeros(r.shape + (3,)) + MID
+    col = _lerp(col, MID2, np.clip((np.sin(c) - 0.2) * 2, 0, 1) * 0.6)
+    col = _lerp(col, DARK, np.clip((np.sin(a) - 0.15) * 3, 0, 1))
+    col = _lerp(col, DARKER, np.clip((np.sin(a) - 0.75) * 5, 0, 1) * 0.8)
+    inner = np.clip((0.70 - rho) / 0.2, 0, 1)
+    col = _lerp(col, LIGHT, np.clip((np.sin(b) - 0.72) * 5, 0, 1) * (0.5 + 0.5 * inner))
+    col = _lerp(col, RIM, np.clip((np.sin(b) - 0.9) * 10, 0, 1) * 0.7)
     # lighter center
-    col = _lerp(col, LIGHT, np.clip(1 - rho / 0.22, 0, 1))
-    col = _lerp(col, CENTER, np.clip(1 - rho / 0.12, 0, 1))
-    # rim
-    rim_t = np.clip((rho - 0.66) / 0.08, 0, 1)
-    rim_band = 0.5 + 0.5 * np.sin(4 * th + 30.0 * rho + 5.0 * warp)
+    col = _lerp(col, LIGHT, np.clip(1 - rho / 0.2, 0, 1) * 0.8)
+    col = _lerp(col, CENTER, np.clip(1 - rho / 0.1, 0, 1))
+    # rim: yellow-green with darker streaks following the spiral
+    rim_t = np.clip((rho - 0.68) / 0.06, 0, 1)
+    rim_band = 0.5 + 0.5 * np.sin(4 * th + 30.0 * rho + 5.0 * warp + 2.0 * fine)
     rim_col = _lerp(RIM, RIM_LIGHT, rim_band * 0.6)
-    rim_col = _lerp(rim_col, RIM_STREAK, np.clip((rim_band - 0.8) * 4, 0, 1) * 0.7)
+    rim_col = _lerp(rim_col, RIM_STREAK, np.clip((rim_band - 0.78) * 4, 0, 1) * 0.8)
     col = _lerp(col, rim_col, rim_t)
     col = _add_foam(col, rho, th, size, seed, density=1.0)
-    a = _alpha_edge(rho)
-    return _to_image(col, a)
+    a_ = _alpha_edge(rho)
+    return _to_image(col, a_)
 
 
 def portal_swirl(size=256, seed="portal-swirl"):

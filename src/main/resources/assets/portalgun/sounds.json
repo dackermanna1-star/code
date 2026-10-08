@@ -1,0 +1,253 @@
+{
+  "portal.open": {
+    "sounds": [
+      "portalgun:portal/open1",
+      "portalgun:portal/open2",
+      "portalgun:portal/open3"
+    ],
+    "subtitle": "subtitles.portalgun.portal.open"
+  },
+  "portal.close": {
+    "sounds": [
+      "portalgun:portal/close"
+    ],
+    "subtitle": "subtitles.portalgun.portal.close"
+  },
+  "portal.travel": {
+    "sounds": [
+      "portalgun:portal/travel"
+    ],
+    "subtitle": "subtitles.portalgun.portal.travel"
+  },
+  "portal.idle": {
+    "sounds": [
+      "portalgun:portal/idle"
+    ],
+    "subtitle": "subtitles.portalgun.portal.idle"
+  },
+  "gun.fire": {
+    "sounds": [
+      "portalgun:gun/fire1",
+      "portalgun:gun/fire2",
+      "portalgun:gun/fire3"
+    ],
+    "subtitle": "subtitles.portalgun.gun.fire"
+  },
+  "gun.empty": {
+    "sounds": [
+      "portalgun:gun/empty"
+    ],
+    "subtitle": "subtitles.portalgun.gun.empty"
+  },
+  "gun.reload": {
+    "sounds": [
+      "portalgun:gun/reload"
+    ],
+    "subtitle": "subtitles.portalgun.gun.reload"
+  },
+  "gun.dial": {
+    "sounds": [
+      "portalgun:gun/dial1",
+      "portalgun:gun/dial2"
+    ],
+    "subtitle": "subtitles.portalgun.gun.dial"
+  },
+  "orb.shoot": {
+    "sounds": [
+      "portalgun:orb/shoot"
+    ],
+    "subtitle": "subtitles.portalgun.orb.shoot"
+  },
+  "orb.hit": {
+    "sounds": [
+      "portalgun:orb/hit"
+    ],
+    "subtitle": "subtitles.portalgun.orb.hit"
+  },
+  "dimension.arrive": {
+    "sounds": [
+      "portalgun:dimension/arrive"
+    ],
+    "subtitle": "subtitles.portalgun.dimension.arrive"
+  },
+  "ambient.wind_howl": {
+    "sounds": [
+      {
+        "name": "portalgun:ambient/wind_howl",
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.portalgun.ambient.wind_howl"
+  },
+  "ambient.alien_hum": {
+    "sounds": [
+      {
+        "name": "portalgun:ambient/alien_hum",
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.portalgun.ambient.alien_hum"
+  },
+  "ambient.bubbling": {
+    "sounds": [
+      {
+        "name": "portalgun:ambient/bubbling",
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.portalgun.ambient.bubbling"
+  },
+  "ambient.crystal_chimes": {
+    "sounds": [
+      {
+        "name": "portalgun:ambient/crystal_chimes",
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.portalgun.ambient.crystal_chimes"
+  },
+  "ambient.wet_squelch": {
+    "sounds": [
+      {
+        "name": "portalgun:ambient/wet_squelch",
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.portalgun.ambient.wet_squelch"
+  },
+  "ambient.electric_buzz": {
+    "sounds": [
+      {
+        "name": "portalgun:ambient/electric_buzz",
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.portalgun.ambient.electric_buzz"
+  },
+  "ambient.deep_ocean": {
+    "sounds": [
+      {
+        "name": "portalgun:ambient/deep_ocean",
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.portalgun.ambient.deep_ocean"
+  },
+  "ambient.volcanic_rumble": {
+    "sounds": [
+      {
+        "name": "portalgun:ambient/volcanic_rumble",
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.portalgun.ambient.volcanic_rumble"
+  },
+  "ambient.eerie_choir": {
+    "sounds": [
+      {
+        "name": "portalgun:ambient/eerie_choir",
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.portalgun.ambient.eerie_choir"
+  },
+  "ambient.jungle_night": {
+    "sounds": [
+      {
+        "name": "portalgun:ambient/jungle_night",
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.portalgun.ambient.jungle_night"
+  },
+  "ambient.neon_synth": {
+    "sounds": [
+      {
+        "name": "portalgun:ambient/neon_synth",
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.portalgun.ambient.neon_synth"
+  },
+  "ambient.glitch_noise": {
+    "sounds": [
+      {
+        "name": "portalgun:ambient/glitch_noise",
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.portalgun.ambient.glitch_noise"
+  },
+  "ambient.cosmic_drone": {
+    "sounds": [
+      {
+        "name": "portalgun:ambient/cosmic_drone",
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.portalgun.ambient.cosmic_drone"
+  },
+  "ambient.cozy_breeze": {
+    "sounds": [
+      {
+        "name": "portalgun:ambient/cozy_breeze",
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.portalgun.ambient.cozy_breeze"
+  },
+  "ambient.clockwork": {
+    "sounds": [
+      {
+        "name": "portalgun:ambient/clockwork",
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.portalgun.ambient.clockwork"
+  },
+  "ambient.candy_chime": {
+    "sounds": [
+      {
+        "name": "portalgun:ambient/candy_chime",
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.portalgun.ambient.candy_chime"
+  },
+  "ambient.hive_drone": {
+    "sounds": [
+      {
+        "name": "portalgun:ambient/hive_drone",
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.portalgun.ambient.hive_drone"
+  },
+  "ambient.tidal_waves": {
+    "sounds": [
+      {
+        "name": "portalgun:ambient/tidal_waves",
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.portalgun.ambient.tidal_waves"
+  },
+  "ambient.dark_void": {
+    "sounds": [
+      {
+        "name": "portalgun:ambient/dark_void",
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.portalgun.ambient.dark_void"
+  },
+  "ambient.sizzle_toxic": {
+    "sounds": [
+      {
+        "name": "portalgun:ambient/sizzle_toxic",
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.portalgun.ambient.sizzle_toxic"
+  }
+}

@@ -184,7 +184,7 @@ def _font(size=14):
     return ImageFont.load_default()
 
 
-def _checker_bg(w, h, a=(120, 140, 120), b=(140, 160, 140), cell=8):
+def _checker_bg(w, h, a=(104, 128, 160), b=(118, 142, 174), cell=8):
     im = Image.new("RGBA", (w, h), a + (255,))
     d = ImageDraw.Draw(im)
     for y in range(0, h, cell):

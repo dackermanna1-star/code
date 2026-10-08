@@ -90,6 +90,9 @@ def main():
         content = None
         print("  (gen.content not available yet - no dimensions generated)")
     spec = {"dimensions": [], "blocks": [], "items": [], "creatures": []}
+    if content is not None and not hasattr(content, "build"):
+        print("  (gen.content.build not implemented yet - no dimensions generated)")
+        content = None
     if content is not None:
         only = [s for s in args.only.split(",") if s]
         spec = content.build(RES, lang, sound_table, only=only)

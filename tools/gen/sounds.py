@@ -308,6 +308,7 @@ def _bubble(f0, xi=0.15, damp_mul=1.0, maxdur=0.6):
     n = max(16, _ns(dur))
     t = _tt(n)
     y = np.sin(TAU * f0 * (t + 0.5 * xi * d * t * t)) * np.exp(-d * t)
+    y[:11] *= np.sin(0.5 * np.pi * np.arange(11) / 11.0)  # ~0.25 ms attack: wet, not clicky
     k = max(4, n // 6)
     y[-k:] *= 0.5 + 0.5 * np.cos(np.pi * np.arange(1, k + 1) / k)
     return y
@@ -495,7 +496,7 @@ def _portal_open(v):
     fsub = 36.0 + 32.0 * np.exp(-np.maximum(st, 0.0) / 0.08)
     sub = np.sin(TAU * np.cumsum(fsub) / SR) * np.where(st < 0, 0.0, np.minimum(1.0, np.maximum(st, 0) / 0.015)
                                                        * np.exp(-np.maximum(st, 0) / 0.17))
-    mix = 0.9 * _pkn(swirl) + 0.6 * _pkn(bub) + 0.3 * _pkn(vw) + 0.75 * _pkn(sub)
+    mix = 1.0 * _pkn(swirl) + 0.6 * _pkn(bub) + 0.3 * _pkn(vw) + 0.5 * _pkn(sub)
     return c.reverb(mix, 0.9, 0.22, damp=0.8, key="room")
 
 
@@ -531,7 +532,7 @@ def _portal_close(v):
     t2 = _tt(n2)
     ft = 48.0 + 120.0 * np.exp(-t2 / 0.035)
     c.add(thoop, np.sin(TAU * np.cumsum(ft) / SR) * _decaying(n2, 0.06, 0.004), _ns(te - 0.004))
-    c.add(thoop, 0.6 * _bubble(240.0, xi=0.7), _ns(te))
+    c.add(thoop, 0.6 * _bubble(240.0, xi=0.3), _ns(te))
     for _ in range(10):
         c.add(thoop, 0.25 * _bubble(np.exp(r.uniform(np.log(400), np.log(1400))), xi=0.3),
               _ns(te + r.gamma(1.2, 0.04)))
@@ -751,7 +752,7 @@ def _dimension_arrive(v):
     pad = (np.sin(TAU * float(_midi(50)) * t) + 0.6 * np.sin(TAU * float(_midi(57)) * t)
            + 0.3 * np.sin(TAU * float(_midi(62)) * t))
     pad *= _smoothstep(t / 0.45) * np.exp(-np.maximum(t - 0.45, 0) / 0.4)
-    mix = _pkn(y) + 0.12 * _pkn(sh) + 0.35 * _pkn(pad)
+    mix = _pkn(y) + 0.12 * _pkn(sh) + 0.22 * _pkn(pad)
     mix = c.reverb(mix, 2.2, 0.45, damp=1.2, key="hall")
     return _fade(mix, 0.0, 0.4)
 
@@ -775,7 +776,7 @@ def _amb_wind_howl(c):
         amp = (c.u(0.06, "ha", i) * (0.3 + gust)) ** 1.6
         howl += lvl * amp * (c.narrow(f, bw, "hn", i) + 0.15 * c.narrow(2.0 * f, bw * 1.5, "hn2", i))
     rumble = c.shape(c.white("rumble"), lambda f: _lp(f, 110.0, 3) * _hp(f, 30.0, 2)) * (0.45 + 0.55 * gust)
-    return _rmsn(body) + 0.55 * _rmsn(howl) + 0.35 * _rmsn(rumble)
+    return _rmsn(body) + 0.55 * _rmsn(howl) + 0.2 * _rmsn(rumble)
 
 
 def _amb_alien_hum(c):
@@ -867,7 +868,7 @@ def _amb_crystal_chimes(c):
     pad = c.zeros()
     for k, m in enumerate((76, 83, 88)):
         pad += c.sine(float(_midi(m)) * (1 + 0.0005 * k), k) * c.u(0.05, "pad", k, lo=0.2, hi=1.0)
-    mix = _pkn(ch) * 3.0 + 0.25 * _rmsn(air) + 0.1 * _rmsn(pad)
+    mix = _pkn(ch) * 3.0 + 0.08 * _rmsn(air) + 0.04 * _rmsn(pad)
     return c.reverb(mix, 2.8, 0.35, damp=1.2)
 
 
@@ -935,15 +936,15 @@ def _thunder(r, dur=6.0):
     env_l = np.zeros(n)
     env_m = np.zeros(n)
     for i in range(r.integers(4, 8)):
-        s = 0.1 if i == 0 else r.uniform(0.2, dur * 0.45)
-        at = r.uniform(0.12, 0.45)
+        s = 0.1 if i == 0 else r.uniform(0.3, dur * 0.45)
+        at = r.uniform(0.35, 0.8)
         dc = r.uniform(0.5, 1.8)
         a = r.uniform(0.4, 1.0) * (1.4 if i == 0 else 1.0)
         tt = t - s
         e = np.where(tt < 0, 0.0, _smoothstep(tt / at) * np.exp(-np.maximum(tt - at, 0) / dc))
         env_l += a * e
         env_m += a * e ** 2
-    return _fade(_rmsn(low) * env_l + 0.35 * _rmsn(mid) * env_m, 0.05, 1.0)
+    return _fade(_rmsn(low) * env_l + 0.35 * _rmsn(mid) * env_m, 0.3, 1.0)
 
 
 def _amb_electric_buzz(c):
@@ -964,7 +965,7 @@ def _amb_electric_buzz(c):
     ph = c.phase(f_b)
     buzz = _saw(ph, f_b) + 0.5 * _saw(ph * 2.0 + 0.3, f_b * 2)
     buzz = c.filt(buzz, _rbj("hp", 250.0, 0.7), _rbj("peak", 1800.0, 1.2, 6.0), _rbj("lp", 4500.0, 0.7))
-    buzz *= 0.15 + 0.35 * c.u(0.25, "bamp") ** 2 + 1.2 * arc
+    buzz *= 0.15 + 0.35 * c.u(0.25, "bamp") ** 2 + 0.45 * arc
     static = c.shape(c.white("static"), lambda f: _hp(f, 600.0) * _lp(f, 9000.0) * (f / 4000.0 + 0.3) ** 0.3)
     static *= 0.6 + 0.4 * c.u(0.6, "stam")
     thunder = c.zeros()
@@ -972,8 +973,8 @@ def _amb_electric_buzz(c):
         thunder_r = c.rng("thunder", i)
         c.add(thunder, _thunder(thunder_r, 6.5) * (1.0 if i == 0 else 0.75), _ns(frac * c.sec + r.uniform(-1, 1)))
     hum = c.sine(c.qf(60.0)) * 0.5 + c.sine(c.qf(180.0)) * 0.2
-    mix = (0.35 * _pkn(crackle) + 0.35 * _rmsn(buzz) * 0.3 + 0.05 * _rmsn(static) + 0.9 * _pkn(thunder)
-           + 0.05 * hum)
+    mix = (0.55 * _pkn(crackle) + 0.08 * _rmsn(buzz) + 0.06 * _rmsn(static) + 1.3 * _pkn(thunder)
+           + 0.04 * hum)
     return c.reverb(mix, 1.6, 0.2, damp=0.7)
 
 
@@ -1016,7 +1017,7 @@ def _amb_deep_ocean(c):
                   p + _ns(r.exponential(0.35)))
     bub = c.filt(bub, _rbj("lp", 1200.0, 0.7))
     calls = c.reverb(calls, 4.5, 0.9, damp=0.35, key="deep", dry=0.4)
-    mix = _rmsn(bed) + 0.12 * _rmsn(far) + 1.6 * _pkn(calls) + 0.25 * _pkn(bub)
+    mix = 0.45 * _rmsn(bed) + 0.06 * _rmsn(far) + 2.4 * _pkn(calls) + 0.35 * _pkn(bub)
     mix = c.reverb(mix, 2.0, 0.25, damp=0.4)
     return c.filt(mix, _rbj("lp", 2200.0, 0.7))
 
@@ -1049,7 +1050,7 @@ def _amb_volcanic_rumble(c):
         b += _thump(70.0, 38.0, 0.08, 0.5, 3.0, 0.01)
         c.add(booms, b, _ns(frac * c.sec))
     booms = c.reverb(booms, 3.0, 0.6, damp=0.4, key="boom")
-    mix = _rmsn(rumble) + 0.15 * _rmsn(roar) + 0.7 * _pkn(blorp) + 0.25 * _pkn(crackle) + 0.9 * _pkn(booms)
+    mix = 0.6 * _rmsn(rumble) + 0.2 * _rmsn(roar) + 1.6 * _pkn(blorp) + 0.7 * _pkn(crackle) + 2.0 * _pkn(booms)
     return c.reverb(mix, 1.5, 0.2, damp=0.5)
 
 
@@ -1143,7 +1144,7 @@ def _amb_jungle_night(c):
     kat = c.filt(kat, _rbj("bp", 7200.0, 2.0), _rbj("bp", 7200.0, 2.0))
     # frogs
     frogs = c.zeros()
-    for p in c.poisson(0.22, "treefrog"):
+    for p in c.poisson(0.3, "treefrog"):
         fc = r.uniform(1500.0, 2300.0)
         for j in range(r.integers(3, 7)):
             call = _frog(fc, 0.08, r.uniform(110, 150), r)
@@ -1151,7 +1152,7 @@ def _amb_jungle_night(c):
             c.add(frogs, call * r.uniform(0.6, 1.0), p + _ns(j * r.uniform(0.32, 0.45)))
     for p in c.poisson(0.12, "bullfrog"):
         for j in range(r.integers(1, 3)):
-            c.add(frogs, 1.3 * _frog(r.uniform(170.0, 220.0), 0.38, 28.0, r, harm=0.8), p + _ns(j * 0.9))
+            c.add(frogs, 0.6 * _frog(r.uniform(170.0, 220.0), 0.38, 28.0, r, harm=0.8), p + _ns(j * 0.9))
     # an alien night bird: two soft hoots
     hoot = c.zeros()
     for p in c.poisson(0.07, "hoot"):
@@ -1224,8 +1225,8 @@ def _amb_neon_synth(c):
     pad = c.stft(pad, lambda ci, f: _lp(f, 700.0 + 1000.0 * lfo[ci], 2) * (1.0 + 0.6 * _band(f, 700.0 + 1000.0 * lfo[ci], 0.3)))
     arp = c.filt(arp, _rbj("lp", 3200.0, 0.8))
     arp = c.delay_fb(arp, 3 * beat / 4, 0.38, lp=2500.0, wet=0.4)
-    mix = 0.55 * _rmsn(pad) + 0.5 * _rmsn(arp) + 0.4 * _rmsn(bass)
-    mix = np.tanh(0.8 * mix / np.max(np.abs(mix)) * 1.5)
+    mix = 0.35 * _rmsn(pad) + 0.6 * _rmsn(arp) + 0.4 * _rmsn(bass)
+    mix = np.tanh(1.1 * mix / np.max(np.abs(mix)))  # gentle tape-ish saturation
     return c.reverb(mix, 2.2, 0.3, damp=1.0, key="hall")
 
 
@@ -1287,7 +1288,7 @@ def _amb_glitch_noise(c):
     data = c.white("data")
     data = data[(np.arange(c.n) // 49) * 49]
     data = c.shape(data, lambda f: _lp(f, 3000.0) * _hp(f, 300.0)) * c.u(0.2, "data") ** 3
-    mix = 0.8 * _pkn(ev) + 0.18 * _rmsn(hum) * 0.4 + 0.02 * _rmsn(hiss) + 0.06 * _rmsn(data)
+    mix = 0.8 * _pkn(ev) + 0.07 * _rmsn(hum) + 0.015 * _rmsn(hiss) + 0.03 * _rmsn(data)
     return c.reverb(mix, 0.9, 0.18, damp=1.0)
 
 
@@ -1362,13 +1363,13 @@ def _amb_cozy_breeze(c):
     birds = c.zeros()
     for i in range(9):
         sp = r.integers(0, 3)
-        dist = r.uniform(0.25, 1.0)
+        dist = r.uniform(0.4, 1.0)
         ph = _bird_phrase(r, sp)
         if dist < 0.5:
             ph = _filt(ph, [_rbj("lp", 5000.0, 0.7)])
         c.add(birds, ph * dist, _ns((i + r.uniform(0.0, 0.7)) * c.sec / 9))
     birds = c.reverb(birds, 1.0, 0.35, damp=1.0, key="birds")
-    mix = _rmsn(wind) + 0.3 * _rmsn(rustle) + 0.8 * _pkn(birds)
+    mix = 0.45 * _rmsn(wind) + 0.18 * _rmsn(rustle) + 2.2 * _pkn(birds)
     return c.reverb(mix, 0.8, 0.12, damp=1.0)
 
 
@@ -1386,7 +1387,7 @@ def _amb_clockwork(c):
             tk = _modal(np.array((2350.0, 3920.0, 6100.0, 900.0)) * jit, (0.025, 0.015, 0.008, 0.012),
                         (1.0, 0.6, 0.4, 0.5), 0.07)
             tk = tk + 0.3 * np.concatenate([_click(r, 0.004, 2000.0, 0.0006), np.zeros(len(tk) - _ns(0.004))])
-        c.add(ticks, tk * r.uniform(0.85, 1.0), _ns(k * period))
+        c.add(ticks, tk * r.uniform(0.85, 1.0), _ns(0.13 + k * period))
     ratchet = c.zeros()
     for s0 in np.arange(1.0, c.sec, 8.0):
         length = r.uniform(2.0, 4.0)
@@ -1394,7 +1395,7 @@ def _amb_clockwork(c):
             rk = _modal((6200.0 * r.uniform(0.98, 1.02), 8900.0), (0.004, 0.003), (1.0, 0.6), 0.015)
             c.add(ratchet, rk * r.uniform(0.5, 1.0) * np.sin(np.pi * k / (length * 12)), _ns(s0 + k / 12.0))
     clunk = c.zeros()
-    for s0 in np.arange(0.25, c.sec, 6.0):
+    for s0 in np.arange(0.38, c.sec, 6.0):
         ck = _modal((190.0, 430.0, 970.0, 1650.0), (0.12, 0.06, 0.04, 0.02), (1.0, 0.7, 0.4, 0.3), 0.4)
         thud = _filt(r.standard_normal(_ns(0.1)) * _decaying(_ns(0.1), 0.02, 0.001), [_rbj("lp", 400.0, 0.7)])
         c.add(clunk, ck, _ns(s0))
@@ -1406,7 +1407,7 @@ def _amb_clockwork(c):
         sus = r.uniform(0.4, 1.2)
         n2 = _ns(0.08 + sus + 0.6)
         t2 = _tt(n2)
-        env = _smoothstep(t2 / 0.08) * (1.0 - _smoothstep((t2 - 0.08 - sus) / 0.6))
+        env = _smoothstep(t2 / 0.15) * (1.0 - _smoothstep((t2 - 0.08 - sus) / 0.6)) * (1.0 - 0.4 * t2 / t2[-1])
         sr_ = c.rng("steam", i)
         hs = sr_.standard_normal(n2) * env * (1.0 + 0.15 * np.sin(TAU * sr_.uniform(25, 40) * t2))
         hs = _filt(hs, [_rbj("hp", 2200.0, 0.7), _rbj("peak", 4500.0, 1.0, 5.0), _rbj("lp", 10000.0, 0.7)])
@@ -1482,9 +1483,21 @@ def _amb_hive_drone(c):
         bee = _saw(ph, f) * (0.15 + near) * (1.0 + 0.12 * c.smooth(25.0, "flap", i))
         hive += bee
     hive = c.filt(hive, _rbj("hp", 120.0, 0.7), _rbj("peak", 450.0, 1.0, 6.0), _rbj("lp", 2200.0, 0.7))
+    # a few close fly-bys: loudness ~1/distance, exaggerated doppler glide
+    fly = c.zeros()
+    T = c.t
+    for i in range(5):
+        tc = (i + r.uniform(0.2, 0.8)) * c.sec / 5
+        x = (np.mod(T - tc + c.sec / 2, c.sec) - c.sec / 2) * r.uniform(1.5, 3.0)
+        dist = np.sqrt(x * x + r.uniform(0.6, 1.2) ** 2)
+        base = r.uniform(190.0, 250.0)
+        f = base * (1.0 - 0.05 * x / dist) * (1.0 + 0.01 * c.smooth(3.0, "fj", i))
+        ph = c.phase(f)
+        fly += (_saw(ph, f) + 0.4 * np.sin(TAU * ph)) / dist ** 1.5 * (1.0 + 0.15 * c.smooth(30.0, "ff", i))
+    fly = c.filt(fly, _rbj("hp", 150.0, 0.7), _rbj("peak", 600.0, 1.2, 5.0), _rbj("lp", 3500.0, 0.7))
     hum = c.sine(c.qf(110.0)) + 0.5 * c.sine(c.qf(220.4), 1.0) + 0.25 * c.sine(c.qf(330.0), 2.0)
     hum *= c.u(0.08, "hum", lo=0.5, hi=1.0)
-    mix = _rmsn(hive) + 0.25 * _rmsn(hum)
+    mix = _rmsn(hive) + 0.25 * _rmsn(hum) + 0.9 * _pkn(fly) * 2.5
     return c.reverb(mix, 1.0, 0.25, damp=0.8)
 
 
@@ -1503,14 +1516,14 @@ def _amb_tidal_waves(c):
         a = r.uniform(0.7, 1.0)
         s = np.mod(T - tc + L / 2, L) - L / 2
         low += a * np.where(s < 0, _ex(s / 1.6), _ex(-s / 1.2))
-        cr = a * np.where(s < 0, _ex(s / 0.45), _ex(-s / 1.3))
+        cr = a * np.where(s < 0, _ex(s / 0.8), _ex(-s / 1.3))
         crash += cr
         bright = np.maximum(bright, cr)
         sw = np.maximum(s - 0.2, 0.0)
         wash += a * np.where(s < 0.2, 0.0, (1.0 - np.exp(-sw / 0.5)) * np.exp(-sw / 2.6))
 
     def gain(ci, f):
-        fc = 500.0 + 3500.0 * bright[ci]
+        fc = 450.0 + 2600.0 * bright[ci]
         g2 = (low[ci] ** 2) * _lp(f, 350.0, 2) ** 2
         g2 = g2 + (crash[ci] ** 2) * (_lp(f, fc, 2) * (200.0 / np.maximum(f, 200.0)) ** 0.4) ** 2
         g2 = g2 + (0.6 * wash[ci]) ** 2 * (_hp(f, 1500.0) * _lp(f, 10000.0) * (1500.0 / np.maximum(f, 1500.0)) ** 0.3) ** 2
@@ -1549,7 +1562,7 @@ def _amb_dark_void(c):
             c.add(ev, 0.6 * g, _ns(start))
         elif kind == 1:  # distant boom
             n2 = _ns(2.5)
-            b = _filt(er.standard_normal(n2), [_rbj("lp", 140.0, 0.7)]) * _decaying(n2, 0.35, 0.02) * 3.0
+            b = _filt(er.standard_normal(n2), [_rbj("lp", 140.0, 0.7), _rbj("lp", 200.0, 0.7)]) * _decaying(n2, 0.35, 0.06) * 3.0
             b += _thump(60.0, 34.0, 0.1, 0.6, 2.5, 0.01) * 1.5
             c.add(ev, b, _ns(start))
         else:  # reversed swell / indrawn breath of the void
@@ -1588,7 +1601,7 @@ def _amb_sizzle_toxic(c):
     for p in c.poisson(0.5, "blorp"):
         c.add(blorp, _bubble(r.uniform(110.0, 210.0), xi=0.6, damp_mul=1.4) * r.uniform(0.6, 1.0), p)
     mix = (0.7 * _pkn(bub) + 0.25 * _pkn(fizz) + 0.04 * _rmsn(hiss) + 0.55 * _pkn(geiger)
-           + 0.1 * _rmsn(hum) + 0.5 * _pkn(blorp))
+           + 0.045 * _rmsn(hum) + 0.5 * _pkn(blorp))
     return c.reverb(mix, 0.6, 0.15, damp=0.9)
 
 
@@ -1676,12 +1689,28 @@ def _master_oneshot(x):
     return x * (_db(ONESHOT_PEAK_DB) / np.max(np.abs(x)))
 
 
-def _master_loop(x):
+def _soft_limit(x, ceiling, knee=0.7):
+    """Memoryless soft knee: untouched below knee*ceiling, approaches ceiling smoothly above it."""
+    th = knee * ceiling
+    h = ceiling - th
+    a = np.abs(x)
+    over = np.maximum(a - th, 0.0)
+    return np.sign(x) * (np.minimum(a, th) + h * np.tanh(over / h))
+
+
+def _master_loop(x, max_squash_db=5.0):
+    """DC/rumble cleanup, loudness to ~LOOP_TARGET_LUFS with peaks held at LOOP_PEAK_DB.
+    Rare peaks (thunder, ticks) are soft-limited by at most max_squash_db instead of turning the
+    whole loop down. Everything is memoryless or circular, so the loop stays seamless."""
     x = x - np.mean(x)
     x = _filt(x, [_rbj("hp", 25.0, 0.7)], circular=True)
+    ceiling = _db(LOOP_PEAK_DB)
     g = _db(LOOP_TARGET_LUFS - lufs(x))
-    g = min(g, _db(LOOP_PEAK_DB) / np.max(np.abs(x)))
-    return x * g
+    g = min(g, ceiling * _db(max_squash_db) / np.max(np.abs(x)))
+    y = _soft_limit(x * g, ceiling)
+    # limiting lowers loudness slightly; one correction pass (never above the ceiling)
+    g2 = min(_db(LOOP_TARGET_LUFS - lufs(y)), ceiling / np.max(np.abs(y)))
+    return y * min(g2, 1.0) if g2 < 1.0 else y
 
 
 def _variants():

@@ -8,7 +8,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
+import net.fabricmc.fabric.api.attachment.v1.AttachmentSyncPredicate;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
+import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.Vec3;
 
@@ -23,6 +25,7 @@ public final class ModAttachments {
 	public static final AttachmentType<Set<Identifier>> VISITED = AttachmentRegistry.create(PortalGunMod.id("visited"),
 		builder -> builder.persistent(Identifier.CODEC.listOf().xmap(HashSet::new, s -> List.copyOf(s)))
 			.initializer(HashSet::new)
+			.syncWith(ByteBufCodecs.collection(HashSet::new, Identifier.STREAM_CODEC), AttachmentSyncPredicate.targetOnly())
 			.copyOnDeath());
 
 	private ModAttachments() {

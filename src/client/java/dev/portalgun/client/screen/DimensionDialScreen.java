@@ -32,6 +32,7 @@ public class DimensionDialScreen extends Screen {
 	private static final int DIM_GREEN = 0xFF3C8A2A;
 
 	private final InteractionHand hand;
+	private final java.util.Set<Identifier> visited;
 	private final Identifier current;
 	private EditBox search;
 	private List<Destination> filtered = new ArrayList<>();
@@ -48,6 +49,9 @@ public class DimensionDialScreen extends Screen {
 		super(Component.translatable("screen.portalgun.dial"));
 		this.hand = hand;
 		this.current = PortalGunItem.getDestination(gun);
+		java.util.Set<Identifier> v = net.minecraft.client.Minecraft.getInstance().player == null ? null
+			: net.minecraft.client.Minecraft.getInstance().player.getAttached(dev.portalgun.registry.ModAttachments.VISITED);
+		this.visited = v == null ? java.util.Set.of() : v;
 	}
 
 	@Override
@@ -161,7 +165,8 @@ public class DimensionDialScreen extends Screen {
 		this.openAnim = Math.min(1.0F, this.openAnim + partialTick * 0.15F);
 		super.render(g, mouseX, mouseY, partialTick);
 		g.drawString(this.font, Component.translatable("screen.portalgun.dial").withStyle(ChatFormatting.BOLD), this.left, 8, GREEN);
-		String count = this.filtered.size() + " / " + Destinations.all().size();
+		long total = Destinations.all().stream().filter(d -> !d.vanilla()).count();
+		String count = "Visited " + this.visited.size() + " / " + total + "    Showing " + this.filtered.size();
 		g.drawString(this.font, count, this.left + this.gridW - this.font.width(count), 8, 0xFF5E9E4A);
 
 		// frame
@@ -230,6 +235,8 @@ public class DimensionDialScreen extends Screen {
 		}
 		if (selected) {
 			g.drawString(this.font, "◆", x + w - 10, y + 4, GREEN);
+		} else if (this.visited.contains(d.id())) {
+			g.drawString(this.font, "✔", x + w - 11, y + 4, 0xFF6FB85A);
 		}
 	}
 

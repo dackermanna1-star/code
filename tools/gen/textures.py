@@ -1787,3 +1787,1071 @@ def _chunky(ids, base, noise, top=5):
 
 
 # ---- END OF BLOCKS ----
+
+class _Cv:
+    """Tiny RGBA float canvas for sprites."""
+
+    def __init__(self, w=S, h=S):
+        self.w, self.h = w, h
+        self.a = np.zeros((h, w, 4))
+
+    def px(self, x, y, c, alpha=255):
+        x, y = int(math.floor(x)), int(math.floor(y))
+        if 0 <= x < self.w and 0 <= y < self.h:
+            self.a[y, x, :3] = np.asarray(c, float)[:3]
+            self.a[y, x, 3] = alpha
+
+    def has(self, x, y):
+        x, y = int(math.floor(x)), int(math.floor(y))
+        return 0 <= x < self.w and 0 <= y < self.h and self.a[y, x, 3] > 0
+
+    def line(self, x0, y0, x1, y1, c, alpha=255):
+        for (x, y) in _line_pts(math.floor(x0), math.floor(y0), math.floor(x1), math.floor(y1)):
+            self.px(x, y, c, alpha)
+
+    def fill(self, mask, c, alpha=255):
+        c = np.asarray(c, float)
+        if c.ndim == 1:
+            self.a[mask, :3] = c[:3]
+        else:
+            self.a[mask, :3] = c[mask][..., :3]
+        self.a[mask, 3] = alpha if np.ndim(alpha) == 0 else alpha[mask]
+
+    def paint(self, mask, idx, ramp, alpha=255):
+        """Fill ``mask`` with ramp colours chosen by the index array ``idx``."""
+        ramp = np.asarray(ramp, float)
+        ii = np.clip(idx, 0, len(ramp) - 1)
+        self.a[mask, :3] = ramp[ii[mask]][..., :3]
+        self.a[mask, 3] = alpha if np.ndim(alpha) == 0 else alpha[mask]
+
+    def over(self, other):
+        """Composite another canvas on top of this one (binary alpha wins)."""
+        m = other.a[..., 3] > 0
+        self.a[m] = other.a[m]
+        return self
+
+    @property
+    def mask(self):
+        return self.a[..., 3] > 0
+
+    def img(self):
+        return _img(self.a)
+
+
+def _mgrid(w=S, h=S):
+    yy, xx = np.mgrid[0:h, 0:w]
+    return xx + 0.5, yy + 0.5
+
+
+def _ellipse(cx, cy, rx, ry, w=S, h=S):
+    X, Y = _mgrid(w, h)
+    return ((X - cx) / rx) ** 2 + ((Y - cy) / ry) ** 2 <= 1.0
+
+
+def _poly(pts, w=S, h=S):
+    """Mask of pixels whose centre lies inside polygon ``pts``."""
+    X, Y = _mgrid(w, h)
+    inside = np.zeros((h, w), bool)
+    n = len(pts)
+    for i in range(n):
+        x0, y0 = pts[i]
+        x1, y1 = pts[(i + 1) % n]
+        cond = ((y0 > Y) != (y1 > Y))
+        with np.errstate(divide="ignore", invalid="ignore"):
+            xint = (x1 - x0) * (Y - y0) / ((y1 - y0) if y1 != y0 else 1e-9) + x0
+        inside ^= cond & (X < xint)
+    return inside
+
+
+def _thick(pts_list, w=S, h=S, rad=0.75):
+    """Mask of a thick polyline (distance to segments < rad)."""
+    X, Y = _mgrid(w, h)
+    m = np.zeros((h, w), bool)
+    for (x0, y0), (x1, y1) in zip(pts_list[:-1], pts_list[1:]):
+        dx, dy = x1 - x0, y1 - y0
+        L2 = dx * dx + dy * dy or 1e-9
+        t = np.clip(((X - x0) * dx + (Y - y0) * dy) / L2, 0, 1)
+        d = np.hypot(X - (x0 + t * dx), Y - (y0 + t * dy))
+        m |= d < rad
+    return m
+
+
+def _dist_in(mask, cap=8):
+    """Steps of 4-neighbour erosion until each pixel disappears (edge pixels = 1)."""
+    d = np.zeros(mask.shape)
+    cur = mask.copy()
+    k = 0
+    while cur.any() and k < cap:
+        k += 1
+        d[cur] = k
+        p = np.pad(cur, 1)
+        cur = p[1:-1, 1:-1] & p[:-2, 1:-1] & p[2:, 1:-1] & p[1:-1, :-2] & p[1:-1, 2:]
+    return d
+
+
+def _shade(mask, light=(-1.0, -1.1), depth=2.5, nz=0.55, flat=0.0):
+    """Pseudo-3D lighting of an arbitrary mask: 0 (dark) .. 1 (lit), top-left light."""
+    d = _dist_in(mask)
+    h = np.sqrt(np.minimum(d, depth) / depth)
+    p = np.pad(h, 1)
+    gx = (p[1:-1, 2:] - p[1:-1, :-2]) / 2
+    gy = (p[2:, 1:-1] - p[:-2, 1:-1]) / 2
+    nx, ny = -gx, -gy
+    nn = np.sqrt(nx * nx + ny * ny + nz * nz)
+    lx, ly = light
+    lz = 1.0
+    ln = math.sqrt(lx * lx + ly * ly + lz * lz)
+    dot = (nx * lx + ny * ly + nz * lz) / (nn * ln)
+    s = np.clip(0.5 + 0.5 * dot + flat, 0, 1)
+    return np.where(mask, s, 0)
+
+
+def _sphere(cx, cy, rad, w=S, h=S, light=(-0.55, -0.65, 0.55)):
+    """(mask, shade 0..1) for a lit sphere/disc."""
+    X, Y = _mgrid(w, h)
+    dx, dy = (X - cx) / rad, (Y - cy) / rad
+    r2 = dx * dx + dy * dy
+    m = r2 <= 1.0
+    nz = np.sqrt(np.clip(1 - r2, 0, 1))
+    L = np.array(light, float)
+    L /= np.linalg.norm(L)
+    s = np.clip(dx * L[0] + dy * L[1] + nz * L[2], 0, 1)
+    return m, np.where(m, s, 0)
+
+
+def _outline(cv, k=0.45, color=None, diag=False):
+    """Add a 1px darker outline outside the opaque pixels (vanilla item style)."""
+    a = cv.a
+    m = a[..., 3] > 0
+    acc = np.zeros(a.shape[:2] + (3,))
+    cnt = np.zeros(a.shape[:2])
+    offs = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    if diag:
+        offs += [(-1, -1), (1, 1), (-1, 1), (1, -1)]
+    for dy, dx in offs:
+        sm = np.zeros_like(m)
+        sc = np.zeros_like(acc)
+        ys = slice(max(0, dy), a.shape[0] + min(0, dy))
+        yd = slice(max(0, -dy), a.shape[0] + min(0, -dy))
+        xs = slice(max(0, dx), a.shape[1] + min(0, dx))
+        xd = slice(max(0, -dx), a.shape[1] + min(0, -dx))
+        sm[yd, xd] = m[ys, xs]
+        sc[yd, xd] = a[ys, xs, :3]
+        acc += sc * sm[..., None]
+        cnt += sm
+    ring = (cnt > 0) & ~m
+    for y, x in zip(*np.nonzero(ring)):
+        if color is not None:
+            c = _rgb(color)[:3]
+        else:
+            c = _darker(acc[y, x] / cnt[y, x], k)
+        a[y, x, :3] = c
+        a[y, x, 3] = 255
+    return cv
+
+
+def _inner_outline(cv, k=0.5):
+    """Darken the opaque pixels that touch transparency (outline drawn inside)."""
+    a = cv.a
+    m = a[..., 3] > 0
+    p = np.pad(m, 1)
+    edge = m & ~(p[:-2, 1:-1] & p[2:, 1:-1] & p[1:-1, :-2] & p[1:-1, 2:])
+    for y, x in zip(*np.nonzero(edge)):
+        a[y, x, :3] = _darker(a[y, x, :3], k)
+    return cv
+
+
+def _curve(x0, y0, x1, y1, bend=0.0, steps=24):
+    """Quadratic curve points from (x0,y0) to (x1,y1); ``bend`` offsets the control point."""
+    mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+    dx, dy = x1 - x0, y1 - y0
+    L = math.hypot(dx, dy) or 1
+    cx, cy = mx - dy / L * bend, my + dx / L * bend
+    pts = []
+    for i in range(steps + 1):
+        t = i / steps
+        x = (1 - t) ** 2 * x0 + 2 * (1 - t) * t * cx + t * t * x1
+        y = (1 - t) ** 2 * y0 + 2 * (1 - t) * t * cy + t * t * y1
+        pts.append((x, y))
+    return pts
+
+
+def _plot(cv, pts, color_fn, skip_dupes=True):
+    """Plot a sequence of float points as 1px pixels (8-connected, no doubled corners)."""
+    last = None
+    out = []
+    for i, (x, y) in enumerate(pts):
+        p = (int(math.floor(x)), int(math.floor(y)))
+        if p == last:
+            continue
+        if last is not None and abs(p[0] - last[0]) > 1 or last is not None and abs(p[1] - last[1]) > 1:
+            for q in _line_pts(last[0], last[1], p[0], p[1])[1:-1]:
+                out.append((q, i / max(1, len(pts) - 1)))
+        out.append((p, i / max(1, len(pts) - 1)))
+        last = p
+    # remove L-corners: if a, b, c where a and c are diagonal neighbours, drop b
+    clean = []
+    for j, item in enumerate(out):
+        if 0 < j < len(out) - 1:
+            (ax, ay), _ = clean[-1] if clean else out[j - 1]
+            (cx, cy), _ = out[j + 1]
+            if abs(ax - cx) == 1 and abs(ay - cy) == 1:
+                continue
+        clean.append(item)
+    for (p, t) in clean:
+        c = color_fn(t)
+        if c is not None:
+            cv.px(p[0], p[1], c)
+    return [p for p, _ in clean]
+
+
+def _leaf(cv, x, y, dx, dy, ln, ramp, light_side=True):
+    """Small pointed leaf: ``ln`` pixels from (x,y) along (dx,dy) with a lighter top edge."""
+    for i in range(ln):
+        px, py = x + dx * i, y + dy * i
+        cv.px(px, py, ramp[min(len(ramp) - 1, 1 + i)])
+        if 0 < i < ln - 1:
+            cv.px(px, py + 1, ramp[max(0, i)])
+
+
+def grass_tuft(pal, seed):
+    """Short grass: a fan of 1px blades, darker at the base, light tips."""
+    r = _ramp(pal, 5)
+    cv = _Cv()
+    R = _R(seed, "t")
+    nb = int(R.integers(7, 10))
+    blades = []
+    for i in range(nb):
+        x0 = 2.5 + i * (10.5 / (nb - 1)) + R.uniform(-0.6, 0.6)
+        centre = 1 - abs(x0 - 8) / 7
+        h = 5 + centre * 7 + R.uniform(-1.5, 2.5)
+        lean = (x0 - 8) / 6 * R.uniform(1.0, 3.0) + R.uniform(-1, 1)
+        shade = int(R.integers(0, 2))
+        blades.append((shade, x0, h, lean))
+    blades.sort(key=lambda b: b[0])
+    for shade, x0, h, lean in blades:
+        pts = [(x0 + lean * (k / 20) ** 1.7, 15.5 - h * k / 20) for k in range(21)]
+
+        def col(t, shade=shade):
+            k = 0 + shade if t < 0.25 else (1 + shade if t < 0.55 else (2 + shade if t < 0.85 else 3 + shade))
+            return r[min(4, k)]
+        _plot(cv, pts, col)
+    return cv.img()
+
+
+def _tall_plant(pal, seed):
+    r = _ramp(pal, 5)
+    cv = _Cv(S, 2 * S)
+    R = _R(seed, "tall")
+    blades = []
+    for i in range(int(R.integers(4, 6))):  # long blades reaching into the top half
+        x0 = 4 + i * 2.2 + R.uniform(-0.8, 0.8)
+        h = R.uniform(20, 29)
+        lean = (x0 - 8) / 4 * R.uniform(1, 3) + R.uniform(-1.5, 1.5)
+        blades.append((int(R.integers(0, 2)), x0, h, lean))
+    for i in range(int(R.integers(4, 7))):  # short blades at the base
+        x0 = 2.5 + R.uniform(0, 11)
+        h = R.uniform(5, 12)
+        lean = (x0 - 8) / 3 + R.uniform(-1, 1)
+        blades.append((0, x0, h, lean))
+    blades.sort(key=lambda b: b[0])
+    for shade, x0, h, lean in blades:
+        pts = [(x0 + lean * (k / 40) ** 1.6, 31.5 - h * k / 40) for k in range(41)]
+
+        def col(t, shade=shade, h=h):
+            ht = (h * t) / 29
+            k = 0 + shade if ht < 0.15 else (1 + shade if ht < 0.45 else (2 + shade if ht < 0.8 else 3 + shade))
+            return r[min(4, k)]
+        _plot(cv, pts, col)
+    # a couple of side leaves on the long blades
+    for shade, x0, h, lean in blades[:3]:
+        y = 31 - int(h * 0.45)
+        x = x0 + lean * 0.45 ** 1.6
+        d = 1 if lean >= 0 else -1
+        cv.px(x + d, y - 1, r[2])
+        cv.px(x + 2 * d, y - 2, r[3])
+    return cv
+
+
+def tall_plant_bottom(pal, seed):
+    """Lower half of a two-block tall plant (pairs with ``tall_plant_top`` for the same seed)."""
+    cv = _tall_plant(pal, seed)
+    return _img(cv.a[S:])
+
+
+def tall_plant_top(pal, seed):
+    """Upper half of a two-block tall plant (pairs with ``tall_plant_bottom``)."""
+    cv = _tall_plant(pal, seed)
+    return _img(cv.a[:S])
+
+
+def _stem(cv, r, x0, top, seed, sway=0.8, leaves=2):
+    """1px stem from the bottom row to y=top, with small leaves. Returns the stem points."""
+    R = _R(seed, "stem")
+    ph = R.uniform(0, math.tau)
+    pts = [(x0 + sway * math.sin(ph + k * 0.35), 15.5 - k * (15.5 - top) / 30) for k in range(31)]
+
+    def col(t):
+        return r[1] if t < 0.5 else r[2]
+    drawn = _plot(cv, pts, col)
+    if leaves:
+        ys = [12, 9][:leaves]
+        sides = [-1, 1] if R.random() < 0.5 else [1, -1]
+        for y, sd in zip(ys, sides):
+            if y <= top + 2:
+                continue
+            sx = [p[0] for p in drawn if p[1] == y]
+            if not sx:
+                continue
+            sx = sx[0]
+            cv.px(sx + sd, y - 1, r[2])
+            cv.px(sx + 2 * sd, y - 1, r[3])
+            cv.px(sx + 2 * sd, y - 2, r[3])
+            cv.px(sx + sd, y, r[1])
+    return drawn
+
+
+def flower(stem_pal, petal_pal, seed, shape="daisy", center_hex=None):
+    """Flower on a 1px stem. shape: daisy | tulip | bell | star | orb | spiral."""
+    sr = _ramp(stem_pal, 4)
+    pr = _xramp(petal_pal, 4, light=1)  # 5 shades
+    R = _R(seed, "fl")
+    cv = _Cv()
+    cx = 7.5 + R.choice([-0.5, 0.0, 0.5])
+    hy = 5.5 + R.uniform(-0.5, 1.0)
+    plum = _lum(pr[2])
+    if center_hex is not None:
+        cc = _color_ramp(center_hex, 3, spread=0.8)
+    else:
+        cc = _color_ramp("#f0c040" if plum > 150 else _hex(_lighter(pr[3], 0.5)), 3, spread=0.8)
+    head = _Cv()
+    X, Y = _mgrid()
+    if shape == "tulip":
+        _stem(cv, sr, cx, hy + 2, seed)
+        ix = int(cx)
+        top = int(hy) - 2
+        rows = [(-2, 2), (-2, 2), (-2, 2), (-1, 1)]
+        for j, (a, b) in enumerate(rows):
+            for x in range(ix + a, ix + b + 1):
+                k = 3 if x < ix else (2 if x == ix else 1)
+                if j == 0:
+                    k = min(4, k + 1)
+                head.px(x, top + 1 + j, pr[k])
+        for x in (ix - 2, ix, ix + 2):
+            head.px(x, top, pr[4 if x <= ix else 3])
+        head.px(ix - 1, top + 2, pr[4])
+        head.px(ix + 1, top + 4, pr[0])
+    elif shape == "bell":
+        side = R.choice([-1, 1])
+        sx = int(cx) - side
+        top = int(hy) - 2
+        for y in range(top + 1, 16):
+            cv.px(sx, y, sr[1] if y > 11 else sr[2])
+        arch = [(sx, top + 1), (sx + side, top), (sx + 2 * side, top), (sx + 3 * side, top + 1)]
+        for (x, y) in arch:
+            cv.px(x, y, sr[2])
+        by_ = int(top + 6)
+        branch = [(sx - side, by_), (sx - 2 * side, by_ - 1), (sx - 3 * side, by_ - 1), (sx - 4 * side, by_)]
+        for (x, y) in branch:
+            cv.px(x, y, sr[2])
+        cv.px(sx + side, 12, sr[2])
+        cv.px(sx + 2 * side, 11, sr[3])
+        for (bx, by) in ((sx + 3 * side, top + 2), (sx - 4 * side, by_ + 1)):
+            rows = [(0, 1), (-1, 2), (-1, 2), (-2, 3)]
+            bx = bx if side > 0 else bx - 1
+            for j, (a, b) in enumerate(rows):
+                for x in range(bx + a, bx + b + 1):
+                    rel = (x - bx - 0.5) / 2.5
+                    k = 3 if rel < -0.2 else (2 if rel < 0.4 else 1)
+                    if j == 3 and a < x - bx < b:
+                        k = 0
+                    head.px(x, by + j, pr[k])
+            head.px(bx, by, pr[4])
+            head.px(bx - 1, by + 1, pr[4])
+    elif shape == "star":
+        _stem(cv, sr, cx, hy + 2, seed)
+        pts = []
+        rot = R.uniform(-0.2, 0.2)
+        for k in range(10):
+            a = -math.pi / 2 + rot + k * math.pi / 5
+            rad = 4.6 if k % 2 == 0 else 2.0
+            pts.append((cx + 0.5 + rad * math.cos(a), hy + 0.3 + rad * math.sin(a)))
+        m = _poly(pts)
+        s = _shade(m, depth=1.5)
+        head.paint(m, 1 + _quant(s, 4), pr)
+        head.px(cx, hy, cc[2])
+    elif shape == "orb":
+        _stem(cv, sr, cx, hy + 3, seed, leaves=1)
+        m, s = _sphere(cx + 0.5, hy, 3.3)
+        head.paint(m, 1 + _quant(s, 4), pr)
+        head.px(cx - 1, hy - 2, [255, 255, 255])
+        head.px(cx - 2, hy - 1, pr[4])
+        _outline(head, 0.62)
+        head.px(cx + 4, hy - 4, pr[4])
+        head.px(cx - 4, hy + 3, pr[3])
+    elif shape == "spiral":
+        _stem(cv, sr, cx, hy + 3, seed, leaves=2)
+        ccx, ccy = cx + 0.5, hy
+        dx, dy = X - ccx, Y - ccy
+        d = np.hypot(dx, dy)
+        th = np.arctan2(dy, dx)
+        m = d < 4.2
+        k = (th / math.tau + d / 2.3) % 1.0
+        lit = (-dx - dy) / 6
+        idx = np.where(k < 0.62, np.clip(np.round(2.5 + lit * 1.5), 1, 4), 0).astype(int)
+        idx = np.where(d < 1.0, 4, idx)
+        head.paint(m, idx, pr)
+        _outline(head, 0.62)
+    else:  # daisy
+        _stem(cv, sr, cx, hy + 2, seed)
+        ccx, ccy = cx + 0.5, hy + 0.5
+        dx, dy = X - ccx, Y - ccy
+        d = np.hypot(dx, dy)
+        ang = np.arctan2(dy, dx)
+        npet = int(R.choice([5, 6, 8]))
+        petal = (np.cos(ang * npet + R.uniform(0, 1)) * 0.9 + 3.0)
+        m = (d < petal) & (d > 0.5)
+        lit = (-dx - dy) / (d + 1e-6)
+        idx = np.where(lit > 0.3, 4, np.where(lit < -0.5, 2, 3))
+        idx = np.where(d > petal - 0.9, idx - 1, idx)
+        head.paint(m, idx, pr)
+        cm = d < 1.3
+        head.paint(cm, np.where(dx + dy < 0, 2, 1), cc)
+    if shape == "star":
+        _outline(head, 0.62)
+    cv.over(head)
+    return cv.img()
+
+
+def mushroom_sprite(cap_pal, stem_pal, seed, shape="dome", spots=None):
+    """Small mushroom(s). shape: dome | flat | tall | cluster."""
+    cr = _xramp(cap_pal, 4, dark=1, light=1)  # 6
+    sr = _ramp(stem_pal, 4)
+    R = _R(seed, "m")
+    cv = _Cv()
+    spots = (shape in ("dome", "cluster")) if spots is None else spots
+    spot_col = _mix(_lighter(cr[4], 0.7), [255, 255, 250], 0.5)
+
+    def one(cx, base_y, cap_w, cap_h, stem_h, stem_w=2, kind="dome"):
+        stop = base_y - stem_h
+        for y in range(int(stop), int(base_y) + 1):
+            for i in range(stem_w):
+                x = int(cx - stem_w / 2 + 0.5) + i
+                k = 3 if i == 0 else (1 if i == stem_w - 1 else 2)
+                if y == int(base_y):
+                    k = max(0, k - 1)
+                cv.px(x, y, sr[k])
+        if kind == "flat":
+            m = _ellipse(cx, stop - cap_h * 0.3, cap_w / 2, cap_h * 0.8) & (_mgrid()[1] < stop + 0.5)
+        elif kind == "cone":
+            pts = [(cx - cap_w / 2, stop + 0.6), (cx, stop - cap_h), (cx + cap_w / 2, stop + 0.6)]
+            m = _poly(pts) | _ellipse(cx, stop - 0.2, cap_w / 2, 1.2)
+        else:
+            m = _ellipse(cx, stop + 0.4, cap_w / 2, cap_h) & (_mgrid()[1] < stop + 0.9)
+        s = _shade(m, depth=2.0)
+        idx = 1 + _quant(s, 5)
+        Y = _mgrid()[1]
+        under = m & (Y > stop - 0.1)
+        idx = np.where(under, 1, idx)
+        cv.paint(m, idx, cr)
+        # dark gills just under the rim
+        for x in range(int(cx - cap_w / 2 + 1), int(cx + cap_w / 2)):
+            if cv.has(x, stop) and not cv.has(x, stop + 1.5) is False:
+                pass
+        if spots and kind == "dome" and cap_w >= 5:
+            for (sx, sy) in ((cx - cap_w * 0.22, stop - cap_h * 0.55), (cx + cap_w * 0.2, stop - cap_h * 0.3),
+                             (cx + cap_w * 0.02, stop - cap_h * 0.85)):
+                if m[int(sy) % S, int(sx) % S]:
+                    cv.px(sx, sy, spot_col)
+        return m
+
+    if shape == "flat":
+        one(7.5 + R.uniform(-0.5, 0.5), 15, int(R.integers(11, 14)), 2.4, int(R.integers(5, 8)), 2, "flat")
+    elif shape == "tall":
+        one(7.5, 15, int(R.integers(6, 8)), 5.2, int(R.integers(7, 10)), 2, "cone")
+    elif shape == "cluster":
+        one(10.5, 15, 6, 2.8, 4, 2, "dome")
+        one(5.0, 15, 7, 3.6, 7, 2, "dome")
+        one(12.5, 15, 3, 1.6, 2, 1, "dome")
+    else:
+        one(7.5 + R.choice([-0.5, 0.5]), 15, int(R.integers(9, 12)), 4.4, int(R.integers(4, 6)), 2, "dome")
+    _inner_outline(cv, 0.75)
+    return cv.img()
+
+
+def sprout(pal, seed):
+    """Tiny seedling: short stem with two rounded leaves."""
+    r = _xramp(pal, 4, light=1)
+    R = _R(seed, "s")
+    cv = _Cv()
+    x = 7 + int(R.integers(0, 2))
+    h = int(R.integers(4, 7))
+    for y in range(15, 15 - h, -1):
+        cv.px(x, y, r[1] if y > 13 else r[2])
+    top = 15 - h
+    # left leaf
+    for (dx, dy, k) in ((-1, 0, 2), (-2, -1, 3), (-3, -1, 3), (-2, 0, 2), (-3, -2, 4), (-4, -2, 3), (-1, -1, 3)):
+        cv.px(x + dx, top + dy, r[k])
+    for (dx, dy, k) in ((1, 0, 2), (2, -1, 2), (3, -1, 1), (2, 0, 1), (3, -2, 2), (4, -2, 2), (1, -1, 3)):
+        cv.px(x + dx, top + dy, r[k])
+    cv.px(x, top - 1, r[4])
+    cv.px(x, top - 2, r[3])
+    # soil crumbs
+    cv.px(x - 1, 15, r[0])
+    cv.px(x + 1, 15, r[0])
+    return cv.img()
+
+
+def fern(pal, seed):
+    """Fern: arching fronds with alternating leaflets."""
+    r = _ramp(pal, 5)
+    R = _R(seed, "f")
+    cv = _Cv()
+    n = int(R.integers(4, 6))
+    fronds = []
+    for i in range(n):
+        ang = math.radians(-90 + (i - (n - 1) / 2) * (110 / max(1, n - 1)) + R.uniform(-8, 8))
+        ln = R.uniform(9, 13) * (1 - 0.25 * abs(i - (n - 1) / 2) / max(1, n / 2))
+        fronds.append((abs(i - (n - 1) / 2), ang, ln))
+    fronds.sort(key=lambda f: -f[0])
+    for _, ang, ln in fronds:
+        x0, y0 = 7.5 + R.uniform(-0.5, 0.5), 15.5
+        x1 = x0 + math.cos(ang) * ln
+        y1 = y0 + math.sin(ang) * ln
+        bend = -2.0 * math.cos(ang)
+        pts = _curve(x0, y0, x1, y1, bend=bend, steps=30)
+        drawn = _plot(cv, pts, lambda t: r[1] if t < 0.3 else (r[2] if t < 0.8 else r[3]))
+        # leaflets on both sides, alternating
+        for j, (px, py) in enumerate(drawn):
+            if j < 2 or j % 2:
+                continue
+            t = j / max(1, len(drawn))
+            nx, ny = -math.sin(ang), math.cos(ang)
+            side = 1 if (j // 2) % 2 else -1
+            lx, ly = px + round(nx * side), py + round(ny * side) - (1 if side < 0 else 0)
+            if not cv.has(lx, ly):
+                cv.px(lx, ly, r[3] if t > 0.4 else r[2])
+            if t < 0.7 and not cv.has(lx + round(nx * side), ly + round(ny * side)):
+                cv.px(lx + round(nx * side), ly + round(ny * side), r[4] if t > 0.4 else r[3])
+    return cv.img()
+
+
+def crystal_shard_sprite(pal, seed, count=3):
+    """Cluster of pointed crystal prisms growing from the bottom."""
+    r = _xramp(pal, 4, dark=1, light=1)  # 6
+    R = _R(seed, "c")
+    cv = _Cv()
+    shards = []
+    for i in range(count):
+        if i == 0:
+            x, h, w, tilt = 7.5, R.uniform(11, 14), 5, R.uniform(-0.15, 0.15)
+        else:
+            side = -1 if i % 2 else 1
+            x = 7.5 + side * R.uniform(3.5, 5)
+            h = R.uniform(5, 9)
+            w = 3 + (R.random() < 0.4) * 2
+            tilt = side * R.uniform(0.25, 0.55)
+        shards.append((0 if i == 0 else 1, x, h, w, tilt))
+    shards.sort(key=lambda s: s[0])
+    for _, x, h, w, tilt in shards:
+        hw = w / 2
+        local = [(-hw, 0), (-hw, -h + hw * 1.2), (0, -h), (hw, -h + hw * 1.2), (hw, 0)]
+        ca, sa = math.cos(tilt), math.sin(tilt)
+        pts = [(x + px * ca - py * sa, 16 + px * sa + py * ca) for (px, py) in local]
+        m = _poly(pts)
+        X, Y = _mgrid()
+        # local coordinate across the shard
+        u = (X - x) * ca + (Y - 16) * sa
+        idx = np.where(u < -hw * 0.35, 4, np.where(u > hw * 0.3, 2, 3))
+        idx = np.where(np.abs(u + hw * 0.35) < 0.5, 5, idx)
+        layer = _Cv()
+        layer.paint(m, idx, r)
+        _inner_outline(layer, 0.55)
+        tipx, tipy = pts[2]
+        layer.px(tipx, tipy + 0.6, r[5])
+        cv.over(layer)
+    return cv.img()
+
+
+def coral_fan(pal, seed):
+    """Sea fan: forking branches spreading from the base, joined by a sparse lace."""
+    r = _xramp(pal, 4, light=1)
+    R = _R(seed, "cf")
+    cv = _Cv()
+    ox, oy = 7.5 + R.uniform(-0.5, 0.5), 15.5
+    n = int(R.integers(5, 7))
+    tips = []
+    for i in range(n):
+        a = -math.pi / 2 + (i - (n - 1) / 2) * (2.4 / (n - 1)) + R.uniform(-0.1, 0.1)
+        ln = R.uniform(9, 12)
+        mx, my = ox + math.cos(a) * ln * 0.45, oy + math.sin(a) * ln * 0.45
+        _plot(cv, _curve(ox, oy, mx, my, bend=R.uniform(-1, 1), steps=12),
+              lambda t: r[1] if t < 0.5 else r[2])
+        for fork in (-0.28, 0.28):
+            b = a + fork + R.uniform(-0.1, 0.1)
+            ex = mx + math.cos(b) * ln * 0.55
+            ey = my + math.sin(b) * ln * 0.55
+            _plot(cv, _curve(mx, my, ex, ey, bend=R.uniform(-1, 1), steps=12),
+                  lambda t: r[2] if t < 0.6 else r[3])
+            tips.append((ex, ey))
+    # lace: short connections between neighbouring branches
+    X, Y = _mgrid()
+    d = np.hypot(X - ox, Y - oy)
+    m = cv.mask
+    for y in range(S):
+        for x in range(1, S - 1):
+            if not m[y, x] and m[y, x - 1] and d[y, x] > 4 and (x + y) % 2 == 0:
+                if any(m[y, x + k] for k in range(1, 3) if x + k < S):
+                    cv.px(x, y, r[3] if d[y, x] > 8 else r[2])
+    for (ex, ey) in tips:
+        cv.px(ex, ey, r[4])
+    return cv.img()
+
+
+def reeds(pal, seed, head_hex="#6b4226"):
+    """Reeds / cattails: thin segmented stalks, long leaves, a few seed heads."""
+    r = _ramp(pal, 5)
+    hr = _color_ramp(head_hex, 4, spread=0.9)
+    R = _R(seed, "r")
+    cv = _Cv()
+    n = int(R.integers(3, 5))
+    xs = sorted(R.choice(np.arange(3, 13), n, replace=False))
+    for i, x0 in enumerate(xs):
+        h = R.uniform(9, 15)
+        lean = R.uniform(-1.5, 1.5)
+        pts = [(x0 + 0.5 + lean * (k / 20) ** 2, 15.5 - h * k / 20) for k in range(21)]
+        drawn = _plot(cv, pts, lambda t: r[1] if t < 0.3 else (r[2] if t < 0.75 else r[3]))
+        for j, (px, py) in enumerate(drawn):
+            if j and j % 4 == 0:
+                cv.px(px, py, r[0])
+        top = drawn[-1]
+        if R.random() < 0.55:
+            hx, hy = top[0], top[1] + 1
+            for yy_ in range(hy, hy + 4):
+                cv.px(hx, yy_, hr[1])
+                cv.px(hx + 1, yy_, hr[0])
+            cv.px(hx, hy, hr[3])
+            cv.px(hx, hy + 1, hr[2])
+            cv.px(hx, hy - 1, r[3])
+    # long thin leaves arching from the base
+    for k in range(int(R.integers(2, 4))):
+        x0 = R.uniform(4, 12)
+        sd = -1 if x0 > 8 else 1
+        pts = _curve(x0, 15.5, x0 + sd * R.uniform(3, 5), 15.5 - R.uniform(7, 11), bend=sd * 1.5)
+        _plot(cv, pts, lambda t: r[2] if t < 0.6 else r[4])
+    return cv.img()
+
+
+def thorn_bush(pal, seed):
+    """Tangle of thin branching stems bristling with sharp thorns."""
+    r = _xramp(pal, 4, light=1)
+    R = _R(seed, "tb")
+    cv = _Cv()
+    segs = []
+
+    def branch(x, y, ang, ln, depth):
+        x1, y1 = x + math.cos(ang) * ln, y + math.sin(ang) * ln
+        segs.append((x, y, x1, y1, depth))
+        if depth < 2:
+            for k in range(2):
+                branch(x1, y1, ang + (-1 if k else 1) * R.uniform(0.35, 0.8), ln * R.uniform(0.6, 0.8), depth + 1)
+
+    for k in range(3):
+        branch(7.5 + (k - 1) * 2 + R.uniform(-1, 1), 15.5, -math.pi / 2 + (k - 1) * 0.5 + R.uniform(-0.2, 0.2),
+               R.uniform(4, 6), 0)
+    thorns = []
+    for (x0, y0, x1, y1, dp) in segs:
+        pts = _curve(x0, y0, x1, y1, bend=R.uniform(-0.8, 0.8), steps=12)
+        drawn = _plot(cv, pts, lambda t, dp=dp: r[min(3, dp + (1 if t > 0.5 else 0))])
+        ang = math.atan2(y1 - y0, x1 - x0)
+        for j, (px, py) in enumerate(drawn):
+            if j and j % 2 == 0 and R.random() < 0.7:
+                sdv = 1 if (j // 2) % 2 else -1
+                nx, ny = -math.sin(ang) * sdv, math.cos(ang) * sdv
+                thorns.append((px + round(nx), py + round(ny) - 1))
+    for (tx, ty) in thorns:
+        if not cv.has(tx, ty):
+            cv.px(tx, ty, r[4])
+    return cv.img()
+
+
+def eyeball_plant(stem_pal, eye_hex, iris_hex, seed):
+    """A stalk topped with a staring eyeball (iris, pupil, glint)."""
+    sr = _ramp(stem_pal, 4)
+    er = _color_ramp(eye_hex, 4, spread=0.6)
+    ir = _color_ramp(iris_hex, 4, spread=0.9)
+    R = _R(seed, "e")
+    cv = _Cv()
+    ex, ey, rad = 7.5 + R.choice([-0.5, 0.5]), 5.0, 3.7
+    pts = _curve(ex + R.choice([-2, 2]), 15.5, ex, ey + 3, bend=R.uniform(-2, 2))
+    drawn = _plot(cv, pts, lambda t: sr[1] if t < 0.5 else sr[2])
+    for j, (px, py) in enumerate(drawn):
+        if py in (12, 10):
+            sd = -1 if py == 12 else 1
+            cv.px(px + sd, py - 1, sr[2])
+            cv.px(px + 2 * sd, py - 1, sr[3])
+            cv.px(px + 2 * sd, py - 2, sr[3])
+    m, s = _sphere(ex, ey, rad)
+    head = _Cv()
+    head.paint(m, 1 + _quant(s, 3), er)
+    look = (R.uniform(-0.8, 0.8), R.uniform(-0.3, 0.6))
+    im_, _ = _sphere(ex + look[0], ey + look[1], 1.9)
+    im_ &= m
+    X, Y = _mgrid()
+    iidx = np.where((X - ex - look[0]) + (Y - ey - look[1]) < 0, 2, 1)
+    head.paint(im_, iidx, ir)
+    head.px(ex + look[0], ey + look[1], [12, 8, 10])
+    head.px(ex + look[0] - 1, ey + look[1] - 1, [255, 255, 255])
+    # blood veins
+    vein = _mix(er[1], [190, 30, 40], 0.6)
+    head.px(ex + rad - 1.2, ey + 0.5, vein)
+    head.px(ex - rad + 0.6, ey + 1.2, vein)
+    _outline(head, 0.5)
+    cv.over(head)
+    return cv.img()
+
+
+def bulb(stem_pal, glow_pal, seed):
+    """Arching stem with glowing hanging bulbs."""
+    sr = _ramp(stem_pal, 4)
+    gr = _xramp(glow_pal, 4, light=1)
+    R = _R(seed, "b")
+    cv = _Cv()
+    side = R.choice([-1, 1])
+    x0 = 7.5 - side * 2
+    tipx, tipy = 7.5 + side * 3.5, 3.5
+    pts = _curve(x0, 15.5, tipx, tipy, bend=-side * 3)
+    _plot(cv, pts, lambda t: sr[1] if t < 0.5 else sr[2])
+    cv.px(x0 - side, 12, sr[2])
+    cv.px(x0 - 2 * side, 11, sr[3])
+    bulbs = [(tipx, tipy + 3.2, 2.4)]
+    if R.random() < 0.8:
+        mid = pts[len(pts) // 2]
+        bulbs.append((mid[0] - side * 1.5, mid[1] + 2.6, 1.6))
+    for (bx, by, br) in bulbs:
+        cv.px(bx, by - br - 0.5, sr[2])
+        m, s = _sphere(bx, by, br)
+        layer = _Cv()
+        layer.paint(m, 1 + _quant(s * 1.1, 4), gr)
+        layer.px(bx - br * 0.4, by - br * 0.4, [255, 255, 245])
+        _outline(layer, 0.55)
+        cv.over(layer)
+    return cv.img()
+
+
+def lollipop_plant(stick_hex, candy_pal, seed):
+    """Candy plant: a white stick topped with a swirled lollipop disc."""
+    stick = _color_ramp(stick_hex, 3, spread=0.6)
+    cols = [_rgb(c)[:3] for c in _palette(candy_pal)]
+    R = _R(seed, "l")
+    cv = _Cv()
+    cx, cy, rad = 7.5, 5.5, 4.6
+    sx = 7
+    for y in range(int(cy + 2), 16):
+        cv.px(sx, y, stick[2])
+        cv.px(sx + 1, y, stick[1])
+    X, Y = _mgrid()
+    dx, dy = X - cx - 0.5, Y - cy
+    d = np.hypot(dx, dy)
+    th = np.arctan2(dy, dx)
+    m = d < rad
+    k = np.floor(((th / math.tau) * 2 + d / 2.4 + R.random()) % len(cols) * 1.0).astype(int) % len(cols)
+    light = (-dx - dy) / (rad * 1.4)
+    head = _Cv()
+    for i, c in enumerate(cols):
+        rr = _color_ramp(_hex(c), 4, spread=0.6)
+        sh = np.clip(np.floor(2 + light * 1.6), 0, 3).astype(int)
+        head.paint(m & (k == i), sh, rr)
+    head.px(cx - 1.5, cy - 2.5, [255, 255, 255])
+    head.px(cx - 2.5, cy - 1.5, [255, 255, 255])
+    _outline(head, 0.6)
+    cv.over(head)
+    return cv.img()
+
+
+def cactus_sprite(pal, seed):
+    """Small cactus: ribbed column with an arm or two and light spines."""
+    r = _xramp(pal, 4, light=1)
+    R = _R(seed, "c")
+    cv = _Cv()
+    top = int(R.integers(3, 6))
+    m = np.zeros((S, S), bool)
+    X, Y = _mgrid()
+    m |= (X > 5) & (X < 10) & (Y > top + 1) & (Y < 16)
+    m |= _ellipse(7.5, top + 2.2, 2.5, 2.0)
+    arms = [-1, 1] if R.random() < 0.5 else [R.choice([-1, 1])]
+    for sd in arms:
+        ay = top + int(R.integers(4, 7))
+        ah = int(R.integers(3, 5))
+        if sd < 0:
+            m |= (X > 2) & (X < 6) & (Y > ay) & (Y < ay + 2)
+            m |= (X > 2) & (X < 4.5) & (Y > ay - ah) & (Y < ay + 2)
+            m |= _ellipse(3.0, ay - ah + 0.6, 1.0, 1.0)
+        else:
+            m |= (X > 9) & (X < 13) & (Y > ay) & (Y < ay + 2)
+            m |= (X > 10.5) & (X < 13) & (Y > ay - ah) & (Y < ay + 2)
+            m |= _ellipse(12.0, ay - ah + 0.6, 1.0, 1.0)
+    s = _shade(m, depth=2.0)
+    idx = 1 + _quant(s, 3)
+    xx, yy = _grid()
+    idx = np.where((xx == 7) & (yy > top + 1), np.minimum(idx + 1, 4), idx)
+    cv.paint(m, idx, r)
+    _inner_outline(cv, 0.7)
+    for (x, y) in zip(*np.nonzero(m.T)):
+        if (x * 3 + y * 5) % 7 == 0 and R.random() < 0.6:
+            cv.px(x, y, r[4])
+    if R.random() < 0.5:
+        cv.px(7, top, [240, 110, 160])
+        cv.px(8, top, [255, 160, 200])
+    return cv.img()
+
+
+def puffball(pal, seed):
+    """Round puffball fungi sitting on the ground, dotted with warts."""
+    r = _xramp(pal, 4, dark=1, light=1)
+    R = _R(seed, "p")
+    cv = _Cv()
+    sd = R.choice([-1, 1])
+    balls = []
+    if R.random() < 0.85:
+        balls.append((7.5 - sd * 4.2, 13.6, 2.4))
+    balls.append((7.5 + sd * 1.0, 11.0, 4.6))
+    if R.random() < 0.5:
+        balls.append((7.5 + sd * 5.6, 14.3, 1.6))
+    for (bx, by, br) in balls:
+        m, s = _sphere(bx, by, br)
+        layer = _Cv()
+        idx = 1 + _quant(s, 4)
+        layer.paint(m, idx, r)
+        # warts in a loose grid
+        for y in range(S):
+            for x in range(S):
+                if m[y, x] and (x * 2 + y * 3) % 5 == 0 and s[y, x] > 0.25 and R.random() < 0.6:
+                    layer.px(x, y, r[min(5, idx[y, x] + 1)])
+        layer.px(bx - br * 0.45, by - br * 0.5, r[5])
+        layer.px(bx - br * 0.45 + 1, by - br * 0.5, r[5])
+        _inner_outline(layer, 0.7)
+        cv.over(layer)
+    return cv.img()
+
+
+def tendril(pal, seed):
+    """Curling tendrils rising from the ground, each ending in a spiral curl."""
+    r = _ramp(pal, 5)
+    R = _R(seed, "t")
+    cv = _Cv()
+    n = int(R.integers(2, 4))
+    for i in range(n):
+        x0 = 4.5 + i * (7 / max(1, n - 1)) + R.uniform(-0.8, 0.8)
+        h = R.uniform(6, 10) if i != n // 2 else R.uniform(9, 11)
+        ph = R.uniform(0, math.tau)
+        pts = [(x0 + 1.2 * math.sin(ph + k / 30 * 3.0), 15.5 - h * k / 30) for k in range(31)]
+        ex, ey = pts[-1]
+        sd = 1 if x0 < 8 else -1
+        rad = R.uniform(2.4, 3.0)
+        cxs, cys = ex + sd * rad, ey
+        a0 = math.pi if sd > 0 else 0.0
+        for k in range(1, 41):
+            a = a0 - sd * k / 40 * 1.75 * math.pi
+            rr = rad * (1 - k / 40 * 0.7)
+            pts.append((cxs + rr * math.cos(a), cys + rr * math.sin(a)))
+        drawn = _plot(cv, pts, lambda t: r[1] if t < 0.25 else (r[2] if t < 0.55 else (r[3] if t < 0.85 else r[4])))
+        # thicken the lower stalk
+        for (px, py) in drawn:
+            if py >= 13:
+                cv.px(px + 1, py, r[0])
+    return cv.img()
+
+
+def vine_overlay(pal, seed):
+    """Sparse hanging vine strands with leaves on transparent (tiles both ways)."""
+    r = _ramp(pal, 5)
+    R = _R(seed, "v")
+    cv = _Cv()
+    n = int(R.integers(2, 4))
+    xs = (np.arange(n) * (S / n) + R.uniform(0, S / n, n)).tolist()
+    for x0 in xs:
+        ph = R.uniform(0, math.tau)
+        amp = R.uniform(0.8, 1.8)
+        pts = []
+        for y in range(S):
+            x = x0 + amp * math.sin(ph + y / S * math.tau)
+            pts.append((int(math.floor(x)) % S, y))
+        last = None
+        for (x, y) in pts:
+            cv.px(x, y, r[1] if y % 5 else r[0])
+            if last is not None and abs(x - last) > 1:
+                cv.px((x + last) // 2, y, r[1])
+            last = x
+        for y in range(int(R.integers(0, 4)), S, 4):
+            x = pts[y][0]
+            sd = 1 if (y // 4) % 2 else -1
+            cv.px((x + sd) % S, y, r[3])
+            cv.px((x + 2 * sd) % S, y, r[2])
+            cv.px((x + sd) % S, (y + 1) % S, r[2])
+            cv.px((x + 2 * sd) % S, (y - 1) % S, r[4])
+    return cv.img()
+
+
+def lily_pad(pal, seed):
+    """Top-down floating pad with a notch, radial veins and a darker rim."""
+    r = _ramp(pal, 5)
+    R = _R(seed, "lp")
+    X, Y = _mgrid()
+    cx, cy = 8.0, 8.0
+    dx, dy = X - cx, Y - cy
+    d = np.hypot(dx, dy)
+    th = np.arctan2(dy, dx)
+    notch = R.uniform(-math.pi, math.pi)
+    dth = np.abs((th - notch + math.pi) % math.tau - math.pi)
+    edge = 7.2 + 0.4 * np.sin(th * 5 + R.uniform(0, 6))
+    m = (d < edge) & ~((dth < 0.32) & (d > 1.2))
+    vein = (np.abs(((th + math.pi) * 7 / math.pi) % 2 - 1) < 0.18) & (d > 1.5) & (d < edge - 1.3)
+    idx = np.where(dx + dy < 0, 3, 2)
+    idx = np.where(_white(seed + ":n") > 0.82, idx + 1, idx)
+    idx = np.where(vein, 4, idx)
+    idx = np.where(d > edge - 1.1, 1, idx)
+    idx = np.where((d > edge - 1.1) & (dx + dy > 2), 0, idx)
+    cv = _Cv()
+    cv.paint(m, idx, r)
+    return cv.img()
+
+
+def sapling(trunk_pal, leaf_pal, seed):
+    """Young tree: thin trunk and a clumpy leafy crown with a few gaps."""
+    tr = _ramp(trunk_pal, 4)
+    lr = _xramp(leaf_pal, 4, light=1)
+    R = _R(seed, "sp")
+    cv = _Cv()
+    tx = 7 + int(R.integers(0, 2))
+    for y in range(7, 16):
+        cv.px(tx, y, tr[2])
+        if y > 12:
+            cv.px(tx + 1, y, tr[1])
+    cv.px(tx - 1, 10, tr[2])
+    cv.px(tx - 2, 9, tr[2])
+    cv.px(tx + 1, 9, tr[1])
+    cv.px(tx + 2, 8, tr[1])
+    crown = np.zeros((S, S), bool)
+    for _ in range(5):
+        crown |= _ellipse(tx + 0.5 + R.uniform(-3, 3), 5 + R.uniform(-2.5, 2.5), R.uniform(2, 3.4), R.uniform(1.8, 2.8))
+    crown &= _white(seed + ":h") > 0.12
+    s = _shade(crown, depth=2.0)
+    idx = _quant(s * 0.85 + 0.15 * _white(seed + ":n"), 5)
+    leaves_cv = _Cv()
+    leaves_cv.paint(crown, idx, lr)
+    cv.over(leaves_cv)
+    return cv.img()
+
+
+def berry_bush(leaf_pal, berry_hex, seed):
+    """Round leafy bush dotted with glossy berries."""
+    lr = _xramp(leaf_pal, 4, light=1)
+    br = _color_ramp(berry_hex, 4, spread=0.9)
+    R = _R(seed, "bb")
+    cv = _Cv()
+    m = np.zeros((S, S), bool)
+    for (x, y, rx, ry) in [(7.5, 10, 6.5, 5.5), (5, 7.5, 3.5, 3.2), (10.5, 7, 3.5, 3.5), (7.8, 5.5, 3, 2.5)]:
+        m |= _ellipse(x + R.uniform(-0.8, 0.8), y + R.uniform(-0.8, 0.8), rx, ry)
+    m &= _mgrid()[1] < 16
+    edge = _dist_in(m) <= 1
+    m &= ~(edge & (_white(seed + ":h") > 0.6))
+    s = _shade(m, depth=3.0)
+    idx = _quant(np.clip(s * 0.8 + 0.25 * _white(seed + ":n"), 0, 0.999), 5)
+    cv.paint(m, idx, lr)
+    placed = []
+    for _ in range(40):
+        if len(placed) >= int(R.integers(5, 8)):
+            break
+        x, y = int(R.integers(2, 13)), int(R.integers(3, 14))
+        if not m[y, x] or not m[y + 1, x + 1] or any(abs(x - a) + abs(y - b) < 3 for a, b in placed):
+            continue
+        placed.append((x, y))
+        cv.px(x, y, br[3])
+        cv.px(x + 1, y, br[2])
+        cv.px(x, y + 1, br[1])
+        cv.px(x + 1, y + 1, br[0])
+    return cv.img()
+
+
+def bone_sprite(pal, seed):
+    """A large bone jutting from the ground, with a small fragment beside it."""
+    r = _xramp(pal, 4, dark=1)
+    R = _R(seed, "bn")
+    cv = _Cv()
+    sd = R.choice([-1, 1])
+    x0, y0 = 7.5 - sd * 2.5, 16.5
+    x1, y1 = 7.5 + sd * 1.6, 4.2
+    m = _thick([(x0, y0), (x1, y1)], rad=1.35)
+    ang = math.atan2(y1 - y0, x1 - x0)
+    px_, py_ = -math.sin(ang), math.cos(ang)
+    m |= _ellipse(x1 + px_ * 1.6, y1 + py_ * 1.6, 2.0, 2.0)
+    m |= _ellipse(x1 - px_ * 1.6, y1 - py_ * 1.6, 2.0, 2.0)
+    s = _shade(m, depth=1.8)
+    cv.paint(m, 1 + _quant(s, 4), r)
+    fx = 7.5 + sd * 4.5
+    frag = _thick([(fx - 2, 15.0), (fx + 1.5, 14.0)], rad=0.9) | _ellipse(fx + 1.8, 13.6, 1.2, 1.2)
+    fr = _Cv()
+    fr.paint(frag, 1 + _quant(_shade(frag, depth=1.2), 4), r)
+    cv.over(fr)
+    _inner_outline(cv, 0.5)
+    return cv.img()
+
+
+def _gear_mask(cx, cy, r_out, r_in, teeth, hole, rot=0.0, w=S, h=S):
+    X, Y = _mgrid(w, h)
+    dx, dy = X - cx, Y - cy
+    d = np.hypot(dx, dy)
+    th = np.arctan2(dy, dx) + rot
+    tooth = (np.cos(th * teeth) > 0.1)
+    m = (d < r_in) | ((d < r_out) & tooth)
+    m &= d >= hole
+    return m, d
+
+
+def gear_sprite(pal, seed):
+    """A cog standing on the ground (bottom teeth touch the bottom row)."""
+    r = _xramp(pal, 4, dark=1, light=1)
+    R = _R(seed, "g")
+    cv = _Cv()
+    cx, cy = 8.0, 9.0
+    m, d = _gear_mask(cx, cy, 7.0, 5.2, int(R.choice([8, 10])), 1.6, R.uniform(0, 1))
+    s = _shade(m, depth=1.5)
+    idx = 1 + _quant(s, 4)
+    idx = np.where((d > 2.3) & (d < 3.3), np.maximum(idx - 1, 1), idx)
+    cv.paint(m, idx, r)
+    _inner_outline(cv, 0.6)
+    return cv.img()
+
+
+def wire_sprite(pal, seed):
+    """Loose cables sprouting from the ground with bare copper tips and a spark."""
+    r = _ramp(pal, 5)
+    R = _R(seed, "w")
+    cv = _Cv()
+    copper = _color_ramp("#d9873a", 3, spread=0.8)
+    n = int(R.integers(2, 4))
+    tips = []
+    for i in range(n):
+        x0 = 4 + i * (8 / max(1, n - 1)) + R.uniform(-1, 1)
+        x1 = x0 + R.uniform(-5, 5)
+        y1 = R.uniform(2, 8)
+        pts = _curve(x0, 15.5, x1, y1, bend=R.uniform(-4, 4))
+        drawn = _plot(cv, pts, lambda t: r[1] if t < 0.4 else (r[2] if t < 0.8 else r[3]))
+        tips.append(drawn[-1])
+        # cable sheen
+        for j, (px, py) in enumerate(drawn):
+            if j % 5 == 2:
+                cv.px(px, py, r[4])
+    for (tx, ty) in tips:
+        cv.px(tx, ty - 1, copper[2])
+        cv.px(tx + 1, ty - 1, copper[1])
+    sx, sy = tips[0]
+    for (dx, dy, c) in ((0, -3, [255, 255, 210]), (-1, -3, [255, 230, 120]), (1, -3, [255, 230, 120]),
+                        (0, -4, [255, 230, 120]), (0, -2, [255, 230, 120])):
+        cv.px(sx + dx, sy + dy, c)
+    return cv.img()
+
+
+# ---- END OF PLANTS ----
+
