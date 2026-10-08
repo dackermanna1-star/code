@@ -28,8 +28,19 @@ Run: `cd tools && python3 generate.py [--only sporewood]`. Compile: `cd /home/us
 ALWAYS wrap gradle in `flock /tmp/claude-0/gradle.lock` — several engineers share the checkout.
 In-game smoke test (client under Xvfb, takes screenshots):
 `cd /home/user/code && flock /tmp/claude-0/gradle.lock env PORTALGUN_TEST=tour:sporewood xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClientGameTest --no-daemon`
+(`PORTALGUN_TOUR_AERIAL=1` adds a high vantage shot per dimension; `PORTALGUN_TEST=creatures` runs the creature
+gallery/behaviour test, which needs the creature lab dimension, i.e. a `generate.py --gallery` build.)
+The client game-test run sets `-Dfabric.client.gametest.disableNetworkSynchronizer=true` itself (build.gradle).
 → screenshots in `build/run/clientGameTest/screenshots/` (view them with the Read tool). Game log in the gradle output
 (look for `ERROR`, `Exception`, `Failed to`, `Couldn't`, registry/codec parse errors — data pack errors are FATAL for the world load).
+
+Dedicated-server smoke test (headless; generates 100 chunks in every portalgun dimension, finds an arrival spot,
+spawns each dimension's creatures, ticks 200 ticks, logs `[smoketest]` lines and stops the server; needs
+`run/eula.txt` with `eula=true`):
+`cd /home/user/code && flock /tmp/claude-0/gradle.lock env JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -Dportalgun.smoketest=true" ./gradlew runServer --no-daemon < /dev/null`
+
+Test-only content: `generate.py --gallery` adds the `gallery_*` terrain dimensions and every `dims/*.py` that sets
+`TEST_ONLY = True` (the creature lab `zz_creature_lab`). A plain `generate.py` (release build) never emits them.
 
 ## Module ownership (do not edit files you don't own; ask via your summary instead)
 
