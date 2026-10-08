@@ -190,6 +190,23 @@ Ratings and voting: 2008 pages show only how many times a place was Visited and 
 - Photo textures: CC0 scans from Poly Haven (https://polyhaven.com), shrunk to 512 pixels (normal maps 256) and packed into one module by `tools/pack-outbreak-textures.py`.
 - The guns and the first-person view model come from Desert Strike.
 
+### Ragdoll Olympics (not a 2008 recreation)
+- Added on request: a ragdoll sports game in the style of the physics-comedy games that came after 2008 (Stair Dismount from 2002, Human Fall Flat, the ROBLOX ragdoll games). The park, its venues and the events are original to this project.
+- The ragdolls are rigid bodies in the same physics engine as everything else (cannon-es):
+  - Each R6 figure is six bodies: a box torso, a sphere head, and box arms and legs.
+  - The joints are ball-and-sockets with swing limits shaped like an ellipse, so an arm goes over the head but hardly behind the back, and a leg swings forward to sit but only a little backwards. Twist is measured with the swing taken out first.
+  - Joint friction damps the limbs' spin relative to the torso, but not the body's spin as a whole.
+  - After each step, a limb the solver let slide off its socket is put back.
+  - The shoulder sockets sit at the top of the arms, and the arms collide with the torso, so a body on its side rests on its arm.
+  - The six bodies go to sleep, and wake, together.
+  - Motors drive the joints towards poses (tuck, pike, layout, Superman, flailing) for the dive and the flights.
+  - Impact speeds come from the contact solver. Over a threshold a bone breaks, and that joint's limits loosen.
+- cannon-es caps friction per solver step (the impulse is at most mu x g x m each step, whatever the step length), so at 120 steps a second, normal friction values stop anything sliding at once. The bowling lane's friction is tuned down to match (0.00025).
+- Gravity in the park is 120 studs/s² (ROBLOX's is 196.2), so bodies hang in the air a little. Characters walk at 18 and jump at 39 studs/s.
+- The park is built with a box kit that merges static geometry per material and gives every brick its own static body. That way a body tumbling down the stairs registers every step.
+- The crowd is about 9,000 instanced figures, animated in the vertex shader: they bob, and jump and raise their arms when something big happens.
+- Every sound is synthesized with WebAudio: the crowd's murmur, cheers, "oooh"s and applause, the thuds and bone cracks, the cannon, the whistle and starting pistol, splashes, the pins, and the music (a heroic theme, the action loop and the closing anthem).
+
 ### Personal places
 - **Verified:** the three starting templates (Happy Home in Robloxia, Starting BrickBattle Map, Empty Baseplate), the Tools and Insert menus in your own place, and the save-on-exit dialog.
 

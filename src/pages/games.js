@@ -9,7 +9,7 @@ const { h, commas, clampInt, timeAgo } = require('../util');
 
 const MODES = { MostPopular: 'Most Popular', TopFavorites: 'Top Favorites', RecentlyUpdated: 'Recently Updated' };
 const TIMES = { Now: 'Now', PastDay: 'Past Day', PastWeek: 'Past Week', PastMonth: 'Past Month', AllTime: 'All-time' };
-const PLAYABLE = new Set(['teapots', 'paintball', 'obby', 'mummy', 'crossroads', 'personal', 'warzone', 'heist', 'disasters', 'megaobby', 'hotel', 'elevator', 'outbreak']);
+const PLAYABLE = new Set(['teapots', 'paintball', 'obby', 'mummy', 'crossroads', 'personal', 'warzone', 'heist', 'disasters', 'megaobby', 'hotel', 'elevator', 'outbreak', 'ragdoll']);
 
 /** Players online drifts a little over time so the page feels alive. */
 function onlineNow(p) {

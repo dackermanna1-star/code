@@ -110,6 +110,15 @@ The first start creates `data/db.json`. The site's clock starts on September 1, 
   - Events: helicopters crash and burn, with military loot and dead soldiers around the wreck. Cargo planes drop supply crates under parachutes, marked with red smoke. Road flares draw the infected.
   - Day and night, and weather: clear, cloudy, overcast, rain, storms with lightning, and fog.
   - **WASD** move, **Shift** sprint, **Ctrl** walk, **C** crouch, **Z** prone, **Space** jump, **Left mouse** fire or swing, **Right mouse** aim (hold) or block, **T** aim (toggle), **R** reload, **B** fire mode, **F** interact, **Tab** inventory, **M** map, **V** first or third person, **L** flashlight, **1–9** hotbar, **H** put away, **G** fly mode, **K** god mode, **Esc** pause.
+- **Ragdoll Olympics**: five ragdoll events in an Olympic park, made by Robloxian2008. Like the games above, it is a modern-style user-made place, not a 2008 recreation.
+  - Eight athletes (you and seven others) compete in every event for gold, silver and bronze. Placings earn points (10, 8, 6, 5, 4, 3, 2, 1), and the champion takes the podium at the closing ceremony. Then the next Games begin.
+  - **The Stair Dismount**: throw yourself down the Grand Staircase of Mount Olympus. Every impact scores, heads count most, quick hits make a combo, and broken bones, smashed amphorae and landing in the fountain are bonuses. Hold **Space** in the air to flail. If you get stuck on the steps, press **Space** to wriggle free (twice).
+  - **The Human Cannonball**: climb into a cannon, aim it, and fire. Your distance is where you end up after the bouncing and rolling. Fly through the golden hoops and stop on the bullseye for bonuses. Trampolines throw you on; hay bales and the pond stop you. Hold **W** in the air to fly like Superman and glide further.
+  - **The Wipeout Run**: a race across the lake on foot, over the Big Red Balls and the sweeper, past the punching walls and the swinging hammers, and up to the finish arch. Anything that hits you knocks you flat; fall in the lake and you go back to the last checkpoint.
+  - **The High Dive**: jump off the 60-stud tower. Hold **W** to tuck and somersault forwards, **S** to go backwards, and **A**/**D** to twist, then straighten up before the water. Five judges score the flips, the twists and above all the entry: head first and straight is best, and a belly flop scores almost nothing.
+  - **Ragdoll Bowling**: you are the ball. Pick your line, then slide head first down a polished lane into ten giant pins.
+  - The athletes are ragdolls built from six rigid bodies, with joints that bend the way a person's do. Bones break on hard enough landings, and broken limbs go floppy.
+  - **A**/**D** aim and **Space** (hold, then let go) sets the power for the launch events. **R** flops you over between events (**Space** gets you up), and **Tab** shows the standings.
 - **Your own place**: on your My ROBLOX page, click Edit under your place.
   - **Tools** gives the Grab, Clone and Delete build tools.
   - **Insert** adds bricks and the models you own.

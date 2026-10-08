@@ -479,6 +479,11 @@ function ensureExtraPlaces(state) {
     desc: 'South Karevia, three weeks after the outbreak. You wake on the coast with a shirt, a flashlight, one bandage and a pistol with two spare magazines. Find food and water. Find better weapons. The dead walk the towns, bandits hold the roads, and the military base in the hills is full of guns - and the dead soldiers who carried them. Melee and gunfights, looting, hunger, thirst, bleeding, broken legs, a day and night cycle and weather. When you die, you lose everything. How long can you last?',
     created: now - 0.02 * DAY, updated: now - 0.001 * DAY, visits: 4120, favorited: 802, online: 117, playedRecent: 2903, script: 'outbreak', maxPlayers: 1,
   });
+  add(3104577, {
+    name: 'Ragdoll Olympics',
+    desc: 'Welcome to the Ragdoll Olympics! Five events, eight athletes, zero dignity. Hurl yourself down the Grand Staircase of Mount Olympus for damage points, get fired out of a cannon for distance, survive the Wipeout Run, flip off the 60-stud diving tower and bowl for strikes with your own body. Every bone you break counts! Gold, silver and bronze in every event, and the champion takes the podium at the closing ceremony.',
+    created: now - 0.01 * DAY, updated: now - 0.0005 * DAY, visits: 2240, favorited: 517, online: 71, playedRecent: 1702, script: 'ragdoll', maxPlayers: 8,
+  });
   return added;
 }
 
