@@ -190,7 +190,10 @@ def tex_modules():
     return _TEX_MODULES
 
 
-def tex_fn(name: str):
+def tex_fn(name):
+    """Resolves a generator: a callable (defined in a dimension spec file) or a name in gen.textures / textures_extra."""
+    if callable(name):
+        return name
     T, X = tex_modules()
     fn = getattr(T, name, None) if T is not None else None
     if fn is None or name.startswith("_"):
@@ -238,7 +241,7 @@ def render_tex(t, _depth=0):
             out = fn(*args, **kwargs)
     except Exception:
         from . import textures_extra as X
-        alt = getattr(X, t.fn, None)
+        alt = None if callable(t.fn) else getattr(X, t.fn, None)
         if alt is None or alt is fn:
             raise
         out = alt(*args, **kwargs)
