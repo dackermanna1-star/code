@@ -179,6 +179,13 @@ Ratings and voting: 2008 pages show only how many times a place was Visited and 
 - The infected and bandits are all drawn as one instanced crowd of block figures, with one outfit atlas.
   - They move with the same collision as the player (upright cylinders against rotated boxes) and route through doorways and up stairs room by room.
   - Bullets are simulated with gravity and drag and tested against each limb's box.
+- Ragdolls: each body becomes ten points held by distance constraints (Verlet integration, several solver passes per step):
+  - The torso and head are rigid. A point at the front of the chest gives the body depth.
+  - Arms and legs keep their length and swing at the shoulder and hip, with minimum distances so limbs can't fold through the body.
+  - The points collide with the height map and the rotated boxes nearby, with friction.
+  - A body sleeps once it stops moving. Its points are saved, so your old body lies as it fell.
+  - The crowd's six limb boxes are placed from the points each frame.
+- Decals (bullet holes and four kinds of bloodstain from one texture atlas) are instanced, one ring buffer per kind.
 - Every sound is synthesized with WebAudio and placed left and right of you, and muffled behind walls: footsteps for each surface, gunshots and their echo off the hills, the infected, bandit shouts, doors, glass, the helicopter, rain, wind, birds, crickets and your heartbeat.
 - Photo textures: CC0 scans from Poly Haven (https://polyhaven.com), shrunk to 512 pixels (normal maps 256) and packed into one module by `tools/pack-outbreak-textures.py`.
 - The guns and the first-person view model come from Desert Strike.

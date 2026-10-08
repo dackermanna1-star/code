@@ -57,7 +57,7 @@ export class Combat {
         const shooterB = b.shooter?.box;
         const hw = O.phys.ray(b.x, b.y, b.z, _d.x, _d.y, _d.z, L, { skip: (bx) => bx === shooterB || bx.broken || (bx.glass && bx.brokenGlass) });
         // people
-        const hp = O.crowd.ray(_o, _d, hw ? hw.d : L, (p) => p.owner === b.shooter || (p.owner?.dead && p.owner?.deadT > 1.5));
+        const hp = O.crowd.ray(_o, _d, hw ? hw.d : L, (p) => p.owner === b.shooter || (p.owner?.dead && !p.rag));
         if (hp) {
           const factor = Math.max(0.35, sp / b.v0);
           this._hitPerson(b, hp, factor);
@@ -97,8 +97,16 @@ export class Combat {
     const owner = hp.p.owner;
     const mult = PART_MULT[hp.part] ?? 1;
     const dmg = b.dmg * mult * factor;
+    const zombie = owner?.walker !== undefined;
+    // a body already dead: it jerks with the hit, and bleeds
+    if (owner?.dead) {
+      hp.p.rag?.push({ x: _d.x, y: _d.y + 0.1, z: _d.z }, Math.min(14, 3 + dmg * 0.12), hp.part);
+      O.fx.blood(hp.point.x, hp.point.y, hp.point.z, _d, { zombie });
+      O.audio?.flesh(hp.point);
+      return;
+    }
     owner?.hit?.(dmg, hp.part, _d.clone(), b.shooter, { bullet: true, pierce: b.pierce });
-    O.fx.blood(hp.point.x, hp.point.y, hp.point.z, { x: _d.x, y: _d.y * 0.3 + 0.2, z: _d.z }, hp.part === 'head');
+    O.fx.blood(hp.point.x, hp.point.y, hp.point.z, { x: _d.x, y: _d.y * 0.3, z: _d.z }, { head: hp.part === 'head', heavy: dmg > 45, zombie });
     if (b.shooter === O.player) { O.hud?.hitmark(hp.part === 'head', owner?.dead); O.audio?.hitmark(hp.part === 'head'); }
     O.audio?.flesh(hp.point);
   }
@@ -131,7 +139,7 @@ export class Combat {
       const part = Math.abs(o.y + d.y * bd - headY) < 0.9 ? 'head' : 'torso';
       const dmg = w.dmg * (part === 'head' ? 1.6 : 1);
       best.owner.hit?.(dmg, part, new THREE.Vector3(d.x, 0, d.z).normalize(), w.shooter, { melee: true, stagger: w.stagger, kind: w.kind });
-      O.fx.blood(best.x, best.y + 3.2, best.z, { x: d.x, y: 0.3, z: d.z }, w.kind === 'chop');
+      O.fx.blood(best.x, best.y + (part === 'head' ? 4.4 : 3.2), best.z, { x: d.x, y: 0.15, z: d.z }, { melee: true, heavy: w.kind === 'chop', head: part === 'head', zombie: best.owner?.walker !== undefined });
       O.audio?.melee(w.kind, true);
       return best;
     }

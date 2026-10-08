@@ -21,6 +21,7 @@ import { Hands, Actions } from './weapons.js';
 import { Audio } from './audio.js';
 import { Events } from './events.js';
 import { Gear } from './gear.js';
+import { Ragdolls } from './ragdoll.js';
 import { Hud } from '../ui/hud.js';
 import { InventoryUI } from '../ui/inventory.js';
 import { MapUI } from '../ui/map.js';
@@ -63,6 +64,7 @@ export class Session {
     O.stats = { zombies: 0, bandits: 0, time: 0, distance: 0 };
     O.events = new Events(world);
     O.gear = new Gear(world);
+    O.ragdolls = new Ragdolls();
     // the static loot spots, and the ones that come with furniture
     for (const L of O.kit.loot) O.loot.addSpot(L);
     O.buildings.onFurnish = (B, out, loaded) => { for (const L of out.loot) loaded ? O.loot.addSpot(L) : O.loot.removeSpot(L); };
@@ -93,6 +95,8 @@ export class Session {
       O.survival.hurt(dmg, { part: p, bleed: o.bullet ? 0.85 : 0.35, armorPierce: o.pierce, cause: by?.squad ? 'a bandit' : by?.walker !== undefined ? 'the infected' : 'something', blood: o.bullet ? dmg * 0.5 : dmg * 0.3 });
       O.actions.cancel();
       O.player.flinch = 1;
+      // (how you were hit last, for how you fall if it kills you)
+      O.player.lastHit = { dir, part, force: o.bullet ? Math.min(24, 5 + dmg * 0.22) : 9, t: performance.now() };
     };
     this.applySettings();
     // leaving or switching tabs: save
@@ -128,14 +132,20 @@ export class Session {
   newGame() {
     localStorage.removeItem(SAVE);
     this._reset();
-    // a new survivor: a shirt, trousers, a torch and a bandage
+    // a new survivor: a shirt, trousers, a torch, a bandage, and a pistol (loaded, a round in the chamber) with two spare magazines
     const inv = O.inv;
     inv.slots.torso = makeItem('tshirt', { cond: 0.6 + Math.random() * 0.3 });
     inv.slots.legs = makeItem('jeans', { cond: 0.5 + Math.random() * 0.4 });
     inv.add(makeItem('flashlight', { charge: 0.55 }));
     inv.add(makeItem('bandage', { n: 1 }));
-    // the hotbar: the torch and the bandage
-    inv.all().forEach((it) => { const d = def(it); if (d.light) inv.setHot(0, it); if (d.med) inv.setHot(1, it); });
+    const pistol = makeItem('makarov', { cond: 0.7 + Math.random() * 0.25 });
+    pistol.mag = makeItem('magMakarov', { n: 7 }); pistol.chamber = true;
+    if (!inv.add(pistol)) inv.slots.hands = pistol;
+    const extra = []; // (anything without room is left at your feet)
+    for (let k = 0; k < 2; k++) { const m = makeItem('magMakarov', { n: 8 }); if (!inv.add(m)) extra.push(m); }
+    // the hotbar: the pistol, the torch, the bandage
+    inv.setHot(0, pistol);
+    inv.all().forEach((it) => { const d = def(it); if (d.light) inv.setHot(1, it); if (d.med) inv.setHot(2, it); });
     let x, z, yaw;
     for (let tries = 0; tries < 20; tries++) {
       const s = SPAWNS[Math.floor(Math.random() * SPAWNS.length)];
@@ -145,12 +155,13 @@ export class Session {
       if (!(O.veg?.items || []).some((t) => (Math.abs(t.x - x) < 5 && Math.abs(t.z - z) < 5) || (Math.abs(t.x - fx) < 5 && Math.abs(t.z - fz) < 5))) break;
     }
     O.player.place(x, z, yaw);
+    for (const m of extra) O.loot.drop(m, O.player.pos.x, O.player.pos.y, O.player.pos.z);
     O.hour = 6.5 + Math.random() * 3.5;
     O.sky.setWeather(Math.random() < 0.6 ? 'clear' : 'cloudy', true);
     O.stats = { zombies: 0, bandits: 0, time: 0, distance: 0 };
     this._start();
-    O.hud.note('You wake on the shore. Find food, water, and something to fight with.', 7);
-    O.hud.note('Tab: inventory · F: interact · M: map', 7);
+    O.hud.note('You wake on the shore with a pistol and two spare magazines. Find food, water, and shelter.', 7);
+    O.hud.note('1: pistol · R: reload · Tab: inventory · F: interact · M: map', 7);
   }
   continueGame() {
     const S = load(SAVE);
@@ -207,6 +218,9 @@ export class Session {
     for (const s of ['hands', 'shoulder', 'melee', 'head', 'torso', 'vest', 'legs', 'back']) { const it = O.inv.slots[s]; if (it) items.push(it); }
     const body = this._corpse({ x: O.player.pos.x, y: O.player.pos.y, z: O.player.pos.z, yaw: O.player.yaw + Math.PI, items: items.map(serItem), t: Date.now() });
     O.playerBodyOwner = body.owner;
+    // you go limp where you stood, with whatever hit you last
+    const P = O.player, lh = P.lastHit && performance.now() - P.lastHit.t < 1500 ? P.lastHit : null;
+    O.ragdolls.start(body.person, { mats: P.person.mats, vel: P.vel, dir: lh?.dir ? { x: lh.dir.x, y: (lh.dir.y || 0) + 0.12, z: lh.dir.z } : null, force: lh?.force, part: lh?.part, onSleep: (r) => { const c = r.center; O.fx.pool(c.x, c.z, c.y, 3.2); } });
     localStorage.removeItem(SAVE);
     this.saveWorld();
     // fall over, see yourself lying there
@@ -225,9 +239,11 @@ export class Session {
     const person = { x: c.x, y: c.y, z: c.z, yaw: c.yaw || 0, outfit: 'pc' + this._pc, pose: { dead: 1, fallDir: 1, arms: null }, owner: { dead: true, deadT: 99 } };
     O.crowd.add(person);
     const body = O.bodies.add({ x: c.x, y: c.y, z: c.z, name: 'Your old body', items, person, owner: person.owner, player: true, t: 0, always: false, saved: c });
+    // one from an earlier visit lies just as it fell, in its blood
+    if (c.rag) { const r = O.ragdolls.start(person, { points: c.rag, asleep: true }); if (r) { r.write(); const cc = r.center; O.fx.pool(cc.x, cc.z, cc.y, 3.2, true); } }
     // the newest three, no more
     const mine = O.bodies.list.filter((b) => b.player);
-    if (mine.length > 3) { const old = mine[0]; O.crowd.remove(old.person); O.bodies.list.splice(O.bodies.list.indexOf(old), 1); }
+    if (mine.length > 3) { const old = mine[0]; O.crowd.remove(old.person); O.ragdolls.remove(old.person); O.bodies.list.splice(O.bodies.list.indexOf(old), 1); }
     return body;
   }
 
@@ -240,7 +256,7 @@ export class Session {
     this.saveWorld();
   }
   saveWorld() {
-    const corpses = O.bodies.list.filter((b) => b.player).map((b) => ({ x: b.x, y: b.y, z: b.z, yaw: b.person.yaw, items: b.items.map(serItem) }));
+    const corpses = O.bodies.list.filter((b) => b.player).map((b) => ({ x: b.x, y: b.y, z: b.z, yaw: b.person.yaw, items: b.items.map(serItem), rag: b.person.rag?.save() }));
     store(WORLD, { loot: O.loot.save(), corpses });
   }
   saveSettings() { store(SETTINGS, O.settings); }
@@ -383,6 +399,7 @@ export class Session {
       O.events.update(dt);
     }
     O.fx.update(dt);
+    if (live && this.state !== 'paused') O.ragdolls.update(dt);
     O.crowd.update(cam.position);
     O.gear.update(O.player?.person, O.inv, live && O.player?.alive && O.player.camDist >= 2);
     this._rain(dt);

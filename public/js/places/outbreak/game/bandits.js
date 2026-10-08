@@ -56,14 +56,16 @@ class Bandit {
     this.hp -= dmg * (1 - armor);
     this.person.flash = 1;
     this.suppressed = 2;
-    if (this.hp <= 0) { this.die(dir, by); return; }
+    if (this.hp <= 0) { this.die(dir, by, part, dmg * (1 - armor), o); return; }
     // they know where it came from
     if (by?.pos && by.squad !== this.squad) { if (by.squad || by === O.player) this.squad.spot(by, this); else this.zTarget = by; this.hurtT = 3; }
     if (this.hp < 35 && Math.random() < 0.6) this.retreat = 8;
     O.audio?.voice('hurt', this.pos);
   }
-  die(dir, by) {
+  die(dir, by, part = 'torso', dmg = 30, o = {}) {
     this.dead = true; this.deadT = 0; this.state = 'dead';
+    const force = o.melee ? 9 + (o.stagger ? 7 : 0) : Math.min(24, 5 + dmg * 0.22);
+    O.ragdolls?.start(this.person, { vel: this.vel, dir: dir ? { x: dir.x, y: (dir.y || 0) + 0.12, z: dir.z } : null, force, part, onSleep: (r) => { const c = r.center; O.fx?.pool(c.x, c.z, c.y, 2.8 + Math.random()); } });
     const fwd = { x: Math.sin(this.yaw), z: Math.cos(this.yaw) };
     this.person.pose.fallDir = dir && (dir.x * fwd.x + dir.z * fwd.z) > 0 ? -1 : 1;
     if (by === O.player) O.stats.bandits++;
@@ -170,7 +172,7 @@ export class Bandits {
   }
   _modelOf(id) { return ITEMS[id].gun; }
   _despawn(s) {
-    for (const m of s.members) { m.removed = true; O.crowd.remove(m.person); if (m.model) this.world.scene.remove(m.model); O.bodies.removeOwner(m); }
+    for (const m of s.members) { m.removed = true; O.crowd.remove(m.person); O.ragdolls?.remove(m.person); if (m.model) this.world.scene.remove(m.model); O.bodies.removeOwner(m); }
     this.squads.splice(this.squads.indexOf(s), 1);
   }
   hear(x, y, z, r, src) {
@@ -385,7 +387,8 @@ export class Bandits {
     m.deadT += dt;
     const P = m.person.pose;
     const k = Math.min(1, m.deadT / 0.6);
-    P.dead = k * k * (3 - 2 * k); P.stride = 0; P.arms = null; P.crouch = 0;
+    if (!m.person.rag) P.dead = k * k * (3 - 2 * k);
+    P.stride = 0; P.arms = null; P.crouch = 0;
     if (m.model && m.deadT < 0.1) m.model.visible = false;
   }
 

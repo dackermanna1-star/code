@@ -476,7 +476,7 @@ function ensureExtraPlaces(state) {
   });
   add(3104576, {
     name: 'The Outbreak',
-    desc: 'South Karevia, three weeks after the outbreak. You wake on the coast with a shirt, a flashlight and one bandage. Find food and water. Find a weapon. The dead walk the towns, bandits hold the roads, and the military base in the hills is full of guns - and the dead soldiers who carried them. Melee and gunfights, looting, hunger, thirst, bleeding, broken legs, a day and night cycle and weather. When you die, you lose everything. How long can you last?',
+    desc: 'South Karevia, three weeks after the outbreak. You wake on the coast with a shirt, a flashlight, one bandage and a pistol with two spare magazines. Find food and water. Find better weapons. The dead walk the towns, bandits hold the roads, and the military base in the hills is full of guns - and the dead soldiers who carried them. Melee and gunfights, looting, hunger, thirst, bleeding, broken legs, a day and night cycle and weather. When you die, you lose everything. How long can you last?',
     created: now - 0.02 * DAY, updated: now - 0.001 * DAY, visits: 4120, favorited: 802, online: 117, playedRecent: 2903, script: 'outbreak', maxPlayers: 1,
   });
   return added;

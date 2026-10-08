@@ -238,7 +238,7 @@ export class Crowd {
       if (p.hidden) continue;
       if (cam && Math.abs(p.x - cam.x) + Math.abs(p.z - cam.z) > range * 1.4) { p.culled = true; continue; }
       p.culled = false;
-      this._pose(p);
+      if (p.rag) p.rag.write(); else this._pose(p);
       if (p.invisible) { if (ns < 4) { for (let k = 0; k < 6; k++) this.shadows[k].setMatrixAt(ns, p.mats[k]); ns++; } continue; }
       for (let k = 0; k < 6; k++) this.meshes[k].setMatrixAt(n, p.mats[k]);
       const ci = OUTFITS[p.outfit] ?? 0;

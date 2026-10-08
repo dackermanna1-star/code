@@ -114,6 +114,7 @@ export class Survival {
     // your clothes take a beating too
     if (O.inv) for (const s of ['torso', 'legs']) { const it = O.inv.slots[s]; if (it && Math.random() < 0.4) it.cond = Math.max(0, it.cond - dmg * 0.003); }
     O.post?.hit(Math.min(1, 0.25 + dmg / 30));
+    if (dmg >= 8 && o.cause !== 'a fall') O.hud?.splatter?.(dmg);
     O.audio?.hurt(dmg);
     if (this.health <= 0 || this.blood <= 0) this.die(o.cause || 'your wounds');
     return dmg;

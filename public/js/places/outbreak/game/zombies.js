@@ -47,13 +47,16 @@ class Zombie {
     this.hp -= dmg;
     this.person.flash = 1;
     if (o.melee && (o.stagger || Math.random() < 0.3) || dmg > 40) { this.stagger = o.stagger ? 1.1 : 0.55; this.vel.x += dir.x * 10; this.vel.z += dir.z * 10; }
-    if (this.hp <= 0) { this.die(dir, by, part); return; }
+    if (this.hp <= 0) { this.die(dir, by, part, dmg, o); return; }
     // whoever hurt it has its attention
     if (by?.pos) this.chase(by);
     O.audio?.zombie('hurt', this.pos);
   }
-  die(dir, by, part) {
+  die(dir, by, part, dmg = 30, o = {}) {
     this.dead = true; this.deadT = 0; this.state = 'dead';
+    // the body goes limp and falls with the blow
+    const force = o.melee ? 9 + (o.stagger ? 7 : 0) : Math.min(24, 5 + dmg * 0.22);
+    O.ragdolls?.start(this.person, { vel: this.vel, dir: dir ? { x: dir.x, y: (dir.y || 0) + 0.12, z: dir.z } : null, force, part: part || 'torso', onSleep: (r) => { const c = r.center; O.fx?.pool(c.x, c.z, c.y, 2.6 + Math.random()); } });
     // fall away from the blow
     const fwd = { x: Math.sin(this.yaw), z: Math.cos(this.yaw) };
     this.person.pose.fallDir = dir && (dir.x * fwd.x + dir.z * fwd.z) > 0 ? -1 : 1;
@@ -148,6 +151,7 @@ export class Zombies {
   }
   _remove(z) {
     O.crowd.remove(z.person);
+    O.ragdolls?.remove(z.person);
     const i = this.list.indexOf(z); if (i >= 0) this.list.splice(i, 1);
     if (z.box) O.phys.remove(z.box);
   }
@@ -329,11 +333,10 @@ export class Zombies {
   _dead(z, dt) {
     z.deadT += dt;
     const P = z.person.pose;
-    P.dead = Math.min(1, z.deadT / 0.55);
-    P.dead = P.dead * P.dead * (3 - 2 * P.dead);
+    if (!z.person.rag) { P.dead = Math.min(1, z.deadT / 0.55); P.dead = P.dead * P.dead * (3 - 2 * P.dead); }
     P.stride = 0; P.arms = 'zombie';
     // after a while they sink away (the body is gone from the list of things to loot too)
-    if (z.deadT > 150) { z.person.y -= dt * 0.5; if (z.deadT > 156) { O.bodies.removeOwner(z); this._remove(z); } }
+    if (z.deadT > 150) { if (z.person.rag) z.person.rag.sink(dt * 0.5); else z.person.y -= dt * 0.5; if (z.deadT > 156) { O.bodies.removeOwner(z); this._remove(z); } }
   }
 
   /** Remove everyone (new game). */
@@ -356,9 +359,10 @@ export class Bodies {
   constructor() { this.list = []; }
   add(b) {
     this.list.push(b);
+    if (b.person) b.person.body = b; // (a ragdoll keeps where the body is up to date)
     if (this.list.length > 60) {
       const i = this.list.findIndex((x) => !x.player);
-      if (i >= 0) { const old = this.list.splice(i, 1)[0]; if (old.person && !old.owner?.squad && !O.zombies.list.includes(old.owner)) O.crowd.remove(old.person); }
+      if (i >= 0) { const old = this.list.splice(i, 1)[0]; if (old.person && !old.owner?.squad && !O.zombies.list.includes(old.owner)) { O.crowd.remove(old.person); O.ragdolls?.remove(old.person); } }
     }
     return b;
   }

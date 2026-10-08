@@ -384,6 +384,11 @@ export class Events {
     if (d < 160 && O.player) O.player.shake = Math.max(O.player.shake || 0, 1.2 - d / 160);
     O.audio?.explosion({ x, y, z }, size);
     O.zombies?.hear(x, y, z, 380, null);
+    // the dead nearby are thrown about
+    for (const r of O.ragdolls?.list || []) {
+      const c = r.center, dx = c.x - x, dz = c.z - z, d = Math.hypot(dx, dz);
+      if (d < 45) r.push({ x: dx / (d || 1), y: 0.7, z: dz / (d || 1) }, 30 * (1 - d / 45), 'torso');
+    }
     O.bandits?.hear(x, y, z, 500, { pos: new THREE.Vector3(x, y, z) });
   }
   _site(s, dt) {

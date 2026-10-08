@@ -5,6 +5,8 @@ export const CSS = `
 .ob{position:absolute;inset:0;pointer-events:none;font-family:"DIN Alternate","Bahnschrift","Barlow Condensed","Roboto Condensed","Arial Narrow",Arial,sans-serif;color:#e9e5db;user-select:none;-webkit-user-select:none;font-size:14px;letter-spacing:.02em;z-index:30}
 .ob *{box-sizing:border-box}
 .ob-hud{position:absolute;inset:0;pointer-events:none}
+.ob-splats{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.ob-splats img{position:absolute;mix-blend-mode:multiply;filter:blur(.6px) saturate(1.2);transition:opacity .3s}
 .ob .hide{display:none!important}
 .ob .fade{transition:opacity .4s}
 /* the dot and hit marker */

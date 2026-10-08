@@ -26,6 +26,9 @@ export class Hud {
     const el = (cls, html = '', parent = root) => { const d = document.createElement('div'); d.className = cls; d.innerHTML = html; parent.appendChild(d); return d; };
     this.el = el;
     this.dmg = el('ob-dmg');
+    // blood on the screen when something hits you hard: a few pictures, drawn once
+    this.splats = el('ob-splats');
+    this.splatImgs = Array.from({ length: 4 }, (_, k) => splatImage(k));
     this.dot = el('ob-dot');
     this.hitEl = el('ob-hit');
     this.prompt = el('ob-prompt');
@@ -57,6 +60,22 @@ export class Hud {
     const d = document.createElement('div'); d.className = 'ob-note'; d.textContent = text; d.dataset.t = String(secs);
     this.notes.appendChild(d);
     while (this.notes.children.length > 5) this.notes.firstChild.remove();
+  }
+  /** Blood thrown across your view (bigger hits, more of it); it runs and fades over a few seconds. */
+  splatter(dmg) {
+    const n = dmg > 30 ? 2 : 1;
+    for (let k = 0; k < n; k++) {
+      const im = document.createElement('img');
+      im.src = this.splatImgs[Math.floor(Math.random() * this.splatImgs.length)];
+      const size = Math.min(70, 26 + dmg * 0.9) * (0.8 + Math.random() * 0.4);
+      // towards an edge or a corner, never over the middle
+      const side = Math.floor(Math.random() * 4), t = Math.random();
+      const x = side === 0 ? -size * 0.3 : side === 1 ? 100 - size * 0.7 : t * 100 - size / 2, y = side === 2 ? -size * 0.35 : side === 3 ? 100 - size * 0.65 : t * 100 - size / 2;
+      im.style.cssText = `width:${size}vh;height:${size}vh;left:calc(${x}vw);top:${y}vh;transform:rotate(${Math.random() * 360}deg);opacity:${Math.min(0.85, 0.45 + dmg / 60)}`;
+      im.dataset.t = String(2.6 + Math.random());
+      this.splats.appendChild(im);
+    }
+    while (this.splats.children.length > 6) this.splats.firstChild.remove();
   }
   hitmark(head, kill) { this.hitEl.className = 'ob-hit' + (kill ? ' kill' : ''); this.hitEl.style.opacity = 1; this.hitEl.style.transform = `scale(${head ? 1.3 : 1})`; this.hitT = 0.18; }
   /** A place's name, big, when you arrive. */
@@ -147,6 +166,13 @@ export class Hud {
     // hotbar shows for a moment after a change, or when you press a number
     this.hotT = Math.max(0, this.hotT - dt);
     this.hot.style.opacity = this.hotT > 0 && !O.invUI?.isOpen ? 1 : 0;
+    // blood on the screen runs down a little and fades
+    for (const im of [...this.splats.children]) {
+      const t = +im.dataset.t - dt; im.dataset.t = String(t);
+      if (t <= 0) { im.remove(); continue; }
+      if (t < 1.4) im.style.opacity = String(Math.min(+im.style.opacity, t / 1.4 * 0.85));
+      im.style.top = (parseFloat(im.style.top) + dt * 0.8) + 'vh';
+    }
     // hurt: red at the edges
     this.dmg.style.opacity = Math.max(0, Math.min(0.9, (1 - st.health) * 0.6 + (O.post?.flash || 0)));
   }
@@ -160,4 +186,15 @@ export class Hud {
     }
     if (h !== this._hh) { this.hot.innerHTML = h; this._hh = h; }
   }
+}
+
+/** A splash of blood (a data URL): a dense middle, droplets flung out, a couple of runs. */
+function splatImage(seed) {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+  let r = seed * 9301 + 49297; const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280);
+  const col = (a) => `rgba(${Math.round(90 + rnd() * 40)},${Math.round(4 + rnd() * 6)},${Math.round(4 + rnd() * 6)},${a})`;
+  for (let i = 0; i < 16; i++) { g.fillStyle = col(0.75); g.beginPath(); g.ellipse(128 + (rnd() - 0.5) * 70, 128 + (rnd() - 0.5) * 70, 12 + rnd() * 26, 10 + rnd() * 22, rnd() * 3, 0, 7); g.fill(); }
+  for (let i = 0; i < 60; i++) { const a = rnd() * 6.28, d = 50 + rnd() * 70; g.fillStyle = col(0.85); g.beginPath(); g.arc(128 + Math.cos(a) * d, 128 + Math.sin(a) * d, 1.5 + rnd() * 5, 0, 7); g.fill(); }
+  for (let i = 0; i < 3; i++) { const x = 100 + rnd() * 56; g.fillStyle = col(0.7); g.fillRect(x, 128, 3 + rnd() * 4, 40 + rnd() * 70); g.beginPath(); g.arc(x + 3, 128 + 50 + rnd() * 60, 5, 0, 7); g.fill(); }
+  return c.toDataURL('image/png');
 }
