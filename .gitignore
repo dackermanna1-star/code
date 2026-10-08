@@ -1,0 +1,27 @@
+# gradle
+.gradle/
+build/
+out/
+classes/
+
+# idea / eclipse / vscode
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+bin/
+
+# fabric
+run/
+remappedSrc/
+
+# python
+__pycache__/
+*.pyc
+
+# misc
+.DS_Store
