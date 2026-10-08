@@ -25,3 +25,4 @@ __pycache__/
 
 # misc
 .DS_Store
+tools/.cache/

@@ -1,0 +1,13 @@
+{
+	"schemaVersion": 1,
+	"id": "portalgun-gametest",
+	"version": "1.0.0",
+	"name": "Portal Gun Multiverse Tests",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-client-gametest": ["dev.portalgun.gametest.PortalGunClientTest"]
+	},
+	"depends": {
+		"portalgun": "*"
+	}
+}

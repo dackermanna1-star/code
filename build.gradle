@@ -45,3 +45,13 @@ java {
 	sourceCompatibility = JavaVersion.VERSION_21
 	targetCompatibility = JavaVersion.VERSION_21
 }
+
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = "portalgun-gametest"
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = true
+	}
+}

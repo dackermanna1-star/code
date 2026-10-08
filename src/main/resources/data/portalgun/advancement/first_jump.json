@@ -1,0 +1,28 @@
+{
+  "parent": "portalgun:root",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "count": 1
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:portal_fluid"
+    },
+    "title": {
+      "translate": "advancements.portalgun.first_jump.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.first_jump.description"
+    },
+    "frame": "task"
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

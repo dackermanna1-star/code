@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "F": "portalgun:portal_fluid",
+    "I": "minecraft:iron_ingot",
+    "E": "minecraft:ender_eye",
+    "R": "minecraft:redstone",
+    "Q": "minecraft:quartz",
+    "G": "minecraft:lime_stained_glass"
+  },
+  "pattern": [
+    " G ",
+    "QFR",
+    "IEI"
+  ],
+  "result": {
+    "count": 1,
+    "id": "portalgun:portal_gun"
+  }
+}

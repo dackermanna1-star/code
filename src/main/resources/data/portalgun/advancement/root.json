@@ -1,0 +1,33 @@
+{
+  "criteria": {
+    "has_gun": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "portalgun:portal_gun"
+          }
+        ]
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:portal_gun"
+    },
+    "title": {
+      "translate": "advancements.portalgun.root.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.root.description"
+    },
+    "background": "minecraft:gui/advancements/backgrounds/end",
+    "show_toast": true,
+    "announce_to_chat": false
+  },
+  "requirements": [
+    [
+      "has_gun"
+    ]
+  ]
+}

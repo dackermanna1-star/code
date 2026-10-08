@@ -1,0 +1,28 @@
+{
+  "parent": "portalgun:twenty_five",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "count": 0
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:portal_fluid"
+    },
+    "title": {
+      "translate": "advancements.portalgun.all.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.all.description"
+    },
+    "frame": "challenge"
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}
