@@ -1,6 +1,9 @@
 {
   "replace": false,
   "values": [
-    "portalgun:glowcap_stem"
+    {
+      "id": "portalgun:glowcap_stem",
+      "required": false
+    }
   ]
 }

@@ -212,10 +212,16 @@ def render_tex(t, _depth=0):
 
     args = [conv(a) for a in t.args]
     kwargs = {k: conv(v) for k, v in t.kwargs.items()}
+    per_frame = False
     if t.frames > 0 and _accepts(fn, "frames") and "frames" not in kwargs:
         kwargs["frames"] = t.frames
+    elif t.frames > 0 and _accepts(fn, "frame") and "frame" not in kwargs:
+        per_frame = True     # generator renders one frame at a time: fn(..., frame=i)
     try:
-        out = fn(*args, **kwargs)
+        if per_frame:
+            out = [fn(*args, frame=i, **kwargs) for i in range(t.frames)]
+        else:
+            out = fn(*args, **kwargs)
     except Exception:
         from . import textures_extra as X
         alt = getattr(X, t.fn, None)
@@ -377,7 +383,9 @@ class Tags:
         for (registry, tag), values in sorted(self.entries.items()):
             ns, path = tag.split(":", 1)
             p = os.path.join(res_dir, "data", ns, "tags", registry, path + ".json")
-            write_json(p, {"replace": False, "values": values})
+            # optional entries: a missing block/item must never invalidate a (vanilla) tag - that cascades into
+            # vanilla carvers/features failing to load and the world refusing to open
+            write_json(p, {"replace": False, "values": [{"id": v, "required": False} for v in values]})
 
 
 class Ctx:

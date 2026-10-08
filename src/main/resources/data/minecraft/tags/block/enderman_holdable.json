@@ -1,7 +1,13 @@
 {
   "replace": false,
   "values": [
-    "portalgun:sporemoss",
-    "portalgun:spore_soil"
+    {
+      "id": "portalgun:sporemoss",
+      "required": false
+    },
+    {
+      "id": "portalgun:spore_soil",
+      "required": false
+    }
   ]
 }

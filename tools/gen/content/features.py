@@ -11,8 +11,8 @@ Generation steps (vanilla GenerationStep.Decoration indices):
                 so every floor of every tier/cavern gets decorated.
   underwater    heightmap OCEAN_FLOOR_WG + must be in water
   water_surface heightmap WORLD_SURFACE_WG (the air block right above the water)
-  cave_floor    height_range + environment_scan down to a sturdy floor
-  cave_ceiling  height_range + environment_scan up to a sturdy ceiling, one block below it
+  cave_floor    height_range + environment_scan down to a sturdy floor      (count is scaled by range/24 blocks
+  cave_ceiling  height_range + environment_scan up to a sturdy ceiling       because most attempts start in rock)
   air / anywhere height_range only (Feature.y or a style default)
 """
 from __future__ import annotations
@@ -86,7 +86,7 @@ def _hr(a, b):
 
 def _count(c):
     if isinstance(c, (tuple, list)):
-        lo, hi = int(c[0]), int(c[1])
+        lo, hi = min(256, int(c[0])), min(256, int(c[1]))
         if hi <= 0:
             return None
         return {"type": "minecraft:count", "count": int_provider((max(0, lo), max(0, hi)))}
@@ -124,7 +124,14 @@ def placement(fc: FCtx, f: Feature, ground_check=False, solid_below=False):
                          "predicate": {"type": "minecraft:has_sturdy_face", "offset": [0, -1, 0], "direction": "up"}})
         mods.append({"type": "minecraft:biome"})
         return mods
-    c = _count(f.count)
+    count = f.count
+    if where in ("cave_floor", "cave_ceiling"):
+        # most random points of a tall height range are inside rock; scale attempts with the range so `count`
+        # stays "roughly this many patches per chunk" like for surface features
+        a, b = fc.y_range(f, where)
+        k = max(1.0, (b - a) / 24.0)
+        count = (int(count[0] * k), int(count[1] * k)) if isinstance(count, (tuple, list)) else int(round(count * k))
+    c = _count(count)
     if c:
         mods.append(c)
     mods.append({"type": "minecraft:in_square"})

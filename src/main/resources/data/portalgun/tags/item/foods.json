@@ -1,6 +1,9 @@
 {
   "replace": false,
   "values": [
-    "portalgun:glowcap_slice"
+    {
+      "id": "portalgun:glowcap_slice",
+      "required": false
+    }
   ]
 }

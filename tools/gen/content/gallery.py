@@ -136,7 +136,8 @@ def gallery_dimensions():
         dims.append(Dimension(
             id=f"gallery_{style}", code=f"GAL-{i:02d}", name=f"Gallery: {style.replace('_', ' ').title()}",
             tagline=f"Terrain style test: {style}", description=f"Throwaway test dimension for the '{style}' terrain style.",
-            danger=1, color="#888888", terrain=t, sky=sky, biomes=[biome]))
+            danger=1, color="#888888", terrain=t, sky=sky, biomes=[biome],
+            effects=["heat"] if style == "caves" else []))
     dims.append(_blocks_dimension())
     return dims
 

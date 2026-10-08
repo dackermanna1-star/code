@@ -165,10 +165,16 @@ public final class ContentSpec {
 		public String id;
 		public String name;
 		public String dimension;
+		/** quadruped biped flyer floater blob crawler serpent swimmer golem eye hopper tripod plantoid snail. */
+		public String archetype = "quadruped";
+		/** ground, flying, floating, swimming, amphibious or hopping. */
 		public String movement = "ground";
 		public String category = "creature";
 		public float width = 0.8F;
 		public float height = 0.9F;
+		/** Eye height in blocks (already multiplied by scale); <= 0 means 85% of the height. */
+		public float eyeHeight = -1;
+		/** Render scale of the generated geometry (the hitbox above is already scaled). */
 		public float scale = 1.0F;
 		public float shadow = 0.5F;
 		public double health = 10;
@@ -186,6 +192,15 @@ public final class ContentSpec {
 		public boolean fireImmune;
 		public boolean glowEyes;
 		public boolean emissive;
+		/** Body rendered with a translucent render type (gummy / jelly / ghost bodies). */
+		public boolean translucent;
+		/** A glow overlay texture (textures/entity/creature/<id>_glow.png) exists. */
+		public boolean hasGlow;
+		/** Max spawn cluster size. */
+		public int group = 4;
+		/** Client tracking range in chunks. */
+		public int trackingRange = 10;
+		/** ground, water or air. */
 		public String placement = "ground";
 		public String spawnLight = "any";
 		public Sounds sounds = new Sounds();
@@ -202,8 +217,18 @@ public final class ContentSpec {
 		public EffectSpec effect;
 		public float explode;
 		public int count = 1;
+		/** Degrees between orbs of a volley. */
 		public float spread;
 		public String particle;
+		/** Extra knockback strength on hit. */
+		public float knockback;
+		/** Seconds the target burns. */
+		public float fire;
+		/** 0..1 steering toward the target per tick. */
+		public float homing;
+		/** Visual radius in blocks. */
+		public float size = 0.35F;
+		public boolean gravity;
 	}
 
 	public static final class Sounds {

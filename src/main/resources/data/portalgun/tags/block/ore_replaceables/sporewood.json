@@ -1,6 +1,9 @@
 {
   "replace": false,
   "values": [
-    "portalgun:sporewood_rock"
+    {
+      "id": "portalgun:sporewood_rock",
+      "required": false
+    }
   ]
 }

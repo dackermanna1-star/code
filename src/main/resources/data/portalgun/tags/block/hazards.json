@@ -1,6 +1,9 @@
 {
   "replace": false,
   "values": [
-    "minecraft:magma_block"
+    {
+      "id": "minecraft:magma_block",
+      "required": false
+    }
   ]
 }

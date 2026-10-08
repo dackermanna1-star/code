@@ -132,6 +132,37 @@ def build_dimension(dim, res_dir, lang, sound_table, tags, C, spec):
     spec["dimensions"].append(_dimension_info(dim, terrain, sky_entries, creature_ids))
 
 
+def _soften_tags(res_dir):
+    """Make every generated tag entry optional ({"id": x, "required": false}).
+
+    A tag naming a block/entity that is not registered (a creature whose Java side is not ready, a stale entry...)
+    otherwise fails as a whole, and vanilla content depending on it (carvers, enchantments) then breaks world loading.
+    """
+    import json as _json
+    data = os.path.join(res_dir, "data")
+    if not os.path.isdir(data):
+        return
+    for ns in os.listdir(data):
+        root = os.path.join(data, ns, "tags")
+        for dp, _, fns in os.walk(root):
+            for fn in fns:
+                if not fn.endswith(".json"):
+                    continue
+                p = os.path.join(dp, fn)
+                try:
+                    with open(p, encoding="utf-8") as f:
+                        d = _json.load(f)
+                except (OSError, ValueError):
+                    continue
+                vals = d.get("values")
+                if not isinstance(vals, list) or all(isinstance(v, dict) for v in vals):
+                    continue
+                d["values"] = [v if isinstance(v, dict) else {"id": v, "required": False} for v in vals]
+                with open(p, "w", encoding="utf-8") as f:
+                    _json.dump(d, f, indent=2)
+                    f.write("\n")
+
+
 def build(res_dir, lang, sound_table, only=(), gallery=False):
     t0 = time.time()
     spec = {"dimensions": [], "blocks": [], "items": [], "creatures": []}
@@ -175,6 +206,17 @@ def build(res_dir, lang, sound_table, only=(), gallery=False):
             traceback.print_exc(file=sys.stderr)
     tags.add("block", f"{NS}:hazards", "minecraft:magma_block")
     tags.write(res_dir)
+    _soften_tags(res_dir)
+    try:
+        from .selfcheck import check
+        problems = check(res_dir, spec)
+    except Exception as e:  # the checker must never break generation
+        problems = []
+        warn(f"selfcheck crashed: {e!r}")
+    for p in problems[:60]:
+        print(f"  [content] SELFCHECK: {p}", file=sys.stderr)
+    if len(problems) > 60:
+        print(f"  [content] SELFCHECK: ... {len(problems) - 60} more", file=sys.stderr)
     print(f"  content: {built}/{len(selected)} dimensions built in {time.time() - t0:.1f}s "
           f"({len(spec['blocks'])} blocks, {len(spec['items'])} items, {len(spec['creatures'])} creatures)")
     return spec

@@ -1,8 +1,17 @@
 {
   "replace": false,
   "values": [
-    "portalgun:glowcap_stem",
-    "portalgun:teal_glowcap",
-    "portalgun:violet_glowcap"
+    {
+      "id": "portalgun:glowcap_stem",
+      "required": false
+    },
+    {
+      "id": "portalgun:teal_glowcap",
+      "required": false
+    },
+    {
+      "id": "portalgun:violet_glowcap",
+      "required": false
+    }
   ]
 }

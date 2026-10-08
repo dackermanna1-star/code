@@ -403,6 +403,9 @@ class Creature:
     pitch: float = 1.0
     xp: int = 3
     description: str = ""
+    movement: Optional[str] = None      # ground flying floating swimming amphibious hopping (default from archetype)
+    group: int = 4                      # max spawn cluster size
+    tracking: int = 0                   # client tracking range in chunks (0 = from size)
 
 
 # --------------------------------------------------------------------------------------------- dimension

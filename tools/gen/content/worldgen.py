@@ -38,7 +38,7 @@ terraces     stepped hills.            step (6) terrace height; smoothness (0.25
 canyons      plateau cut by canyons.   depth (amplitude*1.5); width (0.5) 0..1 canyon width; step (7) wall terraces
                                        (0 = smooth walls); rivers - canyon floors below sea_level hold water
 sponge       holey cheese terrain.     holes (0.5) 0..1 amount of voids; hole_size (1.0)
-inverted     upside-down world.        ceiling (height+130) underside base y; hang (amplitude*2.2) hanging mountain depth;
+inverted     upside-down world.        ceiling (height+95) underside base y; hang (amplitude*2.2) hanging mountain depth;
                                        holes (0.22) fraction of open sky in the stone ceiling;
                                        floor (0.3) coverage of walkable islands at `height`; roof always on
 cubes        voxel mesas (crisp 4x4-block columns, not interpolated) + floating cubes (Java cell_shapes).
@@ -429,7 +429,7 @@ class Terrain:
     def _inverted(self):
         t, P = self.t, self.P
         A = t.amplitude
-        ceil_y = float(P.get("ceiling", min(self.top - 40, t.height + 130)))
+        ceil_y = float(P.get("ceiling", min(self.top - 30, t.height + 95)))
         hang = float(P.get("hang", A * 2.2))
         ridge = df.square(df.clamp(df.sub(1.0, df.abs_(self.N("ridge", -8, [1, 0.6]))), 0, 1))
         mask = df.clamp(df.add(0.5, df.mul(self.N("mask", -9, [1, 1]), 1.2)), 0, 1)

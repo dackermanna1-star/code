@@ -123,6 +123,15 @@ def _check_tex(r, where, t):
         return
     if tex_fn(t.fn) is None:
         r.err(where, f"unknown texture generator {t.fn!r} (not in gen.textures or textures_extra)")
+    if t.fn == "item_icon" and t.args:
+        try:
+            from gen import textures as T
+            kinds = getattr(T, "ITEM_KINDS", None)
+        except Exception:
+            kinds = None
+        if kinds and t.args[0] not in kinds:
+            r.warn(where, f"item_icon kind {t.args[0]!r} unknown to gen.textures (fallback icon used); "
+                          f"known: {', '.join(sorted(kinds))}")
     for a in list(t.args) + list(t.kwargs.values()):
         if isinstance(a, Tex):
             _check_tex(r, where, a)

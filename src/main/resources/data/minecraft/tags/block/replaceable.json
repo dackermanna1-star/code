@@ -1,7 +1,13 @@
 {
   "replace": false,
   "values": [
-    "portalgun:glowcap_sprout",
-    "portalgun:spore_puff"
+    {
+      "id": "portalgun:glowcap_sprout",
+      "required": false
+    },
+    {
+      "id": "portalgun:spore_puff",
+      "required": false
+    }
   ]
 }

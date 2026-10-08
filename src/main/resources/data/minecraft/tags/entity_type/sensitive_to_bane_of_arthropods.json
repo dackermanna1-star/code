@@ -1,0 +1,21 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:lab_ant",
+      "required": false
+    },
+    {
+      "id": "portalgun:lab_crab",
+      "required": false
+    },
+    {
+      "id": "portalgun:lab_crystal_crawler",
+      "required": false
+    },
+    {
+      "id": "portalgun:lab_scorpion",
+      "required": false
+    }
+  ]
+}

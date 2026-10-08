@@ -1,10 +1,25 @@
 {
   "replace": false,
   "values": [
-    "minecraft:deepslate",
-    "portalgun:spore_soil",
-    "portalgun:sporemoss",
-    "portalgun:sporewood_rock",
-    "#minecraft:overworld_carver_replaceables"
+    {
+      "id": "minecraft:deepslate",
+      "required": false
+    },
+    {
+      "id": "portalgun:spore_soil",
+      "required": false
+    },
+    {
+      "id": "portalgun:sporemoss",
+      "required": false
+    },
+    {
+      "id": "portalgun:sporewood_rock",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
   ]
 }

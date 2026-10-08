@@ -27,6 +27,12 @@ SOUND_CACHE = os.path.join(HERE, ".cache", "sounds")
 
 
 def _clean():
+    # generated vanilla-namespace tags (block/item tags from gen.content, entity tags from the creature module):
+    # stale entries naming blocks/entities that no longer exist make the whole tag - and everything that depends
+    # on it, like vanilla carvers and enchantments - fail to load
+    vanilla_tags = os.path.join(RES, "data", "minecraft", "tags")
+    if os.path.isdir(vanilla_tags):
+        shutil.rmtree(vanilla_tags)
     for d in (ASSETS, DATA):
         if os.path.isdir(d):
             for name in os.listdir(d):

@@ -249,9 +249,23 @@ def eye(colors, seed="eye", size=112):
     streak = 0.5 + 0.5 * np.sin(ang * 26 + _noise(n, max(3, n // 10), seed) * 6)
     icol = _ramp(cols[:3], np.clip(1 - d / 0.36 * 0.8 + 0.25 * streak - 0.1, 0, 1))
     col = np.zeros((n, n, 3)) + sclera_col
-    veins = _noise(n, max(3, n // 14), seed + ":v", octaves=3)
-    vmask = (np.abs(veins - 0.5) < 0.025) & (d > 0.42)
-    col[vmask] = [190, 40, 40]
+    # thin branching veins creeping in from the corners of the eye
+    vmask = np.zeros((n, n), bool)
+    for k in range(int(R.integers(5, 9))):
+        side = -1 if k % 2 == 0 else 1
+        x, y = side * R.uniform(0.6, 0.85), R.uniform(-0.18, 0.18)
+        ang = math.atan2(-y, -x) + R.uniform(-0.5, 0.5)
+        for _ in range(int(n * 0.25)):
+            px, py = int((x + 1) / 2 * n), int((y + 1) / 2 * n)
+            if 0 <= px < n and 0 <= py < n:
+                vmask[py, px] = True
+            ang += R.uniform(-0.35, 0.35)
+            x += math.cos(ang) * 2.0 / n
+            y += math.sin(ang) * 2.0 / n
+            if math.hypot(x, y) < 0.42:
+                break
+    vmask &= shape & (d > 0.38)
+    col[vmask] = [178, 34, 40]
     shade = np.clip(1 - (np.abs(Y) / (0.5 * (1 - (X / 0.95) ** 2) + 1e-6)) ** 4 * 0.45, 0.4, 1)
     col *= shade[..., None]
     col[iris] = icol[iris] * (0.85 + 0.15 * shade[iris][..., None])
