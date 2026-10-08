@@ -1,7 +1,6 @@
 {
   "replace": false,
   "values": [
-    "portalgun:glowcap_stem",
-    "portalgun:gb_log"
+    "portalgun:glowcap_stem"
   ]
 }

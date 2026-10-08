@@ -1,16 +1,6 @@
 {
   "replace": false,
   "values": [
-    "portalgun:sporewood_rock",
-    "portalgun:gb_stone",
-    "portalgun:gb_glass",
-    "portalgun:gb_ice",
-    "portalgun:gb_glow",
-    "portalgun:gb_crystal",
-    "portalgun:gb_ore",
-    "portalgun:gb_hazard",
-    "portalgun:gb_vent",
-    "portalgun:gb_cluster",
-    "portalgun:gb_solid"
+    "portalgun:sporewood_rock"
   ]
 }

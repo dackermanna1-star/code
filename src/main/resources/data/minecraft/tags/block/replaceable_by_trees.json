@@ -3,11 +3,6 @@
   "values": [
     "portalgun:glowcap_sprout",
     "portalgun:spore_puff",
-    "portalgun:hanging_glowroot",
-    "portalgun:gb_leaves",
-    "portalgun:gb_plant",
-    "portalgun:gb_tall",
-    "portalgun:gb_hanging",
-    "portalgun:gb_vine"
+    "portalgun:hanging_glowroot"
   ]
 }

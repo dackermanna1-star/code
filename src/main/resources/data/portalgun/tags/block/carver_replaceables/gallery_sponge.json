@@ -1,8 +1,0 @@
-{
-  "replace": false,
-  "values": [
-    "minecraft:hay_block",
-    "minecraft:yellow_terracotta",
-    "#minecraft:overworld_carver_replaceables"
-  ]
-}

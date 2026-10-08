@@ -2,8 +2,6 @@
   "replace": false,
   "values": [
     "portalgun:sporemoss",
-    "portalgun:spore_soil",
-    "portalgun:gb_grass",
-    "portalgun:gb_soil"
+    "portalgun:spore_soil"
   ]
 }

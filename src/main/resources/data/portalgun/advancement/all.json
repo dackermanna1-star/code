@@ -4,7 +4,7 @@
     "visited": {
       "trigger": "portalgun:visited_dimension",
       "conditions": {
-        "count": 22
+        "count": 1
       }
     }
   },

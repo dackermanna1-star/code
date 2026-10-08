@@ -1,7 +1,6 @@
 {
   "replace": false,
   "values": [
-    "portalgun:glowcap_slice",
-    "portalgun:gb_fruit"
+    "portalgun:glowcap_slice"
   ]
 }

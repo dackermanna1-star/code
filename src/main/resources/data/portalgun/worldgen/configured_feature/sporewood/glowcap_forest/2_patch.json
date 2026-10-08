@@ -34,6 +34,23 @@
                 "state": {
                   "Name": "portalgun:glowcap_sprout"
                 }
+              },
+              {
+                "type": "minecraft:not",
+                "predicate": {
+                  "type": "minecraft:matching_fluids",
+                  "offset": [
+                    0,
+                    -1,
+                    0
+                  ],
+                  "fluids": [
+                    "minecraft:water",
+                    "minecraft:flowing_water",
+                    "minecraft:lava",
+                    "minecraft:flowing_lava"
+                  ]
+                }
               }
             ]
           }

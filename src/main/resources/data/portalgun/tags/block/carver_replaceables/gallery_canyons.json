@@ -1,9 +1,0 @@
-{
-  "replace": false,
-  "values": [
-    "minecraft:orange_terracotta",
-    "minecraft:red_sand",
-    "minecraft:terracotta",
-    "#minecraft:overworld_carver_replaceables"
-  ]
-}
