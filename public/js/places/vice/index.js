@@ -24,7 +24,7 @@ export default {
     const t0 = performance.now();
     V.world = world;
     V.events = new Events();
-    V.cfg = { debugWorld: true, quality: 'high' };
+    V.cfg = { debugWorld: true, quality: 'high', vehShowroom: false };
     V.plan = makePlan();
     V.ground = new Ground(V.plan).generate();
     V.phys = new VPhys(V.ground, V.plan);
