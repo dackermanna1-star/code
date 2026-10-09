@@ -71,7 +71,13 @@ export function airliner(g, gw, x, y, z, h, type, liv) {
     for (const ex of T.eng) {
       const t = ex / span, ez = zr - ex * sweep + T.er * 1.6, ey = wy + ex * 0.08 - T.er - 1.4, el = T.er * 4.4;
       smoothTube(g, x, y, z, h, [{ c: [sx * ex, ey, ez + el * 0.55], r: T.er * 0.92 }, { c: [sx * ex, ey, ez + el * 0.42], r: T.er }, { c: [sx * ex, ey, ez - el * 0.2], r: T.er * 0.92 }, { c: [sx * ex, ey, ez - el * 0.45], r: T.er * 0.72 }], 14, { lay: L.stucco, scale: 6, rough: 0.35 }, () => cEng);
-      F.quad([sx * ex - T.er * 0.9, ey - T.er * 0.9, ez + el * 0.55 + 0.05], [sx * ex + T.er * 0.9, ey - T.er * 0.9, ez + el * 0.55 + 0.05], [sx * ex + T.er * 0.9, ey + T.er * 0.9, ez + el * 0.55 + 0.05], [sx * ex - T.er * 0.9, ey + T.er * 0.9, ez + el * 0.55 + 0.05], { lay: L.concrete, tint: dark });
+      // the intake: a dark disc just inside the lip, with a spinner
+      const iz = ez + el * 0.5;
+      for (let k = 0; k < 14; k++) {
+        const a0 = (k / 14) * Math.PI * 2, a1 = ((k + 1) / 14) * Math.PI * 2, rr = T.er * 0.86;
+        F.quad([sx * ex, ey, iz], [sx * ex, ey, iz], [sx * ex + Math.cos(a1) * rr, ey + Math.sin(a1) * rr, iz], [sx * ex + Math.cos(a0) * rr, ey + Math.sin(a0) * rr, iz], { lay: L.concrete, tint: dark, normal: [0, 0, 1] });
+      }
+      F.tube([sx * ex, ey, iz], [sx * ex, ey, iz + T.er * 0.5], T.er * 0.25, 0.05, 6, { lay: L.concrete, tint: [0.5, 0.52, 0.55] });
       F.tube([sx * ex, ey, ez - el * 0.45], [sx * ex, ey, ez - el * 0.45 - T.er * 1.2], T.er * 0.5, 0.2, 8, { lay: L.concrete, tint: [0.35, 0.33, 0.32] });
       F.box(sx * ex, ey + T.er + 0.8, ez - el * 0.2, 0.6, 1.1, el * 0.35, { lay: L.stucco, tint: grey });
       void t;

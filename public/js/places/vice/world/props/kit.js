@@ -50,10 +50,10 @@ export function propMaterials(tex, glow) {
   inst.customProgramCacheKey = () => 'vc-surf-propsI';
   // windows that light up at night in a warm colour, each pane a little different (lay.z = how many are lit)
   const win = surfaceMaterial(tex, { glowUniform: glow, key: 'propsWin', fragEmit: `{
-    vec2 cell = floor(vec2(vWp.x + vWp.z, vWp.y) / vec2(5.0, 4.5));
+    vec2 cell = floor(vec2(vWp.x + vWp.z, vWp.y) / vec2(3.6, 4.5));
     float h = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
-    float on = step(1.0 - vLay.z, h * 0.999);
-    totalEmissiveRadiance += mix(vec3(1.0, 0.72, 0.42), vec3(0.75, 0.85, 1.0), step(0.8, fract(h * 7.31))) * on * glow * (1.2 + h);
+    float on = step(1.0 - vLay.z * 0.8, h * 0.999);
+    totalEmissiveRadiance += mix(vec3(1.0, 0.7, 0.4), vec3(0.7, 0.82, 1.0), step(0.8, fract(h * 7.31))) * on * glow * (0.35 + 0.65 * h);
   }` });
   // chain-link fences: a wire mesh drawn in code, cut out
   const fence = new THREE.MeshStandardMaterial({ map: fenceTex(), alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.5, metalness: 0.4, color: 0xb8bcc0 });

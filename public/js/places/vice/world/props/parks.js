@@ -213,10 +213,10 @@ function bandshell(P, S, x, z, h) {
   // lights along the arch (glow at night)
   for (let i = 0; i <= 16; i++) { const t = Math.PI * (i / 16); const p = W(Math.cos(t) * R, 4 + Math.sin(t) * 2 + 0.5, 0.6); g.box(p[0], p[1], p[2], 0.45, 0.45, 0.45, 0, { lay: L.whiteTiles, tint: [1, 0.85, 0.6], glow: 1 }); }
   // the audience: curved rows of benches on the lawn in front
-  for (let row = 0; row < 6; row++) {
-    const rr = 34 + row * 7;
-    for (let k = -3; k <= 3; k++) {
-      const a = k * 0.18, p = W(Math.sin(a) * rr, 0, rr * Math.cos(a) + 6);
+  for (let row = 0; row < 3; row++) {
+    const rr = 40 + row * 10;
+    for (let k = -2; k <= 2; k++) {
+      const a = k * 0.22, p = W(Math.sin(a) * rr, 0, rr * Math.cos(a) + 6);
       if (!S.dry(p[0], p[2], 2)) continue;
       place(P, 'bench', p[0], p[2], h + Math.PI + a, tint(0xd8d2c4));
     }
@@ -442,7 +442,7 @@ function mausoleum(P, x, z, h, r) {
   // the pediment roof (a triangular prism along local z)
   const ry = 1 + hh, rh = 3.5;
   for (const sz of [-1, 1]) { tri(g, W(-w - 0.6, ry, sz * (d + 0.6)), W(w + 0.6, ry, sz * (d + 0.6)), W(0, ry + rh, sz * (d + 0.6)), { lay: L.marble, tint: white, scale: 6 }); if (sz < 0) { const a = W(-w - 0.6, ry, -d - 0.6), b = W(w + 0.6, ry, -d - 0.6), cc = W(0, ry + rh, -d - 0.6); tri(g, b, a, cc, { lay: L.marble, tint: white, scale: 6 }); } }
-  for (const sx of [-1, 1]) g.quad(W(sx * (w + 0.6), ry, sx > 0 ? -(d + 0.6) : d + 0.6), W(sx * (w + 0.6), ry, sx > 0 ? d + 0.6 : -(d + 0.6)), W(0, ry + rh, sx > 0 ? d + 0.6 : -(d + 0.6)), W(0, ry + rh, sx > 0 ? -(d + 0.6) : d + 0.6), { lay: L.marble, tint: shade(white, 0.92), scale: 6 });
+  for (const sx of [-1, 1]) { const za = sx > 0 ? d + 0.6 : -(d + 0.6); g.quad(W(sx * (w + 0.6), ry, za), W(sx * (w + 0.6), ry, -za), W(0, ry + rh, -za), W(0, ry + rh, za), { lay: L.roofTiles, tint: [0.95, 0.85, 0.8], scale: 6 }); }
   // columns at the front and a dark door
   for (const lx of [-w * 0.7, -w * 0.25, w * 0.25, w * 0.7]) { const p = W(lx, 0, d + 0.9); cyl(g, p[0], y + 1, p[2], 0.55, hh, 8, { lay: L.marble, tint: white, scale: 4 }); }
   const D = [W(-1.6, 1, d + 0.06), W(1.6, 1, d + 0.06), W(1.6, 6.5, d + 0.06), W(-1.6, 6.5, d + 0.06)];

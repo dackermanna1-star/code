@@ -44,7 +44,7 @@ export function buildAirport(P) {
   const asphalt = { lay: L.asphalt, tint: [0.78, 0.78, 0.8], scale: 30, rough: 0.9 };
   const shoulder = { lay: L.asphaltWorn, tint: [0.75, 0.73, 0.7], scale: 26 };
   const paintW = { lay: L.stucco, tint: WHITE, scale: 8, rough: 0.6 }, paintY = { lay: L.stucco, tint: YELLOW, scale: 8, rough: 0.6 };
-  const light = (x, z, col, h = 0.5) => { gl.box(x, Y + h + 0.3, z, 0.45, 0.3, 0.45, 0, { lay: L.whiteTiles, tint: col, glow: 1, rough: 0.2 }); gl.box(x, Y + h / 2, z, 0.12, h / 2, 0.12, 0, { lay: L.concrete, tint: [0.9, 0.9, 0.85] }); };
+  const light = (x, z, col, h = 0.5) => { gl.box(x, Y + h + 0.45, z, 0.7, 0.45, 0.7, 0, { lay: L.whiteTiles, tint: col, glow: 1, rough: 0.2 }); gl.box(x, Y + h / 2, z, 0.14, h / 2, 0.14, 0, { lay: L.concrete, tint: [0.9, 0.9, 0.85] }); };
   // ---- runways ----
   for (const R of RUNWAYS) {
     const len = R.z1 - R.z0, hw = R.w / 2;

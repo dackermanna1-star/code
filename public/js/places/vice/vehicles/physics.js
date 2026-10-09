@@ -213,7 +213,7 @@ function wheelForces(v, h) {
   if (d.kind === 'plane') planeBrakes(v); else engine(v, h);
   // steering: less lock at speed, eased
   const sp = Math.abs(v.speed);
-  const lock = d.steer / (1 + sp / (d.steerFade * (c.handbrake ? 2.2 : 1)));
+  const lock = d.steer / (1 + sp / (d.steerFade * (c.handbrake ? 1.6 : 1)));
   let want = -(c.steer || 0) * lock;
   // steering assist: at speed, keep the front tyres near their best slip angle (full lock = the fastest turn,
   // never a plough; when the tail slides the window follows it, which is a counter-steer)
@@ -339,8 +339,8 @@ function wheelForces(v, h) {
     const assist = d.esp * (1 - v.hbT / 0.4);
     if (ex) T.addScaledVector(up, -ex * d.I.y * assist);
     // and catch a slide: turn the nose back toward where the car is going (not when reversing)
-    if (vgr > 8 && v.speed > -2) {
-      const beta = Math.atan2(v.vel.dot(lf), Math.max(0.1, v.speed));
+    const beta = Math.atan2(v.vel.dot(lf), v.speed);
+    if (vgr > 8 && Math.abs(beta) < 1.9) {
       const bmax = 0.14 + (d.drift || 0) * 0.3;
       const bx = beta > bmax ? beta - bmax : beta < -bmax ? beta + bmax : 0;
       if (bx) T.addScaledVector(up, bx * d.I.y * assist * 1.2);
