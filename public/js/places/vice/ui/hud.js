@@ -253,6 +253,14 @@ export class Hud {
         g.stroke();
       }
     } else this.route = null;
+    // the police search area (red/blue, pulsing)
+    const SA = V.police?.searching && V.police.search;
+    if (SA) {
+      const [sx, sy] = M.toPx(SA.x, SA.z), rp = Math.abs(M.toPx(SA.x + SA.r, SA.z)[0] - sx);
+      g.beginPath(); g.arc(sx, sy, rp, 0, Math.PI * 2);
+      g.fillStyle = Math.floor(this.t * 2) % 2 ? 'rgba(255,60,60,.2)' : 'rgba(60,120,255,.2)'; g.fill();
+      g.lineWidth = 3 * M.scale / k; g.strokeStyle = 'rgba(255,255,255,.45)'; g.stroke();
+    }
     g.restore();
     // blips (drawn upright, clamped to the edge)
     const blip = (x, z, label, color, r = 9, clamp = false, shape = 'circle') => {

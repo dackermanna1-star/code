@@ -208,10 +208,13 @@ Session states: `loading → title → play ⇄ paused`, plus `wasted` and `bust
 
 ## Police, missions, UI, audio
 
-- `police/police.js` `Police` → `V.police`:
-  - `wanted` 0–5, `add(stars, pos)`, `clear()`, `searching` (stars flash while they've lost sight of you)
-  - Listens to 'crime'. Sends patrol cars (on the road graph), cops on foot, a helicopter at 3★, SWAT and roadblocks at 4★+.
-  - You are BUSTED if you stand still near a cop at low wanted levels.
+- `police/police.js` `Police` → `V.police` (one file):
+  - `wanted` 0–5, `searching`, `search` {x, z, r}, `lastSeen`, `seen`, `blips`, `units`, `cops`; `set(n)`, `add(stars, pos)`, `clear()`, `bust(cop)`.
+  - **Crimes:** it listens to 'crime'. A crime counts at once if a cop can see it; one only civilians saw is phoned in 3.5–6.5 s later. Each kind sets a minimum level (shots, assault, carjack, hit-and-run → 1; murder, explosion, assaulting a cop → 2; killing a cop → 3, rising to 4 and 5 with more cop kills), and heat piles up to push the level higher.
+  - **Units:** cruisers (1–5 by level) with a crew of two spawn out of sight on the roads. They follow A* routes (`route()` with a U-turn penalty), brake for corners, go round cars, back out of jams and ram you from 2★. They stop and let the crew out when you're on foot or have stopped. Helicopters come at 3★ (two at 5★), circle you and spot from far; the spotter shoots from 4★. At night the first heli's searchlight follows you. Two patrol cars drive about at 0★; their crews see crimes and join the chase.
+  - **Cops on foot** (brain in police.js): arrest you at 1–2★ (stand still near one and you're BUSTED, via 'player:busted'), shoot in bursts when hostile (2★+, or when you aim or shoot at them), search where you were last seen, and go back to their car when you drive off.
+  - **Escape:** dispatch knows where you are for 12 s after a new star. After that, once no cop has seen you for 2.5 s, the stars flash and a search circle (130–360 studs) is drawn on the radar. Stay out of it and out of sight for 7–25 s to lose them, or drive into the Pay 'n' Spray ($100).
+  - Dispatch lines go out as HUD subtitles (street and district names). Test hooks: `window.__vc.police` {P, set, crime, stats}.
 - `missions/missions.js` `Missions` → `V.missions`: mission definitions and steps (go to, enter vehicle, kill, survive, chase, lose the cops, deliver). Mission markers and blips, cutscene dialogue, pass/fail, rewards. Progress is saved.
 - `ui/hud.js` `Hud(root)` → `V.hud`:
   - `notify(text)`, `help(text)`, `subtitle(who, text, secs)`, `objective(text)`

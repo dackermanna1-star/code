@@ -1,7 +1,8 @@
 // Routes on the road graph: the GPS, the police and anyone else who needs
 // to get from A to B by road. A* over plan nodes, preferring the big roads.
 //
-//   route(plan, fromX, fromZ, toX, toZ) -> { pts: [{x, y, z}], edges: [edge ids], nodes: [node ids], len } | null
+//   route(plan, fromX, fromZ, toX, toZ, o?) -> { pts: [{x, y, z}], edges: [edge ids], nodes: [node ids], len } | null
+//     o: { dirX, dirZ, uturn } - a vehicle facing (dirX, dirZ) pays `uturn` extra to start off backwards
 //   nearestNode(plan, x, z) -> node
 import { segDist } from '../world/plan.js';
 
@@ -60,7 +61,7 @@ export function nearestNode(plan, x, z) {
 }
 
 /** A* from the road nearest (fromX, fromZ) to the road nearest (toX, toZ). */
-export function route(plan, fromX, fromZ, toX, toZ) {
+export function route(plan, fromX, fromZ, toX, toZ, o = null) {
   const s = nearestEdge(plan, fromX, fromZ), t = nearestEdge(plan, toX, toZ);
   if (!s || !t) return null;
   const N = plan.nodes, E = plan.edges;
@@ -72,8 +73,9 @@ export function route(plan, fromX, fromZ, toX, toZ) {
     g.set(n, cost); from.set(n, { prev, via });
     open.push({ n, f: cost + h(n) });
   };
-  push(s.edge.a, s.along * PREFER[s.edge.cls], -1, s.edge.id);
-  push(s.edge.b, (s.edge.len - s.along) * PREFER[s.edge.cls], -1, s.edge.id);
+  const back = (n) => (o && (N[n].x - s.x) * o.dirX + (N[n].z - s.z) * o.dirZ < 0 ? o.uturn || 150 : 0);
+  push(s.edge.a, s.along * PREFER[s.edge.cls] + back(s.edge.a), -1, s.edge.id);
+  push(s.edge.b, (s.edge.len - s.along) * PREFER[s.edge.cls] + back(s.edge.b), -1, s.edge.id);
   const goal = new Set([t.edge.a, t.edge.b]);
   let end = -1, iter = 0;
   while (open.length && iter++ < 20000) {
