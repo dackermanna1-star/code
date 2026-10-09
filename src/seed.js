@@ -484,6 +484,11 @@ function ensureExtraPlaces(state) {
     desc: 'Welcome to the Ragdoll Olympics! Five events, eight athletes, zero dignity. Hurl yourself down the Grand Staircase of Mount Olympus for damage points, get fired out of a cannon for distance, survive the Wipeout Run, flip off the 60-stud diving tower and bowl for strikes with your own body. Every bone you break counts! Gold, silver and bronze in every event, and the champion takes the podium at the closing ceremony.',
     created: now - 0.01 * DAY, updated: now - 0.0005 * DAY, visits: 2240, favorited: 517, online: 71, playedRecent: 1702, script: 'ragdoll', maxPlayers: 8,
   });
+  add(3104578, {
+    name: 'Vice City',
+    desc: 'Welcome to Vice City: sun, sand, neon and crime. South Beach, Ocean Drive and its Art Deco hotels, Downtown towers, Little Havana, the port and the causeways across the bay. Steal any car, bike, boat or helicopter, fight with fists, bats and guns, run from the VCPD and its helicopters, and work your way up for the people who really run this town. A huge open world with traffic, pedestrians, police, missions, ragdolls and the radio on.',
+    created: now - 0.004 * DAY, updated: now - 0.0002 * DAY, visits: 6380, favorited: 1544, online: 214, playedRecent: 4415, script: 'vice', maxPlayers: 1,
+  });
   return added;
 }
 
