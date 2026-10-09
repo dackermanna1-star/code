@@ -444,18 +444,54 @@ export class Sky {
     set4(FOG.vcFogP.value, 0.0001 * density, 1 / 800, 0.05, lerp(0.4, 0.5, smooth(60, 1500, cam.position.y)));
   }
 
-  /** Reflections and sky light for standard materials: the sky re-baked now and then. */
+  /**
+   * Reflections and sky light for standard materials: the sky re-baked now and then.
+   * The dome is rendered into a small cube map one face per frame (a 7-frame cycle that
+   * ends with the PMREM filter into the same reused target), so a re-bake never costs a
+   * frame more than a fraction of a millisecond on a GPU. It re-bakes about every 0.12 h
+   * while the light changes fast (dawn/dusk) and every 0.4 h otherwise; a big jump (a new
+   * game, __vc.time(), the weather snapping) bakes everything at once.
+   */
   updateEnv(renderer, scene) {
-    const dh = Math.abs(this.hour - this.envHour);
-    if (this.env && Math.min(dh, 24 - dh) < 0.08 && Math.abs(this.w.cover - this.envCover) < 0.05) return;
-    this.envHour = this.hour; this.envCover = this.w.cover;
-    if (!this.pm) { this.pm = new THREE.PMREMGenerator(renderer); this.envScene = new THREE.Scene(); this.envDome = new THREE.Mesh(this.dome.geometry, this.dome.material); this.envDome.scale.setScalar(100); this.envDome.frustumCulled = false; this.envScene.add(this.envDome); }
-    const m = this.dome.material;
+    if (!this.pm) {
+      this.pm = new THREE.PMREMGenerator(renderer);
+      this.envScene = new THREE.Scene();
+      this.envDome = new THREE.Mesh(this.dome.geometry, this.dome.material);
+      this.envDome.scale.setScalar(100); this.envDome.frustumCulled = false;
+      this.envScene.add(this.envDome);
+      this.envCube = new THREE.WebGLCubeRenderTarget(128, { type: THREE.HalfFloatType, generateMipmaps: false });
+      this.envCam = new THREE.CubeCamera(0.1, 400, this.envCube);
+      this.envCam.coordinateSystem = renderer.coordinateSystem; this.envCam.updateCoordinateSystem();
+      this.envCam.updateMatrixWorld(true);
+      this.envFace = -1;   // -1: idle, 0..5: the next face to draw, 6: filter
+    }
+    const dh0 = Math.abs(this.hour - this.envHour), dh = Math.min(dh0, 24 - dh0);
+    const fast = this.state.dusk > 0.01 || (this.hour > 4.8 && this.hour < 8) || (this.hour > 17.2 && this.hour < 21);
+    const dc = Math.abs(this.w.cover - this.envCover);
+    if (!this.env || dh > 0.9 || dc > 0.3) { this._bake(renderer, 0, 7); this._envDone(scene); return; }
+    if (this.envFace < 0) {
+      if (dh < (fast ? 0.12 : 0.4) && dc < 0.06) return;
+      this.envFace = 0;
+    }
+    this._bake(renderer, this.envFace, this.envFace + 1);
+    if (++this.envFace > 6) this._envDone(scene);
+  }
+
+  /** Draws cube faces [f0, f1) of the sky (face 6 = the PMREM filter). */
+  _bake(renderer, f0, f1) {
+    if (f0 === 0) { this.bakeHour = this.hour; this.bakeCover = this.w.cover; }
+    const m = this.dome.material, cams = this.envCam.children, old = renderer.getRenderTarget();
+    const ae = renderer.xr.enabled; renderer.xr.enabled = false;
     m.uniforms.envPass.value = 1;
-    const rt = this.pm.fromScene(this.envScene, 0, 0.1, 400);
+    for (let f = f0; f < Math.min(f1, 6); f++) { renderer.setRenderTarget(this.envCube, f); renderer.render(this.envScene, cams[f]); }
     m.uniforms.envPass.value = 0;
-    if (this.env) this.env.dispose();
-    this.env = rt;
-    scene.environment = rt.texture;
+    renderer.setRenderTarget(old);
+    renderer.xr.enabled = ae;
+    if (f1 > 6) this.env = this.pm.fromCubemap(this.envCube.texture, this.env);
+  }
+
+  _envDone(scene) {
+    this.envFace = -1; this.envHour = this.bakeHour; this.envCover = this.bakeCover;
+    if (scene.environment !== this.env.texture) scene.environment = this.env.texture;
   }
 }
