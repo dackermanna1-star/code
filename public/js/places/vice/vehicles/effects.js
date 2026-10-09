@@ -222,7 +222,7 @@ export class VehFX {
       const s = this.siren;
       this.flash.position.copy(s.pos);
       this.flash.color.setRGB(s.r ? 1 : 0.15, 0.1, s.r ? 0.08 : 1);
-      this.flash.intensity = (s.r || s.b) ? 5000 * s.k : 0;
+      this.flash.intensity = (s.r || s.b) ? 2400 * s.k : 0;
     } else if (this.flash.intensity) this.flash.intensity = 0;
     // debris: fly, tumble, bounce, rest, fade
     for (let i = this.deb.length - 1; i >= 0; i--) {

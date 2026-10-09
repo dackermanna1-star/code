@@ -85,9 +85,11 @@ export class CameraRig {
     } else {
       const aiming = !!V.weapons?.aiming;
       this.mode = aiming ? 'aim' : 'foot';
-      pivot = _p.set(P.pos.x, P.pos.y + (P.swimming ? 2.6 : aiming ? 5.5 : 4.5), P.pos.z);
-      dist = aiming ? 7.2 : (P.sprinting ? 10.5 : 9.2);
-      side = aiming ? 3.0 : 0.7;
+      // GTA framing: you fill about a quarter of the screen height, a little left of centre, the street ahead
+      // and the horizon above your shoulders; aiming moves over the right shoulder with you in the left third
+      pivot = _p.set(P.pos.x, P.pos.y + (P.swimming ? 3 : aiming ? 5.4 : 5.1), P.pos.z);
+      dist = aiming ? 10.5 : P.swimming ? 13 : (P.sprinting ? 15.5 : 13.5);
+      side = aiming ? 3.7 : 1.2;
       fov = aiming ? (V.weapons?.zoomFov || 48) : 62;
     }
     // ease the rig parameters
@@ -109,6 +111,8 @@ export class CameraRig {
     let d = this.dist;
     const hit = V.phys?.ray(_q.x, _q.y, _q.z, _d.x, _d.y, _d.z, d + colR, { skip: (b) => b.vehicle === veh || b.vehicle === P || b.kerb || b.pole || b.prop });
     if (hit) d = Math.max(0.6, hit.d - colR);
+    // never inside a palm's crown (the fronds aren't colliders): come in until we're clear of it
+    if (d > 4) d = this._clearCanopy(_q, _d, d);
     _t.copy(_q).addScaledVector(_d, d);
     // keep above the ground and the water
     const g = V.ground?.heightAt(_t.x, _t.z) ?? -1e9;
@@ -123,9 +127,57 @@ export class CameraRig {
     }
     this.pos.copy(_t);
     cam.position.copy(_t);
+    this._fadeNear(_t, pv);
     cam.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
     if (Math.abs(cam.fov - this.fov) > 0.01) { cam.fov = this.fov; cam.updateProjectionMatrix(); }
     cam.updateMatrixWorld();
+  }
+
+  /** Pull d in until the camera is out of any palm crown near it (crowns: ~22-60 studs over the trunk's foot, r ~12). */
+  _clearCanopy(o, dir, d) {
+    const ph = V.phys;
+    if (!ph?.query) return d;
+    const x = o.x + dir.x * d, y = o.y + dir.y * d, z = o.z + dir.z * d;
+    const g = V.ground?.heightAt(x, z) ?? 0;
+    if (y - g < 16) return d;                 // crowns are high up: nothing to do near the ground
+    const trees = this._trees || (this._trees = []);
+    trees.length = 0;
+    ph.query(Math.min(o.x, x) - 13, Math.min(o.z, z) - 13, Math.max(o.x, x) + 13, Math.max(o.z, z) + 13, (b) => { if (b.tree) trees.push(b); });
+    if (!trees.length) return d;
+    for (; d > 4; d -= 1.5) {
+      const cx = o.x + dir.x * d, cy = o.y + dir.y * d, cz = o.z + dir.z * d;
+      let inside = false;
+      for (const b of trees) {
+        const foot = b.y - b.hy, dy = cy - foot;
+        if (dy < 22 || dy > 60) continue;
+        if ((cx - b.x) ** 2 + (cz - b.z) ** 2 < 144) { inside = true; break; }
+      }
+      if (!inside) break;
+    }
+    return d;
+  }
+
+  /** People right in front of the lens dissolve (the crowd's fade), so a passer-by never fills the screen. */
+  _fadeNear(c, pv) {
+    const figs = V.peds?.crowd?.figs, faded = this._faded || (this._faded = new Set());
+    for (const f of faded) {
+      if (f.owner?.dead) { faded.delete(f); continue; }  // the dead are the peds' to fade
+      f.fade = 1; faded.delete(f);
+    }
+    if (!figs || this.mode === 'cinematic') return;
+    const lx = pv.x - c.x, lz = pv.z - c.z, L = Math.hypot(lx, lz) || 1;
+    for (let i = 0; i < figs.length; i++) {
+      const f = figs[i];
+      if (f.hidden || f.owner?.dead || f.owner?.isPlayer || f.owner?.vehicle) continue;
+      const dx = f.x - c.x, dz = f.z - c.z;
+      if (Math.abs(dx) > 7 || Math.abs(dz) > 7) continue;
+      if (f.y + 6 < c.y - 3 || f.y > c.y + 3) continue;
+      // along the line to the player (between us and them) and close to it
+      const along = (dx * lx + dz * lz) / L, side = Math.abs(dx * lz - dz * lx) / L;
+      const dist = Math.hypot(dx, dz);
+      const k = dist < 3.2 ? (dist - 1.6) / 1.6 : along > 0 && along < L - 2 && side < 2.2 ? 0.25 + side * 0.2 : 1;
+      if (k < 1) { f.fade = Math.max(0.12, Math.min(f.fade ?? 1, k)); faded.add(f); }
+    }
   }
 
   _cinematic(dt) {

@@ -387,7 +387,7 @@ export class Vehicle {
     _v.set(px, py, pz).sub(this.pos).applyQuaternion(_q);
     _w.set(nx, ny, nz).applyQuaternion(_q).normalize();
     const pos = this.body.geometry.attributes.position.array, orig = vis.body.attributes.position.array;
-    const R = 2.6 + amount * 1.1, depth = Math.min(1.5, amount * 0.55), R2 = R * R, maxD = 1.8;
+    const R = 2.8 + amount * 1.4, depth = Math.min(2.2, amount * 0.85), R2 = R * R, maxD = 2.6;
     for (let i = 0; i < pos.length; i += 3) {
       const dx = pos[i] - _v.x, dy = pos[i + 1] - _v.y, dz = pos[i + 2] - _v.z, d2 = dx * dx + dy * dy + dz * dz;
       if (d2 > R2) continue;
@@ -462,7 +462,16 @@ export class Vehicle {
     this.damage(((dv - 12) * (air ? 8 : d.kind === 'bike' ? 2.2 : 4.5)) / d.tough, this.impP, null, attacker);
     if (this.crashT <= 0) {
       this.crashT = 0.18;
-      if (dv > 16 && this.impN.lengthSq() > 0.5) this.dent(this.impP.x, this.impP.y, this.impP.z, this.impN.x, 0, this.impN.z, (dv - 12) / 22);
+      if (dv > 14 && this.impN.lengthSq() > 0.5) {
+        this.dent(this.impP.x, this.impP.y, this.impP.z, this.impN.x, 0, this.impN.z, (dv - 10) / 15);
+        // a hard one: bits of trim and glass fly, sparks, and the glass goes on a really big one
+        if (dv > 28 && (d.kind === 'car' || d.kind === 'bike')) {
+          const fx = this.sys.fx, n = dv > 45 ? 2 : 1;
+          for (let i = 0; i < n; i++) fx.debris(Math.random() < 0.5 ? 'debris-plate-a' : 'debris-plate-b', this.impP, this.vel.x * 0.5 + this.impN.x * 14 + (Math.random() - 0.5) * 10, 10 + Math.random() * 12, this.vel.z * 0.5 + this.impN.z * 14 + (Math.random() - 0.5) * 10, 12);
+          for (let i = 0; i < 6; i++) fx.spark(this.impP.x, this.impP.y, this.impP.z, this.impN.x * 20 + (Math.random() - 0.5) * 24, 6 + Math.random() * 14, this.impN.z * 20 + (Math.random() - 0.5) * 24);
+          if (dv > 48 && !this.glassBroken && d.kind === 'car') this.shatter(this.impP);
+        }
+      }
       V.events?.emit('vehicle:crash', { veh: this, other: otherVeh || other, pos: this.impP.clone(), speed: dv, kind: this.impKind });
       if (dv > 18) V.events?.emit('noise', { pos: this.pos, r: 50 + dv * 2, kind: 'crash', src: this });
       if (this.driver?.isPlayer) V.cam?.shake?.(Math.min(1, dv / 60));
@@ -495,10 +504,12 @@ export class Vehicle {
     if (this.lightsMode === 'auto') this.lights = this.engineOn && !this.dead && night > 0.3;
     else this.lights = this.lightsMode === 'on' && !this.dead;
     const L = u.uLights.value;
-    L.x = this.lights ? 1.3 : this.engineOn ? 0.2 : 0;
-    L.y = (this.lights ? 1.1 : this.engineOn ? 0.25 : 0.05) + (this.braking && this.engineOn ? 3.2 : 0);
+    // (the bloom threshold is ~1.6: tail lights stay under it, brake lights and strobes just over, so they
+    // read as small crisp glows and never wash out the chase camera)
+    L.x = this.lights ? 1.2 : this.engineOn ? 0.18 : 0;
+    L.y = (this.lights ? 0.8 : this.engineOn ? 0.22 : 0.05) + (this.braking && this.engineOn ? (this.lights ? 1.05 : 1.45) : 0);
     this._siren = !!d.siren && !!this.ctl.siren && !this.dead;
-    if (this._siren) { L.z = flash.r * 9; L.w = flash.b * 9; } else if (d.kind === 'heli') { L.z = flash.beacon * 3; L.w = 0; } else { L.z = 0; L.w = 0; }
+    if (this._siren) { L.z = flash.r * 3.2; L.w = flash.b * 3.6; } else if (d.kind === 'heli') { L.z = flash.beacon * 2; L.w = 0; } else { L.z = 0; L.w = 0; }
     u.uGlow.value = this.engineOn || d.kind === 'heli' || d.kind === 'plane' ? 1.6 : 0.4;
     u.uDirt.value = clamp((1000 - this.health) / 1000, 0, 1) * 0.8;
     if (this.dead) u.uBurnt.value = Math.min(1, u.uBurnt.value + dt * 1.2);
@@ -845,7 +856,11 @@ export class Vehicles {
     const dx = v.pos.x - cam.x, dz = v.pos.z - cam.z;
     if (dx * dx + dz * dz > 700 * 700) return;
     const r = Math.random;
-    // engine: grey smoke under 400, black smoke and fire when burning or dead (for a while)
+    // engine: wisps of steam under 650, grey smoke under 400, black smoke and fire when burning or dead (for a while)
+    if (v.health < 650 && v.health >= 400 && !v.burning && !v.dead && d.kind !== 'boat' && r() < dt * (3 + (650 - v.health) / 25)) {
+      toWorld(v, 0, d.hull.y1 * 0.72, d.kind === 'car' ? d.hull.z1 * 0.62 : 0, _p);
+      fx.smoke(_p.x + (r() - 0.5) * 1.5, _p.y, _p.z + (r() - 0.5) * 1.5, v.vel.x * 0.3 + (r() - 0.5) * 2, 4 + r() * 3, v.vel.z * 0.3 + (r() - 0.5) * 2, 1.2 + r() * 0.8, 1.4, 5, 0.95, 0.22);
+    }
     if (v.health < 400 || v.burning || (v.dead && v.deadT < 25)) {
       const ez = d.kind === 'car' ? d.hull.z1 * 0.62 : 0;
       toWorld(v, 0, d.hull.y1 * 0.7, ez, _p);
