@@ -123,6 +123,7 @@ function resume(sys, p) {
 export function setState(sys, p, state, o = {}) {
   if (p.dead && state !== 'dead') return;
   const prev = p.state;
+  if (p.spotRef && state !== 'sit' && state !== 'lie' && state !== 'idle') sys.leaveSpot(p);   // (up off the bench)
   p.state = state;
   p.st = { t: 0, ...o };
   if (state !== 'walk' && state !== 'wait') p.nav.wait = false;

@@ -42,7 +42,8 @@ import { playShot } from '../../warzone/fx.js';
 import { weapon } from '../combat/data.js';
 
 const MAX_FIGS = 230;
-const SPAWN_MIN = 90, SPAWN_MAX = 250, DESPAWN = 330, DESPAWN_FAR = 520;
+const SPAWN_MIN = 75, SPAWN_MAX = 210, DESPAWN = 260, DESPAWN_FAR = 460;
+const ROAD_BUSY = { drive: 1, blvd: 0.9, ave: 0.8, street: 0.45, hwy: 0 };   // how much more of a crowd the main streets draw
 const NEAR_R = 170;            // full-rate thinking, moving and posing within this of the camera
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _u = new THREE.Vector3(), _m = new THREE.Matrix4(), _m2 = new THREE.Matrix4();
 const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3(), _dir = new THREE.Vector3();
@@ -139,11 +140,14 @@ export class Peds {
     const S = V.props?.spots || {};
     const file = (map, list, kind) => { for (const sp of list || []) { const k = Math.floor(sp.x / 64) * 100003 + Math.floor(sp.z / 64); if (!map.has(k)) map.set(k, []); map.get(k).push({ ...sp, kind, taken: 0 }); } };
     file(this.spots.bench, S.benches, 'bench'); file(this.spots.lounger, S.loungers, 'lounger'); file(this.spots.umbrella, S.umbrellas, 'umbrella'); file(this.spots.bus, S.busStops, 'bus');
+    // the city's own spots for people (doorways, plazas)
+    this.spots.city = new Map();
+    file(this.spots.city, V.city?.spawnPoints?.peds, 'city');
     const on = (n, f) => V.events.on(n, f);
     on('noise', (e) => this._noise(e));
     on('crime', (e) => this._crime(e));
     on('vehicle:eject', (e) => { const p = e.who; if (p instanceof Ped) { this._exit(p, true); p.knock(e.vel || _v.set(0, 10, 0), e.veh); p.hit(Math.min(40, (e.vel?.length?.() || 20) * 0.7), 'torso', null, null, { fall: true }); } });
-    on('vehicle:destroyed', (e) => { const v = e.veh; if (!v?.seats) return; for (const w of [...v.seats]) if (w instanceof Ped) { this._exit(w, true); w.fig.blood = 1; w.hit(500, 'torso', null, e.attacker, { explosion: true }); w.knock(_v.set((Math.random() - 0.5) * 30, 35, (Math.random() - 0.5) * 30), v); } });
+    on('vehicle:destroyed', (e) => this._wrecked(e.veh, e.attacker));
     this._hooks();
   }
 
@@ -227,7 +231,12 @@ export class Peds {
   /** One new person (or a little group) on a sidewalk out of sight. */
   _spawnOne(cam, initial) {
     const r = this.rand;
-    const sp = this.nav.pick(cam.x, cam.z, initial ? 25 : SPAWN_MIN, SPAWN_MAX, r, (x, z) => initial || Math.hypot(x - cam.x, z - cam.z) > 190 || !this.visible(x, cam.y, z, 0.35));
+    const plan = V.plan;
+    const sp = this.nav.pick(cam.x, cam.z, initial ? 25 : SPAWN_MIN, SPAWN_MAX, r, (x, z, e) => {
+      const cls = plan?.edges?.[e?.road]?.cls;
+      if (cls && r() > (ROAD_BUSY[cls] ?? 0.6)) return false;
+      return initial || Math.hypot(x - cam.x, z - cam.z) > 170 || !this.visible(x, cam.y, z, 0.35);
+    });
     if (!sp) return;
     const e = sp.edge, D = V.plan?.districtAt?.(sp.x, sp.z);
     const gangHere = D?.gang && this.rand() < 0.22 && this._gangCount(D.gang) < 14;
@@ -251,6 +260,15 @@ export class Peds {
         this.joinNav(p, 30, true);
       }
       return;
+    }
+    // someone at a doorway or on a plaza (the city's spots): standing about, then off along the street
+    if (kind > 0.9) {
+      const c = this._freeSpot('city', sp.x, sp.z, 50);
+      if (c && (initial || Math.hypot(c.x - cam.x, c.z - cam.z) > 170 || !this.visible(c.x, cam.y, c.z, 0.35))) {
+        c.taken = 1; c.freeAt = this.time + 40;   // (someone there now and then)
+        const p = this.spawn({ x: c.x + (r() - 0.5) * 3, z: c.z + (r() - 0.5) * 3, set: this._setAt(c.x, c.z), state: 'none' });
+        if (p) { setState(this, p, 'idle', { secs: 6 + r() * 25, arms: this._idleArms(p) }); p.heading = r() * 6.28; return; }
+      }
     }
     // a bench nearby? sit on it (or wait at the bus stop)
     if (kind < 0.24) { const b = this._freeSpot('bench', sp.x, sp.z, 60) || this._freeSpot('bus', sp.x, sp.z, 60); if (b) { this._spawnAtSpot(b); return; } }
@@ -276,7 +294,7 @@ export class Peds {
     let best = null, bd = r;
     for (let i = ci - rc; i <= ci + rc; i++) for (let j = cj - rc; j <= cj + rc; j++) {
       const c = map.get(i * 100003 + j);
-      if (c) for (const s of c) { if (s.taken >= (kind === 'bench' ? 2 : kind === 'bus' ? 3 : 1)) continue; const d = Math.hypot(s.x - x, s.z - z); if (d < bd) { bd = d; best = s; } }
+      if (c) for (const s of c) { if (s.taken >= (kind === 'bench' ? 2 : kind === 'bus' ? 3 : 1) && !(s.freeAt < this.time)) continue; const d = Math.hypot(s.x - x, s.z - z); if (d < bd) { bd = d; best = s; } }
     }
     return best;
   }
@@ -930,6 +948,29 @@ export class Peds {
     }
     return p;
   }
+  /** A vehicle blew up: whoever was inside is thrown out, dead (traffic's stand-ins become bodies too). */
+  _wrecked(v, attacker) {
+    if (!v?.seats) return;
+    for (let i = 0; i < v.seats.length; i++) {
+      let w = v.seats[i];
+      if (!w || w.isPlayer || w.debug) continue;
+      if (!(w instanceof Ped)) {
+        const rec = this.drivers.get(w);
+        v.leave?.(w); w.dead = true;
+        if (!rec) continue;
+        const p = this.spawn({ x: v.pos.x, z: v.pos.z, y: v.pos.y + 2, outfit: rec.fig.cell, state: 'none' });
+        this.crowd.remove(rec.fig); this.drivers.delete(w);
+        if (!p) continue;
+        p.fig.hat = rec.fig.hat; w.ped = p;
+        this._enter(p, v, i);
+        w = p;
+      }
+      this._exit(w, true);
+      w.fig.blood = 1;
+      w.hit(500, 'torso', null, attacker, { explosion: true, noBlood: true });
+      w.knock(_v.set((Math.random() - 0.5) * 30, 30 + Math.random() * 12, (Math.random() - 0.5) * 30), null);
+    }
+  }
   /** A traffic driver was shot through the glass: a real person in the seat takes the hit (and bails out if alive). */
   _shootDriver(w, veh, seat, dmg, part, dir, attacker, info = {}) {
     const rec = this.drivers.get(w);
@@ -964,6 +1005,7 @@ export class Peds {
     const t0 = performance.now();
     this.rags.update(dt);
     for (const h of this.rigs) h._write(dt);
+    this.stats.ragMs = performance.now() - t0;
     const cam = this.world.camera.position;
     for (const p of this.list) {
       const f = p.fig;
@@ -998,6 +1040,8 @@ export class Peds {
     veh.seatWorld(Math.max(0, seat), _m);
     const bike = veh.kind === 'bike';
     _m.multiply(_m2.makeTranslation(0, -1.65, 0));
+    // (ROBLOX shoulders are wide: a little narrower in a car, so elbows stay inside the doors)
+    if (veh.kind === 'car') _m.multiply(_m2.makeScale(0.86, 1, 0.95));
     f.rootMat = _m;
     P.stride = 0; P.walk = 0; P.hipY = 2; P.crouch = 0; P.lie = 0; P.fall = 0; P.roll = 0; P.aimDir = null; P.tilt = 0; P.twist = 0;
     P.legs = bike ? 1.15 : Math.PI / 2 - 0.15; P.spread = bike ? 0.3 : 0.05;
@@ -1296,7 +1340,7 @@ export class Peds {
       if (!window.__vc) return setTimeout(add, 500);
       window.__vc.peds = {
         sys, Ped,
-        count: () => ({ list: sys.list.length, alive: sys.list.filter((p) => !p.dead).length, figs: sys.crowd.figs.length, drawn: sys.crowd.drawn, rags: sys.rags.list.length, awake: sys.rags.awake, drivers: sys.drivers.size, ms: +sys.stats.ms.toFixed(2), lateMs: +(sys.stats.lateMs || 0).toFixed(2), states: sys.list.reduce((a, p) => { a[p.state] = (a[p.state] || 0) + 1; return a; }, {}) }),
+        count: () => ({ ragMs: +(sys.stats.ragMs || 0).toFixed(2), list: sys.list.length, alive: sys.list.filter((p) => !p.dead).length, figs: sys.crowd.figs.length, drawn: sys.crowd.drawn, rags: sys.rags.list.length, awake: sys.rags.awake, drivers: sys.drivers.size, ms: +sys.stats.ms.toFixed(2), lateMs: +(sys.stats.lateMs || 0).toFixed(2), states: sys.list.reduce((a, p) => { a[p.state] = (a[p.state] || 0) + 1; return a; }, {}) }),
         spawn: (o) => sys.spawn(o),
         /** a crowd standing around a point (for screenshots) */
         crowdAt: (x, z, n = 20, r = 12, o = {}) => { const out = []; for (let i = 0; i < n; i++) { const a = i * 2.4, rr = Math.sqrt((i + 0.5) / n) * r; const p = sys.spawn({ x: x + Math.cos(a) * rr, z: z + Math.sin(a) * rr, heading: sys.rand() * 6.28, ...o }); if (p) out.push(p); } return out; },

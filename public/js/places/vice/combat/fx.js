@@ -65,10 +65,10 @@ function spriteAtlas() {
   g.putImageData(img, 0, 0);
   // the flash star (cell 3, 0): spikes and a hot core, drawn with gradients
   g.save(); g.translate(S * 3 + S / 2, S / 2);
-  const core = g.createRadialGradient(0, 0, 0, 0, 0, S / 2); core.addColorStop(0, 'rgba(255,255,255,1)'); core.addColorStop(0.25, 'rgba(255,255,255,0.75)'); core.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = core; g.beginPath(); g.arc(0, 0, S / 2, 0, 7); g.fill();
-  for (let i = 0; i < 7; i++) {
-    const a = (i / 7) * Math.PI * 2 + rnd() * 0.4, L = S * (0.32 + rnd() * 0.17), w = 3 + rnd() * 3;
+  const core = g.createRadialGradient(0, 0, 0, 0, 0, S * 0.24); core.addColorStop(0, 'rgba(255,255,255,1)'); core.addColorStop(0.4, 'rgba(255,255,255,0.8)'); core.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = core; g.beginPath(); g.arc(0, 0, S * 0.24, 0, 7); g.fill();
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2 + rnd() * 0.3, L = S * (i % 2 ? 0.28 : 0.4 + rnd() * 0.08), w = 2 + rnd() * 2.5;
     const gr = g.createLinearGradient(0, 0, Math.cos(a) * L, Math.sin(a) * L); gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
     g.fillStyle = gr; g.beginPath(); g.moveTo(Math.cos(a + 1.57) * w, Math.sin(a + 1.57) * w); g.lineTo(Math.cos(a) * L, Math.sin(a) * L); g.lineTo(Math.cos(a - 1.57) * w, Math.sin(a - 1.57) * w); g.fill();
   }
@@ -631,10 +631,10 @@ export class FX {
     if (!this._near(pos, 1200)) return;
     const k = o.big ? 1.6 : o.small ? 0.6 : 1;
     const ang = R() * 6.28;
-    let i = this.glow.emit(pos.x + dir.x * 0.25, pos.y + dir.y * 0.25, pos.z + dir.z * 0.25, 0, 0, 0, 0.05, 1.1 * k, 1.5 * k, 7, 4.6, 2.2, 1, T.FLASH, 0, 0, 0, F_STILL);
+    let i = this.glow.emit(pos.x + dir.x * 0.25, pos.y + dir.y * 0.25, pos.z + dir.z * 0.25, 0, 0, 0, 0.045, 1.2 * k, 1.5 * k, 5, 3.4, 1.5, 1, T.FLASH, 0, 0, 0, F_STILL);
     this.glow.rot[i] = ang;
     // a tongue of flame out of the barrel
-    i = this.glow.emit(pos.x + dir.x * 0.5 * k, pos.y + dir.y * 0.5 * k, pos.z + dir.z * 0.5 * k, dir.x * 40, dir.y * 40, dir.z * 40, 0.045, 0.45 * k, 0.6 * k, 8, 5, 2.2, 1, T.GLOW, 0, 0, 0.032 * k, F_STILL);
+    i = this.glow.emit(pos.x + dir.x * 0.55 * k, pos.y + dir.y * 0.55 * k, pos.z + dir.z * 0.55 * k, dir.x * 40, dir.y * 40, dir.z * 40, 0.04, 0.3 * k, 0.4 * k, 6, 3.6, 1.4, 1, T.FLAME, 0, 0, 0.03 * k, F_STILL);
     // and a wisp of smoke (thin: right in front of the camera when it's yours)
     for (let j = 0; j < (o.big ? 3 : 1); j++) this.soft.emit(pos.x + dir.x * 0.8, pos.y + dir.y * 0.8, pos.z + dir.z * 0.8, dir.x * 6 + (R() - 0.5), dir.y * 6 + 1 + R(), dir.z * 6 + (R() - 0.5), 0.7 + R() * 0.5, 0.25 * k, 1.1 * k, 0.75, 0.74, 0.72, o.mine ? 0.12 : 0.22, T.PUFF, -1.5, 2.5, 0, F_LIT | F_SMOKE);
     if (o.light !== false) {

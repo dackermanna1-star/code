@@ -196,6 +196,7 @@ export class Weapons {
     if (this.wheelOpen) this._closeWheel(false);
     const P = V.player;
     if (this.hand) this.hand.visible = !P.dead && !P.vehicle;
+    if (this.db) this.db.visible = false;
     this.ps.wR = this.ps.wL = this.ps.wH = this.ps.wLean = 0;
     this.armPose = null;
     const m = P.model;
@@ -337,7 +338,7 @@ export class Weapons {
     const P = V.player, w = this.w, s = this.slots[this.slot];
     s.mag--;
     this.cool = 60 / (w.rpm || 300);
-    const gun = this.hand?.userData?.gun;
+    const gun = this.db?.visible && this.dbGunM ? this.dbGunM : this.hand?.userData?.gun;
     // the muzzle in the world
     if (gun) { _m.copy(gun.userData.muzzle); gun.localToWorld(_m); } else _m.set(P.pos.x, P.pos.y + 3.6, P.pos.z);
     // fire from the muzzle at the point under the crosshair (from the chest if the muzzle is through a wall)
@@ -597,7 +598,7 @@ export class Weapons {
     const rmb = inp.buttons?.has(2) && !this.wheelOpen;
     const can = veh && (veh.kind === 'car' || veh.kind === 'bike' || veh.kind === 'boat') && !veh.dead;
     this.lock = null; this.atk = null; this.cook = -1;
-    if (!rmb || !can) { this.aiming = false; this.driveBy = false; this.zoomFov = null; this.target = null; this.reload && this._reloading(dt); return; }
+    if (!rmb || !can) { this.aiming = false; this.driveBy = false; this.zoomFov = null; this.target = null; this.reload && this._reloading(dt); if (this.db) this.db.visible = false; return; }
     // a weapon you can use out of a window
     if (!this.w.driveBy || this.slots[this.slot].mag + this.slots[this.slot].reserve <= 0) {
       const alt = ['smg', 'handgun'].find((s) => this.slots[s] && WEAPONS[this.slots[s].id].driveBy && this.slots[s].mag + this.slots[s].reserve > 0);
@@ -607,9 +608,11 @@ export class Weapons {
     this.driveBy = true;
     // the arm points out at what the crosshair was on (last frame's aim), then fire
     const m = P.model, aim = this.aimHit;
-    if (m && aim) {
+    const car = veh.kind === 'car' && veh.quat && veh.def?.hull;
+    const tgt = car && aim ? this._window(veh, aim.point) : aim?.point;
+    if (m && tgt) {
       _c.setFromMatrixPosition(m.rightShoulder.matrixWorld);
-      _d.subVectors(aim.point, _c).normalize();
+      _d.subVectors(tgt, _c).normalize();
       // into the model's frame (the shoulder's parent is the root)
       _q.copy(m.root.quaternion).invert();
       _d.applyQuaternion(_q);
@@ -619,6 +622,54 @@ export class Weapons {
     }
     this._gun(dt, inp, T, true);
     T.show = true;
+  }
+
+  /**
+   * A car's window on the side you're aiming at: a forearm and the gun stick out of it (the avatar inside can't reach
+   * through the door). Returns the window point (the arm aims at it); the rig is drawn while drive-by aiming.
+   */
+  _window(veh, aimPoint) {
+    const P = V.player, d = veh.def, h = d.hull;
+    if (!this.db) {
+      this.db = new THREE.Group();
+      this.dbArm = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 2.4), P.model.rightArm.material);
+      this.dbArm.position.set(0, 0, 1.1); this.dbArm.castShadow = true;
+      this.db.add(this.dbArm);
+      V.world.scene.add(this.db);
+    }
+    // which side: the car's right is its local -X
+    _w.set(-1, 0, 0).applyQuaternion(veh.quat);
+    _v.subVectors(aimPoint, veh.pos);
+    const s = _v.dot(_w) >= 0 ? 1 : -1;
+    // the seat (hips, in the car's frame) -> the window beside it at shoulder height
+    let sy = h.y0 + 1.2, sz = 0;
+    if (veh.seatWorld) { veh.seatWorld(Math.max(0, P.seat), _mat); _o.setFromMatrixPosition(_mat).sub(veh.pos).applyQuaternion(_q.copy(veh.quat).invert()); sy = _o.y; sz = _o.z; }
+    _o.set(-s * (Math.max(Math.abs(h.x0), Math.abs(h.x1)) * 0.96 + 0.15), sy + 2.1, sz + 0.5).applyQuaternion(veh.quat).add(veh.pos);
+    // out of the window toward the aim (never back into the car)
+    _d.subVectors(aimPoint, _o).normalize();
+    const side = _d.dot(_w) * s;
+    if (side < 0.15) { _d.addScaledVector(_w, s * (0.15 - side)).normalize(); }
+    this.db.position.copy(_o);
+    _mat.lookAt(_o, _m.copy(_o).add(_d), _c.set(0, 1, 0));
+    this.db.quaternion.setFromRotationMatrix(_mat);
+    this.dbSide = s;
+    return _o;
+  }
+  _dbGun(show) {
+    const w = this.w;
+    if (this.db) this.db.visible = show;
+    if (!show) return null;
+    if (this.dbGunId !== w.id) {
+      if (this.dbGunM) this.db.remove(this.dbGunM);
+      this.dbGunM = gunModel(w.id);
+      this.dbGunM.position.set(0, 0.42, -0.25);
+      this.db.add(this.dbGunM);
+      this.dbGunId = w.id;
+    }
+    // held over on its side (it's a drive-by)
+    this.dbGunM.rotation.set(this.gunKick * 0.08, 0, (this.dbSide || 1) * -0.9);
+    this.db.updateMatrixWorld(true);
+    return this.dbGunM;
   }
 
   // ---- the arms and the gun in your hand -----------------------------------------------------------------------------------------------
@@ -634,8 +685,10 @@ export class Weapons {
       this.handId = mid;
       if (this.hand) P.handBone?.()?.add(this.hand);
     }
+    const rig = this.driveBy && P.vehicle?.kind === 'car' && !!this.db;
+    this._dbGun(rig && T.show);
     if (this.hand) {
-      const show = T.show && !P.swimming && (!P.vehicle || this.driveBy);
+      const show = T.show && !P.swimming && (!P.vehicle || (this.driveBy && !rig));
       this.hand.visible = show;
       // guns kick back in the hand when they fire
       const g = this.hand.userData.gun;

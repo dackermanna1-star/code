@@ -2,7 +2,7 @@
 // round 2008 head (with every hat, hairdo and pair of sunglasses built in and
 // switched on per person), the torso, two arms and two legs - plus one mesh
 // for whatever they hold (guns, phones, briefcases, surfboards, drinks...).
-// So 160+ people cost 7 draw calls. What they wear is a cell of the outfit
+// So 160+ people cost 6 draw calls, plus one per kind of thing being held. What they wear is a cell of the outfit
 // atlas (outfits.js); blood soaks into their clothes, a hit flashes them red
 // and despawning people dissolve, all per instance in the shader.
 //
@@ -13,6 +13,7 @@
 //
 //   const crowd = new Crowd(scene, max)
 //   crowd.add(fig) / remove(fig)            crowd.update(camera)  (upload; frustum culled)
+//   crowd.extra = [{item, mat}]             items drawn on their own (guns lying on the ground)
 //   crowd.ray(origin, dir, max, skip) -> {fig, part, d, point} | null   (per limb)
 //   partCenter(fig, k, out)  handPoint(fig, out)
 import * as THREE from 'three';
@@ -178,9 +179,11 @@ function mapColor(mat) {
   }
   return c;
 }
+/** One geometry per held item (vertex colours; in the right hand's frame). */
 function itemGeometry() {
   if (itemGeo) return itemGeo;
-  const M = new Merge();
+  const byId = new Map();
+  const M = { add(geo, m, o) { let mm = byId.get(o.tag); if (!mm) byId.set(o.tag, (mm = new Merge())); mm.add(geo, m, o); } };
   const C = (hex) => new THREE.Color(hex);
   // guns: the warzone models (metres, barrel -Z, grip at the origin) scaled to studs and turned into the hand frame
   const fix = new THREE.Matrix4().makeBasis(new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0));
@@ -191,7 +194,8 @@ function itemGeometry() {
     if (!info) continue;
     const grp = info.group;
     grp.updateMatrixWorld(true);
-    const base = new THREE.Matrix4().makeTranslation(0, -0.05, 0.08).multiply(fix).multiply(new THREE.Matrix4().makeScale(4.2, 4.2, 4.2));
+    const k = 4.2 * (id === ITEM.pistol ? 1.35 : 1);   // (handguns would vanish inside a blocky fist at true scale)
+    const base = new THREE.Matrix4().makeTranslation(0, -0.05, 0.08).multiply(fix).multiply(new THREE.Matrix4().makeScale(k, k, k));
     grp.traverse((o) => {
       if (!o.isMesh || !o.visible) return;
       const mat = Array.isArray(o.material) ? o.material[0] : o.material;
@@ -231,7 +235,8 @@ function itemGeometry() {
   box(ITEM.newspaper, 0.08, 0.95, 0.75, 0, -0.45, 0.15, '#e8e4d8');
   box(ITEM.camera, 0.55, 0.4, 0.32, 0, -0.2, 0.25, '#18181a');
   cyl(ITEM.camera, 0.14, 0.14, 0.3, 0, -0.2, 0.45, '#2a2a2e', Math.PI / 2);
-  itemGeo = M.build('itemId');
+  itemGeo = new Map();
+  for (const [id, mm] of byId) itemGeo.set(id, mm.build());
   return itemGeo;
 }
 
@@ -273,16 +278,7 @@ diffuseColor.rgb *= vec3(1.0 + vFx.y * 1.6, 1.0 - vFx.y * 0.45, 1.0 - vFx.y * 0.
   m.customProgramCacheKey = () => head ? 'vc-crowd-head' : 'vc-crowd';
   return m;
 }
-function itemMaterial() {
-  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.25 });
-  m.onBeforeCompile = (sh) => {
-    sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute float aItem; attribute float itemId;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nif (abs(itemId - aItem) > 0.1) transformed = vec3(0.0);');
-  };
-  m.customProgramCacheKey = () => 'vc-crowd-item';
-  return m;
-}
+function itemMaterial() { return new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.25 }); }
 
 // ---- poses -------------------------------------------------------------------------------------------------------------
 // POSE fields (all optional): walk (phase), stride 0..1, gait 0 walk | 1 run | 2 sprint, t (time, for idling), seed,
@@ -368,7 +364,7 @@ export function poseFigure(f, P) {
     case 'surf': A.fR = 0.1; A.oR = 0.32; break;
     case 'drink': { const sip = Math.max(0, Math.sin(t * 0.6 + sd) - 0.7) * 3.3; A.fR = 0.95 + sip * 1.2; A.oR = -0.25 - sip * 0.1; break; }
     case 'sit': A.fR = 0.45; A.oR = 0.06; A.fL = 0.45; A.oL = 0.06; break;
-    case 'drive': A.fR = 1.25; A.oR = -0.18; A.fL = 1.25; A.oL = -0.18; break;
+    case 'drive': A.fR = 1.2; A.oR = -0.42; A.fL = 1.2; A.oL = -0.42; break;   // (hands in on the wheel)
     case 'bike': A.fR = 1.35; A.oR = 0.22; A.fL = 1.35; A.oL = 0.22; break;
     case 'lie': A.fR = Math.PI - 0.3; A.oR = -0.55; A.fL = Math.PI - 0.3; A.oL = -0.55; break;
     case 'support': A.fR = -0.55; A.oR = 0.25; A.fL = -0.55; A.oL = 0.25; break;
@@ -441,15 +437,18 @@ export class Crowd {
       scene.add(m);
       return m;
     });
-    // held items
-    this.itemId = new THREE.InstancedBufferAttribute(new Float32Array(max), 1).setUsage(THREE.DynamicDrawUsage);
-    const ig = itemGeometry();
-    ig.setAttribute('aItem', this.itemId);
-    this.items = new THREE.InstancedMesh(ig, itemMaterial(), max);
-    this.items.count = 0; this.items.frustumCulled = false; this.items.castShadow = true;
-    this.items.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.items.name = 'crowd-items';
-    scene.add(this.items);
+    // held items: one small instanced mesh per kind of thing (only the kinds in use are drawn)
+    const imat = itemMaterial();
+    this.items = new Map();
+    for (const [id, g] of itemGeometry()) {
+      const m = new THREE.InstancedMesh(g, imat, 64);
+      m.count = 0; m.frustumCulled = false; m.castShadow = true; m.visible = false;
+      m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      m.name = 'crowd-item-' + id;
+      scene.add(m);
+      this.items.set(id, m);
+    }
+    this._ic = new Map();
     this.drawn = 0;
   }
 
@@ -465,9 +464,9 @@ export class Crowd {
     _pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     _frus.setFromProjectionMatrix(_pm);
     const cp = camera.position;
-    let n = 0, ni = 0;
+    let n = 0;
     const im = this._im || (this._im = this.meshes.map((m) => m.instanceMatrix.array)), cell = this.cell.array, fx = this.fx.array, hat = this.hat.array;
-    const ia = this.items.instanceMatrix.array, iid = this.itemId.array;
+    for (const m of this.items.values()) m.count = 0;
     const cw = CELL_W / ATLAS, ch = CELL_H / ATLAS;
     for (const f of this.figs) {
       if (f.hidden) { f.culled = true; continue; }
@@ -484,14 +483,21 @@ export class Crowd {
       fx[n * 3] = f.blood || 0; fx[n * 3 + 1] = f.flash || 0; fx[n * 3 + 2] = f.fade ?? 1;
       hat[n] = f.hat || 0;
       n++;
-      if (f.item) { ia.set(f.itemMat.elements, ni * 16); iid[ni] = f.item; ni++; }
+      if (f.item) this._putItem(f.item, f.itemMat);
     }
     // extra items: guns lying on the ground (pickups)
-    if (this.extra) for (const x of this.extra) { if (ni >= this.max) break; ia.set(x.mat.elements, ni * 16); iid[ni] = x.item; ni++; }
+    if (this.extra) for (const x of this.extra) this._putItem(x.item, x.mat);
     for (const m of this.meshes) { m.count = n; m.instanceMatrix.needsUpdate = true; m.visible = n > 0; }
     this.cell.needsUpdate = true; this.fx.needsUpdate = true; this.hat.needsUpdate = true;
-    this.items.count = ni; this.items.instanceMatrix.needsUpdate = true; this.itemId.needsUpdate = true; this.items.visible = ni > 0;
+    for (const m of this.items.values()) { m.visible = m.count > 0; if (m.count) m.instanceMatrix.needsUpdate = true; }
     this.drawn = n;
+  }
+
+  _putItem(id, mat) {
+    const m = this.items.get(id);
+    if (!m || m.count >= 64) return;
+    m.instanceMatrix.array.set(mat.elements, m.count * 16);
+    m.count++;
   }
 
   /** Which figure and limb a ray hits first: {fig, part, d, point} or null. skip(fig) -> true to ignore. */
@@ -516,7 +522,7 @@ export class Crowd {
   }
 
   dispose() {
-    for (const m of [...this.meshes, this.items]) { this.scene.remove(m); m.geometry.dispose(); m.dispose?.(); }
+    for (const m of [...this.meshes, ...this.items.values()]) { this.scene.remove(m); m.geometry.dispose(); m.dispose?.(); }
   }
 }
 

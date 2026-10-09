@@ -115,7 +115,7 @@ export class Walkways {
   /** A random sidewalk spot between rMin and rMax from (x, z). test(px, pz) -> false to reject. */
   pick(x, z, rMin, rMax, rand, test) {
     const N = this.nodes;
-    for (let tries = 0; tries < 10; tries++) {
+    for (let tries = 0; tries < 14; tries++) {
       const a = rand() * Math.PI * 2, r = rMin + rand() * (rMax - rMin);
       const px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r;
       const c = this.cells.get(Math.floor(px / 64) * 100003 + Math.floor(pz / 64));
@@ -126,7 +126,7 @@ export class Walkways {
       const qx = N[e.a * 3] + e.ux * s, qz = N[e.a * 3 + 2] + e.uz * s;
       const d = Math.hypot(qx - x, qz - z);
       if (d < rMin || d > rMax) continue;
-      if (test && !test(qx, qz)) continue;
+      if (test && !test(qx, qz, e)) continue;
       return { edge: e, s, x: qx, z: qz, y: N[e.a * 3 + 1] };
     }
     return null;
