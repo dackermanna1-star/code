@@ -69,7 +69,7 @@ const FOG_FRAG = `
 			float vcA = exp( - vcFogP.y * vcY0 ), vcB = exp( - vcFogP.y * vcY1 ), vcDy = vcFogP.y * ( vcY1 - vcY0 );
 			float vcF = abs( vcDy ) > 1e-3 ? ( vcA - vcB ) / vcDy : vcA;
 			fogFactor = 1.0 - exp( - vcFogP.x * vcD * ( vcF + vcFogP.z ) );
-			fogFactor = max( fogFactor, smoothstep( fogFar * 0.62, fogFar, vcD ) );
+			fogFactor = max( fogFactor, smoothstep( fogFar * 0.4, fogFar, vFogDepth ) );
 			// the colour of the horizon in this direction: warmer and brighter towards the sun
 			float vcSw = max( dot( vcDir, vcFogSun.xyz ), 0.0 );
 			vcFogCol = mix( fogColor, vcFogHor.xyz, pow( vcSw, vcFogHor.w ) ) + vcFogGlow.xyz * ( pow( vcSw, 10.0 ) * 0.35 + pow( vcSw, 120.0 ) * 1.2 );
@@ -123,29 +123,36 @@ vec4 skyClouds(vec3 d, float q) {
   if (d.y < 0.005) return vec4(0.0);
   vec2 p = d.xz / (d.y + 0.07);
   float t = skP.w;
-  vec2 uv = p * 0.42 + vec2(t * 0.0021, t * 0.0009);
-  float cov = texture(skCloud, uv * 0.17 + vec2(0.31, 0.77)).a;
-  float b = texture(skCloud, uv).r;
-  float e = texture(skCloud, uv * 3.1 + vec2(t * 0.003, 0.0)).g;
-  float th = mix(0.78, 0.18, skP.z) + (0.5 - cov) * 0.38;
-  float c = b - e * 0.2 * q;
-  float dens = smoothstep(th, th + 0.2, c);
-  // lit on the side facing the sun (thinner towards it), darker where it's thick
-  vec2 sd = normalize(skSunDir.xz + 1e-4) * 0.03;
-  float cs = texture(skCloud, uv + sd).r - e * 0.2 * q;
-  float lit = clamp(0.62 + (c - cs) * 5.0, 0.0, 1.0);
-  lit *= 1.0 - smoothstep(0.08, 0.45, c - th) * 0.5;
-  lit = mix(lit, 1.0, smoothstep(0.1, -0.15, skSunDir.y) * 0.35); // after sunset the undersides glow
+  vec2 wind = vec2(t * 0.0021, t * 0.0009);
+  vec2 uv = p * 0.3 + wind;
+  float cov = texture(skCloud, uv * 0.13 + vec2(0.31, 0.77)).a;
+  float b = texture(skCloud, uv).r * 0.72 + texture(skCloud, uv * 2.3 + 0.17).r * 0.28;
+  float e = texture(skCloud, uv * 4.3 + wind * 1.5).g;
+  float th = mix(0.82, 0.2, skP.z) + (0.5 - cov) * 0.5;
+  float c = b - e * 0.14 * q;
+  float dens = smoothstep(th, th + 0.15, c);
+  // light: a few steps towards the sun - the more cloud that way, the darker
+  vec2 sd = normalize(skSunDir.xz + 1e-4) * 0.022;
+  float occ = 0.0;
+  for (int i = 1; i <= 3; i++) {
+    vec2 o = uv + sd * float(i);
+    occ += max(texture(skCloud, o).r * 0.72 + texture(skCloud, o * 2.3 + 0.17).r * 0.28 - th, 0.0);
+  }
+  float lit = exp(-occ * 3.5);
+  lit = mix(lit, 1.0, smoothstep(0.1, -0.15, skSunDir.y) * 0.4); // after sunset the undersides glow
+  float thick = smoothstep(0.03, 0.3, c - th);
   float sw = max(dot(d, skSunDir), 0.0);
   vec3 cc = mix(skCloudShade, skCloudLit, lit);
-  cc += skSunCol * skP.x * pow(sw, 9.0) * (1.0 - dens * 0.7) * 1.6;   // silver lining
+  // flat grey bases on the thick ones overhead (we see them from below)
+  cc *= 1.0 - thick * (0.18 + 0.22 * smoothstep(0.15, 0.7, d.y)) * (1.0 - lit * 0.5);
+  cc += skSunCol * skP.x * pow(sw, 9.0) * (1.0 - dens * 0.75) * 1.8;   // silver lining
   // high cirrus streaks
   vec2 cu = p * vec2(0.05, 0.16) + vec2(t * 0.0006, 0.13);
   float ci = smoothstep(0.56, 0.9, texture(skCloud, cu).b) * skP2.x * smoothstep(0.02, 0.2, d.y);
-  vec3 cic = skCloudLit * 1.08 + skSunCol * skP.x * pow(sw, 6.0) * 0.6;
-  dens *= smoothstep(0.005, 0.09, d.y);
+  vec3 cic = skCloudLit * 1.05 + skSunCol * skP.x * pow(sw, 6.0) * 0.6;
+  dens *= smoothstep(0.005, 0.07, d.y);
   // far clouds fade into the haze
-  float aer = smoothstep(0.32, 0.0, d.y) * 0.72;
+  float aer = smoothstep(0.3, 0.0, d.y) * 0.65;
   vec3 hz = skyHorizon(d);
   cc = mix(cc, hz, aer); cic = mix(cic, hz, aer);
   float a = dens + ci * (1.0 - dens);
@@ -175,7 +182,7 @@ void main() {
   vec3 col;
   if (d.y < 0.0) {
     // below the horizon (only seen from high up, past the end of the sea): hazy sea
-    col = mix(skyHorizon(d), skZen * 0.25 + skHor * 0.25, smoothstep(0.0, -0.4, d.y));
+    col = skyHorizon(d);
   } else {
     col = skyBase(d);
     float sw = dot(d, skSunDir);
@@ -212,8 +219,8 @@ void main() {
 // belt: the pink dusk band, cl/cs: lit and shaded cloud, amb: hemisphere [sky, ground,
 // intensity], moon: moonlight, fog: haze density, exp: exposure, glowC: city glow.
 const KEYS = [
-  { h: 0, zen: 0x0a1a46, hor: 0x24356a, hs: 0x24356a, sun: 0xff8040, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.42, fog: 1.0, exp: 1.75, glowC: 0.05 },
-  { h: 4.6, zen: 0x0a1a46, hor: 0x24356a, hs: 0x24356a, sun: 0xff8040, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.4, fog: 1.0, exp: 1.75, glowC: 0.05 },
+  { h: 0, zen: 0x0a1a46, hor: 0x24356a, hs: 0x24356a, sun: 0xff8040, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.32, fog: 1.0, exp: 1.75, glowC: 0.05 },
+  { h: 4.6, zen: 0x0a1a46, hor: 0x24356a, hs: 0x24356a, sun: 0xff8040, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.3, fog: 1.0, exp: 1.75, glowC: 0.05 },
   { h: 5.6, zen: 0x1c2c6c, hor: 0x5e4c86, hs: 0xd27890, sun: 0xff7040, sunI: 0, glow: 0.35, belt: 0x2a1430, cl: 0xc87098, cs: 0x2c2a58, amb: [0x56589a, 0x2a2232, 0.55], moon: 0.12, fog: 1.25, exp: 1.45, glowC: 0.03 },
   { h: 6.5, zen: 0x3358ac, hor: 0xe8a492, hs: 0xffb478, sun: 0xff9c58, sunI: 0.9, glow: 1.0, belt: 0x301828, cl: 0xffc49a, cs: 0x6c6c9c, amb: [0x8a9cd0, 0x5c4c44, 0.6], moon: 0, fog: 1.35, exp: 1.15, glowC: 0 },
   { h: 7.6, zen: 0x2a68cc, hor: 0xcfdcec, hs: 0xffe4bc, sun: 0xffd6a8, sunI: 2.4, glow: 0.55, belt: 0x000000, cl: 0xfff4e8, cs: 0x8c9cbc, amb: [0xa6c0ea, 0x7c6c5c, 0.65], moon: 0, fog: 1.15, exp: 1.0, glowC: 0 },
@@ -225,8 +232,8 @@ const KEYS = [
   { h: 19.0, zen: 0x283a8c, hor: 0xf07c8c, hs: 0xff7c3c, sun: 0xff6a2c, sunI: 0.55, glow: 1.6, belt: 0x5a2040, cl: 0xff8c76, cs: 0x6c4c8e, amb: [0x8c82b6, 0x4c3038, 0.55], moon: 0, fog: 1.2, exp: 1.15, glowC: 0 },
   { h: 19.35, zen: 0x1e2a74, hor: 0xc85494, hs: 0xff6450, sun: 0xff5030, sunI: 0, glow: 1.05, belt: 0x6a2050, cl: 0xff6c90, cs: 0x4c3c7c, amb: [0x6c5c9c, 0x30202e, 0.52], moon: 0, fog: 1.2, exp: 1.3, glowC: 0.01 },
   { h: 19.9, zen: 0x14205e, hor: 0x5c3c80, hs: 0xa44c78, sun: 0xff4030, sunI: 0, glow: 0.35, belt: 0x2a1030, cl: 0x8c4c84, cs: 0x28305e, amb: [0x484c80, 0x1e1c2a, 0.5], moon: 0.15, fog: 1.1, exp: 1.5, glowC: 0.03 },
-  { h: 20.7, zen: 0x0b1b4a, hor: 0x26366c, hs: 0x2c3468, sun: 0xff4030, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.4, fog: 1.0, exp: 1.75, glowC: 0.05 },
-  { h: 24, zen: 0x0a1a46, hor: 0x24356a, hs: 0x24356a, sun: 0xff8040, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.42, fog: 1.0, exp: 1.75, glowC: 0.05 },
+  { h: 20.7, zen: 0x0b1b4a, hor: 0x26366c, hs: 0x2c3468, sun: 0xff4030, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.3, fog: 1.0, exp: 1.75, glowC: 0.05 },
+  { h: 24, zen: 0x0a1a46, hor: 0x24356a, hs: 0x24356a, sun: 0xff8040, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.32, fog: 1.0, exp: 1.75, glowC: 0.05 },
 ];
 // the keys as linear colours, once
 const LK = KEYS.map((k) => {
@@ -347,7 +354,8 @@ export class Sky {
     else { this.lightDir.copy(moon); S.color.copy(MOON_COL); S.intensity = moonI; }
     this.hemi.color.copy(K.ambS).lerp(_c.setRGB(0.6, 0.62, 0.66).multiplyScalar(1 - night * 0.85), grey * 0.5);
     this.hemi.groundColor.copy(K.ambG);
-    this.hemi.intensity = a.ambI + (b.ambI - a.ambI) * t;
+    // (the env map lights things with the sky too, so the hemisphere is the smaller part by day)
+    this.hemi.intensity = (a.ambI + (b.ambI - a.ambI) * t) * lerp(0.5, 1, night);
     this._shadow(camPos || this.world.camera.position);
     // the haze
     const fog = this.world.scene.fog;
@@ -410,7 +418,7 @@ export class Sky {
     const hs = u.skHorSun.value, g = u.skSunCol.value, gi = u.skP.value.x;
     Object.assign(FOG.vcFogHor.value, { x: hs.r, y: hs.g, z: hs.b, w: 3 });
     Object.assign(FOG.vcFogGlow.value, { x: g.r * gi, y: g.g * gi, z: g.b * gi, w: 0 });
-    Object.assign(FOG.vcFogP.value, { x: 0.000165 * density, y: 1 / 420, z: 0.06, w: 0 });
+    Object.assign(FOG.vcFogP.value, { x: 0.0001 * density, y: 1 / 800, z: 0.05, w: 0 });
     void _q;
   }
 

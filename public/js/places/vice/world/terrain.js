@@ -12,19 +12,19 @@
 //   groundGLSL(ground)    -> GLSL: uniform sampler2D hMap; float hAt(vec2 xz); float coastAt(vec2 xz);
 import * as THREE from 'three';
 import { V } from '../state.js';
-import { viceTextures, TEX_LAYER, texAvg, noiseTex } from './textures.js';
+import { viceTextures, TEX_LAYER, texAvg, noiseTex, cloudTex } from './textures.js';
 
 const GRID = 32;
 // the ground layers (ground.js LAYERS) -> photo scan, size of one repeat (studs), roughness,
 // target colour (sRGB), how much of the scan's own colour to keep, contrast
 const LAYER_DEF = [
-  { tex: 'lawn', scale: 11, rough: 0.94, col: '#5d9a3a', sat: 0.35, con: 0.9 },     // lawn: lush St. Augustine grass
-  { tex: 'sand', scale: 9, rough: 0.96, col: '#f3e7cf', sat: 0.3, con: 0.55 },      // beach sand: pale
-  { tex: 'wetSand', scale: 10, rough: 0.42, col: '#bfae8e', sat: 0.4, con: 0.7 },   // wet sand: darker, shiny
+  { tex: 'lawn', scale: 11, rough: 0.94, col: '#557f34', sat: 0.6, con: 1.0 },     // lawn: lush St. Augustine grass
+  { tex: 'sand', scale: 9, rough: 0.96, col: '#e2d2b0', sat: 0.4, con: 0.65 },      // beach sand: pale
+  { tex: 'wetSand', scale: 10, rough: 0.42, col: '#ad9b7c', sat: 0.4, con: 0.7 },   // wet sand: darker, shiny
   { tex: 'wetSand', scale: 12, rough: 0.6, col: '#5c573f', sat: 0.3, con: 0.9 },    // mangrove mud
   { tex: 'gravel', scale: 14, rough: 0.9, col: '#a59a88', sat: 0.4, con: 0.9 },     // gravel
-  { tex: 'lawn', scale: 13, rough: 0.95, col: '#9aa456', sat: 0.4, con: 0.95 },     // dry lawn
-  { tex: 'sand', scale: 14, rough: 0.9, col: '#e0d2ae', sat: 0.25, con: 0.6 },      // seabed (seen through the water)
+  { tex: 'lawn', scale: 13, rough: 0.95, col: '#8d955a', sat: 0.55, con: 1.0 },     // dry lawn
+  { tex: 'sand', scale: 14, rough: 0.9, col: '#e4dfcc', sat: 0.25, con: 0.6 },      // seabed (seen through the water)
   { tex: 'concrete', scale: 9, rough: 0.85, col: '#a9a59b', sat: 0.2, con: 1.4 },   // riprap
   { tex: 'gravel', scale: 12, rough: 0.95, col: '#8c7658', sat: 0.5, con: 0.9 },    // dirt
 ];
@@ -111,7 +111,7 @@ export class TerrainView {
       hMap: { value: this.hTex }, wT0: { value: this.weightTex[0] }, wT1: { value: this.weightTex[1] }, wT2: { value: this.weightTex[2] },
       gCol: tex.col, gNor: tex.nor, noiseT: { value: noiseTex() },
       uLay: { value: lay }, uScale: { value: scale }, uRough: { value: rough }, uTarget: { value: target }, uAvgL: { value: avgL }, uSat: { value: sat }, uCon: { value: con },
-      wet: { value: 0 },
+      wet: { value: 0 }, cauT: { value: cloudTex() }, time: { value: 0 }, causI: { value: 1 },
     };
     this.uniforms = uni;
     const HG = groundGLSL(G), f = (v) => v.toFixed(1);
@@ -136,8 +136,8 @@ vW = transformed;`);
         .replace('#include <common>', `#include <common>
 precision highp sampler2DArray;
 uniform sampler2DArray gCol, gNor;
-uniform sampler2D wT0, wT1, wT2, noiseT;
-uniform float uLay[9], uScale[9], uRough[9], uAvgL[9], uSat[9], uCon[9], wet;
+uniform sampler2D wT0, wT1, wT2, noiseT, cauT;
+uniform float uLay[9], uScale[9], uRough[9], uAvgL[9], uSat[9], uCon[9], wet, time, causI;
 uniform vec3 uTarget[9];
 varying vec3 vW; varying vec3 vWN;
 float gWeights[9];
@@ -195,6 +195,18 @@ vec3 recolor(vec3 s, int q) {
   col *= 0.86 + 0.28 * mac.r;
   col = mix(col, col * vec3(1.08, 1.02, 0.78), smoothstep(0.55, 0.8, mac.g) * 0.6 * grass);
   col = mix(col, col * vec3(0.86, 1.06, 0.9), smoothstep(0.5, 0.75, mac.b) * 0.5 * grass);
+  // under the sea: wet, a little darker, and the sunlight dancing on the bed (caustics)
+  if (vW.y < 0.15) {
+    float dw = 0.15 - vW.y;
+    col *= 1.0 - smoothstep(0.0, 0.5, dw) * 0.18;
+    rough = mix(rough, 0.5, smoothstep(0.0, 0.3, dw));
+    vec2 cu = vW.xz / 34.0;
+    float c1 = texture(cauT, cu + vec2(time * 0.021, time * 0.013)).g;
+    float c2 = texture(cauT, cu * 1.37 + vec2(-time * 0.016, time * 0.019) + 0.4).g;
+    float ca = pow(clamp(1.35 - c1 - c2 * 0.55, 0.0, 1.0), 2.2) * 2.2;
+    ca *= smoothstep(0.05, 0.8, dw) * (1.0 - smoothstep(2.5, 10.0, dw)) * (1.0 - smoothstep(150.0, 450.0, dist));
+    col *= 1.0 + ca * causI;
+  }
   // rain darkens and wets the ground
   col *= 1.0 - wet * 0.3;
   gRough = mix(rough, 0.3, wet * 0.7);
@@ -227,6 +239,7 @@ vec3 recolor(vec3 s, int q) {
   }
 
   setWet(v) { this.uniforms.wet.value = v; }
+
 
   /** min/max height of every 128-stud tile (and of the bigger ones), for culling. */
   _minmax() {
@@ -269,6 +282,8 @@ vec3 recolor(vec3 s, int q) {
   update(camera) {
     // the debug stand-in ground isn't needed once this draws
     if (!this._hid && V.debug?.children?.[0]) { V.debug.children[0].visible = false; this._hid = true; }
+    this.uniforms.time.value = V.water?.t ?? performance.now() / 1000;
+    this.uniforms.causI.value = Math.min(1.2, (V.sky?.state?.sunI ?? 3) / 3) * 1.0;
     camera.updateMatrixWorld();
     this._m.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     this._frustum.setFromProjectionMatrix(this._m);

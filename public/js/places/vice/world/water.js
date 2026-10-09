@@ -117,19 +117,18 @@ void main() {
   vec3 v = normalize(cameraPosition - vW);
   float nv = max(dot(n, v), 0.0);
   float F = 0.02 + 0.98 * pow(1.0 - nv, 5.0);
-  F = mix(F, 1.0, far * far * 0.25);
   // foam: the shore, surf lines rolling in on the beaches, whitecaps out at sea
   float lace = texture(noiseT, p / 6.5 + drift * 3.0).r * 0.6 + texture(nMap, p / 4.3 - drift * 2.0).x * 0.5;
-  float shore = 1.0 - smoothstep(0.0, 0.32, depth);
+  float shore = 1.0 - smoothstep(0.0, 0.14, depth);
   float coast = vG.y;
-  float zone = smoothstep(0.3, 0.9, vG.x) * (1.0 - smoothstep(1.4, 3.6, vG.x)) * (1.0 - smoothstep(-20.0, -140.0, coast));
-  float ph = coast / 26.0 - wTime * 0.105;
+  float zone = smoothstep(0.35, 0.8, vG.x) * (1.0 - smoothstep(1.2, 2.6, vG.x)) * (1.0 - smoothstep(-20.0, -140.0, coast));
+  float ph = coast / 30.0 - wTime * 0.1;
   float band = fract(ph);
-  float brk = texture(noiseT, p / 90.0 + vec2(floor(ph) * 0.37, 0.0)).g;
-  float surf = smoothstep(0.0, 0.035, band) * (1.0 - smoothstep(0.04, 0.28, band)) * zone * smoothstep(0.4, 0.62, brk);
+  float brk = texture(noiseT, p / 70.0 + vec2(floor(ph) * 0.37, 0.0)).g;
+  float surf = smoothstep(0.0, 0.02, band) * (1.0 - smoothstep(0.025, 0.13, band)) * zone * smoothstep(0.42, 0.6, brk);
   float crest = wv.x * att / 0.5;
   float caps = smoothstep(0.55, 0.95, crest) * smoothstep(0.62, 0.8, texture(noiseT, p / 37.0 + drift * 2.0).b) * wind * (1.0 - far);
-  float foam = clamp(shore * smoothstep(0.25, 0.75, lace + shore * 0.3) + surf * smoothstep(0.2, 0.6, lace + 0.15) + caps, 0.0, 1.0);
+  float foam = clamp(shore * smoothstep(0.35, 0.8, lace + shore * 0.25) + surf * smoothstep(0.2, 0.6, lace + 0.15) + caps, 0.0, 1.0);
   foam *= 1.0 - smoothstep(600.0, 1600.0, dist);
   // transmittance down to the bed and back (red goes first)
   float dd = max(depth, 0.0);
@@ -144,16 +143,17 @@ void main() {
   #endif
 #else
   // light scattered in the water: teal, deepening to navy
-  vec3 scat = mix(midCol, deepCol, smoothstep(6.0, 40.0, dd));
-  vec3 body = scat * lightCol * (1.0 - T);
+  vec3 scat = mix(midCol, deepCol, smoothstep(3.0, 20.0, dd));
+  vec3 body = scat * lightCol * (1.0 - T) * 0.62;
   // the sky reflected (the reflection never points below the horizon)
-  vec3 r = reflect(-v, n); r.y = abs(r.y) + 0.015; r = normalize(r);
-  vec3 refl = skyColor(r);
+  // (rough water reflects a little higher up the sky, so a little bluer)
+  vec3 r = reflect(-v, n); r.y = abs(r.y) + 0.05 + far * 0.03; r = normalize(r);
+  vec3 refl = skyColor(r) * 0.9;
   // the sun's (moon's) glitter: sharp up close, a broad path further off
   vec3 h = normalize(specDir + v);
   float nh = max(dot(n, h), 0.0);
   float pw = mix(1400.0, 160.0, far);
-  float spec = pow(nh, pw) * (pw + 8.0) / 25.0 + pow(nh, 90.0) * 0.6;
+  float spec = pow(nh, pw) * (pw + 8.0) / 50.0 + pow(nh, 70.0) * 0.18;
   vec3 col = body * (1.0 - F) * (1.0 - foam) + refl * F * (1.0 - foam) + specCol * spec * specI * (1.0 - foam);
   // light through the crests (towards the sun)
   col += midCol * lightCol * pow(max(dot(-v, specDir), 0.0), 4.0) * max(wv.x * att, 0.0) * 0.8 * (1.0 - night);
@@ -174,7 +174,7 @@ export class Water {
       wK: { value: WAVES.map((w) => new THREE.Vector4(w.kx, w.kz, w.om, w.a)) }, wP: { value: WAVES.map((w) => new THREE.Vector4(w.ph, w.L, 0, 0)) }, wTime: { value: 0 },
       gridPos: { value: new THREE.Vector2() },
       lightCol: { value: new THREE.Color(1, 1, 1) }, specDir: { value: new THREE.Vector3(0, 1, 0) }, specCol: { value: new THREE.Color(1, 1, 1) }, specI: { value: 1 },
-      deepCol: { value: new THREE.Color(0x0a2a66) }, midCol: { value: new THREE.Color(0x0f8c9c) }, absorbK: { value: new THREE.Vector3(0.42, 0.075, 0.06) },
+      deepCol: { value: new THREE.Color(0x0b3a78) }, midCol: { value: new THREE.Color(0x1a98a4) }, absorbK: { value: new THREE.Vector3(0.45, 0.07, 0.04) },
       night: { value: 0 }, wind: { value: 0.4 },
     };
     // the sky's uniforms (shared objects, so they stay in step), or stand-ins without a sky

@@ -132,7 +132,7 @@ export class Post {
     this.mat = pass(FINAL, {
       tDiffuse: { value: this.rt.texture }, tBloom: { value: this.chain[0].texture }, res: { value: this.size.clone() }, time: { value: 0 },
       exposure: { value: 1 }, vignette: { value: 0.3 }, desat: { value: 0 }, blur: { value: 0 }, flash: { value: 0 }, flashCol: { value: new THREE.Color(0.8, 0.02, 0.0) },
-      fade: { value: 1 }, grain: { value: 0.012 }, chroma: { value: 0.012 }, bloom: { value: 0.32 }, wasted: { value: 0 }, sat: { value: 1.12 },
+      fade: { value: 1 }, grain: { value: 0.012 }, chroma: { value: 0.0035 }, bloom: { value: 0.32 }, wasted: { value: 0 }, sat: { value: 1.12 },
       tint: { value: new THREE.Color(1, 1, 1) }, lift: { value: new THREE.Vector3(0.93, 1.0, 1.05) }, gain: { value: new THREE.Vector3(1.05, 1.0, 0.94) },
     }, { toneMapped: true });
     this.quad = new THREE.Mesh(tri, this.mat); this.quad.frustumCulled = false;
@@ -176,6 +176,7 @@ export class Post {
 
   update(dt, o = {}) {
     this.t += dt;
+    if (!this._hooks && typeof window !== 'undefined' && window.__vc) this._addHooks();
     const u = this.mat.uniforms;
     if (this.fade !== this.fadeTo) this.fade += Math.sign(this.fadeTo - this.fade) * Math.min(Math.abs(this.fadeTo - this.fade), dt * this.fadeSpeed);
     this.flash = Math.max(0, this.flash - dt * 2.2);
@@ -192,9 +193,21 @@ export class Post {
     u.wasted.value = ws;
     u.vignette.value = 0.3 + (o.vignette || 0) + ws * 0.35;
     u.exposure.value = (o.exposure ?? 1) * (sky?.exposure ?? 1) * (0.8 + this.brightness * 0.2) * (1 - ws * 0.15);
-    u.chroma.value = 0.012 + (o.chroma || 0) + ws * 0.01;
+    u.chroma.value = 0.0035 + (o.chroma || 0) + ws * 0.006;
     u.bloom.value = this.bloomOn ? (o.bloom ?? 0.32) * (1 + (sky?.night || 0) * 0.35) : 0;
     if (o.tint) u.tint.value.copy(o.tint); else u.tint.value.setRGB(1, 1, 1);
+  }
+
+  /** Test hooks: __vc.unfade(), __vc.postInfo(), __vc.bloom(on), __vc.wasted(v), __vc.hit(a). */
+  _addHooks() {
+    this._hooks = true;
+    Object.assign(window.__vc, {
+      unfade: () => { this.fade = this.fadeTo = 0; return 1; },
+      bloom: (on = true) => { this.setBloom(on); return on; },
+      wasted: (v = 1) => { V.postFx = { ...(V.postFx || {}), wasted: v }; this.wasted = v; return v; },
+      hit: (a = 1) => { this.hit(a); return a; },
+      postInfo: () => ({ ...this.info, size: [this.size.x, this.size.y], samples: this.samples }),
+    });
   }
 
   render() {
