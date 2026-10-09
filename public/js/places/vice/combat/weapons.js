@@ -24,6 +24,9 @@ import { WEAPONS, SLOTS, SLOT_NAMES, weapon } from './data.js';
 import { gunModel, handModel, weaponIcon } from './models.js';
 import { playMech } from '../../warzone/fx.js';
 
+/** Aim: the right mouse button, or E on foot (handy on a trackpad; E is the radio in vehicles). */
+const aimKey = (inp) => !V.player?.vehicle && !!(inp?.keys?.has('code:KeyE') || inp?.keys?.has('e'));
+
 const DEG = Math.PI / 180;
 const R = Math.random;
 const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
@@ -235,7 +238,7 @@ export class Weapons {
   /** Guns (on foot, or out of a vehicle's window). */
   _gun(dt, inp, T, drive) {
     const P = V.player, w = this.w, s = this.slots[this.slot];
-    const rmb = inp.buttons?.has(2) && !this.wheelOpen;
+    const rmb = (inp.buttons?.has(2) || aimKey(inp)) && !this.wheelOpen;
     this.aimHold = Math.max(0, this.aimHold - dt);
     this.aiming = drive ? true : (rmb || this.aimHold > 0) && !P.swimming;
     if (P.sprinting && !rmb) { this.aimHold = 0; this.aiming = false; }
@@ -388,7 +391,7 @@ export class Weapons {
   }
   _spread(drive) {
     const P = V.player, w = this.w;
-    const aimed = V.input?.buttons?.has(2) && !drive;
+    const aimed = (V.input?.buttons?.has(2) || aimKey(V.input)) && !drive;
     let s = aimed ? w.cone[1] : w.cone[0];
     const mv = Math.hypot(P.vel.x, P.vel.z) / 14;
     s += mv * (w.twoHand ? 1.6 : 1.1) + (P.grounded || P.vehicle ? 0 : 2.5) + this.bloom + (drive ? 1.6 : 0);

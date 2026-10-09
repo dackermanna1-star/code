@@ -42,7 +42,7 @@ const CSS = `
 `;
 
 const KEYS = [
-  ['On foot', [['W A S D', 'move'], ['Shift', 'sprint'], ['Space', 'jump'], ['Mouse', 'look'], ['F', 'get in / out of a vehicle (and carjack)'], ['Right mouse', 'aim'], ['Left mouse', 'shoot / punch'], ['R', 'reload'], ['Tab (hold)', 'weapon wheel'], ['1-8 / wheel', 'switch weapon']]],
+  ['On foot', [['W A S D', 'move'], ['Shift', 'sprint'], ['Space', 'jump'], ['Mouse', 'look'], ['F', 'get in / out of a vehicle (and carjack)'], ['Right mouse / E', 'aim'], ['Left mouse', 'shoot / punch'], ['R', 'reload'], ['Tab (hold)', 'weapon wheel'], ['1-8 / wheel', 'switch weapon']]],
   ['Driving', [['W / S', 'accelerate / brake and reverse'], ['A / D', 'steer'], ['Space', 'handbrake'], ['H', 'horn (siren in police cars)'], ['Q / E', 'radio station'], ['Right mouse', 'drive-by aim'], ['Shift / Ctrl', 'helicopters and planes: up / down']]],
   ['Game', [['Esc / P', 'pause, map'], ['M', 'map']]],
 ];

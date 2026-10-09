@@ -285,8 +285,8 @@ export class VehFX {
     b.mesh.position.set(_v.x, g + 0.12, _v.z);
     b.mesh.rotation.set(0, h, 0);
     b.mesh.scale.set(w, 1, len);
-    b.mesh.material.opacity = 0.55 * night;
-    b.spot.intensity = 6000 * night;
+    b.mesh.material.opacity = 0.28 * night;
+    b.spot.intensity = 2800 * night;
     _v.set(0, d.hull.y1 * 0.45, d.hull.z1).applyQuaternion(v.quat).add(v.pos);
     b.spot.position.copy(_v);
     _v.set(0, -2, 60).applyQuaternion(v.quat).add(v.pos);

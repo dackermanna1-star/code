@@ -495,7 +495,7 @@ export class Vehicle {
     if (this.lightsMode === 'auto') this.lights = this.engineOn && !this.dead && night > 0.3;
     else this.lights = this.lightsMode === 'on' && !this.dead;
     const L = u.uLights.value;
-    L.x = this.lights ? 2.8 : this.engineOn ? 0.25 : 0;
+    L.x = this.lights ? 1.3 : this.engineOn ? 0.2 : 0;
     L.y = (this.lights ? 1.1 : this.engineOn ? 0.25 : 0.05) + (this.braking && this.engineOn ? 3.2 : 0);
     this._siren = !!d.siren && !!this.ctl.siren && !this.dead;
     if (this._siren) { L.z = flash.r * 9; L.w = flash.b * 9; } else if (d.kind === 'heli') { L.z = flash.beacon * 3; L.w = 0; } else { L.z = 0; L.w = 0; }
