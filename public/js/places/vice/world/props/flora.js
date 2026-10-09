@@ -307,20 +307,23 @@ function tuft(seed) {
   void centre;
   return G.build();
 }
-/** A red mangrove clump: a low dark canopy on arching prop roots. */
+/** A red mangrove thicket: a low, wide, uneven canopy on short arching prop roots. */
 function mangrove(seed) {
-  const r = rnd(seed), G = new FG(), R = 7, lift = 2.6;
-  for (let i = 0; i < 12; i++) {
-    const a = (i / 12) * TAU + r() * 0.3, r0 = R * 0.35, r1 = R * (0.75 + r() * 0.3);
-    tube(G, [V3(Math.cos(a) * r0 * 0.3, lift + 1.5, Math.sin(a) * r0 * 0.3), V3(Math.cos(a) * r0, lift + 1.2, Math.sin(a) * r0), V3(Math.cos(a) * (r0 + r1) * 0.5, lift * 0.7, Math.sin(a) * (r0 + r1) * 0.5), V3(Math.cos(a) * r1, -0.8, Math.sin(a) * r1)], [0.35, 0.3, 0.22, 0.15], 4, 0, [0.42, 0.36, 0.3], 4, 1);
+  const r = rnd(seed), G = new FG(), R = 9, lift = 1.6;
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * TAU + r() * 0.4, r0 = R * 0.3, r1 = R * (0.55 + r() * 0.25);
+    tube(G, [V3(Math.cos(a) * r0 * 0.3, lift + 1.4, Math.sin(a) * r0 * 0.3), V3(Math.cos(a) * r0, lift + 1.0, Math.sin(a) * r0), V3(Math.cos(a) * (r0 + r1) * 0.5, lift * 0.6, Math.sin(a) * (r0 + r1) * 0.5), V3(Math.cos(a) * r1, -0.8, Math.sin(a) * r1)], [0.3, 0.26, 0.2, 0.14], 4, 0, [0.4, 0.34, 0.28], 4, 1);
   }
-  const centre = V3(0, lift + R * 0.2, 0);
-  for (let i = 0; i < 30; i++) {
-    const a = r() * TAU, u = r();
-    const p = V3(Math.cos(a) * R * 0.75 * (1 - u * 0.5), lift + 0.8 + u * R * 0.5, Math.sin(a) * R * 0.75 * (1 - u * 0.5));
-    const out = p.clone().sub(centre).setY(0).normalize(), t = V3(-out.z, 0, out.x).normalize();
-    const k = 0.7 + r() * 0.25;
-    card(G, p, t, UP, R * 0.55, R * 0.7, centre, UV.shrub, [k * 0.9, k, k * 0.85], R * 0.3, 0.25);
+  // a few lobes of foliage so the outline is ragged
+  for (let l = 0; l < 4; l++) {
+    const la = r() * TAU, ld = R * 0.35 * r(), c = V3(Math.cos(la) * ld, lift + 2.2 + r() * 1.2, Math.sin(la) * ld), cr = R * (0.55 + r() * 0.2);
+    for (let i = 0; i < 9; i++) {
+      const a = r() * TAU, u = r();
+      const p = V3(Math.cos(a) * cr * (0.9 - u * 0.5), u * cr * 0.42, Math.sin(a) * cr * (0.9 - u * 0.5)).add(c);
+      const out = p.clone().sub(c).setY(0).normalize(), t = V3(-out.z, 0, out.x).normalize();
+      const k = 0.75 + r() * 0.3;
+      card(G, p, t, UP, cr * 0.5, cr * 0.55, c.clone().add(V3(0, -2, 0)), UV.shrub, [k * 0.88, k, k * 0.8], cr * 0.2, 0.25);
+    }
   }
   return G.build();
 }

@@ -137,7 +137,7 @@ function wallRun(P, face, lip, back, ok) {
 function riprap(P, run) {
   const r = rnd(run.length * 131 + Math.round(run[0][0]));
   const pts = run;
-  for (const [d, sMin, sMax, step] of [[-7, 2.6, 3.8, 4.6], [-2.5, 1.9, 2.9, 4.0]]) {
+  for (const [d, sMin, sMax, step] of [[-8, 2.8, 4.0, 4.4], [-3.5, 2.2, 3.2, 3.6], [0.5, 1.6, 2.4, 3.6]]) {
     const line = resample(offsetLine(pts, d), step);
     for (const s of line) {
       const x = s.x + (r() - 0.5) * 2, z = s.z + (r() - 0.5) * 2;
@@ -162,7 +162,7 @@ const ROCK = (() => {
 })();
 function rock(g, x, y, z, s, seed, r) {
   const sx = 0.8 + r() * 0.5, sy = 0.55 + r() * 0.3, sz = 0.8 + r() * 0.5, rot = r() * TAU, c = Math.cos(rot), sn = Math.sin(rot);
-  const tn = hash(seed, 1, 1), col = [0.62 + tn * 0.15, 0.6 + tn * 0.12, 0.55 + tn * 0.1];
+  const tn = hash(seed, 1, 1), col = [0.82 + tn * 0.18, 0.79 + tn * 0.15, 0.72 + tn * 0.12];
   const W = ROCK.verts.map((q, i) => {
     const j = 0.82 + hash(i * 97 + seed, i * 31, 3) * 0.36;
     const lx = q[0] * s * sx * j, ly = Math.max(-0.5, q[1]) * s * sy * j, lz = q[2] * s * sz * j;
@@ -177,12 +177,13 @@ function mangroves(P, run) {
   const r = rnd(9001);
   const line = resample(run, 9);
   for (const s of line) {
-    for (let k = 0; k < 3; k++) {
-      const d = -45 + r() * 95, x = s.x - s.tz * d, z = s.z + s.tx * d;
-      if (!inMap(x, z) || r() < 0.25 || P.roads.clear(x, z) < 4 || !P.free(x, z, 4)) continue;
+    // a thicket: dense along the waterline, thinning out over the flats
+    for (let k = 0; k < 5; k++) {
+      const d = -38 + Math.pow(r(), 1.4) * 110, x = s.x - s.tz * d + (r() - 0.5) * 6, z = s.z + s.tx * d + (r() - 0.5) * 6;
+      if (!inMap(x, z) || P.roads.clear(x, z) < 4 || !P.free(x, z, 4)) continue;
       const gy = P.ground.heightAt(x, z);
-      if (gy > GROUND - 0.4) continue; // only on the flats and in the water
-      P.flora.add(SP.mangrove, x, Math.max(gy, -0.3), z, 0.8 + r() * 0.6, r() * TAU, 0, 0.8 + r() * 0.3);
+      if (gy > GROUND - 0.4 || gy < -3.5) continue; // only on the flats and in the shallows
+      P.flora.add(SP.mangrove, x, Math.max(gy, -0.2), z, 0.9 + r() * 0.8, r() * TAU, 0, 0.75 + r() * 0.3);
     }
   }
 }

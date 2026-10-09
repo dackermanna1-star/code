@@ -48,13 +48,13 @@ export function buildParks(P) {
     const m = 14;
     const loop = [[x0 + m, z0 + m], [x1 - m, z0 + m], [x1 - m, z1 - m], [x0 + m, z1 - m], [x0 + m, z0 + m]];
     for (let i = 0; i < 4; i++) path(P, S, loop[i], loop[i + 1]);
-    path(P, S, [x0 + m, z0 + m], [x1 - m, z1 - m]); path(P, S, [x1 - m, z0 + m], [x0 + m, z1 - m]);
+    if (pk.kind !== 'sports') { path(P, S, [x0 + m, z0 + m], [x1 - m, z1 - m]); path(P, S, [x1 - m, z0 + m], [x0 + m, z1 - m]); }
     // entrances from the four sides
     path(P, S, [S.cx, z0 - 6], [S.cx, z0 + m]); path(P, S, [S.cx, z1 + 6], [S.cx, z1 - m]);
     path(P, S, [x0 - 6, S.cz], [x0 + m, S.cz]); path(P, S, [x1 + 6, S.cz], [x1 - m, S.cz]);
     if (pk.kind === 'bayfront') bayfront(P, S);
     else if (pk.kind === 'sports') sports(P, S);
-    else { playground(P, S, S.cx + (x1 - x0) * 0.22, S.cz - (z1 - z0) * 0.24); circle(P, S, S.cx, S.cz, 14); }
+    else { playground(P, S, S.cx + (x1 - x0) * 0.25, S.cz - (z1 - z0) * 0.12); circle(P, S, S.cx, S.cz, 14); }
     trees(P, S, pk.kind === 'sports' ? 0.5 : 1);
   }
 }

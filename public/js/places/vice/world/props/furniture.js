@@ -66,8 +66,8 @@ const DEFS = {
     const steel = [0.32, 0.34, 0.37];
     for (const x of [-6.2, 6.2]) for (const z of [-2.2, 1.8]) g.box(x, 4.2, z, 0.14, 4.2, 0.14, 0, { lay: L.concrete, tint: steel, rough: 0.4 });
     g.box(0, 8.55, -0.2, 6.8, 0.22, 2.9, 0, { lay: L.shutter, tint: [1, 1, 1], scale: 4, ...P_ });
-    g.quad([6.1, 0.8, -2.25], [-6.1, 0.8, -2.25], [-6.1, 7.9, -2.25], [6.1, 7.9, -2.25], { lay: L.whiteTiles, tint: [0.32, 0.4, 0.44], rough: 0.05 });
-    g.quad([-6.1, 0.8, -2.25], [6.1, 0.8, -2.25], [6.1, 7.9, -2.25], [-6.1, 7.9, -2.25], { lay: L.whiteTiles, tint: [0.32, 0.4, 0.44], rough: 0.05 });
+    g.quad([6.1, 0.8, -2.25], [-6.1, 0.8, -2.25], [-6.1, 7.9, -2.25], [6.1, 7.9, -2.25], { lay: L.concrete, tint: [0.1, 0.13, 0.15], rough: 0.04, scale: 40 });
+    g.quad([-6.1, 0.8, -2.25], [6.1, 0.8, -2.25], [6.1, 7.9, -2.25], [-6.1, 7.9, -2.25], { lay: L.concrete, tint: [0.1, 0.13, 0.15], rough: 0.04, scale: 40 });
     g.box(6.3, 4.4, -0.2, 0.25, 3.3, 2.0, 0, { lay: L.whiteTiles, tint: [1.0, 0.8, 0.62], glow: 1, rough: 0.2 });
     g.box(0, 1.7, -1.6, 4.5, 0.12, 0.55, 0, { lay: L.shutter, tint: steel, scale: 2 });
     for (const x of [-4, 4]) g.box(x, 0.85, -1.6, 0.1, 0.85, 0.4, 0, { lay: L.concrete, tint: steel });

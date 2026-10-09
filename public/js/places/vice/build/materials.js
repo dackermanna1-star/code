@@ -124,15 +124,15 @@ const MAP_FRAG = `{
     vec2 cs; vec4 R; vec2 fp; vec2 cell; float D; int style = 0;
     vec3 glass = vec3(0.1, 0.12, 0.14); float gMet = 0.55; float frameW = 0.0; vec3 frameC = col;
     float litF = occ; vec3 lc = vec3(1.0, 0.78, 0.5);
-    float pane = 0.0, recess = 1.0, opaqueGlass = 0.0;
+    float pane = 0.0, recess = 1.0, opaqueGlass = 0.0, sb = bw;
     if (gfl) {
       // ---- the ground floor ----
       float g = max(gy - uv.y, 2.0);                      // its height
-      float sb = bw < 9.0 ? bw * 2.0 : bw;
+      sb = bw < 9.0 ? bw * 2.0 : bw;
       cs = vec2(sb, g); cell = vec2(floor(uv.x / sb), -1.0); fp = vec2(mod(uv.x, sb), gy);
       D = 16.0; style = 1;
-      if (gk == 2 || gk == 5) { R = vec4(0.55, 1.1, sb - 0.55, g - 3.0); frameW = 0.35; frameC = vec3(0.16, 0.17, 0.18); litF = 0.8; lc = vec3(1.0, 0.92, 0.78); gMet = 0.3; glass = vec3(0.05, 0.06, 0.07); }
-      else if (gk == 3) { R = vec4(0.5, 0.25, sb - 0.5, g - 0.8); frameW = 0.3; frameC = vec3(0.7, 0.72, 0.74); litF = 0.95; D = 28.0; style = 2; lc = vec3(1.0, 0.86, 0.66); gMet = 0.35; glass = vec3(0.05, 0.06, 0.07); }
+      if (gk == 2 || gk == 5) { R = vec4(0.55, 1.1, sb - 0.55, g - 3.0); frameW = 0.35; frameC = vec3(0.16, 0.17, 0.18); litF = 0.85; lc = vec3(1.0, 0.92, 0.78); gMet = 0.12; glass = vec3(0.03, 0.035, 0.04); }
+      else if (gk == 3) { R = vec4(0.5, 0.25, sb - 0.5, g - 0.8); frameW = 0.3; frameC = vec3(0.7, 0.72, 0.74); litF = 0.95; D = 28.0; style = 2; lc = vec3(1.0, 0.86, 0.66); gMet = 0.15; glass = vec3(0.03, 0.035, 0.04); }
       else if (gk == 4) { R = vec4(0.7, 0.0, sb - 0.7, g - 2.4); frameW = 0.45; frameC = vec3(0.3, 0.31, 0.32); litF = 0.5; }
       else if (gk == 6) { R = vec4(1.0, 0.0, sb - 1.0, min(g - 1.0, 11.0)); frameW = 0.4; frameC = col * 0.8; litF = 0.0; }
       else R = vec4(-1.0);
