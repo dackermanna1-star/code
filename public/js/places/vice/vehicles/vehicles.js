@@ -894,7 +894,9 @@ export class Vehicles {
         }
         if (!st.contact || st.skid < 0.3) continue;
         toWorld(v, w.x, 0.3, w.z, _p);
-        if (r() < dt * 22 * st.skid) fx.smoke(_p.x, _p.y + 0.5, _p.z, v.vel.x * 0.15 + (r() - 0.5) * 3, 1.5 + r() * 2, v.vel.z * 0.15 + (r() - 0.5) * 3, 1.2 + r() * 1.2, 1.8, 9 + st.skid * 5, 0.9, 0.16 + 0.1 * st.skid);
+        // (burnouts and handbrake slides smoke properly; a hard stop only puffs a little)
+        const big = v.burnout || v.ctl.handbrake || Math.abs(v.angVel.y) > 0.9;
+        if (big ? r() < dt * 22 * st.skid : st.skid > 0.55 && r() < dt * 9 * st.skid) fx.smoke(_p.x, _p.y + 0.5, _p.z, v.vel.x * 0.15 + (r() - 0.5) * 3, 1.5 + r() * 2, v.vel.z * 0.15 + (r() - 0.5) * 3, 1.2 + r() * 1.2, 1.8, big ? 9 + st.skid * 5 : 4 + st.skid * 3, big ? 0.9 : 0.75, big ? 0.16 + 0.1 * st.skid : 0.1);
         if (st.skid > 0.45 && V.fx?.skid) V.fx.skid(_p.x, _p.z, v.heading, _p.y, st.skid);
       }
     }

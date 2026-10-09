@@ -296,6 +296,7 @@ function wheelForces(v, h) {
     if (!w.front && hb) brakeF = Math.max(brakeF, mu * fz * 0.55);
     if (!w.driven || Math.abs(eng.force) < 1) brakeF += mShare * 0.5 + Math.abs(vf) * mShare * 0.008;
     if (!v.driverIn && !w.front && !v.engineOn) brakeF += mShare * 30; // parked: in gear
+    else if (Math.abs(v.ctl.throttle || 0) < 0.05 && Math.abs(vf) < 3 && !v.burnout) brakeF += mShare * 20; // idle: it holds on a slope (no rolling away)
     const capX = Math.abs(vf) * mShare / h;
     fx -= Math.sign(vf) * Math.min(brakeF, capX);
     // friction ellipse: a spinning or locked tyre loses some of its side grip

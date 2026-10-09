@@ -87,9 +87,9 @@ export class CameraRig {
       this.mode = aiming ? 'aim' : 'foot';
       // GTA framing: you fill about a quarter of the screen height, a little left of centre, the street ahead
       // and the horizon above your shoulders; aiming moves over the right shoulder with you in the left third
-      pivot = _p.set(P.pos.x, P.pos.y + (P.swimming ? 3 : aiming ? 5.4 : 5.1), P.pos.z);
-      dist = aiming ? 10.5 : P.swimming ? 13 : (P.sprinting ? 15.5 : 13.5);
-      side = aiming ? 3.7 : 1.2;
+      pivot = _p.set(P.pos.x, P.pos.y + (P.swimming ? 3 : aiming ? 5.6 : 5.1), P.pos.z);
+      dist = aiming ? 13 : P.swimming ? 13 : (P.sprinting ? 15.5 : 13.5);
+      side = aiming ? 4.4 : 1.2;
       fov = aiming ? (V.weapons?.zoomFov || 48) : 62;
     }
     // ease the rig parameters
@@ -105,7 +105,14 @@ export class CameraRig {
     const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch);
     const fx = -Math.sin(this.yaw) * cp, fy = sp, fz = -Math.cos(this.yaw) * cp;   // look direction
     const rx = Math.cos(this.yaw), rz = -Math.sin(this.yaw);                          // right
-    _q.set(pv.x + rx * this.side, pv.y, pv.z + rz * this.side);
+    // the shoulder offset never goes into a wall at your side (then the camera would sit inside it)
+    let sd = this.side;
+    if (Math.abs(sd) > 0.05) {
+      const sg = Math.sign(sd);
+      const sh = V.phys?.ray(pv.x, pv.y, pv.z, rx * sg, 0, rz * sg, Math.abs(sd) + 0.7, { skip: (b) => b.vehicle === veh || b.vehicle === P || b.kerb || b.pole || b.prop });
+      if (sh) sd = sg * Math.max(0, sh.d - 0.7);
+    }
+    _q.set(pv.x + rx * sd, pv.y, pv.z + rz * sd);
     _d.set(-fx, -fy, -fz);
     // pull in if something's between us and the pivot
     let d = this.dist;

@@ -138,7 +138,7 @@ export const GRIDS = [
     ],
     skip: [
       [1960, -3420, 2460, -2980], // the golf course
-      [2300, 1150, 2580, 1450],   // Flamingo Park
+      [2280, 1120, 2600, 1340],   // Flamingo Park (between its four streets)
       [2470, -560, 2740, -300],   // Collins Park
     ],
   },

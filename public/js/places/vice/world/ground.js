@@ -161,6 +161,8 @@ export class Ground {
           L[0] = 1;
           const dry = nz.fbm(x / 260, z / 260, 3);
           L[5] = Math.max(0, dry) * 0.9;
+          // the airfield's big lawns: drier, patchier grass
+          if (x < -2400 && z < -760) L[5] = 0.3 + Math.max(0, dry + 0.2) * 1.3;
           L[8] = Math.max(0, nz.noise(x / 55 + 9, z / 55) - 0.35) * 0.9;
         }
       }

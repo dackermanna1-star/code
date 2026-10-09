@@ -79,6 +79,8 @@ export class Traffic {
     // spawn and drop, a few times a second
     if ((this.spawnT -= dt) <= 0) {
       this.spawnT = 0.25;
+      const ne = nearestEdge(V.plan, cam.x, cam.z, 60);
+      this.onHwy = !!ne && ne.edge.cls === 'hwy' && ne.d < 40;
       this._cull(cam);
       if (this.drivers.size < this._want(cam)) this._spawn(cam);
       if (this.parked.size < MAX_PARKED) this._park(cam);
@@ -106,13 +108,16 @@ export class Traffic {
   _spot(cam) {
     const P = V.plan;
     if (!this.hwy) this.hwy = P.edges.filter((e) => e.cls === 'hwy');
-    if (this.hwy.length && this.rand() < 0.3) {
-      // the expressway: a random point along it that falls in the ring (it's long, the ring rarely finds it)
+    if (this.hwy.length && this.rand() < (this.onHwy ? 0.7 : 0.3)) {
+      // the expressway: a point along it, in the ring, ahead of or behind where the camera is level with it
+      // (its edges are kilometres long: the nearest-road search rarely lands on them)
       const e = this.hwy[Math.floor(this.rand() * this.hwy.length)];
-      const s = 40 + this.rand() * (e.len - 80);
+      const cs = projectS(e, cam.x, cam.z, 1);
+      const s = cs + (this.rand() < 0.6 ? 1 : -1) * (RING_IN + this.rand() * (RING_OUT - RING_IN));
+      if (s < 40 || s > e.len - 40) return null;
       const p = pointOn(e, s);
       const d = Math.hypot(p.x - cam.x, p.z - cam.z);
-      if (d > RING_IN && d < RING_OUT) return { edge: e, along: s };
+      if (d > RING_IN && d < RING_OUT) return { edge: e, along: s, hwy: true };
       return null;
     }
     const ang = this.rand() * Math.PI * 2, rad = RING_IN + this.rand() * (RING_OUT - RING_IN);
@@ -125,14 +130,14 @@ export class Traffic {
       const ne = this._spot(cam);
       if (!ne) continue;
       const e = ne.edge;
-      if (e.len < 50) continue;
+      if (e.len < 50 || !this._clear(e)) continue;
       // not on a dead-end stub
       if ((P.nodes[e.a].edges.length === 1 || P.nodes[e.b].edges.length === 1) && e.len < 200) continue;
       const s = Math.min(e.len - 15, Math.max(15, ne.along));
       const p = pointOn(e, s);
       const d = Math.hypot(p.x - cam.x, p.z - cam.z);
       if (d < RING_IN || d > RING_OUT) continue;
-      if (this._visible(p.x, p.y, p.z) && d < 520) continue;
+      if (this._visible(p.x, p.y, p.z) && d < (ne.hwy ? 420 : 520)) continue;
       const dir = this.rand() < 0.5 ? 1 : -1, lane = Math.floor(this.rand() * e.R.lanes);
       const off = laneOffset(e, lane, dir);
       const tx = p.tx * dir, tz = p.tz * dir, rx = -tz, rz = tx;
@@ -203,6 +208,30 @@ export class Traffic {
     if (veh.ctl) { veh.ctl.throttle = 0; veh.ctl.brake = abandoned ? 0.3 : 0; veh.ctl.steer = 0; }
   }
 
+  /** Can cars get along this edge? (false when a building sits across the carriageway: never route into it) */
+  _clear(e) {
+    const m = this.clearMap || (this.clearMap = new Map());
+    let ok = m.get(e.id);
+    if (ok !== undefined) return ok;
+    ok = true;
+    const ph = V.phys, n = Math.max(2, Math.ceil(e.len / 8));
+    for (let i = 1; i < n && ok; i++) {
+      const p = pointOn(e, (e.len * i) / n, _pt);
+      for (const off of [laneOffset(e, 0, 1), -laneOffset(e, 0, -1)]) {
+        const x = p.x - p.tz * off, z = p.z + p.tx * off, y = p.y;
+        ph.query(x - 1, z - 1, x + 1, z + 1, (b) => {
+          if (b.vehicle || b.kerb || b.noBlock || b.pole || b.prop || b.tree || b.solid === false) return;
+          if (b.y - b.hy > y + 4.5 || b.y + b.hy < y + 0.8) return;   // overhead (a bridge, an awning) or flat
+          const [lx, lz] = ph.local(b, x, z);
+          if (Math.abs(lx) < b.hx && Math.abs(lz) < b.hz) { ok = false; return false; }
+        });
+        if (!ok) break;
+      }
+    }
+    m.set(e.id, ok);
+    return ok;
+  }
+
   /** Pick the road after this one (straight on is likelier; never into a dead end if there's a choice), then plan the way through the junction. */
   _chooseNext(ai) {
     const P = V.plan, e = ai.e;
@@ -215,6 +244,7 @@ export class Traffic {
       const nt = startTangent(ne, nd);
       const straight = t[0] * nt[0] + t[1] * nt[1];
       if (straight < -0.85) continue;                       // a hairpin back the way we came
+      if (!this._clear(ne)) continue;                       // blocked by a building
       const far = P.nodes[nd > 0 ? ne.b : ne.a];
       const deadEnd = far.edges.length === 1;
       const w = straight * 1.2 + this.rand() * 1.6 - (deadEnd ? 6 : 0) - (ne.len < 40 ? 1 : 0) + (ne.cls === 'hwy' ? 0.6 : 0) + (ne.cls === 'blvd' || ne.cls === 'ave' ? 0.2 : 0);
@@ -362,7 +392,7 @@ export class Traffic {
     if (aspd < 1 && vmax < 3 && light === 'green' && this._blocker) ai.stuck += dt; else ai.stuck = Math.max(0, ai.stuck - dt * 2);
     if (ai.stuck > 2.5 && (ai.honkT -= dt) <= 0) { ai.honkT = 2 + Math.random() * 3; veh.horn?.(true); setTimeout(() => veh.horn?.(false), 400); }
     const blk = this._blocker;
-    if (ai.stuck > 5 && blk && !ai.turn && ai.swerve === 0 && this._stalled(blk)) {
+    if (ai.stuck > (blk?.def ? 5 : 8) && blk && !ai.turn && ai.swerve === 0 && this._stalled(blk)) {
       // round it: into the next lane over (or the oncoming one on a single-lane street)
       ai.swerve = -(ai.e.R.lane || 13); ai.ignore = blk; ai.swerveT = 7; ai.stuck = 0;
     }
@@ -395,7 +425,7 @@ export class Traffic {
 
   /** Has this thing stopped for good (parked, abandoned, wrecked, or an AI that's itself stuck)? */
   _stalled(o) {
-    if (o.isPlayer || o.ped) return false;                       // people move on (we honk)
+    if (!o.def) return true;                                      // a person who won't move out of the way (we've honked): go round
     if (Math.abs(o.speed || 0) > 1) return false;
     const ai = this.drivers.get(o);
     if (!ai) return !!o.def;                                      // a parked/abandoned car or wreck
@@ -435,6 +465,10 @@ export class Traffic {
     };
     for (const o of V.vehicles.near(veh.pos.x, veh.pos.z, 75, _near)) {
       if (o === veh || o === ign) continue;
+      // two drivers each waiting for the other (nose to nose in a junction): the one already turning, or else
+      // the older car, goes first
+      const oa = this.drivers.get(o);
+      if (oa && oa.blk === veh && ai && (ai.turn && !oa.turn || (ai.turn === oa.turn && veh.id < o.id))) continue;
       // oncoming cars in the other lane aren't in the way; a head-on one very close is
       const dot = Math.sin(o.heading ?? 0) * fx + Math.cos(o.heading ?? 0) * fz;
       if (dot < -0.5 && Math.abs(o.speed || 0) > 2 && Math.hypot(o.pos.x - veh.pos.x, o.pos.z - veh.pos.z) > 26) continue;

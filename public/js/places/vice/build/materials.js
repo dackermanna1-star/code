@@ -50,6 +50,7 @@ vec3 room(vec2 p, vec2 cs, float D, vec3 d, float h, float lit, vec3 lc, int sty
     if (style == 1) { // a shop: shelves of colourful things on the back wall
       float sh = step(0.5, fract(q.y / 2.2)) * step(0.15, fract(q.x / 3.1));
       vec3 goods = pal(hsh(floor(q.xy / vec2(3.1, 2.2)) + h)); goods = mix(vec3(dot(goods, vec3(0.33))), goods, 1.8);
+      goods = mix(goods, pal(h * 3.1) * 0.9, aa); // far: an even tone (no speckle)
       c = mix(wallC * 0.9, goods, mix(sh, 0.4, aa) * 0.9);
     } else if (style == 2) { // an office: a partition, a window to the next room
       c = mix(wallC, vec3(0.35, 0.38, 0.42), step(cs.y * 0.62, q.y) * 0.5);
@@ -63,6 +64,7 @@ vec3 room(vec2 p, vec2 cs, float D, vec3 d, float h, float lit, vec3 lc, int sty
     if (style == 1) { // shelves down the side walls too
       float sh = step(0.5, fract(q.y / 2.2)) * step(0.2, fract(q.z / 3.1));
       vec3 goods = pal(hsh(floor(q.zy / vec2(3.1, 2.2)) + h + 7.0)); goods = mix(vec3(dot(goods, vec3(0.33))), goods, 1.8);
+      goods = mix(goods, pal(h * 3.1) * 0.9, aa);
       c = mix(wallC * 0.5, goods * 0.8, mix(sh, 0.4, aa) * 0.9);
     }
   }
@@ -232,7 +234,8 @@ const MAP_FRAG = `{
         eGlow += vec3(1.0, 0.85, 0.6) * m * night * 0.9 * on;
         gR = 0.25; pane = 0.0;
       } else {
-        float aa = smoothstep(0.03, 0.12, cellPix);
+        // (shop shelves are finer than the window cell: they fade to their average from ~0.12 studs a pixel)
+        float aa = max(smoothstep(0.03, 0.12, cellPix), style == 1 ? smoothstep(0.1, 0.32, max(fw.x, fw.y)) : 0.0);
         rc = room(fp, cs, D, d, h, on * (gfl ? max(night, 0.45) : night), lcol, style, aa);
         // curtains (homes) or blinds (offices) behind some panes
         float cur = 0.0;

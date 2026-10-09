@@ -31,6 +31,47 @@ const LAYER_DEF = [
 
 const lumL = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
 
+// ---- beyond the map: the Everglades -----------------------------------------------------------------------------------
+// An integer value noise that GLSL and JS compute alike (so the tree islands placed from JS stay
+// out of the water the shader carves). Sloughs run north-south, as the real ones do.
+const GLADE_GLSL = `
+float vcHash(vec2 c) {
+  uvec2 q = uvec2(c + 8192.0);
+  uint h = q.x * 374761393u + q.y * 668265263u;
+  h = (h ^ (h >> 13u)) * 1274126177u;
+  h ^= h >> 16u;
+  return float(h & 65535u) / 65535.0;
+}
+float vcNoise(vec2 x) {
+  vec2 i = floor(x), f = x - i; f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(vcHash(i), vcHash(i + vec2(1.0, 0.0)), f.x), mix(vcHash(i + vec2(0.0, 1.0)), vcHash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+// 0: sawgrass .. 1: open water
+float vcSlough(vec2 xz) {
+  float n = vcNoise(xz * vec2(1.0 / 700.0, 1.0 / 2300.0)) * 0.62 + vcNoise(xz / 260.0 + 31.0) * 0.38;
+  return smoothstep(0.5, 0.58, n);
+}
+// tree islands (hardwood hammocks) on the dry ground between the sloughs
+float vcHammock(vec2 xz) { return smoothstep(0.6, 0.7, vcNoise(xz / 330.0 + 57.0) * 0.75 + vcNoise(xz / 90.0 + 5.0) * 0.25); }`;
+const _hash = (cx, cz) => {
+  const qx = (cx + 8192) >>> 0, qz = (cz + 8192) >>> 0;
+  let h = (Math.imul(qx, 374761393) + Math.imul(qz, 668265263)) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
+  h = (h ^ (h >>> 16)) >>> 0;
+  return (h & 65535) / 65535;
+};
+const _sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+function gNoise(x, z) {
+  const i = Math.floor(x), j = Math.floor(z); let u = x - i, v = z - j; u = u * u * (3 - 2 * u); v = v * v * (3 - 2 * v);
+  const a = _hash(i, j), b = _hash(i + 1, j), c = _hash(i, j + 1), d = _hash(i + 1, j + 1);
+  return (a + (b - a) * u) * (1 - v) + (c + (d - c) * u) * v;
+}
+/** JS twins of the shader's vcSlough / vcHammock (0..1). */
+export const glade = {
+  slough: (x, z) => _sm(0.5, 0.58, gNoise(x / 700, z / 2300) * 0.62 + gNoise(x / 260 + 31, z / 260 + 31) * 0.38),
+  hammock: (x, z) => _sm(0.6, 0.7, gNoise(x / 330 + 57, z / 330 + 57) * 0.75 + gNoise(x / 90 + 5, z / 90 + 5) * 0.25),
+};
+
 /** The ground as a float texture: r = height, g = coast distance. Shared per ground. */
 export function groundTexture(G) {
   if (G._vcTex) return G._vcTex;
@@ -48,6 +89,8 @@ export function groundGLSL(G) {
   const f = (v) => v.toFixed(1);
   return `
 uniform sampler2D hMap;
+${GLADE_GLSL}
+float vcOut(vec2 xz) { return max(max(-${f(G.HALF)} - xz.x, xz.x - ${f(G.HALF)}), max(-${f(G.HALF)} - xz.y, xz.y - ${f(G.HALF)})); }
 vec2 groundAt(vec2 xz) {
   vec2 f = (xz + ${f(G.HALF)}) / ${f(G.CELL)};
   vec2 i = floor(f);
@@ -56,9 +99,13 @@ vec2 groundAt(vec2 xz) {
   vec2 a = texelFetch(hMap, c, 0).rg, b = texelFetch(hMap, c + ivec2(1, 0), 0).rg;
   vec2 d = texelFetch(hMap, c + ivec2(0, 1), 0).rg, e = texelFetch(hMap, c + ivec2(1, 1), 0).rg;
   vec2 r = mix(mix(a, b, t.x), mix(d, e, t.x), t.y);
-  // past the edge of the map the heights repeat the edge, but the sea gets deep
-  float o = max(max(-${f(G.HALF)} - xz.x, xz.x - ${f(G.HALF)}), max(-${f(G.HALF)} - xz.y, xz.y - ${f(G.HALF)}));
-  if (o > 0.0 && r.x < 0.0) r.x = mix(r.x, -40.0, smoothstep(0.0, 1600.0, o));
+  // past the edge of the map the heights repeat the edge, but the sea gets deep - and the
+  // mainland turns into the Everglades: sawgrass prairie cut by sloughs of open water
+  float o = vcOut(xz);
+  if (o > 0.0) {
+    if (r.x < 0.0) r.x = mix(r.x, -40.0, smoothstep(0.0, 1600.0, o));
+    else if (r.x > 1.0) r.x = mix(r.x, -1.6, vcSlough(xz) * smoothstep(60.0, 420.0, o));
+  }
   return r;
 }
 float hAt(vec2 xz) { return groundAt(xz).r; }
@@ -144,6 +191,7 @@ uniform sampler2D wT0, wT1, wT2, noiseT, cauT;
 uniform float uLay[9], uScale[9], uRough[9], uAvgL[9], uSat[9], uCon[9], wet, time, causI;
 uniform vec3 uTarget[9];
 varying vec3 vW; varying vec3 vWN;
+${GLADE_GLSL}
 float gWeights[9];
 vec3 gNormalT;
 float gRough;
@@ -211,6 +259,21 @@ vec3 recolor(vec3 s, int q) {
     ca *= smoothstep(0.05, 0.8, dw) * (1.0 - smoothstep(2.5, 10.0, dw)) * (1.0 - smoothstep(150.0, 450.0, dist));
     col *= 1.0 + ca * causI;
   }
+  // beyond the map: the Everglades (the weights there just repeat the map's edge, in streaks)
+  float gOut = max(max(-${f(G.HALF)} - vW.x, vW.x - ${f(G.HALF)}), max(-${f(G.HALF)} - vW.z, vW.z - ${f(G.HALF)}));
+  if (gOut > 0.0 && vW.y > -3.0) {
+    float k = smoothstep(0.0, 160.0, gOut);
+    float sl = vcSlough(vW.xz), hm = vcHammock(vW.xz) * (1.0 - sl);
+    float n1 = vcNoise(vW.xz / 140.0 + 3.0), n2 = texture(noiseT, vW.xz / 600.0).r;
+    // sawgrass: tawny to green, in slow drifts, with darker clumps
+    vec3 gc = mix(vec3(0.24, 0.23, 0.085), vec3(0.1, 0.16, 0.045), smoothstep(0.25, 0.75, n1 * 0.6 + n2 * 0.4));
+    gc *= 0.82 + 0.3 * vcNoise(vW.xz / 23.0);
+    gc = mix(gc, vec3(0.03, 0.055, 0.02), hm);                                // tree islands
+    gc = mix(gc, vec3(0.09, 0.08, 0.045), smoothstep(0.35, 0.8, sl));         // wet mud round the water
+    col = mix(col, gc, k);
+    rough = mix(rough, mix(0.95, 0.55, smoothstep(0.4, 0.9, sl)), k);
+    gNormalT = normalize(mix(gNormalT, vec3(0.0, 0.0, 1.0), k));
+  }
   // rain darkens and wets the ground
   col *= 1.0 - wet * 0.3;
   gRough = mix(rough, 0.3, wet * 0.7);
@@ -235,6 +298,7 @@ vec3 recolor(vec3 s, int q) {
     this.mesh.renderOrder = -2;
     this.mesh.name = 'terrain';
     world.scene.add(this.mesh);
+    this._glades();
     this._minmax();
     this._ring();
     this._frustum = new THREE.Frustum();
@@ -244,6 +308,49 @@ vec3 recolor(vec3 s, int q) {
   }
 
   setWet(v) { this.uniforms.wet.value = v; }
+
+  /**
+   * The Everglades past the edge of the map get their tree islands: clumps of low, dark
+   * canopy on the hammocks (vcHammock) and a few lone trees in the sawgrass - one instanced
+   * mesh, so the mainland doesn't end in a flat green plane.
+   */
+  _glades() {
+    const G = this.G, H = G.HALF, list = [];
+    let seed = 1;
+    const rnd = () => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 4294967296);
+    const S = 44, R = 3400, MAX = 7000;
+    for (let z = -H - R; z <= H + R; z += S) for (let x = -H - R; x <= H + R; x += S) {
+      const px = x + (rnd() - 0.5) * S * 0.9, pz = z + (rnd() - 0.5) * S * 0.9;
+      const o = Math.max(-H - px, px - H, -H - pz, pz - H);
+      if (o < 70) continue;
+      const ex = Math.max(-H, Math.min(H, px)), ez = Math.max(-H, Math.min(H, pz));
+      if (G.heightAt(ex, ez) < 1) continue;                     // the sea carries on there
+      if (glade.slough(px, pz) > 0.15) continue;
+      const hm = glade.hammock(px, pz), lone = rnd() < 0.035;
+      if (rnd() > hm * 0.9 && !lone) continue;
+      const r = lone ? 5 + rnd() * 5 : 9 + rnd() * 14 * (0.5 + hm * 0.5);
+      list.push(px, G.heightAt(ex, ez) + r * 0.35, pz, r, rnd());
+    }
+    const all = list.length / 5, n = Math.min(all, MAX);
+    if (!n) return;
+    const geo = new THREE.IcosahedronGeometry(1, 0);
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0, flatShading: true });
+    const m = new THREE.InstancedMesh(geo, mat, n), M = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color();
+    for (let i = 0; i < n; i++) {
+      const k = Math.floor((i * all) / n) * 5;   // (an even pick if there are too many)
+      const x = list[k], y = list[k + 1], z = list[k + 2], r = list[k + 3], h = list[k + 4];
+      e.set(0, h * 6.28, 0); q.setFromEuler(e);
+      M.compose(new THREE.Vector3(x, y, z), q, new THREE.Vector3(r * (0.9 + h * 0.3), r * (0.55 + h * 0.25), r * (1.2 - h * 0.3)));
+      m.setMatrixAt(i, M);
+      m.setColorAt(i, c.setRGB(0.05 + h * 0.03, 0.09 + h * 0.04, 0.035));
+    }
+    m.instanceMatrix.needsUpdate = true; m.instanceColor.needsUpdate = true;
+    m.computeBoundingSphere();
+    m.name = 'glades'; m.castShadow = false; m.receiveShadow = false;
+    m.matrixAutoUpdate = false;
+    this.world.scene.add(m);
+    this.glades = m;
+  }
 
 
   /** min/max height of every 128-stud tile (and of the bigger ones), for culling. */

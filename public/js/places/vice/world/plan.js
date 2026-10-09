@@ -4,9 +4,9 @@
 // tested in Node.
 //
 //   const P = makePlan();
-//   P.nodes[i] = { id, x, y, z, edges: [edge ids], light: bool }
+//   P.nodes[i] = { id, x, y, z, edges: [edge ids], light: bool, deadEnd: bool (only one edge) }
 //   P.edges[i] = { id, a, b, cls, name, line, R (ROAD class), pts: [{x, y, z, d}], len,
-//                  lanes, width, bridge: bool, elevated: bool }
+//                  lanes, width, bridge: bool, elevated: bool, deadEnd: bool (one end is a dead end) }
 //   P.blocks[i] = { id, grid, x0, z0, x1, z1, district, edges: {n, s, e, w} }
 //   P.landAt(x, z) -> land id | null      P.canalAt(x, z) -> canal | null
 //   P.districtAt(x, z) -> district        P.coastDist(x, z) -> signed distance (inland +)
@@ -93,9 +93,21 @@ export function makePlan() {
     const c = P.coast(x, z);
     return c.kind === 'beach' && c.d < w;
   };
+  // out on the water: the bay between the mainland and the beach, the Atlantic east of it
+  const BAY = { id: 'bay', name: 'Biscayne Bay', water: true, rect: null, style: null, h: [0, 0], peds: 0.25, color: '#4fb8e0' };
+  const OCEAN = { id: 'ocean', name: 'Atlantic Ocean', water: true, rect: null, style: null, h: [0, 0], peds: 0.2, color: '#3a8fd0' };
+  P.waterDistricts = [BAY, OCEAN];
+  const waterAt = (x) => (x > 2500 ? OCEAN : BAY);
   P.districtAt = (x, z) => {
-    for (const D of DISTRICTS) { const r = D.rect; if (x >= r[0] && x <= r[2] && z >= r[1] && z <= r[3]) return D; }
-    return DISTRICTS[DISTRICTS.length - 1];
+    for (const D of DISTRICTS) {
+      const r = D.rect;
+      if (x >= r[0] && x <= r[2] && z >= r[1] && z <= r[3]) {
+        // (a district's rectangle runs out over the water: well offshore, name the water instead)
+        if (!P.landAt(x, z) && P.coast(x, z).d < -220) return waterAt(x);
+        return D;
+      }
+    }
+    return P.landAt(x, z) ? DISTRICTS[DISTRICTS.length - 1] : waterAt(x);
   };
 
   // ---- road lines ----
@@ -131,6 +143,15 @@ export function makePlan() {
       if (r[2] - r[0] > 1200 || r[3] - r[1] > 1200) continue; // the airport has its own perimeter road
       const sides = [[[r[0], r[1]], [r[2], r[1]]], [[r[2], r[1]], [r[2], r[3]]], [[r[2], r[3]], [r[0], r[3]]], [[r[0], r[3]], [r[0], r[1]]]];
       for (const [a, b] of sides) {
+        // a grid street already runs along this side (or so close that the two would overlap): it serves
+        const vert = Math.abs(a[0] - b[0]) < 1, at = vert ? a[0] : a[1], s0 = Math.min(vert ? a[1] : a[0], vert ? b[1] : b[0]), s1 = Math.max(vert ? a[1] : a[0], vert ? b[1] : b[0]);
+        const dup = lines.some((o) => {
+          if (!o.grid || o.axis !== (vert ? 'x' : 'z')) return false;
+          const R = ROAD[o.cls], hw = R.lanes * R.lane + R.median / 2 + R.walk;
+          const lo = Math.min(o.pts[0][vert ? 1 : 0], o.pts[1][vert ? 1 : 0]), hi = Math.max(o.pts[0][vert ? 1 : 0], o.pts[1][vert ? 1 : 0]);
+          return Math.abs(o.at - at) < hw + 22 && Math.min(hi, s1) - Math.max(lo, s0) > (s1 - s0) * 0.5;
+        });
+        if (dup) continue;
         const L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.ceil(L / 8);
         let run = null;
         const flush = () => { if (run && run[1] - run[0] >= 5) { const p0 = run[0] / n, p1 = run[1] / n; lines.push({ cls: 'street', name: '', ring: true, pts: [[a[0] + (b[0] - a[0]) * p0, a[1] + (b[1] - a[1]) * p0, 0], [a[0] + (b[0] - a[0]) * p1, a[1] + (b[1] - a[1]) * p1, 0]] }); } run = null; };
@@ -154,6 +175,65 @@ export function makePlan() {
       if (best != null) { if (ln.axis === 'x') p[1] = best; else p[0] = best; }
     }
   }
+  // ---- blocks: the cells between consecutive grid lines ----
+  for (const G of GRIDS) {
+    const land = P.landById[G.land];
+    const xs = G.lineX.map((l) => l.v).sort((a, b) => a - b), zs = G.lineZ.map((l) => l.v).sort((a, b) => a - b);
+    const halfW = (L) => { const R = ROAD[L.cls]; return (R.lanes * 2 * R.lane + R.median) / 2 + R.walk; };
+    const lineX = Object.fromEntries(G.lineX.map((l) => [l.v, l])), lineZ = Object.fromEntries(G.lineZ.map((l) => [l.v, l]));
+    // pad the outermost cells by one spacing so the coast gets blocks too
+    const ex = [xs[0] - 260, ...xs, xs[xs.length - 1] + 260], ez = [zs[0] - 240, ...zs, zs[zs.length - 1] + 240];
+    for (let i = 0; i < ex.length - 1; i++) for (let j = 0; j < ez.length - 1; j++) {
+      const lx0 = lineX[ex[i]], lx1 = lineX[ex[i + 1]], lz0 = lineZ[ez[j]], lz1 = lineZ[ez[j + 1]];
+      const x0 = ex[i] + (lx0 ? halfW(lx0) : 0), x1 = ex[i + 1] - (lx1 ? halfW(lx1) : 0);
+      const z0 = ez[j] + (lz0 ? halfW(lz0) : 0), z1 = ez[j + 1] - (lz1 ? halfW(lz1) : 0);
+      if (x1 - x0 < 30 || z1 - z0 < 30) continue;
+      const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+      if (G.skip.some((r) => cx > r[0] && cx < r[2] && cz > r[1] && cz < r[3])) continue;
+      // keep the block if a good part of it is on dry land
+      let dryN = 0, n = 0;
+      for (let a = 0; a <= 4; a++) for (let b = 0; b <= 4; b++) { n++; const x = x0 + ((x1 - x0) * a) / 4, z = z0 + ((z1 - z0) * b) / 4; if (inPoly(land.pts, x, z) && !P.canalAt(x, z, 4)) dryN++; }
+      if (dryN < n * 0.3) continue;
+      // nothing on the beach
+      if (P.onBeach(cx, cz, BEACH_KEEP + 20)) continue;
+      const D = P.districtAt(cx, cz);
+      P.blocks.push({ id: P.blocks.length, grid: G.id, x0, z0, x1, z1, district: D.id, dry: dryN / n, edge: { w: !!lx0, e: !!lx1, n: !!lz0, s: !!lz1 } });
+    }
+  }
+  // trim dead-end stubs: a grid street that runs on past its last cross street for a short way and stops
+  // at the water (a seawall, a canal) or the edge of the map, with nothing either side of it that could
+  // front onto it, ends at that cross street instead (a T junction, not a stub into the railing)
+  const STUB = 140;
+  const nearLine = (ln, x, z, r) => lines.some((o) => o !== ln && o.pts.some((p, i) => i > 0 && segDist(x, z, o.pts[i - 1][0], o.pts[i - 1][1], p[0], p[1]).d < r));
+  const trims = [];
+  for (const ln of lines) {
+    if (!ln.grid || ln.cls === 'drive') continue;
+    const ix = ln.axis === 'x' ? 1 : 0; // the coordinate that varies along the line
+    for (const end of [0, 1]) {
+      const p = ln.pts[end], q = ln.pts[1 - end];
+      if (nearLine(ln, p[0], p[1], 8)) continue;                   // it meets another road there
+      // the last crossing street before this end (a line of the other axis covering this one)
+      let best = null;
+      for (const o of lines) {
+        if (o === ln || !o.grid || o.grid !== ln.grid || o.axis === ln.axis) continue;
+        const c = o.at, lo = Math.min(o.pts[0][1 - ix], o.pts[1][1 - ix]), hi = Math.max(o.pts[0][1 - ix], o.pts[1][1 - ix]);
+        if (ln.at < lo - 1 || ln.at > hi + 1) continue;
+        if ((c - p[ix]) * (q[ix] - p[ix]) <= 0 || Math.abs(c - p[ix]) > Math.abs(q[ix] - p[ix])) continue;
+        if (best == null || Math.abs(c - p[ix]) < Math.abs(best - p[ix])) best = c;
+      }
+      if (best == null || Math.abs(best - p[ix]) > STUB) continue;
+      // no city block beside the stub (nothing could face onto it)
+      const R = ROAD[ln.cls], off = R.lanes * R.lane + R.median / 2 + R.walk + 6;
+      const s0 = Math.min(best, p[ix]) + 2, s1 = Math.max(best, p[ix]);
+      const fronted = P.blocks.some((B) => ix === 1
+        ? B.z1 > s0 && B.z0 < s1 && B.x1 > ln.at - off && B.x0 < ln.at + off
+        : B.x1 > s0 && B.x0 < s1 && B.z1 > ln.at - off && B.z0 < ln.at + off);
+      if (!fronted) trims.push([ln, end, ix, best]);
+    }
+  }
+  for (const [ln, end, ix, v] of trims) ln.pts[end][ix] = v;
+  for (let i = lines.length - 1; i >= 0; i--) { const ln = lines[i]; if (ln.grid && Math.hypot(ln.pts[1][0] - ln.pts[0][0], ln.pts[1][1] - ln.pts[0][1]) < 40) lines.splice(i, 1); }
+  P.trimmed = trims.length;
   for (const C of CROSSINGS) lines.push({ cls: C.cls, name: C.name, crossing: C, pts: C.pts.map(([x, z]) => [x, z, 0]) });
   for (const R of EXTRA_ROADS) lines.push({ cls: R.cls, name: R.name, pts: R.pts.map(([x, z]) => [x, z, 0]) });
   for (const E of EXPRESSWAY.lines) lines.push({ cls: EXPRESSWAY.cls, name: E.name, expressway: true, pts: E.pts.map((p) => [...p]) });
@@ -171,6 +251,11 @@ export function makePlan() {
   // (a loop starts and ends at the same node: keep both cuts, they're at different places along the line)
   const addCut = (ln, seg, t, node) => { if (!ln.cuts.some((c) => c.node === node && (c.seg === seg && Math.abs(c.t - t) < 1e-6 || (c.seg === seg - 1 && c.t === 1 && t === 0) || (c.seg === seg + 1 && c.t === 0 && t === 1)))) ln.cuts.push({ seg, t, node }); };
   for (const ln of lines) { const n = ln.pts.length; addCut(ln, 0, 0, nodeAt(ln.pts[0][0], ln.pts[0][1], ln.pts[0][2])); addCut(ln, n - 2, 1, nodeAt(ln.pts[n - 1][0], ln.pts[n - 1][1], ln.pts[n - 1][2])); }
+  // a closed loop (Brickell Key Drive) starts and ends at one node: give it a second one half way round
+  for (const ln of lines) {
+    const n = ln.pts.length, a = ln.pts[0], b = ln.pts[n - 1];
+    if (n > 3 && Math.hypot(a[0] - b[0], a[1] - b[1]) < 6) { const m = Math.floor((n - 1) / 2), p = ln.pts[m]; addCut(ln, m, 0, nodeAt(p[0], p[1], p[2])); }
+  }
   // intermediate polyline points of expressway lines at full height can be shared (the T junction)
   for (const ln of lines) if (ln.expressway) for (let i = 1; i < ln.pts.length - 1; i++) {
     const p = ln.pts[i];
@@ -278,36 +363,14 @@ export function makePlan() {
     if (!wet && !e.elevated && raw.length === 2 && e.pts.every((p) => Math.abs(p.y - GROUND) < 0.01)) e.pts = [e.pts[0], e.pts[e.pts.length - 1]];
     delete e.raw;
   }
+  // dead ends (the few left: beach access streets, the heliport road): traffic shouldn't turn into them
+  for (const n of nodes) n.deadEnd = n.edges.length === 1;
+  for (const e of edges) e.deadEnd = nodes[e.a].deadEnd || nodes[e.b].deadEnd;
   for (const n of nodes) {
     n.light = n.edges.length >= 3 && n.yo === 0 && n.edges.some((id) => ['blvd', 'ave'].includes(edges[id].cls));
     delete n.yo;
   }
 
-  // ---- blocks: the cells between consecutive grid lines ----
-  for (const G of GRIDS) {
-    const land = P.landById[G.land];
-    const xs = G.lineX.map((l) => l.v).sort((a, b) => a - b), zs = G.lineZ.map((l) => l.v).sort((a, b) => a - b);
-    const halfW = (L) => { const R = ROAD[L.cls]; return (R.lanes * 2 * R.lane + R.median) / 2 + R.walk; };
-    const lineX = Object.fromEntries(G.lineX.map((l) => [l.v, l])), lineZ = Object.fromEntries(G.lineZ.map((l) => [l.v, l]));
-    // pad the outermost cells by one spacing so the coast gets blocks too
-    const ex = [xs[0] - 260, ...xs, xs[xs.length - 1] + 260], ez = [zs[0] - 240, ...zs, zs[zs.length - 1] + 240];
-    for (let i = 0; i < ex.length - 1; i++) for (let j = 0; j < ez.length - 1; j++) {
-      const lx0 = lineX[ex[i]], lx1 = lineX[ex[i + 1]], lz0 = lineZ[ez[j]], lz1 = lineZ[ez[j + 1]];
-      const x0 = ex[i] + (lx0 ? halfW(lx0) : 0), x1 = ex[i + 1] - (lx1 ? halfW(lx1) : 0);
-      const z0 = ez[j] + (lz0 ? halfW(lz0) : 0), z1 = ez[j + 1] - (lz1 ? halfW(lz1) : 0);
-      if (x1 - x0 < 30 || z1 - z0 < 30) continue;
-      const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-      if (G.skip.some((r) => cx > r[0] && cx < r[2] && cz > r[1] && cz < r[3])) continue;
-      // keep the block if a good part of it is on dry land
-      let dryN = 0, n = 0;
-      for (let a = 0; a <= 4; a++) for (let b = 0; b <= 4; b++) { n++; const x = x0 + ((x1 - x0) * a) / 4, z = z0 + ((z1 - z0) * b) / 4; if (inPoly(land.pts, x, z) && !P.canalAt(x, z, 4)) dryN++; }
-      if (dryN < n * 0.3) continue;
-      // nothing on the beach
-      if (P.onBeach(cx, cz, BEACH_KEEP + 20)) continue;
-      const D = P.districtAt(cx, cz);
-      P.blocks.push({ id: P.blocks.length, grid: G.id, x0, z0, x1, z1, district: D.id, dry: dryN / n, edge: { w: !!lx0, e: !!lx1, n: !!lz0, s: !!lz1 } });
-    }
-  }
   P.ms = Math.round((typeof performance !== 'undefined' ? performance : Date).now() - t0);
   return P;
 }

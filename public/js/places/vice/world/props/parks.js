@@ -20,7 +20,7 @@ const PARKS = [
   { id: 'westside', rect: [-3640, 1180, -3100, 1720], kind: 'sports' },
   { id: 'peacock', rect: [-260, 2420, 260, 2840], kind: 'park' },
   { id: 'govcenter', rect: [-470, -1520, -250, -1300], kind: 'plaza' },
-  { id: 'flamingo', rect: [2300, 1150, 2580, 1450], kind: 'sports' },
+  { id: 'flamingo', rect: [2280, 1120, 2600, 1340], kind: 'sports' },
   { id: 'collins', rect: [2470, -560, 2740, -300], kind: 'park' },
   { id: 'golfGables', rect: [-2100, 1700, -1500, 2120], kind: 'golf' },
   { id: 'golfBeach', rect: [1960, -3420, 2460, -2980], kind: 'golf' },

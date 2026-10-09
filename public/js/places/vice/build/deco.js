@@ -61,7 +61,7 @@ export function decoHotel(C, lot, r, o = {}) {
     parapet(K, -hw + rl * 0.6, pb, hw - rrad * 0.6, fz, H, 2.4, 0.6, wall, trim);
     // racing stripes: two thin bands of the accent colour round the top
     for (const yy of [H - 2.6, H - 4.2]) {
-      const sp = roundRect(-hw - 0.12, pb, hw + 0.12, fz + 0.12, [rl ? rl + 0.12 : 0, rrad ? rrad + 0.12 : 0, 0, 0], 5);
+      const sp = roundRect(-hw - 0.12, pb - 0.12, hw + 0.12, fz + 0.12, [rl ? rl + 0.12 : 0, rrad ? rrad + 0.12 : 0, 0, 0], 5);
       K.prism(sp, yy - 0.35, yy + 0.35, acc, { win: false, top: false, closed: false });
     }
     // eyebrows over each floor's windows on the front (and round the corners)
