@@ -14,7 +14,7 @@ import { frame } from './beach.js';
 
 const TOP = GROUND + 0.5;    // the seawall cap
 const FACE = -3.5;           // the face stands this far out from the coast line (hides the height map's slope)
-const BACK = 1.6;            // the cap reaches this far inland
+const BACK = 8.5;            // the cap reaches this far inland (over the height map's slope, which can start one 8-stud cell in)
 const MAPH = 4090;
 const T = { low: [0.2, 0.22, 0.18], tide: [0.42, 0.42, 0.36], face: [0.8, 0.78, 0.74], cap: [0.88, 0.87, 0.84] };
 const inMap = (x, z) => Math.abs(x) < MAPH && Math.abs(z) < MAPH;
@@ -115,9 +115,16 @@ function wallRun(P, face, lip, back, ok) {
       const t0 = j / k, t1 = (j + 1) / k, tm = (t0 + t1) / 2;
       const F0 = lerp2(face[i], face[i + 1], t0), F1 = lerp2(face[i], face[i + 1], t1);
       const L0 = lerp2(lip[i], lip[i + 1], t0), L1 = lerp2(lip[i], lip[i + 1], t1);
-      const B0 = lerp2(back[i], back[i + 1], t0), B1 = lerp2(back[i], back[i + 1], t1);
-      const mx = (F0[0] + F1[0] + B0[0] + B1[0]) / 4, mz = (F0[1] + F1[1] + B0[1] + B1[1]) / 4;
-      if (!inMap(mx, mz) || !ok(i, tm) || P.roads.clear(mx, mz) < 1.5) { since = 0; continue; }
+      let B0 = lerp2(back[i], back[i + 1], t0), B1 = lerp2(back[i], back[i + 1], t1);
+      let mx = (F0[0] + F1[0] + B0[0] + B1[0]) / 4, mz = (F0[1] + F1[1] + B0[1] + B1[1]) / 4;
+      if (!inMap(mx, mz) || !ok(i, tm)) { since = 0; continue; }
+      // the cap stops short of a sidewalk that runs along the shore
+      const k0 = -FACE / (BACK - FACE), cx0 = (F0[0] + F1[0]) / 2 + ((B0[0] + B1[0]) / 2 - (F0[0] + F1[0]) / 2) * k0, cz0 = (F0[1] + F1[1]) / 2 + ((B0[1] + B1[1]) / 2 - (F0[1] + F1[1]) / 2) * k0;
+      const clr = P.roads.clear(cx0, cz0);
+      if (clr < 1) { since = 0; continue; }
+      const kb = (Math.min(BACK, Math.max(1.6, clr - 1)) - FACE) / (BACK - FACE);
+      B0 = [F0[0] + (B0[0] - F0[0]) * kb, F0[1] + (B0[1] - F0[1]) * kb]; B1 = [F1[0] + (B1[0] - F1[0]) * kb, F1[1] + (B1[1] - F1[1]) * kb];
+      mx = (F0[0] + F1[0] + B0[0] + B1[0]) / 4; mz = (F0[1] + F1[1] + B0[1] + B1[1]) / 4;
       // outward: from the back line towards the face
       let nx = (F0[0] + F1[0] - B0[0] - B1[0]) / 2, nz = (F0[1] + F1[1] - B0[1] - B1[1]) / 2; const nl = Math.hypot(nx, nz) || 1; nx /= nl; nz /= nl;
       const g = P.C.get('surf', mx, mz);
@@ -130,7 +137,7 @@ function wallRun(P, face, lip, back, ok) {
       // a low step for people every few pieces
       if (since++ % 3 === 0) {
         const cx = (L0[0] + L1[0] + B0[0] + B1[0]) / 4, cz = (L0[1] + L1[1] + B0[1] + B1[1]) / 4, pl = Math.hypot(L1[0] - L0[0], L1[1] - L0[1]);
-        P.box(cx, TOP - 0.4, cz, (BACK - FACE + 0.35) / 2, 0.4, pl * 1.5 + 0.5, Math.atan2(L1[0] - L0[0], L1[1] - L0[1]), 'concrete', { kerb: true, noBlock: true, seawall: true });
+        P.box(cx, TOP - 0.4, cz, Math.hypot(B0[0] - L0[0], B0[1] - L0[1]) / 2, 0.4, pl * 1.5 + 0.5, Math.atan2(L1[0] - L0[0], L1[1] - L0[1]), 'concrete', { kerb: true, noBlock: true, seawall: true });
       }
     }
   }

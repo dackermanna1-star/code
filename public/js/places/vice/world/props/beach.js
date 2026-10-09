@@ -208,21 +208,21 @@ export function lifeguardTower(P, x, y, z, h, sc, seed) {
     for (let k = 0; k < n; k++) {
       const t0 = k / n, t1 = (k + 1) / n, za = zf + (zb - zf) * t0, zb2 = zf + (zb - zf) * t1;
       const ya = y1 + 0.2 + 2.2 * Math.sin(Math.PI * t0), yb = y1 + 0.2 + 2.2 * Math.sin(Math.PI * t1);
-      F.quad([rx, ya, za], [-rx, ya, za], [-rx, yb, zb2], [rx, yb, zb2], ro);
-      F.quad([-rx, ya - 0.3, za], [rx, ya - 0.3, za], [rx, yb - 0.3, zb2], [-rx, yb - 0.3, zb2], { ...ro, tint: shade(roof, 0.7) });
+      F.quad([-rx, ya, za], [rx, ya, za], [rx, yb, zb2], [-rx, yb, zb2], ro);
+      F.quad([rx, ya - 0.3, za], [-rx, ya - 0.3, za], [-rx, yb - 0.3, zb2], [rx, yb - 0.3, zb2], { ...ro, tint: shade(roof, 0.7) });
       for (const sx of [-1, 1]) F.quad([sx * rx, y1 + 0.2, sx > 0 ? za : zb2], [sx * rx, y1 + 0.2, sx > 0 ? zb2 : za], [sx * rx, sx > 0 ? yb : ya, sx > 0 ? zb2 : za], [sx * rx, sx > 0 ? ya : yb, sx > 0 ? za : zb2], { ...st, tint: trim });
     }
   } else if (kind === 1) { // a shed roof sloping to the back, overhanging the front
     const rx = hx + 1.0, zf = hzc + hz + 2.0, zb = hzc - hz - 0.8;
-    F.quad([rx, y1 + 2.4, zf], [-rx, y1 + 2.4, zf], [-rx, y1 + 0.6, zb], [rx, y1 + 0.6, zb], ro);
-    F.quad([-rx, y1 + 2.1, zf], [rx, y1 + 2.1, zf], [rx, y1 + 0.3, zb], [-rx, y1 + 0.3, zb], { ...ro, tint: shade(roof, 0.7) });
+    F.quad([-rx, y1 + 2.4, zf], [rx, y1 + 2.4, zf], [rx, y1 + 0.6, zb], [-rx, y1 + 0.6, zb], ro);
+    F.quad([rx, y1 + 2.1, zf], [-rx, y1 + 2.1, zf], [-rx, y1 + 0.3, zb], [rx, y1 + 0.3, zb], { ...ro, tint: shade(roof, 0.7) });
     F.quad([-rx, y1 + 2.1, zf], [rx, y1 + 2.1, zf], [rx, y1 + 2.4, zf], [-rx, y1 + 2.4, zf], { ...st, tint: trim });
     for (const sx of [-1, 1]) F.quad([sx * rx, y1, sx > 0 ? zf : zb], [sx * rx, y1, sx > 0 ? zb : zf], [sx * rx, sx > 0 ? y1 + 0.6 : y1 + 2.4, sx > 0 ? zb : zf], [sx * rx, sx > 0 ? y1 + 2.4 : y1 + 0.6, sx > 0 ? zf : zb], { ...st, tint: body });
   } else if (kind === 2) { // a little pyramid
     const rx = hx + 0.9, zf = hzc + hz + 1.0, zb = hzc - hz - 1.0, ap = [0, y1 + 3.6, hzc];
     const c = [[rx, y1, zf], [-rx, y1, zf], [-rx, y1, zb], [rx, y1, zb]];
-    for (let k = 0; k < 4; k++) F.quad(c[k], c[(k + 1) % 4], ap, ap, ro);
-    F.quad(c[3], c[2], c[1], c[0], { ...ro, tint: shade(roof, 0.6) });
+    for (let k = 0; k < 4; k++) F.quad(c[(k + 1) % 4], c[k], ap, ap, ro);
+    F.quad(c[0], c[1], c[2], c[3], { ...ro, tint: shade(roof, 0.6) });
     F.tube([0, y1 + 3.4, hzc], [0, y1 + 5.2, hzc], 0.12, 0.06, 4, { ...st, tint: trim });
   } else { // flat deco roof with a stepped fin
     F.box(0, y1 + 0.35, hzc + 0.4, hx + 1.0, 0.35, hz + 1.4, ro);

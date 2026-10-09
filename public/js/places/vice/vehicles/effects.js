@@ -181,12 +181,12 @@ export class VehFX {
     // a hot core (additive, quick)
     for (let i = 0; i < 14 * size; i++) {
       const a = R() * 6.283, e = R() * 1.2, s = (8 + R() * 22) * size;
-      this.fireP.emit(p.x, p.y + 2, p.z, Math.cos(a) * Math.cos(e) * s, Math.sin(e) * s + 6, Math.sin(a) * Math.cos(e) * s, 0.3 + R() * 0.35, (7 + R() * 6) * size, (12 + R() * 8) * size, 2.2, 1.0 + R() * 0.4, 0.25, 0.9, -6, 2.5);
+      this.fireP.emit(p.x, p.y + 2, p.z, Math.cos(a) * Math.cos(e) * s, Math.sin(e) * s + 6, Math.sin(a) * Math.cos(e) * s, 0.35 + R() * 0.4, (8 + R() * 6) * size, (14 + R() * 8) * size, 3.0, 1.4 + R() * 0.5, 0.3, 1, -6, 2.5);
     }
     // the body of the fireball: solid orange puffs that roll up
     for (let i = 0; i < 26 * size; i++) {
       const a = R() * 6.283, e = R() * 1.3, s = (6 + R() * 18) * size, k = R();
-      this.smokeP.emit(p.x + (R() - 0.5) * 4, p.y + 1.5, p.z + (R() - 0.5) * 4, Math.cos(a) * Math.cos(e) * s, Math.sin(e) * s + 10, Math.sin(a) * Math.cos(e) * s, 0.7 + R() * 0.7, (5 + R() * 5) * size, (14 + R() * 10) * size, 1.6 + k * 0.6, 0.55 + k * 0.45, 0.12 + k * 0.1, 0.95, -8, 1.8);
+      this.smokeP.emit(p.x + (R() - 0.5) * 4, p.y + 1.5, p.z + (R() - 0.5) * 4, Math.cos(a) * Math.cos(e) * s, Math.sin(e) * s + 10, Math.sin(a) * Math.cos(e) * s, 0.45 + R() * 0.5, (6 + R() * 5) * size, (15 + R() * 10) * size, 3.2 + k * 1.2, 1.2 + k * 0.9, 0.2 + k * 0.15, 0.95, -8, 1.8);
     }
     // black smoke after
     for (let i = 0; i < 20 * size; i++) {
