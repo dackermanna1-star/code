@@ -146,6 +146,14 @@ export class Weapons {
     const w = this.w;
     if (!quiet && !w.melee && !w.thrown) this._at(0.12, () => playMech(w.id === 'shotgun' ? 'pumpBack' : 'slide', null, 0.5));
     this.lock = null;
+    this._cur();
+  }
+  /** The HUD's view of what's in your hands. */
+  _cur() {
+    const s = this.slots[this.slot], w = this.w, c = this.current;
+    c.id = w.id; c.name = w.name; c.icon = w.icon;
+    c.mag = w.melee || !s ? null : w.thrown ? s.mag + s.reserve : s.mag;
+    c.reserve = w.melee || !s ? null : w.thrown ? 0 : s.reserve;
   }
   _cycle(dir) {
     const have = SLOTS.filter((s) => this.slots[s] && this._usable(s));
@@ -823,10 +831,8 @@ export class Weapons {
   }
   _set(k, v, fn) { if (this.last[k] !== v) { this.last[k] = v; fn(v); } }
   _hud() {
-    const s = this.slots[this.slot], w = this.w, c = this.current;
-    c.id = w.id; c.name = w.name; c.icon = w.icon;
-    c.mag = w.melee ? null : w.thrown ? s.mag + s.reserve : s.mag;
-    c.reserve = w.melee ? null : w.thrown ? 0 : s.reserve;
+    const s = this.slots[this.slot], w = this.w;
+    this._cur();
     if (!this.$) return;
     const live = V.session?.state === 'play' && !V.player?.dead;
     const scoped = live && this.aiming && !!w.zoom && !!this.zoomFov && this.zoomFov < 30;
