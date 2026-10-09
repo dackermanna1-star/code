@@ -109,11 +109,11 @@ export const GRIDS = [
     id: 'main', land: 'mainland', rect: [-4060, -3900, 700, 3500],
     xs: [
       ...span(-4000, -2440, 260).map((x) => x), -2200, [-1960, 'ave', 'NW 27th Ave'], -1720, -1480, [-1240, 'ave', 'NW 12th Ave'],
-      -1020, [-800, 'ave', 'I-95 Frontage'], -580, [-360, 'ave', 'Miami Ave'], -140, [80, 'ave', '2nd Ave'], 300, [500, 'blvd', 'Biscayne Blvd'],
+      -1020, [-800, 'blvd', 'I-95 Frontage'], -580, [-360, 'ave', 'Miami Ave'], -140, [80, 'ave', '2nd Ave'], 300, [500, 'blvd', 'Biscayne Blvd'],
     ],
     zs: [
       [-3900, 'ave', '79th Street'], -3640, -3380, [-3120, 'ave', '54th Street'], -2860, [-2600, 'ave', '36th Street'], -2340, -2080,
-      [-1840, 'ave', 'NE 14th St'], -1620, -1420, [-1220, 'blvd', 'Port Blvd'], -1020, -560, -360, [-160, 'ave', 'Flagler St'],
+      [-1840, 'ave', 'NE 14th St'], -1620, -1420, [-1220, 'blvd', 'Port Blvd'], [-1020, 'blvd', 'Dolphin Frontage'], -560, -360, [-160, 'ave', 'Flagler St'],
       40, 240, [440, 'blvd', 'Calle Ocho'], 640, 840, [1040, 'ave', 'Coral Way'], 1240, 1460, 1680, 1900, [2380, 'ave', 'Bird Road'], 2620, 2860, 3100, 3300, [3500, 'ave', 'Old Cutler Road'],
     ],
     skip: [
@@ -163,7 +163,7 @@ export const CROSSINGS = [
 // Other roads at street level (x, z): the airport, the islands' loops.
 export const EXTRA_ROADS = [
   { name: 'Perimeter Road', cls: 'street', pts: [[-4000, -760], [-2400, -760], [-2400, -3900]] },
-  { name: 'Airport Road', cls: 'ave', pts: [[-3220, -560], [-3220, -1000], [-3220, -1700]] },
+  { name: 'Airport Road', cls: 'ave', pts: [[-3220, -560], [-3220, -1020], [-3220, -1700]] },
   { name: 'Terminal Loop', cls: 'ave', pts: [[-3220, -1700], [-2700, -1700], [-2700, -2300], [-3220, -2300], [-3220, -1700]] },
   { name: 'Cargo Road', cls: 'street', pts: [[-2700, -1700], [-2440, -1700]] },
   { name: 'Brickell Key Drive', cls: 'street', pts: [[790, 240], [790, 160], [860, 200], [860, 290], [790, 240]] },
@@ -178,8 +178,8 @@ export const EXTRA_ROADS = [
 export const EXPRESSWAY = {
   cls: 'hwy',
   lines: [
-    { name: 'I-95', pts: [[-800, -3900, 0], [-800, -3380, 46], [-800, -1000, 46], [-800, 840, 46], [-800, 1240, 0]] },
-    { name: 'Dolphin Expressway', pts: [[-3220, -1000, 0], [-2900, -1000, 34], [-2400, -1000, 46], [-800, -1000, 46]] },
+    { name: 'I-95', pts: [[-800, -3900, 0], [-800, -3380, 46], [-800, -1020, 46], [-800, 840, 46], [-800, 1240, 0]] },
+    { name: 'Dolphin Expressway', pts: [[-3220, -1020, 0], [-2900, -1020, 34], [-2400, -1020, 46], [-800, -1020, 46]] },
   ],
   // the frontage avenue gives way to the ramps here (x, z0, z1)
   clear: [[-800, -3900, -3380], [-800, 840, 1240]],
@@ -202,4 +202,4 @@ export const PLACES = [
 ];
 
 // Where you start: outside the safehouse, by the beach.
-export const START = { x: 2520, z: 1460, yaw: Math.PI / 2 };
+export const START = { x: 2476, z: 1470, heading: -Math.PI / 2 }; // on the sidewalk, facing Washington Ave

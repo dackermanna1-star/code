@@ -7,12 +7,13 @@ import { V, K } from './state.js';
 import { Input } from '../outbreak/game/input.js';
 import { sounds } from '../../engine/Sound.js';
 import { debugWorld } from './world/debugview.js';
-import { START } from './world/layout.js';
+import { START, PLACES } from './world/layout.js';
 import { Sky } from './world/sky.js';
 import { Water } from './world/water.js';
 import { TerrainView } from './world/terrain.js';
 import { Roads } from './world/roads.js';
 import { City } from './world/city.js';
+import { Props } from './world/props.js';
 import { Post } from './render/post.js';
 import { CameraRig } from './core/camera.js';
 import { FX } from './combat/fx.js';
@@ -63,7 +64,9 @@ export class Session {
     V.terrain = new TerrainView(world, V.ground);
     V.water = new Water(world, V.ground);
     V.roads = new Roads(world, V.plan, V.ground, V.phys);
+    V.props = new Props(world, V.plan, V.ground, V.phys);   // public spaces first; the city adds its own palms to it
     V.city = new City(world, V.plan, V.ground, V.phys);
+    V.props.finish?.();
     if (V.cfg.debugWorld && !V.city.real) V.debug = debugWorld(world, V.plan, V.ground, V.phys);
     // the game
     V.cam = new CameraRig(world.camera);
@@ -88,14 +91,129 @@ export class Session {
     window.addEventListener('resize', onResize);
     this.cleanups.push(() => window.removeEventListener('resize', onResize));
 
+    V.settings = this.load('vice.settings.v1') || {};
+    V.timeScale = 1;
     V.ready.then(() => {
-      for (const s of [V.vehicles, V.peds, V.player, V.missions]) s.ready?.();
-      V.player.place?.(START.x, START.z, START.yaw);
-      this.state = V.menus.title ? 'title' : 'play';
-      V.menus.showTitle?.();
+      for (const s of [V.vehicles, V.traffic, V.peds, V.player, V.weapons, V.police, V.missions]) s.ready?.();
+      const save = this.load('vice.save.v1');
+      V.player.place?.(START.x, START.z, START.heading);
+      V.hasSave = !!save;
+      this.saved = save;
+      this.state = V.menus.showTitle ? 'title' : 'play';
+      V.menus.showTitle?.(!!save);
       V.post.fadeIn?.(1.5);
     });
+    // the game's own events
+    this.cleanups.push(V.events.on('player:wasted', (e) => this.wasted(e)));
+    this.cleanups.push(V.events.on('player:busted', (e) => this.busted(e)));
+    const onLock = () => { if (!V.input.locked && this.state === 'play' && !V.input.ui && performance.now() - (this.resumedAt || 0) > 300) this.pause(); };
+    document.addEventListener('pointerlockchange', onLock);
+    this.cleanups.push(() => document.removeEventListener('pointerlockchange', onLock));
+    const onHide = () => { if (document.hidden) { if (this.state === 'play') this.pause(); this.save(); } };
+    document.addEventListener('visibilitychange', onHide);
+    this.cleanups.push(() => document.removeEventListener('visibilitychange', onHide));
+    const onUnload = () => this.save();
+    window.addEventListener('beforeunload', onUnload);
+    this.cleanups.push(() => window.removeEventListener('beforeunload', onUnload));
     this.hooks();
+  }
+
+  // ---- game states ----
+  /** From the title screen: a new game, or carry on from the save. */
+  start(continueSave = true) {
+    const s = continueSave ? this.saved : null;
+    if (s) this.restore(s); else { try { localStorage.removeItem('vice.save.v1'); } catch (e) { /* storage blocked */ } V.missions.reset?.(); }
+    this.state = 'play';
+    this.resumedAt = performance.now();
+    V.menus.hideAll?.();
+    V.input.lock();
+    V.events.emit('game:start', { fresh: !s });
+  }
+  pause() {
+    if (this.state !== 'play') return;
+    this.state = 'paused';
+    V.input.unlock();
+    V.menus.openPause?.();
+    V.audio?.pause?.(true);
+  }
+  resume() {
+    if (this.state !== 'paused') return;
+    this.state = 'play';
+    this.resumedAt = performance.now();
+    V.menus.hideAll?.();
+    V.input.lock();
+    V.audio?.pause?.(false);
+  }
+  /** Dead: slow motion, the grade drains, WASTED, then the hospital. */
+  wasted() {
+    if (this.state === 'wasted') return;
+    this.state = 'wasted'; this.stateT = 0;
+    V.hud.big?.('wasted');
+    V.postFx = { ...(V.postFx || {}), wasted: 1 };
+    V.missions.fail?.('You died.');
+    this.after(5.5, () => this.respawn('hospital', 'Wasted'));
+  }
+  busted() {
+    if (this.state === 'busted' || this.state === 'wasted') return;
+    this.state = 'busted'; this.stateT = 0;
+    V.hud.big?.('busted');
+    V.postFx = { ...(V.postFx || {}), wasted: 0.6 };
+    V.missions.fail?.('You were busted.');
+    this.after(4.5, () => this.respawn('police', 'Busted'));
+  }
+  /** Back on your feet at the nearest hospital or police station, a little poorer. */
+  respawn(kind, why) {
+    V.post.fadeOut?.(0.6);
+    this.after(0.8, () => {
+      const P = V.player;
+      const at = this.nearestPlace(kind, P.pos.x, P.pos.z);
+      const door = V.city.places?.[at.id]?.door;
+      const fee = kind === 'hospital' ? Math.min(P.money, 500) : Math.min(P.money, 750);
+      P.money -= fee;
+      P.hp = P.maxHp; P.armor = 0; P.dead = false;
+      if (kind === 'police') V.weapons.clear?.();
+      P.place(door ? door.x : at.x + 30, door ? door.z : at.z, door ? door.heading : 0);
+      V.police.clear?.();
+      V.postFx = { ...(V.postFx || {}), wasted: 0 };
+      V.time.hour = (V.time.hour + 3) % 24;
+      this.state = 'play';
+      V.hud.hideBig?.();
+      V.hud.notify?.(`${why}. ${kind === 'hospital' ? 'Hospital' : 'Legal'} fees: $${fee}`);
+      V.post.fadeIn?.(1.2);
+      V.events.emit('player:respawn', { kind });
+      this.save();
+    });
+  }
+  nearestPlace(kind, x, z) {
+    let best = null, bd = Infinity;
+    for (const p of PLACES) if (p.kind === kind) { const d = Math.hypot(p.x - x, p.z - z); if (d < bd) { bd = d; best = p; } }
+    return best || PLACES[0];
+  }
+  /** Run fn after `secs` of real time (independent of slow motion and pause). */
+  after(secs, fn) { (this.timers ||= []).push({ t: secs, fn }); }
+
+  // ---- saving ----
+  load(key) { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { return null; } }
+  store(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* storage blocked */ } }
+  save() {
+    if (!V.player || this.state === 'loading' || this.state === 'title') return;
+    const P = V.player;
+    const data = {
+      v: 1, money: P.money, hp: P.hp, armor: P.armor, hour: V.time.hour,
+      pos: P.dead ? null : [P.pos.x, P.pos.z, P.heading],
+      weapons: V.weapons.save?.() || null, missions: V.missions.save?.() || null, stats: V.stats || null,
+    };
+    this.store('vice.save.v1', data);
+    V.hasSave = true; this.saved = data;
+  }
+  restore(s) {
+    const P = V.player;
+    P.money = s.money ?? P.money; P.hp = s.hp || P.maxHp; P.armor = s.armor || 0;
+    if (s.hour != null) V.time.hour = s.hour;
+    if (s.pos) P.place(s.pos[0], s.pos[1], s.pos[2]);
+    if (s.weapons) V.weapons.load?.(s.weapons);
+    if (s.missions) V.missions.load?.(s.missions);
+    if (s.stats) V.stats = s.stats;
   }
 
   /** Test and debug hooks: window.__vc */
@@ -110,6 +228,10 @@ export class Session {
       tp: (x, z, yaw = 0) => V.player.place?.(x, z, yaw),
       time: (h) => { V.time.hour = h; },
       play: () => { this.state = 'play'; V.menus.hideAll?.(); },
+      session: this,
+      save: () => this.save(),
+      god: (on = true) => { (V.cheats ||= {}).god = on; },
+      money: (n) => { V.player.money += n; },
       info: () => ({ build: V.buildMs, ground: V.ground.genMs, plan: V.plan.ms, nodes: V.plan.nodes.length, edges: V.plan.edges.length, blocks: V.plan.blocks.length, boxes: V.phys.count, decks: V.phys.decks.length, calls: V.post.info?.calls, tris: V.post.info?.tris, state: this.state }),
     };
   }
@@ -118,11 +240,20 @@ export class Session {
     dt = Math.min(dt, 0.05);
     const inp = V.input;
     inp.frame?.();
+    // real-time timers (state changes)
+    if (this.timers?.length) for (const t of [...this.timers]) { t.t -= dt; if (t.t <= 0) { this.timers.splice(this.timers.indexOf(t), 1); t.fn(); } }
+    // slow motion when you die
+    const slow = this.state === 'wasted' ? 0.3 : this.state === 'busted' ? 0.5 : 1;
+    V.timeScale += (slow - V.timeScale) * Math.min(1, dt * 3);
     const live = this.state === 'play';
-    const sdt = live ? dt : 0;
+    const dying = this.state === 'wasted' || this.state === 'busted';
+    const sdt = live || dying ? dt * V.timeScale : 0;
     if (live) V.time.hour = (V.time.hour + dt * V.time.scale) % 24;
+    if (live && (inp.pressed.has('escape') || inp.pressed.has('code:KeyP'))) this.pause();
+    // autosave
+    if (live && (this.saveT = (this.saveT || 0) + dt) > 30) { this.saveT = 0; this.save(); }
     // gameplay (frozen while paused, on the title or dead)
-    if (live || this.state === 'wasted' || this.state === 'busted') {
+    if (live || dying) {
       V.player.update?.(sdt, inp);
       V.weapons.update?.(sdt, inp);
       V.vehicles.update?.(sdt);
@@ -132,8 +263,8 @@ export class Session {
       V.missions.update?.(sdt);
       V.combat.update?.(sdt);
     }
-    V.peds.lateUpdate?.(dt);
-    V.fx.update?.(dt);
+    V.peds.lateUpdate?.(live || dying ? sdt : 0);
+    V.fx.update?.(sdt);
     // the camera, then everything that depends on where it is
     if (V.freeCam) this.freeCam(dt, inp); else V.cam.update?.(dt, inp);
     const cam = V.world.camera;
@@ -143,6 +274,7 @@ export class Session {
     V.terrain.update?.(cam);
     V.roads.update?.(dt, cam);
     V.city.update?.(dt, cam);
+    V.props.update?.(dt, cam);
     V.audio.update?.(dt);
     V.radio.update?.(dt);
     V.hud.update?.(dt);

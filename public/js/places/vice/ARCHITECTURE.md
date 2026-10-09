@@ -57,6 +57,13 @@ audio, radio, hud, menus, post
 
 Session states: `loading → title → play ⇄ paused`, plus `wasted` and `busted` (both lead back to `play`) and `cutscene`.
 
+- `V.session` methods: `start(continueSave)` (called from the title menu), `pause()`, `resume()`, `wasted()`, `busted()` (triggered by the events `player:wasted` and `player:busted`), `respawn(kind)`, `save()`, `after(secs, fn)`.
+- `V.timeScale` is the slow motion while dying. Gameplay systems receive dt already scaled.
+- `V.postFx` is the per-frame post-processing options (`wasted`, ...).
+- `V.settings` holds the player's settings: `{mouse, invertY, volume, music, quality}`.
+- Saving (`vice.save.v1`) asks each system for `save()` and gives it back through `load(data)`: weapons, missions. `V.stats` is saved as it is.
+- Menus call `V.session.start(true|false)`; the title menu gets `showTitle(hasSave)`.
+
 ## World
 
 - `world/layout.js`: the hand-written map (land polygons, canals, districts, street grids, crossings, the expressway, places, START).
@@ -84,6 +91,23 @@ Session states: `loading → title → play ⇄ paused`, plus `wasted` and `bust
   - asphalt with lane markings, junctions, crosswalks, kerbs and sidewalks, bridge decks with railings and piers, and the expressway on pillars
   - collision for barriers and kerbs; traffic lights and street lights
   - `roads.lightState(node, edgeId)` returns 'green' | 'yellow' | 'red' for traffic coming in on that edge
+- `world/surface.js` (shared helpers for static geometry):
+  - `Geo`: a growable vertex buffer with `quad`, `fan` and `box`, and attributes position, normal, uv, lay (layer, roughness, glow), tint and info.
+  - `Chunks`: Geo buffers filed by material and 512-stud chunk. `meshes(materials)` gives one Mesh per material per chunk.
+  - `surfaceMaterial(tex, {glowUniform})`: texture-array layers with tint, normal maps, and glow at night.
+- `world/textures.js`: `viceTextures(renderer)` returns `{col, nor, ready}` (uniform objects) and `TEX_LAYER[key]`. It is shared by everything that draws photo textures.
+- `world/roads.js` also exposes, for the props, peds and traffic:
+  - `junction[nodeId].arms`
+  - `walkways`: sidewalk centre lines `{ax, az, bx, bz, y, w, edge, side}`
+  - `crossings`: crosswalks `{ax, az, bx, bz, y, node, edge}`
+  - `parking`: kerbside spots `{x, y, z, heading, edge}`
+  - `medians`: boulevard median points for palms
+  - `lamps`
+  - The sidewalks are phys boxes with `{kerb: true, noBlock: true}`; vehicles must ride over them, not crash into them.
+- `world/props.js` `Props(world, plan, ground, phys)` → `V.props`. It is made BEFORE the city, and `finish()` is called after the city.
+  - It covers palms (instanced, swaying), street furniture, the beach, parks, the port's cranes and containers, the marina and its moored boats, the airport apron and planes, seawalls and the pier.
+  - `palm(x, y, z, scale, lean)` and `bush(x, y, z, s)` let the city add greenery in its lots before `finish()` builds the instanced meshes.
+  - `update(dt, camera)`.
 - `world/city.js` `City(world, plan, ground, phys)`: every building, prop, palm and landmark, merged per 256-stud cell. Sets `city.real = true` (this turns off the debug boxes). Static colliders go in phys.
   - `city.update(dt, camera)` handles LOD and night windows.
   - `city.spawnPoints`: `{parking:[{x, z, heading}], peds:[...]}`

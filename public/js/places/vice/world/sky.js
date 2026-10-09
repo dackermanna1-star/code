@@ -1,2 +1,432 @@
-// STUB: The Outbreak's sky until the Vice City sky is ported (see ARCHITECTURE.md).
-export { Sky } from '../../outbreak/world/sky.js';
+// The sky over Vice City and the light it gives: a dome drawn by a shader -
+// deep saturated blue at noon with puffy cumulus and high cirrus, golden
+// mornings and afternoons, the orange -> pink -> magenta -> purple of the
+// sunset and dusk (with the pink "belt" opposite the sun), a deep blue night
+// with stars, the moon and the city's glow on the horizon - keyframed over
+// the day. It drives the sun (or the moon) and its shadows, the ambient
+// light, the reflections (PMREM env map) and the haze.
+//
+//   const sky = new Sky(world);
+//   sky.update(dt, hour, camPos)     sun path: rises in the east (+x) at 6:30, sets in the west (-x) at 19:00
+//   sky.updateEnv(renderer, scene)   re-bakes scene.environment now and then
+//   sky.setWeather('clear'|'fair'|'cloudy'|'rain', instant)   default 'fair'
+//   sky.setQuality('low'|'medium'|'high')   shadow map 1024 / 2048 / 4096
+//   sky.state = { night 0..1, sunI, light 0..1, rain, fogFar, lamps 0..1 (street lights/windows/neon on),
+//                 dusk 0..1 (sunset colours), cover, wind, exposure (for Post), hour }
+//   sky.sunDir (Vector3, towards the sun even at night), sky.lightDir (towards the light that casts shadows)
+//   sky.uniforms: the shared sky uniforms (SKY_GLSL below uses them: water reflections etc.)
+//
+// The haze is not three's plain fog: installFog() patches three's fog chunks
+// (once, for every material compiled after it) into height fog - thick along
+// the ground and over the sea, thin up high - whose colour follows the sky's
+// horizon in that direction (glowing towards the setting sun), so distant
+// towers melt into the sky behind them. Materials that include the standard
+// fog chunks get it for free; `scene.fog` stays a THREE.Fog (fog.far = state.fogFar).
+import * as THREE from 'three';
+import { clamp, lerp, smooth } from '../../outbreak/noise.js';
+import { cloudTex } from './textures.js';
+
+export const SUNRISE = 6.5, SUNSET = 19.0;
+const FOG_FAR = 8600;            // fog is complete here (camera.far is 9000)
+
+// ---- the fog patch -----------------------------------------------------------
+// Shared uniform values are plain objects: three's uniform cloning copies them by
+// reference, so every material sees the same values (vec4 = {x, y, z, w}).
+export const FOG = {
+  vcFogView: { value: { x: 0, y: 0, z: 1, w: 1 } },  // 2/width, 2/height, tan(fovX/2), tan(fovY/2)
+  vcFogUp: { value: { x: 0, y: 1, z: 0, w: 0 } },    // world up in view space, camera height
+  vcFogSun: { value: { x: 0, y: 1, z: 0, w: 0 } },   // sun in view space, w: 1 = on
+  vcFogHor: { value: { x: 1, y: 1, z: 1, w: 3 } },   // horizon colour towards the sun, falloff power
+  vcFogGlow: { value: { x: 0, y: 0, z: 0, w: 0 } },  // sun glow colour
+  vcFogP: { value: { x: 0.0002, y: 1 / 450, z: 0.05, w: 0 } }, // density, 1/scale height, height-independent part
+};
+const FOG_PARS = `
+#ifdef USE_FOG
+	uniform vec3 fogColor;
+	varying float vFogDepth;
+	#ifdef FOG_EXP2
+		uniform float fogDensity;
+	#else
+		uniform float fogNear;
+		uniform float fogFar;
+		uniform vec4 vcFogView, vcFogUp, vcFogSun, vcFogHor, vcFogGlow, vcFogP;
+	#endif
+#endif`;
+const FOG_FRAG = `
+#ifdef USE_FOG
+	vec3 vcFogCol = fogColor;
+	#ifdef FOG_EXP2
+		float fogFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );
+	#else
+		float fogFactor;
+		if ( vcFogSun.w > 0.5 ) {
+			// the view ray from gl_FragCoord (no extra varyings needed)
+			vec3 vcVp = vec3( ( gl_FragCoord.xy * vcFogView.xy - 1.0 ) * vcFogView.zw, -1.0 ) * vFogDepth;
+			float vcD = length( vcVp );
+			vec3 vcDir = vcVp / max( vcD, 1e-4 );
+			// height fog: the density falls off exponentially with height, integrated along the ray
+			float vcY0 = max( vcFogUp.w, 0.0 ), vcY1 = max( vcFogUp.w + dot( vcVp, vcFogUp.xyz ), 0.0 );
+			float vcA = exp( - vcFogP.y * vcY0 ), vcB = exp( - vcFogP.y * vcY1 ), vcDy = vcFogP.y * ( vcY1 - vcY0 );
+			float vcF = abs( vcDy ) > 1e-3 ? ( vcA - vcB ) / vcDy : vcA;
+			fogFactor = 1.0 - exp( - vcFogP.x * vcD * ( vcF + vcFogP.z ) );
+			fogFactor = max( fogFactor, smoothstep( fogFar * 0.62, fogFar, vcD ) );
+			// the colour of the horizon in this direction: warmer and brighter towards the sun
+			float vcSw = max( dot( vcDir, vcFogSun.xyz ), 0.0 );
+			vcFogCol = mix( fogColor, vcFogHor.xyz, pow( vcSw, vcFogHor.w ) ) + vcFogGlow.xyz * ( pow( vcSw, 10.0 ) * 0.35 + pow( vcSw, 120.0 ) * 1.2 );
+		} else {
+			fogFactor = smoothstep( fogNear, fogFar, vFogDepth );
+		}
+	#endif
+	gl_FragColor.rgb = mix( gl_FragColor.rgb, vcFogCol, fogFactor );
+#endif`;
+
+/** Patch three's fog chunks and shader libs (idempotent). Call before materials compile. */
+export function installFog() {
+  if (THREE.ShaderChunk.__vcFog) return;
+  THREE.ShaderChunk.fog_pars_fragment = FOG_PARS;
+  THREE.ShaderChunk.fog_fragment = FOG_FRAG;
+  for (const lib of Object.values(THREE.ShaderLib)) if (lib.uniforms && 'fogColor' in lib.uniforms) Object.assign(lib.uniforms, FOG);
+  Object.assign(THREE.UniformsLib.fog, FOG);
+  THREE.ShaderChunk.__vcFog = true;
+}
+
+// ---- the sky shader ----------------------------------------------------------
+/**
+ * GLSL shared by the dome and anything that reflects the sky (needs Sky.uniforms):
+ *   vec3 skyBase(vec3 d)            gradient, horizon glow, sun haze, dusk belt
+ *   vec4 skyClouds(vec3 d, float q) cloud colour (rgb) and cover (a); q = detail 0..1
+ *   vec3 skyColor(vec3 d)           both together (no sun disc, stars or moon)
+ */
+export const SKY_GLSL = `
+uniform vec3 skZen, skHor, skHorSun, skSunCol, skSunDir, skMoonDir, skCloudLit, skCloudShade, skBelt;
+uniform vec4 skP;   // x: sun glow, y: night, z: cloud cover, w: time
+uniform vec4 skP2;  // x: cirrus, y: city glow, z: moon light, w: sun disc
+uniform sampler2D skCloud;
+vec3 skyHorizon(vec3 d) {
+  float sw = max(dot(d, skSunDir), 0.0);
+  return mix(skHor, skHorSun, pow(sw, 3.0)) + skSunCol * skP.x * (pow(sw, 10.0) * 0.35 + pow(sw, 120.0) * 1.2);
+}
+vec3 skyBase(vec3 d) {
+  float up = clamp(d.y, 0.0, 1.0);
+  float sw = max(dot(d, skSunDir), 0.0);
+  vec3 hor = mix(skHor, skHorSun, pow(sw, 3.0));
+  vec3 col = mix(skZen, hor, pow(1.0 - up, 4.5));
+  col += skSunCol * skP.x * (pow(sw, 10.0) * 0.35 + pow(sw, 120.0) * 1.2);
+  // dusk: a pink band opposite the sun (the belt of Venus) over the earth's blue shadow
+  float anti = max(dot(normalize(d.xz + 1e-5), normalize(-skSunDir.xz + 1e-5)), 0.0);
+  col += skBelt * smoothstep(0.0, 0.12, up) * smoothstep(0.42, 0.1, up) * (0.35 + 0.65 * anti);
+  // the city's glow on the horizon at night
+  col += vec3(1.0, 0.5, 0.3) * skP2.y * pow(1.0 - up, 10.0);
+  return col;
+}
+vec4 skyClouds(vec3 d, float q) {
+  if (d.y < 0.005) return vec4(0.0);
+  vec2 p = d.xz / (d.y + 0.07);
+  float t = skP.w;
+  vec2 uv = p * 0.42 + vec2(t * 0.0021, t * 0.0009);
+  float cov = texture(skCloud, uv * 0.17 + vec2(0.31, 0.77)).a;
+  float b = texture(skCloud, uv).r;
+  float e = texture(skCloud, uv * 3.1 + vec2(t * 0.003, 0.0)).g;
+  float th = mix(0.78, 0.18, skP.z) + (0.5 - cov) * 0.38;
+  float c = b - e * 0.2 * q;
+  float dens = smoothstep(th, th + 0.2, c);
+  // lit on the side facing the sun (thinner towards it), darker where it's thick
+  vec2 sd = normalize(skSunDir.xz + 1e-4) * 0.03;
+  float cs = texture(skCloud, uv + sd).r - e * 0.2 * q;
+  float lit = clamp(0.62 + (c - cs) * 5.0, 0.0, 1.0);
+  lit *= 1.0 - smoothstep(0.08, 0.45, c - th) * 0.5;
+  lit = mix(lit, 1.0, smoothstep(0.1, -0.15, skSunDir.y) * 0.35); // after sunset the undersides glow
+  float sw = max(dot(d, skSunDir), 0.0);
+  vec3 cc = mix(skCloudShade, skCloudLit, lit);
+  cc += skSunCol * skP.x * pow(sw, 9.0) * (1.0 - dens * 0.7) * 1.6;   // silver lining
+  // high cirrus streaks
+  vec2 cu = p * vec2(0.05, 0.16) + vec2(t * 0.0006, 0.13);
+  float ci = smoothstep(0.56, 0.9, texture(skCloud, cu).b) * skP2.x * smoothstep(0.02, 0.2, d.y);
+  vec3 cic = skCloudLit * 1.08 + skSunCol * skP.x * pow(sw, 6.0) * 0.6;
+  dens *= smoothstep(0.005, 0.09, d.y);
+  // far clouds fade into the haze
+  float aer = smoothstep(0.32, 0.0, d.y) * 0.72;
+  vec3 hz = skyHorizon(d);
+  cc = mix(cc, hz, aer); cic = mix(cic, hz, aer);
+  float a = dens + ci * (1.0 - dens);
+  vec3 col = (cc * dens + cic * ci * (1.0 - dens)) / max(a, 1e-4);
+  return vec4(col, a);
+}
+vec3 skyColor(vec3 d) {
+  vec3 col = skyBase(d);
+  vec4 c = skyClouds(d, 0.0);
+  return mix(col, c.rgb, c.a);
+}`;
+
+const VS = `
+varying vec3 vDir;
+void main() {
+  vDir = normalize((modelMatrix * vec4(position, 0.0)).xyz);
+  vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  gl_Position = p.xyww;
+}`;
+const FS = `
+${SKY_GLSL}
+uniform float envPass;
+varying vec3 vDir;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+void main() {
+  vec3 d = normalize(vDir);
+  vec3 col;
+  if (d.y < 0.0) {
+    // below the horizon (only seen from high up, past the end of the sea): hazy sea
+    col = mix(skyHorizon(d), skZen * 0.25 + skHor * 0.25, smoothstep(0.0, -0.4, d.y));
+  } else {
+    col = skyBase(d);
+    float sw = dot(d, skSunDir);
+    float vis = smoothstep(-0.04, 0.01, skSunDir.y) * (1.0 - envPass);
+    // the sun: a hot disc (bloom turns it into glare)
+    col += skSunCol * smoothstep(0.99955, 0.99978, sw) * skP2.w * vis;
+    // stars and the moon
+    float night = skP.y * (1.0 - envPass * 0.7);
+    if (night > 0.01) {
+      vec2 g = vec2(atan(d.x, d.z) * 190.0, d.y * 170.0);
+      vec2 cell = floor(g); float h = hash(cell);
+      if (h > 0.982) {
+        vec2 c = fract(g) - 0.5 - (vec2(hash(cell + 3.1), hash(cell + 7.7)) - 0.5) * 0.5;
+        float s = smoothstep(0.1 + (h - 0.982) * 4.0, 0.0, length(c));
+        col += mix(vec3(1.0, 0.85, 0.7), vec3(0.75, 0.85, 1.0), hash(cell + 1.3)) * s * night * (0.6 + 0.4 * sin(skP.w * 2.3 + h * 90.0)) * smoothstep(0.02, 0.3, d.y) * (1.0 + 2.0 * step(0.996, h)) * (1.0 - envPass);
+      }
+      float md = max(dot(d, skMoonDir), 0.0);
+      float disc = smoothstep(0.99962, 0.99975, md);
+      vec2 mp = (d.xz - skMoonDir.xz) * 900.0;
+      float mare = 0.82 + 0.18 * sin(mp.x * 0.9 + 1.0) * sin(mp.y * 1.1 + 2.0);
+      col += vec3(0.9, 0.93, 1.0) * (disc * 6.0 * mare * (1.0 - envPass) + pow(md, 60.0) * 0.08 + pow(md, 8.0) * 0.02) * night;
+    }
+    vec4 c = skyClouds(d, 1.0);
+    col = mix(col, c.rgb, c.a);
+  }
+  gl_FragColor = vec4(col, 1.0);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}`;
+
+// ---- the day ----------------------------------------------------------------
+// zen/hor: the sky overhead and at the horizon (away from the sun), hs: the horizon
+// towards the sun, sun: sunlight colour, sunI: its intensity, glow: haze round the sun,
+// belt: the pink dusk band, cl/cs: lit and shaded cloud, amb: hemisphere [sky, ground,
+// intensity], moon: moonlight, fog: haze density, exp: exposure, glowC: city glow.
+const KEYS = [
+  { h: 0, zen: 0x0a1a46, hor: 0x24356a, hs: 0x24356a, sun: 0xff8040, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.42, fog: 1.0, exp: 1.75, glowC: 0.05 },
+  { h: 4.6, zen: 0x0a1a46, hor: 0x24356a, hs: 0x24356a, sun: 0xff8040, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.4, fog: 1.0, exp: 1.75, glowC: 0.05 },
+  { h: 5.6, zen: 0x1c2c6c, hor: 0x5e4c86, hs: 0xd27890, sun: 0xff7040, sunI: 0, glow: 0.35, belt: 0x2a1430, cl: 0xc87098, cs: 0x2c2a58, amb: [0x56589a, 0x2a2232, 0.55], moon: 0.12, fog: 1.25, exp: 1.45, glowC: 0.03 },
+  { h: 6.5, zen: 0x3358ac, hor: 0xe8a492, hs: 0xffb478, sun: 0xff9c58, sunI: 0.9, glow: 1.0, belt: 0x301828, cl: 0xffc49a, cs: 0x6c6c9c, amb: [0x8a9cd0, 0x5c4c44, 0.6], moon: 0, fog: 1.35, exp: 1.15, glowC: 0 },
+  { h: 7.6, zen: 0x2a68cc, hor: 0xcfdcec, hs: 0xffe4bc, sun: 0xffd6a8, sunI: 2.4, glow: 0.55, belt: 0x000000, cl: 0xfff4e8, cs: 0x8c9cbc, amb: [0xa6c0ea, 0x7c6c5c, 0.65], moon: 0, fog: 1.15, exp: 1.0, glowC: 0 },
+  { h: 9.5, zen: 0x1c60d8, hor: 0xb0d2f6, hs: 0xe4eef8, sun: 0xfff4e6, sunI: 3.1, glow: 0.32, belt: 0x000000, cl: 0xffffff, cs: 0x9eb2d4, amb: [0xb0ccf2, 0x8c806a, 0.7], moon: 0, fog: 1.0, exp: 1.0, glowC: 0 },
+  { h: 12.75, zen: 0x1456d2, hor: 0xa6cef6, hs: 0xdceafa, sun: 0xffffff, sunI: 3.4, glow: 0.28, belt: 0x000000, cl: 0xffffff, cs: 0xa2b6d6, amb: [0xb4d0f6, 0x8c826c, 0.72], moon: 0, fog: 0.95, exp: 1.0, glowC: 0 },
+  { h: 16.2, zen: 0x185ad0, hor: 0xacd0f2, hs: 0xf2ecde, sun: 0xfff2de, sunI: 3.1, glow: 0.38, belt: 0x000000, cl: 0xffffff, cs: 0x9eb0d0, amb: [0xb0ccf2, 0x8c806a, 0.7], moon: 0, fog: 1.0, exp: 1.0, glowC: 0 },
+  { h: 17.5, zen: 0x245cc0, hor: 0xd6d6cc, hs: 0xffdaa4, sun: 0xffd49c, sunI: 2.7, glow: 0.7, belt: 0x000000, cl: 0xfff0d8, cs: 0x8c96bc, amb: [0xa8bce2, 0x7a6652, 0.66], moon: 0, fog: 1.05, exp: 1.02, glowC: 0 },
+  { h: 18.5, zen: 0x2f4fa4, hor: 0xeea48e, hs: 0xffa252, sun: 0xff9a48, sunI: 1.9, glow: 1.25, belt: 0x2a1020, cl: 0xffb47a, cs: 0x7a6c9e, amb: [0x9c9cc4, 0x6a4c3c, 0.6], moon: 0, fog: 1.15, exp: 1.08, glowC: 0 },
+  { h: 19.0, zen: 0x283a8c, hor: 0xf07c8c, hs: 0xff7c3c, sun: 0xff6a2c, sunI: 0.55, glow: 1.6, belt: 0x5a2040, cl: 0xff8c76, cs: 0x6c4c8e, amb: [0x8c82b6, 0x4c3038, 0.55], moon: 0, fog: 1.2, exp: 1.15, glowC: 0 },
+  { h: 19.35, zen: 0x1e2a74, hor: 0xc85494, hs: 0xff6450, sun: 0xff5030, sunI: 0, glow: 1.05, belt: 0x6a2050, cl: 0xff6c90, cs: 0x4c3c7c, amb: [0x6c5c9c, 0x30202e, 0.52], moon: 0, fog: 1.2, exp: 1.3, glowC: 0.01 },
+  { h: 19.9, zen: 0x14205e, hor: 0x5c3c80, hs: 0xa44c78, sun: 0xff4030, sunI: 0, glow: 0.35, belt: 0x2a1030, cl: 0x8c4c84, cs: 0x28305e, amb: [0x484c80, 0x1e1c2a, 0.5], moon: 0.15, fog: 1.1, exp: 1.5, glowC: 0.03 },
+  { h: 20.7, zen: 0x0b1b4a, hor: 0x26366c, hs: 0x2c3468, sun: 0xff4030, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.4, fog: 1.0, exp: 1.75, glowC: 0.05 },
+  { h: 24, zen: 0x0a1a46, hor: 0x24356a, hs: 0x24356a, sun: 0xff8040, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.42, fog: 1.0, exp: 1.75, glowC: 0.05 },
+];
+// the keys as linear colours, once
+const LK = KEYS.map((k) => {
+  const c = (h) => new THREE.Color(h);
+  return { ...k, zen: c(k.zen), hor: c(k.hor), hs: c(k.hs), sun: c(k.sun), belt: c(k.belt), cl: c(k.cl), cs: c(k.cs), ambS: c(k.amb[0]), ambG: c(k.amb[1]), ambI: k.amb[2] };
+});
+const MOON_COL = new THREE.Color(0x9fb6ff);
+
+export const WEATHER = {
+  clear: { cover: 0.12, cirrus: 0.5, fog: 1, rain: 0, wind: 0.3 },
+  fair: { cover: 0.36, cirrus: 0.7, fog: 1, rain: 0, wind: 0.4 },
+  cloudy: { cover: 0.62, cirrus: 0.4, fog: 1.15, rain: 0, wind: 0.6 },
+  rain: { cover: 0.9, cirrus: 0, fog: 1.6, rain: 1, wind: 0.8 },
+};
+
+/** Where the sun is at this hour (unit vector towards it). */
+export function sunDirAt(hour, out = new THREE.Vector3()) {
+  let a;
+  if (hour >= SUNRISE && hour <= SUNSET) a = Math.PI * (hour - SUNRISE) / (SUNSET - SUNRISE);
+  else { const h = hour < SUNRISE ? hour + 24 : hour; a = Math.PI + Math.PI * (h - SUNSET) / (24 - (SUNSET - SUNRISE)); }
+  return out.set(Math.cos(a) * 0.92, Math.sin(a), 0.34).normalize();
+}
+
+const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _x = new THREE.Vector3(), _y = new THREE.Vector3(), _sz = new THREE.Vector2();
+const _c = new THREE.Color(), _q = new THREE.Quaternion();
+
+export class Sky {
+  constructor(world) {
+    installFog();
+    this.world = world;
+    const C = () => ({ value: new THREE.Color() });
+    this.uniforms = {
+      skZen: C(), skHor: C(), skHorSun: C(), skSunCol: C(), skCloudLit: C(), skCloudShade: C(), skBelt: C(),
+      skSunDir: { value: new THREE.Vector3(0, 1, 0) }, skMoonDir: { value: new THREE.Vector3(0, 1, 0) },
+      skP: { value: new THREE.Vector4(0.3, 0, 0.36, 0) }, skP2: { value: new THREE.Vector4(0.6, 0, 0, 40) },
+      skCloud: { value: cloudTex() },
+    };
+    const mat = new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: FS, uniforms: { ...this.uniforms, envPass: { value: 0 } }, side: THREE.BackSide, depthWrite: false, depthTest: true, fog: false });
+    this.dome = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 32), mat);
+    this.dome.scale.setScalar(6000);
+    this.dome.frustumCulled = false;
+    this.dome.renderOrder = -10;
+    this.dome.name = 'sky';
+    if (world.skyMesh) world.scene.remove(world.skyMesh);
+    world.skyMesh = null;
+    world.scene.background = null;
+    world.scene.add(this.dome);
+    // the lights: the sun (the moon at night) casts the one shadow; the hemisphere fills
+    this.sun = world.sun; this.hemi = world.ambient;
+    if (world.fill) { world.fill.intensity = 0; world.fill.visible = false; }
+    const S = this.sun;
+    S.castShadow = true;
+    S.shadow.bias = -0.00025;
+    S.shadow.normalBias = 0.35;
+    world.scene.add(S.target);
+    this.ext = 250; this.setQuality('high');
+    world.scene.fog = new THREE.Fog(0xa6cef6, 0, FOG_FAR);
+    this.sunDir = new THREE.Vector3(0, 1, 0);
+    this.lightDir = new THREE.Vector3(0, 1, 0);
+    this.hour = 12;
+    this.weather = 'fair'; this.w = { ...WEATHER.fair }; this.wTarget = { ...WEATHER.fair };
+    this.env = null; this.envHour = -99; this.envCover = -1; this.envT = 0; this.pm = null;
+    this.state = { sunI: 1, night: 0, fogFar: FOG_FAR, rain: 0, wind: 0.4, cover: 0.36, light: 1, lamps: 0, dusk: 0, exposure: 1, hour: 12 };
+    this._k = { zen: new THREE.Color(), hor: new THREE.Color(), hs: new THREE.Color(), sun: new THREE.Color(), belt: new THREE.Color(), cl: new THREE.Color(), cs: new THREE.Color(), ambS: new THREE.Color(), ambG: new THREE.Color() };
+  }
+
+  setQuality(q = 'high') {
+    const n = q === 'low' ? 1024 : q === 'medium' ? 2048 : 4096;
+    const S = this.sun.shadow;
+    if (S.mapSize.x !== n) { S.mapSize.set(n, n); S.map?.dispose(); S.map = null; }
+    this.quality = q;
+  }
+
+  setWeather(kind, instant = false) {
+    if (!WEATHER[kind]) return;
+    this.weather = kind;
+    this.wTarget = { ...WEATHER[kind] };
+    if (instant) this.w = { ...this.wTarget };
+  }
+
+  /** hour: 0..24. Moves the sun and recolours everything. */
+  update(dt, hour, camPos) {
+    this.hour = hour;
+    for (const k in this.w) this.w[k] = lerp(this.w[k], this.wTarget[k], Math.min(1, dt * 0.05));
+    const u = this.uniforms, w = this.w, K = this._k;
+    u.skP.value.w += dt;
+    // the keyframes
+    let i0 = 0;
+    while (i0 < LK.length - 2 && hour > LK[i0 + 1].h) i0++;
+    const a = LK[i0], b = LK[i0 + 1];
+    const t = smooth(0, 1, clamp((hour - a.h) / Math.max(0.001, b.h - a.h)));
+    for (const k in K) K[k].copy(a[k]).lerp(b[k], t);
+    const L = (f) => lerp(a[f], b[f], t);
+    // where the sun and moon are
+    const sun = sunDirAt(hour, this.sunDir);
+    u.skSunDir.value.copy(sun);
+    const moon = u.skMoonDir.value.set(-sun.x * 0.8, Math.max(0.3, -sun.y), 0.42).normalize();
+    // clouds and rain grey everything over
+    const cover = w.cover, grey = smooth(0.45, 1, cover);
+    const night = 1 - smooth(-0.12, 0.1, sun.y);
+    u.skZen.value.copy(K.zen).lerp(_c.setRGB(0.32, 0.36, 0.42).multiplyScalar(1 - night * 0.9), grey * 0.6);
+    u.skHor.value.copy(K.hor).lerp(_c.setRGB(0.5, 0.53, 0.56).multiplyScalar(1 - night * 0.9), grey * 0.55);
+    u.skHorSun.value.copy(K.hs).lerp(u.skHor.value, grey * 0.6);
+    u.skSunCol.value.copy(K.sun);
+    u.skBelt.value.copy(K.belt).multiplyScalar(1 - grey);
+    u.skCloudLit.value.copy(K.cl).lerp(_c.setRGB(0.55, 0.57, 0.6).multiplyScalar(1 - night * 0.9), grey * 0.7);
+    u.skCloudShade.value.copy(K.cs).lerp(_c.setRGB(0.25, 0.27, 0.3).multiplyScalar(1 - night * 0.9), grey * 0.7);
+    const sunVis = smooth(-0.035, 0.05, sun.y);
+    u.skP.value.x = L('glow') * (1 - grey * 0.8);
+    u.skP.value.y = night * (1 - smooth(0.3, 0.8, cover));
+    u.skP.value.z = cover;
+    u.skP2.value.set(w.cirrus * (1 - grey), L('glowC'), 0, lerp(14, 46, smooth(0.0, 0.35, sun.y)) * (1 - grey));
+    // the lights: the sun by day, the moon by night (one shadow-casting light)
+    const S = this.sun;
+    const sunI = L('sunI') * (1 - grey * 0.75) * sunVis;
+    const moonI = L('moon') * (1 - grey * 0.7);
+    if (sun.y > -0.02) { this.lightDir.copy(sun); S.color.copy(K.sun); S.intensity = sunI; }
+    else { this.lightDir.copy(moon); S.color.copy(MOON_COL); S.intensity = moonI; }
+    this.hemi.color.copy(K.ambS).lerp(_c.setRGB(0.6, 0.62, 0.66).multiplyScalar(1 - night * 0.85), grey * 0.5);
+    this.hemi.groundColor.copy(K.ambG);
+    this.hemi.intensity = a.ambI + (b.ambI - a.ambI) * t;
+    this._shadow(camPos || this.world.camera.position);
+    // the haze
+    const fog = this.world.scene.fog;
+    fog.color.copy(u.skHor.value);
+    fog.near = 0; fog.far = FOG_FAR;
+    this._fog(L('fog') * w.fog);
+    // what the rest of the game wants to know
+    const st = this.state;
+    st.sunI = S.intensity; st.night = night; st.rain = w.rain; st.wind = w.wind; st.cover = cover; st.hour = hour;
+    st.fogFar = FOG_FAR;
+    st.light = clamp(Math.max(sunI / 3.2, (this.hemi.intensity * (K.ambS.r + K.ambS.g + K.ambS.b)) / 1.6));
+    st.lamps = 1 - smooth(0.02, 0.14, sun.y) * (1 - grey * 0.5);
+    st.dusk = Math.max(smooth(17.6, 18.8, hour) * (1 - smooth(19.6, 20.4, hour)), smooth(5.2, 6.0, hour) * (1 - smooth(6.9, 7.8, hour)));
+    st.exposure = L('exp');
+    this.dome.position.copy(this.world.camera.position);
+  }
+
+  /** The shadow box follows the camera (a bit ahead of it), snapped to whole shadow texels. */
+  _shadow(p) {
+    const S = this.sun, cam = this.world.camera, sc = S.shadow.camera;
+    // bigger when high up (in steps, so it doesn't shimmer)
+    const h = Math.max(0, p.y - 40);
+    const ext = h < 120 ? 250 : h < 400 ? 420 : h < 1000 ? 700 : 1100;
+    if (ext !== this.ext || sc.right !== ext) {
+      this.ext = ext;
+      sc.left = -ext; sc.right = ext; sc.top = ext; sc.bottom = -ext; sc.near = 1; sc.far = 5000;
+      sc.updateProjectionMatrix();
+    }
+    cam.getWorldDirection(_v); _v.y = 0;
+    const fl = _v.length();
+    _v2.copy(p);
+    if (fl > 1e-3) _v2.addScaledVector(_v, (ext * 0.45) / fl);
+    _v2.y = Math.min(p.y, 40);
+    // the light's view axes (as Matrix4.lookAt builds them) and the texel size
+    const L = this.lightDir;
+    _x.set(0, 1, 0).cross(L);
+    if (_x.lengthSq() < 1e-6) _x.set(1, 0, 0);
+    _x.normalize(); _y.copy(L).cross(_x).normalize();
+    const tx = (2 * ext) / S.shadow.mapSize.x;
+    const px = _v2.dot(_x), py = _v2.dot(_y);
+    _v2.addScaledVector(_x, Math.round(px / tx) * tx - px).addScaledVector(_y, Math.round(py / tx) * tx - py);
+    S.target.position.copy(_v2);
+    S.position.copy(_v2).addScaledVector(L, 2500);
+    S.target.updateMatrixWorld();
+    S.updateMatrixWorld();
+  }
+
+  /** The shared fog uniforms, in the main camera's view space. */
+  _fog(density) {
+    const cam = this.world.camera, r = this.world.renderer, u = this.uniforms;
+    cam.updateMatrixWorld();
+    r.getDrawingBufferSize(_sz);
+    const ty = Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2) / (cam.zoom || 1);
+    Object.assign(FOG.vcFogView.value, { x: 2 / Math.max(1, _sz.x), y: 2 / Math.max(1, _sz.y), z: ty * cam.aspect, w: ty });
+    const vm = cam.matrixWorldInverse;
+    _v.set(0, 1, 0).transformDirection(vm);
+    Object.assign(FOG.vcFogUp.value, { x: _v.x, y: _v.y, z: _v.z, w: cam.position.y });
+    _v.copy(u.skSunDir.value).transformDirection(vm);
+    Object.assign(FOG.vcFogSun.value, { x: _v.x, y: _v.y, z: _v.z, w: 1 });
+    const hs = u.skHorSun.value, g = u.skSunCol.value, gi = u.skP.value.x;
+    Object.assign(FOG.vcFogHor.value, { x: hs.r, y: hs.g, z: hs.b, w: 3 });
+    Object.assign(FOG.vcFogGlow.value, { x: g.r * gi, y: g.g * gi, z: g.b * gi, w: 0 });
+    Object.assign(FOG.vcFogP.value, { x: 0.000165 * density, y: 1 / 420, z: 0.06, w: 0 });
+    void _q;
+  }
+
+  /** Reflections and sky light for standard materials: the sky re-baked now and then. */
+  updateEnv(renderer, scene) {
+    this.envT += 1;
+    const dh = Math.abs(this.hour - this.envHour);
+    if (this.env && Math.min(dh, 24 - dh) < 0.08 && Math.abs(this.w.cover - this.envCover) < 0.05) return;
+    this.envHour = this.hour; this.envCover = this.w.cover;
+    if (!this.pm) { this.pm = new THREE.PMREMGenerator(renderer); this.envScene = new THREE.Scene(); this.envDome = new THREE.Mesh(this.dome.geometry, this.dome.material); this.envDome.scale.setScalar(100); this.envDome.frustumCulled = false; this.envScene.add(this.envDome); }
+    const m = this.dome.material;
+    m.uniforms.envPass.value = 1;
+    const rt = this.pm.fromScene(this.envScene, 0, 0.1, 400);
+    m.uniforms.envPass.value = 0;
+    if (this.env) this.env.dispose();
+    this.env = rt;
+    scene.environment = rt.texture;
+  }
+}
