@@ -134,7 +134,7 @@ export class Traffic {
       if (d < RING_IN || d > RING_OUT) continue;
       if (this._visible(p.x, p.y, p.z) && d < 520) continue;
       const dir = this.rand() < 0.5 ? 1 : -1, lane = Math.floor(this.rand() * e.R.lanes);
-      const off = laneOffset(e, lane);
+      const off = laneOffset(e, lane, dir);
       const tx = p.tx * dir, tz = p.tz * dir, rx = -tz, rz = tx;
       const x = p.x + rx * off, z = p.z + rz * off;
       // room?
@@ -153,8 +153,17 @@ export class Traffic {
   }
 
   _park(cam) {
-    const spots = V.roads?.parking;
-    if (!spots?.length) return;
+    if (!this.spots) {
+      // only the spots on the right of a->b (see laneOffset)
+      const P = V.plan;
+      this.spots = (V.roads?.parking || []).filter((sp) => {
+        const e = P.edges[sp.edge]; if (!e) return false;
+        const p = pointOn(e, projectS(e, sp.x, sp.z, 1));
+        return (sp.x - p.x) * -p.tz + (sp.z - p.z) * p.tx > 0;
+      });
+    }
+    const spots = this.spots;
+    if (!spots.length) return;
     for (let tries = 0; tries < 6; tries++) {
       const sp = spots[Math.floor(this.rand() * spots.length)];
       const d = Math.hypot(sp.x - cam.x, sp.z - cam.z);
@@ -345,7 +354,7 @@ export class Traffic {
     if (gap < Infinity) vmax = Math.min(vmax, Math.max(0, (gap - 8) * 0.9));
     // controls
     const err = vmax - speed;
-    c.throttle = err > 0 ? Math.min(1, err / 12 + 0.15) : 0;
+    c.throttle = err > 0 && vmax > 1 ? Math.min(1, err / 12 + 0.15) : 0;
     c.brake = err < -2 ? Math.min(1, -err / 15) : vmax < 0.5 ? 1 : 0;
     c.steer = steer;
     c.handbrake = false;
@@ -411,16 +420,16 @@ export class Traffic {
 
   /** Distance to whatever is in front of this car in its lane (cars, the player, people). Sets this._blocker. */
   _gapAhead(veh, h, ai) {
-    const fx = Math.sin(h), fz = Math.cos(h), half = (veh.size?.l || 12) / 2;
+    const fx = Math.sin(h), fz = Math.cos(h), half = (veh.size?.l || 12) / 2, hw = (veh.size?.w || 8) / 2;
     // the corridor bends with the steering a little (follows the curve in turns)
     const ign = ai?.ignore;
     let best = Infinity, who = null;
-    const test = (x, z, len, o) => {
+    const test = (x, z, len, w, o) => {
       const dx = x - veh.pos.x, dz = z - veh.pos.z;
       const along = dx * fx + dz * fz;
       if (along <= 0 || along > 70) return;
       const side = Math.abs(dx * fz - dz * fx);
-      if (side > (along < 20 ? 5.5 : 4.5)) return;
+      if (side > (hw + w / 2) * 0.88 + (along < 20 ? 0.6 : 0)) return;
       const g = along - half - len / 2;
       if (g < best) { best = g; who = o; }
     };
@@ -429,18 +438,20 @@ export class Traffic {
       // oncoming cars in the other lane aren't in the way; a head-on one very close is
       const dot = Math.sin(o.heading ?? 0) * fx + Math.cos(o.heading ?? 0) * fz;
       if (dot < -0.5 && Math.abs(o.speed || 0) > 2 && Math.hypot(o.pos.x - veh.pos.x, o.pos.z - veh.pos.z) > 26) continue;
-      test(o.pos.x, o.pos.z, o.size?.l || 12, o);
+      test(o.pos.x, o.pos.z, o.size?.l || 12, o.size?.w || 8, o);
     }
     const P = V.player;
-    if (P?.pos && !P.vehicle && !P.dead) test(P.pos.x, P.pos.z, 2, P);
-    if (V.peds?.near) for (const p of V.peds.near(veh.pos.x, veh.pos.z, 45)) if (!p.dead && !p.vehicle) test(p.pos.x, p.pos.z, 2, p);
+    if (P?.pos && !P.vehicle && !P.dead) test(P.pos.x, P.pos.z, 2, 3, P);
+    if (V.peds?.near) for (const p of V.peds.near(veh.pos.x, veh.pos.z, 45)) if (!p.dead && !p.vehicle) test(p.pos.x, p.pos.z, 2, 3, p);
     this._blocker = who;
     return best;
   }
 }
 
 // ---- lanes ----
-function laneOffset(e, lane) { return e.R.median / 2 + e.R.lane * (lane + 0.5); }
+// Small streets park on one side only (the right of a->b): our cars are 8 studs wide, a 28-stud street has room
+// for two lanes and one row of parked cars. So that direction's lane hugs the centre line a little.
+function laneOffset(e, lane, dir) { return e.R.parking ? (dir > 0 ? 2.4 : 6.6) : e.R.median / 2 + e.R.lane * (lane + 0.5); }
 /** Point at distance s along edge e (s from the a end), with its tangent (binary search: highway edges are long). */
 function pointOn(e, s, out = {}) {
   const pts = e.pts;
@@ -453,7 +464,7 @@ function pointOn(e, s, out = {}) {
 /** The centre of `lane` for traffic going `dir` along e, at distance s in the travel direction (extra: sideways, + = right). */
 function lanePoint(e, dir, lane, s, extra, out) {
   const p = pointOn(e, dir > 0 ? s : e.len - s, out);
-  const tx = p.tx * dir, tz = p.tz * dir, off = laneOffset(e, lane) + (extra || 0);
+  const tx = p.tx * dir, tz = p.tz * dir, off = laneOffset(e, lane, dir) + (extra || 0);
   p.x -= tz * off; p.z += tx * off;
   return p;
 }
