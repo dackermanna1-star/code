@@ -58,7 +58,14 @@ vec3 room(vec2 p, vec2 cs, float D, vec3 d, float h, float lit, vec3 lc, int sty
     }
   } else if (t == tq.y) {
     c = d.y > 0.0 ? vec3(0.86, 0.85, 0.82) : mix(vec3(0.42, 0.3, 0.2), vec3(0.5, 0.5, 0.52), step(0.5, h));
-  } else c = wallC * 0.82;
+  } else {
+    c = wallC * 0.82;
+    if (style == 1) { // shelves down the side walls too
+      float sh = step(0.5, fract(q.y / 2.2)) * step(0.2, fract(q.z / 3.1));
+      vec3 goods = pal(hsh(floor(q.zy / vec2(3.1, 2.2)) + h + 7.0)); goods = mix(vec3(dot(goods, vec3(0.33))), goods, 1.8);
+      c = mix(wallC * 0.5, goods * 0.8, mix(sh, 0.4, aa) * 0.9);
+    }
+  }
   c *= mix(1.0, 0.55, q.z / D);
   // the light: ceiling lamps when lit (brightest near the top), else the dim daylight inside
   float up = q.y / cs.y;
@@ -119,7 +126,7 @@ const MAP_FRAG = `{
     vec3 N = normalize(vWn), Rt = normalize(vec3(N.z, 0.0, -N.x));
     vec3 Vd = normalize(vWp - cameraPosition);
     vec3 d = vec3(dot(Vd, Rt), Vd.y, -dot(Vd, N)); d.z = max(d.z, 0.06);
-    float fres = pow(1.0 - clamp(-dot(Vd, N), 0.0, 1.0), 3.0);
+    float fres = pow(1.0 - clamp(-dot(Vd, N), 0.0, 1.0), 2.0);
     bool gfl = uv.y < 0.0 && gk > 0;
     vec2 cs; vec4 R; vec2 fp; vec2 cell; float D; int style = 0;
     vec3 glass = vec3(0.1, 0.12, 0.14); float gMet = 0.55; float frameW = 0.0; vec3 frameC = col;
@@ -226,7 +233,7 @@ const MAP_FRAG = `{
         gR = 0.25; pane = 0.0;
       } else {
         float aa = smoothstep(0.03, 0.12, cellPix);
-        rc = room(fp, cs, D, d, h, on * (gfl ? max(night, 0.6) : night), lcol, style, aa);
+        rc = room(fp, cs, D, d, h, on * (gfl ? max(night, 0.45) : night), lcol, style, aa);
         // curtains (homes) or blinds (offices) behind some panes
         float cur = 0.0;
         if (style == 0 && h2 > 0.45) { float cw = (R.z - R.x) * (0.18 + 0.3 * fract(h2 * 7.0)); cur = max(1.0 - step(R.x + cw, fp.x), step(R.z - cw, fp.x)); }
@@ -240,7 +247,7 @@ const MAP_FRAG = `{
         gM = mix(gM, gMet, pane);
         bN = mix(bN, vec3((h2 - 0.5) * 0.04, (h - 0.5) * 0.03, 1.0), pane);
         if (dbg > 3.5 && dbg < 4.5) rc = vec3(0.3);
-        eGlow += rc * pane * (1.0 - fres * 0.75) * (1.0 - top * 0.6);
+        eGlow += rc * pane * (1.0 - fres * 0.85) * (1.0 - top * 0.6);
       }
     }
   }

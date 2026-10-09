@@ -319,6 +319,14 @@ export class Sky {
   /** hour: 0..24. Moves the sun and recolours everything. */
   update(dt, hour, camPos) {
     this.hour = hour;
+    if (!this._hooks && typeof window !== 'undefined' && window.__vc) {
+      // test hooks: __vc.weather('clear'|'fair'|'cloudy'|'rain'), __vc.skyInfo()
+      this._hooks = true;
+      Object.assign(window.__vc, {
+        weather: (k = 'fair') => { this.setWeather(k, true); return k; },
+        skyInfo: () => ({ ...this.state, sun: this.sunDir.toArray().map((v) => +v.toFixed(3)), far: this.world.camera.far, shadow: this.sun.shadow.mapSize.x, ext: this.ext }),
+      });
+    }
     for (const k in this.w) this.w[k] = lerp(this.w[k], this.wTarget[k], Math.min(1, dt * 0.05));
     const u = this.uniforms, w = this.w, K = this._k;
     u.skP.value.w += dt;

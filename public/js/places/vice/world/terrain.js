@@ -317,7 +317,10 @@ vec3 recolor(vec3 s, int q) {
     // the debug stand-in ground isn't needed once this draws
     if (!this._hid && V.debug?.children?.[0]) { V.debug.children[0].visible = false; this._hid = true; }
     this.uniforms.time.value = V.water?.t ?? performance.now() / 1000;
-    this.uniforms.causI.value = Math.min(1.2, (V.sky?.state?.sunI ?? 3) / 3) * 1.0;
+    this.uniforms.causI.value = Math.min(1.2, (V.sky?.state?.sunI ?? 3) / 3);
+    // the ground gets wet in the rain and dries slowly after
+    const rain = V.sky?.state?.rain || 0, w = this.uniforms.wet;
+    w.value += (rain - w.value) * (rain > w.value ? 0.02 : 0.002);
     camera.updateMatrixWorld();
     this._m.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     this._frustum.setFromProjectionMatrix(this._m);

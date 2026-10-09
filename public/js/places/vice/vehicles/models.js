@@ -35,6 +35,7 @@ export function vehicleMaterial() {
     uGlow: { value: 1 },
     uBurnt: { value: 0 },
     uDirt: { value: 0 },
+    uGlassBroken: { value: 0 },
   };
   m.userData.u = u;
   m.onBeforeCompile = (sh) => {
@@ -45,18 +46,18 @@ export function vehicleMaterial() {
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
 varying float vPart;
-uniform vec3 uPaint; uniform vec4 uLights; uniform float uGlow; uniform float uBurnt; uniform float uDirt;
+uniform vec3 uPaint; uniform vec4 uLights; uniform float uGlow; uniform float uBurnt; uniform float uDirt; uniform float uGlassBroken;
 float isP(float p, float id) { return 1.0 - step(0.5, abs(p - id)); }`)
       .replace('#include <color_fragment>', `#include <color_fragment>
 float vp = vPart;
 float pPaint = isP(vp, 1.0), pGlass = isP(vp, 2.0), pChrome = isP(vp, 7.0), pDark = isP(vp, 9.0);
 diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * uPaint, pPaint);
-diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.018, 0.026, 0.034) + diffuseColor.rgb * 0.05, pGlass);
+diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.018, 0.026, 0.034) + diffuseColor.rgb * 0.05, vec3(0.32, 0.34, 0.36), uGlassBroken * 0.75), pGlass);
 diffuseColor.rgb *= 1.0 - uDirt * 0.35;
 diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.03, 0.027, 0.025) + diffuseColor.rgb * 0.035, uBurnt);`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
 roughnessFactor = mix(roughnessFactor, 0.26 + uDirt * 0.4, pPaint);
-roughnessFactor = mix(roughnessFactor, 0.04, pGlass);
+roughnessFactor = mix(roughnessFactor, 0.04 + uGlassBroken * 0.6, pGlass);
 roughnessFactor = mix(roughnessFactor, 0.18, pChrome);
 roughnessFactor = mix(roughnessFactor, 0.85, pDark);
 roughnessFactor = mix(roughnessFactor, 0.97, uBurnt);`)

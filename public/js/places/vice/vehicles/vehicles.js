@@ -17,7 +17,7 @@ export { TYPES, MIX };
 
 const G = K.G;
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _u = new THREE.Vector3(), _p = new THREE.Vector3(), _n = new THREE.Vector3();
-const _m = new THREE.Matrix4(), _m2 = new THREE.Matrix4(), _one = new THREE.Vector3(1, 1, 1);
+const _m = new THREE.Matrix4(), _m2 = new THREE.Matrix4(), _one = new THREE.Vector3(1, 1, 1), _flat = new THREE.Vector3(1, 0.8, 0.8);
 const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _e = new THREE.Euler(0, 0, 0, 'YXZ');
 const _ax = new THREE.Vector3(1, 0, 0), _ay = new THREE.Vector3(0, 1, 0);
 const EMPTY = [];
@@ -172,7 +172,7 @@ export class Vehicle {
     this.inWater = 0; this.drowned = false; this.airT = 0; this.alt = 0; this.lowY = 0; this.highY = 0;
     this.sleeping = false; this.sleepT = 0; this.roofT = 0; this.burnT = 0; this.deadT = 0;
     this.lastAttacker = null; this.crashT = 0; this.hornT = 0;
-    this.impDv = 0; this.impG = 0; this.impMax = 0; this.impOther = null; this.impKind = ''; this.impP = new THREE.Vector3();
+    this.impDv = 0; this.impG = 0; this.impMax = 0; this.impOther = null; this.impKind = ''; this.impP = new THREE.Vector3(); this.impN = new THREE.Vector3();
     this.wheels = def.wheels.map(() => ({ len: 0, contact: false, load: 0, slip: 0, skid: 0, omega: 0, rot: 0, surf: 1 }));
     for (let i = 0; i < this.wheels.length; i++) this.wheels[i].len = def.wheels[i].Lmax - def.wheels[i].xs;
     // paint
@@ -290,7 +290,13 @@ export class Vehicle {
     if (on && this.hornT <= 0) { this.hornT = 0.6; V.events?.emit('noise', { pos: this.pos, r: 60, kind: 'horn', src: this }); }
   }
   setPaint(c) { this.color.set(c); this.material.userData.u.uPaint.value.copy(this.color); }
-  repair() { this.health = 1000; this.burning = false; this.burnT = 0; this.roofT = 0; }
+  /** Good as new (Pay 'n' Spray): health, dents, glass, tyres. */
+  repair() {
+    this.health = 1000; this.burning = false; this.burnT = 0; this.roofT = 0;
+    if (this.dented) { this.body.geometry.dispose(); this.body.geometry = this.def.vis.body; this.dented = false; }
+    this.glassBroken = false; this.material.userData.u.uGlassBroken.value = 0;
+    for (const w of this.wheels) w.flat = false;
+  }
   wake() { this.sleeping = false; this.sleepT = 0; }
 
   // ---- damage ----
@@ -299,8 +305,11 @@ export class Vehicle {
     if (amount <= 0) return;
     if (attacker) this.lastAttacker = attacker;
     if (this.dead) { this.deadHits = (this.deadHits || 0) + amount; return; }
-    if (part === 'tank') amount *= 2.5;
-    this.health -= amount / (part ? 1 : 1);
+    if (point && !part && amount < 200) part = this.partAt(point);
+    if (part === 'tank') { amount *= 2.5; if (amount > 40 && Math.random() < 0.25 && this.health > 149) this.health = 149; }
+    else if (part === 'tyre' && point) this.popTyre(point);
+    else if (part === 'glass' && point && !this.glassBroken) this.shatter(point);
+    this.health -= amount;
     if (this.health < 150 && !this.burning) { this.burning = true; this.burnT = 4 + Math.random() * 3; }
     // a heavy hit (a rocket, a big blast) sets it off at once
     if (this.health < -250 || (amount >= 700 && this.health <= 0)) this.explode(attacker);
@@ -310,6 +319,62 @@ export class Vehicle {
       this.wake();
       impulse(this, dir.x * amount * 6, dir.y * amount * 6, dir.z * amount * 6, point.x, point.y, point.z);
     }
+  }
+
+  /** Which part a world point is on (for hits that don't say). */
+  partAt(p) {
+    const d = this.def, h = d.hull;
+    _q.copy(this.quat).invert();
+    _v.copy(p).sub(this.pos).applyQuaternion(_q);
+    for (const w of d.wheels) if (Math.abs(_v.z - w.z) < w.r && _v.y < w.y + w.r && Math.abs(Math.abs(_v.x) - Math.abs(w.x)) < w.w + 0.8) return 'tyre';
+    const hh = h.y1 - h.y0;
+    if (d.kind !== 'bike' && _v.y > h.y0 + hh * 0.58 && _v.y < h.y1 * 0.95 && Math.abs(_v.x) > (h.x1 - h.x0) * 0.3) return 'glass';
+    if (d.kind === 'car' && _v.z < h.z0 + (h.z1 - h.z0) * 0.3 && _v.y < h.y0 + hh * 0.45) return 'tank';
+    return 'body';
+  }
+  /** A shot tyre: down on the rim (it sags, grips less and throws sparks). */
+  popTyre(p) {
+    _q.copy(this.quat).invert();
+    _v.copy(p).sub(this.pos).applyQuaternion(_q);
+    let best = -1, bd = Infinity;
+    this.def.wheels.forEach((w, i) => { const dd = Math.hypot(_v.x - w.x, _v.z - w.z); if (dd < bd) { bd = dd; best = i; } });
+    if (best < 0 || this.wheels[best].flat) return;
+    this.wheels[best].flat = true;
+    V.events?.emit('vehicle:tyre', { veh: this, wheel: best, pos: p.clone ? p.clone() : p });
+  }
+  shatter(p) {
+    this.glassBroken = true;
+    this.material.userData.u.uGlassBroken.value = 1;
+    V.fx?.glass?.(p);
+  }
+  /** Crumple the body in: displace the vertices round a world point along a direction (into the car). */
+  dent(px, py, pz, nx, ny, nz, amount) {
+    if (amount <= 0.05) return;
+    const vis = this.def.vis;
+    if (!this.dented) {
+      // our own positions (the other attributes stay shared with the type)
+      const src = vis.body, g = new THREE.BufferGeometry();
+      for (const k of Object.keys(src.attributes)) g.setAttribute(k, k === 'position' ? new THREE.BufferAttribute(src.attributes.position.array.slice(), 3) : src.attributes[k]);
+      g.boundingSphere = src.boundingSphere;
+      this.body.geometry = g;
+      this.dented = true;
+    }
+    _q.copy(this.quat).invert();
+    _v.set(px, py, pz).sub(this.pos).applyQuaternion(_q);
+    _w.set(nx, ny, nz).applyQuaternion(_q).normalize();
+    const pos = this.body.geometry.attributes.position.array, orig = vis.body.attributes.position.array;
+    const R = 2.6 + amount * 1.1, depth = Math.min(1.5, amount * 0.55), R2 = R * R, maxD = 1.8;
+    for (let i = 0; i < pos.length; i += 3) {
+      const dx = pos[i] - _v.x, dy = pos[i + 1] - _v.y, dz = pos[i + 2] - _v.z, d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 > R2) continue;
+      const f = 1 - Math.sqrt(d2) / R, k = depth * f * f;
+      let x = pos[i] + _w.x * k, y = pos[i + 1] + _w.y * k * 0.5, z = pos[i + 2] + _w.z * k;
+      // never more than maxD from where it was built
+      const ox = x - orig[i], oy = y - orig[i + 1], oz = z - orig[i + 2], ol = Math.hypot(ox, oy, oz);
+      if (ol > maxD) { const s = maxD / ol; x = orig[i] + ox * s; y = orig[i + 1] + oy * s; z = orig[i + 2] + oz * s; }
+      pos[i] = x; pos[i + 1] = y; pos[i + 2] = z;
+    }
+    this.body.geometry.attributes.position.needsUpdate = true;
   }
 
   /** Blow up: fireball, wreckage, a blast that hurts what's near, then a burnt-out shell. */
@@ -323,6 +388,9 @@ export class Vehicle {
     _p.copy(this.com);
     const size = clamp(d.mass / 1600, 0.8, 1.6);
     if (V.fx?.explosion) V.fx.explosion(_p, size); else sys.fx.fireball(_p, size);
+    // crumpled, the glass gone
+    if (d.kind === 'car') for (let i = 0; i < 3; i++) { toWorld(this, (Math.random() - 0.5) * d.size.w, d.hull.y1 * (0.4 + Math.random() * 0.5), (Math.random() - 0.5) * d.size.l, _w); this.dent(_w.x, _w.y, _w.z, 0, -1, 0, 1.5 + Math.random()); }
+    this.material.userData.u.uGlassBroken.value = 1;
     // the car jumps and tumbles
     this.vel.y += 22 + Math.random() * 10;
     this.vel.x += (Math.random() - 0.5) * 10; this.vel.z += (Math.random() - 0.5) * 10;
@@ -346,9 +414,9 @@ export class Vehicle {
   }
 
   /** A collision (called per substep): summed over the frame, then applied by impacts(). */
-  onImpact(dv, other, p, kind) {
+  onImpact(dv, other, p, kind, nx = 0, nz = 0) {
     if (kind === 'ground') { this.impG += dv; return; }
-    if (dv > this.impMax) { this.impMax = dv; this.impOther = other; this.impKind = kind; this.impP.set(p.x, p.y, p.z); }
+    if (dv > this.impMax) { this.impMax = dv; this.impOther = other; this.impKind = kind; this.impP.set(p.x, p.y, p.z); this.impN.set(nx, 0, nz); }
     this.impDv += dv;
   }
 
@@ -370,6 +438,7 @@ export class Vehicle {
     this.damage(((dv - 12) * (air ? 8 : d.kind === 'bike' ? 2.2 : 4.5)) / d.tough, this.impP, null, attacker);
     if (this.crashT <= 0) {
       this.crashT = 0.18;
+      if (dv > 16 && this.impN.lengthSq() > 0.5) this.dent(this.impP.x, this.impP.y, this.impP.z, this.impN.x, 0, this.impN.z, (dv - 12) / 22);
       V.events?.emit('vehicle:crash', { veh: this, other: otherVeh || other, pos: this.impP.clone(), speed: dv, kind: this.impKind });
       if (dv > 18) V.events?.emit('noise', { pos: this.pos, r: 50 + dv * 2, kind: 'crash', src: this });
       if (this.driver?.isPlayer) V.cam?.shake?.(Math.min(1, dv / 60));
@@ -644,8 +713,8 @@ export class Vehicles {
     if (b.sleeping) { b.wake(); }
     const dva = j * a.def.invM, dvb = j * b.def.invM;
     _p.set(hit.x, hit.y, hit.z);
-    a.onImpact(dva, b, _p, 'vehicle');
-    b.onImpact(dvb, a, _p, 'vehicle');
+    a.onImpact(dva, b, _p, 'vehicle', hit.nx, hit.nz);
+    b.onImpact(dvb, a, _p, 'vehicle', -hit.nx, -hit.nz);
   }
 
   /** After the physics: damage over time, fire, sleep, people, the phys box, effects. */
@@ -756,6 +825,10 @@ export class Vehicles {
     if (d.wheels.length && v.contacts) {
       for (let i = 0; i < d.wheels.length; i++) {
         const st = v.wheels[i], w = d.wheels[i];
+        if (st.flat && st.contact && Math.abs(v.speed) > 15 && r() < dt * 25) {
+          toWorld(v, w.x, 0.2, w.z, _p);
+          fx.spark(_p.x, _p.y, _p.z, -v.vel.x * 0.3 + (r() - 0.5) * 10, 6 + r() * 8, -v.vel.z * 0.3 + (r() - 0.5) * 10);
+        }
         if (!st.contact || st.skid < 0.3) continue;
         toWorld(v, w.x, 0.3, w.z, _p);
         if (r() < dt * 22 * st.skid) fx.smoke(_p.x, _p.y + 0.5, _p.z, v.vel.x * 0.15 + (r() - 0.5) * 3, 1.5 + r() * 2, v.vel.z * 0.15 + (r() - 0.5) * 3, 1.2 + r() * 1.2, 1.8, 9 + st.skid * 5, 0.9, 0.16 + 0.1 * st.skid);
@@ -815,7 +888,7 @@ export class Vehicles {
         _q.setFromAxisAngle(_ay, w.steer ? v.steerAngle * w.steer : 0);
         _q2.setFromAxisAngle(_ax, -st.rot);
         _q.multiply(_q2);
-        _m.compose(_v.set(w.x, Math.max(w.r * 0.6, wy), w.z), _q, _one);
+        _m.compose(_v.set(w.x, Math.max(w.r * 0.6, wy), w.z), _q, st.flat ? _flat : _one);
         _m2.multiplyMatrices(v.mat, _m);
         v.banks[i].push(_m2, v.dead ? 0.12 : 1);
       }
@@ -872,7 +945,7 @@ export class Vehicles {
     }
     const boats = Object.keys(TYPES).filter((k) => TYPES[k].kind === 'boat');
     // in open water just off South Pointe marina (the docks and the moored boats are the props')
-    boats.forEach((id, j) => { const p = this.freeWater(1930 - (j % 2) * 36, 2290 + j * 34, 16); if (p) this.spawn(id, p.x, p.z, Math.PI, { parked: true }); });
+    boats.forEach((id, j) => { const p = this.freeWater(1868 - (j % 2) * 38, 2240 + j * 36, 16); if (p) this.spawn(id, p.x, p.z, -Math.PI / 2 + (j % 3 - 1) * 0.25, { parked: true }); });
     this.spawn('policeheli', 1000, -1380, Math.PI / 2, { parked: true });
     this.spawn('newsheli', 1060, -1330, Math.PI / 2, { parked: true });
     // on the threshold of runway 36R, facing north down the runway

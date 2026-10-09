@@ -250,7 +250,8 @@ function wheelForces(v, h) {
     if (g < 0.5 && waterAt(A.x, A.z) > g + 0.4) { st.len = w.Lmax; continue; }
     // bikes lean on round tyres: their wheels push straight up from the road, not along the tilted frame
     const dist = (A.y - g) / (bike ? 1 : upY);
-    const L = dist - w.r;
+    const wr = st.flat ? w.r * 0.72 : w.r;
+    const L = dist - wr;
     if (L >= w.Lmax) { st.len = w.Lmax; continue; }
     st.contact = true; contacts++;
     st.len = Math.max(-0.3, L);
@@ -273,7 +274,7 @@ function wheelForces(v, h) {
     WS.crossVectors(SU, WF);
     if (bike) { WF.y = 0; WF.normalize(); WS.crossVectors(WUP, WF); }
     const vf = VP.dot(WF), vs = VP.dot(WS);
-    const fz = Math.min(fs, w.staticLoad * 2.5);
+    const fz = Math.min(fs, w.staticLoad * 2.5) * (st.flat ? 0.55 : 1);
     const surf = st.surf === 0 ? 0.62 : st.surf === 0.5 ? 0.85 : 1; // sand, mud and lawn are slippery
     let latMu = mu * surf * latCurve(Math.abs(Math.atan2(vs, Math.abs(vf) + 2)), w.front ? d.peakF : d.peakR, w.front ? d.slideF : d.slideR);
     if (!w.front && hb) latMu *= d.hbGrip;
@@ -663,7 +664,7 @@ function staticContacts(v, h) {
   const yLo = Math.min(v.pos.y, v.lowY) + d.stepH, yHi = Math.max(v.highY, yLo + 1);
   const rr = Math.hypot(r.hl, r.hw) + 0.5;
   const st = ++stamp;
-  let best = 0, bestBox = null;
+  let best = 0, bestBox = null, bnx = 0, bnz = 0, bpx = 0, bpy = 0, bpz = 0;
   const i0 = Math.floor((r.cx - rr) / CELL), i1 = Math.floor((r.cx + rr) / CELL), j0 = Math.floor((r.cz - rr) / CELL), j1 = Math.floor((r.cz + rr) / CELL);
   for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) {
     const list = ph.grid.get(gkey(i, j));
@@ -681,10 +682,10 @@ function staticContacts(v, h) {
       // breakable props: let the world knock them over and drive on
       if (b.breakable) { V.events?.emit('prop:hit', { box: b, veh: v, vel: v.vel }); continue; }
       const dv = resolveStatic(v, b, h);
-      if (dv > best) { best = dv; bestBox = b; }
+      if (dv > best) { best = dv; bestBox = b; bnx = sat.nx; bnz = sat.nz; bpx = hit.x; bpy = hit.y; bpz = hit.z; }
     }
   }
-  if (best > 0) v.onImpact(best, bestBox, hit, 'wall');
+  if (best > 0) { hit.x = bpx; hit.y = bpy; hit.z = bpz; v.onImpact(best, bestBox, hit, 'wall', bnx, bnz); }
 }
 
 function resolveStatic(v, b, h) {

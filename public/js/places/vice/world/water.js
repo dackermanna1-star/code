@@ -188,7 +188,7 @@ export class Water {
       wK: { value: WAVES.map((w) => new THREE.Vector4(w.kx, w.kz, w.om, w.a)) }, wP: { value: WAVES.map((w) => new THREE.Vector4(w.ph, w.L, 0, 0)) }, wTime: { value: 0 },
       gridPos: { value: new THREE.Vector2() },
       lightCol: { value: new THREE.Color(1, 1, 1) }, specDir: { value: new THREE.Vector3(0, 1, 0) }, specCol: { value: new THREE.Color(1, 1, 1) }, specI: { value: 1 },
-      deepCol: { value: new THREE.Color(0x0c4890) }, midCol: { value: new THREE.Color(0x1aa2aa) }, absorbK: { value: new THREE.Vector3(0.45, 0.07, 0.04) },
+      deepCol: { value: new THREE.Color(0x0b4f8c) }, midCol: { value: new THREE.Color(0x1aa2aa) }, absorbK: { value: new THREE.Vector3(0.45, 0.07, 0.04) },
       night: { value: 0 }, wind: { value: 0.4 },
     };
     // the sky's uniforms (shared objects, so they stay in step), or stand-ins without a sky
