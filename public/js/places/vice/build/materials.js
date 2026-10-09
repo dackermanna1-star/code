@@ -87,6 +87,15 @@ const MAP_FRAG = `{
   else if (pat == 6) { col = tint * 0.55; bN = vec3(0.0, 0.0, 1.0); gR = 0.3; eGlow = tint * glow * (0.25 + 4.5 * night); }
   else if (pat == 8) { col = tint; bN = vec3(0.0, 0.0, 1.0); gR = 0.06; gM = 0.9; }
   else if (pat == 9) { col = tint * mix(1.0, shade, 0.45); gM = 0.8; bN = mix(vec3(0.0, 0.0, 1.0), bN, 0.4); }
+  else if (pat == 10) {
+    // chain-link: a diamond mesh you can see through
+    vec2 q = vec2(vUv2.x + vUv2.y, vUv2.x - vUv2.y) * 0.9;
+    vec2 g = abs(fract(q) - 0.5); float wire = 1.0 - smoothstep(0.06, 0.12, min(g.x, g.y));
+    float fwq = length(fwidth(q));
+    if (fwq > 0.35) wire = step(hsh(floor(gl_FragCoord.xy)), 0.35); // far: a screen door
+    if (wire < 0.5) discard;
+    col = tint * mix(1.0, shade, 0.3); gM = 0.7; gR = 0.5; bN = vec3(0.0, 0.0, 1.0);
+  }
   else col = tc * tint;
   if (pat == 7) eGlow += col * glow * night * (0.05 + 0.4 * (1.0 - smoothstep(0.0, 36.0, gy)));
   else if (glow > 0.0 && pat != 6) eGlow += col * glow * night * 0.9;

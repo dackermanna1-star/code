@@ -127,11 +127,11 @@ export function tower(C, lot, r, o = {}) {
   if (crown === 'led') {
     // a glass crown box with bands of light round it
     const ch = rr(r, 10, 24);
-    K.prism(offsetPoly(outline, -1.5), top, top + ch, glassOf(tint), { win: false, top: M.membrane, smooth: 0.9 });
+    K.prism(offsetPoly(outline, -1.5), top, top + ch, mat('whiteTiles', tint, { p: 8, glow: 0.35 }), { win: false, top: M.membrane, smooth: 0.9 });
     K.at(MID, () => {
-      const nb = ri(r, 1, 3);
-      for (let i = 0; i < nb; i++) { const y = top + ch - 0.6 - i * 3.2; K.prism(offsetPoly(outline, -1.2), y - 0.3, y + 0.3, neon(cc), { win: false, top: false, smooth: 0.9 }); }
-      K.prism(outline, top - 0.4, top + 0.4, neon(cc), { win: false, top: false, smooth: 0.9 });
+      const nb = ri(r, 2, 4);
+      for (let i = 0; i < nb; i++) { const y = top + ch - 0.8 - i * 2.8; K.prism(offsetPoly(outline, -1.2), y - 0.55, y + 0.55, neon(cc), { win: false, top: false, smooth: 0.9 }); }
+      K.prism(offsetPoly(outline, 0.15), top - 0.7, top + 0.7, neon(cc), { win: false, top: false, smooth: 0.9 });
     });
   } else if (crown === 'spire') {
     const ch = rr(r, 8, 14);

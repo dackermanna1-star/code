@@ -167,7 +167,7 @@ export function fence(K, ax, az, bx, bz, y, h = 6, o = {}) {
     const n = Math.max(1, Math.round(L / 8));
     for (let i = 0; i <= n; i++) K.box(-L / 2 + (L * i) / n, y + h / 2, 0, 0.18, h / 2, 0.18, M.steel, { col: false, win: false });
     K.box(0, y + h - 0.1, 0, L / 2, 0.12, 0.12, M.steel, { col: false, win: false });
-    K.quad([-L / 2, y + 0.2, 0], [L / 2, y + 0.2, 0], [L / 2, y + h - 0.2, 0], [-L / 2, y + h - 0.2, 0], o.m || mat('metalSheet', 0x6a7078, { p: 9, r: 0.6 }), { both: true });
+    K.quad([-L / 2, y + 0.2, 0], [L / 2, y + 0.2, 0], [L / 2, y + h - 0.2, 0], [-L / 2, y + h - 0.2, 0], o.m || mat('metalSheet', 0x8a9098, { p: 10, r: 0.6, grime: 0 }), { both: true });
   });
   if (o.col !== false) K.solid(0, y + h / 2, 0, L / 2, h / 2, 0.3, 'metal');
   K.pop();

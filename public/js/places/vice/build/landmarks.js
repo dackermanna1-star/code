@@ -460,7 +460,8 @@ function ballpark(C) {
   // the roof: three big arched panels, as if they slide open
   const span = hz * 2 + 20, pw = (hx * 2) / 3.2;
   for (let i = 0; i < 3; i++) {
-    const px = -hx + pw * (0.6 + i * 1.0) + i * 2, ry = H + 8 + i * 3;
+    // retracted: stacked at the east end, the field open to the sky
+    const px = hx - pw * 0.55 - i * pw * 0.3, ry = H + 8 + i * 4;
     K.at(BASE, () => {
       const n = 8;
       for (let k = 0; k < n; k++) {
@@ -472,7 +473,14 @@ function ballpark(C) {
     });
     K.at(MID, () => tube(K, [px - pw / 2, ry + 26.5, 0], [px + pw / 2, ry + 26.5, 0], 0xffffff, 0.4));
   }
-  // light towers and the name
+  // light masts round the rim, a scoreboard over the outfield
+  for (const [mx, mz] of [[-hx * 0.7, -hz * 0.85], [-hx * 0.7, hz * 0.85], [-hx * 0.15, -hz * 0.95], [-hx * 0.15, hz * 0.95]]) {
+    K.at(BASE, () => K.box(mx, (H + 40) / 2, mz, 1.2, (H + 40) / 2, 1.2, M.steel, { col: false, win: false }));
+    K.at(MID, () => { K.box(mx, H + 42, mz, 9, 4, 0.8, M.metalDark, { col: false, win: false }); K.box(mx, H + 42, mz - Math.sign(mz) * 0.85, 8.2, 3.4, 0.1, neon(0xfff8e8, 0.9), { col: false, win: false }); });
+  }
+  K.at(BASE, () => K.box(-hx + 30, H - 6, 0, 3, 18, 40, M.metalDark, { col: false, win: false }));
+  K.at(MID, () => K.box(-hx + 33.2, H - 4, 0, 0.1, 14, 36, neon(0x60b0ff, 0.5), { col: false, win: false }));
+  // the name
   K.sign(0, 40, hz + 0.5, 70, 10, 'VICE CITY BALLPARK', 'neonDeco', { color: 0xff7a2a, tier: MID });
   K.sign(0, 40, -hz - 0.5, 70, 10, 'VICE CITY BALLPARK', 'neonDeco', { color: 0xff7a2a, tier: MID, yaw: Math.PI });
   for (let i = 0; i < 8; i++) K.solid(-hx + (2 * hx) * (i + 0.5) / 8, H / 2, 0, hx / 8, H / 2, hz * 0.96);
@@ -717,28 +725,55 @@ function starIsland(C) {
   }
   C.place('star', { x: 1400, z: -1560, kind: 'island', name: 'Star Island', door: { x: 1400, z: -1500, heading: S } });
 }
-/** A big modern or Mediterranean mansion with a pool and a lawn. */
+/** A big modern mansion (white boxes, walls of glass, cantilevered roofs) with a pool deck and a dock; or a Mediterranean one. */
 export function mansion(C, lot, r) {
   const K = C.K;
   K.begin(lot.x, C.GROUND, lot.z, lot.yaw, lot.seed, { kind: 'mansion' });
-  const hw = lot.w / 2 - 3, hd = lot.d / 2 - 3;
-  const modern = r() < 0.5;
-  const wall = modern ? paint(0xfafaf6, 0.5, 0.05) : paint(pick(r, [0xf3e3c3, 0xf5dcc8, 0xf8efe0]), 0.4, 0.15);
+  const hw = lot.w / 2 - 2, hd = lot.d / 2 - 2;
+  const modern = r() < 0.6;
   const g = 13, H = g + 12;
-  const mw = hw * 0.8, md = hd * 0.45, mz = hd * 0.2;
-  K.facade({ kind: modern ? WIN.resi : WIN.shutters, fh: 12, bw: modern ? 10 : 11, v0: g, gk: modern ? GF.lobby : GF.same, occ: 0.75, variant: 6 });
-  K.box(0, g / 2, mz, mw, g / 2, md, wall, { top: M.roof });
-  K.box(modern ? mw * 0.2 : 0, (g + H) / 2, mz + (modern ? 3 : 0), modern ? mw * 0.75 : mw, (H - g) / 2, md + (modern ? 2 : 0), wall, { top: M.membrane });
-  K.facade(null);
-  if (modern) K.at(MID, () => { K.box(mw * 0.2, H + 0.5, mz + 3, mw * 0.75 + 4, 0.5, md + 6, M.white, { col: false, win: false }); K.box(0, g + 0.4, mz, mw + 3, 0.4, md + 3, M.white, { col: false, win: false }); });
-  else K.hipRoof(0, H, mz, mw, md, 8, M.roofTiles, { ov: 2 });
-  // the pool and the lawn towards the water (behind), palms
-  K.at(MID, () => K.box(0, 0.25, -hd * 0.55, mw, 0.25, hd * 0.35, M.marble, { col: false, win: false }));
-  pool(K, 0, -hd * 0.55, mw * 0.55, hd * 0.18, 0.5);
-  for (let k = 0; k < 5; k++) { const q = K.world(rr(r, -hw, hw), 0, rr(r, -hd, hd)); if (Math.abs(q[0] - lot.x) > mw * 0.8 || true) C.palm(q[0], q[2], rr(r, 1, 1.4), rr(r, -0.12, 0.12)); }
-  lowWall(K, -hw, hd + 2, -6, hd + 2, 0, 5, 1, wall);
-  lowWall(K, 6, hd + 2, hw, hd + 2, 0, 5, 1, wall);
-  const q = K.world(0, 0, hd - 6); C.park(q[0], q[2], lot.yaw + Math.PI / 2);
+  const wall = modern ? paint(0xfbfbf8, 0.5, 0.05) : paint(pick(r, [0xf3e3c3, 0xf5dcc8, 0xf8efe0]), 0.4, 0.15);
+  const mw = hw * 0.85, md = hd * 0.42, mz = hd * 0.18;
+  if (modern) {
+    // ground floor: glass all round; first floor: a white box slid sideways, with a terrace on the other side
+    K.facade({ kind: WIN.resi, fh: 12, bw: 9, v0: 0, occ: 0.8, variant: 6 });
+    K.box(-mw * 0.1, g / 2, mz, mw * 0.85, g / 2, md, wall, { top: M.roof });
+    K.facade({ kind: WIN.ribbon, fh: 12, bw: 10, v0: g, occ: 0.7 });
+    K.box(mw * 0.25, (g + H) / 2, mz + 2, mw * 0.7, (H - g) / 2, md + 2, wall, { top: M.membrane });
+    K.facade(null);
+    K.at(MID, () => {
+      K.box(mw * 0.25, H + 0.5, mz + 2, mw * 0.7 + 4, 0.5, md + 6, M.white, { col: false, win: false });
+      K.box(-mw * 0.1, g + 0.4, mz, mw * 0.85 + 3, 0.4, md + 3, M.white, { col: false, win: false });
+      // glass rail round the terrace
+      K.box(-mw * 0.62, g + 2.4, mz, 0.08, 1.8, md + 2.8, M.glass, { col: false, win: false });
+      K.box(-mw * 0.25, g + 2.4, mz + md + 2.8, mw * 0.4, 1.8, 0.08, M.glass, { col: false, win: false });
+      // a wooden screen and a stone wall
+      K.box(mw * 0.86, g / 2, mz, 0.6, g / 2, md * 0.8, mat('deck', 0x8a5a3a), { col: false, win: false });
+    });
+  } else {
+    K.facade({ kind: WIN.shutters, fh: 12, bw: 11, v0: g, occ: 0.7, variant: 6 });
+    K.box(0, H / 2, mz, mw, H / 2, md, wall, { top: M.roof });
+    K.hipRoof(0, H, mz, mw, md, 8, M.roofTiles, { ov: 2 });
+    for (const s of [-1, 1]) { K.box(s * (mw - 6), (H + 10) / 2, mz + md - 4, 7, (H + 10) / 2, 7, wall, { top: M.roof }); K.hipRoof(s * (mw - 6), H + 10, mz + md - 4, 7, 7, 6, M.roofTiles, { ov: 1.2 }); }
+    K.facade(null);
+    K.at(MID, () => { for (let x = -mw + 16; x <= mw - 16; x += 7) K.box(x, 5, mz + md + 4, 0.7, 5, 0.7, M.trim, { col: true, win: false }); K.box(0, 10.4, mz + md + 2, mw - 14, 0.4, 3, M.roofTiles, { col: false, win: false }); });
+  }
+  // the pool deck towards the water (behind), loungers, palms
+  const pz = -hd * 0.55;
+  K.at(MID, () => K.box(0, 0.25, pz, mw, 0.25, hd * 0.38, M.marble, { col: false, win: false }));
+  pool(K, -mw * 0.15, pz, mw * 0.5, hd * 0.16, 0.5);
+  K.at(NEAR, () => { for (let i = 0; i < 4; i++) { const x = mw * 0.5 + (i % 2) * 5, z = pz - 6 + Math.floor(i / 2) * 8; K.box(x, 1.2, z, 1.4, 0.3, 3.4, M.white, { col: false, win: false }); K.box(x, 1.9, z - 2.6, 1.4, 0.7, 0.3, M.white, { col: false, win: false, yaw: 0 }); } });
+  for (let k = 0; k < 6; k++) { const q = K.world(rr(r, -hw, hw), 0, k < 3 ? rr(r, -hd, pz - 6) : rr(r, hd * 0.65, hd)); C.palm(q[0], q[2], rr(r, 1, 1.4), rr(r, -0.12, 0.12)); }
+  lowWall(K, -hw, hd + 1, -7, hd + 1, 0, 6, 1, wall);
+  lowWall(K, 7, hd + 1, hw, hd + 1, 0, 6, 1, wall);
+  K.at(MID, () => K.quad([-5, 0.12, hd + 2], [5, 0.12, hd + 2], [5, 0.12, mz + md + 2], [-5, 0.12, mz + md + 2], M.pavers));
+  const q = K.world(0, 0, hd - 4); C.park(q[0], q[2], lot.yaw + Math.PI / 2);
+  // a dock on the water behind
+  const bp = K.world(0, 0, -hd - 10);
+  if (!C.plan.isLand(bp[0], bp[2])) {
+    K.at(MID, () => { K.box(0, 2.6, -hd - 9, 4, 0.4, 9, M.deck, { col: true, win: false }); for (const z of [-hd - 2, -hd - 16]) for (const x of [-3.5, 3.5]) K.box(x, 0, z, 0.5, 3, 0.5, M.wood, { col: false, win: false }); });
+    const dp = K.world(10, 0, -hd - 12); (C.city.docks = C.city.docks || []).push({ x: dp[0], z: dp[2], heading: lot.yaw + Math.PI / 2 });
+  }
   K.end();
 }
 export { MURALS, fabric, awning, NEON, NEAR, ri, roofKit };
