@@ -14,6 +14,8 @@
 // y on edges is absolute (GROUND = street level).
 import { LAND, CANALS, DISTRICTS, ROAD, GRIDS, CROSSINGS, EXTRA_ROADS, EXPRESSWAY, GROUND, HALF } from './layout.js';
 
+const BEACH_KEEP = 235;   // the sand (190) and the park strip behind it
+
 // ---- geometry helpers --------------------------------------------------------
 function ellipsePoly([cx, cz, rx, rz], n = 40) {
   const o = [];
@@ -86,6 +88,11 @@ export function makePlan() {
     }
     return best;
   };
+  /** On the sand (or the strip of park behind it): no streets or buildings here. */
+  P.onBeach = (x, z, w = BEACH_KEEP) => {
+    const c = P.coast(x, z);
+    return c.kind === 'beach' && c.d < w;
+  };
   P.districtAt = (x, z) => {
     for (const D of DISTRICTS) { const r = D.rect; if (x >= r[0] && x <= r[2] && z >= r[1] && z <= r[3]) return D; }
     return DISTRICTS[DISTRICTS.length - 1];
@@ -99,7 +106,7 @@ export function makePlan() {
   for (const G of GRIDS) {
     const land = P.landById[G.land];
     const okAt = (x, z) => x >= G.rect[0] && x <= G.rect[2] && z >= G.rect[1] && z <= G.rect[3]
-      && inPoly(land.pts, x, z) && !G.skip.some((r) => x > r[0] && x < r[2] && z > r[1] && z < r[3]);
+      && inPoly(land.pts, x, z) && !G.skip.some((r) => x > r[0] && x < r[2] && z > r[1] && z < r[3]) && !P.onBeach(x, z);
     const along = (fixed, isX, ext, info) => {
       // walk the line in 8-stud steps and keep the runs where it is on this grid's land
       const lo = isX ? G.rect[1] : G.rect[0], hi = isX ? G.rect[3] : G.rect[2];
@@ -293,6 +300,8 @@ export function makePlan() {
       let dryN = 0, n = 0;
       for (let a = 0; a <= 4; a++) for (let b = 0; b <= 4; b++) { n++; const x = x0 + ((x1 - x0) * a) / 4, z = z0 + ((z1 - z0) * b) / 4; if (inPoly(land.pts, x, z) && !P.canalAt(x, z, 4)) dryN++; }
       if (dryN < n * 0.3) continue;
+      // nothing on the beach
+      if (P.onBeach(cx, cz, BEACH_KEEP + 20)) continue;
       const D = P.districtAt(cx, cz);
       P.blocks.push({ id: P.blocks.length, grid: G.id, x0, z0, x1, z1, district: D.id, dry: dryN / n, edge: { w: !!lx0, e: !!lx1, n: !!lz0, s: !!lz1 } });
     }
