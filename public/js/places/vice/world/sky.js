@@ -25,6 +25,7 @@
 import * as THREE from 'three';
 import { clamp, lerp, smooth } from '../../outbreak/noise.js';
 import { cloudTex } from './textures.js';
+import { V } from '../state.js';
 
 export const SUNRISE = 6.5, SUNSET = 19.0;
 const FOG_FAR = 8600;            // fog is complete here (camera.far is 9000)
@@ -222,8 +223,8 @@ const KEYS = [
   { h: 0, zen: 0x0a1a46, hor: 0x24356a, hs: 0x24356a, sun: 0xff8040, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.32, fog: 1.0, exp: 1.45, glowC: 0.05 },
   { h: 4.6, zen: 0x0a1a46, hor: 0x24356a, hs: 0x24356a, sun: 0xff8040, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.3, fog: 1.0, exp: 1.45, glowC: 0.05 },
   { h: 5.6, zen: 0x1c2c6c, hor: 0x5e4c86, hs: 0xd27890, sun: 0xff7040, sunI: 0, glow: 0.35, belt: 0x2a1430, cl: 0xc87098, cs: 0x2c2a58, amb: [0x56589a, 0x2a2232, 0.55], moon: 0.12, fog: 1.25, exp: 1.45, glowC: 0.03 },
-  { h: 6.5, zen: 0x3358ac, hor: 0xe8a492, hs: 0xffb478, sun: 0xff9c58, sunI: 0.9, glow: 1.0, belt: 0x301828, cl: 0xffc49a, cs: 0x6c6c9c, amb: [0x8a9cd0, 0x5c4c44, 0.6], moon: 0, fog: 1.35, exp: 1.15, glowC: 0 },
-  { h: 7.6, zen: 0x2a68cc, hor: 0xcfdcec, hs: 0xffe4bc, sun: 0xffd6a8, sunI: 2.4, glow: 0.55, belt: 0x000000, cl: 0xfff4e8, cs: 0x8c9cbc, amb: [0xb4c4dc, 0x9a8670, 0.65], moon: 0, fog: 1.15, exp: 1.0, glowC: 0 },
+  { h: 6.5, zen: 0x3358ac, hor: 0xe8a492, hs: 0xffb478, sun: 0xff9c58, sunI: 0.9, glow: 1.0, belt: 0x301828, cl: 0xffc49a, cs: 0x6c6c9c, amb: [0x8a9cd0, 0x5c4c44, 0.6], moon: 0, fog: 1.2, exp: 1.15, glowC: 0 },
+  { h: 7.6, zen: 0x2a68cc, hor: 0xcfdcec, hs: 0xffe4bc, sun: 0xffd6a8, sunI: 2.4, glow: 0.55, belt: 0x000000, cl: 0xfff4e8, cs: 0x8c9cbc, amb: [0xb4c4dc, 0x9a8670, 0.65], moon: 0, fog: 1.05, exp: 1.0, glowC: 0 },
   { h: 9.5, zen: 0x1c60d8, hor: 0xb0d2f6, hs: 0xe4eef8, sun: 0xfff4e6, sunI: 3.1, glow: 0.32, belt: 0x000000, cl: 0xffffff, cs: 0x8ea4c8, amb: [0xbccce2, 0xa89a80, 0.7], moon: 0, fog: 1.0, exp: 1.0, glowC: 0 },
   { h: 12.75, zen: 0x1456d2, hor: 0xa6cef6, hs: 0xdceafa, sun: 0xffffff, sunI: 3.4, glow: 0.28, belt: 0x000000, cl: 0xffffff, cs: 0x90a6ca, amb: [0xc0d0e4, 0xaa9c82, 0.72], moon: 0, fog: 0.95, exp: 1.0, glowC: 0 },
   { h: 16.2, zen: 0x185ad0, hor: 0xacd0f2, hs: 0xf2ecde, sun: 0xfff2de, sunI: 3.1, glow: 0.38, belt: 0x000000, cl: 0xffffff, cs: 0x8ea2c6, amb: [0xbccce2, 0xa89a80, 0.7], moon: 0, fog: 1.0, exp: 1.0, glowC: 0 },
@@ -289,7 +290,7 @@ export class Sky {
     S.shadow.bias = -0.00025;
     S.shadow.normalBias = 0.35;
     world.scene.add(S.target);
-    this.ext = 250; this.setQuality('high');
+    this.ext = 250; this.setQuality(V.cfg?.quality || 'high');
     world.scene.fog = new THREE.Fog(0xa6cef6, 0, FOG_FAR);
     this.autoFar = true; this.fogFar = FOG_FAR;
     this.sunDir = new THREE.Vector3(0, 1, 0);

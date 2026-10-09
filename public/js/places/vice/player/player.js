@@ -166,8 +166,7 @@ export class Player {
 
   enterVehicle(veh, seat = 0) {
     this.vehicle = veh; this.seat = seat;
-    if (seat === 0) veh.driver = this;
-    else (veh.passengers ||= []).push(this);
+    if (veh.enter) veh.enter(this, seat); else if (seat === 0) veh.driver = this;
     this.vel.set(0, 0, 0);
     this.swimming = false;
     V.events.emit('vehicle:enter', { who: this, veh });
@@ -176,8 +175,7 @@ export class Player {
   exitVehicle(force = false) {
     const veh = this.vehicle;
     if (!veh) return;
-    if (veh.driver === this) veh.driver = null;
-    if (veh.passengers) veh.passengers = veh.passengers.filter((p) => p !== this);
+    if (veh.leave) veh.leave(this); else if (veh.driver === this) veh.driver = null;
     veh.ctl && Object.assign(veh.ctl, { throttle: 0, steer: 0, handbrake: veh.kind === 'car' && Math.abs(veh.speed || 0) < 8, brake: 0, up: 0 });
     this.vehicle = null; this.seat = -1;
     // out of the driver's door (or the other side if that's blocked)

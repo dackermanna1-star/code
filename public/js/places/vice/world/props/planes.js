@@ -3,7 +3,7 @@
 // airline's colours, engines on pylons, landing gear, a cheatline and a band
 // of windows that light up at night. Local space: nose towards +z, wheels on
 // y = 0, centred on the wing root.
-import { L, tint, shade, cylAB } from './kit.js';
+import { L, tint, shade, cylAB, tri } from './kit.js';
 import { frame } from './beach.js';
 
 export const LIVERIES = [
@@ -75,7 +75,7 @@ export function airliner(g, gw, x, y, z, h, type, liv) {
       const iz = ez + el * 0.5;
       for (let k = 0; k < 14; k++) {
         const a0 = (k / 14) * Math.PI * 2, a1 = ((k + 1) / 14) * Math.PI * 2, rr = T.er * 0.86;
-        F.quad([sx * ex, ey, iz], [sx * ex, ey, iz], [sx * ex + Math.cos(a1) * rr, ey + Math.sin(a1) * rr, iz], [sx * ex + Math.cos(a0) * rr, ey + Math.sin(a0) * rr, iz], { lay: L.concrete, tint: dark, normal: [0, 0, 1] });
+        tri(g, F.W(sx * ex, ey, iz), F.W(sx * ex + Math.cos(a0) * rr, ey + Math.sin(a0) * rr, iz), F.W(sx * ex + Math.cos(a1) * rr, ey + Math.sin(a1) * rr, iz), { lay: L.concrete, tint: dark });
       }
       F.tube([sx * ex, ey, iz], [sx * ex, ey, iz + T.er * 0.5], T.er * 0.25, 0.05, 6, { lay: L.concrete, tint: [0.5, 0.52, 0.55] });
       F.tube([sx * ex, ey, ez - el * 0.45], [sx * ex, ey, ez - el * 0.45 - T.er * 1.2], T.er * 0.5, 0.2, 8, { lay: L.concrete, tint: [0.35, 0.33, 0.32] });

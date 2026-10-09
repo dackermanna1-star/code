@@ -108,7 +108,7 @@ export const TYPES = {
   },
   supercar: {
     name: 'Vortex', kind: 'car', cls: 'super', model: 'race', scale: 5.4,
-    mass: 1300, power: 470, top: 176, grip: 1.28, brake: 1.3, steer: 0.56, drift: 0.62, drive: 'rwd', gears: 7, downforce: 1.6,
+    mass: 1300, power: 470, top: 176, grip: 1.28, brake: 1.3, steer: 0.56, drift: 0.56, drive: 'rwd', gears: 7, downforce: 1.6,
     seats: [[0.22, 0.2, -0.15], [-0.22, 0.2, -0.15]], paints: NEON,
   },
   concept: {
