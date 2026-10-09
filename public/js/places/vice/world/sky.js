@@ -219,8 +219,8 @@ void main() {
 // belt: the pink dusk band, cl/cs: lit and shaded cloud, amb: hemisphere [sky, ground,
 // intensity], moon: moonlight, fog: haze density, exp: exposure, glowC: city glow.
 const KEYS = [
-  { h: 0, zen: 0x0a1a46, hor: 0x24356a, hs: 0x24356a, sun: 0xff8040, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.32, fog: 1.0, exp: 1.75, glowC: 0.05 },
-  { h: 4.6, zen: 0x0a1a46, hor: 0x24356a, hs: 0x24356a, sun: 0xff8040, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.3, fog: 1.0, exp: 1.75, glowC: 0.05 },
+  { h: 0, zen: 0x0a1a46, hor: 0x24356a, hs: 0x24356a, sun: 0xff8040, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.32, fog: 1.0, exp: 1.45, glowC: 0.05 },
+  { h: 4.6, zen: 0x0a1a46, hor: 0x24356a, hs: 0x24356a, sun: 0xff8040, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.3, fog: 1.0, exp: 1.45, glowC: 0.05 },
   { h: 5.6, zen: 0x1c2c6c, hor: 0x5e4c86, hs: 0xd27890, sun: 0xff7040, sunI: 0, glow: 0.35, belt: 0x2a1430, cl: 0xc87098, cs: 0x2c2a58, amb: [0x56589a, 0x2a2232, 0.55], moon: 0.12, fog: 1.25, exp: 1.45, glowC: 0.03 },
   { h: 6.5, zen: 0x3358ac, hor: 0xe8a492, hs: 0xffb478, sun: 0xff9c58, sunI: 0.9, glow: 1.0, belt: 0x301828, cl: 0xffc49a, cs: 0x6c6c9c, amb: [0x8a9cd0, 0x5c4c44, 0.6], moon: 0, fog: 1.35, exp: 1.15, glowC: 0 },
   { h: 7.6, zen: 0x2a68cc, hor: 0xcfdcec, hs: 0xffe4bc, sun: 0xffd6a8, sunI: 2.4, glow: 0.55, belt: 0x000000, cl: 0xfff4e8, cs: 0x8c9cbc, amb: [0xa6c0ea, 0x7c6c5c, 0.65], moon: 0, fog: 1.15, exp: 1.0, glowC: 0 },
@@ -229,11 +229,11 @@ const KEYS = [
   { h: 16.2, zen: 0x185ad0, hor: 0xacd0f2, hs: 0xf2ecde, sun: 0xfff2de, sunI: 3.1, glow: 0.38, belt: 0x000000, cl: 0xffffff, cs: 0x9eb0d0, amb: [0xb0ccf2, 0x8c806a, 0.7], moon: 0, fog: 1.0, exp: 1.0, glowC: 0 },
   { h: 17.5, zen: 0x245cc0, hor: 0xd6d6cc, hs: 0xffdaa4, sun: 0xffd49c, sunI: 2.7, glow: 0.7, belt: 0x000000, cl: 0xfff0d8, cs: 0x8c96bc, amb: [0xa8bce2, 0x7a6652, 0.66], moon: 0, fog: 1.05, exp: 1.02, glowC: 0 },
   { h: 18.5, zen: 0x2f4fa4, hor: 0xeea48e, hs: 0xffa252, sun: 0xff9a48, sunI: 1.9, glow: 1.25, belt: 0x2a1020, cl: 0xffb47a, cs: 0x7a6c9e, amb: [0x9c9cc4, 0x6a4c3c, 0.6], moon: 0, fog: 1.15, exp: 1.08, glowC: 0 },
-  { h: 19.0, zen: 0x283a8c, hor: 0xf07c8c, hs: 0xff7c3c, sun: 0xff6a2c, sunI: 0.55, glow: 1.6, belt: 0x5a2040, cl: 0xff8c76, cs: 0x6c4c8e, amb: [0x8c82b6, 0x4c3038, 0.55], moon: 0, fog: 1.2, exp: 1.15, glowC: 0 },
-  { h: 19.35, zen: 0x1e2a74, hor: 0xc85494, hs: 0xff6450, sun: 0xff5030, sunI: 0, glow: 1.05, belt: 0x6a2050, cl: 0xff6c90, cs: 0x4c3c7c, amb: [0x6c5c9c, 0x30202e, 0.52], moon: 0, fog: 1.2, exp: 1.3, glowC: 0.01 },
-  { h: 19.9, zen: 0x14205e, hor: 0x5c3c80, hs: 0xa44c78, sun: 0xff4030, sunI: 0, glow: 0.35, belt: 0x2a1030, cl: 0x8c4c84, cs: 0x28305e, amb: [0x484c80, 0x1e1c2a, 0.5], moon: 0.15, fog: 1.1, exp: 1.5, glowC: 0.03 },
-  { h: 20.7, zen: 0x0b1b4a, hor: 0x26366c, hs: 0x2c3468, sun: 0xff4030, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.3, fog: 1.0, exp: 1.75, glowC: 0.05 },
-  { h: 24, zen: 0x0a1a46, hor: 0x24356a, hs: 0x24356a, sun: 0xff8040, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.32, fog: 1.0, exp: 1.75, glowC: 0.05 },
+  { h: 19.0, zen: 0x283a8c, hor: 0xc07a9c, hs: 0xff8040, sun: 0xff6a2c, sunI: 0.55, glow: 1.6, belt: 0x4a1a3a, cl: 0xff8c76, cs: 0x6c4c8e, amb: [0x8c82b6, 0x4c3038, 0.55], moon: 0, fog: 1.0, exp: 1.12, glowC: 0 },
+  { h: 19.35, zen: 0x1c2870, hor: 0x7a5094, hs: 0xff6a4c, sun: 0xff5030, sunI: 0, glow: 1.05, belt: 0x5a1c48, cl: 0xff7088, cs: 0x463a78, amb: [0x6c5c9c, 0x30202e, 0.5], moon: 0, fog: 0.95, exp: 1.22, glowC: 0.01 },
+  { h: 19.9, zen: 0x121e5a, hor: 0x40357a, hs: 0x9a4870, sun: 0xff4030, sunI: 0, glow: 0.35, belt: 0x241030, cl: 0x844a80, cs: 0x262e5c, amb: [0x484c80, 0x1e1c2a, 0.48], moon: 0.12, fog: 1.1, exp: 1.38, glowC: 0.03 },
+  { h: 20.7, zen: 0x0b1b4a, hor: 0x26366c, hs: 0x2c3468, sun: 0xff4030, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.3, fog: 1.0, exp: 1.45, glowC: 0.05 },
+  { h: 24, zen: 0x0a1a46, hor: 0x24356a, hs: 0x24356a, sun: 0xff8040, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.32, fog: 1.0, exp: 1.45, glowC: 0.05 },
 ];
 // the keys as linear colours, once
 const LK = KEYS.map((k) => {
@@ -291,6 +291,7 @@ export class Sky {
     world.scene.add(S.target);
     this.ext = 250; this.setQuality('high');
     world.scene.fog = new THREE.Fog(0xa6cef6, 0, FOG_FAR);
+    this.autoFar = true; this.fogFar = FOG_FAR;
     this.sunDir = new THREE.Vector3(0, 1, 0);
     this.lightDir = new THREE.Vector3(0, 1, 0);
     this.hour = 12;
@@ -356,21 +357,31 @@ export class Sky {
     this.hemi.groundColor.copy(K.ambG);
     // (the env map lights things with the sky too, so the hemisphere is the smaller part by day)
     this.hemi.intensity = (a.ambI + (b.ambI - a.ambI) * t) * lerp(0.5, 1, night);
+    this._far();
     this._shadow(camPos || this.world.camera.position);
     // the haze
     const fog = this.world.scene.fog;
     fog.color.copy(u.skHor.value);
-    fog.near = 0; fog.far = FOG_FAR;
+    fog.near = 0; fog.far = this.fogFar;
     this._fog(L('fog') * w.fog);
     // what the rest of the game wants to know
     const st = this.state;
     st.sunI = S.intensity; st.night = night; st.rain = w.rain; st.wind = w.wind; st.cover = cover; st.hour = hour;
-    st.fogFar = FOG_FAR;
+    st.fogFar = this.fogFar;
     st.light = clamp(Math.max(sunI / 3.2, (this.hemi.intensity * (K.ambS.r + K.ambS.g + K.ambS.b)) / 1.6));
     st.lamps = 1 - smooth(0.02, 0.14, sun.y) * (1 - grey * 0.5);
     st.dusk = Math.max(smooth(17.6, 18.8, hour) * (1 - smooth(19.6, 20.4, hour)), smooth(5.2, 6.0, hour) * (1 - smooth(6.9, 7.8, hour)));
     st.exposure = L('exp');
     this.dome.position.copy(this.world.camera.position);
+  }
+
+  /** From high up you can see further: the far plane (and the fog with it) grows with height. */
+  _far() {
+    const cam = this.world.camera;
+    if (!this.autoFar) { this.fogFar = cam.far * 0.955; return; }
+    const far = Math.round(lerp(9000, 17000, smooth(350, 2600, cam.position.y)) / 250) * 250;
+    if (cam.far !== far) { cam.far = far; cam.updateProjectionMatrix(); }
+    this.fogFar = far * 0.955;
   }
 
   /** The shadow box follows the camera (a bit ahead of it), snapped to whole shadow texels. */

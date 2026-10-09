@@ -156,10 +156,10 @@ export class Kit {
   _cells(x, z) {
     const i = Math.floor(x / CELL), j = Math.floor(z / CELL), k = cellKey(i, j);
     let c = this.big.get(k);
-    if (!c) this.big.set(k, (c = { i, j, x: (i + 0.5) * CELL, z: (j + 0.5) * CELL, base: new VB(8192), mid: new VB(8192) }));
+    if (!c) this.big.set(k, (c = { i, j, x: (i + 0.5) * CELL, z: (j + 0.5) * CELL, base: new VB(8192), mid: new VB(24576) }));
     const i2 = Math.floor(x / NCELL), j2 = Math.floor(z / NCELL), k2 = cellKey(i2, j2);
     let s = this.small.get(k2);
-    if (!s) this.small.set(k2, (s = { i: i2, j: j2, x: (i2 + 0.5) * NCELL, z: (j2 + 0.5) * NCELL, near: new VB(4096) }));
+    if (!s) this.small.set(k2, (s = { i: i2, j: j2, x: (i2 + 0.5) * NCELL, z: (j2 + 0.5) * NCELL, near: new VB(8192) }));
     this.cell = c; this.ncell = s;
   }
   get vb() { return this.tier === BASE ? this.cell.base : this.tier === MID ? this.cell.mid : this.ncell.near; }

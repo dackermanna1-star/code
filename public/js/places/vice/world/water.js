@@ -100,12 +100,13 @@ varying vec2 vG;
 #include <fog_pars_fragment>
 void main() {
   vec2 p = vW.xz;
-  float bed = hAt(p);
+  vec2 gr = groundAt(p);              // (per pixel: the far grid cells are huge)
+  float bed = gr.x;
   float depth = vW.y - bed;           // water above the ground here
   float dist = length(cameraPosition - vW);
   float far = smoothstep(60.0, 1400.0, dist);
   // the surface: the swell's slope plus two layers of drifting ripples (calmer far away)
-  float att = waveAtt(p, max(vG.x, 0.0));
+  float att = waveAtt(p, max(-bed, 0.0));
   vec3 wv = waves(p, dist);
   vec2 drift = vec2(wTime * 0.011, wTime * 0.006);
   vec2 n1 = texture(nMap, p / 61.0 + drift).xy * 2.0 - 1.0;
@@ -120,8 +121,8 @@ void main() {
   // foam: the shore, surf lines rolling in on the beaches, whitecaps out at sea
   float lace = texture(noiseT, p / 6.5 + drift * 3.0).r * 0.6 + texture(nMap, p / 4.3 - drift * 2.0).x * 0.5;
   float shore = 1.0 - smoothstep(0.0, 0.14, depth);
-  float coast = vG.y;
-  float zone = smoothstep(0.35, 0.8, vG.x) * (1.0 - smoothstep(1.2, 2.6, vG.x)) * (1.0 - smoothstep(-20.0, -140.0, coast));
+  float coast = gr.y;
+  float zone = smoothstep(0.35, 0.8, -bed) * (1.0 - smoothstep(1.2, 2.6, -bed)) * (1.0 - smoothstep(-20.0, -140.0, coast));
   float ph = coast / 30.0 - wTime * 0.1;
   float band = fract(ph);
   float brk = texture(noiseT, p / 70.0 + vec2(floor(ph) * 0.37, 0.0)).g;
@@ -154,7 +155,7 @@ void main() {
   float nh = max(dot(n, h), 0.0);
   float pw = mix(1400.0, 160.0, far);
   float spec = pow(nh, pw) * (pw + 8.0) / 50.0 + pow(nh, 70.0) * 0.18;
-  vec3 col = body * (1.0 - F) * (1.0 - foam) + refl * F * (1.0 - foam) + specCol * spec * specI * (1.0 - foam);
+  vec3 col = body * (1.0 - F) * (1.0 - foam) + refl * F * (1.0 - foam) + specCol * spec * specI * (1.0 - far * 0.55) * (1.0 - foam);
   // light through the crests (towards the sun)
   col += midCol * lightCol * pow(max(dot(-v, specDir), 0.0), 4.0) * max(wv.x * att, 0.0) * 0.8 * (1.0 - night);
   col += lightCol * vec3(0.92, 0.96, 1.0) * foam * 0.85;
@@ -174,7 +175,7 @@ export class Water {
       wK: { value: WAVES.map((w) => new THREE.Vector4(w.kx, w.kz, w.om, w.a)) }, wP: { value: WAVES.map((w) => new THREE.Vector4(w.ph, w.L, 0, 0)) }, wTime: { value: 0 },
       gridPos: { value: new THREE.Vector2() },
       lightCol: { value: new THREE.Color(1, 1, 1) }, specDir: { value: new THREE.Vector3(0, 1, 0) }, specCol: { value: new THREE.Color(1, 1, 1) }, specI: { value: 1 },
-      deepCol: { value: new THREE.Color(0x0b3a78) }, midCol: { value: new THREE.Color(0x1a98a4) }, absorbK: { value: new THREE.Vector3(0.45, 0.07, 0.04) },
+      deepCol: { value: new THREE.Color(0x0c4890) }, midCol: { value: new THREE.Color(0x1aa2aa) }, absorbK: { value: new THREE.Vector3(0.45, 0.07, 0.04) },
       night: { value: 0 }, wind: { value: 0.4 },
     };
     // the sky's uniforms (shared objects, so they stay in step), or stand-ins without a sky

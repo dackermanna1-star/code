@@ -200,8 +200,18 @@ function wheelForces(v, h) {
   if (d.kind === 'plane') planeBrakes(v); else engine(v, h);
   // steering: less lock at speed, eased
   const sp = Math.abs(v.speed);
-  const lock = d.steer / (1 + sp / d.steerFade);
-  const want = -(c.steer || 0) * lock;
+  const lock = d.steer / (1 + sp / (d.steerFade * (c.handbrake ? 2.2 : 1)));
+  let want = -(c.steer || 0) * lock;
+  // steering assist: at speed, keep the front tyres near their best slip angle (full lock = the fastest turn,
+  // never a plough; when the tail slides the window follows it, which is a counter-steer)
+  if (sp > 12 && v.speed > 0 && !c.handbrake && d.kind !== 'plane') {
+    const vLat = v.vel.dot(lf) + v.angVel.dot(up) * d.frontArm;
+    const tv = Math.atan2(vLat, v.speed);
+    const am = d.peakF * 1.15, k = Math.min(1, (sp - 12) / 20);
+    const lo = tv - am, hi = tv + am;
+    const cl = want < lo ? lo : want > hi ? hi : want;
+    want += (cl - want) * k;
+  }
   const rate = 3.2 + (d.kind === 'bike' ? 2 : 0);
   v.steerAngle += Math.max(-rate * h, Math.min(rate * h, want - v.steerAngle));
   const hb = !!c.handbrake && d.kind !== 'plane';
@@ -266,7 +276,13 @@ function wheelForces(v, h) {
     fx -= Math.sign(vf) * Math.min(brakeF, capX);
     // friction ellipse: a spinning or locked tyre loses some of its side grip
     const limX = d.muX * surf * fz, limY = mu * surf * fz;
-    const ex = fx / limX, ey = fy / Math.max(1e-6, limY);
+    let ey = fy / Math.max(1e-6, limY);
+    // traction control (everyday cars): drive only with what the tyre has left after cornering
+    if (d.tcs && w.driven && eng.force * fx > 0) {
+      const room = limX * Math.sqrt(Math.max(0.04, 1 - Math.min(1, ey * ey)));
+      if (Math.abs(fx) > room) fx = Math.sign(fx) * room;
+    }
+    const ex = fx / limX;
     const e2 = ex * ex + ey * ey;
     let spin = 0;
     if (e2 > 1) {
@@ -275,6 +291,7 @@ function wheelForces(v, h) {
       if (spin < 0) spin = 0;
       fx /= over; fy /= over * (1 + spin * 0.6);
     }
+    st.fx = fx; st.fy = fy; st.alpha = Math.atan2(vs, Math.abs(vf) + 2);
     st.slip = spin; spinSum += w.driven ? spin : 0;
     const skid = Math.min(1, Math.max(spin, (Math.abs(vs) - 6) / 25));
     st.skid = skid; skidSum += skid;

@@ -232,6 +232,7 @@ vec3 recolor(vec3 s, int q) {
     this.mesh.name = 'terrain';
     world.scene.add(this.mesh);
     this._minmax();
+    this._ring();
     this._frustum = new THREE.Frustum();
     this._m = new THREE.Matrix4();
     this._box = new THREE.Box3();
@@ -265,6 +266,34 @@ vec3 recolor(vec3 s, int q) {
     this.levels = levels;
   }
 
+  /**
+   * Tiles beyond the edge of the map (the heights there repeat the edge, so the
+   * mainland runs on to the horizon): 2048-stud tiles out to 2 tiles, then 8192-stud
+   * ones out past any far plane. Tiles that would be deep under the sea are left out.
+   */
+  _ring() {
+    const G = this.G, H = G.HALF, N = G.N, out = [];
+    const range = (x0, z0, size) => {
+      // the clamped rectangle is a strip (or corner) of the map's edge
+      const i0 = Math.max(0, Math.min(N - 1, Math.floor((x0 + H) / G.CELL))), i1 = Math.max(0, Math.min(N - 1, Math.ceil((x0 + size + H) / G.CELL)));
+      const j0 = Math.max(0, Math.min(N - 1, Math.floor((z0 + H) / G.CELL))), j1 = Math.max(0, Math.min(N - 1, Math.ceil((z0 + size + H) / G.CELL)));
+      let mn = 1e9, mx = -1e9;
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const v = G.h[j * N + i]; if (v < mn) mn = v; if (v > mx) mx = v; }
+      return [mn, mx];
+    };
+    const add = (x0, z0, size) => { const [mn, mx] = range(x0, z0, size); if (mx > -6) out.push({ x0, z0, size, mn, mx }); };
+    for (let tj = -2; tj < 6; tj++) for (let ti = -2; ti < 6; ti++) {
+      if (ti >= 0 && tj >= 0 && ti < 4 && tj < 4) continue;
+      add(-H + ti * 2048, -H + tj * 2048, 2048);
+    }
+    const o = -H - 4096; // the 2048 ring spans -H-4096 .. H+4096 = 3 x 8192 - ... use 8192 tiles round it
+    for (let tj = -2; tj < 4; tj++) for (let ti = -2; ti < 4; ti++) {
+      if (ti >= 0 && tj >= 0 && ti < 2 && tj < 2) continue;
+      add(o + ti * 8192, o + tj * 8192, 8192);
+    }
+    this.ring = out;
+  }
+
   _visit(ti, tj, size) {
     const L = this.levels[size], k = tj * L.n + ti, box = this._box, HALF = this.G.HALF;
     const x0 = ti * size - HALF, z0 = tj * size - HALF;
@@ -292,13 +321,11 @@ vec3 recolor(vec3 s, int q) {
     const R = this.levels[1024];
     for (let tj = 0; tj < R.n; tj++) for (let ti = 0; ti < R.n; ti++) this._visit(ti, tj, 1024);
     let count = this._count;
-    // a ring of big tiles beyond the edges (the heights there repeat the edge)
-    for (let tj = -3; tj < R.n + 3; tj++) for (let ti = -3; ti < R.n + 3; ti++) {
-      if (ti >= 0 && tj >= 0 && ti < R.n && tj < R.n) continue;
-      const x0 = ti * 1024 - HALF, z0 = tj * 1024 - HALF;
-      box.min.set(x0, -80, z0); box.max.set(x0 + 1024, 10, z0 + 1024);
-      if (!fr.intersectsBox(box) || count >= max) continue;
-      arr[count * 3] = x0; arr[count * 3 + 1] = z0; arr[count * 3 + 2] = 1024; count++;
+    // beyond the map: the land (or seabed) carries on, in big tiles (see _ring)
+    for (const t of this.ring) {
+      box.min.set(t.x0, t.mn - 4, t.z0); box.max.set(t.x0 + t.size, t.mx + 1, t.z0 + t.size);
+      if (count >= max || !fr.intersectsBox(box)) continue;
+      arr[count * 3] = t.x0; arr[count * 3 + 1] = t.z0; arr[count * 3 + 2] = t.size; count++;
     }
     this.geo.instanceCount = count;
     this.tileAttr.needsUpdate = true;

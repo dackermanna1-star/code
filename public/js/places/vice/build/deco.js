@@ -35,7 +35,7 @@ export function decoHotel(C, lot, r, o = {}) {
   const hw = W / 2 - 0.6, fz = D / 2 - setback, bz = -D / 2 + 1;
   const neonP = ocean ? 1 : main ? 0.65 : 0.25;
   const hasNeon = r() < neonP;
-  const kind = o.win ?? (r() < 0.28 ? WIN.ribbon : r() < 0.12 ? WIN.porthole : WIN.punched);
+  const kind = o.win ?? (r() < 0.25 ? WIN.ribbon : r() < 0.06 ? WIN.porthole : WIN.punched);
   const spec = { kind, fh, bw: rr(r, 8.5, 10.5), v0: g, gk: ocean ? GF.lobby : main ? GF.shop : GF.same, occ: 0.55, variant: ri(r, 0, 15) };
   K.facade(spec);
   // ---- the mass: a rounded corner where there's a cross street ----

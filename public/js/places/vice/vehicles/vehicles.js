@@ -50,8 +50,9 @@ export function prepare(id) {
   d.cmZ = kind === 'plane' ? 1.4 : kind === 'heli' ? -0.6 : kind === 'car' ? d.size.l * 0.025 : 0; // front-engined
   // inertia of the main box (planes: the fuselage and wings)
   const W = kind === 'plane' ? 20 : d.size.w, H = Math.max(2, b.y1 - y0), L = d.size.l;
-  const kI = kind === 'bike' ? 1.4 : kind === 'heli' ? 1.2 : 1;
-  d.I = new THREE.Vector3(m * (H * H + L * L) / 12 * kI, m * (W * W + L * L) / 12 * kI, m * (W * W + H * H) / 12 * kI);
+  const kI = kind === 'bike' ? 1.4 : kind === 'heli' ? 1.2 : kind === 'car' ? 0.85 : 1;
+  const kY = kind === 'car' ? 0.6 : 1; // cars turn on a dime (arcade): less yaw inertia
+  d.I = new THREE.Vector3(m * (H * H + L * L) / 12 * kI, m * (W * W + L * L) / 12 * kI * kY, m * (W * W + H * H) / 12 * kI);
   d.invI = new THREE.Vector3(1 / d.I.x, 1 / d.I.y, 1 / d.I.z);
   d.invM = 1 / m;
   d.radius = Math.hypot(d.size.w / 2, b.y1 - d.cmY, d.size.l / 2);
@@ -70,7 +71,8 @@ export function prepare(id) {
   d.peakF = 0.17; d.peakR = 0.12; // stiffer at the back: stable, a little understeer
   d.slideF = 0.86; d.slideR = 0.84 - (d.drift || 0) * 0.25;
   d.hbGrip = 0.18 + (1 - (d.drift || 0)) * 0.16;
-  d.esp = kind === 'bike' ? 10 : 7 - (d.drift || 0) * 4;
+  d.esp = kind === 'bike' ? 10 : 10 - (d.drift || 0) * 6;
+  d.tcs = kind === 'bike' || (d.drift || 0) <= 0.55;
   d.rollLift = kind === 'bike' ? 1 : kind === 'plane' ? 0.85 : 0.5;
   d.revTop = Math.min(32, d.top * 0.25);
   d.gearTop = []; for (let i = 1; i <= d.gears; i++) d.gearTop.push(d.top * Math.pow(i / d.gears, 0.78));
@@ -84,6 +86,7 @@ export function prepare(id) {
     for (const w of ws) if (w.front) { zf += w.z; nf++; } else { zr += w.z; nr++; }
     zf /= nf || 1; zr /= nr || 1;
     d.wheelbase = Math.max(2, zf - zr);
+    d.frontArm = zf - d.cmZ;
     const ff = nf && nr ? clamp((d.cmZ - zr) / (zf - zr), 0.1, 0.9) : 0.5;
     const nD = ws.filter((w) => driven(d, w)).length;
     d.nDriven = nD;
@@ -100,7 +103,7 @@ export function prepare(id) {
         Lmax, xs, mountY: w.y + (Lmax - xs), staticLoad: load, k, c: 2 * zeta * Math.sqrt(k * (load / G)),
       });
     }
-  } else { d.nDriven = 0; d.wheelbase = d.size.l * 0.6; }
+  } else { d.nDriven = 0; d.wheelbase = d.size.l * 0.6; d.frontArm = d.wheelbase / 2; }
   // hull points that touch the ground (roof, sides, skids, wingtips...)
   const h = d.hull, ix = (h.x1 - h.x0) / 2 * 0.92, xc = h.xc, z0 = h.z0 * 0.94, z1 = h.z1 * 0.94;
   if (kind === 'heli') d.corners = [[2.7, 0, -4.2], [-2.7, 0, -4.2], [2.7, 0, 5.2], [-2.7, 0, 5.2], [0, 7.6, 1.5], [3, 5, 1.5], [-3, 5, 1.5], [0, 5.2, -16.5], [0, 2, 6.8]];
@@ -169,6 +172,7 @@ export class Vehicle {
     this.inWater = 0; this.drowned = false; this.airT = 0; this.alt = 0;
     this.sleeping = false; this.sleepT = 0; this.roofT = 0; this.burnT = 0; this.deadT = 0;
     this.lastAttacker = null; this.crashT = 0; this.hornT = 0;
+    this.impDv = 0; this.impG = 0; this.impMax = 0; this.impOther = null; this.impKind = ''; this.impP = new THREE.Vector3();
     this.wheels = def.wheels.map(() => ({ len: 0, contact: false, load: 0, slip: 0, skid: 0, omega: 0, rot: 0, surf: 1 }));
     for (let i = 0; i < this.wheels.length; i++) this.wheels[i].len = def.wheels[i].Lmax - def.wheels[i].xs;
     // paint
@@ -336,24 +340,39 @@ export class Vehicle {
     V.events?.emit('vehicle:destroyed', { veh: this, attacker });
   }
 
-  /** A collision: damage, sound and shake events, bikes throw their rider. */
+  /** A collision (called per substep): summed over the frame, then applied by impacts(). */
   onImpact(dv, other, p, kind) {
-    const ground = kind === 'ground';
-    if (dv < (ground ? 28 : 12)) return;
-    const d = this.def;
+    if (kind === 'ground') { this.impG += dv; return; }
+    if (dv > this.impMax) { this.impMax = dv; this.impOther = other; this.impKind = kind; this.impP.set(p.x, p.y, p.z); }
+    this.impDv += dv;
+  }
+
+  /** Once a frame: damage, sound and shake events, bikes throw their rider, aircraft blow up. */
+  impacts() {
+    const d = this.def, dv = this.impDv, g = this.impG;
+    this.impDv = 0; this.impG = 0;
+    const other = this.impOther;
+    this.impMax = 0; this.impOther = null;
+    const air = d.kind === 'heli' || d.kind === 'plane';
+    if (g >= 28) {
+      this.damage(((g - 28) * (air ? 8 : 2.5)) / d.tough, this.com, null, this.driver);
+      if (air && g > 40 && !this.dead) this.explode(this.lastAttacker);
+      if (d.kind === 'bike' && g > 45 && this.driver) this.eject(g);
+    }
+    if (dv < 12) return;
     const otherVeh = other && other.vehicle ? other.vehicle : other instanceof Vehicle ? other : null;
     const attacker = otherVeh?.driver || this.driver || null;
-    const k = d.kind === 'heli' || d.kind === 'plane' ? 8 : ground ? 2.5 : 4.5;
-    this.damage(((dv - (ground ? 28 : 12)) * k) / d.tough, p, null, attacker);
+    this.damage(((dv - 12) * (air ? 8 : 4.5)) / d.tough, this.impP, null, attacker);
     if (this.crashT <= 0) {
       this.crashT = 0.18;
-      V.events?.emit('vehicle:crash', { veh: this, other: otherVeh || other, pos: _p.set(p.x, p.y, p.z).clone(), speed: dv, kind });
+      V.events?.emit('vehicle:crash', { veh: this, other: otherVeh || other, pos: this.impP.clone(), speed: dv, kind: this.impKind });
       if (dv > 18) V.events?.emit('noise', { pos: this.pos, r: 50 + dv * 2, kind: 'crash', src: this });
       if (this.driver?.isPlayer) V.cam?.shake?.(Math.min(1, dv / 60));
+      // the player ramming someone is a crime (the police and the other driver care)
+      if (otherVeh && this.driver?.isPlayer && dv > 15) V.events?.emit('crime', { kind: 'assault', pos: this.impP.clone(), by: this.driver, victim: otherVeh.driver || otherVeh });
     }
-    // air vehicles crashing hard go up at once
-    if ((d.kind === 'heli' || d.kind === 'plane') && dv > 42 && !this.dead) this.explode(attacker);
-    // bikes throw the rider
+    // aircraft hitting things hard go up at once; bikes throw the rider
+    if (air && dv > 42 && !this.dead) this.explode(attacker);
     if (d.kind === 'bike' && dv > 24 && this.driver) this.eject(dv);
   }
 
@@ -615,17 +634,13 @@ export class Vehicles {
     _p.set(hit.x, hit.y, hit.z);
     a.onImpact(dva, b, _p, 'vehicle');
     b.onImpact(dvb, a, _p, 'vehicle');
-    // ramming by the player is a crime (the police and the owner care)
-    if (dva > 10 || dvb > 10) {
-      const p = a.driver?.isPlayer ? a : b.driver?.isPlayer ? b : null;
-      if (p) V.events?.emit('crime', { kind: 'assault', pos: _p.clone(), by: p.driver, victim: p === a ? b : a });
-    }
   }
 
   /** After the physics: damage over time, fire, sleep, people, the phys box, effects. */
   afterStep(v, dt) {
     const d = v.def;
     v.updateMatrix();
+    if (v.impDv || v.impG) v.impacts();
     const up = _u.set(0, 1, 0).applyQuaternion(v.quat);
     v.alt = v.pos.y - groundProbe(v.pos.x, v.pos.y + 1, v.pos.z, 0.5, v.box);
     v.airT = (v.contacts > 0 || v.bodyGround || v.inWater > 0.2) ? 0 : v.airT + dt;

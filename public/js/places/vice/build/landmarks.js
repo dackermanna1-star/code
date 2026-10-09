@@ -33,8 +33,28 @@ function frontDoor(lot, out = 4, along = 0) {
 const E = Math.PI / 2, W = -Math.PI / 2, N = Math.PI, S = 0;
 
 export function buildLandmarks(C) {
-  const jobs = [safehouse, hospitalBeach, hospitalJackson, policeHQ, policeBeach, gunshops, sprayShop, marina, arena, ballpark, libertyTower, govCenter, port, airport, heliport, starIsland];
+  const jobs = [brickellKey, safehouse, hospitalBeach, hospitalJackson, policeHQ, policeBeach, gunshops, sprayShop, marina, arena, ballpark, libertyTower, govCenter, port, airport, heliport, starIsland];
   for (const f of jobs) { try { f(C); } catch (e) { console.warn('city: landmark failed', f.name, e); } }
+}
+
+// ---- Brickell Key: a cluster of condo towers on the island ----------------------------------------------------------
+function brickellKey(C) {
+  const cands = [];
+  for (let x = 700; x <= 900; x += 10) for (let z = 110; z <= 330; z += 10) cands.push([x, z]);
+  const r = C.rng(8601);
+  let n = 0;
+  // the biggest footprints first, nearest the island's middle
+  cands.sort((a, b) => Math.hypot(a[0] - 800, a[1] - 220) - Math.hypot(b[0] - 800, b[1] - 220));
+  for (const half of [30, 26, 22, 20]) for (const [x, z] of cands) {
+    if (n >= 4) break;
+    if (!C.clear(x - half - 4, z - half - 4, x + half + 4, z + half + 4)) continue;
+    const yaw = Math.atan2(800 - x, 220 - z) + Math.PI; // its back to the middle of the island
+    const lot = lotRect(x - half, z - half, x + half, z + half, Math.round(yaw / (Math.PI / 2)) * (Math.PI / 2), 8601 + n);
+    C.reserve(x - half - 6, z - half - 6, x + half + 6, z + half + 6);
+    tower(C, lot, r, { H: rr(r, 220, 400), type: n % 2 ? 'resi' : 'glass', shape: pick(r, ['round', 'cyl', 'chamfer']), podium: 0 });
+    n++;
+  }
+  C.place('brickellkey', { x: 800, z: 220, kind: 'island', name: 'Brickell Key', door: { x: 790, z: 240, heading: S } });
 }
 
 // ---- the safehouse: a deco hotel on Washington Ave with a pool court behind ----------------------------------------

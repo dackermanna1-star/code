@@ -28,7 +28,7 @@ import { propMaterials, NearSet, RoadIndex, hash } from './props/kit.js';
 import { Flora, SP, SPECIES } from './props/flora.js';
 import { buildBeach } from './props/beach.js';
 import { buildWaterfront, buildKenney } from './props/waterfront.js';
-import { buildPort } from './props/port.js';
+import { buildPort, containerMaterial } from './props/port.js';
 import { buildAirport } from './props/airport.js';
 import { buildParks } from './props/parks.js';
 import { buildStreets } from './props/street.js';
@@ -127,7 +127,7 @@ export class Props {
     });
     step('meshes', () => {
       const M = this.M;
-      this.meshes = this.C.meshes({ surf: M.surf, detail: M.surf, flat: M.flat, paint: M.paint, glass: M.surf }, { shadow: new Set(['surf', 'detail']) });
+      this.meshes = this.C.meshes({ surf: M.surf, detail: M.surf, flat: M.flat, paint: M.paint, win: M.win, fence: M.fence, cont: containerMaterial() }, { shadow: new Set(['surf', 'detail', 'win', 'cont']) });
       for (const m of this.meshes) {
         if (m.userData.mat === 'flat' || m.userData.mat === 'paint') m.castShadow = false;
         m.userData.detail = m.userData.mat === 'detail';

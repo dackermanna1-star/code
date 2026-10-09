@@ -11,7 +11,7 @@
 //  - murals: big procedural pictures for Wynwood's walls (an atlas too).
 import * as THREE from 'three';
 import { TBN_GLSL } from '../world/surface.js';
-import { TEX_LAYER, noiseTex } from '../world/textures.js';
+import { TEX_LAYER, TEX_KEYS, texAvg, noiseTex } from '../world/textures.js';
 import { rng } from '../../outbreak/noise.js';
 
 /** Uniforms shared by every city material (set by City.update). */
@@ -19,12 +19,14 @@ export const CITY_U = {
   night: { value: 0 },   // street lights / windows / neon on (sky.state.lamps)
   dayL: { value: 1 },    // how much daylight (sky.state.light)
   uTime: { value: 0 },
+  dbg: { value: 0 },     // debug views: 1 no normal maps, 2 no room light, 3 no env (metal 0)
 };
 
 const FRAG_HEAD = `
 precision highp sampler2DArray;
 uniform sampler2DArray tCol, tNor; uniform sampler2D noiseT;
-uniform float night, dayL, uTime, wet;
+uniform float night, dayL, uTime, wet, dbg;
+uniform float layAvg[32];
 varying vec4 vLay; varying vec4 vTint; varying vec4 vWin; varying vec2 vUv2; varying vec3 vWp; varying vec3 vWn;
 vec3 bN; vec3 eGlow; float gR; float gM;
 ${TBN_GLSL}
@@ -36,7 +38,7 @@ float boxm(vec2 p, vec4 r, vec2 fw) {
   return a.x * a.y * b.x * b.y;
 }
 // the room behind a pane: p (studs, in the cell), cell size cs, depth D, view direction d (x along, y up, z in)
-vec3 room(vec2 p, vec2 cs, float D, vec3 d, float h, float lit, vec3 lc, int style) {
+vec3 room(vec2 p, vec2 cs, float D, vec3 d, float h, float lit, vec3 lc, int style, float aa) {
   vec3 o = vec3(p, 0.0);
   vec3 tq = (vec3(d.x > 0.0 ? cs.x : 0.0, d.y > 0.0 ? cs.y : 0.0, D) - o) / d;
   float t = min(min(tq.x, tq.y), tq.z);
@@ -47,11 +49,11 @@ vec3 room(vec2 p, vec2 cs, float D, vec3 d, float h, float lit, vec3 lc, int sty
     c = wallC;
     if (style == 1) { // a shop: shelves of colourful things on the back wall
       float sh = step(0.5, fract(q.y / 2.2)) * step(0.15, fract(q.x / 3.1));
-      c = mix(wallC * 0.9, pal(hsh(floor(q.xy / vec2(3.1, 2.2)) + h)) * 0.9, sh * 0.85);
+      c = mix(wallC * 0.9, pal(hsh(floor(q.xy / vec2(3.1, 2.2)) + h)) * 0.9, mix(sh, 0.4, aa) * 0.85);
     } else if (style == 2) { // an office: a partition, a window to the next room
       c = mix(wallC, vec3(0.35, 0.38, 0.42), step(cs.y * 0.62, q.y) * 0.5);
     } else {
-      c *= 0.92 + 0.08 * step(0.5, fract(q.x / 7.0 + h)); // a picture or a door
+      c *= 0.92 + 0.08 * mix(step(0.5, fract(q.x / 7.0 + h)), 0.5, aa); // a picture or a door
     }
   } else if (t == tq.y) {
     c = d.y > 0.0 ? vec3(0.86, 0.85, 0.82) : mix(vec3(0.42, 0.3, 0.2), vec3(0.5, 0.5, 0.52), step(0.5, h));
@@ -59,7 +61,7 @@ vec3 room(vec2 p, vec2 cs, float D, vec3 d, float h, float lit, vec3 lc, int sty
   c *= mix(1.0, 0.55, q.z / D);
   // the light: ceiling lamps when lit (brightest near the top), else the dim daylight inside
   float up = q.y / cs.y;
-  vec3 L = lc * lit * (0.55 + 0.75 * up * up) + vec3(0.42, 0.45, 0.5) * dayL * 0.35;
+  vec3 L = lc * lit * (0.35 + 0.55 * up * up) + vec3(0.42, 0.45, 0.5) * dayL * 0.3 * (1.0 - night);
   return c * L;
 }
 `;
@@ -78,14 +80,16 @@ const MAP_FRAG = `{
   gR = vLay.z / 255.0; gM = 0.0; eGlow = vec3(0.0);
   float gy = vWp.y - 3.0;                       // height above the street
   float vert = 1.0 - abs(vWn.y);
-  if (pat == 4 || pat == 7) { col = mix(vec3(lum), tc, 0.4) * tint * 1.6; bN = mix(vec3(0.0, 0.0, 1.0), bN, 0.55); }
-  else if (pat == 5) { col = mix(vec3(lum), tc, 0.15) * tint * 1.75; bN = mix(vec3(0.0, 0.0, 1.0), bN, 0.2); }
+  // paint and flat colour: the tint's own colour, shaded by the photo (its brightness over the layer's average)
+  float shade = clamp(lum / max(layAvg[int(L)], 0.02), 0.35, 1.7);
+  if (pat == 4 || pat == 7) { col = tint * mix(1.0, shade, 0.5); bN = mix(vec3(0.0, 0.0, 1.0), bN, 0.55); }
+  else if (pat == 5) { col = tint * mix(1.0, shade, 0.15); bN = mix(vec3(0.0, 0.0, 1.0), bN, 0.2); }
   else if (pat == 6) { col = tint * 0.55; bN = vec3(0.0, 0.0, 1.0); gR = 0.3; eGlow = tint * glow * (0.25 + 4.5 * night); }
   else if (pat == 8) { col = tint; bN = vec3(0.0, 0.0, 1.0); gR = 0.06; gM = 0.9; }
-  else if (pat == 9) { col = mix(vec3(lum), tc, 0.3) * tint * 1.6; gM = 0.8; bN = mix(vec3(0.0, 0.0, 1.0), bN, 0.4); }
+  else if (pat == 9) { col = tint * mix(1.0, shade, 0.45); gM = 0.8; bN = mix(vec3(0.0, 0.0, 1.0), bN, 0.4); }
   else col = tc * tint;
-  if (pat == 7) eGlow += col * glow * night * (0.25 + 1.4 * (1.0 - smoothstep(0.0, 42.0, gy)));
-  else if (glow > 0.0 && pat != 6) eGlow += col * glow * night * 1.6;
+  if (pat == 7) eGlow += col * glow * night * (0.05 + 0.4 * (1.0 - smoothstep(0.0, 36.0, gy)));
+  else if (glow > 0.0 && pat != 6) eGlow += col * glow * night * 0.9;
   // grime: streaks down the walls and patches
   if (grime > 0.0) {
     float g1 = texture(noiseT, vWp.xz / 53.0 + vWp.y / 131.0).r, g2 = texture(noiseT, vec2(vWp.x + vWp.z, vWp.y * 0.2) / 29.0).g;
@@ -202,19 +206,21 @@ const MAP_FRAG = `{
         eGlow += vec3(1.0, 0.85, 0.6) * m * night * 0.9 * on;
         gR = 0.25; pane = 0.0;
       } else {
-        rc = room(fp, cs, D, d, h, on * night, lcol, style);
+        float aa = smoothstep(0.03, 0.12, cellPix);
+        rc = room(fp, cs, D, d, h, on * night, lcol, style, aa);
         // curtains (homes) or blinds (offices) behind some panes
         float cur = 0.0;
         if (style == 0 && h2 > 0.45) { float cw = (R.z - R.x) * (0.18 + 0.3 * fract(h2 * 7.0)); cur = max(1.0 - step(R.x + cw, fp.x), step(R.z - cw, fp.x)); }
-        if (style == 2 && h2 > 0.5) { float bl = R.w - (R.w - R.y) * fract(h2 * 3.7); cur = step(bl, fp.y) * (0.75 + 0.25 * step(0.5, fract(fp.y * 2.0))); }
+        if (style == 2 && h2 > 0.5) { float bl = R.w - (R.w - R.y) * fract(h2 * 3.7); cur = step(bl, fp.y) * (0.75 + 0.25 * mix(step(0.5, fract(fp.y * 2.0)), 0.5, smoothstep(0.15, 0.5, fw.y * 2.0))); }
         vec3 curC = mix(vec3(0.85, 0.82, 0.74), pal(h2 * 3.0), 0.3);
-        rc = mix(rc, curC * (lcol * on * night * 0.9 + vec3(0.5) * dayL * 0.5), cur * (1.0 - far));
+        if (dbg < 4.5 || dbg > 5.5) rc = mix(rc, curC * (lcol * on * night * 0.9 + vec3(0.5) * dayL * 0.5), cur * (1.0 - far));
         float top = smoothstep(R.w - 1.2, R.w, fp.y) * recess * (1.0 - far); // the lintel's shadow
         vec3 gcol = glass * (1.0 - top * 0.5);
         col = mix(col, gcol, pane);
         gR = mix(gR, 0.05 + 0.05 * h2, pane);
         gM = mix(gM, gMet, pane);
         bN = mix(bN, vec3((h2 - 0.5) * 0.04, (h - 0.5) * 0.03, 1.0), pane);
+        if (dbg > 3.5 && dbg < 4.5) rc = vec3(0.3);
         eGlow += rc * pane * (1.0 - fres * 0.75) * (1.0 - top * 0.6);
       }
     }
@@ -225,7 +231,9 @@ const MAP_FRAG = `{
 /** The material for the kit's faces (see the top of this file). tex: viceTextures(); shared uniforms in CITY_U. */
 export function buildingMaterial(tex, o = {}) {
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0 });
-  const uni = { tCol: tex.col, tNor: tex.nor, noiseT: { value: noiseTex() }, wet: { value: 0 }, ...CITY_U };
+  const avg = new Array(32).fill(0.3);
+  TEX_KEYS.forEach((k, i) => { const c = texAvg(k); avg[i] = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b; });
+  const uni = { tCol: tex.col, tNor: tex.nor, noiseT: { value: noiseTex() }, wet: { value: 0 }, layAvg: { value: avg }, ...CITY_U };
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader
@@ -238,10 +246,10 @@ vWn = normalize(mat3(modelMatrix) * objectNormal);`);
       .replace('#include <common>', '#include <common>\n' + FRAG_HEAD)
       .replace('#include <map_fragment>', MAP_FRAG)
       .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = mix(gR, gR * 0.4, wet);')
-      .replace('#include <metalnessmap_fragment>', 'float metalnessFactor = gM;')
+      .replace('#include <metalnessmap_fragment>', 'float metalnessFactor = dbg > 2.5 ? 0.0 : gM;')
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
-{ mat3 tbn = vcTBN(normal, -vViewPosition, vUv2); normal = normalize(tbn * vec3(bN.xy * 0.75, max(bN.z, 0.2))); }`)
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += eGlow;');
+{ mat3 tbn = vcTBN(normal, -vViewPosition, vUv2); if (dbg < 0.5 || dbg > 1.5) normal = normalize(tbn * vec3(bN.xy * 0.75, max(bN.z, 0.2))); }`)
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += dbg > 1.5 && dbg < 2.5 ? vec3(0.0) : eGlow;');
   };
   mat.customProgramCacheKey = () => 'vc-bld' + (o.key || '');
   mat.userData.uni = uni;

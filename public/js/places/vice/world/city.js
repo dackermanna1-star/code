@@ -35,10 +35,10 @@ export class City {
     this.K = new Kit(phys);
     const C = this._context();
     this.C = C;
+    this._streetIndex();
     // the landmarks first: they claim their ground
     buildLandmarks(C);
     // then every block, in its district's style
-    this._streetIndex();
     let lotsN = 0;
     for (const b of this.plan.blocks) lotsN += this._block(C, b);
     this.lots = lotsN;
@@ -64,6 +64,12 @@ export class City {
           const k = ground.kindAt(x, z);
           if (k >= 1 && k <= 4) return false;
         }
+        return true;
+      },
+      /** Dry land, no road on it and nobody else's: somewhere to build. */
+      clear(x0, z0, x1, z1) {
+        if (!this.landOK(x0, z0, x1, z1) || !this.free(x0, z0, x1, z1)) return false;
+        for (let i = 0; i <= 4; i++) for (let j = 0; j <= 4; j++) if (city.roadAt(x0 + ((x1 - x0) * i) / 4, z0 + ((z1 - z0) * j) / 4)) return false;
         return true;
       },
       /** Is a rectangle free of the landmarks' ground? */

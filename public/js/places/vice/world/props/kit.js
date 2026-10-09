@@ -48,8 +48,26 @@ export function propMaterials(tex, glow) {
 #endif`);
   };
   inst.customProgramCacheKey = () => 'vc-surf-propsI';
-  // glass: dark, glossy, a little see-through at grazing angles is not worth a blend pass - opaque
-  return { surf, flat, paint, inst };
+  // windows that light up at night in a warm colour, each pane a little different (lay.z = how many are lit)
+  const win = surfaceMaterial(tex, { glowUniform: glow, key: 'propsWin', fragEmit: `{
+    vec2 cell = floor(vec2(vWp.x + vWp.z, vWp.y) / vec2(5.0, 4.5));
+    float h = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
+    float on = step(1.0 - vLay.z, h * 0.999);
+    totalEmissiveRadiance += mix(vec3(1.0, 0.72, 0.42), vec3(0.75, 0.85, 1.0), step(0.8, fract(h * 7.31))) * on * glow * (1.2 + h);
+  }` });
+  // chain-link fences: a wire mesh drawn in code, cut out
+  const fence = new THREE.MeshStandardMaterial({ map: fenceTex(), alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.5, metalness: 0.4, color: 0xb8bcc0 });
+  return { surf, flat, paint, inst, win, fence };
+}
+function fenceTex() {
+  return canvasTex(64, 64, (x, w, h) => {
+    x.clearRect(0, 0, w, h);
+    x.strokeStyle = '#d8dadc'; x.lineWidth = 2.2;
+    for (const k of [-1, 0, 1]) {
+      x.beginPath(); x.moveTo(k * w, 0); x.lineTo(k * w + w, h); x.stroke();
+      x.beginPath(); x.moveTo(k * w + w, 0); x.lineTo(k * w, h); x.stroke();
+    }
+  }, { repeat: true });
 }
 
 // ---- shapes written into a surface.js Geo ------------------------------------------
@@ -295,4 +313,55 @@ export function canvasTex(w, h, draw, o = {}) {
   t.anisotropy = o.aniso || 4;
   t.minFilter = THREE.LinearMipmapLinearFilter;
   return t;
+}
+
+/**
+ * A polyline [[x, z]] moved sideways by d (+ = to the right of travel, i.e. (-tz, tx)),
+ * with mitred corners (limited). For a land polygon in map order, + is inland.
+ */
+export function offsetLine(pts, d, closed = false) {
+  const n = pts.length, out = [];
+  const nrm = (i) => { const a = pts[i], b = pts[(i + 1) % n], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; return [-dz / l, dx / l]; };
+  for (let i = 0; i < n; i++) {
+    const hasPrev = closed || i > 0, hasNext = closed || i < n - 1;
+    const n0 = hasPrev ? nrm((i - 1 + n) % n) : nrm(i), n1 = hasNext ? nrm(i) : nrm((i - 1 + n) % n);
+    let mx = n0[0] + n1[0], mz = n0[1] + n1[1]; const ml = Math.hypot(mx, mz);
+    if (ml < 1e-6) { mx = n1[0]; mz = n1[1]; } else { mx /= ml; mz /= ml; }
+    const k = Math.min(3, 1 / Math.max(0.2, mx * n1[0] + mz * n1[1]));
+    out.push([pts[i][0] + mx * d * k, pts[i][1] + mz * d * k]);
+  }
+  if (closed) out.push(out[0]);
+  return out;
+}
+
+/** Merge geometries with position, normal and color (and optional extra attrs) into one, each by its matrix. */
+export function mergeColored(list, extra = null) {
+  let nv = 0, ni = 0;
+  for (const { geo } of list) { nv += geo.attributes.position.count; ni += geo.index ? geo.index.count : geo.attributes.position.count; }
+  const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), col = new Float32Array(nv * 3), idx = new Uint32Array(ni);
+  const ex = extra ? new Float32Array(nv * 4) : null;
+  const v = new THREE.Vector3(), nm = new THREE.Matrix3();
+  let vo = 0, io = 0;
+  for (const { geo, m, tintC, x4 } of list) {
+    const P = geo.attributes.position, N = geo.attributes.normal, C = geo.attributes.color, c = P.count;
+    nm.getNormalMatrix(m);
+    for (let i = 0; i < c; i++) {
+      v.fromBufferAttribute(P, i).applyMatrix4(m); pos[(vo + i) * 3] = v.x; pos[(vo + i) * 3 + 1] = v.y; pos[(vo + i) * 3 + 2] = v.z;
+      v.fromBufferAttribute(N, i).applyMatrix3(nm).normalize(); nor[(vo + i) * 3] = v.x; nor[(vo + i) * 3 + 1] = v.y; nor[(vo + i) * 3 + 2] = v.z;
+      const t = tintC || [1, 1, 1];
+      if (C) { col[(vo + i) * 3] = C.getX(i) * t[0]; col[(vo + i) * 3 + 1] = C.getY(i) * t[1]; col[(vo + i) * 3 + 2] = C.getZ(i) * t[2]; } else { col[(vo + i) * 3] = t[0]; col[(vo + i) * 3 + 1] = t[1]; col[(vo + i) * 3 + 2] = t[2]; }
+      if (ex) ex.set(x4 || [0, 0, 0, 0], (vo + i) * 4);
+    }
+    if (geo.index) { const I = geo.index.array; for (let k = 0; k < I.length; k++) idx[io + k] = I[k] + vo; io += I.length; }
+    else { for (let k = 0; k < c; k++) idx[io + k] = vo + k; io += c; }
+    vo += c;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  if (ex) g.setAttribute('bob', new THREE.BufferAttribute(ex, 4));
+  g.setIndex(new THREE.BufferAttribute(idx, 1));
+  g.computeBoundingSphere();
+  return g;
 }
