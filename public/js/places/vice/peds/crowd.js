@@ -466,7 +466,7 @@ export class Crowd {
     _frus.setFromProjectionMatrix(_pm);
     const cp = camera.position;
     let n = 0, ni = 0;
-    const im = this.meshes.map((m) => m.instanceMatrix.array), cell = this.cell.array, fx = this.fx.array, hat = this.hat.array;
+    const im = this._im || (this._im = this.meshes.map((m) => m.instanceMatrix.array)), cell = this.cell.array, fx = this.fx.array, hat = this.hat.array;
     const ia = this.items.instanceMatrix.array, iid = this.itemId.array;
     const cw = CELL_W / ATLAS, ch = CELL_H / ATLAS;
     for (const f of this.figs) {

@@ -666,16 +666,18 @@ export class FX {
     const onGround = y - g < 7;
     const water = V.ground?.waterAt?.(x, z) === 0 && g < 0.5;
     // the flash
-    this._light(x, y + 5 * s, z, 16000 * s, 0.75, 1, 0.6, 0.25, null);
-    for (let i = 0; i < 2; i++) this.glow.emit(x, y + 2 * s, z, 0, 0, 0, 0.14 + i * 0.06, 16 * s, 26 * s, 9, 6.5, 3.2, 1, T.FLASH, 0, 0, 0, F_STILL);
+    this._light(x, y + 5 * s, z, 4200 * s, 0.7, 1, 0.55, 0.22, null);
+    this.glow.emit(x, y + 2 * s, z, 0, 0, 0, 0.12, 11 * s, 19 * s, 3.4, 2.4, 1.2, 1, T.FLASH, 0, 0, 0, F_STILL);
+    this.glow.emit(x, y + 2.5 * s, z, 0, 0, 0, 0.22, 7 * s, 14 * s, 2.2, 1.1, 0.35, 1, T.GLOW, 0, 0, 0, F_STILL);
     // the fireball: hot tongues flung out and up (additive), and glowing puffs rolling into soot
-    for (let i = 0; i < 26 * s; i++) {
-      const a = R() * 6.283, e = R() * 1.25, sp = (9 + R() * 26) * s;
-      this.glow.emit(x + (R() - 0.5) * 2 * s, y + 1.5 * s, z + (R() - 0.5) * 2 * s, Math.cos(a) * Math.cos(e) * sp, Math.sin(e) * sp + 8, Math.sin(a) * Math.cos(e) * sp, 0.45 + R() * 0.5, (7 + R() * 5) * s, (3 + R() * 2) * s, 7, 3.3, 0.9, 1, T.FLAME, -8, 2.8, 0, F_COOL);
+    for (let i = 0; i < 20 * s; i++) {
+      const a = R() * 6.283, e = R() * 1.25, sp = (9 + R() * 24) * s;
+      this.glow.emit(x + (R() - 0.5) * 2 * s, y + 1.5 * s, z + (R() - 0.5) * 2 * s, Math.cos(a) * Math.cos(e) * sp, Math.sin(e) * sp + 8, Math.sin(a) * Math.cos(e) * sp, 0.4 + R() * 0.45, (6 + R() * 4) * s, (3 + R() * 2) * s, 2.6, 1.05, 0.25, 1, T.FLAME, -8, 2.8, 0, F_COOL);
     }
-    for (let i = 0; i < 24 * s; i++) {
+    // the body: orange billows (not additive, so they don't burn out to white) rolling into soot
+    for (let i = 0; i < 26 * s; i++) {
       const a = R() * 6.283, e = R() * 1.3, sp = (6 + R() * 16) * s, k = R();
-      this.soft.emit(x + (R() - 0.5) * 4 * s, y + 1.5 * s, z + (R() - 0.5) * 4 * s, Math.cos(a) * Math.cos(e) * sp, Math.sin(e) * sp + 9, Math.sin(a) * Math.cos(e) * sp, 1.6 + R() * 1.8, (5 + R() * 4) * s, (14 + R() * 10) * s, 4.2 + k, 1.6 + k * 0.6, 0.35, 0.95, T.PUFF, -6, 1.6, 0, F_HOT | F_SMOKE);
+      this.soft.emit(x + (R() - 0.5) * 4 * s, y + 1.5 * s, z + (R() - 0.5) * 4 * s, Math.cos(a) * Math.cos(e) * sp, Math.sin(e) * sp + 9, Math.sin(a) * Math.cos(e) * sp, 1.6 + R() * 1.8, (5 + R() * 4) * s, (14 + R() * 10) * s, 2.3 + k * 0.9, 0.85 + k * 0.45, 0.16, 0.97, T.PUFF, -6, 1.6, 0, F_HOT | F_SMOKE);
     }
     // sparks and burning bits
     for (let i = 0; i < 34 * s; i++) { const a = R() * 6.283, sp = (25 + R() * 55) * s; this.glow.emit(x, y + 2, z, Math.cos(a) * sp, (15 + R() * 45) * s, Math.sin(a) * sp, 0.6 + R() * 1.1, 0.25 + R() * 0.25, 0.1, 8, 4.5, 1.5, 1, T.GLOW, 55, 0.4, 0.02, 0); }
@@ -692,7 +694,7 @@ export class FX {
     } else if (onGround) {
       // a ring of dust rolling out along the ground, and the shockwave
       for (let i = 0; i < 16 * s; i++) { const a = (i / (16 * s)) * 6.283 + R() * 0.3, sp = (24 + R() * 14) * s; this.soft.emit(x + Math.cos(a) * 2, g + 1, z + Math.sin(a) * 2, Math.cos(a) * sp, 1 + R() * 3, Math.sin(a) * sp, 2.2 + R() * 1.4, 3 * s, 10 * s, 0.55, 0.5, 0.44, 0.65, T.PUFF, -0.5, 1.8, 0, F_LIT | F_SMOKE); }
-      this.rings.add(x, g + 0.4, z, 2 * s, 30 * s, 0.45, 2.4, 1.6, 0.9);
+      this.rings.add(x, g + 0.4, z, 2 * s, 30 * s, 0.45, 1.3, 0.85, 0.45);
       this.scorch.add(x, g + 0.05, z, 0, 1, 0, (11 + R() * 5) * s, 0, null, 1, 0.92);
     }
     // smoke that hangs around

@@ -408,6 +408,9 @@ function shootAct(sys, p, dt, want) {
   s.aimT = (s.aimT || 0) + dt;
   s.cool = (s.cool ?? 0.6 + sys.rand() * 0.5) - dt;
   if (sees && s.aimT > 0.45 && s.cool <= 0 && Math.abs(wrap(Math.atan2(dx, dz) - p.heading)) < 0.5) {
+    // a friend in the way: hold fire and side-step
+    const inWay = sys.ray(_o, _d, Math.max(1, d - 2), (q) => q === p || q === tg || q.dead);
+    if (inWay && inWay.ped.team === p.team) { s.cool = 0.3; s.strafe = s.strafe || (sys.rand() < 0.5 ? 1 : -1); s.strafeT = s.t + 0.8; return; }
     sys.fire(p, tg, _o, _d);
     const w = sys.weaponStats(p.weapon);
     s.burst = (s.burst ?? (w.auto ? 3 + (sys.rand() * 4 | 0) : 1)) - 1;

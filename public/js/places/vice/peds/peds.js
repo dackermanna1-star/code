@@ -8,19 +8,29 @@
 // See ARCHITECTURE.md (People) for the contract.
 //
 //   V.peds = new Peds(world)       ready()  update(dt)  lateUpdate(dt)
-//   spawn({x, z, y?, heading, kind: 'civ'|'cop'|'swat'|'gang'|'mission', outfit (name|index), set, weapon, hp, armor,
-//          team, ai (a brain: {update(ped, dt), onHit?(ped, attacker, info)}), persistent, state}) -> Ped
+//   spawn({x, z, y?, heading, kind: 'civ'|'cop'|'swat'|'gang'|'mission', gang, outfit (name|index), set (outfits.js SETS),
+//          weapon, hp, armor, team, ai (a brain), persistent, state, st}) -> Ped
 //   remove(p)  list  near(x, z, r, out?) -> [Ped] (a shared array, valid until 16 more calls)
-//   ray(origin, dir, max, skip(ped)) -> {ped, part, d, point} | null
-//   fromDriver(driver, veh) -> Ped    knockDriver(driver, vel)      (traffic's stand-in drivers)
-//   ragdollRig(model, {vel, push, onSleep}) -> {stop(), center, asleep, getUp(onDone), push(dir, speed, part), faceUp(), heading()}
-//   for police/mission brains: moveTo(p, x, z, speed)  faceTo(p, x, z)  aimAt(p, target|Vector3)  shoot(p, target)
-//     lineOfSight(a, b)  setState(p, state, o)  say(p, kind|text, secs)  pickups  drop(kind, pos, o)
+//   ray(origin, dir, max, skip(ped)) -> {ped, part, d, point} | null     (per limb; traffic drivers too, as proxies)
+//   fromDriver(driver, veh) -> Ped    knockDriver(driver, vel)      (traffic's stand-in drivers become people)
+//   ragdollRig(model, {vel, carHit, push, onSleep, maxT}) -> handle {stop(), center, asleep, getUp(onDone(x, y, z, heading)),
+//          push(dir, speed, part), faceUp(), heading(), rag}      (the player's CharacterModel as a ragdoll)
+//   drop('money' | 'weapon', pos, {amount | weapon, ammo})   pickups (walk over them: money, V.weapons.give)
+//   say(p, kind | text, secs)     a 2008-style chat bubble (kinds: ai.js LINES: hey, scared, insult, angry, cop, ...)
+//   stats {ms, lateMs, live, drawn, rags}      window.__vc.peds (tests)
+// Brains (police, missions): spawn({ai: {update(ped, dt), onHit?(ped, attacker, info), onNoise?(ped, e), onCrime?(ped, e),
+//   onDeath?(ped, victim, killer), onGetUp?(ped)}}) - the brain drives the ped completely (state 'brain'); each frame
+//   ped.P (pose) is reset, then update() runs, then the manager moves the ped by ped.want. Helpers:
+//   moveTo(p, x, z, speed)  faceTo(p, x, z)  aimAt(p, target|Vector3)  shoot(p, target)  fire(p, target, origin, dir)
+//   lineOfSight(a, b)  setState(p, state, o)  say(p, 'cop')  p.enterVehicle(veh, seat) / p.exitVehicle() (a seated brain
+//   still gets update(): set veh.ctl).  Pose by hand: p.P.arms = 'handsup' | 'pistol' | 'rifle' | 'cower' | ..., p.P.crouch.
 // Ped (the Ped contract): pos (feet), heading, vel, kind, team, hp, maxHp, armor, dead, ragdoll, vehicle, seat,
-//   weapon, isPlayer=false, hit(dmg, part, dir, attacker, info), knock(vel, from), die(cause, attacker),
-//   enterVehicle(veh, seat), exitVehicle(force), flee(threat), say(kind), brain, state, fig (its crowd figure)
-// Events: emits 'death' {ped, cause, attacker}, 'pickup' {kind, amount, pos}, 'crime' (assault/murder/copMurder
-//   when witnessed), 'noise' {kind:'scream'}; listens to 'noise', 'crime', 'vehicle:eject', 'vehicle:destroyed'.
+//   weapon, isPlayer=false, hit(dmg, part, dir, attacker, info), knock(vel, from), push(dir, speed, part), die(cause, attacker),
+//   enterVehicle(veh, seat), exitVehicle(force), flee(threat), say(kind), brain, state, fig (its crowd figure), gang.
+//   hit() applies the body part (bullets: head x4, limbs x0.65; melee head x1.5) and armour, like player.hit.
+// Events: emits 'death' {ped, cause, attacker}, 'pickup' {kind, amount, weapon, pos}, 'crime' (assault: victims of your fists or your aimed gun
+//   who saw it, murder / copMurder when witnessed; fromPeds: true), 'vehicle:enter' / 'vehicle:exit' for peds;
+//   listens to 'noise', 'crime', 'vehicle:eject', 'vehicle:destroyed'. Counts V.stats.kills and copKills.
 import * as THREE from 'three';
 import { V, K } from '../state.js';
 import { Crowd, poseFigure, ITEM, GUN_ITEMS, handPoint, partCenter, PART_NAMES } from './crowd.js';
@@ -166,7 +176,7 @@ export class Peds {
     let busy = D ? D.peds ?? 0.5 : 0.4;
     if (D?.id === 'southbeach' && cam.x > 2600 && (h > 17 || h < 2)) busy *= 1.2;
     const q = V.settings?.quality === 'low' ? 0.6 : 1;
-    return Math.round(Math.max(10, 104 * Math.min(1.15, busy * tod)) * q);
+    return Math.round(Math.max(10, 108 * Math.min(1, busy * tod)) * q);
   }
   /** Which wardrobe fits this spot (district, time, beach). */
   _setAt(x, z, sand) {
@@ -203,8 +213,11 @@ export class Peds {
     if (!this.nav) return;
     if (this.lastCam && Math.hypot(cam.x - this.lastCam.x, cam.z - this.lastCam.z) > 300) this.initial = true;
     (this.lastCam ||= new THREE.Vector3()).copy(cam);
-    const want = this._target(cam);
-    let n = this.initial ? Math.min(want - live, 60) : Math.min(3, want - live);
+    // (the beach crowd counts against the same budget: ~110 people about at the busiest)
+    let beach = 0;
+    for (const p of this.list) if (p.beach && !p.dead) beach++;
+    const want = this._target(cam) - Math.min(beach, 30);
+    let n = this.initial ? Math.min(want - live + beach, 60) : Math.min(3, want - live + beach);
     for (let k = 0; k < n && this.list.length < MAX_FIGS - 40; k++) this._spawnOne(cam, this.initial);
     this._beach(cam);
     if (this.initial && live > 0) this.initial = false;
@@ -397,7 +410,7 @@ export class Peds {
     N.point(e, nv.from, ahead, nv.off, _pt);
     // hurry across the road when the lights change
     let sp = speed;
-    if (e.kind === 'cross') { const L = this._crossLight(e); sp = L === 'red' ? speed * 1.15 : speed * 1.7; }
+    if (e.kind === 'cross') { const L = this._crossLight(e); sp = L === 'red' && !(p.hurry > this.time) ? speed * 1.15 : speed * 1.8; }
     steer(want, p, _pt.x, _pt.z, sp, 0.5);
   }
   /** Running away along the sidewalks: at each corner, the way that leads furthest from the danger (across roads too). */
@@ -457,7 +470,7 @@ export class Peds {
     let ok = !L || L === 'red';
     if (ok) {
       const mx = (c.ax + c.bx) / 2, mz = (c.az + c.bz) / 2;
-      const list = V.vehicles?.near?.(mx, mz, L ? 34 : 75);
+      const list = V.vehicles?.near?.(mx, mz, L ? 34 : 75, this._vl || (this._vl = []));
       if (list) for (const v of list) {
         const sp = Math.hypot(v.vel.x, v.vel.z);
         if (sp < 3) continue;
@@ -581,7 +594,7 @@ export class Peds {
       if (i < 0 || j < 0 || i >= G || j >= G) continue;
       for (let k = this.gHead[i * G + j]; k >= 0; k = this.gNext[k]) {
         const q = this.list[k];
-        if (q === p) continue;
+        if (!q || q === p) continue;   // (someone removed this frame shifts the list)
         const dx = p.pos.x - q.pos.x, dz = p.pos.z - q.pos.z, d2 = dx * dx + dz * dz;
         if (d2 > R * R || d2 < 1e-6) continue;
         const d = Math.sqrt(d2), f = (R - d) / R;
@@ -622,9 +635,17 @@ export class Peds {
         else scare(this, tg, P.pos.x, P.pos.z, P, 1);
       }
     } else { this.aimT = 0; this.aimTarget = null; }
-    // gangs that are angry with someone go for them
-    for (const [g, a] of this.anger) {
-      if (this.time > a.until || !a.target || a.target.dead) { this.anger.delete(g); continue; }
+    // gangs that are angry with someone go for them (members who turn up later too)
+    if ((this.angerT = (this.angerT || 0) - dt) <= 0 && this.anger.size) {
+      this.angerT = 1;
+      for (const [g, a] of this.anger) {
+        if (this.time > a.until || !a.target || a.target.dead) { this.anger.delete(g); continue; }
+        for (const q of this.near(a.target.pos.x, a.target.pos.z, 70)) {
+          if (q.gang !== g || q.dead || q.vehicle || q.brain || q.state === 'shoot' || q.state === 'fight' || q.state === 'down' || q.state === 'getup') continue;
+          this.leaveSpot(q);
+          setState(this, q, q.armed() && !q.melee() ? 'shoot' : 'fight', { target: a.target });
+        }
+      }
     }
     // cars: every tenth of a second, look along each fast car's path for people to jump clear
     if ((this.sweepT -= dt) <= 0) { this.sweepT = 0.1; this._sweepCars(); }
@@ -647,14 +668,11 @@ export class Peds {
         if (along < (v.size?.l || 12) * 0.3 || along > look || Math.abs(side) > hw) continue;
         const tti = along / sp;
         if (tti < 0.22) continue; // too late
-        // the side away from the car's path (most jump; a few freeze)
-        if (p.rand === undefined && p.tough < 0.08) continue;
-        const s = side >= 0 ? -1 : 1;
+        // most jump clear, to the side they're already on (a few freeze)
+        if (p.tough < 0.06) continue;
         // (dodge's side is relative to the car's heading: +1 = its right)
         const h = v.heading ?? Math.atan2(fx, fz), rx = -Math.cos(h), rz = Math.sin(h);
-        const away = (dx * rx + dz * rz) >= 0 ? 1 : -1;
-        void s;
-        dodge(this, p, v, away);
+        dodge(this, p, v, (dx * rx + dz * rz) >= 0 ? 1 : -1);
       }
     }
   }
@@ -664,8 +682,8 @@ export class Peds {
     if (!e?.pos) return;
     const k = e.kind, r = e.r || 60;
     if (k === 'horn') {
-      // a honk: people in front of the car hurry along
-      for (const p of this.near(e.pos.x, e.pos.z, Math.min(r, 30))) if (!p.dead && p.state === 'wait') { /* (they'd rather wait) */ }
+      // a honk: someone dawdling on the crosswalk in front of the car hurries
+      for (const p of this.near(e.pos.x, e.pos.z, Math.min(r, 40))) if (!p.dead && p.state === 'walk' && p.nav.e?.kind === 'cross') p.hurry = this.time + 3;
       return;
     }
     const level = k === 'explosion' ? 2.2 : k === 'shot' ? 1.3 : k === 'crash' ? 0.6 : k === 'scream' ? 0.5 : 0.5;

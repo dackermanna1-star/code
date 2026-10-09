@@ -158,7 +158,7 @@ export class Ragdoll {
   _gatherVehicles() {
     this.vehs.length = 0;
     const c = this.center;
-    const list = V.vehicles?.near?.(c.x, c.z, 30);
+    const list = V.vehicles?.near?.(c.x, c.z, 30, this._vl || (this._vl = []));
     if (list) for (const v of list) {
       if (v.removed || !v.def) continue;
       // close enough to touch within this frame?

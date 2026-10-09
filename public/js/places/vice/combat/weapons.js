@@ -556,7 +556,7 @@ export class Weapons {
   /** The throw's path while cooking: a line and a ring where it comes down. */
   _arc(on) {
     if (!this.arcLine) {
-      const N = 40;
+      const N = 64;
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
       this.arcLine = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xffe6a0, transparent: true, opacity: 0.75, depthWrite: false }));
       this.arcLine.frustumCulled = false; this.arcLine.renderOrder = 9;
