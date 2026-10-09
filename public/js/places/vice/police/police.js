@@ -2,9 +2,10 @@
 //
 // A crime counts at once when a cop sees it; one that only civilians saw is
 // phoned in a few seconds later. Each level sends more cruisers (sirens on,
-// spawned out of sight on the roads), which drive the road graph to you, ram
-// you at 2★ and up, and let their crews out when you're on foot. Cops on foot
-// arrest you at 1★ (BUSTED) and shoot from 2★. When no cop has seen you for a
+// spawned out of sight on the roads, or up the road ahead of a fast getaway),
+// which drive the road graph to you, box you in (ram you from 4★) and let their
+// crews out when you're on foot or stopped. Cops on foot arrest you at 1★
+// (BUSTED) and shoot from 2★, from behind their car. When no cop has seen you for a
 // moment the stars flash and they search the area where you were last seen:
 // get out of that circle and stay out of sight to lose them (or drive into
 // the Pay 'n' Spray). A few patrol cars drive about at 0★ and see crimes too.
@@ -261,7 +262,7 @@ export class Police {
       if (hwy && tries < 12 && ne.edge.cls !== 'hwy') continue;
       const d = Math.hypot(ne.x - P.pos.x, ne.z - P.pos.z);
       // (ahead of a fast car a cruiser far up the road may pop in: a dot that far off, while you look at the road)
-      if (d < RING_IN - 40 || d > (fast ? 700 : RING_OUT + 60) || (visible(ne.x, ne.y, ne.z) && d < (fast ? 420 : 650))) continue;
+      if (d < RING_IN - 40 || d > (fast ? 700 : RING_OUT + 60) || (visible(ne.x, ne.y, ne.z) && d < (fast ? 500 : 650))) continue;
       if (V.vehicles.near(ne.x, ne.z, 14).length) continue;
       // face along the road, towards the player
       const [tx, tz] = tangent(ne.edge, ne.along);
@@ -433,6 +434,7 @@ export class Police {
       if (moved < 14 && d > 70) {
         u.stalls = (u.stalls || 0) + 1;
         const seen = visible(veh.pos.x, veh.pos.y, veh.pos.z);
+        if (!seen && d > 110 && !u.path) { const r = route3(V.plan, veh.pos.x, veh.pos.y, veh.pos.z, P.pos.x, P.pos.y, P.pos.z); if (r) { u.path = r.pts; u.pi = 0; } }
         if (!seen && d > 110 && u.path && this._warp(u)) return;
         if (!seen && u.stalls > 1) u.jams = 9;              // (let it go: _cull drops it, a fresh one comes)
         else { u.backT = 1.8; u.path = null; u.routeT = 0; u.turnT = 0; u.lane = -u.lane; }
@@ -475,7 +477,7 @@ export class Police {
       // slower than you, so you catch up into a block - rather than U-turning into your path
       const ux = pv.vel.x / aps, uz = pv.vel.z / aps, along = -(dx * ux + dz * uz), side = dx * uz - dz * ux;
       if (along > 8 && along < 320 && Math.abs(side) < 60 && veh.vel.x * ux + veh.vel.z * uz > -5) {
-        this._drive(u, dt, P.pos.x + ux * (along + 40), P.pos.z + uz * (along + 40), aps * (along < 50 ? 0.82 : along < 150 ? 0.65 : 0.45), along < 90);
+        this._drive(u, dt, P.pos.x + ux * (along + 40), P.pos.z + uz * (along + 40), aps * (along < 50 ? 0.9 : along < 150 ? 0.65 : 0.45), along < 90);
         return;
       }
     }
@@ -487,7 +489,9 @@ export class Police {
     if (d < 80) {
       const lead = Math.min(1, d / 60) * 0.6;
       tx += pv.vel.x * lead; tz += pv.vel.z * lead;
-      if (this.wanted >= 2) { this._drive(u, dt, tx, tz, Math.max(30, aps + 18), true); veh.ctl.throttle = Math.max(veh.ctl.throttle, d < 25 ? 1 : veh.ctl.throttle); }
+      // 4★+: ram you off the road; 2-3★: close right up and lean on you
+      if (this.wanted >= 4) { this._drive(u, dt, tx, tz, Math.max(30, aps + 18), true); veh.ctl.throttle = Math.max(veh.ctl.throttle, d < 25 ? 1 : veh.ctl.throttle); }
+      else if (this.wanted >= 2) this._drive(u, dt, tx, tz, Math.max(26, aps + (d > 30 ? 12 : 4)), true);
       else this._drive(u, dt, tx, tz, Math.max(20, aps * (d > 25 ? 1.15 : 0.9)), true);
       return;
     }
@@ -504,7 +508,7 @@ export class Police {
       if ((u.routeT -= dt) <= 0 || !u.path || (u.goalR && Math.hypot(u.goalR.x - tx, u.goalR.z - tz) > Math.max(50, Math.hypot(tx - veh.pos.x, tz - veh.pos.z) * 0.3) && u.routeT < 1.2)) {
         u.routeT = u.mode === 'pursue' ? 1.6 + this.rand() * 0.6 : 6;
         const ty = u.mode === 'pursue' && !this.searching ? V.player.pos.y : veh.pos.y;
-        const r = route3(V.plan, veh.pos.x, veh.pos.y, veh.pos.z, tx, ty, tz, { dirX: Math.sin(h), dirZ: Math.cos(h), uturn: Math.abs(speed) > 15 ? 260 : 60 });
+        const r = route3(V.plan, veh.pos.x, veh.pos.y, veh.pos.z, tx, ty, tz, { dirX: Math.sin(h), dirZ: Math.cos(h), uturn: speed < -2 ? 0 : 220 });   // (one price whatever the speed: no flip-flopping between ways)
         let pts = null;
         if (r && r.pts.length > 1) { pts = [r.pts[0]]; for (const q of r.pts) { const l = pts[pts.length - 1]; if (Math.abs(q.x - l.x) + Math.abs(q.z - l.z) > 2) pts.push(q); } }
         u.path = pts && pts.length > 1 ? pts : null; u.pi = 0; u.goalR = { x: tx, z: tz };
@@ -587,7 +591,6 @@ export class Police {
     if (c.throttle > 0.3 && Math.abs(speed) < 2.5) u.stuck += dt; else u.stuck = Math.max(0, u.stuck - dt * 2);
     if (u.stuck > 1.3) {
       u.stuck = 0; u.jams = (u.jams || 0) + 1;
-      this.dbg?.push({ x: veh.pos.x | 0, z: veh.pos.z | 0, da: +da.toFixed(2), sp: speed | 0, cars: V.vehicles.near(veh.pos.x, veh.pos.z, 16).length - 1, path: !!u.path, gap: gap | 0, shift: +shift.toFixed(1), pi: u.pi, ax: ax | 0, az: az | 0 });
       // jammed where you can't see: hop ahead along the route (what you don't see didn't happen)
       const P = V.player;
       if (u.path && Math.hypot(veh.pos.x - P.pos.x, veh.pos.z - P.pos.z) > 110 && !visible(veh.pos.x, veh.pos.y, veh.pos.z) && this._warp(u)) return;
@@ -702,7 +705,13 @@ function makeBrain(pol) {
           c.fireT = 0.7 + pol.rand() * 0.9;
           _o.set(p.vehicle.pos.x, p.vehicle.pos.y + (heli ? -2 : 4.5), p.vehicle.pos.z);
           _t.set(P.pos.x, P.pos.y + 3, P.pos.z);
-          V.combat?.fireAt?.(p, _o.clone(), _t.clone(), p.weapon || 'pistol', { error: heli ? 3 + d * 0.03 : 5 + d * 0.08 });
+          // not through another cruiser (a stray round set off a pile-up), and out of a moving car it's a pistol,
+          // or the carbine at 4★+, at a car's tyres and panels more than its driver: your car lasts a chase
+          _dir.subVectors(_t, _o); const L = _dir.length(); _dir.divideScalar(L);
+          const hv = V.vehicles?.hitTest?.(_o, _dir, L - 4, p.vehicle);
+          if (hv && hv.veh !== P.vehicle) { c.fireT = 0.4; return; }
+          const wpn = heli ? p.weapon || 'carbine' : pol.wanted >= 4 ? (p.weapon === 'pistol' ? 'pistol' : 'carbine') : 'pistol';
+          V.combat?.fireAt?.(p, _o.clone(), _t.clone(), wpn, { error: heli ? 3 + d * 0.03 : 5 + d * 0.08, dmgMult: P.vehicle ? 0.4 : 1 });
           if (heli) c.fireT = 0.25 + (++c.burst % 4 === 0 ? 1.6 : 0);
         }
         return;
@@ -735,10 +744,25 @@ function makeBrain(pol) {
       }
       c.arrest = Math.max(0, c.arrest - dt);
       if (hostile && c.los && d < 80) {
-        // hold position (close in if far), shoot in bursts
-        if (d > 32) sys.moveTo(p, P.pos.x, P.pos.z, RUN * 0.8);
+        // shoot in bursts: from a corner of their car on the far side from you when it's parked close by (one
+        // each end), else holding position (closing in when far)
+        let cx = null, cz = 0;
+        if (carOk && u.mode === 'parked' && !P.vehicle) {
+          const ex = car.pos.x - P.pos.x, ez = car.pos.z - P.pos.z, ed = Math.hypot(ex, ez);
+          if (ed > 12 && ed < 75 && Math.hypot(car.pos.x - p.pos.x, car.pos.z - p.pos.z) < 30) {
+            const ux = ex / ed, uz = ez / ed, side = u.crew.indexOf(p) % 2 ? 1 : -1;
+            cx = car.pos.x + ux * 4 - uz * side * 5.5; cz = car.pos.z + uz * 4 + ux * side * 5.5;
+          }
+        }
+        if (cx != null) { if (Math.hypot(cx - p.pos.x, cz - p.pos.z) > 1.2) sys.moveTo(p, cx, cz, RUN * 0.85); }
+        else if (d > 32) sys.moveTo(p, P.pos.x, P.pos.z, RUN * 0.8);
         sys.aimAt(p, P);
         if ((c.fireT -= dt) <= 0) {
+          // a cruiser (or a fellow officer) in the line of fire: hold it and step round
+          _o.set(p.pos.x, p.pos.y + 3.6, p.pos.z); _dir.set(P.pos.x - _o.x, P.pos.y + 3 - _o.y, P.pos.z - _o.z);
+          const L = _dir.length(); _dir.divideScalar(L || 1);
+          const hv = V.vehicles?.hitTest?.(_o, _dir, L - 3, null);
+          if (hv && hv.veh !== P.vehicle) { c.fireT = 0.35; c.side = c.side || (pol.rand() < 0.5 ? -1 : 1); sys.moveTo(p, p.pos.x - _dir.z * c.side * 4, p.pos.z + _dir.x * c.side * 4, RUN * 0.7); return; }
           sys.shoot(p, P);
           if (++c.burst >= (p.weapon === 'pistol' ? 3 : 4)) { c.burst = 0; c.fireT = 1.0 + pol.rand() * 1.2; }
           else c.fireT = p.weapon === 'shotgun' ? 1.1 : p.weapon === 'pistol' ? 0.38 : 0.14;

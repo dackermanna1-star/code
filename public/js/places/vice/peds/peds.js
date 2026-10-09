@@ -48,6 +48,7 @@ const NEAR_R = 170;            // full-rate thinking, moving and posing within t
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _u = new THREE.Vector3(), _m = new THREE.Matrix4(), _m2 = new THREE.Matrix4();
 const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3(), _dir = new THREE.Vector3();
 const _pt = { x: 0, y: 0, z: 0 };
+const AT_CAR = { dmgMult: 0.4 };
 const ITEM_OF = { pistol: ITEM.pistol, magnum: ITEM.pistol, glock: ITEM.pistol, smg: ITEM.smg, uzi: ITEM.smg, mp5: ITEM.smg, rifle: ITEM.rifle, carbine: ITEM.rifle, m4: ITEM.rifle, ak: ITEM.ak, ak47: ITEM.ak, shotgun: ITEM.shotgun, sniper: ITEM.sniper, bat: ITEM.bat, knife: ITEM.knife, fists: 0, knuckles: 0, grenade: 0, molotov: 0, rpg: ITEM.rifle };
 const WSTATS = { pistol: { dmg: 22, rpm: 300, spread: 2.6, kind: 'pistol', auto: false }, smg: { dmg: 16, rpm: 700, spread: 4, kind: 'smg', auto: true }, rifle: { dmg: 26, rpm: 600, spread: 2.6, kind: 'rifle', auto: true }, ak: { dmg: 28, rpm: 600, spread: 3.2, kind: 'ak', auto: true }, shotgun: { dmg: 12, rpm: 70, spread: 5, kind: 'shotgun', auto: false, pellets: 7 }, sniper: { dmg: 80, rpm: 40, spread: 0.6, kind: 'sniper', auto: false } };
 
@@ -279,8 +280,16 @@ export class Peds {
     p.nav.e = e; p.nav.from = fwd ? e.a : e.b; p.nav.s = fwd ? sp.s : e.len - sp.s; p.nav.off = this._laneOff(p, e);
     this.nav.point(e, p.nav.from, p.nav.s, p.nav.off, _pt); p.pos.set(_pt.x, _pt.y, _pt.z);
     p.heading = Math.atan2(e.ux * (fwd ? 1 : -1), e.uz * (fwd ? 1 : -1));
-    if (kind < 0.36 && !p.jogger) setState(this, p, 'idle', { secs: 5 + r() * 20, arms: null, x: p.pos.x + (-e.uz) * side * wHalf * 0.6, z: p.pos.z + e.ux * side * wHalf * 0.6 });
-    else setState(this, p, 'walk');
+    if (kind < 0.3 && !p.jogger) {
+      // standing about: anywhere across the sidewalk, facing the street, a shop window or up the road - not
+      // all at the same distance from the kerb looking the same way (which reads as a queue)
+      this.nav.point(e, e.a, sp.s, 0, _pt);
+      const lat = (r() * 2 - 1) * wHalf * 0.8, ix = _pt.x - e.uz * lat, iz = _pt.z + e.ux * lat;
+      const fs = r() < 0.5 ? 1 : -1, ang = (r() - 0.5) * (r() < 0.3 ? 3 : 1.2), c = Math.cos(ang), sn = Math.sin(ang);
+      const fx = -e.uz * fs * c - e.ux * fs * sn, fz = -e.uz * fs * sn + e.ux * fs * c;
+      p.pos.x = ix; p.pos.z = iz; p.heading = Math.atan2(fx, fz);
+      setState(this, p, 'idle', { secs: 5 + r() * 20, arms: null, x: ix, z: iz, face: { x: ix + fx * 30, z: iz + fz * 30 } });
+    } else setState(this, p, 'walk');
     if (p.state === 'idle') p.st.arms = this._idleArms(p);
   }
   _idleArms(p) { const it = p.carry; return it === ITEM.phone ? (this.rand() < 0.5 ? 'phone' : 'text') : it === ITEM.drink || it === ITEM.cup || it === ITEM.cigar ? 'drink' : this.rand() < 0.4 ? 'text' : this.rand() < 0.4 ? 'fold' : 'idle'; }
@@ -415,7 +424,7 @@ export class Peds {
       nv.pending = null;
       if (next.kind === 'cross' && !this.canCross(next)) {
         // wait at the kerb, facing across
-        N.point(e, nv.from, e.len, nv.off, _pt);
+        N.point(e, nv.from, e.len - 0.5 - ((p.seed * 7.3) % 1) * 3, nv.off, _pt);   // (a loose huddle at the kerb, not a line)
         const o = N.other(next, node);
         setState(this, p, 'wait', { edge: next, x: _pt.x, z: _pt.z, face: { x: N.nx(o), z: N.nz(o) }, next });
         nv.pending = next;
@@ -576,6 +585,20 @@ export class Peds {
     if (p.pos.y < -1.5 && V.ground?.waterAt?.(p.pos.x, p.pos.z) === 0) { p.pos.y = -1.5; p.vel.y = Math.max(0, p.vel.y); }
     // facing
     const hs = Math.hypot(p.vel.x, p.vel.z);
+    // walking (or running) into something on the sidewalk - a bin, a café table, a lamp post: step over to
+    // another line across the sidewalk, then the other side of it, and if that fails too turn round
+    if (!far && p.onNav && (p.state === 'walk' || p.state === 'flee')) {
+      const ws = Math.hypot(want.x, want.z);
+      if (ws > 3 && hs < ws * 0.25) {
+        if ((p.blockT = (p.blockT || 0) + dt) > 0.6) {
+          const nv = p.nav, n = p.blockN = (p.blockN || 0) + 1;
+          p.blockT = 0;
+          if (n === 1) nv.off = Math.abs(nv.off) > 2 ? nv.off * 0.3 : nv.off + 3.5;
+          else if (n === 2) nv.off = -Math.max(2.5, Math.abs(nv.off) * 2);
+          else { this.turnBack(p); p.blockN = 0; nv.off = this._laneOff(p, nv.e) * (p.state === 'flee' ? 0.5 : 1); }
+        }
+      } else if (hs > ws * 0.6) { p.blockT = 0; if ((p.blockOkT = (p.blockOkT || 0) + dt) > 3) { p.blockN = 0; p.blockOkT = 0; } }
+    }
     let face = null;
     if (want.face) face = Math.atan2(want.face.x - p.pos.x, want.face.z - p.pos.z);
     else if (hs > 0.6 && !p.keepHeading) face = Math.atan2(p.vel.x, p.vel.z);
@@ -1140,7 +1163,8 @@ export class Peds {
       _u.set(-dir.z, 0, dir.x).normalize();
       _v.crossVectors(_u, dir).normalize();
       _dir.addScaledVector(_u, Math.cos(a) * r).addScaledVector(_v, Math.sin(a) * r).normalize();
-      if (V.combat?.fire) { V.combat.fire(p, origin.clone(), _dir.clone(), p.weapon || 'pistol'); continue; }
+      // (at you in a car: mostly the panels take it, at 0.4 - so a car under fire lasts a stand-off, not 5 seconds)
+      if (V.combat?.fire) { V.combat.fire(p, origin.clone(), _dir.clone(), p.weapon || 'pistol', target?.isPlayer && target.vehicle ? AT_CAR : undefined); continue; }
       // (no combat system yet: a plain hitscan)
       this._hitscan(p, origin, _dir, w);
     }

@@ -42,7 +42,7 @@ export function think(sys, p, dt) {
     }
     case 'wait': {
       if (sys.canCross(s.edge)) { p.nav.wait = false; setState(sys, p, 'walk'); }
-      else if ((s.t || 0) > 28) { // gave up waiting: go another way
+      else if ((s.t || 0) > 12 + p.seed * 16) { // gave up waiting: go another way
         sys.turnBack(p); setState(sys, p, 'walk');
       } else if (!s.arms && sys.rand() < 0.08) s.arms = sys.rand() < 0.5 ? 'text' : 'idle';
       break;
