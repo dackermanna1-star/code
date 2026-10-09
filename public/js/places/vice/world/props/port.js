@@ -22,21 +22,18 @@ function containerAtlas() {
   const rr = rnd(77);
   _atlas = canvasTex(1024, 512, (x, w, h) => {
     x.fillStyle = '#000'; x.fillRect(0, 0, w, h);
-    const corr = (y0, hh, vertical) => {
-      for (let i = 0; i < (vertical ? w : hh); i += 6) {
-        const g = x.createLinearGradient(vertical ? i : 0, vertical ? 0 : y0 + i, vertical ? i + 6 : 0, vertical ? 0 : y0 + i + 6);
-        g.addColorStop(0, 'rgb(150,0,0)'); g.addColorStop(0.5, 'rgb(230,0,0)'); g.addColorStop(1, 'rgb(170,0,0)');
-        x.fillStyle = g;
-        if (vertical) x.fillRect(i, y0, 6, hh); else x.fillRect(0, y0 + i, w, 6);
-      }
-    };
-    // rows 0-5: long sides, each with a name
+    // the corrugated sheet everywhere (R = shading, ribs every 6 px), drawn as pixels
+    const img = x.createImageData(w, h), d = img.data;
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const k = (j * w + i) * 4, rib = Math.sin((i / 6) * Math.PI * 2);
+      d[k] = 165 + rib * 55; d[k + 1] = 0; d[k + 2] = 0; d[k + 3] = 255;
+    }
+    x.putImageData(img, 0, 0);
+    // rows 0-6: long sides, each with a name (rows 0-5) and a frame
     for (let k = 0; k < 7; k++) {
       const y0 = k * 64;
-      corr(y0, 64, true);
       x.fillStyle = 'rgb(110,0,0)'; x.fillRect(0, y0, w, 4); x.fillRect(0, y0 + 60, w, 4); x.fillRect(0, y0, 10, 64); x.fillRect(w - 10, y0, 10, 64);
-      // grime
-      for (let i = 0; i < 60; i++) { x.fillStyle = `rgba(0,0,0,${rr() * 0.12})`; x.fillRect(rr() * w, y0 + 40 + rr() * 20, 20 + rr() * 60, 4 + rr() * 8); }
+      for (let i = 0; i < 40; i++) { x.fillStyle = `rgba(0,0,0,${rr() * 0.12})`; x.fillRect(rr() * w, y0 + 40 + rr() * 20, 20 + rr() * 60, 4 + rr() * 8); }
       if (k < BRANDS.length) {
         x.fillStyle = 'rgb(230,255,0)'; x.font = 'bold 34px Arial, sans-serif'; x.textBaseline = 'middle'; x.textAlign = 'center';
         x.fillText(BRANDS[k], w / 2, y0 + 33);

@@ -70,7 +70,7 @@ ${groundGLSL(G)}
 ${WAVE_GLSL}
 uniform vec2 gridPos;
 varying vec3 vW;
-varying vec2 vG;   // still-water depth, coast distance
+#include <shadowmap_pars_vertex>
 #include <fog_pars_vertex>
 void main() {
   vec2 p = position.xz + gridPos;
@@ -79,7 +79,11 @@ void main() {
   float dist = length(p - cameraPosition.xz);
   float y = waves(p, dist).x * waveAtt(p, depth) + swash(g.y, depth);
   vec4 wp = vec4(p.x, y, p.y, 1.0);
-  vW = wp.xyz; vG = vec2(depth, g.y);
+  vW = wp.xyz;
+  #if defined( USE_SHADOWMAP ) && NUM_DIR_LIGHT_SHADOWS > 0
+    // (the light pass receives the sun's shadows: boats, piers, bridges, the towers at sunset)
+    for (int i = 0; i < NUM_DIR_LIGHT_SHADOWS; i++) vDirectionalShadowCoord[i] = directionalShadowMatrix[i] * vec4(wp.xyz + vec3(0.0, directionalLightShadows[i].shadowNormalBias, 0.0), 1.0);
+  #endif
   vec4 mvPosition = viewMatrix * wp;
   gl_Position = projectionMatrix * mvPosition;
   #include <fog_vertex>
@@ -96,6 +100,13 @@ uniform sampler2D nMap, noiseT;
 uniform vec3 lightCol, specDir, specCol, deepCol, midCol, absorbK;
 uniform float specI, night, wind;
 varying vec3 vW;
+#ifndef ABSORB
+  #include <common>
+  #include <packing>
+  uniform bool receiveShadow;
+  #include <shadowmap_pars_fragment>
+  #include <shadowmask_pars_fragment>
+#endif
 #include <fog_pars_fragment>
 void main() {
   vec2 p = vW.xz;
@@ -144,9 +155,10 @@ void main() {
     gl_FragColor.rgb = keep * (1.0 - fogFactor);
   #endif
 #else
-  // light scattered in the water: teal, deepening to navy
+  float sh = mix(1.0, getShadowMask(), smoothstep(-0.05, 0.1, specDir.y));
+  // light scattered in the water: teal, deepening to navy (a bit darker in shadow)
   vec3 scat = mix(midCol, deepCol, smoothstep(3.0, 20.0, dd));
-  vec3 body = scat * lightCol * (1.0 - T) * 0.62;
+  vec3 body = scat * lightCol * (1.0 - T) * 0.62 * (0.55 + 0.45 * sh);
   // the sky reflected (the reflection never points below the horizon)
   // (rough water reflects a little higher up the sky, so a little bluer)
   vec3 r = reflect(-v, n); r.y = abs(r.y) + 0.05 + far * 0.03; r = normalize(r);
@@ -156,10 +168,10 @@ void main() {
   float nh = max(dot(n, h), 0.0);
   float pw = mix(1400.0, 160.0, far);
   float spec = pow(nh, pw) * (pw + 8.0) / 70.0 + pow(nh, 70.0) * 0.14;
-  vec3 col = body * (1.0 - F) * (1.0 - foam) + refl * F * (1.0 - foam) + specCol * spec * specI * (1.0 - far * 0.55) * (1.0 - foam);
+  vec3 col = body * (1.0 - F) * (1.0 - foam) + refl * F * (1.0 - foam) + specCol * spec * specI * sh * (1.0 - far * 0.55) * (1.0 - foam);
   // light through the crests (towards the sun)
   col += midCol * lightCol * pow(max(dot(-v, specDir), 0.0), 4.0) * max(wv.x * att, 0.0) * 0.8 * (1.0 - night);
-  col += lightCol * vec3(0.92, 0.96, 1.0) * foam * 0.85;
+  col += lightCol * vec3(0.92, 0.96, 1.0) * foam * 0.85 * (0.6 + 0.4 * sh);
   gl_FragColor = vec4(col, 1.0);
   #include <fog_fragment>
 #endif
@@ -188,8 +200,8 @@ export class Water {
     const vs = vertexShader(ground);
     const mk = (absorb) => new THREE.ShaderMaterial({
       vertexShader: vs, fragmentShader: fragmentShader(ground, absorb),
-      uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {}]),
-      transparent: true, depthWrite: !absorb, fog: true,
+      uniforms: THREE.UniformsUtils.merge(absorb ? [THREE.UniformsLib.fog] : [THREE.UniformsLib.fog, THREE.UniformsLib.lights]),
+      transparent: true, depthWrite: !absorb, fog: true, lights: !absorb,
       blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
       blendSrc: absorb ? THREE.ZeroFactor : THREE.OneFactor, blendDst: absorb ? THREE.SrcColorFactor : THREE.OneFactor,
     });
@@ -199,6 +211,7 @@ export class Water {
     this.absorb = new THREE.Mesh(geo, this.absorbMat);
     this.light = new THREE.Mesh(geo, this.lightMat);
     this.absorb.renderOrder = -100; this.light.renderOrder = -99;
+    this.light.receiveShadow = true;
     for (const m of [this.absorb, this.light]) { m.frustumCulled = false; m.name = 'water'; world.scene.add(m); }
     this.meshes = [this.absorb, this.light];
     this._hid = false;

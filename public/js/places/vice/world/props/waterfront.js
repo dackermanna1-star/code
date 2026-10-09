@@ -107,7 +107,7 @@ function wallRun(P, face, lip, back, ok) {
   let since = 0;
   for (let i = 0; i < face.length - 1; i++) {
     const len = Math.hypot(face[i + 1][0] - face[i][0], face[i + 1][1] - face[i][1]);
-    const k = Math.max(1, Math.ceil(len / 12));
+    const k = Math.max(1, Math.ceil(len / 16));
     for (let j = 0; j < k; j++) {
       const t0 = j / k, t1 = (j + 1) / k, tm = (t0 + t1) / 2;
       const F0 = lerp2(face[i], face[i + 1], t0), F1 = lerp2(face[i], face[i + 1], t1);
@@ -118,15 +118,12 @@ function wallRun(P, face, lip, back, ok) {
       // outward: from the back line towards the face
       let nx = (F0[0] + F1[0] - B0[0] - B1[0]) / 2, nz = (F0[1] + F1[1] - B0[1] - B1[1]) / 2; const nl = Math.hypot(nx, nz) || 1; nx /= nl; nz /= nl;
       const g = P.C.get('surf', mx, mz);
-      vquad(g, F0, F1, -8, 0, nx, nz, { lay: L.concrete, tint: T.low, scale: 10 });
-      vquad(g, F0, F1, 0, 1.1, nx, nz, { lay: L.concrete, tint: T.tide, scale: 10 });
-      vquad(g, F0, F1, 1.1, TOP - 0.55, nx, nz, { lay: L.concrete, tint: T.face, scale: 10 });
+      vquad(g, F0, F1, -8, 0.2, nx, nz, { lay: L.concrete, tint: T.low, scale: 10 });
+      vquad(g, F0, F1, 0.2, TOP - 0.55, nx, nz, { lay: L.concrete, tint: T.face, scale: 10 });
       vquad(g, L0, L1, TOP - 0.55, TOP, nx, nz, { lay: L.concrete, tint: T.cap, scale: 8 });
       vquad(g, B0, B1, GROUND - 0.3, TOP, -nx, -nz, { lay: L.concrete, tint: T.cap, scale: 8 });
       g.quad([L0[0], TOP, L0[1]], [L1[0], TOP, L1[1]], [B1[0], TOP, B1[1]], [B0[0], TOP, B0[1]], { lay: L.concrete, tint: T.cap, scale: 8, normal: [0, 1, 0] });
       faceUp(g);
-      // the underside of the lip
-      g.quad([L1[0], TOP - 0.55, L1[1]], [L0[0], TOP - 0.55, L0[1]], [F0[0], TOP - 0.55, F0[1]], [F1[0], TOP - 0.55, F1[1]], { lay: L.concrete, tint: shade(T.cap, 0.6), scale: 8, normal: [0, -1, 0] });
       // a low step for people every few pieces
       if (since++ % 3 === 0) {
         const cx = (L0[0] + L1[0] + B0[0] + B1[0]) / 4, cz = (L0[1] + L1[1] + B0[1] + B1[1]) / 4, pl = Math.hypot(L1[0] - L0[0], L1[1] - L0[1]);
@@ -140,7 +137,7 @@ function wallRun(P, face, lip, back, ok) {
 function riprap(P, run) {
   const r = rnd(run.length * 131 + Math.round(run[0][0]));
   const pts = run;
-  for (const [d, sMin, sMax, step] of [[-7, 2.4, 3.6, 4.2], [-2.5, 1.8, 2.8, 3.6], [-11, 2.0, 3.0, 6]]) {
+  for (const [d, sMin, sMax, step] of [[-7, 2.6, 3.8, 4.6], [-2.5, 1.9, 2.9, 4.0]]) {
     const line = resample(offsetLine(pts, d), step);
     for (const s of line) {
       const x = s.x + (r() - 0.5) * 2, z = s.z + (r() - 0.5) * 2;
@@ -150,27 +147,29 @@ function riprap(P, run) {
     }
   }
 }
-function rock(g, x, y, z, s, seed, r) {
+// a rock: an octahedron split once (18 corners, 32 faces), each corner pushed in or out
+const ROCK = (() => {
   const V0 = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
-  const F = [[0, 2, 4], [4, 2, 1], [1, 2, 5], [5, 2, 0], [4, 3, 0], [1, 3, 4], [5, 3, 1], [0, 3, 5]];
-  const sx = 0.8 + r() * 0.5, sy = 0.55 + r() * 0.3, sz = 0.8 + r() * 0.5, rot = r() * TAU, c = Math.cos(rot), sn = Math.sin(rot);
-  const cache = new Map();
-  const W = (p) => {
-    const k = p.map((v) => Math.round(v * 100)).join(',');
-    if (cache.has(k)) return cache.get(k);
-    const l = Math.hypot(p[0], p[1], p[2]), q = [p[0] / l, p[1] / l, p[2] / l];
-    const j = 0.82 + hash(q[0] * 97 + seed, q[1] * 89 + q[2] * 61, 3) * 0.36;
-    const lx = q[0] * s * sx * j, ly = Math.max(-0.5, q[1]) * s * sy * j, lz = q[2] * s * sz * j;
-    const w = [x + lx * c + lz * sn, y + ly, z - lx * sn + lz * c];
-    cache.set(k, w);
-    return w;
+  const F0 = [[0, 2, 4], [4, 2, 1], [1, 2, 5], [5, 2, 0], [4, 3, 0], [1, 3, 4], [5, 3, 1], [0, 3, 5]];
+  const verts = V0.map((v) => v.slice()), key = new Map(), faces = [];
+  const mid = (i, j) => {
+    const k = i < j ? i * 64 + j : j * 64 + i;
+    if (!key.has(k)) { const a = verts[i], b = verts[j], m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2], l = Math.hypot(...m); verts.push([m[0] / l, m[1] / l, m[2] / l]); key.set(k, verts.length - 1); }
+    return key.get(k);
   };
-  const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
+  for (const [a, b, c] of F0) { const ab = mid(a, b), bc = mid(b, c), ca = mid(c, a); faces.push([a, ab, ca], [ab, b, bc], [ca, bc, c], [ab, bc, ca]); }
+  return { verts, faces };
+})();
+function rock(g, x, y, z, s, seed, r) {
+  const sx = 0.8 + r() * 0.5, sy = 0.55 + r() * 0.3, sz = 0.8 + r() * 0.5, rot = r() * TAU, c = Math.cos(rot), sn = Math.sin(rot);
   const tn = hash(seed, 1, 1), col = [0.62 + tn * 0.15, 0.6 + tn * 0.12, 0.55 + tn * 0.1];
-  for (const [i, j, k] of F) {
-    const A = V0[i], B = V0[j], C = V0[k], ab = mid(A, B), bc = mid(B, C), ca = mid(C, A);
-    for (const [p, q, t] of [[A, ab, ca], [ab, B, bc], [ca, bc, C], [ab, bc, ca]]) tri(g, W(p), W(q), W(t), { lay: L.concrete, tint: col, scale: 6 });
-  }
+  const W = ROCK.verts.map((q, i) => {
+    const j = 0.82 + hash(i * 97 + seed, i * 31, 3) * 0.36;
+    const lx = q[0] * s * sx * j, ly = Math.max(-0.5, q[1]) * s * sy * j, lz = q[2] * s * sz * j;
+    return [x + lx * c + lz * sn, y + ly, z - lx * sn + lz * c];
+  });
+  const o = { lay: L.concrete, tint: col, scale: 6 };
+  for (const [a, b, d] of ROCK.faces) tri(g, W[a], W[b], W[d], o);
 }
 
 /** Mangroves: dense clumps on the mud flats and in the shallows. */

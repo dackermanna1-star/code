@@ -20,7 +20,7 @@ const GRID = 32;
 const LAYER_DEF = [
   { tex: 'lawn', scale: 11, rough: 0.94, col: '#557f34', sat: 0.6, con: 1.0 },     // lawn: lush St. Augustine grass
   { tex: 'sand', scale: 9, rough: 0.96, col: '#e2d2b0', sat: 0.4, con: 0.65 },      // beach sand: pale
-  { tex: 'wetSand', scale: 10, rough: 0.42, col: '#ad9b7c', sat: 0.4, con: 0.7 },   // wet sand: darker, shiny
+  { tex: 'wetSand', scale: 10, rough: 0.64, col: '#a89676', sat: 0.4, con: 0.7 },   // wet sand: darker, shiny
   { tex: 'wetSand', scale: 12, rough: 0.6, col: '#5c573f', sat: 0.3, con: 0.9 },    // mangrove mud
   { tex: 'gravel', scale: 14, rough: 0.9, col: '#a59a88', sat: 0.4, con: 0.9 },     // gravel
   { tex: 'lawn', scale: 13, rough: 0.95, col: '#8d955a', sat: 0.55, con: 1.0 },     // dry lawn

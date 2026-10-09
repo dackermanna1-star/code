@@ -12,7 +12,7 @@
 //   const R = new RoadIndex(plan); R.near(x, z, pad) -> true if (x, z) is on a road or its sidewalk (+pad)
 //   const N = new NearSet(scene); const t = N.type(geo, mat, {R, shadow}); N.add(t, x, y, z, heading, s, color); N.build(); N.update(cam)
 import * as THREE from 'three';
-import { surfaceMaterial } from '../surface.js';
+import { surfaceMaterial, Geo } from '../surface.js';
 import { TEX_LAYER } from '../textures.js';
 
 export const L = TEX_LAYER;
@@ -159,6 +159,9 @@ export function faceUp(g) {
   const ax = P[i1 * 3] - P[i0 * 3], az = P[i1 * 3 + 2] - P[i0 * 3 + 2], bx = P[i2 * 3] - P[i0 * 3], bz = P[i2 * 3 + 2] - P[i0 * 3 + 2];
   if (az * bx - ax * bz >= 0) return;
   for (let k = n - 6; k < n; k += 3) { const t = g.idx[k + 1]; g.idx[k + 1] = g.idx[k + 2]; g.idx[k + 2] = t; }
+  // and its normals (unless they were given pointing up)
+  const v0 = g.count - 4;
+  if (g.nor[v0 * 3 + 1] < 0) for (let k = v0 * 3; k < g.count * 3; k++) g.nor[k] = -g.nor[k];
 }
 
 // ---- deterministic randomness ----------------------------------------------------------
@@ -365,3 +368,63 @@ export function mergeColored(list, extra = null) {
   g.computeBoundingSphere();
   return g;
 }
+
+// ---- a faster Geo: the same interface as surface.js's, with typed arrays inside ----------
+export class FastGeo extends Geo {
+  constructor() { super(); this.n = 0; this.cap = 0; this._grow(1024); }
+  _grow(cap) {
+    const g = (A, k) => { const b = new Float32Array(cap * k); if (A) b.set(A.subarray(0, this.n * k)); return b; };
+    this.pos = g(this.cap ? this.pos : null, 3); this.nor = g(this.cap ? this.nor : null, 3); this.uv = g(this.cap ? this.uv : null, 2);
+    this.lay = g(this.cap ? this.lay : null, 4); this.tint = g(this.cap ? this.tint : null, 3); this.info = g(this.cap ? this.info : null, 4);
+    this.cap = cap;
+  }
+  get count() { return this.n; }
+  vert(x, y, z, nx, ny, nz, u, v, Ly, rough, glow, r, g, b, info) {
+    if (this.n >= this.cap) this._grow(this.cap * 3);
+    const i = this.n, P = this.pos, N = this.nor;
+    P[i * 3] = x; P[i * 3 + 1] = y; P[i * 3 + 2] = z; N[i * 3] = nx; N[i * 3 + 1] = ny; N[i * 3 + 2] = nz;
+    this.uv[i * 2] = u; this.uv[i * 2 + 1] = v;
+    const Lq = this.lay; Lq[i * 4] = Ly; Lq[i * 4 + 1] = rough; Lq[i * 4 + 2] = glow;
+    const T = this.tint; T[i * 3] = r; T[i * 3 + 1] = g; T[i * 3 + 2] = b;
+    if (info) { const I = this.info; I[i * 4] = info[0]; I[i * 4 + 1] = info[1]; I[i * 4 + 2] = info[2]; I[i * 4 + 3] = info[3]; }
+    return this.n++;
+  }
+  geometry() {
+    const n = this.n, g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos.slice(0, n * 3), 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(this.nor.slice(0, n * 3), 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(this.uv.slice(0, n * 2), 2));
+    g.setAttribute('lay', new THREE.BufferAttribute(this.lay.slice(0, n * 4), 4));
+    g.setAttribute('tint', new THREE.BufferAttribute(this.tint.slice(0, n * 3), 3));
+    g.setAttribute('info', new THREE.BufferAttribute(this.info.slice(0, n * 4), 4));
+    g.setIndex(n > 65535 ? new THREE.Uint32BufferAttribute(this.idx, 1) : new THREE.Uint16BufferAttribute(this.idx, 1));
+    g.computeBoundingSphere(); g.computeBoundingBox();
+    return g;
+  }
+}
+/** surface.js's Chunks, with FastGeo buffers. */
+export class FastChunks {
+  constructor(size = 512) { this.size = size; this.map = new Map(); }
+  get(mat, x, z) {
+    const i = Math.floor(x / this.size), j = Math.floor(z / this.size), k = `${mat}|${i}|${j}`;
+    let g = this.map.get(k);
+    if (!g) { g = new FastGeo(); g.mat = mat; this.map.set(k, g); }
+    return g;
+  }
+  meshes(materials, o = {}) {
+    const out = [];
+    for (const g of this.map.values()) {
+      if (!g.count || !materials[g.mat]) continue;
+      const m = new THREE.Mesh(g.geometry(), materials[g.mat]);
+      m.receiveShadow = true; m.castShadow = !!o.shadow?.has(g.mat);
+      m.matrixAutoUpdate = false; m.updateMatrix();
+      m.userData.mat = g.mat;
+      for (const a of Object.values(m.geometry.attributes)) a.onUpload(freeArray);
+      m.geometry.index.onUpload(freeArray);
+      out.push(m);
+    }
+    this.map.clear();
+    return out;
+  }
+}
+function freeArray() { this.array = null; }

@@ -872,11 +872,22 @@ export class Vehicles {
     }
     const boats = Object.keys(TYPES).filter((k) => TYPES[k].kind === 'boat');
     // in open water just off South Pointe marina (the docks and the moored boats are the props')
-    boats.forEach((id, j) => this.spawn(id, 1945 - (j % 2) * 34, 2290 + j * 32, Math.PI, { parked: true }));
+    boats.forEach((id, j) => { const p = this.freeWater(1930 - (j % 2) * 36, 2290 + j * 34, 16); if (p) this.spawn(id, p.x, p.z, Math.PI, { parked: true }); });
     this.spawn('policeheli', 1000, -1380, Math.PI / 2, { parked: true });
     this.spawn('newsheli', 1060, -1330, Math.PI / 2, { parked: true });
     // on the threshold of runway 36R, facing north down the runway
     this.spawn('plane', -3670, -1340, Math.PI, { parked: true });
+  }
+
+  /** Open water near (x, z): deep enough, nothing solid within r (steps west, out into the bay). */
+  freeWater(x, z, r = 16) {
+    for (let k = 0; k < 40; k++, x -= 12) {
+      if (V.ground.heightAt(x, z) > -3) continue;
+      let clear = true;
+      V.phys.query(x - r, z - r, x + r, z + r, (b) => { if (b.solid && !b.vehicle && b.y + b.hy > -2) { const [lx, lz] = V.phys.local(b, x, z); if (Math.abs(lx) < b.hx + r && Math.abs(lz) < b.hz + r) { clear = false; return false; } } });
+      if (clear && !this.list.some((v) => Math.hypot(v.pos.x - x, v.pos.z - z) < r * 1.6)) return { x, z };
+    }
+    return null;
   }
 
   hooks() {
@@ -887,6 +898,8 @@ export class Vehicles {
       vehicles: this,
       /** Spawn a vehicle and drive it with the keyboard (WASD, Space, Shift/Ctrl, Q/E), with a chase camera. */
       drive(type = 'sedan', x, z, heading, o = {}) {
+        const R = sys._debugRider, dv = sys.debug?.veh;
+        if (R && dv && dv.driver === R) dv.leave(R);
         if (type === null) { sys.debug = null; V.freeCam = null; return null; }
         let v = type && typeof type === 'object' ? type : null;
         if (!v) {
@@ -894,6 +907,8 @@ export class Vehicles {
           v = sys.spawn(type, x, z, heading ?? 0, o);
         }
         if (!v) return null;
+        // a stand-in rider, so it's driven (bikes balance, the engine stays on)
+        if (!v.driver) v.enter(sys._debugRider || (sys._debugRider = { debug: true, isPlayer: false, name: 'debug' }), 0);
         v.engineOn = true; v.parked = false; v.wake();
         if (v.kind === 'heli' && o.hover) v.rotor = 1;
         sys.debug = { veh: v, ctl: null, cam: null, yaw: v.heading };

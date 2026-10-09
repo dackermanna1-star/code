@@ -49,7 +49,8 @@ vec3 room(vec2 p, vec2 cs, float D, vec3 d, float h, float lit, vec3 lc, int sty
     c = wallC;
     if (style == 1) { // a shop: shelves of colourful things on the back wall
       float sh = step(0.5, fract(q.y / 2.2)) * step(0.15, fract(q.x / 3.1));
-      c = mix(wallC * 0.9, pal(hsh(floor(q.xy / vec2(3.1, 2.2)) + h)) * 0.9, mix(sh, 0.4, aa) * 0.85);
+      vec3 goods = pal(hsh(floor(q.xy / vec2(3.1, 2.2)) + h)); goods = mix(vec3(dot(goods, vec3(0.33))), goods, 1.8);
+      c = mix(wallC * 0.9, goods, mix(sh, 0.4, aa) * 0.9);
     } else if (style == 2) { // an office: a partition, a window to the next room
       c = mix(wallC, vec3(0.35, 0.38, 0.42), step(cs.y * 0.62, q.y) * 0.5);
     } else {
@@ -130,8 +131,8 @@ const MAP_FRAG = `{
       float sb = bw < 9.0 ? bw * 2.0 : bw;
       cs = vec2(sb, g); cell = vec2(floor(uv.x / sb), -1.0); fp = vec2(mod(uv.x, sb), gy);
       D = 16.0; style = 1;
-      if (gk == 2 || gk == 5) { R = vec4(0.55, 1.1, sb - 0.55, g - 3.0); frameW = 0.35; frameC = vec3(0.16, 0.17, 0.18); litF = 0.8; lc = vec3(1.0, 0.92, 0.78); }
-      else if (gk == 3) { R = vec4(0.5, 0.25, sb - 0.5, g - 0.8); frameW = 0.3; frameC = vec3(0.7, 0.72, 0.74); litF = 0.95; D = 28.0; style = 2; lc = vec3(1.0, 0.86, 0.66); }
+      if (gk == 2 || gk == 5) { R = vec4(0.55, 1.1, sb - 0.55, g - 3.0); frameW = 0.35; frameC = vec3(0.16, 0.17, 0.18); litF = 0.8; lc = vec3(1.0, 0.92, 0.78); gMet = 0.3; glass = vec3(0.05, 0.06, 0.07); }
+      else if (gk == 3) { R = vec4(0.5, 0.25, sb - 0.5, g - 0.8); frameW = 0.3; frameC = vec3(0.7, 0.72, 0.74); litF = 0.95; D = 28.0; style = 2; lc = vec3(1.0, 0.86, 0.66); gMet = 0.35; glass = vec3(0.05, 0.06, 0.07); }
       else if (gk == 4) { R = vec4(0.7, 0.0, sb - 0.7, g - 2.4); frameW = 0.45; frameC = vec3(0.3, 0.31, 0.32); litF = 0.5; }
       else if (gk == 6) { R = vec4(1.0, 0.0, sb - 1.0, min(g - 1.0, 11.0)); frameW = 0.4; frameC = col * 0.8; litF = 0.0; }
       else R = vec4(-1.0);
@@ -195,6 +196,14 @@ const MAP_FRAG = `{
           }
         }
       }
+      // shopfronts and lobbies: a mullion down the middle and a transom bar
+      if (gfl && (gk == 2 || gk == 3 || gk == 5)) {
+        float bar = 0.0;
+        if (sb > 11.0) bar = max(bar, 1.0 - smoothstep(0.12, 0.12 + fw.x * 1.5, abs(fp.x - sb * 0.5)));
+        bar = max(bar, 1.0 - smoothstep(0.12, 0.12 + fw.y * 1.5, abs(fp.y - (R.w - 2.4))));
+        bar *= pane * (1.0 - far);
+        col = mix(col, frameC, bar); pane *= 1.0 - bar;
+      }
       // the far LOD: windows melt into an even tone
       float area = (R.z - R.x) * (R.w - R.y) / (cs.x * cs.y);
       pane = mix(pane, clamp(area, 0.0, 1.0) * 0.85, far);
@@ -217,7 +226,7 @@ const MAP_FRAG = `{
         gR = 0.25; pane = 0.0;
       } else {
         float aa = smoothstep(0.03, 0.12, cellPix);
-        rc = room(fp, cs, D, d, h, on * night, lcol, style, aa);
+        rc = room(fp, cs, D, d, h, on * (gfl ? max(night, 0.6) : night), lcol, style, aa);
         // curtains (homes) or blinds (offices) behind some panes
         float cur = 0.0;
         if (style == 0 && h2 > 0.45) { float cw = (R.z - R.x) * (0.18 + 0.3 * fract(h2 * 7.0)); cur = max(1.0 - step(R.x + cw, fp.x), step(R.z - cw, fp.x)); }

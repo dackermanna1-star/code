@@ -99,7 +99,7 @@ export function buildStreets(P) {
 }
 
 // ---- signs: one canvas atlas with every name, STOP and the speed limits --------------------
-const CELL_W = 512, CELL_H = 64, COLS = 2, ROWS = 48;
+const CELL_W = 512, CELL_H = 64, COLS = 2, ROWS = 40;
 class SignAtlas {
   constructor() { this.names = new Map(); this.list = []; }
   cell(name) {
@@ -198,7 +198,8 @@ const ADS = [
   { bg: ['#1d3557', '#457b9d'], title: 'VICE GAZETTE', sub: 'THE CITY NEVER SLEEPS', fg: '#f1faee', deco: 'wave' },
 ];
 function adAtlas() {
-  return canvasTex(2048, 1024, (x) => {
+  return canvasTex(1024, 512, (x) => {
+    x.scale(0.5, 0.5);
     ADS.forEach((a, i) => {
       const cx = (i % 4) * 512, cy = Math.floor(i / 4) * 512, W = 512, H = 512;
       const g = x.createLinearGradient(cx, cy, cx + W, cy + H); g.addColorStop(0, a.bg[0]); g.addColorStop(1, a.bg[1]);
@@ -206,7 +207,7 @@ function adAtlas() {
       x.save(); x.beginPath(); x.rect(cx, cy, W, H); x.clip();
       x.globalAlpha = 0.35; x.fillStyle = a.fg;
       if (a.deco === 'sun') { x.beginPath(); x.arc(cx + W * 0.8, cy + H * 0.35, 120, 0, Math.PI * 2); x.fill(); }
-      if (a.deco === 'wave') for (let k = 0; k < 5; k++) { x.beginPath(); for (let u = 0; u <= W; u += 8) x.lineTo(cx + u, cy + H * 0.72 + k * 26 + Math.sin(u / 40 + k) * 12); x.lineTo(cx + W, cy + H); x.lineTo(cx, cy + H); x.fill(); }
+      if (a.deco === 'wave') for (let k = 0; k < 5; k++) { x.beginPath(); for (let u = 0; u <= W; u += 24) x.lineTo(cx + u, cy + H * 0.72 + k * 26 + Math.sin(u / 40 + k) * 12); x.lineTo(cx + W, cy + H); x.lineTo(cx, cy + H); x.fill(); }
       if (a.deco === 'palm') { x.lineWidth = 16; x.strokeStyle = a.fg; x.beginPath(); x.moveTo(cx + W * 0.82, cy + H); x.quadraticCurveTo(cx + W * 0.78, cy + H * 0.6, cx + W * 0.86, cy + H * 0.3); x.stroke(); for (let k = 0; k < 7; k++) { const an = -Math.PI + k * 0.5; x.beginPath(); x.ellipse(cx + W * 0.86 + Math.cos(an) * 60, cy + H * 0.3 + Math.sin(an) * 30 + 20, 70, 14, an, 0, Math.PI * 2); x.fill(); } }
       if (a.deco === 'plane') { x.beginPath(); x.ellipse(cx + W * 0.75, cy + H * 0.3, 110, 22, -0.2, 0, Math.PI * 2); x.fill(); x.beginPath(); x.moveTo(cx + W * 0.72, cy + H * 0.3); x.lineTo(cx + W * 0.6, cy + H * 0.55); x.lineTo(cx + W * 0.68, cy + H * 0.55); x.lineTo(cx + W * 0.82, cy + H * 0.32); x.fill(); }
       x.globalAlpha = 1; x.restore();

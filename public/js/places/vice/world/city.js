@@ -270,20 +270,21 @@ export class City {
     CITY_U.dayL.value = st?.light ?? 1;
     CITY_U.uTime.value += dt;
     const p = camera.position;
-    const hy = Math.max(0, p.y - 30);
-    const dist = (c, half) => { const dx = Math.max(0, Math.abs(p.x - c.x) - half), dz = Math.max(0, Math.abs(p.z - c.z) - half); return Math.hypot(dx, dz, hy); };
-    for (const c of this.cells) {
-      const d = dist(c, 256);
-      if (c.mid) c.mid.visible = d < MID_RANGE;
-    }
-    for (const c of this.ncells) c.near.visible = dist(c, 128) < NEAR_RANGE;
+    for (const c of this.cells) if (c.mid) c.mid.visible = cellDist(p, c, 256) < MID_RANGE;
+    for (const c of this.ncells) c.near.visible = cellDist(p, c, 128) < NEAR_RANGE;
+    const neonR = CITY_U.night.value > 0.2 ? NEON_RANGE : MID_RANGE;
     for (const c of this.signCells) {
-      const d = dist(c, 256);
-      if (c.neon) c.neon.visible = d < (CITY_U.night.value > 0.2 ? NEON_RANGE : MID_RANGE);
+      const d = cellDist(p, c, 256);
+      if (c.neon) c.neon.visible = d < neonR;
       if (c.paint) c.paint.visible = d < PAINT_RANGE;
     }
-    for (const c of this.muralCells) c.mesh.visible = dist(c, 256) < MURAL_RANGE;
+    for (const c of this.muralCells) c.mesh.visible = cellDist(p, c, 256) < MURAL_RANGE;
   }
 }
 function freeArray() { this.array = null; }
+/** Distance from the camera to a cell (a square of half size `half` round c.x, c.z; height above the roofs counts too). */
+function cellDist(p, c, half) {
+  const dx = Math.max(0, Math.abs(p.x - c.x) - half), dz = Math.max(0, Math.abs(p.z - c.z) - half), dy = Math.max(0, p.y - 30);
+  return Math.sqrt(dx * dx + dz * dz + dy * dy);
+}
 void VB; void KC; void ROAD; void GRIDS;

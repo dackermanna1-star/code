@@ -23,8 +23,7 @@
 import * as THREE from 'three';
 import { V } from '../state.js';
 import { viceTextures } from './textures.js';
-import { Chunks } from './surface.js';
-import { propMaterials, NearSet, RoadIndex, hash } from './props/kit.js';
+import { propMaterials, NearSet, RoadIndex, FastChunks, hash } from './props/kit.js';
 import { Flora, SP, SPECIES } from './props/flora.js';
 import { buildBeach } from './props/beach.js';
 import { buildWaterfront, buildKenney } from './props/waterfront.js';
@@ -53,7 +52,7 @@ export class Props {
     this.glow = { value: 0 };
     this.M = propMaterials(this.tex, this.glow);
     // big things in 1024-stud chunks (few draw calls), small details in 512-stud ones (hidden when far)
-    const big = new Chunks(1024), small = new Chunks(512);
+    const big = new FastChunks(1024), small = new FastChunks(512);
     this.C = { get: (mat, x, z) => (mat === 'detail' ? small : big).get(mat, x, z), meshes: (m, o) => [...big.meshes(m, o), ...small.meshes(m, o)] };
     this.flora = new Flora(world, this.tex);
     this.near = new NearSet(world.scene);

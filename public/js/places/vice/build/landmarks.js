@@ -434,12 +434,12 @@ function ballpark(C) {
   const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, hx = (x1 - x0) / 2 - 4, hz = (z1 - z0) / 2 - 4;
   K.begin(cx, C.GROUND, cz, 0, 7801, { kind: 'ballpark' });
   const out = roundRect(-hx, -hz, hx, hz, [hz * 0.9, hz * 0.9, hz * 0.6, hz * 0.6], 6);
-  const H = 70;
+  const H = 52;
   // the outer wall: white panels and a glass band
   K.facade({ kind: WIN.curtain, fh: 12, bw: 7, v0: 0, occ: 0.7 });
-  K.prism(out, 0, 14, mat('whiteTiles', 0x6a98b8, { p: 5 }), { smooth: 0.6, top: false });
+  K.prism(out, 0, 26, mat('whiteTiles', 0x6a98b8, { p: 5 }), { smooth: 0.6, top: false });
   K.facade(null);
-  K.prism(out, 14, H, paint(0xf4f4f0, 0.25, 0.15), { smooth: 0.6, top: false, win: false });
+  K.prism(out, 26, H, paint(0xf4f4f0, 0.25, 0.15), { smooth: 0.6, top: false, win: false });
   K.prism(offsetPoly(out, -3), 14, H, mat('concrete', 0xd8d4cc), { smooth: 0.6, top: false, win: false, closed: true });
   // the stands: a sloping ring of seats from the field up to the wall
   const inner = offsetPoly(out, -46);

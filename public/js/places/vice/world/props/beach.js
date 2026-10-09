@@ -6,7 +6,7 @@
 // South Beach Lummus Park: a lawn with a winding path, palms and deco lamps
 // between the boardwalk and Ocean Drive. South Pointe Pier runs out into the
 // ocean from the tip.
-import { L, tint, shade, cylAB, strip, resample, spline, hash, rnd, TAU } from './kit.js';
+import { L, tint, shade, cylAB, strip, resample, spline, hash, rnd, faceUp, TAU } from './kit.js';
 import { place, ftype } from './furniture.js';
 import { PLACES } from '../layout.js';
 
@@ -168,12 +168,7 @@ function boardwalk(P, S, walk, at) {
     void at;
   }
 }
-function fixWinding(g) {
-  const n = g.idx.length, i0 = g.idx[n - 6], i1 = g.idx[n - 5], i2 = g.idx[n - 4], p = g.pos;
-  const ax = p[i1 * 3] - p[i0 * 3], az = p[i1 * 3 + 2] - p[i0 * 3 + 2], bx = p[i2 * 3] - p[i0 * 3], bz = p[i2 * 3 + 2] - p[i0 * 3 + 2];
-  if (az * bx - ax * bz >= 0) return;
-  for (let k = n - 6; k < n; k += 3) { const t = g.idx[k + 1]; g.idx[k + 1] = g.idx[k + 2]; g.idx[k + 2] = t; }
-}
+const fixWinding = faceUp;
 
 // ---- lifeguard towers ------------------------------------------------------------------------
 export function lifeguardTower(P, x, y, z, h, sc, seed) {
@@ -318,10 +313,14 @@ function fixAll(g) {
 function lummus(P, S, walk) {
   const r = rnd(77);
   // the boardwalk's land edge at a given z (the shore runs north-south here)
+  const near = walk.filter((w) => w.ok && w.z > OD_Z[0] - 20 && w.z < OD_Z[1] + 20 && w.x > OD_EDGE).sort((a, b) => a.z - b.z);
   const edgeAt = (z) => {
-    let best = null, bd = 1e9;
-    for (const w of walk) { const d = Math.abs(w.z - z); if (d < bd && w.ok) { bd = d; best = w; } }
-    return best && bd < 10 ? best.x - WALK_W - 2 : null;
+    let lo = 0, hi = near.length - 1;
+    if (hi < 0) return null;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (near[m].z < z) lo = m + 1; else hi = m; }
+    let best = near[lo];
+    if (lo > 0 && Math.abs(near[lo - 1].z - z) < Math.abs(best.z - z)) best = near[lo - 1];
+    return Math.abs(best.z - z) < 10 ? best.x - WALK_W - 2 : null;
   };
   const x0 = OD_EDGE + 1;
   let prev = null;
