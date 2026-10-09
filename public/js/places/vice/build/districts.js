@@ -23,6 +23,9 @@ export function simpleBuilding(C, lot, r, o = {}) {
   return { H, hw, fz, bz };
 }
 
+// the oceanfront between Collins and the sand: deep lots facing Collins
+const OCEANFRONT = { single: true, prefer: 'w', dmin: 50, dmax: 400, wmin: 80, wmax: 170, gmin: 10, gmax: 26 };
+
 const deco = {
   lots: (b, info) => {
     const ocean = /Ocean Drive/.test(info.streets.e?.name || '');
@@ -38,13 +41,21 @@ const deco = {
 
 export const DISTRICT_STYLES = {
   deco,
-  resort: { lots: () => ({ dmin: 50, dmax: 120, wmin: 70, wmax: 140, gmin: 8, gmax: 20 }), build: resortLot, trim: true },
-  condo: { lots: () => ({ dmin: 40, dmax: 90, wmin: 44, wmax: 90, gmin: 6, gmax: 16 }), build: condoLot, trim: true },
+  resort: { lots: (b) => (b.x0 > 2630 ? OCEANFRONT : { dmin: 50, dmax: 120, wmin: 70, wmax: 140, gmin: 8, gmax: 20 }), build: resortLot, trim: true },
+  condo: { lots: (b) => (b.x0 > 2630 ? OCEANFRONT : { dmin: 40, dmax: 90, wmin: 44, wmax: 90, gmin: 6, gmax: 16 }), build: condoLot, trim: true },
   tower: { lots: (b) => ({ dmin: 50, dmax: 200, wmin: Math.min(70, (Math.max(b.x1 - b.x0, b.z1 - b.z0)) / 2 - 4), wmax: 150, gmin: 8, gmax: 16, single: true }), build: towerLot, trim: true },
   lowrise: { lots: () => ({ dmin: 26, dmax: 56, wmin: 22, wmax: 44, gmin: 2, gmax: 8 }), build: lowriseLot, trim: true },
   havana: { lots: () => ({ dmin: 28, dmax: 56, wmin: 20, wmax: 40, gmin: 0, gmax: 6 }), build: havanaLot, trim: true },
   warehouse: { lots: () => ({ dmin: 40, dmax: 90, wmin: 40, wmax: 90, gmin: 4, gmax: 14 }), build: warehouseLot, trim: true },
-  suburb: { lots: () => ({ dmin: 50, dmax: 90, wmin: 36, wmax: 52, gmin: 0, gmax: 0 }), build: suburbLot, trim: true },
+  suburb: {
+    lots: (b, info, r) => {
+      // strip malls along the avenues, houses everywhere else
+      const ave = ['w', 'e', 'n', 's'].find((s) => ['ave', 'blvd'].includes(info.streets[s]?.cls));
+      if (ave && r() < 0.4) return { dmin: 70, dmax: 130, wmin: 100, wmax: 170, gmin: 8, gmax: 16, single: true, prefer: ave, mall: true };
+      return { dmin: 50, dmax: 90, wmin: 36, wmax: 52, gmin: 0, gmax: 0 };
+    },
+    build: suburbLot, trim: true,
+  },
   villa: { lots: () => ({ dmin: 50, dmax: 100, wmin: 50, wmax: 80, gmin: 0, gmax: 0 }), build: villaLot, trim: true },
   port: null, airport: null, park: null, mansion: null,
 };

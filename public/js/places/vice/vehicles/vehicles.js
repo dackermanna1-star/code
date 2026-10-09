@@ -47,7 +47,7 @@ export function prepare(id) {
   d.hw = ((b.x1 - b.x0) / 2) * 0.95; d.hl = ((b.z1 - b.z0) / 2) * 0.97;
   if (kind === 'plane') d.hw = 2.6; // the fuselage; the wings fly over most things
   d.cmY = kind === 'car' ? b.y1 * 0.3 : kind === 'bike' ? 1.9 : kind === 'boat' ? Math.max(1.2, b.y1 * 0.22) : kind === 'heli' ? 4.2 : 4.4;
-  d.cmZ = kind === 'plane' ? 1.4 : kind === 'heli' ? -0.6 : 0;
+  d.cmZ = kind === 'plane' ? 1.4 : kind === 'heli' ? -0.6 : kind === 'car' ? d.size.l * 0.025 : 0; // front-engined
   // inertia of the main box (planes: the fuselage and wings)
   const W = kind === 'plane' ? 20 : d.size.w, H = Math.max(2, b.y1 - y0), L = d.size.l;
   const kI = kind === 'bike' ? 1.4 : kind === 'heli' ? 1.2 : 1;
@@ -58,7 +58,7 @@ export function prepare(id) {
   d.tough = d.tough || 1;
   // engine: constant power (kW -> kg studs^2/s^3), drag sized so the top speed is just reachable
   d.Pw = d.power * 1000 / (K.STUD * K.STUD) * (kind === 'boat' ? 1 : 1.6);
-  d.mu = (d.grip || 1) * 0.42;
+  d.mu = (d.grip || 1) * 0.46;
   d.muX = d.mu * 1.3; // tyres hold more along than across (arcade traction)
   // launch force: just under what the driven tyres can hold (sporty ones can light them up)
   const nWh = vis.wheels.length || 1, nDr = vis.wheels.filter((w) => driven(d, w)).length || nWh;
@@ -67,10 +67,10 @@ export function prepare(id) {
   d.downK = 0.00075 * (d.downforce ?? 0.35);
   d.brakeF = (d.brake || 1) * m * G * d.mu * 1.1;
   d.steerFade = kind === 'bike' ? 70 : 52;
-  d.peak = 0.15;
+  d.peakF = 0.17; d.peakR = 0.12; // stiffer at the back: stable, a little understeer
   d.slideF = 0.78; d.slideR = 0.78 - (d.drift || 0) * 0.25;
-  d.hbGrip = 0.3 + (1 - (d.drift || 0)) * 0.2;
-  d.yawDamp = kind === 'bike' ? 1.6 : 0.55;
+  d.hbGrip = 0.18 + (1 - (d.drift || 0)) * 0.16;
+  d.esp = kind === 'bike' ? 10 : 7 - (d.drift || 0) * 4;
   d.rollLift = kind === 'bike' ? 1 : kind === 'plane' ? 0.85 : 0.5;
   d.revTop = Math.min(32, d.top * 0.25);
   d.gearTop = []; for (let i = 1; i <= d.gears; i++) d.gearTop.push(d.top * Math.pow(i / d.gears, 0.78));
@@ -83,6 +83,7 @@ export function prepare(id) {
     let zf = 0, nf = 0, zr = 0, nr = 0;
     for (const w of ws) if (w.front) { zf += w.z; nf++; } else { zr += w.z; nr++; }
     zf /= nf || 1; zr /= nr || 1;
+    d.wheelbase = Math.max(2, zf - zr);
     const ff = nf && nr ? clamp((d.cmZ - zr) / (zf - zr), 0.1, 0.9) : 0.5;
     const nD = ws.filter((w) => driven(d, w)).length;
     d.nDriven = nD;
@@ -99,7 +100,7 @@ export function prepare(id) {
         Lmax, xs, mountY: w.y + (Lmax - xs), staticLoad: load, k, c: 2 * zeta * Math.sqrt(k * (load / G)),
       });
     }
-  } else d.nDriven = 0;
+  } else { d.nDriven = 0; d.wheelbase = d.size.l * 0.6; }
   // hull points that touch the ground (roof, sides, skids, wingtips...)
   const h = d.hull, ix = (h.x1 - h.x0) / 2 * 0.92, xc = h.xc, z0 = h.z0 * 0.94, z1 = h.z1 * 0.94;
   if (kind === 'heli') d.corners = [[2.7, 0, -4.2], [-2.7, 0, -4.2], [2.7, 0, 5.2], [-2.7, 0, 5.2], [0, 7.6, 1.5], [3, 5, 1.5], [-3, 5, 1.5], [0, 5.2, -16.5], [0, 2, 6.8]];

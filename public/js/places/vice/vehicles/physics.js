@@ -249,7 +249,7 @@ function wheelForces(v, h) {
     const vf = VP.dot(WF), vs = VP.dot(WS);
     const fz = Math.min(fs, w.staticLoad * 2.5);
     const surf = st.surf === 0 ? 0.62 : st.surf === 0.5 ? 0.85 : 1; // sand, mud and lawn are slippery
-    let latMu = mu * surf * latCurve(Math.abs(Math.atan2(vs, Math.abs(vf) + 2)), d.peak, w.front ? d.slideF : d.slideR);
+    let latMu = mu * surf * latCurve(Math.abs(Math.atan2(vs, Math.abs(vf) + 2)), w.front ? d.peakF : d.peakR, w.front ? d.slideF : d.slideR);
     if (!w.front && hb) latMu *= d.hbGrip;
     let fy = -Math.sign(vs) * latMu * fz;
     const capY = Math.abs(vs) * mShare / h;
@@ -294,9 +294,15 @@ function wheelForces(v, h) {
   v.skid = nW ? skidSum / nW : 0;
   v.compression = contacts ? comp / contacts : 0;
   // arcade help: steady the yaw when not sliding on purpose; air control
-  if (contacts >= 2) {
+  if (hb) v.hbT = 0.7; else v.hbT = Math.max(0, (v.hbT || 0) - h);
+  if (contacts >= 2 && sp > 4) {
+    // stability control: rein in yaw beyond what the steering asks for (not while the handbrake is on, and
+    // easing back in after it, so handbrake turns and drifts still happen)
     const yawRate = v.angVel.dot(up);
-    if (!hb) { const k = d.yawDamp * Math.min(1, sp / 40) * d.I.y; T.addScaledVector(up, -yawRate * k); }
+    const rk = (v.speed * Math.tan(v.steerAngle)) / d.wheelbase;
+    const lim = Math.min(Math.abs(rk), (d.mu * G) / sp) + 0.08 + (d.drift || 0) * 0.25;
+    const ex = yawRate > lim ? yawRate - lim : yawRate < -lim ? yawRate + lim : 0;
+    if (ex) T.addScaledVector(up, -ex * d.I.y * d.esp * (1 - v.hbT / 0.7));
   } else if (contacts === 0 && d.kind === 'car') {
     // a little control in the air (pitch with throttle, roll with steer)
     T.addScaledVector(lf, (c.throttle || 0) * d.I.x * 1.2);

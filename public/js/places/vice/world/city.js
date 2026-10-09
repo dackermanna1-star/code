@@ -136,10 +136,11 @@ export class City {
     if (!b.edge.n && !b.edge.s && !b.edge.e && !b.edge.w) return 0;
     const r = rng(b.id * 7349 + 11);
     const info = { streets, district: D };
-    const L = blockLots(b, info, style.lots(b, info, r), r);
-    let n = 0;
+    const opts = style.lots(b, info, r);
+    const L = blockLots(b, info, opts, r);
+    let n = 0, k = 0;
     for (const lot of L.lots) {
-      lot.district = D; lot.seed = (b.id * 131 + n * 17 + 7) >>> 0; lot.y = GROUND;
+      lot.district = D; lot.seed = (b.id * 131 + k++ * 17 + 7) >>> 0; lot.y = GROUND; lot.mall = !!opts.mall;
       if (!C.free(lot.x0, lot.z0, lot.x1, lot.z1)) continue;
       if (!C.landOK(lot.x0, lot.z0, lot.x1, lot.z1)) { if (!style.trim || !this._trim(C, lot)) continue; }
       try { style.build(C, lot, rng(lot.seed)); n++; } catch (e) { console.warn('city: lot failed', D.id, e); }

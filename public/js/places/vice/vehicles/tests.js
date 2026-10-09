@@ -49,7 +49,7 @@ export const TESTS = {
   },
 
   /** Steady state at a speed with full lock: radius, lateral g, body roll. */
-  turn(type = 'sedan', speed = 30, steer = 1, x = 2440, z = 600) {
+  turn(type = 'sedan', speed = 30, steer = 1, x = -3700, z = -2500) {
     const v = fresh(type, x, z, Math.PI);
     tick(5);
     v.vel.copy(v._fw).multiplyScalar(speed);
@@ -69,7 +69,7 @@ export const TESTS = {
   },
 
   /** Handbrake turn at speed: how far the car rotates and how much it slides. */
-  handbrake(type = 'sedan', speed = 70, x = 2440, z = 600) {
+  handbrake(type = 'sedan', speed = 70, x = -3700, z = -2500) {
     const v = fresh(type, x, z, Math.PI);
     tick(5);
     v.vel.copy(v._fw).multiplyScalar(speed);

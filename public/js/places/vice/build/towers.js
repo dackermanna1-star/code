@@ -14,7 +14,7 @@ const CORES = [
 export function towerHeight(x, z, r) {
   let f = 0;
   for (const c of CORES) { const d = Math.hypot(x - c.x, z - c.z) / c.R; f = Math.max(f, c.k * Math.exp(-d * d)); }
-  return Math.max(0, Math.min(1, f * (0.55 + 0.6 * r())));
+  return Math.max(0, Math.min(1, f * (0.55 + 0.6 * r)));
 }
 
 const CROWN_COLS = [0x40c8ff, 0xff40b0, 0xffffff, 0x7a60ff, 0x40ffd0, 0xffb040];
