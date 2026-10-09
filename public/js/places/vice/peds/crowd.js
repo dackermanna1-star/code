@@ -186,7 +186,7 @@ function itemGeometry() {
     if (!info) continue;
     const grp = info.group;
     grp.updateMatrixWorld(true);
-    const base = new THREE.Matrix4().makeTranslation(0, -0.05, 0.05).multiply(fix).multiply(new THREE.Matrix4().makeScale(3, 3, 3));
+    const base = new THREE.Matrix4().makeTranslation(0, -0.05, 0.08).multiply(fix).multiply(new THREE.Matrix4().makeScale(4.2, 4.2, 4.2));
     grp.traverse((o) => {
       if (!o.isMesh || !o.visible) return;
       const mat = Array.isArray(o.material) ? o.material[0] : o.material;
@@ -470,7 +470,8 @@ export class Crowd {
       const dx = t[12] - cp.x, dz = t[14] - cp.z;
       if (dx * dx + dz * dz > range * range) { f.culled = true; continue; }
       f.culled = false;
-      _sph.center.set(t[12], t[13], t[14]); _sph.radius = 4.5 * (f.scale || 1);
+      // (this runs before the camera moves this frame: a margin that grows with distance covers a quick turn)
+      _sph.center.set(t[12], t[13], t[14]); _sph.radius = 4.5 * (f.scale || 1) + Math.sqrt(dx * dx + dz * dz) * 0.12;
       if (!_frus.intersectsSphere(_sph)) continue;
       for (let k = 0; k < 6; k++) im[k].set(f.mats[k].elements, n * 16);
       const c = f.cell | 0;
@@ -532,3 +533,4 @@ export function rayBox(M, h, o, dir, max) {
   }
   return t0;
 }
+export { headGeometry as _headGeometry };

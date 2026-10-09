@@ -15,7 +15,9 @@ import * as THREE from 'three';
 import { buildGun, GUNS, gunMaterials } from '../../warzone/guns.js';
 import { WEAPONS } from './data.js';
 
-export const MODEL_SCALE = 3.6;
+export const MODEL_SCALE = 4.2;
+// (handguns would vanish inside a ROBLOX fist at true scale: they're drawn bigger)
+const EXTRA = { glock: 1.35, deagle: 1.25, uzi: 1.3, knife: 1.3, knuckles: 1.25, grenade: 1.5, molotov: 1.3 };
 const Vec = (x, y, z) => new THREE.Vector3(x, y, z);
 
 // ---- Vice City's own models (metres, barrel along -Z, grip at the origin) -------------------------------------------------------
@@ -135,7 +137,8 @@ function build(mid) {
   root.updateMatrixWorld(true);
   // one geometry per material: positions, normals and uvs, in gun space scaled to studs
   const buckets = new Map();
-  const S = new THREE.Matrix4().makeScale(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE);
+  const SC = MODEL_SCALE * (EXTRA[mid] || 1);
+  const S = new THREE.Matrix4().makeScale(SC, SC, SC);
   const m = new THREE.Matrix4(), nm = new THREE.Matrix3();
   root.traverse((o) => {
     if (!o.isMesh || !o.visible || !o.geometry) return;
@@ -171,7 +174,7 @@ function build(mid) {
     geo.userData.shared = true;
     parts.push({ geo, mat });
   }
-  const sc = (v) => (v ? v.clone().multiplyScalar(MODEL_SCALE) : new THREE.Vector3());
+  const sc = (v) => (v ? v.clone().multiplyScalar(SC) : new THREE.Vector3());
   const box = new THREE.Box3();
   for (const p of parts) { p.geo.computeBoundingBox(); box.union(p.geo.boundingBox); }
   const c = { parts, muzzle: sc(info.muzzle), leftHand: sc(info.leftHand), eject: sc(info.eject), length: box.max.z - box.min.z, box };
@@ -200,7 +203,9 @@ export function handModel(id) {
   const gun = gunModel(id);
   const h = new THREE.Group();
   h.rotation.x = -Math.PI / 2;  // gun -Z -> grip -Y (along the arm), gun +Y -> grip -Z
-  h.position.set(0, -0.05, 0);
+  // out of the fist and on top of it (a block hand would hide a gun held at its centre)
+  const mid = modelId(id) || id, melee = !!WEAPONS[id]?.melee || mid === 'grenade' || mid === 'molotov';
+  if (melee) h.position.set(0, -0.15, -0.05); else h.position.set(0, -0.3, -0.42);
   h.add(gun);
   h.userData = { gun, shared: true };
   return h;

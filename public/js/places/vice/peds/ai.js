@@ -27,6 +27,7 @@ export const LINES = {
   dodge: ['Whoa!', 'Learn to drive!', 'Maniac!', 'Are you crazy?!', 'Slow down!'],
   hostile: ['Get him!', 'Light him up!', 'You picked the wrong street!'],
   handsup: ['Don\'t shoot!', 'Take it easy!', 'Please!', 'OK, OK!'],
+  cop: ['Freeze!', 'Police! Drop it!', 'Get on the ground!', 'Stop right there!', 'Hands where I can see them!', 'VCPD!'],
 };
 
 // ---- the brain --------------------------------------------------------------------------------------------------------
@@ -297,6 +298,13 @@ export function act(sys, p, dt) {
         let ax = th ? p.pos.x - th.x : Math.sin(p.heading), az = th ? p.pos.z - th.z : Math.cos(p.heading);
         let a = Math.atan2(ax, az);
         if (s.ang != null) a += s.ang;
+        // not into the sea: run along the shore instead
+        if (V.ground?.waterAt?.(p.pos.x + Math.sin(a) * 8, p.pos.z + Math.cos(a) * 8) === 0) {
+          const l = a + Math.PI / 2, r = a - Math.PI / 2;
+          const wl = V.ground.waterAt(p.pos.x + Math.sin(l) * 8, p.pos.z + Math.cos(l) * 8) === 0;
+          s.ang = (s.ang || 0) + (wl ? -Math.PI / 2 : Math.PI / 2) * (wl && V.ground.waterAt(p.pos.x + Math.sin(r) * 8, p.pos.z + Math.cos(r) * 8) === 0 ? 2 : 1);
+          a = Math.atan2(ax, az) + s.ang;
+        }
         want.x = Math.sin(a) * sp; want.z = Math.cos(a) * sp;
         // stuck against something?
         const hs = Math.hypot(p.vel.x, p.vel.z);

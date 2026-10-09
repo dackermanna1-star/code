@@ -203,7 +203,7 @@ export class Weapons {
     this._hud(dt);
   }
 
-  _target0() { const T = this._T || (this._T = {}); T.fR = 0; T.ry = 0; T.rz = 0; T.fL = 0; T.ly = 0; T.rh = 0; T.lean = 0; T.useR = T.useL = T.useH = T.useLean = false; T.k = 16; T.show = false; return T; }
+  _target0() { const T = this._T || (this._T = {}); T.fR = 0; T.ry = 0; T.rz = 0; T.fL = 0; T.ly = 0; T.rh = 0; T.lean = 0; T.tw = 0; T.gp = 0; T.useR = T.useL = T.useH = T.useLean = false; T.k = 16; T.show = false; return T; }
 
   // ---- on foot -------------------------------------------------------------------------------------------------------------------------
   _foot(dt, inp, T) {
@@ -244,14 +244,18 @@ export class Weapons {
     T.show = this.switchT < 0.16;
     if (drive) { /* the drive-by pose is set in _vehicle */ }
     else if (this.aiming && this.switchT <= 0) {
-      const kick = this.gunKick * (w.recoil > 3 ? 0.5 : 0.18);
-      T.useR = true; T.fR = Math.PI / 2 + pitch + kick; T.ry = w.twoHand ? 0.12 : 0.18;
-      T.useL = true; T.fL = Math.PI / 2 + pitch * 0.95 + kick * 0.6 - (w.twoHand ? 0.12 : 0.08); T.ly = w.twoHand ? -0.74 : -0.62;
-      if (this.reload) { T.fR -= 0.5; T.fL = 1.1; T.ly = -0.5; }
+      // a bladed stance: the body turned a little to the right, both arms on the gun, pointing where you aim
+      const kick = this.gunKick * (w.recoil > 3 ? 0.5 : 0.18), tw = w.twoHand ? 0.42 : 0.2;
+      T.useLean = true; T.lean = 0.04; T.tw = tw;
+      // (the forearm dips a little below the line and the gun tilts back up: from behind you see the gun over the fist)
+      const dip = w.twoHand ? 0.12 : 0.22;
+      T.useR = true; T.fR = Math.PI / 2 + pitch + kick - dip; T.ry = tw + (w.twoHand ? -0.02 : 0.02); T.gp = dip;
+      T.useL = true; T.fL = Math.PI / 2 + pitch * 0.95 + kick * 0.6 - (w.twoHand ? 0.1 : 0.06); T.ly = tw - (w.twoHand ? 0.6 : 0.62);
+      if (this.reload) { T.fR -= 0.5; T.fL = 1.1; T.ly = tw - 0.5; }
       T.k = 22;
     } else {
       // carried: rifles across the body, pistols down by your side
-      if (w.twoHand) { T.useR = true; T.fR = 0.5; T.ry = 0.25; T.useL = true; T.fL = 0.75; T.ly = -0.75; }
+      if (w.twoHand) { T.useLean = true; T.tw = 0.3; T.useR = true; T.fR = 0.55; T.ry = 0.5; T.useL = true; T.fL = 0.85; T.ly = -0.45; }
       else { T.useR = true; T.fR = 0.18; T.ry = 0; }
       if (this.reload) { T.fR = 0.75; T.useL = true; T.fL = 1.0; T.ly = -0.55; }
       if (this.switchT > 0) { T.fR = -0.2; T.useL = false; }
@@ -415,12 +419,18 @@ export class Weapons {
       if (!lmbDown || rel || this.charge > 1.6) { this._startAttack(this.charge > 0.25 ? 'heavy' : 'light', tg, fwd); this.charge = -1; }
     } else if (click && this.switchT <= 0) {
       if (!this.atk) this._startAttack('light', tg, fwd);
-      else if (this.atk.u > 0.3) this.queued = true;
+      else if (this.atk.u > 0.08) this.queued = true; // (buffered: the next blow follows this one)
     }
     if (this.atk) {
       const a = this.atk;
       if (a.stop > 0) a.stop -= dt; // (a moment's hit-stop when a blow lands)
       else a.u += dt / a.dur;
+      // step in with the blow (up to a stud short of them)
+      if (!a.hit && a.u > 0.12 && a.target && !a.target.dead && a.kind !== 'stomp') {
+        const dx = a.target.pos.x - P.pos.x, dz = a.target.pos.z - P.pos.z, dd = Math.hypot(dx, dz);
+        const step = Math.min(Math.max(0, dd - 2.7), dt * 9);
+        if (step > 0) { P.pos.x += dx / dd * step; P.pos.z += dz / dd * step; }
+      }
       // the blow lands
       if (!a.hit && a.u >= a.at) {
         a.hit = true;
@@ -629,7 +639,8 @@ export class Weapons {
       this.hand.visible = show;
       // guns kick back in the hand when they fire
       const g = this.hand.userData.gun;
-      if (g) { g.position.z = this.gunKick * (w.recoil > 3 ? 0.35 : 0.12); g.rotation.x = this.gunKick * (w.recoil > 3 ? 0.25 : 0.06); }
+      ps.gp = (ps.gp || 0) + ((T.gp || 0) - (ps.gp || 0)) * Math.min(1, dt * 16);
+      if (g) { g.position.z = this.gunKick * (w.recoil > 3 ? 0.35 : 0.12); g.rotation.x = ps.gp + this.gunKick * (w.recoil > 3 ? 0.25 : 0.06); }
     }
     if (now) return this._writePose(T, 1); // (firing: this frame's pose, exactly)
     // ease toward the target pose
@@ -639,7 +650,7 @@ export class Weapons {
     if (T.useR) { ps.fR += (T.fR - ps.fR) * k; ps.ry += (T.ry - ps.ry) * k; ps.rz = (ps.rz || 0) + ((T.rz || 0) - (ps.rz || 0)) * k; }
     if (T.useL) { ps.fL += (T.fL - ps.fL) * k; ps.ly += (T.ly - ps.ly) * k; }
     if (T.useH) ps.rh += (T.rh - ps.rh) * Math.min(1, dt * 40);
-    if (T.useLean) ps.lean += (T.lean - ps.lean) * k;
+    if (T.useLean) { ps.lean += (T.lean - ps.lean) * k; ps.tw = (ps.tw || 0) + ((T.tw || 0) - (ps.tw || 0)) * k; }
     this._writePose(T, 0);
   }
   _writePose(T, exact) {
@@ -654,7 +665,7 @@ export class Weapons {
     if (ps.wR > 0.01) { rs.rotation.x = lerp(rs.rotation.x, ps.fR, ps.wR); rs.rotation.y = ps.ry * ps.wR; rs.rotation.z = (ps.rz || 0) * ps.wR; } else { rs.rotation.y = 0; rs.rotation.z = 0; }
     if (ps.wL > 0.01) { ls.rotation.x = lerp(ls.rotation.x, ps.fL, ps.wL); ls.rotation.y = ps.ly * ps.wL; ls.rotation.z = 0; } else { ls.rotation.y = 0; ls.rotation.z = 0; }
     if (ps.wH > 0.01) m.rightHip.rotation.x = lerp(m.rightHip.rotation.x, ps.rh, ps.wH);
-    if (ps.wLean > 0.01 && !P.vehicle) { _e.set(ps.lean * ps.wLean, P.heading + Math.PI, 0, 'YXZ'); m.root.quaternion.setFromEuler(_e); }
+    if (ps.wLean > 0.01 && !P.vehicle) { _e.set(ps.lean * ps.wLean, P.heading + Math.PI - (ps.tw || 0) * ps.wLean, 0, 'YXZ'); m.root.quaternion.setFromEuler(_e); }
     // for player.js (the next frame starts from this; ls in setAngles' sign)
     this.armPose = ps.wR > 0.98 || ps.wL > 0.98 ? { rs: ps.wR > 0.98 ? ps.fR : null, ls: ps.wL > 0.98 ? -ps.fL : null, lean: ps.wLean > 0.98 && !P.vehicle ? ps.lean : null } : null;
     m.root.updateMatrixWorld(true);

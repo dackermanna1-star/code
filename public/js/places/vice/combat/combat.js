@@ -358,11 +358,11 @@ export class Combat {
       const hitY = down ? t.pos.y + 0.8 : t.pos.y + (part === 'head' ? 4.5 : 3.2);
       _p.set(t.pos.x - _d.x * 0.6, hitY, t.pos.z - _d.z * 0.6);
       const alive = !t.dead;
-      const knock = !down && !t.dead && (heavy || fin || (w.kind === 'blunt' && R() < 0.25));
+      const knock = !down && !t.dead && (heavy || fin || (w.kind === 'blunt' && R() < 0.6));
       t.hit?.(dmg, part, _d.clone(), attacker, { melee: true, weapon: w.id, heavy, stagger: !knock, knockdown: knock, knock, point: _p.clone(), noBlood: true });
       if (knock && !t.dead && !t.vehicle) {
-        const k = heavy ? 1 : 0.7, kb = w.kind === 'blunt' ? 1.25 : 1;
-        t.knock?.(new THREE.Vector3(_d.x * 22 * k * kb, 9 + 7 * k, _d.z * 22 * k * kb), attacker);
+        const k = heavy ? 1 : 0.7, kb = w.kind === 'blunt' ? 1.25 : w.kind === 'fist' ? 0.8 : 1;
+        t.knock?.(new THREE.Vector3(_d.x * 22 * k * kb, 8 + 7 * k, _d.z * 22 * k * kb), attacker);
       }
       // blood: knives always; bats and fists when it's a big one
       if (w.kind === 'stab' || (heavy && w.kind === 'blunt') || fin || down || R() < 0.25) V.fx?.blood?.(_p, { x: _d.x, y: 0.15, z: _d.z }, { melee: true, heavy: heavy || w.kind === 'stab', amount: w.kind === 'stab' ? 1 : w.kind === 'blunt' ? 0.8 : 0.5, head: part === 'head' && w.kind !== 'fist' });

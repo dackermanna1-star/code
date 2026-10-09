@@ -631,22 +631,23 @@ export class FX {
     if (!this._near(pos, 1200)) return;
     const k = o.big ? 1.6 : o.small ? 0.6 : 1;
     const ang = R() * 6.28;
-    let i = this.glow.emit(pos.x, pos.y, pos.z, 0, 0, 0, 0.05, 1.5 * k, 1.9 * k, 7, 4.6, 2.2, 1, T.FLASH, 0, 0, 0, F_STILL);
+    let i = this.glow.emit(pos.x + dir.x * 0.25, pos.y + dir.y * 0.25, pos.z + dir.z * 0.25, 0, 0, 0, 0.05, 1.1 * k, 1.5 * k, 7, 4.6, 2.2, 1, T.FLASH, 0, 0, 0, F_STILL);
     this.glow.rot[i] = ang;
     // a tongue of flame out of the barrel
     i = this.glow.emit(pos.x + dir.x * 0.5 * k, pos.y + dir.y * 0.5 * k, pos.z + dir.z * 0.5 * k, dir.x * 40, dir.y * 40, dir.z * 40, 0.045, 0.45 * k, 0.6 * k, 8, 5, 2.2, 1, T.GLOW, 0, 0, 0.032 * k, F_STILL);
     // and a wisp of smoke (thin: right in front of the camera when it's yours)
     for (let j = 0; j < (o.big ? 3 : 1); j++) this.soft.emit(pos.x + dir.x * 0.8, pos.y + dir.y * 0.8, pos.z + dir.z * 0.8, dir.x * 6 + (R() - 0.5), dir.y * 6 + 1 + R(), dir.z * 6 + (R() - 0.5), 0.7 + R() * 0.5, 0.25 * k, 1.1 * k, 0.75, 0.74, 0.72, o.mine ? 0.12 : 0.22, T.PUFF, -1.5, 2.5, 0, F_LIT | F_SMOKE);
     if (o.light !== false) {
-      this.muzzleL.position.set(pos.x - dir.x * 0.6, pos.y + 0.4, pos.z - dir.z * 0.6);
-      this.muzzleL.intensity = 900 * k;
-      this.muzzleT = 0.055;
+      // (a little ahead of the barrel: it lights the street more than your own face)
+      this.muzzleL.position.set(pos.x + dir.x * 1.6, pos.y + dir.y * 1.6 + 0.3, pos.z + dir.z * 1.6);
+      this.muzzleL.intensity = (o.mine ? 260 : 420) * k;
+      this.muzzleT = 0.05;
     }
   }
   /** A bright streak racing from a to b. o: { color, width, speed, len } */
   tracer(a, b, o = {}) {
     const c = o.color || [9, 6.2, 2.6];
-    this.tracers.add(a, b, o.speed ?? 1500, o.len ?? 26, o.width ?? 0.07, c[0], c[1], c[2]);
+    this.tracers.add(a, b, o.speed ?? 950, o.len ?? 20, o.width ?? 0.07, c[0], c[1], c[2]);
   }
   /** A spent case flicked out to the right of a gun pointing along dir. */
   brass(pos, dir, shell = false) {

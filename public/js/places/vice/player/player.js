@@ -37,7 +37,7 @@ export class Player {
     V.events.on('vehicle:eject', (e) => {
       if (e.who !== this || this.vehicle !== e.veh) return;
       this.exitVehicle(true);
-      this.knock(e.vel?.clone ? e.vel.clone() : new THREE.Vector3(0, 10, 0), e.veh);
+      this.knock(e.vel?.clone ? e.vel.clone() : new THREE.Vector3(0, 10, 0), null);
       this.hit(Math.min(35, (e.vel?.length?.() || 20) * 0.6), 'torso', null, null, { fall: true });
     });
     const app = V.appearance || DEFAULT_APPEARANCE;
@@ -60,6 +60,7 @@ export class Player {
 
   place(x, z, heading = 0, y = null) {
     if (this.vehicle) this.exitVehicle(true);
+    if (this.rag) { this.rag.stop(); this.rag = null; this.ragdoll = false; }
     const gy = y ?? V.phys.groundAt(x, 200, z, 0.6, 0);
     this.pos.set(x, Number.isFinite(gy) ? gy : K.GROUND, z);
     this.vel.set(0, 0, 0);
@@ -77,6 +78,7 @@ export class Player {
     if (!this.model) return;
     if (dt <= 0) { this._pose(0); return; }
     if (this.dead) { this._deadPose(dt); return; }
+    if (this.rag) { this._ragdolled(dt); return; }
     // health creeps back to half
     if (V.world.time - this.lastHitT > 6 && this.hp < this.maxHp * 0.5) this.hp = Math.min(this.maxHp * 0.5, this.hp + dt * 2);
     if (this.vehicle) this._drive(dt, inp); else this._foot(dt, inp);
@@ -243,6 +245,7 @@ export class Player {
 
   // ---- damage ----
   hit(dmg, part = 'torso', dir = null, attacker = null, info = {}) {
+    if (this.dead && this.rag && dir) this.rag.push(dir, info.bullet ? 10 : 14, part);
     if (this.dead || V.cheats?.god) return;
     if (part === 'head' && info.bullet) dmg *= 1.6;
     if (this.armor > 0 && !info.fall) { const a = Math.min(this.armor, dmg * 0.8); this.armor -= a; dmg -= a; }
@@ -256,14 +259,47 @@ export class Player {
   }
   knock(vel, from) {
     if (this.dead || this.vehicle) return;
+    if (V.peds?.ragdollRig && this.model) {
+      // hit by a car, blown up, thrown off a bike: a ragdoll (cars sweep the legs, so you go over the bonnet)
+      if (this.rag && !this.rag.getting) { this.rag.rag.setVel(vel, from?.def ? from : null); this.ragT = 0; return; }
+      if (this.rag) this.rag.stop();
+      this.rag = V.peds.ragdollRig(this.model, { vel, carHit: from?.def ? from : null });
+      this.ragdoll = true; this.ragT = 0;
+      this.vel.set(0, 0, 0); this.grounded = false;
+      return;
+    }
     this.vel.copy(vel); this.vel.y = Math.max(this.vel.y, 8);
     this.grounded = false; this.stunT = 1.2;
     this.knockT = 1.2;
+  }
+  /** Knocked down: the camera follows the body; when it lies still, stand up again. */
+  _ragdolled(dt) {
+    const r = this.rag;
+    this.ragT += dt;
+    if (!r.getting) {
+      const c = r.center;
+      const g = V.phys.groundAt(c.x, c.y + 2, c.z, 0.5, 3);
+      this.pos.set(c.x, Number.isFinite(g) ? g : c.y - 1, c.z);
+      if ((r.asleep && this.ragT > 1.0) || this.ragT > 5) {
+        r.getting = true;
+        r.getUp((x, y, z, heading) => {
+          this.rag = null; this.ragdoll = false;
+          this.pos.set(x, y, z); this.heading = heading; this.vel.set(0, 0, 0);
+          this.grounded = true; this.stunT = 0; this.knockT = 0;
+          this._pose(0);
+        });
+      }
+    }
   }
   die(cause, attacker) {
     if (this.dead) return;
     this.dead = true; this.hp = 0; this.deadT = 0;
     if (this.vehicle) { const v = this.vehicle; this.exitVehicle(true); this.pos.copy(v.pos); }
+    if (V.peds?.ragdollRig && this.model) {
+      if (this.rag?.getting) { this.rag.stop(); this.rag = null; }
+      if (!this.rag) this.rag = V.peds.ragdollRig(this.model, { vel: this.vel.clone().setY(Math.max(0, this.vel.y)), maxT: 14 });
+      this.ragdoll = true;
+    }
     V.events.emit('player:wasted', { cause, attacker });
   }
   heal(n) { this.hp = Math.min(this.maxHp, this.hp + n); }
@@ -311,6 +347,7 @@ export class Player {
   _deadPose(dt) {
     const m = this.model;
     this.deadT += dt;
+    if (this.rag) { const c = this.rag.center; const g = V.phys.groundAt(c.x, c.y + 2, c.z, 0.5, 3); this.pos.set(c.x, Number.isFinite(g) ? g : c.y - 1, c.z); return; }
     // until ragdolls exist: topple over
     const t = Math.min(1, this.deadT * 1.8);
     this.vel.x *= 0.9; this.vel.z *= 0.9;

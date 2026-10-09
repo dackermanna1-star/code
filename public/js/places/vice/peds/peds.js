@@ -29,6 +29,7 @@ import { Walkways } from './nav.js';
 import { buildAtlas, OUTFITS, OUTFIT_BY_NAME, SETS, HAT } from './outfits.js';
 import { think, act, setState, scare, hurt, dodge, rejoin, steer, LINES, WALK, RUN, SPRINT, wrap } from './ai.js';
 import { playShot } from '../../warzone/fx.js';
+import { weapon } from '../combat/data.js';
 
 const MAX_FIGS = 230;
 const SPAWN_MIN = 90, SPAWN_MAX = 250, DESPAWN = 330, DESPAWN_FAR = 520;
@@ -36,7 +37,7 @@ const NEAR_R = 170;            // full-rate thinking, moving and posing within t
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _u = new THREE.Vector3(), _m = new THREE.Matrix4(), _m2 = new THREE.Matrix4();
 const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3(), _dir = new THREE.Vector3();
 const _pt = { x: 0, y: 0, z: 0 };
-const ITEM_OF = { pistol: ITEM.pistol, smg: ITEM.smg, uzi: ITEM.smg, mp5: ITEM.smg, rifle: ITEM.rifle, m4: ITEM.rifle, ak: ITEM.ak, ak47: ITEM.ak, shotgun: ITEM.shotgun, sniper: ITEM.sniper, bat: ITEM.bat, knife: ITEM.knife };
+const ITEM_OF = { pistol: ITEM.pistol, magnum: ITEM.pistol, glock: ITEM.pistol, smg: ITEM.smg, uzi: ITEM.smg, mp5: ITEM.smg, rifle: ITEM.rifle, carbine: ITEM.rifle, m4: ITEM.rifle, ak: ITEM.ak, ak47: ITEM.ak, shotgun: ITEM.shotgun, sniper: ITEM.sniper, bat: ITEM.bat, knife: ITEM.knife, fists: 0, knuckles: 0, grenade: 0, molotov: 0, rpg: ITEM.rifle };
 const WSTATS = { pistol: { dmg: 22, rpm: 300, spread: 2.6, kind: 'pistol', auto: false }, smg: { dmg: 16, rpm: 700, spread: 4, kind: 'smg', auto: true }, rifle: { dmg: 26, rpm: 600, spread: 2.6, kind: 'rifle', auto: true }, ak: { dmg: 28, rpm: 600, spread: 3.2, kind: 'ak', auto: true }, shotgun: { dmg: 12, rpm: 70, spread: 5, kind: 'shotgun', auto: false, pellets: 7 }, sniper: { dmg: 80, rpm: 40, spread: 0.6, kind: 'sniper', auto: false } };
 
 // ---- a person -----------------------------------------------------------------------------------------------------------
@@ -87,6 +88,8 @@ export class Ped {
   melee() { const it = this.sys.itemFor(this.weapon); return it === ITEM.bat || it === ITEM.knife; }
   hit(dmg, part = 'torso', dir = null, attacker = null, info = {}) { this.sys._hit(this, dmg, part, dir, attacker, info || {}); }
   knock(vel, from) { this.sys._knock(this, vel, from); }
+  /** Shove a body (or someone lying down) along dir at speed (studs/s). */
+  push(dir, speed, part = 'torso') { this.rag?.push(dir, speed, part); }
   die(cause = 'killed', attacker = null) { this.sys._die(this, cause, attacker); }
   enterVehicle(veh, seat = 0) { return this.sys._enter(this, veh, seat); }
   exitVehicle(force = false) { this.sys._exit(this, force); }
@@ -137,7 +140,8 @@ export class Peds {
   // ---- helpers ----------------------------------------------------------------------------------------------------------
   pickOutfit(set) { const a = SETS[set] || SETS.street; return a[Math.floor(this.rand() * a.length)]; }
   itemFor(w) { return w ? ITEM_OF[w] ?? ITEM.pistol : 0; }
-  weaponStats(w) { return WSTATS[w] || V.combat?.WEAPONS?.[w] || WSTATS.pistol; }
+  /** The weapon's numbers (the combat table when there is one). */
+  weaponStats(w) { return weapon(w) || WSTATS[w] || WSTATS.pistol; }
   /** What they hold: their weapon when fighting, their thing (phone, briefcase...) otherwise. */
   holdItem(p) {
     const fighting = p.state === 'shoot' || p.state === 'fight' || (p.brain && p.armed());
@@ -191,7 +195,7 @@ export class Peds {
       const d = Math.hypot(p.pos.x - cam.x, p.pos.z - cam.z);
       const seen = d < 400 && this.visible(p.pos.x, p.pos.y + 2, p.pos.z, 0.45);
       if (p.dead) {
-        if ((p.deadT > 60 && !seen) || d > 420 || p.deadT > 200) this.remove(p);
+        if ((p.deadT > 60 && !seen) || d > 420 || p.deadT > 125) this.remove(p);
       } else if ((d > DESPAWN && !seen) || d > DESPAWN_FAR) this.remove(p);
       else live++;
     }
@@ -298,7 +302,7 @@ export class Peds {
       if (Math.hypot(x - cam.x, z - cam.z) < 150 && this.visible(x, cam.y, z, 0.3) && !this.initial) continue;
       if (day && this.rand() < 0.45) { const s = this._freeSpot('lounger', x, z, 50); if (s) { if (this._spawnAtSpot(s)) n++; continue; } }
       const kd = V.ground.kindAt(x, z);
-      if (kd !== 1 && kd !== 2) continue;
+      if ((kd !== 1 && kd !== 2) || V.ground.waterAt(x, z) === 0) continue;
       const p = this.spawn({ x, z, set: this._setAt(x, z, true), state: 'none' });
       if (!p) return;
       p.beach = true; p.home = { x, z }; n++;
@@ -313,7 +317,7 @@ export class Peds {
     for (let k = 0; k < 6; k++) {
       const px = x + Math.cos(a + k * 0.9) * r, pz = z + Math.sin(a + k * 0.9) * r;
       const kd = V.ground?.kindAt?.(px, pz);
-      if (kd === 1 || kd === 2) return { x: px, z: pz };
+      if ((kd === 1 || kd === 2) && V.ground.waterAt(px, pz) !== 0) return { x: px, z: pz };
     }
     return { x, z };
   }
@@ -488,7 +492,8 @@ export class Peds {
 
   _step(p, dt, far) {
     if (p.flash > 0) p.flash = Math.max(0, p.flash - dt * 5);
-    if (p.dead) { p.deadT += dt; return; }
+    if (p.vehicle?.removed) { p.vehicle = null; this.remove(p); return; }
+    if (p.dead) { p.deadT += dt; if (p.vehicle) { p.pos.copy(p.vehicle.pos); p.vel.copy(p.vehicle.vel); } return; }
     if (p.vehicle) { this._inVehicle(p, dt); return; }
     if (p.state === 'down' || p.state === 'getup') { this._down(p, dt); return; }
     // the brain: police and mission scripts take over completely
@@ -521,6 +526,7 @@ export class Peds {
     const acc = air ? 6 : p.state === 'flee' || p.state === 'fight' ? 60 : 30;
     const dvx = wx - p.vel.x, dvz = wz - p.vel.z, dl = Math.hypot(dvx, dvz), m = acc * dt;
     if (p.state !== 'dodge') { if (dl > m) { p.vel.x += dvx / dl * m; p.vel.z += dvz / dl * m; } else { p.vel.x = wx; p.vel.z = wz; } }
+    else if (p.grounded && p.st.t > 0.15) { const k = Math.exp(-dt * 7); p.vel.x *= k; p.vel.z *= k; } // (landing from the dive)
     // move: with collision near the camera, on the ground snapshot far away
     if (!far) {
       const r = V.phys.moveBody(p.pos, p.vel, dt, { r: 1.05, h: 5, step: 1.7, grounded: p.grounded, gravity: K.G });
@@ -675,7 +681,6 @@ export class Peds {
       if (p.brain) { p.brain.onNoise?.(p, e); continue; }
       scare(this, p, e.pos.x, e.pos.z, e.src?.isPlayer || e.src?.pos ? e.src : e.by || null, level * (1 - d / r * 0.5));
     }
-    if (k === 'shot' || k === 'explosion') V.traffic?.panic?.(e.pos, Math.min(r, 160));
   }
   _crime(e) {
     if (!e?.pos || e.fromPeds) return;
@@ -737,8 +742,9 @@ export class Peds {
       this._die(p, cause, attacker, dir, part, info);
       return;
     }
-    // heavy blows knock people down
-    if (info.melee && (info.heavy || d >= 24 || info.knock) && dir && !p.vehicle) {
+    // heavy blows knock people down (combat says so with info.knock and then knocks them itself)
+    if (info.melee && (info.knock || info.knockdown)) { if (attacker?.isPlayer) this.report(p, 'assault', attacker); p.st.after = p.tough > 0.7 || p.gangster ? 'fight' : 'flee'; return; }
+    if (info.melee && info.knock === undefined && (info.heavy || d >= 24) && dir && !p.vehicle) {
       this._knock(p, _v.set(dir.x * 16, 9, dir.z * 16), attacker);
       if (attacker?.isPlayer) this.report(p, 'assault', attacker);
       return;
@@ -832,8 +838,9 @@ export class Peds {
       p.vel.set(0, 0, 0); p.grounded = true;
       const after = p.st.after;
       const by = p.wasHitBy;
-      if (after === 'fight' && by && !by.dead) setState(this, p, p.armed() && !p.melee() ? 'shoot' : 'fight', { target: by });
-      else if (p.gangster && by) this.angerGang(p, by);
+      if (p.brain) { p.state = 'brain'; p.st = { t: 0 }; p.brain.onGetUp?.(p); }
+      else if (after === 'fight' && by && !by.dead) setState(this, p, p.armed() && !p.melee() ? 'shoot' : 'fight', { target: by });
+      else if (p.gangster && by) { setState(this, p, p.armed() && !p.melee() ? 'shoot' : 'fight', { target: by }); this.angerGang(p, by); }
       else { if (by) p.threat = { x: by.pos?.x ?? p.pos.x, z: by.pos?.z ?? p.pos.z, by, t: this.time }; setState(this, p, 'flee', { secs: 8 }); if (this.rand() < 0.5) this.say(p, p.carjacked ? 'carjack' : 'scared', 2); }
       this.joinNav(p, 40);
     } else { p.pos.set(g.x, g.y, g.z); p.heading = g.heading; }
@@ -945,10 +952,11 @@ export class Peds {
       f.flash = p.flash;
       if (p.rag) {
         if (!p.rag.asleep || !p.ragWritten) { p.rag.writeMats(f.mats); p.ragWritten = p.rag.asleep; const c = p.rag.center; p.pos.x = c.x; p.pos.z = c.z; if (p.dead) p.pos.y = Math.min(p.pos.y, c.y); }
-        if (p.dead && p.deadT > 50) f.fade = Math.max(0, 1 - (p.deadT - 50) / 10);
+        if (p.dead && p.deadT > 112) f.fade = Math.max(0, 1 - (p.deadT - 112) / 10); // (bodies in view for two minutes dissolve)
         continue;
       }
       if (p.state === 'getup') continue; // (posed by GetUp)
+      if (p.vehicle) { this._poseNow(p); continue; }
       if (p.dead && !p.rag) { this._poseDead(p); continue; }
       if (p.far && p.acc > 0) continue; // posed at their own (lower) rate
       this._poseNow(p);
@@ -1009,12 +1017,21 @@ export class Peds {
           this.drivers.set(w, rec);
           this.crowd.add(fig);
         }
-        rec.mark = mark;
+        rec.mark = mark; rec.veh = v; rec.seat = i;
         rec.P.t = this.time;
         this._poseSeated(rec.fig, v, i, rec.P, false);
       }
     }
-    for (const [w, rec] of this.drivers) if (rec.mark !== mark) { this.crowd.remove(rec.fig); this.drivers.delete(w); }
+    for (const [w, rec] of this.drivers) {
+      if (rec.mark === mark) continue;
+      this.crowd.remove(rec.fig); this.drivers.delete(w);
+      // killed at the wheel (shot through the glass): they stay there, slumped
+      const v = rec.veh;
+      if (w.dead && !w.ped && v && !v.removed && !v.seats?.[rec.seat]) {
+        const p = this.spawn({ x: v.pos.x, z: v.pos.z, y: v.pos.y, outfit: rec.fig.cell, state: 'none' });
+        if (p) { p.fig.hat = rec.fig.hat; w.ped = p; this._enter(p, v, rec.seat); p.fig.blood = 0.7; p.hp = 0; p.dead = true; p.slumped = true; p.state = 'dead'; V.events.emit('death', { ped: p, cause: 'shot', attacker: w.killer || null }); }
+      }
+    }
   }
 
   // ---- for brains (police, missions) ------------------------------------------------------------------------------------
@@ -1066,7 +1083,7 @@ export class Peds {
       this._hitscan(p, origin, _dir, w);
     }
     if (!V.combat?.fire) {
-      try { playShot(w.kind || 'pistol', origin.clone(), false, false); } catch (e) { /* audio not ready */ }
+      try { playShot(w.sound || w.kind || 'pistol', origin.clone(), false, false); } catch (e) { /* audio not ready */ }
       V.events.emit('noise', { pos: origin.clone(), r: 140, kind: 'shot', src: p });
     }
   }
@@ -1087,7 +1104,6 @@ export class Peds {
   }
   /** A punch or kick landing (or not). */
   meleeHit(p, tg, kick) {
-    if (V.combat?.melee && !kick) { const r = V.combat.melee(p, p.melee() ? p.weapon : 'fists'); if (r !== undefined) return; }
     const dx = tg.pos.x - p.pos.x, dz = tg.pos.z - p.pos.z, d = Math.hypot(dx, dz);
     if (d > 3.8 || Math.abs((tg.pos.y || 0) - p.pos.y) > 3) { V.audio?.punch?.(p.pos, false); return; }
     const facing = Math.abs(wrap(Math.atan2(dx, dz) - p.heading)) < 1.0;

@@ -32,7 +32,7 @@ const SLEEP_V = 1.2;          // studs/s: slower than this for a while -> asleep
 const _v = new THREE.Vector3(), _x = new THREE.Vector3(), _y = new THREE.Vector3(), _z = new THREE.Vector3();
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3(), _d = new THREE.Vector3(), _e = new THREE.Vector3();
 const _tx = new THREE.Vector3(), _ty = new THREE.Vector3(), _tz = new THREE.Vector3(), _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _qi = new THREE.Quaternion();
-const _center = new THREE.Vector3();
+const _center = new THREE.Vector3(), _n3 = new THREE.Vector3();
 
 export class Ragdoll {
   /** body: {mats: [6 Matrix4]} posed where the person is now. */
@@ -62,6 +62,7 @@ export class Ragdoll {
     apart(HL, HR, 0.6); apart(HL, CF, 0.9); apart(HR, CF, 0.9); apart(FL, CF, 2.0); apart(FR, CF, 2.0);
     this.cons = new Float32Array(C);
     this.boxes = []; this.gx = 1e9; this.gz = 1e9; this.gatherT = 0;
+    this.act = []; this.gnd = new Float32Array(N); this.touch = new Float32Array(N);
     this.vehs = [];
     this.t = 0; this.still = 0; this.acc = 0;
     this.asleep = false; this.stopped = false;
@@ -71,20 +72,28 @@ export class Ragdoll {
     if (o.push) this.push(o.push.dir, o.push.speed, o.push.part);
   }
 
-  /** Give the whole body a velocity (studs/s). A car hit sweeps the legs harder than the shoulders, so people fold over the bonnet. */
+  /** Give the whole body a velocity (studs/s). A car hit (car: the vehicle) sweeps the legs forward and up while the
+   *  upper body lags behind, so the body wraps onto the bonnet and, faster, rides up the windscreen and over the roof. */
   setVel(vel, car = null) {
     const P = this.pos, Q = this.prev;
-    let yCut = Infinity;
-    if (car) { const top = car.pos.y + (car.def?.hull?.y1 || car.size?.h || 6) * (car.kind === 'car' ? 0.52 : 0.8); yCut = top; }
+    const cv = car?.vel;
+    const sp = cv ? Math.hypot(cv.x, cv.z) : 0;
+    // (a blast or a blow pushes the top of the body more than the feet: people tip over and tumble, not fly like planks)
+    let y0 = Infinity, y1 = -Infinity;
+    for (let i = 0; i < N; i++) { const y = P[i * 3 + 1]; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    const span = Math.max(0.5, y1 - y0);
     for (let i = 0; i < N; i++) {
       const o = i * 3;
-      let k = 1, up = 0;
-      if (car) {
-        const low = P[o + 1] < yCut;
-        k = low ? 1.08 : i === HD ? 0.32 : 0.45;
-        up = low ? 2 : 0;
-      }
-      Q[o] = P[o] - vel.x * k * H; Q[o + 1] = P[o + 1] - (vel.y * (car ? 0.55 : 1) + up) * H; Q[o + 2] = P[o + 2] - vel.z * k * H;
+      const tip = cv ? 1 : 0.7 + 0.6 * (P[o + 1] - y0) / span;
+      let vx = vel.x * tip, vy = vel.y, vz = vel.z * tip;
+      if (cv && sp > 16) {
+        // [share of the car's speed, upward kick per unit speed] by point: feet, hips, hands, chest, head
+        const k = i === FR || i === FL ? 0.85 : i === PR || i === PL ? 0.6 : i === HR || i === HL ? 0.45 : i === HD ? 0.25 : 0.35;
+        const up = i === FR || i === FL ? 0.32 : i === PR || i === PL ? 0.22 : i === HR || i === HL ? 0.14 : i === HD ? 0.08 : 0.12;
+        const lx = (vel.x - cv.x * 1.05) * 0.6, lz = (vel.z - cv.z * 1.05) * 0.6;   // (the sideways shove off the corner)
+        vx = cv.x * k + lx; vz = cv.z * k + lz; vy = Math.max(0, cv.y) + Math.min(46, sp * up) + 2;
+      } else if (cv) { vx *= 0.8; vz *= 0.8; vy = Math.min(vy, 6); }
+      Q[o] = P[o] - vx * H; Q[o + 1] = P[o + 1] - vy * H; Q[o + 2] = P[o + 2] - vz * H;
     }
     this.wake();
   }
@@ -115,11 +124,47 @@ export class Ragdoll {
     this.gx = c.x; this.gz = c.z; this.boxes.length = 0;
     V.phys?.query(c.x - 10, c.z - 10, c.x + 10, c.z + 10, (b) => { if (b.solid !== false && !b.vehicle && !(b.glass && b.brokenGlass) && !b.hidden && !b.knocked) this.boxes.push(b); });
   }
+  /** Friction for the points that touched the world this substep: the sliding speed drops by mu * g * h (to a stop below that). */
+  _friction() {
+    const P = this.pos, Q = this.prev, T = this.touch;
+    for (let i = 0; i < N; i++) {
+      if (!T[i]) continue;
+      const o = i * 3, drop = 0.7 * K.G * H * H * T[i];
+      const vx = P[o] - Q[o], vz = P[o + 2] - Q[o + 2], t = Math.hypot(vx, vz);
+      const k = t > drop ? (t - drop) / t : 0;
+      Q[o] = P[o] - vx * k; Q[o + 2] = P[o + 2] - vz * k;
+      T[i] = 0;
+    }
+  }
+  /** Boxes overlapping the body (from the gathered ones) and the ground height under each point, once a substep. */
+  _active() {
+    const P = this.pos, act = this.act, gnd = this.gnd, ground = V.ground, phys = V.phys;
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (let i = 0; i < N; i++) {
+      const o = i * 3, x = P[o], y = P[o + 1], z = P[o + 2];
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; if (z < z0) z0 = z; if (z > z1) z1 = z;
+      let g = ground ? ground.heightAt(x, z) : 0;
+      if (phys?.deckAt) { const d = phys.deckAt(x, z, y + 1.5); if (d > g) g = d; }
+      gnd[i] = g;
+    }
+    act.length = 0;
+    const m = 1.5;
+    for (const b of this.boxes) {
+      const br = Math.abs(b.hx * b.c) + Math.abs(b.hz * b.s), bz = Math.abs(b.hx * b.s) + Math.abs(b.hz * b.c); // (its world AABB half sizes)
+      if (b.x + br < x0 - m || b.x - br > x1 + m || b.z + bz < z0 - m || b.z - bz > z1 + m || b.y + b.hy < y0 - m || b.y - b.hy > y1 + m) continue;
+      act.push(b);
+    }
+  }
   _gatherVehicles() {
     this.vehs.length = 0;
     const c = this.center;
-    const list = V.vehicles?.near?.(c.x, c.z, 26);
-    if (list) for (const v of list) if (!v.removed && v.def) this.vehs.push(v);
+    const list = V.vehicles?.near?.(c.x, c.z, 30);
+    if (list) for (const v of list) {
+      if (v.removed || !v.def) continue;
+      // close enough to touch within this frame?
+      const reach = (v.def.radius || Math.max(v.size?.l || 12, v.size?.w || 6) * 0.6) + 4 + Math.hypot(v.vel.x, v.vel.z) * 0.05;
+      if (Math.hypot(v.pos.x - c.x, v.pos.z - c.z) < reach) this.vehs.push(v);
+    }
   }
 
   step(dt) {
@@ -142,6 +187,8 @@ export class Ragdoll {
         Q[o] = P[o]; Q[o + 1] = P[o + 1]; Q[o + 2] = P[o + 2];
         P[o] += vx; P[o + 1] += vy + (wet ? (i === HD || i === CF ? 30 : 6) : -G) * H * H; P[o + 2] += vz;
       }
+      // what's near enough to touch this substep: boxes overlapping the body's bounds, the ground under each point
+      this._active();
       // constraints and collisions
       const C = this.cons;
       for (let it = 0; it < ITER; it++) {
@@ -154,8 +201,9 @@ export class Ragdoll {
           P[ao] += dx * f; P[ao + 1] += dy * f; P[ao + 2] += dz * f;
           P[bo] -= dx * f; P[bo + 1] -= dy * f; P[bo + 2] -= dz * f;
         }
-        if (it % 2 === 1 || it === ITER - 1) this._collide();
+        if (it % 2 === 1 || it === ITER - 1) this._collide(it === ITER - 1);
       }
+      this._friction();
       for (let i = 0; i < N * 3; i++) { const d = Math.abs(P[i] - Q[i]); if (d > moved) moved = d; }
     }
     // gone still: sleep (not while a car is moving under the body)
@@ -165,74 +213,88 @@ export class Ragdoll {
     if (this.still > 0.5 || this.t > this.maxT) { this.asleep = true; const f = this.onSleep; this.onSleep = null; f?.(this); }
   }
 
-  _collide() {
-    const P = this.pos, Q = this.prev, ground = V.ground, phys = V.phys;
+  /** Points against the ground, decks, boxes and vehicles. Contacts are inelastic (a push-out is not a launch);
+   *  friction (Coulomb: it takes off a little speed each substep, so bodies slide and tumble) on the last pass. */
+  _collide(last) {
+    const P = this.pos, Q = this.prev, gnd = this.gnd, act = this.act;
     for (let i = 0; i < N; i++) {
       const o = i * 3, r = RAD[i] * this.s;
-      let hit = false;
+      let nx = 0, ny = 0, nz = 0, hit = false;
       // the land and road decks
-      let g = ground ? ground.heightAt(P[o], P[o + 2]) : 0;
-      if (phys?.deckAt) { const d = phys.deckAt(P[o], P[o + 2], P[o + 1] + r + 0.8); if (d > g) g = d; }
-      if (P[o + 1] < g + r) { P[o + 1] = g + r; hit = true; }
+      const g = gnd[i];
+      if (P[o + 1] < g + r) { P[o + 1] = g + r; ny += 1; hit = true; }
       // boxes: pushed out the shortest way
-      for (const b of this.boxes) {
+      for (let bi = 0; bi < act.length; bi++) {
+        const b = act[bi];
         const dx = P[o] - b.x, dz = P[o + 2] - b.z;
         const lx = dx * b.c - dz * b.s, lz = dx * b.s + dz * b.c, ly = P[o + 1] - b.y;
         const ex = b.hx + r - Math.abs(lx); if (ex <= 0) continue;
         const ey = b.hy + r - Math.abs(ly); if (ey <= 0) continue;
         const ez = b.hz + r - Math.abs(lz); if (ez <= 0) continue;
-        if (ey <= ex && ey <= ez) P[o + 1] += ly >= 0 ? ey : -ey;
-        else if (ex <= ez) { const k = lx >= 0 ? ex : -ex; P[o] += k * b.c; P[o + 2] -= k * b.s; }
-        else { const k = lz >= 0 ? ez : -ez; P[o] += k * b.s; P[o + 2] += k * b.c; }
+        if (ey <= ex && ey <= ez) { const k = ly >= 0 ? 1 : -1; P[o + 1] += k * ey; ny += k; }
+        else if (ex <= ez) { const k = lx >= 0 ? 1 : -1; P[o] += k * ex * b.c; P[o + 2] -= k * ex * b.s; nx += k * b.c; nz -= k * b.s; }
+        else { const k = lz >= 0 ? 1 : -1; P[o] += k * ez * b.s; P[o + 2] += k * ez * b.c; nx += k * b.s; nz += k * b.c; }
         hit = true;
       }
-      // friction against the world
-      if (hit) { Q[o] += (P[o] - Q[o]) * 0.55; Q[o + 2] += (P[o + 2] - Q[o + 2]) * 0.55; Q[o + 1] += (P[o + 1] - Q[o + 1]) * 0.5; }
+      if (hit) {
+        const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+        // no bounce: the velocity into (or pushed out of) the surface goes
+        let vx = P[o] - Q[o], vy = P[o + 1] - Q[o + 1], vz = P[o + 2] - Q[o + 2];
+        const vn = vx * nx + vy * ny + vz * nz;
+        vx -= nx * vn; vy -= ny * vn; vz -= nz * vn;
+        Q[o] = P[o] - vx; Q[o + 1] = P[o + 1] - vy; Q[o + 2] = P[o + 2] - vz;
+        this.touch[i] = ny > 0.5 ? 1 : 0.6;               // (friction at the end of the substep)
+      } else if (P[o + 1] < g + r + 0.06) this.touch[i] = Math.max(this.touch[i], 1);
       // vehicles: the body box and (cars) the cabin, in the vehicle's own frame (they tilt and roll)
-      for (const v of this.vehs) this._vehicle(v, o, r);
+      for (let vi = 0; vi < this.vehs.length; vi++) this._vehicle(this.vehs[vi], o, r, last);
     }
   }
 
-  _vehicle(v, o, r) {
+  _vehicle(v, o, r, last) {
     const P = this.pos, Q = this.prev, d = v.def, hull = d.hull;
     if (!hull) return;
     const dx0 = P[o] - v.pos.x, dy0 = P[o + 1] - v.pos.y, dz0 = P[o + 2] - v.pos.z;
     const rad = Math.max(d.size.l, d.size.w) * 0.6 + r + 2;
     if (dx0 * dx0 + dz0 * dz0 > rad * rad || dy0 < -2 || dy0 > d.size.h + 3) return;
-    // into the vehicle's frame
+    // into the vehicle's frame (it may be tilted or rolling)
     _qi.copy(v.quat).invert();
     _a.set(dx0, dy0, dz0).applyQuaternion(_qi);
-    const k = d.scale || 1;
-    const car = v.kind === 'car' && d.size.h < 9 && d.size.l < 30;
-    // the lower body (bonnet/boot height) and the cabin
-    const nb = car ? 2 : 1;
+    const pf = carProfile(v);
     let pushed = false;
-    for (let bI = 0; bI < nb; bI++) {
-      let x0 = hull.x0, x1 = hull.x1, y0 = hull.y0 * 0.6, y1 = hull.y1, z0 = hull.z0, z1 = hull.z1;
-      if (car) {
-        const L = z1 - z0;
-        if (bI === 0) y1 = hull.y0 + (hull.y1 - hull.y0) * 0.5;
-        else { z0 = hull.z0 + L * 0.2; z1 = hull.z0 + L * 0.68; x0 = hull.x0 * 0.86; x1 = hull.x1 * 0.86; y0 = hull.y0 + (hull.y1 - hull.y0) * 0.45; }
+    _n3.set(0, 0, 0);
+    // two prisms in side view (z, y): the lower body (sloped nose, bonnet, boot) and (cars) the cabin
+    // (windscreen, roof, rear window), each with its half width; pushed out the shortest way, never down
+    for (let pi = 0; pi < pf.prisms.length; pi++) {
+      const pr = pf.prisms[pi];
+      const lx = _a.x - pf.xc, ex = pr.hw + r - Math.abs(lx);
+      if (ex <= 0) continue;
+      let best = ex, bi = -1, inside = true;
+      for (let i = 0; i < pr.planes.length; i++) {
+        const pl = pr.planes[i];                       // [nz, ny, offset]: inside when nz*z + ny*y < offset
+        const pen = pl[2] + r - (pl[0] * _a.z + pl[1] * _a.y);
+        if (pen <= 0) { inside = false; break; }
+        if (pen < best && pl[1] > -0.5) { best = pen; bi = i; }
       }
-      const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, cz = (z0 + z1) / 2, hx = (x1 - x0) / 2, hy = (y1 - y0) / 2, hz = (z1 - z0) / 2;
-      const lx = _a.x - cx, ly = _a.y - cy, lz = _a.z - cz;
-      const ex = hx + r - Math.abs(lx); if (ex <= 0) continue;
-      const ey = hy + r - Math.abs(ly); if (ey <= 0) continue;
-      const ez = hz + r - Math.abs(lz); if (ez <= 0) continue;
-      if (ey <= ex && ey <= ez) _a.y += ly >= 0 ? ey : -ey;
-      else if (ex <= ez) _a.x += lx >= 0 ? ex : -ex;
-      else _a.z += lz >= 0 ? ez : -ez;
+      if (!inside) continue;
+      if (bi < 0) { const k = lx >= 0 ? 1 : -1; _a.x += k * ex; _n3.x += k; }
+      else { const pl = pr.planes[bi]; _a.z += pl[0] * best; _a.y += pl[1] * best; _n3.z += pl[0]; _n3.y += pl[1]; }
       pushed = true;
     }
-    void k;
     if (!pushed) return;
     _a.applyQuaternion(v.quat);
     P[o] = v.pos.x + _a.x; P[o + 1] = v.pos.y + _a.y; P[o + 2] = v.pos.z + _a.z;
-    // friction relative to the vehicle's surface (people are carried, and slide off)
+    // an inelastic contact with a moving surface: leave it no faster than the surface moves (the push-out
+    // isn't a launch), and slide along it with some friction (people are carried, and roll off)
+    _n3.normalize().applyQuaternion(v.quat);
     const ux = v.vel.x * H, uy = v.vel.y * H, uz = v.vel.z * H;
-    const vx = P[o] - Q[o], vy = P[o + 1] - Q[o + 1], vz = P[o + 2] - Q[o + 2];
-    const kf = 0.82;
-    Q[o] = P[o] - (ux + (vx - ux) * kf); Q[o + 1] = P[o + 1] - (uy + (vy - uy) * 0.7); Q[o + 2] = P[o + 2] - (uz + (vz - uz) * kf);
+    let rx = P[o] - Q[o] - ux, ry = P[o + 1] - Q[o + 1] - uy, rz = P[o + 2] - Q[o + 2] - uz;
+    const rn = rx * _n3.x + ry * _n3.y + rz * _n3.z;
+    rx -= _n3.x * rn; ry -= _n3.y * rn; rz -= _n3.z * rn;          // (no bounce, no launch)
+    // sliding over the paintwork: a little friction (once a substep), so people roll over the bonnet and roof
+    let kf = 1;
+    { const t = Math.hypot(rx, ry, rz), drop = 0.35 * K.G * H * H / 3; kf = t > drop ? (t - drop) / t : 0; }
+    void last;
+    Q[o] = P[o] - (ux + rx * kf); Q[o + 1] = P[o + 1] - (uy + ry * kf); Q[o + 2] = P[o + 2] - (uz + rz * kf);
   }
 
   /** Place the six parts (crowd convention) from the points into mats. */
@@ -279,6 +341,43 @@ function limb(m, P, j, e, toCenter, s) {
   _lz.crossVectors(_lx, _ly);
   _lc.copy(_lj).addScaledVector(_ly, -toCenter * s);
   put(m, _lc, _lx, _ly, _lz, s);
+}
+
+/** A vehicle's shape for bodies: the lower box and (cars) the cabin trapezoid, in its own frame. Cached on the type. */
+function carProfile(v) {
+  const d = v.def;
+  if (d._rp) return d._rp;
+  const h = d.hull, L = h.z1 - h.z0, H = h.y1 - h.y0;
+  const car = v.kind === 'car' && d.size.h < 9 && d.size.l < 34;
+  const yb = car ? h.y0 + H * 0.48 : h.y1;                 // the belt line (bonnet height)
+  const y0 = h.y0 * 0.6;
+  /** The line through (z1, y1) and (z2, y2) as a plane [nz, ny, offset], its normal turned to point (sz, sy)-wards. */
+  const plane = (z1, y1, z2, y2, sz, sy) => {
+    let nz = y1 - y2, ny = z2 - z1; const l = Math.hypot(nz, ny) || 1; nz /= l; ny /= l;
+    if (nz * sz + ny * sy < 0) { nz = -nz; ny = -ny; }
+    return [nz, ny, nz * z1 + ny * y1];
+  };
+  const pf = { xc: (h.x0 + h.x1) / 2, prisms: [] };
+  const hw = (h.x1 - h.x0) / 2;
+  // the lower body: the nose slopes back from the bumper to the bonnet's leading edge (it lifts people as it goes under them)
+  const nose = car ? Math.min(2.2, L * 0.13) : 0.4;
+  pf.prisms.push({ hw, planes: [
+    [0, 1, yb],                                        // the bonnet and boot lid
+    [0, -1, -y0],                                      // the underside (never pushed down through it)
+    plane(h.z1, y0 + 0.3, h.z1 - nose, yb, 1, 0.3),    // the nose
+    plane(h.z0, y0 + 0.3, h.z0 + nose * 0.5, yb, -1, 0.3), // the tail
+  ] });
+  if (car) {
+    const zb = h.z0 + L * 0.08, zr = h.z0 + L * 0.26, zf = h.z0 + L * 0.47, zw = h.z0 + L * 0.77, yr = h.y1;
+    pf.prisms.push({ hw: hw * 0.86, planes: [
+      [0, 1, yr],                                      // the roof
+      [0, -1, -(yb - 0.2)],                            // the cabin floor (meets the lower body)
+      plane(zf, yr, zw, yb, 1, 0.5),                   // the windscreen
+      plane(zr, yr, zb, yb, -1, 0.5),                  // the rear window
+    ] });
+  }
+  d._rp = pf;
+  return pf;
 }
 
 // ---- the player's body: an engine CharacterModel (root at the torso centre, facing -Z) -------------------------------
