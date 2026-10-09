@@ -96,7 +96,9 @@ export class Session {
     V.ready.then(() => {
       for (const s of [V.vehicles, V.traffic, V.peds, V.player, V.weapons, V.police, V.missions]) s.ready?.();
       const save = this.load('vice.save.v1');
-      V.player.place?.(START.x, START.z, START.heading);
+      const door = V.city.places?.safehouse?.door;
+      V.start = door ? { x: door.x + Math.sin(door.heading) * 4, z: door.z + Math.cos(door.heading) * 4, heading: door.heading } : START;
+      V.player.place?.(V.start.x, V.start.z, V.start.heading);
       V.hasSave = !!save;
       this.saved = save;
       this.state = V.menus.showTitle ? 'title' : 'play';

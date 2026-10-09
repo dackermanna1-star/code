@@ -44,7 +44,7 @@ uniform vec4 wP[4];   // phase, wavelength, -, -
 uniform float wTime;
 // how big the swell is here: calm in the bay and canals, full on the open ocean, none in the shallows
 float waveAtt(vec2 p, float depth) {
-  float open = max(smoothstep(3000.0, 3700.0, p.x), smoothstep(3000.0, 3900.0, p.y));
+  float open = max(max(smoothstep(3000.0, 3700.0, p.x), smoothstep(3000.0, 3900.0, p.y)), (1.0 - smoothstep(-4500.0, -3700.0, p.y)));
   return smoothstep(0.2, 7.0, depth) * (0.32 + 0.68 * open);
 }
 // height and slope (dh/dx, dh/dz) of the swell; fade: drops the short waves far from the camera
@@ -134,7 +134,7 @@ void main() {
   float lace = texture(noiseT, p / 6.5 + drift * 3.0).r * 0.6 + texture(nMap, p / 4.3 - drift * 2.0).x * 0.5;
   float shore = 1.0 - smoothstep(0.0, 0.14, depth);
   float coast = gr.y;
-  float zone = smoothstep(0.35, 0.8, -bed) * (1.0 - smoothstep(1.2, 2.6, -bed)) * (1.0 - smoothstep(-20.0, -140.0, coast));
+  float zone = smoothstep(0.35, 0.8, -bed) * (1.0 - smoothstep(1.2, 2.6, -bed)) * smoothstep(-140.0, -20.0, coast);
   float ph = coast / 30.0 - wTime * 0.1;
   float band = fract(ph);
   float brk = texture(noiseT, p / 70.0 + vec2(floor(ph) * 0.37, 0.0)).g;
@@ -240,7 +240,7 @@ export class Water {
   /** The height of the sea surface at (x, z) at time t (the same waves the sea is drawn with). */
   waveAt(x, z, t = this.t) {
     const depth = this.depthAt(x, z);
-    const open = Math.max(smooth(3000, 3700, x), smooth(3000, 3900, z));
+    const open = Math.max(smooth(3000, 3700, x), smooth(3000, 3900, z), smooth(-3700, -4500, z));
     const att = smooth(0.2, 7, depth) * (0.32 + 0.68 * open);
     let h = 0;
     if (att > 0) for (let i = 0; i < 4; i++) { const w = WAVES[i]; h += w.a * Math.sin(w.kx * x + w.kz * z - w.om * t + w.ph); }

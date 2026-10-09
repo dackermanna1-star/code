@@ -7,17 +7,20 @@
 //   city.real = true                          (the debug stand-in boxes switch off)
 //   city.places[id] = { x, z, door: {x, z, heading}, kind, name }   (layout PLACES and a few more)
 //   city.spawnPoints = { parking: [{x, z, heading}], peds: [{x, z}] }
-//   city.update(dt, camera)                   LOD (mouldings < 1400, small things < 520) and night glow
-//   city.buildMs, city.stats() -> {buildings, boxes, verts, tris, meshes}
+//   city.spawnPoints.police / .ambulance = [{x, z, heading}]   (station car parks, the hospitals' bays)
+//   city.docks = [{x, z, heading}]            private docks (villas on the canals, Star Island) for moored boats
+//   city.roadAt(x, z) -> plan edge | null     the road (carriageway or sidewalk) covering a point
+//   city.update(dt, camera)                   LOD (mouldings < 2000, small things < 560) and the night glow
+//   city.buildMs, city.stats() -> {buildings, lots, boxes, verts, tris, meshes, signs, murals}
 //
 // LOD tiers: BASE (the masses; always), MID (mouldings, balconies, fins, rooftop kit), NEAR (awnings,
 // café tables, AC units, fences...). Collision: a box or a few per building mass ({building: true}).
 import * as THREE from 'three';
-import { V, K as KC } from '../state.js';
-import { GRIDS, ROAD, GROUND } from './layout.js';
+import { V } from '../state.js';
+import { GROUND } from './layout.js';
 import { viceTextures } from './textures.js';
 import { rng, hash2 } from '../../outbreak/noise.js';
-import { Kit, VB } from '../build/kit.js';
+import { Kit } from '../build/kit.js';
 import { buildingMaterial, kitGeometry, SignAtlas, neonMaterial, paintMaterial, signGeometry, muralAtlas, decalGeometry, CITY_U } from '../build/materials.js';
 import { blockLots } from '../build/lots.js';
 import { DISTRICT_STYLES, buildYard } from '../build/districts.js';
@@ -287,4 +290,3 @@ function cellDist(p, c, half) {
   const dx = Math.max(0, Math.abs(p.x - c.x) - half), dz = Math.max(0, Math.abs(p.z - c.z) - half), dy = Math.max(0, p.y - 30);
   return Math.sqrt(dx * dx + dz * dz + dy * dy);
 }
-void VB; void KC; void ROAD; void GRIDS;

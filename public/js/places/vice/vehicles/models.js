@@ -197,6 +197,14 @@ function kenneyBody(def) {
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   geo.setAttribute('aPart', new THREE.BufferAttribute(part, 1));
   const out = { body: geo, wheels, bounds: { x0: x0 * S, x1: x1 * S, y0: y0 * S, y1: y1 * S, z0: z0 * S, z1: z1 * S } };
+  // boats: riders sit at the height of the gunwale (the up-facing faces along the hull's sides, by area)
+  if (def.kind === 'boat') {
+    const hw = (x1 - x0) / 2, hist = new Map();
+    for (const t of tri) if (t.ny > 0.85 && Math.abs(t.cx) > hw * 0.55 && t.cy > y0 + (y1 - y0) * 0.2) { const k = Math.round(t.cy * 20); hist.set(k, (hist.get(k) || 0) + t.area); }
+    let bk = null, ba = 0; for (const [k, a] of hist) if (a > ba) { ba = a; bk = k; }
+    const deck = bk != null ? bk / 20 : y0 + (y1 - y0) * 0.5;
+    out.seatY = def.seats.map(() => deck);
+  }
   // a procedural light bar (ambulance, fire engine)
   if (def.lightBar) {
     const [bx, by, bz, bw] = def.lightBar;
@@ -447,6 +455,13 @@ export function visualFor(def) {
   if (def.model.startsWith('proc:')) {
     const k = def.model.slice(5);
     v = k === 'sportbike' ? sportbike() : k === 'scooter' ? scooter() : k === 'heli' ? heli(def) : plane();
+    // procedural models are built in studs; a type can scale them up (the bikes, to match the chunky cars)
+    const S = def.scale || 1;
+    if (S !== 1) {
+      v.body.scale(S, S, S);
+      for (const b of ['x0', 'x1', 'y0', 'y1', 'z0', 'z1']) v.bounds[b] *= S;
+      for (const w of v.wheels) { w.x *= S; w.y *= S; w.z *= S; w.r *= S; w.w *= S; w.scale = S; }
+    }
   } else if (hasModel(def.model)) v = kenneyBody(def);
   else throw new Error('no model ' + def.model);
   v.body.computeBoundingSphere();

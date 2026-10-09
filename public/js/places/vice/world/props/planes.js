@@ -3,7 +3,7 @@
 // airline's colours, engines on pylons, landing gear, a cheatline and a band
 // of windows that light up at night. Local space: nose towards +z, wheels on
 // y = 0, centred on the wing root.
-import { L, tint, shade, cylAB, tri } from './kit.js';
+import { L, tint, shade, tri } from './kit.js';
 import { frame } from './beach.js';
 
 export const LIVERIES = [
@@ -69,7 +69,7 @@ export function airliner(g, gw, x, y, z, h, type, liv) {
     q([tf[0] + sx * 0.6, tipY + 8, tipZf - 6], [tb[0] + sx * 0.6, tipY + 8, tipZb - 3], [tb[0], tipY + 0.4, tipZb], [tf[0], tipY + 0.4, tipZf], { lay: L.stucco, tint: cTail });
     // engines on pylons under the wing
     for (const ex of T.eng) {
-      const t = ex / span, ez = zr - ex * sweep + T.er * 1.6, ey = wy + ex * 0.08 - T.er - 1.4, el = T.er * 4.4;
+      const ez = zr - ex * sweep + T.er * 1.6, ey = wy + ex * 0.08 - T.er - 1.4, el = T.er * 4.4;
       smoothTube(g, x, y, z, h, [{ c: [sx * ex, ey, ez + el * 0.55], r: T.er * 0.92 }, { c: [sx * ex, ey, ez + el * 0.42], r: T.er }, { c: [sx * ex, ey, ez - el * 0.2], r: T.er * 0.92 }, { c: [sx * ex, ey, ez - el * 0.45], r: T.er * 0.72 }], 14, { lay: L.stucco, scale: 6, rough: 0.35 }, () => cEng);
       // the intake: a dark disc just inside the lip, with a spinner
       const iz = ez + el * 0.5;
@@ -80,7 +80,6 @@ export function airliner(g, gw, x, y, z, h, type, liv) {
       F.tube([sx * ex, ey, iz], [sx * ex, ey, iz + T.er * 0.5], T.er * 0.25, 0.05, 6, { lay: L.concrete, tint: [0.5, 0.52, 0.55] });
       F.tube([sx * ex, ey, ez - el * 0.45], [sx * ex, ey, ez - el * 0.45 - T.er * 1.2], T.er * 0.5, 0.2, 8, { lay: L.concrete, tint: [0.35, 0.33, 0.32] });
       F.box(sx * ex, ey + T.er + 0.8, ez - el * 0.2, 0.6, 1.1, el * 0.35, { lay: L.stucco, tint: grey });
-      void t;
     }
     // main gear
     const gx = sx * R * 0.9, gz = zr - rc * 0.55;

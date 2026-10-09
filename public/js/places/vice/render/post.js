@@ -105,7 +105,7 @@ void main() {
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
-  gl_FragColor.rgb *= mix(1.0, smoothstep(0.95, 0.12, r2), vignette);
+  gl_FragColor.rgb *= mix(1.0, (1.0 - smoothstep(0.12, 0.95, r2)), vignette);
   gl_FragColor.rgb += (hash(uv * res + fract(time * 7.13) * 91.0) - 0.5) * grain;
   gl_FragColor.rgb *= 1.0 - fade;
 }`;

@@ -106,7 +106,7 @@ export function makePlan() {
   for (const G of GRIDS) {
     const land = P.landById[G.land];
     const okAt = (x, z) => x >= G.rect[0] && x <= G.rect[2] && z >= G.rect[1] && z <= G.rect[3]
-      && inPoly(land.pts, x, z) && !G.skip.some((r) => x > r[0] && x < r[2] && z > r[1] && z < r[3]) && !P.onBeach(x, z);
+      && inPoly(land.pts, x, z) && !G.skip.some((r) => x > r[0] && x < r[2] && z > r[1] && z < r[3]);
     const along = (fixed, isX, ext, info) => {
       // walk the line in 8-stud steps and keep the runs where it is on this grid's land
       const lo = isX ? G.rect[1] : G.rect[0], hi = isX ? G.rect[3] : G.rect[2];
@@ -114,7 +114,8 @@ export function makePlan() {
       const flush = () => { if (run && run[1] - run[0] >= 40) lines.push({ cls: info.cls, name: info.name, grid: G.id, axis: isX ? 'x' : 'z', at: fixed, pts: isX ? [[fixed, run[0], 0], [fixed, run[1], 0]] : [[run[0], fixed, 0], [run[1], fixed, 0]] }); run = null; };
       for (let s = lo; s <= hi; s += 8) {
         const x = isX ? fixed : s, z = isX ? s : fixed;
-        const ok = okAt(x, z) && (!ext || (s >= ext[0] && s <= ext[1])) && !(isX && cleared(x, z));
+        // (Ocean Drive runs along the top of the beach; other streets stop short of the sand)
+        const ok = okAt(x, z) && (!ext || (s >= ext[0] && s <= ext[1])) && !(isX && cleared(x, z)) && (info.cls === 'drive' || !P.onBeach(x, z));
         if (ok) { if (!run) run = [s, s]; else run[1] = s; } else flush();
       }
       flush();
@@ -167,7 +168,8 @@ export function makePlan() {
   };
   // the cut points along each line: {seg, t, node}
   for (const ln of lines) ln.cuts = [];
-  const addCut = (ln, seg, t, node) => { if (!ln.cuts.some((c) => c.node === node)) ln.cuts.push({ seg, t, node }); };
+  // (a loop starts and ends at the same node: keep both cuts, they're at different places along the line)
+  const addCut = (ln, seg, t, node) => { if (!ln.cuts.some((c) => c.node === node && (c.seg === seg && Math.abs(c.t - t) < 1e-6 || (c.seg === seg - 1 && c.t === 1 && t === 0) || (c.seg === seg + 1 && c.t === 0 && t === 1)))) ln.cuts.push({ seg, t, node }); };
   for (const ln of lines) { const n = ln.pts.length; addCut(ln, 0, 0, nodeAt(ln.pts[0][0], ln.pts[0][1], ln.pts[0][2])); addCut(ln, n - 2, 1, nodeAt(ln.pts[n - 1][0], ln.pts[n - 1][1], ln.pts[n - 1][2])); }
   // intermediate polyline points of expressway lines at full height can be shared (the T junction)
   for (const ln of lines) if (ln.expressway) for (let i = 1; i < ln.pts.length - 1; i++) {

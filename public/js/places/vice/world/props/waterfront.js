@@ -6,8 +6,7 @@
 // markers leading ships from the ocean round South Pointe to the port, and
 // the swimming-area buoys off the beach.
 import * as THREE from 'three';
-import { V } from '../../state.js';
-import { L, tint, shade, cyl, cylAB, tri, resample, offsetLine, rnd, hash, mergeColored, faceUp, GROUND, TAU } from './kit.js';
+import { L, tint, cyl, cylAB, tri, resample, offsetLine, rnd, hash, mergeColored, faceUp, GROUND, TAU } from './kit.js';
 import { SP } from './flora.js';
 import { modelGeometry, hasModel } from '../../assets/models.js';
 import { hull } from './port.js';
@@ -359,5 +358,4 @@ export function buildKenney(P) {
   P.group.add(mesh);
   P.boats = { mesh, count: list.length };
   (P.anim = P.anim || []).push((dt) => { uni.uT.value += dt; });
-  void V;
 }

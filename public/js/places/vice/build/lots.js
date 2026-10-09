@@ -114,7 +114,7 @@ export function blockLots(b, info, o, r) {
   }
 }
 
-/** World point of a lot-local point (lx along the street to the right seen from the street? no: three.js frame). */
+/** World (x, z) of a lot-local point (the lot's frame: +z towards its street, +x to the right seen from the street). */
 export function lotWorld(lot, lx, lz) {
   const c = Math.cos(lot.yaw), s = Math.sin(lot.yaw);
   return [lot.x + lx * c + lz * s, lot.z - lx * s + lz * c];

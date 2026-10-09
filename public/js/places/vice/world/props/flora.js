@@ -15,7 +15,7 @@
 //   F.update(dt, camera, wind 0..1)
 import * as THREE from 'three';
 import { TEX_LAYER } from '../textures.js';
-import { rnd, hash, TAU } from './kit.js';
+import { rnd, TAU } from './kit.js';
 
 export const NEAR = 360, FAR = 2700;
 const CELL = 128;
@@ -295,7 +295,7 @@ function shrub(seed, R, tile) {
 }
 /** Sea oats / beach grass: a few crossed cards. */
 function tuft(seed) {
-  const r = rnd(seed), G = new FG(), centre = V3(0, -3, 0);
+  const r = rnd(seed), G = new FG();
   for (let i = 0; i < 4; i++) {
     const a = (i / 4) * Math.PI + r() * 0.4, t = V3(Math.cos(a), 0, Math.sin(a));
     const ids = [[-1, 0], [1, 0], [1, 1], [-1, 1]].map(([s, q]) => {
@@ -304,7 +304,6 @@ function tuft(seed) {
     });
     G.t(ids[0], ids[1], ids[2]); G.t(ids[0], ids[2], ids[3]);
   }
-  void centre;
   return G.build();
 }
 /** A red mangrove thicket: a low, wide, uneven canopy on short arching prop roots. */
@@ -335,8 +334,8 @@ export const SPECIES = [
   { id: 'coco2', make: () => coconutPalm(23, 35, 13, 18, true), near: NEAR, shadow: 190, trunk: 0.8, imp: true },
   { id: 'coco3', make: () => coconutPalm(37, 48, 3, 21), near: NEAR, shadow: 190, trunk: 0.8, imp: true },
   { id: 'royal', make: () => royalPalm(41, 58), near: NEAR, shadow: 190, trunk: 1.3, imp: true },
-  { id: 'tree', make: () => shadeTree(53, 30), near: 320, shadow: 170, trunk: 1.7, imp: true },
-  { id: 'mangrove', make: () => mangrove(79), near: 300, shadow: 0, trunk: 0, imp: true },
+  { id: 'tree', make: () => shadeTree(53, 30), near: NEAR, shadow: 170, trunk: 1.7, imp: true },
+  { id: 'mangrove', make: () => mangrove(79), near: NEAR, shadow: 0, trunk: 0, imp: true },
   { id: 'shrub', make: () => shrub(61, 3.6, 'shrub'), near: 230, shadow: 90, trunk: 0, imp: false },
   { id: 'bougain', make: () => shrub(67, 3.2, 'flower'), near: 230, shadow: 90, trunk: 0, imp: false },
   { id: 'grass', make: () => tuft(71), near: 150, shadow: 0, trunk: 0, imp: false },
@@ -641,4 +640,3 @@ export class Flora {
     this.drawn = drawn;
   }
 }
-void hash;

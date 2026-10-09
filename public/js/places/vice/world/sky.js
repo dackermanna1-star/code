@@ -115,7 +115,7 @@ vec3 skyBase(vec3 d) {
   col += skSunCol * skP.x * (pow(sw, 10.0) * 0.35 + pow(sw, 120.0) * 1.2);
   // dusk: a pink band opposite the sun (the belt of Venus) over the earth's blue shadow
   float anti = max(dot(normalize(d.xz + 1e-5), normalize(-skSunDir.xz + 1e-5)), 0.0);
-  col += skBelt * smoothstep(0.0, 0.12, up) * smoothstep(0.42, 0.1, up) * (0.35 + 0.65 * anti);
+  col += skBelt * smoothstep(0.0, 0.12, up) * (1.0 - smoothstep(0.1, 0.42, up)) * (0.35 + 0.65 * anti);
   // the city's glow on the horizon at night
   col += vec3(1.0, 0.5, 0.3) * skP2.y * pow(1.0 - up, 10.0);
   return col;
@@ -140,7 +140,7 @@ vec4 skyClouds(vec3 d, float q) {
     occ += max(texture(skCloud, o).r * 0.72 + texture(skCloud, o * 2.3 + 0.17).r * 0.28 - th, 0.0);
   }
   float lit = exp(-occ * 4.5);
-  lit = mix(lit, 1.0, smoothstep(0.1, -0.15, skSunDir.y) * 0.4); // after sunset the undersides glow
+  lit = mix(lit, 1.0, (1.0 - smoothstep(-0.15, 0.1, skSunDir.y)) * 0.4); // after sunset the undersides glow
   float thick = smoothstep(0.03, 0.3, c - th);
   float sw = max(dot(d, skSunDir), 0.0);
   vec3 cc = mix(skCloudShade, skCloudLit, lit);
@@ -153,7 +153,7 @@ vec4 skyClouds(vec3 d, float q) {
   vec3 cic = skCloudLit * 1.05 + skSunCol * skP.x * pow(sw, 6.0) * 0.6;
   dens *= smoothstep(0.005, 0.07, d.y);
   // far clouds fade into the haze
-  float aer = smoothstep(0.3, 0.0, d.y) * 0.65;
+  float aer = (1.0 - smoothstep(0.0, 0.3, d.y)) * 0.65;
   vec3 hz = skyHorizon(d);
   cc = mix(cc, hz, aer); cic = mix(cic, hz, aer);
   float a = dens + ci * (1.0 - dens);

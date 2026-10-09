@@ -7,7 +7,7 @@
 // Containers are boxes with a drawn texture (corrugation, doors, the line's
 // name) tinted per box; everything is merged per chunk.
 import * as THREE from 'three';
-import { L, tint, shade, cyl, cylAB, rnd, hash, faceUp, GROUND, TAU, canvasTex } from './kit.js';
+import { L, tint, shade, cyl, cylAB, rnd, GROUND, TAU, canvasTex } from './kit.js';
 import { frame } from './beach.js';
 import { place } from './furniture.js';
 
@@ -82,14 +82,14 @@ export function container(g, x, y, z, h, col, brand) {
 
 export function buildPort(P) {
   const r = rnd(1958);
-  const yard = (x0, z0, x1, z1, along = 'x') => containerYard(P, x0, z0, x1, z1, along, r);
+  const yard = (x0, z0, x1, z1) => containerYard(P, x0, z0, x1, z1, r);
   // the yards (inside the blocks, clear of the streets and the crane quay)
-  yard(1278, -846, 1484, -770, 'x');
-  yard(1556, -846, 1690, -770, 'x');
-  yard(1278, -672, 1484, -596, 'x');
-  yard(1556, -672, 1694, -596, 'x');
-  yard(1278, -526, 1484, -478, 'x');
-  yard(1556, -526, 1688, -478, 'x');
+  yard(1278, -846, 1484, -770);
+  yard(1556, -846, 1690, -770);
+  yard(1278, -672, 1484, -596);
+  yard(1556, -672, 1694, -596);
+  yard(1278, -526, 1484, -478);
+  yard(1556, -526, 1688, -478);
   // ship-to-shore cranes on the south quay, over the container ship
   const qz = quayZ(P, 1300, -380);
   for (const x of [1100, 1320, 1440, 1620]) stsCrane(P, x, quayZ(P, x, -380), r);
@@ -119,9 +119,8 @@ function quayZ(P, x, zGuess) {
   return z;
 }
 
-function containerYard(P, x0, z0, x1, z1, along, r) {
-  // rows along x (each container's length along x), 2 rows of stacks with a truck lane between
-  const g = () => null;
+function containerYard(P, x0, z0, x1, z1, r) {
+  // rows along x (each container's length along x), with a truck lane between
   const len = x1 - x0, bays = Math.floor((len + 3) / (CL + 3));
   const rows = Math.floor((z1 - z0) / (CW + 0.6));
   for (let b = 0; b < bays; b++) for (let q = 0; q < rows; q++) {
@@ -136,7 +135,6 @@ function containerYard(P, x0, z0, x1, z1, along, r) {
     }
     P.box(x, GROUND + n * CH / 2, z, CL / 2, n * CH / 2, CW / 2, Math.PI / 2, 'metal', { container: true, cover: true });
   }
-  void g; void along;
 }
 
 // ---- a ship-to-shore gantry crane ----------------------------------------------------------
@@ -285,7 +283,6 @@ export function cargoShip(P, x, z, Lh, W, r) {
   P.box(x, (top - keel) / 2, z, Lh / 2, (top + keel) / 2, W / 2 - 2, 0, 'metal', { ship: true });
   const bw = F.W(0, 0, sz);
   P.box(bw[0], top + 32, bw[2], 18, 32, W / 2 - 8, 0, 'metal', { ship: true });
-  void shade; void hash;
 }
 
 export function cruiseShip(P, x, z, h, Lh, W, liv, seed) {
@@ -340,5 +337,4 @@ export function cruiseShip(P, x, z, h, Lh, W, liv, seed) {
   P.box(x, (top - keel) / 2, z, W / 2 - 1, (top + keel) / 2, Lh / 2 - 6, h, 'metal', { ship: true });
   const c = F.W(0, 0, (-Lh / 2 + 22 + Lh / 2 - FR) / 2);
   P.box(c[0], top + decks * DH / 2, c[2], W / 2 - 1, decks * DH / 2, (Lh - FR - 22) / 2, h, 'metal', { ship: true });
-  void place;
 }

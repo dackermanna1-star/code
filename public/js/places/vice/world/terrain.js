@@ -193,7 +193,7 @@ vec3 recolor(vec3 s, int q) {
   }
   col /= max(wsum, 1e-4); rough /= max(wsum, 1e-4);
   gNormalT = near ? normalize(nrm / max(wsum, 1e-4) + vec3(0.0, 0.0, 0.001)) : vec3(0.0, 0.0, 1.0);
-  gNormalT = normalize(mix(vec3(0.0, 0.0, 1.0), gNormalT, smoothstep(520.0, 300.0, dist)));
+  gNormalT = normalize(mix(vec3(0.0, 0.0, 1.0), gNormalT, (1.0 - smoothstep(300.0, 520.0, dist))));
   // big slow patches: lighter and darker, greener and drier
   float grass = gWeights[0] + gWeights[5];
   col *= 0.86 + 0.28 * mac.r;

@@ -9,7 +9,7 @@
 //   The cemetery: rows of headstones, white mausoleums, a wall and old oaks.
 //   The golf courses: fairways, greens with flags, bunkers, ponds, cart paths.
 // Everything lies on the park's gentle hills (ground.heightAt).
-import { L, tint, shade, cyl, cylAB, ball, tri, rnd, hash, faceUp, strip, GROUND, TAU } from './kit.js';
+import { L, tint, shade, cyl, cylAB, tri, rnd, hash, faceUp, strip, GROUND, TAU } from './kit.js';
 import { place } from './furniture.js';
 import { fence } from './port.js';
 
@@ -255,7 +255,7 @@ function playground(P, S, x, z) {
 }
 
 function sports(P, S) {
-  const { x0, x1, z0, z1, r } = S;
+  const { x0, x1, z0, z1 } = S;
   const w = x1 - x0, d = z1 - z0;
   // a baseball diamond in one corner
   baseball(P, S, x0 + w * 0.3, z0 + d * 0.3, Math.PI * 0.25);
@@ -265,7 +265,6 @@ function sports(P, S) {
   basketball(P, S, x0 + w * 0.3, z1 - 44);
   basketball(P, S, x0 + w * 0.3 + 52, z1 - 44);
   if (w > 380 && d > 380) soccer(P, S, x1 - 110, z1 - 90);
-  void r;
 }
 function tennis(P, S, x, z) {
   const hw = 18, hd = 38;

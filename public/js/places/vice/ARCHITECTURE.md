@@ -110,7 +110,10 @@ Session states: `loading → title → play ⇄ paused`, plus `wasted` and `bust
   - `update(dt, camera)`.
 - `world/city.js` `City(world, plan, ground, phys)`: every building, prop, palm and landmark, merged per 256-stud cell. Sets `city.real = true` (this turns off the debug boxes). Static colliders go in phys.
   - `city.update(dt, camera)` handles LOD and night windows.
-  - `city.spawnPoints`: `{parking:[{x, z, heading}], peds:[...]}`
+  - `city.spawnPoints`: `{parking:[{x, z, heading}], peds:[{x, z}], police:[...], ambulance:[...]}`
+  - `city.places[id] = {x, z, door:{x, z, heading}, kind, name}`, where the door heading points out of the door. The ids are safehouse, hospital, hospital2, police, police2, gunshop, gunshop2, sprayshop (it has a `bay` too), marina, arena, helipad, port, airport, liberty, vicetower, atlantis, govcenter, ballpark, brickellkey, star and domino.
+  - `city.docks`: private docks `{x, z, heading}` (for moored boats).
+  - `city.roadAt(x, z)`: the plan edge under a point.
 - `world/sky.js` `Sky(world)`:
   - `update(dt, hour, camPos)`
   - `state = {night 0..1, sunI, light, rain, fogFar}`

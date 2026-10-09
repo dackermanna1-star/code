@@ -1,25 +1,28 @@
 // Vice City's public spaces: thousands of palms (and shade trees, shrubs,
 // mangroves), the beach with its Art Deco lifeguard towers, umbrellas and
 // boardwalk, South Pointe Pier, the seawalls and riprap along every shore,
-// the marinas with moored boats, the port's container yards, cranes and
-// ships, the airport's runways and parked airliners, the parks (fountains,
-// bandshell, courts, cemetery, golf) and the street furniture.
+// the marinas with yachts and moored boats, the port's container yards,
+// cranes and ships, the airport's runways and parked airliners, the parks
+// (fountains, bandshell, courts, cemetery, golf) and the street furniture.
 //
 //   const props = new Props(world, plan, ground, phys)   (before the city)
-//   props.palm(x, y, z, scale = 1, lean = 0, kind)        queue a palm (kind: 'coconut' | 'royal'; default by position)
-//   props.bush(x, y, z, s = 1, kind)                      queue a shrub (kind: 'shrub' | 'bougain' | 'grass')
+//   props.palm(x, y, z, scale = 1, lean = 0, kind)        queue a palm before finish() (kind 'coconut' | 'royal'; default: a coconut variant)
+//   props.bush(x, y, z, s = 1, kind)                      queue a shrub ('shrub' | 'bougain' | 'grass' | 'mangrove')
 //   props.tree(x, y, z, s = 1)                            queue a shade tree
-//   props.claimed(x, z, r = 0) -> name | null             places props will fill (the city should leave them free)
+//   props.claimed(x, z, r = 0) -> name | null             areas the props fill (CLAIMS): the city should keep buildings out
+//   props.free(x, z, r) -> bool                           no city building box there (used to keep props out of buildings)
 //   props.finish()                                        (after the city) builds everything
-//   props.update(dt, camera)                              wind, near/far palms, nearby furniture, night lights
-//   props.knock(box, vel)                                 a car hit a breakable prop (box.prop): hide it, drop its box
-//   props.stats() -> {buildMs, flora, far, near, boxes, meshes, tris}
+//   props.update(dt, camera)                              wind, near/far greenery, nearby furniture, night glow
+//   props.knock(box) -> bool                              a car hit a breakable prop (box.prop): hide it, drop its box
+//   props.spots = { benches, busStops, loungers, umbrellas }   [{x, y, z, heading}] for people to use
+//   props.parks, props.marinas, props.pier                 what was built where (for missions and spawns)
+//   props.stats() -> {buildMs, ms, flora, floraNear, floraFar, near, nearDrawn, boxes, meshes, staticTris}
 //
-// Static things are merged per 512-stud chunk (surface.js) by material:
-// 'surf' (big things, always drawn), 'detail' (small merged things, hidden
-// beyond DETAIL), 'flat' / 'paint' (lying on the ground: paths, runways and
-// their markings), 'kenney' (the Kenney boats). Repeated small things are
-// instanced near the camera (kit.js NearSet), greenery by flora.js.
+// Static things are merged by material ('surf', 'win' lit windows, 'cont'
+// containers, 'fence', 'flat'/'paint' lying on the ground, 'sign', 'ads') in
+// 1024-stud chunks, and small details ('detail') in 512-stud chunks hidden
+// beyond DETAIL. Repeated small things are instanced near the camera
+// (kit.js NearSet), greenery by flora.js, the Kenney boats are one bobbing mesh.
 import * as THREE from 'three';
 import { V } from '../state.js';
 import { viceTextures } from './textures.js';
@@ -154,7 +157,13 @@ export class Props {
       this.world.scene.add(this.group);
     });
     step('flora', () => this.flora.build());
-    step('near', () => this.near.build());
+    step('near', () => {
+      this.near.build();
+      // where people can sit, wait or lie in the sun
+      const spots = this.spots = { benches: [], busStops: this.busStops || [], loungers: [], umbrellas: [] };
+      const by = { bench: spots.benches, lounger: spots.loungers, umbrella: spots.umbrellas };
+      for (const it of this.near.items) { const list = by[this.near.types[it.t].name]; if (list) list.push({ x: it.x, y: it.y, z: it.z, heading: it.h }); }
+    });
     // the Kenney models (boats, buoys) once they are inflated
     V.ready?.then(() => { const t = performance.now(); try { buildKenney(this); } catch (e) { console.error('props.kenney', e); } ms.kenney = Math.round(performance.now() - t); });
     this.buildMs = Math.round(performance.now() - t0) + ms.ctor;

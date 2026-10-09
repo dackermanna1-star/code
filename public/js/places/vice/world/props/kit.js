@@ -371,7 +371,7 @@ export function mergeColored(list, extra = null) {
 
 // ---- a faster Geo: the same interface as surface.js's, with typed arrays inside ----------
 export class FastGeo extends Geo {
-  constructor() { super(); this.n = 0; this.cap = 0; this._grow(1024); }
+  constructor() { super(); this.n = 0; this.cap = 0; this._grow(256); }
   _grow(cap) {
     const g = (A, k) => { const b = new Float32Array(cap * k); if (A) b.set(A.subarray(0, this.n * k)); return b; };
     this.pos = g(this.cap ? this.pos : null, 3); this.nor = g(this.cap ? this.nor : null, 3); this.uv = g(this.cap ? this.uv : null, 2);

@@ -30,7 +30,7 @@ export const TYPES = {
   sedan: {
     name: 'Bayside', kind: 'car', cls: 'sedan', model: 'sedan', scale: 5.4,
     mass: 1400, power: 125, top: 120, grip: 1.0, brake: 1.0, steer: 0.62, drift: 0.5, drive: 'rwd', gears: 5,
-    seats: [[0.32, 0.42, 0.05], [-0.32, 0.42, 0.05], [0.32, 0.42, -0.62], [-0.32, 0.42, -0.62]], paints: [...CIVIL, ...PASTEL.slice(0, 3)],
+    seats: [[0.28, 0.42, 0.05], [-0.28, 0.42, 0.05], [0.32, 0.42, -0.62], [-0.28, 0.42, -0.62]], paints: [...CIVIL, ...PASTEL.slice(0, 3)],
   },
   sports: {
     name: 'Marlin GT', kind: 'car', cls: 'sports', model: 'sedan-sports', scale: 5.4,
@@ -45,66 +45,66 @@ export const TYPES = {
   suv: {
     name: 'Everglade', kind: 'car', cls: 'suv', model: 'suv', scale: 5.4,
     mass: 2100, power: 185, top: 122, grip: 0.95, brake: 0.95, steer: 0.6, drift: 0.4, drive: 'awd', gears: 5, tough: 1.25,
-    seats: [[0.32, 0.45, 0.1], [-0.32, 0.45, 0.1], [0.32, 0.45, -0.55], [-0.32, 0.45, -0.55]], paints: CIVIL,
+    seats: [[0.28, 0.45, 0.1], [-0.28, 0.45, 0.1], [0.32, 0.45, -0.55], [-0.28, 0.45, -0.55]], paints: CIVIL,
   },
   luxury: {
     name: 'Monarch', kind: 'car', cls: 'suv', model: 'suv-luxury', scale: 5.4,
     mass: 2300, power: 290, top: 138, grip: 1.0, brake: 1.05, steer: 0.6, drift: 0.4, drive: 'awd', gears: 6, tough: 1.3,
-    seats: [[0.32, 0.45, 0.15], [-0.32, 0.45, 0.15], [0.32, 0.45, -0.55], [-0.32, 0.45, -0.55]], paints: ['#16161a', '#f2f0ea', '#3a3f47', '#5b1420', '#1d2f4f', '#c9b48a'],
+    seats: [[0.28, 0.45, 0.15], [-0.28, 0.45, 0.15], [0.32, 0.45, -0.55], [-0.28, 0.45, -0.55]], paints: ['#16161a', '#f2f0ea', '#3a3f47', '#5b1420', '#1d2f4f', '#c9b48a'],
   },
   taxi: {
     name: 'Sunshine Cab', kind: 'car', cls: 'sedan', model: 'taxi', scale: 5.4,
     mass: 1500, power: 135, top: 118, grip: 1.0, brake: 1.0, steer: 0.62, drift: 0.55, drive: 'rwd', gears: 5,
-    seats: [[0.32, 0.42, 0.05], [-0.32, 0.42, 0.05], [0.32, 0.42, -0.62], [-0.32, 0.42, -0.62]], paints: null,
+    seats: [[0.28, 0.42, 0.05], [-0.28, 0.42, 0.05], [0.32, 0.42, -0.62], [-0.28, 0.42, -0.62]], paints: null,
   },
   police: {
     name: 'VCPD Cruiser', kind: 'car', cls: 'emergency', model: 'police', scale: 5.4,
     mass: 1650, power: 270, top: 152, grip: 1.1, brake: 1.15, steer: 0.62, drift: 0.55, drive: 'rwd', gears: 6, tough: 1.4,
-    seats: [[0.32, 0.42, 0.1], [-0.32, 0.42, 0.1], [0.32, 0.42, -0.6], [-0.32, 0.42, -0.6]], paints: null, siren: true,
+    seats: [[0.28, 0.42, 0.1], [-0.28, 0.42, 0.1], [0.32, 0.42, -0.6], [-0.28, 0.42, -0.6]], paints: null, siren: true,
     // the light bar on the roof and the flashers in the grille (model units)
     sirenBoxes: [[-0.5, 1.05, -0.2, 0.5, 1.45, 0.4], [-0.6, 0.4, 1.35, 0.6, 0.7, 1.6]],
   },
   ambulance: {
     name: 'Paramedic', kind: 'car', cls: 'emergency', model: 'ambulance', scale: 5.4,
     mass: 3200, power: 230, top: 112, grip: 0.92, brake: 0.88, steer: 0.58, drift: 0.3, drive: 'rwd', gears: 5, tough: 1.6,
-    seats: [[0.32, 0.5, 0.75], [-0.32, 0.5, 0.75], [0.3, 0.6, -0.6], [-0.3, 0.6, -0.6]], paints: null, siren: true,
+    seats: [[0.28, 0.5, 0.75], [-0.28, 0.5, 0.75], [0.3, 0.6, -0.6], [-0.3, 0.6, -0.6]], paints: null, siren: true,
     lightBar: [0, 1.8, 0.62, 0.9], // procedural bar: x, y (roof), z, width (model units)
   },
   firetruck: {
     name: 'Engine 9', kind: 'car', cls: 'emergency', model: 'firetruck', scale: 5.4,
     mass: 9000, power: 470, top: 102, grip: 0.86, brake: 0.78, steer: 0.55, drift: 0.25, drive: 'rwd', gears: 6, tough: 3,
-    seats: [[0.32, 0.55, 0.95], [-0.32, 0.55, 0.95], [0.32, 0.6, 0.45], [-0.32, 0.6, 0.45]], paints: null, siren: true,
+    seats: [[0.28, 0.55, 0.95], [-0.28, 0.55, 0.95], [0.32, 0.6, 0.45], [-0.28, 0.6, 0.45]], paints: null, siren: true,
     lightBar: [0, 1.5, 1.2, 1.0],
   },
   garbage: {
     name: 'Compactor', kind: 'car', cls: 'truck', model: 'garbage-truck', scale: 5.4,
     mass: 9500, power: 380, top: 90, grip: 0.86, brake: 0.72, steer: 0.55, drift: 0.2, drive: 'rwd', gears: 6, tough: 3,
-    seats: [[0.32, 0.6, 1.1], [-0.32, 0.6, 1.1]], paints: null,
+    seats: [[0.28, 0.6, 1.1], [-0.28, 0.6, 1.1]], paints: null,
   },
   boxtruck: {
     name: 'Courier', kind: 'car', cls: 'truck', model: 'delivery', scale: 5.4,
     mass: 4500, power: 220, top: 102, grip: 0.88, brake: 0.82, steer: 0.56, drift: 0.3, drive: 'rwd', gears: 5, tough: 2,
-    seats: [[0.32, 0.55, 1.0], [-0.32, 0.55, 1.0]], paints: WORK,
+    seats: [[0.28, 0.55, 1.0], [-0.28, 0.55, 1.0]], paints: WORK,
   },
   flatbed: {
     name: 'Stakebed', kind: 'car', cls: 'truck', model: 'delivery-flat', scale: 5.4,
     mass: 4000, power: 210, top: 104, grip: 0.88, brake: 0.82, steer: 0.56, drift: 0.3, drive: 'rwd', gears: 5, tough: 2,
-    seats: [[0.32, 0.55, 1.0], [-0.32, 0.55, 1.0]], paints: WORK,
+    seats: [[0.28, 0.55, 1.0], [-0.28, 0.55, 1.0]], paints: WORK,
   },
   van: {
     name: 'Sunvan', kind: 'car', cls: 'van', model: 'van', scale: 5.4,
     mass: 2200, power: 140, top: 112, grip: 0.92, brake: 0.9, steer: 0.6, drift: 0.4, drive: 'rwd', gears: 5, tough: 1.4,
-    seats: [[0.32, 0.45, 0.45], [-0.32, 0.45, 0.45], [0.3, 0.45, -0.3], [-0.3, 0.45, -0.3]], paints: [...WORK, ...PASTEL.slice(0, 4)],
+    seats: [[0.28, 0.45, 0.45], [-0.28, 0.45, 0.45], [0.3, 0.45, -0.3], [-0.3, 0.45, -0.3]], paints: [...WORK, ...PASTEL.slice(0, 4)],
   },
   pickup: {
     name: 'Gator', kind: 'car', cls: 'truck', model: 'truck', scale: 5.4,
     mass: 2000, power: 210, top: 126, grip: 0.96, brake: 0.95, steer: 0.6, drift: 0.58, drive: 'rwd', gears: 5, tough: 1.5,
-    seats: [[0.32, 0.45, 0.3], [-0.32, 0.45, 0.3]], paints: [...CIVIL, '#e8c547', '#c63b2f'],
+    seats: [[0.28, 0.45, 0.3], [-0.28, 0.45, 0.3]], paints: [...CIVIL, '#e8c547', '#c63b2f'],
   },
   hauler: {
     name: 'Hauler', kind: 'car', cls: 'truck', model: 'truck-flat', scale: 5.4,
     mass: 3000, power: 200, top: 110, grip: 0.9, brake: 0.86, steer: 0.58, drift: 0.35, drive: 'rwd', gears: 5, tough: 1.8,
-    seats: [[0.32, 0.45, 0.45], [-0.32, 0.45, 0.45]], paints: WORK,
+    seats: [[0.28, 0.45, 0.45], [-0.28, 0.45, 0.45]], paints: WORK,
   },
   supercar: {
     name: 'Vortex', kind: 'car', cls: 'super', model: 'race', scale: 5.4,
@@ -124,12 +124,12 @@ export const TYPES = {
 
   // ---- two wheels --------------------------------------------------------------------------------------------
   motorbike: {
-    name: 'Razorback 1000', kind: 'bike', cls: 'bike', model: 'proc:sportbike', scale: 1,
+    name: 'Razorback 1000', kind: 'bike', cls: 'bike', model: 'proc:sportbike', scale: 1.3,
     mass: 230, power: 120, top: 172, grip: 1.2, brake: 1.2, steer: 0.5, drift: 0.3, drive: 'rwd', gears: 6, tough: 1,
-    seats: [[0, 2.55, -0.6], [0, 2.85, -2.0]], paints: NEON,
+    seats: [[0, 2.55, -0.6], [0, 2.8, -1.7]], paints: NEON,
   },
   scooter: {
-    name: 'Mojito 50', kind: 'bike', cls: 'bike', model: 'proc:scooter', scale: 1,
+    name: 'Mojito 50', kind: 'bike', cls: 'bike', model: 'proc:scooter', scale: 1.25,
     mass: 120, power: 10, top: 64, grip: 1.0, brake: 0.95, steer: 0.6, drift: 0.2, drive: 'rwd', gears: 1, tough: 0.8,
     seats: [[0, 2.2, -0.9], [0, 2.4, -1.9]], paints: PASTEL,
   },
@@ -185,12 +185,12 @@ export const TYPES = {
   policeheli: {
     name: 'VCPD Hawk', kind: 'heli', cls: 'air', model: 'proc:heli', scale: 1, livery: 'police',
     mass: 2200, power: 600, top: 105, grip: 1, brake: 1, steer: 1, drift: 0, gears: 1, tough: 1.4, siren: true,
-    seats: [[-1.5, 2.2, 2.2], [1.5, 2.2, 2.2], [-1.5, 2.2, -0.6], [1.5, 2.2, -0.6]], paints: null,
+    seats: [[-1.05, 2.4, 2.3], [1.05, 2.4, 2.3], [-1.05, 2.4, -0.4], [1.05, 2.4, -0.4]], paints: null,
   },
   newsheli: {
     name: 'Skyeye 6', kind: 'heli', cls: 'air', model: 'proc:heli', scale: 1, livery: 'news',
     mass: 2000, power: 560, top: 100, grip: 1, brake: 1, steer: 1, drift: 0, gears: 1, tough: 1.2,
-    seats: [[-1.5, 2.2, 2.2], [1.5, 2.2, 2.2], [-1.5, 2.2, -0.6], [1.5, 2.2, -0.6]], paints: ['#f6f6f6', '#ffd23f', '#ff2a6d', '#1f6bff'],
+    seats: [[-1.05, 2.4, 2.3], [1.05, 2.4, 2.3], [-1.05, 2.4, -0.4], [1.05, 2.4, -0.4]], paints: ['#f6f6f6', '#ffd23f', '#ff2a6d', '#1f6bff'],
   },
   plane: {
     name: 'Albatross', kind: 'plane', cls: 'air', model: 'proc:plane', scale: 1,

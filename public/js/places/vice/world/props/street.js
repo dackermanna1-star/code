@@ -8,8 +8,8 @@
 // expressway.
 import * as THREE from 'three';
 import { V } from '../../state.js';
-import { L, tint, shade, cyl, cylAB, hash, rnd, canvasTex, GROUND } from './kit.js';
-import { place, ftype } from './furniture.js';
+import { L, tint, cyl, hash, rnd, canvasTex, GROUND } from './kit.js';
+import { place } from './furniture.js';
 
 const NEWS = [0x1d5fbf, 0xd62828, 0xffc21a, 0xf1f1f1, 0x2a9d4a, 0x222222];
 
@@ -142,12 +142,11 @@ function streetSign(P, A, x, y, z, tx, tz, name, cross, crossEdge) {
   const g = P.C.get('detail', x, z), gs = P.C.get('sign', x, z), steel = [0.3, 0.32, 0.35];
   cyl(g, x, y, z, 0.18, 13.2, 6, { lay: L.concrete, tint: steel });
   const blade = (ux, uz, label, yy) => {
-    const uv = A.cell(label), back = A.cell('#BACK');
+    const uv = A.cell(label);
     const w = 4.8, h = 0.75, nx = -uz * 0.06, nz = ux * 0.06;
     const p = (s, v, off) => [x + ux * s + nx * off, yy + v, z + uz * s + nz * off];
     gs.quad(p(-w, -h, 1), p(w, -h, 1), p(w, h, 1), p(-w, h, 1), { uvs: [[uv[0], uv[1]], [uv[2], uv[1]], [uv[2], uv[3]], [uv[0], uv[3]]] });
     gs.quad(p(w, -h, -1), p(-w, -h, -1), p(-w, h, -1), p(w, h, -1), { uvs: [[uv[0], uv[1]], [uv[2], uv[1]], [uv[2], uv[3]], [uv[0], uv[3]]] });
-    void back;
   };
   if (name) blade(tx, tz, name, y + 12.4);
   if (cross && crossEdge) {
@@ -277,4 +276,3 @@ function pointOn(e, d) {
   const a = pts[i - 1], b = pts[i], Ln = b.d - a.d || 1, t = Math.min(1, Math.max(0, (d - a.d) / Ln));
   return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t, tx: (b.x - a.x) / Ln, tz: (b.z - a.z) / Ln };
 }
-void shade; void cylAB; void ftype;

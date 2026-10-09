@@ -41,12 +41,13 @@ export function prepare(id) {
   const vis = visualFor(d);
   const b = vis.bounds, kind = d.kind, m = d.mass;
   d.vis = vis;
+  if (vis.seatY) d.seats = d.seats.map((st, i) => (vis.seatY[i] != null ? [st[0], vis.seatY[i] + 0.04, st[2]] : st));
   const y0 = kind === 'car' ? Math.max(b.y0, 0.6) : kind === 'boat' ? b.y0 : kind === 'plane' ? 1.7 : Math.max(0, b.y0);
   d.hull = { x0: b.x0, x1: b.x1, y0, y1: b.y1, z0: b.z0, z1: b.z1, xc: (b.x0 + b.x1) / 2, zc: (b.z0 + b.z1) / 2 };
   d.size = { w: b.x1 - b.x0, h: b.y1, l: b.z1 - b.z0 };
   d.hw = ((b.x1 - b.x0) / 2) * 0.95; d.hl = ((b.z1 - b.z0) / 2) * 0.97;
   if (kind === 'plane') d.hw = 2.6; // the fuselage; the wings fly over most things
-  d.cmY = kind === 'car' ? b.y1 * 0.3 : kind === 'bike' ? 1.9 : kind === 'boat' ? Math.max(1.2, b.y1 * 0.22) : kind === 'heli' ? 4.2 : 4.4;
+  d.cmY = kind === 'car' ? b.y1 * 0.3 : kind === 'bike' ? 1.9 * d.scale : kind === 'boat' ? Math.max(1.2, b.y1 * 0.22) : kind === 'heli' ? 4.2 : 4.4;
   d.cmZ = kind === 'plane' ? 1.4 : kind === 'heli' ? -0.6 : kind === 'car' ? d.size.l * 0.025 : 0; // front-engined
   // inertia of the main box (planes: the fuselage and wings)
   const W = kind === 'plane' ? 20 : d.size.w, H = Math.max(2, b.y1 - y0), L = d.size.l;
@@ -116,7 +117,7 @@ export function prepare(id) {
       [xc + ix * 0.78, h.y1 * 0.97, h.zc - (h.z1 - h.z0) * 0.28], [xc - ix * 0.78, h.y1 * 0.97, h.zc - (h.z1 - h.z0) * 0.28],
       [xc + ix, (h.y0 + h.y1) * 0.5, h.zc], [xc - ix, (h.y0 + h.y1) * 0.5, h.zc],
     ];
-    if (kind === 'bike') d.corners = [[0, 0.5, z0], [0, 0.5, z1], [0.9, 2.6, 0.5], [-0.9, 2.6, 0.5], [0.8, 1.4, -1.5], [-0.8, 1.4, -1.5], [0.9, 3.1, 1.6], [-0.9, 3.1, 1.6]];
+    if (kind === 'bike') { const k = d.scale; d.corners = [[0, 0.5 * k, z0], [0, 0.5 * k, z1], [0.9 * k, 2.6 * k, 0.5 * k], [-0.9 * k, 2.6 * k, 0.5 * k], [0.8 * k, 1.4 * k, -1.5 * k], [-0.8 * k, 1.4 * k, -1.5 * k], [0.9 * k, 3.1 * k, 1.6 * k], [-0.9 * k, 3.1 * k, 1.6 * k]]; }
   }
   // boats: buoyancy points over the hull bottom
   if (kind === 'boat') {

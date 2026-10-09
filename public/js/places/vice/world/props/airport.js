@@ -5,7 +5,7 @@
 // edge lights; the west apron with airliners parked at the gates and cargo
 // jets further south, ground vehicles, floodlight masts, windsocks and the
 // perimeter fence. The terminal, tower and hangars are the city's.
-import { L, tint, shade, cyl, cylAB, rnd, faceUp, GROUND, TAU } from './kit.js';
+import { L, tint, cyl, cylAB, rnd, faceUp, GROUND } from './kit.js';
 import { airliner, LIVERIES } from './planes.js';
 import { fence } from './port.js';
 import { frame } from './beach.js';
@@ -162,7 +162,6 @@ export function buildAirport(P) {
   fence(P, -2432, -4086, -2432, -792, fy);
   fence(P, -2432, -792, -4086, -792, fy);
   fence(P, -4086, -792, -4086, -4086, fy);
-  void shade; void cyl; void cylAB; void TAU;
 }
 
 /** Glyphs centred at (cx, cz), their 'up' along `up` [x, z]; cell size cw (across) x ch (along). */

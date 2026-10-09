@@ -6,8 +6,8 @@
 // South Beach Lummus Park: a lawn with a winding path, palms and deco lamps
 // between the boardwalk and Ocean Drive. South Pointe Pier runs out into the
 // ocean from the tip.
-import { L, tint, shade, cylAB, strip, resample, spline, hash, rnd, faceUp, TAU } from './kit.js';
-import { place, ftype } from './furniture.js';
+import { L, tint, shade, cylAB, strip, resample, spline, rnd, faceUp, TAU } from './kit.js';
+import { place } from './furniture.js';
 import { PLACES } from '../layout.js';
 
 const WALK_D = 182;      // the boardwalk's centre, inland from the waterline
@@ -67,10 +67,9 @@ export function buildBeach(P) {
   // smooth the distance so the walk doesn't zig-zag where it gives way to a road
   for (let k = 0; k < 3; k++) for (let i = 1; i < walk.length - 1; i++) walk[i].ds = (walk[i - 1].d + walk[i].d * 2 + walk[i + 1].d) / 4;
   for (const w of walk) { if (w.ds) { const [x, z] = at(S[w.i], w.ds); w.x = x; w.z = z; w.d = w.ds; } }
-  boardwalk(P, S, walk, at);
+  boardwalk(P, S, walk);
   // ---- along the shore ----
   const r = rnd(1985);
-  const gD = P.C;
   let lastTower = -999, scheme = 0, nCluster = 0;
   for (let i = 4; i < S.length - 4; i++) {
     const s = S[i], w = walk[i], head = Math.atan2(-s.nx, -s.nz);
@@ -125,11 +124,10 @@ export function buildBeach(P) {
   }
   lummus(P, S, walk);
   pier(P, pierAt);
-  void gD;
 }
 
 // ---- the boardwalk ---------------------------------------------------------------------
-function boardwalk(P, S, walk, at) {
+function boardwalk(P, S, walk) {
   const deckT = [0.92, 0.8, 0.64], postT = [0.62, 0.55, 0.47];
   let run = 0;
   for (let i = 0; i < walk.length - 1; i++) {
@@ -165,7 +163,6 @@ function boardwalk(P, S, walk, at) {
     }
     // a lamp every ~60 studs on the land side
     if (i % 10 === 5) place(P, 'lampDeco', A1[0] + sa.nx * 1.6, A1[2] + sa.nz * 1.6, 0);
-    void at;
   }
 }
 const fixWinding = faceUp;
@@ -280,7 +277,6 @@ function umbrellas(P, S, i, at, r, head, k) {
       place(P, 'lounger', lx, lz, head + (rental ? 0 : (r() - 0.5) * 0.5), lc);
     }
   }
-  void s;
 }
 
 // ---- volleyball ----------------------------------------------------------------------------
@@ -412,5 +408,4 @@ function pier(P, A) {
     P.box((a[0] + b[0]) / 2, DECK + 1.7, (a[2] + b[2]) / 2, 0.3, 1.7, L2 / 2, Math.atan2(b[0] - a[0], b[2] - a[2]), 'metal', { barrier: true });
   }
   P.pier = { x: A.x, z: A.z, dir: [A.ox, A.oz], len: E1, deck: DECK };
-  void ftype; void hash;
 }
