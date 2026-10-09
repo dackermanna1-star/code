@@ -23,10 +23,11 @@ const DEFS = {
     cyl(g, 0, 3.0, 0, 1.15, 0.3, 10, { lay: L.concrete, tint: DARK, rough: 0.4 });
   }, 240, true, [1.0, 1.6, 1.0], { prop: true, breakable: true }],
   hydrant: [(g) => {
-    cyl(g, 0, 0, 0, 0.62, 0.25, 8, { lay: L.concrete, tint: [1, 1, 1], ...P_ });
-    cyl(g, 0, 0.25, 0, 0.45, 1.75, 8, { lay: L.concrete, tint: [1, 1, 1], rough: 0.45, ...P_ });
-    ball(g, 0, 2.0, 0, 0.5, { lay: L.concrete, tint: [1, 1, 1], rough: 0.45, ...P_ }, 0.7);
-    for (const a of [0, Math.PI / 2, Math.PI]) { const cx = Math.cos(a), cz = Math.sin(a); cylAB(g, [cx * 0.3, 1.35, cz * 0.3], [cx * 0.78, 1.35, cz * 0.78], 0.22, 0.22, 6, { lay: L.concrete, tint: [1, 1, 1], ...P_ }); }
+    const paint = { lay: L.stucco, tint: [1.15, 1.15, 1.15], rough: 0.45, scale: 2, ...P_ };
+    cyl(g, 0, 0, 0, 0.62, 0.25, 8, paint);
+    cyl(g, 0, 0.25, 0, 0.45, 1.75, 8, paint);
+    ball(g, 0, 2.0, 0, 0.5, paint, 0.7);
+    for (const a of [0, Math.PI / 2, Math.PI]) { const cx = Math.cos(a), cz = Math.sin(a); cylAB(g, [cx * 0.3, 1.35, cz * 0.3], [cx * 0.78, 1.35, cz * 0.78], 0.22, 0.22, 6, paint); }
   }, 200, false, [0.6, 1.2, 0.6], { prop: true, breakable: true, hydrant: true }],
   meter: [(g) => {
     cyl(g, 0, 0, 0, 0.14, 3.4, 6, { lay: L.concrete, tint: STEEL, rough: 0.4 });

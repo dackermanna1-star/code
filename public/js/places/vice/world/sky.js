@@ -259,7 +259,8 @@ export function sunDirAt(hour, out = new THREE.Vector3()) {
 }
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _x = new THREE.Vector3(), _y = new THREE.Vector3(), _sz = new THREE.Vector2();
-const _c = new THREE.Color(), _q = new THREE.Quaternion();
+const _c = new THREE.Color();
+const set4 = (o, x, y, z, w) => { o.x = x; o.y = y; o.z = z; o.w = w; };
 
 export class Sky {
   constructor(world) {
@@ -297,7 +298,7 @@ export class Sky {
     this.lightDir = new THREE.Vector3(0, 1, 0);
     this.hour = 12;
     this.weather = 'fair'; this.w = { ...WEATHER.fair }; this.wTarget = { ...WEATHER.fair };
-    this.env = null; this.envHour = -99; this.envCover = -1; this.envT = 0; this.pm = null;
+    this.env = null; this.envHour = -99; this.envCover = -1; this.pm = null;
     this.state = { sunI: 1, night: 0, fogFar: FOG_FAR, rain: 0, wind: 0.4, cover: 0.36, light: 1, lamps: 0, dusk: 0, exposure: 1, hour: 12 };
     this._k = { zen: new THREE.Color(), hor: new THREE.Color(), hs: new THREE.Color(), sun: new THREE.Color(), belt: new THREE.Color(), cl: new THREE.Color(), cs: new THREE.Color(), ambS: new THREE.Color(), ambG: new THREE.Color() };
   }
@@ -336,7 +337,6 @@ export class Sky {
     const a = LK[i0], b = LK[i0 + 1];
     const t = smooth(0, 1, clamp((hour - a.h) / Math.max(0.001, b.h - a.h)));
     for (const k in K) K[k].copy(a[k]).lerp(b[k], t);
-    const L = (f) => lerp(a[f], b[f], t);
     // where the sun and moon are
     const sun = sunDirAt(hour, this.sunDir);
     u.skSunDir.value.copy(sun);
@@ -352,14 +352,14 @@ export class Sky {
     u.skCloudLit.value.copy(K.cl).lerp(_c.setRGB(0.55, 0.57, 0.6).multiplyScalar(1 - night * 0.9), grey * 0.7);
     u.skCloudShade.value.copy(K.cs).lerp(_c.setRGB(0.25, 0.27, 0.3).multiplyScalar(1 - night * 0.9), grey * 0.7);
     const sunVis = smooth(-0.035, 0.05, sun.y);
-    u.skP.value.x = L('glow') * (1 - grey * 0.8);
+    u.skP.value.x = lerp(a.glow, b.glow, t) * (1 - grey * 0.8);
     u.skP.value.y = night * (1 - smooth(0.3, 0.8, cover));
     u.skP.value.z = cover;
-    u.skP2.value.set(w.cirrus * (1 - grey), L('glowC'), 0, lerp(14, 46, smooth(0.0, 0.35, sun.y)) * (1 - grey));
+    u.skP2.value.set(w.cirrus * (1 - grey), lerp(a.glowC, b.glowC, t), 0, lerp(14, 46, smooth(0.0, 0.35, sun.y)) * (1 - grey));
     // the lights: the sun by day, the moon by night (one shadow-casting light)
     const S = this.sun;
-    const sunI = L('sunI') * (1 - grey * 0.75) * sunVis;
-    const moonI = L('moon') * (1 - grey * 0.7);
+    const sunI = lerp(a.sunI, b.sunI, t) * (1 - grey * 0.75) * sunVis;
+    const moonI = lerp(a.moon, b.moon, t) * (1 - grey * 0.7);
     if (sun.y > -0.02) { this.lightDir.copy(sun); S.color.copy(K.sun); S.intensity = sunI; }
     else { this.lightDir.copy(moon); S.color.copy(MOON_COL); S.intensity = moonI; }
     this.hemi.color.copy(K.ambS).lerp(_c.setRGB(0.6, 0.62, 0.66).multiplyScalar(1 - night * 0.85), grey * 0.5);
@@ -373,7 +373,7 @@ export class Sky {
     const fog = this.world.scene.fog;
     fog.color.copy(u.skHor.value).add(_c.setRGB(1, 0.5, 0.3).multiplyScalar(u.skP2.value.y)); // (as skyHorizon())
     fog.near = 0; fog.far = this.fogFar;
-    this._fog(L('fog') * w.fog);
+    this._fog(lerp(a.fog, b.fog, t) * w.fog);
     // what the rest of the game wants to know
     const st = this.state;
     st.sunI = S.intensity; st.night = night; st.rain = w.rain; st.wind = w.wind; st.cover = cover; st.hour = hour;
@@ -381,7 +381,7 @@ export class Sky {
     st.light = clamp(Math.max(sunI / 3.2, (this.hemi.intensity * (K.ambS.r + K.ambS.g + K.ambS.b)) / 1.6));
     st.lamps = 1 - smooth(0.02, 0.14, sun.y) * (1 - grey * 0.5);
     st.dusk = Math.max(smooth(17.6, 18.8, hour) * (1 - smooth(19.6, 20.4, hour)), smooth(5.2, 6.0, hour) * (1 - smooth(6.9, 7.8, hour)));
-    st.exposure = L('exp');
+    st.exposure = lerp(a.exp, b.exp, t);
     this.dome.position.copy(this.world.camera.position);
   }
 
@@ -430,24 +430,22 @@ export class Sky {
     cam.updateMatrixWorld();
     r.getDrawingBufferSize(_sz);
     const ty = Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2) / (cam.zoom || 1);
-    Object.assign(FOG.vcFogView.value, { x: 2 / Math.max(1, _sz.x), y: 2 / Math.max(1, _sz.y), z: ty * cam.aspect, w: ty });
+    set4(FOG.vcFogView.value, 2 / Math.max(1, _sz.x), 2 / Math.max(1, _sz.y), ty * cam.aspect, ty);
     const vm = cam.matrixWorldInverse;
     _v.set(0, 1, 0).transformDirection(vm);
-    Object.assign(FOG.vcFogUp.value, { x: _v.x, y: _v.y, z: _v.z, w: cam.position.y });
+    set4(FOG.vcFogUp.value, _v.x, _v.y, _v.z, cam.position.y);
     _v.copy(u.skSunDir.value).transformDirection(vm);
-    Object.assign(FOG.vcFogSun.value, { x: _v.x, y: _v.y, z: _v.z, w: 1 });
+    set4(FOG.vcFogSun.value, _v.x, _v.y, _v.z, 1);
     const hs = u.skHorSun.value, g = u.skSunCol.value, gi = u.skP.value.x;
     const cg = u.skP2.value.y; // (the city glow, as in skyHorizon())
-    Object.assign(FOG.vcFogHor.value, { x: hs.r + cg, y: hs.g + cg * 0.5, z: hs.b + cg * 0.3, w: 3 });
-    Object.assign(FOG.vcFogGlow.value, { x: g.r * gi, y: g.g * gi, z: g.b * gi, w: 0 });
-    // (the far fade hides where the sea is clipped; from high up it starts later)
-    Object.assign(FOG.vcFogP.value, { x: 0.0001 * density, y: 1 / 800, z: 0.05, w: lerp(0.4, 0.5, smooth(60, 1500, cam.position.y)) });
-    void _q;
+    set4(FOG.vcFogHor.value, hs.r + cg, hs.g + cg * 0.5, hs.b + cg * 0.3, 3);
+    set4(FOG.vcFogGlow.value, g.r * gi, g.g * gi, g.b * gi, 0);
+    // (the far fade hides where the sea is clipped; from high up it starts a little later)
+    set4(FOG.vcFogP.value, 0.0001 * density, 1 / 800, 0.05, lerp(0.4, 0.5, smooth(60, 1500, cam.position.y)));
   }
 
   /** Reflections and sky light for standard materials: the sky re-baked now and then. */
   updateEnv(renderer, scene) {
-    this.envT += 1;
     const dh = Math.abs(this.hour - this.envHour);
     if (this.env && Math.min(dh, 24 - dh) < 0.08 && Math.abs(this.w.cover - this.envCover) < 0.05) return;
     this.envHour = this.hour; this.envCover = this.w.cover;

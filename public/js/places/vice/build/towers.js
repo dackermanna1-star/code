@@ -343,10 +343,10 @@ function mimoMotel(C, lot, r) {
 
 /** North Beach: condos, motels and low shops. */
 export function condoLot(C, lot, r) {
-  const main = /Collins/.test(lot.street?.name || '');
+  const main = /Collins|Alton|Washington/.test(lot.street?.name || '') || lot.street?.cls === 'ave';
   const ocean = lot.x0 > 2620;
   if (ocean) return r() < 0.5 ? tower(C, lot, r, { H: rr(r, 80, 170), type: 'resi', shape: pick(r, ['round', 'box']) }) : condoBlock(C, lot, r, { floors: ri(r, 6, 14) });
-  if (main && r() < 0.4) return mimoMotel(C, lot, r);
+  if (main && lot.w > 50 && lot.d > 50 && r() < 0.45) return mimoMotel(C, lot, r);
   if (r() < 0.45) return condoBlock(C, lot, r, { floors: ri(r, 3, 8) });
   const K = C.K;
   // low shops

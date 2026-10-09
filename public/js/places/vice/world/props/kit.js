@@ -84,7 +84,7 @@ export function cyl(g, x, y, z, r, h, seg = 8, o = {}) {
   if (o.cap !== false) {
     const pts = [];
     for (let i = 0; i < seg; i++) { const a = (i / seg) * TAU; pts.push([x + Math.cos(a) * r, top, z + Math.sin(a) * r]); }
-    g.fan(pts, { ...o, tint: o.capTint || o.tint });
+    g.fan(pts, { ...o, tint: o.capTint || o.tint, info: o.info ? o.info[0] : undefined }); // fan takes one info for all
   }
 }
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3(), _t1 = new THREE.Vector3(), _t2 = new THREE.Vector3(), _up = new THREE.Vector3();
@@ -140,7 +140,7 @@ export function slab(g, pts, y0, y1, o = {}) {
     const p = pts[i], q = pts[(i + 1) % n];
     g.quad([q[0], y0, q[1]], [p[0], y0, p[1]], [p[0], y1, p[1]], [q[0], y1, q[1]], { ...o, tint: o.sideTint || o.tint });
   }
-  if (o.top !== false) g.fan(pts.map((p) => [p[0], y1, p[1]]), { ...o, tint: o.topTint || o.tint, lay: o.topLay ?? o.lay });
+  if (o.top !== false) g.fan(pts.map((p) => [p[0], y1, p[1]]), { ...o, tint: o.topTint || o.tint, lay: o.topLay ?? o.lay, info: o.info ? o.info[0] : undefined });
 }
 /** A flat quad lying on the ground along a->b (centre line), half width hw, at heights from fy(x, z). */
 export function strip(g, ax, az, bx, bz, hw, fy, o = {}, step = 12) {

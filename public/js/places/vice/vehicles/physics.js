@@ -569,6 +569,7 @@ export const hit = { dv: 0, x: 0, y: 0, z: 0, kind: '', other: null };
 function groundContacts(v, h) {
   const d = v.def, cs = d.corners;
   let pen = 0, best = 0;
+  const fall = Math.max(0, -v.vel.y);
   v.bodyGround = false;
   // quick reject: corners well above the ground under the centre aren't probed
   const g0 = groundProbe(v.com.x, v.com.y, v.com.z, 0.5, v.box);
@@ -591,7 +592,7 @@ function groundContacts(v, h) {
       const e = vn < -12 ? 0.18 : 0;
       const j = (-(1 + e) * vn) / k;
       impulse(v, 0, j, 0, A.x, A.y, A.z);
-      if (-vn > best) best = -vn;
+      if (fall > best) best = fall;
       // friction (scraping along on the roof or the side)
       pointVel(v, A.x, A.y, A.z, VP);
       const tl = Math.hypot(VP.x, VP.z);
@@ -679,8 +680,12 @@ function staticContacts(v, h) {
       const br = Math.abs(b.hx) + Math.abs(b.hz);
       if (dx * dx + dz * dz > (rr + br) * (rr + br)) continue;
       if (!satRect(r, b.x, b.z, b.c, b.s, b.hx, b.hz)) continue;
-      // breakable props: let the world knock them over and drive on
-      if (b.breakable) { V.events?.emit('prop:hit', { box: b, veh: v, vel: v.vel }); continue; }
+      // street furniture: breakable props go flying (and so does anything small hit hard); drive on through
+      if (b.prop && (b.breakable || (b.item && b.hx * b.hz < 10 && v.vel.lengthSq() > 400)) && V.props?.knock?.(b, v.vel)) {
+        v.vel.multiplyScalar(b.breakable ? 0.985 : 0.95);
+        V.events?.emit('prop:hit', { box: b, veh: v, vel: v.vel.clone(), pos: new THREE.Vector3(b.x, b.y, b.z) });
+        continue;
+      }
       const dv = resolveStatic(v, b, h);
       if (dv > best) { best = dv; bestBox = b; bnx = sat.nx; bnz = sat.nz; bpx = hit.x; bpy = hit.y; bpz = hit.z; }
     }

@@ -10,6 +10,8 @@ import { V } from '../../state.js';
 import { L, tint, shade, cyl, cylAB, tri, resample, offsetLine, rnd, hash, mergeColored, faceUp, GROUND, TAU } from './kit.js';
 import { SP } from './flora.js';
 import { modelGeometry, hasModel } from '../../assets/models.js';
+import { hull } from './port.js';
+import { frame } from './beach.js';
 
 const TOP = GROUND + 0.5;    // the seawall cap
 const FACE = -3.5;           // the face stands this far out from the coast line (hides the height map's slope)
@@ -75,6 +77,8 @@ export function buildWaterfront(P) {
   }
   // ---- marinas ----
   for (const M of MARINAS) marina(P, M);
+  // mega-yachts moored off Star Island and Brickell Key
+  for (const [x, z, h, L, liv] of [[1300, -1648, Math.PI / 2, 150, 0], [1500, -1650, -Math.PI / 2, 120, 2], [940, 230, 0, 110, 1]]) if (P.ground.heightAt(x, z) < -3) yacht(P, x, z, h, L, liv);
   // ---- channel markers ----
   const ch = resample(CHANNEL, 330);
   for (let i = 1; i < ch.length - 1; i++) {
@@ -226,7 +230,11 @@ function marina(P, M) {
     gd.box(fx0 + s.tx * 2.5, DOCK_Y + 3.35, fz0 + s.tz * 2.5, 0.42, 0.18, 0.42, 0, { lay: L.whiteTiles, tint: [1, 0.92, 0.75], glow: 1 });
     // the slip on the far side of this finger
     const cx = s.x + ox * (DOCK_W + FINGER * 0.55) + s.tx * SLIP / 2, cz = s.z + oz * (DOCK_W + FINGER * 0.55) + s.tz * SLIP / 2;
-    if (P.ground.heightAt(cx, cz) < -2) info.slips.push({ x: cx, z: cz, heading: Math.atan2(ox, oz) + (hash(cx, cz, 1) < 0.5 ? 0 : Math.PI), k: k++ });
+    if (P.ground.heightAt(cx, cz) < -2) {
+      const slip = { x: cx, z: cz, heading: Math.atan2(ox, oz) + (hash(cx, cz, 1) < 0.5 ? 0 : Math.PI), k: k++ };
+      info.slips.push(slip);
+      if (M.slips === 'yacht' && hash(cx, cz, 2) < 0.6) { yacht(P, cx, cz, slip.heading, 48 + hash(cx, cz, 3) * 16, Math.floor(hash(cz, cx, 4) * 4)); slip.taken = true; }
+    }
   }
   // gangways from the seawall to the dock at both ends and the middle
   for (const s of [pts[2], pts[Math.floor(pts.length / 2)], pts[pts.length - 3]]) {
@@ -240,6 +248,33 @@ function marina(P, M) {
     P.phys.addDeck({ x: x0, y: DOCK_Y + 0.4, z: z0 }, { x: x1, y: TOP, z: z1 }, w);
   }
 }
+/** A motor yacht: a sleek white hull, two or three decks with dark glass, a radar arch. Length L along its heading. */
+const YACHT = [{ hull: 0xfbfbf8, boot: 0x1d3557 }, { hull: 0x1d2433, boot: 0x1d2433 }, { hull: 0xfbfbf8, boot: 0x0f9b8e }, { hull: 0xd9dde2, boot: 0x3a3f47 }];
+function yacht(P, x, z, h, Lh, liv) {
+  const Y = YACHT[liv % YACHT.length], W = Lh * 0.2, g = P.C.get('surf', x, z), F = frame(g, x, 0, z, h), FW = frame(P.C.get('win', x, z), x, 0, z, h);
+  const white = tint(0xfbfbf8, 1.12), glass = { lay: L.whiteTiles, tint: [0.06, 0.08, 0.11], rough: 0.06, glow: 0.5, scale: 4 };
+  const top = Lh * 0.075, keel = Lh * 0.05;
+  hull(g, F, Lh, W, keel, top, tint(Y.hull, 1.12), tint(Y.boot, 1.1), 0.6);
+  // decks: each shorter, stepping back, with raked fronts
+  const decks = Lh > 100 ? 3 : 2;
+  for (let k = 0; k < decks; k++) {
+    const y0 = top + k * 4.6, zb = -Lh * (0.36 - k * 0.04), zf = Lh * (0.2 - k * 0.09), hw = W / 2 - 1.2 - k * 1.2, hh = 4.6;
+    F.box(0, y0 + hh / 2, (zb + zf) / 2 - 1.5, hw, hh / 2, (zf - zb) / 2 - 1.5, { lay: L.stucco, tint: white, scale: 6 });
+    // the raked front: a sloped windscreen
+    F.quad([-hw, y0, zf - 3], [hw, y0, zf - 3], [hw, y0 + hh, zf - 3 - hh * 0.9], [-hw, y0 + hh, zf - 3 - hh * 0.9], glass);
+    F.quad([hw, y0, zf - 3], [-hw, y0, zf - 3], [-hw, y0 + hh * 0.98, zf - 3 - hh * 0.88], [hw, y0 + hh * 0.98, zf - 3 - hh * 0.88], glass);
+    for (const sx of [-1, 1]) FW.quad([sx * (hw + 0.05), y0 + 1.2, sx > 0 ? zf - 4 : zb + 2], [sx * (hw + 0.05), y0 + 1.2, sx > 0 ? zb + 2 : zf - 4], [sx * (hw + 0.05), y0 + 3.6, sx > 0 ? zb + 2 : zf - 4], [sx * (hw + 0.05), y0 + 3.6, sx > 0 ? zf - 4 : zb + 2], glass);
+  }
+  // the radar arch and a dome, the swim platform, a teak aft deck
+  const ya = top + decks * 4.6;
+  F.box(0, ya + 2.6, -Lh * 0.08, W / 2 - 3, 0.5, 1.4, { lay: L.stucco, tint: white });
+  for (const sx of [-1, 1]) F.box(sx * (W / 2 - 3), ya + 1.2, -Lh * 0.08, 0.6, 1.4, 1.4, { lay: L.stucco, tint: white });
+  F.tube([0, ya + 3.1, -Lh * 0.08], [0, ya + 4.4, -Lh * 0.08], 1.1, 0.2, 8, { lay: L.stucco, tint: white });
+  F.box(0, top * 0.25, -Lh / 2 - 2, W / 2 - 2, 0.3, 2.4, { lay: L.deck, tint: [0.85, 0.7, 0.55], scale: 4 });
+  F.quad([-(W / 2 - 1.5), top + 0.06, -Lh * 0.48], [W / 2 - 1.5, top + 0.06, -Lh * 0.48], [W / 2 - 1.5, top + 0.06, -Lh * 0.36], [-(W / 2 - 1.5), top + 0.06, -Lh * 0.36], { lay: L.deck, tint: [0.85, 0.7, 0.55], scale: 4 });
+  P.box(x, (top - keel) / 2 + 1, z, W / 2 - 1, (top + keel) / 2 + 1, Lh / 2 - 2, h, 'metal', { boat: true, shootable: true });
+}
+
 /** A floating dock from (ax, az) to (bx, bz), half width w: deck, dark pontoon sides. */
 function deckStrip(P, ax, az, bx, bz, w, deck, side) {
   const dx = bx - ax, dz = bz - az, l = Math.hypot(dx, dz); if (l < 0.1) return;
@@ -266,7 +301,7 @@ function marker(P, x, z, red) {
 
 // ---- the Kenney boats (after the models are inflated) --------------------------------------------
 const BOATS = {
-  yacht: ['boat-speed-j', 'boat-speed-i', 'boat-house-a', 'boat-speed-a', 'boat-sail-b', 'boat-speed-g'],
+  yacht: ['boat-speed-j', 'boat-speed-i', 'boat-speed-a', 'boat-sail-b', 'boat-speed-g'],
   mixed: ['boat-speed-a', 'boat-speed-c', 'boat-speed-e', 'boat-fishing-small', 'boat-speed-g', 'boat-sail-a', 'boat-row-small'],
   sail: ['boat-sail-a', 'boat-sail-b', 'boat-sail-a', 'boat-fishing-small', 'boat-speed-c', 'boat-sail-b'],
 };
@@ -292,7 +327,7 @@ export function buildKenney(P) {
   for (const M of P.marinas || []) {
     const names = BOATS[M.kind] || BOATS.mixed;
     for (const s of M.slips) {
-      if (r() < 0.18) continue; // an empty slip
+      if (s.taken || r() < 0.18) continue; // a yacht is there already, or an empty slip
       add(names[Math.floor(r() * names.length)], s.x, s.z, s.heading + (r() - 0.5) * 0.06);
     }
   }

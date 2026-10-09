@@ -415,7 +415,7 @@ export class Vehicle {
 
   /** A collision (called per substep): summed over the frame, then applied by impacts(). */
   onImpact(dv, other, p, kind, nx = 0, nz = 0) {
-    if (kind === 'ground') { this.impG += dv; return; }
+    if (kind === 'ground') { if (dv > this.impG) this.impG = dv; return; } // the hardest corner, not the sum
     if (dv > this.impMax) { this.impMax = dv; this.impOther = other; this.impKind = kind; this.impP.set(p.x, p.y, p.z); this.impN.set(nx, 0, nz); }
     this.impDv += dv;
   }

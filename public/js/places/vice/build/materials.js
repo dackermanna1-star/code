@@ -246,6 +246,7 @@ const MAP_FRAG = `{
         gR = mix(gR, 0.05 + 0.05 * h2, pane);
         gM = mix(gM, gMet, pane);
         bN = mix(bN, vec3((h2 - 0.5) * 0.04, (h - 0.5) * 0.03, 1.0), pane);
+        if (gfl && gk == 3) rc *= vec3(0.8, 0.68, 0.52); // lobbies: warm and dim (marble, wood)
         if (dbg > 3.5 && dbg < 4.5) rc = vec3(0.3);
         eGlow += rc * pane * (1.0 - fres * 0.85) * (1.0 - top * 0.6);
       }

@@ -215,7 +215,7 @@ export function fence(P, ax, az, bx, bz, h = 8) {
  * A hull: length L along local z (bow at +z), beam W, from y = -keel up to y = top.
  * Stations along the length give a pointed, raked bow and a rounded stern.
  */
-function hull(g, F, Lh, W, keel, top, cTop, cBot, splitY) {
+export function hull(g, F, Lh, W, keel, top, cTop, cBot, splitY) {
   const N = 26, st = [];
   for (let i = 0; i <= N; i++) {
     const t = i / N, z = -Lh / 2 + t * Lh;

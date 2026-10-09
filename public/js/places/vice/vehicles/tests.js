@@ -257,6 +257,40 @@ export const TESTS = {
     return res;
   },
 
+  /** Over a bridge hump flat out: airtime, landing, still on the deck. */
+  jump(type = 'supercar', speed = 160, x = 400, z = -560, heading = Math.PI / 2) {
+    const v = fresh(type, x, z, heading);
+    tick(5);
+    v.vel.copy(v._fw).multiplyScalar(speed);
+    hold(v, { throttle: 1 });
+    let t = 0, air = 0, maxAir = 0, maxAlt = 0, land = 0, landDv = 0, upMin = 1;
+    const off = V.events.on('vehicle:crash', (e) => { if (e.veh === v) landDv = Math.max(landDv, e.speed); });
+    const h0 = v.health;
+    while (t < 5) {
+      const wasAir = v.contacts === 0;
+      tick(); t += 1 / 30;
+      if (v.contacts === 0) { air += 1 / 30; maxAir = Math.max(maxAir, air); maxAlt = Math.max(maxAlt, v.alt); } else { if (wasAir && air > 0.1) land++; air = 0; }
+      upMin = Math.min(upMin, new THREE.Vector3(0, 1, 0).applyQuaternion(v.quat).y);
+    }
+    off();
+    const res = { type, speed, maxAir: r1(maxAir), maxAlt: r1(maxAlt), landings: land, crashDv: r1(landDv), dmg: Math.round(h0 - v.health), upMin: r1(upMin * 100) / 100, end: [Math.round(v.pos.x), r1(v.pos.y), Math.round(v.pos.z)], speedEnd: r1(v.speed) };
+    done(v);
+    return res;
+  },
+
+  /** Off the seawall into the bay: floats a moment, sinks, the engine drowns. */
+  sink(type = 'sedan', x = 2150, z = 2440, heading = -Math.PI / 2) {
+    const v = fresh(type, x, z, heading);
+    tick(5);
+    v.vel.copy(v._fw).multiplyScalar(40);
+    hold(v, { throttle: 1 });
+    const log = [];
+    for (let i = 0; i < 300; i++) { tick(); if (i % 45 === 0) log.push([r1(i / 30), Math.round(v.pos.x), r1(v.pos.y), r1(v.inWater * 100) / 100, v.engineOn ? 1 : 0, v.drowned ? 'D' : '']); }
+    const res = { type, log, end: r1(v.pos.y) };
+    done(v);
+    return res;
+  },
+
   /** Many cars driving at once: physics ms per frame. */
   perf(n = 40, x = 2440, z = 800) {
     const vs = [];
