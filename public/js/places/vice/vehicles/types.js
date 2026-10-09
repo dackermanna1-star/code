@@ -125,12 +125,12 @@ export const TYPES = {
   // ---- two wheels --------------------------------------------------------------------------------------------
   motorbike: {
     name: 'Razorback 1000', kind: 'bike', cls: 'bike', model: 'proc:sportbike', scale: 1,
-    mass: 230, power: 120, top: 172, grip: 1.2, brake: 1.2, steer: 0.5, drift: 0.3, drive: 'rwd', gears: 6, tough: 0.6,
+    mass: 230, power: 120, top: 172, grip: 1.2, brake: 1.2, steer: 0.5, drift: 0.3, drive: 'rwd', gears: 6, tough: 1,
     seats: [[0, 2.55, -0.6], [0, 2.85, -2.0]], paints: NEON,
   },
   scooter: {
     name: 'Mojito 50', kind: 'bike', cls: 'bike', model: 'proc:scooter', scale: 1,
-    mass: 120, power: 10, top: 64, grip: 1.0, brake: 0.95, steer: 0.6, drift: 0.2, drive: 'rwd', gears: 1, tough: 0.5,
+    mass: 120, power: 10, top: 64, grip: 1.0, brake: 0.95, steer: 0.6, drift: 0.2, drive: 'rwd', gears: 1, tough: 0.8,
     seats: [[0, 2.2, -0.9], [0, 2.4, -1.9]], paints: PASTEL,
   },
 

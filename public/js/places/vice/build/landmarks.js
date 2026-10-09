@@ -33,9 +33,92 @@ function frontDoor(lot, out = 4, along = 0) {
 const E = Math.PI / 2, W = -Math.PI / 2, N = Math.PI, S = 0;
 
 export function buildLandmarks(C) {
-  const jobs = [brickellKey, safehouse, hospitalBeach, hospitalJackson, policeHQ, policeBeach, gunshops, sprayShop, marina, arena, ballpark, libertyTower, govCenter, port, airport, heliport, starIsland];
+  const jobs = [viceTower, atlantis, brickellKey, safehouse, hospitalBeach, hospitalJackson, policeHQ, policeBeach, gunshops, sprayShop, marina, arena, ballpark, libertyTower, govCenter, port, airport, heliport, starIsland];
   for (const f of jobs) { try { f(C); } catch (e) { console.warn('city: landmark failed', f.name, e); } }
 }
+
+// ---- Vice Tower: a downtown office tower crowned by three stepped arcs that light up at night ----------------------
+function viceTower(C) {
+  const b = blockAt(C, -37, -860);
+  const z0 = b.z0, z1 = Math.min(b.z1, b.z0 + 190);
+  C.reserve(b.x0, z0, b.x1, z1);
+  const K = C.K, r = C.rng(8701);
+  const lot = lotRect(b.x0, z0, b.x1, z1, S, 8701);
+  K.begin(lot.x, C.GROUND, lot.z, S, 8701, { kind: 'vicetower' });
+  const hw = lot.w / 2 - 2, hd = lot.d / 2 - 2;
+  // a podium of shops and the lobby
+  K.facade({ kind: WIN.office, fh: 11, bw: 10, v0: 16, gk: GF.lobby, occ: 0.5 });
+  K.box(0, 14, 0, hw, 14, hd, mat('cladding', 0xd8d4cc), { top: M.membrane });
+  // the shaft: blue glass, its corners notched
+  const sw = 34, sd = 26, H = 430;
+  K.facade({ kind: WIN.curtain, fh: 12, bw: 6, v0: 28, occ: 0.5 });
+  K.prism([[-sw, sd - 6], [-sw + 6, sd], [sw - 6, sd], [sw, sd - 6], [sw, -sd + 6], [sw - 6, -sd], [-sw + 6, -sd], [-sw, -sd + 6]], 28, H, mat('whiteTiles', 0x4a7898, { p: 5, r: 0.25 }), { col: 'box', top: M.membrane, fit: 'wall' });
+  K.facade(null);
+  canopy(K, 0, 13, hd, 30, 8, metalOf(0x3a3e44), { glow: 0xfff0d8, t: 0.8 });
+  door(K, 0, 0, hd, 10, 10, glassOf(0x24323c), M.steel);
+  // the crown: three half-discs stepping down towards the front, each edged in light
+  const cols = [0xff3aa0, 0x3ad8ff, 0xffffff];
+  for (let i = 0; i < 3; i++) {
+    const R = sw - i * 5, zc = -sd + 10 + i * 16, y0 = H + 2 - i * 22, n = 14;
+    const m = mat('whiteTiles', 0xe8eef2, { p: 5, r: 0.3 });
+    K.at(BASE, () => {
+      for (let k = 0; k < n; k++) {
+        const a0 = Math.PI * k / n, a1 = Math.PI * (k + 1) / n;
+        const p0 = [Math.cos(a0) * R, y0 + Math.sin(a0) * R], p1 = [Math.cos(a1) * R, y0 + Math.sin(a1) * R];
+        // the curved top, the front and the back
+        K.quad([p0[0], p0[1], zc + 7], [p0[0], p0[1], zc - 7], [p1[0], p1[1], zc - 7], [p1[0], p1[1], zc + 7], m);
+        K.tri([0, y0, zc + 7], [p0[0], p0[1], zc + 7], [p1[0], p1[1], zc + 7], m);
+        K.tri([0, y0, zc - 7], [p1[0], p1[1], zc - 7], [p0[0], p0[1], zc - 7], m);
+      }
+    });
+    K.at(MID, () => {
+      for (let k = 0; k < n; k++) {
+        const a0 = Math.PI * k / n, a1 = Math.PI * (k + 1) / n;
+        tube(K, [Math.cos(a0) * (R + 0.3), y0 + Math.sin(a0) * (R + 0.3), zc + 7.2], [Math.cos(a1) * (R + 0.3), y0 + Math.sin(a1) * (R + 0.3), zc + 7.2], cols[i], 0.5);
+      }
+    });
+  }
+  K.at(MID, () => K.cyl(0, -sd + 10, 0.6, H + 2 + sw, H + 2 + sw + 40, M.steel, { seg: 6, win: false }));
+  K.sign(0, 22, hd + 0.2, 30, 3, 'VICE TOWER', 'letters', { color: 0xe8e4dc, tier: MID });
+  for (let i = 0; i < 6; i++) { const q = K.world(rr(r, -hw, hw), 0, hd + 8); C.ped(q[0], q[2]); }
+  K.end();
+  C.place('vicetower', { x: lot.x, z: lot.z, kind: 'landmark', name: 'Vice Tower', door: { x: lot.x, z: lot.z1 + 6, heading: S } });
+}
+
+// ---- Atlantis: a Brickell condo slab with a square hole through it, a palm and a red spiral stair in the hole -----
+function atlantis(C) {
+  const b = blockAt(C, 382, 1150);
+  const K = C.K;
+  C.reserve(b.x0, b.z0, b.x1, b.z1);
+  const lot = lotRect(b.x0, b.z0, b.x1, b.z1, E, 8801);
+  K.begin(lot.x, C.GROUND, lot.z, E, 8801, { kind: 'atlantis' });
+  const hw = Math.min(lot.w / 2 - 6, 60), hd = 14, H = 220, h1 = 120, h2 = 160, hole = 22;
+  const glass = mat('whiteTiles', 0x3a78b0, { p: 5, r: 0.2 }), wall = paint(0xf6f6f2, 0.3, 0.1);
+  K.facade({ kind: WIN.curtain, fh: 10, bw: 7, v0: 12, gk: GF.lobby, occ: 0.5 });
+  K.box(0, h1 / 2, 0, hw, h1 / 2, hd, glass, { top: M.membrane });
+  K.box(0, (h2 + H) / 2, 0, hw, (H - h2) / 2, hd, glass, { top: M.membrane, bottom: true });
+  K.box(-(hw + hole) / 2, (h1 + h2) / 2, 0, (hw - hole) / 2, (h2 - h1) / 2, hd, glass, { top: false, skip: 'py' });
+  K.box((hw + hole) / 2, (h1 + h2) / 2, 0, (hw - hole) / 2, (h2 - h1) / 2, hd, glass, { top: false, skip: 'py' });
+  K.facade(null);
+  // the hole's floor, the red spiral stair, yellow balconies down one side, a red triangle on the roof
+  K.at(MID, () => {
+    K.box(0, h1 + 0.4, 0, hole, 0.4, hd, M.tiles, { col: false, win: false });
+    for (let i = 0; i < 28; i++) { const a = i * 0.45, y = h1 + 1 + i * 1.35; K.box(Math.cos(a) * 4, y, Math.sin(a) * 4, 2.4, 0.2, 0.9, flat(0xd8282a), { col: false, win: false, yaw: -a }); }
+    K.cyl(0, 0, 0.6, h1, h2, flat(0xd8282a), { seg: 8, win: false });
+    for (let i = 1; i < 20; i++) K.box(hw - 10, i * 10.5 + 1, hd + 2, 9, 0.35, 2, flat(0xf2c81a), { col: false, win: false });
+  });
+  K.at(BASE, () => {
+    const t = H + 30, f = hd - 2;
+    for (const z of [f, -f]) K.tri([-hw * 0.5, H, z], [hw * 0.5, H, z], [0, t, z], flat(0xd8282a), { both: true });
+    K.quad([-hw * 0.5, H, f], [0, t, f], [0, t, -f], [-hw * 0.5, H, -f], flat(0xd8282a), { both: true });
+    K.quad([0, t, f], [hw * 0.5, H, f], [hw * 0.5, H, -f], [0, t, -f], flat(0xd8282a), { both: true });
+  });
+  const q = K.world(0, 0, 0); V_palm(C, q[0], C.GROUND + h1 + 0.8, q[2] + 8, 1.3);
+  K.sign(0, 9, hd + 0.2, 24, 2.6, 'THE ATLANTIS', 'letters', { color: 0x1d4e89, tier: MID });
+  K.end();
+  C.place('atlantis', { x: lot.x, z: lot.z, kind: 'landmark', name: 'The Atlantis', door: { x: lot.x1 + 6, z: lot.z, heading: E } });
+}
+function V_palm(C, x, y, z, s) { C.palmAt?.(x, y, z, s); }
 
 // ---- Brickell Key: a cluster of condo towers on the island ----------------------------------------------------------
 function brickellKey(C) {
@@ -555,7 +638,7 @@ function airport(C) {
   K.at(MID, () => { for (let x = -hw + 60; x < hw - 40; x += 90) { K.box(x, 16, -hd - 16, 3.5, 3.5, 16, mat('metalSheet', 0xd8dce0, { p: 9 }), { col: false, win: false }); K.box(x, 6, -hd - 28, 1, 6, 1, M.steel, { col: false, win: false }); } });
   for (let i = 0; i < 20; i++) { const q = K.world(-hw + 30 + i * (2 * hw - 60) / 20, 0, hd + 2); C.ped(q[0], q[2]); }
   K.end();
-  C.place('airport', { x: (tx0 + tx1) / 2, z: tz1, kind: 'airport', name: 'Vice City International', door: { x: (tx0 + tx1) / 2, z: tz1 + 8, heading: S } });
+  C.place('airport', { x: (tx0 + tx1) / 2, z: tz1, kind: 'airport', name: 'Vice City International', door: { x: (tx0 + tx1) / 2 + 20, z: tz1 + 18, heading: S } });
   // the control tower
   C.reserve(-2600, -2300, -2540, -2240);
   K.begin(-2570, C.GROUND, -2270, S, 8202, { kind: 'tower' });
@@ -573,7 +656,7 @@ function airport(C) {
   // the parking garage inside the loop
   C.reserve(-3160, -2240, -2760, -1760);
   K.begin(-2960, C.GROUND, -2000, S, 8203, { kind: 'garage' });
-  garage(C, K, 190, 230, 4);
+  garage(C, K, 120, 100, 4);
   K.end();
   // hangars along the west side
   for (let i = 0; i < 3; i++) {
@@ -617,17 +700,20 @@ function heliport(C) {
 
 // ---- Star Island ------------------------------------------------------------------------------------------------------------
 function starIsland(C) {
-  const K = C.K;
-  const spots = [[1260, -1592, 66, 48], [1340, -1600, 70, 52], [1430, -1600, 74, 52], [1520, -1590, 66, 48], [1586, -1520, 34, 60], [1214, -1520, 34, 60]];
-  let i = 0;
-  for (const [x, z, w, d] of spots) {
-    const r = C.rng(8400 + i);
-    const yaw = x > 1570 ? W : x < 1230 ? E : S;
-    const lot = lotRect(x - (yaw === S ? w / 2 : d / 2), z - (yaw === S ? d / 2 : w / 2), x + (yaw === S ? w / 2 : d / 2), z + (yaw === S ? d / 2 : w / 2), yaw, 8400 + i);
-    i++;
-    if (!C.landOK(lot.x0, lot.z0, lot.x1, lot.z1, 1)) continue;
-    C.reserve(lot.x0, lot.z0, lot.x1, lot.z1);
-    mansion(C, lot, r);
+  // mansions wherever the island has room off its drive: biggest first
+  const [cx, cz, rx, rz] = [1400, -1530, 200, 95];
+  let n = 0;
+  for (const [hw, hd] of [[34, 26], [30, 22], [26, 20], [22, 18]]) {
+    for (let x = cx - rx; x <= cx + rx; x += 6) for (let z = cz - rz; z <= cz + rz; z += 6) {
+      if (n >= 7) break;
+      if (!C.clear(x - hw - 3, z - hd - 3, x + hw + 3, z + hd + 3)) continue;
+      // face the drive: towards the island's long axis
+      const yaw = z < cz ? S : N;
+      const lot = lotRect(x - hw, z - hd, x + hw, z + hd, yaw, 8400 + n);
+      C.reserve(x - hw - 4, z - hd - 4, x + hw + 4, z + hd + 4);
+      mansion(C, lot, C.rng(8400 + n));
+      n++;
+    }
   }
   C.place('star', { x: 1400, z: -1560, kind: 'island', name: 'Star Island', door: { x: 1400, z: -1500, heading: S } });
 }

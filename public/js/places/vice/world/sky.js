@@ -104,7 +104,7 @@ uniform vec4 skP2;  // x: cirrus, y: city glow, z: moon light, w: sun disc
 uniform sampler2D skCloud;
 vec3 skyHorizon(vec3 d) {
   float sw = max(dot(d, skSunDir), 0.0);
-  return mix(skHor, skHorSun, pow(sw, 3.0)) + skSunCol * skP.x * (pow(sw, 10.0) * 0.35 + pow(sw, 120.0) * 1.2);
+  return mix(skHor, skHorSun, pow(sw, 3.0)) + skSunCol * skP.x * (pow(sw, 10.0) * 0.35 + pow(sw, 120.0) * 1.2) + vec3(1.0, 0.5, 0.3) * skP2.y;
 }
 vec3 skyBase(vec3 d) {
   float up = clamp(d.y, 0.0, 1.0);
@@ -129,8 +129,8 @@ vec4 skyClouds(vec3 d, float q) {
   float b = texture(skCloud, uv).r * 0.72 + texture(skCloud, uv * 2.3 + 0.17).r * 0.28;
   float e = texture(skCloud, uv * 4.3 + wind * 1.5).g;
   float th = mix(0.82, 0.2, skP.z) + (0.5 - cov) * 0.5;
-  float c = b - e * 0.14 * q;
-  float dens = smoothstep(th, th + 0.15, c);
+  float c = b - e * 0.2 * q * (1.0 - smoothstep(0.0, 0.25, b - th));   // eroded edges, solid cores
+  float dens = smoothstep(th, th + 0.12, c);
   // light: a few steps towards the sun - the more cloud that way, the darker
   vec2 sd = normalize(skSunDir.xz + 1e-4) * 0.022;
   float occ = 0.0;
@@ -138,17 +138,17 @@ vec4 skyClouds(vec3 d, float q) {
     vec2 o = uv + sd * float(i);
     occ += max(texture(skCloud, o).r * 0.72 + texture(skCloud, o * 2.3 + 0.17).r * 0.28 - th, 0.0);
   }
-  float lit = exp(-occ * 3.5);
+  float lit = exp(-occ * 4.5);
   lit = mix(lit, 1.0, smoothstep(0.1, -0.15, skSunDir.y) * 0.4); // after sunset the undersides glow
   float thick = smoothstep(0.03, 0.3, c - th);
   float sw = max(dot(d, skSunDir), 0.0);
   vec3 cc = mix(skCloudShade, skCloudLit, lit);
   // flat grey bases on the thick ones overhead (we see them from below)
-  cc *= 1.0 - thick * (0.18 + 0.22 * smoothstep(0.15, 0.7, d.y)) * (1.0 - lit * 0.5);
+  cc *= 1.0 - thick * (0.22 + 0.25 * smoothstep(0.15, 0.7, d.y)) * (1.0 - lit * 0.5);
   cc += skSunCol * skP.x * pow(sw, 9.0) * (1.0 - dens * 0.75) * 1.8;   // silver lining
   // high cirrus streaks
-  vec2 cu = p * vec2(0.05, 0.16) + vec2(t * 0.0006, 0.13);
-  float ci = smoothstep(0.56, 0.9, texture(skCloud, cu).b) * skP2.x * smoothstep(0.02, 0.2, d.y);
+  vec2 cu = mat2(0.8, 0.6, -0.6, 0.8) * p * vec2(0.09, 0.22) + vec2(t * 0.0006, 0.13);
+  float ci = smoothstep(0.6, 0.92, texture(skCloud, cu).b) * smoothstep(0.45, 0.8, texture(skCloud, p * 0.11 + vec2(0.5, t * 0.0005)).a) * skP2.x * smoothstep(0.02, 0.2, d.y);
   vec3 cic = skCloudLit * 1.05 + skSunCol * skP.x * pow(sw, 6.0) * 0.6;
   dens *= smoothstep(0.005, 0.07, d.y);
   // far clouds fade into the haze
@@ -223,11 +223,11 @@ const KEYS = [
   { h: 4.6, zen: 0x0a1a46, hor: 0x24356a, hs: 0x24356a, sun: 0xff8040, sunI: 0, glow: 0, belt: 0x000000, cl: 0x323e6e, cs: 0x141b3a, amb: [0x3b4f88, 0x1a1e2e, 0.5], moon: 0.3, fog: 1.0, exp: 1.45, glowC: 0.05 },
   { h: 5.6, zen: 0x1c2c6c, hor: 0x5e4c86, hs: 0xd27890, sun: 0xff7040, sunI: 0, glow: 0.35, belt: 0x2a1430, cl: 0xc87098, cs: 0x2c2a58, amb: [0x56589a, 0x2a2232, 0.55], moon: 0.12, fog: 1.25, exp: 1.45, glowC: 0.03 },
   { h: 6.5, zen: 0x3358ac, hor: 0xe8a492, hs: 0xffb478, sun: 0xff9c58, sunI: 0.9, glow: 1.0, belt: 0x301828, cl: 0xffc49a, cs: 0x6c6c9c, amb: [0x8a9cd0, 0x5c4c44, 0.6], moon: 0, fog: 1.35, exp: 1.15, glowC: 0 },
-  { h: 7.6, zen: 0x2a68cc, hor: 0xcfdcec, hs: 0xffe4bc, sun: 0xffd6a8, sunI: 2.4, glow: 0.55, belt: 0x000000, cl: 0xfff4e8, cs: 0x8c9cbc, amb: [0xa6c0ea, 0x7c6c5c, 0.65], moon: 0, fog: 1.15, exp: 1.0, glowC: 0 },
-  { h: 9.5, zen: 0x1c60d8, hor: 0xb0d2f6, hs: 0xe4eef8, sun: 0xfff4e6, sunI: 3.1, glow: 0.32, belt: 0x000000, cl: 0xffffff, cs: 0x9eb2d4, amb: [0xb0ccf2, 0x8c806a, 0.7], moon: 0, fog: 1.0, exp: 1.0, glowC: 0 },
-  { h: 12.75, zen: 0x1456d2, hor: 0xa6cef6, hs: 0xdceafa, sun: 0xffffff, sunI: 3.4, glow: 0.28, belt: 0x000000, cl: 0xffffff, cs: 0xa2b6d6, amb: [0xb4d0f6, 0x8c826c, 0.72], moon: 0, fog: 0.95, exp: 1.0, glowC: 0 },
-  { h: 16.2, zen: 0x185ad0, hor: 0xacd0f2, hs: 0xf2ecde, sun: 0xfff2de, sunI: 3.1, glow: 0.38, belt: 0x000000, cl: 0xffffff, cs: 0x9eb0d0, amb: [0xb0ccf2, 0x8c806a, 0.7], moon: 0, fog: 1.0, exp: 1.0, glowC: 0 },
-  { h: 17.5, zen: 0x245cc0, hor: 0xd6d6cc, hs: 0xffdaa4, sun: 0xffd49c, sunI: 2.7, glow: 0.7, belt: 0x000000, cl: 0xfff0d8, cs: 0x8c96bc, amb: [0xa8bce2, 0x7a6652, 0.66], moon: 0, fog: 1.05, exp: 1.02, glowC: 0 },
+  { h: 7.6, zen: 0x2a68cc, hor: 0xcfdcec, hs: 0xffe4bc, sun: 0xffd6a8, sunI: 2.4, glow: 0.55, belt: 0x000000, cl: 0xfff4e8, cs: 0x8c9cbc, amb: [0xb4c4dc, 0x9a8670, 0.65], moon: 0, fog: 1.15, exp: 1.0, glowC: 0 },
+  { h: 9.5, zen: 0x1c60d8, hor: 0xb0d2f6, hs: 0xe4eef8, sun: 0xfff4e6, sunI: 3.1, glow: 0.32, belt: 0x000000, cl: 0xffffff, cs: 0x8ea4c8, amb: [0xbccce2, 0xa89a80, 0.7], moon: 0, fog: 1.0, exp: 1.0, glowC: 0 },
+  { h: 12.75, zen: 0x1456d2, hor: 0xa6cef6, hs: 0xdceafa, sun: 0xffffff, sunI: 3.4, glow: 0.28, belt: 0x000000, cl: 0xffffff, cs: 0x90a6ca, amb: [0xc0d0e4, 0xaa9c82, 0.72], moon: 0, fog: 0.95, exp: 1.0, glowC: 0 },
+  { h: 16.2, zen: 0x185ad0, hor: 0xacd0f2, hs: 0xf2ecde, sun: 0xfff2de, sunI: 3.1, glow: 0.38, belt: 0x000000, cl: 0xffffff, cs: 0x8ea2c6, amb: [0xbccce2, 0xa89a80, 0.7], moon: 0, fog: 1.0, exp: 1.0, glowC: 0 },
+  { h: 17.5, zen: 0x245cc0, hor: 0xd6d6cc, hs: 0xffdaa4, sun: 0xffd49c, sunI: 2.7, glow: 0.7, belt: 0x000000, cl: 0xfff0d8, cs: 0x8c96bc, amb: [0xbcc4d8, 0x98806a, 0.66], moon: 0, fog: 1.05, exp: 1.02, glowC: 0 },
   { h: 18.5, zen: 0x2f4fa4, hor: 0xeea48e, hs: 0xffa252, sun: 0xff9a48, sunI: 1.9, glow: 1.25, belt: 0x2a1020, cl: 0xffb47a, cs: 0x7a6c9e, amb: [0x9c9cc4, 0x6a4c3c, 0.6], moon: 0, fog: 1.15, exp: 1.08, glowC: 0 },
   { h: 19.0, zen: 0x283a8c, hor: 0xc07a9c, hs: 0xff8040, sun: 0xff6a2c, sunI: 0.55, glow: 1.6, belt: 0x4a1a3a, cl: 0xff8c76, cs: 0x6c4c8e, amb: [0x8c82b6, 0x4c3038, 0.55], moon: 0, fog: 1.0, exp: 1.12, glowC: 0 },
   { h: 19.35, zen: 0x1c2870, hor: 0x7a5094, hs: 0xff6a4c, sun: 0xff5030, sunI: 0, glow: 1.05, belt: 0x5a1c48, cl: 0xff7088, cs: 0x463a78, amb: [0x6c5c9c, 0x30202e, 0.5], moon: 0, fog: 0.95, exp: 1.22, glowC: 0.01 },
@@ -244,7 +244,7 @@ const MOON_COL = new THREE.Color(0x9fb6ff);
 
 export const WEATHER = {
   clear: { cover: 0.12, cirrus: 0.5, fog: 1, rain: 0, wind: 0.3 },
-  fair: { cover: 0.36, cirrus: 0.7, fog: 1, rain: 0, wind: 0.4 },
+  fair: { cover: 0.36, cirrus: 0.55, fog: 1, rain: 0, wind: 0.4 },
   cloudy: { cover: 0.62, cirrus: 0.4, fog: 1.15, rain: 0, wind: 0.6 },
   rain: { cover: 0.9, cirrus: 0, fog: 1.6, rain: 1, wind: 0.8 },
 };
@@ -356,12 +356,13 @@ export class Sky {
     this.hemi.color.copy(K.ambS).lerp(_c.setRGB(0.6, 0.62, 0.66).multiplyScalar(1 - night * 0.85), grey * 0.5);
     this.hemi.groundColor.copy(K.ambG);
     // (the env map lights things with the sky too, so the hemisphere is the smaller part by day)
-    this.hemi.intensity = (a.ambI + (b.ambI - a.ambI) * t) * lerp(0.5, 1, night);
+    // (three's hemisphere light is divided by pi in the shading: x2.2 to count as sky fill and bounce)
+    this.hemi.intensity = (a.ambI + (b.ambI - a.ambI) * t) * lerp(2.2, 2.0, night);
     this._far();
     this._shadow(camPos || this.world.camera.position);
     // the haze
     const fog = this.world.scene.fog;
-    fog.color.copy(u.skHor.value);
+    fog.color.copy(u.skHor.value).add(_c.setRGB(1, 0.5, 0.3).multiplyScalar(u.skP2.value.y)); // (as skyHorizon())
     fog.near = 0; fog.far = this.fogFar;
     this._fog(L('fog') * w.fog);
     // what the rest of the game wants to know
@@ -427,10 +428,11 @@ export class Sky {
     _v.copy(u.skSunDir.value).transformDirection(vm);
     Object.assign(FOG.vcFogSun.value, { x: _v.x, y: _v.y, z: _v.z, w: 1 });
     const hs = u.skHorSun.value, g = u.skSunCol.value, gi = u.skP.value.x;
-    Object.assign(FOG.vcFogHor.value, { x: hs.r, y: hs.g, z: hs.b, w: 3 });
+    const cg = u.skP2.value.y; // (the city glow, as in skyHorizon())
+    Object.assign(FOG.vcFogHor.value, { x: hs.r + cg, y: hs.g + cg * 0.5, z: hs.b + cg * 0.3, w: 3 });
     Object.assign(FOG.vcFogGlow.value, { x: g.r * gi, y: g.g * gi, z: g.b * gi, w: 0 });
     // (the far fade hides where the sea is clipped; from high up it starts later)
-    Object.assign(FOG.vcFogP.value, { x: 0.0001 * density, y: 1 / 800, z: 0.05, w: lerp(0.4, 0.82, smooth(60, 1500, cam.position.y)) });
+    Object.assign(FOG.vcFogP.value, { x: 0.0001 * density, y: 1 / 800, z: 0.05, w: lerp(0.4, 0.5, smooth(60, 1500, cam.position.y)) });
     void _q;
   }
 

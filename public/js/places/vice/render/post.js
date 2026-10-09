@@ -84,9 +84,10 @@ void main() {
   col.g = texture2D(tDiffuse, uv).g;
   col.b = texture2D(tDiffuse, uv + c * ab).b;
   if (blur > 0.0) {
-    vec3 s = vec3(0.0);
-    for (int i = 0; i < 12; i++) { float a = float(i) * 0.5236; s += texture2D(tDiffuse, uv + vec2(cos(a), sin(a)) * (1.5 + float(i - (i / 3) * 3) * 1.5) * blur * (0.6 + r2 * 1.5) / res * 3.0).rgb; }
-    col = mix(col, s / 12.0, clamp(blur * 1.5, 0.0, 1.0));
+    // a golden-angle spiral of taps, wider towards the edges
+    vec3 s = col; float rad = blur * (4.0 + r2 * 10.0);
+    for (int i = 1; i < 16; i++) { float fi = float(i), a = fi * 2.39996; s += texture2D(tDiffuse, uv + vec2(cos(a), sin(a)) * sqrt(fi / 15.0) * rad / res).rgb; }
+    col = mix(col, s / 16.0, clamp(blur * 1.5, 0.0, 1.0));
   }
   col += texture2D(tBloom, uv).rgb * bloom;
   col *= exposure;
@@ -97,9 +98,10 @@ void main() {
   col = max(mix(vec3(l), col, sat * (1.0 - desat)), 0.0);
   col *= tint;
   // wasted: nearly grey, a red-brown cast, darker at the edges
-  col = mix(col, vec3(lum(col)) * vec3(1.08, 0.93, 0.88), wasted * 0.92);
+  float wl = lum(col);
+  col = mix(col, vec3(wl) * vec3(1.14, 0.9, 0.84) * (0.85 + 0.3 * smoothstep(0.0, 0.6, wl)), wasted * 0.94);
   // hit: red creeping in from the edges
-  col = mix(col, flashCol, flash * (0.25 + 0.75 * smoothstep(0.05, 0.55, r2)));
+  col = mix(col, flashCol * (0.4 + l), flash * smoothstep(0.04, 0.6, r2));
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -128,12 +130,12 @@ export class Post {
     for (let i = 0; i < LEVELS; i++) this.chain.push(this._target(2, 2, 0, false));
     const tri = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 3, -1, 0, -1, 3, 0], 3)).setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 2, 0, 0, 2], 2));
     const pass = (fs, uniforms, o = {}) => new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: fs, uniforms, depthTest: false, depthWrite: false, toneMapped: false, ...o });
-    this.down = pass(DOWN, { tSrc: { value: null }, texel: { value: new THREE.Vector2() }, first: { value: 0 }, thr: { value: new THREE.Vector4(1.6, 0.8, 60, 0) } });
+    this.down = pass(DOWN, { tSrc: { value: null }, texel: { value: new THREE.Vector2() }, first: { value: 0 }, thr: { value: new THREE.Vector4(1.6, 0.8, 24, 0) } });
     this.up = pass(UP, { tSrc: { value: null }, texel: { value: new THREE.Vector2() }, radius: { value: 1 }, weight: { value: 1 } }, { blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor, blendEquation: THREE.AddEquation, transparent: true });
     this.mat = pass(FINAL, {
       tDiffuse: { value: this.rt.texture }, tBloom: { value: this.chain[0].texture }, res: { value: this.size.clone() }, time: { value: 0 },
       exposure: { value: 1 }, vignette: { value: 0.3 }, desat: { value: 0 }, blur: { value: 0 }, flash: { value: 0 }, flashCol: { value: new THREE.Color(0.8, 0.02, 0.0) },
-      fade: { value: 1 }, grain: { value: 0.012 }, chroma: { value: 0.0035 }, bloom: { value: 0.32 }, wasted: { value: 0 }, sat: { value: 1.12 },
+      fade: { value: 1 }, grain: { value: 0.012 }, chroma: { value: 0.0035 }, bloom: { value: 0.24 }, wasted: { value: 0 }, sat: { value: 1.12 },
       tint: { value: new THREE.Color(1, 1, 1) }, lift: { value: new THREE.Vector3(0.93, 1.0, 1.05) }, gain: { value: new THREE.Vector3(1.05, 1.0, 0.94) },
     }, { toneMapped: true });
     this.quad = new THREE.Mesh(tri, this.mat); this.quad.frustumCulled = false;
@@ -195,7 +197,7 @@ export class Post {
     u.vignette.value = 0.3 + (o.vignette || 0) + ws * 0.35;
     u.exposure.value = (o.exposure ?? 1) * (sky?.exposure ?? 1) * (0.8 + this.brightness * 0.2) * (1 - ws * 0.15);
     u.chroma.value = 0.0035 + (o.chroma || 0) + ws * 0.006;
-    u.bloom.value = this.bloomOn ? (o.bloom ?? 0.32) * (1 + (sky?.night || 0) * 0.35) : 0;
+    u.bloom.value = this.bloomOn ? (o.bloom ?? 0.24) * (1 + (sky?.night || 0) * 0.4) : 0;
     if (o.tint) u.tint.value.copy(o.tint); else u.tint.value.setRGB(1, 1, 1);
   }
 

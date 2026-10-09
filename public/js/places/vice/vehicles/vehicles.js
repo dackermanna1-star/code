@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { V, K } from '../state.js';
 import { TYPES, ALIASES, MIX } from './types.js';
 import { visualFor, vehicleMaterial, wheelBank, shadowBank, setBankScene, allBanks } from './models.js';
-import { step, collidePair, groundProbe, waterAt, syncPos, syncCom, toWorld, impulse, hit, setWaterTime, footprint } from './physics.js';
+import { step, collidePair, groundProbe, waterAt, syncPos, syncCom, toWorld, impulse, hit, setWaterTime, footprint, refresh, surfKind } from './physics.js';
 import { VehFX } from './effects.js';
 
 export { TYPES, MIX };
@@ -130,8 +130,8 @@ export function prepare(id) {
   // planes: aerodynamics (takeoff around 80 studs/s)
   if (kind === 'plane') {
     d.vRot = 70; d.cl0 = 0.3; d.cla = 4.6; d.stall = 0.3;
-    d.liftK = 1 / (78 * 78 * (d.cl0 + d.cla * 0.06));
-    d.cd0 = 0.0009; d.cdi = 0.0012; d.thrustA = 30;
+    d.liftK = G / (78 * 78 * (d.cl0 + d.cla * 0.06));
+    d.cd0 = 0.0009; d.cdi = 0.0006; d.thrustA = 34;
   }
   d._ready = true;
   return d;
@@ -163,13 +163,13 @@ export class Vehicle {
     this.seats = new Array(def.seats.length).fill(null);
     this.passengers = [];
     this.health = 1000; this.dead = false; this.burning = false; this.locked = !!o.locked;
-    this.lights = false; this.lightsMode = 'auto'; this.siren = false;
+    this.lights = false; this.lightsMode = 'auto'; this._siren = false;
     this.engineOn = !o.parked && o.engine !== false;
     this.parked = !!o.parked;
     this.speed = 0; this.rpm = 0; this.gear = 1; this.shiftT = 0; this.steerAngle = 0;
     this.skid = 0; this.wheelSpin = 0; this.contacts = 0; this.compression = 0; this.braking = false;
     this.rotor = def.kind === 'heli' && !o.parked ? 1 : 0; this.thrust = 0; this.lean = 0;
-    this.inWater = 0; this.drowned = false; this.airT = 0; this.alt = 0;
+    this.inWater = 0; this.drowned = false; this.airT = 0; this.alt = 0; this.lowY = 0; this.highY = 0;
     this.sleeping = false; this.sleepT = 0; this.roofT = 0; this.burnT = 0; this.deadT = 0;
     this.lastAttacker = null; this.crashT = 0; this.hornT = 0;
     this.impDv = 0; this.impG = 0; this.impMax = 0; this.impOther = null; this.impKind = ''; this.impP = new THREE.Vector3();
@@ -220,6 +220,8 @@ export class Vehicle {
     this.pos.y = y;
     if (def.kind === 'heli' && !o.parked && o.y != null) this.engineOn = true;
     syncCom(this);
+    this.surf = 1;
+    refresh(this);
     // the box people and bullets collide with
     this.box = V.phys.add(x, y + def.size.h / 2, z, def.hw, def.size.h / 2, def.hl, heading, 'metal', { vehicle: this, shootable: true, cover: def.kind === 'car' });
     this._cells = NaN;
@@ -229,6 +231,9 @@ export class Vehicle {
   }
 
   get heading() { return Math.atan2(this._fw.x, this._fw.z); }
+  /** The light bar and siren: on while ctl.siren is (setting veh.siren sets ctl.siren). */
+  get siren() { return this._siren; }
+  set siren(on) { this.ctl.siren = !!on; this._siren = !!on && !!this.def.siren && !this.dead; }
   get driver() { return this.seats[0]; }
   set driver(p) { if (p) this.enter(p, 0); else if (this.seats[0]) this.leave(this.seats[0]); }
   get driverIn() { return !!this.seats[0]; }
@@ -312,7 +317,7 @@ export class Vehicle {
     if (this.dead) return;
     const sys = this.sys, d = this.def;
     this.dead = true; this.burning = false; this.health = 0; this.deadT = 0;
-    this.engineOn = false; this.siren = false; this.lights = false;
+    this.engineOn = false; this.ctl.siren = false; this._siren = false; this.lights = false;
     this.wake();
     syncCom(this);
     _p.copy(this.com);
@@ -362,7 +367,7 @@ export class Vehicle {
     if (dv < 12) return;
     const otherVeh = other && other.vehicle ? other.vehicle : other instanceof Vehicle ? other : null;
     const attacker = otherVeh?.driver || this.driver || null;
-    this.damage(((dv - 12) * (air ? 8 : 4.5)) / d.tough, this.impP, null, attacker);
+    this.damage(((dv - 12) * (air ? 8 : d.kind === 'bike' ? 2.2 : 4.5)) / d.tough, this.impP, null, attacker);
     if (this.crashT <= 0) {
       this.crashT = 0.18;
       V.events?.emit('vehicle:crash', { veh: this, other: otherVeh || other, pos: this.impP.clone(), speed: dv, kind: this.impKind });
@@ -399,8 +404,8 @@ export class Vehicle {
     const L = u.uLights.value;
     L.x = this.lights ? 2.8 : this.engineOn ? 0.25 : 0;
     L.y = (this.lights ? 1.1 : this.engineOn ? 0.25 : 0.05) + (this.braking && this.engineOn ? 3.2 : 0);
-    this.siren = !!d.siren && !!this.ctl.siren && !this.dead;
-    if (this.siren) { L.z = flash.r * 9; L.w = flash.b * 9; } else if (d.kind === 'heli') { L.z = flash.beacon * 3; L.w = 0; } else { L.z = 0; L.w = 0; }
+    this._siren = !!d.siren && !!this.ctl.siren && !this.dead;
+    if (this._siren) { L.z = flash.r * 9; L.w = flash.b * 9; } else if (d.kind === 'heli') { L.z = flash.beacon * 3; L.w = 0; } else { L.z = 0; L.w = 0; }
     u.uGlow.value = this.engineOn || d.kind === 'heli' || d.kind === 'plane' ? 1.6 : 0.4;
     u.uDirt.value = clamp((1000 - this.health) / 1000, 0, 1) * 0.8;
     if (this.dead) u.uBurnt.value = Math.min(1, u.uBurnt.value + dt * 1.2);
@@ -571,7 +576,8 @@ export class Vehicles {
     if (dt > 0) {
       this.time += dt;
       setWaterTime(this.time);
-      const N = Math.max(1, Math.min(6, Math.ceil(dt * 100 - 0.01)));
+      // substeps: about 65 Hz for everyone, twice that for the player's vehicle (and focused ones)
+      const N = this.forceN || Math.max(1, Math.min(4, Math.round(dt * 60 + 0.4)));
       const h = dt / N;
       // who moves: awake vehicles; near ones get substeps, far ones one big step
       const act = this._act || (this._act = []), far = this._far || (this._far = []);
@@ -579,18 +585,24 @@ export class Vehicles {
       for (const v of this.list) {
         v.crashT -= dt; v.hornT -= dt;
         if (v.driverIn || v.burning || (v.kind === 'heli' && v.rotor > 0)) v.wake();
-        if (v.sleeping) { v._near = false; continue; }
+        if (v.sleeping) {
+          v._near = false;
+          if (v.dead && v.deadT < 25) { v.deadT += dt; this.emitters(v, dt, _u.set(0, 1, 0).applyQuaternion(v.quat)); }
+          continue;
+        }
         const dx = v.pos.x - cam.x, dz = v.pos.z - cam.z;
         if (dx * dx + dz * dz > 420 * 420 && !v.focus && !v.driver?.isPlayer && v !== this.debug?.veh) far.push(v); else act.push(v);
       }
       active = act.length + far.length;
-      for (const v of act) v._near = true;
+      for (const v of act) { v._near = true; v._hi = !!(v.focus || v.driver?.isPlayer || v === this.debug?.veh); }
       for (const v of far) v._near = false;
       this.findPairs(act, dt);
       this.findPairs(far, dt, true);
       const pr = this._pairs;
       for (let s = 0; s < N; s++) {
-        for (const v of act) { step(v, h); steps++; }
+        for (const v of act) {
+          if (v._hi) { step(v, h / 2); step(v, h / 2); steps += 2; } else { step(v, h); steps++; }
+        }
         for (let i = 0; i < pr.length; i += 2) if (pr[i]._near || pr[i + 1]._near) this.pair(pr[i], pr[i + 1], h);
       }
       for (const v of far) { step(v, dt); steps++; }
@@ -640,6 +652,7 @@ export class Vehicles {
   afterStep(v, dt) {
     const d = v.def;
     v.updateMatrix();
+    v.surf = surfKind(v.pos.x, v.pos.z);
     if (v.impDv || v.impG) v.impacts();
     const up = _u.set(0, 1, 0).applyQuaternion(v.quat);
     v.alt = v.pos.y - groundProbe(v.pos.x, v.pos.y + 1, v.pos.z, 0.5, v.box);
@@ -656,6 +669,7 @@ export class Vehicles {
       if (v.burnT <= 0) v.explode(v.lastAttacker);
     }
     if (v.dead) v.deadT += dt;
+    if (v.ctl.horn && v.hornT <= 0 && !v.dead) { v.hornT = 0.6; V.events?.emit('noise', { pos: v.pos, r: 70, kind: 'horn', src: v }); }
     // drowned vehicles die quietly
     if (v.drowned && v.engineOn && v.inWater > 0.6) { v.engineOn = false; if (v.driver) V.events?.emit('vehicle:drowned', { veh: v }); }
     // sleep when parked and still
@@ -744,7 +758,7 @@ export class Vehicles {
         const st = v.wheels[i], w = d.wheels[i];
         if (!st.contact || st.skid < 0.3) continue;
         toWorld(v, w.x, 0.3, w.z, _p);
-        if (r() < dt * 30 * st.skid) fx.smoke(_p.x, _p.y + 0.5, _p.z, v.vel.x * 0.15 + (r() - 0.5) * 3, 1.5 + r() * 2, v.vel.z * 0.15 + (r() - 0.5) * 3, 1.4 + r() * 1.2, 1.6, 8 + st.skid * 4, 0.92, 0.3 * st.skid);
+        if (r() < dt * 22 * st.skid) fx.smoke(_p.x, _p.y + 0.5, _p.z, v.vel.x * 0.15 + (r() - 0.5) * 3, 1.5 + r() * 2, v.vel.z * 0.15 + (r() - 0.5) * 3, 1.2 + r() * 1.2, 1.8, 9 + st.skid * 5, 0.9, 0.16 + 0.1 * st.skid);
         if (st.skid > 0.45 && V.fx?.skid) V.fx.skid(_p.x, _p.z, v.heading, _p.y, st.skid);
       }
     }
@@ -822,6 +836,15 @@ export class Vehicles {
     }
     sb.end();
     for (const b of banks.values()) b.end();
+    // the nearest light bar spills red and blue onto the street (one pre-allocated light)
+    let sv = null, sd = 160 * 160;
+    for (const v of this.list) if (v.siren && v.group.visible) { const dx = v.pos.x - cam.x, dz = v.pos.z - cam.z, d2 = dx * dx + dz * dz; if (d2 < sd) { sd = d2; sv = v; } }
+    if (sv) {
+      const s = this._sirenFx || (this._sirenFx = { pos: new THREE.Vector3(), r: 0, b: 0, k: 1 });
+      toWorld(sv, 0, sv.def.hull.y1 + 2, sv.def.hull.zc, s.pos);
+      s.r = this.flash.r; s.b = this.flash.b; s.k = 0.35 + 0.65 * night;
+      this.fx.siren = s;
+    } else this.fx.siren = null;
     this.fx.update(dt, this.world.camera, 0.35 + 0.65 * (1 - night));
     // the player's (or the debug car's) headlight beams
     const pv = V.player?.vehicle || this.debug?.veh || null;
@@ -848,10 +871,12 @@ export class Vehicles {
       i++;
     }
     const boats = Object.keys(TYPES).filter((k) => TYPES[k].kind === 'boat');
-    boats.forEach((id, j) => this.spawn(id, 2050, 2300 + j * 30, Math.PI, { parked: true }));
+    // in open water just off South Pointe marina (the docks and the moored boats are the props')
+    boats.forEach((id, j) => this.spawn(id, 1945 - (j % 2) * 34, 2290 + j * 32, Math.PI, { parked: true }));
     this.spawn('policeheli', 1000, -1380, Math.PI / 2, { parked: true });
     this.spawn('newsheli', 1060, -1330, Math.PI / 2, { parked: true });
-    this.spawn('plane', -3800, -1250, Math.PI, { parked: true });
+    // on the threshold of runway 36R, facing north down the runway
+    this.spawn('plane', -3670, -1340, Math.PI, { parked: true });
   }
 
   hooks() {

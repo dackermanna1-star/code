@@ -13,6 +13,7 @@ export const HOTEL_NAMES = [
 ];
 const SHORT = ['HOTEL', 'PALOMA', 'CORAL', 'STARLITE', 'NEPTUNE', 'LAGUNA', 'ORCHID', 'MIRAGE', 'CAPRI', 'SOLANA', 'VESPER', 'LIDO', 'MARLIN', 'RIVAGE', 'AMALFI', 'CELESTE'];
 const SHOPS = ['Pharmacy', 'Café Mambo', 'Surf Shop', 'Pizza', 'Liquors', 'Tattoo', 'Gelato', 'Sunglasses', 'Swimwear', 'Cuban Café', 'Bar & Grill', 'Souvenirs', 'Sushi', 'Burgers', 'Juice Bar', 'Cigars'];
+const SIGN_COLS = [['#f4f0e6', '#1d2a44'], ['#1d2a44', '#ffe08a'], ['#e8507a', '#ffffff'], ['#2bb5b0', '#ffffff'], ['#ffe08a', '#1d2a44'], ['#1a1a1a', '#ff7aa8']];
 const UMBRELLAS = [0xf4f0e6, 0xff7aa8, 0x2bb5b0, 0xffd06a, 0x6ac6ff, 0xf28a5a];
 
 let nameIx = 0;
@@ -129,7 +130,10 @@ export function decoHotel(C, lot, r, o = {}) {
     if (!rrad) tube(K, [hw + 0.1, g, fz + 0.9], [hw + 0.1, H + 2.6, fz + 0.9], n2, 0.16);
   }
   const name = o.name || HOTEL_NAMES[(nameIx++ + lot.seed) % HOTEL_NAMES.length];
-  if (main || hasNeon) K.sign(centre, signY, signBack + 0.08, Math.min(signW, name.length * 2.6), 4.6, name, hasNeon ? 'neon' : 'letters', { color: hasNeon ? n1 : 0x26323e, tier: MID });
+  // the name: across the stepped parapet, or (behind a fin) over the entrance canopy
+  if ((main || hasNeon) && style !== 'fin') K.sign(centre, signY, signBack + 0.08, Math.min(signW, name.length * 2.6), 4.6, name, hasNeon ? 'neon' : 'letters', { color: hasNeon ? n1 : 0x26323e, tier: MID });
+  const canD = ocean ? Math.min(7, D / 2 - fz - 1) : 4.5;
+  if ((main || hasNeon) && style === 'fin') K.sign(centre, g + 1.4, fz + canD - 0.2, Math.min(18, name.length * 1.7), 3, name, hasNeon ? 'neon' : 'letters', { color: hasNeon ? n1 : 0x26323e, tier: MID });
   roofKit(K, r, -hw + 3, pb + 3, hw - 3, fz - 4, H, { tank: 0.3 });
   // ---- street level ----
   if (ocean) {
@@ -156,7 +160,8 @@ export function decoHotel(C, lot, r, o = {}) {
         const x0 = -hw + (2 * hw * i) / shops + 1, x1 = -hw + (2 * hw * (i + 1)) / shops - 1;
         if (i === Math.floor(shops / 2) && shops > 1) { canopy(K, (x0 + x1) / 2, g - 1.2, fz, x1 - x0 - 2, 5, trim, { glow: 0xffe0b0 }); door(K, (x0 + x1) / 2, 0, fz, 6, 8.5, mat('whiteTiles', 0x2a3a44, { p: 8 }), trim); continue; }
         if (r() < 0.75) awning(K, (x0 + x1) / 2, g - 1.8, fz, x1 - x0 - 1.5, 5, 2, fabric(pick(r, [0x1d6e6a, 0xd8486a, 0x2a4e8a, 0xf2a03a, 0xf4f0e6, 0x6a3a8a])));
-        K.sign((x0 + x1) / 2, g - 0.9, fz + 0.1, Math.min(x1 - x0 - 2, 16), 1.6, pick(r, SHOPS), r() < 0.5 ? 'box' : 'paint', { tier: NEAR, bg: '#' + pick(r, ['f4f0e6', '1d2a44', 'e8507a', '2bb5b0', 'ffe08a']).padStart(6, '0') });
+        const [bg, fg] = pick(r, SIGN_COLS);
+        K.sign((x0 + x1) / 2, g - 0.9, fz + 0.1, Math.min(x1 - x0 - 2, 16), 1.6, pick(r, SHOPS), r() < 0.5 ? 'box' : 'paint', { tier: NEAR, bg, fg });
       }
     } else {
       canopy(K, centre, g - 1.5, fz, 10, 4.5, trim);

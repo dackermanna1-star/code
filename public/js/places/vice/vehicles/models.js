@@ -53,7 +53,7 @@ float pPaint = isP(vp, 1.0), pGlass = isP(vp, 2.0), pChrome = isP(vp, 7.0), pDar
 diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * uPaint, pPaint);
 diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.018, 0.026, 0.034) + diffuseColor.rgb * 0.05, pGlass);
 diffuseColor.rgb *= 1.0 - uDirt * 0.35;
-diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.032, 0.029, 0.027) * (0.7 + 0.6 * fract(sin(dot(floor(vViewPosition.xy * 3.0), vec2(12.9898, 78.233))) * 43758.5453)), uBurnt);`)
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.03, 0.027, 0.025) + diffuseColor.rgb * 0.035, uBurnt);`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
 roughnessFactor = mix(roughnessFactor, 0.26 + uDirt * 0.4, pPaint);
 roughnessFactor = mix(roughnessFactor, 0.04, pGlass);

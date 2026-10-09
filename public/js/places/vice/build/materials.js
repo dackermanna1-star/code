@@ -11,7 +11,7 @@
 //  - murals: big procedural pictures for Wynwood's walls (an atlas too).
 import * as THREE from 'three';
 import { TBN_GLSL } from '../world/surface.js';
-import { TEX_LAYER, TEX_KEYS, texAvg, noiseTex } from '../world/textures.js';
+import { TEX_LAYER, TEX_KEYS, texAvg } from '../world/textures.js';
 import { rng } from '../../outbreak/noise.js';
 
 /** Uniforms shared by every city material (set by City.update). */
@@ -103,7 +103,8 @@ const MAP_FRAG = `{
   if (code > 0.5 && vert > 0.6) {
     int kind = int(mod(code, 16.0)); float variant = mod(floor(code / 16.0), 16.0); int gk = int(floor(code / 256.0));
     float fh = max(vWin.y / 64.0, 1.0), bw = max(vWin.z / 64.0, 1.0);
-    float seed = mod(vWin.w, 4096.0), occ = floor(vWin.w / 4096.0) / 15.0;
+    float wseed = floor(vWin.w + 0.5); // (interpolation wobbles: round before hashing)
+    float seed = mod(wseed, 4096.0), occ = floor(wseed / 4096.0) / 15.0;
     vec2 uv = vUv2;
     vec3 N = normalize(vWn), Rt = normalize(vec3(N.z, 0.0, -N.x));
     vec3 Vd = normalize(vWp - cameraPosition);
@@ -233,7 +234,7 @@ export function buildingMaterial(tex, o = {}) {
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0 });
   const avg = new Array(32).fill(0.3);
   TEX_KEYS.forEach((k, i) => { const c = texAvg(k); avg[i] = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b; });
-  const uni = { tCol: tex.col, tNor: tex.nor, noiseT: { value: noiseTex() }, wet: { value: 0 }, layAvg: { value: avg }, ...CITY_U };
+  const uni = { tCol: tex.col, tNor: tex.nor, noiseT: { value: grimeTex() }, wet: { value: 0 }, layAvg: { value: avg }, ...CITY_U };
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader
@@ -256,6 +257,29 @@ vWn = normalize(mat3(modelMatrix) * objectNormal);`);
   return mat;
 }
 
+/** A small tileable value-noise texture for the grime (r, g: two octave mixes), cheap to make. */
+let _grime = null;
+function grimeTex() {
+  if (_grime) return _grime;
+  const N = 128, d = new Uint8Array(N * N * 4), r = rng(77);
+  const grid = (n) => { const g = new Float32Array(n * n); for (let i = 0; i < g.length; i++) g[i] = r(); return g; };
+  const oct = [[4, grid(4)], [8, grid(8)], [16, grid(16)], [32, grid(32)]];
+  const sample = (n, g, x, y) => {
+    const fx = (x / N) * n, fy = (y / N) * n, i = Math.floor(fx), j = Math.floor(fy), u = fx - i, v = fy - j;
+    const s = (a, b) => g[((b % n) + n) % n * n + ((a % n) + n) % n];
+    const su = u * u * (3 - 2 * u), sv = v * v * (3 - 2 * v);
+    return (s(i, j) * (1 - su) + s(i + 1, j) * su) * (1 - sv) + (s(i, j + 1) * (1 - su) + s(i + 1, j + 1) * su) * sv;
+  };
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const a = sample(4, oct[0][1], x, y) * 0.5 + sample(8, oct[1][1], x, y) * 0.3 + sample(16, oct[2][1], x, y) * 0.2;
+    const b = sample(8, oct[1][1], x + 37, y + 11) * 0.4 + sample(16, oct[2][1], x, y) * 0.3 + sample(32, oct[3][1], x, y) * 0.3;
+    const k = (y * N + x) * 4; d[k] = a * 255; d[k + 1] = b * 255; d[k + 2] = 128; d[k + 3] = 255;
+  }
+  const t = new THREE.DataTexture(d, N, N, THREE.RGBAFormat);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; t.needsUpdate = true;
+  return (_grime = t);
+}
+
 /** A BufferGeometry from the kit's arrays. */
 export function kitGeometry(a) {
   const g = new THREE.BufferGeometry();
@@ -266,7 +290,7 @@ export function kitGeometry(a) {
   g.setAttribute('tint', new THREE.BufferAttribute(a.tint, 4, true));
   g.setAttribute('win', new THREE.BufferAttribute(a.win, 4, false));
   g.setIndex(new THREE.BufferAttribute(a.nv > 65535 ? a.idx : new Uint16Array(a.idx), 1));
-  g.computeBoundingSphere(); g.computeBoundingBox();
+  g.computeBoundingSphere();
   return g;
 }
 

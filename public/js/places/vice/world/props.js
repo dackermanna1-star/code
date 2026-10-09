@@ -52,7 +52,9 @@ export class Props {
     this.tex = viceTextures(world.renderer);
     this.glow = { value: 0 };
     this.M = propMaterials(this.tex, this.glow);
-    this.C = new Chunks(512);
+    // big things in 1024-stud chunks (few draw calls), small details in 512-stud ones (hidden when far)
+    const big = new Chunks(1024), small = new Chunks(512);
+    this.C = { get: (mat, x, z) => (mat === 'detail' ? small : big).get(mat, x, z), meshes: (m, o) => [...big.meshes(m, o), ...small.meshes(m, o)] };
     this.flora = new Flora(world, this.tex);
     this.near = new NearSet(world.scene);
     this.roads = new RoadIndex(plan);
@@ -99,13 +101,29 @@ export class Props {
 
   /** Nothing built by the city (a building box) within r of (x, z)? */
   free(x, z, r = 2) {
-    let ok = true;
-    this.phys.query(x - r - 1, z - r - 1, x + r + 1, z + r + 1, (b) => {
-      if (!b.building || b.debug) return;
-      const [lx, lz] = this.phys.local(b, x, z);
-      if (Math.abs(lx) < b.hx + r && Math.abs(lz) < b.hz + r) { ok = false; return false; }
-    });
-    return ok;
+    if (!this.bgrid) this._buildingIndex();
+    const i0 = Math.floor((x - r) / 64), i1 = Math.floor((x + r) / 64), j0 = Math.floor((z - r) / 64), j1 = Math.floor((z + r) / 64);
+    for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) {
+      const c = this.bgrid.get(i * 8192 + j); if (!c) continue;
+      for (const b of c) {
+        const dx = x - b.x, dz = z - b.z, lx = dx * b.c - dz * b.s, lz = dx * b.s + dz * b.c;
+        if (Math.abs(lx) < b.hx + r && Math.abs(lz) < b.hz + r) return false;
+      }
+    }
+    return true;
+  }
+  /** The city's building boxes, filed by 64-stud cell (made once, when the props start being placed). */
+  _buildingIndex() {
+    this.bgrid = new Map();
+    const seen = new Set();
+    for (const list of this.phys.grid.values()) for (const b of list) {
+      if (!b.building || b.debug || seen.has(b)) continue;
+      seen.add(b);
+      const ex = Math.abs(b.hx * b.c) + Math.abs(b.hz * b.s), ez = Math.abs(b.hx * b.s) + Math.abs(b.hz * b.c);
+      for (let i = Math.floor((b.x - ex) / 64); i <= Math.floor((b.x + ex) / 64); i++) for (let j = Math.floor((b.z - ez) / 64); j <= Math.floor((b.z + ez) / 64); j++) {
+        const k = i * 8192 + j; let c = this.bgrid.get(k); if (!c) this.bgrid.set(k, (c = [])); c.push(b);
+      }
+    }
   }
   /** Ground height (street level on dry land). */
   gy(x, z) { return this.ground.heightAt(x, z); }
@@ -127,13 +145,13 @@ export class Props {
     });
     step('meshes', () => {
       const M = this.M;
-      this.meshes = this.C.meshes({ surf: M.surf, detail: M.surf, flat: M.flat, paint: M.paint, win: M.win, fence: M.fence, cont: containerMaterial() }, { shadow: new Set(['surf', 'detail', 'win', 'cont']) });
+      this.meshes = this.C.meshes({ surf: M.surf, detail: M.surf, flat: M.flat, paint: M.paint, win: M.win, fence: M.fence, cont: containerMaterial(), ...(this.extraMats || {}) }, { shadow: new Set(['surf', 'detail', 'win', 'cont']) });
       for (const m of this.meshes) {
         if (m.userData.mat === 'flat' || m.userData.mat === 'paint') m.castShadow = false;
         m.userData.detail = m.userData.mat === 'detail';
         this.group.add(m);
       }
-      this.detail = this.meshes.filter((m) => m.userData.detail);
+      this.detail = this.meshes.filter((m) => m.userData.detail || m.userData.mat === 'sign');
       this.world.scene.add(this.group);
     });
     step('flora', () => this.flora.build());

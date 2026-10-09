@@ -149,17 +149,24 @@ export class Kit {
     this._stack.length = 0;
     this.tier = BASE; this.win = null;
     this._cells(x, z);
+    this._nv0 = [this.cell.base.nv, this.cell.mid.nv, this.ncell.near.nv];
     return B;
   }
-  end() { const B = this.cur; this.cur = null; this.win = null; this.tier = BASE; return B; }
+  end() {
+    const B = this.cur;
+    // vertex counts by kind and tier (for tuning)
+    const st = this.stats || (this.stats = {}), k = B?.kind || '?', a = st[k] || (st[k] = [0, 0, 0, 0]);
+    if (this._nv0) { a[0] += this.cell.base.nv - this._nv0[0]; a[1] += this.cell.mid.nv - this._nv0[1]; a[2] += this.ncell.near.nv - this._nv0[2]; a[3]++; }
+    this.cur = null; this.win = null; this.tier = BASE; return B;
+  }
   /** The cells the following geometry goes to (by default the building's origin). */
   _cells(x, z) {
     const i = Math.floor(x / CELL), j = Math.floor(z / CELL), k = cellKey(i, j);
     let c = this.big.get(k);
-    if (!c) this.big.set(k, (c = { i, j, x: (i + 0.5) * CELL, z: (j + 0.5) * CELL, base: new VB(8192), mid: new VB(24576) }));
+    if (!c) this.big.set(k, (c = { i, j, x: (i + 0.5) * CELL, z: (j + 0.5) * CELL, base: new VB(4096), mid: new VB(8192) }));
     const i2 = Math.floor(x / NCELL), j2 = Math.floor(z / NCELL), k2 = cellKey(i2, j2);
     let s = this.small.get(k2);
-    if (!s) this.small.set(k2, (s = { i: i2, j: j2, x: (i2 + 0.5) * NCELL, z: (j2 + 0.5) * NCELL, near: new VB(8192) }));
+    if (!s) this.small.set(k2, (s = { i: i2, j: j2, x: (i2 + 0.5) * NCELL, z: (j2 + 0.5) * NCELL, near: new VB(2048) }));
     this.cell = c; this.ncell = s;
   }
   get vb() { return this.tier === BASE ? this.cell.base : this.tier === MID ? this.cell.mid : this.ncell.near; }

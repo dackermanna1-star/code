@@ -158,6 +158,7 @@ export class VehFX {
     this.flash.position.set(0, -1000, 0);
     scene.add(this.flash);
     this.flashT = 0;
+    this.siren = null; // { pos, r, b, k } set by the fleet each frame
     this.deb = [];
     this.beams = this._beams();
   }
@@ -178,7 +179,8 @@ export class VehFX {
   fireball(p, size = 1) {
     for (let i = 0; i < 26 * size; i++) {
       const a = Math.random() * 6.283, e = Math.random() * 1.2, s = (10 + Math.random() * 30) * size;
-      this.fireP.emit(p.x, p.y + 1, p.z, Math.cos(a) * Math.cos(e) * s, Math.sin(e) * s + 8, Math.sin(a) * Math.cos(e) * s, 0.6 + Math.random() * 0.6, (6 + Math.random() * 8) * size, (10 + Math.random() * 10) * size, 3.5, 1.5 + Math.random() * 0.6, 0.4, 1, -10, 2.2);
+      const hot = Math.random();
+      this.fireP.emit(p.x, p.y + 1, p.z, Math.cos(a) * Math.cos(e) * s, Math.sin(e) * s + 8, Math.sin(a) * Math.cos(e) * s, 0.5 + Math.random() * 0.7, (5 + Math.random() * 7) * size, (9 + Math.random() * 9) * size, 2.4, 0.75 + hot * 0.6, 0.12 + hot * 0.15, 0.85, -10, 2.2);
     }
     for (let i = 0; i < 18 * size; i++) {
       const a = Math.random() * 6.283, s = (4 + Math.random() * 14) * size;
@@ -207,8 +209,14 @@ export class VehFX {
     this.smokeP.mat.uniforms.uLight.value = light;
     this.smokeP.update(dt);
     this.fireP.update(dt);
-    if (this.flashT > 0) { this.flashT = Math.max(0, this.flashT - dt); this.flash.intensity = this.flashT * this.flashT * 60000; }
-    else if (this.flash.intensity) this.flash.intensity = 0;
+    if (this.flashT > 0) { this.flashT = Math.max(0, this.flashT - dt); this.flash.intensity = this.flashT * this.flashT * 14000; this.flash.color.setRGB(1, 0.62, 0.25); }
+    else if (this.siren) {
+      // no explosion going on: the light becomes the nearest light bar's red/blue spill
+      const s = this.siren;
+      this.flash.position.copy(s.pos);
+      this.flash.color.setRGB(s.r ? 1 : 0.15, 0.1, s.r ? 0.08 : 1);
+      this.flash.intensity = (s.r || s.b) ? 5000 * s.k : 0;
+    } else if (this.flash.intensity) this.flash.intensity = 0;
     // debris: fly, tumble, bounce, rest, fade
     for (let i = this.deb.length - 1; i >= 0; i--) {
       const d = this.deb[i], m = d.mesh;
@@ -271,7 +279,7 @@ export class VehFX {
     b.mesh.rotation.set(0, h, 0);
     b.mesh.scale.set(w, 1, len);
     b.mesh.material.opacity = 0.55 * night;
-    b.spot.intensity = 9000 * night;
+    b.spot.intensity = 6000 * night;
     _v.set(0, d.hull.y1 * 0.45, d.hull.z1).applyQuaternion(v.quat).add(v.pos);
     b.spot.position.copy(_v);
     _v.set(0, -2, 60).applyQuaternion(v.quat).add(v.pos);

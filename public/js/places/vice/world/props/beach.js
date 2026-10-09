@@ -71,7 +71,7 @@ export function buildBeach(P) {
   // ---- along the shore ----
   const r = rnd(1985);
   const gD = P.C;
-  let lastTower = -999, scheme = 0;
+  let lastTower = -999, scheme = 0, nCluster = 0;
   for (let i = 4; i < S.length - 4; i++) {
     const s = S[i], w = walk[i], head = Math.atan2(-s.nx, -s.nz);
     // lifeguard towers every ~250 studs
@@ -85,8 +85,8 @@ export function buildBeach(P) {
         place(P, 'lifering', bx + s.tx * 12, bz + s.tz * 12, head);
       }
     }
-    // umbrella clusters between the towers
-    if (i - lastTower === 21 && w.ok) umbrellas(P, S, i, at, r, head);
+    // umbrella clusters between the towers (and more of them on the busy beaches)
+    if ((i - lastTower === 21 || (i - lastTower === 10 && r() < 0.55) || (i - lastTower === 32 && r() < 0.55)) && w.ok) umbrellas(P, S, i, at, r, head, nCluster++);
     // volleyball on South Beach
     if (i % 140 === 70 && w.ok) volleyball(P, S, i, at, head);
     // towels scattered on the sand
@@ -108,7 +108,7 @@ export function buildBeach(P) {
     // beach access paths across the dunes, with a shower and a bin
     if (w.ok && i % 25 === 0) {
       const [ax, az] = at(s, w.d - WALK_W), [bx, bz] = at(s, w.d - 40);
-      strip(P.C.get('flat', ax, az), ax, az, bx, bz, 3, (x, z) => P.gy(x, z) + 0.35, { lay: L.deck, tint: [0.95, 0.9, 0.82], scale: 10 }, 6);
+      strip(P.C.get('flat', ax, az), ax, az, bx, bz, 3, (x, z) => P.gy(x, z) + 0.35, { lay: L.whiteTiles, tint: [0.9, 0.78, 0.62], scale: 6 }, 6);
       place(P, 'shower', bx - s.tx * 6 + s.nx * 2, bz - s.tz * 6 + s.nz * 2, head);
       place(P, 'bin', ax + s.tx * 5 + s.nx * 3, az + s.tz * 5 + s.nz * 3, 0, tint(0x2a7f62));
     }
@@ -130,7 +130,7 @@ export function buildBeach(P) {
 
 // ---- the boardwalk ---------------------------------------------------------------------
 function boardwalk(P, S, walk, at) {
-  const deckT = [0.98, 0.92, 0.84], postT = [0.72, 0.62, 0.5];
+  const deckT = [0.92, 0.8, 0.64], postT = [0.62, 0.55, 0.47];
   let run = 0;
   for (let i = 0; i < walk.length - 1; i++) {
     const a = walk[i], b = walk[i + 1];
@@ -140,12 +140,12 @@ function boardwalk(P, S, walk, at) {
     const ya = Math.max(P.gy(a.x, a.z), 2.2) + 0.85, yb = Math.max(P.gy(b.x, b.z), 2.2) + 0.85;
     const A0 = [a.x - sa.nx * WALK_W, ya, a.z - sa.nz * WALK_W], A1 = [a.x + sa.nx * WALK_W, ya, a.z + sa.nz * WALK_W];
     const B0 = [b.x - sb.nx * WALK_W, yb, b.z - sb.nz * WALK_W], B1 = [b.x + sb.nx * WALK_W, yb, b.z + sb.nz * WALK_W];
-    g.quad(A0, B0, B1, A1, { lay: L.deck, tint: deckT, scale: 9, normal: [0, 1, 0] });
+    g.quad(A0, B0, B1, A1, { lay: L.whiteTiles, tint: deckT, scale: 7, normal: [0, 1, 0], rough: 0.8 });
     fixWinding(g);
     // the fascia boards on both sides
     for (const [p, q] of [[A0, B0], [A1, B1]]) {
-      g.quad([p[0], p[1] - 1.4, p[2]], [q[0], q[1] - 1.4, q[2]], q, p, { lay: L.deck, tint: shade(deckT, 0.8), scale: 6 });
-      g.quad([q[0], q[1] - 1.4, q[2]], [p[0], p[1] - 1.4, p[2]], p, q, { lay: L.deck, tint: shade(deckT, 0.8), scale: 6 });
+      g.quad([p[0], p[1] - 1.4, p[2]], [q[0], q[1] - 1.4, q[2]], q, p, { lay: L.concrete, tint: shade(deckT, 0.75), scale: 6 });
+      g.quad([q[0], q[1] - 1.4, q[2]], [p[0], p[1] - 1.4, p[2]], p, q, { lay: L.concrete, tint: shade(deckT, 0.75), scale: 6 });
     }
     // posts and a rope rail on the sea side
     run++;
@@ -266,10 +266,10 @@ export function lifeguardTower(P, x, y, z, h, sc, seed) {
 function rot(x, z, h, lx, lz) { const c = Math.cos(h), s = Math.sin(h); return [x + lx * c + lz * s, z - lx * s + lz * c]; }
 
 // ---- umbrellas and loungers -------------------------------------------------------------------
-function umbrellas(P, S, i, at, r, head) {
+function umbrellas(P, S, i, at, r, head, k) {
   const s = S[i];
-  const rental = r() < 0.6, col = UMBRELLA[Math.floor(r() * UMBRELLA.length)];
-  const rows = 2 + Math.floor(r() * 3), cols = 4 + Math.floor(r() * 6);
+  const rental = r() < 0.6, col = UMBRELLA[(k * 3) % UMBRELLA.length];
+  const rows = 2 + Math.floor(r() * 3), cols = rental ? 4 + Math.floor(r() * 6) : 3 + Math.floor(r() * 4);
   for (let a = 0; a < rows; a++) for (let b = 0; b < cols; b++) {
     if (!rental && r() < 0.4) continue;
     const along = (b - cols / 2) * 14 + (rental ? 0 : (r() - 0.5) * 8), d = 80 + a * 17 + (rental ? 0 : (r() - 0.5) * 8);

@@ -62,6 +62,19 @@ const DEFS = {
     cyl(g, 0, 0, 0, 0.45, 2.6, 8, { lay: L.concrete, tint: [0.9, 0.89, 0.86], scale: 4 });
     cyl(g, 0, 2.6, 0, 0.5, 0.2, 8, { lay: L.concrete, tint: [0.2, 0.2, 0.2] });
   }, 200, false, [0.45, 1.4, 0.45], { prop: true }],
+  busstop: [(g) => { // a shelter: open towards +z (the road), glass at the back, an ad panel at one end
+    const steel = [0.32, 0.34, 0.37];
+    for (const x of [-6.2, 6.2]) for (const z of [-2.2, 1.8]) g.box(x, 4.2, z, 0.14, 4.2, 0.14, 0, { lay: L.concrete, tint: steel, rough: 0.4 });
+    g.box(0, 8.55, -0.2, 6.8, 0.22, 2.9, 0, { lay: L.shutter, tint: [1, 1, 1], scale: 4, ...P_ });
+    g.quad([6.1, 0.8, -2.25], [-6.1, 0.8, -2.25], [-6.1, 7.9, -2.25], [6.1, 7.9, -2.25], { lay: L.whiteTiles, tint: [0.32, 0.4, 0.44], rough: 0.05 });
+    g.quad([-6.1, 0.8, -2.25], [6.1, 0.8, -2.25], [6.1, 7.9, -2.25], [-6.1, 7.9, -2.25], { lay: L.whiteTiles, tint: [0.32, 0.4, 0.44], rough: 0.05 });
+    g.box(6.3, 4.4, -0.2, 0.25, 3.3, 2.0, 0, { lay: L.whiteTiles, tint: [1.0, 0.8, 0.62], glow: 1, rough: 0.2 });
+    g.box(0, 1.7, -1.6, 4.5, 0.12, 0.55, 0, { lay: L.shutter, tint: steel, scale: 2 });
+    for (const x of [-4, 4]) g.box(x, 0.85, -1.6, 0.1, 0.85, 0.4, 0, { lay: L.concrete, tint: steel });
+    // the stop's sign on its own pole
+    g.box(-8.2, 5.2, 2.2, 0.1, 5.2, 0.1, 0, { lay: L.concrete, tint: steel });
+    g.box(-8.2, 9.4, 2.2, 0.08, 1.0, 1.3, 0, { lay: L.stucco, tint: tint(0x1d5fbf, 1.2) });
+  }, 380, true, null, null],
   // the beach
   umbrella: [(g) => {
     cyl(g, 0, 0, 0, 0.18, 9.6, 6, { lay: L.concrete, tint: [0.9, 0.88, 0.84], cap: false });

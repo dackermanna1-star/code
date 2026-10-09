@@ -133,9 +133,13 @@ export function havanaLot(C, lot, r) {
       K.lathe(0, H + 2.6, fz - 0.2, [[3.5, 0], [3.2, 1.8], [1.2, 3.4], [0.01, 3.7]], wall, { seg: 12 });
     }
     // iron balconies on the upper floor
-    if (floors === 2 && r() < 0.6) for (let x = -hw + 6; x < hw - 4; x += rr(r, 9, 14)) {
-      K.box(x, g + 2.6, fz + 1.2, 2.4, 0.2, 1.2, trim, { col: false, win: false });
-      K.box(x, g + 4.2, fz + 2.3, 2.4, 1.4, 0.06, mat('metalSheet', 0x1a1a1a, { p: 9 }), { col: false, win: false, skip: 'ny py' });
+    if (floors === 2 && r() < 0.6) {
+      const iron = mat('metalSheet', 0x1a1a1a, { p: 9 });
+      for (let x = -hw + 6; x < hw - 4; x += rr(r, 9, 14)) {
+        K.box(x, g + 2.6, fz + 1.2, 2.6, 0.2, 1.2, trim, { col: false, win: false });
+        K.box(x, g + 5.6, fz + 2.3, 2.6, 0.1, 0.1, iron, { col: false, win: false });
+        K.at(NEAR, () => { for (let k = -2.4; k <= 2.41; k += 0.6) K.box(x + k, g + 4.2, fz + 2.3, 0.05, 1.4, 0.05, iron, { col: false, win: false }); });
+      }
     }
   });
   // signs and awnings
@@ -208,7 +212,7 @@ export function warehouseLot(C, lot, r) {
   for (const s of [-1, 1]) if (r() < 0.55) K.decal(s * (hw + 0.02), H / 2 + 0.5, fz - dd / 2, Math.min(dd - 2, 80), H - 1.5, ri(r, 0, MURALS - 1), s * Math.PI / 2);
   if (kind === 'gallery') K.sign(0, H - 3.5, fz + 0.12, Math.min(hw * 1.6, 26), 3.2, pick(r, GALLERIES), 'letters', { color: 0x1a1a1a, tier: MID });
   // a rooftop bar: deck, pergola and strings of lights
-  if (r() < 0.22 && floors <= 2) {
+  if (r() < 0.14 && floors <= 2) {
     const x0 = -hw + 3, x1 = hw - 3, z0 = fz - Math.min(dd, 30) + 2, z1 = fz - 3;
     K.at(MID, () => {
       K.box((x0 + x1) / 2, H + 0.4, (z0 + z1) / 2, (x1 - x0) / 2, 0.4, (z1 - z0) / 2, M.deck, { col: false, win: false });
@@ -216,7 +220,7 @@ export function warehouseLot(C, lot, r) {
       for (let z = z0 + 1; z <= z1 - 1; z += 3) K.box((x0 + x1) / 2, H + 9.4, z, (x1 - x0) / 2 - 1, 0.2, 0.3, M.wood, { col: false, win: false });
     });
     for (let z = z0 + 2; z <= z1 - 2; z += 4) tube(K, [x0 + 1, H + 8.6, z], [x1 - 1, H + 8.6, z], 0xffd890, 0.08, NEAR);
-    cafe(K, r, x0 + 2, z0 + 2, x1 - 2, z1 - 2, H + 0.8, [0xff3a8a, 0x2af0ff, 0xffd23a]);
+    cafe(K, r, x0 + 2, z0 + 2, x1 - 2, z1 - 2, H + 0.8, [0xff3a8a, 0x2af0ff, 0xffd23a], 6);
     K.sign(0, H + 11, fz - 1, 12, 2.6, pick(r, ['ROOFTOP', 'SKY BAR', 'LA AZOTEA', 'HIGH TIDE']), 'neonDeco', { color: pick(r, NEON) });
   }
   roofKit(K, r, -hw + 3, fz - dd + 3, hw - 3, fz - 3, H, { tank: 0.3, hut: 0.2 });

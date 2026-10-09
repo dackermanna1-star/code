@@ -65,7 +65,7 @@ export function roofKit(K, r, x0, z0, x1, z1, y, o = {}) {
       const x = rr(r, x0 + sx + 1, x1 - sx - 1), z = rr(r, z0 + sz + 1, z1 - sz - 1);
       K.box(x, y + sh, z, sx, sh, sz, M.ac, { col: false, win: false, skip: 'ny' });
       // the fan on top
-      if (r() < 0.6) K.cyl(x, z, Math.min(sx, sz) * 0.7, y + sh * 2, y + sh * 2 + 0.25, M.metalDark, { seg: 8, win: false });
+      if (r() < 0.5) K.cyl(x, z, Math.min(sx, sz) * 0.7, y + sh * 2, y + sh * 2 + 0.25, M.metalDark, { seg: 6, win: false });
     }
     if (o.tank !== false && r() < (o.tank ?? 0.35) && w > 20 && d > 20) {
       const x = rr(r, x0 + 6, x1 - 6), z = rr(r, z0 + 6, z1 - 6);
@@ -114,11 +114,12 @@ export function tube(K, a, b, hex, t = 0.22, tier = MID) {
 }
 
 /** Café tables with umbrellas (and chairs) over a local rectangle at height y. NEAR tier. */
-export function cafe(K, r, x0, z0, x1, z1, y, cols) {
+export function cafe(K, r, x0, z0, x1, z1, y, cols, max = 14) {
   K.at(NEAR, () => {
     const sp = 8.5;
+    let n = 0;
     for (let x = x0 + 4; x <= x1 - 4; x += sp) for (let z = z0 + 4; z <= z1 - 4; z += sp) {
-      if (r() < 0.15) continue;
+      if (r() < 0.15 || n++ >= max) continue;
       const jx = x + rr(r, -1, 1), jz = z + rr(r, -1, 1);
       K.cyl(jx, jz, 0.18, y, y + 2.4, M.metalDark, { seg: 5, win: false, top: false });
       K.cyl(jx, jz, 1.25, y + 2.4, y + 2.55, M.white, { seg: 10, win: false });

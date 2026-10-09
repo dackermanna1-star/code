@@ -23,7 +23,7 @@ import { blockLots } from '../build/lots.js';
 import { DISTRICT_STYLES, buildYard } from '../build/districts.js';
 import { buildLandmarks } from '../build/landmarks.js';
 
-const MID_RANGE = 1400, NEAR_RANGE = 520, PAINT_RANGE = 1000, NEON_RANGE = 3200, MURAL_RANGE = 1500;
+const MID_RANGE = 2000, NEAR_RANGE = 560, PAINT_RANGE = 1100, NEON_RANGE = 3600, MURAL_RANGE = 1600;
 
 export class City {
   constructor(world, plan, ground, phys) {
@@ -79,6 +79,7 @@ export class City {
       ped(x, z) { city.spawnPoints.peds.push({ x, z }); },
       place(id, o) { city.places[id] = { ...(city.places[id] || {}), ...o }; },
       palm(x, z, s = 1, lean = 0) { V.props?.palm?.(x, ground.heightAt(x, z), z, s, lean); },
+      palmAt(x, y, z, s = 1, lean = 0) { V.props?.palm?.(x, y, z, s, lean); },
       bush(x, z, s = 1) { V.props?.bush?.(x, ground.heightAt(x, z), z, s); },
       rng: (seed) => rng(seed >>> 0),
       hash: hash2,
@@ -137,9 +138,14 @@ export class City {
     if (!style) return 0;
     // the beach island's oceanfront north of Ocean Drive: one deep block from Collins to the sand
     if (b.grid === 'beach' && b.x0 > 2780) return 0;
-    if (b.grid === 'beach' && b.x0 > 2630 && b.x1 < 2740 && !this._sideStreet(b, 'e')) { b.x1 = 2990; b.edge.e = false; }
     const streets = {};
     for (const s of ['n', 's', 'e', 'w']) { const st = this._sideStreet(b, s); b.edge[s] = !!st; if (st) streets[s] = st; }
+    if (b.grid === 'beach' && b.x0 > 2630 && b.x1 < 2740 && !streets.e) {
+      // the oceanfront where Ocean Drive doesn't run: South Beach's hotels still face the sea (over the
+      // promenade); further north the resorts take the whole depth from Collins to the sand
+      if (D.style === 'deco') { b.edge.e = true; streets.e = { cls: 'drive', name: 'Ocean Drive', promenade: true }; }
+      else { b.x1 = 2990; }
+    }
     if (!b.edge.n && !b.edge.s && !b.edge.e && !b.edge.w) return 0;
     const r = rng(b.id * 7349 + 11);
     const info = { streets, district: D };
@@ -150,27 +156,32 @@ export class City {
       lot.district = D; lot.seed = (b.id * 131 + k++ * 17 + 7) >>> 0; lot.y = GROUND; lot.mall = !!opts.mall;
       if (!C.free(lot.x0, lot.z0, lot.x1, lot.z1)) continue;
       if (!C.landOK(lot.x0, lot.z0, lot.x1, lot.z1)) { if (!style.trim || !this._trim(C, lot)) continue; }
+      if (this._onRoad(lot.x0, lot.z0, lot.x1, lot.z1)) continue; // a ring road round a park, the airport's perimeter
       try { style.build(C, lot, rng(lot.seed)); n++; } catch (e) { console.warn('city: lot failed', D.id, e); }
     }
-    if (L.yard && C.free(L.yard.x0, L.yard.z0, L.yard.x1, L.yard.z1) && C.landOK(L.yard.x0, L.yard.z0, L.yard.x1, L.yard.z1)) {
+    if (L.yard && !this._onRoad(L.yard.x0, L.yard.z0, L.yard.x1, L.yard.z1) && C.free(L.yard.x0, L.yard.z0, L.yard.x1, L.yard.z1) && C.landOK(L.yard.x0, L.yard.z0, L.yard.x1, L.yard.z1)) {
       try { buildYard(C, L.yard, D, rng(b.id * 3 + 5), style); } catch (e) { console.warn('city: yard failed', e); }
     }
     return n;
   }
-  /** Shrink a lot from the back until it stands on dry land (for blocks at the shore). */
+  /** Does a road (carriageway or sidewalk) cross the rectangle? */
+  _onRoad(x0, z0, x1, z1) {
+    for (let i = 0; i <= 4; i++) for (let j = 0; j <= 4; j++) if (this.roadAt(x0 + 3 + ((x1 - x0 - 6) * i) / 4, z0 + 3 + ((z1 - z0 - 6) * j) / 4)) return true;
+    return false;
+  }
+  /** Shrink a lot (from the back, then from either side) until it stands on dry land; false if too little is left. */
   _trim(C, lot) {
-    const w = lot.d;
-    for (let k = 0.85; k >= 0.45; k -= 0.1) {
-      const d = w * k;
-      // the front stays where it is
-      const fx = Math.sin(lot.yaw), fz = Math.cos(lot.yaw);
-      const cx = lot.x + fx * (w - d) / 2, cz = lot.z + fz * (w - d) / 2;
-      const hx = Math.abs(fx) > 0.5 ? d / 2 : lot.w / 2, hz = Math.abs(fx) > 0.5 ? lot.w / 2 : d / 2;
-      if (C.landOK(cx - hx, cz - hz, cx + hx, cz + hz)) {
-        Object.assign(lot, { x: cx, z: cz, d, x0: cx - hx, x1: cx + hx, z0: cz - hz, z1: cz + hz });
-        return true;
-      }
-    }
+    const fx = Math.sin(lot.yaw), fz = Math.cos(lot.yaw), rx = Math.cos(lot.yaw), rz = -Math.sin(lot.yaw);
+    const try_ = (d, w, off) => {
+      // keep the front where it is; `off` slides the lot along the street
+      const cx = lot.x + fx * (lot.d - d) / 2 + rx * off, cz = lot.z + fz * (lot.d - d) / 2 + rz * off;
+      const ns = Math.abs(fx) < 0.5, hx = ns ? w / 2 : d / 2, hz = ns ? d / 2 : w / 2;
+      if (!C.landOK(cx - hx, cz - hz, cx + hx, cz + hz)) return false;
+      Object.assign(lot, { x: cx, z: cz, d, w, x0: cx - hx, x1: cx + hx, z0: cz - hz, z1: cz + hz });
+      return true;
+    };
+    for (let k = 0.88; k >= 0.2; k -= 0.08) if (lot.d * k >= 18 && try_(lot.d * k, lot.w, 0)) return true;
+    for (let k = 0.8; k >= 0.4; k -= 0.2) for (const s of [-1, 1]) for (let kd = 1; kd >= 0.55; kd -= 0.45) if (lot.w * k > 20 && try_(lot.d * kd, lot.w * k, s * lot.w * (1 - k) / 2)) return true;
     return false;
   }
 

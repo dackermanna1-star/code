@@ -55,7 +55,11 @@ vec2 groundAt(vec2 xz) {
   ivec2 c = ivec2(clamp(i, vec2(0.0), vec2(${f(G.N - 2)})));
   vec2 a = texelFetch(hMap, c, 0).rg, b = texelFetch(hMap, c + ivec2(1, 0), 0).rg;
   vec2 d = texelFetch(hMap, c + ivec2(0, 1), 0).rg, e = texelFetch(hMap, c + ivec2(1, 1), 0).rg;
-  return mix(mix(a, b, t.x), mix(d, e, t.x), t.y);
+  vec2 r = mix(mix(a, b, t.x), mix(d, e, t.x), t.y);
+  // past the edge of the map the heights repeat the edge, but the sea gets deep
+  float o = max(max(-${f(G.HALF)} - xz.x, xz.x - ${f(G.HALF)}), max(-${f(G.HALF)} - xz.y, xz.y - ${f(G.HALF)}));
+  if (o > 0.0 && r.x < 0.0) r.x = mix(r.x, -40.0, smoothstep(0.0, 1600.0, o));
+  return r;
 }
 float hAt(vec2 xz) { return groundAt(xz).r; }
 float coastAt(vec2 xz) { return groundAt(xz).g; }`;
@@ -281,7 +285,8 @@ vec3 recolor(vec3 s, int q) {
       for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const v = G.h[j * N + i]; if (v < mn) mn = v; if (v > mx) mx = v; }
       return [mn, mx];
     };
-    const add = (x0, z0, size) => { const [mn, mx] = range(x0, z0, size); if (mx > -6) out.push({ x0, z0, size, mn, mx }); };
+    // (sea edges get deep within 1600 studs of the map: past the first ring the water is opaque)
+    const add = (x0, z0, size) => { const [mn, mx] = range(x0, z0, size); if (mx > 0 || size === 2048) out.push({ x0, z0, size, mn: Math.min(mn, -40), mx }); };
     for (let tj = -2; tj < 6; tj++) for (let ti = -2; ti < 6; ti++) {
       if (ti >= 0 && tj >= 0 && ti < 4 && tj < 4) continue;
       add(-H + ti * 2048, -H + tj * 2048, 2048);

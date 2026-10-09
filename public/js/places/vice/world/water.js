@@ -96,13 +96,14 @@ uniform sampler2D nMap, noiseT;
 uniform vec3 lightCol, specDir, specCol, deepCol, midCol, absorbK;
 uniform float specI, night, wind;
 varying vec3 vW;
-varying vec2 vG;
 #include <fog_pars_fragment>
 void main() {
   vec2 p = vW.xz;
   vec2 gr = groundAt(p);              // (per pixel: the far grid cells are huge)
   float bed = gr.x;
   float depth = vW.y - bed;           // water above the ground here
+  // under the land: don't draw (far away the depth buffer can't tell the shore from the sea)
+  if (depth < -0.35) discard;
   float dist = length(cameraPosition - vW);
   float far = smoothstep(60.0, 1400.0, dist);
   // the surface: the swell's slope plus two layers of drifting ripples (calmer far away)
@@ -133,7 +134,7 @@ void main() {
   foam *= 1.0 - smoothstep(600.0, 1600.0, dist);
   // transmittance down to the bed and back (red goes first)
   float dd = max(depth, 0.0);
-  vec3 T = exp(-absorbK * dd * (1.0 + (1.0 - nv) * 0.6));
+  vec3 T = exp(-absorbK * dd * (1.0 + (1.0 - nv) * 0.6)) * (1.0 - smoothstep(14.0, 32.0, dd));
 #ifdef ABSORB
   vec3 keep = T * (1.0 - F) * (1.0 - foam);
   gl_FragColor = vec4(keep, 1.0);
@@ -154,7 +155,7 @@ void main() {
   vec3 h = normalize(specDir + v);
   float nh = max(dot(n, h), 0.0);
   float pw = mix(1400.0, 160.0, far);
-  float spec = pow(nh, pw) * (pw + 8.0) / 50.0 + pow(nh, 70.0) * 0.18;
+  float spec = pow(nh, pw) * (pw + 8.0) / 70.0 + pow(nh, 70.0) * 0.14;
   vec3 col = body * (1.0 - F) * (1.0 - foam) + refl * F * (1.0 - foam) + specCol * spec * specI * (1.0 - far * 0.55) * (1.0 - foam);
   // light through the crests (towards the sun)
   col += midCol * lightCol * pow(max(dot(-v, specDir), 0.0), 4.0) * max(wv.x * att, 0.0) * 0.8 * (1.0 - night);
@@ -251,7 +252,7 @@ export class Water {
     const day = su.skSunDir.value.y > -0.02;
     u.specDir.value.copy(day ? su.skSunDir.value : su.skMoonDir.value);
     u.specCol.value.copy(S.color);
-    u.specI.value = day ? S.intensity * 1.6 : S.intensity * 3.5;
+    u.specI.value = day ? S.intensity * 1.3 : S.intensity * 3.5;
     u.night.value = st.night;
     u.wind.value = st.wind ?? 0.4;
   }

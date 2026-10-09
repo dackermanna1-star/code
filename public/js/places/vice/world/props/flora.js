@@ -100,9 +100,9 @@ export function foliageAtlas() {
   const x = c.getContext('2d');
   x.clearRect(0, 0, 1024, 512);
   drawFrond(x, 0, FROND.coco, 11); drawFrond(x, 128, FROND.olive, 23); drawFrond(x, 256, FROND.royal, 37); drawFrond(x, 384, FROND.dead, 41);
-  const leafPal = ['#5f9a3c', '#4c8530', '#3d7026', '#2f5c1e', '#244a17'];
+  const leafPal = ['#6fae45', '#5b9a38', '#4a852c', '#3a6f23', '#2d5a1b'];
   drawLeaves(x, 512, 0, 256, 5, leafPal, { n: 1100, size: 7 });
-  drawLeaves(x, 768, 0, 256, 7, ['#4f8a34', '#3f7428', '#33621f', '#285218', '#1f4313'], { n: 1300, size: 6 });
+  drawLeaves(x, 768, 0, 256, 7, ['#6a9e3e', '#578a33', '#467629', '#376221', '#2a4f19'], { n: 1300, size: 6.5 });
   drawLeaves(x, 512, 256, 256, 9, ['#4a8030', '#3a6a24', '#2e581c'], { n: 700, size: 6, flowers: 260, fpal: ['#d6247e', '#e64d9c', '#b8178f', '#f06aa8'] });
   drawGrass(x, 768, 256, 256, 13);
   const t = new THREE.CanvasTexture(c);
@@ -255,26 +255,29 @@ function card(G, c, t, v, w, h, centre, uv, col, back = 0, flex = 0.5) {
   });
   G.t(ids[0], ids[1], ids[2]); G.t(ids[0], ids[2], ids[3]);
 }
-/** A wide shade tree (live oak / banyan): a short thick trunk, spreading limbs, a flat-topped crown. */
+/** A wide shade tree (live oak / banyan): a short thick trunk, spreading limbs, a broad crown of leafy clumps. */
 function shadeTree(seed, H) {
   const r = rnd(seed), G = new FG();
-  const crownY = H * 0.55, crownR = H * 0.46;
-  tube(G, [V3(0, -1, 0), V3(0.3, crownY * 0.5, 0.2), V3(0, crownY * 0.85, 0)], [1.9, 1.4, 1.1], 8, 0, [0.5, 0.46, 0.42], 6, 2);
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * TAU + r(), y = crownY * (0.55 + r() * 0.3);
-    const end = V3(Math.cos(a) * crownR * 0.75, y + crownR * (0.15 + r() * 0.25), Math.sin(a) * crownR * 0.75);
-    tube(G, [V3(0, y, 0), V3(Math.cos(a) * crownR * 0.35, y + crownR * 0.12, Math.sin(a) * crownR * 0.35), end], [0.75, 0.5, 0.18], 5, 0, [0.48, 0.44, 0.4], 6, 1);
-  }
-  const centre = V3(0, crownY + crownR * 0.3, 0);
-  for (let i = 0; i < 74; i++) {
-    const u = r() * 1.6 - 0.6, a = r() * TAU, s = Math.sqrt(Math.max(0, 1 - u * u)), lump = 0.72 + 0.28 * r();
-    const p = V3(s * Math.cos(a) * crownR * lump, u * crownR * 0.5 * lump, s * Math.sin(a) * crownR * lump).add(centre);
-    const out = p.clone().sub(centre).normalize();
-    const t = V3(-out.z, 0, out.x); if (t.lengthSq() < 0.01) t.set(1, 0, 0); t.normalize();
-    const v = new THREE.Vector3().crossVectors(out, t).normalize().multiplyScalar(-1);
-    const sz = crownR * 0.52 * (0.8 + r() * 0.4);
-    const k = 0.85 + r() * 0.3;
-    card(G, p, t, v, sz * 0.55, sz, centre, UV.leaves, [k, k, k], sz * 0.5, 0.6);
+  const crownY = H * 0.56, crownR = H * 0.5, top = V3(0.4, crownY * 0.72, 0.2);
+  tube(G, [V3(0, -1, 0), V3(0.5, crownY * 0.4, 0.3), top], [1.8, 1.3, 1.0], 8, 0, [0.5, 0.46, 0.42], 6, 2);
+  // clumps: a ring round the edge and a couple on top
+  const clumps = [];
+  for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU + r() * 0.5, d = crownR * (0.5 + r() * 0.15); clumps.push([V3(Math.cos(a) * d, crownY + crownR * (0.05 + r() * 0.15), Math.sin(a) * d), crownR * (0.4 + r() * 0.1)]); }
+  clumps.push([V3((r() - 0.5) * 3, crownY + crownR * 0.38, (r() - 0.5) * 3), crownR * 0.5]);
+  clumps.push([V3((r() - 0.5) * crownR * 0.5, crownY + crownR * 0.28, (r() - 0.5) * crownR * 0.5), crownR * 0.42]);
+  for (const [c, cr] of clumps) {
+    // a limb out to the clump
+    tube(G, [top.clone(), top.clone().lerp(c, 0.55).add(V3(0, cr * 0.15, 0)), c.clone().add(V3(0, -cr * 0.3, 0))], [0.7, 0.45, 0.18], 5, 0, [0.48, 0.44, 0.4], 6, 1);
+    const centre = c.clone().add(V3(0, -cr * 0.2, 0));
+    for (let i = 0; i < 12; i++) {
+      const u = r() * 1.3 - 0.3, a = r() * TAU, sq = Math.sqrt(Math.max(0, 1 - u * u)), lump = 0.75 + 0.25 * r();
+      const p = V3(sq * Math.cos(a) * cr * lump, u * cr * 0.7 * lump, sq * Math.sin(a) * cr * lump).add(c);
+      const out = p.clone().sub(centre).normalize();
+      const t = V3(-out.z, 0, out.x); if (t.lengthSq() < 0.01) t.set(1, 0, 0); t.normalize();
+      const v = new THREE.Vector3().crossVectors(out, t).normalize().multiplyScalar(-1);
+      const sz = cr * 0.95 * (0.8 + r() * 0.4), k = 0.9 + r() * 0.3;
+      card(G, p, t, v, sz * 0.55, sz, centre, UV.leaves, [k, k * 1.02, k * 0.9], sz * 0.5, 0.6);
+    }
   }
   return G.build();
 }
@@ -470,7 +473,8 @@ export class Flora {
     const M = floraMaterial(this.tex, this.atlas, this.wind);
     this.mat = M.mat;
     this.geos = SPECIES.map((s) => s.make());
-    this.radius = this.geos.map((g) => g.boundingSphere.radius);
+    this.radius = this.geos.map((g) => g.boundingSphere.radius * 1.08);
+    this.centreY = this.geos.map((g) => g.boundingSphere.center.y);
     // per item: its matrix and colour, filed by cell
     this.M = new Float32Array(n * 16); this.C = new Float32Array(n * 3);
     this.cells = new Map();
@@ -618,8 +622,7 @@ export class Flora {
     for (const it of this.nearList) {
       const S = SPECIES[it.sp], dx = it.x - cam.x, dz = it.z - cam.z, d2 = dx * dx + dz * dz;
       if (d2 > S.near * S.near) continue;
-      const r = this.radius[it.sp] * it.s;
-      _sph.center.set(it.x, it.y + r * 0.6, it.z); _sph.radius = r;
+      _sph.center.set(it.x, it.y + this.centreY[it.sp] * it.s, it.z); _sph.radius = this.radius[it.sp] * it.s + 4;
       if (d2 > 900 && !_fr.intersectsSphere(_sph)) continue;
       const set = this.near[it.sp][d2 < S.shadow * S.shadow ? 0 : 1];
       if (set.k >= set.cap) continue;

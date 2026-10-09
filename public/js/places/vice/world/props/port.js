@@ -294,31 +294,31 @@ export function cargoShip(P, x, z, Lh, W, r) {
 export function cruiseShip(P, x, z, h, Lh, W, liv, seed) {
   const r = rnd(seed * 71 + 5);
   const g = P.C.get('surf', x, z), F = frame(g, x, 0, z, h);
-  const top = 30, keel = 12, white = tint(0xfbfbf7, 1.12);
+  const top = 30, keel = 12, white = tint(0xfbfbf7, 1.12), FR = 70;
   hull(g, F, Lh, W, keel, top, liv.hull === 0xfdfcf7 ? white : tint(liv.hull, 1.1), tint(liv.hull === 0xfdfcf7 ? 0x1d3557 : liv.hull, 0.9), 4);
   // the superstructure: decks stepping back at the front, each with a band of windows/balconies
   const gw = P.C.get('win', x, z), FW = frame(gw, x, 0, z, h);
   const decks = 8, DH = 8.5;
   for (let k = 0; k < decks; k++) {
-    const y0 = top + k * DH, zb = -Lh / 2 + 22 + k * 2.5, zf = Lh / 2 - 92 - k * k * 0.9, hw = W / 2 - 1 - (k > 5 ? (k - 5) * 4 : 0);
+    const y0 = top + k * DH, zb = -Lh / 2 + 22 + k * 2.5, zf = Lh / 2 - FR - k * k * 0.75, hw = W / 2 - 1 - (k > 5 ? (k - 5) * 4 : 0);
     F.box(0, y0 + DH / 2, (zb + zf) / 2, hw, DH / 2, (zf - zb) / 2, { lay: L.stucco, tint: white, scale: 8 });
     // balconies: dark glass bands down both sides and across the front, lit at night
-    for (const sx of [-1, 1]) FW.quad([sx * (hw + 0.06), y0 + 2.2, sx > 0 ? zf - 4 : zb + 6], [sx * (hw + 0.06), y0 + 2.2, sx > 0 ? zb + 6 : zf - 4], [sx * (hw + 0.06), y0 + 6.8, sx > 0 ? zb + 6 : zf - 4], [sx * (hw + 0.06), y0 + 6.8, sx > 0 ? zf - 4 : zb + 6], { lay: L.whiteTiles, tint: [0.1, 0.14, 0.18], rough: 0.06, glow: 0.75, scale: 4 });
-    FW.quad([-hw + 2, y0 + 2.2, zf + 0.06], [hw - 2, y0 + 2.2, zf + 0.06], [hw - 2, y0 + 6.8, zf + 0.06], [-hw + 2, y0 + 6.8, zf + 0.06], { lay: L.whiteTiles, tint: [0.1, 0.14, 0.18], rough: 0.06, glow: 0.6, scale: 4 });
+    for (const sx of [-1, 1]) FW.quad([sx * (hw + 0.06), y0 + 2.2, sx > 0 ? zf - 4 : zb + 6], [sx * (hw + 0.06), y0 + 2.2, sx > 0 ? zb + 6 : zf - 4], [sx * (hw + 0.06), y0 + 6.8, sx > 0 ? zb + 6 : zf - 4], [sx * (hw + 0.06), y0 + 6.8, sx > 0 ? zf - 4 : zb + 6], { lay: L.whiteTiles, tint: [0.08, 0.11, 0.15], rough: 0.22, glow: 0.75, scale: 4 });
+    FW.quad([-hw + 2, y0 + 2.2, zf + 0.06], [hw - 2, y0 + 2.2, zf + 0.06], [hw - 2, y0 + 6.8, zf + 0.06], [-hw + 2, y0 + 6.8, zf + 0.06], { lay: L.whiteTiles, tint: [0.08, 0.11, 0.15], rough: 0.22, glow: 0.6, scale: 4 });
     // a coloured band on the promenade deck
     if (k === 1) for (const sx of [-1, 1]) F.box(sx * (hw + 0.1), y0 + 0.7, (zb + zf) / 2, 0.1, 0.7, (zf - zb) / 2, { lay: L.stucco, tint: tint(liv.band, 1.2) });
   }
   // the bridge and its wings at the front of deck 6
-  const yb = top + 6 * DH, zbf = Lh / 2 - 92 - 36 * 0.9 + 8;
+  const yb = top + 6 * DH, zbf = Lh / 2 - FR - 36 * 0.75 + 8;
   F.box(0, yb + 4, zbf, W / 2 + 5, 4, 7, { lay: L.stucco, tint: white, scale: 8 });
   FW.quad([-(W / 2 + 5), yb + 4.5, zbf + 7.06], [W / 2 + 5, yb + 4.5, zbf + 7.06], [W / 2 + 5, yb + 7.5, zbf + 7.06], [-(W / 2 + 5), yb + 7.5, zbf + 7.06], { lay: L.whiteTiles, tint: [0.08, 0.1, 0.13], rough: 0.05, glow: 0.9 });
   // lifeboats along both sides under the promenade
-  for (let lz = -Lh / 2 + 70; lz < Lh / 2 - 130; lz += 17) for (const sx of [-1, 1]) {
+  for (let lz = -Lh / 2 + 70; lz < Lh / 2 - FR - 40; lz += 17) for (const sx of [-1, 1]) {
     F.box(sx * (W / 2 + 2.6), top + DH * 2 + 2.2, lz, 2.4, 2.2, 6.5, { lay: L.stucco, tint: tint(0xff8c1a, 1.2), scale: 4 });
     F.box(sx * (W / 2 + 2.6), top + DH * 2 + 4.6, lz, 2.0, 0.6, 5.6, { lay: L.stucco, tint: white, scale: 4 });
   }
   // the top deck: a pool, sun decks, a water slide and the funnel
-  const yt = top + decks * DH, zm = -Lh / 2 + 22 + (Lh - 92 - 22 - 60) / 2;
+  const yt = top + decks * DH, zm = -Lh / 2 + 22 + (Lh - FR - 22 - 60) / 2;
   F.quad([-14, yt + 0.12, zm - 20], [14, yt + 0.12, zm - 20], [14, yt + 0.12, zm + 20], [-14, yt + 0.12, zm + 20], { lay: L.whiteTiles, tint: tint(0x38c6e8, 1.1), rough: 0.05, scale: 6 });
   F.quad([-26, yt + 0.06, zm - 60], [26, yt + 0.06, zm - 60], [26, yt + 0.06, zm + 60], [-26, yt + 0.06, zm + 60], { lay: L.deck, tint: [0.85, 0.75, 0.62], scale: 8 });
   const fz = -Lh / 2 + 70;
@@ -341,7 +341,7 @@ export function cruiseShip(P, x, z, h, Lh, W, liv, seed) {
   F.box(0, yt + 26.5, zbf - 20, 0.5, 0.5, 0.5, { lay: L.whiteTiles, tint: [1, 0.2, 0.1], glow: 1 });
   // collision: the hull and the superstructure
   P.box(x, (top - keel) / 2, z, W / 2 - 1, (top + keel) / 2, Lh / 2 - 6, h, 'metal', { ship: true });
-  const c = F.W(0, 0, (-Lh / 2 + Lh / 2 - 92) / 2 + 11);
-  P.box(c[0], top + decks * DH / 2, c[2], W / 2 - 1, decks * DH / 2, (Lh - 92 - 22) / 2, h, 'metal', { ship: true });
+  const c = F.W(0, 0, (-Lh / 2 + 22 + Lh / 2 - FR) / 2);
+  P.box(c[0], top + decks * DH / 2, c[2], W / 2 - 1, decks * DH / 2, (Lh - FR - 22) / 2, h, 'metal', { ship: true });
   void place;
 }

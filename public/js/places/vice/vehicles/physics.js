@@ -25,7 +25,7 @@ const F = new THREE.Vector3(), T = new THREE.Vector3();
 const fw = new THREE.Vector3(), up = new THREE.Vector3(), lf = new THREE.Vector3();
 const P = new THREE.Vector3(), R = new THREE.Vector3(), VP = new THREE.Vector3(), N = new THREE.Vector3(), TT = new THREE.Vector3();
 const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3(), D = new THREE.Vector3();
-const WF = new THREE.Vector3(), WS = new THREE.Vector3();
+const WF = new THREE.Vector3(), WS = new THREE.Vector3(), SU = new THREE.Vector3(), WUP = new THREE.Vector3(0, 1, 0);
 const qi = new THREE.Quaternion(), dq = new THREE.Quaternion();
 
 export const probe = { box: null, deck: false, kind: 0 };
@@ -66,12 +66,11 @@ export function waterAt(x, z) {
 }
 
 // ---- rigid body helpers ---------------------------------------------------------------------------------------------------
-/** world = R(q) * diag(invI) * R(q)^T * v, in place. */
+/** world = R(q) * diag(invI) * R(q)^T * v, in place (the world tensor is cached per step by basis()). */
 function invInertia(v, out) {
-  qi.copy(v.quat).invert();
-  out.applyQuaternion(qi);
-  out.x *= v.def.invI.x; out.y *= v.def.invI.y; out.z *= v.def.invI.z;
-  return out.applyQuaternion(v.quat);
+  const I = v._Iw;
+  const x = out.x, y = out.y, z = out.z;
+  return out.set(I[0] * x + I[1] * y + I[2] * z, I[1] * x + I[3] * y + I[4] * z, I[2] * x + I[4] * y + I[5] * z);
 }
 /** Velocity of a world point on the body. */
 function pointVel(v, px, py, pz, out) {
@@ -110,7 +109,18 @@ function basis(v) {
   fw.set(0, 0, 1).applyQuaternion(v.quat);
   up.set(0, 1, 0).applyQuaternion(v.quat);
   lf.set(1, 0, 0).applyQuaternion(v.quat);
+  // the inverse inertia in world axes: sum over the body axes of invI_k * a_k a_k^T (symmetric: 6 numbers)
+  const i = v.def.invI, I = v._Iw || (v._Iw = new Float64Array(6));
+  const ax = i.x, ay = i.y, az = i.z;
+  I[0] = ax * lf.x * lf.x + ay * up.x * up.x + az * fw.x * fw.x;
+  I[1] = ax * lf.x * lf.y + ay * up.x * up.y + az * fw.x * fw.y;
+  I[2] = ax * lf.x * lf.z + ay * up.x * up.z + az * fw.x * fw.z;
+  I[3] = ax * lf.y * lf.y + ay * up.y * up.y + az * fw.y * fw.y;
+  I[4] = ax * lf.y * lf.z + ay * up.y * up.z + az * fw.y * fw.z;
+  I[5] = ax * lf.z * lf.z + ay * up.z * up.z + az * fw.z * fw.z;
 }
+/** Make sure a vehicle's cached axes and inertia are current (for impulses from outside the step). */
+export function refresh(v) { basis(v); }
 /** pos (origin under the wheelbase) from the centre of mass. */
 export function syncPos(v) {
   P.set(0, v.def.cmY, v.def.cmZ).applyQuaternion(v.quat);
@@ -178,8 +188,11 @@ function engine(v, h) {
   v.shiftT = Math.max(0, (v.shiftT || 0) - h);
   // constant power, traction-limited by the tyres; a limiter at the top speed
   let force = 0;
+  // burnout: throttle and brake together at a standstill - fronts held, rears lit up
+  v.burnout = drive > 0.5 && (c.brake || 0) > 0.5 && av < 10 && d.kind === 'car';
+  if (v.burnout) brk = 0;
   if (drive > 0) {
-    force = drive * Math.min(d.Fmax, d.Pw / Math.max(av, 3));
+    force = drive * Math.min(v.burnout ? d.Fmax * 2.2 : d.Fmax, d.Pw / Math.max(av, 3));
     force *= Math.min(1, Math.max(0, (d.top - vF) / (d.top * 0.03)));
     if (v.shiftT > 0) force *= 0.3;
   } else if (drive < 0) {
@@ -218,7 +231,7 @@ function wheelForces(v, h) {
   const mu = d.mu * (v.surfGrip || 1);
   let contacts = 0, spinSum = 0, skidSum = 0, comp = 0;
   const mShare = d.mass / nW;
-  const upY = up.y;
+  const upY = up.y, bike = d.kind === 'bike';
   // aero: downforce and drag
   const v2 = v.vel.lengthSq();
   if (d.kind !== 'plane') {
@@ -231,11 +244,12 @@ function wheelForces(v, h) {
     const w = ws[i], st = v.wheels[i];
     toWorld(v, w.x, w.mountY, w.z, A);
     st.contact = false;
-    if (upY < 0.25) { st.len = w.Lmax; continue; }
+    if (upY < (bike ? 0.1 : 0.25)) { st.len = w.Lmax; continue; }
     const g = groundProbe(A.x, A.y, A.z, 0.35, v.box);
-    st.surf = probe.box ? 1 : probe.deck ? 1 : V.ground.kindAt ? surfKind(A.x, A.z) : 1;
-    if (waterAt(A.x, A.z) > g + 0.4) { st.len = w.Lmax; continue; }
-    const dist = (A.y - g) / upY;
+    st.surf = probe.box || probe.deck ? 1 : v.surf;
+    if (g < 0.5 && waterAt(A.x, A.z) > g + 0.4) { st.len = w.Lmax; continue; }
+    // bikes lean on round tyres: their wheels push straight up from the road, not along the tilted frame
+    const dist = (A.y - g) / (bike ? 1 : upY);
     const L = dist - w.r;
     if (L >= w.Lmax) { st.len = w.Lmax; continue; }
     st.contact = true; contacts++;
@@ -243,9 +257,10 @@ function wheelForces(v, h) {
     const x = w.Lmax - L;
     comp += x / w.Lmax;
     // contact point and its velocity
-    P.copy(A).addScaledVector(up, -dist);
+    SU.copy(bike ? WUP : up);
+    P.copy(A).addScaledVector(SU, -dist);
     pointVel(v, P.x, P.y, P.z, VP);
-    const cv = -VP.dot(up);
+    const cv = -VP.dot(SU);
     let fs = w.k * x + w.c * cv;
     if (x > w.Lmax) fs += w.k * 6 * (x - w.Lmax) + w.c * 2 * Math.max(0, cv);
     fs = Math.max(0, Math.min(fs, w.k * w.Lmax * 5));
@@ -255,7 +270,8 @@ function wheelForces(v, h) {
       const ca = Math.cos(v.steerAngle * w.steer), sa = Math.sin(v.steerAngle * w.steer);
       WF.copy(fw).multiplyScalar(ca).addScaledVector(lf, sa);
     } else WF.copy(fw);
-    WS.crossVectors(up, WF);
+    WS.crossVectors(SU, WF);
+    if (bike) { WF.y = 0; WF.normalize(); WS.crossVectors(WUP, WF); }
     const vf = VP.dot(WF), vs = VP.dot(WS);
     const fz = Math.min(fs, w.staticLoad * 2.5);
     const surf = st.surf === 0 ? 0.62 : st.surf === 0.5 ? 0.85 : 1; // sand, mud and lawn are slippery
@@ -268,7 +284,7 @@ function wheelForces(v, h) {
     let fx = 0;
     if (w.driven) fx += eng.force * w.driveShare;
     let brakeF = eng.brk * d.brakeF * (w.front ? 0.6 : 0.4);
-    if (w.front && c.throttle > 0.5 && eng.brk > 0.5 && Math.abs(v.speed) < 8) brakeF = d.brakeF * 2; // burnout: fronts held
+    if (v.burnout && w.front) brakeF = d.brakeF * 2;
     if (!w.front && hb) brakeF = Math.max(brakeF, mu * fz * 0.55);
     if (!w.driven || Math.abs(eng.force) < 1) brakeF += mShare * 0.5 + Math.abs(vf) * mShare * 0.008;
     if (!v.driverIn && !w.front && !v.engineOn) brakeF += mShare * 30; // parked: in gear
@@ -278,7 +294,7 @@ function wheelForces(v, h) {
     const limX = d.muX * surf * fz, limY = mu * surf * fz;
     let ey = fy / Math.max(1e-6, limY);
     // traction control (everyday cars): drive only with what the tyre has left after cornering
-    if (d.tcs && w.driven && eng.force * fx > 0) {
+    if (d.tcs && !v.burnout && w.driven && eng.force * fx > 0) {
       const room = limX * Math.sqrt(Math.max(0.04, 1 - Math.min(1, ey * ey)));
       if (Math.abs(fx) > room) fx = Math.sign(fx) * room;
     }
@@ -299,9 +315,9 @@ function wheelForces(v, h) {
     const spinV = w.driven && spin > 0.05 && eng.force > 0 ? Math.max(Math.abs(vf), 30 * spin) : vf;
     st.omega = (!w.front && hb) ? 0 : spinV / w.r;
     // apply: suspension along up at the contact; tyre forces raised toward the centre of mass (less body roll)
-    const lift = d.rollLift;
-    TT.copy(P).lerp(v.com, lift);
-    addForce(v, up.x * fs, up.y * fs, up.z * fs, P.x, P.y, P.z);
+    // (raised along the body's up only, so the lever arms in the ground plane stay: yaw comes from the tyres)
+    TT.copy(P).addScaledVector(SU, (C.copy(v.com).sub(P)).dot(SU) * d.rollLift);
+    addForce(v, SU.x * fs, SU.y * fs, SU.z * fs, P.x, P.y, P.z);
     addForce(v, WF.x * fx + WS.x * fy, WF.y * fx + WS.y * fy, WF.z * fx + WS.z * fy, TT.x, TT.y, TT.z);
   }
   // wheels in the air keep spinning down
@@ -344,8 +360,11 @@ function planeBrakes(v) {
   v.braking = eng.brk > 0.05;
 }
 
-function surfKind(x, z) {
-  const k = V.ground.kindAt(x, z);
+/** The ground's grip under (x, z): 0 sand / mud, 0.5 lawn, 1 paved (looked up once a frame per vehicle). */
+export function surfKind(x, z) {
+  const G = V.ground, N = G.N;
+  const i = Math.round(Math.min(N - 1, Math.max(0, (x + G.HALF) / G.CELL))), j = Math.round(Math.min(N - 1, Math.max(0, (z + G.HALF) / G.CELL)));
+  const k = G.kind[j * N + i];
   return k === 1 || k === 2 || k === 4 ? 0 : k === 5 ? 0.5 : 1;
 }
 
@@ -403,7 +422,7 @@ function boatForces(v, h) {
     const planing = Math.min(1, Math.max(0, (Math.abs(vF) - d.top * 0.3) / (d.top * 0.4)));
     const cF = d.dragK * (1 - planing * 0.45);
     P.copy(v.com).addScaledVector(fw, d.hull.z0 * 0.25).addScaledVector(up, -1);
-    const fF = -(vF * Math.abs(vF) * cF + vF * 0.25) * d.mass * wf;
+    const fF = -(vF * Math.abs(vF) * cF + vF * 0.03) * d.mass * wf;
     F.addScaledVector(fw, fF);
     const fS = -(vS * Math.abs(vS) * 0.04 + vS * 2.2) * d.mass * wf;
     addForce(v, lf.x * fS, lf.y * fS, lf.z * fS, P.x, P.y, P.z);
@@ -421,13 +440,13 @@ function boatForces(v, h) {
       const yawT = -(c.steer || 0) * d.steer * bite * d.I.y * 0.045 * Math.sign(vF + 0.5);
       T.addScaledVector(up, yawT);
       // bank into the turn
-      T.addScaledVector(fw, (c.steer || 0) * Math.min(1, Math.abs(vF) / 60) * d.I.z * 3.5);
+      T.addScaledVector(fw, (c.steer || 0) * Math.min(1, Math.abs(vF) / 60) * d.I.z * 3);
     }
     // planing: the hull rises on its own lift and the bow comes up at mid speed
     const sp = Math.abs(vF) / d.top;
     if (vF > 5) {
       F.addScaledVector(up, d.mass * G * 0.35 * Math.min(1, sp * sp * 2.2) * wf);
-      T.addScaledVector(lf, -Math.sin(Math.min(1, sp * 1.4) * Math.PI) * d.I.x * 2.2 * wf);
+      T.addScaledVector(lf, -(Math.sin(Math.min(1, sp * 1.6) * Math.PI) * 0.8 + Math.min(1, sp * 2) * 0.5) * d.I.x * 8 * wf);
     }
     const yawRate = v.angVel.dot(up);
     T.addScaledVector(up, -yawRate * d.I.y * 1.6 * wf);
@@ -471,7 +490,7 @@ function heliForces(v, h) {
   const coll = c.up || 0;
   const hold = -v.vel.y * 0.9;
   const ground = Math.max(0, 1 - (v.alt ?? 99) / 20) * 0.12; // ground effect
-  const lift = alive ? r2 * d.mass * (G * (1 + ground) + (coll * 34 + (coll === 0 ? hold : 0)) * healthy) : 0;
+  const lift = alive ? r2 * d.mass * (G * (1 + ground) + (coll * 24 + (coll === 0 ? hold : 0)) * healthy) : 0;
   addForce(v, up.x * lift, up.y * lift, up.z * lift, v.com.x, v.com.y, v.com.z);
   // drag
   const sp = v.vel.length();
@@ -522,19 +541,24 @@ function planeForces(v, h) {
   const dragC = m * (d.cd0 + d.cdi * cl * cl);
   F.addScaledVector(v.vel, -dragC * v.vel.length());
   F.addScaledVector(lf, -s * Math.abs(s) * m * 0.012 - s * m * 0.4);
-  // control surfaces bite with airspeed (a little on the ground so it can rotate)
+  // fly-by-wire controls (keyboard friendly): up/down asks for a pitch rate, steer for a roll rate, and the
+  // wings level themselves when let go; the air's own stability keeps the nose on the airflow
   const qf = Math.min(1.6, q / (d.vRot * d.vRot));
+  const auth = Math.min(1, Math.max(0.12, (u - 25) / 55));
   const I = d.I;
   const wP = v.angVel.dot(lf), wR = v.angVel.dot(fw), wY = v.angVel.dot(up);
-  // pitch: elevator (+up = nose up = negative about the left axis), stability from alpha, damping
-  T.addScaledVector(lf, (-(c.up || 0) * 2.4 * qf + alpha * 3.2 * qf - wP * (1.2 + 2.5 * qf)) * I.x);
-  // roll: ailerons, damping, a little wing-levelling
   RH.set(-fw.z, 0, fw.x).normalize();
   const roll = Math.asin(Math.max(-1, Math.min(1, up.dot(RH))));
-  T.addScaledVector(fw, ((c.steer || 0) * 3.2 * qf - wR * (1 + 3 * qf) - roll * 0.25 * qf) * I.z);
-  // yaw: rudder (yaw, some steer), weathervane, damping, and the bank turns the nose
-  const coord = Math.sin(roll) * Math.min(1, q / 3600) * 0.9;
-  T.addScaledVector(up, (-((c.yaw || 0) + (c.steer || 0) * 0.25) * 1.2 * qf - s * 0.02 * qf * 8 - wY * (1 + 2 * qf) - coord) * I.y);
+  const air = v.contacts === 0;
+  // pitch (+ about the left axis = nose down)
+  const pIn = c.up || 0, wPt = -pIn * 0.55 * auth;
+  const stab = Math.abs(pIn) < 0.05 && air ? 7 : 2.5; // hands off: the nose settles onto the flight path
+  T.addScaledVector(lf, ((wPt - wP) * 5 * (0.3 + auth) + alpha * stab * qf + (v.stall && air ? 1.4 : 0)) * I.x);
+  // roll (+ about forward = right wing down)
+  const wRt = Math.abs(c.steer || 0) > 0.05 ? (c.steer || 0) * 1.3 * auth : air ? -roll * 0.9 : 0;
+  T.addScaledVector(fw, (wRt - wR) * 5 * (0.2 + auth) * I.z);
+  // yaw: rudder, weathervane, damping
+  T.addScaledVector(up, (-(c.yaw || 0) * 0.6 * auth + s * 0.1 * qf - wY * (0.8 + 2 * qf)) * I.y);
   v.gear = 1;
 }
 
@@ -547,6 +571,9 @@ function groundContacts(v, h) {
   // quick reject: corners well above the ground under the centre aren't probed
   const g0 = groundProbe(v.com.x, v.com.y, v.com.z, 0.5, v.box);
   const lim = g0 + 0.7 + Math.max(0, -v.vel.y) * h * 2;
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i < cs.length; i++) { const c = cs[i], y = c[0] * lf.y + c[1] * up.y + c[2] * fw.y; if (y < lo) lo = y; if (y > hi) hi = y; }
+  v.lowY = v.pos.y + lo; v.highY = v.pos.y + Math.max(hi, d.hull.y1 * up.y);
   for (let i = 0; i < cs.length; i++) {
     const c = cs[i];
     if (v.pos.y + c[0] * lf.y + c[1] * up.y + c[2] * fw.y > lim) continue;
@@ -631,8 +658,8 @@ function staticContacts(v, h) {
   const d = v.def, ph = V.phys;
   const r = footprint(v);
   // vertical extent of the hull
-  const ext = d.radius;
-  const yLo = Math.min(v.pos.y, v.com.y - ext * Math.abs(up.y) * 0.5) + d.stepH, yHi = v.com.y + Math.max(1, ext * 0.5);
+  // boxes below the step height are ground (the wheels and the hull corners ride over them)
+  const yLo = Math.min(v.pos.y, v.lowY) + d.stepH, yHi = Math.max(v.highY, yLo + 1);
   const rr = Math.hypot(r.hl, r.hw) + 0.5;
   const st = ++stamp;
   let best = 0, bestBox = null;
