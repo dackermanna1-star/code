@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:glacior_bluestone",
+      "required": false
+    },
+    {
+      "id": "portalgun:glacior_glacier_ice",
+      "required": false
+    }
+  ]
+}

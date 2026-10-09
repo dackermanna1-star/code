@@ -1,0 +1,112 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cozy_breeze"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.cherry_grove",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.cherry_grove",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:cherry_leaves"
+        },
+        "probability": 0.0003
+      }
+    ],
+    "minecraft:visual/sky_color": "#7acaff",
+    "minecraft:visual/water_fog_color": "#3adce4"
+  },
+  "carvers": [
+    "portalgun:paradisia_cave",
+    "portalgun:paradisia_canyon"
+  ],
+  "downfall": 0.3,
+  "effects": {
+    "water_color": "#50f4ee",
+    "grass_color": "#6ad050",
+    "foliage_color": "#4ab840",
+    "dry_foliage_color": "#4ab840"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:paradisia/paradisia_pink_cove/3_boulder"
+    ],
+    [],
+    [
+      "portalgun:paradisia/paradisia_pink_cove/4_spire"
+    ],
+    [],
+    [
+      "portalgun:paradisia/ore_coal",
+      "portalgun:paradisia/ore_iron",
+      "portalgun:paradisia/ore_copper",
+      "portalgun:paradisia/ore_gold",
+      "portalgun:paradisia/ore_redstone",
+      "portalgun:paradisia/ore_lapis",
+      "portalgun:paradisia/ore_diamond",
+      "portalgun:paradisia/ore_emerald"
+    ],
+    [],
+    [],
+    [
+      "minecraft:warm_ocean_vegetation",
+      "minecraft:seagrass_warm",
+      "minecraft:sea_pickle",
+      "portalgun:paradisia/paradisia_pink_cove/0_tree",
+      "portalgun:paradisia/paradisia_pink_cove/1_patch",
+      "portalgun:paradisia/paradisia_pink_cove/2_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:beach_crab",
+        "weight": 14,
+        "minCount": 3,
+        "maxCount": 5
+      },
+      {
+        "type": "portalgun:coconut_monkey",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [
+      {
+        "type": "portalgun:parrotfish",
+        "weight": 6,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.5
+}

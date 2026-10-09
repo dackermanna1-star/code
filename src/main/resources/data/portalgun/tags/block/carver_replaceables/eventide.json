@@ -1,0 +1,29 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "minecraft:deepslate",
+      "required": false
+    },
+    {
+      "id": "portalgun:eventide_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:eventide_moonstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:eventide_slate",
+      "required": false
+    },
+    {
+      "id": "portalgun:eventide_soil",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

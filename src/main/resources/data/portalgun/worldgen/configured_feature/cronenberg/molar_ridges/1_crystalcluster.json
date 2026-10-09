@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:crystal_cluster",
+  "config": {
+    "block": {
+      "Name": "minecraft:bone_block"
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 7
+    },
+    "small": {
+      "Name": "portalgun:cronen_tooth",
+      "Properties": {
+        "facing": "up"
+      }
+    }
+  }
+}

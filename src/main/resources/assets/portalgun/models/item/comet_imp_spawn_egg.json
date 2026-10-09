@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "portalgun:item/comet_imp_spawn_egg"
+  }
+}

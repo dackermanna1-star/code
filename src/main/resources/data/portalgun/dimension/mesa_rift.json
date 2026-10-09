@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:mesa_rift",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:mesa_rift",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:mesa_rift_sage_mesa",
+          "parameters": {
+            "temperature": -0.4,
+            "humidity": 0.4,
+            "continentalness": 0.5,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:mesa_rift_hoodoo_badlands",
+          "parameters": {
+            "temperature": 0.6,
+            "humidity": -0.4,
+            "continentalness": 0.2,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:mesa_rift_rift_floor",
+          "parameters": {
+            "temperature": 0.1,
+            "humidity": 0.1,
+            "continentalness": -0.8,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:mesa_rift_painted_bluffs",
+          "parameters": {
+            "temperature": -0.6,
+            "humidity": -0.6,
+            "continentalness": 0.4,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:jurassica_shale",
+      "required": false
+    }
+  ]
+}

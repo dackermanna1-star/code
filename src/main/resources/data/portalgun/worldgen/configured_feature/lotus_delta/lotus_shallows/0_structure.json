@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "lily_pad",
+    "blocks": {
+      "pad": {
+        "Name": "portalgun:lotus_giant_pad"
+      },
+      "flower": {
+        "Name": "portalgun:lotus_petal_block"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 12
+    },
+    "params": {
+      "notch": 20.0,
+      "flowers": 2.0
+    }
+  }
+}

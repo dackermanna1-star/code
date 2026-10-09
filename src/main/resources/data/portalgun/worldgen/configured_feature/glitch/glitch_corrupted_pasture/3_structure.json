@@ -1,0 +1,26 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "cuboids",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:glitch_corrupt_grass"
+      },
+      "alt": {
+        "Name": "portalgun:glitch_corrupt_dirt"
+      },
+      "trim": {
+        "Name": "portalgun:glitch_missing_block"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 6
+    },
+    "params": {
+      "float": 8.0,
+      "scatter": 4.0
+    }
+  }
+}

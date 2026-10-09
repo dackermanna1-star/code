@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "group": "planks",
+  "ingredients": [
+    "portalgun:sakura_log"
+  ],
+  "result": {
+    "count": 4,
+    "id": "portalgun:sakura_vermilion_wood"
+  }
+}

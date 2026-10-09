@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "portalgun:block/plush_yarn_log_end",
+    "side": "portalgun:block/plush_yarn_log_side"
+  }
+}

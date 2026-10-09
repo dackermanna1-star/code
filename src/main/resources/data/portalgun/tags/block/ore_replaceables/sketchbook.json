@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:sketchbook_graphite",
+      "required": false
+    }
+  ]
+}

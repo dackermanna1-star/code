@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:crystal_cluster",
+  "config": {
+    "block": {
+      "Name": "portalgun:inversia_gravity_quartz"
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 6
+    },
+    "small": {
+      "Name": "portalgun:inversia_quartz_drip",
+      "Properties": {
+        "facing": "up"
+      }
+    }
+  }
+}

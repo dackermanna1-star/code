@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:tree",
+  "config": {
+    "log": {
+      "Name": "portalgun:paradisia_palm_log"
+    },
+    "leaves": {
+      "Name": "portalgun:paradisia_palm_fronds",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "palm",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 8
+    },
+    "decoration": {
+      "Name": "portalgun:paradisia_coconuts"
+    }
+  }
+}

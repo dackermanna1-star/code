@@ -1,0 +1,43 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:tempest_crag"
+          },
+          "weight": 4
+        },
+        {
+          "data": {
+            "Name": "portalgun:tempest_stone"
+          },
+          "weight": 2
+        },
+        {
+          "data": {
+            "Name": "portalgun:tempest_fulgurite"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 20,
+      "max_inclusive": 40
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "lean": 0.35,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:tempest_stormglass"
+    }
+  }
+}

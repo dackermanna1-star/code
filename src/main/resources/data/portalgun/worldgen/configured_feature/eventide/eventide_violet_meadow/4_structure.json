@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "arch",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:eventide_slate"
+      },
+      "alt": {
+        "Name": "portalgun:eventide_moonstone"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 6
+    },
+    "params": {
+      "height": 1.6,
+      "thickness": 1.2
+    }
+  }
+}

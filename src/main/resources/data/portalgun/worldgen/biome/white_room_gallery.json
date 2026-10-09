@@ -1,0 +1,81 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cosmic_drone"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.end",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.end",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/water_fog_color": "#3a3a3c"
+  },
+  "carvers": [],
+  "downfall": 0.38,
+  "effects": {
+    "water_color": "#e8e8f0",
+    "grass_color": "#e8e8e8",
+    "foliage_color": "#e0e0e0",
+    "dry_foliage_color": "#e0e0e0"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:white_room/white_room_gallery/0_structure",
+      "portalgun:white_room/white_room_gallery/1_structure",
+      "portalgun:white_room/white_room_gallery/2_structure",
+      "portalgun:white_room/white_room_gallery/3_structure"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:white_room/white_room_gallery/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:silhouette",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:faceless",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.1
+}

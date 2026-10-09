@@ -1,0 +1,114 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cozy_breeze"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.sparse_jungle",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.sparse_jungle",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 14735504,
+          "scale": 0.5
+        },
+        "probability": 0.0015
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#1e4a3a"
+  },
+  "carvers": [
+    "portalgun:jurassica_cave",
+    "portalgun:jurassica_canyon"
+  ],
+  "downfall": 0.54,
+  "effects": {
+    "water_color": "#3a8a7a",
+    "grass_color": "#5a8a2e",
+    "foliage_color": "#4a7e2a",
+    "dry_foliage_color": "#4a7e2a"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:jurassica/jurassica_cycad_plains/5_boulder"
+    ],
+    [],
+    [
+      "portalgun:jurassica/jurassica_cycad_plains/6_structure"
+    ],
+    [],
+    [
+      "portalgun:jurassica/ore_coal",
+      "portalgun:jurassica/ore_iron",
+      "portalgun:jurassica/ore_copper",
+      "portalgun:jurassica/ore_gold",
+      "portalgun:jurassica/ore_redstone",
+      "portalgun:jurassica/ore_lapis",
+      "portalgun:jurassica/ore_diamond",
+      "portalgun:jurassica/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:jurassica/spring"
+    ],
+    [
+      "portalgun:jurassica/jurassica_cycad_plains/0_giantplant",
+      "portalgun:jurassica/jurassica_cycad_plains/1_giantplant",
+      "portalgun:jurassica/jurassica_cycad_plains/2_patch",
+      "portalgun:jurassica/jurassica_cycad_plains/3_patch",
+      "portalgun:jurassica/jurassica_cycad_plains/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:raptor",
+        "weight": 4,
+        "minCount": 2,
+        "maxCount": 3
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:brontoback",
+        "weight": 12,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:pterodon",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.35000000000000003
+}

@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "tendril",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:oculus_eyestalk"
+      },
+      "tip": {
+        "Name": "portalgun:oculus_iris"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 8
+    }
+  }
+}

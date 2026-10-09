@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:prismara_slate",
+      "required": false
+    },
+    {
+      "id": "portalgun:prismara_stone",
+      "required": false
+    }
+  ]
+}

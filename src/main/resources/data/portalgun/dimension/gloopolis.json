@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:gloopolis",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:gloopolis",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:gloop_bounce_hills",
+          "parameters": {
+            "temperature": 0.0,
+            "humidity": 0.0,
+            "continentalness": 0.25,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:gloop_jelly_shallows",
+          "parameters": {
+            "temperature": 0.35,
+            "humidity": 0.6,
+            "continentalness": -0.7,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:gloop_ooze_bog",
+          "parameters": {
+            "temperature": -0.4,
+            "humidity": 0.65,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:gloop_bubble_fields",
+          "parameters": {
+            "temperature": -0.2,
+            "humidity": -0.65,
+            "continentalness": 0.1,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

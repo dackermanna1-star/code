@@ -1,0 +1,95 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.volcanic_rumble",
+      "additions": {
+        "sound": "minecraft:ambient.basalt_deltas.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.nether.basalt_deltas",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.nether.basalt_deltas",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:ash"
+        },
+        "probability": 0.006
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#2a0408"
+  },
+  "carvers": [
+    "portalgun:cronenberg_cave",
+    "portalgun:cronenberg_canyon"
+  ],
+  "downfall": 0.572,
+  "effects": {
+    "water_color": "#6a0a18",
+    "grass_color": "#c4646a"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:cronenberg/molar_ridges/0_spire"
+    ],
+    [],
+    [],
+    [
+      "portalgun:cronenberg/molar_ridges/1_crystalcluster",
+      "portalgun:cronenberg/molar_ridges/3_patch"
+    ],
+    [
+      "portalgun:cronenberg/spring"
+    ],
+    [
+      "portalgun:cronenberg/molar_ridges/2_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:cronenberg",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:flesh_crawler",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.12
+}

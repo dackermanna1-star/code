@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "geyser",
+    "blocks": {
+      "vent": {
+        "Name": "portalgun:abyssia_bubble_vent"
+      },
+      "mound": {
+        "Name": "portalgun:abyssia_reefrock"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 7
+    }
+  }
+}

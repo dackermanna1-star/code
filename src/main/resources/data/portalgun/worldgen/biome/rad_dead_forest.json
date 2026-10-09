@@ -1,0 +1,109 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.eerie_choir",
+      "additions": {
+        "sound": "minecraft:ambient.soul_sand_valley.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.nether.soul_sand_valley",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.nether.soul_sand_valley",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:ash"
+        },
+        "probability": 0.03
+      }
+    ],
+    "minecraft:visual/fog_color": "#6a6648",
+    "minecraft:visual/fog_end_distance": 80.0,
+    "minecraft:visual/fog_start_distance": 16.0,
+    "minecraft:visual/sky_color": "#8a8448",
+    "minecraft:visual/sky_fog_end_distance": 120.0,
+    "minecraft:visual/water_fog_color": "#1e4a0a"
+  },
+  "carvers": [
+    "portalgun:radlands_cave",
+    "portalgun:radlands_canyon"
+  ],
+  "downfall": 0.42,
+  "effects": {
+    "water_color": "#5aff20",
+    "grass_color": "#6c6654",
+    "foliage_color": "#54483a",
+    "dry_foliage_color": "#54483a"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:radlands/rad_dead_forest/1_spire"
+    ],
+    [],
+    [
+      "portalgun:radlands/ore_coal",
+      "portalgun:radlands/ore_iron",
+      "portalgun:radlands/ore_copper",
+      "portalgun:radlands/ore_gold",
+      "portalgun:radlands/ore_redstone",
+      "portalgun:radlands/ore_lapis",
+      "portalgun:radlands/ore_diamond",
+      "portalgun:radlands/ore_emerald"
+    ],
+    [],
+    [],
+    [
+      "portalgun:radlands/rad_dead_forest/0_tree",
+      "portalgun:radlands/rad_dead_forest/2_tree",
+      "portalgun:radlands/rad_dead_forest/3_patch",
+      "portalgun:radlands/rad_dead_forest/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:glowing_ghoul",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:mutant_rat",
+        "weight": 6,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "creature": [],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.55
+}

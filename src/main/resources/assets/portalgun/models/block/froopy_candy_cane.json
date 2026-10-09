@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "portalgun:block/froopy_candy_cane_end",
+    "side": "portalgun:block/froopy_candy_cane_side"
+  }
+}

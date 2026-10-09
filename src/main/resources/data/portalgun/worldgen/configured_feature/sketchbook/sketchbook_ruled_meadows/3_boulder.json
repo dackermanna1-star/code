@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:boulder",
+  "config": {
+    "blocks": {
+      "type": "minecraft:simple_state_provider",
+      "state": {
+        "Name": "portalgun:sketchbook_crumpled_paper"
+      }
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "hollow": false,
+    "squash": 0.95,
+    "floating": false
+  }
+}

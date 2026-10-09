@@ -1,0 +1,108 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.sizzle_toxic"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.nether.nether_wastes",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.nether.nether_wastes",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:smoke"
+        },
+        "probability": 0.004
+      },
+      {
+        "particle": {
+          "type": "minecraft:small_flame"
+        },
+        "probability": 0.0008
+      }
+    ],
+    "minecraft:visual/fog_color": "#6a5444",
+    "minecraft:visual/water_fog_color": "#060408"
+  },
+  "carvers": [
+    "portalgun:scrapheap_cave",
+    "portalgun:scrapheap_canyon"
+  ],
+  "downfall": 0.74,
+  "effects": {
+    "water_color": "#14101a",
+    "grass_color": "#4a4030"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:scrapheap/scrapheap_oil_fens/2_structure",
+      "portalgun:scrapheap/scrapheap_oil_fens/3_spire"
+    ],
+    [],
+    [
+      "portalgun:scrapheap/ore_coal",
+      "portalgun:scrapheap/ore_iron",
+      "portalgun:scrapheap/ore_copper",
+      "portalgun:scrapheap/ore_gold",
+      "portalgun:scrapheap/ore_redstone",
+      "portalgun:scrapheap/ore_lapis",
+      "portalgun:scrapheap/ore_diamond",
+      "portalgun:scrapheap/ore_emerald",
+      "portalgun:scrapheap/scrapheap_oil_fens/0_disk"
+    ],
+    [],
+    [
+      "portalgun:scrapheap/spring"
+    ],
+    [
+      "portalgun:scrapheap/scrapheap_oil_fens/1_patch",
+      "portalgun:scrapheap/scrapheap_oil_fens/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:scrap_drone",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:rust_rat",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.55
+}

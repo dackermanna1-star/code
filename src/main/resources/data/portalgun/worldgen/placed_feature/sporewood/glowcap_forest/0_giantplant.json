@@ -2,8 +2,8 @@
   "feature": "portalgun:sporewood/glowcap_forest/0_giantplant",
   "placement": [
     {
-      "type": "minecraft:count",
-      "count": 3
+      "type": "minecraft:rarity_filter",
+      "chance": 7
     },
     {
       "type": "minecraft:in_square"

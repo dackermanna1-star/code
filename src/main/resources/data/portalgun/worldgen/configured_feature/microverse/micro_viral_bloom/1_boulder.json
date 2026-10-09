@@ -1,0 +1,30 @@
+{
+  "type": "portalgun:boulder",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:micro_lysosome"
+          },
+          "weight": 1
+        },
+        {
+          "data": {
+            "Name": "portalgun:micro_matrix"
+          },
+          "weight": 2
+        }
+      ]
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 3
+    },
+    "hollow": false,
+    "squash": 1.0,
+    "floating": false
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.neon_synth"
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16767050,
+          "scale": 0.7
+        },
+        "probability": 0.002
+      },
+      {
+        "particle": {
+          "type": "minecraft:end_rod"
+        },
+        "probability": 0.0008
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#300e40"
+  },
+  "carvers": [],
+  "downfall": 0.66,
+  "effects": {
+    "water_color": "#c03aff",
+    "grass_color": "#ff2bd6",
+    "foliage_color": "#21f4ff",
+    "dry_foliage_color": "#21f4ff"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:synthwave/synthwave_palm_boulevard/2_spire"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:synthwave/synthwave_palm_boulevard/0_giantplant",
+      "portalgun:synthwave/synthwave_palm_boulevard/1_giantplant",
+      "portalgun:synthwave/synthwave_palm_boulevard/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:glitch_cube",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:pixel_bird",
+        "weight": 14,
+        "minCount": 2,
+        "maxCount": 5
+      },
+      {
+        "type": "portalgun:neon_panther",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.55
+}

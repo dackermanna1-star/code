@@ -1,0 +1,122 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.eerie_choir",
+      "additions": {
+        "sound": "minecraft:ambient.soul_sand_valley.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16743136,
+          "scale": 0.9
+        },
+        "probability": 0.008
+      },
+      {
+        "particle": {
+          "type": "minecraft:reverse_portal"
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/fog_color": "#2e0c30",
+    "minecraft:visual/fog_end_distance": 110.0,
+    "minecraft:visual/fog_start_distance": 16.0,
+    "minecraft:visual/sky_fog_end_distance": 165.0,
+    "minecraft:visual/water_fog_color": "#4a0c40"
+  },
+  "carvers": [],
+  "downfall": 0.38,
+  "effects": {
+    "water_color": "#e05ad0"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:prismara/magenta_depths/5_geode"
+    ],
+    [],
+    [
+      "portalgun:prismara/magenta_depths/0_spire",
+      "portalgun:prismara/magenta_depths/1_spire"
+    ],
+    [],
+    [
+      "portalgun:prismara/ore_coal",
+      "portalgun:prismara/ore_iron",
+      "portalgun:prismara/ore_copper",
+      "portalgun:prismara/ore_gold",
+      "portalgun:prismara/ore_redstone",
+      "portalgun:prismara/ore_lapis",
+      "portalgun:prismara/ore_diamond",
+      "portalgun:prismara/ore_emerald"
+    ],
+    [
+      "portalgun:prismara/magenta_depths/2_crystalcluster"
+    ],
+    [
+      "portalgun:prismara/spring"
+    ],
+    [
+      "portalgun:prismara/magenta_depths/3_patch",
+      "portalgun:prismara/magenta_depths/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:crystal_crawler",
+        "weight": 10,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:shimmer_moth",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:geode_golem",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.25
+}

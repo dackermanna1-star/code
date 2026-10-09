@@ -1,0 +1,22 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "ring",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:aerolith_stone"
+      },
+      "alt": {
+        "Name": "portalgun:aerolith_sunstone"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 8
+    },
+    "params": {
+      "float": 6.0
+    }
+  }
+}

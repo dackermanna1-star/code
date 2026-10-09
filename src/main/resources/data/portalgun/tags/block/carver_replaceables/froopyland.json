@@ -1,0 +1,29 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:froopy_cake",
+      "required": false
+    },
+    {
+      "id": "portalgun:froopy_frosting",
+      "required": false
+    },
+    {
+      "id": "portalgun:froopy_fudge_stone",
+      "required": false
+    },
+    {
+      "id": "portalgun:froopy_mint_frosting",
+      "required": false
+    },
+    {
+      "id": "portalgun:froopy_sprinkle_sand",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

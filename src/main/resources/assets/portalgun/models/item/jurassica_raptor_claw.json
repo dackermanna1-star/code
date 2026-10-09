@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "portalgun:item/jurassica_raptor_claw"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "axis=x": {
+      "model": "portalgun:block/colossia_stalk_horizontal",
+      "x": 90,
+      "y": 90
+    },
+    "axis=y": {
+      "model": "portalgun:block/colossia_stalk"
+    },
+    "axis=z": {
+      "model": "portalgun:block/colossia_stalk_horizontal",
+      "x": 90
+    }
+  }
+}

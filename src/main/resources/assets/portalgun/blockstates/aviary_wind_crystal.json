@@ -1,0 +1,30 @@
+{
+  "variants": {
+    "facing=down": {
+      "model": "portalgun:block/aviary_wind_crystal",
+      "x": 180
+    },
+    "facing=up": {
+      "model": "portalgun:block/aviary_wind_crystal"
+    },
+    "facing=north": {
+      "model": "portalgun:block/aviary_wind_crystal",
+      "x": 90
+    },
+    "facing=south": {
+      "model": "portalgun:block/aviary_wind_crystal",
+      "x": 90,
+      "y": 180
+    },
+    "facing=east": {
+      "model": "portalgun:block/aviary_wind_crystal",
+      "x": 90,
+      "y": 90
+    },
+    "facing=west": {
+      "model": "portalgun:block/aviary_wind_crystal",
+      "x": 90,
+      "y": 270
+    }
+  }
+}

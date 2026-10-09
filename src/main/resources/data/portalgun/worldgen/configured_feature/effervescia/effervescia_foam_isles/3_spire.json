@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:simple_state_provider",
+      "state": {
+        "Name": "portalgun:effervescia_straw"
+      }
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 10,
+      "max_inclusive": 20
+    },
+    "radius": 1,
+    "lean": 0.55,
+    "hanging": false
+  }
+}

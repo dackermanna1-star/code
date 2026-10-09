@@ -1,0 +1,118 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.alien_hum",
+      "additions": {
+        "sound": "minecraft:ambient.warped_forest.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.dripstone_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.dripstone_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 15777856,
+          "scale": 0.7
+        },
+        "probability": 0.004
+      },
+      {
+        "particle": {
+          "type": "minecraft:wax_on"
+        },
+        "probability": 0.001
+      }
+    ],
+    "minecraft:visual/fog_color": "#261a3a",
+    "minecraft:visual/water_fog_color": "#3a1a5a"
+  },
+  "carvers": [],
+  "downfall": 0.09999999999999998,
+  "effects": {
+    "water_color": "#c08aff"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:prismara/geode_vaults/0_geode",
+      "portalgun:prismara/geode_vaults/1_geode",
+      "portalgun:prismara/geode_vaults/2_boulder"
+    ],
+    [],
+    [],
+    [],
+    [
+      "portalgun:prismara/ore_coal",
+      "portalgun:prismara/ore_iron",
+      "portalgun:prismara/ore_copper",
+      "portalgun:prismara/ore_gold",
+      "portalgun:prismara/ore_redstone",
+      "portalgun:prismara/ore_lapis",
+      "portalgun:prismara/ore_diamond",
+      "portalgun:prismara/ore_emerald",
+      "portalgun:prismara/geode_vaults/5_ore"
+    ],
+    [
+      "portalgun:prismara/geode_vaults/3_crystalcluster"
+    ],
+    [
+      "portalgun:prismara/spring"
+    ],
+    [
+      "portalgun:prismara/geode_vaults/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:crystal_crawler",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:geode_golem",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 1
+      },
+      {
+        "type": "portalgun:shimmer_moth",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.9
+}

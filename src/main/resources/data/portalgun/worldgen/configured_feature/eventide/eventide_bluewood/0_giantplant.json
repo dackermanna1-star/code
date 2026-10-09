@@ -1,0 +1,33 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:eventide_silverbark_log"
+    },
+    "head": {
+      "Name": "portalgun:eventide_bluewood_leaves",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "puff",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 20,
+      "max_inclusive": 28
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 8
+    },
+    "stem_width": 2,
+    "bend": 0.1,
+    "decoration": {
+      "Name": "portalgun:eventide_starleaf",
+      "Properties": {
+        "persistent": "true"
+      }
+    }
+  }
+}

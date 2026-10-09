@@ -1,0 +1,113 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cozy_breeze"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.cherry_grove",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.cherry_grove",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:cherry_leaves"
+        },
+        "probability": 0.003
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16765148,
+          "scale": 0.7
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#a8c0d8"
+  },
+  "carvers": [
+    "portalgun:aviary_cave",
+    "portalgun:aviary_canyon"
+  ],
+  "downfall": 0.78,
+  "effects": {
+    "water_color": "#c8dcec",
+    "grass_color": "#5a7e56",
+    "foliage_color": "#e07a98",
+    "dry_foliage_color": "#e07a98"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:aviary/aviary_bloom_ledges/5_boulder"
+    ],
+    [],
+    [
+      "portalgun:aviary/aviary_bloom_ledges/3_structure"
+    ],
+    [],
+    [
+      "portalgun:aviary/ore_coal",
+      "portalgun:aviary/ore_iron",
+      "portalgun:aviary/ore_copper",
+      "portalgun:aviary/ore_gold",
+      "portalgun:aviary/ore_redstone",
+      "portalgun:aviary/ore_lapis",
+      "portalgun:aviary/ore_diamond",
+      "portalgun:aviary/ore_emerald"
+    ],
+    [
+      "portalgun:aviary/aviary_bloom_ledges/4_patch"
+    ],
+    [
+      "portalgun:aviary/spring"
+    ],
+    [
+      "portalgun:aviary/aviary_bloom_ledges/0_giantplant",
+      "portalgun:aviary/aviary_bloom_ledges/1_patch",
+      "portalgun:aviary/aviary_bloom_ledges/2_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:nestling",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:cliff_diver",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.05
+}

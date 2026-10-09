@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/aviary_cliff_grass"
+      },
+      {
+        "model": "portalgun:block/aviary_cliff_grass",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/aviary_cliff_grass",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/aviary_cliff_grass",
+        "y": 270
+      }
+    ]
+  }
+}

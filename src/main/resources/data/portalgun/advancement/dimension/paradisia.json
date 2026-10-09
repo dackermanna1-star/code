@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:paradisia"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:paradisia_coconut"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.paradisia.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.paradisia.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

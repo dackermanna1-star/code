@@ -1,0 +1,109 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.eerie_choir",
+      "additions": {
+        "sound": "minecraft:ambient.soul_sand_valley.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:mycelium"
+        },
+        "probability": 0.015
+      },
+      {
+        "particle": {
+          "type": "minecraft:glow"
+        },
+        "probability": 0.0008
+      }
+    ],
+    "minecraft:visual/fog_color": "#2a1630",
+    "minecraft:visual/fog_end_distance": 72.0,
+    "minecraft:visual/fog_start_distance": 6.0,
+    "minecraft:visual/sky_fog_end_distance": 108.0,
+    "minecraft:visual/water_fog_color": "#100810"
+  },
+  "carvers": [
+    "portalgun:oculus_cave",
+    "portalgun:oculus_canyon"
+  ],
+  "downfall": 0.33999999999999997,
+  "effects": {
+    "water_color": "#2a1a30",
+    "grass_color": "#3a2148",
+    "foliage_color": "#3e3a24",
+    "dry_foliage_color": "#3e3a24"
+  },
+  "features": [
+    [],
+    [
+      "portalgun:oculus/oculus_gazing_pits/1_lake"
+    ],
+    [],
+    [],
+    [
+      "portalgun:oculus/oculus_gazing_pits/2_structure"
+    ],
+    [],
+    [
+      "portalgun:oculus/ore_coal",
+      "portalgun:oculus/ore_iron",
+      "portalgun:oculus/ore_copper",
+      "portalgun:oculus/ore_gold",
+      "portalgun:oculus/ore_redstone",
+      "portalgun:oculus/ore_lapis",
+      "portalgun:oculus/ore_diamond",
+      "portalgun:oculus/ore_emerald"
+    ],
+    [],
+    [],
+    [
+      "portalgun:oculus/oculus_gazing_pits/0_giantplant",
+      "portalgun:oculus/oculus_gazing_pits/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:floating_eye",
+        "weight": 7,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:bog_lurker",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [],
+    "ambient": [
+      {
+        "type": "portalgun:eyebat",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.5
+}

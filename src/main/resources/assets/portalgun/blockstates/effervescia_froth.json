@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/effervescia_froth"
+      },
+      {
+        "model": "portalgun:block/effervescia_froth",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/effervescia_froth",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/effervescia_froth",
+        "y": 270
+      }
+    ]
+  }
+}

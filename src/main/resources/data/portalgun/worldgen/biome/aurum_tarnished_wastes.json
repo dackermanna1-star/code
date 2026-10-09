@@ -1,0 +1,127 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.eerie_choir",
+      "additions": {
+        "sound": "minecraft:ambient.soul_sand_valley.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.badlands",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.badlands",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:ash"
+        },
+        "probability": 0.006
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 12618264,
+          "scale": 0.8
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/fog_color": "#b88a50",
+    "minecraft:visual/fog_end_distance": 150.0,
+    "minecraft:visual/fog_start_distance": 60.0,
+    "minecraft:visual/sky_color": "#c8925a",
+    "minecraft:visual/sky_fog_end_distance": 225.0,
+    "minecraft:visual/water_fog_color": "#3a2a10"
+  },
+  "carvers": [
+    "portalgun:aurum_cave",
+    "portalgun:aurum_canyon"
+  ],
+  "downfall": 0.22000000000000003,
+  "effects": {
+    "water_color": "#9a7a3a",
+    "grass_color": "#8a6414",
+    "foliage_color": "#a06c0c",
+    "dry_foliage_color": "#a06c0c"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:aurum/aurum_tarnished_wastes/4_boulder"
+    ],
+    [],
+    [
+      "portalgun:aurum/aurum_tarnished_wastes/0_spire"
+    ],
+    [],
+    [
+      "portalgun:aurum/ore_coal",
+      "portalgun:aurum/ore_iron",
+      "portalgun:aurum/ore_copper",
+      "portalgun:aurum/ore_gold",
+      "portalgun:aurum/ore_redstone",
+      "portalgun:aurum/ore_lapis",
+      "portalgun:aurum/ore_diamond",
+      "portalgun:aurum/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:aurum/spring"
+    ],
+    [
+      "portalgun:aurum/aurum_tarnished_wastes/1_tree",
+      "portalgun:aurum/aurum_tarnished_wastes/2_patch",
+      "portalgun:aurum/aurum_tarnished_wastes/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:treasure_mimic",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:midas_golem",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 1
+      },
+      {
+        "type": "portalgun:goldbug",
+        "weight": 8,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.225
+}

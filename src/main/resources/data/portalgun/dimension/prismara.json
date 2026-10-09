@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:prismara",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:prismara",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:cyan_hollows",
+          "parameters": {
+            "temperature": 0.0,
+            "humidity": 0.5,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:magenta_depths",
+          "parameters": {
+            "temperature": 0.9,
+            "humidity": -0.3,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:prism_shallows",
+          "parameters": {
+            "temperature": -0.9,
+            "humidity": 0.2,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:geode_vaults",
+          "parameters": {
+            "temperature": 0.2,
+            "humidity": -1.0,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

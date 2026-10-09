@@ -1,0 +1,119 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.crystal_chimes"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:firefly"
+        },
+        "probability": 0.02
+      },
+      {
+        "particle": {
+          "type": "minecraft:end_rod"
+        },
+        "probability": 0.0015
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#0a5a5a"
+  },
+  "carvers": [
+    "portalgun:lumina_cave",
+    "portalgun:lumina_canyon"
+  ],
+  "downfall": 0.4,
+  "effects": {
+    "water_color": "#2ad8cc",
+    "grass_color": "#1f6652",
+    "foliage_color": "#1e5e4a",
+    "dry_foliage_color": "#1e5e4a"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:lumina/ore_coal",
+      "portalgun:lumina/ore_iron",
+      "portalgun:lumina/ore_copper",
+      "portalgun:lumina/ore_gold",
+      "portalgun:lumina/ore_redstone",
+      "portalgun:lumina/ore_lapis",
+      "portalgun:lumina/ore_diamond",
+      "portalgun:lumina/ore_emerald"
+    ],
+    [
+      "portalgun:lumina/lumina_moonbloom_glade/7_crystalcluster"
+    ],
+    [
+      "portalgun:lumina/spring"
+    ],
+    [
+      "portalgun:lumina/lumina_moonbloom_glade/0_giantplant",
+      "portalgun:lumina/lumina_moonbloom_glade/1_giantplant",
+      "portalgun:lumina/lumina_moonbloom_glade/2_tree",
+      "portalgun:lumina/lumina_moonbloom_glade/3_tree",
+      "portalgun:lumina/lumina_moonbloom_glade/4_patch",
+      "portalgun:lumina/lumina_moonbloom_glade/5_patch",
+      "portalgun:lumina/lumina_moonbloom_glade/6_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:lumi_panther",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:glow_frog",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "ambient": [
+      {
+        "type": "portalgun:lantern_bug",
+        "weight": 14,
+        "minCount": 4,
+        "maxCount": 6
+      }
+    ],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.625
+}

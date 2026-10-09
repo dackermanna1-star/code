@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:thermalia"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:thermalia_onsen_egg"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.thermalia.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.thermalia.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

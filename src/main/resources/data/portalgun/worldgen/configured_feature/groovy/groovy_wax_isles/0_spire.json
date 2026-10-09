@@ -1,0 +1,43 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:groovy_wax"
+          },
+          "weight": 4
+        },
+        {
+          "data": {
+            "Name": "portalgun:groovy_wax_magenta"
+          },
+          "weight": 2
+        },
+        {
+          "data": {
+            "Name": "portalgun:groovy_lamp_glow"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 12,
+      "max_inclusive": 26
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "lean": 0.35,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:groovy_lamp_glow"
+    }
+  }
+}

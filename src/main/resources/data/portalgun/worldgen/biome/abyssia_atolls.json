@@ -1,0 +1,93 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.tidal_waves"
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:glow"
+        },
+        "probability": 0.001
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#0e6a7a"
+  },
+  "carvers": [],
+  "downfall": 0.33999999999999997,
+  "effects": {
+    "water_color": "#3fe6e0",
+    "grass_color": "#5aa85a",
+    "foliage_color": "#4aa860",
+    "dry_foliage_color": "#4aa860"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:abyssia/abyssia_atolls/4_boulder"
+    ],
+    [],
+    [],
+    [],
+    [
+      "portalgun:abyssia/ore_coal",
+      "portalgun:abyssia/ore_iron",
+      "portalgun:abyssia/ore_copper",
+      "portalgun:abyssia/ore_gold",
+      "portalgun:abyssia/ore_redstone",
+      "portalgun:abyssia/ore_lapis",
+      "portalgun:abyssia/ore_diamond",
+      "portalgun:abyssia/ore_emerald"
+    ],
+    [],
+    [],
+    [
+      "minecraft:warm_ocean_vegetation",
+      "minecraft:seagrass_warm",
+      "portalgun:abyssia/abyssia_atolls/0_tree",
+      "portalgun:abyssia/abyssia_atolls/1_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "minecraft:turtle",
+        "weight": 5,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [
+      {
+        "type": "portalgun:bubble_ray",
+        "weight": 10,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "water_ambient": [
+      {
+        "type": "minecraft:tropical_fish",
+        "weight": 14,
+        "minCount": 4,
+        "maxCount": 8
+      }
+    ],
+    "misc": []
+  },
+  "temperature": 1.2000000000000002
+}

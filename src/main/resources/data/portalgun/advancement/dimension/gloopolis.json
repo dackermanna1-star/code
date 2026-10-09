@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:gloopolis"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:gloopolis_bounce_jelly"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.gloopolis.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.gloopolis.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

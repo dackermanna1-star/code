@@ -1,0 +1,37 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:aerolith_stone"
+          },
+          "weight": 4
+        },
+        {
+          "data": {
+            "Name": "portalgun:aerolith_soil"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 8,
+      "max_inclusive": 22
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "lean": 0.0,
+    "hanging": true,
+    "tip": {
+      "Name": "portalgun:aerolith_sunstone"
+    }
+  }
+}

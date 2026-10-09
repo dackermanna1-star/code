@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:rad_stone",
+      "required": false
+    }
+  ]
+}

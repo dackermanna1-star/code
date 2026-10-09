@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:prismara"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:prismara_prism_shard"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.prismara.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.prismara.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

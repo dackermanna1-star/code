@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:microverse"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:micro_atp"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.microverse.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.microverse.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

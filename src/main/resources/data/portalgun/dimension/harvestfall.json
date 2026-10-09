@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:harvestfall",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:harvestfall",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:harvestfall_crimson_maplewood",
+          "parameters": {
+            "temperature": 0.0,
+            "humidity": 0.4,
+            "continentalness": 0.2,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:harvestfall_amber_grove",
+          "parameters": {
+            "temperature": 0.6,
+            "humidity": -0.2,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:harvestfall_pumpkin_fields",
+          "parameters": {
+            "temperature": -0.6,
+            "humidity": -0.5,
+            "continentalness": -0.1,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:harvestfall_gloomhollow",
+          "parameters": {
+            "temperature": -0.3,
+            "humidity": 0.9,
+            "continentalness": 0.4,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

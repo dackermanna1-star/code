@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:eventide",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:eventide",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:eventide_bluewood",
+          "parameters": {
+            "temperature": 0.0,
+            "humidity": 0.55,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:eventide_violet_meadow",
+          "parameters": {
+            "temperature": 0.6,
+            "humidity": -0.3,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:eventide_moonpool_fen",
+          "parameters": {
+            "temperature": -0.4,
+            "humidity": 0.85,
+            "continentalness": -0.5,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:eventide_starfall_heights",
+          "parameters": {
+            "temperature": -0.6,
+            "humidity": -0.5,
+            "continentalness": 0.6,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,103 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.bubbling"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music_disc.pigstep",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music_disc.pigstep",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16753978,
+          "scale": 1.3
+        },
+        "probability": 0.004
+      },
+      {
+        "particle": {
+          "type": "minecraft:falling_lava"
+        },
+        "probability": 0.001
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#a83a08"
+  },
+  "carvers": [],
+  "downfall": 0.5,
+  "effects": {
+    "water_color": "#ff7a1a",
+    "grass_color": "#ffa53a",
+    "foliage_color": "#ff7a1a",
+    "dry_foliage_color": "#ff7a1a"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:groovy/groovy_wax_isles/2_boulder",
+      "portalgun:groovy/groovy_wax_isles/3_boulder"
+    ],
+    [],
+    [
+      "portalgun:groovy/groovy_wax_isles/0_spire",
+      "portalgun:groovy/groovy_wax_isles/1_spire"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:groovy/groovy_wax_isles/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:lava_lamp_blob",
+        "weight": 10,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:disco_beetle",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:groove_jelly",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.05
+}

@@ -1,0 +1,33 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "minecraft:bone_block"
+          },
+          "weight": 3
+        },
+        {
+          "data": {
+            "Name": "portalgun:ossuary_giant_bone"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 9
+    },
+    "radius": 1,
+    "lean": 0.05,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:ossuary_skull"
+    }
+  }
+}

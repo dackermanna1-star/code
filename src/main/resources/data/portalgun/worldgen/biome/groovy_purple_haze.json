@@ -1,0 +1,107 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cosmic_drone"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music_disc.mall",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music_disc.mall",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:witch"
+        },
+        "probability": 0.002
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 12615920,
+          "scale": 0.8
+        },
+        "probability": 0.003
+      }
+    ],
+    "minecraft:visual/fog_color": "#7a2a9a",
+    "minecraft:visual/fog_end_distance": 110.0,
+    "minecraft:visual/fog_start_distance": 44.0,
+    "minecraft:visual/sky_color": "#4a1070",
+    "minecraft:visual/sky_fog_end_distance": 165.0,
+    "minecraft:visual/water_fog_color": "#7a0e52"
+  },
+  "carvers": [],
+  "downfall": 0.8600000000000001,
+  "effects": {
+    "water_color": "#e0309a",
+    "grass_color": "#7430aa",
+    "foliage_color": "#a060d4",
+    "dry_foliage_color": "#a060d4"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:groovy/groovy_purple_haze/3_spire",
+      "portalgun:groovy/groovy_purple_haze/4_spire"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:groovy/groovy_purple_haze/0_patch",
+      "portalgun:groovy/groovy_purple_haze/1_patch",
+      "portalgun:groovy/groovy_purple_haze/2_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:groove_jelly",
+        "weight": 12,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:lava_lamp_blob",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 1
+      },
+      {
+        "type": "portalgun:disco_beetle",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.75
+}

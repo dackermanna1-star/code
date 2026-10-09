@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:hivemind_brood_comb",
+      "required": false
+    },
+    {
+      "id": "portalgun:hivemind_comb",
+      "required": false
+    }
+  ]
+}

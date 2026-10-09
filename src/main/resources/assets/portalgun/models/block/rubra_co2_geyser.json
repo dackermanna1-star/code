@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "portalgun:block/rubra_co2_geyser_top",
+    "side": "portalgun:block/rubra_co2_geyser_side",
+    "bottom": "portalgun:block/rubra_co2_geyser_side"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "tendril",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:inversia_rootwood"
+      },
+      "tip": {
+        "Name": "portalgun:inversia_lantern_pod"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 9
+    },
+    "params": {
+      "curl": 0.45,
+      "thickness": 0.8
+    }
+  }
+}

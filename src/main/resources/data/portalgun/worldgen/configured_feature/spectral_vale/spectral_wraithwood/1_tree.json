@@ -1,0 +1,17 @@
+{
+  "type": "portalgun:tree",
+  "config": {
+    "log": {
+      "Name": "portalgun:spectral_deadwood_log"
+    },
+    "leaves": {
+      "Name": "minecraft:cobweb"
+    },
+    "shape": "twisted",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 9
+    }
+  }
+}

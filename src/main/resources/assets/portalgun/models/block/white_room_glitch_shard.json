@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cross",
+  "textures": {
+    "cross": "portalgun:block/white_room_glitch_shard"
+  }
+}

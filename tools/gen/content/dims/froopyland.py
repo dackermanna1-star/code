@@ -224,7 +224,7 @@ DIMENSION = Dimension(
                  pattern="gradient", size=0.75,
                  body={"shape": "round", "blob_size": 12, "eye_style": "angry", "brows": True, "mouth": "fangs"},
                  behavior="hostile", attack="melee", movement="hopping", abilities=["leap"], health=12, damage=3,
-                 speed=0.32, armor=4, category="creature",
+                 speed=0.32, armor=4, category="monster",
                  drops=[Drop("froopy_jawbreaker_shard", 0, 2), Drop("minecraft:sugar", 0, 2)],
                  sounds="slime", pitch=1.5, xp=5, group=2,
                  description="A layered hard candy with a grudge. It bounces at you jaw-first."),

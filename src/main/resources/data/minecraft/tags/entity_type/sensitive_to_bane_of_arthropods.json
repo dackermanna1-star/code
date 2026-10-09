@@ -1,0 +1,77 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:ash_crawler",
+      "required": false
+    },
+    {
+      "id": "portalgun:beach_crab",
+      "required": false
+    },
+    {
+      "id": "portalgun:button_spider",
+      "required": false
+    },
+    {
+      "id": "portalgun:ceiling_crawler",
+      "required": false
+    },
+    {
+      "id": "portalgun:cogspider",
+      "required": false
+    },
+    {
+      "id": "portalgun:crater_crab",
+      "required": false
+    },
+    {
+      "id": "portalgun:crystal_crawler",
+      "required": false
+    },
+    {
+      "id": "portalgun:disco_beetle",
+      "required": false
+    },
+    {
+      "id": "portalgun:dust_mite",
+      "required": false
+    },
+    {
+      "id": "portalgun:flesh_crawler",
+      "required": false
+    },
+    {
+      "id": "portalgun:giant_ant",
+      "required": false
+    },
+    {
+      "id": "portalgun:glass_scorpion",
+      "required": false
+    },
+    {
+      "id": "portalgun:goldbug",
+      "required": false
+    },
+    {
+      "id": "portalgun:hive_warden",
+      "required": false
+    },
+    {
+      "id": "portalgun:ice_beetle",
+      "required": false
+    },
+    {
+      "id": "portalgun:salt_crab",
+      "required": false
+    },
+    {
+      "id": "portalgun:skull_crawler",
+      "required": false
+    },
+    {
+      "id": "portalgun:spine_crawler",
+      "required": false
+    }
+  ]
+}

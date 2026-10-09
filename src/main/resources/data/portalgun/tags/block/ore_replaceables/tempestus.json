@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:tempest_stone",
+      "required": false
+    }
+  ]
+}

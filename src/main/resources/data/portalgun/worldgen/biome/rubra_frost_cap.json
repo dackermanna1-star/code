@@ -1,0 +1,103 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.wind_howl"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.frozen_peaks",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.frozen_peaks",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.006
+      }
+    ],
+    "minecraft:visual/fog_color": "#d8c0b0",
+    "minecraft:visual/sky_color": "#c8a28a",
+    "minecraft:visual/water_fog_color": "#282c34"
+  },
+  "carvers": [
+    "portalgun:rubra_cave",
+    "portalgun:rubra_canyon"
+  ],
+  "downfall": 0.62,
+  "effects": {
+    "water_color": "#a0b0d0",
+    "grass_color": "#dcc8c4",
+    "foliage_color": "#c8b0ac",
+    "dry_foliage_color": "#c8b0ac"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:rubra/rubra_frost_cap/0_spire"
+    ],
+    [],
+    [
+      "portalgun:rubra/ore_coal",
+      "portalgun:rubra/ore_iron",
+      "portalgun:rubra/ore_copper",
+      "portalgun:rubra/ore_gold",
+      "portalgun:rubra/ore_redstone",
+      "portalgun:rubra/ore_lapis",
+      "portalgun:rubra/ore_diamond",
+      "portalgun:rubra/ore_emerald",
+      "portalgun:rubra/rubra_frost_cap/2_disk"
+    ],
+    [],
+    [],
+    [
+      "portalgun:rubra/rubra_frost_cap/1_patch",
+      "portalgun:rubra/rubra_frost_cap/3_patch"
+    ],
+    [
+      "minecraft:freeze_top_layer"
+    ]
+  ],
+  "has_precipitation": true,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:dust_mite",
+        "weight": 6,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:sand_skimmer",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": -0.3
+}

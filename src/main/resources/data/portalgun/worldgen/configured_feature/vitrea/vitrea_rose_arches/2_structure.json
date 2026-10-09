@@ -1,0 +1,16 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "monolith",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:vitrea_sandstone"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 9
+    }
+  }
+}

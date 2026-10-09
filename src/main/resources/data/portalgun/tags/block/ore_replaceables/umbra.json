@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:umbra_shadowstone",
+      "required": false
+    }
+  ]
+}

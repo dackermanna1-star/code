@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:glitch",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:glitch",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:glitch_corrupted_pasture",
+          "parameters": {
+            "temperature": 0.1,
+            "humidity": 0.1,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:glitch_missing_fields",
+          "parameters": {
+            "temperature": -0.7,
+            "humidity": 0.6,
+            "continentalness": 0.2,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:glitch_static_wastes",
+          "parameters": {
+            "temperature": 0.0,
+            "humidity": -0.6,
+            "continentalness": 0.4,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:glitch_unrendered",
+          "parameters": {
+            "temperature": 0.5,
+            "humidity": -0.4,
+            "continentalness": -0.5,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

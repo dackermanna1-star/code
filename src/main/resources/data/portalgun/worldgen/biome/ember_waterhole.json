@@ -1,0 +1,99 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.jungle_night"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.swamp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.swamp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:firefly"
+        },
+        "probability": 0.005
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#2a3020"
+  },
+  "carvers": [
+    "portalgun:ember_savanna_cave",
+    "portalgun:ember_savanna_canyon"
+  ],
+  "downfall": 0.8600000000000001,
+  "effects": {
+    "water_color": "#6a7a5a",
+    "grass_color": "#98902e",
+    "foliage_color": "#6a7a24",
+    "dry_foliage_color": "#6a7a24"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:ember_savanna/ore_coal",
+      "portalgun:ember_savanna/ore_iron",
+      "portalgun:ember_savanna/ore_copper",
+      "portalgun:ember_savanna/ore_gold",
+      "portalgun:ember_savanna/ore_redstone",
+      "portalgun:ember_savanna/ore_lapis",
+      "portalgun:ember_savanna/ore_diamond",
+      "portalgun:ember_savanna/ore_emerald"
+    ],
+    [],
+    [],
+    [
+      "portalgun:ember_savanna/ember_waterhole/0_patch",
+      "portalgun:ember_savanna/ember_waterhole/1_patch",
+      "portalgun:ember_savanna/ember_waterhole/2_patch",
+      "portalgun:ember_savanna/ember_waterhole/3_patch",
+      "portalgun:ember_savanna/ember_waterhole/4_tree"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:stripe_grazer",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 5
+      },
+      {
+        "type": "portalgun:longneck",
+        "weight": 8,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 2.0
+}

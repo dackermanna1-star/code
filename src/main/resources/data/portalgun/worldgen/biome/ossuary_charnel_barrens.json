@@ -1,0 +1,120 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.volcanic_rumble",
+      "additions": {
+        "sound": "minecraft:ambient.basalt_deltas.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.nether.basalt_deltas",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.nether.basalt_deltas",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:ash"
+        },
+        "probability": 0.03
+      },
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.01
+      }
+    ],
+    "minecraft:visual/fog_color": "#9a8270",
+    "minecraft:visual/fog_end_distance": 140.0,
+    "minecraft:visual/fog_start_distance": 40.0,
+    "minecraft:visual/sky_color": "#a07a5c",
+    "minecraft:visual/sky_fog_end_distance": 210.0,
+    "minecraft:visual/water_fog_color": "#2a201c"
+  },
+  "carvers": [
+    "portalgun:ossuary_cave",
+    "portalgun:ossuary_canyon"
+  ],
+  "downfall": 0.12,
+  "effects": {
+    "water_color": "#6a5a50"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:ossuary/ossuary_charnel_barrens/2_boulder"
+    ],
+    [],
+    [
+      "portalgun:ossuary/ossuary_charnel_barrens/1_spire",
+      "portalgun:ossuary/ossuary_charnel_barrens/3_spire"
+    ],
+    [],
+    [
+      "portalgun:ossuary/ore_coal",
+      "portalgun:ossuary/ore_iron",
+      "portalgun:ossuary/ore_copper",
+      "portalgun:ossuary/ore_gold",
+      "portalgun:ossuary/ore_redstone",
+      "portalgun:ossuary/ore_lapis",
+      "portalgun:ossuary/ore_diamond",
+      "portalgun:ossuary/ore_emerald"
+    ],
+    [],
+    [],
+    [
+      "portalgun:ossuary/ossuary_charnel_barrens/0_patch",
+      "portalgun:ossuary/ossuary_charnel_barrens/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:skull_crawler",
+        "weight": 6,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:bone_serpent",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:ossuary_vulture",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 2.0
+}

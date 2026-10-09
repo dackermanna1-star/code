@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:boulder",
+  "config": {
+    "blocks": {
+      "type": "minecraft:simple_state_provider",
+      "state": {
+        "Name": "portalgun:micro_mitochondrion"
+      }
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "hollow": false,
+    "squash": 0.55,
+    "floating": false
+  }
+}

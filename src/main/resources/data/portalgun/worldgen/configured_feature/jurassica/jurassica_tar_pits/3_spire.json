@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:simple_state_provider",
+      "state": {
+        "Name": "minecraft:bone_block"
+      }
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 9
+    },
+    "radius": 1,
+    "lean": 0.7,
+    "hanging": false
+  }
+}

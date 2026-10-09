@@ -1,0 +1,22 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:simple_state_provider",
+      "state": {
+        "Name": "portalgun:tempest_fulgurite"
+      }
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 10
+    },
+    "radius": 1,
+    "lean": 0.4,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:tempest_spark_cluster"
+    }
+  }
+}

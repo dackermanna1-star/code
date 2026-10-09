@@ -1,0 +1,101 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.alien_hum",
+      "additions": {
+        "sound": "minecraft:ambient.warped_forest.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music_disc.strad",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music_disc.strad",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 10119880,
+          "scale": 1.0
+        },
+        "probability": 0.005
+      }
+    ],
+    "minecraft:visual/fog_color": "#dccaf0",
+    "minecraft:visual/water_fog_color": "#5a4a8a"
+  },
+  "carvers": [],
+  "downfall": 0.42,
+  "effects": {
+    "water_color": "#9a84d8",
+    "grass_color": "#b8a2d4"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:microverse/micro_nucleus_chamber/0_boulder",
+      "portalgun:microverse/micro_nucleus_chamber/2_boulder"
+    ],
+    [],
+    [
+      "portalgun:microverse/micro_nucleus_chamber/1_structure"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:microverse/micro_nucleus_chamber/3_patch",
+      "portalgun:microverse/micro_nucleus_chamber/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:amoeba",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:phage",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [
+      {
+        "type": "portalgun:paramecium",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.05
+}

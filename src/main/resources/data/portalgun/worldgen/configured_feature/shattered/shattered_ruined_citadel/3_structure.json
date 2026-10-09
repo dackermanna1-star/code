@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "monolith",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:shattered_rift_obsidian"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 12,
+      "max_inclusive": 20
+    },
+    "params": {
+      "float": 5.0
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:mesa_rift_bandstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_orange_rock",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_red_dirt",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_red_sand",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_redrock",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_scrub_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_shale",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "type": "portalgun:boulder",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:rad_stone"
+          },
+          "weight": 5
+        },
+        {
+          "data": {
+            "Name": "portalgun:rad_glowrock"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 1,
+      "max_inclusive": 3
+    },
+    "hollow": false,
+    "squash": 1.0,
+    "floating": false
+  }
+}

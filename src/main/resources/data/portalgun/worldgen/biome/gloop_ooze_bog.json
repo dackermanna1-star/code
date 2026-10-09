@@ -1,0 +1,118 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.wet_squelch",
+      "additions": {
+        "sound": "minecraft:ambient.nether_wastes.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.swamp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.swamp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:item_slime"
+        },
+        "probability": 0.006
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 6460462,
+          "scale": 1.4
+        },
+        "probability": 0.006
+      }
+    ],
+    "minecraft:visual/fog_color": "#7ab878",
+    "minecraft:visual/fog_end_distance": 90.0,
+    "minecraft:visual/fog_start_distance": 36.0,
+    "minecraft:visual/sky_color": "#58c0a0",
+    "minecraft:visual/sky_fog_end_distance": 135.0,
+    "minecraft:visual/water_fog_color": "#2a5010"
+  },
+  "carvers": [
+    "portalgun:gloopolis_cave",
+    "portalgun:gloopolis_canyon"
+  ],
+  "downfall": 0.76,
+  "effects": {
+    "water_color": "#7ad040",
+    "grass_color": "#4a7a24",
+    "foliage_color": "#38621c",
+    "dry_foliage_color": "#38621c"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:gloopolis/gloop_ooze_bog/5_disk"
+    ],
+    [],
+    [
+      "portalgun:gloopolis/spring"
+    ],
+    [
+      "portalgun:gloopolis/gloop_ooze_bog/0_giantplant",
+      "portalgun:gloopolis/gloop_ooze_bog/1_patch",
+      "portalgun:gloopolis/gloop_ooze_bog/2_patch",
+      "portalgun:gloopolis/gloop_ooze_bog/3_patch",
+      "portalgun:gloopolis/gloop_ooze_bog/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:bounce_slime",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 3
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:goo_serpent",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 1
+      },
+      {
+        "type": "portalgun:blob_grazer",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.6000000000000001
+}

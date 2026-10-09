@@ -1,0 +1,113 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.bubbling"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.swamp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.swamp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:glow"
+        },
+        "probability": 0.003
+      },
+      {
+        "particle": {
+          "type": "minecraft:warped_spore"
+        },
+        "probability": 0.008
+      }
+    ],
+    "minecraft:visual/fog_color": "#2a4a62",
+    "minecraft:visual/water_fog_color": "#163a5a"
+  },
+  "carvers": [
+    "portalgun:sporewood_cave",
+    "portalgun:sporewood_canyon"
+  ],
+  "downfall": 0.8240000000000001,
+  "effects": {
+    "water_color": "#3a7ab0",
+    "grass_color": "#1f8a72"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:sporewood/ore_coal",
+      "portalgun:sporewood/ore_iron",
+      "portalgun:sporewood/ore_copper",
+      "portalgun:sporewood/ore_gold",
+      "portalgun:sporewood/ore_redstone",
+      "portalgun:sporewood/ore_lapis",
+      "portalgun:sporewood/ore_diamond",
+      "portalgun:sporewood/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:sporewood/spring"
+    ],
+    [
+      "portalgun:sporewood/sporewood_fen/0_patch",
+      "portalgun:sporewood/sporewood_fen/1_patch",
+      "portalgun:sporewood/sporewood_fen/2_giantplant",
+      "portalgun:sporewood/sporewood_fen/3_patch",
+      "portalgun:sporewood/sporewood_fen/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:mycelid_stalker",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:puffjelly",
+        "weight": 14,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:sporeling",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.5850000000000001
+}

@@ -1,0 +1,22 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:simple_state_provider",
+      "state": {
+        "Name": "portalgun:sakura_slate"
+      }
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 4
+    },
+    "radius": 1,
+    "lean": 0.0,
+    "hanging": false,
+    "cap": {
+      "Name": "portalgun:sakura_paper_lamp"
+    }
+  }
+}

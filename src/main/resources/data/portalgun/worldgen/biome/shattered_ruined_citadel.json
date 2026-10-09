@@ -1,0 +1,122 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.eerie_choir",
+      "additions": {
+        "sound": "minecraft:ambient.soul_sand_valley.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music_disc.11",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music_disc.11",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:ash"
+        },
+        "probability": 0.01
+      },
+      {
+        "particle": {
+          "type": "minecraft:reverse_portal"
+        },
+        "probability": 0.003
+      }
+    ],
+    "minecraft:visual/fog_color": "#30203c",
+    "minecraft:visual/water_fog_color": "#101e39"
+  },
+  "carvers": [],
+  "downfall": 0.3,
+  "effects": {
+    "water_color": "#3f76e4",
+    "grass_color": "#4a2f70",
+    "foliage_color": "#7a4ad0",
+    "dry_foliage_color": "#7a4ad0"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:shattered/shattered_ruined_citadel/4_boulder",
+      "portalgun:shattered/shattered_ruined_citadel/6_boulder"
+    ],
+    [],
+    [
+      "portalgun:shattered/shattered_ruined_citadel/0_structure",
+      "portalgun:shattered/shattered_ruined_citadel/1_structure",
+      "portalgun:shattered/shattered_ruined_citadel/2_structure",
+      "portalgun:shattered/shattered_ruined_citadel/3_structure",
+      "portalgun:shattered/shattered_ruined_citadel/7_spire"
+    ],
+    [],
+    [
+      "portalgun:shattered/ore_coal",
+      "portalgun:shattered/ore_iron",
+      "portalgun:shattered/ore_copper",
+      "portalgun:shattered/ore_gold",
+      "portalgun:shattered/ore_redstone",
+      "portalgun:shattered/ore_lapis",
+      "portalgun:shattered/ore_diamond",
+      "portalgun:shattered/ore_emerald"
+    ],
+    [
+      "portalgun:shattered/shattered_ruined_citadel/8_crystalcluster"
+    ],
+    [],
+    [
+      "portalgun:shattered/shattered_ruined_citadel/5_patch",
+      "portalgun:shattered/shattered_ruined_citadel/9_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:rift_stalker",
+        "weight": 5,
+        "minCount": 1,
+        "maxCount": 1
+      },
+      {
+        "type": "portalgun:shard_wraith",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:void_jelly",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.175
+}

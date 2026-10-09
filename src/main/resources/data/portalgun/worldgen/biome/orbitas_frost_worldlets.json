@@ -1,0 +1,91 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.wind_howl"
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:snowflake"
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#22323a"
+  },
+  "carvers": [],
+  "downfall": 0.5800000000000001,
+  "effects": {
+    "water_color": "#8ac8e8",
+    "grass_color": "#aadcf4",
+    "foliage_color": "#8ac8e8",
+    "dry_foliage_color": "#8ac8e8"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:orbitas/orbitas_frost_worldlets/0_spire"
+    ],
+    [],
+    [
+      "portalgun:orbitas/ore_coal",
+      "portalgun:orbitas/ore_iron",
+      "portalgun:orbitas/ore_copper",
+      "portalgun:orbitas/ore_gold",
+      "portalgun:orbitas/ore_redstone",
+      "portalgun:orbitas/ore_lapis",
+      "portalgun:orbitas/ore_diamond",
+      "portalgun:orbitas/ore_emerald"
+    ],
+    [
+      "portalgun:orbitas/orbitas_frost_worldlets/1_crystalcluster"
+    ],
+    [],
+    [],
+    [
+      "minecraft:freeze_top_layer"
+    ]
+  ],
+  "has_precipitation": true,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:comet_imp",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:void_ray",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:planet_grazer",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": -0.3
+}

@@ -1,0 +1,110 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cozy_breeze"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.flower_forest",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.flower_forest",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:cherry_leaves"
+        },
+        "probability": 0.004
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 13144319,
+          "scale": 0.8
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/fog_color": "#f4d8ff",
+    "minecraft:visual/water_fog_color": "#5030a0"
+  },
+  "carvers": [
+    "portalgun:spectra_cave",
+    "portalgun:spectra_canyon"
+  ],
+  "downfall": 0.72,
+  "effects": {
+    "water_color": "#b070ff",
+    "grass_color": "#ae90e4",
+    "foliage_color": "#ff9ad0",
+    "dry_foliage_color": "#ff9ad0"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:spectra/spring"
+    ],
+    [
+      "portalgun:spectra/spectra_chroma_grove/0_tree",
+      "portalgun:spectra/spectra_chroma_grove/1_tree",
+      "portalgun:spectra/spectra_chroma_grove/2_tree",
+      "portalgun:spectra/spectra_chroma_grove/3_giantplant",
+      "portalgun:spectra/spectra_chroma_grove/4_giantplant",
+      "portalgun:spectra/spectra_chroma_grove/5_patch",
+      "portalgun:spectra/spectra_chroma_grove/6_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:prism_unicorn",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:chroma_slime",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [
+      {
+        "type": "portalgun:rainbow_moth",
+        "weight": 14,
+        "minCount": 3,
+        "maxCount": 5
+      }
+    ],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.525
+}

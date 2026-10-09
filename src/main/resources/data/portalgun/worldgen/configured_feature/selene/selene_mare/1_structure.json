@@ -1,0 +1,25 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "cuboids",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:selene_gold_foil"
+      },
+      "alt": {
+        "Name": "minecraft:white_concrete"
+      },
+      "trim": {
+        "Name": "minecraft:iron_block"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 4
+    },
+    "params": {
+      "count": 2.0
+    }
+  }
+}

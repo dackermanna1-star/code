@@ -1,0 +1,37 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:gearhaven_brass_plate"
+          },
+          "weight": 3
+        },
+        {
+          "data": {
+            "Name": "portalgun:gearhaven_soot_brick"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 14,
+      "max_inclusive": 26
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 3
+    },
+    "lean": 0.0,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:gearhaven_clockface"
+    }
+  }
+}

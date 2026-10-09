@@ -1,0 +1,25 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "minecraft:deepslate",
+      "required": false
+    },
+    {
+      "id": "portalgun:oculus_bog_mud",
+      "required": false
+    },
+    {
+      "id": "portalgun:oculus_bogmoss",
+      "required": false
+    },
+    {
+      "id": "portalgun:oculus_lidstone",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

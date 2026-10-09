@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/lotus_marsh_grass"
+      },
+      {
+        "model": "portalgun:block/lotus_marsh_grass",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/lotus_marsh_grass",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/lotus_marsh_grass",
+        "y": 270
+      }
+    ]
+  }
+}

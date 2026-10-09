@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:crystal_cluster",
+  "config": {
+    "block": {
+      "Name": "portalgun:saltara_halite"
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 7,
+      "max_inclusive": 13
+    },
+    "small": {
+      "Name": "portalgun:saltara_halite_shard",
+      "Properties": {
+        "facing": "up"
+      }
+    }
+  }
+}

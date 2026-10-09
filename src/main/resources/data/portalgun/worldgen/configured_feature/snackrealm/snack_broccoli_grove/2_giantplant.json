@@ -1,0 +1,24 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:snack_broccoli_stalk"
+    },
+    "head": {
+      "Name": "portalgun:snack_broccoli_floret"
+    },
+    "shape": "puff",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 5
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 1,
+      "max_inclusive": 2
+    },
+    "stem_width": 1,
+    "bend": 0.0
+  }
+}

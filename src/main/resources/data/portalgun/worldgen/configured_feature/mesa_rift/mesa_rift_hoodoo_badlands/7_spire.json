@@ -1,0 +1,43 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:mesa_rift_redrock"
+          },
+          "weight": 4
+        },
+        {
+          "data": {
+            "Name": "portalgun:mesa_rift_orange_rock"
+          },
+          "weight": 2
+        },
+        {
+          "data": {
+            "Name": "portalgun:mesa_rift_bandstone"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 9,
+      "max_inclusive": 20
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 1,
+      "max_inclusive": 2
+    },
+    "lean": 0.08,
+    "hanging": false,
+    "cap": {
+      "Name": "portalgun:mesa_rift_caprock"
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "portalgun:block/cronen_flesh_top",
+    "side": "portalgun:block/cronen_flesh_side",
+    "bottom": "portalgun:block/cronen_flesh_bottom"
+  }
+}

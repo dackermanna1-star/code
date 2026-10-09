@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:rubra"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:rubra_heat_lens"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.rubra.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.rubra.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "feature": "portalgun:umbra/umbra_nightglass_reach/5_patch",
+  "placement": [
+    {
+      "type": "minecraft:count_on_every_layer",
+      "count": 3
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

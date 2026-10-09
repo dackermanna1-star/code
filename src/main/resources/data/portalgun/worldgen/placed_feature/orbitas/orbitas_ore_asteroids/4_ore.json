@@ -1,0 +1,27 @@
+{
+  "feature": "portalgun:orbitas/orbitas_ore_asteroids/4_ore",
+  "placement": [
+    {
+      "type": "minecraft:count",
+      "count": 4
+    },
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:height_range",
+      "height": {
+        "type": "minecraft:uniform",
+        "min_inclusive": {
+          "absolute": 40
+        },
+        "max_inclusive": {
+          "absolute": 170
+        }
+      }
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

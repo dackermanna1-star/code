@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:shattered",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:shattered",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:shattered_fractured_expanse",
+          "parameters": {
+            "temperature": 0.0,
+            "humidity": 0.0,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:shattered_ruined_citadel",
+          "parameters": {
+            "temperature": 0.75,
+            "humidity": -0.5,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:shattered_rift_scar",
+          "parameters": {
+            "temperature": -0.7,
+            "humidity": 0.4,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:shattered_withered_grove",
+          "parameters": {
+            "temperature": 0.1,
+            "humidity": -0.95,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

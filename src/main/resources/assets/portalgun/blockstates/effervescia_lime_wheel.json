@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/effervescia_lime_wheel"
+      },
+      {
+        "model": "portalgun:block/effervescia_lime_wheel",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/effervescia_lime_wheel",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/effervescia_lime_wheel",
+        "y": 270
+      }
+    ]
+  }
+}

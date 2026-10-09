@@ -1,0 +1,89 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.crystal_chimes"
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 7397568,
+          "scale": 0.8
+        },
+        "probability": 0.003
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#0e3632"
+  },
+  "carvers": [
+    "portalgun:vitrea_cave",
+    "portalgun:vitrea_canyon"
+  ],
+  "downfall": 0.62,
+  "effects": {
+    "water_color": "#3ad6c8",
+    "grass_color": "#c49e6c"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:vitrea/vitrea_crystal_flats/0_spire"
+    ],
+    [],
+    [
+      "portalgun:vitrea/ore_coal",
+      "portalgun:vitrea/ore_iron",
+      "portalgun:vitrea/ore_copper",
+      "portalgun:vitrea/ore_gold",
+      "portalgun:vitrea/ore_redstone",
+      "portalgun:vitrea/ore_lapis",
+      "portalgun:vitrea/ore_diamond",
+      "portalgun:vitrea/ore_emerald"
+    ],
+    [
+      "portalgun:vitrea/vitrea_crystal_flats/1_crystalcluster"
+    ],
+    [],
+    [
+      "portalgun:vitrea/vitrea_crystal_flats/2_patch",
+      "portalgun:vitrea/vitrea_crystal_flats/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:glass_scorpion",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:dune_strider",
+        "weight": 5,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 2.0
+}

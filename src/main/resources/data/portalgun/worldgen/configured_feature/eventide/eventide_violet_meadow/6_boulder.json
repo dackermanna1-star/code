@@ -1,0 +1,30 @@
+{
+  "type": "portalgun:boulder",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:eventide_slate"
+          },
+          "weight": 4
+        },
+        {
+          "data": {
+            "Name": "portalgun:eventide_moonstone"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 1,
+      "max_inclusive": 2
+    },
+    "hollow": false,
+    "squash": 0.8,
+    "floating": false
+  }
+}

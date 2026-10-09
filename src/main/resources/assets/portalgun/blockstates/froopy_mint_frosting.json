@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/froopy_mint_frosting"
+      },
+      {
+        "model": "portalgun:block/froopy_mint_frosting",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/froopy_mint_frosting",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/froopy_mint_frosting",
+        "y": 270
+      }
+    ]
+  }
+}

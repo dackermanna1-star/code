@@ -1,0 +1,116 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.volcanic_rumble",
+      "additions": {
+        "sound": "minecraft:ambient.basalt_deltas.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.nether.basalt_deltas",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.nether.basalt_deltas",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:ash"
+        },
+        "probability": 0.02
+      },
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.006
+      }
+    ],
+    "minecraft:visual/fog_color": "#9a9488",
+    "minecraft:visual/sky_color": "#a8a8a0",
+    "minecraft:visual/water_fog_color": "#2a2a2a"
+  },
+  "carvers": [
+    "portalgun:jurassica_cave",
+    "portalgun:jurassica_canyon"
+  ],
+  "downfall": 0.3,
+  "effects": {
+    "water_color": "#5a6a6a",
+    "grass_color": "#4a5a3a"
+  },
+  "features": [
+    [],
+    [
+      "portalgun:jurassica/jurassica_volcanic_highlands/2_lake"
+    ],
+    [
+      "portalgun:jurassica/jurassica_volcanic_highlands/4_boulder"
+    ],
+    [],
+    [
+      "portalgun:jurassica/jurassica_volcanic_highlands/0_spire",
+      "portalgun:jurassica/jurassica_volcanic_highlands/1_spire",
+      "portalgun:jurassica/jurassica_volcanic_highlands/5_structure"
+    ],
+    [],
+    [
+      "portalgun:jurassica/ore_coal",
+      "portalgun:jurassica/ore_iron",
+      "portalgun:jurassica/ore_copper",
+      "portalgun:jurassica/ore_gold",
+      "portalgun:jurassica/ore_redstone",
+      "portalgun:jurassica/ore_lapis",
+      "portalgun:jurassica/ore_diamond",
+      "portalgun:jurassica/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:jurassica/spring"
+    ],
+    [
+      "portalgun:jurassica/jurassica_volcanic_highlands/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:raptor",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:pterodon",
+        "weight": 5,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.65
+}

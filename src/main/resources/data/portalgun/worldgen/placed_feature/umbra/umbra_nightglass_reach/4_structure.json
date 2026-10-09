@@ -1,0 +1,16 @@
+{
+  "feature": "portalgun:umbra/umbra_nightglass_reach/4_structure",
+  "placement": [
+    {
+      "type": "minecraft:rarity_filter",
+      "chance": 4
+    },
+    {
+      "type": "minecraft:count_on_every_layer",
+      "count": 1
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

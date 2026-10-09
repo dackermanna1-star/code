@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/thermalia_warm_moss"
+      },
+      {
+        "model": "portalgun:block/thermalia_warm_moss",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/thermalia_warm_moss",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/thermalia_warm_moss",
+        "y": 270
+      }
+    ]
+  }
+}

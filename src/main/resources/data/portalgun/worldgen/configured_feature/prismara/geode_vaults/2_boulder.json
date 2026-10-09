@@ -1,0 +1,36 @@
+{
+  "type": "portalgun:boulder",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:prismara_cyan_crystal"
+          },
+          "weight": 1
+        },
+        {
+          "data": {
+            "Name": "portalgun:prismara_magenta_crystal"
+          },
+          "weight": 1
+        },
+        {
+          "data": {
+            "Name": "minecraft:amethyst_block"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "hollow": false,
+    "squash": 1.0,
+    "floating": false
+  }
+}

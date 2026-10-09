@@ -1,0 +1,116 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.sizzle_toxic"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.swamp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.swamp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 7012138,
+          "scale": 1.0
+        },
+        "probability": 0.006
+      },
+      {
+        "particle": {
+          "type": "minecraft:glow"
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/fog_color": "#7a9a4a",
+    "minecraft:visual/water_fog_color": "#2a6a10"
+  },
+  "carvers": [
+    "portalgun:radlands_cave",
+    "portalgun:radlands_canyon"
+  ],
+  "downfall": 0.74,
+  "effects": {
+    "water_color": "#66ff22",
+    "grass_color": "#76a82e",
+    "foliage_color": "#548020",
+    "dry_foliage_color": "#548020"
+  },
+  "features": [
+    [],
+    [
+      "portalgun:radlands/rad_glow_pools/0_lake"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:radlands/ore_coal",
+      "portalgun:radlands/ore_iron",
+      "portalgun:radlands/ore_copper",
+      "portalgun:radlands/ore_gold",
+      "portalgun:radlands/ore_redstone",
+      "portalgun:radlands/ore_lapis",
+      "portalgun:radlands/ore_diamond",
+      "portalgun:radlands/ore_emerald"
+    ],
+    [],
+    [],
+    [
+      "portalgun:radlands/rad_glow_pools/1_patch",
+      "portalgun:radlands/rad_glow_pools/2_patch",
+      "portalgun:radlands/rad_glow_pools/3_patch",
+      "portalgun:radlands/rad_glow_pools/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:mutant_rat",
+        "weight": 4,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:glowing_ghoul",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:sludge_blob",
+        "weight": 9,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.7000000000000001
+}

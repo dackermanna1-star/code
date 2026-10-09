@@ -1,0 +1,24 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:colossia_stalk"
+    },
+    "head": {
+      "Name": "minecraft:moss_block"
+    },
+    "shape": "flower",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 9
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 5
+    },
+    "stem_width": 1,
+    "bend": 0.0
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "portalgun:block/glitch_corrupt_grass_top",
+    "side": "portalgun:block/glitch_corrupt_grass_side",
+    "bottom": "portalgun:block/glitch_corrupt_grass_bottom"
+  }
+}

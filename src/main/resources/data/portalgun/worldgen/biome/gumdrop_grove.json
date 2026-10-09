@@ -1,0 +1,96 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.candy_chime"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.flower_forest",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.flower_forest",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 13172710,
+          "scale": 0.9
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#3b1c0c"
+  },
+  "carvers": [
+    "portalgun:froopyland_cave",
+    "portalgun:froopyland_canyon"
+  ],
+  "downfall": 0.45999999999999996,
+  "effects": {
+    "water_color": "#6e3a1c",
+    "grass_color": "#98ecc9",
+    "foliage_color": "#78dcb9",
+    "dry_foliage_color": "#78dcb9"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:froopyland/spring"
+    ],
+    [
+      "portalgun:froopyland/gumdrop_grove/0_giantplant",
+      "portalgun:froopyland/gumdrop_grove/1_giantplant",
+      "portalgun:froopyland/gumdrop_grove/2_giantplant",
+      "portalgun:froopyland/gumdrop_grove/3_giantplant",
+      "portalgun:froopyland/gumdrop_grove/4_giantplant",
+      "portalgun:froopyland/gumdrop_grove/5_patch",
+      "portalgun:froopyland/gumdrop_grove/6_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:gummy_bear",
+        "weight": 14,
+        "minCount": 3,
+        "maxCount": 5
+      },
+      {
+        "type": "portalgun:lollicorn",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.35000000000000003
+}

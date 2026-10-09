@@ -1,0 +1,37 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:rubra_rock"
+          },
+          "weight": 5
+        },
+        {
+          "data": {
+            "Name": "portalgun:rubra_dust_soil"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 10,
+      "max_inclusive": 22
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "lean": 0.3,
+    "hanging": false,
+    "cap": {
+      "Name": "portalgun:rubra_basalt"
+    }
+  }
+}

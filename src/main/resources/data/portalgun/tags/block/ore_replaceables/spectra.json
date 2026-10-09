@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:spectra_bandstone",
+      "required": false
+    }
+  ]
+}

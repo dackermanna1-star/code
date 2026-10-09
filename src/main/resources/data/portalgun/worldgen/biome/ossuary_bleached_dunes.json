@@ -1,0 +1,104 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.wind_howl"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.desert",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.desert",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#5a1e14"
+  },
+  "carvers": [
+    "portalgun:ossuary_cave",
+    "portalgun:ossuary_canyon"
+  ],
+  "downfall": 0.42,
+  "effects": {
+    "water_color": "#a85a40"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:ossuary/ossuary_bleached_dunes/3_boulder"
+    ],
+    [],
+    [
+      "portalgun:ossuary/ossuary_bleached_dunes/0_structure",
+      "portalgun:ossuary/ossuary_bleached_dunes/1_spire"
+    ],
+    [],
+    [
+      "portalgun:ossuary/ore_coal",
+      "portalgun:ossuary/ore_iron",
+      "portalgun:ossuary/ore_copper",
+      "portalgun:ossuary/ore_gold",
+      "portalgun:ossuary/ore_redstone",
+      "portalgun:ossuary/ore_lapis",
+      "portalgun:ossuary/ore_diamond",
+      "portalgun:ossuary/ore_emerald"
+    ],
+    [],
+    [],
+    [
+      "portalgun:ossuary/ossuary_bleached_dunes/2_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:skull_crawler",
+        "weight": 5,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:bone_serpent",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:ossuary_vulture",
+        "weight": 10,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 2.0
+}

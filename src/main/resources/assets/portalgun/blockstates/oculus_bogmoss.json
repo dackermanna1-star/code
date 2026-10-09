@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/oculus_bogmoss"
+      },
+      {
+        "model": "portalgun:block/oculus_bogmoss",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/oculus_bogmoss",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/oculus_bogmoss",
+        "y": 270
+      }
+    ]
+  }
+}

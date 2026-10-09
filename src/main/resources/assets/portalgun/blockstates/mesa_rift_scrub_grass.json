@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/mesa_rift_scrub_grass"
+      },
+      {
+        "model": "portalgun:block/mesa_rift_scrub_grass",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/mesa_rift_scrub_grass",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/mesa_rift_scrub_grass",
+        "y": 270
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "nest",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:mesa_rift_juniper_log"
+      },
+      "egg": {
+        "Name": "portalgun:mesa_rift_condor_egg"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 5
+    }
+  }
+}

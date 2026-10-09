@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "half=lower": {
+      "model": "portalgun:block/aerolith_feathergrass_bottom"
+    },
+    "half=upper": {
+      "model": "portalgun:block/aerolith_feathergrass_top"
+    }
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.wind_howl"
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:snowflake"
+        },
+        "probability": 0.012
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#0a2a50"
+  },
+  "carvers": [
+    "portalgun:glacior_cave",
+    "portalgun:glacior_canyon"
+  ],
+  "downfall": 0.42,
+  "effects": {
+    "water_color": "#3a7cc4",
+    "grass_color": "#a0bcd0",
+    "foliage_color": "#4a8ea4",
+    "dry_foliage_color": "#4a8ea4"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:glacior/glacior_glacier_fields/1_boulder"
+    ],
+    [],
+    [
+      "portalgun:glacior/glacior_glacier_fields/0_spire",
+      "portalgun:glacior/glacior_glacier_fields/4_spire"
+    ],
+    [],
+    [
+      "portalgun:glacior/ore_coal",
+      "portalgun:glacior/ore_iron",
+      "portalgun:glacior/ore_copper",
+      "portalgun:glacior/ore_gold",
+      "portalgun:glacior/ore_redstone",
+      "portalgun:glacior/ore_lapis",
+      "portalgun:glacior/ore_diamond",
+      "portalgun:glacior/ore_emerald",
+      "portalgun:glacior/glacior_glacier_fields/7_ore",
+      "portalgun:glacior/glacior_glacier_fields/8_ore"
+    ],
+    [
+      "portalgun:glacior/glacior_glacier_fields/6_crystalcluster"
+    ],
+    [
+      "portalgun:glacior/spring"
+    ],
+    [
+      "portalgun:glacior/glacior_glacier_fields/2_patch",
+      "portalgun:glacior/glacior_glacier_fields/3_patch",
+      "portalgun:glacior/glacior_glacier_fields/5_patch"
+    ],
+    [
+      "minecraft:freeze_top_layer"
+    ]
+  ],
+  "has_precipitation": true,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:ice_beetle",
+        "weight": 5,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:snow_hopper",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:frost_yeti",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": -0.3
+}

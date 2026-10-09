@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column_horizontal",
+  "textures": {
+    "end": "portalgun:block/cronen_bone_log_end",
+    "side": "portalgun:block/cronen_bone_log_side"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "cuboids",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:glitch_wireframe"
+      },
+      "alt": {
+        "Name": "portalgun:glitch_null_stone"
+      },
+      "trim": {
+        "Name": "portalgun:glitch_dead_pixel"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 8
+    },
+    "params": {
+      "float": 10.0,
+      "scatter": 8.0
+    }
+  }
+}

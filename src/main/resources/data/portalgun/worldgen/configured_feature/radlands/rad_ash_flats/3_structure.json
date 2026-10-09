@@ -1,0 +1,22 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "ribcage",
+    "blocks": {
+      "bone": {
+        "Name": "portalgun:rad_bleached_bone"
+      },
+      "spine": {
+        "Name": "portalgun:rad_bleached_bone"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 7,
+      "max_inclusive": 12
+    },
+    "params": {
+      "skull": 1.0
+    }
+  }
+}

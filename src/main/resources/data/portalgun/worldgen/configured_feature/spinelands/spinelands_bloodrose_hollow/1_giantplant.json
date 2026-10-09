@@ -1,0 +1,24 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:spinelands_thornwood"
+    },
+    "head": {
+      "Name": "portalgun:spinelands_bloodrose_petal"
+    },
+    "shape": "flower",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 8
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 3
+    },
+    "stem_width": 1,
+    "bend": 0.2
+  }
+}

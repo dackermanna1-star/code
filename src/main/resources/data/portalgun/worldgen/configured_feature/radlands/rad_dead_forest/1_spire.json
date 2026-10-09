@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:simple_state_provider",
+      "state": {
+        "Name": "portalgun:rad_dead_log"
+      }
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 11
+    },
+    "radius": 1,
+    "lean": 0.45,
+    "hanging": false
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/sketchbook_ruled_paper"
+      },
+      {
+        "model": "portalgun:block/sketchbook_ruled_paper",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/sketchbook_ruled_paper",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/sketchbook_ruled_paper",
+        "y": 270
+      }
+    ]
+  }
+}

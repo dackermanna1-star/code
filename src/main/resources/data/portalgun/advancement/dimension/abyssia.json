@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:abyssia"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:abyssia_glow_pearl"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.abyssia.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.abyssia.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

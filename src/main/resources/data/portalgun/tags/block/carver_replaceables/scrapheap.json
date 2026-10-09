@@ -1,0 +1,29 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:scrapheap_grime",
+      "required": false
+    },
+    {
+      "id": "portalgun:scrapheap_junk",
+      "required": false
+    },
+    {
+      "id": "portalgun:scrapheap_oil_slick",
+      "required": false
+    },
+    {
+      "id": "portalgun:scrapheap_rust_dust",
+      "required": false
+    },
+    {
+      "id": "portalgun:scrapheap_slag",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

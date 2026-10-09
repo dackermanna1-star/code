@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "portalgun:block/sketchbook_log_end",
+    "side": "portalgun:block/sketchbook_log_side"
+  }
+}

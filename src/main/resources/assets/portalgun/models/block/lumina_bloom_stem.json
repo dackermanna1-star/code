@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "portalgun:block/lumina_bloom_stem_end",
+    "side": "portalgun:block/lumina_bloom_stem_side"
+  }
+}

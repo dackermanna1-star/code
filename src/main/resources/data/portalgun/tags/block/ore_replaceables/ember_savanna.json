@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:ember_ironstone",
+      "required": false
+    }
+  ]
+}

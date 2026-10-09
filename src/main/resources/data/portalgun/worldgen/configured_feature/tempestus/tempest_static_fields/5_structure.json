@@ -1,0 +1,24 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "ring",
+    "blocks": {
+      "main": {
+        "Name": "minecraft:oxidized_cut_copper"
+      },
+      "alt": {
+        "Name": "minecraft:weathered_cut_copper"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 9
+    },
+    "params": {
+      "float": 7.0,
+      "thickness": 0.11,
+      "sink": 0.0
+    }
+  }
+}

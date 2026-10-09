@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "portalgun:item/shard_wraith_spawn_egg"
+  }
+}

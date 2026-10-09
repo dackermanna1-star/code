@@ -2,7 +2,175 @@
   "replace": false,
   "values": [
     {
+      "id": "portalgun:canyon_condor",
+      "required": false
+    },
+    {
+      "id": "portalgun:cinder_imp",
+      "required": false
+    },
+    {
+      "id": "portalgun:cliff_diver",
+      "required": false
+    },
+    {
+      "id": "portalgun:comet_imp",
+      "required": false
+    },
+    {
+      "id": "portalgun:crow",
+      "required": false
+    },
+    {
+      "id": "portalgun:dragonfly",
+      "required": false
+    },
+    {
+      "id": "portalgun:drop_bat",
+      "required": false
+    },
+    {
+      "id": "portalgun:eyebat",
+      "required": false
+    },
+    {
+      "id": "portalgun:floating_eye",
+      "required": false
+    },
+    {
+      "id": "portalgun:glimmer",
+      "required": false
+    },
+    {
+      "id": "portalgun:groove_jelly",
+      "required": false
+    },
+    {
+      "id": "portalgun:hive_drone",
+      "required": false
+    },
+    {
+      "id": "portalgun:lantern_bug",
+      "required": false
+    },
+    {
+      "id": "portalgun:lava_lamp_blob",
+      "required": false
+    },
+    {
+      "id": "portalgun:lunar_moth",
+      "required": false
+    },
+    {
+      "id": "portalgun:mega_bee",
+      "required": false
+    },
+    {
+      "id": "portalgun:needle_bird",
+      "required": false
+    },
+    {
+      "id": "portalgun:ossuary_vulture",
+      "required": false
+    },
+    {
+      "id": "portalgun:paper_crane",
+      "required": false
+    },
+    {
+      "id": "portalgun:paper_lantern",
+      "required": false
+    },
+    {
+      "id": "portalgun:pixel_bird",
+      "required": false
+    },
+    {
+      "id": "portalgun:pixel_wraith",
+      "required": false
+    },
+    {
+      "id": "portalgun:pterodon",
+      "required": false
+    },
+    {
+      "id": "portalgun:puffbird",
+      "required": false
+    },
+    {
       "id": "portalgun:puffjelly",
+      "required": false
+    },
+    {
+      "id": "portalgun:rainbow_moth",
+      "required": false
+    },
+    {
+      "id": "portalgun:roc",
+      "required": false
+    },
+    {
+      "id": "portalgun:sand_skimmer",
+      "required": false
+    },
+    {
+      "id": "portalgun:scrap_drone",
+      "required": false
+    },
+    {
+      "id": "portalgun:shard_wraith",
+      "required": false
+    },
+    {
+      "id": "portalgun:shimmer_moth",
+      "required": false
+    },
+    {
+      "id": "portalgun:sky_whale",
+      "required": false
+    },
+    {
+      "id": "portalgun:soap_jelly",
+      "required": false
+    },
+    {
+      "id": "portalgun:static",
+      "required": false
+    },
+    {
+      "id": "portalgun:steam_moth",
+      "required": false
+    },
+    {
+      "id": "portalgun:storm_elemental",
+      "required": false
+    },
+    {
+      "id": "portalgun:thunderbird",
+      "required": false
+    },
+    {
+      "id": "portalgun:twilight_owl",
+      "required": false
+    },
+    {
+      "id": "portalgun:void_jelly",
+      "required": false
+    },
+    {
+      "id": "portalgun:void_ray",
+      "required": false
+    },
+    {
+      "id": "portalgun:will_o_wisp",
+      "required": false
+    },
+    {
+      "id": "portalgun:wraith",
+      "required": false
+    },
+    {
+      "id": "portalgun:zephyr_wisp",
       "required": false
     }
   ]

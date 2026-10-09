@@ -1,0 +1,110 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.wind_howl"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.old_growth_taiga",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.old_growth_taiga",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:ash"
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#1e2a28"
+  },
+  "carvers": [
+    "portalgun:spinelands_cave",
+    "portalgun:spinelands_canyon"
+  ],
+  "downfall": 0.62,
+  "effects": {
+    "water_color": "#2a4a44",
+    "grass_color": "#545a30",
+    "foliage_color": "#20443a",
+    "dry_foliage_color": "#20443a"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:spinelands/ore_coal",
+      "portalgun:spinelands/ore_iron",
+      "portalgun:spinelands/ore_copper",
+      "portalgun:spinelands/ore_gold",
+      "portalgun:spinelands/ore_redstone",
+      "portalgun:spinelands/ore_lapis",
+      "portalgun:spinelands/ore_diamond",
+      "portalgun:spinelands/ore_emerald"
+    ],
+    [
+      "portalgun:spinelands/spinelands_needle_forest/3_patch"
+    ],
+    [
+      "portalgun:spinelands/spring"
+    ],
+    [
+      "portalgun:spinelands/spinelands_needle_forest/0_tree",
+      "portalgun:spinelands/spinelands_needle_forest/1_giantplant",
+      "portalgun:spinelands/spinelands_needle_forest/2_patch",
+      "portalgun:spinelands/spinelands_needle_forest/4_patch",
+      "portalgun:spinelands/spinelands_needle_forest/5_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:needle_bird",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:spine_crawler",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:thorn_hog",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

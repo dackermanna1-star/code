@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "group": "planks",
+  "ingredients": [
+    "portalgun:sketchbook_log"
+  ],
+  "result": {
+    "count": 4,
+    "id": "portalgun:sketchbook_shaved_wood"
+  }
+}

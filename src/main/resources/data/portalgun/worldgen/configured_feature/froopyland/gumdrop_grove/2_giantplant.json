@@ -1,0 +1,24 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:froopy_candy_cane"
+    },
+    "head": {
+      "Name": "minecraft:honey_block"
+    },
+    "shape": "sphere",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 7
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 3
+    },
+    "stem_width": 1,
+    "bend": 0.0
+  }
+}

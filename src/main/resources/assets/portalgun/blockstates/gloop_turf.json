@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/gloop_turf"
+      },
+      {
+        "model": "portalgun:block/gloop_turf",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/gloop_turf",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/gloop_turf",
+        "y": 270
+      }
+    ]
+  }
+}

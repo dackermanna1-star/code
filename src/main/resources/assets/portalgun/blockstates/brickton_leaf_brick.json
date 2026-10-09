@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/brickton_leaf_brick"
+      },
+      {
+        "model": "portalgun:block/brickton_leaf_brick",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/brickton_leaf_brick",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/brickton_leaf_brick",
+        "y": 270
+      }
+    ]
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:eventide"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:eventide_moonpetal"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.eventide.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.eventide.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

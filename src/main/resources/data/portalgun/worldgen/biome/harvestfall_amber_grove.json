@@ -1,0 +1,116 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cozy_breeze"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.forest",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.forest",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 15904816,
+          "scale": 1.0
+        },
+        "probability": 0.004
+      },
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#2a3040"
+  },
+  "carvers": [
+    "portalgun:harvestfall_cave",
+    "portalgun:harvestfall_canyon"
+  ],
+  "downfall": 0.42,
+  "effects": {
+    "water_color": "#4a6a8a",
+    "grass_color": "#aa9848",
+    "foliage_color": "#e08a20",
+    "dry_foliage_color": "#e08a20"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:harvestfall/ore_coal",
+      "portalgun:harvestfall/ore_iron",
+      "portalgun:harvestfall/ore_copper",
+      "portalgun:harvestfall/ore_gold",
+      "portalgun:harvestfall/ore_redstone",
+      "portalgun:harvestfall/ore_lapis",
+      "portalgun:harvestfall/ore_diamond",
+      "portalgun:harvestfall/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:harvestfall/spring"
+    ],
+    [
+      "portalgun:harvestfall/harvestfall_amber_grove/0_tree",
+      "portalgun:harvestfall/harvestfall_amber_grove/1_tree",
+      "portalgun:harvestfall/harvestfall_amber_grove/2_patch",
+      "portalgun:harvestfall/harvestfall_amber_grove/3_patch",
+      "portalgun:harvestfall/harvestfall_amber_grove/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:scarecrow",
+        "weight": 1,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:acorn_squirrel",
+        "weight": 12,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:crow",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.1
+}

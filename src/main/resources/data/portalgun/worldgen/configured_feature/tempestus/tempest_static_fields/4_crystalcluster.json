@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:crystal_cluster",
+  "config": {
+    "block": {
+      "Name": "portalgun:tempest_stormglass"
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 5
+    },
+    "small": {
+      "Name": "portalgun:tempest_spark_cluster",
+      "Properties": {
+        "facing": "up"
+      }
+    }
+  }
+}

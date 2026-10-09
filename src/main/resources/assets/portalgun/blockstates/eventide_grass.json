@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/eventide_grass"
+      },
+      {
+        "model": "portalgun:block/eventide_grass",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/eventide_grass",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/eventide_grass",
+        "y": 270
+      }
+    ]
+  }
+}

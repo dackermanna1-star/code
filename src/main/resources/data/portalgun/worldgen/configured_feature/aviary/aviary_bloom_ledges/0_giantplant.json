@@ -1,0 +1,27 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "minecraft:birch_log"
+    },
+    "head": {
+      "Name": "minecraft:cherry_leaves",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "puff",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 8
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 4
+    },
+    "stem_width": 1,
+    "bend": 0.4
+  }
+}

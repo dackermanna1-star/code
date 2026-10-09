@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/sketchbook_hatched_turf"
+      },
+      {
+        "model": "portalgun:block/sketchbook_hatched_turf",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/sketchbook_hatched_turf",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/sketchbook_hatched_turf",
+        "y": 270
+      }
+    ]
+  }
+}

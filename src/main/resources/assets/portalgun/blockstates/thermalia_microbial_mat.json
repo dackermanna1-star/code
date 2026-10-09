@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/thermalia_microbial_mat"
+      },
+      {
+        "model": "portalgun:block/thermalia_microbial_mat",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/thermalia_microbial_mat",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/thermalia_microbial_mat",
+        "y": 270
+      }
+    ]
+  }
+}

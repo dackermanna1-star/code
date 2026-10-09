@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:spectra"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:spectra_prism_shard"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.spectra.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.spectra.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

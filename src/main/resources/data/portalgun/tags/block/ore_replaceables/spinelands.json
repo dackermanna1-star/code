@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:spinelands_quill_block",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_thornstone",
+      "required": false
+    }
+  ]
+}

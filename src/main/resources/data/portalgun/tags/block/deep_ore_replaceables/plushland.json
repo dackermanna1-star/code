@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:plush_stuffing",
+      "required": false
+    }
+  ]
+}

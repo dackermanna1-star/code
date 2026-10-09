@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "ribcage",
+    "blocks": {
+      "bone": {
+        "Name": "portalgun:ossuary_giant_bone"
+      },
+      "spine": {
+        "Name": "minecraft:bone_block"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 9,
+      "max_inclusive": 12
+    },
+    "params": {
+      "skull": 1.0,
+      "height": 1.1
+    }
+  }
+}

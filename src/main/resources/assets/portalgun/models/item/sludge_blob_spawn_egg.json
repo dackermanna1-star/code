@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "portalgun:item/sludge_blob_spawn_egg"
+  }
+}

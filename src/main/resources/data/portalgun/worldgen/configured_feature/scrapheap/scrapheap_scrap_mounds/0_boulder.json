@@ -1,0 +1,48 @@
+{
+  "type": "portalgun:boulder",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:scrapheap_junk"
+          },
+          "weight": 5
+        },
+        {
+          "data": {
+            "Name": "portalgun:scrapheap_scrap_plate"
+          },
+          "weight": 3
+        },
+        {
+          "data": {
+            "Name": "portalgun:scrapheap_slag"
+          },
+          "weight": 2
+        },
+        {
+          "data": {
+            "Name": "minecraft:iron_bars"
+          },
+          "weight": 1
+        },
+        {
+          "data": {
+            "Name": "minecraft:iron_chain"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 6
+    },
+    "hollow": false,
+    "squash": 0.75,
+    "floating": false
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/saltara_salt_raft"
+      },
+      {
+        "model": "portalgun:block/saltara_salt_raft",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/saltara_salt_raft",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/saltara_salt_raft",
+        "y": 270
+      }
+    ]
+  }
+}

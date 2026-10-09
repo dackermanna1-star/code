@@ -1,0 +1,12 @@
+{
+  "feature": "portalgun:orbitas/orbitas_ore_asteroids/0_crystalcluster",
+  "placement": [
+    {
+      "type": "minecraft:count_on_every_layer",
+      "count": 1
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/paradisia_jungle_grass"
+      },
+      {
+        "model": "portalgun:block/paradisia_jungle_grass",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/paradisia_jungle_grass",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/paradisia_jungle_grass",
+        "y": 270
+      }
+    ]
+  }
+}

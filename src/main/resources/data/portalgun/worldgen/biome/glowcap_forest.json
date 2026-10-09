@@ -39,7 +39,7 @@
     "portalgun:sporewood_cave",
     "portalgun:sporewood_canyon"
   ],
-  "downfall": 0.66,
+  "downfall": 0.3,
   "effects": {
     "water_color": "#2a7a8a",
     "grass_color": "#2f6b5a",
@@ -63,16 +63,19 @@
       "portalgun:sporewood/ore_diamond",
       "portalgun:sporewood/ore_emerald"
     ],
-    [],
+    [
+      "portalgun:sporewood/glowcap_forest/5_patch"
+    ],
     [
       "portalgun:sporewood/spring"
     ],
     [
       "portalgun:sporewood/glowcap_forest/0_giantplant",
       "portalgun:sporewood/glowcap_forest/1_giantplant",
-      "portalgun:sporewood/glowcap_forest/2_patch",
+      "portalgun:sporewood/glowcap_forest/2_giantplant",
       "portalgun:sporewood/glowcap_forest/3_patch",
-      "portalgun:sporewood/glowcap_forest/4_patch"
+      "portalgun:sporewood/glowcap_forest/4_patch",
+      "portalgun:sporewood/glowcap_forest/6_patch"
     ],
     []
   ],
@@ -108,5 +111,5 @@
     "water_ambient": [],
     "misc": []
   },
-  "temperature": 0.8
+  "temperature": 0.91
 }

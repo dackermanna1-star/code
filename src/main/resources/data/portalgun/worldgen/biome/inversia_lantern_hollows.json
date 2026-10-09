@@ -1,0 +1,119 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.alien_hum",
+      "additions": {
+        "sound": "minecraft:ambient.warped_forest.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16756282,
+          "scale": 0.7
+        },
+        "probability": 0.006
+      },
+      {
+        "particle": {
+          "type": "minecraft:firefly"
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/fog_color": "#4a3a48",
+    "minecraft:visual/water_fog_color": "#101e39"
+  },
+  "carvers": [],
+  "downfall": 0.26,
+  "effects": {
+    "water_color": "#3f76e4",
+    "grass_color": "#66a486",
+    "foliage_color": "#5e94a0",
+    "dry_foliage_color": "#5e94a0"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:inversia/inversia_lantern_hollows/1_spire",
+      "portalgun:inversia/inversia_lantern_hollows/5_structure"
+    ],
+    [],
+    [
+      "portalgun:inversia/ore_coal",
+      "portalgun:inversia/ore_iron",
+      "portalgun:inversia/ore_copper",
+      "portalgun:inversia/ore_gold",
+      "portalgun:inversia/ore_redstone",
+      "portalgun:inversia/ore_lapis",
+      "portalgun:inversia/ore_diamond",
+      "portalgun:inversia/ore_emerald"
+    ],
+    [
+      "portalgun:inversia/inversia_lantern_hollows/4_crystalcluster"
+    ],
+    [],
+    [
+      "portalgun:inversia/inversia_lantern_hollows/0_patch",
+      "portalgun:inversia/inversia_lantern_hollows/2_patch",
+      "portalgun:inversia/inversia_lantern_hollows/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:ceiling_crawler",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 1
+      },
+      {
+        "type": "portalgun:drop_bat",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:root_grazer",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.175
+}

@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/sakura_grass"
+      },
+      {
+        "model": "portalgun:block/sakura_grass",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/sakura_grass",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/sakura_grass",
+        "y": 270
+      }
+    ]
+  }
+}

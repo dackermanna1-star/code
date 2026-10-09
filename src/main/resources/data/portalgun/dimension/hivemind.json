@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:hivemind",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:hivemind",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:hivemind_wax_halls",
+          "parameters": {
+            "temperature": 0.0,
+            "humidity": 0.0,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:hivemind_honey_vaults",
+          "parameters": {
+            "temperature": 0.6,
+            "humidity": 0.55,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:hivemind_amber_galleries",
+          "parameters": {
+            "temperature": -0.6,
+            "humidity": 0.5,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:hivemind_royal_brood",
+          "parameters": {
+            "temperature": -0.5,
+            "humidity": -0.6,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

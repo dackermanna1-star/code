@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:aurum_gilded_stone",
+      "required": false
+    }
+  ]
+}

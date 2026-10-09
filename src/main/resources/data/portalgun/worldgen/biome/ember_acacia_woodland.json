@@ -1,0 +1,113 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cozy_breeze"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.sparse_jungle",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.sparse_jungle",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:firefly"
+        },
+        "probability": 0.002
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16756832,
+          "scale": 0.6
+        },
+        "probability": 0.0015
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#3a3a20"
+  },
+  "carvers": [
+    "portalgun:ember_savanna_cave",
+    "portalgun:ember_savanna_canyon"
+  ],
+  "downfall": 0.72,
+  "effects": {
+    "water_color": "#7a7a46",
+    "grass_color": "#b49030",
+    "foliage_color": "#80782a",
+    "dry_foliage_color": "#80782a"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:ember_savanna/ore_coal",
+      "portalgun:ember_savanna/ore_iron",
+      "portalgun:ember_savanna/ore_copper",
+      "portalgun:ember_savanna/ore_gold",
+      "portalgun:ember_savanna/ore_redstone",
+      "portalgun:ember_savanna/ore_lapis",
+      "portalgun:ember_savanna/ore_diamond",
+      "portalgun:ember_savanna/ore_emerald"
+    ],
+    [],
+    [],
+    [
+      "portalgun:ember_savanna/ember_acacia_woodland/0_giantplant",
+      "portalgun:ember_savanna/ember_acacia_woodland/1_giantplant",
+      "portalgun:ember_savanna/ember_acacia_woodland/2_tree",
+      "portalgun:ember_savanna/ember_acacia_woodland/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:dust_lion",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:longneck",
+        "weight": 12,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:stripe_grazer",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 5
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 2.0
+}

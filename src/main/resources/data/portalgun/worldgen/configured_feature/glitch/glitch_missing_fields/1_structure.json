@@ -1,0 +1,26 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "cuboids",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:glitch_missing_block"
+      },
+      "alt": {
+        "Name": "portalgun:glitch_static_block"
+      },
+      "trim": {
+        "Name": "portalgun:glitch_dead_pixel"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 8
+    },
+    "params": {
+      "float": 6.0,
+      "scatter": 6.0
+    }
+  }
+}

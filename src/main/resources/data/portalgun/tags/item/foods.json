@@ -2,7 +2,255 @@
   "replace": false,
   "values": [
     {
+      "id": "portalgun:abyssia_bubble_jelly",
+      "required": false
+    },
+    {
+      "id": "portalgun:aerolith_cloudberry",
+      "required": false
+    },
+    {
+      "id": "portalgun:aurum_midas_fig",
+      "required": false
+    },
+    {
+      "id": "portalgun:aviary_cloudberry",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_snap_sandwich",
+      "required": false
+    },
+    {
+      "id": "portalgun:colossia_honey_glob",
+      "required": false
+    },
+    {
+      "id": "portalgun:cronen_mystery_meat",
+      "required": false
+    },
+    {
+      "id": "portalgun:effervescia_fizz_pop",
+      "required": false
+    },
+    {
+      "id": "portalgun:effervescia_soda_cherry",
+      "required": false
+    },
+    {
+      "id": "portalgun:ember_marula",
+      "required": false
+    },
+    {
+      "id": "portalgun:eventide_moonpetal",
+      "required": false
+    },
+    {
+      "id": "portalgun:froopy_gummy",
+      "required": false
+    },
+    {
+      "id": "portalgun:froopy_horn_candy",
+      "required": false
+    },
+    {
+      "id": "portalgun:froopy_jawbreaker_shard",
+      "required": false
+    },
+    {
+      "id": "portalgun:gearhaven_wind_up_biscuit",
+      "required": false
+    },
+    {
+      "id": "portalgun:glacior_snowberry",
+      "required": false
+    },
+    {
+      "id": "portalgun:glitch_corrupted_beef",
+      "required": false
+    },
+    {
+      "id": "portalgun:gloopolis_bounce_jelly",
+      "required": false
+    },
+    {
+      "id": "portalgun:gloopolis_gloopberry",
+      "required": false
+    },
+    {
+      "id": "portalgun:groovy_groove_jelly",
+      "required": false
+    },
+    {
+      "id": "portalgun:groovy_warm_wax",
+      "required": false
+    },
+    {
+      "id": "portalgun:harvestfall_candy_corn",
+      "required": false
+    },
+    {
+      "id": "portalgun:harvestfall_acorn",
+      "required": false
+    },
+    {
+      "id": "portalgun:harvestfall_sweetcorn",
+      "required": false
+    },
+    {
+      "id": "portalgun:hivemind_royal_jelly_bite",
+      "required": false
+    },
+    {
+      "id": "portalgun:inversia_pod",
+      "required": false
+    },
+    {
+      "id": "portalgun:jurassica_bronto_rib",
+      "required": false
+    },
+    {
+      "id": "portalgun:jurassica_bronto_roast",
+      "required": false
+    },
+    {
+      "id": "portalgun:lotus_root",
+      "required": false
+    },
+    {
+      "id": "portalgun:lumina_lumen_fruit",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_prickly_pear",
+      "required": false
+    },
+    {
+      "id": "portalgun:micro_atp",
+      "required": false
+    },
+    {
+      "id": "portalgun:micro_cytoplasm_jelly",
+      "required": false
+    },
+    {
+      "id": "portalgun:oculus_pickled_eye",
+      "required": false
+    },
+    {
+      "id": "portalgun:orbitas_starfruit",
+      "required": false
+    },
+    {
+      "id": "portalgun:ossuary_bone_marrow",
+      "required": false
+    },
+    {
+      "id": "portalgun:paradisia_coconut",
+      "required": false
+    },
+    {
+      "id": "portalgun:plush_felt_cookie",
+      "required": false
+    },
+    {
+      "id": "portalgun:prismara_crawler_leg",
+      "required": false
+    },
+    {
+      "id": "portalgun:pyroclast_cinder_pepper",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_mutant_jerky",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_glowshroom_cap",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_blueberry",
+      "required": false
+    },
+    {
+      "id": "portalgun:sakura_mochi",
+      "required": false
+    },
+    {
+      "id": "portalgun:saltara_brine_shrimp",
+      "required": false
+    },
+    {
+      "id": "portalgun:scrapheap_rat_jerky",
+      "required": false
+    },
+    {
+      "id": "portalgun:selene_moon_cheese",
+      "required": false
+    },
+    {
+      "id": "portalgun:shattered_void_gel",
+      "required": false
+    },
+    {
+      "id": "portalgun:sketchbook_doodled_apple",
+      "required": false
+    },
+    {
+      "id": "portalgun:snack_meatball_bite",
+      "required": false
+    },
+    {
+      "id": "portalgun:snack_cheese_wedge",
+      "required": false
+    },
+    {
+      "id": "portalgun:snack_pretzel_twist",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectra_chroma_gel",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectral_wisp_essence",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_rose_hip",
+      "required": false
+    },
+    {
       "id": "portalgun:glowcap_slice",
+      "required": false
+    },
+    {
+      "id": "portalgun:puffjelly_gel",
+      "required": false
+    },
+    {
+      "id": "portalgun:synthwave_pixel_drumstick",
+      "required": false
+    },
+    {
+      "id": "portalgun:tempest_slug_jelly",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_onsen_egg",
+      "required": false
+    },
+    {
+      "id": "portalgun:umbra_lumen_berry",
+      "required": false
+    },
+    {
+      "id": "portalgun:vitrea_prism_fruit",
+      "required": false
+    },
+    {
+      "id": "portalgun:white_room_blank_wafer",
       "required": false
     }
   ]

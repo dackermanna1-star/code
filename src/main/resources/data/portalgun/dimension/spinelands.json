@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:spinelands",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:spinelands",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:spinelands_needle_forest",
+          "parameters": {
+            "temperature": 0.0,
+            "humidity": 0.3,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:spinelands_bramblewaste",
+          "parameters": {
+            "temperature": 0.8,
+            "humidity": -0.4,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:spinelands_quill_barrens",
+          "parameters": {
+            "temperature": -0.7,
+            "humidity": -0.6,
+            "continentalness": 0.3,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:spinelands_bloodrose_hollow",
+          "parameters": {
+            "temperature": -0.2,
+            "humidity": 0.9,
+            "continentalness": -0.4,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

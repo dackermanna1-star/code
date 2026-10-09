@@ -1,0 +1,22 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "gear",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:gearhaven_brass_plate"
+      },
+      "axle": {
+        "Name": "portalgun:gearhaven_clockface"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 10
+    },
+    "params": {
+      "flat": 1.0
+    }
+  }
+}

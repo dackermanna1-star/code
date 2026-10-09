@@ -1,0 +1,43 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:glacior_glacier_ice"
+          },
+          "weight": 4
+        },
+        {
+          "data": {
+            "Name": "minecraft:packed_ice"
+          },
+          "weight": 2
+        },
+        {
+          "data": {
+            "Name": "minecraft:blue_ice"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 10,
+      "max_inclusive": 28
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 1,
+      "max_inclusive": 3
+    },
+    "lean": 0.08,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:glacior_aurora_ice"
+    }
+  }
+}

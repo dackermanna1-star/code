@@ -1,0 +1,22 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:simple_state_provider",
+      "state": {
+        "Name": "portalgun:synthwave_chrome"
+      }
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 6
+    },
+    "radius": 1,
+    "lean": 0.0,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:synthwave_sunset_panel"
+    }
+  }
+}

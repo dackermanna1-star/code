@@ -2,7 +2,239 @@
   "replace": false,
   "values": [
     {
+      "id": "portalgun:aerolith_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:aurum_gilded_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:aviary_cliff_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_green_plate",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_red_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_blue_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_yellow_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_white_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_gray_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_brown_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_leaf_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:colossia_moss_turf",
+      "required": false
+    },
+    {
+      "id": "portalgun:cronen_flesh",
+      "required": false
+    },
+    {
+      "id": "portalgun:effervescia_froth",
+      "required": false
+    },
+    {
+      "id": "portalgun:ember_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:eventide_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:froopy_frosting",
+      "required": false
+    },
+    {
+      "id": "portalgun:froopy_mint_frosting",
+      "required": false
+    },
+    {
+      "id": "portalgun:gearhaven_patina_turf",
+      "required": false
+    },
+    {
+      "id": "portalgun:glacior_snowcap",
+      "required": false
+    },
+    {
+      "id": "portalgun:glitch_corrupt_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:gloop_turf",
+      "required": false
+    },
+    {
+      "id": "portalgun:groovy_shag",
+      "required": false
+    },
+    {
+      "id": "portalgun:groovy_velvet",
+      "required": false
+    },
+    {
+      "id": "portalgun:harvestfall_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:inversia_turf",
+      "required": false
+    },
+    {
+      "id": "portalgun:jurassica_fern_turf",
+      "required": false
+    },
+    {
+      "id": "portalgun:lotus_marsh_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:lumina_moss",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_scrub_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:micro_cytogel",
+      "required": false
+    },
+    {
+      "id": "portalgun:oculus_bogmoss",
+      "required": false
+    },
+    {
+      "id": "portalgun:orbitas_star_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:paradisia_jungle_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:plush_felt_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:plush_lilac_felt",
+      "required": false
+    },
+    {
+      "id": "portalgun:plush_patchwork",
+      "required": false
+    },
+    {
+      "id": "portalgun:prismara_glimmer_moss",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_crust",
+      "required": false
+    },
+    {
+      "id": "portalgun:sakura_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:saltara_salt_crust",
+      "required": false
+    },
+    {
+      "id": "portalgun:shattered_riftmoss",
+      "required": false
+    },
+    {
+      "id": "portalgun:sketchbook_ruled_paper",
+      "required": false
+    },
+    {
+      "id": "portalgun:sketchbook_hatched_turf",
+      "required": false
+    },
+    {
+      "id": "portalgun:snack_bread_crust",
+      "required": false
+    },
+    {
+      "id": "portalgun:snack_herb_crust",
+      "required": false
+    },
+    {
+      "id": "portalgun:snack_pizza",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectra_prism_turf",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectra_rose_turf",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectra_gold_turf",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectral_moor_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_barbgrass",
+      "required": false
+    },
+    {
       "id": "portalgun:sporemoss",
+      "required": false
+    },
+    {
+      "id": "portalgun:synthwave_grid_turf",
+      "required": false
+    },
+    {
+      "id": "portalgun:tempest_storm_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_sinter_crust",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_microbial_mat",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_warm_moss",
+      "required": false
+    },
+    {
+      "id": "portalgun:umbra_gloom_moss",
       "required": false
     }
   ]

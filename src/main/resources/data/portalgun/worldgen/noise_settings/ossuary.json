@@ -1,0 +1,1509 @@
+{
+  "sea_level": 50,
+  "disable_mob_generation": false,
+  "aquifers_enabled": true,
+  "ore_veins_enabled": false,
+  "legacy_random_source": false,
+  "default_block": {
+    "Name": "portalgun:ossuary_fossil_rock"
+  },
+  "default_fluid": {
+    "Name": "minecraft:water",
+    "Properties": {
+      "level": "0"
+    }
+  },
+  "noise": {
+    "min_y": -64,
+    "height": 384,
+    "size_horizontal": 1,
+    "size_vertical": 2
+  },
+  "noise_router": {
+    "barrier": {
+      "type": "minecraft:noise",
+      "noise": "minecraft:aquifer_barrier",
+      "xz_scale": 1.0,
+      "y_scale": 0.5
+    },
+    "fluid_level_floodedness": {
+      "type": "minecraft:noise",
+      "noise": "minecraft:aquifer_fluid_level_floodedness",
+      "xz_scale": 1.0,
+      "y_scale": 0.67
+    },
+    "fluid_level_spread": {
+      "type": "minecraft:noise",
+      "noise": "minecraft:aquifer_fluid_level_spread",
+      "xz_scale": 1.0,
+      "y_scale": 0.7142857142857143
+    },
+    "lava": {
+      "type": "minecraft:noise",
+      "noise": "minecraft:aquifer_lava",
+      "xz_scale": 1.0,
+      "y_scale": 1.0
+    },
+    "temperature": {
+      "type": "minecraft:mul",
+      "argument1": {
+        "type": "minecraft:shifted_noise",
+        "noise": "portalgun:ossuary/temperature",
+        "xz_scale": 1.1764705882352942,
+        "y_scale": 0.0,
+        "shift_x": "minecraft:shift_x",
+        "shift_y": 0.0,
+        "shift_z": "minecraft:shift_z"
+      },
+      "argument2": 2.2
+    },
+    "vegetation": {
+      "type": "minecraft:mul",
+      "argument1": {
+        "type": "minecraft:shifted_noise",
+        "noise": "portalgun:ossuary/humidity",
+        "xz_scale": 1.1764705882352942,
+        "y_scale": 0.0,
+        "shift_x": "minecraft:shift_x",
+        "shift_y": 0.0,
+        "shift_z": "minecraft:shift_z"
+      },
+      "argument2": 2.2
+    },
+    "continents": {
+      "type": "minecraft:clamp",
+      "input": {
+        "type": "minecraft:mul",
+        "argument1": {
+          "type": "minecraft:add",
+          "argument1": {
+            "type": "minecraft:flat_cache",
+            "argument": {
+              "type": "minecraft:cache_2d",
+              "argument": {
+                "type": "minecraft:add",
+                "argument1": {
+                  "type": "minecraft:add",
+                  "argument1": 76.0,
+                  "argument2": {
+                    "type": "minecraft:mul",
+                    "argument1": {
+                      "type": "minecraft:mul",
+                      "argument1": {
+                        "type": "minecraft:noise",
+                        "noise": "portalgun:ossuary/base",
+                        "xz_scale": 0.9090909090909091,
+                        "y_scale": 0.0
+                      },
+                      "argument2": 2.0
+                    },
+                    "argument2": 6.4
+                  }
+                },
+                "argument2": {
+                  "type": "minecraft:mul",
+                  "argument1": {
+                    "type": "minecraft:mul",
+                    "argument1": {
+                      "type": "minecraft:add",
+                      "argument1": {
+                        "type": "minecraft:mul",
+                        "argument1": {
+                          "type": "minecraft:square",
+                          "argument": {
+                            "type": "minecraft:add",
+                            "argument1": {
+                              "type": "minecraft:mul",
+                              "argument1": {
+                                "type": "portalgun:sine",
+                                "argument": {
+                                  "type": "minecraft:add",
+                                  "argument1": {
+                                    "type": "minecraft:add",
+                                    "argument1": {
+                                      "type": "portalgun:coord",
+                                      "axis": "x",
+                                      "scale": 0.9396926207859084
+                                    },
+                                    "argument2": {
+                                      "type": "portalgun:coord",
+                                      "axis": "z",
+                                      "scale": 0.3420201433256687
+                                    }
+                                  },
+                                  "argument2": {
+                                    "type": "minecraft:mul",
+                                    "argument1": {
+                                      "type": "minecraft:mul",
+                                      "argument1": {
+                                        "type": "minecraft:noise",
+                                        "noise": "portalgun:ossuary/warp",
+                                        "xz_scale": 0.9090909090909091,
+                                        "y_scale": 0.0
+                                      },
+                                      "argument2": 2.0
+                                    },
+                                    "argument2": 47.52
+                                  }
+                                },
+                                "frequency": 0.07933314781792407,
+                                "amplitude": 1.0
+                              },
+                              "argument2": 0.5
+                            },
+                            "argument2": 0.5
+                          }
+                        },
+                        "argument2": 0.65
+                      },
+                      "argument2": {
+                        "type": "minecraft:mul",
+                        "argument1": {
+                          "type": "minecraft:square",
+                          "argument": {
+                            "type": "minecraft:add",
+                            "argument1": {
+                              "type": "minecraft:mul",
+                              "argument1": {
+                                "type": "portalgun:sine",
+                                "argument": {
+                                  "type": "minecraft:add",
+                                  "argument1": {
+                                    "type": "minecraft:add",
+                                    "argument1": {
+                                      "type": "portalgun:coord",
+                                      "axis": "x",
+                                      "scale": -0.3420201433256687
+                                    },
+                                    "argument2": {
+                                      "type": "portalgun:coord",
+                                      "axis": "z",
+                                      "scale": 0.9396926207859084
+                                    }
+                                  },
+                                  "argument2": {
+                                    "type": "minecraft:mul",
+                                    "argument1": {
+                                      "type": "minecraft:mul",
+                                      "argument1": {
+                                        "type": "minecraft:noise",
+                                        "noise": "portalgun:ossuary/warp2",
+                                        "xz_scale": 0.9090909090909091,
+                                        "y_scale": 0.0
+                                      },
+                                      "argument2": 2.0
+                                    },
+                                    "argument2": 79.2
+                                  }
+                                },
+                                "frequency": 0.03449267296431481,
+                                "amplitude": 1.0
+                              },
+                              "argument2": 0.5
+                            },
+                            "argument2": 0.5
+                          }
+                        },
+                        "argument2": 0.35
+                      }
+                    },
+                    "argument2": {
+                      "type": "minecraft:add",
+                      "argument1": 0.65,
+                      "argument2": {
+                        "type": "minecraft:mul",
+                        "argument1": {
+                          "type": "minecraft:mul",
+                          "argument1": {
+                            "type": "minecraft:noise",
+                            "noise": "portalgun:ossuary/dmask",
+                            "xz_scale": 0.9090909090909091,
+                            "y_scale": 0.0
+                          },
+                          "argument2": 2.0
+                        },
+                        "argument2": 0.35
+                      }
+                    }
+                  },
+                  "argument2": 17.0
+                }
+              }
+            }
+          },
+          "argument2": -76.0
+        },
+        "argument2": 0.04310344827586207
+      },
+      "min": -1.0,
+      "max": 1.0
+    },
+    "erosion": 0.0,
+    "depth": 0.0,
+    "ridges": 0.0,
+    "preliminary_surface_level": {
+      "type": "minecraft:flat_cache",
+      "argument": {
+        "type": "minecraft:cache_2d",
+        "argument": {
+          "type": "minecraft:add",
+          "argument1": {
+            "type": "minecraft:add",
+            "argument1": 76.0,
+            "argument2": {
+              "type": "minecraft:mul",
+              "argument1": {
+                "type": "minecraft:mul",
+                "argument1": {
+                  "type": "minecraft:noise",
+                  "noise": "portalgun:ossuary/base",
+                  "xz_scale": 0.9090909090909091,
+                  "y_scale": 0.0
+                },
+                "argument2": 2.0
+              },
+              "argument2": 6.4
+            }
+          },
+          "argument2": {
+            "type": "minecraft:mul",
+            "argument1": {
+              "type": "minecraft:mul",
+              "argument1": {
+                "type": "minecraft:add",
+                "argument1": {
+                  "type": "minecraft:mul",
+                  "argument1": {
+                    "type": "minecraft:square",
+                    "argument": {
+                      "type": "minecraft:add",
+                      "argument1": {
+                        "type": "minecraft:mul",
+                        "argument1": {
+                          "type": "portalgun:sine",
+                          "argument": {
+                            "type": "minecraft:add",
+                            "argument1": {
+                              "type": "minecraft:add",
+                              "argument1": {
+                                "type": "portalgun:coord",
+                                "axis": "x",
+                                "scale": 0.9396926207859084
+                              },
+                              "argument2": {
+                                "type": "portalgun:coord",
+                                "axis": "z",
+                                "scale": 0.3420201433256687
+                              }
+                            },
+                            "argument2": {
+                              "type": "minecraft:mul",
+                              "argument1": {
+                                "type": "minecraft:mul",
+                                "argument1": {
+                                  "type": "minecraft:noise",
+                                  "noise": "portalgun:ossuary/warp",
+                                  "xz_scale": 0.9090909090909091,
+                                  "y_scale": 0.0
+                                },
+                                "argument2": 2.0
+                              },
+                              "argument2": 47.52
+                            }
+                          },
+                          "frequency": 0.07933314781792407,
+                          "amplitude": 1.0
+                        },
+                        "argument2": 0.5
+                      },
+                      "argument2": 0.5
+                    }
+                  },
+                  "argument2": 0.65
+                },
+                "argument2": {
+                  "type": "minecraft:mul",
+                  "argument1": {
+                    "type": "minecraft:square",
+                    "argument": {
+                      "type": "minecraft:add",
+                      "argument1": {
+                        "type": "minecraft:mul",
+                        "argument1": {
+                          "type": "portalgun:sine",
+                          "argument": {
+                            "type": "minecraft:add",
+                            "argument1": {
+                              "type": "minecraft:add",
+                              "argument1": {
+                                "type": "portalgun:coord",
+                                "axis": "x",
+                                "scale": -0.3420201433256687
+                              },
+                              "argument2": {
+                                "type": "portalgun:coord",
+                                "axis": "z",
+                                "scale": 0.9396926207859084
+                              }
+                            },
+                            "argument2": {
+                              "type": "minecraft:mul",
+                              "argument1": {
+                                "type": "minecraft:mul",
+                                "argument1": {
+                                  "type": "minecraft:noise",
+                                  "noise": "portalgun:ossuary/warp2",
+                                  "xz_scale": 0.9090909090909091,
+                                  "y_scale": 0.0
+                                },
+                                "argument2": 2.0
+                              },
+                              "argument2": 79.2
+                            }
+                          },
+                          "frequency": 0.03449267296431481,
+                          "amplitude": 1.0
+                        },
+                        "argument2": 0.5
+                      },
+                      "argument2": 0.5
+                    }
+                  },
+                  "argument2": 0.35
+                }
+              },
+              "argument2": {
+                "type": "minecraft:add",
+                "argument1": 0.65,
+                "argument2": {
+                  "type": "minecraft:mul",
+                  "argument1": {
+                    "type": "minecraft:mul",
+                    "argument1": {
+                      "type": "minecraft:noise",
+                      "noise": "portalgun:ossuary/dmask",
+                      "xz_scale": 0.9090909090909091,
+                      "y_scale": 0.0
+                    },
+                    "argument2": 2.0
+                  },
+                  "argument2": 0.35
+                }
+              }
+            },
+            "argument2": 17.0
+          }
+        }
+      }
+    },
+    "final_density": {
+      "type": "minecraft:interpolated",
+      "argument": {
+        "type": "minecraft:mul",
+        "argument1": {
+          "type": "minecraft:min",
+          "argument1": {
+            "type": "minecraft:max",
+            "argument1": {
+              "type": "minecraft:min",
+              "argument1": {
+                "type": "minecraft:add",
+                "argument1": {
+                  "type": "minecraft:add",
+                  "argument1": {
+                    "type": "minecraft:flat_cache",
+                    "argument": {
+                      "type": "minecraft:cache_2d",
+                      "argument": {
+                        "type": "minecraft:add",
+                        "argument1": {
+                          "type": "minecraft:add",
+                          "argument1": 76.0,
+                          "argument2": {
+                            "type": "minecraft:mul",
+                            "argument1": {
+                              "type": "minecraft:mul",
+                              "argument1": {
+                                "type": "minecraft:noise",
+                                "noise": "portalgun:ossuary/base",
+                                "xz_scale": 0.9090909090909091,
+                                "y_scale": 0.0
+                              },
+                              "argument2": 2.0
+                            },
+                            "argument2": 6.4
+                          }
+                        },
+                        "argument2": {
+                          "type": "minecraft:mul",
+                          "argument1": {
+                            "type": "minecraft:mul",
+                            "argument1": {
+                              "type": "minecraft:add",
+                              "argument1": {
+                                "type": "minecraft:mul",
+                                "argument1": {
+                                  "type": "minecraft:square",
+                                  "argument": {
+                                    "type": "minecraft:add",
+                                    "argument1": {
+                                      "type": "minecraft:mul",
+                                      "argument1": {
+                                        "type": "portalgun:sine",
+                                        "argument": {
+                                          "type": "minecraft:add",
+                                          "argument1": {
+                                            "type": "minecraft:add",
+                                            "argument1": {
+                                              "type": "portalgun:coord",
+                                              "axis": "x",
+                                              "scale": 0.9396926207859084
+                                            },
+                                            "argument2": {
+                                              "type": "portalgun:coord",
+                                              "axis": "z",
+                                              "scale": 0.3420201433256687
+                                            }
+                                          },
+                                          "argument2": {
+                                            "type": "minecraft:mul",
+                                            "argument1": {
+                                              "type": "minecraft:mul",
+                                              "argument1": {
+                                                "type": "minecraft:noise",
+                                                "noise": "portalgun:ossuary/warp",
+                                                "xz_scale": 0.9090909090909091,
+                                                "y_scale": 0.0
+                                              },
+                                              "argument2": 2.0
+                                            },
+                                            "argument2": 47.52
+                                          }
+                                        },
+                                        "frequency": 0.07933314781792407,
+                                        "amplitude": 1.0
+                                      },
+                                      "argument2": 0.5
+                                    },
+                                    "argument2": 0.5
+                                  }
+                                },
+                                "argument2": 0.65
+                              },
+                              "argument2": {
+                                "type": "minecraft:mul",
+                                "argument1": {
+                                  "type": "minecraft:square",
+                                  "argument": {
+                                    "type": "minecraft:add",
+                                    "argument1": {
+                                      "type": "minecraft:mul",
+                                      "argument1": {
+                                        "type": "portalgun:sine",
+                                        "argument": {
+                                          "type": "minecraft:add",
+                                          "argument1": {
+                                            "type": "minecraft:add",
+                                            "argument1": {
+                                              "type": "portalgun:coord",
+                                              "axis": "x",
+                                              "scale": -0.3420201433256687
+                                            },
+                                            "argument2": {
+                                              "type": "portalgun:coord",
+                                              "axis": "z",
+                                              "scale": 0.9396926207859084
+                                            }
+                                          },
+                                          "argument2": {
+                                            "type": "minecraft:mul",
+                                            "argument1": {
+                                              "type": "minecraft:mul",
+                                              "argument1": {
+                                                "type": "minecraft:noise",
+                                                "noise": "portalgun:ossuary/warp2",
+                                                "xz_scale": 0.9090909090909091,
+                                                "y_scale": 0.0
+                                              },
+                                              "argument2": 2.0
+                                            },
+                                            "argument2": 79.2
+                                          }
+                                        },
+                                        "frequency": 0.03449267296431481,
+                                        "amplitude": 1.0
+                                      },
+                                      "argument2": 0.5
+                                    },
+                                    "argument2": 0.5
+                                  }
+                                },
+                                "argument2": 0.35
+                              }
+                            },
+                            "argument2": {
+                              "type": "minecraft:add",
+                              "argument1": 0.65,
+                              "argument2": {
+                                "type": "minecraft:mul",
+                                "argument1": {
+                                  "type": "minecraft:mul",
+                                  "argument1": {
+                                    "type": "minecraft:noise",
+                                    "noise": "portalgun:ossuary/dmask",
+                                    "xz_scale": 0.9090909090909091,
+                                    "y_scale": 0.0
+                                  },
+                                  "argument2": 2.0
+                                },
+                                "argument2": 0.35
+                              }
+                            }
+                          },
+                          "argument2": 17.0
+                        }
+                      }
+                    }
+                  },
+                  "argument2": {
+                    "type": "minecraft:mul",
+                    "argument1": "minecraft:y",
+                    "argument2": -1.0
+                  }
+                },
+                "argument2": {
+                  "type": "minecraft:mul",
+                  "argument1": {
+                    "type": "minecraft:mul",
+                    "argument1": {
+                      "type": "minecraft:noise",
+                      "noise": "portalgun:ossuary/rough",
+                      "xz_scale": 0.9090909090909091,
+                      "y_scale": 0.7
+                    },
+                    "argument2": 2.0
+                  },
+                  "argument2": 0.24960000000000002
+                }
+              },
+              "argument2": {
+                "type": "minecraft:max",
+                "argument1": {
+                  "type": "minecraft:max",
+                  "argument1": {
+                    "type": "minecraft:min",
+                    "argument1": {
+                      "type": "minecraft:mul",
+                      "argument1": {
+                        "type": "minecraft:add",
+                        "argument1": {
+                          "type": "minecraft:max",
+                          "argument1": {
+                            "type": "minecraft:abs",
+                            "argument": {
+                              "type": "minecraft:noise",
+                              "noise": "portalgun:ossuary/cave_a",
+                              "xz_scale": 0.9090909090909091,
+                              "y_scale": 1.0
+                            }
+                          },
+                          "argument2": {
+                            "type": "minecraft:abs",
+                            "argument": {
+                              "type": "minecraft:noise",
+                              "noise": "portalgun:ossuary/cave_b",
+                              "xz_scale": 0.9090909090909091,
+                              "y_scale": 1.0
+                            }
+                          }
+                        },
+                        "argument2": -0.045
+                      },
+                      "argument2": 140.0
+                    },
+                    "argument2": {
+                      "type": "minecraft:mul",
+                      "argument1": {
+                        "type": "minecraft:add",
+                        "argument1": 0.42,
+                        "argument2": {
+                          "type": "minecraft:mul",
+                          "argument1": {
+                            "type": "minecraft:noise",
+                            "noise": "portalgun:ossuary/cave_cheese",
+                            "xz_scale": 0.9090909090909091,
+                            "y_scale": 1.5
+                          },
+                          "argument2": -1.0
+                        }
+                      },
+                      "argument2": 60.0
+                    }
+                  },
+                  "argument2": {
+                    "type": "minecraft:clamp",
+                    "input": {
+                      "type": "minecraft:add",
+                      "argument1": {
+                        "type": "minecraft:add",
+                        "argument1": "minecraft:y",
+                        "argument2": {
+                          "type": "minecraft:mul",
+                          "argument1": {
+                            "type": "minecraft:flat_cache",
+                            "argument": {
+                              "type": "minecraft:cache_2d",
+                              "argument": {
+                                "type": "minecraft:add",
+                                "argument1": {
+                                  "type": "minecraft:add",
+                                  "argument1": 76.0,
+                                  "argument2": {
+                                    "type": "minecraft:mul",
+                                    "argument1": {
+                                      "type": "minecraft:mul",
+                                      "argument1": {
+                                        "type": "minecraft:noise",
+                                        "noise": "portalgun:ossuary/base",
+                                        "xz_scale": 0.9090909090909091,
+                                        "y_scale": 0.0
+                                      },
+                                      "argument2": 2.0
+                                    },
+                                    "argument2": 6.4
+                                  }
+                                },
+                                "argument2": {
+                                  "type": "minecraft:mul",
+                                  "argument1": {
+                                    "type": "minecraft:mul",
+                                    "argument1": {
+                                      "type": "minecraft:add",
+                                      "argument1": {
+                                        "type": "minecraft:mul",
+                                        "argument1": {
+                                          "type": "minecraft:square",
+                                          "argument": {
+                                            "type": "minecraft:add",
+                                            "argument1": {
+                                              "type": "minecraft:mul",
+                                              "argument1": {
+                                                "type": "portalgun:sine",
+                                                "argument": {
+                                                  "type": "minecraft:add",
+                                                  "argument1": {
+                                                    "type": "minecraft:add",
+                                                    "argument1": {
+                                                      "type": "portalgun:coord",
+                                                      "axis": "x",
+                                                      "scale": 0.9396926207859084
+                                                    },
+                                                    "argument2": {
+                                                      "type": "portalgun:coord",
+                                                      "axis": "z",
+                                                      "scale": 0.3420201433256687
+                                                    }
+                                                  },
+                                                  "argument2": {
+                                                    "type": "minecraft:mul",
+                                                    "argument1": {
+                                                      "type": "minecraft:mul",
+                                                      "argument1": {
+                                                        "type": "minecraft:noise",
+                                                        "noise": "portalgun:ossuary/warp",
+                                                        "xz_scale": 0.9090909090909091,
+                                                        "y_scale": 0.0
+                                                      },
+                                                      "argument2": 2.0
+                                                    },
+                                                    "argument2": 47.52
+                                                  }
+                                                },
+                                                "frequency": 0.07933314781792407,
+                                                "amplitude": 1.0
+                                              },
+                                              "argument2": 0.5
+                                            },
+                                            "argument2": 0.5
+                                          }
+                                        },
+                                        "argument2": 0.65
+                                      },
+                                      "argument2": {
+                                        "type": "minecraft:mul",
+                                        "argument1": {
+                                          "type": "minecraft:square",
+                                          "argument": {
+                                            "type": "minecraft:add",
+                                            "argument1": {
+                                              "type": "minecraft:mul",
+                                              "argument1": {
+                                                "type": "portalgun:sine",
+                                                "argument": {
+                                                  "type": "minecraft:add",
+                                                  "argument1": {
+                                                    "type": "minecraft:add",
+                                                    "argument1": {
+                                                      "type": "portalgun:coord",
+                                                      "axis": "x",
+                                                      "scale": -0.3420201433256687
+                                                    },
+                                                    "argument2": {
+                                                      "type": "portalgun:coord",
+                                                      "axis": "z",
+                                                      "scale": 0.9396926207859084
+                                                    }
+                                                  },
+                                                  "argument2": {
+                                                    "type": "minecraft:mul",
+                                                    "argument1": {
+                                                      "type": "minecraft:mul",
+                                                      "argument1": {
+                                                        "type": "minecraft:noise",
+                                                        "noise": "portalgun:ossuary/warp2",
+                                                        "xz_scale": 0.9090909090909091,
+                                                        "y_scale": 0.0
+                                                      },
+                                                      "argument2": 2.0
+                                                    },
+                                                    "argument2": 79.2
+                                                  }
+                                                },
+                                                "frequency": 0.03449267296431481,
+                                                "amplitude": 1.0
+                                              },
+                                              "argument2": 0.5
+                                            },
+                                            "argument2": 0.5
+                                          }
+                                        },
+                                        "argument2": 0.35
+                                      }
+                                    },
+                                    "argument2": {
+                                      "type": "minecraft:add",
+                                      "argument1": 0.65,
+                                      "argument2": {
+                                        "type": "minecraft:mul",
+                                        "argument1": {
+                                          "type": "minecraft:mul",
+                                          "argument1": {
+                                            "type": "minecraft:noise",
+                                            "noise": "portalgun:ossuary/dmask",
+                                            "xz_scale": 0.9090909090909091,
+                                            "y_scale": 0.0
+                                          },
+                                          "argument2": 2.0
+                                        },
+                                        "argument2": 0.35
+                                      }
+                                    }
+                                  },
+                                  "argument2": 17.0
+                                }
+                              }
+                            }
+                          },
+                          "argument2": -1.0
+                        }
+                      },
+                      "argument2": 10.0
+                    },
+                    "min": -60.0,
+                    "max": 60.0
+                  }
+                },
+                "argument2": {
+                  "type": "minecraft:y_clamped_gradient",
+                  "from_y": -63,
+                  "to_y": -52,
+                  "from_value": 40.0,
+                  "to_value": -40.0
+                }
+              }
+            },
+            "argument2": {
+              "type": "minecraft:y_clamped_gradient",
+              "from_y": -64,
+              "to_y": -59,
+              "from_value": 40.0,
+              "to_value": -40.0
+            }
+          },
+          "argument2": {
+            "type": "minecraft:y_clamped_gradient",
+            "from_y": 300,
+            "to_y": 317,
+            "from_value": 60.0,
+            "to_value": -60.0
+          }
+        },
+        "argument2": 0.0625
+      }
+    },
+    "vein_toggle": 0.0,
+    "vein_ridged": 0.0,
+    "vein_gap": 0.0
+  },
+  "spawn_target": [],
+  "surface_rule": {
+    "type": "minecraft:sequence",
+    "sequence": [
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:vertical_gradient",
+          "random_name": "portalgun:ossuary/bedrock_floor",
+          "true_at_and_below": {
+            "above_bottom": 0
+          },
+          "false_at_and_above": {
+            "above_bottom": 5
+          }
+        },
+        "then_run": {
+          "type": "minecraft:block",
+          "result_state": {
+            "Name": "minecraft:bedrock"
+          }
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:biome",
+          "biome_is": [
+            "portalgun:ossuary_bleached_dunes"
+          ]
+        },
+        "then_run": {
+          "type": "minecraft:sequence",
+          "sequence": [
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:y_above",
+                "anchor": {
+                  "absolute": 47
+                },
+                "surface_depth_multiplier": 0,
+                "add_stone_depth": false
+              },
+              "then_run": {
+                "type": "minecraft:condition",
+                "if_true": {
+                  "type": "minecraft:not",
+                  "invert": {
+                    "type": "minecraft:y_above",
+                    "anchor": {
+                      "absolute": 51
+                    },
+                    "surface_depth_multiplier": 1,
+                    "add_stone_depth": false
+                  }
+                },
+                "then_run": {
+                  "type": "minecraft:condition",
+                  "if_true": {
+                    "type": "minecraft:stone_depth",
+                    "offset": 0,
+                    "add_surface_depth": true,
+                    "secondary_depth_range": 0,
+                    "surface_type": "floor"
+                  },
+                  "then_run": {
+                    "type": "minecraft:block",
+                    "result_state": {
+                      "Name": "portalgun:ossuary_marrow_crust"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:stone_depth",
+                "offset": 0,
+                "add_surface_depth": false,
+                "secondary_depth_range": 0,
+                "surface_type": "floor"
+              },
+              "then_run": {
+                "type": "minecraft:sequence",
+                "sequence": [
+                  {
+                    "type": "minecraft:condition",
+                    "if_true": {
+                      "type": "minecraft:water",
+                      "offset": -1,
+                      "surface_depth_multiplier": 0,
+                      "add_stone_depth": false
+                    },
+                    "then_run": {
+                      "type": "minecraft:block",
+                      "result_state": {
+                        "Name": "portalgun:ossuary_bone_sand"
+                      }
+                    }
+                  },
+                  {
+                    "type": "minecraft:block",
+                    "result_state": {
+                      "Name": "portalgun:ossuary_dust_sandstone"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:stone_depth",
+                "offset": 0,
+                "add_surface_depth": true,
+                "secondary_depth_range": 0,
+                "surface_type": "floor"
+              },
+              "then_run": {
+                "type": "minecraft:sequence",
+                "sequence": [
+                  {
+                    "type": "minecraft:condition",
+                    "if_true": {
+                      "type": "minecraft:water",
+                      "offset": -1,
+                      "surface_depth_multiplier": 0,
+                      "add_stone_depth": false
+                    },
+                    "then_run": {
+                      "type": "minecraft:block",
+                      "result_state": {
+                        "Name": "portalgun:ossuary_dust_sandstone"
+                      }
+                    }
+                  },
+                  {
+                    "type": "minecraft:block",
+                    "result_state": {
+                      "Name": "portalgun:ossuary_dust_sandstone"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:stone_depth",
+                "offset": 0,
+                "add_surface_depth": false,
+                "secondary_depth_range": 0,
+                "surface_type": "ceiling"
+              },
+              "then_run": {
+                "type": "minecraft:block",
+                "result_state": {
+                  "Name": "portalgun:ossuary_dust_sandstone"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:biome",
+          "biome_is": [
+            "portalgun:ossuary_colossus_graveyard"
+          ]
+        },
+        "then_run": {
+          "type": "minecraft:sequence",
+          "sequence": [
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:y_above",
+                "anchor": {
+                  "absolute": 47
+                },
+                "surface_depth_multiplier": 0,
+                "add_stone_depth": false
+              },
+              "then_run": {
+                "type": "minecraft:condition",
+                "if_true": {
+                  "type": "minecraft:not",
+                  "invert": {
+                    "type": "minecraft:y_above",
+                    "anchor": {
+                      "absolute": 51
+                    },
+                    "surface_depth_multiplier": 1,
+                    "add_stone_depth": false
+                  }
+                },
+                "then_run": {
+                  "type": "minecraft:condition",
+                  "if_true": {
+                    "type": "minecraft:stone_depth",
+                    "offset": 0,
+                    "add_surface_depth": true,
+                    "secondary_depth_range": 0,
+                    "surface_type": "floor"
+                  },
+                  "then_run": {
+                    "type": "minecraft:block",
+                    "result_state": {
+                      "Name": "portalgun:ossuary_marrow_crust"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:stone_depth",
+                "offset": 0,
+                "add_surface_depth": false,
+                "secondary_depth_range": 0,
+                "surface_type": "floor"
+              },
+              "then_run": {
+                "type": "minecraft:sequence",
+                "sequence": [
+                  {
+                    "type": "minecraft:condition",
+                    "if_true": {
+                      "type": "minecraft:noise_threshold",
+                      "noise": "portalgun:ossuary/patch_0",
+                      "min_threshold": 0.82,
+                      "max_threshold": 10000000000.0
+                    },
+                    "then_run": {
+                      "type": "minecraft:block",
+                      "result_state": {
+                        "Name": "minecraft:bone_block"
+                      }
+                    }
+                  },
+                  {
+                    "type": "minecraft:condition",
+                    "if_true": {
+                      "type": "minecraft:water",
+                      "offset": -1,
+                      "surface_depth_multiplier": 0,
+                      "add_stone_depth": false
+                    },
+                    "then_run": {
+                      "type": "minecraft:block",
+                      "result_state": {
+                        "Name": "portalgun:ossuary_bone_sand"
+                      }
+                    }
+                  },
+                  {
+                    "type": "minecraft:block",
+                    "result_state": {
+                      "Name": "portalgun:ossuary_dust_sandstone"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:stone_depth",
+                "offset": 0,
+                "add_surface_depth": true,
+                "secondary_depth_range": 0,
+                "surface_type": "floor"
+              },
+              "then_run": {
+                "type": "minecraft:sequence",
+                "sequence": [
+                  {
+                    "type": "minecraft:condition",
+                    "if_true": {
+                      "type": "minecraft:water",
+                      "offset": -1,
+                      "surface_depth_multiplier": 0,
+                      "add_stone_depth": false
+                    },
+                    "then_run": {
+                      "type": "minecraft:block",
+                      "result_state": {
+                        "Name": "portalgun:ossuary_dust_sandstone"
+                      }
+                    }
+                  },
+                  {
+                    "type": "minecraft:block",
+                    "result_state": {
+                      "Name": "portalgun:ossuary_dust_sandstone"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:stone_depth",
+                "offset": 0,
+                "add_surface_depth": false,
+                "secondary_depth_range": 0,
+                "surface_type": "ceiling"
+              },
+              "then_run": {
+                "type": "minecraft:block",
+                "result_state": {
+                  "Name": "portalgun:ossuary_dust_sandstone"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:biome",
+          "biome_is": [
+            "portalgun:ossuary_marrow_flats"
+          ]
+        },
+        "then_run": {
+          "type": "minecraft:sequence",
+          "sequence": [
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:y_above",
+                "anchor": {
+                  "absolute": 47
+                },
+                "surface_depth_multiplier": 0,
+                "add_stone_depth": false
+              },
+              "then_run": {
+                "type": "minecraft:condition",
+                "if_true": {
+                  "type": "minecraft:not",
+                  "invert": {
+                    "type": "minecraft:y_above",
+                    "anchor": {
+                      "absolute": 51
+                    },
+                    "surface_depth_multiplier": 1,
+                    "add_stone_depth": false
+                  }
+                },
+                "then_run": {
+                  "type": "minecraft:condition",
+                  "if_true": {
+                    "type": "minecraft:stone_depth",
+                    "offset": 0,
+                    "add_surface_depth": true,
+                    "secondary_depth_range": 0,
+                    "surface_type": "floor"
+                  },
+                  "then_run": {
+                    "type": "minecraft:block",
+                    "result_state": {
+                      "Name": "portalgun:ossuary_marrow_crust"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:stone_depth",
+                "offset": 0,
+                "add_surface_depth": false,
+                "secondary_depth_range": 0,
+                "surface_type": "floor"
+              },
+              "then_run": {
+                "type": "minecraft:sequence",
+                "sequence": [
+                  {
+                    "type": "minecraft:condition",
+                    "if_true": {
+                      "type": "minecraft:noise_threshold",
+                      "noise": "portalgun:ossuary/patch_1",
+                      "min_threshold": 0.5,
+                      "max_threshold": 10000000000.0
+                    },
+                    "then_run": {
+                      "type": "minecraft:block",
+                      "result_state": {
+                        "Name": "portalgun:ossuary_marrow_pool"
+                      }
+                    }
+                  },
+                  {
+                    "type": "minecraft:condition",
+                    "if_true": {
+                      "type": "minecraft:water",
+                      "offset": -1,
+                      "surface_depth_multiplier": 0,
+                      "add_stone_depth": false
+                    },
+                    "then_run": {
+                      "type": "minecraft:block",
+                      "result_state": {
+                        "Name": "portalgun:ossuary_marrow_crust"
+                      }
+                    }
+                  },
+                  {
+                    "type": "minecraft:block",
+                    "result_state": {
+                      "Name": "portalgun:ossuary_marrow_crust"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:stone_depth",
+                "offset": 0,
+                "add_surface_depth": true,
+                "secondary_depth_range": 0,
+                "surface_type": "floor"
+              },
+              "then_run": {
+                "type": "minecraft:sequence",
+                "sequence": [
+                  {
+                    "type": "minecraft:condition",
+                    "if_true": {
+                      "type": "minecraft:water",
+                      "offset": -1,
+                      "surface_depth_multiplier": 0,
+                      "add_stone_depth": false
+                    },
+                    "then_run": {
+                      "type": "minecraft:block",
+                      "result_state": {
+                        "Name": "portalgun:ossuary_dust_sandstone"
+                      }
+                    }
+                  },
+                  {
+                    "type": "minecraft:block",
+                    "result_state": {
+                      "Name": "portalgun:ossuary_marrow_crust"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:stone_depth",
+                "offset": 0,
+                "add_surface_depth": false,
+                "secondary_depth_range": 0,
+                "surface_type": "ceiling"
+              },
+              "then_run": {
+                "type": "minecraft:block",
+                "result_state": {
+                  "Name": "portalgun:ossuary_dust_sandstone"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:biome",
+          "biome_is": [
+            "portalgun:ossuary_charnel_barrens"
+          ]
+        },
+        "then_run": {
+          "type": "minecraft:sequence",
+          "sequence": [
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:y_above",
+                "anchor": {
+                  "absolute": 47
+                },
+                "surface_depth_multiplier": 0,
+                "add_stone_depth": false
+              },
+              "then_run": {
+                "type": "minecraft:condition",
+                "if_true": {
+                  "type": "minecraft:not",
+                  "invert": {
+                    "type": "minecraft:y_above",
+                    "anchor": {
+                      "absolute": 51
+                    },
+                    "surface_depth_multiplier": 1,
+                    "add_stone_depth": false
+                  }
+                },
+                "then_run": {
+                  "type": "minecraft:condition",
+                  "if_true": {
+                    "type": "minecraft:stone_depth",
+                    "offset": 0,
+                    "add_surface_depth": true,
+                    "secondary_depth_range": 0,
+                    "surface_type": "floor"
+                  },
+                  "then_run": {
+                    "type": "minecraft:block",
+                    "result_state": {
+                      "Name": "portalgun:ossuary_marrow_crust"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:stone_depth",
+                "offset": 0,
+                "add_surface_depth": false,
+                "secondary_depth_range": 0,
+                "surface_type": "floor"
+              },
+              "then_run": {
+                "type": "minecraft:sequence",
+                "sequence": [
+                  {
+                    "type": "minecraft:condition",
+                    "if_true": {
+                      "type": "minecraft:noise_threshold",
+                      "noise": "portalgun:ossuary/patch_2",
+                      "min_threshold": 0.6,
+                      "max_threshold": 10000000000.0
+                    },
+                    "then_run": {
+                      "type": "minecraft:block",
+                      "result_state": {
+                        "Name": "portalgun:ossuary_bone_sand"
+                      }
+                    }
+                  },
+                  {
+                    "type": "minecraft:condition",
+                    "if_true": {
+                      "type": "minecraft:water",
+                      "offset": -1,
+                      "surface_depth_multiplier": 0,
+                      "add_stone_depth": false
+                    },
+                    "then_run": {
+                      "type": "minecraft:block",
+                      "result_state": {
+                        "Name": "portalgun:ossuary_ash"
+                      }
+                    }
+                  },
+                  {
+                    "type": "minecraft:block",
+                    "result_state": {
+                      "Name": "portalgun:ossuary_fossil_rock"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:stone_depth",
+                "offset": 0,
+                "add_surface_depth": true,
+                "secondary_depth_range": 0,
+                "surface_type": "floor"
+              },
+              "then_run": {
+                "type": "minecraft:sequence",
+                "sequence": [
+                  {
+                    "type": "minecraft:condition",
+                    "if_true": {
+                      "type": "minecraft:water",
+                      "offset": -1,
+                      "surface_depth_multiplier": 0,
+                      "add_stone_depth": false
+                    },
+                    "then_run": {
+                      "type": "minecraft:block",
+                      "result_state": {
+                        "Name": "portalgun:ossuary_fossil_rock"
+                      }
+                    }
+                  },
+                  {
+                    "type": "minecraft:block",
+                    "result_state": {
+                      "Name": "portalgun:ossuary_fossil_rock"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:stone_depth",
+                "offset": 0,
+                "add_surface_depth": false,
+                "secondary_depth_range": 0,
+                "surface_type": "ceiling"
+              },
+              "then_run": {
+                "type": "minecraft:block",
+                "result_state": {
+                  "Name": "portalgun:ossuary_dust_sandstone"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:vertical_gradient",
+          "random_name": "portalgun:ossuary/deepslate",
+          "true_at_and_below": {
+            "absolute": 0
+          },
+          "false_at_and_above": {
+            "absolute": 8
+          }
+        },
+        "then_run": {
+          "type": "minecraft:block",
+          "result_state": {
+            "Name": "minecraft:deepslate"
+          }
+        }
+      }
+    ]
+  }
+}

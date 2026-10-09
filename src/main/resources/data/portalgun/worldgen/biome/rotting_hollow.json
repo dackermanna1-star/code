@@ -13,6 +13,18 @@
         "tick_chance": 0.0111
       }
     },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
     "minecraft:visual/ambient_particles": [
       {
         "particle": {
@@ -25,13 +37,13 @@
     "minecraft:visual/fog_end_distance": 70.0,
     "minecraft:visual/fog_start_distance": 24.0,
     "minecraft:visual/sky_fog_end_distance": 105.0,
-    "minecraft:visual/water_fog_color": "#0e0b12"
+    "minecraft:visual/water_fog_color": "#123a40"
   },
   "carvers": [
     "portalgun:sporewood_cave",
     "portalgun:sporewood_canyon"
   ],
-  "downfall": 0.78,
+  "downfall": 0.13999999999999996,
   "effects": {
     "water_color": "#3a2b4a",
     "grass_color": "#245048"
@@ -52,9 +64,11 @@
       "portalgun:sporewood/ore_lapis",
       "portalgun:sporewood/ore_diamond",
       "portalgun:sporewood/ore_emerald",
-      "portalgun:sporewood/rotting_hollow/4_disk"
+      "portalgun:sporewood/rotting_hollow/5_disk"
     ],
-    [],
+    [
+      "portalgun:sporewood/rotting_hollow/3_patch"
+    ],
     [
       "portalgun:sporewood/spring"
     ],
@@ -62,7 +76,7 @@
       "portalgun:sporewood/rotting_hollow/0_giantplant",
       "portalgun:sporewood/rotting_hollow/1_giantplant",
       "portalgun:sporewood/rotting_hollow/2_patch",
-      "portalgun:sporewood/rotting_hollow/3_patch"
+      "portalgun:sporewood/rotting_hollow/4_patch"
     ],
     []
   ],
@@ -92,5 +106,5 @@
     "water_ambient": [],
     "misc": []
   },
-  "temperature": 0.5
+  "temperature": 1.2850000000000001
 }

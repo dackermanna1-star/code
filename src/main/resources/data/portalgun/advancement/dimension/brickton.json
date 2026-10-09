@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:brickton"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:brickton_power_stud"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.brickton.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.brickton.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

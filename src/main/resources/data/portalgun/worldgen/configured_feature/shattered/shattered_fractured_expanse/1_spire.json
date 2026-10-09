@@ -1,0 +1,37 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:shattered_rift_obsidian"
+          },
+          "weight": 5
+        },
+        {
+          "data": {
+            "Name": "portalgun:shattered_voidstone"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 14
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 1,
+      "max_inclusive": 2
+    },
+    "lean": 0.7,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:shattered_rift_crystal"
+    }
+  }
+}

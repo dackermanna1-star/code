@@ -1,0 +1,111 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.jungle_night"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.bamboo_jungle",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.bamboo_jungle",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:cloud"
+        },
+        "probability": 0.0015
+      },
+      {
+        "particle": {
+          "type": "minecraft:falling_spore_blossom"
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/fog_color": "#c8e4d0",
+    "minecraft:visual/water_fog_color": "#1a8a80"
+  },
+  "carvers": [
+    "portalgun:thermalia_cave",
+    "portalgun:thermalia_canyon"
+  ],
+  "downfall": 0.8400000000000001,
+  "effects": {
+    "water_color": "#38d0b8",
+    "grass_color": "#58964a",
+    "foliage_color": "#3e8a3a",
+    "dry_foliage_color": "#3e8a3a"
+  },
+  "features": [
+    [],
+    [
+      "portalgun:thermalia/thermalia_fern_gullies/5_lake"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:thermalia/ore_coal",
+      "portalgun:thermalia/ore_iron",
+      "portalgun:thermalia/ore_copper",
+      "portalgun:thermalia/ore_gold",
+      "portalgun:thermalia/ore_redstone",
+      "portalgun:thermalia/ore_lapis",
+      "portalgun:thermalia/ore_diamond",
+      "portalgun:thermalia/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:thermalia/spring"
+    ],
+    [
+      "portalgun:thermalia/thermalia_fern_gullies/0_giantplant",
+      "portalgun:thermalia/thermalia_fern_gullies/1_giantplant",
+      "portalgun:thermalia/thermalia_fern_gullies/2_patch",
+      "portalgun:thermalia/thermalia_fern_gullies/3_patch",
+      "portalgun:thermalia/thermalia_fern_gullies/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:steam_turtle",
+        "weight": 14,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [
+      {
+        "type": "portalgun:geyser_serpent",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.37500000000000006
+}

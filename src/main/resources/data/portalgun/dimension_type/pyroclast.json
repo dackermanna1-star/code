@@ -1,0 +1,74 @@
+{
+  "has_fixed_time": true,
+  "has_skylight": true,
+  "has_ceiling": false,
+  "coordinate_scale": 1.0,
+  "min_y": -64,
+  "height": 384,
+  "logical_height": 384,
+  "infiniburn": "#minecraft:infiniburn_nether",
+  "ambient_light": 0.1,
+  "monster_spawn_light_level": {
+    "type": "minecraft:uniform",
+    "min_inclusive": 0,
+    "max_inclusive": 11
+  },
+  "monster_spawn_block_light_limit": 0,
+  "skybox": "overworld",
+  "cardinal_light": "default",
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.volcanic_rumble",
+      "additions": {
+        "sound": "minecraft:ambient.basalt_deltas.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.nether.basalt_deltas",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.nether.basalt_deltas",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:gameplay/bed_rule": {
+      "can_sleep": "never",
+      "can_set_spawn": "never",
+      "explodes": true
+    },
+    "minecraft:gameplay/can_start_raid": false,
+    "minecraft:gameplay/fast_lava": true,
+    "minecraft:gameplay/nether_portal_spawns_piglin": false,
+    "minecraft:gameplay/respawn_anchor_works": true,
+    "minecraft:gameplay/snow_golem_melts": true,
+    "minecraft:gameplay/water_evaporates": true,
+    "minecraft:visual/cloud_color": "#c0281818",
+    "minecraft:visual/cloud_fog_end_distance": 300.0,
+    "minecraft:visual/cloud_height": 150.0,
+    "minecraft:visual/default_dripstone_particle": {
+      "type": "minecraft:dripping_dripstone_lava"
+    },
+    "minecraft:visual/fog_color": "#3a1812",
+    "minecraft:visual/fog_end_distance": 120.0,
+    "minecraft:visual/fog_start_distance": 12.0,
+    "minecraft:visual/sky_color": "#2a0e0a",
+    "minecraft:visual/sky_fog_end_distance": 180.0,
+    "minecraft:visual/sky_light_color": "#ffb090",
+    "minecraft:visual/star_brightness": 0.15
+  },
+  "timelines": [
+    "portalgun:pyroclast",
+    "minecraft:villager_schedule"
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:microverse",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:microverse",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:micro_cytoplasm",
+          "parameters": {
+            "temperature": 0.0,
+            "humidity": 0.5,
+            "continentalness": -0.5,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:micro_nucleus_chamber",
+          "parameters": {
+            "temperature": 0.5,
+            "humidity": -0.2,
+            "continentalness": 0.2,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:micro_chloroplast_grove",
+          "parameters": {
+            "temperature": -0.5,
+            "humidity": 0.2,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:micro_viral_bloom",
+          "parameters": {
+            "temperature": -0.3,
+            "humidity": -0.7,
+            "continentalness": 0.3,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

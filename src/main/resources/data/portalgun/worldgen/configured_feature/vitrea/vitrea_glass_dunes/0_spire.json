@@ -1,0 +1,33 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:vitrea_fulgurite"
+          },
+          "weight": 3
+        },
+        {
+          "data": {
+            "Name": "portalgun:vitrea_dune_glass"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 16
+    },
+    "radius": 1,
+    "lean": 0.45,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:vitrea_rose_glass"
+    }
+  }
+}

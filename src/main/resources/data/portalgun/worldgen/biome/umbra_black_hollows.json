@@ -1,0 +1,116 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.dark_void",
+      "additions": {
+        "sound": "minecraft:ambient.crimson_forest.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:squid_ink"
+        },
+        "probability": 0.002
+      },
+      {
+        "particle": {
+          "type": "minecraft:ash"
+        },
+        "probability": 0.01
+      }
+    ],
+    "minecraft:visual/fog_color": "#040308",
+    "minecraft:visual/fog_end_distance": 30.0,
+    "minecraft:visual/fog_start_distance": 4.0,
+    "minecraft:visual/sky_fog_end_distance": 45.0,
+    "minecraft:visual/water_fog_color": "#020104"
+  },
+  "carvers": [],
+  "downfall": 0.3,
+  "effects": {
+    "water_color": "#08040e"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:umbra/umbra_black_hollows/1_structure",
+      "portalgun:umbra/umbra_black_hollows/3_spire"
+    ],
+    [],
+    [
+      "portalgun:umbra/ore_coal",
+      "portalgun:umbra/ore_iron",
+      "portalgun:umbra/ore_copper",
+      "portalgun:umbra/ore_gold",
+      "portalgun:umbra/ore_redstone",
+      "portalgun:umbra/ore_lapis",
+      "portalgun:umbra/ore_diamond",
+      "portalgun:umbra/ore_emerald"
+    ],
+    [
+      "portalgun:umbra/umbra_black_hollows/2_patch"
+    ],
+    [],
+    [
+      "portalgun:umbra/umbra_black_hollows/0_patch",
+      "portalgun:umbra/umbra_black_hollows/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:umbral_hound",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:shade",
+        "weight": 5,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:glimmer",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.55
+}

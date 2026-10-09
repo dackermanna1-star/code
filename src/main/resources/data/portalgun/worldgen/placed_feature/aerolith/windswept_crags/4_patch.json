@@ -1,0 +1,12 @@
+{
+  "feature": "portalgun:aerolith/windswept_crags/4_patch",
+  "placement": [
+    {
+      "type": "minecraft:count_on_every_layer",
+      "count": 2
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

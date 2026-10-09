@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/groovy_shag"
+      },
+      {
+        "model": "portalgun:block/groovy_shag",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/groovy_shag",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/groovy_shag",
+        "y": 270
+      }
+    ]
+  }
+}

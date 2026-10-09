@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "cuboids",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:synthwave_chrome"
+      },
+      "trim": {
+        "Name": "portalgun:synthwave_neon_tube"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 7
+    },
+    "params": {
+      "float": 9.0,
+      "count": 1.0
+    }
+  }
+}

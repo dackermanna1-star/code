@@ -1,0 +1,37 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:ember_termite_clay"
+          },
+          "weight": 6
+        },
+        {
+          "data": {
+            "Name": "portalgun:ember_red_earth"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 9,
+      "max_inclusive": 18
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "lean": 0.12,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:ember_termite_chimney"
+    }
+  }
+}

@@ -2,7 +2,123 @@
   "replace": false,
   "values": [
     {
+      "id": "portalgun:aerolith_hanging_roots",
+      "required": false
+    },
+    {
+      "id": "portalgun:aviary_cliff_ivy",
+      "required": false
+    },
+    {
+      "id": "portalgun:cronen_bile_bulb",
+      "required": false
+    },
+    {
+      "id": "portalgun:cronen_veins",
+      "required": false
+    },
+    {
+      "id": "portalgun:eventide_gloamvine",
+      "required": false
+    },
+    {
+      "id": "portalgun:glacior_icicle",
+      "required": false
+    },
+    {
+      "id": "portalgun:glitch_loose_cable",
+      "required": false
+    },
+    {
+      "id": "portalgun:gloop_drip",
+      "required": false
+    },
+    {
+      "id": "portalgun:groovy_bead_curtain",
+      "required": false
+    },
+    {
+      "id": "portalgun:hivemind_honey_drip",
+      "required": false
+    },
+    {
+      "id": "portalgun:inversia_dangleroots",
+      "required": false
+    },
+    {
+      "id": "portalgun:inversia_downgrass",
+      "required": false
+    },
+    {
+      "id": "portalgun:inversia_lantern_pod",
+      "required": false
+    },
+    {
+      "id": "portalgun:inversia_curtain_moss",
+      "required": false
+    },
+    {
+      "id": "portalgun:lotus_willow_moss",
+      "required": false
+    },
+    {
+      "id": "portalgun:lumina_glowvine",
+      "required": false
+    },
+    {
+      "id": "portalgun:lumina_bulb",
+      "required": false
+    },
+    {
+      "id": "portalgun:micro_flagellum",
+      "required": false
+    },
+    {
+      "id": "portalgun:oculus_weeping_lashes",
+      "required": false
+    },
+    {
+      "id": "portalgun:paradisia_coconuts",
+      "required": false
+    },
+    {
+      "id": "portalgun:prismara_glowbulb",
+      "required": false
+    },
+    {
+      "id": "portalgun:sakura_hanging_blossom",
+      "required": false
+    },
+    {
+      "id": "portalgun:shattered_void_tendrils",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectral_ghost_moss",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_thorn_vine",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_ichor_bulb",
+      "required": false
+    },
+    {
       "id": "portalgun:hanging_glowroot",
+      "required": false
+    },
+    {
+      "id": "portalgun:sporewood_shelf_fungus",
+      "required": false
+    },
+    {
+      "id": "portalgun:umbra_lumen_vein",
+      "required": false
+    },
+    {
+      "id": "portalgun:umbra_gloom_bulb",
       "required": false
     }
   ]

@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:selene"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:selene_moon_cheese"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.selene.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.selene.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

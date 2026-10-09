@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:aviary"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:aviary_roc_feather"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.aviary.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.aviary.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

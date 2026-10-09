@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:colossia"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:colossia_honey_glob"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.colossia.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.colossia.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

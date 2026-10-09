@@ -1,0 +1,27 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:oculus_eyestalk"
+    },
+    "head": {
+      "Name": "portalgun:oculus_eyeball"
+    },
+    "shape": "sphere",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 13
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "stem_width": 1,
+    "bend": 0.5,
+    "decoration": {
+      "Name": "portalgun:oculus_iris"
+    }
+  }
+}

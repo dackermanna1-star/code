@@ -1,0 +1,24 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:brickton_brown_brick"
+    },
+    "head": {
+      "Name": "portalgun:brickton_leaf_brick"
+    },
+    "shape": "cone",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 7,
+      "max_inclusive": 11
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 4
+    },
+    "stem_width": 1,
+    "bend": 0.0
+  }
+}

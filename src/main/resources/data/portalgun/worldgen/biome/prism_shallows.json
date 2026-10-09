@@ -1,0 +1,115 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.crystal_chimes"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.dripstone_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.dripstone_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:end_rod"
+        },
+        "probability": 0.002
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16777215,
+          "scale": 0.6
+        },
+        "probability": 0.005
+      }
+    ],
+    "minecraft:visual/fog_color": "#1c2a50",
+    "minecraft:visual/water_fog_color": "#1a6a8a"
+  },
+  "carvers": [],
+  "downfall": 0.5800000000000001,
+  "effects": {
+    "water_color": "#5af0ff"
+  },
+  "features": [
+    [],
+    [
+      "portalgun:prismara/prism_shallows/0_lake"
+    ],
+    [],
+    [],
+    [
+      "portalgun:prismara/prism_shallows/3_spire"
+    ],
+    [],
+    [
+      "portalgun:prismara/ore_coal",
+      "portalgun:prismara/ore_iron",
+      "portalgun:prismara/ore_copper",
+      "portalgun:prismara/ore_gold",
+      "portalgun:prismara/ore_redstone",
+      "portalgun:prismara/ore_lapis",
+      "portalgun:prismara/ore_diamond",
+      "portalgun:prismara/ore_emerald"
+    ],
+    [
+      "portalgun:prismara/prism_shallows/1_crystalcluster",
+      "portalgun:prismara/prism_shallows/2_crystalcluster"
+    ],
+    [
+      "portalgun:prismara/spring"
+    ],
+    [
+      "portalgun:prismara/prism_shallows/4_patch",
+      "portalgun:prismara/prism_shallows/5_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:crystal_crawler",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:shimmer_moth",
+        "weight": 14,
+        "minCount": 2,
+        "maxCount": 5
+      },
+      {
+        "type": "portalgun:geode_golem",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.35000000000000003
+}

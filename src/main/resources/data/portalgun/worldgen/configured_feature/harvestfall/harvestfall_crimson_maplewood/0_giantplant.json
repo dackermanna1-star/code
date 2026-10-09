@@ -1,0 +1,33 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:harvestfall_maple_log"
+    },
+    "head": {
+      "Name": "portalgun:harvestfall_crimson_leaves",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "puff",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 13,
+      "max_inclusive": 20
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 7
+    },
+    "stem_width": 2,
+    "bend": 0.2,
+    "decoration": {
+      "Name": "portalgun:harvestfall_amber_leaves",
+      "Properties": {
+        "persistent": "true"
+      }
+    }
+  }
+}

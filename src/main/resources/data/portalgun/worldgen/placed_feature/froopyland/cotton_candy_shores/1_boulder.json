@@ -1,0 +1,27 @@
+{
+  "feature": "portalgun:froopyland/cotton_candy_shores/1_boulder",
+  "placement": [
+    {
+      "type": "minecraft:rarity_filter",
+      "chance": 2
+    },
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:height_range",
+      "height": {
+        "type": "minecraft:uniform",
+        "min_inclusive": {
+          "absolute": 88
+        },
+        "max_inclusive": {
+          "absolute": 172
+        }
+      }
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

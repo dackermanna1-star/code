@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:effervescia"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:effervescia_fizz_pop"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.effervescia.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.effervescia.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

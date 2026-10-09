@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:sakura"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:sakura_mochi"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.sakura.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.sakura.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

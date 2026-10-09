@@ -1,0 +1,120 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.bubbling"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.cherry_grove",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.cherry_grove",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:cherry_leaves"
+        },
+        "probability": 0.006
+      },
+      {
+        "particle": {
+          "type": "minecraft:firefly"
+        },
+        "probability": 0.001
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#1e7a78"
+  },
+  "carvers": [
+    "portalgun:sakura_cave",
+    "portalgun:sakura_canyon"
+  ],
+  "downfall": 0.78,
+  "effects": {
+    "water_color": "#3ec0b4",
+    "grass_color": "#62ac4c",
+    "foliage_color": "#f6a8c2",
+    "dry_foliage_color": "#f6a8c2"
+  },
+  "features": [
+    [],
+    [
+      "portalgun:sakura/sakura_koi_gardens/0_lake"
+    ],
+    [
+      "portalgun:sakura/sakura_koi_gardens/7_boulder"
+    ],
+    [],
+    [
+      "portalgun:sakura/sakura_koi_gardens/4_structure",
+      "portalgun:sakura/sakura_koi_gardens/6_spire"
+    ],
+    [],
+    [
+      "portalgun:sakura/ore_coal",
+      "portalgun:sakura/ore_iron",
+      "portalgun:sakura/ore_copper",
+      "portalgun:sakura/ore_gold",
+      "portalgun:sakura/ore_redstone",
+      "portalgun:sakura/ore_lapis",
+      "portalgun:sakura/ore_diamond",
+      "portalgun:sakura/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:sakura/spring"
+    ],
+    [
+      "portalgun:sakura/sakura_koi_gardens/1_patch",
+      "portalgun:sakura/sakura_koi_gardens/2_patch",
+      "portalgun:sakura/sakura_koi_gardens/3_patch",
+      "portalgun:sakura/sakura_koi_gardens/5_tree"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:paper_lantern",
+        "weight": 6,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:spirit_fox",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [
+      {
+        "type": "portalgun:koi",
+        "weight": 16,
+        "minCount": 3,
+        "maxCount": 6
+      }
+    ],
+    "misc": []
+  },
+  "temperature": 0.6000000000000001
+}

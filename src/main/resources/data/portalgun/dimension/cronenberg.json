@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:cronenberg",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:cronenberg",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:flesh_plains",
+          "parameters": {
+            "temperature": -0.83,
+            "humidity": -0.35,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:bone_thicket",
+          "parameters": {
+            "temperature": -0.05,
+            "humidity": -0.42,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:bile_marsh",
+          "parameters": {
+            "temperature": -0.18,
+            "humidity": 0.41,
+            "continentalness": -0.6,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:molar_ridges",
+          "parameters": {
+            "temperature": 0.64,
+            "humidity": 0.18,
+            "continentalness": 0.7,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

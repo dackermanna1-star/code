@@ -1,0 +1,22 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "nest",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:abyssia_clam_shell"
+      },
+      "egg": {
+        "Name": "portalgun:abyssia_pearl_block"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 5
+    },
+    "params": {
+      "twigs": 0.3
+    }
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.wind_howl"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.meadow",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.meadow",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.003
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 14711316,
+          "scale": 0.7
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/fog_color": "#e09858",
+    "minecraft:visual/water_fog_color": "#2a3040"
+  },
+  "carvers": [
+    "portalgun:harvestfall_cave",
+    "portalgun:harvestfall_canyon"
+  ],
+  "downfall": 0.3,
+  "effects": {
+    "water_color": "#4a6a8a",
+    "grass_color": "#c0aa5a",
+    "foliage_color": "#e08a20",
+    "dry_foliage_color": "#e08a20"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:harvestfall/harvestfall_pumpkin_fields/0_boulder"
+    ],
+    [],
+    [],
+    [],
+    [
+      "portalgun:harvestfall/ore_coal",
+      "portalgun:harvestfall/ore_iron",
+      "portalgun:harvestfall/ore_copper",
+      "portalgun:harvestfall/ore_gold",
+      "portalgun:harvestfall/ore_redstone",
+      "portalgun:harvestfall/ore_lapis",
+      "portalgun:harvestfall/ore_diamond",
+      "portalgun:harvestfall/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:harvestfall/spring"
+    ],
+    [
+      "minecraft:pile_hay",
+      "portalgun:harvestfall/harvestfall_pumpkin_fields/1_patch",
+      "portalgun:harvestfall/harvestfall_pumpkin_fields/2_patch",
+      "portalgun:harvestfall/harvestfall_pumpkin_fields/3_patch",
+      "portalgun:harvestfall/harvestfall_pumpkin_fields/5_patch",
+      "portalgun:harvestfall/harvestfall_pumpkin_fields/6_tree"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:scarecrow",
+        "weight": 5,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:crow",
+        "weight": 12,
+        "minCount": 3,
+        "maxCount": 5
+      },
+      {
+        "type": "portalgun:acorn_squirrel",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.5
+}

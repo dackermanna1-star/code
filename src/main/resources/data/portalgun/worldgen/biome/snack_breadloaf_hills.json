@@ -1,0 +1,102 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cozy_breeze"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.meadow",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.meadow",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16774364,
+          "scale": 0.6
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#3a1806"
+  },
+  "carvers": [
+    "portalgun:snackrealm_cave",
+    "portalgun:snackrealm_canyon"
+  ],
+  "downfall": 0.5,
+  "effects": {
+    "water_color": "#8a4a1a",
+    "grass_color": "#b86e22",
+    "foliage_color": "#44a034",
+    "dry_foliage_color": "#44a034"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:snackrealm/snack_breadloaf_hills/5_boulder"
+    ],
+    [],
+    [
+      "portalgun:snackrealm/snack_breadloaf_hills/1_structure",
+      "portalgun:snackrealm/snack_breadloaf_hills/2_structure"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:snackrealm/snack_breadloaf_hills/0_giantplant",
+      "portalgun:snackrealm/snack_breadloaf_hills/3_patch",
+      "portalgun:snackrealm/snack_breadloaf_hills/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:meatball",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:cheese_mouse",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:pretzel_snake",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

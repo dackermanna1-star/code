@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "half=lower": {
+      "model": "portalgun:block/ember_elephant_grass_bottom"
+    },
+    "half=upper": {
+      "model": "portalgun:block/ember_elephant_grass_top"
+    }
+  }
+}

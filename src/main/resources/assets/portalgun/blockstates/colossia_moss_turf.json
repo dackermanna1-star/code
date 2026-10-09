@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/colossia_moss_turf"
+      },
+      {
+        "model": "portalgun:block/colossia_moss_turf",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/colossia_moss_turf",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/colossia_moss_turf",
+        "y": 270
+      }
+    ]
+  }
+}

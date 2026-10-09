@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column_horizontal",
+  "textures": {
+    "end": "portalgun:block/effervescia_straw_end",
+    "side": "portalgun:block/effervescia_straw_side"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:jurassica"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:jurassica_raptor_claw"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.jurassica.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.jurassica.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "half=lower": {
+      "model": "portalgun:block/harvestfall_goldenrod_bottom"
+    },
+    "half=upper": {
+      "model": "portalgun:block/harvestfall_goldenrod_top"
+    }
+  }
+}

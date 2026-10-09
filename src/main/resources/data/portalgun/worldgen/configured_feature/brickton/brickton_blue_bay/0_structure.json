@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "arch",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:brickton_glass_brick"
+      },
+      "alt": {
+        "Name": "portalgun:brickton_blue_brick"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 9
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "minecraft:deepslate",
+      "required": false
+    },
+    {
+      "id": "portalgun:ember_cracked_mud",
+      "required": false
+    },
+    {
+      "id": "portalgun:ember_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:ember_ironstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:ember_red_earth",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

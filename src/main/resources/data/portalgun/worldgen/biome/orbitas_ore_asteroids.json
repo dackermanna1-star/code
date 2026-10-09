@@ -1,0 +1,94 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.crystal_chimes"
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16767072,
+          "scale": 0.7
+        },
+        "probability": 0.003
+      },
+      {
+        "particle": {
+          "type": "minecraft:end_rod"
+        },
+        "probability": 0.0006
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#122234"
+  },
+  "carvers": [],
+  "downfall": 0.17999999999999994,
+  "effects": {
+    "water_color": "#4a8ad0",
+    "grass_color": "#5c5868",
+    "foliage_color": "#827e8e",
+    "dry_foliage_color": "#827e8e"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:orbitas/ore_coal",
+      "portalgun:orbitas/ore_iron",
+      "portalgun:orbitas/ore_copper",
+      "portalgun:orbitas/ore_gold",
+      "portalgun:orbitas/ore_redstone",
+      "portalgun:orbitas/ore_lapis",
+      "portalgun:orbitas/ore_diamond",
+      "portalgun:orbitas/ore_emerald",
+      "portalgun:orbitas/orbitas_ore_asteroids/2_ore",
+      "portalgun:orbitas/orbitas_ore_asteroids/3_ore",
+      "portalgun:orbitas/orbitas_ore_asteroids/4_ore"
+    ],
+    [
+      "portalgun:orbitas/orbitas_ore_asteroids/0_crystalcluster"
+    ],
+    [],
+    [
+      "portalgun:orbitas/orbitas_ore_asteroids/1_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:comet_imp",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:void_ray",
+        "weight": 5,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.9500000000000001
+}

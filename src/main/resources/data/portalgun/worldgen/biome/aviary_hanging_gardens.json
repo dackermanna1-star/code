@@ -1,0 +1,119 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cozy_breeze"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:spore_blossom_air"
+        },
+        "probability": 0.003
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 13168848,
+          "scale": 0.8
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/fog_color": "#e0ece6",
+    "minecraft:visual/water_fog_color": "#a8c0d8"
+  },
+  "carvers": [
+    "portalgun:aviary_cave",
+    "portalgun:aviary_canyon"
+  ],
+  "downfall": 0.76,
+  "effects": {
+    "water_color": "#c8dcec",
+    "grass_color": "#4a8a52",
+    "foliage_color": "#4a8a52",
+    "dry_foliage_color": "#4a8a52"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:aviary/aviary_hanging_gardens/4_structure",
+      "portalgun:aviary/aviary_hanging_gardens/5_spire"
+    ],
+    [],
+    [
+      "portalgun:aviary/ore_coal",
+      "portalgun:aviary/ore_iron",
+      "portalgun:aviary/ore_copper",
+      "portalgun:aviary/ore_gold",
+      "portalgun:aviary/ore_redstone",
+      "portalgun:aviary/ore_lapis",
+      "portalgun:aviary/ore_diamond",
+      "portalgun:aviary/ore_emerald"
+    ],
+    [
+      "portalgun:aviary/aviary_hanging_gardens/2_patch"
+    ],
+    [
+      "portalgun:aviary/spring"
+    ],
+    [
+      "portalgun:aviary/aviary_hanging_gardens/0_giantplant",
+      "portalgun:aviary/aviary_hanging_gardens/1_patch",
+      "portalgun:aviary/aviary_hanging_gardens/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:nestling",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:cliff_diver",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:roc",
+        "weight": 1,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.625
+}

@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/saltara_salt_crust"
+      },
+      {
+        "model": "portalgun:block/saltara_salt_crust",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/saltara_salt_crust",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/saltara_salt_crust",
+        "y": 270
+      }
+    ]
+  }
+}

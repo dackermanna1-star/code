@@ -1,0 +1,111 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cozy_breeze"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.meadow",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.meadow",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:firefly"
+        },
+        "probability": 0.016
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#1a2a5a"
+  },
+  "carvers": [
+    "portalgun:eventide_cave",
+    "portalgun:eventide_canyon"
+  ],
+  "downfall": 0.38,
+  "effects": {
+    "water_color": "#4a7ae0",
+    "grass_color": "#7458b0",
+    "foliage_color": "#466ccc",
+    "dry_foliage_color": "#466ccc"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:eventide/eventide_violet_meadow/6_boulder"
+    ],
+    [],
+    [
+      "portalgun:eventide/eventide_violet_meadow/4_structure"
+    ],
+    [],
+    [
+      "portalgun:eventide/ore_coal",
+      "portalgun:eventide/ore_iron",
+      "portalgun:eventide/ore_copper",
+      "portalgun:eventide/ore_gold",
+      "portalgun:eventide/ore_redstone",
+      "portalgun:eventide/ore_lapis",
+      "portalgun:eventide/ore_diamond",
+      "portalgun:eventide/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:eventide/spring"
+    ],
+    [
+      "portalgun:eventide/eventide_violet_meadow/0_patch",
+      "portalgun:eventide/eventide_violet_meadow/1_patch",
+      "portalgun:eventide/eventide_violet_meadow/2_patch",
+      "portalgun:eventide/eventide_violet_meadow/3_patch",
+      "portalgun:eventide/eventide_violet_meadow/5_tree"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:moonfox",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:shade_stag",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:twilight_owl",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.1
+}

@@ -1,0 +1,103 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.wet_squelch",
+      "additions": {
+        "sound": "minecraft:ambient.nether_wastes.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 13162538,
+          "scale": 1.0
+        },
+        "probability": 0.004
+      },
+      {
+        "particle": {
+          "type": "minecraft:mycelium"
+        },
+        "probability": 0.01
+      }
+    ],
+    "minecraft:visual/fog_color": "#c0a8b8",
+    "minecraft:visual/fog_end_distance": 100.0,
+    "minecraft:visual/fog_start_distance": 24.0,
+    "minecraft:visual/sky_color": "#e0c8d8",
+    "minecraft:visual/sky_fog_end_distance": 150.0,
+    "minecraft:visual/water_fog_color": "#5a6a10"
+  },
+  "carvers": [],
+  "downfall": 0.22000000000000003,
+  "effects": {
+    "water_color": "#c8d82a",
+    "grass_color": "#8c74ac"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:microverse/micro_viral_bloom/1_boulder"
+    ],
+    [],
+    [
+      "portalgun:microverse/micro_viral_bloom/0_structure"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:microverse/micro_viral_bloom/2_patch",
+      "portalgun:microverse/micro_viral_bloom/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:phage",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:amoeba",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.65
+}

@@ -7,18 +7,21 @@
     "head": {
       "Name": "portalgun:teal_glowcap"
     },
-    "shape": "dome",
+    "shape": "umbrella",
     "height": {
       "type": "minecraft:uniform",
-      "min_inclusive": 10,
-      "max_inclusive": 22
+      "min_inclusive": 26,
+      "max_inclusive": 38
     },
     "radius": {
       "type": "minecraft:uniform",
-      "min_inclusive": 4,
-      "max_inclusive": 7
+      "min_inclusive": 9,
+      "max_inclusive": 12
     },
-    "stem_width": 1,
-    "bend": 0.0
+    "stem_width": 3,
+    "bend": 0.15,
+    "decoration": {
+      "Name": "minecraft:shroomlight"
+    }
   }
 }

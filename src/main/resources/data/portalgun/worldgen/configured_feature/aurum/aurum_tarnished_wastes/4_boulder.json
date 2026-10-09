@@ -1,0 +1,36 @@
+{
+  "type": "portalgun:boulder",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:aurum_gilt"
+          },
+          "weight": 10
+        },
+        {
+          "data": {
+            "Name": "minecraft:raw_gold_block"
+          },
+          "weight": 1
+        },
+        {
+          "data": {
+            "Name": "minecraft:gold_block"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 3
+    },
+    "hollow": false,
+    "squash": 0.55,
+    "floating": false
+  }
+}

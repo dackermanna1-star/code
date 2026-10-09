@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:scrapheap",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:scrapheap",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:scrapheap_rust_plains",
+          "parameters": {
+            "temperature": 0.0,
+            "humidity": -0.3,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:scrapheap_scrap_mounds",
+          "parameters": {
+            "temperature": 0.5,
+            "humidity": 0.2,
+            "continentalness": 0.4,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:scrapheap_oil_fens",
+          "parameters": {
+            "temperature": -0.5,
+            "humidity": 0.6,
+            "continentalness": -0.45,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:scrapheap_machine_graveyard",
+          "parameters": {
+            "temperature": -0.5,
+            "humidity": -0.6,
+            "continentalness": 0.15,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

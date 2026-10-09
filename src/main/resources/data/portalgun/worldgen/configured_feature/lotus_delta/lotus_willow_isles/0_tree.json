@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:tree",
+  "config": {
+    "log": {
+      "Name": "portalgun:lotus_willow_log"
+    },
+    "leaves": {
+      "Name": "portalgun:lotus_willow_leaves",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "twisted",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 10
+    },
+    "decoration": {
+      "Name": "portalgun:lotus_willow_moss"
+    }
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.bubbling"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:falling_honey"
+        },
+        "probability": 0.006
+      },
+      {
+        "particle": {
+          "type": "minecraft:dripping_honey"
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/fog_color": "#b8700c",
+    "minecraft:visual/water_fog_color": "#b06008"
+  },
+  "carvers": [],
+  "downfall": 0.72,
+  "effects": {
+    "water_color": "#f09818"
+  },
+  "features": [
+    [],
+    [
+      "portalgun:hivemind/hivemind_honey_vaults/0_lake"
+    ],
+    [],
+    [],
+    [
+      "portalgun:hivemind/hivemind_honey_vaults/2_spire"
+    ],
+    [],
+    [
+      "portalgun:hivemind/hivemind_honey_vaults/4_ore"
+    ],
+    [],
+    [],
+    [
+      "portalgun:hivemind/hivemind_honey_vaults/1_patch",
+      "portalgun:hivemind/hivemind_honey_vaults/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:wax_grub",
+        "weight": 14,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:hive_drone",
+        "weight": 6,
+        "minCount": 2,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.1
+}

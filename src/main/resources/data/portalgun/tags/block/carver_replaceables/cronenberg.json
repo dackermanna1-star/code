@@ -1,0 +1,21 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:cronen_flesh",
+      "required": false
+    },
+    {
+      "id": "portalgun:cronen_gristle",
+      "required": false
+    },
+    {
+      "id": "portalgun:cronen_meat",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

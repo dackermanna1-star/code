@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "portalgun:block/ember_baobab_log_end",
+    "side": "portalgun:block/ember_baobab_log_side"
+  }
+}

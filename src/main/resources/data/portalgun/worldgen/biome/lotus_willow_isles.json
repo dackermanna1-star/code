@@ -1,0 +1,105 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cozy_breeze"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.forest",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.forest",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:firefly"
+        },
+        "probability": 0.004
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16773328,
+          "scale": 1.0
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#245a50"
+  },
+  "carvers": [],
+  "downfall": 0.42,
+  "effects": {
+    "water_color": "#3aa090",
+    "grass_color": "#5a9040",
+    "foliage_color": "#86b45a",
+    "dry_foliage_color": "#86b45a"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:lotus_delta/ore_coal",
+      "portalgun:lotus_delta/ore_iron",
+      "portalgun:lotus_delta/ore_copper",
+      "portalgun:lotus_delta/ore_gold",
+      "portalgun:lotus_delta/ore_redstone",
+      "portalgun:lotus_delta/ore_lapis",
+      "portalgun:lotus_delta/ore_diamond",
+      "portalgun:lotus_delta/ore_emerald"
+    ],
+    [],
+    [],
+    [
+      "portalgun:lotus_delta/lotus_willow_isles/0_tree",
+      "portalgun:lotus_delta/lotus_willow_isles/1_tree",
+      "portalgun:lotus_delta/lotus_willow_isles/2_patch",
+      "portalgun:lotus_delta/lotus_willow_isles/3_patch",
+      "portalgun:lotus_delta/lotus_willow_isles/4_patch",
+      "portalgun:lotus_delta/lotus_willow_isles/5_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:lily_toad",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:dragonfly",
+        "weight": 8,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.5
+}

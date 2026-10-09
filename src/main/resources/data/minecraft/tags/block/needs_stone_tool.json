@@ -1,0 +1,21 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:mesa_rift_turquoise_ore",
+      "required": false
+    },
+    {
+      "id": "portalgun:prismara_prism_ore",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_uranium_ore",
+      "required": false
+    },
+    {
+      "id": "portalgun:selene_helium_ore",
+      "required": false
+    }
+  ]
+}

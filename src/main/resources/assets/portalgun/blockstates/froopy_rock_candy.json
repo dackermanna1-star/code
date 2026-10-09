@@ -1,0 +1,30 @@
+{
+  "variants": {
+    "facing=down": {
+      "model": "portalgun:block/froopy_rock_candy",
+      "x": 180
+    },
+    "facing=up": {
+      "model": "portalgun:block/froopy_rock_candy"
+    },
+    "facing=north": {
+      "model": "portalgun:block/froopy_rock_candy",
+      "x": 90
+    },
+    "facing=south": {
+      "model": "portalgun:block/froopy_rock_candy",
+      "x": 90,
+      "y": 180
+    },
+    "facing=east": {
+      "model": "portalgun:block/froopy_rock_candy",
+      "x": 90,
+      "y": 90
+    },
+    "facing=west": {
+      "model": "portalgun:block/froopy_rock_candy",
+      "x": 90,
+      "y": 270
+    }
+  }
+}

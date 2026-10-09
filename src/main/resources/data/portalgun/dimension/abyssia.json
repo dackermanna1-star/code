@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:abyssia",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:abyssia",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:abyssia_glow_reef",
+          "parameters": {
+            "temperature": 0.5,
+            "humidity": 0.1,
+            "continentalness": 0.4,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:abyssia_kelp_labyrinth",
+          "parameters": {
+            "temperature": -0.4,
+            "humidity": 0.6,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:abyssia_trench",
+          "parameters": {
+            "temperature": -0.2,
+            "humidity": -0.5,
+            "continentalness": -0.8,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:abyssia_atolls",
+          "parameters": {
+            "temperature": 0.8,
+            "humidity": -0.4,
+            "continentalness": 0.9,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

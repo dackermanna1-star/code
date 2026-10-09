@@ -1,0 +1,73 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:glitch_missing_block"
+          },
+          "weight": 6
+        },
+        {
+          "data": {
+            "Name": "minecraft:bookshelf"
+          },
+          "weight": 1
+        },
+        {
+          "data": {
+            "Name": "minecraft:purpur_block"
+          },
+          "weight": 1
+        },
+        {
+          "data": {
+            "Name": "minecraft:prismarine"
+          },
+          "weight": 1
+        },
+        {
+          "data": {
+            "Name": "minecraft:sponge"
+          },
+          "weight": 1
+        },
+        {
+          "data": {
+            "Name": "minecraft:end_stone"
+          },
+          "weight": 1
+        },
+        {
+          "data": {
+            "Name": "minecraft:oak_planks"
+          },
+          "weight": 1
+        },
+        {
+          "data": {
+            "Name": "minecraft:bricks"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 14,
+      "max_inclusive": 30
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "lean": 0.15,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:glitch_dead_pixel"
+    }
+  }
+}

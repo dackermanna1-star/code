@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column_horizontal",
+  "textures": {
+    "end": "portalgun:block/inversia_rootwood_end",
+    "side": "portalgun:block/inversia_rootwood_side"
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.crystal_chimes"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.frozen_peaks",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.frozen_peaks",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:snowflake"
+        },
+        "probability": 0.03
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 5308336,
+          "scale": 0.8
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/fog_color": "#2a3a70",
+    "minecraft:visual/water_fog_color": "#0a2a50"
+  },
+  "carvers": [
+    "portalgun:glacior_cave",
+    "portalgun:glacior_canyon"
+  ],
+  "downfall": 0.66,
+  "effects": {
+    "water_color": "#3a7cc4",
+    "grass_color": "#a0bcd0"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:glacior/glacior_aurora_peaks/1_spire"
+    ],
+    [],
+    [
+      "portalgun:glacior/ore_coal",
+      "portalgun:glacior/ore_iron",
+      "portalgun:glacior/ore_copper",
+      "portalgun:glacior/ore_gold",
+      "portalgun:glacior/ore_redstone",
+      "portalgun:glacior/ore_lapis",
+      "portalgun:glacior/ore_diamond",
+      "portalgun:glacior/ore_emerald",
+      "portalgun:glacior/glacior_aurora_peaks/4_ore",
+      "portalgun:glacior/glacior_aurora_peaks/5_ore"
+    ],
+    [
+      "portalgun:glacior/glacior_aurora_peaks/0_crystalcluster"
+    ],
+    [
+      "portalgun:glacior/spring"
+    ],
+    [
+      "portalgun:glacior/glacior_aurora_peaks/2_patch",
+      "portalgun:glacior/glacior_aurora_peaks/3_patch"
+    ],
+    [
+      "minecraft:freeze_top_layer"
+    ]
+  ],
+  "has_precipitation": true,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:ice_beetle",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:frost_yeti",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 1
+      },
+      {
+        "type": "portalgun:snow_hopper",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": -0.3
+}

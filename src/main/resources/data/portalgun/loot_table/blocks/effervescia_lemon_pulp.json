@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1.0,
+      "bonus_rolls": 0.0,
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "portalgun:effervescia_lemon_pulp"
+        }
+      ]
+    }
+  ],
+  "random_sequence": "portalgun:blocks/effervescia_lemon_pulp"
+}

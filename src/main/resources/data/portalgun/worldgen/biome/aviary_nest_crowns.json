@@ -1,0 +1,121 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.wind_howl"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.stony_peaks",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.stony_peaks",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.002
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16773364,
+          "scale": 0.8
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#a8c0d8"
+  },
+  "carvers": [
+    "portalgun:aviary_cave",
+    "portalgun:aviary_canyon"
+  ],
+  "downfall": 0.44,
+  "effects": {
+    "water_color": "#c8dcec",
+    "grass_color": "#6c9462",
+    "foliage_color": "#528874",
+    "dry_foliage_color": "#528874"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:aviary/aviary_nest_crowns/5_boulder",
+      "portalgun:aviary/aviary_nest_crowns/6_boulder"
+    ],
+    [],
+    [
+      "portalgun:aviary/aviary_nest_crowns/0_structure",
+      "portalgun:aviary/aviary_nest_crowns/7_structure"
+    ],
+    [],
+    [
+      "portalgun:aviary/ore_coal",
+      "portalgun:aviary/ore_iron",
+      "portalgun:aviary/ore_copper",
+      "portalgun:aviary/ore_gold",
+      "portalgun:aviary/ore_redstone",
+      "portalgun:aviary/ore_lapis",
+      "portalgun:aviary/ore_diamond",
+      "portalgun:aviary/ore_emerald"
+    ],
+    [
+      "portalgun:aviary/aviary_nest_crowns/4_patch"
+    ],
+    [
+      "portalgun:aviary/spring"
+    ],
+    [
+      "portalgun:aviary/aviary_nest_crowns/1_giantplant",
+      "portalgun:aviary/aviary_nest_crowns/2_patch",
+      "portalgun:aviary/aviary_nest_crowns/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:nestling",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:roc",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      },
+      {
+        "type": "portalgun:cliff_diver",
+        "weight": 5,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.9750000000000001
+}

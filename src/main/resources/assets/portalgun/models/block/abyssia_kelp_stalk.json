@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "portalgun:block/abyssia_kelp_stalk_end",
+    "side": "portalgun:block/abyssia_kelp_stalk_side"
+  }
+}

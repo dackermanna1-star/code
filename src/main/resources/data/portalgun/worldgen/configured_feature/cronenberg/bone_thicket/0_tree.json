@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:tree",
+  "config": {
+    "log": {
+      "Name": "portalgun:cronen_bone_log"
+    },
+    "leaves": {
+      "Name": "portalgun:cronen_sinew_leaves",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "twisted",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 7,
+      "max_inclusive": 12
+    },
+    "decoration": {
+      "Name": "portalgun:cronen_bile_bulb"
+    }
+  }
+}

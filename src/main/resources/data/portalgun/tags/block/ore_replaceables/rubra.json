@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:rubra_basalt",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_rock",
+      "required": false
+    }
+  ]
+}

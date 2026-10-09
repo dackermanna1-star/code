@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/gearhaven_patina_turf"
+      },
+      {
+        "model": "portalgun:block/gearhaven_patina_turf",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/gearhaven_patina_turf",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/gearhaven_patina_turf",
+        "y": 270
+      }
+    ]
+  }
+}

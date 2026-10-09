@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:glacior"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:glacior_snowberry"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.glacior.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.glacior.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

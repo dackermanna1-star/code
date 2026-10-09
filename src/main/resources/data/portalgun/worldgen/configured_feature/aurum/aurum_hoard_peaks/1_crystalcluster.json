@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:crystal_cluster",
+  "config": {
+    "block": {
+      "Name": "portalgun:aurum_gilt"
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 10
+    },
+    "small": {
+      "Name": "portalgun:aurum_gold_crystal",
+      "Properties": {
+        "facing": "up"
+      }
+    }
+  }
+}

@@ -1,0 +1,122 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.crystal_chimes"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.cherry_grove",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.cherry_grove",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16743080,
+          "scale": 0.9
+        },
+        "probability": 0.002
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 8050943,
+          "scale": 0.9
+        },
+        "probability": 0.002
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16769136,
+          "scale": 0.9
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#2070c0"
+  },
+  "carvers": [
+    "portalgun:spectra_cave",
+    "portalgun:spectra_canyon"
+  ],
+  "downfall": 0.5,
+  "effects": {
+    "water_color": "#40d0ff",
+    "grass_color": "#78dcc0",
+    "foliage_color": "#ff9ad0",
+    "dry_foliage_color": "#ff9ad0"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:spectra/spectra_prism_meadows/5_structure"
+    ],
+    [],
+    [],
+    [
+      "portalgun:spectra/spectra_prism_meadows/6_crystalcluster"
+    ],
+    [
+      "portalgun:spectra/spring"
+    ],
+    [
+      "portalgun:spectra/spectra_prism_meadows/0_patch",
+      "portalgun:spectra/spectra_prism_meadows/1_patch",
+      "portalgun:spectra/spectra_prism_meadows/2_tree",
+      "portalgun:spectra/spectra_prism_meadows/3_tree",
+      "portalgun:spectra/spectra_prism_meadows/4_tree",
+      "portalgun:spectra/spectra_prism_meadows/7_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:prism_unicorn",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:chroma_slime",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [
+      {
+        "type": "portalgun:rainbow_moth",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

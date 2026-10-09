@@ -1,0 +1,22 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "nest",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:hivemind_wax"
+      },
+      "egg": {
+        "Name": "portalgun:hivemind_larva_cell"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 7
+    },
+    "params": {
+      "eggs": 4.0
+    }
+  }
+}

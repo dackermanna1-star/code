@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "portalgun:block/orbitas_baobab_log_end",
+    "side": "portalgun:block/orbitas_baobab_log_side"
+  }
+}

@@ -1,0 +1,110 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cozy_breeze"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.forest",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.forest",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:cherry_leaves"
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#122e40"
+  },
+  "carvers": [],
+  "downfall": 0.612,
+  "effects": {
+    "water_color": "#4ab8ff",
+    "grass_color": "#5ac060",
+    "foliage_color": "#ffd451",
+    "dry_foliage_color": "#ffd451"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:aerolith/skyroot_grove/2_structure",
+      "portalgun:aerolith/skyroot_grove/5_spire"
+    ],
+    [],
+    [
+      "portalgun:aerolith/ore_coal",
+      "portalgun:aerolith/ore_iron",
+      "portalgun:aerolith/ore_copper",
+      "portalgun:aerolith/ore_gold",
+      "portalgun:aerolith/ore_redstone",
+      "portalgun:aerolith/ore_lapis",
+      "portalgun:aerolith/ore_diamond",
+      "portalgun:aerolith/ore_emerald"
+    ],
+    [
+      "portalgun:aerolith/skyroot_grove/6_crystalcluster"
+    ],
+    [
+      "portalgun:aerolith/spring"
+    ],
+    [
+      "portalgun:aerolith/skyroot_grove/0_tree",
+      "portalgun:aerolith/skyroot_grove/1_tree",
+      "portalgun:aerolith/skyroot_grove/3_patch",
+      "portalgun:aerolith/skyroot_grove/4_patch",
+      "portalgun:aerolith/skyroot_grove/7_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:zephyr_wisp",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:puffbird",
+        "weight": 14,
+        "minCount": 3,
+        "maxCount": 5
+      },
+      {
+        "type": "portalgun:sky_whale",
+        "weight": 1,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.46
+}

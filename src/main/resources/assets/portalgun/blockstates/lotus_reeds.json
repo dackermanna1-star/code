@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "half=lower": {
+      "model": "portalgun:block/lotus_reeds_bottom"
+    },
+    "half=upper": {
+      "model": "portalgun:block/lotus_reeds_top"
+    }
+  }
+}

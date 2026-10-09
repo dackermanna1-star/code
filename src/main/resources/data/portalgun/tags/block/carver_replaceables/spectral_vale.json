@@ -1,0 +1,25 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "minecraft:deepslate",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectral_barrow_stone",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectral_moor_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectral_peat",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

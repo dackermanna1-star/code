@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:cronen_gristle",
+      "required": false
+    }
+  ]
+}

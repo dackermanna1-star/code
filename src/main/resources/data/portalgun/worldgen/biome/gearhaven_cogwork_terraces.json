@@ -1,0 +1,97 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.clockwork"
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#1a4a3a"
+  },
+  "carvers": [
+    "portalgun:gearhaven_cave",
+    "portalgun:gearhaven_canyon"
+  ],
+  "downfall": 0.54,
+  "effects": {
+    "water_color": "#4aa088",
+    "grass_color": "#3c9a7a",
+    "foliage_color": "#d0a040",
+    "dry_foliage_color": "#d0a040"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:gearhaven/gearhaven_cogwork_terraces/0_structure",
+      "portalgun:gearhaven/gearhaven_cogwork_terraces/1_structure"
+    ],
+    [],
+    [
+      "portalgun:gearhaven/ore_coal",
+      "portalgun:gearhaven/ore_iron",
+      "portalgun:gearhaven/ore_copper",
+      "portalgun:gearhaven/ore_gold",
+      "portalgun:gearhaven/ore_redstone",
+      "portalgun:gearhaven/ore_lapis",
+      "portalgun:gearhaven/ore_diamond",
+      "portalgun:gearhaven/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:gearhaven/spring"
+    ],
+    [
+      "portalgun:gearhaven/gearhaven_cogwork_terraces/2_tree",
+      "portalgun:gearhaven/gearhaven_cogwork_terraces/3_patch",
+      "portalgun:gearhaven/gearhaven_cogwork_terraces/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:cogspider",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:steam_moth",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:brass_automaton",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

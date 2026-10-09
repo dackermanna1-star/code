@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "portalgun:block/colossia_pink_petal"
+  }
+}

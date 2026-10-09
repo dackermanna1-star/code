@@ -1,0 +1,25 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "minecraft:deepslate",
+      "required": false
+    },
+    {
+      "id": "portalgun:harvestfall_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:harvestfall_loam",
+      "required": false
+    },
+    {
+      "id": "portalgun:harvestfall_stone",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

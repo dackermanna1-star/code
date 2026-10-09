@@ -1,0 +1,29 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "minecraft:deepslate",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_ashsoil",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_crust",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_sludge",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_stone",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

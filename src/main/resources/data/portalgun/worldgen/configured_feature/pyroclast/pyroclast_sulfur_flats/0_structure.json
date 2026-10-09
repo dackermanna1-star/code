@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "geyser",
+    "blocks": {
+      "vent": {
+        "Name": "portalgun:pyroclast_sulfur_vent"
+      },
+      "mound": {
+        "Name": "portalgun:pyroclast_basalt"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 8
+    }
+  }
+}

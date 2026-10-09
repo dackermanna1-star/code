@@ -1,0 +1,21 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "ring",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:white_room_void_slab"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 8,
+      "max_inclusive": 11
+    },
+    "params": {
+      "float": 10.0,
+      "thickness": 0.1,
+      "sink": 0.0
+    }
+  }
+}

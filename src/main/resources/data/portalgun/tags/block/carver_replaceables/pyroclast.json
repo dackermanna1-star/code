@@ -1,0 +1,25 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "minecraft:blackstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:pyroclast_ash",
+      "required": false
+    },
+    {
+      "id": "portalgun:pyroclast_basalt",
+      "required": false
+    },
+    {
+      "id": "portalgun:pyroclast_cinder",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

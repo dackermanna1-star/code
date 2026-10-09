@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/plush_lilac_felt"
+      },
+      {
+        "model": "portalgun:block/plush_lilac_felt",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/plush_lilac_felt",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/plush_lilac_felt",
+        "y": 270
+      }
+    ]
+  }
+}

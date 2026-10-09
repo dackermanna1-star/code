@@ -1,0 +1,29 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "minecraft:deepslate",
+      "required": false
+    },
+    {
+      "id": "minecraft:gravel",
+      "required": false
+    },
+    {
+      "id": "portalgun:sakura_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:sakura_slate",
+      "required": false
+    },
+    {
+      "id": "portalgun:sakura_soil",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

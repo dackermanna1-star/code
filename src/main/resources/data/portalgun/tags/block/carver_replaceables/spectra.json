@@ -1,0 +1,29 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:spectra_bandstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectra_gold_turf",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectra_pearl_soil",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectra_prism_turf",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectra_rose_turf",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

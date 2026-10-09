@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column_horizontal",
+  "textures": {
+    "end": "portalgun:block/jurassica_cycad_log_end",
+    "side": "portalgun:block/jurassica_cycad_log_side"
+  }
+}

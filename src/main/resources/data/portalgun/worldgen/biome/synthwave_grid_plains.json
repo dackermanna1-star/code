@@ -1,0 +1,91 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.neon_synth"
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16722902,
+          "scale": 0.8
+        },
+        "probability": 0.003
+      },
+      {
+        "particle": {
+          "type": "minecraft:end_rod"
+        },
+        "probability": 0.0006
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#3a0a5a"
+  },
+  "carvers": [],
+  "downfall": 0.5,
+  "effects": {
+    "water_color": "#c03aff",
+    "grass_color": "#ff2bd6",
+    "foliage_color": "#21f4ff",
+    "dry_foliage_color": "#21f4ff"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:synthwave/synthwave_grid_plains/0_structure",
+      "portalgun:synthwave/synthwave_grid_plains/1_structure",
+      "portalgun:synthwave/synthwave_grid_plains/2_spire"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:synthwave/synthwave_grid_plains/3_patch",
+      "portalgun:synthwave/synthwave_grid_plains/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:glitch_cube",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:pixel_bird",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:neon_panther",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

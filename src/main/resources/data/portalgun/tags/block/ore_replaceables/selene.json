@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:selene_anorthosite",
+      "required": false
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "portalgun:block/spectra_rose_turf_top",
+    "side": "portalgun:block/spectra_rose_turf_side",
+    "bottom": "portalgun:block/spectra_rose_turf_bottom"
+  }
+}

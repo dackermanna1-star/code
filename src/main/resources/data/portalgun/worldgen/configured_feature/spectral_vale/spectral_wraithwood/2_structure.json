@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "tendril",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:spectral_deadwood_log"
+      },
+      "tip": {
+        "Name": "portalgun:spectral_deadwood_log"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 10
+    },
+    "params": {
+      "curl": 0.8,
+      "thickness": 0.6
+    }
+  }
+}

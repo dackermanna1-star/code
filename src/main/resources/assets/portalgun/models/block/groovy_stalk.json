@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "portalgun:block/groovy_stalk_end",
+    "side": "portalgun:block/groovy_stalk_side"
+  }
+}

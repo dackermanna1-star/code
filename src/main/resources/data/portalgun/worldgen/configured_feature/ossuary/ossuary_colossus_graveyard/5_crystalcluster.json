@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:crystal_cluster",
+  "config": {
+    "block": {
+      "Name": "portalgun:ossuary_phosphor_shard"
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "small": {
+      "Name": "portalgun:ossuary_phosphor_shard",
+      "Properties": {
+        "facing": "up"
+      }
+    }
+  }
+}

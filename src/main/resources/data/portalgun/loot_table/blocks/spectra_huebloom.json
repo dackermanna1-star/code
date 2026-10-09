@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1.0,
+      "bonus_rolls": 0.0,
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "portalgun:spectra_huebloom"
+        }
+      ]
+    }
+  ],
+  "random_sequence": "portalgun:blocks/spectra_huebloom"
+}

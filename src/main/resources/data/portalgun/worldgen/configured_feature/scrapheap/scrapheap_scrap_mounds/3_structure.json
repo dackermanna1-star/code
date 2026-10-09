@@ -1,0 +1,25 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "cuboids",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:scrapheap_scrap_plate"
+      },
+      "alt": {
+        "Name": "portalgun:scrapheap_junk"
+      },
+      "trim": {
+        "Name": "portalgun:scrapheap_girder"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 8
+    },
+    "params": {
+      "scatter": 4.0
+    }
+  }
+}

@@ -1,0 +1,110 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.crystal_chimes"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.grove",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.grove",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:cherry_leaves"
+        },
+        "probability": 0.006
+      },
+      {
+        "particle": {
+          "type": "minecraft:end_rod"
+        },
+        "probability": 0.0006
+      }
+    ],
+    "minecraft:visual/fog_color": "#f4eef4",
+    "minecraft:visual/sky_color": "#b8d4f0",
+    "minecraft:visual/water_fog_color": "#2a7a80"
+  },
+  "carvers": [
+    "portalgun:sakura_cave",
+    "portalgun:sakura_canyon"
+  ],
+  "downfall": 0.26,
+  "effects": {
+    "water_color": "#5ab8b0",
+    "grass_color": "#7ab866",
+    "foliage_color": "#fff8fc",
+    "dry_foliage_color": "#fff8fc"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:sakura/sakura_moonblossom_heights/2_structure",
+      "portalgun:sakura/sakura_moonblossom_heights/3_spire"
+    ],
+    [],
+    [
+      "portalgun:sakura/ore_coal",
+      "portalgun:sakura/ore_iron",
+      "portalgun:sakura/ore_copper",
+      "portalgun:sakura/ore_gold",
+      "portalgun:sakura/ore_redstone",
+      "portalgun:sakura/ore_lapis",
+      "portalgun:sakura/ore_diamond",
+      "portalgun:sakura/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:sakura/spring"
+    ],
+    [
+      "portalgun:sakura/sakura_moonblossom_heights/0_giantplant",
+      "portalgun:sakura/sakura_moonblossom_heights/1_tree",
+      "portalgun:sakura/sakura_moonblossom_heights/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:paper_lantern",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:spirit_fox",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.5
+}

@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/sakura_floating_petals"
+      },
+      {
+        "model": "portalgun:block/sakura_floating_petals",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/sakura_floating_petals",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/sakura_floating_petals",
+        "y": 270
+      }
+    ]
+  }
+}

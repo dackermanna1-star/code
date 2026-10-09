@@ -1,0 +1,197 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:abyssia_pearl_block",
+      "required": false
+    },
+    {
+      "id": "portalgun:aerolith_sunstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:aerolith_sunstone_shard",
+      "required": false
+    },
+    {
+      "id": "portalgun:aurum_gold_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:aviary_wind_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:cronen_tooth",
+      "required": false
+    },
+    {
+      "id": "portalgun:eventide_starshard",
+      "required": false
+    },
+    {
+      "id": "portalgun:froopy_rock_candy",
+      "required": false
+    },
+    {
+      "id": "portalgun:froopy_rock_candy_block",
+      "required": false
+    },
+    {
+      "id": "portalgun:glacior_frost_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:glitch_error_shard",
+      "required": false
+    },
+    {
+      "id": "portalgun:groovy_mirror",
+      "required": false
+    },
+    {
+      "id": "portalgun:hivemind_amber",
+      "required": false
+    },
+    {
+      "id": "portalgun:hivemind_fossil_amber",
+      "required": false
+    },
+    {
+      "id": "portalgun:hivemind_amber_cluster",
+      "required": false
+    },
+    {
+      "id": "portalgun:inversia_gravity_quartz",
+      "required": false
+    },
+    {
+      "id": "portalgun:inversia_quartz_drip",
+      "required": false
+    },
+    {
+      "id": "portalgun:lumina_lumen_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_sunstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:orbitas_star_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:orbitas_star_cluster",
+      "required": false
+    },
+    {
+      "id": "portalgun:ossuary_phosphor_shard",
+      "required": false
+    },
+    {
+      "id": "portalgun:prismara_cyan_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:prismara_magenta_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:prismara_cyan_shard",
+      "required": false
+    },
+    {
+      "id": "portalgun:prismara_magenta_shard",
+      "required": false
+    },
+    {
+      "id": "portalgun:pyroclast_ember_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_perchlorate",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_perchlorate_cluster",
+      "required": false
+    },
+    {
+      "id": "portalgun:saltara_halite",
+      "required": false
+    },
+    {
+      "id": "portalgun:saltara_halite_shard",
+      "required": false
+    },
+    {
+      "id": "portalgun:selene_moonstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:selene_moonstone_cluster",
+      "required": false
+    },
+    {
+      "id": "portalgun:shattered_rift_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:shattered_rift_shard",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectra_prism_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectra_prism_cluster",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_quills",
+      "required": false
+    },
+    {
+      "id": "portalgun:tempest_stormglass",
+      "required": false
+    },
+    {
+      "id": "portalgun:tempest_spark_cluster",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_sulfur_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_sulfur_cluster",
+      "required": false
+    },
+    {
+      "id": "portalgun:umbra_lumen_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:umbra_lumen_shard",
+      "required": false
+    },
+    {
+      "id": "portalgun:vitrea_crystal_cactus",
+      "required": false
+    },
+    {
+      "id": "portalgun:vitrea_cactus_bloom",
+      "required": false
+    },
+    {
+      "id": "portalgun:white_room_glitch_shard",
+      "required": false
+    }
+  ]
+}

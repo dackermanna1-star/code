@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:crystal_cluster",
+  "config": {
+    "block": {
+      "Name": "portalgun:spectra_prism_crystal"
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 5
+    },
+    "small": {
+      "Name": "portalgun:spectra_prism_cluster",
+      "Properties": {
+        "facing": "up"
+      }
+    }
+  }
+}

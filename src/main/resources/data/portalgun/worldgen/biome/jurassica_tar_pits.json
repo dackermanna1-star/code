@@ -1,0 +1,119 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.bubbling"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.swamp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.swamp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:smoke"
+        },
+        "probability": 0.002
+      },
+      {
+        "particle": {
+          "type": "minecraft:ash"
+        },
+        "probability": 0.003
+      }
+    ],
+    "minecraft:visual/fog_color": "#b0a880",
+    "minecraft:visual/water_fog_color": "#2a2a14"
+  },
+  "carvers": [
+    "portalgun:jurassica_cave",
+    "portalgun:jurassica_canyon"
+  ],
+  "downfall": 0.33999999999999997,
+  "effects": {
+    "water_color": "#4a5a30",
+    "grass_color": "#5a6a2a",
+    "foliage_color": "#4a5a22",
+    "dry_foliage_color": "#4a5a22"
+  },
+  "features": [
+    [],
+    [
+      "portalgun:jurassica/jurassica_tar_pits/0_lake"
+    ],
+    [],
+    [],
+    [
+      "portalgun:jurassica/jurassica_tar_pits/2_structure",
+      "portalgun:jurassica/jurassica_tar_pits/3_spire"
+    ],
+    [],
+    [
+      "portalgun:jurassica/ore_coal",
+      "portalgun:jurassica/ore_iron",
+      "portalgun:jurassica/ore_copper",
+      "portalgun:jurassica/ore_gold",
+      "portalgun:jurassica/ore_redstone",
+      "portalgun:jurassica/ore_lapis",
+      "portalgun:jurassica/ore_diamond",
+      "portalgun:jurassica/ore_emerald",
+      "portalgun:jurassica/jurassica_tar_pits/1_disk"
+    ],
+    [],
+    [
+      "portalgun:jurassica/spring"
+    ],
+    [
+      "portalgun:jurassica/jurassica_tar_pits/4_patch",
+      "portalgun:jurassica/jurassica_tar_pits/5_patch",
+      "portalgun:jurassica/jurassica_tar_pits/6_giantplant"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:raptor",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 3
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:brontoback",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:pterodon",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.2000000000000002
+}

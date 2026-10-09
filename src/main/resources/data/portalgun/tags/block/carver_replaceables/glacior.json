@@ -1,0 +1,37 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "minecraft:gravel",
+      "required": false
+    },
+    {
+      "id": "minecraft:packed_ice",
+      "required": false
+    },
+    {
+      "id": "minecraft:snow_block",
+      "required": false
+    },
+    {
+      "id": "portalgun:glacior_bluestone",
+      "required": false
+    },
+    {
+      "id": "portalgun:glacior_glacier_ice",
+      "required": false
+    },
+    {
+      "id": "portalgun:glacior_permafrost",
+      "required": false
+    },
+    {
+      "id": "portalgun:glacior_snowcap",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

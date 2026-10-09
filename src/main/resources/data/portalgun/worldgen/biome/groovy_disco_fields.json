@@ -1,0 +1,101 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.neon_synth"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music_disc.chirp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music_disc.chirp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:note"
+        },
+        "probability": 0.0015
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 3858640,
+          "scale": 1.0
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/fog_color": "#b03a9a",
+    "minecraft:visual/water_fog_color": "#a83a08"
+  },
+  "carvers": [],
+  "downfall": 0.66,
+  "effects": {
+    "water_color": "#ff7a1a",
+    "grass_color": "#ff2a8a"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:groovy/groovy_disco_fields/0_boulder"
+    ],
+    [],
+    [
+      "portalgun:groovy/groovy_disco_fields/2_structure",
+      "portalgun:groovy/groovy_disco_fields/3_spire"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:groovy/groovy_disco_fields/1_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:disco_beetle",
+        "weight": 14,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:groove_jelly",
+        "weight": 5,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:lava_lamp_blob",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.55
+}

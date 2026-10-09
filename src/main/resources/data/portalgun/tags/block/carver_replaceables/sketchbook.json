@@ -1,0 +1,29 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:sketchbook_graphite",
+      "required": false
+    },
+    {
+      "id": "portalgun:sketchbook_hatched_turf",
+      "required": false
+    },
+    {
+      "id": "portalgun:sketchbook_ink_blot",
+      "required": false
+    },
+    {
+      "id": "portalgun:sketchbook_paper",
+      "required": false
+    },
+    {
+      "id": "portalgun:sketchbook_ruled_paper",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.neon_synth"
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 2225407,
+          "scale": 0.9
+        },
+        "probability": 0.003
+      }
+    ],
+    "minecraft:visual/fog_color": "#ff5a7a",
+    "minecraft:visual/water_fog_color": "#300e40"
+  },
+  "carvers": [],
+  "downfall": 0.3,
+  "effects": {
+    "water_color": "#c03aff",
+    "grass_color": "#ff2bd6",
+    "foliage_color": "#21f4ff",
+    "dry_foliage_color": "#21f4ff"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:synthwave/synthwave_chrome_mesas/0_structure",
+      "portalgun:synthwave/synthwave_chrome_mesas/1_structure"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:synthwave/synthwave_chrome_mesas/2_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:glitch_cube",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:neon_panther",
+        "weight": 7,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:pixel_bird",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.1
+}

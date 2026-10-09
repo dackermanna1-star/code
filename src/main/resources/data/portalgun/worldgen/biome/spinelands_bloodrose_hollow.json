@@ -1,0 +1,123 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.eerie_choir",
+      "additions": {
+        "sound": "minecraft:ambient.soul_sand_valley.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:cherry_leaves"
+        },
+        "probability": 0.002
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 14168140,
+          "scale": 0.7
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/fog_color": "#8a6a70",
+    "minecraft:visual/sky_color": "#a89098",
+    "minecraft:visual/water_fog_color": "#3a0a18"
+  },
+  "carvers": [
+    "portalgun:spinelands_cave",
+    "portalgun:spinelands_canyon"
+  ],
+  "downfall": 0.8600000000000001,
+  "effects": {
+    "water_color": "#7a1a30",
+    "grass_color": "#6a3a30",
+    "foliage_color": "#7a0c24",
+    "dry_foliage_color": "#7a0c24"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:spinelands/ore_coal",
+      "portalgun:spinelands/ore_iron",
+      "portalgun:spinelands/ore_copper",
+      "portalgun:spinelands/ore_gold",
+      "portalgun:spinelands/ore_redstone",
+      "portalgun:spinelands/ore_lapis",
+      "portalgun:spinelands/ore_diamond",
+      "portalgun:spinelands/ore_emerald"
+    ],
+    [
+      "portalgun:spinelands/spinelands_bloodrose_hollow/4_patch"
+    ],
+    [
+      "portalgun:spinelands/spring"
+    ],
+    [
+      "portalgun:spinelands/spinelands_bloodrose_hollow/0_giantplant",
+      "portalgun:spinelands/spinelands_bloodrose_hollow/1_giantplant",
+      "portalgun:spinelands/spinelands_bloodrose_hollow/2_patch",
+      "portalgun:spinelands/spinelands_bloodrose_hollow/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:needle_bird",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:spine_crawler",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:thorn_hog",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.7000000000000001
+}

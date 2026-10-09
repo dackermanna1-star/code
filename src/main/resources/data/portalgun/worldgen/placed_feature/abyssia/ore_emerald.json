@@ -1,0 +1,27 @@
+{
+  "feature": "portalgun:abyssia/ore_emerald",
+  "placement": [
+    {
+      "type": "minecraft:count",
+      "count": 3
+    },
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:height_range",
+      "height": {
+        "type": "minecraft:uniform",
+        "min_inclusive": {
+          "absolute": 23
+        },
+        "max_inclusive": {
+          "absolute": 61
+        }
+      }
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

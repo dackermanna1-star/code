@@ -1,0 +1,33 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "minecraft:deepslate",
+      "required": false
+    },
+    {
+      "id": "portalgun:ossuary_ash",
+      "required": false
+    },
+    {
+      "id": "portalgun:ossuary_bone_sand",
+      "required": false
+    },
+    {
+      "id": "portalgun:ossuary_dust_sandstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:ossuary_fossil_rock",
+      "required": false
+    },
+    {
+      "id": "portalgun:ossuary_marrow_crust",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

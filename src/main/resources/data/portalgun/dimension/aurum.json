@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:aurum",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:aurum",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:aurum_gilded_vale",
+          "parameters": {
+            "temperature": 0.2,
+            "humidity": 0.4,
+            "continentalness": -0.15,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:aurum_gem_meadows",
+          "parameters": {
+            "temperature": -0.55,
+            "humidity": -0.1,
+            "continentalness": -0.35,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:aurum_hoard_peaks",
+          "parameters": {
+            "temperature": 0.0,
+            "humidity": 0.0,
+            "continentalness": 0.75,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:aurum_tarnished_wastes",
+          "parameters": {
+            "temperature": 0.85,
+            "humidity": -0.7,
+            "continentalness": 0.1,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

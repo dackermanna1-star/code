@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cross",
+  "textures": {
+    "cross": "portalgun:block/saltara_salt_lily"
+  }
+}

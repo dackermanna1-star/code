@@ -1,0 +1,111 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.wet_squelch",
+      "additions": {
+        "sound": "minecraft:ambient.nether_wastes.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.swamp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.swamp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:falling_nectar"
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/fog_color": "#e0a07a",
+    "minecraft:visual/sky_color": "#cf8a64",
+    "minecraft:visual/water_fog_color": "#6a2216"
+  },
+  "carvers": [
+    "portalgun:ossuary_cave",
+    "portalgun:ossuary_canyon"
+  ],
+  "downfall": 0.74,
+  "effects": {
+    "water_color": "#c0583e"
+  },
+  "features": [
+    [],
+    [
+      "portalgun:ossuary/ossuary_marrow_flats/0_lake"
+    ],
+    [],
+    [],
+    [
+      "portalgun:ossuary/ossuary_marrow_flats/3_structure"
+    ],
+    [],
+    [
+      "portalgun:ossuary/ore_coal",
+      "portalgun:ossuary/ore_iron",
+      "portalgun:ossuary/ore_copper",
+      "portalgun:ossuary/ore_gold",
+      "portalgun:ossuary/ore_redstone",
+      "portalgun:ossuary/ore_lapis",
+      "portalgun:ossuary/ore_diamond",
+      "portalgun:ossuary/ore_emerald",
+      "portalgun:ossuary/ossuary_marrow_flats/4_disk"
+    ],
+    [],
+    [],
+    [
+      "portalgun:ossuary/ossuary_marrow_flats/1_patch",
+      "portalgun:ossuary/ossuary_marrow_flats/2_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:skull_crawler",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:bone_serpent",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:ossuary_vulture",
+        "weight": 12,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 2.0
+}

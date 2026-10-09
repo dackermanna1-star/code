@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "tendril",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:gearhaven_copper_pipe"
+      },
+      "tip": {
+        "Name": "portalgun:gearhaven_steam_vent"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 10
+    },
+    "params": {
+      "curl": 0.35,
+      "thickness": 0.8
+    }
+  }
+}

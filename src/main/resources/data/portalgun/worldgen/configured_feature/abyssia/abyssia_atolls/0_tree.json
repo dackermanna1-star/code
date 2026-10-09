@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:tree",
+  "config": {
+    "log": {
+      "Name": "portalgun:abyssia_kelp_stalk"
+    },
+    "leaves": {
+      "Name": "portalgun:abyssia_kelp_frond",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "palm",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 8
+    },
+    "decoration": {
+      "Name": "portalgun:abyssia_anemone"
+    }
+  }
+}

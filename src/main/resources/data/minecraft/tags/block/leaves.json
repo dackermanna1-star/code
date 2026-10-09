@@ -1,0 +1,157 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:abyssia_kelp_frond",
+      "required": false
+    },
+    {
+      "id": "portalgun:aerolith_goldleaf",
+      "required": false
+    },
+    {
+      "id": "portalgun:aurum_gold_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:aviary_windleaf",
+      "required": false
+    },
+    {
+      "id": "portalgun:cronen_sinew_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:ember_thornwood_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:eventide_bluewood_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:eventide_starleaf",
+      "required": false
+    },
+    {
+      "id": "portalgun:gearhaven_brass_foliage",
+      "required": false
+    },
+    {
+      "id": "portalgun:glacior_frostpine_needles",
+      "required": false
+    },
+    {
+      "id": "portalgun:glitch_corrupt_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:harvestfall_crimson_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:harvestfall_amber_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:harvestfall_russet_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:inversia_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:jurassica_cycad_fronds",
+      "required": false
+    },
+    {
+      "id": "portalgun:lotus_willow_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:lumina_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:lumina_glowleaf",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_juniper_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:oculus_mirewood_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:orbitas_baobab_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:paradisia_palm_fronds",
+      "required": false
+    },
+    {
+      "id": "portalgun:plush_pink_yarn",
+      "required": false
+    },
+    {
+      "id": "portalgun:plush_mint_yarn",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_dead_twigs",
+      "required": false
+    },
+    {
+      "id": "portalgun:sakura_blossom_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:sakura_moonblossom_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:shattered_crystal_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:sketchbook_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectra_rose_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectra_azure_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectra_gold_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectral_withered_leaves",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_needles",
+      "required": false
+    },
+    {
+      "id": "portalgun:synthwave_palm_fronds",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_fern_fronds",
+      "required": false
+    },
+    {
+      "id": "portalgun:vitrea_glassleaf",
+      "required": false
+    }
+  ]
+}

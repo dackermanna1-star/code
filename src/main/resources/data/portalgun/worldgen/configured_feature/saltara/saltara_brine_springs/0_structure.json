@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "geyser",
+    "blocks": {
+      "vent": {
+        "Name": "portalgun:saltara_brine_spring"
+      },
+      "mound": {
+        "Name": "portalgun:saltara_rose_salt"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 8
+    },
+    "params": {
+      "pools": 1.0,
+      "height": 1.2
+    }
+  }
+}

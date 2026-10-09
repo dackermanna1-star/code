@@ -1,0 +1,33 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "minecraft:deepslate",
+      "required": false
+    },
+    {
+      "id": "portalgun:tempest_crag",
+      "required": false
+    },
+    {
+      "id": "portalgun:tempest_soil",
+      "required": false
+    },
+    {
+      "id": "portalgun:tempest_static_sand",
+      "required": false
+    },
+    {
+      "id": "portalgun:tempest_stone",
+      "required": false
+    },
+    {
+      "id": "portalgun:tempest_storm_grass",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

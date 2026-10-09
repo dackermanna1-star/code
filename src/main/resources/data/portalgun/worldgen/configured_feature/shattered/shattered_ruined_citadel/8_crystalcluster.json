@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:crystal_cluster",
+  "config": {
+    "block": {
+      "Name": "portalgun:shattered_rift_crystal"
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 5
+    },
+    "small": {
+      "Name": "portalgun:shattered_rift_shard",
+      "Properties": {
+        "facing": "up"
+      }
+    }
+  }
+}

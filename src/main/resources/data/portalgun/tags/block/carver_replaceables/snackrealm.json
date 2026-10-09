@@ -1,0 +1,33 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:snack_bread_crust",
+      "required": false
+    },
+    {
+      "id": "portalgun:snack_cheese",
+      "required": false
+    },
+    {
+      "id": "portalgun:snack_crumb",
+      "required": false
+    },
+    {
+      "id": "portalgun:snack_herb_crust",
+      "required": false
+    },
+    {
+      "id": "portalgun:snack_pizza",
+      "required": false
+    },
+    {
+      "id": "portalgun:snack_soda_foam",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

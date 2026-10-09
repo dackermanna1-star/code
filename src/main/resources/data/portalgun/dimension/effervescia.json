@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:effervescia",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:effervescia",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:effervescia_cola_sea",
+          "parameters": {
+            "temperature": 0.1,
+            "humidity": 0.0,
+            "continentalness": -0.7,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:effervescia_foam_isles",
+          "parameters": {
+            "temperature": 0.3,
+            "humidity": -0.4,
+            "continentalness": 0.6,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:effervescia_lime_lagoon",
+          "parameters": {
+            "temperature": 0.7,
+            "humidity": 0.6,
+            "continentalness": -0.2,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:effervescia_berry_fizz",
+          "parameters": {
+            "temperature": -0.6,
+            "humidity": 0.3,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "portalgun:block/ossuary_giant_bone_end",
+    "side": "portalgun:block/ossuary_giant_bone_side"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:ember_savanna"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:ember_marula"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.ember_savanna.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.ember_savanna.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

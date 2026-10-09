@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:crystal_cluster",
+  "config": {
+    "block": {
+      "Name": "portalgun:rubra_perchlorate"
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 7
+    },
+    "small": {
+      "Name": "portalgun:rubra_perchlorate_cluster",
+      "Properties": {
+        "facing": "up"
+      }
+    }
+  }
+}

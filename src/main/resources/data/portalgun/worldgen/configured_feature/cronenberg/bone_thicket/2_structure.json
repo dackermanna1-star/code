@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "ribcage",
+    "blocks": {
+      "bone": {
+        "Name": "minecraft:bone_block"
+      },
+      "spine": {
+        "Name": "portalgun:cronen_bone_log"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 8,
+      "max_inclusive": 13
+    }
+  }
+}

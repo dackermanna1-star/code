@@ -1,0 +1,22 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "tendril",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:cronen_flesh"
+      },
+      "tip": {
+        "Name": "portalgun:cronen_eyeball_block"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 8,
+      "max_inclusive": 14
+    },
+    "params": {
+      "curl": 0.7
+    }
+  }
+}

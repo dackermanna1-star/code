@@ -1,0 +1,94 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.bubbling"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:bubble_pop"
+        },
+        "probability": 0.012
+      }
+    ],
+    "minecraft:visual/sky_color": "#9ae0f0",
+    "minecraft:visual/water_fog_color": "#2a6a12"
+  },
+  "carvers": [],
+  "downfall": 0.74,
+  "effects": {
+    "water_color": "#6ad83a"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:effervescia/effervescia_lime_lagoon/1_boulder"
+    ],
+    [],
+    [
+      "portalgun:effervescia/effervescia_lime_lagoon/2_structure"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "minecraft:patch_sugar_cane",
+      "portalgun:effervescia/effervescia_lime_lagoon/0_patch",
+      "portalgun:effervescia/effervescia_lime_lagoon/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:soap_jelly",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:fizzer",
+        "weight": 5,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [
+      {
+        "type": "portalgun:cola_eel",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.15
+}

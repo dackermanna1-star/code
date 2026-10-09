@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/brickton_green_plate"
+      },
+      {
+        "model": "portalgun:block/brickton_green_plate",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/brickton_green_plate",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/brickton_green_plate",
+        "y": 270
+      }
+    ]
+  }
+}

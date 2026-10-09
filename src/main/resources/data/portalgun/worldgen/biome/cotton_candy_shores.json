@@ -1,0 +1,91 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cozy_breeze"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.cherry_grove",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.cherry_grove",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:cherry_leaves"
+        },
+        "probability": 0.003
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#3b1c0c"
+  },
+  "carvers": [
+    "portalgun:froopyland_cave",
+    "portalgun:froopyland_canyon"
+  ],
+  "downfall": 0.66,
+  "effects": {
+    "water_color": "#6e3a1c",
+    "grass_color": "#ffc8de"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:froopyland/cotton_candy_shores/0_boulder",
+      "portalgun:froopyland/cotton_candy_shores/1_boulder"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:froopyland/spring"
+    ],
+    [
+      "portalgun:froopyland/cotton_candy_shores/2_patch",
+      "portalgun:froopyland/cotton_candy_shores/3_giantplant"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:jawbreaker",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:gummy_bear",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.4
+}

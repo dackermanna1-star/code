@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "arch",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:vitrea_rose_glass"
+      },
+      "alt": {
+        "Name": "portalgun:vitrea_dune_glass"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 9,
+      "max_inclusive": 15
+    }
+  }
+}

@@ -1,0 +1,122 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cosmic_drone"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.end",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.end",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:portal"
+        },
+        "probability": 0.03
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16743167,
+          "scale": 1.0
+        },
+        "probability": 0.006
+      }
+    ],
+    "minecraft:visual/fog_color": "#3a1050",
+    "minecraft:visual/fog_end_distance": 140.0,
+    "minecraft:visual/fog_start_distance": 40.0,
+    "minecraft:visual/sky_fog_end_distance": 210.0,
+    "minecraft:visual/water_fog_color": "#101e39"
+  },
+  "carvers": [],
+  "downfall": 0.66,
+  "effects": {
+    "water_color": "#3f76e4",
+    "grass_color": "#7a4aa8",
+    "foliage_color": "#e040f0",
+    "dry_foliage_color": "#e040f0"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:shattered/shattered_rift_scar/5_boulder"
+    ],
+    [],
+    [
+      "portalgun:shattered/shattered_rift_scar/3_spire",
+      "portalgun:shattered/shattered_rift_scar/4_spire",
+      "portalgun:shattered/shattered_rift_scar/6_spire"
+    ],
+    [],
+    [
+      "portalgun:shattered/ore_coal",
+      "portalgun:shattered/ore_iron",
+      "portalgun:shattered/ore_copper",
+      "portalgun:shattered/ore_gold",
+      "portalgun:shattered/ore_redstone",
+      "portalgun:shattered/ore_lapis",
+      "portalgun:shattered/ore_diamond",
+      "portalgun:shattered/ore_emerald"
+    ],
+    [
+      "portalgun:shattered/shattered_rift_scar/0_crystalcluster",
+      "portalgun:shattered/shattered_rift_scar/7_crystalcluster"
+    ],
+    [],
+    [
+      "portalgun:shattered/shattered_rift_scar/1_patch",
+      "portalgun:shattered/shattered_rift_scar/2_patch",
+      "portalgun:shattered/shattered_rift_scar/8_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:shard_wraith",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:rift_stalker",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:void_jelly",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.45000000000000007
+}

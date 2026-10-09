@@ -1,0 +1,27 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:lumina_bloom_stem"
+    },
+    "head": {
+      "Name": "portalgun:lumina_glowleaf",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "tuft",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 6
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 3
+    },
+    "stem_width": 1,
+    "bend": 0.0
+  }
+}

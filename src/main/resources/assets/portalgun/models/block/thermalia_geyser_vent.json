@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "portalgun:block/thermalia_geyser_vent_top",
+    "side": "portalgun:block/thermalia_geyser_vent_side",
+    "bottom": "portalgun:block/thermalia_geyser_vent_side"
+  }
+}

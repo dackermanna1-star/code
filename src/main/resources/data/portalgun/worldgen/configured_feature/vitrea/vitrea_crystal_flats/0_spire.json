@@ -1,0 +1,22 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:simple_state_provider",
+      "state": {
+        "Name": "portalgun:vitrea_crystal_cactus"
+      }
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 11
+    },
+    "radius": 1,
+    "lean": 0.0,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:vitrea_cactus_bloom"
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:froopyland"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:froopy_gummy"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.froopyland.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.froopyland.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

@@ -1,0 +1,107 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.bubbling"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.swamp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.swamp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:squid_ink"
+        },
+        "probability": 0.003
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 1842206,
+          "scale": 0.7
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/fog_color": "#cfcac0",
+    "minecraft:visual/water_fog_color": "#040406"
+  },
+  "carvers": [
+    "portalgun:sketchbook_cave",
+    "portalgun:sketchbook_canyon"
+  ],
+  "downfall": 0.7,
+  "effects": {
+    "water_color": "#0c0c0e",
+    "grass_color": "#5a5a58"
+  },
+  "features": [
+    [],
+    [
+      "portalgun:sketchbook/sketchbook_ink_marsh/0_lake"
+    ],
+    [
+      "portalgun:sketchbook/sketchbook_ink_marsh/3_boulder"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:sketchbook/spring"
+    ],
+    [
+      "portalgun:sketchbook/sketchbook_ink_marsh/1_patch",
+      "portalgun:sketchbook/sketchbook_ink_marsh/2_tree"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:scribble_beast",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:paper_crane",
+        "weight": 12,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:doodle_dog",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.0
+}

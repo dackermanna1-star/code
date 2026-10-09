@@ -1,0 +1,27 @@
+{
+  "feature": "portalgun:mesa_rift/mesa_rift_hoodoo_badlands/3_ore",
+  "placement": [
+    {
+      "type": "minecraft:count",
+      "count": 12
+    },
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:height_range",
+      "height": {
+        "type": "minecraft:uniform",
+        "min_inclusive": {
+          "absolute": 73
+        },
+        "max_inclusive": {
+          "absolute": 74
+        }
+      }
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

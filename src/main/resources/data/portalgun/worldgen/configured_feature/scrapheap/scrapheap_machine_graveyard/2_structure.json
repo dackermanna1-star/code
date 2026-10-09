@@ -1,0 +1,16 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "monolith",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:scrapheap_scrap_plate"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 10,
+      "max_inclusive": 16
+    }
+  }
+}

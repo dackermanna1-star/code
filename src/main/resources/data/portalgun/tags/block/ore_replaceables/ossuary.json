@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:ossuary_fossil_rock",
+      "required": false
+    }
+  ]
+}

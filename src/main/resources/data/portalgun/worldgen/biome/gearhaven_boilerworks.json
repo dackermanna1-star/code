@@ -1,0 +1,110 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.volcanic_rumble",
+      "additions": {
+        "sound": "minecraft:ambient.basalt_deltas.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:smoke"
+        },
+        "probability": 0.006
+      },
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.01
+      }
+    ],
+    "minecraft:visual/fog_color": "#9a7a5a",
+    "minecraft:visual/fog_end_distance": 110.0,
+    "minecraft:visual/fog_start_distance": 28.0,
+    "minecraft:visual/sky_fog_end_distance": 165.0,
+    "minecraft:visual/water_fog_color": "#2a2a24"
+  },
+  "carvers": [
+    "portalgun:gearhaven_cave",
+    "portalgun:gearhaven_canyon"
+  ],
+  "downfall": 0.3,
+  "effects": {
+    "water_color": "#6a7a6a",
+    "grass_color": "#5a5046",
+    "foliage_color": "#d0a040",
+    "dry_foliage_color": "#d0a040"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:gearhaven/gearhaven_boilerworks/0_spire",
+      "portalgun:gearhaven/gearhaven_boilerworks/1_structure",
+      "portalgun:gearhaven/gearhaven_boilerworks/2_structure"
+    ],
+    [],
+    [
+      "portalgun:gearhaven/ore_coal",
+      "portalgun:gearhaven/ore_iron",
+      "portalgun:gearhaven/ore_copper",
+      "portalgun:gearhaven/ore_gold",
+      "portalgun:gearhaven/ore_redstone",
+      "portalgun:gearhaven/ore_lapis",
+      "portalgun:gearhaven/ore_diamond",
+      "portalgun:gearhaven/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:gearhaven/spring"
+    ],
+    [
+      "portalgun:gearhaven/gearhaven_boilerworks/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:cogspider",
+        "weight": 5,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:brass_automaton",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      },
+      {
+        "type": "portalgun:steam_moth",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.15
+}

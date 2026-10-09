@@ -1,0 +1,30 @@
+{
+  "type": "portalgun:boulder",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:aviary_stratastone"
+          },
+          "weight": 5
+        },
+        {
+          "data": {
+            "Name": "portalgun:aviary_cliff_grass"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "hollow": false,
+    "squash": 0.7,
+    "floating": true
+  }
+}

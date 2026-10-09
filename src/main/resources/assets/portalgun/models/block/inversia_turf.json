@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "portalgun:block/inversia_turf_top",
+    "side": "portalgun:block/inversia_turf_side",
+    "bottom": "portalgun:block/inversia_turf_bottom"
+  }
+}

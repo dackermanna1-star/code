@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/snack_bread_crust"
+      },
+      {
+        "model": "portalgun:block/snack_bread_crust",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/snack_bread_crust",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/snack_bread_crust",
+        "y": 270
+      }
+    ]
+  }
+}

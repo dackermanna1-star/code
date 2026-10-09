@@ -1,0 +1,22 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "arch",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:shattered_ruin_bricks"
+      },
+      "alt": {
+        "Name": "portalgun:shattered_riftscarred_bricks"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 7,
+      "max_inclusive": 12
+    },
+    "params": {
+      "height": 1.4
+    }
+  }
+}

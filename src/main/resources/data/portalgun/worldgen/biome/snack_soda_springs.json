@@ -1,0 +1,104 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.bubbling"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.swamp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.swamp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:bubble_pop"
+        },
+        "probability": 0.01
+      },
+      {
+        "particle": {
+          "type": "minecraft:splash"
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/fog_color": "#f4e0c0",
+    "minecraft:visual/water_fog_color": "#2a1006"
+  },
+  "carvers": [
+    "portalgun:snackrealm_cave",
+    "portalgun:snackrealm_canyon"
+  ],
+  "downfall": 0.8200000000000001,
+  "effects": {
+    "water_color": "#6a3412",
+    "grass_color": "#e6a84e",
+    "foliage_color": "#44a034",
+    "dry_foliage_color": "#44a034"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:snackrealm/snack_soda_springs/0_structure"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:snackrealm/snack_soda_springs/1_patch",
+      "portalgun:snackrealm/snack_soda_springs/2_patch",
+      "portalgun:snackrealm/snack_soda_springs/3_giantplant"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:meatball",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:pretzel_snake",
+        "weight": 8,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:cheese_mouse",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.9500000000000001
+}

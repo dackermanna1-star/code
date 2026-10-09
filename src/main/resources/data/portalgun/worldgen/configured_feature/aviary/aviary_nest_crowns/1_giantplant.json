@@ -1,0 +1,27 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "minecraft:birch_log"
+    },
+    "head": {
+      "Name": "portalgun:aviary_windleaf",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "umbrella",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 10
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 5
+    },
+    "stem_width": 1,
+    "bend": 0.65
+  }
+}

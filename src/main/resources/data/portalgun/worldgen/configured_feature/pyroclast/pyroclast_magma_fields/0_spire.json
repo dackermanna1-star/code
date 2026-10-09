@@ -1,0 +1,43 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:pyroclast_basalt"
+          },
+          "weight": 5
+        },
+        {
+          "data": {
+            "Name": "portalgun:pyroclast_magma_crust"
+          },
+          "weight": 1
+        },
+        {
+          "data": {
+            "Name": "portalgun:pyroclast_obsidian"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 12,
+      "max_inclusive": 22
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 8
+    },
+    "lean": 0.0,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:pyroclast_magma_crust"
+    }
+  }
+}

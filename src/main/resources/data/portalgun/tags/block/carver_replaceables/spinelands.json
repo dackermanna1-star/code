@@ -1,0 +1,33 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "minecraft:deepslate",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_barbgrass",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_quill_block",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_quill_gravel",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_soil",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_thornstone",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

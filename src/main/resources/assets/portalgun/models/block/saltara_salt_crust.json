@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "portalgun:block/saltara_salt_crust_top",
+    "side": "portalgun:block/saltara_salt_crust_side",
+    "bottom": "portalgun:block/saltara_salt_crust_bottom"
+  }
+}

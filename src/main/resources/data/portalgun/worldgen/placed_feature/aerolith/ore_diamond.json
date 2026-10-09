@@ -1,0 +1,27 @@
+{
+  "feature": "portalgun:aerolith/ore_diamond",
+  "placement": [
+    {
+      "type": "minecraft:count",
+      "count": 5
+    },
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:height_range",
+      "height": {
+        "type": "minecraft:trapezoid",
+        "min_inclusive": {
+          "absolute": -93
+        },
+        "max_inclusive": {
+          "absolute": -25
+        }
+      }
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

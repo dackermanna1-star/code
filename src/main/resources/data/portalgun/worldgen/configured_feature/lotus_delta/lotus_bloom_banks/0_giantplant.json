@@ -1,0 +1,27 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:lotus_stalk"
+    },
+    "head": {
+      "Name": "portalgun:lotus_petal_block"
+    },
+    "shape": "flower",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 8,
+      "max_inclusive": 15
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 7
+    },
+    "stem_width": 1,
+    "bend": 0.3,
+    "decoration": {
+      "Name": "portalgun:lotus_heart"
+    }
+  }
+}

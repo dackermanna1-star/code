@@ -1,0 +1,80 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.clockwork"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.game",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.game",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/water_fog_color": "#1a50a0"
+  },
+  "carvers": [],
+  "downfall": 0.22000000000000003,
+  "effects": {
+    "water_color": "#2f86f0",
+    "grass_color": "#3aaa4a",
+    "foliage_color": "#2a9a3a",
+    "dry_foliage_color": "#2a9a3a"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:brickton/brickton_yellow_flats/1_structure"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:brickton/brickton_yellow_flats/0_patch",
+      "portalgun:brickton/brickton_yellow_flats/2_patch",
+      "portalgun:brickton/brickton_yellow_flats/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:brick_raider",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 3
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:block_dog",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.2000000000000002
+}

@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "ring",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:aurum_gilt"
+      },
+      "alt": {
+        "Name": "portalgun:aurum_gilded_stone"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 8,
+      "max_inclusive": 12
+    },
+    "params": {
+      "thickness": 0.17,
+      "sink": 0.18
+    }
+  }
+}

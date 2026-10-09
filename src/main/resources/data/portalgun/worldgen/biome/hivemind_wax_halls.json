@@ -1,0 +1,105 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.hive_drone"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16764992,
+          "scale": 0.6
+        },
+        "probability": 0.006
+      },
+      {
+        "particle": {
+          "type": "minecraft:wax_on"
+        },
+        "probability": 0.001
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#a85808"
+  },
+  "carvers": [],
+  "downfall": 0.5,
+  "effects": {
+    "water_color": "#e8a020"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:hivemind/hivemind_wax_halls/3_spire",
+      "portalgun:hivemind/hivemind_wax_halls/4_spire"
+    ],
+    [],
+    [
+      "portalgun:hivemind/hivemind_wax_halls/5_ore",
+      "portalgun:hivemind/hivemind_wax_halls/6_ore"
+    ],
+    [
+      "portalgun:hivemind/hivemind_wax_halls/7_crystalcluster"
+    ],
+    [],
+    [
+      "portalgun:hivemind/hivemind_wax_halls/0_patch",
+      "portalgun:hivemind/hivemind_wax_halls/1_patch",
+      "portalgun:hivemind/hivemind_wax_halls/2_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:hive_warden",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:wax_grub",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:hive_drone",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

@@ -1,0 +1,20 @@
+{
+  "type": "portalgun:tree",
+  "config": {
+    "log": {
+      "Name": "portalgun:harvestfall_maple_log"
+    },
+    "leaves": {
+      "Name": "portalgun:harvestfall_russet_leaves",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "twisted",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 10
+    }
+  }
+}

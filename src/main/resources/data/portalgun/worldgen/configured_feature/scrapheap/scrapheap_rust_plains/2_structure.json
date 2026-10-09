@@ -1,0 +1,22 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "gear",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:scrapheap_scrap_plate"
+      },
+      "axle": {
+        "Name": "portalgun:scrapheap_girder"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 10
+    },
+    "params": {
+      "pair": 0.0
+    }
+  }
+}

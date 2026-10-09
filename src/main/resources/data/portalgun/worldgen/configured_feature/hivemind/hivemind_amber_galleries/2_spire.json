@@ -1,0 +1,37 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:hivemind_amber"
+          },
+          "weight": 3
+        },
+        {
+          "data": {
+            "Name": "portalgun:hivemind_fossil_amber"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 10,
+      "max_inclusive": 22
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "lean": 0.25,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:hivemind_amber"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "axis=x": {
+      "model": "portalgun:block/synthwave_palm_log_horizontal",
+      "x": 90,
+      "y": 90
+    },
+    "axis=y": {
+      "model": "portalgun:block/synthwave_palm_log"
+    },
+    "axis=z": {
+      "model": "portalgun:block/synthwave_palm_log_horizontal",
+      "x": 90
+    }
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.volcanic_rumble",
+      "additions": {
+        "sound": "minecraft:ambient.basalt_deltas.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:ash"
+        },
+        "probability": 0.05
+      },
+      {
+        "particle": {
+          "type": "minecraft:falling_lava"
+        },
+        "probability": 0.001
+      }
+    ],
+    "minecraft:visual/fog_color": "#2a1414",
+    "minecraft:visual/water_fog_color": "#0a0606"
+  },
+  "carvers": [
+    "portalgun:pyroclast_cave",
+    "portalgun:pyroclast_canyon"
+  ],
+  "downfall": 0.78,
+  "effects": {
+    "water_color": "#2a1a1a",
+    "grass_color": "#2e272c"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:pyroclast/pyroclast_obsidian_crags/0_spire"
+    ],
+    [],
+    [
+      "portalgun:pyroclast/ore_coal",
+      "portalgun:pyroclast/ore_iron",
+      "portalgun:pyroclast/ore_copper",
+      "portalgun:pyroclast/ore_gold",
+      "portalgun:pyroclast/ore_redstone",
+      "portalgun:pyroclast/ore_lapis",
+      "portalgun:pyroclast/ore_diamond",
+      "portalgun:pyroclast/ore_emerald",
+      "portalgun:pyroclast/pyroclast_obsidian_crags/3_ore"
+    ],
+    [
+      "portalgun:pyroclast/pyroclast_obsidian_crags/1_crystalcluster"
+    ],
+    [
+      "portalgun:pyroclast/spring"
+    ],
+    [
+      "portalgun:pyroclast/pyroclast_obsidian_crags/2_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:cinder_imp",
+        "weight": 6,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:ash_crawler",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 2.0
+}

@@ -1,0 +1,26 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "cuboids",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:white_room_static_floor"
+      },
+      "alt": {
+        "Name": "portalgun:white_room_void_slab"
+      },
+      "trim": {
+        "Name": "portalgun:white_room_static_rift"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "params": {
+      "float": 4.0,
+      "scatter": 1.0
+    }
+  }
+}

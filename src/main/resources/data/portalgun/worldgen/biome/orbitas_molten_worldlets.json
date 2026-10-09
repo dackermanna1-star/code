@@ -1,0 +1,93 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.volcanic_rumble",
+      "additions": {
+        "sound": "minecraft:ambient.basalt_deltas.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:lava"
+        },
+        "probability": 0.002
+      },
+      {
+        "particle": {
+          "type": "minecraft:small_flame"
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#122234"
+  },
+  "carvers": [],
+  "downfall": 0.33999999999999997,
+  "effects": {
+    "water_color": "#4a8ad0",
+    "grass_color": "#5a3a2a",
+    "foliage_color": "#8a4a2a",
+    "dry_foliage_color": "#8a4a2a"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:orbitas/orbitas_molten_worldlets/1_boulder"
+    ],
+    [],
+    [
+      "portalgun:orbitas/orbitas_molten_worldlets/0_spire"
+    ],
+    [],
+    [
+      "portalgun:orbitas/ore_coal",
+      "portalgun:orbitas/ore_iron",
+      "portalgun:orbitas/ore_copper",
+      "portalgun:orbitas/ore_gold",
+      "portalgun:orbitas/ore_redstone",
+      "portalgun:orbitas/ore_lapis",
+      "portalgun:orbitas/ore_diamond",
+      "portalgun:orbitas/ore_emerald"
+    ],
+    [],
+    [],
+    [],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:comet_imp",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:void_ray",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.2000000000000002
+}

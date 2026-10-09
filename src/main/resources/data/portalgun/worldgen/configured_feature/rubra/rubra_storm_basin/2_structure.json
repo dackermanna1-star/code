@@ -1,0 +1,26 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "cuboids",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:rubra_hull_plate"
+      },
+      "alt": {
+        "Name": "portalgun:rubra_solar_panel"
+      },
+      "trim": {
+        "Name": "portalgun:rubra_beacon"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "params": {
+      "count": 2.0,
+      "scatter": 1.0
+    }
+  }
+}

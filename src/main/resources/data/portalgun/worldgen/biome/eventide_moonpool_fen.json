@@ -1,0 +1,115 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.crystal_chimes"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:firefly"
+        },
+        "probability": 0.02
+      },
+      {
+        "particle": {
+          "type": "minecraft:glow"
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/fog_color": "#4a5aa8",
+    "minecraft:visual/water_fog_color": "#2a6aa0"
+  },
+  "carvers": [
+    "portalgun:eventide_cave",
+    "portalgun:eventide_canyon"
+  ],
+  "downfall": 0.8400000000000001,
+  "effects": {
+    "water_color": "#8ad8ff",
+    "grass_color": "#463478",
+    "foliage_color": "#243c8a",
+    "dry_foliage_color": "#243c8a"
+  },
+  "features": [
+    [],
+    [
+      "portalgun:eventide/eventide_moonpool_fen/0_lake"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:eventide/ore_coal",
+      "portalgun:eventide/ore_iron",
+      "portalgun:eventide/ore_copper",
+      "portalgun:eventide/ore_gold",
+      "portalgun:eventide/ore_redstone",
+      "portalgun:eventide/ore_lapis",
+      "portalgun:eventide/ore_diamond",
+      "portalgun:eventide/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:eventide/spring"
+    ],
+    [
+      "portalgun:eventide/eventide_moonpool_fen/1_patch",
+      "portalgun:eventide/eventide_moonpool_fen/2_tree",
+      "portalgun:eventide/eventide_moonpool_fen/3_patch",
+      "portalgun:eventide/eventide_moonpool_fen/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:twilight_owl",
+        "weight": 8,
+        "minCount": 1,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:moonfox",
+        "weight": 5,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:shade_stag",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.6000000000000001
+}

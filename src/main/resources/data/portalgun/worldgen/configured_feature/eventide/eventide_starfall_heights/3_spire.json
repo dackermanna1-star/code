@@ -1,0 +1,33 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:eventide_slate"
+          },
+          "weight": 5
+        },
+        {
+          "data": {
+            "Name": "portalgun:eventide_moonstone"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 10
+    },
+    "radius": 1,
+    "lean": 0.0,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:eventide_moonstone"
+    }
+  }
+}

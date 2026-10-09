@@ -1,0 +1,30 @@
+{
+  "type": "portalgun:boulder",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:rubra_rock"
+          },
+          "weight": 3
+        },
+        {
+          "data": {
+            "Name": "portalgun:rubra_dust"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 1,
+      "max_inclusive": 2
+    },
+    "hollow": false,
+    "squash": 0.6,
+    "floating": false
+  }
+}

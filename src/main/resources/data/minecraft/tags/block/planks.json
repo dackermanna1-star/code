@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:sakura_vermilion_wood",
+      "required": false
+    },
+    {
+      "id": "portalgun:sketchbook_shaved_wood",
+      "required": false
+    }
+  ]
+}

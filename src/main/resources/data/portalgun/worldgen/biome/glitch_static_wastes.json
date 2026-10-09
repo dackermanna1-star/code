@@ -1,0 +1,96 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.glitch_noise"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music_disc.11",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music_disc.11",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.03
+      },
+      {
+        "particle": {
+          "type": "minecraft:electric_spark"
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/fog_color": "#4a4a52",
+    "minecraft:visual/fog_end_distance": 100.0,
+    "minecraft:visual/fog_start_distance": 36.0,
+    "minecraft:visual/sky_color": "#3a3a42",
+    "minecraft:visual/sky_fog_end_distance": 150.0,
+    "minecraft:visual/water_fog_color": "#303030"
+  },
+  "carvers": [],
+  "downfall": 0.26,
+  "effects": {
+    "water_color": "#c0c0c0",
+    "grass_color": "#808080"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:glitch/glitch_static_wastes/0_structure",
+      "portalgun:glitch/glitch_static_wastes/1_structure"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:glitch/glitch_static_wastes/2_patch",
+      "portalgun:glitch/glitch_static_wastes/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:pixel_wraith",
+        "weight": 8,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:missingno",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

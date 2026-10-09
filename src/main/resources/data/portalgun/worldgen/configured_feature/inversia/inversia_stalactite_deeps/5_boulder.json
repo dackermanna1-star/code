@@ -1,0 +1,36 @@
+{
+  "type": "portalgun:boulder",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:inversia_skystone"
+          },
+          "weight": 5
+        },
+        {
+          "data": {
+            "Name": "portalgun:inversia_gravity_quartz"
+          },
+          "weight": 1
+        },
+        {
+          "data": {
+            "Name": "portalgun:inversia_turf"
+          },
+          "weight": 2
+        }
+      ]
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "hollow": false,
+    "squash": 0.7,
+    "floating": true
+  }
+}

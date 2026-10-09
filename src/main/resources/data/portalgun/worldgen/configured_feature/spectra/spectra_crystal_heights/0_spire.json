@@ -1,0 +1,73 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "minecraft:red_stained_glass"
+          },
+          "weight": 2
+        },
+        {
+          "data": {
+            "Name": "minecraft:orange_stained_glass"
+          },
+          "weight": 2
+        },
+        {
+          "data": {
+            "Name": "minecraft:yellow_stained_glass"
+          },
+          "weight": 2
+        },
+        {
+          "data": {
+            "Name": "minecraft:lime_stained_glass"
+          },
+          "weight": 2
+        },
+        {
+          "data": {
+            "Name": "minecraft:light_blue_stained_glass"
+          },
+          "weight": 2
+        },
+        {
+          "data": {
+            "Name": "minecraft:purple_stained_glass"
+          },
+          "weight": 2
+        },
+        {
+          "data": {
+            "Name": "minecraft:magenta_stained_glass"
+          },
+          "weight": 2
+        },
+        {
+          "data": {
+            "Name": "portalgun:spectra_prism_crystal"
+          },
+          "weight": 3
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 22,
+      "max_inclusive": 40
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 5
+    },
+    "lean": 0.12,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:spectra_prism_crystal"
+    }
+  }
+}

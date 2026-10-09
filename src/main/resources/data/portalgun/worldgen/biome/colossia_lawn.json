@@ -1,0 +1,97 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cozy_breeze"
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:spore_blossom_air"
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#2a6a8a"
+  },
+  "carvers": [
+    "portalgun:colossia_cave",
+    "portalgun:colossia_canyon"
+  ],
+  "downfall": 0.5800000000000001,
+  "effects": {
+    "water_color": "#4a9ad0",
+    "grass_color": "#5aaa30",
+    "foliage_color": "#4c9e2c",
+    "dry_foliage_color": "#4c9e2c"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:colossia/colossia_lawn/2_boulder",
+      "portalgun:colossia/colossia_lawn/3_boulder"
+    ],
+    [],
+    [
+      "portalgun:colossia/colossia_lawn/0_spire"
+    ],
+    [],
+    [
+      "portalgun:colossia/ore_coal",
+      "portalgun:colossia/ore_iron",
+      "portalgun:colossia/ore_copper",
+      "portalgun:colossia/ore_gold",
+      "portalgun:colossia/ore_redstone",
+      "portalgun:colossia/ore_lapis",
+      "portalgun:colossia/ore_diamond",
+      "portalgun:colossia/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:colossia/spring"
+    ],
+    [
+      "portalgun:colossia/colossia_lawn/1_giantplant",
+      "portalgun:colossia/colossia_lawn/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:giant_ant",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:mega_bee",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:titan_snail",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:sketchbook"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:sketchbook_living_ink"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.sketchbook.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.sketchbook.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

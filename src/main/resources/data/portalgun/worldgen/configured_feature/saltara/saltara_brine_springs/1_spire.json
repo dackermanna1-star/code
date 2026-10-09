@@ -1,0 +1,40 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:saltara_salt_rock"
+          },
+          "weight": 4
+        },
+        {
+          "data": {
+            "Name": "portalgun:saltara_rose_salt"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 7,
+      "max_inclusive": 15
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 1,
+      "max_inclusive": 3
+    },
+    "lean": 0.1,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:saltara_glow_halite"
+    },
+    "cap": {
+      "Name": "portalgun:saltara_halite"
+    }
+  }
+}

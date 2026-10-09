@@ -1,0 +1,27 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:plush_yarn_log"
+    },
+    "head": {
+      "Name": "portalgun:plush_mint_yarn",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "sphere",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 9
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 4
+    },
+    "stem_width": 1,
+    "bend": 0.15
+  }
+}

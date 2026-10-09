@@ -1,0 +1,119 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.crystal_chimes"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.dripstone_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.dripstone_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:end_rod"
+        },
+        "probability": 0.0015
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 13164799,
+          "scale": 0.6
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/fog_color": "#2a2448",
+    "minecraft:visual/fog_end_distance": 120.0,
+    "minecraft:visual/fog_start_distance": 40.0,
+    "minecraft:visual/sky_fog_end_distance": 180.0,
+    "minecraft:visual/water_fog_color": "#101e39"
+  },
+  "carvers": [],
+  "downfall": 0.42,
+  "effects": {
+    "water_color": "#3f76e4",
+    "grass_color": "#3c7060",
+    "foliage_color": "#386070",
+    "dry_foliage_color": "#386070"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:inversia/inversia_stalactite_deeps/4_geode",
+      "portalgun:inversia/inversia_stalactite_deeps/5_boulder"
+    ],
+    [],
+    [
+      "portalgun:inversia/inversia_stalactite_deeps/0_spire",
+      "portalgun:inversia/inversia_stalactite_deeps/1_spire"
+    ],
+    [],
+    [
+      "portalgun:inversia/ore_coal",
+      "portalgun:inversia/ore_iron",
+      "portalgun:inversia/ore_copper",
+      "portalgun:inversia/ore_gold",
+      "portalgun:inversia/ore_redstone",
+      "portalgun:inversia/ore_lapis",
+      "portalgun:inversia/ore_diamond",
+      "portalgun:inversia/ore_emerald"
+    ],
+    [
+      "portalgun:inversia/inversia_stalactite_deeps/2_crystalcluster"
+    ],
+    [],
+    [
+      "portalgun:inversia/inversia_stalactite_deeps/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:ceiling_crawler",
+        "weight": 8,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:drop_bat",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 3
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:root_grazer",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.5
+}

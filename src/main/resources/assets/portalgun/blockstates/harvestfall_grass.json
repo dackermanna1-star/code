@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/harvestfall_grass"
+      },
+      {
+        "model": "portalgun:block/harvestfall_grass",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/harvestfall_grass",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/harvestfall_grass",
+        "y": 270
+      }
+    ]
+  }
+}

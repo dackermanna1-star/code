@@ -1,0 +1,20 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:plush_yarn_log"
+    },
+    "head": {
+      "Name": "portalgun:plush_star_light"
+    },
+    "shape": "sphere",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 8
+    },
+    "radius": 1,
+    "stem_width": 1,
+    "bend": 0.0
+  }
+}

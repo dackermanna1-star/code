@@ -1,0 +1,21 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:brickton_gray_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_red_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_white_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_yellow_brick",
+      "required": false
+    }
+  ]
+}

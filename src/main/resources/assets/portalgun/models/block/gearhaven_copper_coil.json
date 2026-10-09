@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cross",
+  "textures": {
+    "cross": "portalgun:block/gearhaven_copper_coil"
+  }
+}

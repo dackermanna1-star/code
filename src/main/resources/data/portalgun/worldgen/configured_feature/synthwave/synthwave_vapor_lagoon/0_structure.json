@@ -1,0 +1,21 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "ring",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:synthwave_neon_tube"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 7,
+      "max_inclusive": 11
+    },
+    "params": {
+      "flat": 1.0,
+      "float": 0.0,
+      "thickness": 0.1
+    }
+  }
+}

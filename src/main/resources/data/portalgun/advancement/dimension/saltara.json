@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:saltara"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:saltara_rock_salt"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.saltara.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.saltara.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

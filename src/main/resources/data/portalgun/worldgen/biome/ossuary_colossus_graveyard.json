@@ -1,0 +1,114 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.eerie_choir",
+      "additions": {
+        "sound": "minecraft:ambient.soul_sand_valley.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.nether.soul_sand_valley",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.nether.soul_sand_valley",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.006
+      }
+    ],
+    "minecraft:visual/fog_color": "#d8a878",
+    "minecraft:visual/water_fog_color": "#5a1e14"
+  },
+  "carvers": [
+    "portalgun:ossuary_cave",
+    "portalgun:ossuary_canyon"
+  ],
+  "downfall": 0.66,
+  "effects": {
+    "water_color": "#a85a40"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:ossuary/ossuary_colossus_graveyard/4_boulder"
+    ],
+    [],
+    [
+      "portalgun:ossuary/ossuary_colossus_graveyard/0_structure",
+      "portalgun:ossuary/ossuary_colossus_graveyard/1_structure",
+      "portalgun:ossuary/ossuary_colossus_graveyard/2_spire",
+      "portalgun:ossuary/ossuary_colossus_graveyard/3_spire"
+    ],
+    [],
+    [
+      "portalgun:ossuary/ore_coal",
+      "portalgun:ossuary/ore_iron",
+      "portalgun:ossuary/ore_copper",
+      "portalgun:ossuary/ore_gold",
+      "portalgun:ossuary/ore_redstone",
+      "portalgun:ossuary/ore_lapis",
+      "portalgun:ossuary/ore_diamond",
+      "portalgun:ossuary/ore_emerald"
+    ],
+    [
+      "portalgun:ossuary/ossuary_colossus_graveyard/5_crystalcluster"
+    ],
+    [],
+    [
+      "portalgun:ossuary/ossuary_colossus_graveyard/6_patch",
+      "portalgun:ossuary/ossuary_colossus_graveyard/7_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:bone_serpent",
+        "weight": 5,
+        "minCount": 1,
+        "maxCount": 1
+      },
+      {
+        "type": "portalgun:skull_crawler",
+        "weight": 6,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:ossuary_vulture",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 2.0
+}

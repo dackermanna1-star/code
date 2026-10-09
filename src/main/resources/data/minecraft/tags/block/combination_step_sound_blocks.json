@@ -1,0 +1,25 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:aurum_coin_drift",
+      "required": false
+    },
+    {
+      "id": "portalgun:harvestfall_leaf_litter",
+      "required": false
+    },
+    {
+      "id": "portalgun:hivemind_pollen_carpet",
+      "required": false
+    },
+    {
+      "id": "portalgun:sakura_petal_carpet",
+      "required": false
+    },
+    {
+      "id": "portalgun:white_room_footprints",
+      "required": false
+    }
+  ]
+}

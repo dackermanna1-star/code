@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:shattered"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:shattered_rift_heart"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.shattered.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.shattered.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

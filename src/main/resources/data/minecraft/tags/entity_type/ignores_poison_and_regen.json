@@ -1,0 +1,21 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:bone_hound",
+      "required": false
+    },
+    {
+      "id": "portalgun:bone_serpent",
+      "required": false
+    },
+    {
+      "id": "portalgun:glowing_ghoul",
+      "required": false
+    },
+    {
+      "id": "portalgun:skull_crawler",
+      "required": false
+    }
+  ]
+}

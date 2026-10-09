@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "tendril",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:spinelands_thorn_mass"
+      },
+      "tip": {
+        "Name": "portalgun:spinelands_thornwood"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 9,
+      "max_inclusive": 15
+    },
+    "params": {
+      "curl": 0.8,
+      "thickness": 0.9
+    }
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:ossuary",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:ossuary",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:ossuary_bleached_dunes",
+          "parameters": {
+            "temperature": 0.0,
+            "humidity": -0.2,
+            "continentalness": 0.1,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:ossuary_colossus_graveyard",
+          "parameters": {
+            "temperature": 0.6,
+            "humidity": 0.4,
+            "continentalness": 0.2,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:ossuary_marrow_flats",
+          "parameters": {
+            "temperature": -0.35,
+            "humidity": 0.6,
+            "continentalness": -0.4,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:ossuary_charnel_barrens",
+          "parameters": {
+            "temperature": -0.95,
+            "humidity": -0.95,
+            "continentalness": 0.4,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

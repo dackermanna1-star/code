@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:aviary",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:aviary",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:aviary_nest_crowns",
+          "parameters": {
+            "temperature": 0.35,
+            "humidity": -0.15,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:aviary_windswept_spires",
+          "parameters": {
+            "temperature": -0.6,
+            "humidity": -0.4,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:aviary_bloom_ledges",
+          "parameters": {
+            "temperature": 0.5,
+            "humidity": 0.7,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:aviary_hanging_gardens",
+          "parameters": {
+            "temperature": -0.35,
+            "humidity": 0.65,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

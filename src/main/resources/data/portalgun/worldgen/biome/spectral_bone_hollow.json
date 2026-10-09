@@ -1,0 +1,119 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.eerie_choir",
+      "additions": {
+        "sound": "minecraft:ambient.soul_sand_valley.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:ash"
+        },
+        "probability": 0.006
+      },
+      {
+        "particle": {
+          "type": "minecraft:soul"
+        },
+        "probability": 0.001
+      }
+    ],
+    "minecraft:visual/fog_color": "#262a30",
+    "minecraft:visual/water_fog_color": "#0a2028"
+  },
+  "carvers": [
+    "portalgun:spectral_vale_cave",
+    "portalgun:spectral_vale_canyon"
+  ],
+  "downfall": 0.26,
+  "effects": {
+    "water_color": "#2a4a58",
+    "grass_color": "#566656"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:spectral_vale/spectral_bone_hollow/1_structure",
+      "portalgun:spectral_vale/spectral_bone_hollow/2_spire"
+    ],
+    [],
+    [
+      "portalgun:spectral_vale/ore_coal",
+      "portalgun:spectral_vale/ore_iron",
+      "portalgun:spectral_vale/ore_copper",
+      "portalgun:spectral_vale/ore_gold",
+      "portalgun:spectral_vale/ore_redstone",
+      "portalgun:spectral_vale/ore_lapis",
+      "portalgun:spectral_vale/ore_diamond",
+      "portalgun:spectral_vale/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:spectral_vale/spring"
+    ],
+    [
+      "portalgun:spectral_vale/spectral_bone_hollow/0_patch",
+      "portalgun:spectral_vale/spectral_bone_hollow/3_patch",
+      "portalgun:spectral_vale/spectral_bone_hollow/4_patch",
+      "portalgun:spectral_vale/spectral_bone_hollow/5_tree"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:bone_hound",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:wraith",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [],
+    "ambient": [
+      {
+        "type": "portalgun:will_o_wisp",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.5
+}

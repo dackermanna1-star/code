@@ -1,0 +1,30 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:shattered_petrified_log"
+    },
+    "head": {
+      "Name": "portalgun:shattered_crystal_leaves",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "puff",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 9,
+      "max_inclusive": 15
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 5
+    },
+    "stem_width": 1,
+    "bend": 0.35,
+    "decoration": {
+      "Name": "portalgun:shattered_void_tendrils"
+    }
+  }
+}

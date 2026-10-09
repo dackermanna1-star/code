@@ -1,0 +1,33 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:sakura_log"
+    },
+    "head": {
+      "Name": "portalgun:sakura_moonblossom_leaves",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "puff",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 12,
+      "max_inclusive": 17
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 7
+    },
+    "stem_width": 2,
+    "bend": 0.5,
+    "decoration": {
+      "Name": "portalgun:sakura_blossom_leaves",
+      "Properties": {
+        "persistent": "true"
+      }
+    }
+  }
+}

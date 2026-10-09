@@ -1,0 +1,95 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.dark_void",
+      "additions": {
+        "sound": "minecraft:ambient.crimson_forest.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.008
+      }
+    ],
+    "minecraft:visual/fog_color": "#040406",
+    "minecraft:visual/fog_end_distance": 90.0,
+    "minecraft:visual/fog_start_distance": 6.0,
+    "minecraft:visual/sky_color": "#000000",
+    "minecraft:visual/sky_fog_end_distance": 135.0,
+    "minecraft:visual/water_fog_color": "#040405"
+  },
+  "carvers": [],
+  "downfall": 0.88,
+  "effects": {
+    "water_color": "#101014",
+    "grass_color": "#202020",
+    "foliage_color": "#202020",
+    "dry_foliage_color": "#202020"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:white_room/white_room_negative_zone/0_structure",
+      "portalgun:white_room/white_room_negative_zone/1_structure"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:white_room/white_room_negative_zone/2_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:silhouette",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:static",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.275
+}

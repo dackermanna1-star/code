@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:cronenberg"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:cronen_watching_eye"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.cronenberg.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.cronenberg.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

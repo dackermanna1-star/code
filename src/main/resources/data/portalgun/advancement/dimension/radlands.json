@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:radlands"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:rad_uranium_shard"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.radlands.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.radlands.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

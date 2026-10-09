@@ -2,11 +2,355 @@
   "replace": false,
   "values": [
     {
+      "id": "portalgun:abyssia_coral_fan",
+      "required": false
+    },
+    {
+      "id": "portalgun:abyssia_anemone",
+      "required": false
+    },
+    {
+      "id": "portalgun:aerolith_cloudberry_bush",
+      "required": false
+    },
+    {
+      "id": "portalgun:aerolith_feathergrass",
+      "required": false
+    },
+    {
+      "id": "portalgun:aurum_ruby_bloom",
+      "required": false
+    },
+    {
+      "id": "portalgun:aurum_sapphire_bloom",
+      "required": false
+    },
+    {
+      "id": "portalgun:aviary_feather_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:aviary_cliff_blossom",
+      "required": false
+    },
+    {
+      "id": "portalgun:aviary_cliff_ivy",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_toy_flower",
+      "required": false
+    },
+    {
+      "id": "portalgun:colossia_moss_sprout",
+      "required": false
+    },
+    {
+      "id": "portalgun:cronen_eyestalk",
+      "required": false
+    },
+    {
+      "id": "portalgun:cronen_veins",
+      "required": false
+    },
+    {
+      "id": "portalgun:effervescia_cherry_bush",
+      "required": false
+    },
+    {
+      "id": "portalgun:ember_elephant_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:ember_firebloom",
+      "required": false
+    },
+    {
+      "id": "portalgun:eventide_moonbloom",
+      "required": false
+    },
+    {
+      "id": "portalgun:eventide_duskbell",
+      "required": false
+    },
+    {
+      "id": "portalgun:froopy_lollipop",
+      "required": false
+    },
+    {
+      "id": "portalgun:gearhaven_cog_sprout",
+      "required": false
+    },
+    {
+      "id": "portalgun:gearhaven_copper_coil",
+      "required": false
+    },
+    {
+      "id": "portalgun:glacior_frostbloom",
+      "required": false
+    },
+    {
+      "id": "portalgun:glacior_snowgrass",
+      "required": false
+    },
+    {
+      "id": "portalgun:glitch_pixel_bush",
+      "required": false
+    },
+    {
+      "id": "portalgun:glitch_pixel_flower",
+      "required": false
+    },
+    {
+      "id": "portalgun:gloop_bulb",
+      "required": false
+    },
+    {
+      "id": "portalgun:gloop_tuft",
+      "required": false
+    },
+    {
+      "id": "portalgun:groovy_daisy",
+      "required": false
+    },
+    {
+      "id": "portalgun:groovy_spiral_bloom",
+      "required": false
+    },
+    {
+      "id": "portalgun:groovy_fuzz",
+      "required": false
+    },
+    {
+      "id": "portalgun:harvestfall_corn_stalk",
+      "required": false
+    },
+    {
+      "id": "portalgun:harvestfall_ember_cap",
+      "required": false
+    },
+    {
+      "id": "portalgun:harvestfall_goldenrod",
+      "required": false
+    },
+    {
+      "id": "portalgun:inversia_curtain_moss",
+      "required": false
+    },
+    {
+      "id": "portalgun:inversia_bellflower",
+      "required": false
+    },
+    {
+      "id": "portalgun:jurassica_giant_fern",
+      "required": false
+    },
+    {
+      "id": "portalgun:jurassica_horsetail",
+      "required": false
+    },
+    {
+      "id": "portalgun:lotus_reeds",
+      "required": false
+    },
+    {
+      "id": "portalgun:lumina_lantern_flower",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_sagebrush",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_desert_bloom",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_condor_egg",
+      "required": false
+    },
+    {
+      "id": "portalgun:micro_cilia",
+      "required": false
+    },
+    {
+      "id": "portalgun:micro_ribosomes",
+      "required": false
+    },
+    {
+      "id": "portalgun:oculus_eyestalk_sprout",
+      "required": false
+    },
+    {
+      "id": "portalgun:orbitas_starfruit_bush",
+      "required": false
+    },
+    {
+      "id": "portalgun:ossuary_bone_thistle",
+      "required": false
+    },
+    {
+      "id": "portalgun:ossuary_marrow_bloom",
+      "required": false
+    },
+    {
+      "id": "portalgun:paradisia_hibiscus",
+      "required": false
+    },
+    {
+      "id": "portalgun:paradisia_bird_of_paradise",
+      "required": false
+    },
+    {
+      "id": "portalgun:paradisia_monstera",
+      "required": false
+    },
+    {
+      "id": "portalgun:paradisia_seashells",
+      "required": false
+    },
+    {
+      "id": "portalgun:plush_button_flower",
+      "required": false
+    },
+    {
+      "id": "portalgun:pyroclast_cinderbloom",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_glowshroom",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_dead_bush",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_hematite",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_rust_lichen",
+      "required": false
+    },
+    {
+      "id": "portalgun:sakura_iris",
+      "required": false
+    },
+    {
+      "id": "portalgun:saltara_saltbush",
+      "required": false
+    },
+    {
+      "id": "portalgun:saltara_rose_samphire",
+      "required": false
+    },
+    {
+      "id": "portalgun:saltara_salt_lily",
+      "required": false
+    },
+    {
+      "id": "portalgun:scrapheap_wire_weed",
+      "required": false
+    },
+    {
+      "id": "portalgun:scrapheap_cog_bloom",
+      "required": false
+    },
+    {
+      "id": "portalgun:selene_silver_lichen",
+      "required": false
+    },
+    {
+      "id": "portalgun:shattered_void_bloom",
+      "required": false
+    },
+    {
+      "id": "portalgun:sketchbook_doodle_flower",
+      "required": false
+    },
+    {
+      "id": "portalgun:sketchbook_scribble_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:snack_olive_sprig",
+      "required": false
+    },
+    {
+      "id": "portalgun:snack_lettuce",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectra_huebloom",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectra_shimmer_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectral_ghostbloom",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectral_heather",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_bramble",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_thorn_vine",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_bloodrose",
+      "required": false
+    },
+    {
       "id": "portalgun:glowcap_sprout",
       "required": false
     },
     {
       "id": "portalgun:spore_puff",
+      "required": false
+    },
+    {
+      "id": "portalgun:sporewood_shelf_fungus",
+      "required": false
+    },
+    {
+      "id": "portalgun:synthwave_pixel_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:tempest_scorched_shrub",
+      "required": false
+    },
+    {
+      "id": "portalgun:tempest_stormbloom",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_steamfern",
+      "required": false
+    },
+    {
+      "id": "portalgun:umbra_lumen_vein",
+      "required": false
+    },
+    {
+      "id": "portalgun:umbra_wraithcap",
+      "required": false
+    },
+    {
+      "id": "portalgun:vitrea_cactus_sprout",
+      "required": false
+    },
+    {
+      "id": "portalgun:vitrea_desert_grass",
       "required": false
     }
   ]

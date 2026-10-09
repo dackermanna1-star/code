@@ -1,0 +1,22 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "gear",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:gearhaven_brass_plate"
+      },
+      "axle": {
+        "Name": "portalgun:gearhaven_copper_pipe"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 7,
+      "max_inclusive": 11
+    },
+    "params": {
+      "flat": 0.0
+    }
+  }
+}

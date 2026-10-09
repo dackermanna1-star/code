@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "geyser",
+    "blocks": {
+      "vent": {
+        "Name": "portalgun:thermalia_geyser_vent"
+      },
+      "mound": {
+        "Name": "portalgun:thermalia_sulfur_crust"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 7
+    },
+    "params": {
+      "pools": 0.0,
+      "height": 1.4
+    }
+  }
+}

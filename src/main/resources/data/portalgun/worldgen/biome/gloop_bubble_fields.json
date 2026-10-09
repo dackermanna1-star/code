@@ -1,0 +1,102 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.bubbling"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music_disc.chirp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music_disc.chirp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:bubble_pop"
+        },
+        "probability": 0.002
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 8059112,
+          "scale": 1.0
+        },
+        "probability": 0.005
+      }
+    ],
+    "minecraft:visual/sky_color": "#86ecd8",
+    "minecraft:visual/water_fog_color": "#b8287a"
+  },
+  "carvers": [
+    "portalgun:gloopolis_cave",
+    "portalgun:gloopolis_canyon"
+  ],
+  "downfall": 0.24,
+  "effects": {
+    "water_color": "#ff5ab0",
+    "grass_color": "#7ee02a"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:gloopolis/gloop_bubble_fields/0_boulder",
+      "portalgun:gloopolis/gloop_bubble_fields/1_boulder",
+      "portalgun:gloopolis/gloop_bubble_fields/2_boulder"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:gloopolis/spring"
+    ],
+    [
+      "portalgun:gloopolis/gloop_bubble_fields/3_patch",
+      "portalgun:gloopolis/gloop_bubble_fields/4_patch",
+      "portalgun:gloopolis/gloop_bubble_fields/5_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:bounce_slime",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:blob_grazer",
+        "weight": 16,
+        "minCount": 3,
+        "maxCount": 5
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.7000000000000001
+}

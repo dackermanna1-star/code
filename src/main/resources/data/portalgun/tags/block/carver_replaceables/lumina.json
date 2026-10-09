@@ -1,0 +1,25 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "minecraft:deepslate",
+      "required": false
+    },
+    {
+      "id": "portalgun:lumina_moss",
+      "required": false
+    },
+    {
+      "id": "portalgun:lumina_soil",
+      "required": false
+    },
+    {
+      "id": "portalgun:lumina_stone",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

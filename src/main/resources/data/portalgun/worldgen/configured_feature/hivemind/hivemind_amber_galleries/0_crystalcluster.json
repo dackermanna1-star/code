@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:crystal_cluster",
+  "config": {
+    "block": {
+      "Name": "portalgun:hivemind_amber"
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 8
+    },
+    "small": {
+      "Name": "portalgun:hivemind_amber_cluster",
+      "Properties": {
+        "facing": "up"
+      }
+    }
+  }
+}

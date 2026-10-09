@@ -1,0 +1,16 @@
+{
+  "feature": "portalgun:inversia/inversia_lantern_hollows/5_structure",
+  "placement": [
+    {
+      "type": "minecraft:rarity_filter",
+      "chance": 7
+    },
+    {
+      "type": "minecraft:count_on_every_layer",
+      "count": 1
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

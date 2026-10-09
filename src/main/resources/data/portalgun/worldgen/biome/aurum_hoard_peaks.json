@@ -1,0 +1,121 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.wind_howl"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.jagged_peaks",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.jagged_peaks",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:wax_on"
+        },
+        "probability": 0.004
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16773808,
+          "scale": 0.9
+        },
+        "probability": 0.003
+      }
+    ],
+    "minecraft:visual/fog_color": "#f0c8a0",
+    "minecraft:visual/water_fog_color": "#6a4a10"
+  },
+  "carvers": [
+    "portalgun:aurum_cave",
+    "portalgun:aurum_canyon"
+  ],
+  "downfall": 0.5,
+  "effects": {
+    "water_color": "#e8b42a",
+    "grass_color": "#dcb038",
+    "foliage_color": "#f0bc2a",
+    "dry_foliage_color": "#f0bc2a"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:aurum/aurum_hoard_peaks/2_boulder"
+    ],
+    [],
+    [
+      "portalgun:aurum/aurum_hoard_peaks/0_structure"
+    ],
+    [],
+    [
+      "portalgun:aurum/ore_coal",
+      "portalgun:aurum/ore_iron",
+      "portalgun:aurum/ore_copper",
+      "portalgun:aurum/ore_gold",
+      "portalgun:aurum/ore_redstone",
+      "portalgun:aurum/ore_lapis",
+      "portalgun:aurum/ore_diamond",
+      "portalgun:aurum/ore_emerald",
+      "portalgun:aurum/aurum_hoard_peaks/5_ore"
+    ],
+    [
+      "portalgun:aurum/aurum_hoard_peaks/1_crystalcluster"
+    ],
+    [
+      "portalgun:aurum/spring"
+    ],
+    [
+      "portalgun:aurum/aurum_hoard_peaks/3_patch",
+      "portalgun:aurum/aurum_hoard_peaks/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:treasure_mimic",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:midas_golem",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      },
+      {
+        "type": "portalgun:goldbug",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:aerolith",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:aerolith",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:skymeadow",
+          "parameters": {
+            "temperature": 0.81,
+            "humidity": -0.44,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:skyroot_grove",
+          "parameters": {
+            "temperature": -0.68,
+            "humidity": 0.28,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:cloudtop_reaches",
+          "parameters": {
+            "temperature": 0.73,
+            "humidity": 0.93,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:windswept_crags",
+          "parameters": {
+            "temperature": -0.84,
+            "humidity": -0.04,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/aurum_gilded_grass"
+      },
+      {
+        "model": "portalgun:block/aurum_gilded_grass",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/aurum_gilded_grass",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/aurum_gilded_grass",
+        "y": 270
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "arch",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:paradisia_limestone"
+      },
+      "alt": {
+        "Name": "minecraft:mossy_cobblestone"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 7,
+      "max_inclusive": 11
+    }
+  }
+}

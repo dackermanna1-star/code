@@ -1,0 +1,30 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:sakura_log"
+    },
+    "head": {
+      "Name": "portalgun:sakura_blossom_leaves",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "puff",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 12,
+      "max_inclusive": 18
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 8
+    },
+    "stem_width": 2,
+    "bend": 0.45,
+    "decoration": {
+      "Name": "portalgun:sakura_hanging_blossom"
+    }
+  }
+}

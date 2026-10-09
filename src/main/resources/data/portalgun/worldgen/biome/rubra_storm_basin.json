@@ -1,0 +1,126 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.wind_howl"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.badlands",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.badlands",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 12738606,
+          "scale": 1.8
+        },
+        "probability": 0.06
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 14981210,
+          "scale": 1.2
+        },
+        "probability": 0.03
+      },
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.01
+      }
+    ],
+    "minecraft:visual/fog_color": "#a8603a",
+    "minecraft:visual/fog_end_distance": 56.0,
+    "minecraft:visual/fog_start_distance": 22.400000000000002,
+    "minecraft:visual/sky_color": "#b8704a",
+    "minecraft:visual/sky_fog_end_distance": 84.0,
+    "minecraft:visual/water_fog_color": "#221612"
+  },
+  "carvers": [
+    "portalgun:rubra_cave",
+    "portalgun:rubra_canyon"
+  ],
+  "downfall": 0.74,
+  "effects": {
+    "water_color": "#8a5a4a",
+    "grass_color": "#c2602e",
+    "foliage_color": "#a84a22",
+    "dry_foliage_color": "#a84a22"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:rubra/rubra_storm_basin/1_boulder"
+    ],
+    [],
+    [
+      "portalgun:rubra/rubra_storm_basin/0_spire",
+      "portalgun:rubra/rubra_storm_basin/2_structure"
+    ],
+    [],
+    [
+      "portalgun:rubra/ore_coal",
+      "portalgun:rubra/ore_iron",
+      "portalgun:rubra/ore_copper",
+      "portalgun:rubra/ore_gold",
+      "portalgun:rubra/ore_redstone",
+      "portalgun:rubra/ore_lapis",
+      "portalgun:rubra/ore_diamond",
+      "portalgun:rubra/ore_emerald"
+    ],
+    [],
+    [],
+    [],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:tripod",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:sand_skimmer",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:dust_mite",
+        "weight": 6,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.05
+}

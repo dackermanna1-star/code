@@ -1,0 +1,97 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.neon_synth"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.end",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.end",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:end_rod"
+        },
+        "probability": 0.0015
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 2225407,
+          "scale": 0.6
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/fog_color": "#ff6ab0",
+    "minecraft:visual/water_fog_color": "#4a0a6a"
+  },
+  "carvers": [],
+  "downfall": 0.8200000000000001,
+  "effects": {
+    "water_color": "#d040ff",
+    "grass_color": "#ff2bd6",
+    "foliage_color": "#21f4ff",
+    "dry_foliage_color": "#21f4ff"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:synthwave/synthwave_vapor_lagoon/0_structure",
+      "portalgun:synthwave/synthwave_vapor_lagoon/1_structure"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:synthwave/synthwave_vapor_lagoon/2_giantplant",
+      "portalgun:synthwave/synthwave_vapor_lagoon/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:glitch_cube",
+        "weight": 5,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:pixel_bird",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.05
+}

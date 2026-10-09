@@ -1,0 +1,36 @@
+{
+  "type": "portalgun:boulder",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:groovy_wax"
+          },
+          "weight": 3
+        },
+        {
+          "data": {
+            "Name": "portalgun:groovy_wax_magenta"
+          },
+          "weight": 3
+        },
+        {
+          "data": {
+            "Name": "portalgun:groovy_lamp_glow"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 5
+    },
+    "hollow": false,
+    "squash": 1.0,
+    "floating": true
+  }
+}

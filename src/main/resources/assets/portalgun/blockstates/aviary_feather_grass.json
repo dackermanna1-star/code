@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "half=lower": {
+      "model": "portalgun:block/aviary_feather_grass_bottom"
+    },
+    "half=upper": {
+      "model": "portalgun:block/aviary_feather_grass_top"
+    }
+  }
+}

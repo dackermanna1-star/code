@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "portalgun:block/tempest_storm_grass_top",
+    "side": "portalgun:block/tempest_storm_grass_side",
+    "bottom": "portalgun:block/tempest_storm_grass_bottom"
+  }
+}

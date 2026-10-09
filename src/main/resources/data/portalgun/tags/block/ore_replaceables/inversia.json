@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:inversia_skystone",
+      "required": false
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.bubbling"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.under_water",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.under_water",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16777215,
+          "scale": 0.7
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#5ab8b0"
+  },
+  "carvers": [],
+  "downfall": 0.7,
+  "effects": {
+    "water_color": "#7ad0c8",
+    "grass_color": "#c8b6e0"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:microverse/micro_cytoplasm/0_boulder",
+      "portalgun:microverse/micro_cytoplasm/1_boulder"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:microverse/micro_cytoplasm/2_patch",
+      "portalgun:microverse/micro_cytoplasm/3_patch",
+      "portalgun:microverse/micro_cytoplasm/4_patch",
+      "portalgun:microverse/micro_cytoplasm/5_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:amoeba",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      },
+      {
+        "type": "portalgun:phage",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [
+      {
+        "type": "portalgun:paramecium",
+        "weight": 14,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

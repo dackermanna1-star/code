@@ -1,0 +1,49 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "minecraft:basalt"
+          },
+          "weight": 4
+        },
+        {
+          "data": {
+            "Name": "minecraft:blackstone"
+          },
+          "weight": 3
+        },
+        {
+          "data": {
+            "Name": "portalgun:jurassica_ash"
+          },
+          "weight": 2
+        },
+        {
+          "data": {
+            "Name": "portalgun:jurassica_magma_crust"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 26,
+      "max_inclusive": 44
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 7,
+      "max_inclusive": 10
+    },
+    "lean": 0.05,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:jurassica_smoke_vent"
+    }
+  }
+}

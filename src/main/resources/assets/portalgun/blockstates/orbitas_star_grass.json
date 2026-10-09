@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/orbitas_star_grass"
+      },
+      {
+        "model": "portalgun:block/orbitas_star_grass",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/orbitas_star_grass",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/orbitas_star_grass",
+        "y": 270
+      }
+    ]
+  }
+}

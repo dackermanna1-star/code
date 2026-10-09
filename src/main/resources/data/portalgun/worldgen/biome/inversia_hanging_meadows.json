@@ -1,0 +1,116 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cozy_breeze"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.meadow",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.meadow",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:spore_blossom_air"
+        },
+        "probability": 0.01
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 15722710,
+          "scale": 0.8
+        },
+        "probability": 0.003
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#101e39"
+  },
+  "carvers": [],
+  "downfall": 0.5800000000000001,
+  "effects": {
+    "water_color": "#3f76e4",
+    "grass_color": "#4e8a72",
+    "foliage_color": "#4a7a86",
+    "dry_foliage_color": "#4a7a86"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:inversia/inversia_hanging_meadows/7_boulder"
+    ],
+    [],
+    [
+      "portalgun:inversia/inversia_hanging_meadows/0_spire",
+      "portalgun:inversia/inversia_hanging_meadows/6_structure"
+    ],
+    [],
+    [
+      "portalgun:inversia/ore_coal",
+      "portalgun:inversia/ore_iron",
+      "portalgun:inversia/ore_copper",
+      "portalgun:inversia/ore_gold",
+      "portalgun:inversia/ore_redstone",
+      "portalgun:inversia/ore_lapis",
+      "portalgun:inversia/ore_diamond",
+      "portalgun:inversia/ore_emerald"
+    ],
+    [],
+    [],
+    [
+      "portalgun:inversia/inversia_hanging_meadows/1_patch",
+      "portalgun:inversia/inversia_hanging_meadows/2_patch",
+      "portalgun:inversia/inversia_hanging_meadows/3_patch",
+      "portalgun:inversia/inversia_hanging_meadows/4_patch",
+      "portalgun:inversia/inversia_hanging_meadows/5_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:ceiling_crawler",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      },
+      {
+        "type": "portalgun:drop_bat",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:root_grazer",
+        "weight": 12,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.9
+}

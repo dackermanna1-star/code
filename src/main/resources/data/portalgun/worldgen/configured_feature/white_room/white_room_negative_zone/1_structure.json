@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "monolith",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:white_room_light_slab"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 8
+    },
+    "params": {
+      "float": 6.0
+    }
+  }
+}

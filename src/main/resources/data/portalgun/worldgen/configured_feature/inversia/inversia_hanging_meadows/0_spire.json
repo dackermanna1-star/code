@@ -1,0 +1,28 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:simple_state_provider",
+      "state": {
+        "Name": "portalgun:inversia_rootwood"
+      }
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 12
+    },
+    "radius": 2,
+    "lean": 0.25,
+    "hanging": true,
+    "tip": {
+      "Name": "portalgun:inversia_lantern_pod"
+    },
+    "cap": {
+      "Name": "portalgun:inversia_leaves",
+      "Properties": {
+        "persistent": "true"
+      }
+    }
+  }
+}

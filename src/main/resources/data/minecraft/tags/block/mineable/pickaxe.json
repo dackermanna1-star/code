@@ -2,7 +2,951 @@
   "replace": false,
   "values": [
     {
+      "id": "portalgun:abyssia_reefrock",
+      "required": false
+    },
+    {
+      "id": "portalgun:abyssia_glowcoral",
+      "required": false
+    },
+    {
+      "id": "portalgun:abyssia_heartcoral",
+      "required": false
+    },
+    {
+      "id": "portalgun:abyssia_bubble_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:abyssia_clam_shell",
+      "required": false
+    },
+    {
+      "id": "portalgun:abyssia_pearl_block",
+      "required": false
+    },
+    {
+      "id": "portalgun:aerolith_stone",
+      "required": false
+    },
+    {
+      "id": "portalgun:aerolith_sunstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:aerolith_sunstone_shard",
+      "required": false
+    },
+    {
+      "id": "portalgun:aerolith_updraft",
+      "required": false
+    },
+    {
+      "id": "portalgun:aurum_gilded_stone",
+      "required": false
+    },
+    {
+      "id": "portalgun:aurum_gilt",
+      "required": false
+    },
+    {
+      "id": "portalgun:aurum_gem_ore",
+      "required": false
+    },
+    {
+      "id": "portalgun:aurum_gold_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:aviary_stratastone",
+      "required": false
+    },
+    {
+      "id": "portalgun:aviary_sky_egg",
+      "required": false
+    },
+    {
+      "id": "portalgun:aviary_updraft_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:aviary_wind_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_green_plate",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_red_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_blue_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_yellow_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_white_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_gray_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_brown_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_leaf_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_light_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_glass_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_brick_pile",
+      "required": false
+    },
+    {
+      "id": "portalgun:colossia_pebblestone",
+      "required": false
+    },
+    {
+      "id": "portalgun:colossia_pebble",
+      "required": false
+    },
+    {
+      "id": "portalgun:colossia_dewdrop",
+      "required": false
+    },
+    {
+      "id": "portalgun:cronen_gristle",
+      "required": false
+    },
+    {
+      "id": "portalgun:cronen_bone_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:cronen_tooth",
+      "required": false
+    },
+    {
+      "id": "portalgun:effervescia_syrupstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:effervescia_bubble_glass",
+      "required": false
+    },
+    {
+      "id": "portalgun:effervescia_ice_cube",
+      "required": false
+    },
+    {
+      "id": "portalgun:effervescia_fizz_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:ember_ironstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:eventide_slate",
+      "required": false
+    },
+    {
+      "id": "portalgun:eventide_moonstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:eventide_starshard",
+      "required": false
+    },
+    {
+      "id": "portalgun:froopy_fudge_stone",
+      "required": false
+    },
+    {
+      "id": "portalgun:froopy_lollipop_swirl",
+      "required": false
+    },
+    {
+      "id": "portalgun:froopy_rock_candy",
+      "required": false
+    },
+    {
+      "id": "portalgun:froopy_rock_candy_block",
+      "required": false
+    },
+    {
+      "id": "portalgun:gearhaven_ironstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:gearhaven_brass_plate",
+      "required": false
+    },
+    {
+      "id": "portalgun:gearhaven_copper_pipe",
+      "required": false
+    },
+    {
+      "id": "portalgun:gearhaven_steam_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:gearhaven_soot_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:gearhaven_clockface",
+      "required": false
+    },
+    {
+      "id": "portalgun:gearhaven_boiler_plate",
+      "required": false
+    },
+    {
+      "id": "portalgun:glacior_bluestone",
+      "required": false
+    },
+    {
+      "id": "portalgun:glacior_glacier_ice",
+      "required": false
+    },
+    {
+      "id": "portalgun:glacior_aurora_ice",
+      "required": false
+    },
+    {
+      "id": "portalgun:glacior_frost_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:glitch_missing_block",
+      "required": false
+    },
+    {
+      "id": "portalgun:glitch_null_stone",
+      "required": false
+    },
+    {
+      "id": "portalgun:glitch_static_block",
+      "required": false
+    },
+    {
+      "id": "portalgun:glitch_dead_pixel",
+      "required": false
+    },
+    {
+      "id": "portalgun:glitch_wireframe",
+      "required": false
+    },
+    {
+      "id": "portalgun:glitch_error_panel",
+      "required": false
+    },
+    {
+      "id": "portalgun:glitch_error_shard",
+      "required": false
+    },
+    {
+      "id": "portalgun:gloopstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:gloop_glowgoo",
+      "required": false
+    },
+    {
+      "id": "portalgun:gloop_bubble",
+      "required": false
+    },
+    {
+      "id": "portalgun:gloop_burble_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:groovy_wax",
+      "required": false
+    },
+    {
+      "id": "portalgun:groovy_wax_magenta",
+      "required": false
+    },
+    {
+      "id": "portalgun:groovy_disco_floor",
+      "required": false
+    },
+    {
+      "id": "portalgun:groovy_mirror",
+      "required": false
+    },
+    {
+      "id": "portalgun:groovy_lamp_glow",
+      "required": false
+    },
+    {
+      "id": "portalgun:groovy_haze_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:harvestfall_stone",
+      "required": false
+    },
+    {
+      "id": "portalgun:hivemind_comb",
+      "required": false
+    },
+    {
+      "id": "portalgun:hivemind_brood_comb",
+      "required": false
+    },
+    {
+      "id": "portalgun:hivemind_amber",
+      "required": false
+    },
+    {
+      "id": "portalgun:hivemind_fossil_amber",
+      "required": false
+    },
+    {
+      "id": "portalgun:hivemind_amber_cluster",
+      "required": false
+    },
+    {
+      "id": "portalgun:hivemind_royal_jelly",
+      "required": false
+    },
+    {
+      "id": "portalgun:hivemind_pollen_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:inversia_skystone",
+      "required": false
+    },
+    {
+      "id": "portalgun:inversia_gravity_quartz",
+      "required": false
+    },
+    {
+      "id": "portalgun:inversia_quartz_drip",
+      "required": false
+    },
+    {
+      "id": "portalgun:jurassica_shale",
+      "required": false
+    },
+    {
+      "id": "portalgun:jurassica_magma_crust",
+      "required": false
+    },
+    {
+      "id": "portalgun:jurassica_smoke_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:lotus_riverstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:lumina_stone",
+      "required": false
+    },
+    {
+      "id": "portalgun:lumina_lumen_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_redrock",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_orange_rock",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_bandstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_shale",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_caprock",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_turquoise_ore",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_sunstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:micro_membrane",
+      "required": false
+    },
+    {
+      "id": "portalgun:micro_nucleus",
+      "required": false
+    },
+    {
+      "id": "portalgun:micro_nucleolus",
+      "required": false
+    },
+    {
+      "id": "portalgun:micro_vacuole",
+      "required": false
+    },
+    {
+      "id": "portalgun:micro_lysosome",
+      "required": false
+    },
+    {
+      "id": "portalgun:micro_vesicle_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:oculus_lidstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:orbitas_asteroid_rock",
+      "required": false
+    },
+    {
+      "id": "portalgun:orbitas_magma_crust",
+      "required": false
+    },
+    {
+      "id": "portalgun:orbitas_comet_ice",
+      "required": false
+    },
+    {
+      "id": "portalgun:orbitas_stardust_ore",
+      "required": false
+    },
+    {
+      "id": "portalgun:orbitas_star_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:orbitas_star_cluster",
+      "required": false
+    },
+    {
+      "id": "portalgun:ossuary_dust_sandstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:ossuary_fossil_rock",
+      "required": false
+    },
+    {
+      "id": "portalgun:ossuary_giant_bone",
+      "required": false
+    },
+    {
+      "id": "portalgun:ossuary_skull",
+      "required": false
+    },
+    {
+      "id": "portalgun:ossuary_phosphor_shard",
+      "required": false
+    },
+    {
+      "id": "portalgun:ossuary_dust_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:paradisia_limestone",
+      "required": false
+    },
+    {
+      "id": "portalgun:prismara_stone",
+      "required": false
+    },
+    {
+      "id": "portalgun:prismara_slate",
+      "required": false
+    },
+    {
+      "id": "portalgun:prismara_cyan_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:prismara_magenta_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:prismara_cyan_shard",
+      "required": false
+    },
+    {
+      "id": "portalgun:prismara_magenta_shard",
+      "required": false
+    },
+    {
+      "id": "portalgun:prismara_lamp",
+      "required": false
+    },
+    {
+      "id": "portalgun:prismara_shard_floor",
+      "required": false
+    },
+    {
+      "id": "portalgun:prismara_prism_ore",
+      "required": false
+    },
+    {
+      "id": "portalgun:pyroclast_basalt",
+      "required": false
+    },
+    {
+      "id": "portalgun:pyroclast_magma_crust",
+      "required": false
+    },
+    {
+      "id": "portalgun:pyroclast_obsidian",
+      "required": false
+    },
+    {
+      "id": "portalgun:pyroclast_sulfur_crust",
+      "required": false
+    },
+    {
+      "id": "portalgun:pyroclast_sulfur_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:pyroclast_ember_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:pyroclast_fire_opal_ore",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_stone",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_glowrock",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_uranium_ore",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_waste_barrel",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_bleached_bone",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_fallout_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_rock",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_basalt",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_dry_ice",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_co2_geyser",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_perchlorate",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_perchlorate_cluster",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_hull_plate",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_solar_panel",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_beacon",
+      "required": false
+    },
+    {
+      "id": "portalgun:sakura_slate",
+      "required": false
+    },
+    {
+      "id": "portalgun:sakura_mossy_slate",
+      "required": false
+    },
+    {
+      "id": "portalgun:saltara_salt_rock",
+      "required": false
+    },
+    {
+      "id": "portalgun:saltara_rose_salt",
+      "required": false
+    },
+    {
+      "id": "portalgun:saltara_halite",
+      "required": false
+    },
+    {
+      "id": "portalgun:saltara_glow_halite",
+      "required": false
+    },
+    {
+      "id": "portalgun:saltara_halite_shard",
+      "required": false
+    },
+    {
+      "id": "portalgun:saltara_brine_spring",
+      "required": false
+    },
+    {
+      "id": "portalgun:scrapheap_slag",
+      "required": false
+    },
+    {
+      "id": "portalgun:scrapheap_scrap_plate",
+      "required": false
+    },
+    {
+      "id": "portalgun:scrapheap_junk",
+      "required": false
+    },
+    {
+      "id": "portalgun:scrapheap_girder",
+      "required": false
+    },
+    {
+      "id": "portalgun:scrapheap_exhaust_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:scrapheap_neon_sign",
+      "required": false
+    },
+    {
+      "id": "portalgun:selene_anorthosite",
+      "required": false
+    },
+    {
+      "id": "portalgun:selene_mare_basalt",
+      "required": false
+    },
+    {
+      "id": "portalgun:selene_moon_ice",
+      "required": false
+    },
+    {
+      "id": "portalgun:selene_monolith",
+      "required": false
+    },
+    {
+      "id": "portalgun:selene_moonstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:selene_moonstone_cluster",
+      "required": false
+    },
+    {
+      "id": "portalgun:selene_helium_ore",
+      "required": false
+    },
+    {
+      "id": "portalgun:selene_impact_glass",
+      "required": false
+    },
+    {
+      "id": "portalgun:selene_gold_foil",
+      "required": false
+    },
+    {
+      "id": "portalgun:selene_outgas_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:shattered_voidstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:shattered_rift_obsidian",
+      "required": false
+    },
+    {
+      "id": "portalgun:shattered_ruin_bricks",
+      "required": false
+    },
+    {
+      "id": "portalgun:shattered_riftscarred_bricks",
+      "required": false
+    },
+    {
+      "id": "portalgun:shattered_rift_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:shattered_rift_shard",
+      "required": false
+    },
+    {
+      "id": "portalgun:shattered_petrified_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:shattered_rift_fissure",
+      "required": false
+    },
+    {
+      "id": "portalgun:sketchbook_graphite",
+      "required": false
+    },
+    {
+      "id": "portalgun:snack_cheese",
+      "required": false
+    },
+    {
+      "id": "portalgun:snack_soda_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectra_bandstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectra_prism_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectra_prism_cluster",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectral_barrow_stone",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectral_gravestone",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectral_soulfire_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_thornstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_quill_block",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_quills",
+      "required": false
+    },
+    {
       "id": "portalgun:sporewood_rock",
+      "required": false
+    },
+    {
+      "id": "portalgun:sporewood_spore_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:synthwave_vaporstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:synthwave_chrome",
+      "required": false
+    },
+    {
+      "id": "portalgun:synthwave_neon_trim",
+      "required": false
+    },
+    {
+      "id": "portalgun:synthwave_sunset_panel",
+      "required": false
+    },
+    {
+      "id": "portalgun:synthwave_neon_tube",
+      "required": false
+    },
+    {
+      "id": "portalgun:synthwave_hyper_strip",
+      "required": false
+    },
+    {
+      "id": "portalgun:tempest_stone",
+      "required": false
+    },
+    {
+      "id": "portalgun:tempest_crag",
+      "required": false
+    },
+    {
+      "id": "portalgun:tempest_static_field",
+      "required": false
+    },
+    {
+      "id": "portalgun:tempest_fulgurite",
+      "required": false
+    },
+    {
+      "id": "portalgun:tempest_stormglass",
+      "required": false
+    },
+    {
+      "id": "portalgun:tempest_spark_cluster",
+      "required": false
+    },
+    {
+      "id": "portalgun:tempest_thunder_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_travertine",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_sinter_crust",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_sulfur_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_sulfur_cluster",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_geyser_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_spa_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:umbra_shadowstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:umbra_lumen_crystal",
+      "required": false
+    },
+    {
+      "id": "portalgun:umbra_lumen_shard",
+      "required": false
+    },
+    {
+      "id": "portalgun:umbra_nightglass",
+      "required": false
+    },
+    {
+      "id": "portalgun:umbra_shadow_vent",
+      "required": false
+    },
+    {
+      "id": "portalgun:vitrea_sandstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:vitrea_dune_glass",
+      "required": false
+    },
+    {
+      "id": "portalgun:vitrea_rose_glass",
+      "required": false
+    },
+    {
+      "id": "portalgun:vitrea_mirage_glass",
+      "required": false
+    },
+    {
+      "id": "portalgun:vitrea_crystal_cactus",
+      "required": false
+    },
+    {
+      "id": "portalgun:vitrea_cactus_bloom",
+      "required": false
+    },
+    {
+      "id": "portalgun:vitrea_fulgurite",
+      "required": false
+    },
+    {
+      "id": "portalgun:white_room_substrate",
+      "required": false
+    },
+    {
+      "id": "portalgun:white_room_tile",
+      "required": false
+    },
+    {
+      "id": "portalgun:white_room_negative",
+      "required": false
+    },
+    {
+      "id": "portalgun:white_room_void_slab",
+      "required": false
+    },
+    {
+      "id": "portalgun:white_room_light_slab",
+      "required": false
+    },
+    {
+      "id": "portalgun:white_room_static_floor",
+      "required": false
+    },
+    {
+      "id": "portalgun:white_room_static_rift",
+      "required": false
+    },
+    {
+      "id": "portalgun:white_room_mirror",
+      "required": false
+    },
+    {
+      "id": "portalgun:white_room_glitch_shard",
       "required": false
     }
   ]

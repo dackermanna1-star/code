@@ -1,0 +1,118 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cozy_breeze"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.desert",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.desert",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/fog_color": "#e8b080",
+    "minecraft:visual/water_fog_color": "#0e6a64"
+  },
+  "carvers": [
+    "portalgun:mesa_rift_cave",
+    "portalgun:mesa_rift_canyon"
+  ],
+  "downfall": 0.54,
+  "effects": {
+    "water_color": "#2ed0c4",
+    "grass_color": "#97a870",
+    "foliage_color": "#6a9888",
+    "dry_foliage_color": "#6a9888"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:mesa_rift/ore_coal",
+      "portalgun:mesa_rift/ore_iron",
+      "portalgun:mesa_rift/ore_copper",
+      "portalgun:mesa_rift/ore_gold",
+      "portalgun:mesa_rift/ore_redstone",
+      "portalgun:mesa_rift/ore_lapis",
+      "portalgun:mesa_rift/ore_diamond",
+      "portalgun:mesa_rift/ore_emerald",
+      "portalgun:mesa_rift/mesa_rift_rift_floor/0_ore",
+      "portalgun:mesa_rift/mesa_rift_rift_floor/1_ore",
+      "portalgun:mesa_rift/mesa_rift_rift_floor/2_ore",
+      "portalgun:mesa_rift/mesa_rift_rift_floor/3_ore",
+      "portalgun:mesa_rift/mesa_rift_rift_floor/4_ore",
+      "portalgun:mesa_rift/mesa_rift_rift_floor/5_ore",
+      "portalgun:mesa_rift/mesa_rift_rift_floor/6_ore",
+      "portalgun:mesa_rift/mesa_rift_rift_floor/13_ore"
+    ],
+    [],
+    [
+      "portalgun:mesa_rift/spring"
+    ],
+    [
+      "minecraft:patch_cactus_desert",
+      "portalgun:mesa_rift/mesa_rift_rift_floor/7_tree",
+      "portalgun:mesa_rift/mesa_rift_rift_floor/8_patch",
+      "portalgun:mesa_rift/mesa_rift_rift_floor/9_patch",
+      "portalgun:mesa_rift/mesa_rift_rift_floor/11_patch",
+      "portalgun:mesa_rift/mesa_rift_rift_floor/12_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:rattle_serpent",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:rock_lizard",
+        "weight": 12,
+        "minCount": 2,
+        "maxCount": 5
+      },
+      {
+        "type": "portalgun:canyon_condor",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8500000000000001
+}

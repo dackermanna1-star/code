@@ -1,0 +1,27 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:ember_baobab_log"
+    },
+    "head": {
+      "Name": "portalgun:ember_thornwood_leaves",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "flat",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 12,
+      "max_inclusive": 17
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 6
+    },
+    "stem_width": 3,
+    "bend": 0.05
+  }
+}

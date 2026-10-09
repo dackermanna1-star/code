@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "geyser",
+    "blocks": {
+      "vent": {
+        "Name": "portalgun:snack_soda_vent"
+      },
+      "mound": {
+        "Name": "portalgun:snack_soda_foam"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 7
+    },
+    "params": {
+      "pools": 1.0,
+      "height": 1.0
+    }
+  }
+}

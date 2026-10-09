@@ -1,0 +1,36 @@
+{
+  "type": "portalgun:boulder",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:scrapheap_junk"
+          },
+          "weight": 3
+        },
+        {
+          "data": {
+            "Name": "portalgun:scrapheap_scrap_plate"
+          },
+          "weight": 2
+        },
+        {
+          "data": {
+            "Name": "portalgun:scrapheap_girder"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "hollow": false,
+    "squash": 1.0,
+    "floating": false
+  }
+}

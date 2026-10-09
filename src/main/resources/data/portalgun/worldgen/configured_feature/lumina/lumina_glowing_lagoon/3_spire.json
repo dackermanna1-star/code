@@ -1,0 +1,37 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:lumina_lumen_crystal"
+          },
+          "weight": 2
+        },
+        {
+          "data": {
+            "Name": "portalgun:lumina_stone"
+          },
+          "weight": 3
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 11
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 1,
+      "max_inclusive": 2
+    },
+    "lean": 0.3,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:lumina_lumen_crystal"
+    }
+  }
+}

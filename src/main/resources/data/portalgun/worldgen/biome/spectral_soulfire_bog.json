@@ -1,0 +1,114 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.bubbling"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.swamp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.swamp",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:soul_fire_flame"
+        },
+        "probability": 0.0015
+      },
+      {
+        "particle": {
+          "type": "minecraft:soul"
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/fog_color": "#18303a",
+    "minecraft:visual/water_fog_color": "#0a3038"
+  },
+  "carvers": [
+    "portalgun:spectral_vale_cave",
+    "portalgun:spectral_vale_canyon"
+  ],
+  "downfall": 0.76,
+  "effects": {
+    "water_color": "#1e6a70",
+    "grass_color": "#36443c"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:spectral_vale/ore_coal",
+      "portalgun:spectral_vale/ore_iron",
+      "portalgun:spectral_vale/ore_copper",
+      "portalgun:spectral_vale/ore_gold",
+      "portalgun:spectral_vale/ore_redstone",
+      "portalgun:spectral_vale/ore_lapis",
+      "portalgun:spectral_vale/ore_diamond",
+      "portalgun:spectral_vale/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:spectral_vale/spring"
+    ],
+    [
+      "portalgun:spectral_vale/spectral_soulfire_bog/0_patch",
+      "portalgun:spectral_vale/spectral_soulfire_bog/1_patch",
+      "portalgun:spectral_vale/spectral_soulfire_bog/2_patch",
+      "portalgun:spectral_vale/spectral_soulfire_bog/3_patch",
+      "portalgun:spectral_vale/spectral_soulfire_bog/4_tree",
+      "portalgun:spectral_vale/spectral_soulfire_bog/5_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:wraith",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      },
+      {
+        "type": "portalgun:bone_hound",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [],
+    "ambient": [
+      {
+        "type": "portalgun:will_o_wisp",
+        "weight": 16,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.05
+}

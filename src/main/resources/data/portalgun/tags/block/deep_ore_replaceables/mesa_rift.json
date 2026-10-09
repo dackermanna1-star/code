@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:mesa_rift_shale",
+      "required": false
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "has_fixed_time": true,
+  "has_skylight": true,
+  "has_ceiling": false,
+  "coordinate_scale": 1.0,
+  "min_y": -64,
+  "height": 384,
+  "logical_height": 384,
+  "infiniburn": "#minecraft:infiniburn_overworld",
+  "ambient_light": 0.1,
+  "monster_spawn_light_level": {
+    "type": "minecraft:uniform",
+    "min_inclusive": 0,
+    "max_inclusive": 10
+  },
+  "monster_spawn_block_light_limit": 0,
+  "skybox": "overworld",
+  "cardinal_light": "default",
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.wind_howl"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.nether.basalt_deltas",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.nether.basalt_deltas",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:gameplay/bed_rule": {
+      "can_set_spawn": "never",
+      "explodes": false,
+      "can_sleep": "never",
+      "error_message": {
+        "translate": "message.portalgun.bed.time_frozen"
+      }
+    },
+    "minecraft:gameplay/can_start_raid": false,
+    "minecraft:gameplay/nether_portal_spawns_piglin": false,
+    "minecraft:gameplay/respawn_anchor_works": true,
+    "minecraft:visual/cloud_color": "#ff1a1c28",
+    "minecraft:visual/cloud_fog_end_distance": 350.0,
+    "minecraft:visual/cloud_height": 168.0,
+    "minecraft:visual/fog_color": "#363d52",
+    "minecraft:visual/fog_end_distance": 140.0,
+    "minecraft:visual/fog_start_distance": 20.0,
+    "minecraft:visual/sky_color": "#2a3048",
+    "minecraft:visual/sky_fog_end_distance": 210.0,
+    "minecraft:visual/sky_light_color": "#8fa0d0",
+    "minecraft:visual/sky_light_factor": 0.8,
+    "minecraft:visual/star_brightness": 0.0,
+    "minecraft:visual/water_fog_color": "#0a1220"
+  },
+  "timelines": [
+    "portalgun:tempestus",
+    "minecraft:villager_schedule"
+  ]
+}

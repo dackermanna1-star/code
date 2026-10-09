@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column_horizontal",
+  "textures": {
+    "end": "portalgun:block/vitrea_palm_log_end",
+    "side": "portalgun:block/vitrea_palm_log_side"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "portalgun:block/spinelands_thornwood_end",
+    "side": "portalgun:block/spinelands_thornwood_side"
+  }
+}

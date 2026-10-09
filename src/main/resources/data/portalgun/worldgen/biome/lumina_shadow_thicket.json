@@ -1,0 +1,125 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.eerie_choir",
+      "additions": {
+        "sound": "minecraft:ambient.soul_sand_valley.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:firefly"
+        },
+        "probability": 0.003
+      },
+      {
+        "particle": {
+          "type": "minecraft:ash"
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/fog_color": "#04080f",
+    "minecraft:visual/fog_end_distance": 56.0,
+    "minecraft:visual/fog_start_distance": 18.0,
+    "minecraft:visual/sky_color": "#03060f",
+    "minecraft:visual/sky_fog_end_distance": 84.0,
+    "minecraft:visual/water_fog_color": "#04161e"
+  },
+  "carvers": [
+    "portalgun:lumina_cave",
+    "portalgun:lumina_canyon"
+  ],
+  "downfall": 0.78,
+  "effects": {
+    "water_color": "#14405a",
+    "grass_color": "#0c2c30",
+    "foliage_color": "#0a2c26",
+    "dry_foliage_color": "#0a2c26"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:lumina/lumina_shadow_thicket/4_boulder"
+    ],
+    [],
+    [],
+    [],
+    [
+      "portalgun:lumina/ore_coal",
+      "portalgun:lumina/ore_iron",
+      "portalgun:lumina/ore_copper",
+      "portalgun:lumina/ore_gold",
+      "portalgun:lumina/ore_redstone",
+      "portalgun:lumina/ore_lapis",
+      "portalgun:lumina/ore_diamond",
+      "portalgun:lumina/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:lumina/spring"
+    ],
+    [
+      "portalgun:lumina/lumina_shadow_thicket/0_tree",
+      "portalgun:lumina/lumina_shadow_thicket/1_tree",
+      "portalgun:lumina/lumina_shadow_thicket/2_patch",
+      "portalgun:lumina/lumina_shadow_thicket/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:lumi_panther",
+        "weight": 7,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:glow_frog",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [
+      {
+        "type": "portalgun:lantern_bug",
+        "weight": 4,
+        "minCount": 2,
+        "maxCount": 3
+      }
+    ],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.5
+}

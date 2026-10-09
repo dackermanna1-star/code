@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "portalgun:block/abyssia_bubble_vent_top",
+    "side": "portalgun:block/abyssia_bubble_vent_side",
+    "bottom": "portalgun:block/abyssia_bubble_vent_side"
+  }
+}

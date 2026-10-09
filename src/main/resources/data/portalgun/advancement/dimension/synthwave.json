@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:synthwave"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:synthwave_glitch_shard"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.synthwave.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.synthwave.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

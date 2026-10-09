@@ -1,0 +1,94 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.tidal_waves"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.under_water",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.under_water",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/water_fog_color": "#34d4e0"
+  },
+  "carvers": [
+    "portalgun:paradisia_cave",
+    "portalgun:paradisia_canyon"
+  ],
+  "downfall": 0.5800000000000001,
+  "effects": {
+    "water_color": "#40f0e8",
+    "grass_color": "#5cc44a",
+    "foliage_color": "#3caa38",
+    "dry_foliage_color": "#3caa38"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:paradisia/paradisia_coral_lagoon/0_spire",
+      "portalgun:paradisia/paradisia_coral_lagoon/1_structure"
+    ],
+    [],
+    [
+      "portalgun:paradisia/ore_coal",
+      "portalgun:paradisia/ore_iron",
+      "portalgun:paradisia/ore_copper",
+      "portalgun:paradisia/ore_gold",
+      "portalgun:paradisia/ore_redstone",
+      "portalgun:paradisia/ore_lapis",
+      "portalgun:paradisia/ore_diamond",
+      "portalgun:paradisia/ore_emerald",
+      "portalgun:paradisia/paradisia_coral_lagoon/2_disk"
+    ],
+    [],
+    [],
+    [
+      "minecraft:warm_ocean_vegetation",
+      "minecraft:seagrass_warm",
+      "minecraft:sea_pickle"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:beach_crab",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [
+      {
+        "type": "portalgun:parrotfish",
+        "weight": 14,
+        "minCount": 3,
+        "maxCount": 6
+      }
+    ],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.65
+}

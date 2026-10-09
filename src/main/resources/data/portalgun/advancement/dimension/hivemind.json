@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:hivemind"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:hivemind_royal_jelly_bite"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.hivemind.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.hivemind.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

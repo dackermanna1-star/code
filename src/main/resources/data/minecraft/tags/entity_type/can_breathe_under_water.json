@@ -1,0 +1,57 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:bog_lurker",
+      "required": false
+    },
+    {
+      "id": "portalgun:brine_shrimp",
+      "required": false
+    },
+    {
+      "id": "portalgun:bubble_ray",
+      "required": false
+    },
+    {
+      "id": "portalgun:cola_eel",
+      "required": false
+    },
+    {
+      "id": "portalgun:deep_maw",
+      "required": false
+    },
+    {
+      "id": "portalgun:geyser_serpent",
+      "required": false
+    },
+    {
+      "id": "portalgun:goo_serpent",
+      "required": false
+    },
+    {
+      "id": "portalgun:koi",
+      "required": false
+    },
+    {
+      "id": "portalgun:lantern_eel",
+      "required": false
+    },
+    {
+      "id": "portalgun:lily_toad",
+      "required": false
+    },
+    {
+      "id": "portalgun:mud_croc",
+      "required": false
+    },
+    {
+      "id": "portalgun:paramecium",
+      "required": false
+    },
+    {
+      "id": "portalgun:parrotfish",
+      "required": false
+    }
+  ]
+}

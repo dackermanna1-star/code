@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/snack_pizza"
+      },
+      {
+        "model": "portalgun:block/snack_pizza",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/snack_pizza",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/snack_pizza",
+        "y": 270
+      }
+    ]
+  }
+}

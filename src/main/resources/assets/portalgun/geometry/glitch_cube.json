@@ -1,0 +1,1 @@
+{"texture":[64,64],"scale":0.9,"archetype":"blob","translucent":true,"glow":true,"parts":[{"name":"body","pivot":[0.0,24.0,0.0],"cubes":[{"o":[-6.0,-12.0,-6.0],"s":[12,12,12],"uv":[0,0]},{"o":[-3.0,-9.0,-3.0],"s":[6,6,6],"uv":[0,24]}],"anims":[{"kind":"squish","axis":"y","amp":0.08,"speed":0.2,"phase":0.0}]}]}

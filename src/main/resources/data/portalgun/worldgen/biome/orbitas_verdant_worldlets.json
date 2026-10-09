@@ -1,0 +1,98 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cosmic_drone"
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:end_rod"
+        },
+        "probability": 0.0008
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 8050848,
+          "scale": 0.6
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#122234"
+  },
+  "carvers": [],
+  "downfall": 0.74,
+  "effects": {
+    "water_color": "#4a8ad0",
+    "grass_color": "#2e9a7e",
+    "foliage_color": "#4e8aa8",
+    "dry_foliage_color": "#4e8aa8"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:orbitas/ore_coal",
+      "portalgun:orbitas/ore_iron",
+      "portalgun:orbitas/ore_copper",
+      "portalgun:orbitas/ore_gold",
+      "portalgun:orbitas/ore_redstone",
+      "portalgun:orbitas/ore_lapis",
+      "portalgun:orbitas/ore_diamond",
+      "portalgun:orbitas/ore_emerald"
+    ],
+    [],
+    [],
+    [
+      "portalgun:orbitas/orbitas_verdant_worldlets/0_giantplant",
+      "portalgun:orbitas/orbitas_verdant_worldlets/1_giantplant",
+      "portalgun:orbitas/orbitas_verdant_worldlets/2_patch",
+      "portalgun:orbitas/orbitas_verdant_worldlets/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:comet_imp",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:planet_grazer",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:void_ray",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

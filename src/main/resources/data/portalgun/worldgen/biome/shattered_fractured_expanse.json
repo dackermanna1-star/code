@@ -1,0 +1,123 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.dark_void",
+      "additions": {
+        "sound": "minecraft:ambient.crimson_forest.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.end",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.end",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:reverse_portal"
+        },
+        "probability": 0.006
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 14696688,
+          "scale": 0.8
+        },
+        "probability": 0.003
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#1a0a30"
+  },
+  "carvers": [],
+  "downfall": 0.5,
+  "effects": {
+    "water_color": "#5a3aa0",
+    "grass_color": "#5e3a8a",
+    "foliage_color": "#7a4ad0",
+    "dry_foliage_color": "#7a4ad0"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:shattered/shattered_fractured_expanse/6_boulder"
+    ],
+    [],
+    [
+      "portalgun:shattered/shattered_fractured_expanse/0_spire",
+      "portalgun:shattered/shattered_fractured_expanse/1_spire",
+      "portalgun:shattered/shattered_fractured_expanse/5_structure",
+      "portalgun:shattered/shattered_fractured_expanse/7_spire"
+    ],
+    [],
+    [
+      "portalgun:shattered/ore_coal",
+      "portalgun:shattered/ore_iron",
+      "portalgun:shattered/ore_copper",
+      "portalgun:shattered/ore_gold",
+      "portalgun:shattered/ore_redstone",
+      "portalgun:shattered/ore_lapis",
+      "portalgun:shattered/ore_diamond",
+      "portalgun:shattered/ore_emerald"
+    ],
+    [
+      "portalgun:shattered/shattered_fractured_expanse/8_crystalcluster"
+    ],
+    [],
+    [
+      "portalgun:shattered/shattered_fractured_expanse/2_tree",
+      "portalgun:shattered/shattered_fractured_expanse/3_patch",
+      "portalgun:shattered/shattered_fractured_expanse/4_patch",
+      "portalgun:shattered/shattered_fractured_expanse/9_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:rift_stalker",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      },
+      {
+        "type": "portalgun:shard_wraith",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:void_jelly",
+        "weight": 10,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

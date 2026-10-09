@@ -1,0 +1,36 @@
+{
+  "type": "portalgun:boulder",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:pyroclast_basalt"
+          },
+          "weight": 3
+        },
+        {
+          "data": {
+            "Name": "portalgun:pyroclast_obsidian"
+          },
+          "weight": 1
+        },
+        {
+          "data": {
+            "Name": "portalgun:pyroclast_magma_crust"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 1,
+      "max_inclusive": 3
+    },
+    "hollow": false,
+    "squash": 1.0,
+    "floating": false
+  }
+}

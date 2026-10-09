@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "nest",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:aerolith_skyroot_log"
+      },
+      "egg": {
+        "Name": "portalgun:aerolith_cloud"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 6
+    }
+  }
+}

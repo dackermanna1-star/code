@@ -1,0 +1,37 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "minecraft:basalt",
+      "required": false
+    },
+    {
+      "id": "minecraft:deepslate",
+      "required": false
+    },
+    {
+      "id": "minecraft:mud",
+      "required": false
+    },
+    {
+      "id": "portalgun:jurassica_ash",
+      "required": false
+    },
+    {
+      "id": "portalgun:jurassica_fern_turf",
+      "required": false
+    },
+    {
+      "id": "portalgun:jurassica_red_soil",
+      "required": false
+    },
+    {
+      "id": "portalgun:jurassica_shale",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

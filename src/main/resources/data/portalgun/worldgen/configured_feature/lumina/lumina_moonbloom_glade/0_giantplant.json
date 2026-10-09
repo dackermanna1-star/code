@@ -1,0 +1,27 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:lumina_bloom_stem"
+    },
+    "head": {
+      "Name": "portalgun:lumina_bloom_petal"
+    },
+    "shape": "flower",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 9,
+      "max_inclusive": 16
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 6
+    },
+    "stem_width": 1,
+    "bend": 0.35,
+    "decoration": {
+      "Name": "portalgun:lumina_lumen_crystal"
+    }
+  }
+}

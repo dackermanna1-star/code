@@ -1,0 +1,95 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.bubbling"
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:glow"
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#0a5a6e"
+  },
+  "carvers": [],
+  "downfall": 0.54,
+  "effects": {
+    "water_color": "#1fd6cc",
+    "grass_color": "#3c8a6a",
+    "foliage_color": "#3ff0e0",
+    "dry_foliage_color": "#3ff0e0"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:abyssia/abyssia_glow_reef/2_boulder"
+    ],
+    [],
+    [
+      "portalgun:abyssia/abyssia_glow_reef/0_structure"
+    ],
+    [],
+    [
+      "portalgun:abyssia/ore_coal",
+      "portalgun:abyssia/ore_iron",
+      "portalgun:abyssia/ore_copper",
+      "portalgun:abyssia/ore_gold",
+      "portalgun:abyssia/ore_redstone",
+      "portalgun:abyssia/ore_lapis",
+      "portalgun:abyssia/ore_diamond",
+      "portalgun:abyssia/ore_emerald"
+    ],
+    [],
+    [],
+    [
+      "minecraft:warm_ocean_vegetation",
+      "minecraft:sea_pickle",
+      "minecraft:seagrass_warm",
+      "portalgun:abyssia/abyssia_glow_reef/1_giantplant",
+      "portalgun:abyssia/abyssia_glow_reef/6_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [
+      {
+        "type": "portalgun:bubble_ray",
+        "weight": 12,
+        "minCount": 1,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:lantern_eel",
+        "weight": 7,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "water_ambient": [
+      {
+        "type": "minecraft:tropical_fish",
+        "weight": 18,
+        "minCount": 4,
+        "maxCount": 8
+      }
+    ],
+    "misc": []
+  },
+  "temperature": 1.05
+}

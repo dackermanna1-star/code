@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:aerolith"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:aerolith_sky_pearl"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.aerolith.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.aerolith.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

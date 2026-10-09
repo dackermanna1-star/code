@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "portalgun:block/aerolith_skyroot_log_end",
+    "side": "portalgun:block/aerolith_skyroot_log_side"
+  }
+}

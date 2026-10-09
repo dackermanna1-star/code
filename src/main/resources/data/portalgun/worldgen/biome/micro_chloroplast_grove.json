@@ -1,0 +1,91 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cozy_breeze"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 10543232,
+          "scale": 0.9
+        },
+        "probability": 0.006
+      }
+    ],
+    "minecraft:visual/fog_color": "#dcf0d8",
+    "minecraft:visual/sky_color": "#eefae8",
+    "minecraft:visual/water_fog_color": "#3a8a5a"
+  },
+  "carvers": [],
+  "downfall": 0.5800000000000001,
+  "effects": {
+    "water_color": "#8ad8a0",
+    "grass_color": "#a0e080"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:microverse/micro_chloroplast_grove/0_boulder"
+    ],
+    [],
+    [
+      "portalgun:microverse/micro_chloroplast_grove/1_structure"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:microverse/micro_chloroplast_grove/2_patch",
+      "portalgun:microverse/micro_chloroplast_grove/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:amoeba",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [
+      {
+        "type": "portalgun:paramecium",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.55
+}

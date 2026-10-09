@@ -1,0 +1,26 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:simple_state_provider",
+      "state": {
+        "Name": "portalgun:ember_termite_clay"
+      }
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 6
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 1,
+      "max_inclusive": 2
+    },
+    "lean": 0.0,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:ember_termite_chimney"
+    }
+  }
+}

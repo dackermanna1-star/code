@@ -1,0 +1,99 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.sizzle_toxic"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.badlands",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.badlands",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:white_smoke"
+        },
+        "probability": 0.0015
+      }
+    ],
+    "minecraft:visual/fog_color": "#ffd29a",
+    "minecraft:visual/water_fog_color": "#3a1806"
+  },
+  "carvers": [
+    "portalgun:snackrealm_cave",
+    "portalgun:snackrealm_canyon"
+  ],
+  "downfall": 0.3,
+  "effects": {
+    "water_color": "#8a4a1a",
+    "grass_color": "#f0a824",
+    "foliage_color": "#44a034",
+    "dry_foliage_color": "#44a034"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:snackrealm/snack_pepperoni_plains/0_boulder"
+    ],
+    [],
+    [
+      "portalgun:snackrealm/snack_pepperoni_plains/3_structure"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:snackrealm/snack_pepperoni_plains/1_patch",
+      "portalgun:snackrealm/snack_pepperoni_plains/2_giantplant"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:meatball",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 3
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:cheese_mouse",
+        "weight": 8,
+        "minCount": 1,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:pretzel_snake",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.1
+}

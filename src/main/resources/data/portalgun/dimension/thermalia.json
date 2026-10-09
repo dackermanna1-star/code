@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:thermalia",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:thermalia",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:thermalia_terraces",
+          "parameters": {
+            "temperature": 0.0,
+            "humidity": 0.1,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:thermalia_prismatic",
+          "parameters": {
+            "temperature": 0.55,
+            "humidity": 0.6,
+            "continentalness": -0.2,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:thermalia_sulfur_flats",
+          "parameters": {
+            "temperature": 0.9,
+            "humidity": -0.6,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:thermalia_fern_gullies",
+          "parameters": {
+            "temperature": -0.85,
+            "humidity": 0.85,
+            "continentalness": -0.4,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "feature": "portalgun:groovy/groovy_disco_fields/0_boulder",
+  "placement": [
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:height_range",
+      "height": {
+        "type": "minecraft:uniform",
+        "min_inclusive": {
+          "absolute": 95
+        },
+        "max_inclusive": {
+          "absolute": 170
+        }
+      }
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

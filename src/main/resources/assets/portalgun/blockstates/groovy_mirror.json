@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "portalgun:block/groovy_mirror"
+    }
+  }
+}

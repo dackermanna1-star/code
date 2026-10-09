@@ -1,0 +1,27 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:thermalia_fern_trunk"
+    },
+    "head": {
+      "Name": "portalgun:thermalia_fern_fronds",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "palm",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 12,
+      "max_inclusive": 18
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 6
+    },
+    "stem_width": 1,
+    "bend": 0.35
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "feature": "portalgun:groovy/groovy_shag_meadows/2_patch",
+  "placement": [
+    {
+      "type": "minecraft:count_on_every_layer",
+      "count": 6
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/groovy_velvet"
+      },
+      {
+        "model": "portalgun:block/groovy_velvet",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/groovy_velvet",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/groovy_velvet",
+        "y": 270
+      }
+    ]
+  }
+}

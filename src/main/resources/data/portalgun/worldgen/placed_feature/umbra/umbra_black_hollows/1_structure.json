@@ -1,0 +1,16 @@
+{
+  "feature": "portalgun:umbra/umbra_black_hollows/1_structure",
+  "placement": [
+    {
+      "type": "minecraft:rarity_filter",
+      "chance": 2
+    },
+    {
+      "type": "minecraft:count_on_every_layer",
+      "count": 1
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

@@ -1,0 +1,119 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.bubbling"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.meadow",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.meadow",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:cloud"
+        },
+        "probability": 0.0012
+      },
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#1a9aa0"
+  },
+  "carvers": [
+    "portalgun:thermalia_cave",
+    "portalgun:thermalia_canyon"
+  ],
+  "downfall": 0.54,
+  "effects": {
+    "water_color": "#30d4cc",
+    "grass_color": "#7ab45a",
+    "foliage_color": "#62ac4a",
+    "dry_foliage_color": "#62ac4a"
+  },
+  "features": [
+    [],
+    [
+      "portalgun:thermalia/thermalia_terraces/0_lake"
+    ],
+    [],
+    [],
+    [
+      "portalgun:thermalia/thermalia_terraces/1_structure",
+      "portalgun:thermalia/thermalia_terraces/2_spire"
+    ],
+    [],
+    [
+      "portalgun:thermalia/ore_coal",
+      "portalgun:thermalia/ore_iron",
+      "portalgun:thermalia/ore_copper",
+      "portalgun:thermalia/ore_gold",
+      "portalgun:thermalia/ore_redstone",
+      "portalgun:thermalia/ore_lapis",
+      "portalgun:thermalia/ore_diamond",
+      "portalgun:thermalia/ore_emerald",
+      "portalgun:thermalia/thermalia_terraces/6_disk"
+    ],
+    [],
+    [
+      "portalgun:thermalia/spring"
+    ],
+    [
+      "portalgun:thermalia/thermalia_terraces/3_patch",
+      "portalgun:thermalia/thermalia_terraces/4_patch",
+      "portalgun:thermalia/thermalia_terraces/5_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:sulfur_toad",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:steam_turtle",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [
+      {
+        "type": "portalgun:geyser_serpent",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

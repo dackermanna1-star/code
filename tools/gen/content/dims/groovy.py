@@ -152,7 +152,7 @@ DIMENSION = Dimension(
                  "man. Everything here is friendly - just don't upset a Lava Lamp Blob, and don't look down."),
     danger=2,
     color="#ff7a1a",
-    terrain=Terrain(style="planetoids", stone="groovy_wax", fluid="minecraft:lava", sea_level=18, height=100,
+    terrain=Terrain(style="planetoids", stone="groovy_wax", fluid="minecraft:air", sea_level=0, height=100,
                     amplitude=24, roughness=0.25, min_y=0, total_height=256, caves=False, ores=False,
                     bedrock_floor=True,
                     params={"cell_size": 58, "min_radius": 8, "max_radius": 21, "probability": 0.72, "y_min": 62,

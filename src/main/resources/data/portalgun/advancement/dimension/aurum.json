@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:aurum"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:aurum_greed_gem"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.aurum.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.aurum.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

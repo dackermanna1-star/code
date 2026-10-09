@@ -1,0 +1,95 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.wind_howl"
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16748720,
+          "scale": 0.8
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/fog_color": "#ffd8d0",
+    "minecraft:visual/water_fog_color": "#0e3632"
+  },
+  "carvers": [
+    "portalgun:vitrea_cave",
+    "portalgun:vitrea_canyon"
+  ],
+  "downfall": 0.17999999999999994,
+  "effects": {
+    "water_color": "#3ad6c8",
+    "grass_color": "#d4b07e"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:vitrea/vitrea_rose_arches/0_structure",
+      "portalgun:vitrea/vitrea_rose_arches/1_spire",
+      "portalgun:vitrea/vitrea_rose_arches/2_structure"
+    ],
+    [],
+    [
+      "portalgun:vitrea/ore_coal",
+      "portalgun:vitrea/ore_iron",
+      "portalgun:vitrea/ore_copper",
+      "portalgun:vitrea/ore_gold",
+      "portalgun:vitrea/ore_redstone",
+      "portalgun:vitrea/ore_lapis",
+      "portalgun:vitrea/ore_diamond",
+      "portalgun:vitrea/ore_emerald"
+    ],
+    [],
+    [],
+    [
+      "portalgun:vitrea/vitrea_rose_arches/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:glass_scorpion",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:sand_worm",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:dune_strider",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 2.0
+}

@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:spring_feature",
+  "config": {
+    "state": {
+      "Name": "minecraft:water",
+      "Properties": {
+        "falling": "true"
+      }
+    },
+    "requires_block_below": true,
+    "rock_count": 4,
+    "hole_count": 1,
+    "valid_blocks": [
+      "portalgun:aerolith_cloud",
+      "portalgun:aerolith_soil",
+      "portalgun:aerolith_stone"
+    ]
+  }
+}

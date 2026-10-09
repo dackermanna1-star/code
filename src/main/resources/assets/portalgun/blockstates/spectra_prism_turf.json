@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/spectra_prism_turf"
+      },
+      {
+        "model": "portalgun:block/spectra_prism_turf",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/spectra_prism_turf",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/spectra_prism_turf",
+        "y": 270
+      }
+    ]
+  }
+}

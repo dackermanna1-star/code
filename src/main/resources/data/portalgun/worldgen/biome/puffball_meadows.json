@@ -9,6 +9,18 @@
       },
       "loop": "portalgun:ambient.cozy_breeze"
     },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
     "minecraft:visual/ambient_particles": [
       {
         "particle": {
@@ -17,13 +29,13 @@
         "probability": 0.006
       }
     ],
-    "minecraft:visual/water_fog_color": "#0a1e22"
+    "minecraft:visual/water_fog_color": "#123a40"
   },
   "carvers": [
     "portalgun:sporewood_cave",
     "portalgun:sporewood_canyon"
   ],
-  "downfall": 0.38,
+  "downfall": 0.11199999999999999,
   "effects": {
     "water_color": "#2a7a8a",
     "grass_color": "#3f8a6c"
@@ -32,10 +44,12 @@
     [],
     [],
     [
-      "portalgun:sporewood/puffball_meadows/3_boulder"
+      "portalgun:sporewood/puffball_meadows/4_boulder"
     ],
     [],
-    [],
+    [
+      "portalgun:sporewood/puffball_meadows/2_structure"
+    ],
     [],
     [
       "portalgun:sporewood/ore_coal",
@@ -54,7 +68,8 @@
     [
       "portalgun:sporewood/puffball_meadows/0_patch",
       "portalgun:sporewood/puffball_meadows/1_patch",
-      "portalgun:sporewood/puffball_meadows/2_giantplant"
+      "portalgun:sporewood/puffball_meadows/3_giantplant",
+      "portalgun:sporewood/puffball_meadows/5_patch"
     ],
     []
   ],
@@ -83,5 +98,5 @@
     "water_ambient": [],
     "misc": []
   },
-  "temperature": 1.1
+  "temperature": 0.74
 }

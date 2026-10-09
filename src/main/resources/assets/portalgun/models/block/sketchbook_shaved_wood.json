@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "portalgun:block/sketchbook_shaved_wood"
+  }
+}

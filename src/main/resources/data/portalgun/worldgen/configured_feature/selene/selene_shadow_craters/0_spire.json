@@ -1,0 +1,37 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:selene_moon_ice"
+          },
+          "weight": 3
+        },
+        {
+          "data": {
+            "Name": "portalgun:selene_moonstone"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 13
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 1,
+      "max_inclusive": 2
+    },
+    "lean": 0.25,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:selene_moonstone_cluster"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "monolith",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:umbra_shadowstone"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 7
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:abyssia_kelp_stalk"
+    },
+    "head": {
+      "Name": "portalgun:abyssia_kelp_frond",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "palm",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 18,
+      "max_inclusive": 30
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 5
+    },
+    "stem_width": 1,
+    "bend": 0.35
+  }
+}

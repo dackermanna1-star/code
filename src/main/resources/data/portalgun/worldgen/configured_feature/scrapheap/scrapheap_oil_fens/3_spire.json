@@ -1,0 +1,33 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:scrapheap_girder"
+          },
+          "weight": 3
+        },
+        {
+          "data": {
+            "Name": "portalgun:scrapheap_scrap_plate"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 8,
+      "max_inclusive": 16
+    },
+    "radius": 1,
+    "lean": 0.0,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:scrapheap_exhaust_vent"
+    }
+  }
+}

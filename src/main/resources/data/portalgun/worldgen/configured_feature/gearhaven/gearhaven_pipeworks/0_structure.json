@@ -1,0 +1,22 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "arch",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:gearhaven_copper_pipe"
+      },
+      "alt": {
+        "Name": "portalgun:gearhaven_brass_plate"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 11
+    },
+    "params": {
+      "thickness": 1.3
+    }
+  }
+}

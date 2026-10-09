@@ -1,0 +1,27 @@
+{
+  "feature": "portalgun:mesa_rift/ore_copper",
+  "placement": [
+    {
+      "type": "minecraft:count",
+      "count": 8
+    },
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:height_range",
+      "height": {
+        "type": "minecraft:trapezoid",
+        "min_inclusive": {
+          "absolute": -13
+        },
+        "max_inclusive": {
+          "absolute": 89
+        }
+      }
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

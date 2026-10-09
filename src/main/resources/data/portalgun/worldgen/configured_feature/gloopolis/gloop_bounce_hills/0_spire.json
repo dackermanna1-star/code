@@ -1,0 +1,37 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:gloop_goo"
+          },
+          "weight": 5
+        },
+        {
+          "data": {
+            "Name": "portalgun:gloop_jelly"
+          },
+          "weight": 2
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 16,
+      "max_inclusive": 34
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "lean": 0.25,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:gloop_glowgoo"
+    }
+  }
+}

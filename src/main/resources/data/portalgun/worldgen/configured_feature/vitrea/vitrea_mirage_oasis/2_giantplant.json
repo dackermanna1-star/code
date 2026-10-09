@@ -1,0 +1,30 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:vitrea_palm_log"
+    },
+    "head": {
+      "Name": "portalgun:vitrea_glassleaf",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "palm",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 7,
+      "max_inclusive": 12
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 4
+    },
+    "stem_width": 1,
+    "bend": 0.4,
+    "decoration": {
+      "Name": "portalgun:vitrea_cactus_bloom"
+    }
+  }
+}

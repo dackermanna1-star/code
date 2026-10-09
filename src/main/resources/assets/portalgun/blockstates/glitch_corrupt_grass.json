@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/glitch_corrupt_grass"
+      },
+      {
+        "model": "portalgun:block/glitch_corrupt_grass",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/glitch_corrupt_grass",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/glitch_corrupt_grass",
+        "y": 270
+      }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "ring",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:micro_er_tube"
+      },
+      "alt": {
+        "Name": "portalgun:micro_chloroplast"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 8
+    },
+    "params": {
+      "thickness": 0.22,
+      "sink": 0.2
+    }
+  }
+}

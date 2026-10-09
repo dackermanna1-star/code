@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:saltara_salt_rock",
+      "required": false
+    }
+  ]
+}

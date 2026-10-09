@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1.0,
+      "bonus_rolls": 0.0,
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "portalgun:spinelands_ichor_bulb"
+        }
+      ]
+    }
+  ],
+  "random_sequence": "portalgun:blocks/spinelands_ichor_bulb"
+}

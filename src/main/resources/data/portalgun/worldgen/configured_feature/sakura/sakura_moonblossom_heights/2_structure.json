@@ -1,0 +1,20 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "arch",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:sakura_vermilion_wood"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 9
+    },
+    "params": {
+      "height": 1.6,
+      "thickness": 0.9
+    }
+  }
+}

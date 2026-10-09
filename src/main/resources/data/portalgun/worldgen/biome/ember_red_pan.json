@@ -1,0 +1,111 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.wind_howl"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.badlands",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.badlands",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 13131824,
+          "scale": 0.9
+        },
+        "probability": 0.004
+      },
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.003
+      }
+    ],
+    "minecraft:visual/fog_color": "#f09058",
+    "minecraft:visual/water_fog_color": "#4a2a18"
+  },
+  "carvers": [
+    "portalgun:ember_savanna_cave",
+    "portalgun:ember_savanna_canyon"
+  ],
+  "downfall": 0.26,
+  "effects": {
+    "water_color": "#9a5a36",
+    "grass_color": "#a88a30",
+    "foliage_color": "#6a6020",
+    "dry_foliage_color": "#6a6020"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:ember_savanna/ember_red_pan/4_boulder"
+    ],
+    [],
+    [
+      "portalgun:ember_savanna/ember_red_pan/0_spire",
+      "portalgun:ember_savanna/ember_red_pan/1_spire"
+    ],
+    [],
+    [
+      "portalgun:ember_savanna/ore_coal",
+      "portalgun:ember_savanna/ore_iron",
+      "portalgun:ember_savanna/ore_copper",
+      "portalgun:ember_savanna/ore_gold",
+      "portalgun:ember_savanna/ore_redstone",
+      "portalgun:ember_savanna/ore_lapis",
+      "portalgun:ember_savanna/ore_diamond",
+      "portalgun:ember_savanna/ore_emerald"
+    ],
+    [],
+    [],
+    [
+      "portalgun:ember_savanna/ember_red_pan/2_patch",
+      "portalgun:ember_savanna/ember_red_pan/3_tree"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:dust_lion",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:stripe_grazer",
+        "weight": 6,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 2.0
+}

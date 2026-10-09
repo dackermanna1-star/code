@@ -1,0 +1,106 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cozy_breeze"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.meadow",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.meadow",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16777215,
+          "scale": 1.2
+        },
+        "probability": 0.003
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16765150,
+          "scale": 0.9
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#5a9ad0"
+  },
+  "carvers": [],
+  "downfall": 0.5,
+  "effects": {
+    "water_color": "#78bcf0",
+    "grass_color": "#7ec68e",
+    "foliage_color": "#f094b4",
+    "dry_foliage_color": "#f094b4"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:plushland/plush_felt_meadows/3_boulder"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:plushland/spring"
+    ],
+    [
+      "portalgun:plushland/plush_felt_meadows/0_patch",
+      "portalgun:plushland/plush_felt_meadows/1_tree",
+      "portalgun:plushland/plush_felt_meadows/2_tree",
+      "portalgun:plushland/plush_felt_meadows/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:plush_bear",
+        "weight": 12,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:yarn_cat",
+        "weight": 10,
+        "minCount": 1,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:button_spider",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

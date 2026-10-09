@@ -1,0 +1,22 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "tendril",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:umbra_nightglass"
+      },
+      "tip": {
+        "Name": "portalgun:umbra_lumen_crystal"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 12
+    },
+    "params": {
+      "curl": 0.7
+    }
+  }
+}

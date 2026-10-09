@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "nest",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:aviary_nest_twigs"
+      },
+      "egg": {
+        "Name": "portalgun:aviary_sky_egg"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 4
+    },
+    "params": {
+      "twigs": 0.8,
+      "eggs": 1.0
+    }
+  }
+}

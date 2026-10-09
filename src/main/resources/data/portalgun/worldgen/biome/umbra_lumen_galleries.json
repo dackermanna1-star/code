@@ -1,0 +1,116 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.crystal_chimes"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:glow"
+        },
+        "probability": 0.004
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 5957876,
+          "scale": 0.6
+        },
+        "probability": 0.006
+      }
+    ],
+    "minecraft:visual/fog_end_distance": 64.0,
+    "minecraft:visual/fog_start_distance": 4.0,
+    "minecraft:visual/sky_fog_end_distance": 96.0,
+    "minecraft:visual/water_fog_color": "#040208"
+  },
+  "carvers": [],
+  "downfall": 0.66,
+  "effects": {
+    "water_color": "#14102a"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:umbra/umbra_lumen_galleries/2_spire",
+      "portalgun:umbra/umbra_lumen_galleries/3_spire"
+    ],
+    [],
+    [
+      "portalgun:umbra/ore_coal",
+      "portalgun:umbra/ore_iron",
+      "portalgun:umbra/ore_copper",
+      "portalgun:umbra/ore_gold",
+      "portalgun:umbra/ore_redstone",
+      "portalgun:umbra/ore_lapis",
+      "portalgun:umbra/ore_diamond",
+      "portalgun:umbra/ore_emerald"
+    ],
+    [
+      "portalgun:umbra/umbra_lumen_galleries/0_patch",
+      "portalgun:umbra/umbra_lumen_galleries/1_patch",
+      "portalgun:umbra/umbra_lumen_galleries/4_crystalcluster"
+    ],
+    [],
+    [
+      "portalgun:umbra/umbra_lumen_galleries/5_patch",
+      "portalgun:umbra/umbra_lumen_galleries/6_patch",
+      "portalgun:umbra/umbra_lumen_galleries/7_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:umbral_hound",
+        "weight": 3,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:shade",
+        "weight": 1,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:glimmer",
+        "weight": 14,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.05
+}

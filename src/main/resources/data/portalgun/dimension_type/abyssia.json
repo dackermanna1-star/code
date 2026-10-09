@@ -1,0 +1,68 @@
+{
+  "has_fixed_time": true,
+  "has_skylight": true,
+  "has_ceiling": false,
+  "coordinate_scale": 1.0,
+  "min_y": -64,
+  "height": 384,
+  "logical_height": 384,
+  "infiniburn": "#minecraft:infiniburn_overworld",
+  "ambient_light": 0.28,
+  "monster_spawn_light_level": {
+    "type": "minecraft:uniform",
+    "min_inclusive": 0,
+    "max_inclusive": 7
+  },
+  "monster_spawn_block_light_limit": 0,
+  "skybox": "overworld",
+  "cardinal_light": "default",
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.deep_ocean",
+      "additions": {
+        "sound": "minecraft:ambient.underwater.loop.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.under_water",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.under_water",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:gameplay/bed_rule": {
+      "can_set_spawn": "always",
+      "explodes": false,
+      "can_sleep": "never",
+      "error_message": {
+        "translate": "message.portalgun.bed.time_frozen"
+      }
+    },
+    "minecraft:gameplay/can_start_raid": false,
+    "minecraft:gameplay/nether_portal_spawns_piglin": false,
+    "minecraft:gameplay/respawn_anchor_works": false,
+    "minecraft:visual/cloud_color": "#6a4a8ab0",
+    "minecraft:visual/cloud_height": 170.0,
+    "minecraft:visual/fog_color": "#0e3358",
+    "minecraft:visual/moon_phase": "full_moon",
+    "minecraft:visual/sky_color": "#0a1e44",
+    "minecraft:visual/star_brightness": 1.0,
+    "minecraft:visual/water_fog_color": "#06304a"
+  },
+  "timelines": [
+    "portalgun:abyssia",
+    "minecraft:villager_schedule"
+  ]
+}

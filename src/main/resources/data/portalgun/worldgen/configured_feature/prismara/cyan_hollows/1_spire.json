@@ -1,0 +1,37 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:prismara_stone"
+          },
+          "weight": 3
+        },
+        {
+          "data": {
+            "Name": "portalgun:prismara_cyan_crystal"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 16
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 1,
+      "max_inclusive": 3
+    },
+    "lean": 0.0,
+    "hanging": true,
+    "tip": {
+      "Name": "portalgun:prismara_lamp"
+    }
+  }
+}

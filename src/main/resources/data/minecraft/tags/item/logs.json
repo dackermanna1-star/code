@@ -2,7 +2,171 @@
   "replace": false,
   "values": [
     {
+      "id": "portalgun:abyssia_kelp_stalk",
+      "required": false
+    },
+    {
+      "id": "portalgun:aerolith_skyroot_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:aurum_goldwood_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:colossia_grass_blade",
+      "required": false
+    },
+    {
+      "id": "portalgun:colossia_stalk",
+      "required": false
+    },
+    {
+      "id": "portalgun:cronen_bone_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:effervescia_straw",
+      "required": false
+    },
+    {
+      "id": "portalgun:ember_thornwood_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:ember_baobab_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:eventide_silverbark_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:froopy_candy_cane",
+      "required": false
+    },
+    {
+      "id": "portalgun:gearhaven_copper_pipe",
+      "required": false
+    },
+    {
+      "id": "portalgun:glacior_frostpine_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:glitch_corrupt_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:groovy_stalk",
+      "required": false
+    },
+    {
+      "id": "portalgun:harvestfall_maple_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:inversia_rootwood",
+      "required": false
+    },
+    {
+      "id": "portalgun:jurassica_cycad_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:lotus_stalk",
+      "required": false
+    },
+    {
+      "id": "portalgun:lotus_willow_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:lumina_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:lumina_bloom_stem",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_juniper_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:oculus_eyestalk",
+      "required": false
+    },
+    {
+      "id": "portalgun:oculus_mirewood_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:orbitas_baobab_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:ossuary_giant_bone",
+      "required": false
+    },
+    {
+      "id": "portalgun:paradisia_palm_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:plush_yarn_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_dead_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:sakura_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:shattered_petrified_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:sketchbook_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:sketchbook_pencil",
+      "required": false
+    },
+    {
+      "id": "portalgun:snack_broccoli_stalk",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectra_prismwood_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:spectral_deadwood_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_thornwood",
+      "required": false
+    },
+    {
       "id": "portalgun:glowcap_stem",
+      "required": false
+    },
+    {
+      "id": "portalgun:synthwave_palm_log",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_fern_trunk",
+      "required": false
+    },
+    {
+      "id": "portalgun:vitrea_palm_log",
       "required": false
     }
   ]

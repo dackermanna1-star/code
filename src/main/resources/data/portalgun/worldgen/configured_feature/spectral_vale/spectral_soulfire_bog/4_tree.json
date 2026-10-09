@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:tree",
+  "config": {
+    "log": {
+      "Name": "portalgun:spectral_deadwood_log"
+    },
+    "leaves": {
+      "Name": "portalgun:spectral_withered_leaves",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "twisted",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 8
+    },
+    "decoration": {
+      "Name": "portalgun:spectral_ghost_moss"
+    }
+  }
+}

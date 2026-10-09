@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:thermalia_travertine",
+      "required": false
+    }
+  ]
+}

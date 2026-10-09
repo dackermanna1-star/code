@@ -1,0 +1,27 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:colossia_stalk"
+    },
+    "head": {
+      "Name": "portalgun:colossia_pink_petal"
+    },
+    "shape": "flower",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 18,
+      "max_inclusive": 32
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 9
+    },
+    "stem_width": 2,
+    "bend": 0.15,
+    "decoration": {
+      "Name": "portalgun:colossia_pollen_block"
+    }
+  }
+}

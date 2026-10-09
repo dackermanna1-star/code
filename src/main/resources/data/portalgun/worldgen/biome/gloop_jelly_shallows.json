@@ -1,0 +1,97 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.bubbling"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:item_slime"
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#c02a80"
+  },
+  "carvers": [
+    "portalgun:gloopolis_cave",
+    "portalgun:gloopolis_canyon"
+  ],
+  "downfall": 0.74,
+  "effects": {
+    "water_color": "#ff5ab0",
+    "grass_color": "#9cf040"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:gloopolis/gloop_jelly_shallows/1_spire"
+    ],
+    [],
+    [],
+    [],
+    [
+      "portalgun:gloopolis/spring"
+    ],
+    [
+      "portalgun:gloopolis/gloop_jelly_shallows/0_patch",
+      "portalgun:gloopolis/gloop_jelly_shallows/2_patch",
+      "portalgun:gloopolis/gloop_jelly_shallows/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:bounce_slime",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:goo_serpent",
+        "weight": 10,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:blob_grazer",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.9750000000000001
+}

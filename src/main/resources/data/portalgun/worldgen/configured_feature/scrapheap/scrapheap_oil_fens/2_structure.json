@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "tendril",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:scrapheap_scrap_plate"
+      },
+      "tip": {
+        "Name": "portalgun:scrapheap_exhaust_vent"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 11
+    },
+    "params": {
+      "curl": 0.35,
+      "thickness": 0.8
+    }
+  }
+}

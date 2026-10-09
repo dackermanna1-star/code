@@ -1,0 +1,99 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.wet_squelch",
+      "additions": {
+        "sound": "minecraft:ambient.nether_wastes.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:spore_blossom_air"
+        },
+        "probability": 0.01
+      }
+    ],
+    "minecraft:visual/fog_color": "#c8dcd0",
+    "minecraft:visual/fog_end_distance": 180.0,
+    "minecraft:visual/fog_start_distance": 70.0,
+    "minecraft:visual/sky_fog_end_distance": 270.0,
+    "minecraft:visual/water_fog_color": "#2a6a8a"
+  },
+  "carvers": [
+    "portalgun:colossia_cave",
+    "portalgun:colossia_canyon"
+  ],
+  "downfall": 0.78,
+  "effects": {
+    "water_color": "#3a7aa0",
+    "grass_color": "#3e8426",
+    "foliage_color": "#3a8422",
+    "dry_foliage_color": "#3a8422"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:colossia/colossia_toadstool_hollow/2_boulder"
+    ],
+    [],
+    [
+      "portalgun:colossia/colossia_toadstool_hollow/3_spire"
+    ],
+    [],
+    [
+      "portalgun:colossia/ore_coal",
+      "portalgun:colossia/ore_iron",
+      "portalgun:colossia/ore_copper",
+      "portalgun:colossia/ore_gold",
+      "portalgun:colossia/ore_redstone",
+      "portalgun:colossia/ore_lapis",
+      "portalgun:colossia/ore_diamond",
+      "portalgun:colossia/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:colossia/spring"
+    ],
+    [
+      "portalgun:colossia/colossia_toadstool_hollow/0_giantplant",
+      "portalgun:colossia/colossia_toadstool_hollow/1_giantplant",
+      "portalgun:colossia/colossia_toadstool_hollow/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:titan_snail",
+        "weight": 8,
+        "minCount": 1,
+        "maxCount": 1
+      },
+      {
+        "type": "portalgun:giant_ant",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.55
+}

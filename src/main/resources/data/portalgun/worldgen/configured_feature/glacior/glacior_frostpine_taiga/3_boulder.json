@@ -1,0 +1,30 @@
+{
+  "type": "portalgun:boulder",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:glacior_bluestone"
+          },
+          "weight": 3
+        },
+        {
+          "data": {
+            "Name": "minecraft:snow_block"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 1,
+      "max_inclusive": 2
+    },
+    "hollow": false,
+    "squash": 1.0,
+    "floating": false
+  }
+}

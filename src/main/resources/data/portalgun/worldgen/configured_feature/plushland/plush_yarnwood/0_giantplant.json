@@ -1,0 +1,33 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:plush_yarn_log"
+    },
+    "head": {
+      "Name": "portalgun:plush_pink_yarn",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "puff",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 12,
+      "max_inclusive": 18
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 7
+    },
+    "stem_width": 2,
+    "bend": 0.25,
+    "decoration": {
+      "Name": "portalgun:plush_mint_yarn",
+      "Properties": {
+        "persistent": "true"
+      }
+    }
+  }
+}

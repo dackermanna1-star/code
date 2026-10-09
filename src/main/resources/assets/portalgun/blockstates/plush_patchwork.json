@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/plush_patchwork"
+      },
+      {
+        "model": "portalgun:block/plush_patchwork",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/plush_patchwork",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/plush_patchwork",
+        "y": 270
+      }
+    ]
+  }
+}

@@ -1,0 +1,93 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.glitch_noise"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.012
+      }
+    ],
+    "minecraft:visual/fog_color": "#d4d4d8",
+    "minecraft:visual/fog_end_distance": 80.0,
+    "minecraft:visual/fog_start_distance": 6.0,
+    "minecraft:visual/sky_color": "#e4e4e6",
+    "minecraft:visual/sky_fog_end_distance": 120.0,
+    "minecraft:visual/water_fog_color": "#303032"
+  },
+  "carvers": [],
+  "downfall": 0.8600000000000001,
+  "effects": {
+    "water_color": "#c0c0c8",
+    "grass_color": "#b0b0b0",
+    "foliage_color": "#a0a0a0",
+    "dry_foliage_color": "#a0a0a0"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:white_room/white_room_static_field/2_structure"
+    ],
+    [],
+    [
+      "portalgun:white_room/white_room_static_field/0_disk"
+    ],
+    [],
+    [],
+    [
+      "portalgun:white_room/white_room_static_field/1_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:static",
+        "weight": 10,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:faceless",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.35000000000000003
+}

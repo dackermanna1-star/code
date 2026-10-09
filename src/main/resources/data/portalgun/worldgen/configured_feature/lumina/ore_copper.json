@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:ore",
+  "config": {
+    "size": 10,
+    "discard_chance_on_air_exposure": 0.0,
+    "targets": [
+      {
+        "target": {
+          "predicate_type": "minecraft:tag_match",
+          "tag": "portalgun:ore_replaceables/lumina"
+        },
+        "state": {
+          "Name": "minecraft:copper_ore"
+        }
+      },
+      {
+        "target": {
+          "predicate_type": "minecraft:tag_match",
+          "tag": "portalgun:deep_ore_replaceables/lumina"
+        },
+        "state": {
+          "Name": "minecraft:deepslate_copper_ore"
+        }
+      }
+    ]
+  }
+}

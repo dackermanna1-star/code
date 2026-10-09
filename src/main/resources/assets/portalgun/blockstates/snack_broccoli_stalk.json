@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "axis=x": {
+      "model": "portalgun:block/snack_broccoli_stalk_horizontal",
+      "x": 90,
+      "y": 90
+    },
+    "axis=y": {
+      "model": "portalgun:block/snack_broccoli_stalk"
+    },
+    "axis=z": {
+      "model": "portalgun:block/snack_broccoli_stalk_horizontal",
+      "x": 90
+    }
+  }
+}

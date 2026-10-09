@@ -1,0 +1,22 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "arch",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:saltara_salt_rock"
+      },
+      "alt": {
+        "Name": "portalgun:saltara_rose_salt"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 7,
+      "max_inclusive": 12
+    },
+    "params": {
+      "height": 1.15
+    }
+  }
+}

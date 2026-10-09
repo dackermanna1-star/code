@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "tendril",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:micro_nucleus"
+      },
+      "tip": {
+        "Name": "portalgun:micro_nucleolus"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 10
+    },
+    "params": {
+      "curl": 0.8,
+      "thickness": 0.7
+    }
+  }
+}

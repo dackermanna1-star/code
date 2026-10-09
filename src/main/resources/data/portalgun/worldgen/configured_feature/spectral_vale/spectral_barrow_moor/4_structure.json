@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "ring",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:spectral_barrow_stone"
+      },
+      "alt": {
+        "Name": "minecraft:mossy_cobblestone"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 9
+    },
+    "params": {
+      "sink": 0.2,
+      "thickness": 0.18
+    }
+  }
+}

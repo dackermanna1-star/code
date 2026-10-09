@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/prismara_glimmer_moss"
+      },
+      {
+        "model": "portalgun:block/prismara_glimmer_moss",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/prismara_glimmer_moss",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/prismara_glimmer_moss",
+        "y": 270
+      }
+    ]
+  }
+}

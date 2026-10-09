@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "ring",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:snack_bread_crust"
+      },
+      "alt": {
+        "Name": "portalgun:snack_crumb"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 8
+    },
+    "params": {
+      "thickness": 0.42,
+      "sink": 0.25
+    }
+  }
+}

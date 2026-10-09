@@ -1,0 +1,27 @@
+{
+  "feature": "portalgun:aviary/ore_emerald",
+  "placement": [
+    {
+      "type": "minecraft:count",
+      "count": 3
+    },
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:height_range",
+      "height": {
+        "type": "minecraft:uniform",
+        "min_inclusive": {
+          "absolute": 28
+        },
+        "max_inclusive": {
+          "absolute": 68
+        }
+      }
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

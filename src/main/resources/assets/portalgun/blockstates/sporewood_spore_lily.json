@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/sporewood_spore_lily"
+      },
+      {
+        "model": "portalgun:block/sporewood_spore_lily",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/sporewood_spore_lily",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/sporewood_spore_lily",
+        "y": 270
+      }
+    ]
+  }
+}

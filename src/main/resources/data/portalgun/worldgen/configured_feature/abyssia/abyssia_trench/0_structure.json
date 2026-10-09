@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "ribcage",
+    "blocks": {
+      "bone": {
+        "Name": "minecraft:bone_block"
+      },
+      "spine": {
+        "Name": "portalgun:abyssia_clam_shell"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 11,
+      "max_inclusive": 16
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:multiface_growth",
+  "config": {
+    "block": "portalgun:inversia_curtain_moss",
+    "search_range": 20,
+    "chance_of_spreading": 0.5,
+    "can_place_on_floor": false,
+    "can_place_on_ceiling": true,
+    "can_place_on_wall": true,
+    "can_be_placed_on": [
+      "portalgun:inversia_rootloam",
+      "portalgun:inversia_skystone",
+      "portalgun:inversia_turf"
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:orbitas_baobab_log"
+    },
+    "head": {
+      "Name": "portalgun:orbitas_baobab_leaves",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "umbrella",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 9
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 5
+    },
+    "stem_width": 2,
+    "bend": 0.0
+  }
+}

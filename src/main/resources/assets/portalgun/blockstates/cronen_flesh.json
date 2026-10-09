@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/cronen_flesh"
+      },
+      {
+        "model": "portalgun:block/cronen_flesh",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/cronen_flesh",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/cronen_flesh",
+        "y": 270
+      }
+    ]
+  }
+}

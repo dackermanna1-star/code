@@ -1,0 +1,105 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.glitch_noise"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.game",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.game",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16711935,
+          "scale": 1.0
+        },
+        "probability": 0.002
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 65535,
+          "scale": 1.0
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/sky_color": "#3a0a4a",
+    "minecraft:visual/water_fog_color": "#103060"
+  },
+  "carvers": [],
+  "downfall": 0.54,
+  "effects": {
+    "water_color": "#3f76e4",
+    "grass_color": "#4ea82c",
+    "foliage_color": "#3a9a2c",
+    "dry_foliage_color": "#3a9a2c"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:glitch/glitch_corrupted_pasture/3_structure"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:glitch/glitch_corrupted_pasture/0_tree",
+      "portalgun:glitch/glitch_corrupted_pasture/1_patch",
+      "portalgun:glitch/glitch_corrupted_pasture/2_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:missingno",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      },
+      {
+        "type": "portalgun:pixel_wraith",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:corrupted_cow",
+        "weight": 14,
+        "minCount": 2,
+        "maxCount": 4
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8500000000000001
+}

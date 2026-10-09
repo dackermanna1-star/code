@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:orbitas"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:orbitas_stardust"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.orbitas.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.orbitas.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

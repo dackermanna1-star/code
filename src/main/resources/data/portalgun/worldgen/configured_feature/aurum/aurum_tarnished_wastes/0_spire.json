@@ -1,0 +1,37 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:aurum_gilded_stone"
+          },
+          "weight": 4
+        },
+        {
+          "data": {
+            "Name": "portalgun:aurum_ochre_soil"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 14
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 1,
+      "max_inclusive": 3
+    },
+    "lean": 0.15,
+    "hanging": false,
+    "cap": {
+      "Name": "portalgun:aurum_gilt"
+    }
+  }
+}

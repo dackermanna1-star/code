@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "axis=x": {
+      "model": "portalgun:block/sketchbook_pencil_horizontal",
+      "x": 90,
+      "y": 90
+    },
+    "axis=y": {
+      "model": "portalgun:block/sketchbook_pencil"
+    },
+    "axis=z": {
+      "model": "portalgun:block/sketchbook_pencil_horizontal",
+      "x": 90
+    }
+  }
+}

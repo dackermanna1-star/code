@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "cuboids",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:shattered_ruin_bricks"
+      },
+      "alt": {
+        "Name": "portalgun:shattered_riftscarred_bricks"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 9
+    },
+    "params": {
+      "float": 7.0,
+      "scatter": 5.0
+    }
+  }
+}

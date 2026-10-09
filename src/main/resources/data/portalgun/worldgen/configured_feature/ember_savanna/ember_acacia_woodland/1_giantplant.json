@@ -1,0 +1,27 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:ember_thornwood_log"
+    },
+    "head": {
+      "Name": "portalgun:ember_thornwood_leaves",
+      "Properties": {
+        "persistent": "true"
+      }
+    },
+    "shape": "umbrella",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 10,
+      "max_inclusive": 15
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 8
+    },
+    "stem_width": 1,
+    "bend": 0.3
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:rubra_basalt",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_dune_sand",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_dust",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_dust_soil",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_frost",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_rock",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

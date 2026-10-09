@@ -1,0 +1,81 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cozy_breeze"
+    },
+    "minecraft:visual/water_fog_color": "#2a6a8a"
+  },
+  "carvers": [
+    "portalgun:colossia_cave",
+    "portalgun:colossia_canyon"
+  ],
+  "downfall": 0.22000000000000003,
+  "effects": {
+    "water_color": "#5aaad8",
+    "grass_color": "#8aaa40",
+    "foliage_color": "#74aa40",
+    "dry_foliage_color": "#74aa40"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:colossia/colossia_pebble_wash/0_boulder",
+      "portalgun:colossia/colossia_pebble_wash/1_boulder",
+      "portalgun:colossia/colossia_pebble_wash/2_boulder"
+    ],
+    [],
+    [
+      "portalgun:colossia/colossia_pebble_wash/3_spire"
+    ],
+    [],
+    [
+      "portalgun:colossia/ore_coal",
+      "portalgun:colossia/ore_iron",
+      "portalgun:colossia/ore_copper",
+      "portalgun:colossia/ore_gold",
+      "portalgun:colossia/ore_redstone",
+      "portalgun:colossia/ore_lapis",
+      "portalgun:colossia/ore_diamond",
+      "portalgun:colossia/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:colossia/spring"
+    ],
+    [],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:giant_ant",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:titan_snail",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.2000000000000002
+}

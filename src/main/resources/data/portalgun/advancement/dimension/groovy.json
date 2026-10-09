@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:groovy"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:groovy_groove_jelly"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.groovy.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.groovy.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

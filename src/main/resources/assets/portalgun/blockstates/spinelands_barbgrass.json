@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/spinelands_barbgrass"
+      },
+      {
+        "model": "portalgun:block/spinelands_barbgrass",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/spinelands_barbgrass",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/spinelands_barbgrass",
+        "y": 270
+      }
+    ]
+  }
+}

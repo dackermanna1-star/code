@@ -1,0 +1,93 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.candy_chime"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.cherry_grove",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.cherry_grove",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:bubble_pop"
+        },
+        "probability": 0.006
+      },
+      {
+        "particle": {
+          "type": "minecraft:white_smoke"
+        },
+        "probability": 0.0006
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#3a1806"
+  },
+  "carvers": [],
+  "downfall": 0.33999999999999997,
+  "effects": {
+    "water_color": "#6a3214"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:effervescia/effervescia_foam_isles/4_boulder",
+      "portalgun:effervescia/effervescia_foam_isles/5_boulder"
+    ],
+    [],
+    [
+      "portalgun:effervescia/effervescia_foam_isles/3_spire"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "minecraft:patch_sugar_cane",
+      "portalgun:effervescia/effervescia_foam_isles/0_patch",
+      "portalgun:effervescia/effervescia_foam_isles/1_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:fizzer",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:soap_jelly",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.9500000000000001
+}

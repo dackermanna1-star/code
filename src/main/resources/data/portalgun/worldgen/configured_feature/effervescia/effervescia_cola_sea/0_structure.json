@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "lily_pad",
+    "blocks": {
+      "pad": {
+        "Name": "portalgun:effervescia_lemon_pulp"
+      },
+      "vein": {
+        "Name": "portalgun:effervescia_lemon_pith"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 11
+    },
+    "params": {
+      "notch": 0.0,
+      "flowers": 0.0
+    }
+  }
+}

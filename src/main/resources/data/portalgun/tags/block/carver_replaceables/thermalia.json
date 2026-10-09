@@ -1,0 +1,33 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "minecraft:tuff",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_microbial_mat",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_sinter_crust",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_sulfur_crust",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_travertine",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_warm_moss",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

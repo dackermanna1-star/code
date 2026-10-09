@@ -1,0 +1,17 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:aurum_gem_ore",
+      "required": false
+    },
+    {
+      "id": "portalgun:orbitas_stardust_ore",
+      "required": false
+    },
+    {
+      "id": "portalgun:pyroclast_fire_opal_ore",
+      "required": false
+    }
+  ]
+}

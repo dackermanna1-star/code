@@ -23,16 +23,21 @@
         "tick_delay": 6000,
         "block_search_extent": 8,
         "offset": 2.0
+      },
+      "loop": "portalgun:ambient.alien_hum",
+      "additions": {
+        "sound": "minecraft:ambient.warped_forest.additions",
+        "tick_chance": 0.0111
       }
     },
     "minecraft:audio/background_music": {
       "default": {
-        "sound": "minecraft:music.game",
+        "sound": "minecraft:music.nether.warped_forest",
         "min_delay": 12000,
         "max_delay": 24000
       },
       "creative": {
-        "sound": "minecraft:music.creative",
+        "sound": "minecraft:music.nether.warped_forest",
         "min_delay": 12000,
         "max_delay": 24000
       }
@@ -56,7 +61,8 @@
     "minecraft:visual/fog_start_distance": 24.0,
     "minecraft:visual/sky_color": "#22405a",
     "minecraft:visual/sky_fog_end_distance": 210.0,
-    "minecraft:visual/star_brightness": 0.6
+    "minecraft:visual/star_brightness": 0.6,
+    "minecraft:visual/water_fog_color": "#123a40"
   },
   "timelines": [
     "portalgun:sporewood",

@@ -1,0 +1,17 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:effervescia_ice_cube",
+      "required": false
+    },
+    {
+      "id": "portalgun:orbitas_comet_ice",
+      "required": false
+    },
+    {
+      "id": "portalgun:selene_moon_ice",
+      "required": false
+    }
+  ]
+}

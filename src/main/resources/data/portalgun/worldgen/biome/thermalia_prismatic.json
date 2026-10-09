@@ -1,0 +1,105 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.bubbling"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.lush_caves",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:cloud"
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/sky_color": "#a8dce0",
+    "minecraft:visual/water_fog_color": "#1a4ab0"
+  },
+  "carvers": [
+    "portalgun:thermalia_cave",
+    "portalgun:thermalia_canyon"
+  ],
+  "downfall": 0.74,
+  "effects": {
+    "water_color": "#1e6ce8",
+    "grass_color": "#d06818",
+    "foliage_color": "#e89a2c",
+    "dry_foliage_color": "#e89a2c"
+  },
+  "features": [
+    [],
+    [
+      "portalgun:thermalia/thermalia_prismatic/0_lake"
+    ],
+    [],
+    [],
+    [
+      "portalgun:thermalia/thermalia_prismatic/3_structure"
+    ],
+    [],
+    [
+      "portalgun:thermalia/ore_coal",
+      "portalgun:thermalia/ore_iron",
+      "portalgun:thermalia/ore_copper",
+      "portalgun:thermalia/ore_gold",
+      "portalgun:thermalia/ore_redstone",
+      "portalgun:thermalia/ore_lapis",
+      "portalgun:thermalia/ore_diamond",
+      "portalgun:thermalia/ore_emerald",
+      "portalgun:thermalia/thermalia_prismatic/4_disk"
+    ],
+    [],
+    [
+      "portalgun:thermalia/spring"
+    ],
+    [
+      "portalgun:thermalia/thermalia_prismatic/1_patch",
+      "portalgun:thermalia/thermalia_prismatic/2_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:steam_turtle",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [
+      {
+        "type": "portalgun:geyser_serpent",
+        "weight": 8,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.0750000000000002
+}

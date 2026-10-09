@@ -1,0 +1,16 @@
+{
+  "feature": "portalgun:groovy/groovy_disco_fields/2_structure",
+  "placement": [
+    {
+      "type": "minecraft:rarity_filter",
+      "chance": 3
+    },
+    {
+      "type": "minecraft:count_on_every_layer",
+      "count": 1
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

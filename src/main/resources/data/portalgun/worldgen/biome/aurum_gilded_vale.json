@@ -1,0 +1,117 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.crystal_chimes"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.meadow",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.meadow",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16767056,
+          "scale": 0.7
+        },
+        "probability": 0.004
+      },
+      {
+        "particle": {
+          "type": "minecraft:wax_on"
+        },
+        "probability": 0.0015
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#6a4a10"
+  },
+  "carvers": [
+    "portalgun:aurum_cave",
+    "portalgun:aurum_canyon"
+  ],
+  "downfall": 0.66,
+  "effects": {
+    "water_color": "#e8b42a",
+    "grass_color": "#c49626",
+    "foliage_color": "#f0bc2a",
+    "dry_foliage_color": "#f0bc2a"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:aurum/ore_coal",
+      "portalgun:aurum/ore_iron",
+      "portalgun:aurum/ore_copper",
+      "portalgun:aurum/ore_gold",
+      "portalgun:aurum/ore_redstone",
+      "portalgun:aurum/ore_lapis",
+      "portalgun:aurum/ore_diamond",
+      "portalgun:aurum/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:aurum/spring"
+    ],
+    [
+      "portalgun:aurum/aurum_gilded_vale/0_giantplant",
+      "portalgun:aurum/aurum_gilded_vale/1_tree",
+      "portalgun:aurum/aurum_gilded_vale/2_tree",
+      "portalgun:aurum/aurum_gilded_vale/3_patch",
+      "portalgun:aurum/aurum_gilded_vale/4_patch",
+      "portalgun:aurum/aurum_gilded_vale/5_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:treasure_mimic",
+        "weight": 1,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:goldbug",
+        "weight": 14,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:midas_golem",
+        "weight": 1,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.9
+}

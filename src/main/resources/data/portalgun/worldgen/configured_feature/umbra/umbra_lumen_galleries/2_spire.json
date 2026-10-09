@@ -1,0 +1,37 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:umbra_lumen_crystal"
+          },
+          "weight": 3
+        },
+        {
+          "data": {
+            "Name": "portalgun:umbra_nightglass"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 8,
+      "max_inclusive": 22
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 1,
+      "max_inclusive": 3
+    },
+    "lean": 0.15,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:umbra_lumen_crystal"
+    }
+  }
+}

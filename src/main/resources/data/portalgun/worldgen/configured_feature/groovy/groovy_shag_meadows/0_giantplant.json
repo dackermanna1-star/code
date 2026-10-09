@@ -1,0 +1,27 @@
+{
+  "type": "portalgun:giant_plant",
+  "config": {
+    "stem": {
+      "Name": "portalgun:groovy_stalk"
+    },
+    "head": {
+      "Name": "portalgun:groovy_petal"
+    },
+    "shape": "flower",
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 7,
+      "max_inclusive": 13
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 5
+    },
+    "stem_width": 1,
+    "bend": 0.3,
+    "decoration": {
+      "Name": "portalgun:groovy_petal_sun"
+    }
+  }
+}

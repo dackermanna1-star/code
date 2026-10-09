@@ -1,0 +1,110 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.eerie_choir",
+      "additions": {
+        "sound": "minecraft:ambient.soul_sand_valley.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 11567359,
+          "scale": 0.7
+        },
+        "probability": 0.006
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#040208"
+  },
+  "carvers": [],
+  "downfall": 0.26,
+  "effects": {
+    "water_color": "#14102a"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:umbra/umbra_nightglass_reach/2_geode"
+    ],
+    [],
+    [
+      "portalgun:umbra/umbra_nightglass_reach/3_spire",
+      "portalgun:umbra/umbra_nightglass_reach/4_structure"
+    ],
+    [],
+    [
+      "portalgun:umbra/ore_coal",
+      "portalgun:umbra/ore_iron",
+      "portalgun:umbra/ore_copper",
+      "portalgun:umbra/ore_gold",
+      "portalgun:umbra/ore_redstone",
+      "portalgun:umbra/ore_lapis",
+      "portalgun:umbra/ore_diamond",
+      "portalgun:umbra/ore_emerald"
+    ],
+    [
+      "portalgun:umbra/umbra_nightglass_reach/0_patch",
+      "portalgun:umbra/umbra_nightglass_reach/1_patch"
+    ],
+    [],
+    [
+      "portalgun:umbra/umbra_nightglass_reach/5_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:umbral_hound",
+        "weight": 5,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:shade",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:glimmer",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.1
+}

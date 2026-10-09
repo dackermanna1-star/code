@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/carpet",
+  "textures": {
+    "wool": "portalgun:block/hivemind_pollen_carpet",
+    "particle": "portalgun:block/hivemind_pollen_carpet"
+  }
+}

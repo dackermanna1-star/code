@@ -1,0 +1,112 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.tidal_waves"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.cherry_grove",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.cherry_grove",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16299204,
+          "scale": 0.9
+        },
+        "probability": 0.003
+      },
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/fog_color": "#fbe8ec",
+    "minecraft:visual/water_fog_color": "#d0607e"
+  },
+  "carvers": [],
+  "downfall": 0.78,
+  "effects": {
+    "water_color": "#f27896",
+    "grass_color": "#d8a8b8",
+    "foliage_color": "#e07e8e",
+    "dry_foliage_color": "#e07e8e"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:saltara/ore_coal",
+      "portalgun:saltara/ore_iron",
+      "portalgun:saltara/ore_copper",
+      "portalgun:saltara/ore_gold",
+      "portalgun:saltara/ore_redstone",
+      "portalgun:saltara/ore_lapis",
+      "portalgun:saltara/ore_diamond",
+      "portalgun:saltara/ore_emerald"
+    ],
+    [
+      "portalgun:saltara/saltara_rose_lakes/3_crystalcluster"
+    ],
+    [],
+    [
+      "portalgun:saltara/saltara_rose_lakes/0_patch",
+      "portalgun:saltara/saltara_rose_lakes/1_patch",
+      "portalgun:saltara/saltara_rose_lakes/2_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:stiltbird",
+        "weight": 14,
+        "minCount": 3,
+        "maxCount": 7
+      },
+      {
+        "type": "portalgun:salt_crab",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [
+      {
+        "type": "portalgun:brine_shrimp",
+        "weight": 16,
+        "minCount": 4,
+        "maxCount": 8
+      }
+    ],
+    "misc": []
+  },
+  "temperature": 0.9500000000000001
+}

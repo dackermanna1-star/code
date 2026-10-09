@@ -1,0 +1,23 @@
+{
+  "feature": "portalgun:aerolith/cloudtop_reaches/2_boulder",
+  "placement": [
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:height_range",
+      "height": {
+        "type": "minecraft:uniform",
+        "min_inclusive": {
+          "absolute": 124
+        },
+        "max_inclusive": {
+          "absolute": 206
+        }
+      }
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

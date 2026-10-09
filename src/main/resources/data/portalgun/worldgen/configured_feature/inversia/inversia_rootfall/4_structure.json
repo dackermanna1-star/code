@@ -1,0 +1,25 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "tendril",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:inversia_rootwood"
+      },
+      "tip": {
+        "Name": "portalgun:inversia_leaves",
+        "Properties": {
+          "persistent": "true"
+        }
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 6,
+      "max_inclusive": 11
+    },
+    "params": {
+      "curl": 0.6
+    }
+  }
+}

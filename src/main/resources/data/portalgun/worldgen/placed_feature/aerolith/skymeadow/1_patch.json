@@ -1,0 +1,12 @@
+{
+  "feature": "portalgun:aerolith/skymeadow/1_patch",
+  "placement": [
+    {
+      "type": "minecraft:count_on_every_layer",
+      "count": 1
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

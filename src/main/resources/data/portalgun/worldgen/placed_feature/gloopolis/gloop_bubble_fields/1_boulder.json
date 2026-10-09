@@ -1,0 +1,27 @@
+{
+  "feature": "portalgun:gloopolis/gloop_bubble_fields/1_boulder",
+  "placement": [
+    {
+      "type": "minecraft:rarity_filter",
+      "chance": 2
+    },
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:height_range",
+      "height": {
+        "type": "minecraft:uniform",
+        "min_inclusive": {
+          "absolute": 95
+        },
+        "max_inclusive": {
+          "absolute": 135
+        }
+      }
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

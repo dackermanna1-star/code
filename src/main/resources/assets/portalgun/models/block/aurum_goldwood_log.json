@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "portalgun:block/aurum_goldwood_log_end",
+    "side": "portalgun:block/aurum_goldwood_log_side"
+  }
+}

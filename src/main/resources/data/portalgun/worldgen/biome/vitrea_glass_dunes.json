@@ -1,0 +1,94 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.wind_howl"
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.006
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#0e3632"
+  },
+  "carvers": [
+    "portalgun:vitrea_cave",
+    "portalgun:vitrea_canyon"
+  ],
+  "downfall": 0.38,
+  "effects": {
+    "water_color": "#3ad6c8",
+    "grass_color": "#d4a050",
+    "foliage_color": "#b07a30",
+    "dry_foliage_color": "#b07a30"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:vitrea/vitrea_glass_dunes/0_spire",
+      "portalgun:vitrea/vitrea_glass_dunes/1_structure"
+    ],
+    [],
+    [
+      "portalgun:vitrea/ore_coal",
+      "portalgun:vitrea/ore_iron",
+      "portalgun:vitrea/ore_copper",
+      "portalgun:vitrea/ore_gold",
+      "portalgun:vitrea/ore_redstone",
+      "portalgun:vitrea/ore_lapis",
+      "portalgun:vitrea/ore_diamond",
+      "portalgun:vitrea/ore_emerald"
+    ],
+    [],
+    [],
+    [
+      "portalgun:vitrea/vitrea_glass_dunes/2_patch",
+      "portalgun:vitrea/vitrea_glass_dunes/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:glass_scorpion",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:sand_worm",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:dune_strider",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 2.0
+}

@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "portalgun:block/glacior_snowcap"
+      },
+      {
+        "model": "portalgun:block/glacior_snowcap",
+        "y": 90
+      },
+      {
+        "model": "portalgun:block/glacior_snowcap",
+        "y": 180
+      },
+      {
+        "model": "portalgun:block/glacior_snowcap",
+        "y": 270
+      }
+    ]
+  }
+}

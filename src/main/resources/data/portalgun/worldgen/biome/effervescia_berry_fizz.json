@@ -1,0 +1,93 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.candy_chime"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.cherry_grove",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.cherry_grove",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:bubble_pop"
+        },
+        "probability": 0.01
+      },
+      {
+        "particle": {
+          "type": "minecraft:cherry_leaves"
+        },
+        "probability": 0.002
+      }
+    ],
+    "minecraft:visual/fog_color": "#ffd8ec",
+    "minecraft:visual/sky_color": "#a8c8ff",
+    "minecraft:visual/water_fog_color": "#6a1440"
+  },
+  "carvers": [],
+  "downfall": 0.62,
+  "effects": {
+    "water_color": "#d03a86"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:effervescia/effervescia_berry_fizz/0_boulder",
+      "portalgun:effervescia/effervescia_berry_fizz/1_boulder"
+    ],
+    [],
+    [
+      "portalgun:effervescia/effervescia_berry_fizz/3_spire"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:effervescia/effervescia_berry_fizz/2_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:soap_jelly",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "portalgun:fizzer",
+        "weight": 5,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.5
+}

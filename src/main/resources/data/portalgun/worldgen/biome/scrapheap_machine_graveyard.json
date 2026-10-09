@@ -1,0 +1,118 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.electric_buzz"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.desert",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.desert",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:electric_spark"
+        },
+        "probability": 0.002
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 12614208,
+          "scale": 0.8
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#0a0808"
+  },
+  "carvers": [
+    "portalgun:scrapheap_cave",
+    "portalgun:scrapheap_canyon"
+  ],
+  "downfall": 0.26,
+  "effects": {
+    "water_color": "#2a2420",
+    "grass_color": "#8a6a3a"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:scrapheap/scrapheap_machine_graveyard/6_boulder"
+    ],
+    [],
+    [
+      "portalgun:scrapheap/scrapheap_machine_graveyard/0_structure",
+      "portalgun:scrapheap/scrapheap_machine_graveyard/1_structure",
+      "portalgun:scrapheap/scrapheap_machine_graveyard/2_structure",
+      "portalgun:scrapheap/scrapheap_machine_graveyard/3_spire"
+    ],
+    [],
+    [
+      "portalgun:scrapheap/ore_coal",
+      "portalgun:scrapheap/ore_iron",
+      "portalgun:scrapheap/ore_copper",
+      "portalgun:scrapheap/ore_gold",
+      "portalgun:scrapheap/ore_redstone",
+      "portalgun:scrapheap/ore_lapis",
+      "portalgun:scrapheap/ore_diamond",
+      "portalgun:scrapheap/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:scrapheap/spring"
+    ],
+    [
+      "portalgun:scrapheap/scrapheap_machine_graveyard/4_patch",
+      "portalgun:scrapheap/scrapheap_machine_graveyard/5_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:scrap_drone",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:junk_golem",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 1
+      },
+      {
+        "type": "portalgun:rust_rat",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.55
+}

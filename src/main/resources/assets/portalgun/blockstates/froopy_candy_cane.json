@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "axis=x": {
+      "model": "portalgun:block/froopy_candy_cane_horizontal",
+      "x": 90,
+      "y": 90
+    },
+    "axis=y": {
+      "model": "portalgun:block/froopy_candy_cane"
+    },
+    "axis=z": {
+      "model": "portalgun:block/froopy_candy_cane_horizontal",
+      "x": 90
+    }
+  }
+}

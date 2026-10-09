@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:white_room_substrate",
+      "required": false
+    }
+  ]
+}

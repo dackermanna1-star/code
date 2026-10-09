@@ -1,0 +1,120 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.electric_buzz"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.end",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.end",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:electric_spark"
+        },
+        "probability": 0.03
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 10479871,
+          "scale": 0.6
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/fog_color": "#2a3048",
+    "minecraft:visual/water_fog_color": "#0a1830"
+  },
+  "carvers": [
+    "portalgun:tempestus_cave",
+    "portalgun:tempestus_canyon"
+  ],
+  "downfall": 0.3,
+  "effects": {
+    "water_color": "#1a3a6a",
+    "grass_color": "#385452",
+    "foliage_color": "#26363e",
+    "dry_foliage_color": "#26363e"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:tempestus/tempest_static_fields/0_spire",
+      "portalgun:tempestus/tempest_static_fields/5_structure"
+    ],
+    [],
+    [
+      "portalgun:tempestus/ore_coal",
+      "portalgun:tempestus/ore_iron",
+      "portalgun:tempestus/ore_copper",
+      "portalgun:tempestus/ore_gold",
+      "portalgun:tempestus/ore_redstone",
+      "portalgun:tempestus/ore_lapis",
+      "portalgun:tempestus/ore_diamond",
+      "portalgun:tempestus/ore_emerald"
+    ],
+    [
+      "portalgun:tempestus/tempest_static_fields/4_crystalcluster"
+    ],
+    [
+      "portalgun:tempestus/spring"
+    ],
+    [
+      "portalgun:tempestus/tempest_static_fields/1_patch",
+      "portalgun:tempestus/tempest_static_fields/2_patch",
+      "portalgun:tempestus/tempest_static_fields/3_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:storm_elemental",
+        "weight": 5,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:static_slug",
+        "weight": 10,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:thunderbird",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 1.1
+}

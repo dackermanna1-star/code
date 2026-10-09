@@ -1,0 +1,121 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.crystal_chimes"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.flower_forest",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.flower_forest",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16743064,
+          "scale": 0.6
+        },
+        "probability": 0.002
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 7907583,
+          "scale": 0.6
+        },
+        "probability": 0.002
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 16767056,
+          "scale": 0.6
+        },
+        "probability": 0.003
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#7a5a14"
+  },
+  "carvers": [
+    "portalgun:aurum_cave",
+    "portalgun:aurum_canyon"
+  ],
+  "downfall": 0.45999999999999996,
+  "effects": {
+    "water_color": "#f0c030",
+    "grass_color": "#dcb038",
+    "foliage_color": "#ffdc5a",
+    "dry_foliage_color": "#ffdc5a"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:aurum/aurum_gem_meadows/4_boulder"
+    ],
+    [],
+    [],
+    [],
+    [
+      "portalgun:aurum/ore_coal",
+      "portalgun:aurum/ore_iron",
+      "portalgun:aurum/ore_copper",
+      "portalgun:aurum/ore_gold",
+      "portalgun:aurum/ore_redstone",
+      "portalgun:aurum/ore_lapis",
+      "portalgun:aurum/ore_diamond",
+      "portalgun:aurum/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:aurum/spring"
+    ],
+    [
+      "portalgun:aurum/aurum_gem_meadows/0_patch",
+      "portalgun:aurum/aurum_gem_meadows/1_patch",
+      "portalgun:aurum/aurum_gem_meadows/2_patch",
+      "portalgun:aurum/aurum_gem_meadows/3_tree"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:treasure_mimic",
+        "weight": 1,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:goldbug",
+        "weight": 18,
+        "minCount": 3,
+        "maxCount": 5
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.525
+}

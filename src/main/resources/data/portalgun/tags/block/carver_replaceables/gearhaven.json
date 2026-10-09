@@ -1,0 +1,25 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "minecraft:deepslate",
+      "required": false
+    },
+    {
+      "id": "portalgun:gearhaven_ironstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:gearhaven_patina_turf",
+      "required": false
+    },
+    {
+      "id": "portalgun:gearhaven_slag",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

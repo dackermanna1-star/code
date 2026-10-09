@@ -1,0 +1,86 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cosmic_drone"
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 12901616,
+          "scale": 0.5
+        },
+        "probability": 0.0015
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#0e1626"
+  },
+  "carvers": [
+    "portalgun:selene_cave",
+    "portalgun:selene_canyon"
+  ],
+  "downfall": 0.5800000000000001,
+  "effects": {
+    "water_color": "#3a5a9a",
+    "grass_color": "#7a8090",
+    "foliage_color": "#aab4c8",
+    "dry_foliage_color": "#aab4c8"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:selene/selene_shadow_craters/0_spire"
+    ],
+    [],
+    [],
+    [
+      "portalgun:selene/selene_shadow_craters/1_crystalcluster"
+    ],
+    [],
+    [
+      "portalgun:selene/selene_shadow_craters/2_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:lunar_moth",
+        "weight": 8,
+        "minCount": 1,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:crater_crab",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:moon_hopper",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.5
+}

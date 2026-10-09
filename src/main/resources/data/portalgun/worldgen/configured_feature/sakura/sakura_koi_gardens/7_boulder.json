@@ -1,0 +1,30 @@
+{
+  "type": "portalgun:boulder",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:sakura_mossy_slate"
+          },
+          "weight": 3
+        },
+        {
+          "data": {
+            "Name": "portalgun:sakura_slate"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 1,
+      "max_inclusive": 2
+    },
+    "hollow": false,
+    "squash": 0.7,
+    "floating": false
+  }
+}

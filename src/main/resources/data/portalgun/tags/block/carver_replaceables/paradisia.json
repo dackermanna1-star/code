@@ -1,0 +1,33 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "minecraft:tuff",
+      "required": false
+    },
+    {
+      "id": "portalgun:paradisia_jungle_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:paradisia_limestone",
+      "required": false
+    },
+    {
+      "id": "portalgun:paradisia_loam",
+      "required": false
+    },
+    {
+      "id": "portalgun:paradisia_pink_sand",
+      "required": false
+    },
+    {
+      "id": "portalgun:paradisia_white_sand",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

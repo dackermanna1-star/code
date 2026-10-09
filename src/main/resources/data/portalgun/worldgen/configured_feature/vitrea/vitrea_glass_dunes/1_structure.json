@@ -1,0 +1,19 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "ribcage",
+    "blocks": {
+      "bone": {
+        "Name": "minecraft:bone_block"
+      },
+      "spine": {
+        "Name": "portalgun:vitrea_sandstone"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 10,
+      "max_inclusive": 15
+    }
+  }
+}

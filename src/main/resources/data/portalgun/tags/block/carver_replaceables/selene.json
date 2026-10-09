@@ -1,0 +1,21 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:selene_anorthosite",
+      "required": false
+    },
+    {
+      "id": "portalgun:selene_mare_basalt",
+      "required": false
+    },
+    {
+      "id": "portalgun:selene_regolith",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:snackrealm",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:snackrealm",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:snack_breadloaf_hills",
+          "parameters": {
+            "temperature": 0.0,
+            "humidity": 0.0,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:snack_broccoli_grove",
+          "parameters": {
+            "temperature": -0.5,
+            "humidity": 0.55,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:snack_pepperoni_plains",
+          "parameters": {
+            "temperature": 0.6,
+            "humidity": -0.5,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:snack_soda_springs",
+          "parameters": {
+            "temperature": 0.3,
+            "humidity": 0.8,
+            "continentalness": -0.5,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

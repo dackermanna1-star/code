@@ -1,0 +1,36 @@
+{
+  "type": "portalgun:boulder",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:shattered_voidstone"
+          },
+          "weight": 5
+        },
+        {
+          "data": {
+            "Name": "portalgun:shattered_rift_obsidian"
+          },
+          "weight": 2
+        },
+        {
+          "data": {
+            "Name": "portalgun:shattered_ruin_bricks"
+          },
+          "weight": 2
+        }
+      ]
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "hollow": false,
+    "squash": 0.8,
+    "floating": true
+  }
+}

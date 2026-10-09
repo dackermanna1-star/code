@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:glacior",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:glacior",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:glacior_glacier_fields",
+          "parameters": {
+            "temperature": -0.2,
+            "humidity": -0.2,
+            "continentalness": 0.2,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:glacior_frostpine_taiga",
+          "parameters": {
+            "temperature": 0.5,
+            "humidity": 0.6,
+            "continentalness": -0.1,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:glacior_frozen_sea",
+          "parameters": {
+            "temperature": 0.0,
+            "humidity": 0.2,
+            "continentalness": -0.9,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:glacior_aurora_peaks",
+          "parameters": {
+            "temperature": -0.7,
+            "humidity": 0.4,
+            "continentalness": 0.9,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

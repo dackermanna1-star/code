@@ -1,0 +1,68 @@
+{
+  "has_fixed_time": true,
+  "has_skylight": true,
+  "has_ceiling": false,
+  "coordinate_scale": 1.0,
+  "min_y": -64,
+  "height": 384,
+  "logical_height": 384,
+  "infiniburn": "#minecraft:infiniburn_overworld",
+  "ambient_light": 0.2,
+  "monster_spawn_light_level": {
+    "type": "minecraft:uniform",
+    "min_inclusive": 0,
+    "max_inclusive": 7
+  },
+  "monster_spawn_block_light_limit": 0,
+  "skybox": "overworld",
+  "cardinal_light": "default",
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.jungle_night"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.meadow",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.meadow",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:gameplay/bed_rule": {
+      "can_set_spawn": "always",
+      "explodes": false,
+      "can_sleep": "never",
+      "error_message": {
+        "translate": "message.portalgun.bed.time_frozen"
+      }
+    },
+    "minecraft:gameplay/can_start_raid": false,
+    "minecraft:gameplay/nether_portal_spawns_piglin": false,
+    "minecraft:gameplay/respawn_anchor_works": false,
+    "minecraft:visual/cloud_color": "#80b090e0",
+    "minecraft:visual/cloud_fog_end_distance": 425.0,
+    "minecraft:visual/cloud_height": 200.0,
+    "minecraft:visual/fog_color": "#5a4a9e",
+    "minecraft:visual/fog_end_distance": 170.0,
+    "minecraft:visual/fog_start_distance": 30.0,
+    "minecraft:visual/sky_color": "#3c4cb8",
+    "minecraft:visual/sky_fog_end_distance": 255.0,
+    "minecraft:visual/sky_light_color": "#b0b8ff",
+    "minecraft:visual/star_brightness": 0.85,
+    "minecraft:visual/water_fog_color": "#1a2a5a"
+  },
+  "timelines": [
+    "portalgun:eventide",
+    "minecraft:villager_schedule"
+  ]
+}

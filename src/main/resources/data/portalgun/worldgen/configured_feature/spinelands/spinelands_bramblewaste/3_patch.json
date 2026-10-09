@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:multiface_growth",
+  "config": {
+    "block": "portalgun:spinelands_thorn_vine",
+    "search_range": 20,
+    "chance_of_spreading": 0.5,
+    "can_place_on_floor": true,
+    "can_place_on_ceiling": true,
+    "can_place_on_wall": true,
+    "can_be_placed_on": [
+      "portalgun:spinelands_barbgrass",
+      "portalgun:spinelands_quill_block",
+      "portalgun:spinelands_quill_gravel",
+      "portalgun:spinelands_soil",
+      "portalgun:spinelands_thornstone"
+    ]
+  }
+}

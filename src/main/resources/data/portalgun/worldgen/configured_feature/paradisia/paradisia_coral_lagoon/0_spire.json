@@ -1,0 +1,40 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:paradisia_limestone"
+          },
+          "weight": 6
+        },
+        {
+          "data": {
+            "Name": "minecraft:mossy_cobblestone"
+          },
+          "weight": 1
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 22,
+      "max_inclusive": 40
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 6
+    },
+    "lean": 0.1,
+    "hanging": false,
+    "cap": {
+      "Name": "portalgun:paradisia_palm_fronds",
+      "Properties": {
+        "persistent": "true"
+      }
+    }
+  }
+}

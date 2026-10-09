@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "ribcage",
+    "blocks": {
+      "bone": {
+        "Name": "portalgun:scrapheap_girder"
+      },
+      "spine": {
+        "Name": "portalgun:scrapheap_scrap_plate"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 10,
+      "max_inclusive": 14
+    },
+    "params": {
+      "skull": 0.0,
+      "height": 1.2
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:mesa_rift"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:mesa_rift_turquoise"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.mesa_rift.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.mesa_rift.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

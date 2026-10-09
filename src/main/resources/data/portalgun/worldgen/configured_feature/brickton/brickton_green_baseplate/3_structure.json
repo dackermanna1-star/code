@@ -1,0 +1,22 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "cuboids",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:brickton_red_brick"
+      },
+      "alt": {
+        "Name": "portalgun:brickton_white_brick"
+      },
+      "trim": {
+        "Name": "portalgun:brickton_yellow_brick"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 8
+    }
+  }
+}

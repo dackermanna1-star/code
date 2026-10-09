@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "portalgun:item/static_slug_spawn_egg"
+  }
+}

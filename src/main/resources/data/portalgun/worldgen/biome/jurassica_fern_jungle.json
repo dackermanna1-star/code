@@ -1,0 +1,121 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.jungle_night"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.jungle",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.jungle",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 13164656,
+          "scale": 0.6
+        },
+        "probability": 0.002
+      },
+      {
+        "particle": {
+          "type": "minecraft:falling_spore_blossom"
+        },
+        "probability": 0.0008
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#1e3a24"
+  },
+  "carvers": [
+    "portalgun:jurassica_cave",
+    "portalgun:jurassica_canyon"
+  ],
+  "downfall": 0.7,
+  "effects": {
+    "water_color": "#3a7a5a",
+    "grass_color": "#3a6a22",
+    "foliage_color": "#2e6a1e",
+    "dry_foliage_color": "#2e6a1e"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:jurassica/jurassica_fern_jungle/8_structure"
+    ],
+    [],
+    [
+      "portalgun:jurassica/ore_coal",
+      "portalgun:jurassica/ore_iron",
+      "portalgun:jurassica/ore_copper",
+      "portalgun:jurassica/ore_gold",
+      "portalgun:jurassica/ore_redstone",
+      "portalgun:jurassica/ore_lapis",
+      "portalgun:jurassica/ore_diamond",
+      "portalgun:jurassica/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:jurassica/spring"
+    ],
+    [
+      "portalgun:jurassica/jurassica_fern_jungle/0_tree",
+      "portalgun:jurassica/jurassica_fern_jungle/1_tree",
+      "portalgun:jurassica/jurassica_fern_jungle/2_giantplant",
+      "portalgun:jurassica/jurassica_fern_jungle/3_giantplant",
+      "portalgun:jurassica/jurassica_fern_jungle/4_patch",
+      "portalgun:jurassica/jurassica_fern_jungle/5_patch",
+      "portalgun:jurassica/jurassica_fern_jungle/6_patch",
+      "portalgun:jurassica/jurassica_fern_jungle/7_patch"
+    ],
+    []
+  ],
+  "has_precipitation": true,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:raptor",
+        "weight": 6,
+        "minCount": 2,
+        "maxCount": 3
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:brontoback",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:pterodon",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.9500000000000001
+}

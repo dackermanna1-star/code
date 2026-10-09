@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:lumina"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:lumina_lumen_fruit"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.lumina.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.lumina.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

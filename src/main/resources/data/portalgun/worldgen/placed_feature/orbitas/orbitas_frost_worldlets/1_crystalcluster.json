@@ -1,0 +1,16 @@
+{
+  "feature": "portalgun:orbitas/orbitas_frost_worldlets/1_crystalcluster",
+  "placement": [
+    {
+      "type": "minecraft:rarity_filter",
+      "chance": 3
+    },
+    {
+      "type": "minecraft:count_on_every_layer",
+      "count": 1
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

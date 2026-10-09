@@ -1,0 +1,118 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.wind_howl"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.nether.soul_sand_valley",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.nether.soul_sand_valley",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.01
+      },
+      {
+        "particle": {
+          "type": "minecraft:soul"
+        },
+        "probability": 0.0006
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#0a2028"
+  },
+  "carvers": [
+    "portalgun:spectral_vale_cave",
+    "portalgun:spectral_vale_canyon"
+  ],
+  "downfall": 0.42,
+  "effects": {
+    "water_color": "#2a4a58",
+    "grass_color": "#445448",
+    "foliage_color": "#5a4e3c",
+    "dry_foliage_color": "#5a4e3c"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:spectral_vale/spectral_barrow_moor/5_boulder"
+    ],
+    [],
+    [
+      "portalgun:spectral_vale/spectral_barrow_moor/4_structure"
+    ],
+    [],
+    [
+      "portalgun:spectral_vale/ore_coal",
+      "portalgun:spectral_vale/ore_iron",
+      "portalgun:spectral_vale/ore_copper",
+      "portalgun:spectral_vale/ore_gold",
+      "portalgun:spectral_vale/ore_redstone",
+      "portalgun:spectral_vale/ore_lapis",
+      "portalgun:spectral_vale/ore_diamond",
+      "portalgun:spectral_vale/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:spectral_vale/spring"
+    ],
+    [
+      "portalgun:spectral_vale/spectral_barrow_moor/0_patch",
+      "portalgun:spectral_vale/spectral_barrow_moor/1_patch",
+      "portalgun:spectral_vale/spectral_barrow_moor/2_patch",
+      "portalgun:spectral_vale/spectral_barrow_moor/3_tree",
+      "portalgun:spectral_vale/spectral_barrow_moor/6_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:bone_hound",
+        "weight": 6,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:wraith",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [],
+    "ambient": [
+      {
+        "type": "portalgun:will_o_wisp",
+        "weight": 10,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

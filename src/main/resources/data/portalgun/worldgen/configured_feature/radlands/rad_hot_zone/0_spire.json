@@ -1,0 +1,37 @@
+{
+  "type": "portalgun:spire",
+  "config": {
+    "blocks": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "portalgun:rad_stone"
+          },
+          "weight": 4
+        },
+        {
+          "data": {
+            "Name": "portalgun:rad_glowrock"
+          },
+          "weight": 2
+        }
+      ]
+    },
+    "height": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 10,
+      "max_inclusive": 24
+    },
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "lean": 0.3,
+    "hanging": false,
+    "tip": {
+      "Name": "portalgun:rad_glowrock"
+    }
+  }
+}

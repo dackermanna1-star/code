@@ -2,6 +2,78 @@
   "replace": false,
   "values": [
     {
+      "id": "portalgun:brickton_brick_pile",
+      "required": false
+    },
+    {
+      "id": "portalgun:cronen_pustule",
+      "required": false
+    },
+    {
+      "id": "portalgun:gearhaven_boiler_plate",
+      "required": false
+    },
+    {
+      "id": "portalgun:glitch_error_panel",
+      "required": false
+    },
+    {
+      "id": "portalgun:jurassica_magma_crust",
+      "required": false
+    },
+    {
+      "id": "portalgun:micro_lysosome",
+      "required": false
+    },
+    {
+      "id": "portalgun:orbitas_magma_crust",
+      "required": false
+    },
+    {
+      "id": "portalgun:prismara_shard_floor",
+      "required": false
+    },
+    {
+      "id": "portalgun:pyroclast_magma_crust",
+      "required": false
+    },
+    {
+      "id": "portalgun:rad_glowrock",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_dry_ice",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_thorn_mass",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_bramble",
+      "required": false
+    },
+    {
+      "id": "portalgun:spinelands_thorn_vine",
+      "required": false
+    },
+    {
+      "id": "portalgun:tempest_static_field",
+      "required": false
+    },
+    {
+      "id": "portalgun:thermalia_scalding_mud",
+      "required": false
+    },
+    {
+      "id": "portalgun:umbra_void_tar",
+      "required": false
+    },
+    {
+      "id": "portalgun:white_room_static_rift",
+      "required": false
+    },
+    {
       "id": "minecraft:magma_block",
       "required": false
     }

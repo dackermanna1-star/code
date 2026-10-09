@@ -1,0 +1,25 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:gloop_jelly",
+      "required": false
+    },
+    {
+      "id": "portalgun:gloop_jellysoil",
+      "required": false
+    },
+    {
+      "id": "portalgun:gloop_turf",
+      "required": false
+    },
+    {
+      "id": "portalgun:gloopstone",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

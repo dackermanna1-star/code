@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "ring",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:sketchbook_graphite"
+      },
+      "alt": {
+        "Name": "portalgun:sketchbook_graphite"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 5,
+      "max_inclusive": 8
+    },
+    "params": {
+      "sink": 0.45,
+      "thickness": 0.12
+    }
+  }
+}

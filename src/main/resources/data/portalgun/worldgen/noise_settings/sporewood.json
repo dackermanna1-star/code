@@ -49,7 +49,7 @@
       "argument1": {
         "type": "minecraft:shifted_noise",
         "noise": "portalgun:sporewood/temperature",
-        "xz_scale": 1.25,
+        "xz_scale": 1.3333333333333333,
         "y_scale": 0.0,
         "shift_x": "minecraft:shift_x",
         "shift_y": 0.0,
@@ -62,7 +62,7 @@
       "argument1": {
         "type": "minecraft:shifted_noise",
         "noise": "portalgun:sporewood/humidity",
-        "xz_scale": 1.25,
+        "xz_scale": 1.3333333333333333,
         "y_scale": 0.0,
         "shift_x": "minecraft:shift_x",
         "shift_y": 0.0,
@@ -96,12 +96,12 @@
                           "argument1": {
                             "type": "minecraft:noise",
                             "noise": "portalgun:sporewood/hills",
-                            "xz_scale": 1.0,
+                            "xz_scale": 0.8333333333333334,
                             "y_scale": 0.0
                           },
                           "argument2": 2.0
                         },
-                        "argument2": 12.6
+                        "argument2": 14.0
                       }
                     },
                     "argument2": {
@@ -111,12 +111,12 @@
                         "argument1": {
                           "type": "minecraft:noise",
                           "noise": "portalgun:sporewood/base",
-                          "xz_scale": 1.0,
+                          "xz_scale": 0.8333333333333334,
                           "y_scale": 0.0
                         },
                         "argument2": 2.0
                       },
-                      "argument2": 9.0
+                      "argument2": 10.0
                     }
                   },
                   "argument2": {
@@ -126,12 +126,12 @@
                       "argument1": {
                         "type": "minecraft:noise",
                         "noise": "portalgun:sporewood/detail",
-                        "xz_scale": 1.0,
+                        "xz_scale": 0.8333333333333334,
                         "y_scale": 0.0
                       },
                       "argument2": 2.0
                     },
-                    "argument2": 1.6199999999999999
+                    "argument2": 2.1
                   }
                 },
                 "argument2": {
@@ -150,12 +150,12 @@
                             "argument1": {
                               "type": "minecraft:noise",
                               "noise": "portalgun:sporewood/hills",
-                              "xz_scale": 1.0,
+                              "xz_scale": 0.8333333333333334,
                               "y_scale": 0.0
                             },
                             "argument2": 2.0
                           },
-                          "argument2": 12.6
+                          "argument2": 14.0
                         }
                       },
                       "argument2": {
@@ -165,12 +165,12 @@
                           "argument1": {
                             "type": "minecraft:noise",
                             "noise": "portalgun:sporewood/base",
-                            "xz_scale": 1.0,
+                            "xz_scale": 0.8333333333333334,
                             "y_scale": 0.0
                           },
                           "argument2": 2.0
                         },
-                        "argument2": 9.0
+                        "argument2": 10.0
                       }
                     },
                     "argument2": {
@@ -180,12 +180,12 @@
                         "argument1": {
                           "type": "minecraft:noise",
                           "noise": "portalgun:sporewood/detail",
-                          "xz_scale": 1.0,
+                          "xz_scale": 0.8333333333333334,
                           "y_scale": 0.0
                         },
                         "argument2": 2.0
                       },
-                      "argument2": 1.6199999999999999
+                      "argument2": 2.1
                     }
                   },
                   "argument2": {
@@ -200,7 +200,7 @@
                             "argument1": {
                               "type": "minecraft:noise",
                               "noise": "portalgun:sporewood/river",
-                              "xz_scale": 0.9,
+                              "xz_scale": 0.75,
                               "y_scale": 0.0
                             },
                             "argument2": 2.0
@@ -213,12 +213,12 @@
                             "derivative": 0.0
                           },
                           {
-                            "location": 0.035750000000000004,
+                            "location": 0.031900000000000005,
                             "value": 1.0,
                             "derivative": 0.0
                           },
                           {
-                            "location": 0.156,
+                            "location": 0.1392,
                             "value": 0.0,
                             "derivative": 0.0
                           }
@@ -244,12 +244,12 @@
                                   "argument1": {
                                     "type": "minecraft:noise",
                                     "noise": "portalgun:sporewood/hills",
-                                    "xz_scale": 1.0,
+                                    "xz_scale": 0.8333333333333334,
                                     "y_scale": 0.0
                                   },
                                   "argument2": 2.0
                                 },
-                                "argument2": 12.6
+                                "argument2": 14.0
                               }
                             },
                             "argument2": {
@@ -259,12 +259,12 @@
                                 "argument1": {
                                   "type": "minecraft:noise",
                                   "noise": "portalgun:sporewood/base",
-                                  "xz_scale": 1.0,
+                                  "xz_scale": 0.8333333333333334,
                                   "y_scale": 0.0
                                 },
                                 "argument2": 2.0
                               },
-                              "argument2": 9.0
+                              "argument2": 10.0
                             }
                           },
                           "argument2": {
@@ -274,12 +274,12 @@
                               "argument1": {
                                 "type": "minecraft:noise",
                                 "noise": "portalgun:sporewood/detail",
-                                "xz_scale": 1.0,
+                                "xz_scale": 0.8333333333333334,
                                 "y_scale": 0.0
                               },
                               "argument2": 2.0
                             },
-                            "argument2": 1.6199999999999999
+                            "argument2": 2.1
                           }
                         },
                         "argument2": -1.0
@@ -292,7 +292,7 @@
           },
           "argument2": -74.0
         },
-        "argument2": 0.0390625
+        "argument2": 0.03571428571428571
       },
       "min": -1.0,
       "max": 1.0
@@ -320,12 +320,12 @@
                     "argument1": {
                       "type": "minecraft:noise",
                       "noise": "portalgun:sporewood/hills",
-                      "xz_scale": 1.0,
+                      "xz_scale": 0.8333333333333334,
                       "y_scale": 0.0
                     },
                     "argument2": 2.0
                   },
-                  "argument2": 12.6
+                  "argument2": 14.0
                 }
               },
               "argument2": {
@@ -335,12 +335,12 @@
                   "argument1": {
                     "type": "minecraft:noise",
                     "noise": "portalgun:sporewood/base",
-                    "xz_scale": 1.0,
+                    "xz_scale": 0.8333333333333334,
                     "y_scale": 0.0
                   },
                   "argument2": 2.0
                 },
-                "argument2": 9.0
+                "argument2": 10.0
               }
             },
             "argument2": {
@@ -350,12 +350,12 @@
                 "argument1": {
                   "type": "minecraft:noise",
                   "noise": "portalgun:sporewood/detail",
-                  "xz_scale": 1.0,
+                  "xz_scale": 0.8333333333333334,
                   "y_scale": 0.0
                 },
                 "argument2": 2.0
               },
-              "argument2": 1.6199999999999999
+              "argument2": 2.1
             }
           },
           "argument2": {
@@ -374,12 +374,12 @@
                       "argument1": {
                         "type": "minecraft:noise",
                         "noise": "portalgun:sporewood/hills",
-                        "xz_scale": 1.0,
+                        "xz_scale": 0.8333333333333334,
                         "y_scale": 0.0
                       },
                       "argument2": 2.0
                     },
-                    "argument2": 12.6
+                    "argument2": 14.0
                   }
                 },
                 "argument2": {
@@ -389,12 +389,12 @@
                     "argument1": {
                       "type": "minecraft:noise",
                       "noise": "portalgun:sporewood/base",
-                      "xz_scale": 1.0,
+                      "xz_scale": 0.8333333333333334,
                       "y_scale": 0.0
                     },
                     "argument2": 2.0
                   },
-                  "argument2": 9.0
+                  "argument2": 10.0
                 }
               },
               "argument2": {
@@ -404,12 +404,12 @@
                   "argument1": {
                     "type": "minecraft:noise",
                     "noise": "portalgun:sporewood/detail",
-                    "xz_scale": 1.0,
+                    "xz_scale": 0.8333333333333334,
                     "y_scale": 0.0
                   },
                   "argument2": 2.0
                 },
-                "argument2": 1.6199999999999999
+                "argument2": 2.1
               }
             },
             "argument2": {
@@ -424,7 +424,7 @@
                       "argument1": {
                         "type": "minecraft:noise",
                         "noise": "portalgun:sporewood/river",
-                        "xz_scale": 0.9,
+                        "xz_scale": 0.75,
                         "y_scale": 0.0
                       },
                       "argument2": 2.0
@@ -437,12 +437,12 @@
                       "derivative": 0.0
                     },
                     {
-                      "location": 0.035750000000000004,
+                      "location": 0.031900000000000005,
                       "value": 1.0,
                       "derivative": 0.0
                     },
                     {
-                      "location": 0.156,
+                      "location": 0.1392,
                       "value": 0.0,
                       "derivative": 0.0
                     }
@@ -468,12 +468,12 @@
                             "argument1": {
                               "type": "minecraft:noise",
                               "noise": "portalgun:sporewood/hills",
-                              "xz_scale": 1.0,
+                              "xz_scale": 0.8333333333333334,
                               "y_scale": 0.0
                             },
                             "argument2": 2.0
                           },
-                          "argument2": 12.6
+                          "argument2": 14.0
                         }
                       },
                       "argument2": {
@@ -483,12 +483,12 @@
                           "argument1": {
                             "type": "minecraft:noise",
                             "noise": "portalgun:sporewood/base",
-                            "xz_scale": 1.0,
+                            "xz_scale": 0.8333333333333334,
                             "y_scale": 0.0
                           },
                           "argument2": 2.0
                         },
-                        "argument2": 9.0
+                        "argument2": 10.0
                       }
                     },
                     "argument2": {
@@ -498,12 +498,12 @@
                         "argument1": {
                           "type": "minecraft:noise",
                           "noise": "portalgun:sporewood/detail",
-                          "xz_scale": 1.0,
+                          "xz_scale": 0.8333333333333334,
                           "y_scale": 0.0
                         },
                         "argument2": 2.0
                       },
-                      "argument2": 1.6199999999999999
+                      "argument2": 2.1
                     }
                   },
                   "argument2": -1.0
@@ -548,12 +548,12 @@
                                   "argument1": {
                                     "type": "minecraft:noise",
                                     "noise": "portalgun:sporewood/hills",
-                                    "xz_scale": 1.0,
+                                    "xz_scale": 0.8333333333333334,
                                     "y_scale": 0.0
                                   },
                                   "argument2": 2.0
                                 },
-                                "argument2": 12.6
+                                "argument2": 14.0
                               }
                             },
                             "argument2": {
@@ -563,12 +563,12 @@
                                 "argument1": {
                                   "type": "minecraft:noise",
                                   "noise": "portalgun:sporewood/base",
-                                  "xz_scale": 1.0,
+                                  "xz_scale": 0.8333333333333334,
                                   "y_scale": 0.0
                                 },
                                 "argument2": 2.0
                               },
-                              "argument2": 9.0
+                              "argument2": 10.0
                             }
                           },
                           "argument2": {
@@ -578,12 +578,12 @@
                               "argument1": {
                                 "type": "minecraft:noise",
                                 "noise": "portalgun:sporewood/detail",
-                                "xz_scale": 1.0,
+                                "xz_scale": 0.8333333333333334,
                                 "y_scale": 0.0
                               },
                               "argument2": 2.0
                             },
-                            "argument2": 1.6199999999999999
+                            "argument2": 2.1
                           }
                         },
                         "argument2": {
@@ -602,12 +602,12 @@
                                     "argument1": {
                                       "type": "minecraft:noise",
                                       "noise": "portalgun:sporewood/hills",
-                                      "xz_scale": 1.0,
+                                      "xz_scale": 0.8333333333333334,
                                       "y_scale": 0.0
                                     },
                                     "argument2": 2.0
                                   },
-                                  "argument2": 12.6
+                                  "argument2": 14.0
                                 }
                               },
                               "argument2": {
@@ -617,12 +617,12 @@
                                   "argument1": {
                                     "type": "minecraft:noise",
                                     "noise": "portalgun:sporewood/base",
-                                    "xz_scale": 1.0,
+                                    "xz_scale": 0.8333333333333334,
                                     "y_scale": 0.0
                                   },
                                   "argument2": 2.0
                                 },
-                                "argument2": 9.0
+                                "argument2": 10.0
                               }
                             },
                             "argument2": {
@@ -632,12 +632,12 @@
                                 "argument1": {
                                   "type": "minecraft:noise",
                                   "noise": "portalgun:sporewood/detail",
-                                  "xz_scale": 1.0,
+                                  "xz_scale": 0.8333333333333334,
                                   "y_scale": 0.0
                                 },
                                 "argument2": 2.0
                               },
-                              "argument2": 1.6199999999999999
+                              "argument2": 2.1
                             }
                           },
                           "argument2": {
@@ -652,7 +652,7 @@
                                     "argument1": {
                                       "type": "minecraft:noise",
                                       "noise": "portalgun:sporewood/river",
-                                      "xz_scale": 0.9,
+                                      "xz_scale": 0.75,
                                       "y_scale": 0.0
                                     },
                                     "argument2": 2.0
@@ -665,12 +665,12 @@
                                     "derivative": 0.0
                                   },
                                   {
-                                    "location": 0.035750000000000004,
+                                    "location": 0.031900000000000005,
                                     "value": 1.0,
                                     "derivative": 0.0
                                   },
                                   {
-                                    "location": 0.156,
+                                    "location": 0.1392,
                                     "value": 0.0,
                                     "derivative": 0.0
                                   }
@@ -696,12 +696,12 @@
                                           "argument1": {
                                             "type": "minecraft:noise",
                                             "noise": "portalgun:sporewood/hills",
-                                            "xz_scale": 1.0,
+                                            "xz_scale": 0.8333333333333334,
                                             "y_scale": 0.0
                                           },
                                           "argument2": 2.0
                                         },
-                                        "argument2": 12.6
+                                        "argument2": 14.0
                                       }
                                     },
                                     "argument2": {
@@ -711,12 +711,12 @@
                                         "argument1": {
                                           "type": "minecraft:noise",
                                           "noise": "portalgun:sporewood/base",
-                                          "xz_scale": 1.0,
+                                          "xz_scale": 0.8333333333333334,
                                           "y_scale": 0.0
                                         },
                                         "argument2": 2.0
                                       },
-                                      "argument2": 9.0
+                                      "argument2": 10.0
                                     }
                                   },
                                   "argument2": {
@@ -726,12 +726,12 @@
                                       "argument1": {
                                         "type": "minecraft:noise",
                                         "noise": "portalgun:sporewood/detail",
-                                        "xz_scale": 1.0,
+                                        "xz_scale": 0.8333333333333334,
                                         "y_scale": 0.0
                                       },
                                       "argument2": 2.0
                                     },
-                                    "argument2": 1.6199999999999999
+                                    "argument2": 2.1
                                   }
                                 },
                                 "argument2": -1.0
@@ -755,12 +755,12 @@
                     "argument1": {
                       "type": "minecraft:noise",
                       "noise": "portalgun:sporewood/rough",
-                      "xz_scale": 1.0,
+                      "xz_scale": 0.8333333333333334,
                       "y_scale": 0.7
                     },
                     "argument2": 2.0
                   },
-                  "argument2": 5.6
+                  "argument2": 6.0
                 }
               },
               "argument2": {
@@ -780,7 +780,7 @@
                             "argument": {
                               "type": "minecraft:noise",
                               "noise": "portalgun:sporewood/cave_a",
-                              "xz_scale": 1.0,
+                              "xz_scale": 0.8333333333333334,
                               "y_scale": 1.0
                             }
                           },
@@ -789,7 +789,7 @@
                             "argument": {
                               "type": "minecraft:noise",
                               "noise": "portalgun:sporewood/cave_b",
-                              "xz_scale": 1.0,
+                              "xz_scale": 0.8333333333333334,
                               "y_scale": 1.0
                             }
                           }
@@ -808,7 +808,7 @@
                           "argument1": {
                             "type": "minecraft:noise",
                             "noise": "portalgun:sporewood/cave_cheese",
-                            "xz_scale": 1.0,
+                            "xz_scale": 0.8333333333333334,
                             "y_scale": 1.5
                           },
                           "argument2": -1.0
@@ -846,12 +846,12 @@
                                           "argument1": {
                                             "type": "minecraft:noise",
                                             "noise": "portalgun:sporewood/hills",
-                                            "xz_scale": 1.0,
+                                            "xz_scale": 0.8333333333333334,
                                             "y_scale": 0.0
                                           },
                                           "argument2": 2.0
                                         },
-                                        "argument2": 12.6
+                                        "argument2": 14.0
                                       }
                                     },
                                     "argument2": {
@@ -861,12 +861,12 @@
                                         "argument1": {
                                           "type": "minecraft:noise",
                                           "noise": "portalgun:sporewood/base",
-                                          "xz_scale": 1.0,
+                                          "xz_scale": 0.8333333333333334,
                                           "y_scale": 0.0
                                         },
                                         "argument2": 2.0
                                       },
-                                      "argument2": 9.0
+                                      "argument2": 10.0
                                     }
                                   },
                                   "argument2": {
@@ -876,12 +876,12 @@
                                       "argument1": {
                                         "type": "minecraft:noise",
                                         "noise": "portalgun:sporewood/detail",
-                                        "xz_scale": 1.0,
+                                        "xz_scale": 0.8333333333333334,
                                         "y_scale": 0.0
                                       },
                                       "argument2": 2.0
                                     },
-                                    "argument2": 1.6199999999999999
+                                    "argument2": 2.1
                                   }
                                 },
                                 "argument2": {
@@ -900,12 +900,12 @@
                                             "argument1": {
                                               "type": "minecraft:noise",
                                               "noise": "portalgun:sporewood/hills",
-                                              "xz_scale": 1.0,
+                                              "xz_scale": 0.8333333333333334,
                                               "y_scale": 0.0
                                             },
                                             "argument2": 2.0
                                           },
-                                          "argument2": 12.6
+                                          "argument2": 14.0
                                         }
                                       },
                                       "argument2": {
@@ -915,12 +915,12 @@
                                           "argument1": {
                                             "type": "minecraft:noise",
                                             "noise": "portalgun:sporewood/base",
-                                            "xz_scale": 1.0,
+                                            "xz_scale": 0.8333333333333334,
                                             "y_scale": 0.0
                                           },
                                           "argument2": 2.0
                                         },
-                                        "argument2": 9.0
+                                        "argument2": 10.0
                                       }
                                     },
                                     "argument2": {
@@ -930,12 +930,12 @@
                                         "argument1": {
                                           "type": "minecraft:noise",
                                           "noise": "portalgun:sporewood/detail",
-                                          "xz_scale": 1.0,
+                                          "xz_scale": 0.8333333333333334,
                                           "y_scale": 0.0
                                         },
                                         "argument2": 2.0
                                       },
-                                      "argument2": 1.6199999999999999
+                                      "argument2": 2.1
                                     }
                                   },
                                   "argument2": {
@@ -950,7 +950,7 @@
                                             "argument1": {
                                               "type": "minecraft:noise",
                                               "noise": "portalgun:sporewood/river",
-                                              "xz_scale": 0.9,
+                                              "xz_scale": 0.75,
                                               "y_scale": 0.0
                                             },
                                             "argument2": 2.0
@@ -963,12 +963,12 @@
                                             "derivative": 0.0
                                           },
                                           {
-                                            "location": 0.035750000000000004,
+                                            "location": 0.031900000000000005,
                                             "value": 1.0,
                                             "derivative": 0.0
                                           },
                                           {
-                                            "location": 0.156,
+                                            "location": 0.1392,
                                             "value": 0.0,
                                             "derivative": 0.0
                                           }
@@ -994,12 +994,12 @@
                                                   "argument1": {
                                                     "type": "minecraft:noise",
                                                     "noise": "portalgun:sporewood/hills",
-                                                    "xz_scale": 1.0,
+                                                    "xz_scale": 0.8333333333333334,
                                                     "y_scale": 0.0
                                                   },
                                                   "argument2": 2.0
                                                 },
-                                                "argument2": 12.6
+                                                "argument2": 14.0
                                               }
                                             },
                                             "argument2": {
@@ -1009,12 +1009,12 @@
                                                 "argument1": {
                                                   "type": "minecraft:noise",
                                                   "noise": "portalgun:sporewood/base",
-                                                  "xz_scale": 1.0,
+                                                  "xz_scale": 0.8333333333333334,
                                                   "y_scale": 0.0
                                                 },
                                                 "argument2": 2.0
                                               },
-                                              "argument2": 9.0
+                                              "argument2": 10.0
                                             }
                                           },
                                           "argument2": {
@@ -1024,12 +1024,12 @@
                                               "argument1": {
                                                 "type": "minecraft:noise",
                                                 "noise": "portalgun:sporewood/detail",
-                                                "xz_scale": 1.0,
+                                                "xz_scale": 0.8333333333333334,
                                                 "y_scale": 0.0
                                               },
                                               "argument2": 2.0
                                             },
-                                            "argument2": 1.6199999999999999
+                                            "argument2": 2.1
                                           }
                                         },
                                         "argument2": -1.0
@@ -1343,6 +1343,123 @@
                       "type": "minecraft:block",
                       "result_state": {
                         "Name": "portalgun:spore_soil"
+                      }
+                    }
+                  },
+                  {
+                    "type": "minecraft:block",
+                    "result_state": {
+                      "Name": "portalgun:spore_soil"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:stone_depth",
+                "offset": 0,
+                "add_surface_depth": true,
+                "secondary_depth_range": 0,
+                "surface_type": "floor"
+              },
+              "then_run": {
+                "type": "minecraft:sequence",
+                "sequence": [
+                  {
+                    "type": "minecraft:condition",
+                    "if_true": {
+                      "type": "minecraft:water",
+                      "offset": -1,
+                      "surface_depth_multiplier": 0,
+                      "add_stone_depth": false
+                    },
+                    "then_run": {
+                      "type": "minecraft:block",
+                      "result_state": {
+                        "Name": "portalgun:spore_soil"
+                      }
+                    }
+                  },
+                  {
+                    "type": "minecraft:block",
+                    "result_state": {
+                      "Name": "portalgun:spore_soil"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:stone_depth",
+                "offset": 0,
+                "add_surface_depth": false,
+                "secondary_depth_range": 0,
+                "surface_type": "ceiling"
+              },
+              "then_run": {
+                "type": "minecraft:block",
+                "result_state": {
+                  "Name": "portalgun:spore_soil"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:biome",
+          "biome_is": [
+            "portalgun:sporewood_fen"
+          ]
+        },
+        "then_run": {
+          "type": "minecraft:sequence",
+          "sequence": [
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:stone_depth",
+                "offset": 0,
+                "add_surface_depth": false,
+                "secondary_depth_range": 0,
+                "surface_type": "floor"
+              },
+              "then_run": {
+                "type": "minecraft:sequence",
+                "sequence": [
+                  {
+                    "type": "minecraft:condition",
+                    "if_true": {
+                      "type": "minecraft:noise_threshold",
+                      "noise": "portalgun:sporewood/patch_0",
+                      "min_threshold": 0.5,
+                      "max_threshold": 10000000000.0
+                    },
+                    "then_run": {
+                      "type": "minecraft:block",
+                      "result_state": {
+                        "Name": "portalgun:spore_soil"
+                      }
+                    }
+                  },
+                  {
+                    "type": "minecraft:condition",
+                    "if_true": {
+                      "type": "minecraft:water",
+                      "offset": -1,
+                      "surface_depth_multiplier": 0,
+                      "add_stone_depth": false
+                    },
+                    "then_run": {
+                      "type": "minecraft:block",
+                      "result_state": {
+                        "Name": "portalgun:sporemoss"
                       }
                     }
                   },

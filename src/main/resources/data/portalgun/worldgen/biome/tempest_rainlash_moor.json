@@ -1,0 +1,123 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.wind_howl"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.old_growth_taiga",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.old_growth_taiga",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:ash"
+        },
+        "probability": 0.02
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 10465488,
+          "scale": 0.5
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/fog_color": "#2a3040",
+    "minecraft:visual/fog_end_distance": 90.0,
+    "minecraft:visual/fog_start_distance": 20.0,
+    "minecraft:visual/sky_fog_end_distance": 135.0,
+    "minecraft:visual/water_fog_color": "#0a1220"
+  },
+  "carvers": [
+    "portalgun:tempestus_cave",
+    "portalgun:tempestus_canyon"
+  ],
+  "downfall": 0.7,
+  "effects": {
+    "water_color": "#1a2a4a",
+    "grass_color": "#2e4448",
+    "foliage_color": "#26363e",
+    "dry_foliage_color": "#26363e"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:tempestus/tempest_rainlash_moor/4_boulder"
+    ],
+    [],
+    [
+      "portalgun:tempestus/tempest_rainlash_moor/3_spire",
+      "portalgun:tempestus/tempest_rainlash_moor/5_structure"
+    ],
+    [],
+    [
+      "portalgun:tempestus/ore_coal",
+      "portalgun:tempestus/ore_iron",
+      "portalgun:tempestus/ore_copper",
+      "portalgun:tempestus/ore_gold",
+      "portalgun:tempestus/ore_redstone",
+      "portalgun:tempestus/ore_lapis",
+      "portalgun:tempestus/ore_diamond",
+      "portalgun:tempestus/ore_emerald"
+    ],
+    [],
+    [
+      "portalgun:tempestus/spring"
+    ],
+    [
+      "portalgun:tempestus/tempest_rainlash_moor/0_patch",
+      "portalgun:tempestus/tempest_rainlash_moor/1_patch",
+      "portalgun:tempestus/tempest_rainlash_moor/2_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:storm_elemental",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:static_slug",
+        "weight": 8,
+        "minCount": 1,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:thunderbird",
+        "weight": 5,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.55
+}

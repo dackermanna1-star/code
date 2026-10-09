@@ -1,0 +1,25 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "minecraft:deepslate",
+      "required": false
+    },
+    {
+      "id": "portalgun:aviary_cliff_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:aviary_loam",
+      "required": false
+    },
+    {
+      "id": "portalgun:aviary_stratastone",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

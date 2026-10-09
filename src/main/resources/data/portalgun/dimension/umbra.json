@@ -1,0 +1,60 @@
+{
+  "type": "portalgun:umbra",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "portalgun:umbra",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
+        {
+          "biome": "portalgun:umbra_lumen_galleries",
+          "parameters": {
+            "temperature": 0.5,
+            "humidity": 0.4,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:umbra_black_hollows",
+          "parameters": {
+            "temperature": -0.5,
+            "humidity": -0.5,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:umbra_nightglass_reach",
+          "parameters": {
+            "temperature": 0.6,
+            "humidity": -0.6,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        },
+        {
+          "biome": "portalgun:umbra_inkwell_shores",
+          "parameters": {
+            "temperature": -0.6,
+            "humidity": 0.6,
+            "continentalness": 0.0,
+            "erosion": 0.0,
+            "depth": 0.0,
+            "weirdness": 0.0,
+            "offset": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

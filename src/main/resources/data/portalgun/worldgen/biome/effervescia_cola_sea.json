@@ -1,0 +1,87 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.bubbling"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.under_water",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.under_water",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:bubble_pop"
+        },
+        "probability": 0.01
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#3a1806"
+  },
+  "carvers": [],
+  "downfall": 0.5,
+  "effects": {
+    "water_color": "#6a3214"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:effervescia/effervescia_cola_sea/2_boulder",
+      "portalgun:effervescia/effervescia_cola_sea/3_boulder"
+    ],
+    [],
+    [
+      "portalgun:effervescia/effervescia_cola_sea/0_structure",
+      "portalgun:effervescia/effervescia_cola_sea/1_spire"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "minecraft:seagrass_normal"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:soap_jelly",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [
+      {
+        "type": "portalgun:cola_eel",
+        "weight": 8,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8500000000000001
+}

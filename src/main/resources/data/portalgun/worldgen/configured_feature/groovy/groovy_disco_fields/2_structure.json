@@ -1,0 +1,23 @@
+{
+  "type": "portalgun:structure",
+  "config": {
+    "kind": "ring",
+    "blocks": {
+      "main": {
+        "Name": "portalgun:groovy_lamp_glow"
+      },
+      "alt": {
+        "Name": "portalgun:groovy_mirror"
+      }
+    },
+    "size": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 7
+    },
+    "params": {
+      "thickness": 0.18,
+      "sink": 0.1
+    }
+  }
+}

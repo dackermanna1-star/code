@@ -1,0 +1,100 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.crystal_chimes"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.meadow",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.overworld.meadow",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:end_rod"
+        },
+        "probability": 0.0015
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#3b1c0c"
+  },
+  "carvers": [
+    "portalgun:froopyland_cave",
+    "portalgun:froopyland_canyon"
+  ],
+  "downfall": 0.8200000000000001,
+  "effects": {
+    "water_color": "#6e3a1c",
+    "grass_color": "#ffe6f0"
+  },
+  "features": [
+    [],
+    [],
+    [
+      "portalgun:froopyland/rock_candy_ridge/3_boulder"
+    ],
+    [],
+    [
+      "portalgun:froopyland/rock_candy_ridge/0_spire"
+    ],
+    [],
+    [],
+    [
+      "portalgun:froopyland/rock_candy_ridge/1_crystalcluster"
+    ],
+    [
+      "portalgun:froopyland/spring"
+    ],
+    [
+      "portalgun:froopyland/rock_candy_ridge/2_patch",
+      "portalgun:froopyland/rock_candy_ridge/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:jawbreaker",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:lollicorn",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "portalgun:gummy_bear",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.9
+}

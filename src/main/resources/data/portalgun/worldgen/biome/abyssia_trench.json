@@ -1,0 +1,91 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.dark_void",
+      "additions": {
+        "sound": "minecraft:ambient.crimson_forest.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 4259792,
+          "scale": 0.6
+        },
+        "probability": 0.003
+      }
+    ],
+    "minecraft:visual/fog_color": "#081a30",
+    "minecraft:visual/water_fog_color": "#02081a"
+  },
+  "carvers": [],
+  "downfall": 0.3,
+  "effects": {
+    "water_color": "#0c2a5a",
+    "grass_color": "#1a2a3a"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:abyssia/abyssia_trench/0_structure",
+      "portalgun:abyssia/abyssia_trench/1_structure",
+      "portalgun:abyssia/abyssia_trench/2_structure",
+      "portalgun:abyssia/abyssia_trench/3_spire"
+    ],
+    [],
+    [
+      "portalgun:abyssia/ore_coal",
+      "portalgun:abyssia/ore_iron",
+      "portalgun:abyssia/ore_copper",
+      "portalgun:abyssia/ore_gold",
+      "portalgun:abyssia/ore_redstone",
+      "portalgun:abyssia/ore_lapis",
+      "portalgun:abyssia/ore_diamond",
+      "portalgun:abyssia/ore_emerald"
+    ],
+    [],
+    [],
+    [
+      "portalgun:abyssia/abyssia_trench/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:deep_maw",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [
+      {
+        "type": "portalgun:lantern_eel",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.7000000000000001
+}

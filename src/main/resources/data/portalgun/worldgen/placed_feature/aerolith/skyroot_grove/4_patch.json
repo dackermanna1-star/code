@@ -1,0 +1,12 @@
+{
+  "feature": "portalgun:aerolith/skyroot_grove/4_patch",
+  "placement": [
+    {
+      "type": "minecraft:count_on_every_layer",
+      "count": 3
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:aviary_cloudbank",
+      "required": false
+    },
+    {
+      "id": "portalgun:brickton_glass_brick",
+      "required": false
+    },
+    {
+      "id": "portalgun:colossia_dewdrop",
+      "required": false
+    },
+    {
+      "id": "portalgun:effervescia_bubble_glass",
+      "required": false
+    },
+    {
+      "id": "portalgun:effervescia_ice_cube",
+      "required": false
+    },
+    {
+      "id": "portalgun:froopy_gumdrop",
+      "required": false
+    },
+    {
+      "id": "portalgun:gloop_jelly",
+      "required": false
+    },
+    {
+      "id": "portalgun:gloop_bubble",
+      "required": false
+    },
+    {
+      "id": "portalgun:micro_vacuole",
+      "required": false
+    },
+    {
+      "id": "portalgun:orbitas_comet_ice",
+      "required": false
+    },
+    {
+      "id": "portalgun:plush_cushion",
+      "required": false
+    },
+    {
+      "id": "portalgun:selene_moon_ice",
+      "required": false
+    },
+    {
+      "id": "portalgun:synthwave_bounce_pad",
+      "required": false
+    },
+    {
+      "id": "portalgun:umbra_nightglass",
+      "required": false
+    },
+    {
+      "id": "portalgun:vitrea_dune_glass",
+      "required": false
+    },
+    {
+      "id": "portalgun:vitrea_rose_glass",
+      "required": false
+    },
+    {
+      "id": "portalgun:vitrea_mirage_glass",
+      "required": false
+    },
+    {
+      "id": "portalgun:white_room_mirror",
+      "required": false
+    }
+  ]
+}

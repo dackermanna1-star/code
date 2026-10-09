@@ -1,0 +1,93 @@
+{
+  "type": "minecraft:random_patch",
+  "config": {
+    "tries": 10,
+    "xz_spread": 5,
+    "y_spread": 3,
+    "feature": {
+      "feature": {
+        "type": "minecraft:simple_block",
+        "config": {
+          "to_place": {
+            "type": "minecraft:weighted_state_provider",
+            "entries": [
+              {
+                "data": {
+                  "Name": "portalgun:spectral_gravestone"
+                },
+                "weight": 5
+              },
+              {
+                "data": {
+                  "Name": "minecraft:mossy_stone_brick_wall"
+                },
+                "weight": 2
+              },
+              {
+                "data": {
+                  "Name": "minecraft:cobblestone_wall"
+                },
+                "weight": 1
+              },
+              {
+                "data": {
+                  "Name": "minecraft:mossy_cobblestone_wall"
+                },
+                "weight": 1
+              }
+            ]
+          }
+        }
+      },
+      "placement": [
+        {
+          "type": "minecraft:block_predicate_filter",
+          "predicate": {
+            "type": "minecraft:all_of",
+            "predicates": [
+              {
+                "type": "minecraft:matching_blocks",
+                "blocks": [
+                  "minecraft:air",
+                  "minecraft:cave_air"
+                ]
+              },
+              {
+                "type": "minecraft:would_survive",
+                "state": {
+                  "Name": "portalgun:spectral_gravestone"
+                }
+              },
+              {
+                "type": "minecraft:has_sturdy_face",
+                "offset": [
+                  0,
+                  -1,
+                  0
+                ],
+                "direction": "up"
+              },
+              {
+                "type": "minecraft:not",
+                "predicate": {
+                  "type": "minecraft:matching_fluids",
+                  "offset": [
+                    0,
+                    -1,
+                    0
+                  ],
+                  "fluids": [
+                    "minecraft:water",
+                    "minecraft:flowing_water",
+                    "minecraft:lava",
+                    "minecraft:flowing_lava"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

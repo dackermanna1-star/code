@@ -1,0 +1,31 @@
+{
+  "parent": "portalgun:first_jump",
+  "criteria": {
+    "visited": {
+      "trigger": "portalgun:visited_dimension",
+      "conditions": {
+        "dimension": "portalgun:tempestus"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "portalgun:tempest_storm_core"
+    },
+    "title": {
+      "translate": "advancements.portalgun.dim.tempestus.title"
+    },
+    "description": {
+      "translate": "advancements.portalgun.dim.tempestus.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "requirements": [
+    [
+      "visited"
+    ]
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "portalgun:abyssia_pearl_sand",
+      "required": false
+    },
+    {
+      "id": "portalgun:aurum_gold_sand",
+      "required": false
+    },
+    {
+      "id": "portalgun:effervescia_sugar_sand",
+      "required": false
+    },
+    {
+      "id": "portalgun:froopy_sprinkle_sand",
+      "required": false
+    },
+    {
+      "id": "portalgun:mesa_rift_red_sand",
+      "required": false
+    },
+    {
+      "id": "portalgun:ossuary_bone_sand",
+      "required": false
+    },
+    {
+      "id": "portalgun:paradisia_white_sand",
+      "required": false
+    },
+    {
+      "id": "portalgun:paradisia_pink_sand",
+      "required": false
+    },
+    {
+      "id": "portalgun:paradisia_glowsand",
+      "required": false
+    },
+    {
+      "id": "portalgun:prismara_crystal_sand",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_dust",
+      "required": false
+    },
+    {
+      "id": "portalgun:rubra_dune_sand",
+      "required": false
+    },
+    {
+      "id": "portalgun:tempest_static_sand",
+      "required": false
+    },
+    {
+      "id": "portalgun:vitrea_glass_sand",
+      "required": false
+    }
+  ]
+}

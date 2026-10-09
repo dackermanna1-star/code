@@ -1,0 +1,95 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.cozy_breeze"
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music_disc.cat",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music_disc.cat",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:cherry_leaves"
+        },
+        "probability": 0.003
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#a83a08"
+  },
+  "carvers": [],
+  "downfall": 0.26,
+  "effects": {
+    "water_color": "#ff7a1a",
+    "grass_color": "#e08a22",
+    "foliage_color": "#669030",
+    "dry_foliage_color": "#669030"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:groovy/groovy_shag_meadows/5_spire"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:groovy/groovy_shag_meadows/0_giantplant",
+      "portalgun:groovy/groovy_shag_meadows/1_giantplant",
+      "portalgun:groovy/groovy_shag_meadows/2_patch",
+      "portalgun:groovy/groovy_shag_meadows/3_patch",
+      "portalgun:groovy/groovy_shag_meadows/4_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [],
+    "creature": [
+      {
+        "type": "portalgun:disco_beetle",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:groove_jelly",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 3
+      },
+      {
+        "type": "portalgun:lava_lamp_blob",
+        "weight": 3,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8
+}

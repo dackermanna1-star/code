@@ -1,0 +1,29 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "minecraft:blackstone",
+      "required": false
+    },
+    {
+      "id": "portalgun:aurum_gilded_grass",
+      "required": false
+    },
+    {
+      "id": "portalgun:aurum_gilded_stone",
+      "required": false
+    },
+    {
+      "id": "portalgun:aurum_gold_sand",
+      "required": false
+    },
+    {
+      "id": "portalgun:aurum_ochre_soil",
+      "required": false
+    },
+    {
+      "id": "#minecraft:overworld_carver_replaceables",
+      "required": false
+    }
+  ]
+}

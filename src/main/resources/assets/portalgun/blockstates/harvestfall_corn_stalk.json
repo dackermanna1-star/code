@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "half=lower": {
+      "model": "portalgun:block/harvestfall_corn_stalk_bottom"
+    },
+    "half=upper": {
+      "model": "portalgun:block/harvestfall_corn_stalk_top"
+    }
+  }
+}

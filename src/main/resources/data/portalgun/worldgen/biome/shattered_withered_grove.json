@@ -1,0 +1,113 @@
+{
+  "attributes": {
+    "minecraft:audio/ambient_sounds": {
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 6000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "loop": "portalgun:ambient.alien_hum",
+      "additions": {
+        "sound": "minecraft:ambient.warped_forest.additions",
+        "tick_chance": 0.0111
+      }
+    },
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.end",
+        "min_delay": 12000,
+        "max_delay": 24000
+      },
+      "creative": {
+        "sound": "minecraft:music.end",
+        "min_delay": 12000,
+        "max_delay": 24000
+      }
+    },
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "minecraft:end_rod"
+        },
+        "probability": 0.0015
+      },
+      {
+        "particle": {
+          "type": "minecraft:dust",
+          "color": 10514672,
+          "scale": 0.7
+        },
+        "probability": 0.004
+      }
+    ],
+    "minecraft:visual/water_fog_color": "#101e39"
+  },
+  "carvers": [],
+  "downfall": 0.12,
+  "effects": {
+    "water_color": "#3f76e4",
+    "grass_color": "#4a2f70",
+    "foliage_color": "#a070f0",
+    "dry_foliage_color": "#a070f0"
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [
+      "portalgun:shattered/shattered_withered_grove/3_spire",
+      "portalgun:shattered/shattered_withered_grove/4_spire"
+    ],
+    [],
+    [
+      "portalgun:shattered/ore_coal",
+      "portalgun:shattered/ore_iron",
+      "portalgun:shattered/ore_copper",
+      "portalgun:shattered/ore_gold",
+      "portalgun:shattered/ore_redstone",
+      "portalgun:shattered/ore_lapis",
+      "portalgun:shattered/ore_diamond",
+      "portalgun:shattered/ore_emerald"
+    ],
+    [
+      "portalgun:shattered/shattered_withered_grove/5_crystalcluster"
+    ],
+    [],
+    [
+      "portalgun:shattered/shattered_withered_grove/0_tree",
+      "portalgun:shattered/shattered_withered_grove/1_giantplant",
+      "portalgun:shattered/shattered_withered_grove/2_patch",
+      "portalgun:shattered/shattered_withered_grove/6_patch"
+    ],
+    []
+  ],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "monster": [
+      {
+        "type": "portalgun:rift_stalker",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [
+      {
+        "type": "portalgun:void_jelly",
+        "weight": 14,
+        "minCount": 2,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "temperature": 0.8500000000000001
+}
