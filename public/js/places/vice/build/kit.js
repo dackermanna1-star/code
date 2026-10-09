@@ -105,8 +105,9 @@ export class VB {
     for (let i = 0; i < o.ni; i++) this.idx[this.ni + i] = o.idx[i] + b;
     this.nv += o.nv; this.ni += o.ni;
   }
+  /** The arrays, as views of the used part (no copies). */
   arrays() {
-    return { pos: this.pos.slice(0, this.nv * 3), nrm: this.nrm.slice(0, this.nv * 4), uv: this.uv.slice(0, this.nv * 2), lay: this.lay.slice(0, this.nv * 4), tint: this.tint.slice(0, this.nv * 4), win: this.win.slice(0, this.nv * 4), idx: this.idx.slice(0, this.ni), nv: this.nv };
+    return { pos: this.pos.subarray(0, this.nv * 3), nrm: this.nrm.subarray(0, this.nv * 4), uv: this.uv.subarray(0, this.nv * 2), lay: this.lay.subarray(0, this.nv * 4), tint: this.tint.subarray(0, this.nv * 4), win: this.win.subarray(0, this.nv * 4), idx: this.idx.subarray(0, this.ni), nv: this.nv };
   }
 }
 
@@ -209,14 +210,12 @@ export class Kit {
     }
     const u0 = o.u0 || 0, v0 = (spec ? spec.v0 : 0) + (this.cur ? this.cur.y : 0);
     const base = vb.nv;
-    const C = [[ax, y0, az, 0, nax, naz], [bx, y0, bz, L, nbx, nbz], [bx, y1, bz, L, nbx, nbz], [ax, y1, az, 0, nax, naz]];
-    for (const c of C) {
-      this.world(c[0], c[1], c[2], p);
-      const nwx = c[4] * w.c + c[5] * w.s, nwz = -c[4] * w.s + c[5] * w.c;
-      vb.vert(p[0], p[1], p[2], nwx, 0, nwz, u0 + c[3], p[1] - v0, m, wa);
-    }
+    const wax = nax * w.c + naz * w.s, waz = -nax * w.s + naz * w.c, wbx = nbx * w.c + nbz * w.s, wbz = -nbx * w.s + nbz * w.c;
+    this.world(ax, y0, az, p); vb.vert(p[0], p[1], p[2], wax, 0, waz, u0, p[1] - v0, m, wa);
+    this.world(bx, y0, bz, p); vb.vert(p[0], p[1], p[2], wbx, 0, wbz, u0 + L, p[1] - v0, m, wa);
+    this.world(bx, y1, bz, p); vb.vert(p[0], p[1], p[2], wbx, 0, wbz, u0 + L, p[1] - v0, m, wa);
+    this.world(ax, y1, az, p); vb.vert(p[0], p[1], p[2], wax, 0, waz, u0, p[1] - v0, m, wa);
     vb.tri(base, base + 1, base + 2); vb.tri(base, base + 2, base + 3);
-    this._bbox(ax, az, 0); this._bbox(bx, bz, 0);
     if (this.cur && y1 > this.cur.h) this.cur.h = y1;
   }
 

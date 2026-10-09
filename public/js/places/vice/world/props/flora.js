@@ -27,9 +27,9 @@ const UV = {
   leaves: [0.5, 0.5, 0.75, 1], shrub: [0.75, 0.5, 1, 1], flower: [0.5, 0, 0.75, 0.5], grass: [0.75, 0, 1, 0.5],
 };
 const FROND = {
-  coco: { base: '#2f5a1a', mid: '#4f8a26', tip: '#a9b84a', rach: '#c8c070', w: 4.4, ang: 0.32, n: 50 },
-  olive: { base: '#3b5e1c', mid: '#6b9030', tip: '#c4b85a', rach: '#cdbf78', w: 4.2, ang: 0.4, n: 48 },
-  royal: { base: '#22471a', mid: '#3d7a28', tip: '#7fa83c', rach: '#a8b070', w: 3.0, ang: 0.5, n: 66 },
+  coco: { base: '#2c5518', mid: '#4a8424', tip: '#9fb347', rach: '#c8c070', w: 6.2, ang: 0.3, n: 58 },
+  olive: { base: '#38591a', mid: '#628a2c', tip: '#b8b355', rach: '#cdbf78', w: 6.0, ang: 0.36, n: 56 },
+  royal: { base: '#22471a', mid: '#3a7626', tip: '#78a23a', rach: '#a8b070', w: 4.6, ang: 0.42, n: 70 },
   dead: { base: '#5a4528', mid: '#7d6440', tip: '#a08458', rach: '#8f7a58', w: 4.0, ang: -0.35, n: 40 },
 };
 function drawFrond(x, X0, p, seed) {
@@ -171,8 +171,8 @@ function frond(G, base, az, elev, L, droop, fold, uv, col, segs = 7) {
     const tan = dir.clone().multiplyScalar(L).addScaledVector(UP, -2 * droop * L * s).normalize();
     const side = new THREE.Vector3().crossVectors(tan, UP); if (side.lengthSq() < 1e-4) side.copy(V3(-h.z, 0, h.x)); side.normalize();
     const up = new THREE.Vector3().crossVectors(side, tan).normalize();
-    const hw = 2.9 * (0.4 + 0.6 * Math.min(1, s * 4)) * (1 - 0.32 * s);
-    const fa = fold + 0.4 * s, ca = Math.cos(fa) * hw, sa = Math.sin(fa) * hw;
+    const hw = 3.7 * (0.35 + 0.65 * Math.min(1, s * 3.5)) * (1 - 0.3 * s);
+    const fa = fold + 0.3 * s, ca = Math.cos(fa) * hw, sa = Math.sin(fa) * hw;
     const n = up.clone().multiplyScalar(0.7).addScaledVector(h, 0.3).normalize();
     const v = 0.015 + s * 0.97, um = (uv[0] + uv[2]) / 2;
     const l = G.v(p.x + side.x * ca - up.x * sa, p.y + side.y * ca - up.y * sa, p.z + side.z * ca - up.z * sa, n.x, n.y, n.z, uv[0] + 0.004, v, col, 1, s);
@@ -189,24 +189,24 @@ function frond(G, base, az, elev, L, droop, fold, uv, col, segs = 7) {
 /** A coconut palm: height H, the trunk leaning `bend` studs towards +z and curving back up. */
 function coconutPalm(seed, H, bend, nF, olive = false) {
   const r = rnd(seed), G = new FG();
-  const P0 = V3(0, -1.5, 0), P1 = V3(0, H * 0.45, bend * 1.08), P2 = V3(0, H, bend);
+  const P0 = V3(0, -1.5, 0), P1 = V3(0, H * 0.4, bend * 1.15), P2 = V3(0, H, bend);
   const bez = (t) => P0.clone().multiplyScalar((1 - t) * (1 - t)).addScaledVector(P1, 2 * (1 - t) * t).addScaledVector(P2, t * t);
   const cs = [], rads = [], cols = [];
   const RINGS = 16;
   for (let i = 0; i <= RINGS; i++) {
     const t = i / RINGS;
     cs.push(bez(t));
-    rads.push((0.86 + 0.6 * Math.exp(-t * 10)) * (1 - 0.14 * t) * (1 + (r() - 0.5) * 0.05));
-    const k = 0.92 + 0.12 * t;
-    cols.push([0.86 * k, 0.8 * k, 0.72 * k]);
+    rads.push((0.62 + 0.55 * Math.exp(-t * 9)) * (1 - 0.1 * t) * (1 + (r() - 0.5) * 0.06));
+    const k = 0.95 - 0.15 * t;
+    cols.push([0.74 * k, 0.67 * k, 0.58 * k]);
   }
   tube(G, cs, rads, 8, 0, cols, 6.5, 2);
   const top = bez(1);
   // the boot of old frond stalks under the crown
-  tube(G, [top.clone().add(V3(0, -2.6, 0)), top.clone().add(V3(0, -0.6, 0)), top.clone().add(V3(0, 0.9, 0)), top.clone().add(V3(0, 1.6, 0))], [0.95, 1.45, 1.2, 0.4], 8, 0, [0.5, 0.42, 0.3], 3, 3);
+  tube(G, [top.clone().add(V3(0, -2.4, 0)), top.clone().add(V3(0, -0.8, 0)), top.clone().add(V3(0, 0.8, 0)), top.clone().add(V3(0, 1.5, 0))], [0.66, 1.15, 1.0, 0.35], 8, 0, [0.48, 0.4, 0.28], 3, 3);
   // coconuts
   for (let i = 0; i < 7; i++) {
-    const a = r() * TAU, d = 1.15 + r() * 0.35;
+    const a = r() * TAU, d = 0.95 + r() * 0.3;
     const col = r() < 0.5 ? [0.3, 0.34, 0.08] : [0.36, 0.25, 0.1];
     sphereG(G, top.x + Math.cos(a) * d, top.y - 0.6 - r() * 1.2, top.z + Math.sin(a) * d, 0.62 + r() * 0.12, col);
   }
@@ -214,10 +214,10 @@ function coconutPalm(seed, H, bend, nF, olive = false) {
   const fb = top.clone().add(V3(0, 1.0, 0));
   for (let f = 0; f < nF; f++) {
     const age = (f + 0.5) / nF, az = f * 2.39996 + r() * 0.4;
-    const elev = 0.95 - age * 1.4 + (r() - 0.5) * 0.16;
-    const L = (13 + 6 * Math.sin(Math.PI * Math.min(1, age * 1.15))) * (0.92 + r() * 0.16);
+    const elev = 0.85 - age * 1.25 + (r() - 0.5) * 0.16;
+    const L = (14 + 6 * Math.sin(Math.PI * Math.min(1, age * 1.15))) * (0.92 + r() * 0.16);
     const k = 0.85 + r() * 0.25;
-    frond(G, fb, az, elev, L, 0.12 + age * 0.55, 0.42 + age * 0.25, UV.frond[olive && r() < 0.7 ? 1 : (r() < 0.25 ? 1 : 0)], [k, k, k * 0.95]);
+    frond(G, fb, az, elev, L, 0.2 + age * 0.5, 0.3 + age * 0.3, UV.frond[olive && r() < 0.7 ? 1 : (r() < 0.25 ? 1 : 0)], [k, k, k * 0.95]);
   }
   for (let f = 0; f < 2 + (r() < 0.5 ? 1 : 0); f++) frond(G, top.clone().add(V3(0, -0.4, 0)), r() * TAU, -1.15 - r() * 0.2, 8 + r() * 3, 0.06, 0.9, UV.frond[3], [1, 1, 1], 4);
   return G.build();
@@ -236,13 +236,13 @@ function royalPalm(seed, H) {
   // crownshaft
   tube(G, [V3(0, T, 0), V3(0, T + H * 0.07, 0), V3(0, H * 0.95, 0), V3(0, H * 0.97, 0)], [1.05, 1.1, 0.9, 0.5], 9, 2, [0.16, 0.38, 0.1], 8, 2);
   const fb = V3(0, H * 0.96, 0);
-  const nF = 15;
+  const nF = 17;
   for (let f = 0; f < nF; f++) {
     const age = (f + 0.5) / nF, az = f * 2.39996 + r() * 0.3;
-    const elev = 1.2 - age * 1.45 + (r() - 0.5) * 0.12;
-    const L = (18 + 5 * Math.sin(Math.PI * age)) * (0.94 + r() * 0.12);
+    const elev = 1.0 - age * 1.15 + (r() - 0.5) * 0.12;
+    const L = (19 + 5 * Math.sin(Math.PI * age)) * (0.94 + r() * 0.12);
     const k = 0.9 + r() * 0.2;
-    frond(G, fb, az, elev, L, 0.08 + age * 0.42, 0.22 + age * 0.2, UV.frond[2], [k, k, k]);
+    frond(G, fb, az, elev, L, 0.32 + age * 0.45, 0.15 + age * 0.2, UV.frond[2], [k, k, k], 8);
   }
   return G.build();
 }
@@ -325,9 +325,9 @@ function mangrove(seed) {
 // ---- the species ----------------------------------------------------------------------
 // near: draw distance of the model; shadow: within this it casts shadows; trunk: collision half size; imp: has an impostor
 export const SPECIES = [
-  { id: 'coco1', make: () => coconutPalm(11, 42, 6, 17), near: NEAR, shadow: 190, trunk: 1.0, imp: true },
-  { id: 'coco2', make: () => coconutPalm(23, 35, 12, 15, true), near: NEAR, shadow: 190, trunk: 1.0, imp: true },
-  { id: 'coco3', make: () => coconutPalm(37, 48, 2.5, 18), near: NEAR, shadow: 190, trunk: 1.0, imp: true },
+  { id: 'coco1', make: () => coconutPalm(11, 42, 7, 20), near: NEAR, shadow: 190, trunk: 0.8, imp: true },
+  { id: 'coco2', make: () => coconutPalm(23, 35, 13, 18, true), near: NEAR, shadow: 190, trunk: 0.8, imp: true },
+  { id: 'coco3', make: () => coconutPalm(37, 48, 3, 21), near: NEAR, shadow: 190, trunk: 0.8, imp: true },
   { id: 'royal', make: () => royalPalm(41, 58), near: NEAR, shadow: 190, trunk: 1.3, imp: true },
   { id: 'tree', make: () => shadeTree(53, 30), near: 320, shadow: 170, trunk: 1.7, imp: true },
   { id: 'mangrove', make: () => mangrove(79), near: 300, shadow: 0, trunk: 0, imp: true },
@@ -535,9 +535,13 @@ export class Flora {
     const scene = new THREE.Scene();
     scene.add(new THREE.AmbientLight(0xffffff, Math.PI));
     const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 500);
-    const prev = renderer.getRenderTarget(), prevClear = renderer.getClearColor(new THREE.Color()), prevAlpha = renderer.getClearAlpha(), prevSh = renderer.shadowMap.enabled;
-    renderer.setRenderTarget(this.impRT);
+    const prev = renderer.getRenderTarget(), prevClear = renderer.getClearColor(new THREE.Color()), prevAlpha = renderer.getClearAlpha();
+    // tiles through the target's own viewport/scissor (never the canvas's)
+    const rt = this.impRT, W = S * n;
+    rt.scissorTest = false; rt.viewport.set(0, 0, W, S * 2); rt.scissor.set(0, 0, W, S * 2);
+    renderer.setRenderTarget(rt);
     renderer.setClearColor(0x3f5a2c, 0); renderer.clear();
+    const tile = (x, y) => { rt.viewport.set(x, y, S, S); rt.scissor.set(x, y, S, S); rt.scissorTest = true; renderer.setRenderTarget(rt); };
     const boxes = this.farMat.userData.uni.uBox.value;
     for (let k = 0; k < n; k++) {
       const g = this.geos[sp[k]], bb = g.boundingBox;
@@ -547,21 +551,20 @@ export class Flora {
       // side (top row of the atlas), seen from +x so the lean (towards +z) shows
       cam.left = -half; cam.right = half; cam.top = half; cam.bottom = -half; cam.near = 0.1; cam.far = 500; cam.updateProjectionMatrix();
       cam.position.set(200, cy, 0); cam.up.set(0, 1, 0); cam.lookAt(0, cy, 0);
-      renderer.setViewport(k * S, S, S, S); renderer.setScissor(k * S, S, S, S); renderer.setScissorTest(true);
+      tile(k * S, S);
       renderer.render(scene, cam);
       // top (bottom row)
       const ht = hw * 1.02;
       cam.left = -ht; cam.right = ht; cam.top = ht; cam.bottom = -ht; cam.updateProjectionMatrix();
       cam.position.set(0, bb.max.y + 50, 0); cam.up.set(0, 0, -1); cam.lookAt(0, 0, 0);
-      renderer.setViewport(k * S, 0, S, S); renderer.setScissor(k * S, 0, S, S);
+      tile(k * S, 0);
       renderer.render(scene, cam);
       scene.remove(m);
       boxes[k].set(half, cy, ht, bb.max.y * 0.82);
     }
-    renderer.setScissorTest(false);
+    rt.scissorTest = false; rt.viewport.set(0, 0, W, S * 2); rt.scissor.set(0, 0, W, S * 2);
     renderer.setRenderTarget(prev);
     renderer.setClearColor(prevClear, prevAlpha);
-    renderer.shadowMap.enabled = prevSh;
   }
 
   update(dt, camera, windK = 0.4) {

@@ -128,7 +128,7 @@ void main() {
   float surf = smoothstep(0.0, 0.02, band) * (1.0 - smoothstep(0.025, 0.13, band)) * zone * smoothstep(0.42, 0.6, brk);
   float crest = wv.x * att / 0.5;
   float caps = smoothstep(0.55, 0.95, crest) * smoothstep(0.62, 0.8, texture(noiseT, p / 37.0 + drift * 2.0).b) * wind * (1.0 - far);
-  float foam = clamp(shore * smoothstep(0.35, 0.8, lace + shore * 0.25) + surf * smoothstep(0.2, 0.6, lace + 0.15) + caps, 0.0, 1.0);
+  float foam = clamp(shore * smoothstep(0.45, 0.85, lace + shore * 0.2) * 0.85 + surf * smoothstep(0.2, 0.6, lace + 0.15) + caps, 0.0, 1.0);
   foam *= 1.0 - smoothstep(600.0, 1600.0, dist);
   // transmittance down to the bed and back (red goes first)
   float dd = max(depth, 0.0);

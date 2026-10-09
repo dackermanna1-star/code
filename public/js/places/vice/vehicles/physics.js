@@ -300,9 +300,17 @@ function wheelForces(v, h) {
     // easing back in after it, so handbrake turns and drifts still happen)
     const yawRate = v.angVel.dot(up);
     const rk = (v.speed * Math.tan(v.steerAngle)) / d.wheelbase;
-    const lim = Math.min(Math.abs(rk), (d.mu * G) / sp) + 0.08 + (d.drift || 0) * 0.25;
+    const lim = Math.min(Math.abs(rk), (0.8 * d.mu * G) / sp) + 0.03 + (d.drift || 0) * 0.15;
     const ex = yawRate > lim ? yawRate - lim : yawRate < -lim ? yawRate + lim : 0;
-    if (ex) T.addScaledVector(up, -ex * d.I.y * d.esp * (1 - v.hbT / 0.7));
+    const assist = d.esp * (1 - v.hbT / 0.7);
+    if (ex) T.addScaledVector(up, -ex * d.I.y * assist);
+    // and catch a slide: turn the nose back toward where the car is going
+    if (v.speed > 8) {
+      const beta = Math.atan2(v.vel.dot(lf), v.speed);
+      const bmax = 0.14 + (d.drift || 0) * 0.3;
+      const bx = beta > bmax ? beta - bmax : beta < -bmax ? beta + bmax : 0;
+      if (bx) T.addScaledVector(up, bx * d.I.y * assist * 1.2);
+    }
   } else if (contacts === 0 && d.kind === 'car') {
     // a little control in the air (pitch with throttle, roll with steer)
     T.addScaledVector(lf, (c.throttle || 0) * d.I.x * 1.2);

@@ -55,13 +55,14 @@ export class City {
     return {
       city, K: this.K, plan, ground, phys: this.phys,
       /** Dry street-level land (not beach, not water) at every corner and the middle of a rectangle. */
-      landOK(x0, z0, x1, z1, pad = 2) {
-        const pts = [[x0, z0], [x1, z0], [x0, z1], [x1, z1], [(x0 + x1) / 2, (z0 + z1) / 2], [(x0 + x1) / 2, z0], [(x0 + x1) / 2, z1], [x0, (z0 + z1) / 2], [x1, (z0 + z1) / 2]];
-        for (const [x, z] of pts) {
-          if (!plan.isLand(x, z, pad)) return false;
+      landOK(x0, z0, x1, z1) {
+        // the height map knows: the sea and the canals are carved below 0, beaches slope down to it
+        const xm = (x0 + x1) / 2, zm = (z0 + z1) / 2;
+        for (let i = 0; i < 9; i++) {
+          const x = i % 3 === 0 ? x0 : i % 3 === 1 ? xm : x1, z = i < 3 ? z0 : i < 6 ? zm : z1;
           if (Math.abs(ground.heightAt(x, z) - GROUND) > 0.35) return false;
           const k = ground.kindAt(x, z);
-          if (k === 1 || k === 2 || k === 3 || k === 4) return false;
+          if (k >= 1 && k <= 4) return false;
         }
         return true;
       },

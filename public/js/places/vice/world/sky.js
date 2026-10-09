@@ -38,7 +38,7 @@ export const FOG = {
   vcFogSun: { value: { x: 0, y: 1, z: 0, w: 0 } },   // sun in view space, w: 1 = on
   vcFogHor: { value: { x: 1, y: 1, z: 1, w: 3 } },   // horizon colour towards the sun, falloff power
   vcFogGlow: { value: { x: 0, y: 0, z: 0, w: 0 } },  // sun glow colour
-  vcFogP: { value: { x: 0.0002, y: 1 / 450, z: 0.05, w: 0 } }, // density, 1/scale height, height-independent part
+  vcFogP: { value: { x: 0.0001, y: 1 / 800, z: 0.05, w: 0.4 } }, // density, 1/scale height, height-independent part, far fade start
 };
 const FOG_PARS = `
 #ifdef USE_FOG
@@ -69,7 +69,7 @@ const FOG_FRAG = `
 			float vcA = exp( - vcFogP.y * vcY0 ), vcB = exp( - vcFogP.y * vcY1 ), vcDy = vcFogP.y * ( vcY1 - vcY0 );
 			float vcF = abs( vcDy ) > 1e-3 ? ( vcA - vcB ) / vcDy : vcA;
 			fogFactor = 1.0 - exp( - vcFogP.x * vcD * ( vcF + vcFogP.z ) );
-			fogFactor = max( fogFactor, smoothstep( fogFar * 0.4, fogFar, vFogDepth ) );
+			fogFactor = max( fogFactor, smoothstep( fogFar * vcFogP.w, fogFar, vFogDepth ) );
 			// the colour of the horizon in this direction: warmer and brighter towards the sun
 			float vcSw = max( dot( vcDir, vcFogSun.xyz ), 0.0 );
 			vcFogCol = mix( fogColor, vcFogHor.xyz, pow( vcSw, vcFogHor.w ) ) + vcFogGlow.xyz * ( pow( vcSw, 10.0 ) * 0.35 + pow( vcSw, 120.0 ) * 1.2 );
@@ -418,7 +418,8 @@ export class Sky {
     const hs = u.skHorSun.value, g = u.skSunCol.value, gi = u.skP.value.x;
     Object.assign(FOG.vcFogHor.value, { x: hs.r, y: hs.g, z: hs.b, w: 3 });
     Object.assign(FOG.vcFogGlow.value, { x: g.r * gi, y: g.g * gi, z: g.b * gi, w: 0 });
-    Object.assign(FOG.vcFogP.value, { x: 0.0001 * density, y: 1 / 800, z: 0.05, w: 0 });
+    // (the far fade hides where the sea is clipped; from high up it starts later)
+    Object.assign(FOG.vcFogP.value, { x: 0.0001 * density, y: 1 / 800, z: 0.05, w: lerp(0.4, 0.82, smooth(60, 1500, cam.position.y)) });
     void _q;
   }
 
