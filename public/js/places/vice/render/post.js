@@ -109,6 +109,7 @@ void main() {
 }`;
 
 const LEVELS = 6;
+const _sz = new THREE.Vector2();
 
 export class Post {
   constructor(world) {
@@ -222,6 +223,8 @@ export class Post {
     r.autoClear = false;
     if (this.bloomOn) this._bloom(r);
     r.setRenderTarget(target);
+    // (someone may have left the canvas viewport or scissor changed while baking into a target)
+    if (!target) { r.getSize(_sz); r.setViewport(0, 0, _sz.x, _sz.y); r.setScissorTest(false); }
     r.render(this.screen, this.screenCam);
     r.autoClear = ac;
   }
