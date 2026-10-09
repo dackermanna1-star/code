@@ -51,6 +51,7 @@ export class Traffic {
   constructor() {
     this.drivers = new Map();   // veh -> ai
     this.parked = new Set();
+    this.loose = new Set();     // cars their drivers abandoned (fled, pulled out, shot)
     this.t = 0; this.spawnT = 0;
     this.rng = 1;
     this.offs = [];
@@ -186,7 +187,7 @@ export class Traffic {
       const d = Math.hypot(veh.pos.x - cam.x, veh.pos.z - cam.z);
       const vis = this._visible(veh.pos.x, veh.pos.y, veh.pos.z);
       if ((d > DROP && !vis) || d > DROP * 1.6) { this.drivers.delete(veh); V.vehicles.remove(veh); }
-      else if (veh.dead) { this.drivers.delete(veh); }
+      else if (veh.dead) { this.drivers.delete(veh); this.loose.add(veh); }
       // hopelessly stuck (or lost off the road) and nobody's looking: tidy it away
       else if ((ai.lost > 20 || ai.unstick >= 3 || ai.stuck > 25) && (!vis || d > 300) && d > 70 && !veh.seats.some((w) => w?.isPlayer)) {
         this.drivers.delete(veh); V.vehicles.remove(veh); this.stats.removed++;
@@ -197,6 +198,12 @@ export class Traffic {
       const d = Math.hypot(veh.pos.x - cam.x, veh.pos.z - cam.z);
       if (d > 700 && !veh.driver && !this._visible(veh.pos.x, veh.pos.y, veh.pos.z)) { this.parked.delete(veh); V.vehicles.remove(veh); }
     }
+    for (const veh of this.loose) {
+      if (veh.removed || veh.driver || this.drivers.has(veh)) { this.loose.delete(veh); continue; }
+      if (veh === V.player?.vehicle) continue;
+      const d = Math.hypot(veh.pos.x - cam.x, veh.pos.z - cam.z);
+      if (d > 380 && !this._visible(veh.pos.x, veh.pos.y, veh.pos.z)) { this.loose.delete(veh); V.vehicles.remove(veh); }
+    }
     for (const [n, b] of this.busy) if (this.t - b.t > 0.5) this.busy.delete(n);
   }
 
@@ -206,6 +213,7 @@ export class Traffic {
     if (!ai) return;
     this.drivers.delete(veh);
     if (veh.ctl) { veh.ctl.throttle = 0; veh.ctl.brake = abandoned ? 0.3 : 0; veh.ctl.steer = 0; }
+    if (abandoned) this.loose.add(veh);   // left in the road: tidied away once nobody's looking
   }
 
   /** Can cars get along this edge? (false when a building sits across the carriageway: never route into it) */
@@ -392,15 +400,16 @@ export class Traffic {
     if (aspd < 1 && vmax < 3 && light === 'green' && this._blocker) ai.stuck += dt; else ai.stuck = Math.max(0, ai.stuck - dt * 2);
     if (ai.stuck > 2.5 && (ai.honkT -= dt) <= 0) { ai.honkT = 2 + Math.random() * 3; veh.horn?.(true); setTimeout(() => veh.horn?.(false), 400); }
     const blk = this._blocker;
-    if (ai.stuck > (blk?.def ? 5 : 8) && blk && !ai.turn && ai.swerve === 0 && this._stalled(blk)) {
-      // round it: into the next lane over (or the oncoming one on a single-lane street)
-      ai.swerve = -(ai.e.R.lane || 13); ai.ignore = blk; ai.swerveT = 7; ai.stuck = 0;
+    if (ai.stuck > (blk?.def ? 5 : 8) && blk && !ai.ignore && this._stalled(blk)) {
+      // round it: into the next lane over (or the oncoming one on a single-lane street); in a junction, nudge past
+      if (!ai.turn) ai.swerve = -(ai.e.R.lane || 13);
+      ai.ignore = blk; ai.swerveT = 7; ai.stuck = 0;
     }
-    if (ai.swerve) {
-      vmax = Math.min(vmax, 16);
+    if (ai.ignore) {
       ai.swerveT -= dt;
+      if (aspd > (ai.turn ? 7 : 16)) c.throttle = 0;
       const ig = ai.ignore;
-      const past = !ig || ig.removed || ((ig.pos.x - veh.pos.x) * Math.sin(h) + (ig.pos.z - veh.pos.z) * Math.cos(h)) < -((ig.size?.l || 12) / 2 + 9);
+      const past = ig.removed || ((ig.pos.x - veh.pos.x) * Math.sin(h) + (ig.pos.z - veh.pos.z) * Math.cos(h)) < -((ig.size?.l || 12) / 2 + 9);
       if (past || ai.swerveT <= 0) { ai.swerve = 0; ai.ignore = null; }
     }
     // physically blocked (a kerb, a pole, a wall, a wreck): wanting to go but not going. Back out and try again.

@@ -89,7 +89,10 @@ void main() {
     for (int i = 1; i < 16; i++) { float fi = float(i), a = fi * 2.39996; s += texture2D(tDiffuse, uv + vec2(cos(a), sin(a)) * sqrt(fi / 15.0) * rad / res).rgb; }
     col = mix(col, s / 16.0, clamp(blur * 1.5, 0.0, 1.0));
   }
-  col += texture2D(tBloom, uv).rgb * bloom;
+  // (the bloom saturates softly: a big bright area - a searchlight, a fire, the sun on the sea - glows
+  // without washing the whole picture out; small lights keep their full halo)
+  vec3 bl = texture2D(tBloom, uv).rgb * bloom;
+  col += bl / (1.0 + lum(bl) * 0.9);
   col *= exposure;
   // the grade: teal in the shadows, warm in the light, a bit more colour
   float l = lum(col);
@@ -111,6 +114,7 @@ void main() {
 }`;
 
 const LEVELS = 6;
+const UPW = [1, 0.95, 0.85, 0.75, 0.65, 0.55];   // upsample weight of level i onto level i - 1
 const _sz = new THREE.Vector2();
 
 export class Post {
@@ -130,7 +134,7 @@ export class Post {
     for (let i = 0; i < LEVELS; i++) this.chain.push(this._target(2, 2, 0, false));
     const tri = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 3, -1, 0, -1, 3, 0], 3)).setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 2, 0, 0, 2], 2));
     const pass = (fs, uniforms, o = {}) => new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: fs, uniforms, depthTest: false, depthWrite: false, toneMapped: false, ...o });
-    this.down = pass(DOWN, { tSrc: { value: null }, texel: { value: new THREE.Vector2() }, first: { value: 0 }, thr: { value: new THREE.Vector4(1.6, 0.8, 24, 0) } });
+    this.down = pass(DOWN, { tSrc: { value: null }, texel: { value: new THREE.Vector2() }, first: { value: 0 }, thr: { value: new THREE.Vector4(1.6, 0.8, 12, 0) } });
     this.up = pass(UP, { tSrc: { value: null }, texel: { value: new THREE.Vector2() }, radius: { value: 1 }, weight: { value: 1 } }, { blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor, blendEquation: THREE.AddEquation, transparent: true });
     this.mat = pass(FINAL, {
       tDiffuse: { value: this.rt.texture }, tBloom: { value: this.chain[0].texture }, res: { value: this.size.clone() }, time: { value: 0 },
@@ -245,7 +249,7 @@ export class Post {
     q.material = this.up;
     for (let i = ch.length - 1; i > 0; i--) {
       U.tSrc.value = ch[i].texture; U.texel.value.set(1 / ch[i].width, 1 / ch[i].height);
-      U.weight.value = 1;
+      U.weight.value = UPW[i];   // (the widest levels count for less: a tight halo, not a fog)
       r.setRenderTarget(ch[i - 1]); r.render(this.screen, this.screenCam);
     }
     q.material = this.mat;

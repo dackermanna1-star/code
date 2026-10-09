@@ -142,16 +142,24 @@ export function makePlan() {
     for (const r of G.skip) {
       if (r[2] - r[0] > 1200 || r[3] - r[1] > 1200) continue; // the airport has its own perimeter road
       const sides = [[[r[0], r[1]], [r[2], r[1]]], [[r[2], r[1]], [r[2], r[3]]], [[r[2], r[3]], [r[0], r[3]]], [[r[0], r[3]], [r[0], r[1]]]];
-      for (const [a, b] of sides) {
-        // a grid street already runs along this side (or so close that the two would overlap): it serves
+      // a grid street already running along a side (or so close that the two would overlap) serves as that
+      // side; the sides either side of it then run on to meet it
+      const dupAt = sides.map(([a, b]) => {
         const vert = Math.abs(a[0] - b[0]) < 1, at = vert ? a[0] : a[1], s0 = Math.min(vert ? a[1] : a[0], vert ? b[1] : b[0]), s1 = Math.max(vert ? a[1] : a[0], vert ? b[1] : b[0]);
-        const dup = lines.some((o) => {
+        const o = lines.find((o) => {
           if (!o.grid || o.axis !== (vert ? 'x' : 'z')) return false;
           const R = ROAD[o.cls], hw = R.lanes * R.lane + R.median / 2 + R.walk;
           const lo = Math.min(o.pts[0][vert ? 1 : 0], o.pts[1][vert ? 1 : 0]), hi = Math.max(o.pts[0][vert ? 1 : 0], o.pts[1][vert ? 1 : 0]);
           return Math.abs(o.at - at) < hw + 22 && Math.min(hi, s1) - Math.max(lo, s0) > (s1 - s0) * 0.5;
         });
-        if (dup) continue;
+        return o ? o.at : null;
+      });
+      for (let k = 0; k < 4; k++) {
+        if (dupAt[k] != null) continue;
+        const a = [...sides[k][0]], b = [...sides[k][1]], ax = k % 2 === 0 ? 0 : 1; // horizontal sides move x
+        const pv = dupAt[(k + 3) % 4], nx = dupAt[(k + 1) % 4];
+        if (pv != null) a[ax] = pv;
+        if (nx != null) b[ax] = nx;
         const L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.ceil(L / 8);
         let run = null;
         const flush = () => { if (run && run[1] - run[0] >= 5) { const p0 = run[0] / n, p1 = run[1] / n; lines.push({ cls: 'street', name: '', ring: true, pts: [[a[0] + (b[0] - a[0]) * p0, a[1] + (b[1] - a[1]) * p0, 0], [a[0] + (b[0] - a[0]) * p1, a[1] + (b[1] - a[1]) * p1, 0]] }); } run = null; };
@@ -215,8 +223,9 @@ export function makePlan() {
       // the last crossing street before this end (a line of the other axis covering this one)
       let best = null;
       for (const o of lines) {
-        if (o === ln || !o.grid || o.grid !== ln.grid || o.axis === ln.axis) continue;
-        const c = o.at, lo = Math.min(o.pts[0][1 - ix], o.pts[1][1 - ix]), hi = Math.max(o.pts[0][1 - ix], o.pts[1][1 - ix]);
+        // (grid streets of the other direction, and the park ring streets running that way)
+        if (o === ln || o.pts.length !== 2 || Math.abs(o.pts[0][ix] - o.pts[1][ix]) > 0.5) continue;
+        const c = o.pts[0][ix], lo = Math.min(o.pts[0][1 - ix], o.pts[1][1 - ix]), hi = Math.max(o.pts[0][1 - ix], o.pts[1][1 - ix]);
         if (ln.at < lo - 1 || ln.at > hi + 1) continue;
         if ((c - p[ix]) * (q[ix] - p[ix]) <= 0 || Math.abs(c - p[ix]) > Math.abs(q[ix] - p[ix])) continue;
         if (best == null || Math.abs(c - p[ix]) < Math.abs(best - p[ix])) best = c;

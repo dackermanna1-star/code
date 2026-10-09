@@ -173,7 +173,8 @@ export class VehFX {
     this.fireP.emit(x, y, z, vx, vy, vz, 0.25 + Math.random() * 0.35, 0.35, 0.12, 6, 3.6, 1.2, 1, 80, 0.3);
   }
   spray(x, y, z, vx, vy, vz, size = 2) {
-    this.smokeP.emit(x, y, z, vx, vy, vz, 0.7 + Math.random() * 0.5, size, size * 2.6, 1.15, 0.55, 40, 0.6);
+    // white water: (r, g, b) foam white, then alpha, gravity (it falls back), drag
+    this.smokeP.emit(x, y, z, vx, vy, vz, 0.7 + Math.random() * 0.5, size, size * 2.6, 0.95, 0.98, 1, 0.5, 40, 0.6);
   }
   /** A fireball with smoke, sparks and a flash. */
   fireball(p, size = 1) {

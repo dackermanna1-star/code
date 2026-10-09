@@ -68,10 +68,12 @@ Session states: `loading → title → play ⇄ paused`, plus `wasted` and `bust
 
 - `world/layout.js`: the hand-written map (land polygons, canals, districts, street grids, crossings, the expressway, places, START).
 - `world/plan.js` `makePlan()` returns P:
-  - `P.nodes[i]` = `{id, x, y, z, edges[], light}`
-  - `P.edges[i]` = `{id, a, b, cls, name, R, lanes, width, walk, pts:[{x, y, z, d}], len, bridge, elevated}`
+  - `P.nodes[i]` = `{id, x, y, z, edges[], light, deadEnd}` (`deadEnd`: only one edge)
+  - `P.edges[i]` = `{id, a, b, cls, name, R, lanes, width, walk, pts:[{x, y, z, d}], len, bridge, elevated, deadEnd}` (`deadEnd`: one of its ends is a dead end)
   - `P.blocks[i]` = `{id, grid, x0, z0, x1, z1, district, edge:{n, s, e, w}}`
   - helpers: `landAt`, `isLand`, `canalAt`, `coast`, `districtAt`
+  - `districtAt(x, z)` gives the district; well out on the water it gives `{id: 'bay' | 'ocean', name: 'Biscayne Bay' | 'Atlantic Ocean', water: true, peds}` (`P.waterDistricts`).
+  - Grid streets that ran on past their last cross street into the water with no block beside them are trimmed back to that street (`P.trimmed`); a park's ring street is left out on a side where a grid street already runs (the sides next to it run on to meet it). The dead ends left are mostly beach-access streets.
   - `edgePoint(e, d)` gives the position and tangent along an edge.
   - Road classes (ROAD): `hwy`, `blvd`, `ave`, `street`, `drive`, with lanes per direction, lane width, median and sidewalk width.
   - **Lanes:** traffic drives on the RIGHT. Looking from a to b, right is `(-dz, dx)` normalised, i.e. `(-tz, tx)` for tangent `(tx, tz)`.
@@ -119,13 +121,16 @@ Session states: `loading → title → play ⇄ paused`, plus `wasted` and `bust
   - `update(dt, hour, camPos)`
   - `state = {night 0..1, sunI, light, rain, fogFar}`
   - `sunDir` (Vector3)
+  - `updateEnv(renderer, scene)` re-bakes the reflections (`scene.environment`): the sky into a 128² cube one face per frame, then the PMREM filter into the same reused target (7 frames, well under a millisecond each on a GPU). Every ~0.12 h at dawn and dusk, ~0.4 h otherwise; a jump in time or weather bakes at once.
 - `world/water.js` `Water(world, ground)`:
   - `update(dt, sky)`
   - `waveAt(x, z, t)` gives the surface height for boats and swimming (≈ 0 ± 0.6)
 - `world/terrain.js` `TerrainView(world, ground)`: `update(camera)`.
+  - Past the edge of the map the mainland becomes the Everglades: sawgrass, sloughs of open water (`groundGLSL` carves them, so the water draws there) and tree islands (one instanced mesh, `glades`). `glade.slough(x, z)` / `glade.hammock(x, z)` are the JS twins of the shader's noise.
 - `render/post.js` `Post(world)`:
   - replaces `world.render`
   - HDR target, bloom, ACES tone mapping and a grade
+  - the bloom saturates softly (a big bright area glows without washing the picture out) and its widest levels count for less
   - `update(dt, {exposure, desat, vignette, tint, blur, wasted})`
   - `fadeIn(s)` / `fadeOut(s)`
   - `hit(amount, color)`
@@ -176,6 +181,11 @@ Session states: `loading → title → play ⇄ paused`, plus `wasted` and `bust
   - vehicle vs people: `ped.knock(...)` with the car's velocity, plus a 'crime' event when the player is driving
 - `vehicles/traffic.js` `Traffic` → `V.traffic`: AI drivers on the lane graph. They obey lights, follow the car in front, stop for people, flee and honk.
   - `traffic.route(fromX, fromZ, toX, toZ)` → [points] (A* on the road graph; also used for the GPS and police).
+  - Each driver follows a path: its lane up to the junction mouth, a quadratic Bezier through the junction (legs at least a turning circle long; right turns end in the kerb lane, left turns in the inner lane), then the next road's lane. Left turns give way to oncoming traffic; unsignalled junctions are taken one car at a time; two cars blocking each other resolve by priority.
+  - Unsticking: a car that throttles without moving backs out and tries again; one stuck behind a stalled car (or a person who won't move) pulls round it; cars stuck for long, or lost off the road, are removed out of sight. Edges with a building across the carriageway are never used (`_clear(e)`), nor are dead-end stubs.
+  - Small streets (`R.parking`) park on one side only (the right of a→b), and that direction's lane sits nearer the centre line: our cars are 8 studs wide.
+  - Density: up to 46 cars in a 210–580 stud ring; the expressway gets its own share of spawns (most of them when the camera is on it). `stats {ms, removed}`.
+  - Idle vehicles (no throttle, < 3 studs/s) hold on slopes (physics.js).
 
 ## Combat
 
@@ -204,6 +214,8 @@ Session states: `loading → title → play ⇄ paused`, plus `wasted` and `bust
 - `core/camera.js` `CameraRig(camera)` → `V.cam`:
   - modes `foot | aim | vehicle | cinematic`
   - orbit with the mouse (pointer lock), collision with walls, chase camera for vehicles (looks ahead, pulls back with speed)
+  - on foot ~13.5 studs back and a little right (you fill about a quarter of the screen height); aiming 13 back over the right shoulder (the shoulder offset shrinks against a wall at your side)
+  - pulls in out of palm crowns; people right in front of the lens dissolve (it sets their crowd figure's `fade`, restoring it next frame)
   - `shake(a)`, `cinematic(shots)`, `aimRay()` → {origin, dir}
 
 ## Police, missions, UI, audio

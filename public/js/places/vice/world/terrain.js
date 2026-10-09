@@ -261,9 +261,11 @@ vec3 recolor(vec3 s, int q) {
   }
   // beyond the map: the Everglades (the weights there just repeat the map's edge, in streaks)
   float gOut = max(max(-${f(G.HALF)} - vW.x, vW.x - ${f(G.HALF)}), max(-${f(G.HALF)} - vW.z, vW.z - ${f(G.HALF)}));
-  if (gOut > 0.0 && vW.y > -3.0) {
-    float k = smoothstep(0.0, 160.0, gOut);
-    float sl = vcSlough(vW.xz), hm = vcHammock(vW.xz) * (1.0 - sl);
+  if (gOut > -140.0 && vW.y > -3.0) {
+    // (it starts a little inside the map, on the grass only, so there's no seam at the edge)
+    float k = smoothstep(-140.0, 160.0, gOut) * (gOut < 0.0 ? gWeights[0] + gWeights[5] : 1.0);
+    float out1 = smoothstep(0.0, 80.0, gOut);
+    float sl = vcSlough(vW.xz) * out1, hm = vcHammock(vW.xz) * (1.0 - sl) * out1;
     float n1 = vcNoise(vW.xz / 140.0 + 3.0), n2 = texture(noiseT, vW.xz / 600.0).r;
     // sawgrass: tawny to green, in slow drifts, with darker clumps
     vec3 gc = mix(vec3(0.24, 0.23, 0.085), vec3(0.1, 0.16, 0.045), smoothstep(0.25, 0.75, n1 * 0.6 + n2 * 0.4));

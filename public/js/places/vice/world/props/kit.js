@@ -439,4 +439,4 @@ export class FastChunks {
     return out;
   }
 }
-function freeArray() { if (!globalThis.__vcKeepArrays) this.array = null; }
+function freeArray() { this.array = null; }
