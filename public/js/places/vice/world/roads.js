@@ -376,7 +376,7 @@ export class Roads {
       // the glowing lens underneath
       const c = Math.cos(head), s = Math.sin(head);
       const Q = (x, z) => [hx + x * c + z * s, p.y + H - 0.86, hz - x * s + z * c];
-      g.quad(Q(0.8, -1.4), Q(-0.8, -1.4), Q(-0.8, 1.4), Q(0.8, 1.4), { lay: L.whiteTiles, tint: T.head, scale: 4, glow: 1, rough: 0.3 });
+      g.quad(Q(0.8, -1.4), Q(-0.8, -1.4), Q(-0.8, 1.4), Q(0.8, 1.4), { lay: L.whiteTiles, tint: T.head, scale: 4, glow: 0.5, rough: 0.3 });
       fixDown(g);
       this.phys.add(p.x, p.y + H / 2, p.z, 0.4, H / 2, 0.4, 0, 'metal', { pole: true, lamp: true });
     }
