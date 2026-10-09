@@ -44,10 +44,14 @@ function partBox(hx, hy, hz, reg) {
 
 /** Collect triangles from several geometries into one non-indexed geometry with extra per-vertex attributes. */
 class Merge {
-  constructor() { this.pos = []; this.nor = []; this.uv = []; this.col = []; this.tag = []; }
+  constructor() { this.pos = []; this.nor = []; this.uv = []; this.col = []; this.tag = []; this.idx = []; }
   add(geo, m, { uv = null, color = null, tag = 0 } = {}) {
-    const g = geo.index ? geo.toNonIndexed() : geo;
+    // (kept indexed: the vertex shader runs once per shared vertex)
+    const g = geo;
     const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv;
+    const base = this.pos.length / 3;
+    if (g.index) for (let k = 0; k < g.index.count; k++) this.idx.push(base + g.index.getX(k));
+    else for (let k = 0; k < P.count; k++) this.idx.push(base + k);
     const nm = new THREE.Matrix3().getNormalMatrix(m);
     const v = new THREE.Vector3();
     for (let i = 0; i < P.count; i++) {
@@ -65,6 +69,7 @@ class Merge {
     g.setAttribute('uv', new THREE.Float32BufferAttribute(this.uv, 2));
     g.setAttribute('color', new THREE.Float32BufferAttribute(this.col, 3));
     if (tagName) g.setAttribute(tagName, new THREE.Float32BufferAttribute(this.tag, 1));
+    g.setIndex(this.idx);
     g.computeBoundingSphere();
     return g;
   }
@@ -99,8 +104,8 @@ function headGeometry() {
   M.add(bot, new THREE.Matrix4(), { uv: [cu(S[0] + 96), cv(S[1] + 62)] });
   // hats, hair and glasses (each switched on by its bit)
   const crown = regUV(REG.hat.crown), brim = regUV(REG.hat.brim), hair = regUV(REG.hair), lens = regUV(REG.glass);
-  const cyl = (rt, rb, h, seg = 14, open = false) => new THREE.CylinderGeometry(rt, rb, h, seg, 1, open);
-  const dome = (rad, seg = 14) => new THREE.SphereGeometry(rad, seg, 7, 0, Math.PI * 2, 0, Math.PI / 2);
+  const cyl = (rt, rb, h, seg = 12, open = false) => new THREE.CylinderGeometry(rt, rb, Math.max(0.01, h), Math.min(seg, 12), 1, open);
+  const dome = (rad, seg = 12) => new THREE.SphereGeometry(rad, seg, 5, 0, Math.PI * 2, 0, Math.PI / 2);
   const hat = (bit, geo, m, uv) => M.add(geo, m, { uv, tag: bit });
   // cap (peak forward) and cap turned backwards
   for (const [bit, dir] of [[HAT.cap, 1], [HAT.capback, -1]]) {
@@ -140,9 +145,9 @@ function headGeometry() {
   hat(HAT.longhair, new THREE.BoxGeometry(0.2, 1.25, 0.95), M4(0.6, -0.3, -0.12), hair);
   hat(HAT.longhair, new THREE.BoxGeometry(0.2, 1.25, 0.95), M4(-0.6, -0.3, -0.12), hair);
   // a bun on top, an afro
-  hat(HAT.bun, new THREE.SphereGeometry(0.33, 10, 6), M4(0, 0.62, -0.38), hair);
+  hat(HAT.bun, new THREE.SphereGeometry(0.33, 8, 5), M4(0, 0.62, -0.38), hair);
   hat(HAT.bun, dome(0.655), M4(0, 0.05, -0.02, 0, 0, 0, 1, 0.95, 1.02), hair);
-  hat(HAT.afro, new THREE.SphereGeometry(0.9, 14, 9), M4(0, 0.35, -0.12, 0, 0, 0, 1, 0.9, 1), hair);
+  hat(HAT.afro, new THREE.SphereGeometry(0.9, 12, 7), M4(0, 0.35, -0.12, 0, 0, 0, 1, 0.9, 1), hair);
   // bandana (tied at the back) and headwrap
   hat(HAT.bandana, dome(0.665), M4(0, 0.1, 0, 0, 0, 0, 1, 0.92, 1), crown);
   hat(HAT.bandana, new THREE.BoxGeometry(0.3, 0.3, 0.18), M4(0, 0.22, -0.7), brim);
