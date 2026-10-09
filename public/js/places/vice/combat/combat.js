@@ -33,6 +33,8 @@ const _up = new THREE.Vector3(0, 1, 0), _m = new THREE.Matrix4(), _r = new THREE
 const R = Math.random;
 const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
 const COPS = (p) => p && (p.team === 'cops' || p.kind === 'cop' || p.kind === 'swat');
+// NPCs' bullets and fists hurt you less than yours hurt them (you're the hero: GTA does the same)
+const NPC_VS_PLAYER = 0.45, NPC_MELEE_VS_PLAYER = 0.6;
 
 /** Turn a direction by a random angle within `deg` degrees (more often near the middle). */
 export function spread(dir, deg) {
@@ -221,7 +223,7 @@ export class Combat {
         return 0;
       }
       const head = h.part === 'head';
-      const dmg = base;
+      const dmg = victim.isPlayer && !isP ? base * NPC_VS_PLAYER : base;
       const alive = !victim.dead;
       victim.hit?.(dmg, h.part, dir.clone(), shooter, { bullet: true, weapon: w.id, force: (w.force || 8) * fall, point: h.point.clone(), noBlood: true, pellets: !!w.pellets });
       fx?.blood?.(h.point, dir, { head, heavy: dmg > 45, amount: w.pellets ? 0.55 : 1 });
@@ -353,12 +355,13 @@ export class Combat {
     if (tg && tg.target) {
       const t = tg.target, down = tg.down;
       const blunt = w.kind !== 'stab';
-      let dmg = (heavy ? w.heavy : w.dmg) * (o.mult || 1) * (fin ? 1.35 : 1) * (down ? 1.3 : 1);
+      let dmg = (heavy ? w.heavy : w.dmg) * (o.mult || 1) * (fin ? 1.35 : 1) * (down ? 1.3 : 1) * (t.isPlayer && !isP ? NPC_MELEE_VS_PLAYER : 1);
       const part = o.part || (down ? (R() < 0.3 ? 'head' : 'torso') : fin && blunt ? 'head' : 'torso');
       const hitY = down ? t.pos.y + 0.8 : t.pos.y + (part === 'head' ? 4.5 : 3.2);
       _p.set(t.pos.x - _d.x * 0.6, hitY, t.pos.z - _d.z * 0.6);
       const alive = !t.dead;
-      const knock = !down && !t.dead && (heavy || fin || (w.kind === 'blunt' && R() < 0.6));
+      // (NPCs only floor you with a heavy blow)
+      const knock = !down && !t.dead && (heavy || ((fin || (w.kind === 'blunt' && R() < 0.6)) && !(t.isPlayer && !isP)));
       t.hit?.(dmg, part, _d.clone(), attacker, { melee: true, weapon: w.id, heavy, stagger: !knock, knockdown: knock, knock, point: _p.clone(), noBlood: true });
       if (knock && !t.dead && !t.vehicle) {
         const k = heavy ? 1 : 0.7, kb = w.kind === 'blunt' ? 1.25 : w.kind === 'fist' ? 0.8 : 1;

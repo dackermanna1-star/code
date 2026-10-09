@@ -545,7 +545,7 @@ export class FX {
     const M = MATS[mat] || MATS.concrete, nx = nrm?.x ?? 0, ny = nrm?.y ?? 1, nz = nrm?.z ?? 0, n = { x: nx, y: ny, z: nz };
     const k = o.big ? 1.6 : 1;
     // a puff of dust off the surface, a spurt of chips
-    this.burst(pos, Math.round(3 * k), { color: M.dust, speed: 4 * k, dir: n, spread: 0.7, life: 0.9, size: 0.35 * k, grow: 3.2, grav: 2, drag: 3, alpha: 0.55 });
+    this.burst(pos, Math.round(3 * k), { color: M.dust, speed: 4 * k, dir: n, spread: 0.7, life: 0.8, size: 0.3 * k, grow: 2.6, grav: 2, drag: 3, alpha: 0.38, fl: F_SMOKE });
     this.burst(pos, Math.round(2 * k), { color: M.dust, speed: 12 * k, dir: n, spread: 0.25, life: 0.35, size: 0.16 * k, grow: 4, grav: 0, drag: 5, alpha: 0.7, stretch: 0.03 });
     if (M.chip) {
       const land = this._ground(pos.x, pos.y, pos.z);
@@ -609,6 +609,7 @@ export class FX {
   _stain(x, y, z) { this.bloodD.add(x, y + 0.02, z, 0, 1, 0, 0.3 + R() * 0.45, 2); }
   /** A pool spreading under a body (to `size` across over half a minute). */
   pool(x, z, y = null, size = 3.6) {
+    size = Math.max(3, size); // (across, in studs: a body is 5 long; smaller doesn't show past it)
     const g = this._ground(x, (y ?? K.GROUND) + 1, z);
     if (g < -100) return;
     const D = this.bloodD;
@@ -640,7 +641,7 @@ export class FX {
     if (o.light !== false) {
       // (a little ahead of the barrel: it lights the street more than your own face)
       this.muzzleL.position.set(pos.x + dir.x * 1.6, pos.y + dir.y * 1.6 + 0.3, pos.z + dir.z * 1.6);
-      this.muzzleL.intensity = (o.mine ? 260 : 420) * k;
+      this.muzzleL.intensity = (o.mine ? 120 : 260) * k;
       this.muzzleT = 0.05;
     }
   }
@@ -720,7 +721,8 @@ export class FX {
   _light(x, y, z, peak, life, r, g, b, owner) {
     let best = null;
     for (const L of this.lights) if (!L.owner && L.t >= L.life) { best = L; break; }
-    if (!best && !owner) best = this.lights.reduce((a, L) => (a.owner && !L.owner ? L : !a.owner && L.owner ? a : (a.life - a.t < L.life - L.t ? a : L)));
+    // (a flash may take a fire's light, or the flash nearest its end)
+    if (!best && !owner) best = this.lights.find((L) => L.owner) || this.lights.reduce((a, L) => (a.life - a.t < L.life - L.t ? a : L));
     if (!best) return null;
     if (best.owner && !owner) best.owner.light = null;
     best.owner = owner; best.t = 0; best.life = life; best.peak = peak;
@@ -739,15 +741,19 @@ export class FX {
   skid(x, z, heading, y = null, strength = 1) {
     const now = this.t;
     if (y == null) y = this._ground(x, K.GROUND + 4, z);
-    // continue the nearest open mark if it's close and recent, else start one
-    let best = null, bd = 9;
+    // continue the open mark this wheel left last frame (ahead of it along its heading, not off to the side: that's the
+    // other wheel), else start one
+    let best = null, bd = Infinity;
     for (const s of this.strips) {
-      if (now - s.t > 0.2) continue;
-      const d = (s.x - x) ** 2 + (s.z - z) ** 2;
-      if (d < bd && Math.abs(Math.sin(s.h - heading)) < 0.7) { bd = d; best = s; }
+      if (now - s.t > 0.2 || s.t === now) continue; // (stale, or another wheel's this frame)
+      const dx = x - s.x, dz = z - s.z, fx = Math.sin(s.h), fz = Math.cos(s.h);
+      const along = Math.abs(dx * fx + dz * fz), across = Math.abs(dz * fx - dx * fz);
+      if (along > 7 || across > 2.2 + along * 0.9) continue;
+      const sc = along + across * 2;
+      if (sc < bd) { bd = sc; best = s; }
     }
     if (best) {
-      const d = Math.sqrt(bd);
+      const d = Math.hypot(x - best.x, z - best.z);
       if (d < 0.6) { best.t = now; return; } // not far enough for a new piece yet
       this.skids.strip(best.x, best.y, best.z, x, y, z, 1.05, Math.min(0.85, 0.3 + strength * 0.5));
       best.x = x; best.y = y; best.z = z; best.h = heading; best.t = now;

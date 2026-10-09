@@ -20,7 +20,7 @@
 // Also: V.settings.lockOn (default on).
 import * as THREE from 'three';
 import { V, K } from '../state.js';
-import { WEAPONS, SLOTS, SLOT_NAMES } from './data.js';
+import { WEAPONS, SLOTS, SLOT_NAMES, weapon } from './data.js';
 import { gunModel, handModel, weaponIcon } from './models.js';
 import { playMech } from '../../warzone/fx.js';
 
@@ -87,7 +87,7 @@ export class Weapons {
     this.cool = 0; this.bloom = 0; this.aimHold = 0; this.recoilDebt = 0; this.gunKick = 0; this.switchT = 0;
     this.reload = null;             // {t, dur, shells}
     this.atk = null;                // a melee attack in progress {kind, step, u, dur, heavy, hit, held}
-    this.combo = 0; this.comboT = 0; this.queued = false; this.charge = -1;
+    this.combo = 0; this.comboT = -9; this.queued = false; this.charge = -1;
     this.cook = -1;                 // seconds a grenade has been held (-1: not)
     this.lock = null; this.lockT = 0; this.lockBreakT = 0;
     this.scopeFov = 12;
@@ -99,19 +99,28 @@ export class Weapons {
     this._ui();
   }
 
+  /** After loading: build every weapon's merged model now (not in the middle of a fight). */
+  ready() {
+    try { for (const id of Object.keys(WEAPONS)) gunModel(id); } catch (e) { console.warn('weapons: model warm-up', e); }
+    // the wheel's icons render a frame or two later (the renderer is busy compiling now)
+    V.session?.after?.(2, () => { try { for (const id of Object.keys(WEAPONS)) weaponIcon(id, V.world?.renderer); } catch (e) { /* not fatal */ } });
+  }
+
   // ---- the arsenal ---------------------------------------------------------------------------------------------------------------------
   get w() { return WEAPONS[this.slots[this.slot]?.id] || WEAPONS.fists; }
-  has(id) { const w = WEAPONS[id]; return !!w && this.slots[w.slot]?.id === id; }
+  has(id) { const w = weapon(id); return !!w && this.slots[w.slot]?.id === w.id; }
   /** Pick up / buy a weapon: it goes in its slot (replacing what's there, keeping that slot's ammo). */
   give(id, ammo = null) {
-    const w = WEAPONS[id];
+    const w = weapon(id);
     if (!w) return false;
+    id = w.id;
     const s = this.slots[w.slot];
     const extra = ammo ?? (w.melee ? 0 : (w.mag || 1) * (w.thrown ? 3 : 4));
     if (w.melee) { this.slots[w.slot] = { id, mag: null, reserve: null }; }
     else if (s && s.id === id) { s.reserve = Math.min(w.reserveMax || 999, s.reserve + extra); if (s.mag === 0 && s.reserve > 0) { const k = Math.min(w.mag, s.reserve); s.mag = k; s.reserve -= k; } }
     else {
-      const total = (s ? (s.mag || 0) + (s.reserve || 0) : 0) + extra;
+      // (a gun takes over the slot's rounds; grenades don't turn into molotovs)
+      const total = (s && !w.thrown && !w.projectile ? (s.mag || 0) + (s.reserve || 0) : 0) + extra;
       const mag = Math.min(w.mag, total);
       this.slots[w.slot] = { id, mag, reserve: Math.min(w.reserveMax || 999, total - mag) };
     }
@@ -119,12 +128,12 @@ export class Weapons {
     V.events?.emit('weapon:get', { id });
     return true;
   }
-  addAmmo(id, n) { const w = WEAPONS[id] || null; const s = w ? this.slots[w.slot] : this.slots[id]; if (!s || s.mag == null) return false; const W = WEAPONS[s.id]; s.reserve = Math.min(W.reserveMax || 999, s.reserve + n); if (s.mag === 0) this._autoReloadSoon(); return true; }
-  buy(id) { const w = WEAPONS[id], P = V.player; if (!w || !P || P.money < w.price) return false; P.money -= w.price; this.give(id); return true; }
-  buyAmmo(id, rounds) { const w = WEAPONS[id], P = V.player; if (!w || !this.has(id)) return false; const cost = (w.ammoPrice || 2) * rounds; if (P.money < cost) return false; P.money -= cost; return this.addAmmo(id, rounds); }
+  addAmmo(id, n) { const w = weapon(id); const s = w ? this.slots[w.slot] : this.slots[id]; if (!s || s.mag == null) return false; const W = WEAPONS[s.id]; s.reserve = Math.min(W.reserveMax || 999, s.reserve + n); if (s.mag === 0) this._autoReloadSoon(); return true; }
+  buy(id) { const w = weapon(id), P = V.player; if (!w || !P || P.money < w.price) return false; P.money -= w.price; this.give(id); return true; }
+  buyAmmo(id, rounds) { const w = weapon(id), P = V.player; if (!w || !this.has(id)) return false; const cost = (w.ammoPrice || 2) * rounds; if (P.money < cost) return false; P.money -= cost; return this.addAmmo(id, rounds); }
   /** Switch to a slot (or a weapon's slot). */
   select(s) {
-    const slot = WEAPONS[s] ? WEAPONS[s].slot : s;
+    const slot = weapon(s) ? weapon(s).slot : s;
     if (!this.slots[slot] || slot === this.slot) return false;
     this.slot = slot;
     this._equip();
@@ -232,12 +241,16 @@ export class Weapons {
     this._lockOn(dt, inp, rmb && !drive);
     // fire
     this.cool -= dt;
-    const trig = !this.wheelOpen && (w.auto ? inp.buttons?.has(0) : inp.clicked?.has(0));
+    let trig = !this.wheelOpen && (w.auto ? inp.buttons?.has(0) : inp.clicked?.has(0));
+    // sprinting: the first press brings the gun up (and stops you), then it fires (the click is kept a moment)
+    this.buffered = Math.max(0, (this.buffered || 0) - dt);
+    if (trig && P.sprinting && !drive) { trig = false; this.aimHold = 0.9; this.aiming = true; this.buffered = 0.3; }
+    else if (!trig && this.buffered > 0 && !P.sprinting && !this.wheelOpen) trig = true;
     let fired = false;
     if (trig && this.cool <= 0 && this.switchT <= 0 && !(this.reload && !(w.shellReload && s.mag > 0))) {
       if (s.mag > 0) {
         if (this.reload) this.reload = null; // (a shotgun stops loading to fire)
-        fired = true;
+        fired = true; this.buffered = 0;
       } else if (inp.clicked?.has(0)) { playMech('dry', null, 0.6); this.cool = 0.25; if (s.reserve > 0) this._startReload(); }
     }
     // pose: the arm along the aim (the camera's pitch), the other hand on the gun
@@ -454,7 +467,7 @@ export class Weapons {
     else if (this.atk) this._poseAttack(T, w, this.atk);
     else if (w.kind === 'blunt') { T.useR = true; T.fR = 0.35; T.ry = 0.15; T.useL = true; T.fL = 0.4; T.ly = -0.5; T.k = 10; }
     else if (w.kind === 'stab') { T.useR = true; T.fR = 0.4; T.k = 10; }
-    else if (this.comboT > 0 || this.target) { T.useR = true; T.fR = 1.0; T.ry = 0.35; T.useL = true; T.fL = 1.1; T.ly = -0.35; T.k = 12; } // fists up
+    else if (this.comboT > -2.5 || (this.target && isHostile(this.target))) { T.useR = true; T.fR = 1.0; T.ry = 0.35; T.useL = true; T.fL = 1.1; T.ly = -0.35; T.k = 12; } // fists up (in a fight)
   }
   _camFlat() { const y = V.cam ? V.cam.yaw : V.player.heading + Math.PI; return { x: -Math.sin(y), z: -Math.cos(y) }; }
   _face(p) { const P = V.player; const h = Math.atan2(p.x - P.pos.x, p.z - P.pos.z); P.heading = h; }
