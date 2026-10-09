@@ -143,7 +143,7 @@ export const GRIDS = [
     ],
   },
   {
-    id: 'port', land: 'port', rect: [880, -980, 1680, -380],
+    id: 'port', land: 'port', rect: [880, -980, 1680, -420],
     xs: [[960, 'ave', 'Port Way'], 1240, 1520], zs: [-880, [-720, 'ave', 'Caribbean Way'], -560], skip: [],
   },
 ];

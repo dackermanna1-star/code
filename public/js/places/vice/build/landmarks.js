@@ -666,9 +666,9 @@ function airport(C) {
   K.begin(-2960, C.GROUND, -2000, S, 8203, { kind: 'garage' });
   garage(C, K, 120, 100, 4);
   K.end();
-  // hangars along the west side
+  // hangars north of the terminal (clear of the runways and the apron to the west)
   for (let i = 0; i < 3; i++) {
-    const hx = -3900 + i * 150, hz = -2050;
+    const hx = -3110 + i * 150, hz = -2620;
     C.reserve(hx - 65, hz - 60, hx + 65, hz + 60);
     K.begin(hx, C.GROUND, hz, N, 8210 + i, { kind: 'hangar' });
     const hw2 = 60, hd2 = 55, h = 34;

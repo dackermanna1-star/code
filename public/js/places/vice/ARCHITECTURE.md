@@ -108,6 +108,7 @@ Session states: `loading → title → play ⇄ paused`, plus `wasted` and `bust
   - It covers palms (instanced, swaying), street furniture, the beach, parks, the port's cranes and containers, the marina and its moored boats, the airport apron and planes, seawalls and the pier.
   - `palm(x, y, z, scale, lean)` and `bush(x, y, z, s)` let the city add greenery in its lots before `finish()` builds the instanced meshes.
   - `update(dt, camera)`.
+  - Also: `tree(x, y, z, s)`, `claimed(x, z, r)` (space props need; the city avoids it), `free(x, z, r)`, `knock(box)` (vehicles knock over boxes with `prop && breakable`), `spots` ({benches, busStops, loungers, umbrellas} for people), `parks`, `marinas`, `pier`.
 - `world/city.js` `City(world, plan, ground, phys)`: every building, prop, palm and landmark, merged per 256-stud cell. Sets `city.real = true` (this turns off the debug boxes). Static colliders go in phys.
   - `city.update(dt, camera)` handles LOD and night windows.
   - `city.spawnPoints`: `{parking:[{x, z, heading}], peds:[{x, z}], police:[...], ambulance:[...]}`
@@ -228,3 +229,14 @@ Session states: `loading → title → play ⇄ paused`, plus `wasted` and `bust
 | `vehicle:destroyed` | `{veh, attacker}` |
 | `player:wasted` / `player:busted` | — |
 | `mission:start` / `mission:pass` / `mission:fail` | `{id}` |
+
+## Who built what
+
+The lead designed the map, the plan, the ground, collision, the roads, the player, the camera, the session, the HUD, the menus, the audio and the radio. Four agents each built one part:
+
+- **The look agent:** the sky, the water, the terrain and the post-processing.
+- **The vehicle agent:** all 32 vehicles, their physics, damage and effects.
+- **The city agent:** 3,904 buildings, every landmark, the neon, the windows and the murals.
+- **The props agent:** 4,500 palms, the beach and lifeguard towers, the port, the marinas, the airport, the parks and the street furniture.
+
+Thank you, all four.
