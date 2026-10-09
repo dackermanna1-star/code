@@ -788,7 +788,7 @@ export class Vehicles {
         const spd = Math.hypot(pvx, pvz);
         const kv = new THREE.Vector3(pvx * 1.05 + nx * 4, 5 + spd * 0.22, pvz * 1.05 + nz * 4);
         p.knock?.(kv, v);
-        const dmg = Math.max(5, (vn - 6) * 2.4);
+        const dmg = Math.max(5, (vn - 8) * (p.isPlayer ? 1.1 : 2.2)); // a person dies from a hard hit; the player usually gets up
         p.hit?.(dmg, 'torso', _n.set(nx, 0.3, nz).normalize().clone(), v.driver, { vehicle: v });
         // the car feels it a little
         const k = Math.min(0.12, 90 / d.mass);

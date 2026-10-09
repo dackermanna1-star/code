@@ -30,7 +30,7 @@ export default {
     V.phys = new VPhys(V.ground, V.plan);
     V.ready = loadModels();
     V.buildMs = Math.round(performance.now() - t0);
-    const cam = world.camera; cam.near = 0.3; cam.far = 9000; cam.fov = 60; cam.updateProjectionMatrix();
+    const cam = world.camera; cam.near = 0.5; cam.far = 9000; cam.fov = 60; cam.updateProjectionMatrix();
     return { thumbnail: { cam: [2600, 300, 1900], look: [2500, 0, 1200] } };
   },
 

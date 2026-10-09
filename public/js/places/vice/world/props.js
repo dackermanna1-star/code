@@ -78,6 +78,7 @@ export class Props {
 
   /** Put down a palm now (used by the props' own placement and by the queue). */
   addPalm(x, y, z, s = 1, lean = 0, kind = null, solid = true) {
+    if (this.overhead(x, y, z, 50 * s)) return; // never through a bridge or the expressway
     const h = hash(x * 7.3, z * 3.1, 5);
     let sp;
     if (kind === 'royal') sp = SP.royal;
@@ -89,11 +90,21 @@ export class Props {
     if (solid) this.box(x, y + 6, z, SPECIES[sp].trunk * s, 6, SPECIES[sp].trunk * s, 0, 'wood', { tree: true, shootable: true });
   }
   addTree(x, y, z, s = 1) {
+    if (this.overhead(x, y, z, 32 * s)) return;
     this.flora.add(SP.tree, x, y - 0.4, z, s, hash(x, z, 9) * Math.PI * 2, 0, 0.85 + hash(x, z, 4) * 0.3);
     this.box(x, y + 7, z, 1.7 * s, 7, 1.7 * s, 0, 'wood', { tree: true, shootable: true });
   }
   addBush(x, y, z, s = 1, kind = 'shrub') {
     this.flora.add(SP[kind] ?? SP.shrub, x, y - 0.3, z, s, hash(x, z, 9) * Math.PI * 2, 0, 0.85 + hash(x, z, 4) * 0.3);
+  }
+  /** A road deck (bridge, expressway) over (x, z) lower than y + h? */
+  overhead(x, y, z, h) { const d = this.phys.deckAt?.(x, z, y + h); return d != null && d > y + 2; }
+  /** The city's building box at (x, z), if any (for rooftop billboards). */
+  buildingAt(x, z) {
+    if (!this.bgrid) this._buildingIndex();
+    const c = this.bgrid.get(Math.floor(x / 64) * 8192 + Math.floor(z / 64));
+    if (c) for (const b of c) { const dx = x - b.x, dz = z - b.z, lx = dx * b.c - dz * b.s, lz = dx * b.s + dz * b.c; if (Math.abs(lx) < b.hx && Math.abs(lz) < b.hz) return b; }
+    return null;
   }
   /** A 4-stud occupancy grid so props don't land on each other. */
   occupy(x, z, r = 2) { const a = Math.floor((x - r) / 4), b = Math.floor((x + r) / 4), c = Math.floor((z - r) / 4), d = Math.floor((z + r) / 4); for (let i = a; i <= b; i++) for (let j = c; j <= d; j++) this.occ.add(i * 8192 + j); }

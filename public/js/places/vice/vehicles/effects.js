@@ -177,18 +177,25 @@ export class VehFX {
   }
   /** A fireball with smoke, sparks and a flash. */
   fireball(p, size = 1) {
+    const R = Math.random;
+    // a hot core (additive, quick)
+    for (let i = 0; i < 14 * size; i++) {
+      const a = R() * 6.283, e = R() * 1.2, s = (8 + R() * 22) * size;
+      this.fireP.emit(p.x, p.y + 2, p.z, Math.cos(a) * Math.cos(e) * s, Math.sin(e) * s + 6, Math.sin(a) * Math.cos(e) * s, 0.3 + R() * 0.35, (7 + R() * 6) * size, (12 + R() * 8) * size, 2.2, 1.0 + R() * 0.4, 0.25, 0.9, -6, 2.5);
+    }
+    // the body of the fireball: solid orange puffs that roll up
     for (let i = 0; i < 26 * size; i++) {
-      const a = Math.random() * 6.283, e = Math.random() * 1.2, s = (10 + Math.random() * 30) * size;
-      const hot = Math.random();
-      this.fireP.emit(p.x, p.y + 1, p.z, Math.cos(a) * Math.cos(e) * s, Math.sin(e) * s + 8, Math.sin(a) * Math.cos(e) * s, 0.5 + Math.random() * 0.7, (5 + Math.random() * 7) * size, (9 + Math.random() * 9) * size, 2.4, 0.75 + hot * 0.6, 0.12 + hot * 0.15, 0.85, -10, 2.2);
+      const a = R() * 6.283, e = R() * 1.3, s = (6 + R() * 18) * size, k = R();
+      this.smokeP.emit(p.x + (R() - 0.5) * 4, p.y + 1.5, p.z + (R() - 0.5) * 4, Math.cos(a) * Math.cos(e) * s, Math.sin(e) * s + 10, Math.sin(a) * Math.cos(e) * s, 0.7 + R() * 0.7, (5 + R() * 5) * size, (14 + R() * 10) * size, 1.6 + k * 0.6, 0.55 + k * 0.45, 0.12 + k * 0.1, 0.95, -8, 1.8);
     }
-    for (let i = 0; i < 18 * size; i++) {
-      const a = Math.random() * 6.283, s = (4 + Math.random() * 14) * size;
-      this.smokeP.emit(p.x, p.y + 2, p.z, Math.cos(a) * s, 8 + Math.random() * 14, Math.sin(a) * s, 3 + Math.random() * 3, 8 * size, 26 * size, 0.12, 0.12, 0.13, 0.75, -3, 0.6);
+    // black smoke after
+    for (let i = 0; i < 20 * size; i++) {
+      const a = R() * 6.283, s = (4 + R() * 12) * size;
+      this.smokeP.emit(p.x, p.y + 4, p.z, Math.cos(a) * s, 10 + R() * 16, Math.sin(a) * s, 3 + R() * 3.5, 8 * size, 28 * size, 0.07, 0.065, 0.06, 0.8, -3, 0.6);
     }
-    for (let i = 0; i < 30; i++) { const a = Math.random() * 6.283, s = 30 + Math.random() * 60; this.spark(p.x, p.y + 2, p.z, Math.cos(a) * s, 20 + Math.random() * 50, Math.sin(a) * s); }
-    this.flash.position.set(p.x, p.y + 6, p.z);
-    this.flashT = 0.9;
+    for (let i = 0; i < 34; i++) { const a = R() * 6.283, s = 30 + R() * 60; this.spark(p.x, p.y + 2, p.z, Math.cos(a) * s, 20 + R() * 50, Math.sin(a) * s); }
+    this.flash.position.set(p.x, p.y + 12, p.z);
+    this.flashT = 0.8;
   }
   /** A piece of wreckage flying off. */
   debris(name, p, vx, vy, vz, spin = 8) {
@@ -209,7 +216,7 @@ export class VehFX {
     this.smokeP.mat.uniforms.uLight.value = light;
     this.smokeP.update(dt);
     this.fireP.update(dt);
-    if (this.flashT > 0) { this.flashT = Math.max(0, this.flashT - dt); this.flash.intensity = this.flashT * this.flashT * 14000; this.flash.color.setRGB(1, 0.62, 0.25); }
+    if (this.flashT > 0) { this.flashT = Math.max(0, this.flashT - dt); this.flash.intensity = this.flashT * this.flashT * 7000; this.flash.color.setRGB(1, 0.62, 0.25); }
     else if (this.siren) {
       // no explosion going on: the light becomes the nearest light bar's red/blue spill
       const s = this.siren;

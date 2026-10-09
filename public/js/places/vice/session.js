@@ -103,6 +103,8 @@ export class Session {
       this.saved = save;
       this.state = V.menus.showTitle ? 'title' : 'play';
       V.menus.showTitle?.(!!save);
+      // compile every shader now rather than in the first seconds of play
+      try { V.world.renderer.compile(V.world.scene, V.world.camera); } catch (e) { /* not fatal */ }
       V.post.fadeIn?.(1.5);
     });
     // the game's own events

@@ -134,9 +134,15 @@ export function waterNormalTex() {
       if (!kx && !ky) continue;
       waves.push({ kx, ky, a: 1 / Math.hypot(kx, ky) ** 1.2, p: r() * 6.28 });
     }
+    // cos(A + B) = cos A cos B - sin A sin B, with A along x and B along y tabulated once
+    for (const v of waves) {
+      v.cA = new Float32Array(w); v.sA = new Float32Array(w); v.cB = new Float32Array(h); v.sB = new Float32Array(h);
+      for (let i = 0; i < w; i++) { const t = (v.kx * i / w) * Math.PI * 2; v.cA[i] = Math.cos(t); v.sA[i] = Math.sin(t); }
+      for (let j = 0; j < h; j++) { const t = (v.ky * j / h) * Math.PI * 2 + v.p; v.cB[j] = Math.cos(t); v.sB[j] = Math.sin(t); }
+    }
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
       let dx = 0, dy = 0;
-      for (const v of waves) { const c = Math.cos((v.kx * i / w + v.ky * j / h) * Math.PI * 2 + v.p) * v.a; dx += c * v.kx; dy += c * v.ky; }
+      for (const v of waves) { const c = (v.cA[i] * v.cB[j] - v.sA[i] * v.sB[j]) * v.a; dx += c * v.kx; dy += c * v.ky; }
       const nx = -dx * 0.055, ny = -dy * 0.055, l = Math.hypot(nx, ny, 1), k = (j * w + i) * 4;
       d[k] = Math.round((nx / l * 0.5 + 0.5) * 255); d[k + 1] = Math.round((ny / l * 0.5 + 0.5) * 255); d[k + 2] = Math.round((1 / l * 0.5 + 0.5) * 255); d[k + 3] = 255;
     }

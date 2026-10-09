@@ -235,8 +235,15 @@ function billboards(P) {
         if (r() < 0.35) continue;
         const off = e.width / 2 + 34;
         const x = p.x - p.tz * off * s, z = p.z + p.tx * off * s;
-        if (!plan.isLand(x, z, 10) || P.roads.clear(x, z) < 8 || !P.free(x, z, 22) || !P.isFree(x, z, 10)) continue;
-        billboard(P, x, z, p.y + 6, Math.atan2(p.tx, p.tz) + Math.PI / 2 + (r() - 0.5) * 0.3, k++ % ADS.length, (k * 3 + 5) % ADS.length);
+        if (!plan.isLand(x, z, 10) || P.roads.clear(x, z) < 8 || !P.isFree(x, z, 10)) continue;
+        const face = Math.atan2(p.tx, p.tz) + Math.PI / 2 + (r() - 0.5) * 0.3;
+        if (P.free(x, z, 22)) billboard(P, x, z, p.y + 6, face, k++ % ADS.length, (k * 3 + 5) % ADS.length);
+        else {
+          // on the roof of the building beside the expressway, if it's low enough to be seen over
+          const b = P.buildingAt(x, z), roof = b ? b.y + b.hy : 0;
+          if (b && roof > GROUND + 8 && roof < p.y + 12 && b.hx > 8 && b.hz > 8) billboard(P, b.x, b.z, Math.max(roof + 4, p.y + 4), face, k++ % ADS.length, (k * 3 + 5) % ADS.length, roof);
+        }
+        P.occupy(x, z, 30);
       }
     }
   }
@@ -247,8 +254,8 @@ function billboards(P) {
   }
   P.billboards = k;
 }
-function billboard(P, x, z, top, h, adA, adB) {
-  const y = P.ground.heightAt(x, z), g = P.C.get('surf', x, z), ga = P.C.get('ads', x, z);
+function billboard(P, x, z, top, h, adA, adB, base = null) {
+  const y = base ?? P.ground.heightAt(x, z), g = P.C.get('surf', x, z), ga = P.C.get('ads', x, z);
   const c = Math.cos(h), s = Math.sin(h), W2 = 21, H2 = 7.5, by = top + H2;
   const Wd = (lx, ly, lz) => [x + lx * c + lz * s, ly, z - lx * s + lz * c];
   const steel = [0.5, 0.52, 0.55];
