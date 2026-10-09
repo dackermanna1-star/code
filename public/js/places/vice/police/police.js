@@ -46,13 +46,27 @@ export class Police {
   ready() {
     if (this.hooked) return;
     this.hooked = true;
-    // the helicopter's searchlight (one, made now so the shaders compile with it)
+    // the helicopter's searchlight (one, made now so the shaders compile with it): a bright but bounded pool
+    // (no distance falloff, so it's the same on a rooftop as in the street; ~3x the moonlight, under the bloom
+    // threshold on light clothes) and a soft beam that fades at its edges, towards the ground and near the camera
     const scene = V.world.scene;
-    const spot = new THREE.SpotLight(0xe6eeff, 0, 360, 0.15, 0.5, 1.1);
+    const spot = new THREE.SpotLight(0xe6eeff, 0, 400, 0.13, 0.65, 0);
     spot.position.set(0, -1000, 0);
     scene.add(spot); scene.add(spot.target);
     const geo = new THREE.ConeGeometry(1, 1, 28, 1, true); geo.translate(0, -0.5, 0); geo.rotateX(-Math.PI / 2); // apex at the origin, opening along +z
-    const cone = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xcfe0ff, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+    const cone = new THREE.Mesh(geo, new THREE.ShaderMaterial({
+      uniforms: { color: { value: new THREE.Color(0xcfe0ff) }, opacity: { value: 0 } },
+      vertexShader: `varying vec3 vN, vV; varying float vS;
+        void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = -mv.xyz; vS = position.z; gl_Position = projectionMatrix * mv; }`,
+      fragmentShader: `uniform vec3 color; uniform float opacity; varying vec3 vN, vV; varying float vS;
+        void main() {
+          float dist = length(vV);
+          float f = abs(dot(normalize(vN), vV / dist));          // the middle of the beam, not its edges
+          float a = opacity * f * f * mix(1.0, 0.3, vS) * smoothstep(8.0, 45.0, dist);
+          gl_FragColor = vec4(color, a);
+        }`,
+      transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false,
+    }));
     cone.visible = false; cone.frustumCulled = false; cone.renderOrder = 4;
     scene.add(cone);
     this.beam = { spot, cone, x: 0, z: 0 };
@@ -307,12 +321,12 @@ export class Police {
     _t.set(B.x, Number.isFinite(ty) ? ty : P.pos.y, B.z);
     const len = _o.distanceTo(_t);
     B.spot.position.copy(_o); B.spot.target.position.copy(_t); B.spot.target.updateMatrixWorld();
-    B.spot.intensity = 26000 * night;
+    B.spot.intensity = 3.2 * night;
     B.cone.visible = true;
     B.cone.position.copy(_o); B.cone.lookAt(_t);
     const r = len * Math.tan(0.11);
     B.cone.scale.set(r, r, len);
-    B.cone.material.opacity = 0.09 * night;
+    B.cone.material.uniforms.opacity.value = 0.16 * night;
     // you're in the light: they see you
     if (Math.hypot(P.pos.x - B.x, P.pos.z - B.z) < r * 1.2 && this.wanted) { this.seen = true; }
   }
