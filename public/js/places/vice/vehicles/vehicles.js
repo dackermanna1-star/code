@@ -542,7 +542,11 @@ export class Vehicles {
     if (!id) { console.warn('[vehicles] unknown type', type); return null; }
     const d = prepare(id);
     const v = new Vehicle(this, d, x, z, heading, o);
-    if (o.parked) v.sleeping = true;
+    if (o.parked) {
+      v.sleeping = true;
+      // a parked bike leans on its kickstand
+      if (d.kind === 'bike') { v.quat.multiply(_q.setFromAxisAngle(_v.set(0, 0, 1), -0.2)); v.pos.y += 0.05; syncCom(v); v.updateMatrix(); }
+    }
     if (o.vel) v.vel.copy(o.vel);
     else if (o.speed) v.vel.copy(v._fw).multiplyScalar(o.speed);
     this.list.push(v);
@@ -655,6 +659,8 @@ export class Vehicles {
       for (const v of this.list) {
         v.crashT -= dt; v.hornT -= dt;
         if (v.driverIn || v.burning || (v.kind === 'heli' && v.rotor > 0)) v.wake();
+        // boats near the camera ride the swell
+        else if (v.kind === 'boat' && v.sleeping && !v.dead && Math.abs(v.pos.x - cam.x) < 300 && Math.abs(v.pos.z - cam.z) < 300) v.wake();
         if (v.sleeping) {
           v._near = false;
           if (v.dead && v.deadT < 25) { v.deadT += dt; this.emitters(v, dt, _u.set(0, 1, 0).applyQuaternion(v.quat)); }
@@ -747,7 +753,12 @@ export class Vehicles {
       v.sleepT += dt;
       if (v.sleepT > 1.2) { v.sleeping = true; v.vel.set(0, 0, 0); v.angVel.set(0, 0, 0); }
     } else if (v.kind !== 'boat' || v.driverIn || v.vel.lengthSq() > 4) v.sleepT = 0;
-    else { v.sleepT += dt * 0.25; if (v.sleepT > 1.2 && !v.driverIn) { v.sleeping = true; v.vel.set(0, 0, 0); v.angVel.set(0, 0, 0); } }
+    else {
+      // an empty boat sleeps only out of sight (near the camera it bobs)
+      const far = Math.abs(v.pos.x - this.world.camera.position.x) > 320 || Math.abs(v.pos.z - this.world.camera.position.z) > 320;
+      v.sleepT = far ? v.sleepT + dt : 0;
+      if (v.sleepT > 1.2 && !v.driverIn) { v.sleeping = true; v.vel.set(0, 0, 0); v.angVel.set(0, 0, 0); }
+    }
     // fell out of the world
     if (v.pos.y < -60) { v.dead = true; v.vel.set(0, 0, 0); v.sleeping = true; }
     this.people(v, dt);
