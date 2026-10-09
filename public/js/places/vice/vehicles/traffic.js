@@ -341,6 +341,7 @@ export class Traffic {
     if (ai.turn && !C.light) this.busy.set(nodeId, { veh, t: this.t });
     // the car (or person, or player) ahead
     const gap = this._gapAhead(veh, h, ai);
+    ai.blk = this._blocker;
     if (gap < Infinity) vmax = Math.min(vmax, Math.max(0, (gap - 8) * 0.9));
     // controls
     const err = vmax - speed;
@@ -349,7 +350,7 @@ export class Traffic {
     c.steer = steer;
     c.handbrake = false;
     // stuck behind something that won't move: honk, then pull round it
-    if (aspd < 1 && vmax < 0.5 && light === 'green' && this._blocker) ai.stuck += dt; else ai.stuck = Math.max(0, ai.stuck - dt * 2);
+    if (aspd < 1 && vmax < 3 && light === 'green' && this._blocker) ai.stuck += dt; else ai.stuck = Math.max(0, ai.stuck - dt * 2);
     if (ai.stuck > 2.5 && (ai.honkT -= dt) <= 0) { ai.honkT = 2 + Math.random() * 3; veh.horn?.(true); setTimeout(() => veh.horn?.(false), 400); }
     const blk = this._blocker;
     if (ai.stuck > 5 && blk && !ai.turn && ai.swerve === 0 && this._stalled(blk)) {
@@ -369,7 +370,7 @@ export class Traffic {
       c.throttle = -0.7; c.brake = 0; c.steer = ai.revSteer;
       if (ai.rev <= 0) ai.block = 0;
     } else {
-      if (c.throttle > 0.3 && aspd < 1.2) ai.block += dt; else ai.block = Math.max(0, ai.block - dt * 2);
+      if (c.throttle > 0.12 && vmax > 3 && aspd < 1.2) ai.block += dt; else ai.block = Math.max(0, ai.block - dt * 2);
       if (ai.block > 1.5) {
         ai.rev = 1.3 + Math.random() * 0.6; ai.revSteer = -Math.sign(steer || 1) * 0.8; ai.unstick++;
         ai.block = 0;

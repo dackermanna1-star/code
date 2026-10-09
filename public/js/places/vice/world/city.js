@@ -284,7 +284,7 @@ export class City {
     for (const c of this.muralCells) c.mesh.visible = cellDist(p, c, 256) < MURAL_RANGE;
   }
 }
-function freeArray() { this.array = null; }
+function freeArray() { if (!globalThis.__vcKeepArrays) this.array = null; }
 /** Distance from the camera to a cell (a square of half size `half` round c.x, c.z; height above the roofs counts too). */
 function cellDist(p, c, half) {
   const dx = Math.max(0, Math.abs(p.x - c.x) - half), dz = Math.max(0, Math.abs(p.z - c.z) - half), dy = Math.max(0, p.y - 30);

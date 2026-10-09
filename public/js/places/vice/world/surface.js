@@ -107,7 +107,7 @@ export class Chunks {
     return out;
   }
 }
-function freeArray() { this.array = null; }
+function freeArray() { if (!globalThis.__vcKeepArrays) this.array = null; }
 
 /** Screen-space tangent frame (no tangent attribute needed). */
 export const TBN_GLSL = `
