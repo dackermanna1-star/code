@@ -657,7 +657,7 @@ export class Peds {
     if ((this.angerT = (this.angerT || 0) - dt) <= 0 && this.anger.size) {
       this.angerT = 1;
       for (const [g, a] of this.anger) {
-        if (this.time > a.until || !a.target || a.target.dead) { this.anger.delete(g); continue; }
+        if (this.time > a.until || !a.target?.pos || a.target.dead || a.target.removed) { this.anger.delete(g); continue; }
         for (const q of this.near(a.target.pos.x, a.target.pos.z, 70)) {
           if (q.gang !== g || q.dead || q.vehicle || q.brain || q.state === 'shoot' || q.state === 'fight' || q.state === 'down' || q.state === 'getup') continue;
           this.leaveSpot(q);
@@ -738,7 +738,7 @@ export class Peds {
   }
   /** The gang of p is out for `who` (60 s): every member nearby fights. */
   angerGang(p, who) {
-    if (!p.gang || !who) return;
+    if (!p.gang || !who?.pos) return;   // (a person or a car: something with a place to go for)
     const a = this.anger.get(p.gang);
     if (!a || a.target !== who) this.anger.set(p.gang, { until: this.time + 60, target: who });
     else a.until = this.time + 60;

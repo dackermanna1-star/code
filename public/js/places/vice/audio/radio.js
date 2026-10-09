@@ -2,8 +2,9 @@
 // Each station has a style (tempo, drums, bass, chords, lead) and makes a
 // new song from a seed every couple of minutes - a chord progression, a
 // bass line, an arpeggio and a hook - played by a little synth band with a
-// lookahead scheduler. Plays in cars, bikes and boats; Q and E change the
-// station; the HUD shows its name and the song when you tune in.
+// lookahead scheduler. Plays in everything you drive or fly; Q and E change
+// the station (R in helicopters and planes, where Q and E turn); the HUD
+// shows its name and the song when you tune in.
 //
 //   V.radio = new Radio()   next() prev() off()   station (name or null)   setVolume(v)   update(dt)
 import { V } from '../state.js';
@@ -58,15 +59,20 @@ export class Radio {
 
   update(dt) {
     const veh = V.player?.vehicle;
-    const can = veh && ['car', 'bike', 'boat'].includes(veh.kind) && V.session?.state === 'play';
-    // Q / E in a vehicle
-    const inp = V.input;
+    const can = !!veh && V.session?.state === 'play';
+    // Q / E in a vehicle; R in the air (Q / E turn a helicopter or a plane)
+    const inp = V.input, air = can && (veh.kind === 'heli' || veh.kind === 'plane');
     if (can && inp?.pressed) {
-      if (inp.pressed.has('code:KeyE') || inp.pressed.has('e')) this.next();
-      else if (inp.pressed.has('code:KeyQ') || inp.pressed.has('q')) this.prev();
+      const p = (c, k) => inp.pressed.has('code:' + c) || inp.pressed.has(k);
+      if (air ? p('KeyR', 'r') : p('KeyE', 'e')) this.next();
+      else if (!air && p('KeyQ', 'q')) this.prev();
     }
     // tune in when you get in, off when you get out
-    if (can && !this.wasIn) { this.wasIn = true; if (this.index < STATIONS.length) { this.on = true; this._newSong(true); } }
+    if (can && !this.wasIn) {
+      this.wasIn = true;
+      if (this.index < STATIONS.length) { this.on = true; this._newSong(true); }
+      if (air && !this.airHint) { this.airHint = true; V.hud?.help?.('<kbd>Shift</kbd> / <kbd>Ctrl</kbd> climb and descend · <kbd>Q</kbd> <kbd>E</kbd> turn · <kbd>R</kbd> radio station', 6); }
+    }
     if (!can && this.wasIn) { this.wasIn = false; this._stop(); return; }
     if (!can || !this.on) return;
     if (!this.h) { const h = sounds.customLoop(() => ({ stop() {} }), this._vol()); if (h.dead) return; this.h = h; this.next16 = h.ctx.currentTime + 0.1; }

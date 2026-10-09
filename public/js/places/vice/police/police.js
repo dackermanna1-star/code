@@ -14,8 +14,8 @@
 //   units [{veh, crew, mode}]  cops (Set of police peds)       window.__vc.police (tests)
 import * as THREE from 'three';
 import { V } from '../state.js';
-import { route, nearestEdge } from '../core/route.js';
 import { PLACES } from '../world/layout.js';
+import { segDist } from '../world/plan.js';
 
 const CARS = [0, 1, 2, 3, 4, 5];               // pursuit cars per level
 const HELIS = [0, 0, 0, 1, 1, 2];               // helicopters per level
@@ -35,7 +35,7 @@ const COMPASS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-we
 export class Police {
   constructor() {
     this.wanted = 0; this.searching = false; this.search = null; this.seen = false;
-    this.lastSeen = new THREE.Vector3();
+    this.lastSeen = new THREE.Vector3(); this.lastVel = new THREE.Vector3();
     this.blips = []; this.units = []; this.cops = new Set(); this.reports = [];
     this.t = 0; this.unseenT = 0; this.coolT = 0; this.sightT = 0; this.spawnT = 0; this.radioT = 0; this.copKills = 0; this.aggroT = -99;
     this.rng = 4242;
@@ -183,17 +183,20 @@ export class Police {
     this.knowT = Math.max(0, (this.knowT || 0) - dt);
     if (this.seen || this.knowT > 0) {
       this.lastSeen.copy(P.pos); this.unseenT = 0; this.coolT = 0;
+      const pv = P.vehicle ? P.vehicle.vel : P.vel; this.lastVel.set(pv.x, 0, pv.z);
       if (this.searching) { this.searching = false; this.search = null; this._radio(`Suspect spotted ${this._where(P.pos)}.`); }
       return;
     }
     this.unseenT += dt;
     if (this.unseenT > 2.5 && !this.searching) {
       this.searching = true;
-      this.search = { x: this.lastSeen.x, z: this.lastSeen.z, r: SEARCH_R[this.wanted] };
+      // they reckon on where you were heading: a fast getaway moves the circle on and makes it bigger
+      const sp = Math.min(130, this.lastVel.length()), k = sp > 20 ? 2.5 : 0;
+      this.search = { x: this.lastSeen.x + this.lastVel.x * k, z: this.lastSeen.z + this.lastVel.z * k, r: SEARCH_R[this.wanted], extra: sp > 20 ? sp * 2 : 0 };
       this._radio(`All units, suspect last seen ${this._where(this.lastSeen)}.`);
     }
     if (!this.searching) return;
-    this.search.r = SEARCH_R[this.wanted];
+    this.search.r = SEARCH_R[this.wanted] + this.search.extra;
     const out = Math.hypot(P.pos.x - this.search.x, P.pos.z - this.search.z) > this.search.r;
     this.coolT = out ? this.coolT + dt : Math.max(0, this.coolT - dt * 0.5);
     if (this.coolT >= COOL[this.wanted]) {
@@ -246,26 +249,34 @@ export class Police {
 
   _spawn(P, patrol) {
     const plan = V.plan;
-    for (let tries = 0; tries < 10; tries++) {
-      const a = this.rand() * Math.PI * 2, r = RING_IN + this.rand() * (RING_OUT - RING_IN);
-      const ne = nearestEdge(plan, P.pos.x + Math.cos(a) * r, P.pos.z + Math.sin(a) * r, 140);
+    // a fast getaway: they come in from up the road (on the same road, going your way)
+    const pv = P.vehicle?.vel, ps = pv && !patrol ? Math.hypot(pv.x, pv.z) : 0, fast = ps > 35;
+    const ux = fast ? pv.x / ps : 0, uz = fast ? pv.z / ps : 0;
+    const hwy = fast && nearEdge3(plan, P.pos.x, P.pos.y, P.pos.z, 40)?.edge?.cls === 'hwy';
+    for (let tries = 0; tries < (fast ? 16 : 10); tries++) {
+      let a = this.rand() * Math.PI * 2, r = RING_IN + this.rand() * (RING_OUT - RING_IN);
+      if (fast && tries < 12) { a = Math.atan2(uz, ux) + (this.rand() - 0.5) * (hwy ? 0.3 : 1.2); r = Math.min(620, RING_IN + ps * (2 + this.rand() * 2.5)); }
+      const ne = nearEdge3(plan, P.pos.x + Math.cos(a) * r, P.pos.y, P.pos.z + Math.sin(a) * r, 140);
       if (!ne || ne.edge.len < 40 || ne.edge.cls === 'hwy' && !patrol && P.pos.y < 30) continue;
+      if (hwy && tries < 12 && ne.edge.cls !== 'hwy') continue;
       const d = Math.hypot(ne.x - P.pos.x, ne.z - P.pos.z);
-      if (d < RING_IN - 40 || d > RING_OUT + 60 || (visible(ne.x, ne.y, ne.z) && d < 650)) continue;
+      // (ahead of a fast car a cruiser far up the road may pop in: a dot that far off, while you look at the road)
+      if (d < RING_IN - 40 || d > (fast ? 700 : RING_OUT + 60) || (visible(ne.x, ne.y, ne.z) && d < (fast ? 420 : 650))) continue;
       if (V.vehicles.near(ne.x, ne.z, 14).length) continue;
       // face along the road, towards the player
       const [tx, tz] = tangent(ne.edge, ne.along);
       let toward = (P.pos.x - ne.x) * tx + (P.pos.z - ne.z) * tz > 0 ? 1 : -1;
-      if (!patrol) {
+      if (fast && (ne.x - P.pos.x) * ux + (ne.z - P.pos.z) * uz > 100) toward = tx * ux + tz * uz > 0 ? 1 : -1;
+      else if (!patrol) {
         // face the way the route to the player sets off (no U-turn to start with)
-        const r = route(plan, ne.x, ne.z, P.pos.x, P.pos.z);
+        const r = route3(plan, ne.x, ne.y, ne.z, P.pos.x, P.pos.y, P.pos.z);
         const q = r?.pts?.find((p) => Math.hypot(p.x - ne.x, p.z - ne.z) > 4);
         if (q) toward = (q.x - ne.x) * tx + (q.z - ne.z) * tz > 0 ? 1 : -1;
       }
       const h = Math.atan2(tx * toward, tz * toward);
       const off = patrol ? 6 : 2;
       const x = ne.x - tz * toward * off, z = ne.z + tx * toward * off;
-      const veh = V.vehicles.spawn('police', x, z, h, { y: ne.y, speed: patrol ? 15 : 35 });
+      const veh = V.vehicles.spawn('police', x, z, h, { y: ne.y, speed: patrol ? 15 : fast ? Math.min(90, ps * 0.6) : 35 });
       if (!veh) return null;
       const u = { veh, crew: [], mode: patrol ? 'patrol' : 'pursue', path: null, pi: 0, routeT: 0, stuck: 0, backT: 0, waitT: 0, goal: null, lane: patrol ? 6 : 1.5, aimT: 0 };
       const armed = this.wanted >= 3;
@@ -321,7 +332,7 @@ export class Police {
     _t.set(B.x, Number.isFinite(ty) ? ty : P.pos.y, B.z);
     const len = _o.distanceTo(_t);
     B.spot.position.copy(_o); B.spot.target.position.copy(_t); B.spot.target.updateMatrixWorld();
-    B.spot.intensity = 3.2 * night;
+    B.spot.intensity = 2.6 * night;
     B.cone.visible = true;
     B.cone.position.copy(_o); B.cone.lookAt(_t);
     const r = len * Math.tan(0.11);
@@ -339,15 +350,30 @@ export class Police {
     let tx, tz;
     if (u.mode === 'leave') { tx = u.goal.x; tz = u.goal.z; }
     else {
-      const cx = this.searching && this.search ? this.search.x : P.pos.x, cz = this.searching && this.search ? this.search.z : P.pos.z;
+      let cx = this.searching && this.search ? this.search.x : P.pos.x, cz = this.searching && this.search ? this.search.z : P.pos.z;
+      // (far behind a moving target: fly at where it's going to be)
+      const fd = Math.hypot(cx - veh.pos.x, cz - veh.pos.z), lv = P.vehicle ? P.vehicle.vel : P.vel;
+      if (!this.searching && fd > 120) { const k = Math.min(3, fd / 100); cx += lv.x * k; cz += lv.z * k; }
       u.orbit += dt * 0.22;
       const R = this.searching ? 110 : 65;
       tx = cx + Math.cos(u.orbit) * R; tz = cz + Math.sin(u.orbit) * R;
     }
     const dx = tx - veh.pos.x, dz = tz - veh.pos.z, d = Math.hypot(dx, dz);
-    // altitude: well over the roofs around
+    // altitude: well over the player and over the roofs around and ahead (towers are taller than 85)
+    if ((u.roofT = (u.roofT || 0) - dt) <= 0) {
+      u.roofT = 0.25;
+      let top = -Infinity;
+      // (right under it: what's below the skids; further on, the way it's going: anything, however tall - its own
+      // body isn't there; the towers downtown and on the beach stand well over 85)
+      const ux = d > 1 ? dx / d : 0, uz = d > 1 ? dz / d : 0, look = Math.max(140, Math.hypot(veh.vel.x, veh.vel.z) * 3);
+      for (let k = 0; k <= 8; k++) {
+        const x = veh.pos.x + ux * look * k / 8, z = veh.pos.z + uz * look * k / 8;
+        top = Math.max(top, V.phys.groundAt(x, k ? 600 : veh.pos.y - 1, z, 8, 0), V.ground?.heightAt?.(x, z) ?? 0);
+      }
+      u.roofY = Math.max(top, (u.roofY ?? top) - 12);   // (and remember it a little while: no bobbing over a roof edge)
+    }
     const gy = Math.max(V.ground?.heightAt?.(veh.pos.x, veh.pos.z) ?? 0, P.pos.y);
-    const ty = gy + (u.mode === 'leave' ? 140 : 85);
+    const ty = Math.max(gy + (u.mode === 'leave' ? 140 : 85), (u.roofY ?? -Infinity) + 35);
     c.up = Math.max(-1, Math.min(1, (ty - veh.pos.y) * 0.05 - veh.vel.y * 0.08));
     // heading: towards the target point (when far), else look at the player
     const look = d > 40 || u.mode === 'leave' ? Math.atan2(dx, dz) : Math.atan2(P.pos.x - veh.pos.x, P.pos.z - veh.pos.z);
@@ -356,10 +382,20 @@ export class Police {
     c.steer = 0;
     // forward: nose down to go, up to stop
     const fwd = veh.vel.x * Math.sin(veh.heading) + veh.vel.z * Math.cos(veh.heading);
-    const want = d > 40 ? Math.min(75, d * 0.6) * Math.max(0, 1 - Math.abs(da) / 1.4) : 12;
+    const pv = P.vehicle ? P.vehicle.vel : P.vel, ps = Math.hypot(pv.x, pv.z);
+    let want = d > 40 ? Math.min(Math.max(75, ps * 1.25), d * 0.6) * Math.max(0, 1 - Math.abs(da) / 1.4) : 12;
+    // a tower ahead that's taller than we are: slow down (or back off) while climbing over it
+    const climb = ty - veh.pos.y;
+    if (climb > 6) want = Math.min(want, climb > 30 ? -8 : 60 - climb * 2.2);
     c.throttle = Math.max(-1, Math.min(1, (want - fwd) * 0.04));
+    // the airframe tops out near 60: when the chase runs faster than that (the expressway), the pilot's
+    // "afterburner" keeps it on your tail, up to a little over your speed
+    if (u.mode === 'pursue' && d > 60 && want > 58 && fwd > 30 && Math.abs(da) < 0.8) {
+      const hs = Math.hypot(veh.vel.x, veh.vel.z), top = Math.min(want, 170);
+      if (hs < top) { const a = Math.min(top - hs, 160 * dt) / (hs || 1); veh.vel.x += veh.vel.x * a; veh.vel.z += veh.vel.z * a; }
+    }
   }
-  _pursue(u) { u.mode = 'pursue'; u.veh.siren = true; u.path = null; u.routeT = 0; u.lane = 1.5; }
+  _pursue(u) { u.mode = 'pursue'; u.veh.siren = true; u.path = null; u.routeT = 0; u.lane = 1.5; u.progT = 0; u.px = u.pz = null; }
   _leave(u) {
     if (u.mode === 'leave') return;
     u.mode = 'leave'; u.veh.siren = false; u.path = null; u.routeT = 0; u.lane = 6;
@@ -388,6 +424,19 @@ export class Police {
       if (!u.goal || Math.hypot(u.goal.x - veh.pos.x, u.goal.z - veh.pos.z) < 30) { const a = this.rand() * Math.PI * 2; u.goal = { x: veh.pos.x + Math.cos(a) * 500, z: veh.pos.z + Math.sin(a) * 500 }; u.path = null; }
       this._drive(u, dt, u.goal.x, u.goal.z, u.mode === 'leave' ? 34 : 26, false);
       return;
+    }
+    // a watchdog: a pursuer that hasn't got anywhere for a few seconds (wedged on a corner, boxed in by
+    // traffic) is moved on along its route where you can't see it, or backs out and finds another way
+    if ((u.progT = (u.progT || 0) + dt) > 5) {
+      const moved = Math.hypot(veh.pos.x - (u.px ?? 1e9), veh.pos.z - (u.pz ?? 1e9));
+      u.progT = 0; u.px = veh.pos.x; u.pz = veh.pos.z;
+      if (moved < 14 && d > 70) {
+        u.stalls = (u.stalls || 0) + 1;
+        const seen = visible(veh.pos.x, veh.pos.y, veh.pos.z);
+        if (!seen && d > 110 && u.path && this._warp(u)) return;
+        if (!seen && u.stalls > 1) u.jams = 9;              // (let it go: _cull drops it, a fresh one comes)
+        else { u.backT = 1.8; u.path = null; u.routeT = 0; u.turnT = 0; u.lane = -u.lane; }
+      } else if (moved > 40) u.stalls = 0;
     }
     // pursue: you, or (searching) a spot inside the search area
     let tx = P.pos.x, tz = P.pos.z;
@@ -420,14 +469,31 @@ export class Police {
       if (Math.abs(veh.speed || 0) < 5) { u.mode = 'parked'; for (const p of u.crew) if (p.vehicle) { p.exitVehicle(); p.cop.fireT = 0.8 + this.rand(); } }
       return;
     }
+    const aps = Math.abs(ps);
+    if (aps > 40) {
+      // ahead of you (spawned up the road, or you went past it): hold the road in front of you, a little
+      // slower than you, so you catch up into a block - rather than U-turning into your path
+      const ux = pv.vel.x / aps, uz = pv.vel.z / aps, along = -(dx * ux + dz * uz), side = dx * uz - dz * ux;
+      if (along > 8 && along < 320 && Math.abs(side) < 60 && veh.vel.x * ux + veh.vel.z * uz > -5) {
+        this._drive(u, dt, P.pos.x + ux * (along + 40), P.pos.z + uz * (along + 40), aps * (along < 50 ? 0.82 : along < 150 ? 0.65 : 0.45), along < 90);
+        return;
+      }
+    }
+    if (d < 80 && aps < 6) {
+      // you've (nearly) stopped: pull up hard beside you and box you in, rather than ramming a parked car to bits
+      this._drive(u, dt, tx, tz, Math.max(5, (d - 13) * 0.9), d < 50);
+      return;
+    }
     if (d < 80) {
       const lead = Math.min(1, d / 60) * 0.6;
       tx += pv.vel.x * lead; tz += pv.vel.z * lead;
-      if (this.wanted >= 2) { this._drive(u, dt, tx, tz, Math.max(30, ps + 18), true); veh.ctl.throttle = Math.max(veh.ctl.throttle, d < 25 ? 1 : veh.ctl.throttle); }
-      else this._drive(u, dt, tx, tz, Math.max(20, Math.abs(ps) * (d > 25 ? 1.15 : 0.9)), true);
+      if (this.wanted >= 2) { this._drive(u, dt, tx, tz, Math.max(30, aps + 18), true); veh.ctl.throttle = Math.max(veh.ctl.throttle, d < 25 ? 1 : veh.ctl.throttle); }
+      else this._drive(u, dt, tx, tz, Math.max(20, aps * (d > 25 ? 1.15 : 0.9)), true);
       return;
     }
-    this._drive(u, dt, tx, tz, 75, false);
+    // far: head for where you're going to be (an intercept), as fast as the road allows
+    const lead = Math.min(4, d / 70);
+    this._drive(u, dt, tx + pv.vel.x * lead, tz + pv.vel.z * lead, Math.min(150, Math.max(75, aps * 1.25)), false);
   }
 
   /** Steer and pedal towards (tx, tz): along a route on the roads, or straight there. */
@@ -435,9 +501,10 @@ export class Police {
     const veh = u.veh, c = veh.ctl, h = veh.heading ?? 0, speed = veh.speed || 0;
     let ax = tx, az = tz;
     if (!direct) {
-      if ((u.routeT -= dt) <= 0 || !u.path || (u.goalR && Math.hypot(u.goalR.x - tx, u.goalR.z - tz) > 50)) {
+      if ((u.routeT -= dt) <= 0 || !u.path || (u.goalR && Math.hypot(u.goalR.x - tx, u.goalR.z - tz) > Math.max(50, Math.hypot(tx - veh.pos.x, tz - veh.pos.z) * 0.3) && u.routeT < 1.2)) {
         u.routeT = u.mode === 'pursue' ? 1.6 + this.rand() * 0.6 : 6;
-        const r = route(V.plan, veh.pos.x, veh.pos.z, tx, tz, { dirX: Math.sin(h), dirZ: Math.cos(h), uturn: Math.abs(speed) > 15 ? 260 : 60 });
+        const ty = u.mode === 'pursue' && !this.searching ? V.player.pos.y : veh.pos.y;
+        const r = route3(V.plan, veh.pos.x, veh.pos.y, veh.pos.z, tx, ty, tz, { dirX: Math.sin(h), dirZ: Math.cos(h), uturn: Math.abs(speed) > 15 ? 260 : 60 });
         let pts = null;
         if (r && r.pts.length > 1) { pts = [r.pts[0]]; for (const q of r.pts) { const l = pts[pts.length - 1]; if (Math.abs(q.x - l.x) + Math.abs(q.z - l.z) > 2) pts.push(q); } }
         u.path = pts && pts.length > 1 ? pts : null; u.pi = 0; u.goalR = { x: tx, z: tz };
@@ -451,12 +518,19 @@ export class Police {
           if ((p.x - veh.pos.x) ** 2 + (p.z - veh.pos.z) ** 2 < 49 || (veh.pos.x - p.x) * sx + (veh.pos.z - p.z) * sz > 0) u.pi++; else break;
         }
         // aim a little way along the path (pure pursuit), offset into the lane
-        let L = 9 + Math.abs(speed) * 0.3, k = u.pi, cx = veh.pos.x, cz = veh.pos.z;
+        let L = 7 + Math.abs(speed) * 0.24, k = u.pi, cx = veh.pos.x, cz = veh.pos.z;   // (short enough not to cut a corner over the kerb)
         ax = pts[k].x; az = pts[k].z;
         for (; k < pts.length; k++) {
           const q = pts[k], dl = Math.hypot(q.x - cx, q.z - cz);
           if (dl >= L) { ax = cx + (q.x - cx) * L / dl; az = cz + (q.z - cz) * L / dl; break; }
           L -= dl; cx = q.x; cz = q.z; ax = q.x; az = q.z;
+          // a real corner (a junction): aim at it until we're there, rather than cutting across the kerb into
+          // the traffic-light pole on the corner
+          const n = pts[k + 1], pr = k > 0 ? pts[k - 1] : null;
+          if (n && pr) {
+            const ix = q.x - pr.x, iz = q.z - pr.z, ox = n.x - q.x, oz = n.z - q.z, il = Math.hypot(ix, iz), ol = Math.hypot(ox, oz);
+            if (il > 1 && ol > 1 && (ix * ox + iz * oz) / (il * ol) < 0.8) break;
+          }
         }
         const k0 = Math.max(0, Math.min(k, pts.length - 1) - 1), k1 = Math.min(pts.length - 1, k0 + 1);
         let sx = pts[k1].x - pts[k0].x, sz = pts[k1].z - pts[k0].z; const sl = Math.hypot(sx, sz) || 1; sx /= sl; sz /= sl;
@@ -469,7 +543,7 @@ export class Police {
           const ul = Math.hypot(ux, uz), wl = Math.hypot(wx, wz);
           if (ul > 1 && wl > 1) {
             const turn = 1 - (ux * wx + uz * wz) / (ul * wl); // 0 straight, 1 = 90 degrees, 2 = back
-            if (turn > 0.15) vmax = Math.min(vmax, (turn > 1 ? 12 : 40 - 24 * turn) + Math.sqrt(2 * 24 * Math.max(0, along - 8)));
+            if (turn > 0.15) vmax = Math.min(vmax, (turn > 1 ? 12 : 36 - 22 * turn) + Math.sqrt(2 * 22 * Math.max(0, along - 10)));
           }
           along += wl;
         }
@@ -490,6 +564,7 @@ export class Police {
     }
     if (u.mode === 'patrol' || u.mode === 'leave') { if (gap < Infinity) vmax = Math.min(vmax, Math.max(0, gap * 0.8)); }
     else if (shift) { ax += fz * shift * 1.5; az -= fx * shift * 1.5; }
+    if (u.dodgeT > 0) { u.dodgeT -= dt; ax += fz * u.dodge * 9; az -= fx * u.dodge * 9; }
     // steering (+1 = right) and pedals
     const want = Math.atan2(ax - veh.pos.x, az - veh.pos.z);
     const da = wrap(want - h);
@@ -512,10 +587,22 @@ export class Police {
     if (c.throttle > 0.3 && Math.abs(speed) < 2.5) u.stuck += dt; else u.stuck = Math.max(0, u.stuck - dt * 2);
     if (u.stuck > 1.3) {
       u.stuck = 0; u.jams = (u.jams || 0) + 1;
+      this.dbg?.push({ x: veh.pos.x | 0, z: veh.pos.z | 0, da: +da.toFixed(2), sp: speed | 0, cars: V.vehicles.near(veh.pos.x, veh.pos.z, 16).length - 1, path: !!u.path, gap: gap | 0, shift: +shift.toFixed(1), pi: u.pi, ax: ax | 0, az: az | 0 });
       // jammed where you can't see: hop ahead along the route (what you don't see didn't happen)
       const P = V.player;
       if (u.path && Math.hypot(veh.pos.x - P.pos.x, veh.pos.z - P.pos.z) > 110 && !visible(veh.pos.x, veh.pos.y, veh.pos.z) && this._warp(u)) return;
       u.backT = 1.1; u.path = null;
+      // nose to nose with a car: back off further and go round it, on the side it isn't
+      for (const o of V.vehicles.near(veh.pos.x, veh.pos.z, 22)) {
+        if (o === veh) continue;
+        const ox = o.pos.x - veh.pos.x, oz = o.pos.z - veh.pos.z;
+        if (ox * fx + oz * fz > 2) { u.dodge = ox * fz - oz * fx > 0 ? -1 : 1; u.dodgeT = 3; u.backT = 1.6; break; }
+      }
+      // or a wall, a pole, a kerb-side box: look left and right of the nose and go the clearer way
+      if (!(u.dodgeT > 0)) {
+        const clear = (a) => { const dx = Math.sin(h + a), dz = Math.cos(h + a); return V.phys.ray(veh.pos.x, veh.pos.y + 2.5, veh.pos.z, dx, 0, dz, 22, { skip: (b) => b.vehicle || b.kerb })?.d ?? 22; };
+        u.dodge = clear(0.6) >= clear(-0.6) ? 1 : -1; u.dodgeT = 2.5; u.backT = 1.5;   // (+1: to the left)
+      }
     }
   }
 
@@ -527,7 +614,7 @@ export class Police {
       const x = (a.x + b.x) / 2, z = (a.z + b.z) / 2;
       if (Math.hypot(x - old.pos.x, z - old.pos.z) < 30 || Math.hypot(x - P.pos.x, z - P.pos.z) < 140) continue;
       if (visible(x, b.y ?? old.pos.y, z) || V.vehicles.near(x, z, 14).length) continue;
-      const ne = nearestEdge(V.plan, x, z, 40);
+      const ne = nearEdge3(V.plan, x, b.y ?? old.pos.y, z, 40);
       if (!ne) continue;
       const h = Math.atan2(b.x - a.x, b.z - a.z) || old.heading;
       const veh = V.vehicles.spawn('police', ne.x, ne.z, h, { y: ne.y, speed: 20 });
@@ -580,7 +667,7 @@ export class Police {
     V.audio?.radio?.();
   }
   _where(pos) {
-    const ne = nearestEdge(V.plan, pos.x, pos.z, 120);
+    const ne = nearEdge3(V.plan, pos.x, pos.y, pos.z, 120);
     const D = V.plan.districtAt?.(pos.x, pos.z);
     const P = V.player, vel = P.vehicle ? P.vehicle.vel : P.vel;
     const sp = Math.hypot(vel.x, vel.z);
@@ -697,4 +784,87 @@ function tangent(e, s) {
   while (i < pts.length - 1 && pts[i].d < s) i++;
   const a = pts[i - 1], b = pts[i], L = Math.hypot(b.x - a.x, b.z - a.z) || 1;
   return [(b.x - a.x) / L, (b.z - a.z) / L];
+}
+
+// ---- the road graph in 3D ---------------------------------------------------------------------------------------------------
+// The expressway deck runs right over the I-95 Frontage boulevard, and core/route.js finds the nearest road in 2D,
+// so a chase up on the deck would be routed along the boulevard below. These pick the road at the right height
+// (a road far above or below costs 4 studs per stud of height) and run the same A* from there.
+const PREFER = { hwy: 0.7, blvd: 0.85, ave: 0.92, street: 1, drive: 1.05 };
+const GC3 = 128;
+let grid3 = null, grid3Plan = null;
+function buildGrid3(plan) {
+  grid3 = new Map(); grid3Plan = plan;
+  for (const e of plan.edges) {
+    const seen = new Set();
+    for (let k = 0; k < e.pts.length - 1; k++) {
+      const p = e.pts[k], q = e.pts[k + 1], n = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.z - p.z) / (GC3 / 2)));
+      for (let i = 0; i <= n; i++) {
+        const key = Math.floor((p.x + (q.x - p.x) * i / n) / GC3) * 4096 + Math.floor((p.z + (q.z - p.z) * i / n) / GC3);
+        if (seen.has(key)) continue; seen.add(key);
+        let c = grid3.get(key); if (!c) grid3.set(key, c = []);
+        c.push(e);
+      }
+    }
+  }
+}
+/** The road nearest (x, y, z): {edge, x, y, z, d, along} | null. */
+export function nearEdge3(plan, x, y, z, maxR = 400) {
+  if (grid3Plan !== plan) buildGrid3(plan);
+  let best = null, bd = Infinity;
+  const ci = Math.floor(x / GC3), cj = Math.floor(z / GC3);
+  for (let r = 0; r <= Math.ceil(maxR / GC3) && bd > (r - 1) * GC3; r++) {
+    for (let i = ci - r; i <= ci + r; i++) for (let j = cj - r; j <= cj + r; j++) {
+      if (Math.max(Math.abs(i - ci), Math.abs(j - cj)) !== r) continue;
+      const c = grid3.get(i * 4096 + j);
+      if (c) for (const e of c) for (let k = 0; k < e.pts.length - 1; k++) {
+        const p = e.pts[k], q = e.pts[k + 1], sd = segDist(x, z, p.x, p.z, q.x, q.z);
+        const ey = p.y + (q.y - p.y) * sd.t, d = sd.d + Math.max(0, Math.abs(ey - y) - 6) * 4;
+        if (d < bd) { bd = d; best = { edge: e, x: sd.px, y: ey, z: sd.pz, d: sd.d, along: p.d + (q.d - p.d) * sd.t }; }
+      }
+    }
+  }
+  return best && best.d <= maxR ? best : null;
+}
+/** A* (as core/route.js) from the road at (fx, fy, fz) to the road at (tx, ty, tz). o: {dirX, dirZ, uturn}. */
+export function route3(plan, fx, fy, fz, tx, ty, tz, o = null) {
+  const s = nearEdge3(plan, fx, fy, fz, 300), t = nearEdge3(plan, tx, ty, tz, 600);
+  if (!s || !t) return null;
+  const N = plan.nodes, E = plan.edges;
+  const g = new Map(), from = new Map(), open = [];
+  const h = (n) => Math.hypot(N[n].x - t.x, N[n].z - t.z) * 0.7;
+  const push = (n, cost, prev, via) => {
+    if (g.has(n) && g.get(n) <= cost) return;
+    g.set(n, cost); from.set(n, { prev, via });
+    open.push({ n, f: cost + h(n) });
+  };
+  const back = (n) => (o && (N[n].x - s.x) * o.dirX + (N[n].z - s.z) * o.dirZ < 0 ? o.uturn || 150 : 0);
+  const pts = [{ x: s.x, y: s.y, z: s.z }];
+  if (s.edge === t.edge) {
+    // the same road: straight along it
+    const P = s.edge.pts, fwd = t.along >= s.along;
+    for (const p of fwd ? P : [...P].reverse()) { if (fwd ? p.d > s.along && p.d < t.along : p.d < s.along && p.d > t.along) pts.push({ x: p.x, y: p.y, z: p.z }); }
+    pts.push({ x: t.x, y: t.y, z: t.z });
+    return { pts, start: s, end: t };
+  }
+  push(s.edge.a, s.along * (PREFER[s.edge.cls] || 1) + back(s.edge.a), -1, s.edge.id);
+  push(s.edge.b, (s.edge.len - s.along) * (PREFER[s.edge.cls] || 1) + back(s.edge.b), -1, s.edge.id);
+  const goal = new Set([t.edge.a, t.edge.b]);
+  let end = -1, iter = 0;
+  while (open.length && iter++ < 20000) {
+    let bi = 0; for (let i = 1; i < open.length; i++) if (open[i].f < open[bi].f) bi = i;
+    const { n } = open[bi]; open[bi] = open[open.length - 1]; open.pop();
+    if (goal.has(n)) { end = n; break; }
+    const gn = g.get(n);
+    for (const id of N[n].edges) { const e = E[id], m = e.a === n ? e.b : e.a; push(m, gn + e.len * (PREFER[e.cls] || 1), n, id); }
+  }
+  if (end < 0) return null;
+  const nodes = [], edges = [];
+  for (let n = end; n >= 0;) { nodes.unshift(n); const f = from.get(n); if (!f) break; edges.unshift(f.via); n = f.prev; }
+  for (let i = 0; i < nodes.length; i++) {
+    if (i > 0) { const e = E[edges[i]]; for (const p of e.a === nodes[i - 1] ? e.pts : [...e.pts].reverse()) pts.push({ x: p.x, y: p.y, z: p.z }); }
+    else { const n = N[nodes[0]]; pts.push({ x: n.x, y: n.y, z: n.z }); }
+  }
+  pts.push({ x: t.x, y: t.y, z: t.z });
+  return { pts, start: s, end: t };
 }

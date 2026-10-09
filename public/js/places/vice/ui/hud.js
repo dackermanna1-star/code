@@ -22,6 +22,7 @@ const CSS = `
 .vc *{box-sizing:border-box}
 .vc-hud{position:absolute;inset:0;transition:opacity .4s}
 .vc-hud.off{opacity:0}
+.vc-hud.cut,.vc-big.cut{transition:none!important}
 .vc-radar{position:absolute;left:28px;bottom:30px;width:244px}
 .vc-radar canvas{display:block;width:244px;height:184px;border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.45),0 0 0 2px rgba(255,255,255,.08) inset;background:#0e2f45}
 .vc-bars{display:flex;gap:4px;margin-top:5px}
@@ -83,7 +84,7 @@ const CSS = `
 .vc-hit.head::before,.vc-hit.head::after{background:#ff4040}
 `;
 
-const ICONS = { safehouse: ['H', '#7cf0a2'], hospital: ['+', '#ff6b6b'], police: ['★', '#5aa8ff'], gunshop: ['G', '#ffb35f'], spray: ['S', '#c08bff'], marina: ['⚓', '#9fd8ff'], helipad: ['H', '#ffd86b'], arena: ['A', '#ffffff'], pier: ['P', '#9fd8ff'] };
+export const ICONS = { safehouse: ['H', '#7cf0a2'], hospital: ['+', '#ff6b6b'], police: ['★', '#5aa8ff'], gunshop: ['G', '#ffb35f'], spray: ['S', '#c08bff'], marina: ['⚓', '#9fd8ff'], helipad: ['H', '#ffd86b'], arena: ['A', '#ffffff'], pier: ['P', '#9fd8ff'] };
 
 export class Hud {
   constructor(root) {
@@ -146,7 +147,8 @@ export class Hud {
     this.$.bigS.textContent = sub || '';
     this.bigT = kind === 'passed' || kind === 'failed' ? 5 : 0;
   }
-  hideBig() { this.$.big.className = 'vc-big'; }
+  /** Fade the big title out (instant: gone at once, e.g. while the screen is black). */
+  hideBig(instant = false) { this.$.big.className = 'vc-big' + (instant ? ' cut' : ''); this.bigT = 0; }
   zone(name, sub = '') { this.$.zoneZ.textContent = name; this.$.zoneS.textContent = sub; this.$.zone.classList.add('show'); this.zoneT = 5; }
   radio(name, track = '') { this.$.radioS.textContent = name; this.$.radioT.textContent = track; this.$.radio.classList.add('show'); this.radioT = 3; }
   damage(dir, dmg) { this.dmgA = Math.min(1, this.dmgA + 0.25 + dmg / 40); }
@@ -154,7 +156,11 @@ export class Hud {
   money(delta) { if (!delta) return; this.$.delta.textContent = (delta > 0 ? '+$' : '-$') + Math.abs(Math.round(delta)).toLocaleString('en-US'); this.$.delta.style.color = delta > 0 ? '#7cf0a2' : '#ff6b6b'; this.$.delta.classList.add('show'); this.deltaT = 2.5; }
   setWaypoint(x, z) { this.waypoint = { x, z }; this.routeT = 0; }
   clearWaypoint() { this.waypoint = null; this.route = null; }
-  show(on) { this.$.hud.classList.toggle('off', !on); }
+  show(on, instant = false) {
+    const h = this.$.hud;
+    if (instant && h.classList.contains('off') !== !on) { h.classList.add('cut'); this.cutT = 2; }
+    h.classList.toggle('off', !on);
+  }
   resize() {}
 
   // ---- every frame ----
@@ -163,6 +169,7 @@ export class Hud {
     const P = V.player, S = V.session?.state;
     if (!P || !P.pos) return;
     this.show(S === 'play' || S === 'wasted' || S === 'busted' || S === 'cutscene');
+    if (this.cutT > 0 && --this.cutT === 0) this.$.hud.classList.remove('cut'); // back to fading after a hard cut
     if (this.timers?.length) for (const t of [...this.timers]) { t.t -= dt; if (t.t <= 0) { this.timers.splice(this.timers.indexOf(t), 1); t.fn(); } }
     // health and armour
     this._set('hp', Math.round((P.hp / P.maxHp) * 100), (v) => { this.$.hpI.style.width = v + '%'; this.$.hp.classList.toggle('low', v < 25); });
@@ -228,10 +235,17 @@ export class Hud {
     const P = V.player, g = this.ctx, cv = this.$.radar, W = cv.width, H = cv.height;
     const M = mapImage(V.plan, V.ground);
     const veh = P.vehicle;
-    // zoom out with speed
+    // zoom out with speed, and with height in the air (GTA-style): ~600 studs across on
+    // foot, ~1000 in a car in town, ~2000 flat out on the expressway, up to ~4000 flying high
     const spd = veh ? Math.abs(veh.speed || 0) : 0;
-    const want = veh ? (veh.kind === 'heli' || veh.kind === 'plane' ? 0.32 : 0.62 - Math.min(0.3, spd * 0.0024)) : 0.85;
-    this.zoom = this.zoom ? this.zoom + (want - this.zoom) * Math.min(1, dt * 2) : want;
+    let want = 0.8;
+    if (veh) {
+      const air = veh.kind === 'heli' || veh.kind === 'plane';
+      const agl = Math.max(0, veh.pos.y - (V.ground?.heightAt?.(veh.pos.x, veh.pos.z) ?? 0));
+      want = air ? 0.38 / (1 + agl / 90 + spd / 140) : 0.5 / (1 + spd / 85);
+      want = Math.max(0.12, want);
+    }
+    this.zoom = this.zoom ? this.zoom * Math.exp(Math.log(want / this.zoom) * Math.min(1, dt * 1.5)) : want;
     const k = this.zoom; // px per stud
     const yaw = V.cam?.yaw ?? 0;
     const cx = W / 2, cy = H * 0.62; // the player sits a little below the middle (you see more ahead)
@@ -274,7 +288,8 @@ export class Hud {
       g.fillStyle = color; g.fill(); g.lineWidth = 2; g.strokeStyle = 'rgba(0,0,0,.65)'; g.stroke();
       if (label) { g.fillStyle = '#111'; g.font = `bold ${Math.round(r * 1.25)}px Inter,Arial,sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(label, sx, sy + 1); }
     };
-    for (const p of PLACES) { const I = ICONS[p.kind]; if (I && Math.hypot(p.x - P.pos.x, p.z - P.pos.z) < 900) blip(p.x, p.z, I[0], I[1], 9, false); }
+    const reach = Math.hypot(W, H) / k; // studs from the player to the radar's far corner (and then some)
+    for (const p of PLACES) { const I = ICONS[p.kind]; if (I && Math.abs(p.x - P.pos.x) < reach && Math.abs(p.z - P.pos.z) < reach) blip(p.x, p.z, I[0], I[1], 9, false); }
     for (const b of V.police?.blips || []) blip(b.x, b.z, '', Math.floor(this.t * 4) % 2 ? '#ff3b3b' : '#3b7bff', 6, false);
     for (const b of this.blips.values()) { if (b.flash && Math.floor(this.t * 3) % 2) continue; blip(b.x, b.z, b.label || '', b.color || '#ffcf4a', b.r || 10, true, b.shape); }
     if (this.waypoint) blip(this.waypoint.x, this.waypoint.z, '', '#d66bff', 8, true, 'square');

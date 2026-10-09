@@ -234,9 +234,12 @@ Session states: `loading → title → play ⇄ paused`, plus `wasted` and `bust
   - `blips` (Map id → {x, z, icon, color, route})
   - `waypoint`
   - the minimap (from the plan, with the GPS route), health and armour, wanted stars, weapon and ammo, and the radio station
-- `ui/menus.js` `Menus(root)` → `V.menus`: title screen, pause menu (Map, Missions, Stats, Settings, Controls, Quit), full-screen map with waypoints, weapon wheel.
+  - the radar zooms out with speed (cars) and with speed and height (helicopters, planes): ~600 studs across on foot up to ~4000 flying high
+  - `show(on, instant)` (the session hides it at once under the pause menu), `hideBig(instant)`; `ICONS` (kind → [letter, colour]) is shared with the pause map
+- `ui/menus.js` `Menus(root)` → `V.menus`: title screen, pause menu (Map, Stats, Settings, Controls, Quit). The map pans (drag), zooms about the cursor (wheel, trackpad, pinch), sets/clears a waypoint (click / right-click, with the route length), has a legend, and places its labels so they never overlap or leave the frame; it draws in CSS pixels on a DPR-sized canvas (sharp on Retina).
+- `session.js` also keeps `V.stats` (time played, distances, top speed, cars stolen/destroyed, wasted/busted, highest wanted level; kills, cop kills, shots and headshots come from peds and combat), shows one-off hints (`tip(id, html)`, remembered in `vice.tips.v1`), and picks the respawn spot outside a hospital or police door (`spawnSpot(door)`: clear of street furniture, facing the open street).
 - `audio/audio.js` `Audio` → `V.audio`: positioned synth sounds (pan by camera yaw), per-vehicle engine loops (pooled), sirens, horns, tyres, crashes, guns (warzone `playShot`), explosions, screams, the city and ocean ambience.
-- `audio/radio.js` `Radio` → `V.radio`: procedural music stations in vehicles. `next()` / `prev()` / `off()`; `station` gives the name.
+- `audio/radio.js` `Radio` → `V.radio`: procedural music stations in every vehicle, aircraft included. `next()` / `prev()` / `off()`; `station` gives the name. Q / E change station (R in helicopters and planes, where Q / E turn).
 
 ## Events (V.events)
 

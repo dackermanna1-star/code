@@ -8,6 +8,9 @@ import * as THREE from 'three';
 import { V } from '../state.js';
 import { mapImage } from './mapimage.js';
 import { PLACES } from '../world/layout.js';
+import { ICONS } from './hud.js';
+
+const LEGEND = [['safehouse', 'Safehouse'], ['hospital', 'Hospital'], ['police', 'Police'], ['gunshop', 'Ammu-Vice'], ['spray', "Pay 'n' Spray"], ['marina', 'Marina'], ['helipad', 'Helipad'], ['pier', 'Pier'], ['arena', 'Arena']];
 
 const CSS = `
 .vc-menu{position:absolute;inset:0;pointer-events:auto;display:none;color:#fff;font-family:Inter,"SF Pro Display","Segoe UI",Roboto,Helvetica,Arial,sans-serif}
@@ -30,6 +33,10 @@ const CSS = `
 .vc-panel.on{display:block}
 .vc-map{width:100%;height:100%;border-radius:14px;cursor:grab;background:#0e2f45;box-shadow:0 10px 40px rgba(0,0,0,.5)}
 .vc-maphint{position:absolute;right:14px;bottom:12px;font-size:12px;opacity:.75;background:rgba(0,0,0,.45);padding:6px 10px;border-radius:6px}
+.vc-legend{position:absolute;left:14px;bottom:12px;display:grid;grid-template-columns:auto auto;gap:5px 16px;font-size:12px;background:rgba(6,10,20,.62);padding:10px 14px;border-radius:10px;backdrop-filter:blur(4px)}
+.vc-legend span{display:flex;align-items:center;gap:7px;white-space:nowrap;opacity:.9}
+.vc-legend i{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;font:800 10px Inter,Arial,sans-serif;font-style:normal;color:#111;box-shadow:0 0 0 1.5px rgba(0,0,0,.6)}
+.vc-legend i.sq{border-radius:3px}.vc-legend i.you{background:none;box-shadow:none;color:#fff;font-size:13px}
 .vc-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px 40px;font-size:15px}
 .vc-cols div{display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.1);padding:8px 0}
 .vc-cols b{font-weight:700}
@@ -43,7 +50,8 @@ const CSS = `
 
 const KEYS = [
   ['On foot', [['W A S D', 'move'], ['Shift', 'sprint'], ['Space', 'jump'], ['Mouse', 'look'], ['F', 'get in / out of a vehicle (and carjack)'], ['Right mouse / E', 'aim'], ['Left mouse', 'shoot / punch'], ['R', 'reload'], ['Tab (hold)', 'weapon wheel'], ['1-8 / wheel', 'switch weapon']]],
-  ['Driving', [['W / S', 'accelerate / brake and reverse'], ['A / D', 'steer'], ['Space', 'handbrake'], ['H', 'horn (siren in police cars)'], ['Q / E', 'radio station'], ['Right mouse', 'drive-by aim'], ['Shift / Ctrl', 'helicopters and planes: up / down']]],
+  ['Driving', [['W / S', 'accelerate / brake and reverse'], ['A / D', 'steer'], ['Space', 'handbrake'], ['H', 'horn (siren in police cars)'], ['Q / E', 'radio station'], ['Right mouse', 'drive-by aim']]],
+  ['Flying', [['W / S', 'forward / back (helicopter), throttle (plane)'], ['A / D', 'bank'], ['Q / E', 'turn'], ['Shift / Ctrl', 'climb / descend'], ['R', 'radio station']]],
   ['Game', [['Esc / P', 'pause, map'], ['M', 'map']]],
 ];
 
@@ -62,7 +70,7 @@ export class Menus {
       <div class="vc-menu vc-pause">
         <div class="vc-tabs"><button class="vc-tab" data-t="map">Map</button><button class="vc-tab" data-t="stats">Stats</button><button class="vc-tab" data-t="settings">Settings</button><button class="vc-tab" data-t="controls">Controls</button><button class="vc-tab" data-t="quit">Quit</button></div>
         <div class="vc-close">ESC · RESUME</div>
-        <div class="vc-panel" data-p="map"><canvas class="vc-map"></canvas><div class="vc-maphint">Drag to move · wheel to zoom · click: set waypoint · right-click: clear</div></div>
+        <div class="vc-panel" data-p="map"><canvas class="vc-map"></canvas><div class="vc-legend"></div><div class="vc-maphint">Drag to move · wheel to zoom · click: set waypoint · right-click: clear</div></div>
         <div class="vc-panel" data-p="stats"><div class="vc-cols"></div></div>
         <div class="vc-panel" data-p="settings"><div class="vc-set">
           <label>Mouse sensitivity <input type="range" min="0.3" max="2.5" step="0.05" data-k="mouse"></label>
@@ -81,6 +89,9 @@ export class Menus {
     // controls list (title and pause share it)
     const keysHtml = KEYS.map(([h, ks]) => `<h3 style="margin:14px 0 8px;letter-spacing:3px;font-size:13px;opacity:.7;text-transform:uppercase">${h}</h3><div class="vc-cols">${ks.map(([k, d]) => `<div><span><kbd>${k}</kbd></span><span>${d}</span></div>`).join('')}</div>`).join('');
     wrap.querySelector('[data-p=controls]').innerHTML = keysHtml;
+    // the map's legend (the same icons as the radar)
+    wrap.querySelector('.vc-legend').innerHTML = LEGEND.filter(([k]) => PLACES.some((p) => p.kind === k)).map(([k, n]) => `<span><i style="background:${ICONS[k][1]}">${ICONS[k][0]}</i>${n}</span>`).join('')
+      + '<span><i class="sq" style="background:#d66bff"></i>Waypoint</span><span><i class="you">▲</i>You</span>';
     // buttons
     wrap.addEventListener('click', (e) => {
       const b = e.target.closest('[data-a],[data-t]');
@@ -111,7 +122,7 @@ export class Menus {
     }
     this.apply();
     // the map: pan, zoom, waypoints
-    this.view = { x: 0, z: 0, k: 0.12 };
+    this.view = { x: 0, z: 0, k: 0.11 }; // k: CSS pixels per stud
     const cv = this.mapCv;
     let drag = null;
     cv.addEventListener('mousedown', (e) => { drag = { x: e.clientX, y: e.clientY, vx: this.view.x, vz: this.view.z, moved: false, btn: e.button }; cv.style.cursor = 'grabbing'; });
@@ -119,20 +130,27 @@ export class Menus {
       if (!drag) return;
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
       if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
-      const s = cv.width / cv.clientWidth;
-      this.view.x = drag.vx - (dx * s) / this.view.k; this.view.z = drag.vz - (dy * s) / this.view.k;
+      this.view.x = drag.vx - dx / this.view.k; this.view.z = drag.vz - dy / this.view.k;
     });
     window.addEventListener('mouseup', this._mu = (e) => {
       if (!drag) return;
       if (!drag.moved) {
-        const r = cv.getBoundingClientRect(), s = cv.width / r.width;
-        const x = this.view.x + ((e.clientX - r.left) * s - cv.width / 2) / this.view.k, z = this.view.z + ((e.clientY - r.top) * s - cv.height / 2) / this.view.k;
+        const r = cv.getBoundingClientRect();
+        const x = this.view.x + (e.clientX - r.left - r.width / 2) / this.view.k, z = this.view.z + (e.clientY - r.top - r.height / 2) / this.view.k;
         if (drag.btn === 2) V.hud?.clearWaypoint(); else V.hud?.setWaypoint(x, z);
       }
       drag = null; cv.style.cursor = 'grab';
     });
     cv.addEventListener('contextmenu', (e) => e.preventDefault());
-    cv.addEventListener('wheel', (e) => { e.preventDefault(); this.view.k = Math.max(0.06, Math.min(1.6, this.view.k * (e.deltaY > 0 ? 0.87 : 1.15))); }, { passive: false });
+    // zoom about the cursor: a mouse wheel in steps, a trackpad (and pinch) smoothly
+    cv.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const v = this.view, r = cv.getBoundingClientRect();
+      const dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
+      const k1 = Math.max(0.05, Math.min(1.6, v.k * Math.exp(-Math.max(-300, Math.min(300, dy)) * (e.ctrlKey ? 0.01 : 0.0016))));
+      const mx = e.clientX - r.left - r.width / 2, my = e.clientY - r.top - r.height / 2;
+      v.x += mx / v.k - mx / k1; v.z += my / v.k - my / k1; v.k = k1;
+    }, { passive: false });
     window.addEventListener('keydown', this._kd = (e) => {
       if (this.pause.classList.contains('show') && (e.key === 'Escape' || e.key === 'p' || e.key === 'P')) { e.preventDefault(); if (!this.fromTitle) V.session.resume(); else { this.hideAll(); this.showTitle(V.hasSave); } }
       if (e.key === 'm' || e.key === 'M') { if (V.session?.state === 'play') { V.session.pause(); this.tab('map'); } }
@@ -195,49 +213,89 @@ export class Menus {
   _stats() {
     const st = V.stats || {}, P = V.player;
     const rows = [
-      ['Money', '$' + Math.round(P?.money || 0).toLocaleString('en-US')], ['Missions passed', (V.missions?.passedCount?.() ?? 0) + ' / ' + (V.missions?.total ?? '?')],
+      ['Money', '$' + Math.round(P?.money || 0).toLocaleString('en-US')], ['Time played', hms(st.played || 0)],
       ['People killed', st.kills || 0], ['Cops killed', st.copKills || 0], ['Cars stolen', st.stolen || 0], ['Cars destroyed', st.destroyed || 0],
       ['Shots fired', st.shots || 0], ['Headshots', st.headshots || 0], ['Times wasted', st.wasted || 0], ['Times busted', st.busted || 0],
-      ['Highest wanted level', '★'.repeat(st.maxWanted || 0) || '-'], ['Distance driven', ((st.driven || 0) * 0.33 / 1609).toFixed(1) + ' mi'],
+      ['Highest wanted level', '★'.repeat(st.maxWanted || 0) || '-'], ['Top speed', (st.topSpeed || 0) + ' mph'],
+      ['Distance driven', ((st.driven || 0) * 0.33 / 1609).toFixed(1) + ' mi'], ['Distance on foot', ((st.walked || 0) * 0.33 / 1609).toFixed(1) + ' mi'],
     ];
     this.pause.querySelector('[data-p=stats] .vc-cols').innerHTML = rows.map(([a, b]) => `<div><span>${a}</span><b>${b}</b></div>`).join('');
   }
 
   update(dt) {
     if (!this.pause.classList.contains('show') || this.tabName !== 'map') return;
-    const cv = this.mapCv;
-    const w = Math.round(cv.clientWidth * Math.min(2, window.devicePixelRatio || 1)), h = Math.round(cv.clientHeight * Math.min(2, window.devicePixelRatio || 1));
+    const cv = this.mapCv, dpr = Math.min(2, window.devicePixelRatio || 1);
+    const cw = cv.clientWidth, ch = cv.clientHeight, w = Math.round(cw * dpr), h = Math.round(ch * dpr);
+    if (!cw || !ch) return;
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
-    const g = cv.getContext('2d'), M = mapImage(V.plan, V.ground), v = this.view;
-    g.fillStyle = '#0e2f45'; g.fillRect(0, 0, w, h);
+    const g = cv.getContext('2d'), M = mapImage(V.plan, V.ground), v = this.view, k = v.k;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); // everything below in CSS pixels
+    g.fillStyle = '#0e2f45'; g.fillRect(0, 0, cw, ch);
     g.save();
-    g.translate(w / 2, h / 2); g.scale(v.k / M.scale, v.k / M.scale);
+    g.translate(cw / 2, ch / 2); g.scale(k / M.scale, k / M.scale);
     const [cx, cy] = M.toPx(v.x, v.z); g.translate(-cx, -cy);
     g.imageSmoothingEnabled = true;
     g.drawImage(M.canvas, 0, 0);
     // GPS route
     const r = V.hud?.route;
-    if (r) { g.strokeStyle = V.hud.waypoint ? '#d66bff' : '#ffcf4a'; g.lineWidth = (6 / v.k) * M.scale; g.beginPath(); r.pts.forEach((p, i) => { const q = M.toPx(p.x, p.z); if (i) g.lineTo(q[0], q[1]); else g.moveTo(q[0], q[1]); }); g.stroke(); }
+    if (r) { g.strokeStyle = V.hud.waypoint ? '#d66bff' : '#ffcf4a'; g.lineWidth = (5 / k) * M.scale; g.lineJoin = 'round'; g.lineCap = 'round'; g.beginPath(); r.pts.forEach((p, i) => { const q = M.toPx(p.x, p.z); if (i) g.lineTo(q[0], q[1]); else g.moveTo(q[0], q[1]); }); g.stroke(); }
     g.restore();
-    const S = (x, z) => [w / 2 + (x - v.x) * v.k, h / 2 + (z - v.z) * v.k];
-    // district names
-    g.textAlign = 'center'; g.textBaseline = 'middle';
-    const seen = new Set();
-    for (const D of V.plan.districts) {
-      if (seen.has(D.name)) continue; seen.add(D.name);
-      const [x, y] = S((D.rect[0] + D.rect[2]) / 2, (D.rect[1] + D.rect[3]) / 2);
-      g.font = `800 italic ${Math.max(11, Math.min(26, v.k * 70))}px Inter,Arial,sans-serif`;
-      g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.6)'; g.strokeText(D.name.toUpperCase(), x, y); g.fillStyle = 'rgba(255,255,255,.88)'; g.fillText(D.name.toUpperCase(), x, y);
+    const S = (x, z) => [cw / 2 + (x - v.x) * k, ch / 2 + (z - v.z) * k];
+    // labels never overlap each other or the icons, and stay inside the frame (most important first)
+    const taken = [];
+    const fits = (x0, y0, x1, y1) => { if (x0 < 4 || y0 < 4 || x1 > cw - 4 || y1 > ch - 4) return false; for (const q of taken) if (x0 < q[2] && x1 > q[0] && y0 < q[3] && y1 > q[1]) return false; return true; };
+    const reserve = (x, y, r) => taken.push([x - r, y - r, x + r, y + r]);
+    // the legend and the hint sit over the map: keep labels out from under them
+    const cr = cv.getBoundingClientRect();
+    for (const el of this.mapBoxes ||= [...this.pause.querySelectorAll('.vc-legend,.vc-maphint')]) { const b = el.getBoundingClientRect(); taken.push([b.left - cr.left - 4, b.top - cr.top - 4, b.right - cr.left + 4, b.bottom - cr.top + 4]); }
+    const icons = [];
+    for (const p of PLACES) { const I = ICONS[p.kind]; if (!I) continue; const [sx, sy] = S(p.x, p.z); icons.push([sx, sy, I[0], I[1], p]); reserve(sx, sy, 9); }
+    const P = V.player, me = P?.pos ? S(P.pos.x, P.pos.z) : null;
+    if (me) reserve(me[0], me[1], 13);
+    const wp = V.hud?.waypoint, wps = wp ? S(wp.x, wp.z) : null;
+    if (wps) reserve(wps[0], wps[1], 9);
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+    const label = (text, x, y, px, weight, fill, offs) => {
+      g.font = `${weight} ${px}px Inter,Arial,sans-serif`;
+      const tw = g.measureText(text).width / 2 + 3, th = px / 2 + 2;
+      for (const [ox, oy] of offs) {
+        const lx = x + ox, ly = y + oy;
+        if (!fits(lx - tw, ly - th, lx + tw, ly + th)) continue;
+        taken.push([lx - tw, ly - th, lx + tw, ly + th]);
+        g.lineWidth = Math.max(3, px / 4); g.strokeStyle = 'rgba(0,0,0,.65)'; g.strokeText(text, lx, ly);
+        g.fillStyle = fill; g.fillText(text, lx, ly);
+        return true;
+      }
+      return false;
+    };
+    const round = (o) => [[0, -o], [0, o], [o * 2.4, 0], [-o * 2.4, 0]];
+    if (wps) {
+      const len = r && V.hud.waypoint ? r.pts.reduce((a, p, i) => a + (i ? Math.hypot(p.x - r.pts[i - 1].x, p.z - r.pts[i - 1].z) : 0), 0) : 0;
+      label(len ? `Waypoint · ${(len * 0.33 / 1609).toFixed(1)} mi` : 'Waypoint', wps[0], wps[1], 12, 700, '#f0c8ff', round(17));
     }
-    // places, blips, waypoint, you
-    const dot = (x, z, col, label, r = 8) => { const [sx, sy] = S(x, z); g.beginPath(); g.arc(sx, sy, r, 0, Math.PI * 2); g.fillStyle = col; g.fill(); g.lineWidth = 2; g.strokeStyle = '#000'; g.stroke(); if (label) { g.font = 'bold 11px Inter,Arial,sans-serif'; g.fillStyle = '#fff'; g.strokeStyle = 'rgba(0,0,0,.7)'; g.lineWidth = 3; g.strokeText(label, sx, sy - r - 9); g.fillText(label, sx, sy - r - 9); } };
-    for (const p of PLACES) dot(p.x, p.z, p.kind === 'hospital' ? '#ff6b6b' : p.kind === 'police' ? '#5aa8ff' : p.kind === 'safehouse' ? '#7cf0a2' : '#ffb35f', v.k > 0.25 ? p.name : '', 6);
-    for (const b of V.hud?.blips?.values?.() || []) dot(b.x, b.z, b.color || '#ffcf4a', b.name || '', 9);
-    if (V.hud?.waypoint) dot(V.hud.waypoint.x, V.hud.waypoint.z, '#d66bff', 'Waypoint', 8);
-    const P = V.player;
-    if (P?.pos) {
-      const [sx, sy] = S(P.pos.x, P.pos.z), hd = P.vehicle ? P.vehicle.heading : P.heading;
-      g.save(); g.translate(sx, sy); g.rotate(Math.PI - hd);
+    if (k > 0.22) for (const [sx, sy, , , p] of icons) label(p.name, sx, sy, 11, 700, '#fff', round(17));
+    // district names: one per name, at the middle of its biggest piece
+    const big = new Map();
+    for (const D of V.plan.districts) { const a = (D.rect[2] - D.rect[0]) * (D.rect[3] - D.rect[1]), b = big.get(D.name); if (!b || a > b.a) big.set(D.name, { D, a }); }
+    const dpx = Math.round(Math.max(11, Math.min(24, k * 70)));
+    for (const { D } of big.values()) {
+      const [x, y] = S((D.rect[0] + D.rect[2]) / 2, (D.rect[1] + D.rect[3]) / 2);
+      if (x < -200 || x > cw + 200 || y < -60 || y > ch + 60) continue;
+      label(D.name.toUpperCase(), x, y, dpx, '800 italic', 'rgba(255,255,255,.9)', [[0, 0], [0, -dpx * 1.4], [0, dpx * 1.4], [0, -dpx * 2.8], [0, dpx * 2.8]]);
+    }
+    // icons (as on the radar), the waypoint and you on top
+    const icon = (sx, sy, ch_, col, rr = 8, sq = false) => {
+      g.beginPath(); if (sq) g.rect(sx - rr, sy - rr, rr * 2, rr * 2); else g.arc(sx, sy, rr, 0, Math.PI * 2);
+      g.fillStyle = col; g.fill(); g.lineWidth = 2; g.strokeStyle = 'rgba(0,0,0,.7)'; g.stroke();
+      if (ch_) { g.fillStyle = '#111'; g.font = `800 ${Math.round(rr * 1.2)}px Inter,Arial,sans-serif`; g.fillText(ch_, sx, sy + 1); }
+    };
+    for (const [sx, sy, c, col] of icons) icon(sx, sy, c, col);
+    for (const b of V.hud?.blips?.values?.() || []) { const [sx, sy] = S(b.x, b.z); icon(sx, sy, b.label || '', b.color || '#ffcf4a', 8, b.shape === 'square'); }
+    if (wps) icon(wps[0], wps[1], '', '#d66bff', 7, true);
+    if (me) {
+      const hd = P.vehicle ? P.vehicle.heading : P.heading, pulse = 14 + 4 * Math.sin(performance.now() / 260);
+      g.beginPath(); g.arc(me[0], me[1], pulse, 0, Math.PI * 2); g.fillStyle = 'rgba(255,255,255,.14)'; g.fill();
+      g.save(); g.translate(me[0], me[1]); g.rotate(Math.PI - hd);
       g.beginPath(); g.moveTo(0, -12); g.lineTo(9, 9); g.lineTo(0, 4); g.lineTo(-9, 9); g.closePath();
       g.fillStyle = '#fff'; g.fill(); g.lineWidth = 2; g.strokeStyle = '#000'; g.stroke(); g.restore();
     }
@@ -248,3 +306,5 @@ export class Menus {
     this.el.remove();
   }
 }
+
+function hms(sec) { const h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60; return h ? `${h} h ${String(m).padStart(2, '0')} min` : `${m} min`; }

@@ -31,6 +31,7 @@ import { Hud } from './ui/hud.js';
 import { Menus } from './ui/menus.js';
 
 const _v = new THREE.Vector3();
+const _near = [];
 
 export class Session {
   constructor(game, ctx) {
@@ -103,13 +104,16 @@ export class Session {
       this.saved = save;
       this.state = V.menus.showTitle ? 'title' : 'play';
       V.menus.showTitle?.(!!save);
-      // compile every shader now rather than in the first seconds of play
-      try { V.world.renderer.compile(V.world.scene, V.world.camera); } catch (e) { /* not fatal */ }
+      // compile every shader now, behind the title, rather than in the first seconds of play
+      // (async where the GPU can link in parallel, so the title's first frames don't stall)
+      const R = V.world.renderer;
+      try { if (R.compileAsync && R.extensions?.has?.('KHR_parallel_shader_compile')) R.compileAsync(V.world.scene, V.world.camera).catch(() => {}); else R.compile(V.world.scene, V.world.camera); } catch (e) { /* not fatal */ }
       V.post.fadeIn?.(1.5);
     });
     // the game's own events
     this.cleanups.push(V.events.on('player:wasted', (e) => this.wasted(e)));
     this.cleanups.push(V.events.on('player:busted', (e) => this.busted(e)));
+    this.trackStats();
     const onLock = () => { if (!V.input.locked && this.state === 'play' && !V.input.ui && performance.now() - (this.resumedAt || 0) > 300) this.pause(); };
     document.addEventListener('pointerlockchange', onLock);
     this.cleanups.push(() => document.removeEventListener('pointerlockchange', onLock));
@@ -132,11 +136,33 @@ export class Session {
     V.menus.hideAll?.();
     V.input.lock();
     V.events.emit('game:start', { fresh: !s });
+    if (!s) this.after(2.5, () => this.tip('welcome', 'Welcome to <b>Vice City</b>. <kbd>W A S D</kbd> move · <kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · <kbd>M</kbd> map · <kbd>Esc</kbd> pause', 8));
+  }
+  /** A one-off hint (each is shown a few times at most, ever). */
+  tip(id, html, secs = 6, times = 2) {
+    const seen = (this.tipsSeen ||= this.load('vice.tips.v1') || {});
+    if ((seen[id] || 0) >= times || this.tipShown?.[id]) return false;
+    (this.tipShown ||= {})[id] = true;
+    seen[id] = (seen[id] || 0) + 1; this.store('vice.tips.v1', seen);
+    V.hud?.help?.(html, secs);
+    return true;
+  }
+  /** Context hints: a car you could take, your first star. Checked twice a second. */
+  _tips(dt) {
+    if ((this.tipT = (this.tipT || 0) - dt) > 0) return;
+    this.tipT = 0.5;
+    const P = V.player;
+    if (!P?.pos || P.dead || (V.hud?.helpT || 0) > 0) return;
+    if (!P.vehicle && !this.tipShown?.car) {
+      for (const v of V.vehicles.near(P.pos.x, P.pos.z, 7, _near)) if (!v.dead && !v.removed && v.kind !== 'boat') { this.tip('car', v.driver ? '<kbd>F</kbd> pull the driver out and take the car' : '<kbd>F</kbd> get in', 5); break; }
+    }
+    if ((V.police?.wanted || 0) > 0) this.tip('wanted', 'The cops are after you. Get out of sight and out of the <b>search circle</b> on the radar, or lose them at a <b>Pay \'n\' Spray</b> (S on the map).', 8);
   }
   pause() {
     if (this.state !== 'play') return;
     this.state = 'paused';
     V.input.unlock();
+    V.hud?.show?.(false, true); // the HUD goes at once: it doesn't show through the menu
     V.menus.openPause?.();
     V.audio?.pause?.(true);
   }
@@ -152,6 +178,7 @@ export class Session {
   wasted() {
     if (this.state === 'wasted') return;
     this.state = 'wasted'; this.stateT = 0;
+    this.stat('wasted');
     V.hud.big?.('wasted');
     V.postFx = { ...(V.postFx || {}), wasted: 1 };
     V.missions.fail?.('You died.');
@@ -160,6 +187,7 @@ export class Session {
   busted() {
     if (this.state === 'busted' || this.state === 'wasted') return;
     this.state = 'busted'; this.stateT = 0;
+    this.stat('busted');
     V.hud.big?.('busted');
     V.postFx = { ...(V.postFx || {}), wasted: 0.6 };
     V.missions.fail?.('You were busted.');
@@ -168,6 +196,7 @@ export class Session {
   /** Back on your feet at the nearest hospital or police station, a little poorer. */
   respawn(kind, why) {
     V.post.fadeOut?.(0.6);
+    V.hud.hideBig?.(); // the title fades out with the picture, not over the new scene
     this.after(0.8, () => {
       const P = V.player;
       const at = this.nearestPlace(kind, P.pos.x, P.pos.z);
@@ -176,17 +205,60 @@ export class Session {
       P.money -= fee;
       P.hp = P.maxHp; P.armor = 0; P.dead = false;
       if (kind === 'police') V.weapons.clear?.();
-      P.place(door ? door.x : at.x + 30, door ? door.z : at.z, door ? door.heading : 0);
+      const spot = this.spawnSpot(door || { x: at.x + 30, z: at.z, heading: 0 });
+      P.place(spot.x, spot.z, spot.heading, spot.y);
       V.police.clear?.();
       V.postFx = { ...(V.postFx || {}), wasted: 0 };
       V.time.hour = (V.time.hour + 3) % 24;
       this.state = 'play';
-      V.hud.hideBig?.();
+      V.hud.hideBig?.(true);
       V.hud.notify?.(`${why}. ${kind === 'hospital' ? 'Hospital' : 'Legal'} fees: $${fee}`);
       V.post.fadeIn?.(1.2);
       V.events.emit('player:respawn', { kind });
       this.save();
     });
+  }
+  /** Where to stand outside a door: a few steps out, clear of bus shelters and
+   *  benches, facing the most open view (the street) with room for the camera behind. */
+  spawnSpot(door) {
+    const h0 = door.heading, fx = Math.sin(h0), fz = Math.cos(h0), rx = Math.cos(h0), rz = -Math.sin(h0);
+    const benches = V.props?.spots?.benches || [];
+    // the pavement's height (from just above the land: not the roof of a shelter)
+    const ph = V.phys, gy = (x, z) => { const t = V.ground.heightAt(x, z), y = ph.groundAt(x, t + 1, z, 0.6, 1.6); return Number.isFinite(y) ? y : t; };
+    const clear = (x, y, z, dx, dz, max) => { const hit = ph.ray(x, y, z, dx, 0, dz, max, { decks: false }); return hit ? hit.d : max; };
+    let best = { x: door.x + fx * 5, z: door.z + fz * 5, heading: h0, y: null }, bs = -Infinity;
+    for (const out of [5, 8, 11]) for (const side of [0, -5, 5, -10, 10]) {
+      const x = door.x + fx * out + rx * side, z = door.z + fz * out + rz * side;
+      if (V.ground?.waterAt?.(x, z) > -1) continue; // not in the water
+      const y = gy(x, z);
+      let inside = false;
+      ph.query(x - 3, z - 3, x + 3, z + 3, (bx) => {
+        if (!bx.solid || bx.noBlock || bx.kerb || bx.vehicle || bx.y + bx.hy < y + 0.6 || bx.y - bx.hy > y + 5) return;
+        const [lx, lz] = ph.local(bx, x, z);
+        if (Math.abs(lx) < bx.hx + 1.2 && Math.abs(lz) < bx.hz + 1.2) { inside = true; return false; }
+      });
+      if (inside) continue;
+      // street furniture (shelters, kiosks, poles) right beside you or the camera crowds the view
+      const crowd = (px, pz, R) => {
+        let c = 0;
+        ph.query(px - R, pz - R, px + R, pz + R, (bx) => {
+          if (!bx.solid || bx.kerb || bx.vehicle || bx.building || bx.y + bx.hy < y + 1 || bx.y - bx.hy > y + 8) return;
+          const [lx, lz] = ph.local(bx, px, pz), d = Math.hypot(Math.max(0, Math.abs(lx) - bx.hx), Math.max(0, Math.abs(lz) - bx.hz));
+          if (d < R) c += (R - d) * (bx.hx > 2 || bx.hz > 2 ? 3 : 0.6);
+        });
+        return c;
+      };
+      const pen = Math.abs(side) * 0.3 + out * 0.3 + crowd(x, z, 8);
+      let pb = 0;
+      for (const b of benches) { const d = Math.hypot(b.x - x, b.z - z); if (d < 4) pb += (4 - d) * 2; }
+      for (let k = 0; k < 12; k++) {
+        const h = h0 + (k * Math.PI) / 6, dx = Math.sin(h), dz = Math.cos(h);
+        const front = clear(x, y + 3, z, dx, dz, 40), back = clear(x, y + 5, z, -dx, -dz, 14);
+        const sc = front + back * 2 - pen - pb - crowd(x - dx * 11, z - dz * 11, 6) - (1 - Math.cos(h - h0)) * 4;
+        if (sc > bs) { bs = sc; best = { x, z, heading: h, y }; }
+      }
+    }
+    return best;
   }
   nearestPlace(kind, x, z) {
     let best = null, bd = Infinity;
@@ -195,6 +267,30 @@ export class Session {
   }
   /** Run fn after `secs` of real time (independent of slow motion and pause). */
   after(secs, fn) { (this.timers ||= []).push({ t: secs, fn }); }
+
+  // ---- the stats (pause menu → Stats) ----
+  stat(k, n = 1) { const s = V.stats || (V.stats = {}); s[k] = (s[k] || 0) + n; }
+  trackStats() {
+    const on = (n, f) => this.cleanups.push(V.events.on(n, f));
+    const taken = new WeakSet();
+    on('crime', (e) => { if (e.by?.isPlayer && (e.kind === 'carjack' || e.kind === 'theft') && e.pos) { const v = V.player?.vehicle || null; if (!v || !taken.has(v)) this.stat('stolen'); } });
+    on('vehicle:enter', (e) => { if (e.who?.isPlayer && e.veh) taken.add(e.veh); });
+    on('vehicle:destroyed', (e) => { const a = e.attacker; if (a?.isPlayer || a?.driver?.isPlayer) this.stat('destroyed'); });
+  }
+  /** Distance, time and records, while you play. */
+  _statsTick(dt) {
+    const P = V.player, s = V.stats || (V.stats = {});
+    if (!P?.pos) return;
+    s.played = (s.played || 0) + dt;
+    const veh = P.vehicle;
+    if (veh) {
+      const v = Math.abs(veh.speed || 0);
+      s.driven = (s.driven || 0) + v * dt;
+      if (v * 0.738 > (s.topSpeed || 0) && veh.kind !== 'plane' && veh.kind !== 'heli') s.topSpeed = Math.round(v * 0.738);
+    } else if (P.vel && !P.dead) s.walked = (s.walked || 0) + Math.hypot(P.vel.x, P.vel.z) * dt;
+    const w = V.police?.wanted || 0;
+    if (w > (s.maxWanted || 0)) s.maxWanted = w;
+  }
 
   // ---- saving ----
   load(key) { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { return null; } }
@@ -253,7 +349,7 @@ export class Session {
     const live = this.state === 'play';
     const dying = this.state === 'wasted' || this.state === 'busted';
     const sdt = live || dying ? dt * V.timeScale : 0;
-    if (live) V.time.hour = (V.time.hour + dt * V.time.scale) % 24;
+    if (live) { V.time.hour = (V.time.hour + dt * V.time.scale) % 24; this._statsTick(sdt); this._tips(dt); }
     if (live && (inp.pressed.has('escape') || inp.pressed.has('code:KeyP'))) this.pause();
     // autosave
     if (live && (this.saveT = (this.saveT || 0) + dt) > 30) { this.saveT = 0; this.save(); }
