@@ -70,7 +70,7 @@ export function prepare(id) {
   d.steerFade = kind === 'bike' ? 70 : 52;
   d.peakF = 0.17; d.peakR = 0.12; // stiffer at the back: stable, a little understeer
   d.slideF = 0.86; d.slideR = 0.84 - (d.drift || 0) * 0.25;
-  d.hbGrip = 0.24 + (1 - (d.drift || 0)) * 0.16;
+  d.hbGrip = 0.3 + (1 - (d.drift || 0)) * 0.16;
   d.esp = kind === 'bike' ? 10 : 10 - (d.drift || 0) * 6;
   d.tcs = kind === 'bike' || (d.drift || 0) <= 0.55;
   d.rollLift = kind === 'bike' ? 1 : kind === 'plane' ? 0.85 : 0.5;
