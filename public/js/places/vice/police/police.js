@@ -496,7 +496,37 @@ export class Police {
     c.handbrake = u.mode === 'pursue' && Math.abs(da) > 1.2 && speed > 30;
     // stuck: back up and try again
     if (c.throttle > 0.3 && Math.abs(speed) < 2.5) u.stuck += dt; else u.stuck = Math.max(0, u.stuck - dt * 2);
-    if (u.stuck > 1.3) { u.stuck = 0; u.backT = 1.1; u.jams = (u.jams || 0) + 1; u.path = null; }
+    if (u.stuck > 1.3) {
+      u.stuck = 0; u.jams = (u.jams || 0) + 1;
+      // jammed where you can't see: hop ahead along the route (what you don't see didn't happen)
+      const P = V.player;
+      if (u.path && Math.hypot(veh.pos.x - P.pos.x, veh.pos.z - P.pos.z) > 110 && !visible(veh.pos.x, veh.pos.y, veh.pos.z) && this._warp(u)) return;
+      u.backT = 1.1; u.path = null;
+    }
+  }
+
+  /** Move a unit (car and crew) a little way along its route, onto the road. */
+  _warp(u) {
+    const pts = u.path, old = u.veh, P = V.player;
+    for (let k = Math.min(u.pi + 1, pts.length - 1); k < pts.length; k++) {
+      const a = pts[k - 1] || pts[k], b = pts[k];
+      const x = (a.x + b.x) / 2, z = (a.z + b.z) / 2;
+      if (Math.hypot(x - old.pos.x, z - old.pos.z) < 30 || Math.hypot(x - P.pos.x, z - P.pos.z) < 140) continue;
+      if (visible(x, b.y ?? old.pos.y, z) || V.vehicles.near(x, z, 14).length) continue;
+      const ne = nearestEdge(V.plan, x, z, 40);
+      if (!ne) continue;
+      const h = Math.atan2(b.x - a.x, b.z - a.z) || old.heading;
+      const veh = V.vehicles.spawn('police', ne.x, ne.z, h, { y: ne.y, speed: 20 });
+      if (!veh) return false;
+      const crew = u.crew.filter((c) => c.vehicle === old);
+      for (const c of crew) c.exitVehicle();
+      crew.forEach((c, i) => c.enterVehicle(veh, i));
+      V.vehicles.remove(old);
+      veh.siren = old.siren; veh.engineOn = true;
+      u.veh = veh; u.pi = k; u.backT = 0; u.routeT = 0;
+      return true;
+    }
+    return false;
   }
 
   _cull(P) {
