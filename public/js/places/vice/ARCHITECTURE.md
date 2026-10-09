@@ -148,7 +148,10 @@ Session states: `loading → title → play ⇄ paused`, plus `wasted` and `bust
   - `knock(vel, from)`: ragdoll with this push (car hits, explosions, tackles)
   - `die(cause, attacker)`
   - `enterVehicle(veh, seat)`, `exitVehicle()`
-- Ragdolls are The Outbreak's 10-point Verlet ragdoll, copied and adapted (people/ragdoll.js). Blood comes from `V.fx`.
+- Also: `fromDriver(driver, veh)` and `knockDriver(driver, vel)` (traffic's stand-in drivers become people), `ragdollRig(model, o)` (the player's ragdoll), `drop('money'|'weapon', pos, o)` (pickups), `say(p, kind, secs)` (chat bubbles).
+- **Brains** (police, missions): `spawn({ai: {update(ped, dt), onHit?, onNoise?, onCrime?, onDeath?, onGetUp?}})`. A brain drives its ped completely, using the helpers in `peds/ai.js`: `moveTo`, `faceTo`, `aimAt`, `shoot`, `fire`, `lineOfSight`, `setState`, `say`, plus `p.P.arms` for hand poses. The full contract is in the header of `peds/peds.js`.
+- Events: `death` {ped, cause, attacker}, `pickup`, and `crime` (assault, murder, copMurder when witnessed).
+- Ragdolls are The Outbreak's 10-point Verlet ragdoll, copied and adapted (`peds/ragdoll.js`), with getting up. Blood comes from `V.fx`. Costs about 2.4 ms a frame with 120 people.
 
 ## Vehicles
 
@@ -176,13 +179,15 @@ Session states: `loading → title → play ⇄ paused`, plus `wasted` and `bust
 
 ## Combat
 
-- `combat/data.js` `WEAPONS`: fists, knife, bat, pistol, smg, shotgun, rifle, sniper, rpg, grenade. Fields: `{slot, dmg, rpm, spread, mag, reserve, range, vel?, pellets?, auto, melee?, gun:<warzone model id>}`.
+- `combat/data.js` `WEAPONS` (15 weapons, `weapon(id)` resolves aliases; `combat/models.js` has `gunModel`, `handModel`, `weaponIcon`): fists, knife, bat, pistol, smg, shotgun, rifle, sniper, rpg, grenade, molotov and more. Fields: `{slot, dmg, rpm, spread, mag, reserve, range, vel?, pellets?, auto, melee?, gun:<warzone model id>}`.
 - `combat/combat.js` `Combat` → `V.combat`:
   - `fire(shooter, origin, dir, weaponId)`: hitscan with a visible tracer. It tests people (`V.peds.ray` plus the player), vehicles (`V.vehicles.hitTest`) and the world (`V.phys.ray`), then applies damage, blood, impacts and noise.
   - `melee(attacker, weaponId)` → the person or thing hit
   - `explode(pos, radius, dmg, attacker)`: people take damage and are knocked, vehicles take damage, then fx and noise
+  - `fireAt`, `launch` (rockets, grenades, molotovs), `burn`, `trace`, `meleeTarget`: see the header of `combat/combat.js`
   - `update(dt)`
-- `combat/weapons.js` `Weapons` → `V.weapons`: the player's arsenal (one weapon per slot, with ammo), aiming (right mouse; over-the-shoulder, with a soft lock-on), firing, reloading, melee combos and the weapon wheel (Tab). Drive-by shooting from vehicles.
+  - NPC shots deal ×0.45 damage to the player; the victim applies its own body-part multipliers.
+- `combat/weapons.js` `Weapons` → `V.weapons`: the player's arsenal (one weapon per slot, with ammo), aiming (right mouse; over-the-shoulder, with a soft lock-on), firing, reloading, melee combos and the weapon wheel (Tab). Drive-by shooting from vehicles. Also `give`, `buy`, `buyAmmo`, `has`, `armPose` (the player's arm angles, read by player.js), `wheelOpen` (the session slows time while it's open).
 - `combat/fx.js` `FX(world)` → `V.fx`:
   - `burst`, `impact(pos, normal, mat)`, `blood(pos, dir, o)`, `pool(x, z, y, size)`, `decal`, `muzzle(pos, dir)`, `tracer(a, b)`
   - `explosion(pos, size)`, `fire(pos, size, secs)` → handle, `smoke`, `sparks`, `skid(x, z, heading)`, `glass(pos)`, `splash(pos, size)`, `wake(pos, heading, speed)`
@@ -232,11 +237,13 @@ Session states: `loading → title → play ⇄ paused`, plus `wasted` and `bust
 
 ## Who built what
 
-The lead designed the map, the plan, the ground, collision, the roads, the player, the camera, the session, the HUD, the menus, the audio and the radio. Four agents each built one part:
+The lead designed the map, the plan, the ground, collision, the roads, the player, the camera, the session, the HUD, the menus, the audio and the radio. Six agents each built one part:
 
 - **The look agent:** the sky, the water, the terrain and the post-processing.
 - **The vehicle agent:** all 32 vehicles, their physics, damage and effects.
 - **The city agent:** 3,904 buildings, every landmark, the neon, the windows and the murals.
 - **The props agent:** 4,500 palms, the beach and lifeguard towers, the port, the marinas, the airport, the parks and the street furniture.
+- **The people agent:** the crowds, their outfits, their AI, the ragdolls and getting up.
+- **The combat agent:** 15 weapons, gunfights, melee combos, explosions, fire, blood and the weapon wheel.
 
-Thank you, all four.
+Thank you, all six.

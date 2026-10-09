@@ -85,9 +85,9 @@ export class CameraRig {
     } else {
       const aiming = !!V.weapons?.aiming;
       this.mode = aiming ? 'aim' : 'foot';
-      pivot = _p.set(P.pos.x, P.pos.y + (P.swimming ? 2.6 : aiming ? 4.9 : 4.5), P.pos.z);
-      dist = aiming ? 4.3 : (P.sprinting ? 10.5 : 9.2);
-      side = aiming ? 1.75 : 0.7;
+      pivot = _p.set(P.pos.x, P.pos.y + (P.swimming ? 2.6 : aiming ? 5.5 : 4.5), P.pos.z);
+      dist = aiming ? 7.2 : (P.sprinting ? 10.5 : 9.2);
+      side = aiming ? 3.0 : 0.7;
       fov = aiming ? (V.weapons?.zoomFov || 48) : 62;
     }
     // ease the rig parameters

@@ -321,7 +321,7 @@ export class Player {
       } else { root.position.set(veh.pos.x, veh.pos.y + 3.5, veh.pos.z); root.rotation.set(0, (veh.heading || 0) + Math.PI, 0); }
       const bike = veh.kind === 'bike';
       root.visible = veh.kind !== 'car' || !veh.def?.hideDriver;
-      m.setAngles(bike ? 1.2 : 1.35, bike ? 1.2 : 1.35, bike ? 1.0 : 1.5, bike ? 1.0 : 1.5);
+      m.setAngles(bike ? 1.2 : 1.35, bike ? -1.2 : -1.35, bike ? 1.0 : 1.5, bike ? -1.0 : -1.5); // left limbs: positive = backward
       m.torso && (m.torso.rotation.x = 0);
       return;
     }
@@ -331,10 +331,10 @@ export class Player {
     this.stride += ((this.grounded || this.swimming ? Math.min(1, hs / RUN) : 0.15) - this.stride) * Math.min(1, dt * 8);
     this.walk += dt * (this.swimming ? 2.2 : 3.2 + hs * 0.42);
     const sw = Math.sin(this.walk), st = this.stride * (this.sprinting ? 1.25 : 1);
-    let rs = sw * 0.95 * st, ls = -sw * 0.95 * st, rh = -sw * 0.85 * st, lh = sw * 0.85 * st;
+    let rs = sw * 0.95 * st, ls = sw * 0.95 * st, rh = -sw * 0.85 * st, lh = -sw * 0.85 * st;
     let lean = this.sprinting ? 0.22 : hs > 10 ? 0.1 : 0;
-    if (!this.grounded && !this.swimming) { rs = -2.6; ls = -2.6; rh = 0.5; lh = -0.2; if (this.vel.y < -10) { rs = ls = -2.9; } }
-    if (this.swimming) { rs = Math.sin(this.walk) * 2.4 - 1.2; ls = Math.sin(this.walk + Math.PI) * 2.4 - 1.2; rh = sw * 0.5; lh = -sw * 0.5; lean = 1.3; }
+    if (!this.grounded && !this.swimming) { rs = -2.6; ls = 2.6; rh = 0.5; lh = -0.2; if (this.vel.y < -10) { rs = -2.9; ls = 2.9; } }
+    if (this.swimming) { rs = Math.sin(this.walk) * 2.4 - 1.2; ls = 1.2 - Math.sin(this.walk + Math.PI) * 2.4; rh = sw * 0.5; lh = sw * 0.5; lean = 1.3; }
     // aiming and fighting (the weapons system sets the arm pose)
     const W = V.weapons;
     if (W?.armPose) { const a = W.armPose; if (a.rs != null) rs = a.rs; if (a.ls != null) ls = a.ls; if (a.lean != null) lean = a.lean; }

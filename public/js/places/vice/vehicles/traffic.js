@@ -33,7 +33,7 @@ class Driver {
   exitVehicle() { const v = this.veh; if (v && v.driver === this) v.driver = null; this.T._release(v, true); V.peds?.fromDriver?.(this, v); }
   knock(vel) { V.peds?.knockDriver?.(this, vel); }
   flee() {}
-  hit(dmg) { this.hp -= dmg; if (this.hp <= 0 && !this.dead) { this.dead = true; const v = this.veh; if (v) { v.driver = null; this.T._release(v, true); } } }
+  hit(dmg, part, dir, attacker) { this.killer = attacker; this.hp -= dmg; if (this.hp <= 0 && !this.dead) { this.dead = true; const v = this.veh; if (v) { v.driver = null; this.T._release(v, true); } } }
 }
 
 export class Traffic {
