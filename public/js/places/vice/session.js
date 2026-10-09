@@ -249,6 +249,7 @@ export class Session {
     // slow motion when you die
     const slow = this.state === 'wasted' ? 0.3 : this.state === 'busted' ? 0.5 : 1;
     V.timeScale += (slow - V.timeScale) * Math.min(1, dt * 3);
+    if (V.weapons?.wheelOpen && this.state === 'play') V.timeScale = Math.min(V.timeScale, 0.3); // the weapon wheel slows the world
     const live = this.state === 'play';
     const dying = this.state === 'wasted' || this.state === 'busted';
     const sdt = live || dying ? dt * V.timeScale : 0;
