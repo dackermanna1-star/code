@@ -33,6 +33,13 @@ export class Player {
   }
 
   ready() {
+    // thrown off a bike (or out through the windscreen)
+    V.events.on('vehicle:eject', (e) => {
+      if (e.who !== this || this.vehicle !== e.veh) return;
+      this.exitVehicle(true);
+      this.knock(e.vel?.clone ? e.vel.clone() : new THREE.Vector3(0, 10, 0), e.veh);
+      this.hit(Math.min(35, (e.vel?.length?.() || 20) * 0.6), 'torso', null, null, { fall: true });
+    });
     const app = V.appearance || DEFAULT_APPEARANCE;
     const m = new CharacterModel(app);
     // the engine's rig uses Phong; give it the same lighting as the rest of the city
@@ -217,8 +224,11 @@ export class Player {
       const fwdSpeed = veh.speed || 0;
       c.throttle = W ? 1 : 0;
       c.brake = 0;
-      if (S) { if (fwdSpeed > 2) c.brake = 1; else c.throttle = -1; }
-      if (W && fwdSpeed < -2) { c.brake = 1; c.throttle = 0; }
+      if (W && S && Math.abs(fwdSpeed) < 3) { c.throttle = 1; c.brake = 1; } // burnout
+      else {
+        if (S) { if (fwdSpeed > 2) c.brake = 1; else c.throttle = -1; }
+        if (W && fwdSpeed < -2) { c.brake = 1; c.throttle = 0; }
+      }
       c.steer = (D ? 1 : 0) - (A ? 1 : 0);
       c.handbrake = key(inp, 'Space', ' ');
     }

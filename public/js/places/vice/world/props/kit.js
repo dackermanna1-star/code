@@ -241,6 +241,18 @@ export class RoadIndex {
     return best;
   }
   near(x, z, pad = 0, low = false) { return this.clear(x, z, low) < pad; }
+  /** The edge whose sidewalk edge is nearest (x, z) within 40 studs: {d (negative inside), e} or null. */
+  nearest(x, z) {
+    const c = this.grid.get(Math.floor(x / RC) * 8192 + Math.floor(z / RC));
+    let best = null, bd = 40;
+    if (c) for (const s of c) {
+      const dx = s.bx - s.ax, dz = s.bz - s.az, L2 = dx * dx + dz * dz;
+      let t = L2 > 0 ? ((x - s.ax) * dx + (z - s.az) * dz) / L2 : 0; t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const d = Math.hypot(x - s.ax - dx * t, z - s.az - dz * t) - s.hw;
+      if (d < bd) { bd = d; best = s.e; }
+    }
+    return best ? { d: bd, e: best } : null;
+  }
 }
 
 // ---- NearSet: one InstancedMesh per kind, filled with the ones near the camera ---------

@@ -213,10 +213,11 @@ function bandshell(P, S, x, z, h) {
   // lights along the arch (glow at night)
   for (let i = 0; i <= 16; i++) { const t = Math.PI * (i / 16); const p = W(Math.cos(t) * R, 4 + Math.sin(t) * 2 + 0.5, 0.6); g.box(p[0], p[1], p[2], 0.45, 0.45, 0.45, 0, { lay: L.whiteTiles, tint: [1, 0.85, 0.6], glow: 1 }); }
   // the audience: curved rows of benches on the lawn in front
-  for (let row = 0; row < 3; row++) {
-    const rr = 40 + row * 10;
+  for (let row = 0; row < 2; row++) {
+    const rr = 42 + row * 12;
     for (let k = -2; k <= 2; k++) {
-      const a = k * 0.22, p = W(Math.sin(a) * rr, 0, rr * Math.cos(a) + 6);
+      if (k === 0) continue; // an aisle down the middle
+      const a = k * 0.24, p = W(Math.sin(a) * rr, 0, rr * Math.cos(a) + 6);
       if (!S.dry(p[0], p[2], 2)) continue;
       place(P, 'bench', p[0], p[2], h + Math.PI + a, tint(0xd8d2c4));
     }

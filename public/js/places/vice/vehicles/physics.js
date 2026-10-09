@@ -30,6 +30,13 @@ const qi = new THREE.Quaternion(), dq = new THREE.Quaternion();
 
 export const probe = { box: null, deck: false, kind: 0 };
 
+/** Sparks off scraping metal: the shared FX if it has them, else the vehicles' own. */
+function sparks(p, v, n) {
+  if (V.fx?.sparks) { V.fx.sparks(p, v, n); return; }
+  const fx = V.vehicles?.fx;
+  if (fx) for (let i = 0; i < n; i++) fx.spark(p.x, p.y, p.z, v.x * 0.4 + (Math.random() - 0.5) * 16, Math.abs(v.y) * 0.3 + 4 + Math.random() * 10, v.z * 0.4 + (Math.random() - 0.5) * 16);
+}
+
 /**
  * The highest surface at (x, z) not above y + step: the land, a box top or a
  * road deck (like VPhys.groundAt, but a point query with no closure). `self`
@@ -600,7 +607,7 @@ function groundContacts(v, h) {
         const kt = invMassAt(v, A.x, A.y, A.z, VP.x / tl, 0, VP.z / tl);
         const jt = Math.min(d.bodyMu * j, tl / kt);
         impulse(v, (-VP.x / tl) * jt, 0, (-VP.z / tl) * jt, A.x, A.y, A.z);
-        if (tl > 12 && V.fx?.sparks && Math.random() < h * 30) V.fx.sparks(A, VP, 6);
+        if (tl > 12 && Math.random() < h * 30) sparks(A, VP, 6);
       }
     }
     if (depth > pen) pen = depth;
@@ -715,7 +722,7 @@ function resolveStatic(v, b, h) {
     const kt = invMassAt(v, px, py, pz, tx, 0, tz);
     const jt = Math.min(d.wallMu * j, Math.abs(vt) / kt);
     impulse(v, -tx * jt, 0, -tz * jt, px, py, pz);
-    if (Math.abs(vt) > 14 && V.fx?.sparks && Math.random() < h * 40) { A.set(px, py, pz); B.set(nx, 0.4, nz); V.fx.sparks(A, B, 5); }
+    if (Math.abs(vt) > 14 && Math.random() < h * 40) { A.set(px, py, pz); B.set(nx * 12 - VP.x * 0.3, 8, nz * 12 - VP.z * 0.3); sparks(A, B, 5); }
   }
   hit.x = px; hit.y = py; hit.z = pz; hit.nx = nx; hit.nz = nz; hit.other = b;
   return j * d.invM;

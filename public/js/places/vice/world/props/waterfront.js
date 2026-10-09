@@ -120,9 +120,11 @@ function wallRun(P, face, lip, back, ok) {
       if (!inMap(mx, mz) || !ok(i, tm)) { since = 0; continue; }
       // the cap stops short of a sidewalk that runs along the shore
       const k0 = -FACE / (BACK - FACE), cx0 = (F0[0] + F1[0]) / 2 + ((B0[0] + B1[0]) / 2 - (F0[0] + F1[0]) / 2) * k0, cz0 = (F0[1] + F1[1]) / 2 + ((B0[1] + B1[1]) / 2 - (F0[1] + F1[1]) / 2) * k0;
-      const clr = P.roads.clear(cx0, cz0);
-      if (clr < 1) { since = 0; continue; }
-      const kb = (Math.min(BACK, Math.max(1.6, clr - 1)) - FACE) / (BACK - FACE);
+      const nr = P.roads.nearest(cx0, cz0), clr = nr ? nr.d : 40;
+      // a road meets the water here: nothing where it carries on as a bridge; where it just ends, the wall and a railing
+      const roadEnd = clr < 1;
+      if (roadEnd && (nr.e.bridge || nr.e.elevated)) { since = 0; continue; }
+      const kb = roadEnd ? (1.6 - FACE) / (BACK - FACE) : (Math.min(BACK, Math.max(1.6, clr - 1)) - FACE) / (BACK - FACE);
       B0 = [F0[0] + (B0[0] - F0[0]) * kb, F0[1] + (B0[1] - F0[1]) * kb]; B1 = [F1[0] + (B1[0] - F1[0]) * kb, F1[1] + (B1[1] - F1[1]) * kb];
       mx = (F0[0] + F1[0] + B0[0] + B1[0]) / 4; mz = (F0[1] + F1[1] + B0[1] + B1[1]) / 4;
       // outward: from the back line towards the face
@@ -134,6 +136,15 @@ function wallRun(P, face, lip, back, ok) {
       vquad(g, B0, B1, GROUND - 0.3, TOP, -nx, -nz, { lay: L.concrete, tint: T.cap, scale: 8 });
       g.quad([L0[0], TOP, L0[1]], [L1[0], TOP, L1[1]], [B1[0], TOP, B1[1]], [B0[0], TOP, B0[1]], { lay: L.concrete, tint: T.cap, scale: 8, normal: [0, 1, 0] });
       faceUp(g);
+      // where a street ends at the water: a railing along the edge (and solid, so cars stop)
+      if (roadEnd) {
+        const gr = P.C.get('detail', mx, mz), rl = { lay: L.concrete, tint: [0.93, 0.93, 0.9] };
+        const r0 = [(L0[0] + B0[0]) / 2, (L0[1] + B0[1]) / 2], r1 = [(L1[0] + B1[0]) / 2, (L1[1] + B1[1]) / 2];
+        cylAB(gr, [r0[0], TOP + 3.4, r0[1]], [r1[0], TOP + 3.4, r1[1]], 0.16, 0.16, 5, rl);
+        cylAB(gr, [r0[0], TOP + 1.8, r0[1]], [r1[0], TOP + 1.8, r1[1]], 0.1, 0.1, 4, rl);
+        gr.box(r0[0], TOP + 1.7, r0[1], 0.2, 1.7, 0.2, 0, rl);
+        P.box((r0[0] + r1[0]) / 2, TOP + 1.7, (r0[1] + r1[1]) / 2, 0.4, 1.7, Math.hypot(r1[0] - r0[0], r1[1] - r0[1]) / 2, Math.atan2(r1[0] - r0[0], r1[1] - r0[1]), 'metal', { barrier: true, rail: true });
+      }
       // a low step for people every few pieces
       if (since++ % 3 === 0) {
         const cx = (L0[0] + L1[0] + B0[0] + B1[0]) / 4, cz = (L0[1] + L1[1] + B0[1] + B1[1]) / 4, pl = Math.hypot(L1[0] - L0[0], L1[1] - L0[1]);

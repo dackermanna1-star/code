@@ -6,6 +6,27 @@
 // and a phys box that moves with it so people and bullets collide with it.
 // Whoever drives (the player, traffic, the police) sets veh.ctl every frame.
 // See ARCHITECTURE.md (Vehicles) for the contract.
+//
+//   V.vehicles.spawn(type, x, z, heading, {y, color, parked, locked, speed, vel, yProbe}) -> Vehicle
+//   .remove(v)  .list  .near(x, z, r, out)  .update(dt)  .ready()  .TYPES  .MIX (weights for traffic/parking)
+//   .hitTest(origin, dir, max, skip) -> {veh, d, point, normal, part: 'body'|'glass'|'tyre'|'tank'} | null
+//   .blast(pos, r, dmg, attacker, skipVeh, impulseOnly)   push (and damage) every vehicle in a blast
+//   .freeWater(x, z, r) -> {x, z} | null                   open water near a point (for spawning boats)
+// Vehicle:
+//   ctl {throttle -1..1, brake 0..1, steer -1..1 (+ = right), handbrake, up -1..1, yaw -1..1, horn, siren}
+//     cars/bikes: throttle<0 brakes then reverses; throttle and brake together at a standstill = burnout
+//     boats: throttle/steer. helicopters: up = collective, throttle = pitch, steer = yaw + bank, yaw = pure yaw.
+//     planes: throttle = engine (<0 = wheel brakes), up = pitch, steer = roll, yaw = rudder.
+//   driver (get/set) seats[] passengers[]  enter(who, seat) leave(who) seatOf(who) freeSeat(passengerOnly)
+//   seatWorld(i, outMatrix4) (hips, facing +Z)  exitPoint('left'|'right'|seat, outVector3)
+//   pos (origin: ground under the wheelbase), quat, heading, vel, angVel, speed (signed), size {w, h, l}
+//   rpm 0..1, gear (-1 reverse, 1..n), skid 0..1, wheelSpin, braking, burnout, contacts, airT, alt, inWater, rotor, lean
+//   health 1000.., dead, burning, drowned, lights (lightsMode 'auto'|'on'|'off'), siren, locked, engineOn, focus
+//   damage(amount, point, dir, attacker, part)  explode(attacker)  eject()  horn()  repair()  setPaint(c)
+//   wake()  sleeping  dent(...)  popTyre(point)  shatter(point)
+// Events: vehicle:crash {veh, other, pos, speed, kind:'wall'|'vehicle'|'ped'} - vehicle:destroyed {veh, attacker}
+//   vehicle:eject {veh, who, vel} - vehicle:tyre {veh, wheel, pos} - vehicle:backfire {veh, pos} - vehicle:drowned {veh}
+//   prop:hit {box, veh, vel, pos} - and 'noise' (crash, horn, explosion) and 'crime' (hitPed, assault, explosion).
 import * as THREE from 'three';
 import { V, K } from '../state.js';
 import { TYPES, ALIASES, MIX } from './types.js';
@@ -64,7 +85,8 @@ export function prepare(id) {
   d.muX = d.mu * 1.3; // tyres hold more along than across (arcade traction)
   // launch force: just under what the driven tyres can hold (sporty ones can light them up)
   const nWh = vis.wheels.length || 1, nDr = vis.wheels.filter((w) => driven(d, w)).length || nWh;
-  d.Fmax = m * G * d.muX * (nDr / nWh) * ((d.drift || 0) > 0.55 ? 1.25 : 0.95);
+  // (and never more than the engine's punch: power/mass / 55, at most ~1 g of launch)
+  d.Fmax = m * Math.min(G * d.muX * (nDr / nWh) * ((d.drift || 0) > 0.55 ? 1.25 : 0.95), d.Pw / m / 55, 30);
   d.dragK = kind === 'boat' ? d.Pw / (d.top * d.top * d.top * m) : (0.7 * d.Pw) / (d.top * d.top * d.top);
   d.downK = 0.00075 * (d.downforce ?? 0.35);
   d.brakeF = (d.brake || 1) * m * G * d.mu * 1.1;
@@ -173,6 +195,7 @@ export class Vehicle {
     this.inWater = 0; this.drowned = false; this.airT = 0; this.alt = 0; this.lowY = 0; this.highY = 0;
     this.sleeping = false; this.sleepT = 0; this.roofT = 0; this.burnT = 0; this.deadT = 0;
     this.lastAttacker = null; this.crashT = 0; this.hornT = 0;
+    this._lastGear = 1;
     this.impDv = 0; this.impG = 0; this.impMax = 0; this.impOther = null; this.impKind = ''; this.impP = new THREE.Vector3(); this.impN = new THREE.Vector3();
     this.wheels = def.wheels.map(() => ({ len: 0, contact: false, load: 0, slip: 0, skid: 0, omega: 0, rot: 0, surf: 1 }));
     for (let i = 0; i < this.wheels.length; i++) this.wheels[i].len = def.wheels[i].Lmax - def.wheels[i].xs;
@@ -553,11 +576,14 @@ export class Vehicles {
     return v;
   }
 
+  /** Take a vehicle out of the world (whoever is inside should have got out: their seats are cleared). */
   remove(v) {
     const i = this.list.indexOf(v);
     if (i < 0) return;
     this.list.splice(i, 1);
     v.removed = true;
+    v.seats.fill(null); v._occ();
+    if (v.dented) v.body.geometry.dispose();
     if (v.box) { V.phys.remove(v.box); v.box = null; }
     this.scene.remove(v.group);
     v.material.dispose();
@@ -833,6 +859,16 @@ export class Vehicles {
       }
     }
     if (v.dead) return;
+    // sports cars backfire on the upshift
+    if (v.gear !== v._lastGear) {
+      if (v.gear > v._lastGear && v._lastGear > 0 && (d.cls === 'sports' || d.cls === 'super') && v.rpm > 0.7) {
+        toWorld(v, d.hull.xc + (d.size.w * 0.18), d.hull.y0 + 0.9, d.hull.z0 + 0.3, _p);
+        toWorld(v, 0, 0, -1, _w).sub(v.pos);
+        for (let k = 0; k < 4; k++) fx.flame(_p.x, _p.y, _p.z, _w.x * (14 + k * 4) + v.vel.x, 1 + r() * 2, _w.z * (14 + k * 4) + v.vel.z, 0.12 + r() * 0.08, 1.2 + r() * 0.8, 1.3);
+        V.events?.emit('vehicle:backfire', { veh: v, pos: _p.clone() });
+      }
+      v._lastGear = v.gear;
+    }
     // tyres: smoke from skids and wheelspin, marks on the road
     if (d.wheels.length && v.contacts) {
       for (let i = 0; i < d.wheels.length; i++) {
