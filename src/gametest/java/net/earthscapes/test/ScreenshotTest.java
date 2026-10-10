@@ -50,6 +50,7 @@ public class ScreenshotTest implements FabricClientGameTest {
 			client.options.framerateLimit().set(260);
 			client.options.enableVsync().set(false);
 			client.options.inactivityFpsLimit().set(InactivityFpsLimit.MINIMIZED);
+			client.options.menuBackgroundBlurriness().set(0);
 		});
 		for (String preset : presets) {
 			this.shootWorld(context, preset.trim(), seed);
@@ -103,6 +104,9 @@ public class ScreenshotTest implements FabricClientGameTest {
 	}
 
 	private void shootWorld(ClientGameTestContext context, String preset, String seed) {
+		// The world has to load within 1200 client ticks, and the test runs one tick per frame:
+		// throttle frames while the spawn area generates so that worldgen gets the CPU and time.
+		context.runOnClient(client -> client.options.framerateLimit().set(10));
 		try (TestSingleplayerContext world = context.worldBuilder()
 			.setUseConsistentSettings(false)
 			.adjustSettings(settings -> {
@@ -116,6 +120,7 @@ public class ScreenshotTest implements FabricClientGameTest {
 				settings.getGameRules().set(GameRules.SPAWN_MOBS, false, null);
 			})
 			.create()) {
+			context.runOnClient(client -> client.options.framerateLimit().set(260));
 			world.getServer().runCommand("gamemode spectator @a");
 			world.getServer().runCommand("time set " + System.getProperty("earthscapes.time", "1500"));
 			world.getServer().runCommand("weather clear");
