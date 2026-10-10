@@ -99,5 +99,7 @@ afterEvaluate {
 			}
 		}
 		args "--width", project.findProperty("earthscapes.width") ?: "1280", "--height", project.findProperty("earthscapes.height") ?: "720"
+		// the packet synchronizer of the test framework trips over the sprinting server's chunk traffic
+		jvmArgs "-Dfabric.client.gametest.disableNetworkSynchronizer=true"
 	}
 }

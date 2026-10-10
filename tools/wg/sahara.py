@@ -120,8 +120,8 @@ def build(reg):
     rocks_reg = rare_pf('rocks_reg', W + '/hamada_rocks', 3)
     rocks_hamada = tree_pf('rocks_hamada', W + '/hamada_rocks', count(uniform(0, 2)))
     rocks_basalt = tree_pf('rocks_basalt', W + '/basalt_rocks', count(uniform(0, 2)))
-    hoodoos = tree_pf('hoodoos', W + '/hoodoo', count(weighted_int((0, 2), (1, 3), (2, 1))))
-    hoodoos_small = tree_pf('hoodoos_small', W + '/hoodoo_small', count(uniform(0, 2)))
+    hoodoos = tree_pf('hoodoos', W + '/hoodoo', count(weighted_int((0, 5), (1, 2), (2, 1))))
+    hoodoos_small = rare_pf('hoodoos_small', W + '/hoodoo_small', 3)
     hoodoo_rare = rare_pf('hoodoo_rare', W + '/hoodoo', 14)
 
     # ------------------------------------------------------------------ biomes

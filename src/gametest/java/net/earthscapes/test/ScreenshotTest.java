@@ -23,7 +23,10 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.gamerules.GameRules;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.RandomState;
 import net.minecraft.world.level.levelgen.presets.WorldPreset;
 
 /**
@@ -37,7 +40,11 @@ public class ScreenshotTest implements FabricClientGameTest {
 	 * A camera placement: in a biome, at a height above ground, looking with pitch either along a
 	 * fixed yaw or towards the nearest spot of another biome from the given distance.
 	 */
-	record Shot(String name, String biome, int lift, float pitch, String towards, int standoff) {
+	record Shot(String name, String biome, int lift, float pitch, String towards, int standoff, boolean peak, int renderDistance) {
+		Shot(String name, String biome, int lift, float pitch, String towards, int standoff) {
+			this(name, biome, lift, pitch, towards, standoff, false, 0);
+		}
+
 		Shot(String name, String biome, int lift, float pitch, String towards) {
 			this(name, biome, lift, pitch, towards, 64);
 		}
@@ -63,7 +70,7 @@ public class ScreenshotTest implements FabricClientGameTest {
 			// the steppe's massifs stand far off; everything else looks fine at the default distance
 			int distance = preset.trim().equals("mongolian_steppe") ? Math.max(renderDistance, 16) : renderDistance;
 			context.runOnClient(client -> client.options.renderDistance().set(distance));
-			this.shootWorld(context, preset.trim(), seed);
+			this.shootWorld(context, preset.trim(), seed, distance);
 		}
 	}
 
@@ -73,7 +80,7 @@ public class ScreenshotTest implements FabricClientGameTest {
 			case "african_savanna" -> {
 				list.add(new Shot("plains", "serengeti_plains", 2, -4, null));
 				list.add(new Shot("plains_high", "serengeti_plains", 14, 8, null));
-				list.add(new Shot("highlands_view", "serengeti_plains", 4, -4, "rift_highlands", 130));
+				list.add(new Shot("highlands_view", "serengeti_plains", 4, -8, "rift_highlands", 260, true, 18));
 				list.add(new Shot("kopjes", "kopje_plains", 3, -2, null));
 				list.add(new Shot("red_earth", "tsavo_red_earth", 2, 0, null));
 				list.add(new Shot("baobab", "baobab_savanna", 3, -6, null));
@@ -85,7 +92,7 @@ public class ScreenshotTest implements FabricClientGameTest {
 				list.add(new Shot("sand_sea", "sahara_sand_sea", 2, -2, null));
 				list.add(new Shot("oasis", "sahara_oasis", 12, 25, "sahara_oasis"));
 				list.add(new Shot("hamada", "hamada_plateau", 3, 0, null));
-				list.add(new Shot("hoggar", "hoggar_mountains", 4, -8, null));
+				list.add(new Shot("hoggar", "reg_plain", 4, -10, "hoggar_mountains", 220, true, 18));
 				list.add(new Shot("tassili", "tassili_stone_forest", 3, -4, null));
 			}
 			case "amazon_rainforest" -> {
@@ -94,17 +101,17 @@ public class ScreenshotTest implements FabricClientGameTest {
 				list.add(new Shot("river", "amazon_river", 6, 4, null));
 				list.add(new Shot("varzea", "varzea_flooded_forest", 2, -4, null));
 				list.add(new Shot("igapo", "igapo_flooded_forest", 2, -2, null));
-				list.add(new Shot("palm_swamp", "buriti_palm_swamp", 3, -4, null));
+				list.add(new Shot("palm_swamp", "buriti_palm_swamp", 12, 14, null));
 				list.add(new Shot("hills", "rainforest_hills", 30, 10, null));
 			}
 			case "mongolian_steppe" -> {
-				list.add(new Shot("steppe_mountain_view", "feather_grass_steppe", 6, -9, "altai_mountains", 170));
+				list.add(new Shot("steppe_mountain_view", "feather_grass_steppe", 6, -14, "altai_mountains", 300, true, 22));
 				list.add(new Shot("steppe", "feather_grass_steppe", 2, -3, null));
 				list.add(new Shot("steppe_high", "feather_grass_steppe", 20, 10, null));
 				list.add(new Shot("forest_steppe", "larch_forest_steppe", 3, -4, null));
 				list.add(new Shot("valley", "steppe_river_valley", 8, 8, "steppe_river", 40));
 				list.add(new Shot("tors", "granite_tors", 3, -4, null));
-				list.add(new Shot("meadow", "alpine_meadow", 4, -10, "altai_mountains", 90));
+				list.add(new Shot("meadow", "alpine_meadow", 4, -16, "altai_mountains", 200, true, 18));
 				list.add(new Shot("peaks", "altai_mountains", 20, 0, null));
 			}
 			default -> {
@@ -113,7 +120,7 @@ public class ScreenshotTest implements FabricClientGameTest {
 		return list;
 	}
 
-	private void shootWorld(ClientGameTestContext context, String preset, String seed) {
+	private void shootWorld(ClientGameTestContext context, String preset, String seed, int defaultDistance) {
 		// The world has to load within 1200 client ticks, and the test runs one tick per frame:
 		// throttle frames while the spawn area generates so that worldgen gets the CPU and time.
 		context.runOnClient(client -> client.options.framerateLimit().set(10));
@@ -147,12 +154,25 @@ public class ScreenshotTest implements FabricClientGameTest {
 					continue;
 				}
 				Earthscapes.LOGGER.info("Shot {}: {}", shot.name(), command);
+				int distance = shot.renderDistance() > 0 ? shot.renderDistance() : defaultDistance;
+				context.runOnClient(client -> {
+					client.options.renderDistance().set(distance);
+					// the server only sends chunks out to the view distance the client has told it about
+					client.options.broadcastOptions();
+				});
 				world.getServer().runCommand(command);
 				context.waitTicks(5);
 				waitForWorld(context, 20 * 600);
 				context.waitTicks(40);
 				context.takeScreenshot(String.format(Locale.ROOT, "%s_%02d_%s", preset, index++, shot.name()));
 			}
+			// leave little work queued for the shutdown, which otherwise can overflow the stack
+			world.getServer().runCommand("tick sprint stop");
+			context.runOnClient(client -> {
+				client.options.renderDistance().set(6);
+				client.options.broadcastOptions();
+			});
+			context.waitTicks(100);
 		}
 	}
 
@@ -222,7 +242,7 @@ public class ScreenshotTest implements FabricClientGameTest {
 			Holder<Biome> look = this.biome(level, shot.towards());
 			Pair<BlockPos, Holder<Biome>> lookAt = level.findClosestBiome3d(h -> h.is(look.unwrapKey().orElseThrow()), at, 3200, 16, 64);
 			if (lookAt != null) {
-				BlockPos m = lookAt.getFirst();
+				BlockPos m = shot.peak() ? this.peak(level, lookAt.getFirst(), 384) : lookAt.getFirst();
 				lookTarget = m;
 				if (shot.towards().equals(shot.biome())) {
 					// look down into the feature from its rim
@@ -236,7 +256,7 @@ public class ScreenshotTest implements FabricClientGameTest {
 				}
 			}
 		}
-		at = this.openSpot(level, at, shot.lift());
+		at = this.openSpot(level, at, shot.lift(), shot.towards() != null);
 		if (lookTarget != null) {
 			yaw = (float) Math.toDegrees(Math.atan2(-(lookTarget.getX() - at.getX()), lookTarget.getZ() - at.getZ()));
 		}
@@ -244,20 +264,52 @@ public class ScreenshotTest implements FabricClientGameTest {
 		return String.format(Locale.ROOT, "tp @a %d %d %d %.1f %.1f", at.getX(), y, at.getZ(), yaw, shot.pitch());
 	}
 
-	/** Highest ground (ignoring leaves) around a spot, so that the camera does not drop into holes and cave mouths. */
+	/** The highest terrain within the radius, from the generator's height estimate (does not generate chunks). */
+	private BlockPos peak(ServerLevel level, BlockPos around, int radius) {
+		ChunkGenerator generator = level.getChunkSource().getGenerator();
+		RandomState random = level.getChunkSource().randomState();
+		BlockPos best = around;
+		int bestHeight = Integer.MIN_VALUE;
+		for (int dx = -radius; dx <= radius; dx += 16) {
+			for (int dz = -radius; dz <= radius; dz += 16) {
+				int x = around.getX() + dx;
+				int z = around.getZ() + dz;
+				int h = generator.getBaseHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, level, random);
+				if (h > bestHeight) {
+					bestHeight = h;
+					best = new BlockPos(x, h, z);
+				}
+			}
+		}
+		return best;
+	}
+
+	/** Highest ground (ignoring trees and plants) around a spot, so that the camera does not drop into holes and cave mouths. */
 	private int ground(ServerLevel level, BlockPos at) {
 		int ground = level.getSeaLevel();
 		for (int dx = -3; dx <= 3; dx += 3) {
 			for (int dz = -3; dz <= 3; dz += 3) {
-				level.getChunk((at.getX() + dx) >> 4, (at.getZ() + dz) >> 4);
-				ground = Math.max(ground, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, at.getX() + dx, at.getZ() + dz));
+				int x = at.getX() + dx;
+				int z = at.getZ() + dz;
+				level.getChunk(x >> 4, z >> 4);
+				BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos(x, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z), z);
+				while (p.getY() > level.getMinY()) {
+					BlockState below = level.getBlockState(p.below());
+					// stop on water or on solid ground that is not part of a tree
+					if (!below.getFluidState().isEmpty()
+						|| !below.isAir() && !below.is(BlockTags.LOGS) && !below.is(BlockTags.LEAVES) && !below.canBeReplaced()) {
+						break;
+					}
+					p.move(0, -1, 0);
+				}
+				ground = Math.max(ground, p.getY());
 			}
 		}
 		return ground;
 	}
 
-	/** The nearest column (spiralling out up to 24 blocks) where the camera would not sit inside leaves or rock. */
-	private BlockPos openSpot(ServerLevel level, BlockPos at, int lift) {
+	/** The nearest column (spiralling out up to 24 blocks) where the camera would not sit inside leaves or rock, optionally under open sky. */
+	private BlockPos openSpot(ServerLevel level, BlockPos at, int lift, boolean needSky) {
 		for (int r = 0; r <= 24; r += 2) {
 			for (int dx = -r; dx <= r; dx += 2) {
 				for (int dz = -r; dz <= r; dz += 2) {
@@ -271,6 +323,10 @@ public class ScreenshotTest implements FabricClientGameTest {
 					for (int k = 0; k <= 2 && open; k++) {
 						BlockPos q = new BlockPos(p.getX(), y + k, p.getZ());
 						open = level.getBlockState(q).getCollisionShape(level, q).isEmpty() && !level.getBlockState(q).is(BlockTags.LEAVES);
+					}
+					// views need open sky, not a canopy overhead
+					if (open && needSky) {
+						open = level.getHeight(Heightmap.Types.MOTION_BLOCKING, p.getX(), p.getZ()) <= y;
 					}
 					if (open) {
 						return p;
