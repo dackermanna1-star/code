@@ -7,6 +7,16 @@ Each one is a complete overworld of its own, with its own terrain generator, bio
 plants, rocks, soils, colours and atmosphere. Pick one in the world creation screen and the
 whole world is that landscape.
 
+| | |
+|---|---|
+| ![Serengeti plains](docs/screenshots/savanna_plains.jpg) | ![Great Erg](docs/screenshots/sahara_erg.jpg) |
+| *African Savanna: golden Serengeti grass under umbrella thorns and baobabs* | *Sahara Desert: the orange dune ridges of the Great Erg* |
+| ![Amazon forest floor](docs/screenshots/amazon_forest_floor.jpg) | ![Feather grass steppe](docs/screenshots/steppe.jpg) |
+| *Amazon Rainforest: buttressed giants, heliconias, giant taro and lianas* | *Mongolian Steppe: a bronze late-summer sward, larch groves on the cool slopes* |
+
+(Unedited in-game screenshots, vanilla resource pack, rendered by the screenshot game test
+described below.)
+
 ## Using it
 
 1. Install [Fabric Loader](https://fabricmc.net/use/) (0.17 or newer) for Minecraft 1.21.11
@@ -34,6 +44,8 @@ remain fully playable.
 Endless golden grassland in the style of the Serengeti, under scattered umbrella-thorn acacias
 with their flat, spreading crowns.
 
+![Tsavo red earth](docs/screenshots/savanna_red_earth.jpg)
+
 | Biome | What you find |
 |---|---|
 | Serengeti Plains | sea of tall golden and red-oat grass, lone umbrella thorns, thornbush, termite mounds |
@@ -49,6 +61,8 @@ A great sand sea of orange dunes with sharp, rippled crests, built from intersec
 (transverse, linear and star dunes up to ~50 blocks high). Wind-blown sand is draped in partial
 **sand layers**, so dune slopes are smooth curves rather than block staircases.
 
+![Oasis](docs/screenshots/sahara_oasis.jpg)
+
 | Biome | What you find |
 |---|---|
 | Great Erg / Sahara Sand Sea / Erg Margin | mega-dunes, smaller dune fields, sand sheets with drinn grass tufts |
@@ -63,6 +77,8 @@ A great sand sea of orange dunes with sharp, rippled crests, built from intersec
 ### Amazon Rainforest
 Flat, endless lowland rainforest with a closed canopy, emergent giants and enormous rivers.
 
+![Várzea](docs/screenshots/amazon_varzea.jpg)
+
 | Biome | What you find |
 |---|---|
 | Amazon Rainforest | multi-storey forest: canopy trees on buttress roots, understorey, ferns, heliconias, giant taro, leaf litter, lianas, bromeliads |
@@ -76,6 +92,9 @@ The air is humid and hazy and the soil under the litter is red laterite, exposed
 
 ### Mongolian Steppe
 Rolling hills of feather grass and bronze-red seed heads below colossal snow-capped massifs.
+
+![River valley](docs/screenshots/steppe_valley.jpg)
+![Altai massif](docs/screenshots/steppe_massif.jpg)
 
 | Biome | What you find |
 |---|---|
@@ -148,9 +167,11 @@ Not part of the mod jar:
   without generating chunks and renders maps (fast, for tuning biome proportions).
 * `tools/dev/mapdump.sh <preset>` – generates chunks on a headless server and renders top-down
   terrain, ground and biome maps.
-* `tools/dev/screenshots.sh` – runs the real client (under Xvfb with software OpenGL when there
-  is no display) through a Fabric client game test that creates each world type and takes
-  in-game screenshots at characteristic places.
+* `tools/dev/screenshots.sh [world types] [seed] [render distance]` – runs the real client (under
+  Xvfb with software OpenGL when there is no display) through a Fabric client game test that
+  creates each world type, finds characteristic biomes, places the camera (on open ground, or at
+  a vantage point with a view of a summit) and saves screenshots to
+  `build/run/clientGameTest/screenshots`.
 
 ## License
 

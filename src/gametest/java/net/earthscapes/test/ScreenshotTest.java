@@ -19,6 +19,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
@@ -256,12 +257,63 @@ public class ScreenshotTest implements FabricClientGameTest {
 				}
 			}
 		}
-		at = this.openSpot(level, at, shot.lift(), shot.towards() != null);
+		if (shot.peak() && lookTarget != null) {
+			BlockPos vantage = this.vantage(level, lookTarget, shot.standoff(), shot.lift());
+			if (vantage != null) {
+				at = vantage;
+			}
+		}
+		at = this.openSpot(level, at, shot.lift(), shot.towards() != null || shot.lift() >= 8);
+		float pitch = shot.pitch();
 		if (lookTarget != null) {
 			yaw = (float) Math.toDegrees(Math.atan2(-(lookTarget.getX() - at.getX()), lookTarget.getZ() - at.getZ()));
 		}
 		int y = this.ground(level, at) + shot.lift();
-		return String.format(Locale.ROOT, "tp @a %d %d %d %.1f %.1f", at.getX(), y, at.getZ(), yaw, shot.pitch());
+		if (shot.peak() && lookTarget != null) {
+			// tilt up so that the summit sits in the upper part of the picture
+			double elevation = Math.toDegrees(Math.atan2(lookTarget.getY() - (y + 1.6), Math.sqrt(lookTarget.distSqr(new BlockPos(at.getX(), lookTarget.getY(), at.getZ())))));
+			pitch = (float) Mth.clamp(-elevation * 0.6, -28.0, 0.0);
+		}
+		return String.format(Locale.ROOT, "tp @a %d %d %d %.1f %.1f", at.getX(), y, at.getZ(), yaw, pitch);
+	}
+
+	/**
+	 * A spot about the given distance from a summit with the least obstructed line of sight to it
+	 * (preferring low ground on ties), judged from the generator's height estimate.
+	 */
+	private BlockPos vantage(ServerLevel level, BlockPos peak, int distance, int lift) {
+		ChunkGenerator generator = level.getChunkSource().getGenerator();
+		RandomState random = level.getChunkSource().randomState();
+		BlockPos best = null;
+		double bestScore = Double.MAX_VALUE;
+		for (int a = 0; a < 32; a++) {
+			double angle = a * Math.PI * 2.0 / 32.0;
+			for (int d = distance - 80; d <= distance + 40; d += 40) {
+				int x = peak.getX() + (int) (Math.cos(angle) * d);
+				int z = peak.getZ() + (int) (Math.sin(angle) * d);
+				int ground = generator.getBaseHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, level, random);
+				if (ground <= level.getSeaLevel()) {
+					continue;
+				}
+				double eye = ground + lift + 1.6;
+				// how far the terrain rises above the sight line, worst point along the way
+				double obstruction = 0.0;
+				for (int step = 1; step < 32; step++) {
+					double t = step / 32.0;
+					int sx = (int) Mth.lerp(t, x, peak.getX());
+					int sz = (int) Mth.lerp(t, z, peak.getZ());
+					double h = generator.getBaseHeight(sx, sz, Heightmap.Types.WORLD_SURFACE_WG, level, random);
+					obstruction = Math.max(obstruction, h - (Mth.lerp(t, eye, peak.getY()) - 4.0));
+				}
+				double score = obstruction * 10.0 + ground * 0.2;
+				if (score < bestScore) {
+					bestScore = score;
+					best = new BlockPos(x, ground, z);
+				}
+			}
+		}
+		Earthscapes.LOGGER.info("Vantage for summit {}: {} (score {})", peak, best, bestScore);
+		return best;
 	}
 
 	/** The highest terrain within the radius, from the generator's height estimate (does not generate chunks). */
@@ -325,8 +377,10 @@ public class ScreenshotTest implements FabricClientGameTest {
 						open = level.getBlockState(q).getCollisionShape(level, q).isEmpty() && !level.getBlockState(q).is(BlockTags.LEAVES);
 					}
 					// views need open sky, not a canopy overhead
-					if (open && needSky) {
-						open = level.getHeight(Heightmap.Types.MOTION_BLOCKING, p.getX(), p.getZ()) <= y;
+					for (int sx = -2; sx <= 2 && open && needSky; sx += 2) {
+						for (int sz = -2; sz <= 2 && open; sz += 2) {
+							open = level.getHeight(Heightmap.Types.MOTION_BLOCKING, p.getX() + sx, p.getZ() + sz) <= y + 1;
+						}
 					}
 					if (open) {
 						return p;
