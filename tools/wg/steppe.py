@@ -124,8 +124,9 @@ def build(reg):
 
     # ------------------------------------------------------------------ biomes
     sky, fog = '#6AA8F6', '#C9DCF0'
-    herd = [spawn('horse', 12, 3, 8), spawn('sheep', 10, 3, 6), spawn('cow', 4, 2, 4), spawn('rabbit', 4, 2, 3), spawn('donkey', 2, 1, 2),
-            spawn('goat', 2, 1, 3)]
+    # wild takhi, gazelles and marmots, and the horses and sheep of the herders
+    herd = [spawn('earthscapes:przewalski_horse', 8, 2, 6), spawn('earthscapes:mongolian_gazelle', 10, 3, 7), spawn('earthscapes:marmot', 10, 2, 4),
+            spawn('horse', 6, 2, 5), spawn('sheep', 6, 3, 6), spawn('earthscapes:saiga', 2, 2, 4), spawn('wolf', 1, 2, 3)]
 
     def make(name, grass, foliage, local=(), surface=(), veg=(), temperature=0.6, downfall=0.35, creatures=None, music_sound=None,
              water='#3E72C0', water_fog='#1E3A66', fog_end=1100.0, rain=True):
@@ -141,21 +142,28 @@ def build(reg):
 
     make(FEATHER, '#B4A058', '#8E9A48', local=[stones], surface=[ger, ovoo], veg=[cover_feather], music_sound='minecraft:music.overworld.meadow')
     make(DRY, '#C2AA62', '#A09A50', local=[stones_dry], surface=[ger, ovoo], veg=[saxaul, cover_dry], temperature=0.8, downfall=0.1,
-         creatures=[spawn('camel', 4, 1, 3), spawn('horse', 6, 2, 5), spawn('goat', 4, 2, 4), spawn('rabbit', 4, 2, 3)],
+         creatures=[spawn('earthscapes:bactrian_camel', 6, 1, 3), spawn('earthscapes:saiga', 8, 3, 6), spawn('earthscapes:mongolian_gazelle', 6, 3, 6),
+                    spawn('earthscapes:marmot', 3, 2, 3), spawn('horse', 2, 2, 3)],
          music_sound='minecraft:music.overworld.badlands')
     make(FOREST, '#8FA44E', '#78A040', local=[stones], veg=[larch_north, larch_young, larch_scatter, birch_north, cover_forest],
-         temperature=0.45, downfall=0.5, creatures=herd + [spawn('wolf', 2, 2, 4), spawn('fox', 3, 1, 2)],
+         temperature=0.45, downfall=0.5, creatures=[spawn('wolf', 3, 2, 4), spawn('fox', 4, 1, 2), spawn('rabbit', 3, 1, 2),
+                                                    spawn('earthscapes:marmot', 2, 2, 3), spawn('earthscapes:przewalski_horse', 2, 2, 4)],
          music_sound='minecraft:music.overworld.old_growth_taiga')
     make(MEADOW, '#78AA46', '#62983A', local=[stones], surface=[ovoo], veg=[larch_treeline, cover_meadow], temperature=0.45, downfall=0.55,
-         creatures=[spawn('sheep', 8, 3, 6), spawn('horse', 6, 2, 5), spawn('goat', 5, 2, 4), spawn('rabbit', 3, 2, 3)],
+         creatures=[spawn('earthscapes:yak', 8, 2, 5), spawn('earthscapes:marmot', 6, 2, 4), spawn('earthscapes:snow_leopard', 1, 1, 1),
+                    spawn('sheep', 4, 3, 5), spawn('goat', 4, 2, 4), spawn('horse', 3, 2, 4)],
          music_sound='minecraft:music.overworld.meadow')
     make(MOUNTAINS, '#8C9C52', '#6E8A40', local=[rocks_mount], veg=[cover_mount], temperature=0.3, downfall=0.5,
-         creatures=[spawn('goat', 8, 2, 4), spawn('sheep', 2, 2, 3)], music_sound='minecraft:music.overworld.snowy_slopes')
+         creatures=[spawn('goat', 8, 2, 4), spawn('earthscapes:snow_leopard', 2, 1, 1), spawn('earthscapes:yak', 3, 1, 3)],
+         music_sound='minecraft:music.overworld.snowy_slopes')
     make(VALLEY, '#80A84A', '#6A9A3A', surface=[ger], veg=[willows, cover_valley, 'minecraft:patch_sugar_cane'], downfall=0.5,
-         music_sound='minecraft:music.overworld.meadow')
+         creatures=[spawn('horse', 5, 2, 5), spawn('sheep', 5, 3, 6), spawn('earthscapes:yak', 3, 2, 4), spawn('earthscapes:przewalski_horse', 3, 2, 5),
+                    spawn('earthscapes:marmot', 2, 2, 3)], music_sound='minecraft:music.overworld.meadow')
     make(RIVER, '#80A84A', '#6A9A3A', veg=[willows, cover_valley, 'minecraft:patch_sugar_cane'], downfall=0.5,
          creatures=[spawn('horse', 4, 2, 4)])
-    make(TORS, '#B09E5A', '#8E9A48', local=[tors_pf], surface=[ovoo], veg=[larch_scatter, cover_tors], music_sound='minecraft:music.overworld.meadow')
+    make(TORS, '#B09E5A', '#8E9A48', local=[tors_pf], surface=[ovoo], veg=[larch_scatter, cover_tors],
+         creatures=[spawn('earthscapes:marmot', 8, 2, 4), spawn('earthscapes:mongolian_gazelle', 4, 3, 5), spawn('earthscapes:przewalski_horse', 2, 2, 4)],
+         music_sound='minecraft:music.overworld.meadow')
 
     for b in ALL:
         reg.tag_biome('minecraft:is_overworld', b)

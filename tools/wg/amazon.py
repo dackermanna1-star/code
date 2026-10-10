@@ -150,7 +150,13 @@ def build(reg):
 
     # ------------------------------------------------------------------ biomes
     sky, fog = '#8CB8E6', '#BFD2C4'
-    creatures = [spawn('parrot', 40, 1, 2), spawn('ocelot', 2, 1, 1), spawn('chicken', 2, 1, 2)]
+    # macaws and toucans in the canopy; jaguars, tapirs, ocelots and armadillos below
+    creatures = [spawn('parrot', 30, 1, 2), spawn('earthscapes:toucan', 25, 1, 2), spawn('earthscapes:tapir', 4, 1, 2),
+                 spawn('earthscapes:jaguar', 2, 1, 1), spawn('ocelot', 2, 1, 1), spawn('armadillo', 3, 1, 2), spawn('earthscapes:capybara', 2, 2, 4)]
+    wetland = [spawn('earthscapes:capybara', 8, 3, 6), spawn('earthscapes:black_caiman', 3, 1, 2), spawn('earthscapes:tapir', 3, 1, 2),
+               spawn('earthscapes:jaguar', 2, 1, 1), spawn('earthscapes:toucan', 8, 1, 2), spawn('parrot', 10, 1, 2)]
+    banks = [spawn('earthscapes:capybara', 5, 2, 4), spawn('earthscapes:black_caiman', 4, 1, 2), spawn('frog', 4, 2, 3)]
+    dolphins = [spawn('earthscapes:river_dolphin', 4, 1, 3)]
 
     def make(name, grass='#4E8A2C', foliage='#3B7A22', local=(), veg=(), water='#5E7048', water_fog='#33402A', fog_start=14.0, fog_end=210.0,
              creatures_list=None, water_creature=None, water_ambient=None):
@@ -174,19 +180,19 @@ def build(reg):
     make(VARZEA, grass='#5A9234', foliage='#468428', water='#8C6A3C', water_fog='#5A4224',
          veg=[kapok_varzea, canopy_flooded, acai_varzea, cecropia_banks, buriti_rare, lilies, cover_flooded, 'minecraft:patch_waterlily',
               'minecraft:vines'],
-         creatures_list=creatures + [spawn('frog', 8, 2, 4)], water_ambient=fish)
+         creatures_list=wetland + [spawn('frog', 8, 2, 4)], water_ambient=fish)
     make(IGAPO, grass='#4C8430', foliage='#3A7424', water='#3A2416', water_fog='#22140A',
          veg=[canopy_flooded, acai_varzea, buriti_rare, lilies, cover_flooded, 'minecraft:patch_waterlily', 'minecraft:vines'],
-         creatures_list=creatures + [spawn('frog', 8, 2, 4)], water_ambient=fish)
+         creatures_list=wetland + [spawn('frog', 8, 2, 4)], water_ambient=fish)
     make(SWAMP, grass='#5E9636', foliage='#4A882C', water='#4E4A2A', water_fog='#2E2C18',
          veg=[buriti_swamp, canopy_flooded, cover_swamp, 'minecraft:patch_waterlily'],
-         creatures_list=creatures + [spawn('frog', 10, 2, 5)], water_ambient=fish)
+         creatures_list=wetland + [spawn('frog', 10, 2, 5)], water_ambient=fish)
     make(RIVER, grass='#5A9234', foliage='#468428', water='#8C6A3C', water_fog='#5A4224', fog_start=48.0, fog_end=480.0,
-         veg=[cecropia_banks, cover_bank], creatures_list=[spawn('frog', 4, 2, 3)],
-         water_creature=[spawn('dolphin', 2, 1, 2)], water_ambient=fish)
+         veg=[cecropia_banks, cover_bank], creatures_list=banks,
+         water_creature=dolphins, water_ambient=fish)
     make(BLACKWATER, grass='#4C8430', foliage='#3A7424', water='#3A2416', water_fog='#22140A', fog_start=48.0, fog_end=480.0,
-         veg=[cecropia_banks, cover_bank], creatures_list=[spawn('frog', 4, 2, 3)],
-         water_creature=[spawn('dolphin', 2, 1, 2)], water_ambient=fish)
+         veg=[cecropia_banks, cover_bank], creatures_list=banks,
+         water_creature=dolphins, water_ambient=fish)
 
     for b in ALL:
         reg.tag_biome('minecraft:is_overworld', b)

@@ -93,7 +93,7 @@ jar {
 // Forward screenshot test settings (e.g. -Pearthscapes.shots=sahara_desert) to the game.
 afterEvaluate {
 	tasks.named("runClientGameTest") {
-		["earthscapes.shots", "earthscapes.seed", "earthscapes.renderDistance", "earthscapes.time"].each { p ->
+		["earthscapes.shots", "earthscapes.seed", "earthscapes.renderDistance", "earthscapes.time", "earthscapes.zoo"].each { p ->
 			if (project.hasProperty(p)) {
 				jvmArgs "-D${p}=${project.property(p)}"
 			}

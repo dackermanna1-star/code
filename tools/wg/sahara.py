@@ -126,7 +126,13 @@ def build(reg):
 
     # ------------------------------------------------------------------ biomes
     sky, fog = '#66A2F0', '#E4DCC8'
-    creatures = [spawn('rabbit', 6, 2, 3), spawn('camel', 2, 1, 2)]
+    # wild dromedaries, fennecs, addax and dorcas gazelles; desert hares
+    creatures = [spawn('camel', 3, 1, 3), spawn('earthscapes:fennec', 4, 1, 2), spawn('earthscapes:dorcas_gazelle', 4, 2, 4),
+                 spawn('earthscapes:addax', 3, 2, 5), spawn('rabbit', 3, 1, 2)]
+    erg_animals = [spawn('camel', 2, 1, 2), spawn('earthscapes:fennec', 3, 1, 2), spawn('earthscapes:addax', 2, 2, 4), spawn('earthscapes:dorcas_gazelle', 2, 2, 3),
+           spawn('rabbit', 2, 1, 2)]
+    stony = [spawn('earthscapes:dorcas_gazelle', 5, 2, 4), spawn('earthscapes:addax', 3, 2, 4), spawn('earthscapes:fennec', 3, 1, 2), spawn('camel', 2, 1, 2),
+             spawn('rabbit', 2, 1, 2)]
 
     def make(name, grass='#B8A45C', foliage='#A09A50', local=(), surface=(), veg=(), water='#3C9AA0', water_fog='#226266',
              creatures_list=None, carvers=None, smoothing_on=True, fog_end=640.0):
@@ -143,15 +149,16 @@ def build(reg):
                               creatures_list if creatures_list is not None else creatures, monsters=DESERT_MONSTERS, carvers=carvers))
 
     erg_carvers = ['minecraft:cave_extra_underground']
-    make(GREAT_ERG, veg=[cover_erg], carvers=erg_carvers, creatures_list=[spawn('rabbit', 4, 1, 2), spawn('camel', 1, 1, 1)])
-    make(SAND_SEA, veg=[cover_erg], carvers=erg_carvers, creatures_list=[spawn('rabbit', 4, 1, 2), spawn('camel', 2, 1, 2)])
+    make(GREAT_ERG, veg=[cover_erg], carvers=erg_carvers, creatures_list=erg_animals)
+    make(SAND_SEA, veg=[cover_erg], carvers=erg_carvers, creatures_list=erg_animals)
     make(MARGIN, surface=['minecraft:desert_well'], veg=[acacia_rare, cover_margin], carvers=erg_carvers)
     make(OASIS, grass='#86A845', foliage='#6E9A38', veg=[palms, palms_young, tamarisk_oasis, cover_oasis, 'minecraft:patch_sugar_cane'],
-         water='#2FA6AC', water_fog='#1C6468', creatures_list=[spawn('rabbit', 4, 2, 3), spawn('camel', 3, 1, 2), spawn('frog', 2, 1, 2)])
-    make(REG, local=[rocks_reg], surface=['minecraft:desert_well'], veg=[acacia_rare, cover_reg], smoothing_on=True)
-    make(HAMADA, local=[rocks_hamada], veg=[hoodoo_rare, acacia_rare, cover_reg])
-    make(HOGGAR, local=[rocks_basalt], veg=[cover_reg], fog_end=900.0, creatures_list=[spawn('goat', 3, 1, 3), spawn('rabbit', 2, 1, 2)])
-    make(TASSILI, local=[hoodoos, hoodoos_small], veg=[acacia_rare, cover_reg])
+         water='#2FA6AC', water_fog='#1C6468', creatures_list=[spawn('camel', 4, 1, 3), spawn('earthscapes:fennec', 3, 1, 2), spawn('earthscapes:dorcas_gazelle', 4, 2, 4),
+                                                         spawn('frog', 2, 1, 2), spawn('rabbit', 3, 1, 2)])
+    make(REG, local=[rocks_reg], surface=['minecraft:desert_well'], veg=[acacia_rare, cover_reg], smoothing_on=True, creatures_list=stony)
+    make(HAMADA, local=[rocks_hamada], veg=[hoodoo_rare, acacia_rare, cover_reg], creatures_list=stony)
+    make(HOGGAR, local=[rocks_basalt], veg=[cover_reg], fog_end=900.0, creatures_list=[spawn('goat', 4, 1, 3), spawn('earthscapes:dorcas_gazelle', 2, 2, 3), spawn('rabbit', 1, 1, 2)])
+    make(TASSILI, local=[hoodoos, hoodoos_small], veg=[acacia_rare, cover_reg], creatures_list=stony)
     make(WADI, local=[rocks_reg], veg=[acacia_wadi, tamarisk_wadi, cover_margin])
     make(CHOTT, smoothing_on=False, water='#7FB8B0', water_fog='#4E7E78', creatures_list=[])
 

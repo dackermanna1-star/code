@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "earthscapes:lion",
+    "earthscapes:jaguar",
+    "earthscapes:snow_leopard",
+    "earthscapes:nile_crocodile",
+    "earthscapes:black_caiman",
+    "minecraft:wolf"
+  ]
+}

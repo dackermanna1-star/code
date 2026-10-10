@@ -104,20 +104,32 @@
   "axolotls": [],
   "creature": [
    {
-    "type": "minecraft:rabbit",
+    "type": "minecraft:camel",
     "weight": 4,
-    "minCount": 2,
+    "minCount": 1,
     "maxCount": 3
    },
    {
-    "type": "minecraft:camel",
+    "type": "earthscapes:fennec",
     "weight": 3,
     "minCount": 1,
     "maxCount": 2
    },
    {
+    "type": "earthscapes:dorcas_gazelle",
+    "weight": 4,
+    "minCount": 2,
+    "maxCount": 4
+   },
+   {
     "type": "minecraft:frog",
     "weight": 2,
+    "minCount": 1,
+    "maxCount": 2
+   },
+   {
+    "type": "minecraft:rabbit",
+    "weight": 3,
     "minCount": 1,
     "maxCount": 2
    }

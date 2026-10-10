@@ -1,0 +1,12 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:wheat",
+    "minecraft:apple",
+    "minecraft:melon_slice",
+    "minecraft:sugar_cane",
+    "minecraft:hay_block",
+    "earthscapes:umbrella_thorn_leaves",
+    "earthscapes:date"
+  ]
+}

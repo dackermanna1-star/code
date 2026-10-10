@@ -103,13 +103,19 @@
   "creature": [
    {
     "type": "minecraft:goat",
-    "weight": 3,
+    "weight": 4,
     "minCount": 1,
     "maxCount": 3
    },
    {
-    "type": "minecraft:rabbit",
+    "type": "earthscapes:dorcas_gazelle",
     "weight": 2,
+    "minCount": 2,
+    "maxCount": 3
+   },
+   {
+    "type": "minecraft:rabbit",
+    "weight": 1,
     "minCount": 1,
     "maxCount": 2
    }

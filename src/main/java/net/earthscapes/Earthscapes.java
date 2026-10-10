@@ -3,6 +3,7 @@ package net.earthscapes;
 import net.earthscapes.dev.MapDumper;
 import net.earthscapes.registry.EsBlocks;
 import net.earthscapes.registry.EsDensityFunctions;
+import net.earthscapes.registry.EsEntities;
 import net.earthscapes.registry.EsFeatures;
 import net.earthscapes.registry.EsItems;
 import net.earthscapes.registry.EsPlacements;
@@ -28,12 +29,13 @@ public class Earthscapes implements ModInitializer {
 	public void onInitialize() {
 		EsBlocks.init();
 		EsItems.init();
+		EsEntities.init();
 		EsDensityFunctions.init();
 		EsFeatures.init();
 		EsPlacements.init();
 		registerBlockBehaviour();
 		MapDumper.init();
-		LOGGER.info("Earthscapes: savanna, Sahara, Amazon and steppe world types ready");
+		LOGGER.info("Earthscapes: savanna, Sahara, Amazon and steppe world types and {} animals ready", EsEntities.ALL.size());
 	}
 
 	private static void registerBlockBehaviour() {

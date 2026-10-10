@@ -550,6 +550,13 @@ def write_lang():
         'generator.earthscapes.amazon_rainforest': 'Amazon Rainforest',
         'generator.earthscapes.mongolian_steppe': 'Mongolian Steppe',
     })
+    # keep the names written by gen_worldgen.py (biomes) and gen_mobs.py (animals, spawn eggs)
+    path = os.path.join(ASSETS, 'lang', 'en_us.json')
+    if os.path.exists(path):
+        with open(path) as f:
+            for k, v in json.load(f).items():
+                if k.startswith(('biome.', 'entity.')) or k.endswith('_spawn_egg'):
+                    LANG.setdefault(k, v)
     extra = os.path.join(os.path.dirname(__file__), 'lang_extra.json')
     if os.path.exists(extra):
         with open(extra) as f:

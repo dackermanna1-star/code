@@ -132,8 +132,23 @@ def build(reg):
     rocks_rare = rare_pf('rocks_rare', W + '/rock_outcrop', 8)
 
     # ------------------------------------------------------------------ biomes
-    savanna_creatures = [spawn('horse', 6, 2, 6), spawn('donkey', 2, 1, 2), spawn('cow', 4, 2, 4), spawn('chicken', 3, 2, 4),
-                         spawn('armadillo', 6, 2, 3), spawn('rabbit', 2, 2, 3)]
+    # the great herds of the Serengeti and the animals that follow them
+    savanna_creatures = [spawn('earthscapes:zebra', 12, 3, 6), spawn('earthscapes:wildebeest', 12, 4, 8),
+                         spawn('earthscapes:thomsons_gazelle', 10, 3, 6), spawn('earthscapes:giraffe', 5, 1, 3), spawn('earthscapes:elephant', 4, 2, 5),
+                         spawn('earthscapes:lion', 2, 2, 4), spawn('earthscapes:ostrich', 4, 1, 3), spawn('rabbit', 1, 1, 2)]
+    woodland_creatures = [spawn('earthscapes:giraffe', 8, 1, 3), spawn('earthscapes:elephant', 6, 2, 5), spawn('earthscapes:zebra', 6, 3, 5),
+                          spawn('earthscapes:thomsons_gazelle', 4, 2, 5), spawn('earthscapes:lion', 2, 2, 3), spawn('earthscapes:ostrich', 2, 1, 2)]
+    red_earth_creatures = [spawn('earthscapes:elephant', 8, 2, 5), spawn('earthscapes:giraffe', 4, 1, 3), spawn('earthscapes:zebra', 5, 3, 5),
+                           spawn('earthscapes:ostrich', 5, 1, 3), spawn('earthscapes:thomsons_gazelle', 4, 2, 4), spawn('earthscapes:lion', 2, 2, 3)]
+    baobab_creatures = [spawn('earthscapes:elephant', 7, 2, 5), spawn('earthscapes:giraffe', 5, 1, 3), spawn('earthscapes:zebra', 4, 3, 5),
+                        spawn('earthscapes:thomsons_gazelle', 4, 2, 4), spawn('earthscapes:lion', 1, 2, 3)]
+    kopje_creatures = [spawn('earthscapes:lion', 5, 2, 4), spawn('earthscapes:thomsons_gazelle', 8, 3, 6), spawn('earthscapes:zebra', 6, 3, 6),
+                       spawn('earthscapes:wildebeest', 6, 4, 8), spawn('earthscapes:ostrich', 3, 1, 2)]
+    highland_creatures = [spawn('earthscapes:zebra', 6, 2, 5), spawn('earthscapes:thomsons_gazelle', 4, 2, 4), spawn('earthscapes:elephant', 3, 2, 4),
+                          spawn('goat', 2, 1, 2), spawn('rabbit', 2, 1, 2)]
+    riverine_creatures = [spawn('earthscapes:elephant', 8, 2, 5), spawn('earthscapes:hippo', 6, 2, 4), spawn('earthscapes:zebra', 5, 3, 5),
+                          spawn('earthscapes:giraffe', 3, 1, 2), spawn('earthscapes:nile_crocodile', 3, 1, 2), spawn('frog', 3, 2, 3)]
+    river_creatures = [spawn('earthscapes:hippo', 8, 2, 4), spawn('earthscapes:nile_crocodile', 5, 1, 2), spawn('frog', 4, 2, 4)]
     sky, fog = '#80B6F0', '#D8E2E8'
 
     def make(name, grass, foliage, local=(), veg=(), creatures=None, water='#4C7E78', water_fog='#2F4F48', temperature=1.2, downfall=0.25,
@@ -151,17 +166,17 @@ def build(reg):
     make(PLAINS, '#C9A64B', '#8C9C3C', local=[kopje_lone], veg=[acacia_plains, acacia_young_plains, thorn_plains, mound, baobab_rare,
                                                                cover_plains, 'minecraft:flower_warm'])
     make(WOODLAND, '#B4A44A', '#7E9A3A', local=[rocks_rare], veg=[acacia_woodland, acacia_young, thorn_dense, mound, cover_woodland,
-                                                                 'minecraft:flower_warm'])
+                                                                 'minecraft:flower_warm'], creatures=woodland_creatures)
     make(RED_EARTH, '#CDA155', '#909A3E', local=[rocks_rare], veg=[acacia_sparse, baobab_rare, commiphora, mound_tall, candelabra_rare,
-                                                                  cover_red], temperature=1.4, downfall=0.1)
-    make(BAOBAB, '#C2A04E', '#86963C', veg=[baobab_grove, baobab_young, acacia_sparse, commiphora, mound, cover_woodland])
-    make(KOPJES, '#C6A54C', '#8A9A3C', local=[kopje_dense], veg=[acacia_sparse, candelabra_kopje, thorn_plains, cover_plains])
+                                                                  cover_red], temperature=1.4, downfall=0.1, creatures=red_earth_creatures)
+    make(BAOBAB, '#C2A04E', '#86963C', veg=[baobab_grove, baobab_young, acacia_sparse, commiphora, mound, cover_woodland], creatures=baobab_creatures)
+    make(KOPJES, '#C6A54C', '#8A9A3C', local=[kopje_dense], veg=[acacia_sparse, candelabra_kopje, thorn_plains, cover_plains], creatures=kopje_creatures)
     make(HIGHLANDS, '#9EA24A', '#6E8E36', local=[rocks_high], veg=[acacia_sparse, candelabra_rare, thorn_plains, cover_high],
-         temperature=0.9, downfall=0.4)
+         temperature=0.9, downfall=0.4, creatures=highland_creatures)
     make(RIVERINE, '#94A84A', '#6C9A38', veg=[fever, thorn_plains, cover_river, 'minecraft:patch_sugar_cane'],
-         creatures=savanna_creatures + [spawn('frog', 4, 2, 4)], temperature=1.0, downfall=0.5)
+         creatures=riverine_creatures, temperature=1.0, downfall=0.5)
     make(RIVER, '#94A84A', '#6C9A38', veg=[fever, cover_river, 'minecraft:patch_sugar_cane'],
-         creatures=[spawn('frog', 4, 2, 4)], temperature=1.0, downfall=0.5)
+         creatures=river_creatures, temperature=1.0, downfall=0.5)
 
     for b in ALL:
         reg.tag_biome('minecraft:is_overworld', b)

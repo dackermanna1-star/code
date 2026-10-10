@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "earthscapes:sahara_sand"
+    "earthscapes:sahara_sand",
+    "earthscapes:sahara_sand_layer"
   ]
 }

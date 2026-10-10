@@ -7,3 +7,4 @@ cd "$(dirname "$0")/.."
 python3 tools/textures.py
 python3 tools/gen_assets.py "$VANILLA/assets/minecraft"
 python3 tools/gen_worldgen.py "$VANILLA/data/minecraft"
+python3 tools/gen_mobs.py

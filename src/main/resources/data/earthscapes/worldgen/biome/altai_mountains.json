@@ -104,9 +104,15 @@
     "maxCount": 4
    },
    {
-    "type": "minecraft:sheep",
+    "type": "earthscapes:snow_leopard",
     "weight": 2,
-    "minCount": 2,
+    "minCount": 1,
+    "maxCount": 1
+   },
+   {
+    "type": "earthscapes:yak",
+    "weight": 3,
+    "minCount": 1,
     "maxCount": 3
    }
   ],

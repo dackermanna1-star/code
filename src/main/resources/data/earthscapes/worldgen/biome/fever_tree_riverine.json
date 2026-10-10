@@ -93,46 +93,40 @@
   "axolotls": [],
   "creature": [
    {
-    "type": "minecraft:horse",
-    "weight": 6,
+    "type": "earthscapes:elephant",
+    "weight": 8,
     "minCount": 2,
-    "maxCount": 6
+    "maxCount": 5
    },
    {
-    "type": "minecraft:donkey",
-    "weight": 2,
+    "type": "earthscapes:hippo",
+    "weight": 6,
+    "minCount": 2,
+    "maxCount": 4
+   },
+   {
+    "type": "earthscapes:zebra",
+    "weight": 5,
+    "minCount": 3,
+    "maxCount": 5
+   },
+   {
+    "type": "earthscapes:giraffe",
+    "weight": 3,
     "minCount": 1,
     "maxCount": 2
    },
    {
-    "type": "minecraft:cow",
-    "weight": 4,
-    "minCount": 2,
-    "maxCount": 4
-   },
-   {
-    "type": "minecraft:chicken",
+    "type": "earthscapes:nile_crocodile",
     "weight": 3,
-    "minCount": 2,
-    "maxCount": 4
-   },
-   {
-    "type": "minecraft:armadillo",
-    "weight": 6,
-    "minCount": 2,
-    "maxCount": 3
-   },
-   {
-    "type": "minecraft:rabbit",
-    "weight": 2,
-    "minCount": 2,
-    "maxCount": 3
+    "minCount": 1,
+    "maxCount": 2
    },
    {
     "type": "minecraft:frog",
-    "weight": 4,
+    "weight": 3,
     "minCount": 2,
-    "maxCount": 4
+    "maxCount": 3
    }
   ],
   "misc": [],

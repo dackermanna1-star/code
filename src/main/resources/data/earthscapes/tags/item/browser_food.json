@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:apple",
+    "minecraft:acacia_leaves",
+    "earthscapes:umbrella_thorn_leaves",
+    "earthscapes:fever_tree_leaves"
+  ]
+}

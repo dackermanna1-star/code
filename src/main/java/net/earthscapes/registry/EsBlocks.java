@@ -75,7 +75,9 @@ public final class EsBlocks {
 		BlockBehaviour.Properties.of().mapColor(MapColor.TERRACOTTA_ORANGE).instrument(NoteBlockInstrument.SNARE).strength(0.5F).sound(SoundType.SAND));
 	public static final Block SAHARA_SAND_LAYER = register("sahara_sand_layer", SandLayerBlock::new,
 		BlockBehaviour.Properties.of().mapColor(MapColor.TERRACOTTA_ORANGE).replaceable().forceSolidOff().strength(0.3F).sound(SoundType.SAND)
-			.isViewBlocking((state, level, pos) -> state.getValue(SandLayerBlock.LAYERS) >= 8).pushReaction(PushReaction.DESTROY));
+			.isViewBlocking((state, level, pos) -> state.getValue(SandLayerBlock.LAYERS) >= 8).pushReaction(PushReaction.DESTROY)
+			// the drifts cover most of the desert, so animals (and husks) must be able to spawn on them
+			.isValidSpawn((state, level, pos, type) -> true));
 	public static final Block SAHARA_SANDSTONE = register("sahara_sandstone", Block::new,
 		BlockBehaviour.Properties.of().mapColor(MapColor.TERRACOTTA_ORANGE).instrument(NoteBlockInstrument.BASEDRUM).requiresCorrectToolForDrops().strength(0.8F));
 	public static final Block HAMADA_STONE = register("hamada_stone", Block::new,

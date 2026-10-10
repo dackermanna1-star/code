@@ -92,6 +92,18 @@
   "axolotls": [],
   "creature": [
    {
+    "type": "earthscapes:hippo",
+    "weight": 8,
+    "minCount": 2,
+    "maxCount": 4
+   },
+   {
+    "type": "earthscapes:nile_crocodile",
+    "weight": 5,
+    "minCount": 1,
+    "maxCount": 2
+   },
+   {
     "type": "minecraft:frog",
     "weight": 4,
     "minCount": 2,

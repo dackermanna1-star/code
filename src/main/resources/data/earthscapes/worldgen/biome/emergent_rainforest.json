@@ -107,9 +107,27 @@
   "creature": [
    {
     "type": "minecraft:parrot",
-    "weight": 40,
+    "weight": 30,
     "minCount": 1,
     "maxCount": 2
+   },
+   {
+    "type": "earthscapes:toucan",
+    "weight": 25,
+    "minCount": 1,
+    "maxCount": 2
+   },
+   {
+    "type": "earthscapes:tapir",
+    "weight": 4,
+    "minCount": 1,
+    "maxCount": 2
+   },
+   {
+    "type": "earthscapes:jaguar",
+    "weight": 2,
+    "minCount": 1,
+    "maxCount": 1
    },
    {
     "type": "minecraft:ocelot",
@@ -118,10 +136,16 @@
     "maxCount": 1
    },
    {
-    "type": "minecraft:chicken",
-    "weight": 2,
+    "type": "minecraft:armadillo",
+    "weight": 3,
     "minCount": 1,
     "maxCount": 2
+   },
+   {
+    "type": "earthscapes:capybara",
+    "weight": 2,
+    "minCount": 2,
+    "maxCount": 4
    }
   ],
   "misc": [],

@@ -103,20 +103,38 @@
   "axolotls": [],
   "creature": [
    {
-    "type": "minecraft:parrot",
-    "weight": 40,
+    "type": "earthscapes:capybara",
+    "weight": 8,
+    "minCount": 3,
+    "maxCount": 6
+   },
+   {
+    "type": "earthscapes:black_caiman",
+    "weight": 3,
     "minCount": 1,
     "maxCount": 2
    },
    {
-    "type": "minecraft:ocelot",
+    "type": "earthscapes:tapir",
+    "weight": 3,
+    "minCount": 1,
+    "maxCount": 2
+   },
+   {
+    "type": "earthscapes:jaguar",
     "weight": 2,
     "minCount": 1,
     "maxCount": 1
    },
    {
-    "type": "minecraft:chicken",
-    "weight": 2,
+    "type": "earthscapes:toucan",
+    "weight": 8,
+    "minCount": 1,
+    "maxCount": 2
+   },
+   {
+    "type": "minecraft:parrot",
+    "weight": 10,
     "minCount": 1,
     "maxCount": 2
    },

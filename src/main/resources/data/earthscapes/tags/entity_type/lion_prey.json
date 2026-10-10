@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "earthscapes:zebra",
+    "earthscapes:wildebeest",
+    "earthscapes:thomsons_gazelle",
+    "earthscapes:ostrich"
+  ]
+}
