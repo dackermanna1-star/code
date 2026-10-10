@@ -10,13 +10,16 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.InactivityFpsLimit;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.presets.WorldPreset;
@@ -115,7 +118,7 @@ public class ScreenshotTest implements FabricClientGameTest {
 			world.getServer().runCommand("gamemode spectator @a");
 			world.getServer().runCommand("time set " + System.getProperty("earthscapes.time", "1500"));
 			world.getServer().runCommand("weather clear");
-			world.getClientWorld().waitForChunksRender(true, 20 * 600);
+			waitForWorld(context, 20 * 600);
 			context.takeScreenshot(preset + "_00_spawn");
 			int index = 1;
 			for (Shot shot : this.shots(preset)) {
@@ -127,11 +130,43 @@ public class ScreenshotTest implements FabricClientGameTest {
 				Earthscapes.LOGGER.info("Shot {}: {}", shot.name(), command);
 				world.getServer().runCommand(command);
 				context.waitTicks(5);
-				world.getClientWorld().waitForChunksRender(true, 20 * 600);
+				waitForWorld(context, 20 * 600);
 				context.waitTicks(40);
 				context.takeScreenshot(String.format(Locale.ROOT, "%s_%02d_%s", preset, index++, shot.name()));
 			}
 		}
+	}
+
+	/**
+	 * Waits until the chunks within render distance are loaded and compiled, or the time limit passes.
+	 * The stock waitForChunksRender wants the full square of chunks, but the server only sends a
+	 * circle, so it never finishes at larger render distances.
+	 */
+	private static void waitForWorld(ClientGameTestContext context, int maxTicks) {
+		for (int tick = 0; tick < maxTicks; tick++) {
+			if (context.computeOnClient(ScreenshotTest::isWorldReady)) {
+				return;
+			}
+			context.waitTick();
+		}
+		Earthscapes.LOGGER.warn("Gave up waiting for chunks after {} ticks", maxTicks);
+	}
+
+	private static boolean isWorldReady(Minecraft client) {
+		if (client.level == null || client.player == null) {
+			return false;
+		}
+		int radius = client.options.getEffectiveRenderDistance() - 1;
+		ChunkPos center = client.player.chunkPosition();
+		for (int dx = -radius; dx <= radius; dx++) {
+			for (int dz = -radius; dz <= radius; dz++) {
+				if (dx * dx + dz * dz <= radius * radius
+					&& client.level.getChunkSource().getChunk(center.x + dx, center.z + dz, ChunkStatus.FULL, false) == null) {
+					return false;
+				}
+			}
+		}
+		return client.levelRenderer.hasRenderedAllSections();
 	}
 
 	private Holder<Biome> biome(ServerLevel level, String name) {

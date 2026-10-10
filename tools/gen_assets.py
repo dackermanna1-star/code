@@ -92,6 +92,19 @@ def loot(name, pools):
           {'type': 'minecraft:block', 'pools': pools, 'random_sequence': '%s:blocks/%s' % (NS, name)})
 
 
+def chest_loot(name, pools):
+    write(os.path.join(DATA, 'loot_table/chests', name + '.json'),
+          {'type': 'minecraft:chest', 'pools': pools, 'random_sequence': '%s:chests/%s' % (NS, name)})
+
+
+def stack(item, weight, lo=1, hi=1):
+    entry = {'type': 'minecraft:item', 'name': item, 'weight': weight}
+    if hi > 1:
+        entry['functions'] = [{'function': 'minecraft:set_count', 'add': False,
+                               'count': {'type': 'minecraft:uniform', 'min': float(lo), 'max': float(hi)}}]
+    return entry
+
+
 def loot_self(name, drop=None):
     loot(name, [{'bonus_rolls': 0.0, 'conditions': [{'condition': 'minecraft:survives_explosion'}],
                  'entries': [{'type': 'minecraft:item', 'name': rl(drop or name)}], 'rolls': 1.0}])
@@ -340,7 +353,7 @@ def main():
     # clean generated directories
     for d in ('blockstates', 'models', 'items'):
         shutil.rmtree(os.path.join(ASSETS, d), ignore_errors=True)
-    for d in ('loot_table/blocks', 'recipe'):
+    for d in ('loot_table/blocks', 'loot_table/chests', 'recipe'):
         shutil.rmtree(os.path.join(DATA, d), ignore_errors=True)
 
     # ---------------- savanna
@@ -464,6 +477,19 @@ def main():
     cross('edelweiss', display='Edelweiss', tags=('minecraft:small_flowers', 'minecraft:flowers'))
     cross('pasque_flower', display='Pasque Flower', tags=('minecraft:small_flowers', 'minecraft:flowers'))
     wood_set('larch', 'Larch')
+    # household goods of a herding family's ger: food stores, felt, tack and tools
+    chest_loot('ger', [
+        {'rolls': {'type': 'minecraft:uniform', 'min': 4.0, 'max': 8.0}, 'bonus_rolls': 0.0, 'entries': [
+            stack('minecraft:cooked_mutton', 12, 2, 6), stack('minecraft:bread', 8, 1, 4), stack('minecraft:dried_kelp', 3, 2, 5),
+            stack('minecraft:milk_bucket', 4), stack('minecraft:wheat', 6, 3, 8), stack('minecraft:white_wool', 10, 2, 8),
+            stack('minecraft:light_gray_wool', 5, 1, 4), stack('minecraft:red_carpet', 4, 1, 3), stack('minecraft:leather', 8, 1, 5),
+            stack('minecraft:rabbit_hide', 4, 1, 3), stack('minecraft:string', 6, 2, 6), stack('minecraft:stick', 5, 2, 6),
+            stack('minecraft:lead', 5, 1, 2), stack('minecraft:bowl', 4, 1, 3), stack('minecraft:arrow', 4, 4, 12),
+            stack('minecraft:flint_and_steel', 2), stack('minecraft:iron_nugget', 4, 3, 9), stack(rl('edelweiss'), 2, 1, 2)]},
+        {'rolls': {'type': 'minecraft:uniform', 'min': 0.0, 'max': 1.0}, 'bonus_rolls': 0.0, 'entries': [
+            stack('minecraft:saddle', 6), stack('minecraft:leather_horse_armor', 4), stack('minecraft:bow', 4),
+            stack('minecraft:name_tag', 2), stack('minecraft:iron_ingot', 3, 1, 3), stack('minecraft:gold_ingot', 1, 1, 2)]},
+    ])
 
     # ---------------- other recipes
     shaped('sahara_sandstone', ['##', '##'], {'#': rl('sahara_sand')}, 'sahara_sandstone', 1)
