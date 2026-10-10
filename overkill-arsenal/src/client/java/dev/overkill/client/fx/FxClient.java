@@ -248,7 +248,7 @@ public final class FxClient {
 		points.add(from);
 		points.add(to);
 		double length = from.distanceTo(to);
-		double offset = Math.max(0.3, length * 0.18);
+		double offset = Math.max(0.25, length * 0.13);
 		for (int pass = 0; pass < 5; pass++) {
 			List<Vec3> refined = new ArrayList<>();
 			for (int i = 0; i < points.size() - 1; i++) {
@@ -278,9 +278,9 @@ public final class FxClient {
 			int steps = Math.max(1, (int) Math.ceil(segment / 0.1));
 			for (int s = 0; s < steps; s++) {
 				Vec3 p = a.add(b.subtract(a).scale((double) s / steps));
-				glow(level, ModParticles.ARC, p, 0.9 * thickness, 1.0, 4);
+				glow(level, ModParticles.ARC, p, 0.9 * thickness, 1.0, 6);
 				if (s % 3 == 0) {
-					glow(level, ModParticles.ARC, p, 3.0 * thickness, 0.22, 3);
+					glow(level, ModParticles.ARC, p, 3.0 * thickness, 0.22, 5);
 				}
 			}
 		}

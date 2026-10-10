@@ -4,7 +4,6 @@ import dev.overkill.entity.SingularityRoundEntity;
 import dev.overkill.network.Fx;
 import dev.overkill.network.FxKind;
 import dev.overkill.registry.ModItems;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -14,12 +13,8 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
-
-import java.util.function.Consumer;
 
 /**
  * Gravemaker: fires a dark marble that blooms into a black hole for 4 seconds, pulling in mobs,
@@ -58,10 +53,5 @@ public class GravemakerItem extends Item {
 			player.getCooldowns().addCooldown(stack, white ? WHITE_HOLE_COOLDOWN : BLACK_HOLE_COOLDOWN);
 		}
 		return InteractionResult.CONSUME;
-	}
-
-	@Override
-	public void appendHoverText(ItemStack stack, Item.TooltipContext context, TooltipDisplay display, Consumer<Component> tooltip, TooltipFlag flag) {
-		WeaponTooltips.add(tooltip, "item.overkill.gravemaker", 3);
 	}
 }

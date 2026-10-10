@@ -22,15 +22,12 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.component.CustomModelData;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
-import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
-import java.util.function.Consumer;
 
 /**
  * Stormcaller Gauntlet: every punch stores a charge (max 10) and arcs lightning to nearby enemies.
@@ -177,11 +174,5 @@ public class StormcallerGauntletItem extends Item {
 	@Override
 	public int getBarColor(ItemStack stack) {
 		return getCharge(stack) >= MAX_CHARGE ? 0xFFFFFF : 0x6FE3FF;
-	}
-
-	@Override
-	public void appendHoverText(ItemStack stack, Item.TooltipContext context, TooltipDisplay display, Consumer<Component> tooltip, TooltipFlag flag) {
-		tooltip.accept(Component.translatable("item.overkill.stormcaller_gauntlet.charge", getCharge(stack), MAX_CHARGE).withStyle(ChatFormatting.AQUA));
-		WeaponTooltips.add(tooltip, "item.overkill.stormcaller_gauntlet", 4);
 	}
 }

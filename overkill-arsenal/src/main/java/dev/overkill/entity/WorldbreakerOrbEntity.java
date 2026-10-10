@@ -114,6 +114,11 @@ public class WorldbreakerOrbEntity extends Projectile {
 	}
 
 	@Override
+	public boolean isPushedByFluid() {
+		return false;
+	}
+
+	@Override
 	public boolean shouldRenderAtSqrDistance(double distance) {
 		return distance < 256.0 * 256.0;
 	}
@@ -186,6 +191,8 @@ public class WorldbreakerOrbEntity extends Projectile {
 		}
 		RandomSource random = this.random;
 		Entity owner = this.getOwner();
+		// Never dig out the ground the shooter is standing on (the orb spawns right in front of them).
+		AABB safeZone = owner != null && owner.isAlive() ? owner.getBoundingBox().inflate(2.5) : null;
 		boolean solid = false;
 		int r = Mth.ceil(radius + 1.3);
 		double inner = radius * radius;
@@ -200,7 +207,7 @@ public class WorldbreakerOrbEntity extends Projectile {
 						continue;
 					}
 					BlockState state = level.getBlockState(cursor);
-					if (state.isAir()) {
+					if (state.isAir() || safeZone != null && safeZone.contains(cursor.getX() + 0.5, cursor.getY() + 0.5, cursor.getZ() + 0.5)) {
 						continue;
 					}
 					if (d2 <= inner) {

@@ -366,6 +366,9 @@ public class RiftEntity extends Entity {
 		RandomSource random = this.random;
 		Vec3 center = this.position();
 		double radius = this.getSize() * 0.5 * open;
+		if (t % 2 == 0) {
+			level.addParticle(ModParticles.RIFT_RING, true, true, center.x, center.y + 0.06, center.z, radius * 1.2, 0.9, 3.0);
+		}
 		int ring = 14;
 		for (int k = 0; k < ring; k++) {
 			double angle = t * 0.25 + k * (Math.PI * 2.0 / ring);

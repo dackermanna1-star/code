@@ -674,12 +674,12 @@ def spark(seed):
 
 
 def singularity_texture():
-    size = 32
+    size = 64
     img = Image.new('RGBA', (size, size))
     c = (size - 1) / 2
     for y in range(size):
         for x in range(size):
-            dx, dy = x - c, y - c
+            dx, dy = (x - c) * 32.0 / size, (y - c) * 32.0 / size
             d = math.hypot(dx, dy)
             beaming = 0.65 + 0.35 * (dx - dy) / (d + 1e-6) if d > 0 else 1.0
             if d < 8.5:
@@ -699,7 +699,7 @@ def singularity_texture():
 
 
 def orb_texture():
-    size = 32
+    size = 64
     img = Image.new('RGBA', (size, size))
     c = (size - 1) / 2
     for y in range(size):
@@ -718,7 +718,7 @@ def orb_texture():
 
 
 def shockwave_texture():
-    size = 32
+    size = 64
     img = Image.new('RGBA', (size, size))
     c = (size - 1) / 2
     for y in range(size):
@@ -785,7 +785,7 @@ def main():
     for i in range(8):
         save(smoke_frame(i), 'particle', f'smoke_{i}.png')
         save(flame_frame(i), 'particle', f'flame_{i}.png')
-    save(radial(16, power=2.2, core=0.12), 'particle', 'glow.png')
+    save(radial(64, power=2.2, core=0.1), 'particle', 'glow.png')
     save(spark(0), 'particle', 'spark_0.png')
     save(spark(1), 'particle', 'spark_1.png')
     save(radial(8, power=1.5, core=0.2), 'particle', 'mote_0.png')

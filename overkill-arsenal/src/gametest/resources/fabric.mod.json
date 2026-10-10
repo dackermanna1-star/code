@@ -1,0 +1,18 @@
+{
+	"schemaVersion": 1,
+	"id": "overkill-gametest",
+	"version": "1.0.0",
+	"name": "Overkill Arsenal Showcase Test",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-client-gametest": [
+			"dev.overkill.gametest.ArsenalShowcaseTest"
+		]
+	},
+	"depends": {
+		"overkill": "*"
+	},
+	"mixins": [
+		"overkill-gametest.mixins.json"
+	]
+}

@@ -20,6 +20,18 @@ loom {
 	}
 }
 
+fabricApi {
+	// Headless client "showcase" test: fires every weapon and takes screenshots.
+	// Run with: xvfb-run -a ./gradlew runClientGameTest
+	configureTests {
+		createSourceSet = true
+		modId = "overkill-gametest"
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = true
+	}
+}
+
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	mappings loom.officialMojangMappings()
@@ -38,6 +50,7 @@ processResources {
 
 tasks.withType(JavaCompile).configureEach {
 	it.options.release = 21
+	it.options.compilerArgs << "-Xlint:deprecation"
 }
 
 java {

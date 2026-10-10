@@ -1,10 +1,9 @@
 {
 	"required": true,
-	"package": "dev.overkill.client.mixin",
+	"package": "dev.overkill.gametest.mixin",
 	"compatibilityLevel": "JAVA_21",
-	"client": [
-		"AvatarRendererMixin",
-		"CameraMixin"
+	"mixins": [
+		"MinecraftServerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

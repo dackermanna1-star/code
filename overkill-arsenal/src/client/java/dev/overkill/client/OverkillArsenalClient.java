@@ -11,7 +11,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
+import net.minecraft.client.renderer.entity.EntityRenderers;
 import net.minecraft.client.renderer.entity.NoopRenderer;
 import net.minecraft.client.renderer.entity.ThrownItemRenderer;
 
@@ -19,11 +19,12 @@ public class OverkillArsenalClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		ModParticleStyles.register();
+		WeaponTooltips.register();
 
-		EntityRendererRegistry.register(ModEntities.WORLDBREAKER_ORB, NoopRenderer::new);
-		EntityRendererRegistry.register(ModEntities.RIFT, NoopRenderer::new);
-		EntityRendererRegistry.register(ModEntities.SINGULARITY, NoopRenderer::new);
-		EntityRendererRegistry.register(ModEntities.SINGULARITY_ROUND, context -> new ThrownItemRenderer<>(context, 1.4F, true));
+		EntityRenderers.register(ModEntities.WORLDBREAKER_ORB, NoopRenderer::new);
+		EntityRenderers.register(ModEntities.RIFT, NoopRenderer::new);
+		EntityRenderers.register(ModEntities.SINGULARITY, NoopRenderer::new);
+		EntityRenderers.register(ModEntities.SINGULARITY_ROUND, context -> new ThrownItemRenderer<>(context, 1.4F, true));
 
 		ClientPlayNetworking.registerGlobalReceiver(FxPayload.TYPE, (payload, context) -> FxClient.handle(payload));
 		ClientPlayNetworking.registerGlobalReceiver(ShakePayload.TYPE, (payload, context) -> CameraShake.add(payload.strength(), payload.ticks()));

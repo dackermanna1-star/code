@@ -31,6 +31,7 @@ public final class ModParticles {
 	public static final SimpleParticleType VOID_MOTE = register("void_mote");
 	public static final SimpleParticleType RIFT_GLOW = register("rift_glow");
 	public static final SimpleParticleType RIFT_SPARK = register("rift_spark");
+	public static final SimpleParticleType RIFT_RING = register("rift_ring");
 	public static final SimpleParticleType SINGULARITY = register("singularity");
 	public static final SimpleParticleType WHITE_FLARE = register("white_flare");
 

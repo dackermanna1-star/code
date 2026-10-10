@@ -23,12 +23,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemUseAnimation;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
-
-import java.util.function.Consumer;
 
 /**
  * Worldbreaker Orb Cannon: hold right-click to charge (stages at 1 s, 3 s and 6 s), release to fire a
@@ -170,7 +166,7 @@ public class WorldbreakerCannonItem extends Item {
 			Vec3 look = user.getViewVector(1.0F);
 			serverLevel.addFreshEntity(new WorldbreakerOrbEntity(serverLevel, user, stage, muzzle, look));
 
-			user.push(look.scale(-0.3 * stage));
+			user.push(look.scale(-0.22 * stage));
 			user.hurtMarked = true;
 			level.playSound(null, user.getX(), user.getY(), user.getZ(), SoundEvents.WARDEN_SONIC_BOOM, SoundSource.PLAYERS, 1.0F + stage * 0.6F, 1.1F - stage * 0.17F);
 			level.playSound(null, user.getX(), user.getY(), user.getZ(), SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 0.8F + stage * 0.4F, 1.5F - stage * 0.2F);
@@ -206,10 +202,5 @@ public class WorldbreakerCannonItem extends Item {
 		if (user instanceof ServerPlayer serverPlayer) {
 			serverPlayer.displayClientMessage(Component.translatable("message.overkill.worldbreaker.backfire").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD), true);
 		}
-	}
-
-	@Override
-	public void appendHoverText(ItemStack stack, Item.TooltipContext context, TooltipDisplay display, Consumer<Component> tooltip, TooltipFlag flag) {
-		WeaponTooltips.add(tooltip, "item.overkill.worldbreaker_cannon", 4);
 	}
 }

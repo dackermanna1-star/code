@@ -56,6 +56,9 @@ public final class ModParticleStyles {
 		register(ModParticles.RIFT_GLOW, ParticleStyle.builder()
 			.size(0.3F, 0.3F).life(5, 5).glowing()
 			.color(0xF39BFF, 0x8B2BE2).fade(Fade.LATE).staticParams());
+		register(ModParticles.RIFT_RING, ParticleStyle.builder()
+			.size(1.0F, 1.0F).life(4, 4).glowing()
+			.color(0xE7A6FF, 0x9B3CF0).fade(Fade.LATE).staticParams().horizontal());
 		register(ModParticles.RIFT_SPARK, ParticleStyle.builder()
 			.size(0.05F, 0.1F).life(10, 22).friction(0.96F).glowing()
 			.color(0xF7B8FF, 0x6E1FC8).fade(Fade.LATE).curve(Curve.SHRINK));
@@ -71,8 +74,8 @@ public final class ModParticleStyles {
 			.size(0.04F, 0.09F).life(5, 11).friction(0.9F).glowing()
 			.color(0xF0FFFF, 0x45B2FF).fade(Fade.LATE).curve(Curve.SHRINK).jitter(0.07F));
 		register(ModParticles.ARC, ParticleStyle.builder()
-			.size(0.12F, 0.12F).life(4, 4).glowing()
-			.color(0xFFFFFF, 0x7FDFFF).fade(Fade.LINEAR).staticParams());
+			.size(0.12F, 0.12F).life(6, 6).glowing()
+			.color(0xFFFFFF, 0x7FDFFF).fade(Fade.LATE).staticParams());
 
 		// --- Shared ------------------------------------------------------------------------
 		register(ModParticles.ORB_CORE, ParticleStyle.builder()

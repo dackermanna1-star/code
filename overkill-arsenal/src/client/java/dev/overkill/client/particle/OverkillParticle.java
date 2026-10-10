@@ -1,9 +1,11 @@
 package dev.overkill.client.particle;
 
+import net.minecraft.client.Camera;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.ParticleProvider;
 import net.minecraft.client.particle.SingleQuadParticle;
 import net.minecraft.client.particle.SpriteSet;
+import net.minecraft.client.renderer.state.QuadParticleRenderState;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.util.ARGB;
 import net.minecraft.util.Mth;
@@ -91,6 +93,31 @@ public class OverkillParticle extends SingleQuadParticle {
 		this.gCol = ARGB.greenFloat(color) * flicker;
 		this.bCol = ARGB.blueFloat(color) * flicker;
 		this.alpha = this.baseAlpha * this.style.fade().alpha(t);
+	}
+
+	/**
+	 * Big flashes and glows fade out as the camera gets inside them, so a blast right next to you
+	 * never fills the screen with a few giant magnified texels.
+	 */
+	@Override
+	public void extract(QuadParticleRenderState state, Camera camera, float partialTick) {
+		if (!this.style.staticParams() || this.style.horizontal()) {
+			super.extract(state, camera, partialTick);
+			return;
+		}
+		double dx = Mth.lerp(partialTick, this.xo, this.x) - camera.position().x;
+		double dy = Mth.lerp(partialTick, this.yo, this.y) - camera.position().y;
+		double dz = Mth.lerp(partialTick, this.zo, this.z) - camera.position().z;
+		double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+		float size = this.getQuadSize(partialTick);
+		float fade = Mth.clamp((float) ((distance - size * 0.6) / (size * 1.4 + 0.5)), 0.0F, 1.0F);
+		if (fade < 0.02F) {
+			return;
+		}
+		float alpha = this.alpha;
+		this.alpha = alpha * fade;
+		super.extract(state, camera, partialTick);
+		this.alpha = alpha;
 	}
 
 	@Override

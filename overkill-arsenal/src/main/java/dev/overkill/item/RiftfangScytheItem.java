@@ -22,15 +22,12 @@ import net.minecraft.world.entity.npc.Npc;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
-import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.function.Consumer;
 
 /**
  * Riftfang Scythe: every hit slices space and leaves a tear that swallows enemies and drops them
@@ -154,10 +151,5 @@ public class RiftfangScytheItem extends Item {
 				level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 1.0F, 0.6F);
 			}
 		}
-	}
-
-	@Override
-	public void appendHoverText(ItemStack stack, Item.TooltipContext context, TooltipDisplay display, Consumer<Component> tooltip, TooltipFlag flag) {
-		WeaponTooltips.add(tooltip, "item.overkill.riftfang_scythe", 3);
 	}
 }
