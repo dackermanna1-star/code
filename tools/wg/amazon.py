@@ -2,7 +2,7 @@
 tower over a closed canopy hung with lianas, threaded by enormous muddy rivers and tea-black
 tributaries, seasonally flooded varzea and igapo forests, buriti palm swamps and oxbow lagoons of
 giant water lilies, rising here and there into forested hills."""
-from wg.common import (FLAT_CARVERS, LOCAL_MODIFICATIONS, MONSTERS, TOP_LAYER_MODIFICATION, VEGETAL_DECORATION, attrs, base_features, biome, effects,
+from wg.common import (cover_config, FLAT_CARVERS, LOCAL_MODIFICATIONS, MONSTERS, TOP_LAYER_MODIFICATION, VEGETAL_DECORATION, attrs, base_features, biome, effects,
                        noise_settings, param, router, spawn, surface_shell, world_preset)
 from wg.dsl import (ON_FLOOR, UNDER_FLOOR, add, adds, biome_filter, c_biome, c_noise, c_not, c_steep, c_water, c_y_above, cell_bumps,
                     count, dabs, dmax, dmin, eroded, es, flat_cache, funiform, heightmap, in_square, lerp, mul, noise, rarity, rl, shifted,
@@ -100,9 +100,8 @@ def build(reg):
         'log_length': uniform(5, 11), 'stump_decorators': [{'type': 'minecraft:trunk_vine'}],
         'trunk_provider': simple(es('kapok_log', axis='y'))})
 
-    def cover(name, entries, density, biomes, scale=12.0, influence=0.5, salt=0):
-        reg.cf(W + '/cover_' + name, 'ground_cover', {'state': weighted(*entries), 'density': density, 'noise_scale': scale,
-                                                       'noise_influence': influence, 'biomes': [rl(b) for b in biomes], 'salt': salt})
+    def cover(name, entries, density, biomes, scale=12.0, influence=0.5, salt=0, patches=()):
+        reg.cf(W + '/cover_' + name, 'ground_cover', cover_config(entries, density, biomes, scale, influence, salt, patches))
         return reg.pf(W + '/cover_' + name, W + '/cover_' + name, [])
 
     litter4 = state('leaf_litter', facing='north', segment_amount=4)

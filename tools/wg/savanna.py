@@ -1,7 +1,7 @@
 """African Savanna world type: golden Serengeti grass plains under umbrella-thorn acacias, granite
 kopjes, red-earth Tsavo bush with baobabs and termite mounds, fever-tree rivers with watering holes,
 and blue Rift-Valley highlands on the horizon."""
-from wg.common import (FLAT_CARVERS, LOCAL_MODIFICATIONS, MONSTERS, TOP_LAYER_MODIFICATION, VEGETAL_DECORATION, attrs, base_features, biome, effects,
+from wg.common import (cover_config, FLAT_CARVERS, LOCAL_MODIFICATIONS, MONSTERS, TOP_LAYER_MODIFICATION, VEGETAL_DECORATION, attrs, base_features, biome, effects,
                        noise_settings, param, router, spawn, surface_shell, world_preset)
 from wg.dsl import (ON_FLOOR, UNDER_FLOOR, add, adds, biome_filter, c_biome, c_noise, c_not, c_steep, c_water, c_y_above, cell_bumps,
                     count, dabs, dmax, dmin, eroded, es, flat_cache, funiform, heightmap, in_square, lerp, mul, noise, rarity, rl, shifted,
@@ -83,23 +83,25 @@ def build(reg):
     reg.cf(W + '/rock_outcrop', 'boulders', {'block': granite, 'dome_radius': funiform(0.0, 0.5), 'boulders': uniform(1, 3),
                                              'boulder_radius': funiform(0.8, 1.8), 'spread': 2.0, 'stack_chance': 0.3, 'crack_chance': 0.1})
 
-    def cover(name, entries, density, biomes, scale=18.0, influence=0.5, salt=0):
-        reg.cf(W + '/cover_' + name, 'ground_cover', {'state': weighted(*entries), 'density': density, 'noise_scale': scale,
-                                                       'noise_influence': influence, 'biomes': [rl(b) for b in biomes], 'salt': salt})
+    def cover(name, entries, density, biomes, scale=18.0, influence=0.5, salt=0, patches=()):
+        reg.cf(W + '/cover_' + name, 'ground_cover', cover_config(entries, density, biomes, scale, influence, salt, patches))
         return reg.pf(W + '/cover_' + name, W + '/cover_' + name, [])
 
     golden, tall_golden, red_oat = es('golden_grass'), es('tall_golden_grass', half='lower'), es('red_oat_grass', half='lower')
-    cover_plains = cover('plains', [(tall_golden, 46), (golden, 34), (red_oat, 14), (state('short_dry_grass'), 4),
-                                    (state('tall_dry_grass'), 2)],
-                         0.8, [PLAINS, KOPJES], salt=1)
-    cover_woodland = cover('woodland', [(tall_golden, 30), (golden, 30), (state('short_grass'), 20), (state('tall_grass', half='lower'), 12),
-                                        (red_oat, 8)], 0.72, [WOODLAND, BAOBAB], salt=2)
-    cover_red = cover('red_earth', [(golden, 40), (tall_golden, 20), (state('short_dry_grass'), 25), (state('tall_dry_grass'), 10),
-                                    (state('dead_bush'), 5)], 0.42, [RED_EARTH], influence=0.85, scale=14.0, salt=3)
-    cover_high = cover('highlands', [(state('short_grass'), 40), (state('tall_grass', half='lower'), 20), (golden, 25), (red_oat, 15)],
-                       0.62, [HIGHLANDS], salt=4)
-    cover_river = cover('riverine', [(state('short_grass'), 45), (state('tall_grass', half='lower'), 30), (state('fern'), 10),
-                                     (tall_golden, 15)], 0.7, [RIVERINE, RIVER], salt=5)
+    # Knee-high grass that the eye can travel over (1 block); tall 2-block grass only grows in stands
+    tall_stand = [(tall_golden, 60), (red_oat, 30), (state('tall_dry_grass'), 10)]
+    cover_plains = cover('plains', [(golden, 62), (state('short_dry_grass'), 16), (red_oat, 4), (tall_golden, 4), (state('tall_dry_grass'), 1)],
+                         0.82, [PLAINS, KOPJES], salt=1, patches=[(tall_stand, 0.32, 15.0, 0.75)])
+    cover_woodland = cover('woodland', [(golden, 40), (state('short_grass'), 30), (state('short_dry_grass'), 10), (tall_golden, 5),
+                                        (state('tall_grass', half='lower'), 4), (red_oat, 3)], 0.74, [WOODLAND, BAOBAB], salt=2,
+                           patches=[([(tall_golden, 50), (state('tall_grass', half='lower'), 30), (red_oat, 20)], 0.36, 13.0, 0.7)])
+    cover_red = cover('red_earth', [(golden, 46), (state('short_dry_grass'), 32), (tall_golden, 6), (state('tall_dry_grass'), 8),
+                                    (state('dead_bush'), 6)], 0.42, [RED_EARTH], influence=0.85, scale=14.0, salt=3)
+    cover_high = cover('highlands', [(state('short_grass'), 44), (golden, 32), (red_oat, 8), (state('tall_grass', half='lower'), 6),
+                                     (state('short_dry_grass'), 10)], 0.62, [HIGHLANDS], salt=4)
+    cover_river = cover('riverine', [(state('short_grass'), 50), (state('tall_grass', half='lower'), 16), (state('fern'), 10), (golden, 14),
+                                     (tall_golden, 8)], 0.7, [RIVERINE, RIVER], salt=5,
+                        patches=[([(state('tall_grass', half='lower'), 60), (tall_golden, 40)], 0.3, 10.0, 0.7)])
 
     def tree_pf(name, feature, cnt):
         return reg.pf(W + '/' + name, feature, [cnt, in_square(), water_depth(0), heightmap('OCEAN_FLOOR'), biome_filter()])

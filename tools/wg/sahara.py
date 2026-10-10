@@ -1,7 +1,7 @@
 """Sahara Desert world type: a great erg of orange star dunes with sharp, rippled crests, oases of
 date palms around turquoise pools, dark varnished hamada plateaus cut by acacia wadis, black
 volcanic Hoggar peaks, the sandstone pillar labyrinths of the Tassili and white salt flats."""
-from wg.common import (FLAT_CARVERS, DESERT_MONSTERS, LOCAL_MODIFICATIONS, SURFACE_STRUCTURES, TOP_LAYER_MODIFICATION, VEGETAL_DECORATION, attrs,
+from wg.common import (cover_config, FLAT_CARVERS, DESERT_MONSTERS, LOCAL_MODIFICATIONS, SURFACE_STRUCTURES, TOP_LAYER_MODIFICATION, VEGETAL_DECORATION, attrs,
                        base_features, biome, effects, noise_settings, param, router, spawn, surface_shell, world_preset)
 from wg.dsl import (ON_CEILING, ON_FLOOR, UNDER_FLOOR, add, adds, biome_filter, c_biome, c_noise, c_not, c_steep, c_water, c_y_above,
                     cell_bumps, count, dabs, deep_floor, dmax, dmin, dune_ridges, eroded, es, flat_cache, funiform, heightmap, in_square,
@@ -91,9 +91,8 @@ def build(reg):
                                            'cap': simple(es('hamada_stone')), 'height': uniform(4, 9), 'radius': funiform(1.0, 1.8),
                                            'arch_chance': 0.0})
 
-    def cover(name, entries, density, biomes, scale=18.0, influence=0.6, salt=0):
-        reg.cf(W + '/cover_' + name, 'ground_cover', {'state': weighted(*entries), 'density': density, 'noise_scale': scale,
-                                                       'noise_influence': influence, 'biomes': [rl(b) for b in biomes], 'salt': salt})
+    def cover(name, entries, density, biomes, scale=18.0, influence=0.6, salt=0, patches=()):
+        reg.cf(W + '/cover_' + name, 'ground_cover', cover_config(entries, density, biomes, scale, influence, salt, patches))
         return reg.pf(W + '/cover_' + name, W + '/cover_' + name, [])
 
     drinn = es('drinn_grass')

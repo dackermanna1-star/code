@@ -6,18 +6,30 @@
    "entries": [
     {
      "data": {
+      "Name": "earthscapes:steppe_grass"
+     },
+     "weight": 52
+    },
+    {
+     "data": {
+      "Name": "minecraft:short_grass"
+     },
+     "weight": 16
+    },
+    {
+     "data": {
+      "Name": "minecraft:short_dry_grass"
+     },
+     "weight": 8
+    },
+    {
+     "data": {
       "Name": "earthscapes:tall_steppe_grass",
       "Properties": {
        "half": "lower"
       }
      },
-     "weight": 26
-    },
-    {
-     "data": {
-      "Name": "earthscapes:steppe_grass"
-     },
-     "weight": 32
+     "weight": 6
     },
     {
      "data": {
@@ -26,19 +38,7 @@
        "half": "lower"
       }
      },
-     "weight": 20
-    },
-    {
-     "data": {
-      "Name": "minecraft:short_grass"
-     },
-     "weight": 12
-    },
-    {
-     "data": {
-      "Name": "minecraft:short_dry_grass"
-     },
-     "weight": 4
+     "weight": 5
     },
     {
      "data": {
@@ -78,12 +78,42 @@
     }
    ]
   },
-  "density": 0.76,
+  "density": 0.78,
   "noise_scale": 22.0,
   "noise_influence": 0.5,
   "biomes": [
    "earthscapes:feather_grass_steppe"
   ],
-  "salt": 31
+  "salt": 31,
+  "patches": [
+   {
+    "state": {
+     "type": "minecraft:weighted_state_provider",
+     "entries": [
+      {
+       "data": {
+        "Name": "earthscapes:tall_steppe_grass",
+        "Properties": {
+         "half": "lower"
+        }
+       },
+       "weight": 55
+      },
+      {
+       "data": {
+        "Name": "earthscapes:feather_grass",
+        "Properties": {
+         "half": "lower"
+        }
+       },
+       "weight": 45
+      }
+     ]
+    },
+    "threshold": 0.3,
+    "noise_scale": 16.0,
+    "chance": 0.7
+   }
+  ]
  }
 }

@@ -12,6 +12,7 @@ import net.minecraft.client.CloudStatus;
 import net.minecraft.client.InactivityFpsLimit;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
+import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
@@ -140,33 +141,48 @@ public class ScreenshotTest implements FabricClientGameTest {
 	/**
 	 * Waits until the chunks within render distance are loaded and compiled, or the time limit passes.
 	 * The stock waitForChunksRender wants the full square of chunks, but the server only sends a
-	 * circle, so it never finishes at larger render distances.
+	 * circle, so it never finishes at larger render distances; and with software rendering the
+	 * compile queue rarely drains completely while random ticks keep changing blocks.
 	 */
 	private static void waitForWorld(ClientGameTestContext context, int maxTicks) {
+		int loadedAt = -1;
 		for (int tick = 0; tick < maxTicks; tick++) {
-			if (context.computeOnClient(ScreenshotTest::isWorldReady)) {
-				return;
+			int[] state = context.computeOnClient(ScreenshotTest::worldState);
+			if (state[0] == 0) {
+				if (loadedAt < 0) {
+					loadedAt = tick;
+				}
+				if (state[1] + state[2] <= 2 || tick - loadedAt > 1200) {
+					Earthscapes.LOGGER.info("World ready after {} ticks ({} sections still queued)", tick, state[1] + state[2]);
+					return;
+				}
+			}
+			if (tick % 400 == 0) {
+				Earthscapes.LOGGER.info("Waiting for world: {} chunks missing, {} sections queued, {} to upload", state[0], state[1], state[2]);
 			}
 			context.waitTick();
 		}
 		Earthscapes.LOGGER.warn("Gave up waiting for chunks after {} ticks", maxTicks);
 	}
 
-	private static boolean isWorldReady(Minecraft client) {
+	/** Missing chunks within render distance, sections waiting to compile, and sections waiting to upload. */
+	private static int[] worldState(Minecraft client) {
 		if (client.level == null || client.player == null) {
-			return false;
+			return new int[] {Integer.MAX_VALUE, 0, 0};
 		}
 		int radius = client.options.getEffectiveRenderDistance() - 1;
 		ChunkPos center = client.player.chunkPosition();
+		int missing = 0;
 		for (int dx = -radius; dx <= radius; dx++) {
 			for (int dz = -radius; dz <= radius; dz++) {
 				if (dx * dx + dz * dz <= radius * radius
 					&& client.level.getChunkSource().getChunk(center.x + dx, center.z + dz, ChunkStatus.FULL, false) == null) {
-					return false;
+					missing++;
 				}
 			}
 		}
-		return client.levelRenderer.hasRenderedAllSections();
+		SectionRenderDispatcher dispatcher = client.levelRenderer.getSectionRenderDispatcher();
+		return new int[] {missing, dispatcher == null ? 0 : dispatcher.getCompileQueueSize(), dispatcher == null ? 0 : dispatcher.getToUpload()};
 	}
 
 	private Holder<Biome> biome(ServerLevel level, String name) {

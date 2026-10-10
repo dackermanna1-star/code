@@ -8,7 +8,13 @@
      "data": {
       "Name": "earthscapes:golden_grass"
      },
-     "weight": 40
+     "weight": 46
+    },
+    {
+     "data": {
+      "Name": "minecraft:short_dry_grass"
+     },
+     "weight": 32
     },
     {
      "data": {
@@ -17,25 +23,19 @@
        "half": "lower"
       }
      },
-     "weight": 20
-    },
-    {
-     "data": {
-      "Name": "minecraft:short_dry_grass"
-     },
-     "weight": 25
+     "weight": 6
     },
     {
      "data": {
       "Name": "minecraft:tall_dry_grass"
      },
-     "weight": 10
+     "weight": 8
     },
     {
      "data": {
       "Name": "minecraft:dead_bush"
      },
-     "weight": 5
+     "weight": 6
     }
    ]
   },

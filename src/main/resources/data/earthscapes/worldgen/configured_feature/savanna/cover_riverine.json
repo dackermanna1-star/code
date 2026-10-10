@@ -8,7 +8,7 @@
      "data": {
       "Name": "minecraft:short_grass"
      },
-     "weight": 45
+     "weight": 50
     },
     {
      "data": {
@@ -17,7 +17,7 @@
        "half": "lower"
       }
      },
-     "weight": 30
+     "weight": 16
     },
     {
      "data": {
@@ -27,12 +27,18 @@
     },
     {
      "data": {
+      "Name": "earthscapes:golden_grass"
+     },
+     "weight": 14
+    },
+    {
+     "data": {
       "Name": "earthscapes:tall_golden_grass",
       "Properties": {
        "half": "lower"
       }
      },
-     "weight": 15
+     "weight": 8
     }
    ]
   },
@@ -43,6 +49,36 @@
    "earthscapes:fever_tree_riverine",
    "earthscapes:savanna_river"
   ],
-  "salt": 5
+  "salt": 5,
+  "patches": [
+   {
+    "state": {
+     "type": "minecraft:weighted_state_provider",
+     "entries": [
+      {
+       "data": {
+        "Name": "minecraft:tall_grass",
+        "Properties": {
+         "half": "lower"
+        }
+       },
+       "weight": 60
+      },
+      {
+       "data": {
+        "Name": "earthscapes:tall_golden_grass",
+        "Properties": {
+         "half": "lower"
+        }
+       },
+       "weight": 40
+      }
+     ]
+    },
+    "threshold": 0.3,
+    "noise_scale": 10.0,
+    "chance": 0.7
+   }
+  ]
  }
 }

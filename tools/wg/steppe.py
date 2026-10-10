@@ -2,7 +2,7 @@
 larch forest clinging to cool north-facing slopes, broad meandering river valleys dotted with gers,
 granite tors, the dry Gobi fringe, flowery alpine pastures and colossal snow-capped massifs that
 dominate the horizon."""
-from wg.common import (FLAT_CARVERS, LOCAL_MODIFICATIONS, MONSTERS, SURFACE_STRUCTURES, TOP_LAYER_MODIFICATION, VEGETAL_DECORATION, attrs, base_features,
+from wg.common import (cover_config, FLAT_CARVERS, LOCAL_MODIFICATIONS, MONSTERS, SURFACE_STRUCTURES, TOP_LAYER_MODIFICATION, VEGETAL_DECORATION, attrs, base_features,
                        biome, effects, noise_settings, param, router, spawn, surface_shell, world_preset)
 from wg.dsl import (ON_FLOOR, UNDER_FLOOR, add, adds, biome_filter, c_biome, c_noise, c_not, c_steep, c_water, c_y_above, cell_bumps,
                     count, dabs, dmax, dmin, eroded, es, flat_cache, funiform, heightmap, in_square, lerp, local_peak, mul, noise, rarity, rl,
@@ -74,15 +74,16 @@ def build(reg):
     reg.cf(W + '/ger', 'ger', {})
     reg.cf(W + '/ovoo', 'ovoo', {})
 
-    def cover(name, entries, density, biomes, scale=22.0, influence=0.5, salt=0):
-        reg.cf(W + '/cover_' + name, 'ground_cover', {'state': weighted(*entries), 'density': density, 'noise_scale': scale,
-                                                       'noise_influence': influence, 'biomes': [rl(b) for b in biomes], 'salt': salt})
+    def cover(name, entries, density, biomes, scale=22.0, influence=0.5, salt=0, patches=()):
+        reg.cf(W + '/cover_' + name, 'ground_cover', cover_config(entries, density, biomes, scale, influence, salt, patches))
         return reg.pf(W + '/cover_' + name, W + '/cover_' + name, [])
 
     tall_steppe, steppe_g, feather = es('tall_steppe_grass', half='lower'), es('steppe_grass'), es('feather_grass', half='lower')
-    cover_feather = cover('feather', [(tall_steppe, 26), (steppe_g, 32), (feather, 20), (state('short_grass'), 12), (state('short_dry_grass'), 4),
+    # a knee-high sward that the eye travels over to the mountains; feather grass and bronze-headed tall grass grow in stands
+    cover_feather = cover('feather', [(steppe_g, 52), (state('short_grass'), 16), (state('short_dry_grass'), 8), (tall_steppe, 6), (feather, 5),
                                       (es('pasque_flower'), 1), (es('edelweiss'), 1), (state('dandelion'), 1), (state('cornflower'), 1),
-                                      (state('allium'), 1), (state('poppy'), 1)], 0.76, [FEATHER], salt=31)
+                                      (state('allium'), 1), (state('poppy'), 1)], 0.78, [FEATHER], salt=31,
+                          patches=[([(tall_steppe, 55), (feather, 45)], 0.3, 16.0, 0.7)])
     cover_dry = cover('dry', [(steppe_g, 40), (state('short_dry_grass'), 25), (feather, 15), (state('tall_dry_grass'), 10), (state('dead_bush'), 5),
                               (es('drinn_grass'), 5)], 0.36, [DRY], influence=0.8, salt=32)
     cover_forest = cover('forest', [(state('short_grass'), 40), (state('tall_grass', half='lower'), 15), (state('fern'), 10), (steppe_g, 20),
@@ -93,9 +94,10 @@ def build(reg):
                                     (state('oxeye_daisy'), 4), (state('dandelion'), 4), (state('poppy'), 3)], 0.8, [MEADOW], salt=34)
     cover_mount = cover('mountains', [(state('short_grass'), 30), (steppe_g, 30), (es('edelweiss'), 4)], 0.25, [MOUNTAINS], influence=0.8,
                         salt=35)
-    cover_valley = cover('valley', [(state('short_grass'), 45), (state('tall_grass', half='lower'), 20), (steppe_g, 15), (tall_steppe, 14),
-                                    (state('cornflower'), 3), (state('dandelion'), 3)], 0.76, [VALLEY, RIVER], salt=36)
-    cover_tors = cover('tors', [(steppe_g, 40), (tall_steppe, 20), (feather, 20), (state('short_grass'), 15), (es('edelweiss'), 5)], 0.56,
+    cover_valley = cover('valley', [(state('short_grass'), 52), (steppe_g, 20), (state('tall_grass', half='lower'), 8), (tall_steppe, 6),
+                                    (state('cornflower'), 3), (state('dandelion'), 3)], 0.76, [VALLEY, RIVER], salt=36,
+                         patches=[([(state('tall_grass', half='lower'), 50), (tall_steppe, 50)], 0.3, 12.0, 0.7)])
+    cover_tors = cover('tors', [(steppe_g, 50), (state('short_grass'), 20), (tall_steppe, 8), (feather, 8), (es('edelweiss'), 5)], 0.56,
                        [TORS], salt=37)
 
     def pf(name, feature, mods):

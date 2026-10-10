@@ -16,6 +16,17 @@ ORES = ['minecraft:ore_dirt', 'minecraft:ore_gravel', 'minecraft:ore_granite_upp
         'minecraft:disk_clay', 'minecraft:disk_gravel']
 
 
+def cover_config(entries, density, biomes, scale, influence, salt, patches=()):
+    """Config of an earthscapes:ground_cover feature. patches: (entries, threshold, noise scale, chance) where a different
+    plant mix grows wherever the patch noise (-1..1) is above the threshold."""
+    from wg.dsl import weighted
+    cfg = {'state': weighted(*entries), 'density': density, 'noise_scale': scale, 'noise_influence': influence,
+           'biomes': [rl(b) for b in biomes], 'salt': salt}
+    if patches:
+        cfg['patches'] = [{'state': weighted(*pe), 'threshold': th, 'noise_scale': sc, 'chance': ch} for pe, th, sc, ch in patches]
+    return cfg
+
+
 def base_features(fossils=False, lava_surface=False):
     """Vanilla underground feature lists for steps 0-8 (identical ordering to vanilla biomes)."""
     f = [[] for _ in range(STEPS)]

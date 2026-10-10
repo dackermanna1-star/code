@@ -98,5 +98,6 @@ afterEvaluate {
 				jvmArgs "-D${p}=${project.property(p)}"
 			}
 		}
+		args "--width", project.findProperty("earthscapes.width") ?: "1280", "--height", project.findProperty("earthscapes.height") ?: "720"
 	}
 }
