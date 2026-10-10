@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "overkill:block/molten_rock"
+      },
+      {
+        "model": "overkill:block/molten_rock",
+        "y": 90
+      },
+      {
+        "model": "overkill:block/molten_rock",
+        "y": 180
+      },
+      {
+        "model": "overkill:block/molten_rock",
+        "y": 270
+      }
+    ]
+  }
+}

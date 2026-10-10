@@ -1,0 +1,11 @@
+{
+	"required": true,
+	"package": "dev.overkill.client.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"CameraMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

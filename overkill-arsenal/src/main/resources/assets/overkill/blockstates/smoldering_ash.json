@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "overkill:block/smoldering_ash"
+      },
+      {
+        "model": "overkill:block/smoldering_ash",
+        "y": 90
+      },
+      {
+        "model": "overkill:block/smoldering_ash",
+        "y": 180
+      },
+      {
+        "model": "overkill:block/smoldering_ash",
+        "y": 270
+      }
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "variants": {
+    "hot=false": [
+      {
+        "model": "overkill:block/scorched_stone"
+      },
+      {
+        "model": "overkill:block/scorched_stone",
+        "y": 90
+      },
+      {
+        "model": "overkill:block/scorched_stone",
+        "y": 180
+      },
+      {
+        "model": "overkill:block/scorched_stone",
+        "y": 270
+      }
+    ],
+    "hot=true": [
+      {
+        "model": "overkill:block/scorched_stone_hot"
+      },
+      {
+        "model": "overkill:block/scorched_stone_hot",
+        "y": 90
+      },
+      {
+        "model": "overkill:block/scorched_stone_hot",
+        "y": 180
+      },
+      {
+        "model": "overkill:block/scorched_stone_hot",
+        "y": 270
+      }
+    ]
+  }
+}

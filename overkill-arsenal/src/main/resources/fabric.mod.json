@@ -1,0 +1,27 @@
+{
+	"schemaVersion": 1,
+	"id": "overkill",
+	"version": "${version}",
+	"name": "Overkill Arsenal",
+	"description": "Five absurdly powerful weapons: the Sunline Rifle, Worldbreaker Orb Cannon, Riftfang Scythe, Stormcaller Gauntlet and Gravemaker, with custom particles and burning, molten aftermath.",
+	"authors": ["dackermanna1-star"],
+	"license": "MIT",
+	"icon": "assets/overkill/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": ["dev.overkill.OverkillArsenal"],
+		"client": ["dev.overkill.client.OverkillArsenalClient"]
+	},
+	"mixins": [
+		{
+			"config": "overkill.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.17.0",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

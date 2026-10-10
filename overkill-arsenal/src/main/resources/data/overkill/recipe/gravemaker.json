@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "Y": "minecraft:ender_eye",
+    "E": "minecraft:echo_shard",
+    "N": "minecraft:nether_star",
+    "C": "minecraft:crying_obsidian",
+    "I": "minecraft:netherite_ingot",
+    "O": "minecraft:obsidian"
+  },
+  "pattern": [
+    "YEN",
+    "CIC",
+    "O  "
+  ],
+  "result": {
+    "count": 1,
+    "id": "overkill:gravemaker"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "parent": "overkill:item/gun",
+  "textures": {
+    "layer0": "overkill:item/gravemaker"
+  }
+}

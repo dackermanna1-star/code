@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "L": "minecraft:lightning_rod",
+    "C": "minecraft:heart_of_the_sea",
+    "H": "minecraft:copper_block",
+    "N": "minecraft:nether_star",
+    "I": "minecraft:netherite_ingot"
+  },
+  "pattern": [
+    "LCL",
+    "HNH",
+    "III"
+  ],
+  "result": {
+    "count": 1,
+    "id": "overkill:stormcaller_gauntlet"
+  }
+}

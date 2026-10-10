@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "overkill:block/ash_layer"
+      },
+      {
+        "model": "overkill:block/ash_layer",
+        "y": 90
+      },
+      {
+        "model": "overkill:block/ash_layer",
+        "y": 180
+      },
+      {
+        "model": "overkill:block/ash_layer",
+        "y": 270
+      }
+    ]
+  }
+}

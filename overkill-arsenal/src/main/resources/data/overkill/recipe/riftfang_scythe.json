@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "E": "minecraft:echo_shard",
+    "N": "minecraft:nether_star",
+    "I": "minecraft:netherite_ingot",
+    "S": "minecraft:end_rod"
+  },
+  "pattern": [
+    "EEN",
+    " I ",
+    "S  "
+  ],
+  "result": {
+    "count": 1,
+    "id": "overkill:riftfang_scythe"
+  }
+}

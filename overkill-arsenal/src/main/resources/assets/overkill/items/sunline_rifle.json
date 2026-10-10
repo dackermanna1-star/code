@@ -1,0 +1,19 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:cooldown",
+    "entries": [
+      {
+        "threshold": 0.01,
+        "model": {
+          "type": "minecraft:model",
+          "model": "overkill:item/sunline_rifle_cooling"
+        }
+      }
+    ],
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "overkill:item/sunline_rifle"
+    }
+  }
+}

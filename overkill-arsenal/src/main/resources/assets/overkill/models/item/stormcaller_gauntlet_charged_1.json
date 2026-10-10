@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/handheld",
+  "textures": {
+    "layer0": "overkill:item/stormcaller_gauntlet_charged_1"
+  }
+}

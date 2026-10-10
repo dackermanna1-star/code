@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "T": "minecraft:tnt",
+    "N": "minecraft:nether_star",
+    "H": "minecraft:heavy_core",
+    "I": "minecraft:netherite_ingot",
+    "B": "minecraft:beacon",
+    "O": "minecraft:obsidian"
+  },
+  "pattern": [
+    "TNH",
+    "IBI",
+    "O  "
+  ],
+  "result": {
+    "count": 1,
+    "id": "overkill:worldbreaker_cannon"
+  }
+}

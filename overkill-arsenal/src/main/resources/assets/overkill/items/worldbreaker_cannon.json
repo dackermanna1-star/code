@@ -1,0 +1,42 @@
+{
+  "model": {
+    "type": "minecraft:condition",
+    "property": "minecraft:using_item",
+    "on_false": {
+      "type": "minecraft:model",
+      "model": "overkill:item/worldbreaker_cannon"
+    },
+    "on_true": {
+      "type": "minecraft:range_dispatch",
+      "property": "minecraft:use_duration",
+      "scale": 1.0,
+      "entries": [
+        {
+          "threshold": 20,
+          "model": {
+            "type": "minecraft:model",
+            "model": "overkill:item/worldbreaker_cannon_charge_1"
+          }
+        },
+        {
+          "threshold": 60,
+          "model": {
+            "type": "minecraft:model",
+            "model": "overkill:item/worldbreaker_cannon_charge_2"
+          }
+        },
+        {
+          "threshold": 120,
+          "model": {
+            "type": "minecraft:model",
+            "model": "overkill:item/worldbreaker_cannon_charge_3"
+          }
+        }
+      ],
+      "fallback": {
+        "type": "minecraft:model",
+        "model": "overkill:item/worldbreaker_cannon"
+      }
+    }
+  }
+}

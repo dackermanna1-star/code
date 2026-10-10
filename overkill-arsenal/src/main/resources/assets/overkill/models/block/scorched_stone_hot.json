@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "overkill:block/scorched_stone_hot"
+  }
+}

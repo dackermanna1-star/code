@@ -1,0 +1,6 @@
+{
+  "message_id": "overkill.sunline",
+  "scaling": "when_caused_by_living_non_player",
+  "effects": "burning",
+  "exhaustion": 0.1
+}

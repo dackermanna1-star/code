@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "G": "minecraft:gold_block",
+    "B": "minecraft:blaze_rod",
+    "N": "minecraft:nether_star",
+    "D": "minecraft:diamond_block",
+    "R": "minecraft:end_rod",
+    "I": "minecraft:netherite_ingot"
+  },
+  "pattern": [
+    "GBN",
+    "DRB",
+    "I  "
+  ],
+  "result": {
+    "count": 1,
+    "id": "overkill:sunline_rifle"
+  }
+}
