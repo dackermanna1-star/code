@@ -1,7 +1,21 @@
 {
   "variants": {
-    "": {
-      "model": "earthscapes:block/laterite"
-    }
+    "": [
+      {
+        "model": "earthscapes:block/laterite"
+      },
+      {
+        "model": "earthscapes:block/laterite",
+        "y": 90
+      },
+      {
+        "model": "earthscapes:block/laterite",
+        "y": 180
+      },
+      {
+        "model": "earthscapes:block/laterite",
+        "y": 270
+      }
+    ]
   }
 }

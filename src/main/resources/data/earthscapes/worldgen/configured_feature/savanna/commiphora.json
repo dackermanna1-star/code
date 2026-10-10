@@ -18,8 +18,8 @@
   },
   "radius": {
    "type": "minecraft:uniform",
-   "min_inclusive": 1.4,
-   "max_exclusive": 2.6
+   "min_inclusive": 1.2,
+   "max_exclusive": 2.2
   },
   "flatness": {
    "type": "minecraft:uniform",
@@ -36,6 +36,6 @@
    "min_inclusive": 0,
    "max_inclusive": 1
   },
-  "density": 0.75
+  "density": 0.7
  }
 }

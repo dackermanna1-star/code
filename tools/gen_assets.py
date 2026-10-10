@@ -205,9 +205,11 @@ def btag(block_name, *tags):
             tag('item', t, rl(block_name))
 
 
-def cube(name, texture=None, display=None, tags=(), drop=True):
+def cube(name, texture=None, display=None, tags=(), drop=True, rotate=False):
     model(name, 'minecraft:block/cube_all', {'all': b(texture or name)})
-    blockstate(name, {'': {'model': b(name)}})
+    # random rotations break up the tiling of large flat surfaces, as vanilla does for stone and dirt
+    blockstate(name, {'': [{'model': b(name), 'y': r} if r else {'model': b(name)} for r in (0, 90, 180, 270)] if rotate
+                      else {'model': b(name)}})
     item_def(name, b(name))
     lang_block(name, display)
     if drop:
@@ -369,10 +371,10 @@ def main():
     leaves('fever_tree_leaves', 'fever_tree_sapling', 'Fever Tree Leaves')
     cross('fever_tree_sapling', display='Fever Tree Sapling', tags=('minecraft:saplings',))
     pillar('euphorbia', 'euphorbia', 'euphorbia_top', 'Candelabra Euphorbia', tags=('minecraft:mineable/axe',))
-    cube('laterite', display='Laterite', tags=('minecraft:dirt', 'minecraft:mineable/shovel', 'minecraft:animals_spawnable_on',
+    cube('laterite', display='Laterite', rotate=True, tags=('minecraft:dirt', 'minecraft:mineable/shovel', 'minecraft:animals_spawnable_on',
                                                 'minecraft:overworld_carver_replaceables'))
-    cube('termite_mound', display='Termite Mound', tags=('minecraft:mineable/pickaxe', 'minecraft:overworld_carver_replaceables'))
-    cube('kopje_granite', display='Kopje Granite', tags=('minecraft:mineable/pickaxe', 'minecraft:base_stone_overworld',
+    cube('termite_mound', display='Termite Mound', rotate=True, tags=('minecraft:mineable/pickaxe', 'minecraft:overworld_carver_replaceables'))
+    cube('kopje_granite', display='Kopje Granite', rotate=True, tags=('minecraft:mineable/pickaxe', 'minecraft:base_stone_overworld',
                                                           'minecraft:overworld_carver_replaceables', 'minecraft:goats_spawnable_on'))
 
     # ---------------- sahara
@@ -409,9 +411,9 @@ def main():
     btag('sahara_sand_layer', 'minecraft:mineable/shovel')
     cube_bottom_top('sahara_sandstone', 'sahara_sandstone_top', 'sahara_sandstone', 'sahara_sandstone_bottom', 'Sahara Sandstone',
                     tags=('minecraft:mineable/pickaxe', 'minecraft:base_stone_overworld', 'minecraft:overworld_carver_replaceables'))
-    cube('hamada_stone', display='Hamada Stone', tags=('minecraft:mineable/pickaxe', 'minecraft:base_stone_overworld',
+    cube('hamada_stone', display='Hamada Stone', rotate=True, tags=('minecraft:mineable/pickaxe', 'minecraft:base_stone_overworld',
                                                         'minecraft:overworld_carver_replaceables'))
-    cube('desert_pavement', display='Desert Pavement', drop=False, tags=('minecraft:mineable/shovel', 'minecraft:overworld_carver_replaceables'))
+    cube('desert_pavement', display='Desert Pavement', drop=False, rotate=True, tags=('minecraft:mineable/shovel', 'minecraft:overworld_carver_replaceables'))
     loot('desert_pavement', [{'bonus_rolls': 0.0, 'entries': [{'type': 'minecraft:alternatives', 'children': [
         {'type': 'minecraft:item', 'conditions': [{'condition': 'minecraft:match_tool', 'predicate': {'predicates': {'minecraft:enchantments': [
             {'enchantments': 'minecraft:silk_touch', 'levels': {'min': 1}}]}}}], 'name': rl('desert_pavement')},
@@ -420,7 +422,7 @@ def main():
                                                         'enchantment': 'minecraft:fortune'}], 'name': 'minecraft:flint'},
             {'type': 'minecraft:item', 'name': rl('desert_pavement')}], 'conditions': [{'condition': 'minecraft:survives_explosion'}]}]}],
         'rolls': 1.0}])
-    cube('salt_crust', display='Salt Crust', tags=('minecraft:mineable/pickaxe', 'minecraft:mineable/shovel', 'minecraft:overworld_carver_replaceables'))
+    cube('salt_crust', display='Salt Crust', rotate=True, tags=('minecraft:mineable/pickaxe', 'minecraft:mineable/shovel', 'minecraft:overworld_carver_replaceables'))
     wood_set('date_palm', 'Date Palm', leaves_display='Date Palm Fronds')
     for age in range(3):
         model('dates_stage%d' % age, 'minecraft:block/cross', {'cross': b('dates_stage%d' % age)})

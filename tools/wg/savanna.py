@@ -69,10 +69,10 @@ def build(reg):
         'height': uniform(6, 8), 'radius': funiform(1.0, 1.6), 'branches': uniform(3, 4), 'leaf_density': 0.5})
     reg.cf(W + '/candelabra', 'candelabra', {'stem': simple(es('euphorbia', axis='y')), 'trunk_height': uniform(2, 4), 'arms': uniform(4, 8),
                                              'arm_height': uniform(2, 5)})
-    reg.cf(W + '/thornbush', 'shrub', {'stem': simple(acacia_log), 'leaves': simple(es('thornbush_leaves')), 'radius': funiform(1.0, 2.1),
-                                       'flatness': funiform(0.6, 0.85), 'lobes': uniform(1, 3), 'density': 0.85})
-    reg.cf(W + '/commiphora', 'shrub', {'stem': simple(acacia_wood), 'leaves': simple(es('thornbush_leaves')), 'radius': funiform(1.4, 2.6),
-                                        'flatness': funiform(0.45, 0.7), 'lobes': uniform(2, 3), 'lift': uniform(0, 1), 'density': 0.75})
+    reg.cf(W + '/thornbush', 'shrub', {'stem': simple(acacia_log), 'leaves': simple(es('thornbush_leaves')), 'radius': funiform(0.8, 1.6),
+                                       'flatness': funiform(0.6, 0.9), 'lobes': uniform(1, 3), 'density': 0.7})
+    reg.cf(W + '/commiphora', 'shrub', {'stem': simple(acacia_wood), 'leaves': simple(es('thornbush_leaves')), 'radius': funiform(1.2, 2.2),
+                                        'flatness': funiform(0.45, 0.7), 'lobes': uniform(2, 3), 'lift': uniform(0, 1), 'density': 0.7})
     reg.cf(W + '/termite_mound', 'termite_mound', {'block': simple(es('termite_mound')), 'height': uniform(3, 6), 'radius': funiform(1.0, 2.0),
                                                    'spire_chance': 0.35})
     reg.cf(W + '/termite_mound_tall', 'termite_mound', {'block': simple(es('termite_mound')), 'height': uniform(4, 8),
@@ -89,8 +89,8 @@ def build(reg):
 
     golden, tall_golden, red_oat = es('golden_grass'), es('tall_golden_grass', half='lower'), es('red_oat_grass', half='lower')
     # Knee-high grass that the eye can travel over (1 block); tall 2-block grass only grows in stands
-    tall_stand = [(tall_golden, 60), (red_oat, 30), (state('tall_dry_grass'), 10)]
-    cover_plains = cover('plains', [(golden, 62), (state('short_dry_grass'), 16), (red_oat, 4), (tall_golden, 4), (state('tall_dry_grass'), 1)],
+    tall_stand = [(tall_golden, 70), (red_oat, 22), (state('tall_dry_grass'), 8)]
+    cover_plains = cover('plains', [(golden, 70), (state('short_dry_grass'), 8), (red_oat, 3), (tall_golden, 4), (state('tall_dry_grass'), 1)],
                          0.82, [PLAINS, KOPJES], salt=1, patches=[(tall_stand, 0.32, 15.0, 0.75)])
     cover_woodland = cover('woodland', [(golden, 40), (state('short_grass'), 30), (state('short_dry_grass'), 10), (tall_golden, 5),
                                         (state('tall_grass', half='lower'), 4), (red_oat, 3)], 0.74, [WOODLAND, BAOBAB], salt=2,
@@ -109,7 +109,9 @@ def build(reg):
     def rare_pf(name, feature, chance, hm='OCEAN_FLOOR'):
         return reg.pf(W + '/' + name, feature, [rarity(chance), in_square(), water_depth(0), heightmap(hm), biome_filter()])
 
-    acacia_plains = tree_pf('acacia_plains', 'tree/umbrella_thorn', count(weighted_int((0, 14), (1, 5), (2, 1))))
+    # the open Serengeti: a lone umbrella thorn every few hundred metres, now and then a pair
+    acacia_plains = tree_pf('acacia_plains', 'tree/umbrella_thorn', count(weighted_int((0, 30), (1, 4), (2, 1))))
+    acacia_young_plains = rare_pf('acacia_young_plains', W + '/umbrella_thorn_young', 7)
     acacia_young = rare_pf('acacia_young', W + '/umbrella_thorn_young', 3)
     acacia_woodland = tree_pf('acacia_woodland', 'tree/umbrella_thorn', count(weighted_int((1, 4), (2, 4), (3, 2))))
     acacia_sparse = rare_pf('acacia_sparse', 'tree/umbrella_thorn', 4)
@@ -119,7 +121,7 @@ def build(reg):
     baobab_young = rare_pf('baobab_young', W + '/baobab_young', 6)
     candelabra_kopje = tree_pf('candelabra_kopje', W + '/candelabra', count(weighted_int((0, 2), (1, 2), (2, 1))))
     candelabra_rare = rare_pf('candelabra_rare', W + '/candelabra', 4)
-    thorn_plains = tree_pf('thornbush_plains', W + '/thornbush', count(weighted_int((0, 2), (1, 3), (2, 1))))
+    thorn_plains = rare_pf('thornbush_plains', W + '/thornbush', 3)
     thorn_dense = tree_pf('thornbush_dense', W + '/thornbush', count(uniform(2, 4)))
     commiphora = tree_pf('commiphora', W + '/commiphora', count(uniform(1, 3)))
     mound = rare_pf('termite_mound', W + '/termite_mound', 5)
@@ -146,8 +148,8 @@ def build(reg):
                               creatures if creatures is not None else savanna_creatures, monsters=MONSTERS, creature_probability=0.12,
                               carvers=None if name == HIGHLANDS else FLAT_CARVERS))
 
-    make(PLAINS, '#C9A64B', '#8C9C3C', local=[kopje_lone], veg=[acacia_plains, acacia_young, thorn_plains, mound, baobab_rare, cover_plains,
-                                                               'minecraft:flower_warm'])
+    make(PLAINS, '#C9A64B', '#8C9C3C', local=[kopje_lone], veg=[acacia_plains, acacia_young_plains, thorn_plains, mound, baobab_rare,
+                                                               cover_plains, 'minecraft:flower_warm'])
     make(WOODLAND, '#B4A44A', '#7E9A3A', local=[rocks_rare], veg=[acacia_woodland, acacia_young, thorn_dense, mound, cover_woodland,
                                                                  'minecraft:flower_warm'])
     make(RED_EARTH, '#CDA155', '#909A3E', local=[rocks_rare], veg=[acacia_sparse, baobab_rare, commiphora, mound_tall, candelabra_rare,

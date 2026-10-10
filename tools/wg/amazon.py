@@ -85,6 +85,9 @@ def build(reg):
     acai = {'trunk': simple(es('acai_palm_log', axis='y')), 'fronds': simple(es('acai_palm_leaves')), 'style': 'feather'}
     reg.cf(W + '/acai_palm', 'palm', dict(acai, height=uniform(10, 17), curve=funiform(0.0, 0.25), frond_count=uniform(8, 11),
                                          frond_length=funiform(3.5, 5.2), droop=0.22, flood_depth=2))
+    # small feather palms of the understorey (Geonoma, Astrocaryum and young palms) lining the forest paths
+    reg.cf(W + '/understory_palm', 'palm', dict(acai, height=uniform(2, 5), curve=funiform(0.0, 0.3), frond_count=uniform(6, 9),
+                                               frond_length=funiform(2.2, 3.4), droop=0.3))
     reg.cf(W + '/acai_clump', 'minecraft:random_patch', {'tries': 5, 'xz_spread': 2, 'y_spread': 1, 'feature': {
         'feature': rl(W + '/acai_palm'), 'placement': []}})
     reg.cf(W + '/buriti_palm', 'palm', {'trunk': simple(es('acai_palm_log', axis='y')), 'fronds': simple(es('buriti_palm_leaves')),
@@ -134,6 +137,7 @@ def build(reg):
     canopy_flooded = tree_pf('canopy_flooded', W + '/canopy_flooded', count(uniform(3, 6)), water=3)
     understory = tree_pf('understory', W + '/understory', count(uniform(3, 6)))
     shrubs = tree_pf('jungle_shrubs', W + '/jungle_shrub', count(uniform(2, 4)))
+    understory_palms = tree_pf('understory_palms', W + '/understory_palm', count(uniform(1, 3)))
     acai_varzea = tree_pf('acai_varzea', W + '/acai_clump', count(uniform(1, 3)), water=2)
     acai_rare = rare_pf('acai_rare', W + '/acai_clump', 2)
     buriti_swamp = tree_pf('buriti_swamp', W + '/buriti_palm', count(uniform(4, 7)), water=3)
@@ -162,10 +166,10 @@ def build(reg):
                               carvers=None if name == HILLS else FLAT_CARVERS))
 
     fish = [spawn('tropical_fish', 25, 8, 8)]
-    make(FOREST, veg=[kapok_rare, kapok_small, brazil_nut, canopy_large, canopy_medium, understory, acai_rare, cecropia_rare, shrubs, fallen,
+    make(FOREST, veg=[kapok_rare, kapok_small, brazil_nut, canopy_large, canopy_medium, understory, understory_palms, acai_rare, cecropia_rare, shrubs, fallen,
                       cover_forest, 'minecraft:vines'])
-    make(EMERGENT, veg=[kapok_dense, brazil_nut_dense, canopy_large, canopy_medium, understory, shrubs, fallen, cover_forest, 'minecraft:vines'])
-    make(HILLS, grass='#55902E', foliage='#418024', veg=[kapok_small, brazil_nut, canopy_large, canopy_medium, understory, shrubs,
+    make(EMERGENT, veg=[kapok_dense, brazil_nut_dense, canopy_large, canopy_medium, understory, understory_palms, shrubs, fallen, cover_forest, 'minecraft:vines'])
+    make(HILLS, grass='#55902E', foliage='#418024', veg=[kapok_small, brazil_nut, canopy_large, canopy_medium, understory, understory_palms, shrubs,
                                                          cover_forest, 'minecraft:bamboo_light', 'minecraft:vines'], fog_end=260.0)
     make(VARZEA, grass='#5A9234', foliage='#468428', water='#8C6A3C', water_fog='#5A4224',
          veg=[kapok_varzea, canopy_flooded, acai_varzea, cecropia_banks, buriti_rare, lilies, cover_flooded, 'minecraft:patch_waterlily',

@@ -1,7 +1,21 @@
 {
   "variants": {
-    "": {
-      "model": "earthscapes:block/desert_pavement"
-    }
+    "": [
+      {
+        "model": "earthscapes:block/desert_pavement"
+      },
+      {
+        "model": "earthscapes:block/desert_pavement",
+        "y": 90
+      },
+      {
+        "model": "earthscapes:block/desert_pavement",
+        "y": 180
+      },
+      {
+        "model": "earthscapes:block/desert_pavement",
+        "y": 270
+      }
+    ]
   }
 }

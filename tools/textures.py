@@ -44,7 +44,8 @@ def shaded_field(values, pal):
 
 # ----------------------------------------------------------------------------- ground
 
-SAND_PAL = palette('#B36F3A', '#C27D45', '#CF8B50', '#DA995C', '#E3A768', '#EBB577', '#F2C489')
+# the orange of Erg Chebbi: redder and more saturated than ordinary sand
+SAND_PAL = palette('#AE5C2C', '#BE6A36', '#CC7840', '#D8864A', '#E29454', '#EAA262', '#F2B476')
 
 
 @block('sahara_sand')
@@ -73,7 +74,7 @@ def sahara_sand_side():
     return shaded_field(v, SAND_PAL)
 
 
-SANDSTONE_PAL = palette('#A9683A', '#B87644', '#C5844E', '#D19259', '#DBA066', '#E4AE74', '#ECBD86')
+SANDSTONE_PAL = palette('#A45E32', '#B46C3C', '#C27A46', '#CE8850', '#D9965C', '#E2A46A', '#EAB47E')
 
 
 @block('sahara_sandstone')
@@ -117,19 +118,18 @@ HAMADA_PAL = palette('#241914', '#2F211A', '#3B2A21', '#48342A', '#584033', '#6A
 
 @block('hamada_stone')
 def hamada_stone():
-    big = fbm(31, ((2, 0.5), (4, 0.3), (8, 0.2)))
+    big = fbm(31, ((2, 0.4), (4, 0.3), (8, 0.3)))
     fine = fbm(32, ((8, 0.5), (16, 0.5)))
-    v = 0.28 + big * 0.42 + (fine - 0.5) * 0.25
+    v = 0.3 + big * 0.3 + (fine - 0.5) * 0.3
     img = shaded_field(v, HAMADA_PAL)
-    # weathering cracks follow noise contours
+    # a few weathering cracks along noise contours (sparse, so the tiling does not show)
+    r0 = rng(34)
     for y in range(SIZE):
         for x in range(SIZE):
             a = big[y, x]
             b = big[y, (x + 1) % 16]
-            c = big[(y + 1) % 16, x]
-            if (a - 0.55) * (b - 0.55) < 0 or (a - 0.55) * (c - 0.55) < 0:
-                img[y, x] = HAMADA_PAL[0]
-                img[(y - 1) % 16, x] = HAMADA_PAL[6]
+            if (a - 0.55) * (b - 0.55) < 0 and r0.random() < 0.55:
+                img[y, x] = HAMADA_PAL[1]
     # varnish glints and quartz specks
     r = rng(33)
     for _ in range(7):
@@ -287,20 +287,20 @@ def tall_golden_grass_top():
 
 @block('red_oat_grass_bottom')
 def red_oat_grass_bottom():
-    return grass_sprite(111, 9, (12, 16), (-2.0, 2.0), ['#5E3018', '#74401F', '#8A4E26'], ['#A05C2E', '#B26C38'],
+    return grass_sprite(111, 9, (12, 16), (-2.0, 2.0), ['#5E3C1E', '#704A26', '#82582E'], ['#946638', '#A47442'],
                         xs=[1, 3, 4, 6, 8, 9, 11, 12, 14], width_chance=0.2)
 
 
 @block('red_oat_grass_top')
 def red_oat_grass_top():
-    img = grass_sprite(112, 12, (8, 15), (-4.0, 4.0), ['#8A4E26', '#A05C2E'], ['#B66E3A', '#C98446', '#D89C58', '#E4B470'],
+    img = grass_sprite(112, 12, (8, 15), (-4.0, 4.0), ['#86582E', '#9A6838'], ['#AE7A44', '#C08E52', '#CEA264', '#DAB678'],
                        xs=[1, 2, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14])
     r = rng(113)
     # drooping, rusty spikelet clusters of Themeda triandra
     for _ in range(6):
         x, y = int(r.integers(1, 15)), int(r.integers(0, 7))
         for k in range(3):
-            put(img, x + (k % 2), y + k, hexc(['#9A3A1A', '#B44E26', '#CC6A36'][k]))
+            put(img, x + (k % 2), y + k, hexc(['#8C4426', '#A25830', '#B6703E'][k]))
     return img
 
 
@@ -352,8 +352,9 @@ def tall_steppe_grass_top():
 
 @block('steppe_grass')
 def steppe_grass():
-    return grass_sprite(141, 10, (4, 10), (-3.0, 3.0), ['#545426', '#666830', '#7A7C3A'], ['#8E8E46', '#A4A256', '#B8B46A'],
-                        seed_heads=['#9A8A56', '#B6A672'], head_chance=0.3, xs=[1, 3, 4, 6, 7, 8, 10, 11, 13, 14])
+    # late-summer sward: bronze and straw with a few rusty seed heads, as in the meadow below Elbrus
+    return grass_sprite(141, 10, (4, 10), (-3.0, 3.0), ['#5C5228', '#6E6230', '#82723A'], ['#988444', '#AE9852', '#C2AC66'],
+                        seed_heads=['#A0704A', '#B88A5E', '#8E5038'], head_chance=0.35, xs=[1, 3, 4, 6, 7, 8, 10, 11, 13, 14])
 
 
 @block('drinn_grass')
@@ -549,14 +550,15 @@ def leaves_texture(seed, pal_hex, density, scale_layers=((4, 0.5), (8, 0.3), (16
 @block('umbrella_thorn_leaves')
 def umbrella_thorn_leaves():
     # tiny bipinnate leaflets: fine grained and airy
-    return leaves_texture(201, ['#3E5020', '#4E6228', '#617632', '#758A3C', '#8A9E4A', '#A2B35E'], 0.5,
-                          scale_layers=((8, 0.5), (16, 0.5)), hole='#1C2410', highlight='#B9C67A')
+    return leaves_texture(201, ['#2C3A16', '#38481C', '#455622', '#53652A', '#617332', '#71823C'], 0.52,
+                          scale_layers=((8, 0.5), (16, 0.5)), hole='#141C0C', highlight='#84944C')
 
 
 @block('thornbush_leaves')
 def thornbush_leaves():
-    return leaves_texture(202, ['#1E2E14', '#283C1A', '#324A20', '#3E5A28', '#4C6A30'], 0.66,
-                          scale_layers=((8, 0.6), (16, 0.4)), hole='#10180A')
+    # grey-olive, wiry dry-season thicket with lots of gaps between the twigs
+    return leaves_texture(202, ['#343A22', '#424A2A', '#505832', '#5E663A', '#6C7344', '#7C8250'], 0.5,
+                          scale_layers=((8, 0.6), (16, 0.4)), hole='#181C10', highlight='#8E9058')
 
 
 @block('baobab_leaves')
@@ -916,7 +918,7 @@ def acai_palm_log_top():
 @block('euphorbia')
 def euphorbia():
     img = blank()
-    pal = [hexc(c) for c in ('#1E3E1A', '#2A5222', '#36662A', '#447A34', '#548C40', '#68A050')]
+    pal = [hexc(c) for c in ('#26341E', '#334428', '#405432', '#4E643C', '#5E7448', '#728658')]
     for y in range(16):
         for x in range(16):
             rib = x % 4
@@ -931,7 +933,7 @@ def euphorbia():
 @block('euphorbia_top')
 def euphorbia_top():
     img = blank()
-    pal = [hexc(c) for c in ('#1E3E1A', '#2A5222', '#36662A', '#447A34', '#548C40', '#68A050')]
+    pal = [hexc(c) for c in ('#26341E', '#334428', '#405432', '#4E643C', '#5E7448', '#728658')]
     for y in range(16):
         for x in range(16):
             a = math.atan2(y - 7.5, x - 7.5)

@@ -125,7 +125,7 @@ def build(reg):
     hoodoo_rare = rare_pf('hoodoo_rare', W + '/hoodoo', 14)
 
     # ------------------------------------------------------------------ biomes
-    sky, fog = '#66A2F0', '#EBD6B2'
+    sky, fog = '#66A2F0', '#E4DCC8'
     creatures = [spawn('rabbit', 6, 2, 3), spawn('camel', 2, 1, 2)]
 
     def make(name, grass='#B8A45C', foliage='#A09A50', local=(), surface=(), veg=(), water='#3C9AA0', water_fog='#226266',

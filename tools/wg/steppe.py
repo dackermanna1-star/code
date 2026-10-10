@@ -139,8 +139,8 @@ def build(reg):
                               creatures if creatures is not None else herd, monsters=MONSTERS, creature_probability=0.12,
                               carvers=None if name in (MOUNTAINS, MEADOW) else FLAT_CARVERS))
 
-    make(FEATHER, '#AEA65A', '#8E9A48', local=[stones], surface=[ger, ovoo], veg=[cover_feather], music_sound='minecraft:music.overworld.meadow')
-    make(DRY, '#BDAA62', '#A09A50', local=[stones_dry], surface=[ger, ovoo], veg=[saxaul, cover_dry], temperature=0.8, downfall=0.1,
+    make(FEATHER, '#B4A058', '#8E9A48', local=[stones], surface=[ger, ovoo], veg=[cover_feather], music_sound='minecraft:music.overworld.meadow')
+    make(DRY, '#C2AA62', '#A09A50', local=[stones_dry], surface=[ger, ovoo], veg=[saxaul, cover_dry], temperature=0.8, downfall=0.1,
          creatures=[spawn('camel', 4, 1, 3), spawn('horse', 6, 2, 5), spawn('goat', 4, 2, 4), spawn('rabbit', 4, 2, 3)],
          music_sound='minecraft:music.overworld.badlands')
     make(FOREST, '#8FA44E', '#78A040', local=[stones], veg=[larch_north, larch_young, larch_scatter, birch_north, cover_forest],
@@ -155,7 +155,7 @@ def build(reg):
          music_sound='minecraft:music.overworld.meadow')
     make(RIVER, '#80A84A', '#6A9A3A', veg=[willows, cover_valley, 'minecraft:patch_sugar_cane'], downfall=0.5,
          creatures=[spawn('horse', 4, 2, 4)])
-    make(TORS, '#A8A25A', '#8E9A48', local=[tors_pf], surface=[ovoo], veg=[larch_scatter, cover_tors], music_sound='minecraft:music.overworld.meadow')
+    make(TORS, '#B09E5A', '#8E9A48', local=[tors_pf], surface=[ovoo], veg=[larch_scatter, cover_tors], music_sound='minecraft:music.overworld.meadow')
 
     for b in ALL:
         reg.tag_biome('minecraft:is_overworld', b)

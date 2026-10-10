@@ -1,7 +1,21 @@
 {
   "variants": {
-    "": {
-      "model": "earthscapes:block/termite_mound"
-    }
+    "": [
+      {
+        "model": "earthscapes:block/termite_mound"
+      },
+      {
+        "model": "earthscapes:block/termite_mound",
+        "y": 90
+      },
+      {
+        "model": "earthscapes:block/termite_mound",
+        "y": 180
+      },
+      {
+        "model": "earthscapes:block/termite_mound",
+        "y": 270
+      }
+    ]
   }
 }

@@ -1,7 +1,21 @@
 {
   "variants": {
-    "": {
-      "model": "earthscapes:block/hamada_stone"
-    }
+    "": [
+      {
+        "model": "earthscapes:block/hamada_stone"
+      },
+      {
+        "model": "earthscapes:block/hamada_stone",
+        "y": 90
+      },
+      {
+        "model": "earthscapes:block/hamada_stone",
+        "y": 180
+      },
+      {
+        "model": "earthscapes:block/hamada_stone",
+        "y": 270
+      }
+    ]
   }
 }
