@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "earthscapes:kapok_log",
+    "earthscapes:kapok_wood",
+    "earthscapes:stripped_kapok_log",
+    "earthscapes:stripped_kapok_wood"
+  ]
+}

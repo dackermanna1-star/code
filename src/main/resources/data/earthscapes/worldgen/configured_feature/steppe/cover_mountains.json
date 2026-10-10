@@ -1,0 +1,35 @@
+{
+ "type": "earthscapes:ground_cover",
+ "config": {
+  "state": {
+   "type": "minecraft:weighted_state_provider",
+   "entries": [
+    {
+     "data": {
+      "Name": "minecraft:short_grass"
+     },
+     "weight": 30
+    },
+    {
+     "data": {
+      "Name": "earthscapes:steppe_grass"
+     },
+     "weight": 30
+    },
+    {
+     "data": {
+      "Name": "earthscapes:edelweiss"
+     },
+     "weight": 4
+    }
+   ]
+  },
+  "density": 0.25,
+  "noise_scale": 22.0,
+  "noise_influence": 0.8,
+  "biomes": [
+   "earthscapes:altai_mountains"
+  ],
+  "salt": 35
+ }
+}

@@ -1,0 +1,17 @@
+{
+ "type": "minecraft:flat_cache",
+ "argument": {
+  "type": "earthscapes:cell_bumps",
+  "noise": "earthscapes:steppe/massif",
+  "cell_size": 2000,
+  "chance": 0.4,
+  "radius_min": 300.0,
+  "radius_max": 450.0,
+  "height_min": 1.0,
+  "height_max": 1.0,
+  "edge_power": 2.0,
+  "profile_power": 1.3,
+  "jitter": 0.8,
+  "elongation": 1.6
+ }
+}

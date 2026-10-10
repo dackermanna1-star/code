@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cross",
+  "textures": {
+    "cross": "earthscapes:block/giant_taro_bottom"
+  }
+}

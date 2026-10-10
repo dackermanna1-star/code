@@ -1,0 +1,36 @@
+{
+ "type": "earthscapes:ground_cover",
+ "config": {
+  "state": {
+   "type": "minecraft:weighted_state_provider",
+   "entries": [
+    {
+     "data": {
+      "Name": "earthscapes:drinn_grass"
+     },
+     "weight": 70
+    },
+    {
+     "data": {
+      "Name": "minecraft:short_dry_grass"
+     },
+     "weight": 20
+    },
+    {
+     "data": {
+      "Name": "minecraft:dead_bush"
+     },
+     "weight": 10
+    }
+   ]
+  },
+  "density": 0.012,
+  "noise_scale": 40.0,
+  "noise_influence": 0.9,
+  "biomes": [
+   "earthscapes:great_erg",
+   "earthscapes:sahara_sand_sea"
+  ],
+  "salt": 11
+ }
+}

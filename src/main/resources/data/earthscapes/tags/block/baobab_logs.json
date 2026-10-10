@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "earthscapes:baobab_log",
+    "earthscapes:baobab_wood",
+    "earthscapes:stripped_baobab_log",
+    "earthscapes:stripped_baobab_wood"
+  ]
+}

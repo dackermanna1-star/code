@@ -1,0 +1,29 @@
+{
+ "type": "minecraft:flat_cache",
+ "argument": {
+  "type": "minecraft:spline",
+  "spline": {
+   "coordinate": {
+    "type": "minecraft:shifted_noise",
+    "noise": "earthscapes:savanna/highland",
+    "xz_scale": 1.0,
+    "y_scale": 0.0,
+    "shift_x": "minecraft:shift_x",
+    "shift_y": 0.0,
+    "shift_z": "minecraft:shift_z"
+   },
+   "points": [
+    {
+     "location": 0.3,
+     "value": 0.0,
+     "derivative": 0.0
+    },
+    {
+     "location": 0.55,
+     "value": 1.0,
+     "derivative": 0.0
+    }
+   ]
+  }
+ }
+}

@@ -1,0 +1,17 @@
+{
+ "replace": false,
+ "values": [
+  "earthscapes:serengeti_plains",
+  "earthscapes:acacia_woodland",
+  "earthscapes:tsavo_red_earth",
+  "earthscapes:baobab_savanna",
+  "earthscapes:kopje_plains",
+  "earthscapes:rift_highlands",
+  "earthscapes:feather_grass_steppe",
+  "earthscapes:gobi_dry_steppe",
+  "earthscapes:larch_forest_steppe",
+  "earthscapes:alpine_meadow",
+  "earthscapes:granite_tors",
+  "earthscapes:steppe_river_valley"
+ ]
+}

@@ -1,0 +1,37 @@
+{
+ "type": "earthscapes:ground_cover",
+ "config": {
+  "state": {
+   "type": "minecraft:weighted_state_provider",
+   "entries": [
+    {
+     "data": {
+      "Name": "earthscapes:drinn_grass"
+     },
+     "weight": 40
+    },
+    {
+     "data": {
+      "Name": "minecraft:short_dry_grass"
+     },
+     "weight": 35
+    },
+    {
+     "data": {
+      "Name": "minecraft:dead_bush"
+     },
+     "weight": 25
+    }
+   ]
+  },
+  "density": 0.03,
+  "noise_scale": 24.0,
+  "noise_influence": 0.85,
+  "biomes": [
+   "earthscapes:reg_plain",
+   "earthscapes:hamada_plateau",
+   "earthscapes:tassili_stone_forest"
+  ],
+  "salt": 13
+ }
+}

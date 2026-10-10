@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "earthscapes:baobab_fence",
+    "earthscapes:date_palm_fence",
+    "earthscapes:kapok_fence",
+    "earthscapes:larch_fence"
+  ]
+}

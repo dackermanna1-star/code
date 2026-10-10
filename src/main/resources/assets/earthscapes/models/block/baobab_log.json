@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "side": "earthscapes:block/baobab_log",
+    "end": "earthscapes:block/baobab_log_top"
+  }
+}

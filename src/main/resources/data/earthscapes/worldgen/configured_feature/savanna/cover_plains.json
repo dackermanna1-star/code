@@ -1,0 +1,54 @@
+{
+ "type": "earthscapes:ground_cover",
+ "config": {
+  "state": {
+   "type": "minecraft:weighted_state_provider",
+   "entries": [
+    {
+     "data": {
+      "Name": "earthscapes:tall_golden_grass",
+      "Properties": {
+       "half": "lower"
+      }
+     },
+     "weight": 46
+    },
+    {
+     "data": {
+      "Name": "earthscapes:golden_grass"
+     },
+     "weight": 34
+    },
+    {
+     "data": {
+      "Name": "earthscapes:red_oat_grass",
+      "Properties": {
+       "half": "lower"
+      }
+     },
+     "weight": 14
+    },
+    {
+     "data": {
+      "Name": "minecraft:short_dry_grass"
+     },
+     "weight": 4
+    },
+    {
+     "data": {
+      "Name": "minecraft:tall_dry_grass"
+     },
+     "weight": 2
+    }
+   ]
+  },
+  "density": 0.8,
+  "noise_scale": 18.0,
+  "noise_influence": 0.5,
+  "biomes": [
+   "earthscapes:serengeti_plains",
+   "earthscapes:kopje_plains"
+  ],
+  "salt": 1
+ }
+}

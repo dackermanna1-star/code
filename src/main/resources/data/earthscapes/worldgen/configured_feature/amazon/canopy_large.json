@@ -1,0 +1,71 @@
+{
+ "type": "earthscapes:broadleaf_tree",
+ "config": {
+  "trunk": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "minecraft:jungle_log",
+    "Properties": {
+     "axis": "y"
+    }
+   }
+  },
+  "vine": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "minecraft:vine"
+   }
+  },
+  "liana": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:liana",
+    "Properties": {
+     "tip": "true"
+    }
+   }
+  },
+  "epiphyte": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:bromeliad"
+   }
+  },
+  "leaves": {
+   "type": "minecraft:weighted_state_provider",
+   "entries": [
+    {
+     "data": {
+      "Name": "earthscapes:rainforest_leaves"
+     },
+     "weight": 70
+    },
+    {
+     "data": {
+      "Name": "minecraft:jungle_leaves"
+     },
+     "weight": 30
+    }
+   ]
+  },
+  "height": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 20,
+   "max_inclusive": 30
+  },
+  "trunk_width": 2,
+  "crown_radius": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 3.6,
+   "max_exclusive": 5.0
+  },
+  "branches": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 3,
+   "max_inclusive": 6
+  },
+  "crown_start": 0.55,
+  "buttresses": true,
+  "decoration_chance": 0.3
+ }
+}

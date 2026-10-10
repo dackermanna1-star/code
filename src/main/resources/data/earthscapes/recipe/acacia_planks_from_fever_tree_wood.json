@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "ingredients": [
+    "earthscapes:fever_tree_wood"
+  ],
+  "result": {
+    "count": 4,
+    "id": "minecraft:acacia_planks"
+  },
+  "group": "planks"
+}

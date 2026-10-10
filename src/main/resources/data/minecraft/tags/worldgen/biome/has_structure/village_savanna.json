@@ -1,0 +1,8 @@
+{
+ "replace": false,
+ "values": [
+  "earthscapes:serengeti_plains",
+  "earthscapes:acacia_woodland",
+  "earthscapes:baobab_savanna"
+ ]
+}

@@ -1,0 +1,11 @@
+{
+ "replace": false,
+ "values": [
+  "earthscapes:serengeti_plains",
+  "earthscapes:tsavo_red_earth",
+  "earthscapes:reg_plain",
+  "earthscapes:erg_margin",
+  "earthscapes:feather_grass_steppe",
+  "earthscapes:gobi_dry_steppe"
+ ]
+}

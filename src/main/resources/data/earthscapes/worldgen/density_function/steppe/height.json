@@ -1,0 +1,1021 @@
+{
+ "type": "minecraft:flat_cache",
+ "argument": {
+  "type": "minecraft:add",
+  "argument1": {
+   "type": "minecraft:add",
+   "argument1": {
+    "type": "minecraft:add",
+    "argument1": {
+     "type": "minecraft:add",
+     "argument1": {
+      "type": "minecraft:add",
+      "argument1": {
+       "type": "minecraft:add",
+       "argument1": {
+        "type": "minecraft:add",
+        "argument1": {
+         "type": "minecraft:add",
+         "argument1": 92.0,
+         "argument2": {
+          "type": "minecraft:mul",
+          "argument1": 12.0,
+          "argument2": {
+           "type": "minecraft:noise",
+           "noise": "earthscapes:steppe/hills",
+           "xz_scale": 1.0,
+           "y_scale": 0.0
+          }
+         }
+        },
+        "argument2": {
+         "type": "minecraft:mul",
+         "argument1": 5.0,
+         "argument2": {
+          "type": "minecraft:noise",
+          "noise": "earthscapes:steppe/roll",
+          "xz_scale": 1.0,
+          "y_scale": 0.0
+         }
+        }
+       },
+       "argument2": {
+        "type": "minecraft:mul",
+        "argument1": 1.2,
+        "argument2": {
+         "type": "minecraft:noise",
+         "noise": "earthscapes:steppe/detail",
+         "xz_scale": 1.0,
+         "y_scale": 0.0
+        }
+       }
+      },
+      "argument2": {
+       "type": "minecraft:mul",
+       "argument1": "earthscapes:steppe/mountain_mask",
+       "argument2": {
+        "type": "minecraft:add",
+        "argument1": 25.0,
+        "argument2": {
+         "type": "minecraft:mul",
+         "argument1": 230.0,
+         "argument2": {
+          "type": "minecraft:square",
+          "argument": {
+           "type": "minecraft:max",
+           "argument1": 0.0,
+           "argument2": "earthscapes:steppe/ridges"
+          }
+         }
+        }
+       }
+      }
+     },
+     "argument2": {
+      "type": "minecraft:mul",
+      "argument1": "earthscapes:steppe/massif",
+      "argument2": {
+       "type": "minecraft:add",
+       "argument1": 175.0,
+       "argument2": {
+        "type": "minecraft:mul",
+        "argument1": 45.0,
+        "argument2": "earthscapes:steppe/ridges"
+       }
+      }
+     }
+    },
+    "argument2": {
+     "type": "minecraft:mul",
+     "argument1": {
+      "type": "minecraft:mul",
+      "argument1": {
+       "type": "minecraft:spline",
+       "spline": {
+        "coordinate": "earthscapes:steppe/river",
+        "points": [
+         {
+          "location": 0.0,
+          "value": 1.0,
+          "derivative": 0.0
+         },
+         {
+          "location": 0.018,
+          "value": 1.0,
+          "derivative": 0.0
+         },
+         {
+          "location": 0.08,
+          "value": 0.0,
+          "derivative": 0.0
+         }
+        ]
+       }
+      },
+      "argument2": {
+       "type": "minecraft:add",
+       "argument1": 1.0,
+       "argument2": {
+        "type": "minecraft:mul",
+        "argument1": -1.0,
+        "argument2": "earthscapes:steppe/alpine"
+       }
+      }
+     },
+     "argument2": {
+      "type": "minecraft:add",
+      "argument1": {
+       "type": "minecraft:add",
+       "argument1": 66.0,
+       "argument2": {
+        "type": "minecraft:mul",
+        "argument1": 1.0,
+        "argument2": {
+         "type": "minecraft:noise",
+         "noise": "earthscapes:steppe/detail",
+         "xz_scale": 1.0,
+         "y_scale": 0.0
+        }
+       }
+      },
+      "argument2": {
+       "type": "minecraft:mul",
+       "argument1": -1.0,
+       "argument2": {
+        "type": "minecraft:add",
+        "argument1": {
+         "type": "minecraft:add",
+         "argument1": {
+          "type": "minecraft:add",
+          "argument1": {
+           "type": "minecraft:add",
+           "argument1": {
+            "type": "minecraft:add",
+            "argument1": 92.0,
+            "argument2": {
+             "type": "minecraft:mul",
+             "argument1": 12.0,
+             "argument2": {
+              "type": "minecraft:noise",
+              "noise": "earthscapes:steppe/hills",
+              "xz_scale": 1.0,
+              "y_scale": 0.0
+             }
+            }
+           },
+           "argument2": {
+            "type": "minecraft:mul",
+            "argument1": 5.0,
+            "argument2": {
+             "type": "minecraft:noise",
+             "noise": "earthscapes:steppe/roll",
+             "xz_scale": 1.0,
+             "y_scale": 0.0
+            }
+           }
+          },
+          "argument2": {
+           "type": "minecraft:mul",
+           "argument1": 1.2,
+           "argument2": {
+            "type": "minecraft:noise",
+            "noise": "earthscapes:steppe/detail",
+            "xz_scale": 1.0,
+            "y_scale": 0.0
+           }
+          }
+         },
+         "argument2": {
+          "type": "minecraft:mul",
+          "argument1": "earthscapes:steppe/mountain_mask",
+          "argument2": {
+           "type": "minecraft:add",
+           "argument1": 25.0,
+           "argument2": {
+            "type": "minecraft:mul",
+            "argument1": 230.0,
+            "argument2": {
+             "type": "minecraft:square",
+             "argument": {
+              "type": "minecraft:max",
+              "argument1": 0.0,
+              "argument2": "earthscapes:steppe/ridges"
+             }
+            }
+           }
+          }
+         }
+        },
+        "argument2": {
+         "type": "minecraft:mul",
+         "argument1": "earthscapes:steppe/massif",
+         "argument2": {
+          "type": "minecraft:add",
+          "argument1": 175.0,
+          "argument2": {
+           "type": "minecraft:mul",
+           "argument1": 45.0,
+           "argument2": "earthscapes:steppe/ridges"
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   },
+   "argument2": {
+    "type": "minecraft:mul",
+    "argument1": {
+     "type": "minecraft:mul",
+     "argument1": {
+      "type": "minecraft:spline",
+      "spline": {
+       "coordinate": "earthscapes:steppe/river",
+       "points": [
+        {
+         "location": 0.0,
+         "value": 1.0,
+         "derivative": 0.0
+        },
+        {
+         "location": 0.008,
+         "value": 1.0,
+         "derivative": 0.0
+        },
+        {
+         "location": 0.012,
+         "value": 0.0,
+         "derivative": 0.0
+        }
+       ]
+      }
+     },
+     "argument2": {
+      "type": "minecraft:add",
+      "argument1": 1.0,
+      "argument2": {
+       "type": "minecraft:mul",
+       "argument1": -1.0,
+       "argument2": "earthscapes:steppe/alpine"
+      }
+     }
+    },
+    "argument2": {
+     "type": "minecraft:add",
+     "argument1": 59.0,
+     "argument2": {
+      "type": "minecraft:mul",
+      "argument1": -1.0,
+      "argument2": {
+       "type": "minecraft:add",
+       "argument1": {
+        "type": "minecraft:add",
+        "argument1": {
+         "type": "minecraft:add",
+         "argument1": {
+          "type": "minecraft:add",
+          "argument1": {
+           "type": "minecraft:add",
+           "argument1": {
+            "type": "minecraft:add",
+            "argument1": 92.0,
+            "argument2": {
+             "type": "minecraft:mul",
+             "argument1": 12.0,
+             "argument2": {
+              "type": "minecraft:noise",
+              "noise": "earthscapes:steppe/hills",
+              "xz_scale": 1.0,
+              "y_scale": 0.0
+             }
+            }
+           },
+           "argument2": {
+            "type": "minecraft:mul",
+            "argument1": 5.0,
+            "argument2": {
+             "type": "minecraft:noise",
+             "noise": "earthscapes:steppe/roll",
+             "xz_scale": 1.0,
+             "y_scale": 0.0
+            }
+           }
+          },
+          "argument2": {
+           "type": "minecraft:mul",
+           "argument1": 1.2,
+           "argument2": {
+            "type": "minecraft:noise",
+            "noise": "earthscapes:steppe/detail",
+            "xz_scale": 1.0,
+            "y_scale": 0.0
+           }
+          }
+         },
+         "argument2": {
+          "type": "minecraft:mul",
+          "argument1": "earthscapes:steppe/mountain_mask",
+          "argument2": {
+           "type": "minecraft:add",
+           "argument1": 25.0,
+           "argument2": {
+            "type": "minecraft:mul",
+            "argument1": 230.0,
+            "argument2": {
+             "type": "minecraft:square",
+             "argument": {
+              "type": "minecraft:max",
+              "argument1": 0.0,
+              "argument2": "earthscapes:steppe/ridges"
+             }
+            }
+           }
+          }
+         }
+        },
+        "argument2": {
+         "type": "minecraft:mul",
+         "argument1": "earthscapes:steppe/massif",
+         "argument2": {
+          "type": "minecraft:add",
+          "argument1": 175.0,
+          "argument2": {
+           "type": "minecraft:mul",
+           "argument1": 45.0,
+           "argument2": "earthscapes:steppe/ridges"
+          }
+         }
+        }
+       },
+       "argument2": {
+        "type": "minecraft:mul",
+        "argument1": {
+         "type": "minecraft:mul",
+         "argument1": {
+          "type": "minecraft:spline",
+          "spline": {
+           "coordinate": "earthscapes:steppe/river",
+           "points": [
+            {
+             "location": 0.0,
+             "value": 1.0,
+             "derivative": 0.0
+            },
+            {
+             "location": 0.018,
+             "value": 1.0,
+             "derivative": 0.0
+            },
+            {
+             "location": 0.08,
+             "value": 0.0,
+             "derivative": 0.0
+            }
+           ]
+          }
+         },
+         "argument2": {
+          "type": "minecraft:add",
+          "argument1": 1.0,
+          "argument2": {
+           "type": "minecraft:mul",
+           "argument1": -1.0,
+           "argument2": "earthscapes:steppe/alpine"
+          }
+         }
+        },
+        "argument2": {
+         "type": "minecraft:add",
+         "argument1": {
+          "type": "minecraft:add",
+          "argument1": 66.0,
+          "argument2": {
+           "type": "minecraft:mul",
+           "argument1": 1.0,
+           "argument2": {
+            "type": "minecraft:noise",
+            "noise": "earthscapes:steppe/detail",
+            "xz_scale": 1.0,
+            "y_scale": 0.0
+           }
+          }
+         },
+         "argument2": {
+          "type": "minecraft:mul",
+          "argument1": -1.0,
+          "argument2": {
+           "type": "minecraft:add",
+           "argument1": {
+            "type": "minecraft:add",
+            "argument1": {
+             "type": "minecraft:add",
+             "argument1": {
+              "type": "minecraft:add",
+              "argument1": {
+               "type": "minecraft:add",
+               "argument1": 92.0,
+               "argument2": {
+                "type": "minecraft:mul",
+                "argument1": 12.0,
+                "argument2": {
+                 "type": "minecraft:noise",
+                 "noise": "earthscapes:steppe/hills",
+                 "xz_scale": 1.0,
+                 "y_scale": 0.0
+                }
+               }
+              },
+              "argument2": {
+               "type": "minecraft:mul",
+               "argument1": 5.0,
+               "argument2": {
+                "type": "minecraft:noise",
+                "noise": "earthscapes:steppe/roll",
+                "xz_scale": 1.0,
+                "y_scale": 0.0
+               }
+              }
+             },
+             "argument2": {
+              "type": "minecraft:mul",
+              "argument1": 1.2,
+              "argument2": {
+               "type": "minecraft:noise",
+               "noise": "earthscapes:steppe/detail",
+               "xz_scale": 1.0,
+               "y_scale": 0.0
+              }
+             }
+            },
+            "argument2": {
+             "type": "minecraft:mul",
+             "argument1": "earthscapes:steppe/mountain_mask",
+             "argument2": {
+              "type": "minecraft:add",
+              "argument1": 25.0,
+              "argument2": {
+               "type": "minecraft:mul",
+               "argument1": 230.0,
+               "argument2": {
+                "type": "minecraft:square",
+                "argument": {
+                 "type": "minecraft:max",
+                 "argument1": 0.0,
+                 "argument2": "earthscapes:steppe/ridges"
+                }
+               }
+              }
+             }
+            }
+           },
+           "argument2": {
+            "type": "minecraft:mul",
+            "argument1": "earthscapes:steppe/massif",
+            "argument2": {
+             "type": "minecraft:add",
+             "argument1": 175.0,
+             "argument2": {
+              "type": "minecraft:mul",
+              "argument1": 45.0,
+              "argument2": "earthscapes:steppe/ridges"
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "argument2": {
+   "type": "minecraft:mul",
+   "argument1": {
+    "type": "minecraft:mul",
+    "argument1": {
+     "type": "earthscapes:cell_bumps",
+     "noise": "earthscapes:steppe/lakes",
+     "cell_size": 900,
+     "chance": 0.14,
+     "radius_min": 36.0,
+     "radius_max": 80.0,
+     "height_min": 1.0,
+     "height_max": 1.0,
+     "edge_power": 2.0,
+     "profile_power": 0.9,
+     "jitter": 0.8,
+     "elongation": 1.0
+    },
+    "argument2": {
+     "type": "minecraft:add",
+     "argument1": 1.0,
+     "argument2": {
+      "type": "minecraft:mul",
+      "argument1": -1.0,
+      "argument2": "earthscapes:steppe/alpine"
+     }
+    }
+   },
+   "argument2": {
+    "type": "minecraft:add",
+    "argument1": 57.0,
+    "argument2": {
+     "type": "minecraft:mul",
+     "argument1": -1.0,
+     "argument2": {
+      "type": "minecraft:add",
+      "argument1": {
+       "type": "minecraft:add",
+       "argument1": {
+        "type": "minecraft:add",
+        "argument1": {
+         "type": "minecraft:add",
+         "argument1": {
+          "type": "minecraft:add",
+          "argument1": {
+           "type": "minecraft:add",
+           "argument1": {
+            "type": "minecraft:add",
+            "argument1": 92.0,
+            "argument2": {
+             "type": "minecraft:mul",
+             "argument1": 12.0,
+             "argument2": {
+              "type": "minecraft:noise",
+              "noise": "earthscapes:steppe/hills",
+              "xz_scale": 1.0,
+              "y_scale": 0.0
+             }
+            }
+           },
+           "argument2": {
+            "type": "minecraft:mul",
+            "argument1": 5.0,
+            "argument2": {
+             "type": "minecraft:noise",
+             "noise": "earthscapes:steppe/roll",
+             "xz_scale": 1.0,
+             "y_scale": 0.0
+            }
+           }
+          },
+          "argument2": {
+           "type": "minecraft:mul",
+           "argument1": 1.2,
+           "argument2": {
+            "type": "minecraft:noise",
+            "noise": "earthscapes:steppe/detail",
+            "xz_scale": 1.0,
+            "y_scale": 0.0
+           }
+          }
+         },
+         "argument2": {
+          "type": "minecraft:mul",
+          "argument1": "earthscapes:steppe/mountain_mask",
+          "argument2": {
+           "type": "minecraft:add",
+           "argument1": 25.0,
+           "argument2": {
+            "type": "minecraft:mul",
+            "argument1": 230.0,
+            "argument2": {
+             "type": "minecraft:square",
+             "argument": {
+              "type": "minecraft:max",
+              "argument1": 0.0,
+              "argument2": "earthscapes:steppe/ridges"
+             }
+            }
+           }
+          }
+         }
+        },
+        "argument2": {
+         "type": "minecraft:mul",
+         "argument1": "earthscapes:steppe/massif",
+         "argument2": {
+          "type": "minecraft:add",
+          "argument1": 175.0,
+          "argument2": {
+           "type": "minecraft:mul",
+           "argument1": 45.0,
+           "argument2": "earthscapes:steppe/ridges"
+          }
+         }
+        }
+       },
+       "argument2": {
+        "type": "minecraft:mul",
+        "argument1": {
+         "type": "minecraft:mul",
+         "argument1": {
+          "type": "minecraft:spline",
+          "spline": {
+           "coordinate": "earthscapes:steppe/river",
+           "points": [
+            {
+             "location": 0.0,
+             "value": 1.0,
+             "derivative": 0.0
+            },
+            {
+             "location": 0.018,
+             "value": 1.0,
+             "derivative": 0.0
+            },
+            {
+             "location": 0.08,
+             "value": 0.0,
+             "derivative": 0.0
+            }
+           ]
+          }
+         },
+         "argument2": {
+          "type": "minecraft:add",
+          "argument1": 1.0,
+          "argument2": {
+           "type": "minecraft:mul",
+           "argument1": -1.0,
+           "argument2": "earthscapes:steppe/alpine"
+          }
+         }
+        },
+        "argument2": {
+         "type": "minecraft:add",
+         "argument1": {
+          "type": "minecraft:add",
+          "argument1": 66.0,
+          "argument2": {
+           "type": "minecraft:mul",
+           "argument1": 1.0,
+           "argument2": {
+            "type": "minecraft:noise",
+            "noise": "earthscapes:steppe/detail",
+            "xz_scale": 1.0,
+            "y_scale": 0.0
+           }
+          }
+         },
+         "argument2": {
+          "type": "minecraft:mul",
+          "argument1": -1.0,
+          "argument2": {
+           "type": "minecraft:add",
+           "argument1": {
+            "type": "minecraft:add",
+            "argument1": {
+             "type": "minecraft:add",
+             "argument1": {
+              "type": "minecraft:add",
+              "argument1": {
+               "type": "minecraft:add",
+               "argument1": 92.0,
+               "argument2": {
+                "type": "minecraft:mul",
+                "argument1": 12.0,
+                "argument2": {
+                 "type": "minecraft:noise",
+                 "noise": "earthscapes:steppe/hills",
+                 "xz_scale": 1.0,
+                 "y_scale": 0.0
+                }
+               }
+              },
+              "argument2": {
+               "type": "minecraft:mul",
+               "argument1": 5.0,
+               "argument2": {
+                "type": "minecraft:noise",
+                "noise": "earthscapes:steppe/roll",
+                "xz_scale": 1.0,
+                "y_scale": 0.0
+               }
+              }
+             },
+             "argument2": {
+              "type": "minecraft:mul",
+              "argument1": 1.2,
+              "argument2": {
+               "type": "minecraft:noise",
+               "noise": "earthscapes:steppe/detail",
+               "xz_scale": 1.0,
+               "y_scale": 0.0
+              }
+             }
+            },
+            "argument2": {
+             "type": "minecraft:mul",
+             "argument1": "earthscapes:steppe/mountain_mask",
+             "argument2": {
+              "type": "minecraft:add",
+              "argument1": 25.0,
+              "argument2": {
+               "type": "minecraft:mul",
+               "argument1": 230.0,
+               "argument2": {
+                "type": "minecraft:square",
+                "argument": {
+                 "type": "minecraft:max",
+                 "argument1": 0.0,
+                 "argument2": "earthscapes:steppe/ridges"
+                }
+               }
+              }
+             }
+            }
+           },
+           "argument2": {
+            "type": "minecraft:mul",
+            "argument1": "earthscapes:steppe/massif",
+            "argument2": {
+             "type": "minecraft:add",
+             "argument1": 175.0,
+             "argument2": {
+              "type": "minecraft:mul",
+              "argument1": 45.0,
+              "argument2": "earthscapes:steppe/ridges"
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      },
+      "argument2": {
+       "type": "minecraft:mul",
+       "argument1": {
+        "type": "minecraft:mul",
+        "argument1": {
+         "type": "minecraft:spline",
+         "spline": {
+          "coordinate": "earthscapes:steppe/river",
+          "points": [
+           {
+            "location": 0.0,
+            "value": 1.0,
+            "derivative": 0.0
+           },
+           {
+            "location": 0.008,
+            "value": 1.0,
+            "derivative": 0.0
+           },
+           {
+            "location": 0.012,
+            "value": 0.0,
+            "derivative": 0.0
+           }
+          ]
+         }
+        },
+        "argument2": {
+         "type": "minecraft:add",
+         "argument1": 1.0,
+         "argument2": {
+          "type": "minecraft:mul",
+          "argument1": -1.0,
+          "argument2": "earthscapes:steppe/alpine"
+         }
+        }
+       },
+       "argument2": {
+        "type": "minecraft:add",
+        "argument1": 59.0,
+        "argument2": {
+         "type": "minecraft:mul",
+         "argument1": -1.0,
+         "argument2": {
+          "type": "minecraft:add",
+          "argument1": {
+           "type": "minecraft:add",
+           "argument1": {
+            "type": "minecraft:add",
+            "argument1": {
+             "type": "minecraft:add",
+             "argument1": {
+              "type": "minecraft:add",
+              "argument1": {
+               "type": "minecraft:add",
+               "argument1": 92.0,
+               "argument2": {
+                "type": "minecraft:mul",
+                "argument1": 12.0,
+                "argument2": {
+                 "type": "minecraft:noise",
+                 "noise": "earthscapes:steppe/hills",
+                 "xz_scale": 1.0,
+                 "y_scale": 0.0
+                }
+               }
+              },
+              "argument2": {
+               "type": "minecraft:mul",
+               "argument1": 5.0,
+               "argument2": {
+                "type": "minecraft:noise",
+                "noise": "earthscapes:steppe/roll",
+                "xz_scale": 1.0,
+                "y_scale": 0.0
+               }
+              }
+             },
+             "argument2": {
+              "type": "minecraft:mul",
+              "argument1": 1.2,
+              "argument2": {
+               "type": "minecraft:noise",
+               "noise": "earthscapes:steppe/detail",
+               "xz_scale": 1.0,
+               "y_scale": 0.0
+              }
+             }
+            },
+            "argument2": {
+             "type": "minecraft:mul",
+             "argument1": "earthscapes:steppe/mountain_mask",
+             "argument2": {
+              "type": "minecraft:add",
+              "argument1": 25.0,
+              "argument2": {
+               "type": "minecraft:mul",
+               "argument1": 230.0,
+               "argument2": {
+                "type": "minecraft:square",
+                "argument": {
+                 "type": "minecraft:max",
+                 "argument1": 0.0,
+                 "argument2": "earthscapes:steppe/ridges"
+                }
+               }
+              }
+             }
+            }
+           },
+           "argument2": {
+            "type": "minecraft:mul",
+            "argument1": "earthscapes:steppe/massif",
+            "argument2": {
+             "type": "minecraft:add",
+             "argument1": 175.0,
+             "argument2": {
+              "type": "minecraft:mul",
+              "argument1": 45.0,
+              "argument2": "earthscapes:steppe/ridges"
+             }
+            }
+           }
+          },
+          "argument2": {
+           "type": "minecraft:mul",
+           "argument1": {
+            "type": "minecraft:mul",
+            "argument1": {
+             "type": "minecraft:spline",
+             "spline": {
+              "coordinate": "earthscapes:steppe/river",
+              "points": [
+               {
+                "location": 0.0,
+                "value": 1.0,
+                "derivative": 0.0
+               },
+               {
+                "location": 0.018,
+                "value": 1.0,
+                "derivative": 0.0
+               },
+               {
+                "location": 0.08,
+                "value": 0.0,
+                "derivative": 0.0
+               }
+              ]
+             }
+            },
+            "argument2": {
+             "type": "minecraft:add",
+             "argument1": 1.0,
+             "argument2": {
+              "type": "minecraft:mul",
+              "argument1": -1.0,
+              "argument2": "earthscapes:steppe/alpine"
+             }
+            }
+           },
+           "argument2": {
+            "type": "minecraft:add",
+            "argument1": {
+             "type": "minecraft:add",
+             "argument1": 66.0,
+             "argument2": {
+              "type": "minecraft:mul",
+              "argument1": 1.0,
+              "argument2": {
+               "type": "minecraft:noise",
+               "noise": "earthscapes:steppe/detail",
+               "xz_scale": 1.0,
+               "y_scale": 0.0
+              }
+             }
+            },
+            "argument2": {
+             "type": "minecraft:mul",
+             "argument1": -1.0,
+             "argument2": {
+              "type": "minecraft:add",
+              "argument1": {
+               "type": "minecraft:add",
+               "argument1": {
+                "type": "minecraft:add",
+                "argument1": {
+                 "type": "minecraft:add",
+                 "argument1": {
+                  "type": "minecraft:add",
+                  "argument1": 92.0,
+                  "argument2": {
+                   "type": "minecraft:mul",
+                   "argument1": 12.0,
+                   "argument2": {
+                    "type": "minecraft:noise",
+                    "noise": "earthscapes:steppe/hills",
+                    "xz_scale": 1.0,
+                    "y_scale": 0.0
+                   }
+                  }
+                 },
+                 "argument2": {
+                  "type": "minecraft:mul",
+                  "argument1": 5.0,
+                  "argument2": {
+                   "type": "minecraft:noise",
+                   "noise": "earthscapes:steppe/roll",
+                   "xz_scale": 1.0,
+                   "y_scale": 0.0
+                  }
+                 }
+                },
+                "argument2": {
+                 "type": "minecraft:mul",
+                 "argument1": 1.2,
+                 "argument2": {
+                  "type": "minecraft:noise",
+                  "noise": "earthscapes:steppe/detail",
+                  "xz_scale": 1.0,
+                  "y_scale": 0.0
+                 }
+                }
+               },
+               "argument2": {
+                "type": "minecraft:mul",
+                "argument1": "earthscapes:steppe/mountain_mask",
+                "argument2": {
+                 "type": "minecraft:add",
+                 "argument1": 25.0,
+                 "argument2": {
+                  "type": "minecraft:mul",
+                  "argument1": 230.0,
+                  "argument2": {
+                   "type": "minecraft:square",
+                   "argument": {
+                    "type": "minecraft:max",
+                    "argument1": 0.0,
+                    "argument2": "earthscapes:steppe/ridges"
+                   }
+                  }
+                 }
+                }
+               }
+              },
+              "argument2": {
+               "type": "minecraft:mul",
+               "argument1": "earthscapes:steppe/massif",
+               "argument2": {
+                "type": "minecraft:add",
+                "argument1": 175.0,
+                "argument2": {
+                 "type": "minecraft:mul",
+                 "argument1": 45.0,
+                 "argument2": "earthscapes:steppe/ridges"
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

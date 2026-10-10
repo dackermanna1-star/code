@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column_horizontal",
+  "textures": {
+    "side": "earthscapes:block/euphorbia",
+    "end": "earthscapes:block/euphorbia_top"
+  }
+}

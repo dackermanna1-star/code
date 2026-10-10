@@ -1,0 +1,12 @@
+{
+ "type": "minecraft:random_patch",
+ "config": {
+  "tries": 5,
+  "xz_spread": 2,
+  "y_spread": 1,
+  "feature": {
+   "feature": "earthscapes:amazon/acai_palm",
+   "placement": []
+  }
+ }
+}

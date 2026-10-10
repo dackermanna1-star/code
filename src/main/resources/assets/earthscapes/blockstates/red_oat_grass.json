@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "half=lower": {
+      "model": "earthscapes:block/red_oat_grass_bottom"
+    },
+    "half=upper": {
+      "model": "earthscapes:block/red_oat_grass_top"
+    }
+  }
+}

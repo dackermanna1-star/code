@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "earthscapes:larch_log",
+    "earthscapes:larch_wood",
+    "earthscapes:stripped_larch_log",
+    "earthscapes:stripped_larch_wood"
+  ]
+}

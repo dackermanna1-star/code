@@ -1,0 +1,8 @@
+{
+  "type": "minecraft:stonecutting",
+  "ingredient": "earthscapes:kopje_granite",
+  "result": {
+    "count": 1,
+    "id": "minecraft:polished_granite"
+  }
+}

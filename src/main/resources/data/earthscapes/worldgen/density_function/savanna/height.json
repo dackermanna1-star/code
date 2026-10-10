@@ -1,0 +1,176 @@
+{
+ "type": "minecraft:flat_cache",
+ "argument": {
+  "type": "minecraft:add",
+  "argument1": {
+   "type": "minecraft:add",
+   "argument1": {
+    "type": "minecraft:add",
+    "argument1": "earthscapes:savanna/land",
+    "argument2": {
+     "type": "minecraft:mul",
+     "argument1": {
+      "type": "minecraft:spline",
+      "spline": {
+       "coordinate": "earthscapes:savanna/river",
+       "points": [
+        {
+         "location": 0.0,
+         "value": 1.0,
+         "derivative": 0.0
+        },
+        {
+         "location": 0.02,
+         "value": 1.0,
+         "derivative": 0.0
+        },
+        {
+         "location": 0.06,
+         "value": 0.0,
+         "derivative": 0.0
+        }
+       ]
+      }
+     },
+     "argument2": {
+      "type": "minecraft:add",
+      "argument1": 66.0,
+      "argument2": {
+       "type": "minecraft:mul",
+       "argument1": -1.0,
+       "argument2": "earthscapes:savanna/land"
+      }
+     }
+    }
+   },
+   "argument2": {
+    "type": "minecraft:mul",
+    "argument1": {
+     "type": "minecraft:spline",
+     "spline": {
+      "coordinate": "earthscapes:savanna/river",
+      "points": [
+       {
+        "location": 0.0,
+        "value": 1.0,
+        "derivative": 0.0
+       },
+       {
+        "location": 0.0105,
+        "value": 1.0,
+        "derivative": 0.0
+       },
+       {
+        "location": 0.017,
+        "value": 0.0,
+        "derivative": 0.0
+       }
+      ]
+     }
+    },
+    "argument2": {
+     "type": "minecraft:add",
+     "argument1": 58.0,
+     "argument2": {
+      "type": "minecraft:mul",
+      "argument1": -1.0,
+      "argument2": {
+       "type": "minecraft:add",
+       "argument1": "earthscapes:savanna/land",
+       "argument2": {
+        "type": "minecraft:mul",
+        "argument1": {
+         "type": "minecraft:spline",
+         "spline": {
+          "coordinate": "earthscapes:savanna/river",
+          "points": [
+           {
+            "location": 0.0,
+            "value": 1.0,
+            "derivative": 0.0
+           },
+           {
+            "location": 0.02,
+            "value": 1.0,
+            "derivative": 0.0
+           },
+           {
+            "location": 0.06,
+            "value": 0.0,
+            "derivative": 0.0
+           }
+          ]
+         }
+        },
+        "argument2": {
+         "type": "minecraft:add",
+         "argument1": 66.0,
+         "argument2": {
+          "type": "minecraft:mul",
+          "argument1": -1.0,
+          "argument2": "earthscapes:savanna/land"
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "argument2": {
+   "type": "minecraft:mul",
+   "argument1": -1.0,
+   "argument2": {
+    "type": "minecraft:mul",
+    "argument1": {
+     "type": "minecraft:mul",
+     "argument1": "earthscapes:savanna/waterholes",
+     "argument2": 13.0
+    },
+    "argument2": {
+     "type": "minecraft:mul",
+     "argument1": {
+      "type": "minecraft:add",
+      "argument1": 1.0,
+      "argument2": {
+       "type": "minecraft:mul",
+       "argument1": -1.0,
+       "argument2": "earthscapes:savanna/highland"
+      }
+     },
+     "argument2": {
+      "type": "minecraft:add",
+      "argument1": 1.0,
+      "argument2": {
+       "type": "minecraft:mul",
+       "argument1": -1.0,
+       "argument2": {
+        "type": "minecraft:spline",
+        "spline": {
+         "coordinate": "earthscapes:savanna/river",
+         "points": [
+          {
+           "location": 0.0,
+           "value": 1.0,
+           "derivative": 0.0
+          },
+          {
+           "location": 0.02,
+           "value": 1.0,
+           "derivative": 0.0
+          },
+          {
+           "location": 0.06,
+           "value": 0.0,
+           "derivative": 0.0
+          }
+         ]
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

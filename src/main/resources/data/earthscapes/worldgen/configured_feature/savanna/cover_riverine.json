@@ -1,0 +1,48 @@
+{
+ "type": "earthscapes:ground_cover",
+ "config": {
+  "state": {
+   "type": "minecraft:weighted_state_provider",
+   "entries": [
+    {
+     "data": {
+      "Name": "minecraft:short_grass"
+     },
+     "weight": 45
+    },
+    {
+     "data": {
+      "Name": "minecraft:tall_grass",
+      "Properties": {
+       "half": "lower"
+      }
+     },
+     "weight": 30
+    },
+    {
+     "data": {
+      "Name": "minecraft:fern"
+     },
+     "weight": 10
+    },
+    {
+     "data": {
+      "Name": "earthscapes:tall_golden_grass",
+      "Properties": {
+       "half": "lower"
+      }
+     },
+     "weight": 15
+    }
+   ]
+  },
+  "density": 0.7,
+  "noise_scale": 18.0,
+  "noise_influence": 0.5,
+  "biomes": [
+   "earthscapes:fever_tree_riverine",
+   "earthscapes:savanna_river"
+  ],
+  "salt": 5
+ }
+}

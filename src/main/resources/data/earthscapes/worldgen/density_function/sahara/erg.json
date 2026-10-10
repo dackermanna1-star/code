@@ -1,0 +1,16 @@
+{
+ "type": "minecraft:flat_cache",
+ "argument": {
+  "type": "minecraft:add",
+  "argument1": 0.16,
+  "argument2": {
+   "type": "minecraft:shifted_noise",
+   "noise": "earthscapes:sahara/erg",
+   "xz_scale": 1.0,
+   "y_scale": 0.0,
+   "shift_x": "minecraft:shift_x",
+   "shift_y": 0.0,
+   "shift_z": "minecraft:shift_z"
+  }
+ }
+}

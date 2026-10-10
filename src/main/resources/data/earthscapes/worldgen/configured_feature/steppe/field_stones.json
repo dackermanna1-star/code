@@ -1,0 +1,46 @@
+{
+ "type": "earthscapes:boulders",
+ "config": {
+  "block": {
+   "type": "minecraft:weighted_state_provider",
+   "entries": [
+    {
+     "data": {
+      "Name": "minecraft:stone"
+     },
+     "weight": 50
+    },
+    {
+     "data": {
+      "Name": "minecraft:andesite"
+     },
+     "weight": 30
+    },
+    {
+     "data": {
+      "Name": "minecraft:cobblestone"
+     },
+     "weight": 20
+    }
+   ]
+  },
+  "dome_radius": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 0.0,
+   "max_exclusive": 0.5
+  },
+  "boulders": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 1,
+   "max_inclusive": 3
+  },
+  "boulder_radius": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 0.7,
+   "max_exclusive": 1.5
+  },
+  "spread": 3.0,
+  "stack_chance": 0.2,
+  "crack_chance": 0.1
+ }
+}

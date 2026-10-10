@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "earthscapes:kopje_granite",
+    "earthscapes:sahara_sandstone",
+    "earthscapes:hamada_stone"
+  ]
+}

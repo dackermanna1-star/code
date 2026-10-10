@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    "earthscapes:desert_pavement",
+    "earthscapes:kopje_granite",
+    "minecraft:gravel",
+    "minecraft:clay",
+    "minecraft:stone",
+    "minecraft:granite",
+    "minecraft:andesite",
+    "earthscapes:salt_crust"
+  ]
+}

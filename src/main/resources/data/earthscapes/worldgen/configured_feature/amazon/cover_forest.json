@@ -1,0 +1,96 @@
+{
+ "type": "earthscapes:ground_cover",
+ "config": {
+  "state": {
+   "type": "minecraft:weighted_state_provider",
+   "entries": [
+    {
+     "data": {
+      "Name": "minecraft:fern"
+     },
+     "weight": 26
+    },
+    {
+     "data": {
+      "Name": "minecraft:large_fern",
+      "Properties": {
+       "half": "lower"
+      }
+     },
+     "weight": 12
+    },
+    {
+     "data": {
+      "Name": "minecraft:leaf_litter",
+      "Properties": {
+       "facing": "north",
+       "segment_amount": "4"
+      }
+     },
+     "weight": 12
+    },
+    {
+     "data": {
+      "Name": "minecraft:leaf_litter",
+      "Properties": {
+       "facing": "east",
+       "segment_amount": "3"
+      }
+     },
+     "weight": 6
+    },
+    {
+     "data": {
+      "Name": "earthscapes:heliconia",
+      "Properties": {
+       "half": "lower"
+      }
+     },
+     "weight": 6
+    },
+    {
+     "data": {
+      "Name": "earthscapes:giant_taro",
+      "Properties": {
+       "half": "lower"
+      }
+     },
+     "weight": 7
+    },
+    {
+     "data": {
+      "Name": "earthscapes:bromeliad"
+     },
+     "weight": 5
+    },
+    {
+     "data": {
+      "Name": "minecraft:bush"
+     },
+     "weight": 10
+    },
+    {
+     "data": {
+      "Name": "minecraft:short_grass"
+     },
+     "weight": 6
+    },
+    {
+     "data": {
+      "Name": "minecraft:moss_carpet"
+     },
+     "weight": 5
+    }
+   ]
+  },
+  "density": 0.62,
+  "noise_scale": 12.0,
+  "noise_influence": 0.5,
+  "biomes": [
+   "earthscapes:amazon_rainforest",
+   "earthscapes:emergent_rainforest",
+   "earthscapes:rainforest_hills"
+  ],
+  "salt": 21
+ }
+}

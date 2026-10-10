@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "ingredients": [
+    "earthscapes:sahara_sand_layer",
+    "earthscapes:sahara_sand_layer",
+    "earthscapes:sahara_sand_layer",
+    "earthscapes:sahara_sand_layer"
+  ],
+  "result": {
+    "count": 1,
+    "id": "earthscapes:sahara_sand"
+  }
+}

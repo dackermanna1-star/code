@@ -1,0 +1,25 @@
+{
+  "replace": false,
+  "values": [
+    "earthscapes:baobab_log",
+    "earthscapes:baobab_wood",
+    "earthscapes:stripped_baobab_log",
+    "earthscapes:stripped_baobab_wood",
+    "earthscapes:fever_tree_log",
+    "earthscapes:fever_tree_wood",
+    "earthscapes:date_palm_log",
+    "earthscapes:date_palm_wood",
+    "earthscapes:stripped_date_palm_log",
+    "earthscapes:stripped_date_palm_wood",
+    "earthscapes:kapok_log",
+    "earthscapes:kapok_wood",
+    "earthscapes:stripped_kapok_log",
+    "earthscapes:stripped_kapok_wood",
+    "earthscapes:cecropia_log",
+    "earthscapes:acai_palm_log",
+    "earthscapes:larch_log",
+    "earthscapes:larch_wood",
+    "earthscapes:stripped_larch_log",
+    "earthscapes:stripped_larch_wood"
+  ]
+}

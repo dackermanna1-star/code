@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "earthscapes:block/date_palm_sapling"
+  }
+}

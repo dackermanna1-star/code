@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "ingredients": [
+    "#earthscapes:date_palm_logs"
+  ],
+  "result": {
+    "count": 4,
+    "id": "earthscapes:date_palm_planks"
+  },
+  "group": "planks"
+}

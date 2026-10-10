@@ -1,0 +1,36 @@
+{
+ "type": "earthscapes:larch",
+ "config": {
+  "trunk": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:larch_log",
+    "Properties": {
+     "axis": "y"
+    }
+   }
+  },
+  "leaves": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:larch_leaves"
+   }
+  },
+  "height": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 13,
+   "max_inclusive": 24
+  },
+  "crown_start": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 0.22,
+   "max_exclusive": 0.35
+  },
+  "branch_length": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 2.6,
+   "max_exclusive": 4.2
+  },
+  "density": 0.75
+ }
+}

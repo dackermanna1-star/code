@@ -1,0 +1,22 @@
+{
+	"schemaVersion": 1,
+	"id": "earthscapes",
+	"version": "${version}",
+	"name": "Earthscapes",
+	"description": "Four new world types faithful to real landscapes: the African Savanna, the Sahara Desert, the Amazon Rainforest and the Mongolian Steppe.",
+	"authors": ["Earthscapes"],
+	"contact": {},
+	"license": "MIT",
+	"icon": "assets/earthscapes/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": ["net.earthscapes.Earthscapes"],
+		"client": ["net.earthscapes.client.EarthscapesClient"]
+	},
+	"depends": {
+		"fabricloader": ">=0.17.0",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "half=lower": {
+      "model": "earthscapes:block/giant_taro_bottom"
+    },
+    "half=upper": {
+      "model": "earthscapes:block/giant_taro_top"
+    }
+  }
+}

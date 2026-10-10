@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "axis=x": {
+      "model": "earthscapes:block/euphorbia_horizontal",
+      "x": 90,
+      "y": 90
+    },
+    "axis=y": {
+      "model": "earthscapes:block/euphorbia"
+    },
+    "axis=z": {
+      "model": "earthscapes:block/euphorbia_horizontal",
+      "x": 90
+    }
+  }
+}

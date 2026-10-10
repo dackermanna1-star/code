@@ -1,0 +1,15 @@
+{
+ "replace": false,
+ "values": [
+  "earthscapes:great_erg",
+  "earthscapes:sahara_sand_sea",
+  "earthscapes:erg_margin",
+  "earthscapes:sahara_oasis",
+  "earthscapes:reg_plain",
+  "earthscapes:hamada_plateau",
+  "earthscapes:hoggar_mountains",
+  "earthscapes:tassili_stone_forest",
+  "earthscapes:sahara_wadi",
+  "earthscapes:chott_salt_flat"
+ ]
+}

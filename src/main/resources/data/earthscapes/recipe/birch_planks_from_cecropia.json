@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "ingredients": [
+    "earthscapes:cecropia_log"
+  ],
+  "result": {
+    "count": 4,
+    "id": "minecraft:birch_planks"
+  },
+  "group": "planks"
+}

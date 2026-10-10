@@ -1,0 +1,43 @@
+{
+ "type": "earthscapes:palm",
+ "config": {
+  "trunk": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:acai_palm_log",
+    "Properties": {
+     "axis": "y"
+    }
+   }
+  },
+  "fronds": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:buriti_palm_leaves"
+   }
+  },
+  "height": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 13,
+   "max_inclusive": 21
+  },
+  "curve": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 0.0,
+   "max_exclusive": 0.15
+  },
+  "frond_count": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 10,
+   "max_inclusive": 14
+  },
+  "frond_length": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 3.6,
+   "max_exclusive": 5.0
+  },
+  "droop": 0.12,
+  "style": "fan",
+  "flood_depth": 3
+ }
+}

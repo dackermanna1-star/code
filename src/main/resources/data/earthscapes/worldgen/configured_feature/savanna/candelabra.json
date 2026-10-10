@@ -1,0 +1,29 @@
+{
+ "type": "earthscapes:candelabra",
+ "config": {
+  "stem": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:euphorbia",
+    "Properties": {
+     "axis": "y"
+    }
+   }
+  },
+  "trunk_height": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 2,
+   "max_inclusive": 4
+  },
+  "arms": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 4,
+   "max_inclusive": 8
+  },
+  "arm_height": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 2,
+   "max_inclusive": 5
+  }
+ }
+}

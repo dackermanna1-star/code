@@ -1,0 +1,613 @@
+{
+ "dimensions": {
+  "minecraft:overworld": {
+   "type": "minecraft:overworld",
+   "generator": {
+    "type": "minecraft:noise",
+    "biome_source": {
+     "type": "minecraft:multi_noise",
+     "biomes": [
+      {
+       "biome": "earthscapes:savanna_river",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         2.0
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         -2.0,
+         0.016
+        ],
+        "depth": 0.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:savanna_river",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         2.0
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         -2.0,
+         0.016
+        ],
+        "depth": 1.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:fever_tree_riverine",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         2.0
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         0.016,
+         0.045
+        ],
+        "depth": 0.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:fever_tree_riverine",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         2.0
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         0.016,
+         0.045
+        ],
+        "depth": 1.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:rift_highlands",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         0.55,
+         2.0
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         0.045,
+         2.0
+        ],
+        "depth": 0.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:rift_highlands",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         0.55,
+         2.0
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         0.045,
+         2.0
+        ],
+        "depth": 1.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:acacia_woodland",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         0.3,
+         0.55
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         0.045,
+         2.0
+        ],
+        "depth": 0.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:acacia_woodland",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         0.3,
+         0.55
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         0.045,
+         2.0
+        ],
+        "depth": 1.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:kopje_plains",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         0.3
+        ],
+        "erosion": [
+         0.33,
+         2.0
+        ],
+        "weirdness": [
+         0.045,
+         2.0
+        ],
+        "depth": 0.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:kopje_plains",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         0.3
+        ],
+        "erosion": [
+         0.33,
+         2.0
+        ],
+        "weirdness": [
+         0.045,
+         2.0
+        ],
+        "depth": 1.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:baobab_savanna",
+       "parameters": {
+        "temperature": [
+         0.22,
+         2.0
+        ],
+        "humidity": [
+         0.15,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         0.3
+        ],
+        "erosion": [
+         -2.0,
+         0.33
+        ],
+        "weirdness": [
+         0.045,
+         2.0
+        ],
+        "depth": 0.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:baobab_savanna",
+       "parameters": {
+        "temperature": [
+         0.22,
+         2.0
+        ],
+        "humidity": [
+         0.15,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         0.3
+        ],
+        "erosion": [
+         -2.0,
+         0.33
+        ],
+        "weirdness": [
+         0.045,
+         2.0
+        ],
+        "depth": 1.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:tsavo_red_earth",
+       "parameters": {
+        "temperature": [
+         0.22,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         0.15
+        ],
+        "continentalness": [
+         -2.0,
+         0.3
+        ],
+        "erosion": [
+         -2.0,
+         0.33
+        ],
+        "weirdness": [
+         0.045,
+         2.0
+        ],
+        "depth": 0.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:tsavo_red_earth",
+       "parameters": {
+        "temperature": [
+         0.22,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         0.15
+        ],
+        "continentalness": [
+         -2.0,
+         0.3
+        ],
+        "erosion": [
+         -2.0,
+         0.33
+        ],
+        "weirdness": [
+         0.045,
+         2.0
+        ],
+        "depth": 1.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:acacia_woodland",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         0.22
+        ],
+        "humidity": [
+         0.2,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         0.3
+        ],
+        "erosion": [
+         -2.0,
+         0.33
+        ],
+        "weirdness": [
+         0.045,
+         2.0
+        ],
+        "depth": 0.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:acacia_woodland",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         0.22
+        ],
+        "humidity": [
+         0.2,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         0.3
+        ],
+        "erosion": [
+         -2.0,
+         0.33
+        ],
+        "weirdness": [
+         0.045,
+         2.0
+        ],
+        "depth": 1.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:serengeti_plains",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         0.22
+        ],
+        "humidity": [
+         -2.0,
+         0.2
+        ],
+        "continentalness": [
+         -2.0,
+         0.3
+        ],
+        "erosion": [
+         -2.0,
+         0.33
+        ],
+        "weirdness": [
+         0.045,
+         2.0
+        ],
+        "depth": 0.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:serengeti_plains",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         0.22
+        ],
+        "humidity": [
+         -2.0,
+         0.2
+        ],
+        "continentalness": [
+         -2.0,
+         0.3
+        ],
+        "erosion": [
+         -2.0,
+         0.33
+        ],
+        "weirdness": [
+         0.045,
+         2.0
+        ],
+        "depth": 1.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "minecraft:dripstone_caves",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         2.0
+        ],
+        "erosion": [
+         -2.0,
+         -0.38
+        ],
+        "weirdness": [
+         -2.0,
+         2.0
+        ],
+        "depth": [
+         0.2,
+         0.9
+        ],
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "minecraft:lush_caves",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         -0.2
+        ],
+        "humidity": [
+         0.45,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         2.0
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         -2.0,
+         2.0
+        ],
+        "depth": [
+         0.2,
+         0.9
+        ],
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "minecraft:deep_dark",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         0.05
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         2.0
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         -2.0,
+         2.0
+        ],
+        "depth": [
+         1.15,
+         2.0
+        ],
+        "offset": 0.0
+       }
+      }
+     ]
+    },
+    "settings": "earthscapes:african_savanna"
+   }
+  },
+  "minecraft:the_end": {
+   "type": "minecraft:the_end",
+   "generator": {
+    "type": "minecraft:noise",
+    "biome_source": {
+     "type": "minecraft:the_end"
+    },
+    "settings": "minecraft:end"
+   }
+  },
+  "minecraft:the_nether": {
+   "type": "minecraft:the_nether",
+   "generator": {
+    "type": "minecraft:noise",
+    "biome_source": {
+     "type": "minecraft:multi_noise",
+     "preset": "minecraft:nether"
+    },
+    "settings": "minecraft:nether"
+   }
+  }
+ }
+}

@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "type=bottom": {
+      "model": "earthscapes:block/larch_slab"
+    },
+    "type=double": {
+      "model": "earthscapes:block/larch_planks"
+    },
+    "type=top": {
+      "model": "earthscapes:block/larch_slab_top"
+    }
+  }
+}

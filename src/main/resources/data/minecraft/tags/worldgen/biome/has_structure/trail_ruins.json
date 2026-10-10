@@ -1,0 +1,8 @@
+{
+ "replace": false,
+ "values": [
+  "earthscapes:amazon_rainforest",
+  "earthscapes:emergent_rainforest",
+  "earthscapes:rainforest_hills"
+ ]
+}

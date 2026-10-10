@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/inner_stairs",
+  "textures": {
+    "bottom": "earthscapes:block/baobab_planks",
+    "side": "earthscapes:block/baobab_planks",
+    "top": "earthscapes:block/baobab_planks"
+  }
+}

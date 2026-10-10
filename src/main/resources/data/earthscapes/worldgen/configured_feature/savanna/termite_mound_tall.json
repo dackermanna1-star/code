@@ -1,0 +1,22 @@
+{
+ "type": "earthscapes:termite_mound",
+ "config": {
+  "block": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:termite_mound"
+   }
+  },
+  "height": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 4,
+   "max_inclusive": 8
+  },
+  "radius": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 1.2,
+   "max_exclusive": 2.4
+  },
+  "spire_chance": 0.5
+ }
+}

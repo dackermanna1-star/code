@@ -1,0 +1,9 @@
+{
+ "replace": false,
+ "values": [
+  "earthscapes:african_savanna",
+  "earthscapes:sahara_desert",
+  "earthscapes:amazon_rainforest",
+  "earthscapes:mongolian_steppe"
+ ]
+}

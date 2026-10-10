@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "earthscapes:umbrella_thorn_sapling",
+    "earthscapes:baobab_sapling",
+    "earthscapes:fever_tree_sapling",
+    "earthscapes:date_palm_sapling",
+    "earthscapes:kapok_sapling",
+    "earthscapes:larch_sapling"
+  ]
+}

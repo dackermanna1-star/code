@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "tip=false": {
+      "model": "earthscapes:block/liana"
+    },
+    "tip=true": {
+      "model": "earthscapes:block/liana_tip"
+    }
+  }
+}

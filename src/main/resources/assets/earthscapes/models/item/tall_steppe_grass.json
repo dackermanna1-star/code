@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "earthscapes:block/tall_steppe_grass_top"
+  }
+}

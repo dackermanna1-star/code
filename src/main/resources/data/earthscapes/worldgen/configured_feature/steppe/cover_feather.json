@@ -1,0 +1,89 @@
+{
+ "type": "earthscapes:ground_cover",
+ "config": {
+  "state": {
+   "type": "minecraft:weighted_state_provider",
+   "entries": [
+    {
+     "data": {
+      "Name": "earthscapes:tall_steppe_grass",
+      "Properties": {
+       "half": "lower"
+      }
+     },
+     "weight": 26
+    },
+    {
+     "data": {
+      "Name": "earthscapes:steppe_grass"
+     },
+     "weight": 32
+    },
+    {
+     "data": {
+      "Name": "earthscapes:feather_grass",
+      "Properties": {
+       "half": "lower"
+      }
+     },
+     "weight": 20
+    },
+    {
+     "data": {
+      "Name": "minecraft:short_grass"
+     },
+     "weight": 12
+    },
+    {
+     "data": {
+      "Name": "minecraft:short_dry_grass"
+     },
+     "weight": 4
+    },
+    {
+     "data": {
+      "Name": "earthscapes:pasque_flower"
+     },
+     "weight": 1
+    },
+    {
+     "data": {
+      "Name": "earthscapes:edelweiss"
+     },
+     "weight": 1
+    },
+    {
+     "data": {
+      "Name": "minecraft:dandelion"
+     },
+     "weight": 1
+    },
+    {
+     "data": {
+      "Name": "minecraft:cornflower"
+     },
+     "weight": 1
+    },
+    {
+     "data": {
+      "Name": "minecraft:allium"
+     },
+     "weight": 1
+    },
+    {
+     "data": {
+      "Name": "minecraft:poppy"
+     },
+     "weight": 1
+    }
+   ]
+  },
+  "density": 0.76,
+  "noise_scale": 22.0,
+  "noise_influence": 0.5,
+  "biomes": [
+   "earthscapes:feather_grass_steppe"
+  ],
+  "salt": 31
+ }
+}

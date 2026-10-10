@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column_horizontal",
+  "textures": {
+    "side": "earthscapes:block/stripped_larch_log",
+    "end": "earthscapes:block/stripped_larch_log_top"
+  }
+}

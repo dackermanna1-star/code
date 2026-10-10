@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "earthscapes:date_palm_log",
+    "earthscapes:date_palm_wood",
+    "earthscapes:stripped_date_palm_log",
+    "earthscapes:stripped_date_palm_wood"
+  ]
+}

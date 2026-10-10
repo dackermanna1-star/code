@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "side": "earthscapes:block/stripped_kapok_log",
+    "end": "earthscapes:block/stripped_kapok_log_top"
+  }
+}

@@ -1,0 +1,52 @@
+{
+ "type": "earthscapes:palm",
+ "config": {
+  "trunk": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:date_palm_log",
+    "Properties": {
+     "axis": "y"
+    }
+   }
+  },
+  "fronds": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:date_palm_leaves"
+   }
+  },
+  "style": "feather",
+  "height": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 7,
+   "max_inclusive": 13
+  },
+  "curve": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 0.1,
+   "max_exclusive": 0.6
+  },
+  "frond_count": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 12,
+   "max_inclusive": 16
+  },
+  "frond_length": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 4.0,
+   "max_exclusive": 5.6
+  },
+  "droop": 0.16,
+  "fruit": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:dates",
+    "Properties": {
+     "age": "2"
+    }
+   }
+  },
+  "fruit_chance": 0.55
+ }
+}

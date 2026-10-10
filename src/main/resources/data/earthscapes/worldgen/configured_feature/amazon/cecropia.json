@@ -1,0 +1,30 @@
+{
+ "type": "earthscapes:cecropia",
+ "config": {
+  "trunk": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:cecropia_log",
+    "Properties": {
+     "axis": "y"
+    }
+   }
+  },
+  "leaves": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:cecropia_leaves"
+   }
+  },
+  "height": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 9,
+   "max_inclusive": 17
+  },
+  "branches": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 3,
+   "max_inclusive": 5
+  }
+ }
+}

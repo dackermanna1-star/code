@@ -1,0 +1,31 @@
+{
+  "variants": {
+    "part=0": {
+      "model": "earthscapes:block/victoria_lily_pad_0"
+    },
+    "part=1": {
+      "model": "earthscapes:block/victoria_lily_pad_1"
+    },
+    "part=2": {
+      "model": "earthscapes:block/victoria_lily_pad_2"
+    },
+    "part=3": {
+      "model": "earthscapes:block/victoria_lily_pad_3"
+    },
+    "part=4": {
+      "model": "earthscapes:block/victoria_lily_pad_4"
+    },
+    "part=5": {
+      "model": "earthscapes:block/victoria_lily_pad_5"
+    },
+    "part=6": {
+      "model": "earthscapes:block/victoria_lily_pad_6"
+    },
+    "part=7": {
+      "model": "earthscapes:block/victoria_lily_pad_7"
+    },
+    "part=8": {
+      "model": "earthscapes:block/victoria_lily_pad_8"
+    }
+  }
+}

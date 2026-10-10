@@ -1,0 +1,17 @@
+{
+ "type": "minecraft:flat_cache",
+ "argument": {
+  "type": "earthscapes:cell_bumps",
+  "noise": "earthscapes:sahara/oasis",
+  "cell_size": 480,
+  "chance": 0.55,
+  "radius_min": 26.0,
+  "radius_max": 50.0,
+  "height_min": 1.0,
+  "height_max": 1.0,
+  "edge_power": 2.0,
+  "profile_power": 1.2,
+  "jitter": 0.8,
+  "elongation": 1.0
+ }
+}

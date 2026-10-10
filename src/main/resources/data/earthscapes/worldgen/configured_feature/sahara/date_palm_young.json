@@ -1,0 +1,42 @@
+{
+ "type": "earthscapes:palm",
+ "config": {
+  "trunk": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:date_palm_log",
+    "Properties": {
+     "axis": "y"
+    }
+   }
+  },
+  "fronds": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:date_palm_leaves"
+   }
+  },
+  "style": "feather",
+  "height": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 2,
+   "max_inclusive": 4
+  },
+  "curve": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 0.0,
+   "max_exclusive": 0.3
+  },
+  "frond_count": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 6,
+   "max_inclusive": 9
+  },
+  "frond_length": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 2.0,
+   "max_exclusive": 3.2
+  },
+  "droop": 0.2
+ }
+}

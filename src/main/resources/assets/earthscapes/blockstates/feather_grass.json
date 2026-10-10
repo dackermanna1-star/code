@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "half=lower": {
+      "model": "earthscapes:block/feather_grass_bottom"
+    },
+    "half=upper": {
+      "model": "earthscapes:block/feather_grass_top"
+    }
+  }
+}

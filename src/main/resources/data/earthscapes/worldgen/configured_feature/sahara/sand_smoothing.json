@@ -1,0 +1,14 @@
+{
+ "type": "earthscapes:surface_smoothing",
+ "config": {
+  "from": {
+   "Name": "earthscapes:sahara_sand"
+  },
+  "layer": {
+   "Name": "earthscapes:sahara_sand_layer",
+   "Properties": {
+    "layers": "1"
+   }
+  }
+ }
+}

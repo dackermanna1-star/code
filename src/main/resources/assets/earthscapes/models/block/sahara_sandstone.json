@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "earthscapes:block/sahara_sandstone_top",
+    "side": "earthscapes:block/sahara_sandstone",
+    "bottom": "earthscapes:block/sahara_sandstone_bottom"
+  }
+}

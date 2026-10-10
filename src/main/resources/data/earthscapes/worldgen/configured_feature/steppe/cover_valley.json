@@ -1,0 +1,60 @@
+{
+ "type": "earthscapes:ground_cover",
+ "config": {
+  "state": {
+   "type": "minecraft:weighted_state_provider",
+   "entries": [
+    {
+     "data": {
+      "Name": "minecraft:short_grass"
+     },
+     "weight": 45
+    },
+    {
+     "data": {
+      "Name": "minecraft:tall_grass",
+      "Properties": {
+       "half": "lower"
+      }
+     },
+     "weight": 20
+    },
+    {
+     "data": {
+      "Name": "earthscapes:steppe_grass"
+     },
+     "weight": 15
+    },
+    {
+     "data": {
+      "Name": "earthscapes:tall_steppe_grass",
+      "Properties": {
+       "half": "lower"
+      }
+     },
+     "weight": 14
+    },
+    {
+     "data": {
+      "Name": "minecraft:cornflower"
+     },
+     "weight": 3
+    },
+    {
+     "data": {
+      "Name": "minecraft:dandelion"
+     },
+     "weight": 3
+    }
+   ]
+  },
+  "density": 0.76,
+  "noise_scale": 22.0,
+  "noise_influence": 0.5,
+  "biomes": [
+   "earthscapes:steppe_river_valley",
+   "earthscapes:steppe_river"
+  ],
+  "salt": 36
+ }
+}

@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "half=lower": {
+      "model": "earthscapes:block/tall_steppe_grass_bottom"
+    },
+    "half=upper": {
+      "model": "earthscapes:block/tall_steppe_grass_top"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "ingredients": [
+    "#earthscapes:baobab_logs"
+  ],
+  "result": {
+    "count": 4,
+    "id": "earthscapes:baobab_planks"
+  },
+  "group": "planks"
+}

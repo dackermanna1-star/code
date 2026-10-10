@@ -1,0 +1,11 @@
+{
+ "type": "earthscapes:victoria_lilies",
+ "config": {
+  "count": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 2,
+   "max_inclusive": 5
+  },
+  "spread": 7
+ }
+}

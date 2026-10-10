@@ -1,0 +1,50 @@
+{
+ "type": "earthscapes:ground_cover",
+ "config": {
+  "state": {
+   "type": "minecraft:weighted_state_provider",
+   "entries": [
+    {
+     "data": {
+      "Name": "earthscapes:golden_grass"
+     },
+     "weight": 40
+    },
+    {
+     "data": {
+      "Name": "earthscapes:tall_golden_grass",
+      "Properties": {
+       "half": "lower"
+      }
+     },
+     "weight": 20
+    },
+    {
+     "data": {
+      "Name": "minecraft:short_dry_grass"
+     },
+     "weight": 25
+    },
+    {
+     "data": {
+      "Name": "minecraft:tall_dry_grass"
+     },
+     "weight": 10
+    },
+    {
+     "data": {
+      "Name": "minecraft:dead_bush"
+     },
+     "weight": 5
+    }
+   ]
+  },
+  "density": 0.42,
+  "noise_scale": 14.0,
+  "noise_influence": 0.85,
+  "biomes": [
+   "earthscapes:tsavo_red_earth"
+  ],
+  "salt": 3
+ }
+}

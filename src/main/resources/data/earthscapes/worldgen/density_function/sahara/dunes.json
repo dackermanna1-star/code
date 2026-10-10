@@ -1,0 +1,123 @@
+{
+ "type": "minecraft:flat_cache",
+ "argument": {
+  "type": "minecraft:add",
+  "argument1": {
+   "type": "minecraft:mul",
+   "argument1": {
+    "type": "minecraft:mul",
+    "argument1": {
+     "type": "minecraft:spline",
+     "spline": {
+      "coordinate": "earthscapes:sahara/dunesize",
+      "points": [
+       {
+        "location": -0.45,
+        "value": 14.0,
+        "derivative": 0.0
+       },
+       {
+        "location": 0.0,
+        "value": 30.0,
+        "derivative": 0.0
+       },
+       {
+        "location": 0.45,
+        "value": 52.0,
+        "derivative": 0.0
+       }
+      ]
+     }
+    },
+    "argument2": {
+     "type": "minecraft:spline",
+     "spline": {
+      "coordinate": {
+       "type": "minecraft:noise",
+       "noise": "earthscapes:sahara/crestmod",
+       "xz_scale": 1.0,
+       "y_scale": 0.0
+      },
+      "points": [
+       {
+        "location": -0.5,
+        "value": 0.5,
+        "derivative": 0.0
+       },
+       {
+        "location": 0.5,
+        "value": 1.0,
+        "derivative": 0.0
+       }
+      ]
+     }
+    }
+   },
+   "argument2": {
+    "type": "minecraft:max",
+    "argument1": {
+     "type": "earthscapes:dune_ridges",
+     "angle": 25.0,
+     "wavelength": 170.0,
+     "asymmetry": 0.72,
+     "sharpness": 1.15,
+     "flatness": 0.1,
+     "offset": {
+      "type": "minecraft:mul",
+      "argument1": 60.0,
+      "argument2": {
+       "type": "minecraft:noise",
+       "noise": "earthscapes:sahara/warp1",
+       "xz_scale": 1.0,
+       "y_scale": 0.0
+      }
+     }
+    },
+    "argument2": {
+     "type": "minecraft:mul",
+     "argument1": 0.85,
+     "argument2": {
+      "type": "earthscapes:dune_ridges",
+      "angle": 115.0,
+      "wavelength": 240.0,
+      "asymmetry": 0.62,
+      "sharpness": 1.2,
+      "flatness": 0.15,
+      "offset": {
+       "type": "minecraft:mul",
+       "argument1": 80.0,
+       "argument2": {
+        "type": "minecraft:noise",
+        "noise": "earthscapes:sahara/warp2",
+        "xz_scale": 1.0,
+        "y_scale": 0.0
+       }
+      }
+     }
+    }
+   }
+  },
+  "argument2": {
+   "type": "minecraft:mul",
+   "argument1": 4.0,
+   "argument2": {
+    "type": "earthscapes:dune_ridges",
+    "angle": 40.0,
+    "wavelength": 36.0,
+    "asymmetry": 0.75,
+    "sharpness": 1.0,
+    "flatness": 0.1,
+    "offset": {
+     "type": "minecraft:mul",
+     "argument1": 14.0,
+     "argument2": {
+      "type": "minecraft:noise",
+      "noise": "earthscapes:sahara/warp2",
+      "xz_scale": 3.0,
+      "y_scale": 0.0
+     }
+    }
+   }
+  }
+ }
+}

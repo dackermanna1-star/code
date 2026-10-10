@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cross",
+  "textures": {
+    "cross": "earthscapes:block/red_oat_grass_bottom"
+  }
+}

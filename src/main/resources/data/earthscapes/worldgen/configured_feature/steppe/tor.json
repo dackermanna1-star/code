@@ -1,0 +1,46 @@
+{
+ "type": "earthscapes:boulders",
+ "config": {
+  "block": {
+   "type": "minecraft:weighted_state_provider",
+   "entries": [
+    {
+     "data": {
+      "Name": "earthscapes:kopje_granite"
+     },
+     "weight": 60
+    },
+    {
+     "data": {
+      "Name": "minecraft:granite"
+     },
+     "weight": 15
+    },
+    {
+     "data": {
+      "Name": "minecraft:stone"
+     },
+     "weight": 25
+    }
+   ]
+  },
+  "dome_radius": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 5.0,
+   "max_exclusive": 10.0
+  },
+  "boulders": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 6,
+   "max_inclusive": 16
+  },
+  "boulder_radius": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 1.6,
+   "max_exclusive": 4.2
+  },
+  "spread": 8.0,
+  "stack_chance": 0.6,
+  "crack_chance": 0.45
+ }
+}

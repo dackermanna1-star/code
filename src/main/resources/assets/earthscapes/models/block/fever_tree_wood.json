@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "side": "earthscapes:block/fever_tree_log",
+    "end": "earthscapes:block/fever_tree_log"
+  }
+}

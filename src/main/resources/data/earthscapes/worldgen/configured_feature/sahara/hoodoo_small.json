@@ -1,0 +1,34 @@
+{
+ "type": "earthscapes:hoodoo",
+ "config": {
+  "rock": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:sahara_sandstone"
+   }
+  },
+  "band": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "minecraft:smooth_red_sandstone"
+   }
+  },
+  "cap": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:hamada_stone"
+   }
+  },
+  "height": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 4,
+   "max_inclusive": 9
+  },
+  "radius": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 1.0,
+   "max_exclusive": 1.8
+  },
+  "arch_chance": 0.0
+ }
+}

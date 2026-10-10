@@ -1,0 +1,8 @@
+{
+ "type": "minecraft:flat_cache",
+ "argument": {
+  "type": "minecraft:max",
+  "argument1": "earthscapes:steppe/mountain_mask",
+  "argument2": "earthscapes:steppe/massif"
+ }
+}

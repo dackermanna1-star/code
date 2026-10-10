@@ -1,0 +1,81 @@
+{
+ "type": "earthscapes:emergent_tree",
+ "config": {
+  "trunk": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:kapok_log",
+    "Properties": {
+     "axis": "y"
+    }
+   }
+  },
+  "branch": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:kapok_wood",
+    "Properties": {
+     "axis": "y"
+    }
+   }
+  },
+  "leaves": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:kapok_leaves"
+   }
+  },
+  "height": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 26,
+   "max_inclusive": 34
+  },
+  "trunk_radius": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 0.7,
+   "max_exclusive": 1.1
+  },
+  "buttresses": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 3,
+   "max_inclusive": 5
+  },
+  "limbs": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 4,
+   "max_inclusive": 6
+  },
+  "limb_length": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 4.0,
+   "max_exclusive": 6.5
+  },
+  "cluster_radius": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 3.0,
+   "max_exclusive": 4.0
+  },
+  "liana": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:liana",
+    "Properties": {
+     "tip": "true"
+    }
+   }
+  },
+  "epiphyte": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:bromeliad"
+   }
+  },
+  "vine": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "minecraft:vine"
+   }
+  },
+  "decoration_chance": 0.3
+ }
+}

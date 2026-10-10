@@ -1,0 +1,13 @@
+{
+ "type": "minecraft:flat_cache",
+ "argument": {
+  "type": "earthscapes:eroded_noise",
+  "noise": "earthscapes:savanna/mountain",
+  "xz_scale": 0.002777777777777778,
+  "octaves": 7,
+  "lacunarity": 2.0,
+  "gain": 0.5,
+  "erosion": 1.1,
+  "ridged": true
+ }
+}

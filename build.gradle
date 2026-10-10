@@ -1,0 +1,102 @@
+plugins {
+	id 'fabric-loom' version "${loom_version}"
+	id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+repositories {
+}
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"earthscapes" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+
+	runs {
+		// Development only: generates a world on a dedicated server and dumps a surface map
+		// (see tools/dev/mapdump.sh).
+		mapDump {
+			server()
+			name = "Map Dump"
+			runDir = "run-mapdump"
+			ideConfigGenerated = false
+			vmArg "-Xmx6G"
+			vmArg "-Dearthscapes.dev.map=" + (project.findProperty("mapRadius") ?: "24")
+			vmArg "-Dearthscapes.dev.out=" + (project.findProperty("mapOut") ?: "map.bin")
+			if (project.findProperty("survey")) {
+				vmArg "-Dearthscapes.dev.survey=" + project.findProperty("survey")
+				vmArg "-Dearthscapes.dev.step=" + (project.findProperty("surveyStep") ?: "16")
+			}
+			if (project.findProperty("mapCenter")) {
+				vmArg "-Dearthscapes.dev.center=" + project.findProperty("mapCenter")
+			}
+		}
+	}
+}
+
+fabricApi {
+	// Development only: a client game test that renders screenshots of every world type
+	// (run with ./gradlew runClientGameTest under a display, see tools/dev/screenshots.sh).
+	configureTests {
+		createSourceSet = true
+		modId = "earthscapes-test"
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = true
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	mappings loom.officialMojangMappings()
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+}
+
+processResources {
+	inputs.property "version", project.version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": inputs.properties.version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 21
+}
+
+java {
+	withSourcesJar()
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}
+
+jar {
+	inputs.property "archivesName", project.base.archivesName
+
+	from("LICENSE") {
+		rename { "${it}_${inputs.properties.archivesName}"}
+	}
+}
+
+// Forward screenshot test settings (e.g. -Pearthscapes.shots=sahara_desert) to the game.
+afterEvaluate {
+	tasks.named("runClientGameTest") {
+		["earthscapes.shots", "earthscapes.seed", "earthscapes.renderDistance", "earthscapes.time"].each { p ->
+			if (project.hasProperty(p)) {
+				jvmArgs "-D${p}=${project.property(p)}"
+			}
+		}
+	}
+}

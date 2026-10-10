@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "side": "earthscapes:block/cecropia_log",
+    "end": "earthscapes:block/cecropia_log_top"
+  }
+}

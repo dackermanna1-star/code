@@ -1,0 +1,10 @@
+{
+ "replace": false,
+ "values": [
+  "earthscapes:savanna_river",
+  "earthscapes:fever_tree_riverine",
+  "earthscapes:varzea_flooded_forest",
+  "earthscapes:igapo_flooded_forest",
+  "earthscapes:buriti_palm_swamp"
+ ]
+}

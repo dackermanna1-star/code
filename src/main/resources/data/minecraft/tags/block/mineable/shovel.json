@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "earthscapes:laterite",
+    "earthscapes:sahara_sand",
+    "earthscapes:sahara_sand_layer",
+    "earthscapes:desert_pavement",
+    "earthscapes:salt_crust"
+  ]
+}

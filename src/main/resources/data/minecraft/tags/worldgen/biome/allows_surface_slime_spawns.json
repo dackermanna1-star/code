@@ -1,0 +1,8 @@
+{
+ "replace": false,
+ "values": [
+  "earthscapes:varzea_flooded_forest",
+  "earthscapes:igapo_flooded_forest",
+  "earthscapes:buriti_palm_swamp"
+ ]
+}

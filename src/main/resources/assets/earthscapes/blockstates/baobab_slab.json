@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "type=bottom": {
+      "model": "earthscapes:block/baobab_slab"
+    },
+    "type=double": {
+      "model": "earthscapes:block/baobab_planks"
+    },
+    "type=top": {
+      "model": "earthscapes:block/baobab_slab_top"
+    }
+  }
+}

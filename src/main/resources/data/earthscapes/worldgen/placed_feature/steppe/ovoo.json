@@ -1,0 +1,28 @@
+{
+ "feature": "earthscapes:steppe/ovoo",
+ "placement": [
+  {
+   "type": "minecraft:rarity_filter",
+   "chance": 24
+  },
+  {
+   "type": "minecraft:in_square"
+  },
+  {
+   "type": "minecraft:surface_water_depth_filter",
+   "max_water_depth": 0
+  },
+  {
+   "type": "minecraft:heightmap",
+   "heightmap": "OCEAN_FLOOR"
+  },
+  {
+   "type": "earthscapes:local_peak",
+   "radius": 12,
+   "prominence": 5
+  },
+  {
+   "type": "minecraft:biome"
+  }
+ ]
+}

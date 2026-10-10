@@ -1,0 +1,45 @@
+{
+ "type": "earthscapes:baobab",
+ "config": {
+  "trunk": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:baobab_log",
+    "Properties": {
+     "axis": "y"
+    }
+   }
+  },
+  "branch": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:baobab_wood",
+    "Properties": {
+     "axis": "y"
+    }
+   }
+  },
+  "leaves": {
+   "type": "minecraft:simple_state_provider",
+   "state": {
+    "Name": "earthscapes:baobab_leaves"
+   }
+  },
+  "height": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 10,
+   "max_inclusive": 15
+  },
+  "radius": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 2.0,
+   "max_exclusive": 3.3
+  },
+  "branches": {
+   "type": "minecraft:uniform",
+   "min_inclusive": 5,
+   "max_inclusive": 8
+  },
+  "leaf_density": 0.45
+ }
+}

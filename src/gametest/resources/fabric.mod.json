@@ -1,0 +1,13 @@
+{
+	"schemaVersion": 1,
+	"id": "earthscapes-test",
+	"version": "1.0.0",
+	"name": "Earthscapes screenshot tests",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-client-gametest": ["net.earthscapes.test.ScreenshotTest"]
+	},
+	"depends": {
+		"earthscapes": "*"
+	}
+}

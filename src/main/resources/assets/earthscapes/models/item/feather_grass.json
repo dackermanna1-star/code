@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "earthscapes:block/feather_grass_top"
+  }
+}

@@ -1,0 +1,529 @@
+{
+ "dimensions": {
+  "minecraft:overworld": {
+   "type": "minecraft:overworld",
+   "generator": {
+    "type": "minecraft:noise",
+    "biome_source": {
+     "type": "minecraft:multi_noise",
+     "biomes": [
+      {
+       "biome": "earthscapes:blackwater_river",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         -0.22
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         2.0
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         -2.0,
+         0.0125
+        ],
+        "depth": 0.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:blackwater_river",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         -0.22
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         2.0
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         -2.0,
+         0.0125
+        ],
+        "depth": 1.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:amazon_river",
+       "parameters": {
+        "temperature": [
+         -0.22,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         2.0
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         -2.0,
+         0.0125
+        ],
+        "depth": 0.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:amazon_river",
+       "parameters": {
+        "temperature": [
+         -0.22,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         2.0
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         -2.0,
+         0.0125
+        ],
+        "depth": 1.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:igapo_flooded_forest",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         -0.22
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         2.0
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         0.0125,
+         0.042
+        ],
+        "depth": 0.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:igapo_flooded_forest",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         -0.22
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         2.0
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         0.0125,
+         0.042
+        ],
+        "depth": 1.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:varzea_flooded_forest",
+       "parameters": {
+        "temperature": [
+         -0.22,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         2.0
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         0.0125,
+         0.042
+        ],
+        "depth": 0.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:varzea_flooded_forest",
+       "parameters": {
+        "temperature": [
+         -0.22,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         2.0
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         0.0125,
+         0.042
+        ],
+        "depth": 1.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:rainforest_hills",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         0.45,
+         2.0
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         0.042,
+         2.0
+        ],
+        "depth": 0.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:rainforest_hills",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         0.45,
+         2.0
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         0.042,
+         2.0
+        ],
+        "depth": 1.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:buriti_palm_swamp",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         0.45
+        ],
+        "erosion": [
+         0.38,
+         2.0
+        ],
+        "weirdness": [
+         0.042,
+         2.0
+        ],
+        "depth": 0.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:buriti_palm_swamp",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         0.45
+        ],
+        "erosion": [
+         0.38,
+         2.0
+        ],
+        "weirdness": [
+         0.042,
+         2.0
+        ],
+        "depth": 1.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:emergent_rainforest",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         2.0
+        ],
+        "humidity": [
+         0.28,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         0.45
+        ],
+        "erosion": [
+         -2.0,
+         0.38
+        ],
+        "weirdness": [
+         0.042,
+         2.0
+        ],
+        "depth": 0.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:emergent_rainforest",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         2.0
+        ],
+        "humidity": [
+         0.28,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         0.45
+        ],
+        "erosion": [
+         -2.0,
+         0.38
+        ],
+        "weirdness": [
+         0.042,
+         2.0
+        ],
+        "depth": 1.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:amazon_rainforest",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         0.28
+        ],
+        "continentalness": [
+         -2.0,
+         0.45
+        ],
+        "erosion": [
+         -2.0,
+         0.38
+        ],
+        "weirdness": [
+         0.042,
+         2.0
+        ],
+        "depth": 0.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "earthscapes:amazon_rainforest",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         0.28
+        ],
+        "continentalness": [
+         -2.0,
+         0.45
+        ],
+        "erosion": [
+         -2.0,
+         0.38
+        ],
+        "weirdness": [
+         0.042,
+         2.0
+        ],
+        "depth": 1.0,
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "minecraft:lush_caves",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         2.0
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         2.0
+        ],
+        "erosion": [
+         -0.1,
+         2.0
+        ],
+        "weirdness": [
+         -2.0,
+         2.0
+        ],
+        "depth": [
+         0.2,
+         0.9
+        ],
+        "offset": 0.0
+       }
+      },
+      {
+       "biome": "minecraft:deep_dark",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         0.1
+        ],
+        "humidity": [
+         -2.0,
+         2.0
+        ],
+        "continentalness": [
+         -2.0,
+         2.0
+        ],
+        "erosion": [
+         -2.0,
+         2.0
+        ],
+        "weirdness": [
+         -2.0,
+         2.0
+        ],
+        "depth": [
+         1.15,
+         2.0
+        ],
+        "offset": 0.0
+       }
+      }
+     ]
+    },
+    "settings": "earthscapes:amazon_rainforest"
+   }
+  },
+  "minecraft:the_end": {
+   "type": "minecraft:the_end",
+   "generator": {
+    "type": "minecraft:noise",
+    "biome_source": {
+     "type": "minecraft:the_end"
+    },
+    "settings": "minecraft:end"
+   }
+  },
+  "minecraft:the_nether": {
+   "type": "minecraft:the_nether",
+   "generator": {
+    "type": "minecraft:noise",
+    "biome_source": {
+     "type": "minecraft:multi_noise",
+     "preset": "minecraft:nether"
+    },
+    "settings": "minecraft:nether"
+   }
+  }
+ }
+}

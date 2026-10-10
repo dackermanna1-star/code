@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "ingredients": [
+    "#earthscapes:kapok_logs"
+  ],
+  "result": {
+    "count": 4,
+    "id": "earthscapes:kapok_planks"
+  },
+  "group": "planks"
+}

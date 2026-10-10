@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "earthscapes:baobab_slab",
+    "earthscapes:date_palm_slab",
+    "earthscapes:kapok_slab",
+    "earthscapes:larch_slab"
+  ]
+}

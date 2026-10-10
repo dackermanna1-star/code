@@ -1,0 +1,9 @@
+{
+ "replace": false,
+ "values": [
+  "earthscapes:savanna_river",
+  "earthscapes:amazon_river",
+  "earthscapes:blackwater_river",
+  "earthscapes:steppe_river"
+ ]
+}

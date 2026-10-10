@@ -1,0 +1,47 @@
+{
+ "type": "earthscapes:ground_cover",
+ "config": {
+  "state": {
+   "type": "minecraft:weighted_state_provider",
+   "entries": [
+    {
+     "data": {
+      "Name": "minecraft:short_grass"
+     },
+     "weight": 40
+    },
+    {
+     "data": {
+      "Name": "minecraft:tall_grass",
+      "Properties": {
+       "half": "lower"
+      }
+     },
+     "weight": 20
+    },
+    {
+     "data": {
+      "Name": "earthscapes:golden_grass"
+     },
+     "weight": 25
+    },
+    {
+     "data": {
+      "Name": "earthscapes:red_oat_grass",
+      "Properties": {
+       "half": "lower"
+      }
+     },
+     "weight": 15
+    }
+   ]
+  },
+  "density": 0.62,
+  "noise_scale": 18.0,
+  "noise_influence": 0.5,
+  "biomes": [
+   "earthscapes:rift_highlands"
+  ],
+  "salt": 4
+ }
+}

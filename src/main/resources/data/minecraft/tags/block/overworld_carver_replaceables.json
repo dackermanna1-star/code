@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    "earthscapes:laterite",
+    "earthscapes:termite_mound",
+    "earthscapes:kopje_granite",
+    "earthscapes:sahara_sand",
+    "earthscapes:sahara_sandstone",
+    "earthscapes:hamada_stone",
+    "earthscapes:desert_pavement",
+    "earthscapes:salt_crust"
+  ]
+}

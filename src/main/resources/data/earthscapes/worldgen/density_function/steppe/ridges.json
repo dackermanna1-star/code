@@ -1,0 +1,13 @@
+{
+ "type": "minecraft:flat_cache",
+ "argument": {
+  "type": "earthscapes:eroded_noise",
+  "noise": "earthscapes:steppe/mountain_shape",
+  "xz_scale": 0.002380952380952381,
+  "octaves": 8,
+  "lacunarity": 2.0,
+  "gain": 0.5,
+  "erosion": 1.2,
+  "ridged": true
+ }
+}

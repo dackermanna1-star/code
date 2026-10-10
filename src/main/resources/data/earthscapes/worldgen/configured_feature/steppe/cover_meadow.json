@@ -1,0 +1,80 @@
+{
+ "type": "earthscapes:ground_cover",
+ "config": {
+  "state": {
+   "type": "minecraft:weighted_state_provider",
+   "entries": [
+    {
+     "data": {
+      "Name": "minecraft:short_grass"
+     },
+     "weight": 40
+    },
+    {
+     "data": {
+      "Name": "minecraft:tall_grass",
+      "Properties": {
+       "half": "lower"
+      }
+     },
+     "weight": 10
+    },
+    {
+     "data": {
+      "Name": "earthscapes:edelweiss"
+     },
+     "weight": 8
+    },
+    {
+     "data": {
+      "Name": "earthscapes:pasque_flower"
+     },
+     "weight": 5
+    },
+    {
+     "data": {
+      "Name": "minecraft:cornflower"
+     },
+     "weight": 6
+    },
+    {
+     "data": {
+      "Name": "minecraft:allium"
+     },
+     "weight": 4
+    },
+    {
+     "data": {
+      "Name": "minecraft:azure_bluet"
+     },
+     "weight": 4
+    },
+    {
+     "data": {
+      "Name": "minecraft:oxeye_daisy"
+     },
+     "weight": 4
+    },
+    {
+     "data": {
+      "Name": "minecraft:dandelion"
+     },
+     "weight": 4
+    },
+    {
+     "data": {
+      "Name": "minecraft:poppy"
+     },
+     "weight": 3
+    }
+   ]
+  },
+  "density": 0.8,
+  "noise_scale": 22.0,
+  "noise_influence": 0.5,
+  "biomes": [
+   "earthscapes:alpine_meadow"
+  ],
+  "salt": 34
+ }
+}
