@@ -18,7 +18,7 @@ public final class WeaponTooltips {
 
 	public static void register() {
 		Map<Item, Integer> lineCounts = Map.of(
-			ModItems.SUNLINE_RIFLE, 3,
+			ModItems.SUNLINE_RIFLE, 4,
 			ModItems.WORLDBREAKER_CANNON, 4,
 			ModItems.RIFTFANG_SCYTHE, 3,
 			ModItems.STORMCALLER_GAUNTLET, 4,

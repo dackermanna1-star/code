@@ -10,7 +10,10 @@ import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.world.level.gamerules.GameRules;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Headless showcase: builds a firing range in a flat world, fires every weapon and screenshots the
@@ -19,6 +22,8 @@ import java.util.List;
  */
 public class ArsenalShowcaseTest implements FabricClientGameTest {
 	private final List<String> failures = new ArrayList<>();
+	private final java.util.concurrent.atomic.AtomicBoolean orbDetonated = new java.util.concurrent.atomic.AtomicBoolean();
+	private final java.util.concurrent.atomic.AtomicInteger orbTicks = new java.util.concurrent.atomic.AtomicInteger();
 	private ClientGameTestContext context;
 	private TestSingleplayerContext world;
 	private TestServerContext server;
@@ -36,17 +41,22 @@ public class ArsenalShowcaseTest implements FabricClientGameTest {
 			this.input.resizeWindow(1280, 720);
 			this.setUpWorld();
 
+			// OVERKILL_SHOWCASE=sunline,worldbreaker runs just those sections; "particles" is only run when asked for.
 			String only = System.getenv("OVERKILL_SHOWCASE");
-			if ("particles".equals(only)) {
-				this.section("particles", this::particleCalibration);
-				return;
-			}
-			this.section("held", this::heldWeapons);
-			this.section("sunline", this::sunline);
-			this.section("worldbreaker", this::worldbreaker);
-			this.section("riftfang", this::riftfang);
-			this.section("stormcaller", this::stormcaller);
-			this.section("gravemaker", this::gravemaker);
+			Set<String> wanted = only == null || only.isBlank() ? null : Set.of(only.split(","));
+			Map<String, Runnable> sections = new LinkedHashMap<>();
+			sections.put("particles", this::particleCalibration);
+			sections.put("held", this::heldWeapons);
+			sections.put("sunline", this::sunline);
+			sections.put("worldbreaker", this::worldbreaker);
+			sections.put("riftfang", this::riftfang);
+			sections.put("stormcaller", this::stormcaller);
+			sections.put("gravemaker", this::gravemaker);
+			sections.forEach((name, body) -> {
+				if (wanted == null ? !name.equals("particles") : wanted.contains(name)) {
+					this.section(name, body);
+				}
+			});
 		}
 		if (!this.failures.isEmpty()) {
 			throw new AssertionError("Showcase sections failed: " + this.failures);
@@ -88,10 +98,40 @@ public class ArsenalShowcaseTest implements FabricClientGameTest {
 	}
 
 	private void place(double x, double y, double z, float yaw, float pitch) {
+		this.place(x, y, z, yaw, pitch, false);
+	}
+
+	/** Teleports the player; {@code hover} keeps them hanging in the air (creative flight) for overview shots. */
+	private void place(double x, double y, double z, float yaw, float pitch, boolean hover) {
 		this.cmd(String.format(java.util.Locale.ROOT, "tp @p %.2f %.2f %.2f %.1f %.1f", x, y, z, yaw, pitch));
 		this.context.waitTicks(2);
+		if (hover) {
+			// Vanilla switches flight off whenever you're standing on something, so this has to happen mid-air.
+			this.context.runOnClient(mc -> {
+				mc.player.getAbilities().flying = true;
+				mc.player.onUpdateAbilities();
+				mc.player.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+			});
+			this.cmd(String.format(java.util.Locale.ROOT, "tp @p %.2f %.2f %.2f %.1f %.1f", x, y, z, yaw, pitch));
+			this.context.waitTicks(2);
+		}
 		this.look(yaw, pitch);
-		this.world.getClientWorld().waitForChunksRender();
+		if (hover) {
+			// Over a burning crater the meshes never fully settle (fire keeps changing blocks): give them a moment and go.
+			try {
+				this.world.getClientWorld().waitForChunksRender(false, 200);
+			} catch (AssertionError e) {
+				this.look(yaw, pitch);
+			}
+			return;
+		}
+		try {
+			this.world.getClientWorld().waitForChunksRender(true, 400);
+		} catch (AssertionError e) {
+			// After raising the view distance mid-game the "every chunk downloaded" check never passes;
+			// settle for every chunk we do have being rendered.
+			this.world.getClientWorld().waitForChunksRender(false, 1200);
+		}
 	}
 
 	private void look(float yaw, float pitch) {
@@ -169,51 +209,188 @@ public class ArsenalShowcaseTest implements FabricClientGameTest {
 	}
 
 	private void sunline() {
-		this.cmd("fill 34 -60 -6 35 -52 6 minecraft:stone");
-		for (int x = 10; x <= 28; x += 6) {
-			this.zombie(x + 0.5, -60, 0.5);
+		this.cmd("fill 34 -60 -20 35 -52 20 minecraft:stone");
+		double[][] targets = {{10.5, -4.5}, {16.5, 3.5}, {22.5, -8.5}, {28.5, 6.5}, {14.5, 12.5}, {20.5, -14.5}};
+		for (double[] target : targets) {
+			this.zombie(target[0], -60, target[1]);
 		}
 		this.place(0.5, -60, 0.5, -90.0F, 4.0F);
 		this.hold(0, "overkill:sunline_rifle");
 		this.context.waitTicks(10);
-		this.use();
-		this.context.waitTicks(4);
-		this.shot("sunline_1_trace");
+		// Hold the trigger and sweep the laser back and forth across the range in a zigzag.
+		this.input.holdKey(options -> options.keyUse);
+		for (int t = 0; t <= 90; t++) {
+			this.look((float) (-90.0 + 38.0 * Math.sin(t * 0.075)), (float) (5.0 + 3.5 * Math.sin(t * 0.21)));
+			this.context.waitTicks(1);
+			if (t == 40) {
+				this.shot("sunline_1_aiming");
+			} else if (t == 70) {
+				this.camera(CameraType.THIRD_PERSON_BACK);
+				this.context.waitTicks(1);
+				this.shot("sunline_2_aiming_tp");
+				this.camera(CameraType.FIRST_PERSON);
+			}
+		}
+		this.input.releaseKey(options -> options.keyUse);
+		this.look(-90.0F, 8.0F);
+		this.context.waitTicks(5);
+		this.shot("sunline_3_fuse");
 		this.context.waitTicks(10);
-		this.shot("sunline_2_detonation");
-		this.context.waitTicks(6);
-		this.shot("sunline_3_chain");
-		this.context.waitTicks(50);
-		this.shot("sunline_4_aftermath");
-		this.place(14.5, -52, -14.5, -30.0F, 32.0F);
-		this.shot("sunline_5_trench");
+		this.shot("sunline_4_detonation");
+		this.context.waitTicks(10);
+		this.shot("sunline_5_chain");
+		this.context.waitTicks(80);
+		this.shot("sunline_6_aftermath");
+		this.place(16.5, -38, -42.5, -15.0F, 32.0F);
+		this.shot("sunline_7_scorched_field");
+	}
+
+	/** A rounded stone hill with a grassy top, centred on (cx, cz), for the Worldbreaker to dig into. */
+	private void buildHill(int cx, int cz, int radius, int height) {
+		this.server.runOnServer(s -> {
+			net.minecraft.server.level.ServerLevel level = s.overworld();
+			net.minecraft.core.BlockPos.MutableBlockPos pos = new net.minecraft.core.BlockPos.MutableBlockPos();
+			net.minecraft.world.level.block.state.BlockState stone = net.minecraft.world.level.block.Blocks.STONE.defaultBlockState();
+			net.minecraft.world.level.block.state.BlockState andesite = net.minecraft.world.level.block.Blocks.ANDESITE.defaultBlockState();
+			net.minecraft.world.level.block.state.BlockState dirt = net.minecraft.world.level.block.Blocks.DIRT.defaultBlockState();
+			net.minecraft.world.level.block.state.BlockState grass = net.minecraft.world.level.block.Blocks.GRASS_BLOCK.defaultBlockState();
+			int flags = net.minecraft.world.level.block.Block.UPDATE_CLIENTS | net.minecraft.world.level.block.Block.UPDATE_KNOWN_SHAPE;
+			for (int x = cx - radius; x <= cx + radius; x++) {
+				for (int z = cz - radius; z <= cz + radius; z++) {
+					double d2 = ((double) (x - cx) * (x - cx) + (double) (z - cz) * (z - cz)) / ((double) radius * radius);
+					if (d2 >= 1.0) {
+						continue;
+					}
+					int top = -61 + (int) (height * Math.pow(1.0 - d2, 0.8));
+					for (int y = -63; y <= top; y++) {
+						net.minecraft.world.level.block.state.BlockState state = y == top ? grass : y > top - 3 ? dirt
+							: ((x * 7 + y * 3 + z * 5) & 15) == 0 ? andesite : stone;
+						level.setBlock(pos.set(x, y, z), state, flags);
+					}
+				}
+			}
+		});
+	}
+
+	/** Solid blocks in the Worldbreaker range (hill plus the ground around it). */
+	private long countSolid() {
+		long[] count = {0};
+		this.server.runOnServer(s -> {
+			net.minecraft.server.level.ServerLevel level = s.overworld();
+			net.minecraft.core.BlockPos.MutableBlockPos pos = new net.minecraft.core.BlockPos.MutableBlockPos();
+			for (int x = 40; x <= 240; x++) {
+				for (int z = -80; z <= 80; z++) {
+					for (int y = -63; y <= 32; y++) {
+						if (!level.getBlockState(pos.set(x, y, z)).isAir()) {
+							count[0]++;
+						}
+					}
+				}
+			}
+		});
+		return count[0];
 	}
 
 	private void worldbreaker() {
-		// A stone mesa to blow a crater into.
-		this.cmd("fill 60 -63 -20 100 -35 0 minecraft:stone");
-		this.cmd("fill 60 -63 1 100 -35 20 minecraft:stone");
-		this.cmd("fill 40 -64 -3 46 -12 3 minecraft:polished_blackstone");
-		this.place(45.6, -11, 0.5, -90.0F, 45.0F);
+		// The test client defaults to a tiny view distance; the orb (rightly) stops at the edge of the
+		// simulated world, so give it the room a normal game would.
+		this.context.runOnClient(mc -> mc.options.renderDistance().set(12));
+		this.place(120.5, 40, 0.5, -90.0F, 30.0F);
+		this.buildHill(150, 0, 64, 90);
+		// A high firing platform that overlooks the hill's flank; stand at its front corner so it doesn't block the view.
+		this.cmd("fill 33 19 -57 47 19 -43 minecraft:polished_blackstone");
+		this.place(46.5, 20, -43.5, -59.2F, 30.3F);
 		this.hold(1, "overkill:worldbreaker_cannon");
 		this.input.holdKey(options -> options.keyUse);
-		this.context.waitTicks(40);
-		this.shot("worldbreaker_1_charging");
-		this.context.waitTicks(85);
-		this.shot("worldbreaker_2_full_charge");
+		this.context.waitTicks(100);
+		this.shot("worldbreaker_1_charging_5s");
+		this.context.waitTicks(150);
+		this.shot("worldbreaker_2_charging_12s");
+		this.context.waitTicks(155);
+		this.shot("worldbreaker_3_full_charge");
+		long solidBefore = this.countSolid();
+		this.trackOrb();
 		this.input.releaseKey(options -> options.keyUse);
-		this.context.waitTicks(12);
-		this.shot("worldbreaker_3_orb");
-		this.context.waitTicks(22);
-		this.shot("worldbreaker_4_impact");
-		this.context.waitTicks(10);
-		this.shot("worldbreaker_5_blast");
-		this.context.waitTicks(60);
-		this.shot("worldbreaker_6_crater");
-		this.place(80.5, 10, -30.5, 0.0F, 45.0F);
-		this.shot("worldbreaker_7_crater_above");
-		this.place(52.5, -22, -24.5, -50.0F, 28.0F);
-		this.shot("worldbreaker_8_crater_side");
+		this.context.waitFor(mc -> this.orbTicks.get() >= 2 || this.orbDetonated.get(), 400);
+		this.shot("worldbreaker_4_orb");
+		// The recoil slides the shooter back across the platform, which would then hide the impact.
+		this.cmd("tp @p 46.50 20.00 -43.50 -59.2 30.3");
+		this.look(-59.2F, 30.3F);
+		// The server lags behind the client here, so wait for the detonation itself.
+		this.context.waitFor(mc -> this.orbDetonated.get(), 400);
+		this.context.waitTicks(3);
+		this.shot("worldbreaker_5_impact");
+		this.context.waitTicks(25);
+		this.shot("worldbreaker_6_caving_in");
+		this.context.waitTicks(140);
+		this.shot("worldbreaker_7_crater");
+		long removed = solidBefore - this.countSolid();
+		this.server.runOnServer(s -> {
+			net.minecraft.server.level.ServerLevel level = s.overworld();
+			int deepest = Integer.MAX_VALUE;
+			int minX = Integer.MAX_VALUE;
+			int maxX = Integer.MIN_VALUE;
+			int minZ = Integer.MAX_VALUE;
+			int maxZ = Integer.MIN_VALUE;
+			for (int x = 40; x <= 240; x++) {
+				for (int z = -80; z <= 80; z++) {
+					int surface = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+					double d2 = ((x - 150.0) * (x - 150.0) + z * z) / (64.0 * 64.0);
+					int original = d2 < 1.0 ? -60 + (int) (90 * Math.pow(1.0 - d2, 0.8)) : -60;
+					if (surface < original - 3) {
+						deepest = Math.min(deepest, surface);
+						minX = Math.min(minX, x);
+						maxX = Math.max(maxX, x);
+						minZ = Math.min(minZ, z);
+						maxZ = Math.max(maxZ, z);
+					}
+				}
+			}
+			System.out.printf(java.util.Locale.ROOT,
+				"[overkill-showcase] crater: %d blocks removed, floor at y=%d, spans x %d..%d and z %d..%d, avg tick %.1f ms%n",
+				removed, deepest, minX, maxX, minZ, maxZ, s.getAverageTickTimeNanos() / 1.0E6);
+		});
+		this.place(118.5, 95, -75.5, -12.0F, 57.0F, true);
+		this.shot("worldbreaker_8_crater_above");
+		this.place(60.5, 0, -20.5, -80.0F, 22.0F, true);
+		this.shot("worldbreaker_9_crater_mouth");
+		this.context.runOnClient(mc -> {
+			mc.player.getAbilities().flying = false;
+			mc.player.onUpdateAbilities();
+		});
+		this.context.runOnClient(mc -> mc.options.renderDistance().set(5));
+	}
+
+	/** Logs the orb's position every server tick until it detonates. */
+	private void trackOrb() {
+		this.orbDetonated.set(false);
+		this.orbTicks.set(0);
+		this.server.runOnServer(s -> dev.overkill.util.ServerProcesses.add(s.overworld(), new dev.overkill.util.ServerProcesses.Process() {
+			private net.minecraft.world.phys.Vec3 last;
+			private int seen;
+			private int idle;
+
+			@Override
+			public boolean tick(net.minecraft.server.level.ServerLevel level) {
+				var orbs = level.getEntities(dev.overkill.registry.ModEntities.WORLDBREAKER_ORB, e -> true);
+				if (orbs.isEmpty()) {
+					if (this.seen > 0) {
+						ArsenalShowcaseTest.this.orbDetonated.set(true);
+						System.out.printf(java.util.Locale.ROOT, "[overkill-showcase] orb detonated near %.1f %.1f %.1f after %d ticks%n",
+							this.last.x, this.last.y, this.last.z, this.seen);
+						return true;
+					}
+					return ++this.idle > 100;
+				}
+				var orb = orbs.getFirst();
+				this.last = orb.position();
+				this.seen++;
+				ArsenalShowcaseTest.this.orbTicks.set(this.seen);
+				System.out.printf(java.util.Locale.ROOT, "[overkill-showcase] orb at %.1f %.1f %.1f, %.1f blocks/tick%n",
+					orb.getX(), orb.getY(), orb.getZ(), orb.getDeltaMovement().length());
+				return false;
+			}
+		}));
 	}
 
 	private void riftfang() {

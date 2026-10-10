@@ -38,27 +38,17 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * The Worldbreaker's orb. Flies straight and slow, ignores gravity and collision, and erases a
- * tunnel through everything in its path, lining it with molten rock. Once it has burrowed deep
- * enough (or runs out of range) it detonates, carving a funnel crater back up to where it entered
- * the ground.
+ * The Worldbreaker's orb. Ignores gravity and collision and tears straight through everything at
+ * 100 to 400 blocks per second, erasing a tunnel lined with molten rock. Once it has burrowed deep
+ * enough (or runs out of range) it detonates, carving a funnel crater from where it entered the
+ * ground down to the blast. Everything about it scales with how long the cannon was charged.
  */
 public class WorldbreakerOrbEntity extends Projectile {
-	private static final EntityDataAccessor<Integer> DATA_STAGE = SynchedEntityData.defineId(WorldbreakerOrbEntity.class, EntityDataSerializers.INT);
+	private static final EntityDataAccessor<Float> DATA_POWER = SynchedEntityData.defineId(WorldbreakerOrbEntity.class, EntityDataSerializers.FLOAT);
 	private static final EntityDataAccessor<Boolean> DATA_DRILLING = SynchedEntityData.defineId(WorldbreakerOrbEntity.class, EntityDataSerializers.BOOLEAN);
-
-	//                                          -    stage 1  stage 2  stage 3
-	private static final double[] SPEED = {0.0, 1.30, 1.15, 1.00};
-	private static final double[] TUNNEL = {0.0, 1.6, 2.4, 3.4};
-	private static final double[] DEPTH = {0.0, 9.0, 20.0, 40.0};
-	private static final double[] RANGE = {0.0, 80.0, 120.0, 180.0};
-	private static final float[] HIT_DAMAGE = {0.0F, 16.0F, 30.0F, 55.0F};
-	private static final double[] CRATER = {0.0, 5.0, 9.0, 15.0};
-	private static final double[] END_RADIUS = {0.0, 3.5, 6.0, 9.0};
-	private static final double[] BLAST = {0.0, 4.5, 7.0, 10.0};
-	private static final float[] BLAST_DAMAGE = {0.0F, 30.0F, 60.0F, 120.0F};
-	private static final int[] DEBRIS = {0, 12, 30, 64};
-	public static final float[] VISUAL_SIZE = {0.0F, 1.3F, 2.1F, 3.1F};
+	private static final int MAX_LIFE = 200;
+	/** Longest stretch of tunnel the final crater follows back up. */
+	private static final double MAX_FUNNEL = 200.0;
 
 	private final Set<Integer> struck = new HashSet<>();
 	private @Nullable Vec3 entry;
@@ -72,25 +62,84 @@ public class WorldbreakerOrbEntity extends Projectile {
 		this.noPhysics = true;
 	}
 
-	public WorldbreakerOrbEntity(ServerLevel level, LivingEntity owner, int stage, Vec3 position, Vec3 direction) {
+	public WorldbreakerOrbEntity(ServerLevel level, LivingEntity owner, float power, Vec3 position, Vec3 direction) {
 		this(ModEntities.WORLDBREAKER_ORB, level);
 		this.setOwner(owner);
-		this.entityData.set(DATA_STAGE, Mth.clamp(stage, 1, 3));
+		this.entityData.set(DATA_POWER, Mth.clamp(power, 0.0F, 1.0F));
 		this.setPos(position);
-		Vec3 velocity = direction.normalize().scale(SPEED[this.getStage()]);
+		Vec3 velocity = direction.normalize().scale(this.speed());
 		this.setDeltaMovement(velocity);
 		this.setYRot((float) (Mth.atan2(velocity.x, velocity.z) * Mth.RAD_TO_DEG));
 		this.setXRot((float) (Mth.atan2(velocity.y, velocity.horizontalDistance()) * Mth.RAD_TO_DEG));
 	}
 
-	@Override
-	protected void defineSynchedData(SynchedEntityData.Builder builder) {
-		builder.define(DATA_STAGE, 1);
-		builder.define(DATA_DRILLING, false);
+	// ------------------------------------------------------------------------------------------
+	// Stats. Power runs from 0 (1 second charge) to 1 (20 second charge). Sizes grow with its
+	// square root, so the first seconds of charging already pay off.
+	// ------------------------------------------------------------------------------------------
+
+	public float power() {
+		return Mth.clamp(this.entityData.get(DATA_POWER), 0.0F, 1.0F);
 	}
 
-	public int getStage() {
-		return Mth.clamp(this.entityData.get(DATA_STAGE), 1, 3);
+	private double size(double min, double max) {
+		return Mth.lerp(Math.sqrt(this.power()), min, max);
+	}
+
+	/** Blocks per tick: 5 (100 blocks/s) to 20 (400 blocks/s). */
+	private double speed() {
+		return 5.0 + 15.0 * this.power();
+	}
+
+	private double tunnelRadius() {
+		return this.size(1.8, 7.0);
+	}
+
+	private double burrowDepth() {
+		return this.size(10.0, 160.0);
+	}
+
+	private double range() {
+		return Mth.lerp(this.power(), 140.0, 640.0);
+	}
+
+	private float hitDamage() {
+		return (float) this.size(20.0, 300.0);
+	}
+
+	private double craterRadius() {
+		return this.size(5.0, 34.0);
+	}
+
+	private double endRadius() {
+		return this.size(3.5, 24.0);
+	}
+
+	private double blastRadius() {
+		return this.size(4.5, 30.0);
+	}
+
+	private float blastDamage() {
+		return (float) this.size(30.0, 600.0);
+	}
+
+	private int debris() {
+		return (int) this.size(12.0, 140.0);
+	}
+
+	private float visualSize() {
+		return (float) this.size(1.3, 5.0);
+	}
+
+	/** Effect size sent to clients: 1 (1 second charge) to 5 (full charge). */
+	public static float fxScale(float power) {
+		return 1.0F + 4.0F * Mth.clamp(power, 0.0F, 1.0F);
+	}
+
+	@Override
+	protected void defineSynchedData(SynchedEntityData.Builder builder) {
+		builder.define(DATA_POWER, 0.0F);
+		builder.define(DATA_DRILLING, false);
 	}
 
 	@Override
@@ -120,7 +169,7 @@ public class WorldbreakerOrbEntity extends Projectile {
 
 	@Override
 	public boolean shouldRenderAtSqrDistance(double distance) {
-		return distance < 256.0 * 256.0;
+		return distance < 384.0 * 384.0;
 	}
 
 	@Override
@@ -137,43 +186,47 @@ public class WorldbreakerOrbEntity extends Projectile {
 		if (!(this.level() instanceof ServerLevel level) || this.detonated) {
 			return;
 		}
-		int stage = this.getStage();
-		if (this.travelled > RANGE[stage] || this.tickCount > 400 || to.y < level.getMinY() + 2) {
+		// Stop at the edge of the simulated world rather than freezing (or loading chunks) out there.
+		if (this.travelled > this.range() || this.tickCount > MAX_LIFE || to.y < level.getMinY() + 2
+			|| !level.isPositionEntityTicking(BlockPos.containing(to))) {
 			this.detonate(level);
 			return;
 		}
 
-		double radius = TUNNEL[stage];
+		double radius = this.tunnelRadius();
 		double length = velocity.length();
 		int steps = Math.max(1, Mth.ceil(length / (radius * 0.5)));
 		boolean solid = false;
+		Vec3 reached = from;
 		for (int i = 1; i <= steps; i++) {
 			Vec3 point = from.add(velocity.scale((double) i / steps));
 			Drill result = this.drill(level, point, radius);
 			if (result == Drill.STOPPED) {
+				this.strikeEntities(level, from, point, radius);
 				this.setPos(point);
 				this.detonate(level);
 				return;
 			}
-			solid |= result == Drill.SOLID;
+			if (result == Drill.SOLID) {
+				if (!solid && this.airRun > 4.0) {
+					// Entering the ground again after open air: a new tunnel (and a new crater mouth) starts here.
+					this.entry = reached;
+				}
+				solid = true;
+				this.airRun = 0.0;
+				this.penetration += length / steps;
+			} else {
+				this.airRun += length / steps;
+			}
+			reached = point;
 		}
+		this.strikeEntities(level, from, to, radius);
 		this.setPos(to);
 		this.travelled += length;
-		if (solid) {
-			if (this.airRun > 4.0) {
-				this.entry = from;
-			}
-			this.airRun = 0.0;
-			this.penetration += length;
-		} else {
-			this.airRun += length;
-		}
 		this.entityData.set(DATA_DRILLING, solid);
-
-		this.strikeEntities(level, radius);
 		this.serverEffects(level, solid);
 
-		if (this.penetration >= DEPTH[stage]) {
+		if (this.penetration >= this.burrowDepth()) {
 			this.detonate(level);
 		}
 	}
@@ -194,14 +247,19 @@ public class WorldbreakerOrbEntity extends Projectile {
 		// Never dig out the ground the shooter is standing on (the orb spawns right in front of them).
 		AABB safeZone = owner != null && owner.isAlive() ? owner.getBoundingBox().inflate(2.5) : null;
 		boolean solid = false;
-		int r = Mth.ceil(radius + 1.3);
+		double shell = radius + 1.3;
+		int r = Mth.ceil(shell);
 		double inner = radius * radius;
-		double outer = (radius + 1.3) * (radius + 1.3);
+		double outer = shell * shell;
 		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 		for (int dx = -r; dx <= r; dx++) {
-			for (int dy = -r; dy <= r; dy++) {
-				for (int dz = -r; dz <= r; dz++) {
-					cursor.set(centerPos.getX() + dx, centerPos.getY() + dy, centerPos.getZ() + dz);
+			for (int dz = -r; dz <= r; dz++) {
+				cursor.set(centerPos.getX() + dx, centerPos.getY(), centerPos.getZ() + dz);
+				if (!level.isLoaded(cursor)) {
+					continue;
+				}
+				for (int dy = -r; dy <= r; dy++) {
+					cursor.setY(centerPos.getY() + dy);
 					double d2 = cursor.distToCenterSqr(center);
 					if (d2 > outer || !level.isInWorldBounds(cursor)) {
 						continue;
@@ -232,69 +290,88 @@ public class WorldbreakerOrbEntity extends Projectile {
 		return solid ? Drill.SOLID : Drill.AIR;
 	}
 
-	private void strikeEntities(ServerLevel level, double radius) {
+	/** Hits everything the orb swept past this tick (it moves up to 20 blocks a tick, so checking just its position would miss things). */
+	private void strikeEntities(ServerLevel level, Vec3 from, Vec3 to, double radius) {
 		Entity owner = this.getOwner();
-		int stage = this.getStage();
-		Vec3 center = this.position();
-		Vec3 push = this.getDeltaMovement().normalize();
-		AABB box = new AABB(center, center).inflate(radius + 1.0);
+		Vec3 path = to.subtract(from);
+		double len2 = path.lengthSqr();
+		Vec3 push = len2 < 1.0E-6 ? new Vec3(0.0, 1.0, 0.0) : path.normalize();
+		double reach = radius + 1.5;
+		AABB box = new AABB(from, to).inflate(radius + 1.0);
 		for (Entity entity : level.getEntities(this, box, e -> e instanceof LivingEntity && Targeting.canHurt(owner, e))) {
-			if (!this.struck.add(entity.getId()) || entity.getBoundingBox().getCenter().distanceTo(center) > radius + 1.5) {
+			Vec3 center = entity.getBoundingBox().getCenter();
+			double t = len2 < 1.0E-6 ? 0.0 : Mth.clamp(center.subtract(from).dot(path) / len2, 0.0, 1.0);
+			if (center.distanceTo(from.add(path.scale(t))) > reach || !this.struck.add(entity.getId())) {
 				continue;
 			}
 			LivingEntity living = (LivingEntity) entity;
-			living.hurtServer(level, ModDamageTypes.source(level, ModDamageTypes.WORLDBREAKER, this, owner), HIT_DAMAGE[stage]);
-			living.igniteForSeconds(6.0F);
-			living.addEffect(new MobEffectInstance(ModEffects.SEARING, 100, 1), owner);
-			living.push(push.x * 1.8, 0.5 + push.y, push.z * 1.8);
+			living.invulnerableTime = 0;
+			living.hurtServer(level, ModDamageTypes.source(level, ModDamageTypes.WORLDBREAKER, this, owner), this.hitDamage());
+			living.igniteForSeconds(8.0F);
+			living.addEffect(new MobEffectInstance(ModEffects.SEARING, 140, 1), owner);
+			double fling = 1.8 + 2.0 * this.power();
+			living.push(push.x * fling, 0.5 + push.y + this.power(), push.z * fling);
 			living.hurtMarked = true;
 		}
 	}
 
 	private void serverEffects(ServerLevel level, boolean drilling) {
-		if (this.tickCount % 6 == 0) {
-			level.playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.BEACON_AMBIENT, SoundSource.PLAYERS, 3.0F, 0.5F);
+		float power = this.power();
+		if (this.tickCount % 3 == 0) {
+			level.playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.BEACON_AMBIENT, SoundSource.PLAYERS, 3.0F + power * 3.0F, 0.5F);
+		}
+		if (this.tickCount % 2 == 0) {
+			level.playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.WARDEN_SONIC_BOOM, SoundSource.PLAYERS, 1.5F + power * 2.0F, 1.6F - power * 0.6F);
 		}
 		if (drilling) {
-			if (this.tickCount % 3 == 0) {
-				level.playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.ANCIENT_DEBRIS_BREAK, SoundSource.BLOCKS, 3.0F, 0.5F);
-				level.playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.GRAVEL_BREAK, SoundSource.BLOCKS, 3.0F, 0.6F);
+			level.playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.ANCIENT_DEBRIS_BREAK, SoundSource.BLOCKS, 3.0F + power * 3.0F, 0.5F);
+			level.playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.GRAVEL_BREAK, SoundSource.BLOCKS, 3.0F + power * 3.0F, 0.6F);
+			if (this.tickCount % 2 == 0) {
+				level.playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.GENERIC_EXPLODE, SoundSource.BLOCKS, 1.5F + power * 3.0F, 0.5F);
 			}
-			if (this.tickCount % 4 == 0) {
-				Fx.shake(level, this.position(), 28.0, 0.6F + this.getStage() * 0.3F, 6);
-			}
+			Fx.shake(level, this.position(), 40.0 + power * 60.0, 0.6F + power * 1.6F, 6);
 		}
 	}
 
 	private void clientEffects(Vec3 from, Vec3 to) {
 		Level level = this.level();
 		RandomSource random = this.random;
-		int stage = this.getStage();
-		float size = VISUAL_SIZE[stage];
+		float power = this.power();
+		float size = this.visualSize();
+		Vec3 path = to.subtract(from);
+		double length = path.length();
 		level.addParticle(ModParticles.ORB_CORE, true, true, to.x, to.y, to.z, size, 1.0, 0.0);
 		if (this.tickCount % 2 == 0) {
 			level.addParticle(ModParticles.ORB_CORE, true, true, to.x, to.y, to.z, size * 1.9, 0.35, 0.0);
 		}
-		Vec3 back = this.getDeltaMovement().normalize().scale(-1.0);
-		for (int i = 0; i < 3 + stage * 2; i++) {
-			Vec3 p = from.add(to.subtract(from).scale(random.nextDouble()));
-			Vec3 v = back.scale(0.1 + random.nextDouble() * 0.2).add(random.nextGaussian() * 0.08, random.nextGaussian() * 0.08, random.nextGaussian() * 0.08);
+		// At these speeds the orb is a streak: fill the path it covered this tick with fading glows.
+		for (double d = 0.0; d < length; d += 1.2) {
+			Vec3 p = from.add(path.scale(d / length));
+			level.addParticle(ModParticles.ORB_CORE, true, true, p.x, p.y, p.z, size * 0.7, 0.45, 4.0);
+		}
+		Vec3 back = length < 1.0E-4 ? Vec3.ZERO : path.scale(-1.0 / length);
+		int sparks = 3 + (int) (length * (0.5 + power));
+		for (int i = 0; i < sparks; i++) {
+			Vec3 p = from.add(path.scale(random.nextDouble()));
+			Vec3 v = back.scale(0.1 + random.nextDouble() * 0.2).add(random.nextGaussian() * 0.12, random.nextGaussian() * 0.12, random.nextGaussian() * 0.12);
 			level.addParticle(ModParticles.STATIC_SPARK, true, true, p.x, p.y, p.z, v.x, v.y, v.z);
 		}
 		for (int k = 0; k < 3; k++) {
 			double angle = this.tickCount * 0.55 + k * (Math.PI * 2.0 / 3.0);
 			Vec3 side = new Vec3(Math.cos(angle), Math.sin(angle) * 0.6, Math.sin(angle)).scale(size * 0.55);
-			level.addParticle(ModParticles.ARC, true, true, to.x + side.x, to.y + side.y, to.z + side.z, 0.6, 0.8, 4.0);
+			level.addParticle(ModParticles.ARC, true, true, to.x + side.x, to.y + side.y, to.z + side.z, 0.6 + power, 0.8, 4.0);
 		}
 		if (this.entityData.get(DATA_DRILLING)) {
-			for (int i = 0; i < 4 + stage * 3; i++) {
-				Vec3 v = new Vec3(random.nextGaussian(), random.nextGaussian() * 0.6 + 0.3, random.nextGaussian()).scale(0.25);
-				level.addParticle(ModParticles.BLAST_DUST, true, true, to.x + random.nextGaussian() * size * 0.5,
-					to.y + random.nextGaussian() * size * 0.5, to.z + random.nextGaussian() * size * 0.5, v.x, v.y, v.z);
-				level.addParticle(ModParticles.EMBER, true, true, to.x, to.y, to.z, v.x * 2.0, v.y * 2.0, v.z * 2.0);
-			}
-			if (random.nextInt(2) == 0) {
-				level.addParticle(ModParticles.MAGMA, true, true, to.x, to.y, to.z, random.nextGaussian() * 0.3, 0.3 + random.nextDouble() * 0.3, random.nextGaussian() * 0.3);
+			int chunks = 4 + (int) (length * (0.6 + power));
+			for (int i = 0; i < chunks; i++) {
+				Vec3 at = from.add(path.scale(random.nextDouble()));
+				Vec3 v = new Vec3(random.nextGaussian(), random.nextGaussian() * 0.6 + 0.3, random.nextGaussian()).scale(0.25 + power * 0.25);
+				level.addParticle(ModParticles.BLAST_DUST, true, true, at.x + random.nextGaussian() * size * 0.5,
+					at.y + random.nextGaussian() * size * 0.5, at.z + random.nextGaussian() * size * 0.5, v.x, v.y, v.z);
+				level.addParticle(ModParticles.EMBER, true, true, at.x, at.y, at.z, v.x * 2.0, v.y * 2.0, v.z * 2.0);
+				if (random.nextInt(4) == 0) {
+					level.addParticle(ModParticles.MAGMA, true, true, at.x, at.y, at.z, random.nextGaussian() * 0.3, 0.3 + random.nextDouble() * 0.3, random.nextGaussian() * 0.3);
+				}
 			}
 			level.addParticle(ModParticles.HEAVY_SMOKE, true, true, from.x, from.y, from.z, 0.0, 0.03, 0.0);
 		}
@@ -305,31 +382,39 @@ public class WorldbreakerOrbEntity extends Projectile {
 			return;
 		}
 		this.detonated = true;
-		int stage = this.getStage();
+		float power = this.power();
+		float fx = fxScale(power);
 		Entity owner = this.getOwner();
 		Vec3 end = this.position();
-		Vec3 entryPoint = this.entry != null ? this.entry : end;
-
-		Devastation.crater(level, entryPoint, end, CRATER[stage], END_RADIUS[stage], BLAST[stage], owner, DEBRIS[stage], Devastation.Lining.INFERNO);
-		this.blast(level, end, BLAST[stage] * 2.2, BLAST_DAMAGE[stage], owner);
-		if (entryPoint.distanceTo(end) > 6.0) {
-			this.blast(level, entryPoint, CRATER[stage] * 1.4, BLAST_DAMAGE[stage] * 0.6F, owner);
+		// Only follow the tunnel back up if the orb was still underground when it went off.
+		Vec3 entryPoint = this.entry != null && this.airRun < 8.0 ? this.entry : end;
+		if (entryPoint.distanceTo(end) > MAX_FUNNEL) {
+			entryPoint = end.add(entryPoint.subtract(end).normalize().scale(MAX_FUNNEL));
 		}
 
-		Fx.send(level, end, 320.0, FxKind.ORB_IMPACT, end, entryPoint, stage, this.random.nextInt());
-		float volume = 4.0F + stage * 3.0F;
+		Devastation.crater(level, entryPoint, end, this.craterRadius(), this.endRadius(), this.blastRadius(), owner, this.debris(), Devastation.Lining.INFERNO);
+		this.blast(level, end, this.blastRadius() * 2.2, this.blastDamage(), owner);
+		if (entryPoint.distanceTo(end) > 6.0) {
+			this.blast(level, entryPoint, this.craterRadius() * 1.4, this.blastDamage() * 0.6F, owner);
+		}
+
+		Fx.send(level, end, 320.0 + 160.0 * power, FxKind.ORB_IMPACT, end, entryPoint, fx, this.random.nextInt());
+		float volume = 5.0F + fx * 3.0F;
 		for (Vec3 at : new Vec3[]{end, entryPoint}) {
 			level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE, SoundSource.BLOCKS, volume, 0.45F);
 			level.playSound(null, at.x, at.y, at.z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.BLOCKS, volume, 0.5F);
 		}
 		level.playSound(null, end.x, end.y, end.z, SoundEvents.WARDEN_SONIC_BOOM, SoundSource.BLOCKS, volume * 0.6F, 0.4F);
-		Fx.shake(level, end, 48.0 + 40.0 * stage, 1.5F + 1.6F * stage, 18 + 8 * stage);
+		if (power > 0.6F) {
+			level.playSound(null, entryPoint.x, entryPoint.y, entryPoint.z, SoundEvents.END_PORTAL_SPAWN, SoundSource.BLOCKS, volume, 0.5F);
+		}
+		Fx.shake(level, end, 48.0 + 50.0 * fx, 1.5F + 1.4F * fx, 18 + 10 * (int) fx);
 		this.discard();
 	}
 
 	private void blast(ServerLevel level, Vec3 center, double radius, float maxDamage, @Nullable Entity owner) {
 		AABB box = new AABB(center, center).inflate(radius);
-		float stageFactor = this.getStage() / 3.0F;
+		float power = this.power();
 		for (Entity entity : level.getEntities(this, box, e -> e instanceof LivingEntity && Targeting.canHurt(owner, e))) {
 			Vec3 offset = entity.getBoundingBox().getCenter().subtract(center);
 			double distance = offset.length();
@@ -343,8 +428,8 @@ public class WorldbreakerOrbEntity extends Projectile {
 			living.igniteForSeconds(10.0F);
 			living.addEffect(new MobEffectInstance(ModEffects.SEARING, 200, 1), owner);
 			Vec3 dir = distance < 1.0E-3 ? new Vec3(0, 1, 0) : offset.normalize();
-			double strength = (1.5 + 2.5 * falloff) * (0.5 + stageFactor);
-			living.push(dir.x * strength, 0.6 + falloff * 1.2, dir.z * strength);
+			double strength = (1.5 + 2.5 * falloff) * (0.6 + power * 1.2);
+			living.push(dir.x * strength, 0.6 + falloff * (1.2 + power), dir.z * strength);
 			living.hurtMarked = true;
 		}
 	}
@@ -352,12 +437,12 @@ public class WorldbreakerOrbEntity extends Projectile {
 	@Override
 	protected void addAdditionalSaveData(ValueOutput output) {
 		super.addAdditionalSaveData(output);
-		output.putInt("Stage", this.getStage());
+		output.putFloat("Power", this.power());
 	}
 
 	@Override
 	protected void readAdditionalSaveData(ValueInput input) {
 		super.readAdditionalSaveData(input);
-		this.entityData.set(DATA_STAGE, input.getIntOr("Stage", 1));
+		this.entityData.set(DATA_POWER, input.getFloatOr("Power", 0.0F));
 	}
 }

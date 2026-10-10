@@ -19,14 +19,14 @@
           }
         },
         {
-          "threshold": 60,
+          "threshold": 160,
           "model": {
             "type": "minecraft:model",
             "model": "overkill:item/worldbreaker_cannon_charge_2"
           }
         },
         {
-          "threshold": 120,
+          "threshold": 400,
           "model": {
             "type": "minecraft:model",
             "model": "overkill:item/worldbreaker_cannon_charge_3"

@@ -7,16 +7,20 @@ import dev.overkill.item.StormcallerGauntletItem;
 import dev.overkill.item.SunlineRifleItem;
 import dev.overkill.item.WorldbreakerCannonItem;
 import net.minecraft.core.Registry;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.component.UseEffects;
 
 import java.util.function.Function;
 
 public final class ModItems {
-	public static final Item SUNLINE_RIFLE = register("sunline_rifle", SunlineRifleItem::new, weapon());
+	/** You can walk at half speed while holding the laser. */
+	public static final Item SUNLINE_RIFLE = register("sunline_rifle", SunlineRifleItem::new, weapon()
+		.component(DataComponents.USE_EFFECTS, new UseEffects(false, true, 0.5F)));
 
 	public static final Item WORLDBREAKER_CANNON = register("worldbreaker_cannon", WorldbreakerCannonItem::new, weapon());
 

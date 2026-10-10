@@ -1,8 +1,11 @@
 package dev.overkill.util;
 
+import dev.overkill.OverkillArsenal;
 import dev.overkill.block.ScorchedStoneBlock;
 import dev.overkill.registry.ModBlocks;
 import dev.overkill.registry.ModGameRules;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import net.fabricmc.fabric.api.tag.convention.v2.ConventionalBlockTags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -11,6 +14,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
+import net.minecraft.util.Util;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.level.block.BaseFireBlock;
@@ -23,9 +27,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Everything the weapons do to terrain: scorch marks, molten linings, glassed sand, burning rims,
@@ -33,7 +35,7 @@ import java.util.List;
  */
 public final class Devastation {
 	/** Max block edits per tick for a crater job, so even the biggest blast never freezes the server. */
-	private static final int BLOCK_BUDGET_PER_TICK = 5000;
+	private static final int BLOCK_BUDGET_PER_TICK = 6000;
 
 	/** How a crater's walls get treated. */
 	public enum Lining {
@@ -329,7 +331,8 @@ public final class Devastation {
 	 * Carves a ragged funnel from {@code entry} (radius {@code entryRadius}) to {@code end} (radius
 	 * {@code endRadius}), plus a blast sphere of {@code blastRadius} at {@code end}. The walls are
 	 * lined with molten and scorched rock, water and sand are woken up so they pour in, and the rim
-	 * is left burning and covered in ash. Work is spread over several ticks.
+	 * is left burning and covered in ash. The shape is worked out on a background thread (a full
+	 * Worldbreaker crater is over half a million blocks) and carved over several ticks.
 	 */
 	public static void crater(ServerLevel level, Vec3 entry, Vec3 end, double entryRadius, double endRadius, double blastRadius,
 		@Nullable Entity cause, int debris, Lining lining) {
@@ -338,28 +341,12 @@ public final class Devastation {
 		}
 		RandomSource random = level.random;
 		CraterShape shape = new CraterShape(entry, end, entryRadius, endRadius, blastRadius, new Noise(random.nextLong(), 3.5));
-		AABB box = shape.bounds().inflate(2.0);
-		int minY = Math.max(level.getMinY(), Mth.floor(box.minY));
-		int maxY = Math.min(level.getMaxY(), Mth.ceil(box.maxY));
+		int minY = level.getMinY();
+		int maxY = level.getMaxY();
+		CompletableFuture<CraterPlan> plan = CompletableFuture.supplyAsync(() -> CraterPlan.of(shape, minY, maxY), Util.backgroundExecutor());
 
-		List<BlockPos> carve = new ArrayList<>();
-		List<BlockPos> shell = new ArrayList<>();
-		for (int x = Mth.floor(box.minX); x <= Mth.ceil(box.maxX); x++) {
-			for (int z = Mth.floor(box.minZ); z <= Mth.ceil(box.maxZ); z++) {
-				for (int y = minY; y <= maxY; y++) {
-					double field = shape.field(x + 0.5, y + 0.5, z + 0.5);
-					if (field <= 0.0) {
-						carve.add(new BlockPos(x, y, z));
-					} else if (field <= 1.8) {
-						shell.add(new BlockPos(x, y, z));
-					}
-				}
-			}
-		}
-		carve.sort(Comparator.comparingDouble(pos -> pos.distToCenterSqr(end)));
-
-		ejectDebris(level, entry, entryRadius * 0.8, debris, 0.9 + entryRadius * 0.06, random);
-		ServerProcesses.add(level, new CraterJob(carve, shell, entry, Math.max(entryRadius, blastRadius), cause, lining));
+		ejectDebris(level, entry, entryRadius * 0.8, debris, Math.min(2.2, 0.9 + entryRadius * 0.06), random);
+		ServerProcesses.add(level, new CraterJob(plan, entry, Math.max(entryRadius, blastRadius), cause, lining));
 	}
 
 	private record CraterShape(Vec3 a, Vec3 b, double radiusA, double radiusB, double blastRadius, Noise noise) {
@@ -388,21 +375,74 @@ public final class Devastation {
 		}
 	}
 
-	/** Spreads crater work over ticks: carve (centre outwards), line the walls, then dress the rim. */
+	/**
+	 * Which blocks a crater removes and which it lines. Pure maths (no world access), so it is safe to
+	 * compute off the server thread. Blocks to carve are ordered from the core of the crater outwards,
+	 * so the ground caves in and the hole widens to its rim.
+	 */
+	private record CraterPlan(long[] carve, long[] shell) {
+		private static final double SHELL = 1.8;
+		/** Carve-order buckets per block of depth inside the crater wall. */
+		private static final int BUCKETS_PER_BLOCK = 2;
+
+		static CraterPlan of(CraterShape shape, int worldMinY, int worldMaxY) {
+			AABB box = shape.bounds().inflate(2.0);
+			int minY = Math.max(worldMinY, Mth.floor(box.minY));
+			int maxY = Math.min(worldMaxY, Mth.ceil(box.maxY));
+			LongArrayList carve = new LongArrayList();
+			IntArrayList depth = new IntArrayList();
+			LongArrayList shell = new LongArrayList();
+			int deepest = 0;
+			for (int x = Mth.floor(box.minX); x <= Mth.ceil(box.maxX); x++) {
+				for (int z = Mth.floor(box.minZ); z <= Mth.ceil(box.maxZ); z++) {
+					for (int y = minY; y <= maxY; y++) {
+						double field = shape.field(x + 0.5, y + 0.5, z + 0.5);
+						if (field <= 0.0) {
+							int bucket = (int) (-field * BUCKETS_PER_BLOCK);
+							carve.add(BlockPos.asLong(x, y, z));
+							depth.add(bucket);
+							deepest = Math.max(deepest, bucket);
+						} else if (field <= SHELL) {
+							shell.add(BlockPos.asLong(x, y, z));
+						}
+					}
+				}
+			}
+			// Counting sort, deepest first.
+			int[] start = new int[deepest + 2];
+			for (int i = 0; i < depth.size(); i++) {
+				start[deepest - depth.getInt(i) + 1]++;
+			}
+			for (int i = 1; i < start.length; i++) {
+				start[i] += start[i - 1];
+			}
+			long[] ordered = new long[carve.size()];
+			for (int i = 0; i < carve.size(); i++) {
+				ordered[start[deepest - depth.getInt(i)]++] = carve.getLong(i);
+			}
+			return new CraterPlan(ordered, shell.toLongArray());
+		}
+	}
+
+	/** Spreads crater work over ticks: carve (core outwards), line the walls, then dress the rim. */
 	private static final class CraterJob implements ServerProcesses.Process {
-		private final List<BlockPos> carve;
-		private final List<BlockPos> shell;
+		/** Max positions looked at per tick (most of a crater near the surface is already air). */
+		private static final int SCAN_BUDGET_PER_TICK = 60000;
+		/** If planning somehow takes longer than 30 seconds, give up rather than wait forever. */
+		private static final int PLAN_TIMEOUT_TICKS = 600;
+
+		private final CompletableFuture<CraterPlan> planning;
 		private final Vec3 entry;
 		private final double rimRadius;
 		private final @Nullable Entity cause;
 		private final Lining lining;
+		private @Nullable CraterPlan plan;
+		private int waited;
 		private int carveIndex;
 		private int shellIndex;
-		private boolean rimDone;
 
-		CraterJob(List<BlockPos> carve, List<BlockPos> shell, Vec3 entry, double rimRadius, @Nullable Entity cause, Lining lining) {
-			this.carve = carve;
-			this.shell = shell;
+		CraterJob(CompletableFuture<CraterPlan> planning, Vec3 entry, double rimRadius, @Nullable Entity cause, Lining lining) {
+			this.planning = planning;
 			this.entry = entry;
 			this.rimRadius = rimRadius;
 			this.cause = cause;
@@ -411,47 +451,67 @@ public final class Devastation {
 
 		@Override
 		public boolean tick(ServerLevel level) {
+			if (this.plan == null) {
+				if (!this.planning.isDone()) {
+					return ++this.waited > PLAN_TIMEOUT_TICKS;
+				}
+				try {
+					this.plan = this.planning.join();
+				} catch (RuntimeException e) {
+					OverkillArsenal.LOGGER.error("Could not plan a crater", e);
+					return true;
+				}
+			}
+			long[] carve = this.plan.carve();
+			long[] shell = this.plan.shell();
 			int budget = BLOCK_BUDGET_PER_TICK;
+			int scan = SCAN_BUDGET_PER_TICK;
 			RandomSource random = level.random;
-			while (budget > 0 && this.carveIndex < this.carve.size()) {
-				BlockPos pos = this.carve.get(this.carveIndex++);
+			BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+			while (budget > 0 && scan-- > 0 && this.carveIndex < carve.length) {
+				pos.set(carve[this.carveIndex++]);
+				if (!level.isLoaded(pos)) {
+					continue;
+				}
 				BlockState state = level.getBlockState(pos);
 				if (state.isAir() || isUnbreakable(level, pos, state)) {
 					continue;
 				}
 				budget--;
 				if (state.hasBlockEntity()) {
-					level.destroyBlock(pos, true, this.cause);
+					level.destroyBlock(pos.immutable(), true, this.cause);
 				} else {
 					level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
 				}
 			}
-			while (budget > 0 && this.carveIndex >= this.carve.size() && this.shellIndex < this.shell.size()) {
-				BlockPos pos = this.shell.get(this.shellIndex++);
+			while (budget > 0 && scan-- > 0 && this.carveIndex >= carve.length && this.shellIndex < shell.length) {
+				BlockPos at = BlockPos.of(shell[this.shellIndex++]);
 				budget--;
-				BlockState state = level.getBlockState(pos);
+				if (!level.isLoaded(at)) {
+					continue;
+				}
+				BlockState state = level.getBlockState(at);
 				if (state.isAir()) {
 					continue;
 				}
 				FluidState fluid = state.getFluidState();
 				if (!fluid.isEmpty()) {
-					level.scheduleTick(pos, fluid.getType(), fluid.getType().getTickDelay(level));
+					level.scheduleTick(at, fluid.getType(), fluid.getType().getTickDelay(level));
 					continue;
 				}
 				if (state.getBlock() instanceof FallingBlock) {
-					level.scheduleTick(pos, state.getBlock(), 2 + random.nextInt(20));
+					level.scheduleTick(at, state.getBlock(), 2 + random.nextInt(20));
 					continue;
 				}
-				if (isExposed(level, pos)) {
+				if (isExposed(level, at)) {
 					if (this.lining == Lining.VOID) {
-						voidifyBlock(level, pos, random);
+						voidifyBlock(level, at, random);
 					} else {
-						scorchBlock(level, pos, random, 0.9F);
+						scorchBlock(level, at, random, 0.9F);
 					}
 				}
 			}
-			if (this.carveIndex >= this.carve.size() && this.shellIndex >= this.shell.size() && !this.rimDone) {
-				this.rimDone = true;
+			if (this.carveIndex >= carve.length && this.shellIndex >= shell.length) {
 				this.dressRim(level, random);
 				return true;
 			}
@@ -459,10 +519,11 @@ public final class Devastation {
 		}
 
 		private void dressRim(ServerLevel level, RandomSource random) {
-			double outer = this.rimRadius * 2.4 + 4;
+			double outer = Math.min(this.rimRadius * 2.4 + 4, this.rimRadius + 40.0);
 			int r = Mth.ceil(outer);
 			BlockPos origin = BlockPos.containing(this.entry);
 			BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+			int reach = Mth.ceil(Math.max(10.0, this.rimRadius * 0.5));
 			for (int dx = -r; dx <= r; dx++) {
 				for (int dz = -r; dz <= r; dz++) {
 					double dist = Math.sqrt(dx * dx + dz * dz);
@@ -473,7 +534,11 @@ public final class Devastation {
 					if (random.nextFloat() > 0.25F + heat) {
 						continue;
 					}
-					for (int dy = 8; dy >= -10; dy--) {
+					cursor.set(origin.getX() + dx, origin.getY(), origin.getZ() + dz);
+					if (!level.isLoaded(cursor)) {
+						continue;
+					}
+					for (int dy = reach; dy >= -reach; dy--) {
 						cursor.set(origin.getX() + dx, origin.getY() + dy, origin.getZ() + dz);
 						BlockState state = level.getBlockState(cursor);
 						if (!state.isAir() && state.getFluidState().isEmpty() && level.getBlockState(cursor.above()).isAir()) {

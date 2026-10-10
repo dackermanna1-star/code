@@ -10,8 +10,8 @@ A Fabric mod for **Minecraft 1.21.11** that adds five absurdly overpowered weapo
 
 | Weapon | What it does |
 |---|---|
-| **Sunline Rifle** | An instant 160-block beam. 0.6 s later, the whole line detonates in a chain of fiery explosions. |
-| **Worldbreaker Orb Cannon** | Charge it, then fire a slow orb that drills through mountains and leaves a crater up to 30 wide and 40 deep. |
+| **Sunline Rifle** | Hold the trigger and sweep a laser-pointer beam over anything you like. Let go, and 0.6 s later everywhere it pointed explodes. |
+| **Worldbreaker Orb Cannon** | Charge it for up to 20 s, then fire an orb that tears through 100–400 blocks a second and leaves a crater about 70 wide. |
 | **Riftfang Scythe** | Every hit tears space. Enemies fall through the tears and drop out of the sky. |
 | **Stormcaller Gauntlet** | Punches build up lightning charge for chain lightning, Thunder Call and a leaping Thunderfall Slam. |
 | **Gravemaker** | Fires black holes that pull in mobs, items and ripped-up terrain, then implode and explode outward. |
@@ -23,28 +23,35 @@ All five are in the **Overkill Arsenal** creative tab and can be crafted in surv
 ## The weapons
 
 ### Sunline Rifle
-![Sunline Rifle: chain detonation and the burning trench it leaves](docs/sunline.jpg)
+![Sunline Rifle: sweeping the laser, the detonation and the scorched field it leaves](docs/sunline.jpg)
 
-- **Right-click** traces an instant white-gold beam up to **160 blocks**. It passes through mobs and stops at the first solid block.
-- Everything on the line takes 6 damage, is set on fire and gets **Sunmarked**, which makes it glow.
-- **0.6 seconds later** the line erupts. Explosions race from the muzzle to the impact point, leaving fire, scorched stone, molten rock, sand fused into glass, and smoldering ash.
-- Sunmarked targets take an extra **22 damage** when the blast reaches them, burn for 8 s and get **Searing II**.
-- The impact point gets a splash of molten rock and flying debris. Cooldown: 5 s.
+- **Hold right-click** and a thin white-gold laser (up to **160 blocks**) follows your aim for up to **6 seconds**, like a laser pointer: a crisp line and a bright dot where it lands. You can walk at half speed while you hold it.
+- The laser leaves **no trail**, but it remembers every spot it lands on, about every 2 blocks along its path. Even a fast sweep leaves no gaps.
+- Every mob the laser passes through takes 6 damage, catches fire and gets **Sunmarked**, which makes it glow. It keeps burning while the laser stays on it.
+- **Let go**: a hum rises and, **0.6 seconds later**, everywhere the laser pointed explodes, in the order you pointed at it. Each blast is stronger than TNT (power 5.5), and the last one is a power-9 blast. Together they leave fire, scorched stone, molten rock, sand fused into glass and smoldering ash.
+- **Hold the laser on one spot** to heat it up: a spot held for 1.5 s blows 60% harder.
+- **Sunmarked targets blow up wherever they've run to**, taking an extra **30 damage**, burning for 10 s and getting **Searing II**.
+- Up to 360 spots per shot. The explosions are spread out over a second or two so the server keeps up. Cooldown: 6 s after you let go.
 
 ### Worldbreaker Orb Cannon
-![Worldbreaker: charging, then the crater it blew into a stone mesa](docs/worldbreaker.jpg)
+![Worldbreaker: a full 20 second charge, then the crater it tore through a hill](docs/worldbreaker.jpg)
 
-- **Hold right-click to charge.** The orb grows at the muzzle and the hum rises. There are three stages, at **1 s, 3 s and 6 s**.
-- **Release** to fire a slow, heavy orb that ignores gravity and collision. It erases a tunnel through everything in its path and lines it with molten rock.
-- Once it has burrowed deep enough (40 blocks at full charge), it detonates. It carves a funnel crater from where it entered the ground down to the blast point: **about 30 wide and 40 deep at full charge**.
+- **Hold right-click to charge.** The orb grows at the muzzle, dust gets dragged into the barrel and the hum rises. A charge meter on the action bar fills over **20 seconds**, with stage flashes at **1, 5, 10, 15 and 20 s**.
+- **Release** to fire an orb that ignores gravity and collision and tears through everything at **100 blocks a second (1 s charge) up to 400 blocks a second (full charge)**. It erases a tunnel up to **14 blocks wide**, lines it with molten rock, and flings and burns anything it passes.
+- Once it has burrowed deep enough (**up to 160 blocks** at full charge) or hits bedrock, it detonates. It carves a funnel crater from where it entered the ground down to the blast point. At full charge the crater is **about 70 wide** and follows the tunnel all the way down. The ground caves in from the middle outwards over a few seconds.
 - The crater's walls are lined with molten rock, magma and scorched stone, and the rim is left burning and covered in ash. Debris rains down around it, and nearby water, lava and sand pour into the hole.
-- **Overcharge warning:** holding a full charge for more than 2.5 s makes the cannon unstable (an alarm sounds and the screen shakes). Keep holding and it **backfires** on you.
+- **Overcharge warning:** holding a full charge for more than **3 s** makes the cannon unstable (the meter flashes red, an alarm sounds and the screen shakes). Keep holding and it **backfires** on you.
 
-| Stage | Hold | Tunnel radius | Burrow depth | Crater |
-|---|---|---|---|---|
-| 1 | 1 s | 1.6 | 9 | ~10 wide |
-| 2 | 3 s | 2.4 | 20 | ~18 wide |
-| 3 | 6 s | 3.4 | 40 | ~30 wide, 40 deep |
+Everything scales smoothly with the charge. Sizes grow fastest early on, so even a few seconds of charging pays off:
+
+| Charge | Speed | Tunnel width | Burrow depth | Crater mouth | Direct hit damage |
+|---|---|---|---|---|---|
+| 1 s | 100 blocks/s | ~4 | 10 | ~10 wide | 20 |
+| 5 s | ~160 blocks/s | ~8 | 79 | ~37 wide | 148 |
+| 10 s | ~240 blocks/s | ~11 | 113 | ~50 wide | 213 |
+| 20 s | 400 blocks/s | 14 | 160 | ~68 wide | 300 |
+
+The orb detonates at the edge of the simulated world instead of flying on into unloaded chunks. The crater's shape is worked out on a background thread and carved a few thousand blocks per tick, so even a full-charge crater (hundreds of thousands of blocks) doesn't freeze the server.
 
 ### Riftfang Scythe
 ![Riftfang: a tear left by a hit, a hurled rift, and Void Harvest maws](docs/riftfang.jpg)
@@ -133,7 +140,8 @@ You need JDK 21.
 ```sh
 xvfb-run -a ./gradlew runClientGameTest
 # screenshots: build/run/clientGameTest/screenshots/
-# OVERKILL_SHOWCASE=particles only runs a quick particle calibration scene
+# OVERKILL_SHOWCASE=sunline,worldbreaker runs only those sections
+# OVERKILL_SHOWCASE=particles runs a quick particle calibration scene
 ```
 
 Loom wipes `build/run/clientGameTest` at the start of every run, so copy the screenshots somewhere else before running it again.

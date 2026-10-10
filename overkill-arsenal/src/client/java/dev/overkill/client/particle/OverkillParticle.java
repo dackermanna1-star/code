@@ -96,12 +96,12 @@ public class OverkillParticle extends SingleQuadParticle {
 	}
 
 	/**
-	 * Big flashes and glows fade out as the camera gets inside them, so a blast right next to you
-	 * never fills the screen with a few giant magnified texels.
+	 * Particles fade out as the camera gets inside them, so a blast right next to you never fills the
+	 * screen with a few giant magnified texels (big glows, or char flakes flying into your face).
 	 */
 	@Override
 	public void extract(QuadParticleRenderState state, Camera camera, float partialTick) {
-		if (!this.style.staticParams() || this.style.horizontal()) {
+		if (this.style.horizontal()) {
 			super.extract(state, camera, partialTick);
 			return;
 		}
@@ -110,7 +110,7 @@ public class OverkillParticle extends SingleQuadParticle {
 		double dz = Mth.lerp(partialTick, this.zo, this.z) - camera.position().z;
 		double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 		float size = this.getQuadSize(partialTick);
-		float fade = Mth.clamp((float) ((distance - size * 0.6) / (size * 1.4 + 0.5)), 0.0F, 1.0F);
+		float fade = Mth.clamp((float) ((distance - size * 0.6 - 0.25) / (size * 1.4 + 0.6)), 0.0F, 1.0F);
 		if (fade < 0.02F) {
 			return;
 		}

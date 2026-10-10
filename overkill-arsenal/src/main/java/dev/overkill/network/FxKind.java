@@ -2,8 +2,8 @@ package dev.overkill.network;
 
 /** Effect ids carried by {@link FxPayload}. */
 public final class FxKind {
-	/** a = muzzle, b = beam end. White-gold line that glows for the 0.6 s fuse. */
-	public static final int SUNLINE_TRACE = 1;
+	/** a = muzzle, b = beam end, scale = 1 if the beam hit something. One tick of the held laser. */
+	public static final int SUNLINE_BEAM = 1;
 	/** a = blast centre, scale = blast size. Fire burst, embers, magma, smoke. */
 	public static final int SUNLINE_BLAST = 2;
 	/** a = muzzle, b = direction, scale = charge stage. */

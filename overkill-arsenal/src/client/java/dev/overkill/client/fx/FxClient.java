@@ -28,10 +28,10 @@ public final class FxClient {
 		}
 		RandomSource random = RandomSource.create(fx.seed());
 		switch (fx.kind()) {
-			case FxKind.SUNLINE_TRACE -> sunlineTrace(level, fx.a(), fx.b(), random);
+			case FxKind.SUNLINE_BEAM -> sunlineBeam(level, fx.a(), fx.b(), fx.scale() > 0.5F, random);
 			case FxKind.SUNLINE_BLAST -> sunlineBlast(level, fx.a(), fx.scale(), random);
 			case FxKind.ORB_LAUNCH -> orbLaunch(level, fx.a(), fx.b(), fx.scale(), random);
-			case FxKind.ORB_IMPACT -> orbImpact(level, fx.a(), fx.b(), (int) fx.scale(), random);
+			case FxKind.ORB_IMPACT -> orbImpact(level, fx.a(), fx.b(), fx.scale(), random);
 			case FxKind.CHARGE_STAGE -> chargeStage(level, fx.a(), fx.scale(), random);
 			case FxKind.BACKFIRE -> backfire(level, fx.a(), random);
 			case FxKind.ARC -> arc(level, fx.a(), fx.b(), fx.scale(), random);
@@ -105,32 +105,35 @@ public final class FxClient {
 	// Sunline Rifle
 	// ------------------------------------------------------------------------------------------
 
-	private static void sunlineTrace(ClientLevel level, Vec3 start, Vec3 end, RandomSource random) {
+	/**
+	 * One tick of the held laser: a thin, crisp line and a bright dot where it lands, like a laser
+	 * pointer. Its width grows with distance from the camera so it reads as the same few pixels wide
+	 * all the way out, and it lives two ticks so a fast sweep smears slightly instead of strobing.
+	 */
+	private static void sunlineBeam(ClientLevel level, Vec3 start, Vec3 end, boolean hit, RandomSource random) {
 		Vec3 delta = end.subtract(start);
 		double length = delta.length();
 		if (length < 0.1) {
 			return;
 		}
 		Vec3 dir = delta.scale(1.0 / length);
-		// Each part of the beam keeps glowing until the detonation sweep reaches it (fuse 12 + sweep 8).
-		for (double d = 0.0; d <= length; d += 0.12) {
+		Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().position();
+		double d = 0.0;
+		while (d <= length) {
 			Vec3 p = start.add(dir.scale(d));
-			int life = 13 + (int) (8.0 * d / length);
-			glow(level, ModParticles.SUN_BEAM, p, 1.0, 1.0, life);
+			double size = Mth.clamp(p.distanceTo(camera) * 0.012, 0.16, 2.5);
+			glow(level, ModParticles.SUN_BEAM, p, size, 1.0, 2);
+			d += Math.max(0.03, size * 0.22);
 		}
-		for (double d = 0.0; d <= length; d += 0.45) {
-			Vec3 p = start.add(dir.scale(d));
-			int life = 13 + (int) (8.0 * d / length);
-			glow(level, ModParticles.SUN_BEAM, p, 3.2, 0.28, life);
+		glow(level, ModParticles.SUN_BEAM, start, 0.7, 0.9, 2);
+		if (hit) {
+			double dot = Mth.clamp(end.distanceTo(camera) * 0.03, 0.9, 6.0);
+			glow(level, ModParticles.SUN_BEAM, end, dot, 1.0, 2);
+			glow(level, ModParticles.SUN_BEAM, end, dot * 2.6, 0.3, 2);
+			if (random.nextInt(3) == 0) {
+				add(level, ModParticles.SUN_SPARK, end, jitter(random, 0.06).add(0.0, 0.12, 0.0));
+			}
 		}
-		for (double d = 0.5; d <= length; d += 1.4) {
-			Vec3 p = start.add(dir.scale(d)).add(jitter(random, 0.08));
-			add(level, ModParticles.SUN_SPARK, p, jitter(random, 0.06).add(0.0, 0.05, 0.0));
-		}
-		glow(level, ModParticles.SUN_BEAM, end, 7.0, 0.85, 14);
-		burst(level, ModParticles.SUN_SPARK, end, 28, 0.2, 0.15, 0.45, 0.4, random);
-		burst(level, ModParticles.EMBER, end, 12, 0.3, 0.05, 0.2, 0.6, random);
-		add(level, ModParticles.HEAVY_SMOKE, end, 0.0, 0.03, 0.0);
 	}
 
 	private static void sunlineBlast(ClientLevel level, Vec3 pos, float scale, RandomSource random) {
@@ -152,51 +155,66 @@ public final class FxClient {
 	// Worldbreaker
 	// ------------------------------------------------------------------------------------------
 
+	/** {@code stage} runs from 1 (a 1 second charge) to 5 (a full 20 second charge). */
 	private static void orbLaunch(ClientLevel level, Vec3 muzzle, Vec3 dir, float stage, RandomSource random) {
 		Vec3 forward = dir.normalize();
 		Vec3 side = forward.cross(UP);
 		side = side.lengthSqr() < 1.0E-4 ? new Vec3(1.0, 0.0, 0.0) : side.normalize();
 		Vec3 up = side.cross(forward).normalize();
-		int count = 24 * (int) stage;
+		int count = (int) (24 * stage);
 		for (int i = 0; i < count; i++) {
 			double angle = i * (Math.PI * 2.0 / count);
 			Vec3 radial = side.scale(Math.cos(angle)).add(up.scale(Math.sin(angle)));
 			add(level, ModParticles.STATIC_SPARK, muzzle.add(radial.scale(0.3)), radial.scale(0.35 + 0.1 * stage).add(forward.scale(0.15)));
 		}
-		for (int i = 0; i < 10 * stage; i++) {
-			Vec3 v = forward.scale(0.3 + random.nextDouble() * 0.6).add(jitter(random, 0.12));
+		for (int i = 0; i < (int) (10 * stage); i++) {
+			Vec3 v = forward.scale(0.3 + random.nextDouble() * 0.6 * stage).add(jitter(random, 0.12));
 			add(level, ModParticles.BLAST_DUST, muzzle, v);
 		}
+		// A shock cone down the barrel's line for big charges.
+		for (int i = 0; i < (int) (8 * (stage - 1)); i++) {
+			double d = 1.0 + random.nextDouble() * 6.0 * stage;
+			glow(level, ModParticles.ORB_CORE, muzzle.add(forward.scale(d)), 0.6 + stage * 0.35, 0.45, 3 + random.nextInt(3));
+		}
 		glow(level, ModParticles.ORB_CORE, muzzle, 2.2 * stage, 1.0, 4);
+		if (stage > 2.5F) {
+			glow(level, ModParticles.SHOCKWAVE, muzzle.add(0.0, -1.0, 0.0), 3.0 * stage, 0.6, 10);
+		}
 	}
 
 	private static void chargeStage(ClientLevel level, Vec3 muzzle, float stage, RandomSource random) {
-		glow(level, ModParticles.ORB_CORE, muzzle, 1.6 * stage, 0.9, 5);
+		glow(level, ModParticles.ORB_CORE, muzzle, 1.2 * stage, 0.9, 5);
 		burst(level, ModParticles.STATIC_SPARK, muzzle, (int) (14 * stage), 0.1, 0.2, 0.45, 0.0, random);
-		burst(level, ModParticles.ARC, muzzle, 4, 0.6, 0.0, 0.0, 0.0, random);
+		burst(level, ModParticles.ARC, muzzle, 2 + (int) stage, 0.6, 0.0, 0.0, 0.0, random);
+		if (stage >= 5.0F) {
+			glow(level, ModParticles.SHOCKWAVE, muzzle.add(0.0, -1.2, 0.0), 6.0, 0.8, 12);
+			burst(level, ModParticles.EMBER, muzzle, 10, 0.2, 0.1, 0.4, 0.0, random);
+		}
 	}
 
-	private static void orbImpact(ClientLevel level, Vec3 end, Vec3 entry, int stage, RandomSource random) {
-		double size = 1.0 + stage;
+	/** {@code stage} runs from 1 (a 1 second charge) to 5 (a full 20 second charge). */
+	private static void orbImpact(ClientLevel level, Vec3 end, Vec3 entry, float stage, RandomSource random) {
+		double size = 1.0 + stage * 1.4;
 		// The blast itself.
 		glow(level, ModParticles.ORB_CORE, end, 6.0 + 5.0 * stage, 1.0, 7);
 		glow(level, ModParticles.SUN_BEAM, end, 30.0 * stage, 0.6, 5);
-		burst(level, ModParticles.FIRE_BURST, end, 30 * stage, size, 0.25, 0.9, 0.0, random);
-		burst(level, ModParticles.EMBER, end, 70 * stage, size, 0.25, 1.1, 0.3, random);
-		burst(level, ModParticles.MAGMA, end, 28 * stage, size * 0.6, 0.45, 1.2, 0.8, random);
-		burst(level, ModParticles.BLAST_DUST, end, 35 * stage, size, 0.4, 1.2, 0.0, random);
-		burst(level, ModParticles.CHAR_FLAKE, end, 35 * stage, size, 0.3, 0.9, 0.6, random);
-		burst(level, ModParticles.HEAVY_SMOKE, end, 20 * stage, size * 1.5, 0.05, 0.35, 0.5, random);
-		burst(level, ModParticles.STATIC_SPARK, end, 40 * stage, size, 0.4, 1.4, 0.0, random);
+		burst(level, ModParticles.FIRE_BURST, end, (int) (30 * stage), size, 0.25, 0.9 + stage * 0.15, 0.0, random);
+		burst(level, ModParticles.EMBER, end, (int) (70 * stage), size, 0.25, 1.1 + stage * 0.2, 0.3, random);
+		burst(level, ModParticles.MAGMA, end, (int) (28 * stage), size * 0.6, 0.45, 1.2 + stage * 0.15, 0.8, random);
+		burst(level, ModParticles.BLAST_DUST, end, (int) (35 * stage), size, 0.4, 1.2 + stage * 0.2, 0.0, random);
+		burst(level, ModParticles.CHAR_FLAKE, end, (int) (35 * stage), size, 0.3, 0.9, 0.6, random);
+		burst(level, ModParticles.HEAVY_SMOKE, end, (int) (20 * stage), size * 1.5, 0.05, 0.35, 0.5, random);
+		burst(level, ModParticles.STATIC_SPARK, end, (int) (40 * stage), size, 0.4, 1.4 + stage * 0.2, 0.0, random);
 		glow(level, ModParticles.SHOCKWAVE, end, 14.0 * stage, 0.9, 16);
 		glow(level, ModParticles.SHOCKWAVE, end.add(0.0, 1.5, 0.0), 9.0 * stage, 0.6, 12);
 
 		// If the orb burrowed, the surface erupts out of the hole it made.
 		Vec3 out = entry.subtract(end);
-		if (out.length() > 6.0) {
+		boolean burrowed = out.length() > 6.0;
+		if (burrowed) {
 			Vec3 dir = out.normalize();
-			for (int i = 0; i < 60 * stage; i++) {
-				double speed = 0.5 + random.nextDouble() * 1.4;
+			for (int i = 0; i < (int) (60 * stage); i++) {
+				double speed = 0.5 + random.nextDouble() * (1.0 + stage * 0.35);
 				Vec3 v = dir.scale(speed).add(jitter(random, 0.25));
 				ParticleOptions type = switch (random.nextInt(5)) {
 					case 0 -> ModParticles.MAGMA;
@@ -204,27 +222,38 @@ public final class FxClient {
 					case 3 -> ModParticles.CHAR_FLAKE;
 					default -> ModParticles.EMBER;
 				};
-				add(level, type, entry.add(jitter(random, 1.5)), v);
+				add(level, type, entry.add(jitter(random, 1.5 * stage)), v);
 			}
 			glow(level, ModParticles.SHOCKWAVE, entry, 16.0 * stage, 0.9, 18);
-			ring(level, ModParticles.BLAST_DUST, entry, 2.0, 40 * stage, 0.8, 0.15, random);
+			glow(level, ModParticles.SHOCKWAVE, entry.add(0.0, 2.0, 0.0), 24.0 * stage, 0.5, 24);
+			ring(level, ModParticles.BLAST_DUST, entry, 2.0 * stage, (int) (40 * stage), 0.8 + stage * 0.15, 0.15, random);
 			glow(level, ModParticles.ORB_CORE, entry, 5.0 * stage, 0.8, 6);
+			// Glowing breath of the tunnel: a line of fire from the blast back up to the surface.
+			double length = out.length();
+			for (double d = 0.0; d < length; d += 2.0) {
+				Vec3 p = end.add(dir.scale(d));
+				glow(level, ModParticles.ORB_CORE, p, 1.5 + stage * 0.5, 0.5, 4 + (int) (6 * (1.0 - d / length)));
+				if (random.nextInt(2) == 0) {
+					add(level, ModParticles.FIRE_BURST, p.add(jitter(random, stage * 0.5)), dir.scale(0.4 + random.nextDouble() * 0.6));
+				}
+			}
 		}
 
 		// Mushroom column of smoke and lingering ash fall over the crater.
-		Vec3 top = out.length() > 6.0 ? entry : end;
-		for (int i = 0; i < 40 * stage; i++) {
+		Vec3 top = burrowed ? entry : end;
+		for (int i = 0; i < (int) (40 * stage); i++) {
 			double h = random.nextDouble();
-			Vec3 v = new Vec3(random.nextGaussian() * 0.05, 0.15 + h * 0.5, random.nextGaussian() * 0.05);
+			Vec3 v = new Vec3(random.nextGaussian() * 0.05, 0.15 + h * 0.5 + stage * 0.06, random.nextGaussian() * 0.05);
 			add(level, ModParticles.HEAVY_SMOKE, top.add(jitter(random, 1.5 * stage)), v);
 		}
-		for (int i = 0; i < 25 * stage; i++) {
+		for (int i = 0; i < (int) (25 * stage); i++) {
 			double angle = random.nextDouble() * Math.PI * 2.0;
-			Vec3 v = new Vec3(Math.cos(angle) * 0.25, 0.55 + random.nextDouble() * 0.15, Math.sin(angle) * 0.25);
+			double spread = 0.25 + stage * 0.05;
+			Vec3 v = new Vec3(Math.cos(angle) * spread, 0.55 + random.nextDouble() * 0.15 + stage * 0.05, Math.sin(angle) * spread);
 			add(level, ModParticles.HEAVY_SMOKE, top, v);
 		}
-		for (int i = 0; i < 60 * stage; i++) {
-			Vec3 p = top.add(random.nextGaussian() * 8.0 * stage, 6.0 + random.nextDouble() * 10.0, random.nextGaussian() * 8.0 * stage);
+		for (int i = 0; i < (int) (60 * stage); i++) {
+			Vec3 p = top.add(random.nextGaussian() * 8.0 * stage, 6.0 + random.nextDouble() * 10.0 * stage, random.nextGaussian() * 8.0 * stage);
 			add(level, ModParticles.ASH, p, 0.0, -0.02, 0.0);
 		}
 	}
