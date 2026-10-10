@@ -3,11 +3,14 @@ package com.blademode.cut;
 import com.blademode.BladeConfig;
 import com.blademode.BladeMode;
 import com.blademode.item.HighFrequencyBladeItem;
+import com.blademode.net.MobSlicePayload;
 import com.blademode.net.SlashFxPayload;
 import com.blademode.piece.PieceEntity;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -24,7 +27,9 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.OwnableEntity;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -96,10 +101,20 @@ public final class SlashHandler {
 			if (!touches(slash, e.getBoundingBox())) {
 				continue;
 			}
-			boolean hurt = e.hurtServer(level, player != null ? level.damageSources().playerAttack(player) : level.damageSources().generic(), cfg.entityDamage);
+			boolean sliceable = isSliceable(e, cfg);
+			float damage = cfg.entityDamage;
+			if (sliceable && !(e instanceof Player) && e instanceof LivingEntity living && living.getMaxHealth() <= cfg.instantSliceMaxHealth) {
+				// Clean through: enough to get past any armor, though totems and resistance still count.
+				damage = Math.max(damage, (living.getMaxHealth() + living.getAbsorptionAmount()) * 6.0F + 20.0F);
+			}
+			boolean hurt = e.hurtServer(level, player != null ? level.damageSources().playerAttack(player) : level.damageSources().generic(), damage);
 			if (hurt) {
 				hits++;
 				Vec3 c = e.getBoundingBox().getCenter();
+				if (sliceable && e instanceof LivingEntity living && living.isDeadOrDying()) {
+					sendSlice(level, player, living, slash);
+					continue;
+				}
 				level.sendParticles(ParticleTypes.DAMAGE_INDICATOR, c.x, c.y, c.z, 6, 0.2, 0.2, 0.2, 0.2);
 				if (e instanceof LivingEntity living) {
 					Vector3d push = slash.bladeDirection(c.x, c.y, c.z);
@@ -110,6 +125,33 @@ public final class SlashHandler {
 
 		effects(level, player, slash, result.didSomething() || pieces > 0 || hits > 0);
 		BladeMode.LOGGER.debug("Slash: sliced {} blocks, {} new pieces, {} piece fragments, {} entities", result.slicedBlocks(), result.fallingPieces(), pieces, hits);
+	}
+
+	private static boolean isSliceable(Entity entity, BladeConfig cfg) {
+		if (!cfg.sliceCreatures || !(entity instanceof LivingEntity) || entity instanceof ArmorStand) {
+			return false;
+		}
+		return !(entity instanceof Player) || cfg.slicePlayers;
+	}
+
+	/** Tells everyone who can see the creature to take its body apart along the cut. */
+	private static void sendSlice(ServerLevel level, @Nullable ServerPlayer player, LivingEntity victim, Slash slash) {
+		Vec3 c = victim.getBoundingBox().getCenter();
+		Vector3d blade = slash.bladeDirection(c.x, c.y, c.z);
+		MobSlicePayload payload = new MobSlicePayload(victim.getId(), new Vec3(slash.n.x, slash.n.y, slash.n.z), slash.d, new Vec3(blade.x, blade.y, blade.z));
+		Set<ServerPlayer> receivers = new HashSet<>(PlayerLookup.tracking(victim));
+		if (player != null) {
+			receivers.add(player);
+		}
+		if (victim instanceof ServerPlayer self) {
+			receivers.add(self);
+		}
+		for (ServerPlayer receiver : receivers) {
+			if (ServerPlayNetworking.canSend(receiver, MobSlicePayload.TYPE)) {
+				ServerPlayNetworking.send(receiver, payload);
+			}
+		}
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.PLAYERS, 0.9F, 0.7F + level.random.nextFloat() * 0.2F);
 	}
 
 	/** Whether an axis-aligned box straddles the cut plane inside the swept sector. */

@@ -2,6 +2,7 @@ package com.blademode;
 
 import com.blademode.cut.SlashHandler;
 import com.blademode.net.BladeModePayload;
+import com.blademode.net.MobSlicePayload;
 import com.blademode.net.SlashFxPayload;
 import com.blademode.net.SlashPayload;
 import com.blademode.piece.PhysicsWorld;
@@ -39,6 +40,7 @@ public class BladeMode implements ModInitializer {
 		PayloadTypeRegistry.playC2S().register(SlashPayload.TYPE, SlashPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(BladeModePayload.TYPE, BladeModePayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SlashFxPayload.TYPE, SlashFxPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(MobSlicePayload.TYPE, MobSlicePayload.CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(SlashPayload.TYPE, (payload, context) ->
 			SlashHandler.handleSlash(context.player(), payload.eye(), payload.dirA(), payload.dirB()));

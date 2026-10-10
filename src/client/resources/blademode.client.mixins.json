@@ -4,8 +4,12 @@
 	"compatibilityLevel": "JAVA_21",
 	"client": [
 		"ClientLevelMixin",
+		"ClientPacketListenerMixin",
+		"EntityRenderDispatcherMixin",
 		"GameRendererAccessor",
+		"LivingEntityMixin",
 		"MinecraftMixin",
+		"ModelPartAccessor",
 		"MouseHandlerMixin"
 	],
 	"injectors": {

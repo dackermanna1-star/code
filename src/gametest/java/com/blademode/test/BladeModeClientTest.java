@@ -1,6 +1,7 @@
 package com.blademode.test;
 
 import com.blademode.block.CutBlockEntity;
+import com.blademode.client.gore.CorpseManager;
 import com.blademode.piece.PieceEntity;
 import com.blademode.registry.ModBlocks;
 import com.blademode.registry.ModEntities;
@@ -17,7 +18,10 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
@@ -47,8 +51,17 @@ public class BladeModeClientTest implements FabricClientGameTest {
 			server.runCommand("gamemode creative @a");
 			world.getClientWorld().waitForChunksRender();
 
-			treeScene(context, world, server);
-			houseScene(context, world, server);
+			// BLADEMODE_TEST_SCENES=creatures runs just one scene while working on it.
+			String scenes = System.getenv().getOrDefault("BLADEMODE_TEST_SCENES", "tree,house,creatures");
+			if (scenes.contains("tree")) {
+				treeScene(context, world, server);
+			}
+			if (scenes.contains("house")) {
+				houseScene(context, world, server);
+			}
+			if (scenes.contains("creatures")) {
+				creatureScene(context, world, server);
+			}
 		}
 	}
 
@@ -202,6 +215,136 @@ public class BladeModeClientTest implements FabricClientGameTest {
 		// Leave the world quiet before it closes, so no entity traffic is in flight at disconnect.
 		server.runCommand("kill @e[type=blademode:piece]");
 		context.waitTicks(20);
+	}
+
+	private void creatureScene(ClientGameTestContext context, TestSingleplayerContext world, TestServerContext server) {
+		// A line-up from tall to short, facing the player: one stroke falls from waist height on the
+		// left to knee height on the right, through every one of them.
+		String[] mobs = {
+			"zombie 40.5 -60 8 {NoAI:1b,Rotation:[180f,0f],equipment:{head:{id:\"minecraft:iron_helmet\",count:1},chest:{id:\"minecraft:iron_chestplate\",count:1}}}",
+			"skeleton 42.3 -60 8 {NoAI:1b,Rotation:[180f,0f],equipment:{head:{id:\"minecraft:leather_helmet\",count:1}}}",
+			"creeper 44.1 -60 8 {NoAI:1b,Rotation:[180f,0f]}",
+			"cow 45.9 -60 8 {NoAI:1b,Rotation:[150f,0f]}",
+			"sheep 47.7 -60 8 {NoAI:1b,Rotation:[200f,0f],Color:14}",
+			"spider 49.5 -60 8 {NoAI:1b,Rotation:[180f,0f]}",
+		};
+		for (String mob : mobs) {
+			server.runCommand("summon minecraft:" + mob);
+		}
+		server.runCommand("item replace entity @p weapon.mainhand with blademode:hf_blade");
+		server.runCommand("tp @p 45.0 -60 2.0 0 7.8");
+		context.waitTicks(20);
+		world.getClientWorld().waitForChunksRender();
+		context.takeScreenshot("creatures_01_before");
+
+		TestInput input = context.getInput();
+		input.pressKey(GLFW.GLFW_KEY_V);
+		context.waitTicks(2);
+		input.holdMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+		context.waitTicks(2);
+		for (int i = 0; i < 16; i++) {
+			input.moveCursor(30, 2);
+			context.waitTick();
+		}
+		context.takeScreenshot("creatures_02_drawing");
+		input.releaseMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+		context.waitTicks(1);
+		context.takeScreenshot("creatures_03_just_cut");
+		int alive = server.computeOnServer(s -> s.overworld().getEntities((Entity) null, new AABB(38, -62, 5, 52, -55, 11),
+			e -> e instanceof LivingEntity l && !(e instanceof Player) && l.isAlive()).size());
+		logCorpses(context, "creatures t+1");
+		int corpses = context.computeOnClient(client -> CorpseManager.corpseCount());
+		int cut = context.computeOnClient(client -> CorpseManager.cutCount());
+		LOG.info("[creatures] alive after the stroke: {}, corpses: {}, in pieces: {}", alive, corpses, cut);
+		if (alive != 0 || corpses != mobs.length || cut != mobs.length) {
+			throw new AssertionError("every creature in the line-up should be cut in two (alive=" + alive + ", corpses=" + corpses + ", cut=" + cut + ")");
+		}
+		for (int i = 1; i <= 4; i++) {
+			context.waitTicks(5);
+			context.takeScreenshot("creatures_04_falling_" + i);
+		}
+		context.waitTicks(40);
+		logCorpses(context, "creatures settled");
+		context.takeScreenshot("creatures_05_settled");
+		server.runCommand("tp @p 45.0 -58.5 4.5 0 40");
+		context.waitTicks(3);
+		context.takeScreenshot("creatures_06_from_above");
+
+		// Cut the largest piece lying on the ground in two: a vertical line through the middle of the
+		// screen while looking straight at it.
+		Vec3 target = context.computeOnClient(client -> CorpseManager.heaviestBody());
+		if (target == null) {
+			throw new AssertionError("no corpse pieces left");
+		}
+		double eyeY = target.y < -59.5 ? -60 + 1.62 : target.y + 1.0;
+		float pitch = (float) Math.toDegrees(Math.atan2(eyeY - target.y, 3.0));
+		server.runCommand(String.format(Locale.ROOT, "tp @p %.2f -60 %.2f 0 %.1f", target.x, target.z - 3.0, pitch));
+		context.waitTicks(3);
+		int before = context.computeOnClient(client -> CorpseManager.bodyCount());
+		input.holdMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+		context.waitTick();
+		for (int i = 0; i < 12; i++) {
+			input.moveCursor(0, 25);
+			context.waitTick();
+		}
+		input.releaseMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+		input.pressKey(GLFW.GLFW_KEY_V);
+		context.waitTicks(2);
+		int after = context.computeOnClient(client -> CorpseManager.bodyCount());
+		LOG.info("[creatures] re-cut a piece at {}: {} -> {} bodies", target, before, after);
+		context.takeScreenshot("creatures_07_recut");
+		if (after <= before) {
+			throw new AssertionError("the second stroke should have cut a piece lying on the ground");
+		}
+		context.waitTicks(30);
+		context.takeScreenshot("creatures_08_recut_later");
+		logCorpses(context, "creatures end");
+		visceralRagdolls(context, server);
+	}
+
+	private static void logCorpses(ClientGameTestContext context, String label) {
+		List<String> lines = context.computeOnClient(client -> CorpseManager.describe());
+		LOG.info("[{}] {} corpse(s)", label, lines.size());
+		for (String line : lines) {
+			LOG.info("  {}", line);
+		}
+	}
+
+	/**
+	 * With Visceral installed: it must not have ragdolled the creatures that were cut apart, but still
+	 * ragdolls creatures that die any other way.
+	 */
+	private static void visceralRagdolls(ClientGameTestContext context, TestServerContext server) {
+		int count = visceralRagdollCount(context);
+		if (count < 0) {
+			LOG.info("[creatures] Visceral not installed");
+			return;
+		}
+		LOG.info("[creatures] Visceral ragdolls: {}", count);
+		if (count != 0) {
+			throw new AssertionError("Visceral ragdolled " + count + " creature(s) that were cut apart");
+		}
+		server.runCommand("summon minecraft:zombie 45.5 -60 14.5 {NoAI:1b}");
+		context.waitTicks(5);
+		server.runCommand("kill @e[type=minecraft:zombie]");
+		context.waitTicks(5);
+		int ordinary = visceralRagdollCount(context);
+		LOG.info("[creatures] Visceral ragdolls after an ordinary kill: {}", ordinary);
+		if (ordinary < 1) {
+			throw new AssertionError("Visceral should still ragdoll creatures that were not cut apart");
+		}
+	}
+
+	private static int visceralRagdollCount(ClientGameTestContext context) {
+		return context.computeOnClient(client -> {
+			try {
+				Class<?> manager = Class.forName("dev.visceral.client.ragdoll.RagdollManager");
+				Object instance = manager.getMethod("get").invoke(null);
+				return (Integer) manager.getMethod("count").invoke(instance);
+			} catch (ReflectiveOperationException e) {
+				return -1;
+			}
+		});
 	}
 
 	private static int logPieces(TestServerContext server, String label) {

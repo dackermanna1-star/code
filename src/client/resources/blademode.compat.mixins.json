@@ -1,0 +1,12 @@
+{
+	"required": true,
+	"package": "com.blademode.client.compat.mixin",
+	"plugin": "com.blademode.client.compat.CompatMixinPlugin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"visceral.RagdollManagerMixin"
+	],
+	"injectors": {
+		"defaultRequire": 0
+	}
+}

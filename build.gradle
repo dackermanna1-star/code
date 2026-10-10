@@ -44,6 +44,13 @@ dependencies {
 	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }
 
+// Optional: run the client and its game tests together with Visceral (-PvisceralJar=/path/to/visceral.jar).
+if (project.hasProperty("visceralJar")) {
+	dependencies {
+		modLocalRuntime files(project.property("visceralJar"))
+	}
+}
+
 test {
 	useJUnitPlatform()
 

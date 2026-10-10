@@ -6,7 +6,8 @@ spirit of *Metal Gear Rising: Revengeance*'s blade mode.
 Hold attack, stretch a line across the screen, let go: everything along that line is sliced
 cleanly along the plane you drew. A cut tree keeps a slanted stump, and its top slides off the cut
 and falls over. A house cut diagonally leaves its lower half standing with a sloped edge, while
-the upper half slides down the cut and crashes to the ground. Nothing is simply deleted.
+the upper half slides down the cut and crashes to the ground. A zombie cut at the waist falls in
+two, its armor cut with it. Nothing is simply deleted.
 
 ## How to use
 
@@ -43,10 +44,46 @@ the upper half slides down the cut and crashes to the ground. Nothing is simply 
 - **Pieces settle.** When a piece comes to rest nearly aligned with the block grid, it turns
   back into normal blocks. Two halves of the same block that land together merge back into a
   whole block.
-- **Mobs** caught in a slash take heavy damage. Your own pets are spared.
+- **Creatures are cut apart too** (see below). Your own pets are spared.
 - **Protection is respected.** Blocks you could not break yourself (spawn protection,
   adventure mode, claim mods that use Fabric's block-break event) are not cut. Unbreakable blocks like bedrock are
   never cut and anchor whatever stands on them.
+
+## Cutting creatures
+
+A slash through a creature cuts its body in two along the line you drew, wherever it passes:
+through the neck, the waist, a leg, or diagonally from shoulder to hip.
+
+- **The real model is cut.** The pieces are the creature's own model in the pose it was in,
+  with everything it wore: armor, a sheep's wool, a saddle, glowing eyes. Cut faces show raw
+  meat for creatures with blood, and bone, metal, wood or snow for skeletons, golems, creakings
+  and snow golems.
+- **The pieces are ragdolls.** Each piece is a jointed body that collapses, flops and rolls.
+  Limbs stay attached to the half they belong to, and the halves fall apart in the direction
+  the blade moved.
+- **Corpses can be cut again**, lying on the ground or still falling. Walking through them
+  kicks the pieces around, and explosions throw them.
+- **They bleed.** Every cut face sprays, spurts in time with a fading heartbeat, then drips.
+  Each creature bleeds its own color. Skeletons shed bone chips, iron golems spark, and blazes
+  give off embers.
+- Weaker creatures (up to 60 max health by default) die from any slash through them. Tougher
+  ones take normal blade damage and are cut apart when a slash kills them. Players are cut
+  apart when a slash kills them.
+
+Corpses are purely visual and exist only on the clients. They disappear after 45 seconds, and
+the mob drops its loot as usual.
+
+### With Visceral
+
+[Visceral](https://github.com/dackermanna1-star/code) (wounds, blood and ragdolls) is optional.
+When it is installed, Blade Mode connects to it automatically:
+
+- Sliced creatures bleed Visceral's blood: its droplets, mist and pools, in each creature's own
+  blood type, with stains wherever the blood lands.
+- Visceral's whole-body ragdoll is switched off for creatures Blade Mode cut apart, so they are
+  not ragdolled twice. Everything that dies any other way still gets Visceral's ragdoll.
+
+Neither mod needs the other.
 
 ## Recipe
 
@@ -70,6 +107,12 @@ D = diamond, R = block of redstone, S = stick, N = netherite ingot.
 | `cooldownTicks` | `6` | Ticks between slashes. |
 | `cutPlants` | `true` | Break plants, torches and other non-solid blocks the blade passes through. |
 | `entityDamage` | `24.0` | Damage dealt to mobs caught in a slash. |
+| `sliceCreatures` | `true` | Slashes cut creatures apart instead of only hurting them. |
+| `instantSliceMaxHealth` | `60.0` | Creatures with at most this much max health die from any slash through them. |
+| `slicePlayers` | `true` | Players killed by a slash are cut apart too. |
+| `corpseSeconds` | `45` | How long the pieces of a sliced creature stay (client side). |
+| `maxCorpses` | `24` | Most sliced creatures kept at once; the oldest go first (client side). |
+| `gore` | `true` | Blood, bone chips and sparks from cut creatures (client side). |
 | `slashPush` | `1.2` | How hard the blade drags freshly cut pieces along its path (blocks/second). |
 | `slowMotion` | `true` | Slow the world down while drawing a cut. Only applies when one player is online. |
 | `slowMotionTickRate` | `6.0` | Tick rate during slow motion (normal is 20). |
@@ -93,14 +136,16 @@ You need JDK 21.
 
 ```sh
 ./gradlew build              # the mod jar is written to build/libs/
-./gradlew test               # unit tests: geometry, piece cutting, physics
+./gradlew test               # unit tests: geometry, piece cutting, physics, ragdolls
 ./gradlew runClient          # development client
-./gradlew runClientGameTest  # automated in-game test: builds a tree and a house, cuts them and
+./gradlew runClientGameTest  # automated in-game test: cuts a tree, a house and a line of mobs,
                              # saves screenshots to build/run/clientGameTest/screenshots/
 ```
 
 `runClientGameTest` opens a real game window. On a machine without a display, run it under
-`xvfb-run`.
+`xvfb-run`. Set `BLADEMODE_TEST_SCENES` to run only some scenes (for example
+`BLADEMODE_TEST_SCENES=creatures`). Add `-PvisceralJar=/path/to/visceral.jar` to `runClient` or
+`runClientGameTest` to run with Visceral installed.
 
 ## How it works
 
@@ -116,6 +161,13 @@ You need JDK 21.
   sleeping. `Solidifier` turns resting pieces back into blocks.
 - Client: `BladeInput` handles the line drawing. `ClippedMesher` clips the vanilla block models
   along the cut planes and caps the cut faces with the block's inner texture.
+- Creatures: the server only decides who dies and sends the cut plane. Each client then draws
+  the creature once into `CaptureCollector`, which records every posed model part.
+  `RagdollBuilder` turns the parts into jointed rigid bodies (`gore/`, solved with XPBD).
+  `Ragdoll.cut` splits the bodies the plane passes through and severs the joints across it.
+  `CorpseRenderer` draws the clipped faces with their original textures and caps the cuts with
+  flesh. `VisceralBridge` finds Visceral by reflection, and a mixin that is only applied when
+  Visceral is present keeps its ragdolls off sliced creatures.
 
 ## License
 

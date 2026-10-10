@@ -34,6 +34,20 @@ public final class BladeConfig {
 	/** Tick rate used while slow motion is active (vanilla is 20). */
 	public float slowMotionTickRate = 6.0F;
 
+	// --- Creatures ---------------------------------------------------------------------------
+	/** Slashes cut living creatures apart along the line instead of just hurting them. */
+	public boolean sliceCreatures = true;
+	/** Creatures with at most this much max health die from any slash through them; tougher ones take {@link #entityDamage}. */
+	public float instantSliceMaxHealth = 60.0F;
+	/** Players killed by a slash are cut apart too. */
+	public boolean slicePlayers = true;
+	/** Seconds the pieces of a sliced creature lie around before sinking into the ground (client side). */
+	public int corpseSeconds = 45;
+	/** Most sliced bodies kept at once (client side); the oldest disappear first. */
+	public int maxCorpses = 24;
+	/** Blood (or bone chips, sparks...) from cut creatures (client side). */
+	public boolean gore = true;
+
 	// --- Physics -----------------------------------------------------------------------------
 	public double gravity = 16.0;
 	public double friction = 0.55;
@@ -87,6 +101,9 @@ public final class BladeConfig {
 		this.restitution = clamp(this.restitution, 0, 1);
 		this.solidifyMaxAngle = clamp(this.solidifyMaxAngle, 0, 45);
 		this.solidifyDelayTicks = (int) clamp(this.solidifyDelayTicks, 1, 20 * 60 * 60);
+		this.instantSliceMaxHealth = (float) clamp(this.instantSliceMaxHealth, 0, 1.0E6);
+		this.corpseSeconds = (int) clamp(this.corpseSeconds, 1, 60 * 60);
+		this.maxCorpses = (int) clamp(this.maxCorpses, 0, 512);
 	}
 
 	private static double clamp(double v, double lo, double hi) {
