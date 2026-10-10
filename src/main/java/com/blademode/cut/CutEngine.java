@@ -234,8 +234,13 @@ public final class CutEngine {
 			return;
 		}
 		if (back.volume < MIN_PART_VOLUME || front.volume < MIN_PART_VOLUME) {
-			int side = back.volume < MIN_PART_VOLUME ? PartNode.FRONT : PartNode.BACK;
-			PartNode whole = new PartNode(pos, original, oldPlanes, null, side, -1, soft);
+			// The plane only grazes this block: it stays in one piece on the bigger side, minus the
+			// sliver (so the two sides never overlap). Blocks holding data are left untouched.
+			boolean toFront = back.volume < MIN_PART_VOLUME;
+			double sliver = toFront ? back.volume : front.volume;
+			BlockEntity be = this.level.getBlockEntity(pos);
+			Plane trim = sliver > 1.0E-9 && (be == null || be instanceof CutBlockEntity) ? (toFront ? local.flip() : local) : null;
+			PartNode whole = new PartNode(pos, original, oldPlanes, trim, toFront ? PartNode.FRONT : PartNode.BACK, -1, soft);
 			this.nodes.put(pos.asLong(), new PartNode[]{whole});
 			this.seeds.add(whole);
 			return;
@@ -534,13 +539,42 @@ public final class CutEngine {
 			changed.add(pos);
 		}
 
+		// Grazed blocks that stay keep a sliver poking into the space the falling part leaves;
+		// trim it so the falling part slides past instead of catching on it.
+		Set<BlockPos> trimmed = new HashSet<>();
+		for (Body body : bodies) {
+			for (PartNode m : body.members) {
+				for (Direction dir : DIRS) {
+					PartNode[] around = this.nodes.get(m.cell.relative(dir).asLong());
+					if (around == null || around.length != 1) {
+						continue;
+					}
+					PartNode n = around[0];
+					if (n.isSplit() || owner.containsKey(n) || n.planes.size() == n.oldPlanes.size() || removed.contains(n.cell.asLong())
+						|| !trimmed.add(n.cell)) {
+						continue;
+					}
+					BlockEntity nbe = this.level.getBlockEntity(n.cell);
+					if (nbe != null && !(nbe instanceof CutBlockEntity)) {
+						continue;
+					}
+					this.level.setBlock(n.cell, CutBlock.stateFor(ModBlocks.CUT_BLOCK, n.state), SILENT);
+					if (this.level.getBlockEntity(n.cell) instanceof CutBlockEntity cut) {
+						cut.setContents(n.state, n.planes, true);
+					}
+					changed.add(n.cell);
+				}
+			}
+		}
+
 		// Things hanging off the falling parts (torches, vines, flowers on top...) come along.
+		// That includes things on a block that was split: if what stays behind cannot hold them, they
+		// leave with the half that moves.
 		ArrayDeque<BlockPos> queue = new ArrayDeque<>();
 		Map<Long, Body> ownerOfCell = new HashMap<>();
 		for (Body body : bodies) {
 			for (PartNode m : body.members) {
-				if (removed.contains(m.cell.asLong())) {
-					ownerOfCell.put(m.cell.asLong(), body);
+				if ((removed.contains(m.cell.asLong()) || m.isSplit()) && ownerOfCell.putIfAbsent(m.cell.asLong(), body) == null) {
 					queue.add(m.cell);
 				}
 			}

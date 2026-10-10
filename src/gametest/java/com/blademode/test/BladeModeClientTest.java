@@ -155,12 +155,14 @@ public class BladeModeClientTest implements FabricClientGameTest {
 		server.runCommand("fill 21 -58 8 22 -58 8 minecraft:glass_pane");
 		server.runCommand("fill 24 -58 8 25 -58 8 minecraft:glass_pane");
 		server.runCommand("setblock 23 -57 7 minecraft:wall_torch[facing=north]");
-		server.runCommand("tp @p 23.5 -60 -1.5 0 0");
+		// Look up a little so the stroke leaves through the far wall rather than through the floor
+		// (a cut that runs into the ground leaves the far wall holding everything up).
+		server.runCommand("tp @p 23.5 -60 -1.5 0 -10");
 		context.waitTicks(10);
 		world.getClientWorld().waitForChunksRender();
 		context.takeScreenshot("house_01_before");
 
-		// Centred line: a long diagonal stroke (about 30 degrees) through the middle of the screen.
+		// Centred line: a long diagonal stroke through the middle of the screen; the cut drops about 34 degrees.
 		TestInput input = context.getInput();
 		input.pressKey(GLFW.GLFW_KEY_V);
 		context.waitTicks(2);
@@ -176,6 +178,10 @@ public class BladeModeClientTest implements FabricClientGameTest {
 		context.waitTicks(2);
 		context.takeScreenshot("house_03_just_cut");
 		logPieces(server, "house t+2");
+		long housePieces = server.computeOnServer(s -> s.overworld().getEntities(ModEntities.PIECE, e -> e.getX() > 15).size());
+		if (housePieces < 1) {
+			throw new AssertionError("the slash should have cut the house in two");
+		}
 		for (int i = 1; i <= 8; i++) {
 			context.waitTicks(5);
 			logPieces(server, "house t+" + (2 + i * 5));

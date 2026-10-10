@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.blademode.BladeConfig;
 import com.blademode.Scenes;
+import com.blademode.cut.PieceCutter;
 import com.blademode.cut.Slash;
 import com.blademode.geom.Plane;
 import java.util.ArrayList;
@@ -158,6 +159,28 @@ class PhysicsTest {
 		// the ground, about two blocks down the slope.
 		assertTrue(start.x - s.pos.x > 1.5, "the top of the house should slide down the cut, moved " + (s.pos.x - start.x));
 		assertTrue(Math.abs(s.pos.z - start.z) < 0.2, "it should slide straight down the slope");
+	}
+
+	/**
+	 * The steep stroke of the client gametest (camera tilted up 10°): the plane only grazes some
+	 * wall blocks, and the slivers it leaves must be trimmed or the top hooks onto the lower half.
+	 */
+	@Test
+	void steepHouseCutSlidesOff() {
+		Slash slash = Scenes.centredStroke(new Vec3(23.5, -60 + 1.62, -1.5), 0, -10, 31.92, 21.6);
+		List<PieceBlock> house = new ArrayList<>();
+		Scenes.house().forEach((pos, state) -> house.add(new PieceBlock(pos, state, List.of(), Optional.empty())));
+		List<PieceCutter.Fragment> fragments = PieceCutter.split(house, slash.worldPlane(), slash, Vector3d::new);
+		assertEquals(2, fragments.size());
+		BlockPos roof = new BlockPos(24, -55, 11);
+		PieceCutter.Fragment top = fragments.stream().filter(f -> f.blocks().stream().anyMatch(b -> b.pos().equals(roof))).findFirst().orElseThrow();
+		PieceCutter.Fragment bottom = fragments.get(fragments.get(0) == top ? 1 : 0);
+		PhysicsWorld.Sim s = body(top.blocks(), new Vector3d());
+		Vector3d start = new Vector3d(s.pos);
+		run(s, Scenes.world(bottom.blocks(), -61), 60);
+		System.out.println("steep house moved " + new Vector3d(s.pos).sub(start));
+		assertTrue(start.x - s.pos.x > 2.0, "the top should slide down the 34 degree cut, moved " + (s.pos.x - start.x));
+		assertTrue(start.y - s.pos.y > 1.0, "and drop, moved " + (s.pos.y - start.y));
 	}
 
 	@Test

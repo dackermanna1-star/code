@@ -22,6 +22,8 @@ import net.minecraft.world.level.block.WallTorchBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 /** Structures and strokes shared by the unit tests; they mirror the scenes of the client gametest. */
 public final class Scenes {
@@ -59,6 +61,31 @@ public final class Scenes {
 	/** The centred, tilted stroke the gametest draws across the house front. */
 	public static Slash houseSlash() {
 		Slash slash = Slash.of(new Vec3(23.5, -58.38, -1.5), new Vec3(0.6227, 0.1864, 1), new Vec3(-0.6227, -0.1864, 1), 32);
+		if (slash == null) {
+			throw new IllegalStateException("degenerate stroke");
+		}
+		return slash;
+	}
+
+	/** View ray through a point of the screen (NDC), for a camera with the given yaw and pitch (70° FOV, 16:9). */
+	public static Vec3 viewRay(float yaw, float pitch, double nx, double ny) {
+		double tanV = Math.tan(Math.toRadians(70) * 0.5);
+		double aspect = 16.0 / 9.0;
+		Vector3f dir = new Vector3f((float) (nx * tanV * aspect), (float) (ny * tanV), -1.0F).normalize();
+		new Quaternionf().rotationYXZ((float) Math.PI - yaw * (float) (Math.PI / 180.0), -pitch * (float) (Math.PI / 180.0), 0.0F).transform(dir);
+		return new Vec3(dir.x, dir.y, dir.z);
+	}
+
+	/**
+	 * A centred stroke from the given camera: the cursor was moved by {@code yawDeg}/{@code pitchDeg}
+	 * (degrees, as blade mode accumulates mouse motion) from the crosshair.
+	 */
+	public static Slash centredStroke(Vec3 eye, float yaw, float pitch, double yawDeg, double pitchDeg) {
+		double tanV = Math.tan(Math.toRadians(70) * 0.5);
+		double aspect = 16.0 / 9.0;
+		double cx = Math.tan(Math.toRadians(yawDeg)) / (tanV * aspect);
+		double cy = -Math.tan(Math.toRadians(pitchDeg)) / tanV;
+		Slash slash = Slash.of(eye, viewRay(yaw, pitch, -cx, -cy), viewRay(yaw, pitch, cx, cy), 32);
 		if (slash == null) {
 			throw new IllegalStateException("degenerate stroke");
 		}

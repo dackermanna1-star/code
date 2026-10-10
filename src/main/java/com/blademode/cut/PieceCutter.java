@@ -87,10 +87,15 @@ public final class PieceCutter {
 			if (side == PartNode.BOTH && BlockGeometry.isStructural(b.state()) && inSector(slash, space, local, cell)) {
 				PartShape back = new PartShape(BlockGeometry.collisionBoxes(b.state()), with(b.planes(), local));
 				PartShape front = new PartShape(BlockGeometry.collisionBoxes(b.state()), with(b.planes(), local.flip()));
+				// A block the plane only grazes stays whole on the bigger side, minus the sliver, so the
+				// fragments never overlap. Blocks carrying data are left untouched.
+				boolean keepData = b.blockEntity().isPresent();
 				if (back.volume < CutEngine.MIN_PART_VOLUME) {
-					here = new PartNode[]{new PartNode(cell, b.state(), b.planes(), null, PartNode.FRONT, i, false)};
+					Plane trim = back.volume > 1.0E-9 && !keepData ? local.flip() : null;
+					here = new PartNode[]{new PartNode(cell, b.state(), b.planes(), trim, PartNode.FRONT, i, false)};
 				} else if (front.volume < CutEngine.MIN_PART_VOLUME) {
-					here = new PartNode[]{new PartNode(cell, b.state(), b.planes(), null, PartNode.BACK, i, false)};
+					Plane trim = front.volume > 1.0E-9 && !keepData ? local : null;
+					here = new PartNode[]{new PartNode(cell, b.state(), b.planes(), trim, PartNode.BACK, i, false)};
 				} else {
 					PartNode f = new PartNode(cell, b.state(), b.planes(), local.flip(), PartNode.FRONT, i, false);
 					PartNode k = new PartNode(cell, b.state(), b.planes(), local, PartNode.BACK, i, false);
