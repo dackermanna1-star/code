@@ -1,0 +1,7 @@
+{
+	"variants": {
+		"": {
+			"model": "blademode:block/cut_block"
+		}
+	}
+}

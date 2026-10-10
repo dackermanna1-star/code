@@ -1,0 +1,17 @@
+{
+	"required": true,
+	"package": "com.blademode.client.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"ClientLevelMixin",
+		"GameRendererAccessor",
+		"MinecraftMixin",
+		"MouseHandlerMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

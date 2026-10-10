@@ -1,0 +1,34 @@
+{
+	"schemaVersion": 1,
+	"id": "blademode",
+	"version": "${version}",
+	"name": "Blade Mode",
+	"description": "Cut anything along any line you draw. Severed parts become physical rigid bodies that slide, topple and fall.",
+	"authors": [
+		"dackermanna1-star"
+	],
+	"license": "MIT",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.blademode.BladeMode"
+		],
+		"client": [
+			"com.blademode.client.BladeModeClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"mixins": [
+		"blademode.mixins.json",
+		{
+			"config": "blademode.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"icon": "assets/blademode/icon.png"
+}

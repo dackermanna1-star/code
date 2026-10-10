@@ -1,0 +1,12 @@
+{
+	"item.blademode.hf_blade": "High-Frequency Blade",
+	"item.blademode.hf_blade.tooltip.1": "Hold attack and move the mouse to draw a cut line.",
+	"item.blademode.hf_blade.tooltip.2": "Release to slash through anything along it.",
+	"block.blademode.cut_block": "Cut Block",
+	"entity.blademode.piece": "Severed Piece",
+	"key.blademode.toggle_line_mode": "Toggle Cut Line Mode",
+	"hud.blademode.hint.crosshair": "Move the mouse to stretch the cut from the crosshair - release to slash",
+	"hud.blademode.hint.centered": "Move the mouse to turn and stretch the cut - release to slash",
+	"message.blademode.mode.centered": "Cut line: centred on the crosshair",
+	"message.blademode.mode.crosshair": "Cut line: from the crosshair to the cursor"
+}

@@ -1,0 +1,19 @@
+{
+	"type": "minecraft:crafting_shaped",
+	"category": "equipment",
+	"pattern": [
+		"  D",
+		"RD ",
+		"SN "
+	],
+	"key": {
+		"D": "minecraft:diamond",
+		"R": "minecraft:redstone_block",
+		"S": "minecraft:stick",
+		"N": "minecraft:netherite_ingot"
+	},
+	"result": {
+		"id": "blademode:hf_blade",
+		"count": 1
+	}
+}

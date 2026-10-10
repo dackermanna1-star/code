@@ -1,0 +1,18 @@
+{
+	"schemaVersion": 1,
+	"id": "blademode-test",
+	"version": "1.0.0",
+	"name": "Blade Mode Tests",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-client-gametest": [
+			"com.blademode.test.BladeModeClientTest"
+		]
+	},
+	"depends": {
+		"blademode": "*"
+	},
+	"mixins": [
+		"blademode-test.mixins.json"
+	]
+}
