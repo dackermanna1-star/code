@@ -206,6 +206,8 @@ def write_data():
         lang['item.earthscapes.' + egg_id] = name + ' Spawn Egg'
         write_json(os.path.join(data, 'earthscapes/loot_table/entities', eid + '.json'),
                    {'type': 'minecraft:entity', 'pools': LOOT[eid], 'random_sequence': 'earthscapes:entities/' + eid})
+    for tag in ITEM_TAGS:
+        lang['tag.item.earthscapes.' + tag] = tag.replace('_', ' ').capitalize()
     with open(lang_path, 'w') as f:
         json.dump(dict(sorted(lang.items())), f, indent=2, ensure_ascii=False)
         f.write('\n')

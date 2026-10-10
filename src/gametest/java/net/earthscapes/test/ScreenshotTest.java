@@ -18,10 +18,13 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.Difficulty;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
@@ -138,7 +141,9 @@ public class ScreenshotTest implements FabricClientGameTest {
 				settings.setGameMode(WorldCreationUiState.SelectedGameMode.CREATIVE);
 				settings.getGameRules().set(GameRules.ADVANCE_TIME, false, null);
 				settings.getGameRules().set(GameRules.ADVANCE_WEATHER, false, null);
-				settings.getGameRules().set(GameRules.SPAWN_MOBS, false, null);
+				// animals are placed while chunks generate, which vanilla only does with mob spawning on
+				settings.getGameRules().set(GameRules.SPAWN_MOBS, true, null);
+				settings.setDifficulty(Difficulty.PEACEFUL);
 			})
 			.create()) {
 			context.runOnClient(client -> client.options.framerateLimit().set(260));
@@ -149,13 +154,16 @@ public class ScreenshotTest implements FabricClientGameTest {
 			world.getServer().runCommand("time set " + System.getProperty("earthscapes.time", "1500"));
 			world.getServer().runCommand("weather clear");
 			waitForWorld(context, 20 * 600);
-			if (Boolean.getBoolean("earthscapes.zoo")) {
+			if (Boolean.getBoolean("earthscapes.aitest")) {
+				this.behaviourTest(context, world);
+			} else if (Boolean.getBoolean("earthscapes.zoo")) {
 				this.shootZoo(context, world, preset);
 			} else {
 				context.takeScreenshot(preset + "_00_spawn");
 			}
 			int index = 1;
-			for (Shot shot : Boolean.getBoolean("earthscapes.zoo") ? List.<Shot>of() : this.shots(preset)) {
+			boolean landscapes = !Boolean.getBoolean("earthscapes.zoo") && !Boolean.getBoolean("earthscapes.aitest");
+			for (Shot shot : landscapes ? this.shots(preset) : List.<Shot>of()) {
 				String command = world.getServer().computeOnServer(server -> this.place(server.overworld(), shot));
 				if (command == null) {
 					Earthscapes.LOGGER.warn("No location found for shot {} of {}", shot.name(), preset);
@@ -200,21 +208,114 @@ public class ScreenshotTest implements FabricClientGameTest {
 		};
 	}
 
+	/**
+	 * Watches the animals' behaviour on open ground: a hungry lion near gazelles, a scattered
+	 * wildebeest herd that should gather, and a crocodile in a pool next to drinking zebras.
+	 * Logs what happens and takes pictures.
+	 */
+	private void behaviourTest(ClientGameTestContext context, TestSingleplayerContext world) {
+		world.getServer().runCommand("time set 6000");
+		int[] o = world.getServer().computeOnServer(server -> {
+			ServerLevel level = server.overworld();
+			BlockPos spawn = BlockPos.containing(level.getRespawnData().pos().getCenter());
+			return new int[] {spawn.getX(), level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, spawn.getX(), spawn.getZ()), spawn.getZ()};
+		});
+		int x = o[0], y = o[1], z = o[2];
+		world.getServer().runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d air", x - 40, y, z - 40, x + 40, y + 20, z + 40));
+		world.getServer().runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d grass_block", x - 40, y - 1, z - 40, x + 40, y - 1, z + 40));
+		world.getServer().runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d water", x - 30, y - 3, z + 22, x - 22, y - 1, z + 30));
+		world.getServer().runCommand("kill @e[type=!player]");
+		world.getServer().runCommand(String.format(Locale.ROOT, "summon earthscapes:lion %d %d %d {Variant:1}", x, y, z));
+		for (int i = 0; i < 4; i++) {
+			world.getServer().runCommand(String.format(Locale.ROOT, "summon earthscapes:thomsons_gazelle %d %d %d", x + 10 + i, y, z - 2 + i));
+		}
+		for (int i = 0; i < 6; i++) {
+			double a = i * Math.PI / 3.0;
+			world.getServer().runCommand(String.format(Locale.ROOT, "summon earthscapes:wildebeest %d %d %d", x + (int) (Math.cos(a) * 22), y,
+				z - 25 + (int) (Math.sin(a) * 12)));
+		}
+		world.getServer().runCommand(String.format(Locale.ROOT, "summon earthscapes:nile_crocodile %d %d %d", x - 26, y - 2, z + 26));
+		for (int i = 0; i < 2; i++) {
+			world.getServer().runCommand(String.format(Locale.ROOT, "summon earthscapes:zebra %d %d %d", x - 20, y, z + 24 + i * 3));
+		}
+		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d -90 35", x - 12, y + 18, z));
+		for (int t = 0; t <= 6; t++) {
+			String report = world.getServer().computeOnServer(server -> {
+				ServerLevel level = server.overworld();
+				AABB box = new AABB(x - 60, y - 10, z - 60, x + 60, y + 30, z + 60);
+				StringBuilder sb = new StringBuilder();
+				for (String id : new String[] {"lion", "thomsons_gazelle", "wildebeest", "nile_crocodile", "zebra"}) {
+					var list = level.getEntities((Entity) null, box, e -> e.isAlive() && EntityType.getKey(e.getType()).getPath().equals(id));
+					double minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
+					String target = "-";
+					for (Entity e : list) {
+						minX = Math.min(minX, e.getX());
+						maxX = Math.max(maxX, e.getX());
+						minZ = Math.min(minZ, e.getZ());
+						maxZ = Math.max(maxZ, e.getZ());
+						if (e instanceof Mob mob && mob.getTarget() != null) {
+							target = EntityType.getKey(mob.getTarget().getType()).getPath();
+						}
+					}
+					sb.append(String.format(Locale.ROOT, "%s: %d alive, spread %.0fx%.0f, target %s; ", id, list.size(),
+						list.isEmpty() ? 0 : maxX - minX, list.isEmpty() ? 0 : maxZ - minZ, target));
+				}
+				return sb.toString();
+			});
+			Earthscapes.LOGGER.info("Behaviour at {} s: {}", t * 10, report);
+			if (t == 1 || t == 6) {
+				context.takeScreenshot(String.format(Locale.ROOT, "behaviour_%02ds", t * 10));
+			}
+			context.waitTicks(200);
+		}
+	}
+
+	/** A dry, level spot above sea level near the spawn (from the generator's height estimate), for the zoo pictures. */
+	private int[] flatSpot(ServerLevel level) {
+		BlockPos spawn = BlockPos.containing(level.getRespawnData().pos().getCenter());
+		ChunkGenerator generator = level.getChunkSource().getGenerator();
+		RandomState random = level.getChunkSource().randomState();
+		int bestX = spawn.getX(), bestZ = spawn.getZ();
+		double best = Double.MAX_VALUE;
+		for (int dx = -192; dx <= 192; dx += 16) {
+			for (int dz = -192; dz <= 192; dz += 16) {
+				int cx = spawn.getX() + dx, cz = spawn.getZ() + dz;
+				int lo = Integer.MAX_VALUE, hi = Integer.MIN_VALUE;
+				for (int ox = -14; ox <= 14; ox += 7) {
+					for (int oz = -14; oz <= 14; oz += 7) {
+						int h = generator.getBaseHeight(cx + ox, cz + oz, Heightmap.Types.OCEAN_FLOOR_WG, level, random);
+						lo = Math.min(lo, h);
+						hi = Math.max(hi, h);
+					}
+				}
+				if (lo <= level.getSeaLevel() + 1) {
+					continue;
+				}
+				double score = (hi - lo) * 10.0 + Math.sqrt(dx * dx + dz * dz) * 0.02;
+				if (score < best) {
+					best = score;
+					bestX = cx;
+					bestZ = cz;
+				}
+			}
+		}
+		level.getChunk(bestX >> 4, bestZ >> 4);
+		return new int[] {bestX, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bestX, bestZ), bestZ};
+	}
+
 	/** Photographs each animal of a world in a cleared patch of ground near the spawn. */
 	private void shootZoo(ClientGameTestContext context, TestSingleplayerContext world, String preset) {
 		world.getServer().runCommand("time set 6000");
-		int[] origin = world.getServer().computeOnServer(server -> {
-			ServerLevel level = server.overworld();
-			BlockPos spawn = BlockPos.containing(level.getRespawnData().pos().getCenter());
-			int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, spawn.getX(), spawn.getZ());
-			return new int[] {spawn.getX(), y, spawn.getZ()};
-		});
+		int[] origin = world.getServer().computeOnServer(server -> this.flatSpot(server.overworld()));
 		int x = origin[0], y = origin[1], z = origin[2];
+		world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d", x, y + 10, z));
+		context.waitTicks(5);
+		waitForWorld(context, 20 * 300);
 		int index = 0;
 		for (String[] animal : zoo(preset)) {
 			String id = animal[0];
 			boolean water = id.equals("river_dolphin");
-			world.getServer().runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d air", x - 14, y, z - 14, x + 14, y + 14, z + 14));
+			world.getServer().runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d air", x - 14, y, z - 14, x + 14, y + 30, z + 14));
 			world.getServer().runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d %s", x - 14, y - 1, z - 14, x + 14, y - 1, z + 14,
 				preset.equals("sahara_desert") ? "earthscapes:sahara_sand" : "grass_block"));
 			if (water) {
@@ -240,7 +341,8 @@ public class ScreenshotTest implements FabricClientGameTest {
 			double tz = z + 0.5 - cz;
 			float yaw = (float) Math.toDegrees(Math.atan2(-tx, tz));
 			float pitch = (float) Math.toDegrees(Math.atan2(cy - (ay + size[1] * 0.45), Math.sqrt(tx * tx + tz * tz)));
-			world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %.2f %.2f %.2f %.1f %.1f", cx, cy, cz, yaw, pitch));
+			// teleports place the feet; the spectator's eyes are 1.62 blocks higher
+			world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %.2f %.2f %.2f %.1f %.1f", cx, cy - 1.62, cz, yaw, pitch));
 			context.waitTicks(5);
 			waitForWorld(context, 20 * 120);
 			context.waitTicks(30);

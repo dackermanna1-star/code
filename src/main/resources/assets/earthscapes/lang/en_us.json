@@ -170,5 +170,14 @@
   "item.earthscapes.wildebeest_spawn_egg": "Blue Wildebeest Spawn Egg",
   "item.earthscapes.yak_spawn_egg": "Wild Yak Spawn Egg",
   "item.earthscapes.zebra_spawn_egg": "Plains Zebra Spawn Egg",
-  "itemGroup.earthscapes": "Earthscapes"
+  "itemGroup.earthscapes": "Earthscapes",
+  "tag.item.earthscapes.browser_food": "Browser food",
+  "tag.item.earthscapes.capybara_food": "Capybara food",
+  "tag.item.earthscapes.crocodile_food": "Crocodile food",
+  "tag.item.earthscapes.elephant_food": "Elephant food",
+  "tag.item.earthscapes.fruit": "Fruit",
+  "tag.item.earthscapes.grazer_food": "Grazer food",
+  "tag.item.earthscapes.marmot_food": "Marmot food",
+  "tag.item.earthscapes.meat": "Meat",
+  "tag.item.earthscapes.seeds": "Seeds"
 }

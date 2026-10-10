@@ -152,7 +152,7 @@ def build(reg):
     sky, fog = '#80B6F0', '#D8E2E8'
 
     def make(name, grass, foliage, local=(), veg=(), creatures=None, water='#4C7E78', water_fog='#2F4F48', temperature=1.2, downfall=0.25,
-             rain=True, fog_end=560.0, extra_attrs=None):
+             rain=True, fog_end=560.0, extra_attrs=None, wildlife=0.12):
         f = base_features()
         f[LOCAL_MODIFICATIONS] += list(local)
         f[VEGETAL_DECORATION] += list(veg)
@@ -160,11 +160,11 @@ def build(reg):
         a = attrs(sky, fog, water_fog=water_fog, fog_start=40.0, fog_end=fog_end, extra=dict({'minecraft:gameplay/snow_golem_melts': True},
                                                                                             **(extra_attrs or {})))
         reg.biome(name, biome(temperature, downfall, rain, effects(water, grass, foliage, '#A08A4A'), a, f,
-                              creatures if creatures is not None else savanna_creatures, monsters=MONSTERS, creature_probability=0.12,
+                              creatures if creatures is not None else savanna_creatures, monsters=MONSTERS, creature_probability=wildlife,
                               carvers=None if name == HIGHLANDS else FLAT_CARVERS))
 
     make(PLAINS, '#C9A64B', '#8C9C3C', local=[kopje_lone], veg=[acacia_plains, acacia_young_plains, thorn_plains, mound, baobab_rare,
-                                                               cover_plains, 'minecraft:flower_warm'])
+                                                               cover_plains, 'minecraft:flower_warm'], wildlife=0.17)
     make(WOODLAND, '#B4A44A', '#7E9A3A', local=[rocks_rare], veg=[acacia_woodland, acacia_young, thorn_dense, mound, cover_woodland,
                                                                  'minecraft:flower_warm'], creatures=woodland_creatures)
     make(RED_EARTH, '#CDA155', '#909A3E', local=[rocks_rare], veg=[acacia_sparse, baobab_rare, commiphora, mound_tall, candelabra_rare,

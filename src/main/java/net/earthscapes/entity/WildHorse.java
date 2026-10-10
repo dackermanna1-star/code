@@ -7,11 +7,14 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.AgeableMob;
+import net.minecraft.world.entity.EntitySelector;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.goal.AvoidEntityGoal;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import org.jspecify.annotations.Nullable;
 
@@ -26,6 +29,14 @@ public class WildHorse extends AbstractHorse {
 
 	private boolean isZebra() {
 		return this.getType() == EsEntities.ZEBRA;
+	}
+
+	@Override
+	protected void registerGoals() {
+		super.registerGoals();
+		// wild ones bolt from people who do not sneak up on them
+		this.goalSelector.addGoal(2, new AvoidEntityGoal<>(this, Player.class, 12.0F, 1.2, 1.9,
+			e -> !this.isTamed() && !this.isVehicle() && !e.isDiscrete() && EntitySelector.NO_CREATIVE_OR_SPECTATOR.test(e)));
 	}
 
 	@Override

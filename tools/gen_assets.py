@@ -555,7 +555,7 @@ def write_lang():
     if os.path.exists(path):
         with open(path) as f:
             for k, v in json.load(f).items():
-                if k.startswith(('biome.', 'entity.')) or k.endswith('_spawn_egg'):
+                if k.startswith(('biome.', 'entity.', 'tag.')) or k.endswith('_spawn_egg'):
                     LANG.setdefault(k, v)
     extra = os.path.join(os.path.dirname(__file__), 'lang_extra.json')
     if os.path.exists(extra):
