@@ -74,7 +74,7 @@ All five are in the **Overkill Arsenal** creative tab and can be crafted in surv
 
 ## Effects and aftermath
 
-- **18 custom particles:** embers, ash, charred flakes, heavy smoke, magma droplets, blast dust, fire bursts, the sun beam, sparks, void motes, rift glows, the singularity core, white flares, static sparks, lightning arcs, the energy orb and ground shockwave rings.
+- **19 custom particles:** embers, ash, charred flakes, heavy smoke, magma droplets, blast dust, fire bursts, the sun beam, sparks, void motes, rift glows, rift ground rings, the singularity core, white flares, static sparks, lightning arcs, the energy orb and ground shockwave rings.
 - **Screen shake** scales with distance from the blast. It moves only the camera, never your aim.
 - **Status effects:**
   - *Searing*: burning damage over time.
