@@ -9,7 +9,8 @@
 // baked light at the surface (W.sampler + the world shader's light curve).
 //
 //   const b = new BloodFX(effects)
-//   b.hit(pos, dir, damage, { head, victim, blast })   one bullet / knife / blast wound
+//   b.hit(pos, dir, damage, { head, victim, blast, exit })   one bullet / knife / blast wound
+//                                (exit: false when the bullet stopped in the body)
 //   b.puddle(src, opts)          src = player | () => [x,y,z] | [x,y,z]; see puddle()
 //   b.update(dt); b.clear()
 import * as THREE from 'three';
@@ -116,8 +117,9 @@ const PART_VERT = /* glsl */`
   attribute vec3 iPos;
   attribute vec4 iVel;   // velocity, stretch factor
   attribute vec4 iCol;
-  attribute vec3 iSRF;   // size, rotation, frame
+  attribute vec4 iSRF;   // size, rotation, frame, min size in pixels
   uniform vec2 cells;
+  uniform float pxScale; // world units per pixel at distance 1
   varying vec2 vUv;
   varying vec4 vCol;
   void main() {
@@ -130,7 +132,9 @@ const PART_VERT = /* glsl */`
       if (sp > 1.0) { ax = vv / sp; st = 1.0 + min(sp * iVel.w, 2.5); }
     }
     vec2 ay = vec2(-ax.y, ax.x);
-    mv.xy += (ax * position.x * st + ay * position.y) * iSRF.x;
+    // never smaller than a few pixels, so a hit reads at any range
+    float sz = max(iSRF.x, iSRF.w * pxScale * max(1.0, -mv.z));
+    mv.xy += (ax * position.x * st + ay * position.y) * sz;
     gl_Position = projectionMatrix * mv;
     float f = iSRF.z;
     vUv = (vec2(mod(f, cells.x), floor(f / cells.x)) + vec2(uv.x, 1.0 - uv.y)) / cells;
@@ -273,8 +277,8 @@ class BloodParticles {
     this.p = new Float32Array(max * 3);
     this.v = new Float32Array(max * 3);
     this.tint = new Float32Array(max * 3);
-    // age, life, size, grow, alpha, gravity, drag, frame, rot, stretch, flags
-    this.s = new Float32Array(max * 11);
+    // age, life, size, grow, alpha, gravity, drag, frame, rot, stretch, flags, min px
+    this.s = new Float32Array(max * 12);
     const g = new THREE.InstancedBufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0]), 3));
     g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]), 2));
@@ -287,11 +291,11 @@ class BloodParticles {
     this.iPos = inst('iPos', 3);
     this.iVel = inst('iVel', 4);
     this.iCol = inst('iCol', 4);
-    this.iSRF = inst('iSRF', 3);
+    this.iSRF = inst('iSRF', 4);
     g.instanceCount = 0;
     this.geometry = g;
     this.material = new THREE.ShaderMaterial({
-      uniforms: { map: { value: tex }, cells: { value: new THREE.Vector2(2, 2) } },
+      uniforms: { map: { value: tex }, cells: { value: new THREE.Vector2(2, 2) }, pxScale: { value: 0.002 } },
       vertexShader: PART_VERT,
       fragmentShader: PART_FRAG,
       transparent: true,
@@ -314,7 +318,7 @@ class BloodParticles {
     this.v[i * 3] = vel[0]; this.v[i * 3 + 1] = vel[1]; this.v[i * 3 + 2] = vel[2];
     const t = o.tint || [1, 1, 1];
     this.tint[i * 3] = t[0]; this.tint[i * 3 + 1] = t[1]; this.tint[i * 3 + 2] = t[2];
-    const s = this.s, k = i * 11;
+    const s = this.s, k = i * 12;
     s[k] = 0;
     s[k + 1] = o.life ?? 0.6;
     s[k + 2] = o.size ?? 1.5;
@@ -326,6 +330,7 @@ class BloodParticles {
     s[k + 8] = o.rot ?? Math.random() * Math.PI * 2;
     s[k + 9] = o.stretch ?? 0;
     s[k + 10] = o.flags ?? 0;
+    s[k + 11] = o.minPx ?? 1.5;
   }
 
   kill(i) {
@@ -334,14 +339,14 @@ class BloodParticles {
     this.p.copyWithin(i * 3, j * 3, j * 3 + 3);
     this.v.copyWithin(i * 3, j * 3, j * 3 + 3);
     this.tint.copyWithin(i * 3, j * 3, j * 3 + 3);
-    this.s.copyWithin(i * 11, j * 11, j * 11 + 11);
+    this.s.copyWithin(i * 12, j * 12, j * 12 + 12);
   }
 
   update(dt) {
     const P = this.p, V = this.v, S = this.s, a = this._a, b = this._b;
     if (dt > 0) {
       for (let i = 0; i < this.n; i++) {
-        const k = i * 11;
+        const k = i * 12;
         S[k] += dt;
         if (S[k] >= S[k + 1]) { this.kill(i--); continue; }
         const o = i * 3;
@@ -373,7 +378,7 @@ class BloodParticles {
     this.mesh.position.set(cx, cy, cz);
     const ip = this.iPos.array, iv = this.iVel.array, ic = this.iCol.array, is = this.iSRF.array;
     for (let i = 0; i < n; i++) {
-      const k = i * 11, o = i * 3;
+      const k = i * 12, o = i * 3;
       const age = S[k], life = S[k + 1], t = age / life, flags = S[k + 10];
       ip[o] = P[o] - cx; ip[o + 1] = P[o + 1] - cy; ip[o + 2] = P[o + 2] - cz;
       iv[i * 4] = V[o]; iv[i * 4 + 1] = V[o + 1]; iv[i * 4 + 2] = V[o + 2]; iv[i * 4 + 3] = S[k + 9];
@@ -381,7 +386,8 @@ class BloodParticles {
       if (flags & F_MIST) al *= (1 - t) * Math.min(1, age / 0.04);
       else al *= Math.min(1, (1 - t) * 5);
       ic[i * 4] = this.tint[o]; ic[i * 4 + 1] = this.tint[o + 1]; ic[i * 4 + 2] = this.tint[o + 2]; ic[i * 4 + 3] = al;
-      is[o] = S[k + 2] + S[k + 3] * age; is[o + 1] = S[k + 8]; is[o + 2] = S[k + 7];
+      const q = i * 4;
+      is[q] = S[k + 2] + S[k + 3] * age; is[q + 1] = S[k + 8]; is[q + 2] = S[k + 7]; is[q + 3] = S[k + 11];
     }
     for (const at of [this.iPos, this.iVel, this.iCol, this.iSRF]) {
       at.clearUpdateRanges();
@@ -474,22 +480,47 @@ export class BloodFX {
     const j = () => (Math.random() - 0.5) * 2;
     const at = (s) => [pos[0] + j() * s, pos[1] + j() * s, pos[2] + j() * s];
 
-    // droplets thrown out of the exit wound
-    const nFwd = Math.round(clamp(2 + dmg / 7, 3, 12) * (head ? 1.5 : 1) * (blast ? 0.6 : 1));
-    for (let i = 0; i < nFwd; i++) {
-      const c = cone(d, 0.42), sp = rnd(110, 280) * (head ? 1.2 : 1);
-      P.spawn(at(1.5), [c[0] * sp, c[1] * sp, c[2] * sp + rnd(20, 80)], {
-        life: rnd(0.55, 0.95), size: rnd(1.2, 2.4), frame: Math.random() < 0.25 ? 1 : 0, drag: 0.6, stretch: 0.012,
-        flags: F_COLLIDE | (Math.random() < 0.4 ? F_STAIN : 0), tint,
+    // particles stay readable in shadow (the decals keep the full baked light)
+    const pt = [Math.max(0.42, tint[0]), Math.max(0.42, tint[1]), Math.max(0.42, tint[2])];
+    // the bullet went through: a jet out of the far side; otherwise the spray is mostly
+    // thrown back out of the entry hole
+    const through = opts.exit !== false && !blast;
+    const back = [-d[0], -d[1], -d[2]];
+
+    // entry: a dense red burst facing the shooter (the 1.6 blood sprite), big enough to
+    // see across the map
+    if (!inEye) {
+      P.spawn([pos[0] - d[0] * 1.5, pos[1] - d[1] * 1.5, pos[2] - d[2] * 1.5], [back[0] * 30, back[1] * 30, back[2] * 30 + 10], {
+        life: rnd(0.16, 0.22), size: (head ? 7 : 5) + dmg * 0.05, grow: head ? 46 : 34, alpha: 1, frame: 1,
+        gravity: 0.1, drag: 6, flags: F_MIST, tint: pt, minPx: head ? 12 : 10,
       });
     }
+    // exit: a cone of fast, stretched drops (bloodspray) plus slower heavy droplets
+    const nFwd = Math.round(clamp(3 + dmg / 6, 4, 14) * (head ? 1.5 : 1) * (blast ? 0.6 : 1) * (through ? 1 : 0.5));
+    for (let i = 0; i < nFwd; i++) {
+      const c = cone(d, 0.38), sp = rnd(140, 320) * (head ? 1.25 : 1);
+      P.spawn(at(1.5), [c[0] * sp, c[1] * sp, c[2] * sp + rnd(20, 80)], {
+        life: rnd(0.55, 0.95), size: rnd(1.4, 2.8), frame: Math.random() < 0.35 ? 1 : 0, drag: 0.6, stretch: 0.014,
+        flags: F_COLLIDE | (Math.random() < 0.4 ? F_STAIN : 0), tint: pt, minPx: 2.2,
+      });
+    }
+    if (through) {
+      const nJet = Math.round(clamp(6 + dmg / 8, 6, 16) * (head ? 1.4 : 1));
+      for (let i = 0; i < nJet; i++) {
+        const c = cone(d, 0.2), sp = rnd(320, 560);
+        P.spawn([pos[0] + d[0] * 6 + j(), pos[1] + d[1] * 6 + j(), pos[2] + d[2] * 6 + j()], [c[0] * sp, c[1] * sp, c[2] * sp + rnd(10, 60)], {
+          life: rnd(0.3, 0.5), size: rnd(2.2, 3.8), frame: 1, drag: 1.2, stretch: 0.02,
+          flags: F_COLLIDE | (Math.random() < 0.25 ? F_STAIN : 0), tint: pt, minPx: 3,
+        });
+      }
+    }
     // back-spray out of the entry wound, towards the shooter
-    const nBack = inEye ? 0 : Math.round(nFwd * 0.5);
+    const nBack = inEye ? 0 : Math.round(nFwd * (through ? 0.5 : 1.1));
     for (let i = 0; i < nBack; i++) {
-      const c = cone([-d[0], -d[1], -d[2]], 0.6), sp = rnd(50, 140);
+      const c = cone(back, 0.6), sp = rnd(60, 170);
       P.spawn(at(1.5), [c[0] * sp, c[1] * sp, c[2] * sp + rnd(30, 90)], {
-        life: rnd(0.45, 0.8), size: rnd(0.9, 1.8), frame: Math.random() < 0.3 ? 1 : 0, drag: 0.8, stretch: 0.012,
-        flags: F_COLLIDE | (Math.random() < 0.3 ? F_STAIN : 0), tint,
+        life: rnd(0.45, 0.8), size: rnd(1.1, 2.2), frame: Math.random() < 0.35 ? 1 : 0, drag: 0.8, stretch: 0.012,
+        flags: F_COLLIDE | (Math.random() < 0.3 ? F_STAIN : 0), tint: pt, minPx: 2.2,
       });
     }
     // headshot: a fine, fast jet out of the exit plus an upward spurt
@@ -498,14 +529,14 @@ export class BloodFX {
       for (let i = 0; i < nJet; i++) {
         const c = cone(d, 0.22), sp = rnd(260, 480);
         P.spawn(at(1), [c[0] * sp, c[1] * sp, c[2] * sp + rnd(40, 120)], {
-          life: rnd(0.6, 1.0), size: rnd(0.7, 1.4), drag: 0.4, stretch: 0.02,
-          flags: F_COLLIDE | (Math.random() < 0.22 ? F_STAIN : 0), tint,
+          life: rnd(0.6, 1.0), size: rnd(0.9, 1.6), drag: 0.4, stretch: 0.02,
+          flags: F_COLLIDE | (Math.random() < 0.22 ? F_STAIN : 0), tint: pt, minPx: 2,
         });
       }
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 6; i++) {
         const sp = rnd(60, 130);
         P.spawn(at(1), [d[0] * sp * 0.5 + j() * 30, d[1] * sp * 0.5 + j() * 30, rnd(120, 220)], {
-          life: rnd(0.7, 1.0), size: rnd(1.2, 2.0), frame: 1, drag: 0.3, stretch: 0.01, flags: F_COLLIDE | F_STAIN, tint,
+          life: rnd(0.7, 1.0), size: rnd(1.4, 2.4), frame: 1, drag: 0.3, stretch: 0.01, flags: F_COLLIDE | F_STAIN, tint: pt, minPx: 2.5,
         });
       }
     }
@@ -513,16 +544,18 @@ export class BloodFX {
     const nDrip = (Math.random() < 0.3 + dmg / 120 ? 1 + (Math.random() < 0.45 ? 1 : 0) : 0) + (head ? 1 : 0);
     for (let i = 0; i < nDrip; i++) {
       P.spawn(at(3), [j() * 25 + d[0] * 20, j() * 25 + d[1] * 20, rnd(-40, 25)], {
-        life: 1.2, size: rnd(1.6, 2.4), frame: 0, stretch: 0.01, flags: F_COLLIDE | F_STAIN | F_DRIP, tint,
+        life: 1.2, size: rnd(1.6, 2.4), frame: 0, stretch: 0.01, flags: F_COLLIDE | F_STAIN | F_DRIP, tint: pt, minPx: 1.5,
       });
     }
-    // red mist puff
+    // red mist: out of the exit (through shots) and a smaller puff at the entry
     const nMist = inEye ? 0 : head ? 3 : 1 + (dmg >= 30 ? 1 : 0);
     for (let i = 0; i < nMist; i++) {
       const sp = rnd(15, 45) * (head ? 1.6 : 1);
-      P.spawn([pos[0] + d[0] * 2 + j() * 2, pos[1] + d[1] * 2 + j() * 2, pos[2] + j() * 2], [d[0] * sp + j() * 15, d[1] * sp + j() * 15, d[2] * sp + 8 + j() * 10], {
-        life: head ? rnd(0.5, 0.65) : rnd(0.35, 0.45), size: head ? rnd(8, 11) : 6 + dmg * 0.06, grow: head ? rnd(40, 55) : rnd(28, 36),
-        alpha: head ? 0.8 : 0.75, frame: 2 + (Math.random() < 0.5 ? 1 : 0), gravity: 0.04, drag: 3.5, flags: F_MIST, tint,
+      const q = through ? [pos[0] + d[0] * 5 + j() * 2, pos[1] + d[1] * 5 + j() * 2, pos[2] + d[2] * 5 + j() * 2] : [pos[0] - d[0] * 2 + j() * 2, pos[1] - d[1] * 2 + j() * 2, pos[2] + j() * 2];
+      const md = through ? d : back;
+      P.spawn(q, [md[0] * sp + j() * 15, md[1] * sp + j() * 15, md[2] * sp + 8 + j() * 10], {
+        life: head ? rnd(0.55, 0.75) : rnd(0.4, 0.55), size: head ? rnd(9, 13) : 7 + dmg * 0.08, grow: head ? rnd(44, 60) : rnd(30, 40),
+        alpha: head ? 0.9 : 0.85, frame: 2 + (Math.random() < 0.5 ? 1 : 0), gravity: 0.04, drag: 3.5, flags: F_MIST, tint: pt, minPx: head ? 16 : 11,
       });
     }
     this.exitSplatter(pos, d, dmg, head, blast);
@@ -778,6 +811,8 @@ export class BloodFX {
   // ---------------------------------------------------------------- frame
   update(dt) {
     this.time += dt;
+    const r = this.game.renderer;
+    if (r?.camera && r.viewport?.rh) this.parts.material.uniforms.pxScale.value = 2 * Math.tan(r.camera.fov * Math.PI / 360) / r.viewport.rh;
     this.parts.update(dt);
     if (this.puddles.length) this.updatePuddles(dt);
     this.pools.flush();

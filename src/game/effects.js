@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { TraceResult, MASK_SHOT } from '../engine/collision.js';
 import { BloodFX } from './blood.js';
+import { WoundSystem } from './wounds.js';
 
 const MAX_DECALS = 256;
 const MAX_SPRITES = 220;
@@ -35,6 +36,8 @@ export class Effects {
       console.error('blood effects unavailable', e);
       this.bloodFx = null;
     }
+    // entry / exit wounds painted onto the player models; see wounds.js
+    this.wounds = typeof document !== 'undefined' ? new WoundSystem(game) : null;
   }
 
   tex(name) {
@@ -193,6 +196,13 @@ export class Effects {
   /** Remove all blood (round restart, violence_hblood 0). */
   clearBlood() {
     this.bloodFx?.clear();
+    this.wounds?.clearAll();
+  }
+
+  /** A bullet / knife wound on a player model (entry hole, exit wound when it went through). */
+  wound(victim, point, dir, opts = {}) {
+    if (!this.bloodEnabled() || !this.wounds) return;
+    try { this.wounds.add(victim, point, dir, opts); } catch (e) { console.error('wound failed', e); this.wounds = null; }
   }
 
   muzzleFlash(pos, size = 14) {
@@ -236,6 +246,7 @@ export class Effects {
   update(dt, camPos) {
     this.time += dt;
     this.bloodFx?.update(dt);
+    this.wounds?.update(dt);
     // sprites
     for (let i = this.sprites.length - 1; i >= 0; i--) {
       const s = this.sprites[i];

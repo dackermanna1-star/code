@@ -462,7 +462,12 @@ export class Game {
   onBulletImpact(attacker, hit, o) {
     if (hit.entity) {
       const victim = hit.entity;
-      this.damagePlayer(victim, attacker, hit.damage, hit.hitgroup, attacker.active?.id || 'world', hit.dir, hit.point);
+      // the bullet goes on through the body (FireBullets3 penetration left) -> exit wound;
+      // a stopped round still tears through a head or a limb now and then
+      const left = (o?.penetration ?? 1) - (hit.penetrated ?? 0) - 1;
+      const thin = hit.hitgroup === CR.HITGROUP.HEAD || (hit.hitgroup >= CR.HITGROUP.LEFTARM && hit.hitgroup <= CR.HITGROUP.RIGHTLEG);
+      const exit = left > 0 || (thin && hit.damage >= 20 && Math.random() < 0.5);
+      this.damagePlayer(victim, attacker, hit.damage, hit.hitgroup, attacker.active?.id || 'world', hit.dir, hit.point, { exit });
     } else if (hit.point && hit.normal) {
       this.effects.impact(hit.point, hit.normal, hit.surface, hit.dir);
     }
@@ -531,8 +536,15 @@ export class Game {
     const pos = point || victim.eyePos();
     const head = (res.hitgroup ?? hitgroup) === CR.HITGROUP.HEAD;
     const bleedDir = dir || (weaponId === 'knife' && attacker && attacker !== victim ? this.effects.dirFrom(attacker.eyePos(), pos) : null);
-    if (bleedDir && res.bleed) this.effects.blood(pos, bleedDir, res.damageToHealth || damage, { head, victim, blast: !!opts.blast });
-    else if (dir && head && res.helmetHit) this.effects.sprite({ tex: 'spr_spark', pos: pos.slice(), size: 4, life: 0.2, additive: true });
+    // every flesh hit shows blood, kevlar or not (the server-side bShouldBleed only drove
+    // TraceBleed; the 1.6 client drew the blood spray on any player hit)
+    const flesh = !(teammate && !this.rounds.friendlyFire);
+    if (dir && head && res.helmetHit) this.effects.sprite({ tex: 'spr_spark', pos: pos.slice(), size: 4, life: 0.2, additive: true });
+    if (bleedDir && flesh) {
+      const dmg = res.damageToHealth || damage;
+      this.effects.blood(pos, bleedDir, dmg, { head, victim, blast: !!opts.blast, exit: !!opts.exit });
+      if (!opts.blast) this.effects.wound(victim, pos, bleedDir, { head, exit: !!opts.exit, damage: dmg, knife: weaponId === 'knife' });
+    }
     if (opts.blast) { /* explosion sound covers it */ }
     else if (head) this.sound.play(res.helmetHit ? 'hit_kevlar' : 'headshot', { pos, volume: 1 });
     else if (!res.bleed) this.sound.play('hit_kevlar', { pos, volume: 0.8 });

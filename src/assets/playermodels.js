@@ -357,6 +357,7 @@ class PlayerModel {
 
   /** Back to life (e.g. new round). */
   reset() {
+    this.onReset?.();
     if (this.ragdoll) this.ragdoll.detach();
     this.ragdoll = null;
     this.dead = null;
@@ -367,6 +368,13 @@ class PlayerModel {
   }
 
   setHitboxesVisible(on) { for (const m of this.hitMats) m.visible = !!on; }
+
+  /** Wound overlay (a texture in the skin's UV layout, see src/game/wounds.js); null removes it. */
+  setWoundMap(tex) {
+    const u = this.material.uniforms;
+    u.woundMap.value = tex;
+    u.uWound.value = tex ? 1 : 0;
+  }
 
   // ---------------------------------------------------------------- per frame
   update(dt, state = {}) {
@@ -633,6 +641,7 @@ class PlayerModel {
   }
 
   dispose() {
+    this.onDispose?.();
     if (this.ragdoll) this.ragdoll.detach();
     this.ragdoll = null;
     this._clearWeapon();

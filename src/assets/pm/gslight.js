@@ -28,11 +28,17 @@ void main() {
 
 const FRAG = /* glsl */`
 uniform sampler2D map;
+uniform sampler2D woundMap; // per-player bullet wounds / blood (src/game/wounds.js), same UVs
+uniform float uWound;
 varying vec2 vUv;
 varying vec3 vLight;
 #include <fog_pars_fragment>
 void main() {
   vec4 t = texture2D(map, vUv);
+  if (uWound > 0.5) {
+    vec4 w = texture2D(woundMap, vUv);
+    t.rgb = mix(t.rgb, w.rgb, w.a);
+  }
 #ifdef TRANSLUCENT
   gl_FragColor = vec4(t.rgb * vLight, t.a);
 #else
@@ -83,6 +89,8 @@ export function createGsMaterial(map, lightUniforms, translucent = false) {
   uniforms.uAmbient = lightUniforms.uAmbient;
   uniforms.uShade = lightUniforms.uShade;
   uniforms.uLightDir = lightUniforms.uLightDir;
+  uniforms.woundMap = { value: null };
+  uniforms.uWound = { value: 0 };
   const m = new THREE.ShaderMaterial({ uniforms, vertexShader: VERT, fragmentShader: FRAG, fog: true });
   m.name = 'gs-studio';
   if (translucent) {
