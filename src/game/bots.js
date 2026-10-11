@@ -1505,6 +1505,12 @@ class Bot {
     if (!reacted) { if (cls === 'bolt' && this.isHolding()) it.stop = true; return; }
     if (cls === 'knife') { it.move = e.feet(); it.tol = 8; if (d < 70) it.attack = Math.random() < 0.5; return; }
     it.fire = true;
+    // zombie survival: they can only claw, so keep them at arm's length - back off while
+    // shooting (sideways if there's no room behind)
+    if (e.isZombie && d < (e.boss ? 380 : 280)) {
+      if (this.time >= (this.backAt || 0)) { this.backTo = this.backOff(e); this.backAt = this.time + 0.25; }
+      if (this.backTo) { it.move = this.backTo; it.tol = 12; return; }
+    }
     if (it.move) return;
     // movement while shooting
     const precise = cls === 'rifle' || cls === 'mg' || cls === 'autosniper' ? d > 380 : cls === 'bolt' ? true : cls === 'pistol' ? d > 220 : cls === 'smg' ? d > 600 : false;
@@ -1522,6 +1528,21 @@ class Bot {
       it.strafe = F.strafeDir;
       if (cls === 'rifle' && Math.random() < 0.5 * this.skill.spray) it.strafe = 0, it.stop = true;
     }
+  }
+
+  /** A spot a step away from zombie e that can be walked to and isn't into another one, or null. */
+  backOff(e) {
+    const g = this.game, f = this.p.feet(), o = this.p.pm.origin;
+    const dx = o[0] - e.pm.origin[0], dy = o[1] - e.pm.origin[1], l = Math.hypot(dx, dy) || 1;
+    for (const a of [0, 0.7, -0.7, 1.4, -1.4]) {
+      const c = Math.cos(a), sn = Math.sin(a);
+      const ux = (dx * c - dy * sn) / l, uy = (dx * sn + dy * c) / l;
+      const to = [f[0] + ux * 120, f[1] + uy * 120, f[2]];
+      if (!g.nav.canWalk(f, to)) continue;
+      if (g.zombies.pool.some((z) => z.alive && z !== e && Math.hypot(z.pm.origin[0] - to[0], z.pm.origin[1] - to[1]) < 100)) continue;
+      return to;
+    }
+    return null;
   }
 
   isCommitted() { return this.p.planting || this.p.defusing || this.p.weapons[5] && this.mgr.T?.phase === 'execute'; }
@@ -1623,6 +1644,7 @@ class Bot {
   }
 
   friendlyInLine(eye, tgt, d) {
+    if (this.game.zombies?.enabled && !this.game.rounds.friendlyFire) return false; // (shots go past teammates there)
     const dx = (tgt[0] - eye[0]) / d, dy = (tgt[1] - eye[1]) / d, dz = (tgt[2] - eye[2]) / d;
     for (const q of this.game.players) {
       if (q === this.p || !q.alive || q.team !== this.p.team) continue;

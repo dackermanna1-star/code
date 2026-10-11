@@ -521,7 +521,7 @@ export class Game {
     const dir = CR.fireShot({
       src, forward: _f.slice(), right: _r.slice(), up: _u.slice(),
       random: Math.random, ...o,
-    }, (start, end, ignore) => this.traceShot(start, end, ignore ?? p), (hit) => this.onBulletImpact(p, hit, o));
+    }, (start, end, ignore) => this.traceShot(start, end, ignore ?? p, p), (hit) => this.onBulletImpact(p, hit, o));
     return dir;
   }
 
@@ -531,8 +531,9 @@ export class Game {
     return h && h.length ? this.players.concat(h.filter((q) => q.alive && !q.rescued)) : this.players;
   }
 
-  // trace for bullets: world (brushes) + player hitboxes
-  traceShot(start, end, ignore) {
+  // trace for bullets: world (brushes) + player hitboxes (ignore: skipped, e.g. the shooter or
+  // the body a bullet just went through; shooter: whose shot it is)
+  traceShot(start, end, ignore, shooter = ignore) {
     const tr = this.collision.trace(start, end, [0, 0, 0], [0, 0, 0], MASK_SHOT, new TraceResult());
     const res = { fraction: tr.fraction, endpos: tr.endpos, normal: tr.normal, entity: null, hitgroup: 0, surface: surfaceOfBrush(tr.brush?.userData, tr.normal), startsolid: tr.startsolid, allsolid: tr.allsolid, brushEnt: tr.ent || null };
     // players
@@ -545,8 +546,10 @@ export class Game {
     rc.ray.direction.set(dx / len, dz / len, -dy / len);
     rc.near = 0; rc.far = maxDist;
     let best = null;
+    // zombie survival (no friendly fire): shots go past your own side
+    const passTeam = this.zombies.enabled && !this.rounds.friendlyFire && shooter ? shooter.team : null;
     for (const q of this.shootables()) {
-      if (!q.alive || q === ignore || !q.model) continue;
+      if (!q.alive || q === ignore || !q.model || q.team === passTeam) continue;
       // quick reject: distance from ray to player centre
       const o = q.pm.origin;
       const px = o[0] - start[0], py = o[1] - start[1], pz = o[2] - start[2];
