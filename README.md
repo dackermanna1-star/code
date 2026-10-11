@@ -15,6 +15,8 @@ npm install
 npm run dev        # http://localhost:5173
 # or a production build
 npm run build && npm run preview
+# or one self-contained HTML file that runs straight from disk (dist/cs16.html)
+npm run build && node tools/singlefile.mjs
 ```
 
 Click the game to capture the mouse. `Esc` opens the main menu.
