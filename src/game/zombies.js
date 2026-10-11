@@ -3,7 +3,7 @@
 //  - waves: a 12 s break to buy before the first, 15 s between waves; buying works
 //    anywhere, any time; a cleared wave pays a bonus and patches you up a little
 //  - each wave brings more zombies, with more health, more damage and, from wave 3,
-//    runners faster than a knife; at most 14 are up at once (waveStats)
+//    runners faster than a knife; at most 12 are up at once (waveStats)
 //  - zombies are Player objects on the T side (hitboxes, blood, wounds, ragdolls and
 //    the kill feed work as for players) that walk through each other but not through
 //    people; they hunt along a flow field over the bots' nav graph toward the nearest
@@ -32,19 +32,19 @@ const BEST_KEY = 'cs16-zombies-best';
 
 /**
  * What wave n brings. It keeps getting harder for good, but gently past wave 10:
- * health +10 a wave to wave 10, then +5; the common ones top out at 222 units/s, slower
- * than you with any rifle (only the runners, up to 25% of a wave, outpace you); a claw
- * does at most 25; up to 14 up at once.
+ * health +10 a wave to wave 10, then +4; the common ones top out at 222 units/s, slower
+ * than you with any rifle (only the runners, up to 20% of a wave, outpace you); a claw
+ * does at most 22; up to 12 up at once.
  */
 export function waveStats(n) {
   const early = Math.min(n, 10) - 1, late = Math.max(0, n - 10);
   return {
     count: 6 + 3 * (n - 1),
-    maxAlive: Math.min(14, 4 + n),
-    health: 100 + 10 * early + 5 * late,
+    maxAlive: Math.min(12, 4 + n),
+    health: 100 + 10 * early + 4 * late,
     speed: Math.min(222, 186 + 4 * n),
-    runners: n < 3 ? 0 : Math.min(0.25, 0.04 * (n - 2)),
-    damage: Math.min(25, Math.round(10 + 1.8 * n)),
+    runners: n < 3 ? 0 : Math.min(0.2, 0.04 * (n - 2)),
+    damage: Math.min(22, Math.round(10 + 1.6 * n)),
     interval: Math.max(0.5, 1.6 - 0.08 * n),
     bonus: 500 + 250 * n,
   };

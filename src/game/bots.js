@@ -1198,7 +1198,7 @@ class Bot {
     if (g.zombies?.enabled && (!prim || isBolt(prim))) {
       if (prim) g.dropWeapon(p, prim);
       const pickGun = Math.random();
-      const want = pickGun < 0.35 ? 'm249' : pickGun < 0.55 ? 'aa12' : pickGun < 0.78 ? 'ak47' : 'm4a1';
+      const want = pickGun < 0.25 ? 'm249' : pickGun < 0.62 ? 'ak47' : 'm4a1';
       if (!b(want)) b(rifle);
       prim = p.weapons[1];
     }
