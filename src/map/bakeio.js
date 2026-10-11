@@ -32,3 +32,24 @@ export async function inflate(buf) {
   const stream = new Blob([buf]).stream().pipeThrough(ds);
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
+
+// The prebaked lightmap ships as a plain RGB PNG (filter 0 on every row, as
+// written by tools/bake.mjs). Decoding it by hand keeps the bytes exact: no
+// colour management or premultiplication from the browser's image decoder.
+export async function decodeRgbPng(buf) {
+  const b = new Uint8Array(buf);
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  let p = 8, w = 0, h = 0;
+  const idat = [];
+  while (p < b.length) {
+    const len = dv.getUint32(p), type = String.fromCharCode(b[p + 4], b[p + 5], b[p + 6], b[p + 7]);
+    if (type === 'IHDR') { w = dv.getUint32(p + 8); h = dv.getUint32(p + 12); }
+    else if (type === 'IDAT') idat.push(b.subarray(p + 8, p + 8 + len));
+    else if (type === 'IEND') break;
+    p += 12 + len;
+  }
+  const raw = await inflate(new Blob(idat));
+  const rgb = new Uint8Array(w * h * 3);
+  for (let y = 0; y < h; y++) rgb.set(raw.subarray(y * (w * 3 + 1) + 1, (y + 1) * (w * 3 + 1)), y * w * 3);
+  return { width: w, height: h, rgb };
+}

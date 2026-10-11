@@ -5,7 +5,7 @@ import { buildDust2 } from '../map/dust2.js';
 import { compileMap } from '../map/compile.js';
 import { allocateLightmaps, bakeLightmaps, encodeLightmap } from '../map/lightmap.js';
 import { buildWorldMeshes, makeLightmapTexture } from '../map/meshbuilder.js';
-import { hashMap, inflate } from '../map/bakeio.js';
+import { hashMap, decodeRgbPng } from '../map/bakeio.js';
 import { DUST2_LIGHTING, albedoOf } from '../map/lighting.js';
 import { TraceResult, MASK_SHOT } from '../engine/collision.js';
 
@@ -24,8 +24,8 @@ export async function loadWorld(texLib, onProgress = () => {}, opts = {}) {
       const meta = await (await fetch(`${base}maps/de_dust2.lm.json`)).json();
       if (meta.hash === hash && meta.width === alloc.width && meta.height === alloc.height) {
         onProgress('Loading lightmaps', 0.2);
-        const buf = await (await fetch(`${base}maps/de_dust2.lm`)).arrayBuffer();
-        const rgb = await inflate(buf);
+        const buf = await (await fetch(`${base}maps/de_dust2.lm.png`)).arrayBuffer();
+        const { rgb } = await decodeRgbPng(buf);
         rgba = new Uint8Array(alloc.width * alloc.height * 4);
         for (let i = 0, n = alloc.width * alloc.height; i < n; i++) {
           rgba[i * 4] = rgb[i * 3]; rgba[i * 4 + 1] = rgb[i * 3 + 1]; rgba[i * 4 + 2] = rgb[i * 3 + 2]; rgba[i * 4 + 3] = 255;
