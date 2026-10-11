@@ -21,6 +21,7 @@ export const WEAPON_IDS = [
   'm3', 'xm1014', 'mac10', 'tmp', 'mp5', 'ump45', 'p90',
   'galil', 'famas', 'ak47', 'm4a1', 'sg552', 'aug', 'scout', 'awp', 'g3sg1', 'sg550', 'm249',
   'hegrenade', 'flashbang', 'smokegrenade', 'c4',
+  'molotov', 'flamethrower', 'rpg', 'm32',
 ];
 
 // HUD ammo icon used by each weapon (weapon_*.txt "ammo" sprite)
@@ -33,6 +34,7 @@ export const WEAPON_AMMO = {
   ak47: '762nato', scout: '762nato', g3sg1: '762nato',
   awp: '338magnum', m249: '556natobox',
   hegrenade: 'hegrenade', flashbang: 'flashbang', smokegrenade: 'smokegrenade', c4: 'c4',
+  molotov: 'molotov', flamethrower: 'fuel', rpg: 'rocket', m32: 'grenade40',
 };
 
 // kill-feed sprite widths (hud.txt d_* rectangles, all 16 high)
@@ -41,6 +43,7 @@ export const KILL_ICON_W = {
   m3: 48, xm1014: 48, mac10: 34, tmp: 32, mp5: 32, ump45: 48, p90: 48,
   galil: 48, famas: 48, ak47: 48, m4a1: 48, sg552: 48, aug: 44, scout: 48, awp: 48, g3sg1: 48, sg550: 48, m249: 48,
   hegrenade: 32, flashbang: 48, smokegrenade: 48, c4: 32, skull: 32, headshot: 36,
+  molotov: 32, flamethrower: 48, rpg: 48, m32: 48, zombie: 32, fireball: 32, acid: 32,
 };
 
 // ---------------------------------------------------------------- rasterising
@@ -458,6 +461,38 @@ const WEAPON_SHAPES = {
 };
 
 
+// zombie survival weapons
+Object.assign(WEAPON_SHAPES, {
+  molotov: { w: 32, ops: [
+    P(3, 6.5, 4.5, 5, 16, 5, 17.5, 6.5, 17.5, 11.5, 16, 13, 4.5, 13, 3, 11.5), // bottle
+    P(17.5, 6.5, 21, 7.6, 24, 7.6, 24, 10.4, 21, 10.4, 17.5, 11.5),         // shoulder + neck
+    R(24, 7.2, 2.6, 3.6),                                                   // rag
+    P(26.6, 9, 28.5, 5.5, 29.2, 8, 31, 4.5, 31.4, 9.5, 30, 12.5, 27.5, 11.5), // flame
+    X(R(7, 7.2, 6, 3.6)),                                                    // label
+  ] },
+  flamethrower: { w: 48, ops: [
+    R(4, 4, 15, 4.2), P(4, 8, 7, 8, 6, 13, 3.4, 13), // body + grip
+    R(19, 4.6, 19, 1.8), R(37, 3.8, 3.2, 3.4),        // wand + nozzle
+    E(12, 10.6, 6, 2.6),                              // tank
+    P(-2, 4.4, 4, 4, 4, 6.6, -2, 8.4),                // stock
+    P(40.4, 5.5, 44, 3, 43.2, 5.4, 47.5, 4.6, 44.8, 7, 47.8, 9.4, 43.6, 8.6, 44.6, 11.5, 40.4, 7.6), // flames
+  ] },
+  rpg: { w: 48, ops: [
+    R(4, 6.4, 30, 2.8), P(0, 5, 4, 5.8, 4, 10, 0, 10.8),           // tube + venturi
+    P(34, 4.4, 38, 4.4, 45.5, 7.8, 38, 11.2, 34, 11.2),           // warhead
+    R(13, 9.2, 1.8, 5), R(21, 9.2, 1.6, 4.2), R(8, 3.2, 4, 3.2),   // grips, sight
+  ] },
+  m32: { w: 48, ops: [
+    E(15, 8.6, 6, 4.4), R(21, 5.6, 19, 2.8), R(39.6, 5.2, 2.4, 3.6), // drum, barrel
+    R(9, 4, 14, 1.8), P(10, 10, 13, 10, 12, 15, 9, 15),               // strap, grip
+    P(9, 5, 0, 7.5, 0, 11.6, 2, 11.6, 9, 9),                          // stock
+    R(25, 8.4, 1.6, 4.6),
+  ] },
+  zombie: { w: 32, ops: [L(6, 2, 14, 14, 2), L(13, 1.5, 21, 14.5, 2.2), L(20, 2, 28, 14, 2)] }, // claw marks
+  fireball: { w: 32, ops: [E(18, 8.5, 6.5, 5.5), P(12, 6, 2, 3, 8, 8.5, 1, 11, 12, 11.5), X(E(19.5, 8, 3, 2.4))] },
+  acid: { w: 32, ops: [P(16, 1, 21, 8, 21, 11, 16, 15, 11, 11, 11, 8), E(6, 11, 2.4, 3), E(26, 12, 2, 2.6), X(E(14, 9, 1.4, 2))] },
+});
+
 // non-weapon kill icons
 const MISC_SHAPES = {
   skull: { w: 32, ops: [
@@ -774,6 +809,10 @@ const HUD_BUILDERS = {
   ammo_flashbang: () => grenadeAmmo('FB', false),
   ammo_hegrenade: () => grenadeAmmo('HE', false),
   ammo_smokegrenade: () => grenadeAmmo('SG', true),
+  ammo_molotov: () => ammo([P(9, 22, 9, 10, 10.5, 8.4, 10.5, 5, 13.5, 5, 13.5, 8.4, 15, 10, 15, 22), R(10.4, 1.6, 3.2, 3.6)], null, 0),
+  ammo_fuel: () => ammo([P(12, 1.5, 18, 11, 18.5, 15, 16, 20, 12, 21.5, 8, 20, 5.5, 15, 6, 11), X(E(10, 14, 1.4, 2.6))], null, 0),
+  ammo_rocket: () => ammo([P(2, 22, 4, 18, 13, 9, 15, 11, 6, 20), P(13, 9, 15, 6, 21, 3, 18, 9, 15, 11), P(2, 15, 6, 16, 4, 18), P(9, 22, 8, 18, 6, 20)], null, 0),
+  ammo_grenade40: () => ammo([R(6, 9, 12, 12), P(6, 9, 8, 5, 16, 5, 18, 9), X(R(6, 16, 12, 1))], '40', 13),
   ammo_c4: () => ammo([P(1, 9.6, 2.6, 8, 21.4, 8, 23, 9.6, 23, 15.4, 21.4, 17, 2.6, 17, 1, 15.4), X(R(4, 9.6, 6, 3)), X(R(3.4, 14, 17, 0.8))], 'C4', 2),
 };
 

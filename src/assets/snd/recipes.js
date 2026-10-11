@@ -5,6 +5,7 @@ import { Mix, makeRng, hashString } from './dsp.js';
 import { GUNS, SUPPRESSED, HANDLING, gunshot, suppressed } from './weapons.js';
 import { FOLEY } from './foley.js';
 import { MISC } from './misc.js';
+import { ZOMBIE_FX } from './zombie.js';
 
 // ------------------------------------------------------------- catalogue ---
 
@@ -30,7 +31,12 @@ export const SOUND_GROUPS = {
   'UI / misc': ['menu_click', 'menu_select', 'radio_beep', 'hint', 'nvg_on', 'heartbeat'],
   Ambience: ['ambience_wind', 'ambience_bird', 'distant_fly'],
   Map: ['door_move', 'door_stop', 'button', 'hostage_use'],
-  Zombies: ['zombie_idle', 'zombie_attack', 'zombie_pain', 'zombie_die', 'zombie_wave'],
+  Zombies: ['zombie_idle', 'zombie_attack', 'zombie_pain', 'zombie_die', 'zombie_wave', 'gib', 'gib_land', 'headpop'],
+  'Fire & launchers': ['fire_loop', 'fire_ignite', 'lighter', 'molotov_break', 'acid_loop', 'acid_splash', 'flame_loop', 'flame_start', 'flame_stop', 'fuel_in',
+    'rpg_fire', 'm32_fire', 'rocket_fly', 'rocket_explode', 'rocket_load'],
+  Bosses: ['boss_intro', 'boss_roar', 'boss_growl', 'boss_attack', 'boss_die', 'cleaver_swing', 'charge_go', 'charge_hit', 'charge_wall',
+    'spitter_hurl', 'spit', 'spitter_burst', 'banshee_scream', 'banshee_charge', 'banshee_moan', 'banshee_attack', 'banshee_blink',
+    'fireball_throw', 'fireball_hit', 'inferno_charge', 'slam', 'abom_raise'],
 };
 
 /** Every sound name in the bank. (`round_start` does not exist in 1.6 and is omitted.) */
@@ -40,6 +46,7 @@ export const SOUND_NAMES = Object.values(SOUND_GROUPS).flat();
 // `play()` uses these when the caller passes no `attenuation`.
 const ATTN_DEFAULTS = {
   he_explode: 'loud', flashbang_explode: 'loud', c4_explode: 'loud', smoke_explode: 'normal',
+  rocket_explode: 'loud', slam: 'loud', boss_roar: 'loud', banshee_scream: 'loud', rpg_fire: 'loud', boss_die: 'loud', fire_loop: 'static', acid_loop: 'static',
   m4a1_silenced: 'normal', usp_silenced: 'normal', tmp: 'normal',
   step_sand: 'static', step_stone: 'static', step_wood: 'static', step_metal: 'static', land: 'static', jump: 'idle',
   shell: 'idle', shotgun_shell: 'idle', impact_sand: 'static', impact_wood: 'static', impact_metal: 'static',
@@ -56,7 +63,7 @@ const JITTER = {
 export const DEFS = {};
 for (const [name, g] of Object.entries(GUNS)) DEFS[name] = { ...g, fn: (P) => gunshot(P, g.p), attn: 'loud', jitter: 0.015 };
 for (const [name, g] of Object.entries(SUPPRESSED)) DEFS[name] = { ...g, fn: (P) => suppressed(P, g.p), attn: 'normal', jitter: 0.015 };
-for (const [name, d] of Object.entries({ ...HANDLING, ...FOLEY, ...MISC })) DEFS[name] = { ...d };
+for (const [name, d] of Object.entries({ ...HANDLING, ...FOLEY, ...MISC, ...ZOMBIE_FX })) DEFS[name] = { ...d };
 DEFS.buy = { alias: 'ammo_pickup' };
 for (const name of SOUND_NAMES) {
   const d = DEFS[name];

@@ -18,11 +18,14 @@
 import * as THREE from 'three';
 import { Rig, BONE_DEFS, qZYX, handQuat } from './pm/rig.js';
 import { buildBodyGeometry } from './pm/body.js';
-import { getSkinTexture } from './pm/skins.js';
+import { getSkinTexture, getGlowTexture, GLOW_TINT } from './pm/skins.js';
+import { buildExtras } from './pm/extras.js';
 import { createLightUniforms, createGsMaterial, setLightUniforms, gsDirToWorld } from './pm/gslight.js';
 import { createWorldWeapon, weaponHoldType } from './worldweapons.js';
 
 export const PLAYER_SKINS = { t: ['terror', 'leet', 'arctic', 'guerilla'], ct: ['urban', 'gsg9', 'sas', 'gign'] };
+/** Zombie survival: the common zombie and the five bosses. */
+export const ZOMBIE_SKINS = ['zombie', 'butcher', 'spitter', 'banshee', 'inferno', 'abomination'];
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -200,7 +203,7 @@ let modelCounter = 0;
 
 class PlayerModel {
   constructor(skin) {
-    if (![...PLAYER_SKINS.t, ...PLAYER_SKINS.ct, 'scientist', 'zombie'].includes(skin)) throw new Error('unknown player skin ' + skin);
+    if (![...PLAYER_SKINS.t, ...PLAYER_SKINS.ct, 'scientist', ...ZOMBIE_SKINS].includes(skin)) throw new Error('unknown player skin ' + skin);
     this.skin = skin;
     this.object3D = new THREE.Group();
     this.object3D.name = 'player_' + skin + '_' + (++modelCounter);
@@ -231,6 +234,14 @@ class PlayerModel {
     this.object3D.add(this.mesh);
     this.mesh.bind(this.skeleton, new THREE.Matrix4());
     this.mesh.onBeforeRender = () => gsDirToWorld(this.light.dirGS, this.object3D.parent, this.light.uLightDir.value);
+    // zombie bosses: self-lit glow map and bolted-on parts
+    const glowTex = getGlowTexture(skin);
+    if (glowTex) {
+      this.material.uniforms.glowMap.value = glowTex;
+      this.glowTint = GLOW_TINT[skin] || [1, 1, 1];
+      this.setGlow(1);
+    }
+    this.extras = buildExtras(this, skin);
 
     // hitboxes
     this.hitMats = HIT_COLORS.map((c) => new THREE.MeshBasicMaterial({ color: c, wireframe: true, visible: false, depthTest: false }));
@@ -262,7 +273,7 @@ class PlayerModel {
     this.weaponId = null;
     this.weapon = null;
     this.weaponL = null;
-    this.zombie = skin === 'zombie';
+    this.zombie = ZOMBIE_SKINS.includes(skin);
     this.hold = this.zombie ? HOLDS.zombie : HOLDS.none;
     this.holdType = this.zombie ? 'zombie' : 'none';
     this.swipeT = -1; // zombie claw swipe progress (s), -1 = none
@@ -364,6 +375,8 @@ class PlayerModel {
   /** Back to life (e.g. new round). */
   reset() {
     this.onReset?.();
+    this.setChar(0);
+    for (const b of this.bones) b.scale.set(1, 1, 1); // (a popped head comes back)
     if (this.ragdoll) this.ragdoll.detach();
     this.ragdoll = null;
     this.dead = null;
@@ -374,6 +387,16 @@ class PlayerModel {
   }
 
   setHitboxesVisible(on) { for (const m of this.hitMats) m.visible = !!on; }
+
+  /** Glow-map strength (bosses; 0 = off) - also fades the additive extras. */
+  setGlow(k) {
+    const t = this.glowTint;
+    if (t) this.material.uniforms.uGlow.value.set(t[0] * k, t[1] * k, t[2] * k);
+    if (this.extras) for (const gl of this.extras.glows) gl.mesh.material.opacity = gl.base * Math.min(1, k);
+  }
+
+  /** Burnt black by fire (0..1). */
+  setChar(c) { this.material.uniforms.uChar.value = c; }
 
   /** Wound overlay (a texture in the skin's UV layout, see src/game/wounds.js); null removes it. */
   setWoundMap(tex) {
@@ -694,7 +717,10 @@ class PlayerModel {
   }
 
   dispose() {
+    if (this._disposed) return;
+    this._disposed = true;
     this.onDispose?.();
+    this.extras?.dispose();
     if (this.ragdoll) this.ragdoll.detach();
     this.ragdoll = null;
     this._clearWeapon();

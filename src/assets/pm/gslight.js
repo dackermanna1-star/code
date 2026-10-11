@@ -30,6 +30,9 @@ const FRAG = /* glsl */`
 uniform sampler2D map;
 uniform sampler2D woundMap; // per-player bullet wounds / blood (src/game/wounds.js), same UVs
 uniform float uWound;
+uniform sampler2D glowMap; // self-lit parts (zombie bosses: embers, pustules, eyes), same UVs
+uniform vec3 uGlow;
+uniform float uChar;       // burnt black by fire (0..1)
 varying vec2 vUv;
 varying vec3 vLight;
 #include <fog_pars_fragment>
@@ -43,7 +46,9 @@ void main() {
   gl_FragColor = vec4(t.rgb * vLight, t.a);
 #else
   if (t.a < 0.5) discard;
-  gl_FragColor = vec4(t.rgb * vLight, 1.0);
+  vec3 c = t.rgb * mix(vec3(1.0), vec3(0.16, 0.13, 0.11), uChar) * vLight;
+  if (uGlow.x + uGlow.y + uGlow.z > 0.0) c += texture2D(glowMap, vUv).rgb * uGlow;
+  gl_FragColor = vec4(c, 1.0);
 #endif
   #include <fog_fragment>
 }
@@ -91,6 +96,9 @@ export function createGsMaterial(map, lightUniforms, translucent = false) {
   uniforms.uLightDir = lightUniforms.uLightDir;
   uniforms.woundMap = { value: null };
   uniforms.uWound = { value: 0 };
+  uniforms.glowMap = { value: null };
+  uniforms.uGlow = { value: new THREE.Vector3(0, 0, 0) };
+  uniforms.uChar = { value: 0 };
   const m = new THREE.ShaderMaterial({ uniforms, vertexShader: VERT, fragmentShader: FRAG, fog: true });
   m.name = 'gs-studio';
   if (translucent) {

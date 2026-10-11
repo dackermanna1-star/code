@@ -54,9 +54,14 @@ export const AMMO_TYPES = Object.freeze({
   Flashbang: { max: 2, cost: 200, amount: 1 },
   SmokeGrenade: { max: 1, cost: 300, amount: 1 },
   C4: { max: 1, cost: 0, amount: 1 },
+  // zombie survival extras
+  Molotov: { max: 3, cost: 400, amount: 1 },
+  Fuel: { max: 300, cost: 120, amount: 100 },
+  Rocket: { max: 6, cost: 600, amount: 1 },
+  Grenade40: { max: 18, cost: 450, amount: 6 },
 });
 
-export const WEAPON_IDS = Object.freeze(['knife', 'glock', 'usp', 'p228', 'deagle', 'elite', 'fiveseven', 'm3', 'xm1014', 'mac10', 'tmp', 'mp5', 'ump45', 'p90', 'galil', 'famas', 'ak47', 'm4a1', 'sg552', 'aug', 'scout', 'awp', 'g3sg1', 'sg550', 'm249', 'hegrenade', 'flashbang', 'smokegrenade', 'c4']);
+export const WEAPON_IDS = Object.freeze(['knife', 'glock', 'usp', 'p228', 'deagle', 'elite', 'fiveseven', 'm3', 'xm1014', 'mac10', 'tmp', 'mp5', 'ump45', 'p90', 'galil', 'famas', 'ak47', 'm4a1', 'sg552', 'aug', 'scout', 'awp', 'g3sg1', 'sg550', 'm249', 'hegrenade', 'flashbang', 'smokegrenade', 'c4', 'molotov', 'flamethrower', 'rpg', 'm32']);
 
 // view-model sequence tables (weapons.h enums, in order)
 const SEQ_RIFLE = ['idle1', 'reload', 'draw', 'shoot1', 'shoot2', 'shoot3'];
@@ -82,6 +87,8 @@ const SEQ = {
   flashbang: ['idle', 'pullpin', 'throw', 'draw'],
   smokegrenade: ['idle', 'pinpull', 'throw', 'draw'],
   c4: ['idle1', 'draw', 'drop', 'arm'],
+  molotov: ['idle', 'pullpin', 'throw', 'draw'],
+  flamethrower: SEQ_RIFLE, rpg: SEQ_RIFLE, m32: SEQ_RIFLE,
 };
 
 const W = (f) => `weapons/${f}.wav`;
@@ -285,6 +292,30 @@ const RAW = {
     clip: WEAPON_NOCLIP, ammoType: 'C4', maxSpeed: 250, weight: 3, kind: 'c4', hasSecondary: false,
     armTime: C4_RULES.armTime,
     sounds: { fire: 'c4_plant', files: { plant: [W('c4_plant')], click: [W('c4_click')] } },
+  },
+  // ---- zombie survival only (not in 1.6)
+  molotov: {
+    name: 'Molotov Cocktail', shortName: 'Molotov', slot: 4, position: 4, menu: 'equip', menuSlot: 6, team: null, price: 400, zombieOnly: true,
+    clip: WEAPON_NOCLIP, ammoType: 'Molotov', maxSpeed: 250, weight: 1, kind: 'grenade', hasSecondary: true,
+    sounds: { fire: 'molotov', files: {} },
+  },
+  flamethrower: {
+    name: 'M2 Flamethrower', shortName: 'Flamethrower', slot: 1, position: 6, menu: 'mg', menuSlot: 2, team: null, price: 3500, zombieOnly: true,
+    clip: 100, ammoType: 'Fuel', maxSpeed: 220, weight: 25, kind: 'flame', hasSecondary: false,
+    cycleTime: 0.05, reloadTime: 3.2,
+    sounds: { fire: 'flame_loop', files: {} },
+  },
+  rpg: {
+    name: 'RPG-7', shortName: 'RPG', slot: 1, position: 7, menu: 'mg', menuSlot: 3, team: null, price: 5000, zombieOnly: true,
+    clip: 1, ammoType: 'Rocket', maxSpeed: 210, weight: 30, kind: 'launcher', hasSecondary: false,
+    cycleTime: 0.9, reloadTime: 2.4, kick: 7,
+    sounds: { fire: 'rpg_fire', files: {} },
+  },
+  m32: {
+    name: 'M32 Grenade Launcher', shortName: 'M32', slot: 1, position: 8, menu: 'mg', menuSlot: 4, team: null, price: 4200, zombieOnly: true,
+    clip: 6, ammoType: 'Grenade40', maxSpeed: 220, weight: 25, kind: 'launcher', hasSecondary: false,
+    cycleTime: 0.5, reloadTime: 3.6, kick: 4,
+    sounds: { fire: 'm32_fire', files: {} },
   },
 };
 
@@ -1154,6 +1185,46 @@ function grenadeDeploy(w, ctx) {
   defaultDeploy(w, ctx, 'draw', 'draw');
 }
 
+// ---------------------------------------------------------------- zombie survival specials
+// Flamethrower: burns 1 fuel per 0.05 s while held; the game does the stream (ctx.flame).
+function flamePrimary(w, ctx) {
+  const t = ctx.time;
+  if (w.clip <= 0) { emptyFire(w, ctx); return; }
+  w.clip--;
+  if (ctx.flame) ctx.flame(w);
+  if (!(w.flaming > t - 0.15)) anim(w, ctx, 'shoot1', 'shoot1');
+  w.flaming = t;
+  emit(ctx, 'player_anim', { anim: 'attack1', weapon: w.id });
+  w.nextPrimary = t + w.def.cycleTime;
+  w.timeIdle = t + 1.0;
+}
+
+// RPG / M32: one projectile per pull (semi-auto), the game launches it (ctx.launch).
+function launcherPrimary(w, ctx) {
+  const t = ctx.time;
+  if (w.clip <= 0) { emptyFire(w, ctx); return; }
+  if (w.shotsFired > 0) return; // trigger must be released between shots
+  w.shotsFired = 1;
+  w.clip--;
+  if (ctx.launch) ctx.launch(w.id === 'rpg' ? 'rocket' : 'grenade40', w);
+  shootEffects(w, ctx, 'shoot1', 'shoot1', { ejectNow: false });
+  if (ctx.punch) ctx.punch[0] -= w.def.kick;
+  w.nextPrimary = t + w.def.cycleTime;
+  w.timeIdle = t + 2;
+}
+
+function specialReload(w, ctx) {
+  if (defaultReload(w, ctx, 'reload', 'reload', w.def.reloadTime)) emit(ctx, 'player_anim', { anim: 'reload', weapon: w.id });
+}
+
+function specialIdle(w, ctx) {
+  if (w.def.kind === 'launcher') w.shotsFired = 0;
+  resetEmptySound(w);
+  if (w.timeIdle > ctx.time) return;
+  w.timeIdle = ctx.time + 20;
+  anim(w, ctx, 'idle', 'idle1');
+}
+
 // ---------------------------------------------------------------- C4
 function c4InZone(ctx) {
   if (ctx.inBombZone != null) return !!ctx.inBombZone;
@@ -1251,7 +1322,10 @@ BEHAVIOR.sg550 = { primary: sg550Primary, secondary: sniperZoom, reload: sniperR
 BEHAVIOR.m3 = { primary: shotgunPrimary, secondary: noop, reload: shotgunReload, idle: shotgunIdle, deploy: (w, ctx) => defaultDeploy(w, ctx, 'draw', 'draw') };
 BEHAVIOR.xm1014 = { ...BEHAVIOR.m3 };
 BEHAVIOR.knife = { primary: knifeSwing, secondary: knifeStab, reload: noop, idle: knifeIdle, deploy: knifeDeploy };
-for (const id of ['hegrenade', 'flashbang', 'smokegrenade']) {
+BEHAVIOR.flamethrower = { primary: flamePrimary, secondary: noop, reload: specialReload, idle: specialIdle, deploy: (w, ctx) => defaultDeploy(w, ctx, 'draw', 'draw') };
+BEHAVIOR.rpg = { primary: launcherPrimary, secondary: noop, reload: specialReload, idle: specialIdle, deploy: (w, ctx) => defaultDeploy(w, ctx, 'draw', 'draw') };
+BEHAVIOR.m32 = { ...BEHAVIOR.rpg };
+for (const id of ['hegrenade', 'flashbang', 'smokegrenade', 'molotov']) {
   BEHAVIOR[id] = { primary: grenadePrimary, secondary: noop /* shield only */, reload: noop, idle: grenadeIdle, deploy: grenadeDeploy };
 }
 BEHAVIOR.c4 = { primary: c4Primary, secondary: noop, reload: noop, idle: c4Idle, deploy: c4Deploy };

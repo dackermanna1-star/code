@@ -13,10 +13,19 @@ const mirrorY = (rings) => rings.map((r) => ({
 const withV = (range, rings, axis = 2) => rings.map((r) => ({ ...r, v: vOf(range, r.c[axis]) }));
 
 // ---------------------------------------------------------------- parts
+// zombie bosses: radii scaled for a fat (belly), muscled or gaunt (thin) build
+const scaleRing = (r, k) => {
+  if (r.apex) return r;
+  const o = { ...r };
+  for (const key of ['r', 'rx', 'rxF', 'rxB', 'ry', 'ryL', 'ryR']) if (o[key] != null) o[key] *= k;
+  return o;
+};
+
 function torso(sb, o) {
   const bulk = o.bulk || 0; // vests / heavy jackets
   const hem = o.hem || 0; // jacket flare at the hips
-  const rings = [
+  const belly = o.belly || 0; // gut out front (bosses)
+  let rings = [
     { c: [0.6, 0, 34.6], apex: true, bone: 'pelvis' },
     { c: [0, 0, 39.6], rxF: 5.3 + hem, rxB: 5.8 + hem, ry: 7.6 + hem, p: 2.6, bone: 'pelvis' },
     { c: [0.1, 0, 44.2], rxF: 5.2 + bulk * 0.7, rxB: 4.9 + bulk * 0.45, ry: 6.9 + bulk * 0.4, p: 2.7, bone: [['pelvis', 0.3], ['spine', 0.7]] },
@@ -26,6 +35,13 @@ function torso(sb, o) {
     { c: [0.2, 0, 60.7], rxF: 2.9, rxB: 3.0, ry: 3.4, bone: [['chest', 0.5], ['neck', 0.5]] },
     { c: [0.5, 0, 63.0], r: 2.45, bone: 'neck' },
   ];
+  if (belly) {
+    rings[2] = { ...rings[2], rxF: rings[2].rxF + belly * 5.5, rxB: rings[2].rxB + belly, ry: rings[2].ry + belly * 2.2, c: [rings[2].c[0] + belly * 1.2, 0, rings[2].c[2]] };
+    rings[3] = { ...rings[3], rxF: rings[3].rxF + belly * 3.5, ry: rings[3].ry + belly * 1.6 };
+    rings[1] = { ...rings[1], rxF: rings[1].rxF + belly * 2, ry: rings[1].ry + belly };
+  }
+  if (o.muscle) rings = rings.map((r, i) => (i >= 3 && i <= 4 ? scaleRing(r, 1 + o.muscle * 0.35) : r));
+  if (o.thin) rings = rings.map((r) => scaleRing(r, 1 - o.thin * 0.25));
   return sb.loft(withV(ZR.torso, rings), { sides: 10, region: REG.torso });
 }
 
@@ -55,8 +71,8 @@ function head(sb, o) {
   return n;
 }
 
-function arm(sb, side) {
-  const rings = [
+function arm(sb, side, o = {}) {
+  let rings = [
     { c: [0, -8, 34.0], apex: true, bone: 'forearm_r' },
     { c: [0, -8, 34.8], rxF: 1.7, rxB: 1.7, ry: 1.8, bone: 'forearm_r' },
     { c: [0.2, -8, 42.2], rxF: 2.5, rxB: 2.4, ry: 2.5, bone: 'forearm_r' },
@@ -66,6 +82,8 @@ function arm(sb, side) {
     { c: [0, -7.6, 59.8], rxF: 2.1, rxB: 2.2, ry: 2.3, bone: 'upperarm_r' },
     { c: [0, -7.0, 60.6], apex: true, bone: 'upperarm_r' },
   ];
+  const k = 1 + (o.muscle || 0) * 0.55 - (o.thin || 0) * 0.35;
+  if (k !== 1) rings = rings.map((r) => scaleRing(r, k));
   const r = side === 'l' ? mirrorY(rings) : rings;
   return sb.loft(withV(ZR.arm, r), { sides: 6, region: side === 'l' ? REG.armL : REG.armR });
 }
@@ -93,7 +111,7 @@ function hand(sb, side) {
 
 function leg(sb, side, o) {
   const baggy = o.baggy || 0;
-  const rings = [
+  let rings = [
     { c: [0.2, -4.3, 3.0], apex: true, bone: 'shin_r' },
     { c: [0.2, -4.3, 3.8], rxF: 2.5, rxB: 2.6, ry: 2.4, bone: 'shin_r' },
     { c: [0.4, -4.3, 8.6], rxF: 2.9, rxB: 3.0, ry: 2.85, bone: 'shin_r' },
@@ -103,6 +121,8 @@ function leg(sb, side, o) {
     { c: [0, -4.3, 36.0], rxF: 4.8, rxB: 5.1, ry: 4.8, bone: 'thigh_r' },
     { c: [0, -3.6, 41.2], apex: true, bone: 'thigh_r' },
   ];
+  const k = 1 + (o.muscle || 0) * 0.35 - (o.thin || 0) * 0.3;
+  if (k !== 1) rings = rings.map((r) => scaleRing(r, k));
   return sb.loft(withV(ZR.leg, side === 'l' ? mirrorY(rings) : rings), { sides: 7, region: side === 'l' ? REG.legL : REG.legR });
 }
 
@@ -216,6 +236,31 @@ function headwrap(sb) {
   return n;
 }
 
+// long tattered dress from the waist to the shins (painted in the misc region)
+function skirt(sb, o) {
+  const f = o.skirt;
+  const rings = [
+    { c: [0.3, 0, 41.6], rxF: 6.0, rxB: 6.4, ry: 7.6, bone: 'pelvis', v: 0 },
+    { c: [0.6, 0, 34.0], rxF: 7.6 * f, rxB: 7.8 * f, ry: 9.2 * f, bone: 'pelvis', v: 0.3 },
+    { c: [0.8, 0, 22.0], rxF: 9.2 * f, rxB: 9.0 * f, ry: 10.6 * f, bone: [['pelvis', 0.6], ['thigh_r', 0.2], ['thigh_l', 0.2]], v: 0.7 },
+    { c: [1.0, 0, 9.0], rxF: 10.4 * f, rxB: 10.0 * f, ry: 11.8 * f, bone: [['pelvis', 0.4], ['thigh_r', 0.3], ['thigh_l', 0.3]], v: 1 },
+  ];
+  return sb.loft(rings, { sides: 12, region: REG.misc });
+}
+
+// long hair hanging down the back from the crown to the shoulder blades
+function longHair(sb) {
+  const fr = frameFor([-0.15, 0, -1], [-1, 0, 0]);
+  const rings = [
+    { c: [-1.6, 0, 72.0], rx: 2.6, ry: 4.2, bone: 'head', v: 0, ...fr },
+    { c: [-4.3, 0, 67.0], rx: 1.6, ry: 4.8, bone: 'head', v: 0.3, ...fr },
+    { c: [-5.4, 0, 60.0], rx: 1.4, ry: 5.4, bone: [['head', 0.4], ['chest', 0.6]], v: 0.65, ...fr },
+    { c: [-6.2, 0, 50.0], rx: 1.0, ry: 5.0, bone: 'chest', v: 0.95, ...fr },
+    { c: [-6.3, 0, 48.5], apex: true, bone: 'chest', v: 1, ...fr },
+  ];
+  return sb.loft(rings, { sides: 8, region: REG.misc2 });
+}
+
 function pouches(sb, o) {
   // chest rig pouches (front) + small radio / pack (back) for the CTs
   const P = [];
@@ -247,6 +292,12 @@ export const SKIN_BODY = {
   gign: { bulk: 1.0, baggy: 0.3, helmet: true, helmetBig: 0.15, visor: true },
   scientist: { bulk: 0.35, hem: 0.9, baggy: 0.5 }, // hostage
   zombie: { bulk: 0.3, hem: 0.5, baggy: 0.7 }, // zombie survival
+  // zombie bosses (src/game/bosses.js)
+  butcher: { bulk: 1.2, hem: 1.2, baggy: 0.9, belly: 1.0, muscle: 0.9 },
+  spitter: { bulk: 1.4, hem: 1.6, baggy: 1.0, belly: 1.6, muscle: 0.3 },
+  banshee: { bulk: 0, hem: 0.2, baggy: 0, thin: 1.0, skirt: 1.0, longHair: true },
+  inferno: { bulk: 0.2, hem: 0.3, baggy: 0.2, muscle: 0.5 },
+  abomination: { bulk: 1.8, hem: 1.0, baggy: 1.2, belly: 0.5, muscle: 1.4 },
 };
 
 export function buildBodyGeometry(skin) {
@@ -255,7 +306,7 @@ export function buildBodyGeometry(skin) {
   let tris = 0;
   tris += torso(sb, o);
   tris += head(sb, o);
-  tris += arm(sb, 'r') + arm(sb, 'l');
+  tris += arm(sb, 'r', o) + arm(sb, 'l', o);
   tris += hand(sb, 'r') + hand(sb, 'l');
   tris += leg(sb, 'r', o) + leg(sb, 'l', o);
   tris += foot(sb, 'r') + foot(sb, 'l');
@@ -266,6 +317,8 @@ export function buildBodyGeometry(skin) {
   if (o.beret) tris += beret(sb);
   if (o.wrap) tris += headwrap(sb);
   if (o.pouches) tris += pouches(sb, o);
+  if (o.skirt) tris += skirt(sb, o);
+  if (o.longHair) tris += longHair(sb);
   // the head and everything worn on it: 5% larger, scaled about the jaw
   sb.scaleBone('head', [0.3, 0, 63.4], 1.05);
   const g = sb.build();

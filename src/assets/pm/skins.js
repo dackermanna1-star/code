@@ -990,6 +990,255 @@ SKINS.zombie = function zombie(p, m) {
   bootFoot(p, m.footR, shoe); bootFoot(p, m.footL, shoe);
 };
 
+// ------------------------------------------------------------------ zombie bosses
+// (src/game/bosses.js) Shared helpers: blood stains, stitched scars, a bare body part.
+function bossKit(p) {
+  const dried = 'rgba(70,10,8,0.62)';
+  return {
+    stains(mm, n, u0, u1, z0, z1, col = dried) {
+      for (let i = 0; i < n; i++) {
+        const u = p.r(u0, u1), z = p.r(z0, z1);
+        p.ell(mm, u, z, p.r(0.01, 0.05), p.r(0.3, 1.4), col);
+        if (p.r(0, 1) < 0.5) p.line(mm, [[u, z], [u + p.r(-0.01, 0.01), z - p.r(1, 4)]], col, p.r(1, 2.2));
+      }
+    },
+    stitches(mm, pts, col = '#1a1010') {
+      p.line(mm, pts, col, 1.6);
+      for (let i = 0; i < pts.length - 1; i++) {
+        const [u0, z0] = pts[i], [u1, z1] = pts[i + 1];
+        for (let t = 0.15; t < 1; t += 0.3) {
+          const u = u0 + (u1 - u0) * t, z = z0 + (z1 - z0) * t;
+          p.line(mm, [[u - 0.008, z - 0.35], [u + 0.008, z + 0.35]], col, 1.3);
+        }
+      }
+    },
+    bare(mm, skin, shade = 0.14, noise = 0.08) {
+      p.fill(mm.reg, skin);
+      p.wrapShade(mm.reg, shade);
+      p.noise(mm.reg, noise);
+    },
+    veins(mm, n, u0, u1, z0, z1, col) {
+      for (let i = 0; i < n; i++) {
+        const u = p.r(u0, u1), z = p.r(z0, z1);
+        p.line(mm, [[u, z], [u + p.r(-0.03, 0.03), z + p.r(-1, 1)], [u + p.r(-0.05, 0.05), z + p.r(-2, 2)]], col, 1);
+      }
+    },
+  };
+}
+
+// The Butcher: huge, bald and stitched, bare-chested under a blood-soaked apron
+SKINS.butcher = function butcher(p, m) {
+  const K = bossKit(p);
+  const skin = '#b39484', apron = '#d6cfbe', pants = '#3a3532', boot = '#141210', fresh = 'rgba(120,8,6,0.8)';
+  paintSkinHead(p, m, { skin, noHair: true, iris: '#d0c8a8', browCol: '#4a3a30' });
+  const h = m.head;
+  K.stitches(h, [[0.2, 71.5], [0.35, 70.2], [0.5, 69.6], [0.62, 70.4], [0.8, 71.8]]);
+  K.stitches(h, [[0.58, 69.0], [0.6, 66.5], [0.63, 64.0]]);
+  p.ell(h, 0.5, 64.0, 0.045, 0.3, '#2a0808'); // snarl
+  for (let i = 0; i < 6; i++) p.rrect(h, 0.462 + i * 0.013, 0.47 + i * 0.013, 63.95, 64.3, '#b0a888', 0);
+  p.ell(h, 0.5 - EYE_U, EYE_Z, 0.02, 0.26, '#d8d4c4'); // one milky eye
+  K.stains(h, 10, 0.35, 0.65, 61.5, 64.5, fresh);
+  p.noise(REG.head, 0.08);
+  // torso: hairy bare chest, then the apron from the chest down
+  K.bare(m.torso, skin);
+  for (let i = 0; i < 260; i++) p.ell(m.torso, p.r(0.36, 0.64), p.r(47, 58), 0.003, 0.12, 'rgba(40,24,18,0.5)');
+  p.band(m.torso, 34.2, 41.2, pants);
+  p.poly(m.torso, [[0.33, 34.2], [0.67, 34.2], [0.66, 52.0], [0.6, 56.5], [0.4, 56.5], [0.34, 52.0]], apron);
+  p.line(m.torso, [[0.41, 56.5], [0.36, 63.0]], '#6a5a48', 3); p.line(m.torso, [[0.59, 56.5], [0.64, 63.0]], '#6a5a48', 3); // neck strap
+  p.line(m.torso, [[0.0, 44.0], [0.33, 44.0]], '#6a5a48', 2.5); p.line(m.torso, [[0.67, 44.0], [1.0, 44.0]], '#6a5a48', 2.5); // waist ties
+  K.stains(m.torso, 70, 0.34, 0.66, 35, 56, fresh);
+  K.stains(m.torso, 30, 0.34, 0.66, 35, 56);
+  p.poly(m.torso, [[0.45, 52], [0.55, 52], [0.53, 46], [0.47, 46]], 'rgba(150,10,8,0.6)'); // handprint smear
+  K.stitches(m.torso, [[0.2, 56], [0.25, 50], [0.24, 44]]);
+  p.wrapShade(REG.torso, 0.15);
+  for (const [mm, side] of [[m.armR, 'r'], [m.armL, 'l']]) {
+    K.bare(mm, skin);
+    K.stains(mm, 40, 0, 1, 34, 47, fresh); // blood to the elbows
+    K.stitches(mm, [[side === 'r' ? 0.3 : 0.7, 58], [side === 'r' ? 0.32 : 0.68, 50]]);
+  }
+  for (const mm of [m.handR, m.handL]) { glove(p, mm, skin, { bare: true }); K.stains(mm, 12, 0, 1, 28, 35, fresh); }
+  for (const [mm, side] of [[m.legR, 'r'], [m.legL, 'l']]) {
+    trousers(p, mm, pants, side, { boot, cargo: false, noise: 0.1 });
+    p.band(mm, 14, 41.2, apron, 0.32, 0.68); // apron front down to the knees
+    K.stains(mm, 40, 0.32, 0.68, 14, 41, fresh);
+  }
+  bootFoot(p, m.footR, boot); bootFoot(p, m.footL, boot);
+};
+
+// The Spitter: bloated sickly-green body covered in acid pustules, scraps of a hospital gown
+SKINS.spitter = function spitter(p, m) {
+  const K = bossKit(p);
+  const skin = '#9aa45a', gown = '#86a0aa', vein = 'rgba(40,70,20,0.55)';
+  paintSkinHead(p, m, { skin, hair: '#3a3a24', hairline: 71.4, iris: '#e8e040', browCol: '#3a3a20' });
+  const h = m.head;
+  for (const s of [-1, 1]) { p.ell(h, 0.5 + s * EYE_U, EYE_Z, 0.026, 0.36, '#e4dc70'); p.ell(h, 0.5 + s * EYE_U, EYE_Z, 0.007, 0.2, '#201808'); }
+  p.ell(h, 0.5, 63.9, 0.05, 0.45, '#1a2008'); // gaping mouth
+  p.poly(h, [[0.46, 63.6], [0.54, 63.6], [0.53, 61.6], [0.5, 61.3], [0.47, 61.7]], 'rgba(150,220,40,0.85)'); // acid drool
+  K.veins(h, 30, 0.3, 0.7, 62, 71, vein);
+  p.noise(REG.head, 0.1);
+  K.bare(m.torso, skin, 0.16, 0.1);
+  K.veins(m.torso, 90, 0, 1, 36, 60, vein);
+  // dark sockets around the (glowing) pustules
+  for (const [u, z, r] of PUSTULES) p.ell(m.torso, u, z, r * 0.02, r * 0.55, 'rgba(60,70,10,0.8)');
+  p.band(m.torso, 34.2, 42.0, gown);
+  for (let u = 0; u < 1; u += 0.04) p.poly(m.torso, [[u, 42.0], [u + 0.04, 42.0], [u + 0.02, 42.0 + p.r(0.5, 3.5)]], gown); // torn hem
+  K.stains(m.torso, 30, 0, 1, 34, 50, 'rgba(110,140,20,0.5)');
+  p.wrapShade(REG.torso, 0.15);
+  for (const mm of [m.armR, m.armL]) { K.bare(mm, skin); K.veins(mm, 30, 0, 1, 34, 60, vein); }
+  for (const mm of [m.handR, m.handL]) glove(p, mm, skin, { bare: true });
+  for (const [mm, side] of [[m.legR, 'r'], [m.legL, 'l']]) {
+    K.bare(mm, skin);
+    p.band(mm, 26, 41.2, gown);
+    K.veins(mm, 25, 0, 1, 3, 26, vein);
+    void side;
+  }
+  for (const mm of [m.footR, m.footL]) { p.fill(mm.reg, sh(skin, 0.8)); p.noise(mm.reg, 0.1); }
+};
+// pustule spots on the torso (u, z, size) - painted sockets + glow map + 3D extras line up
+export const PUSTULES = [[0.44, 50, 1.4], [0.58, 47, 1.8], [0.52, 55, 1.2], [0.62, 53, 1.1], [0.38, 45, 1.3], [0.12, 52, 1.5], [0.9, 48, 1.6], [0.0, 56, 1.2]];
+
+// The Banshee: tall gaunt corpse-white woman, long black hair, glowing eyes, tattered white dress
+SKINS.banshee = function banshee(p, m) {
+  const K = bossKit(p);
+  const skin = '#d6dbe0', dress = '#dedad0', hair = '#0c0c10', vein = 'rgba(60,60,110,0.45)';
+  paintSkinHead(p, m, { skin, hair, hairline: 69.0, iris: '#f4f8ff', browCol: '#202028' });
+  const h = m.head;
+  for (const s of [-1, 1]) {
+    p.ell(h, 0.5 + s * EYE_U, EYE_Z, 0.04, 0.7, 'rgba(10,10,20,0.75)'); // black-ringed eyes
+    p.ell(h, 0.5 + s * EYE_U, EYE_Z, 0.021, 0.26, '#f0f4ff');
+    p.line(h, [[0.5 + s * EYE_U, EYE_Z - 0.3], [0.5 + s * (EYE_U + 0.01), EYE_Z - 2.2]], 'rgba(20,20,30,0.7)', 1.6); // black tears
+  }
+  p.ell(h, 0.5, 64.0, 0.03, 0.22, '#1a1018'); // black lips
+  K.veins(h, 20, 0.35, 0.65, 62, 70, vein);
+  p.noise(REG.head, 0.06);
+  // dress bodice
+  p.fill(m.torso.reg, dress);
+  neckSkin(p, m.torso, skin);
+  p.poly(m.torso, [[0.36, 64], [0.64, 64], [0.6, 57], [0.5, 55.5], [0.4, 57]], skin); // neckline
+  p.folds(m.torso, 16, dress, { z0: 36, z1: 58, len: 0.1, slope: 1.2 });
+  K.stains(m.torso, 25, 0.3, 0.7, 36, 58);
+  p.wrapShade(REG.torso, 0.14);
+  p.noise(REG.torso, 0.06);
+  // skirt (misc region, v: 0 = waist, 1 = hem): tattered, darker and dirtier toward the hem
+  const sk = M(p).misc01;
+  p.fill(sk.reg, dress);
+  p.grad(sk.reg, [[0, 'rgb(170,165,160)'], [0.5, 'rgb(235,235,235)'], [1, 'rgb(255,255,255)']]);
+  p.vfolds(sk, 22, dress, { z0: 0, z1: 1 });
+  for (let u = 0; u < 1; u += 0.03) p.poly(sk, [[u, 1.01], [u + 0.03, 1.01], [u + 0.015, 1 - p.r(0.05, 0.22)]], 'rgba(40,36,30,0.75)');
+  K.stains(sk, 30, 0, 1, 0.3, 1, 'rgba(60,40,30,0.4)');
+  // long hair (misc2)
+  p.fill(REG.misc2, hair);
+  for (let i = 0; i < 60; i++) { const u = p.r(0, 1); p.line(M(p).misc2, [[u, 0], [u + p.r(-0.1, 0.1), 1]], 'rgba(60,60,70,0.4)', 1); }
+  for (const mm of [m.armR, m.armL]) { K.bare(mm, skin, 0.12, 0.05); K.veins(mm, 25, 0, 1, 34, 60, vein); }
+  for (const mm of [m.handR, m.handL]) { glove(p, mm, skin, { bare: true }); p.band(mm, 26, 28.6, '#101018'); }
+  for (const mm of [m.legR, m.legL]) K.bare(mm, skin, 0.12, 0.05);
+  for (const mm of [m.footR, m.footL]) { p.fill(mm.reg, sh(skin, 0.75)); p.noise(mm.reg, 0.08); }
+};
+
+// The Inferno: a charred black corpse cracked open over a burning core
+SKINS.inferno = function inferno(p, m) {
+  const char = '#1d1714', ash = '#4a4440';
+  const blotch = (mm, n) => { for (let i = 0; i < n; i++) p.ell(mm, p.r(0, 1), p.r(-10, 80), p.r(0.02, 0.07), p.r(0.4, 1.6), `rgba(74,68,64,${p.r(0.2, 0.5).toFixed(2)})`); };
+  for (const reg of [REG.head, REG.torso, REG.armR, REG.armL, REG.legR, REG.legL, REG.handR, REG.handL, REG.footR, REG.footL]) p.fill(reg, char);
+  for (const mm of [m.head, m.torso, m.armR, m.armL, m.legR, m.legL]) blotch(mm, 40);
+  // cracks (dark here; they glow in the glow map)
+  for (const mm of [m.head, m.torso, m.armR, m.armL, m.legR, m.legL, m.handR, m.handL]) emberCracks(p, mm, '#3a1a08', 1.8);
+  const h = m.head;
+  for (const s of [-1, 1]) p.ell(h, 0.5 + s * EYE_U, EYE_Z, 0.03, 0.4, '#100804');
+  p.ell(h, 0.5, 64.0, 0.05, 0.4, '#100804');
+  p.band(m.torso, 34.2, 39.5, '#2a2018'); // what's left of the trousers
+  for (const reg of [REG.head, REG.torso, REG.armR, REG.armL, REG.legR, REG.legL]) p.noise(reg, 0.12);
+  void ash;
+};
+// a jagged crack network (shared by the inferno's skin and its glow map, same seed per part)
+function emberCracks(p, mm, col, w) {
+  let s = Math.floor(mm.x0 * 7 + mm.y0 * 13) % 9973 || 1;
+  const r = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  p.clip(mm.reg, (g) => {
+    for (let i = 0; i < 26; i++) {
+      let u = r(), v = r();
+      g.strokeStyle = col; g.lineWidth = w * (0.6 + r());
+      g.beginPath(); g.moveTo(mm.x0 + u * mm.w, mm.y0 + v * mm.h);
+      for (let k = 0; k < 5; k++) {
+        u += (r() - 0.5) * 0.12; v += (r() - 0.5) * 0.18;
+        g.lineTo(mm.x0 + u * mm.w, mm.y0 + v * mm.h);
+      }
+      g.stroke();
+    }
+  });
+}
+
+// The Abomination: a stitched-together giant of bruised flesh in riot armour scraps
+SKINS.abomination = function abomination(p, m) {
+  const K = bossKit(p);
+  const skin = '#76626a', meat = '#8a2a24', pants = '#3a3e2e', boot = '#161412';
+  paintSkinHead(p, m, { skin, noHair: true, iris: '#ff3020', browCol: '#2a2020' });
+  const h = m.head;
+  K.stitches(h, [[0.36, 72], [0.42, 68], [0.4, 64.5], [0.44, 62]]);
+  K.stitches(h, [[0.66, 71], [0.6, 67]]);
+  p.ell(h, 0.5, 64.0, 0.06, 0.35, '#200808');
+  for (let i = 0; i < 7; i++) p.rrect(h, 0.458 + i * 0.012, 0.465 + i * 0.012, 63.8, 64.25, '#a89e80', 0);
+  p.noise(REG.head, 0.1);
+  K.bare(m.torso, skin, 0.16, 0.1);
+  for (let i = 0; i < 8; i++) { const u = p.r(0.1, 0.9), z = p.r(42, 58); p.ell(m.torso, u, z, p.r(0.03, 0.07), p.r(0.8, 1.8), meat); } // exposed muscle
+  for (let i = 0; i < 10; i++) { const u = p.r(0, 1), z = p.r(38, 60); K.stitches(m.torso, [[u, z], [u + p.r(-0.08, 0.08), z + p.r(-5, 5)]]); }
+  p.band(m.torso, 34.2, 41.2, pants);
+  beltAt(p, m.torso, 40.9, '#1e1a16', '#707070');
+  p.wrapShade(REG.torso, 0.16);
+  for (const [mm, side] of [[m.armR, 'r'], [m.armL, 'l']]) {
+    K.bare(mm, skin, 0.15, 0.1);
+    K.stitches(mm, [[0, 47], [0.5, 46.5], [1, 47.2]]); // sewn-on forearms
+    for (let i = 0; i < 3; i++) p.ell(mm, p.r(0, 1), p.r(36, 58), p.r(0.05, 0.1), p.r(0.6, 1.4), meat);
+    void side;
+  }
+  for (const mm of [m.handR, m.handL]) glove(p, mm, sh(skin, 0.85), { bare: true });
+  for (const [mm, side] of [[m.legR, 'r'], [m.legL, 'l']]) { trousers(p, mm, pants, side, { boot, noise: 0.1 }); K.stains(mm, 15, 0, 1, 10, 40); }
+  bootFoot(p, m.footR, boot); bootFoot(p, m.footL, boot);
+};
+
+// ------------------------------------------------------------------ glow maps (self-lit parts)
+const GLOWS = {
+  butcher(p, m) { for (const s of [1]) p.ell(m.head, 0.5 + s * EYE_U, EYE_Z, 0.012, 0.18, '#ff3018'); },
+  spitter(p, m) {
+    for (const s of [-1, 1]) p.ell(m.head, 0.5 + s * EYE_U, EYE_Z, 0.018, 0.25, '#c8f040');
+    p.poly(m.head, [[0.47, 63.4], [0.53, 63.4], [0.52, 61.8], [0.5, 61.5], [0.48, 61.9]], '#70c020');
+    for (const [u, z, r] of PUSTULES) p.ell(m.torso, u, z, r * 0.013, r * 0.38, '#90ff30');
+    for (const mm of [m.armR, m.armL]) for (let i = 0; i < 5; i++) p.ell(mm, p.r(0, 1), p.r(38, 58), 0.04, 0.5, '#60c018');
+  },
+  banshee(p, m) {
+    for (const s of [-1, 1]) { p.ell(m.head, 0.5 + s * EYE_U, EYE_Z, 0.02, 0.26, '#e8f4ff'); p.ell(m.head, 0.5 + s * EYE_U, EYE_Z, 0.035, 0.45, 'rgba(120,160,255,0.35)'); }
+  },
+  inferno(p, m) {
+    for (const mm of [m.head, m.torso, m.armR, m.armL, m.legR, m.legL, m.handR, m.handL]) {
+      emberCracks(p, mm, 'rgba(255,120,20,0.55)', 4.5);
+      emberCracks(p, mm, '#ffb030', 1.6);
+    }
+    for (const s of [-1, 1]) p.ell(m.head, 0.5 + s * EYE_U, EYE_Z, 0.025, 0.35, '#fff070');
+    p.ell(m.head, 0.5, 64.0, 0.045, 0.35, '#ff8020');
+    p.ell(m.torso, 0.5, 50, 0.08, 3.5, 'rgba(255,110,20,0.6)'); // core showing through the chest
+  },
+  abomination(p, m) {
+    for (const s of [-1, 1]) p.ell(m.head, 0.5 + s * EYE_U, EYE_Z, 0.02, 0.26, '#ff2010');
+    for (const mm of [m.armR, m.armL]) for (let i = 0; i < 8; i++) { const u = p.r(0, 1), z = p.r(36, 58); p.line(mm, [[u, z], [u + p.r(-0.05, 0.05), z + p.r(-3, 3)]], 'rgba(255,40,20,0.45)', 1.2); }
+  },
+};
+/** Default glow strength / tint per boss skin (rgb multiplier for the glow map). */
+export const GLOW_TINT = { butcher: [1, 1, 1], spitter: [0.9, 1, 0.8], banshee: [1, 1, 1], inferno: [1.1, 1, 1], abomination: [1, 1, 1] };
+
+const glowCache = new Map();
+/** The glow map of a boss skin (black where nothing glows), or null. */
+export function getGlowTexture(skin) {
+  if (!GLOWS[skin]) return null;
+  if (glowCache.has(skin)) return glowCache.get(skin);
+  const p = new Painter(99 + skin.length);
+  p.fill([0, 0, TEX, TEX], '#000000');
+  GLOWS[skin](p, M(p));
+  const tex = canvasTexture(p.c);
+  tex.name = 'glow_' + skin;
+  glowCache.set(skin, tex);
+  return tex;
+}
+
 function pouchTex(p, m, col) {
   p.fill(REG.pouch, col);
   p.band(m.pouch, 0.62, 1.0, sh(col, 1.15));

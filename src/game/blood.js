@@ -17,10 +17,12 @@ import * as THREE from 'three';
 import { TraceResult, MASK_SHOT } from '../engine/collision.js';
 import { lightCurve } from '../map/meshbuilder.js';
 
-export const MAX_SPLATS = 64;
-export const MAX_DROPS = 128;
-export const MAX_PUDDLES = 24;
-export const MAX_PARTICLES = 320;
+// big rings: in zombie survival the blood stays for the whole game (each pool is one
+// draw call; the oldest decal is recycled when a pool is full)
+export const MAX_SPLATS = 480;
+export const MAX_DROPS = 960;
+export const MAX_PUDDLES = 160;
+export const MAX_PARTICLES = 640;
 const GRAVITY = 800;
 
 // atlas layouts (see src/assets/tex/blood.js)
@@ -593,6 +595,24 @@ export class BloodFX {
       }
       this.addDecal(this.splats, p, n, U, size, cell, shift, 0.25, true);
     }
+  }
+
+  /** A heavy free droplet (gib blood trails, neck fountains): flies, lands, stains. */
+  droplet(pos, vel, size = 1.4) {
+    if (!this.enabled()) return;
+    const l = this.lightAt(pos, [0, 0, 1]);
+    this.parts.spawn(pos, vel, {
+      life: 1.6, size, frame: Math.random() < 0.5 ? 1 : 0, drag: 0.3, stretch: 0.012,
+      flags: F_COLLIDE | F_STAIN, tint: [Math.max(0.42, l[0]), Math.max(0.42, l[1]), Math.max(0.42, l[2])], minPx: 2,
+    });
+  }
+
+  /** A splat decal right here (gibs hitting the floor / walls). dir: the impact velocity. */
+  splat(pos, n, size, dir = null) {
+    if (!this.enabled()) return;
+    const U = dir ? tangentToward(n, dir) : randomTangent(n);
+    const moving = dir && Math.hypot(dir[0], dir[1], dir[2]) > 200;
+    this.addDecal(this.splats, pos, n, U, size, pick(moving ? SPLAT.dir : SPLAT.round), moving ? SPLAT.dirShift : 0, 0.25, true);
   }
 
   /** A droplet hit the world. */

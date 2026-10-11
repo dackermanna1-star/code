@@ -1,0 +1,294 @@
+// Zombie survival weapons: molotov, flamethrower, RPG-7, M32 grenade launcher.
+// Flames (the rag, the lighter, the pilot light, the flamethrower's jet) are unlit
+// additive meshes added in spec.post and flickered every frame.
+import * as THREE from 'three';
+import { C, hold, idle, rifleRig } from './kit.js';
+import { arm, handPose } from './hands.js';
+import { Z } from './anim.js';
+import { add, chain, rel } from './pose.js';
+import { pistolGrip, triggerGuard, muzzle, ring } from './parts.js';
+
+// ---------------------------------------------------------------- flames
+let flameGeo = null, coreGeo = null;
+function flameMesh(color, opacity = 0.9) {
+  flameGeo ??= new THREE.ConeGeometry(1, 1, 8, 1, true).translate(0, 0.5, 0);
+  return new THREE.Mesh(flameGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+}
+function coreMesh(color, opacity = 0.9) {
+  coreGeo ??= new THREE.SphereGeometry(1, 8, 6);
+  return new THREE.Mesh(coreGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false }));
+}
+/** A small flickering flame on a node: an outer orange cone, an inner yellow one, a glow. */
+function addFlame(node, size, o = {}) {
+  const g = new THREE.Group();
+  const outer = flameMesh(o.outer ?? 0xff6a10, 0.75), inner = flameMesh(o.inner ?? 0xffe070, 0.9), glow = coreMesh(o.glow ?? 0xff8020, 0.35);
+  outer.scale.set(0.5 * size, 1.6 * size, 0.5 * size);
+  inner.scale.set(0.28 * size, 1.0 * size, 0.28 * size);
+  glow.scale.setScalar(0.9 * size);
+  g.add(outer, inner, glow);
+  node.add(g);
+  g.userData = { outer, inner, glow, size, seed: Math.random() * 10 };
+  return g;
+}
+function flicker(g, t, k = 1) {
+  const u = g.userData, s = u.size * k;
+  const f = 1 + 0.18 * Math.sin(t * 31 + u.seed) + 0.12 * Math.sin(t * 17.3 + u.seed * 2);
+  u.outer.scale.set(0.5 * s * (2 - f) * 0.9, 1.6 * s * f, 0.5 * s * (2 - f) * 0.9);
+  u.inner.scale.set(0.28 * s, 1.0 * s * (0.8 + 0.3 * f), 0.28 * s);
+  u.glow.scale.setScalar(0.9 * s * f);
+  g.rotation.y = t * 3;
+}
+const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+
+// ---------------------------------------------------------------- molotov
+function bottle(mb) {
+  const g = mb.pen('grenade');
+  const up = { r: [-90, 0, 0] }; // lathe axis Z -> Y
+  g.lathe('flat', [0.5, 0.78, 0.36], [[0, -2.5], [1.05, -2.5], [1.25, -2.2], [1.25, 0.8], [1.0, 1.35], [0.5, 1.75], [0.42, 2.9], [0.5, 3.05], [0, 3.05]], { n: 10, ...up });
+  g.lathe('flat', [0.85, 0.75, 0.52], [[1.27, -1.5], [1.27, 0.2]], { n: 10, ...up }); // paper label
+  // rag stuffed in the neck, a strip hanging down the side
+  g.lathe('sleeve', [0.82, 0.74, 0.6], [[0, 2.7], [0.52, 2.8], [0.62, 3.4], [0.5, 4.0], [0.2, 4.4], [0, 4.45]], { n: 7, ...up });
+  g.box('sleeve', [0.75, 0.66, 0.52], 0.7, 2.4, 0.15, { p: [0.55, 2.6, 0.2], r: [0, 0, 12] });
+}
+
+function molotov(mb) {
+  hold(mb, [0, 0, 0]);
+  const RH = handPose([5.2, -5.3, -8.8], [0.355, -0.0835, -0.922], [-0.82, -0.5, -0.27]);
+  mb.node('rhand', 'rig', RH.p, RH.r);
+  arm(mb, 'rhand_arm', 'rhand', 'R', { p: [0, 0, 0], fwd: [0, 0, -1], palm: [0, -1, 0], elbow: [14, -28, -2], grip: 'hold', len: 18 });
+  const G0 = { p: [-0.2, -1.75, -3.2], r: [0, 0, 90] };
+  mb.node('grenade', 'rhand', G0.p, G0.r);
+  bottle(mb);
+  const rf = mb.node('rag_flame', 'grenade', [0, 4.3, 0]);
+  rf.visible = false; rf.userData.defVisible = false;
+  // left hand: parked below; comes up with a lighter to the rag
+  const LA = handPose([-9, -24, -6], [0.5, 0.6, -0.6], [0.6, -0.2, -0.7]);
+  mb.node('lhand', 'rig', LA.p, LA.r);
+  arm(mb, 'lhand_arm', 'lhand', 'L', { p: [0, 0, 0], fwd: [0, 0, -1], palm: [0, -1, 0], elbow: [-12, -26, -4], pole: [-0.3, -1, 0.15], grip: 'hold', len: 18 });
+  const lt = mb.node('lighter', 'lhand', [0.4, -0.6, -4.2], [0, 0, 0]);
+  lt.visible = false; lt.userData.defVisible = false;
+  const L = mb.pen('lighter');
+  L.box('brushed', C.steel, 1.0, 1.7, 0.55, { p: [0, 0.4, 0] });
+  L.box('brushed', C.silver, 1.0, 0.5, 0.55, { p: [0, 1.5, 0] });
+  const lf = mb.node('lighter_flame', 'lighter', [0, 1.9, 0]);
+  lf.visible = false; lf.userData.defVisible = false;
+  const K = (u, h, e) => [u, h.p, h.r, e];
+  const off = (h, d, dr = [0, 0, 0]) => ({ p: add(h.p, d), r: add(h.r, dr) });
+  const RHp = off(RH, [-1.4, 1.1, -0.8], [6, 12, 14]);
+  const RHc = off(RH, [1.6, 2.6, 1.2], [-24, -8, 18]);
+  const RHb = off(RH, [4.5, 4.8, 3.6], [-45, -16, 30]);
+  // the lighter's flame under the rag: place the hand so its flame point is just below it
+  const ragAt = chain(chain(RHp, G0), { p: [0.2, 3.6, 0.2], r: [0, 0, 0] });
+  const lpr = handPose([0, 0, 0], [0.75, 0.2, -0.62], [0.1, -0.9, -0.4]);
+  const tip = chain(lpr, { p: [0.4, 1.3, -4.2], r: [0, 0, 0] }).p;
+  const LP = { p: add(ragAt.p, [-tip[0], -tip[1] - 0.6, -tip[2]]), r: lpr.r };
+  const LPout = off(LP, [-4.5, -2.0, 2.0], [0, 15, -35]);
+  const anims = {
+    idle: idle({ amp: 1 }),
+    draw: { dur: 0.75, blend: 0.05, tracks: {
+      rhand: { abs: true, k: [K(0, off(RH, [2.5, -11, 4], [40, 10, -20])), K(0.42, off(RH, [0.5, -1.5, 0.6], [6, 2, -4]), 'cr'), K(0.66, off(RH, [0, 0.35, -0.1], [-2, 0, 1]), 'cr'), K(0.86, RH, 'io')] },
+      body: [[0, [0, -0.4, 0.2], [-1, 0, 0]], [0.6, Z, [0.4, 0, 0], 'out2'], [0.9, Z, Z, 'io']],
+    } },
+    pinpull: {
+      dur: 0.95, hold: true, blend: 0.05,
+      tracks: {
+        rhand: { abs: true, k: [K(0, RH), K(0.25, RHp, 'io'), K(0.62, RHp), K(1, RHc, 'io')] },
+        lhand: { abs: true, k: [K(0, LA), K(0.22, off(LP, [-2.5, -6, 2.5], [-10, 0, 20]), 'cr'), K(0.36, LP, 'io'), K(0.55, LP), K(0.7, LPout, 'in2'), K(1, off(LA, [0, -2, 0]), 'in2')] },
+        body: [[0, Z, Z], [0.3, [0, -0.15, 0], [0.6, -1.0, 0], 'io'], [0.6, [0, 0, 0.1], [-0.3, 1.0, 0], 'out2'], [1, [0, 0.1, 0.3], [0.8, -1.2, 0], 'io']],
+      },
+      vis: { lighter: [[0.1, 0.85, true]], lighter_flame: [[0.38, 0.62, true]], rag_flame: [[0.5, 1, true]] },
+    },
+    throw: {
+      dur: 0.6, hold: true, blend: 0.04,
+      tracks: {
+        rhand: { abs: true, k: [K(0, RHc), K(0.16, RHb, 'out2'),
+          K(0.34, handPose([3.0, -3.4, -16.5], [0.05, -0.4, -0.9], [-0.7, -0.6, 0.3]), 'in2'),
+          K(0.55, handPose([1.0, -13, -13], [-0.1, -0.9, -0.4], [-0.6, -0.4, 0.6]), 'out2'),
+          K(1, handPose([3, -30, -9], [0, -0.9, -0.4], [-0.6, -0.4, 0.6]), 'io')] },
+        lhand: { abs: true, k: [K(0, off(LA, [0, -2, 0]))] },
+        body: [[0, [0, 0.1, 0.3], [0.8, -1.2, 0]], [0.16, [0, 0.25, 0.7], [1.6, -3.5, -0.5], 'out2'], [0.36, [0, -0.35, -1.4], [-3.0, 4.5, 1.0], 'in2'], [0.6, [0, -0.2, -0.6], [-1.2, 2.0, 0.4], 'out2'], [1, Z, Z, 'io']],
+      },
+      vis: { grenade: [[0.33, 1, false]], rag_flame: [[0, 0.33, true]] },
+    },
+  };
+  mb.marker('muzzle', 'grenade', [0, 0, 0]);
+  let fl = null;
+  return {
+    anims, muzzle: 'muzzle', shell: 'muzzle',
+    post(vm) {
+      if (!fl) fl = [addFlame(vm.nodes.rag_flame, 0.9), addFlame(vm.nodes.lighter_flame, 0.35, { outer: 0xff9a30, inner: 0xfff0a0 })];
+      const t = now();
+      flicker(fl[0], t);
+      flicker(fl[1], t, 0.9);
+    },
+  };
+}
+
+// ---------------------------------------------------------------- flamethrower
+function flamethrower(mb) {
+  hold(mb, [7.0, -7.6, -15.2], [-1, -0.5, -10], 1.1);
+  mb.node('gun', 'rig');
+  const g = mb.pen('gun');
+  const B = C.black, D = C.dark;
+  // receiver / valve body
+  g.prism('metal', D, [[-5.0, 0.0], [8.0, 0.0], [8.0, 2.6], [-4.6, 2.6], [-5.0, 2.2]], 1.7, { bev: 0.25 });
+  g.span('metal', C.steel, -2.0, 5.0, 2.6, 2.9, 0.9);
+  g.cyl('metal', C.red, 0.55, 0.55, 0.5, { n: 8, p: [0.95, 1.6, -2.0], r: [0, 90, 0] }); // valve knob
+  // wand: heat shield over the fuel line, nozzle, igniter
+  g.tube('metal', D, 8.0, 23.0, 1.6, 0.48, 0.48, { n: 8 });
+  g.tube('ribbed', [0.36, 0.36, 0.37], 9.0, 18.0, 1.6, 0.95, 0.95, { n: 10 });
+  g.tube('metal', B, 23.0, 25.8, 1.6, 0.62, 0.8, { n: 10 });
+  ring(g, 25.6, 1.6, 0.82, 0.14, C.steel, 10);
+  g.tube('metal', C.brass, 21.0, 24.6, 0.55, 0.18, 0.18, { n: 6 }); // igniter line
+  g.span('metal', B, 20.6, 21.6, 0.5, 1.2, 0.5);
+  // front vertical grip
+  g.prism('polymer', B, [[10.6, 0.65], [12.0, 0.65], [11.7, -3.6], [10.3, -3.6]], 1.2, { bev: 0.3 });
+  triggerGuard(g, -0.3, 2.4, 0.0, 1.1);
+  pistolGrip(g, 'polymer', B);
+  g.prism('polymer', D, [[-5.0, 2.0], [-14.6, 1.6], [-15.2, 1.2], [-15.2, -3.2], [-14.4, -3.6], [-8.0, -1.0], [-5.0, 0.2]], 1.5, { bev: 0.3 });
+  // fuel tank slung under the receiver (the "magazine")
+  mb.node('mag', 'gun', [0, -2.4, -2.6]);
+  const m = mb.pen('mag');
+  m.tube('metal', C.red, -3.0, 6.2, 0, 1.9, 1.9, { n: 12 });
+  m.tube('metal', D, -3.3, -3.0, 0, 1.5, 1.5, { n: 12 });
+  m.tube('metal', D, 6.2, 6.5, 0, 1.5, 1.5, { n: 12 });
+  m.span('flat', [0.9, 0.8, 0.2], 0.0, 3.0, -0.6, 0.6, 3.86); // hazard band
+  m.cyl('metal', C.steel, 0.35, 0.35, 1.4, { n: 6, p: [0, 1.6, -1.5] }); // feed line stub
+  mb.node('pilot', 'gun', [0, 0.55, -24.9]);
+  mb.node('jet', 'gun', [0, 1.6, -26.0]);
+  mb.marker('muzzle', 'gun', [0, 1.6, -26.2]);
+  mb.marker('shell', 'gun', [0, 1.6, -26.2]);
+  const { anims } = rifleRig(mb, {
+    kick: 0.25, shootDur: 0.25,
+    lh: { at: [0, -1.4, 11.2], fwd: [0.1, -0.15, -1], palm: [1, 0.05, 0], grip: 'hold' },
+    mag: { at: [-1.6, -2.4, 4.0], out: { p: [0, -2.6, 0.2], r: [6, 0, -8] }, ins: { p: [0, -3.6, 0.2], r: [8, 0, -6] } },
+    bolt: 0,
+    reload: 3.2,
+  });
+  let pilot = null, jet = null;
+  return {
+    anims, muzzle: 'muzzle', shell: 'shell',
+    post(vm) {
+      if (!pilot) {
+        pilot = addFlame(vm.nodes.pilot, 0.5, { outer: 0x3070ff, inner: 0x9fd0ff, glow: 0x4080ff });
+        pilot.rotation.x = 0;
+        const j = new THREE.Group();
+        j.rotation.x = -Math.PI / 2; // cone axis (+Y) along the barrel (-Z)
+        vm.nodes.jet.add(j);
+        jet = { group: j, a: addFlame(j, 3.2), b: addFlame(j, 2.2, { outer: 0xffa030, inner: 0xffffc0 }) };
+        jet.a.position.y = 2;
+        jet.b.position.y = 6;
+      }
+      const t = now();
+      flicker(pilot, t, 0.9);
+      const on = !!vm.state.flaming;
+      jet.group.visible = on;
+      if (on) { flicker(jet.a, t, 1.2); flicker(jet.b, t * 1.3, 1.6); jet.a.scale.y = 1.6; jet.b.scale.y = 2.4; }
+    },
+  };
+}
+
+// ---------------------------------------------------------------- RPG-7
+function rpg(mb) {
+  hold(mb, [8.4, -6.4, -14.0], [-1, -0.5, -7], 0.85);
+  mb.node('gun', 'rig');
+  const g = mb.pen('gun');
+  const O = [0.3, 0.33, 0.24], B = C.black;
+  const Y = 2.6;
+  g.tube('metal', O, -20.0, 22.0, Y, 1.15, 1.15, { n: 12 });
+  g.tube('metal', O, -23.5, -20.0, Y, 1.75, 1.2, { n: 12 }); // venturi flare
+  g.tube('metal', C.bore, -23.6, -23.4, Y, 1.55, 1.55, { n: 12 });
+  g.tube('wood', C.woodDark, -1.0, 9.0, Y, 1.5, 1.5, { n: 12 }); // wooden heat guard
+  for (const f of [-1.0, 9.0]) ring(g, f, Y, 1.55, 0.25, B, 12);
+  g.span('metal', C.dark, -1.8, 3.2, 0.3, 1.6, 1.0); // trigger housing under the tube
+  triggerGuard(g, -0.3, 2.4, 0.0, 1.1);
+  pistolGrip(g, 'polymer', B);
+  g.span('metal', C.dark, 7.2, 10.2, 0.5, 1.6, 0.9);
+  g.prism('wood', C.woodDark, [[7.6, 0.6], [9.0, 0.6], [8.7, -2.8], [7.4, -2.8]], 1.1, { bev: 0.3 }); // front grip
+  // optical sight on the left
+  g.span('metal', B, 1.0, 4.0, 3.2, 3.8, 0.5, { x: -1.4 });
+  g.tube('metal', B, 0.6, 5.2, 4.4, 0.55, 0.55, { n: 8, x: -1.9 });
+  g.span('metal', B, 14.0, 14.6, Y + 1.15, Y + 2.0, 0.3); // front sight
+  // the warhead (PG-7): rides in the muzzle, gone after a shot
+  mb.node('mag', 'gun', [0, Y, -22.0]);
+  const w = mb.pen('mag');
+  w.tube('metal', [0.25, 0.27, 0.2], -1.0, 1.0, 0, 0.95, 0.95, { n: 10 });
+  w.tube('metal', O, 1.0, 3.6, 0, 2.15, 2.15, { n: 12 });
+  w.tube('metal', O, 3.6, 6.0, 0, 2.15, 1.45, { n: 12 });
+  w.tube('metal', O, 6.0, 8.2, 0, 1.45, 0.7, { n: 12 });
+  w.tube('metal', C.dark, 8.2, 9.4, 0, 0.7, 0.25, { n: 8 });
+  mb.marker('muzzle', 'gun', [0, Y, -24.0]);
+  mb.marker('shell', 'gun', [0, Y, 23.0]);
+  const r = rifleRig(mb, {
+    kick: 2.6, shootDur: 0.7, shootOpts: { bodyUp: 1.2 },
+    lh: { at: [0, -1.2, 8.1], fwd: [0.1, -0.2, -1], palm: [1, 0.1, 0], grip: 'hold' },
+    reload: false,
+  });
+  // reload: hand drops out of view, comes back with a fresh warhead, pushes it in
+  const LH = r.LHP;
+  const M0 = { p: [0, Y, -22.0], r: [0, 0, 0] };
+  const INS = handPose([-2.6, Y - 1.6, -26.5], [0.25, 0.35, -0.9], [1, 0.1, 0.2]);
+  const inHand = rel(INS, M0);
+  mb.clone('mag', 'mag_new', 'lhand', inHand.p, inHand.r);
+  const K = (u, h, e) => [u, h.p, h.r, e];
+  const off = (h, d, dr = [0, 0, 0]) => ({ p: add(h.p, d), r: add(h.r, dr) });
+  const away = handPose([-10, -22, 4], [0.3, -0.2, -0.93], [1, 0.4, 0]);
+  const tilt = { p: [-2.5, 2.4, 1.5], r: [6, 16, -12] };
+  r.anims.reload = {
+    dur: 2.4, hold: false, blend: 0.08,
+    tracks: {
+      rig: [[0, Z, Z], [0.15, tilt.p, tilt.r, 'io'], [0.82, tilt.p, tilt.r], [1, Z, Z, 'io']],
+      lhand: { abs: true, k: [K(0, LH), K(0.16, off(LH, [-2, -6, 3], [0, 0, 20]), 'cr'), K(0.3, away, 'io'), K(0.42, away), K(0.58, off(INS, [-1, -1, -7], [0, 0, 10]), 'io'), K(0.66, off(INS, [0, 0, -5]), 'cr'), K(0.74, INS, 'in2'), K(0.8, INS), K(0.92, off(LH, [-1, -2, 1]), 'cr'), K(1, LH, 'io')] },
+    },
+    vis: { mag: [[0, 0.74, false], [0.74, 1, true]], mag_new: [[0.4, 0.74, true]] },
+  };
+  return {
+    anims: r.anims, muzzle: 'muzzle', shell: 'shell',
+    post(vm) {
+      if (vm.currentAnimation !== 'reload' && vm.state.empty) vm.nodes.mag.visible = false;
+      if (vm.currentAnimation !== 'reload' && vm.nodes.mag_new) vm.nodes.mag_new.visible = false;
+    },
+  };
+}
+
+// ---------------------------------------------------------------- M32
+function m32(mb) {
+  hold(mb, [7.0, -7.4, -14.8], [-1, -0.5, -9], 1.1);
+  mb.node('gun', 'rig');
+  const g = mb.pen('gun');
+  const B = C.black, D = C.dark;
+  const Y = 1.7;
+  g.tube('metal', D, 7.6, 18.0, Y, 0.95, 0.95, { n: 10 }); // barrel
+  muzzle(g, 18.0, 0.6, Y, 1.05, B, 10);
+  g.span('metal', B, -1.2, 8.0, 3.3, 3.9, 1.3); // top strap
+  g.span('metal', B, -1.2, 1.2, -0.2, 3.9, 1.6); // frame (rear of the drum)
+  g.span('metal', B, 7.2, 8.0, -0.6, 3.9, 1.6); // frame (front)
+  g.span('metal', D, 8.0, 16.0, 0.3, 0.9, 1.6); // rail
+  g.prism('polymer', B, [[9.6, 0.4], [10.9, 0.4], [10.6, -3.4], [9.3, -3.4]], 1.15, { bev: 0.3 }); // foregrip
+  g.span('metal', B, 2.0, 5.5, 3.9, 4.6, 0.6); // sight rail
+  g.span('metal', C.steel, 4.6, 5.1, 4.6, 5.5, 0.4);
+  triggerGuard(g, -0.3, 2.4, -0.6, 1.1);
+  pistolGrip(g, 'polymer', B);
+  g.prism('polymer', D, [[-1.2, 3.0], [-12.8, 2.0], [-13.4, 1.6], [-13.4, -2.6], [-12.6, -3.0], [-6.0, -0.6], [-1.2, 0.4]], 1.4, { bev: 0.3 });
+  // the revolving drum (swapped as the "magazine")
+  mb.node('mag', 'gun', [0, 0.8, -4.4]);
+  const m = mb.pen('mag');
+  m.tube('metal', [0.24, 0.24, 0.25], -3.2, 3.2, 0, 2.5, 2.5, { n: 12 });
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    m.tube('metal', C.brass, 3.15, 3.3, Math.sin(a) * 1.5, 0.55, 0.55, { n: 8, x: Math.cos(a) * 1.5 });
+    m.span('metal', [0.16, 0.16, 0.17], -3.0, 3.0, Math.sin(a + 0.52) * 2.4 - 0.15, Math.sin(a + 0.52) * 2.4 + 0.15, 0.3, { x: Math.cos(a + 0.52) * 2.4 });
+  }
+  mb.marker('muzzle', 'gun', [0, Y, -18.8]);
+  mb.marker('shell', 'gun', [0, Y, -18.8]);
+  const { anims } = rifleRig(mb, {
+    kick: 1.9, shootDur: 0.5, shootOpts: { bodyUp: 0.8 },
+    lh: { at: [0, -1.1, 10.2], fwd: [0.1, -0.15, -1], palm: [1, 0.05, 0], grip: 'hold' },
+    mag: { at: [-2.6, 0.8, 4.4], out: { p: [-3.2, -2.0, 0], r: [0, 0, -30] }, ins: { p: [-3.4, -2.6, 0], r: [0, 0, -24] } },
+    bolt: 0,
+    reload: 3.6,
+  });
+  return { anims, muzzle: 'muzzle', shell: 'shell' };
+}
+
+export const ZOMBIE_WEAPONS = { molotov, flamethrower, rpg, m32 };

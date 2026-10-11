@@ -20,10 +20,11 @@ export const MENU = {
   shotgun: { T: ['m3', 'xm1014'], CT: ['m3', 'xm1014'] },
   smg: { T: ['mac10', 'mp5', 'ump45', 'p90'], CT: ['tmp', 'mp5', 'ump45', 'p90'], ALL: ['mac10', 'tmp', 'mp5', 'ump45', 'p90'] },
   rifle: { T: ['galil', 'ak47', 'scout', 'sg552', 'awp', 'g3sg1'], CT: ['famas', 'scout', 'm4a1', 'aug', 'sg550', 'awp'], ALL: ['galil', 'famas', 'ak47', 'm4a1', 'sg552', 'aug', 'scout', 'awp'] },
-  mg: { T: ['m249'], CT: ['m249'], ALL: ['m249', 'g3sg1', 'sg550'] },
+  mg: { T: ['m249'], CT: ['m249'], ALL: ['m249', 'g3sg1', 'sg550', 'flamethrower', 'm32', 'rpg'] },
   equip: {
     T: ['vest', 'vesthelm', 'flashbang', 'hegrenade', 'smokegrenade', 'nvgs'],
     CT: ['vest', 'vesthelm', 'flashbang', 'hegrenade', 'smokegrenade', 'defuser', 'nvgs'],
+    ALL: ['vest', 'vesthelm', 'flashbang', 'hegrenade', 'smokegrenade', 'molotov', 'nvgs'],
   },
 };
 
@@ -56,6 +57,10 @@ export const ITEMS = {
   g3sg1: W('D3/AU-1', 5000, 'Germany', '7.62 NATO', '20 rounds', 'N/A', '8.9 kg', '9.3 g', '2,800 ft/s', '2,200 Joules'),
   sg550: W('Krieg 550 Commando', 4200, 'Switzerland', '5.56 NATO', '30 rounds', 'N/A', '7.02 kg', '4 g', '3,100 ft/s', '1,785 Joules'),
   m249: W('ES M249 Para', 5750, 'Belgium', '5.56 NATO', '100 rounds', '600 RPM', '7.5 kg', '4 g', '3,000 ft/s', '1,743 Joules'),
+  flamethrower: W('M2 Flamethrower', 3500, 'USA', 'Fuel', '100 units', 'Continuous', '30 kg', 'N/A', 'N/A', 'Sets them on fire'),
+  m32: W('M32 Grenade Launcher', 4200, 'South Africa', '40 mm', '6 rounds', 'Semi-auto', '5.3 kg', '230 g', '250 ft/s', 'Explodes on contact'),
+  rpg: W('RPG-7', 5000, 'USSR', '85 mm rocket', '1 rocket', 'Single shot', '7 kg', '2.6 kg', '380 ft/s', 'Explodes on contact'),
+  molotov: { name: 'Molotov Cocktail', price: 400, text: 'A bottle of fuel with a burning rag. Shatters where it lands and sets the floor on fire for 7 seconds. Carry up to 3.' },
   vest: { name: 'Kevlar Vest', price: 650, text: 'Body armour. Absorbs part of the damage from shots to the chest, stomach and arms.' },
   vesthelm: { name: 'Kevlar Vest & Helmet', price: 1000, text: 'Body armour and a kevlar helmet that also protects against shots to the head.' },
   flashbang: { name: 'Flashbang', price: 200, text: 'Stun grenade. Temporarily blinds and deafens anyone looking at it when it detonates.' },
@@ -66,7 +71,7 @@ export const ITEMS = {
 };
 
 // equipment pictures in the info panel reuse the HUD / kill icons
-export const ITEM_ICON = { vest: 'suit_full', vesthelm: 'suithelmet_full', defuser: 'defuser', nvgs: null, flashbang: 'flashbang', hegrenade: 'hegrenade', smokegrenade: 'smokegrenade' };
+export const ITEM_ICON = { vest: 'suit_full', vesthelm: 'suithelmet_full', defuser: 'defuser', nvgs: null, flashbang: 'flashbang', hegrenade: 'hegrenade', smokegrenade: 'smokegrenade', molotov: 'molotov' };
 
 export function itemsFor(cat, team) {
   const t = team === 'CT' ? 'CT' : team === 'ALL' ? 'ALL' : 'T';

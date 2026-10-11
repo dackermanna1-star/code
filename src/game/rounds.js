@@ -261,10 +261,11 @@ export class RoundManager {
     if (item === 'nvgs') { return pay(1250); }
     const def = WS.WEAPON_DEFS[item];
     if (!def) return false;
+    if (def.zombieOnly && !g.zombies?.enabled) return false;
     if (def.team && def.team !== p.team && !g.zombies?.enabled) return false; // zombie survival sells everything
     if (def.slot === 4) {
       const have = p.weapons[4].find((x) => x.id === item);
-      const max = item === 'flashbang' ? 2 : 1;
+      const max = item === 'flashbang' ? 2 : item === 'molotov' ? 3 : 1;
       if (have && (have.count || 1) >= max) { say("You can't carry any more!"); return false; }
     } else if (p.weapons[def.slot]?.id === item) { say('You already have one!'); return false; }
     if (!pay(def.price)) return false;

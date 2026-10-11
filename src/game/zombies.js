@@ -84,6 +84,8 @@ export class ZombieMode {
     g.effects.clearBlood?.();
     g.mapEnts?.reset();
     g.hostages?.reset(); // (disabled in this mode: clears any left over)
+    g.bosses?.clear();
+    this.bossAt = 0;
     g.spectate = { mode: 'free', angles: [20, 90, 0] };
     g.hud?.centerPrint?.(`Zombie survival\nBuy anything, anywhere. The first wave comes in ${FIRST_BREAK} seconds.`, 6);
     g.bots.onRoundStart();
@@ -100,6 +102,9 @@ export class ZombieMode {
     this.killed = 0;
     this.state = 'wave';
     this.nextSpawn = g.time + 1;
+    // every 5th wave: a boss (and half the usual crowd)
+    this.bossWave = n % 5 === 0;
+    if (this.bossWave) { this.stats = { ...this.stats, count: Math.ceil(this.stats.count * 0.5) }; this.bossAt = g.time + 3; }
     // bot teammates who fell come back for the next wave
     for (const p of g.players) {
       if (p.team === TEAM_CT && p.isBot && !p.alive) {
@@ -108,7 +113,7 @@ export class ZombieMode {
       }
     }
     if (n > 1) g.bots.onRoundStart();
-    g.hud?.centerPrint?.(`WAVE ${n}`, 3);
+    g.hud?.centerPrint?.(this.bossWave ? `WAVE ${n}\nSomething big is coming...` : `WAVE ${n}`, 3);
     g.sound?.play('zombie_wave', { volume: 1, attenuation: 'none' });
     g.announce?.(`Wave ${n}`);
   }
@@ -150,18 +155,24 @@ export class ZombieMode {
     if (this.state === 'break' && t >= this.nextWaveAt) this.startWave(this.wave + 1);
     if (this.state !== 'wave') return;
     const S = this.stats;
+    if (this.bossAt && t >= this.bossAt) { if (this.game.bosses.spawn(this.wave)) this.bossAt = 0; else this.bossAt = t + 1; }
     const alive = this.pool.reduce((n, z) => n + (z.alive ? 1 : 0), 0);
     if (this.spawned < S.count && alive < S.maxAlive && t >= this.nextSpawn) {
       if (this.spawnZombie()) this.spawned++;
       this.nextSpawn = t + S.interval * rand(0.6, 1.4);
     }
-    if (this.spawned >= S.count && alive === 0) this.waveCleared();
+    if (this.spawned >= S.count && alive === 0 && !this.bossAt && !this.game.bosses.alive()) this.waveCleared();
   }
 
   /** RoundManager.onPlayerKilled */
   onKilled(victim, attacker) {
+    if (victim.isBoss) {
+      if (attacker && attacker.team === TEAM_CT) this.kills++;
+      this.game.bosses.onKilled(victim, attacker);
+      return;
+    }
     if (victim.isZombie) {
-      this.killed++;
+      if (!victim.extra) this.killed++;
       if (attacker && attacker.team === TEAM_CT) this.kills++;
       return;
     }
@@ -173,10 +184,12 @@ export class ZombieMode {
   hudInfo() {
     const S = this.stats || waveStats(1);
     const t = this.game.time;
+    const extras = this.pool.reduce((n, z) => n + (z.alive && z.extra ? 1 : 0), 0);
     return {
       wave: this.wave,
       state: this.state,
-      left: this.state === 'wave' ? Math.max(0, S.count - this.killed) : 0,
+      boss: this.game.bosses?.hudInfo() || null,
+      left: this.state === 'wave' ? Math.max(0, S.count - this.killed) + extras : 0,
       next: this.state === 'break' ? Math.max(0, this.nextWaveAt - t) : null,
       kills: this.kills,
       best: this.best,
@@ -197,27 +210,43 @@ export class ZombieMode {
     return z;
   }
 
-  spawnZombie() {
+  /**
+   * Bring a zombie in. o: { at: [x,y,z] origin, near: [x,y,z] (a nav spot close by),
+   * health, speed, crawler (small and fast), risen (climbs out of the ground) }. Zombies
+   * placed with at / near are extras (summoned by bosses): not counted in the wave.
+   */
+  spawnZombie(o = {}) {
     const g = this.game, t = g.time;
-    let z = this.pool.find((q) => !q.alive && (!q.deathTime || t - q.deathTime > CORPSE_TIME));
+    let z = this.pool.find((q) => !q.alive && (!q.deathTime || q.baked || q.gibbed || t - q.deathTime > CORPSE_TIME));
     if (!z) {
       if (this.pool.length >= POOL) return false;
       z = this.makeZombie();
     }
-    const n = this.pickSpawn();
-    if (!n) return false;
+    let pos;
+    if (o.at) pos = o.at.slice();
+    else {
+      const n = o.near ? this.pickNear(o.near) : this.pickSpawn();
+      if (!n) return false;
+      pos = [n.x, n.y, n.z + 37];
+    }
+    // the last body this zombie left stays where it fell
+    if (z.deathTime && !z.baked && !z.gibbed) g.gore?.bakePlayer(z);
+    z.baked = z.gibbed = false;
+    z.char = 0;
+    z.burn = null;
+    z.extra = !!(o.at || o.near);
     const humans = this.humans();
     const h = humans[0];
-    const yaw = h ? Math.atan2(h.pm.origin[1] - n.y, h.pm.origin[0] - n.x) * 180 / Math.PI : Math.random() * 360;
+    const yaw = h ? Math.atan2(h.pm.origin[1] - pos[1], h.pm.origin[0] - pos[0]) * 180 / Math.PI : Math.random() * 360;
     const S = this.stats;
-    z.resetForSpawn([n.x, n.y, n.z + 37], yaw);
-    z.health = z.maxHealth = S.health;
+    z.resetForSpawn(pos, yaw);
+    z.health = z.maxHealth = o.health ?? S.health;
     z.armor = 0; z.helmet = false;
     z.weapons = { 1: null, 2: null, 3: null, 4: [], 5: null };
     z.active = null;
     z.deathTime = 0;
     z.lastHurt = 0;
-    z.zSpeed = Math.random() < S.runners ? rand(262, 280) : S.speed * rand(0.9, 1.06);
+    z.zSpeed = o.speed ?? (Math.random() < S.runners ? rand(262, 280) : S.speed * rand(0.9, 1.06));
     z.zDamage = S.damage;
     z.target = null; z.targetT = 0;
     z.node = null; z.nodeT = 0;
@@ -226,7 +255,13 @@ export class ZombieMode {
     z.progPos = z.pm.origin.slice(); z.progT = t; z.stuckSince = 0;
     z.nextGrowl = t + rand(0.5, 4);
     z.model.reset();
+    z.model.object3D.scale.setScalar(o.crawler ? 0.8 : 1);
     z.model.object3D.visible = true;
+    if (o.at || o.near) {
+      // climbing out of the ground / out of the pack
+      for (let i = 0; i < 12; i++) g.fire?.emit(o.risen ? 'mist' : 'dust', [pos[0] + rand(-20, 20), pos[1] + rand(-20, 20), pos[2] - 34], [rand(-60, 60), rand(-60, 60), rand(20, 90)], { life: 1, size: 18, size1: 44, drag: 2 });
+      if (o.risen) g.sound?.play('zombie_idle', { pos, volume: 1, channel: `${z.id}:voice` });
+    }
     z.deadBodyVisible = false;
     z.box.active = true;
     setDynamicBox(z.box, z.pm.origin, z.hull().mins, z.hull().maxs);
@@ -242,6 +277,15 @@ export class ZombieMode {
     const step = Math.max(1, Math.floor(c.length / 1500));
     this.cands = c.filter((_, i) => i % step === 0);
     return this.cands;
+  }
+
+  /** A nav spot 100-380 units (walking) from pos. */
+  pickNear(pos) {
+    const nav = this.game.nav;
+    const start = nav.nearest([pos[0], pos[1], pos[2] - 36], 200) || nav.nearestXY([pos[0], pos[1], pos[2] - 36], 300, 120);
+    if (!start) return null;
+    const ring = nav.around(start, 380, 300).filter((x) => x.dist > 100);
+    return ring.length ? ring[Math.floor(Math.random() * ring.length)].node : start;
   }
 
   /** Out of sight of every survivor, 700+ units away, and with a way to them. */
@@ -316,6 +360,7 @@ export class ZombieMode {
     if (!this.enabled) return;
     const g = this.game, t = g.time;
     if (t >= this.flowAt && this.state !== 'over') { this.flowAt = t + 0.4; this.buildFlow(); }
+    g.bosses?.think();
     const humans = this.humans();
     for (const z of this.pool) {
       if (!z.alive) { z.cmd = null; continue; }
@@ -356,7 +401,7 @@ export class ZombieMode {
     const dx = tf[0] - feet[0], dy = tf[1] - feet[1], dz = tf[2] - feet[2];
     const dxy = Math.hypot(dx, dy);
     // close and nothing in between: straight at him; otherwise down the flow field
-    if (t >= z.goalT || (z.goal && Math.hypot(z.goal[0] - feet[0], z.goal[1] - feet[1]) < 20)) {
+    if (!z.goal || t >= z.goalT || Math.hypot(z.goal[0] - feet[0], z.goal[1] - feet[1]) < 20) {
       z.goalT = t + 0.3;
       z.jumpGoal = false;
       if (dxy < 420 && Math.abs(dz) < 48 && nav.canWalk(feet, tf)) z.goal = tf.slice();
@@ -377,8 +422,10 @@ export class ZombieMode {
       if (z.pm.onground) cmd.buttons |= IN_JUMP;
       z.progT = t;
       z.goalT = 0;
+      z.careful = t + 2.5; // node by node for a while (ledges, drops, tight corners)
       z.stuckSince = z.stuckSince || t;
-      if (t - z.stuckSince > 6 && !this.humans().some((h) => g.visible(h.eyePos(), z.eyePos()))) this.recycle(z);
+      if (z.isBoss) { if (t - z.stuckSince > 4) this.nudge(z, t); }
+      else if (t - z.stuckSince > 6 && !this.humans().some((h) => g.visible(h.eyePos(), z.eyePos()))) this.recycle(z);
     }
   }
 
@@ -403,6 +450,7 @@ export class ZombieMode {
     }
     if (!chain.length) return null;
     z.jumpGoal = jump;
+    if (t < (z.careful || 0)) { const q = chain[0]; return [q.x, q.y, q.z]; }
     for (const k of [chain.length - 1, Math.min(chain.length - 1, 3)]) {
       if (k <= 0) break;
       const q = chain[k];
@@ -436,7 +484,8 @@ export class ZombieMode {
     const o = z.pm.origin, to = target.pm.origin;
     const dxy = Math.hypot(to[0] - o[0], to[1] - o[1]);
     const dz = to[2] - o[2];
-    const close = dxy < 32 + REACH && Math.abs(dz) < 56;
+    const onHead = dxy < 40 && dz > 40 && dz < 92; // somebody standing on its head gets clawed (and shoved off)
+    const close = (dxy < 32 + REACH && Math.abs(dz) < 56) || onHead;
     if (close) {
       const eye = z.eyePos(), te = target.eyePos();
       z.pm.angles[1] = Math.atan2(to[1] - o[1], to[0] - o[0]) * 180 / Math.PI;
@@ -456,16 +505,31 @@ export class ZombieMode {
       const d = Math.hypot(chest[0] - eye[0], chest[1] - eye[1], chest[2] - eye[2]);
       const y = z.pm.angles[1] * Math.PI / 180;
       const facing = ((chest[0] - o[0]) * Math.cos(y) + (chest[1] - o[1]) * Math.sin(y)) / Math.max(1, dxy);
-      if (target.alive && d < HIT_RANGE && facing > 0.4 && g.visible(eye, chest)) {
+      if (target.alive && d < HIT_RANGE && (facing > 0.4 || dxy < 24) && g.visible(eye, chest)) {
         const dir = [(chest[0] - eye[0]) / d, (chest[1] - eye[1]) / d, (chest[2] - eye[2]) / d];
         const point = [chest[0] - dir[0] * 12, chest[1] - dir[1] * 12, chest[2] - dir[2] * 12];
         g.damagePlayer(target, z, z.zDamage, CR.HITGROUP.CHEST, 'zombie', dir, point);
         // a claw staggers less than a bullet's "tagging" (you can still run for it)
         target.pm.velocityModifier = Math.max(target.pm.velocityModifier ?? 1, 0.8);
+        if (dz > 40 && dxy < 40) { const a = dxy > 1 ? Math.atan2(to[1] - o[1], to[0] - o[0]) : y; target.pm.velocity[0] += Math.cos(a) * 220; target.pm.velocity[1] += Math.sin(a) * 220; target.pm.velocity[2] += 120; }
       } else {
         g.sound?.play('knife_slash', { pos: eye, volume: 0.6 });
       }
     }
+  }
+
+  /** A boss that can't get past something hops a few nodes along its way. */
+  nudge(z, t) {
+    const feet = z.feet();
+    let n = this.game.nav.nearest(feet, 120) || this.game.nav.nearestXY(feet, 200, 80);
+    if (!n || !this.dist) return;
+    for (let i = 0; i < 3; i++) { const h = this.nextHop(n); if (!h) break; n = h.node; }
+    z.pm.origin = [n.x, n.y, n.z + 37];
+    z.prevOrigin = z.pm.origin.slice();
+    z.pm.velocity = [0, 0, 0];
+    z.progPos = z.pm.origin.slice(); z.progT = t; z.stuckSince = 0;
+    z.node = null; z.goal = null;
+    setDynamicBox(z.box, z.pm.origin, z.hull().mins, z.hull().maxs);
   }
 
   /** A stuck zombie (out of sight) comes back at a fresh spot. */

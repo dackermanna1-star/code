@@ -720,7 +720,26 @@ export class Hud {
     const px = Math.round(this.fontPx * 1.7);
     this.text(z.wave ? `WAVE ${z.wave}` : 'GET READY', vw / 2, top, [210, 34, 24], { align: 'center', font: fontString(px, true) });
     const info = z.state === 'wave' ? `Zombies left: ${z.left}` : z.state === 'break' ? `Next wave in ${Math.ceil(z.next ?? 0)}` : 'GAME OVER';
-    this.text(`${info}     Kills: ${z.kills}     Best: ${z.best} wave${z.best === 1 ? '' : 's'}`, vw / 2, top + Math.round(px * 1.2), [255, 176, 0], { align: 'center' });
+    const y2 = top + Math.round(px * 1.2);
+    this.text(`${info}     Kills: ${z.kills}     Best: ${z.best} wave${z.best === 1 ? '' : 's'}`, vw / 2, y2, [255, 176, 0], { align: 'center' });
+    // boss health bar
+    const b = z.boss;
+    if (!b) return;
+    const g = this.gTop;
+    const w = Math.round(Math.min(vw * 0.5, 420 * k)), h = Math.round(9 * k);
+    const x = Math.round(vw / 2 - w / 2), y = y2 + this.lineH + Math.round(4 * k);
+    const f = Math.max(0, Math.min(1, b.hp / b.hpMax));
+    const col = b.color || [220, 40, 30];
+    this.text(b.name + (b.status ? `  -  ${b.status}` : ''), vw / 2, y, col, { align: 'center' });
+    const by = y + this.lineH + Math.round(2 * k);
+    g.fillStyle = 'rgba(0,0,0,0.6)';
+    g.fillRect(x - 2, by - 2, w + 4, h + 4);
+    g.fillStyle = `rgba(${col[0] * 0.35 | 0},${col[1] * 0.35 | 0},${col[2] * 0.35 | 0},0.9)`;
+    g.fillRect(x, by, w, h);
+    g.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`;
+    g.fillRect(x, by, Math.round(w * f), h);
+    g.fillStyle = 'rgba(255,255,255,0.25)';
+    g.fillRect(x, by, Math.round(w * f), Math.max(1, Math.round(h * 0.3)));
   }
 
   drawFps(s) {

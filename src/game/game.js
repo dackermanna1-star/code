@@ -16,6 +16,10 @@ import { BulletCam } from './bulletcam.js';
 import { MapEntities } from './mapents.js';
 import { Hostages } from './hostages.js';
 import { ZombieMode, MASK_ZOMBIE_MOVE, MASK_HUMAN_MOVE } from './zombies.js';
+import { FireSystem } from './fire.js';
+import { Projectiles } from './projectiles.js';
+import { Gore } from './gore.js';
+import { BossDirector } from './bosses.js';
 import { NavGraph } from './nav.js';
 import { RoundManager } from './rounds.js';
 import { BotManager } from './bots.js';
@@ -90,6 +94,11 @@ export class Game {
     this.mapEnts = new MapEntities(this); // doors, breakables, buttons (BSP maps)
     this.hostages = new Hostages(this); // hostage rescue (cs_ maps)
     this.zombies = new ZombieMode(this); // zombie survival mode
+    this.bosses = new BossDirector(this); // ...and its bosses
+    this.fire = new FireSystem(this); // molotovs, flamethrower, burning
+    this.projectiles = new Projectiles(this); // rockets, 40 mm, bottles, boss fireballs / acid
+    this.gore = new Gore(this); // gibs, permanent bodies
+    this.shake = null;
     this.rounds = new RoundManager(this);
     this.bots = new BotManager(this);
   }
@@ -100,6 +109,9 @@ export class Game {
     this.players = [];
     this.effects.clearAll();
     this.grenades.clear();
+    this.fire.clear();
+    this.projectiles.clear();
+    this.gore.clear();
     this.clearDropped();
     this.rounds.configure(opts);
     this.time = 0;
@@ -120,8 +132,9 @@ export class Game {
     return p;
   }
 
-  removePlayer(p, silent) {
-    if (p.model) { p.model.dispose(); p.model = null; }
+  removePlayer(p, silent, keepModel = false) {
+    if (p.model && !keepModel) p.model.dispose();
+    p.model = null;
     const i = this.collision.dynamic.indexOf(p.box);
     if (i >= 0) this.collision.dynamic.splice(i, 1);
     this.players = this.players.filter((q) => q !== p);
@@ -197,7 +210,7 @@ export class Game {
     const slot = def.slot;
     if (slot === 4) {
       const have = p.weapons[4].filter((g) => g.id === id);
-      const max = id === 'flashbang' ? 2 : 1;
+      const max = id === 'flashbang' ? 2 : id === 'molotov' ? 3 : 1;
       if (have.length) {
         const g = have[0];
         if ((g.count || 1) >= max) return null;
@@ -227,6 +240,8 @@ export class Game {
       knifeTrace: (range) => g.knifeTrace(p, range),
       knifeDamage: (target, dmg, hg) => g.damagePlayer(target, p, dmg, hg ?? CR.HITGROUP.GENERIC, 'knife', null),
       throwGrenade: (type, params) => g.grenades.throw(p, type, params),
+      flame: () => { g.fire.stream(p); p.lastShot = g.time; },
+      launch: (type) => g.launchFrom(p, type),
       plantBomb: () => g.rounds.plantBomb(p),
       canPlant: () => g.rounds.canPlant(p),
       playSound: (name, opts = {}) => g.weaponSound(p, name, opts),
@@ -406,7 +421,7 @@ export class Game {
       channel: opts.channel ? `${p.id}:${opts.channel}` : `${p.id}:weapon`,
       attenuation: opts.attenuation,
     });
-    if (opts.loud !== false && /^(ak47|m4a1|awp|deagle|usp|glock|p228|elite|fiveseven|mp5|mac10|tmp|ump45|p90|galil|famas|sg552|aug|scout|g3sg1|sg550|m249|m3|xm1014)$/.test(name)) {
+    if (opts.loud !== false && /^(ak47|m4a1|awp|deagle|usp|glock|p228|elite|fiveseven|mp5|mac10|tmp|ump45|p90|galil|famas|sg552|aug|scout|g3sg1|sg550|m249|m3|xm1014|rpg_fire|m32_fire)$/.test(name)) {
       p.lastShot = this.time;
       this.bots.onNoise(p, p.eyePos(), name.includes('silenced') || name === 'tmp' ? 400 : 2000);
     }
@@ -460,7 +475,8 @@ export class Game {
       const t = (px * dx + py * dy + pz * dz) / len;
       if (t < -40 || t > maxDist + 40) continue;
       const cx = px - dx / len * t, cy = py - dy / len * t, cz = pz - dz / len * t;
-      if (cx * cx + cy * cy + cz * cz > 60 * 60) continue;
+      const rr = q.boss ? 60 * q.boss.scale + 30 : 60;
+      if (cx * cx + cy * cy + cz * cz > rr * rr) continue;
       const boxes = q.model.getHitboxes();
       const hits = rc.intersectObjects(boxes, false);
       if (hits.length && (!best || hits[0].distance < best.distance)) best = { distance: hits[0].distance, player: q, hitgroup: hits[0].object.userData.hitgroup, point: hits[0].point };
@@ -488,6 +504,12 @@ export class Game {
       const exit = left > 0 || (thin && hit.damage >= 20 && Math.random() < 0.5);
       this.damagePlayer(victim, attacker, hit.damage, hit.hitgroup, attacker.active?.id || 'world', hit.dir, hit.point, { exit });
     } else if (hit.point && hit.normal) {
+      // zombie survival: bodies on the floor take the bullet (and come apart)
+      if (this.zombies.enabled && hit.dir) {
+        const a = attacker.eyePos();
+        const ch = this.gore.corpseHit(a, hit.point, this.zombies.pool);
+        if (ch) { this.gore.hitCorpse(ch, hit.damage, hit.dir); return; }
+      }
       this.effects.impact(hit.point, hit.normal, hit.surface, hit.dir);
       if (hit.brushEnt) this.mapEnts.damage(hit.brushEnt, hit.damage, hit.point, hit.dir);
     }
@@ -534,17 +556,19 @@ export class Game {
   damagePlayer(victim, attacker, damage, hitgroup, weaponId, dir, point = null, opts = {}) {
     if (victim.isHostage) { this.hostages.damage(victim, attacker, damage, hitgroup, weaponId, dir, point, opts); return; }
     if (!victim.alive || damage <= 0) return;
+    if (victim.boss) { damage = this.bosses.adjust(victim, attacker, damage, hitgroup, weaponId, opts); if (damage <= 0) return; }
     const teammate = !!(attacker && attacker !== victim && attacker.team === victim.team);
     const res = CR.computeDamage({ health: victim.health, armor: victim.armor, helmet: victim.helmet, ducking: victim.pm.ducking, speed: Math.hypot(victim.pm.velocity[0], victim.pm.velocity[1]) },
       damage, hitgroup, { attackerWeapon: weaponId, teammate, self: attacker === victim, friendlyFire: this.rounds.friendlyFire, blast: opts.blast });
     if (res.refused) return;
     if (victim.god) return;
+    if (victim.boss) { res.knockback = 0; if (res.velocityModifier) res.velocityModifier = Math.max(res.velocityModifier, 0.9); } // too heavy to shove
     victim.health = res.health;
     victim.armor = res.armor;
     victim.helmet = res.helmet;
     victim.lastHurt = this.time;
     victim.lastAttacker = attacker;
-    victim.lastHit = { time: this.time, dir, point, damage, hitgroup: res.hitgroup ?? hitgroup, weaponId, blast: !!opts.blast, from: attacker && attacker !== victim ? attacker.pm.origin.slice() : null }; // ragdoll impulse
+    victim.lastHit = { time: this.time, dir, point, damage, hitgroup: res.hitgroup ?? hitgroup, weaponId, blast: !!opts.blast, explode: !!opts.explode, from: attacker && attacker !== victim ? attacker.pm.origin.slice() : null }; // ragdoll impulse
     if (res.velocityModifier) victim.pm.velocityModifier = Math.min(victim.pm.velocityModifier ?? 1, res.velocityModifier);
     if (res.knockback && dir) {
       victim.pm.velocity[0] += dir[0] * res.knockback;
@@ -566,7 +590,7 @@ export class Game {
       this.effects.blood(pos, bleedDir, dmg, { head, victim, blast: !!opts.blast, exit: !!opts.exit });
       if (!opts.blast) this.effects.wound(victim, pos, bleedDir, { head, exit: !!opts.exit, damage: dmg, knife: weaponId === 'knife' });
     }
-    if (opts.blast) { /* explosion sound covers it */ }
+    if (opts.blast) { if ((opts.fire || opts.acid) && victim.isLocal && Math.random() < 0.3) this.sound.play('pain', { volume: 0.5 }); }
     else if (head) this.sound.play(res.helmetHit ? 'hit_kevlar' : 'headshot', { pos, volume: 1 });
     else if (!res.bleed) this.sound.play('hit_kevlar', { pos, volume: 0.8 });
     else this.sound.play('hit_flesh', { pos, volume: 0.9 });
@@ -631,7 +655,13 @@ export class Game {
       victim.model.setWeapon?.(null);
       const kind = headshot ? 'headshot' : victim.pm.ducking ? 'crouch' : ['back', 'forward', 'left'][Math.floor(Math.random() * 3)];
       const hit = victim.lastHit && victim.lastHit.time === this.time ? victim.lastHit : null;
-      if (!this.ragdolls.spawn(victim.model, { origin: victim.pm.origin, velocity: victim.pm.velocity, hit, headshot, weaponId })) victim.model.playDeath(kind);
+      const gz = victim.isZombie && !victim.isBoss && this.zombies.enabled && this.gore.enabled;
+      if (gz && hit && (hit.explode || (hit.damage >= 150 && !headshot))) {
+        // blown apart
+        const d = hit.dir || [0, 0, 1];
+        this.gore.gibPlayer(victim, [d[0], d[1], Math.max(0.3, d[2] || 0)], Math.min(2.2, 0.7 + hit.damage / 150));
+      } else if (victim.noRagdoll || !this.ragdolls.spawn(victim.model, { origin: victim.pm.origin, velocity: victim.pm.velocity, hit, headshot, weaponId })) victim.model.playDeath(kind);
+      if (gz && headshot && hit && !hit.blast && hit.damage >= 70 && !victim.gibbed) this.gore.popHead(victim, hit.dir || [1, 0, 0]);
     }
     this.bulletCam.trigger(attacker, victim, weaponId, headshot);
     if (victim === this.viewTarget) {
@@ -724,6 +754,8 @@ export class Game {
     this.mapEnts.update(TICK);
     this.hostages.update(TICK);
     this.grenades.update(TICK);
+    this.projectiles.update(TICK);
+    this.fire.update(TICK);
     this.updateDropped(TICK);
     this.rounds.tick(TICK);
   }
@@ -734,7 +766,7 @@ export class Game {
     this.recoverVelocityModifier(p);
     const w = p.active;
     const zoomed = p.fov < 90;
-    pm.maxspeed = p.isZombie ? p.zSpeed : w ? WS.weaponMaxSpeed(w, zoomed) : 250;
+    pm.maxspeed = p.isZombie ? (p.speedNow ?? p.zSpeed) : w ? WS.weaponMaxSpeed(w, zoomed) : 250;
     p.prevOrigin = pm.origin.slice();
     this.mover.ignore = p.box;
     p.box.active = false; // don't collide with own box
@@ -755,7 +787,10 @@ export class Game {
       WS.weaponFrame(w, ctx, wb, p.prevWButtons || 0);
       if (w.spent) {
         w.spent = false;
-        if (w.def.slot === 4) w.count = Math.max(0, (w.count || 1) - 1);
+        if (w.def.slot === 4) {
+          w.count = Math.max(0, (w.count || 1) - 1);
+          if (w.id === 'molotov' && w.count > 0) w.ammo = w.count; // keep the next bottle in hand
+        }
         if (w.id === 'c4') this.retireWeapon(p, w);
       }
     }
@@ -815,7 +850,11 @@ export class Game {
     const dur = opts.duration ?? this.vm?.duration?.(name) ?? 1;
     const at = (frac, snd, vol = 0.8) => (p.soundQueue || (p.soundQueue = [])).push({ t: this.time + dur * frac, name: snd, vol, weapon: w });
     const kind = w.def.kind;
-    if (name === 'reload') {
+    if (name === 'reload' && (kind === 'flame' || kind === 'launcher')) {
+      if (w.id === 'flamethrower') { at(0.12, 'clipout'); at(0.5, 'fuel_in'); at(0.8, 'boltpull'); }
+      else if (w.id === 'rpg') { at(0.35, 'rocket_load'); at(0.75, 'clipin'); }
+      else { at(0.15, 'clipout'); at(0.45, 'shotgun_insert'); at(0.6, 'shotgun_insert'); at(0.85, 'boltpull'); }
+    } else if (name === 'reload') {
       if (kind === 'pistol') { at(0.15, 'pistol_clipout'); at(0.55, 'pistol_clipin'); at(0.85, 'sliderelease'); }
       else if (kind === 'sniper') { at(0.15, 'clipout'); at(0.5, 'clipin'); at(0.8, w.id === 'awp' || w.id === 'scout' ? 'awp_bolt' : 'boltpull'); }
       else if (kind === 'mg') { at(0.15, 'clipout'); at(0.45, 'clipin'); at(0.8, 'boltpull'); }
@@ -885,8 +924,14 @@ export class Game {
     }
     const alpha = this.acc / TICK;
     this.ragdolls.update(this.paused ? 0 : dt);
+    if (this.zombies.enabled && !this.paused) {
+      this.gore.update(dt);
+      this.gore.bakeSettled(this.zombies.pool);
+      if (this.bosses.boss) this.gore.bakeSettled([this.bosses.boss]);
+    }
     this.updateModels(dt, alpha);
     this.effects.update(this.paused ? 0 : dt);
+    this.fire.render(this.paused ? 0 : dt);
     this.updateCamera(cine ? realDt : dt, alpha);
     this.updateSoundListener();
   }
@@ -898,8 +943,9 @@ export class Game {
       const m = p.model;
       if (p.rescued) { m.object3D.visible = false; continue; }
       const show = p.team !== TEAM_SPEC && (p.alive || p.deathTime) && !(p === this.viewTarget && p.alive && this.camMode !== 'third');
-      m.object3D.visible = !!show && (p.alive || this.time - p.deathTime < 30);
+      m.object3D.visible = !!show && (p.alive || ((this.time - p.deathTime < 30 || p.isZombie) && !p.baked && !p.gibbed));
       if (!p.alive && !p.deathTime) continue;
+      if (!m.object3D.visible) continue;
       const o = p.pm.origin;
       const po = p.prevOrigin;
       const x = po[0] + (o[0] - po[0]) * alpha, y = po[1] + (o[1] - po[1]) * alpha, z = po[2] + (o[2] - po[2]) * alpha;
@@ -920,6 +966,10 @@ export class Game {
       const rd = m.ragdoll && !m.ragdoll.removed ? m.ragdoll.particle(13, this._rdPos || (this._rdPos = [0, 0, 0])) : null;
       const l = this.W.sampler.sample(rd ? [rd[0], rd[1], rd[2] + 8] : [x, y, fz + 8], this.lightOut).map(lightCurve);
       const amb = [l[0] * 0.55 + 0.1, l[1] * 0.55 + 0.1, l[2] * 0.55 + 0.1];
+      if (this.fire.patches.length || this.fire.burning.size || this.fire.streamers.size) {
+        const fl = this.fire.lightAt([x, y, fz + 30], this._fl || (this._fl = [0, 0, 0]));
+        amb[0] += fl[0] * 0.8; amb[1] += fl[1] * 0.8; amb[2] += fl[2] * 0.8;
+      }
       const shade = [l[0] * 0.5, l[1] * 0.5, l[2] * 0.5];
       m.setLight(amb, shade, this.W.lighting.sunDir);
     }
@@ -970,16 +1020,26 @@ export class Game {
       const bob = this.paused ? this.bob.value : this.calcBob(p, dt);
       const eye = [x, y, this.oldz + p.pm.viewOfs + bob];
       const pu = p.pm.punch;
-      r.setView(eye, p.pm.angles[0] + pu[0], p.pm.angles[1] + pu[1], pu[2]);
+      const sh = this.shakeOffset(dt);
+      r.setView(eye, p.pm.angles[0] + pu[0] + sh[0], p.pm.angles[1] + pu[1] + sh[1], pu[2] + sh[2]);
       this.camPos = eye;
       // view model
       if (this.vm) {
+        // zombie survival view models: the RPG's warhead, the flamethrower's jet
+        const aw = p.active;
+        this.vm.state.empty = !!(aw && aw.def.clip > 0 && aw.clip === 0);
+        this.vm.state.flaming = !!(aw && aw.flaming > this.time - 0.08);
         const showVm = p.fov >= 90 || !(p.active && /awp|scout|g3sg1|sg550/.test(p.active.id));
         this.vm.object3D.visible = showVm;
         this.vm.update(this.paused ? 0 : dt, { bobX: 0, bobY: bob * 0.4, swayYaw: -bob * 0.5, swayPitch: -bob * 0.3 });
         // GoldSrc runs model light through the lightgamma table, which lifts shadowed
         // view models well above the raw light value
-        this.vm.setLight(this.W.sampler.sample([x, y, z], [1, 1, 1]).map((c) => Math.min(1.3, Math.max(0.35, Math.pow(lightCurve(c), 0.8)))));
+        const vl = this.W.sampler.sample([x, y, z], [1, 1, 1]).map((c) => Math.min(1.3, Math.max(0.35, Math.pow(lightCurve(c), 0.8))));
+        if (this.fire.patches.length || this.fire.streamers.size || this.fire.burning.size) {
+          const fl = this.fire.lightAt([x, y, z], this._fl || (this._fl = [0, 0, 0]));
+          for (let k = 0; k < 3; k++) vl[k] = Math.min(1.6, vl[k] + fl[k] * 0.7);
+        }
+        this.vm.setLight(vl);
       }
       this.drawVm = true;
     } else {
@@ -1042,6 +1102,79 @@ export class Game {
 
   // in bomb/buy zone tests
   // trigger touch: the player's box overlaps the zone brush (like SV_LinkEdict touching a trigger)
+  // ------------------------------------------------------------------ zombie survival weapons
+  /** RPG / M32: the projectile leaves the muzzle along the aim. */
+  launchFrom(p, type) {
+    const a = p.pm.angles, pu = p.pm.punch;
+    angleVectors(a[0] + pu[0] - (type === 'grenade40' ? 2.5 : 0), a[1] + pu[1], _f, _r, _u);
+    const e = p.eyePos();
+    const src = [e[0] + _f[0] * 18 + _r[0] * 5 - _u[0] * 5, e[1] + _f[1] * 18 + _r[1] * 5 - _u[1] * 5, e[2] + _f[2] * 18 + _r[2] * 5 - _u[2] * 5];
+    // don't start inside a wall
+    this.collision.trace(e, src, [0, 0, 0], [0, 0, 0], MASK_SHOT, tmpTr);
+    if (tmpTr.fraction < 1) { src[0] = e[0] + (src[0] - e[0]) * tmpTr.fraction * 0.8; src[1] = e[1] + (src[1] - e[1]) * tmpTr.fraction * 0.8; src[2] = e[2] + (src[2] - e[2]) * tmpTr.fraction * 0.8; }
+    const sp = type === 'rocket' ? 1150 : 1250;
+    this.projectiles.launch(type, p, src, [_f[0] * sp, _f[1] * sp, _f[2] * sp]);
+    if (type === 'rocket') {
+      // back blast
+      for (let i = 0; i < 10; i++) this.fire.emit('smoke', [e[0] - _f[0] * 30, e[1] - _f[1] * 30, e[2] - 4], [-_f[0] * 200 + (Math.random() - 0.5) * 120, -_f[1] * 200 + (Math.random() - 0.5) * 120, (Math.random() - 0.3) * 80], { life: 1.2, size: 14, size1: 50, drag: 2 });
+    }
+    p.lastShot = this.time;
+    this.bots.onNoise(p, e, 2500);
+  }
+
+  /**
+   * An explosion: fireball, sound, radius damage with knockback (rocket jumps work) that
+   * walls block, corpses torn apart. o: { owner, damage, radius, weapon, selfScale, push,
+   * sound, scale, shake, fire, noGore }
+   */
+  explode(pos, o = {}) {
+    const owner = o.owner || null, R = o.radius ?? 250, D = o.damage ?? 150, weapon = o.weapon || 'hegrenade';
+    this.effects.explosion([pos[0], pos[1], pos[2]], o.scale ?? R / 260);
+    this.sound.play(o.sound || 'he_explode', { pos, volume: 1 });
+    for (let i = 0; i < 14; i++) this.fire.emit(i < 6 ? 'fire' : 'spark', pos, [(Math.random() - 0.5) * 700, (Math.random() - 0.5) * 700, Math.random() * 500], i < 6 ? { life: 0.45, size: 40, size1: 90, drag: 4, buoy: 120 } : { life: 0.6, size: 2.5, size1: 1, drag: 1, buoy: -600 });
+    for (const q of this.players) {
+      if (!q.alive) continue;
+      const sc = q.boss ? q.boss.scale : 1;
+      const c = [q.pm.origin[0], q.pm.origin[1], q.pm.origin[2] + 10 * sc];
+      const d = Math.hypot(c[0] - pos[0], c[1] - pos[1], c[2] - pos[2]);
+      const reach = R + (sc - 1) * 30;
+      if (d > reach) continue;
+      if (!this.visible(pos, c) && !this.visible(pos, [c[0], c[1], c[2] + 30])) continue;
+      let dmg = D * (1 - d / reach);
+      if (dmg < 1) continue;
+      if (q === owner) dmg *= o.selfScale ?? 0.5;
+      else if (owner && q.team === owner.team && !this.rounds.friendlyFire) continue;
+      const l = d || 1;
+      const dir = [(c[0] - pos[0]) / l, (c[1] - pos[1]) / l, Math.max(0.25, (c[2] - pos[2]) / l)];
+      const kb = Math.min(720, dmg * 5 * (o.push ?? 1)) * (q.boss ? 0.12 : 1);
+      q.pm.velocity[0] += dir[0] * kb; q.pm.velocity[1] += dir[1] * kb; q.pm.velocity[2] += dir[2] * kb + kb * 0.35;
+      this.damagePlayer(q, owner, dmg, 0, weapon, dir, null, { blast: true, explode: !o.noGore, fire: !!o.fire });
+    }
+    if (!o.noGore && this.zombies.enabled) this.gore.blast(pos, R * 0.9, D, this.zombies.pool);
+    this.shakeAt(pos, o.shake ?? 8);
+    this.bots.onNoise(owner, pos, 2500);
+  }
+
+  /** Shake the view of the local player by distance to pos. */
+  shakeAt(pos, amp, range = 1400) {
+    const e = this.camPos || this.local?.eyePos();
+    if (!e) return;
+    const k = Math.max(0, 1 - Math.hypot(pos[0] - e[0], pos[1] - e[1], pos[2] - e[2]) / range);
+    if (k <= 0.02) return;
+    const s = this.shake;
+    const a = amp * k;
+    if (!s || this.time > s.until || a > s.amp) this.shake = { until: this.time + 0.35 + 0.6 * k, amp: a, start: this.time };
+  }
+
+  shakeOffset() {
+    const s = this.shake, o = this._shk || (this._shk = [0, 0, 0]);
+    if (!s || this.time > s.until) { o[0] = o[1] = o[2] = 0; return o; }
+    const k = (s.until - this.time) / Math.max(0.1, s.until - (s.start ?? this.time));
+    const a = s.amp * Math.min(1, k) * 0.35;
+    o[0] = (Math.random() - 0.5) * a; o[1] = (Math.random() - 0.5) * a; o[2] = (Math.random() - 0.5) * a * 0.6;
+    return o;
+  }
+
   inZone(p, zone) {
     const o = p.pm.origin, h = p.hull();
     return o[0] + h.maxs[0] > zone.mins[0] && o[0] + h.mins[0] < zone.maxs[0] && o[1] + h.maxs[1] > zone.mins[1] && o[1] + h.mins[1] < zone.maxs[1] &&

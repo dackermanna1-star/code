@@ -93,7 +93,7 @@ export class PlayerMover {
     let fmove = cmd.forwardmove, smove = cmd.sidemove, umove = cmd.upmove || 0;
     if (pm.frozen || pm.dead) { fmove = smove = umove = 0; }
     // PM_CheckParamters: clamp to maxspeed
-    let maxspeed = Math.min(pm.maxspeed, mv.maxspeed) * (pm.velocityModifier ?? 1);
+    let maxspeed = Math.min(pm.maxspeed, pm.speedCap ?? mv.maxspeed) * (pm.velocityModifier ?? 1);
     if (pm.frozen) maxspeed = 0.001;
     const spd = Math.sqrt(fmove * fmove + smove * smove + umove * umove);
     if (spd !== 0 && spd > maxspeed) {

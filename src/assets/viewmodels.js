@@ -34,10 +34,11 @@ import { SMGS } from './vm/w_smgs.js';
 import { PISTOLS } from './vm/w_pistols.js';
 import { HEAVY } from './vm/w_heavy.js';
 import { MISC } from './vm/w_misc.js';
+import { ZOMBIE_WEAPONS } from './vm/w_zombie.js';
 
-export const VIEWMODEL_WEAPONS = ['knife', 'glock', 'usp', 'p228', 'deagle', 'elite', 'fiveseven', 'm3', 'xm1014', 'mac10', 'tmp', 'mp5', 'ump45', 'p90', 'galil', 'famas', 'ak47', 'm4a1', 'sg552', 'aug', 'scout', 'awp', 'g3sg1', 'sg550', 'm249', 'hegrenade', 'flashbang', 'smokegrenade', 'c4'];
+export const VIEWMODEL_WEAPONS = ['knife', 'glock', 'usp', 'p228', 'deagle', 'elite', 'fiveseven', 'm3', 'xm1014', 'mac10', 'tmp', 'mp5', 'ump45', 'p90', 'galil', 'famas', 'ak47', 'm4a1', 'sg552', 'aug', 'scout', 'awp', 'g3sg1', 'sg550', 'm249', 'hegrenade', 'flashbang', 'smokegrenade', 'c4', 'molotov', 'flamethrower', 'rpg', 'm32'];
 
-const BUILDERS = { ...RIFLES, ...SNIPERS, ...SMGS, ...PISTOLS, ...HEAVY, ...MISC };
+const BUILDERS = { ...RIFLES, ...SNIPERS, ...SMGS, ...PISTOLS, ...HEAVY, ...MISC, ...ZOMBIE_WEAPONS };
 
 const _v = new THREE.Vector3();
 const _w = new THREE.Vector3();

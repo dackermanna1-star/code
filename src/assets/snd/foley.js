@@ -5,6 +5,7 @@ import {
   glottal, white, pink, envBell,
 } from './dsp.js';
 import { foley } from './weapons.js';
+export { foley };
 
 // ------------------------------------------------------------ explosions ---
 
@@ -44,7 +45,7 @@ export function explosion(P, e) {
 
 // ------------------------------------------------------------- voice ---
 
-const V = {
+export const V = {
   a: [730, 1090, 2440, 3400],
   uh: [640, 1190, 2390, 3400],
   er: [490, 1350, 1690, 3300],
@@ -57,7 +58,7 @@ const V = {
  * Abstract formant "grunt": glottal pulse train + breath through four
  * time-varying formant bandpasses. Mixed into `out` at t0, peak-normalised to amp.
  */
-function addGrunt(out, sr, rng, t0, amp, { dur, f0, env, vowels, breath = 0.15, grit = 1.5 }) {
+export function addGrunt(out, sr, rng, t0, amp, { dur, f0, env, vowels, breath = 0.15, grit = 1.5 }) {
   const n = Math.ceil(dur * sr);
   const f0Fn = pwl(f0);
   const aFn = pwl(env);

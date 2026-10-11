@@ -463,6 +463,69 @@ function c4Brick(b, L = 10, W = 6, H = 2.6, y0 = 0) {
 }
 def('c4', 'c4', { leftHand: [0, 10.4, 0] }, (b) => c4Brick(b, 10, 6, 2.6, 0.4));
 
+// --- zombie survival
+def('molotov', 'grenade', {}, (b) => {
+  b.cyl('z', -2.6, 1.2, 0, 0, 1.25, C.green, 8); // bottle
+  b.cyl('z', 1.2, 2.0, 0, 0, 0.85, C.green, 8, false);
+  b.cyl('z', 2.0, 3.6, 0, 0, 0.42, C.green, 6); // neck
+  b.cyl('z', 3.4, 5.4, 0.25, 0, 0.55, C.tan, 5); // rag
+  b.box(-1.0, 1.0, -1.6, 0.4, 2.62, C.tan); // label
+});
+def('flamethrower', 'rifle', { leftHand: [12.5, 0, 0.6], muzzle: [27.5, 0, 1.8], mag: [6, 0, -3] }, (b) => {
+  b.box(-3.0, 9.0, 0.3, 3.4, 2.0, C.dark); // body
+  b.cyl('x', 9.0, 25.0, 0, 1.8, 0.65, C.steel, 6); // wand
+  b.cyl('x', 24.0, 27.5, 0, 1.8, 0.95, C.black, 6); // nozzle
+  b.cyl('x', 25.0, 26.0, 0, 0.4, 0.35, C.brass, 5); // igniter
+  b.cyl('x', 1.0, 11.5, 0, -2.2, 2.0, C.red, 8); // fuel tank under the body
+  b.cyl('x', 0.4, 1.0, 0, -2.2, 1.6, C.dark, 8);
+  b.cyl('x', 11.5, 12.1, 0, -2.2, 1.6, C.dark, 8);
+  b.slant([12.0, 13.2], 1.0, [11.6, 12.8], -3.0, 1.0, C.black); // front grip
+  pistolGrip(b);
+  triggerGuard(b);
+  b.taper(-3.0, [0.4, 3.2, 1.6], -12.5, [-1.6, 3.0, 1.6], C.dark);
+});
+def('rpg', 'rifle', { leftHand: [9.5, 0, 0.4], muzzle: [36, 0, 2.6], mag: [31, 0, 2.6] }, (b) => {
+  b.cyl('x', -16, 26, 0, 2.6, 1.25, C.darkolive, 8); // tube
+  b.cyl('x', -19, -16, 0, 2.6, 1.8, C.darkolive, 8); // rear flare
+  b.cyl('x', 1.5, 10.5, 0, 2.6, 1.6, C.wood, 8); // wooden heat guard
+  pistolGrip(b);
+  triggerGuard(b);
+  b.slant([9.0, 10.2], 1.4, [8.6, 9.8], -2.8, 1.0, C.black); // front grip
+  b.box(3.5, 6.5, 3.9, 5.4, 0.8, C.black); // sight
+  // warhead in the muzzle
+  b.cyl('x', 26, 29, 0, 2.6, 0.95, C.olive, 6);
+  b.cyl('x', 29, 31.5, 0, 2.6, 2.1, C.olive, 8);
+  b.cyl('x', 31.5, 33.5, 0, 2.6, 1.7, C.olive, 8);
+  b.cyl('x', 33.5, 35.2, 0, 2.6, 1.1, C.olive, 8);
+  b.cyl('x', 35.2, 36.2, 0, 2.6, 0.45, C.olive, 6);
+});
+def('m32', 'rifle', { leftHand: [9.0, 0, 0.2], muzzle: [17, 0, 2.0], mag: [3.5, 0, 0.8] }, (b) => {
+  b.cyl('x', 0.5, 6.5, 0, 0.9, 2.5, C.black, 8); // revolving drum
+  for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; b.cyl('x', 6.4, 6.6, Math.cos(a) * 1.5, 0.9 + Math.sin(a) * 1.5, 0.55, C.brass, 5); }
+  b.cyl('x', 6.5, 17, 0, 2.0, 1.05, C.dark, 8); // barrel
+  b.box(-1.0, 7.0, 3.3, 4.0, 1.2, C.dark); // top strap
+  b.box(7.0, 15.0, 0.2, 0.9, 1.6, C.black); // rail
+  b.slant([9.0, 10.2], 0.3, [8.6, 9.8], -3.2, 1.0, C.black); // foregrip
+  pistolGrip(b);
+  triggerGuard(b);
+  b.taper(-1.5, [0.2, 2.8, 1.4], -12.0, [-1.4, 2.6, 1.4], C.black);
+  b.box(2.0, 5.0, 4.0, 5.0, 0.7, C.black);
+});
+// projectiles (nose along +X)
+def('rpg_rocket', 'none', {}, (b) => {
+  b.cyl('x', -9, 0, 0, 0, 0.9, C.olive, 6); // motor
+  for (const a of [0, 1, 2, 3]) { const s = Math.sin(a * Math.PI / 2), c = Math.cos(a * Math.PI / 2); b.box(-9, -6, c * 1.6 - 0.1, c * 1.6 + 0.1, 0.2 + Math.abs(s) * 3, C.dark); }
+  b.cyl('x', 0, 2.5, 0, 0, 2.1, C.olive, 8);
+  b.cyl('x', 2.5, 4.5, 0, 0, 1.7, C.olive, 8);
+  b.cyl('x', 4.5, 6.2, 0, 0, 1.1, C.olive, 8);
+  b.cyl('x', 6.2, 7.2, 0, 0, 0.45, C.olive, 6);
+});
+def('grenade40', 'none', {}, (b) => {
+  b.cyl('x', -2.2, -1.0, 0, 0, 1.05, C.brass, 8);
+  b.cyl('x', -1.0, 1.2, 0, 0, 1.0, C.olive, 8);
+  b.cyl('x', 1.2, 1.9, 0, 0, 0.65, C.olive, 8);
+});
+
 export const WORLD_WEAPON_IDS = Object.keys(DEFS);
 
 const HOLD_BY_ID = Object.fromEntries(Object.values(DEFS).map((d) => [d.id, d.hold]));
