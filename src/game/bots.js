@@ -40,12 +40,13 @@ export const BOT_NAMES = [
 // head: chance to go for the head; spray: burst discipline 0..1; recoil: share
 // of the recoil (punch) compensated; stop: chance to counter-strafe before
 // shooting; nades: grenade usage 0..1; hearing: hearing range multiplier; lag:
-// tracking lag on moving targets (s); scope: AWP scope-in settle time (s).
+// tracking lag on moving targets (s); scope: AWP scope-in settle time (s);
+// dodge: chance to turn away from an enemy flashbang seen about to pop.
 export const DIFFICULTY = {
-  easy: { reaction: 0.65, err: 5.5, turn: 260, head: 0.08, spray: 0.4, name: 'Easy', settle: 0.5, recoil: 0.2, stop: 0.15, nades: 0.15, hearing: 0.7, lag: 0.16, scope: 0.45, aggression: 0.3 },
-  normal: { reaction: 0.42, err: 3.2, turn: 420, head: 0.2, spray: 0.6, name: 'Normal', settle: 0.38, recoil: 0.5, stop: 0.55, nades: 0.4, hearing: 0.85, lag: 0.11, scope: 0.3, aggression: 0.45 },
-  hard: { reaction: 0.27, err: 2.0, turn: 620, head: 0.35, spray: 0.75, name: 'Hard', settle: 0.28, recoil: 0.78, stop: 0.85, nades: 0.65, hearing: 1, lag: 0.07, scope: 0.2, aggression: 0.55 },
-  expert: { reaction: 0.17, err: 1.1, turn: 900, head: 0.5, spray: 0.9, name: 'Expert', settle: 0.2, recoil: 0.92, stop: 1, nades: 0.8, hearing: 1.1, lag: 0.045, scope: 0.14, aggression: 0.6 },
+  easy: { reaction: 0.65, err: 5.5, turn: 260, head: 0.08, spray: 0.4, name: 'Easy', settle: 0.5, recoil: 0.35, stop: 0.15, nades: 0.15, hearing: 0.7, lag: 0.16, scope: 0.45, aggression: 0.3, dodge: 0.15 },
+  normal: { reaction: 0.42, err: 3.2, turn: 420, head: 0.2, spray: 0.6, name: 'Normal', settle: 0.38, recoil: 0.7, stop: 0.55, nades: 0.4, hearing: 0.85, lag: 0.11, scope: 0.3, aggression: 0.45, dodge: 0.35 },
+  hard: { reaction: 0.27, err: 2.0, turn: 620, head: 0.35, spray: 0.75, name: 'Hard', settle: 0.28, recoil: 0.88, stop: 0.85, nades: 0.65, hearing: 1, lag: 0.07, scope: 0.2, aggression: 0.55, dodge: 0.55 },
+  expert: { reaction: 0.17, err: 1.1, turn: 900, head: 0.5, spray: 0.9, name: 'Expert', settle: 0.2, recoil: 0.96, stop: 1, nades: 0.8, hearing: 1.1, lag: 0.045, scope: 0.14, aggression: 0.6, dodge: 0.75 },
 };
 
 const EYE = 53; // eye height above the feet when standing (VEC_VIEW 17 above the hull centre)
@@ -158,10 +159,10 @@ export const MAPDATA = {
   // CT hold spots by role. w: watch points; awp: good AWP angle; agg: aggressive.
   holds: {
     longA: [
-      H('ramp top', [1424, 2736, 113], [[1440, 1700, 0], [1600, 2200, 25]], { awp: 1 }),
+      H('ramp top', [1424, 2736, 113], [[1440, 1700, 0], [1600, 2200, 25]], { awp: 1, long: 1 }),
       H('long corner', [1712, 2279, 48], [[1400, 1350, 0]], { agg: 1 }),
       H('A plat edge', [1168, 2320, 96], [[1420, 2050, 0], [1550, 2250, 20]]),
-      H('blue', [743, 1168, 0], [[646, 760, 0]], { agg: 1, awp: 1 }),
+      H('blue', [743, 1168, 0], [[646, 760, 0]], { agg: 1, awp: 1, long: 1 }),
     ],
     siteA: [
       H('goose', [1488, 2864, 128], [[1420, 2450, 40], [500, 2650, 96]]),
@@ -170,21 +171,22 @@ export const MAPDATA = {
       H('A crates', [1232, 2704, 96], [[1420, 2450, 40], [400, 2450, 96]]),
     ],
     mid: [
-      H('CT mid', [-400, 2000, -128], [[-390, 900, -40]], { awp: 1 }),
+      H('CT mid', [-400, 2000, -128], [[-390, 900, -40]], { awp: 1, long: 1 }),
       H('short top', [432, 1872, 96], [[320, 1650, 40], [100, 1500, 0]]),
+      H('short stairs', [368, 1648, 48], [[-150, 1420, 0], [100, 1500, 0]], { agg: 1 }),
       H('mid doors', [-400, 1776, -128], [[-390, 800, 0]], { agg: 1 }),
     ],
     B: [
-      H('B plat', [-1991, 2480, 32], [[-1976, 1830, 16], [-1700, 2150, 0]], { awp: 1 }),
+      H('B site', [-1650, 2460, 0], [[-1976, 1830, 16], [-1700, 2150, 0]], { awp: 1 }),
       H('B doors', [-1440, 2260, 0], [[-1976, 1850, 16], [-1700, 2050, 0]]),
-      H('B back', [-1456, 2736, 0], [[-1976, 1900, 0], [-1700, 2200, 0]]),
+      H('B back', [-1640, 2780, 0], [[-1700, 2150, 0], [-1850, 2080, 0]]),
       H('B crates', [-1456, 2544, 0], [[-1976, 1840, 16], [-1700, 2150, 0]], { duck: 1 }),
       H('B tunnel', [-1808, 1968, 0], [[-1976, 1820, 16]], { agg: 1 }),
     ],
   },
   rotate: {
     A: ['A crates', 'A plat edge', 'goose', 'short hold', 'ramp top'],
-    B: ['B back', 'B doors', 'B crates', 'B plat'],
+    B: ['B back', 'B doors', 'B crates', 'B site'],
   },
   postPlant: {
     A: [
@@ -221,6 +223,11 @@ export const MAPDATA = {
   retake: {
     A: { gather: [480, 2250, -128] },
     B: { gather: [-1000, 2170, -50] },
+  },
+  // where a site's CTs fall back to when the site is overrun
+  fallback: {
+    A: [[700, 2230, -80], [480, 2250, -128]],
+    B: [[-1050, 2180, -40], [-1180, 2120, 0]],
   },
   ctSpawn: [250, 2250, -128],
   // where Terrorists show up (CTs pre-aim these)
@@ -289,7 +296,6 @@ const isBolt = (w) => !!w && (w.id === 'awp' || w.id === 'scout');
 const isGun = (w) => !!w && w.def.clip > 0;
 const hasAmmo = (w) => isGun(w) && (w.clip > 0 || w.ammo > 0);
 const teamKey = (t) => (t === TEAM_T ? 'T' : 'CT');
-const nadeCount = (p, id) => p.weapons[4].filter((g) => g.id === id).reduce((s, g) => s + (g.count ?? 1), 0);
 
 // ---------------------------------------------------------------------------
 // Map knowledge prepared against the navigation graph.
@@ -318,6 +324,7 @@ class Knowledge {
     this.fake = { A: { ...D.fake.A, pos: S(D.fake.A.p) }, B: { ...D.fake.B, pos: S(D.fake.B.p) } };
     this.control = D.control.map(HS);
     this.retake = { A: { gather: S(D.retake.A.gather) }, B: { gather: S(D.retake.B.gather) } };
+    this.fallback = { A: D.fallback.A.map(S), B: D.fallback.B.map(S) };
     this.ctSpawn = S(D.ctSpawn);
     const ctSpots = [];
     for (const list of Object.values(this.holds)) for (const h of list) ctSpots.push(eyeAt(h.pos));
@@ -332,18 +339,25 @@ class Knowledge {
     return n ? [n.x, n.y, n.z] : pt.slice();
   }
 
-  // Up to k standable spots around a point, at least 56 units apart.
-  slots(pt, k = 6) {
-    const key = `${pt[0] | 0},${pt[1] | 0},${pt[2] | 0}`;
+  // Up to k standable spots around a point, at least 56 units apart; with
+  // `hidden`, only spots none of those eye positions can see (T gathers).
+  slots(pt, k = 6, hidden = null) {
+    const key = `${pt[0] | 0},${pt[1] | 0},${pt[2] | 0}${hidden ? 'h' : ''}`;
     let s = this.slotCache.get(key);
     if (s) return s;
     s = [pt.slice()];
+    const g = this.g;
+    const seen = (q) => {
+      if (!hidden) return false;
+      const e = eyeAt(q);
+      return hidden.some((h) => dist3(h, e) < 2800 && g.visible(h, e));
+    };
     const start = this.nav.nearestXY(pt, 100, 60);
-    for (const { node } of this.nav.around(start, 200, 300)) {
+    for (const { node } of this.nav.around(start, 260, 400)) {
       if (s.length >= k) break;
       const q = [node.x, node.y, node.z];
       if (node.edges.length < 6) continue; // not hugging walls / ledges
-      if (s.every((o) => dist2(o, q) >= 56)) s.push(q);
+      if (s.every((o) => dist2(o, q) >= 56) && !seen(q)) s.push(q);
     }
     this.slotCache.set(key, s);
     return s;
@@ -476,7 +490,7 @@ export class BotManager {
     if (!force && this.time < this.radioClock[k]) return false;
     if (!force && this.time < bot.radioCooldown) return false;
     this.radioClock[k] = this.time + gap;
-    bot.radioCooldown = this.time + 6 + Math.random() * 6;
+    bot.radioCooldown = this.time + 8 + Math.random() * 8;
     this.stats.radio++;
     this.game.rounds.radio(bot.p, text);
     this.onRadio(bot.p, text, true);
@@ -553,7 +567,7 @@ export class BotManager {
     if (victim.team === TEAM_CT || victim.team === TEAM_T) {
       this.intel(victim.team, attacker, victim.pm.origin, 'death');
       const killer = attacker?.bot;
-      if (killer && attacker.team !== victim.team && Math.random() < 0.3) this.radio(killer, RADIO.down, { gap: 4 });
+      if (killer && attacker.team !== victim.team && Math.random() < 0.2) this.radio(killer, RADIO.down, { gap: 4 });
       if (victim.team === TEAM_CT && this.T) {
         const z = zoneOf(victim.pm.origin);
         if (z && (z[1] === 'A' || z[1] === 'B')) this.T.picks[z[1]] = (this.T.picks[z[1]] || 0) + 1;
@@ -665,6 +679,7 @@ export class BotManager {
         .sort((x, y) => y.p.money - x.p.money)[0];
       if (!rich || Math.random() < 0.25) continue;
       const own = rich.p.weapons[1];
+      if (isSniper(own)) continue;
       // throw the current primary to the teammate and buy another one
       const from = rich.p.eyePos();
       from[2] -= 12;
@@ -672,7 +687,7 @@ export class BotManager {
       const t = 0.6;
       const vel = [(to[0] - from[0]) / t, (to[1] - from[1]) / t, (to[2] + 8 - from[2] + 0.5 * 800 * t * t) / t];
       g.dropWeapon(rich.p, own, false, vel);
-      if (!R.buy(rich.p, own.id === 'awp' ? 'awp' : rifle)) R.buy(rich.p, rifle);
+      R.buy(rich.p, rifle);
       for (let i = 0; i < 3; i++) R.buy(rich.p, 'primammo');
       this.stats.drops = (this.stats.drops || 0) + 1;
       this.radio(rich, 'Here, take this.', { gap: 1 });
@@ -695,7 +710,7 @@ export class BotManager {
     T.size = ts.length;
     if (!ts.length) return;
     const eco = this.econ.T === 'eco';
-    let plans = T_PLANS.filter((p) => p !== this.lastPlan);
+    const plans = T_PLANS.filter((p) => p !== this.lastPlan);
     const plan = weightedPick(plans, (p) => p.weight * (eco && p.rush ? 2.5 : 1) * (ts.length <= 2 && !p.rush && !p.default ? 0.5 : 1));
     this.lastPlan = plan;
     T.plan = plan;
@@ -704,17 +719,17 @@ export class BotManager {
       T.site = null;
       T.defaultCall = this.liveAt + rand(18, 32);
       const spots = shuffle(K.control.slice());
-      // two in the tunnels, the rest spread out
+      // spread over the map-control spots (long doors, catwalk, top mid, tunnels)
       ts.forEach((b, i) => { b.tTask = { kind: 'control', spot: spots[i % spots.length] }; });
       return;
     }
     T.site = plan.site;
     T.executeAt = this.liveAt + (plan.rush ? 22 : rand(40, 60));
     T.patience = plan.rush ? 0 : rand(1, 12);
-    this.assignGroups(plan.groups, ts, plan);
+    this.assignGroups(plan.groups, ts);
   }
 
-  assignGroups(specs, ts, plan) {
+  assignGroups(specs, ts) {
     const K = this.K(), T = this.T;
     const carrier = ts.find((b) => b.p.weapons[5]);
     let pool = shuffle(ts.slice());
@@ -840,7 +855,7 @@ export class BotManager {
   // ------------------------------------------------------------------ CT team
   newCTState() {
     const mk = () => ({ seen: new Map(), deaths: [], guns: [], calls: [], carrier: -99, last: -99 });
-    return { roles: [], intel: { A: mk(), B: mk(), mid: mk() }, rotateTo: null, rotateAt: -99, retake: null, used: new Set() };
+    return { roles: [], intel: { A: mk(), B: mk(), mid: mk() }, rotateTo: null, rotateAt: -99, retake: null, used: new Set(), regroup: null, fellBack: {} };
   }
 
   planCT() {
@@ -873,7 +888,8 @@ export class BotManager {
     const all = list || K.holds[role] || K.holds.mid;
     let cand = all.filter((h) => !C.used.has(h.n));
     if (!cand.length) cand = all;
-    const h = weightedPick(cand, (h) => (awp ? (h.awp ? 4 : 0.3) : 1) * (h.agg ? 0.35 : 1));
+    // AWPers take the long angles; riflemen mostly hold closer ones
+    const h = weightedPick(cand, (h) => (awp ? (h.awp ? 4 : 0.3) : h.long ? 0.3 : 1) * (h.agg ? 0.35 : 1));
     C.used.add(h.n);
     return h;
   }
@@ -884,6 +900,7 @@ export class BotManager {
     C.rotateTo = site;
     C.rotateAt = this.time;
     const cts = this.alive(TEAM_CT);
+    const holder = cts.find((b) => ROLE_SITE[b.ctRole] === site);
     const others = cts.filter((b) => ROLE_SITE[b.ctRole] !== site);
     // keep one anchor on the other site when it has two players
     const away = others.filter((b) => ROLE_SITE[b.ctRole] !== 'mid');
@@ -898,7 +915,8 @@ export class BotManager {
       b.inPosition = false;
       caller = caller || b;
     }
-    const holder = cts.find((b) => ROLE_SITE[b.ctRole] === site);
+    // when the site is being given up, rotators meet outside it and go in together
+    C.regroup = reason === 'fallback' ? { site, pos: K.retake[site].gather, start: this.time, go: false } : null;
     if (holder && reason !== 'call') this.radio(holder, Math.random() < 0.5 ? RADIO.backup : RADIO.spotted, { force: true });
     else if (caller) this.radio(caller, RADIO.affirm);
   }
@@ -916,10 +934,32 @@ export class BotManager {
       if (now - I.carrier < 8) s += 2;
       s += I.deaths.filter((t) => now - t < 10).length * 1.5;
       s += Math.min(2.5, I.guns.filter((t) => now - t < 4).length * 0.35);
-      s += I.calls.filter((t) => now - t < 6).length * 1.5;
+      s += I.calls.filter((t) => now - t < 6).length * 2.5;
       if (s > bestScore) { bestScore = s; best = site; }
     }
     if (best && bestScore >= 2.4 && C.rotateTo !== best && now - C.rotateAt > 6) this.ctRotate(best, 'intel');
+    // a lone anchor sometimes falls back (to retake with the rotators) when he
+    // sees four or more Terrorists coming
+    for (const site of ['A', 'B']) {
+      if (C.fellBack[site]) continue;
+      let n = 0;
+      for (const t of C.intel[site].seen.values()) if (now - t < 8) n++;
+      if (n < 4) continue;
+      const mine = this.alive(TEAM_CT).filter((b) => ROLE_SITE[b.ctRole] === site && !b.rotating);
+      C.fellBack[site] = now;
+      if (mine.length !== 1 || Math.random() < 0.5) continue;
+      const K = this.K();
+      mine.forEach((b, i) => { b.ctFallback = { pos: K.fallback[site][i % K.fallback[site].length], until: now + 25 }; b.inPosition = false; });
+      this.radio(mine[0], RADIO.fallback, { force: true });
+      if (C.rotateTo !== site) this.ctRotate(site, 'fallback');
+    }
+    // regrouped rotators go in together
+    const rg = C.regroup;
+    if (rg && !rg.go) {
+      const rot = this.alive(TEAM_CT).filter((b) => b.rotating);
+      const there = rot.filter((b) => dist2(b.p.pm.origin, rg.pos) < 450).length;
+      if (!rot.length || there >= rot.length || (there >= 2 && now - rg.start > 6) || now - rg.start > 14) rg.go = true;
+    }
   }
 
   thinkRetake() {
@@ -1000,6 +1040,7 @@ class Bot {
     this.tTask = null;
     this.ctRole = null;
     this.ctHold = null;
+    this.ctFallback = null;
     this.rotating = false;
     this.postSpot = null;
     this.routeIdx = 0;
@@ -1013,6 +1054,7 @@ class Bot {
     this.siteSpot = null;
     this.siteLatch = null;
     this.utilJob = null;
+    this.utilThrown = false;
     this.plantSpot = null;
     this.coverSpot = null;
     this.coverPos = null;
@@ -1022,6 +1064,8 @@ class Bot {
     this.nade = null;
     this.nadeClock = this.time + 4;
     this.follow = null;
+    this.pickupTry = null;
+    this.skipPickup = new Set();
     this.holdHere = null;
     this.fallback = null;
     this.cleared = new Map();
@@ -1053,6 +1097,8 @@ class Bot {
     this.scopedAt = 0;
     this.mode = 'idle';
     this.blindUntil = 0;
+    this.avoidFlash = null;
+    this.dodged = null;
     this.fakeStage = 0;
     this.pendingRadio = [];
   }
@@ -1187,7 +1233,7 @@ class Bot {
 
     this.countShots();
     this.scanClock -= dt;
-    if (this.scanClock <= 0) { this.scanClock = 0.1; this.scan(); }
+    if (this.scanClock <= 0) { this.scanClock = 0.1; this.scan(); this.watchFlashes(); }
     if (this.target && !this.targetVisible && this.time - this.targetSeen > 1.0) this.loseTarget();
 
     const it = this.it || (this.it = {});
@@ -1203,8 +1249,14 @@ class Bot {
       const remain = bomb.defuseEnd - this.time, left = bomb.explodeTime - this.time;
       keepDefuse = !fighting || remain < 2 || left < remain + 2.5;
     }
+    // planting: finish it when the C4 is nearly armed
+    const c4 = p.weapons[5];
+    const keepPlant = this.planting && c4 && c4.startedArming && c4.armedTime - this.time < 1.2;
     if (this.nade && fighting && this.nade.phase !== 'pull') this.nade = null;
-    if (keepDefuse) {
+    if (keepPlant) {
+      this.mode = 'plant';
+      it.attack = true; it.duck = true; it.stop = true;
+    } else if (keepDefuse) {
       this.mode = 'defuse';
       it.use = true; it.duck = true; it.stop = true;
       it.look = [bomb.pos[0], bomb.pos[1], bomb.pos[2]];
@@ -1216,6 +1268,7 @@ class Bot {
       this.searchAndListen(it);
     }
     if (blind) this.blinded(it);
+    if (this.avoidFlash && this.time < this.avoidFlash.until) { it.lookAngles = [10, this.avoidFlash.yaw]; it.look = null; it.fire = false; }
 
     this.manageWeapon(cmd, it);
     // movement
@@ -1308,6 +1361,30 @@ class Bot {
     } else this.targetVisible = false;
   }
 
+  // A flashbang in view that is about to pop: turn away (always for a teammate's,
+  // by skill for an enemy's).
+  watchFlashes() {
+    const g = this.game, p = this.p;
+    if (this.avoidFlash && this.time < this.avoidFlash.until) return;
+    this.avoidFlash = null;
+    const eye = p.eyePos(_eye);
+    angleVectors(p.pm.angles[0], p.pm.angles[1], _f, null, null);
+    for (const n of g.grenades.list) {
+      if (n.type !== 'flashbang' || n.removed || n.detonated || this.dodged?.has(n)) continue;
+      const left = n.dmgtime + 0.1 - this.time;
+      if (left > 0.9 || left < -0.2) continue;
+      const dx = n.origin[0] - eye[0], dy = n.origin[1] - eye[1], dz = n.origin[2] - eye[2];
+      const d = Math.hypot(dx, dy, dz);
+      if (d > 1500 || (dx * _f[0] + dy * _f[1] + dz * _f[2]) / (d || 1) < 0.2) continue;
+      if (!this.los(eye, n.origin)) continue;
+      (this.dodged || (this.dodged = new Set())).add(n);
+      const mate = n.owner && n.owner.team === p.team;
+      if (Math.random() > (mate ? 0.9 : this.skill.dodge)) continue;
+      this.avoidFlash = { until: this.time + Math.max(0.2, left) + 0.3, yaw: Math.atan2(dy, dx) / DEG + 180 };
+      return;
+    }
+  }
+
   aimedAtBy(e, eye) {
     const ee = e.eyePos();
     const [pp, py] = angleTo(ee, eye);
@@ -1321,6 +1398,8 @@ class Bot {
     let r = this.skill.reaction * rand(0.8, 1.25);
     if (off < 10) r *= 0.75; else if (off > 50) r *= 1.3;
     r *= 1 + Math.min(0.6, parts.d / 3500);
+    const mySpeed = Math.hypot(this.p.pm.velocity[0], this.p.pm.velocity[1]);
+    if (this.inPosition && mySpeed < 40) r *= 0.85; else if (mySpeed > 160) r *= 1.15;
     if (this.time - this.targetSeen < 1.5) r *= 0.5; // switching between enemies already in the fight
     if (this.heard && this.time - this.heard.t < 1.5 && dist3(this.heard.pos, e.pm.origin) < 400) r *= 0.85;
     this.reactAt = this.time + r;
@@ -1333,7 +1412,7 @@ class Bot {
     this.burst = 0;
     this.nextFire = Math.max(this.nextFire, this.time);
     this.fight = null;
-    if (first && Math.random() < 0.45 && this.time - (this.mgr.lastSpot?.[teamKey(this.p.team)] || -99) > 8) {
+    if (first && Math.random() < 0.35 && this.time - (this.mgr.lastSpot?.[teamKey(this.p.team)] || -99) > 10) {
       (this.mgr.lastSpot || (this.mgr.lastSpot = {}))[teamKey(this.p.team)] = this.time;
       this.mgr.radio(this, RADIO.spotted);
     }
@@ -1348,6 +1427,8 @@ class Bot {
     const parts = this.bodyPoints(e);
     if (this.time > this.aimPick) { this.aimHead = Math.random() < this.skill.head; this.aimPick = this.time + rand(1, 2); }
     let head = this.aimHead;
+    const auto = w && w.def.auto && !isSniper(w) && w.def.kind !== 'shotgun';
+    if (auto && dist3(p.pm.origin, e.pm.origin) < 500) head = false; // spray: centre mass, the recoil walks it up
     if (this.targetVisible) { if (!this.visChest) head = true; else if (!this.visHead) head = false; }
     const pt = !this.targetVisible ? eyeAt(this.lastKnown || e.feet()) : this.visBelly && !this.visHead && !this.visChest ? parts.belly : head ? parts.head : parts.chest;
     this.aimPt = pt;
@@ -1383,7 +1464,7 @@ class Bot {
     it.fire = true;
     if (it.move) return;
     // movement while shooting
-    const precise = cls === 'rifle' || cls === 'mg' || cls === 'autosniper' ? d > 380 : cls === 'bolt' ? true : cls === 'pistol' ? (w.id === 'deagle' ? d > 500 : d > 900) : cls === 'smg' ? d > 800 : false;
+    const precise = cls === 'rifle' || cls === 'mg' || cls === 'autosniper' ? d > 380 : cls === 'bolt' ? true : cls === 'pistol' ? d > 220 : cls === 'smg' ? d > 600 : false;
     if (F.crouch && d > 250) it.duck = true;
     if (precise || it.duck) {
       // stop for accuracy; jiggle between taps/bursts at range
@@ -1446,7 +1527,7 @@ class Bot {
     const err = Math.hypot(angDiff(ty, a[1] + pu[1]), tp - (a[0] + pu[0]));
     const radius = this.aimingHead ? 5.5 : 10;
     const spraying = this.burst > 0 && (cls === 'rifle' || cls === 'smg' || cls === 'mg') && d < 900;
-    const tol = Math.max(0.35, Math.atan2(radius, d) / DEG) * (spraying ? 2.6 : 1.25) + (d < 200 ? 2 : 0);
+    const tol = Math.max(0.35, Math.atan2(radius, d) / DEG) * (spraying ? (d < 350 ? 2.6 : 1.6) : 1.25) + (d < 200 ? 2 : 0);
     if (this.friendlyInLine(eye, this.aimPt, d)) { this.burst = 0; it.strafe = it.strafe || 1; return; }
     const speed = Math.hypot(p.pm.velocity[0], p.pm.velocity[1]);
     if (cls === 'bolt') {
@@ -1478,12 +1559,14 @@ class Bot {
     }
     // automatic: taps at long range, bursts at mid range, spray up close
     const sp = this.skill.spray;
-    const maxBurst = d > 1600 ? 1 : d > 1000 ? 2 + (sp > 0.7 ? 1 : 0) : d > 550 ? Math.round(3 + sp * 3) : d > 300 ? Math.round(6 + sp * 8) : 30;
+    const maxBurst = d > 1400 ? 1 : d > 900 ? 2 : d > 550 ? Math.round(2 + sp * 1.5) : d > 300 ? Math.round(4 + sp * 4) : 30;
     if (this.burst >= maxBurst) {
       this.burst = 0;
-      this.nextFire = this.time + (d > 1000 ? rand(0.32, 0.5) : rand(0.2, 0.35)) * (1.35 - sp * 0.45);
+      this.nextFire = this.time + (d > 900 ? rand(0.3, 0.45) : rand(0.2, 0.32)) * (1.35 - sp * 0.45);
       return;
     }
+    // between bursts at range: let the view kick settle first
+    if (this.burst === 0 && d > 300 && Math.hypot(pu[0], pu[1]) > 1.2 + (1 - sp) * 1.5) return;
     cmd.wbuttons |= BTN_ATTACK;
   }
 
@@ -1514,7 +1597,6 @@ class Bot {
     it.look = this.lastKnown && this.time - this.lastKnownT < 2 ? eyeAt(this.lastKnown) : null;
     it.move = null;
     it.strafe = Math.sin(this.time * 2 + this.p.id) > 0 ? 1 : -1;
-    this.backOff = true;
     if (this.lastKnown && this.time - this.lastKnownT < 1.5 && Math.random() < 0.15 && this.target) it.fire = true;
   }
 
@@ -1687,7 +1769,7 @@ class Bot {
         it.look = h.kind === 'step' ? eyeAt([h.pos[0], h.pos[1], h.pos[2]]) : h.pos;
         this.mode = 'listen';
         // some holders go and check footsteps close by, quietly
-        if (h.kind === 'step' && this.investigator && d > 160 && d < 700 && !this.isCommitted() && !this.game.rounds.bomb) {
+        if (h.kind === 'step' && this.investigator && d > 160 && d < 700 && Math.abs(h.pos[2] - p.feet(_feet)[2]) < 64 && !this.isCommitted() && !this.game.rounds.bomb) {
           if (this.inPosition && (!this.investigate || this.investigate.src !== h.src)) this.investigate = { src: h.src, until: now + rand(2, 3.5) };
           if (this.investigate && now < this.investigate.until) { it.move = [h.pos[0], h.pos[1], h.pos[2]]; it.walk = true; it.tol = 120; this.mode = 'investigate'; }
         }
@@ -1723,8 +1805,12 @@ class Bot {
     }
     // pick up a primary lying close by
     if (!p.weapons[1] && !this.isCommitted()) {
-      const dw = g.dropped.find((d) => d.weapon.def.slot === 1 && d.rest && dist2(d.pos, p.pm.origin) < 450 && Math.abs(d.pos[2] - p.pm.origin[2]) < 100);
-      if (dw) { it.move = [dw.pos[0], dw.pos[1], dw.pos[2]]; it.tol = 4; this.watchDanger(it); return; }
+      const dw = g.dropped.find((d) => d.weapon.def.slot === 1 && d.rest && dist2(d.pos, p.pm.origin) < 450 && Math.abs(d.pos[2] - p.pm.origin[2]) < 100 && !this.skipPickup.has(d));
+      if (dw) {
+        if (this.pickupTry?.d !== dw) this.pickupTry = { d: dw, until: this.time + 6 };
+        if (this.time > this.pickupTry.until) this.skipPickup.add(dw);
+        else { it.move = [dw.pos[0], dw.pos[1], dw.pos[2]]; it.tol = 4; this.watchDanger(it); return; }
+      }
     }
     if (p.team === TEAM_T) this.objectiveT(it);
     else this.objectiveCT(it);
@@ -1737,10 +1823,14 @@ class Bot {
     if (bomb) return this.tPostPlant(it, bomb);
     // the bomb is on the ground: the nearest terrorist fetches it
     const dropped = g.dropped.find((d) => d.weapon.id === 'c4');
-    if (dropped && !R.bombCarrier) {
-      const ts = this.mgr.alive(TEAM_T).filter((b) => !(b.target && b.targetVisible));
-      const nearest = ts.sort((a, b) => dist2(a.p.pm.origin, dropped.pos) - dist2(b.p.pm.origin, dropped.pos))[0];
-      if (nearest === this) {
+    if (dropped && !R.bombCarrier && T) {
+      // one terrorist (the nearest, re-picked only when he dies) fetches it
+      if (!T.fetcher || !T.fetcher.p.alive || T.fetchDrop !== dropped) {
+        const ts = this.mgr.alive(TEAM_T).filter((b) => !(b.target && b.targetVisible));
+        T.fetcher = ts.sort((a, b) => dist2(a.p.pm.origin, dropped.pos) - dist2(b.p.pm.origin, dropped.pos))[0] || null;
+        T.fetchDrop = dropped;
+      }
+      if (T.fetcher === this) {
         it.move = dropped.pos.slice(); it.tol = 4;
         this.watchDanger(it);
         if (!this.saidBomb) { this.saidBomb = true; this.mgr.radio(this, RADIO.cover); }
@@ -1799,7 +1889,7 @@ class Bot {
     const here = pts[idx];
     // utility: claim a throw whose lineup spot is close, walk there and throw it
     if (this.utilJob && (T.utilUsed.has(this.utilJob.id) || (this.utilJob.when === 'setup') !== setup)) this.utilJob = null;
-    if (!this.utilJob && !this.nade) {
+    if (!this.utilJob && !this.nade && !this.utilThrown) {
       for (const u of route.util) {
         if (T.utilUsed.has(u.id) || T.utilClaim.has(u.id) || (u.when === 'setup') !== setup) continue;
         if (!p.weapons[4].some((w) => w.id === u.type)) continue;
@@ -1819,7 +1909,7 @@ class Bot {
       else {
         T.utilUsed.add(u.id);
         this.utilJob = null;
-        if (this.startGrenade(u.type, u.target, { tol: u.type === 'flashbang' ? 320 : 220 })) return;
+        if (this.startGrenade(u.type, u.target, { tol: u.type === 'flashbang' ? 320 : 220 })) { this.utilThrown = true; return; }
       }
     }
     if (setup && this.pastGather) {
@@ -1832,7 +1922,7 @@ class Bot {
     }
     if (setup && idx >= route.gather) {
       // wait for the group at the gather point: spread over a few spots, quiet
-      const slots = this.K.slots(pts[route.gather].p, 6);
+      const slots = this.K.slots(pts[route.gather].p, 6, this.K.dangerForT);
       const slot = slots[(this.tTask?.slot || 0) % slots.length];
       const d = dist2(feet, slot);
       this.atGather = d < 200 || this.closeEnough(slot, d);
@@ -1882,7 +1972,7 @@ class Bot {
   }
 
   goPlant(it, site) {
-    const p = this.p, s = this.K.sites[site];
+    const s = this.K.sites[site];
     if (!this.plantSpot || this.plantSite !== site) { this.plantSpot = pick(s.plant); this.plantSite = site; }
     it.move = this.plantSpot;
     it.tol = 16;
@@ -1890,7 +1980,7 @@ class Bot {
   }
 
   tryPlant(it) {
-    const g = this.game, p = this.p, T = this.mgr.T;
+    const g = this.game, p = this.p;
     const zone = g.bombZoneOf(p);
     if (!zone) { this.planting = false; return false; }
     const enemiesClose = this.target && this.targetVisible && this.time >= this.reactAt;
@@ -1980,15 +2070,24 @@ class Bot {
     const bomb = R.bomb && !R.bomb.exploded && !R.bomb.defused ? R.bomb : null;
     if (bomb && C?.retake) return this.ctRetake(it, bomb, C.retake);
     if (!this.ctHold) {
+      if (!this.mgr.CT) this.mgr.CT = this.mgr.newCTState();
       this.ctRole = this.ctRole || pick(['B', 'siteA', 'mid', 'longA']);
       this.ctHold = this.mgr.pickHold(this.ctRole, isSniper(p.weapons[1]));
+    }
+    const fb = this.ctFallback;
+    if (fb && this.time < fb.until) { this.hold(it, { pos: fb.pos, watch: [eyeAt(this.K.sites[ROLE_SITE[this.ctRole] === 'A' ? 'A' : 'B'].center)], n: 'fallback' }, { quiet: false }); return; }
+    const rg = this.mgr.CT?.regroup;
+    if (this.rotating && rg && !rg.go) {
+      const slots = this.K.slots(rg.pos, 6);
+      this.hold(it, { pos: slots[this.mgr.bots.indexOf(this) % slots.length], watch: [eyeAt(this.K.sites[rg.site].center)], n: 'regroup' }, { quiet: false });
+      return;
     }
     const h = this.ctHold;
     const wasIn = this.inPosition;
     this.hold(it, h, { quiet: !this.rotating });
     if (this.inPosition && !wasIn) {
       this.inPositionSince = this.time;
-      if (!this.saidPos && Math.random() < 0.35) { this.saidPos = true; this.mgr.radio(this, RADIO.position, { gap: 4 }); }
+      if (!this.saidPos && Math.random() < 0.25) { this.saidPos = true; this.mgr.radio(this, RADIO.position, { gap: 4 }); }
     }
     if (this.inPosition && !this.saidClear && this.time - this.inPositionSince > 30 && this.time - this.targetSeen > 30 && Math.random() < 0.002) {
       this.saidClear = true;
@@ -2117,12 +2216,17 @@ class Bot {
         cands.push({ q, s: d * (1.6 - c) });
       }
       cands.sort((a, b) => a.s - b.s);
-      this.dangerLook = null;
-      // a spot visible now, or one that comes into view a few steps ahead (pre-aim the peek)
+      // a spot visible now, or one that comes into view a few steps ahead (pre-aim the peek);
+      // keep checking the current one until it's cleared or out of view
       const peek = sp > 60 ? [eye[0] + mdx * 90, eye[1] + mdy * 90, eye[2]] : null;
       const peekOk = peek && this.los(eye, peek);
-      for (let i = 0; i < Math.min(3, cands.length); i++) {
-        if (this.los(eye, cands[i].q) || (peekOk && this.los(peek, cands[i].q))) { this.dangerLook = cands[i].q; break; }
+      const cur = this.dangerLook;
+      const ok = (q) => this.los(eye, q) || (peekOk && this.los(peek, q));
+      if (!(cur && cands.some((c) => c.q === cur) && ok(cur))) {
+        this.dangerLook = null;
+        for (let i = 0; i < Math.min(3, cands.length); i++) {
+          if (cands[i].q !== cur && ok(cands[i].q)) { this.dangerLook = cands[i].q; break; }
+        }
       }
     }
     if (this.dangerLook) {
@@ -2140,7 +2244,7 @@ class Bot {
 
   // ------------------------------------------------------------------ navigation
   navigate(target, cmd, it) {
-    const g = this.game, p = this.p, nav = g.nav;
+    const g = this.game, p = this.p;
     const feet = p.feet(_feet);
     if (this.wander && this.time < this.wander.until) target = this.wander.pos;
     else this.wander = null;
