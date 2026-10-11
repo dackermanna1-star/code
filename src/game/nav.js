@@ -10,9 +10,10 @@ const STEP = 18;
 const MAX_DROP = 260;
 const MAX_JUMP = 40;
 // offsets tried inside a cell whose centre doesn't fit a player
-// a standing spot needs floor under most of these points (no walking along the
-// top of thin walls and parapets, where a player keeps sliding off)
-const SUPPORT = [[0, 0], [12, 0], [-12, 0], [0, 12], [0, -12]];
+// floor under the centre of a standing spot: spots supported only at the hull's
+// edge (tops of thin walls and parapets, lips of ledges) can be crossed but are
+// expensive to walk along, where a player keeps sliding off
+const SUPPORT = [[0, 0], [14, 0], [-14, 0], [0, 14], [0, -14]];
 const NUDGE = [[0, 0], [9, 0], [-9, 0], [0, 9], [0, -9], [9, 9], [-9, 9], [9, -9], [-9, -9], [14, 0], [-14, 0], [0, 14], [0, -14]];
 
 export class NavGraph {
@@ -83,20 +84,25 @@ export class NavGraph {
     return { z, kind };
   }
 
-  supported(x, y, z) {
+  // 0: no floor under the middle of the hull; 1: top of a thin wall (floor drops
+  // away on both sides); 2: on a lip; 5: solid ground
+  support(x, y, z) {
     const t = this.tr2 || (this.tr2 = new TraceResult());
-    let c = 0;
-    for (const [ox, oy] of SUPPORT) {
+    const hit = (ox, oy) => {
       this.world.trace([x + ox, y + oy, z + 4], [x + ox, y + oy, z - 24], [0, 0, 0], [0, 0, 0], MASK_WORLD_PLAYER, t);
-      if (t.fraction < 1 && !t.startsolid) c++;
-    }
-    return c >= 4;
+      return t.fraction < 1 && !t.startsolid;
+    };
+    let c = 0;
+    for (const [ox, oy] of SUPPORT) if (hit(ox, oy)) c++;
+    if (!c) return 0;
+    if ((!hit(26, 0) && !hit(-26, 0)) || (!hit(0, 26) && !hit(0, -26))) return 1;
+    return c >= 4 ? 5 : 2;
   }
 
   link(n, m, kind) {
     if (n.edges.some((e) => e.to === m.id)) return;
     const dist = Math.hypot(m.x - n.x, m.y - n.y, (m.z - n.z) * 0.5);
-    n.edges.push({ to: m.id, kind, cost: dist * (kind === 'jump' ? 2 : 1) });
+    n.edges.push({ to: m.id, kind, cost: kind === 'jump' ? dist * 2 + 40 : dist });
   }
 
   // Flood fill from seed positions (feet positions).
@@ -131,25 +137,32 @@ export class NavGraph {
         // the cell centre, else a position nudged inside the cell (lets the graph
         // through gaps a 32-unit grid can't line up with: 64-wide passages,
         // half-open doors)
+        let best = null;
         for (const [ox, oy] of NUDGE) {
           const r = this.step(n, cx + ox, cy + oy, diag);
           if (!r) continue;
-          let m = this.nodeAt(ix, iy, r.z);
+          const m = this.nodeAt(ix, iy, r.z);
           if (m) {
             const r2 = this.step(n, m.x, m.y, diag);
             if (r2 && Math.abs(r2.z - m.z) < 24) this.link(n, m, r2.kind);
+            best = null;
             break;
           }
-          if (!this.supported(cx + ox, cy + oy, r.z)) continue;
-          m = this.addNode(ix, iy, r.z, cx + ox, cy + oy);
+          // prefer a spot with floor under its centre
+          const sup = this.support(cx + ox, cy + oy, r.z);
+          if (sup > 0 && (!best || sup > best.sup)) best = { x: cx + ox, y: cy + oy, r, sup };
+          if (sup >= 5) break;
+        }
+        if (best) {
+          const m = this.addNode(ix, iy, best.r.z, best.x, best.y);
+          m.support = best.sup;
           queue.push(m);
-          this.link(n, m, r.kind);
-          break;
+          this.link(n, m, best.r.kind);
         }
       }
     }
     // node clearance (distance to walls) for path preference
-    for (const n of this.nodes) n.wallPenalty = n.edges.length < 8 ? (8 - n.edges.length) * 6 : 0;
+    for (const n of this.nodes) n.wallPenalty = (n.edges.length < 8 ? (8 - n.edges.length) * 6 : 0) + ((n.support ?? 5) === 1 ? 160 : (n.support ?? 5) === 2 ? 30 : 0);
     return this;
   }
 

@@ -125,12 +125,12 @@ export const MAPDATA = {
     tunnels: {
       site: 'B',
       pts: [[-700, -770, 128], [-940, -770, 128], [-1500, -650, 128], [-1920, -640, 128], [-1920, -330, 70], [-1880, -60, 0], [-1700, 250, 0],
-        [-1676, 620, 32], [-1676, 900, 32], [-1600, 1070, 32], [-1800, 1220, 32], [-1996, 1360, 32], { p: [-1996, 1620, 32], gather: 1 },
+        [-1676, 620, 32], [-1676, 900, 32], [-1600, 1070, 32], [-1800, 1220, 32], { p: [-1880, 1360, 32], gather: 1 }, [-1996, 1500, 32],
         [-1976, 1830, 16], [-1850, 2080, 0], [-1600, 2550, 0]],
       util: [
         { at: 12, type: 'smokegrenade', target: [-1330, 2190, 0], from: [-2000, 1776, 32] },
         { at: 12, type: 'smokegrenade', target: [-1330, 2680, 140], from: [-2000, 1744, 32] },
-        { at: 12, type: 'flashbang', target: [-1760, 2200, 220], from: [-2000, 1648, 32] },
+        { at: 13, type: 'flashbang', target: [-1760, 2200, 220], from: [-2000, 1648, 32] },
         { at: 12, type: 'hegrenade', target: [-1900, 2560, 32], from: [-2000, 1552, 32] },
       ],
     },
@@ -138,20 +138,20 @@ export const MAPDATA = {
       site: 'B',
       pts: [[-600, -770, 128], [-220, -760, 56], [60, -560, 0], [-440, -480, 0], [-440, -120, 0], [-390, 200, 0], [-390, 600, 0], [-390, 1000, -50],
         [-400, 1420, -128], [-560, 1420, -112], [-850, 1440, -112], [-1100, 1400, -112], [-1096, 1200, -90], [-1076, 1080, -48], [-1200, 1080, 0],
-        [-1450, 1080, 32], [-1800, 1220, 32], [-1996, 1360, 32], { p: [-1996, 1620, 32], gather: 1 }, [-1976, 1830, 16], [-1850, 2080, 0], [-1600, 2550, 0]],
+        [-1450, 1080, 32], [-1800, 1220, 32], { p: [-1880, 1360, 32], gather: 1 }, [-1996, 1500, 32], [-1976, 1830, 16], [-1850, 2080, 0], [-1600, 2550, 0]],
       util: [
-        { at: 18, type: 'smokegrenade', target: [-1330, 2190, 0], from: [-2000, 1776, 32] },
+        { at: 17, type: 'smokegrenade', target: [-1330, 2190, 0], from: [-2000, 1776, 32] },
         { at: 18, type: 'flashbang', target: [-1760, 2200, 220], from: [-2000, 1648, 32] },
-        { at: 18, type: 'hegrenade', target: [-1900, 2560, 32], from: [-2000, 1552, 32] },
+        { at: 17, type: 'hegrenade', target: [-1900, 2560, 32], from: [-2000, 1552, 32] },
       ],
     },
     midDoors: {
       site: 'B',
       pts: [[-600, -770, 128], [-220, -760, 56], [60, -560, 0], [-440, -480, 0], [-440, -120, 0], [-390, 200, 0], [-390, 600, 0], [-390, 1000, -50],
-        { p: [-400, 1450, -128], gather: 1 }, [-380, 1640, -128], [-420, 1900, -128], [-650, 2170, -128], [-1000, 2170, -50], [-1240, 2180, 0],
+        [-400, 1420, -128], { p: [-620, 1420, -112], gather: 1 }, [-400, 1450, -128], [-380, 1640, -128], [-420, 1900, -128], [-650, 2170, -128], [-1000, 2170, -50], [-1240, 2180, 0],
         [-1330, 2185, 0], [-1520, 2300, 0], [-1560, 2600, 0]],
       util: [
-        { at: 8, type: 'flashbang', target: [-400, 1900, -20], from: [-368, 1552, -128] },
+        { at: 10, type: 'flashbang', target: [-400, 1900, -20], from: [-368, 1552, -128] },
       ],
     },
   },
@@ -204,7 +204,7 @@ export const MAPDATA = {
   },
   // T lurk spots by attacked site (the lurker watches the other side)
   lurk: {
-    A: [H('B tunnel lurk', [-2000, 1712, 32], [[-1850, 2100, 0], [-1600, 2500, 0]]), H('upper tunnels', [-1552, 1104, 32], [[-1080, 1100, -40], [-1996, 1500, 32]])],
+    A: [H('B tunnel lurk', [-1880, 1370, 32], [[-2000, 1420, 32], [-1700, 1180, 32]]), H('upper tunnels', [-1552, 1104, 32], [[-1080, 1100, -40], [-1996, 1500, 32]])],
     B: [H('long doors lurk', [592, 784, 0], [[840, 1000, 0], [1100, 1100, 0]]), H('top mid lurk', [-272, 432, 0], [[-390, 1400, -128], [-190, 900, 0]])],
   },
   fake: {
@@ -215,7 +215,7 @@ export const MAPDATA = {
     H('long doors', [560, 688, 0], [[840, 1000, 0]]),
     H('catwalk', [-176, 1040, 0], [[-150, 1450, 0]]),
     H('top mid', [-272, 432, 0], [[-390, 1640, -128]]),
-    H('B tunnel', [-2000, 1648, 32], [[-1976, 1900, 0]]),
+    H('B tunnel', [-1880, 1370, 32], [[-2000, 1420, 32], [-1700, 1180, 32]]),
     H('upper tunnel', [-1712, 1104, 32], [[-1676, 900, 32], [-1100, 1080, -48]]),
   ],
   retake: {
@@ -322,7 +322,7 @@ class Knowledge {
     const ctSpots = [];
     for (const list of Object.values(this.holds)) for (const h of list) ctSpots.push(eyeAt(h.pos));
     this.dangerForT = ctSpots.concat([eyeAt(this.sites.A.center), eyeAt(this.sites.B.center)]);
-    this.dangerForCT = D.tDanger.map((p) => eyeAt(S(p)));
+    this.dangerForCT = D.tDanger.map((p) => eyeAt(S(p))).concat(this.postPlant.A.map((h) => eyeAt(h.pos)), this.postPlant.B.map((h) => eyeAt(h.pos)));
     this.throwCache = new Map();
     this.slotCache = new Map();
   }
@@ -674,6 +674,7 @@ export class BotManager {
       g.dropWeapon(rich.p, own, false, vel);
       if (!R.buy(rich.p, own.id === 'awp' ? 'awp' : rifle)) R.buy(rich.p, rifle);
       for (let i = 0; i < 3; i++) R.buy(rich.p, 'primammo');
+      this.stats.drops = (this.stats.drops || 0) + 1;
       this.radio(rich, 'Here, take this.', { gap: 1 });
     }
   }
@@ -938,7 +939,8 @@ export class BotManager {
     if (!rt.go) {
       const ready = cts.filter((b) => dist2(b.p.pm.origin, rt.gather) < 500 || dist2(b.p.pm.origin, bomb.pos) < 1000).length;
       const kitTime = cts.some((b) => b.p.defuser) ? 5 : 10;
-      if (ready >= cts.length || now - rt.start > 14 || left < kitTime + 14) {
+      const tAlive = this.game.players.filter((p) => p.team === TEAM_T && p.alive).length;
+      if (ready >= cts.length || (ready >= 2 && ready > tAlive) || now - rt.start > 9 || left < kitTime + 16) {
         rt.go = true;
         const lead = cts.find((b) => dist2(b.p.pm.origin, rt.gather) < 600) || cts[0];
         this.radio(lead, cts.length > 1 ? pick([RADIO.go, RADIO.together, RADIO.storm]) : RADIO.go, { force: true });
@@ -1009,11 +1011,14 @@ class Bot {
     this.saidBomb = false;
     this.flashedSite = false;
     this.siteSpot = null;
+    this.siteLatch = null;
     this.utilJob = null;
     this.plantSpot = null;
     this.coverSpot = null;
     this.coverPos = null;
     this.inPositionSince = 0;
+    this.investigate = null;
+    this.investigator = Math.random() < this.skill.aggression * 0.5;
     this.nade = null;
     this.nadeClock = this.time + 4;
     this.follow = null;
@@ -1029,6 +1034,9 @@ class Bot {
     this.badNodes = new Map();
     this.wander = null;
     this.nearEnough = null;
+    this.stuckGrace = 0;
+    this.replanBelow = 0;
+    this.lastStuckJump = -9;
     this.yieldUntil = -9;
     this.navMoving = false;
     this.sideStep = 0;
@@ -1254,7 +1262,7 @@ class Bot {
     const feet = o[2] + (duck ? -18 : -36);
     const fwd = e.pm.angles[1] * DEG;
     const hx = o[0] + Math.cos(fwd) * 2, hy = o[1] + Math.sin(fwd) * 2;
-    return { head: [hx, hy, feet + (duck ? 44 : 65)], chest: [o[0], o[1], feet + (duck ? 30 : 50)], belly: [o[0], o[1], feet + (duck ? 20 : 36)] };
+    return { head: [hx, hy, feet + (duck ? 44 : 65)], chest: [o[0], o[1], feet + (duck ? 28 : 46)], belly: [o[0], o[1], feet + (duck ? 20 : 36)] };
   }
 
   scan() {
@@ -1678,6 +1686,11 @@ class Bot {
       if (d < 1600) {
         it.look = h.kind === 'step' ? eyeAt([h.pos[0], h.pos[1], h.pos[2]]) : h.pos;
         this.mode = 'listen';
+        // some holders go and check footsteps close by, quietly
+        if (h.kind === 'step' && this.investigator && d > 160 && d < 700 && !this.isCommitted() && !this.game.rounds.bomb) {
+          if (this.inPosition && (!this.investigate || this.investigate.src !== h.src)) this.investigate = { src: h.src, until: now + rand(2, 3.5) };
+          if (this.investigate && now < this.investigate.until) { it.move = [h.pos[0], h.pos[1], h.pos[2]]; it.walk = true; it.tol = 120; this.mode = 'investigate'; }
+        }
         if (h.kind === 'step' && d < 500 && this.inPosition) it.duck = it.duck || Math.random() < 0.3;
         // CTs holding a site: nade the footsteps at a choke
         if (p.team === TEAM_CT && h.kind === 'step' && this.inPosition && d > 350 && d < 1200 && now > this.nadeClock && Math.random() < 0.015 * this.skill.nades) {
@@ -1802,7 +1815,7 @@ class Bot {
     if (this.utilJob) {
       const u = this.utilJob, from = u.from || pts[u.at].p;
       if (this.time - this.utilJobT > 8) { T.utilUsed.add(u.id); this.utilJob = null; }
-      else if (dist2(feet, from) > 12) { it.move = from; it.tol = 6; this.watchDanger(it); return; }
+      else if (dist2(feet, from) > 12 && !(this.time - this.progT > 1.2 && this.time - this.utilJobT > 1.5)) { it.move = from; it.tol = 6; this.watchDanger(it); return; }
       else {
         T.utilUsed.add(u.id);
         this.utilJob = null;
@@ -1832,8 +1845,9 @@ class Bot {
     }
     this.atGather = false;
     this.inPosition = false;
-    if (idx >= pts.length - 1 && dist2(feet, here.p) < 300) {
+    if (this.siteLatch === route.site || (idx >= pts.length - 1 && dist2(feet, here.p) < 300)) {
       // on the site: take a spot and cover the plant
+      this.siteLatch = route.site;
       this.onSite(it, route.site);
       return;
     }
@@ -1854,10 +1868,14 @@ class Bot {
   onSite(it, site) {
     const p = this.p;
     if (p.weapons[5]) { this.goPlant(it, site); return; }
-    const spots = this.K.postPlant[site];
     if (!this.siteSpot || this.siteSpotSite !== site) {
-      const k = (this.tTask?.slot || 0) + 1;
-      this.siteSpot = spots[k % spots.length];
+      // the nearest free spot on the site (taken by no teammate yet)
+      const taken = new Set(this.mgr.alive(TEAM_T).filter((b) => b !== this && b.siteSpot).map((b) => b.siteSpot));
+      const c = this.K.sites[site].center;
+      const spots = this.K.postPlant[site].filter((h) => !h.agg && dist2(h.pos, c) < 800);
+      const free = spots.filter((h) => !taken.has(h));
+      const list = free.length ? free : spots;
+      this.siteSpot = list.sort((a, b) => dist2(a.pos, p.pm.origin) - dist2(b.pos, p.pm.origin))[0] || pick(this.K.postPlant[site]);
       this.siteSpotSite = site;
     }
     this.hold(it, this.siteSpot);
@@ -2005,17 +2023,25 @@ class Bot {
       else { it.look = eyeAt(bomb.pos); this.watchDanger(it); this.inPosition = true; }
       return;
     }
-    // go: the defuser heads for the bomb, the others clear the site and cover
+    // go: utility on the way in - a smoke on the bomb, flashes over the site
+    const C = this.mgr.CT;
+    if (d < 1100 && d > 280 && now > this.nadeClock && now > (C.retakeNade || 0)) {
+      const site = this.K.sites[bomb.site === 'B' ? 'B' : 'A'];
+      if (!C.retakeSmoke && this.startGrenade('smokegrenade', bomb.pos, { tol: 160 })) { C.retakeSmoke = now; C.retakeNade = now + 1.5; this.nadeClock = now + 3; return; }
+      if (now - (C.retakeFlash || -9) > 2.5 && this.startGrenade('flashbang', site.flash, { tol: 350 })) { C.retakeFlash = now; C.retakeNade = now + 1.2; this.nadeClock = now + 3; return; }
+      this.nadeClock = now + 2;
+    }
+    // the defuser heads for the bomb, the others clear the site and cover
     const threat = this.time - this.targetSeen < 2.5 || this.mgr.bots.some((b) => b.p.team === TEAM_CT && b.p.alive && b.target && b.targetVisible && dist2(b.p.pm.origin, bomb.pos) < 1200);
     if (rt.defuser === this) {
       if (d > 40) {
-        if (d < 900 && d > 300 && !this.flashedSite && now > this.nadeClock) { this.flashedSite = true; this.nadeClock = now + 4; if (this.startGrenade('flashbang', this.K.sites[bomb.site === 'B' ? 'B' : 'A'].flash, { tol: 350 })) return; }
         it.move = bomb.pos; it.tol = 20;
         this.watchDanger(it);
         if (d < 260 && threat && left > kitTime + 4) { it.move = null; it.stop = true; }
         return;
       }
-      if (!threat || left < kitTime + 1.5) { it.use = true; it.duck = true; it.stop = true; it.look = [bomb.pos[0], bomb.pos[1], bomb.pos[2]]; this.mode = 'defuse'; }
+      const smoked = C.retakeSmoke && now - C.retakeSmoke > 1.5 && now - C.retakeSmoke < 18;
+      if (!threat || smoked || left < kitTime + 1.5) { it.use = true; it.duck = true; it.stop = true; it.look = [bomb.pos[0], bomb.pos[1], bomb.pos[2]]; this.mode = 'defuse'; }
       else { it.stop = true; this.watchDanger(it); }
       return;
     }
@@ -2092,8 +2118,11 @@ class Bot {
       }
       cands.sort((a, b) => a.s - b.s);
       this.dangerLook = null;
+      // a spot visible now, or one that comes into view a few steps ahead (pre-aim the peek)
+      const peek = sp > 60 ? [eye[0] + mdx * 90, eye[1] + mdy * 90, eye[2]] : null;
+      const peekOk = peek && this.los(eye, peek);
       for (let i = 0; i < Math.min(3, cands.length); i++) {
-        if (this.los(eye, cands[i].q)) { this.dangerLook = cands[i].q; break; }
+        if (this.los(eye, cands[i].q) || (peekOk && this.los(peek, cands[i].q))) { this.dangerLook = cands[i].q; break; }
       }
     }
     if (this.dangerLook) {
@@ -2129,8 +2158,14 @@ class Bot {
       if ((d < 22 && dz < 40 && dz > -90) || passed) this.pathIdx++;
       else break;
     }
-    const pt = path[this.pathIdx];
-    const last = this.pathIdx >= path.length - 1;
+    let pt = path[this.pathIdx];
+    if (pt[2] - feet[2] > 60 && p.pm.onground && this.time > this.replanBelow) {
+      this.replanBelow = this.time + 1;
+      this.planPath(target);
+      return this.navigate(target, cmd, it);
+    }
+    pt = this.path[this.pathIdx];
+    const last = this.pathIdx >= this.path.length - 1;
     let dx = pt[0] - feet[0], dy = pt[1] - feet[1];
     let d = Math.hypot(dx, dy);
     if (last && d < (it.tol ?? 24)) { this.navMoving = false; this.trackStuck(false); this.counterStrafe(cmd, 1); this.pathLook = null; return true; }
@@ -2216,17 +2251,23 @@ class Bot {
     this.pathIdx = 0;
   }
 
-  // progress watchdog: jump, side-step, re-path, wander a little
+  // progress watchdog: jump (unless a teammate is the obstacle), side-step,
+  // re-path avoiding the spot, wander a little
   trackStuck(moving, feet) {
     if (!moving || this.p.planting || this.p.defusing) { this.progT = this.time; this.progPos = null; this.stuckLevel = 0; return; }
-    if (!this.progPos || dist2(feet, this.progPos) > 20 || Math.abs(feet[2] - this.progPos[2]) > 24) {
+    if (!this.progPos || dist2(feet, this.progPos) > 24 || Math.abs(feet[2] - this.progPos[2]) > 52) {
       this.progPos = feet.slice(); this.progT = this.time; this.stuckLevel = 0;
       return;
     }
+    if (this.time < this.stuckGrace) return; // landing slowdown after a jump
     const s = this.time - this.progT;
-    if (s > 0.7 && this.stuckLevel < 1) { this.stuckLevel = 1; this.stuckJump = true; }
-    if (s > 1.3 && this.stuckLevel < 2) { this.stuckLevel = 2; this.sideStep = this.time + 0.5; this.sideDir = Math.random() < 0.5 ? -1 : 1; }
-    if (s > 2.2 && this.stuckLevel < 3) {
+    if (s > 0.9 && this.stuckLevel < 1) {
+      this.stuckLevel = 1;
+      const mate = this.game.players.some((q) => q !== this.p && q.alive && q.team === this.p.team && dist2(q.pm.origin, this.p.pm.origin) < 70);
+      if (!mate && this.time - this.lastStuckJump > 2) { this.stuckJump = true; this.lastStuckJump = this.time; this.stuckGrace = this.time + 1.2; }
+    }
+    if (s > 1.6 && this.stuckLevel < 2) { this.stuckLevel = 2; this.sideStep = this.time + 0.5; this.sideDir = Math.random() < 0.5 ? -1 : 1; }
+    if (s > 2.5 && this.stuckLevel < 3) {
       this.stuckLevel = 3;
       this.mgr.stats.stuck++;
       const pt = this.path?.[this.pathIdx];
@@ -2234,13 +2275,13 @@ class Bot {
       this.path = null;
       this.stuckJump = true;
     }
-    if (s > 3.5 && this.stuckLevel < 4) {
+    if (s > 4 && this.stuckLevel < 4) {
       this.stuckLevel = 4;
       const nav = this.game.nav;
       const around = nav.around(nav.nearest(feet, 200), 300, 120).filter((x) => x.dist > 100);
       if (around.length) { const n = pick(around).node; this.wander = { pos: [n.x, n.y, n.z], until: this.time + 1.5 }; this.path = null; }
     }
-    if (s > 6) { this.progT = this.time; this.stuckLevel = 0; }
+    if (s > 7) { this.progT = this.time; this.stuckLevel = 0; }
   }
 
   // brake: push against the current velocity (counter-strafe)
