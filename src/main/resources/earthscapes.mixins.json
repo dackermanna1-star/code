@@ -1,0 +1,11 @@
+{
+	"required": true,
+	"package": "net.earthscapes.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"NaturalSpawnerMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

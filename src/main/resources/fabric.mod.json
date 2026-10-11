@@ -9,6 +9,7 @@
 	"license": "MIT",
 	"icon": "assets/earthscapes/icon.png",
 	"environment": "*",
+	"mixins": ["earthscapes.mixins.json"],
 	"entrypoints": {
 		"main": ["net.earthscapes.Earthscapes"],
 		"client": ["net.earthscapes.client.EarthscapesClient"]
