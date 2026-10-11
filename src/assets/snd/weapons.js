@@ -123,6 +123,25 @@ const BIG_SLAPS = [[0.11, 0.55], [0.24, 0.42], [0.41, 0.28], [0.63, 0.16], [0.9,
 
 /** name -> { dur: render seconds, variants, peak: normalised peak, p: gunshot() voicing } */
 export const GUNS = {
+  // zombie survival
+  minigun: {
+    dur: 0.45, variants: 3, peak: 0.88,
+    p: { crackF: 2100, crackTau: 0.009, hold: 0.005, bodyTau: 0.03, bodyLP: 2200, resF: 320, resG: 6, res2F: 1100, res2G: 3,
+      thump: 0.75, thumpF0: 130, thumpF1: 55, thumpTau: 0.045, drive: 4.0, mech: 0.18, mechF: 2600, mechBodyF: 700,
+      tail: tail(0.28, 0.1, 0.4, RIFLE_SLAPS, 3000, 700) },
+  },
+  aa12: {
+    dur: 1.1, variants: 2, peak: 0.96,
+    p: { pellets: 3, crackF: 1500, crackTau: 0.022, crackQ: 0.65, hold: 0.015, bodyTau: 0.07, bodyLP: 1600, resF: 230, resG: 6, res2F: 850, res2G: 4,
+      thump: 1.25, thumpF0: 105, thumpF1: 42, thumpTau: 0.11, drive: 4.4, rumble: 0.5, mech: 0.3, mechT: 0.02, mechF: 2400, mechBodyF: 600,
+      tail: tail(0.42, 0.3, 1.0, RIFLE_SLAPS, 2600, 420) },
+  },
+  barrett: {
+    dur: 3.0, variants: 1, peak: 0.99,
+    p: { click: 1.0, crack: 1.4, crackF: 1300, crackTau: 0.03, crackQ: 0.6, hold: 0.026, bodyTau: 0.14, bodyLP: 1400, resF: 200, resQ: 2, resG: 7, res2F: 700, res2G: 4,
+      thump: 1.8, thumpF0: 95, thumpF1: 30, thumpGlide: 0.06, thumpTau: 0.24, drive: 5.0, rumble: 1.1, rumbleTau: 0.5, mech: 0.4, mechT: 0.05, mechF: 2200, mechBodyF: 500,
+      tail: tail(0.7, 0.7, 2.8, BIG_SLAPS, 2000, 250) },
+  },
   ak47: {
     dur: 1.1, variants: 3, peak: 0.95,
     p: { crackF: 1800, crackTau: 0.016, crackQ: 0.7, hold: 0.012, bodyTau: 0.06, bodyLP: 1900, resF: 380, resG: 7, res2F: 1150, res2G: 4,
@@ -273,6 +292,28 @@ export const SUPPRESSED = {
     p: { puffF: 1600, puffTau: 0.016, puffHold: 0.002, hissF: 3600, hissTau: 0.022, low: 0.4, thump: 0.35, thumpF0: 200,
       mech: 0.65, mechT: 0.012, mechF: 3500, mechBodyF: 950, mech2: 0.35, mech2T: 0.03, mech2F: 4100, drive: 1.5, wet: 0.13 },
   },
+  // bolt-on suppressors (zombie survival upgrades): pistol, carbine/SMG, full-power rifle, and
+  // the big ones (shotguns, machine guns, the .50)
+  sup_pistol: {
+    dur: 0.45, variants: 3, peak: 0.5,
+    p: { puffF: 1700, puffTau: 0.015, puffHold: 0.002, hissF: 3800, hissTau: 0.02, low: 0.38, thump: 0.32, thumpF0: 210,
+      mech: 0.6, mechT: 0.011, mechF: 3600, mechBodyF: 980, mech2: 0.3, mech2T: 0.028, mech2F: 4200, drive: 1.5, wet: 0.12 },
+  },
+  sup_smg: {
+    dur: 0.45, variants: 3, peak: 0.54,
+    p: { puffF: 1400, puffTau: 0.019, hissF: 3300, low: 0.45, thump: 0.4, thumpF0: 190,
+      mech: 0.6, mechT: 0.004, mechF: 3000, mechBodyF: 800, mech2: 0.38, mech2T: 0.034, mech2F: 3600, drive: 1.7, wet: 0.14 },
+  },
+  sup_rifle: {
+    dur: 0.55, variants: 3, peak: 0.66,
+    p: { puffF: 950, puffTau: 0.026, hissF: 2500, hissTau: 0.035, low: 0.7, thump: 0.6, thumpF0: 160,
+      mech: 0.8, mechF: 2500, mechBodyF: 600, mech2: 0.45, mech2T: 0.05, mech2F: 3100, drive: 2.0, wet: 0.18 },
+  },
+  sup_heavy: {
+    dur: 0.65, variants: 3, peak: 0.72,
+    p: { puff: 1.2, puffF: 700, puffTau: 0.034, puffQ: 0.6, hissF: 2100, hissTau: 0.045, hiss: 0.45, low: 0.95, thump: 0.85, thumpF0: 130,
+      mech: 0.85, mechF: 2200, mechBodyF: 520, mech2: 0.5, mech2T: 0.06, mech2F: 2800, drive: 2.4, wet: 0.22 },
+  },
   tmp: {
     dur: 0.45, variants: 3, peak: 0.56,
     p: { puffF: 1350, puffTau: 0.02, hissF: 3200, low: 0.45, thump: 0.4, thumpF0: 185,
@@ -387,6 +428,12 @@ export const HANDLING = {
     }
     addMetal(x, sr, r, t + 0.03, { f: 2700, amp: 0.9, tau: 0.018, body: 0.55, bodyF: 620, bodyTau: 0.024 });
   }, 0.1) },
+  // an attachment clamped onto the rail / a paint job done (zombie survival upgrades)
+  attach_fit: { dur: 0.6, peak: 0.5, fn: (P) => foley(P, (x, sr, r) => {
+    addScrape(x, sr, r, 0.0, 0.09, { f0: 1800, f1: 2600, q: 1.2, amp: 0.12, grit: 0.7 });
+    for (let i = 0; i < 4; i++) addMetal(x, sr, r, 0.1 + i * 0.055 + r.range(-0.006, 0.006), { f: r.jit(3300, 0.06), amp: r.range(0.25, 0.4), tau: 0.005, n: 4, body: 0.2, bodyF: 1300 });
+    addMetal(x, sr, r, 0.36, { f: 2500, amp: 0.95, tau: 0.02, body: 0.6, bodyF: 560, bodyTau: 0.028 });
+  }, 0.08) },
 };
 
 export { foley, gunshot, suppressed };

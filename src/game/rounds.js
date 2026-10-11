@@ -2,6 +2,7 @@
 
 import { TEAM_T, TEAM_CT, TEAM_SPEC } from './player.js';
 import * as WS from './weaponsys.js';
+import * as ATT from './attachments.js';
 import * as CR from './combatrules.js';
 import { ZOMBIE_START_MONEY } from './zombies.js';
 import { createPlantedC4, createDefuseKit } from '../assets/worldweapons.js';
@@ -259,6 +260,7 @@ export class RoundManager {
       return true;
     }
     if (item === 'nvgs') { return pay(1250); }
+    if (/^(att|skin)_/.test(item)) return g.zombies?.enabled ? ATT.buyUpgrade(g, p, item, pay, say) : false; // zombie survival upgrades
     const def = WS.WEAPON_DEFS[item];
     if (!def) return false;
     if (def.zombieOnly && !g.zombies?.enabled) return false;

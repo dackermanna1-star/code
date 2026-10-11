@@ -38,6 +38,7 @@ export function buildExtras(model, skin) {
   const out = { meshes: [], glows: [], materials: [], geometries: [] };
   const lit = (hex, noise) => {
     const m = createGsMaterial(solidTex(hex, noise), model.light);
+    m.userData.hex = hex; // (a baked corpse keeps the part in this colour)
     out.materials.push(m);
     return m;
   };
@@ -73,6 +74,27 @@ export function buildExtras(model, skin) {
 }
 
 const EXTRAS = {
+  // special infected: the Boomer's gut and boils, the Charger's bone spur, the Hunter's
+  // hood, the Smoker's tumours
+  boomer({ put, ball, lit }) {
+    const fat = lit('#c0b87e', 0.12), boil = lit('#a49c48', 0.2);
+    put('spine', ball(7.5, 10, 8), fat, [6.0, 0, 43], [0, 0, 0], [0.9, 1.15, 1.0]);
+    for (const [b, at, r] of [['chest', [9.5, -4, 52], 1.3], ['chest', [8.5, 5, 55], 1.0], ['spine', [12.5, 2, 44], 1.4], ['spine', [11, -5, 40], 1.1], ['upperarm_r', [0, -11, 55], 1.0], ['upperarm_l', [0, 11, 57], 0.9], ['head', [2, -3.5, 69], 0.9]]) put(b, ball(r, 6, 5), boil, at);
+  },
+  charger({ put, cone, lit }) {
+    const bone = lit('#d8d0b8', 0.15);
+    put('forearm_r', cone(1.1, 6, 5), bone, [1.5, -10.5, 42], [0, 0, -100]);
+    put('hand_r', cone(0.8, 4, 5), bone, [1.0, -9.5, 30], [180, 0, 0]);
+  },
+  hunter({ put, ball, lit }) {
+    const hood = lit('#3a3e46', 0.12);
+    put('head', new THREE.SphereGeometry(5.6, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.62), hood, [-0.4, 0, 69.2], [0, -90, -18], [1.0, 1.0, 1.08]);
+    void ball;
+  },
+  smoker({ put, ball, lit }) {
+    const t = lit('#9a6a58', 0.2);
+    for (const [b, at, r] of [['head', [1.5, -4.6, 66], 1.6], ['head', [0.5, -4.2, 68.5], 1.2], ['neck', [0, -4.5, 62], 1.5], ['chest', [0, -8.5, 60], 2.0], ['chest', [2, -7, 58], 1.4], ['upperarm_r', [0, -11.5, 57], 1.5]]) put(b, ball(r, 6, 5), t, at);
+  },
   // a big meat cleaver in the right fist (the hand bone points down the fingers, -Z)
   butcher({ put, box, lit }) {
     const steel = lit('#9a9ea4', 0.2), handle = lit('#3a2414'), rust = lit('#6a2a1a', 0.25);

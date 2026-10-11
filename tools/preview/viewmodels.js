@@ -284,6 +284,9 @@ window.__sheet = (cells, { cols = 4, cw = 320, ch = 240 } = {}) => {
     const v = snapVM(c.w);
     v.state = { ...(c.state || {}) };
     if (c.sil !== undefined) v.setSilencer(!!c.sil);
+    // c.att / c.skin: zombie survival upgrades; c.ads: 0..1 aimed down the sight
+    v.setLoadout(c.att || {}, c.skin || null);
+    v.ads = c.ads || 0;
     v.play(c.anim, { duration: c.d, blend: false });
     const dur = c.d ?? v.duration(c.anim);
     // step through the sequence so procedural state (end callbacks) behaves as in game
@@ -297,7 +300,8 @@ window.__sheet = (cells, { cols = 4, cw = 320, ch = 240 } = {}) => {
       if (o.p) n.position.add(new THREE.Vector3(...o.p));
       if (o.r) n.rotation.set(n.rotation.x + o.r[0] * Math.PI / 180, n.rotation.y + o.r[1] * Math.PI / 180, n.rotation.z + o.r[2] * Math.PI / 180);
     }
-    if (c.add) v._aimArms();
+    if (c.add || c.ads) v._aimArms();
+    v.updateLaser(c.laser || 200, c.laser !== false);
     vmScene.add(v.object3D);
     renderer.clear();
     renderer.render(bgScene, bgCam);

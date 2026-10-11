@@ -22,7 +22,8 @@
 // Other commands: 'resume', 'newgame', 'options', 'quit', 'menu_close', 'console:<text>'.
 
 import MENUS_CSS from './menus.css?inline';
-import { CATEGORIES, ITEMS, ITEM_ICON, itemsFor } from './menu/buydata.js';
+import { CATEGORIES, SUBPAGES, ITEMS, ITEM_ICON, itemsFor } from './menu/buydata.js';
+import { paintSkinSwatch } from '../assets/vm/attach.js';
 import { MAP_BRIEFING, MODE_BRIEFING, TEAM_BUTTONS, CLASSES, AUTO_SELECT_TEXT } from './menu/text.js';
 import { drawWeaponIcon, hudSprite, tinted, WEAPON_IDS, KILL_ICON_W } from './icons.js';
 import { engineFontPx, engineLineHeight, spriteScale } from './hud/font.js';
@@ -558,9 +559,16 @@ export class Menus {
     show(list[0]);
   }
 
-  showBuyMenu(player = {}, { onBuy, allWeapons = false } = {}) {
+  // itemState(id) -> { off, note } for the zombie survival upgrades (what fits the gun in
+  // hand, what's fitted already); upgradeTarget(skins) -> name of the weapon they go on
+  showBuyMenu(player = {}, { onBuy, allWeapons = false, itemState = null, upgradeTarget = null } = {}) {
     const team = allWeapons ? 'ALL' : player.team === 'CT' ? 'CT' : 'T';
     const money = Math.max(0, Math.round(player.money ?? 0));
+    const cats = CATEGORIES.filter((c) => !c.zombieOnly || team === 'ALL');
+    const stateOf = (id) => (ITEMS[id]?.upgrade && itemState ? itemState(id) : null) || {};
+    const canBuy = (id) => !!ITEMS[id] && !stateOf(id).off && (ITEMS[id].price ?? 0) <= money;
+    // an entry that opens another page (Weapon Skins...) or buys
+    const press = (id) => { const it = ITEMS[id]; if (it?.page) openCat(SUBPAGES[it.page]); else if (canBuy(id)) buy(id); };
     const buy = (item) => {
       this._closeVg();
       const cmd = item === 'primammo' ? 'buyammo1' : item === 'secammo' ? 'buyammo2' : (WEAPON_IDS.includes(item) && !/grenade|flashbang/.test(item) ? 'buy ' : 'buyequip ') + item;
@@ -572,13 +580,13 @@ export class Menus {
     const p = this._vgPanel('buy', 'BUY ITEM', (n) => {
       if (n === 0) { this._closeVg(true); return; }
       if (state.page === 'main') {
-        const c = CATEGORIES.find((x) => x.key === n);
+        const c = cats.find((x) => x.key === n);
         if (!c) return;
         if (c.direct) buy(c.id);
         else openCat(c);
       } else {
         const id = itemsFor(state.page, team)[n - 1];
-        if (id && (ITEMS[id]?.price ?? 0) <= money) buy(id);
+        if (id) press(id);
       }
     });
     const title = p.querySelector('.vg-title');
@@ -607,6 +615,7 @@ export class Menus {
           } else drawWeaponIcon(g, name, 0, 0, { scale: 4 * s, color: [205, 205, 205], ramp: [1, 0.62, 0.5] });
         });
       }
+      if (it.skin && it.skin !== 'factory') this._paintCanvas(cv, 160, 72, (g, sc) => paintSkinSwatch(g, it.skin, 160 * sc, 72 * sc));
       if (cv.width) info.appendChild(cv);
       info.appendChild(el('h2', null, it.name));
       if (it.stats) {
@@ -623,7 +632,8 @@ export class Menus {
         }
         info.appendChild(st);
       } else {
-        info.appendChild(el('p', null, `Price: $${it.price}\n\n${it.text}`));
+        const note = stateOf(id).note;
+        info.appendChild(el('p', null, `${it.price != null ? `Price: $${it.price}\n\n` : ''}${it.text}${note ? `\n\n(${note})` : ''}`));
       }
     };
 
@@ -632,20 +642,22 @@ export class Menus {
       title.textContent = 'BUY ITEM';
       col.textContent = '';
       info.textContent = '';
-      for (const c of CATEGORIES) {
+      for (const c of cats) {
         col.appendChild(this._vgButton(c.key, c.label, () => (c.direct ? buy(c.id) : openCat(c))));
       }
       col.appendChild(this._vgButton(0, 'Exit', () => this._closeVg(true), { cls: 'cancel' }));
     };
     const openCat = (c) => {
       state.page = c.id;
-      title.textContent = c.label.toUpperCase();
+      const on = c.id === 'upgrade' || c.id === 'skins' ? upgradeTarget?.(c.id === 'skins') : null;
+      title.textContent = c.label.toUpperCase() + (on ? ` - ${on.toUpperCase()}` : '');
       col.textContent = '';
       const ids = itemsFor(c.id, team);
       ids.forEach((id, i) => {
         const it = ITEMS[id];
-        const off = it.price > money;
-        const b = this._vgButton(i + 1, it.name, () => buy(id), { price: it.price, off });
+        const st = stateOf(id);
+        const off = !it.page && (st.off || (it.price ?? 0) > money);
+        const b = this._vgButton(i + 1, st.note ? `${it.name} (${st.note})` : it.name, () => press(id), { price: it.page ? null : it.price, off });
         b.addEventListener('mouseenter', () => showItem(id));
         col.appendChild(b);
       });
@@ -653,7 +665,7 @@ export class Menus {
       if (ids.length) showItem(ids[0]);
     };
     this.buyCategory = (n) => {
-      const c = CATEGORIES.find((x) => x.key === n);
+      const c = cats.find((x) => x.key === n);
       if (c && !c.direct && this.vg?.kind === 'buy') openCat(c);
     };
     openMain();

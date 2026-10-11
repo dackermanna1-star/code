@@ -35,8 +35,9 @@ import { PISTOLS } from './vm/w_pistols.js';
 import { HEAVY } from './vm/w_heavy.js';
 import { MISC } from './vm/w_misc.js';
 import { ZOMBIE_WEAPONS } from './vm/w_zombie.js';
+import { applyLoadout, clearLoadout } from './vm/attach.js';
 
-export const VIEWMODEL_WEAPONS = ['knife', 'glock', 'usp', 'p228', 'deagle', 'elite', 'fiveseven', 'm3', 'xm1014', 'mac10', 'tmp', 'mp5', 'ump45', 'p90', 'galil', 'famas', 'ak47', 'm4a1', 'sg552', 'aug', 'scout', 'awp', 'g3sg1', 'sg550', 'm249', 'hegrenade', 'flashbang', 'smokegrenade', 'c4', 'molotov', 'flamethrower', 'rpg', 'm32', 'medkit'];
+export const VIEWMODEL_WEAPONS = ['knife', 'glock', 'usp', 'p228', 'deagle', 'elite', 'fiveseven', 'm3', 'xm1014', 'mac10', 'tmp', 'mp5', 'ump45', 'p90', 'galil', 'famas', 'ak47', 'm4a1', 'sg552', 'aug', 'scout', 'awp', 'g3sg1', 'sg550', 'm249', 'hegrenade', 'flashbang', 'smokegrenade', 'c4', 'molotov', 'flamethrower', 'rpg', 'm32', 'medkit', 'minigun', 'aa12', 'barrett', 'chainsaw', 'tesla', 'claymore', 'remotec4'];
 
 const BUILDERS = { ...RIFLES, ...SNIPERS, ...SMGS, ...PISTOLS, ...HEAVY, ...MISC, ...ZOMBIE_WEAPONS };
 
@@ -49,6 +50,10 @@ const _q = new THREE.Quaternion();
 const _q2 = new THREE.Quaternion();
 const _z = new THREE.Vector3(0, 0, 1);
 const _bodyInv = new THREE.Matrix4();
+const _q3 = new THREE.Quaternion();
+const _a = new THREE.Vector3();
+const _b = new THREE.Vector3();
+const _zAxis = new THREE.Vector3(0, 0, 1);
 const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 export class ViewModel {
@@ -116,6 +121,11 @@ export class ViewModel {
 
     this.silenced = false;
     if (spec.silencer) this.setSilencer(!!opts.silenced);
+    // zombie survival upgrades (vm/attach.js): aiming down a red dot (0..1), the laser
+    this.ads = 0;
+    this.adsPose = null;
+    this.laserBeam = null;
+    this.laserEmitter = null;
 
     this._cur = null;
     this._curName = '';
@@ -224,9 +234,49 @@ export class ViewModel {
       }
     }
     this._pose();
-    this.object3D.position.set(bobX, bobY, 0);
-    this.object3D.rotation.set(-swayPitch * DEG, swayYaw * DEG, 0, 'YXZ');
+    if (this.ads > 0 && this.adsPose) this._applyAds();
+    const sk = 1 - 0.8 * this.ads; // steadier aiming down the sight
+    this.object3D.position.set(bobX * sk, bobY * sk, 0);
+    this.object3D.rotation.set(-swayPitch * DEG * sk, swayYaw * DEG * sk, 0, 'YXZ');
     this._aimArms();
+  }
+
+  // Blend the rig toward the aim-down-the-sight pose (lens on the line of sight, gun
+  // level); whatever the animation adds on top of the rest pose carries over.
+  _applyAds() {
+    const A = this.adsPose, rig = this.nodes.rig, k = this.ads;
+    _a.copy(rig.position).sub(A.restP).add(A.p);
+    rig.position.lerp(_a, k);
+    _q3.copy(A.restQ).invert().premultiply(rig.quaternion).multiply(A.q);
+    rig.quaternion.slerp(_q3, k);
+  }
+
+  /** Attachments ({ slot: id }) and skin id on this view model (vm/attach.js). */
+  setLoadout(att, skin) {
+    const key = JSON.stringify([att || {}, skin || null]);
+    if (key === (this._loadoutKey || '[{},null]')) return;
+    this._loadoutKey = key;
+    applyLoadout(this, att || {}, skin || null);
+  }
+
+  /**
+   * Point the laser beam (if the gun has one) at the spot `dist` units down the line of
+   * sight. Call after update().
+   */
+  updateLaser(dist, on = true) {
+    const beam = this.laserBeam;
+    if (!beam) return;
+    beam.visible = on && this.object3D.visible;
+    if (!beam.visible) return;
+    const E = this.laserEmitter;
+    this.nodes.gun.localToWorld(_a.set(E[0], E[1], E[2]));
+    this.object3D.worldToLocal(_a);
+    this.object3D.worldToLocal(_b.set(0, 0, -Math.max(20, Math.min(380, dist))));
+    _b.sub(_a);
+    const len = _b.length();
+    beam.position.copy(_a);
+    beam.quaternion.setFromUnitVectors(_zAxis, _b.divideScalar(len || 1));
+    beam.scale.set(1, 1, len);
   }
 
   _aimArms() {
@@ -308,6 +358,7 @@ export class ViewModel {
   }
 
   dispose() {
+    clearLoadout(this);
     for (const g of this._geometries) g.dispose();
     for (const m of this._materials) m.dispose();
     if (this.object3D.parent) this.object3D.parent.remove(this.object3D);

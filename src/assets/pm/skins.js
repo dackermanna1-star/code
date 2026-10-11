@@ -1094,6 +1094,135 @@ SKINS.spitter = function spitter(p, m) {
   }
   for (const mm of [m.footR, m.footL]) { p.fill(mm.reg, sh(skin, 0.8)); p.noise(mm.reg, 0.1); }
 };
+// ------------------------------------------------------------------ special infected
+// (src/game/specials.js) rarer zombies, each with its own look.
+
+// The Boomer: bloated pale-yellow body splitting a too-small vest, boils everywhere
+SKINS.boomer = function boomer(p, m) {
+  const K = bossKit(p);
+  const skin = '#c4be86', vest = '#d8d2c0', shorts = '#4a4436', boil = '#a8a050', vein = 'rgba(110,90,50,0.45)';
+  const boils = (mm, n, z0, z1) => { for (let i = 0; i < n; i++) { const u = p.r(0, 1), z = p.r(z0, z1), r = p.r(0.4, 1.2); p.ell(mm, u, z, r * 0.022, r * 0.5, sh(boil, 0.7)); p.ell(mm, u, z + 0.1, r * 0.014, r * 0.32, boil); p.ell(mm, u, z + 0.2, r * 0.005, r * 0.12, '#e0dca0'); } };
+  paintSkinHead(p, m, { skin, noHair: true, iris: '#d8d080', browCol: '#6a6040' });
+  const h = m.head;
+  for (const s of [-1, 1]) p.ell(h, 0.5 + s * EYE_U, EYE_Z + 0.1, 0.03, 0.45, 'rgba(120,100,40,0.6)'); // puffy lids
+  p.ell(h, 0.5, 63.9, 0.05, 0.4, '#3a3410'); // slack mouth
+  p.poly(h, [[0.46, 63.7], [0.54, 63.7], [0.53, 61.8], [0.5, 61.4], [0.47, 61.8]], 'rgba(150,170,40,0.85)'); // bile drool
+  boils(h, 16, 62, 71);
+  K.veins(h, 20, 0.3, 0.7, 62, 70, vein);
+  p.noise(REG.head, 0.08);
+  K.bare(m.torso, skin, 0.18, 0.08);
+  for (let i = 0; i < 26; i++) { const u = p.r(0.3, 0.7), z = p.r(38, 50); p.line(m.torso, [[u, z], [u + p.r(-0.02, 0.02), z + p.r(1, 3)]], 'rgba(170,120,110,0.5)', 1.3); } // stretch marks
+  p.band(m.torso, 50, 59, vest, 0.25, 0.75); // vest riding up over the belly
+  p.band(m.torso, 50, 59, vest, 0.0, 0.18); p.band(m.torso, 50, 59, vest, 0.82, 1.0);
+  p.band(m.torso, 34.2, 39.5, shorts);
+  K.stains(m.torso, 30, 0.2, 0.8, 40, 58, 'rgba(140,160,30,0.5)'); // bile
+  boils(m.torso, 30, 38, 60);
+  p.wrapShade(REG.torso, 0.16);
+  for (const mm of [m.armR, m.armL]) { K.bare(mm, skin); boils(mm, 12, 34, 60); K.veins(mm, 15, 0, 1, 34, 60, vein); }
+  for (const mm of [m.handR, m.handL]) glove(p, mm, skin, { bare: true });
+  for (const [mm, side] of [[m.legR, 'r'], [m.legL, 'l']]) { K.bare(mm, skin); p.band(mm, 28, 41.2, shorts); boils(mm, 8, 6, 28); void side; }
+  for (const mm of [m.footR, m.footL]) { p.fill(mm.reg, sh(skin, 0.75)); p.noise(mm.reg, 0.1); }
+};
+
+// The Charger: grey-brown, shirt torn off the huge right arm, the left one withered in its sleeve
+SKINS.charger = function charger(p, m) {
+  const K = bossKit(p);
+  const skin = '#9c8a78', shirt = '#5a6a7a', jeans = '#2e3440', boot = '#1c1814', bruise = 'rgba(70,40,80,0.4)', fresh = 'rgba(120,8,6,0.75)';
+  paintSkinHead(p, m, { skin, hair: '#1c1814', hairline: 70.8, iris: '#c8b890', browCol: '#3a3028' });
+  const h = m.head;
+  p.ell(h, 0.5, 63.8, 0.055, 0.45, '#200606'); // jaw hanging open
+  for (let i = 0; i < 6; i++) p.rrect(h, 0.462 + i * 0.013, 0.47 + i * 0.013, 64.0, 64.35, '#b8ae90', 0);
+  p.ell(h, 0.42, 66.0, 0.03, 0.8, bruise);
+  K.stains(h, 8, 0.4, 0.6, 61.5, 64, fresh);
+  p.noise(REG.head, 0.08);
+  jacketBase(p, m.torso, shirt, {});
+  pantsTop(p, m.torso, jeans, { top: 40.2 });
+  beltAt(p, m.torso, 40.9, '#1e1a16', '#707070');
+  neckSkin(p, m.torso, skin);
+  p.poly(m.torso, [[0.62, 64], [1.0, 64], [1.0, 42], [0.82, 44], [0.7, 54]], skin); // ripped open on the right
+  K.stains(m.torso, 30, 0.3, 0.9, 42, 60, fresh);
+  p.wrapShade(REG.torso, 0.15);
+  K.bare(m.armR, skin, 0.2, 0.1); // the big arm: bare, bruised, veined
+  for (let i = 0; i < 10; i++) p.ell(m.armR, p.r(0, 1), p.r(36, 58), p.r(0.05, 0.12), p.r(0.8, 2), bruise);
+  K.veins(m.armR, 40, 0, 1, 34, 60, 'rgba(60,40,60,0.5)');
+  K.stains(m.armR, 20, 0, 1, 34, 46, fresh);
+  sleeve(p, m.armL, shirt, 'l', { noise: 0.1 });
+  glove(p, m.handR, sh(skin, 0.9), { bare: true }); K.stains(m.handR, 10, 0, 1, 26, 35, fresh);
+  glove(p, m.handL, skin, { bare: true });
+  for (const [mm, side] of [[m.legR, 'r'], [m.legL, 'l']]) { trousers(p, mm, jeans, side, { boot, cargo: false, noise: 0.1 }); K.stains(mm, 10, 0, 1, 10, 40); }
+  bootFoot(p, m.footR, boot); bootFoot(p, m.footL, boot);
+};
+
+// The Sprinter: emaciated, chalk-white, ribs showing, torn running shorts, red eyes
+SKINS.sprinter = function sprinter(p, m) {
+  const K = bossKit(p);
+  const skin = '#b4b8ae', shorts = '#7a2424', vein = 'rgba(70,60,110,0.4)', fresh = 'rgba(120,8,6,0.8)';
+  paintSkinHead(p, m, { skin, hair: '#3a3028', hairline: 70.6, iris: '#ff2010', browCol: '#3a3028' });
+  const h = m.head;
+  for (const s of [-1, 1]) p.ell(h, 0.5 + s * EYE_U, EYE_Z, 0.036, 0.6, 'rgba(40,10,10,0.7)');
+  p.ell(h, 0.5, 64.0, 0.05, 0.38, '#1a0404'); // screaming mouth
+  K.stains(h, 14, 0.42, 0.58, 61.5, 64.2, fresh);
+  K.veins(h, 18, 0.3, 0.7, 62, 70, vein);
+  p.noise(REG.head, 0.07);
+  K.bare(m.torso, skin, 0.2, 0.07);
+  for (let i = 0; i < 6; i++) for (const s of [-1, 1]) p.line(m.torso, [[0.5 + s * 0.04, 54 - i * 1.8], [0.5 + s * 0.16, 53 - i * 1.8]], 'rgba(90,90,100,0.45)', 1.6); // ribs
+  p.band(m.torso, 34.2, 39.4, shorts);
+  K.stains(m.torso, 25, 0.3, 0.7, 40, 60, fresh);
+  K.veins(m.torso, 30, 0, 1, 40, 60, vein);
+  for (const mm of [m.armR, m.armL]) { K.bare(mm, skin, 0.16, 0.07); K.veins(mm, 18, 0, 1, 34, 60, vein); }
+  for (const mm of [m.handR, m.handL]) { glove(p, mm, skin, { bare: true }); K.stains(mm, 8, 0, 1, 26, 35, fresh); }
+  for (const mm of [m.legR, m.legL]) { K.bare(mm, skin, 0.16, 0.07); p.band(mm, 33, 41.2, shorts); }
+  for (const mm of [m.footR, m.footL]) { p.fill(mm.reg, sh(skin, 0.7)); p.noise(mm.reg, 0.1); }
+};
+
+// The Hunter: dark hoodie with the hood up, taped hands, a bloodied jaw under the hood
+SKINS.hunter = function hunter(p, m) {
+  const K = bossKit(p);
+  const skin = '#a8a696', hood = '#3a3e46', jeans = '#24282e', shoe = '#141414', tape = '#c8c4b0', fresh = 'rgba(120,8,6,0.85)';
+  paintSkinHead(p, m, { skin, hair: hood, hairline: 66.6, iris: '#f0f0e0', browCol: '#202020' });
+  const h = m.head;
+  p.band(h, 66.6, 74, hood); // the hood over the head
+  for (const s of [-1, 1]) p.poly(h, [[0.5 + s * 0.15, 66.6], [0.5 + s * 0.26, 66.6], [0.5 + s * 0.26, 61.5], [0.5 + s * 0.17, 62.5]], hood); // hood sides
+  p.band(h, 66.0, 66.7, 'rgba(10,10,12,0.8)'); // shadow under the hood
+  p.ell(h, 0.5, 63.9, 0.05, 0.4, '#1a0404');
+  for (let i = 0; i < 7; i++) p.rrect(h, 0.458 + i * 0.012, 0.465 + i * 0.012, 64.0, 64.4, '#c0b898', 0);
+  K.stains(h, 16, 0.42, 0.58, 61.3, 64.2, fresh);
+  p.noise(REG.head, 0.07);
+  jacketBase(p, m.torso, hood, {});
+  p.poly(m.torso, [[0.42, 58], [0.58, 58], [0.57, 52], [0.43, 52]], sh(hood, 0.85)); // pocket
+  for (const s of [-1, 1]) p.line(m.torso, [[0.5 + s * 0.03, 62], [0.5 + s * 0.035, 55]], '#c8c8c0', 1.4); // drawstrings
+  pantsTop(p, m.torso, jeans, { top: 40.2 });
+  K.stains(m.torso, 30, 0.3, 0.7, 42, 60, fresh);
+  p.wrapShade(REG.torso, 0.16);
+  for (const [mm, side] of [[m.armR, 'r'], [m.armL, 'l']]) { sleeve(p, mm, hood, side, { noise: 0.1 }); K.stains(mm, 10, 0, 1, 34, 50, fresh); }
+  for (const mm of [m.handR, m.handL]) { glove(p, mm, skin, { bare: true }); p.band(mm, 28, 33, tape); for (let z = 28.5; z < 33; z += 1.1) p.line(mm, [[0, z], [1, z + 0.4]], sh(tape, 0.8), 1); K.stains(mm, 8, 0, 1, 26, 34, fresh); }
+  for (const [mm, side] of [[m.legR, 'r'], [m.legL, 'l']]) { trousers(p, mm, jeans, side, { boot: shoe, cargo: false, noise: 0.1 }); K.stains(mm, 8, 0, 1, 10, 40); }
+  bootFoot(p, m.footR, shoe); bootFoot(p, m.footL, shoe);
+};
+
+// The Smoker: tall and gaunt, grey skin bubbling with tumours down one side, a long dirty coat
+SKINS.smoker = function smoker(p, m) {
+  const K = bossKit(p);
+  const skin = '#8c8478', coat = '#5a4a38', shirt = '#7a7466', pants = '#3a3630', boot = '#1a1612', tumour = '#9a6a58';
+  const lumps = (mm, n, u0, u1, z0, z1) => { for (let i = 0; i < n; i++) { const u = p.r(u0, u1), z = p.r(z0, z1), r = p.r(0.5, 1.4); p.ell(mm, u, z, r * 0.03, r * 0.6, sh(tumour, 0.7)); p.ell(mm, u, z + 0.15, r * 0.02, r * 0.4, tumour); p.ell(mm, u - 0.004, z + 0.3, r * 0.008, r * 0.15, '#c09080'); } };
+  paintSkinHead(p, m, { skin, hair: '#2a2620', hairline: 71.0, iris: '#c8c0a0', browCol: '#2a2620' });
+  const h = m.head;
+  lumps(h, 26, 0.55, 0.85, 61.5, 70); // one side of the face swallowed by tumours
+  p.ell(h, 0.5, 63.9, 0.045, 0.32, '#2a1010');
+  p.poly(h, [[0.47, 63.7], [0.53, 63.7], [0.52, 62.2], [0.5, 61.8], [0.48, 62.2]], 'rgba(150,40,60,0.85)'); // the tongue lolling out
+  p.noise(REG.head, 0.08);
+  jacketBase(p, m.torso, shirt, {});
+  neckSkin(p, m.torso, skin);
+  lumps(m.torso, 18, 0.55, 0.8, 54, 64); // neck and shoulder
+  pantsTop(p, m.torso, pants, { top: 40.2 });
+  for (const s of [0, 1]) p.band(m.torso, 34.2, 62, coat, s ? 0.72 : 0, s ? 1 : 0.28); // open coat
+  p.wrapShade(REG.torso, 0.16);
+  for (const [mm, side] of [[m.armR, 'r'], [m.armL, 'l']]) { sleeve(p, mm, coat, side, { noise: 0.12 }); if (side === 'r') lumps(mm, 8, 0, 1, 50, 60); }
+  for (const mm of [m.handR, m.handL]) glove(p, mm, skin, { bare: true });
+  for (const [mm, side] of [[m.legR, 'r'], [m.legL, 'l']]) { trousers(p, mm, pants, side, { boot, cargo: false, noise: 0.1 }); p.band(mm, 22, 41.2, coat, side === 'r' ? 0.0 : 0.6, side === 'r' ? 0.4 : 1.0); }
+  bootFoot(p, m.footR, boot); bootFoot(p, m.footL, boot);
+};
+
 // pustule spots on the torso (u, z, size) - painted sockets + glow map + 3D extras line up
 export const PUSTULES = [[0.44, 50, 1.4], [0.58, 47, 1.8], [0.52, 55, 1.2], [0.62, 53, 1.1], [0.38, 45, 1.3], [0.12, 52, 1.5], [0.9, 48, 1.6], [0.0, 56, 1.2]];
 
@@ -1217,13 +1346,15 @@ const GLOWS = {
     p.ell(m.head, 0.5, 64.0, 0.045, 0.35, '#ff8020');
     p.ell(m.torso, 0.5, 50, 0.08, 3.5, 'rgba(255,110,20,0.6)'); // core showing through the chest
   },
+  sprinter(p, m) { for (const s of [-1, 1]) { p.ell(m.head, 0.5 + s * EYE_U, EYE_Z, 0.018, 0.24, '#ff2010'); p.ell(m.head, 0.5 + s * EYE_U, EYE_Z, 0.03, 0.4, 'rgba(255,30,10,0.35)'); } },
+  hunter(p, m) { for (const s of [-1, 1]) p.ell(m.head, 0.5 + s * EYE_U, EYE_Z, 0.012, 0.16, '#e8ecd0'); },
   abomination(p, m) {
     for (const s of [-1, 1]) p.ell(m.head, 0.5 + s * EYE_U, EYE_Z, 0.02, 0.26, '#ff2010');
     for (const mm of [m.armR, m.armL]) for (let i = 0; i < 8; i++) { const u = p.r(0, 1), z = p.r(36, 58); p.line(mm, [[u, z], [u + p.r(-0.05, 0.05), z + p.r(-3, 3)]], 'rgba(255,40,20,0.45)', 1.2); }
   },
 };
 /** Default glow strength / tint per boss skin (rgb multiplier for the glow map). */
-export const GLOW_TINT = { butcher: [1, 1, 1], spitter: [0.9, 1, 0.8], banshee: [1, 1, 1], inferno: [1.1, 1, 1], abomination: [1, 1, 1] };
+export const GLOW_TINT = { butcher: [1, 1, 1], spitter: [0.9, 1, 0.8], banshee: [1, 1, 1], inferno: [1.1, 1, 1], abomination: [1, 1, 1], sprinter: [1, 1, 1], hunter: [0.8, 0.8, 0.8] };
 
 const glowCache = new Map();
 /** The glow map of a boss skin (black where nothing glows), or null. */

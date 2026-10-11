@@ -37,6 +37,7 @@ export function buildHudState(game, extra = {}) {
   s.hasDefuser = !!p.defuser;
   const Z = game.zombies?.enabled ? game.zombies : null;
   s.zombie = Z ? Z.hudInfo() : null;
+  s.bile = Z ? Z.specials.bileOf(me) : 0;
   s.spectator = me.alive ? null : { target: target ? target.name : null, mode: game.spectate?.mode || 'free', tScore: Z ? null : game.rounds.tScore, ctScore: Z ? null : game.rounds.ctScore, health: target?.health, targetTeam: target?.team, map: game.map?.name };
 
   // dynamic crosshair
@@ -56,10 +57,10 @@ export function buildHudState(game, extra = {}) {
     if (xh.dist < target) xh.dist = target;
     xh.dist -= 0.013 * 60 * (extra.dt || 0.016) * (xh.dist - target);
   }
-  const scoped = p.fov < 90 && w && /awp|scout|g3sg1|sg550/.test(w.id);
+  const scoped = p.fov < 90 && w && /awp|scout|g3sg1|sg550|barrett/.test(w.id);
   s.scope = scoped ? (p.fov <= 15 ? 2 : 1) : 0;
   s.crosshair = {
-    visible: !!w && !scoped && me.alive,
+    visible: !!w && !scoped && me.alive && !p.ads, // (not while aiming down a red dot)
     gap: settings?.get('cl_dynamiccrosshair') === 0 ? 4 : xh.dist,
     color: settings?.get('crosshairColor') || [50, 250, 50],
     size: settings?.get('crosshairSize') || 'auto',

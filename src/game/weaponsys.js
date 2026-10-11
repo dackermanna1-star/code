@@ -57,12 +57,18 @@ export const AMMO_TYPES = Object.freeze({
   // zombie survival extras
   Molotov: { max: 3, cost: 400, amount: 1 },
   Medkit: { max: 3, cost: 800, amount: 1 },
+  MinigunBelt: { max: 600, cost: 400, amount: 200 },
+  '50BMG': { max: 30, cost: 250, amount: 10 },
+  Gas: { max: 300, cost: 100, amount: 100 },
+  Cells: { max: 90, cost: 300, amount: 30 },
+  Claymore: { max: 2, cost: 750, amount: 1 },
+  RemoteC4: { max: 3, cost: 600, amount: 1 },
   Fuel: { max: 300, cost: 120, amount: 100 },
   Rocket: { max: 6, cost: 600, amount: 1 },
   Grenade40: { max: 18, cost: 450, amount: 6 },
 });
 
-export const WEAPON_IDS = Object.freeze(['knife', 'glock', 'usp', 'p228', 'deagle', 'elite', 'fiveseven', 'm3', 'xm1014', 'mac10', 'tmp', 'mp5', 'ump45', 'p90', 'galil', 'famas', 'ak47', 'm4a1', 'sg552', 'aug', 'scout', 'awp', 'g3sg1', 'sg550', 'm249', 'hegrenade', 'flashbang', 'smokegrenade', 'c4', 'molotov', 'flamethrower', 'rpg', 'm32', 'medkit']);
+export const WEAPON_IDS = Object.freeze(['knife', 'glock', 'usp', 'p228', 'deagle', 'elite', 'fiveseven', 'm3', 'xm1014', 'mac10', 'tmp', 'mp5', 'ump45', 'p90', 'galil', 'famas', 'ak47', 'm4a1', 'sg552', 'aug', 'scout', 'awp', 'g3sg1', 'sg550', 'm249', 'hegrenade', 'flashbang', 'smokegrenade', 'c4', 'molotov', 'flamethrower', 'rpg', 'm32', 'medkit', 'minigun', 'aa12', 'barrett', 'chainsaw', 'tesla', 'claymore', 'remotec4']);
 
 // view-model sequence tables (weapons.h enums, in order)
 const SEQ_RIFLE = ['idle1', 'reload', 'draw', 'shoot1', 'shoot2', 'shoot3'];
@@ -91,6 +97,8 @@ const SEQ = {
   molotov: ['idle', 'pullpin', 'throw', 'draw'],
   flamethrower: SEQ_RIFLE, rpg: SEQ_RIFLE, m32: SEQ_RIFLE,
   medkit: ['idle', 'use', 'draw'],
+  minigun: SEQ_RIFLE, aa12: SEQ_RIFLE, barrett: SEQ_RIFLE, chainsaw: SEQ_RIFLE, tesla: SEQ_RIFLE,
+  claymore: ['idle', 'place', 'draw'], remotec4: ['idle', 'pullpin', 'throw', 'draw'],
 };
 
 const W = (f) => `weapons/${f}.wav`;
@@ -319,6 +327,49 @@ const RAW = {
     cycleTime: 0.5, reloadTime: 3.6, kick: 4,
     sounds: { fire: 'm32_fire', files: {} },
   },
+  minigun: {
+    name: 'M134 Minigun', shortName: 'Minigun', slot: 1, position: 9, menu: 'mg', menuSlot: 7, team: null, price: 7500, zombieOnly: true,
+    clip: 200, ammoType: 'MinigunBelt', maxSpeed: 180, weight: 40, kind: 'mg', hasSecondary: false,
+    damage: 30, rangeModifier: 0.95, penetration: 2, distance: 8192, bulletType: BULLET.PLAYER_762MM,
+    cycleTime: 0.045, reloadTime: 5.0, shell: 'rshell', initialAccuracy: 0.2, spinUp: 0.5,
+    sounds: { fire: 'minigun', files: {} },
+  },
+  aa12: {
+    name: 'AA-12 Auto Shotgun', shortName: 'AA-12', slot: 1, position: 10, menu: 'shotgun', menuSlot: 3, team: null, price: 4000, zombieOnly: true,
+    clip: 20, ammoType: 'buckshot', maxSpeed: 230, weight: 22, kind: 'shotgun', hasSecondary: false, noFireUnderwater: true,
+    damage: 22, pellets: 8, cone: 0.07, distance: 3000, bulletType: BULLET.PLAYER_BUCKSHOT, penetration: 0, rangeModifier: 1,
+    cycleTime: 0.2, reloadTime: 3.0, shell: 'shotgunshell',
+    sounds: { fire: 'aa12', files: {} },
+  },
+  barrett: {
+    name: 'Barrett M82A1', shortName: 'M82', slot: 1, position: 11, menu: 'rifle', menuSlot: 9, team: null, price: 6500, zombieOnly: true,
+    clip: 10, ammoType: '50BMG', maxSpeed: 200, maxSpeedZoom: 140, weight: 35, kind: 'sniper', hasSecondary: true,
+    damage: 260, rangeModifier: 0.995, penetration: 6, distance: 8192, bulletType: BULLET.PLAYER_338MAG,
+    cycleTime: 0.4, reloadTime: 3.6, zoomLevels: [40, 15], shell: 'rshell_big',
+    sounds: { fire: 'barrett', zoom: 'zoom', files: {} },
+  },
+  chainsaw: {
+    name: 'Chainsaw', shortName: 'Chainsaw', slot: 1, position: 12, menu: 'mg', menuSlot: 8, team: null, price: 3000, zombieOnly: true,
+    clip: 100, ammoType: 'Gas', maxSpeed: 240, weight: 15, kind: 'saw', hasSecondary: false,
+    cycleTime: 0.1, reloadTime: 2.4, damage: 34, reach: 70,
+    sounds: { fire: 'chainsaw_rev', files: {} },
+  },
+  tesla: {
+    name: 'Tesla Coil Gun', shortName: 'Tesla', slot: 1, position: 13, menu: 'mg', menuSlot: 9, team: null, price: 6000, zombieOnly: true,
+    clip: 30, ammoType: 'Cells', maxSpeed: 220, weight: 20, kind: 'tesla', hasSecondary: false,
+    cycleTime: 0.24, reloadTime: 3.0, damage: 85, chain: 5, arcRange: 320, range: 1500, kick: 1.2,
+    sounds: { fire: 'tesla_fire', files: {} },
+  },
+  claymore: {
+    name: 'M18 Claymore', shortName: 'Claymore', slot: 4, position: 6, menu: 'equip', menuSlot: 8, team: null, price: 750, zombieOnly: true,
+    clip: WEAPON_NOCLIP, ammoType: 'Claymore', maxSpeed: 250, weight: 1, kind: 'mine', hasSecondary: false, placeTime: 0.8,
+    sounds: { fire: 'c4_plant', files: {} },
+  },
+  remotec4: {
+    name: 'Remote C4', shortName: 'C4', slot: 4, position: 7, menu: 'equip', menuSlot: 9, team: null, price: 600, zombieOnly: true,
+    clip: WEAPON_NOCLIP, ammoType: 'RemoteC4', maxSpeed: 250, weight: 1, kind: 'grenade', hasSecondary: true,
+    sounds: { fire: 'grenade_throw', files: {} },
+  },
   medkit: {
     name: 'Medkit', shortName: 'Medkit', slot: 4, position: 5, menu: 'equip', menuSlot: 7, team: null, price: 800, zombieOnly: true,
     clip: WEAPON_NOCLIP, ammoType: 'Medkit', maxSpeed: 250, weight: 1, kind: 'medkit', hasSecondary: true,
@@ -328,7 +379,7 @@ const RAW = {
 };
 
 /** How many of a slot-4 item one can carry. */
-export function stackMax(id) { return id === 'flashbang' ? 2 : id === 'molotov' || id === 'medkit' ? 3 : 1; }
+export function stackMax(id) { return id === 'flashbang' || id === 'claymore' ? 2 : id === 'molotov' || id === 'medkit' || id === 'remotec4' ? 3 : 1; }
 
 function buildDef(id, r) {
   const a = r.ammoType ? AMMO_TYPES[r.ammoType] : null;
@@ -405,6 +456,8 @@ export function createWeapon(id, opts = {}) {
   return w;
 }
 
+/** Magazine size (an extended magazine makes it bigger: attachments.js). */
+export function clipSize(w) { return w.clipMax || w.def.clip; }
 function reserve(w) { return w.pool && w.def.ammoType ? (w.pool[w.def.ammoType] ?? 0) : w.ammo; }
 function setReserve(w, v) { if (w.pool && w.def.ammoType) w.pool[w.def.ammoType] = v; w.ammo = v; }
 function syncAmmo(w) { if (w.pool && w.def.ammoType) w.ammo = w.pool[w.def.ammoType] ?? 0; }
@@ -447,13 +500,16 @@ function resetEmptySound(w) { w.playEmptySound = true; }
 
 function shell(w, ctx) { if (ctx.emitShell && w.def.shell) ctx.emitShell(w.def.shell); }
 
+// bolt-on suppressor (zombie survival upgrade) sound by kind of gun
+const SUP_SOUND = { pistol: 'sup_pistol', smg: 'sup_smg', rifle: 'sup_rifle', sniper: 'sup_heavy', shotgun: 'sup_heavy', mg: 'sup_heavy' };
 function fireSound(w, ctx) {
+  if (w.mods?.suppressed) { sound(ctx, SUP_SOUND[w.def.kind] || 'sup_rifle', { channel: 'weapon', weapon: w.id, silenced: true }); return; }
   const s = w.silenced && w.def.sounds.fireSilenced ? w.def.sounds.fireSilenced : w.def.sounds.fire;
   sound(ctx, s, { channel: 'weapon', weapon: w.id, silenced: w.silenced });
 }
 
 function shootEffects(w, ctx, animName, cs, { muzzle = true, ejectNow = true } = {}) {
-  if (muzzle) emit(ctx, 'muzzleflash', { weapon: w.id });
+  if (muzzle && !w.mods?.suppressed) emit(ctx, 'muzzleflash', { weapon: w.id });
   emit(ctx, 'player_anim', { anim: 'attack1', weapon: w.id });
   fireSound(w, ctx);
   anim(w, ctx, animName, cs);
@@ -463,19 +519,22 @@ function shootEffects(w, ctx, animName, cs, { muzzle = true, ejectNow = true } =
 /** Hand one bullet (or a shotgun blast) to the game. Bullet direction = viewAngles + punch NOW. */
 function shoot(w, ctx, o) {
   const d = w.def;
+  // attachments (attachments.js): tighter / steadier / aimed down the sight; a suppressor costs a little damage
+  const m = w.mods;
+  const k = m ? m.spread * (ctx.speed2d > 110 ? m.moveSpread : 1) * (w.ads ? m.ads : w.fov === DEFAULT_FOV ? m.hip : 1) : 1;
   const p = {
     weapon: w.id,
     shots: o.shots ?? 1,
-    spread: o.spread,
-    spreadX: o.spreadX ?? o.spread,
-    spreadY: o.spreadY ?? o.spread,
+    spread: o.spread * k,
+    spreadX: (o.spreadX ?? o.spread) * k,
+    spreadY: (o.spreadY ?? o.spread) * k,
     distance: o.distance ?? d.distance,
     penetration: o.penetration ?? d.penetration,
     bulletType: d.bulletType,
-    damage: o.damage ?? d.damage,
+    damage: (o.damage ?? d.damage) * (m ? m.damage : 1),
     rangeModifier: o.rangeModifier ?? d.rangeModifier,
     pistol: !!o.pistol,
-    silenced: !!w.silenced,
+    silenced: !!w.silenced || !!m?.suppressed,
     srcOffsetRight: o.srcOffsetRight || 0,
   };
   if (ctx.random) p.random = ctx.random;
@@ -525,7 +584,7 @@ function defaultDeploy(w, ctx, animName, cs) {
 function defaultReload(w, ctx, animName, cs, delay) {
   const r = reserve(w);
   if (r <= 0) return false;
-  const j = Math.min(w.def.clip - w.clip, r);
+  const j = Math.min(clipSize(w) - w.clip, r);
   if (!j) return false;
   const t = ctx.time;
   w.nextAttack = t + delay;
@@ -539,7 +598,7 @@ function defaultReload(w, ctx, animName, cs, delay) {
 
 function defaultShotgunReload(w, ctx, delay, startDelay, insertSounds) {
   const t = ctx.time;
-  if (reserve(w) <= 0 || w.clip === w.def.clip) return false;
+  if (reserve(w) <= 0 || w.clip >= clipSize(w)) return false;
   if (w.nextPrimary > t) return false; // don't reload until recoil is done
   if (w.specialReload === 0) {
     emit(ctx, 'player_anim', { anim: 'reload', weapon: w.id });
@@ -626,6 +685,12 @@ const AUTO = {
     spread: (w, ctx) => rs(ctx, w.accuracy, 0.045, 0.5, 0.045, 0.095, 0.03), cycle: () => 0.1,
     acc: { pow: 3, div: 175, int: true, base: 0.4, max: 0.9 }, idle: 1.6,
     kick: { order: KICK_SMG, air: [1.8, 0.65, 0.45, 0.125, 5.0, 3.5, 8], move: [1.1, 0.5, 0.3, 0.06, 4.0, 3.0, 8], duck: [0.75, 0.325, 0.25, 0.025, 3.5, 2.5, 9], std: [0.8, 0.35, 0.3, 0.03, 3.75, 3.0, 9] },
+    deploy: { acc: 0.2, shots: true }, reload: { acc: 0.2, shots: true, delayFire: false },
+  },
+  minigun: { // zombie survival: a wall of lead once the barrels are up to speed
+    spread: (w, ctx) => rs(ctx, w.accuracy, 0.06, 0.4, 0.05, 0.08, 0.032), cycle: () => 0.045,
+    acc: { pow: 2, div: 400, int: false, base: 0.35, max: 0.8 }, idle: 1.6,
+    kick: { order: KICK_SMG, air: [0.6, 0.3, 0.06, 0.04, 3.0, 2.0, 8], move: [0.35, 0.2, 0.04, 0.03, 2.5, 1.5, 9], duck: [0.2, 0.12, 0.02, 0.015, 2.0, 1.0, 10], std: [0.25, 0.15, 0.03, 0.02, 2.2, 1.2, 10] },
     deploy: { acc: 0.2, shots: true }, reload: { acc: 0.2, shots: true, delayFire: false },
   },
   mac10: {
@@ -1067,7 +1132,7 @@ function shotgunIdle(w, ctx) {
   if (!(w.timeIdle < t)) return;
   if (w.clip === 0 && w.specialReload === 0 && reserve(w)) shotgunReload(w, ctx);
   else if (w.specialReload !== 0) {
-    if (w.clip !== w.def.clip && reserve(w)) shotgunReload(w, ctx);
+    if (w.clip < clipSize(w) && reserve(w)) shotgunReload(w, ctx);
     else {
       anim(w, ctx, 'reload_end', 'pump'); // reload debounce has timed out
       w.specialReload = 0;
@@ -1237,6 +1302,134 @@ function specialIdle(w, ctx) {
   anim(w, ctx, 'idle', 'idle1');
 }
 
+// Minigun: the barrels spin up while the trigger is held, then it fires every cycle;
+// they wind down after release (w.spin 0..1 drives the view model too).
+function minigunPrimary(w, ctx) {
+  const t = ctx.time;
+  if (w.clip <= 0) { w.spin = Math.max(0, (w.spin || 0) - ctx.dt / 0.8); emptyFire(w, ctx); return; }
+  if (!(w.spin > 0)) sound(ctx, 'minigun_spinup', { channel: 'item', weapon: w.id });
+  w.spinning = t;
+  w.spin = Math.min(1, (w.spin || 0) + ctx.dt / w.def.spinUp);
+  if (w.spin < 1) return;
+  autoFire(w, ctx, AUTO.minigun.spread(w, ctx), AUTO.minigun.cycle(w));
+}
+function minigunIdle(w, ctx) {
+  if (w.spin > 0) {
+    w.spin = Math.max(0, w.spin - ctx.dt / 0.9);
+    if (w.spin <= 0) sound(ctx, 'minigun_spindown', { channel: 'item', weapon: w.id });
+  }
+  if (w.shotsFired > 0) w.shotsFired = Math.max(0, w.shotsFired - 1);
+  autoIdle(w, ctx);
+}
+
+// AA-12: a full-auto shotgun off a drum (magazine reload)
+function aa12Primary(w, ctx) {
+  const d = w.def, t = ctx.time;
+  if (w.clip <= 0) { emptyFire(w, ctx); return; }
+  w.clip--;
+  shoot(w, ctx, { shots: d.pellets, spread: d.cone, spreadX: d.cone, spreadY: d.cone, distance: d.distance, penetration: 0, damage: d.damage, rangeModifier: 1 });
+  shootEffects(w, ctx, 'shoot1', 'shoot1');
+  w.nextPrimary = w.nextSecondary = t + d.cycleTime;
+  w.timeIdle = t + 1.5;
+  ctx.punch[0] -= grounded(ctx) ? rndFloat(ctx, 1.5, 2.5) : rndFloat(ctx, 3, 5);
+  ctx.punch[1] += rndFloat(ctx, -0.6, 0.6);
+}
+
+// Barrett: semi-auto .50, a shot per trigger pull; through several bodies
+function barrettPrimary(w, ctx) {
+  const t = ctx.time;
+  if (w.shotsFired > 0) return;
+  if (w.clip <= 0) { emptyFire(w, ctx); return; }
+  w.shotsFired = 1;
+  let spread = !grounded(ctx) ? 0.6 : ctx.speed2d > 140 ? 0.2 : ctx.speed2d > 10 ? 0.08 : ctx.ducking ? 0 : 0.002;
+  if (w.fov === DEFAULT_FOV) spread += 0.06;
+  w.clip--;
+  shoot(w, ctx, { spread, pistol: true });
+  shootEffects(w, ctx, 'shoot1', 'shoot1');
+  w.nextPrimary = w.nextSecondary = t + w.def.cycleTime;
+  w.timeIdle = t + 2;
+  ctx.punch[0] -= 6;
+  ctx.punch[1] += rndFloat(ctx, -1, 1);
+}
+function barrettIdle(w, ctx) { w.shotsFired = 0; sniperIdle(w, ctx); }
+
+// Chainsaw: burns gas while held and cuts whatever is in front (the game does the cutting, ctx.saw)
+function sawPrimary(w, ctx) {
+  const t = ctx.time;
+  if (w.clip <= 0) { emptyFire(w, ctx); return; }
+  w.clip--;
+  if (ctx.saw) ctx.saw(w);
+  if (!(w.sawing > t - 0.15)) anim(w, ctx, 'shoot1', 'shoot1');
+  w.sawing = t;
+  emit(ctx, 'player_anim', { anim: 'attack1', weapon: w.id });
+  w.nextPrimary = t + w.def.cycleTime;
+  w.timeIdle = t + 0.6;
+}
+
+// Tesla: a bolt at whatever is in the sights, arcing on to the next ones (ctx.zap)
+function teslaPrimary(w, ctx) {
+  const t = ctx.time;
+  if (w.clip <= 0) { emptyFire(w, ctx); return; }
+  w.clip--;
+  if (ctx.zap) ctx.zap(w);
+  w.zapped = t;
+  shootEffects(w, ctx, 'shoot1', 'shoot1', { ejectNow: false });
+  w.nextPrimary = w.nextSecondary = t + w.def.cycleTime;
+  w.timeIdle = t + 1.5;
+  ctx.punch[0] -= w.def.kick;
+}
+
+// Claymore: attack puts one down on the floor in front (the hand goes down with it, the
+// mine is out at the end of the motion: ctx.placeMine). Like the medkit, it finishes whether
+// the button is still held or not.
+function minePrimary(w, ctx) {
+  const t = ctx.time;
+  if (mineFinish(w, ctx) || w.placeEnd || reserve(w) <= 0) return;
+  if (ctx.mineSpot && !ctx.mineSpot()) {
+    emit(ctx, 'hud_message', { text: 'No room to put it down here' });
+    w.nextPrimary = t + 0.5;
+    return;
+  }
+  w.placeEnd = t + w.def.placeTime;
+  w.nextPrimary = w.placeEnd;
+  anim(w, ctx, 'place', 'place', w.def.placeTime);
+  emit(ctx, 'player_anim', { anim: 'attack1', weapon: w.id });
+}
+function mineFinish(w, ctx) {
+  const t = ctx.time;
+  if (!w.placeEnd || t < w.placeEnd) return false;
+  w.placeEnd = 0;
+  w.nextPrimary = t + 0.4;
+  if (!(ctx.placeMine ? ctx.placeMine() : true)) { anim(w, ctx, 'draw', 'draw'); return true; }
+  w.spent = true; // (the host takes one off its stack)
+  const left = Math.max(0, (w.count ?? reserve(w)) - 1);
+  setReserve(w, left);
+  if (left <= 0) { retire(w, ctx); return true; }
+  anim(w, ctx, 'draw', 'draw');
+  return true;
+}
+function mineIdle(w, ctx) {
+  if (mineFinish(w, ctx) || w.placeEnd) return;
+  if (w.timeIdle > ctx.time) return;
+  w.timeIdle = ctx.time + rndFloat(ctx, 10, 15);
+  anim(w, ctx, 'idle', 'idle');
+}
+
+// Remote C4: thrown like a grenade (sticks where it lands); attack2 sets off every charge
+// out (so does the detonate key from any weapon)
+function remotePrimary(w, ctx) {
+  if (!w.startThrow && ctx.canThrow && !ctx.canThrow()) {
+    emit(ctx, 'hud_message', { text: 'Three charges out already: set them off first (V)' });
+    w.nextPrimary = ctx.time + 0.6;
+    return;
+  }
+  grenadePrimary(w, ctx);
+}
+function remoteSecondary(w, ctx) {
+  if (ctx.detonate) ctx.detonate();
+  w.nextSecondary = ctx.time + 0.5;
+}
+
 // Medkit: attack patches yourself up, attack2 the teammate in front of you. One kit per
 // use: the heal lands when the use animation ends (holding the button or not); the game
 // picks the patient (ctx.healTarget(other) -> player | null) and heals (ctx.heal(player)).
@@ -1389,19 +1582,26 @@ for (const id of ['hegrenade', 'flashbang', 'smokegrenade', 'molotov']) {
   BEHAVIOR[id] = { primary: grenadePrimary, secondary: noop /* shield only */, reload: noop, idle: grenadeIdle, deploy: grenadeDeploy };
 }
 BEHAVIOR.c4 = { primary: c4Primary, secondary: noop, reload: noop, idle: c4Idle, deploy: c4Deploy };
+BEHAVIOR.minigun = { primary: minigunPrimary, secondary: noop, reload: autoReload, idle: minigunIdle, deploy: (w, ctx) => { w.spin = 0; autoDeploy(w, ctx); } };
+BEHAVIOR.aa12 = { primary: aa12Primary, secondary: noop, reload: specialReload, idle: specialIdle, deploy: (w, ctx) => defaultDeploy(w, ctx, 'draw', 'draw') };
+BEHAVIOR.barrett = { primary: barrettPrimary, secondary: sniperZoom, reload: sniperReload, idle: barrettIdle, deploy: sniperDeploy };
+BEHAVIOR.chainsaw = { primary: sawPrimary, secondary: noop, reload: specialReload, idle: specialIdle, deploy: (w, ctx) => defaultDeploy(w, ctx, 'draw', 'draw') };
+BEHAVIOR.tesla = { primary: teslaPrimary, secondary: noop, reload: specialReload, idle: specialIdle, deploy: (w, ctx) => defaultDeploy(w, ctx, 'draw', 'draw') };
+BEHAVIOR.claymore = { primary: minePrimary, secondary: noop, reload: noop, idle: mineIdle, deploy: (w, ctx) => { w.placeEnd = 0; defaultDeploy(w, ctx, 'draw', 'draw'); w.nextAttack = ctx.time + 0.5; } };
+BEHAVIOR.remotec4 = { primary: remotePrimary, secondary: remoteSecondary, reload: noop, idle: grenadeIdle, deploy: grenadeDeploy };
 BEHAVIOR.medkit = { primary: medkitPrimary, secondary: medkitSecondary, reload: noop, idle: medkitIdle, deploy: (w, ctx) => { w.healEnd = 0; w.healTarget = null; defaultDeploy(w, ctx, 'draw', 'draw'); w.nextAttack = ctx.time + 0.35; } };
 
 // ---------------------------------------------------------------- public API
 /** CanDeploy: grenades / C4 need ammo. */
 export function weaponCanDeploy(w) {
-  if (w.def.kind === 'grenade' || w.def.kind === 'c4' || w.def.kind === 'medkit') return reserve(w) > 0 || (w.count ?? 0) > 0;
+  if (w.def.kind === 'grenade' || w.def.kind === 'c4' || w.def.kind === 'medkit' || w.def.kind === 'mine') return reserve(w) > 0 || (w.count ?? 0) > 0;
   return true;
 }
 
 /** Weapon::Deploy (+ DefaultDeploy). Returns the time until the weapon can be used. */
 export function weaponDeploy(w, ctx) {
   // hosts that keep grenade stacks in w.count: refill the reserve from it
-  if ((w.def.kind === 'grenade' || w.def.kind === 'c4' || w.def.kind === 'medkit') && w.count != null && w.count > 0 && reserve(w) <= 0) setReserve(w, w.count);
+  if ((w.def.kind === 'grenade' || w.def.kind === 'c4' || w.def.kind === 'medkit' || w.def.kind === 'mine') && w.count != null && w.count > 0 && reserve(w) <= 0) setReserve(w, w.count);
   w.spent = false;
   w.retired = false;
   BEHAVIOR[w.id].deploy(w, ctx);
@@ -1423,6 +1623,10 @@ export function weaponHolster(w, ctx) {
       w.startThrow = 0;
       w.releaseThrow = -1;
       w.pinPulled = false;
+      break;
+    case 'mine':
+      w.nextAttack = t + 0.3;
+      w.placeEnd = 0;
       break;
     case 'medkit': // switching away cancels a use in progress (the kit is kept)
       w.nextAttack = t + 0.3;
@@ -1485,7 +1689,7 @@ export function weaponFrame(w, ctx, buttons = 0, prevButtons = 0) { // eslint-di
 
   if (w.inReload) {
     // complete the reload
-    const j = Math.min(d.clip - w.clip, reserve(w));
+    const j = Math.min(clipSize(w) - w.clip, reserve(w));
     w.clip += j;
     setReserve(w, reserve(w) - j);
     w.inReload = false;

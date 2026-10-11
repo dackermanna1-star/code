@@ -11,7 +11,7 @@ export const DEFAULT_BINDS = {
   Digit6: 'slot6', Digit7: 'slot7', Digit8: 'slot8', Digit9: 'slot9', Digit0: 'slot10',
   Numpad1: 'slot1', Numpad2: 'slot2', Numpad3: 'slot3', Numpad4: 'slot4', Numpad5: 'slot5',
   Numpad6: 'slot6', Numpad7: 'slot7', Numpad8: 'slot8', Numpad9: 'slot9', Numpad0: 'slot10',
-  F5: 'snapshot',
+  F5: 'snapshot', KeyV: 'detonate',
   MOUSE1: '+attack', MOUSE2: '+attack2', MOUSE3: '+attack3', MWHEELUP: 'invprev', MWHEELDOWN: 'invnext',
 };
 

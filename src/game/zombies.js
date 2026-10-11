@@ -15,6 +15,7 @@ import { setDynamicBox, CONTENTS_SOLID, CONTENTS_PLAYERCLIP, CONTENTS_PLAYER, CO
 import { IN_JUMP } from '../engine/pmove.js';
 import { MinHeap } from './nav.js';
 import * as CR from './combatrules.js';
+import { Specials } from './specials.js';
 
 /** Zombies move through each other but not through people; people bump into both. */
 export const MASK_ZOMBIE_MOVE = CONTENTS_SOLID | CONTENTS_PLAYERCLIP | CONTENTS_PLAYER;
@@ -56,6 +57,7 @@ export class ZombieMode {
     this.dist = null;
     this.rev = null;
     this.cands = null;
+    this.specials = new Specials(game);
     this.best = 0;
     try { this.best = +(localStorage.getItem(BEST_KEY) || 0); } catch { /* storage blocked */ }
   }
@@ -85,6 +87,8 @@ export class ZombieMode {
     g.mapEnts?.reset();
     g.hostages?.reset(); // (disabled in this mode: clears any left over)
     g.bosses?.clear();
+    this.specials.clear();
+    g.explosives?.clear();
     this.bossAt = 0;
     g.spectate = { mode: 'free', angles: [20, 90, 0] };
     g.hud?.centerPrint?.(`Zombie survival\nBuy anything, anywhere. The first wave comes in ${FIRST_BREAK} seconds.`, 6);
@@ -158,7 +162,9 @@ export class ZombieMode {
     if (this.bossAt && t >= this.bossAt) { if (this.game.bosses.spawn(this.wave)) this.bossAt = 0; else this.bossAt = t + 1; }
     const alive = this.pool.reduce((n, z) => n + (z.alive ? 1 : 0), 0);
     if (this.spawned < S.count && alive < S.maxAlive && t >= this.nextSpawn) {
-      if (this.spawnZombie()) this.spawned++;
+      const kind = this.specials.pick(this.wave);
+      if (kind) this.spawned += this.specials.spawn(kind) || (this.spawnZombie() ? 1 : 0);
+      else if (this.spawnZombie()) this.spawned++;
       this.nextSpawn = t + S.interval * rand(0.6, 1.4);
     }
     if (this.spawned >= S.count && alive === 0 && !this.bossAt && !this.game.bosses.alive()) this.waveCleared();
@@ -172,6 +178,7 @@ export class ZombieMode {
       return;
     }
     if (victim.isZombie) {
+      if (victim.special) this.specials.onDeath(victim, attacker);
       if (!victim.extra) this.killed++;
       if (attacker && attacker.team === TEAM_CT) this.kills++;
       return;
@@ -217,9 +224,9 @@ export class ZombieMode {
    */
   spawnZombie(o = {}) {
     const g = this.game, t = g.time;
-    let z = this.pool.find((q) => !q.alive && (!q.deathTime || q.baked || q.gibbed || t - q.deathTime > CORPSE_TIME));
+    let z = o.use || this.pool.find((q) => !q.special && !q.alive && (!q.deathTime || q.baked || q.gibbed || t - q.deathTime > CORPSE_TIME));
     if (!z) {
-      if (this.pool.length >= POOL) return false;
+      if (this.pool.filter((q) => !q.special).length >= POOL) return false;
       z = this.makeZombie();
     }
     let pos;
@@ -234,7 +241,8 @@ export class ZombieMode {
     z.baked = z.gibbed = false;
     z.char = 0;
     z.burn = null;
-    z.extra = !!(o.at || o.near);
+    z.extra = !o.special && !!(o.at || o.near);
+    z.sp = null; z.visualCrouch = false; z.pm.speedCap = null; z.speedNow = null;
     const humans = this.humans();
     const h = humans[0];
     const yaw = h ? Math.atan2(h.pm.origin[1] - pos[1], h.pm.origin[0] - pos[0]) * 180 / Math.PI : Math.random() * 360;
@@ -369,6 +377,7 @@ export class ZombieMode {
       this.growl(z, t);
       const target = this.pickTarget(z, humans, t);
       if (!target) { z.pm.angles[0] = 0; continue; }
+      if (z.special && this.specials.think(z, target, cmd, t)) continue; // its own trick this tick
       this.chase(z, target, cmd, t);
       this.separate(z, cmd);
       this.attack(z, target, cmd, t);
@@ -380,14 +389,16 @@ export class ZombieMode {
     z.nextGrowl = t + rand(3, 8);
     const cam = this.game.camPos;
     if (cam && Math.hypot(z.pm.origin[0] - cam[0], z.pm.origin[1] - cam[1]) > 1800) return;
-    this.game.sound?.play('zombie_idle', { pos: z.eyePos(), volume: 0.85, channel: `${z.id}:voice` });
+    this.game.sound?.play((z.special && this.specials.idleSound(z)) || 'zombie_idle', { pos: z.eyePos(), volume: 0.85, channel: `${z.id}:voice` });
   }
 
   pickTarget(z, humans, t) {
     if (z.target && z.target.alive && t < z.targetT) return z.target;
     let best = null, bd = Infinity;
     for (const h of humans) {
-      const d = Math.hypot(h.pm.origin[0] - z.pm.origin[0], h.pm.origin[1] - z.pm.origin[1], (h.pm.origin[2] - z.pm.origin[2]) * 1.5);
+      // loud guns draw them (a suppressor doesn't)
+      const loud = t - (h.lastLoud ?? -99) < 2 ? 0.8 : 1;
+      const d = Math.hypot(h.pm.origin[0] - z.pm.origin[0], h.pm.origin[1] - z.pm.origin[1], (h.pm.origin[2] - z.pm.origin[2]) * 1.5) * this.specials.lure(h, t) * loud;
       if (d < bd) { bd = d; best = h; }
     }
     z.target = best;

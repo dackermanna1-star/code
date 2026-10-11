@@ -14,6 +14,7 @@ import { BONE_DEFS } from '../assets/pm/rig.js';
 import { getSkinTexture } from '../assets/pm/skins.js';
 import { lightCurve } from '../map/meshbuilder.js';
 import { StaticStore, Soak, clusterIndex } from './statics.js';
+import { canvasTexture } from '../assets/pm/gslight.js';
 
 const tr = new TraceResult();
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -132,6 +133,7 @@ export class Gore {
     this.gibs = [];
     this.fountains = [];
     this.brassSoak = new Soak(1, 4, 6); // at most 4 shells per 6 x 6 units (a pile reads the same)
+    this.customTex = new Map(); // corpse skins with their wounds burned in (bosses)
   }
 
   clear() {
@@ -141,13 +143,16 @@ export class Gore {
     this.gibs = [];
     this.fountains = [];
     this.brassSoak.clear();
+    for (const t of this.customTex.values()) t.dispose();
+    this.customTex.clear();
+    for (const [k, m] of this.materials) if (k.startsWith('wounded_')) { m.dispose(); this.materials.delete(k); }
   }
 
   material(key) {
     let m = this.materials.get(key);
     if (m) return m;
     const uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib.fog]);
-    uniforms.map = { value: key === 'meat' ? meatTexture() : key === 'brass' ? whiteTexture() : getSkinTexture(key) };
+    uniforms.map = { value: this.customTex.get(key) || (key === 'meat' ? meatTexture() : key === 'brass' ? whiteTexture() : getSkinTexture(key)) };
     m = new THREE.ShaderMaterial({ uniforms, vertexShader: VERT, fragmentShader: FRAG, vertexColors: true, fog: true });
     m.name = 'corpse_' + key;
     this.materials.set(key, m);
@@ -252,10 +257,50 @@ export class Gore {
     const sph = this.spheres(snap, p.boss ? p.boss.scale : 1);
     const s = compact(snap);
     const skin = p.model.skin;
-    this.addStatic(skin, s.pos, s.uv, s.col, s.idx);
+    // a boss keeps its bullet holes: its own copy of the skin with the wounds painted in
+    const L = p.model.woundLayer;
+    this.addStatic(p.boss && L && L.n > 0 ? this.woundedSkin(skin, L.canvas) : skin, s.pos, s.uv, s.col, s.idx);
+    if (p.model.extras) this.bakeExtras(p.model, snap);
     const c = sph.length ? sph.reduce((a, q) => [a[0] + q[0] / sph.length, a[1] + q[1] / sph.length, a[2] + q[2] / sph.length], [0, 0, 0]) : p.pm.origin.slice();
     this.records.push({ skin, center: c, spheres: sph, scale: p.boss ? p.boss.scale : 1 });
     p.model.object3D.visible = false;
+  }
+
+  /** A one-off corpse texture: the skin with a wound layer over it. Returns its key. */
+  woundedSkin(skin, wounds) {
+    const base = getSkinTexture(skin).userData.canvas;
+    const c = document.createElement('canvas');
+    c.width = base.width; c.height = base.height;
+    const g = c.getContext('2d');
+    g.drawImage(base, 0, 0);
+    g.globalCompositeOperation = 'source-atop'; // (keeps the skin's cut-out alpha)
+    g.drawImage(wounds, 0, 0, c.width, c.height);
+    const key = `wounded_${skin}_${this.customTex.size}`;
+    this.customTex.set(key, canvasTexture(c));
+    return key;
+  }
+
+  /** The parts bolted onto a boss (cleaver, plates, horns...) stay with its body. */
+  bakeExtras(model, snap) {
+    const world = this.game.renderer.world;
+    _inv.copy(world.matrixWorld).invert();
+    const light = this.lightFor(snap.pos);
+    for (const mesh of model.extras.meshes) {
+      const hex = mesh.material.userData?.hex;
+      if (!hex || !mesh.visible) continue; // glowing bits go out with the boss
+      const geo = mesh.geometry, P = geo.attributes.position.array, nv = P.length / 3;
+      _m.multiplyMatrices(_inv, mesh.matrixWorld);
+      const pos = new Float32Array(nv * 3);
+      for (let k = 0; k < nv; k++) {
+        _v.set(P[k * 3], P[k * 3 + 1], P[k * 3 + 2]).applyMatrix4(_m);
+        pos[k * 3] = _v.x; pos[k * 3 + 1] = _v.y; pos[k * 3 + 2] = _v.z;
+      }
+      const idx = geo.index ? Array.from(geo.index.array) : Array.from({ length: nv }, (_, i) => i);
+      const col = this.shade(pos, idx, light, model.material.uniforms.uChar?.value || 0);
+      const c = new THREE.Color(hex);
+      for (let k = 0; k < nv; k++) { col[k * 3] *= c.r; col[k * 3 + 1] *= c.g; col[k * 3 + 2] *= c.b; }
+      this.addStatic('brass', pos, geo.attributes.uv.array, col, idx);
+    }
   }
 
   /** Dead zombies whose bodies have settled get baked (called every frame). */

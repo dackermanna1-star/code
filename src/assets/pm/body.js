@@ -298,6 +298,12 @@ export const SKIN_BODY = {
   banshee: { bulk: 0, hem: 0.2, baggy: 0, thin: 1.0, skirt: 1.0, longHair: true },
   inferno: { bulk: 0.2, hem: 0.3, baggy: 0.2, muscle: 0.5 },
   abomination: { bulk: 1.8, hem: 1.0, baggy: 1.2, belly: 0.5, muscle: 1.4 },
+  // special infected (src/game/specials.js)
+  boomer: { bulk: 1.6, hem: 1.8, baggy: 1.0, belly: 2.2, muscle: 0.2 },
+  charger: { bulk: 0.6, hem: 0.4, baggy: 0.3, muscle: 1.0 },
+  sprinter: { bulk: 0, hem: 0.1, baggy: 0.1, thin: 0.8 },
+  hunter: { bulk: 0.5, hem: 0.6, baggy: 0.8 },
+  smoker: { bulk: 0.2, hem: 0.5, baggy: 0.5, thin: 0.5 },
 };
 
 export function buildBodyGeometry(skin) {

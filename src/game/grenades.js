@@ -40,6 +40,8 @@ export class Grenades {
     if (params.addOwnerVelocity !== false) { v[0] += p.pm.velocity[0]; v[1] += p.pm.velocity[1]; v[2] += p.pm.velocity[2]; }
     // a molotov flies as a projectile and shatters where it lands (projectiles.js)
     if (type === 'molotov') { g.sound.play('lighter', { pos: p.isLocal ? null : eye, volume: 0.5 }); return g.projectiles.launch('molotov', p, src, v); }
+    // a remote charge sticks where it lands (explosives.js)
+    if (type === 'remotec4') return g.projectiles.launch('stickyc4', p, src, [v[0] * 0.75, v[1] * 0.75, v[2] * 0.75]);
     const n = CR.createGrenade(type, src, v, g.time, p);
     n.random = Math.random;
     try { n.obj = createWorldWeapon(type); g.renderer.world.add(n.obj); } catch { n.obj = null; }

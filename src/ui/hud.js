@@ -146,6 +146,25 @@ export class Hud {
     while (this.kills.length > MAX_DEATHNOTICES) this.kills.shift();
   }
 
+  /** Covered in Boomer bile: slimy green blotches over the view (k 0..1). */
+  drawBile(T, k) {
+    const vw = this.vw, vh = this.vh;
+    if (!this.bileBlots) {
+      this.bileBlots = [];
+      for (let i = 0; i < 26; i++) this.bileBlots.push([Math.random(), Math.random() * 0.9 + 0.05, 0.06 + Math.random() * 0.16, Math.random()]);
+    }
+    T.fillStyle = css([90, 140, 20], 0.3 * k);
+    T.fillRect(0, 0, vw, vh);
+    for (const [x, y, r, a] of this.bileBlots) {
+      const cx = x * vw, cy = (y + (this.time * 0.01 * a) % 0.1) * vh, rr = r * Math.min(vw, vh);
+      const gr = T.createRadialGradient(cx, cy, 0, cx, cy, rr);
+      gr.addColorStop(0, `rgba(120,170,30,${(0.75 * k).toFixed(3)})`);
+      gr.addColorStop(1, 'rgba(90,140,20,0)');
+      T.fillStyle = gr;
+      T.fillRect(cx - rr, cy - rr, rr * 2, rr * 2);
+    }
+  }
+
   /** A short green wash over the screen: you were patched up (medkit). */
   healFlash() { this.healAt = this.time; }
 
@@ -236,6 +255,7 @@ export class Hud {
       T.fillStyle = css([255, 255, 255], clamp(s.flash, 0, 1));
       T.fillRect(0, 0, vw, vh);
     }
+    if (s.bile > 0) this.drawBile(T, s.bile);
     const ha = this.healAt != null ? 0.32 * (1 - (this.time - this.healAt) / 0.7) : 0;
     if (ha > 0) {
       T.fillStyle = css([60, 255, 90], ha);

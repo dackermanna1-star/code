@@ -1,5 +1,6 @@
 // CS 1.6 buy menu contents: categories, per-team item order (number keys),
 // prices and the info-panel text shown next to the weapon picture.
+import { ATTACHMENTS, ATTACHMENT_IDS, SKINS, SKIN_IDS } from '../../game/attachments.js';
 
 export const CATEGORIES = [
   { key: 1, id: 'pistol', label: 'Handgun' },
@@ -10,22 +11,27 @@ export const CATEGORIES = [
   { key: 6, id: 'primammo', label: 'Primary weapon ammo', direct: true },
   { key: 7, id: 'secammo', label: 'Secondary weapon ammo', direct: true },
   { key: 8, id: 'equip', label: 'Equipment' },
+  { key: 9, id: 'upgrade', label: 'Upgrades & Skins', zombieOnly: true }, // zombie survival: for the gun in hand
 ];
+// pages reached from inside another page (no key on the main page)
+export const SUBPAGES = { skins: { id: 'skins', label: 'Weapon Skins', parent: 'upgrade' } };
 
 // item order per category and team (index + 1 = number key)
 // ALL: zombie survival sells both teams' guns (the auto-snipers move to the MG page so
 // every page fits the 1-9 keys)
 export const MENU = {
   pistol: { T: ['glock', 'usp', 'p228', 'deagle', 'elite'], CT: ['glock', 'usp', 'p228', 'deagle', 'fiveseven'], ALL: ['glock', 'usp', 'p228', 'deagle', 'elite', 'fiveseven'] },
-  shotgun: { T: ['m3', 'xm1014'], CT: ['m3', 'xm1014'] },
+  shotgun: { T: ['m3', 'xm1014'], CT: ['m3', 'xm1014'], ALL: ['m3', 'xm1014', 'aa12'] },
   smg: { T: ['mac10', 'mp5', 'ump45', 'p90'], CT: ['tmp', 'mp5', 'ump45', 'p90'], ALL: ['mac10', 'tmp', 'mp5', 'ump45', 'p90'] },
-  rifle: { T: ['galil', 'ak47', 'scout', 'sg552', 'awp', 'g3sg1'], CT: ['famas', 'scout', 'm4a1', 'aug', 'sg550', 'awp'], ALL: ['galil', 'famas', 'ak47', 'm4a1', 'sg552', 'aug', 'scout', 'awp'] },
-  mg: { T: ['m249'], CT: ['m249'], ALL: ['m249', 'g3sg1', 'sg550', 'flamethrower', 'm32', 'rpg'] },
+  rifle: { T: ['galil', 'ak47', 'scout', 'sg552', 'awp', 'g3sg1'], CT: ['famas', 'scout', 'm4a1', 'aug', 'sg550', 'awp'], ALL: ['galil', 'famas', 'ak47', 'm4a1', 'sg552', 'aug', 'scout', 'awp', 'barrett'] },
+  mg: { T: ['m249'], CT: ['m249'], ALL: ['m249', 'g3sg1', 'sg550', 'flamethrower', 'm32', 'rpg', 'minigun', 'chainsaw', 'tesla'] },
   equip: {
     T: ['vest', 'vesthelm', 'flashbang', 'hegrenade', 'smokegrenade', 'nvgs'],
     CT: ['vest', 'vesthelm', 'flashbang', 'hegrenade', 'smokegrenade', 'defuser', 'nvgs'],
-    ALL: ['vest', 'vesthelm', 'flashbang', 'hegrenade', 'smokegrenade', 'molotov', 'medkit', 'nvgs'],
+    ALL: ['vest', 'vesthelm', 'flashbang', 'hegrenade', 'smokegrenade', 'molotov', 'medkit', 'claymore', 'remotec4'],
   },
+  upgrade: { ALL: [...ATTACHMENT_IDS.map((a) => 'att_' + a), 'skins'] },
+  skins: { ALL: SKIN_IDS.map((k) => 'skin_' + k) },
 };
 
 // name, price and the classic VGUI info text
@@ -60,7 +66,14 @@ export const ITEMS = {
   flamethrower: W('M2 Flamethrower', 3500, 'USA', 'Fuel', '100 units', 'Continuous', '30 kg', 'N/A', 'N/A', 'Sets them on fire'),
   m32: W('M32 Grenade Launcher', 4200, 'South Africa', '40 mm', '6 rounds', 'Semi-auto', '5.3 kg', '230 g', '250 ft/s', 'Explodes on contact'),
   rpg: W('RPG-7', 5000, 'USSR', '85 mm rocket', '1 rocket', 'Single shot', '7 kg', '2.6 kg', '380 ft/s', 'Explodes on contact'),
+  minigun: W('M134 Minigun', 7500, 'USA', '7.62 NATO', '200 round belt', '1,300 RPM', '39 kg', '9.5 g', '2,800 ft/s', 'Spins up first'),
+  aa12: W('AA-12 Auto Shotgun', 4000, 'USA', '12 Gauge', '20 round drum', '300 RPM', '5.2 kg', '50 g (shot)', '1,200 ft/s', 'Full auto'),
+  barrett: W('Barrett M82A1', 6500, 'USA', '.50 BMG', '10 rounds', 'Semi-auto', '14 kg', '42 g', '2,800 ft/s', 'Through several bodies'),
+  chainsaw: W('Chainsaw', 3000, 'USA', 'Two-stroke gas', '100 units', 'Continuous', '6 kg', 'N/A', 'N/A', 'Cuts all in front'),
+  tesla: W('Tesla Coil Gun', 6000, 'Unknown', 'Power cells', '30 charges', '250 RPM', '9 kg', 'N/A', 'Lightning', 'Arcs to 5 targets'),
   molotov: { name: 'Molotov Cocktail', price: 400, text: 'A bottle of fuel with a burning rag. Shatters where it lands and sets the floor on fire for 7 seconds. Carry up to 3.' },
+  claymore: { name: 'M18 Claymore', price: 750, text: 'A directional mine. Fire to put it down facing where you look; it arms in 1.5 s and blasts the first zombie that walks into the laser cone in front. Never hurts you or your team. Carry 2, up to 4 down at once.' },
+  remotec4: { name: 'Remote C4', price: 600, text: 'Throw it: it sticks to whatever it hits, zombies too. Press V (or right-click with it in hand) to set off every charge you have out. Stand clear. Carry 3, up to 3 out at once.' },
   medkit: { name: 'Medkit', price: 800, text: 'Heals 50 health. Key 5 takes it out; fire to patch yourself up, right-click to patch up the teammate in front of you. Carry up to 3.' },
   vest: { name: 'Kevlar Vest', price: 650, text: 'Body armour. Absorbs part of the damage from shots to the chest, stomach and arms.' },
   vesthelm: { name: 'Kevlar Vest & Helmet', price: 1000, text: 'Body armour and a kevlar helmet that also protects against shots to the head.' },
@@ -69,10 +82,14 @@ export const ITEMS = {
   smokegrenade: { name: 'Smoke Grenade', price: 300, text: 'Creates a dense cloud of smoke that blocks vision.' },
   defuser: { name: 'Defusal Kit', price: 200, text: 'Cuts the time needed to defuse the bomb from 10 to 5 seconds.' },
   nvgs: { name: 'NightVision Goggles', price: 1250, text: 'Lets you see in dark areas. Press N to toggle.' },
+  // zombie survival upgrades (game/attachments.js)
+  ...Object.fromEntries(ATTACHMENT_IDS.map((a) => ['att_' + a, { name: ATTACHMENTS[a].name, price: ATTACHMENTS[a].price, text: ATTACHMENTS[a].text, upgrade: true }])),
+  ...Object.fromEntries(SKIN_IDS.map((k) => ['skin_' + k, { name: SKINS[k].name, price: SKINS[k].price, text: SKINS[k].text, skin: k, upgrade: true }])),
+  skins: { name: 'Weapon Skins...', price: null, page: 'skins', text: 'Paint jobs for the weapon in your hands.' },
 };
 
 // equipment pictures in the info panel reuse the HUD / kill icons
-export const ITEM_ICON = { vest: 'suit_full', vesthelm: 'suithelmet_full', defuser: 'defuser', nvgs: null, flashbang: 'flashbang', hegrenade: 'hegrenade', smokegrenade: 'smokegrenade', molotov: 'molotov', medkit: 'medkit' };
+export const ITEM_ICON = { vest: 'suit_full', vesthelm: 'suithelmet_full', defuser: 'defuser', nvgs: null, flashbang: 'flashbang', hegrenade: 'hegrenade', smokegrenade: 'smokegrenade', molotov: 'molotov', medkit: 'medkit', claymore: 'claymore', remotec4: 'remotec4' };
 
 export function itemsFor(cat, team) {
   const t = team === 'CT' ? 'CT' : team === 'ALL' ? 'ALL' : 'T';

@@ -25,6 +25,7 @@ import { TraceResult, MASK_SHOT } from '../engine/collision.js';
 import { PLAYER_SKINS } from '../assets/playermodels.js';
 import * as WS from './weaponsys.js';
 import * as CR from './combatrules.js';
+import { ATTACHMENTS, whyNot } from './attachments.js';
 
 const BTN_ATTACK = 1, BTN_ATTACK2 = 2, BTN_RELOAD = 4, BTN_USE = 8;
 
@@ -1236,6 +1237,15 @@ class Bot {
     if (g.zombies?.enabled) {
       const kits = () => p.weapons[4].find((x) => x.id === 'medkit')?.count ?? 0;
       for (let i = 0; i < 3 && kits() < 2 && p.money >= price('medkit') + 1500; i++) if (!b('medkit')) break;
+      // and soup up the main gun when there's money to spare (attachments.js)
+      const gun = p.weapons[1] || p.weapons[2];
+      if (gun && p.money >= 4000) {
+        if (p.active !== gun) g.selectWeapon(p, gun, true);
+        for (const a of ['extmag', 'foregrip', 'compensator', 'laser', 'reddot']) {
+          if (p.money < ATTACHMENTS[a].price + 3000) break;
+          if (!whyNot(gun, a) && !gun.att?.[ATTACHMENTS[a].slot]) b('att_' + a);
+        }
+      }
     }
     prim = p.weapons[1];
     if (prim) for (let i = 0; i < 4; i++) if (!b('primammo')) break;
@@ -1302,6 +1312,7 @@ class Bot {
     if (blind) this.blinded(it);
     if (this.avoidFlash && this.time < this.avoidFlash.until) { it.lookAngles = [10, this.avoidFlash.yaw]; it.look = null; it.fire = false; it.combat = false; }
 
+    if (g.zombies?.enabled) this.dodgeGoo(it);
     this.manageWeapon(cmd, it);
     // movement
     if (it.move && !p.planting && !p.defusing) this.navigate(it.move, cmd, it);
@@ -1725,6 +1736,38 @@ class Bot {
     } else if (isSniper(w) && it.combat && p.fov < 20 && this.time > this.zoomClock && w.nextSecondary <= this.time) {
       cmd.wbuttons |= BTN_ATTACK2; this.zoomClock = this.time + 0.35;
     }
+  }
+
+  // ------------------------------------------------------------------ acid (zombie survival)
+  /** Get clear of acid: where a glob is about to land, and out of a pool already burning. */
+  dodgeGoo(it) {
+    const g = this.game, p = this.p, o = p.pm.origin;
+    if (p.pinnedBy || p.tonguedBy) return;
+    const feetZ = o[2] - 36;
+    let away = null, worst = 0;
+    const flee = (c, r) => {
+      const d = Math.hypot(o[0] - c[0], o[1] - c[1]);
+      if (d > r || Math.abs(feetZ - c[2]) > 80) return;
+      const k = 1 - d / r;
+      if (k > worst) { worst = k; away = c; }
+    };
+    for (const pr of g.projectiles?.list || []) {
+      if (pr.type !== 'acid') continue;
+      // where it comes down (at our feet's height)
+      const G = 800 * (pr.def.gravity ?? 1), vz = pr.vel[2], h = pr.pos[2] - feetZ;
+      const disc = vz * vz + 2 * G * h;
+      if (disc < 0 || !G) continue;
+      const T = (vz + Math.sqrt(disc)) / G;
+      flee([pr.pos[0] + pr.vel[0] * T, pr.pos[1] + pr.vel[1] * T, feetZ], 190);
+    }
+    for (const pa of g.fire?.patches || []) if (pa.kind === 'acid' && g.time < pa.end) flee(pa.center, pa.radius + 50);
+    if (!away) return;
+    // straight out of it (sideways if it's right on us), shooting all the while
+    let dx = o[0] - away[0], dy = o[1] - away[1], l = Math.hypot(dx, dy);
+    if (l < 8) { const y = p.pm.angles[1] * DEG; dx = -Math.sin(y); dy = Math.cos(y); l = 1; }
+    it.move = [o[0] + dx / l * 260, o[1] + dy / l * 260, feetZ];
+    it.stop = false; it.walk = false; it.duck = false; it.tol = 40;
+    this.dodging = this.time;
   }
 
   // ------------------------------------------------------------------ medkits (zombie survival)

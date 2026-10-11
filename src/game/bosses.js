@@ -22,12 +22,12 @@ const angDiff = (a, b) => ((a - b) % 360 + 540) % 360 - 180;
 const _tr = new TraceResult();
 const dist2 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
-/** Bosses' health and every hit they deal, against the numbers below (tuned down 35%). */
+/** Bosses' health and every hit they deal, against the numbers below (tuned down 35%; k: one boss's own extra factor). */
 export const BOSS_NERF = 0.65;
 
 export const BOSSES = [
   { id: 'butcher', name: 'THE BUTCHER', title: 'He brought his cleaver. Dodge the charge.', skin: 'butcher', scale: 1.4, health: 3200, speed: 205, damage: 34, color: [230, 60, 40] },
-  { id: 'spitter', name: 'THE SPITTER', title: 'Stay out of the acid.', skin: 'spitter', scale: 1.3, health: 2800, speed: 175, damage: 22, color: [140, 230, 40] },
+  { id: 'spitter', name: 'THE SPITTER', title: 'Stay out of the acid.', skin: 'spitter', scale: 1.3, health: 2800, speed: 175, damage: 22, color: [140, 230, 40], k: 0.8 },
   { id: 'banshee', name: 'THE BANSHEE', title: 'Watch your back. Hear her scream.', skin: 'banshee', scale: 1.2, stretch: 1.12, health: 2400, speed: 240, damage: 16, color: [180, 200, 255] },
   { id: 'inferno', name: 'THE INFERNO', title: 'Fire only makes him stronger.', skin: 'inferno', scale: 1.35, health: 3800, speed: 200, damage: 30, fireImmune: true, color: [255, 140, 30] },
   { id: 'abomination', name: 'THE ABOMINATION', title: 'Armoured. Aim for the head, or the core when it opens.', skin: 'abomination', scale: 1.65, health: 5600, speed: 185, damage: 42, color: [255, 50, 30] },
@@ -80,7 +80,7 @@ export class BossDirector {
     p.model = m;
     // more shooters, more health (a bot counts half)
     const crowd = Math.max(1, humans.reduce((n, q) => n + (q.isBot ? 0.5 : 1), 0));
-    const hp = Math.round(def.health * BOSS_NERF * (1 + 0.6 * cycle) * (1 + 0.35 * (crowd - 1)));
+    const hp = Math.round(def.health * BOSS_NERF * (def.k ?? 1) * (1 + 0.6 * cycle) * (1 + 0.35 * (crowd - 1)));
     const h = humans[0];
     const yaw = h ? Math.atan2(h.pm.origin[1] - node.y, h.pm.origin[0] - node.x) / DEG : 0;
     p.resetForSpawn([node.x, node.y, node.z + 37], yaw);

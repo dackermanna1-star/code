@@ -21,7 +21,7 @@ export const WEAPON_IDS = [
   'm3', 'xm1014', 'mac10', 'tmp', 'mp5', 'ump45', 'p90',
   'galil', 'famas', 'ak47', 'm4a1', 'sg552', 'aug', 'scout', 'awp', 'g3sg1', 'sg550', 'm249',
   'hegrenade', 'flashbang', 'smokegrenade', 'c4',
-  'molotov', 'flamethrower', 'rpg', 'm32', 'medkit',
+  'molotov', 'flamethrower', 'rpg', 'm32', 'medkit', 'minigun', 'aa12', 'barrett', 'chainsaw', 'tesla', 'claymore', 'remotec4',
 ];
 
 // HUD ammo icon used by each weapon (weapon_*.txt "ammo" sprite)
@@ -35,6 +35,7 @@ export const WEAPON_AMMO = {
   awp: '338magnum', m249: '556natobox',
   hegrenade: 'hegrenade', flashbang: 'flashbang', smokegrenade: 'smokegrenade', c4: 'c4',
   molotov: 'molotov', flamethrower: 'fuel', rpg: 'rocket', m32: 'grenade40', medkit: 'medkit',
+  minigun: '556natobox', aa12: 'buckshot', barrett: '50bmg', chainsaw: 'fuel', tesla: 'cell', claymore: 'claymore', remotec4: 'remotec4',
 };
 
 // kill-feed sprite widths (hud.txt d_* rectangles, all 16 high)
@@ -43,7 +44,7 @@ export const KILL_ICON_W = {
   m3: 48, xm1014: 48, mac10: 34, tmp: 32, mp5: 32, ump45: 48, p90: 48,
   galil: 48, famas: 48, ak47: 48, m4a1: 48, sg552: 48, aug: 44, scout: 48, awp: 48, g3sg1: 48, sg550: 48, m249: 48,
   hegrenade: 32, flashbang: 48, smokegrenade: 48, c4: 32, skull: 32, headshot: 36,
-  molotov: 32, flamethrower: 48, rpg: 48, m32: 48, medkit: 32, zombie: 32, fireball: 32, acid: 32,
+  molotov: 32, flamethrower: 48, rpg: 48, m32: 48, medkit: 32, minigun: 48, aa12: 48, barrett: 48, chainsaw: 48, tesla: 48, claymore: 32, remotec4: 32, zombie: 32, fireball: 32, acid: 32,
 };
 
 // ---------------------------------------------------------------- rasterising
@@ -463,6 +464,52 @@ const WEAPON_SHAPES = {
 
 // zombie survival weapons
 Object.assign(WEAPON_SHAPES, {
+  minigun: { w: 48, ops: [
+    R(4, 4, 15, 7.5), E(4.5, 7.75, 2.5, 3.6),                     // receiver, motor
+    R(19, 4.2, 25, 1.3), R(19, 6.4, 25, 1.3), R(19, 8.6, 25, 1.3), // barrels
+    R(18, 3.4, 2.2, 7.6), R(34, 3.6, 2, 7.2),                      // clamps
+    R(8, 1.4, 8, 2), X(R(9.5, 2.0, 5, 0.8)),                       // carry handle
+    P(9, 11.4, 12, 11.4, 11, 15.5, 8, 15.5),                       // grip
+    R(1, 10.5, 6, 5),                                              // ammo box
+  ] },
+  aa12: { w: 48, ops: [
+    P(0, 5, 10, 5.5, 10, 9.5, 1, 11), R(10, 4.2, 15, 5),           // stock, receiver
+    R(25, 4.8, 16, 1.8), R(25, 4.0, 9, 3.2), X(R(26, 4.8, 7, 0.8)), // barrel, vented shroud
+    R(14, 2.6, 7, 1.6),                                            // carry rail
+    P(13, 9.2, 16, 9.2, 15, 14, 12, 14),                           // grip
+    E(21.5, 11.5, 4, 3.6), X(E(21.5, 11.5, 1.6, 1.4)),            // drum
+  ] },
+  barrett: { w: 48, ops: [
+    P(0, 4.5, 9, 5, 9, 9.5, 1.5, 10), R(9, 4.3, 14, 4.6),          // stock, receiver
+    R(23, 5.4, 19, 1.4), R(42, 4.6, 4, 3), X(R(43, 5.4, 2.4, 1.2)), // barrel, muzzle brake
+    R(11, 1.6, 9, 1.8), R(10, 1.2, 2, 2.6), R(19, 1.2, 2, 2.6),   // scope
+    R(15, 8.8, 3.6, 4.6),                                          // magazine
+    P(12, 8.8, 14.5, 8.8, 13.5, 13, 11, 13),                       // grip
+    P(34, 6.8, 35, 6.8, 31, 13, 30, 13),                           // bipod
+  ] },
+  chainsaw: { w: 48, ops: [
+    R(5, 5, 13, 8), P(1, 7, 5, 7, 5, 12, 2, 13),                   // engine, rear handle
+    R(9, 2, 2, 3.5), R(9, 2, 8, 1.6), R(15, 2, 2, 3.5),            // top handle
+    P(18, 6.4, 45, 7.2, 47, 9, 45, 10.8, 18, 11.6),                // bar
+    X(R(20, 8.4, 24, 1)),                                          // chain groove
+  ] },
+  tesla: { w: 48, ops: [
+    R(4, 5, 13, 6), P(9, 11, 12, 11, 11, 15.5, 8, 15.5),           // body, grip
+    R(17, 7, 17, 2.2),                                             // barrel
+    R(18, 3.6, 1.6, 8.8), R(21.5, 3.6, 1.6, 8.8), R(25, 3.6, 1.6, 8.8), R(28.5, 3.6, 1.6, 8.8), // coils
+    P(33, 5, 42, 6.2, 42, 7.2, 33, 7.4), P(33, 9.6, 42, 9.8, 42, 10.8, 33, 12),               // prongs
+    E(6, 13, 2.6, 2.2),                                            // cell
+  ] },
+  claymore: { w: 32, ops: [
+    P(6, 4, 16, 2.6, 26, 4, 26, 11, 16, 9.6, 6, 11), // curved face
+    R(8, 11, 1.2, 4), R(23, 11, 1.2, 4),          // legs
+    X(R(10, 6, 12, 0.9)),                           // FRONT TOWARD ENEMY
+  ] },
+  remotec4: { w: 32, ops: [
+    R(5, 5, 18, 8), X(R(7, 7, 6, 4)), R(18, 3, 3, 2.5), // brick, keypad, antenna base
+    R(19, 0.5, 1, 3),                                    // antenna
+    P(24, 6, 28, 6, 28, 13, 24, 13), X(R(25, 7, 2, 1.6)),// detonator
+  ] },
   medkit: { w: 32, ops: [
     P(5, 6, 6, 5, 26, 5, 27, 6, 27, 14, 26, 15, 6, 15, 5, 14), // bag
     X(R(12.5, 2.6, 7, 1.2)), R(12, 2, 8, 3),                    // carry handle
@@ -814,6 +861,10 @@ const HUD_BUILDERS = {
   ammo_flashbang: () => grenadeAmmo('FB', false),
   ammo_hegrenade: () => grenadeAmmo('HE', false),
   ammo_smokegrenade: () => grenadeAmmo('SG', true),
+  ammo_50bmg: () => ammo(bulletOps(1, 19, 27, 7), '.50', 9),
+  ammo_cell: () => ammo([R(7, 4, 10, 18), R(10, 1.6, 4, 2.6), X(P(13, 6.5, 9.5, 13, 12, 13, 10.5, 19.5, 14.5, 11.5, 12, 11.5, 13.5, 6.5))], null, 0),
+  ammo_claymore: () => ammo([P(2, 8, 12, 6, 22, 8, 22, 17, 12, 15, 2, 17), R(4, 17, 1.4, 5), R(18.6, 17, 1.4, 5)], null, 0),
+  ammo_remotec4: () => ammo([R(3, 8, 18, 11), X(R(5, 10, 7, 4)), R(15, 4, 1.4, 4)], 'C4', 2),
   ammo_medkit: () => ammo([P(3, 9, 4, 8, 20, 8, 21, 9, 21, 21, 20, 22, 4, 22, 3, 21), R(9, 4.5, 6, 3.5), X(R(10, 5.5, 4, 1.5)), X(R(10.6, 11, 2.8, 8.6)), X(R(7.7, 13.9, 8.6, 2.8))], null, 0),
   ammo_molotov: () => ammo([P(9, 22, 9, 10, 10.5, 8.4, 10.5, 5, 13.5, 5, 13.5, 8.4, 15, 10, 15, 22), R(10.4, 1.6, 3.2, 3.6)], null, 0),
   ammo_fuel: () => ammo([P(12, 1.5, 18, 11, 18.5, 15, 16, 20, 12, 21.5, 8, 20, 5.5, 15, 6, 11), X(E(10, 14, 1.4, 2.6))], null, 0),

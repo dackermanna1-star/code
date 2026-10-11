@@ -15,6 +15,7 @@ export const PROJECTILES = {
   molotov: { gravity: 0.5, life: 5, model: 'molotov', bounces: 2 },
   fireball: { gravity: 0, life: 4, glow: 0xff7a20, size: 9 },
   acid: { gravity: 0.6, life: 5, glow: 0x70ff20, size: 6 },
+  stickyc4: { gravity: 0.8, life: 6, model: 'remotec4' },
 };
 
 /** Segment p0->p1 against an axis-aligned box: entry fraction or -1. */
@@ -80,7 +81,7 @@ export class Projectiles {
     let best = null;
     for (const q of g.players) {
       if (!q.alive) continue;
-      if (q === pr.owner && g.time - pr.born < 0.3) continue;
+      if (q === pr.owner && (pr.type === 'stickyc4' || g.time - pr.born < 0.3)) continue;
       if (pr.owner && q !== pr.owner && q.team === pr.owner.team) continue;
       const o = q.pm.origin, h = q.hull(), sc = q.boss ? q.boss.scale : 1;
       const mn = [o[0] + h.mins[0] * sc, o[1] + h.mins[1] * sc, o[2] + h.mins[2]];
@@ -125,7 +126,7 @@ export class Projectiles {
       if (pr.obj) {
         pr.obj.position.set(p[0], p[1], p[2]);
         const sp = Math.hypot(v[0], v[1], v[2]);
-        if (pr.type === 'molotov') { pr.spin += dt * 12; pr.obj.rotation.set(pr.spin * 0.5, pr.spin, 0); }
+        if (pr.type === 'molotov' || pr.type === 'stickyc4') { pr.spin += dt * 12; pr.obj.rotation.set(pr.spin * 0.5, pr.spin, 0); }
         else if (sp > 1) pr.obj.rotation.set(0, Math.atan2(-v[2], Math.hypot(v[0], v[1])), Math.atan2(v[1], v[0])); // nose (+X) along the flight
       }
       pr.sound?.setPosition?.(p);
@@ -184,6 +185,9 @@ export class Projectiles {
       case 'fireball':
         g.explode(back, { owner: pr.owner, damage: pr.damage ?? 30, radius: 140, weapon: 'fireball', sound: 'fireball_hit', scale: 0.6, shake: 4, fire: true, noGore: true });
         g.fire?.ignite(point, pr.owner, { radius: 70, duration: 4.5, dps: 24, weapon: 'fireball', quiet: true });
+        break;
+      case 'stickyc4':
+        g.explosives?.plant(pr.owner, point, normal, victim);
         break;
       case 'acid': {
         g.sound?.play('acid_splash', { pos: point, volume: 1 });

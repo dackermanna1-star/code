@@ -25,7 +25,9 @@ import { createWorldWeapon, weaponHoldType } from './worldweapons.js';
 
 export const PLAYER_SKINS = { t: ['terror', 'leet', 'arctic', 'guerilla'], ct: ['urban', 'gsg9', 'sas', 'gign'] };
 /** Zombie survival: the common zombie and the five bosses. */
-export const ZOMBIE_SKINS = ['zombie', 'butcher', 'spitter', 'banshee', 'inferno', 'abomination'];
+export const ZOMBIE_SKINS = ['zombie', 'butcher', 'spitter', 'banshee', 'inferno', 'abomination', 'boomer', 'charger', 'sprinter', 'hunter', 'smoker'];
+/** Bone scales that make a body (the Charger's one huge arm). */
+const BONE_SCALE = { charger: { upperarm_r: 1.55, upperarm_l: 0.85 } };
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -242,6 +244,7 @@ class PlayerModel {
       this.setGlow(1);
     }
     this.extras = buildExtras(this, skin);
+    this.applyBoneScale();
 
     // hitboxes
     this.hitMats = HIT_COLORS.map((c) => new THREE.MeshBasicMaterial({ color: c, wireframe: true, visible: false, depthTest: false }));
@@ -377,6 +380,7 @@ class PlayerModel {
     this.onReset?.();
     this.setChar(0);
     for (const b of this.bones) b.scale.set(1, 1, 1); // (a popped head comes back)
+    this.applyBoneScale();
     if (this.ragdoll) this.ragdoll.detach();
     this.ragdoll = null;
     this.dead = null;
@@ -384,6 +388,12 @@ class PlayerModel {
     if (this.weaponHolderL) this.weaponHolderL.visible = true;
     this.spd = 0; this.crouchW = 0; this.airW = 0; this.plantW = 0; this.reloadW = 0; this.recoil = 0;
     this._started = false;
+  }
+
+  /** Body proportions done with bone scales (the Charger's arm). */
+  applyBoneScale() {
+    const bs = BONE_SCALE[this.skin];
+    if (bs) for (const [n, k] of Object.entries(bs)) this.bones[this.rig.b[n].i].scale.setScalar(k);
   }
 
   setHitboxesVisible(on) { for (const m of this.hitMats) m.visible = !!on; }

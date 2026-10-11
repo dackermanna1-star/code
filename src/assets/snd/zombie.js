@@ -28,6 +28,82 @@ function roar(x, sr, r, t0, len, amp, lp = 800, env = () => 1) {
 }
 
 export const ZOMBIE_FX = {
+  // ---- minigun, chainsaw, tesla
+  minigun_spinup: { rate: 22050, dur: 0.8, peak: 0.6, fn: (P) => foley(P, (x, sr, r) => {
+    addTone(x, sr, 0, { f: 60, f1: 420, glide: 0.3, a: 0.05, tau: 0.6, len: 0.7, amp: 0.7 }); // motor whine
+    addBurst(x, sr, r, 0, 0.5, { len: 0.7, color: 'pink', env: (t) => Math.min(1, t / 0.4), sweep: { mode: 'bp', fc: (t) => 400 + 3000 * Math.min(1, t / 0.5), q: 2 } });
+    for (let i = 0; i < 14; i++) addMetal(x, sr, r, 0.03 + 0.45 * Math.sqrt(i / 14), { f: 2600, amp: 0.15, tau: 0.004, n: 2, noise: 0.2 }); // barrels ticking past
+  }, 0.05) },
+  minigun_spindown: { rate: 22050, dur: 1.2, peak: 0.45, fn: (P) => foley(P, (x, sr, r) => {
+    addTone(x, sr, 0, { f: 420, f1: 50, glide: 0.4, a: 0.01, tau: 0.7, len: 1.1, amp: 0.7 });
+    addBurst(x, sr, r, 0, 0.4, { len: 1.0, color: 'pink', env: (t) => Math.exp(-t / 0.4), sweep: { mode: 'bp', fc: (t) => 3400 - 3000 * Math.min(1, t / 0.8), q: 2 } });
+  }, 0.05) },
+  chainsaw_idle: { rate: 22050, dur: 2, loop: 0.3, rms: 0.09, fn: (P) => foley(P, (x, sr, r) => {
+    // two-stroke putter: a pulse train at ~38 Hz through a boxy resonance
+    for (let t = 0; t < 2.3; t += 1 / 38) addBurst(x, sr, r, t, 0.6 + 0.4 * Math.sin(t * 9), { a: 0.001, tau: 0.008, color: 'pink', filters: [['bandpass', 420, 1.2], ['peaking', 900, 2, 6]] });
+    addTone(x, sr, 0, { f: 38, a: 0.01, tau: 9, len: 2.3, amp: 0.3 });
+  }) },
+  chainsaw_rev: { rate: 22050, dur: 2, loop: 0.3, rms: 0.14, fn: (P) => foley(P, (x, sr, r) => {
+    for (let t = 0; t < 2.3; t += 1 / 110) addBurst(x, sr, r, t, 0.7 + 0.3 * Math.sin(t * 23), { a: 0.0005, tau: 0.005, color: 'pink', filters: [['bandpass', 1100, 1.0], ['peaking', 2300, 2, 6]] });
+    addBurst(x, sr, r, 0, 0.35, { len: 2.3, color: 'white', env: () => 1, filters: [['bandpass', 4500, 1.5]] }); // the chain
+    addTone(x, sr, 0, { f: 110, a: 0.01, tau: 9, len: 2.3, amp: 0.25, vib: 0.03, vibF: 11 });
+  }) },
+  chainsaw_cut: { rate: 22050, dur: 0.5, variants: 2, peak: 0.6, fn: (P) => foley(P, (x, sr, r) => {
+    squelch(x, sr, r, 0, 1);
+    addGrains(x, sr, r, { t0: 0, span: 0.3, count: 40, f: [600, 3000], amp: [0.1, 0.5], decay: 0.2 });
+  }, 0.05) },
+  tesla_fire: { rate: 22050, dur: 0.9, variants: 2, peak: 0.85, fn: (P) => foley(P, (x, sr, r) => {
+    addBurst(x, sr, r, 0, 1, { a: 0.0005, tau: 0.12, color: 'white', filters: [['highpass', 1800, 0.7]], env: (t) => 0.6 + 0.4 * Math.sign(Math.sin(t * 900)) }); // crackle
+    addTone(x, sr, 0, { f: 120, f1: 60, glide: 0.1, tau: 0.15, amp: 0.8 });
+    addTone(x, sr, 0, { f: 2400, f1: 600, glide: 0.08, tau: 0.1, amp: 0.35 });
+    addGrains(x, sr, r, { t0: 0, span: 0.4, count: 60, f: [2000, 8000], amp: [0.1, 0.6], decay: 0.25, dur: [0.0003, 0.002] });
+  }, 0.15) },
+  tesla_hit: { rate: 22050, dur: 0.6, peak: 0.55, fn: (P) => foley(P, (x, sr, r) => {
+    addGrains(x, sr, r, { t0: 0, span: 0.35, count: 50, f: [1500, 7000], amp: [0.1, 0.7], decay: 0.2, dur: [0.0003, 0.002] });
+    addTone(x, sr, 0, { f: 180, f1: 90, glide: 0.05, tau: 0.08, amp: 0.4 });
+  }, 0.05) },
+  // ---- special infected
+  boomer_idle: { rate: 22050, dur: 1.6, variants: 2, peak: 0.5, fn: (P, v) => foley(P, (x, sr, r) => {
+    addGrunt(x, sr, r, 0.02, 1, { dur: 1.2, f0: vib(v ? 62 : 54, 48, 1.2, 0.1, 5), env: [[0, 0], [0.1, 0.8], [0.8, 1], [1.2, 0]], vowels: [[0, V.o], [0.6, V.u], [1.2, V.uh]], breath: 0.6, grit: 6 });
+    for (let i = 0; i < 18; i++) addTone(x, sr, r.range(0.1, 1.2), { f: r.range(90, 220), f1: r.range(200, 420), glide: 0.02, tau: 0.03, amp: 0.35 }); // gurgles
+  }, 0.1) },
+  boomer_vomit: { rate: 22050, dur: 1.6, peak: 0.85, fn: (P) => foley(P, (x, sr, r) => {
+    addGrunt(x, sr, r, 0, 1, { dur: 0.45, f0: vib(110, 80, 0.45, 0.2, 14), env: [[0, 0], [0.05, 1], [0.45, 0]], vowels: [[0, V.uh], [0.45, V.a]], breath: 0.9, grit: 10 }); // retch
+    addBurst(x, sr, r, 0.3, 1, { len: 1.1, color: 'pink', env: (t) => Math.min(1, t / 0.05) * Math.exp(-t / 0.7) * (0.7 + 0.3 * Math.sin(TAU * 13 * t)), filters: [['bandpass', 900, 0.8]] });
+    for (let i = 0; i < 40; i++) addTone(x, sr, r.range(0.35, 1.4), { f: r.range(200, 600), f1: r.range(500, 1200), glide: 0.01, tau: 0.012, amp: 0.35 }); // splatter
+  }, 0.15) },
+  boomer_burst: { rate: 22050, dur: 1.8, peak: 0.95, fn: (P) => foley(P, (x, sr, r) => {
+    squelch(x, sr, r, 0, 1.4);
+    addTone(x, sr, 0, { f: 80, f1: 35, glide: 0.12, tau: 0.25, amp: 1.1 });
+    addBurst(x, sr, r, 0.01, 1, { a: 0.003, tau: 0.25, color: 'pink', filters: [['lowpass', 1600, 0.7]] });
+    addGrains(x, sr, r, { t0: 0.05, span: 1.2, count: 90, f: [300, 2600], amp: [0.1, 0.6], decay: 0.5, dur: [0.002, 0.01], q: [1, 3] });
+  }, 0.25) },
+  charger_roar: { rate: 22050, dur: 1.6, peak: 0.9, fn: (P) => foley(P, (x, sr, r) => {
+    addGrunt(x, sr, r, 0, 1, { dur: 1.3, f0: vib(80, 105, 1.3, 0.08, 9), env: [[0, 0], [0.06, 1], [1.0, 0.85], [1.3, 0]], vowels: [[0, V.a], [0.6, V.ae], [1.3, V.a]], breath: 0.8, grit: 11 });
+    addBurst(x, sr, r, 0, 0.4, { len: 1.3, color: 'brown', env: (t) => Math.min(1, t / 0.08) * Math.exp(-t / 0.8), filters: [['lowpass', 250, 0.7]] });
+  }, 0.2) },
+  hunter_scream: { rate: 22050, dur: 1.2, variants: 2, peak: 0.8, fn: (P, v) => foley(P, (x, sr, r) => {
+    const f = v ? 470 : 540;
+    addGrunt(x, sr, r, 0, 1, { dur: 0.9, f0: vib(f, f * 1.25, 0.9, 0.05, 11), env: [[0, 0], [0.04, 1], [0.6, 0.8], [0.9, 0]], vowels: [[0, V.ae], [0.5, V.a], [0.9, V.ae]], breath: 0.6, grit: 5 });
+  }, 0.2) },
+  hunter_pounce: { rate: 22050, dur: 1.0, peak: 0.8, fn: (P) => foley(P, (x, sr, r) => {
+    addBurst(x, sr, r, 0, 0.8, { a: 0.05, tau: 0.25, color: 'pink', sweep: { mode: 'bp', fc: (t) => 500 + 2500 * Math.min(1, t / 0.3), q: 0.8 } }); // whoosh
+    addGrunt(x, sr, r, 0.05, 0.9, { dur: 0.6, f0: vib(600, 420, 0.6, 0.06, 13), env: [[0, 0], [0.03, 1], [0.6, 0]], vowels: [[0, V.a], [0.6, V.ae]], breath: 0.7, grit: 6 });
+  }, 0.15) },
+  smoker_cough: { rate: 22050, dur: 1.6, variants: 2, peak: 0.55, fn: (P, v) => foley(P, (x, sr, r) => {
+    for (let i = 0; i < (v ? 3 : 4); i++) {
+      const t0 = i * r.range(0.28, 0.36);
+      addGrunt(x, sr, r, t0, 1, { dur: 0.22, f0: [[0, 120], [0.22, 90]], env: [[0, 0], [0.02, 1], [0.22, 0]], vowels: [[0, V.a], [0.22, V.uh]], breath: 1.6, grit: 9 });
+    }
+  }, 0.1) },
+  tongue_shot: { rate: 22050, dur: 0.8, peak: 0.75, fn: (P) => foley(P, (x, sr, r) => {
+    addBurst(x, sr, r, 0, 0.8, { a: 0.003, tau: 0.12, color: 'pink', sweep: { mode: 'bp', fc: (t) => 2600 - 2000 * Math.min(1, t / 0.15), q: 1.2 } }); // lash
+    squelch(x, sr, r, 0.12, 0.7);
+  }, 0.1) },
+  sprinter_shriek: { rate: 22050, dur: 0.9, variants: 2, peak: 0.7, fn: (P, v) => foley(P, (x, sr, r) => {
+    const f = v ? 700 : 820;
+    addGrunt(x, sr, r, 0, 1, { dur: 0.6, f0: vib(f, f * 0.8, 0.6, 0.07, 15), env: [[0, 0], [0.02, 1], [0.6, 0]], vowels: [[0, V.ae], [0.6, V.a]], breath: 0.7, grit: 4 });
+  }, 0.12) },
   // ---- medkit
   medkit_use: { rate: 22050, dur: 1.5, peak: 0.55, fn: (P) => foley(P, (x, sr, r) => {
     addScrape(x, sr, r, 0.02, 0.22, { f0: 2400, f1: 4200, q: 3, amp: 0.55, grit: 1 }); // zip

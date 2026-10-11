@@ -464,6 +464,62 @@ function c4Brick(b, L = 10, W = 6, H = 2.6, y0 = 0) {
 def('c4', 'c4', { leftHand: [0, 10.4, 0] }, (b) => c4Brick(b, 10, 6, 2.6, 0.4));
 
 // --- zombie survival
+// claymore: stands on its legs facing +X (curved face), laid on the floor by explosives.js
+def('claymore', 'grenade', {}, (b) => {
+  b.box(-0.6, 0.6, 1.2, 6.2, 8.6, C.olive); // body
+  b.box(0.6, 0.9, 1.6, 5.8, 7.6, C.darkolive); // front face
+  b.box(-0.3, 0.3, 6.2, 6.8, 1.4, C.black); // sight
+  for (const y of [-3.6, 3.6]) b.box(-0.8, 0.2, 0, 1.2, 0.5, C.black, y); // legs
+});
+def('remotec4', 'grenade', {}, (b) => {
+  b.box(-3.2, 3.2, 0, 1.8, 4.4, C.clay); // explosive
+  b.box(-1.6, 1.4, 1.8, 2.5, 2.4, C.dark); // receiver
+  b.box(-1.0, 0.4, 2.5, 2.6, 1.4, C.green); // display
+  b.box(1.0, 1.25, 2.5, 6.0, 0.25, C.black); // antenna
+});
+def('minigun', 'rifle', { leftHand: [11, 0, 2.4], muzzle: [34, 0, 1.4], mag: [3, 2.5, -2] }, (b) => {
+  b.box(-6, 9, -1.4, 3.6, 4.2, C.dark); // receiver
+  b.cyl('x', -9, -6, 0, 1.2, 2.0, C.gun, 8); // motor
+  for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; b.cyl('x', 9, 33, Math.cos(a) * 1.2, 1.4 + Math.sin(a) * 1.2, 0.42, C.black, 5); }
+  b.cyl('x', 16, 17.5, 0, 1.4, 2.0, C.gun, 8); b.cyl('x', 31, 33, 0, 1.4, 2.0, C.gun, 8); // clamps
+  b.box(-3, 6, 3.6, 4.4, 1.0, C.black); // carry handle
+  b.box(-2, 4, -5.5, -1.4, 3.2, C.olive, 3.4); // ammo box (left)
+  pistolGrip(b);
+});
+def('aa12', 'rifle', { leftHand: [12, 0, 0.4], muzzle: [27, 0, 2.0], mag: [7, 0, -3] }, (b) => {
+  b.box(-3, 12, 0, 3.6, 2.0, C.black); // receiver
+  b.cyl('x', 12, 27, 0, 2.0, 0.65, C.gun, 6);
+  b.box(12, 22, 1.0, 3.4, 2.4, C.dark); // vented shroud
+  b.cyl('y', -1.6, 1.6, 7, -3.4, 3.0, C.dark, 8); // drum
+  b.box(0, 9, 3.6, 4.4, 0.8, C.black); // rail
+  pistolGrip(b); triggerGuard(b);
+  b.taper(-3, [0.2, 3.4, 1.8], -12, [-1.6, 3.0, 1.8], C.black);
+});
+def('barrett', 'rifle', { leftHand: [14, 0, 0.6], muzzle: [44, 0, 2.2], mag: [6, 0, -3] }, (b) => {
+  b.box(-4, 14, 0, 3.6, 2.2, C.dark); // receiver
+  b.cyl('x', 14, 41, 0, 2.2, 0.7, C.gun, 6);
+  b.box(40, 44, 1.2, 3.4, 2.6, C.black); // muzzle brake
+  b.cyl('x', 0, 11, 0, 5.2, 1.0, C.black, 6); // scope
+  b.box(3, 9, -4.5, 0, 1.6, C.black); // magazine
+  pistolGrip(b); triggerGuard(b);
+  b.taper(-4, [0.2, 3.4, 1.8], -14, [-1.8, 3.4, 1.8], C.dark);
+  b.slant([30, 31], 1.2, [26, 27], -5, 0.5, C.black); // bipod leg
+});
+def('chainsaw', 'rifle', { leftHand: [2, 0, 6.5], muzzle: [30, 0, 1], mag: [0, 0, -2] }, (b) => {
+  b.box(-6, 6, -2.5, 4.5, 5.0, C.red); // engine housing
+  b.box(-1, 1, 4.5, 7.5, 0.8, C.black); b.box(-1, 5, 6.8, 7.5, 0.8, C.black); b.box(4, 5, 4.5, 7.5, 0.8, C.black); // top handle
+  b.box(6, 30, -0.6, 2.6, 0.5, C.silver); // bar
+  b.box(6, 30.6, -1.0, 3.0, 0.3, C.black); // chain
+  b.box(-11, -6, -1.5, 2.5, 1.2, C.black); // rear handle
+});
+def('tesla', 'rifle', { leftHand: [12, 0, 0.4], muzzle: [30, 0, 2.0], mag: [2, 0, -3] }, (b) => {
+  b.box(-6, 10, 0, 4.0, 2.6, C.dark); // body
+  b.cyl('x', 10, 26, 0, 2.0, 0.9, C.gun, 6);
+  for (let i = 0; i < 4; i++) b.cyl('x', 12 + i * 3.4, 13.6 + i * 3.4, 0, 2.0, 1.9, C.brass, 8); // coils
+  b.box(26, 31, 3.0, 3.6, 0.6, C.steel); b.box(26, 31, 0.4, 1.0, 0.6, C.steel); // prongs
+  b.cyl('x', -2, 4, 0, -2.4, 1.3, C.greygreen, 6); // power cell
+  pistolGrip(b); triggerGuard(b);
+});
 def('medkit', 'grenade', {}, (b) => {
   b.box(-3.2, 3.2, -2.2, 2.0, 4.2, C.red); // bag
   b.box(-0.55, 0.55, -1.5, 1.4, 4.35, C.steel); // cross, both sides

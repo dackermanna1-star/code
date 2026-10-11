@@ -18,6 +18,8 @@ import { Hostages } from './hostages.js';
 import { ZombieMode, MASK_ZOMBIE_MOVE, MASK_HUMAN_MOVE } from './zombies.js';
 import { FireSystem } from './fire.js';
 import { Projectiles } from './projectiles.js';
+import { Arcs } from './arcs.js';
+import { Explosives } from './explosives.js';
 import { Gore, HEAD_POPPERS } from './gore.js';
 import { BossDirector, BOSS_NERF } from './bosses.js';
 import { NavGraph } from './nav.js';
@@ -99,6 +101,8 @@ export class Game {
     this.bosses = new BossDirector(this); // ...and its bosses
     this.fire = new FireSystem(this); // molotovs, flamethrower, burning
     this.projectiles = new Projectiles(this); // rockets, 40 mm, bottles, boss fireballs / acid
+    this.arcs = new Arcs(this.effects.group); // the tesla gun's lightning
+    this.explosives = new Explosives(this); // claymores, remote C4
     this.gore = new Gore(this); // gibs, permanent bodies
     this.shake = null;
     this.rounds = new RoundManager(this);
@@ -113,6 +117,7 @@ export class Game {
     this.grenades.clear();
     this.fire.clear();
     this.projectiles.clear();
+    this.explosives.clear();
     this.gore.clear();
     this.clearDropped();
     this.rounds.configure(opts);
@@ -134,7 +139,14 @@ export class Game {
     return p;
   }
 
+  /** Engine / motor loops a held weapon keeps going (chainsaw). */
+  stopWeaponLoops(p) {
+    p.sawIdle?.stop?.(0.2); p.sawRev?.stop?.(0.2);
+    p.sawIdle = p.sawRev = null;
+  }
+
   removePlayer(p, silent, keepModel = false) {
+    this.stopWeaponLoops(p);
     if (p.model && !keepModel) p.model.dispose();
     p.model = null;
     const i = this.collision.dynamic.indexOf(p.box);
@@ -244,6 +256,12 @@ export class Game {
       throwGrenade: (type, params) => g.grenades.throw(p, type, params),
       flame: () => { g.fire.stream(p); p.lastShot = g.time; },
       launch: (type) => g.launchFrom(p, type),
+      saw: (w) => g.sawFrom(p, w),
+      mineSpot: () => g.explosives.mineSpot(p),
+      placeMine: () => g.explosives.placeMine(p),
+      canThrow: () => g.explosives.canThrow(p),
+      detonate: () => g.explosives.detonate(p),
+      zap: (w) => g.zapFrom(p, w),
       healTarget: (other) => g.healTarget(p, other),
       heal: (q, amount) => g.heal(p, q, amount),
       plantBomb: () => g.rounds.plantBomb(p),
@@ -279,6 +297,7 @@ export class Game {
       WS.weaponHolster(p.active, this.weaponCtx(p));
       p.lastWeapon = p.active;
     }
+    if (p.ads) this.setAds(p, false);
     p.active = w;
     p.fov = 90;
     if (p === this.viewTarget) {
@@ -302,8 +321,29 @@ export class Game {
       this.vmCache.set(key, vm);
     }
     if (vm.setSilencer) vm.setSilencer(!!w.silenced);
+    vm.setLoadout?.(w.att, w.skin); // zombie survival upgrades
+    vm.ads = 0;
     r.vmScene.add(vm.object3D);
     this.vm = vm;
+  }
+
+  /** Attachments / skin on w changed (attachments.js). */
+  onLoadoutChanged(p, w) {
+    if (p === this.viewTarget && p.active === w && this.vm) this.vm.setLoadout?.(w.att, w.skin);
+  }
+
+  /** Aim down a red-dot sight (zombie survival): 1.3x zoom, tighter, steadier. */
+  setAds(p, on) {
+    on = !!on;
+    if (!!p.ads === on) return;
+    p.ads = on;
+    if (p.active) p.active.ads = on;
+    else if (!on) for (const w of p.allWeapons()) w.ads = false;
+    p.fov = on ? 70 : 90;
+    if (p === this.viewTarget) {
+      this.renderer.setZoom(on ? 70 : 0);
+      this.sound.play('zoom', { volume: 0.25 });
+    }
   }
 
   slotCommand(p, slot) {
@@ -431,9 +471,11 @@ export class Game {
       channel: opts.channel ? `${p.id}:${opts.channel}` : `${p.id}:weapon`,
       attenuation: opts.attenuation,
     });
-    if (opts.loud !== false && /^(ak47|m4a1|awp|deagle|usp|glock|p228|elite|fiveseven|mp5|mac10|tmp|ump45|p90|galil|famas|sg552|aug|scout|g3sg1|sg550|m249|m3|xm1014|rpg_fire|m32_fire)$/.test(name)) {
+    if (opts.loud !== false && /^(ak47|m4a1|awp|deagle|usp|glock|p228|elite|fiveseven|mp5|mac10|tmp|ump45|p90|galil|famas|sg552|aug|scout|g3sg1|sg550|m249|m3|xm1014|rpg_fire|m32_fire|minigun|aa12|barrett|sup_\w+|\w+_silenced)$/.test(name)) {
       p.lastShot = this.time;
-      this.bots.onNoise(p, p.eyePos(), name.includes('silenced') || name === 'tmp' ? 400 : 2000);
+      const quiet = name.includes('silenced') || name.startsWith('sup_') || name === 'tmp';
+      if (!quiet) p.lastLoud = this.time; // (zombies go for whoever's making a racket)
+      this.bots.onNoise(p, p.eyePos(), quiet ? 400 : 2000);
     }
   }
 
@@ -567,13 +609,14 @@ export class Game {
     if (victim.isHostage) { this.hostages.damage(victim, attacker, damage, hitgroup, weaponId, dir, point, opts); return; }
     if (!victim.alive || damage <= 0) return;
     if (victim.boss) { damage = this.bosses.adjust(victim, attacker, damage, hitgroup, weaponId, opts); if (damage <= 0) return; }
-    if (attacker?.boss && attacker !== victim) damage *= BOSS_NERF; // every boss attack (claws, acid, fire, blasts)
+    if (attacker?.boss && attacker !== victim) damage *= BOSS_NERF * (attacker.boss.def.k ?? 1); // every boss attack (claws, acid, fire, blasts)
     const teammate = !!(attacker && attacker !== victim && attacker.team === victim.team);
     const res = CR.computeDamage({ health: victim.health, armor: victim.armor, helmet: victim.helmet, ducking: victim.pm.ducking, speed: Math.hypot(victim.pm.velocity[0], victim.pm.velocity[1]) },
       damage, hitgroup, { attackerWeapon: weaponId, teammate, self: attacker === victim, friendlyFire: this.rounds.friendlyFire, blast: opts.blast });
     if (res.refused) return;
     if (victim.god) return;
     if (victim.boss) { res.knockback = 0; if (res.velocityModifier) res.velocityModifier = Math.max(res.velocityModifier, 0.9); } // too heavy to shove
+    if (victim.special) this.zombies.specials.onDamage(victim, victim.health - res.health);
     victim.health = res.health;
     victim.armor = res.armor;
     victim.helmet = res.helmet;
@@ -628,6 +671,8 @@ export class Game {
 
   killPlayer(victim, attacker, weaponId, headshot, suicide = false) {
     if (!victim.alive) return;
+    this.stopWeaponLoops(victim);
+    if (victim.ads) this.setAds(victim, false);
     victim.alive = false;
     victim.health = 0;
     victim.deathTime = this.time;
@@ -675,7 +720,7 @@ export class Game {
       // a headshot kill with a big gun takes the head off (the rest ragdolls as usual)
       if (gz && headshot && hit && !hit.blast && HEAD_POPPERS.has(weaponId) && !victim.gibbed) this.gore.popHead(victim, hit.dir || [1, 0, 0]);
     }
-    this.bulletCam.trigger(attacker, victim, weaponId, headshot);
+    if (!this.zombies.enabled) this.bulletCam.trigger(attacker, victim, weaponId, headshot); // (not in zombie survival)
     if (victim === this.viewTarget) {
       this.setViewModel(null);
       this.renderer.setZoom(0);
@@ -701,6 +746,7 @@ export class Game {
       case 'invnext': this.cycleWeapon(p, 1); break;
       case 'invprev': this.cycleWeapon(p, -1); break;
       case 'drop': if (p.alive && p.active) this.dropWeapon(p, p.active); break;
+      case 'detonate': if (p.alive && this.zombies.enabled) this.explosives.detonate(p); break;
       case 'buyammo1': this.rounds.buy(p, 'primammo'); break;
       case 'buyammo2': this.rounds.buy(p, 'secammo'); break;
       default: break;
@@ -767,6 +813,7 @@ export class Game {
     this.hostages.update(TICK);
     this.grenades.update(TICK);
     this.projectiles.update(TICK);
+    this.explosives.update(TICK);
     this.fire.update(TICK);
     this.updateDropped(TICK);
     this.rounds.tick(TICK);
@@ -775,10 +822,11 @@ export class Game {
   simulatePlayer(p, cmd) {
     const pm = p.pm;
     pm.frozen = this.rounds.freeze || p.planting || p.defusing;
+    if (this.zombies.enabled && !p.isZombie) this.zombies.specials.constrain(p, cmd); // pinned / dragged by a special
     this.recoverVelocityModifier(p);
     const w = p.active;
     const zoomed = p.fov < 90;
-    pm.maxspeed = p.isZombie ? (p.speedNow ?? p.zSpeed) : w ? WS.weaponMaxSpeed(w, zoomed) : 250;
+    pm.maxspeed = p.isZombie ? (p.speedNow ?? p.zSpeed) : w ? WS.weaponMaxSpeed(w, zoomed) * (p.ads ? 0.8 : 1) : 250;
     p.prevOrigin = pm.origin.slice();
     this.mover.ignore = p.box;
     p.box.active = false; // don't collide with own box
@@ -796,17 +844,25 @@ export class Game {
     let wb = cmd.wbuttons || 0;
     if (this.rounds.freeze) wb &= ~(BTN_ATTACK | BTN_ATTACK2);
     if (w) {
+      // a red dot: right-click aims down the sight (guns without a right-click of their own)
+      if (w.mods?.optic && !w.def.hasSecondary && (wb & BTN_ATTACK2) && !((p.prevWButtons || 0) & BTN_ATTACK2) && !w.inReload) this.setAds(p, !p.ads);
+      const pu = pm.punch, p0 = pu[0], p1 = pu[1], p2 = pu[2];
       WS.weaponFrame(w, ctx, wb, p.prevWButtons || 0);
+      // a compensator / foregrip / suppressor takes some of the kick out
+      const rk = w.mods?.recoil ?? 1;
+      if (rk !== 1) { pu[0] = p0 + (pu[0] - p0) * rk; pu[1] = p1 + (pu[1] - p1) * rk; pu[2] = p2 + (pu[2] - p2) * rk; }
+      if (p.ads && (w.inReload || !w.mods?.optic || p.active !== w)) this.setAds(p, false);
       if (w.spent) {
         w.spent = false;
         if (w.def.slot === 4) {
           w.count = Math.max(0, (w.count || 1) - 1);
-          if ((w.id === 'molotov' || w.id === 'medkit') && w.count > 0) w.ammo = w.count; // keep the next one in hand
+          if (w.count > 0) w.ammo = w.count; // keep the next one in hand
         }
         if (w.id === 'c4') this.retireWeapon(p, w);
       }
     }
     p.planting = !!(p.active && p.active.id === 'c4' && p.active.startedArming);
+    if (p.sawIdle || p.sawRev || p.active?.id === 'chainsaw') this.sawSounds(p);
     this.processWeaponSounds(p);
     p.prevWButtons = wb;
     if ((wb & BTN_USE) && !p.prevUse && !this.rounds.bomb?.defuser) {
@@ -854,7 +910,8 @@ export class Game {
 
   // weapon used up (grenade thrown, C4 planted) or switched away from (flashbang quirk)
   retireWeapon(p, w) {
-    const empty = (w.def.slot === 4 && (w.count ?? 0) <= 0) || w.id === 'c4';
+    // (a spent stack item retires before the host takes the last one off: count it gone)
+    const empty = (w.def.slot === 4 && (w.count ?? 0) - (w.spent ? 1 : 0) <= 0) || w.id === 'c4';
     if (empty) this.removeWeaponFromInventory(p, w);
     if (p.active === w) {
       p.active = null;
@@ -979,7 +1036,8 @@ export class Game {
     }
     this.updateModels(dt, alpha);
     this.effects.update(this.paused ? 0 : dt);
-    if (this.zombies.enabled) this.gore.updateStatics(); // bodies / gibs / brass added this frame
+    this.arcs.update(this.paused ? 0 : dt);
+    if (this.zombies.enabled) { this.gore.updateStatics(); this.zombies.specials.render(); } // bodies / gibs / brass added this frame; smokers' tongues
     this.fire.render(this.paused ? 0 : dt);
     this.updateCamera(cine ? realDt : dt, alpha);
     this.updateSoundListener();
@@ -1006,7 +1064,7 @@ export class Game {
       const v = p.pm.velocity;
       const spd = Math.hypot(v[0], v[1]);
       m.update(dt, {
-        speed: spd, moveYaw: spd > 10 ? ((Math.atan2(v[1], v[0]) / DEG - p.pm.angles[1]) % 360 + 540) % 360 - 180 : 0, crouch: p.pm.ducking || p.pm.inDuck, onGround: p.pm.onground,
+        speed: spd, moveYaw: spd > 10 ? ((Math.atan2(v[1], v[0]) / DEG - p.pm.angles[1]) % 360 + 540) % 360 - 180 : 0, crouch: p.pm.ducking || p.pm.inDuck || !!p.visualCrouch, onGround: p.pm.onground,
         pitch: p.pm.angles[0], firing: p.lastShot > this.time - dt - 0.001 && p.lastShot <= this.time && p.alive,
         reloading: !!p.active?.inReload, planting: p.planting || p.defusing,
       });
@@ -1078,9 +1136,20 @@ export class Game {
         const aw = p.active;
         this.vm.state.empty = !!(aw && aw.def.clip > 0 && aw.clip === 0);
         this.vm.state.flaming = !!(aw && aw.flaming > this.time - 0.08);
-        const showVm = p.fov >= 90 || !(p.active && /awp|scout|g3sg1|sg550/.test(p.active.id));
+        this.vm.state.spin = aw?.spin || 0; // minigun barrels
+        this.vm.state.sawing = !!(aw && aw.sawing > this.time - 0.12);
+        this.vm.state.zap = aw?.zapped ? this.time - aw.zapped : 99;
+        const showVm = p.fov >= 90 || !(p.active && /awp|scout|g3sg1|sg550|barrett/.test(p.active.id));
         this.vm.object3D.visible = showVm;
+        // aiming down a red dot (zombie survival upgrade)
+        const adsT = p.ads && p.active?.mods?.optic ? 1 : 0;
+        this.vm.ads += (adsT - this.vm.ads) * Math.min(1, dt * 12);
+        if (Math.abs(this.vm.ads - adsT) < 0.003) this.vm.ads = adsT;
+        // (aiming, the stock comes up past the eye: clip what's right in front of it)
+        const near = 1 + 5.5 * this.vm.ads;
+        if (r.vmCamera.near !== near) { r.vmCamera.near = near; r.vmCamera.updateProjectionMatrix(); }
         this.vm.update(this.paused ? 0 : dt, { bobX: 0, bobY: bob * 0.4, swayYaw: -bob * 0.5, swayPitch: -bob * 0.3 });
+        this.updateLaser(p, eye, p.pm.angles[0] + pu[0] + sh[0], p.pm.angles[1] + pu[1] + sh[1]);
         // GoldSrc runs model light through the lightgamma table, which lifts shadowed
         // view models well above the raw light value
         const vl = this.W.sampler.sample([x, y, z], [1, 1, 1]).map((c) => Math.min(1.3, Math.max(0.35, Math.pow(lightCurve(c), 0.8))));
@@ -1093,8 +1162,40 @@ export class Game {
       this.drawVm = true;
     } else {
       this.drawVm = false;
+      if (this.laserDot) this.laserDot.visible = false;
       this.updateSpectatorCamera(dt, alpha);
     }
+  }
+
+  /** Laser sight (zombie survival upgrade): the beam from the gun and the dot where it lands. */
+  updateLaser(p, eye, pitch, yaw) {
+    const vm = this.vm;
+    const on = !!(vm?.laserBeam && p.alive && p.active?.mods?.laser && vm.object3D.visible);
+    if (!on) {
+      if (this.laserDot) this.laserDot.visible = false;
+      vm?.updateLaser?.(0, false);
+      return;
+    }
+    angleVectors(pitch, yaw, _f, null, null);
+    const tr = this.traceShot(eye, [eye[0] + _f[0] * 4096, eye[1] + _f[1] * 4096, eye[2] + _f[2] * 4096], p);
+    const d = 4096 * tr.fraction;
+    vm.updateLaser(d, true);
+    let dot = this.laserDot;
+    if (!dot) {
+      const c = document.createElement('canvas');
+      c.width = c.height = 32;
+      const g = c.getContext('2d');
+      const grd = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+      grd.addColorStop(0, 'rgba(255,240,230,1)'); grd.addColorStop(0.16, 'rgba(255,50,30,1)'); grd.addColorStop(0.45, 'rgba(255,20,10,0.3)'); grd.addColorStop(1, 'rgba(255,0,0,0)');
+      g.fillStyle = grd; g.fillRect(0, 0, 32, 32);
+      dot = this.laserDot = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+      dot.renderOrder = 5;
+      this.renderer.world.add(dot);
+    }
+    dot.visible = tr.fraction < 1;
+    dot.position.set(tr.endpos[0] - _f[0] * 1.5, tr.endpos[1] - _f[1] * 1.5, tr.endpos[2] - _f[2] * 1.5);
+    const sc = 2 + d * 0.004;
+    dot.scale.set(sc, sc, 1);
   }
 
   updateSpectatorCamera(dt, alpha) {
@@ -1153,6 +1254,95 @@ export class Game {
   // trigger touch: the player's box overlaps the zone brush (like SV_LinkEdict touching a trigger)
   // ------------------------------------------------------------------ zombie survival weapons
   /** RPG / M32: the projectile leaves the muzzle along the aim. */
+  /** Chainsaw: everything just in front of the bar gets cut, a lot of blood. */
+  sawFrom(p, w) {
+    const e = p.eyePos(), d = w.def;
+    angleVectors(p.pm.angles[0], p.pm.angles[1], _f, null, null);
+    let cut = null;
+    for (const q of this.players) {
+      if (!q.alive || q === p || (q.team === p.team && !this.rounds.friendlyFire)) continue;
+      const sc = q.boss ? q.boss.scale : 1;
+      const c = [q.pm.origin[0], q.pm.origin[1], q.pm.origin[2] + 12 * sc];
+      const v = [c[0] - e[0], c[1] - e[1], c[2] - e[2]];
+      const dist = Math.hypot(v[0], v[1], v[2]) || 1;
+      if (dist > d.reach + 18 * sc || (v[0] * _f[0] + v[1] * _f[1] + v[2] * _f[2]) / dist < 0.55 || !this.visible(e, c)) continue;
+      const k = Math.min(dist - 8, d.reach);
+      const pt = [e[0] + _f[0] * k, e[1] + _f[1] * k, e[2] + _f[2] * k - 6];
+      this.damagePlayer(q, p, d.damage, CR.HITGROUP.CHEST, 'chainsaw', _f.slice(), pt);
+      this.effects.blood?.(pt, [_f[0], _f[1], 0.4], 45, {});
+      cut = pt;
+    }
+    if (cut && this.time >= (p.sawCutT || 0)) {
+      p.sawCutT = this.time + 0.22;
+      this.sound.play('chainsaw_cut', { pos: cut, volume: 0.9 });
+      if (p === this.viewTarget) this.shakeAt(e, 2, 300);
+    }
+    p.sawLast = this.time;
+    if (!p.sawRev) p.sawRev = this.sound.loop('chainsaw_rev', { pos: p === this.viewTarget ? null : e, volume: 0.95 });
+  }
+
+  /** The chainsaw's engine: idling while held, revving while it cuts. */
+  sawSounds(p) {
+    const holding = p.alive && p.active?.id === 'chainsaw';
+    const local = p === this.viewTarget;
+    if (p.sawRev && (!holding || this.time - (p.sawLast || 0) > 0.15)) { p.sawRev.stop?.(0.15); p.sawRev = null; }
+    if (holding && !p.sawRev && !p.sawIdle) p.sawIdle = this.sound.loop('chainsaw_idle', { pos: local ? null : p.eyePos(), volume: 0.6 });
+    if (p.sawIdle && (!holding || p.sawRev)) { p.sawIdle.stop?.(0.2); p.sawIdle = null; }
+    if (!local) { p.sawIdle?.setPosition?.(p.eyePos()); p.sawRev?.setPosition?.(p.eyePos()); }
+  }
+
+  /** Tesla gun: a bolt into what's in the sights, arcing on to the next ones close by. */
+  zapFrom(p, w) {
+    const d = w.def, e = p.eyePos(), pu = p.pm.punch;
+    angleVectors(p.pm.angles[0] + pu[0], p.pm.angles[1] + pu[1], _f, _r, _u);
+    const start = [e[0] + _f[0] * 18 + _r[0] * 5 - _u[0] * 5, e[1] + _f[1] * 18 + _r[1] * 5 - _u[1] * 5, e[2] + _f[2] * 18 + _r[2] * 5 - _u[2] * 5];
+    const cam = this.camPos || e;
+    const center = (q) => [q.pm.origin[0], q.pm.origin[1], q.pm.origin[2] + 14 * (q.boss ? q.boss.scale : 1)];
+    const foe = (q) => q.alive && q !== p && (q.team !== p.team || this.rounds.friendlyFire);
+    // first: the enemy closest to the line of fire (within a few degrees) that can be seen
+    let first = null, best = Infinity;
+    for (const q of this.players) {
+      if (!foe(q)) continue;
+      const c = center(q), v = [c[0] - e[0], c[1] - e[1], c[2] - e[2]];
+      const along = v[0] * _f[0] + v[1] * _f[1] + v[2] * _f[2];
+      if (along < 0 || along > d.range) continue;
+      const perp = Math.hypot(v[0] - _f[0] * along, v[1] - _f[1] * along, v[2] - _f[2] * along);
+      const ang = perp / Math.max(40, along);
+      if (ang > 0.09 || !this.visible(e, c)) continue;
+      if (ang * 2000 + along < best) { best = ang * 2000 + along; first = q; }
+    }
+    if (!first) {
+      const end = [e[0] + _f[0] * d.range, e[1] + _f[1] * d.range, e[2] + _f[2] * d.range];
+      this.collision.trace(e, end, [0, 0, 0], [0, 0, 0], MASK_SHOT, tmpTr);
+      const hit = tmpTr.endpos.slice();
+      this.arcs.bolt(start, hit, cam);
+      for (let i = 0; i < 8; i++) this.fire.emit('spark', hit, [(Math.random() - 0.5) * 300, (Math.random() - 0.5) * 300, Math.random() * 250], { life: 0.4, size: 2, size1: 0.5, drag: 1, buoy: -500 });
+      if (tmpTr.fraction < 1) this.effects.decal('decal_scorch', hit, tmpTr.normal, 14, [0.5, 0.6, 1, 0.8]);
+      return;
+    }
+    const hitList = new Set();
+    let from = start, cur = first, dmg = d.damage;
+    for (let i = 0; i < d.chain && cur; i++) {
+      const c = center(cur);
+      this.arcs.bolt(from, c, cam, i ? 0.22 : 0.16);
+      hitList.add(cur);
+      const l = Math.hypot(c[0] - from[0], c[1] - from[1], c[2] - from[2]) || 1;
+      this.damagePlayer(cur, p, dmg, CR.HITGROUP.CHEST, 'tesla', [(c[0] - from[0]) / l, (c[1] - from[1]) / l, (c[2] - from[2]) / l], c, { blast: true });
+      cur.pm.velocityModifier = Math.min(cur.pm.velocityModifier ?? 1, 0.45); // jolted
+      for (let k = 0; k < 6; k++) this.fire.emit('spark', c, [(Math.random() - 0.5) * 260, (Math.random() - 0.5) * 260, Math.random() * 220], { life: 0.35, size: 2, size1: 0.5, drag: 1, buoy: -500 });
+      from = c;
+      dmg *= 0.8;
+      let next = null, nd = d.arcRange;
+      for (const q of this.players) {
+        if (!foe(q) || hitList.has(q)) continue;
+        const dd = Math.hypot(...center(q).map((v, k) => v - c[k]));
+        if (dd < nd && this.visible(c, center(q))) { nd = dd; next = q; }
+      }
+      cur = next;
+    }
+    this.sound.play('tesla_hit', { pos: center(first), volume: 0.8 });
+  }
+
   launchFrom(p, type) {
     const a = p.pm.angles, pu = p.pm.punch;
     angleVectors(a[0] + pu[0] - (type === 'grenade40' ? 2.5 : 0), a[1] + pu[1], _f, _r, _u);

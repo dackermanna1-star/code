@@ -20,6 +20,7 @@ import { Announcer } from './game/announcer.js';
 import { DUST2_LIGHTING } from './map/lighting.js';
 import { setLightCurve } from './map/meshbuilder.js';
 import { MAPS, mapDef as lookupMap, mapAvailability, storeUserFiles, listUserFiles, bundledMaps } from './game/maps.js';
+import * as ATT from './game/attachments.js';
 
 const params = new URLSearchParams(location.search);
 
@@ -291,7 +292,10 @@ async function boot() {
       case 'buymenu':
         if (game.local.alive && game.inBuyZone(game.local) && game.rounds.buyTimeLeft()) {
           input.exitLock();
-          menus.showBuyMenu?.(game.local, { onBuy: (item) => game.rounds.buy(game.local, item), allWeapons: !!game.zombies?.enabled });
+          menus.showBuyMenu?.(game.local, {
+            onBuy: (item) => game.rounds.buy(game.local, item), allWeapons: !!game.zombies?.enabled,
+            itemState: (id) => ATT.menuState(game.local, id), upgradeTarget: (skins) => ATT.targetName(game.local, skins),
+          });
         }
         return true;
       case 'chooseteam':
