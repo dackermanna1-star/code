@@ -33,7 +33,7 @@ export const SPECIALS = {
   sprinter: { name: 'Sprinter', from: 2, weight: 4, hp: 0.55, speed: 330, cap: 360, dmg: 0.7, scale: [0.96, 0.96, 1.02], pack: [2, 3] },
   boomer: { name: 'Boomer', from: 3, weight: 3, hp: 0.6, speed: 150, dmg: 0.6, scale: [1.08, 1.08, 1.0] },
   hunter: { name: 'Hunter', from: 4, weight: 3, hp: 1.6, speed: 235, dmg: 0.8, scale: [1, 1, 1] },
-  charger: { name: 'Charger', from: 5, weight: 2, hp: 4.2, speed: 200, dmg: 1.4, scale: [1.1, 1.1, 1.08] },
+  charger: { name: 'Charger', from: 5, weight: 2, hp: 3.0, speed: 200, dmg: 1.4, scale: [1.1, 1.1, 1.08] },
   smoker: { name: 'Smoker', from: 6, weight: 2, hp: 1.4, speed: 190, dmg: 0.8, scale: [0.94, 0.94, 1.12] },
 };
 const IDLE = { boomer: 'boomer_idle', smoker: 'smoker_cough', hunter: 'hunter_scream', sprinter: 'sprinter_shriek', charger: 'boss_growl' };
@@ -57,7 +57,7 @@ export class Specials {
   // ---------------------------------------------------------------- spawning
   /** Now and then a special instead of a common zombie: its kind, or null. */
   pick(wave) {
-    if (Math.random() > Math.min(0.2, 0.03 + 0.012 * wave)) return null;
+    if (Math.random() > Math.min(0.12, 0.02 + 0.008 * wave)) return null;
     const alive = (k) => this.Z.pool.some((z) => z.alive && z.special === k);
     const kinds = Object.entries(SPECIALS).filter(([k, d]) => wave >= d.from && !alive(k));
     if (!kinds.length) return null;
@@ -219,7 +219,7 @@ export class Specials {
         const ho = h.pm.origin;
         if (dist2(o, ho) < 46 && Math.abs(ho[2] - o[2]) < 64) {
           S.hitList.add(h);
-          g.damagePlayer(h, z, Math.min(45, 18 + 2 * this.Z.wave), CR.HITGROUP.CHEST, 'zombie', [Math.cos(y), Math.sin(y), 0.3], [ho[0], ho[1], ho[2] + 10]);
+          g.damagePlayer(h, z, Math.min(35, Math.round(15 + 1.5 * this.Z.wave)), CR.HITGROUP.CHEST, 'zombie', [Math.cos(y), Math.sin(y), 0.3], [ho[0], ho[1], ho[2] + 10]);
           h.pm.velocity[0] = Math.cos(y) * 650; h.pm.velocity[1] = Math.sin(y) * 650; h.pm.velocity[2] = 280;
           h.pm.onground = false;
           g.sound?.play('charge_hit', { pos: ho, volume: 1 });

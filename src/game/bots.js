@@ -1714,14 +1714,18 @@ class Bot {
     // out of ammo in the gun in hand
     if (isGun(w) && !hasAmmo(w)) { if (best && best !== w) g.selectWeapon(p, best); return; }
     if (w.id === 'knife' && best !== w && (fightRecent || !this.knifeRun)) { g.selectWeapon(p, best); return; }
+    // zombie survival: the fight never really ends, so "quiet" means no zombie close by
+    // (otherwise a bot whose rifle ran dry would be stuck on its pistol all game)
+    const zm = !!g.zombies?.enabled;
+    const quiet = !fightRecent || (zm && !this.zombieNear(450, 600));
     // empty primary with an enemy close: pistol is faster than reloading
-    if (e && w === p.weapons[1] && w.clip === 0 && d < 800 && p.weapons[2]?.clip > 0) { g.selectWeapon(p, p.weapons[2]); return; }
+    if (e && w === p.weapons[1] && w.clip === 0 && d < (zm ? 350 : 800) && p.weapons[2]?.clip > 0) { g.selectWeapon(p, p.weapons[2]); return; }
     // AWP at point blank: pistol
     if (e && isBolt(w) && d < 260 && this.targetVisible && p.weapons[2]?.clip > 0) { g.selectWeapon(p, p.weapons[2]); return; }
     // back to the primary after the fight
-    if (!fightRecent && w === p.weapons[2] && hasAmmo(p.weapons[1])) { g.selectWeapon(p, p.weapons[1]); return; }
+    if (quiet && w === p.weapons[2] && hasAmmo(p.weapons[1])) { g.selectWeapon(p, p.weapons[1]); return; }
     // reload when it's quiet
-    if (!fightRecent && isGun(w) && !w.inReload && w.ammo > 0 && w.clip < w.def.clip * (this.inPosition || this.mode === 'task' ? 0.7 : 0.35)) cmd.wbuttons |= BTN_RELOAD;
+    if (quiet && isGun(w) && !w.inReload && w.ammo > 0 && w.clip < WS.clipSize(w) * (this.inPosition || this.mode === 'task' ? 0.7 : 0.35)) cmd.wbuttons |= BTN_RELOAD;
     // snipers: scoped while holding an angle, unscoped while running
     if (isSniper(w) && !it.combat) {
       const zoomed = p.fov < 90;
