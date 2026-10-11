@@ -13,13 +13,17 @@
 //    GROUND SLAM shockwave (jump it); raises the dead around him.
 import { Player, TEAM_T, TEAM_CT } from './player.js';
 import { createPlayerModel } from '../assets/playermodels.js';
-import { setDynamicBox, CONTENTS_ZOMBIE } from '../engine/collision.js';
+import { setDynamicBox, CONTENTS_ZOMBIE, TraceResult, MASK_WORLD_PLAYER } from '../engine/collision.js';
 import * as CR from './combatrules.js';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const DEG = Math.PI / 180;
 const angDiff = (a, b) => ((a - b) % 360 + 540) % 360 - 180;
+const _tr = new TraceResult();
 const dist2 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+
+/** Bosses' health and every hit they deal, against the numbers below (tuned down 20%). */
+export const BOSS_NERF = 0.8;
 
 export const BOSSES = [
   { id: 'butcher', name: 'THE BUTCHER', title: 'He brought his cleaver. Dodge the charge.', skin: 'butcher', scale: 1.4, health: 3200, speed: 205, damage: 34, color: [230, 60, 40] },
@@ -75,7 +79,7 @@ export class BossDirector {
     g.renderer.world.add(m.object3D);
     p.model = m;
     const crowd = Math.max(1, humans.length);
-    const hp = Math.round(def.health * (1 + 0.6 * cycle) * (1 + 0.35 * (crowd - 1)));
+    const hp = Math.round(def.health * BOSS_NERF * (1 + 0.6 * cycle) * (1 + 0.35 * (crowd - 1)));
     const h = humans[0];
     const yaw = h ? Math.atan2(h.pm.origin[1] - node.y, h.pm.origin[0] - node.x) / DEG : 0;
     p.resetForSpawn([node.x, node.y, node.z + 37], yaw);
@@ -579,15 +583,32 @@ export class BossDirector {
     const want = 6 + b.boss.cycle * 2;
     let n = 0;
     const recs = (g.gore?.records || []).filter((r) => r.skin === 'zombie' && dist2(r.center, o) < 900).sort((a, c) => dist2(a.center, o) - dist2(c.center, o));
+    // they claw their way up out of the floor beside the bodies (which stay where they are)
     for (const r of recs) {
       if (n >= want) break;
-      const at = r.center;
-      if (!Z.spawnZombie({ at: [at[0], at[1], at[2] + 10], health: Math.round(Z.stats.health * 0.7), risen: true })) break;
-      g.gore.removeRecord(r);
+      const at = this.standBeside(r.center);
+      if (!at) continue;
+      if (!Z.spawnZombie({ at, health: Math.round(Z.stats.health * 0.7), risen: true })) break;
       n++;
     }
     for (; n < want; n++) if (!Z.spawnZombie({ near: o, health: Math.round(Z.stats.health * 0.7), risen: true })) break;
     g.sound?.play('abom_raise', { pos: o, volume: 1 });
+  }
+
+  /** A free standing spot (player origin) right next to a body on the floor, or null. */
+  standBeside(c) {
+    const col = this.game.collision, mins = [-16, -16, -36], maxs = [16, 16, 36];
+    const a0 = Math.random() * Math.PI * 2;
+    for (let k = 0; k < 6; k++) {
+      const a = a0 + k * Math.PI / 3;
+      const p = [c[0] + Math.cos(a) * 30, c[1] + Math.sin(a) * 30, c[2] + 44];
+      col.trace(p, p, mins, maxs, MASK_WORLD_PLAYER, _tr);
+      if (_tr.startsolid || _tr.allsolid) continue;
+      // settle onto the floor below
+      col.trace(p, [p[0], p[1], p[2] - 64], mins, maxs, MASK_WORLD_PLAYER, _tr);
+      if (_tr.fraction < 1 && _tr.normal[2] > 0.7) return [_tr.endpos[0], _tr.endpos[1], _tr.endpos[2] + 1];
+    }
+    return null;
   }
 
   hudInfo() {

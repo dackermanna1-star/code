@@ -14,6 +14,8 @@ const _f = [0, 0, 0], _r = [0, 0, 0], _u = [0, 0, 0];
 
 export const STREAM_RANGE = 430;
 
+const BURN_STAIN = [1, 1, 1], ACID_STAIN = [0.32, 0.62, 0.1];
+
 export class FireSystem {
   constructor(game) {
     this.game = game;
@@ -75,6 +77,11 @@ export class FireSystem {
       for (let i = 0; i < 26; i++) {
         this.emit(kind, [floor[0] + rnd(-20, 20), floor[1] + rnd(-20, 20), floor[2] + 6], [rnd(-180, 180), rnd(-180, 180), rnd(60, 260)], { life: rnd(0.4, 0.8), size: rnd(14, 24), size1: rnd(30, 50), drag: 3, buoy: 120 });
       }
+    }
+    // what it leaves behind: a burn (or acid) stain that darkens in as it burns, for good
+    if (g.effects?.decal && this.fx) {
+      patch.mark = g.effects.decal('decal_scorch', floor, [0, 0, 1], Math.max(40, radius * 1.7), [...(kind === 'acid' ? ACID_STAIN : BURN_STAIN), 0], undefined, true);
+      patch.markA = 0;
     }
     this.patches.push(patch);
     return patch;
@@ -195,6 +202,10 @@ export class FireSystem {
         if (!acid && Math.random() < dt * 0.6 * fade) this.emit('ember', [pt.x, pt.y, pt.z + 10], [rnd(-40, 40), rnd(-40, 40), rnd(80, 200)], { life: rnd(0.6, 1.2), size: 2.5, size1: 1, drag: 0.6, buoy: 40 });
       }
       if (pa.glow) pa.glow.material.opacity = (acid ? 0.4 : 0.55) * fade * Math.min(1, (t - pa.start) / 0.4) * (0.85 + 0.15 * Math.sin(t * 13 + i));
+      if (pa.mark) {
+        const a = Math.round(Math.min(1, (t - pa.start) / Math.max(1, (pa.end - pa.start) * 0.6)) * 20) / 20; // steps: few uploads
+        if (a !== pa.markA) { pa.markA = a; g.effects.marks.get('decal_scorch')?.setColor(pa.mark, acid ? ACID_STAIN : BURN_STAIN, a * (acid ? 0.6 : 0.75)); }
+      }
       if (t >= pa.nextDmg) {
         pa.nextDmg = t + 0.2;
         for (const q of g.players) {

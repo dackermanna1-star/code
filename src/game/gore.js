@@ -1,23 +1,28 @@
-// Gore (zombie survival): bodies that stay, gibs, head pops.
+// Gore (zombie survival): bodies that stay, gibs, head pops, brass.
 //  - a dead zombie's ragdoll, once it has settled, is "baked": its skinned pose is copied
-//    into a few big static meshes (one draw call per batch, nothing to animate), so the
-//    floor can stay covered in bodies for the whole game at almost no cost
-//  - explosions and overkill tear a body into its real limbs (the mesh split by bone:
-//    head, chest, belly, upper / lower arms, thighs, shins) plus meat chunks; they fly,
-//    tumble, bleed, splat where they hit and are baked in place once they come to rest
-//  - corpses can be shot or blown up into gibs; a big headshot pops the head off
-//  - blood decals stay too (bigger pools in blood.js)
+//    into big static meshes per map area (statics.js: culled per area, a low-poly index
+//    far away, nothing to animate), so bodies stay for the whole game at almost no cost
+//  - an explosion that kills a zombie tears it into its real limbs (the mesh split by
+//    bone: head, chest, belly, upper / lower arms, thighs, shins) plus meat chunks; they
+//    fly, tumble, bleed, splat where they hit and are baked in place once they come to rest
+//  - a headshot kill with a big gun pops the head off (the body ragdolls as usual)
+//  - once a body is down it stays down: shooting it only makes it bleed
+//  - spent brass is baked where it comes to rest too
 import * as THREE from 'three';
 import { TraceResult, MASK_WORLD_PLAYER } from '../engine/collision.js';
 import { BONE_DEFS } from '../assets/pm/rig.js';
 import { getSkinTexture } from '../assets/pm/skins.js';
 import { lightCurve } from '../map/meshbuilder.js';
+import { StaticStore, Soak, clusterIndex } from './statics.js';
 
 const tr = new TraceResult();
 const rnd = (a, b) => a + Math.random() * (b - a);
-const BATCH_VERTS = 60000;
-const MAX_BATCHES = 14; // ~70 bodies a batch; the oldest batch goes when this many are full
 const MAX_GIBS = 240;
+const LIGHT_K = 1.5; // vertex colours are stored / LIGHT_K (bytes hold 0..1; light goes to 1.4)
+const LOD_CELL = 5; // vertex clustering grid for the far-away index
+const BODY_LAYOUT = [['position', 3, Float32Array], ['uv', 2, Float32Array], ['color', 3, Uint8Array, true]];
+/** Weapons whose headshot kill pops the head off. */
+export const HEAD_POPPERS = new Set(['deagle', 'm3', 'xm1014', 'scout', 'awp', 'g3sg1', 'sg550', 'ak47', 'm4a1', 'aug', 'sg552', 'galil', 'famas', 'm249']);
 const GRAVITY = 800;
 
 // which piece each bone's vertices belong to when a body comes apart
@@ -38,7 +43,7 @@ varying vec2 vUv;
 varying vec3 vC;
 void main() {
   vUv = uv;
-  vC = color;
+  vC = color * ${LIGHT_K.toFixed(1)};
   #include <begin_vertex>
   #include <project_vertex>
   #include <fog_vertex>
@@ -72,78 +77,44 @@ function meatTexture() {
   return meatTex;
 }
 
-/** One big static mesh of baked bodies / gibs sharing a texture. */
-class CorpseBatch {
-  constructor(parent, material, key) {
-    this.key = key;
-    this.pos = new Float32Array(BATCH_VERTS * 3);
-    this.uv = new Float32Array(BATCH_VERTS * 2);
-    this.col = new Float32Array(BATCH_VERTS * 3);
-    this.bone = new Uint8Array(BATCH_VERTS);
-    this.idx = new Uint32Array(BATCH_VERTS * 3);
-    this.nv = 0;
-    this.ni = 0;
-    const g = new THREE.BufferGeometry();
-    this.attrs = [['position', this.pos, 3], ['uv', this.uv, 2], ['color', this.col, 3]].map(([n, a, k]) => {
-      const at = new THREE.BufferAttribute(a, k).setUsage(THREE.DynamicDrawUsage);
-      g.setAttribute(n, at);
-      return at;
-    });
-    this.index = new THREE.BufferAttribute(this.idx, 1).setUsage(THREE.DynamicDrawUsage);
-    g.setIndex(this.index);
-    g.setDrawRange(0, 0);
-    this.geometry = g;
-    this.mesh = new THREE.Mesh(g, material);
-    this.mesh.frustumCulled = false;
-    this.mesh.matrixAutoUpdate = false;
-    this.mesh.name = 'corpses_' + key;
-    parent.add(this.mesh);
-  }
+let whiteTex = null;
+function whiteTexture() {
+  if (whiteTex) return whiteTex;
+  whiteTex = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1, THREE.RGBAFormat);
+  whiteTex.needsUpdate = true;
+  return whiteTex;
+}
 
-  room(nv, ni) { return this.nv + nv <= BATCH_VERTS && this.ni + ni <= BATCH_VERTS * 3; }
+/** Float colours (0..1) -> normalised bytes. */
+function toBytes(col) {
+  const out = new Uint8Array(col.length);
+  for (let i = 0; i < col.length; i++) out[i] = Math.max(0, Math.min(255, Math.round(col[i] * 255)));
+  return out;
+}
 
-  /** Append (positions in world GS space). Returns a slot { v0, nv, i0, ni }. */
-  add(pos, uv, col, bone, idx) {
-    const nv = pos.length / 3, ni = idx.length;
-    const v0 = this.nv, i0 = this.ni;
-    this.pos.set(pos, v0 * 3);
-    this.uv.set(uv, v0 * 2);
-    this.col.set(col, v0 * 3);
-    if (bone) this.bone.set(bone, v0);
-    for (let i = 0; i < ni; i++) this.idx[i0 + i] = idx[i] + v0;
-    this.nv += nv;
-    this.ni += ni;
-    this.attrs[0].addUpdateRange(v0 * 3, nv * 3);
-    this.attrs[1].addUpdateRange(v0 * 2, nv * 2);
-    this.attrs[2].addUpdateRange(v0 * 3, nv * 3);
-    for (const a of this.attrs) a.needsUpdate = true;
-    this.index.addUpdateRange(i0, ni);
-    this.index.needsUpdate = true;
-    this.geometry.setDrawRange(0, this.ni);
-    return { v0, nv, i0, ni };
+/** Drop collapsed triangles (a popped head's) and the vertices nothing uses any more. */
+function compact(s) {
+  const { pos, idx } = s;
+  const keep = [];
+  for (let t = 0; t < idx.length; t += 3) {
+    const a = idx[t] * 3, b = idx[t + 1] * 3, c = idx[t + 2] * 3;
+    const ux = pos[b] - pos[a], uy = pos[b + 1] - pos[a + 1], uz = pos[b + 2] - pos[a + 2];
+    const vx = pos[c] - pos[a], vy = pos[c + 1] - pos[a + 1], vz = pos[c + 2] - pos[a + 2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    if (nx * nx + ny * ny + nz * nz > 1e-4) keep.push(idx[t], idx[t + 1], idx[t + 2]);
   }
-
-  /** Read a slot back (to blow a baked body apart). */
-  read(s) {
-    const idx = new Uint32Array(s.ni);
-    for (let i = 0; i < s.ni; i++) idx[i] = this.idx[s.i0 + i] - s.v0;
-    return {
-      pos: this.pos.slice(s.v0 * 3, (s.v0 + s.nv) * 3), uv: this.uv.slice(s.v0 * 2, (s.v0 + s.nv) * 2),
-      col: this.col.slice(s.v0 * 3, (s.v0 + s.nv) * 3), bone: this.bone.slice(s.v0, s.v0 + s.nv), idx,
-    };
+  const map = new Int32Array(pos.length / 3).fill(-1);
+  let n = 0;
+  for (const v of keep) if (map[v] < 0) map[v] = n++;
+  const P = new Float32Array(n * 3), U = new Float32Array(n * 2), C = new Float32Array(n * 3);
+  for (let v = 0; v < map.length; v++) {
+    const k = map[v];
+    if (k < 0) continue;
+    P[k * 3] = pos[v * 3]; P[k * 3 + 1] = pos[v * 3 + 1]; P[k * 3 + 2] = pos[v * 3 + 2];
+    U[k * 2] = s.uv[v * 2]; U[k * 2 + 1] = s.uv[v * 2 + 1];
+    C[k * 3] = s.col[v * 3]; C[k * 3 + 1] = s.col[v * 3 + 1]; C[k * 3 + 2] = s.col[v * 3 + 2];
   }
-
-  /** Hide a slot (its triangles collapse to nothing). */
-  remove(s) {
-    for (let i = 0; i < s.ni; i++) this.idx[s.i0 + i] = s.v0;
-    this.index.addUpdateRange(s.i0, s.ni);
-    this.index.needsUpdate = true;
-  }
-
-  dispose() {
-    this.mesh.removeFromParent();
-    this.geometry.dispose();
-  }
+  return { pos: P, uv: U, col: C, idx: keep.map((v) => map[v]) };
 }
 
 const _v = new THREE.Vector3(), _m = new THREE.Matrix4(), _inv = new THREE.Matrix4(), _q = new THREE.Quaternion(), _ax = new THREE.Vector3();
@@ -156,45 +127,44 @@ export class Gore {
     this.group.name = 'gore';
     game.effects.group.add(this.group);
     this.materials = new Map();
-    this.batches = []; // in creation order
-    this.records = []; // baked whole bodies: { batch, slot, skin, center, spheres, hp }
+    this.store = new StaticStore(this.group, BODY_LAYOUT, (k) => this.material(k), { lod: true, verts: 4096, pad: 8, name: 'corpses' });
+    this.records = []; // baked whole bodies: { skin, center, spheres, scale } (for hits, raising the dead)
     this.gibs = [];
     this.fountains = [];
+    this.brassSoak = new Soak(1, 4, 6); // at most 4 shells per 6 x 6 units (a pile reads the same)
   }
 
   clear() {
-    for (const b of this.batches) b.dispose();
-    this.batches = [];
+    this.store.clear();
     this.records = [];
     for (const gb of this.gibs) { gb.mesh.removeFromParent(); gb.mesh.geometry.dispose(); }
     this.gibs = [];
     this.fountains = [];
+    this.brassSoak.clear();
   }
 
   material(key) {
     let m = this.materials.get(key);
     if (m) return m;
     const uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib.fog]);
-    uniforms.map = { value: key === 'meat' ? meatTexture() : getSkinTexture(key) };
+    uniforms.map = { value: key === 'meat' ? meatTexture() : key === 'brass' ? whiteTexture() : getSkinTexture(key) };
     m = new THREE.ShaderMaterial({ uniforms, vertexShader: VERT, fragmentShader: FRAG, vertexColors: true, fog: true });
     m.name = 'corpse_' + key;
     this.materials.set(key, m);
     return m;
   }
 
-  batchFor(key, nv, ni) {
-    for (let i = this.batches.length - 1; i >= 0; i--) {
-      const b = this.batches[i];
-      if (b.key === key && b.room(nv, ni)) return b;
-    }
-    if (this.batches.length >= MAX_BATCHES) {
-      const old = this.batches.shift();
-      this.records = this.records.filter((r) => r.batch !== old);
-      old.dispose();
-    }
-    const b = new CorpseBatch(this.group, this.material(key), key);
-    this.batches.push(b);
-    return b;
+  /** Make geometry permanent: GS-space positions, uvs, float colours (/ LIGHT_K), triangles. */
+  addStatic(kind, pos, uv, col, idx, lod = true) {
+    const nv = pos.length / 3;
+    if (!nv || !idx.length) return;
+    const lidx = lod ? clusterIndex(pos, idx, LOD_CELL) : [];
+    this.store.add(kind, { position: pos, uv, color: toBytes(col) }, nv, idx, lidx);
+  }
+
+  /** Per frame: upload what was added, near / far detail by the camera. */
+  updateStatics() {
+    this.store.update(this.game.camPos || null);
   }
 
   // ---------------------------------------------------------------- snapshots
@@ -255,7 +225,7 @@ export class Gore {
       const o = i * 3;
       const len = Math.hypot(nrm[o], nrm[o + 1], nrm[o + 2]) || 1;
       const d = Math.max(0, (nrm[o] * sun[0] + nrm[o + 1] * sun[1] + nrm[o + 2] * sun[2]) / len);
-      for (let k = 0; k < 3; k++) col[o + k] = Math.min(1.4, (l[k] * 0.62 + 0.12 + l[k] * 0.36 * d) * ch);
+      for (let k = 0; k < 3; k++) col[o + k] = Math.min(1.4, (l[k] * 0.62 + 0.12 + l[k] * 0.36 * d) * ch) / LIGHT_K;
     }
     return col;
   }
@@ -278,13 +248,13 @@ export class Gore {
   bakePlayer(p) {
     if (!this.enabled || p.baked || p.gibbed || !p.model) return;
     p.baked = true;
-    const s = this.snapshot(p.model);
+    const snap = this.snapshot(p.model);
+    const sph = this.spheres(snap, p.boss ? p.boss.scale : 1);
+    const s = compact(snap);
     const skin = p.model.skin;
-    const b = this.batchFor(skin, s.pos.length / 3, s.idx.length);
-    const slot = b.add(s.pos, s.uv, s.col, s.bone, s.idx);
-    const sph = this.spheres(s, p.boss ? p.boss.scale : 1);
+    this.addStatic(skin, s.pos, s.uv, s.col, s.idx);
     const c = sph.length ? sph.reduce((a, q) => [a[0] + q[0] / sph.length, a[1] + q[1] / sph.length, a[2] + q[2] / sph.length], [0, 0, 0]) : p.pm.origin.slice();
-    this.records.push({ batch: b, slot, skin, center: c, spheres: sph, hp: p.boss ? 400 : 70, scale: p.boss ? p.boss.scale : 1 });
+    this.records.push({ skin, center: c, spheres: sph, scale: p.boss ? p.boss.scale : 1 });
     p.model.object3D.visible = false;
   }
 
@@ -347,7 +317,7 @@ export class Gore {
   }
 
   spawnGib(skin, at, P, U, C, I, origin, dir, power, piece) {
-    if (this.gibs.length >= MAX_GIBS) this.settle(this.gibs[0], true);
+    if (this.gibs.length >= MAX_GIBS) this.finish(this.gibs[0]);
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(P, 3));
     geo.setAttribute('uv', new THREE.BufferAttribute(U, 2));
@@ -379,14 +349,14 @@ export class Gore {
     const n = geo.attributes.position.count;
     const C = new Float32Array(n * 3);
     const l = this.lightFor([at[0], at[1], at[2]]);
-    for (let i = 0; i < n; i++) { C[i * 3] = l[0] * 0.9; C[i * 3 + 1] = l[1] * 0.9; C[i * 3 + 2] = l[2] * 0.9; }
+    for (let i = 0; i < n; i++) { C[i * 3] = l[0] * 0.9 / LIGHT_K; C[i * 3 + 1] = l[1] * 0.9 / LIGHT_K; C[i * 3 + 2] = l[2] * 0.9 / LIGHT_K; }
     const I = Array.from({ length: n }, (_, i) => i);
     this.spawnGib('meat', at, geo.attributes.position.array, geo.attributes.uv.array, C, I, [at[0] - dir[0] * 10, at[1] - dir[1] * 10, at[2] - 10], dir, power * 1.3, 'meat');
     geo.dispose();
   }
 
-  /** A gib comes to rest: bake it into a batch (or just drop it when forced and full). */
-  settle(gb, force = false) {
+  /** A gib comes to rest: bake it in place. */
+  settle(gb) {
     const i = this.gibs.indexOf(gb);
     if (i >= 0) this.gibs.splice(i, 1);
     const m = gb.mesh;
@@ -398,17 +368,18 @@ export class Gore {
       _v.set(P[k * 3], P[k * 3 + 1], P[k * 3 + 2]).applyMatrix4(m.matrix);
       out[k * 3] = _v.x; out[k * 3 + 1] = _v.y; out[k * 3 + 2] = _v.z;
     }
-    const idx = m.geometry.index.array;
-    const b = this.batchFor(gb.skin, nv, idx.length);
-    b.add(out, m.geometry.attributes.uv.array, m.geometry.attributes.color.array, null, idx);
+    this.addStatic(gb.skin, out, m.geometry.attributes.uv.array, m.geometry.attributes.color.array, Array.from(m.geometry.index.array), gb.piece !== 'meat');
     m.removeFromParent();
     m.geometry.dispose();
-    void force;
   }
 
-  /** Blow a dead (not yet baked) or living zombie apart where it stands. */
+  /** Blow a living zombie apart where it stands (killed by an explosion). */
   gibPlayer(p, dir, power = 1) {
     if (!this.enabled || !p.model || p.gibbed) return;
+    // (a zombie can die before a frame has drawn it where it now is)
+    const o0 = p.pm.origin;
+    p.model.object3D.position.set(o0[0], o0[1], o0[2] + p.hull().mins[2]);
+    p.model.object3D.rotation.set(0, 0, p.pm.angles[1] * Math.PI / 180);
     const s = this.snapshot(p.model);
     p.gibbed = true;
     p.model.object3D.visible = false;
@@ -417,21 +388,24 @@ export class Gore {
     this.burst(s, p.model.skin, [o[0] - dir[0] * 20, o[1] - dir[1] * 20, o[2] - 20], dir, power);
   }
 
-  gibRecord(r, dir, power = 1) {
-    const i = this.records.indexOf(r);
-    if (i < 0) return;
-    this.records.splice(i, 1);
-    const s = r.batch.read(r.slot);
-    r.batch.remove(r.slot);
-    this.burst(s, r.skin, [r.center[0] - dir[0] * 20, r.center[1] - dir[1] * 20, r.center[2] - 16], dir, power);
-  }
-
-  /** Take a baked body away without a trace (the Abomination raises it). */
-  removeRecord(r) {
-    const i = this.records.indexOf(r);
-    if (i < 0) return;
-    this.records.splice(i, 1);
-    r.batch.remove(r.slot);
+  /** A spent case came to rest: it stays (unless the spot is already full of brass). */
+  bakeShell(mesh) {
+    if (!this.enabled) return;
+    mesh.updateMatrix();
+    const p = mesh.position;
+    if (!this.brassSoak.take([p.x, p.y, p.z], [0, 0, 1], 0)) return;
+    const geo = mesh.geometry, P = geo.attributes.position.array, nv = P.length / 3;
+    const out = new Float32Array(nv * 3);
+    for (let k = 0; k < nv; k++) {
+      _v.set(P[k * 3], P[k * 3 + 1], P[k * 3 + 2]).applyMatrix4(mesh.matrix);
+      out[k * 3] = _v.x; out[k * 3 + 1] = _v.y; out[k * 3 + 2] = _v.z;
+    }
+    const c = mesh.material.color, col = new Float32Array(nv * 3);
+    for (let k = 0; k < nv; k++) {
+      const f = (0.8 + 0.2 * Math.random()) / LIGHT_K; // a little variation between the faces
+      col[k * 3] = c.r * f; col[k * 3 + 1] = c.g * f; col[k * 3 + 2] = c.b * f;
+    }
+    this.addStatic('brass', out, geo.attributes.uv.array, col, Array.from(geo.index.array), false);
   }
 
   /** A big headshot kill: the head comes off, the neck fountains. */
@@ -495,78 +469,66 @@ export class Gore {
     return out;
   }
 
-  /** A bullet / blade hit a corpse. */
+  /** A bullet / blade hit a body on the floor: it bleeds (bodies never come apart once down). */
   hitCorpse(h, dmg, dir) {
     const g = this.game;
     g.effects.blood?.(h.point, dir, Math.min(60, dmg), {});
     g.sound?.play('hit_flesh', { pos: h.point, volume: 0.7 });
-    const hp = h.rec ? h.rec : h.player;
-    hp.corpseHp = (hp.corpseHp ?? (h.rec ? h.rec.hp : (h.player.boss ? 400 : 70))) - dmg;
-    if (hp.corpseHp > 0) return;
-    const d = [dir[0], dir[1], Math.max(0.2, dir[2])];
-    if (h.rec) this.gibRecord(h.rec, d, 0.8);
-    else this.gibPlayer(h.player, d, 0.8);
-  }
-
-  /** An explosion: corpses in range come apart. */
-  blast(pos, radius, damage, live = []) {
-    const hitIt = (c) => {
-      const d = Math.hypot(c[0] - pos[0], c[1] - pos[1], c[2] - pos[2]);
-      if (d > radius) return null;
-      const dmg = damage * (1 - d / radius);
-      if (dmg < 25) return null;
-      const l = d || 1;
-      return { dir: [(c[0] - pos[0]) / l, (c[1] - pos[1]) / l, Math.max(0.35, (c[2] - pos[2]) / l)], power: Math.min(2, 0.6 + dmg / 120) };
-    };
-    for (const r of this.records.slice()) { const h = hitIt(r.center); if (h) this.gibRecord(r, h.dir, h.power); }
-    for (const p of live) {
-      if (p.alive || p.baked || p.gibbed || !p.deathTime || !p.model) continue;
-      const h = hitIt(p.pm.origin);
-      if (h) this.gibPlayer(p, h.dir, h.power);
-    }
   }
 
   // ---------------------------------------------------------------- per frame
+  /** One physics step of a flying gib (fx: blood trails, splats, sounds). True: it's done. */
+  step(gb, dt, fx) {
+    const g = this.game, t = g.time, B = g.effects.bloodFx;
+    const v = gb.vel, p = gb.pos;
+    v[2] -= GRAVITY * dt;
+    const next = [p[0] + v[0] * dt, p[1] + v[1] * dt, p[2] + v[2] * dt];
+    const s = gb.size;
+    g.collision.trace(p, next, [-s, -s, -s], [s, s, s], MASK_WORLD_PLAYER, tr);
+    if (tr.startsolid) { p[2] += 2; v[0] = v[1] = 0; gb.stuck = (gb.stuck || 0) + 1; }
+    else if (tr.fraction < 1) {
+      p[0] = tr.endpos[0]; p[1] = tr.endpos[1]; p[2] = tr.endpos[2];
+      const n = tr.normal, vn = v[0] * n[0] + v[1] * n[1] + v[2] * n[2];
+      const speed = Math.hypot(v[0], v[1], v[2]);
+      if (speed > 140 && gb.bounces < 4 && B) B.splat([p[0] - n[0] * s, p[1] - n[1] * s, p[2] - n[2] * s], n, rnd(10, 22) * (gb.piece === 'meat' ? 0.6 : 1), v);
+      if (speed > 160 && gb.bounces < 2 && fx) g.sound?.play('gib_land', { pos: p, volume: Math.min(1, speed / 500) });
+      gb.bounces++;
+      v[0] -= 1.3 * vn * n[0]; v[1] -= 1.3 * vn * n[1]; v[2] -= 1.3 * vn * n[2];
+      const fr = n[2] > 0.7 ? 0.55 : 0.8;
+      v[0] *= fr; v[1] *= fr; v[2] *= fr;
+      gb.w[0] *= 0.6; gb.w[1] *= 0.6; gb.w[2] *= 0.6;
+      if (n[2] > 0.7 && Math.abs(v[2]) < 60) { v[2] = 0; gb.ground = true; }
+    } else { p[0] = next[0]; p[1] = next[1]; p[2] = next[2]; gb.ground = false; }
+    if (gb.ground) { v[0] *= Math.max(0, 1 - 4 * dt); v[1] *= Math.max(0, 1 - 4 * dt); gb.w[0] *= 0.9; gb.w[1] *= 0.9; gb.w[2] *= 0.9; }
+    const wl = Math.hypot(gb.w[0], gb.w[1], gb.w[2]);
+    if (wl > 1e-3) {
+      _ax.set(gb.w[0] / wl, gb.w[1] / wl, gb.w[2] / wl);
+      _q.setFromAxisAngle(_ax, wl * dt);
+      gb.mesh.quaternion.premultiply(_q);
+    }
+    gb.mesh.position.set(p[0], p[1], p[2]);
+    if (B && fx && t < gb.bleedUntil && t >= gb.nextDrop && gb.piece !== 'meat') {
+      gb.nextDrop = t + 0.06;
+      B.droplet([p[0], p[1], p[2]], [v[0] * 0.3 + rnd(-30, 30), v[1] * 0.3 + rnd(-30, 30), v[2] * 0.3 + rnd(0, 40)], rnd(1.0, 1.8));
+    }
+    const sp = Math.hypot(v[0], v[1], v[2]);
+    if (gb.ground && sp < 25) gb.rest += dt; else gb.rest = 0;
+    gb.age = (gb.age || 0) + dt;
+    return gb.rest > 0.4 || p[2] < -4000 || gb.age > 8 || (gb.stuck || 0) > 40;
+  }
+
+  /** Too many gibs in the air: play the oldest one's flight out at once and bake it where it lands. */
+  finish(gb) {
+    for (let k = 0; k < 600 && !this.step(gb, 1 / 60, false); k++);
+    this.settle(gb);
+  }
+
   update(dt) {
     if (!this.enabled || dt <= 0) return;
-    const g = this.game, t = g.time, B = g.effects.bloodFx;
     for (let i = 0; i < this.gibs.length; i++) {
-      const gb = this.gibs[i];
-      const v = gb.vel, p = gb.pos;
-      v[2] -= GRAVITY * dt;
-      const next = [p[0] + v[0] * dt, p[1] + v[1] * dt, p[2] + v[2] * dt];
-      const s = gb.size;
-      g.collision.trace(p, next, [-s, -s, -s], [s, s, s], MASK_WORLD_PLAYER, tr);
-      if (tr.startsolid) { p[2] += 2; v[0] = v[1] = 0; }
-      else if (tr.fraction < 1) {
-        p[0] = tr.endpos[0]; p[1] = tr.endpos[1]; p[2] = tr.endpos[2];
-        const n = tr.normal, vn = v[0] * n[0] + v[1] * n[1] + v[2] * n[2];
-        const speed = Math.hypot(v[0], v[1], v[2]);
-        if (speed > 140 && gb.bounces < 4 && B) B.splat([p[0] - n[0] * s, p[1] - n[1] * s, p[2] - n[2] * s], n, rnd(10, 22) * (gb.piece === 'meat' ? 0.6 : 1), v);
-        if (speed > 160 && gb.bounces < 2) g.sound?.play('gib_land', { pos: p, volume: Math.min(1, speed / 500) });
-        gb.bounces++;
-        v[0] -= 1.3 * vn * n[0]; v[1] -= 1.3 * vn * n[1]; v[2] -= 1.3 * vn * n[2];
-        const fr = n[2] > 0.7 ? 0.55 : 0.8;
-        v[0] *= fr; v[1] *= fr; v[2] *= fr;
-        gb.w[0] *= 0.6; gb.w[1] *= 0.6; gb.w[2] *= 0.6;
-        if (n[2] > 0.7 && Math.abs(v[2]) < 60) { v[2] = 0; gb.ground = true; }
-      } else { p[0] = next[0]; p[1] = next[1]; p[2] = next[2]; gb.ground = false; }
-      if (gb.ground) { v[0] *= Math.max(0, 1 - 4 * dt); v[1] *= Math.max(0, 1 - 4 * dt); gb.w[0] *= 0.9; gb.w[1] *= 0.9; gb.w[2] *= 0.9; }
-      const wl = Math.hypot(gb.w[0], gb.w[1], gb.w[2]);
-      if (wl > 1e-3) {
-        _ax.set(gb.w[0] / wl, gb.w[1] / wl, gb.w[2] / wl);
-        _q.setFromAxisAngle(_ax, wl * dt);
-        gb.mesh.quaternion.premultiply(_q);
-      }
-      gb.mesh.position.set(p[0], p[1], p[2]);
-      if (B && t < gb.bleedUntil && t >= gb.nextDrop && gb.piece !== 'meat') {
-        gb.nextDrop = t + 0.06;
-        B.droplet([p[0], p[1], p[2]], [v[0] * 0.3 + rnd(-30, 30), v[1] * 0.3 + rnd(-30, 30), v[2] * 0.3 + rnd(0, 40)], rnd(1.0, 1.8));
-      }
-      const sp = Math.hypot(v[0], v[1], v[2]);
-      if (gb.ground && sp < 25) gb.rest += dt; else gb.rest = 0;
-      if (gb.rest > 0.4 || p[2] < -4000) { this.settle(gb); i--; }
+      if (this.step(this.gibs[i], dt, true)) { this.settle(this.gibs[i]); i--; }
     }
+    const g = this.game, t = g.time, B = g.effects.bloodFx;
     // neck fountains
     for (let i = 0; i < this.fountains.length; i++) {
       const f = this.fountains[i];

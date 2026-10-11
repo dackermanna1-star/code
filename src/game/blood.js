@@ -1,7 +1,8 @@
 // Blood effects: hit bursts (droplet + mist particles), exit splatter / droplet / drip
-// decals and slowly spreading puddles under corpses. Everything is batched: three decal
-// meshes (puddles, splats, droplet stains) and one instanced particle mesh, so blood
-// costs four draw calls no matter how much of it there is.
+// decals and slowly spreading puddles under corpses. Everything is batched: the decals
+// are permanent quads in static meshes per map area (statics.js QuadStore: never
+// recycled, culled per area, a soaked spot takes no more), the particles one instanced
+// mesh.
 //
 // All positions are GoldSrc space (children of renderer.world). Decals are lifted a
 // fraction of a unit off the surface and drawn with polygonOffset, depthWrite off and
@@ -16,13 +17,10 @@
 import * as THREE from 'three';
 import { TraceResult, MASK_SHOT } from '../engine/collision.js';
 import { lightCurve } from '../map/meshbuilder.js';
+import { QuadStore, Soak } from './statics.js';
 
-// big rings: in zombie survival the blood stays for the whole game (each pool is one
-// draw call; the oldest decal is recycled when a pool is full)
-export const MAX_SPLATS = 480;
-export const MAX_DROPS = 960;
-export const MAX_PUDDLES = 160;
-export const MAX_PARTICLES = 640;
+// decals are never recycled (statics.js); the flying particles are a fixed pool
+export const MAX_PARTICLES = 1024;
 const GRAVITY = 800;
 
 // atlas layouts (see src/assets/tex/blood.js)
@@ -158,28 +156,14 @@ const PART_FRAG = /* glsl */`
 
 // ------------------------------------------------------------------ decal batch
 
-/** A fixed pool of textured quads in one mesh; slots are recycled oldest-first. */
+/**
+ * One kind of blood decal (an atlas of cells): permanent quads (statics.js QuadStore).
+ * add() returns a handle (null when that spot is already soaked) for later changes.
+ */
 class DecalBatch {
-  constructor(parent, tex, max, cols, rows, order, puddle = false) {
-    this.max = max;
+  constructor(parent, tex, cols, rows, order, puddle, soak) {
     this.cols = cols;
     this.rows = rows;
-    this.pos = new Float32Array(max * 12);
-    this.uv = new Float32Array(max * 8);
-    this.col = new Float32Array(max * 16);
-    this.prog = puddle ? new Float32Array(max * 4) : null;
-    const idx = new Uint16Array(max * 6);
-    for (let i = 0; i < max; i++) idx.set([i * 4, i * 4 + 1, i * 4 + 2, i * 4, i * 4 + 2, i * 4 + 3], i * 6);
-    const g = new THREE.BufferGeometry();
-    this.attrs = [
-      ['position', this.pos, 3], ['uv', this.uv, 2], ['aCol', this.col, 4], ...(puddle ? [['aProg', this.prog, 1]] : []),
-    ].map(([name, arr, n]) => {
-      const a = new THREE.BufferAttribute(arr, n).setUsage(THREE.DynamicDrawUsage);
-      g.setAttribute(name, a);
-      return a;
-    });
-    g.setIndex(new THREE.BufferAttribute(idx, 1));
-    g.setDrawRange(0, 0);
     this.material = new THREE.ShaderMaterial({
       uniforms: { map: { value: tex } },
       vertexShader: DECAL_VERT,
@@ -191,79 +175,25 @@ class DecalBatch {
       polygonOffsetFactor: -2,
       polygonOffsetUnits: -2,
     });
-    this.mesh = new THREE.Mesh(g, this.material);
-    this.mesh.name = puddle ? 'blood_puddles' : 'blood_decals';
-    this.mesh.frustumCulled = false;
-    this.mesh.matrixAutoUpdate = false;
-    this.mesh.renderOrder = order;
-    this.mesh.visible = false;
-    parent.add(this.mesh);
-    this.owner = new Array(max).fill(null);
-    this.count = 0;
-    this.next = 0;
-    this.dirty = false;
+    this.q = new QuadStore(parent, this.material, { prog: puddle, order, soak, pad: puddle ? 24 : 4, name: puddle ? 'blood_puddles' : 'blood_decals' });
   }
 
-  alloc(owner = null) {
-    const i = this.next;
-    this.next = (this.next + 1) % this.max;
-    if (this.count < this.max) {
-      this.count++;
-      this.mesh.geometry.setDrawRange(0, this.count * 6);
-      this.mesh.visible = true;
-    }
-    this.owner[i] = owner;
-    return i;
+  uvRect(cell) {
+    const u0 = (cell % this.cols) / this.cols, v0 = Math.floor(cell / this.cols) / this.rows;
+    return [u0, v0, u0 + 1 / this.cols, v0 + 1 / this.rows];
   }
 
-  /** Quad centred at c spanning ±U*hu, ±V*hv (V = n × U keeps the front face towards n). */
-  setQuad(i, c, U, V, hu, hv) {
-    const P = this.pos, o = i * 12;
-    for (let k = 0; k < 4; k++) {
-      const su = k === 0 || k === 3 ? -hu : hu, sv = k < 2 ? -hv : hv;
-      P[o + k * 3] = c[0] + U[0] * su + V[0] * sv;
-      P[o + k * 3 + 1] = c[1] + U[1] * su + V[1] * sv;
-      P[o + k * 3 + 2] = c[2] + U[2] * su + V[2] * sv;
-    }
-    this.dirty = true;
+  /** A quad centred at c spanning ±U*hu, ±V*hv (V = n × U keeps the front face towards n). */
+  add(c, U, V, hu, hv, cell, rgb, a, n, size) {
+    return this.q.add(c, U, V, hu, hv, this.uvRect(cell), rgb, a, n, size);
   }
 
-  setCell(i, cell) {
-    const u0 = (cell % this.cols) / this.cols, u1 = u0 + 1 / this.cols;
-    const v0 = Math.floor(cell / this.cols) / this.rows, v1 = v0 + 1 / this.rows;
-    this.uv.set([u0, v0, u1, v0, u1, v1, u0, v1], i * 8);
-    this.dirty = true;
-  }
-
-  setColor(i, rgb, a) {
-    const C = this.col, o = i * 16;
-    for (let k = 0; k < 4; k++) {
-      C[o + k * 4] = rgb[0];
-      C[o + k * 4 + 1] = rgb[1];
-      C[o + k * 4 + 2] = rgb[2];
-      C[o + k * 4 + 3] = a;
-    }
-    this.dirty = true;
-  }
-
-  setProg(i, p) {
-    this.prog.fill(p, i * 4, i * 4 + 4);
-    this.dirty = true;
-  }
-
-  flush() {
-    if (!this.dirty) return;
-    this.dirty = false;
-    for (const a of this.attrs) a.needsUpdate = true;
-  }
-
-  clear() {
-    this.count = 0;
-    this.next = 0;
-    this.owner.fill(null);
-    this.mesh.geometry.setDrawRange(0, 0);
-    this.mesh.visible = false;
-  }
+  setQuad(h, c, U, V, hu, hv) { this.q.setQuad(h, c, U, V, hu, hv); }
+  setColor(h, rgb, a) { this.q.setColor(h, rgb, a); }
+  setProg(h, p) { this.q.setProg(h, p); }
+  get count() { return this.q.count; }
+  flush() { this.q.update(); }
+  clear() { this.q.clear(); }
 }
 
 // ------------------------------------------------------------------ particles
@@ -417,9 +347,10 @@ export class BloodFX {
     effects.group.add(this.group);
     this.tr = new TraceResult();
     this.time = 0;
-    this.pools = new DecalBatch(this.group, this.texture('decal_blood_pool', true), MAX_PUDDLES, POOL.cols, POOL.rows, -3, true);
-    this.splats = new DecalBatch(this.group, this.texture('decal_blood_splats', true), MAX_SPLATS, SPLAT.cols, SPLAT.rows, -2);
-    this.drops = new DecalBatch(this.group, this.texture('decal_blood_drops', true), MAX_DROPS, DROP.cols, DROP.rows, -1);
+    // a spot holds at most two of a kind and size (more would look the same and only cost fill rate)
+    this.pools = new DecalBatch(this.group, this.texture('decal_blood_pool', true), POOL.cols, POOL.rows, -3, true, new Soak(0.6, 2, 8));
+    this.splats = new DecalBatch(this.group, this.texture('decal_blood_splats', true), SPLAT.cols, SPLAT.rows, -2, false, new Soak(0.6, 2, 3));
+    this.drops = new DecalBatch(this.group, this.texture('decal_blood_drops', true), DROP.cols, DROP.rows, -1, false, new Soak(0.6, 2, 2));
     this.parts = new BloodParticles(this.group, this.texture('spr_blood', false), MAX_PARTICLES, this.collision,
       (pos, n, vel, size, flags, tint) => this.land(pos, n, vel, size, flags, tint));
     this.puddles = [];
@@ -640,11 +571,7 @@ export class BloodFX {
       s *= 0.72;
     }
     c[0] += n[0] * lift; c[1] += n[1] * lift; c[2] += n[2] * lift;
-    const i = batch.alloc();
-    batch.setQuad(i, c, U, V, s / 2, s / 2);
-    batch.setCell(i, cell);
-    batch.setColor(i, tint || this.lightAt(p, n), 1);
-    return i;
+    return batch.add(c, U, V, s / 2, s / 2, cell, tint || this.lightAt(p, n), 1, n, s);
   }
 
   /** Is there surface under the points ±U*r, ±V*r (no overhang past an edge)? */
@@ -683,13 +610,20 @@ export class BloodFX {
       head = head || !!(lh && lh.head && this.time - lh.t < 1);
       getter = this.corpseGetter(src, head);
       alive = () => src.alive;
+      if (src.isZombie) {
+        // a zombie comes back as a new one, but its body stays: the pool stops following and stays too
+        const get = getter;
+        let last = null;
+        getter = () => (src.alive ? last : (last = get()));
+        alive = null;
+      }
       settling = () => !!(src.model?.ragdoll?.awake);
     } else return null;
     const e = {
       getter, alive, settling, normal: opts.normal ? norm3(opts.normal) : null,
       start: this.time + (opts.delay ?? 0.5), follow: opts.follow ?? 2, grow: opts.grow ?? rnd(4, 6),
       R: opts.radius ?? rnd(22, 32) * (head ? 0.85 : 1), r: 0, U: null,
-      slot: -1, t0: 0, lastPoll: -1, pos: null, target: null, n: [0, 0, 1], fitPos: null, shift: [0, 0, 0],
+      h: null, t0: 0, lastPoll: -1, pos: null, target: null, n: [0, 0, 1], fitPos: null, shift: [0, 0, 0],
     };
     this.puddles.push(e);
     return e;
@@ -779,21 +713,20 @@ export class BloodFX {
     const B = this.pools;
     for (let k = this.puddles.length - 1; k >= 0; k--) {
       const e = this.puddles[k];
-      const drop = () => {
-        if (e.slot >= 0 && B.owner[e.slot] === e) { B.setColor(e.slot, [0, 0, 0], 0); B.owner[e.slot] = null; }
+      if (e.alive && e.alive()) { // respawned: the body is gone, and its pool with it
+        if (e.h) B.setColor(e.h, [0, 0, 0], 0);
         this.puddles.splice(k, 1);
-      };
-      if (e.alive && e.alive()) { drop(); continue; } // respawned: the body is gone
+        continue;
+      }
       if (this.time < e.start) continue;
-      if (e.slot >= 0 && B.owner[e.slot] !== e) { this.puddles.splice(k, 1); continue; } // recycled
       const following = this.time < e.start + e.follow || (this.time < e.start + 5 && !!e.settling?.());
-      if (e.slot < 0 || (following && this.time - e.lastPoll >= 0.2)) {
+      if (!e.h || (following && this.time - e.lastPoll >= 0.2)) {
         e.lastPoll = this.time;
         const p = e.getter();
         const f = p && this.floorBelow(p, e);
         if (f) {
           const fp = e.fitPos;
-          const refit = e.slot < 0 || Math.hypot(f.pos[0] - fp[0], f.pos[1] - fp[1], f.pos[2] - fp[2]) > 8;
+          const refit = !e.h || Math.hypot(f.pos[0] - fp[0], f.pos[1] - fp[1], f.pos[2] - fp[2]) > 8;
           if (refit) {
             const fit = this.fitPool(f.pos, f.n, e.R);
             e.fitPos = f.pos;
@@ -802,17 +735,16 @@ export class BloodFX {
           }
           e.target = [f.pos[0] + e.shift[0], f.pos[1] + e.shift[1], f.pos[2] + e.shift[2]];
           e.n = f.n;
-          if (e.slot < 0) {
-            e.slot = B.alloc(e);
-            e.pos = e.target.slice();
+          if (!e.h) {
             e.U = randomTangent(f.n);
+            e.h = B.add(e.target, e.U, cross(f.n, e.U), 0.1, 0.1, Math.floor(Math.random() * POOL.cols * POOL.rows), this.lightAt(e.target, f.n), 1, f.n, e.r * 2);
+            if (!e.h) { this.puddles.splice(k, 1); continue; } // the floor here is soaked already
+            e.pos = e.target.slice();
             e.t0 = this.time;
-            B.setCell(e.slot, Math.floor(Math.random() * POOL.cols * POOL.rows));
-          }
-          if (refit) B.setColor(e.slot, this.lightAt(e.target, f.n), 1);
-        } else if (e.slot < 0 && !following) { this.puddles.splice(k, 1); continue; }
+          } else if (refit) B.setColor(e.h, this.lightAt(e.target, f.n), 1);
+        } else if (!e.h && !following) { this.puddles.splice(k, 1); continue; }
       }
-      if (e.slot < 0) continue;
+      if (!e.h) continue;
       // the pool slides along with a body that is still settling
       const s = 1 - Math.exp(-6 * dt);
       for (let m = 0; m < 3; m++) e.pos[m] += (e.target[m] - e.pos[m]) * s;
@@ -822,8 +754,8 @@ export class BloodFX {
       const half = (e.r / POOL.radiusFrac) * scale * 0.5;
       const U = tangentToward(e.n, e.U), V = cross(e.n, U);
       const c = [e.pos[0] + e.n[0] * 0.2, e.pos[1] + e.n[1] * 0.2, e.pos[2] + e.n[2] * 0.2];
-      B.setQuad(e.slot, c, U, V, half, half);
-      B.setProg(e.slot, 0.04 + 1.06 * ease);
+      B.setQuad(e.h, c, U, V, half, half);
+      B.setProg(e.h, 0.04 + 1.06 * ease);
       if (t >= 1 && !following) this.puddles.splice(k, 1); // finished: stays as a static decal
     }
   }

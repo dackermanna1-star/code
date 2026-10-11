@@ -18,8 +18,8 @@ import { Hostages } from './hostages.js';
 import { ZombieMode, MASK_ZOMBIE_MOVE, MASK_HUMAN_MOVE } from './zombies.js';
 import { FireSystem } from './fire.js';
 import { Projectiles } from './projectiles.js';
-import { Gore } from './gore.js';
-import { BossDirector } from './bosses.js';
+import { Gore, HEAD_POPPERS } from './gore.js';
+import { BossDirector, BOSS_NERF } from './bosses.js';
 import { NavGraph } from './nav.js';
 import { RoundManager } from './rounds.js';
 import { BotManager } from './bots.js';
@@ -557,6 +557,7 @@ export class Game {
     if (victim.isHostage) { this.hostages.damage(victim, attacker, damage, hitgroup, weaponId, dir, point, opts); return; }
     if (!victim.alive || damage <= 0) return;
     if (victim.boss) { damage = this.bosses.adjust(victim, attacker, damage, hitgroup, weaponId, opts); if (damage <= 0) return; }
+    if (attacker?.boss && attacker !== victim) damage *= BOSS_NERF; // every boss attack (claws, acid, fire, blasts)
     const teammate = !!(attacker && attacker !== victim && attacker.team === victim.team);
     const res = CR.computeDamage({ health: victim.health, armor: victim.armor, helmet: victim.helmet, ducking: victim.pm.ducking, speed: Math.hypot(victim.pm.velocity[0], victim.pm.velocity[1]) },
       damage, hitgroup, { attackerWeapon: weaponId, teammate, self: attacker === victim, friendlyFire: this.rounds.friendlyFire, blast: opts.blast });
@@ -656,12 +657,13 @@ export class Game {
       const kind = headshot ? 'headshot' : victim.pm.ducking ? 'crouch' : ['back', 'forward', 'left'][Math.floor(Math.random() * 3)];
       const hit = victim.lastHit && victim.lastHit.time === this.time ? victim.lastHit : null;
       const gz = victim.isZombie && !victim.isBoss && this.zombies.enabled && this.gore.enabled;
-      if (gz && hit && (hit.explode || (hit.damage >= 150 && !headshot))) {
-        // blown apart
+      if (gz && hit && hit.explode) {
+        // killed by an explosion: blown apart (bullets never do this; a body that's already down stays whole)
         const d = hit.dir || [0, 0, 1];
         this.gore.gibPlayer(victim, [d[0], d[1], Math.max(0.3, d[2] || 0)], Math.min(2.2, 0.7 + hit.damage / 150));
       } else if (victim.noRagdoll || !this.ragdolls.spawn(victim.model, { origin: victim.pm.origin, velocity: victim.pm.velocity, hit, headshot, weaponId })) victim.model.playDeath(kind);
-      if (gz && headshot && hit && !hit.blast && hit.damage >= 70 && !victim.gibbed) this.gore.popHead(victim, hit.dir || [1, 0, 0]);
+      // a headshot kill with a big gun takes the head off (the rest ragdolls as usual)
+      if (gz && headshot && hit && !hit.blast && HEAD_POPPERS.has(weaponId) && !victim.gibbed) this.gore.popHead(victim, hit.dir || [1, 0, 0]);
     }
     this.bulletCam.trigger(attacker, victim, weaponId, headshot);
     if (victim === this.viewTarget) {
@@ -931,6 +933,7 @@ export class Game {
     }
     this.updateModels(dt, alpha);
     this.effects.update(this.paused ? 0 : dt);
+    if (this.zombies.enabled) this.gore.updateStatics(); // bodies / gibs / brass added this frame
     this.fire.render(this.paused ? 0 : dt);
     this.updateCamera(cine ? realDt : dt, alpha);
     this.updateSoundListener();
@@ -1124,7 +1127,7 @@ export class Game {
 
   /**
    * An explosion: fireball, sound, radius damage with knockback (rocket jumps work) that
-   * walls block, corpses torn apart. o: { owner, damage, radius, weapon, selfScale, push,
+   * walls block; zombies it kills are torn apart. o: { owner, damage, radius, weapon, selfScale, push,
    * sound, scale, shake, fire, noGore }
    */
   explode(pos, o = {}) {
@@ -1150,7 +1153,6 @@ export class Game {
       q.pm.velocity[0] += dir[0] * kb; q.pm.velocity[1] += dir[1] * kb; q.pm.velocity[2] += dir[2] * kb + kb * 0.35;
       this.damagePlayer(q, owner, dmg, 0, weapon, dir, null, { blast: true, explode: !o.noGore, fire: !!o.fire });
     }
-    if (!o.noGore && this.zombies.enabled) this.gore.blast(pos, R * 0.9, D, this.zombies.pool);
     this.shakeAt(pos, o.shake ?? 8);
     this.bots.onNoise(owner, pos, 2500);
   }

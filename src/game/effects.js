@@ -6,9 +6,11 @@ import * as THREE from 'three';
 import { TraceResult, MASK_SHOT } from '../engine/collision.js';
 import { BloodFX } from './blood.js';
 import { WoundSystem } from './wounds.js';
+import { QuadStore, Soak } from './statics.js';
 
-const MAX_DECALS = 256;
 const MAX_SPRITES = 220;
+const WHITE = [1, 1, 1];
+const SCORCH_DIRS = [[0, 0, -1], [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1]];
 const MAX_SHELLS = 40;
 const GRAVITY = 800;
 
@@ -20,9 +22,7 @@ export class Effects {
     this.group = new THREE.Group();
     this.group.name = 'effects';
     this.world.add(this.group);
-    this.decals = [];
-    this.decalGeo = new THREE.PlaneGeometry(1, 1);
-    this.decalMats = new Map();
+    this.marks = new Map(); // decal texture -> QuadStore: bullet holes, scorch / burn marks (permanent)
     this.sprites = [];
     this.spriteTex = new Map();
     this.shells = [];
@@ -54,40 +54,51 @@ export class Effects {
   }
 
   // ------------------------------------------------------------- decals
-  decal(name, pos, normal, size, light = null, rot = Math.random() * Math.PI * 2) {
-    let mat = this.decalMats.get(name);
-    if (!mat) {
-      mat = new THREE.MeshBasicMaterial({
-        map: this.tex(name), transparent: true, depthWrite: false,
+  /**
+   * A decal on the world: bullet hole, scorch mark... Permanent: all of one texture are
+   * quads in static meshes per map area (statics.js); a spot that already has two of the
+   * same size takes no more. tint: [r, g, b, a] (multiplies the texture).
+   */
+  decal(name, pos, normal, size, tint = null, rot = Math.random() * Math.PI * 2, fit = false) {
+    let q = this.marks.get(name);
+    if (!q) {
+      const mat = new THREE.MeshBasicMaterial({
+        map: this.tex(name), transparent: true, depthWrite: false, vertexColors: true,
         polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
       });
-      this.decalMats.set(name, mat);
+      q = new QuadStore(this.group, mat, { colName: 'color', soak: new Soak(0.6, 2, 2), order: -4, name: name });
+      this.marks.set(name, q);
     }
-    let m;
-    if (this.decals.length >= MAX_DECALS) {
-      m = this.decals.shift();
-      if (m.material !== mat) m.material = mat;
-    } else {
-      m = new THREE.Mesh(this.decalGeo, mat);
-      m.matrixAutoUpdate = false;
-      this.group.add(m);
+    const l = Math.hypot(normal[0], normal[1], normal[2]) || 1;
+    const n = [normal[0] / l, normal[1] / l, normal[2] / l];
+    const a = Math.abs(n[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
+    let t1 = [n[1] * a[2] - n[2] * a[1], n[2] * a[0] - n[0] * a[2], n[0] * a[1] - n[1] * a[0]];
+    const tl = Math.hypot(t1[0], t1[1], t1[2]) || 1;
+    t1 = [t1[0] / tl, t1[1] / tl, t1[2] / tl];
+    const t2 = [n[1] * t1[2] - n[2] * t1[1], n[2] * t1[0] - n[0] * t1[2], n[0] * t1[1] - n[1] * t1[0]];
+    const cs = Math.cos(rot), sn = Math.sin(rot);
+    const U = [t1[0] * cs + t2[0] * sn, t1[1] * cs + t2[1] * sn, t1[2] * cs + t2[2] * sn];
+    const V = [n[1] * U[2] - n[2] * U[1], n[2] * U[0] - n[0] * U[2], n[0] * U[1] - n[1] * U[0]];
+    // big marks shrink until they don't hang over an edge
+    if (fit && this.bloodFx) for (let k = 0; k < 4 && !this.bloodFx.fits(pos, n, U, V, size * 0.36); k++) size *= 0.72;
+    const c = [pos[0] + n[0] * 0.15, pos[1] + n[1] * 0.15, pos[2] + n[2] * 0.15];
+    return q.add(c, U, V, size / 2, size / 2, [0, 0, 1, 1], tint || WHITE, tint ? tint[3] ?? 1 : 1, n, size);
+  }
+
+  /** A scorch mark on the surface nearest to an explosion (none if it went off in the open). */
+  scorch(pos, size) {
+    let best = null;
+    for (const d of SCORCH_DIRS) {
+      const end = [pos[0] + d[0] * 80, pos[1] + d[1] * 80, pos[2] + d[2] * 80];
+      this.game.collision.trace(pos, end, [0, 0, 0], [0, 0, 0], MASK_SHOT, this.tr);
+      if (this.tr.startsolid || this.tr.fraction >= 1) continue;
+      if (!best || this.tr.fraction < best.f) best = { f: this.tr.fraction, p: this.tr.endpos.slice(), n: this.tr.normal.slice() };
     }
-    if (light) {
-      // per-decal tint requires its own material; keep the shared one (decals are dark anyway)
-    }
-    const n = new THREE.Vector3(normal[0], normal[1], normal[2]).normalize();
-    m.position.set(pos[0] + n.x * 0.15, pos[1] + n.y * 0.15, pos[2] + n.z * 0.15);
-    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
-    q.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), rot));
-    m.quaternion.copy(q);
-    m.scale.set(size, size, 1);
-    m.updateMatrix();
-    this.decals.push(m);
+    if (best) this.decal('decal_scorch', best.p, best.n, size * (1 - best.f * 0.4), null, undefined, true);
   }
 
   clearDecals() {
-    for (const d of this.decals) this.group.remove(d);
-    this.decals.length = 0;
+    for (const q of this.marks.values()) q.clear();
   }
 
   // ------------------------------------------------------------- sprites
@@ -216,7 +227,7 @@ export class Effects {
       const r = () => (Math.random() - 0.5);
       this.sprite({ tex: 'spr_smoke', pos: [pos[0] + r() * 60, pos[1] + r() * 60, pos[2] + 30 + Math.random() * 40], vel: [r() * 40, r() * 40, 30 + Math.random() * 30], size: 80 * scale, grow: 60, life: 2.5, color: [0.35, 0.33, 0.3], alpha: 0.7, fadeIn: 0.3 });
     }
-    this.decal('decal_scorch', [pos[0], pos[1], pos[2] + 1], [0, 0, 1], 120 * scale);
+    this.scorch([pos[0], pos[1], pos[2] + 2], 120 * scale);
   }
 
   // smoke grenade: long-lived cloud
@@ -295,6 +306,18 @@ export class Effects {
       s.mesh.position.set(s.pos[0], s.pos[1], s.pos[2] + (s.rest ? 0.5 : 0));
       if (!s.rest) { s.mesh.rotation.x += s.spin[0] * dt; s.mesh.rotation.y += s.spin[1] * dt; }
     }
+    // zombie survival: brass that has come to rest stays (baked into static meshes)
+    const gore = this.game.zombies?.enabled && this.game.gore?.enabled ? this.game.gore : null;
+    if (gore) {
+      for (let i = this.shells.length - 1; i >= 0; i--) {
+        const s = this.shells[i];
+        if (!s.rest) continue;
+        gore.bakeShell(s.mesh);
+        this.group.remove(s.mesh);
+        this.shells.splice(i, 1);
+      }
+    }
+    for (const q of this.marks.values()) q.update();
     // smoke clouds (emit big grey puffs over time)
     for (let i = this.smokes.length - 1; i >= 0; i--) {
       const c = this.smokes[i];

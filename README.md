@@ -68,7 +68,8 @@ Useful console commands: `sensitivity 3`, `cl_showfps 0`, `net_graph 1`,
 | Sound | `src/assets/sounds.js`, `src/assets/snd/` | Every sound synthesised with Web Audio at load time; GoldSrc attenuation model. |
 | Weapons | `src/game/weaponsys.js`, `combatrules.js` | CS 1.6 weapon logic ported from ReGameDLL_CS: spread/accuracy, recoil (KickBack), burst, silencers, zoom, penetration, armour, hitgroups, prices, economy. |
 | Game | `src/game/` | Rounds, economy, C4, grenades, effects, bots (nav-mesh A*, CS-like aim and reaction), HUD state. |
-| Zombie survival | `src/game/zombies.js` | New Game → Mode → Zombie survival: start with $16000, buy any gun anywhere, survive endless growing waves (more, tougher, faster zombies; runners from wave 3) until you die. Zombies hunt along a flow field over the nav graph and claw whoever they reach. |
+| Zombie survival | `src/game/zombies.js`, `bosses.js`, `fire.js`, `projectiles.js` | New Game → Mode → Zombie survival: start with $16000, buy any gun anywhere, survive endless growing waves (more, tougher, faster zombies; runners from wave 3) until you die. Zombies hunt along a flow field over the nav graph and claw whoever they reach. Extra arsenal: molotov, M2 flamethrower, RPG-7 and M32 contact grenade launcher. A boss every 5 waves (the Butcher, Spitter, Banshee, Inferno, Abomination), each with its own look and powers. |
+| Gore | `src/game/gore.js`, `statics.js`, `blood.js` | Explosions tear zombies into limbs and gibs; a headshot kill with a big gun pops the head. Bodies, gibs, blood, brass, bullet holes and scorch / burn marks stay for good: they are appended to static meshes per map area (culled per area, a low-poly index far away, soaked spots take no more decals), so a long game stays as fast as a short one. |
 | UI | `src/ui/` | The 1.6 HUD, VGUI menus, buy menu, scoreboard, console. |
 
 Development helpers: `node tools/bake.mjs` rebakes the lightmap,
