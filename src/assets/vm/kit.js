@@ -525,12 +525,23 @@ export function silencerAnim(cfg, attach) {
  * magazine (and to fit a silencer). Slide locks back after 'shoot_empty'.
  *  slide: travel of the slide (units), kick: recoil scale
  */
+// Support hand on a pistol (thumbs-forward two-hand grip): palm on the exposed left
+// grip panel, fingers wrapped round the front strap over the firing hand's fingers,
+// thumb along the frame under the slide, wrist canted down. Gun frame.
+const SUPPORT_GRIP = {
+  f: [[52, 58, 30], [56, 62, 32], [60, 64, 34], [64, 66, 34]], spread: [4, 0, -3, -7],
+  thumb: { yaw: 14, pitch: -6, roll: -24, c: [10, 6] },
+};
+export const PISTOL_SUPPORT = { p: [-2.55, -3.05, 1.95], fwd: [0.28, 0.19, -0.94], palm: [1, 0.12, 0.05], fore: [-0.35, -0.6, 0.72] };
+
 export function pistolRig(mb, cfg) {
   const RH = { p: [0.95, -1.9, 2.6], fwd: [0.05, -0.3, -1], palm: [-1, 0, -0.15], ...(cfg.rh || {}) };
   arm(mb, 'rhand', cfg.rhParent || 'gun', 'R', { ...RH, fore: cfg.rh?.fore || [0.25, -0.6, 1], grip: cfg.rh?.grip || 'trigger', len: 18 });
-  // left arm parked out of view; comes in for reloads
+  // left hand: the two-hand support grip at rest; lets go for reloads
   const away = handPose([-9, -22, 6], [0.4, 0.5, -0.75], [0.6, 0.7, 0]);
-  if (!cfg.noLeft) arm(mb, 'lhand', 'gun', 'L', { p: away.p, fwd: [0.4, 0.5, -0.75], palm: [0.6, 0.7, 0], fore: [-0.4, -0.6, 0.7], pole: [-0.4, -1, 0.2], grip: 'pinch', len: 18 });
+  const LS = { ...PISTOL_SUPPORT, ...(cfg.support || {}) };
+  const support = handPose(LS.p, LS.fwd, LS.palm);
+  if (!cfg.noLeft) arm(mb, 'lhand', 'gun', 'L', { p: LS.p, fwd: LS.fwd, palm: LS.palm, fore: LS.fore, pole: [-0.4, -1, 0.2], grip: SUPPORT_GRIP, len: 18 });
   const travel = cfg.slide ?? 1.5;
   const sn = cfg.slideNode || 'slide';
   const kick = cfg.kick ?? 1;
@@ -556,11 +567,11 @@ export function pistolRig(mb, cfg) {
     const R = (u, dp, dr, e) => [u, add(tilt.p, dp), add(tilt.r, dr), e];
     const rl = magReload(mb, {
       dur: D,
-      LH: away,
+      LH: support,
       G,
       away: handPose([-6, -17, 3], [0.3, 0.6, -0.75], [0.3, 0.9, 0.3]),
       style: 'drop',
-      handStartsAway: true,
+      handStartsAway: false,
       out: { p: [0, -1.5, 0.1], r: [-4, 0, 0] },
       ins: { p: [0, -3.6, 0.3], r: [-8, 0, 4] },
       slap: true,
@@ -591,7 +602,7 @@ export function pistolRig(mb, cfg) {
     const c = vm.currentAnimation;
     if (vm.state.slideLocked && c !== 'reload' && !c.startsWith('shoot')) vm.nodes[sn].position.z += travel * 0.92;
   };
-  return { anims, post, RH, away };
+  return { anims, post, RH, away, support };
 }
 
 // Bolt-action cycle (AWP / Scout): the right hand leaves the grip, lifts the

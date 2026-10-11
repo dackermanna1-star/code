@@ -6,7 +6,9 @@ import { arm } from './hands.js';
 import { Z } from './anim.js';
 import { add, mul, dirIn } from './pose.js';
 
-const PISTOL_HOLD = { p: [6.1, -6.9, -13.4], r: [5, 0, -4] };
+// two-handed: closer to the centre line and a little higher than a one-hand hold, so
+// both hands show
+const PISTOL_HOLD = { p: [3.6, -4.9, -14.6], r: [3, 9, -7] };
 
 // Shared pistol grip (deeper than the rifle grip), knurled.
 function grip(g, tint, o = {}) {
@@ -93,7 +95,7 @@ function usp(mb) {
   mb.marker('muzzle', 'gun', [0, 0.95, -7.0]);
   mb.marker('shell', 'gun', [0.6, 1.3, -2.4]);
   const r = finish(mb, { reload: 2.7, slide: 1.5, kick: 0.9 }, { spec: { muzzleSil: 'muzzle_sil', silencer: 'sil' } });
-  const hand = r._r.away;
+  const hand = r._r.support; // the support hand starts and ends on the grip
   r.anims.attach_silencer = silencerAnim({ f: 9.8, y: 0.95, hand, dur: 3.1, tilt: { p: [-4, 3.5, 2], r: [6, 40, 8] } }, true);
   r.anims.detach_silencer = silencerAnim({ f: 9.8, y: 0.95, hand, dur: 3.1, tilt: { p: [-4, 3.5, 2], r: [6, 40, 8] } }, false);
   return r;
@@ -122,7 +124,7 @@ function p228(mb) {
 
 // ---------------------------------------------------------------- Desert Eagle
 function deagle(mb) {
-  hold(mb, [6.5, -7.3, -14.8], [5, 2, -4]);
+  hold(mb, [4.0, -5.3, -16.0], [3, 11, -7]);
   mb.node('gun', 'rig');
   const g = mb.pen('gun');
   const B = C.black;
