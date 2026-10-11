@@ -10,7 +10,7 @@ const TEXTURE_MATERIAL = {
 };
 
 export function surfaceOfBrush(brush, normal) {
-  if (!brush) return 'concrete';
+  if (!brush || !Array.isArray(brush.planes)) return brush?.surface || 'concrete';
   if (brush.surface) return brush.surface;
   let best = null, bd = -Infinity;
   for (const p of brush.planes) {

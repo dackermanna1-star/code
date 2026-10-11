@@ -21,7 +21,12 @@ await page.route('**/@vite/client', (route) => route.fulfill({
 }));
 await page.goto(url, { waitUntil: 'load', timeout: 120000 });
 if (wait === 'ready') {
-  await page.waitForFunction(() => window.__ready === true, null, { timeout: 300000, polling: 500 });
+  const deadline = Date.now() + 240000;
+  while (Date.now() < deadline) {
+    if (await page.evaluate(() => window.__ready === true).catch(() => false)) break;
+    if (logs.some((l) => l.startsWith('[pageerror]') || /Error:/.test(l))) break;
+    await page.waitForTimeout(500);
+  }
   await page.waitForTimeout(800);
 }
 if (evalJs) {

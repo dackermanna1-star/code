@@ -1,12 +1,14 @@
 // de_dust2 light_environment equivalent: warm afternoon sun from the west-southwest,
 // pale blue skylight, one bounce off the sand.
 
+// Calibrated against the reference screenshots: sunlit sand ~= texture brightness,
+// open shadow ~0.37x, shadowed walls ~0.5x, warm (not blue) fill light.
 export const DUST2_LIGHTING = {
   sunDir: [-0.59, -0.245, 0.766],
-  sunColor: [1.0, 0.9, 0.72],
-  skyColor: [0.40, 0.42, 0.48],
-  ambientMin: [0.07, 0.065, 0.06],
-  bounce: 0.6,
+  sunColor: [0.98, 0.92, 0.84],
+  skyColor: [0.28, 0.27, 0.24],
+  ambientMin: [0.06, 0.055, 0.05],
+  bounce: 0.55,
 };
 
 // Approximate texture albedo (average colour / 255) for the bounce pass.
@@ -31,6 +33,19 @@ const ALBEDO = {
   metal: [0.43, 0.45, 0.43],
 };
 
+import { averageColor, TEXTURES } from '../assets/textures.js';
+
+const cache = new Map();
 export function albedoOf(name) {
-  return ALBEDO[name] || [0.6, 0.52, 0.4];
+  let a = cache.get(name);
+  if (a) return a;
+  try {
+    if (TEXTURES[name]) {
+      const c = averageColor(name);
+      a = [c[0] / 255, c[1] / 255, c[2] / 255];
+    }
+  } catch { /* fall back */ }
+  a = a || ALBEDO[name] || [0.6, 0.52, 0.4];
+  cache.set(name, a);
+  return a;
 }

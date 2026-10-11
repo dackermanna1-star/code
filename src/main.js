@@ -30,10 +30,10 @@ async function boot() {
   input.invertY = settings.get('invertY');
   const hud = new Hud(app);
   const menus = new Menus(app, { onCommand: (c) => onMenuCommand(c) });
-  renderer.onResize = (vp) => hud.resize({ x: vp.x, y: vp.y, w: vp.w, h: vp.h });
+  renderer.onResize = (vp) => hud.resize?.({ x: vp.x, y: vp.y, w: vp.w, h: vp.h });
   renderer.resize();
 
-  const progress = (text, p) => menus.showLoading(text, p);
+  const progress = (text, p) => menus.showLoading?.(text, p);
   progress('Initializing renderer', 0.02);
   await frame();
 
@@ -69,7 +69,7 @@ async function boot() {
   });
   const con = new Console(game, menus, settings, renderer, input, hud);
   game.console = con;
-  menus.hideLoading();
+  menus.hideLoading?.();
 
   // ---------------------------------------------------------------- state
   let inGame = false;
@@ -91,7 +91,7 @@ async function boot() {
 
   function openMain() {
     input.exitLock();
-    menus.showMain({ inGame });
+    menus.showMain?.({ inGame });
   }
 
   function newGame(opts) {
@@ -99,8 +99,8 @@ async function boot() {
     game.newGame({ ...opts, playerName: settings.get('name') });
     inGame = true;
     startAmbience();
-    menus.hideAll();
-    menus.showTeamSelect((team) => onMenuCommand('jointeam ' + team));
+    menus.hideAll?.();
+    menus.showTeamSelect?.((team) => onMenuCommand('jointeam ' + team));
   }
 
   function chooseTeam(team) {
@@ -109,17 +109,17 @@ async function boot() {
     if (team === TEAM_SPEC) {
       game.joinTeam(game.local, TEAM_SPEC);
       game.bots.fillTeams(opts.perTeam ?? 5);
-      menus.hideAll();
+      menus.hideAll?.();
       return;
     }
-    menus.showClassSelect(team, (cls) => onMenuCommand('joinclass ' + cls));
+    menus.showClassSelect?.(team, (cls) => onMenuCommand('joinclass ' + cls));
   }
 
   function chooseClass(skin) {
     const opts = settings.get('newgame');
     game.joinTeam(game.local, pendingTeam, skin || null);
     game.bots.fillTeams(opts.perTeam ?? 5);
-    menus.hideAll();
+    menus.hideAll?.();
     renderer.canvas.focus?.();
     input.requestLock();
   }
@@ -129,18 +129,18 @@ async function boot() {
     const arg = rest.join(' ');
     switch (cmd) {
       case 'newgame':
-        menus.showNewGame(settings.get('newgame'), (opts) => newGame(opts));
+        menus.showNewGame?.(settings.get('newgame'), (opts) => newGame(opts));
         break;
       case 'resume':
-        if (inGame) { menus.hideAll(); input.requestLock(); }
+        if (inGame) { menus.hideAll?.(); input.requestLock(); }
         break;
       case 'options':
-        menus.showOptions(settings.all(), (k, v) => applySetting(k, v));
+        menus.showOptions?.(settings.all(), (k, v) => applySetting(k, v));
         break;
       case 'quit':
         inGame = false;
         game.started = false;
-        menus.showMain({ inGame: false });
+        menus.showMain?.({ inGame: false });
         break;
       case 'jointeam': {
         const n = +arg;
@@ -161,7 +161,7 @@ async function boot() {
         game.rounds.buy(game.local, arg);
         break;
       case 'menu_close':
-        menus.hideAll();
+        menus.hideAll?.();
         if (inGame) input.requestLock();
         break;
       default:
@@ -180,7 +180,7 @@ async function boot() {
   function chat(text, teamOnly) {
     const p = game.local;
     if (!text.trim()) return;
-    hud.chat(p.name, p.team, text, { dead: !p.alive, teamOnly });
+    hud.chat?.(p.name, p.team, text, { dead: !p.alive, teamOnly });
   }
 
   function applySetting(k, v) {
@@ -193,30 +193,30 @@ async function boot() {
 
   // ---------------------------------------------------------------- input commands
   input.onCommand((cmd, pressed, code) => {
-    if (!pressed && cmd === '+showscores') { showScores = false; menus.hideScoreboard(); return true; }
+    if (!pressed && cmd === '+showscores') { showScores = false; menus.hideScoreboard?.(); return true; }
     if (!pressed) return false;
-    if (cmd === 'toggleconsole' || code === 'Backquote') { menus.toggleConsole(); input.exitLock(); return true; }
+    if (cmd === 'toggleconsole' || code === 'Backquote') { menus.toggleConsole?.(); input.exitLock(); return true; }
     if (code === 'Escape' || cmd === 'cancelselect') {
       if (radioMenu.open) { radioMenu.close(); return true; }
-      if (menus.isOpen()) { menus.hideAll(); if (inGame) input.requestLock(); else openMain(); return true; }
+      if (!!menus.isOpen?.()) { menus.hideAll?.(); if (inGame) input.requestLock(); else openMain(); return true; }
       openMain();
       return true;
     }
     if (!inGame) return false;
     // number keys feed open menus first (team/class/buy menus handle their own keys)
     if (radioMenu.open && cmd && cmd.startsWith('slot')) { radioMenu.choose(+cmd.slice(4)); return true; }
-    if (menus.isOpen()) return false;
+    if (!!menus.isOpen?.()) return false;
     switch (cmd) {
       case '+showscores': showScores = true; return true;
       case 'buymenu':
         if (game.local.alive && game.inBuyZone(game.local) && game.rounds.buyTimeLeft()) {
           input.exitLock();
-          menus.showBuyMenu(game.local, { onBuy: (item) => game.rounds.buy(game.local, item) });
+          menus.showBuyMenu?.(game.local, { onBuy: (item) => game.rounds.buy(game.local, item) });
         }
         return true;
-      case 'chooseteam': input.exitLock(); menus.showTeamSelect((team) => onMenuCommand('jointeam ' + team)); return true;
-      case 'messagemode': input.exitLock(); menus.showChatInput(false, (t) => chat(t, false)); return true;
-      case 'messagemode2': input.exitLock(); menus.showChatInput(true, (t) => chat(t, true)); return true;
+      case 'chooseteam': input.exitLock(); menus.showTeamSelect?.((team) => onMenuCommand('jointeam ' + team)); return true;
+      case 'messagemode': input.exitLock(); menus.showChatInput?.(false, (t) => chat(t, false)); return true;
+      case 'messagemode2': input.exitLock(); menus.showChatInput?.(true, (t) => chat(t, true)); return true;
       case 'radio1': case 'radio2': case 'radio3': radioMenu.show(+cmd.slice(5)); return true;
       case 'snapshot': return true;
       default:
@@ -227,7 +227,7 @@ async function boot() {
     }
   });
   input.onLockChange = () => {};
-  renderer.canvas.addEventListener('click', () => { if (inGame && !menus.isOpen()) input.requestLock(); sound.resume(); });
+  renderer.canvas.addEventListener('click', () => { if (inGame && !!!menus.isOpen?.()) input.requestLock(); sound.resume(); });
 
   // ---------------------------------------------------------------- loop
   let last = performance.now();
@@ -240,12 +240,12 @@ async function boot() {
     if (inGame) {
       game.frame(dt);
       renderer.render(game.drawVm);
-      hud.draw(buildHudState(game, { fps: settings.get('cl_showfps') ? fps : null, netgraph: settings.get('net_graph') ? { fps } : null, settings }), dt);
-      if (showScores) menus.showScoreboard(scoreData());
+      hud.draw?.(buildHudState(game, { fps: settings.get('cl_showfps') ? fps : null, netgraph: settings.get('net_graph') ? { fps } : null, settings }), dt);
+      if (showScores) menus.showScoreboard?.(scoreData());
     } else {
       menuBackgroundView();
       renderer.render(false);
-      hud.draw({ alive: false, team: TEAM_SPEC, hidden: true }, dt);
+      hud.draw?.({ alive: false, team: TEAM_SPEC, hidden: true }, dt);
     }
     if (!window.__ready && ++readyFrames > 3) window.__ready = true;
     requestAnimationFrame(loop);

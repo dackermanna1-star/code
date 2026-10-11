@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>View model preview</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font: 12px/1.3 monospace; color: #ddd; }
+  #wrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { display: block; }
+  #ui { position: absolute; left: 6px; top: 6px; background: rgba(0,0,0,0.6); padding: 6px; max-width: 520px; border-radius: 3px; }
+  #ui button { font: 11px monospace; margin: 1px; padding: 2px 5px; background: #333; color: #eee; border: 1px solid #555; cursor: pointer; }
+  #ui button.on { background: #6a5a2a; }
+  #ui select, #ui input { font: 11px monospace; }
+  #info { margin-top: 4px; color: #bbb; white-space: pre; }
+  #ui.hidden { display: none; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas></div>
+<div id="ui">
+  <div>
+    <select id="weapon"></select>
+    <label><input type="checkbox" id="sil"> silencer</label>
+    aspect <button data-aspect="4:3">4:3</button><button data-aspect="16:9">16:9</button><button data-aspect="fill">fill</button>
+  </div>
+  <div id="anims"></div>
+  <div>
+    t <input type="range" id="t" min="0" max="1" step="0.001" value="0" style="width:220px">
+    <button id="pause">pause</button>
+    light <input type="range" id="light" min="0" max="2" step="0.05" value="1" style="width:80px">
+  </div>
+  <div>
+    cam <button data-cam="view">view</button><button data-cam="side">side</button><button data-cam="top">top</button><button data-cam="front">front</button><button data-cam="left">left</button><button data-cam="below">below</button>
+  </div>
+  <div id="info"></div>
+</div>
+<script type="module" src="./viewmodels.js"></script>
+</body>
+</html>

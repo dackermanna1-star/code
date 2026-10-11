@@ -240,6 +240,116 @@ export class AreaMap extends MapDSL {
     this._grid = { nx, ny, covered, height };
   }
 
+  // Arched, shuttered windows on tall facades facing open areas (dust2's
+  // signature look). Placed deterministically along area edges where the auto
+  // wall is high enough.
+  decorateWindows(seed = 7) {
+    let r = seed >>> 0;
+    const rnd = () => { r = (r * 1664525 + 1013904223) >>> 0; return r / 4294967296; };
+    const { nx, ny, covered, height } = this._grid;
+    const [bx0, by0] = this.bounds;
+    const solidH = (x, y) => {
+      const i = Math.floor((x - bx0) / GRID), j = Math.floor((y - by0) / GRID);
+      if (i < 0 || j < 0 || i >= nx || j >= ny) return -1e9;
+      const k = j * nx + i;
+      return covered[k] ? -1e9 : height[k];
+    };
+    const placed = [];
+    for (const a of this.areas) {
+      if (a.kind !== 'rect' || a.ceil != null || a.slab || a.noFloor || a.noWindows) continue;
+      const fz = Math.max(a.z0, a.z1);
+      if (a.wall < 170) continue;
+      const edges = [
+        // [axis along, fixed coord, outward dir, lo, hi]
+        ['x', a.y1, [0, 1], a.x0, a.x1],
+        ['x', a.y0, [0, -1], a.x0, a.x1],
+        ['y', a.x1, [1, 0], a.y0, a.y1],
+        ['y', a.x0, [-1, 0], a.y0, a.y1],
+      ];
+      for (const [axis, c, out, lo, hi] of edges) {
+        // find runs of tall wall directly outside this edge
+        let run = null;
+        const runs = [];
+        for (let t = lo + 4; t < hi; t += GRID) {
+          const x = axis === 'x' ? t : c + out[0] * 4, y = axis === 'x' ? c + out[1] * 4 : t;
+          const h = solidH(x, y);
+          const ok = h >= fz + 190;
+          if (ok) { if (!run) run = { a: t - 4, b: t + 4, h }; else { run.b = t + 4; run.h = Math.min(run.h, h); } }
+          else if (run) { runs.push(run); run = null; }
+        }
+        if (run) runs.push(run);
+        for (const rn of runs) {
+          const len = rn.b - rn.a;
+          if (len < 150) continue;
+          const n = Math.max(1, Math.floor((len - 96) / 260));
+          for (let k = 0; k < n; k++) {
+            if (rnd() < 0.35) continue;
+            const center = rn.a + (len / (n + 1)) * (k + 1) + (rnd() - 0.5) * 40;
+            const pair = rnd() < 0.3;
+            const zb = fz + (rn.h - fz > 270 ? 136 : 100);
+            if (zb + 98 > rn.h - 18) continue;
+            const offs = pair ? [-42, 42] : [0];
+            for (const o of offs) {
+              const cc = center + o;
+              if (placed.some((p) => Math.abs(p[0] - cc) < 76 && p[1] === c && p[2] === axis)) continue;
+              placed.push([cc, c, axis]);
+              this.window(axis, c, out, cc, zb);
+            }
+          }
+        }
+      }
+    }
+    return placed.length;
+  }
+
+  // One arched window on the wall plane (axis along, at coord c, outward normal out)
+  window(axis, c, out, center, zb, w = 52, h = 92) {
+    const r = w / 2;
+    const dirSign = axis === 'x' ? out[1] : out[0];
+    const box = (u0, u1, z0, z1, d0, d1, tex) => {
+      // u along the wall, d outward from the plane (positive into the area)
+      const a0 = c + dirSign * d0, a1 = c + dirSign * d1;
+      if (axis === 'x') this.add(boxBrush([u0, Math.min(a0, a1), z0], [u1, Math.max(a0, a1), z1], tex, { name: 'window', detail: true, surface: 'wood' }));
+      else this.add(boxBrush([Math.min(a0, a1), u0, z0], [Math.max(a0, a1), u1, z1], tex, { name: 'window', detail: true, surface: 'wood' }));
+    };
+    const stone = { all: 'wall_stone' };
+    // shutter panel (recessed look: frame sticks out further)
+    box(center - r, center + r, zb, zb + h, -1, 1.5, { all: { name: 'shutter', fit: true } });
+    // jambs, sill
+    box(center - r - 5, center - r, zb - 4, zb + h - r, -1, 5, stone);
+    box(center + r, center + r + 5, zb - 4, zb + h - r, -1, 5, stone);
+    box(center - r - 7, center + r + 7, zb - 7, zb, -1, 7, { all: 'wall_stone', top: 'trim_cap' });
+    // arch: spandrels covering the shutter corners, plus a thin ring
+    const zs = zb + h - r;
+    const segs = 6;
+    const top = zb + h + 6;
+    for (let i = 0; i < segs; i++) {
+      const t0 = Math.PI * i / segs, t1 = Math.PI * (i + 1) / segs;
+      const pa = [center - Math.cos(t0) * r, zs + Math.sin(t0) * r];
+      const pb = [center - Math.cos(t1) * r, zs + Math.sin(t1) * r];
+      const pts = [pa, pb, [pb[0], top], [pa[0], top]];
+      const d0 = c, d1 = c + dirSign * 5;
+      const lo = Math.min(d0, d1), hi = Math.max(d0, d1);
+      if (axis === 'x') this.add(prismBrush('y', pts, lo, hi, stone, { name: 'window', detail: true }));
+      else {
+        this.add(prismBrush('x', pts, lo, hi, stone, { name: 'window', detail: true }));
+      }
+    }
+  }
+
+  // Wooden ceiling beams across tunnel areas.
+  decorateBeams(spacing = 96) {
+    for (const a of this.areas) {
+      if (a.ceil == null || a.kind !== 'rect') continue;
+      const alongX = (a.x1 - a.x0) >= (a.y1 - a.y0);
+      if (alongX) {
+        for (let x = a.x0 + 40; x < a.x1 - 20; x += spacing) this.add(boxBrush([x, a.y0, a.ceil - 10], [x + 12, a.y1, a.ceil], { all: 'wood_beam' }, { name: 'beam', detail: true, surface: 'wood' }));
+      } else {
+        for (let y = a.y0 + 40; y < a.y1 - 20; y += spacing) this.add(boxBrush([a.x0, y, a.ceil - 10], [a.x1, y + 12, a.ceil], { all: 'wood_beam' }, { name: 'beam', detail: true, surface: 'wood' }));
+      }
+    }
+  }
+
   // Wall textures; faces on the outer bounds and bottoms are never visible.
   _wallTex(x0, y0, x1, y1, side, roof) {
     const [bx0, by0, bx1, by1] = this.bounds;

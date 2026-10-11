@@ -19,6 +19,23 @@ import { Grenades } from './grenades.js';
 import { surfaceOfBrush } from './surfaces.js';
 
 export const TICK = 0.01;
+
+// weaponsys sound names -> sound bank names
+const SOUND_ALIAS = {
+  knife_slash1: 'knife_slash', knife_slash2: 'knife_slash', knife_hit1: 'knife_hit', knife_hit2: 'knife_hit', knife_hit3: 'knife_hit', knife_hit4: 'knife_hit',
+  knife_hitwall1: 'knife_hitwall', knife_deploy1: 'knife_deploy', c4_plant: 'c4_planted',
+  usp_silencer_on: 'silencer_screw', usp_silencer_off: 'silencer_screw', m4a1_silencer_on: 'silencer_screw', m4a1_silencer_off: 'silencer_screw',
+  reload1: 'shotgun_insert', reload3: 'shotgun_insert', m3_insertshell: 'shotgun_insert', m3_pump: 'shotgun_pump',
+};
+
+const HUD_TEXT = {
+  '#C4_Plant_At_Bomb_Spot': 'C4 must be planted at a bomb site!',
+  '#C4_Plant_Must_Be_On_Ground': 'You must be standing on\nthe ground to plant the C4!',
+  '#C4_Arming_Cancelled': 'Arming Sequence Canceled.\nC4 can only be placed at a Bomb Target.',
+  '#Switch_To_BurstFire': 'Switched to Burst-Fire mode',
+  '#Switch_To_FullAuto': 'Switched to Automatic',
+  '#Switch_To_SemiAuto': 'Switched to Semi-Automatic',
+};
 export const BTN_ATTACK = 1, BTN_ATTACK2 = 2, BTN_RELOAD = 4, BTN_USE = 8;
 
 const tmpTr = new TraceResult();
@@ -149,9 +166,8 @@ export class Game {
   }
 
   newWeapon(id, spawnAmmo = false) {
-    const w = WS.createWeapon(id);
-    if (spawnAmmo && w.def.spawnReserve != null) w.ammo = w.def.spawnReserve;
-    return w;
+    const spawnRes = CR.RULES.spawn?.T?.reserve?.[id] ?? CR.RULES.spawn?.CT?.reserve?.[id] ?? (spawnAmmo ? WS.WEAPON_DEFS[id]?.spawnReserve : null);
+    return WS.createWeapon(id, spawnAmmo && spawnRes != null ? { reserve: spawnRes } : {});
   }
 
   // ------------------------------------------------------------------ weapons
@@ -194,11 +210,13 @@ export class Game {
       plantBomb: () => g.rounds.plantBomb(p),
       canPlant: () => g.rounds.canPlant(p),
       playSound: (name, opts = {}) => g.weaponSound(p, name, opts),
-      playAnim: (name, opts) => { if (p === g.viewTarget && g.vm) g.vm.play(name, opts); },
+      playAnim: (name, opts = {}) => { g.onWeaponAnim(p, name, opts); },
       emitShell: (type) => g.ejectShell(p, type),
       random: Math.random,
       randomInt: (a, b) => a + Math.floor(Math.random() * (b - a + 1)),
       onEmpty: () => {},
+      retire: (w) => g.retireWeapon(p, w),
+      event: (type, data) => g.weaponEvent(p, type, data),
     });
     ctx.time = this.time;
     ctx.dt = TICK;
@@ -209,6 +227,10 @@ export class Game {
     ctx.punch = p.pm.punch;
     ctx.fov = p.fov;
     ctx.player = p;
+    ctx.viewAngles = p.pm.angles;
+    ctx.inBombZone = p.team === TEAM_T && !!this.bombZoneOf(p) && this.rounds.state === 'live';
+    ctx.isDefusing = !!p.defusing;
+    ctx.canShoot = !this.rounds.freeze;
     return ctx;
   }
 
@@ -355,6 +377,7 @@ export class Game {
   }
 
   weaponSound(p, name, opts) {
+    name = SOUND_ALIAS[name] || name;
     const local = p === this.viewTarget;
     this.sound.play(name, {
       pos: local ? null : p.eyePos(),
@@ -382,17 +405,10 @@ export class Game {
     const ang = p.pm.angles, pu = p.pm.punch;
     angleVectors(ang[0] + pu[0], ang[1] + pu[1], _f, _r, _u);
     const src = p.eyePos();
-    const dir = CR.fireBullets3({
+    const dir = CR.fireShot({
       src, forward: _f.slice(), right: _r.slice(), up: _u.slice(),
       random: Math.random, ...o,
     }, (start, end, ignore) => this.traceShot(start, end, ignore ?? p), (hit) => this.onBulletImpact(p, hit, o));
-    // muzzle flash for third person
-    if (p !== this.viewTarget) {
-      const e = p.eyePos();
-      this.effects.muzzleFlash([e[0] + _f[0] * 30, e[1] + _f[1] * 30, e[2] - 8 + _f[2] * 30], o.silenced ? 6 : 14);
-    } else {
-      this.vmFlash = this.time;
-    }
     return dir;
   }
 
@@ -482,27 +498,45 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ damage
-  damagePlayer(victim, attacker, damage, hitgroup, weaponId, dir, point = null) {
+  damagePlayer(victim, attacker, damage, hitgroup, weaponId, dir, point = null, opts = {}) {
     if (!victim.alive || damage <= 0) return;
-    if (attacker && attacker !== victim && attacker.team === victim.team && !this.rounds.friendlyFire) return;
-    const ratio = CR.WEAPON_ARMOR_RATIO?.[weaponId] ?? 1;
-    const res = CR.computeDamage(victim, damage, hitgroup, { armorRatio: ratio, attackerWeapon: weaponId });
+    const teammate = !!(attacker && attacker !== victim && attacker.team === victim.team);
+    const res = CR.computeDamage({ health: victim.health, armor: victim.armor, helmet: victim.helmet, ducking: victim.pm.ducking, speed: Math.hypot(victim.pm.velocity[0], victim.pm.velocity[1]) },
+      damage, hitgroup, { attackerWeapon: weaponId, teammate, self: attacker === victim, friendlyFire: this.rounds.friendlyFire, blast: opts.blast });
+    if (res.refused) return;
+    if (victim.god) return;
     victim.health = res.health;
     victim.armor = res.armor;
+    victim.helmet = res.helmet;
     victim.lastHurt = this.time;
     victim.lastAttacker = attacker;
-    victim.pm.velocityModifier = 0.5; // CS slows players down when hit ("tagging")
-    victim.velModUntil = this.time + 0.3;
+    if (res.velocityModifier) victim.pm.velocityModifier = Math.min(victim.pm.velocityModifier ?? 1, res.velocityModifier);
+    if (res.knockback && dir) {
+      victim.pm.velocity[0] += dir[0] * res.knockback;
+      victim.pm.velocity[1] += dir[1] * res.knockback;
+    }
+    if (res.victimPunch) {
+      if (res.victimPunch.x != null) victim.pm.punch[0] = res.victimPunch.x;
+      if (res.victimPunch.z != null) victim.pm.punch[2] = res.victimPunch.z;
+    }
     const pos = point || victim.eyePos();
-    const head = hitgroup === CR.HITGROUP.HEAD;
-    if (dir) this.effects.blood(pos, dir, damage);
-    if (head) this.sound.play(res.helmetHit ? 'headshot' : 'hit_flesh', { pos, volume: 0.9 });
-    else if (victim.armor > 0 && hitgroup !== CR.HITGROUP.LEFTLEG && hitgroup !== CR.HITGROUP.RIGHTLEG) this.sound.play('hit_kevlar', { pos, volume: 0.7 });
-    else this.sound.play('hit_flesh', { pos, volume: 0.8 });
-    if (victim === this.local && attacker && dir) this.hudDamage(attacker);
+    const head = (res.hitgroup ?? hitgroup) === CR.HITGROUP.HEAD;
+    if (dir && res.bleed) this.effects.blood(pos, dir, res.damageToHealth || damage);
+    else if (dir && head && res.helmetHit) this.effects.sprite({ tex: 'spr_spark', pos: pos.slice(), size: 4, life: 0.2, additive: true });
+    if (opts.blast) { /* explosion sound covers it */ }
+    else if (head) this.sound.play(res.helmetHit ? 'hit_kevlar' : 'headshot', { pos, volume: 1 });
+    else if (!res.bleed) this.sound.play('hit_kevlar', { pos, volume: 0.8 });
+    else this.sound.play('hit_flesh', { pos, volume: 0.9 });
+    if (victim === this.local && attacker && attacker !== victim) this.hudDamage(attacker);
     if (victim.isBot) this.bots.onHurt(victim, attacker);
-    if (victim.health <= 0) this.killPlayer(victim, attacker, weaponId, head);
-    else if (Math.random() < 0.3) this.sound.play('pain', { pos, volume: 0.6 });
+    if (victim.health <= 0) this.killPlayer(victim, attacker, weaponId, head && !opts.blast);
+    else if (!opts.blast && Math.random() < 0.25) this.sound.play('pain', { pos, volume: 0.6 });
+  }
+
+  // velocity "tagging" recovery: +0.01 per on-ground frame (CBasePlayer::PreThink)
+  recoverVelocityModifier(p) {
+    const pm = p.pm;
+    if (pm.velocityModifier < 1 && pm.onground) pm.velocityModifier = Math.min(1, pm.velocityModifier + 0.01);
   }
 
   hudDamage(attacker) {
@@ -648,9 +682,7 @@ export class Game {
   simulatePlayer(p, cmd) {
     const pm = p.pm;
     pm.frozen = this.rounds.freeze || p.planting || p.defusing;
-    if (p.velModUntil && this.time > p.velModUntil) {
-      pm.velocityModifier = Math.min(1, pm.velocityModifier + TICK * 1.5);
-    }
+    this.recoverVelocityModifier(p);
     const w = p.active;
     const zoomed = p.fov < 90;
     pm.maxspeed = w ? WS.weaponMaxSpeed(w, zoomed) : 250;
@@ -670,31 +702,93 @@ export class Game {
     if (this.rounds.freeze) wb &= ~(BTN_ATTACK | BTN_ATTACK2);
     if (w) {
       WS.weaponFrame(w, ctx, wb, p.prevWButtons || 0);
-      // grenade fully used?
-      if (w.def.slot === 4 && w.spent) this.onGrenadeSpent(p, w);
-      if (w.id === 'c4' && w.spent) this.onC4Spent(p, w);
+      if (w.spent) {
+        w.spent = false;
+        if (w.def.slot === 4) w.count = Math.max(0, (w.count || 1) - 1);
+        if (w.id === 'c4') this.retireWeapon(p, w);
+      }
     }
+    p.planting = !!(p.active && p.active.id === 'c4' && p.active.startedArming);
+    this.processWeaponSounds(p);
     p.prevWButtons = wb;
     this.rounds.useButton(p, !!(wb & BTN_USE), !!((p.prevUse || 0)));
     p.prevUse = wb & BTN_USE;
   }
 
-  onGrenadeSpent(p, w) {
-    w.count = (w.count || 1) - 1;
-    w.spent = false;
-    if (w.count <= 0) {
-      this.removeWeaponFromInventory(p, w);
+  // weapon used up (grenade thrown, C4 planted) or switched away from (flashbang quirk)
+  retireWeapon(p, w) {
+    const empty = (w.def.slot === 4 && (w.count ?? 0) <= 0) || w.id === 'c4';
+    if (empty) this.removeWeaponFromInventory(p, w);
+    if (p.active === w) {
       p.active = null;
-      this.selectWeapon(p, p.weapons[1] || p.weapons[2] || p.weapons[4][0] || p.weapons[3]);
-    } else {
-      WS.weaponDeploy(w, this.weaponCtx(p));
+      const next = p.weapons[1] || p.weapons[2] || p.weapons[4].find((g) => g !== w && (g.count ?? 1) > 0) || p.weapons[3];
+      this.selectWeapon(p, next, true);
     }
   }
 
-  onC4Spent(p, w) {
-    this.removeWeaponFromInventory(p, w);
-    p.active = null;
-    this.selectWeapon(p, p.weapons[1] || p.weapons[2] || p.weapons[3]);
+  // events emitted by weaponsys
+  weaponEvent(p, type, data = {}) {
+    const local = p === this.viewTarget;
+    switch (type) {
+      case 'muzzleflash':
+        if (local) this.vmFlash = this.time;
+        else {
+          const e = p.eyePos();
+          angleVectors(p.pm.angles[0], p.pm.angles[1], _f, null, null);
+          this.effects.muzzleFlash([e[0] + _f[0] * 30, e[1] + _f[1] * 30, e[2] - 8 + _f[2] * 30], p.active?.silenced ? 6 : 14);
+        }
+        break;
+      case 'hud_message':
+        if (p.isLocal) this.hud?.centerPrint?.(HUD_TEXT[data.text] || data.text, 2);
+        break;
+      case 'progress_bar':
+        if (p.isLocal) this.progress = data.time ? { start: this.time, end: this.time + data.time } : null;
+        break;
+      case 'radio':
+        if (data.message === 'fire_in_the_hole') this.rounds.radio(p, 'Fire in the hole!');
+        break;
+      case 'reload_sound':
+        break;
+      default:
+    }
+  }
+
+  // view model animation + the sound events GoldSrc plays from the model's sequences
+  onWeaponAnim(p, name, opts) {
+    const w = p.active;
+    if (p === this.viewTarget && this.vm) this.vm.play(name, opts);
+    if (!w) return;
+    const dur = opts.duration ?? this.vm?.duration?.(name) ?? 1;
+    const at = (frac, snd, vol = 0.8) => (p.soundQueue || (p.soundQueue = [])).push({ t: this.time + dur * frac, name: snd, vol, weapon: w });
+    const kind = w.def.kind;
+    if (name === 'reload') {
+      if (kind === 'pistol') { at(0.15, 'pistol_clipout'); at(0.55, 'pistol_clipin'); at(0.85, 'sliderelease'); }
+      else if (kind === 'sniper') { at(0.15, 'clipout'); at(0.5, 'clipin'); at(0.8, w.id === 'awp' || w.id === 'scout' ? 'awp_bolt' : 'boltpull'); }
+      else if (kind === 'mg') { at(0.15, 'clipout'); at(0.45, 'clipin'); at(0.8, 'boltpull'); }
+      else { at(0.18, 'clipout'); at(0.55, 'clipin'); at(0.82, 'boltpull'); }
+    } else if (name === 'reload_insert') at(0.4, 'shotgun_insert');
+    else if (name === 'reload_end') at(0.2, 'shotgun_pump');
+    else if (name === 'draw') { if (kind !== 'knife' && kind !== 'grenade') at(0.05, 'deploy', 0.6); }
+    else if (name === 'pinpull') at(0.05, 'pinpull');
+    else if (name === 'plant') { for (let i = 0; i < 7; i++) at(0.12 + i * 0.1, 'c4_plant_press', 0.6); }
+    else if (/^shoot/.test(name)) {
+      if (w.id === 'm3') at(0.35, 'shotgun_pump', 0.7);
+      if (w.id === 'awp' || w.id === 'scout') at(0.4, 'awp_bolt', 0.7);
+    } else if (name === 'attach_silencer' || name === 'detach_silencer') at(0.3, 'silencer_screw');
+  }
+
+  processWeaponSounds(p) {
+    const q = p.soundQueue;
+    if (!q || !q.length) return;
+    for (let i = q.length - 1; i >= 0; i--) {
+      const e = q[i];
+      if (this.time < e.t) continue;
+      q.splice(i, 1);
+      if (p.active !== e.weapon || !p.alive) continue;
+      const local = p === this.viewTarget;
+      if (!local && this.camPos && Math.hypot(p.pm.origin[0] - this.camPos[0], p.pm.origin[1] - this.camPos[1]) > 512) continue;
+      this.sound.play(e.name, { pos: local ? null : p.eyePos(), volume: e.vol, channel: `${p.id}:item`, attenuation: 'static' });
+    }
   }
 
   onMoveEvent(p, e) {

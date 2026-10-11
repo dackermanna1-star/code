@@ -16,6 +16,7 @@ export class RoundManager {
     this.tScore = 0;
     this.ctScore = 0;
     this.lossStreak = { T: 0, CT: 0 };
+    this.eco = CR.createEconomy();
     this.bomb = null;
     this.bombCarrier = null;
     this.roundNumber = 0;
@@ -39,6 +40,7 @@ export class RoundManager {
   startMatch() {
     this.tScore = this.ctScore = 0;
     this.lossStreak = { T: 0, CT: 0 };
+    this.eco = CR.createEconomy();
     this.roundNumber = 0;
     for (const p of this.game.players) { p.money = this.startMoney; p.kills = 0; p.deaths = 0; }
     this.startRound(true);
@@ -151,24 +153,12 @@ export class RoundManager {
     g.announce?.(winMsg);
     if (winner === TEAM_T) this.tScore++;
     if (winner === TEAM_CT) this.ctScore++;
-    // money
-    const rewards = {
-      elimination: R.rewardElimination ?? 3250, time: R.rewardTimeout ?? 3250,
-      bomb: R.rewardBombExploded ?? 3500, defuse: R.rewardBombDefused ?? 3500, draw: 0,
-    };
-    for (const team of [TEAM_T, TEAM_CT]) {
-      const members = g.players.filter((p) => p.team === team);
-      if (winner === team) {
-        this.lossStreak[team] = 0;
-        for (const p of members) this.addMoney(p, rewards[reason] ?? 3250, true);
-      } else if (winner) {
-        const base = R.lossBonusBase ?? 1400, step = R.lossBonusStep ?? 500, max = R.lossBonusMax ?? 3400;
-        const bonus = Math.min(max, base + step * this.lossStreak[team]);
-        this.lossStreak[team]++;
-        let extra = 0;
-        if (team === TEAM_T && this.bombWasPlanted) extra = R.rewardPlantedLost ?? 800;
-        for (const p of members) this.addMoney(p, bonus + extra, true);
-      }
+    // money (multiplay_gamerules: rewards + the shared loss bonus)
+    const reasonMap = { elimination: 'elimination', time: 'target_saved', bomb: 'target_bombed', defuse: 'bomb_defused', draw: 'draw' };
+    const money = CR.roundEndMoney(this.eco, { winner, reason: reasonMap[reason] || reason, mapHasBombTarget: true });
+    for (const p of g.players) {
+      if (p.team === TEAM_T) this.addMoney(p, money.T, true);
+      else if (p.team === TEAM_CT) this.addMoney(p, money.CT, true);
     }
     this.bombWasPlanted = false;
     g.bots.onRoundEnd(winner);
@@ -258,7 +248,6 @@ export class RoundManager {
     this.bombWasPlanted = true;
     p.weapons[5] = null;
     this.bombCarrier = null;
-    this.addMoney(p, CR.RULES?.rewardPlant ?? 300);
     g.sound.play('c4_planted', { pos, volume: 1 });
     g.hud?.centerPrint?.('The bomb has been planted!', 3);
     g.announce?.('Bomb has been planted.');
@@ -275,7 +264,8 @@ export class RoundManager {
       const frac = Math.max(0, remaining / this.c4Time);
       const interval = 0.1 + 1.35 * Math.pow(frac, 1.4);
       b.nextBeep = this.time + interval;
-      g.sound.play('c4_beep', { pos: b.pos, volume: 1, attenuation: frac > 0.5 ? 'normal' : 'loud' });
+      const wave = CR.c4BeepWave(this.time - b.plantTime, this.c4Time);
+      g.sound.play('c4_beep', { pos: b.pos, volume: 1, attenuation: wave.wave <= 1 ? 'normal' : wave.wave <= 3 ? 'loud' : 'none' });
       b.model.setBlink(true);
       b.blinkOff = this.time + 0.1;
     }
@@ -288,7 +278,7 @@ export class RoundManager {
         b.defused = true;
         d.defusing = false;
         g.sound.play('c4_disarmed', { pos: b.pos, volume: 1 });
-        this.addMoney(d, CR.RULES?.rewardDefuse ?? 300);
+        d.kills += CR.RULES.frags?.bombDefused ?? 3;
         b.model.setBlink(false);
         this.endRound(TEAM_CT, 'defuse', 'Bomb has been defused!');
         return;
@@ -306,17 +296,11 @@ export class RoundManager {
     g.effects.explosion(b.pos, 2.2);
     g.sound.play('c4_explode', { pos: b.pos, volume: 1, attenuation: 'none' });
     b.model.object3D.visible = false;
-    const radius = CR.C4?.radius ?? 1750;
-    const dmgMax = CR.C4?.damage ?? 500;
-    for (const p of g.players) {
-      if (!p.alive) continue;
-      const d = Math.hypot(p.pm.origin[0] - b.pos[0], p.pm.origin[1] - b.pos[1], p.pm.origin[2] - b.pos[2]);
-      if (d > radius) continue;
-      // C4 falloff: CS uses a gaussian-ish falloff; approximate
-      const dmg = dmgMax * Math.exp(-((d / (radius / 3)) ** 2));
-      if (dmg < 1) continue;
-      g.damagePlayer(p, b.planter && b.planter.alive ? b.planter : null, Math.round(dmg), 0, 'c4', null);
+    const targets = g.players.filter((p) => p.alive).map((p) => ({ origin: p.pm.origin, player: p }));
+    for (const { target, damage } of CR.radiusDamage(b.pos, CR.C4.damage, CR.C4.radius, targets)) {
+      g.damagePlayer(target.player, b.planter && b.planter.alive ? b.planter : null, damage, 0, 'c4', null, null, { blast: true });
     }
+    if (b.planter) b.planter.kills += CR.RULES.frags?.bombExploded ?? 3;
     g.shake = { until: g.time + 1.5, amp: 12 };
     this.endRound(TEAM_T, 'bomb', 'Target Successfully Bombed!');
   }

@@ -1,4 +1,5 @@
-// Thrown grenades: MOVETYPE_BOUNCE physics, HE explosion, flashbang blinding, smoke.
+// Thrown grenades using the ported CS 1.6 rules (combatrules.js): MOVETYPE_BOUNCE
+// physics, HE RadiusDamage, RadiusFlash blinding and smoke clouds.
 
 import { TraceResult, MASK_WORLD_PLAYER, MASK_SHOT } from '../engine/collision.js';
 import { angleVectors } from '../engine/coords.js';
@@ -6,7 +7,6 @@ import { createWorldWeapon } from '../assets/worldweapons.js';
 import * as CR from './combatrules.js';
 
 const tr = new TraceResult();
-const BOX = { mins: [-1, -1, -1], maxs: [1, 1, 1] };
 
 export class Grenades {
   constructor(game) {
@@ -16,129 +16,104 @@ export class Grenades {
   }
 
   clear() {
-    for (const n of this.list) n.obj.removeFromParent();
+    for (const n of this.list) n.obj?.removeFromParent();
     this.list = [];
     this.smokes = [];
   }
 
+  trace(a, b) {
+    this.game.collision.trace(a, b, [0, 0, 0], [0, 0, 0], MASK_WORLD_PLAYER, tr);
+    return { fraction: tr.fraction, endpos: tr.endpos.slice(), normal: tr.normal.slice(), allsolid: tr.allsolid, startsolid: tr.startsolid };
+  }
+
+  // params from weaponsys: { angles, speed, fuse, forwardOffset, addOwnerVelocity }
   throw(p, type, params = {}) {
     const g = this.game;
-    // CS 1.6 ThrowGrenade
-    const yaw = p.pm.angles[1] + p.pm.punch[1];
-    // v_angle pitch is + down; CS lifts the throw by 10 degrees and remaps
-    let ax = p.pm.angles[0] + p.pm.punch[0];
-    if (ax < 0) ax = -10 + ax * ((90 - 10) / 90);
-    else ax = -10 + ax * ((90 + 10) / 90);
-    let vel = (90 - ax) * 6;
-    if (vel > 750) vel = 750;
+    const ang = params.angles || [p.pm.angles[0], p.pm.angles[1], 0];
+    const speed = params.speed ?? 600;
     const f = [0, 0, 0];
-    angleVectors(ax, yaw, f, null, null);
+    angleVectors(ang[0], ang[1], f, null, null);
     const eye = p.eyePos();
-    const src = params.src || [eye[0] + f[0] * 16, eye[1] + f[1] * 16, eye[2] + f[2] * 16];
-    const v = params.vel || [f[0] * vel + p.pm.velocity[0], f[1] * vel + p.pm.velocity[1], f[2] * vel + p.pm.velocity[2]];
-    let obj;
-    try { obj = createWorldWeapon(type); } catch { obj = null; }
-    if (obj) g.renderer.world.add(obj);
-    const fuse = params.fuse ?? (type === 'smokegrenade' ? 1.5 : 1.5);
-    const n = { type, owner: p, pos: src.slice(), vel: v, obj, detonate: g.time + fuse, spin: Math.random() * 10, rest: false, bounces: 0 };
+    const off = params.forwardOffset ?? 16;
+    const src = [eye[0] + f[0] * off, eye[1] + f[1] * off, eye[2] + f[2] * off];
+    const v = [f[0] * speed, f[1] * speed, f[2] * speed];
+    if (params.addOwnerVelocity !== false) { v[0] += p.pm.velocity[0]; v[1] += p.pm.velocity[1]; v[2] += p.pm.velocity[2]; }
+    const n = CR.createGrenade(type, src, v, g.time, p);
+    n.random = Math.random;
+    try { n.obj = createWorldWeapon(type); g.renderer.world.add(n.obj); } catch { n.obj = null; }
+    n.spin = Math.random() * 6;
     this.list.push(n);
-    if (type === 'hegrenade' || type === 'flashbang' || type === 'smokegrenade') {
-      g.rounds.radio(p, 'Fire in the hole!');
-    }
     return n;
   }
 
   update(dt) {
     const g = this.game;
     for (const n of this.list) {
-      if (!n.rest) {
-        n.vel[2] -= 800 * 0.55 * dt; // pev->gravity 0.55
-        const end = [n.pos[0] + n.vel[0] * dt, n.pos[1] + n.vel[1] * dt, n.pos[2] + n.vel[2] * dt];
-        g.collision.trace(n.pos, end, BOX.mins, BOX.maxs, MASK_WORLD_PLAYER, tr);
-        if (tr.fraction < 1) {
-          n.pos = tr.endpos.slice();
-          const nn = tr.normal;
-          const d = n.vel[0] * nn[0] + n.vel[1] * nn[1] + n.vel[2] * nn[2];
-          // reflect then damp (CGrenade::BounceTouch: velocity *= 0.45 ... floor friction)
-          n.vel = [n.vel[0] - 2 * d * nn[0], n.vel[1] - 2 * d * nn[1], n.vel[2] - 2 * d * nn[2]];
-          const k = nn[2] > 0.7 ? 0.45 : 0.55;
-          n.vel = n.vel.map((c) => c * k);
-          const speed = Math.hypot(...n.vel);
-          if (n.bounces < 6 && speed > 40) g.sound.play('grenade_bounce', { pos: n.pos, volume: Math.min(1, speed / 300) });
-          n.bounces++;
-          if (nn[2] > 0.7 && speed < 30) { n.rest = true; n.vel = [0, 0, 0]; }
-        } else {
-          n.pos = end;
-        }
-        n.spin += dt * 12;
-      }
+      const res = CR.updateGrenade(n, g.time, dt, (a, b) => this.trace(a, b), (gr, speed) => {
+        g.sound.play('grenade_bounce', { pos: gr.origin, volume: Math.min(1, 0.25 + speed / 400) });
+      });
       if (n.obj) {
-        n.obj.position.set(n.pos[0], n.pos[1], n.pos[2]);
-        n.obj.rotation.set(0, n.rest ? Math.PI / 2 : n.spin, n.spin * 0.5);
+        n.obj.position.set(n.origin[0], n.origin[1], n.origin[2]);
+        const moving = Math.hypot(...n.velocity) > 1;
+        if (moving) n.spin += dt * 10;
+        n.obj.rotation.set(0, n.onGround ? Math.PI / 2 : n.spin, n.spin * 0.5);
       }
-      if (g.time >= n.detonate && !n.done) {
-        // smoke grenades only go off once they settle
-        if (n.type === 'smokegrenade' && !n.rest && g.time < n.detonate + 3) continue;
-        n.done = true;
-        this.detonate(n);
-      }
+      if (res === 'explode') this.detonate(n);
+      else if (res === 'smoke') this.smoke(n);
     }
-    for (const n of this.list) if (n.done && n.obj) { n.obj.removeFromParent(); n.obj = null; }
-    this.list = this.list.filter((n) => !n.done);
+    for (const n of this.list) if (n.removed && n.obj) { n.obj.removeFromParent(); n.obj = null; }
+    this.list = this.list.filter((n) => !n.removed);
     const now = g.time;
     this.smokes = this.smokes.filter((s) => now < s.end);
   }
 
   detonate(n) {
     const g = this.game;
-    const pos = n.pos;
     if (n.type === 'hegrenade') {
-      g.effects.explosion([pos[0], pos[1], pos[2] - 4], 1);
+      const pos = CR.explosionOrigin(n.origin, (a, b) => this.trace(a, b), CR.HE.dmg);
+      g.effects.explosion([n.origin[0], n.origin[1], n.origin[2]], 1);
       g.sound.play('he_explode', { pos, volume: 1 });
-      const dmg = CR.HE?.damage ?? 100;
-      const radius = CR.HE?.radius ?? dmg * 3.5;
-      for (const p of g.players) {
-        if (!p.alive) continue;
-        const c = p.pm.origin;
-        const d = Math.hypot(c[0] - pos[0], c[1] - pos[1], c[2] - pos[2]);
-        if (d > radius) continue;
-        // needs line of sight to the body centre
-        g.collision.trace(pos, c, [0, 0, 0], [0, 0, 0], MASK_SHOT, tr);
-        if (tr.fraction < 1) continue;
-        const amount = dmg * (1 - d / radius);
-        if (amount < 1) continue;
-        g.damagePlayer(p, n.owner, Math.round(amount), 0, 'hegrenade', [(c[0] - pos[0]) / (d || 1), (c[1] - pos[1]) / (d || 1), 0.3]);
+      const targets = g.players.filter((p) => p.alive).map((p) => ({ origin: p.pm.origin, player: p }));
+      for (const { target, damage } of CR.radiusDamage(pos, CR.HE.damage, CR.HE.radius, targets)) {
+        const q = target.player;
+        const d = [q.pm.origin[0] - pos[0], q.pm.origin[1] - pos[1], q.pm.origin[2] - pos[2]];
+        const l = Math.hypot(...d) || 1;
+        g.damagePlayer(q, n.owner, damage, 0, 'hegrenade', [d[0] / l, d[1] / l, d[2] / l], null, { blast: true });
       }
       g.bots.onNoise(n.owner, pos, 2500);
+      g.shakeAt?.(pos, 6);
     } else if (n.type === 'flashbang') {
+      const pos = CR.explosionOrigin(n.origin, (a, b) => this.trace(a, b), CR.FLASHBANG.dmg);
       g.sound.play('flashbang_explode', { pos, volume: 1 });
-      g.effects.sprite({ tex: 'spr_flare', pos: pos.slice(), size: 220, life: 0.25, additive: true });
-      for (const p of g.players) {
-        if (!p.alive) continue;
-        const eye = p.eyePos();
-        const dx = eye[0] - pos[0], dy = eye[1] - pos[1], dz = eye[2] - pos[2];
-        const d = Math.hypot(dx, dy, dz);
-        if (d > 1500) continue;
-        g.collision.trace(pos, eye, [0, 0, 0], [0, 0, 0], MASK_SHOT, tr);
-        if (tr.fraction < 1) continue;
-        const f = [0, 0, 0];
-        angleVectors(p.pm.angles[0], p.pm.angles[1], f, null, null);
-        const dot = -(f[0] * dx + f[1] * dy + f[2] * dz) / (d || 1); // facing the flash
-        const strength = 1 - d / 1500;
-        const facing = dot > 0.6 ? 1 : dot > 0.3 ? 0.55 : 0.25;
-        const hold = 2.2 * strength * facing;
-        const fade = 1.5 + 3.5 * strength * facing;
+      g.effects.sprite({ tex: 'spr_flare', pos: pos.slice(), size: 260, life: 0.2, additive: true });
+      const players = g.players.filter((p) => p.alive).map((p) => ({
+        origin: p.pm.origin, viewOffset: [0, 0, p.pm.viewOfs], viewAngles: p.pm.angles, alive: true, player: p,
+        blind: p.flashStart ? { startTime: p.flashStart, holdTime: p.flashHold || 0, fadeTime: p.flashFade || 0, alpha: p.flashAlpha || 0 } : null,
+      }));
+      const traceFn = (a, b, ignore) => {
+        const r = g.traceShot(a, b, ignore ? ignore.player : null);
+        const ent = r.entity ? players.find((x) => x.player === r.entity) : null;
+        return { fraction: r.fraction, endpos: r.endpos, entity: ent, startsolid: r.startsolid };
+      };
+      for (const f of CR.radiusFlash(pos, players, traceFn, { time: g.time })) {
+        const p = f.target.player;
         p.flashStart = g.time;
-        p.flashFull = g.time + hold;
-        p.flashUntil = g.time + hold + fade;
-        p.flashMax = facing >= 1 ? 1 : 0.85;
-        if (p.isBot) g.bots.onFlashed(p, hold + fade * 0.5);
+        p.flashHold = f.holdTime;
+        p.flashFade = f.fadeTime;
+        p.flashAlpha = f.alpha;
+        p.flashFull = g.time + f.holdTime;
+        p.flashUntil = g.time + f.holdTime + f.fadeTime;
+        p.flashMax = f.alpha / 255;
+        if (p.isBot) g.bots.onFlashed(p, f.holdTime + f.blindDuration);
       }
-    } else if (n.type === 'smokegrenade') {
-      g.sound.play('smoke_explode', { pos, volume: 1 });
-      g.effects.smokeCloud(pos);
-      this.smokes.push({ pos: pos.slice(), radius: 150, start: g.time + 1.5, end: g.time + 22 });
     }
+  }
+
+  smoke(n) {
+    const g = this.game;
+    g.sound.play('smoke_explode', { pos: n.origin, volume: 1 });
+    g.effects.smokeCloud(n.origin.slice());
+    this.smokes.push({ pos: n.origin.slice(), radius: 150, start: g.time + 1.2, end: g.time + (CR.SMOKE.approxVisibleDuration || 25) - 3 });
   }
 
   // does a line pass through active smoke?

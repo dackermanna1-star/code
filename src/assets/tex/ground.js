@@ -96,100 +96,111 @@ export function groundStone() {
   const wyf = shifted(wxf, W, H, 101, 57);
   const wx = F32(N), wy = F32(N);
   for (let i = 0; i < N; i++) {
-    wx[i] = (wxf[i] - 0.5) * 10;
-    wy[i] = (wyf[i] - 0.5) * 10;
+    wx[i] = (wxf[i] - 0.5) * 8;
+    wy[i] = (wyf[i] - 0.5) * 8;
   }
-  // merge random neighbouring cells so the flagstones become irregular
-  const CX = 7, CY = 7;
+  // irregular worn flagstones: Voronoi cells (~32 units), a few neighbours merged
+  const CX = 8, CY = 8;
   const parent = new Int32Array(CX * CY).map((_, k) => k);
   const find = (a) => (parent[a] === a ? a : (parent[a] = find(parent[a])));
   const mrng = new Rng(S + 77);
   for (let j = 0; j < CY; j++)
     for (let i = 0; i < CX; i++) {
       const a = j * CX + i;
-      if (mrng.chance(0.22)) parent[find(a)] = find(j * CX + ((i + 1) % CX));
-      if (mrng.chance(0.22)) parent[find(a)] = find(((j + 1) % CY) * CX + i);
+      if (mrng.chance(0.14)) parent[find(a)] = find(j * CX + ((i + 1) % CX));
+      if (mrng.chance(0.14)) parent[find(a)] = find(((j + 1) % CY) * CX + i);
     }
   const group = new Int32Array(CX * CY).map((_, k) => find(k));
   const vor = voronoi(W, H, CX, CY, S + 3, 0.95, wx, wy, group);
   const cells = [];
   for (let k = 0; k < vor.n; k++)
     cells.push({
-      tone: rng.gauss() * 0.07,
-      tint: rng.pick([
-        [1, 1, 1],
-        [1.02, 0.99, 0.95],
-        [0.98, 0.98, 1.0],
-        [1.03, 0.99, 0.93],
-      ]),
-      lift: rng.gauss() * 0.4,
-      crack: rng.chance(0.35),
-      dirt: rng.next(),
+      tone: rng.gauss() * 0.09,
+      // 0 = light sandy beige ... 1 = darker brown-grey
+      m: Math.pow(rng.next(), 1.6),
+      lift: rng.gauss() * 0.5,
+      crack: rng.chance(0.3),
+      por: rng.next(),
       ox: rng.int(0, W - 1),
       oy: rng.int(0, H - 1),
     });
-  const gapN = fbm(W, H, { cx: 12, oct: 3, seed: S + 4 });
+  const gapN = fbm(W, H, { cx: 16, oct: 3, gain: 0.6, seed: S + 4 });
   const big = fbm(W, H, { cx: 3, oct: 4, gain: 0.6, seed: S + 5 });
   const mid = fbm(W, H, { cx: 10, oct: 3, gain: 0.55, seed: S + 6 });
   const det = fbm(W, H, { cx: 48, oct: 2, gain: 0.6, seed: S + 7 });
   const mot = fbm(W, H, { cx: 20, oct: 3, gain: 0.6, seed: S + 8 });
-  const crk = fbm(W, H, { cx: 6, oct: 3, seed: S + 9, turb: true });
-  const stain = fbm(W, H, { cx: 5, oct: 4, gain: 0.6, seed: S + 10 });
+  const crk = fbm(W, H, { cx: 7, oct: 3, seed: S + 9, turb: true });
   const hue = shifted(big, W, H, 77, 141);
-  const drift = shifted(stain, W, H, 131, 29);
+  const spill = shifted(mid, W, H, 61, 173);
+  // pitting: scattered small holes, more of them on porous slabs
+  const pits = F32(N);
+  const prng = new Rng(S + 11);
+  for (let n = 0; n < 240; n++) {
+    const px = prng.range(0, W), py = prng.range(0, H);
+    const r = prng.next() < 0.85 ? prng.range(0.4, 0.8) : prng.range(0.9, 1.5);
+    const R = Math.ceil(r + 1);
+    for (let dy = -R; dy <= R; dy++)
+      for (let dx = -R; dx <= R; dx++) {
+        const qx = Math.floor(px) + dx + 0.5 - px, qy = Math.floor(py) + dy + 0.5 - py;
+        const a = clamp(r + 0.5 - Math.sqrt(qx * qx + qy * qy), 0, 1);
+        const j = mod(Math.floor(py) + dy, H) * W + mod(Math.floor(px) + dx, W);
+        if (a > pits[j]) pits[j] = a;
+      }
+  }
   const img = makeImg(W, H);
   const hgt = F32(N);
-  const stoneC = [208, 184, 140], sandC = [166, 114, 66];
+  const light = [214, 190, 148], dark = [152, 138, 118];
+  const jointC = [78, 62, 46], sandC = [160, 132, 92];
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
       const c = cells[group[vor.id[i]]];
       const j = ((y + c.oy) % H) * W + ((x + c.ox) % W);
-      const gapW = 0.8 + (gapN[i] - 0.5) * 3.8;
-      const inside = vor.edge[i] - gapW;
-      const st = smooth(-0.6, 0.8, inside);
-      const bev = smooth(-0.2, 4, inside);
-      const cr = c.crack ? smooth(0.03, 0.0, crk[i]) * st : 0;
-      hgt[i] = st * (1.2 * Math.sqrt(bev) + c.lift) + (mid[j] - 0.5) * 1.8 + (det[j] - 0.5) * 0.6 - cr * 1.0;
-      // stone albedo: mottled sandstone with worn stains
-      let f = 1 + c.tone + (big[i] - 0.5) * 0.16 + (mid[j] - 0.5) * 0.18 + (det[j] - 0.5) * 0.3;
-      f *= 1 + (smooth(0.25, 0.75, mot[j]) - 0.5) * 0.3;
-      f *= 1 - smooth(0.62, 0.7, det[i] * 0.5 + mot[i] * 0.5) * 0.18;
-      // grey-brown weathered blotches inside the stones
-      const j2 = ((y + c.oy + 35) % H) * W + ((x + c.ox + 40) % W);
-      const bl = smooth(0.5, 0.75, mid[j] * 0.6 + mot[j2] * 0.4);
-      const sn = smooth(0.55, 0.8, stain[i] + (c.dirt - 0.5) * 0.25);
-      f *= 1 - sn * 0.2;
-      f *= 1 - cr * 0.45;
-      f *= 1 - (1 - smooth(0, 4, inside)) * 0.1;
+      // joint half-width: mostly thin, opening up here and there
+      const g = gapN[i];
+      const jw = 0.35 + g * g * 3.4;
+      const e = vor.edge[i];
+      const inside = e - jw;
+      const st = smooth(-0.45, 0.55, inside);
+      const bev = smooth(-0.2, 5, inside);
+      const cr = c.crack ? smooth(0.028, 0.0, crk[i]) * smooth(1, 4, inside) : 0;
+      const pd = pits[i] * st * (0.35 + c.por);
+      hgt[i] = st * (1.25 * Math.sqrt(bev) + c.lift) + (mid[j] - 0.5) * 1.6 + (det[j] - 0.5) * 0.7 - cr * 1.1 - pd * 0.45;
+      // slab albedo: per-slab tone between sandy beige and brown-grey, mottled
+      const m = clamp(c.m + (big[i] - 0.5) * 0.3, 0, 1);
+      let f = 1 + c.tone + (mid[j] - 0.5) * 0.22 + (det[j] - 0.5) * 0.34;
+      f *= 1 + (smooth(0.25, 0.75, mot[j]) - 0.5) * 0.32;
+      f *= 1 - smooth(0.6, 0.7, det[i] * 0.5 + mot[i] * 0.5) * 0.2;
+      // worn, dirtier rims: soft darkening towards the slab edges
+      f *= 0.7 + 0.3 * smooth(0, 7, inside);
+      f *= 1 - cr * 0.5 - pd * 0.4;
       const h = (hue[i] - 0.5) * 0.1;
-      f *= 1 - bl * 0.18;
-      let sr = stoneC[0] * f * c.tint[0] * (1 + h + sn * 0.04),
-        sg = stoneC[1] * f * c.tint[1],
-        sb = stoneC[2] * f * c.tint[2] * (1 - h * 1.4 - sn * 0.08);
-      const sl = (sr + sg + sb) / 3;
-      sr += (sl - sr) * bl * 0.35;
-      sg += (sl - sg) * bl * 0.35;
-      sb += (sl * 0.95 - sb) * bl * 0.35;
-      // packed orange sand in the gaps, darker in the middle of the gap
-      const gd = 0.72 + 0.28 * smooth(-gapW, 0, inside) + (det[i] - 0.5) * 0.3 + (big[i] - 0.5) * 0.2;
-      const gr = sandC[0] * gd, gg = sandC[1] * gd, gb = sandC[2] * gd;
-      let r = gr + (sr - gr) * st, g = gg + (sg - gg) * st, b = gb + (sb - gb) * st;
-      // wind-blown sand drifting over the paving
-      const dr = smooth(0.62, 0.8, drift[i] + (det[i] - 0.5) * 0.15) * 0.65;
-      r += (sandC[0] * 1.06 - r) * dr;
-      g += (sandC[1] * 1.08 - g) * dr;
-      b += (sandC[2] * 1.1 - b) * dr;
-      hgt[i] *= 1 - dr * 0.7;
+      let sr = (light[0] + (dark[0] - light[0]) * m) * f * (1 + h),
+        sg = (light[1] + (dark[1] - light[1]) * m) * f,
+        sb = (light[2] + (dark[2] - light[2]) * m) * f * (1 - h * 1.3);
+      // joints: dark soil, wider ones partly filled with dull ochre sand
+      const fill = smooth(0.8, 2.4, jw) * (0.55 + 0.45 * det[i]);
+      const core = smooth(jw, 0, e); // 1 at the joint centre
+      const jd = 0.8 + (det[i] - 0.5) * 0.35;
+      let jr = (jointC[0] + (sandC[0] - jointC[0]) * fill * (1 - core * 0.35)) * jd;
+      let jg = (jointC[1] + (sandC[1] - jointC[1]) * fill * (1 - core * 0.35)) * jd;
+      let jb = (jointC[2] + (sandC[2] - jointC[2]) * fill * (1 - core * 0.35)) * jd;
+      let r = jr + (sr - jr) * st, gg = jg + (sg - jg) * st, b = jb + (sb - jb) * st;
+      // a little sand spilling over the rims of some slabs
+      const sp = smooth(0.62, 0.8, spill[i]) * (1 - smooth(0, 6, inside)) * st * 0.5;
+      r += (sandC[0] * 1.05 - r) * sp;
+      gg += (sandC[1] * 1.05 - gg) * sp;
+      b += (sandC[2] * 1.05 - b) * sp;
+      hgt[i] -= sp * 0.6;
       img.r[i] = r;
-      img.g[i] = g;
+      img.g[i] = gg;
       img.b[i] = b;
     }
-  const sh = lambert(hgt, W, H, 0.55, LIGHT);
+  const sh = lambert(hgt, W, H, 0.6, LIGHT);
   const cav = cavity(hgt, W, H, 3);
-  applyShade(img, sh, 0.45, cav, 0.1);
-  matchMean(img, [190, 158, 110]);
-  finish(img, { grain: 12, chroma: 6, sharpen: 0.35, soft: 0.2, seed: S });
+  applyShade(img, sh, 0.42, cav, 0.14);
+  matchMean(img, [182, 156, 116]);
+  finish(img, { grain: 12, chroma: 5, sharpen: 0.4, soft: 0.15, seed: S });
   return img;
 }
 

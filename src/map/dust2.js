@@ -134,8 +134,12 @@ export function buildDust2() {
   m.R('b_win_stairs', -1232, 2576, -1104, 2704, 52, 88, 'n', { tex: STONE, wall: 176 });
   m.R('b_win_ramp', -1280, 2592, -1232, 2704, 88, 128, 'w', { tex: STONE, wall: 160 });
   m.A('b_window', -1400, 2592, -1280, 2704, 128, { tex: STONE, wall: 160 });
+  // the window itself: a hole through the wall above the B site
+  m.opening(-1408, 2616, -1400, 2680, 144, 200, 288);
 
   m.generate();
+  m.decorateWindows(11);
+  m.decorateBeams(112);
   addDetails(m);
   addEntities(m);
   return m;
@@ -224,8 +228,6 @@ function addDetails(m) {
   door(m, 'y', 2272, 2336, -1336, 0, 120, 'open_r');
   archLintel(m, 'y', 2192, 2336, -1344, -1328, 112, 224);
 
-  // --- B window opening (wall between B site and the window platform)
-  m.add(boxBrush([-1408, 2592, 128], [-1400, 2704, 136], { all: 'wall_stone' }));
 
   // --- tunnel entrance arch from outside tunnels
   archLintel(m, 'x', -1728, -1608, 712, 744, 32 + 80, 160);

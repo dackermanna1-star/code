@@ -334,32 +334,35 @@ export function shutter() {
   const rng = new Rng(S);
   const planks = [];
   const widths = partition(W, 14, 18, rng);
+  const wood = [134, 114, 92];
   let acc = 0;
   for (const pw of widths) {
-    planks.push({ x0: acc + 0.5, y0: 0, x1: acc + pw - 0.5, y1: H, vert: true, level: 0, col: [118, 94, 68] });
+    planks.push({ x0: acc + 0.4, y0: 0, x1: acc + pw - 0.4, y1: H, vert: true, level: 0, col: wood });
     acc += pw;
   }
-  planks.push({ x0: 0, y0: 14, x1: W, y1: 22, vert: false, level: 1.2, col: [120, 98, 72] });
-  planks.push({ x0: 0, y0: 104, x1: W, y1: 112, vert: false, level: 1.2, col: [120, 98, 72] });
+  // horizontal battens (kept below the arch so they survive the arched frame)
+  planks.push({ x0: 0, y0: 30, x1: W, y1: 38, vert: false, level: 1.2, col: [138, 118, 96] });
+  planks.push({ x0: 0, y0: 98, x1: W, y1: 106, vert: false, level: 1.2, col: [138, 118, 96] });
   const nails = [];
   acc = 0;
   for (const pw of widths) {
-    nails.push([acc + pw / 2, 18, 0.8, 0.6]);
-    nails.push([acc + pw / 2, 108, 0.8, 0.6]);
+    nails.push([acc + pw / 2, 34, 0.8, 0.6]);
+    nails.push([acc + pw / 2, 102, 0.8, 0.6]);
     acc += pw;
   }
   return woodScene(W, H, planks, {
     seed: S,
-    gap: [34, 26, 18],
+    gap: [70, 60, 50],
     lv: 1.0,
     bev: 1.4,
-    grain: 0.4,
-    lines: 0.22,
-    edgeLight: 0.06,
-    grime: 0.4,
+    grain: 0.3,
+    lines: 0.12,
+    edgeLight: 0.1,
+    grime: 0.6,
     nails,
+    nailCol: [78, 70, 62],
     gscale: 1.2,
-    target: [106, 88, 66],
+    target: [120, 100, 78],
   });
 }
 
