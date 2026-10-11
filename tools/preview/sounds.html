@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>CS 1.6 Sound Bank</title>
+<style>
+  :root { color-scheme: dark; --bg: #11130f; --panel: #1b1e18; --line: #34392d; --fg: #d8dccb; --dim: #8b917c; --acc: #e0b04a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 12px/1.35 Verdana, Tahoma, sans-serif; }
+  header { padding: 8px 12px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 12px; align-items: center; background: var(--panel); }
+  header h1 { font-size: 14px; margin: 0; color: var(--acc); letter-spacing: .5px; }
+  #status { color: var(--dim); font-family: monospace; }
+  label { color: var(--dim); }
+  select, input { background: #0c0d0a; color: var(--fg); border: 1px solid var(--line); font: inherit; }
+  #controls { padding: 6px 12px; }
+  .group { margin: 6px 0; }
+  .group h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); margin: 8px 0 4px; font-weight: normal; }
+  .group button { background: #2a2f22; color: var(--fg); border: 1px solid #4a5140; border-top-color: #646b55; border-left-color: #646b55; padding: 3px 7px; margin: 0 3px 3px 0; font: 11px Verdana, sans-serif; cursor: pointer; }
+  .group button:hover { background: #3a4130; }
+  .group button.on { background: #6b5521; color: #fff; }
+  .group button small { color: var(--dim); }
+  #detail { display: block; margin: 6px 12px; border: 1px solid var(--line); max-width: calc(100% - 24px); }
+  #grid { display: block; margin: 0 12px 12px; max-width: calc(100% - 24px); }
+  body.diag #controls, body.diag #detail { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>CS 1.6 procedural sound bank</h1>
+  <span id="status">building…</span>
+  <label>master <input id="vol" type="range" min="0" max="1" step="0.01" value="0.8"></label>
+  <label>position
+    <select id="pos">
+      <option value="2d">2D (own)</option>
+      <option value="left">left 300u</option>
+      <option value="right">right 300u</option>
+      <option value="front">front 900u</option>
+      <option value="behind">behind 600u</option>
+      <option value="far">far 2500u (loud)</option>
+    </select>
+  </label>
+</header>
+<div id="controls"></div>
+<canvas id="detail" width="1240" height="260"></canvas>
+<canvas id="grid" width="1256" height="200"></canvas>
+<script type="module" src="./sounds.js"></script>
+</body>
+</html>

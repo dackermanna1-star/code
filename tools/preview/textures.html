@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Texture preview</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { --bg: #1b1a18; --panel: #262420; --ink: #e8e2d4; --dim: #9a9284; --accent: #d9b56a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font: 12px/1.35 ui-monospace, Menlo, Consolas, monospace; }
+  header { display: flex; gap: 16px; align-items: baseline; padding: 6px 12px; background: #11100e; border-bottom: 1px solid #000; }
+  header b { color: var(--accent); }
+  header span { color: var(--dim); }
+  #view3d { display: block; width: 100%; height: 560px; background: #000; cursor: grab; }
+  #grid { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; }
+  .card { background: var(--panel); padding: 6px; border: 1px solid #000; }
+  .card canvas { display: block; }
+  .card .name { color: var(--accent); }
+  .card .meta { color: var(--dim); display: flex; gap: 6px; align-items: center; }
+  .swatch { width: 12px; height: 12px; border: 1px solid #000; display: inline-block; }
+  body.only3d #grid { display: none; }
+  body.only3d #view3d { height: calc(100vh - 27px); }
+  body.onlygrid #view3d { display: none; }
+</style>
+</head>
+<body>
+<header><b>cs_dust textures</b><span id="stats">generating…</span><span>drag = look, wheel = move, 1-4 = camera presets</span></header>
+<canvas id="view3d"></canvas>
+<div id="grid"></div>
+<script type="module" src="./textures.js"></script>
+</body>
+</html>

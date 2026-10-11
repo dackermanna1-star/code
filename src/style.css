@@ -1,0 +1,4 @@
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+body { font-family: Verdana, Tahoma, "DejaVu Sans", sans-serif; color: #fff; user-select: none; -webkit-user-select: none; }
+#app { position: fixed; inset: 0; overflow: hidden; background: #000; }
+#game-canvas { position: absolute; display: block; image-rendering: auto; }
