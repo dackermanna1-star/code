@@ -8,6 +8,7 @@ export const CONTENTS_SOLID = 1; // blocks players and bullets
 export const CONTENTS_PLAYERCLIP = 2; // blocks players only
 export const CONTENTS_BULLETCLIP = 4; // blocks bullets/light only (rare)
 export const CONTENTS_PLAYER = 8; // other players' hulls (dynamic boxes)
+export const CONTENTS_ZOMBIE = 16; // zombie hulls (zombie survival): they pass through each other
 export const MASK_PLAYER = CONTENTS_SOLID | CONTENTS_PLAYERCLIP | CONTENTS_PLAYER;
 export const MASK_WORLD_PLAYER = CONTENTS_SOLID | CONTENTS_PLAYERCLIP;
 export const MASK_SHOT = CONTENTS_SOLID | CONTENTS_BULLETCLIP;

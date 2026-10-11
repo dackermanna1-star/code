@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { Player, TEAM_T, TEAM_CT, TEAM_SPEC } from './player.js';
 import { PlayerMover, IN_JUMP, IN_DUCK, IN_WALK, HULL_STAND, HULL_DUCK, VEC_VIEW, PLAYER_MAX_SAFE_FALL_SPEED, PLAYER_FATAL_FALL_SPEED } from '../engine/pmove.js';
-import { makeDynamicBox, setDynamicBox, TraceResult, MASK_SHOT, MASK_WORLD_PLAYER } from '../engine/collision.js';
+import { makeDynamicBox, setDynamicBox, TraceResult, MASK_SHOT, MASK_WORLD_PLAYER, MASK_PLAYER } from '../engine/collision.js';
 import { angleVectors, DEG } from '../engine/coords.js';
 import { createViewModel } from '../assets/viewmodels.js';
 import { createPlayerModel, PLAYER_SKINS } from '../assets/playermodels.js';
@@ -15,6 +15,7 @@ import { Effects } from './effects.js';
 import { BulletCam } from './bulletcam.js';
 import { MapEntities } from './mapents.js';
 import { Hostages } from './hostages.js';
+import { ZombieMode, MASK_ZOMBIE_MOVE, MASK_HUMAN_MOVE } from './zombies.js';
 import { NavGraph } from './nav.js';
 import { RoundManager } from './rounds.js';
 import { BotManager } from './bots.js';
@@ -88,6 +89,7 @@ export class Game {
     for (const d of doors) d.handle.active = true;
     this.mapEnts = new MapEntities(this); // doors, breakables, buttons (BSP maps)
     this.hostages = new Hostages(this); // hostage rescue (cs_ maps)
+    this.zombies = new ZombieMode(this); // zombie survival mode
     this.rounds = new RoundManager(this);
     this.bots = new BotManager(this);
   }
@@ -571,7 +573,7 @@ export class Game {
     if (victim === this.local && attacker && attacker !== victim) this.hudDamage(attacker);
     if (victim.isBot) this.bots.onHurt(victim, attacker);
     if (victim.health <= 0) this.killPlayer(victim, attacker, weaponId, head && !opts.blast);
-    else if (!opts.blast && Math.random() < 0.25) this.sound.play('pain', { pos, volume: 0.6 });
+    else if (!opts.blast && Math.random() < (victim.isZombie ? 0.35 : 0.25)) this.sound.play(victim.isZombie ? 'zombie_pain' : 'pain', { pos, volume: 0.6, channel: victim.isZombie ? `${victim.id}:voice` : null });
   }
 
   // velocity "tagging" recovery: +0.01 per on-ground frame (CBasePlayer::PreThink)
@@ -622,7 +624,7 @@ export class Game {
     victim.weapons = { 1: null, 2: null, 3: null, 4: [], 5: null };
     victim.active = null;
     victim.armor = 0; victim.helmet = false; victim.defuser = false;
-    this.sound.play('die', { pos, volume: 1 });
+    this.sound.play(victim.isZombie ? 'zombie_die' : 'die', { pos, volume: 1, channel: victim.isZombie ? `${victim.id}:voice` : null });
     this.effects.bloodPuddle(victim); // after ~0.5 s, follows the settling body
     if (victim.model) {
       victim.model.object3D.visible = true;
@@ -713,6 +715,7 @@ export class Game {
       local.cmd = c;
     }
     this.bots.think(TICK);
+    this.zombies.think(TICK);
     for (const p of this.players) {
       if (!p.alive) continue;
       const cmd = p.cmd || { forwardmove: 0, sidemove: 0, upmove: 0, buttons: 0, wbuttons: 0 };
@@ -731,11 +734,13 @@ export class Game {
     this.recoverVelocityModifier(p);
     const w = p.active;
     const zoomed = p.fov < 90;
-    pm.maxspeed = w ? WS.weaponMaxSpeed(w, zoomed) : 250;
+    pm.maxspeed = p.isZombie ? p.zSpeed : w ? WS.weaponMaxSpeed(w, zoomed) : 250;
     p.prevOrigin = pm.origin.slice();
     this.mover.ignore = p.box;
     p.box.active = false; // don't collide with own box
+    if (this.zombies.enabled) this.mover.mask = p.isZombie ? MASK_ZOMBIE_MOVE : MASK_HUMAN_MOVE;
     this.mover.move(pm, cmd, TICK);
+    this.mover.mask = MASK_PLAYER;
     p.box.active = true;
     setDynamicBox(p.box, pm.origin, p.hull().mins, p.hull().maxs);
     if (cmd.forwardmove || cmd.sidemove) p.hasMovedSinceSpawn = true;
@@ -1044,6 +1049,7 @@ export class Game {
   }
 
   inBuyZone(p) {
+    if (this.zombies.enabled) return p.team === TEAM_CT; // buy anywhere
     // maps without func_buyzone: within 200 units of one of your team's spawn points (OLD_CheckBuyZone)
     if (!this.buyZones.length) {
       const o = p.pm.origin;

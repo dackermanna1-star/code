@@ -900,6 +900,96 @@ SKINS.scientist = function scientist(p, m) {
   bootFoot(p, m.footR, shoe); bootFoot(p, m.footL, shoe);
 };
 
+// Zombie survival: a dead civilian - grey-green rotting skin, sunken dark-ringed eyes
+// with milky irises, a torn bloody mouth, ripped and blood-soaked shirt and jeans,
+// bare bloody forearms and hands
+SKINS.zombie = function zombie(p, m) {
+  const skin = '#7d8b6a', shirt = '#8c846e', jeans = '#363c4c', shoe = '#2a241e', gore = '#5e0e0c', dried = 'rgba(70,10,8,0.62)';
+  const rot = () => `rgba(${Math.round(p.r(40, 90))},${Math.round(p.r(50, 80))},${Math.round(p.r(30, 60))},${p.r(0.1, 0.25).toFixed(2)})`;
+  // a ragged hole in the cloth showing the skin underneath
+  const rip = (mm, u, z, ru, rz, under = skin) => {
+    const pts = [];
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2, k = p.r(0.55, 1.15);
+      pts.push([u + Math.cos(a) * ru * k, z + Math.sin(a) * rz * k]);
+    }
+    p.poly(mm, pts, 'rgba(20,14,10,0.8)');
+    p.poly(mm, pts.map(([x, y]) => [u + (x - u) * 0.82, z + (y - z) * 0.82]), under);
+    p.ell(mm, u + p.r(-0.3, 0.3) * ru, z + p.r(-0.3, 0.3) * rz, ru * 0.35, rz * 0.35, gore);
+  };
+  const stains = (mm, n, u0, u1, z0, z1) => {
+    for (let i = 0; i < n; i++) {
+      const u = p.r(u0, u1), z = p.r(z0, z1);
+      p.ell(mm, u, z, p.r(0.01, 0.05), p.r(0.3, 1.4), dried);
+      if (p.r(0, 1) < 0.5) p.line(mm, [[u, z], [u + p.r(-0.01, 0.01), z - p.r(1, 4)]], dried, p.r(1, 2.2)); // drip
+    }
+  };
+  paintSkinHead(p, m, { skin, hair: '#24201a', hairline: 70.3, iris: '#d8d4b0', browCol: '#34342a' });
+  const h = m.head;
+  for (let i = 0; i < 46; i++) p.ell(h, p.r(0, 1), p.r(61.6, 71), p.r(0.01, 0.035), p.r(0.2, 0.7), rot());
+  for (let i = 0; i < 24; i++) { // veins
+    const u = p.r(0.3, 0.7), z = p.r(62.4, 70.4);
+    p.line(h, [[u, z], [u + p.r(-0.025, 0.025), z + p.r(-0.7, 0.7)], [u + p.r(-0.04, 0.04), z + p.r(-1.2, 1.2)]], 'rgba(46,40,72,0.35)', 1);
+  }
+  for (const s of [-1, 1]) { // sunken, dark-ringed, bloodshot eyes
+    const u = 0.5 + s * EYE_U;
+    p.ell(h, u, EYE_Z + 0.02, 0.038, 0.66, 'rgba(26,16,18,0.6)');
+    p.ell(h, u, EYE_Z, 0.021, 0.26, '#cbc296');
+    p.ell(h, u + s * 0.002, EYE_Z - 0.02, 0.009, 0.21, '#e4dfbe');
+    p.ell(h, u + s * 0.002, EYE_Z - 0.02, 0.003, 0.07, '#4a2424');
+    for (let i = 0; i < 4; i++) p.line(h, [[u + s * 0.02, EYE_Z + p.r(-0.15, 0.15)], [u + s * p.r(0.004, 0.012), EYE_Z + p.r(-0.1, 0.1)]], 'rgba(150,26,26,0.75)', 1);
+  }
+  // mouth torn open, teeth, blood down the chin and neck
+  p.ell(h, 0.5, 64.0, 0.042, 0.34, '#240505');
+  p.line(h, [[0.468, 64.2], [0.532, 64.2]], '#a8a084', 1.4);
+  p.line(h, [[0.472, 63.82], [0.528, 63.82]], '#968e72', 1.2);
+  p.poly(h, [[0.455, 63.9], [0.545, 63.9], [0.54, 62.3], [0.525, 61.4], [0.508, 62.5], [0.492, 61.4], [0.475, 62.2], [0.46, 61.6]], 'rgba(92,8,8,0.88)');
+  p.ell(h, 0.5 + 0.095, 65.2, 0.026, 0.48, gore); // torn cheek
+  p.ell(h, 0.5 + 0.095, 65.2, 0.013, 0.26, '#240404');
+  p.line(h, [[0.44, 69.5], [0.5, 68.9], [0.555, 69.3]], gore, 2.4); // gash on the forehead
+  p.noise(REG.head, 0.09);
+  // torso: torn shirt over jeans
+  jacketBase(p, m.torso, shirt, {});
+  pantsTop(p, m.torso, jeans, { top: 40.2 });
+  beltAt(p, m.torso, 40.9, '#2a1e14', '#6a6050');
+  neckSkin(p, m.torso, skin);
+  collar(p, m.torso, sh(shirt, 0.85), 60.4);
+  p.poly(m.torso, [[0.47, 61.0], [0.53, 61.0], [0.52, 56.0], [0.5, 54.5], [0.485, 57.0]], 'rgba(92,8,8,0.8)'); // blood from the mouth
+  rip(m.torso, 0.6, 48.5, 0.07, 2.6);
+  rip(m.torso, 0.36, 53.5, 0.05, 1.8);
+  rip(m.torso, 0.9, 46.0, 0.06, 2.2);
+  rip(m.torso, 0.15, 51.0, 0.05, 2.0);
+  stains(m.torso, 40, 0.3, 0.7, 42, 60);
+  stains(m.torso, 16, 0, 1, 34, 60);
+  p.wrapShade(REG.torso, 0.15);
+  p.noise(REG.torso, 0.1);
+  // arms: sleeves torn off above the elbow, bare bloody forearms
+  for (const [mm, side] of [[m.armR, 'r'], [m.armL, 'l']]) {
+    sleeve(p, mm, shirt, side, { noise: 0.1 });
+    p.band(mm, 33.6, 49.5, skin);
+    const edge = [[0, 49.5]];
+    for (let u = 0.05; u < 1.0; u += 0.05) edge.push([u, 49.5 + p.r(-0.4, 1.6)]);
+    edge.push([1, 49.5], [1, 47.8], [0, 47.8]);
+    p.poly(mm, edge, skin);
+    for (let i = 0; i < 18; i++) p.ell(mm, p.r(0, 1), p.r(34, 49), p.r(0.02, 0.06), p.r(0.3, 1.0), rot());
+    stains(mm, 10, 0, 1, 34, 49);
+    p.ell(mm, side === 'r' ? 0.3 : 0.7, 40.0, 0.07, 1.0, gore); // bite
+    p.ell(mm, side === 'r' ? 0.3 : 0.7, 40.0, 0.035, 0.5, '#240404');
+  }
+  for (const mm of [m.handR, m.handL]) {
+    glove(p, mm, skin, { bare: true });
+    p.band(mm, 26, 28.4, 'rgba(46,10,10,0.75)'); // filthy, bloody fingers
+    stains(mm, 6, 0, 1, 28, 35);
+  }
+  for (const [mm, side] of [[m.legR, 'r'], [m.legL, 'l']]) {
+    trousers(p, mm, jeans, side, { boot: shoe, cargo: false, noise: 0.1 });
+    rip(mm, 0.5, 20.5, 0.12, 1.8);
+    if (side === 'r') rip(mm, 0.3, 30, 0.07, 1.5);
+    stains(mm, 14, 0, 1, 10, 40);
+  }
+  bootFoot(p, m.footR, shoe); bootFoot(p, m.footL, shoe);
+};
+
 function pouchTex(p, m, col) {
   p.fill(REG.pouch, col);
   p.band(m.pouch, 0.62, 1.0, sh(col, 1.15));

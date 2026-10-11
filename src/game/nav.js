@@ -334,7 +334,7 @@ export class NavGraph {
   }
 }
 
-class MinHeap {
+export class MinHeap {
   constructor() { this.ids = []; this.ks = []; }
   get size() { return this.ids.length; }
   push(id, k) {

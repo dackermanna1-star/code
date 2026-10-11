@@ -35,7 +35,9 @@ export function buildHudState(game, extra = {}) {
   s.inBombZone = s.hasC4 && !!game.bombZoneOf(p);
   s.inBuyZone = me.alive && game.inBuyZone(me) && R.buyTimeLeft();
   s.hasDefuser = !!p.defuser;
-  s.spectator = me.alive ? null : { target: target ? target.name : null, mode: game.spectate?.mode || 'free', tScore: game.rounds.tScore, ctScore: game.rounds.ctScore, health: target?.health, targetTeam: target?.team, map: game.map?.name };
+  const Z = game.zombies?.enabled ? game.zombies : null;
+  s.zombie = Z ? Z.hudInfo() : null;
+  s.spectator = me.alive ? null : { target: target ? target.name : null, mode: game.spectate?.mode || 'free', tScore: Z ? null : game.rounds.tScore, ctScore: Z ? null : game.rounds.ctScore, health: target?.health, targetTeam: target?.team, map: game.map?.name };
 
   // dynamic crosshair
   const settings = extra.settings;
@@ -75,6 +77,8 @@ export function buildHudState(game, extra = {}) {
     const dropped = game.dropped.find((d) => d.weapon.id === 'c4');
     if (dropped) blips.push({ x: dropped.pos[0], y: dropped.pos[1], z: dropped.pos[2], kind: 'bomb' });
   }
+  // zombie survival: the zombies show up red
+  if (Z) for (const z of Z.pool) if (z.alive) blips.push({ x: z.pm.origin[0], y: z.pm.origin[1], z: z.pm.origin[2], kind: 'enemy', alive: true });
   // hostages: CTs see them on the radar (CS 1.6 hostage blips)
   if (me.team === TEAM_CT && game.hostages?.list?.length) {
     for (const h of game.hostages.list) {

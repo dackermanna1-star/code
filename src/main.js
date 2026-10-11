@@ -148,9 +148,27 @@ async function boot() {
     settings.set('newgame', opts);
     game.newGame({ ...opts, playerName: settings.get('name') });
     inGame = true;
+    zombieOverShown = false;
     startAmbience();
     menus.hideAll?.();
+    // zombie survival: everybody alive is a Counter-Terrorist, pick a skin
+    if (opts.mode === 'zombies') {
+      pendingTeam = TEAM_CT;
+      menus.showClassSelect?.(TEAM_CT, (cls) => onMenuCommand('joinclass ' + cls));
+      return;
+    }
     menus.showTeamSelect?.((team) => onMenuCommand('jointeam ' + team));
+  }
+  let zombieOverShown = false;
+
+  /** Zombie survival: a few seconds after you die, the score and Play again. */
+  function checkZombieOver() {
+    const Z = game.zombies;
+    if (zombieOverShown || !Z?.enabled || Z.state !== 'over' || game.time - Z.overAt < 4) return;
+    zombieOverShown = true;
+    input.exitLock();
+    const best = Z.best;
+    menus.showZombieOver?.({ waves: Z.survived, kills: Z.kills, best, newBest: Z.survived > 0 && Z.survived >= best }, () => newGame(settings.get('newgame')), () => openMain());
   }
 
   function chooseTeam(team) {
@@ -168,7 +186,7 @@ async function boot() {
   function chooseClass(skin) {
     const opts = settings.get('newgame');
     game.joinTeam(game.local, pendingTeam, skin || null);
-    game.bots.fillTeams(opts.perTeam ?? 5);
+    game.bots.fillTeams(opts.mode === 'zombies' ? (opts.allies ?? 0) : (opts.perTeam ?? 5));
     menus.hideAll?.();
     renderer.canvas.focus?.();
     input.requestLock();
@@ -273,10 +291,12 @@ async function boot() {
       case 'buymenu':
         if (game.local.alive && game.inBuyZone(game.local) && game.rounds.buyTimeLeft()) {
           input.exitLock();
-          menus.showBuyMenu?.(game.local, { onBuy: (item) => game.rounds.buy(game.local, item) });
+          menus.showBuyMenu?.(game.local, { onBuy: (item) => game.rounds.buy(game.local, item), allWeapons: !!game.zombies?.enabled });
         }
         return true;
-      case 'chooseteam': input.exitLock(); menus.showTeamSelect?.((team) => onMenuCommand('jointeam ' + team)); return true;
+      case 'chooseteam':
+        if (game.zombies?.enabled) { hud.centerPrint?.("You can't change teams in zombie survival.", 2); return true; }
+        input.exitLock(); menus.showTeamSelect?.((team) => onMenuCommand('jointeam ' + team)); return true;
       case 'messagemode': input.exitLock(); menus.showChatInput?.(false, (t) => chat(t, false)); return true;
       case 'messagemode2': input.exitLock(); menus.showChatInput?.(true, (t) => chat(t, true)); return true;
       case 'radio1': case 'radio2': case 'radio3': radioMenu.show(+cmd.slice(5)); return true;
@@ -302,6 +322,7 @@ async function boot() {
     W.update?.(dt);
     if (inGame) {
       game.frame(dt);
+      checkZombieOver();
       W.skybox?.userData.follow(renderer.eye);
       renderer.render(game.drawVm);
       hud.draw?.(game.bulletCam?.active ? { hidden: true } : buildHudState(game, { fps: settings.get('cl_showfps') ? fps : null, netgraph: settings.get('net_graph') ? { fps } : null, settings }), dt);
@@ -320,7 +341,7 @@ async function boot() {
   function scoreData() {
     return {
       tScore: game.rounds.tScore, ctScore: game.rounds.ctScore,
-      players: game.players.map((p) => ({ name: p.name, team: p.team, kills: p.kills, deaths: p.deaths, ping: p.isBot ? 0 : p.ping, alive: p.alive, bomb: !!p.weapons[5] && (game.local?.team === TEAM_T || game.local?.team === TEAM_SPEC), isLocal: p.isLocal })),
+      players: game.players.filter((p) => !p.isZombie).map((p) => ({ name: p.name, team: p.team, kills: p.kills, deaths: p.deaths, ping: p.isBot ? 0 : p.ping, alive: p.alive, bomb: !!p.weapons[5] && (game.local?.team === TEAM_T || game.local?.team === TEAM_SPEC), isLocal: p.isLocal })),
     };
   }
 
@@ -342,8 +363,9 @@ async function boot() {
     try { newGame(JSON.parse(resume)); } catch (e) { console.warn(e); openMain(); }
   } else if (params.has('autostart')) {
     const team = params.get('team') === 'ct' ? TEAM_CT : TEAM_T;
-    newGame({ ...settings.get('newgame'), perTeam: +(params.get('bots') ?? 5), freezeTime: +(params.get('freeze') ?? 6) });
-    pendingTeam = team;
+    const mode = params.get('mode') === 'zombies' ? 'zombies' : 'classic';
+    newGame({ ...settings.get('newgame'), mode, allies: +(params.get('allies') ?? 0), perTeam: +(params.get('bots') ?? 5), freezeTime: +(params.get('freeze') ?? 6) });
+    pendingTeam = mode === 'zombies' ? TEAM_CT : team;
     chooseClass(null);
   } else {
     openMain();

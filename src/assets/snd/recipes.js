@@ -30,6 +30,7 @@ export const SOUND_GROUPS = {
   'UI / misc': ['menu_click', 'menu_select', 'radio_beep', 'hint', 'nvg_on', 'heartbeat'],
   Ambience: ['ambience_wind', 'ambience_bird', 'distant_fly'],
   Map: ['door_move', 'door_stop', 'button', 'hostage_use'],
+  Zombies: ['zombie_idle', 'zombie_attack', 'zombie_pain', 'zombie_die', 'zombie_wave'],
 };
 
 /** Every sound name in the bank. (`round_start` does not exist in 1.6 and is omitted.) */
@@ -49,6 +50,7 @@ const JITTER = {
   hit_flesh: 0.03, hit_kevlar: 0.03, headshot: 0.02, ric: 0.03, impact_sand: 0.03, impact_wood: 0.03,
   impact_metal: 0.03, glass: 0.03, shell: 0.04, shotgun_shell: 0.04, grenade_bounce: 0.04, knife_hit: 0.03,
   knife_hitwall: 0.03, knife_slash: 0.03, knife_stab: 0.02, die: 0.03, pain: 0.03, ambience_bird: 0.06,
+  zombie_idle: 0.07, zombie_attack: 0.05, zombie_pain: 0.05, zombie_die: 0.04,
 };
 
 export const DEFS = {};

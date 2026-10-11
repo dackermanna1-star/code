@@ -27,6 +27,7 @@ export const PLAYER_SKINS = { t: ['terror', 'leet', 'arctic', 'guerilla'], ct: [
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const SWIPE_TIME = 0.55;
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const lerpV = (out, a, b, t) => out.set(lerp(a.x, b.x, t), lerp(a.y, b.y, t), lerp(a.z, b.z, t));
 
@@ -69,6 +70,8 @@ const HOLDS = {
   grenade: { pos: V(9.5, -6.5, -5.5), chest: -14, pelvis: -6, poleR: V(-0.4, -0.8, -0.8), poleL: V(0, 0.8, -1), headRoll: 0 },
   c4: { pos: V(12.0, -5.2, -13.0), chest: 0, pelvis: 0, poleR: V(0, -0.8, -1), poleL: V(0, 0.8, -1), headRoll: 0 },
   none: { pos: V(4, -9, -24), chest: 0, pelvis: 0, poleR: V(-0.2, -0.3, -1), poleL: V(-0.2, 0.3, -1), headRoll: 0 },
+  // zombie survival: arms reaching out, head lolling to one side
+  zombie: { pos: V(20, -6.5, 4), chest: 0, pelvis: 0, poleR: V(-0.1, -0.7, -1), poleL: V(-0.1, 0.7, -1), headRoll: 12 },
 };
 
 // ------------------------------------------------------------------ hitboxes
@@ -197,7 +200,7 @@ let modelCounter = 0;
 
 class PlayerModel {
   constructor(skin) {
-    if (![...PLAYER_SKINS.t, ...PLAYER_SKINS.ct, 'scientist'].includes(skin)) throw new Error('unknown player skin ' + skin);
+    if (![...PLAYER_SKINS.t, ...PLAYER_SKINS.ct, 'scientist', 'zombie'].includes(skin)) throw new Error('unknown player skin ' + skin);
     this.skin = skin;
     this.object3D = new THREE.Group();
     this.object3D.name = 'player_' + skin + '_' + (++modelCounter);
@@ -259,8 +262,11 @@ class PlayerModel {
     this.weaponId = null;
     this.weapon = null;
     this.weaponL = null;
-    this.hold = HOLDS.none;
-    this.holdType = 'none';
+    this.zombie = skin === 'zombie';
+    this.hold = this.zombie ? HOLDS.zombie : HOLDS.none;
+    this.holdType = this.zombie ? 'zombie' : 'none';
+    this.swipeT = -1; // zombie claw swipe progress (s), -1 = none
+    this.swipeSide = 1;
     this.gripR = gripFrame(GRIP_R.grip, false);
     this.gripL = null;
     this.leftPoint = null;
@@ -274,7 +280,7 @@ class PlayerModel {
   setWeapon(weaponId) {
     this._clearWeapon();
     this.weaponId = weaponId || null;
-    if (!weaponId) { this.hold = HOLDS.none; this.holdType = 'none'; this.gripL = null; return; }
+    if (!weaponId) { this.hold = this.zombie ? HOLDS.zombie : HOLDS.none; this.holdType = this.zombie ? 'zombie' : 'none'; this.gripL = null; return; }
     const w = createWorldWeapon(weaponId, this.light);
     const holdType = w.userData.hold || weaponHoldType(weaponId);
     this.holdType = holdType;
@@ -421,8 +427,10 @@ class PlayerModel {
     this.plantW += ((st.planting ? 1 : 0) - this.plantW) * k(7);
     this.reloadW += ((st.reloading ? 1 : 0) - this.reloadW) * k(8);
     if (st.reloading) this.reloadT += dt; else this.reloadT = 0;
-    if (st.firing) this.recoil = 1;
+    if (st.firing && this.zombie) { this.swipeT = 0; this.swipeSide = -this.swipeSide; }
+    else if (st.firing) this.recoil = 1;
     this.recoil *= Math.exp(-dt * 13);
+    if (this.swipeT >= 0) { this.swipeT += dt; if (this.swipeT > SWIPE_TIME) this.swipeT = -1; }
     const pitch = clamp(st.pitch || 0, -89, 89);
     this.pitch = pitch;
 
@@ -553,6 +561,10 @@ class PlayerModel {
     } else if (pw > 0) {
       wPos.lerp(V(13, -7, 12), pw);
     }
+    if (this.holdType === 'zombie') {
+      this._zombieArms(move, ph, breathe);
+      return;
+    }
     // right hand
     const handR = this._handTarget(wPos, qW, this.gripR);
     if (this.holdType === 'none') {
@@ -621,6 +633,47 @@ class PlayerModel {
     }
     rig.ik(B.upperarm_l, B.forearm_l, B.hand_l, lp, H.poleL, 'arm');
     rig.setRot(B.hand_l, lq);
+  }
+
+  /** Zombie arms: both hands reaching forward, swaying with the shamble; a claw swipe when attacking. */
+  _zombieArms(move, ph, breathe) {
+    const rig = this.rig, B = rig.b, H = this.hold, TAU = Math.PI * 2;
+    const c0 = rig.point(B.chest, V(0, 0, 0));
+    const fwd = rig.point(B.chest, V(1, 0, 0)).sub(c0);
+    const up = rig.point(B.chest, V(0, 0, 1)).sub(c0);
+    const left = rig.point(B.chest, V(0, 1, 0)).sub(c0);
+    const t = this.time;
+    for (const side of [1, -1]) { // 1 = right hand (chest -y), -1 = left
+      const sway = Math.sin(t * 2.1 + side) * 1.2 + move * 1.6 * Math.sin(TAU * ph + (side > 0 ? 0 : Math.PI));
+      const p = V(19.5 + move * 0.8 * Math.cos(TAU * ph + side), -6.5 * side, 4 + sway + breathe * 0.3);
+      const rest = p.clone();
+      let fingers = fwd.clone().addScaledVector(up, -0.2);
+      let palm = up.clone().negate();
+      // swipe: wind up high and back, rake across and down, recover
+      if (this.swipeT >= 0 && this.swipeSide === side) {
+        const s = this.swipeT / SWIPE_TIME;
+        const wind = V(7, -13 * side, 15), strike = V(22, 4 * side, -7);
+        if (s < 0.55) {
+          p.lerp(wind, smooth(0, 0.55, s));
+          fingers = up.clone().addScaledVector(fwd, 0.4);
+        } else if (s < 0.75) {
+          p.copy(wind).lerp(strike, smooth(0.55, 0.75, s));
+          fingers = fwd.clone().addScaledVector(up, -0.6);
+          palm = left.clone().multiplyScalar(side).addScaledVector(up, -0.3);
+        } else {
+          p.copy(strike).lerp(rest, smooth(0.75, 1, s));
+        }
+      }
+      const target = rig.point(B.chest, p);
+      const q = handQuat(fingers, palm, side < 0, new THREE.Quaternion());
+      if (side > 0) {
+        rig.ik(B.upperarm_r, B.forearm_r, B.hand_r, target, H.poleR, 'arm');
+        rig.setRot(B.hand_r, q);
+      } else {
+        rig.ik(B.upperarm_l, B.forearm_l, B.hand_l, target, H.poleL, 'arm');
+        rig.setRot(B.hand_l, q);
+      }
+    }
   }
 
   _handTarget(wPos, wQ, grip, offset = null) {

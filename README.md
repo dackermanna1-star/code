@@ -68,6 +68,7 @@ Useful console commands: `sensitivity 3`, `cl_showfps 0`, `net_graph 1`,
 | Sound | `src/assets/sounds.js`, `src/assets/snd/` | Every sound synthesised with Web Audio at load time; GoldSrc attenuation model. |
 | Weapons | `src/game/weaponsys.js`, `combatrules.js` | CS 1.6 weapon logic ported from ReGameDLL_CS: spread/accuracy, recoil (KickBack), burst, silencers, zoom, penetration, armour, hitgroups, prices, economy. |
 | Game | `src/game/` | Rounds, economy, C4, grenades, effects, bots (nav-mesh A*, CS-like aim and reaction), HUD state. |
+| Zombie survival | `src/game/zombies.js` | New Game → Mode → Zombie survival: start with $16000, buy any gun anywhere, survive endless growing waves (more, tougher, faster zombies; runners from wave 3) until you die. Zombies hunt along a flow field over the nav graph and claw whoever they reach. |
 | UI | `src/ui/` | The 1.6 HUD, VGUI menus, buy menu, scoreboard, console. |
 
 Development helpers: `node tools/bake.mjs` rebakes the lightmap,

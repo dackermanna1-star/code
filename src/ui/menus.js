@@ -239,16 +239,34 @@ export class Menus {
     const c4 = this._slider(10, 90, 5, d.c4Timer, (v) => String(v));
     const money = this._select([800, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 8000, 10000, 16000].map((v) => [v, '$' + v]), d.startMoney);
     const bt = this._slider(0.25, 3, 0.25, d.buyTime, (v) => v.toFixed(2));
-    page.append(
-      this._row('Map', map),
+    const mode = this._select([['classic', 'Classic'], ['zombies', 'Zombie survival']], d.mode === 'zombies' ? 'zombies' : 'classic');
+    const allies = this._select(Array.from({ length: 6 }, (_, i) => [i, String(i)]), d.allies ?? 0);
+    const classicRows = [
       this._row('Bots per team', bots),
-      this._row('Bot difficulty', diff),
       this._row('Round time (mp_roundtime)', rt),
       this._row('Freeze time (mp_freezetime)', ft),
       this._row('C4 timer (mp_c4timer)', c4),
       this._row('Start money (mp_startmoney)', money),
       this._row('Buy time (mp_buytime)', bt),
+    ];
+    const zombieRows = [this._row('Bot teammates', allies)];
+    const zombieNote = el('div', 'st-note', 'Endless waves of zombies until you die. You start with $16000 and can buy anywhere, any time.');
+    page.append(
+      this._row('Mode', mode),
+      this._row('Map', map),
+      ...zombieRows,
+      this._row('Bot difficulty', diff),
+      ...classicRows,
+      zombieNote,
     );
+    const modeRefresh = () => {
+      const z = mode.value === 'zombies';
+      for (const r of classicRows) r.style.display = z ? 'none' : '';
+      for (const r of zombieRows) r.style.display = z ? '' : 'none';
+      zombieNote.style.display = z ? '' : 'none';
+      teamNote.textContent = z ? 'You fight as a Counter-Terrorist.' : 'You choose your team when the game starts.';
+    };
+    mode.addEventListener('change', modeRefresh);
     // files for maps that aren't built in (the player's own copy of the .bsp / WADs)
     const files = el('div', 'st-mapfiles');
     files.style.cssText = 'margin:6px 0 2px;padding:6px 8px;border:1px solid rgba(255,255,255,0.15);font-size:11px;line-height:1.45;display:none';
@@ -283,7 +301,9 @@ export class Menus {
     });
     map.addEventListener('change', refresh);
     page.appendChild(files);
-    page.appendChild(el('div', 'st-note', 'You choose your team when the game starts.'));
+    const teamNote = el('div', 'st-note', '');
+    page.appendChild(teamNote);
+    modeRefresh();
     const btns = el('div', 'st-btns');
     const start = el('button', 'st-btn', 'Start');
     const cancel = el('button', 'st-btn', 'Cancel');
@@ -298,6 +318,8 @@ export class Menus {
         c4Timer: +c4.input.value,
         startMoney: +money.value,
         buyTime: +bt.input.value,
+        mode: mode.value,
+        allies: +allies.value,
       };
       this._closeDlg();
       if (onStart) onStart(opts);
@@ -310,6 +332,29 @@ export class Menus {
     this.dlg = w;
     start.focus();
     refresh();
+  }
+
+  /** Zombie survival is over: the score and Play again / Main menu. */
+  showZombieOver(r, onAgain, onMenu) {
+    this._closeDlg();
+    const { w, body } = this._window('Game Over', 'st-zombieover', () => { this._closeDlg(); onMenu?.(); });
+    this._center(w, 360);
+    const page = el('div', 'st-page');
+    const big = el('div', null, `You survived ${r.waves} wave${r.waves === 1 ? '' : 's'}`);
+    big.style.cssText = 'font-size:20px;font-weight:bold;color:#d22a1a;margin:6px 0 10px;text-align:center';
+    page.append(big);
+    page.append(this._row('Zombies killed', el('span', null, String(r.kills))));
+    page.append(this._row('Best', el('span', null, `${r.best} wave${r.best === 1 ? '' : 's'}${r.newBest ? ' (new best!)' : ''}`)));
+    const btns = el('div', 'st-btns');
+    const again = el('button', 'st-btn', 'Play again');
+    const menu = el('button', 'st-btn', 'Main menu');
+    again.addEventListener('click', () => { this._closeDlg(); onAgain?.(); });
+    menu.addEventListener('click', () => { this._closeDlg(); onMenu?.(); });
+    btns.append(again, menu);
+    body.append(page, btns);
+    this.root.appendChild(w);
+    this.dlg = w;
+    again.focus();
   }
 
   showOptions(settings = {}, onChange) {
@@ -513,8 +558,8 @@ export class Menus {
     show(list[0]);
   }
 
-  showBuyMenu(player = {}, { onBuy } = {}) {
-    const team = player.team === 'CT' ? 'CT' : 'T';
+  showBuyMenu(player = {}, { onBuy, allWeapons = false } = {}) {
+    const team = allWeapons ? 'ALL' : player.team === 'CT' ? 'CT' : 'T';
     const money = Math.max(0, Math.round(player.money ?? 0));
     const buy = (item) => {
       this._closeVg();

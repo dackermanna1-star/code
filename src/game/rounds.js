@@ -3,6 +3,7 @@
 import { TEAM_T, TEAM_CT, TEAM_SPEC } from './player.js';
 import * as WS from './weaponsys.js';
 import * as CR from './combatrules.js';
+import { ZOMBIE_START_MONEY } from './zombies.js';
 import { createPlantedC4, createDefuseKit } from '../assets/worldweapons.js';
 import { TraceResult, MASK_WORLD_PLAYER } from '../engine/collision.js';
 
@@ -33,6 +34,11 @@ export class RoundManager {
     this.buyTime = (o.buyTime ?? 1.5) * 60;
     this.friendlyFire = !!o.friendlyFire;
     this.restartDelay = 5;
+    const Z = this.game.zombies;
+    Z?.configure(o);
+    if (Z?.enabled) { this.startMoney = ZOMBIE_START_MONEY; this.friendlyFire = false; }
+    const H = this.game.hostages;
+    if (H) H.enabled = H.spots.length > 0 && !Z?.enabled;
   }
 
   get time() { return this.game.time; }
@@ -43,10 +49,19 @@ export class RoundManager {
     this.eco = CR.createEconomy();
     this.roundNumber = 0;
     for (const p of this.game.players) { p.money = this.startMoney; p.kills = 0; p.deaths = 0; }
+    if (this.game.zombies?.enabled) {
+      // one endless "round": the zombie mode runs the waves
+      this.state = 'live';
+      this.freeze = false;
+      this.roundStart = this.time;
+      this.game.zombies.start();
+      return;
+    }
     this.startRound(true);
   }
 
   canSpawnLate() {
+    if (this.game.zombies?.enabled) return this.game.zombies.canSpawnLate();
     return this.state === 'freeze' || this.state === 'warmup' || (this.state === 'live' && this.time - this.roundStart < 10 && !this.bomb);
   }
 
@@ -107,6 +122,7 @@ export class RoundManager {
 
   tick(dt) {
     const g = this.game;
+    if (g.zombies?.enabled) { g.zombies.tick(dt); return; }
     if (this.state === 'freeze' && this.time >= this.freezeEnd) {
       this.state = 'live';
       this.freeze = false;
@@ -142,6 +158,7 @@ export class RoundManager {
   }
 
   timeLeft() {
+    if (this.game.zombies?.enabled) return this.game.zombies.hudInfo().next;
     if (this.state === 'freeze') return this.roundTime;
     if (this.state === 'live') return Math.max(0, this.roundStart + this.roundTime - this.time);
     if (this.state === 'over') return Math.max(0, this.roundStart + this.roundTime - this.roundEndTime);
@@ -149,6 +166,7 @@ export class RoundManager {
   }
 
   buyTimeLeft() {
+    if (this.game.zombies?.enabled) return this.game.zombies.state !== 'over';
     if (this.state === 'freeze') return true;
     return this.state === 'live' && this.time - this.roundStart < this.buyTime;
   }
@@ -243,7 +261,7 @@ export class RoundManager {
     if (item === 'nvgs') { return pay(1250); }
     const def = WS.WEAPON_DEFS[item];
     if (!def) return false;
-    if (def.team && def.team !== p.team) return false;
+    if (def.team && def.team !== p.team && !g.zombies?.enabled) return false; // zombie survival sells everything
     if (def.slot === 4) {
       const have = p.weapons[4].find((x) => x.id === item);
       const max = item === 'flashbang' ? 2 : 1;
@@ -382,6 +400,7 @@ export class RoundManager {
   }
 
   onPlayerKilled(victim, attacker) {
+    if (this.game.zombies?.enabled) { this.game.zombies.onKilled(victim, attacker); return; }
     if (victim === this.bombCarrier) this.bombCarrier = null;
     if (this.state === 'live') this.checkElimination();
   }

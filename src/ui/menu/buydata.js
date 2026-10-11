@@ -13,12 +13,14 @@ export const CATEGORIES = [
 ];
 
 // item order per category and team (index + 1 = number key)
+// ALL: zombie survival sells both teams' guns (the auto-snipers move to the MG page so
+// every page fits the 1-9 keys)
 export const MENU = {
-  pistol: { T: ['glock', 'usp', 'p228', 'deagle', 'elite'], CT: ['glock', 'usp', 'p228', 'deagle', 'fiveseven'] },
+  pistol: { T: ['glock', 'usp', 'p228', 'deagle', 'elite'], CT: ['glock', 'usp', 'p228', 'deagle', 'fiveseven'], ALL: ['glock', 'usp', 'p228', 'deagle', 'elite', 'fiveseven'] },
   shotgun: { T: ['m3', 'xm1014'], CT: ['m3', 'xm1014'] },
-  smg: { T: ['mac10', 'mp5', 'ump45', 'p90'], CT: ['tmp', 'mp5', 'ump45', 'p90'] },
-  rifle: { T: ['galil', 'ak47', 'scout', 'sg552', 'awp', 'g3sg1'], CT: ['famas', 'scout', 'm4a1', 'aug', 'sg550', 'awp'] },
-  mg: { T: ['m249'], CT: ['m249'] },
+  smg: { T: ['mac10', 'mp5', 'ump45', 'p90'], CT: ['tmp', 'mp5', 'ump45', 'p90'], ALL: ['mac10', 'tmp', 'mp5', 'ump45', 'p90'] },
+  rifle: { T: ['galil', 'ak47', 'scout', 'sg552', 'awp', 'g3sg1'], CT: ['famas', 'scout', 'm4a1', 'aug', 'sg550', 'awp'], ALL: ['galil', 'famas', 'ak47', 'm4a1', 'sg552', 'aug', 'scout', 'awp'] },
+  mg: { T: ['m249'], CT: ['m249'], ALL: ['m249', 'g3sg1', 'sg550'] },
   equip: {
     T: ['vest', 'vesthelm', 'flashbang', 'hegrenade', 'smokegrenade', 'nvgs'],
     CT: ['vest', 'vesthelm', 'flashbang', 'hegrenade', 'smokegrenade', 'defuser', 'nvgs'],
@@ -67,6 +69,6 @@ export const ITEMS = {
 export const ITEM_ICON = { vest: 'suit_full', vesthelm: 'suithelmet_full', defuser: 'defuser', nvgs: null, flashbang: 'flashbang', hegrenade: 'hegrenade', smokegrenade: 'smokegrenade' };
 
 export function itemsFor(cat, team) {
-  const t = team === 'CT' ? 'CT' : 'T';
-  return (MENU[cat] && MENU[cat][t]) || [];
+  const t = team === 'CT' ? 'CT' : team === 'ALL' ? 'ALL' : 'T';
+  return (MENU[cat] && (MENU[cat][t] || MENU[cat].T)) || [];
 }

@@ -448,6 +448,12 @@ export class BotManager {
   // Fill teams up to the configured size (called after the human picks a team).
   fillTeams(perTeam) {
     const g = this.game;
+    // zombie survival: perTeam bot teammates on the CT side, the zombies are no bots of ours
+    if (g.zombies?.enabled) {
+      let have = g.players.filter((p) => p.team === TEAM_CT && p.isBot).length;
+      while (have < perTeam) { this.addBot(TEAM_CT); have++; }
+      return;
+    }
     for (const team of [TEAM_T, TEAM_CT]) {
       let have = g.players.filter((p) => p.team === team).length;
       while (have < perTeam) {
@@ -650,7 +656,7 @@ export class BotManager {
   decideEconomy(team) {
     const g = this.game, R = g.rounds;
     const ps = g.players.filter((p) => p.team === team);
-    if (!ps.length) return 'full';
+    if (!ps.length || g.zombies?.enabled) return 'full';
     if (R.roundNumber <= 1) return 'pistol';
     const T = team === TEAM_T;
     const full = T ? 3800 : 4300;
@@ -1806,6 +1812,8 @@ class Bot {
     const g = this.game, p = this.p, R = g.rounds;
     // the carrier plants whenever he is in a bomb zone, whatever a teammate radioed
     if (p.team === TEAM_T && p.weapons[5] && R.state === 'live' && !R.bomb && this.tryPlant(it)) return;
+    // zombie survival: stick with the human
+    if (g.zombies?.enabled && g.zombies.allyObjective(this, it)) { this.watchDanger(it); return; }
     // radio-driven behaviour (human teammates)
     if (this.fallback && this.time < this.fallback.until) {
       it.move = p.team === TEAM_T ? (this.K.generic ? this.K.tSpawn : this.K.routes.long.pts[1].p) : this.K.ctSpawn;

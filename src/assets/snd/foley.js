@@ -327,4 +327,47 @@ export const FOLEY = {
     addMetal(x, sr, r, 0.09, { f: 2900, amp: 0.7, tau: 0.012, body: 0.3, bodyF: 800 });
     addMetal(x, sr, r, 0.13, { f: 4600, amp: 0.4, tau: 0.008 });
   }, 0.08) },
+  // ---- zombie survival: rough, breathy formant voices
+  zombie_idle: { rate: 22050, dur: 1.7, variants: 4, peak: 0.42, fn: (P, v) => foley(P, (x, sr, r) => {
+    const f = [78, 92, 70, 100][v % 4];
+    const d = r.range(1.1, 1.6);
+    addGrunt(x, sr, r, 0.02, 1, {
+      dur: d,
+      f0: [[0, f * 0.9], [d * 0.25, f * 1.15], [d * 0.6, f], [d, f * 0.7]],
+      env: [[0, 0], [0.12, 0.8], [d * 0.4, 1], [d * 0.75, 0.6], [d, 0]],
+      vowels: v % 2 ? [[0, V.uh], [d * 0.4, V.a], [d, V.o]] : [[0, V.u], [d * 0.3, V.o], [d * 0.6, V.uh], [d, V.er]],
+      breath: 0.45, grit: 5,
+    });
+  }, 0.1) },
+  zombie_attack: { rate: 22050, dur: 0.75, variants: 3, peak: 0.5, fn: (P, v) => foley(P, (x, sr, r) => {
+    const f = [115, 130, 100][v % 3];
+    addGrunt(x, sr, r, 0.01, 1, {
+      dur: 0.6, f0: [[0, f], [0.06, f * 1.45], [0.3, f * 1.25], [0.6, f * 0.8]],
+      env: [[0, 0], [0.03, 1], [0.35, 0.9], [0.6, 0]],
+      vowels: [[0, V.ae], [0.15, V.a], [0.6, V.uh]], breath: 0.7, grit: 8,
+    });
+  }, 0.08) },
+  zombie_pain: { rate: 22050, dur: 0.45, variants: 2, peak: 0.42, fn: (P, v) => foley(P, (x, sr, r) => {
+    const f = [120, 105][v % 2];
+    addGrunt(x, sr, r, 0.005, 1, {
+      dur: 0.38, f0: [[0, f], [0.05, f * 1.25], [0.38, f * 0.75]],
+      env: [[0, 0], [0.015, 1], [0.15, 0.8], [0.38, 0]],
+      vowels: [[0, V.a], [0.38, V.uh]], breath: 0.5, grit: 6,
+    });
+  }, 0.06) },
+  zombie_die: { rate: 22050, dur: 1.1, variants: 2, peak: 0.48, fn: (P, v) => foley(P, (x, sr, r) => {
+    const f = [125, 105][v % 2];
+    addGrunt(x, sr, r, 0.005, 1, {
+      dur: 0.95, f0: [[0, f], [0.1, f * 0.9], [0.6, f * 0.58], [0.95, f * 0.42]],
+      // a wet, broken-up gurgle
+      env: [[0, 0], [0.04, 1], [0.2, 0.55], [0.25, 0.9], [0.4, 0.45], [0.45, 0.75], [0.6, 0.3], [0.66, 0.5], [0.95, 0]],
+      vowels: [[0, V.uh], [0.3, V.o], [0.95, V.u]], breath: 0.6, grit: 6,
+    });
+  }, 0.1) },
+  zombie_wave: { rate: 22050, dur: 2.6, peak: 0.55, fn: (P) => foley(P, (x, sr, r) => {
+    addTone(x, sr, 0, { f: 55, f1: 41, glide: 1.6, tau: 1.0, amp: 1, a: 0.01 });
+    addTone(x, sr, 0, { f: 82.5, f1: 61, glide: 1.6, tau: 0.8, amp: 0.5, a: 0.01 });
+    addBurst(x, sr, r, 0, 0.6, { a: 0.3, tau: 0.8, color: 'pink', filters: [['lowpass', 400, 0.7]] });
+    addGrunt(x, sr, r, 0.5, 0.5, { dur: 1.8, f0: [[0, 70], [0.6, 85], [1.8, 55]], env: [[0, 0], [0.4, 1], [1.2, 0.7], [1.8, 0]], vowels: [[0, V.u], [0.8, V.o], [1.8, V.u]], breath: 0.5, grit: 4 });
+  }, 0.35) },
 };

@@ -224,6 +224,7 @@ export class Hud {
       this.prev.weaponId = null;
       if (s.spectator) this.drawSpectator(s);
     }
+    if (s.zombie) this.drawZombie(s);
     this.drawKills();
     this.drawChat();
     this.drawCenter();
@@ -710,6 +711,16 @@ export class Hud {
       this.text(line, this.vw / 2, y, CENTER_COLOR, { align: 'center' });
       y += this.lineH;
     }
+  }
+
+  /** Zombie survival: wave number, zombies left / next-wave countdown, kills and best. */
+  drawZombie(s) {
+    const z = s.zombie, k = this.k, vw = this.vw;
+    const top = s.alive ? 6 * k : Math.round(this.vh * 0.11) + 6 * k; // under the spectator bar
+    const px = Math.round(this.fontPx * 1.7);
+    this.text(z.wave ? `WAVE ${z.wave}` : 'GET READY', vw / 2, top, [210, 34, 24], { align: 'center', font: fontString(px, true) });
+    const info = z.state === 'wave' ? `Zombies left: ${z.left}` : z.state === 'break' ? `Next wave in ${Math.ceil(z.next ?? 0)}` : 'GAME OVER';
+    this.text(`${info}     Kills: ${z.kills}     Best: ${z.best} wave${z.best === 1 ? '' : 's'}`, vw / 2, top + Math.round(px * 1.2), [255, 176, 0], { align: 'center' });
   }
 
   drawFps(s) {
