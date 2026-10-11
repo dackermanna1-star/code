@@ -187,7 +187,7 @@ async function boot() {
   function chooseClass(skin) {
     const opts = settings.get('newgame');
     game.joinTeam(game.local, pendingTeam, skin || null);
-    game.bots.fillTeams(opts.mode === 'zombies' ? (opts.allies ?? 0) : (opts.perTeam ?? 5));
+    game.bots.fillTeams(opts.mode === 'zombies' ? Math.max(0, Math.min(10, opts.allies ?? 0)) : (opts.perTeam ?? 5)); // zombie survival: up to 10 bot teammates
     menus.hideAll?.();
     renderer.canvas.focus?.();
     input.requestLock();

@@ -241,7 +241,7 @@ export class Menus {
     const money = this._select([800, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 8000, 10000, 16000].map((v) => [v, '$' + v]), d.startMoney);
     const bt = this._slider(0.25, 3, 0.25, d.buyTime, (v) => v.toFixed(2));
     const mode = this._select([['classic', 'Classic'], ['zombies', 'Zombie survival']], d.mode === 'zombies' ? 'zombies' : 'classic');
-    const allies = this._select(Array.from({ length: 6 }, (_, i) => [i, String(i)]), d.allies ?? 0);
+    const allies = this._select(Array.from({ length: 11 }, (_, i) => [i, String(i)]), Math.min(10, d.allies ?? 0));
     const classicRows = [
       this._row('Bots per team', bots),
       this._row('Round time (mp_roundtime)', rt),

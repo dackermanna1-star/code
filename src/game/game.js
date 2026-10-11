@@ -179,9 +179,35 @@ export class Game {
     const start = Math.floor(Math.random() * list.length);
     let s = null;
     for (let i = 0; i < list.length && !s; i++) if (!occupied(list[(start + i) % list.length])) s = list[(start + i) % list.length];
+    // more players than spawn points (a big zombie survival team on a small map): a free
+    // standing spot next to one instead of on top of someone
+    if (!s) s = this.spawnBeside(list, start, occupied, used);
     s = s || list[start];
     used.add(s);
     return s;
+  }
+
+  spawnBeside(list, start, occupied, used) {
+    const H = HULL_STAND;
+    for (let i = 0; i < list.length; i++) {
+      const sp = list[(start + i) % list.length];
+      for (const r of [72, 144]) {
+        for (let k = 0; k < 8; k++) {
+          const a = (k / 8) * Math.PI * 2;
+          const o = [sp.origin[0] + Math.round(Math.cos(a) * r), sp.origin[1] + Math.round(Math.sin(a) * r), sp.origin[2]];
+          const c = { origin: o, angle: sp.angle };
+          if (occupied(c) || [...used].some((u) => Math.abs(u.origin[0] - o[0]) < 64 && Math.abs(u.origin[1] - o[1]) < 64)) continue;
+          this.collision.trace(o, o, H.mins, H.maxs, MASK_WORLD_PLAYER, tmpTr);
+          if (tmpTr.startsolid || tmpTr.allsolid) continue;
+          if (!this.visible(sp.origin, o)) continue; // not through a wall
+          // something to stand on
+          this.collision.trace(o, [o[0], o[1], o[2] - 48], H.mins, H.maxs, MASK_WORLD_PLAYER, tmpTr);
+          if (tmpTr.fraction >= 1 || tmpTr.normal[2] < 0.7) continue;
+          return c;
+        }
+      }
+    }
+    return null;
   }
 
   spawnPlayer(p, used = new Set()) {
