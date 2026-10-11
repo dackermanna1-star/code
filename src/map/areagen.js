@@ -5,7 +5,8 @@
 // through the MapDSL.
 
 import { MapDSL } from './mapdsl.js';
-import { prismBrush, boxBrush } from './brush.js';
+import { prismBrush, boxBrush, slopedPrismBrush } from './brush.js';
+import { CONTENTS_PLAYERCLIP } from '../engine/collision.js';
 
 const GRID = 8;
 const BASE = -640; // bottom of the world
@@ -17,6 +18,30 @@ export class AreaMap extends MapDSL {
     this.areas = [];
     this.wallZones = []; // { rect, tex, capTex, extra, rock }
     this.solidMask = []; // extra rects forced solid (pillars)
+    this.massing = null; // measured wall-top heights (see setMassing)
+  }
+
+  // Measured wall/roof top heights on a grid ({x0,y0,cell,w,h,rle}, see
+  // tools/measure-massing.mjs). Auto walls take these heights where they rise
+  // clearly above the neighbouring floors.
+  setMassing(m) {
+    const bin = atob(m.rle);
+    const data = new Int16Array(m.w * m.h).fill(-32768);
+    let k = 0;
+    for (let i = 0; i < bin.length; i += 2) {
+      const v = bin.charCodeAt(i), n = bin.charCodeAt(i + 1);
+      for (let r = 0; r < n; r++, k++) if (v) data[k] = (v - 81) * 8;
+    }
+    this.massing = { ...m, data };
+  }
+
+  massingAt(x, y) {
+    const M = this.massing;
+    if (!M) return null;
+    const i = Math.floor((x - M.x0) / M.cell), j = Math.floor((y - M.y0) / M.cell);
+    if (i < 0 || j < 0 || i >= M.w || j >= M.h) return null;
+    const v = M.data[j * M.w + i];
+    return v === -32768 ? null : v;
   }
 
   // Flat rectangular area. opts: { tex, wall, ceil, slab, side }
@@ -50,12 +75,26 @@ export class AreaMap extends MapDSL {
     if (top > zHi) this.add(boxBrush([xa, ya, zHi], [xb, yb, top], { all: tex, bottom: tex }, { name: 'lintel' }));
   }
 
-  // Convex polygon area (flat). pts: [[x,y],...]
+  // Convex polygon area. pts: [[x,y],...]. z is a height, or a plane
+  // [z0, gx, gy] meaning z = z0 + gx*x + gy*y (sloped floor).
   P(name, pts, z, opts = {}) {
     const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
-    const a = { name, kind: 'poly', pts, x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys), z0: z, z1: z, dir: null, ...defaults(opts) };
+    const plane = Array.isArray(z) ? z : null;
+    const zs = plane ? pts.map(([x, y]) => plane[0] + plane[1] * x + plane[2] * y) : [z];
+    const a = { name, kind: 'poly', pts, plane, x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys), z0: Math.min(...zs), z1: Math.max(...zs), dir: null, ...defaults(opts) };
     this.areas.push(a);
     return a;
+  }
+
+  // Axis-aligned rectangle with a sloped plane floor (see P).
+  Q(name, x0, y0, x1, y1, plane, opts = {}) {
+    return this.P(name, [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], plane, opts);
+  }
+
+  // Force a rectangle to stay solid building mass (pillars, towers) even if an area covers it.
+  solid(x0, y0, x1, y1, props = null) {
+    this.solidMask.push([Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1)]);
+    if (props) this.zone(x0, y0, x1, y1, props);
   }
 
   zone(x0, y0, x1, y1, props) {
@@ -64,6 +103,7 @@ export class AreaMap extends MapDSL {
 
   // Height of an area's floor at (x, y)
   static floorAt(a, x, y) {
+    if (a.plane) return a.plane[0] + a.plane[1] * x + a.plane[2] * y;
     if (a.kind !== 'ramp' && a.kind !== 'stairs') return a.z0;
     let t;
     switch (a.dir) {
@@ -108,7 +148,8 @@ export class AreaMap extends MapDSL {
       } else if (a.kind === 'rect') {
         this.add(boxBrush([a.x0, a.y0, bottom], [a.x1, a.y1, a.z0], tex, { name: a.name, surface: a.surface }));
       } else if (a.kind === 'poly') {
-        this.add(prismBrush('z', a.pts, bottom, a.z0, tex, { name: a.name, surface: a.surface }));
+        if (a.plane) this.add(slopedPrismBrush(a.pts, bottom, a.plane, tex, { name: a.name, surface: a.surface }));
+        else this.add(prismBrush('z', a.pts, bottom, a.z0, tex, { name: a.name, surface: a.surface }));
       } else {
         const { x0, y0, x1, y1, z0, z1, dir } = a;
         if (dir === 'n' || dir === 's') {
@@ -136,6 +177,7 @@ export class AreaMap extends MapDSL {
     const nx = Math.ceil((bx1 - bx0) / GRID), ny = Math.ceil((by1 - by0) / GRID);
     const covered = new Uint8Array(nx * ny);
     const height = new Float32Array(nx * ny).fill(-1e9);
+    const nearFloor = new Float32Array(nx * ny).fill(-1e9);
     const wallTex = new Array(nx * ny).fill(null);
     const areas = this.areas;
     // a cell is free (not solid) if any part of it is inside an area
@@ -176,6 +218,7 @@ export class AreaMap extends MapDSL {
         const fz = Math.max(a.z0, a.z1);
         const h = fz + a.wall;
         if (h > height[k]) { height[k] = h; wallTex[k] = a.wallTex || null; }
+        if (fz > nearFloor[k]) nearFloor[k] = fz;
       }
     }
     // propagate heights into the interior of solid masses (flat roofs)
@@ -209,9 +252,25 @@ export class AreaMap extends MapDSL {
           if (zn.extra) height[k] += zn.extra;
         }
     }
+    // measured skyline: walls take the original's heights where they rise
+    // clearly above the floors next to them (and inside solid masses)
+    if (this.massing) {
+      for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+        const k = j * nx + i;
+        if (covered[k]) continue;
+        const mh = this.massingAt(bx0 + (i + 0.5) * GRID, by0 + (j + 0.5) * GRID);
+        if (mh == null) continue;
+        if (zoneOf[k]?.keepHeight) continue;
+        if (nearFloor[k] > -1e8 ? mh >= nearFloor[k] + 24 : mh > -600) height[k] = Math.round(mh / 8) * 8;
+      }
+    }
     // greedy rectangle merge of solid cells with equal height+texture
     const used = new Uint8Array(nx * ny);
-    const keyOf = (k) => height[k] + '|' + (wallTex[k] || '') + '|' + (zoneOf[k] ? this.wallZones.indexOf(zoneOf[k]) : -1);
+    // player clip above walls players shouldn't stand on (GoldSrc maps clip
+    // their rooftops): anything more than 64 above the floor next to it
+    const clip = new Uint8Array(nx * ny);
+    for (let k = 0; k < nx * ny; k++) if (!covered[k] && !(nearFloor[k] > -1e8 && height[k] - nearFloor[k] <= 64)) clip[k] = 1;
+    const keyOf = (k) => height[k] + '|' + (wallTex[k] || '') + '|' + (zoneOf[k] ? this.wallZones.indexOf(zoneOf[k]) : -1) + '|' + clip[k];
     for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
       const k = j * nx + i;
       if (covered[k] || used[k]) continue;
@@ -226,6 +285,7 @@ export class AreaMap extends MapDSL {
       for (let jj = j; jj < j + h; jj++) for (let ii = i; ii < i + w; ii++) used[jj * nx + ii] = 1;
       const x0 = bx0 + i * GRID, y0 = by0 + j * GRID, x1 = x0 + w * GRID, y1 = y0 + h * GRID;
       const top = height[k];
+      if (clip[k]) this.add(boxBrush([x0, y0, top], [x1, y1, 1600], { all: null }, { name: 'clip', contents: CONTENTS_PLAYERCLIP, visible: false, castShadow: false }));
       const zn = zoneOf[k];
       const sideTex = zn?.tex || wallTex[k] || 'wall_stone';
       const roofTex = zn?.roof || 'wall_plaster';

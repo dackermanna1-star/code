@@ -17,6 +17,7 @@ import { buildHudState } from './game/hudstate.js';
 import { Console } from './game/console.js';
 import { RadioMenu } from './ui/radiomenu.js';
 import { Announcer } from './game/announcer.js';
+import { DUST2_LIGHTING } from './map/lighting.js';
 
 const params = new URLSearchParams(location.search);
 
@@ -43,7 +44,7 @@ async function boot() {
 
   progress('Building sky', 0.18);
   await frame();
-  const sky = createSky(renderer.renderer, { sunDir: [-0.59, -0.245, 0.766] });
+  const sky = createSky(renderer.renderer, { sunDir: DUST2_LIGHTING.sunDir });
   renderer.scene.background = sky;
 
   progress('Precaching sounds', 0.26);

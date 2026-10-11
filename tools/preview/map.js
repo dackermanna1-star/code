@@ -8,6 +8,7 @@ import * as TexLib from '../../src/assets/textures.js';
 import { createSky } from '../../src/assets/sky.js';
 import { loadWorld } from '../../src/game/world.js';
 import { PlayerMover, createPlayerMove, IN_JUMP, IN_DUCK, IN_WALK } from '../../src/engine/pmove.js';
+import { DUST2_LIGHTING } from '../../src/map/lighting.js';
 
 const params = new URLSearchParams(location.search);
 const app = document.getElementById('app');
@@ -15,7 +16,7 @@ const r = new Renderer(app);
 if (params.get('aspect')) r.configure({ aspect: params.get('aspect') });
 const input = new Input(r.canvas);
 const texLib = new TextureLibrary(TexLib);
-r.scene.background = createSky(r.renderer, { sunDir: [-0.59, -0.245, 0.766] });
+r.scene.background = createSky(r.renderer, { sunDir: DUST2_LIGHTING.sunDir });
 const W = await loadWorld(texLib, () => {}, { forceBake: params.has('bake') });
 for (const m of W.meshes) r.world.add(m);
 const mover = new PlayerMover(W.collision);

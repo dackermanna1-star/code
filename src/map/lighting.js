@@ -1,11 +1,12 @@
-// de_dust2 light_environment equivalent: warm afternoon sun from the west-southwest,
-// pale blue skylight, one bounce off the sand.
+// de_dust2 light_environment equivalent. The 1.6 map's sun shines toward yaw 43
+// (from the south-west) at 60 degrees elevation with a yellowish colour; a warm
+// skylight and one bounce off the sand provide the fill.
 
 // Calibrated against the reference screenshots: sunlit sand ~= texture brightness,
 // open shadow ~0.37x, shadowed walls ~0.5x, warm (not blue) fill light.
 export const DUST2_LIGHTING = {
-  sunDir: [-0.59, -0.245, 0.766],
-  sunColor: [0.98, 0.92, 0.84],
+  sunDir: [-0.366, -0.341, 0.866], // toward the sun: -(cos43 cos60, sin43 cos60, -sin60)
+  sunColor: [1.0, 0.94, 0.76],
   skyColor: [0.28, 0.27, 0.24],
   ambientMin: [0.06, 0.055, 0.05],
   bounce: 0.55,

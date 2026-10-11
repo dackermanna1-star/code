@@ -216,3 +216,15 @@ export function prismBrush(axis, pts2, lo, hi, tex, opts) {
   planes.push(plane(nlo, -lo, t(nlo)));
   return new Brush(planes, opts);
 }
+
+// Vertical prism over a convex (x,y) polygon whose top is the plane
+// z = z0 + gx*x + gy*y (sloped floors); bottom at zLo.
+export function slopedPrismBrush(pts2, zLo, top, tex, opts) {
+  const [z0, gx, gy] = top;
+  const b = prismBrush('z', pts2, zLo, 1e5, tex, opts);
+  const n = [-gx, -gy, 1];
+  const i = b.planes.findIndex((p) => p.n[2] > 0.99);
+  b.planes[i] = plane(n, z0, resolveTex(tex, n));
+  return b;
+}
+

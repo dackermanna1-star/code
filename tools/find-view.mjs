@@ -5,12 +5,12 @@
 //   node tools/find-view.mjs <ref.png> <floors.json> [opts as key=value]
 //     yaw=a,b      yaw search range (deg)          pitch=a,b   pitch range
 //     region=x0,y0,x1,y1   candidate area          cell=64     candidate grid (units)
-//     eye=53       eye height above the floor      mask=x0,y0,x1,y1(fractions) area to ignore (HUD/gun), repeatable via ';'
+//     yawstep=5 pitchstep=4   eye=53 eye height above the floor
+//         mask=x0,y0,x1,y1(fractions) area to ignore (HUD/gun), repeatable via ';'
 //
-// Step 1 aligns yaw/pitch on the skybox alone (it sits at infinity, so only the view
-// angles matter). Step 2 derives the screenshot's sky/geometry mask from that
-// alignment. Step 3 scores every candidate eye position by silhouette IoU with the
-// mask plus gradient correlation, then refines around the best ones.
+// Every candidate pose (grid positions x yaw x pitch) is scored by locally normalised
+// correlation with the screenshot (structure only, so lighting differences between
+// engines don't matter); the best few are refined by coordinate descent.
 // floors.json comes from tools/compare-bsp.mjs.
 import { createRequire } from 'module';
 import fs from 'fs';
@@ -87,67 +87,82 @@ await page.evaluate(({ ref, W, H, masks }) => {
   };
 }, { ref: Array.from(refRaw), W, H, masks });
 
-// ---- step 1: sky alignment (upper part of the image, robust L1 on colour)
-const sky = await page.evaluate(({ yawA, yawB, pitA, pitB }) => {
-  const F = window.__fv, { W, H, n, ref, keep } = F;
-  const score = (yaw, pitch) => {
-    const d = F.grab([0, 0, 2000], pitch, yaw, false);
-    const errs = [];
-    for (let y = 0; y < H * 0.45; y++) for (let x = 0; x < W; x++) {
-      const i = y * W + x; if (!keep[i]) continue;
-      errs.push(Math.abs(d[i * 4] - ref[i * 3]) + Math.abs(d[i * 4 + 1] - ref[i * 3 + 1]) + Math.abs(d[i * 4 + 2] - ref[i * 3 + 2]));
+// ---- joint search with locally normalised correlation (lighting-independent structure)
+const yawStep = +(opt.yawstep || 5), pitchStep = +(opt.pitchstep || 4);
+await page.evaluate(() => {
+  const F = window.__fv, { W, H, n } = F;
+  const R = 3; // 7x7 window
+  F.lnc = (g) => {
+    const I = new Float64Array((W + 1) * (H + 1)), I2 = new Float64Array((W + 1) * (H + 1));
+    for (let y = 0; y < H; y++) { let s = 0, s2 = 0; for (let x = 0; x < W; x++) { const v = g[y * W + x]; s += v; s2 += v * v; I[(y + 1) * (W + 1) + x + 1] = I[y * (W + 1) + x + 1] + s; I2[(y + 1) * (W + 1) + x + 1] = I2[y * (W + 1) + x + 1] + s2; } }
+    const out = new Float32Array(n);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const x0 = Math.max(0, x - R), x1 = Math.min(W, x + R + 1), y0 = Math.max(0, y - R), y1 = Math.min(H, y + R + 1);
+      const a = (y1 * (W + 1) + x1), b = (y0 * (W + 1) + x1), c = (y1 * (W + 1) + x0), d = (y0 * (W + 1) + x0);
+      const cnt = (x1 - x0) * (y1 - y0);
+      const m = (I[a] - I[b] - I[c] + I[d]) / cnt, m2 = (I2[a] - I2[b] - I2[c] + I2[d]) / cnt;
+      out[y * W + x] = (g[y * W + x] - m) / (Math.sqrt(Math.max(0, m2 - m * m)) + 8);
     }
-    errs.sort((a, b) => a - b);
-    let s = 0; const k = Math.floor(errs.length * 0.5); for (let i = 0; i < k; i++) s += errs[i]; // best half: ignores buildings
-    return s / k;
+    return out;
   };
-  let best = [1e9, 0, 0];
-  for (let yaw = yawA; yaw <= yawB; yaw += 2) for (let p = pitA; p <= pitB; p += 2) { const s = score(yaw, p); if (s < best[0]) best = [s, yaw, p]; }
-  for (let step of [0.5, 0.125]) {
-    const [, by, bp] = best;
-    for (let yaw = by - step * 4; yaw <= by + step * 4; yaw += step) for (let p = bp - step * 4; p <= bp + step * 4; p += step) { const s = score(yaw, p); if (s < best[0]) best = [s, yaw, p]; }
+  const gr = new Float32Array(n); for (let i = 0; i < n; i++) gr[i] = F.ref[i * 3] * 0.299 + F.ref[i * 3 + 1] * 0.587 + F.ref[i * 3 + 2] * 0.114;
+  F.refL = F.lnc(gr);
+  // sky region of the screenshot by colour (blue sky / white clouds), and coarse edges
+  const skyRef = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    const r = F.ref[i * 3], g = F.ref[i * 3 + 1], b = F.ref[i * 3 + 2];
+    skyRef[i] = (b > r + 12 && b > 110) || (r > 175 && g > 175 && b > 175 && Math.max(r, g, b) - Math.min(r, g, b) < 40) ? 1 : 0;
   }
-  return best;
-}, { yawA, yawB, pitA, pitB });
-console.log(`sky alignment: yaw ${sky[1]} pitch ${sky[2]} (err ${sky[0].toFixed(1)})`);
-const [, YAW, PITCH] = sky;
-
-// ---- step 2: screenshot geometry mask = pixels that differ from the aligned skybox
-const refMaskInfo = await page.evaluate(({ YAW, PITCH }) => {
-  const F = window.__fv, { W, H, n, ref, keep } = F;
-  const d = F.grab([0, 0, 2000], PITCH, YAW, false);
-  const m = new Uint8Array(n);
-  for (let i = 0; i < n; i++) m[i] = Math.abs(d[i * 4] - ref[i * 3]) + Math.abs(d[i * 4 + 1] - ref[i * 3 + 1]) + Math.abs(d[i * 4 + 2] - ref[i * 3 + 2]) > 60 ? 1 : 0;
-  // fill downward: anything below a geometry pixel in the same column is geometry too
-  for (let x = 0; x < W; x++) { let on = false; for (let y = 0; y < H; y++) { const i = y * W + x; if (m[i]) on = true; else if (on) m[i] = 1; } }
-  F.refMask = m;
-  let s = ''; for (let y = 0; y < H; y += 4) { for (let x = 0; x < W; x += 2) s += keep[y * W + x] ? (m[y * W + x] ? '#' : '.') : ' '; s += '\n'; }
-  return s;
-}, { YAW, PITCH });
-console.log(refMaskInfo);
-
-// ---- step 3: silhouette search
-const scoreAll = (list, yaw, pitch) => page.evaluate(({ list, yaw, pitch, eyeH }) => {
-  const F = window.__fv, { n, keep, refMask } = F;
-  const out = [];
-  for (const [x, y, z] of list) {
-    const { m } = F.grabMask([x, y, z + eyeH], pitch, yaw);
+  F.skyRef = skyRef;
+  const coarseEdges = (g) => {
+    const cw = W >> 2, ch = H >> 2, e = new Float32Array(cw * ch);
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      const i = y * W + x; const m = Math.hypot(g[i + 1] - g[i - 1], g[i + W] - g[i - W]);
+      e[(y >> 2) * cw + (x >> 2)] += m;
+    }
+    let mu = 0; for (const v of e) mu += v; mu /= e.length; let sd = 0; for (const v of e) sd += (v - mu) ** 2; sd = Math.sqrt(sd / e.length) || 1;
+    for (let i = 0; i < e.length; i++) e[i] = (e[i] - mu) / sd;
+    return e;
+  };
+  F.refE = coarseEdges(gr);
+  const keepC = new Uint8Array((W >> 2) * (H >> 2)); for (let y = 0; y < H >> 2; y++) for (let x = 0; x < W >> 2; x++) keepC[y * (W >> 2) + x] = F.keep[(y * 4 + 2) * W + x * 4 + 2];
+  F.score = (eye, pitch, yaw) => {
+    const { m, d } = F.grabMask(eye, pitch, yaw); // geometry mask, world only
     let inter = 0, uni = 0;
-    for (let i = 0; i < n; i++) { if (!keep[i]) continue; const a = m[i], b = refMask[i]; if (a & b) inter++; if (a | b) uni++; }
-    out.push([inter / (uni || 1), x, y, z]);
+    for (let i = 0; i < n; i++) { if (!F.keep[i]) continue; const a = 1 - m[i], b = F.skyRef[i]; if (a & b) inter++; if (a | b) uni++; }
+    const g = new Float32Array(n); for (let i = 0; i < n; i++) g[i] = d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114;
+    const e = coarseEdges(g);
+    let s = 0, k = 0; for (let i = 0; i < e.length; i++) if (keepC[i]) { s += e[i] * F.refE[i]; k++; }
+    return (uni ? inter / uni : 1) + 0.5 * s / k;
+  };
+});
+const scoreList = (list) => page.evaluate((list) => list.map(([x, y, z, pitch, yaw]) => [window.__fv.score([x, y, z], pitch, yaw), x, y, z, pitch, yaw]), list);
+const poses = [];
+for (const [x, y, z] of cands) for (let yaw = yawA; yaw <= yawB; yaw += yawStep) for (let p = pitA; p <= pitB; p += pitchStep) poses.push([x, y, z + eyeH, p, yaw]);
+console.log(`${cands.length} positions, ${poses.length} poses`);
+let res = [];
+for (let i = 0; i < poses.length; i += 500) res.push(...await scoreList(poses.slice(i, i + 500)));
+res.sort((a, b) => b[0] - a[0]);
+const fmt = (r) => `${r[0].toFixed(3)}  pos=${Math.round(r[1])},${Math.round(r[2])},${Math.round(r[3] - eyeH)} ang=${r[4]},${r[5]}`;
+console.log('coarse:'); for (const r of res.slice(0, 8)) console.log('  ' + fmt(r));
+// local refinement (coordinate descent) from the best few distinct starts
+const starts = [];
+for (const r of res) { if (starts.every((s) => Math.hypot(s[1] - r[1], s[2] - r[2]) > 96)) starts.push(r); if (starts.length >= 4) break; }
+const final = [];
+for (let best of starts) {
+  const steps = [[32, 4], [16, 2], [8, 1], [4, 0.5]];
+  for (const [dp, da] of steps) {
+    let improved = true;
+    while (improved) {
+      improved = false;
+      const [, x, y, z, p, yw] = best;
+      const nb = [[x + dp, y, z, p, yw], [x - dp, y, z, p, yw], [x, y + dp, z, p, yw], [x, y - dp, z, p, yw], [x, y, z + dp / 2, p, yw], [x, y, z - dp / 2, p, yw], [x, y, z, p + da, yw], [x, y, z, p - da, yw], [x, y, z, p, yw + da], [x, y, z, p, yw - da]];
+      const sc = await scoreList(nb);
+      for (const s of sc) if (s[0] > best[0] + 1e-4) { best = s; improved = true; }
+    }
   }
-  return out;
-}, { list, yaw, pitch, eyeH });
-
-let res = await scoreAll(cands, YAW, PITCH);
-res.sort((a, b) => b[0] - a[0]);
-console.log('coarse best:'); for (const r of res.slice(0, 8)) console.log('  ', r.map((v) => Math.round(v * 1000) / 1000).join(' '));
-// refine around the top 5 with a finer grid (free-floating eye: floors can differ locally)
-const fine = [];
-for (const [, x, y, z] of res.slice(0, 5)) for (let dx = -48; dx <= 48; dx += 16) for (let dy = -48; dy <= 48; dy += 16) for (const dz of [-8, 0, 8]) fine.push([x + dx, y + dy, z + dz]);
-res = await scoreAll(fine, YAW, PITCH);
-res.sort((a, b) => b[0] - a[0]);
-console.log('refined best:'); for (const r of res.slice(0, 8)) console.log('  ', r.map((v) => Math.round(v * 1000) / 1000).join(' '));
-const [, bx, by, bz] = res[0];
-console.log(`\nbest view: pos=${bx},${by},${bz} ang=${PITCH},${YAW}  (feet; eye +${eyeH})`);
+  final.push(best);
+}
+final.sort((a, b) => b[0] - a[0]);
+console.log('refined:'); for (const r of final) console.log('  ' + fmt(r));
 await browser.close();
