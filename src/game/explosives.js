@@ -87,7 +87,7 @@ export class Explosives {
       m.led?.position.set(at.pos[0] - fwd[0] * 0.6, at.pos[1] - fwd[1] * 0.6, at.pos[2] + 7.2);
     }
     this.mines.push(m);
-    g.sound?.play('c4_plant', { pos: at.pos, volume: 0.5 });
+    g.sound?.play('c4_planted', { pos: at.pos, volume: 0.5 });
     return true;
   }
 
@@ -141,7 +141,7 @@ export class Explosives {
       c.led = this.led(0x30ff40);
     }
     this.charges.push(c);
-    g.sound?.play(c.on ? 'hit_flesh' : 'c4_click', { pos, volume: 0.7 });
+    g.sound?.play(c.on ? 'hit_flesh' : 'c4_plant_press', { pos, volume: 0.7 });
     if (owner === g.local && c.on) g.hud?.centerPrint?.('Stuck it on one! Press V to blow it', 2);
   }
 
@@ -163,7 +163,7 @@ export class Explosives {
     const g = this.game, t = g.time;
     const mine = this.charges.filter((c) => c.owner === p);
     if (!mine.length) { if (p === g.local) g.hud?.centerPrint?.('No charges out', 1.5); return false; }
-    g.sound?.play('c4_click', { pos: p === g.viewTarget ? null : p.eyePos(), volume: 0.8 });
+    g.sound?.play('c4_plant_press', { pos: p === g.viewTarget ? null : p.eyePos(), volume: 0.8 });
     let k = 0;
     for (const c of mine) {
       if (t < c.armAt) continue; // not armed yet: stays out

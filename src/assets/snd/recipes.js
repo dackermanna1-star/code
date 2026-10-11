@@ -37,10 +37,11 @@ export const SOUND_GROUPS = {
   Bosses: ['boss_intro', 'boss_roar', 'boss_growl', 'boss_attack', 'boss_die', 'cleaver_swing', 'charge_go', 'charge_hit', 'charge_wall',
     'spitter_hurl', 'spit', 'spitter_burst', 'banshee_scream', 'banshee_charge', 'banshee_moan', 'banshee_attack', 'banshee_blink',
     'fireball_throw', 'fireball_hit', 'inferno_charge', 'slam', 'abom_raise'],
+  'Zombie arsenal': ['minigun', 'minigun_spinup', 'minigun_spindown', 'aa12', 'barrett', 'chainsaw_idle', 'chainsaw_rev', 'chainsaw_cut',
+    'tesla_fire', 'tesla_hit', 'medkit_use', 'medkit_heal', 'sup_pistol', 'sup_smg', 'sup_rifle', 'sup_heavy', 'attach_fit'],
+  'Special infected': ['boomer_idle', 'boomer_vomit', 'boomer_burst', 'charger_roar', 'hunter_scream', 'hunter_pounce', 'smoker_cough',
+    'tongue_shot', 'sprinter_shriek'],
 };
-
-/** Every sound name in the bank. (`round_start` does not exist in 1.6 and is omitted.) */
-export const SOUND_NAMES = Object.values(SOUND_GROUPS).flat();
 
 // Default GoldSrc-style attenuation and per-play pitch jitter for each sound.
 // `play()` uses these when the caller passes no `attenuation`.
@@ -48,6 +49,8 @@ const ATTN_DEFAULTS = {
   he_explode: 'loud', flashbang_explode: 'loud', c4_explode: 'loud', smoke_explode: 'normal',
   rocket_explode: 'loud', slam: 'loud', boss_roar: 'loud', banshee_scream: 'loud', rpg_fire: 'loud', boss_die: 'loud', fire_loop: 'static', acid_loop: 'static',
   m4a1_silenced: 'normal', usp_silenced: 'normal', tmp: 'normal',
+  minigun: 'loud', aa12: 'loud', barrett: 'loud', tesla_fire: 'loud', boomer_burst: 'loud', charger_roar: 'loud', hunter_scream: 'loud',
+  chainsaw_idle: 'normal', chainsaw_rev: 'loud', attach_fit: 'idle', medkit_use: 'idle', medkit_heal: 'idle',
   step_sand: 'static', step_stone: 'static', step_wood: 'static', step_metal: 'static', land: 'static', jump: 'idle',
   shell: 'idle', shotgun_shell: 'idle', impact_sand: 'static', impact_wood: 'static', impact_metal: 'static',
   c4_beep: 'normal', ambience_bird: 'none', ambience_wind: 'none', distant_fly: 'idle',
@@ -58,6 +61,7 @@ const JITTER = {
   impact_metal: 0.03, glass: 0.03, shell: 0.04, shotgun_shell: 0.04, grenade_bounce: 0.04, knife_hit: 0.03,
   knife_hitwall: 0.03, knife_slash: 0.03, knife_stab: 0.02, die: 0.03, pain: 0.03, ambience_bird: 0.06,
   zombie_idle: 0.07, zombie_attack: 0.05, zombie_pain: 0.05, zombie_die: 0.04,
+  boomer_idle: 0.06, charger_roar: 0.04, hunter_scream: 0.05, smoker_cough: 0.06, sprinter_shriek: 0.06, tesla_hit: 0.05, chainsaw_cut: 0.04,
 };
 
 export const DEFS = {};
@@ -65,6 +69,15 @@ for (const [name, g] of Object.entries(GUNS)) DEFS[name] = { ...g, fn: (P) => gu
 for (const [name, g] of Object.entries(SUPPRESSED)) DEFS[name] = { ...g, fn: (P) => suppressed(P, g.p), attn: 'normal', jitter: 0.015 };
 for (const [name, d] of Object.entries({ ...HANDLING, ...FOLEY, ...MISC, ...ZOMBIE_FX })) DEFS[name] = { ...d };
 DEFS.buy = { alias: 'ammo_pickup' };
+// a recipe nobody listed above still gets made (the bank only renders catalogued names)
+{
+  const listed = new Set(Object.values(SOUND_GROUPS).flat());
+  const rest = Object.keys(DEFS).filter((n) => !listed.has(n));
+  if (rest.length) SOUND_GROUPS.Other = rest;
+}
+
+/** Every sound name in the bank. (`round_start` does not exist in 1.6 and is omitted.) */
+export const SOUND_NAMES = Object.values(SOUND_GROUPS).flat();
 for (const name of SOUND_NAMES) {
   const d = DEFS[name];
   if (!d) throw new Error('sounds: missing recipe for ' + name);
