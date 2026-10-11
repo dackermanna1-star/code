@@ -126,6 +126,7 @@ export function buildDust2() {
   m.A('a_plat_nw', 264, 2723, 507, 2763, 96, { tex: SAND, wall: 192 });
   m.A('a_plat_n', 773, 2723, 1032, 2763, 96, { tex: SAND, wall: 192 });
   m.A('a_plat_se', 1032, 2304, 1268, 2420, 96, { tex: SAND, wall: 192 });
+  m.A('a_plat_ne', 1032, 2723, 1268, 2763, 96, { tex: SAND, wall: 192 });
   m.A('a_step', 1032, 2763, 1268, 2812, 112, { tex: STONE, wall: 176 });
   m.A('a_upper', 1032, 2812, 1556, 3090, 128, { tex: SAND, wall: 176 });
   m.Q('a_upper_e', 1556, 2812, 1600, 3090, [-389, 0.25, 0], { tex: SAND, wall: 176 });

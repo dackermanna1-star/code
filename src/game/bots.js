@@ -1268,7 +1268,7 @@ class Bot {
       this.searchAndListen(it);
     }
     if (blind) this.blinded(it);
-    if (this.avoidFlash && this.time < this.avoidFlash.until) { it.lookAngles = [10, this.avoidFlash.yaw]; it.look = null; it.fire = false; }
+    if (this.avoidFlash && this.time < this.avoidFlash.until) { it.lookAngles = [10, this.avoidFlash.yaw]; it.look = null; it.fire = false; it.combat = false; }
 
     this.manageWeapon(cmd, it);
     // movement
@@ -1609,7 +1609,7 @@ class Bot {
     else if (it.look) [tp, ty] = angleTo(eye, it.look);
     else return;
     const sk = this.skill;
-    const enemy = it.combat && this.targetVisible && this.target;
+    const enemy = it.combat && it.look && this.targetVisible && this.target;
     if (enemy) {
       // where the bot thinks the target is: noise that grows with range and
       // with movement (a far, moving head is hard to place exactly)
