@@ -28,6 +28,19 @@ function roar(x, sr, r, t0, len, amp, lp = 800, env = () => 1) {
 }
 
 export const ZOMBIE_FX = {
+  // ---- medkit
+  medkit_use: { rate: 22050, dur: 1.5, peak: 0.55, fn: (P) => foley(P, (x, sr, r) => {
+    addScrape(x, sr, r, 0.02, 0.22, { f0: 2400, f1: 4200, q: 3, amp: 0.55, grit: 1 }); // zip
+    for (let i = 0; i < 9; i++) addMetal(x, sr, r, 0.03 + i * 0.022, { f: r.range(3500, 5200), amp: 0.12, tau: 0.003, n: 2, noise: 0.3 });
+    addBurst(x, sr, r, 0.3, 0.35, { a: 0.02, tau: 0.12, color: 'pink', filters: [['bandpass', 1400, 0.8]] }); // rustle
+    addMetal(x, sr, r, 0.74, { f: 2200, amp: 0.7, tau: 0.01, body: 0.5, bodyF: 600 }); // injector click
+    addBurst(x, sr, r, 0.76, 0.3, { a: 0.01, tau: 0.25, color: 'white', filters: [['highpass', 4000, 0.7]] }); // hiss
+    addTone(x, sr, 0.75, { f: 140, f1: 90, glide: 0.05, tau: 0.06, amp: 0.4 });
+  }, 0.1) },
+  medkit_heal: { rate: 22050, dur: 1.0, peak: 0.4, fn: (P) => foley(P, (x, sr, r) => {
+    [523, 659, 784].forEach((f, i) => addTone(x, sr, i * 0.07, { f, tau: 0.22, amp: 0.5, a: 0.01 }));
+    addBurst(x, sr, r, 0.05, 0.25, { a: 0.08, tau: 0.3, color: 'pink', filters: [['bandpass', 900, 0.6]] }); // breath out
+  }, 0.1) },
   // ---- fire
   fire_loop: { rate: 22050, dur: 4, loop: 0.8, rms: 0.1, fn: (P) => foley(P, (x, sr, r) => {
     roar(x, sr, r, 0, 4.8, 0.7, 700);

@@ -1,4 +1,4 @@
-// Zombie survival weapons: molotov, flamethrower, RPG-7, M32 grenade launcher.
+// Zombie survival weapons: molotov, flamethrower, RPG-7, M32 grenade launcher, medkit.
 // Flames (the rag, the lighter, the pilot light, the flamethrower's jet) are unlit
 // additive meshes added in spec.post and flickered every frame.
 import * as THREE from 'three';
@@ -291,4 +291,63 @@ function m32(mb) {
   return { anims, muzzle: 'muzzle', shell: 'shell' };
 }
 
-export const ZOMBIE_WEAPONS = { molotov, flamethrower, rpg, m32 };
+// ---------------------------------------------------------------- medkit
+// A red first-aid pouch in the right hand; the use: the left hand comes up with an
+// auto-injector from the pouch and jabs it home, the pouch dips with it.
+function medkit(mb) {
+  hold(mb, [0, 0, 0]);
+  const RH = handPose([4.6, -4.4, -9.6], [0.355, -0.0835, -0.922], [-0.82, -0.5, -0.27]);
+  mb.node('rhand', 'rig', RH.p, RH.r);
+  arm(mb, 'rhand_arm', 'rhand', 'R', { p: [0, 0, 0], fwd: [0, 0, -1], palm: [0, -1, 0], elbow: [14, -28, -2], grip: 'hold', len: 18 });
+  mb.node('kit', 'rhand', [-0.2, -1.9, -3.4], [0, 0, 90]);
+  const k = mb.pen('kit');
+  const RED = [0.74, 0.1, 0.08], WH = [0.96, 0.96, 0.92], DK = [0.2, 0.06, 0.05];
+  const S = 1.8; // half size of the (square) pouch
+  k.box('flat', RED, 2 * S, 2.8, 2 * S, { p: [0, 0.2, 0], t: [0.92, 0.92] }); // pouch
+  k.box('flat', DK, 2 * S + 0.08, 0.14, 2 * S + 0.08, { p: [0, 1.0, 0] }); // zip all round
+  k.box('flat', DK, 1.6, 0.35, 0.5, { p: [0, 1.75, 0] }); // carry strap
+  for (const sg of [1, -1]) { // a white cross on every side
+    k.box('flat', WH, 0.06, 1.7, 0.55, { p: [sg * (S + 0.03), 0.05, 0] });
+    k.box('flat', WH, 0.06, 0.55, 1.7, { p: [sg * (S + 0.03), 0.05, 0] });
+    k.box('flat', WH, 0.55, 1.7, 0.06, { p: [0, 0.05, sg * (S + 0.03)] });
+    k.box('flat', WH, 1.7, 0.55, 0.06, { p: [0, 0.05, sg * (S + 0.03)] });
+  }
+  // left hand, parked below; the injector it brings up
+  const LA = handPose([-9, -24, -6], [0.5, 0.6, -0.6], [0.6, -0.2, -0.7]);
+  mb.node('lhand', 'rig', LA.p, LA.r);
+  arm(mb, 'lhand_arm', 'lhand', 'L', { p: [0, 0, 0], fwd: [0, 0, -1], palm: [0, -1, 0], elbow: [-12, -26, -4], pole: [-0.3, -1, 0.15], grip: 'hold', len: 18 });
+  const inj = mb.node('injector', 'lhand', [0.4, -0.4, -4.2], [0, 0, 0]);
+  inj.visible = false; inj.userData.defVisible = false;
+  const I = mb.pen('injector');
+  I.box('flat', WH, 1.0, 4.4, 1.0, { p: [0, 0.4, 0] }); // body
+  I.box('flat', [0.95, 0.75, 0.1], 1.05, 1.0, 1.05, { p: [0, 3.0, 0] }); // yellow cap
+  I.box('flat', [0.3, 0.75, 0.3], 1.04, 0.5, 1.04, { p: [0, 1.6, 0] }); // green band
+  I.box('brushed', C.steel, 0.25, 1.2, 0.25, { p: [0, -2.4, 0] }); // needle
+  const K = (u, h, e) => [u, h.p, h.r, e];
+  const off = (h, d, dr = [0, 0, 0]) => ({ p: add(h.p, d), r: add(h.r, dr) });
+  // injector up in front (needle down), then the jab down out of view
+  const LP = handPose([-2.2, -3.6, -11.5], [0.75, 0.2, -0.62], [0.1, -0.9, -0.4]);
+  const LPin = off(LP, [-1.5, -5.5, 2.0], [-10, 0, 15]);
+  const LPjab = off(LP, [0.6, -9.5, 1.2], [18, 0, -6]);
+  const RHd = off(RH, [-1.2, -1.4, 0.4], [8, 6, 10]);
+  const anims = {
+    idle: idle({ amp: 1 }),
+    draw: { dur: 0.75, blend: 0.05, tracks: {
+      rhand: { abs: true, k: [K(0, off(RH, [2.5, -11, 4], [40, 10, -20])), K(0.42, off(RH, [0.5, -1.5, 0.6], [6, 2, -4]), 'cr'), K(0.66, off(RH, [0, 0.35, -0.1], [-2, 0, 1]), 'cr'), K(0.86, RH, 'io')] },
+      body: [[0, [0, -0.4, 0.2], [-1, 0, 0]], [0.6, Z, [0.4, 0, 0], 'out2'], [0.9, Z, Z, 'io']],
+    } },
+    use: {
+      dur: 1.4, blend: 0.05,
+      tracks: {
+        rhand: { abs: true, k: [K(0, RH), K(0.2, RHd, 'io'), K(0.75, RHd), K(1, RH, 'io')] },
+        lhand: { abs: true, k: [K(0, LA), K(0.16, LPin, 'cr'), K(0.34, LP, 'io'), K(0.46, LP), K(0.53, LPjab, 'in2'), K(0.72, LPjab), K(0.92, off(LA, [0, -2, 0]), 'io'), K(1, LA)] },
+        body: [[0, Z, Z], [0.46, [0, 0.1, 0], [0.4, 0, 0], 'io'], [0.54, [0, -0.5, 0.3], [-1.6, 0.5, 0], 'in2'], [0.75, [0, -0.3, 0.1], [-0.8, 0.3, 0], 'out2'], [1, Z, Z, 'io']],
+      },
+      vis: { injector: [[0.12, 0.9, true]] },
+    },
+  };
+  mb.marker('muzzle', 'kit', [0, 0, 0]);
+  return { anims, muzzle: 'muzzle', shell: 'muzzle' };
+}
+
+export const ZOMBIE_WEAPONS = { molotov, flamethrower, rpg, m32, medkit };

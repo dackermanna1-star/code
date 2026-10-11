@@ -24,7 +24,7 @@ export const MENU = {
   equip: {
     T: ['vest', 'vesthelm', 'flashbang', 'hegrenade', 'smokegrenade', 'nvgs'],
     CT: ['vest', 'vesthelm', 'flashbang', 'hegrenade', 'smokegrenade', 'defuser', 'nvgs'],
-    ALL: ['vest', 'vesthelm', 'flashbang', 'hegrenade', 'smokegrenade', 'molotov', 'nvgs'],
+    ALL: ['vest', 'vesthelm', 'flashbang', 'hegrenade', 'smokegrenade', 'molotov', 'medkit', 'nvgs'],
   },
 };
 
@@ -61,6 +61,7 @@ export const ITEMS = {
   m32: W('M32 Grenade Launcher', 4200, 'South Africa', '40 mm', '6 rounds', 'Semi-auto', '5.3 kg', '230 g', '250 ft/s', 'Explodes on contact'),
   rpg: W('RPG-7', 5000, 'USSR', '85 mm rocket', '1 rocket', 'Single shot', '7 kg', '2.6 kg', '380 ft/s', 'Explodes on contact'),
   molotov: { name: 'Molotov Cocktail', price: 400, text: 'A bottle of fuel with a burning rag. Shatters where it lands and sets the floor on fire for 7 seconds. Carry up to 3.' },
+  medkit: { name: 'Medkit', price: 800, text: 'Heals 50 health. Key 5 takes it out; fire to patch yourself up, right-click to patch up the teammate in front of you. Carry up to 3.' },
   vest: { name: 'Kevlar Vest', price: 650, text: 'Body armour. Absorbs part of the damage from shots to the chest, stomach and arms.' },
   vesthelm: { name: 'Kevlar Vest & Helmet', price: 1000, text: 'Body armour and a kevlar helmet that also protects against shots to the head.' },
   flashbang: { name: 'Flashbang', price: 200, text: 'Stun grenade. Temporarily blinds and deafens anyone looking at it when it detonates.' },
@@ -71,7 +72,7 @@ export const ITEMS = {
 };
 
 // equipment pictures in the info panel reuse the HUD / kill icons
-export const ITEM_ICON = { vest: 'suit_full', vesthelm: 'suithelmet_full', defuser: 'defuser', nvgs: null, flashbang: 'flashbang', hegrenade: 'hegrenade', smokegrenade: 'smokegrenade', molotov: 'molotov' };
+export const ITEM_ICON = { vest: 'suit_full', vesthelm: 'suithelmet_full', defuser: 'defuser', nvgs: null, flashbang: 'flashbang', hegrenade: 'hegrenade', smokegrenade: 'smokegrenade', molotov: 'molotov', medkit: 'medkit' };
 
 export function itemsFor(cat, team) {
   const t = team === 'CT' ? 'CT' : team === 'ALL' ? 'ALL' : 'T';

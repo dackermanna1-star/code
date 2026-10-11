@@ -21,7 +21,7 @@ export const WEAPON_IDS = [
   'm3', 'xm1014', 'mac10', 'tmp', 'mp5', 'ump45', 'p90',
   'galil', 'famas', 'ak47', 'm4a1', 'sg552', 'aug', 'scout', 'awp', 'g3sg1', 'sg550', 'm249',
   'hegrenade', 'flashbang', 'smokegrenade', 'c4',
-  'molotov', 'flamethrower', 'rpg', 'm32',
+  'molotov', 'flamethrower', 'rpg', 'm32', 'medkit',
 ];
 
 // HUD ammo icon used by each weapon (weapon_*.txt "ammo" sprite)
@@ -34,7 +34,7 @@ export const WEAPON_AMMO = {
   ak47: '762nato', scout: '762nato', g3sg1: '762nato',
   awp: '338magnum', m249: '556natobox',
   hegrenade: 'hegrenade', flashbang: 'flashbang', smokegrenade: 'smokegrenade', c4: 'c4',
-  molotov: 'molotov', flamethrower: 'fuel', rpg: 'rocket', m32: 'grenade40',
+  molotov: 'molotov', flamethrower: 'fuel', rpg: 'rocket', m32: 'grenade40', medkit: 'medkit',
 };
 
 // kill-feed sprite widths (hud.txt d_* rectangles, all 16 high)
@@ -43,7 +43,7 @@ export const KILL_ICON_W = {
   m3: 48, xm1014: 48, mac10: 34, tmp: 32, mp5: 32, ump45: 48, p90: 48,
   galil: 48, famas: 48, ak47: 48, m4a1: 48, sg552: 48, aug: 44, scout: 48, awp: 48, g3sg1: 48, sg550: 48, m249: 48,
   hegrenade: 32, flashbang: 48, smokegrenade: 48, c4: 32, skull: 32, headshot: 36,
-  molotov: 32, flamethrower: 48, rpg: 48, m32: 48, zombie: 32, fireball: 32, acid: 32,
+  molotov: 32, flamethrower: 48, rpg: 48, m32: 48, medkit: 32, zombie: 32, fireball: 32, acid: 32,
 };
 
 // ---------------------------------------------------------------- rasterising
@@ -463,6 +463,11 @@ const WEAPON_SHAPES = {
 
 // zombie survival weapons
 Object.assign(WEAPON_SHAPES, {
+  medkit: { w: 32, ops: [
+    P(5, 6, 6, 5, 26, 5, 27, 6, 27, 14, 26, 15, 6, 15, 5, 14), // bag
+    X(R(12.5, 2.6, 7, 1.2)), R(12, 2, 8, 3),                    // carry handle
+    X(R(14.6, 6.6, 2.8, 7.4)), X(R(12, 9, 8, 2.6)),             // cross
+  ] },
   molotov: { w: 32, ops: [
     P(3, 6.5, 4.5, 5, 16, 5, 17.5, 6.5, 17.5, 11.5, 16, 13, 4.5, 13, 3, 11.5), // bottle
     P(17.5, 6.5, 21, 7.6, 24, 7.6, 24, 10.4, 21, 10.4, 17.5, 11.5),         // shoulder + neck
@@ -809,6 +814,7 @@ const HUD_BUILDERS = {
   ammo_flashbang: () => grenadeAmmo('FB', false),
   ammo_hegrenade: () => grenadeAmmo('HE', false),
   ammo_smokegrenade: () => grenadeAmmo('SG', true),
+  ammo_medkit: () => ammo([P(3, 9, 4, 8, 20, 8, 21, 9, 21, 21, 20, 22, 4, 22, 3, 21), R(9, 4.5, 6, 3.5), X(R(10, 5.5, 4, 1.5)), X(R(10.6, 11, 2.8, 8.6)), X(R(7.7, 13.9, 8.6, 2.8))], null, 0),
   ammo_molotov: () => ammo([P(9, 22, 9, 10, 10.5, 8.4, 10.5, 5, 13.5, 5, 13.5, 8.4, 15, 10, 15, 22), R(10.4, 1.6, 3.2, 3.6)], null, 0),
   ammo_fuel: () => ammo([P(12, 1.5, 18, 11, 18.5, 15, 16, 20, 12, 21.5, 8, 20, 5.5, 15, 6, 11), X(E(10, 14, 1.4, 2.6))], null, 0),
   ammo_rocket: () => ammo([P(2, 22, 4, 18, 13, 9, 15, 11, 6, 20), P(13, 9, 15, 6, 21, 3, 18, 9, 15, 11), P(2, 15, 6, 16, 4, 18), P(9, 22, 8, 18, 6, 20)], null, 0),

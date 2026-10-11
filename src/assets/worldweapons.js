@@ -464,6 +464,13 @@ function c4Brick(b, L = 10, W = 6, H = 2.6, y0 = 0) {
 def('c4', 'c4', { leftHand: [0, 10.4, 0] }, (b) => c4Brick(b, 10, 6, 2.6, 0.4));
 
 // --- zombie survival
+def('medkit', 'grenade', {}, (b) => {
+  b.box(-3.2, 3.2, -2.2, 2.0, 4.2, C.red); // bag
+  b.box(-0.55, 0.55, -1.5, 1.4, 4.35, C.steel); // cross, both sides
+  b.box(-1.9, 1.9, -0.45, 0.65, 4.35, C.steel);
+  b.box(-3.25, 3.25, 0.9, 1.1, 4.3, C.black); // zip
+  b.box(-1.3, 1.3, 2.0, 2.6, 0.9, C.black); // strap
+});
 def('molotov', 'grenade', {}, (b) => {
   b.cyl('z', -2.6, 1.2, 0, 0, 1.25, C.green, 8); // bottle
   b.cyl('z', 1.2, 2.0, 0, 0, 0.85, C.green, 8, false);

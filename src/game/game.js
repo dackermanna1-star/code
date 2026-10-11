@@ -50,6 +50,8 @@ export const BTN_ATTACK = 1, BTN_ATTACK2 = 2, BTN_RELOAD = 4, BTN_USE = 8;
 
 const tmpTr = new TraceResult();
 const _f = [0, 0, 0], _r = [0, 0, 0], _u = [0, 0, 0];
+const MEDKIT_REACH = 96; // patching up a teammate: this close, and facing him
+const dist3 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 
 export class Game {
   constructor(env) {
@@ -210,7 +212,7 @@ export class Game {
     const slot = def.slot;
     if (slot === 4) {
       const have = p.weapons[4].filter((g) => g.id === id);
-      const max = id === 'flashbang' ? 2 : id === 'molotov' ? 3 : 1;
+      const max = WS.stackMax(id);
       if (have.length) {
         const g = have[0];
         if ((g.count || 1) >= max) return null;
@@ -242,6 +244,8 @@ export class Game {
       throwGrenade: (type, params) => g.grenades.throw(p, type, params),
       flame: () => { g.fire.stream(p); p.lastShot = g.time; },
       launch: (type) => g.launchFrom(p, type),
+      healTarget: (other) => g.healTarget(p, other),
+      heal: (q, amount) => g.heal(p, q, amount),
       plantBomb: () => g.rounds.plantBomb(p),
       canPlant: () => g.rounds.canPlant(p),
       playSound: (name, opts = {}) => g.weaponSound(p, name, opts),
@@ -304,6 +308,12 @@ export class Game {
 
   slotCommand(p, slot) {
     if (!p.alive) return;
+    // zombie survival: 5 (no bomb here) takes out the medkit
+    if (slot === 5 && !p.weapons[5]) {
+      const kit = p.weapons[4].find((g) => g.id === 'medkit' && (g.count ?? 1) > 0);
+      if (kit) this.selectWeapon(p, kit);
+      return;
+    }
     if (slot === 4) {
       const g = p.weapons[4];
       if (!g.length) return;
@@ -791,7 +801,7 @@ export class Game {
         w.spent = false;
         if (w.def.slot === 4) {
           w.count = Math.max(0, (w.count || 1) - 1);
-          if (w.id === 'molotov' && w.count > 0) w.ammo = w.count; // keep the next bottle in hand
+          if ((w.id === 'molotov' || w.id === 'medkit') && w.count > 0) w.ammo = w.count; // keep the next one in hand
         }
         if (w.id === 'c4') this.retireWeapon(p, w);
       }
@@ -804,6 +814,42 @@ export class Game {
     }
     this.rounds.useButton(p, !!(wb & BTN_USE), !!((p.prevUse || 0)));
     p.prevUse = wb & BTN_USE;
+  }
+
+  // ------------------------------------------------------------------ medkit
+  /** Who a medkit use would patch up: p itself, or (other) the hurt teammate p is facing. */
+  healTarget(p, other) {
+    const hurt = (q) => q.alive && q.health < (q.maxHealth || 100);
+    if (!other) return hurt(p) ? p : null;
+    const e = p.eyePos();
+    angleVectors(p.pm.angles[0], p.pm.angles[1], _f, null, null);
+    let best = null, bd = Infinity;
+    for (const q of this.players) {
+      if (q === p || q.team !== p.team || q.isZombie || !hurt(q)) continue;
+      const c = [q.pm.origin[0], q.pm.origin[1], q.pm.origin[2] + 10];
+      const dx = c[0] - e[0], dy = c[1] - e[1], dz = c[2] - e[2];
+      const d = Math.hypot(dx, dy, dz);
+      if (d > MEDKIT_REACH || (dx * _f[0] + dy * _f[1] + dz * _f[2]) / (d || 1) < 0.6 || !this.visible(e, c)) continue;
+      if (d < bd) { bd = d; best = q; }
+    }
+    return best;
+  }
+
+  /** A medkit use lands (the patient must still be alive and, for someone else, in reach). */
+  heal(p, q, amount) {
+    if (!q || !q.alive) return false;
+    if (q !== p && dist3(p.pm.origin, q.pm.origin) > MEDKIT_REACH + 40) {
+      if (p.isLocal) this.hud?.centerPrint?.(`${q.name} moved out of reach`, 2);
+      return false;
+    }
+    const before = q.health;
+    q.health = Math.min(q.maxHealth || 100, q.health + amount);
+    const got = Math.round(q.health - before);
+    this.sound.play('medkit_heal', { pos: q === this.viewTarget ? null : q.eyePos(), volume: 0.8 });
+    if (q.isLocal) this.hud?.healFlash?.();
+    if (p.isLocal && q !== p) this.hud?.centerPrint?.(`You patched up ${q.name} (+${got})`, 2);
+    else if (q.isLocal && q !== p) this.hud?.centerPrint?.(`${p.name} patched you up (+${got})`, 2);
+    return true;
   }
 
   // weapon used up (grenade thrown, C4 planted) or switched away from (flashbang quirk)

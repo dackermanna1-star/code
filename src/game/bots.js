@@ -278,6 +278,7 @@ function angleTo(from, to) {
   const dx = to[0] - from[0], dy = to[1] - from[1], dz = to[2] - from[2];
   return [-Math.atan2(dz, Math.hypot(dx, dy)) / DEG, Math.atan2(dy, dx) / DEG];
 }
+const HEAL_SAFE = 330; // bots take a medkit out only with no zombie this close
 function angDiff(a, b) { return ((a - b) % 360 + 540) % 360 - 180; }
 function dist2(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
 function dist3(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]); }
@@ -1127,8 +1128,8 @@ class Bot {
     this.pendingRadio = [];
   }
 
-  onRoundEnd() { this.nade = null; }
-  onDead() { this.target = null; this.path = null; this.nade = null; }
+  onRoundEnd() { this.nade = null; this.heal = null; }
+  onDead() { this.target = null; this.path = null; this.nade = null; this.heal = null; }
   onBombPlanted() { this.path = null; this.goal = null; this.inPosition = false; }
 
   onHurt(attacker) {
@@ -1231,6 +1232,11 @@ class Bot {
         if (p.weapons[1] && p.armor < 50 && p.money >= 650) b('vest');
       }
     }
+    // zombie survival: keep a couple of medkits on hand
+    if (g.zombies?.enabled) {
+      const kits = () => p.weapons[4].find((x) => x.id === 'medkit')?.count ?? 0;
+      for (let i = 0; i < 3 && kits() < 2 && p.money >= price('medkit') + 1500; i++) if (!b('medkit')) break;
+    }
     prim = p.weapons[1];
     if (prim) for (let i = 0; i < 4; i++) if (!b('primammo')) break;
     for (let i = 0; i < 2; i++) if (!b('secammo')) break;
@@ -1277,6 +1283,7 @@ class Bot {
     const c4 = p.weapons[5];
     const keepPlant = this.planting && c4 && c4.startedArming && c4.armedTime - this.time < 1.2;
     if (this.nade && fighting && this.nade.phase !== 'pull') this.nade = null;
+    if (g.zombies?.enabled && !this.heal && !this.nade) this.considerHeal(fighting);
     if (keepPlant) {
       this.mode = 'plant';
       it.attack = true; it.duck = true; it.stop = true;
@@ -1284,7 +1291,8 @@ class Bot {
       this.mode = 'defuse';
       it.use = true; it.duck = true; it.stop = true;
       it.look = [bomb.pos[0], bomb.pos[1], bomb.pos[2]];
-    } else if (this.nade) this.runGrenade(it);
+    } else if (this.heal) this.runHeal(it);
+    else if (this.nade) this.runGrenade(it);
     else if (fighting) this.combat(it);
     else {
       this.mode = 'task';
@@ -1685,10 +1693,10 @@ class Bot {
 
   manageWeapon(cmd, it) {
     const g = this.game, p = this.p, w = p.active;
-    if (this.nade || this.planting) return;
+    if (this.nade || this.planting || this.heal) return;
     const best = this.bestGun();
     if (!w) { if (best) g.selectWeapon(p, best); return; }
-    if ((w.def.kind === 'grenade' && !w.pinPulled) || (w.id === 'c4' && !this.planting)) { if (best && best !== w) g.selectWeapon(p, best); return; }
+    if ((w.def.kind === 'grenade' && !w.pinPulled) || (w.id === 'c4' && !this.planting) || (w.def.kind === 'medkit' && !w.healEnd)) { if (best && best !== w) g.selectWeapon(p, best); return; }
     const fightRecent = this.time - this.targetSeen < 2.5;
     const e = this.target;
     const d = e ? dist3(p.pm.origin, e.pm.origin) : 9999;
@@ -1717,6 +1725,79 @@ class Bot {
     } else if (isSniper(w) && it.combat && p.fov < 20 && this.time > this.zoomClock && w.nextSecondary <= this.time) {
       cmd.wbuttons |= BTN_ATTACK2; this.zoomClock = this.time + 0.35;
     }
+  }
+
+  // ------------------------------------------------------------------ medkits (zombie survival)
+  /** A zombie within r units of us (the boss: within rb)? */
+  zombieNear(r, rb = r * 1.5) {
+    const o = this.p.pm.origin;
+    return this.game.zombies.pool.some((z) => z.alive && dist3(z.pm.origin, o) < r) || (this.game.bosses?.alive() && dist3(this.game.bosses.boss.pm.origin, o) < rb);
+  }
+
+  /**
+   * Hurt and it's quiet: patch myself up, or a hurt teammate close by (the human first).
+   * Never with zombies close (taking the kit out and the use leave ~2 s without a gun).
+   */
+  considerHeal(fighting) {
+    const p = this.p, g = this.game;
+    if (this.time < (this.healClock || 0)) return;
+    this.healClock = this.time + 0.5;
+    const kit = p.weapons[4].find((x) => x.id === 'medkit' && (x.count ?? 1) > 0);
+    if (!kit) return;
+    // the human about to go down close by: run over and save him unless something is right on us
+    const me = g.local;
+    if (me && me !== p && me.alive && me.team === p.team && me.health < 35 && dist3(p.pm.origin, me.pm.origin) < 350 && !this.zombieNear(140, 0)) {
+      this.heal = { kit, target: me, phase: 'select', t: this.time, urgent: true };
+      return;
+    }
+    if (this.zombieNear(HEAL_SAFE, 280)) return;
+    // badly hurt: patch up even mid-fight while the closest one is still a second away
+    if (p.health < 40 || (p.health < 60 && !fighting && this.time - this.targetSeen > 1.5)) { this.heal = { kit, target: p, phase: 'select', t: this.time }; return; }
+    if (fighting || this.time - this.targetSeen < 1.5) return;
+    let best = null, bs = Infinity;
+    for (const q of g.players) {
+      if (q === p || !q.alive || q.team !== p.team || q.isZombie || q.health >= 55) continue;
+      const d = dist3(p.pm.origin, q.pm.origin);
+      if (d > 450) continue;
+      const sc = d + q.health * 4 - (q.isBot ? 0 : 400);
+      if (sc < bs) { bs = sc; best = q; }
+    }
+    if (best) this.heal = { kit, target: best, phase: 'select', t: this.time };
+  }
+
+  runHeal(it) {
+    const h = this.heal, p = this.p, g = this.game, kit = h.kit, q = h.target;
+    this.mode = 'heal';
+    const done = (wait = 2) => {
+      this.heal = null;
+      this.healClock = this.time + wait;
+      const best = this.bestGun();
+      if (best && p.active !== best) g.selectWeapon(p, best);
+    };
+    if (!p.weapons[4].includes(kit) || !q.alive || this.time - h.t > 8) { done(); return; }
+    const chest = [q.pm.origin[0], q.pm.origin[1], q.pm.origin[2] + 10];
+    if (h.phase === 'using') {
+      if (q !== p) { it.look = chest; it.stop = true; }
+      if (!kit.healEnd) done(); // landed (or was cut short)
+      return;
+    }
+    if (q.health >= (q.maxHealth || 100)) { done(); return; }
+    if (h.urgent ? this.zombieNear(90, 0) : this.zombieNear(HEAL_SAFE * 0.6, 200)) { done(4); return; } // they're here: guns
+    if (p.active !== kit) { g.selectWeapon(p, kit); return; }
+    const ready = kit.nextAttack <= this.time && kit.nextPrimary <= this.time && kit.nextSecondary <= this.time;
+    if (q === p) {
+      if (ready) { it.attack = true; h.phase = 'using'; }
+      return;
+    }
+    // walk up to the teammate, face him, patch him up
+    it.look = chest;
+    const d = dist3(p.pm.origin, q.pm.origin);
+    if (d > 64) { it.move = q.feet(); it.tol = 36; return; }
+    it.stop = true;
+    const e = p.eyePos();
+    const yaw = Math.atan2(chest[1] - e[1], chest[0] - e[0]) / DEG;
+    const pitch = -Math.atan2(chest[2] - e[2], Math.hypot(chest[0] - e[0], chest[1] - e[1])) / DEG;
+    if (ready && Math.abs(angDiff(yaw, p.pm.angles[1])) < 15 && Math.abs(pitch - p.pm.angles[0]) < 20) { it.attack2 = true; h.phase = 'using'; }
   }
 
   // ------------------------------------------------------------------ grenades

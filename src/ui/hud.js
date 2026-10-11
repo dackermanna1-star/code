@@ -146,6 +146,9 @@ export class Hud {
     while (this.kills.length > MAX_DEATHNOTICES) this.kills.shift();
   }
 
+  /** A short green wash over the screen: you were patched up (medkit). */
+  healFlash() { this.healAt = this.time; }
+
   centerPrint(text, seconds = 4) {
     this.center = text ? { lines: String(text).split('\n'), until: this.time + seconds } : null;
   }
@@ -231,6 +234,11 @@ export class Hud {
     this.drawFps(s);
     if (s.flash > 0) {
       T.fillStyle = css([255, 255, 255], clamp(s.flash, 0, 1));
+      T.fillRect(0, 0, vw, vh);
+    }
+    const ha = this.healAt != null ? 0.32 * (1 - (this.time - this.healAt) / 0.7) : 0;
+    if (ha > 0) {
+      T.fillStyle = css([60, 255, 90], ha);
       T.fillRect(0, 0, vw, vh);
     }
   }

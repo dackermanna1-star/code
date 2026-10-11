@@ -56,12 +56,13 @@ export const AMMO_TYPES = Object.freeze({
   C4: { max: 1, cost: 0, amount: 1 },
   // zombie survival extras
   Molotov: { max: 3, cost: 400, amount: 1 },
+  Medkit: { max: 3, cost: 800, amount: 1 },
   Fuel: { max: 300, cost: 120, amount: 100 },
   Rocket: { max: 6, cost: 600, amount: 1 },
   Grenade40: { max: 18, cost: 450, amount: 6 },
 });
 
-export const WEAPON_IDS = Object.freeze(['knife', 'glock', 'usp', 'p228', 'deagle', 'elite', 'fiveseven', 'm3', 'xm1014', 'mac10', 'tmp', 'mp5', 'ump45', 'p90', 'galil', 'famas', 'ak47', 'm4a1', 'sg552', 'aug', 'scout', 'awp', 'g3sg1', 'sg550', 'm249', 'hegrenade', 'flashbang', 'smokegrenade', 'c4', 'molotov', 'flamethrower', 'rpg', 'm32']);
+export const WEAPON_IDS = Object.freeze(['knife', 'glock', 'usp', 'p228', 'deagle', 'elite', 'fiveseven', 'm3', 'xm1014', 'mac10', 'tmp', 'mp5', 'ump45', 'p90', 'galil', 'famas', 'ak47', 'm4a1', 'sg552', 'aug', 'scout', 'awp', 'g3sg1', 'sg550', 'm249', 'hegrenade', 'flashbang', 'smokegrenade', 'c4', 'molotov', 'flamethrower', 'rpg', 'm32', 'medkit']);
 
 // view-model sequence tables (weapons.h enums, in order)
 const SEQ_RIFLE = ['idle1', 'reload', 'draw', 'shoot1', 'shoot2', 'shoot3'];
@@ -89,6 +90,7 @@ const SEQ = {
   c4: ['idle1', 'draw', 'drop', 'arm'],
   molotov: ['idle', 'pullpin', 'throw', 'draw'],
   flamethrower: SEQ_RIFLE, rpg: SEQ_RIFLE, m32: SEQ_RIFLE,
+  medkit: ['idle', 'use', 'draw'],
 };
 
 const W = (f) => `weapons/${f}.wav`;
@@ -317,7 +319,16 @@ const RAW = {
     cycleTime: 0.5, reloadTime: 3.6, kick: 4,
     sounds: { fire: 'm32_fire', files: {} },
   },
+  medkit: {
+    name: 'Medkit', shortName: 'Medkit', slot: 4, position: 5, menu: 'equip', menuSlot: 7, team: null, price: 800, zombieOnly: true,
+    clip: WEAPON_NOCLIP, ammoType: 'Medkit', maxSpeed: 250, weight: 1, kind: 'medkit', hasSecondary: true,
+    heal: 50, useTime: 1.4,
+    sounds: { fire: 'medkit_use', files: {} },
+  },
 };
+
+/** How many of a slot-4 item one can carry. */
+export function stackMax(id) { return id === 'flashbang' ? 2 : id === 'molotov' || id === 'medkit' ? 3 : 1; }
 
 function buildDef(id, r) {
   const a = r.ammoType ? AMMO_TYPES[r.ammoType] : null;
@@ -385,6 +396,7 @@ export function createWeapon(id, opts = {}) {
     // knife / grenades / c4
     swing: 0, startThrow: 0, releaseThrow: -1, pinPulled: false,
     startedArming: false, armedTime: 0, bombPlacedAnimation: false,
+    healEnd: 0, healTarget: null,
     // bookkeeping for the host
     anim: null, spent: false, retired: false, lastShot: null,
   };
@@ -1225,6 +1237,54 @@ function specialIdle(w, ctx) {
   anim(w, ctx, 'idle', 'idle1');
 }
 
+// Medkit: attack patches yourself up, attack2 the teammate in front of you. One kit per
+// use: the heal lands when the use animation ends (holding the button or not); the game
+// picks the patient (ctx.healTarget(other) -> player | null) and heals (ctx.heal(player)).
+function medkitPrimary(w, ctx) { if (!medkitFinish(w, ctx)) medkitStart(w, ctx, false); }
+function medkitSecondary(w, ctx) { if (!medkitFinish(w, ctx)) medkitStart(w, ctx, true); }
+
+function medkitStart(w, ctx, other) {
+  const t = ctx.time;
+  if (w.healEnd || reserve(w) <= 0) return;
+  const target = ctx.healTarget ? ctx.healTarget(other) : null;
+  if (!target) {
+    w.nextPrimary = w.nextSecondary = t + 0.6;
+    emit(ctx, 'hud_message', { text: other ? 'Nobody hurt in front of you to patch up' : 'You are already at full health' });
+    return;
+  }
+  w.healEnd = t + w.def.useTime;
+  w.healTarget = target;
+  w.nextPrimary = w.nextSecondary = w.healEnd;
+  anim(w, ctx, 'use', 'use', w.def.useTime);
+  sound(ctx, 'medkit_use', { channel: 'weapon', weapon: w.id });
+  emit(ctx, 'progress_bar', { time: w.def.useTime });
+  emit(ctx, 'player_anim', { anim: 'attack1', weapon: w.id });
+}
+
+/** The use is over: heal, spend the kit. True if this frame finished one. */
+function medkitFinish(w, ctx) {
+  const t = ctx.time;
+  if (!w.healEnd || t < w.healEnd) return false;
+  w.healEnd = 0;
+  if (ctx.heal) ctx.heal(w.healTarget, w.def.heal);
+  w.healTarget = null;
+  w.spent = true; // (the host takes one off its stack)
+  const left = Math.max(0, (w.count ?? reserve(w)) - 1);
+  setReserve(w, left);
+  w.nextPrimary = w.nextSecondary = t + 0.35;
+  w.timeIdle = t + 0.35;
+  if (left <= 0) { retire(w, ctx); return true; }
+  anim(w, ctx, 'draw', 'draw');
+  return true;
+}
+
+function medkitIdle(w, ctx) {
+  if (medkitFinish(w, ctx) || w.healEnd) return;
+  if (w.timeIdle > ctx.time) return;
+  w.timeIdle = ctx.time + rndFloat(ctx, 10, 15);
+  anim(w, ctx, 'idle', 'idle');
+}
+
 // ---------------------------------------------------------------- C4
 function c4InZone(ctx) {
   if (ctx.inBombZone != null) return !!ctx.inBombZone;
@@ -1329,18 +1389,19 @@ for (const id of ['hegrenade', 'flashbang', 'smokegrenade', 'molotov']) {
   BEHAVIOR[id] = { primary: grenadePrimary, secondary: noop /* shield only */, reload: noop, idle: grenadeIdle, deploy: grenadeDeploy };
 }
 BEHAVIOR.c4 = { primary: c4Primary, secondary: noop, reload: noop, idle: c4Idle, deploy: c4Deploy };
+BEHAVIOR.medkit = { primary: medkitPrimary, secondary: medkitSecondary, reload: noop, idle: medkitIdle, deploy: (w, ctx) => { w.healEnd = 0; w.healTarget = null; defaultDeploy(w, ctx, 'draw', 'draw'); w.nextAttack = ctx.time + 0.35; } };
 
 // ---------------------------------------------------------------- public API
 /** CanDeploy: grenades / C4 need ammo. */
 export function weaponCanDeploy(w) {
-  if (w.def.kind === 'grenade' || w.def.kind === 'c4') return reserve(w) > 0 || (w.count ?? 0) > 0;
+  if (w.def.kind === 'grenade' || w.def.kind === 'c4' || w.def.kind === 'medkit') return reserve(w) > 0 || (w.count ?? 0) > 0;
   return true;
 }
 
 /** Weapon::Deploy (+ DefaultDeploy). Returns the time until the weapon can be used. */
 export function weaponDeploy(w, ctx) {
   // hosts that keep grenade stacks in w.count: refill the reserve from it
-  if ((w.def.kind === 'grenade' || w.def.kind === 'c4') && w.count != null && w.count > 0 && reserve(w) <= 0) setReserve(w, w.count);
+  if ((w.def.kind === 'grenade' || w.def.kind === 'c4' || w.def.kind === 'medkit') && w.count != null && w.count > 0 && reserve(w) <= 0) setReserve(w, w.count);
   w.spent = false;
   w.retired = false;
   BEHAVIOR[w.id].deploy(w, ctx);
@@ -1362,6 +1423,12 @@ export function weaponHolster(w, ctx) {
       w.startThrow = 0;
       w.releaseThrow = -1;
       w.pinPulled = false;
+      break;
+    case 'medkit': // switching away cancels a use in progress (the kit is kept)
+      w.nextAttack = t + 0.3;
+      if (w.healEnd) emit(ctx, 'progress_bar', { time: 0 });
+      w.healEnd = 0;
+      w.healTarget = null;
       break;
     case 'c4':
       w.nextAttack = t + 0.5;
