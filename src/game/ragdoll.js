@@ -28,9 +28,11 @@ const MASK = CONTENTS_SOLID; // world brushes only (no player clips, no live pla
 const FRICTION = 0.9; // Coulomb coefficient for ground/wall contacts (cloth on stone/sand)
 const CONTACT_DAMP = 6.0; // extra tangential damping (1/s) while touching something
 const AIR_DAMP = 0.15; // linear velocity damping (1/s)
-const SLEEP_SPEED = 3; // u/s: every particle slower than this...
-const SLEEP_TIME = 0.5; // ...for this long puts the body to sleep
-const NUDGE_TIME = 0.15; // when first nearly still, nudge free particles once (breaks balanced limbs)
+const SETTLE_DAMP = 4; // extra damping once the body has landed (joint friction: no swinging limbs)
+const SETTLE_SPEED = 40; // u/s: centre-of-mass speed below which the body counts as landed
+const SLEEP_WINDOW = 0.25; // s: sleep test compares positions this far apart (ignores jitter in place)
+const SLEEP_MOVE = 0.75; // units per window (3 u/s): every particle moved less than this...
+const SLEEP_WINDOWS = 2; // ...for this many windows in a row (after one nudge) puts the body to sleep
 const MAX_AWAKE = 7; // seconds, then sleep regardless
 const MAX_SPEED = 2000; // u/s clamp (safety)
 
@@ -61,14 +63,14 @@ const INV_MASS = Float64Array.from(PDEF.map((d) => 1 / d[3]));
 const BOX_MIN = RADIUS.map((r) => [-r, -r, -r]);
 const BOX_MAX = RADIUS.map((r) => [r, r, r]);
 
-// constraints: rigid (rest = length at death), and lower bounds (no folding / interpenetration)
+// the torso (shoulders, hips, chest point) is one rigid body, kept by shape matching
 const TORSO = [SH_R, SH_L, HIP_R, HIP_L, CHEST];
+// limb constraints: rigid (rest = length at death), and lower bounds (no folding / interpenetration)
 const RIGID = [
   [HEAD, SH_R], [HEAD, SH_L],
   [SH_R, EL_R], [EL_R, HA_R], [SH_L, EL_L], [EL_L, HA_L],
   [HIP_R, KN_R], [KN_R, FT_R], [HIP_L, KN_L], [KN_L, FT_L],
 ];
-for (let i = 0; i < TORSO.length; i++) for (let j = i + 1; j < TORSO.length; j++) RIGID.push([TORSO[i], TORSO[j]]);
 // [a, b, kind, value]: 'fold' = fraction of the two-segment chain length, 'sep' = sum of radii
 const MINS = [
   [SH_R, HA_R, 'fold', 0.4], [SH_L, HA_L, 'fold', 0.4], // elbows bend ~140 deg max
@@ -80,13 +82,14 @@ const MINS = [
 
 // anatomical limits (unit-vector components in the torso frame)
 const NECK_COS = Math.cos((38 * Math.PI) / 180), NECK_SIN = Math.sin((38 * Math.PI) / 180); // cone around the pose at death
-const HIP_FLEX_MIN = (-35 * Math.PI) / 180, HIP_FLEX_MAX = (120 * Math.PI) / 180; // thigh swing in the sagittal plane (0 = down)
+const HIP_FLEX_MIN = (-35 * Math.PI) / 180, HIP_FLEX_MAX = (110 * Math.PI) / 180; // thigh swing in the sagittal plane (0 = down)
 const HIP_FLEX_SPLIT = (HIP_FLEX_MIN + HIP_FLEX_MAX) / 2 - Math.PI; // middle of the forbidden arc
 const HIP_ABD_MIN = (-15 * Math.PI) / 180, HIP_ABD_MAX = (45 * Math.PI) / 180; // out of the sagittal plane (+ = outward)
 const KNEE_TOL = 0.06; // shin may not swing in front of the thigh line (no hyperextension)
 const KNEE_SIDE = 0.3; // sideways play of the knee hinge
 const ELBOW_TOL = 0.12; // forearm may not swing behind the upper arm line
 const LIMIT_K = 0.5; // joint-limit stiffness per relaxation pass
+const LIMIT_MAX = 0.025; // rad: largest limit correction per pass (a big violation resolves over a few steps, not as a kick)
 
 // which particle takes the hit, per hitgroup, and its skeletal neighbours
 const GROUP_PARTICLES = {
@@ -156,10 +159,15 @@ export class Ragdoll {
     this.awake = true;
     this.dirty = true;
     this.age = 0;
-    this.still = 0;
+    this.still = 0; // consecutive still windows
     this.nudged = false;
+    this.snapT = 0;
+    this.snap = null; // positions at the start of the current sleep window
+    this.t = 0; // simulated time
+    this.comSpeed = Infinity;
     this.acc = 0;
     this.contact = new Uint8Array(N); // touched the world during the last step
+    this.plane = new Float64Array(N * 4); // ...and that contact's plane (normal, offset)
     this.x = new Float64Array(N * 3);
     this.xp = new Float64Array(N * 3);
     this.xs = new Float64Array(N * 3);
@@ -218,8 +226,34 @@ export class Ragdoll {
       _v.applyQuaternion(_q2.copy(parent.wq).invert());
       this.drives[bone.i] = { a, b, d0: _v.clone().normalize(), q0: bone.q.clone() };
     }
-    // chest point's height above the shoulder/hip plane (keeps the torso from inverting)
-    this.chestOut = (x[CHEST * 3] - F[9]) * F[0] + (x[CHEST * 3 + 1] - F[10]) * F[1] + (x[CHEST * 3 + 2] - F[11]) * F[2];
+    // torso rest shape: particle offsets from the torso's centre of mass, in torso-frame coordinates
+    {
+      let cx = 0, cy = 0, cz = 0, m = 0;
+      for (const i of TORSO) { const w = 1 / INV_MASS[i]; cx += x[i * 3] * w; cy += x[i * 3 + 1] * w; cz += x[i * 3 + 2] * w; m += w; }
+      cx /= m; cy /= m; cz /= m;
+      this.torsoRest = new Float64Array(TORSO.length * 3);
+      TORSO.forEach((i, k) => {
+        const dx = x[i * 3] - cx, dy = x[i * 3 + 1] - cy, dz = x[i * 3 + 2] - cz;
+        this.torsoRest[k * 3] = dx * F[0] + dy * F[1] + dz * F[2];
+        this.torsoRest[k * 3 + 1] = dx * F[3] + dy * F[4] + dz * F[5];
+        this.torsoRest[k * 3 + 2] = dx * F[6] + dy * F[7] + dz * F[8];
+      });
+    }
+    // elbow fronts (the side the forearm folds to), carried along with the upper arm afterwards
+    this.elbowFront = [new Float64Array(3), new Float64Array(3)];
+    [[SH_R, EL_R, HA_R], [SH_L, EL_L, HA_L]].forEach(([s, e, h], k) => {
+      let ux = x[e * 3] - x[s * 3], uy = x[e * 3 + 1] - x[s * 3 + 1], uz = x[e * 3 + 2] - x[s * 3 + 2];
+      const lu = Math.hypot(ux, uy, uz) || 1;
+      ux /= lu; uy /= lu; uz /= lu;
+      // bent elbow: the forearm's side; straight: upper arm x lateral (forward for a hanging arm)
+      let fx = x[h * 3] - x[e * 3], fy = x[h * 3 + 1] - x[e * 3 + 1], fz = x[h * 3 + 2] - x[e * 3 + 2];
+      const fu = fx * ux + fy * uy + fz * uz;
+      fx -= fu * ux; fy -= fu * uy; fz -= fu * uz;
+      let l = Math.hypot(fx, fy, fz);
+      if (l < 2) { fx = uy * F[5] - uz * F[4]; fy = uz * F[3] - ux * F[5]; fz = ux * F[4] - uy * F[3]; l = Math.hypot(fx, fy, fz); }
+      if (l < 1e-6) { fx = F[0]; fy = F[1]; fz = F[2]; l = 1; }
+      this.elbowFront[k].set([fx / l, fy / l, fz / l]);
+    });
     // neck cone axis in torso coordinates
     {
       const h = HEAD * 3;
@@ -353,7 +387,8 @@ export class Ragdoll {
 
   _step(h) {
     const x = this.x, xp = this.xp, xs = this.xs;
-    const damp = 1 - AIR_DAMP * h;
+    this.t += h;
+    const damp = 1 - (AIR_DAMP + (this.t > 0.5 && this.comSpeed < SETTLE_SPEED ? SETTLE_DAMP : 0)) * h;
     const g = GRAVITY * h * h;
     const vmax = MAX_SPEED * h;
     // integrate
@@ -368,6 +403,8 @@ export class Ragdoll {
     for (let it = 0; it < ITERATIONS; it++) {
       this._distances();
       this._limits();
+      this._torso();
+      this._planes();
     }
     // collide each particle along its whole move this step (start position is always clear)
     const col = this.sys.collision, tr = this.sys.tr, s = this.sys._s, e = this.sys._e;
@@ -385,6 +422,8 @@ export class Ragdoll {
         const vn = vx * nx + vy * ny + vz * nz;
         x[o] = tr.endpos[0]; x[o + 1] = tr.endpos[1]; x[o + 2] = tr.endpos[2];
         contact[i] = 1;
+        const pl = this.plane, q = i * 4;
+        pl[q] = nx; pl[q + 1] = ny; pl[q + 2] = nz; pl[q + 3] = nx * x[o] + ny * x[o + 1] + nz * x[o + 2];
         if (vn < 0) {
           // inelastic contact: drop the normal velocity, friction on the tangential part
           let tx = vx - vn * nx, ty = vy - vn * ny, tz = vz - vn * nz;
@@ -401,27 +440,55 @@ export class Ragdoll {
       const m2 = mx * mx + my * my + mz * mz;
       if (m2 > maxMove) maxMove = m2;
     }
+    let px = 0, py = 0, pz = 0, msum = 0;
+    for (let i = 0; i < N; i++) {
+      const o = i * 3, m = 1 / INV_MASS[i];
+      px += (x[o] - xs[o]) * m; py += (x[o + 1] - xs[o + 1]) * m; pz += (x[o + 2] - xs[o + 2]) * m; msum += m;
+    }
+    this.comSpeed = Math.hypot(px, py, pz) / (msum * h);
     if (!(maxMove < 1e9)) { // NaN / blow-up guard: restore and freeze
       x.set(xs); xp.set(xs);
       this.sleep();
       return;
     }
-    // sleep once everything has been (nearly) still for a while
-    const lim = SLEEP_SPEED * h;
-    if (maxMove < lim * lim) {
-      this.still += h;
-      if (!this.nudged && this.still > NUDGE_TIME) {
-        // a limb resting in an unstable balance (e.g. a shin standing up) moves too slowly to
-        // notice at first: a tiny random push makes it fall instead of freezing upright
-        this.nudged = true;
-        this.still = 0;
-        for (let i = 0; i < N; i++) {
-          if (contact[i]) continue;
-          const o = i * 3, k = 2 * h;
-          xp[o] -= (Math.random() - 0.5) * k; xp[o + 1] -= (Math.random() - 0.5) * k; xp[o + 2] -= (Math.random() - 0.5) * k;
-        }
-      } else if (this.still > SLEEP_TIME) this.sleep();
-    } else this.still = 0;
+    // sleep once nothing has really moved for a few windows
+    this.snapT += h;
+    if (!this.snap) this.snap = Float64Array.from(x);
+    else if (this.snapT >= SLEEP_WINDOW) {
+      const sp = this.snap;
+      let m = 0;
+      for (let o = 0; o < N * 3; o += 3) {
+        const d = (x[o] - sp[o]) ** 2 + (x[o + 1] - sp[o + 1]) ** 2 + (x[o + 2] - sp[o + 2]) ** 2;
+        if (d > m) m = d;
+      }
+      sp.set(x);
+      this.snapT = 0;
+      if (m < SLEEP_MOVE * SLEEP_MOVE) {
+        if (!this.nudged) {
+          // a limb resting in an unstable balance (e.g. a shin standing up) moves too slowly to
+          // notice at first: a tiny random push makes it fall instead of freezing upright
+          this.nudged = true;
+          for (let i = 0; i < N; i++) {
+            if (contact[i]) continue;
+            const o = i * 3, k = 2 * h;
+            xp[o] -= (Math.random() - 0.5) * k; xp[o + 1] -= (Math.random() - 0.5) * k; xp[o + 2] -= (Math.random() - 0.5) * k;
+          }
+        } else if (++this.still >= SLEEP_WINDOWS) this.sleep();
+      } else this.still = 0;
+    }
+  }
+
+  /** Last step's contacts as constraints inside the solver loop, so joint limits and distance
+   *  constraints resolve against the ground instead of pushing through it (which the swept
+   *  collision afterwards would cancel, turning the push into velocity). */
+  _planes() {
+    const x = this.x, pl = this.plane, contact = this.contact;
+    for (let i = 0; i < N; i++) {
+      if (!contact[i]) continue;
+      const o = i * 3, q = i * 4;
+      const d = x[o] * pl[q] + x[o + 1] * pl[q + 1] + x[o + 2] * pl[q + 2] - pl[q + 3];
+      if (d < 0) { x[o] -= d * pl[q]; x[o + 1] -= d * pl[q + 1]; x[o + 2] -= d * pl[q + 2]; }
+    }
   }
 
   _distances() {
@@ -444,34 +511,61 @@ export class Ragdoll {
   }
 
   /**
-   * Joint-limit correction: move particles i and j so that (x_j - x_i) approaches the vector v.
-   * Split by inverse mass (momentum conserving, like a distance constraint) and softened, so a
-   * limit fighting a ground contact can't push the body across the floor.
+   * Torso shape matching: snap the five torso particles onto the rigid rest shape placed at their
+   * current centre of mass and orientation (frame from the shoulders and hips). Keeps the torso
+   * exactly rigid and right-handed (distance constraints alone allow a mirrored chest); conserves
+   * linear momentum since the rest offsets are about the centre of mass.
    */
-  _rel(i, j, vx, vy, vz) {
-    const x = this.x, a = i * 3, b = j * 3;
-    const dx = (vx - (x[b] - x[a])) * LIMIT_K, dy = (vy - (x[b + 1] - x[a + 1])) * LIMIT_K, dz = (vz - (x[b + 2] - x[a + 2])) * LIMIT_K;
-    const wi = INV_MASS[i], wj = INV_MASS[j], s = 1 / (wi + wj);
-    const kj = wj * s, ki = wi * s;
-    x[b] += dx * kj; x[b + 1] += dy * kj; x[b + 2] += dz * kj;
-    x[a] -= dx * ki; x[a + 1] -= dy * ki; x[a + 2] -= dz * ki;
+  _torso() {
+    const x = this.x, F = torsoFrame(x, FR), R = this.torsoRest;
+    let cx = 0, cy = 0, cz = 0, m = 0;
+    for (const i of TORSO) { const w = 1 / INV_MASS[i]; cx += x[i * 3] * w; cy += x[i * 3 + 1] * w; cz += x[i * 3 + 2] * w; m += w; }
+    cx /= m; cy /= m; cz /= m;
+    for (let k = 0; k < TORSO.length; k++) {
+      const o = TORSO[k] * 3, a = R[k * 3], b = R[k * 3 + 1], c = R[k * 3 + 2];
+      x[o] = cx + F[0] * a + F[3] * b + F[6] * c;
+      x[o + 1] = cy + F[1] * a + F[4] * b + F[7] * c;
+      x[o + 2] = cz + F[2] * a + F[5] * b + F[8] * c;
+    }
+  }
+
+  /**
+   * Joint-limit correction: turn segment j->b toward the unit direction t about joint j. The
+   * parent segment j->a turns the other way (shares by moment of inertia) and the joint absorbs
+   * the linear momentum, so the correction conserves linear and angular momentum: a limit that
+   * fights a ground contact can't spin the body or push it across the floor. Softened by LIMIT_K.
+   */
+  _bend(a, j, b, tx, ty, tz) {
+    const x = this.x, A = a * 3, J = j * 3, Bo = b * 3;
+    const ubx = x[Bo] - x[J], uby = x[Bo + 1] - x[J + 1], ubz = x[Bo + 2] - x[J + 2];
+    const lb = Math.hypot(ubx, uby, ubz);
+    if (lb < 1e-6) return;
+    // rotation vector taking the segment's direction onto t
+    let wx = (uby * tz - ubz * ty) / lb, wy = (ubz * tx - ubx * tz) / lb, wz = (ubx * ty - uby * tx) / lb;
+    const sn = Math.hypot(wx, wy, wz);
+    if (sn < 1e-7) return;
+    const ang = Math.min(Math.atan2(sn, (ubx * tx + uby * ty + ubz * tz) / lb) * LIMIT_K, LIMIT_MAX) / sn;
+    wx *= ang; wy *= ang; wz *= ang;
+    const uax = x[A] - x[J], uay = x[A + 1] - x[J + 1], uaz = x[A + 2] - x[J + 2];
+    const ma = 1 / INV_MASS[a], mb = 1 / INV_MASS[b], mj = 1 / INV_MASS[j];
+    // moments of inertia about the rotation axis (the parent's floored: a segment along the axis
+    // can't take the reaction, the rest of the body does through the distance constraints)
+    const w2 = wx * wx + wy * wy + wz * wz;
+    const cbx = uby * wz - ubz * wy, cby = ubz * wx - ubx * wz, cbz = ubx * wy - uby * wx;
+    const cax = uay * wz - uaz * wy, cay = uaz * wx - uax * wz, caz = uax * wy - uay * wx;
+    const Ib = (mb * (cbx * cbx + cby * cby + cbz * cbz)) / w2;
+    const Ia = Math.max((ma * (cax * cax + cay * cay + caz * caz)) / w2, 0.5 * ma * (uax * uax + uay * uay + uaz * uaz));
+    const kb = Ia / (Ia + Ib), ka = -Ib / (Ia + Ib);
+    // displacements: (w * k) x u
+    const dbx = -cbx * kb, dby = -cby * kb, dbz = -cbz * kb;
+    const dax = -cax * ka, day = -cay * ka, daz = -caz * ka;
+    x[Bo] += dbx; x[Bo + 1] += dby; x[Bo + 2] += dbz;
+    x[A] += dax; x[A + 1] += day; x[A + 2] += daz;
+    x[J] -= (mb * dbx + ma * dax) / mj; x[J + 1] -= (mb * dby + ma * day) / mj; x[J + 2] -= (mb * dbz + ma * daz) / mj;
   }
 
   _limits() {
     const x = this.x, F = torsoFrame(this.x, FR);
-    // torso orientation: distance constraints alone allow the mirror image, so keep the chest
-    // point in front of the shoulder/hip plane (signed-volume constraint)
-    {
-      const c = CHEST * 3;
-      const d = (x[c] - F[9]) * F[0] + (x[c + 1] - F[10]) * F[1] + (x[c + 2] - F[11]) * F[2];
-      const want = this.chestOut * 0.8;
-      if (d < want) {
-        const corr = (want - d) * LIMIT_K, wc = INV_MASS[CHEST], w4 = 1 / (1 / INV_MASS[SH_R] + 1 / INV_MASS[SH_L] + 1 / INV_MASS[HIP_R] + 1 / INV_MASS[HIP_L]);
-        const kc = (corr * wc) / (wc + w4), k4 = (corr * w4) / (wc + w4);
-        x[c] += F[0] * kc; x[c + 1] += F[1] * kc; x[c + 2] += F[2] * kc;
-        for (const i of [SH_R * 3, SH_L * 3, HIP_R * 3, HIP_L * 3]) { x[i] -= F[0] * k4; x[i + 1] -= F[1] * k4; x[i + 2] -= F[2] * k4; }
-      }
-    }
     // neck: the head stays within a cone around its direction (in torso space) at death
     {
       const h = HEAD * 3;
@@ -489,23 +583,35 @@ export class Ragdoll {
           const pl = Math.hypot(px, py, pz);
           if (pl > 1e-6) {
             px /= pl; py /= pl; pz /= pl;
-            // head vs the shoulder midpoint (both shoulders share the reaction)
-            const tx = (ax * NECK_COS + px * NECK_SIN) * len, ty = (ay * NECK_COS + py * NECK_SIN) * len, tz = (az * NECK_COS + pz * NECK_SIN) * len;
-            const dx = (tx - nx * len) * LIMIT_K, dy = (ty - ny * len) * LIMIT_K, dz = (tz - nz * len) * LIMIT_K;
-            const wh = INV_MASS[HEAD], ws = 1 / (1 / INV_MASS[SH_R] + 1 / INV_MASS[SH_L]), k = 1 / (wh + ws);
-            x[h] += dx * wh * k; x[h + 1] += dy * wh * k; x[h + 2] += dz * wh * k;
-            for (const sh of [SH_R * 3, SH_L * 3]) { x[sh] -= dx * ws * k; x[sh + 1] -= dy * ws * k; x[sh + 2] -= dz * ws * k; }
+            // the head hangs off both shoulders: turn it about each (half each), torso reacting
+            const tx = ax * NECK_COS + px * NECK_SIN, ty = ay * NECK_COS + py * NECK_SIN, tz = az * NECK_COS + pz * NECK_SIN;
+            for (const [sh, hip] of [[SH_R, HIP_R], [SH_L, HIP_L]]) {
+              const o = sh * 3;
+              let ux = x[h] - x[o], uy = x[h + 1] - x[o + 1], uz = x[h + 2] - x[o + 2];
+              const lu = Math.hypot(ux, uy, uz) || 1;
+              ux /= lu; uy /= lu; uz /= lu;
+              // same turn as midpoint->head needs, applied half to this shoulder->head segment
+              let rx = ny * tz - nz * ty, ry = nz * tx - nx * tz, rz = nx * ty - ny * tx;
+              const rs = Math.hypot(rx, ry, rz);
+              if (rs < 1e-7) continue;
+              const half = (Math.atan2(rs, nx * tx + ny * ty + nz * tz) * 0.5) / rs;
+              rx *= half; ry *= half; rz *= half;
+              // rotate u by r (small-angle): u + r x u
+              const vx = ux + (ry * uz - rz * uy), vy = uy + (rz * ux - rx * uz), vz = uz + (rx * uy - ry * ux);
+              const vl = Math.hypot(vx, vy, vz) || 1;
+              this._bend(hip, sh, HEAD, vx / vl, vy / vl, vz / vl);
+            }
           }
         }
       }
     }
-    this._leg(HIP_R, KN_R, FT_R, -1, F);
-    this._leg(HIP_L, KN_L, FT_L, 1, F);
-    this._arm(SH_R, EL_R, HA_R, F);
-    this._arm(SH_L, EL_L, HA_L, F);
+    this._leg(HIP_R, KN_R, FT_R, SH_R, -1, F);
+    this._leg(HIP_L, KN_L, FT_L, SH_L, 1, F);
+    this._arm(SH_R, EL_R, HA_R, this.elbowFront[0]);
+    this._arm(SH_L, EL_L, HA_L, this.elbowFront[1]);
   }
 
-  _leg(hi, ki, fi, side, F) {
+  _leg(hi, ki, fi, si, side, F) {
     const x = this.x, h = hi * 3, k = ki * 3, f = fi * 3;
     let tx = x[k] - x[h], ty = x[k + 1] - x[h + 1], tz = x[k + 2] - x[h + 2];
     let lt = Math.hypot(tx, ty, tz);
@@ -523,9 +629,8 @@ export class Ragdoll {
     if (flex > HIP_FLEX_MAX || flex < HIP_FLEX_SPLIT) { flex = HIP_FLEX_MAX; fix = true; } else if (flex < HIP_FLEX_MIN) { flex = HIP_FLEX_MIN; fix = true; }
     if (fix) {
       const r = Math.cos(abd);
-      cx = r * Math.sin(flex); cy = Math.sin(abd); cz = -r * Math.cos(flex);
-      const yy = cy * side;
-      this._rel(hi, ki, (F[0] * cx + F[3] * yy + F[6] * cz) * lt, (F[1] * cx + F[4] * yy + F[7] * cz) * lt, (F[2] * cx + F[5] * yy + F[8] * cz) * lt);
+      cx = r * Math.sin(flex); cy = Math.sin(abd) * side; cz = -r * Math.cos(flex);
+      this._bend(si, hi, ki, F[0] * cx + F[3] * cy + F[6] * cz, F[1] * cx + F[4] * cy + F[7] * cz, F[2] * cx + F[5] * cy + F[8] * cz);
       tx = x[k] - x[h]; ty = x[k + 1] - x[h + 1]; tz = x[k + 2] - x[h + 2];
       lt = Math.hypot(tx, ty, tz) || 1;
       tx /= lt; ty /= lt; tz /= lt;
@@ -544,22 +649,27 @@ export class Ragdoll {
     const a2 = a > KNEE_TOL ? KNEE_TOL : a, b2 = clamp(b, -KNEE_SIDE, KNEE_SIDE);
     if (a2 !== a || b2 !== b) {
       sx += kx * (a2 - a) + ax * (b2 - b); sy += ky * (a2 - a) + ay * (b2 - b); sz += kz * (a2 - a) + az * (b2 - b);
-      const l = ls / (Math.hypot(sx, sy, sz) || 1);
-      this._rel(ki, fi, sx * l, sy * l, sz * l);
+      const l = Math.hypot(sx, sy, sz) || 1;
+      this._bend(hi, ki, fi, sx / l, sy / l, sz / l);
     }
   }
 
-  _arm(si, ei, hi, F) {
+  _arm(si, ei, hi, front) {
     const x = this.x, s = si * 3, e = ei * 3, h = hi * 3;
     let ux = x[e] - x[s], uy = x[e + 1] - x[s + 1], uz = x[e + 2] - x[s + 2];
     const lu = Math.hypot(ux, uy, uz);
     if (lu < 1e-6) return;
     ux /= lu; uy /= lu; uz /= lu;
-    // elbow front = upper arm x lateral (forward for a hanging arm); the forearm may not go behind
-    let fx = uy * F[5] - uz * F[4], fy = uz * F[3] - ux * F[5], fz = ux * F[4] - uy * F[3];
+    // elbow front: parallel-transported with the upper arm (the shoulder is free, so a front
+    // derived from the torso axes would flip whenever the arm swings past the shoulder line)
+    let fx = front[0], fy = front[1], fz = front[2];
+    const fu = fx * ux + fy * uy + fz * uz;
+    fx -= fu * ux; fy -= fu * uy; fz -= fu * uz;
     const fl = Math.hypot(fx, fy, fz);
-    if (fl < 0.3) return; // arm along the shoulder axis: hinge direction undefined
+    if (fl < 1e-3) return;
     fx /= fl; fy /= fl; fz /= fl;
+    front[0] = fx; front[1] = fy; front[2] = fz;
+    // the forearm may not swing behind the upper arm line
     let ax = x[h] - x[e], ay = x[h + 1] - x[e + 1], az = x[h + 2] - x[e + 2];
     const la = Math.hypot(ax, ay, az);
     if (la < 1e-6) return;
@@ -568,8 +678,8 @@ export class Ragdoll {
     if (c < -ELBOW_TOL) {
       const k = -ELBOW_TOL - c;
       ax += fx * k; ay += fy * k; az += fz * k;
-      const l = la / (Math.hypot(ax, ay, az) || 1);
-      this._rel(ei, hi, ax * l, ay * l, az * l);
+      const l = Math.hypot(ax, ay, az) || 1;
+      this._bend(si, ei, hi, ax / l, ay / l, az / l);
     }
   }
 

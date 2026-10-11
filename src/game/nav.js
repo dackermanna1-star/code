@@ -9,6 +9,11 @@ const CELL = 32;
 const STEP = 18;
 const MAX_DROP = 260;
 const MAX_JUMP = 40;
+// offsets tried inside a cell whose centre doesn't fit a player
+// a standing spot needs floor under most of these points (no walking along the
+// top of thin walls and parapets, where a player keeps sliding off)
+const SUPPORT = [[0, 0], [12, 0], [-12, 0], [0, 12], [0, -12]];
+const NUDGE = [[0, 0], [9, 0], [-9, 0], [0, 9], [0, -9], [9, 9], [-9, 9], [9, -9], [-9, -9], [14, 0], [-14, 0], [0, 14], [0, -14]];
 
 export class NavGraph {
   constructor(world, bounds) {
@@ -40,8 +45,8 @@ export class NavGraph {
     return null;
   }
 
-  addNode(ix, iy, z) {
-    const n = { id: this.nodes.length, x: this.bounds[0] + (ix + 0.5) * CELL, y: this.bounds[1] + (iy + 0.5) * CELL, z, ix, iy, edges: [] };
+  addNode(ix, iy, z, x = null, y = null) {
+    const n = { id: this.nodes.length, x: x ?? this.bounds[0] + (ix + 0.5) * CELL, y: y ?? this.bounds[1] + (iy + 0.5) * CELL, z, ix, iy, edges: [] };
     this.nodes.push(n);
     const k = this.key(ix, iy);
     let l = this.columns.get(k);
@@ -50,9 +55,52 @@ export class NavGraph {
     return n;
   }
 
+  // Can a standing player get from node n to (x, y)? Walk (step-up height) or
+  // jump; then drop to the floor there. Returns { z, kind } or null.
+  step(n, x, y, diag) {
+    const h = HULL_STAND, a = this._sa || (this._sa = [0, 0, 0]), b = this._sb || (this._sb = [0, 0, 0]);
+    let kind = 'walk';
+    a[0] = n.x; a[1] = n.y; a[2] = n.z + 36 + STEP + 1;
+    b[0] = x; b[1] = y; b[2] = a[2];
+    this.world.trace(a, b, h.mins, h.maxs, MASK_WORLD_PLAYER, this.tr);
+    if (this.tr.fraction < 1 || this.tr.startsolid) {
+      a[2] = n.z + 36 + MAX_JUMP + 1; b[2] = a[2];
+      if (this.world.testBox(a, h.mins, h.maxs, MASK_WORLD_PLAYER)) return null;
+      this.world.trace(a, b, h.mins, h.maxs, MASK_WORLD_PLAYER, this.tr);
+      if (this.tr.fraction < 1 || this.tr.startsolid) return null;
+      kind = 'jump';
+    }
+    if (diag) {
+      // diagonal: both orthogonal neighbours must be passable too (avoid corner cutting)
+      if (this.world.testBox([x, n.y, a[2]], h.mins, h.maxs, MASK_WORLD_PLAYER) || this.world.testBox([n.x, y, a[2]], h.mins, h.maxs, MASK_WORLD_PLAYER)) return null;
+    }
+    this.world.trace(b, [x, y, b[2] - 36 - MAX_DROP - STEP], h.mins, h.maxs, MASK_WORLD_PLAYER, this.tr);
+    if (this.tr.fraction >= 1 || this.tr.startsolid || this.tr.normal[2] < 0.7) return null;
+    const z = this.tr.endpos[2] - 36;
+    const dz = z - n.z;
+    if (kind === 'jump' && dz < STEP) return null; // jump only needed to get up
+    if (dz < -STEP - 2) kind = 'drop';
+    return { z, kind };
+  }
+
+  supported(x, y, z) {
+    const t = this.tr2 || (this.tr2 = new TraceResult());
+    let c = 0;
+    for (const [ox, oy] of SUPPORT) {
+      this.world.trace([x + ox, y + oy, z + 4], [x + ox, y + oy, z - 24], [0, 0, 0], [0, 0, 0], MASK_WORLD_PLAYER, t);
+      if (t.fraction < 1 && !t.startsolid) c++;
+    }
+    return c >= 4;
+  }
+
+  link(n, m, kind) {
+    if (n.edges.some((e) => e.to === m.id)) return;
+    const dist = Math.hypot(m.x - n.x, m.y - n.y, (m.z - n.z) * 0.5);
+    n.edges.push({ to: m.id, kind, cost: dist * (kind === 'jump' ? 2 : 1) });
+  }
+
   // Flood fill from seed positions (feet positions).
   build(seeds) {
-    const h = HULL_STAND;
     const queue = [];
     for (const s of seeds) {
       const ix = Math.floor((s[0] - this.bounds[0]) / CELL), iy = Math.floor((s[1] - this.bounds[1]) / CELL);
@@ -62,44 +110,42 @@ export class NavGraph {
       queue.push(this.addNode(ix, iy, z));
     }
     const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
-    const a = [0, 0, 0], b = [0, 0, 0];
     while (queue.length) {
       const n = queue.shift();
       for (const [dx, dy] of dirs) {
         const ix = n.ix + dx, iy = n.iy + dy;
-        const x = this.bounds[0] + (ix + 0.5) * CELL, y = this.bounds[1] + (iy + 0.5) * CELL;
-        if (x < this.bounds[0] || y < this.bounds[1] || x > this.bounds[2] || y > this.bounds[3]) continue;
-        // move horizontally at step height + jump allowance
-        let kind = 'walk';
-        a[0] = n.x; a[1] = n.y; a[2] = n.z + 36 + STEP + 1;
-        b[0] = x; b[1] = y; b[2] = a[2];
-        this.world.trace(a, b, h.mins, h.maxs, MASK_WORLD_PLAYER, this.tr);
-        if (this.tr.fraction < 1 || this.tr.startsolid) {
-          // try a jump
-          a[2] = n.z + 36 + MAX_JUMP + 1; b[2] = a[2];
-          if (this.world.testBox(a, h.mins, h.maxs, MASK_WORLD_PLAYER)) continue;
-          this.world.trace(a, b, h.mins, h.maxs, MASK_WORLD_PLAYER, this.tr);
-          if (this.tr.fraction < 1 || this.tr.startsolid) continue;
-          kind = 'jump';
+        const cx = this.bounds[0] + (ix + 0.5) * CELL, cy = this.bounds[1] + (iy + 0.5) * CELL;
+        if (cx < this.bounds[0] || cy < this.bounds[1] || cx > this.bounds[2] || cy > this.bounds[3]) continue;
+        const diag = !!(dx && dy);
+        // nodes already in that cell: link when the straight move works
+        let done = false;
+        const col = this.columns.get(this.key(ix, iy));
+        if (col) {
+          for (const m of col) {
+            if (m.z - n.z > MAX_JUMP + 4 || n.z - m.z > MAX_DROP + STEP) continue;
+            const r = this.step(n, m.x, m.y, diag);
+            if (r && Math.abs(r.z - m.z) < 24) { this.link(n, m, r.kind); done = true; break; }
+          }
         }
-        if (dx && dy) {
-          // diagonal: both orthogonal neighbours must be passable too (avoid corner cutting)
-          const ox = [n.x + dx * CELL, n.y, a[2]], oy = [n.x, n.y + dy * CELL, a[2]];
-          if (this.world.testBox(ox, h.mins, h.maxs, MASK_WORLD_PLAYER) || this.world.testBox(oy, h.mins, h.maxs, MASK_WORLD_PLAYER)) continue;
-        }
-        this.world.trace(b, [x, y, b[2] - 36 - MAX_DROP - STEP], h.mins, h.maxs, MASK_WORLD_PLAYER, this.tr);
-        if (this.tr.fraction >= 1 || this.tr.startsolid || this.tr.normal[2] < 0.7) continue;
-        const z = this.tr.endpos[2] - 36;
-        const dz = z - n.z;
-        if (kind === 'jump' && dz < STEP) continue; // jump only needed to get up
-        if (dz < -STEP - 2) kind = 'drop';
-        let m = this.nodeAt(ix, iy, z);
-        if (!m) {
-          m = this.addNode(ix, iy, z);
+        if (done) continue;
+        // the cell centre, else a position nudged inside the cell (lets the graph
+        // through gaps a 32-unit grid can't line up with: 64-wide passages,
+        // half-open doors)
+        for (const [ox, oy] of NUDGE) {
+          const r = this.step(n, cx + ox, cy + oy, diag);
+          if (!r) continue;
+          let m = this.nodeAt(ix, iy, r.z);
+          if (m) {
+            const r2 = this.step(n, m.x, m.y, diag);
+            if (r2 && Math.abs(r2.z - m.z) < 24) this.link(n, m, r2.kind);
+            break;
+          }
+          if (!this.supported(cx + ox, cy + oy, r.z)) continue;
+          m = this.addNode(ix, iy, r.z, cx + ox, cy + oy);
           queue.push(m);
+          this.link(n, m, r.kind);
+          break;
         }
-        const dist = Math.hypot(m.x - n.x, m.y - n.y, (m.z - n.z) * 0.5);
-        if (!n.edges.some((e) => e.to === m.id)) n.edges.push({ to: m.id, kind, cost: dist * (kind === 'jump' ? 2 : 1) });
       }
     }
     // node clearance (distance to walls) for path preference
@@ -125,6 +171,53 @@ export class NavGraph {
       if (best && r >= 1) break;
     }
     return bd <= maxDist ? best : null;
+  }
+
+  // Nearest node by horizontal distance within maxDist, ignoring nodes more than
+  // dzMax above/below pos (used to snap hand-placed waypoints to the graph).
+  nearestXY(pos, maxDist = 200, dzMax = 96) {
+    const ix = Math.floor((pos[0] - this.bounds[0]) / CELL), iy = Math.floor((pos[1] - this.bounds[1]) / CELL);
+    const r = Math.ceil(maxDist / CELL);
+    let best = null, bd = Infinity;
+    for (let x = ix - r; x <= ix + r; x++) for (let y = iy - r; y <= iy + r; y++) {
+      const l = this.columns.get(this.key(x, y));
+      if (!l) continue;
+      for (const n of l) {
+        const dz = Math.abs(n.z - pos[2]);
+        if (dz > dzMax) continue;
+        const d = Math.hypot(n.x - pos[0], n.y - pos[1]) + dz * 0.35;
+        if (d < bd) { bd = d; best = n; }
+      }
+    }
+    return bd <= maxDist ? best : null;
+  }
+
+  // Nodes reachable from `start` within `radius` (path length), breadth first.
+  // Returns [{ node, dist }] in increasing distance; at most `limit` entries.
+  around(start, radius, limit = 400) {
+    if (!start) return [];
+    const seen = new Map([[start.id, 0]]);
+    const out = [{ node: start, dist: 0 }];
+    for (let i = 0; i < out.length && out.length < limit; i++) {
+      const { node, dist } = out[i];
+      for (const e of node.edges) {
+        if (e.kind === 'jump') continue;
+        const m = this.nodes[e.to];
+        const d = dist + Math.hypot(m.x - node.x, m.y - node.y);
+        if (d > radius || seen.has(m.id)) continue;
+        seen.set(m.id, d);
+        out.push({ node: m, dist: d });
+      }
+    }
+    return out;
+  }
+
+  // Length of a node path (sum of edge lengths), or Infinity for no path.
+  pathLength(path) {
+    if (!path) return Infinity;
+    let l = 0;
+    for (let i = 1; i < path.length; i++) l += Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y);
+    return l;
   }
 
   // A* from node a to node b. Returns array of nodes or null.
@@ -171,8 +264,8 @@ export class NavGraph {
   }
 
   // Can a player walk straight from p to q (feet positions)? Used for string pulling.
-  canWalk(p, q) {
-    const h = HULL_STAND;
+  canWalk(p, q, margin = 0) {
+    const h = margin ? { mins: [-16 - margin, -16 - margin, -36], maxs: [16 + margin, 16 + margin, 36] } : HULL_STAND;
     if (Math.abs(q[2] - p[2]) > 64) return false;
     const steps = Math.ceil(Math.hypot(q[0] - p[0], q[1] - p[1]) / 24);
     let z = p[2];
@@ -195,8 +288,8 @@ export class NavGraph {
   }
 
   smooth(path, startFeet) {
-    if (!path || path.length < 2) return path ? path.map((n) => [n.x, n.y, n.z, 'walk']) : null;
-    const pts = path.map((n, i) => [n.x, n.y, n.z, i > 0 ? (path[i - 1].edges.find((e) => e.to === n.id)?.kind || 'walk') : 'walk']);
+    if (!path || path.length < 2) return path ? path.map((n) => [n.x, n.y, n.z, 'walk', n.id]) : null;
+    const pts = path.map((n, i) => [n.x, n.y, n.z, i > 0 ? (path[i - 1].edges.find((e) => e.to === n.id)?.kind || 'walk') : 'walk', n.id]);
     const out = [];
     let cur = startFeet || pts[0];
     let i = 0;
@@ -205,7 +298,7 @@ export class NavGraph {
       for (; j > i + 1; j--) {
         let ok = true;
         for (let k = i + 1; k <= j; k++) if (pts[k][3] !== 'walk') { ok = false; break; }
-        if (ok && this.canWalk(cur, pts[j])) break;
+        if (ok && this.canWalk(cur, pts[j], 4)) break;
       }
       out.push(pts[j]);
       cur = pts[j];
