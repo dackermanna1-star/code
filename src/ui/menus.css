@@ -1,0 +1,118 @@
+/* Counter-Strike 1.6 menus.
+ *  .vg-*  in-game VGUI panels (team / class / buy / scoreboard): translucent black
+ *         CTransparentPanel with the orange LineBorder (178,119,0), #FFB000 text,
+ *         laid out in 640x480 units and scaled with the screen like VGUI1.
+ *  .st-*  Steam GameUI (2004 "TrackerScheme"): olive windows with bevelled borders
+ *         for the console, options, create server and loading dialogs.
+ *  .mm-*  main menu: text logo and left-aligned text buttons over the live game.
+ * Square corners, no shadows, no gradients, no transitions.
+ */
+
+.cs-menus { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 30; overflow: hidden;
+  font-family: Verdana, "DejaVu Sans", Tahoma, Arial, sans-serif; user-select: none; -webkit-user-select: none; }
+.cs-menus * { box-sizing: border-box; }
+.cs-menus [hidden] { display: none !important; }
+.cs-menus input, .cs-menus select, .cs-menus button { font-family: inherit; }
+
+/* ------------------------------------------------------------------ VGUI1 */
+.vg-stage { position: absolute; left: 50%; top: 50%; width: 640px; height: 480px; transform-origin: 50% 50%; pointer-events: none; }
+.vg-panel { position: absolute; background: rgba(0, 0, 0, 0.62); border: 1px solid #b27700; pointer-events: auto; color: #ffb000;
+  font-family: Arial, "Liberation Sans", Helvetica, sans-serif; }
+.vg-title { position: absolute; left: 18px; top: 10px; font: bold 19px Arial, "Liberation Sans", Helvetica, sans-serif; color: #ffb000; letter-spacing: 0; white-space: nowrap; }
+.vg-sub { position: absolute; right: 18px; top: 16px; font: bold 12px Arial, "Liberation Sans", sans-serif; color: #ffb000; }
+.vg-buttons { position: absolute; left: 18px; top: 56px; width: 206px; }
+.vg-btn { display: flex; align-items: center; height: 21px; margin-bottom: 6px; padding: 0 7px; border: 1px solid #b27700; color: #ffb000; cursor: pointer;
+  font: bold 10px Arial, "Liberation Sans", Helvetica, sans-serif; white-space: nowrap; overflow: hidden; text-transform: uppercase; }
+.vg-btn .k { width: 18px; flex: none; }
+.vg-btn .t { flex: 1; overflow: hidden; text-overflow: clip; }
+.vg-btn .p { flex: none; margin-left: 6px; }
+.vg-btn.gap { visibility: hidden; height: 10px; margin: 0; border: 0; }
+.vg-btn:hover, .vg-btn.armed { background: rgba(178, 119, 0, 0.55); color: #fff; border-color: #ffb000; }
+.vg-btn.off { color: #6e5a30; border-color: #4d3a14; cursor: default; }
+.vg-btn.off:hover { background: transparent; color: #6e5a30; border-color: #4d3a14; }
+.vg-btn.cancel { margin-top: 14px; }
+.vg-info { position: absolute; left: 240px; top: 56px; width: 322px; height: 322px; border: 1px solid #b27700; background: rgba(0, 0, 0, 0.35); overflow: hidden; }
+.vg-info h2 { margin: 0; padding: 10px 12px 6px; font: bold 13px Arial, "Liberation Sans", sans-serif; color: #ffb000; }
+.vg-info p { margin: 0; padding: 0 12px 7px; font: 10px/1.4 Arial, "Liberation Sans", sans-serif; color: #fff; white-space: pre-wrap; }
+.vg-info .stats { padding: 4px 12px; font: 10px/1.5 Arial, "Liberation Sans", sans-serif; color: #fff; }
+.vg-info .stats b { font-weight: normal; color: #ffb000; }
+.vg-info canvas { display: block; margin: 8px auto 4px; }
+.vg-money { position: absolute; left: 18px; bottom: 12px; font: bold 13px Arial, "Liberation Sans", sans-serif; color: #ffb000; }
+
+/* scoreboard */
+.vg-score { color: #ffb000; }
+.vg-score table { position: absolute; left: 14px; right: 14px; top: 44px; border-collapse: collapse; font: 11px Arial, "Liberation Sans", Helvetica, sans-serif; table-layout: fixed; }
+.vg-score th { color: #ffb000; font-weight: bold; text-align: right; padding: 2px 6px; height: 18px; }
+.vg-score th:first-child, .vg-score td:first-child { text-align: left; }
+.vg-score td { padding: 1px 6px; height: 15px; text-align: right; white-space: nowrap; overflow: hidden; }
+.vg-score tr.team td { font-weight: bold; font-size: 13px; height: 22px; padding-top: 8px; border-bottom: 1px solid #b27700; }
+.vg-score tr.me td { background: rgba(255, 255, 255, 0.16); }
+.vg-score td.st { text-align: left; color: #c8c8c8; }
+.vg-score .specs { position: absolute; left: 20px; bottom: 10px; font: 11px Arial, "Liberation Sans", sans-serif; color: #c8c8c8; }
+
+/* ------------------------------------------------------------------ main menu */
+.mm { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
+.mm-logo { position: absolute; left: 6.5%; top: 31%; pointer-events: none; color: #e8e8e8; white-space: nowrap;
+  font: 900 46px "Arial Black", "Liberation Sans", Arial, Helvetica, sans-serif; letter-spacing: -1px; transform: scaleX(1.06); transform-origin: 0 0; }
+.mm-logo span { color: #ffb000; }
+.mm-items { position: absolute; left: 6.5%; top: calc(31% + 82px); pointer-events: auto; }
+.mm-item { display: block; padding: 3px 0; font: bold 15px Verdana, "DejaVu Sans", Tahoma, sans-serif; color: rgba(225, 225, 225, 0.82); cursor: pointer; white-space: nowrap; }
+.mm-item:hover { color: #fff; }
+.mm-item.off, .mm-item.off:hover { color: rgba(140, 140, 140, 0.6); cursor: default; }
+.mm-sep { height: 14px; }
+
+/* ------------------------------------------------------------------ Steam GameUI */
+.st-win { position: absolute; background: #4c5844; border: 1px solid; border-color: #889180 #282e22 #282e22 #889180; color: #d8ded3;
+  font: 11px Tahoma, Verdana, "DejaVu Sans", sans-serif; pointer-events: auto; }
+.st-titlebar { height: 24px; display: flex; align-items: center; padding: 0 6px 0 9px; font-weight: bold; font-size: 12px; color: #d8ded3; cursor: default; }
+.st-titlebar .x { margin-left: auto; width: 16px; height: 16px; line-height: 13px; text-align: center; color: #d8ded3; border: 1px solid; border-color: #889180 #282e22 #282e22 #889180; cursor: pointer; font-size: 11px; }
+.st-titlebar .x:hover { color: #c4b550; }
+.st-body { padding: 8px 12px 12px; }
+.st-sunken { background: #3e4637; border: 1px solid; border-color: #282e22 #889180 #889180 #282e22; }
+.st-btn { display: inline-block; min-width: 72px; height: 22px; padding: 0 10px; background: #4c5844; color: #d8ded3; border: 1px solid; border-color: #889180 #282e22 #282e22 #889180;
+  font: 11px Tahoma, Verdana, "DejaVu Sans", sans-serif; cursor: pointer; text-align: center; }
+.st-btn:hover { color: #c4b550; }
+.st-btn:active { border-color: #282e22 #889180 #889180 #282e22; }
+.st-btn[disabled] { color: #75806f; cursor: default; }
+.st-btns { display: flex; justify-content: flex-end; gap: 6px; margin-top: 12px; }
+.st-tabs { display: flex; gap: 2px; margin: 4px 0 -1px; position: relative; z-index: 1; }
+.st-tab { padding: 3px 12px 4px; background: #3e4637; border: 1px solid; border-color: #889180 #282e22 #4c5844 #889180; color: #a0aa98; cursor: pointer; }
+.st-tab.on { background: #4c5844; color: #d8ded3; border-bottom-color: #4c5844; padding-bottom: 5px; margin-bottom: -1px; }
+.st-page { border: 1px solid; border-color: #889180 #282e22 #282e22 #889180; padding: 12px; min-height: 230px; }
+.st-row { display: flex; align-items: center; min-height: 26px; }
+.st-row > label:first-child { width: 150px; flex: none; color: #d8ded3; }
+.st-row select, .st-row input[type=text], .st-row input[type=number] { height: 20px; background: #3e4637; color: #d8ded3; border: 1px solid; border-color: #282e22 #889180 #889180 #282e22;
+  font: 11px Tahoma, Verdana, "DejaVu Sans", sans-serif; padding: 0 4px; outline: none; border-radius: 0; }
+.st-row select { width: 170px; }
+.st-row input[type=text] { width: 170px; }
+.st-row .val { width: 44px; margin-left: 8px; text-align: right; color: #d8ded3; }
+.st-row input[type=range] { -webkit-appearance: none; appearance: none; width: 170px; height: 6px; background: #3e4637; border: 1px solid; border-color: #282e22 #889180 #889180 #282e22; outline: none; margin: 0; }
+.st-row input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 9px; height: 16px; background: #4c5844; border: 1px solid; border-color: #889180 #282e22 #282e22 #889180; border-radius: 0; cursor: pointer; }
+.st-row input[type=range]::-moz-range-thumb { width: 7px; height: 14px; background: #4c5844; border: 1px solid; border-color: #889180 #282e22 #282e22 #889180; border-radius: 0; cursor: pointer; }
+.st-check { display: flex; align-items: center; gap: 7px; min-height: 24px; cursor: pointer; }
+.st-check input { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; margin: 0; background: #3e4637; border: 1px solid; border-color: #282e22 #889180 #889180 #282e22; position: relative; cursor: pointer; }
+.st-check input:checked::after { content: ""; position: absolute; left: 3px; top: 0; width: 3px; height: 7px; border: solid #c4b550; border-width: 0 2px 2px 0; transform: rotate(40deg); }
+.st-swatch { display: inline-block; width: 26px; height: 12px; margin-left: 8px; border: 1px solid #282e22; vertical-align: middle; }
+.st-note { color: #a0aa98; margin-top: 8px; }
+.st-newgame .st-row > label:first-child { width: 205px; }
+
+/* console */
+.st-console { width: 620px; height: 420px; display: flex; flex-direction: column; }
+.st-console .st-body { flex: 1; display: flex; flex-direction: column; padding: 4px 8px 8px; min-height: 0; }
+.st-console .out { flex: 1; overflow-y: auto; padding: 3px 5px; font: 12px/1.3 Tahoma, Verdana, "DejaVu Sans", sans-serif; color: #d8ded3; white-space: pre-wrap; word-break: break-word; user-select: text; -webkit-user-select: text; }
+.st-console .in { display: flex; gap: 6px; margin-top: 6px; }
+.st-console .in input { flex: 1; height: 22px; background: #3e4637; color: #d8ded3; border: 1px solid; border-color: #282e22 #889180 #889180 #282e22; padding: 0 4px;
+  font: 12px Tahoma, Verdana, "DejaVu Sans", sans-serif; outline: none; user-select: text; -webkit-user-select: text; }
+.st-console .out::-webkit-scrollbar { width: 14px; background: #3e4637; }
+.st-console .out::-webkit-scrollbar-thumb { background: #4c5844; border: 1px solid; border-color: #889180 #282e22 #282e22 #889180; }
+
+/* loading */
+.st-loading { width: 360px; }
+.st-loading .msg { margin: 6px 0 8px; min-height: 14px; }
+.st-progress { height: 16px; padding: 2px; display: flex; gap: 2px; }
+.st-progress i { width: 7px; flex: none; background: #c4b550; }
+
+/* ------------------------------------------------------------------ chat input */
+.cs-chat { position: absolute; pointer-events: auto; display: flex; align-items: baseline; white-space: nowrap; color: rgb(255, 180, 30);
+  font-weight: bold; font-family: Verdana, "DejaVu Sans", Tahoma, Arial, sans-serif; text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.9); }
+.cs-chat input { background: transparent; border: 0; outline: none; padding: 0; margin-left: 0.35em; color: #fff; font: inherit; text-shadow: inherit; width: 60vw; caret-color: #fff; user-select: text; -webkit-user-select: text; }

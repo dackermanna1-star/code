@@ -1,5 +1,5 @@
 // Dev viewer for an original de_dust2.bsp served by tools/serve-gamefiles.mjs (files are NOT in the repo).
-// ?src=http://localhost:8899&pos=x,y,z&ang=p,y&lmScale=&lmGamma=
+// ?src=http://localhost:8899&pos=x,y,z&ang=p,y&lmScale=&lmGamma=  (view=top&bounds=x0,y0,x1,y1&zcut=z)
 import * as THREE from 'three';
 import { Renderer } from '../../src/engine/renderer.js';
 import { loadBspWorld } from '../../src/bsp/bspworld.js';
@@ -42,7 +42,9 @@ let topCam = null;
 if (params.get('view') === 'top') {
   const b = (params.get('bounds') || '-2476,-1266.6,2029.6,3239').split(',').map(Number);
   const w = b[2] - b[0], h = b[3] - b[1];
-  topCam = new THREE.OrthographicCamera(-w / 2, w / 2, h / 2, -h / 2, 1, 20000);
+  // ?zcut=z hides everything above that height (roofs, ceilings)
+  const zcut = params.get('zcut');
+  topCam = new THREE.OrthographicCamera(-w / 2, w / 2, h / 2, -h / 2, zcut ? 4000 - +zcut : 1, 20000);
   topCam.position.set((b[0] + b[2]) / 2, 4000, -(b[1] + b[3]) / 2);
   topCam.lookAt((b[0] + b[2]) / 2, 0, -(b[1] + b[3]) / 2);
   window.__topCam = topCam;

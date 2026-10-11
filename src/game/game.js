@@ -128,19 +128,24 @@ export class Game {
     if (this.rounds.canSpawnLate()) this.spawnPlayer(p);
   }
 
-  spawnPoint(team, used) {
+  spawnPoint(team, used, self) {
     const list = this.spawns[team];
-    const free = list.filter((s) => !used.has(s));
-    const pool = free.length ? free : list;
-    // CS picks spawns in order; shuffle lightly for variety
-    const s = pool[Math.floor(Math.random() * Math.min(pool.length, 6))];
+    // CS SelectSpawnPoint: walk the list from a random start and take the first
+    // spot with no other player within 64 units (IsSpawnPointValid)
+    const occupied = (s) => used.has(s) || this.players.some((q) => q !== self && q.alive && q.box?.active &&
+      Math.abs(q.pm.origin[0] - s.origin[0]) < 64 && Math.abs(q.pm.origin[1] - s.origin[1]) < 64 && Math.abs(q.pm.origin[2] - s.origin[2]) < 72);
+    const start = Math.floor(Math.random() * list.length);
+    let s = null;
+    for (let i = 0; i < list.length && !s; i++) if (!occupied(list[(start + i) % list.length])) s = list[(start + i) % list.length];
+    s = s || list[start];
     used.add(s);
     return s;
   }
 
   spawnPlayer(p, used = new Set()) {
     if (p.team !== TEAM_T && p.team !== TEAM_CT) return;
-    const s = this.spawnPoint(p.team, used);
+    p.box.active = false;
+    const s = this.spawnPoint(p.team, used, p);
     p.resetForSpawn(s.origin, s.angle);
     // keep weapons if survived, else default loadout
     if (!p.weapons[3]) p.weapons[3] = this.newWeapon('knife');
@@ -150,6 +155,10 @@ export class Game {
       p.weapons[2] = this.newWeapon(p.team === TEAM_T ? 'glock' : 'usp', true);
     }
     p.active = null;
+    if (p.isLocal) {
+      this.viewTarget = p;
+      this.oldz = p.pm.origin[2];
+    }
     const best = p.weapons[1] || p.weapons[2] || p.weapons[3];
     this.selectWeapon(p, best, true);
     if (p.model) {
@@ -157,10 +166,6 @@ export class Game {
       p.model.reset?.();
     }
     p.deadBodyVisible = false;
-    if (p.isLocal) {
-      this.viewTarget = p;
-      this.oldz = p.pm.origin[2];
-    }
     p.box.active = true;
     setDynamicBox(p.box, p.pm.origin, p.hull().mins, p.hull().maxs);
   }
@@ -901,7 +906,9 @@ export class Game {
         const showVm = p.fov >= 90 || !(p.active && /awp|scout|g3sg1|sg550/.test(p.active.id));
         this.vm.object3D.visible = showVm;
         this.vm.update(this.paused ? 0 : dt, { bobX: 0, bobY: bob * 0.4, swayYaw: -bob * 0.5, swayPitch: -bob * 0.3 });
-        this.vm.setLight(this.W.sampler.sample([x, y, z], [1, 1, 1]).map((c) => Math.min(1.4, c * 0.9 + 0.1)));
+        // GoldSrc runs model light through the lightgamma table, which lifts shadowed
+        // view models well above the raw light value
+        this.vm.setLight(this.W.sampler.sample([x, y, z], [1, 1, 1]).map((c) => Math.min(1.3, Math.max(0.3, Math.pow(c, 0.55)))));
       }
       this.drawVm = true;
     } else {

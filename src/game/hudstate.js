@@ -35,7 +35,7 @@ export function buildHudState(game, extra = {}) {
   s.inBombZone = s.hasC4 && !!game.bombZoneOf(p);
   s.inBuyZone = me.alive && game.inBuyZone(me) && R.buyTimeLeft();
   s.hasDefuser = !!p.defuser;
-  s.spectator = me.alive ? null : { target: target ? target.name : null, mode: game.spectate?.mode || 'free' };
+  s.spectator = me.alive ? null : { target: target ? target.name : null, mode: game.spectate?.mode || 'free', tScore: game.rounds.tScore, ctScore: game.rounds.ctScore, health: target?.health, targetTeam: target?.team };
 
   // dynamic crosshair
   const settings = extra.settings;

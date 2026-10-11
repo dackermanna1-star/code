@@ -30,7 +30,7 @@ async function boot() {
   input.invertY = settings.get('invertY');
   const hud = new Hud(app);
   const menus = new Menus(app, { onCommand: (c) => onMenuCommand(c) });
-  renderer.onResize = (vp) => hud.resize?.({ x: vp.x, y: vp.y, w: vp.w, h: vp.h });
+  renderer.onResize = (vp) => { hud.resize?.({ x: vp.x, y: vp.y, w: vp.w, h: vp.h, rw: vp.rw, rh: vp.rh }); menus.resize?.(vp); };
   renderer.resize();
 
   const progress = (text, p) => menus.showLoading?.(text, p);

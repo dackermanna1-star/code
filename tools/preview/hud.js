@@ -253,6 +253,7 @@ setupMenus();
 const demo = Q.get('demo') === '1';
 let last = performance.now();
 let acc = 0;
+const hits = [];
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
@@ -263,12 +264,13 @@ function frame(now) {
     state.radar.yaw = (90 + acc * 20) % 360;
     if (Math.floor(acc) % 4 === 0 && Math.floor(acc - dt) % 4 !== 0) {
       state.health = Math.max(1, state.health - 13);
-      state.damage.push({ dir: ['front', 'left', 'right', 'back'][Math.floor(acc) % 4], t: acc });
+      hits.push({ dir: ['front', 'left', 'right', 'back'][Math.floor(acc) % 4], at: acc });
       hud.addKill({ attacker: 'Bot' + Math.floor(acc), attackerTeam: 'T', victim: 'Ct' + Math.floor(acc), victimTeam: 'CT', weapon: ['deagle', 'm4a1', 'knife', 'p90'][Math.floor(acc) % 4], headshot: acc % 8 < 4 });
       state.money = Math.min(16000, state.money + 300);
       hud.moneyDelta(300);
     }
   }
+  if (demo) state.damage = hits.filter((h) => acc - h.at < 1).map((h) => ({ dir: h.dir, t: acc - h.at }));
   hud.draw(state, dt);
   requestAnimationFrame(frame);
 }

@@ -299,7 +299,7 @@ class Bot {
     const cmd = p.cmd || (p.cmd = { forwardmove: 0, sidemove: 0, upmove: 0, buttons: 0, wbuttons: 0 });
     cmd.forwardmove = 0; cmd.sidemove = 0; cmd.buttons = 0; cmd.wbuttons = 0;
     if (this.state === 'buy') {
-      if (this.time >= this.buyAt && !this.buyDone) { this.buy(); this.buyDone = true; }
+      if ((this.time >= this.buyAt || !g.rounds.freeze) && !this.buyDone) { this.buy(); this.buyDone = true; }
       if (!g.rounds.freeze) this.state = 'objective';
       else { this.lookAround(dt); return; }
     }
