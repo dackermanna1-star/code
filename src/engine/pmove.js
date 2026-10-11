@@ -25,6 +25,8 @@ export const VEC_DUCK_VIEW = 12;
 const TIME_TO_DUCK = 0.4;
 const DUCK_DIFF = 18; // VEC_DUCK_HULL_MIN - VEC_HULL_MIN
 const PLAYER_DUCKING_MULTIPLIER = 0.333;
+const MAX_CLIMB_SPEED = 200;
+const ZERO3 = [0, 0, 0];
 const STOP_EPSILON = 0.1;
 const MAX_CLIP_PLANES = 5;
 export const PLAYER_FALL_PUNCH_THRESHHOLD = 350;
@@ -134,6 +136,17 @@ export class PlayerMover {
       }
     }
 
+    // PM_Ladder: touching a func_ladder (BSP maps) -> MOVETYPE_FLY on the ladder
+    const h = this.hull(pm);
+    const ladder = !pm.dead && this.world.ladderAt ? this.world.ladderAt(pm.origin, h.mins, h.maxs) : null;
+    pm.onLadder = !!ladder;
+    if (ladder) {
+      this.ladderMove(pm, ladder, cmd, buttons);
+      this.categorizePosition(pm);
+      pm.fallVelocity = 0;
+      return;
+    }
+
     // MOVETYPE_WALK
     this.addCorrectGravity(pm);
     if (buttons & IN_JUMP) this.jump(pm);
@@ -152,6 +165,38 @@ export class PlayerMover {
     if (pm.onground) pm.velocity[2] = 0;
     this.checkFalling(pm);
     if (!pm.onground) pm.fallVelocity = -pm.velocity[2];
+  }
+
+  // PM_LadderMove: climb relative to the ladder face (look up / down to choose the
+  // direction), strafe across it, jump to push off
+  ladderMove(pm, L, cmd, buttons) {
+    const n = L.normal;
+    const h = this.hull(pm);
+    const floor = [pm.origin[0], pm.origin[1], pm.origin[2] + h.mins[2] - 1];
+    const onFloor = this.world.testBox(floor, ZERO3, ZERO3, MASK_WORLD_PLAYER);
+    let speed = Math.min(MAX_CLIMB_SPEED, pm.maxspeed);
+    if (pm.ducking) speed *= PLAYER_DUCKING_MULTIPLIER;
+    let forward = 0, right = 0;
+    if (cmd.forwardmove < 0) forward -= speed;
+    if (cmd.forwardmove > 0) forward += speed;
+    if (cmd.sidemove < 0) right -= speed;
+    if (cmd.sidemove > 0) right += speed;
+    const v = pm.velocity;
+    if (buttons & IN_JUMP) {
+      v[0] = n[0] * 270; v[1] = n[1] * 270; v[2] = n[2] * 270;
+    } else if (forward || right) {
+      const vel = [fwd[0] * forward + rgt[0] * right, fwd[1] * forward + rgt[1] * right, fwd[2] * forward + rgt[2] * right];
+      const perp = cross([0, 0, 1], n);
+      normalize(perp);
+      const nd = vel[0] * n[0] + vel[1] * n[1] + vel[2] * n[2];
+      const lateral = [vel[0] - n[0] * nd, vel[1] - n[1] * nd, vel[2] - n[2] * nd];
+      const t = cross(n, perp);
+      v[0] = lateral[0] - t[0] * nd; v[1] = lateral[1] - t[1] * nd; v[2] = lateral[2] - t[2] * nd;
+      if (onFloor && nd > 0) { v[0] += n[0] * MAX_CLIMB_SPEED; v[1] += n[1] * MAX_CLIMB_SPEED; v[2] += n[2] * MAX_CLIMB_SPEED; }
+    } else {
+      v[0] = v[1] = v[2] = 0;
+    }
+    this.flyMove(pm);
   }
 
   // CS: footsteps only above 150 u/s (so walking and crouching are silent), every 300 ms.

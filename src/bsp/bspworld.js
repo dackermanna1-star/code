@@ -1,65 +1,78 @@
-// Builds a playable world from an original GoldSrc BSP (user-supplied files):
-// render meshes with the map's own textures and hlrad lightmaps, hull-based
-// collision, light sampling for models and entity data for the game.
-
+// Builds a playable world from an original GoldSrc BSP (files the player supplies -
+// nothing from Valve or third-party mappers ships with this repo): render meshes with
+// the map's own textures (from its WADs, or generated stand-ins when a WAD is missing)
+// and hlrad lightmaps, hull collision (bspcollision.js), light sampling for models,
+// and the entity data the game needs (spawns, hostages, doors, breakables, ladders,
+// buttons, cameras, buy / rescue / bomb zones).
+//
+//   const W = await loadBspWorld({ bsp, wads: [ArrayBuffer...], sky: { rt, lf, ... } | null, name })
+//   W.brushEnts: [{ ent, classname, model, origin, meshes: [Mesh], handle (collision) }]
 import * as THREE from 'three';
-import { parseBsp, parseWad, BspHulls, CONTENTS_SOLID } from './bsp30.js';
+import { parseBsp, indexWad } from './bsp30.js';
 import { buildWorldMaterial } from './bspmaterial.js';
-import { TraceResult, CollisionWorld, MASK_SHOT } from '../engine/collision.js';
+import { BspCollision } from './bspcollision.js';
+import { generateFallbackTexture } from './bspfallback.js';
 
-const SKIP = new Set(['sky', 'aaatrigger', 'clip', 'null', 'origin', 'skip', 'hint', 'bevel']);
-const VISIBLE_ENTS = new Set(['func_wall', 'func_illusionary', 'func_breakable', 'func_door', 'func_door_rotating', 'func_pushable', 'func_wall_toggle', 'func_button']);
-const SOLID_ENTS = new Set(['func_wall', 'func_breakable', 'func_door', 'func_door_rotating', 'func_pushable', 'func_wall_toggle']);
+const SKIP = new Set(['sky', 'aaatrigger', 'clip', 'null', 'origin', 'skip', 'hint', 'bevel', 'aaa_trigger']);
+// brush entities drawn by the game
+const VISIBLE_ENTS = new Set(['func_wall', 'func_illusionary', 'func_breakable', 'func_door', 'func_door_rotating', 'func_pushable',
+  'func_wall_toggle', 'func_button', 'func_rot_button', 'func_rotating', 'func_water', 'func_conveyor', 'func_train', 'func_plat', 'momentary_rot_button']);
+const SOLID_ENTS = new Set(['func_wall', 'func_breakable', 'func_door', 'func_door_rotating', 'func_pushable', 'func_wall_toggle',
+  'func_button', 'func_rot_button', 'func_rotating', 'func_train', 'func_plat', 'momentary_rot_button']);
 
-export async function loadBspWorld({ bsp: bspBuf, wads = [] }, onProgress = () => {}) {
+const vec = (s, d = [0, 0, 0]) => (s ? String(s).trim().split(/\s+/).map(Number) : d.slice());
+
+export async function loadBspWorld({ bsp: bspBuf, wads = [], sky = null, name = 'custom' }, onProgress = () => {}) {
   onProgress('Parsing BSP', 0.1);
+  await tick();
   const bsp = parseBsp(bspBuf);
   const wadTex = new Map();
   for (const w of wads) {
-    try { for (const [k, v] of parseWad(w)) if (!wadTex.has(k)) wadTex.set(k, v); } catch (e) { console.warn('bad wad', e); }
+    try { for (const [k, v] of indexWad(w)) if (!wadTex.has(k)) wadTex.set(k, v); } catch (e) { console.warn('bad wad', e); }
   }
-  onProgress('Building textures', 0.3);
+  onProgress('Building textures', 0.25);
+  await tick();
+  const missing = [];
   const texCache = new Map();
   const getTex = (mt) => {
     const key = mt.name.toLowerCase();
     if (texCache.has(key)) return texCache.get(key);
-    let src = mt.data ? mt : wadTex.get(key);
-    let tex;
-    if (src && src.data) {
-      const c = document.createElement('canvas');
-      c.width = src.width; c.height = src.height;
-      c.getContext('2d').putImageData(new ImageData(src.data, src.width, src.height), 0, 0);
-      tex = new THREE.CanvasTexture(c);
-      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-      tex.magFilter = THREE.LinearFilter;
-      tex.minFilter = THREE.LinearMipmapNearestFilter;
-      tex.colorSpace = THREE.NoColorSpace;
-      tex.flipY = false;
-    } else {
-      // missing texture: GoldSrc-style checker
-      const c = document.createElement('canvas');
-      c.width = c.height = 16;
-      const g = c.getContext('2d');
-      for (let y = 0; y < 2; y++) for (let x = 0; x < 2; x++) { g.fillStyle = (x + y) % 2 ? '#000' : '#f0f'; g.fillRect(x * 8, y * 8, 8, 8); }
-      tex = new THREE.CanvasTexture(c);
-      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-      tex.colorSpace = THREE.NoColorSpace;
+    let src = mt.data ? mt : wadTex.get(key)?.();
+    if (!src || !src.data) {
+      missing.push(key);
+      src = generateFallbackTexture(key, mt.width || 64, mt.height || 64);
     }
+    const tex = new THREE.DataTexture(new Uint8Array(src.data.buffer, src.data.byteOffset, src.data.length), src.width, src.height, THREE.RGBAFormat);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.magFilter = THREE.LinearFilter;
+    tex.minFilter = THREE.LinearMipmapNearestFilter;
+    tex.generateMipmaps = true;
+    tex.colorSpace = THREE.NoColorSpace;
+    tex.flipY = false;
+    tex.needsUpdate = true;
     tex.userData.transparent = key[0] === '{';
+    tex.userData.water = key[0] === '!' || key.startsWith('water');
     texCache.set(key, tex);
     return tex;
   };
 
-  // ---- faces of the world and visible brush entities
-  const models = [{ model: bsp.models[0], offset: [0, 0, 0], solid: true }];
+  // ---- faces: the world, then each visible brush entity separately (so it can move / break)
+  const groups = [{ model: bsp.models[0], offset: [0, 0, 0], ent: null, faces: [] }];
+  const brushEnts = [];
   for (const e of bsp.entities) {
-    if (!e.model || e.model[0] !== '*' || !VISIBLE_ENTS.has(e.classname)) continue;
-    if (e.rendermode && +e.rendermode !== 0 && +e.renderamt === 0) continue;
-    models.push({ model: bsp.models[+e.model.slice(1)], offset: (e.origin || '0 0 0').split(' ').map(Number), solid: SOLID_ENTS.has(e.classname), ent: e });
+    if (!e.model || e.model[0] !== '*') continue;
+    const m = bsp.models[+e.model.slice(1)];
+    if (!m) continue;
+    const be = { ent: e, classname: e.classname, model: m, origin: vec(e.origin), meshes: [], handle: null };
+    brushEnts.push(be);
+    if (!VISIBLE_ENTS.has(e.classname)) continue;
+    const rm = +(e.rendermode || 0), ra = e.renderamt != null ? +e.renderamt : 255;
+    if ((rm === 1 || rm === 2 || rm === 3 || rm === 5) && ra === 0) continue; // invisible
+    groups.push({ model: m, offset: [0, 0, 0], ent: e, be, faces: [], render: { mode: rm, amt: ra } });
   }
-  const faces = [];
-  for (const md of models) {
-    const m = md.model;
+  const allFaces = [];
+  for (const g of groups) {
+    const m = g.model;
     for (let i = 0; i < m.numfaces; i++) {
       const f = bsp.faces[m.firstface + i];
       const ti = bsp.texinfo[f.texinfo];
@@ -69,11 +82,8 @@ export async function loadBspWorld({ bsp: bspBuf, wads = [] }, onProgress = () =
       for (let k = 0; k < f.numedges; k++) {
         const se = bsp.surfedges[f.firstedge + k];
         const vi = se >= 0 ? bsp.edges[se * 2] : bsp.edges[-se * 2 + 1];
-        verts.push([bsp.vertices[vi * 3] + md.offset[0], bsp.vertices[vi * 3 + 1] + md.offset[1], bsp.vertices[vi * 3 + 2] + md.offset[2]]);
+        verts.push([bsp.vertices[vi * 3], bsp.vertices[vi * 3 + 1], bsp.vertices[vi * 3 + 2]]);
       }
-      const pl = bsp.planes[f.plane];
-      const n = f.side ? [-pl.n[0], -pl.n[1], -pl.n[2]] : pl.n.slice();
-      // lightmap extents
       let smin = Infinity, smax = -Infinity, tmin = Infinity, tmax = -Infinity;
       for (const v of verts) {
         const s = v[0] * ti.s[0] + v[1] * ti.s[1] + v[2] * ti.s[2] + ti.s[3];
@@ -82,17 +92,20 @@ export async function loadBspWorld({ bsp: bspBuf, wads = [] }, onProgress = () =
         if (t < tmin) tmin = t; if (t > tmax) tmax = t;
       }
       const s0 = Math.floor(smin / 16), s1 = Math.ceil(smax / 16), t0 = Math.floor(tmin / 16), t1 = Math.ceil(tmax / 16);
-      faces.push({ verts, n, ti, mt, lightofs: f.lightofs, styles: f.styles, lm: { s0, t0, w: s1 - s0 + 1, h: t1 - t0 + 1, x: 0, y: 0 }, offset: md.offset });
+      const face = { verts, ti, mt, lightofs: f.lightofs, styles: f.styles, lm: { s0, t0, w: s1 - s0 + 1, h: t1 - t0 + 1, x: 0, y: 0 } };
+      g.faces.push(face);
+      allFaces.push(face);
     }
   }
-  onProgress('Packing lightmaps', 0.5);
-  // ---- pack lightmaps (shelf)
+
+  onProgress('Packing lightmaps', 0.45);
+  await tick();
   const PAD = 1;
   let area = 0;
-  for (const f of faces) area += (f.lm.w + 2 * PAD) * (f.lm.h + 2 * PAD);
+  for (const f of allFaces) area += (f.lm.w + 2 * PAD) * (f.lm.h + 2 * PAD);
   let W = 256;
   while (W * W < area * 1.3) W *= 2;
-  const order = faces.slice().sort((a, b) => b.lm.h - a.lm.h);
+  const order = allFaces.slice().sort((a, b) => b.lm.h - a.lm.h);
   let x = 0, y = 0, sh = 0;
   for (const f of order) {
     const rw = f.lm.w + 2 * PAD, rh = f.lm.h + 2 * PAD;
@@ -103,7 +116,7 @@ export async function loadBspWorld({ bsp: bspBuf, wads = [] }, onProgress = () =
   let H = 1;
   while (H < y + sh) H *= 2;
   const rgba = new Uint8Array(W * H * 4);
-  for (const f of faces) {
+  for (const f of allFaces) {
     const lm = f.lm;
     const has = f.lightofs >= 0 && f.styles[0] !== 255;
     for (let j = -1; j <= lm.h; j++) for (let i = -1; i <= lm.w; i++) {
@@ -112,7 +125,7 @@ export async function loadBspWorld({ bsp: bspBuf, wads = [] }, onProgress = () =
       if (has) {
         const so = f.lightofs + (cj * lm.w + ci) * 3;
         rgba[o] = bsp.lighting[so]; rgba[o + 1] = bsp.lighting[so + 1]; rgba[o + 2] = bsp.lighting[so + 2];
-      } else { rgba[o] = rgba[o + 1] = rgba[o + 2] = 255; }
+      } else { rgba[o] = rgba[o + 1] = rgba[o + 2] = 124; } // unlit (fullbright) faces
       rgba[o + 3] = 255;
     }
   }
@@ -121,67 +134,98 @@ export async function loadBspWorld({ bsp: bspBuf, wads = [] }, onProgress = () =
   lmTex.generateMipmaps = false;
   lmTex.needsUpdate = true;
 
-  onProgress('Building meshes', 0.7);
-  // ---- meshes grouped by texture
-  const groups = new Map();
-  for (const f of faces) {
-    const k = f.mt.name.toLowerCase();
-    let gl = groups.get(k);
-    if (!gl) groups.set(k, gl = []);
-    gl.push(f);
-  }
+  onProgress('Building meshes', 0.65);
+  await tick();
   const meshes = [];
-  for (const [name, list] of groups) {
-    let nTri = 0;
-    for (const f of list) nTri += f.verts.length - 2;
-    const pos = new Float32Array(nTri * 9), uv = new Float32Array(nTri * 6), uv1 = new Float32Array(nTri * 6);
-    let p = 0;
-    const tex = getTex(list[0].mt);
-    const tw = list[0].mt.width || 64, th = list[0].mt.height || 64;
-    for (const f of list) {
-      const ti = f.ti, lm = f.lm;
-      const put = (v) => {
-        pos[p * 3] = v[0]; pos[p * 3 + 1] = v[1]; pos[p * 3 + 2] = v[2];
-        const s = v[0] * ti.s[0] + v[1] * ti.s[1] + v[2] * ti.s[2] + ti.s[3];
-        const t = v[0] * ti.t[0] + v[1] * ti.t[1] + v[2] * ti.t[2] + ti.t[3];
-        uv[p * 2] = s / tw; uv[p * 2 + 1] = t / th;
-        uv1[p * 2] = (lm.x + s / 16 - lm.s0 + 0.5) / W;
-        uv1[p * 2 + 1] = (lm.y + t / 16 - lm.t0 + 0.5) / H;
-        p++;
-      };
-      // GoldSrc winding is clockwise seen from the front; emit CCW for three.js
-      for (let k = 1; k + 1 < f.verts.length; k++) { put(f.verts[0]); put(f.verts[k + 1]); put(f.verts[k]); }
+  const waterScroll = new THREE.Vector2();
+  for (const g of groups) {
+    const byTex = new Map();
+    for (const f of g.faces) {
+      const k = f.mt.name.toLowerCase();
+      let l = byTex.get(k);
+      if (!l) byTex.set(k, l = []);
+      l.push(f);
     }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-    geo.setAttribute('uv1', new THREE.BufferAttribute(uv1, 2));
-    geo.computeBoundingSphere();
-    const mesh = new THREE.Mesh(geo, buildWorldMaterial(tex, lmTex, tex.userData.transparent));
-    mesh.name = 'bsp:' + name;
-    mesh.matrixAutoUpdate = false;
-    meshes.push(mesh);
+    for (const [tname, list] of byTex) {
+      let nTri = 0;
+      for (const f of list) nTri += f.verts.length - 2;
+      const pos = new Float32Array(nTri * 9), uv = new Float32Array(nTri * 6), uv1 = new Float32Array(nTri * 6);
+      let p = 0;
+      const tex = getTex(list[0].mt);
+      const tw = list[0].mt.width || 64, th = list[0].mt.height || 64;
+      for (const f of list) {
+        const ti = f.ti, lm = f.lm;
+        const put = (v) => {
+          pos[p * 3] = v[0]; pos[p * 3 + 1] = v[1]; pos[p * 3 + 2] = v[2];
+          const s = v[0] * ti.s[0] + v[1] * ti.s[1] + v[2] * ti.s[2] + ti.s[3];
+          const t = v[0] * ti.t[0] + v[1] * ti.t[1] + v[2] * ti.t[2] + ti.t[3];
+          uv[p * 2] = s / tw; uv[p * 2 + 1] = t / th;
+          uv1[p * 2] = (lm.x + s / 16 - lm.s0 + 0.5) / W;
+          uv1[p * 2 + 1] = (lm.y + t / 16 - lm.t0 + 0.5) / H;
+          p++;
+        };
+        // GoldSrc winding is clockwise seen from the front; emit CCW for three.js
+        for (let k = 1; k + 1 < f.verts.length; k++) { put(f.verts[0]); put(f.verts[k + 1]); put(f.verts[k]); }
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+      geo.setAttribute('uv1', new THREE.BufferAttribute(uv1, 2));
+      geo.computeBoundingSphere();
+      const r = g.render || { mode: 0, amt: 255 };
+      const water = tex.userData.water;
+      const opacity = r.mode === 2 || r.mode === 3 ? Math.max(0.05, r.amt / 255) : water ? 0.82 : 1;
+      const mat = buildWorldMaterial(tex, lmTex, tex.userData.transparent || r.mode === 4, {
+        opacity, additive: r.mode === 5, scroll: water ? waterScroll : undefined, doubleSide: water,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.name = 'bsp:' + tname + (g.ent ? '@' + g.ent.model : '');
+      if (opacity < 1 || r.mode === 5) mesh.renderOrder = 2;
+      if (g.be) {
+        // brush entity: its vertices are relative to its origin (the origin brush
+        // for doors; 0 otherwise), so the mesh pivots there and can rotate / slide
+        const o = g.be.origin;
+        mesh.position.set(o[0], o[1], o[2]);
+        g.be.meshes.push(mesh);
+      } else mesh.matrixAutoUpdate = false;
+      meshes.push(mesh);
+    }
   }
+  if (missing.length) console.warn(`[bsp] ${missing.length} textures not in the supplied WADs (generated stand-ins):`, missing.join(' '));
 
   onProgress('Collision', 0.85);
-  const collision = new BspCollision(bsp, models.filter((m) => m.solid));
-  const sampler = new BspLightSampler(bsp, faces, W, H, rgba);
+  await tick();
+  const collision = new BspCollision(bsp);
+  for (const be of brushEnts) {
+    if (be.classname === 'func_ladder') { collision.addLadder(be.model, be.origin); continue; }
+    if (!SOLID_ENTS.has(be.classname)) continue;
+    // models of entities with an origin brush are built around it: their hull is local
+    be.handle = collision.addEntity(be.model, be.origin, be);
+  }
+  const sampler = new BspLightSampler(bsp);
 
-  // ---- entities in the format the game expects
+  // ---- point / zone entities in the format the game uses
   const ents = [];
-  const vec = (s) => (s || '0 0 0').split(/\s+/).map(Number);
+  const modelOf = (e) => (e.model && e.model[0] === '*' ? bsp.models[+e.model.slice(1)] : null);
   for (const e of bsp.entities) {
-    if (e.classname === 'info_player_start' || e.classname === 'info_player_deathmatch') {
+    const c = e.classname;
+    if (c === 'info_player_start' || c === 'info_player_deathmatch' || c === 'hostage_entity' || c === 'info_hostage_rescue' || c === 'info_bomb_target' || c === 'info_target') {
       const a = vec(e.angles);
-      ents.push({ classname: e.classname, origin: vec(e.origin), angle: e.angle != null ? +e.angle : a[1] });
-    } else if (e.classname === 'func_bomb_target' || e.classname === 'func_buyzone') {
-      const m = bsp.models[+e.model.slice(1)];
-      const out = { classname: e.classname, mins: m.mins.slice(), maxs: m.maxs.slice() };
-      if (e.classname === 'func_bomb_target') out.name = (m.mins[0] + m.maxs[0]) / 2 > 0 ? 'A' : 'B';
-      else out.team = e.team === '1' ? 'T' : 'CT';
+      ents.push({ classname: c, origin: vec(e.origin), angle: e.angle != null ? +e.angle : a[1], targetname: e.targetname, model: e.model });
+    } else if (c === 'func_bomb_target' || c === 'func_buyzone' || c === 'func_hostage_rescue') {
+      const m = modelOf(e);
+      if (!m) continue;
+      const out = { classname: c, mins: m.mins.slice(), maxs: m.maxs.slice() };
+      if (c === 'func_buyzone') out.team = e.team === '1' ? 'T' : e.team === '2' ? 'CT' : 'any';
       ents.push(out);
+    } else if (c === 'trigger_camera') {
+      ents.push({ classname: c, origin: vec(e.origin), angle: +(e.angle || 0), targetname: e.targetname, target: e.target, wait: +(e.wait || 10) });
     }
   }
+  // bomb sites named by size order A/B (closest to the T spawn = B, like most maps)
+  const bombs = ents.filter((e) => e.classname === 'func_bomb_target');
+  bombs.forEach((b, i) => { b.name = String.fromCharCode(65 + i); });
+
   const le = bsp.entities.find((e) => e.classname === 'light_environment');
   let sunDir = [-0.366, -0.341, 0.866];
   if (le) {
@@ -189,120 +233,55 @@ export async function loadBspWorld({ bsp: bspBuf, wads = [] }, onProgress = () =
     sunDir = [-Math.cos(pitch) * Math.cos(yaw), -Math.cos(pitch) * Math.sin(yaw), -Math.sin(pitch)];
   }
   const wm = bsp.models[0];
-  const map = { entities: ents, bounds: [wm.mins[0], wm.mins[1], wm.maxs[0], wm.maxs[1]], lights: [], source: 'bsp', skyname: bsp.entities[0]?.skyname };
-  return { map, compiled: null, collision, alloc: { width: W, height: H }, lmTex, meshes, lighting: { sunDir }, sampler, hash: 'bsp' };
+  const ws = bsp.entities.find((e) => e.classname === 'worldspawn') || {};
+  const map = {
+    name, entities: ents, bounds: [wm.mins[0], wm.mins[1], wm.maxs[0], wm.maxs[1]], zrange: [wm.mins[2], wm.maxs[2]],
+    lights: [], source: 'bsp', skyname: ws.skyname, title: ws.message || name,
+  };
+  return {
+    map, compiled: null, collision, alloc: { width: W, height: H }, lmTex, meshes, lighting: { sunDir }, sampler, hash: 'bsp:' + name,
+    bsp, brushEnts, sky, missingTextures: missing,
+    update(dt) { waterScroll.x = (waterScroll.x + dt * 0.03) % 1; waterScroll.y = (waterScroll.y + dt * 0.02) % 1; },
+  };
 }
+
+function tick() { return new Promise((r) => setTimeout(r, 0)); }
 
 // ---------------------------------------------------------------------------
-// Collision over the BSP clip hulls + dynamic player boxes, same interface as CollisionWorld.
-export class BspCollision {
-  constructor(bsp, models) {
-    this.bsp = bsp;
-    this.hulls = new BspHulls(bsp);
-    this.models = models;
-    this.dynamic = [];
-    this._tw = { start: [0, 0, 0], end: [0, 0, 0], mins: [0, 0, 0], maxs: [0, 0, 0] };
-  }
-
-  hullFor(mins, maxs) {
-    const h = maxs[2] - mins[2];
-    const w = maxs[0] - mins[0];
-    if (w === 0 && h === 0) return 0;
-    if (w >= 30 && h >= 70) return 1;
-    if (w >= 30 && h >= 34) return 3;
-    if (w >= 60) return 2;
-    return 0;
-  }
-
-  trace(start, end, mins, maxs, mask = 0xff, out = new TraceResult(), ignore = null) {
-    out.reset();
-    const hull = this.hullFor(mins, maxs);
-    // GoldSrc hulls are offset so that the box is centred on the traced origin;
-    // for non-centred boxes shift the trace to the box centre.
-    const off = hull === 0 ? [(mins[0] + maxs[0]) / 2, (mins[1] + maxs[1]) / 2, (mins[2] + maxs[2]) / 2] : [(mins[0] + maxs[0]) / 2, (mins[1] + maxs[1]) / 2, (mins[2] + maxs[2]) / 2];
-    for (const md of this.models) {
-      const o = md.offset;
-      const s = [start[0] + off[0] - o[0], start[1] + off[1] - o[1], start[2] + off[2] - o[2]];
-      const e = [end[0] + off[0] - o[0], end[1] + off[1] - o[1], end[2] + off[2] - o[2]];
-      const t = { fraction: 1, allsolid: true, startsolid: false, inopen: false, endpos: e.slice(), normal: [0, 0, 0], dist: 0 };
-      this.hulls.recursive(hull, md.model.headnode[hull], 0, 1, s, e, t);
-      if (t.allsolid) { t.startsolid = true; }
-      if (t.startsolid) { out.startsolid = true; }
-      if (t.allsolid) { out.allsolid = true; out.fraction = 0; out.endpos = start.slice(); return out; }
-      if (t.fraction < out.fraction) {
-        out.fraction = t.fraction;
-        out.normal = t.normal;
-        out.dist = t.dist;
-        out.brush = { userData: null, bsp: true };
-      }
-    }
-    // dynamic boxes
-    const tw = this._tw;
-    for (let i = 0; i < 3; i++) { tw.start[i] = start[i]; tw.end[i] = end[i]; tw.mins[i] = mins[i]; tw.maxs[i] = maxs[i]; }
-    const isPoint = mins[0] === 0 && maxs[0] === 0 && mins[2] === 0 && maxs[2] === 0;
-    for (const b of this.dynamic) {
-      if (!b.active || !(b.contents & mask) || b === ignore) continue;
-      CollisionWorld.prototype._traceBrush.call(this, tw, b, out, isPoint);
-      if (out.allsolid) { out.endpos = start.slice(); return out; }
-    }
-    const f = out.fraction;
-    out.endpos = [start[0] + (end[0] - start[0]) * f, start[1] + (end[1] - start[1]) * f, start[2] + (end[2] - start[2]) * f];
-    return out;
-  }
-
-  testBox(pos, mins, maxs, mask) {
-    const r = this._tr || (this._tr = new TraceResult());
-    this.trace(pos, pos, mins, maxs, mask, r);
-    return r.startsolid;
-  }
-
-  occluded(a, b, mask = MASK_SHOT) {
-    const r = this._tr2 || (this._tr2 = new TraceResult());
-    this.trace(a, b, [0, 0, 0], [0, 0, 0], mask, r);
-    return r.fraction < 1 || r.startsolid;
-  }
-}
-
-// R_LightPoint: walk the BSP down from a point to the first surface below and read its lightmap.
+// R_LightPoint: walk the BSP down from a point to the first lit surface below and
+// read its lightmap. Returns light in the same units as the built-in map's sampler
+// (1.0 = a normally lit surface), so studio models light the same way.
 class BspLightSampler {
-  constructor(bsp, faces, W, H, rgba) {
-    this.bsp = bsp;
-    this.W = W; this.H = H; this.rgba = rgba;
-    this.faceByIndex = new Map();
-    // map original face index -> our face (world only, by matching first vertex)
-    this.faces = faces;
-  }
+  constructor(bsp) { this.bsp = bsp; }
 
   sample(pos, out = [1, 1, 1]) {
     const b = this.bsp;
-    const end = [pos[0], pos[1], pos[2] - 2048];
-    const r = this._recursive(b.models[0].headnode[0], pos, end);
+    const r = this._recursive(b.models[0].headnode[0], pos[0], pos[1], pos[2], pos[0], pos[1], pos[2] - 2048);
     if (!r) return out;
-    out[0] = r[0] / 128; out[1] = r[1] / 128; out[2] = r[2] / 128;
+    const k = (264 / 128) / 255;
+    out[0] = r[0] * k; out[1] = r[1] * k; out[2] = r[2] * k;
     return out;
   }
 
-  _recursive(node, start, end) {
+  _recursive(node, x1, y1, z1, x2, y2, z2) {
     const b = this.bsp;
     if (node < 0) return null;
     const n = b.nodes[node];
     const pl = b.planes[n.plane];
-    const front = pl.n[0] * start[0] + pl.n[1] * start[1] + pl.n[2] * start[2] - pl.d;
-    const back = pl.n[0] * end[0] + pl.n[1] * end[1] + pl.n[2] * end[2] - pl.d;
+    const front = pl.n[0] * x1 + pl.n[1] * y1 + pl.n[2] * z1 - pl.d;
+    const back = pl.n[0] * x2 + pl.n[1] * y2 + pl.n[2] * z2 - pl.d;
     const side = front < 0 ? 1 : 0;
-    if ((back < 0 ? 1 : 0) === side) return this._recursive(n.children[side], start, end);
+    if ((back < 0 ? 1 : 0) === side) return this._recursive(n.children[side], x1, y1, z1, x2, y2, z2);
     const frac = front / (front - back);
-    const mid = [start[0] + (end[0] - start[0]) * frac, start[1] + (end[1] - start[1]) * frac, start[2] + (end[2] - start[2]) * frac];
-    const r = this._recursive(n.children[side], start, mid);
+    const mx = x1 + (x2 - x1) * frac, my = y1 + (y2 - y1) * frac, mz = z1 + (z2 - z1) * frac;
+    const r = this._recursive(n.children[side], x1, y1, z1, mx, my, mz);
     if (r) return r;
-    // check faces on this node
     for (let i = 0; i < n.numfaces; i++) {
       const f = b.faces[n.firstface + i];
       if (f.lightofs < 0 || f.styles[0] === 255) continue;
       const ti = b.texinfo[f.texinfo];
-      const s = mid[0] * ti.s[0] + mid[1] * ti.s[1] + mid[2] * ti.s[2] + ti.s[3];
-      const t = mid[0] * ti.t[0] + mid[1] * ti.t[1] + mid[2] * ti.t[2] + ti.t[3];
-      // face extents
+      const s = mx * ti.s[0] + my * ti.s[1] + mz * ti.s[2] + ti.s[3];
+      const t = mx * ti.t[0] + my * ti.t[1] + mz * ti.t[2] + ti.t[3];
       let smin = Infinity, smax = -Infinity, tmin = Infinity, tmax = -Infinity;
       for (let k = 0; k < f.numedges; k++) {
         const se = b.surfedges[f.firstedge + k];
@@ -320,6 +299,6 @@ class BspLightSampler {
       const o = f.lightofs + (dt * w + ds) * 3;
       return [b.lighting[o], b.lighting[o + 1], b.lighting[o + 2]];
     }
-    return this._recursive(n.children[side ^ 1], mid, end);
+    return this._recursive(n.children[side ^ 1], mx, my, mz, x2, y2, z2);
   }
 }

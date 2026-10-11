@@ -13,8 +13,11 @@ const app = document.getElementById('app');
 const r = new Renderer(app);
 if (params.get('aspect')) r.configure({ aspect: params.get('aspect') });
 const get = async (n) => (await fetch(`${src}/${n}`)).arrayBuffer();
-const [bsp, w1, w2, w3] = await Promise.all([get('de_dust2.bsp'), get('cs_dust.wad'), get('halflife.wad'), get('decals.wad')]);
-const W = await loadBspWorld({ bsp, wads: [w1, w2, w3] });
+// ?bsp=cs_mansion.bsp&wads=halflife.wad,liquids.wad&sky=city
+const bspName = params.get('bsp') || 'de_dust2.bsp';
+const wadNames = (params.get('wads') || 'cs_dust.wad,halflife.wad,decals.wad').split(',');
+const [bsp, ...wads] = await Promise.all([get(bspName), ...wadNames.map(get)]);
+const W = await loadBspWorld({ bsp, wads });
 for (const m of W.meshes) r.world.add(m);
 if (params.get('lmScale')) bspUniforms.lmScale.value = +params.get('lmScale');
 if (params.get('lmGamma')) bspUniforms.lmGamma.value = +params.get('lmGamma');
@@ -22,7 +25,8 @@ if (params.get('lmGamma')) bspUniforms.lmGamma.value = +params.get('lmGamma');
 let skybox = null;
 try {
   const names = ['rt', 'lf', 'bk', 'ft', 'up', 'dn'];
-  const ims = await Promise.all(names.map(async (n) => decodeTga(await get(`Des${n}.tga`))));
+  const sky = params.get('sky') || 'Des';
+  const ims = await Promise.all(names.map(async (n) => decodeTga(await get(`${sky}${n}.tga`))));
   skybox = createSkybox(Object.fromEntries(names.map((n, i) => [n, ims[i]])));
   r.world.add(skybox);
   window.__skybox = skybox;

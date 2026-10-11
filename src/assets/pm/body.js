@@ -245,6 +245,7 @@ export const SKIN_BODY = {
   gsg9: { bulk: 1.0, baggy: 0.3, helmet: true },
   sas: { bulk: 1.1, baggy: 0.4, gasmask: true, pouches: true, pack: true },
   gign: { bulk: 1.0, baggy: 0.3, helmet: true, helmetBig: 0.15, visor: true },
+  scientist: { bulk: 0.35, hem: 0.9, baggy: 0.5 }, // hostage
 };
 
 export function buildBodyGeometry(skin) {

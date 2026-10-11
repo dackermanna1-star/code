@@ -197,7 +197,7 @@ let modelCounter = 0;
 
 class PlayerModel {
   constructor(skin) {
-    if (![...PLAYER_SKINS.t, ...PLAYER_SKINS.ct].includes(skin)) throw new Error('unknown player skin ' + skin);
+    if (![...PLAYER_SKINS.t, ...PLAYER_SKINS.ct, 'scientist'].includes(skin)) throw new Error('unknown player skin ' + skin);
     this.skin = skin;
     this.object3D = new THREE.Group();
     this.object3D.name = 'player_' + skin + '_' + (++modelCounter);

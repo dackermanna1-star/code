@@ -337,7 +337,7 @@ export function fireBullets3(opts, traceFn, onImpact = () => {}) {
     onImpact({
       entity: tr.entity ?? null, hitgroup: tr.entity ? (tr.hitgroup ?? HITGROUP.GENERIC) : HITGROUP.GENERIC,
       damage: curDamage, point, normal: tr.normal, surface, dir: unitDir, fraction: tr.fraction,
-      penetrated: startPenetration - curPen, startsolid: !!tr.startsolid, shield: false,
+      penetrated: startPenetration - curPen, startsolid: !!tr.startsolid, shield: false, brushEnt: tr.brushEnt ?? null,
     });
     curDamage = Math.trunc(curDamage * damageModifier);
   }
@@ -390,7 +390,7 @@ export function fireBuckshot(opts, traceFn, onImpact = () => {}) {
     const entity = tr.entity ?? null;
     const hitgroup = entity ? (tr.hitgroup ?? HITGROUP.GENERIC) : HITGROUP.GENERIC;
     const scaled = entity && !isBspHit(tr) ? applyHitgroup(dmg, hitgroup) : dmg;
-    onImpact({ entity, hitgroup, damage: dmg, scaledDamage: scaled, point: tr.endpos, normal: tr.normal, surface: entity && !isBspHit(tr) ? 'flesh' : (tr.surface || 'concrete'), dir: unit, fraction: tr.fraction, penetrated: 0, startsolid: !!tr.startsolid, deferred: true });
+    onImpact({ entity, hitgroup, damage: dmg, scaledDamage: scaled, point: tr.endpos, normal: tr.normal, surface: entity && !isBspHit(tr) ? 'flesh' : (tr.surface || 'concrete'), dir: unit, fraction: tr.fraction, penetrated: 0, startsolid: !!tr.startsolid, deferred: true, brushEnt: tr.brushEnt ?? null });
     if (entity) { // AddMultiDamage: a different victim flushes the accumulator
       if (!cur || cur.entity !== entity) { flush(); cur = { entity, amount: 0, hitgroup }; }
       cur.amount += scaled;
@@ -733,6 +733,15 @@ export const RULES = Object.freeze({
     bombPlantedTeam: 800,          // REWARD_BOMB_PLANTED - Ts get it on top of the loss bonus when the bomb is defused
     targetSaved: 3250,             // REWARD_TARGET_BOMB_SAVED (CT, time ran out)
     planter: 0, defuser: 0,        // no individual money for planting/defusing in 1.6 (3 frags instead)
+    // hostage maps (hostage.cpp / multiplay_gamerules.cpp)
+    allHostagesRescued: 2500,      // REWARD_ALL_HOSTAGES_RESCUED (CT team)
+    hostageNotRescued: 3250,       // REWARD_HOSTAGE_NOT_RESCUED (T team, time ran out)
+    rescuedHostageTeam: 750,       // REWARD_RESCUED_HOSTAGE: CT team, per rescued hostage, next round
+    rescuedHostage: 1000,          // REWARD_TAKEN_HOSTAGE: the rescuer, per hostage
+    tookHostage: 150,              // REWARD_TOOK_HOSTAGE: first CT to use a hostage
+    tookHostageTeam: 100,          // REWARD_TOOK_HOSTAGE_ACC: CT team when a hostage is first used
+    hostageHeldT: 150,             // RR_TOOK_HOSTAGE: Ts per hostage still held at round restart (max 2000)
+    hostageDamagePerHp: -20,       // CHostage::TakeDamage: -20 x damage; killing: 20 x (-25 - damage)
   }),
   // flat aliases used by rounds.js
   rewardElimination: 3250, rewardTimeout: 3250, rewardBombExploded: 3500, rewardBombDefused: 3250,
@@ -793,9 +802,11 @@ export function roundEndMoney(eco, { winner, reason, mapHasBombTarget = true, co
   if (winner === 'CT') {
     if (reason === 'bomb_defused') { CT += R.bombDefused; T += R.bombPlantedTeam; }
     else if (reason === 'target_saved') CT += R.targetSaved;
+    else if (reason === 'hostages_rescued') CT += R.allHostagesRescued;
     else CT += mapHasBombTarget ? R.ctsWinElimination : R.ctsWinNoBombMap;
   } else if (winner === 'T') {
     if (reason === 'target_bombed') T += R.targetBombed;
+    else if (reason === 'hostages_not_rescued') T += R.hostageNotRescued;
     else T += mapHasBombTarget ? R.tsWinElimination : R.tsWinNoBombMap;
   }
   const LB = RULES.lossBonus;

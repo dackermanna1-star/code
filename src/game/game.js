@@ -13,6 +13,8 @@ import * as WS from './weaponsys.js';
 import * as CR from './combatrules.js';
 import { Effects } from './effects.js';
 import { BulletCam } from './bulletcam.js';
+import { MapEntities } from './mapents.js';
+import { Hostages } from './hostages.js';
 import { NavGraph } from './nav.js';
 import { RoundManager } from './rounds.js';
 import { BotManager } from './bots.js';
@@ -80,6 +82,8 @@ export class Game {
     this.buyZones = this.map.entities.filter((e) => e.classname === 'func_buyzone');
     const seeds = [...this.spawns.T, ...this.spawns.CT].map((e) => [e.origin[0], e.origin[1], e.origin[2] - 36]);
     this.nav = new NavGraph(this.collision, this.map.bounds).build(seeds);
+    this.mapEnts = new MapEntities(this); // doors, breakables, buttons (BSP maps)
+    this.hostages = new Hostages(this); // hostage rescue (cs_ maps)
     this.rounds = new RoundManager(this);
     this.bots = new BotManager(this);
   }
@@ -422,10 +426,16 @@ export class Game {
     return dir;
   }
 
+  /** Everything with hitboxes: players and (living, unrescued) hostages. */
+  shootables() {
+    const h = this.hostages?.list;
+    return h && h.length ? this.players.concat(h.filter((q) => q.alive && !q.rescued)) : this.players;
+  }
+
   // trace for bullets: world (brushes) + player hitboxes
   traceShot(start, end, ignore) {
     const tr = this.collision.trace(start, end, [0, 0, 0], [0, 0, 0], MASK_SHOT, new TraceResult());
-    const res = { fraction: tr.fraction, endpos: tr.endpos, normal: tr.normal, entity: null, hitgroup: 0, surface: surfaceOfBrush(tr.brush?.userData, tr.normal), startsolid: tr.startsolid, allsolid: tr.allsolid };
+    const res = { fraction: tr.fraction, endpos: tr.endpos, normal: tr.normal, entity: null, hitgroup: 0, surface: surfaceOfBrush(tr.brush?.userData, tr.normal), startsolid: tr.startsolid, allsolid: tr.allsolid, brushEnt: tr.ent || null };
     // players
     const dx = end[0] - start[0], dy = end[1] - start[1], dz = end[2] - start[2];
     const len = Math.hypot(dx, dy, dz);
@@ -436,7 +446,7 @@ export class Game {
     rc.ray.direction.set(dx / len, dz / len, -dy / len);
     rc.near = 0; rc.far = maxDist;
     let best = null;
-    for (const q of this.players) {
+    for (const q of this.shootables()) {
       if (!q.alive || q === ignore || !q.model) continue;
       // quick reject: distance from ray to player centre
       const o = q.pm.origin;
@@ -457,6 +467,7 @@ export class Game {
       res.hitgroup = best.hitgroup;
       res.normal = [-dx / len, -dy / len, -dz / len];
       res.surface = 'flesh';
+      res.brushEnt = null;
     }
     return res;
   }
@@ -472,6 +483,7 @@ export class Game {
       this.damagePlayer(victim, attacker, hit.damage, hit.hitgroup, attacker.active?.id || 'world', hit.dir, hit.point, { exit });
     } else if (hit.point && hit.normal) {
       this.effects.impact(hit.point, hit.normal, hit.surface, hit.dir);
+      if (hit.brushEnt) this.mapEnts.damage(hit.brushEnt, hit.damage, hit.point, hit.dir);
     }
   }
 
@@ -514,6 +526,7 @@ export class Game {
 
   // ------------------------------------------------------------------ damage
   damagePlayer(victim, attacker, damage, hitgroup, weaponId, dir, point = null, opts = {}) {
+    if (victim.isHostage) { this.hostages.damage(victim, attacker, damage, hitgroup, weaponId, dir, point, opts); return; }
     if (!victim.alive || damage <= 0) return;
     const teammate = !!(attacker && attacker !== victim && attacker.team === victim.team);
     const res = CR.computeDamage({ health: victim.health, armor: victim.armor, helmet: victim.helmet, ducking: victim.pm.ducking, speed: Math.hypot(victim.pm.velocity[0], victim.pm.velocity[1]) },
@@ -648,7 +661,7 @@ export class Game {
 
   buildLocalCmd() {
     const p = this.local, inp = this.input;
-    const blocked = this.paused || this.menus?.isOpen?.() || this.chatting || !!this.bulletCam.active;
+    const blocked = this.paused || this.menus?.isOpen?.() || this.chatting || !!this.bulletCam.active || !!this.mapEnts?.camera;
     const on = (n) => !blocked && inp.is(n);
     let buttons = 0;
     if (on('jump')) buttons |= IN_JUMP;
@@ -701,6 +714,8 @@ export class Game {
       const cmd = p.cmd || { forwardmove: 0, sidemove: 0, upmove: 0, buttons: 0, wbuttons: 0 };
       this.simulatePlayer(p, cmd);
     }
+    this.mapEnts.update(TICK);
+    this.hostages.update(TICK);
     this.grenades.update(TICK);
     this.updateDropped(TICK);
     this.rounds.tick(TICK);
@@ -738,6 +753,9 @@ export class Game {
     p.planting = !!(p.active && p.active.id === 'c4' && p.active.startedArming);
     this.processWeaponSounds(p);
     p.prevWButtons = wb;
+    if ((wb & BTN_USE) && !p.prevUse && !this.rounds.bomb?.defuser) {
+      if (!this.hostages.use(p)) this.mapEnts.use(p);
+    }
     this.rounds.useButton(p, !!(wb & BTN_USE), !!((p.prevUse || 0)));
     p.prevUse = wb & BTN_USE;
   }
@@ -865,9 +883,11 @@ export class Game {
   }
 
   updateModels(dt, alpha) {
-    for (const p of this.players) {
+    const list = this.hostages?.list?.length ? this.players.concat(this.hostages.list) : this.players;
+    for (const p of list) {
       if (!p.model) continue;
       const m = p.model;
+      if (p.rescued) { m.object3D.visible = false; continue; }
       const show = p.team !== TEAM_SPEC && (p.alive || p.deathTime) && !(p === this.viewTarget && p.alive && this.camMode !== 'third');
       m.object3D.visible = !!show && (p.alive || this.time - p.deathTime < 30);
       if (!p.alive && !p.deathTime) continue;
@@ -917,6 +937,17 @@ export class Game {
     const r = this.renderer;
     const p = this.viewTarget;
     if (this.bulletCam.active && this.bulletCam.applyCamera()) { this.drawVm = false; return; }
+    // a security monitor's trigger_camera
+    const tc = this.mapEnts.cameraActive();
+    if (tc && tc.player === p) {
+      const e = tc.pos, l = tc.look;
+      const yaw = l ? Math.atan2(l[1] - e[1], l[0] - e[0]) / DEG : tc.yaw;
+      const pitch = l ? -Math.atan2(l[2] - e[2], Math.hypot(l[0] - e[0], l[1] - e[1])) / DEG : 0;
+      r.setView(e, pitch, yaw, 0);
+      this.camPos = e;
+      this.drawVm = false;
+      return;
+    }
     if (p && p.alive) {
       const o = p.pm.origin, po = p.prevOrigin;
       const x = po[0] + (o[0] - po[0]) * alpha, y = po[1] + (o[1] - po[1]) * alpha;
@@ -1009,7 +1040,12 @@ export class Game {
   }
 
   inBuyZone(p) {
-    return this.buyZones.some((z) => z.team === p.team && this.inZone(p, z));
+    // maps without func_buyzone: within 200 units of one of your team's spawn points (OLD_CheckBuyZone)
+    if (!this.buyZones.length) {
+      const o = p.pm.origin;
+      return (this.spawns[p.team] || []).some((s) => Math.hypot(s.origin[0] - o[0], s.origin[1] - o[1], s.origin[2] - o[2]) < 200);
+    }
+    return this.buyZones.some((z) => (z.team === p.team || z.team === 'any') && this.inZone(p, z));
   }
 
   bombZoneOf(p) {

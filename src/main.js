@@ -19,6 +19,7 @@ import { RadioMenu } from './ui/radiomenu.js';
 import { Announcer } from './game/announcer.js';
 import { DUST2_LIGHTING } from './map/lighting.js';
 import { setLightCurve } from './map/meshbuilder.js';
+import { MAPS, mapDef as lookupMap, mapAvailability, storeUserFiles, listUserFiles } from './game/maps.js';
 
 const params = new URLSearchParams(location.search);
 
@@ -54,8 +55,21 @@ async function boot() {
   const soundReady = sound.init(44100).catch((e) => console.warn('sound init failed', e));
   sound.setMasterVolume(settings.get('volume'));
 
-  const W = await loadWorld(texLib, (msg, p) => progress(msg, 0.3 + p * 0.5), { forceBake: params.has('bake') });
+  // which map: ?map=, else the one picked before a map-switch reload, else de_dust2
+  let mapLoadError = null;
+  const wantMap = (params.get('map') || sessionGet('cs16-map') || 'de_dust2').toLowerCase();
+  const loadOpts = { forceBake: params.has('bake'), mapsrc: params.get('mapsrc') };
+  let W;
+  try {
+    W = await loadWorld(texLib, (msg, p) => progress(msg, 0.3 + p * 0.5), { ...loadOpts, mapDef: lookupMap(wantMap) });
+  } catch (e) {
+    console.error(e);
+    mapLoadError = `Couldn't load ${wantMap}: ${e.message}`;
+    sessionSet('cs16-map', null);
+    W = await loadWorld(texLib, (msg, p) => progress(msg, 0.3 + p * 0.5), loadOpts);
+  }
   for (const m of W.meshes) renderer.world.add(m);
+  if (W.skybox) renderer.scene.background = null;
 
   progress('Precaching player models', 0.85);
   await frame();
@@ -87,10 +101,40 @@ async function boot() {
   }
 
   function menuBackgroundView() {
-    // a slow look across T spawn toward mid, like a 1.6 menu backdrop
     const t = performance.now() / 1000;
+    if (W.map.source === 'bsp') {
+      // a slow look around from a CT spawn
+      const s = game.spawns.CT[0] || game.spawns.T[0];
+      const o = s ? s.origin : [0, 0, 0];
+      renderer.setView([o[0], o[1], o[2] + 28], 4, (s?.angle || 0) + Math.sin(t * 0.05) * 25, 0);
+      return;
+    }
+    // a slow look across T spawn toward mid, like a 1.6 menu backdrop
     renderer.setView([-1350, -960, 128 + 64], 4, 70 + Math.sin(t * 0.05) * 12, 0);
   }
+
+  // ---------------------------------------------------------------- maps
+  const mapIds = async () => {
+    const ids = Object.keys(MAPS);
+    for (const f of await listUserFiles()) if (f.endsWith('.bsp')) { const id = f.slice(0, -4); if (!ids.includes(id)) ids.push(id); }
+    return ids;
+  };
+  async function mapInfo(id) {
+    const def = lookupMap(id);
+    if (def.builtin) return { ok: true, html: '' };
+    if (id === W.mapDef?.id) return { ok: true, html: `<b>${id}</b> is loaded.${def.credit ? ' ' + def.credit + '.' : ''}` };
+    const a = await mapAvailability(def);
+    const lines = [];
+    lines.push(def.credit ? `${def.credit}${def.url ? ` - <a href="${def.url}" target="_blank" rel="noopener" style="color:#c8b070">download page</a>` : ''}.` : '');
+    lines.push(a.bsp ? `&#10003; ${def.bsp} added.` : `Add your copy of <b>${def.bsp}</b> (from the map's download, or cstrike/maps).`);
+    if (def.wads.length) {
+      lines.push(a.wads.length ? `&#10003; Textures: ${a.wads.join(', ')}.` : `Optional: Half-Life's <b>halflife.wad</b> and <b>liquids.wad</b> (Half-Life/valve folder) for the original textures - otherwise stand-ins are generated.`);
+    }
+    if (def.sky) lines.push(a.sky ? '&#10003; Sky added.' : `Optional: the <b>${def.sky}*.tga</b> skybox (valve/gfx/env).`);
+    lines.push('<span style="opacity:.7">Files stay in this browser; nothing is uploaded.</span>');
+    return { ok: a.ok, html: lines.filter(Boolean).join('<br>') };
+  }
+  async function addFiles(fileList) { await storeUserFiles(fileList); }
 
   function openMain() {
     input.exitLock();
@@ -132,7 +176,14 @@ async function boot() {
     const arg = rest.join(' ');
     switch (cmd) {
       case 'newgame':
-        menus.showNewGame?.(settings.get('newgame'), (opts) => newGame(opts));
+        mapIds().then((ids) => {
+          const d = { ...settings.get('newgame'), map: W.mapDef?.id || 'de_dust2', maps: ids.map((id) => [id, id]), mapInfo, addFiles };
+          menus.showNewGame?.(d, (opts) => {
+            const { maps, mapInfo: _a, addFiles: _b, ...rest } = opts;
+            if ((rest.map || 'de_dust2') !== (W.mapDef?.id || 'de_dust2')) switchMap(rest.map, rest);
+            else newGame(rest);
+          });
+        });
         break;
       case 'resume':
         if (inGame) { menus.hideAll?.(); input.requestLock(); }
@@ -209,6 +260,8 @@ async function boot() {
     if (!inGame) return false;
     // fire / jump / use skips the bullet cam
     if (game.bulletCam?.active && (cmd === '+attack' || cmd === '+attack2' || cmd === '+jump' || cmd === '+use')) { game.bulletCam.skip(); return true; }
+    // ...and leaves a security camera view
+    if (game.mapEnts?.camera && game.time - game.mapEnts.camera.start > 0.3 && (cmd === '+attack' || cmd === '+use' || cmd === '+jump')) { game.mapEnts.camera = null; return true; }
     // number keys feed open menus first (team/class/buy menus handle their own keys)
     if (radioMenu.open && cmd && cmd.startsWith('slot')) { radioMenu.choose(+cmd.slice(4)); return true; }
     if (!!menus.isOpen?.()) return false;
@@ -243,13 +296,16 @@ async function boot() {
     last = now;
     fpsAcc += dt; fpsFrames++;
     if (fpsAcc >= 0.5) { fps = fpsFrames / fpsAcc; fpsAcc = 0; fpsFrames = 0; }
+    W.update?.(dt);
     if (inGame) {
       game.frame(dt);
+      W.skybox?.userData.follow(renderer.eye);
       renderer.render(game.drawVm);
       hud.draw?.(game.bulletCam?.active ? { hidden: true } : buildHudState(game, { fps: settings.get('cl_showfps') ? fps : null, netgraph: settings.get('net_graph') ? { fps } : null, settings }), dt);
       if (showScores) menus.showScoreboard?.(scoreData());
     } else {
       menuBackgroundView();
+      W.skybox?.userData.follow(renderer.eye);
       renderer.render(false);
       hud.draw?.({ alive: false, team: TEAM_SPEC, hidden: true }, dt);
     }
@@ -275,7 +331,13 @@ async function boot() {
       game.oldz = p.pm.origin[2];
     }
   };
-  if (params.has('autostart')) {
+  // a map switch reloads the page; pick the game up where the menu left it
+  const resume = sessionGet('cs16-autostart');
+  if (mapLoadError) menus.print?.(mapLoadError);
+  if (resume && !mapLoadError) {
+    sessionSet('cs16-autostart', null);
+    try { newGame(JSON.parse(resume)); } catch (e) { console.warn(e); openMain(); }
+  } else if (params.has('autostart')) {
     const team = params.get('team') === 'ct' ? TEAM_CT : TEAM_T;
     newGame({ ...settings.get('newgame'), perTeam: +(params.get('bots') ?? 5), freezeTime: +(params.get('freeze') ?? 6) });
     pendingTeam = team;
@@ -287,6 +349,19 @@ async function boot() {
 }
 
 function frame() { return new Promise((r) => requestAnimationFrame(() => r())); }
+
+function sessionGet(k) { try { return sessionStorage.getItem(k); } catch { return null; } }
+function sessionSet(k, v) { try { if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch { /* private mode */ } }
+
+/** Load another map: the world is built once per page, so reload with it selected. */
+function switchMap(id, opts) {
+  sessionSet('cs16-map', id);
+  sessionSet('cs16-autostart', JSON.stringify(opts));
+  const u = new URL(location.href);
+  u.searchParams.delete('autostart');
+  if (u.searchParams.has('map')) u.searchParams.set('map', id);
+  location.href = u.toString();
+}
 
 boot().catch((e) => {
   console.error(e);

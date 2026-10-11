@@ -8,8 +8,23 @@ import { buildWorldMeshes, makeLightmapTexture } from '../map/meshbuilder.js';
 import { hashMap, decodeRgbPng } from '../map/bakeio.js';
 import { DUST2_LIGHTING, albedoOf } from '../map/lighting.js';
 import { TraceResult, MASK_SHOT } from '../engine/collision.js';
+import { loadBspWorld } from '../bsp/bspworld.js';
+import { createSkybox } from '../bsp/skybox.js';
+import { loadMapFiles, MAPS } from './maps.js';
 
 export async function loadWorld(texLib, onProgress = () => {}, opts = {}) {
+  // an original GoldSrc map the player supplied (src/game/maps.js)
+  if (opts.mapDef && !opts.mapDef.builtin) {
+    onProgress(`Loading ${opts.mapDef.title}`, 0.02);
+    const files = await loadMapFiles(opts.mapDef, opts.mapsrc);
+    const W = await loadBspWorld({ ...files, name: opts.mapDef.id }, onProgress);
+    W.mapDef = opts.mapDef;
+    if (files.sky) {
+      W.skybox = createSkybox(files.sky);
+      W.meshes.push(W.skybox);
+    }
+    return W;
+  }
   onProgress('Building world geometry', 0.05);
   await tick();
   const map = buildDust2();
@@ -48,7 +63,8 @@ export async function loadWorld(texLib, onProgress = () => {}, opts = {}) {
   const lmTex = makeLightmapTexture(rgba, alloc.width, alloc.height);
   const meshes = buildWorldMeshes(compiled.faces, alloc, lmTex, (n) => texLib.get(n), (n) => texLib.info(n));
   const sampler = new LightSampler(compiled, alloc, rgba);
-  return { map, compiled, collision: compiled.world, alloc, lmTex, meshes, lighting, sampler, hash };
+  map.name = 'de_dust2';
+  return { map, compiled, collision: compiled.world, alloc, lmTex, meshes, lighting, sampler, hash, mapDef: MAPS.de_dust2, brushEnts: [] };
 }
 
 function tick() { return new Promise((r) => setTimeout(r, 0)); }

@@ -64,6 +64,15 @@ export class RoundManager {
     g.grenades.clear();
     g.bulletCam?.stop();
     g.effects.clearBlood?.(); // splats and puddles go with the bodies
+    g.mapEnts?.reset(); // doors shut, windows back in
+    // hostage maps: CTs get 750 per hostage rescued last round, Ts 150 per hostage still held
+    if (g.hostages?.enabled && !first) {
+      const hm = g.hostages.roundStartMoney();
+      for (const p of g.players) {
+        if (p.team === TEAM_T && hm.T) this.addMoney(p, hm.T, true);
+        else if (p.team === TEAM_CT && hm.CT) this.addMoney(p, hm.CT, true);
+      }
+    }
     // respawn everybody (survivors keep their inventory)
     const used = { T: new Set(), CT: new Set() };
     for (const p of g.players) {
@@ -78,9 +87,11 @@ export class RoundManager {
       p.model?.reset?.();
       g.spawnPlayer(p, used[p.team]);
     }
+    g.hostages?.reset();
     // give the bomb to a random terrorist (a bot when there is one, so the
-    // team's plan always has its carrier; a human can still take it off the ground)
-    const ts = g.players.filter((p) => p.team === TEAM_T && p.alive);
+    // team's plan always has its carrier; a human can still take it off the ground) -
+    // only on maps with a bomb target
+    const ts = this.hasBombTargets() ? g.players.filter((p) => p.team === TEAM_T && p.alive) : [];
     const botTs = ts.filter((p) => p.isBot);
     const pool = botTs.length ? botTs : ts;
     if (pool.length) {
@@ -108,7 +119,9 @@ export class RoundManager {
     }
     if (this.state === 'live') {
       if (!this.bomb && this.time >= this.roundStart + this.roundTime) {
-        this.endRound(TEAM_CT, 'time', 'Target has been saved!');
+        if (this.hasBombTargets()) this.endRound(TEAM_CT, 'time', 'Target has been saved!');
+        else if (g.hostages?.enabled) this.endRound(TEAM_T, 'hostages_not_rescued', 'Hostages have not been rescued!');
+        else this.endRound(null, 'draw', 'Round Draw!');
       }
       this.checkElimination();
     }
@@ -116,6 +129,16 @@ export class RoundManager {
     if (this.state === 'over' && this.time >= this.roundEndTime + this.restartDelay) {
       this.startRound();
     }
+  }
+
+  hasBombTargets() { return this.game.bombTargets.length > 0; }
+
+  /** HostageRescueRoundEndCheck: every hostage rescued or dead, and at least half rescued. */
+  checkHostages() {
+    const H = this.game.hostages;
+    if (!H?.enabled || this.state !== 'live' || !H.total) return;
+    if (H.remaining > 0) return;
+    if (H.rescued >= H.total * 0.5) this.endRound(TEAM_CT, 'hostages_rescued', 'All hostages have been rescued!');
   }
 
   timeLeft() {
@@ -160,7 +183,7 @@ export class RoundManager {
     if (winner === TEAM_CT) this.ctScore++;
     // money (multiplay_gamerules: rewards + the shared loss bonus)
     const reasonMap = { elimination: 'elimination', time: 'target_saved', bomb: 'target_bombed', defuse: 'bomb_defused', draw: 'draw' };
-    const money = CR.roundEndMoney(this.eco, { winner, reason: reasonMap[reason] || reason, mapHasBombTarget: true });
+    const money = CR.roundEndMoney(this.eco, { winner, reason: reasonMap[reason] || reason, mapHasBombTarget: this.hasBombTargets() });
     for (const p of g.players) {
       if (p.team === TEAM_T) this.addMoney(p, money.T, true);
       else if (p.team === TEAM_CT) this.addMoney(p, money.CT, true);

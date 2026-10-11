@@ -13,7 +13,8 @@
 //   showClassSelect(t, cb)  cb(n, 'joinclass n', skin)   n = 1..4, 5 = auto (skin null)
 //   showBuyMenu(p, {onBuy}) onBuy(item, 'buy …')  item = weapon id | vest | vesthelm |
 //                           flashbang | hegrenade | smokegrenade | defuser | nvgs | primammo | secammo
-//   showNewGame(d, onStart) onStart({ ...d, perTeam, difficulty, roundTime, freezeTime, c4Timer, startMoney, buyTime })
+//   showNewGame(d, onStart) onStart({ ...d, map, perTeam, difficulty, roundTime, freezeTime, c4Timer, startMoney, buyTime })
+//     d.maps [[id, label]], d.mapInfo(id) -> Promise<{ ok, html }>, d.addFiles(FileList) -> Promise (custom maps)
 //   showOptions(s, onChange) onChange(key, value) for every changed key on OK / Apply
 //   showChatInput(team, cb) cb(text)
 // Without a callback the equivalent onCommand string is sent instead
@@ -228,7 +229,9 @@ export class Menus {
     const tabs = el('div', 'st-tabs');
     tabs.appendChild(el('div', 'st-tab on', 'Game'));
     const page = el('div', 'st-page');
-    const map = this._select([['de_dust2', 'de_dust2']], 'de_dust2');
+    // maps: [[id, label]]; mapInfo(id) -> Promise<{ ok, html }>; addFiles(FileList) -> Promise
+    const maps = d.maps || [['de_dust2', 'de_dust2']];
+    const map = this._select(maps, d.map && maps.some(([id]) => id === d.map) ? d.map : maps[0][0]);
     const bots = this._select(Array.from({ length: 16 }, (_, i) => [i, String(i)]), d.perTeam ?? d.botsPerTeam ?? 5);
     const diff = this._select([['easy', 'Easy'], ['normal', 'Normal'], ['hard', 'Hard'], ['expert', 'Expert']], d.difficulty);
     const rt = this._slider(1, 9, 0.25, d.roundTime, (v) => v.toFixed(2));
@@ -246,6 +249,39 @@ export class Menus {
       this._row('Start money (mp_startmoney)', money),
       this._row('Buy time (mp_buytime)', bt),
     );
+    // files for maps that aren't built in (the player's own copy of the .bsp / WADs)
+    const files = el('div', 'st-mapfiles');
+    files.style.cssText = 'margin:6px 0 2px;padding:6px 8px;border:1px solid rgba(255,255,255,0.15);font-size:11px;line-height:1.45;display:none';
+    const info = el('div');
+    const pickRow = el('div');
+    pickRow.style.marginTop = '5px';
+    const pick = el('input');
+    pick.type = 'file';
+    pick.multiple = true;
+    pick.accept = '.bsp,.wad,.tga';
+    pick.style.fontSize = '11px';
+    pickRow.append(pick);
+    files.append(info, pickRow);
+    let mapOk = true;
+    const refresh = async () => {
+      const id = map.value;
+      if (!d.mapInfo || id === 'de_dust2') { files.style.display = 'none'; mapOk = true; start.disabled = false; return; }
+      files.style.display = '';
+      const r = await d.mapInfo(id);
+      if (map.value !== id) return;
+      info.innerHTML = r.html;
+      mapOk = r.ok;
+      start.disabled = !mapOk;
+    };
+    pick.addEventListener('change', async () => {
+      if (!pick.files?.length || !d.addFiles) return;
+      info.textContent = 'Storing files...';
+      try { await d.addFiles(pick.files); } catch (e) { info.textContent = 'Could not store the files: ' + e.message; return; }
+      pick.value = '';
+      refresh();
+    });
+    map.addEventListener('change', refresh);
+    page.appendChild(files);
     page.appendChild(el('div', 'st-note', 'You choose your team when the game starts.'));
     const btns = el('div', 'st-btns');
     const start = el('button', 'st-btn', 'Start');
@@ -272,6 +308,7 @@ export class Menus {
     this.root.appendChild(w);
     this.dlg = w;
     start.focus();
+    refresh();
   }
 
   showOptions(settings = {}, onChange) {

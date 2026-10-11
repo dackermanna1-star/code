@@ -869,6 +869,37 @@ const SKINS = {
   },
 };
 
+// Hostage (cs_ maps): a scientist in a white lab coat over a shirt and tie,
+// grey slacks, bare hands, greying hair - CS 1.6's scientist.mdl
+SKINS.scientist = function scientist(p, m) {
+  const skin = '#d9b394', coat = '#e4e2dc', pants = '#45474e', shoe = '#1e1a16', shirt = '#9eb4c8', tie = '#5a1e22';
+  paintSkinHead(p, m, { skin, hair: '#8f8d88', hairline: 70.6, iris: '#4a5a66', browCol: '#6e6c68' });
+  p.noise(REG.head, 0.03);
+  jacketBase(p, m.torso, coat, {});
+  // open coat: shirt and tie down the front, lapels
+  p.poly(m.torso, [[0.44, 60.0], [0.56, 60.0], [0.54, 47.0], [0.46, 47.0]], shirt);
+  p.poly(m.torso, [[0.49, 59.4], [0.51, 59.4], [0.515, 50.0], [0.5, 48.6], [0.485, 50.0]], tie);
+  p.rrect(m.torso, 0.485, 0.515, 58.6, 59.8, sh(tie, 0.8), 1);
+  p.line(m.torso, [[0.44, 60.0], [0.46, 47.0]], sh(coat, 0.6), 1.6);
+  p.line(m.torso, [[0.56, 60.0], [0.54, 47.0]], sh(coat, 0.6), 1.6);
+  p.line(m.torso, [[0.5, 46.5], [0.5, 36.0]], sh(coat, 0.7), 1.4);
+  for (const u of [0.38, 0.62]) p.pouch(m.torso, u - 0.05, u + 0.05, 39.5, 43.0, coat, { flap: 0.15 }); // coat pockets
+  p.rrect(m.torso, 0.58, 0.6, 52.5, 55.0, '#2a2a6a', 1); // pen in the breast pocket
+  p.pouch(m.torso, 0.56, 0.64, 51.5, 54.5, coat, { flap: 0.2 });
+  neckSkin(p, m.torso, skin);
+  collar(p, m.torso, '#f0eee8', 60.4);
+  // the coat hangs below the waist: pelvis part of the torso stays coat white
+  p.band(m.torso, 34.2, 41.2, coat);
+  p.line(m.torso, [[0.5, 34.2], [0.5, 41.2]], sh(coat, 0.65), 1.4);
+  p.wrapShade(REG.torso, 0.12);
+  p.noise(REG.torso, 0.05);
+  sleeve(p, m.armR, coat, 'r', {}); sleeve(p, m.armL, coat, 'l', {});
+  trousers(p, m.legR, pants, 'r', { boot: shoe, cargo: false, noise: 0.05 });
+  trousers(p, m.legL, pants, 'l', { boot: shoe, cargo: false, noise: 0.05 });
+  glove(p, m.handR, skin, { bare: true }); glove(p, m.handL, skin, { bare: true });
+  bootFoot(p, m.footR, shoe); bootFoot(p, m.footL, shoe);
+};
+
 function pouchTex(p, m, col) {
   p.fill(REG.pouch, col);
   p.band(m.pouch, 0.62, 1.0, sh(col, 1.15));

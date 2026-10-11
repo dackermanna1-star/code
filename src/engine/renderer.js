@@ -103,6 +103,7 @@ export class Renderer {
 
   // eye in GoldSrc coords; angles GoldSrc degrees
   setView(eye, pitch, yaw, roll = 0) {
+    this.eye = eye;
     const c = this.camera;
     c.position.set(eye[0], eye[2], -eye[1]);
     c.rotation.set(-pitch * DEG, (yaw - 90) * DEG, roll * DEG, 'YXZ');

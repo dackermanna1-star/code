@@ -166,6 +166,24 @@ export function parseWad(buf) {
   return out;
 }
 
+/** WAD directory only: name -> () => miptex (decoded on first use). */
+export function indexWad(buf) {
+  const dv = new DataView(buf);
+  const magic = String.fromCharCode(dv.getUint8(0), dv.getUint8(1), dv.getUint8(2), dv.getUint8(3));
+  if (magic !== 'WAD3' && magic !== 'WAD2') throw new Error('Not a WAD file');
+  const num = dv.getInt32(4, true), tab = dv.getInt32(8, true);
+  const out = new Map();
+  for (let i = 0; i < num; i++) {
+    const o = tab + i * 32;
+    const filepos = dv.getInt32(o, true);
+    if (dv.getUint8(o + 12) !== 0x43) continue;
+    const name = cstr(new Uint8Array(buf, o + 16, 16)).toLowerCase();
+    let mt;
+    out.set(name, () => { if (mt === undefined) { try { mt = readMiptex(buf, filepos); } catch { mt = null; } } return mt; });
+  }
+  return out;
+}
+
 function cstr(bytes) {
   let s = '';
   for (const b of bytes) { if (!b) break; s += String.fromCharCode(b); }
