@@ -1,4 +1,5 @@
 // View-model preview: ?w=ak47&anim=reload&t=0.5 freezes reload at 0.5 s.
+// Headless capture: window.__ready, window.__sheet(cells, {cols, cw, ch}) (see bottom).
 // Other params: u=0.5 (normalised time), d=2.0 (duration override), sil=1,
 // light=1.2, aspect=4:3|16:9|fill, cam=view|side|top|front|left|below,
 // ui=0 (hide controls), grid=1 (all weapons), xhair=0, bg=plain.
@@ -254,3 +255,73 @@ function frame(now) {
 
 load();
 requestAnimationFrame(frame);
+
+// ------------------------------------------------------------ capture hooks
+// window.__sheet([{w, anim, u, d, state, label}], {cols, cw, ch}) renders every
+// cell synchronously into a contact sheet and returns it as a PNG data URL
+// (used by headless screenshot scripts: tools/shot.mjs ... ready "<js>").
+const _sheetVMs = new Map();
+function snapVM(id) {
+  if (!_sheetVMs.has(id)) {
+    const v = createViewModel(id, { silenced });
+    v.setLight([light, light, light]);
+    _sheetVMs.set(id, v);
+  }
+  return _sheetVMs.get(id);
+}
+window.__sheet = (cells, { cols = 4, cw = 320, ch = 240 } = {}) => {
+  const rows = Math.ceil(cells.length / cols);
+  const out = document.createElement('canvas');
+  out.width = cols * cw; out.height = rows * ch;
+  const x2 = out.getContext('2d');
+  x2.fillStyle = '#000'; x2.fillRect(0, 0, out.width, out.height);
+  const prevW = vw, prevH = vh;
+  if (vm) vmScene.remove(vm.object3D);
+  renderer.setSize(cw, ch, false);
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, cw, ch);
+  cells.forEach((c, i) => {
+    const v = snapVM(c.w);
+    v.state = { ...(c.state || {}) };
+    if (c.sil !== undefined) v.setSilencer(!!c.sil);
+    v.play(c.anim, { duration: c.d, blend: false });
+    const dur = c.d ?? v.duration(c.anim);
+    // step through the sequence so procedural state (end callbacks) behaves as in game
+    const t = (c.u ?? 0) * dur;
+    v.update(Math.min(t, dur * 0.9999));
+    for (const h of c.hide || []) if (v.nodes[h]) v.nodes[h].visible = false;
+    // c.add: {node: {p, r}} extra offsets (debug posing), arms re-aimed after
+    for (const [k, o] of Object.entries(c.add || {})) {
+      const n = v.nodes[k];
+      if (!n) continue;
+      if (o.p) n.position.add(new THREE.Vector3(...o.p));
+      if (o.r) n.rotation.set(n.rotation.x + o.r[0] * Math.PI / 180, n.rotation.y + o.r[1] * Math.PI / 180, n.rotation.z + o.r[2] * Math.PI / 180);
+    }
+    if (c.add) v._aimArms();
+    vmScene.add(v.object3D);
+    renderer.clear();
+    renderer.render(bgScene, bgCam);
+    renderer.clearDepth();
+    vmCam.aspect = cw / ch; vmCam.updateProjectionMatrix();
+    renderer.render(vmScene, c.cam ? (placeDebugCamFor(v, c.cam), dbgCam) : vmCam);
+    vmScene.remove(v.object3D);
+    const col = i % cols, row = Math.floor(i / cols);
+    x2.drawImage(renderer.domElement, 0, 0, cw, ch, col * cw, row * ch, cw, ch);
+    x2.fillStyle = 'rgba(0,0,0,0.55)'; x2.fillRect(col * cw, row * ch, cw, 16);
+    x2.fillStyle = '#ffe680'; x2.font = '12px monospace';
+    x2.fillText(c.label || `${c.w} ${c.anim} u=${(c.u ?? 0).toFixed(2)}`, col * cw + 4, row * ch + 12);
+    x2.strokeStyle = '#333'; x2.strokeRect(col * cw + 0.5, row * ch + 0.5, cw - 1, ch - 1);
+  });
+  renderer.setSize(prevW, prevH, true);
+  if (vm) vmScene.add(vm.object3D);
+  return out.toDataURL('image/png');
+};
+function placeDebugCamFor(v, mode) {
+  const prev = vm, prevMode = camMode;
+  vm = v; camMode = mode;
+  placeDebugCam();
+  vm = prev; camMode = prevMode;
+  dbgCam.aspect = renderer.domElement.width / renderer.domElement.height;
+  dbgCam.updateProjectionMatrix();
+}
+requestAnimationFrame(() => requestAnimationFrame(() => { window.__ready = true; }));

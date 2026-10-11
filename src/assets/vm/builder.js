@@ -299,6 +299,17 @@ export class ModelBuilder {
     return this.node(name, parent, p);
   }
 
+  // Node `dst` under `parent` that gets a copy of everything drawn on `src`
+  // (copied at build time, so draw `src` before or after - it doesn't matter).
+  // Used for the fresh magazine that rides in the reloading hand.
+  clone(src, dst, parent, p = [0, 0, 0], r = [0, 0, 0], visible = false) {
+    const n = this.node(dst, parent, p, r);
+    n.visible = visible;
+    n.userData.defVisible = visible;
+    (this.clones || (this.clones = [])).push([src, dst]);
+    return n;
+  }
+
   pen(nodeName) { return new Pen(this, nodeName); }
 
   addGeo(nodeName, mat, tint, geo, matrix) {
@@ -321,6 +332,10 @@ export class ModelBuilder {
 
   // Bake all accumulated geometry into meshes. Returns {root, nodes, materials, geometries}.
   build(shared) {
+    for (const [src, dst] of this.clones || []) {
+      const a = this.acc.get(src);
+      if (a) this.acc.set(dst, new Map(a));
+    }
     const materials = new Map();
     const geometries = [];
     let tris = 0;

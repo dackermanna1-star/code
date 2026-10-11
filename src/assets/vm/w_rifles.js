@@ -72,9 +72,10 @@ function ak47(mb) {
   mb.marker('shell', 'gun', [0.7, 1.3, -2.2]);
 
   const { anims } = rifleRig(mb, {
+    kick: 1.35, shootOpts: { bodyUp: 0.5 },
     lh: { at: [0, 0.3, 10.4] },
-    mag: { at: [-0.6, -2.7, 5.0] },
-    charge: { at: [1.1, 1.4, 4.1], side: 'R', pull: 3.0 },
+    charge: { at: [1.1, 1.4, 4.1], side: 'over', pull: 3.0 },
+    mag: { at: [-0.6, -2.7, 5.0], rockOut: 16, rockIn: 18, pivot: [0, 0.4, -1.1] },
     bolt: 3.3,
     reload: 2.45,
   });
@@ -139,9 +140,10 @@ function m4a1(mb) {
   mb.marker('shell', 'gun', [0.6, 1.45, -1.9]);
 
   const r = rifleRig(mb, {
+    kick: 0.9,
     lh: { at: [0, 0.35, 9.4] },
-    mag: { at: [-0.5, -2.6, 4.2] },
-    charge: { at: [0, 1.9, -3.6], side: 'top', pull: 2.6, t0: 0.72 },
+    charge: { at: [-0.58, 0.5, 2.6], side: 'catch' },
+    mag: { at: [-0.5, -2.6, 4.2], style: 'drop', slap: true },
     bolt: 0,
     reload: 3.05,
     draw: 1.1,
@@ -200,9 +202,10 @@ function galil(mb) {
   mb.marker('shell', 'gun', [0.7, 1.6, -2.6]);
 
   const { anims } = rifleRig(mb, {
+    kick: 1.1,
     lh: { at: [0, 0.2, 8.4], fore: [0.1, -0.75, 0.65] },
-    mag: { at: [-0.6, -2.7, 5.4] },
-    charge: { at: [1.2, 2.6, 5.9], side: 'top', pull: 3.2 },
+    mag: { at: [-0.6, -2.7, 5.4], rockOut: 14, rockIn: 16, pivot: [0, 0.4, -1.1] },
+    charge: { at: [1.2, 2.1, 5.9], side: 'over', pull: 3.2 },
     bolt: 3.4,
     reload: 2.45,
   });
@@ -256,9 +259,10 @@ function famas(mb) {
   mb.marker('shell', 'gun', [0.9, 1.0, 5.8]);
 
   const { anims } = rifleRig(mb, {
+    kick: 0.95,
     lh: { at: [0, 0.6, 7.6] },
-    mag: { at: [-0.5, -2.2, -3.0] },
-    charge: { at: [0, 3.0, 4.9], side: 'top', pull: 2.6 },
+    mag: { at: [-0.5, -2.2, -3.0], style: 'drop', slap: true },
+    charge: { at: [0, 3.0, 4.9], side: 'hook', pull: 2.6 },
     bolt: 2.4,
     reload: 3.3,
     tilt: { p: [-5, 4.5, 1], r: [12, 18, -30] },
@@ -304,7 +308,7 @@ function sg552(mb) {
   const { anims } = rifleRig(mb, {
     lh: { at: [0, 0.35, 9.0] },
     mag: { at: [-0.6, -2.7, 4.6] },
-    charge: { at: [1.3, 1.45, 3.5], side: 'R', pull: 2.6 },
+    charge: { at: [1.3, 1.45, 3.5], side: 'over', pull: 2.6 },
     bolt: 2.6,
     reload: 3.0,
   });
@@ -345,6 +349,7 @@ function aug(mb) {
   mb.marker('muzzle', 'gun', [0, 1.1, -17.5]);
   mb.marker('shell', 'gun', [1.0, 0.9, 3.2]);
   const { anims } = rifleRig(mb, {
+    kick: 0.95,
     lh: { at: [0, -0.4, 6.8], fwd: [0.2, -0.25, -0.95], palm: [1, 0, 0.1], grip: 'grip', p: [-1.45, -1.4, -4.2] },
     mag: { at: [-0.5, -2.2, -2.8] },
     charge: { at: [-1.2, 1.5, 2.7], side: 'L', pull: 2.5 },

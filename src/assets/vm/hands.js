@@ -83,6 +83,8 @@ function mirrorFix(g) {
  *  grip : GRIPS key or object; len: forearm length; sleeve: false to skip it
  *  elbow: optional elbow point in the anchor node's frame (default 'rig'); otherwise
  *         the elbow is fore * elbowDist from the rest wrist
+ *  pole : optional view-space direction the elbow bends toward (default: from the
+ *         rest pose - set it for arms that are parked out of view at rest)
  */
 export function arm(mb, name, parent, side, o) {
   const r = handRot(o.fwd, o.palm);
@@ -148,8 +150,18 @@ export function arm(mb, name, parent, side, o) {
     pf.geo('glove', [0.82, 0.85, 0.78], cyl(1.48, 1.4, 1.7, { n: 8, cap0: false, cap1: false, ry: 0.8 }), { p: [0, -0.05, 1.45] });
     pf.geo('sleeve', [0.92, 0.9, 0.86], cyl(1.74, 1.76, 0.6, { n: 8, cap0: false, ry: 0.86 }), { p: [0, 0, 1.35] });
     pf.geo('sleeve', WHITE, cyl(2.15, 1.66, len, { n: 8, cap1: false, ry: 0.86 }), { p: [0, 0, 1.0 + len] });
+    // upper arm: lives in the body frame, the ViewModel puts it between the
+    // elbow and the shoulder every frame (mostly off-screen; it guarantees the
+    // sleeve never ends in mid-air when a hand reaches up or far out)
+    let upper;
+    if (mb.nodes.body && o.upper !== false) {
+      upper = name + '_up';
+      mb.node(upper, 'body');
+      const ul = 22;
+      mb.pen(upper).geo('sleeve', [0.9, 0.88, 0.84], cyl(2.45, 2.15, ul + 2.2, { n: 8, ry: 0.86 }), { p: [0, 0, ul] });
+    }
     // direction in the parent frame; the ViewModel converts it to an elbow point
-    node.userData.arm = { fore: name + '_fore', dir: (o.fore || [0, 0, 1]).slice(), elbowDist: o.elbowDist || 18, elbow: o.elbow, anchor: o.anchor, follow: o.follow };
+    node.userData.arm = { side, fore: name + '_fore', upper, len, dir: (o.fore || [0, 0, 1]).slice(), elbowDist: o.elbowDist || 18, elbow: o.elbow, anchor: o.anchor, pole: o.pole };
   }
   return node;
 }

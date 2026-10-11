@@ -8,7 +8,11 @@ const SMG_HOLD = { p: [7.0, -7.2, -14.4], r: [-1, -0.5, -10], s: 1.1 };
 // Magazine housed in the pistol grip: the left hand pulls it from below.
 const GRIP_MAG = {
   pose: handPose([-1.0, -9.25, 2.5], [0.35, 0.1, -0.93], [0.1, 1, 0.2]),
-  drop: [0, -4.5, 0],
+  style: 'drop',
+  slap: true,
+  out: { p: [0, -1.8, 0], r: [0, 0, 0] },
+  ins: { p: [0, -4.2, 0.3], r: [-6, 0, 4] },
+  away: handPose([-7, -22, 4], [0.3, 0.4, -0.85], [0.2, 1, 0.2]),
 };
 
 // ---------------------------------------------------------------- MP5
@@ -57,9 +61,10 @@ function mp5(mb) {
   mb.marker('muzzle', 'gun', [0, 1.05, -13.6]);
   mb.marker('shell', 'gun', [0.6, 1.6, -1.6]);
   const { anims } = rifleRig(mb, {
+    kick: 0.75,
     lh: { at: [0, -0.2, 8.4] },
     mag: { at: [-0.5, -2.4, 3.8] },
-    charge: { at: [-1.0, 2.15, 9.3], side: 'L', pull: 2.4 },
+    charge: { at: [-1.0, 2.15, 9.3], side: 'hk', pull: 2.4 },
     bolt: 0,
     reload: 2.63,
   });
@@ -102,8 +107,9 @@ function ump45(mb) {
   mb.marker('muzzle', 'gun', [0, 1.2, -12.0]);
   mb.marker('shell', 'gun', [0.7, 1.6, -1.4]);
   const { anims } = rifleRig(mb, {
+    kick: 0.9,
     lh: { at: [0, 0.4, 7.4] },
-    mag: { at: [-0.6, -3.0, 4.2] },
+    mag: { at: [-0.6, -3.0, 4.2], style: 'drop', slap: true },
     charge: { at: [-1.2, 1.8, 6.6], side: 'L', pull: 2.2 },
     bolt: 0,
     reload: 3.5,
@@ -143,8 +149,14 @@ function p90(mb) {
   mb.marker('muzzle', 'gun', [0, 0.8, -11.3]);
   mb.marker('shell', 'gun', [0, -0.6, 2.4]);
   const { anims } = rifleRig(mb, {
+    kick: 0.7,
     lh: { p: [-1.5, -1.6, -4.3], fwd: [0.3, -0.25, -0.92], palm: [1, 0, 0.1], grip: 'grip' },
-    mag: { at: [-1.4, 3.4, -0.4], fwd: [0.6, -0.5, -0.6], palm: [0.6, -1, 0], drop: [-0.5, 3.0, 2.5] },
+    mag: {
+      at: [-1.4, 3.4, -0.4], fwd: [0.6, -0.5, -0.6], palm: [0.6, -1, 0],
+      out: { p: [0, 0.9, 1.4], r: [-6, 0, 0] }, toss: { p: [-1.6, 3.0, 1.8], r: [-14, 6, 18] },
+      ins: { p: [0, 1.4, -1.6], r: [-9, 0, 0] }, preGrip: [-0.8, 1.2, 1.0],
+      away: handPose([-9, -18, 1], [0.4, 0.2, -0.9], [0.8, -0.5, 0]),
+    },
     charge: { at: [-1.2, 1.1, 5.7], side: 'L', pull: 2.0 },
     bolt: 0,
     reload: 3.4,
@@ -186,8 +198,10 @@ function mac10(mb) {
   mb.marker('muzzle', 'gun', [0, 1.3, -8.9]);
   mb.marker('shell', 'gun', [0.7, 1.4, -2.1]);
   const { anims } = rifleRig(mb, {
+    kick: 0.85,
     lh: { p: [-1.6, -2.4, -3.6], fwd: [0.35, 0.4, -0.85], palm: [0.5, 1, 0], grip: 'cup' },
     mag: GRIP_MAG,
+    charge: { at: [0, 2.4, 3.8], side: 'top', pull: 2.6 },
     bolt: 2.6,
     reload: 3.15,
     tilt: { p: [-3, 3.5, 2], r: [18, 14, -28] },
@@ -222,9 +236,12 @@ function tmp(mb) {
   mb.marker('muzzle', 'gun', [0, 1.2, -12.9]);
   mb.marker('shell', 'gun', [0.7, 1.5, -1.4]);
   const { anims } = rifleRig(mb, {
+    kick: 0.7,
     lh: { p: [-1.45, -1.3, -2.8], fwd: [0.2, -0.3, -0.93], palm: [1, 0, 0.1], grip: 'grip' },
     mag: GRIP_MAG,
-    charge: { at: [0, 1.8, -3.2], side: 'top', pull: 1.6 },
+    // the rear charging handle sits against the cheek: no reach for it, the gun
+    // just jolts as the bolt is released
+    reloadRig: [[0.83, [-3, 3.5, 2], [18, 14, -28], 'io'], [0.85, [-3, 3.75, 1.7], [20, 14, -27.5], 'out'], [0.9, [-3, 3.5, 2], [18, 14, -28], 'settle']],
     bolt: 0,
     reload: 2.12,
     tilt: { p: [-3, 3.5, 2], r: [18, 14, -28] },

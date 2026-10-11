@@ -66,10 +66,12 @@ function awp(mb) {
     bolt: 0,
     reload: 2.9,
     draw: 1.45,
-    kick: 1.5,
+    kick: 2.0,
     shootDur: 1.45,
-    shootOpts: { peak: 0.05, rec: 0.25 },
-    reloadTimes: { reach: 0.1, grab: 0.14, out: 0.22, gone: 0.3, back: 0.42, under: 0.5, ins: 0.56 },
+    shootOpts: { bodyUp: 0.6, recT: 0.1 },
+    // clip out 0.15, clip in 0.5, bolt 0.8 (game sound cues); left hand back on
+    // the fore-end before the right hand works the bolt
+    reloadTimes: { reach: 0.1, out: 0.15, fetch: 0.3, align: 0.43, seat: 0.5, back: 0.66 },
   });
   const cyc = (a, b) => boltCycle(a, b, { knob, pivot: [2.0, -1.4], lift: 62, travel: 3.6, rh: r.RH });
   addCycle(r.anims, cyc, 0.22, 0.95, 0.64, 0.98);
@@ -104,11 +106,12 @@ function scout(mb) {
     lh: { at: [0, 0.6, 9.0] },
     mag: { at: [-0.5, -0.8, 2.6] },
     bolt: 0,
+    reloadTimes: { reach: 0.1, out: 0.15, fetch: 0.3, align: 0.43, seat: 0.5, back: 0.68 },
     reload: 2.0,
     draw: 1.2,
-    kick: 1.2,
+    kick: 1.4,
     shootDur: 1.25,
-    shootOpts: { peak: 0.06, rec: 0.28 },
+    shootOpts: { bodyUp: 0.5, recT: 0.09 },
   });
   const cyc = (a, b) => boltCycle(a, b, { knob, pivot: [1.85, -1.4], lift: 60, travel: 3.0, rh: r.RH });
   addCycle(r.anims, cyc, 0.24, 0.95, 0.66, 0.98);
@@ -154,8 +157,9 @@ function g3sg1(mb) {
   const r = rifleRig(mb, {
     lh: { at: [0, -0.2, 11.0] },
     mag: { at: [-0.6, -2.6, 4.6] },
-    charge: { at: [-1.0, 2.3, 13.0], side: 'L', pull: 2.4 },
+    charge: { at: [-1.0, 2.3, 13.0], side: 'hk', pull: 2.4 },
     bolt: 0,
+    reloadTimes: { out: 0.15, fetch: 0.32, align: 0.44, seat: 0.5, charge: 0.8 },
     reload: 4.6,
     draw: 1.2,
     kick: 1.3,
@@ -196,8 +200,9 @@ function sg550(mb) {
   const r = rifleRig(mb, {
     lh: { at: [0, 0.4, 10.5] },
     mag: { at: [-0.6, -2.6, 4.6] },
-    charge: { at: [1.3, 1.45, 3.5], side: 'R', pull: 2.6 },
+    charge: { at: [1.3, 1.45, 3.5], side: 'over', pull: 2.6 },
     bolt: 2.6,
+    reloadTimes: { out: 0.15, fetch: 0.32, align: 0.44, seat: 0.5, charge: 0.8 },
     reload: 3.35,
     draw: 1.2,
     kick: 1.2,

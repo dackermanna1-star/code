@@ -4,6 +4,7 @@
 import { C, hold, pistolRig, silencerAnim, idle } from './kit.js';
 import { arm } from './hands.js';
 import { Z } from './anim.js';
+import { add, mul, dirIn } from './pose.js';
 
 const PISTOL_HOLD = { p: [6.1, -6.9, -13.4], r: [5, 0, -4] };
 
@@ -66,7 +67,7 @@ function glock(mb) {
   magInGrip(mb, B);
   mb.marker('muzzle', 'gun', [0, 0.95, -6.9]);
   mb.marker('shell', 'gun', [0.6, 1.3, -2.4]);
-  return finish(mb, { reload: 2.2, slide: 1.5 });
+  return finish(mb, { reload: 2.2, slide: 1.5, kick: 0.8 });
 }
 
 // ---------------------------------------------------------------- USP
@@ -91,7 +92,7 @@ function usp(mb) {
   mb.marker('muzzle_sil', 'sil', [0, 0.95, -13.0]);
   mb.marker('muzzle', 'gun', [0, 0.95, -7.0]);
   mb.marker('shell', 'gun', [0.6, 1.3, -2.4]);
-  const r = finish(mb, { reload: 2.7, slide: 1.5 }, { spec: { muzzleSil: 'muzzle_sil', silencer: 'sil' } });
+  const r = finish(mb, { reload: 2.7, slide: 1.5, kick: 0.9 }, { spec: { muzzleSil: 'muzzle_sil', silencer: 'sil' } });
   const hand = r._r.away;
   r.anims.attach_silencer = silencerAnim({ f: 9.8, y: 0.95, hand, dur: 3.1, tilt: { p: [-4, 3.5, 2], r: [6, 40, 8] } }, true);
   r.anims.detach_silencer = silencerAnim({ f: 9.8, y: 0.95, hand, dur: 3.1, tilt: { p: [-4, 3.5, 2], r: [6, 40, 8] } }, false);
@@ -116,7 +117,7 @@ function p228(mb) {
   magInGrip(mb, B);
   mb.marker('muzzle', 'gun', [0, 0.95, -6.6]);
   mb.marker('shell', 'gun', [0.6, 1.3, -2.4]);
-  return finish(mb, { reload: 2.7, slide: 1.4 });
+  return finish(mb, { reload: 2.7, slide: 1.4, kick: 0.95 });
 }
 
 // ---------------------------------------------------------------- Desert Eagle
@@ -148,7 +149,7 @@ function deagle(mb) {
   magInGrip(mb, B);
   mb.marker('muzzle', 'gun', [0, 1.05, -8.9]);
   mb.marker('shell', 'gun', [0.7, 1.6, -2.1]);
-  return finish(mb, { reload: 2.2, slide: 1.7, kick: 1.5, rh: { p: [1.05, -2.0, 2.65] }, magGripP: [-0.9, -7.4, 2.5] });
+  return finish(mb, { reload: 2.2, slide: 1.7, kick: 1.6, shootOpts: { bodyUp: 0.5, recT: 0.11 }, rh: { p: [1.05, -2.0, 2.65] }, magGripP: [-0.9, -7.4, 2.5] });
 }
 
 // ---------------------------------------------------------------- Five-seveN
@@ -174,7 +175,7 @@ function fiveseven(mb) {
   magInGrip(mb, B);
   mb.marker('muzzle', 'gun', [0, 0.95, -7.3]);
   mb.marker('shell', 'gun', [0.6, 1.3, -2.4]);
-  return finish(mb, { reload: 2.7, slide: 1.5 });
+  return finish(mb, { reload: 2.7, slide: 1.5, kick: 0.85 });
 }
 
 // ---------------------------------------------------------------- Dual Elites
@@ -214,28 +215,61 @@ function elite(mb) {
   mb.marker('muzzleL', 'gunL', [0, 0.95, -7.1]);
   mb.marker('shellR', 'gunR', [0.6, 1.3, -2.4]);
   mb.marker('shellL', 'gunL', [0.6, 1.3, -2.4]);
+  // each pistol kicks on its own: wrist flip, slide cycle, a touch of chest
   const kick = (g, s, v) => ({
-    [g]: [[0, Z, Z], [0.1, [0, 0.3, 1.3], [7, -v * 1.5, v * 2], 'out'], [0.5, Z, [0.4, 0, 0], 'io'], [1, Z, Z, 'io']],
-    [s]: [[0, Z, Z], [0.05, [0, 0, 1.4], Z, 'out'], [0.16, Z, Z, 'in2']],
+    [g]: [[0, Z, Z], [0.07, [0.1 * v, 0.35, 1.3], [7.5, -v * 1.6, v * 2.4], 'out'], [0.3, [0, 0.05, 0.2], [1.2, -v * 0.3, v * 0.5], 'io'], [0.55, [0, -0.03, -0.05], [-0.3, 0, 0], 'io'], [1, Z, Z, 'io']],
+    [s]: [[0, Z, Z], [0.03, [0, 0, 1.4], Z, 'out'], [0.14, Z, Z, 'in2']],
+    body: [[0, Z, Z], [0.08, Z, [0.3, 0.15 * v, 0], 'out'], [0.6, Z, Z, 'io']],
   });
-  const lock = (s) => ({ [s]: [[0, Z, Z], [0.05, [0, 0, 1.4], Z, 'out'], [1, [0, 0, 1.4], Z]] });
-  const dip = { p: [0, -16, 4], r: [-50, 0, 0] };
+  const lock = (s) => ({ [s]: [[0, Z, Z], [0.03, [0, 0, 1.4], Z, 'out'], [0.08, [0, 0, 1.3], Z, 'io'], [1, [0, 0, 1.3], Z]] });
+  // reload: both guns cant inward and dump their mags, drop out of view to be
+  // loaded, come back up one after the other and drop their slides
+  const D = 4.5, S = (x) => x / D;
+  const inR = { p: [-1.4, 1.8, 1.0], r: [18, 10, 34] }, inL = { p: [1.4, 1.8, 1.0], r: [18, -10, -34] };
+  const dipR = { p: [2.0, -17, 5], r: [-60, 8, -30] }, dipL = { p: [-2.0, -17, 5], r: [-60, -8, 30] };
+  const gR = dirIn(mb.nodes, 'gunR', [0, -1, 0], { gunR: inR.r }), gL = dirIn(mb.nodes, 'gunL', [0, -1, 0], { gunL: inL.r });
+  const magFall = (g, t0, side) => [[0, Z, Z], [t0, Z, Z], [t0 + S(0.05), [0, -1.5, 0], Z, 'in2'], [t0 + S(0.42), add([0, -1.5, 0], mul(g, 26)), [30, 10 * side, -40 * side], 'in2'], [0.44, Z, Z, 'step']];
+  const gunK = (inP, dip, t0, side) => [
+    [0, Z, Z],
+    [t0 + 0.06, inP.p, inP.r, 'back'],
+    [t0 + 0.13, add(inP.p, [0, 0.3, 0]), add(inP.r, [2, 0, 3 * side]), 'io'],
+    [t0 + 0.15, add(inP.p, [0, -0.4, 0.2]), add(inP.r, [-3, 0, -2 * side]), 'out2'],
+    [t0 + 0.19, inP.p, inP.r, 'io'],
+    [t0 + 0.32, dip.p, dip.r, 'in2'],
+    [t0 + 0.42, dip.p, dip.r],
+    [t0 + 0.55, [0, 0.8, 0.2], [6, 0, 10 * side], 'cr'],
+    [t0 + 0.6, [0, 0.5, 0.1], [4, 0, 6 * side], 'cr'],
+    [0.76 + t0 * 2, [0, 0.45, 0.1], [3.5, 0, 6 * side], 'io'],
+    [0.79 + t0 * 2, [0, 0.2, 0.5], [-1.5, 0, 6 * side], 'io'],
+    [0.82 + t0 * 2, [0, 0.7, -0.3], [5.5, 0, 6 * side], 'out'],
+    [0.9 + t0, Z, Z, 'back'],
+    [1, Z, Z],
+  ];
   const anims = {
     idle: idle({ amp: 0.8 }),
-    draw: { dur: 1.0, tracks: {
-      gunR: [[0, dip.p, [-50, 0, -20]], [0.45, [0, 0.3, 0], [3, 0, 0], 'out2'], [0.65, Z, Z, 'io']],
-      gunL: [[0, dip.p, [-50, 0, 20]], [0.1, dip.p, [-50, 0, 20]], [0.55, [0, 0.3, 0], [3, 0, 0], 'out2'], [0.75, Z, Z, 'io']],
+    draw: { dur: 1.0, blend: 0.05, tracks: {
+      gunR: [[0, [1.5, -16, 4], [-55, 6, -25]], [0.32, [0.4, -2.5, 0.8], [-12, 2, -8], 'cr'], [0.5, [0, 0.4, -0.1], [3, 0, 1], 'cr'], [0.68, Z, Z, 'io']],
+      gunL: [[0, [-1.5, -16, 4], [-55, -6, 25]], [0.1, [-1.5, -16, 4], [-55, -6, 25]], [0.42, [-0.4, -2.5, 0.8], [-12, -2, 8], 'cr'], [0.6, [0, 0.4, -0.1], [3, 0, -1], 'cr'], [0.78, Z, Z, 'io']],
+      body: [[0, [0, -0.5, 0.2], [-1.5, 0, 0]], [0.55, Z, [0.5, 0, 0], 'out2'], [0.9, Z, Z, 'io']],
     } },
-    shoot1: { dur: 0.4, tracks: kick('gunR', 'slideR', 1) },
-    shoot2: { dur: 0.4, tracks: kick('gunL', 'slideL', -1) },
-    shoot_empty: { dur: 0.4, tracks: { ...kick('gunR', 'slideR', 1), ...lock('slideR') } },
-    // both pistols drop, mags fall, come back loaded
-    reload: { dur: 4.5, tracks: {
-      gunR: [[0, Z, Z], [0.08, [-1, 1.5, 1], [10, 6, 30], 'io'], [0.16, [-1, 1.5, 1], [10, 6, 30]], [0.3, dip.p, [-40, 0, 20], 'in2'], [0.62, dip.p, [-40, 0, 20]], [0.78, [0, 0.4, 0], [4, 0, 0], 'out2'], [0.86, Z, Z, 'io']],
-      gunL: [[0, Z, Z], [0.12, [1, 1.5, 1], [10, -6, -30], 'io'], [0.2, [1, 1.5, 1], [10, -6, -30]], [0.34, dip.p, [-40, 0, -20], 'in2'], [0.66, dip.p, [-40, 0, -20]], [0.84, [0, 0.4, 0], [4, 0, 0], 'out2'], [0.92, Z, Z, 'io']],
-      magR: [[0, Z, Z], [0.13, Z, Z], [0.2, [0, -14, 0], Z, 'in2'], [0.3, [0, -14, 0], Z], [0.31, Z, Z]],
-      magL: [[0, Z, Z], [0.17, Z, Z], [0.24, [0, -14, 0], Z, 'in2'], [0.34, [0, -14, 0], Z], [0.35, Z, Z]],
-    }, end: (vm) => { vm.state.slideLocked = false; } },
+    shoot1: { dur: 0.4, blend: 0.025, tracks: kick('gunR', 'slideR', 1) },
+    shoot2: { dur: 0.4, blend: 0.025, tracks: kick('gunL', 'slideL', -1) },
+    shoot_empty: { dur: 0.4, blend: 0.025, tracks: { ...kick('gunR', 'slideR', 1), ...lock('slideR') }, end: (vm) => { vm.state.slideLocked = true; } },
+    reload: {
+      dur: D, blend: 0.1,
+      tracks: {
+        gunR: gunK(inR, dipR, 0, 1),
+        gunL: gunK(inL, dipL, 0.03, -1),
+        magR: magFall(gR, 0.135, 1),
+        magL: magFall(gL, 0.165, -1),
+        // the slides are locked back while the guns are loaded, then dropped
+        slideR: [[0, Z, Z], [0.2, Z, Z], [0.24, [0, 0, 1.3], Z, 'out2'], [0.79, [0, 0, 1.3], Z], [0.8, Z, Z, 'in2']],
+        slideL: [[0, Z, Z], [0.23, Z, Z], [0.27, [0, 0, 1.3], Z, 'out2'], [0.85, [0, 0, 1.3], Z], [0.86, Z, Z, 'in2']],
+        body: [[0, Z, Z], [0.1, [0, -0.3, 0.3], [1.2, 0, 0], 'io'], [0.35, [0, -0.6, 0.4], [-1.0, 0, 0], 'io'], [0.62, [0, -0.2, 0.2], [0.8, 0, 0], 'io'], [1, Z, Z, 'io']],
+      },
+      vis: { magR: [[0.135 + S(0.42), 0.44, false]], magL: [[0.165 + S(0.42), 0.44, false]] },
+      end: (vm) => { vm.state.slideLocked = false; },
+    },
   };
   anims.shoot_left = anims.shoot2;
   anims.shoot_right = anims.shoot1;

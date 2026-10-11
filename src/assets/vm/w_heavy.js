@@ -3,64 +3,91 @@ import { C, hold, rifleRig } from './kit.js';
 import { pistolGrip, triggerGuard, muzzle, ring } from './parts.js';
 import { handPose } from './hands.js';
 import { Z } from './anim.js';
+import { add, chain, rel, tidy } from './pose.js';
 
 const SG_HOLD = { p: [7.2, -7.6, -15.0], r: [-1, -0.5, -10], s: 1.1 };
 
-// Shotgun shell held between the left thumb and fingers during loading.
-function shellInHand(mb) {
-  const n = mb.node('shell_in', 'lhand', [-0.6, -1.4, -4.6], [0, 70, 0]);
+// Shotgun shell carried in the left hand while loading. Its rest pose is set
+// so that, with the hand at `port`, the shell lies just under the loading port
+// pointing up the magazine tube.
+const SHELL_AT_PORT = { p: [-0.1, -0.65, -1.9], r: [-8, 0, 0] };
+function shellInHand(mb, port) {
+  const rp = rel(port, SHELL_AT_PORT);
+  const n = mb.node('shell_in', 'lhand', rp.p, rp.r);
   n.visible = false;
   n.userData.defVisible = false;
   const s = mb.pen('shell_in');
   s.tube('polymer', [0.75, 0.12, 0.1], 0, 2.0, 0, 0.36, 0.36, { n: 8 });
   s.tube('metal', C.brass, -0.55, 0, 0, 0.38, 0.38, { n: 8 });
+  return rp;
 }
 
 /**
- * Tube-fed shotgun reload set.
- *  port: abs left-hand pose pushing a shell into the loading port
- *  pump: true for the M3 (reload_end and shoot rack the pump)
+ * Tube-fed shotgun reload set (reload_start / reload_insert / reload_end).
+ *  port : abs left-hand pose holding a shell under the loading port
+ *  pump : true for the M3 (reload_end and every shot rack the pump)
+ * Sound cues the game schedules: insert at 0.4 of reload_insert, pump at 0.2
+ * of reload_end, pump at 0.35 of the M3's shot.
  */
-function shotgunAnims(r, cfg) {
-  const tilt = cfg.tilt || { p: [-3.0, 3.0, 1.0], r: [12, 8, -30] };
+function shotgunAnims(mb, r, cfg) {
+  const tilt = cfg.tilt || { p: [-3, 4, 1], r: [22, 18, -58] };
   const LH = r.LHP;
   const port = cfg.port;
-  const away = { p: [port.p[0] - 1.5, port.p[1] - 9, port.p[2] + 2], r: port.r };
-  const portIn = { p: [port.p[0], port.p[1] - 1.2, port.p[2] + 0.4], r: port.r };
+  const shellRel = shellInHand(mb, port);
+  const R = (dp = [0, 0, 0], dr = [0, 0, 0]) => [add(tilt.p, dp), add(tilt.r, dr)];
+  const K = (u, h, e) => [u, h.p, h.r, e];
+  const off = (h, dp, dr = [0, 0, 0]) => ({ p: add(h.p, dp), r: add(h.r, dr) });
+  // empty hand waiting under the port / thumb pushing the shell home
+  const portIn = off(port, [-0.3, -0.9, 0.9], [-6, 0, 4]);
+  const pushed = off(port, [0, 0.75, -1.5], [4, 0, 0]);
+  const pouch = off(port, [-2.6, -8.5, 3.0], [-25, 10, 20]);
+  const pouchUp = off(port, [-1.4, -4.0, 1.6], [-14, 6, 12]);
+  // shell slides on into the tube relative to the hand while the thumb pushes
+  const shellPushed = chain(port, { p: add(SHELL_AT_PORT.p, [0, 0.35, -2.4]), r: SHELL_AT_PORT.r });
+  const shellPushedRel = rel(pushed, shellPushed);
   const pumpT = cfg.pumpTravel ?? 3.2;
   const anims = r.anims;
-  const rigTilt = (k) => k.map(([u, p, rr, e]) => [u, p, rr, e]);
   anims.reload_start = {
-    dur: cfg.startDur ?? 0.55, hold: true,
+    dur: cfg.startDur ?? 0.55, hold: true, blend: 0.06,
     tracks: {
-      rig: [[0, Z, Z], [1, tilt.p, tilt.r, 'io']],
-      lhand: { abs: true, k: [[0, LH.p, LH.r], [1, portIn.p, portIn.r, 'io']] },
+      rig: [[0, Z, Z], [0.75, ...R([0, 0.2, 0], [1.5, 0, -2]), 'io'], [1, ...R(), 'io']],
+      body: [[0, Z, Z], [1, [0, -0.3, 0.2], [1, 1.2, 0.5], 'io']],
+      lhand: { abs: true, k: [K(0, LH), K(0.2, off(LH, [-0.3, -0.6, 0.8], [-8, 0, 6]), 'io'), K(0.62, off(portIn, [-0.6, -1.2, 1.0]), 'cr'), K(1, portIn, 'cr')] },
     },
   };
   anims.reload_insert = {
-    dur: cfg.insertDur ?? 0.45, hold: true,
+    dur: cfg.insertDur ?? 0.45, hold: true, blend: 0.04,
     tracks: {
-      rig: rigTilt([[0, tilt.p, tilt.r], [0.62, tilt.p, tilt.r], [0.72, [tilt.p[0], tilt.p[1] + 0.3, tilt.p[2]], [tilt.r[0] + 2.5, tilt.r[1], tilt.r[2]], 'out'], [1, tilt.p, tilt.r, 'io']]),
-      lhand: { abs: true, k: [[0, portIn.p, portIn.r], [0.22, away.p, away.r, 'in2'], [0.3, away.p, away.r], [0.52, portIn.p, portIn.r, 'out2'], [0.66, port.p, port.r, 'in2'], [1, portIn.p, portIn.r, 'io']] },
+      rig: [[0, ...R()], [0.42, ...R([0, -0.1, 0], [-0.6, 0, 0.5]), 'io'], [0.5, ...R([0.05, 0.35, -0.15], [2.6, 0.3, -0.8]), 'out'], [0.8, ...R(), 'settle'], [1, ...R()]],
+      body: [[0, [0, -0.3, 0.2], [1, 1.2, 0.5]], [0.5, [0, -0.2, 0.1], [1.6, 1.2, 0.5], 'out'], [1, [0, -0.3, 0.2], [1, 1.2, 0.5], 'io']],
+      lhand: { abs: true, k: [K(0, portIn), K(0.1, pouchUp, 'cr'), K(0.22, pouch, 'cr'), K(0.3, pouch), K(0.36, pouchUp, 'cr'), K(0.42, port, 'cr'), K(0.53, pushed, 'in2'), K(0.6, pushed), K(1, portIn, 'io')] },
+      shell_in: [[0, shellRel.p, shellRel.r], [0.42, shellRel.p, shellRel.r], [0.53, shellPushedRel.p, shellPushedRel.r, 'in2'], [1, shellPushedRel.p, shellPushedRel.r]],
     },
-    vis: { shell_in: [[0.3, 0.64, true]] },
+    vis: { shell_in: [[0.27, 0.535, true]] },
   };
   const endTracks = {
-    rig: [[0, tilt.p, tilt.r], [0.45, Z, Z, 'io'], [1, Z, Z]],
-    lhand: { abs: true, k: [[0, portIn.p, portIn.r], [0.4, LH.p, LH.r, 'io'], [1, LH.p, LH.r]] },
+    rig: [[0, ...R()], [0.12, ...R([0.3, -0.2, 0.2], [-1, 2, 6]), 'io'], [0.62, Z, Z, 'io'], [1, Z, Z, 'io']],
+    body: [[0, [0, -0.3, 0.2], [1, 1.2, 0.5]], [0.6, Z, Z, 'io']],
+    lhand: { abs: true, k: [K(0, portIn), K(0.16, LH, 'io3'), K(1, LH)] },
   };
   if (cfg.pump) {
-    endTracks.pump = [[0, Z, Z], [0.5, Z, Z], [0.66, [0, 0, pumpT], Z, 'io'], [0.82, Z, Z, 'io']];
-    endTracks.lhand.k = [[0, portIn.p, portIn.r], [0.4, LH.p, LH.r, 'io'], [0.5, LH.p, LH.r], [0.66, [LH.p[0], LH.p[1], LH.p[2] + pumpT], LH.r, 'io'], [0.82, LH.p, LH.r, 'io'], [1, LH.p, LH.r]];
+    endTracks.pump = [[0, Z, Z], [0.17, Z, Z], [0.29, [0, 0, pumpT], Z, 'io'], [0.31, [0, 0, pumpT], Z], [0.42, Z, Z, 'in2']];
+    endTracks.lhand.k = [K(0, portIn), K(0.16, LH, 'io3'), K(0.17, LH), K(0.29, off(LH, [0, 0, pumpT]), 'io'), K(0.31, off(LH, [0, 0, pumpT])), K(0.42, LH, 'in2'), K(1, LH)];
+    endTracks.rig = [[0, ...R()], [0.16, ...R([0.3, -0.2, 0.2], [-1, 2, 6]), 'io'], [0.29, ...R([0.2, -0.5, 0.6], [-3, 3, 8]), 'io'], [0.43, ...R([0.3, 0.3, -0.4], [2, 3, 10]), 'out'], [0.75, Z, Z, 'io'], [1, Z, Z, 'io']];
+  } else if (cfg.boltRack) {
+    // semi-auto: run the bolt handle to chamber the first shell
+    endTracks.bolt = [[0, Z, Z], [0.16, Z, Z], [0.24, [0, 0, cfg.boltRack], Z, 'out2'], [0.3, Z, Z, 'in2']];
+    endTracks.rig = [[0, ...R()], [0.18, ...R([0.3, -0.2, 0.2], [-1, 2, 6]), 'io'], [0.24, ...R([0, -0.2, 0.4], [-2, 0, 6]), 'io'], [0.31, ...R([0, 0.25, -0.3], [2, 0, 6]), 'out'], [0.7, Z, Z, 'io'], [1, Z, Z, 'io']];
   }
-  anims.reload_end = { dur: cfg.endDur ?? 0.7, tracks: endTracks };
-  anims.reload = anims.reload_start;
+  anims.reload_end = { dur: cfg.endDur ?? 0.7, blend: 0.05, tracks: endTracks };
   if (cfg.pump) {
-    // pump-action: every shot racks the slide
+    // pump-action: every shot racks the slide (sound at 0.35)
     for (const k of ['shoot1', 'shoot2', 'shoot3']) {
       const t = anims[k].tracks;
-      t.pump = [[0, Z, Z], [0.36, Z, Z], [0.5, [0, 0, pumpT], Z, 'io'], [0.64, Z, Z, 'io']];
-      t.lhand = { abs: true, k: [[0, LH.p, LH.r], [0.36, LH.p, LH.r], [0.5, [LH.p[0], LH.p[1], LH.p[2] + pumpT], LH.r, 'io'], [0.64, LH.p, LH.r, 'io']] };
+      t.pump = [[0, Z, Z], [0.34, Z, Z], [0.47, [0, 0, pumpT], Z, 'io'], [0.49, [0, 0, pumpT], Z], [0.6, Z, Z, 'in2']];
+      t.lhand = { abs: true, k: [K(0, LH), K(0.34, LH), K(0.47, off(LH, [0, 0, pumpT]), 'io'), K(0.49, off(LH, [0, 0, pumpT])), K(0.6, LH, 'in2'), K(1, LH)] };
+      // the gun cants and dips while the pump is worked, clacks home
+      t.rig = tidy([...t.rig.filter((x) => x[0] < 0.3), [0.34, [0, 0, 0], [0, 0, 0], 'io'], [0.47, [-0.2, -0.45, 0.4], [-2.5, 1, 4], 'io'], [0.6, [0, 0.25, -0.3], [1.8, 0, 1], 'out'], [0.85, Z, Z, 'io'], [1, Z, Z]]);
     }
   }
   return anims;
@@ -96,14 +123,13 @@ function m3(mb) {
   const r = rifleRig(mb, {
     lh: { at: [0, -0.05, 12.6] },
     reload: false,
-    kick: 2.0,
+    kick: 1.9,
     shootDur: 0.875,
-    shootOpts: { peak: 0.04, rec: 0.3 },
+    shootOpts: { bodyUp: 0.55, recT: 0.09 },
     draw: 1.0,
   });
-  shellInHand(mb);
-  const port = handPose([-0.9, -2.4, -0.4], [0.25, 0.75, -0.6], [0.5, 0.5, 0.7]);
-  shotgunAnims(r, { port, pump: true, insertDur: 0.45, startDur: 0.55, endDur: 0.95 });
+  const port = handPose([-1.5, -2.3, 1.4], [0.35, 0.35, -0.87], [0.55, 0.85, 0.1]);
+  shotgunAnims(mb, r, { port, pump: true, insertDur: 0.45, startDur: 0.55, endDur: 0.95 });
   return { anims: r.anims, muzzle: 'muzzle', shell: 'shell' };
 }
 
@@ -141,13 +167,12 @@ function xm1014(mb) {
     lh: { at: [0, -0.1, 10.6] },
     reload: false,
     bolt: 2.4,
-    kick: 1.8,
+    kick: 1.7,
     shootDur: 0.25,
-    shootOpts: { peak: 0.12, rec: 0.6 },
+    shootOpts: { bodyUp: 0.5 },
   });
-  shellInHand(mb);
-  const port = handPose([-0.9, -2.4, -0.4], [0.25, 0.75, -0.6], [0.5, 0.5, 0.7]);
-  shotgunAnims(r, { port, pump: false, insertDur: 0.3, startDur: 0.55, endDur: 0.6 });
+  const port = handPose([-1.5, -2.3, 1.4], [0.35, 0.35, -0.87], [0.55, 0.85, 0.1]);
+  shotgunAnims(mb, r, { port, pump: false, boltRack: 2.4, insertDur: 0.3, startDur: 0.55, endDur: 0.6 });
   return { anims: r.anims, muzzle: 'muzzle', shell: 'shell' };
 }
 
@@ -193,30 +218,49 @@ function m249(mb) {
   }
   mb.marker('muzzle', 'gun', [0, 1.35, -22.8]);
   mb.marker('shell', 'gun', [0.8, 1.0, -0.1]);
+  // charging handle (right side, worked once the cover is shut)
+  mb.node('bolt', 'gun');
+  mb.pen('bolt').span('metal', B, 4.6, 5.3, 0.9, 1.3, 0.5, { x: 0.95 });
+  // cover: lifted at the latch, flips open on its spring; belt laid in; slammed
+  // shut; then the charging handle. Times are fractions of the 4.7 s reload
+  // (clip out 0.15, clip in 0.45, bolt 0.8).
+  const OPEN = -30;
+  // the hand lifts the cover a third of the way back from the hinge
+  const latch = (deg) => {
+    const a = (deg * Math.PI) / 180, y = 0.85, z = 4.8;
+    return [0, 2.2 + y * Math.cos(a) - z * Math.sin(a), -6.6 + y * Math.sin(a) + z * Math.cos(a)];
+  };
+  const coverHand = (deg) => {
+    const l = latch(deg);
+    return handPose([l[0] - 1.8, l[1] + 1.3, l[2] + 1.2], [0.45, -0.5, -0.74], [0.35, -1, 0.1 - deg / 120]);
+  };
+  const K = (u, h, e) => [u, h.p, h.r, e];
+  const belt = handPose([-2.6, 1.6, -0.6], [0.55, 0.25, -0.8], [0.6, -0.75, 0.1]);
+  const beltIn = { p: [belt.p[0] + 0.5, belt.p[1] + 0.5, belt.p[2] - 0.6], r: belt.r };
   const r = rifleRig(mb, {
     lh: { at: [0, -0.2, 7.2] },
-    mag: { at: [-1.7, -2.6, 4.2], drop: [0.2, -4.5, -0.6] },
+    mag: {
+      at: [-1.7, -2.6, 4.2],
+      out: { p: [-0.6, -2.2, 0.2], r: [0, 0, -12] },
+      toss: { p: [-2.0, -5.0, 1.4], r: [10, 0, -30] },
+      ins: { p: [-0.7, -3.2, 0.2], r: [0, 0, -10] },
+    },
+    charge: { at: [0.95, 1.1, 4.95], side: 'over', pull: 2.6 },
     bolt: 0,
     reload: 4.7,
     draw: 1.0,
     kick: 1.1,
     shootDur: 0.3,
-    tilt: { p: [-3.5, 3.6, 1.5], r: [10, 12, -22] },
-    reloadTimes: { reach: 0.28, grab: 0.32, out: 0.4, gone: 0.46, back: 0.56, under: 0.63, ins: 0.68 },
+    tilt: { p: [-3.5, 3.6, 1.5], r: [12, 14, -20] },
+    reloadTimes: { tilt: 0.06, reach: 0.125, out: 0.15, fetch: 0.3, align: 0.4, seat: 0.45, charge: 0.82, back: 0.95 },
+    reloadBefore: [K(0.025, { p: [-2.6, 2.4, -0.5], r: coverHand(0).r }, 'cr'), K(0.05, coverHand(0), 'cr'), K(0.06, coverHand(0)), K(0.08, coverHand(OPEN * 0.55), 'out2'), K(0.1, { p: [-3.2, 1.0, 1.5], r: coverHand(0).r }, 'cr')],
+    reloadAfterSeat: [K(0.5, belt, 'cr'), K(0.53, beltIn, 'io'), K(0.56, belt, 'io'), K(0.62, coverHand(OPEN), 'cr'), K(0.64, coverHand(OPEN)), K(0.68, coverHand(0), 'in2'), K(0.7, coverHand(0))],
+    reloadRig: [[0.68, [-3.5, 3.6, 1.5], [12, 14, -20], 'io'], [0.695, [-3.5, 3.1, 1.6], [9.5, 14, -19], 'out'], [0.74, [-3.5, 3.6, 1.5], [12, 14, -20], 'settle']],
+    reloadTracks: {
+      cover: [[0, Z, Z], [0.06, Z, Z], [0.08, Z, [OPEN * 0.55, 0, 0], 'out2'], [0.1, Z, [OPEN * 1.08, 0, 0], 'out'], [0.12, Z, [OPEN, 0, 0], 'io'],
+        [0.64, Z, [OPEN, 0, 0]], [0.68, Z, Z, 'in2'], [0.69, Z, [-1.5, 0, 0], 'out'], [0.7, Z, Z, 'io']],
+    },
   });
-  // open the feed cover before swapping the box, close it after
-  const L = r.LHP;
-  const coverHand = handPose([-1.3, 4.6, 4.2], [0.35, -0.55, -0.75], [0.3, -1, 0.1]);
-  const lk = r.anims.reload.tracks.lhand.k;
-  lk.splice(1, 0, [0.1, coverHand.p, coverHand.r, 'io'], [0.14, coverHand.p, coverHand.r], [0.2, [coverHand.p[0], coverHand.p[1] + 2.4, coverHand.p[2] - 2], coverHand.r, 'out2']);
-  // after the box is in: close the cover
-  const iIns = lk.findIndex((k) => k[0] >= 0.68);
-  lk.splice(iIns + 1, 0, [0.76, [coverHand.p[0], coverHand.p[1] + 2.4, coverHand.p[2] - 2], coverHand.r, 'io'], [0.82, coverHand.p, coverHand.r, 'in2']);
-  // drop later keys that overlap
-  r.anims.reload.tracks.lhand.k = lk.filter((k, i, a) => i === 0 || k[0] > a[i - 1][0]).sort((a, b) => a[0] - b[0]);
-  r.anims.reload.tracks.lhand.k = r.anims.reload.tracks.lhand.k.filter((k) => !(k[0] > 0.82 && k[0] < 0.9));
-  r.anims.reload.tracks.lhand.k.push([0.95, L.p, L.r, 'io']);
-  r.anims.reload.tracks.cover = [[0, Z, Z], [0.14, Z, Z], [0.2, Z, [-70, 0, 0], 'out2'], [0.76, Z, [-70, 0, 0]], [0.82, Z, Z, 'in2']];
   return { anims: r.anims, muzzle: 'muzzle', shell: 'shell' };
 }
 

@@ -13,7 +13,9 @@
 // keys: [[u, p, r, ease], ...] with u in 0..1 of the duration, p = [x,y,z]
 // units, r = [pitch, yaw, roll] degrees (Euler YXZ). For offset tracks p/r are
 // added to the node's rest pose (null = 0); for abs tracks they replace it
-// (null = rest). `ease` shapes the segment that ends at that key.
+// (null = rest). `ease` shapes the segment that ends at that key; 'cr' makes it
+// a smooth (Catmull-Rom / Hermite) segment that flows through neighbouring
+// 'cr' keys instead of stopping at every key.
 
 import * as THREE from 'three';
 import { DEG } from './builder.js';
@@ -30,7 +32,35 @@ export const EASE = {
   step: (x) => (x < 1 ? 0 : 1),
   // quick snap with a small overshoot (mechanical clack)
   snap: (x) => { const s = 1.70158; x -= 1; return x * x * ((s + 1) * x + s) + 1; },
+  // softer overshoot (arrive, drift past, come back)
+  back: (x) => { const s = 0.9; x -= 1; return x * x * ((s + 1) * x + s) + 1; },
+  // damped spring: overshoots ~10 %, wobbles once, lands exactly on 1
+  settle: (x) => 1 - Math.exp(-5 * x) * Math.cos(9 * x) * (1 - x),
+  io3: (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2),
+  cr: (x) => x, // handled in evalKeys
 };
+
+// Hermite segment between keys i-1 and i with Catmull-Rom tangents at the ends
+// that continue into neighbouring 'cr' segments (zero tangent otherwise).
+function hermite(keys, i, t, idx, restP, restR, abs, out) {
+  const fill = (v, rest) => (v ? v : abs ? rest : Z);
+  const rest = idx === 1 ? restP : restR;
+  const k0 = keys[i - 1], k1 = keys[i];
+  const kp = keys[i - 2], kn = keys[i + 1];
+  const P1 = fill(k0[idx], rest), P2 = fill(k1[idx], rest);
+  const h = k1[0] - k0[0];
+  const smoothA = (k0[3] === 'cr') && kp;
+  const smoothB = kn && kn[3] === 'cr';
+  const P0 = smoothA ? fill(kp[idx], rest) : null, P3 = smoothB ? fill(kn[idx], rest) : null;
+  const t2 = t * t, t3 = t2 * t;
+  const a = 2 * t3 - 3 * t2 + 1, b = t3 - 2 * t2 + t, c = -2 * t3 + 3 * t2, d = t3 - t2;
+  for (let j = 0; j < 3; j++) {
+    const mA = smoothA ? ((P2[j] - P0[j]) / Math.max(1e-6, k1[0] - kp[0])) * h : 0;
+    const mB = smoothB ? ((P3[j] - P1[j]) / Math.max(1e-6, kn[0] - k0[0])) * h : 0;
+    out[j] = a * P1[j] + b * mA + c * P2[j] + d * mB;
+  }
+  return out;
+}
 
 function lerp3(a, b, t, out) {
   out[0] = a[0] + (b[0] - a[0]) * t;
@@ -53,6 +83,11 @@ export function evalKeys(keys, u, restP, restR, abs, outP, outR) {
       const k0 = keys[i - 1];
       const span = k1[0] - k0[0];
       let t = span > 0 ? Math.min(1, Math.max(0, (u - k0[0]) / span)) : 1;
+      if (k1[3] === 'cr') {
+        hermite(keys, i, t, 1, restP, restR, abs, outP);
+        hermite(keys, i, t, 2, restP, restR, abs, outR);
+        return;
+      }
       t = (EASE[k1[3] || 'io'] || EASE.io)(t);
       lerp3(fill(k0[1], restP), fill(k1[1], restP), t, outP);
       lerp3(fill(k0[2], restR), fill(k1[2], restR), t, outR);

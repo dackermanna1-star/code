@@ -5,6 +5,7 @@ import { arm, GRIPS, handPose } from './hands.js';
 import { DEG } from './builder.js';
 import { C, hold, idle } from './kit.js';
 import { Z } from './anim.js';
+import { add, sub, chain, rel } from './pose.js';
 import { ring } from './parts.js';
 
 function _hands(mb) {
@@ -22,14 +23,26 @@ function _hands(mb) {
 // ---------------------------------------------------------------- knife
 // Right fist holds the knife with the blade toward the hand's index side
 // (hand-local -X), the blade flat in the hand's X-Y plane.
+// Pose for the knife hand from where the blade points and where the palm faces
+// (rig = view space). Hand-local: blade along -X, palm -Y, fingers -Z.
+function knifeHand(p, blade, palm) {
+  const x = new THREE.Vector3(...blade).normalize().negate();
+  const y = new THREE.Vector3(...palm).negate();
+  y.addScaledVector(x, -y.dot(x)).normalize();
+  const z = new THREE.Vector3().crossVectors(x, y);
+  const e = new THREE.Euler().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z), 'YXZ');
+  return { p, r: [e.x / DEG, e.y / DEG, e.z / DEG] };
+}
+
 function knife(mb) {
   hold(mb, [0, 0, 0]);
-  const RH = handPose([8.0, -8.0, -10.4], [0.417, 0.119, -0.9], [0.45, -0.9, 0.05]);
-  const LH = handPose([-5.8, -8.8, -9.6], [0.32, 0.94, -0.05], [-0.43, -0.41, -0.79]);
+  // CS 1.6 style: only the right fist is in view, blade angled up and in
+  const RH = knifeHand([7.6, -6.4, -12.0], [-0.52, 0.6, -0.6], [-0.85, -0.1, 0.45]);
+  const LH = handPose([-11, -30, -4], [0.32, 0.94, -0.05], [-0.43, -0.41, -0.79]); // parked
   mb.node('rhand', 'rig', RH.p, RH.r);
-  arm(mb, 'rhand_arm', 'rhand', 'R', { p: [0, 0, 0], fwd: [0, 0, -1], palm: [0, -1, 0], elbow: [14, -25, 0], grip: 'fist', len: 18 });
+  arm(mb, 'rhand_arm', 'rhand', 'R', { p: [0, 0, 0], fwd: [0, 0, -1], palm: [0, -1, 0], elbow: [14, -25, 2], grip: 'fist', len: 18 });
   mb.node('lhand', 'rig', LH.p, LH.r);
-  arm(mb, 'lhand_arm', 'lhand', 'L', { p: [0, 0, 0], fwd: [0, 0, -1], palm: [0, -1, 0], elbow: [-8, -26, -2], grip: 'open', len: 18 });
+  arm(mb, 'lhand_arm', 'lhand', 'L', { p: [0, 0, 0], fwd: [0, 0, -1], palm: [0, -1, 0], elbow: [-8, -36, 4], grip: 'open', len: 18 });
 
   // knife in the right fist (hand-local frame)
   mb.node('knife', 'rhand', [0, -1.2, -2.75], [0, 90, 0]);
@@ -45,53 +58,74 @@ function knife(mb) {
   k.prism('metal', [0.75, 0.78, 0.72], [[2.6, -0.8], [7.4, -0.78], [10.2, -0.42], [11.6, 0.0], [11.3, -0.02], [10.0, -0.36], [7.3, -0.66], [2.6, -0.68]], 0.12);
   for (let i = 0; i < 6; i++) k.prism('metal', [0.35, 0.36, 0.34], [[2.6 + i * 0.42, 0.6], [2.95 + i * 0.42, 0.6], [2.77 + i * 0.42, 0.78]], 0.12);
 
-  // stab: blade (hand -X) pointing into the screen
-  const SF = [0.75, -0.45, -0.48], SP = [-0.6, -0.8, 0.05];
-  const knifeK = (u, p, fwd, palm, e) => { const h = handPose(p, fwd, palm); return [u, h.p, h.r, e]; };
-  const rest = [0, RH.p, RH.r];
-  const restAt = (u, e = 'io') => [u, RH.p, RH.r, e];
-  const lrest = [0, LH.p, LH.r];
+  const KH = (u, h, e) => [u, h.p, h.r, e];
+  const kh = (u, p, blade, palm, e) => KH(u, knifeHand(p, blade, palm), e);
+  const rest = (u, e = 'io') => KH(u, RH, e);
+  const park = { lhand: { abs: true, k: [KH(0, LH)] } };
+  // body: chest turns into the cut / leans into the stab (camera-relative weight)
+  const twist = (u0, u1, u2, yaw, pitch = 0, fwd = 0) => [[0, Z, Z], [u0, [0, 0, 0], [0.4, -yaw * 0.3, 0], 'io'], [u1, [0, -0.2, -fwd], [pitch, yaw, yaw * 0.15], 'io'], [u2, Z, Z, 'io'], [1, Z, Z]];
   const anims = {
-    idle: idle({ amp: 1 }),
-    draw: { dur: 1.0, tracks: {
-      rhand: { abs: true, k: [knifeK(0, [10, -20, -8], [0.2, 0.6, -0.8], [-0.4, -0.6, 0.6]), knifeK(0.45, [9.0, -9.0, -12.2], [0.45, -0.05, -0.9], [-0.15, -1, 0.05], 'out2'), restAt(0.7)] },
-      lhand: { abs: true, k: [[0, [-10, -24, -10], LH.r], [0.15, [-10, -24, -10], LH.r], [0.6, LH.p, LH.r, 'out2']] },
+    idle: idle({ amp: 1.1, fn(u, t, vm) {
+      // the wrist idly rolls the blade a little
+      vm.nodes.rhand.rotation.z += 2.5 * DEG * Math.sin(u * Math.PI * 4 + 0.5);
+    } }),
+    draw: { dur: 1.0, blend: 0.05, tracks: {
+      rhand: { abs: true, k: [
+        kh(0, [11, -21, -7], [0.3, -0.75, -0.6], [-0.4, -0.4, 0.8]),
+        kh(0.3, [9.5, -11.5, -10.5], [0.1, 0.2, -0.98], [-0.7, -0.6, 0.3], 'cr'),
+        kh(0.5, [7.8, -5.9, -12.2], [-0.56, 0.66, -0.5], [-0.85, -0.15, 0.45], 'cr'),
+        kh(0.66, [7.6, -6.55, -11.9], [-0.5, 0.58, -0.62], [-0.85, -0.1, 0.45], 'io'),
+        rest(0.85)] },
+      body: [[0, [0, -0.4, 0.2], [-1.2, 0, 0]], [0.5, Z, [0.4, 0, 0], 'out2'], [0.85, Z, Z, 'io']],
+      ...park,
     } },
-    // right-to-left slash
-    slash1: { dur: 0.6, tracks: {
-      rhand: { abs: true, k: [rest,
-        knifeK(0.12, [11.5, -7.5, -11.5], [0.6, 0.3, -0.75], [0.1, -1, 0.3], 'out2'),
-        knifeK(0.3, [-1.0, -8.0, -15.5], [-0.3, -0.25, -0.9], [-0.3, -0.9, -0.2], 'in2'),
-        knifeK(0.45, [-7.0, -12.0, -12.0], [-0.7, -0.5, -0.5], [-0.3, -0.8, 0.4], 'out2'),
-        restAt(1.0)] },
-      lhand: { abs: true, k: [lrest, [0.2, [LH.p[0] - 3, LH.p[1] - 7, LH.p[2] + 1], LH.r, 'out2'], [0.55, [LH.p[0] - 3, LH.p[1] - 7, LH.p[2] + 1], LH.r], [1, LH.p, LH.r]] },
+    // forehand: wind up to the right, cut right-to-left through the centre
+    slash1: { dur: 0.6, blend: 0.04, tracks: {
+      rhand: { abs: true, k: [rest(0),
+        kh(0.14, [10.8, -3.6, -10.5], [0.2, 0.55, -0.8], [-0.2, -0.95, 0.25], 'out2'),
+        kh(0.26, [5.0, -4.4, -15.5], [-0.55, 0.2, -0.8], [-0.1, -0.98, -0.1], 'in2'),
+        kh(0.36, [-2.5, -6.5, -15.0], [-0.9, 0.0, -0.45], [-0.25, -0.95, 0.15], 'cr'),
+        kh(0.46, [-6.5, -10.5, -11.5], [-0.75, -0.45, -0.25], [-0.35, -0.8, 0.45], 'out2'),
+        kh(0.72, [3.5, -10.0, -11.0], [-0.35, 0.4, -0.85], [-0.7, -0.4, 0.5], 'cr'),
+        rest(1.0, 'cr')] },
+      body: twist(0.14, 0.4, 0.85, 5, -1.2),
+      ...park,
     } },
-    // left-to-right backhand
-    slash2: { dur: 0.6, tracks: {
-      rhand: { abs: true, k: [rest,
-        knifeK(0.15, [1.0, -6.5, -12.5], [-0.6, 0.2, -0.75], [0.3, -0.9, -0.3], 'out2'),
-        knifeK(0.33, [10.5, -9.0, -15.0], [0.7, -0.2, -0.65], [-0.3, -0.9, 0.2], 'in2'),
-        knifeK(0.5, [14.0, -12.5, -11.0], [0.8, -0.4, -0.3], [-0.4, -0.8, 0.3], 'out2'),
-        restAt(1.0)] },
-      lhand: { abs: true, k: [lrest, [0.25, [LH.p[0] - 3, LH.p[1] - 6, LH.p[2] + 1], LH.r, 'out2'], [0.55, [LH.p[0] - 3, LH.p[1] - 6, LH.p[2] + 1], LH.r], [1, LH.p, LH.r]] },
+    // backhand: wind up across the body, cut left-to-right and down
+    slash2: { dur: 0.6, blend: 0.04, tracks: {
+      rhand: { abs: true, k: [rest(0),
+        kh(0.16, [1.0, -3.4, -12.0], [-0.75, 0.5, -0.45], [0.2, -0.95, -0.2], 'out2'),
+        kh(0.3, [6.0, -5.0, -16.0], [0.35, 0.15, -0.92], [0.05, -1, 0.05], 'in2'),
+        kh(0.4, [10.5, -7.8, -14.0], [0.85, -0.15, -0.5], [0.1, -0.9, 0.4], 'cr'),
+        kh(0.52, [12.5, -11.0, -10.5], [0.7, -0.6, -0.25], [-0.1, -0.7, 0.7], 'out2'),
+        kh(0.78, [9.0, -7.5, -11.5], [-0.25, 0.6, -0.75], [-0.85, -0.2, 0.4], 'cr'),
+        rest(1.0, 'cr')] },
+      body: twist(0.16, 0.42, 0.85, -5, -1.0),
+      ...park,
     } },
-    stab: { dur: 1.1, tracks: {
-      rhand: { abs: true, k: [rest,
-        knifeK(0.25, [9.5, -6.8, -8.6], SF, SP, 'io'),
-        knifeK(0.33, [9.6, -6.6, -8.4], SF, SP),
-        knifeK(0.45, [3.2, -4.0, -17.0], SF, SP, 'in2'),
-        knifeK(0.6, [3.2, -4.2, -16.6], SF, SP),
-        restAt(1.0)] },
-      lhand: { abs: true, k: [lrest, [0.4, [LH.p[0] - 1, LH.p[1] - 4, LH.p[2] + 1], LH.r], [1, LH.p, LH.r]] },
+    // stab: draw back high, drive the point into the centre, wrench it back
+    stab: { dur: 1.1, blend: 0.05, tracks: {
+      rhand: { abs: true, k: [rest(0),
+        kh(0.24, [9.0, -2.6, -8.5], [-0.35, 0.45, -0.82], [-0.75, -0.6, 0.1], 'io'),
+        kh(0.32, [9.4, -2.0, -8.0], [-0.33, 0.5, -0.8], [-0.75, -0.6, 0.1], 'io'),
+        kh(0.42, [3.4, -4.6, -17.5], [-0.42, -0.12, -0.9], [-0.65, -0.75, 0.1], 'in2'),
+        kh(0.5, [3.5, -4.7, -17.1], [-0.42, -0.14, -0.9], [-0.65, -0.75, 0.1], 'out'),
+        kh(0.6, [4.0, -5.0, -16.0], [-0.42, -0.02, -0.9], [-0.65, -0.75, 0.1], 'io'),
+        kh(0.82, [8.0, -8.0, -11.5], [-0.45, 0.5, -0.75], [-0.85, -0.2, 0.45], 'cr'),
+        rest(1.0, 'cr')] },
+      body: [[0, Z, Z], [0.3, [0, 0.2, 0.6], [1.2, -1.5, 0], 'io'], [0.43, [0, -0.3, -1.4], [-2.0, 2.0, 0.5], 'in2'], [0.5, [0, -0.25, -1.2], [-1.6, 2.0, 0.5], 'out'], [0.9, Z, Z, 'io'], [1, Z, Z]],
+      ...park,
     } },
-    stab_miss: { dur: 1.1, tracks: {
-      rhand: { abs: true, k: [rest,
-        knifeK(0.25, [9.5, -6.8, -8.6], SF, SP, 'io'),
-        knifeK(0.33, [9.6, -6.6, -8.4], SF, SP),
-        knifeK(0.5, [2.4, -4.6, -19.0], SF, SP, 'in2'),
-        knifeK(0.62, [4.5, -10.0, -17.0], [0.78, -0.7, -0.1], SP, 'out2'),
-        restAt(1.0)] },
-      lhand: { abs: true, k: [lrest, [0.4, [LH.p[0] - 1, LH.p[1] - 4, LH.p[2] + 1], LH.r], [1, LH.p, LH.r]] },
+    stab_miss: { dur: 1.1, blend: 0.05, tracks: {
+      rhand: { abs: true, k: [rest(0),
+        kh(0.24, [9.0, -2.6, -8.5], [-0.35, 0.45, -0.82], [-0.75, -0.6, 0.1], 'io'),
+        kh(0.32, [9.4, -2.0, -8.0], [-0.33, 0.5, -0.8], [-0.75, -0.6, 0.1], 'io'),
+        kh(0.46, [2.6, -5.4, -20.0], [-0.42, -0.25, -0.87], [-0.65, -0.75, 0.1], 'in2'),
+        kh(0.6, [4.0, -9.5, -17.5], [-0.25, -0.65, -0.7], [-0.6, -0.6, 0.5], 'out2'),
+        kh(0.82, [8.0, -8.5, -11.5], [-0.45, 0.45, -0.75], [-0.85, -0.2, 0.45], 'cr'),
+        rest(1.0, 'cr')] },
+      body: [[0, Z, Z], [0.3, [0, 0.2, 0.6], [1.2, -1.5, 0], 'io'], [0.47, [0, -0.5, -2.0], [-3.0, 2.5, 0.5], 'in2'], [0.62, [0, -0.6, -1.6], [-2.5, 2.0, 0.5], 'out2'], [0.95, Z, Z, 'io'], [1, Z, Z]],
+      ...park,
     } },
   };
   anims.attack = anims.slash1;
@@ -141,38 +175,57 @@ function grenade(type) {
     arm(mb, 'rhand_arm', 'rhand', 'R', { p: [0, 0, 0], fwd: [0, 0, -1], palm: [0, -1, 0], elbow: [14, -28, -2], grip: 'hold', len: 18 });
     mb.node('grenade', 'rhand', [-0.2, -1.75, -3.2], [0, 0, 90]);
     grenadeBody(mb, type);
-    // left hand (comes in to pull the pin)
-    const LA = handPose([-9, -22, -8], [0.5, 0.6, -0.6], [0.6, -0.2, -0.7]);
-    const LP = handPose([1.0, -5.7, -10.6], [0.8, 0.05, -0.6], [0.1, -0.85, -0.5]);
-    // convert a view-space displacement into the grenade's local frame (rest pose)
-    const gq = new THREE.Quaternion().setFromEuler(new THREE.Euler(RH.r[0] * DEG, RH.r[1] * DEG, RH.r[2] * DEG, 'YXZ'))
-      .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 90 * DEG, 'YXZ'))).invert();
-    const gl = (d) => { const v = new THREE.Vector3(...d).applyQuaternion(gq); return [v.x, v.y, v.z]; };
+    // left hand: parked below, comes in to pull the pin
+    const LA = handPose([-9, -24, -6], [0.5, 0.6, -0.6], [0.6, -0.2, -0.7]);
     mb.node('lhand', 'rig', LA.p, LA.r);
-    arm(mb, 'lhand_arm', 'lhand', 'L', { p: [0, 0, 0], fwd: [0, 0, -1], palm: [0, -1, 0], elbow: [-12, -26, -4], grip: 'pinch', len: 18 });
+    arm(mb, 'lhand_arm', 'lhand', 'L', { p: [0, 0, 0], fwd: [0, 0, -1], palm: [0, -1, 0], elbow: [-12, -26, -4], pole: [-0.3, -1, 0.15], grip: 'pinch', len: 18 });
     const K = (u, h, e) => [u, h.p, h.r, e];
-    const off = (h, d) => ({ p: [h.p[0] + d[0], h.p[1] + d[1], h.p[2] + d[2]], r: h.r });
+    const off = (h, d, dr = [0, 0, 0]) => ({ p: add(h.p, d), r: add(h.r, dr) });
+    const top = type === 'he' ? 1.1 : type === 'flash' ? 1.05 : 1.1;
+    const G0 = { p: [-0.2, -1.75, -3.2], r: [0, 0, 90] };
+    const PIN = { p: [0, top + 0.3, -0.45], r: [0, 0, 0] };
+    // right hand: rest, turned to offer the ring, cocked back ready to throw
+    const RHp = off(RH, [-1.4, 1.1, -0.8], [6, 12, 14]);
+    const RHc = off(RH, [1.6, 2.6, 1.2], [-24, -8, 18]);
+    const RHb = off(RH, [4.5, 4.8, 3.6], [-45, -16, 30]);
+    // the left index hooks the ring: place the hand so its fingertip is on it
+    const ring = chain(chain(chain(RHp, G0), PIN), { p: [-0.85, 0, 0], r: [0, 0, 0] });
+    const lpr = handPose([0, 0, 0], [0.75, 0.2, -0.62], [0.1, -0.9, -0.4]);
+    const tip = chain(lpr, { p: [1.15, -1.0, -5.0], r: [0, 0, 0] }).p;
+    const LP = { p: sub(ring.p, tip), r: lpr.r };
+    const pinRel = rel(LP, chain(chain(RHp, G0), PIN));
+    mb.clone('pin', 'pin_hand', 'lhand', pinRel.p, pinRel.r);
+    const LPout = off(LP, [-4.5, -2.0, 2.0], [0, 15, -35]);
     const anims = {
       idle: idle({ amp: 1 }),
-      draw: { dur: 0.75, tracks: { rhand: { abs: true, k: [K(0, off(RH, [2, -10, 4])), K(0.6, RH, 'out2')] } } },
+      draw: { dur: 0.75, blend: 0.05, tracks: {
+        rhand: { abs: true, k: [K(0, off(RH, [2.5, -11, 4], [40, 10, -20])), K(0.42, off(RH, [0.5, -1.5, 0.6], [6, 2, -4]), 'cr'), K(0.66, off(RH, [0, 0.35, -0.1], [-2, 0, 1]), 'cr'), K(0.86, RH, 'io')] },
+        body: [[0, [0, -0.4, 0.2], [-1, 0, 0]], [0.6, Z, [0.4, 0, 0], 'out2'], [0.9, Z, Z, 'io']],
+      } },
       pinpull: {
         dur: 0.95,
         hold: true,
+        blend: 0.05,
         tracks: {
-          lhand: { abs: true, k: [K(0, LA), K(0.3, LP, 'out2'), K(0.42, LP), K(0.62, off(LP, [-4.5, -1.5, 1.5]), 'in2'), K(0.95, LA, 'io')] },
-          pin: [[0, Z, Z], [0.42, Z, Z], [0.62, gl([-4.5, -1.5, 1.5]), [0, 0, 40], 'in2'], [0.95, gl([-10, -16, 3]), [0, 0, 60], 'io']],
-          rhand: { abs: true, k: [K(0, RH), K(0.35, off(RH, [-0.8, 0.8, -0.5])), K(0.6, off(RH, [0.3, -0.2, 0])), K(1, off(RH, [0.3, -0.2, 0]))] },
+          rhand: { abs: true, k: [K(0, RH), K(0.28, RHp, 'io'), K(0.47, RHp), K(0.56, off(RHp, [0.3, -0.3, 0.2], [0, 0, -6]), 'out2'), K(1, RHc, 'io')] },
+          lhand: { abs: true, k: [K(0, LA), K(0.2, off(LP, [-2.5, -6, 2.5], [-10, 0, 20]), 'cr'), K(0.34, off(LP, [-0.4, -0.6, 0.4]), 'cr'), K(0.4, LP, 'io'), K(0.47, LP), K(0.62, LPout, 'in2'), K(0.72, off(LPout, [-1.0, -1.6, 0.6], [0, 0, -10]), 'out2'), K(1, off(LA, [0, -2, 0]), 'in2')] },
+          body: [[0, Z, Z], [0.3, [0, -0.15, 0], [0.6, -1.0, 0], 'io'], [0.6, [0, 0, 0.1], [-0.3, 1.0, 0], 'out2'], [1, [0, 0.1, 0.3], [0.8, -1.2, 0], 'io']],
         },
-        vis: { pin: [[0.8, 1, false]] },
+        vis: { pin: [[0.47, 1, false]], pin_hand: [[0.47, 1, true]] },
       },
       throw: {
         dur: 0.6,
         hold: true,
+        blend: 0.04,
         tracks: {
-          rhand: { abs: true, k: [K(0, off(RH, [0.3, -0.2, 0])), K(0.3, handPose([8.0, -3.0, -9.5], [0.2, 0.8, 0.5], [-0.9, 0.1, 0.3]), 'out2'),
-            K(0.5, handPose([2.5, -4.5, -17], [0.1, -0.3, -1], [-0.8, -0.5, 0]), 'in2'), K(0.75, handPose([4, -15, -14], [0, -0.9, -0.4], [-0.6, -0.4, 0.6]), 'io'), K(1, handPose([5, -30, -10], [0, -0.9, -0.4], [-0.6, -0.4, 0.6]))] },
+          rhand: { abs: true, k: [K(0, RHc), K(0.16, RHb, 'out2'),
+            K(0.34, handPose([3.0, -3.4, -16.5], [0.05, -0.4, -0.9], [-0.7, -0.6, 0.3]), 'in2'),
+            K(0.55, handPose([1.0, -13, -13], [-0.1, -0.9, -0.4], [-0.6, -0.4, 0.6]), 'out2'),
+            K(1, handPose([3, -30, -9], [0, -0.9, -0.4], [-0.6, -0.4, 0.6]), 'io')] },
+          lhand: { abs: true, k: [K(0, off(LA, [0, -2, 0]))] },
+          body: [[0, [0, 0.1, 0.3], [0.8, -1.2, 0]], [0.16, [0, 0.25, 0.7], [1.6, -3.5, -0.5], 'out2'], [0.36, [0, -0.35, -1.4], [-3.0, 4.5, 1.0], 'in2'], [0.6, [0, -0.2, -0.6], [-1.2, 2.0, 0.4], 'out2'], [1, Z, Z, 'io']],
         },
-        vis: { grenade: [[0.47, 1, false]], pin: [[0, 1, false]] },
+        vis: { grenade: [[0.33, 1, false]], pin: [[0, 1, false]] },
       },
     };
     mb.marker('muzzle', 'grenade', [0, 0, 0]);
@@ -216,12 +269,16 @@ function c4(mb) {
   rk.push([1.0, off([0, -14, 4]), RH.r, 'in2']);
   const anims = {
     idle: idle({ amp: 1 }),
-    draw: { dur: 1.0, tracks: {
-      bomb: [[0, [0, -10, 4], [-30, 0, 0]], [0.55, [0, 0.3, 0], [2, 0, 0], 'out2'], [0.75, Z, Z, 'io']],
+    draw: { dur: 1.0, blend: 0.05, tracks: {
+      bomb: [[0, [0, -10, 4], [-30, 0, 0]], [0.5, [0, 0.3, 0], [2, 0, 0], 'cr'], [0.72, Z, Z, 'io']],
       rhand: [[0, [0, -12, 4], Z], [0.15, [0, -12, 4], Z], [0.65, Z, Z, 'out2']],
     } },
-    plant: { dur: 3.0, hold: true, tracks: {
+    plant: { dur: 3.0, hold: true, blend: 0.1, tracks: {
       rhand: { abs: true, k: rk },
+      // lean over the bomb while typing, a nod with every key press
+      body: [[0, Z, Z], [0.05, [0, -0.4, -0.3], [-2.0, 0, 0], 'io'],
+        ...keys.flatMap((kk, i) => { const u0 = 0.06 + i * 0.1; return [[u0 + 0.04, [0, -0.55, -0.35], [-2.5, 0, 0], 'in2'], [u0 + 0.08, [0, -0.4, -0.3], [-2.0, 0, 0], 'out2']]; }),
+        [0.82, [0, -0.4, -0.3], [-2.0, 0, 0]], [1, [0, -1.2, 0.2], [-5, 0, 0], 'in2']],
       bomb: [[0, Z, Z], [0.8, Z, Z], [0.86, [0, 0.4, -0.5], [3, 0, 0], 'out2'], [1, [0, -14, -2], [-20, 0, 0], 'in2']],
     } },
   };

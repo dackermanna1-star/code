@@ -17,11 +17,17 @@
 // knife: idle/draw/slash1/slash2/stab/stab_miss, grenades: idle/draw/
 // pinpull/throw, c4: idle/draw/plant. `play(name, {duration})` stretches the
 // sequence to the duration the gameplay code wants.
+//
+// Hierarchy: object3D (bob / sway) > body (pivot at the chest, animated for
+// whole-rig weight shifts) > rig (where the weapon is held) > gun > parts and
+// hands. Forearms are aimed every frame by a two-bone solve from fixed
+// shoulders in the body frame, so the sleeves always lead back to the body.
 
 import * as THREE from 'three';
 import { ModelBuilder, DEG } from './vm/builder.js';
 import { makeSharedUniforms } from './vm/material.js';
-import { applyAnim, animatedNodes } from './vm/anim.js';
+import { applyAnim, animatedNodes, EASE } from './vm/anim.js';
+import { BODY_PIVOT, SHOULDERS } from './vm/kit.js';
 import { RIFLES } from './vm/w_rifles.js';
 import { SNIPERS } from './vm/w_snipers.js';
 import { SMGS } from './vm/w_smgs.js';
@@ -34,10 +40,15 @@ export const VIEWMODEL_WEAPONS = ['knife', 'glock', 'usp', 'p228', 'deagle', 'el
 const BUILDERS = { ...RIFLES, ...SNIPERS, ...SMGS, ...PISTOLS, ...HEAVY, ...MISC };
 
 const _v = new THREE.Vector3();
+const _w = new THREE.Vector3();
 const _e = new THREE.Vector3();
-const _e2 = new THREE.Vector3();
+const _d = new THREE.Vector3();
+const _pl = new THREE.Vector3();
 const _q = new THREE.Quaternion();
+const _q2 = new THREE.Quaternion();
 const _z = new THREE.Vector3(0, 0, 1);
+const _bodyInv = new THREE.Matrix4();
+const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 export class ViewModel {
   constructor(weaponId, opts = {}) {
@@ -46,7 +57,8 @@ export class ViewModel {
     this.weaponId = weaponId;
     this.shared = makeSharedUniforms();
     const mb = new ModelBuilder();
-    mb.node('rig', 'root');
+    mb.node('body', 'root', BODY_PIVOT);
+    mb.node('rig', 'body', BODY_PIVOT.map((v) => -v));
     const spec = build(mb, opts) || {};
     const built = mb.build(this.shared);
     this.object3D = built.root;
@@ -59,28 +71,46 @@ export class ViewModel {
     this.spec = spec;
     this.state = {}; // per-weapon flags (slide lock, silencer...)
     this._animated = animatedNodes(this.anims, this.nodes);
-    if (!this._animated.includes(this.nodes.rig)) this._animated.push(this.nodes.rig);
+    for (const k of ['rig', 'body']) if (!this._animated.includes(this.nodes[k])) this._animated.push(this.nodes[k]);
     for (const n of Object.values(this.nodes)) if (n.userData.defVisible === undefined) n.userData.defVisible = n.visible;
+    this._snapP = this._animated.map(() => new THREE.Vector3());
+    this._snapQ = this._animated.map(() => new THREE.Quaternion());
+    this._blendT = 0;
+    this._lastUpdate = -1e9;
 
-    // forearms aim at elbow points fixed in the rig frame
+    // Arms: two-bone chains from a shoulder fixed in the body frame to the
+    // wrist. Upper-arm length and the elbow's bend direction come from the rest
+    // pose, so the rest pose is reproduced exactly; the forearm length is the
+    // sleeve length, so the sleeve always reaches the elbow (no gaps, no stretch).
     this._arms = [];
     this.object3D.updateMatrixWorld(true);
-    const rig = this.nodes.rig;
+    const rig = this.nodes.rig, body = this.nodes.body;
     for (const n of Object.values(this.nodes)) {
       const a = n.userData.arm;
       if (!a || !this.nodes[a.fore]) continue;
       const anchor = this.nodes[a.anchor || 'rig'] || rig;
-      let elbow;
-      if (a.elbow) elbow = new THREE.Vector3(...a.elbow);
+      const W0 = body.worldToLocal(n.getWorldPosition(new THREE.Vector3()));
+      let E0;
+      if (a.elbow) E0 = anchor.localToWorld(new THREE.Vector3(...a.elbow));
       else {
-        elbow = new THREE.Vector3(...a.dir).normalize().multiplyScalar(a.elbowDist).add(n.position);
-        n.parent.localToWorld(elbow);
-        anchor.worldToLocal(elbow);
+        E0 = new THREE.Vector3(...a.dir).normalize().multiplyScalar(a.elbowDist).add(n.position);
+        n.parent.localToWorld(E0);
       }
-      // the elbow half follows the gun, half stays with the body (view frame)
-      const elbowView = anchor.localToWorld(elbow.clone());
-      this.object3D.worldToLocal(elbowView);
-      this._arms.push({ hand: n, fore: this.nodes[a.fore], anchor, elbow, elbowView, k: a.follow ?? 0.5 });
+      body.worldToLocal(E0);
+      const b = (a.len || 16) + 0.4;
+      E0.sub(W0).normalize().multiplyScalar(b).add(W0);
+      const S = new THREE.Vector3(...SHOULDERS[a.side === 'L' ? 'L' : 'R']).sub(new THREE.Vector3(...BODY_PIVOT));
+      const len = E0.distanceTo(S);
+      const axis = W0.clone().sub(S).normalize();
+      const pole = E0.clone().sub(S);
+      pole.addScaledVector(axis, -pole.dot(axis));
+      if (a.pole) pole.set(...a.pole);
+      if (pole.lengthSq() < 1e-6) pole.set(0, -1, 0);
+      pole.normalize();
+      // when the hand rises high (reaching over the gun) the elbow swings out
+      // to the side instead of hanging straight down
+      const out = new THREE.Vector3(a.side === 'L' ? -1 : 1, 0, 0);
+      this._arms.push({ hand: n, fore: this.nodes[a.fore], up: this.nodes[a.upper] || null, S, a: len, b, pole, out, y0: W0.y });
     }
 
     this.silenced = false;
@@ -128,10 +158,19 @@ export class ViewModel {
     return anim ? { name: n, anim } : null;
   }
 
-  /** Start an animation. `duration` (s) stretches it to the gameplay timing. */
-  play(name, { duration } = {}) {
+  /**
+   * Start an animation. `duration` (s) stretches it to the gameplay timing.
+   * The first few hundredths of a second blend from the current pose (pass
+   * blend: false to snap, as the GoldSrc renderer does).
+   */
+  play(name, { duration, blend } = {}) {
     const r = this._resolve(name);
     if (!r) return false;
+    const bt = blend === false ? 0 : (r.anim.blend ?? 0.08);
+    if (this._cur && bt > 0 && nowMs() - this._lastUpdate < 250) {
+      this._animated.forEach((n, i) => { this._snapP[i].copy(n.position); this._snapQ[i].copy(n.quaternion); });
+      this._blendT = bt;
+    } else this._blendT = 0;
     this._cur = r.anim;
     this._curName = r.name;
     this._t = 0;
@@ -151,6 +190,17 @@ export class ViewModel {
     applyAnim(a, u, this.nodes, this._animated);
     if (a.fn) a.fn(u, this._t, this);
     if (this.spec.post) this.spec.post(this, u);
+    if (this._blendT > 0) {
+      if (this._t >= this._blendT) this._blendT = 0;
+      else {
+        const w = EASE.io(this._t / this._blendT);
+        this._animated.forEach((n, i) => {
+          n.position.lerpVectors(this._snapP[i], n.position, w);
+          _q2.copy(n.quaternion);
+          n.quaternion.copy(this._snapQ[i]).slerp(_q2, w);
+        });
+      }
+    }
   }
 
   /**
@@ -158,6 +208,7 @@ export class ViewModel {
    * bobX, bobY: units; swayYaw, swayPitch: degrees (GoldSrc sense: pitch + = down).
    */
   update(dt = 0, { bobX = 0, bobY = 0, swayYaw = 0, swayPitch = 0 } = {}) {
+    this._lastUpdate = nowMs();
     this._t += dt;
     const a = this._cur;
     if (!a.loop && this._t >= this._dur) {
@@ -180,11 +231,36 @@ export class ViewModel {
   _aimArms() {
     if (!this._arms.length) return;
     this.object3D.updateMatrixWorld(true);
+    const body = this.nodes.body;
+    _bodyInv.copy(body.matrixWorld).invert();
     for (const a of this._arms) {
       a.hand.getWorldPosition(_v);
-      a.anchor.localToWorld(_e.copy(a.elbow));
-      this.object3D.localToWorld(_e2.copy(a.elbowView));
-      _e.lerp(_e2, 1 - a.k).sub(_v);
+      _w.copy(_v).applyMatrix4(_bodyInv); // wrist, body frame
+      _d.subVectors(_w, a.S);
+      const d = _d.length() || 1e-6;
+      _d.divideScalar(d);
+      if (d >= a.a + a.b) {
+        // out of reach: arm straight toward the shoulder, forearm intact
+        _e.copy(_w).addScaledVector(_d, -a.b);
+      } else {
+        const dd = Math.max(d, Math.abs(a.a - a.b) + 1e-3);
+        const x = (a.a * a.a + dd * dd - a.b * a.b) / (2 * dd);
+        const h = Math.sqrt(Math.max(0, a.a * a.a - x * x));
+        // (body-frame y; the body pivot sits 14 below the eye: starts ~3 below eye level)
+        const lift = Math.min(1, Math.max(0, (_w.y - Math.max(a.y0, 11)) / 5));
+        _pl.copy(a.pole).addScaledVector(a.out, lift);
+        _pl.addScaledVector(_d, -_pl.dot(_d));
+        if (_pl.lengthSq() < 1e-8) _pl.set(0, -1, 0);
+        _pl.normalize();
+        _e.copy(a.S).addScaledVector(_d, x).addScaledVector(_pl, h);
+      }
+      if (a.up) {
+        a.up.position.copy(_e);
+        _pl.subVectors(a.S, _e).normalize();
+        a.up.quaternion.setFromUnitVectors(_z, _pl);
+      }
+      // forearm (+Z of the fore node) from the wrist to the elbow
+      _e.applyMatrix4(body.matrixWorld).sub(_v);
       a.hand.getWorldQuaternion(_q).invert();
       _e.applyQuaternion(_q).normalize();
       a.fore.quaternion.setFromUnitVectors(_z, _e);
