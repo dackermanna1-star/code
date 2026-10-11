@@ -1,7 +1,12 @@
 // Ragdoll physics for dead players: a Verlet particle body (14 particles: head, shoulders,
-// elbows, hands, hips, knees, feet and a chest point) with rigid distance constraints, range
-// constraints, simple anatomical limits (knee/elbow hinges, hip cones, neck cone), gravity,
-// swept-box collision against the world brushes, Coulomb-style ground friction and sleeping.
+// elbows, hands, hips, knees, feet and a chest point), 120 Hz fixed sub-steps, gravity 800.
+//   - torso (shoulders, hips, chest point) = one rigid body via shape matching
+//   - limbs/neck: rigid distance constraints + lower bounds (max fold, no limb overlap)
+//   - joint limits (hip flexion/abduction, knee and elbow hinges, neck cone) applied as
+//     momentum-conserving bends (child segment turns, parent counter-turns), softened/capped
+//   - world collision: every particle's move is swept as a small box against the brushes
+//     (CONTENTS_SOLID only); contacts become plane constraints inside the next step's solver
+//     loop; Coulomb + static friction; damping once landed; sleeps when still (or after 6 s)
 //
 // GoldSrc space throughout (x east, y north, z up, units ~ inches). The body is initialised
 // from the PlayerModel's current animated pose (so it starts exactly where the alive model
@@ -23,17 +28,19 @@ const GRAVITY = 800; // sv_gravity, u/s^2
 const STEP = 1 / 120; // fixed sub-step
 const MAX_STEPS = 12; // per frame (0.1 s; slower frames just run the body in slow motion)
 const ITERATIONS = 4; // constraint relaxation passes per sub-step
-const MAX_ACTIVE = 12; // simulated bodies at once; spawning another freezes the oldest
+const MAX_ACTIVE = 12; // simulated bodies at once; beyond that the oldest freezes...
+const MIN_FREEZE_AGE = 1; // ...once it has had this long (s) to fall (a mass kill doesn't freeze bodies upright)
 const MASK = CONTENTS_SOLID; // world brushes only (no player clips, no live players)
 const FRICTION = 0.9; // Coulomb coefficient for ground/wall contacts (cloth on stone/sand)
+const STATIC_SPEED = 4; // u/s: slower sliding contacts stick (static friction; no creeping on uneven ground)
 const CONTACT_DAMP = 6.0; // extra tangential damping (1/s) while touching something
 const AIR_DAMP = 0.15; // linear velocity damping (1/s)
 const SETTLE_DAMP = 4; // extra damping once the body has landed (joint friction: no swinging limbs)
 const SETTLE_SPEED = 40; // u/s: centre-of-mass speed below which the body counts as landed
 const SLEEP_WINDOW = 0.25; // s: sleep test compares positions this far apart (ignores jitter in place)
-const SLEEP_MOVE = 0.75; // units per window (3 u/s): every particle moved less than this...
+const SLEEP_MOVE = 1; // units per window (4 u/s): every particle moved less than this...
 const SLEEP_WINDOWS = 2; // ...for this many windows in a row (after one nudge) puts the body to sleep
-const MAX_AWAKE = 7; // seconds, then sleep regardless
+const MAX_AWAKE = 6; // seconds, then sleep regardless
 const MAX_SPEED = 2000; // u/s clamp (safety)
 
 // ------------------------------------------------------------------ body definition
@@ -344,7 +351,8 @@ export class Ragdoll {
       return;
     }
     // bullets / knife: the struck part takes most of it, its neighbours some, the rest a little
-    const S = clamp((30 + Math.min(dmg, 120) * 1.2) * (PUSH[weaponId] || 1) * (opts.headshot ? 1.25 : 1), 30, 320);
+    // kept modest: real bullets mostly make the body crumple rather than fly
+    const S = clamp((30 + Math.min(dmg, 120) * 1.2) * (PUSH[weaponId] || 1) * (opts.headshot ? 1.25 : 1) * 0.75, 25, 240);
     let target = CHEST;
     const cand = GROUP_PARTICLES[hit.hitgroup] || null;
     if (hit.point) {
@@ -429,7 +437,7 @@ export class Ragdoll {
           let tx = vx - vn * nx, ty = vy - vn * ny, tz = vz - vn * nz;
           const tl = Math.hypot(tx, ty, tz);
           const drop = -vn * FRICTION + tl * CONTACT_DAMP * h;
-          const k = tl > drop ? (tl - drop) / tl : 0;
+          const k = tl > drop && tl > STATIC_SPEED * h ? (tl - drop) / tl : 0;
           tx *= k; ty *= k; tz *= k;
           xp[o] = x[o] - tx; xp[o + 1] = x[o + 1] - ty; xp[o + 2] = x[o + 2] - tz;
         } else {
@@ -741,13 +749,6 @@ export class RagdollSystem {
   spawn(model, opts = {}) {
     if (!model || !model.rig || !model.rig.b || !this.collision) return null;
     if (model.ragdoll) model.ragdoll.detach();
-    // cap the simulated bodies: freeze the oldest still moving
-    let awake = 0;
-    for (const r of this.list) if (r.awake && !r.removed) awake++;
-    for (let i = 0; i < this.list.length && awake >= MAX_ACTIVE; i++) {
-      const r = this.list[i];
-      if (r.awake && !r.removed) { r.sleep(); awake--; }
-    }
     let r;
     try {
       r = new Ragdoll(model, this, opts);
@@ -764,12 +765,18 @@ export class RagdollSystem {
 
   update(dt) {
     if (!(dt > 0)) return;
-    let stale = false;
+    let stale = false, awake = 0;
     for (const r of this.list) {
-      if (r.removed || r.model.ragdoll !== r) { stale = true; continue; }
-      if (r.awake) r.simulate(dt);
+      if (r.removed || r.model.ragdoll !== r) stale = true;
+      else if (r.awake) awake++;
     }
     if (stale) this.list = this.list.filter((r) => !r.removed && r.model.ragdoll === r);
+    // cap the simulated bodies: freeze the oldest (list is in spawn order) once they've fallen
+    for (let i = 0; i < this.list.length && awake > MAX_ACTIVE; i++) {
+      const r = this.list[i];
+      if (r.awake && r.age >= MIN_FREEZE_AGE) { r.sleep(); awake--; }
+    }
+    for (const r of this.list) if (r.awake) r.simulate(dt);
   }
 
   /** Number of bodies currently simulated. */

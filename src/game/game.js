@@ -867,7 +867,9 @@ export class Game {
         reloading: !!p.active?.inReload, planting: p.planting || p.defusing,
       });
       // GoldSrc lighting: ambient/shade from the light below the model
-      const l = this.W.sampler.sample([x, y, fz + 8], this.lightOut).map(lightCurve);
+      // ragdolls are lit where the body actually lies (chest point)
+      const rd = m.ragdoll && !m.ragdoll.removed ? m.ragdoll.particle(13, this._rdPos || (this._rdPos = [0, 0, 0])) : null;
+      const l = this.W.sampler.sample(rd ? [rd[0], rd[1], rd[2] + 8] : [x, y, fz + 8], this.lightOut).map(lightCurve);
       const amb = [l[0] * 0.55 + 0.1, l[1] * 0.55 + 0.1, l[2] * 0.55 + 0.1];
       const shade = [l[0] * 0.5, l[1] * 0.5, l[2] * 0.5];
       m.setLight(amb, shade, this.W.lighting.sunDir);
