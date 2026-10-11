@@ -1194,6 +1194,14 @@ class Bot {
       for (const n of want) if (p.money - price(n) >= budget) b(n);
     };
     let prim = p.weapons[1];
+    // zombie survival: something that sprays (no AWPs against a horde)
+    if (g.zombies?.enabled && (!prim || isBolt(prim))) {
+      if (prim) g.dropWeapon(p, prim);
+      const pickGun = Math.random();
+      const want = pickGun < 0.35 ? 'm249' : pickGun < 0.55 ? 'aa12' : pickGun < 0.78 ? 'ak47' : 'm4a1';
+      if (!b(want)) b(rifle);
+      prim = p.weapons[1];
+    }
     if (mode === 'pistol') {
       const r = Math.random();
       if (T) {

@@ -57,7 +57,7 @@ export class Specials {
   // ---------------------------------------------------------------- spawning
   /** Now and then a special instead of a common zombie: its kind, or null. */
   pick(wave) {
-    if (Math.random() > Math.min(0.12, 0.02 + 0.008 * wave)) return null;
+    if (Math.random() > Math.min(0.1, 0.02 + 0.007 * wave)) return null;
     const alive = (k) => this.Z.pool.some((z) => z.alive && z.special === k);
     const kinds = Object.entries(SPECIALS).filter(([k, d]) => wave >= d.from && !alive(k));
     if (!kinds.length) return null;

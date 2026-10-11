@@ -78,9 +78,9 @@ export class BossDirector {
     m.object3D.visible = true;
     g.renderer.world.add(m.object3D);
     p.model = m;
-    // more shooters, more health (a bot counts half)
-    const crowd = Math.max(1, humans.reduce((n, q) => n + (q.isBot ? 0.5 : 1), 0));
-    const hp = Math.round(def.health * BOSS_NERF * (def.k ?? 1) * (1 + 0.6 * cycle) * (1 + 0.35 * (crowd - 1)));
+    // more shooters, more health (a bot counts a third: they die, and it doesn't get weaker)
+    const crowd = Math.max(1, humans.reduce((n, q) => n + (q.isBot ? 0.3 : 1), 0));
+    const hp = Math.round(def.health * BOSS_NERF * (def.k ?? 1) * (1 + 0.6 * cycle) * (1 + 0.3 * (crowd - 1)));
     const h = humans[0];
     const yaw = h ? Math.atan2(h.pm.origin[1] - node.y, h.pm.origin[0] - node.x) / DEG : 0;
     p.resetForSpawn([node.x, node.y, node.z + 37], yaw);
