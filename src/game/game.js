@@ -12,6 +12,7 @@ import { createDroppedWeapon } from '../assets/worldweapons.js';
 import * as WS from './weaponsys.js';
 import * as CR from './combatrules.js';
 import { Effects } from './effects.js';
+import { BulletCam } from './bulletcam.js';
 import { NavGraph } from './nav.js';
 import { RoundManager } from './rounds.js';
 import { BotManager } from './bots.js';
@@ -53,6 +54,7 @@ export class Game {
     this.local = null;
     this.mover = new PlayerMover(this.collision);
     this.effects = new Effects(this);
+    this.bulletCam = new BulletCam(this);
     this.grenades = new Grenades(this);
     this.ragdolls = new RagdollSystem(this.collision);
     this.dropped = []; // weapons on the ground { weapon, pos, vel, obj, rest }
@@ -612,6 +614,7 @@ export class Game {
       const hit = victim.lastHit && victim.lastHit.time === this.time ? victim.lastHit : null;
       if (!this.ragdolls.spawn(victim.model, { origin: victim.pm.origin, velocity: victim.pm.velocity, hit, headshot, weaponId })) victim.model.playDeath(kind);
     }
+    this.bulletCam.trigger(attacker, victim, weaponId, headshot);
     if (victim === this.viewTarget) {
       this.setViewModel(null);
       this.renderer.setZoom(0);
@@ -645,7 +648,7 @@ export class Game {
 
   buildLocalCmd() {
     const p = this.local, inp = this.input;
-    const blocked = this.paused || this.menus?.isOpen?.() || this.chatting;
+    const blocked = this.paused || this.menus?.isOpen?.() || this.chatting || !!this.bulletCam.active;
     const on = (n) => !blocked && inp.is(n);
     let buttons = 0;
     if (on('jump')) buttons |= IN_JUMP;
@@ -839,8 +842,13 @@ export class Game {
   // ------------------------------------------------------------------ frame
   frame(dt) {
     dt = Math.min(dt, 0.1);
+    const realDt = dt;
+    // bullet cam: the world runs frozen / in slow motion while it plays
+    const cine = this.bulletCam.active && !this.paused;
+    if (cine) { this.bulletCam.update(dt); dt *= this.bulletCam.worldScale; }
     if (this.started && !this.paused) {
-      this.applyMouse();
+      if (cine) this.input.consumeMouse();
+      else this.applyMouse();
       this.acc += dt;
       let n = 0;
       while (this.acc >= TICK && n < 12) { this.tick(); this.acc -= TICK; n++; }
@@ -852,7 +860,7 @@ export class Game {
     this.ragdolls.update(this.paused ? 0 : dt);
     this.updateModels(dt, alpha);
     this.effects.update(this.paused ? 0 : dt);
-    this.updateCamera(dt, alpha);
+    this.updateCamera(cine ? realDt : dt, alpha);
     this.updateSoundListener();
   }
 
@@ -908,6 +916,7 @@ export class Game {
   updateCamera(dt, alpha) {
     const r = this.renderer;
     const p = this.viewTarget;
+    if (this.bulletCam.active && this.bulletCam.applyCamera()) { this.drawVm = false; return; }
     if (p && p.alive) {
       const o = p.pm.origin, po = p.prevOrigin;
       const x = po[0] + (o[0] - po[0]) * alpha, y = po[1] + (o[1] - po[1]) * alpha;

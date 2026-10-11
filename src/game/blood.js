@@ -500,7 +500,7 @@ export class BloodFX {
     for (let i = 0; i < nFwd; i++) {
       const c = cone(d, 0.38), sp = rnd(140, 320) * (head ? 1.25 : 1);
       P.spawn(at(1.5), [c[0] * sp, c[1] * sp, c[2] * sp + rnd(20, 80)], {
-        life: rnd(0.55, 0.95), size: rnd(1.4, 2.8), frame: Math.random() < 0.35 ? 1 : 0, drag: 0.6, stretch: 0.014,
+        life: rnd(0.55, 0.95), size: rnd(0.8, 1.6), frame: Math.random() < 0.35 ? 1 : 0, drag: 0.6, stretch: 0.014,
         flags: F_COLLIDE | (Math.random() < 0.4 ? F_STAIN : 0), tint: pt, minPx: 2.2,
       });
     }
@@ -509,7 +509,7 @@ export class BloodFX {
       for (let i = 0; i < nJet; i++) {
         const c = cone(d, 0.2), sp = rnd(320, 560);
         P.spawn([pos[0] + d[0] * 6 + j(), pos[1] + d[1] * 6 + j(), pos[2] + d[2] * 6 + j()], [c[0] * sp, c[1] * sp, c[2] * sp + rnd(10, 60)], {
-          life: rnd(0.3, 0.5), size: rnd(2.2, 3.8), frame: 1, drag: 1.2, stretch: 0.02,
+          life: rnd(0.3, 0.5), size: rnd(1.0, 1.9), frame: 1, drag: 1.2, stretch: 0.02,
           flags: F_COLLIDE | (Math.random() < 0.25 ? F_STAIN : 0), tint: pt, minPx: 3,
         });
       }
@@ -519,7 +519,7 @@ export class BloodFX {
     for (let i = 0; i < nBack; i++) {
       const c = cone(back, 0.6), sp = rnd(60, 170);
       P.spawn(at(1.5), [c[0] * sp, c[1] * sp, c[2] * sp + rnd(30, 90)], {
-        life: rnd(0.45, 0.8), size: rnd(1.1, 2.2), frame: Math.random() < 0.35 ? 1 : 0, drag: 0.8, stretch: 0.012,
+        life: rnd(0.45, 0.8), size: rnd(0.7, 1.4), frame: Math.random() < 0.35 ? 1 : 0, drag: 0.8, stretch: 0.012,
         flags: F_COLLIDE | (Math.random() < 0.3 ? F_STAIN : 0), tint: pt, minPx: 2.2,
       });
     }
@@ -529,14 +529,14 @@ export class BloodFX {
       for (let i = 0; i < nJet; i++) {
         const c = cone(d, 0.22), sp = rnd(260, 480);
         P.spawn(at(1), [c[0] * sp, c[1] * sp, c[2] * sp + rnd(40, 120)], {
-          life: rnd(0.6, 1.0), size: rnd(0.9, 1.6), drag: 0.4, stretch: 0.02,
+          life: rnd(0.6, 1.0), size: rnd(0.6, 1.1), drag: 0.4, stretch: 0.02,
           flags: F_COLLIDE | (Math.random() < 0.22 ? F_STAIN : 0), tint: pt, minPx: 2,
         });
       }
       for (let i = 0; i < 6; i++) {
         const sp = rnd(60, 130);
         P.spawn(at(1), [d[0] * sp * 0.5 + j() * 30, d[1] * sp * 0.5 + j() * 30, rnd(120, 220)], {
-          life: rnd(0.7, 1.0), size: rnd(1.4, 2.4), frame: 1, drag: 0.3, stretch: 0.01, flags: F_COLLIDE | F_STAIN, tint: pt, minPx: 2.5,
+          life: rnd(0.7, 1.0), size: rnd(0.9, 1.5), frame: 1, drag: 0.3, stretch: 0.01, flags: F_COLLIDE | F_STAIN, tint: pt, minPx: 2.5,
         });
       }
     }

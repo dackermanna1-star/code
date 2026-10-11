@@ -207,6 +207,8 @@ async function boot() {
       return true;
     }
     if (!inGame) return false;
+    // fire / jump / use skips the bullet cam
+    if (game.bulletCam?.active && (cmd === '+attack' || cmd === '+attack2' || cmd === '+jump' || cmd === '+use')) { game.bulletCam.skip(); return true; }
     // number keys feed open menus first (team/class/buy menus handle their own keys)
     if (radioMenu.open && cmd && cmd.startsWith('slot')) { radioMenu.choose(+cmd.slice(4)); return true; }
     if (!!menus.isOpen?.()) return false;
@@ -244,7 +246,7 @@ async function boot() {
     if (inGame) {
       game.frame(dt);
       renderer.render(game.drawVm);
-      hud.draw?.(buildHudState(game, { fps: settings.get('cl_showfps') ? fps : null, netgraph: settings.get('net_graph') ? { fps } : null, settings }), dt);
+      hud.draw?.(game.bulletCam?.active ? { hidden: true } : buildHudState(game, { fps: settings.get('cl_showfps') ? fps : null, netgraph: settings.get('net_graph') ? { fps } : null, settings }), dt);
       if (showScores) menus.showScoreboard?.(scoreData());
     } else {
       menuBackgroundView();

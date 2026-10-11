@@ -25,6 +25,11 @@ export class Console {
       case 'net_graph': setv('net_graph', num(1)); break;
       case 'cl_dynamiccrosshair': setv('cl_dynamiccrosshair', num(1)); break;
       case 'announcer': setv('announcer', num(1)); break;
+      case 'cl_bulletcam':
+        if (arg === '') { this.print(`"cl_bulletcam" is "${s.get('cl_bulletcam') ?? 1}"`); break; }
+        setv('cl_bulletcam', num(1) ? 1 : 0);
+        if (!s.get('cl_bulletcam')) g.bulletCam?.stop();
+        break;
       case 'violence_hblood':
         if (arg === '') { this.print(`"violence_hblood" is "${s.get('violence_hblood') ?? 1}"`); break; }
         setv('violence_hblood', num(1) ? 1 : 0);
@@ -63,7 +68,7 @@ export class Console {
       case 'status': for (const p of g.players) this.print(`# ${p.id} "${p.name}" ${p.team} ${p.kills}/${p.deaths} ${p.isBot ? 'BOT' : ''}`); break;
       case 'quit': case 'disconnect': location.reload(); break;
       case 'help': case 'cmdlist':
-        this.print('sensitivity, cl_showfps, net_graph, fov, vid_mode <640x480|800x600|1024x768|1280x960|native>, vid_aspect <fill|4:3>, cl_crosshair_color "r g b", cl_dynamiccrosshair, name, volume, announcer, violence_hblood 0/1, mp_restartgame, mp_roundtime, mp_freezetime, mp_c4timer, mp_friendlyfire, bot_add, bot_add_t, bot_add_ct, bot_kick, bot_difficulty 0-3, kill, status, sv_cheats, god, impulse 101');
+        this.print('sensitivity, cl_showfps, net_graph, fov, vid_mode <640x480|800x600|1024x768|1280x960|native>, vid_aspect <fill|4:3>, cl_crosshair_color "r g b", cl_dynamiccrosshair, name, volume, announcer, violence_hblood 0/1, cl_bulletcam 0/1, mp_restartgame, mp_roundtime, mp_freezetime, mp_c4timer, mp_friendlyfire, bot_add, bot_add_t, bot_add_ct, bot_kick, bot_difficulty 0-3, kill, status, sv_cheats, god, impulse 101');
         break;
       default: this.print(`Unknown command: ${cmd}`);
     }

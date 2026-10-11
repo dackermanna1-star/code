@@ -328,6 +328,11 @@ export class Menus {
     const ng = this._check('Show net graph (net_graph)', cur[ngKey]);
     mp.appendChild(ng);
     controls.push([ngKey, () => bool(ngKey, ng.input.checked)]);
+    if ('cl_bulletcam' in cur) {
+      const bc = this._check('Sniper headshot bullet cam (cl_bulletcam)', cur.cl_bulletcam);
+      mp.appendChild(bc);
+      controls.push(['cl_bulletcam', () => bool('cl_bulletcam', bc.input.checked)]);
+    }
     if ('hud_fastswitch' in cur) {
       const fsw = this._check('Fast weapon switch (hud_fastswitch)', cur.hud_fastswitch);
       mp.appendChild(fsw);
