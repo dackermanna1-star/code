@@ -1,6 +1,7 @@
 // Developer console commands (a small subset of the GoldSrc/CS 1.6 cvars and commands).
 
 import { TEAM_T, TEAM_CT } from './player.js';
+import { setLightCurve } from '../map/meshbuilder.js';
 
 export class Console {
   constructor(game, menus, settings, renderer, input, hud) {
@@ -27,6 +28,8 @@ export class Console {
       case 'name': if (arg) { setv('name', arg); if (g.local) g.local.name = arg; } break;
       case 'volume': setv('volume', num(0.8)); g.sound.setMasterVolume(num(0.8)); break;
       case 'fov': case 'default_fov': setv('fov', num(90)); this.renderer.configure(s.video()); break;
+      case 'gamma': setv('gamma', num(2.5)); setLightCurve(s.get('gamma'), s.get('brightness')); break;
+      case 'brightness': setv('brightness', num(1)); setLightCurve(s.get('gamma'), s.get('brightness')); break;
       case 'vid_mode': setv('mode', arg || 'native'); this.renderer.configure(s.video()); break;
       case 'vid_aspect': setv('aspect', arg || 'fill'); this.renderer.configure(s.video()); break;
       case 'cl_crosshair_color': { const c = arg.split(/\s+/).map(Number); if (c.length === 3) setv('crosshairColor', c); break; }

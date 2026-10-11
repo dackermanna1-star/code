@@ -17,6 +17,7 @@ import { RoundManager } from './rounds.js';
 import { BotManager } from './bots.js';
 import { Grenades } from './grenades.js';
 import { surfaceOfBrush } from './surfaces.js';
+import { lightCurve } from '../map/meshbuilder.js';
 
 export const TICK = 0.01;
 
@@ -859,8 +860,8 @@ export class Game {
         reloading: !!p.active?.inReload, planting: p.planting || p.defusing,
       });
       // GoldSrc lighting: ambient/shade from the light below the model
-      const l = this.W.sampler.sample([x, y, fz + 8], this.lightOut);
-      const amb = [l[0] * 0.55 + 0.08, l[1] * 0.55 + 0.08, l[2] * 0.55 + 0.08];
+      const l = this.W.sampler.sample([x, y, fz + 8], this.lightOut).map(lightCurve);
+      const amb = [l[0] * 0.55 + 0.1, l[1] * 0.55 + 0.1, l[2] * 0.55 + 0.1];
       const shade = [l[0] * 0.5, l[1] * 0.5, l[2] * 0.5];
       m.setLight(amb, shade, this.W.lighting.sunDir);
     }
@@ -908,7 +909,7 @@ export class Game {
         this.vm.update(this.paused ? 0 : dt, { bobX: 0, bobY: bob * 0.4, swayYaw: -bob * 0.5, swayPitch: -bob * 0.3 });
         // GoldSrc runs model light through the lightgamma table, which lifts shadowed
         // view models well above the raw light value
-        this.vm.setLight(this.W.sampler.sample([x, y, z], [1, 1, 1]).map((c) => Math.min(1.3, Math.max(0.3, Math.pow(c, 0.55)))));
+        this.vm.setLight(this.W.sampler.sample([x, y, z], [1, 1, 1]).map((c) => Math.min(1.3, Math.max(0.35, Math.pow(lightCurve(c), 0.8)))));
       }
       this.drawVm = true;
     } else {

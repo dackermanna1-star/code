@@ -92,12 +92,14 @@ export class PlayerMover {
     // PM_CheckParamters: clamp to maxspeed
     let maxspeed = Math.min(pm.maxspeed, mv.maxspeed) * (pm.velocityModifier ?? 1);
     if (pm.frozen) maxspeed = 0.001;
-    if (cmd.buttons & IN_WALK) { fmove *= 0.52; smove *= 0.52; }
     const spd = Math.sqrt(fmove * fmove + smove * smove + umove * umove);
     if (spd !== 0 && spd > maxspeed) {
       const r = maxspeed / spd;
       fmove *= r; smove *= r; umove *= r;
     }
+    // +speed (shift) walks at cl_movespeedkey 0.52 of the weapon's max speed
+    // (130 u/s with the knife), below the 150 u/s footstep threshold: silent
+    if (cmd.buttons & IN_WALK) { fmove *= 0.52; smove *= 0.52; umove *= 0.52; }
     pm.curMaxspeed = maxspeed;
 
     angleVectors(pm.angles[0], pm.angles[1], fwd, rgt, upv);

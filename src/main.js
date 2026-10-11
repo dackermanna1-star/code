@@ -18,6 +18,7 @@ import { Console } from './game/console.js';
 import { RadioMenu } from './ui/radiomenu.js';
 import { Announcer } from './game/announcer.js';
 import { DUST2_LIGHTING } from './map/lighting.js';
+import { setLightCurve } from './map/meshbuilder.js';
 
 const params = new URLSearchParams(location.search);
 
@@ -26,6 +27,7 @@ async function boot() {
   const settings = new Settings();
   const renderer = new Renderer(app);
   renderer.configure(settings.video());
+  setLightCurve(settings.get('gamma'), settings.get('brightness'));
   const input = new Input(renderer.canvas);
   input.sensitivity = settings.get('sensitivity');
   input.invertY = settings.get('invertY');
@@ -190,6 +192,7 @@ async function boot() {
     if (k === 'invertY') input.invertY = !!v;
     if (k === 'volume') sound.setMasterVolume(+v);
     if (['mode', 'aspect', 'fov'].includes(k)) renderer.configure(settings.video());
+    if (k === 'gamma' || k === 'brightness') setLightCurve(settings.get('gamma'), settings.get('brightness'));
   }
 
   // ---------------------------------------------------------------- input commands

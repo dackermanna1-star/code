@@ -357,6 +357,12 @@ export class Menus {
     const fov = this._slider(75, 110, 1, cur.fov ?? 90, (v) => String(v));
     vi.appendChild(this._row('Field of view', fov));
     controls.push(['fov', () => +fov.input.value]);
+    const gam = this._slider(1.8, 3.5, 0.05, cur.gamma ?? 2.5, (v) => v.toFixed(2));
+    vi.appendChild(this._row('Gamma', gam));
+    controls.push(['gamma', () => +gam.input.value]);
+    const bri = this._slider(0, 2, 0.05, cur.brightness ?? 1, (v) => v.toFixed(2));
+    vi.appendChild(this._row('Brightness', bri));
+    controls.push(['brightness', () => +bri.input.value]);
 
     const apply = () => {
       for (const [k, get] of controls) {

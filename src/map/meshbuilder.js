@@ -37,9 +37,22 @@ const FRAG = /* glsl */`
 
 export const worldUniforms = {
   brightness: { value: 1.0 },
-  lightGamma: { value: 1.0 },
+  lightGamma: { value: 0.7 },
   fullbright: { value: 0.0 },
 };
+
+// GoldSrc-style light curve, shared by the world shader and model lighting:
+// `gamma` (default 2.5) bends light values like the engine's lightgamma table,
+// lifting shadows while leaving full sunlight (1.0) unchanged; `brightness`
+// (default 1, up to 2 in the options) adds a mild overall boost.
+export function setLightCurve(gamma = 2.5, brightness = 1) {
+  worldUniforms.lightGamma.value = 1.75 / Math.max(1.0, Math.min(3.5, gamma));
+  worldUniforms.brightness.value = 0.85 + 0.15 * Math.max(0, Math.min(2, brightness));
+}
+
+export function lightCurve(l) {
+  return Math.pow(Math.max(0, l), worldUniforms.lightGamma.value) * worldUniforms.brightness.value;
+}
 
 export function createWorldMaterial(tex, lightmapTex, alpha) {
   return new THREE.ShaderMaterial({

@@ -8,6 +8,8 @@ const DEFAULTS = {
   mode: 'native', // native | 640x480 | 800x600 | 1024x768 | 1280x960
   aspect: 'fill', // fill (Hor+) | 4:3
   fov: 90,
+  gamma: 2.5, // GoldSrc gamma slider (lifts dark areas)
+  brightness: 1, // GoldSrc brightness slider (0..2)
   cl_showfps: 1,
   net_graph: 0,
   crosshairColor: [50, 250, 50],
