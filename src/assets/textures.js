@@ -13,6 +13,7 @@
 //     fit      meant to be stretched to fit a whole face (crates, doors, shutters)
 //     frames   [cols, rows] sprite-sheet layout (row-major, frame 0 top-left);
 //              for sheets `world` is the size of one frame
+//     data     the RGBA channels hold shader inputs, not colours (decal_blood_pool)
 //
 // Opaque textures are authored for 100 % brightness = sunlit (see docs/conventions.md).
 // Decals are non-premultiplied RGBA. Additive sprites are colour on black with
@@ -31,6 +32,7 @@ import {
   decalBullet, decalBlood1, decalBlood2, decalBlood3, decalScorch,
   sprMuzzle1, sprMuzzle2, sprMuzzle3, sprSmoke, sprDust, sprSpark, sprExplosion, sprFlare,
 } from './tex/fx.js';
+import { decalBloodSplats, decalBloodDrops, decalBloodPool, sprBlood } from './tex/blood.js';
 
 export const TEXTURES = {
   // world surfaces
@@ -58,6 +60,10 @@ export const TEXTURES = {
   decal_blood2: { size: [64, 64], world: [64, 64], alpha: true },
   decal_blood3: { size: [64, 64], world: [64, 64], alpha: true },
   decal_scorch: { size: [128, 128], world: [128, 128], alpha: true },
+  // blood atlases (see tex/blood.js; decal_blood_pool is a data map, not colours)
+  decal_blood_splats: { size: [256, 128], world: [64, 64], alpha: true, frames: [4, 2] },
+  decal_blood_drops: { size: [128, 128], world: [16, 16], alpha: true, frames: [4, 4] },
+  decal_blood_pool: { size: [256, 128], world: [96, 96], alpha: true, frames: [2, 1], data: true },
   // sprites
   spr_muzzle1: { size: [64, 64], world: [24, 24], alpha: true, additive: true },
   spr_muzzle2: { size: [64, 64], world: [24, 24], alpha: true, additive: true },
@@ -67,6 +73,7 @@ export const TEXTURES = {
   spr_spark: { size: [32, 32], world: [8, 8], alpha: true, additive: true },
   spr_explosion: { size: [256, 256], world: [192, 192], alpha: true, additive: true, frames: [4, 4] },
   spr_flare: { size: [32, 32], world: [8, 8], alpha: true, additive: true },
+  spr_blood: { size: [64, 64], world: [4, 4], alpha: true, frames: [2, 2] },
 };
 
 const GENERATORS = {
@@ -93,6 +100,9 @@ const GENERATORS = {
   decal_blood2: decalBlood2,
   decal_blood3: decalBlood3,
   decal_scorch: decalScorch,
+  decal_blood_splats: decalBloodSplats,
+  decal_blood_drops: decalBloodDrops,
+  decal_blood_pool: decalBloodPool,
   spr_muzzle1: sprMuzzle1,
   spr_muzzle2: sprMuzzle2,
   spr_muzzle3: sprMuzzle3,
@@ -101,6 +111,7 @@ const GENERATORS = {
   spr_spark: sprSpark,
   spr_explosion: sprExplosion,
   spr_flare: sprFlare,
+  spr_blood: sprBlood,
 };
 
 /** Palettise opaque textures to 256 colours like WAD3 (kept subtle). */

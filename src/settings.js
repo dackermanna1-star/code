@@ -17,6 +17,7 @@ const DEFAULTS = {
   cl_dynamiccrosshair: 1,
   hud_fastswitch: 1,
   announcer: 1,
+  violence_hblood: 1, // human blood: particles, splats, puddles
   newgame: { perTeam: 5, difficulty: 'normal', roundTime: 2.5, freezeTime: 6, c4Timer: 45, startMoney: 800, buyTime: 1.5 },
 };
 

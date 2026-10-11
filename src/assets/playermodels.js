@@ -10,6 +10,8 @@
 //   state = { speed, crouch, onGround, pitch (deg, + down), firing, reloading, planting,
 //             moveYaw? (optional, deg: travel direction relative to facing -> legs stride / back-pedal) }
 //   pm.setLight(ambient[3], shade[3], dirGS[3]); pm.playDeath('back'|'forward'|'left'|'headshot'|'crouch');
+//   (the game normally ragdolls dead players instead: src/game/ragdoll.js sets pm.ragdoll, whose
+//   pose() then drives the rig; reset()/dispose() detach it)
 //   pm.getHitboxes() -> invisible Meshes with userData.hitgroup (1 head .. 7 right leg), following the pose.
 // Extras: pm.reset() (alive again), pm.setSilenced(on) (USP/M4A1), pm.getMuzzleWorld(out),
 //   pm.setHitboxesVisible(on) (debug), preloadPlayerModels() (paint all skins up front).
@@ -253,6 +255,7 @@ class PlayerModel {
     this.recoil = 0;
     this.pitch = 0;
     this.dead = null;
+    this.ragdoll = null; // external physics pose (src/game/ragdoll.js) while dead
     this.weaponId = null;
     this.weapon = null;
     this.weaponL = null;
@@ -354,6 +357,8 @@ class PlayerModel {
 
   /** Back to life (e.g. new round). */
   reset() {
+    if (this.ragdoll) this.ragdoll.detach();
+    this.ragdoll = null;
     this.dead = null;
     if (this.weaponHolder) this.weaponHolder.visible = true;
     if (this.weaponHolderL) this.weaponHolderL.visible = true;
@@ -368,7 +373,8 @@ class PlayerModel {
     dt = clamp(dt || 0, 0, 0.1);
     this.time += dt;
     gsDirToWorld(this.light.dirGS, this.object3D.parent, this.light.uLightDir.value);
-    if (this.dead) this._updateDeath(dt);
+    if (this.ragdoll) this.ragdoll.pose();
+    else if (this.dead) this._updateDeath(dt);
     else this._updateAlive(dt, state);
     this._apply();
   }
@@ -627,6 +633,8 @@ class PlayerModel {
   }
 
   dispose() {
+    if (this.ragdoll) this.ragdoll.detach();
+    this.ragdoll = null;
     this._clearWeapon();
     this.object3D.removeFromParent();
     this.material.dispose();

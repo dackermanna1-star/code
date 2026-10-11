@@ -1,8 +1,10 @@
-// GoldSrc-style temp entities: decals, sprites, brass, explosions, smoke puffs.
+// GoldSrc-style temp entities: decals, sprites, brass, explosions, smoke puffs, blood
+// (the batched blood particles / splats / puddles live in blood.js).
 // Everything lives under the renderer's `world` group in GoldSrc coordinates.
 
 import * as THREE from 'three';
 import { TraceResult, MASK_SHOT } from '../engine/collision.js';
+import { BloodFX } from './blood.js';
 
 const MAX_DECALS = 256;
 const MAX_SPRITES = 220;
@@ -26,6 +28,13 @@ export class Effects {
     this.tr = new TraceResult();
     this.time = 0;
     this.smokes = [];
+    // batched blood (particles, splats, droplet stains, puddles); see blood.js
+    try {
+      this.bloodFx = new BloodFX(this);
+    } catch (e) {
+      console.error('blood effects unavailable', e);
+      this.bloodFx = null;
+    }
   }
 
   tex(name) {
@@ -139,19 +148,51 @@ export class Effects {
     if (Math.random() < (sname === 'ric' ? 0.5 : 0.8)) g.sound?.play(sname, { pos, volume: 0.7 });
   }
 
-  blood(pos, dir, damage) {
+  // ------------------------------------------------------------- blood
+  /** violence_hblood (default on) */
+  bloodEnabled() {
+    const v = this.game.settings?.get?.('violence_hblood');
+    return v === undefined || v === null || Number(v) !== 0;
+  }
+
+  /**
+   * A bleeding wound: droplet burst + mist (more, and a fine jet, for headshots),
+   * exit splatter on the surface 96..128 units behind the victim, drips below.
+   * opts: { head, victim, blast }
+   */
+  blood(pos, dir, damage, opts = {}) {
+    if (!this.bloodEnabled()) return;
+    if (this.bloodFx) { this.bloodFx.hit(pos, dir, damage, opts); return; }
     const r = () => (Math.random() - 0.5);
     const n = Math.min(4, 1 + Math.floor(damage / 25));
     for (let i = 0; i < n; i++) {
       this.sprite({ tex: 'spr_smoke', pos: pos.slice(), vel: [dir[0] * 40 + r() * 50, dir[1] * 40 + r() * 50, dir[2] * 40 + r() * 50 + 20], size: 5 + Math.random() * 4, grow: 10, life: 0.4, color: [0.55, 0.02, 0.02], alpha: 0.9, gravity: 0.3, drag: 2 });
     }
-    // blood decal on the wall/floor behind the victim
-    const end = [pos[0] + dir[0] * 160, pos[1] + dir[1] * 160, pos[2] + dir[2] * 160 - 30];
+    const end = [pos[0] + dir[0] * 128, pos[1] + dir[1] * 128, pos[2] + dir[2] * 128 - 30];
     this.game.collision.trace(pos, end, [0, 0, 0], [0, 0, 0], MASK_SHOT, this.tr);
-    if (this.tr.fraction < 1) {
-      const k = 1 + Math.floor(Math.random() * 3);
-      this.decal('decal_blood' + k, this.tr.endpos, this.tr.normal, 18 + Math.random() * 18);
-    }
+    if (this.tr.fraction < 1) this.decal('decal_blood' + (1 + Math.floor(Math.random() * 3)), this.tr.endpos, this.tr.normal, 18 + Math.random() * 18);
+  }
+
+  /**
+   * Blood pool under a corpse, spawned after ~0.5 s and spreading over 4-6 s.
+   * src: a Player (follows its ragdoll / death pose), a getter () => [x,y,z] polled
+   * for ~2 s while the body settles, or a fixed [x,y,z]. opts: { delay, follow, grow,
+   * radius, normal, head } (an array is taken as the surface normal).
+   */
+  bloodPuddle(src, opts) {
+    return this.bloodFx?.puddle(src, opts) ?? null;
+  }
+
+  /** Unit vector from a to b (for wounds without a bullet direction, e.g. knife). */
+  dirFrom(a, b) {
+    const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+    const l = Math.hypot(d[0], d[1], d[2]) || 1;
+    return [d[0] / l, d[1] / l, d[2] / l];
+  }
+
+  /** Remove all blood (round restart, violence_hblood 0). */
+  clearBlood() {
+    this.bloodFx?.clear();
   }
 
   muzzleFlash(pos, size = 14) {
@@ -194,6 +235,7 @@ export class Effects {
   // ------------------------------------------------------------- update
   update(dt, camPos) {
     this.time += dt;
+    this.bloodFx?.update(dt);
     // sprites
     for (let i = this.sprites.length - 1; i >= 0; i--) {
       const s = this.sprites[i];
@@ -260,6 +302,7 @@ export class Effects {
 
   clearAll() {
     this.clearDecals();
+    this.clearBlood();
     for (const s of this.sprites) { this.group.remove(s.obj); s.obj.material.dispose(); }
     this.sprites.length = 0;
     for (const s of this.shells) this.group.remove(s.mesh);

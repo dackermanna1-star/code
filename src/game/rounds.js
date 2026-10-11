@@ -62,6 +62,7 @@ export class RoundManager {
     this.removeBomb();
     g.clearDropped();
     g.grenades.clear();
+    g.effects.clearBlood?.(); // splats and puddles go with the bodies
     // respawn everybody (survivors keep their inventory)
     const used = { T: new Set(), CT: new Set() };
     for (const p of g.players) {

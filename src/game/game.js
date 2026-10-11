@@ -16,6 +16,7 @@ import { NavGraph } from './nav.js';
 import { RoundManager } from './rounds.js';
 import { BotManager } from './bots.js';
 import { Grenades } from './grenades.js';
+import { RagdollSystem } from './ragdoll.js';
 import { surfaceOfBrush } from './surfaces.js';
 import { lightCurve } from '../map/meshbuilder.js';
 
@@ -53,6 +54,7 @@ export class Game {
     this.mover = new PlayerMover(this.collision);
     this.effects = new Effects(this);
     this.grenades = new Grenades(this);
+    this.ragdolls = new RagdollSystem(this.collision);
     this.dropped = []; // weapons on the ground { weapon, pos, vel, obj, rest }
     this.acc = 0;
     this.vmCache = new Map();
@@ -516,6 +518,7 @@ export class Game {
     victim.helmet = res.helmet;
     victim.lastHurt = this.time;
     victim.lastAttacker = attacker;
+    victim.lastHit = { time: this.time, dir, point, damage, hitgroup: res.hitgroup ?? hitgroup, weaponId, blast: !!opts.blast, from: attacker && attacker !== victim ? attacker.pm.origin.slice() : null }; // ragdoll impulse
     if (res.velocityModifier) victim.pm.velocityModifier = Math.min(victim.pm.velocityModifier ?? 1, res.velocityModifier);
     if (res.knockback && dir) {
       victim.pm.velocity[0] += dir[0] * res.knockback;
@@ -527,7 +530,8 @@ export class Game {
     }
     const pos = point || victim.eyePos();
     const head = (res.hitgroup ?? hitgroup) === CR.HITGROUP.HEAD;
-    if (dir && res.bleed) this.effects.blood(pos, dir, res.damageToHealth || damage);
+    const bleedDir = dir || (weaponId === 'knife' && attacker && attacker !== victim ? this.effects.dirFrom(attacker.eyePos(), pos) : null);
+    if (bleedDir && res.bleed) this.effects.blood(pos, bleedDir, res.damageToHealth || damage, { head, victim, blast: !!opts.blast });
     else if (dir && head && res.helmetHit) this.effects.sprite({ tex: 'spr_spark', pos: pos.slice(), size: 4, life: 0.2, additive: true });
     if (opts.blast) { /* explosion sound covers it */ }
     else if (head) this.sound.play(res.helmetHit ? 'hit_kevlar' : 'headshot', { pos, volume: 1 });
@@ -588,11 +592,13 @@ export class Game {
     victim.active = null;
     victim.armor = 0; victim.helmet = false; victim.defuser = false;
     this.sound.play('die', { pos, volume: 1 });
+    this.effects.bloodPuddle(victim); // after ~0.5 s, follows the settling body
     if (victim.model) {
       victim.model.object3D.visible = true;
       victim.model.setWeapon?.(null);
       const kind = headshot ? 'headshot' : victim.pm.ducking ? 'crouch' : ['back', 'forward', 'left'][Math.floor(Math.random() * 3)];
-      victim.model.playDeath(kind);
+      const hit = victim.lastHit && victim.lastHit.time === this.time ? victim.lastHit : null;
+      if (!this.ragdolls.spawn(victim.model, { origin: victim.pm.origin, velocity: victim.pm.velocity, hit, headshot, weaponId })) victim.model.playDeath(kind);
     }
     if (victim === this.viewTarget) {
       this.setViewModel(null);
@@ -831,6 +837,7 @@ export class Game {
       this.input.consumeMouse();
     }
     const alpha = this.acc / TICK;
+    this.ragdolls.update(this.paused ? 0 : dt);
     this.updateModels(dt, alpha);
     this.effects.update(this.paused ? 0 : dt);
     this.updateCamera(dt, alpha);
