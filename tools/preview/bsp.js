@@ -5,6 +5,7 @@ import { Renderer } from '../../src/engine/renderer.js';
 import { loadBspWorld } from '../../src/bsp/bspworld.js';
 import { bspUniforms } from '../../src/bsp/bspmaterial.js';
 import { decodeTga } from '../../src/bsp/tga.js';
+import { createSkybox } from '../../src/bsp/skybox.js';
 
 const params = new URLSearchParams(location.search);
 const src = params.get('src') || 'http://localhost:8899';
@@ -18,18 +19,13 @@ for (const m of W.meshes) r.world.add(m);
 if (params.get('lmScale')) bspUniforms.lmScale.value = +params.get('lmScale');
 if (params.get('lmGamma')) bspUniforms.lmGamma.value = +params.get('lmGamma');
 // sky
-const order = (params.get('skyorder') || 'rt,lf,up,dn,bk,ft').split(',');
+let skybox = null;
 try {
-  const faces = await Promise.all(order.map(async (s) => {
-    const im = decodeTga(await get(`Des${s}.tga`));
-    const c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
-    c.getContext('2d').putImageData(new ImageData(im.data, im.width, im.height), 0, 0);
-    return c;
-  }));
-  const cube = new THREE.CubeTexture(faces);
-  cube.colorSpace = THREE.NoColorSpace;
-  cube.needsUpdate = true;
-  r.scene.background = cube;
+  const names = ['rt', 'lf', 'bk', 'ft', 'up', 'dn'];
+  const ims = await Promise.all(names.map(async (n) => decodeTga(await get(`Des${n}.tga`))));
+  skybox = createSkybox(Object.fromEntries(names.map((n, i) => [n, ims[i]])));
+  r.world.add(skybox);
+  window.__skybox = skybox;
 } catch (e) { console.warn('sky', e); }
 let view = { eye: [-1300, -900, 200], pitch: 0, yaw: 90 };
 const pos = params.get('pos'), ang = params.get('ang');
@@ -37,6 +33,7 @@ if (pos) { const p = pos.split(',').map(Number); view.eye = [p[0], p[1], p[2] + 
 if (ang) { const a = ang.split(',').map(Number); view.pitch = a[0]; view.yaw = a[1]; }
 window.__setView = (x, y, z, pitch, yaw, eyeH = 53) => { view = { eye: [x, y, z + eyeH], pitch, yaw }; };
 window.__W = W;
+window.__r = r;
 let frames = 0;
 let topCam = null;
 if (params.get('view') === 'top') {
@@ -50,7 +47,9 @@ if (params.get('view') === 'top') {
   window.__topCam = topCam;
 }
 function loop() {
+  if (params.has('noloop') && window.__ready) return; // automation drives rendering
   r.setView(view.eye, view.pitch, view.yaw, 0);
+  skybox?.userData.follow(view.eye);
   if (topCam) { r.renderer.clear(); r.renderer.render(r.scene, topCam); } else r.render(false);
   if (!window.__ready && ++frames > 3) window.__ready = true;
   requestAnimationFrame(loop);

@@ -1,4 +1,5 @@
 // Map-only viewer for screenshots and walkthroughs: ?pos=x,y,z&ang=pitch,yaw (feet position)
+// or ?view=top&bounds=x0,y0,x1,y1&zcut=z for a top-down plan
 import * as THREE from 'three';
 import { Renderer } from '../../src/engine/renderer.js';
 import { Input } from '../../src/engine/input.js';
@@ -26,6 +27,16 @@ pm.angles = [ang[0], ang[1], 0];
 let fixedEye = null;
 window.__setView = (x, y, z, pitch, yaw, eyeH = 53) => { fixedEye = [x, y, z + eyeH]; pm.angles = [pitch, yaw, 0]; };
 r.canvas.addEventListener('click', () => input.requestLock());
+// ?view=top&bounds=x0,y0,x1,y1&zcut=z : orthographic top-down render
+let topCam = null;
+if (params.get('view') === 'top') {
+  const b = (params.get('bounds') || '-2476,-1266.6,2029.6,3239').split(',').map(Number);
+  const w = b[2] - b[0], h = b[3] - b[1];
+  const zcut = params.get('zcut');
+  topCam = new THREE.OrthographicCamera(-w / 2, w / 2, h / 2, -h / 2, zcut ? 4000 - +zcut : 1, 20000);
+  topCam.position.set((b[0] + b[2]) / 2, 4000, -(b[1] + b[3]) / 2);
+  topCam.lookAt((b[0] + b[2]) / 2, 0, -(b[1] + b[3]) / 2);
+}
 let last = performance.now(), acc = 0, frames = 0;
 function loop(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now;

@@ -34,13 +34,18 @@ const Z = [0, 0, 0];
 const MINS = [-16, -16, -36], MAXS = [16, 16, 36];
 const mineSolid = (x, y, z) => world.testBox([x, y, z], MINS, MAXS, 1 | 2); // solid + player clip
 
-// floors under a standing player hull: solid with the hull centre DZ higher free
+// floors under a standing player hull: solid with the hull centre DZ higher free;
+// the exact height is refined by bisection
 function floors(solid, x, y) {
   const out = [];
   let open = false;
   for (let z = ZTOP; z >= ZBOT; z -= DZ) {
     const s = solid(x, y, z);
-    if (s && open) out.push(z + DZ / 2 - 36);
+    if (s && open) {
+      let lo = z, hi = z + DZ; // lo solid, hi open
+      for (let k = 0; k < 6; k++) { const mid = (lo + hi) / 2; if (solid(x, y, mid)) lo = mid; else hi = mid; }
+      out.push(Math.round((hi - 36) * 4) / 4);
+    }
     open = !s;
   }
   return out;
