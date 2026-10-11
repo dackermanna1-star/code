@@ -7,3 +7,6 @@ dist/
 *.bsp
 *.wad
 usermaps/
+
+# your own game files bundled into a local build (tools/packmap.mjs)
+/public/gamedata/

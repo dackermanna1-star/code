@@ -19,7 +19,7 @@ import { RadioMenu } from './ui/radiomenu.js';
 import { Announcer } from './game/announcer.js';
 import { DUST2_LIGHTING } from './map/lighting.js';
 import { setLightCurve } from './map/meshbuilder.js';
-import { MAPS, mapDef as lookupMap, mapAvailability, storeUserFiles, listUserFiles } from './game/maps.js';
+import { MAPS, mapDef as lookupMap, mapAvailability, storeUserFiles, listUserFiles, bundledMaps } from './game/maps.js';
 
 const params = new URLSearchParams(location.search);
 
@@ -117,6 +117,7 @@ async function boot() {
   // ---------------------------------------------------------------- maps
   const mapIds = async () => {
     const ids = Object.keys(MAPS);
+    for (const id of Object.keys(await bundledMaps())) if (!ids.includes(id)) ids.push(id);
     for (const f of await listUserFiles()) if (f.endsWith('.bsp')) { const id = f.slice(0, -4); if (!ids.includes(id)) ids.push(id); }
     return ids;
   };
@@ -125,6 +126,7 @@ async function boot() {
     if (def.builtin) return { ok: true, html: '' };
     if (id === W.mapDef?.id) return { ok: true, html: `<b>${id}</b> is loaded.${def.credit ? ' ' + def.credit + '.' : ''}` };
     const a = await mapAvailability(def);
+    if (a.bundled) return { ok: true, bundled: true, html: `&#10003; <b>${id}</b> is included in this build with its original textures${a.sky ? ' and sky' : ''}.${def.credit ? '<br>' + def.credit + '.' : ''}` };
     const lines = [];
     lines.push(def.credit ? `${def.credit}${def.url ? ` - <a href="${def.url}" target="_blank" rel="noopener" style="color:#c8b070">download page</a>` : ''}.` : '');
     lines.push(a.bsp ? `&#10003; ${def.bsp} added.` : `Add your copy of <b>${def.bsp}</b> (from the map's download, or cstrike/maps).`);

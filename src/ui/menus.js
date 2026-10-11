@@ -14,7 +14,7 @@
 //   showBuyMenu(p, {onBuy}) onBuy(item, 'buy …')  item = weapon id | vest | vesthelm |
 //                           flashbang | hegrenade | smokegrenade | defuser | nvgs | primammo | secammo
 //   showNewGame(d, onStart) onStart({ ...d, map, perTeam, difficulty, roundTime, freezeTime, c4Timer, startMoney, buyTime })
-//     d.maps [[id, label]], d.mapInfo(id) -> Promise<{ ok, html }>, d.addFiles(FileList) -> Promise (custom maps)
+//     d.maps [[id, label]], d.mapInfo(id) -> Promise<{ ok, html, bundled }>, d.addFiles(FileList) -> Promise (custom maps)
 //   showOptions(s, onChange) onChange(key, value) for every changed key on OK / Apply
 //   showChatInput(team, cb) cb(text)
 // Without a callback the equivalent onCommand string is sent instead
@@ -270,6 +270,7 @@ export class Menus {
       const r = await d.mapInfo(id);
       if (map.value !== id) return;
       info.innerHTML = r.html;
+      pickRow.style.display = r.bundled ? 'none' : '';
       mapOk = r.ok;
       start.disabled = !mapOk;
     };

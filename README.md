@@ -19,6 +19,21 @@ npm run build && npm run preview
 
 Click the game to capture the mouse. `Esc` opens the main menu.
 
+### Original maps (cs_mansion)
+
+Original GoldSrc maps use your own game files, which are never committed to this
+repo. To bundle one into your local build so it's ready in New Game:
+
+```bash
+# map .bsp, the folder with its WADs (Half-Life/valve), and optionally the sky folder (valve/gfx/env)
+node tools/packmap.mjs path/to/cs_mansion.bsp path/to/Half-Life/valve path/to/Half-Life/valve/gfx/env
+npm run build
+```
+
+This copies the .bsp, packs just the textures it uses into one small WAD and copies
+its skybox into `public/gamedata/` (git-ignored). Otherwise the New Game menu lets you
+add the files in the browser.
+
 ## Controls (CS 1.6 defaults)
 
 | Key | Action | Key | Action |

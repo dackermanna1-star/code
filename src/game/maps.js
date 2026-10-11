@@ -1,9 +1,10 @@
 // Map registry and map-file loading.
 //
 // de_dust2 is built into the game. Other maps are original GoldSrc .bsp files the
-// player supplies (they are third-party / Valve content and never ship with this
-// project): picked once in the New Game menu and kept in the browser (IndexedDB), or
-// in development served from a folder with ?mapsrc=http://localhost:8898.
+// player supplies (they are third-party / Valve content and never part of this repo):
+// bundled into a local build with tools/packmap.mjs (public/gamedata/), picked once in
+// the New Game menu and kept in the browser (IndexedDB), or in development served from
+// a folder with ?mapsrc=http://localhost:8898.
 import { decodeTga } from '../bsp/tga.js';
 
 export const MAPS = {
@@ -71,9 +72,34 @@ export async function removeUserFiles(names) {
   for (const n of names) await idb('readwrite', (s) => s.delete(n));
 }
 
+// ---------------------------------------------------------------- bundled with the build
+// public/gamedata/index.json: { <map id>: { bsp, wads: [...], sky } }, files in gamedata/<id>/
+let bundledIndex = null;
+export function bundledMaps() {
+  bundledIndex ??= (async () => {
+    try {
+      const r = await fetch(`${import.meta.env?.BASE_URL ?? './'}gamedata/index.json`);
+      // (a dev server answers a missing file with the page itself)
+      if (!r.ok || !/json/.test(r.headers.get('content-type') || '')) return {};
+      const j = await r.json();
+      return j && typeof j === 'object' ? j : {};
+    } catch { return {}; }
+  })();
+  return bundledIndex;
+}
+
+async function getBundledFile(id, name) {
+  try {
+    const r = await fetch(`${import.meta.env?.BASE_URL ?? './'}gamedata/${id}/${name}`);
+    return r.ok ? await r.arrayBuffer() : null;
+  } catch { return null; }
+}
+
 /** Which of a map's files are available ({ bsp: bool, wads: [names present], sky: bool }). */
 export async function mapAvailability(def) {
   if (def.builtin) return { ok: true };
+  const pack = (await bundledMaps())[def.id];
+  if (pack) return { ok: true, bundled: true, bsp: true, wads: pack.wads, sky: !!pack.sky };
   const have = new Set(await listUserFiles());
   return {
     ok: have.has(def.bsp),
@@ -83,8 +109,9 @@ export async function mapAvailability(def) {
   };
 }
 
-/** Load a map's files: from ?mapsrc (dev server) first, else from IndexedDB. */
+/** Load a map's files: from ?mapsrc (dev server) first, then the build's bundled copy, else IndexedDB. */
 export async function loadMapFiles(def, mapsrc = null) {
+  const pack = (await bundledMaps())[def.id];
   const get = async (name) => {
     if (mapsrc) {
       try {
@@ -92,18 +119,23 @@ export async function loadMapFiles(def, mapsrc = null) {
         if (r.ok) return await r.arrayBuffer();
       } catch { /* fall through */ }
     }
+    if (pack) {
+      const b = await getBundledFile(def.id, name);
+      if (b) return b;
+    }
     const b = await getUserFile(name.toLowerCase());
     return b instanceof ArrayBuffer ? b : null;
   };
-  const bsp = await get(def.bsp);
+  const bsp = await get(pack?.bsp || def.bsp);
   if (!bsp) throw new Error(`${def.bsp} not found`);
   const wads = [];
-  for (const w of def.wads) { const b = await get(w); if (b) wads.push(b); }
+  for (const w of pack ? pack.wads : def.wads) { const b = await get(w); if (b) wads.push(b); }
   let sky = null;
-  if (def.sky) {
+  const skyname = pack ? pack.sky : def.sky;
+  if (skyname) {
     const faces = {};
     for (const s of ['rt', 'lf', 'bk', 'ft', 'up', 'dn']) {
-      const b = await get(`${def.sky}${s}.tga`);
+      const b = await get(`${skyname}${s}.tga`);
       if (!b) { faces.missing = true; break; }
       try { faces[s] = decodeTga(b); } catch { faces.missing = true; break; }
     }
