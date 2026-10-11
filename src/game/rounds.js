@@ -77,10 +77,13 @@ export class RoundManager {
       p.model?.reset?.();
       g.spawnPlayer(p, used[p.team]);
     }
-    // give the bomb to a random terrorist
+    // give the bomb to a random terrorist (a bot when there is one, so the
+    // team's plan always has its carrier; a human can still take it off the ground)
     const ts = g.players.filter((p) => p.team === TEAM_T && p.alive);
-    if (ts.length) {
-      const carrier = ts[Math.floor(Math.random() * ts.length)];
+    const botTs = ts.filter((p) => p.isBot);
+    const pool = botTs.length ? botTs : ts;
+    if (pool.length) {
+      const carrier = pool[Math.floor(Math.random() * pool.length)];
       carrier.weapons[5] = g.newWeapon('c4');
       this.bombCarrier = carrier;
     }

@@ -1056,6 +1056,12 @@ class Bot {
     this.utilJob = null;
     this.utilThrown = false;
     this.plantSpot = null;
+    this.plantProg = null;
+    this.zoneName = null;
+    this.c4Prog = null;
+    this.c4Direct = null;
+    this.wayClear = null;
+    this.nearEnough = null;
     this.coverSpot = null;
     this.coverPos = null;
     this.inPositionSince = 0;
@@ -1238,7 +1244,7 @@ class Bot {
 
     const it = this.it || (this.it = {});
     it.move = null; it.walk = false; it.duck = false; it.look = null; it.lookAngles = null; it.fire = false; it.use = false;
-    it.stop = false; it.strafe = 0; it.jump = false; it.combat = false; it.tol = 32; it.zoom = 0; it.attack = false; it.attack2 = false;
+    it.stop = false; it.strafe = 0; it.jump = false; it.combat = false; it.tol = 32; it.zoom = 0; it.attack = false; it.attack2 = false; it.final = false;
 
     const blind = this.time < this.blindUntil;
     const fighting = this.target && !blind && (this.targetVisible || this.time - this.targetSeen < 0.6);
@@ -1786,6 +1792,8 @@ class Bot {
   // ------------------------------------------------------------------ objectives
   objective(it) {
     const g = this.game, p = this.p, R = g.rounds;
+    // the carrier plants whenever he is in a bomb zone, whatever a teammate radioed
+    if (p.team === TEAM_T && p.weapons[5] && R.state === 'live' && !R.bomb && this.tryPlant(it)) return;
     // radio-driven behaviour (human teammates)
     if (this.fallback && this.time < this.fallback.until) {
       it.move = p.team === TEAM_T ? this.K.routes.long.pts[1].p : this.K.ctSpawn;
@@ -1839,9 +1847,21 @@ class Bot {
     }
     if (!T) return;
     const task = this.tTask || (this.tTask = this.defaultTTask());
-    // the carrier plants as soon as he is in a bomb zone (alone or with the team on site)
-    if (p.weapons[5] && R.state === 'live' && this.tryPlant(it)) return;
     const late = R.timeLeft() < 30;
+    // the carrier never idles: when time runs short, his group is gone, or he has
+    // made no progress for a while outside a planned wait, he heads straight for a site
+    if (p.weapons[5] && R.state === 'live') {
+      const o = p.pm.origin;
+      if (!this.c4Prog || dist2(o, this.c4Prog.pos) > 140) this.c4Prog = { pos: o.slice(), t: this.time };
+      const waiting = T.phase === 'setup' && (this.atGather || this.inPosition || task.kind === 'control');
+      if (waiting) this.c4Prog.t = this.time;
+      const mates = (task.group?.members || []).filter((b) => b !== this && b.p.alive).length;
+      const stalled = this.time - this.c4Prog.t > 9;
+      if (!this.c4Direct && (R.timeLeft() < 38 || stalled || (T.phase === 'execute' && task.kind === 'route' && !mates && this.time - T.executed > 6))) {
+        this.c4Direct = this.pickPlantSite(T.site);
+      }
+      if (this.c4Direct) { this.goSite(it, this.c4Direct); return; }
+    }
     if (task.kind === 'control' && T.phase === 'setup') {
       this.hold(it, task.spot, { quiet: true });
       return;
@@ -1926,7 +1946,8 @@ class Bot {
       const slot = slots[(this.tTask?.slot || 0) % slots.length];
       const d = dist2(feet, slot);
       this.atGather = d < 200 || this.closeEnough(slot, d);
-      if (!this.closeEnough(slot, d)) { it.move = slot; it.walk = d < 350 && !T.plan?.rush; it.tol = 20; }
+      if (this.makeWay(it, feet)) return;
+      if (!this.closeEnough(slot, d)) { it.move = slot; it.final = true; it.walk = d < 350 && !T.plan?.rush; it.tol = 20; }
       else this.inPosition = true;
       const nxt = pts[Math.min(pts.length - 1, route.gather + 1)].p;
       it.look = eyeAt(nxt);
@@ -1946,6 +1967,15 @@ class Bot {
     // walk the last stretch before the gather point (quiet approach)
     if (setup && !T.plan?.rush && idx === route.gather && dist2(feet, here.p) < 500) it.walk = true;
     this.watchDanger(it);
+  }
+
+  // the site to plant at: the planned one, unless the other is much closer
+  pickPlantSite(planned) {
+    const o = this.p.pm.origin, S = this.K.sites;
+    const dA = dist2(o, S.A.center), dB = dist2(o, S.B.center);
+    if (planned === 'A' && dB < dA * 0.55) return 'B';
+    if (planned === 'B' && dA < dB * 0.55) return 'A';
+    return planned || (dA < dB ? 'A' : 'B');
   }
 
   goSite(it, site) {
@@ -1972,8 +2002,17 @@ class Bot {
   }
 
   goPlant(it, site) {
-    const s = this.K.sites[site];
-    if (!this.plantSpot || this.plantSite !== site) { this.plantSpot = pick(s.plant); this.plantSite = site; }
+    const s = this.K.sites[site], p = this.p;
+    if (!this.plantSpot || this.plantSite !== site) { this.plantSpot = pick(s.plant); this.plantSite = site; this.plantProg = null; }
+    // no progress toward the spot for a while (a teammate or a prop in the way): take another one
+    const d = dist2(p.pm.origin, this.plantSpot);
+    if (!this.plantProg || d < this.plantProg.d - 24) this.plantProg = { d, t: this.time };
+    else if (this.time - this.plantProg.t > 2.5) {
+      const others = s.plant.filter((q) => q !== this.plantSpot);
+      this.plantSpot = others.length ? pick(others) : this.plantSpot;
+      this.plantProg = null;
+      this.nearEnough = null;
+    }
     it.move = this.plantSpot;
     it.tol = 16;
     this.watchDanger(it);
@@ -1982,12 +2021,13 @@ class Bot {
   tryPlant(it) {
     const g = this.game, p = this.p;
     const zone = g.bombZoneOf(p);
-    if (!zone) { this.planting = false; return false; }
+    if (!zone) { this.planting = false; this.zoneName = null; return false; }
     const enemiesClose = this.target && this.targetVisible && this.time >= this.reactAt;
     const w = p.weapons[5];
     // in a zone: walk to a plant spot inside it (out of the open), then plant
     const site = zone.name;
-    if (!this.plantSpot || this.plantSite !== site) { this.plantSpot = pick(this.K.sites[site].plant); this.plantSite = site; this.zoneEnter = this.time; }
+    if (this.zoneName !== site) { this.zoneName = site; this.zoneEnter = this.time; }
+    if (!this.plantSpot || this.plantSite !== site) { this.plantSpot = pick(this.K.sites[site].plant); this.plantSite = site; }
     const alone = !this.mgr.alive(TEAM_T).some((b) => b !== this && dist2(b.p.pm.origin, p.pm.origin) < 900);
     const near = dist2(p.pm.origin, this.plantSpot) < 40;
     const hurry = this.time - this.zoneEnter > 2.5 || g.rounds.timeLeft() < 20 || alone && this.time - this.zoneEnter > 1;
@@ -2168,12 +2208,44 @@ class Bot {
     return d <= 30 || (n && this.time < n.until + 30 && dist2(n.pos, pos) < 8 && d < 230);
   }
 
+  // a teammate is trying to get past (pressing into us, not progressing): step
+  // off his line for a moment
+  makeWay(it, feet) {
+    const p = this.p;
+    if (!(this.wayClear && this.time < this.wayClear.until)) {
+      this.wayClear = null;
+      for (const b of this.mgr.bots) {
+        if (b === this || !b.p.alive || b.p.team !== p.team || !b.navMoving || b.time - b.progT < 0.5 || !b.path) continue;
+        const o = b.p.pm.origin;
+        const ox = feet[0] - o[0], oy = feet[1] - o[1], od = Math.hypot(ox, oy);
+        if (od > 64 || od < 0.1 || Math.abs(p.pm.origin[2] - o[2]) > 64) continue;
+        const pt = b.path[Math.min(b.pathIdx, b.path.length - 1)];
+        let dx = pt[0] - o[0], dy = pt[1] - o[1];
+        const dl = Math.hypot(dx, dy);
+        if (dl < 1) continue;
+        dx /= dl; dy /= dl;
+        if ((ox * dx + oy * dy) / od < 0.2) continue; // not in his way
+        const side = ox * -dy + oy * dx >= 0 ? 1 : -1;
+        this.wayClear = { pos: [feet[0] - dy * side * 72 + dx * 16, feet[1] + dx * side * 72 + dy * 16, feet[2]], until: this.time + 1.4 };
+        break;
+      }
+    }
+    if (!this.wayClear) return false;
+    it.move = this.wayClear.pos;
+    it.tol = 10;
+    this.inPosition = false;
+    this.watchDanger(it);
+    return true;
+  }
+
   hold(it, h, { quiet = true } = {}) {
     const p = this.p;
     const feet = p.feet(_feet);
+    if (this.makeWay(it, feet)) return;
     const d = dist2(feet, h.pos);
     if (!this.closeEnough(h.pos, d) || Math.abs(feet[2] - h.pos[2]) > 60) {
       it.move = h.pos;
+      it.final = true;
       it.tol = 14;
       it.walk = quiet && d < 420 && d > 0;
       this.inPosition = false;
@@ -2304,11 +2376,13 @@ class Bot {
         sx += -my * side * w; sy += mx * side * w;
       }
       if (od < 56 && ahead > -0.2 && speed2 < 60 && this.time - this.progT > 0.5) {
-        // blocked by a teammate: close to the goal is good enough; else the
-        // higher id steps out of the way for a moment (lowest id has right of way)
+        // blocked by a teammate: close to a hold spot is good enough (never for a
+        // waypoint or a plant spot); else the one without right of way steps
+        // aside for a moment (the bomb carrier first, then the lowest id)
         const gd = dist2(feet, target);
-        if (gd < 220 && Math.hypot(q.pm.velocity[0], q.pm.velocity[1]) < 40) { this.nearEnough = { pos: target.slice(), until: this.time + 4 }; this.navMoving = false; this.counterStrafe(cmd, 1); return true; }
-        if (p.id > q.id && this.time > this.yieldUntil + 1.2) { this.yieldUntil = this.time + rand(0.5, 0.9); this.yieldDir = [-ox / od, -oy / od]; }
+        if (gd < 220 && it.final && Math.hypot(q.pm.velocity[0], q.pm.velocity[1]) < 40) { this.nearEnough = { pos: target.slice(), until: this.time + 4 }; this.navMoving = false; this.counterStrafe(cmd, 1); return true; }
+        const mine = (p.weapons[5] ? 1000 : 0) - p.id, theirs = (q.weapons[5] ? 1000 : 0) - q.id;
+        if (mine < theirs && this.time > this.yieldUntil + 1.2) { this.yieldUntil = this.time + rand(0.5, 0.9); this.yieldDir = [-ox / od, -oy / od]; }
       }
     }
     if (sx || sy) { mx += sx; my += sy; const l = Math.hypot(mx, my) || 1; mx /= l; my /= l; }

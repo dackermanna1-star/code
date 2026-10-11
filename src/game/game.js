@@ -980,9 +980,11 @@ export class Game {
   }
 
   // in bomb/buy zone tests
+  // trigger touch: the player's box overlaps the zone brush (like SV_LinkEdict touching a trigger)
   inZone(p, zone) {
-    const o = p.pm.origin;
-    return o[0] >= zone.mins[0] && o[0] <= zone.maxs[0] && o[1] >= zone.mins[1] && o[1] <= zone.maxs[1] && o[2] >= zone.mins[2] && o[2] <= zone.maxs[2];
+    const o = p.pm.origin, h = p.hull();
+    return o[0] + h.maxs[0] > zone.mins[0] && o[0] + h.mins[0] < zone.maxs[0] && o[1] + h.maxs[1] > zone.mins[1] && o[1] + h.mins[1] < zone.maxs[1] &&
+      o[2] + h.maxs[2] > zone.mins[2] && o[2] + h.mins[2] < zone.maxs[2];
   }
 
   inBuyZone(p) {
