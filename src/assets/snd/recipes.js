@@ -29,6 +29,7 @@ export const SOUND_GROUPS = {
   Bomb: ['c4_beep', 'c4_plant_press', 'c4_planted', 'c4_disarm', 'c4_disarmed', 'c4_explode', 'defuser_on'],
   'UI / misc': ['menu_click', 'menu_select', 'radio_beep', 'hint', 'nvg_on', 'heartbeat'],
   Ambience: ['ambience_wind', 'ambience_bird', 'distant_fly'],
+  Map: ['door_move', 'door_stop', 'button', 'hostage_use'],
 };
 
 /** Every sound name in the bank. (`round_start` does not exist in 1.6 and is omitted.) */

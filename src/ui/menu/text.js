@@ -1,5 +1,23 @@
 // Text for the VGUI team / class menus.
 
+// briefings for other maps, by game mode (the team select shows the map's own name)
+export const MODE_BRIEFING = {
+  hostage: [
+    'Mission Briefing:',
+    '',
+    'Counter-Terrorists: Rescue the hostages. Walk up to a hostage and press USE to make it follow you, then lead it back to your spawn.',
+    '',
+    'Terrorists: Prevent the Counter-Terrorists from rescuing the hostages.',
+  ],
+  bomb: [
+    'Mission Briefing:',
+    '',
+    'Terrorists: Plant the bomb at one of the bomb targets.',
+    '',
+    'Counter-Terrorists: Prevent the bombing. If the bomb is planted, defuse it before it detonates.',
+  ],
+};
+
 export const MAP_BRIEFING = {
   title: 'de_dust2',
   text: [

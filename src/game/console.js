@@ -45,6 +45,20 @@ export class Console {
       case 'cl_crosshair_color': { const c = arg.split(/\s+/).map(Number); if (c.length === 3) setv('crosshairColor', c); break; }
       case 'cl_crosshair_size': setv('crosshairSize', arg || 'auto'); break;
       case 'sv_cheats': this.cheats = num(1) === 1; this.print(`"sv_cheats" changed to "${this.cheats ? 1 : 0}"`); break;
+      case 'map': case 'changelevel': {
+        if (!arg) { this.print(`map is "${g.map?.name || 'de_dust2'}"`); break; }
+        const id = arg.trim().toLowerCase().replace(/\.bsp$/, '');
+        // the world is built once per page: reload with the map picked (main.js reads these)
+        try {
+          sessionStorage.setItem('cs16-map', id);
+          sessionStorage.setItem('cs16-autostart', JSON.stringify({ ...(s.get('newgame') || {}), map: id }));
+        } catch { /* storage blocked */ }
+        const u = new URL(location.href);
+        u.searchParams.delete('autostart');
+        if (u.searchParams.has('map')) u.searchParams.set('map', id);
+        location.href = u.toString();
+        break;
+      }
       case 'mp_restartgame': case 'sv_restart': if (g.started) { g.rounds.startMatch(); this.print('Game will restart in 1 SECOND'); } break;
       case 'mp_roundtime': g.rounds.roundTime = num(2.5) * 60; this.print(`"mp_roundtime" is "${num(2.5)}"`); break;
       case 'mp_freezetime': g.rounds.freezeTime = num(6); break;
@@ -68,7 +82,7 @@ export class Console {
       case 'status': for (const p of g.players) this.print(`# ${p.id} "${p.name}" ${p.team} ${p.kills}/${p.deaths} ${p.isBot ? 'BOT' : ''}`); break;
       case 'quit': case 'disconnect': location.reload(); break;
       case 'help': case 'cmdlist':
-        this.print('sensitivity, cl_showfps, net_graph, fov, vid_mode <640x480|800x600|1024x768|1280x960|native>, vid_aspect <fill|4:3>, cl_crosshair_color "r g b", cl_dynamiccrosshair, name, volume, announcer, violence_hblood 0/1, cl_bulletcam 0/1, mp_restartgame, mp_roundtime, mp_freezetime, mp_c4timer, mp_friendlyfire, bot_add, bot_add_t, bot_add_ct, bot_kick, bot_difficulty 0-3, kill, status, sv_cheats, god, impulse 101');
+        this.print('sensitivity, cl_showfps, net_graph, fov, vid_mode <640x480|800x600|1024x768|1280x960|native>, vid_aspect <fill|4:3>, cl_crosshair_color "r g b", cl_dynamiccrosshair, name, volume, announcer, violence_hblood 0/1, cl_bulletcam 0/1, map <name>, mp_restartgame, mp_roundtime, mp_freezetime, mp_c4timer, mp_friendlyfire, bot_add, bot_add_t, bot_add_ct, bot_kick, bot_difficulty 0-3, kill, status, sv_cheats, god, impulse 101');
         break;
       default: this.print(`Unknown command: ${cmd}`);
     }

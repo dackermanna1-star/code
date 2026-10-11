@@ -112,12 +112,21 @@ export class MapEntities {
     if (!this.doors.length) return;
     const g = this.game, now = g.time;
     // touching a door opens it (unless it's use-only): a short probe along the move
-    for (const p of g.players) {
+    const movers = g.hostages?.list?.length ? g.players.concat(g.hostages.list.filter((h) => !h.rescued)) : g.players;
+    for (const p of movers) {
       if (!p.alive) continue;
-      const v = p.pm.velocity, sp = Math.hypot(v[0], v[1]);
+      // probe along where he is trying to go (a door he's pressed against stops his velocity)
+      let dx = 0, dy = 0;
+      const c = p.cmd;
+      if (c && (c.forwardmove || c.sidemove)) {
+        const y = p.pm.angles[1] * DEG;
+        dx = Math.cos(y) * c.forwardmove + Math.sin(y) * c.sidemove;
+        dy = Math.sin(y) * c.forwardmove - Math.cos(y) * c.sidemove;
+      } else { dx = p.pm.velocity[0]; dy = p.pm.velocity[1]; }
+      const sp = Math.hypot(dx, dy);
       if (sp < 20) continue;
       const o = p.pm.origin, h = p.hull();
-      const end = [o[0] + v[0] / sp * 6, o[1] + v[1] / sp * 6, o[2]];
+      const end = [o[0] + dx / sp * 6, o[1] + dy / sp * 6, o[2]];
       g.collision.trace(o, end, h.mins, h.maxs, MASK_PLAYER, tr, p.box);
       const d = tr.ent?.door;
       if (d && !(d.flags & SF_DOOR_USE_ONLY) && d.state !== 'opening') {
@@ -135,12 +144,16 @@ export class MapEntities {
       const diff = d.target - d.angle;
       d.angle = Math.abs(diff) <= step ? d.target : d.angle + Math.sign(diff) * step;
       d.apply();
-      // a player in the way: stop (opening) or swing back open (closing), like Blocked()
+      // somebody in the way: push him along with the door (SV_PushRotate); if he
+      // can't go anywhere, the door goes back the other way (CBaseDoor::Blocked)
       const blocker = this.blocking(d);
-      if (blocker) {
+      if (blocker && !this.push(d, blocker, prev)) {
         d.angle = prev;
         d.apply();
-        if (d.state === 'closing' && d.wait >= 0) { d.state = 'opening'; d.target = d.lastTarget || d.distance; }
+        if (d.wait >= 0) {
+          if (d.state === 'closing') { d.state = 'opening'; d.target = d.lastTarget || d.distance; }
+          else { d.state = 'closing'; d.target = 0; d.reopenAt = now + 0.5; }
+        }
         continue;
       }
       if (d.angle === d.target) {
@@ -148,6 +161,29 @@ export class MapEntities {
         else { d.state = 'closed'; this.doorSound(d, false); }
       }
     }
+  }
+
+  /** Move a blocker the way the door's edge sweeps at his position. */
+  push(d, p, prevAngle) {
+    const g = this.game;
+    const o = d.be.origin, po = p.pm.origin;
+    const rx = po[0] - o[0], ry = po[1] - o[1];
+    const da = (d.angle - prevAngle) * DEG;
+    const c = Math.cos(da), s = Math.sin(da);
+    const mx = rx * c - ry * s - rx, my = rx * s + ry * c - ry;
+    const l = Math.hypot(mx, my) || 1;
+    // the swept arc plus a little clearance
+    const k = 1 + 2 / l;
+    const np = [po[0] + mx * k, po[1] + my * k, po[2]];
+    const h = p.hull();
+    const box = p.box;
+    const was = box?.active;
+    if (box) box.active = false;
+    const blocked = g.collision.testBox(np, h.mins, h.maxs, MASK_PLAYER);
+    if (box) box.active = was;
+    if (blocked) return false;
+    po[0] = np[0]; po[1] = np[1];
+    return true;
   }
 
   blocking(d) {

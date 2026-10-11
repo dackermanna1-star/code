@@ -35,7 +35,7 @@ export function buildHudState(game, extra = {}) {
   s.inBombZone = s.hasC4 && !!game.bombZoneOf(p);
   s.inBuyZone = me.alive && game.inBuyZone(me) && R.buyTimeLeft();
   s.hasDefuser = !!p.defuser;
-  s.spectator = me.alive ? null : { target: target ? target.name : null, mode: game.spectate?.mode || 'free', tScore: game.rounds.tScore, ctScore: game.rounds.ctScore, health: target?.health, targetTeam: target?.team };
+  s.spectator = me.alive ? null : { target: target ? target.name : null, mode: game.spectate?.mode || 'free', tScore: game.rounds.tScore, ctScore: game.rounds.ctScore, health: target?.health, targetTeam: target?.team, map: game.map?.name };
 
   // dynamic crosshair
   const settings = extra.settings;
@@ -74,6 +74,13 @@ export function buildHudState(game, extra = {}) {
     if (R.bomb && !R.bomb.exploded) blips.push({ x: R.bomb.pos[0], y: R.bomb.pos[1], z: R.bomb.pos[2], kind: 'bomb_planted', flash: true });
     const dropped = game.dropped.find((d) => d.weapon.id === 'c4');
     if (dropped) blips.push({ x: dropped.pos[0], y: dropped.pos[1], z: dropped.pos[2], kind: 'bomb' });
+  }
+  // hostages: CTs see them on the radar (CS 1.6 hostage blips)
+  if (me.team === TEAM_CT && game.hostages?.list?.length) {
+    for (const h of game.hostages.list) {
+      if (!h.alive || h.rescued) continue;
+      blips.push({ x: h.pm.origin[0], y: h.pm.origin[1], z: h.pm.origin[2], kind: 'hostage', alive: true });
+    }
   }
   s.radar = { yaw: p.pm.angles[1], pos: [p.pm.origin[0], p.pm.origin[1], p.pm.origin[2]], blips, range: 1024 };
 

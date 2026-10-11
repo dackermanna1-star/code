@@ -253,6 +253,14 @@ export const FOLEY = {
     addGrunt(x, sr, r, 0.005, 1, d);
     if (v === 2) addBurst(x, sr, r, 0.42, 0.25, { a: 0.03, h: 0.05, tau: 0.06, filters: [['bandpass', 1500, 0.6]] });
   }, 0.08) },
+  // a hostage answering a CT ("okay" / "let's go"): two quick voiced syllables
+  hostage_use: { rate: 22050, dur: 0.55, variants: 2, peak: 0.4, fn: (P, v) => foley(P, (x, sr, r) => {
+    const d = [
+      { dur: 0.42, f0: [[0, 170], [0.12, 190], [0.2, 150], [0.32, 205], [0.42, 160]], env: [[0, 0], [0.02, 0.9], [0.13, 0.7], [0.18, 0.15], [0.22, 1], [0.36, 0.6], [0.42, 0]], vowels: [[0, V.o], [0.16, V.o], [0.22, V.ae], [0.42, V.er]], breath: 0.18 },
+      { dur: 0.48, f0: [[0, 200], [0.1, 220], [0.22, 175], [0.3, 195], [0.48, 140]], env: [[0, 0], [0.02, 1], [0.15, 0.6], [0.2, 0.2], [0.25, 0.9], [0.4, 0.5], [0.48, 0]], vowels: [[0, V.ae], [0.18, V.uh], [0.24, V.o], [0.48, V.u]], breath: 0.15 },
+    ][v % 2];
+    addGrunt(x, sr, r, 0.005, 1, d);
+  }, 0.06) },
   pain: { rate: 22050, dur: 0.32, variants: 2, peak: 0.36, fn: (P, v) => foley(P, (x, sr, r) => {
     const d = [
       { dur: 0.25, f0: [[0, 200], [0.04, 222], [0.2, 160]], env: [[0, 0], [0.012, 1], [0.1, 0.8], [0.25, 0]], vowels: [[0, V.uh], [0.25, V.er]], breath: 0.15 },

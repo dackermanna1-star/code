@@ -23,7 +23,7 @@
 
 import MENUS_CSS from './menus.css?inline';
 import { CATEGORIES, ITEMS, ITEM_ICON, itemsFor } from './menu/buydata.js';
-import { MAP_BRIEFING, TEAM_BUTTONS, CLASSES, AUTO_SELECT_TEXT } from './menu/text.js';
+import { MAP_BRIEFING, MODE_BRIEFING, TEAM_BUTTONS, CLASSES, AUTO_SELECT_TEXT } from './menu/text.js';
 import { drawWeaponIcon, hudSprite, tinted, WEAPON_IDS, KILL_ICON_W } from './icons.js';
 import { engineFontPx, engineLineHeight, spriteScale } from './hud/font.js';
 
@@ -471,8 +471,11 @@ export class Menus {
       if (!b) { col.appendChild(el('div', 'vg-btn gap')); continue; }
       col.appendChild(this._vgButton(b.key, b.label, () => choose(b.key)));
     }
-    info.appendChild(el('h2', null, MAP_BRIEFING.title));
-    info.appendChild(el('p', null, MAP_BRIEFING.text.join('\n')));
+    const m = this.mapInfo || { name: 'de_dust2' };
+    const custom = m.name && m.name !== 'de_dust2';
+    info.appendChild(el('h2', null, custom ? m.name : MAP_BRIEFING.title));
+    const lines = custom ? [...(MODE_BRIEFING[m.mode] || MODE_BRIEFING.bomb), ...(m.credit ? ['', m.credit] : [])] : MAP_BRIEFING.text;
+    info.appendChild(el('p', null, lines.join('\n')));
     p.append(col, info);
   }
 

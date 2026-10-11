@@ -11,7 +11,7 @@
 // as for players) kept out of game.players.
 import { Player, TEAM_CT } from './player.js';
 import { createPlayerModel } from '../assets/playermodels.js';
-import { makeDynamicBox, setDynamicBox, TraceResult, MASK_WORLD_PLAYER } from '../engine/collision.js';
+import { makeDynamicBox, setDynamicBox, TraceResult, MASK_WORLD_PLAYER, MASK_PLAYER } from '../engine/collision.js';
 import { HULL_STAND } from '../engine/pmove.js';
 import * as CR from './combatrules.js';
 
@@ -148,8 +148,12 @@ export class Hostages {
       if (L && (!L.alive || L.team !== TEAM_CT)) { h.leader = null; h.path = null; }
       const cmd = { forwardmove: 0, sidemove: 0, upmove: 0, buttons: 0, wbuttons: 0 };
       if (h.leader) this.follow(h, h.leader, cmd);
+      h.cmd = cmd;
+      // hostages walk through people (no deadlocks in narrow corridors); people still bump into them
       g.mover.ignore = h.box;
+      g.mover.mask = MASK_WORLD_PLAYER;
       g.mover.move(h.pm, cmd, dt);
+      g.mover.mask = MASK_PLAYER;
       g.mover.ignore = null;
       setDynamicBox(h.box, h.pm.origin, h.hull().mins, h.hull().maxs);
       if (h.leader) this.checkRescue(h);

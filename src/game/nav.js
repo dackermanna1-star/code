@@ -61,9 +61,14 @@ export class NavGraph {
   step(n, x, y, diag) {
     const h = HULL_STAND, a = this._sa || (this._sa = [0, 0, 0]), b = this._sb || (this._sb = [0, 0, 0]);
     let kind = 'walk';
-    a[0] = n.x; a[1] = n.y; a[2] = n.z + 36 + STEP + 1;
+    // flat first (rooms barely taller than a player), then lifted by a step
+    a[0] = n.x; a[1] = n.y; a[2] = n.z + 36 + 1;
     b[0] = x; b[1] = y; b[2] = a[2];
     this.world.trace(a, b, h.mins, h.maxs, MASK_WORLD_PLAYER, this.tr);
+    if (this.tr.fraction < 1 || this.tr.startsolid) {
+      a[2] = n.z + 36 + STEP + 1; b[2] = a[2];
+      this.world.trace(a, b, h.mins, h.maxs, MASK_WORLD_PLAYER, this.tr);
+    }
     if (this.tr.fraction < 1 || this.tr.startsolid) {
       a[2] = n.z + 36 + MAX_JUMP + 1; b[2] = a[2];
       if (this.world.testBox(a, h.mins, h.maxs, MASK_WORLD_PLAYER)) return null;
@@ -99,6 +104,13 @@ export class NavGraph {
     return c >= 4 ? 5 : 2;
   }
 
+  /** m was expanded before n existed: give it the edge back to n when that move works. */
+  linkBack(m, n, diag) {
+    if (m.edges.some((e) => e.to === n.id)) return;
+    const r = this.step(m, n.x, n.y, diag);
+    if (r && Math.abs(r.z - n.z) < 24) this.link(m, n, r.kind);
+  }
+
   link(n, m, kind) {
     if (n.edges.some((e) => e.to === m.id)) return;
     const dist = Math.hypot(m.x - n.x, m.y - n.y, (m.z - n.z) * 0.5);
@@ -111,9 +123,10 @@ export class NavGraph {
     for (const s of seeds) {
       const ix = Math.floor((s[0] - this.bounds[0]) / CELL), iy = Math.floor((s[1] - this.bounds[1]) / CELL);
       const x = this.bounds[0] + (ix + 0.5) * CELL, y = this.bounds[1] + (iy + 0.5) * CELL;
-      const z = this.dropToFloor(x, y, s[2] + 20);
+      let z = this.dropToFloor(x, y, s[2] + 2), nx = x, ny = y;
+      if (z == null) { z = this.dropToFloor(s[0], s[1], s[2] + 2); nx = s[0]; ny = s[1]; }
       if (z == null || this.nodeAt(ix, iy, z)) continue;
-      queue.push(this.addNode(ix, iy, z));
+      queue.push(this.addNode(ix, iy, z, nx, ny));
     }
     const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
     while (queue.length) {
@@ -130,7 +143,7 @@ export class NavGraph {
           for (const m of col) {
             if (m.z - n.z > MAX_JUMP + 4 || n.z - m.z > MAX_DROP + STEP) continue;
             const r = this.step(n, m.x, m.y, diag);
-            if (r && Math.abs(r.z - m.z) < 24) { this.link(n, m, r.kind); done = true; break; }
+            if (r && Math.abs(r.z - m.z) < 24) { this.link(n, m, r.kind); this.linkBack(m, n, diag); done = true; break; }
           }
         }
         if (done) continue;
@@ -144,7 +157,7 @@ export class NavGraph {
           const m = this.nodeAt(ix, iy, r.z);
           if (m) {
             const r2 = this.step(n, m.x, m.y, diag);
-            if (r2 && Math.abs(r2.z - m.z) < 24) this.link(n, m, r2.kind);
+            if (r2 && Math.abs(r2.z - m.z) < 24) { this.link(n, m, r2.kind); this.linkBack(m, n, diag); }
             best = null;
             break;
           }

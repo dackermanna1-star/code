@@ -69,13 +69,14 @@ export class PlayerMover {
     this.world = world;
     this.vars = MOVEVARS;
     this.ignore = null;
+    this.mask = MASK_PLAYER; // hostages move with MASK_WORLD_PLAYER (through people)
   }
 
   hull(pm) { return pm.ducking ? HULL_DUCK : HULL_STAND; }
 
   traceHull(pm, start, end, out = tr) {
     const h = this.hull(pm);
-    return this.world.trace(start, end, h.mins, h.maxs, MASK_PLAYER, out, this.ignore);
+    return this.world.trace(start, end, h.mins, h.maxs, this.mask, out, this.ignore);
   }
 
   // cmd: { forwardmove, sidemove, upmove, buttons }, dt seconds (fixed 0.01 recommended)

@@ -87,6 +87,7 @@ async function boot() {
   const con = new Console(game, menus, settings, renderer, input, hud);
   game.console = con;
   menus.hideLoading?.();
+  menus.mapInfo = { name: W.map.name || 'de_dust2', mode: W.mapDef?.mode || 'bomb', credit: W.mapDef?.credit };
 
   // ---------------------------------------------------------------- state
   let inGame = false;

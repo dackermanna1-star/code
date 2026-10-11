@@ -17,6 +17,7 @@
 // unstuck logic, crouch-jumps) and buying (team economy, AWPer, drops).
 
 import { TEAM_T, TEAM_CT } from './player.js';
+import { initGenericKnowledge, planGeneric, genericObjective } from './botsgeneric.js';
 import { Player } from './player.js';
 import { IN_JUMP, IN_DUCK, IN_WALK } from '../engine/pmove.js';
 import { angleVectors, DEG } from '../engine/coords.js';
@@ -303,6 +304,10 @@ class Knowledge {
   constructor(game) {
     this.g = game;
     this.nav = game.nav;
+    this.throwCache = new Map();
+    this.slotCache = new Map();
+    // original BSP maps have no hand-made bot data: derive it (botsgeneric.js)
+    if (game.map?.source === 'bsp') { initGenericKnowledge(this, game); return; }
     const D = MAPDATA;
     const S = (p) => this.snap(p);
     const HS = (h) => ({ ...h, pos: S(h.p), watch: h.w.map(eyeAt) });
@@ -505,6 +510,7 @@ export class BotManager {
     this.econ = { T: this.decideEconomy(TEAM_T), CT: this.decideEconomy(TEAM_CT) };
     this.chooseAwpers();
     for (const b of this.bots) b.roundStart();
+    if (this.K().generic) { this.T = null; this.CT = null; planGeneric(this); return; }
     this.planT();
     this.planCT();
     this.dropsDone = false;
@@ -516,6 +522,7 @@ export class BotManager {
 
   onBombPlanted(bomb) {
     const K = this.K();
+    if (K.generic) return;
     const site = bomb.site === 'A' || bomb.site === 'B' ? bomb.site : (dist2(bomb.pos, K.sites.A.center) < dist2(bomb.pos, K.sites.B.center) ? 'A' : 'B');
     if (this.T) this.T.phase = 'planted';
     // Terrorists: post-plant spots, nearest bots take the nearest spots
@@ -994,6 +1001,11 @@ export class BotManager {
       this.dropsDone = true;
       this.teamDrops(TEAM_T);
       this.teamDrops(TEAM_CT);
+    }
+    if (this.K().generic) {
+      // bots that joined during the freeze get their tasks too
+      if (R.freeze && this.bots.some((b) => b.p.alive && b.gTask === undefined)) planGeneric(this);
+      return;
     }
     if (!this.T || (R.freeze && this.alive(TEAM_T).length !== this.T.size)) this.planT();
     if (!this.CT || (R.freeze && this.alive(TEAM_CT).length !== this.CT.size)) this.planCT();
@@ -1796,7 +1808,7 @@ class Bot {
     if (p.team === TEAM_T && p.weapons[5] && R.state === 'live' && !R.bomb && this.tryPlant(it)) return;
     // radio-driven behaviour (human teammates)
     if (this.fallback && this.time < this.fallback.until) {
-      it.move = p.team === TEAM_T ? this.K.routes.long.pts[1].p : this.K.ctSpawn;
+      it.move = p.team === TEAM_T ? (this.K.generic ? this.K.tSpawn : this.K.routes.long.pts[1].p) : this.K.ctSpawn;
       return;
     }
     if (this.follow && this.time < this.follow.until && this.follow.p.alive && !R.bomb) {
@@ -1820,7 +1832,8 @@ class Bot {
         else { it.move = [dw.pos[0], dw.pos[1], dw.pos[2]]; it.tol = 4; this.watchDanger(it); return; }
       }
     }
-    if (p.team === TEAM_T) this.objectiveT(it);
+    if (this.K.generic) genericObjective(this, it);
+    else if (p.team === TEAM_T) this.objectiveT(it);
     else this.objectiveCT(it);
   }
 

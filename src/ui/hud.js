@@ -504,6 +504,7 @@ export class Hud {
         case 'enemy': rgb = [255, 60, 60]; break;
         case 'bomb': rgb = [255, 16, 16]; size = 3 * k; break;
         case 'bomb_planted': rgb = [255, 16, 16]; size = 4 * k; show = flashOn; break;
+        case 'hostage': rgb = [255, 255, 255]; size = 2 * k; break;
         default:
           if (b.bomb || b.carrier) rgb = [255, 16, 16];
           if (b.flash && flashOn) rgb = [255, 16, 16];

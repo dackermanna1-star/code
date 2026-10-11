@@ -81,7 +81,11 @@ export class Game {
     this.bombTargets = this.map.entities.filter((e) => e.classname === 'func_bomb_target');
     this.buyZones = this.map.entities.filter((e) => e.classname === 'func_buyzone');
     const seeds = [...this.spawns.T, ...this.spawns.CT].map((e) => [e.origin[0], e.origin[1], e.origin[2] - 36]);
+    // doors open when walked into: build the graph through them
+    const doors = (this.W.brushEnts || []).filter((be) => be.handle && /^func_door/.test(be.classname));
+    for (const d of doors) d.handle.active = false;
     this.nav = new NavGraph(this.collision, this.map.bounds).build(seeds);
+    for (const d of doors) d.handle.active = true;
     this.mapEnts = new MapEntities(this); // doors, breakables, buttons (BSP maps)
     this.hostages = new Hostages(this); // hostage rescue (cs_ maps)
     this.rounds = new RoundManager(this);

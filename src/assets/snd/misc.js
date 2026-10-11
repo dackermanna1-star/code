@@ -106,6 +106,22 @@ function wind(P) {
 const DTMF = [[770, 1336], [852, 1209], [697, 1477], [941, 1336]];
 
 export const MISC = {
+  // map entities: a wooden door swinging (hinge creak + rumble), its latch, a wall button
+  door_move: { dur: 0.9, peak: 0.42, fn: (P) => foley(P, (x, sr, r) => {
+    addBurst(x, sr, r, 0, 0.5, { a: 0.002, h: 0.02, tau: 0.03, color: 'pink', filters: [['lowpass', 900, 0.7]] });
+    addScrape(x, sr, r, 0.03, 0.62, { f0: 520, f1: 760, q: 6, amp: 0.55, grit: 0.7, rise: 0.25, color: 'pink' });
+    addScrape(x, sr, r, 0.08, 0.5, { f0: 1500, f1: 1150, q: 9, amp: 0.25, grit: 0.9, rise: 0.4 });
+    addBurst(x, sr, r, 0.05, 0.35, { color: 'brown', len: 0.7, env: (t) => Math.min(1, t / 0.08) * Math.exp(-t / 0.45), filters: [['lowpass', 260, 0.7]] });
+  }, 0.1) },
+  door_stop: { dur: 0.5, peak: 0.5, fn: (P) => foley(P, (x, sr, r) => {
+    addTone(x, sr, 0, { f: 110, f1: 70, glide: 0.04, tau: 0.08, amp: 1, a: 0.0008 });
+    addBurst(x, sr, r, 0, 0.9, { a: 0.0005, tau: 0.035, color: 'pink', filters: [['lowpass', 1600, 0.7], ['peaking', 380, 1.2, 6]] });
+    addMetal(x, sr, r, 0.012, { f: 2600, amp: 0.35, tau: 0.02, body: 0.4, bodyF: 600 });
+  }, 0.12) },
+  button: { dur: 0.15, peak: 0.4, fn: (P) => foley(P, (x, sr, r) => {
+    addMetal(x, sr, r, 0, { f: 3100, amp: 0.7, tau: 0.008, body: 0.5, bodyF: 900, bodyTau: 0.01 });
+    addMetal(x, sr, r, 0.045, { f: 2500, amp: 0.5, tau: 0.01 });
+  }, 0.05) },
   // ---- bomb
   c4_beep: { dur: 0.14, peak: 0.32, fn: (P) => foley(P, (x, sr) => addBeep(x, sr, 0, 0.1, 1650, { harm: [1, 0.28, 0.12, 0.05] })) },
   c4_plant_press: { dur: 0.12, variants: 3, peak: 0.28, fn: (P, v) => foley(P, (x, sr, r) => {
