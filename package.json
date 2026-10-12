@@ -1,0 +1,27 @@
+{
+  "name": "seal-hunter-3d",
+  "private": true,
+  "version": "1.0.0",
+  "description": "A faithful 3D recreation of The Seal Hunter (2005) built with three.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "sim": "vite-node tools/sim.ts"
+  },
+  "dependencies": {
+    "cannon-es": "0.20.0",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@types/three": "0.186.0",
+    "playwright-core": "1.56.1",
+    "typescript": "5.9.3",
+    "vite": "7.3.7",
+    "vite-node": "3.2.4",
+    "vitest": "3.2.7"
+  }
+}
