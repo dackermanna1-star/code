@@ -7,6 +7,7 @@ import com.mineception.dream.MiniWorld;
 import com.mineception.dream.Theme;
 import java.util.Map;
 import java.util.WeakHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
 /**
@@ -81,9 +82,15 @@ public final class Raycaster {
 	}
 
 	private final TextureSource textures;
-	private final AtomicReferenceArray<int[][]> themeTextures = new AtomicReferenceArray<>(Theme.values().length);
+	/** Face texture tables per theme, each tagged with the {@link #textureGeneration} it was built in. */
+	private final AtomicReferenceArray<TextureTable> themeTextures = new AtomicReferenceArray<>(Theme.values().length);
+	/** Bumped by {@link #invalidateTextures()}; tables of older generations are rebuilt before use. */
+	private final AtomicInteger textureGeneration = new AtomicInteger();
 	/** Light fields of the worlds rendered recently, keyed by identity; guarded by itself. */
 	private final Map<MiniWorld, LightField> lightFields = new WeakHashMap<>();
+
+	private record TextureTable(int generation, int[][] faces) {
+	}
 
 	public Raycaster(TextureSource textures) {
 		this.textures = textures;
@@ -101,8 +108,13 @@ public final class Raycaster {
 		textureTable(theme);
 	}
 
-	/** Forgets the cached face textures, e.g. after the resource packs changed. */
+	/**
+	 * Forgets the cached face textures, e.g. after the resource packs changed (call it after clearing the texture
+	 * source's own caches). A table that a concurrent render is still building from the old textures is never used
+	 * after this returns.
+	 */
 	public void invalidateTextures() {
+		textureGeneration.incrementAndGet();
 		for (int i = 0; i < themeTextures.length(); i++) {
 			themeTextures.set(i, null);
 		}
@@ -132,23 +144,34 @@ public final class Raycaster {
 
 	/** Face textures of every block for a theme, indexed by {@code id * 6 + face}; built on first use. */
 	int[][] textureTable(Theme theme) {
-		int[][] table = themeTextures.get(theme.ordinal());
-		if (table == null) {
-			table = new int[256 * 6][];
-			for (MiniBlock block : MiniBlock.values()) {
-				if (block.kind == MiniBlock.Kind.AIR || block.kind == MiniBlock.Kind.SPECIAL) {
-					continue;
-				}
-				for (Face face : Face.values()) {
-					int[] texture = textures.texture(block, face, theme);
-					table[block.id * 6 + face.ordinal()] = texture != null && texture.length >= TextureSource.SIZE * TextureSource.SIZE
-						? texture : missingTexture();
-				}
-			}
-			themeTextures.compareAndSet(theme.ordinal(), null, table);
-			table = themeTextures.get(theme.ordinal());
+		int generation = textureGeneration.get();
+		TextureTable cached = themeTextures.get(theme.ordinal());
+		if (cached != null && cached.generation() == generation) {
+			return cached.faces();
 		}
-		return table;
+		int[][] faces = new int[256 * 6][];
+		for (MiniBlock block : MiniBlock.values()) {
+			if (block.kind == MiniBlock.Kind.AIR || block.kind == MiniBlock.Kind.SPECIAL) {
+				continue;
+			}
+			for (Face face : Face.values()) {
+				int[] texture = textures.texture(block, face, theme);
+				faces[block.id * 6 + face.ordinal()] = texture != null && texture.length >= TextureSource.SIZE * TextureSource.SIZE
+					? texture : missingTexture();
+			}
+		}
+		// Install it tagged with the generation it was started in: if the textures were invalidated meanwhile, the
+		// next use sees an old generation and builds again. Never replace a table of the same or a newer generation.
+		TextureTable built = new TextureTable(generation, faces);
+		while (true) {
+			TextureTable current = themeTextures.get(theme.ordinal());
+			if (current != null && current.generation() >= generation) {
+				return current.generation() == generation ? current.faces() : faces;
+			}
+			if (themeTextures.compareAndSet(theme.ordinal(), current, built)) {
+				return faces;
+			}
+		}
 	}
 
 	/** The light levels of a world, recomputed when its revision changes. */

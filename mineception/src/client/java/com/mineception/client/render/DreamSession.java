@@ -11,16 +11,13 @@ import com.mineception.dream.MiniInput;
 import com.mineception.dream.MiniPlayer;
 import com.mineception.dream.MiniWorld;
 import com.mineception.dream.Theme;
-import com.mineception.dream.WorldGen;
 import com.mineception.dream.render.Camera;
 import com.mineception.dream.render.DreamCameras;
+import com.mineception.dream.render.DreamLevels;
 import com.mineception.dream.render.NestedRenderer;
 import com.mineception.network.EditBlockPayload;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -42,7 +39,8 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>Sessions live as long as their laptop is around: they are released when the block goes away, the client
  * changes level, or nobody has looked at the laptop or been near it for half a minute. All methods are for the
- * client thread; pictures for the real-world screen are rendered on a background thread from snapshots.
+ * client thread; pictures for the real-world screen are rendered on a background thread from snapshots (the levels
+ * are copy-on-write, see {@link DreamLevels}, so a snapshot is just the current level objects).
  */
 public final class DreamSession {
 	/** Size of the picture on a real-world laptop's screen (the screen's aspect ratio). */
@@ -52,6 +50,8 @@ public final class DreamSession {
 	private static final double SCREEN_RANGE = 24.0;
 	/** ... at up to this many pictures per second. */
 	private static final long SCREEN_FRAME_NANOS = 1_000_000_000L / 15;
+	/** After failed pictures the interval doubles per failure, up to this many times (about 4 seconds). */
+	private static final int MAX_FAILURE_BACKOFF = 6;
 	/** How long a local edit is shown before the server must have confirmed it. */
 	private static final int PENDING_TICKS = 40;
 	/** Sessions nobody used for this long (and with no player nearby) are released. */
@@ -77,11 +77,8 @@ public final class DreamSession {
 
 	private final BlockPos pos;
 	private final ClientLevel level;
-	private final MiniWorld[] worlds = new MiniWorld[Theme.DEPTHS];
-	private final MiniWorld[] generated = new MiniWorld[Theme.DEPTHS];
+	private final DreamLevels levels = new DreamLevels();
 	private final MiniPlayer[] avatars = new MiniPlayer[Theme.DEPTHS];
-	private final List<PendingEdit> pending = new ArrayList<>();
-	private boolean built;
 	/** Set when local edits expired unconfirmed, so the levels are rebuilt from the laptop's data. */
 	private boolean stale;
 	private long seed;
@@ -96,10 +93,8 @@ public final class DreamSession {
 	private volatile boolean frameInFlight;
 	private long lastFrameStart;
 	private int @Nullable [] spareFrame;
-
-	/** A block change shown locally until the server's copy of the laptop data confirms it. */
-	private record PendingEdit(int depth, int index, int block, long expires) {
-	}
+	/** Pictures that failed in a row; written by the screen thread only. */
+	private volatile int failedFrames;
 
 	private DreamSession(BlockPos pos, ClientLevel level) {
 		this.pos = pos.immutable();
@@ -135,9 +130,12 @@ public final class DreamSession {
 		return pos;
 	}
 
-	/** Level 1..4, rebuilt automatically when the laptop's data changes. */
+	/**
+	 * Level 1..4. Levels are never changed in place: when the laptop's data or a local {@link #edit} changes one, it is
+	 * replaced by a new object, so fetch it again each tick rather than keeping it.
+	 */
 	public MiniWorld world(int depth) {
-		return worlds[depth - 1];
+		return levels.world(depth);
 	}
 
 	/** The avatar of level 1..4. Levels the player is not controlling idle at their spawn point, looking at their laptop. */
@@ -161,16 +159,12 @@ public final class DreamSession {
 	 * @param highlight block to outline, or null
 	 */
 	public void render(int depth, Camera camera, float partialTick, @Nullable MiniHit highlight, int[] out, int width, int height) {
-		if (depth < 1 || depth > Theme.DEPTHS || width <= 0 || height <= 0 || !built) {
+		if (depth < 1 || depth > Theme.DEPTHS || width <= 0 || height <= 0 || !levels.built()) {
 			return;
 		}
 		lastUsed = clientTicks;
 		prepareTextures();
-		Camera[] cameras = new Camera[Theme.DEPTHS];
-		for (int i = 0; i < Theme.DEPTHS; i++) {
-			cameras[i] = avatars[i].eyeCamera(partialTick, DreamCameras.FOV);
-		}
-		LaptopRendering.renderer().render(levels(worlds.clone(), cameras), depth, camera, level.getGameTime(), partialTick, highlight,
+		LaptopRendering.renderer().render(snapshot(partialTick), depth, camera, level.getGameTime(), partialTick, highlight,
 			out, width, height);
 	}
 
@@ -179,10 +173,10 @@ public final class DreamSession {
 	 * syncs it to everyone. Returns false if the edit is not allowed (protected block, out of bounds, ...).
 	 */
 	public boolean edit(int depth, int x, int y, int z, MiniBlock block) {
-		if (depth < 1 || depth > Theme.DEPTHS || !built || !MiniWorld.inBounds(x, y, z) || y == 0) {
+		if (depth < 1 || depth > Theme.DEPTHS || !levels.built() || !MiniWorld.inBounds(x, y, z) || y == 0) {
 			return false;
 		}
-		MiniWorld world = worlds[depth - 1];
+		MiniWorld world = levels.world(depth);
 		if (x == world.laptopX && y == world.laptopY && z == world.laptopZ) {
 			return false;
 		}
@@ -215,8 +209,7 @@ public final class DreamSession {
 		if (!ClientPlayNetworking.canSend(EditBlockPayload.TYPE) || !takeEditToken()) {
 			return false;
 		}
-		world.set(index, block);
-		pending.add(new PendingEdit(depth, index, block.id, clientTicks + PENDING_TICKS));
+		levels.editLocally(depth, index, block, clientTicks + PENDING_TICKS);
 		ClientPlayNetworking.send(new EditBlockPayload(pos, depth, index, block.id));
 		lastUsed = clientTicks;
 		return true;
@@ -230,49 +223,26 @@ public final class DreamSession {
 	// ------------------------------------------------------------------------------------------------------------
 	// Levels
 
-	/** Rebuilds the levels when the laptop's data changed (another revision or seed); avatars keep their places. */
+	/**
+	 * Rebuilds the levels when the laptop's data changed (another revision or seed); avatars keep their places. Only levels
+	 * whose blocks actually changed get new objects (and are relit).
+	 */
 	private void sync(LaptopBlockEntity laptop) {
 		LaptopData data = laptop.data();
-		if (built && !stale && laptop.revision() == revision && data.seed() == seed) {
+		if (levels.built() && !stale && laptop.revision() == revision && data.seed() == seed) {
 			return;
 		}
-		boolean newSeed = !built || data.seed() != seed;
-		if (newSeed) {
-			seed = data.seed();
-			Arrays.fill(generated, null);
-			pending.clear();
-		}
+		boolean newSeed = levels.sync(data);
+		seed = data.seed();
 		for (int depth = 1; depth <= Theme.DEPTHS; depth++) {
-			if (generated[depth - 1] == null) {
-				generated[depth - 1] = WorldGen.generate(seed, depth);
-			}
-			MiniWorld world = generated[depth - 1].copy();
-			data.applyEdits(world);
-			applyPending(world, data);
-			worlds[depth - 1] = world;
 			if (newSeed || avatars[depth - 1] == null) {
 				MiniPlayer avatar = new MiniPlayer();
-				avatar.reset(world);
+				avatar.reset(levels.world(depth));
 				avatars[depth - 1] = avatar;
 			}
 		}
 		revision = laptop.revision();
-		built = true;
 		stale = false;
-	}
-
-	/** Drops local edits the server has confirmed and re-applies the ones still on their way. */
-	private void applyPending(MiniWorld world, LaptopData data) {
-		Map<Integer, Byte> edits = data.edits(world.depth);
-		pending.removeIf(edit -> {
-			Byte confirmed = edits.get(edit.index());
-			return edit.depth() == world.depth && confirmed != null && (confirmed & 0xFF) == edit.block();
-		});
-		for (PendingEdit edit : pending) {
-			if (edit.depth() == world.depth) {
-				world.set(edit.index(), MiniBlock.byId(edit.block()));
-			}
-		}
 	}
 
 	private boolean takeEditToken() {
@@ -285,7 +255,13 @@ public final class DreamSession {
 		return true;
 	}
 
-	private static NestedRenderer.Levels levels(MiniWorld[] worlds, Camera[] cameras) {
+	/** The current levels and the avatars' eye cameras, safe to render on another thread. */
+	private NestedRenderer.Levels snapshot(float partialTick) {
+		MiniWorld[] worlds = levels.snapshot();
+		Camera[] cameras = new Camera[Theme.DEPTHS];
+		for (int i = 0; i < Theme.DEPTHS; i++) {
+			cameras[i] = avatars[i].eyeCamera(partialTick, DreamCameras.FOV);
+		}
 		return new NestedRenderer.Levels() {
 			@Override
 			public MiniWorld world(int depth) {
@@ -300,8 +276,8 @@ public final class DreamSession {
 	}
 
 	private void prepareTextures() {
-		for (MiniWorld world : worlds) {
-			LaptopRendering.raycaster().prepareTextures(world.theme);
+		for (Theme theme : Theme.values()) {
+			LaptopRendering.raycaster().prepareTextures(theme);
 		}
 	}
 
@@ -338,7 +314,7 @@ public final class DreamSession {
 		if (controlledDepth == 0 && clientTicks - lastUsed > RELEASE_TICKS) {
 			return false;
 		}
-		if (pending.removeIf(edit -> edit.expires() <= clientTicks)) {
+		if (levels.expire(clientTicks)) {
 			// The server did not confirm in time: rebuild from its data, dropping the unconfirmed change
 			stale = true;
 		}
@@ -355,7 +331,7 @@ public final class DreamSession {
 	/** An avatar nobody controls stands where it was left and turns to watch its laptop, swaying slightly. */
 	private void idle(int depth, double time) {
 		MiniPlayer avatar = avatars[depth - 1];
-		MiniWorld world = worlds[depth - 1];
+		MiniWorld world = levels.world(depth);
 		avatar.tick(world, MiniInput.NONE);
 		if (avatar.fellOut()) {
 			avatar.reset(world);
@@ -397,7 +373,7 @@ public final class DreamSession {
 	 */
 	@Nullable Identifier screenTexture(Vec3 cameraPos, Face facing, float partialTick) {
 		lastUsed = clientTicks;
-		if (!built) {
+		if (!levels.built()) {
 			return null;
 		}
 		if (screen == null) {
@@ -421,19 +397,20 @@ public final class DreamSession {
 		double dz = cameraPos.z - (pos.getZ() + center[2]);
 		boolean inFront = dx * facing.dx + dz * facing.dz > 0.0;
 		boolean near = dx * dx + dy * dy + dz * dz <= SCREEN_RANGE * SCREEN_RANGE;
-		boolean due = System.nanoTime() - lastFrameStart >= SCREEN_FRAME_NANOS;
-		// The very first picture is drawn regardless, so a laptop never shows an empty screen once seen
-		return screen == null || !screen.hasPicture() || inFront && near && due;
+		// Failing pictures back off exponentially, so a broken level does not retry (and log) every frame
+		long interval = SCREEN_FRAME_NANOS << Math.min(failedFrames, MAX_FAILURE_BACKOFF);
+		if (System.nanoTime() - lastFrameStart < interval) {
+			return false;
+		}
+		// The very first picture is drawn wherever the camera is, so a laptop never shows an empty screen once seen
+		return screen == null || !screen.hasPicture() || inFront && near;
 	}
 
 	private void startFrame(float partialTick) {
 		lastFrameStart = System.nanoTime();
 		prepareTextures();
-		Camera[] cameras = new Camera[Theme.DEPTHS];
-		for (int i = 0; i < Theme.DEPTHS; i++) {
-			cameras[i] = avatars[i].eyeCamera(partialTick, DreamCameras.FOV);
-		}
-		NestedRenderer.Levels snapshot = levels(worlds.clone(), cameras);
+		NestedRenderer.Levels snapshot = snapshot(partialTick);
+		Camera camera = snapshot.camera(1);
 		long gameTime = level.getGameTime();
 		int[] buffer = spareFrame != null ? spareFrame : new int[SCREEN_WIDTH * SCREEN_HEIGHT];
 		spareFrame = null;
@@ -441,10 +418,17 @@ public final class DreamSession {
 		try {
 			SCREEN_RENDERER.execute(() -> {
 				try {
-					LaptopRendering.renderer().render(snapshot, 1, cameras[0], gameTime, partialTick, null, buffer, SCREEN_WIDTH, SCREEN_HEIGHT);
+					LaptopRendering.renderer().render(snapshot, 1, camera, gameTime, partialTick, null, buffer, SCREEN_WIDTH, SCREEN_HEIGHT);
 					finishedFrame.set(buffer);
+					failedFrames = 0;
 				} catch (RuntimeException e) {
-					Mineception.LOGGER.error("Failed to render the laptop screen at {}", pos, e);
+					int failures = failedFrames + 1;
+					failedFrames = failures;
+					if (failures == 1) {
+						Mineception.LOGGER.error("Failed to render the laptop screen at {}, retrying less often", pos, e);
+					} else {
+						Mineception.LOGGER.debug("Laptop screen at {} failed again ({} times in a row): {}", pos, failures, e.toString());
+					}
 				} finally {
 					frameInFlight = false;
 				}
