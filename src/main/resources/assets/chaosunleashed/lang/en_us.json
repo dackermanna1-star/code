@@ -1,9 +1,7 @@
 {
   "itemGroup.chaosunleashed.chaos": "Chaos Unleashed",
   "screen.chaosunleashed.control_panel": "CHAOS CONTROL PANEL",
-
   "block.chaosunleashed.chaos_control_panel": "Chaos Control Panel",
-
   "item.chaosunleashed.alien_alloy": "Alien Alloy",
   "item.chaosunleashed.plasma_pistol": "Plasma Pistol",
   "item.chaosunleashed.plasma_bolt": "Plasma Bolt",
@@ -19,13 +17,14 @@
   "item.chaosunleashed.alien_soldier_spawn_egg": "Alien Soldier Spawn Egg",
   "item.chaosunleashed.bison_spawn_egg": "Bison Spawn Egg",
   "item.chaosunleashed.shade_stalker_spawn_egg": "Shade Stalker Spawn Egg",
-
   "tooltip.chaosunleashed.plasma_pistol": "Fires slow, searing plasma bolts",
   "tooltip.chaosunleashed.anti_gravity_boots": "Lighter gravity: higher jumps, gentle falls",
   "tooltip.chaosunleashed.kaiju_heart": "Still beating... Use for a surge of titanic power",
   "tooltip.chaosunleashed.stabilizer_core": "Throw into a Black Hole to collapse it safely",
   "tooltip.chaosunleashed.rift_shard": "Use to blink through a tear in space",
-
+  "tooltip.chaosunleashed.chaos_control_panel": "Right-click to control world events · Sneak + right-click to stop the current event",
+  "tooltip.chaosunleashed.kaiju_scale": "Armor material from a fallen Kaiju",
+  "tooltip.chaosunleashed.alien_alloy": "Salvaged from a crashed UFO",
   "entity.chaosunleashed.ufo": "UFO",
   "entity.chaosunleashed.alien_soldier": "Alien Soldier",
   "entity.chaosunleashed.plasma_bolt": "Plasma Bolt",
@@ -36,7 +35,6 @@
   "entity.chaosunleashed.shade_stalker": "Shade Stalker",
   "entity.chaosunleashed.bison": "Bison",
   "entity.chaosunleashed.dimension_rift": "Dimension Rift",
-
   "death.attack.chaosunleashed.black_hole": "%1$s was spaghettified by a black hole",
   "death.attack.chaosunleashed.black_hole.player": "%1$s was spaghettified by a black hole while fighting %2$s",
   "death.attack.chaosunleashed.solar_flare": "%1$s was cooked by a solar flare",
@@ -47,7 +45,6 @@
   "death.attack.chaosunleashed.stampede.player": "%1$s was trampled by a stampede while fighting %2$s",
   "death.attack.chaosunleashed.plasma": "%1$s was vaporized by %2$s",
   "death.attack.chaosunleashed.plasma.item": "%1$s was vaporized by %2$s using %3$s",
-
   "subtitles.chaosunleashed.alien_warning": "Strange signal detected",
   "subtitles.chaosunleashed.ufo_hum": "UFO hums",
   "subtitles.chaosunleashed.ufo_beam": "Tractor beam whirs",
@@ -89,5 +86,8 @@
   "subtitles.chaosunleashed.bison_hurt": "Bison hurts",
   "subtitles.chaosunleashed.bison_death": "Bison dies",
   "subtitles.chaosunleashed.event_end": "Chaos subsides",
-  "subtitles.chaosunleashed.panel_click": "Control Panel beeps"
+  "subtitles.chaosunleashed.panel_click": "Control Panel beeps",
+  "tag.item.chaosunleashed.alien_alloy_repair": "Alien Alloy Repair Materials",
+  "tag.item.chaosunleashed.kaiju_scale_repair": "Kaiju Scale Repair Materials",
+  "tag.item.chaosunleashed.stabilizer_catalysts": "Stabilizer Catalysts"
 }

@@ -50,6 +50,8 @@ public class KaijuRenderer extends MobEntityRenderer<KaijuEntity, KaijuRenderer.
 		int roar = entity.getRoarTicks();
 		state.roarProgress = roar > 0 ? MathHelper.clamp(Math.min(roar, 60 - roar) / 12.0F, 0.0F, 1.0F) : 0.0F;
 		state.beaming = entity.isBeaming();
+		// The 5 second death animation would otherwise be tinted red the whole time.
+		state.hurt = entity.hurtTime > 0 && !entity.isDead();
 	}
 
 	@Override

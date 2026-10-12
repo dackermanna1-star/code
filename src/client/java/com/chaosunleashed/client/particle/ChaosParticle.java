@@ -3,7 +3,6 @@ package com.chaosunleashed.client.particle;
 import com.chaosunleashed.registry.ModParticles;
 import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry;
 import net.minecraft.client.particle.BillboardParticle;
-import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleFactory;
 import net.minecraft.client.particle.SpriteProvider;
 import net.minecraft.client.world.ClientWorld;

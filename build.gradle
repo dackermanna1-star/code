@@ -26,11 +26,18 @@ loom {
 	runs {
 		// Development only: runs a scripted client session (see client/dev/AutoTest.java), e.g.
 		// ./gradlew runAutotestClient -PautotestScript=/path/to/script.txt -PautotestWorld=ChaosTest
+		// ./gradlew runAutotestClient -PautotestScript=/path/to/script.txt -PautotestServer=localhost:25565
 		autotestClient {
 			client()
 			name = "Autotest Client"
 			vmArg "-Dchaosunleashed.autotest=${project.findProperty('autotestScript') ?: ''}"
-			programArgs "--quickPlaySingleplayer", "${project.findProperty('autotestWorld') ?: 'ChaosTest'}", "--width", "1280", "--height", "720"
+			if (project.hasProperty('autotestServer')) {
+				// Join a running dedicated server instead, e.g. -PautotestServer=localhost:25565
+				programArgs "--quickPlayMultiplayer", "${project.findProperty('autotestServer')}", "--username", "ChaosTester"
+			} else {
+				programArgs "--quickPlaySingleplayer", "${project.findProperty('autotestWorld') ?: 'ChaosTest'}"
+			}
+			programArgs "--width", "1280", "--height", "720"
 			runDir "run"
 		}
 	}

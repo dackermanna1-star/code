@@ -244,7 +244,8 @@ public final class ChaosCommand {
 			boolean enabled = data.isEnabled(type);
 			MutableText line = Text.literal(enabled ? " ● " : " ○ ").formatted(enabled ? Formatting.GREEN : Formatting.RED)
 				.append(type.coloredName())
-				.append(Text.literal(enabled ? "  ON" : "  OFF").formatted(enabled ? Formatting.GREEN : Formatting.RED));
+				.append(padTo(NAME_COLUMN, textWidth(type.symbol() + " " + type.displayName())))
+				.append(Text.literal(enabled ? "ON" : "OFF").formatted(enabled ? Formatting.GREEN : Formatting.RED));
 			ChaosEvent running = manager.getActive(type);
 			if (running != null) {
 				line.append(runningText(running));
@@ -263,13 +264,14 @@ public final class ChaosCommand {
 			boolean enabled = data.isEnabled(type);
 			MutableText line = Text.literal(" ").append(type.coloredName()
 				.styled(s -> s.withHoverEvent(new HoverEvent.ShowText(Text.literal(type.description()).formatted(Formatting.GRAY)))));
-			line.append(Text.literal(padding(type.displayName())));
+			// Chat uses a proportional font: pad with pixel precision so the button columns line up.
+			line.append(padTo(NAME_COLUMN, textWidth(type.symbol() + " " + type.displayName())));
 			line.append(button("ON", enabled ? Formatting.GREEN : Formatting.DARK_GREEN, enabled,
 				"Turn " + type.displayName() + " ON for random triggering", "chaos enable " + type.id()));
-			line.append(" ");
+			line.append(padTo(ON_WIDTH + 4, buttonWidth("ON", enabled)));
 			line.append(button("OFF", enabled ? Formatting.DARK_RED : Formatting.RED, !enabled,
 				"Turn " + type.displayName() + " OFF for random triggering", "chaos disable " + type.id()));
-			line.append(" ");
+			line.append(padTo(OFF_WIDTH + 4, buttonWidth("OFF", !enabled)));
 			line.append(button("START", Formatting.AQUA, false,
 				"Start " + type.displayName() + " now (intensity " + ChaosConfig.get().event(type).defaultIntensity
 					+ ")\nWorks even if the event is OFF for random triggering.", "chaos start " + type.id()));
@@ -294,9 +296,58 @@ public final class ChaosCommand {
 		return 1;
 	}
 
-	private static String padding(String name) {
-		int pad = Math.max(1, 18 - name.length());
-		return " ".repeat(pad);
+	// ------------------------------------------------------------------------------------------ chat layout
+	// Advances (in GUI pixels) of the default Minecraft font. Used only to line up the menu columns.
+
+	/** Width reserved for "icon name" before the first button column. */
+	private static final int NAME_COLUMN = 104;
+	private static final int ON_WIDTH = buttonWidth("ON", true);
+	private static final int OFF_WIDTH = buttonWidth("OFF", true);
+
+	private static int charWidth(char c) {
+		return switch (c) {
+			case ' ', 'I', 't', '[', ']', '☾', '♜', '◉', '◐', '♞' -> 4;
+			case 'i', '.', ',', ':', ';', '!', '|', '\'' -> 2;
+			case 'l' -> 3;
+			case 'f', 'k', '(', ')', '<', '>', '*', '⇅' -> 5;
+			case '☄', '✦' -> 8;
+			case '☀' -> 9;
+			default -> 6;
+		};
+	}
+
+	private static int textWidth(String text) {
+		int width = 0;
+		for (int i = 0; i < text.length(); i++) {
+			width += charWidth(text.charAt(i));
+		}
+		return width;
+	}
+
+	private static int buttonWidth(String label, boolean bold) {
+		String text = "[" + label + "]";
+		return textWidth(text) + (bold ? text.length() : 0);
+	}
+
+	/**
+	 * Spaces that advance from {@code width} to {@code column} pixels. A space is 4 pixels wide and a bold space
+	 * 5, so any gap of 12+ pixels can be filled exactly.
+	 */
+	private static MutableText padTo(int column, int width) {
+		int gap = Math.max(4, column - width);
+		int bold = 0;
+		while (bold < 4 && (gap - bold * 5) % 4 != 0) {
+			bold++;
+		}
+		if ((gap - bold * 5) % 4 != 0 || gap - bold * 5 < 0) {
+			bold = 0;
+		}
+		int normal = Math.max(0, Math.round((gap - bold * 5) / 4.0F));
+		MutableText text = Text.literal(" ".repeat(normal));
+		if (bold > 0) {
+			text.append(Text.literal(" ".repeat(bold)).formatted(Formatting.BOLD));
+		}
+		return text;
 	}
 
 	private static MutableText header(String title) {

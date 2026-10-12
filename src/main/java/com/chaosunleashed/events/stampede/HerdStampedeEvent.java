@@ -17,6 +17,7 @@ import net.minecraft.block.CropBlock;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.MovementType;
 import net.minecraft.entity.SpawnReason;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.passive.HorseEntity;
@@ -228,15 +229,19 @@ public class HerdStampedeEvent extends ChaosEvent {
 				iterator.remove();
 				continue;
 			}
+			// The animals have no AI (cheap with hundreds of them), and vanilla doesn't run movement physics for
+			// AI-less mobs, so the herd is moved here directly: run, jump over obstacles, fall with gravity.
 			double weave = MathHelper.sin(mob.age * 0.15F + runner.weave()) * 0.05;
-			Vec3d velocity = mob.getVelocity();
-			double vy = velocity.y;
+			double vy = mob.getVelocity().y - 0.08;
 			if (mob.horizontalCollision && mob.isOnGround()) {
 				vy = 0.45;
 			} else if (mob.isTouchingWater()) {
 				vy = 0.06;
 			}
-			mob.setVelocity(this.dir.x * runner.speed() + this.perp.x * weave, vy, this.dir.z * runner.speed() + this.perp.z * weave);
+			Vec3d motion = new Vec3d(this.dir.x * runner.speed() + this.perp.x * weave, Math.max(vy, -2.0) * 0.98,
+				this.dir.z * runner.speed() + this.perp.z * weave);
+			mob.setVelocity(motion);
+			mob.move(MovementType.SELF, motion);
 			mob.setYaw(yaw);
 			mob.setBodyYaw(yaw);
 			mob.setHeadYaw(yaw);
