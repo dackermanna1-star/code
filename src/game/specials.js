@@ -11,8 +11,9 @@
 //  - SMOKER: tall, swallowed by tumours. Lassoes you with its tongue from far away and
 //    drags you in; shoot it (or break the line of sight) to snap the tongue. Dies in a
 //    choking cloud.
-// Specials replace a common zombie now and then (more often later on), at most one of
-// a kind up at once (sprinters: a pack); the difficulty sets both (zdiff.js specials).
+// Specials replace a common zombie now and then (more often later on, and solo), at most
+// one of a kind up at once (sprinters: a pack; more with a big squad); the difficulty and
+// the squad set both (zdiff.js waveStats).
 // They are ordinary zombies to the rest of the
 // mode (flow field, claws, kills, bodies); this module adds their looks' stats and tricks.
 import * as THREE from 'three';
@@ -57,15 +58,16 @@ export class Specials {
   }
 
   // ---------------------------------------------------------------- spawning
-  /** Now and then a special instead of a common zombie: its kind, or null. */
+  /** Now and then a special instead of a common zombie: its kind, or null (how often and how many: the wave's stats, zdiff.js). */
   pick(wave) {
-    const diff = this.Z.diff;
-    if (Math.random() > specialChance(wave, diff)) return null;
+    const S = this.Z.stats;
+    if (Math.random() > (S?.special ?? specialChance(wave, this.Z.diff))) return null;
     // how many of a kind may be up (a pack counts once)
+    const perKind = S?.perKind ?? this.Z.diff.specials.perKind;
     const full = (k, d) => {
       let n = 0;
       for (const z of this.Z.pool) if (z.alive && z.special === k) n++;
-      return (d.pack ? Math.ceil(n / d.pack[1]) : n) >= diff.specials.perKind;
+      return (d.pack ? Math.ceil(n / d.pack[1]) : n) >= perKind;
     };
     const kinds = Object.entries(SPECIALS).filter(([k, d]) => wave >= d.from && !full(k, d));
     if (!kinds.length) return null;

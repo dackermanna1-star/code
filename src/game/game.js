@@ -1096,11 +1096,13 @@ export class Game {
         m.object3D.position.set(x, y, fz);
         m.object3D.rotation.set(0, 0, p.pm.angles[1] * DEG);
       }
+      const mdt = p.isZombie && this.zombies.enabled ? this.zombies.modelDt(p, dt) : dt;
+      if (mdt < 0) continue; // a zombie far off or behind the camera: posed every few frames (zombies.js modelDt)
       const v = p.pm.velocity;
       const spd = Math.hypot(v[0], v[1]);
-      m.update(dt, {
+      m.update(mdt, {
         speed: spd, moveYaw: spd > 10 ? ((Math.atan2(v[1], v[0]) / DEG - p.pm.angles[1]) % 360 + 540) % 360 - 180 : 0, crouch: p.pm.ducking || p.pm.inDuck || !!p.visualCrouch, onGround: p.pm.onground,
-        pitch: p.pm.angles[0], firing: p.lastShot > this.time - dt - 0.001 && p.lastShot <= this.time && p.alive,
+        pitch: p.pm.angles[0], firing: p.lastShot > this.time - mdt - 0.001 && p.lastShot <= this.time && p.alive,
         reloading: !!p.active?.inReload, planting: p.planting || p.defusing,
       });
       // GoldSrc lighting: ambient/shade from the light below the model

@@ -3,7 +3,8 @@
 //  - waves: a 12 s break to buy before the first, 15 s between waves (the difficulty's);
 //    buying works anywhere, any time; a cleared wave pays a bonus and patches you up a little
 //  - each wave brings more zombies, with more health, more damage and, from wave 3,
-//    runners faster than a knife; at most 12 are up at once (zdiff.js waveStats)
+//    runners faster than a knife; more of them, more up at once, the bigger the squad
+//    (zdiff.js waveStats); far off and out of sight they think less often (lodSkip)
 //  - the difficulty (zdiff.js, from the New Game options) is this.diff; what happens in a
 //    run goes out on this.events and is tallied in this.runStats (runstats.js)
 //  - zombies are Player objects on the T side (hitboxes, blood, wounds, ragdolls and
@@ -20,6 +21,7 @@ import * as CR from './combatrules.js';
 import { Specials } from './specials.js';
 import { waveStats, zombieOptions, resolveDiff } from './zdiff.js';
 import { RunEvents, RunStats } from './runstats.js';
+import { recordKey, readRecord, writeRecord } from './zrecords.js';
 import { ZEconomy } from './zeconomy.js';
 import { ZDowned } from './zdowned.js';
 import { ZFeedback } from './zfeedback.js';
@@ -31,14 +33,18 @@ export const MASK_ZOMBIE_MOVE = CONTENTS_SOLID | CONTENTS_PLAYERCLIP | CONTENTS_
 export const MASK_HUMAN_MOVE = MASK_ZOMBIE_MOVE | CONTENTS_ZOMBIE;
 
 export const ZOMBIE_START_MONEY = 16000;
-const POOL = 20; // zombie bodies reused wave after wave (a model each)
+const POOL = 32; // zombie bodies reused wave after wave (a model each; up to 28 up at once)
 const CORPSE_TIME = 4; // a body lies at least this long before its zombie comes back
 const REACH = 46; // start a swipe within this (horizontal, hull edge to hull edge ~14)
 const HIT_RANGE = 72; // the swipe lands if still within this when it comes down
 const WINDUP = 0.3, COOLDOWN = 0.95;
-const BEST_KEY = 'cs16-zombies-best';
+// level of detail: a common zombie THINK_FAR (units) from every survivor and out of your
+// sight thinks only every LOD_STEP s (~20 Hz), walking on its last command in between; one
+// POSE_FAR from the camera, or behind it, is posed only every POSE_STEP s (game.updateModels)
+const THINK_FAR = 800, LOD_STEP = 0.05, LOD_SEEN = 0.25, POSE_FAR = 1500, POSE_STEP = 0.05;
 
 const rand = (a, b) => a + Math.random() * (b - a);
+const _head = [0, 0, 0];
 const angDiff = (a, b) => ((a - b) % 360 + 540) % 360 - 180;
 
 export class ZombieMode {
@@ -52,6 +58,7 @@ export class ZombieMode {
     this.rev = null;
     this.cands = null;
     this.specials = new Specials(game);
+    this.lod = true; // far zombies think / are posed less often (lodSkip, modelDt); off for A/B profiling
     this.events = new RunEvents(game);
     this.runStats = new RunStats(game, this.events);
     // Milestone 1 features, a module each (they hook in through events, tick and hud)
@@ -69,11 +76,14 @@ export class ZombieMode {
     this.diff = resolveDiff(this.opts);
   }
 
-  /** What waveStats scales with: the difficulty, and the squad (humans + botCrowd x bots). */
+  /** A hardcore run (no wave heal, guns only in breaks, radar pings only; its own records). */
+  get hardcore() { return !!this.diff.hardcore; }
+
+  /** What waveStats scales with: the difficulty, and the squad (humans + botCrowd x bots; 1 with squad scaling off). */
   waveOpts() {
     let crowd = 0;
     for (const p of this.game.players) if (p.team === TEAM_CT && !p.isZombie) crowd += p.isBot ? this.diff.horde.botCrowd : 1;
-    return { diff: this.diff, crowd: Math.max(1, crowd) };
+    return { diff: this.diff, crowd: this.diff.squadScaling ? Math.max(1, crowd) : 1 };
   }
 
   // ---------------------------------------------------------------- game flow
@@ -91,7 +101,7 @@ export class ZombieMode {
     this.nextWaveAt = g.time + this.diff.firstBreak;
     this.flowAt = 0;
     this.overAt = 0;
-    this.best = this.bestBefore = this.loadBest(); // (a new best is measured against this)
+    this.recGuns = -1; this.syncRecord(); // (best; a new best is measured against bestBefore)
     this.stats = waveStats(1, this.waveOpts());
     g.rounds.removeBomb();
     g.clearDropped();
@@ -114,6 +124,7 @@ export class ZombieMode {
 
   startWave(n) {
     const g = this.game;
+    if (this.wave === 0) this.syncRecord(); // (the squad is set: the run's record key is fixed from here)
     this.wave = n;
     this.stats = waveStats(n, this.waveOpts());
     this.spawned = 0;
@@ -166,17 +177,39 @@ export class ZombieMode {
     this.events.mode('run', { phase: 'over', diff: this.diff.id, survived: this.survived, kills: this.kills });
   }
 
-  /** Records: the most waves survived. A new best beats bestBefore (the best when the run began). */
+  /**
+   * Records (zrecords.js): the most waves survived on this map, at this difficulty, with a
+   * squad this size. A new best beats bestBefore (the best when the run began).
+   */
   isNewBest() { return this.survived > this.bestBefore; }
 
-  loadBest() {
-    try { return +(localStorage.getItem(BEST_KEY) || 0) || 0; } catch { return 0; } // (storage blocked)
-  }
+  loadBest() { return readRecord(this.recordKey()); }
 
   saveBest(waves) {
     if (waves <= this.best) return;
     this.best = waves;
-    try { localStorage.setItem(BEST_KEY, String(waves)); } catch { /* storage blocked */ }
+    writeRecord(this.recordKey(), waves);
+  }
+
+  /** This run's record key (zrecords.js): map, difficulty, and how many guns the squad has. */
+  recordKey() {
+    if (!this.recKey) this.recKey = recordKey(this.game.W?.mapDef?.id || this.game.map?.name, this.diff, this.squadGuns());
+    return this.recKey;
+  }
+
+  /** You and the bots, alive or not. */
+  squadGuns() {
+    let n = 0;
+    for (const p of this.game.players) if (p.team === TEAM_CT && !p.isZombie) n++;
+    return n;
+  }
+
+  /** Until the first wave the squad is still filling up (bots join after start): the record follows it. */
+  syncRecord() {
+    const n = this.squadGuns();
+    if (n === this.recGuns && this.recDiff === this.diff) return;
+    this.recGuns = n; this.recDiff = this.diff; this.recKey = null;
+    this.best = this.bestBefore = this.loadBest();
   }
 
   /** Per tick, after everyone moved (RoundManager.tick). */
@@ -186,6 +219,7 @@ export class ZombieMode {
     this.downed.tick(t);
     this.feedback.tick(t);
     if (this.state === 'break' && t >= this.nextWaveAt) this.startWave(this.wave + 1);
+    if (this.wave === 0) this.syncRecord(); // (the squad fills up before the first wave)
     if (this.state !== 'wave') return;
     const S = this.stats;
     if (this.bossAt && t >= this.bossAt) { if (this.game.bosses.spawn(this.wave)) this.bossAt = 0; else this.bossAt = t + 1; }
@@ -443,8 +477,11 @@ export class ZombieMode {
     if (t >= this.flowAt && this.state !== 'over') { this.flowAt = t + 0.4; this.buildFlow(); }
     g.bosses?.think();
     const humans = this.humans();
+    this.lodEye = this.lod ? this.viewEye() : null;
     for (const z of this.pool) {
       if (!z.alive) { z.cmd = null; continue; }
+      if (!this.lodEye) z.lodK = 1; // (every tick)
+      else if (this.lodSkip(z, humans, t)) continue; // far and unseen: walks on its last command
       const cmd = { forwardmove: 0, sidemove: 0, upmove: 0, buttons: 0, wbuttons: 0 };
       z.cmd = cmd;
       this.growl(z, t);
@@ -455,6 +492,68 @@ export class ZombieMode {
       this.separate(z, cmd);
       this.attack(z, target, cmd, t);
     }
+  }
+
+  /**
+   * Level of detail: a common zombie THINK_FAR+ units from every survivor (3.5 s from
+   * reaching anyone) and out of your sight thinks every LOD_STEP s (~20 Hz) instead of every
+   * tick, keeping its last command (it walks on) in between. True: skip it this tick.
+   */
+  lodSkip(z, humans, t) {
+    if (z.special || !z.cmd) { z.lodNext = z.lodSeenT = 0; z.lodK = 1; return false; } // (a special, or just up)
+    if (t < z.lodNext) return true;
+    // thinking this tick: when is the next one?
+    z.lodK = z.lodNext ? Math.max(1, Math.min(8, Math.round((t - z.lodLast) / 0.01))) : 1; // ticks since the last (turn rate)
+    z.lodLast = t;
+    const o = z.pm.origin;
+    let far = true;
+    for (const h of humans) {
+      const dx = h.pm.origin[0] - o[0], dy = h.pm.origin[1] - o[1], dz = h.pm.origin[2] - o[2];
+      if (dx * dx + dy * dy + dz * dz < THINK_FAR * THINK_FAR) { far = false; break; }
+    }
+    z.lodNext = far && !this.inView(z, t) ? t + LOD_STEP * rand(0.8, 1.2) : 0;
+    return false;
+  }
+
+  /** Where you look from: your eyes, or the spectator camera (null: no view, nobody to hide from). */
+  viewEye() {
+    const me = this.game.local;
+    return me?.alive ? me.eyePos(this._eye || (this._eye = [0, 0, 0])) : this.game.camPos || null;
+  }
+
+  /** Could you see zombie z? In front of you and nothing in between (rechecked every LOD_SEEN s). */
+  inView(z, t) {
+    if (t < (z.lodSeenT || 0)) return z.lodSeen;
+    z.lodSeenT = t + LOD_SEEN * rand(0.8, 1.2);
+    const e = this.lodEye, o = z.pm.origin, me = this.game.local;
+    const dx = o[0] - e[0], dy = o[1] - e[1], dz = o[2] + 20 - e[2];
+    const yaw = (me?.alive ? me.pm.angles[1] : this.game.spectate?.angles?.[1] ?? 0) * Math.PI / 180;
+    // behind you (more than ~105 degrees off where you face): unseen, no trace needed
+    const d = Math.hypot(dx, dy) || 1;
+    if ((dx * Math.cos(yaw) + dy * Math.sin(yaw)) / d < -0.26 && Math.abs(dz) < d) return (z.lodSeen = false);
+    _head[0] = o[0]; _head[1] = o[1]; _head[2] = o[2] + 20;
+    return (z.lodSeen = this.game.visible(e, _head));
+  }
+
+  /**
+   * updateModels: the time a living zombie's pose catches up by this frame, or -1 to leave it
+   * as it is (its position still follows): POSE_FAR+ from the camera, or behind it, it is
+   * posed every POSE_STEP s. Scoped in, everything is posed every frame.
+   */
+  modelDt(z, dt) {
+    const acc = (z.poseDt || 0) + dt, cam = this.game.camPos, c = this.game.renderer?.camera;
+    z.poseDt = 0;
+    if (!this.lod || !z.alive || z.isBoss || !cam || !c || acc >= POSE_STEP || (this.game.local?.fov ?? 90) < 90) return acc;
+    const o = z.pm.origin, dx = o[0] - cam[0], dy = o[1] - cam[1], dz = o[2] - cam[2];
+    const d2 = dx * dx + dy * dy + dz * dz;
+    if (d2 < POSE_FAR * POSE_FAR) {
+      // in front of the camera (within ~70 degrees of where it looks, wider than any view) or close: every frame
+      // (the camera looks down its -Z; three.js x, y, z = GoldSrc x, z, -y)
+      const e = c.matrixWorld.elements, fx = -e[8], fy = e[10], fz = -e[9];
+      if (d2 < 150 * 150 || dx * fx + dy * fy + dz * fz > 0.34 * Math.sqrt(d2)) return acc;
+    }
+    z.poseDt = acc;
+    return -1;
   }
 
   growl(z, t) {
@@ -494,7 +593,7 @@ export class ZombieMode {
     const goal = z.goal;
     const yaw = Math.atan2(goal[1] - feet[1], goal[0] - feet[0]) * 180 / Math.PI;
     const turn = angDiff(yaw, z.pm.angles[1]);
-    const maxTurn = 9; // per tick (900 deg/s)
+    const maxTurn = 9 * (z.lodK || 1); // per tick (900 deg/s; a far zombie thinking at ~20 Hz turns as far between thinks)
     z.pm.angles[1] += Math.max(-maxTurn, Math.min(maxTurn, turn));
     z.pm.angles[0] = 0;
     cmd.forwardmove = Math.abs(turn) > 100 ? 60 : 400;
@@ -551,6 +650,7 @@ export class ZombieMode {
     for (const q of this.pool) {
       if (q === z || !q.alive) continue;
       const dx = o[0] - q.pm.origin[0], dy = o[1] - q.pm.origin[1];
+      if (dx > 40 || dx < -40 || dy > 40 || dy < -40) continue;
       const d = Math.hypot(dx, dy);
       if (d > 40 || Math.abs(o[2] - q.pm.origin[2]) > 60) continue;
       const w = (40 - d) / 40;
@@ -596,8 +696,12 @@ export class ZombieMode {
         // a claw staggers less than a bullet's "tagging" (you can still run for it)
         target.pm.velocityModifier = Math.max(target.pm.velocityModifier ?? 1, 0.8);
         if (dz > 40 && dxy < 40) { const a = dxy > 1 ? Math.atan2(to[1] - o[1], to[0] - o[0]) : y; target.pm.velocity[0] += Math.cos(a) * 220; target.pm.velocity[1] += Math.sin(a) * 220; target.pm.velocity[2] += 120; }
+        z.whiffs = 0;
       } else {
         g.sound?.play('knife_slash', { pos: eye, volume: 0.6 });
+        // clawing at somebody through a wall or a railing (he stands still: it never counts as stuck): come back somewhere else
+        z.whiffs = (z.whiffs || 0) + 1;
+        if (z.whiffs >= 6 && !z.isBoss && !this.humans().some((h) => g.visible(h.eyePos(), eye))) { z.whiffs = 0; this.recycle(z); }
       }
     }
   }
