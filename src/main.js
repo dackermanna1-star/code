@@ -61,6 +61,7 @@ async function main() {
   await new Promise((r) => setTimeout(r, 0));
   const res = new Resources(stack);
   res.init();
+  res.prewarmPatches();
   const missing = missingActions();
   if (missing.length) console.warn('Unimplemented actions:', missing);
 

@@ -163,6 +163,18 @@ export class Resources {
     return entry;
   }
 
+  // Decode the UI graphics up front so the first upload holds them all and
+  // nothing pops in late (status bar faces, menu text, intermission art).
+  prewarmPatches() {
+    const prefixes = ['ST', 'M_', 'WI', 'BRDR', 'AMMNUM', 'CWILV'];
+    const pages = ['TITLEPIC', 'CREDIT', 'HELP', 'HELP1', 'HELP2', 'INTERPIC', 'VICTORY2', 'ENDPIC', 'BOSSBACK'];
+    const spriteRange = this.stack.namespace(['S_START', 'SS_START'], ['S_END', 'SS_END']);
+    for (const name of this.stack.byName.keys()) {
+      if (spriteRange.has(name)) continue;
+      if (pages.includes(name) || prefixes.some((p) => name.startsWith(p))) this.patch(name);
+    }
+  }
+
   textureNum(name) {
     if (!name || name === '-') return 0;
     const t = this.textureByName.get(name.toUpperCase());
