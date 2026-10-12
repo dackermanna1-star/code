@@ -19,7 +19,10 @@ describe('bot teammates (original co-op rules)', () => {
     expect(w.players.slice(1).map((p) => p.name)).toEqual(['Kiddie', 'Zombie', 'Urod']);
     expect(w.laneMin).toBe(ENEMY_Z_MIN_COOP);
     expect(w.laneMax).toBe(ENEMY_Z_MAX_COOP);
-    expect(new World({ teammates: 9 }).players.length).toBe(4);
+    const five = new World({ seed: 1, teammates: 5 });
+    expect(five.players.length).toBe(6);
+    expect(five.players.slice(1).map((p) => p.name)).toEqual(['Kiddie', 'Zombie', 'Urod', 'Husky', 'Frosty']);
+    expect(new World({ teammates: 9 }).players.length).toBe(6);
   });
 
   it('scales the spawn counts like the original (n + 0.85 n per extra hunter)', () => {
@@ -29,6 +32,34 @@ describe('bot teammates (original co-op rules)', () => {
     expect(solo.level.total).toBe(n);
     const want = LEVELS[0].enemies.reduce((a, [, k]) => a + k + Math.floor(0.85 * k * 2), 0);
     expect(team.level.total).toBe(want);
+  });
+
+  it('stops scaling the creatures after the 3rd bot', () => {
+    const three = new World({ seed: 2, teammates: 3 });
+    for (const n of [4, 5]) {
+      const w = new World({ seed: 2, teammates: n });
+      expect(w.level.total).toBe(three.level.total);
+      expect(w.laneMin).toBe(three.laneMin);
+      expect(w.laneMax).toBe(three.laneMax);
+    }
+    expect(three.level.total).toBeGreaterThan(new World({ seed: 2, teammates: 2 }).level.total);
+  });
+
+  it('five bots spread over five sides of the field and keep separate start spots', () => {
+    const w = new World({ seed: 9, teammates: 5 });
+    const bots = createTeammateBots(w, 1);
+    const said: string[] = [];
+    w.events.on('say', (e) => said.push(e.text));
+    for (let i = 0; i < 50 * 45 && !w.gameEnded; i++) {
+      for (const b of bots) b.think(w);
+      w.step();
+    }
+    expect(w.gameEnded).toBe(false);
+    for (const side of ['top', 'upper middle', 'middle', 'lower middle', 'bottom']) {
+      expect(said.some((s) => s.endsWith(`keep the ${side} of the field`))).toBe(true);
+    }
+    const starts = new World({ seed: 9, teammates: 5 }).players.map((p) => `${p.x.toFixed(2)},${p.z.toFixed(2)}`);
+    expect(new Set(starts).size).toBe(6);
   });
 
   it('creatures use the wider lane band with teammates', () => {

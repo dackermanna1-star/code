@@ -206,8 +206,15 @@ export function createTeammateBots(world: World, skill = 0.85): Bot[] {
   if (!n) return [];
   const z0 = world.laneMin;
   const z1 = world.laneMax;
-  const sides = n === 1 ? ['bottom'] : n === 2 ? ['top', 'bottom'] : ['top', 'middle', 'bottom'];
-  const homes = [12, 9.5, 14];
+  const SIDES: Record<number, string[]> = {
+    1: ['bottom'],
+    2: ['top', 'bottom'],
+    3: ['top', 'middle', 'bottom'],
+    4: ['top', 'upper middle', 'lower middle', 'bottom'],
+    5: ['top', 'upper middle', 'middle', 'lower middle', 'bottom'],
+  };
+  const sides = SIDES[Math.min(5, n)];
+  const homes = [12, 9.5, 14, 7.5, 16];
   return bots.map((p, i) => {
     // Bands with a little overlap; a single bot takes the bottom half.
     const lo = n === 1 ? (z0 + z1) / 2 : z0 + ((z1 - z0) * i) / n;

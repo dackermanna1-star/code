@@ -49,7 +49,7 @@ export interface Options {
   /** First-person mouse/stick sensitivity multiplier (0.25..3). */
   mouseSensitivity: number;
   invertY: boolean;
-  /** Computer-controlled teammates in new games (0..3). */
+  /** Computer-controlled teammates in new games (0..5; creatures stop scaling after 3). */
   teammates: number;
   /** Classic view: a laser line along your gun line to the first creature it would hit. */
   laserSight: boolean;
@@ -180,7 +180,7 @@ function loadOptions(): Options {
       o.mouseSensitivity = Math.min(SENS_MAX, Math.max(SENS_MIN, raw.mouseSensitivity));
     }
     if (typeof raw.invertY === 'boolean') o.invertY = raw.invertY;
-    if (typeof raw.teammates === 'number' && isFinite(raw.teammates)) o.teammates = Math.max(0, Math.min(3, Math.round(raw.teammates)));
+    if (typeof raw.teammates === 'number' && isFinite(raw.teammates)) o.teammates = Math.max(0, Math.min(5, Math.round(raw.teammates)));
     if (typeof raw.laserSight === 'boolean') o.laserSight = raw.laserSight;
   }
   return o;
@@ -597,7 +597,7 @@ export class Screens {
     choiceRow<Options['hudStyle']>('Interface', [['modern', 'Modern'], ['classic', 'Classic']], () => o.hudStyle, (v) => (o.hudStyle = v));
     sliderRow('Mouse sensitivity', () => o.mouseSensitivity, (v) => (o.mouseSensitivity = v), SENSITIVITY);
     choiceRow<boolean>('Invert mouse Y', [[false, 'Off'], [true, 'On']], () => o.invertY, (v) => (o.invertY = v));
-    choiceRow<number>('Teammates (next game)', [[0, 'None'], [1, '1 bot'], [2, '2 bots'], [3, '3 bots']], () => o.teammates, (v) => (o.teammates = v));
+    choiceRow<number>('Teammates (next game)', [[0, 'None'], [1, '1 bot'], [2, '2 bots'], [3, '3 bots'], [4, '4 bots'], [5, '5 bots']], () => o.teammates, (v) => (o.teammates = v));
     choiceRow<boolean>('Laser sight (classic view)', [[true, 'On'], [false, 'Off']], () => o.laserSight, (v) => (o.laserSight = v));
 
     const backRow = h('div', 'sh-opt');
@@ -831,7 +831,7 @@ export class Screens {
     segRow<boolean>('Invert mouse Y', onOff, () => o.invertY, (v) => (o.invertY = v));
     segRow<boolean>('Laser sight', onOff, () => o.laserSight, (v) => (o.laserSight = v));
     section('Teammates');
-    segRow<number>('Bots (next game)', [[0, 'None'], [1, '1'], [2, '2'], [3, '3']], () => o.teammates, (v) => (o.teammates = v));
+    segRow<number>('Bots (next game)', [[0, 'None'], [1, '1'], [2, '2'], [3, '3'], [4, '4'], [5, '5']], () => o.teammates, (v) => (o.teammates = v));
 
     const foot = h('div', 'shm-panel-foot');
     const btn = h('div', 'shm-btn', 'Back');
@@ -919,7 +919,7 @@ export class Screens {
         'shm-p',
         'Every level ends with one: fat seal, penguin flock, polar bear, turtle, walrus … and then the last seal on the planet. ' +
           'In first person the radar shows creatures behind you and the red escape edge. ' +
-          'Options → Teammates adds up to three bot hunters (more creatures, like the original\'s co-op).',
+          'Options → Teammates adds up to five bot hunters (the first three bring more creatures, like the original\'s co-op).',
       ),
     );
 

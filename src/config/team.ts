@@ -12,7 +12,17 @@ export const TEAM_COLORS: TeamColor[] = [
   { parka: 0xe0443a, parkaDeep: 0xb02a26, ui: '#d8463c' },
   { parka: 0x35a852, parkaDeep: 0x1f7d39, ui: '#2f9e4a' },
   { parka: 0xf2a52a, parkaDeep: 0xc9790f, ui: '#d98e14' },
+  { parka: 0x8a4fd8, parkaDeep: 0x6430ad, ui: '#9b62e6' },
+  { parka: 0x23b5b0, parkaDeep: 0x14857f, ui: '#1fb0aa' },
 ];
+
+/** Most bot teammates a game can have. */
+export const MAX_TEAMMATES = 5;
+/**
+ * Hunters beyond the first that make the game harder (spawn counts). The 4th and
+ * 5th bots are free help: the creatures stop scaling after the 3rd bot.
+ */
+export const MAX_SCALING_EXTRA = 3;
 
 export function teamColor(playerId: number): TeamColor {
   return TEAM_COLORS[playerId % TEAM_COLORS.length];

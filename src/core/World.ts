@@ -8,6 +8,7 @@ import type { Enemy } from './Enemy';
 import { Cub } from './enemies';
 import { EventBus, type DeathKind } from './Events';
 import { Level } from './Level';
+import { MAX_TEAMMATES } from '../config/team';
 import { Player } from './Player';
 import { Rng } from './Rng';
 
@@ -18,14 +19,18 @@ export const SPLASH_TICKS = 104;
 /** Pause after a level's bosses die before the next splash. */
 const BETWEEN_TICKS = 60;
 
-/** Bot teammates' names, from the original's AIPlayer ("Kiddie", "Zombie", "Urod"). */
-export const BOT_NAMES = ['Kiddie', 'Zombie', 'Urod'];
+/** Bot teammates' names: the original AIPlayer's ("Kiddie", "Zombie", "Urod"), then two more. */
+export const BOT_NAMES = ['Kiddie', 'Zombie', 'Urod', 'Husky', 'Frosty'];
+
 
 export interface WorldOptions {
   seed?: number;
   /** Human players (only one is supported by the app). */
   players?: number;
-  /** Computer-controlled teammates (0..3). Like the original's AI players they count as players: more creatures, wider lanes, two bears/turtles. */
+  /**
+   * Computer-controlled teammates (0..5). Like the original's AI players they
+   * count as players: more creatures (up to the 3rd bot), wider lanes, two bears/turtles.
+   */
   teammates?: number;
   startLevel?: number;
   /** Starting money (debug / testing). */
@@ -59,7 +64,7 @@ export class World {
     this.god = !!opts.god;
     this.combat = new Combat(this);
     const humans = Math.max(1, Math.min(2, opts.players ?? 1));
-    const bots = Math.max(0, Math.min(4 - humans, opts.teammates ?? 0));
+    const bots = Math.max(0, Math.min(1 + MAX_TEAMMATES - humans, opts.teammates ?? 0));
     // Start positions in screen px (the original's AI players started at a random
     // spot in x 500..638, y 190..400; here they are spread over the lanes).
     const starts: Array<[number, number]> = [
@@ -67,6 +72,8 @@ export class World {
       [pxToX(520), pxToZ(230)],
       [pxToX(520), pxToZ(370)],
       [pxToX(600), pxToZ(260)],
+      [pxToX(480), pxToZ(300)],
+      [pxToX(600), pxToZ(345)],
     ];
     for (let i = 0; i < humans + bots; i++) {
       const p = new Player(this, i, starts[i][0], starts[i][1]);

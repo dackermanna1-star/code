@@ -1,6 +1,7 @@
 // Spawn scheduling and boss flow, ported from the original levels.py.
 import type { EnemyType } from '../config/enemies';
 import { pxToZ } from '../config/constants';
+import { MAX_SCALING_EXTRA } from '../config/team';
 import type { LevelDef } from '../config/levels';
 import { createEnemy } from './enemies';
 import type { Enemy } from './Enemy';
@@ -27,7 +28,8 @@ export class Level {
 
   constructor(private world: World, def: LevelDef) {
     this.def = def;
-    const extraPlayers = Math.max(0, world.players.length - 1);
+    // Original co-op scaling, capped: bots after the 3rd don't add creatures.
+    const extraPlayers = Math.min(MAX_SCALING_EXTRA, Math.max(0, world.players.length - 1));
     this.tracks = def.enemies.map(([type, n, o]) => {
       const togo = n + Math.floor(0.85 * n * extraPlayers);
       return { type, togo, orig: togo, at: -1, straight: !!o?.straight };
