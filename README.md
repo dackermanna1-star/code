@@ -7,7 +7,7 @@ workshop, challenges, stats and unlockables.
 | | |
 |---|---|
 | Minecraft | 1.21.11 |
-| Loader | Fabric Loader 0.19.5+ |
+| Loader | Fabric Loader 0.17.3+ (tested on 0.19.2) |
 | Requires | Fabric API 0.141.6+1.21.11 |
 | Java | 21+ |
 | Side | Client and server (both need the mod) |
