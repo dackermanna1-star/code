@@ -15,6 +15,7 @@ import { getSkinTexture } from '../assets/pm/skins.js';
 import { lightCurve } from '../map/meshbuilder.js';
 import { StaticStore, Soak, clusterIndex } from './statics.js';
 import { canvasTexture } from '../assets/pm/gslight.js';
+import { CorpseGrid } from './corpsegrid.js';
 
 const tr = new TraceResult();
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -25,6 +26,7 @@ const BODY_LAYOUT = [['position', 3, Float32Array], ['uv', 2, Float32Array], ['c
 /** Weapons whose headshot kill pops the head off. */
 export const HEAD_POPPERS = new Set(['deagle', 'm3', 'xm1014', 'scout', 'awp', 'g3sg1', 'sg550', 'ak47', 'm4a1', 'aug', 'sg552', 'galil', 'famas', 'm249']);
 const GRAVITY = 800;
+const HIT_R = 60; // a bullet passing farther than this (x boss scale) from a body's centre misses it
 
 // which piece each bone's vertices belong to when a body comes apart
 const PIECE_OF = {
@@ -130,6 +132,7 @@ export class Gore {
     this.materials = new Map();
     this.store = new StaticStore(this.group, BODY_LAYOUT, (k) => this.material(k), { lod: true, verts: 4096, pad: 8, name: 'corpses' });
     this.records = []; // baked whole bodies: { skin, center, spheres, scale } (for hits, raising the dead)
+    this.grid = new CorpseGrid(); // ...the same, bucketed by area (bullets only test the ones on their path)
     this.gibs = [];
     this.fountains = [];
     this.brassSoak = new Soak(1, 4, 6); // at most 4 shells per 6 x 6 units (a pile reads the same)
@@ -139,6 +142,7 @@ export class Gore {
   clear() {
     this.store.clear();
     this.records = [];
+    this.grid.clear();
     for (const gb of this.gibs) { gb.mesh.removeFromParent(); gb.mesh.geometry.dispose(); }
     this.gibs = [];
     this.fountains = [];
@@ -262,8 +266,14 @@ export class Gore {
     this.addStatic(p.boss && L && L.n > 0 ? this.woundedSkin(skin, L.canvas) : skin, s.pos, s.uv, s.col, s.idx);
     if (p.model.extras) this.bakeExtras(p.model, snap);
     const c = sph.length ? sph.reduce((a, q) => [a[0] + q[0] / sph.length, a[1] + q[1] / sph.length, a[2] + q[2] / sph.length], [0, 0, 0]) : p.pm.origin.slice();
-    this.records.push({ skin, center: c, spheres: sph, scale: p.boss ? p.boss.scale : 1 });
+    this.addRecord({ skin, center: c, spheres: sph, scale: p.boss ? p.boss.scale : 1 });
     p.model.object3D.visible = false;
+  }
+
+  /** A baked body joins the list (and the area grid bullets look it up in). */
+  addRecord(rec) {
+    this.records.push(rec);
+    this.grid.add(rec, HIT_R * rec.scale + 1);
   }
 
   /** A one-off corpse texture: the skin with a wound layer over it. Returns its key. */
@@ -483,11 +493,13 @@ export class Gore {
         best = { ...owner, t, point: [a[0] + dx * t, a[1] + dy * t, a[2] + dz * t] };
       }
     };
-    for (const r of this.records) {
-      const c = r.center;
+    // only the bodies filed along the bullet's path (corpsegrid.js), not every one of the run
+    const recs = this.grid.along(a, b);
+    for (let i = 0; i < recs.length; i++) {
+      const r = recs[i], c = r.center;
       const t = Math.max(0, Math.min(1, ((c[0] - a[0]) * dx + (c[1] - a[1]) * dy + (c[2] - a[2]) * dz) / L2));
       const ex = a[0] + dx * t - c[0], ey = a[1] + dy * t - c[1], ez = a[2] + dz * t - c[2];
-      if (ex * ex + ey * ey + ez * ez > 3600 * r.scale * r.scale) continue;
+      if (ex * ex + ey * ey + ez * ez > HIT_R * HIT_R * r.scale * r.scale) continue;
       test(r.spheres, { rec: r });
     }
     for (const p of live) {
