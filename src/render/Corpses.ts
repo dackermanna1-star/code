@@ -134,7 +134,7 @@ export class Corpses {
     for (const i of this.dirty) {
       const b = this.bodies[i];
       b.shown = b.blood;
-      c.copy(Corpses.BASE).lerp(Corpses.SOAKED, b.blood * 0.85);
+      c.copy(Corpses.BASE).lerp(Corpses.SOAKED, b.blood * 0.45);
       for (const [mesh, iid] of b.inst) mesh.setColorAt(iid, c);
     }
     this.dirty.clear();

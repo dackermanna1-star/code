@@ -112,5 +112,6 @@ npx vite-node tools/sim.ts -- 10 0.9       # headless bot balance simulation
 node tools/e2e.mjs http://127.0.0.1:5173/  # headless browser run with screenshots
 ```
 
-See [docs/RESEARCH.md](docs/RESEARCH.md) for the research, the original data
+See [docs/VERIFICATION.md](docs/VERIFICATION.md) for side-by-side comparisons with the
+reference screenshots and test results, and [docs/RESEARCH.md](docs/RESEARCH.md) for the research, the original data
 tables, the screenshot analysis and the reference checklist.
