@@ -50,7 +50,7 @@ const ECON = {
  * here are a solo player's: fewer commons than a squad faces, and more specials (SPECIALS).
  */
 const HORDE = {
-  casual: { count: 0.6, health: 0.8, damage: 0.7, damageCap: 16, speed: 0.96, speedCap: 212, speedLate: 0, runners: 0.75, runnerCap: 0.12, runnersFrom: 5, maxAlive: 0.9, maxAliveCap: 8, interval: 1.1, lateFrom: 10, lateGrowth: 0.004, botCrowd: 0.4, crowdCount: 0.07, crowdAlive: 0.12, crowdPace: 0.3 },
+  casual: { count: 0.6, health: 0.75, damage: 0.7, damageCap: 16, speed: 0.96, speedCap: 212, speedLate: 0, runners: 0.75, runnerCap: 0.12, runnersFrom: 5, maxAlive: 0.9, maxAliveCap: 8, interval: 1.1, lateFrom: 10, lateGrowth: 0.004, botCrowd: 0.4, crowdCount: 0.05, crowdAlive: 0.08, crowdPace: 0.3 },
   normal: { count: 0.7, health: 1, damage: 1, damageCap: 22, speed: 1, speedCap: 222, speedLate: 0, runners: 1, runnerCap: 0.2, runnersFrom: 4, maxAlive: 1, maxAliveCap: 9, interval: 1, lateFrom: 10, lateGrowth: 0.008, botCrowd: 0.5, crowdCount: 0.08, crowdAlive: 0.15, crowdPace: 0.3 },
   hard: { count: 0.8, health: 1.2, damage: 1.25, damageCap: 26, speed: 1.03, speedCap: 228, speedLate: 0.4, runners: 1.25, runnerCap: 0.26, runnersFrom: 3, maxAlive: 1.1, maxAliveCap: 10, interval: 0.9, lateFrom: 10, lateGrowth: 0.015, botCrowd: 0.5, crowdCount: 0.09, crowdAlive: 0.2, crowdPace: 0.3 },
   nightmare: { count: 0.9, health: 1.45, damage: 1.5, damageCap: 30, speed: 1.06, speedCap: 236, speedLate: 0.6, runners: 1.5, runnerCap: 0.32, runnersFrom: 2, maxAlive: 1.2, maxAliveCap: 12, interval: 0.8, lateFrom: 10, lateGrowth: 0.022, botCrowd: 0.6, crowdCount: 0.1, crowdAlive: 0.25, crowdPace: 0.3 },
