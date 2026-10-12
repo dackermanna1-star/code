@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
+/** Texture naming and tint rules, checked against the real textures in the Minecraft jar when it is available. */
 class BlockTexturesTest {
 	@Test
 	void everyBlockFaceHasTexturesExceptAirAndLaptop() {

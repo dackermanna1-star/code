@@ -19,6 +19,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
 
+/** Raycaster behaviour with orientation-marking synthetic textures: UVs, shading, laptop screen, translucency, sky. */
 class RaycasterTest {
 	private static final int W = 96;
 	private static final int H = 96;
@@ -314,6 +315,25 @@ class RaycasterTest {
 		Camera camera = new Camera(20.5, 6.0, 20.5, 0.0F, 0.0F, 70.0F);
 		int c = pixel(render(world, camera, null, null, NOON), 0.5, 0.5);
 		assertTrue(blue(c) > red(c), String.format("underwater haze is blue: %06X", c & 0xFFFFFF));
+	}
+
+	@Test
+	void topWaterSurfaceSitsBelowTheBlockTop() {
+		MiniWorld world = new MiniWorld(2, 1L);
+		TestWorlds.fill(world, 0, 0, 0, 39, 4, 39, MiniBlock.COBBLESTONE);
+		TestWorlds.fill(world, 0, 5, 0, 39, 5, 39, MiniBlock.WATER);
+		Camera level = new Camera(20.5, 5.0 + RayFrame.WATER_SURFACE + 0.06, 20.5, 0.0F, 0.0F, 30.0F);
+		Camera below = new Camera(20.5, 5.0 + RayFrame.WATER_SURFACE - 0.06, 20.5, 0.0F, 0.0F, 30.0F);
+		int dry = pixel(render(world, level, null, null, NOON), 0.5, 0.2);
+		int wet = pixel(render(world, below, null, null, NOON), 0.5, 0.2);
+		int sky = pixel(render(new MiniWorld(2, 1L), level, null, null, NOON), 0.5, 0.2);
+		assertEquals(sky, dry, "just above the lowered surface the eye is in the open air");
+		assertTrue(blue(wet) > red(wet) && wet != sky, "just below it the eye is underwater");
+		// A wall rising out of the water is seen through the gap between the surface and the top of the water cells
+		world.set(20, 5, 26, MiniBlock.COBBLESTONE);
+		world.set(20, 6, 26, MiniBlock.COBBLESTONE);
+		Camera gap = new Camera(20.5, 5.0 + RayFrame.WATER_SURFACE + 0.04, 22.0, 0.0F, 0.0F, 20.0F);
+		assertFalse(quadrant(pixel(render(world, gap, null, null, NOON), 0.5, 0.5)).startsWith("?"), "the wall, not water");
 	}
 
 	@Test

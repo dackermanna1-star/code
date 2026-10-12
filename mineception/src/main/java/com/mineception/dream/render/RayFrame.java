@@ -37,6 +37,9 @@ final class RayFrame {
 	private static final int MAX_LAYERS = 8;
 	private static final double WATER_ABSORPTION = 0.16;
 	private static final double NO_HIT = Double.MAX_VALUE;
+	/** Height of a water surface with air above it within its cell (vanilla draws it 2/16 below the top). */
+	static final double WATER_SURFACE = 14.0 / 16.0;
+	private static final byte WATER_BYTE = (byte) Raycaster.WATER;
 
 	private static final Face[] FACES = Face.values();
 	/** Index into Face.HORIZONTAL for each face ordinal (-1 for up/down). */
@@ -222,7 +225,9 @@ final class RayFrame {
 		int camY = (int) Math.floor(oy);
 		int camZ = (int) Math.floor(oz);
 		cameraId = world.id(camX, camY, camZ);
-		cameraInWater = cameraId == WATER;
+		// Above the lowered surface of a top water cell the eye is still in the air
+		cameraInWater = cameraId == WATER
+			&& (world.id(camX, camY + 1, camZ) == WATER || oy - camY <= WATER_SURFACE);
 
 		// Sky
 		int top = Raycaster.lerpColor(theme.skyNightTop, theme.skyDayTop, daylight);
@@ -526,6 +531,11 @@ final class RayFrame {
 					}
 					int kind = KIND[id];
 					boolean water = id == WATER;
+					// Water with no water above it fills its cell only up to the lowered surface
+					boolean surfaceCell = water && (cy + 1 >= MiniWorld.SY || blocks[index + SX * SZ] != WATER_BYTE);
+					if (surfaceCell && oy + dy * t - cy > WATER_SURFACE) {
+						water = false;
+					}
 					if (water != inWater) {
 						if (water) {
 							if (face >= 0) {
@@ -541,6 +551,21 @@ final class RayFrame {
 								Face entered = FACES[face];
 								addSurface(acc, WATER, entered.opposite().ordinal(), cx - entered.dx, cy - entered.dy, cz - entered.dz,
 									dx, dy, dz, t);
+							}
+						}
+					}
+					if (surfaceCell && dy != 0.0) {
+						// Crossing the lowered surface inside the cell, from above or from below
+						double crossing = (cy + WATER_SURFACE - oy) / dy;
+						if (crossing > t && crossing < Math.min(maxX, Math.min(maxY, maxZ))) {
+							if (inWater && dy > 0.0) {
+								absorbWater(acc, crossing - waterStart);
+								inWater = false;
+								addSurface(acc, WATER, UP, cx, cy, cz, dx, dy, dz, crossing);
+							} else if (!inWater && dy < 0.0) {
+								addSurface(acc, WATER, UP, cx, cy, cz, dx, dy, dz, crossing);
+								inWater = true;
+								waterStart = crossing;
 							}
 						}
 					}
