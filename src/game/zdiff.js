@@ -150,14 +150,16 @@ const ROSTER = {
 
 /**
  * Readable specials and combos (zthreats.js, Specials.pick): from (first wave with planned
- * pairs), chance (a special pick becomes a pair), gap [min, max] (s between the two), arcs
- * (telegraph arcs on the crosshair ring: casual shows them earlier, x the warning lead).
+ * pairs, and with the scheduler instead of the flat chance), chance (a special pick becomes a
+ * pair), gap [min, max] (s between the two), arcs (telegraph arcs on the crosshair ring:
+ * casual shows them earlier, x the warning lead), cost (specials' worth of the scheduler's
+ * budget a pair takes: 2 = no more specials than without pairs, only bunched; less: extra).
  */
 const COMBO = {
-  casual: { from: 8, chance: 0.15, gap: [4, 6], arcs: 1.3 },
-  normal: { from: 6, chance: 0.25, gap: [3, 5], arcs: 1 },
-  hard: { from: 5, chance: 0.35, gap: [2.5, 4], arcs: 1 },
-  nightmare: { from: 4, chance: 0.45, gap: [2, 3.5], arcs: 0.9 },
+  casual: { from: 8, chance: 0.15, gap: [4, 6], arcs: 1.3, cost: 2 },
+  normal: { from: 6, chance: 0.25, gap: [3, 5], arcs: 1, cost: 2 },
+  hard: { from: 5, chance: 0.35, gap: [2.5, 4], arcs: 1, cost: 1.6 },
+  nightmare: { from: 4, chance: 0.45, gap: [2, 3.5], arcs: 0.9, cost: 1.35 },
 };
 
 /**

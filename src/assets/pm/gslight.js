@@ -10,8 +10,10 @@ const VERT = /* glsl */`
 uniform vec3 uAmbient;
 uniform vec3 uShade;
 uniform vec3 uLightDir;   // three.js world space, unit, toward the light
+uniform vec3 uRim;        // rim glow colour x strength (zombie survival specials; 0 = off)
 varying vec2 vUv;
 varying vec3 vLight;
+varying vec3 vRim;
 void main() {
   vUv = uv;
   #include <beginnormal_vertex>
@@ -23,6 +25,8 @@ void main() {
   #include <fog_vertex>
   vec3 n = normalize(mat3(modelMatrix) * objectNormal);
   vLight = uAmbient + uShade * max(0.0, dot(n, uLightDir));
+  float rim = 1.0 - max(0.0, dot(n, normalize(cameraPosition - (modelMatrix * vec4(transformed, 1.0)).xyz)));
+  vRim = uRim * (rim * rim);
 }
 `;
 
@@ -35,6 +39,7 @@ uniform vec3 uGlow;
 uniform float uChar;       // burnt black by fire (0..1)
 varying vec2 vUv;
 varying vec3 vLight;
+varying vec3 vRim;
 #include <fog_pars_fragment>
 void main() {
   vec4 t = texture2D(map, vUv);
@@ -48,6 +53,7 @@ void main() {
   if (t.a < 0.5) discard;
   vec3 c = t.rgb * mix(vec3(1.0), vec3(0.16, 0.13, 0.11), uChar) * vLight;
   if (uGlow.x + uGlow.y + uGlow.z > 0.0) c += texture2D(glowMap, vUv).rgb * uGlow;
+  c += vRim;
   gl_FragColor = vec4(c, 1.0);
 #endif
   #include <fog_fragment>
@@ -98,6 +104,7 @@ export function createGsMaterial(map, lightUniforms, translucent = false) {
   uniforms.uWound = { value: 0 };
   uniforms.glowMap = { value: null };
   uniforms.uGlow = { value: new THREE.Vector3(0, 0, 0) };
+  uniforms.uRim = { value: new THREE.Vector3(0, 0, 0) };
   uniforms.uChar = { value: 0 };
   const m = new THREE.ShaderMaterial({ uniforms, vertexShader: VERT, fragmentShader: FRAG, fog: true });
   m.name = 'gs-studio';

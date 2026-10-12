@@ -46,6 +46,7 @@ export const SOUND_GROUPS = {
   'Special infected': ['boomer_idle', 'boomer_vomit', 'boomer_burst', 'charger_roar', 'hunter_scream', 'hunter_pounce', 'smoker_cough',
     'tongue_shot', 'sprinter_shriek'],
   'Hit confirmation': ['hit_tick', 'hit_head', 'hit_kill'], // zombie survival (zfeedback.js)
+  'Readable specials': ['save_sting'], // zombie survival (zthreats.js)
   'Title screen': ['title_theme', 'title_start'],
 };
 

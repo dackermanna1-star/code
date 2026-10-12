@@ -405,6 +405,9 @@ class PlayerModel {
     if (this.extras) for (const gl of this.extras.glows) gl.mesh.material.opacity = gl.base * Math.min(1, k);
   }
 
+  /** Rim glow (zombie survival specials, zthreats.js): rgb 0..255 x k (0 = off). */
+  setRim(rgb, k) { this.material.uniforms.uRim.value.set(rgb[0] / 255 * k, rgb[1] / 255 * k, rgb[2] / 255 * k); }
+
   /** Burnt black by fire (0..1). */
   setChar(c) { this.material.uniforms.uChar.value = c; }
 

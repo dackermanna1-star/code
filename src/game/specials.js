@@ -23,6 +23,8 @@ import { CONTENTS_ZOMBIE, TraceResult, MASK_SHOT } from '../engine/collision.js'
 import { IN_JUMP } from '../engine/pmove.js';
 import * as CR from './combatrules.js';
 import { specialChance } from './zdiff.js';
+import { zoneOf } from './bots.js';
+import { THREAT_RGB } from './zthreats.js';
 
 const DEG = 180 / Math.PI;
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -44,11 +46,23 @@ export const SPECIALS = {
 };
 const IDLE = { boomer: 'boomer_idle', smoker: 'smoker_cough', hunter: 'hunter_scream', sprinter: 'sprinter_shriek', charger: 'boss_growl' };
 const BILE_TIME = 7, PIN_TIME = 3, TONGUE_TIME = 5;
+/**
+ * Planned pairs (Specials.pick from diff.combo.from): the first comes as usual, the second
+ * from the same front diff.combo.gap s later (director.queue). weight: pick weight.
+ */
+export const COMBOS = [
+  { kinds: ['smoker', 'hunter'], weight: 1 }, // the tongue holds you still, the pounce lands
+  { kinds: ['boomer', 'sprinter'], weight: 1 }, // slimed, then the fast ones come for you
+];
+/** The telegraphs' full windups (s; threats() total): the trick functions' wind times. */
+const WIND = { hunter: 0.35, charger: 0.75, smoker: 0.55, boomer: 0.3 };
 
 export class Specials {
   constructor(game) {
     this.game = game;
     this.tongues = new Map(); // smoker -> mesh
+    // the combo scheduler (pick): its budget (in specials), the next one's price, a planned pair
+    this.budget = 0; this.need = 1; this.plan = null; this.planT = -1;
   }
 
   get Z() { return this.game.zombies; }
@@ -57,13 +71,27 @@ export class Specials {
     for (const m of this.tongues.values()) { m.removeFromParent(); m.geometry.dispose(); }
     this.tongues.clear();
     for (const p of this.game.players) { p.pinnedBy = null; p.tonguedBy = null; p.biledUntil = 0; }
+    this.budget = rnd(0, 0.5); this.need = rnd(0.5, 1.5); this.plan = null;
   }
 
   // ---------------------------------------------------------------- spawning
-  /** Now and then a special instead of a common zombie: its kind, or null (how often and how many: the wave's stats, zdiff.js). */
+  /**
+   * Now and then a special instead of a common zombie: its kind, or null (how often and how
+   * many: the wave's stats, zdiff.js). From diff.combo.from a scheduler replaces the flat
+   * chance: every pick adds the chance to a budget and a special comes once it covers a
+   * jittered price (the same rate on average, without the droughts and clumps of a dice
+   * roll), and now and then one is the first of a planned pair (COMBOS) that costs
+   * diff.combo.cost specials of budget; spawn() queues its second.
+   */
   pick(wave) {
-    const S = this.Z.stats;
-    if (Math.random() > (S?.special ?? specialChance(wave, this.Z.diff))) return null;
+    const S = this.Z.stats, C = this.Z.diff.combo;
+    const rate = S?.special ?? specialChance(wave, this.Z.diff);
+    const sched = wave >= C.from && rate < 1; // (a rate of 1: every spawn anyway)
+    this.plan = null;
+    if (sched) {
+      this.budget = Math.min(this.budget + rate, this.need + 0.5); // (no saving up for a burst)
+      if (this.budget < this.need) return null;
+    } else if (Math.random() > rate) return null;
     // how many of a kind may be up (a pack counts once)
     const perKind = S?.perKind ?? this.Z.diff.specials.perKind;
     const full = (k, d) => {
@@ -73,9 +101,42 @@ export class Specials {
     };
     const kinds = Object.entries(SPECIALS).filter(([k, d]) => wave >= d.from && !full(k, d));
     if (!kinds.length) return null;
-    let r = Math.random() * kinds.reduce((n, [, d]) => n + d.weight, 0);
-    for (const [k, d] of kinds) { r -= d.weight; if (r <= 0) return k; }
-    return kinds[0][0];
+    let kind = kinds[kinds.length - 1][0];
+    // a planned pair: both kinds in by now and room for both
+    if (wave >= C.from && Math.random() < C.chance) {
+      const ok = (k) => SPECIALS[k] && wave >= SPECIALS[k].from && !full(k, SPECIALS[k]);
+      let w = 0;
+      for (const P of COMBOS) if (ok(P.kinds[0]) && ok(P.kinds[1])) w += P.weight;
+      let r = Math.random() * w;
+      for (const P of COMBOS) {
+        if (!(w > 0 && ok(P.kinds[0]) && ok(P.kinds[1]))) continue;
+        r -= P.weight;
+        if (r <= 0) { this.plan = P; this.planT = this.game.time; break; }
+      }
+    }
+    if (this.plan) kind = this.plan.kinds[0];
+    else {
+      let r = Math.random() * kinds.reduce((n, [, d]) => n + d.weight, 0);
+      for (const [k, d] of kinds) { r -= d.weight; if (r <= 0) { kind = k; break; } }
+    }
+    if (sched) { this.budget -= this.need * (this.plan ? C.cost : 1); this.need = rnd(0.5, 1.5); }
+    return kind;
+  }
+
+  /** A planned pair's first came up (spawn): its second, from the same front a few seconds on. */
+  comboSecond(first) {
+    const P = this.plan, C = this.Z.diff.combo, g = this.game;
+    this.plan = null;
+    const front = first.front || this.frontAt(first.pm.origin);
+    this.Z.director.queue(P.kinds[1], { front, at: g.time + rnd(C.gap[0], C.gap[1]) });
+    this.Z.events.mode('combo', { kinds: P.kinds, front });
+  }
+
+  /** The director front a point is in (by the bots' callout zones), or null. */
+  frontAt(pos) {
+    const zn = zoneOf(pos)?.[0];
+    if (zn) for (const f of this.Z.director.fronts()) if (f.zones?.includes(zn)) return f.id;
+    return null;
   }
 
   /**
@@ -100,6 +161,8 @@ export class Specials {
     }
     if (made) this.warn(first, true); // a warning, from where it came in
     if (made) this.Z.events.mode('special', { phase: 'spawn', kind, zombie: first, count: made });
+
+    if (made && this.plan && this.planT === this.game.time && this.plan.kinds[0] === kind && !o.extra) this.comboSecond(first); // (a planned pair: pick)
     return made;
   }
 
@@ -133,6 +196,7 @@ export class Specials {
     z.model.object3D.scale.set(def.scale[0], def.scale[1], def.scale[2]);
     z.visualCrouch = z.special === 'hunter';
     z.sp = { state: 'chase', until: 0, cd: { vomit: this.game.time + 2, charge: this.game.time + 3, pounce: this.game.time + 2, tongue: this.game.time + 3, lunge: 0 }, took: 0 };
+    z.model.setRim?.(THREAT_RGB[z.special] || THREAT_RGB.sprinter, 0); z.thRim = -1; // (the rim glow: zthreats.js frame)
   }
 
   idleSound(z) { return IDLE[z.special]; }
@@ -371,7 +435,7 @@ export class Specials {
     const g = this.game, S = z.sp, t = g.time;
     const o = z.pm.origin, ho = h.pm.origin;
     const l = dist2(o, ho) || 1;
-    S.state = 'pin'; S.victim = h; S.until = t + PIN_TIME; S.nextClaw = t + 0.15; S.tookAt = S.took;
+    S.state = 'pin'; S.victim = h; S.until = t + PIN_TIME; S.nextClaw = t + 0.15; S.tookAt = S.took; S.freedBy = null;
     S.dir = [(ho[0] - o[0]) / l, (ho[1] - o[1]) / l];
     z.pm.speedCap = null;
     h.pinnedBy = z;
@@ -382,7 +446,7 @@ export class Specials {
 
   unpin(z) {
     const S = z.sp, v = S.victim;
-    if (v && v.pinnedBy === z) v.pinnedBy = null;
+    if (v && v.pinnedBy === z) { v.pinnedBy = null; this.saved(z, v, 45); }
     S.victim = null;
     S.state = 'recover'; S.until = this.game.time + 0.8; S.cd.pounce = this.game.time + 6;
     z.speedNow = null;
@@ -414,7 +478,7 @@ export class Specials {
         const step = 1500 * 0.01;
         if (l <= step + 16) {
           if (v.tonguedBy || blocked()) { this.release(z); return true; }
-          S.state = 'pull'; S.grab = t; S.tookAt = S.took; S.nextHurt = t + 0.5; S.hidden = 0;
+          S.state = 'pull'; S.grab = t; S.tookAt = S.took; S.nextHurt = t + 0.5; S.hidden = 0; S.freedBy = null;
           v.tonguedBy = z;
           g.sound?.play('hit_flesh', { pos: chest, volume: 0.8 });
           if (v === g.local) g.hud?.centerPrint?.('A Smoker has you! Shoot it to snap the tongue!', 2.5);
@@ -451,9 +515,22 @@ export class Specials {
 
   release(z) {
     const S = z.sp, v = S.victim;
-    if (v && v.tonguedBy === z) v.tonguedBy = null;
+    if (v && v.tonguedBy === z) { v.tonguedBy = null; this.saved(z, v, 40); }
     S.victim = null; S.tip = null;
     S.state = 'recover'; S.until = this.game.time + 0.8; S.cd.tongue = this.game.time + 7;
+  }
+
+  /**
+   * Somebody held by z is free ('save' event): by = who freed him (sp.freedBy: a shove; the
+   * one who shot it off - shot: the damage that makes it let go - or killed it), null when it
+   * let go on its own (time up, the tongue lost sight). Not when he died or went down.
+   */
+  saved(z, v, shot) {
+    const S = z.sp;
+    if (!v.alive || v.downed) return;
+    let by = S.freedBy || (!z.alive || S.took - S.tookAt >= shot ? z.lastAttacker : null) || null;
+    if (by && (by === v || by.isZombie || by.team !== v.team)) by = null; // (you got yourself out)
+    this.Z.events.mode('save', { player: v, by, kind: z.special });
   }
 
   // ---------------------------------------------------------------- hooks
@@ -527,9 +604,13 @@ export class Specials {
         case 'pin': case 'pull': phase = 'hold'; break;
         default: continue;
       }
-      const r = pool[out.length] || (pool[out.length] = { z: null, kind: null, phase: null, target: null, left: 0, pos: [0, 0, 0] });
+      const r = pool[out.length] || (pool[out.length] = { z: null, kind: null, phase: null, target: null, left: 0, pos: [0, 0, 0], total: 0, prog: 0 });
       r.z = z; r.kind = z.special; r.phase = phase; r.target = target; r.left = left;
       z.eyePos(r.pos);
+      // (specialsux) total: the whole windup (s); prog: 0..1 of the way there (a windup, the tongue's flight)
+      r.total = WIND[z.special] || 0.5;
+      r.prog = phase === 'windup' ? Math.max(0, Math.min(1, 1 - left / r.total)) : 1;
+      if (S.state === 'fly' && S.tip && S.victim) { const v = S.victim.pm.origin, d0 = Math.hypot(v[0] - r.pos[0], v[1] - r.pos[1]) || 1; r.prog = Math.max(0, Math.min(1, 1 - Math.hypot(v[0] - S.tip[0], v[1] - S.tip[1]) / d0)); }
       out.push(r);
     }
     return out;
