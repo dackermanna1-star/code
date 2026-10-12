@@ -16,6 +16,11 @@ import { ProjectileSystem, registerProjectiles } from '../src/entities/projectil
 import { PROJECTILES } from '../src/magic/projectileDefs';
 import { defaultShotState } from '../src/magic/shotState';
 import type { Run } from '../src/game/run';
+import { Inventory } from '../src/game/inventory';
+import { Wand } from '../src/magic/casting';
+import { generateWand } from '../src/magic/wandGen';
+import { Rng } from '../src/core/rng';
+import type { Pickup, PickupKind } from '../src/entities/pickups';
 
 registerProjectiles(PROJECTILES);
 
@@ -88,5 +93,80 @@ describe('projectiles', () => {
     }
     const fuse = PROJECTILES.bomb.lifetime[0];
     expect(frame).toBeGreaterThanOrEqual(fuse - 3);
+  });
+});
+
+describe('player input', () => {
+  it('a jump pressed on a render frame without a fixed tick still happens on the next tick', () => {
+    const { w } = combatWorld();
+    const p = new Player(20, 4.01, 20);
+    for (let i = 0; i < 10; i++) p.update(w, noInput, 1 / 60, noEvents);
+    expect(p.body.onGround).toBe(true);
+    const press = { held: () => false, hit: (a: string) => a === 'jump', mouseDX: 0, mouseDY: 0, sensitivity: 0, invertY: false };
+    p.look(press as never); // frame 1: press seen, no tick runs
+    p.update(w, noInput, 1 / 60, noEvents); // frame 2: input already cleared, tick runs
+    expect(p.body.vy).toBeGreaterThan(0);
+  });
+});
+
+/** Progression wired to a recording stand-in for Run. */
+function progressionHarness() {
+  const added: { kind: PickupKind; x: number; opts: Partial<Pickup> }[] = [];
+  const inv = new Inventory();
+  const player = new Player(0, 0, 0);
+  const run = {
+    game: { player, opts: { seed: 7 } },
+    damage: { creatures: [player], hooks: {} },
+    inv,
+    sound() {},
+    hud: { log() {}, title() {} },
+    pickups: {
+      list: [] as Pickup[],
+      add(kind: PickupKind, x: number, _y: number, _z: number, opts: Partial<Pickup> = {}) {
+        added.push({ kind, x, opts });
+      },
+      remove() {},
+    },
+  } as unknown as Run;
+  return { prog: new Progression(run), added, inv };
+}
+
+describe('Holy Mountain perks', () => {
+  it('Unlimited Spells survives the Spell Refresher and applies to spells picked up later', () => {
+    const { prog, inv } = progressionHarness();
+    const gw = generateWand(() => 0.5, 2);
+    const w = new Wand(gw.stats, [{ id: 'BOMB', uses: 3 }, { id: 'HEAL_BULLET', uses: 20 }, null], []);
+    inv.wands[0] = w;
+    inv.spells[0] = { id: 'DYNAMITE', uses: 2 };
+    prog.applyPerk('UNLIMITED_SPELLS');
+    expect(w.spells[0]!.uses).toBe(-1);
+    expect(w.spells[1]!.uses).toBe(20); // Healing bolt is never unlimited
+    prog.interact({ kind: 'refresher', layer: 0 } as Pickup);
+    expect(w.spells[0]!.uses).toBe(-1);
+    expect(inv.spells[0]!.uses).toBe(-1);
+    const later = { id: 'ROCKET', uses: 10 };
+    prog.applySpellPerks([later]);
+    expect(later.uses).toBe(-1);
+  });
+
+  it('Extra Perk and Extra Item in Holy Mountain add altar and shop slots', () => {
+    const spawnAll = (h: ReturnType<typeof progressionHarness>) => {
+      for (let i = 0; i < 8; i++) h.prog.handleSpawn({ kind: 'hm_shop', x: 0, y: 0, z: 0, seed: i, data: { layer: 1, index: i } }, new Rng(i + 1));
+      for (let i = 0; i < 6; i++) h.prog.handleSpawn({ kind: 'hm_perk', x: 0, y: 0, z: 0, seed: i, data: { layer: 1, index: 10 + i } }, new Rng(i + 1));
+      const count = (k: string) => h.added.filter((a) => a.kind === k || (k === 'shop' && (a.kind === 'spell' || a.kind === 'wand'))).length;
+      return { shop: count('shop'), perks: count('perk'), perkIds: h.added.filter((a) => a.kind === 'perk').map((a) => a.opts.perk) };
+    };
+    const base = spawnAll(progressionHarness());
+    expect(base).toMatchObject({ shop: 5, perks: 3 });
+    const h = progressionHarness();
+    h.prog.applyPerk('EXTRA_PERK');
+    h.prog.applyPerk('EXTRA_PERK');
+    h.prog.applyPerk('EXTRA_SHOP_ITEM');
+    const more = spawnAll(h);
+    expect(more.shop).toBe(6);
+    expect(more.perks).toBe(5);
+    expect(new Set(more.perkIds).size).toBe(5); // all different
+    const xs = h.added.filter((a) => a.kind === 'perk').map((a) => a.x);
+    expect(new Set(xs).size).toBe(5); // laid out side by side
   });
 });

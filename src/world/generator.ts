@@ -5,7 +5,7 @@ import { CHUNK, CHUNK_VOL, SURFACE_Y, WORLD_X, WORLD_Y, WORLD_Z } from '../confi
 import { Noise } from '../core/noise';
 import { hash3, hash4, Rng } from '../core/rng';
 import {
-  BIOMES, BIOME_HEIGHT, BiomeDef, FLYING_ENEMIES, HM, HM_HEIGHT, LAYER_HEIGHT, NUM_LAYERS, hmBandY, layerTopY,
+  BIOMES, BIOME_HEIGHT, BiomeDef, FLYING_ENEMIES, HM, HM_HEIGHT, LAYER_HEIGHT, NUM_LAYERS, hmBandY, hmFloorY, layerOf, layerTopY,
 } from './biomes';
 import { matId, AIR, BEDROCK, TEMPLEBRICK, DENSEROCK, LAMP, GRASS, ROCK, SOIL, WOOD, BRICK, STEEL, GLASS, CONCRETE, SNOW, ICE, VINE, FUNGUS, CRYSTAL, GOLDORE } from './materials';
 
@@ -285,8 +285,8 @@ export class WorldGenerator {
           const px = HM.roomX0 + 8 + i * 7;
           if (x >= px - 1 && x <= px + 1 && z >= HM.roomZ0 + 4 && z <= HM.roomZ0 + 6 && relY < 2) return TEMPLEBRICK;
         }
-        // perk altar on the +z side
-        if (x >= HM.cx - 9 && x <= HM.cx + 9 && z >= HM.roomZ1 - 7 && z <= HM.roomZ1 - 4 && relY < 1) return TEMPLEBRICK;
+        // perk altar on the +z side (wide enough for up to 6 perks with Extra Perk)
+        if (x >= HM.cx - 15 && x <= HM.cx + 15 && z >= HM.roomZ1 - 7 && z <= HM.roomZ1 - 4 && relY < 1) return TEMPLEBRICK;
         // lamps in the corners of the ceiling
         if (relY === roomH - 1 && ((x - rx0) % 12 === 5) && (z === rz0 || z === rz1 - 1)) return LAMP;
       } else {
@@ -343,7 +343,8 @@ export class WorldGenerator {
       const px = x0 + rng.int(4, REGION - 4), py = y0 + rng.int(4, REGION - 4), pz = z0 + rng.int(4, REGION - 4);
       if (this.isOpen(px, py, pz)) {
         const fy = this.floorBelow(px, py, pz, 24);
-        if (fy !== null) {
+        // keep the landing zone under a Holy Mountain exit dry: no pools (oil, acid, ...) within reach
+        if (fy !== null && !this.belowHmExit(px, fy, pz, 30)) {
           const name = rng.weighted(b.pools, (p) => p[1])[0];
           const r = rng.range(6, 12);
           out.pools.push({ x: px, y: fy + 1, z: pz, r, level: fy + rng.int(2, 5), mat: matId(name) });
@@ -466,13 +467,24 @@ export class WorldGenerator {
       add('sampo', 128.5, floor + 3.2, 128.5, 0);
       return;
     }
+    // 5 shop pedestals plus 3 floor slots used by Extra Item in Holy Mountain
     for (let i = 0; i < 5; i++) add('hm_shop', HM.roomX0 + 8 + i * 7 + 0.5, floor + 2.05, HM.roomZ0 + 5.5, i);
-    for (let i = 0; i < 3; i++) add('hm_perk', HM.cx - 6 + i * 6 + 0.5, floor + 2.2, HM.roomZ1 - 5.5, 10 + i);
+    for (let i = 0; i < 3; i++) add('hm_shop', HM.roomX0 + 11.5 + i * 7 + 0.5, floor + 0.05, HM.roomZ0 + 8.5, 5 + i);
+    // 6 perk slots; the Progression lays out as many as the player's Extra Perk count allows
+    for (let i = 0; i < 6; i++) add('hm_perk', HM.cx + (i - 2.5) * 5.5 + 0.5, floor + 2.2, HM.roomZ1 - 5.5, 10 + i);
     add('hm_refresher', HM.roomX0 + 4.5, floor + 0.05, HM.cz + 6.5, 20);
     add('hm_heart', HM.cx + 0.5, floor + 1.5, HM.cz + 0.5, 21);
     add('hm_sign', HM.exitX + 0.5, floor + 6, HM.exitZ + 0.5, 22);
-    add('hm_reroll', HM.cx + 13.5, floor + 1.5, HM.roomZ1 - 5.5, 24);
+    add('hm_reroll', HM.cx + 19.5, floor + 1.5, HM.roomZ1 - 5.5, 24);
     add('hm_trigger', HM.cx + 0.5, floor + 1, HM.cz + 0.5, 23);
+  }
+
+  /** True if (x, y, z) lies within `margin` voxels (sideways) of the area just below a Holy Mountain exit shaft. */
+  belowHmExit(x: number, y: number, z: number, margin: number): boolean {
+    const l = layerOf(y);
+    if (l <= 0 || l >= NUM_LAYERS) return false;
+    const floor = hmFloorY(l - 1);
+    return y < floor && y > floor - 110 && Math.hypot(x - HM.exitX, z - HM.exitZ) < margin + 12;
   }
 
   /** True if a point is within `margin` voxels of the guaranteed route tunnel. */

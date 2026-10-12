@@ -8,6 +8,7 @@ import { DENSEROCK, GRAVEL } from '../world/materials';
 import { generateWand, randomSpell, spellPrice, wandPrice } from '../magic/wandGen';
 import { Wand } from '../magic/casting';
 import { SPELLS } from '../magic/spells';
+import type { SpellInstance } from '../magic/types';
 import { PERKS, PERK_BY_ID } from './perks';
 import type { Run } from './run';
 import type { Pickup } from '../entities/pickups';
@@ -48,6 +49,15 @@ export class Progression {
     return -1;
   }
 
+  /**
+   * Spell perks that change use counts; call on every spell entering the inventory and after a
+   * refresh. Unlimited Spells removes the counter from every limited spell except Healing Bolt.
+   */
+  applySpellPerks(spells: Iterable<SpellInstance | null>): void {
+    if (!this.hasPerk('UNLIMITED_SPELLS')) return;
+    for (const s of spells) if (s && s.id !== 'HEAL_BULLET') s.uses = -1;
+  }
+
   canEditWands(): boolean {
     if (this.hasPerk('EDIT_WANDS_EVERYWHERE')) return true;
     const p = this.run.game.player.body;
@@ -79,7 +89,7 @@ export class Progression {
     const wandShop = layerRng.chance(0.35);
     switch (s.kind) {
       case 'hm_shop': {
-        const extra = this.perks.get('EXTRA_SHOP_ITEM') ?? 0;
+        const extra = Math.min(3, this.perks.get('EXTRA_SHOP_ITEM') ?? 0);
         const idx = (s.data?.index as number) ?? 0;
         if (idx >= 5 + extra) return;
         if (wandShop && idx < 3) {
@@ -94,18 +104,20 @@ export class Progression {
       }
       case 'hm_perk': {
         const idx = ((s.data?.index as number) ?? 10) - 10;
-        const count = 3 + (this.perks.get('EXTRA_PERK') ?? 0);
+        const count = Math.min(6, 3 + (this.perks.get('EXTRA_PERK') ?? 0));
         if (idx >= count) return;
+        // spread however many perks are offered evenly along the altar
+        const x = HM.cx + 0.5 + (idx - (count - 1) / 2) * (count > 3 ? 5.5 : 6);
         const pool = PERKS.filter((p) => p.stackable || !this.hasPerk(p.id));
         const chosen: string[] = [];
         const pr = new Rng(hash3(run.game.opts.seed, layer, 0x9e4c + (this.rerolls.get(layer) ?? 0) * 7919));
-        while (chosen.length < 3 && pool.length) {
+        while (chosen.length < count && pool.length) {
           const p = pr.weighted(pool, (q) => q.weight);
           chosen.push(p.id);
           pool.splice(pool.indexOf(p), 1);
         }
         const id = chosen[idx % chosen.length];
-        run.pickups.add('perk', s.x, s.y + 1, s.z, { perk: id, label: PERK_BY_ID[id].name, baseY: s.y + 1, layer });
+        run.pickups.add('perk', x, s.y + 1, s.z, { perk: id, label: PERK_BY_ID[id].name, baseY: s.y + 1, layer });
         break;
       }
       case 'hm_reroll':
@@ -144,9 +156,11 @@ export class Progression {
         let n = 0;
         for (const w of run.inv.wands) if (w) {
           w.refreshCharges();
+          this.applySpellPerks(w.spells);
           n++;
         }
         for (const s of run.inv.spells) if (s && SPELLS[s.id]) s.uses = SPELLS[s.id].maxUses;
+        this.applySpellPerks(run.inv.spells);
         run.hud.log('Your spells have been refreshed', '#a0d0ff');
         run.sound('heal');
         run.pickups.remove(pk);
@@ -216,8 +230,8 @@ export class Progression {
       case 'VAMPIRISM': p.maxHp *= 0.75; p.hp = Math.min(p.hp, p.maxHp); break;
       case 'GLASS_CANNON': p.maxHp = Math.min(p.maxHp, 50); p.hp = Math.min(p.hp, 50); break;
       case 'UNLIMITED_SPELLS':
-        for (const w of run.inv.wands) if (w) for (const s of w.spells) if (s && s.id !== 'HEAL_BULLET') s.uses = -1;
-        for (const s of run.inv.spells) if (s && s.id !== 'HEAL_BULLET') s.uses = -1;
+        for (const w of run.inv.wands) if (w) this.applySpellPerks(w.spells);
+        this.applySpellPerks(run.inv.spells);
         break;
       case 'NO_MORE_SHUFFLE':
         for (const w of run.inv.wands) if (w) {

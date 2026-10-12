@@ -344,7 +344,7 @@ export class Run {
         break;
       }
       case 'chest':
-        this.pickups.add('chest', s.x, s.y, s.z, { gold: r.int(1, 1 << 30) });
+        this.pickups.add('chest', s.x, s.y, s.z, { gold: r.int(1, 1 << 30), tier });
         break;
       case 'heart':
         this.pickups.add('heart', s.x, s.y + 1.4, s.z, { baseY: s.y + 1.4 });
@@ -539,7 +539,7 @@ export class Run {
     const origin = this.castOrigin();
     const target = this.aim();
     const dir = new THREE.Vector3().subVectors(target, origin);
-    if (dir.lengthSq() < 4) g.lookDir().clone();
+    if (dir.lengthSq() < 4) dir.copy(g.lookDir()); // point blank: shoot straight along the view
     dir.normalize();
     // drunk players cast with extra spread
     const drunkSpread = p.status.drunk > 0.05 ? 8 * p.status.drunk : 0;
@@ -789,6 +789,7 @@ export class Run {
     }
     switch (pk.kind) {
       case 'wand': {
+        this.progression.applySpellPerks(pk.wand!.spells);
         const slot = this.inv.wands.indexOf(null);
         if (slot < 0) {
           // swap with the held wand (Noita drops the current one)
@@ -807,7 +808,9 @@ export class Run {
       }
       case 'spell': {
         this.hint('spell', `Spells go into your bag (${this.game.input.key('inventory')}). You can place them into wands only inside a Holy Mountain.`);
-        if (this.inv.addSpell({ id: pk.spell!.id, uses: pk.spell!.uses }) < 0) {
+        const inst = { id: pk.spell!.id, uses: pk.spell!.uses };
+        this.progression.applySpellPerks([inst]);
+        if (this.inv.addSpell(inst) < 0) {
           this.hud.log('Spell inventory is full', '#ff8060');
           return;
         }
@@ -840,10 +843,11 @@ export class Run {
   private openChest(pk: Pickup): void {
     const r = new Rng(pk.gold ?? 1);
     const x = pk.body.x, y = pk.body.y + 1.5, z = pk.body.z;
+    // loot quality of the biome the chest was found in (the pacifist chest: the biome just cleared)
+    const tier = Math.max(1, Math.min(6, pk.tier ?? biomeAt(pk.body.y)?.lootTier ?? 1));
     const n = r.int(2, 4);
     for (let i = 0; i < n; i++) {
       const roll = r.next();
-      const tier = Math.max(1, Math.round(1 + (5200 - y) / 300));
       if (roll < 0.35) for (let k = 0; k < r.int(3, 8); k++) this.pickups.add('gold', x + r.range(-1, 1), y, z + r.range(-1, 1), { gold: r.chance(0.2) ? 50 : 10, life: -1 });
       else if (roll < 0.6) {
         const id = randomSpell(() => r.next(), Math.min(6, tier));

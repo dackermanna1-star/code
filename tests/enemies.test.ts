@@ -100,6 +100,16 @@ describe('EnemySystem', () => {
     expect(trickGold).toBe(gold * 2);
   });
 
+  it('big kills drop their full gold value', () => {
+    const t = makeRun();
+    const e = t.enemies.spawn('stevari', 60, 4.01, 60, 0, new Rng(9))!;
+    t.damage.apply({ target: e, amount: 1e6, type: 'projectile', source: null, x: 0, y: 0, z: 0 });
+    const gold = t.pickups.list.filter((p) => p.kind === 'gold').reduce((a, p) => a + (p.gold ?? 0), 0);
+    const expected = Math.max(10, Math.round(e.maxHp / 2.5 / 10) * 10) * 2; // no player source: trick kill
+    expect(gold).toBe(expected);
+    expect(t.pickups.list.filter((p) => p.kind === 'gold').length).toBeLessThanOrEqual(12);
+  });
+
   it('burning enemies panic instead of attacking; fire-immune ones keep fighting', () => {
     const t = makeRun();
     const hound = t.enemies.spawn('hound', 40, 4.01, 30, 0, new Rng(6))!;

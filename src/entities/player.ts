@@ -9,6 +9,7 @@ import { moveBody, boxCollides } from './physics';
 
 export const PLAYER_HW = 1.35;
 export const PLAYER_H = 8.4;
+const JUMP_BUFFER = 0.1;
 export const PLAYER_CROUCH_H = 5.4;
 export const EYE_OFFSET = 1.0; // eye is this far below the top of the body
 
@@ -50,6 +51,12 @@ export class Player extends Creature {
   eyeY = 0;
   bob = 0;
   jumpHeldTime = 0;
+  /**
+   * Seconds a jump press stays queued. Presses are latched every render frame (look()) because the
+   * fixed 60 Hz tick does not run on every frame of a high-refresh display, and a short buffer
+   * also accepts a press made just before landing.
+   */
+  jumpBuffer = 0;
   landedImpact = 0;
   speedMult = 1;
   levSpeedMult = 1;
@@ -88,6 +95,7 @@ export class Player extends Creature {
     const lim = Math.PI / 2 - 0.01;
     if (this.pitch > lim) this.pitch = lim;
     if (this.pitch < -lim) this.pitch = -lim;
+    if (input.hit('jump')) this.jumpBuffer = JUMP_BUFFER;
   }
 
   /** Fixed-step movement update. */
@@ -146,7 +154,9 @@ export class Player extends Creature {
     if (jumpHeld) this.jumpHeldTime += dt;
     else this.jumpHeldTime = 0;
     this.levitating = false;
-    if (input.hit('jump') && b.onGround && !frozen) {
+    if (input.hit('jump')) this.jumpBuffer = JUMP_BUFFER;
+    if (this.jumpBuffer > 0 && b.onGround && !frozen) {
+      this.jumpBuffer = 0;
       b.vy = t.jumpV;
       b.onGround = false;
       events.jump();
@@ -155,6 +165,7 @@ export class Player extends Creature {
       this.levitation = Math.max(0, this.levitation - dt);
       this.levitating = true;
     }
+    this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
     if (b.onGround && !this.levitating) this.levitation = Math.min(this.levitationMax, this.levitation + t.levRechargeGround * dt * (this.levitationMax / DEFAULT_TUNING.levTime > 1 ? 0.5 : 1));
     // gravity, buoyancy, drag
     if (inLiquid) {

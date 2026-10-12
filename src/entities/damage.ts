@@ -67,6 +67,7 @@ export class DamageSystem {
       return amount;
     }
     if (t.isPlayer && this.godMode) amount = 0;
+    if (t.status.invuln > 0) amount = 0; // grace period (e.g. after Extra Life)
     if (t.isPlayer && (t as unknown as { stainless?: boolean }).stainless && !this.hasStain(t)) amount *= 0.5;
     if (amount <= 0) return 0;
     const hpBefore = t.hp;

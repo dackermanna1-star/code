@@ -234,6 +234,45 @@ export default {
     }).catch((e) => console.log('storm skipped', String(e).slice(0, 80)));
     await sample('projectiles');
   },
+  async hmexit({ shot, wait, run }) {
+    // drop down the first Holy Mountain's exit shaft: it must collapse behind the player without trapping them
+    await wait(1000);
+    const floor = 1920 - 256 - 64 + 18;
+    await run(() => {
+      const d = window.run.damage, orig = d.apply.bind(d);
+      window.__hurt = [];
+      d.apply = (ev) => {
+        const r = orig(ev);
+        if (ev.target === window.game.player && r > 0) window.__hurt.push(`${ev.type}:${r.toFixed(1)}:${ev.source ? ev.source.kind ?? ev.source.def?.id : '-'}`);
+        return r;
+      };
+    });
+    await teleport(run, wait, 146.5, floor + 0.05, 128.5, 0, -0.6);
+    await wait(4000);
+    const r = await run(() => {
+      const b = window.game.player.body;
+      return { collapsed: window.run.progression.collapsed.has(0), dy: +(b.y - (1920 - 256 - 64 + 18)).toFixed(1), stuck: b.stuck, hp: window.game.player.hp, hurt: window.__hurt.slice(0, 12) };
+    });
+    console.log('hmexit', JSON.stringify(r), r.collapsed && !r.stuck && r.dy < -20 ? 'PASS' : 'FAIL');
+    console.log('stuck bodies', JSON.stringify(await run(() => {
+      const out = [];
+      for (const c of window.run.damage.creatures) if (c.body.stuck) out.push(`${c.def?.id ?? c.kind}@${c.body.x.toFixed(0)},${c.body.y.toFixed(0)},${c.body.z.toFixed(0)} sleep=${c.sleeping}`);
+      for (const p of window.run.pickups.list) if (p.body.stuck) out.push(`pickup:${p.kind}@${p.body.x.toFixed(0)},${p.body.y.toFixed(0)},${p.body.z.toFixed(0)}`);
+      return out;
+    })));
+    console.log('around', JSON.stringify(await run(() => {
+      const g = window.game, b = g.player.body, counts = {};
+      for (let y = -4; y < 12; y++) for (let z = -10; z <= 10; z++) for (let x = -10; x <= 10; x++) {
+        const m = g.world.get(Math.floor(b.x) + x, Math.floor(b.y) + y, Math.floor(b.z) + z);
+        const n = window.__MATERIALS ? window.__MATERIALS[m].name : m;
+        counts[n] = (counts[n] ?? 0) + 1;
+      }
+      return counts;
+    })));
+    await run(() => { window.game.player.pitch = 1.4; });
+    await wait(400);
+    await shot('sealed');
+  },
   async holymountain({ shot, wait, run }) {
     await wait(1000);
     const floor = 1920 - 256 - 64 + 18;

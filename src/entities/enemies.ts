@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { GRAVITY } from '../config';
 import { Rng } from '../core/rng';
 import { Creature, DamageType } from './creature';
-import { moveBody, depenetrate } from './physics';
+import { moveBody, placeBody } from './physics';
 import { ENEMIES, ENEMY_PROJECTILES, EnemyDef } from './enemyDefs';
 import { registerProjectiles } from './projectiles';
 import { buildEnemyModel, EnemyModel, disposeEnemyModel } from '../render/enemyModels';
@@ -81,10 +81,23 @@ export class EnemySystem {
     // deeper = tougher (Noita doubles most HP in the Jungle and the Vault)
     const hpMult = depth >= 4 ? 2 : depth >= 2 ? 1.4 : 1;
     const e = new Enemy(def, x, y, z, def.behaviour === 'prop' ? 1 : hpMult, rng);
+    // big creatures may not fit where the generator put them: find room nearby, or skip the spawn
+    // when the whole neighbourhood is loaded and there is really no room (unloaded neighbours count
+    // as solid, so in that case keep it: it sleeps until they load and then gets pushed free)
+    const world = this.run.game.world;
+    if (!placeBody(world, e.body, 8)) {
+      const b = e.body;
+      let allLoaded = true;
+      for (const dx of [-8 - b.hw, 8 + b.hw]) for (const dy of [-8, b.h + 8]) for (const dz of [-8 - b.hw, 8 + b.hw])
+        if (!world.chunkAt(Math.floor(b.x + dx), Math.floor(b.y + dy), Math.floor(b.z + dz))) allLoaded = false;
+      if (allLoaded) {
+        disposeEnemyModel(e.model);
+        return null;
+      }
+    }
     this.list.push(e);
     this.group.add(e.model.root);
     this.run.damage.creatures.push(e);
-    depenetrate(this.run.game.world, e.body);
     return e;
   }
 
@@ -93,6 +106,7 @@ export class EnemySystem {
     const g = this.run.game;
     for (let i = 0; i < 24; i++) g.particles.spawn(e.cx, e.cy, e.cz, (Math.random() - 0.5) * 10, Math.random() * 8, (Math.random() - 0.5) * 10, [0.85, 0.5, 1], 0.6, 0.45, 0.2, true, 2);
     e.alive = false;
+    this.hideLaser(e);
     this.group.remove(e.model.root);
     disposeEnemyModel(e.model);
     const n = this.spawn(type, e.body.x, e.body.y, e.body.z, 0, e.rng);
@@ -527,9 +541,12 @@ export class EnemySystem {
     let gold = Math.max(10, Math.round(e.maxHp / 2.5 / 10) * 10);
     if (trick) gold *= 2;
     if (def.goldOverride !== undefined) gold = def.goldOverride;
+    // about a dozen nuggets at most, in Noita's denominations, always adding up to the full amount
     let n = 0;
-    while (gold > 0 && n < 12) {
-      const v = gold >= 100 && n >= 5 ? 50 : 10;
+    while (gold > 0 && n < 40) {
+      let v = 10;
+      if (gold > (11 - n) * 10) for (const d of [1000, 200, 50]) if (d <= gold) { v = d; break; }
+      v = Math.min(v, gold);
       run.pickups.add('gold', e.cx + e.rng.range(-1, 1), e.cy, e.cz + e.rng.range(-1, 1), { gold: v });
       const pk = run.pickups.list[run.pickups.list.length - 1];
       pk.body.vx = e.rng.range(-8, 8);
@@ -552,9 +569,9 @@ export class EnemySystem {
       const b = e.body;
       m.root.position.set(b.x, b.y, b.z);
       m.root.rotation.y = e.yaw;
-      // lunge contact damage
+      // lunge contact damage (not while paused: paused frames run with dt = 0)
       const le = e as Enemy & { lungeT?: number };
-      if (le.lungeT && le.lungeT > 0) {
+      if (dt > 0 && le.lungeT && le.lungeT > 0) {
         le.lungeT -= dt;
         const tg = e.target;
         if (tg && tg.alive && Math.hypot(tg.cx - e.cx, tg.cy - e.cy, tg.cz - e.cz) < e.def.melee!.range + tg.body.hw) {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { VoxelWorld, chunkKey, RAY_SOLID } from '../src/world/world';
 import { Chunk } from '../src/world/chunk';
-import { makeBody, moveBody, depenetrate } from '../src/entities/physics';
+import { makeBody, moveBody, depenetrate, placeBody } from '../src/entities/physics';
 import { AIR, ROCK, SAND } from '../src/world/materials';
 import { TerrainDestructionSystem } from '../src/sim/destruction';
 import { MaterialSimulation } from '../src/sim/simulation';
@@ -61,6 +61,23 @@ describe('voxel physics', () => {
     for (let y = 4; y < 7; y++) for (let z = 18; z < 23; z++) for (let x = 18; x < 23; x++) w.set(x, y, z, SAND);
     expect(depenetrate(w, b)).toBe(true);
     expect(b.y).toBeGreaterThanOrEqual(7);
+  });
+
+  it('a body buried deeper than the per-tick push-out is moved to the nearest open space', () => {
+    const w = world();
+    // an 8-voxel thick slab around the body
+    for (let y = 4; y < 12; y++) for (let z = 10; z < 34; z++) for (let x = 10; x < 34; x++) w.set(x, y, z, ROCK);
+    const b = makeBody(24, 4.01, 24, 1.35, 8.4);
+    moveBody(w, b, 1 / 60);
+    expect(b.stuck).toBe(false);
+    expect(b.y).toBeGreaterThanOrEqual(12);
+    // fully enclosed far from any air: stays put and reports stuck
+    const solid = world();
+    for (let y = 4; y < 48; y++) for (let z = 0; z < 48; z++) for (let x = 0; x < 48; x++) solid.set(x, y, z, ROCK);
+    const c = makeBody(24, 20, 24, 1.35, 8.4);
+    expect(placeBody(solid, c, 6)).toBe(false);
+    moveBody(solid, c, 1 / 60);
+    expect(c.stuck).toBe(true);
   });
 
   it('digging terrain removes voxels across chunk boundaries and the body then falls', () => {

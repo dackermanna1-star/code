@@ -23,6 +23,8 @@ export interface Pickup {
   spell?: { id: string; uses: number };
   potion?: Potion;
   gold?: number;
+  /** loot tier (chests) */
+  tier?: number;
   perk?: string;
   /** Holy Mountain shop price (0 = free) */
   price: number;
@@ -166,7 +168,8 @@ export class PickupSystem {
           continue;
         }
       }
-      if (!p.floating) {
+      if (!p.floating && this.world.chunkAt(Math.floor(p.body.x), Math.floor(p.body.y), Math.floor(p.body.z))) {
+        // (pickups in unloaded chunks stay frozen)
         p.body.vy -= GRAVITY * dt;
         if (p.body.vy < -60) p.body.vy = -60;
         const k = Math.exp(-2 * dt);
@@ -175,7 +178,7 @@ export class PickupSystem {
           p.body.vz *= k;
         }
         moveBody(this.world, p.body, dt);
-      } else {
+      } else if (p.floating) {
         p.body.y = p.baseY + Math.sin(time * 2 + p.id) * 0.25;
       }
       p.spin += dt * (p.kind === 'gold' ? 2.5 : 0.9);

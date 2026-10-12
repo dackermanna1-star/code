@@ -16,6 +16,7 @@ import { Wand } from './magic/casting';
 import { generateWand } from './magic/wandGen';
 import { makePotion } from './game/inventory';
 import { HM, hmFloorY } from './world/biomes';
+import { MATERIALS } from './world/materials';
 
 // Colours are authored in sRGB and the renderer outputs them unconverted (pixel-art palette fidelity).
 THREE.ColorManagement.enabled = false;
@@ -131,6 +132,7 @@ async function startGame(seed: number, sandbox: boolean): Promise<void> {
   (window as unknown as Record<string, unknown>).debug = debug;
   // test hooks for automated scenarios
   (window as unknown as Record<string, unknown>).__spellIds = Object.keys(SPELLS);
+  (window as unknown as Record<string, unknown>).__MATERIALS = MATERIALS;
   (window as unknown as Record<string, unknown>).__makeWand = (id: string) => {
     const def = SPELLS[id];
     const spells = [{ id, uses: def.maxUses }];

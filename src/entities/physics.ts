@@ -23,12 +23,14 @@ export interface Body {
   hitCeiling: boolean;
   stepUp: number; // max voxels to auto-step
   stuck: boolean;
+  /** consecutive ticks spent stuck */
+  stuckTicks: number;
 }
 
 export function makeBody(x: number, y: number, z: number, hw: number, h: number, stepUp = 0): Body {
   return {
     x, y, z, vx: 0, vy: 0, vz: 0, hw, h, onGround: false, liquid: 0, liquidMat: AIR,
-    hitWallX: false, hitWallZ: false, hitCeiling: false, stepUp, stuck: false,
+    hitWallX: false, hitWallZ: false, hitCeiling: false, stepUp, stuck: false, stuckTicks: 0,
   };
 }
 
@@ -50,10 +52,37 @@ function collidesAt(world: VoxelWorld, b: Body, x: number, y: number, z: number)
   return boxCollides(world, x - b.hw, y, z - b.hw, x + b.hw, y + b.h, z + b.hw);
 }
 
+/**
+ * Find the nearest free spot for a body within `maxR` voxels (upwards first, then sideways and
+ * diagonally, ring by ring) and move it there. Used when spawning and for bodies that stay buried.
+ */
+export function placeBody(world: VoxelWorld, b: Body, maxR = 10): boolean {
+  if (!collidesAt(world, b, b.x, b.y, b.z)) return true;
+  for (let r = 1; r <= maxR; r++) {
+    for (let dy = r; dy >= -r; dy--) {
+      const ring = r - Math.abs(dy);
+      // points on the horizontal ring at this height (8 directions)
+      const pts: [number, number][] = ring === 0 ? [[0, 0]] : [[ring, 0], [-ring, 0], [0, ring], [0, -ring], [ring, ring], [-ring, ring], [ring, -ring], [-ring, -ring]];
+      for (const [dx, dz] of pts) {
+        if (!collidesAt(world, b, b.x + dx, b.y + dy, b.z + dz)) {
+          b.x += dx;
+          b.y += dy;
+          b.z += dz;
+          b.stuck = false;
+          b.stuckTicks = 0;
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 /** Try to push a body out of solid terrain. Returns true if free afterwards. */
 export function depenetrate(world: VoxelWorld, b: Body): boolean {
   if (!collidesAt(world, b, b.x, b.y, b.z)) {
     b.stuck = false;
+    b.stuckTicks = 0;
     return true;
   }
   for (let k = 1; k <= 6; k++) {
@@ -71,6 +100,11 @@ export function depenetrate(world: VoxelWorld, b: Body): boolean {
         return true;
       }
     }
+  }
+  // still buried: every half second, look further afield
+  if (b.stuckTicks++ % 30 === 0 && placeBody(world, b, 10)) {
+    collisionStats.depenetrations++;
+    return true;
   }
   b.stuck = true;
   collisionStats.stuck++;
