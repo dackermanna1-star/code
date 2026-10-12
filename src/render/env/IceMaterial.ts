@@ -161,7 +161,7 @@ export function createIceMaterial(u: IceUniforms, opts: { reflections: boolean }
           float mag = max(fw.x, fw.y);
           vec4 far_ = texture2D(uDecalMap, uv);
           // Thin spray seen at grazing angles would only read as pink: boost its coverage a little.
-          far_ *= (1.0 - pow(1.0 - clamp(far_.a, 0.0, 1.0), 1.8)) / max(far_.a, 1e-3);
+          far_ *= (1.0 - pow(1.0 - clamp(far_.a, 0.0, 1.0), 3.2)) / max(far_.a, 1e-3);
           if (mag > 0.8) return far_;
           vec2 st = uv * ts - 0.5;
           vec2 i = floor(st);
@@ -241,7 +241,12 @@ export function createIceMaterial(u: IceUniforms, opts: { reflections: boolean }
       .replace(
         '#include <roughnessmap_fragment>',
         /* glsl */ `#include <roughnessmap_fragment>
-        roughnessFactor = mix(0.34 + 0.22 * iceN1.x, 0.16, wet);`,
+        #ifdef ICE_FP
+        // Seen at grazing angles a glossy pool mirrors the bright sky and reads pink.
+        roughnessFactor = mix(0.34 + 0.22 * iceN1.x, 0.55, wet);
+        #else
+        roughnessFactor = mix(0.34 + 0.22 * iceN1.x, 0.16, wet);
+        #endif`,
       )
       .replace(
         '#include <normal_fragment_maps>',
@@ -269,7 +274,7 @@ export function createIceMaterial(u: IceUniforms, opts: { reflections: boolean }
           R.y = max(R.y, 0.0);
           vec3 sky = textureLod(uEnvCube, R, uEnvLod + mix(3.2, 1.2, wet)).rgb;
           sky = mix(sky, outgoingLight, 0.3 * clean);
-          float mk = fres * mix(uFpMirror, 0.12, wet) * (1.0 - 0.3 * iceMist * clean);
+          float mk = fres * mix(uFpMirror, 0.05, smoothstep(0.0, 0.45, wet)) * (1.0 - 0.3 * iceMist * clean);
           outgoingLight = mix(outgoingLight, sky, clamp(mk, 0.0, 1.0));
           #ifdef ICE_REFL
           // Planar reflection of characters: faint from above, stronger at grazing angles.

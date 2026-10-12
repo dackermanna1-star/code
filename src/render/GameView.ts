@@ -943,8 +943,8 @@ export class GameView {
         h.rig.root.updateMatrixWorld(true);
         const s = m.laser.getWorldPosition(new THREE.Vector3());
         const end = new THREE.Vector3(-30, s.y, s.z);
-        this.effects.beam(s, end, 0.014, 0xff2010, 0.55, 0.0001);
-        this.effects.beam(s.clone().add(new THREE.Vector3(0, -0.02, 0)), end.clone().add(new THREE.Vector3(0, -0.02, 0)), 0.012, 0xff6400, 0.4, 0.0001);
+        this.effects.beamFrame(s, end, 0.014, 0xff2010, 0.55);
+        this.effects.beamFrame(s.clone().add(new THREE.Vector3(0, -0.02, 0)), end.clone().add(new THREE.Vector3(0, -0.02, 0)), 0.012, 0xff6400, 0.4);
       }
     }
   }

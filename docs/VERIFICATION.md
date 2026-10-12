@@ -73,3 +73,18 @@ Remaining differences:
 * GPU frame time could not be measured here (software rendering only).
   `?quality=low` drops the planar character reflection and shadows and caps
   the pixel ratio.
+
+## First person, modern UI, denser blood (second round)
+
+* `npm test` — 44 unit tests, including 18 for first person: aimed body/head/miss,
+  side and behind shots, pierce, shell ricochet, spread growth with distance,
+  aimed grenades and launcher rounds, heading-relative recoil, kicks and movement,
+  a first-person aimbot level, and classic-mode regression snapshots.
+* Classic mode is unchanged: a bot-driven fingerprint of 5 seeded games (every
+  bullet path, hit, projectile and final state) hashes identically before and after
+  the first-person logic; classic frames are pixel-identical after switching to
+  first person and back (environment and stage); the classic HUD style matches the
+  earlier captures.
+* The single-file build (`release/SealHunter.html`) was driven from `file://` in a
+  headless browser: title → "Play first person" → pointer lock → mouse look, `W`,
+  mouse fire → `V` back to classic, all 193 sounds loaded, no page errors.

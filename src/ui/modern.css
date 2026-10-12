@@ -1274,3 +1274,16 @@
     transition-duration: 1ms !important;
   }
 }
+
+/* First person: the hands and gun fill the bottom centre, so the weapon bar
+   moves to the bottom-left corner (slightly smaller) and the health bar sits
+   above it. */
+#game-view[data-view='first'] .shm-bar {
+  left: 8px;
+  transform: scale(0.85);
+  transform-origin: 0 100%;
+}
+
+#game-view[data-view='first'] .shm-health {
+  bottom: 36px;
+}

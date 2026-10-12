@@ -31,8 +31,8 @@ npm run build:single # writes release/SealHunter.html (~9 MB, sounds and fonts e
 
 A prebuilt copy is committed at `release/SealHunter.html`.
 
-URL options (handy for testing): `?play` (skip the title), `?autoplay` (bot plays),
-`?speed=2` (time scale), `?quality=low|medium|high`, `?nosound`.
+URL options (handy for testing): `?play` (skip the title), `?fp` (first person),
+`?autoplay` (bot plays), `?speed=2` (time scale), `?quality=low|medium|high`, `?nosound`.
 
 ## How to play
 
@@ -54,6 +54,25 @@ epilogue.
 | Pause | `P` / `Esc` |
 
 Gamepads work too (stick/d-pad move, A/RT fire, X reload, Y/LB cycle, RB buy, B jump, Start pause).
+
+### First person
+
+Choose **Play first person** on the title screen, set Options → View, or press
+**`V`** at any time (gamepad: Back / L3) to switch between the classic view and first
+person.
+
+| Action | First person |
+|---|---|
+| Look | Mouse (click the game to capture the mouse) / right stick |
+| Move | `W A S D` relative to where you look (strafe) / left stick |
+| Fire | Left mouse button or `Space` |
+| Cycle weapons | Mouse wheel, `Q` / `Tab` |
+| Release the mouse and pause | `Esc` |
+
+What is under the reticle is what you hit (true 3D aiming with each weapon's spread);
+grenades and launcher rounds fly where you look. Creatures still march from left to
+right — they can escape behind you, so watch the radar in the top-left corner (the red
+line is the escape edge). Mouse sensitivity and invert-Y are in Options.
 
 Tips from the original: shoot the cub out of an activist's arms and he runs away
 harmlessly; wounded brown seals crawl — kick them; the polar bear speeds up as
@@ -91,9 +110,17 @@ docs/           research notes, reference screenshots
   permanent corpses (batched), casings and magazines that stay on the ice.
 - Two-layer 3D staging: a 3D iceberg/sky/sea backdrop and the near-orthographic
   32° gameplay camera, ice with iceberg + planar character reflections, shadows.
-- Original HUD, crosshair with ammo / reload %, money pop-ups, title screen with a
-  live attract-mode game, pause, options (volume, blood, quality, FPS), how-to-play,
-  game over / victory statistics and local high scores.
+- First-person mode: eye-level camera that fills the window, pointer-lock mouse
+  look, view-relative movement, 3D aimed shots with per-part hit volumes, animated
+  first-person arms and weapons (recoil, reloads, switching, grenade throws, minigun
+  spin), the hunter's body still casting its shadow and reflection, a full 360°
+  arctic world (sky, sea to the horizon, distant icebergs and floes, haze),
+  directional audio and a radar.
+- Modern minimal UI by default (glass HUD, weapon bar, radar, clean menus that work at
+  any aspect ratio), with the original 2005 HUD one option away (Options → Interface).
+  Crosshair with ammo / reload %, money pop-ups, title screen with a live attract-mode
+  game, pause, options (view, interface, mouse, volume, blood, quality, FPS),
+  how-to-play, game over / victory statistics and local high scores.
 - The original sound effects through Web Audio with stereo panning, voice limiting,
   and synthesised arctic ambience.
 
@@ -111,6 +138,10 @@ docs/           research notes, reference screenshots
   which should be comfortable on any discrete or modern integrated GPU. Use
   `?quality=low` (or Options → quality) on weak machines.
 - The walrus's life (6000) is a documented guess; the original value is unknown.
+- First person keeps the original's numbers (spread, splash radius, enemy speeds), so
+  it plays differently from classic: shotguns are loose at range, splash reaches less
+  far in depth than sideways, and creatures can slip past behind you.
+- In first person, smoke and explosion particles are not affected by the distance haze.
 
 ## Tests and tools
 
