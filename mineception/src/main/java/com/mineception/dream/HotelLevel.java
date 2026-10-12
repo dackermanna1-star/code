@@ -26,6 +26,30 @@ final class HotelLevel {
 	private static final int FLOOR = 3;
 	private static final int G = FLOOR + 1;
 
+	/** Three moods for the lobby. */
+	private enum Palette {
+		/** Warm terracotta walls under a quartz ceiling, golden lamps. */
+		WARM(TERRACOTTA, QUARTZ_BLOCK, DARK_OAK_PLANKS, TERRACOTTA, GLOWSTONE),
+		/** White marble everywhere, cool sea lantern light. */
+		MARBLE(QUARTZ_BLOCK, WHITE_WOOL, POLISHED_ANDESITE, QUARTZ_BLOCK, SEA_LANTERN),
+		/** Dark wood panelling and walls of books, like an old library. */
+		LIBRARY(DARK_OAK_PLANKS, DARK_OAK_PLANKS, DARK_OAK_PLANKS, BOOKSHELF, GLOWSTONE);
+
+		final MiniBlock wall;
+		final MiniBlock ceiling;
+		final MiniBlock aisleA;
+		final MiniBlock aisleB;
+		final MiniBlock lamp;
+
+		Palette(MiniBlock wall, MiniBlock ceiling, MiniBlock aisleA, MiniBlock aisleB, MiniBlock lamp) {
+			this.wall = wall;
+			this.ceiling = ceiling;
+			this.aisleA = aisleA;
+			this.aisleB = aisleB;
+			this.lamp = lamp;
+		}
+	}
+
 	private final MiniWorld w;
 	private final DreamRandom r;
 	/** Nave centre x, half the distance between the column rows, and the column spacing along z. */
@@ -35,6 +59,8 @@ final class HotelLevel {
 	/** Ceiling layer and gallery floor layer (0 if the hall has no galleries). */
 	private final int ceiling;
 	private final int gallery;
+	/** The hotel's mood: wall, ceiling, aisle floor and lamp materials. */
+	private final Palette palette;
 	private final MiniBlock wall;
 	private final MiniBlock lamp;
 	/** Row of the reception desk. */
@@ -48,8 +74,9 @@ final class HotelLevel {
 		this.spacing = r.range(5, 6);
 		this.ceiling = G + r.range(10, 12);
 		this.gallery = r.chance(0.8) ? G + r.range(4, 5) : 0;
-		this.wall = r.pick(TERRACOTTA, TERRACOTTA, QUARTZ_BLOCK);
-		this.lamp = r.chance(0.7) ? GLOWSTONE : SEA_LANTERN;
+		this.palette = r.pick(Palette.values());
+		this.wall = palette.wall;
+		this.lamp = palette.lamp;
 		this.deskZ = r.range(29, 31);
 	}
 
@@ -65,7 +92,11 @@ final class HotelLevel {
 			galleries();
 		}
 		sideWalls();
-		entrance();
+		if (gallery > 0 && r.chance(0.5)) {
+			grandStair();
+		} else {
+			entrance();
+		}
 		lounge();
 		reception();
 		int distance = r.range(WorldGen.MIN_SPAWN_DISTANCE, WorldGen.MAX_SPAWN_DISTANCE);
@@ -79,7 +110,7 @@ final class HotelLevel {
 		Build.fill(w, 0, G, 39, 39, ceiling, 39, wall);
 		Build.fill(w, 0, G, 0, 0, ceiling, 39, wall);
 		Build.fill(w, 39, G, 0, 39, ceiling, 39, wall);
-		Build.fill(w, 0, ceiling, 0, 39, ceiling, 39, wall == QUARTZ_BLOCK ? WHITE_WOOL : QUARTZ_BLOCK);
+		Build.fill(w, 0, ceiling, 0, 39, ceiling, 39, palette.ceiling);
 		// Dark oak skirting along the bottom of every wall
 		for (int i = 0; i < 40; i++) {
 			w.set(i, G, 0, DARK_OAK_PLANKS);
@@ -101,7 +132,7 @@ final class HotelLevel {
 					b = checker ? (Math.floorMod(x + z, 2) == 0 ? QUARTZ_BLOCK : POLISHED_ANDESITE)
 						: (dx == half - 1 ? TERRACOTTA : QUARTZ_BLOCK);
 				} else {
-					b = Math.floorMod(x / 2 + z, 2) == 0 ? DARK_OAK_PLANKS : TERRACOTTA;
+					b = Math.floorMod(x / 2 + z, 2) == 0 ? palette.aisleA : (palette == Palette.LIBRARY ? DARK_OAK_PLANKS : palette.aisleB);
 				}
 				w.set(x, FLOOR, z, b);
 			}
@@ -177,10 +208,11 @@ final class HotelLevel {
 		for (int side = -1; side <= 1; side += 2) {
 			int x = side < 0 ? 0 : 39;
 			for (int z = 2; z <= deskZ - 2; z += 4) {
-				if (r.chance(0.55)) {
+				if (r.chance(palette == Palette.LIBRARY ? 0.3 : 0.55)) {
 					Build.fill(w, x, G + 1, z, x, top - 1, z + 1, GLASS);
 				} else {
-					Build.fillAir(w, x - side, G, z, x - side, Math.min(G + 2, top - 1), z + 1, BOOKSHELF);
+					int shelves = palette == Palette.LIBRARY ? top - 1 : Math.min(G + 2, top - 1);
+					Build.fillAir(w, x - side, G, z, x - side, shelves, z + 1, BOOKSHELF);
 				}
 			}
 			if (gallery > 0) {
@@ -201,6 +233,43 @@ final class HotelLevel {
 			Build.fill(w, x, G + 1, 0, x + side, ceiling - 3, 0, GLASS);
 			plant(ac + side * 3, 2);
 		}
+	}
+
+	/**
+	 * Instead of the doors: a grand staircase at the end of the carpet, rising to a landing that joins the two galleries
+	 * under a tall window.
+	 */
+	private void grandStair() {
+		int steps = gallery - G;
+		int width = 3;
+		Build.fillAir(w, ac - half, gallery, 1, ac + half, gallery, 2, DARK_OAK_PLANKS);
+		for (int x = ac - half + 1; x < ac + half; x++) {
+			if (Math.abs(x - ac) > width) {
+				w.set(x, gallery + 1, 2, DARK_OAK_PLANKS);
+			}
+		}
+		for (int k = 0; k < steps; k++) {
+			int z = 3 + steps - 1 - k;
+			int top = G + k;
+			for (int x = ac - width; x <= ac + width; x++) {
+				Build.column(w, x, G, top, z, QUARTZ_BLOCK);
+				w.set(x, top, z, Math.abs(x - ac) <= 1 ? RED_WOOL : QUARTZ_BLOCK);
+			}
+			for (int side = -1; side <= 1; side += 2) {
+				Build.column(w, ac + side * (width + 1), G, top + 1, z, DARK_OAK_PLANKS);
+			}
+		}
+		// Newel posts with lamps at the foot of the stairs, and the tall window above the landing
+		int foot = 3 + steps - 1;
+		for (int side = -1; side <= 1; side += 2) {
+			Build.column(w, ac + side * (width + 1), G, G + 1, foot + 1, DARK_OAK_PLANKS);
+			w.set(ac + side * (width + 1), G + 2, foot + 1, lamp);
+			int x = ac + side * (half + 2);
+			Build.fill(w, x, G + 1, 0, x + side, gallery - 1, 0, GLASS);
+		}
+		Build.fill(w, ac - 2, gallery + 2, 0, ac + 2, ceiling - 2, 0, GLASS);
+		Build.fill(w, ac - 3, gallery + 2, 0, ac - 3, ceiling - 2, 0, DARK_OAK_PLANKS);
+		Build.fill(w, ac + 3, gallery + 2, 0, ac + 3, ceiling - 2, 0, DARK_OAK_PLANKS);
 	}
 
 	private void plant(int x, int z) {

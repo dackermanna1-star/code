@@ -4,6 +4,7 @@ import static com.mineception.dream.MiniBlock.AIR;
 import static com.mineception.dream.MiniBlock.CRACKED_STONE_BRICKS;
 import static com.mineception.dream.MiniBlock.CRAFTING_TABLE;
 import static com.mineception.dream.MiniBlock.DARK_OAK_PLANKS;
+import static com.mineception.dream.MiniBlock.DEEPSLATE_TILES;
 import static com.mineception.dream.MiniBlock.GLASS;
 import static com.mineception.dream.MiniBlock.GLOWSTONE;
 import static com.mineception.dream.MiniBlock.ICE;
@@ -173,6 +174,8 @@ final class FortressLevel {
 	}
 
 	private void fortress() {
+		boolean spires = r.chance(0.5);
+		boolean greatKeep = r.chance(0.45);
 		int base = plateau;
 		int wallTop = base + r.range(5, 6);
 		int x0 = fx - half;
@@ -192,56 +195,96 @@ final class FortressLevel {
 			}
 		}
 		crenellate(x0, z0, x1, z1, wallTop + 1);
-		// Gate facing the camp, with a lit lantern either side
-		int gateW = 1;
-		Build.fill(w, fx - gateW, base, z1, fx + gateW, base + 2, z1, AIR);
-		w.set(fx, base + 3, z1, AIR);
-		w.set(fx - 2, base + 3, z1 + 1, GLOWSTONE);
-		w.set(fx + 2, base + 3, z1 + 1, GLOWSTONE);
 		// Corner towers
 		int towerTop = wallTop + r.range(3, 4);
 		for (int cx : new int[]{x0, x1}) {
 			for (int cz : new int[]{z0, z1}) {
-				bricks(cx - 1, base, cz - 1, cx + 1, towerTop, cz + 1);
-				crenellate(cx - 1, cz - 1, cx + 1, cz + 1, towerTop + 1);
-				for (Face f : Face.HORIZONTAL) {
-					w.set(cx + f.dx, towerTop - 2, cz + f.dz, GLASS);
-					w.set(cx, towerTop - 2, cz, GLOWSTONE);
-				}
-				w.set(cx, towerTop, cz, SNOW_BLOCK);
+				tower(cx, cz, 1, base, towerTop, spires);
 			}
 		}
-		// The keep: a tall tower with lit windows and a red banner on a pole
+		// Gate facing the camp; the great keep's gate gets a gatehouse of two small towers
+		int gateW = 1;
+		if (greatKeep) {
+			for (int side = -1; side <= 1; side += 2) {
+				tower(fx + side * 3, z1, 1, base, wallTop + 2, spires);
+			}
+		}
+		Build.fill(w, fx - gateW, base, z1, fx + gateW, base + 2, z1, AIR);
+		w.set(fx, base + 3, z1, AIR);
+		w.set(fx - 2, base + 3, z1 + (greatKeep ? 2 : 1), GLOWSTONE);
+		w.set(fx + 2, base + 3, z1 + (greatKeep ? 2 : 1), GLOWSTONE);
+		// The keep: a tall tower with lit windows and a red banner
 		int kx = fx;
 		int kz = fz - 1;
-		int keepTop = Math.min(base + r.range(11, 13), MiniWorld.SY - 6);
-		bricks(kx - 2, base, kz - 2, kx + 2, keepTop, kz + 2);
-		crenellate(kx - 2, kz - 2, kx + 2, kz + 2, keepTop + 1);
-		Build.fill(w, kx - 1, keepTop, kz - 1, kx + 1, keepTop, kz + 1, SNOW_BLOCK);
+		int kh = greatKeep ? 3 : 2;
+		int maxTop = spires ? MiniWorld.SY - kh - 8 : MiniWorld.SY - 6;
+		int keepTop = Math.min(base + (greatKeep ? r.range(13, 15) : r.range(11, 13)), maxTop);
+		bricks(kx - kh, base, kz - kh, kx + kh, keepTop, kz + kh);
 		for (int y = base + 3; y < keepTop - 1; y += 3) {
 			for (Face f : Face.HORIZONTAL) {
-				for (int u = -1; u <= 1; u += 2) {
-					int wx = kx + f.dx * 2 + (f.dx == 0 ? u : 0);
-					int wz = kz + f.dz * 2 + (f.dz == 0 ? u : 0);
+				for (int u = -kh + 1; u <= kh - 1; u += 2) {
+					int wx = kx + f.dx * kh + (f.dx == 0 ? u : 0);
+					int wz = kz + f.dz * kh + (f.dz == 0 ? u : 0);
 					w.set(wx, y, wz, GLASS);
 					w.set(wx - f.dx, y, wz - f.dz, r.chance(0.6) ? GLOWSTONE : DARK_OAK_PLANKS);
 				}
 			}
 		}
-		Build.fill(w, kx, base, kz + 2, kx, base + 1, kz + 2, DARK_OAK_PLANKS);
-		Build.column(w, kx, keepTop + 1, keepTop + 4, kz, SPRUCE_LOG);
-		w.set(kx + 1, keepTop + 4, kz, RED_WOOL);
-		w.set(kx + 2, keepTop + 4, kz, RED_WOOL);
-		w.set(kx + 1, keepTop + 3, kz, RED_WOOL);
+		Build.fill(w, kx, base, kz + kh, kx, base + 1, kz + kh, DARK_OAK_PLANKS);
+		int poleBase;
+		if (spires) {
+			poleBase = spire(kx, kz, kh, keepTop + 1) + 1;
+		} else {
+			crenellate(kx - kh, kz - kh, kx + kh, kz + kh, keepTop + 1);
+			Build.fill(w, kx - kh + 1, keepTop, kz - kh + 1, kx + kh - 1, keepTop, kz + kh - 1, SNOW_BLOCK);
+			poleBase = keepTop + 1;
+		}
+		int poleTop = Math.min(poleBase + (spires ? 1 : 3), MiniWorld.SY - 1);
+		Build.column(w, kx, poleBase, poleTop, kz, SPRUCE_LOG);
+		w.set(kx + 1, poleTop, kz, RED_WOOL);
+		w.set(kx + 2, poleTop, kz, RED_WOOL);
+		w.set(kx + 1, poleTop - 1, kz, RED_WOOL);
 		// Ruined touch: a few bricks missing from the wall tops
 		for (int i = 0; i < 4; i++) {
 			int x = r.range(x0 + 2, x1 - 2);
 			int z = r.nextBoolean() ? z0 : z1;
-			if (Math.abs(x - fx) > gateW + 1) {
+			if (Math.abs(x - fx) > gateW + 3) {
 				w.set(x, wallTop + 1, z, AIR);
 				w.set(x, wallTop, z, r.chance(0.5) ? AIR : SNOW_BLOCK);
 			}
 		}
+	}
+
+	/** A square tower of side 2 * {@code h} + 1 with a lit window on each side and a crenellated or pointed top. */
+	private void tower(int cx, int cz, int h, int base, int top, boolean spire) {
+		bricks(cx - h, base, cz - h, cx + h, top, cz + h);
+		for (Face f : Face.HORIZONTAL) {
+			w.set(cx + f.dx * h, top - 2, cz + f.dz * h, GLASS);
+		}
+		w.set(cx, top - 2, cz, GLOWSTONE);
+		if (spire) {
+			spire(cx, cz, h, top + 1);
+		} else {
+			crenellate(cx - h, cz - h, cx + h, cz + h, top + 1);
+			w.set(cx, top, cz, SNOW_BLOCK);
+		}
+	}
+
+	/** A stepped pyramid roof of dark tiles overhanging a tower, dusted with snow. Returns the y of its tip. */
+	private int spire(int cx, int cz, int h, int y) {
+		int size = h + 1;
+		while (size >= 0 && y < MiniWorld.SY - 1) {
+			for (int dz = -size; dz <= size; dz++) {
+				for (int dx = -size; dx <= size; dx++) {
+					boolean rim = Math.abs(dx) == size || Math.abs(dz) == size;
+					w.set(cx + dx, y, cz + dz, rim && size > 0 && r.chance(0.4) ? SNOW_BLOCK : DEEPSLATE_TILES);
+				}
+			}
+			size--;
+			y++;
+		}
+		w.set(cx, y, cz, DEEPSLATE_TILES);
+		return y;
 	}
 
 	// ------------------------------------------------------------------ forest and camp
