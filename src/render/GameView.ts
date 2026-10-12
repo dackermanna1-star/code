@@ -294,9 +294,10 @@ export class GameView {
     v.bleedT -= dt;
     if (v.bleedT <= 0) {
       if (e instanceof Seal && e.crawling) {
-        v.bleedT = 0.06 + Math.random() * 0.1;
-        this.blood.splat('smear', x - 0.35, z + (Math.random() - 0.5) * 0.15, 0.09 + Math.random() * 0.05, { angle: 0, stretch: 2.5 });
-        if (Math.random() < 0.3) this.blood.splat('drop', x - 0.2, z + (Math.random() - 0.5) * 0.3, 0.03);
+        // Original: a 1-2 px blood speck every 1-20 ticks — a sparse dotted trail.
+        v.bleedT = 0.04 + Math.random() * 0.35;
+        const r = 0.025 + Math.random() * 0.035;
+        this.blood.splat('drop', x - 0.3 - Math.random() * 0.2, z + (Math.random() - 0.5) * 0.25, r, { angle: 0, stretch: 1 + Math.random() });
       } else if (e instanceof Activist && (e.state === 'panic' || e.state === 'flee')) {
         // Original: bleeds every tick for half a second, then on 1 tick in 10.
         const early = e.state === 'panic' && e.stateTicks < 25;
