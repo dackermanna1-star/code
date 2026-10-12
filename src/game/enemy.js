@@ -6,7 +6,7 @@ import {
   MF, MELEERANGE, MISSILERANGE, SKILL, ANG90, ANG180, ANG270, TAU,
   normAngle, pointToAngle, aproxDistance, FLOATSPEED,
 } from './defs.js';
-import { MT, S, MOBJINFO, registerActions } from './tables.js';
+import { MT, S, MOBJINFO, stateTics, registerActions } from './tables.js';
 import { ML } from './mapdata.js';
 import { lineOpening, opening, blockThingsIterator } from './maputl.js';
 import { tryMove, mapState, checkPosition, aimLineAttack, lineAttack, radiusAttack, teleportMove } from './map.js';
@@ -421,7 +421,7 @@ export function A_Tracer(w, actor) {
   }
   actor.momx = actor.info.speed * Math.cos(actor.angle);
   actor.momy = actor.info.speed * Math.sin(actor.angle);
-  let dist = aproxDistance(dest.x - actor.x, dest.y - actor.y) / actor.info.speed;
+  let dist = Math.floor(aproxDistance(dest.x - actor.x, dest.y - actor.y) / actor.info.speed);
   if (dist < 1) dist = 1;
   const slope = (dest.z + 40 - actor.z) / dist;
   if (slope < actor.momz) actor.momz -= 1 / 8;
@@ -578,7 +578,7 @@ export function A_SkullAttack(w, actor) {
   A_FaceTarget(w, actor);
   actor.momx = SKULLSPEED * Math.cos(actor.angle);
   actor.momy = SKULLSPEED * Math.sin(actor.angle);
-  let dist = aproxDistance(dest.x - actor.x, dest.y - actor.y) / SKULLSPEED;
+  let dist = Math.floor(aproxDistance(dest.x - actor.x, dest.y - actor.y) / SKULLSPEED);
   if (dist < 1) dist = 1;
   actor.momz = (dest.z + dest.height / 2 - actor.z) / dist;
 }
@@ -697,7 +697,7 @@ export function A_BrainPain(w) { w.sound(null, 'bospn'); }
 export function A_BrainScream(w, mo) {
   for (let x = mo.x - 196; x < mo.x + 320; x += 8) {
     const y = mo.y - 320;
-    const z = 128 + w.rng.P() * 2;
+    const z = 128 / 65536 + w.rng.P() * 2; // the original's 128 is raw fixed_t
     const th = spawnMobj(w, x, y, z, MT.ROCKET);
     th.momz = w.rng.P() * 512 / 65536;
     setMobjState(w, th, S.S_BRAINEXPLODE1);
@@ -710,7 +710,7 @@ export function A_BrainScream(w, mo) {
 export function A_BrainExplode(w, mo) {
   const x = mo.x + w.rng.sub() * 2048 / 65536;
   const y = mo.y;
-  const z = 128 + w.rng.P() * 2;
+  const z = 128 / 65536 + w.rng.P() * 2; // the original's 128 is raw fixed_t
   const th = spawnMobj(w, x, y, z, MT.ROCKET);
   th.momz = w.rng.P() * 512 / 65536;
   setMobjState(w, th, S.S_BRAINEXPLODE1);
@@ -728,7 +728,7 @@ export function A_BrainSpit(w, mo) {
   w.brainTargetOn = (w.brainTargetOn + 1) % w.brainTargets.length;
   const newmobj = spawnMissile(w, mo, targ, MT.SPAWNSHOT);
   newmobj.target = targ;
-  newmobj.reactiontime = Math.floor(((targ.y - mo.y) / (newmobj.momy || 1)) / (newmobj.tics || 1));
+  newmobj.reactiontime = Math.floor(((targ.y - mo.y) / (newmobj.momy || 1)) / stateTics[newmobj.state]);
   w.sound(null, 'bospit');
 }
 

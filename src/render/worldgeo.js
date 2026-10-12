@@ -14,6 +14,7 @@ const F_NOVWRAP = 4;
 const PLANE_FLOOR = 0;
 const PLANE_CEIL = 1;
 const PLANE_ABS = 2;
+const PLANE_OPEN_FLOOR = 3; // + 2 * otherSector; +1 for the lower ceiling
 
 export const SKY_HEIGHT = 8192;
 
@@ -130,22 +131,25 @@ export class WorldGeometry {
         }
         // Lower wall (visible when back floor is above front floor).
         if (side.bottomtexture) {
+          // Unpegged lowers hang from worldtop, which the sky hack has
+          // already lowered to the back ceiling (r_segs.c).
           const vA = (line.flags & ML.DONTPEGBOTTOM)
-            ? [fs, PLANE_CEIL, 0]
+            ? [bothSky ? bs : fs, PLANE_CEIL, 0]
             : [bs, PLANE_FLOOR, 0];
           quad(verts, ax, ay, bx, by, u1, u2, [fs, PLANE_FLOOR, 0], [bs, PLANE_FLOOR, 0], vA, sb + 2, fs, contrast, 0);
         } else if (this.isSky(front.floorpic) && this.isSky(back.floorpic)) {
           quad(sky, ax, ay, bx, by, 0, 0, [fs, PLANE_FLOOR, 0], [bs, PLANE_FLOOR, 0], [0, 0, 0], 0, fs, 0, 0);
         }
         // Masked middle texture spans the opening and does not tile vertically.
+        // The opening is resolved per frame so lifts and doors re-anchor it.
         if (side.midtexture) {
           const t = tex(side.midtexture);
-          const hiFloor = front.floorheight >= back.floorheight ? fs : bs;
-          const loCeil = front.ceilingheight <= back.ceilingheight ? fs : bs;
+          const hiFloor = PLANE_OPEN_FLOOR + 2 * bs;
+          const loCeil = PLANE_OPEN_FLOOR + 1 + 2 * bs;
           const vA = (line.flags & ML.DONTPEGBOTTOM)
-            ? [hiFloor, PLANE_FLOOR, t ? t.height : 0]
-            : [loCeil, PLANE_CEIL, 0];
-          quad(verts, ax, ay, bx, by, u1, u2, [hiFloor, PLANE_FLOOR, 0], [loCeil, PLANE_CEIL, 0], vA,
+            ? [fs, hiFloor, t ? t.height : 0]
+            : [fs, loCeil, 0];
+          quad(verts, ax, ay, bx, by, u1, u2, [fs, hiFloor, 0], [fs, loCeil, 0], vA,
             sb + 1, fs, contrast, F_MASKED | F_NOVWRAP);
         }
       }

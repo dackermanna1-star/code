@@ -77,13 +77,24 @@ function consume(player, weapon, n) {
   else player.ammo[ammo] = Math.max(0, player.ammo[ammo] - n);
 }
 
+// Rounds a weapon can still use: its own magazine plus the reserve it
+// reloads from, or just the reserve for weapons without a magazine.
+// (Rounds loaded in another weapon of the same ammo type don't count.)
+export function weaponRounds(player, weapon) {
+  const ammo = WEAPONINFO[weapon].ammo;
+  if (ammo === AM.NOAMMO) return Infinity;
+  const cfg = weaponCfg(weapon);
+  if (cfg.mag && player.useMagazines) return player.mag[weapon] + player.ammo[ammo];
+  return player.ammo[ammo];
+}
+
 function pickFallbackWeapon(w, player) {
-  const has = (wp, need = 1) => player.weaponowned[wp] && player.totalAmmo(WEAPONINFO[wp].ammo) >= need;
+  const has = (wp, need = 1) => player.weaponowned[wp] && weaponRounds(player, wp) >= need;
   if (has(WP.PLASMA)) return WP.PLASMA;
   if (w.commercial && has(WP.SUPERSHOTGUN, 3)) return WP.SUPERSHOTGUN;
   if (has(WP.CHAINGUN)) return WP.CHAINGUN;
   if (has(WP.SHOTGUN)) return WP.SHOTGUN;
-  if (player.totalAmmo(AM.CLIP)) return WP.PISTOL;
+  if (weaponRounds(player, WP.PISTOL) > 0) return WP.PISTOL;
   if (player.weaponowned[WP.CHAINSAW]) return WP.CHAINSAW;
   if (has(WP.MISSILE)) return WP.MISSILE;
   if (has(WP.BFG, 41)) return WP.BFG;
@@ -102,7 +113,6 @@ export function checkAmmo(w, player) {
     if (w.settings.autoReload !== false) startReload(w, player);
     return false;
   }
-  if (player.totalAmmo(ammo) >= count && !(cfg.mag && player.useMagazines)) return true;
   player.pendingweapon = pickFallbackWeapon(w, player);
   if (player.pendingweapon === weapon) player.pendingweapon = WP.FIST;
   setPsprite(w, player, PS_WEAPON, WEAPONINFO[weapon].downstate);
@@ -548,7 +558,7 @@ export function A_FireShotgun2(w, player) {
   const spread = cfg.spread.hip + (cfg.spread.ads - cfg.spread.hip) * player.mods.ads;
   for (let i = 0; i < 20; i++) {
     const damage = 5 * (w.rng.P() % 3 + 1);
-    playerBullet(w, player, damage, spread, cfg.spread.vertical * 1.6, { pellet: true });
+    playerBullet(w, player, damage, spread, cfg.spread.vertical * (1 - 0.4 * player.mods.ads), { pellet: true });
   }
   applyRecoil(w, player);
   if (w.fx) w.fx.muzzleSmoke(player, 3);

@@ -10,7 +10,7 @@ import { MAX_AMMO } from './info.js';
 import { setMobjState } from './mobj.js';
 import { useLines } from './map.js';
 import {
-  setupPsprites, movePsprites, dropWeapon, tickHandling, weaponCfg, PS_WEAPON,
+  setupPsprites, movePsprites, dropWeapon, tickHandling, weaponCfg, weaponRounds, PS_WEAPON,
 } from './weapons.js';
 
 export const STAND_HEIGHT = 56;
@@ -111,6 +111,7 @@ export class Player {
 
   // Fill magazines from reserve (level start, cheats).
   topOffMagazines() {
+    if (!this.useMagazines) return;
     for (let wp = 0; wp < 9; wp++) {
       if (!this.weaponowned[wp]) continue;
       const cfg = weaponCfg(wp);
@@ -155,8 +156,11 @@ export class Player {
   // Reborn (G_PlayerReborn): fresh inventory, keep nothing.
   reborn() {
     const kills = this.killcount, items = this.itemcount, secrets = this.secretcount;
+    const useMagazines = this.useMagazines;
     Object.assign(this, new Player());
     this.killcount = kills; this.itemcount = items; this.secretcount = secrets;
+    this.useMagazines = useMagazines; // a game setting, not inventory
+    this.usedown = this.attackdown = true; // don't do anything immediately
     this.weaponowned[WP.FIST] = true;
     this.weaponowned[WP.PISTOL] = true;
     this.ammo[AM.CLIP] = 50;
@@ -175,6 +179,7 @@ export function newGamePlayer() {
 
 export function spawnPlayerSetup(w, player) {
   player.playerstate = 'live';
+  player.refire = 0;
   player.viewheight = VIEWHEIGHT;
   player.baseViewHeight = VIEWHEIGHT;
   player.deltaviewheight = 0;
@@ -203,7 +208,7 @@ function calcHeight(w, player) {
     if (player.viewz > mo.ceilingz - 4) player.viewz = mo.ceilingz - 4;
     return;
   }
-  const angle = (8192 / 20 * w.leveltime) * (TAU / 8192);
+  const angle = (Math.floor(8192 / 20) * w.leveltime) * (TAU / 8192); // FINEANGLES/20 is integer division
   const bob = (player.bob / 2) * Math.sin(angle) * bobScale;
   if (player.playerstate === 'live') {
     const base = player.baseViewHeight;
@@ -296,6 +301,7 @@ function movePlayer(w, player) {
   if (cmd.jump && !player.jumpdown && player.onground && s.allowJump !== false && player.crouchFrac < 0.5
     && w.jumpAllowedAt(mo)) {
     mo.momz = JUMP_SPEED;
+    player.jumpFloor = mo.floorz;
     player.onground = false;
     if (player.slide) { player.slide = null; player.slideFriction = 0; }
     w.sound(mo, 'x_jump', { channel: 'body', volume: 0.5 });
@@ -393,8 +399,7 @@ function cycleWeapon(w, player, dir) {
     i = (i + dir + CYCLE.length) % CYCLE.length;
     const wp = CYCLE[i];
     if (!player.weaponowned[wp]) continue;
-    const ammo = WEAPONINFO[wp].ammo;
-    if (ammo !== AM.NOAMMO && player.totalAmmo(ammo) <= 0) continue;
+    if (weaponRounds(player, wp) <= 0) continue;
     return wp;
   }
   return -1;

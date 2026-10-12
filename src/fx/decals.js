@@ -21,8 +21,13 @@ export class Decals {
   }
 
   setMax(n) {
+    if (n === this.max) return;
+    // Unroll the ring (oldest first) so the cursor stays inside the list and
+    // a shrink keeps the newest decals.
+    const ordered = this.list.slice(this.cursor).concat(this.list.slice(0, this.cursor));
+    this.list = n > 0 ? ordered.slice(Math.max(0, ordered.length - n)) : [];
+    this.cursor = 0;
     this.max = n;
-    if (this.list.length > n) this.list.splice(0, this.list.length - n);
   }
 
   push(d) {

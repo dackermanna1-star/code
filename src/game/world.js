@@ -54,8 +54,13 @@ export class World {
   // --- Setup --------------------------------------------------------------
 
   start() {
-    for (const mt of this.level.mapthings) spawnMapThing(this, mt);
-    this.spawnPlayer();
+    // Like P_LoadThings, the player spawns in THINGS order (RNG sequence).
+    let spawned = false;
+    for (const mt of this.level.mapthings) {
+      spawnMapThing(this, mt);
+      if (mt.type === 1 && !spawned) { this.spawnPlayer(); spawned = true; }
+    }
+    if (!spawned) this.spawnPlayer();
     this.specials.spawnSpecials();
   }
 

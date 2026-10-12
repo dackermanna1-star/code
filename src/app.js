@@ -101,6 +101,12 @@ export class App {
       this.menu.responder(code, e);
       return;
     }
+    // Held keys auto-repeat: only automap panning/zooming wants that, not
+    // toggles like the automap, pause, quick save/load or the menu.
+    if (e && e.repeat) {
+      if (this.game.state === 'level' && this.automap.active) this.automap.responder(code, e);
+      return;
+    }
     if (code === 'Escape') {
       this.menu.open();
       return;
@@ -218,7 +224,8 @@ export class App {
       this.tic(playing);
     }
     if (tics === 8) this.acc = 0;
-    if (this.renderer.wipe) this.renderer.tickWipe(Math.max(1, tics ? tics : 0));
+    // The melt advances per 35 Hz tic (like wipe_ScreenWipe), not per frame.
+    if (this.renderer.wipe && tics) this.renderer.tickWipe(tics);
 
     this.render(dt, playing);
 
@@ -302,11 +309,12 @@ export class App {
       const frac = playing ? Math.min(1, this.acc / TIC_SEC) : 1;
       const hudMode = this.settings.get('hud');
       const rect = this.view.viewRect(hudMode);
+      // The listener follows the player even while the full-screen map is up.
+      const cam = this.view.camera(w, p, frac, rect, dt);
+      this.audio.setListener(cam, p);
       if (this.automap.active && this.automap.fullscreen) {
         this.automap.draw(r, rect, frac);
       } else {
-        const cam = this.view.camera(w, p, frac, rect, dt);
-        this.audio.setListener(cam, p);
         if (w.fx) w.fx.addLights(r, frac, cam);
         r.renderWorld(cam, {
           sprites: (rr) => {

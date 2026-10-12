@@ -38,9 +38,13 @@ float lightLevel(float sectorLight, float depth, float contrast, bool isFlat, ve
   float lightnum = clamp(floor(sectorLight / 16.0) + u_extralight + contrast, 0.0, 15.0);
   if (u_smoothLight > 0.5) lightnum = clamp(sectorLight / 16.0 + u_extralight + contrast, 0.0, 15.99);
   float startmap = (15.0 - lightnum) * 4.0;
+  // r_main.c: zlight subtracts (160/(j+1))/DISTMAP with j = depth/16 for
+  // flats; scalelight subtracts min(rw_scale>>12, 47)/DISTMAP = 1280/depth
+  // capped at 23 for walls and sprites, all in integer steps.
   float scale;
   if (isFlat) scale = min(80.0 / (floor(max(depth, 0.0) / 16.0) + 1.0), 24.0);
-  else scale = min(1280.0 / max(depth, 1.0), 23.5);
+  else scale = min(1280.0 / max(depth, 1.0), 23.0);
+  if (u_smoothLight < 0.5) scale = floor(scale);
   float level = startmap - scale;
   for (int i = 0; i < 8; i++) {
     if (i >= u_numLights) break;
@@ -92,6 +96,14 @@ vec4 sectorData(float s) {
 }
 
 float planeZ(float sector, float plane, float add) {
+  if (plane > 2.5) {
+    // Two-sided opening: 3 + 2*other = higher floor, 4 + 2*other = lower
+    // ceiling of this sector and 'other' (masked midtextures).
+    float k = plane - 3.0;
+    float other = floor(k / 2.0);
+    vec4 a = sectorData(sector), b = sectorData(other);
+    return (k - other * 2.0 < 0.5 ? max(a.x, b.x) : min(a.y, b.y)) + add;
+  }
   if (plane > 1.5) return add;
   vec4 s = sectorData(sector);
   return (plane < 0.5 ? s.x : s.y) + add;

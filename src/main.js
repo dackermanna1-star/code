@@ -17,6 +17,8 @@ import { loadStoredIwad } from './wadstore.js';
 const bootEl = document.getElementById('boot');
 const bootMsg = document.getElementById('boot-msg');
 
+let storedIwadName = null;
+
 function status(msg) { bootMsg.textContent = msg; }
 
 function fail(err) {
@@ -27,6 +29,14 @@ function fail(err) {
   d.className = 'err';
   d.textContent = `Failed to start: ${err && err.message ? err.message : err}`;
   bootMsg.appendChild(d);
+  // A stored IWAD that can't start would otherwise fail on every visit.
+  if (storedIwadName) {
+    const a = document.createElement('a');
+    a.href = '?shareware';
+    a.style.color = '#b0b0b0';
+    a.textContent = `Start with the shareware WAD instead of ${storedIwadName}`;
+    bootMsg.appendChild(a);
+  }
 }
 
 async function fetchWad(url) {
@@ -44,7 +54,7 @@ async function main() {
   if (!params.has('shareware')) {
     try {
       const stored = await loadStoredIwad();
-      if (stored) { iwadBuf = stored.data; iwadName = stored.name; }
+      if (stored) { iwadBuf = stored.data; iwadName = stored.name; storedIwadName = stored.name; }
     } catch {
       // IndexedDB unavailable; fall back to shareware.
     }

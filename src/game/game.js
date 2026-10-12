@@ -61,6 +61,9 @@ export class Game {
     this.skill = skill;
     this.episode = episode;
     this.map = map;
+    // G_InitNew: a new game is never paused and forgets any pending level.
+    this.paused = false;
+    this.pendingNext = null;
     this.player = newGamePlayer();
     this.player.useMagazines = this.settings.get('useMagazines') !== false;
     if (!this.player.useMagazines) { this.player.ammo[0] += this.player.mag[1]; this.player.mag[1] = 0; }
@@ -149,7 +152,8 @@ export class Game {
     p.fixedcolormap = 0;
     p.damagecount = 0;
     p.bonuscount = 0;
-    if (secret) p.didsecret = true;
+    // wminfo.didsecret is the value from before this exit: G_WorldDone only
+    // sets players[].didsecret once the intermission is over.
     stats.didSecret = secret || p.didsecret;
     stats.secretExit = secret;
     this.lastStats = stats;
@@ -189,8 +193,7 @@ export class Game {
     if (finale) {
       this.state = 'finale';
       this.emit('finale', finale);
-      if (!stats.next) return;
-      this.pendingNext = stats.next;
+      this.pendingNext = stats.next || null;
       return;
     }
     if (!stats.next) {
@@ -258,6 +261,7 @@ export class Game {
   warp(episode, map) {
     this.episode = episode;
     this.map = map;
+    this.paused = false;
     if (!this.player) this.player = newGamePlayer();
     this.startLevel();
   }

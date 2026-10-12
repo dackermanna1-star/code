@@ -31,6 +31,8 @@ export async function storeIwad(name, data) {
     tx.objectStore(STORE).put({ name, data }, 'iwad');
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+    // Quota failures abort the transaction without an error event.
+    tx.onabort = () => reject(tx.error || new Error('storage was aborted'));
   });
 }
 
@@ -41,5 +43,6 @@ export async function clearStoredIwad() {
     tx.objectStore(STORE).delete('iwad');
     tx.oncomplete = () => resolve();
     tx.onerror = () => resolve();
+    tx.onabort = () => resolve();
   });
 }

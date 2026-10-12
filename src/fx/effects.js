@@ -121,8 +121,13 @@ class Effects {
       if (out.side === 1) { nx = -nx; ny = -ny; }
       out.nx = nx;
       out.ny = ny;
-      const ws = out.side === 0 ? l.frontsector : l.backsector;
-      if (ws) { out.floor = Math.min(out.floor, ws.floorheight); out.light = ws.lightlevel; }
+      // The mover stays on its own side of the wall, so report that sector's
+      // planes (the destination may be another room or a door's low ceiling).
+      const ws = (out.side === 0 ? l.frontsector : l.backsector) || w.pointInSubsector(x0, y0).sector;
+      out.sector = ws;
+      out.floor = ws.floorheight;
+      out.ceil = ws.ceilingheight;
+      out.light = ws.lightlevel;
     }
     return out;
   }

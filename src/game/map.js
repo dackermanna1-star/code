@@ -429,11 +429,12 @@ export function radiusAttack(world, spot, source, damage) {
         if (thing.type === MT.CYBORG || thing.type === MT.SPIDER) return true;
         const dx = Math.abs(thing.x - spot.x);
         const dy = Math.abs(thing.y - spot.y);
-        let d = Math.max(dx, dy) - thing.radius;
+        // (dist - radius) >> FRACBITS: whole map units, rounded down.
+        let d = Math.floor(Math.max(dx, dy) - thing.radius);
         if (d < 0) d = 0;
         if (d >= damage) return true;
         if (world.checkSight(thing, spot)) {
-          world.damageMobj(thing, spot, source, Math.floor(damage - d), { radius: true, spot });
+          world.damageMobj(thing, spot, source, damage - d, { radius: true, spot });
         }
         return true;
       });

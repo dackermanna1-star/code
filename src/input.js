@@ -45,10 +45,11 @@ export class Input {
       this.mouseDY += e.movementY;
     });
     on(this.canvas, 'wheel', (e) => {
+      e.preventDefault();
+      if (!e.deltaY) return; // horizontal scrolling is not a weapon switch
       const code = e.deltaY < 0 ? 'WheelUp' : 'WheelDown';
       this.pressedQueue.add(code);
       if (this.captureNext) { this.finishCapture(code); }
-      e.preventDefault();
     }, { passive: false });
     on(document, 'pointerlockchange', () => {
       this.locked = document.pointerLockElement === this.canvas;
@@ -61,9 +62,19 @@ export class Input {
   requestLock() {
     try {
       const p = this.canvas.requestPointerLock({ unadjustedMovement: !!this.settings.get('rawInput') });
-      if (p && p.catch) p.catch(() => { try { this.canvas.requestPointerLock(); } catch { /* ignore */ } });
+      if (p && p.catch) p.catch(() => this.requestPlainLock());
     } catch {
-      try { this.canvas.requestPointerLock(); } catch { /* ignore */ }
+      this.requestPlainLock();
+    }
+  }
+
+  // Without options; failures (no user gesture yet) are expected and silent.
+  requestPlainLock() {
+    try {
+      const p = this.canvas.requestPointerLock();
+      if (p && p.catch) p.catch(() => {});
+    } catch {
+      // ignore
     }
   }
 
@@ -74,7 +85,8 @@ export class Input {
   onKey(e, isDown) {
     if (this.captureNext && isDown) {
       e.preventDefault();
-      this.finishCapture(e.code);
+      // An auto-repeat of the key that opened the capture is not a choice.
+      if (!e.repeat) this.finishCapture(e.code);
       return;
     }
     if (isDown) {
@@ -121,7 +133,13 @@ export class Input {
   // --- Gamepad --------------------------------------------------------------
 
   pollPad() {
-    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    let pads = [];
+    try {
+      // Throws where the gamepad permissions policy is denied (some iframes).
+      pads = (navigator.getGamepads && navigator.getGamepads()) || [];
+    } catch {
+      pads = [];
+    }
     let pad = null;
     if (this.gamepadIndex >= 0) pad = pads[this.gamepadIndex];
     if (!pad) for (const p of pads) if (p) { pad = p; this.gamepadIndex = p.index; break; }

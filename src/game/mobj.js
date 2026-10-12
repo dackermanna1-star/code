@@ -72,6 +72,8 @@ export function setMobjState(w, mo, state) {
     }
     mo.state = state;
     mo.tics = stateTics[state];
+    // -fast / nightmare: G_InitNew halves the demon's run/attack/pain tics.
+    if (w.fastMonsters && state >= S.S_SARG_RUN1 && state <= S.S_SARG_PAIN2) mo.tics >>= 1;
     mo.sprite = stateSprite[state];
     mo.frame = stateFrame[state];
     const action = stateAction[state];
@@ -177,7 +179,10 @@ export function zMovement(w, mo) {
   if (mo.z <= mo.floorz) {
     if (mo.flags & MF.SKULLFLY) mo.momz = -mo.momz;
     if (mo.momz < 0) {
-      if (mo.player && mo.momz < -GRAVITY * 8) {
+      // A jump landing back at (or above) its take-off height is not a fall.
+      const jumpLanding = mo.player && mo.player.jumpFloor != null && mo.floorz >= mo.player.jumpFloor - 1;
+      if (mo.player) mo.player.jumpFloor = null;
+      if (mo.player && mo.momz < -GRAVITY * 8 && !jumpLanding) {
         mo.player.deltaviewheight = mo.momz / 8;
         w.sound(mo, 'oof');
         if (w.fx && w.fx.playerLand) w.fx.playerLand(mo, mo.momz);
@@ -328,7 +333,8 @@ export function spawnMissile(w, source, dest, type) {
   const speed = missileSpeed(w, th);
   th.momx = speed * Math.cos(an);
   th.momy = speed * Math.sin(an);
-  let dist = aproxDistance(dest.x - source.x, dest.y - source.y) / speed;
+  // Integer division like the original (fixed_t / fixed_t).
+  let dist = Math.floor(aproxDistance(dest.x - source.x, dest.y - source.y) / speed);
   if (dist < 1) dist = 1;
   th.momz = (dest.z - source.z) / dist;
   checkMissileSpawn(w, th);
@@ -353,10 +359,10 @@ export function spawnPlayerMissile(w, source, type, opts = {}) {
   } else {
     slope = aimLineAttack(w, source, an, 16 * 64);
     if (!mapState.linetarget) {
-      an += Math.PI / 64;
+      an += Math.PI / 32; // 1<<26
       slope = aimLineAttack(w, source, an, 16 * 64);
       if (!mapState.linetarget) {
-        an -= Math.PI / 32;
+        an -= Math.PI / 16; // 2<<26
         slope = aimLineAttack(w, source, an, 16 * 64);
       }
       if (!mapState.linetarget) {

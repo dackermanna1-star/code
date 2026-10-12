@@ -1,5 +1,7 @@
 // Port of p_sight.c: REJECT lookup plus BSP line-of-sight traversal.
 
+import { ML } from './mapdata.js';
+
 function divlineSide(x, y, node) {
   if (!node.dx) {
     if (x === node.x) return 2;
@@ -48,7 +50,8 @@ function crossSubsector(w, num) {
     s1 = divlineSide(st.strace.x, st.strace.y, divl);
     s2 = divlineSide(st.t2x, st.t2y, divl);
     if (s1 === s2) continue;
-    if (!line.backsector) return false;
+    // Lines without the two-sided flag block sight even if they have a back side.
+    if (!(line.flags & ML.TWOSIDED) || !line.backsector) return false;
     const front = seg.frontsector, back = seg.backsector || line.backsector;
     if (!front || !back) return false;
     if (front.floorheight === back.floorheight && front.ceilingheight === back.ceilingheight) continue;

@@ -109,7 +109,12 @@ export class Renderer {
   }
 
   setLevel(level) {
-    if (this.world) this.world.dispose();
+    if (this.world) {
+      this.world.dispose();
+      this.gl.deleteVertexArray(this.worldVao);
+      this.gl.deleteVertexArray(this.skyVao);
+      this.worldVao = this.skyVao = null;
+    }
     this.world = level ? new WorldGeometry(this.gl, level, this.res) : null;
     if (this.world) {
       const gl = this.gl;

@@ -134,7 +134,8 @@ export class ViewRenderer {
     if (!psp.state) return;
     const sector = player.mo.subsector.sector;
     const lightnum = Math.max(0, Math.min(15, (sector.lightlevel >> 4) + player.extralight));
-    let level = Math.max(0, Math.floor((15 - lightnum) * 4 - 23.5));
+    // R_DrawPSprite: spritelights[MAXLIGHTSCALE-1] = startmap - 47/DISTMAP.
+    let level = Math.max(0, (15 - lightnum) * 4 - 23);
     if (player.fixedcolormap) level = player.fixedcolormap;
     const fuzz = !!(player.powers[PW.INVISIBILITY] > 4 * 32 || (player.powers[PW.INVISIBILITY] & 8));
     const cfg = weaponCfg(player.readyweapon);

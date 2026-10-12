@@ -36,7 +36,7 @@ export const WEAPON_CFG = {
   },
   [WP.SUPERSHOTGUN]: {
     name: 'supershotgun', mag: 0,
-    spread: { hip: 11.2, ads: 8, vertical: 1.4 },
+    spread: { hip: 11.2, ads: 8, vertical: 7.1 },
     ads: { fov: 0.88, speed: 0.15, scale: 1.08, x: 0, y: 12, move: 0.6 },
     recoil: { pitch: 6.5, yaw: 1.4, kick: 22, shake: 3.4, recover: 0.86 },
     casing: 'shell2', ejectState: 'S_DSGUN5',

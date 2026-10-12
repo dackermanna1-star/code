@@ -159,8 +159,10 @@ export class AudioSystem {
   // --- Playback -------------------------------------------------------------
 
   setWorld(w) {
-    this.world = w;
+    // S_Start: leaving a level silences its sounds (UI sounds may finish).
     if (!w) this.stopAll(0.05);
+    else if (w !== this.world) for (const v of this.voices.slice()) if (v.origin) this.stopVoice(v, 0.05, true);
+    this.world = w;
   }
 
   isPlayerOrigin(origin) {
@@ -184,9 +186,10 @@ export class AudioSystem {
     }
     const prio = this.priority.get(name) ?? 100;
     if (this.voices.length >= MAX_VOICES) {
-      let worst = null;
-      for (const v of this.voices) if (!worst || v.prio > worst.prio || (v.prio === worst.prio && v.started < worst.started)) worst = v;
-      if (worst && worst.prio >= prio) this.stopVoice(worst, 0.01, true);
+      // Voices already fading out go first, then the least important one.
+      let worst = this.voices.find((v) => v.stopped) || null;
+      if (!worst) for (const v of this.voices) if (!worst || v.prio > worst.prio || (v.prio === worst.prio && v.started < worst.started)) worst = v;
+      if (worst && (worst.stopped || worst.prio >= prio)) this.stopVoice(worst, 0.01, true);
       else return;
     }
     const ctx = this.ctx;
@@ -253,7 +256,10 @@ export class AudioSystem {
   }
 
   stopVoice(v, fade = 0.02, remove = false) {
-    if (v.stopped) return;
+    if (v.stopped) {
+      if (remove) this.cleanup(v);
+      return;
+    }
     v.stopped = true;
     try {
       const t = this.ctx.currentTime;
