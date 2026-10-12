@@ -21,7 +21,7 @@ export class Corpses {
   private grid = new Map<number, number[]>();
   private dirty = new Set<number>();
   private static readonly BASE = new THREE.Color(1, 0.94, 0.94);
-  private static readonly SOAKED = new THREE.Color(0.62, 0.07, 0.05);
+  private static readonly SOAKED = new THREE.Color(0.48, 0.05, 0.035);
 
   constructor(scene: THREE.Scene) {
     this.group.name = 'Corpses';
