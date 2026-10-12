@@ -70,8 +70,10 @@ export class ParticleSystem {
         vWorld = wp.xyz;
         vec4 mv = viewMatrix * wp;
         gl_Position = projectionMatrix * mv;
-        gl_PointSize = clamp(uPointScale * psize / max(-mv.z, 0.3), 1.0, 128.0);
+        float dz = -mv.z;
+        gl_PointSize = clamp(uPointScale * psize / max(dz, 0.3), 1.0, 28.0);
         vCol = pcolor;
+        vCol.a *= smoothstep(0.8, 3.0, dz); // fade particles right in front of the eye
       }`;
     const fs = (glowy: boolean) => /* glsl */ `
       precision highp float;

@@ -58,16 +58,22 @@ export class Game {
   readonly tickHooks: ((dt: number) => void)[] = [];
   readonly frameHooks: ((dt: number) => void)[] = [];
   readonly spawnHandlers: ((s: Spawn, c: Chunk) => void)[] = [];
+  readonly renderHooks: ((r: THREE.WebGLRenderer) => void)[] = [];
   private raf = 0;
   readonly look = new THREE.Vector3();
+  /** Lights for mesh-based objects (creatures, pickups); the voxel shader has its own lighting. */
+  readonly meshAmbient = new THREE.AmbientLight(0xffffff, Math.PI * 0.5);
+  readonly meshPlayerLight = new THREE.PointLight(0xffe0c0, Math.PI * 2.5, 70, 1);
+  readonly meshKey = new THREE.DirectionalLight(0xffffff, Math.PI * 0.3);
   moveEvents = { footstep: () => {}, jump: () => {}, land: (_v: number) => {} };
 
-  constructor(canvas: HTMLCanvasElement, opts: GameOptions, input: Input) {
+  constructor(canvas: HTMLCanvasElement, opts: GameOptions, input: Input, renderer?: THREE.WebGLRenderer) {
     this.opts = opts;
     this.input = input;
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: false });
+    this.renderer = renderer ?? new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: false });
     this.renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
     this.renderer.setClearColor(0x000000, 1);
+    this.renderer.info.autoReset = false;
     this.renderer.autoClear = true;
     this.camera = new THREE.PerspectiveCamera(75, 1, 0.08, 800);
     this.camera.rotation.order = 'YXZ';
@@ -84,6 +90,8 @@ export class Game {
     this.scene.add(this.particles.points);
     this.scene.add(this.particles.glowPoints);
     this.scene.add(this.camera);
+    this.scene.add(this.meshAmbient, this.meshPlayerLight, this.meshKey);
+    this.meshKey.position.set(0.3, 1, 0.2);
     const sp = this.streamer.gen.spawnPoint();
     this.player = new Player(sp.x, sp.y, sp.z);
     this.player.yaw = 0; // facing -z... spawn faces the mountain (+z)
@@ -95,7 +103,19 @@ export class Game {
     this.destruction.cb.debris = (m, x, y, z, vx, vy, vz) =>
       this.particles.spawn(x, y, z, vx * 0.5, vy * 0.5, vz * 0.5, this.particles.matColor(m), 0.6 + Math.random() * 0.8, 0.45, 1, false, 1.5);
     this.resize();
-    window.addEventListener('resize', () => this.resize());
+    window.addEventListener('resize', this.onResize);
+  }
+
+  private onResize = () => this.resize();
+
+  setFov(fov: number): void {
+    this.camera.fov = fov;
+    this.resize();
+  }
+
+  setPixelScale(s: number): void {
+    this.opts.pixelScale = s;
+    this.resize();
   }
 
   resize(): void {
@@ -140,6 +160,17 @@ export class Game {
   stop(): void {
     cancelAnimationFrame(this.raf);
     this.streamer.dispose();
+  }
+
+  /** Free GPU/worker resources so a new run can reuse the renderer. */
+  dispose(): void {
+    this.stop();
+    window.removeEventListener('resize', this.onResize);
+    this.chunks.clear();
+    this.scene.clear();
+    this.tickHooks.length = 0;
+    this.frameHooks.length = 0;
+    this.renderHooks.length = 0;
   }
 
   frame(now: number): void {
@@ -227,6 +258,9 @@ export class Game {
     this.flash *= 0.85;
     u.uFlash.value = this.flash;
     this.sky.update(cam, surf, this.time);
+    this.meshAmbient.color.copy(u.uAmbient.value).multiplyScalar(1.4).addScalar(0.05);
+    this.meshPlayerLight.position.set(cam.x, cam.y + 1, cam.z);
+    this.meshKey.intensity = Math.PI * 0.3 * (0.4 + surf);
     this.renderer.setClearColor(u.uFogColor.value, 1);
     void depth;
     // lights: player's faint glow + glowing materials + dynamic lights from systems
@@ -237,7 +271,12 @@ export class Game {
     this.chunks.update(cam, 5);
     if (this.tickCount % 30 === 0) this.chunks.cull(cam);
     this.particles.sync();
+    this.renderer.info.reset();
+    this.renderer.autoClear = true;
     this.renderer.render(this.scene, this.camera);
+    this.renderer.autoClear = false;
+    for (const h of this.renderHooks) h(this.renderer);
+    this.renderer.autoClear = true;
     void dt;
   }
 

@@ -21,7 +21,7 @@ page.on('console', (m) => {
 });
 page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}\n${e.stack}`));
 const extra = process.env.PARAMS ?? '';
-await page.goto(`${base}?seed=${seed}&debug${extra}`);
+await page.goto(`${base}?autostart&seed=${seed}&debug${extra}`);
 await page.waitForFunction(() => window.game && window.game.state === 'playing', null, { timeout: 120000 });
 const shot = async (name) => {
   await page.screenshot({ path: `screenshots/${scenario}-${name}.png` });

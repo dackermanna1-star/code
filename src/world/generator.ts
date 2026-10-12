@@ -361,7 +361,7 @@ export class WorldGenerator {
     this.structureFeatures(b, rng, x0, y0, z0, out);
 
     // enemies
-    const attempts = Math.round(b.enemyDensity * 2.2 + rng.next());
+    const attempts = Math.round(b.enemyDensity * 1.1 + rng.next() * 0.8);
     for (let a = 0; a < attempts; a++) {
       const px = x0 + rng.int(2, REGION - 3), py = y0 + rng.int(2, REGION - 3), pz = z0 + rng.int(2, REGION - 3);
       const type = rng.weighted(b.enemies, (e) => e[1])[0];

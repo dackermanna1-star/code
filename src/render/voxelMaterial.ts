@@ -208,7 +208,7 @@ void main() {
   vec4 mv = viewMatrix * wp;
   gl_Position = projectionMatrix * mv;
   float sz = uFire > 0.5 ? 1.15 : 1.5;
-  gl_PointSize = clamp(uPointScale * sz / max(-mv.z, 0.5), 1.0, 160.0);
+  gl_PointSize = clamp(uPointScale * sz / max(-mv.z, 0.5), 1.0, 64.0);
   vColor = col;
   vAlpha = inf.r * (uFire > 0.5 ? (0.6 + 0.4 * life) : clamp(0.35 + life * 0.9, 0.0, 1.0));
 }
