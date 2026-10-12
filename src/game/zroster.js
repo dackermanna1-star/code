@@ -15,8 +15,8 @@
 //  - burning: on fire for good (flames, charred); its claws set you alight (fire.burn); it
 //    leaves a small fire where it falls
 //  - screamer (special): keeps its distance, in sight; every screamEvery s it roots and
-//    shrieks, and the horde surges (the director's surge, or screamCall extras when the
-//    director takes none) - screamMax times, unless somebody kills it first; then it comes
+//    shrieks, and the horde surges (the director's surge, or, when it takes none, screamCall of the
+//    wave queued to come now) - screamMax times, unless somebody kills it first; then it comes
 //    for you itself (so a wave never stalls on one hiding at the back)
 // Bodies: a skin per body (createPlayerModel(skin); a body's build is its skin's, body.js);
 // spawnZombie reuses a free body of the skin skin(variant) names (a free one of the variant's
@@ -205,7 +205,9 @@ export class ZRoster {
     z.variant = 'crawler';
     z.name = C.name;
     z.zSpeed = Math.min(z.zSpeed, this.Z.stats.speed * C.speedK);
-    z.model.crawl = true; // (its vest, flames... stay: z.armored, z.aflame)
+    // (its vest, flames... stay: z.armored, z.aflame) knocked down, it goes onto its hands and knees
+    // first (zstagger.js), then flat on its belly once it's there (zstagger.frame sets crawl)
+    if (!(z.staggerUntil > this.game.time)) z.model.crawl = true;
     return true;
   }
 
@@ -323,7 +325,7 @@ export class ZRoster {
     return false; // far off or out of sight: comes closer (the flow field)
   }
 
-  /** The call: it roots and shrieks, and the horde surges (the director's, or a few extras of our own). */
+  /** The call: it roots and shrieks, and the horde surges (the director's surge, or a few of the wave queued now). */
   scream(z, t) {
     const g = this.game, Z = this.Z, S = z.sp, R = Z.diff.roster;
     S.state = 'scream'; S.until = t + SHRIEK;
@@ -332,14 +334,13 @@ export class ZRoster {
     z.lastShot = t; // (the model's arms fly up)
     g.sound?.play('screamer_shriek', { pos: z.eyePos(), volume: 1, attenuation: 'loud', channel: `${z.id}:voice` });
     z.nextGrowl = Math.max(z.nextGrowl || 0, t + 3);
-    const me = g.local;
+    const me = g.local, D = Z.director;
+    if (D.surge(z, { by: 'screamer' })) return; // (the director calls the surge out itself)
     if (S.calls === 1 && me?.alive && Math.hypot(me.pm.origin[0] - z.pm.origin[0], me.pm.origin[1] - z.pm.origin[1]) < 2000) g.hud?.centerPrint?.('A Screamer is calling the horde!\nKill it.', 2.5);
-    if (Z.director.surge(z, { by: 'screamer' })) return;
-    // the director took no surge: bring a few in ourselves, outside the wave's count
-    let alive = 0;
-    for (const q of Z.pool) if (q.alive) alive++;
-    const n = Math.min(R.screamCall, Math.max(0, Math.round(Z.stats.maxAlive * 1.25) - alive));
-    for (let i = 0; i < n; i++) Z.spawnZombie({ front: z.front, extra: true });
+    // the director took no surge (one is on, or one was just over): a few of the wave's own come
+    // now, from its front (queued with the director: counted in the wave, never extras)
+    const n = Math.min(R.screamCall, Math.max(0, Z.stats.count - Z.spawned - D.pending.length - (D.riseLeft || 0)));
+    for (let i = 0; i < n; i++) D.queue(null, { front: z.front, at: t + 0.3 + i * 0.35 });
   }
 
   /** Back off from target: one step uphill on the flow field (away from every survivor) at a time. */

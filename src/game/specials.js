@@ -134,11 +134,17 @@ export class Specials {
     this.Z.events.mode('combo', { kinds: P.kinds, front });
   }
 
-  /** The director front a point is in (by the bots' callout zones), or null. */
+  /** The director front a point is in (by the bots' callout zones; on a map without them, the nearest front's centroid), or null. */
   frontAt(pos) {
-    const zn = zoneOf(pos)?.[0];
-    if (zn) for (const f of this.Z.director.fronts()) if (f.zones?.includes(zn)) return f.id;
-    return null;
+    const zn = zoneOf(pos)?.[0], fronts = this.Z.director.fronts();
+    if (zn) for (const f of fronts) if (f.zones?.includes(zn)) return f.id;
+    let best = null, bd = 1600 * 1600; // (BSP maps: the director's clusters)
+    for (const f of fronts) {
+      if (!f.pos || f.zones?.length) continue;
+      const d = (f.pos[0] - pos[0]) ** 2 + (f.pos[1] - pos[1]) ** 2;
+      if (d < bd) { bd = d; best = f.id; }
+    }
+    return best;
   }
 
   /**

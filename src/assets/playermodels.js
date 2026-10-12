@@ -827,7 +827,7 @@ class PlayerModel {
    */
   _crawl(dt) {
     const rig = this.rig, B = rig.b, TAU = Math.PI * 2;
-    const C = this._crawlTmp || (this._crawlTmp = { p: new THREE.Vector3(), q: new THREE.Quaternion(), f: new THREE.Vector3(), d: new THREE.Vector3(0, 0, -1),
+    const C = this._crawlTmp || (this._crawlTmp = { p: new THREE.Vector3(), w: new THREE.Vector3(), q: new THREE.Quaternion(), f: new THREE.Vector3(), d: new THREE.Vector3(0, 0, -1),
       poleR: V(-0.4, -0.9, 0.5), poleL: V(-0.4, 0.9, 0.5), knee: [V(0, -0.3, -1), V(0, 0.3, -1)] });
     const move = smooth(4, 40, this.spd);
     this.crawlPh = (this.crawlPh + this.spd * dt / 34) % 1; // a haul every ~17 u
@@ -848,9 +848,10 @@ class PlayerModel {
       C.f.set(1, 0, -0.5);
       if (this.swipeT >= 0 && this.swipeSide === side) {
         const s = this.swipeT / SWIPE_TIME;
-        if (s < 0.55) tgt.lerp(V(16, -7 * side, 19), smooth(0, 0.55, s));
-        else if (s < 0.75) tgt.set(16, -7 * side, 19).lerp(V(34, -1 * side, 4), smooth(0.55, 0.75, s));
-        else tgt.set(34, -1 * side, 4).lerp(V(22, -9 * side, 1.4), smooth(0.75, 1, s));
+        const w = C.w; // (the swipe's waypoints: no allocations per frame)
+        if (s < 0.55) tgt.lerp(w.set(16, -7 * side, 19), smooth(0, 0.55, s));
+        else if (s < 0.75) tgt.set(16, -7 * side, 19).lerp(w.set(34, -1 * side, 4), smooth(0.55, 0.75, s));
+        else tgt.set(34, -1 * side, 4).lerp(w.set(22, -9 * side, 1.4), smooth(0.75, 1, s));
         C.f.set(1, 0, 0.3);
       }
       if (side > 0) rig.ik(B.upperarm_r, B.forearm_r, B.hand_r, tgt, C.poleR, 'arm');

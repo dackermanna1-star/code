@@ -34,8 +34,8 @@ export const THREAT_RGB = {
   sprinter: [255, 70, 60], screamer: [255, 235, 190],
 };
 const WHITE = [255, 255, 255];
-/** Rim glow strength: always (faint), telegraphing (the peak of the pulse), holding somebody. */
-const RIM = { base: 0.14, warn: 0.85, hold: 0.35 };
+/** Rim glow strength: always (faint), telegraphing (the peak of the pulse), holding somebody, a Twin Elite at rest (director.js). */
+const RIM = { base: 0.14, warn: 0.85, hold: 0.35, elite: 0.42 };
 /**
  * "Lining up": a faint arc this long (s, x diff.combo.arcs) before a special in range that can
  * see you may start its trick: [its cooldown, min range, max range] (specials.js).
@@ -260,11 +260,11 @@ export class ZThreats {
       let k = 0, eyes = 1;
       if (z.alive && S) {
         const st = S.state;
-        if (st === 'wind' || st === 'vomit' || st === 'air' || st === 'charge' || st === 'fly') {
+        if (st === 'wind' || st === 'vomit' || st === 'air' || st === 'charge' || st === 'fly' || st === 'scream') { // (a screamer's shriek: zroster.js)
           const pulse = 0.5 + 0.5 * Math.sin(t * 22);
           k = RIM.base + (RIM.warn - RIM.base) * pulse; eyes = 1 + 2 * pulse;
         } else if (st === 'pin' || st === 'pull') k = RIM.hold + 0.12 * Math.sin(t * 8);
-        else k = RIM.base;
+        else k = z.elite ? RIM.elite : RIM.base;
       }
       if (k === z.thRim) continue;
       z.thRim = k;

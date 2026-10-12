@@ -55,7 +55,7 @@
   function zombieAt(dist, side = 0) {
     const p = g.local, o = p.pm.origin, y = p.pm.angles[1] * DEG;
     const at = [o[0] + Math.cos(y) * dist - Math.sin(y) * side, o[1] + Math.sin(y) * dist + Math.cos(y) * side, o[2]];
-    Z().spawnZombie({ at });
+    Z().spawnZombie({ at, variant: 'walker' }); // (M2: a plain walker - the roster's crawlers and riot zombies take hits differently)
     let z = null, bd = 1e9;
     for (const q of Z().pool) { if (!q.alive || q.special) continue; const d = Math.hypot(q.pm.origin[0] - at[0], q.pm.origin[1] - at[1]); if (d < bd) { bd = d; z = q; } }
     if (z) { z.zSpeed = 0; z.nextAttack = 1e9; } // (stands there)
@@ -372,6 +372,7 @@
     faceOpen(p);
     ticks(80);
     const z = zombieAt(180), z2 = zombieAt(240, 60);
+    z.health = z.maxHealth = Math.max(z.health, 300); // (M2: the director's pacing changes which wave this lands in; two hits mustn't kill it)
     const hp0 = z.health;
     shoot(z, 23, 1); // (x4 for the head)
     shoot(z, 10, 2);

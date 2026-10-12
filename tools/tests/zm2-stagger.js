@@ -254,9 +254,13 @@
     clear();
     const z = zombieAt(120);
     ticks(2);
+    // (integration: the roster now keeps a knocked-down common down for good; refuse it here to see one get up)
+    const become1 = Z().roster.become;
+    Z().roster.become = () => false;
     fixRandom(0.01);
     shoot(z, 20, 6, 'm3', 9); // a blast at the legs
     realRandom();
+    Z().roster.become = become1;
     const h = held(z);
     check('a leg blast knocks it down', z.staggerKind === 'knockdown' && h > 1.4 && h < 1.7, `${z.staggerKind} ${h.toFixed(2)} s`);
     for (let i = 0; i < 40; i++) g.frame(0.01);
@@ -270,14 +274,15 @@
     // the roster can keep it down for good (crawler)
     const become0 = Z().roster.become;
     let asked = null;
-    Z().roster.become = (q, v) => { asked = v; q.model.crawl = true; return true; };
+    Z().roster.become = (q, v) => { asked = v; return become0.call(Z().roster, q, v); };
     freeOf(z);
     fixRandom(0.01);
     shoot(z, 20, 7, 'm3', 9);
     realRandom();
     Z().roster.become = become0;
+    const crawl0 = z.model.crawl; // (integration: on its knees first, flat on its belly once there)
     for (let i = 0; i < 80; i++) g.frame(0.01);
-    check('a knockdown asks the roster for a crawler', asked === 'crawler' && z.model.kneelW > 0.8, `${asked} kneel ${z.model.kneelW.toFixed(2)}`);
+    check('a knockdown asks the roster for a crawler', asked === 'crawler' && z.variant === 'crawler' && !crawl0 && z.model.crawl && z.model.kneelW > 0.8, `${asked} ${z.variant} crawl ${crawl0}->${z.model.crawl} kneel ${z.model.kneelW.toFixed(2)}`);
     z.model.crawl = false;
     // the roster's crawlers crawl in the same pose
     clear();

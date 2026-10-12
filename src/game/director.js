@@ -37,7 +37,7 @@
 import { zoneOf } from './bots.js';
 import { MinHeap } from './nav.js';
 import { MAX_ALIVE } from './zdiff.js';
-import { COMMONS } from './zroster.js';
+import { COMMONS, COMMON_SKINS } from './zroster.js';
 import { SPECIALS } from './specials.js';
 import { TEAM_CT } from './player.js';
 import { fontString } from '../ui/hud/font.js';
@@ -571,7 +571,7 @@ export class WaveDirector {
   riseCandidates(humans, out = null) {
     const recs = this.game.gore?.records;
     if (!recs) return 0;
-    const skins = this._skins || (this._skins = new Set(Object.values(COMMONS).map((c) => c.skin)));
+    const skins = COMMON_SKINS; // (every common look: zroster.js)
     let n = 0;
     for (const r of recs) {
       if (!skins.has(r.skin) || this.raised.has(r)) continue;
@@ -662,6 +662,9 @@ export class WaveDirector {
     return false;
   }
 
+  /** Is the wave type's banner up right now (ztips.js keeps its tip card off it)? */
+  bannerOn() { const bt = this.game.time - this.bannerT; return !!this.mod && this.Z.state === 'wave' && bt >= 0 && bt < BANNER_TIME; }
+
   /** HUD layer: the wave type's banner, the arrows toward the fronts, the type / pace tag under the wave info. */
   draw(hud, s) {
     const Z = this.Z, zi = s.zombie;
@@ -694,8 +697,11 @@ export class WaveDirector {
     const me = g.local;
     if (!s.alive || !me) return;
     const yaw = me.pm.angles[1], o = me.pm.origin;
-    // (the edges: under the banner at the top, above the health / ammo numbers at the bottom)
-    const cx = vw / 2, cyy = vh / 2, rx = cx - 22 * k, rTop = cyy - Math.round(vh * 0.3), rBot = vh - cyy - 52 * k;
+    // (the edges: under the banner at the top - clear of its band while it's up - and above the
+    // health / money / ammo numbers at the bottom)
+    const cx = vw / 2, cyy = vh / 2, rx = cx - 22 * k, rBot = vh - cyy - 96 * k;
+    let rTop = cyy - Math.round(vh * 0.3);
+    if (M && t - this.bannerT < BANNER_TIME) rTop = Math.min(rTop, cyy - Math.round(vh * 0.19) - Math.round(hud.fontPx * 3.6) - 14 * k);
     for (const A of this.arrows) {
       const at = t - A.t0;
       if (!A.f || at < 0 || at > ARROW_TIME || !this.open.includes(A.f)) continue;

@@ -358,6 +358,9 @@
     con('zm_god_squad');
     con('zm_wave 12');
     Z().stats = { ...Z().stats, count: 5000, maxAlive: 28, interval: 0.02, special: 0 };
+    // (integration: the director's pacing - trickle, calm - sits under maxAlive; the engine's ceiling is measured here)
+    const D = Z().director, dmax = D.maxAlive, dint = D.interval;
+    D.maxAlive = (S) => S.maxAlive; D.interval = (S) => S.interval;
     const keep = () => { for (const z of Z().pool) if (z.alive) z.health = Math.max(z.health, 1e6); };
     for (let i = 0; i < 2500; i++) { g.tick(); if (i % 25 === 0) keep(); }
     const T = { on: [], off: [] }, F = { on: [], off: [] };
@@ -383,6 +386,7 @@
     for (let i = 0; i < 20; i++) H().build(i & 1, g.time);
     const sideMs = (performance.now() - b0) / 20;
     info(`one main field build ${mainMs.toFixed(2)} ms (every 0.4 s), one side field build with its crowd ${sideMs.toFixed(2)} ms (one every ~0.5 s, never on a main build's tick)`);
+    D.maxAlive = dmax; D.interval = dint;
     check('28 up', up === 28, `${up}`);
     // (timings are machine dependent and noisy: only a gross regression fails)
     check('the horde AI costs little', f1 < f0 * 1.35 + 0.3 && t1 < t0 * 1.5 + 0.1, `frame x${(f1 / f0).toFixed(2)}, tick x${(t1 / t0).toFixed(2)}`);

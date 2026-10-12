@@ -351,6 +351,7 @@ export class ZStagger {
       m.kneelT = (held && kind === 'knockdown' && t < z.staggerUntil - GETUP) || z.variant === 'crawler' ? 1 : 0; // (the roster's crawlers crawl in it too; or model.crawl)
       m.stunT = held && kind === 'stun' ? 1 : 0;
       m.flailT = panic ? 1 : 0;
+      if (z.variant === 'crawler' && !m.crawl && (!held || m.kneelW > 0.9)) m.crawl = true; // (roster.become: down on its knees, then flat on its belly)
     }
   }
 

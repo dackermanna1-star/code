@@ -328,7 +328,8 @@
     const D = Z().director, surge0 = D.surge;
     const asked = [];
     D.surge = (src, o) => { asked.push({ src, by: o?.by }); return false; };
-    const extras = () => Z().pool.filter((q) => q.alive && !q.special && q.extra).length;
+    // (integration: with the director in, a refused call queues a few of the wave's own from its front)
+    const extras = () => D.pending.filter((q) => !q.kind).length;
     const e0 = extras();
     played.length = 0;
     s.sp.scream = g.time; s.sp.seeT = 0;
@@ -337,7 +338,7 @@
     const R0 = Z().diff.roster;
     check('screamer: it shrieks, rooted', s.sp.state === 'scream' && heard('screamer_shriek') === 1 && s.sp.calls === 1, `state ${s.sp.state}, calls ${s.sp.calls}`);
     check('screamer: it asks the director for a surge', asked.length === 1 && asked[0].src === s && asked[0].by === 'screamer');
-    check('screamer: no surge taken - it brings a few itself', extras() - e0 > 0 && extras() - e0 <= R0.screamCall, `+${extras() - e0} (screamCall ${R0.screamCall})`);
+    check('screamer: no surge taken - a few of the wave come now (director.queue)', extras() - e0 > 0 && extras() - e0 <= R0.screamCall, `+${extras() - e0} (screamCall ${R0.screamCall})`);
     const next = s.sp.scream - g.time;
     check('screamer: calls again every screamEvery s', next >= R0.screamEvery[0] - 0.1 && next <= R0.screamEvery[1], `next in ${next.toFixed(1)} s`);
     // a director that takes the surge: no extras of its own

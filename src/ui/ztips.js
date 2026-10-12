@@ -119,8 +119,9 @@ export class ZTips {
     }
     if (!this.cur && this.queue.length && !g.menus?.isOpen?.()) this.show(this.queue.shift());
     if (!this.cur) return;
-    this.cur.t += dt;
-    this.el.hidden = !!g.menus?.isOpen?.() || !!g.menus?.score || !!g.bulletCam?.active; // (not over menus or the scoreboard)
+    // (not over menus or the scoreboard, nor over a wave type's banner: director.js; its clock waits meanwhile)
+    this.el.hidden = !!g.menus?.isOpen?.() || !!g.menus?.score || !!g.bulletCam?.active || !!Z.director?.bannerOn?.();
+    if (!this.el.hidden) this.cur.t += dt;
     this.bar.style.width = Math.max(0, 100 - (100 * this.cur.t) / SHOW).toFixed(1) + '%';
     if (this.cur.t > SHOW) this.hide(true);
   }

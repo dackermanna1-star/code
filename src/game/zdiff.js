@@ -96,13 +96,14 @@ const SQUAD = {
  * Stagger and stopping power (zstagger.js): resist (x the poise a hit must build before a
  * common staggers: higher = harder to stop), decay (poise lost a second, fraction of full),
  * cooldown (s after a stagger ends before the next can start: no stun-lock), knockdown (x the
- * chance a leg hit drops it to its knees).
+ * chance a leg hit drops it to its knees). Hard and Nightmare resist more (M2 integration: with
+ * the squad's stagger and shove in, those presets had got easier than they were before M2).
  */
 const STAGGER = {
   casual: { resist: 0.8, decay: 0.3, cooldown: 0.25, knockdown: 1.2 },
   normal: { resist: 1, decay: 0.4, cooldown: 0.3, knockdown: 1 },
-  hard: { resist: 1.2, decay: 0.5, cooldown: 0.45, knockdown: 0.85 },
-  nightmare: { resist: 1.4, decay: 0.6, cooldown: 0.6, knockdown: 0.7 },
+  hard: { resist: 1.4, decay: 0.5, cooldown: 0.45, knockdown: 0.7 },
+  nightmare: { resist: 1.7, decay: 0.6, cooldown: 0.6, knockdown: 0.55 },
 };
 
 /** Melee shove (shove.js): pips (shoves before you're tired), regen (s to get one back), tired (s of a weak shove once out). */
