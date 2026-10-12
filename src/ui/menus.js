@@ -5,8 +5,9 @@
 // In-game VGUI menus (team, class, buy, scoreboard) are translucent black
 // panels with orange text laid out in 640×480 units and scaled with the screen;
 // GameUI dialogs (console, options, create server, loading) use the 2004 Steam
-// olive window style; the main menu is a text logo plus text buttons over the
-// live game view. Number keys and Esc work like 1.6 while a menu is open.
+// olive window style (restyled by ui/front/frontend.css); the main menu, the zombie
+// setup, the run-over and loading screens and the zombie scoreboard are the front end in
+// ui/front/*. Number keys and Esc work like 1.6 while a menu is open.
 //
 // Callbacks receive what the 1.6 command would carry:
 //   showTeamSelect(cb)      cb(n, 'jointeam n')   n = 1 T, 2 CT, 5 auto, 6 spectate
@@ -16,10 +17,14 @@
 //   showNewGame(d, onStart) onStart({ ...d, map, perTeam, difficulty, roundTime, freezeTime, c4Timer, startMoney, buyTime })
 //     d.maps [[id, label]], d.mapInfo(id) -> Promise<{ ok, html, bundled }>, d.addFiles(FileList) -> Promise (custom maps)
 //   showOptions(s, onChange) onChange(key, value) for every changed key on OK / Apply
+//   showZombieSetup(d, onStart)  onStart({ ...d, mode: 'zombies', map, allies, difficulty, skin, zdiff,
+//                           squadScaling, breakLen, hardcore, tips })  (ui/front/zsetup.js)
+//   showZombieOver(r, onAgain, onMenu)  r = { waves, kills, best, newBest, diff, hardcore, stats }
 //   showChatInput(team, cb) cb(text)
 // Without a callback the equivalent onCommand string is sent instead
 // ('jointeam 1', 'joinclass 3', 'buy ak47', 'buyequip vesthelm', 'buyammo1', 'say:…').
-// Other commands: 'resume', 'newgame', 'options', 'quit', 'menu_close', 'console:<text>'.
+// Other commands: 'resume', 'newgame', 'newgame classic', 'zsetup', 'zquick', 'options', 'quit',
+// 'menu_close', 'console:<text>'. menus.front = { info(), sound(name) } is filled in by main.js.
 
 import MENUS_CSS from './menus.css?inline';
 import { CATEGORIES, SUBPAGES, ITEMS, ITEM_ICON, itemsFor } from './menu/buydata.js';
@@ -27,6 +32,13 @@ import { paintSkinSwatch } from '../assets/vm/attach.js';
 import { MAP_BRIEFING, MODE_BRIEFING, TEAM_BUTTONS, CLASSES, AUTO_SELECT_TEXT } from './menu/text.js';
 import { drawWeaponIcon, hudSprite, tinted, WEAPON_IDS, KILL_ICON_W } from './icons.js';
 import { engineFontPx, engineLineHeight, spriteScale } from './hud/font.js';
+// the front end (title / main menu, zombie setup, run over, loading, zombie scoreboard): ui/front/*
+import FRONT_CSS from './front/frontend.css?inline';
+import { buildMainMenu } from './front/mainmenu.js';
+import { buildZombieSetup } from './front/zsetup.js';
+import { buildRunOver } from './front/runover.js';
+import { buildLoading } from './front/loading.js';
+import { renderZombieScore } from './front/zscore.js';
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -51,7 +63,7 @@ export class Menus {
     if (!document.getElementById('cs-menus-css')) {
       const st = el('style');
       st.id = 'cs-menus-css';
-      st.textContent = MENUS_CSS;
+      st.textContent = MENUS_CSS + FRONT_CSS;
       document.head.appendChild(st);
     }
     this.root = el('div', 'cs-menus');
@@ -70,6 +82,7 @@ export class Menus {
     this.loading = null;
     this.chat = null;
     this.score = null;
+    this.front = { info: null, sound: null }; // main.js: info() for the main menu, sound(name) for UI clicks
     this._onKey = (e) => this._key(e);
     window.addEventListener('keydown', this._onKey, true);
     window.addEventListener('resize', () => this._layout());
@@ -105,26 +118,9 @@ export class Menus {
     this._closeChat();
     this.hideScoreboard();
     this._hideMain();
-    const m = el('div', 'mm');
-    const logo = el('div', 'mm-logo');
-    logo.append('COUNTER', el('span', null, '-'), 'STRIKE');
-    const items = el('div', 'mm-items');
-    const add = (label, cmd, off = false) => {
-      const a = el('div', 'mm-item' + (off ? ' off' : ''), label);
-      if (!off) a.addEventListener('click', () => this._mainCmd(cmd));
-      items.appendChild(a);
-    };
-    add('Resume Game', 'resume', !inGame);
-    if (inGame) add('Disconnect', 'quit');
-    items.appendChild(el('div', 'mm-sep'));
-    add('New Game', 'newgame');
-    add('Find Servers', null, true);
-    add('Options', 'options');
-    items.appendChild(el('div', 'mm-sep'));
-    add('Quit', 'quit');
-    m.append(logo, items);
-    this.root.insertBefore(m, this.stage);
-    this.main = { el: m, inGame };
+    const mm = buildMainMenu({ inGame, info: this.front.info?.() || {}, sound: this.front.sound, onCommand: (cmd) => this._mainCmd(cmd) });
+    this.root.insertBefore(mm.el, this.stage);
+    this.main = { el: mm.el, inGame, destroy: mm.destroy };
   }
 
   _mainCmd(cmd) {
@@ -133,7 +129,7 @@ export class Menus {
   }
 
   _hideMain() {
-    if (this.main) this.main.el.remove();
+    if (this.main) { this.main.el.remove(); this.main.destroy?.(); }
     this.main = null;
   }
 
@@ -251,7 +247,7 @@ export class Menus {
       this._row('Buy time (mp_buytime)', bt),
     ];
     const zombieRows = [this._row('Bot teammates', allies)];
-    const zombieNote = el('div', 'st-note', 'Endless waves of zombies until you die. You start with $16000 and can buy anywhere, any time.');
+    const zombieNote = el('div', 'st-note', 'Endless waves until the whole squad is down. Difficulty, breaks and hardcore: Zombie Survival on the main menu.');
     page.append(
       this._row('Mode', mode),
       this._row('Map', map),
@@ -335,27 +331,34 @@ export class Menus {
     refresh();
   }
 
-  /** Zombie survival is over: the score and Play again / Main menu. */
+  /**
+   * Zombie survival setup (ui/front/zsetup.js): difficulty, squad, map, break length, squad
+   * scaling, hardcore, tips. onStart(opts) as showNewGame's, with the zombie options on it.
+   */
+  showZombieSetup(defaults = {}, onStart) {
+    this._closeDlg();
+    const s = buildZombieSetup(defaults, {
+      sound: this.front.sound,
+      onBack: () => this._closeDlg(),
+      onStart: (opts) => { this._closeDlg(); onStart?.(opts); },
+    });
+    this.root.appendChild(s.el);
+    this.dlg = s.el;
+    return s;
+  }
+
+  /** Zombie survival is over (ui/front/runover.js): the run's numbers and Play again / Change setup / Main menu. */
   showZombieOver(r, onAgain, onMenu) {
     this._closeDlg();
-    const { w, body } = this._window('Game Over', 'st-zombieover', () => { this._closeDlg(); onMenu?.(); });
-    this._center(w, 360);
-    const page = el('div', 'st-page');
-    const big = el('div', null, `You survived ${r.waves} wave${r.waves === 1 ? '' : 's'}`);
-    big.style.cssText = 'font-size:20px;font-weight:bold;color:#d22a1a;margin:6px 0 10px;text-align:center';
-    page.append(big);
-    page.append(this._row('Zombies killed', el('span', null, String(r.kills))));
-    page.append(this._row('Best', el('span', null, `${r.best} wave${r.best === 1 ? '' : 's'}${r.newBest ? ' (new best!)' : ''}`)));
-    const btns = el('div', 'st-btns');
-    const again = el('button', 'st-btn', 'Play again');
-    const menu = el('button', 'st-btn', 'Main menu');
-    again.addEventListener('click', () => { this._closeDlg(); onAgain?.(); });
-    menu.addEventListener('click', () => { this._closeDlg(); onMenu?.(); });
-    btns.append(again, menu);
-    body.append(page, btns);
-    this.root.appendChild(w);
-    this.dlg = w;
-    again.focus();
+    const o = buildRunOver(r, {
+      sound: this.front.sound,
+      onAgain: () => { this._closeDlg(); onAgain?.(); },
+      onSetup: () => { this._closeDlg(); onMenu?.(); this.onCommand('zsetup'); },
+      onMenu: () => { this._closeDlg(); onMenu?.(); },
+    });
+    this.root.appendChild(o.el);
+    this.dlg = o.el;
+    return o;
   }
 
   showOptions(settings = {}, onChange) {
@@ -711,14 +714,16 @@ export class Menus {
   showScoreboard(data = {}) {
     const key = JSON.stringify(data);
     if (this.score && this.score.key === key) return;
+    if (this.score && !!this.score.zombie !== !!data.zombie) this.hideScoreboard();
     if (!this.score) {
       const p = el('div', 'vg-panel vg-score');
       Object.assign(p.style, { left: '40px', top: '40px', width: '560px', height: '400px', pointerEvents: 'none' });
       this.stage.appendChild(p);
-      this.score = { el: p, key: '' };
+      this.score = { el: p, key: '', zombie: !!data.zombie };
     }
     this.score.key = key;
     const p = this.score.el;
+    if (data.zombie) { renderZombieScore(p, data.zombie); return; } // zombie survival: no teams (ui/front/zscore.js)
     p.textContent = '';
     p.appendChild(el('div', 'vg-title', data.title || 'Counter-Strike 1.6 de_dust2'));
     const table = el('table');
@@ -831,28 +836,14 @@ export class Menus {
 
   showLoading(text = 'Loading...', progress = 0) {
     if (!this.loading) {
-      const { w, body } = this._window('Loading...', 'st-loading', () => {});
-      w.querySelector('.x').remove();
-      this._center(w);
-      const msg = el('div', 'msg');
-      const bar = el('div', 'st-progress st-sunken');
-      body.append(msg, bar);
-      this.root.appendChild(w);
-      this.loading = { w, msg, bar, n: -1 };
+      this.loading = buildLoading();
+      this.root.appendChild(this.loading.el);
     }
-    const L = this.loading;
-    L.msg.textContent = text;
-    const total = 37;
-    const n = Math.max(0, Math.min(total, Math.round((progress || 0) * total)));
-    if (n !== L.n) {
-      L.bar.textContent = '';
-      for (let i = 0; i < n; i++) L.bar.appendChild(el('i'));
-      L.n = n;
-    }
+    this.loading.set(text, progress);
   }
 
   hideLoading() {
-    if (this.loading) this.loading.w.remove();
+    if (this.loading) this.loading.el.remove();
     this.loading = null;
   }
 
@@ -910,6 +901,7 @@ export class Menus {
     const vp = this.vp || { x: 0, y: 0, w: cw, h: ch };
     const s = Math.min(vp.w / 640, vp.h / 480);
     this.stageScale = s;
+    this.root.style.setProperty('--u', Math.max(0.4, Math.min(cw / 1280, ch / 720)) + 'px'); // front end layout unit
     Object.assign(this.stage.style, {
       left: vp.x + vp.w / 2 + 'px',
       top: vp.y + vp.h / 2 + 'px',
