@@ -483,6 +483,8 @@ export class Turtle extends Enemy {
 export class Walrus extends Enemy {
   private targetZ = 0;
   private eatTicks = 0;
+  /** One bite per player per rush. */
+  private bitten = new Set<unknown>();
   constructor(world: World, opts: Opts = {}) {
     super(world, 'walrus', opts);
     this.canLeave = true;
@@ -541,6 +543,7 @@ export class Walrus extends Enemy {
         this.vx = 0;
         if (this.stateTicks >= 60) {
           this.setState('rush');
+          this.bitten.clear();
           this.vx = 12 * SPD_X * this.facing;
           this.vz = 0;
           this.world.events.emit('walrusRush', { enemyId: this.id });
@@ -549,7 +552,9 @@ export class Walrus extends Enemy {
       }
       case 'rush': {
         for (const p of this.world.players) {
+          if (this.bitten.has(p)) continue;
           if (p.alive && p.y < 2.2 && this.overlapsPlayer(p, 0.1, 0.0)) {
+            this.bitten.add(p);
             p.devour(this);
             this.setState('eat');
             this.eatTicks = 60;
