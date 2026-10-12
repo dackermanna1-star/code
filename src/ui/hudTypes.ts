@@ -32,6 +32,8 @@ export interface HudSnapshot {
   weapon?: HudWeapon;
   /** Top-down radar data (first person: creatures can be behind you). */
   radar?: HudRadar;
+  /** Bot teammates (not you), for a small team list. Absent or empty when playing alone. */
+  team?: HudTeammate[];
 }
 
 export interface HudWeapon {
@@ -54,6 +56,8 @@ export interface HudRadar {
   escapeX: number;
   player: { x: number; z: number; /** first-person yaw (config/firstPerson.ts convention) */ yaw: number };
   enemies: Array<{ x: number; z: number; type: EnemyType; boss: boolean }>;
+  /** Bot teammates' positions (alive only), drawn in their colour. */
+  teammates?: Array<{ x: number; z: number; color: string }>;
 }
 
 /** Slot geometry inside the panel (design px). */
@@ -69,3 +73,14 @@ export const HUD_GEOMETRY = {
   boxX: 550.5,
   boxW: 87.5,
 } as const;
+
+export interface HudTeammate {
+  name: string;
+  /** CSS colour (their parka / crosshair colour). */
+  color: string;
+  kills: number;
+  money: number;
+  /** Current weapon's display name. */
+  weapon: string;
+  alive: boolean;
+}

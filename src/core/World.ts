@@ -2,7 +2,7 @@
 // Advanced by `step()` at a fixed 50 ticks per second.
 import { ENEMIES } from '../config/enemies';
 import { LEVELS } from '../config/levels';
-import { FIELD_HALF_W, pxToX, pxToZ } from '../config/constants';
+import { ENEMY_Z_MAX, ENEMY_Z_MAX_COOP, ENEMY_Z_MIN, ENEMY_Z_MIN_COOP, FIELD_HALF_W, pxToX, pxToZ } from '../config/constants';
 import { Combat } from './Combat';
 import type { Enemy } from './Enemy';
 import { Cub } from './enemies';
@@ -18,9 +18,15 @@ export const SPLASH_TICKS = 104;
 /** Pause after a level's bosses die before the next splash. */
 const BETWEEN_TICKS = 60;
 
+/** Bot teammates' names, from the original's AIPlayer ("Kiddie", "Zombie", "Urod"). */
+export const BOT_NAMES = ['Kiddie', 'Zombie', 'Urod'];
+
 export interface WorldOptions {
   seed?: number;
+  /** Human players (only one is supported by the app). */
   players?: number;
+  /** Computer-controlled teammates (0..3). Like the original's AI players they count as players: more creatures, wider lanes, two bears/turtles. */
+  teammates?: number;
   startLevel?: number;
   /** Starting money (debug / testing). */
   money?: number;
@@ -42,6 +48,9 @@ export class World {
   gameOverReason: { reason: 'escape' | 'dead'; enemyType?: string; enemyId?: number } | null = null;
   /** Testing aid: escapes and deaths don't end the game. */
   god = false;
+  /** Lane band creatures walk in (wider with teammates, like the original's rr). */
+  laneMin = ENEMY_Z_MIN;
+  laneMax = ENEMY_Z_MAX;
   /** Floe surface test, replaced by the presentation with the real outline. */
   isOnFloe: (x: number, z: number) => boolean = (x, z) => Math.abs(x) < FIELD_HALF_W + 6 && z > -17 && z < 16.5;
 
@@ -49,13 +58,28 @@ export class World {
     this.rng = new Rng(opts.seed);
     this.god = !!opts.god;
     this.combat = new Combat(this);
-    const n = Math.max(1, Math.min(2, opts.players ?? 1));
-    // Original start positions: P1 (620,220), P2 (200,220) in screen px.
+    const humans = Math.max(1, Math.min(2, opts.players ?? 1));
+    const bots = Math.max(0, Math.min(4 - humans, opts.teammates ?? 0));
+    // Start positions in screen px (the original's AI players started at a random
+    // spot in x 500..638, y 190..400; here they are spread over the lanes).
     const starts: Array<[number, number]> = [
       [pxToX(560), pxToZ(300)],
-      [pxToX(480), pxToZ(340)],
+      [pxToX(520), pxToZ(230)],
+      [pxToX(520), pxToZ(370)],
+      [pxToX(600), pxToZ(260)],
     ];
-    for (let i = 0; i < n; i++) this.players.push(new Player(this, i, starts[i][0], starts[i][1]));
+    for (let i = 0; i < humans + bots; i++) {
+      const p = new Player(this, i, starts[i][0], starts[i][1]);
+      if (i >= humans) {
+        p.isBot = true;
+        p.name = BOT_NAMES[(i - humans) % BOT_NAMES.length];
+      }
+      this.players.push(p);
+    }
+    if (this.players.length > 1) {
+      this.laneMin = ENEMY_Z_MIN_COOP;
+      this.laneMax = ENEMY_Z_MAX_COOP;
+    }
     if (opts.money) for (const p of this.players) p.money = opts.money;
     this.loadLevel(opts.startLevel ?? 1);
   }
@@ -167,7 +191,7 @@ export class World {
   describeGameOver(): string {
     const r = this.gameOverReason;
     if (!r) return '';
-    if (r.reason === 'dead') return 'The hunter did not survive.';
+    if (r.reason === 'dead') return this.players.length > 1 ? 'No hunter survived.' : 'The hunter did not survive.';
     const name = r.enemyType ? ENEMIES[r.enemyType as keyof typeof ENEMIES].name.toLowerCase() : 'creature';
     const article = /^[aeiou]/.test(name) ? 'An' : 'A';
     return `${article} ${name} reached the edge of the floe.`;

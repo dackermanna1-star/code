@@ -751,3 +751,8 @@
   justify-content: center;
   gap: 22px;
 }
+
+/* Options with many rows (classic look): slightly tighter rows so it fits 640x480. */
+.sh-compact .sh-opt {
+  height: 25px;
+}

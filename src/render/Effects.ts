@@ -383,7 +383,8 @@ class BeamLayer {
   private aCol: THREE.InstancedBufferAttribute;
   private aW: THREE.InstancedBufferAttribute;
   readonly list: Beam[] = [];
-  constructor(private max: number) {
+  /** `additive` glows (tracers); otherwise normal (premultiplied) blending, visible on bright ice. */
+  constructor(private max: number, additive = true) {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute([0, -1, 0, 1, -1, 0, 1, 1, 0, 0, 1, 0], 3));
     g.setIndex([0, 1, 2, 0, 2, 3]);
@@ -409,11 +410,11 @@ class BeamLayer {
         depthWrite: false,
         blending: THREE.CustomBlending,
         blendSrc: THREE.OneFactor,
-        blendDst: THREE.OneFactor,
+        blendDst: additive ? THREE.OneFactor : THREE.OneMinusSrcAlphaFactor,
       }),
     );
     this.mesh.frustumCulled = false;
-    this.mesh.renderOrder = 30;
+    this.mesh.renderOrder = additive ? 30 : 29;
   }
   add(b: Beam): void {
     if (this.list.length >= this.max) this.list.shift();
@@ -477,6 +478,8 @@ export class Effects {
   readonly add: ParticleLayer;
   readonly norm: ParticleLayer;
   readonly beams: BeamLayer;
+  /** Normal-blended beams (laser sight cores). */
+  readonly solidBeams: BeamLayer;
   private rings: Ring[] = [];
   private ringPool: THREE.Mesh[] = [];
   private lights: Array<{ light: THREE.PointLight; life: number; max: number; peak: number }> = [];
@@ -487,7 +490,8 @@ export class Effects {
     this.add = new ParticleLayer(5000, this.atlas, true);
     this.norm = new ParticleLayer(4000, this.atlas, false);
     this.beams = new BeamLayer(400);
-    scene.add(this.norm.mesh, this.add.mesh, this.beams.mesh);
+    this.solidBeams = new BeamLayer(32, false);
+    scene.add(this.norm.mesh, this.add.mesh, this.beams.mesh, this.solidBeams.mesh);
     for (let i = 0; i < lightCount; i++) {
       const l = new THREE.PointLight(0xffc070, 0, 9, 2);
       l.castShadow = false;
@@ -530,8 +534,8 @@ export class Effects {
   }
 
   /** A beam drawn for this frame only (re-add it every frame to keep it visible). */
-  beamFrame(a: THREE.Vector3, b: THREE.Vector3, width: number, color: THREE.ColorRepresentation, alpha: number): void {
-    this.beams.add({ a: a.clone(), b: b.clone(), width, color: new THREE.Color(color), alpha, life: 1, max: 0, once: true });
+  beamFrame(a: THREE.Vector3, b: THREE.Vector3, width: number, color: THREE.ColorRepresentation, alpha: number, solid = false): void {
+    (solid ? this.solidBeams : this.beams).add({ a: a.clone(), b: b.clone(), width, color: new THREE.Color(color), alpha, life: 1, max: 0, once: true });
   }
 
   flash(x: number, y: number, z: number, color: THREE.ColorRepresentation, intensity: number, life: number, distance = 9): void {
@@ -765,6 +769,7 @@ export class Effects {
     this.add.update(dt);
     this.norm.update(dt);
     this.beams.update(dt);
+    this.solidBeams.update(dt);
     for (const l of this.lights) {
       if (l.life > 0) {
         l.life -= dt;
@@ -795,5 +800,6 @@ export class Effects {
     this.add.list.length = 0;
     this.norm.list.length = 0;
     this.beams.list.length = 0;
+    this.solidBeams.list.length = 0;
   }
 }

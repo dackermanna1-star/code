@@ -1,5 +1,5 @@
 import { ENEMIES, type EnemyDef, type EnemyType } from '../config/enemies';
-import { ENEMY_Z_MAX, ENEMY_Z_MIN, SPD_X, SPD_Z, TICK, escapeX, spawnX } from '../config/constants';
+import { SPD_X, SPD_Z, TICK, escapeX, spawnX } from '../config/constants';
 import type { DeathKind, HitPart, V3 } from './Events';
 import type { World } from './World';
 import type { Player } from './Player';
@@ -117,7 +117,7 @@ export abstract class Enemy {
     this.life = this.maxLife = Math.max(1, life);
     this.bounty = this.def.bounty + (this.isBoss ? this.def.bossBonus : 0);
     this.headshotBonus = this.def.headshotBonus;
-    this.z = opts.z ?? world.rng.range(ENEMY_Z_MIN, ENEMY_Z_MAX);
+    this.z = opts.z ?? world.rng.range(world.laneMin, world.laneMax);
     this.x = opts.x ?? spawnX(this.z, this.def.halfLength);
   }
 
@@ -166,11 +166,11 @@ export abstract class Enemy {
 
   /** Keep within the lane band, re-rolling direction like the original correct_position. */
   protected clampLane(onBounce?: () => void): void {
-    if (this.z > ENEMY_Z_MAX) {
-      this.z = ENEMY_Z_MAX;
+    if (this.z > this.world.laneMax) {
+      this.z = this.world.laneMax;
       onBounce?.();
-    } else if (this.z < ENEMY_Z_MIN) {
-      this.z = ENEMY_Z_MIN;
+    } else if (this.z < this.world.laneMin) {
+      this.z = this.world.laneMin;
       onBounce?.();
     }
   }

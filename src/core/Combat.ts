@@ -438,6 +438,28 @@ export class Combat {
     return best;
   }
 
+  /**
+   * Classic gun line without spread, side-effect free (laser sight): where the
+   * centre bullet would stop — the first creature it meets (same view-consistent
+   * rule as trace(); the turtle's shell counts, it stops the bullet too) or the
+   * far edge. `x` is the end of the line at the muzzle's height and lane.
+   */
+  lineTrace(player: Player): { enemy: Enemy | null; x: number; muzzle: V3 } {
+    const o = player.muzzle();
+    let best: Enemy | null = null;
+    let bx = -FIELD_HALF_W - 6;
+    for (const e of this.world.enemies) {
+      if (!e.alive || e.left > o.x) continue;
+      const sil = e.silhouetteAt(viewHeightAt(o.y, o.z, e.z));
+      if (!sil) continue;
+      const hx = Math.min(sil.right + EDGE, o.x);
+      if (hx < e.x - e.def.halfLength - 1 || hx <= bx) continue;
+      bx = hx;
+      best = e;
+    }
+    return { enemy: best, x: bx, muzzle: o };
+  }
+
   /** Bounties, nice shots (3+ kills from one shot), AWP multi-headshots. */
   rewardShot(player: Player, weapon: Weapon, kills: Enemy[], headshots: number): void {
     let n = 0;

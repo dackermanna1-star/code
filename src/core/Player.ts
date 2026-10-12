@@ -67,6 +67,10 @@ export class Player {
   state: PlayerState = 'stand';
   stateTicks = 0;
   input: PlayerInput = { left: false, right: false, up: false, down: false, fire: false, jump: false };
+  /** Computer-controlled teammate (driven by core/Bot from the app). */
+  isBot = false;
+  /** Display name (bots: the original's AI names). */
+  name = 'You';
   /**
    * First-person aim (see config/firstPerson.ts). null = classic mode: the gun
    * line runs left along the lane with the view-consistent hit rule.

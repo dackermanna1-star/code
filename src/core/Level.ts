@@ -1,5 +1,6 @@
 // Spawn scheduling and boss flow, ported from the original levels.py.
 import type { EnemyType } from '../config/enemies';
+import { pxToZ } from '../config/constants';
 import type { LevelDef } from '../config/levels';
 import { createEnemy } from './enemies';
 import type { Enemy } from './Enemy';
@@ -87,9 +88,13 @@ export class Level {
   private spawnBosses(): void {
     this.seenBosses = true;
     for (const b of this.def.bosses) {
-      const e = createEnemy(this.world, b.type, { boss: true, z: b.z });
-      this.bosses.push(e);
-      this.world.addEnemy(e, true);
+      // Original: with two or more hunters the bear and turtle levels have a pair of bosses (rows 250 and 350).
+      const pair = this.world.players.length > 1 && (b.type === 'bear' || b.type === 'turtle');
+      for (const z of pair ? [pxToZ(250), pxToZ(350)] : [b.z]) {
+        const e = createEnemy(this.world, b.type, { boss: true, z });
+        this.bosses.push(e);
+        this.world.addEnemy(e, true);
+      }
     }
     this.world.events.emit('bossSpawn', { num: this.def.num });
   }

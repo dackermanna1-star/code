@@ -89,6 +89,7 @@ async function boot(): Promise<void> {
   if (params.has('level')) game.worldOptions.startLevel = Number(params.get('level')) || 1;
   if (params.has('money')) game.worldOptions.money = Number(params.get('money')) || 0;
   if (params.has('speed')) game.timeScale = Number(params.get('speed')) || 1;
+  if (params.has('team')) game.teammatesOverride = Math.max(0, Math.min(3, Number(params.get('team')) || 0));
   // ?fp: play in first person (not persisted to the saved options).
   if (params.has('fp')) game.screens.options.view = 'first';
   if (params.has('play') || params.has('autoplay')) game.newGame();

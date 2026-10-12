@@ -11,6 +11,7 @@ import { ModernHud } from './HudModern';
 import { Radar } from './Radar';
 import { storageGet } from './dom';
 import type { HudSnapshot } from './hudTypes';
+import { TeamList } from './TeamList';
 
 export { HUD_GEOMETRY } from './hudTypes';
 export type { HudRadar, HudSnapshot, HudWeapon, HudWeaponSlot } from './hudTypes';
@@ -38,6 +39,7 @@ export class Hud {
   private classic: ClassicHud | null = null;
   private modern: ModernHud | null = null;
   private readonly radar: Radar;
+  private readonly team: TeamList;
   private style: HudStyle;
   private visible = true;
   private last: HudSnapshot | null = null;
@@ -47,6 +49,8 @@ export class Hud {
     this.icons = { ...icons };
     this.style = savedStyle();
     this.radar = new Radar(view);
+    this.team = new TeamList(view);
+    this.team.setStyle(this.style);
     this.build();
   }
 
@@ -65,6 +69,7 @@ export class Hud {
     if (style !== 'classic') style = 'modern';
     if (style === this.style) return;
     this.style = style;
+    this.team.setStyle(style);
     this.build();
     if (this.last) this.update(this.last);
   }
@@ -74,7 +79,10 @@ export class Hud {
     this.visible = v;
     this.classic?.setVisible(v && this.style === 'classic');
     this.modern?.setVisible(v && this.style === 'modern');
-    if (!v) this.radar.update(undefined, false);
+    if (!v) {
+      this.radar.update(undefined, false);
+      this.team.update(undefined, false);
+    }
   }
 
   update(s: HudSnapshot): void {
@@ -87,6 +95,7 @@ export class Hud {
       this.modern!.update(s);
     }
     this.radar.update(s.radar, this.visible && s.view === 'first', this.style);
+    this.team.update(s.team, this.visible);
   }
 
   /** Create the active look on demand and show only it. */

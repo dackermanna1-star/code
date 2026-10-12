@@ -83,6 +83,8 @@ export interface GameEvents {
   turtleHide: { enemyId: number };
   cubSniff: { enemyId: number };
   levelSplash: { num: number; name: string };
+  /** A bot teammate says something (speech balloon). */
+  say: { playerId: number; text: string };
   levelStart: { num: number };
   bossSpawn: { num: number };
   levelComplete: { num: number };

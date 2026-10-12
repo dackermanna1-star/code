@@ -1,6 +1,6 @@
 // The eight creature types, ported from the original behaviour
 // (py-sealhunter enemies.py), converted to metres and 50 Hz ticks.
-import { ENEMY_Z_MAX, ENEMY_Z_MIN, FIELD_HALF_W, GAME_GRAVITY, PLAYER, SPD_X, TICK } from '../config/constants';
+import { FIELD_HALF_W, GAME_GRAVITY, PLAYER, SPD_X, TICK } from '../config/constants';
 import { viewHeightAt } from '../config/view';
 import { FP, aimDir } from '../config/firstPerson';
 import type { EnemyType } from '../config/enemies';
@@ -589,7 +589,7 @@ export class Walrus extends Enemy {
         break;
     }
     this.x += this.vx * dt;
-    this.z = Math.max(ENEMY_Z_MIN, Math.min(ENEMY_Z_MAX, this.z + this.vz * dt));
+    this.z = Math.max(this.world.laneMin, Math.min(this.world.laneMax, this.z + this.vz * dt));
     this.distance += Math.abs(this.vx * dt) + Math.abs(this.vz * dt);
     this.tickDamage = 0;
   }

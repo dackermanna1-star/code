@@ -15,7 +15,19 @@ export interface BotOptions {
   homeX?: number;
   /** Only engage creatures within this distance (a human doesn't snipe at the far edge). */
   maxRange?: number;
+  /**
+   * Teammates: the band of lanes (z range) this bot keeps, like the original
+   * AIPlayer's "keep" side of the field. Creatures outside it are lower priority.
+   */
+  zone?: [number, number];
+  /** Teammates: what the bot says when the hunt starts (speech balloons). */
+  greeting?: string[];
+  /** Ticks before the first line. */
+  sayDelay?: number;
 }
+
+/** The original AIPlayer's auto-buy list. */
+export const TEAMMATE_BUY_LIST: WeaponId[] = ['magnum', 'mac10', 'm4', 'minigun'];
 
 export class Bot {
   private target: Enemy | null = null;
@@ -26,9 +38,15 @@ export class Bot {
   private readonly buyList: WeaponId[];
   private readonly homeX: number;
   private readonly maxRange: number;
+  private readonly zone: [number, number] | null;
+  private greeting: string[];
+  private sayIn = 0;
 
   constructor(private player: Player, opts: BotOptions = {}) {
     this.maxRange = opts.maxRange ?? Infinity;
+    this.zone = opts.zone ?? null;
+    this.greeting = opts.greeting ? [...opts.greeting] : [];
+    this.sayIn = opts.sayDelay ?? 0;
     this.skill = opts.skill ?? 0.85;
     this.buyList = opts.buyList ?? ['magnum', 'mp5', 'mac10', 'm4', 'minigun'];
     this.homeX = opts.homeX ?? -1.1;
@@ -46,6 +64,12 @@ export class Bot {
     let t = (p.x - e.x) / v;
     t += Math.abs(this.aimZ(e) - p.z) / 6;
     if (e.isBoss) t -= 1;
+    if (this.zone) {
+      // Someone else keeps the other lanes: only help out when it gets urgent.
+      const z = e.z;
+      const out = z < this.zone[0] ? this.zone[0] - z : z > this.zone[1] ? z - this.zone[1] : 0;
+      t += out * 1.6;
+    }
     return t;
   }
 
@@ -79,6 +103,12 @@ export class Bot {
     const inp = p.input;
     inp.left = inp.right = inp.up = inp.down = inp.fire = inp.jump = false;
     if (!p.alive || world.gameEnded) return;
+
+    // Chatter (original: "Hey <names> let's kill them all!", "I'm going to keep ... side").
+    if (this.greeting.length && --this.sayIn <= 0) {
+      world.events.emit('say', { playerId: p.id, text: this.greeting.shift()! });
+      this.sayIn = 150;
+    }
 
     for (const id of this.buyList) {
       if (!p.has(id)) {
@@ -162,4 +192,37 @@ export class Bot {
     if (dz > 0.12 + stop) inp.down = true;
     else if (dz < -0.12 - stop) inp.up = true;
   }
+}
+
+/**
+ * Bots for a world's computer-controlled teammates. Like the original's
+ * AIPlayer each keeps one side of the field (the lanes are split between the
+ * bots; with a single bot it keeps the bottom side, the original default),
+ * buys from the AI auto-buy list and greets the others.
+ */
+export function createTeammateBots(world: World, skill = 0.85): Bot[] {
+  const bots = world.players.filter((p) => p.isBot);
+  const n = bots.length;
+  if (!n) return [];
+  const z0 = world.laneMin;
+  const z1 = world.laneMax;
+  const sides = n === 1 ? ['bottom'] : n === 2 ? ['top', 'bottom'] : ['top', 'middle', 'bottom'];
+  const homes = [12, 9.5, 14];
+  return bots.map((p, i) => {
+    // Bands with a little overlap; a single bot takes the bottom half.
+    const lo = n === 1 ? (z0 + z1) / 2 : z0 + ((z1 - z0) * i) / n;
+    const hi = n === 1 ? z1 : z0 + ((z1 - z0) * (i + 1)) / n;
+    const others = world.players.filter((q) => q !== p).map((q) => q.name);
+    const greeting = [`I'm going to keep the ${sides[i]} of the field`];
+    if (i === 0) greeting.unshift(`Hey ${others.join(', ')}, let's kill them all!`);
+    return new Bot(p, {
+      skill,
+      buyList: TEAMMATE_BUY_LIST,
+      homeX: homes[i % homes.length],
+      maxRange: 26,
+      zone: [lo - 0.4, hi + 0.4],
+      greeting,
+      sayDelay: 20 + i * 160,
+    });
+  });
 }

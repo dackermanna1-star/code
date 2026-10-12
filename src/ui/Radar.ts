@@ -140,6 +140,17 @@ export class Radar {
       ctx.fill();
     }
 
+    // Bot teammates.
+    for (const t of r.teammates ?? []) {
+      ctx.beginPath();
+      ctx.arc(mx(t.x), mz(t.z), 2.3, 0, Math.PI * 2);
+      ctx.fillStyle = t.color;
+      ctx.fill();
+      ctx.lineWidth = 0.8;
+      ctx.strokeStyle = 'rgba(6, 14, 24, 0.7)';
+      ctx.stroke();
+    }
+
     ctx.save();
     ctx.translate(px, pz);
     ctx.rotate(head);

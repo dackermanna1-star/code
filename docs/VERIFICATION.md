@@ -88,3 +88,24 @@ Remaining differences:
 * The single-file build (`release/SealHunter.html`) was driven from `file://` in a
   headless browser: title → "Play first person" → pointer lock → mouse look, `W`,
   mouse fire → `V` back to classic, all 193 sounds loaded, no page errors.
+
+## Bot teammates and laser sight (third round)
+
+* `npm test` — 51 unit tests. 7 of them are new:
+  - up to three named bots, with a single-player world unchanged;
+  - the original co-op spawn scaling (n + 0.85 n per extra hunter) and the wider
+    lane band (rows 180–420);
+  - two bears and two turtles as bosses;
+  - three bots holding level 1 on their own while greeting and keeping their sides;
+  - the laser line stopping at the first creature in the lane (agreeing with the
+    bot's line target), running to the far edge when the lane is empty, and stopping
+    at a turtle's shell.
+* Single-player classic logic is unchanged: the seeded bot fingerprint still hashes
+  `d7df759c`.
+* Screenshots in both views and both HUD styles cover:
+  - three teammates, with their parkas, crosshairs, money and names;
+  - speech balloons kept on screen;
+  - the team list and radar dots;
+  - spectating after the human dies;
+  - the red laser with its dot on a seal;
+  - the new rows on both Options screens.

@@ -74,10 +74,13 @@ const smooth = (a: number, b: number, x: number) => {
 };
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
+/** Parka colours used while a rig is being built (teammates wear other colours). */
+let PARKA = { hi: COL.parka, deep: COL.parkaDeep };
+
 /** Parka blue, a little deeper toward the hem, faint fabric noise. `y0` = bone height in root space. */
 const parkaShade = (y0: number) => (p: THREE.Vector3) => {
   const y = p.y + y0;
-  const c = mix(COL.parkaDeep, COL.parka, 0.45 + 0.55 * smooth(0.15, 0.95, y));
+  const c = mix(PARKA.deep, PARKA.hi, 0.45 + 0.55 * smooth(0.15, 0.95, y));
   c.offsetHSL(0, 0, (hash3(p.x * 50, p.y * 50, p.z * 50) - 0.5) * 0.035);
   return c;
 };
@@ -402,7 +405,7 @@ const _poleR = new THREE.Vector3();
 const POLE_L = new THREE.Vector3(0.35, -1, 0.65);
 const POLE_R = new THREE.Vector3(0.35, -1, -0.65);
 
-export function createHunterRig(): HunterRig {
+export function createHunterRig(opts: { parka?: number; parkaDeep?: number } = {}): HunterRig {
   const root = new THREE.Group();
   root.name = 'hunter';
   const bones = new Map<string, THREE.Object3D>();
@@ -435,7 +438,12 @@ export function createHunterRig(): HunterRig {
   bones.set('hand', hand);
   bones.set('hand2', hand2);
 
-  buildBody({ pelvis, chest, head, upperArmL, upperArmR, lowerArmL, lowerArmR, thighL, thighR, shinL, shinR });
+  PARKA = { hi: opts.parka ?? COL.parka, deep: opts.parkaDeep ?? COL.parkaDeep };
+  try {
+    buildBody({ pelvis, chest, head, upperArmL, upperArmR, lowerArmL, lowerArmR, thighL, thighR, shinL, shinR });
+  } finally {
+    PARKA = { hi: COL.parka, deep: COL.parkaDeep };
+  }
 
   // chest transform (root space) in the neutral pose, for chest-follow holds
   const chestRestInv = new THREE.Matrix4();

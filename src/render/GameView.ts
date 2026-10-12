@@ -27,6 +27,7 @@ import type { ProjectedPoint, Stage } from './Stage';
 import type { CreatureRig, AnimInput } from './models/types';
 import { createCreatureRig } from './models/creatures';
 import { createHunterRig, type HunterRig } from './models/hunter';
+import { teamColor } from '../config/team';
 import {
   createClipModel,
   createShellModel,
@@ -44,6 +45,8 @@ const _right = new THREE.Vector3();
 const _up = new THREE.Vector3();
 const _fwd = new THREE.Vector3();
 const _dir = { x: 0, y: 0, z: 0 };
+/** Seconds a teammate's speech balloon stays up. */
+const SPEECH_TIME = 3.2;
 const _laserA = new THREE.Vector3();
 const _laserB = new THREE.Vector3();
 const _proj: ProjectedPoint = { x: 0, y: 0 };
@@ -114,6 +117,8 @@ export interface OverlayState {
     reload?: number | null;
     /** First person: weapon spread, degrees. */
     spreadDeg?: number;
+    /** Crosshair colour (teammates); default is player 1's blue. */
+    color?: string;
   }>;
   texts: Array<{
     x: number;
@@ -124,7 +129,7 @@ export interface OverlayState {
     size?: number;
     bold?: boolean;
     /** What the text is (the modern overlay styles each differently). */
-    role?: 'money' | 'popup' | 'label';
+    role?: 'money' | 'popup' | 'label' | 'name' | 'speech';
   }>;
   vignette: number;
   /** First person: 0..1 hit-marker intensity and whether that hit killed. */
@@ -169,6 +174,10 @@ export class GameView {
   private projectiles = new Map<number, THREE.Object3D>();
   private fountains: Array<{ bone: THREE.Object3D; t: number }> = [];
   private popups: Popup[] = [];
+  /** Bot teammates' speech balloons (original speech-balloon), age in seconds. */
+  private speech: Array<{ playerId: number; text: string; age: number }> = [];
+  /** Classic-view laser sight for the human's gun line (Options → Laser sight). */
+  laserSight = true;
   private time = 0;
   private alpha = 0;
   /** Camera mode (mirrors stage.viewMode). */
@@ -297,6 +306,10 @@ export class GameView {
       this.effects.sparks(e.point, 8, 1, 6);
     });
     on('shot', (e) => this.onShot(e));
+    on('say', (e) => {
+      this.speech = this.speech.filter((s) => s.playerId !== e.playerId);
+      this.speech.push({ playerId: e.playerId, text: e.text, age: 0 });
+    });
     on('shellEject', (e) => this.onShell(e));
     on('clipDrop', (e) => this.onClip(e));
     on('explosion', (e) => this.onExplosion(e));
@@ -699,7 +712,8 @@ export class GameView {
 
   // ------------------------------------------------------------------ hunter
   private addHunter(p: Player): void {
-    const rig = createHunterRig();
+    const tc = teamColor(p.id);
+    const rig = createHunterRig({ parka: tc.parka, parkaDeep: tc.parkaDeep });
     rig.root.position.set(p.x, p.y, p.z);
     this.root.add(rig.root);
     const h: HunterView = {
@@ -939,13 +953,38 @@ export class GameView {
       // AWP laser sight (hidden while firing/reloading, like the original).
       if (m.laser && w.state === 'idle' && p.canAct && this.fpGun(p.id)) {
         this.fpLaser(p);
+      } else if (this.laserSight && !this.fp && p.id === 0 && !p.isBot && p.canAct && w.def.kind === 'hitscan' && w.state !== 'reload') {
+        this.classicLaser(h, m);
       } else if (m.laser && w.state === 'idle' && p.canAct) {
         h.rig.root.updateMatrixWorld(true);
         const s = m.laser.getWorldPosition(new THREE.Vector3());
         const end = new THREE.Vector3(-30, s.y, s.z);
-        this.effects.beamFrame(s, end, 0.014, 0xff2010, 0.55);
-        this.effects.beamFrame(s.clone().add(new THREE.Vector3(0, -0.02, 0)), end.clone().add(new THREE.Vector3(0, -0.02, 0)), 0.012, 0xff6400, 0.4);
+        this.effects.beamFrame(s, end, 0.02, 0xd81010, 0.75, true);
+        this.effects.beamFrame(s.clone().add(new THREE.Vector3(0, -0.02, 0)), end.clone().add(new THREE.Vector3(0, -0.02, 0)), 0.03, 0xff6400, 0.3);
       }
+    }
+  }
+
+  /**
+   * Classic-view laser sight (option): from the gun along the gun line to where
+   * the centre bullet would stop — the first creature in the lane (with a red
+   * dot on it) or the far edge. Shown while idle and firing, off while reloading.
+   */
+  private classicLaser(h: HunterView, m: WeaponModel): void {
+    const w = this.world;
+    if (!w) return;
+    h.rig.root.updateMatrixWorld(true);
+    const s = (m.laser ?? m.muzzles[0]).getWorldPosition(_laserA);
+    const tr = w.combat.lineTrace(h.player);
+    // The rendered gun leads the logic muzzle slightly; never draw backwards.
+    const endX = Math.min(tr.x, s.x - 0.05);
+    const end = _laserB.set(endX, s.y, s.z);
+    // A solid red core (reads on the white ice) inside a faint additive glow.
+    this.effects.beamFrame(s, end, 0.032, 0x9a0000, 1, true);
+    this.effects.beamFrame(s, end, 0.075, 0xff2010, 0.25);
+    if (tr.enemy) {
+      this.effects.emit(false, endX + 0.02, s.y, s.z + 0.05, { size: [0.16, 0.12], life: 0.03, color: 0xe01010, alpha: [0.9, 0.6], frame: 0 });
+      this.effects.emit(true, endX + 0.02, s.y, s.z + 0.05, { size: [0.3, 0.24], life: 0.03, color: 0xff3020, alpha: [0.6, 0.3], frame: 0 });
     }
   }
 
@@ -968,8 +1007,8 @@ export class GameView {
       end.set(eye.x + _dir.x * 45, eye.y + _dir.y * 45, eye.z + _dir.z * 45);
     }
     // Widths are in metres: thin near the gun, still a visible thread at range.
-    this.effects.beamFrame(s, end, 0.012, 0xff2010, 0.55);
-    this.effects.beamFrame(s, end, 0.006, 0xff6400, 0.45);
+    this.effects.beamFrame(s, end, 0.006, 0xd81010, 0.75, true);
+    this.effects.beamFrame(s, end, 0.012, 0xff2010, 0.45);
     if (dot) this.effects.emit(true, end.x, end.y + 0.01, end.z, { size: [0.07, 0.06], life: 0.03, color: 0xff3020, alpha: [0.9, 0.5], frame: 0 });
   }
 
@@ -1204,6 +1243,8 @@ export class GameView {
       pp.pos.y += dt * (this.fp ? 0.7 : 1.2);
     }
     this.popups = this.popups.filter((pp) => pp.age < 1);
+    for (const s of this.speech) s.age += dt;
+    this.speech = this.speech.filter((s) => s.age < SPEECH_TIME);
     this.blood.update(dt);
     this.corpses.flushTints();
     this.effects.update(dt);
@@ -1236,16 +1277,35 @@ export class GameView {
         text = `${wpn.bullets}`;
         color = 'rgba(40, 40, 48, 0.85)';
       }
-      if (p.canAct) out.crosshairs.push({ x: sc.x, y: sc.y, text, textColor: color });
+      const tc = p.isBot ? teamColor(p.id).ui : undefined;
+      if (p.canAct) out.crosshairs.push({ x: sc.x, y: sc.y, text, textColor: color, color: tc });
       const ms = this.stage.project(_v.set(ix + 0.05, iy + PLAYER.height + 0.42, iz));
-      out.texts.push({ x: ms.x, y: ms.y, text: `$${p.money}`, color: 'rgba(40, 40, 48, 0.8)', alpha: 1, size: 9, role: 'money' });
+      // Original: every hunter's money above his head in his colour (bots too).
+      out.texts.push({ x: ms.x, y: ms.y, text: `$${p.money}`, color: tc ?? 'rgba(40, 40, 48, 0.8)', alpha: 1, size: 9, role: 'money' });
+      if (p.isBot) out.texts.push({ x: ms.x, y: ms.y, text: p.name, color: tc!, alpha: 0.95, size: 8, role: 'name' });
       out.vignette = Math.max(out.vignette, Math.min(1, (PLAYER.life - p.life) / PLAYER.life) * 0.8);
     }
     for (const pp of this.popups) {
       const s = this.stage.project(pp.pos);
       out.texts.push({ x: s.x, y: s.y, text: pp.text, color: 'rgb(200, 20, 20)', alpha: 0.5 * (1 - pp.age), size: 10, role: 'popup' });
     }
+    this.speechOverlay(out);
     return out;
+  }
+
+  /** Speech balloons above the bot teammates (both views; culled behind the camera). */
+  private speechOverlay(out: OverlayState): void {
+    const w = this.world;
+    if (!w) return;
+    for (const s of this.speech) {
+      const h = this.hunters.get(s.playerId);
+      if (!h || !h.player.alive) continue;
+      const p = h.player;
+      const pr = this.stage.project(_v.set(p.x, p.y + PLAYER.height + (this.fp ? 0.55 : 0.85), p.z), _proj);
+      if (pr.behind) continue;
+      const fade = Math.min(1, s.age * 6) * Math.min(1, (SPEECH_TIME - s.age) * 2);
+      out.texts.push({ x: pr.x, y: pr.y, text: `${p.name}: ${s.text}`, color: teamColor(p.id).ui, alpha: fade, size: 9, bold: true, role: 'speech' });
+    }
   }
 
   /** First person: centre reticle, hit marker, money over the bodies, damage vignette. */
@@ -1272,6 +1332,14 @@ export class GameView {
     if (!p.alive) out.vignette = 0.85;
     out.hitMarker = this.hitMarker;
     out.hitMarkerKill = this.hitKill;
+    // Teammates: a name tag over each bot in view.
+    for (const q of w.players) {
+      if (!q.isBot || !q.alive) continue;
+      const tp = this.stage.project(_v.set(q.x, q.y + PLAYER.height + 0.3, q.z), _proj);
+      if (tp.behind || tp.x < -40 || tp.x > vw + 40) continue;
+      out.texts.push({ x: tp.x, y: tp.y, text: q.name, color: teamColor(q.id).ui, alpha: 0.9, size: 9, role: 'name' });
+    }
+    this.speechOverlay(out);
     for (const pp of this.popups) {
       let x: number;
       let y: number;

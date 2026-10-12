@@ -69,6 +69,9 @@ export const PLAYER_X_MAX = FIELD_HALF_W - 0.4;
 /** Enemy lane limits (level.rr = 200..400 for one player). */
 export const ENEMY_Z_MIN = pxToZ(200);
 export const ENEMY_Z_MAX = pxToZ(400);
+/** With two or more hunters (teammates) the creatures use a wider band (rr = 180..420). */
+export const ENEMY_Z_MIN_COOP = pxToZ(180);
+export const ENEMY_Z_MAX_COOP = pxToZ(420);
 
 /** Gravity for gameplay objects (hops, grenades). Snappier than real life like the original. */
 export const GAME_GRAVITY = 26;

@@ -31,7 +31,7 @@ npm run build:single # writes release/SealHunter.html (~9 MB, sounds and fonts e
 
 A prebuilt copy is committed at `release/SealHunter.html`.
 
-URL options (handy for testing): `?play` (skip the title), `?fp` (first person),
+URL options (handy for testing): `?play` (skip the title), `?fp` (first person), `?team=3` (bot teammates),
 `?autoplay` (bot plays), `?speed=2` (time scale), `?quality=low|medium|high`, `?nosound`.
 
 ## How to play
@@ -54,6 +54,23 @@ epilogue.
 | Pause | `P` / `Esc` |
 
 Gamepads work too (stick/d-pad move, A/RT fire, X reload, Y/LB cycle, RB buy, B jump, Start pause).
+
+### Bot teammates and laser sight
+
+**Options → Teammates** adds up to three computer hunters to the next game
+(Kiddie, Zombie and Urod, after the original's AI players). Each wears its own parka
+colour, keeps a side of the field, buys its own guns, and greets the team in a
+speech balloon. As in the original's multiplayer, more hunters means more creatures
+(+85% per extra hunter), wider lanes, and two bears / two turtles as bosses. If you
+die while teammates are still standing, the game goes on and you watch from the
+classic camera. Their kills and weapons are listed under your money, and in first
+person they show on the radar.
+
+**Options → Laser sight** (on by default) draws a red laser in the classic view from
+your gun along your gun line to the first creature the bullet would hit. A red dot
+marks the creature; with nothing in the lane the laser runs to the far edge. It is
+hidden while reloading and for grenades and the launcher. In first person the
+reticle does this job.
 
 ### First person
 
@@ -116,6 +133,8 @@ docs/           research notes, reference screenshots
   spin), the hunter's body still casting its shadow and reflection, a full 360°
   arctic world (sky, sea to the horizon, distant icebergs and floes, haze),
   directional audio and a radar.
+- Up to three bot teammates with the original's co-op rules, colours, speech
+  balloons, a team list and radar dots; a classic-view laser sight along the gun line.
 - Modern minimal UI by default (glass HUD, weapon bar, radar, clean menus that work at
   any aspect ratio), with the original 2005 HUD one option away (Options → Interface).
   Crosshair with ammo / reload %, money pop-ups, title screen with a live attract-mode
@@ -126,8 +145,8 @@ docs/           research notes, reference screenshots
 
 ## Known limitations
 
-- Only single-player is implemented (the original supported up to 4 local players);
-  the logic supports two players but there is no second input/HUD binding.
+- Only one human player (the original supported up to 4 local players); the other
+  slots can be filled with bot teammates.
 - Corpses are presentation only: like the original's static corpse images they do
   not block bullets or creatures, and settled corpses no longer react to later
   explosions.

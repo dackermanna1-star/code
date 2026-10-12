@@ -5,11 +5,13 @@
 // toggle). First person integrates mouse / right-stick look into Player.aim
 // every frame and maps WASD / the left stick relative to the view heading into
 // PlayerInput.move. The title's attract mode always runs in the classic view.
-import { ENEMY_Z_MAX, ENEMY_Z_MIN, FIELD_HALF_W, PLAYER, PLAYER_Z_MAX, PLAYER_Z_MIN, TICK, TICK_RATE, escapeX } from '../config/constants';
+import { FIELD_HALF_W, PLAYER, PLAYER_Z_MAX, PLAYER_Z_MIN, TICK, TICK_RATE, escapeX } from '../config/constants';
 import { FP, headingDir, rightDir, wrapAngle, type Aim, type ViewMode } from '../config/firstPerson';
 import { HUD_WEAPONS, WEAPONS, type WeaponId } from '../config/weapons';
 import { World } from '../core/World';
-import { Bot } from '../core/Bot';
+import { Bot, createTeammateBots } from '../core/Bot';
+import { teamColor } from '../config/team';
+import type { HudTeammate } from '../ui/hudTypes';
 import type { Stage } from '../render/Stage';
 import type { Environment } from '../render/env/Environment';
 import { GameView } from '../render/GameView';
@@ -32,6 +34,10 @@ export class Game {
   readonly input: Input;
   world: World | null = null;
   private bot: Bot | null = null;
+  /** Bot teammates of the running game. */
+  private teamBots: Bot[] = [];
+  private readonly team: HudTeammate[] = [];
+  private spectateNoted = false;
   private mode: Mode = 'title';
   private acc = 0;
   private endTimer = -1;
@@ -43,6 +49,8 @@ export class Game {
   autoplay = false;
   /** Testing: options for new worlds (god mode, start level, money). */
   worldOptions: { god?: boolean; startLevel?: number; money?: number } = {};
+  /** Testing (URL ?team=N): teammates regardless of the options. */
+  teammatesOverride: number | null = null;
   /** Show the "click to aim" hint when the mouse is not captured in first person (tests turn it off). */
   lockHint = true;
   private readonly look = { x: 0, y: 0 };
@@ -87,6 +95,7 @@ export class Game {
   private applyOptions(o: Options): void {
     this.audio.setVolumes(o.masterVolume, o.sfxVolume, o.ambience);
     this.view.blood.amount = BLOOD_AMOUNT[o.blood];
+    this.view.laserSight = o.laserSight && this.mode !== 'title';
     const q = o.quality;
     this.stage.maxPixelRatio = q === 'low' ? 1 : q === 'medium' ? 1.5 : 2;
     this.stage.renderer.shadowMap.enabled = q !== 'low';
@@ -99,6 +108,12 @@ export class Game {
     if (this.mode !== 'title') this.applyView(o.view);
   }
 
+  /** The human is down but bot teammates are still hunting. */
+  private get spectating(): boolean {
+    const w = this.world;
+    return !!w && this.mode !== 'title' && !w.player.alive && !w.gameEnded && w.players.some((p) => p.alive);
+  }
+
   /** Current view of the running game. */
   private get fp(): boolean {
     return this.stage.viewMode === 'first';
@@ -106,6 +121,8 @@ export class Game {
 
   /** Switch the running game between the classic view and first person. */
   private applyView(view: ViewMode): void {
+    // Down while the team fights on: watch them from the classic camera.
+    if (this.spectating) view = 'third';
     this.stage.setViewMode(view);
     const fp = view === 'first';
     this.input.pointerLookMode = fp && !this.autoplay;
@@ -135,6 +152,7 @@ export class Game {
   // ------------------------------------------------------------------ flow
   showTitle(): void {
     this.mode = 'title';
+    this.view.laserSight = false;
     // Attract mode always runs in the classic view.
     this.stage.setViewMode('third');
     this.input.pointerLookMode = false;
@@ -155,6 +173,7 @@ export class Game {
     this.audio.unlock();
     this.screens.hideAll();
     this.mode = 'playing';
+    this.view.laserSight = this.screens.options.laserSight;
     this.startWorld(false);
     this.hud.setVisible(true);
     this.input.enabled = true;
@@ -166,10 +185,14 @@ export class Game {
   private startWorld(attract: boolean): void {
     this.unbindAudio?.();
     this.unbindAudio = null;
-    const world = new World({ seed: (Math.random() * 1e9) >>> 0, ...(attract ? {} : this.worldOptions) });
+    const teammates = attract ? 0 : (this.teammatesOverride ?? this.screens.options.teammates);
+    const world = new World({ seed: (Math.random() * 1e9) >>> 0, teammates, ...(attract ? {} : this.worldOptions) });
     this.world = world;
     // The demo hunter stands mid-right like the player in the reference frames.
     this.bot = attract || this.autoplay ? new Bot(world.player, { skill: attract ? 0.8 : 0.95, homeX: 10, maxRange: 22 }) : null;
+    this.teamBots = createTeammateBots(world);
+    this.team.length = 0;
+    this.spectateNoted = false;
     this.view.attach(world);
     this.acc = 0;
     this.endTimer = -1;
@@ -262,6 +285,7 @@ export class Game {
       while (this.acc >= TICK && steps < 8) {
         this.acc -= TICK;
         steps++;
+        for (const b of this.teamBots) b.think(w);
         if (this.bot) this.bot.think(w);
         else {
           Object.assign(w.player.input, this.input.held);
@@ -270,21 +294,28 @@ export class Game {
         this.view.beforeStep();
         w.step();
         if (this.mode === 'playing') {
-          const wp = w.player.weapon;
-          this.audio.weaponTick({
-            playerId: 0,
-            id: wp.id,
-            state: wp.state,
-            ticks: wp.ticks,
-            fireTicks: wp.fireTicks,
-            reloadTicks: wp.def.reloadTicks,
-            firingHeld: w.player.input.fire,
-            x: w.player.x,
-          });
+          for (const pl of w.players) {
+            const wp = pl.weapon;
+            this.audio.weaponTick({
+              playerId: pl.id,
+              id: wp.id,
+              state: wp.state,
+              ticks: wp.ticks,
+              fireTicks: wp.fireTicks,
+              reloadTicks: wp.def.reloadTicks,
+              firingHeld: pl.input.fire && pl.alive,
+              x: pl.x,
+            });
+          }
         }
       }
       if (steps === 8) this.acc = 0;
       if (w.gameEnded) this.onEnded(w, dt);
+      else if (this.mode === 'playing' && this.spectating && !this.spectateNoted) {
+        this.spectateNoted = true;
+        this.screens.message("You're down - your team fights on");
+        if (this.fp) this.applyView('third');
+      }
     }
 
     const alpha = this.mode === 'paused' ? 1 : Math.min(1, this.acc / TICK);
@@ -401,6 +432,7 @@ export class Game {
       health: Math.max(0, Math.min(1, p.life / PLAYER.life)),
       weapon: { id: wp.id, name: wp.def.name, bullets: wp.bullets, clip: wp.def.clip, reload: wp.state === 'reload' ? wp.reloadProgress : null },
       radar: this.radarSnapshot(w),
+      team: this.teamSnapshot(w),
       mode: boss ? 'boss' : 'level',
       label: boss ? 'Boss:' : `Level ${w.levelNum}:`,
       progress: boss ? w.level.bossLife : w.level.progress,
@@ -420,14 +452,33 @@ export class Game {
     };
   }
 
+  /** Bot teammates for the HUD team list (the array and its entries are reused). */
+  private teamSnapshot(w: World): HudTeammate[] {
+    const t = this.team;
+    let n = 0;
+    for (const p of w.players) {
+      if (!p.isBot) continue;
+      const s = t[n] ?? (t[n] = { name: '', color: '', kills: 0, money: 0, weapon: '', alive: true });
+      s.name = p.name;
+      s.color = teamColor(p.id).ui;
+      s.kills = p.stats.kills;
+      s.money = p.money;
+      s.weapon = p.weapon.def.name;
+      s.alive = p.alive;
+      n++;
+    }
+    t.length = n;
+    return t;
+  }
+
   /** Top-down field for the HUD radar (cheap; the arrays are reused). */
   private radarSnapshot(w: World): HudRadar {
     const r = this.radar;
     const p = w.player;
     r.minX = -FIELD_HALF_W - 2;
-    r.minZ = Math.min(ENEMY_Z_MIN, PLAYER_Z_MIN) - 0.5;
-    r.maxZ = Math.max(ENEMY_Z_MAX, PLAYER_Z_MAX) + 0.5;
-    r.escapeX = escapeX((ENEMY_Z_MIN + ENEMY_Z_MAX) / 2, 0);
+    r.minZ = Math.min(w.laneMin, PLAYER_Z_MIN) - 0.5;
+    r.maxZ = Math.max(w.laneMax, PLAYER_Z_MAX) + 0.5;
+    r.escapeX = escapeX((w.laneMin + w.laneMax) / 2, 0);
     r.maxX = r.escapeX + 1;
     r.player.x = p.x;
     r.player.z = p.z;
@@ -443,6 +494,17 @@ export class Game {
       n++;
     }
     r.enemies.length = n;
+    const mates = r.teammates ?? (r.teammates = []);
+    let m = 0;
+    for (const q of w.players) {
+      if (!q.isBot || !q.alive) continue;
+      const slot = mates[m] ?? (mates[m] = { x: 0, z: 0, color: '' });
+      slot.x = q.x;
+      slot.z = q.z;
+      slot.color = teamColor(q.id).ui;
+      m++;
+    }
+    mates.length = m;
     return r;
   }
 

@@ -49,6 +49,10 @@ export interface Options {
   /** First-person mouse/stick sensitivity multiplier (0.25..3). */
   mouseSensitivity: number;
   invertY: boolean;
+  /** Computer-controlled teammates in new games (0..3). */
+  teammates: number;
+  /** Classic view: a laser line along your gun line to the first creature it would hit. */
+  laserSight: boolean;
 }
 
 export interface HighScore {
@@ -72,6 +76,8 @@ export const DEFAULT_OPTIONS: Readonly<Options> = {
   hudStyle: 'modern',
   mouseSensitivity: 1,
   invertY: false,
+  teammates: 0,
+  laserSight: true,
 };
 
 const OPTIONS_KEY = 'sealhunter3d.options';
@@ -174,6 +180,8 @@ function loadOptions(): Options {
       o.mouseSensitivity = Math.min(SENS_MAX, Math.max(SENS_MIN, raw.mouseSensitivity));
     }
     if (typeof raw.invertY === 'boolean') o.invertY = raw.invertY;
+    if (typeof raw.teammates === 'number' && isFinite(raw.teammates)) o.teammates = Math.max(0, Math.min(3, Math.round(raw.teammates)));
+    if (typeof raw.laserSight === 'boolean') o.laserSight = raw.laserSight;
   }
   return o;
 }
@@ -511,7 +519,8 @@ export class Screens {
     const o = this.options;
     const root = h('div', 'sh-screen sh-dim');
     const panel = h('div', 'sh-panel');
-    Object.assign(panel.style, { left: '135px', top: '36px', width: '370px', padding: '14px 16px 14px' });
+    Object.assign(panel.style, { left: '135px', top: '22px', width: '370px', padding: '12px 16px 12px' });
+    panel.classList.add('sh-compact');
     root.appendChild(panel);
     const title = h('div', 'sh-h1', 'OPTIONS');
     title.style.marginBottom = '10px';
@@ -588,6 +597,8 @@ export class Screens {
     choiceRow<Options['hudStyle']>('Interface', [['modern', 'Modern'], ['classic', 'Classic']], () => o.hudStyle, (v) => (o.hudStyle = v));
     sliderRow('Mouse sensitivity', () => o.mouseSensitivity, (v) => (o.mouseSensitivity = v), SENSITIVITY);
     choiceRow<boolean>('Invert mouse Y', [[false, 'Off'], [true, 'On']], () => o.invertY, (v) => (o.invertY = v));
+    choiceRow<number>('Teammates (next game)', [[0, 'None'], [1, '1 bot'], [2, '2 bots'], [3, '3 bots']], () => o.teammates, (v) => (o.teammates = v));
+    choiceRow<boolean>('Laser sight (classic view)', [[true, 'On'], [false, 'Off']], () => o.laserSight, (v) => (o.laserSight = v));
 
     const backRow = h('div', 'sh-opt');
     backRow.style.marginTop = '8px';
@@ -818,6 +829,9 @@ export class Screens {
     segRow<Options['hudStyle']>('Interface', [['modern', 'Modern'], ['classic', 'Classic']], () => o.hudStyle, (v) => (o.hudStyle = v));
     sliderRow('Mouse sensitivity', () => o.mouseSensitivity, (v) => (o.mouseSensitivity = v), SENSITIVITY);
     segRow<boolean>('Invert mouse Y', onOff, () => o.invertY, (v) => (o.invertY = v));
+    segRow<boolean>('Laser sight', onOff, () => o.laserSight, (v) => (o.laserSight = v));
+    section('Teammates');
+    segRow<number>('Bots (next game)', [[0, 'None'], [1, '1'], [2, '2'], [3, '3']], () => o.teammates, (v) => (o.teammates = v));
 
     const foot = h('div', 'shm-panel-foot');
     const btn = h('div', 'shm-btn', 'Back');
@@ -904,7 +918,8 @@ export class Screens {
         'p',
         'shm-p',
         'Every level ends with one: fat seal, penguin flock, polar bear, turtle, walrus … and then the last seal on the planet. ' +
-          'In first person the radar shows creatures behind you and the red escape edge.',
+          'In first person the radar shows creatures behind you and the red escape edge. ' +
+          'Options → Teammates adds up to three bot hunters (more creatures, like the original\'s co-op).',
       ),
     );
 

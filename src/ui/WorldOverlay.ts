@@ -41,7 +41,7 @@ export interface OverlayText {
    * ("50$"), 'label' anything else. The modern look hides 'money' (the HUD
    * shows it) and restyles pop-ups.
    */
-  role?: 'money' | 'popup' | 'label';
+  role?: 'money' | 'popup' | 'label' | 'name' | 'speech';
 }
 
 export interface OverlayLine {
@@ -187,7 +187,13 @@ export class WorldOverlay {
     }
     for (const t of items.texts) {
       if (t.alpha <= 0 || !t.text) continue;
+      // Classic: bots are told apart by their colour (money, crosshair), like the original.
+      if (t.role === 'name') continue;
       const size = (t.size ?? 9) * k;
+      if (t.role === 'speech') {
+        this.balloon(t.text, t.x, t.y, size, t.alpha);
+        continue;
+      }
       ctx.font = `${t.bold ? 'bold ' : ''}${size.toFixed(2)}px ${FONT_FAMILY}`;
       ctx.globalAlpha = Math.min(1, t.alpha);
       ctx.fillStyle = t.color;
@@ -286,21 +292,58 @@ export class WorldOverlay {
   }
 
   /** Small dark glass pill with white text (bounty pop-ups). */
-  private pill(text: string, x: number, y: number, size: number, alpha: number): void {
+  private pill(text: string, x: number, y: number, size: number, alpha: number, accent?: string): void {
     const { ctx } = this;
     ctx.font = `650 ${size.toFixed(2)}px ${MODERN_FONT}`;
     const w = ctx.measureText(text).width + size * 1.1;
     const hgt = size * 1.55;
+    // Keep it on screen (speech near the frame edge).
+    x = Math.max(w / 2 + 2, Math.min(this.cssW - w / 2 - 2, x));
     ctx.globalAlpha = alpha;
     ctx.fillStyle = 'rgba(10, 16, 26, 0.5)';
     ctx.beginPath();
     if (typeof ctx.roundRect === 'function') ctx.roundRect(x - w / 2, y - hgt / 2, w, hgt, hgt / 2);
     else ctx.rect(x - w / 2, y - hgt / 2, w, hgt);
     ctx.fill();
+    if (accent) {
+      // Speaker's colour as a thin left edge.
+      ctx.fillStyle = accent;
+      ctx.fillRect(x - w / 2 + hgt * 0.32, y - hgt * 0.26, Math.max(1, size * 0.16), hgt * 0.52);
+    }
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = M_FG;
     ctx.fillText(text, x, y + size * 0.04);
+    ctx.globalAlpha = 1;
+  }
+
+  /** Classic speech balloon (the original's speech-balloon): white box, dark text, a tail. */
+  private balloon(text: string, x: number, y: number, size: number, alpha: number): void {
+    const { ctx } = this;
+    ctx.font = `bold ${size.toFixed(2)}px ${FONT_FAMILY}`;
+    const w = ctx.measureText(text).width + size * 1.2;
+    const hgt = size * 1.7;
+    const top = y - hgt;
+    const tail = x;
+    x = Math.max(w / 2 + 2, Math.min(this.cssW - w / 2 - 2, x));
+    ctx.globalAlpha = Math.min(1, alpha);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+    ctx.strokeStyle = 'rgba(20, 20, 28, 0.85)';
+    ctx.lineWidth = Math.max(1, size * 0.09);
+    ctx.beginPath();
+    ctx.rect(x - w / 2, top, w, hgt);
+    const tx = Math.max(x - w / 2 + size * 0.6, Math.min(x + w / 2 - size * 0.6, tail));
+    ctx.moveTo(tx - size * 0.4, y);
+    ctx.lineTo(tx, y + size * 0.7);
+    ctx.lineTo(tx + size * 0.15, y);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+    ctx.fillRect(tx - size * 0.4 + 1, y - ctx.lineWidth, size * 0.55 - 2, ctx.lineWidth * 2);
+    ctx.fillStyle = '#18181e';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, top + hgt / 2);
     ctx.globalAlpha = 1;
   }
 
@@ -376,6 +419,14 @@ export class WorldOverlay {
       const role = t.role ?? (/^\d+\$$/.test(t.text) ? 'popup' : /^\$\d+$/.test(t.text) ? 'money' : 'label');
       if (role === 'money') continue;
       const size = (t.size ?? 9) * k;
+      if (role === 'name') {
+        this.label(t.text, t.x, t.y, size * 0.8, t.color, t.alpha, 650);
+        continue;
+      }
+      if (role === 'speech') {
+        this.pill(t.text, t.x, t.y, size * 0.72, Math.min(1, t.alpha), t.color);
+        continue;
+      }
       if (role === 'popup') {
         // Classic pop-ups fade from 0.5; lift them so they stay legible.
         this.pill(`+$${t.text.replace(/[^\d]/g, '')}`, t.x, t.y, size * 0.72, Math.min(1, t.alpha * 2));
