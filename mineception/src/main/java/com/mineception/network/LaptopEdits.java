@@ -1,6 +1,7 @@
 package com.mineception.network;
 
 import com.mineception.block.LaptopBlockEntity;
+import com.mineception.dream.EditRules;
 import com.mineception.dream.MiniBlock;
 import com.mineception.dream.MiniWorld;
 import com.mineception.dream.Theme;
@@ -23,8 +24,8 @@ import net.minecraft.world.phys.Vec3;
 /**
  * Server side of {@link EditBlockPayload}: every edit a client sends is checked against the laptop's current level
  * before it is stored and synced to everyone. Clients are not trusted: the sender must be alive, near the laptop and
- * within the rate limit, and the edit must be one the game itself allows (break a breakable block, place a hotbar
- * block into air or water, never the laptop cell or the bedrock floor).
+ * within the rate limit, and the edit must be one the game itself allows ({@link EditRules}: break a breakable block,
+ * place a hotbar block into air or water, never the laptop cell or the bedrock floor).
  */
 public final class LaptopEdits {
 	/** Furthest a player's eyes may be from the laptop block's centre to edit its dreams. */
@@ -122,20 +123,15 @@ public final class LaptopEdits {
 		if (!RATE.tryAcquire(player.getUUID(), level.getGameTime())) {
 			return Result.RATE_LIMITED;
 		}
-		MiniWorld world = laptop.level(depth);
-		int x = MiniWorld.indexX(index);
-		int y = MiniWorld.indexY(index);
-		int z = MiniWorld.indexZ(index);
-		if (y == 0 || x == world.laptopX && y == world.laptopY && z == world.laptopZ) {
-			return Result.PROTECTED_CELL;
-		}
-		MiniBlock current = world.get(index);
-		if (block == MiniBlock.AIR) {
-			if (!current.breakable()) {
-				return Result.NOT_BREAKABLE;
-			}
-		} else if (current != MiniBlock.AIR && current != MiniBlock.WATER) {
-			return Result.OCCUPIED;
+		EditRules.Verdict verdict = EditRules.check(laptop.level(depth), index, block);
+		if (!verdict.ok()) {
+			return switch (verdict) {
+				case OUT_OF_BOUNDS -> Result.BAD_INDEX;
+				case NOT_PLACEABLE -> Result.BAD_BLOCK;
+				case PROTECTED_CELL -> Result.PROTECTED_CELL;
+				case NOT_BREAKABLE -> Result.NOT_BREAKABLE;
+				default -> Result.OCCUPIED;
+			};
 		}
 		return laptop.applyEdit(depth, index, block) ? Result.APPLIED : Result.DREAM_FULL;
 	}
