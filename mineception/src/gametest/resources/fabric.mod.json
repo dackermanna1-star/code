@@ -1,0 +1,14 @@
+{
+	"schemaVersion": 1,
+	"id": "mineception-test",
+	"version": "1.0.0",
+	"name": "Mineception Tests",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-gametest": ["com.mineception.test.LaptopGameTests"],
+		"fabric-client-gametest": ["com.mineception.test.ClientGameTests"]
+	},
+	"depends": {
+		"mineception": "*"
+	}
+}

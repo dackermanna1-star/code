@@ -1,0 +1,27 @@
+{
+	"schemaVersion": 1,
+	"id": "mineception",
+	"version": "${version}",
+	"name": "Mineception",
+	"description": "A laptop that runs Minecraft. The Minecraft on it has a laptop that runs Minecraft. Four dream levels deep.",
+	"authors": [
+		"Mineception Team"
+	],
+	"license": "MIT",
+	"icon": "assets/mineception/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.mineception.Mineception"
+		],
+		"client": [
+			"com.mineception.client.MineceptionClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.17.3",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}
