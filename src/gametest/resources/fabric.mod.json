@@ -1,0 +1,14 @@
+{
+	"schemaVersion": 1,
+	"id": "extremesports-test",
+	"version": "1.0.0",
+	"name": "Extreme Sports Overhaul Tests",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-gametest": ["com.extremesports.test.PhysicsGameTests"],
+		"fabric-client-gametest": ["com.extremesports.test.ClientGameTests"]
+	},
+	"depends": {
+		"extremesports": "*"
+	}
+}

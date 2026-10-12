@@ -1,0 +1,34 @@
+{
+	"schemaVersion": 1,
+	"id": "extremesports",
+	"version": "${version}",
+	"name": "Extreme Sports Overhaul",
+	"description": "Skateboards, BMX bikes, kick scooters and inline skates with momentum physics, tricks, combos, skatepark blocks, a customization workshop and challenges.",
+	"authors": [
+		"Extreme Sports Overhaul Team"
+	],
+	"license": "MIT",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.extremesports.ExtremeSports"
+		],
+		"client": [
+			"com.extremesports.client.ExtremeSportsClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"mixins": [
+		"extremesports.mixins.json",
+		{
+			"config": "extremesports.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"icon": "assets/extremesports/icon.png"
+}

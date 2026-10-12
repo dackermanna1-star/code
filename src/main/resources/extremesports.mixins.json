@@ -1,0 +1,11 @@
+{
+	"required": true,
+	"package": "com.extremesports.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"BlockStateBaseMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

@@ -1,0 +1,14 @@
+{
+	"required": true,
+	"package": "com.extremesports.mixin.client",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"AvatarRendererMixin",
+		"PlayerModelMixin",
+		"GameRendererMixin",
+		"CameraMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
