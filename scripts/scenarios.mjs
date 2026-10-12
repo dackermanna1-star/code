@@ -27,6 +27,20 @@ async function key(run, wait, code, ms = 60) {
 }
 
 export default {
+  async win({ shot, wait, run }) {
+    await wait(1000);
+    // final chamber lies in the last holy mountain band: floor = band.bottom + 10
+    const floor = 1920 - 5 * 320 - 256 - 64 + 10;
+    await teleport(run, wait, 118.5, floor + 0.1, 128.5, -Math.PI / 2, -0.15);
+    await wait(1500);
+    await shot('chamber');
+    const st = await run(() => ({ sampo: window.run.pickups.list.filter((p) => p.kind === 'sampo').length }));
+    console.log('sampo', JSON.stringify(st));
+    await run(() => { const r = window.run; const pk = r.pickups.list.find((p) => p.kind === 'sampo'); if (pk) r.progression.interact(pk); });
+    await wait(800);
+    await shot('won');
+    console.log('state', await run(() => window.game.state));
+  },
   async longsession({ wait, run, page }) {
     const mem = async (label) => {
       await run(() => { if (window.gc) { window.gc(); window.gc(); } });
