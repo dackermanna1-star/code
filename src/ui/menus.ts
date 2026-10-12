@@ -40,6 +40,10 @@ export interface MenuCallbacks {
   quitToMenu: () => void;
   settingsChanged: (s: Settings) => void;
   hasRun: () => boolean;
+  /** Summary of a run saved with Save & Quit, if any. */
+  savedRun: () => { depth: number; elapsed: number; seed: number } | null;
+  loadSaved: () => void;
+  saveAndQuit: () => void;
 }
 
 export class Menus {
@@ -104,7 +108,7 @@ export class Menus {
       case 'main':
         this.back = 'main';
         html = `<div class="logo">Noita</div><div class="logo-sub">3D</div><div class="menu-list">
-          ${this.cb.hasRun() ? btn('resume', 'Continue') : ''}${btn('mode', 'New Game')}${btn('options', 'Options')}${btn('controls', 'Controls')}${btn('credits', 'Credits')}</div>
+          ${this.cb.hasRun() ? btn('resume', 'Continue') : this.savedRunButton()}${btn('mode', 'New Game')}${btn('options', 'Options')}${btn('controls', 'Controls')}${btn('credits', 'Credits')}</div>
           <div class="build">Noita 3D — a first-person voxel reinterpretation · build ${__BUILD__}</div>`;
         break;
       case 'mode':
@@ -151,7 +155,7 @@ export class Menus {
         break;
       case 'pause':
         this.back = 'pause';
-        html = `<div class="pause-title">Paused</div><div class="menu-list">${btn('resume', 'Resume')}${btn('options', 'Options')}${btn('controls', 'Controls')}${btn('mode', 'New Game')}${btn('quit', 'Quit to main menu')}</div>`;
+        html = `<div class="pause-title">Paused</div><div class="menu-list">${btn('resume', 'Resume')}${btn('options', 'Options')}${btn('controls', 'Controls')}${btn('save', 'Save & quit')}${btn('mode', 'New Game')}${btn('quit', 'Quit without saving')}</div>`;
         break;
       case 'dead':
         html = `<div class="death"><div class="dt">You died</div>
@@ -169,6 +173,12 @@ export class Menus {
     this.wire(screen, data);
   }
 
+  private savedRunButton(): string {
+    const s = this.cb.savedRun();
+    if (!s) return '';
+    return `<div class="mi" data-id="load">Continue<span class="mi-sub">depth ${s.depth} m · ${fmtTime(s.elapsed)}</span></div>`;
+  }
+
   private wire(screen: Menus['screen'], data?: Record<string, string | number>): void {
     let mode = 'new';
     this.panel.querySelectorAll('.mi').forEach((el) => {
@@ -179,6 +189,8 @@ export class Menus {
         const id = (el as HTMLElement).dataset.id;
         switch (id) {
           case 'resume': this.cb.resume(); break;
+          case 'load': this.cb.loadSaved(); break;
+          case 'save': this.cb.saveAndQuit(); break;
           case 'mode': this.show('mode'); break;
           case 'options': this.show('options'); break;
           case 'controls': this.show('controls'); break;

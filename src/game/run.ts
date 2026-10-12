@@ -78,7 +78,7 @@ export class Run {
   private muzzle = new THREE.Vector3();
   private aimPoint = new THREE.Vector3();
   private lastBiome = '';
-  private goldDust = 0;
+  goldDust = 0;
   orbs = 0;
   kills = 0;
   startTime = 0;

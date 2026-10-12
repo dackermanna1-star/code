@@ -200,6 +200,24 @@ game-mode selection, options, rebindable controls, pause, death and victory scre
 All art (spell/perk/item icons, wand sprites, menu backdrop) and all audio (58 SFX, 6 loops, 9 biome
 ambience beds) are generated procedurally — the game ships no image or sound assets.
 
+**Tutorial.** As in Noita, the controls are carved into a stone at the start; on top of that, one-time
+contextual hints explain moving, casting, levitating, flasks, new wands and spells, Holy Mountain wand
+editing and "experiment with materials". Hints and prompts name the player's actual key bindings, and
+seen hints are remembered across runs (Options → Tutorial hints → show again).
+
+## 10b. Save & continue (`game/save.ts`)
+
+*Save & quit* (pause menu) writes the run to IndexedDB; the main menu then offers *Continue*. Since the
+world is a pure function of its seed, a save holds only what diverged from generation: the seed,
+modified chunks (materials, burning/hp state, temperatures), the set of chunks whose spawns were
+already handed out, the creatures and pickups that exist, the player (position, HP, gold, perk-changed
+stats, stains), inventory (wands with spells and mana, flasks with real material amounts, the spell
+bag) and progression (perks, collapsed/visited mountains, angry gods, rerolls, pacifist counters).
+Flask contents are stored by material name and the save records the material table, so an
+incompatible save is refused instead of being misread. Runs stay single-life: dying, winning or
+starting a new game deletes the save. Restored chunks are simulated once on load so liquids in motion
+keep moving.
+
 ## 11. Verification
 
 * Unit tests (`npm test`): generator determinism, chunk/point agreement, route connectivity for several
@@ -212,4 +230,6 @@ ambience beds) are generated procedurally — the game ships no image or sound a
 * Browser scenarios (`npm run smoke -- <scenario>` with the dev server running): boot, tour of all
   biomes, combat, enemies, arena, holy mountain, death/restart, stress (flood + oil fire + explosions),
   and **walk** — an automated player that walks from the spawn to the first Holy Mountain using only
-  movement input.
+  movement input; **hmexit** (drop down a Holy Mountain exit: it collapses behind the player without
+  trapping them); **saveload** (blast a crater, change gold/HP/perks/inventory, Save & quit, Continue,
+  and compare terrain and state).

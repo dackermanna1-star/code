@@ -124,6 +124,7 @@ select, input { font-family: inherit; background: #1a1411; color: var(--ui-text)
 .menu-list { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .mi { font-size: 21px; color: #e8e0d4; cursor: pointer; padding: 1px 10px; text-shadow: 2px 2px 0 #000; }
 .mi:hover { color: #fff; text-shadow: 0 0 8px #f0c870, 2px 2px 0 #000; }
+.mi-sub { display: block; font-size: 12px; color: #a89c88; }
 .build { position: absolute; left: 30px; bottom: 18px; color: rgba(255, 255, 255, 0.22); font-size: 14px; }
 .mode-title, .pause-title { color: #d8d0c4; font-size: 18px; align-self: center; margin-bottom: 6px; }
 .pause-title { font-family: 'Jacquard 12', serif; font-size: 56px; color: #f0c870; }

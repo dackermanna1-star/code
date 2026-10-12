@@ -64,9 +64,36 @@ export class ChunkStreamer {
       const z0 = dz === 1 ? 0 : dz === -1 ? 15 : 0, z1 = dz === 1 ? 0 : dz === -1 ? 15 : 15;
       this.world.touchBox(n.ox + x0, n.oy + y0, n.oz + z0, n.ox + x1, n.oy + y1, n.oz + z1);
     }
+    if (c.wakeOnLoad) {
+      c.wakeOnLoad = false;
+      this.world.touchBox(c.ox, c.oy, c.oz, c.ox + CHUNK - 1, c.oy + CHUNK - 1, c.oz + CHUNK - 1);
+    }
     if (!this.spawned.has(c.key)) {
       this.spawned.add(c.key);
       if (spawns.length) this.onSpawns(spawns, c);
+    }
+  }
+
+  // ------------------------------------------------------------------ save / continue
+  /** Every chunk that differs from the generator (loaded or retained). */
+  modifiedChunks(): Chunk[] {
+    const out: Chunk[] = [...this.retained.values()];
+    for (const c of this.loadedChunks()) if (c.modified) out.push(c);
+    return out;
+  }
+
+  /** Keys of chunks whose generator spawns (enemies, loot) were already handed out. */
+  spawnedKeys(): number[] {
+    return [...this.spawned];
+  }
+
+  /** Restore a saved run's terrain changes and spawn bookkeeping (call before anything loads). */
+  restore(chunks: Chunk[], spawned: number[]): void {
+    for (const k of spawned) this.spawned.add(k);
+    for (const c of chunks) {
+      c.modified = true;
+      c.wakeOnLoad = true;
+      this.retained.set(c.key, c);
     }
   }
 

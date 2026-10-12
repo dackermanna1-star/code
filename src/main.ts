@@ -17,6 +17,7 @@ import { generateWand } from './magic/wandGen';
 import { makePotion } from './game/inventory';
 import { HM, hmFloorY } from './world/biomes';
 import { MATERIALS } from './world/materials';
+import { applySave, clearSave, readSave, saveIncompatibility, saveSummary, serializeRun, writeSave, SaveData } from './game/save';
 
 // Colours are authored in sRGB and the renderer outputs them unconverted (pixel-art palette fidelity).
 THREE.ColorManagement.enabled = false;
@@ -43,7 +44,10 @@ clickHint.textContent = 'Click to play';
 ui.appendChild(clickHint);
 
 const menus = new Menus(ui, input, {
-  newGame: (seed, sandbox) => startGame(seed ?? ((Math.random() * 2 ** 31) >>> 0), sandbox),
+  newGame: (seed, sandbox) => {
+    void clearSave(); // a new run replaces any saved one, as in Noita
+    startGame(seed ?? ((Math.random() * 2 ** 31) >>> 0), sandbox);
+  },
   resume: () => resume(),
   quitToMenu: () => {
     endSession();
@@ -52,7 +56,36 @@ const menus = new Menus(ui, input, {
   },
   settingsChanged: (s) => applySettings(s),
   hasRun: () => !!session && session.game.state !== 'dead' && session.game.state !== 'won',
+  savedRun: () => saveSummary(),
+  loadSaved: () => void continueSaved(),
+  saveAndQuit: () => void saveAndQuit(),
 });
+
+async function saveAndQuit(): Promise<void> {
+  if (!session) return;
+  const data = serializeRun(session.run);
+  try {
+    await writeSave(data);
+  } catch (e) {
+    session.run.hud.log(`Could not save: ${String(e)}`, '#ff8060');
+    return;
+  }
+  endSession();
+  menus.show('main');
+  audio.setAmbience('menu');
+}
+
+async function continueSaved(): Promise<void> {
+  const data = await readSave();
+  const why = data ? saveIncompatibility(data) : 'The saved run could not be read.';
+  if (!data || why) {
+    await clearSave();
+    menus.show('main');
+    alert(why ?? 'No saved run.');
+    return;
+  }
+  startGame(data.seed, false, data);
+}
 
 function applySettings(s: Settings): void {
   input.sensitivity = s.sensitivity;
@@ -75,7 +108,7 @@ function endSession(): void {
   session = null;
 }
 
-async function startGame(seed: number, sandbox: boolean): Promise<void> {
+async function startGame(seed: number, sandbox: boolean, save?: SaveData): Promise<void> {
   endSession();
   menus.show('none');
   audio.unlock();
@@ -133,6 +166,7 @@ async function startGame(seed: number, sandbox: boolean): Promise<void> {
   // test hooks for automated scenarios
   (window as unknown as Record<string, unknown>).__spellIds = Object.keys(SPELLS);
   (window as unknown as Record<string, unknown>).__MATERIALS = MATERIALS;
+  (window as unknown as Record<string, unknown>).__pause = pause;
   (window as unknown as Record<string, unknown>).__makeWand = (id: string) => {
     const def = SPELLS[id];
     const spells = [{ id, uses: def.maxUses }];
@@ -140,6 +174,7 @@ async function startGame(seed: number, sandbox: boolean): Promise<void> {
     return new Wand({ name: 'Test', shuffle: false, actionsPerRound: 1, castDelay: 5, rechargeTime: 10, manaMax: 2000, manaChargeSpeed: 500, capacity: 4, spread: 0, speedMult: 1, spriteSeed: 7 }, spells);
   };
   applySettings(s);
+  if (save) applySave(run, save);
   await game.preload((f) => {
     const bar = loading?.querySelector('.bar > div') as HTMLDivElement | null;
     if (bar) bar.style.width = `${(f * 100).toFixed(0)}%`;
@@ -161,17 +196,20 @@ async function startGame(seed: number, sandbox: boolean): Promise<void> {
     clickHint.classList.toggle('hidden', !(game.state === 'playing' && !input.locked && !debug.showPanel));
   });
   run.onDeath = () => {
+    void clearSave(); // single life
     input.exitLock();
     const st = run.stats();
     setTimeout(() => menus.show('dead', { ...st, seed, cause: run.lastCause }), 1200);
   };
   run.onWin = () => {
+    void clearSave();
     input.exitLock();
     menus.show('won', run.stats());
   };
   game.start();
   audio.setAmbience('surface');
-  run.hud.title('Noita', 'Descend into the mountain');
+  if (save) run.hud.title('Welcome back', `Depth ${Math.round(1920 - game.player.body.y)} m`);
+  else run.hud.title('Noita', 'Descend into the mountain');
   input.requestLock();
 }
 

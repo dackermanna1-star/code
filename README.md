@@ -35,7 +35,7 @@ npm run smoke -- walk 1234   # headless Chromium scenario (needs the dev server 
 | Kick | F |
 | Crouch | Shift |
 | Inventory & wand editing (pauses) | Tab |
-| Pause | Esc |
+| Pause (Save & quit is in the pause menu) | Esc |
 | Stats overlay / dev tools (sandbox) | F3 / F4 |
 
 Wands can only be modified inside a Holy Mountain — just like the original.
@@ -72,13 +72,13 @@ the full wand casting engine (79 spells, every one cast in the live game without
 triggers and explosions; 23 enemy types with AI, resistances and trick-kill gold; potions with real
 material (pour, throw, drink, fill); procedural world with a guaranteed descent route (an automated
 player walks from the spawn into the first Holy Mountain); Holy Mountains with shop, perks, reroll,
-refresher, heart, collapse and angry gods; death → new run; victory at the Sampo; no GPU resource growth
-across restarts.
+refresher, heart, collapse and angry gods; death → new run; victory at the Sampo; save & quit /
+continue (terrain changes, creatures, pickups, inventory and perks survive a reload); contextual
+tutorial hints; no GPU resource growth across restarts.
 
 **Known limitations**
 * Performance has been profiled for CPU cost only (≈2.5 ms simulation + gameplay, ≈0.6 ms UI per frame in
   a busy Mines scene); GPU cost on real hardware is untested here (tests ran on a software renderer).
 * Enemies steer and jump rather than path-find, so they can get stuck in complex caves.
 * Holy Mountains are physical shafts rather than Noita's portals; formation spells fan out horizontally.
-* No save/continue between browser sessions (use seeds to replay worlds).
 * About 3–4 MB of JS heap is retained per restart (bounded caches); GPU memory stays flat.

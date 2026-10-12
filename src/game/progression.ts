@@ -13,6 +13,21 @@ import { PERKS, PERK_BY_ID } from './perks';
 import type { Run } from './run';
 import type { Pickup } from '../entities/pickups';
 
+export interface ProgressionSave {
+  perks: [string, number][];
+  angered: boolean;
+  stevariKilled: number;
+  collapsed: number[];
+  visited: number[];
+  perkTaken: number[];
+  stevariSpawned: number[];
+  tutorial: { x: number; y: number; z: number } | null;
+  won: boolean;
+  rerollCost: number;
+  rerolls: [number, number][];
+  killsInLayer: [number, number][];
+}
+
 export class Progression {
   perks = new Map<string, number>();
   angered = false;
@@ -30,6 +45,33 @@ export class Progression {
 
   constructor(private run: Run) {
     run.damage.hooks.text = run.damage.hooks.text ?? (() => {});
+  }
+
+  /** Plain-data snapshot for save files. */
+  toSave(): ProgressionSave {
+    return {
+      perks: [...this.perks], angered: this.angered, stevariKilled: this.stevariKilled,
+      collapsed: [...this.collapsed], visited: [...this.visited], perkTaken: [...this.perkTaken],
+      stevariSpawned: [...this.stevariSpawned], tutorial: this.tutorial, won: this.won,
+      rerollCost: this.rerollCost, rerolls: [...this.rerolls], killsInLayer: [...this.killsInLayer],
+    };
+  }
+
+  /** Restore a snapshot. Perk effects on the player are restored with the player, not re-applied. */
+  fromSave(d: ProgressionSave): void {
+    this.perks = new Map(d.perks);
+    this.angered = d.angered;
+    this.stevariKilled = d.stevariKilled;
+    this.collapsed = new Set(d.collapsed);
+    this.visited = new Set(d.visited);
+    this.perkTaken = new Set(d.perkTaken);
+    this.stevariSpawned = new Set(d.stevariSpawned);
+    this.tutorial = d.tutorial;
+    this.won = d.won;
+    this.rerollCost = d.rerollCost;
+    this.rerolls = new Map(d.rerolls);
+    this.killsInLayer = new Map(d.killsInLayer);
+    if (this.hasPerk('GOLD_IS_FOREVER')) this.run.pickups.goldIsForever = true;
   }
 
   hasPerk(id: string): boolean {

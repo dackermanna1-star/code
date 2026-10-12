@@ -234,6 +234,55 @@ export default {
     }).catch((e) => console.log('storm skipped', String(e).slice(0, 80)));
     await sample('projectiles');
   },
+  async saveload({ shot, wait, run }) {
+    // change the world and the player, Save & quit, Continue, and compare
+    await wait(1500);
+    const at = await run(() => {
+      const g = window.game, p = g.player;
+      // blast a crater next to the player, let the debris settle, then remember a few voxels of it
+      const x = Math.floor(p.body.x + 10), y = Math.floor(p.body.y), z = Math.floor(p.body.z);
+      g.destruction.explode(x, y, z, { radius: 6, durability: 10, rayEnergy: 3000 });
+      return [x, y, z];
+    });
+    await wait(5000);
+    await run(() => { window.game.state = 'paused'; }); // freeze the simulation while sampling and saving
+    const before = await run(([x, y, z]) => {
+      const g = window.game, r = window.run, p = g.player;
+      p.gold = 1234; p.hp = 42;
+      r.progression.applyPerk('MOVEMENT_FASTER');
+      r.inv.spells[3] = { id: 'BOMB', uses: 2 };
+      const probe = [];
+      for (let i = -8; i <= 8; i += 2) probe.push(g.world.get(x + i, y, z), g.world.get(x, y + i, z));
+      return { probe, at: [x, y, z], gold: p.gold, hp: p.hp, x: p.body.x, speed: p.speedMult, spell: r.inv.spells[3], wand0: r.inv.wands[0].spells.map((s) => s && s.id).join(','),
+        perks: [...r.progression.perks.keys()].join(','), enemies: r.enemies.list.filter((e) => e.alive).length, pickups: r.pickups.list.length, seed: g.opts.seed };
+    }, at);
+    await run(() => window.__pause());
+    await wait(300);
+    await run(() => document.querySelector('.mi[data-id="save"]').click());
+    await wait(1500);
+    const menu = await run(() => document.querySelector('.mi[data-id="load"]')?.textContent ?? 'no continue button');
+    await shot('menu');
+    await run(() => document.querySelector('.mi[data-id="load"]').click());
+    for (let i = 0; i < 40; i++) {
+      await wait(500);
+      if (await run(() => !!window.game && window.game.state === 'playing' && !document.querySelector('.loading'))) break;
+    }
+    await run(() => { window.game.state = 'paused'; });
+    const after = await run(([x, y, z]) => {
+      const g = window.game, r = window.run, p = g.player;
+      const probe = [];
+      for (let i = -8; i <= 8; i += 2) probe.push(g.world.get(x + i, y, z), g.world.get(x, y + i, z));
+      return { probe, gold: p.gold, hp: p.hp, x: p.body.x, speed: p.speedMult, spell: r.inv.spells[3], wand0: r.inv.wands[0].spells.map((s) => s && s.id).join(','),
+        perks: [...r.progression.perks.keys()].join(','), enemies: r.enemies.list.filter((e) => e.alive).length, pickups: r.pickups.list.length, seed: g.opts.seed };
+    }, before.at);
+    const same = (k) => JSON.stringify(before[k]) === JSON.stringify(after[k]);
+    const keys = ['probe', 'gold', 'speed', 'spell', 'wand0', 'perks', 'seed'];
+    console.log('menu', menu);
+    console.log('before', JSON.stringify({ ...before, probe: undefined }));
+    console.log('after ', JSON.stringify({ ...after, probe: undefined }));
+    console.log('saveload', keys.map((k) => `${k}:${same(k) ? 'ok' : 'DIFF'}`).join(' '), Math.abs(before.hp - after.hp) < 1 && keys.every(same) ? 'PASS' : 'FAIL');
+    await shot('continued');
+  },
   async hmexit({ shot, wait, run }) {
     // drop down the first Holy Mountain's exit shaft: it must collapse behind the player without trapping them
     await wait(1000);

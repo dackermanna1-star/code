@@ -32,6 +32,8 @@ export class Chunk {
   meshedOnce = false;
   /** True once the chunk diverges from its procedurally generated contents. */
   modified = false;
+  /** Restored from a save: simulate the whole chunk once when it is installed. */
+  wakeOnLoad = false;
   /** Incremented on every voxel change (used by caches such as light emitters). */
   version = 0;
   /** Number of thermally non-ambient voxels (approximate, used to keep chunk awake). */
