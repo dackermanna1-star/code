@@ -943,6 +943,10 @@ public final class RideController {
 		lastLandingHadGrab = grab != null;
 		lastLandingIncomplete = incomplete;
 		float midTrickLimit = preset() == PhysicsPreset.ARCADE ? 0.62F : 0.82F;
+		if (activeTrick != null && activeTrick.def.isBodyFlip()) {
+			// A board can be caught late; a rider who is a quarter turn short of a backflip lands on their head
+			midTrickLimit = preset() == PhysicsPreset.ARCADE ? 0.80F : 0.94F;
+		}
 
 		LandingQuality quality = LandingQuality.CLEAN;
 		BailReason reason = null;

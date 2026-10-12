@@ -149,6 +149,23 @@ public class ClientGameTests implements FabricClientGameTest {
 		context.waitTicks(30);
 		expectTrick("tailwhip");
 		shot(context, "bmx_hud_tailwhip", true);
+
+		// A backflip from a flat bunny hop can't rotate in time: the rider must bail and fall
+		context.getInput().holdKey(options -> options.keyUp);
+		context.waitTicks(15);
+		context.getInput().releaseKey(options -> options.keyUp);
+		popAndTap(context, Keybinds.FLIP);
+		context.waitTicks(14);
+		shot(context, "bmx_bail_a", false);
+		context.waitTicks(6);
+		shot(context, "bmx_bail_b", false);
+		context.waitTicks(10);
+		shot(context, "bmx_bail_hud", true);
+		boolean bailed = context.computeOnClient(client -> ClientSportsState.bail != null && riding(client) == null);
+		if (!bailed) {
+			failures.add("flat-ground BMX backflip should bail");
+		}
+		context.waitTicks(30);
 		dismount(context, world);
 	}
 

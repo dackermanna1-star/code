@@ -144,15 +144,17 @@ Motion** turns them all off. HUD scale and speed units are configurable.
 
 - `./gradlew runGameTest` runs the server game tests in `src/gametest`. They drive the real ride simulation in a
   test world: pushing and coasting, surface friction, BMX on dirt, ollies, kickflips within ollie air time,
-  bailing an impossible flip, wall slams versus gentle bumps, rail grinding, manuals, quarter-pipe and vert-ramp
-  launch and re-entry, vert surface continuity, kickers, slopes, combo anti-farming, server rejection of
-  impossible combos, and bowl corner joining.
+  bailing a flat-ground BMX backflip while landing one popped off a dirt jump, wall slams versus gentle bumps,
+  rail grinding, manuals, quarter-pipe and vert-ramp launch and re-entry, vert surface continuity, kickers,
+  slopes, combo anti-farming, server rejection of impossible combos, and bowl corner joining.
 - `./gradlew runClientGameTest` starts the real client (it needs a display; use `xvfb-run` on a headless machine),
   rides every sport with real key presses, rides the half-pipe and a rail in the demo park, opens the workshop
-  and menu, checks that a tapped flip or whip key performs the trick, and saves screenshots to
-  `build/run/clientGameTest/screenshots`.
+  and menu, checks that a tapped flip or whip key performs the trick and that a flat-ground BMX backflip bails,
+  and saves screenshots to `build/run/clientGameTest/screenshots`.
 
 ## Known limitations
 
 - Bowl walls are one block tall; only the vert ramp comes in a two-block version.
 - Equipment models are built from boxes in code; there is no resource-pack model format for them yet.
+- Multiplayer sync and server-side validation are implemented, but the automated tests use a single player;
+  they have not been exercised with several clients connected at once.

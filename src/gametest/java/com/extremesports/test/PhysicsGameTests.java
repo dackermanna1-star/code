@@ -243,6 +243,44 @@ public class PhysicsGameTests {
 		});
 	}
 
+	@GameTest(structure = TRACK, maxTicks = 100)
+	public void bmxBackflipOffDirtJumpLands(GameTestHelper helper) {
+		// Dirt lip at z=10, gap, then a two-block landing descending away from it. Rolling off the lip alone gives
+		// less air than a flat bunny hop; popping off its top is what makes the backflip possible.
+		for (int x = 0; x < 9; x++) {
+			helper.setBlock(new BlockPos(x, 1, 10), ModBlocks.DIRT_LIP.defaultBlockState().setValue(RampBlock.FACING, Direction.SOUTH));
+			helper.setBlock(new BlockPos(x, 1, 13), ModBlocks.DIRT_RAMP.defaultBlockState().setValue(RampBlock.FACING, Direction.NORTH)
+				.setValue(RampBlock.PART_2, 1));
+			helper.setBlock(new BlockPos(x, 1, 14), ModBlocks.DIRT_RAMP.defaultBlockState().setValue(RampBlock.FACING, Direction.NORTH)
+				.setValue(RampBlock.PART_2, 0));
+		}
+		Recorder recorder = new Recorder();
+		SportEquipmentEntity entity = board(helper, EquipmentKind.BMX, 4.5, 1.0, 3.5, 0.0F, recorder);
+		entity.setDeltaMovement(0.0, 0.0, 0.47);
+		int[] takeoff = {-1};
+		StringBuilder trace = new StringBuilder();
+		script(helper, entity, tick -> {
+			if (takeoff[0] < 0 && entity.ride.contact == RideController.Contact.AIR && tick > 2) {
+				takeoff[0] = tick;
+			}
+			if (tick > 5 && tick < 45) {
+				Vec3 v = entity.getDeltaMovement();
+				trace.append(String.format("[%d z=%.2f y=%.2f v=(%.2f,%.2f) %s p=%.2f] ", tick, relZ(helper, entity), relY(helper, entity), v.z, v.y,
+					entity.ride.contact, entity.ride.activeTrick == null ? -1.0F : entity.ride.activeTrick.progress));
+			}
+			// Crouch on the approach and pop off the top of the lip, then throw the backflip
+			boolean jump = takeoff[0] < 0 && tick >= 4 && !(entity.ride.contact == RideController.Contact.RAMP && relY(helper, entity) > 1.5);
+			boolean flip = takeoff[0] >= 0 && tick == takeoff[0] + 1;
+			return input(false, jump, flip, false);
+		});
+		helper.runAtTickTime(80, () -> {
+			helper.assertTrue(takeoff[0] >= 0, "never left the lip");
+			helper.assertTrue(recorder.bail == null, "a backflip off a dirt jump at speed should be landable: " + recorder.log + " " + trace);
+			helper.assertTrue(recorder.log.toString().contains("backflip"), "the backflip should have been performed: " + recorder.log);
+			helper.succeed();
+		});
+	}
+
 	@GameTest(structure = TRACK, maxTicks = 80)
 	public void slammingIntoAWallBails(GameTestHelper helper) {
 		for (int x = 0; x < 9; x++) {
