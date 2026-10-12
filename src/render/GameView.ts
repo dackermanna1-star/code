@@ -44,6 +44,8 @@ const _right = new THREE.Vector3();
 const _up = new THREE.Vector3();
 const _fwd = new THREE.Vector3();
 const _dir = { x: 0, y: 0, z: 0 };
+const _laserA = new THREE.Vector3();
+const _laserB = new THREE.Vector3();
 const _proj: ProjectedPoint = { x: 0, y: 0 };
 /** Invisible stand-in for the hunter's materials in the first-person main pass (depth/shadow still drawn). */
 const HIDDEN = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
@@ -836,8 +838,8 @@ export class GameView {
         const carrier = new THREE.Vector3(h.player.vx, 0, h.player.vz);
         const power = e.weapon === 'magnum' ? 0.25 : kind === 'minigun' || kind === 'awp' ? 1.3 : 1;
         // Start just right of the gun (the port itself is under the viewmodel), at true size.
-        pos.addScaledVector(_right, 0.12);
-        for (let i = 0; i < e.count; i++) this.debris.shell(kind, pos, carrier, power * 0.8, dir, 0.6);
+        pos.addScaledVector(_right, 0.16);
+        for (let i = 0; i < e.count; i++) this.debris.shell(kind, pos, carrier, power * 0.8, dir, 0.45);
         return;
       }
     }
@@ -952,21 +954,22 @@ export class GameView {
     const vm = this.viewmodel;
     const lz = vm.current?.laser;
     if (!lz) return;
-    const s = vm.toWorld(lz.getWorldPosition(_v2), new THREE.Vector3());
+    const s = vm.toWorld(lz.getWorldPosition(_v2), _laserA);
     // Converge on what is under the reticle: a creature, the ice, or far ahead.
     const tr = this.world?.combat.aimTrace(p);
-    let end: THREE.Vector3;
+    const end = _laserB;
     let dot = false;
     if (tr) {
-      end = new THREE.Vector3(tr.point.x, tr.point.y, tr.point.z);
+      end.set(tr.point.x, tr.point.y, tr.point.z);
       dot = !!tr.enemy || tr.ground === 'ice';
     } else {
       aimDir(this.camAim, _dir);
       const eye = this.stage.camera.position;
-      end = new THREE.Vector3(eye.x + _dir.x * 45, eye.y + _dir.y * 45, eye.z + _dir.z * 45);
+      end.set(eye.x + _dir.x * 45, eye.y + _dir.y * 45, eye.z + _dir.z * 45);
     }
-    this.effects.beam(s, end, 0.004, 0xff2010, 0.6, 0.0001);
-    this.effects.beam(s, end, 0.0025, 0xff6400, 0.45, 0.0001);
+    // Widths are in metres: thin near the gun, still a visible thread at range.
+    this.effects.beamFrame(s, end, 0.012, 0xff2010, 0.55);
+    this.effects.beamFrame(s, end, 0.006, 0xff6400, 0.45);
     if (dot) this.effects.emit(true, end.x, end.y + 0.01, end.z, { size: [0.07, 0.06], life: 0.03, color: 0xff3020, alpha: [0.9, 0.5], frame: 0 });
   }
 

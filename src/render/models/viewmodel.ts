@@ -93,15 +93,16 @@ const KICK: Record<WeaponId, { back: number; rot: number; roll: number; up: numb
 
 /** Gun offset at the height of a reload: camera-space translation + rotation (pitch, yaw, roll). */
 const RELOAD_TILT: Record<WeaponId, { d: [number, number, number]; r: [number, number, number] }> = {
-  pistol: { d: [-0.02, 0.0, 0.03], r: [0.25, 0.15, 0.45] },
-  magnum: { d: [-0.05, 0.02, 0.04], r: [0.35, 0.25, 0.9] },
-  mp5: { d: [-0.03, -0.03, 0.02], r: [0.12, 0.2, 0.5] },
+  // magazine guns roll clockwise so the mag well turns toward the support hand
+  pistol: { d: [-0.02, 0.0, 0.03], r: [0.2, 0.06, -0.4] },
+  magnum: { d: [-0.05, 0.02, 0.04], r: [0.35, 0.2, 0.9] },
+  mp5: { d: [-0.02, 0.0, 0.02], r: [0.15, 0.08, -0.45] },
   grenades: { d: [0, 0, 0], r: [0, 0, 0] },
-  shotgun: { d: [-0.04, -0.02, 0.02], r: [0.15, 0.25, 0.75] },
+  shotgun: { d: [-0.03, 0.0, 0.02], r: [0.12, 0.1, -0.6] },
   mac10: { d: [0.0, 0.02, 0.05], r: [0.45, 0.0, 0.0] },
-  flunk: { d: [-0.04, -0.02, 0.02], r: [0.2, 0.25, 0.6] },
-  m4: { d: [-0.03, -0.03, 0.02], r: [0.12, 0.2, 0.5] },
-  awp: { d: [-0.03, -0.03, 0.02], r: [0.1, 0.15, 0.4] },
+  flunk: { d: [-0.04, 0.0, 0.02], r: [0.18, 0.12, 0.5] },
+  m4: { d: [-0.02, 0.0, 0.02], r: [0.15, 0.08, -0.45] },
+  awp: { d: [-0.02, 0.0, 0.02], r: [0.12, 0.06, -0.35] },
   vintage: { d: [-0.05, 0.03, 0.0], r: [0.35, 0.1, 0.15] },
   minigun: { d: [0.0, -0.04, 0.02], r: [-0.05, 0.05, 0.12] },
 };

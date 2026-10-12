@@ -339,6 +339,9 @@ interface Beam {
   alpha: number;
   life: number;
   max: number;
+  /** Drawn for exactly one frame (per-frame beams such as a laser sight). */
+  once?: boolean;
+  drawn?: boolean;
 }
 
 const beamVert = /* glsl */ `
@@ -424,8 +427,13 @@ class BeamLayer {
     const W = this.aW.array as Float32Array;
     for (let i = 0; i < this.list.length; i++) {
       const b = this.list[i];
-      b.life -= dt;
-      if (b.life <= 0) continue;
+      if (b.once) {
+        if (b.drawn) continue;
+        b.drawn = true;
+      } else {
+        b.life -= dt;
+        if (b.life <= 0) continue;
+      }
       this.list[w++] = b;
       const k = w - 1;
       A[k * 3] = b.a.x;
@@ -521,6 +529,11 @@ export class Effects {
     this.beams.add({ a: a.clone(), b: b.clone(), width, color: new THREE.Color(color), alpha, life, max: life });
   }
 
+  /** A beam drawn for this frame only (re-add it every frame to keep it visible). */
+  beamFrame(a: THREE.Vector3, b: THREE.Vector3, width: number, color: THREE.ColorRepresentation, alpha: number): void {
+    this.beams.add({ a: a.clone(), b: b.clone(), width, color: new THREE.Color(color), alpha, life: 1, max: 0, once: true });
+  }
+
   flash(x: number, y: number, z: number, color: THREE.ColorRepresentation, intensity: number, life: number, distance = 9): void {
     let slot = this.lights[0];
     for (const l of this.lights) if (l.life <= 0 || l.life / l.max < slot.life / slot.max) slot = l;
@@ -540,6 +553,8 @@ export class Effects {
         transparent: true,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
+        // additive: first-person fog would add a haze-coloured quad wherever alpha > 0
+        fog: false,
       });
       const g = new THREE.PlaneGeometry(2, 2);
       // Use the ring cell of the atlas.

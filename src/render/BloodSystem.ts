@@ -164,11 +164,14 @@ export class BloodSystem {
     this.target = new THREE.WebGLRenderTarget(w, h, {
       depthBuffer: false,
       stencilBuffer: false,
-      generateMipmaps: false,
-      minFilter: THREE.LinearFilter,
+      // Mipmapped + anisotropic so blood seen at grazing angles from eye
+      // level (first person) does not alias; the classic ice path samples level 0.
+      generateMipmaps: true,
+      minFilter: THREE.LinearMipmapLinearFilter,
       magFilter: THREE.LinearFilter,
     });
     this.target.texture.name = 'BloodDecals';
+    this.target.texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
     // --- painter
     const quad = new THREE.PlaneGeometry(2, 2);
@@ -408,29 +411,29 @@ export class BloodSystem {
       this.needsClear = false;
     }
     const n = Math.min(this.pending.length, MAX_SPLATS_PER_FRAME);
-    if (n > 0) {
-      const rect = this.aRect.array as Float32Array;
-      const col = this.aColor.array as Float32Array;
-      const misc = this.aMisc.array as Float32Array;
-      for (let i = 0; i < n; i++) {
-        const s = this.pending[i];
-        rect[i * 4] = s.x;
-        rect[i * 4 + 1] = s.z;
-        rect[i * 4 + 2] = s.sx;
-        rect[i * 4 + 3] = s.sy;
-        col[i * 4] = s.r;
-        col[i * 4 + 1] = s.g;
-        col[i * 4 + 2] = s.b;
-        col[i * 4 + 3] = s.a;
-        misc[i * 3] = s.angle;
-        misc[i * 3 + 1] = s.seed;
-        misc[i * 3 + 2] = s.style;
-      }
-      this.aRect.needsUpdate = this.aColor.needsUpdate = this.aMisc.needsUpdate = true;
-      this.splatGeo.instanceCount = n;
-      r.autoClear = false;
-      r.render(this.paintScene, this.paintCam);
+    const rect = this.aRect.array as Float32Array;
+    const col = this.aColor.array as Float32Array;
+    const misc = this.aMisc.array as Float32Array;
+    for (let i = 0; i < n; i++) {
+      const s = this.pending[i];
+      rect[i * 4] = s.x;
+      rect[i * 4 + 1] = s.z;
+      rect[i * 4 + 2] = s.sx;
+      rect[i * 4 + 3] = s.sy;
+      col[i * 4] = s.r;
+      col[i * 4 + 1] = s.g;
+      col[i * 4 + 2] = s.b;
+      col[i * 4 + 3] = s.a;
+      misc[i * 3] = s.angle;
+      misc[i * 3 + 1] = s.seed;
+      misc[i * 3 + 2] = s.style;
     }
+    this.aRect.needsUpdate = this.aColor.needsUpdate = this.aMisc.needsUpdate = true;
+    this.splatGeo.instanceCount = n;
+    r.autoClear = false;
+    // Always render (even zero splats after a clear): the renderer regenerates
+    // the target's mipmaps after a render, not after a bare clear.
+    r.render(this.paintScene, this.paintCam);
     this.pending.length = 0;
     r.setRenderTarget(prevTarget);
     r.autoClear = prevAuto;

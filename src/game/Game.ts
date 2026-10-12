@@ -6,7 +6,7 @@
 // every frame and maps WASD / the left stick relative to the view heading into
 // PlayerInput.move. The title's attract mode always runs in the classic view.
 import { ENEMY_Z_MAX, ENEMY_Z_MIN, FIELD_HALF_W, PLAYER, PLAYER_Z_MAX, PLAYER_Z_MIN, TICK, TICK_RATE, escapeX } from '../config/constants';
-import { FP, headingDir, rightDir, wrapAngle, type ViewMode } from '../config/firstPerson';
+import { FP, headingDir, rightDir, wrapAngle, type Aim, type ViewMode } from '../config/firstPerson';
 import { HUD_WEAPONS, WEAPONS, type WeaponId } from '../config/weapons';
 import { World } from '../core/World';
 import { Bot } from '../core/Bot';
@@ -46,6 +46,8 @@ export class Game {
   /** Show the "click to aim" hint when the mouse is not captured in first person (tests turn it off). */
   lockHint = true;
   private readonly look = { x: 0, y: 0 };
+  private savedAim: Aim | null = null;
+  private savedAimWorld: World | null = null;
   private readonly move = { x: 0, z: 0 };
   private readonly heading = { x: 0, z: 0 };
   private readonly right = { x: 0, z: 0 };
@@ -111,9 +113,13 @@ export class Game {
     if (w && this.mode !== 'title') {
       const p = w.player;
       if (fp && !this.bot) {
-        // Keep the current heading when toggling back and forth; classic always faced left.
-        if (!p.aim) p.aim = { yaw: 0, pitch: -0.08 };
+        // Toggling back and forth keeps the heading of this game; a new game starts facing left.
+        if (!p.aim) p.aim = this.savedAim && this.savedAimWorld === w ? { ...this.savedAim } : { yaw: 0, pitch: -0.08 };
       } else {
+        if (p.aim) {
+          this.savedAim = { ...p.aim };
+          this.savedAimWorld = w;
+        }
         p.aim = null;
         p.input.move = undefined;
       }
