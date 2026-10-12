@@ -327,6 +327,7 @@ function buildBody(bones: Record<string, THREE.Object3D>) {
     L.addShaded(capsule(0.076, 0.2, 6, 14), parkaShade(0.75), 'cloth', { p: [0, -0.08, 0] });
     const cuff = torus(0.068, 0.038, 8, 18);
     cuff.rotateX(Math.PI / 2);
+    weld(cuff);
     L.addShaded(cuff, furShade, 'fur', { p: [0, -0.165, 0] });
     L.add(ellipsoid(0.058, 0.072, 0.056, 14, 10), COL.mitten, 'cloth', { p: [0, -FORE + 0.004, 0] });
     L.add(ellipsoid(0.024, 0.036, 0.026, 8, 6), COL.mittenDark, 'cloth', { p: [-0.042, -FORE + 0.024, 0.0] });
@@ -346,6 +347,7 @@ function buildBody(bones: Record<string, THREE.Object3D>) {
     S.add(box(0.06, 0.03, 0.158), COL.bootDark, 'rubber', { p: [-0.13, -0.23, 0] });
     const bc = torus(0.088, 0.038, 8, 18);
     bc.rotateX(Math.PI / 2);
+    weld(bc);
     S.addShaded(bc, furShade, 'fur', { p: [0, -0.1, 0] });
     S.buildInto(sh);
   }
