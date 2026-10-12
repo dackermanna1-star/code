@@ -59,6 +59,7 @@ export class ChunkRenderer {
   }
 
   rebuild(c: Chunk): void {
+    c.meshedOnce = true;
     const data = meshChunk(this.world, c);
     this.apply(c, data);
   }

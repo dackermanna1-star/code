@@ -28,6 +28,8 @@ export class Chunk {
   inActiveList = false;
 
   meshDirty = true;
+  /** Set once the renderer has built this chunk's mesh at least once. */
+  meshedOnce = false;
   /** True once the chunk diverges from its procedurally generated contents. */
   modified = false;
   /** Incremented on every voxel change (used by caches such as light emitters). */

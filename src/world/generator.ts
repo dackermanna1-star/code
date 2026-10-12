@@ -108,6 +108,7 @@ export class WorldGenerator {
         const y = top - 20 - (j / (k + 1)) * (BIOME_HEIGHT - 40);
         ctrl.push({ x: rng.range(52, 204), y, z: rng.range(52, 204) });
       }
+      ctrl.push({ x: HM.cx, y: bottom + 34, z: HM.cz });
       ctrl.push({ x: HM.cx, y: bottom + 14, z: HM.cz });
       ctrl.push({ x: HM.cx, y: bottom - 2, z: HM.cz });
       // Catmull-Rom sample
@@ -263,14 +264,14 @@ export class WorldGenerator {
     const inY = y >= floor && y < floor + roomH;
     // entrance shaft from band top down to room ceiling
     const ds = Math.hypot(x + 0.5 - HM.cx, z + 0.5 - HM.cz);
-    if (y >= floor + roomH && y < band.top) {
+    if (y >= floor + roomH && y <= band.top) {
       if (ds < HM.shaftRadius) return AIR;
       if (ds < HM.shaftRadius + 2) return TEMPLEBRICK;
     }
     if (!final) {
       // exit shaft from room floor down to band bottom
       const de = Math.hypot(x + 0.5 - HM.exitX, z + 0.5 - HM.exitZ);
-      if (y < floor && y >= band.bottom) {
+      if (y < floor && y > band.bottom) {
         if (de < 4.5) return AIR;
         if (de < 6.5) return TEMPLEBRICK;
       }
@@ -453,11 +454,31 @@ export class WorldGenerator {
     add('hm_trigger', HM.cx + 0.5, floor + 1, HM.cz + 0.5, 23);
   }
 
+  /** True if a point is within `margin` voxels of the guaranteed route tunnel. */
+  nearRoute(x: number, y: number, z: number, margin: number): boolean {
+    const segs = this.routeSegsFor(x - margin, y - margin, z - margin, x + margin, y + margin, z + margin);
+    for (const s of segs) {
+      const ax = s.a.x, ay = s.a.y, az = s.a.z;
+      const bx = s.b.x - ax, by = s.b.y - ay, bz = s.b.z - az;
+      const bb = bx * bx + by * by + bz * bz;
+      let t = bb > 0 ? ((x - ax) * bx + (y - ay) * by + (z - az) * bz) / bb : 0;
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const d = Math.hypot(x - ax - bx * t, y - ay - by * t, z - az - bz * t);
+      if (d < s.a.r + margin) return true;
+    }
+    return false;
+  }
+
   private structureFeatures(b: BiomeDef, rng: Rng, x0: number, y0: number, z0: number, out: RegionFeatures): void {
     const tries = 3;
     for (let t = 0; t < tries; t++) {
       const px = x0 + rng.int(3, REGION - 4), py = y0 + rng.int(3, REGION - 4), pz = z0 + rng.int(3, REGION - 4);
       if (!this.isOpen(px, py, pz)) continue;
+      // never obstruct the guaranteed descent route
+      if (this.nearRoute(px, py, pz, 20)) {
+        rng.next();
+        continue;
+      }
       const fy = this.floorBelow(px, py, pz, 30);
       const cy = this.ceilingAbove(px, py, pz, 30);
       const roll = rng.next();

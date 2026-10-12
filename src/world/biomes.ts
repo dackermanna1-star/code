@@ -156,7 +156,7 @@ export function biomeAt(y: number): BiomeDef | null {
 export function layerTopY(i: number): number {
   return SURFACE_Y - i * LAYER_HEIGHT;
 }
-/** World y range [bottom, top) of holy mountain band i. */
+/** World y range of holy mountain band i: bottom (exclusive) < y <= top (inclusive). */
 export function hmBandY(i: number): { top: number; bottom: number } {
   const top = SURFACE_Y - i * LAYER_HEIGHT - BIOME_HEIGHT;
   return { top, bottom: top - HM_HEIGHT };

@@ -63,7 +63,8 @@ export class VoxelWorld {
     // Neighbours need remeshing because their border faces may now be hidden/visible.
     for (const [dx, dy, dz] of NEIGHBOR_OFFSETS) {
       const n = this.getChunk(c.cx + dx, c.cy + dy, c.cz + dz);
-      if (n) {
+      // a neighbour that was never meshed is already queued; otherwise its border faces changed
+      if (n && n.meshedOnce && !n.meshDirty) {
         n.meshDirty = true;
         this.meshDirty.add(n);
       }

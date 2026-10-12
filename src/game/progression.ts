@@ -34,7 +34,7 @@ export class Progression {
   hmRoomAt(x: number, y: number, z: number): number {
     for (let i = 0; i < NUM_LAYERS - 1; i++) {
       const band = hmBandY(i);
-      if (y < band.bottom || y >= band.top) continue;
+      if (y <= band.bottom || y > band.top) continue;
       const floor = hmFloorY(i);
       if (x >= HM.roomX0 - 1 && x < HM.roomX1 + 1 && z >= HM.roomZ0 - 1 && z < HM.roomZ1 + 1 && y >= floor - 1 && y < floor + HM.roomHeight) return i;
       // the entrance shaft counts as part of the sanctuary

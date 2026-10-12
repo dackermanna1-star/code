@@ -27,6 +27,99 @@ async function key(run, wait, code, ms = 60) {
 }
 
 export default {
+  async stress({ shot, wait, run }) {
+    const pts = await run(() => window.game.streamer.gen.routePoints[0]);
+    const p = pts[Math.floor(pts.length * 0.5)];
+    await teleport(run, wait, p.x, p.y - 3, p.z, 0.5, -0.2);
+    await run(() => { window.debug.godMode = true; });
+    const sample = async (label) => {
+      const t = [];
+      for (let i = 0; i < 10; i++) {
+        await wait(300);
+        t.push(await run(() => ({ sim: window.game.sim.stats.tickMs, active: window.game.sim.stats.activeChunks, moved: window.game.sim.stats.cellsMoved, frame: window.game.frameMs, mesh: window.game.chunks.stats.lastRebuildMs, dirty: window.game.world.meshDirty.size, parts: window.game.particles.count, proj: window.run.projectiles.list.length })));
+      }
+      const avg = (k) => (t.reduce((a, b) => a + b[k], 0) / t.length).toFixed(2);
+      const max = (k) => Math.max(...t.map((x) => x[k])).toFixed(2);
+      console.log(label, `sim avg ${avg('sim')} max ${max('sim')} ms | active ${avg('active')} | moved ${avg('moved')} | frame avg ${avg('frame')} max ${max('frame')} | mesh ${avg('mesh')} | dirty ${avg('dirty')} | particles ${avg('parts')} | proj ${avg('proj')}`);
+    };
+    await sample('baseline');
+    // flood: a big block of water above the player area
+    await run(() => {
+      const g = window.game, b = g.player.body;
+      for (let y = 0; y < 10; y++) for (let z = -14; z < 14; z++) for (let x = -14; x < 14; x++) {
+        const X = Math.floor(b.x + x), Y = Math.floor(b.y + 14 + y), Z = Math.floor(b.z + z);
+        if (g.world.get(X, Y, Z) === 0) g.world.set(X, Y, Z, 29 + 0 * 1);
+      }
+    });
+    await sample('flood');
+    await shot('flood');
+    // oil fire + explosions
+    await run(() => {
+      const g = window.game, b = g.player.body;
+      const oil = 31;
+      for (let y = 0; y < 4; y++) for (let z = -10; z < 10; z++) for (let x = 12; x < 30; x++) {
+        const X = Math.floor(b.x + x), Y = Math.floor(b.y + 6 + y), Z = Math.floor(b.z + z);
+        if (g.world.get(X, Y, Z) === 0) g.world.set(X, Y, Z, oil);
+      }
+      for (let i = 0; i < 20; i++) g.sim.ignite(Math.floor(b.x + 14 + Math.random() * 14), Math.floor(b.y + 3), Math.floor(b.z - 8 + Math.random() * 16), true);
+      for (let i = 0; i < 6; i++) g.destruction.explode(b.x + 20 + Math.random() * 20, b.y + Math.random() * 10, b.z - 15 + Math.random() * 30, { radius: 10, durability: 11, rayEnergy: 2500, fire: true });
+    });
+    await sample('fire+explosions');
+    await shot('fire');
+    // projectile storm
+    await run(() => {
+      const r = window.run;
+      for (let i = 0; i < 300; i++) {
+        const sh = { state: { fireRateWait: 0, spread: 40, speedMult: 1, damageProjectile: 0, damageExplosion: 0, damageFire: 0, damageElectric: 0, damageIce: 0, damageSlice: 0, damageHealing: 0, critChance: 0, explosionRadius: 0, lifetimeAdd: 0, bounces: 0, gravityAdd: 0, knockback: 0, recoil: 0, patternDegrees: 0, extra: [], trailMaterial: null, trailChance: 0, friendlyFire: false, homing: 0, piercing: false, lightRadiusAdd: 0 }, projectiles: [{ projectile: 'rubber_ball' }] };
+        const g = window.game, b = g.player.body;
+        r.projectiles.fireShot(sh, b.x, b.y + 6, b.z, new window.THREE_V(Math.random() - 0.5, Math.random() - 0.3, Math.random() - 0.5).normalize(), null, 40, 1);
+      }
+    }).catch((e) => console.log('storm skipped', String(e).slice(0, 80)));
+    await sample('projectiles');
+  },
+  async holymountain({ shot, wait, run }) {
+    await wait(1000);
+    const floor = 1920 - 256 - 64 + 18;
+    await teleport(run, wait, 128.5, floor + 0.05, 122, Math.PI, -0.1);
+    await wait(1500);
+    const info = await run(() => ({
+      canEdit: window.run.progression.canEditWands(),
+      shop: window.run.pickups.list.filter((p) => p.price > 0).map((p) => `${p.kind}:${p.label}:${p.price}`),
+      perks: window.run.pickups.list.filter((p) => p.kind === 'perk').map((p) => p.label),
+      other: window.run.pickups.list.filter((p) => ['refresher', 'heart_full'].includes(p.kind)).length,
+    }));
+    console.log('hm', JSON.stringify(info));
+    await shot('perks');
+    await run(() => { window.game.player.yaw = 0; });
+    await wait(600);
+    await shot('shop');
+    // take a perk via interaction
+    await run(() => {
+      const r = window.run;
+      const pk = r.pickups.list.find((p) => p.kind === 'perk');
+      r.progression.interact(pk);
+    });
+    await wait(300);
+    const after = await run(() => ({ perks: [...window.run.progression.perks.keys()], altar: window.run.pickups.list.filter((p) => p.kind === 'perk').length }));
+    console.log('after-perk', JSON.stringify(after));
+    await run(() => window.game.input.simulateKey('Tab', true));
+    await wait(100);
+    await run(() => window.game.input.simulateKey('Tab', false));
+    await wait(500);
+    await shot('edit');
+  },
+  async death({ shot, wait, run, page }) {
+    await wait(1000);
+    await run(() => { const p = window.game.player; window.run.damage.apply({ target: p, amount: 500, type: 'explosion', source: null, x: 0, y: 0, z: 0 }); });
+    await wait(2500);
+    await shot('dead');
+    const state1 = await run(() => window.game.state);
+    await page.click('text=Start a new run');
+    await page.waitForFunction(() => window.game && window.game.state === 'playing', null, { timeout: 120000 });
+    await wait(1500);
+    await shot('restarted');
+    console.log('death', state1, 'after', await run(() => [window.game.state, window.game.player.hp, window.game.opts.seed]));
+  },
   async arena({ shot, wait, run }) {
     await wait(1500);
     await run(() => { window.debug.godMode = true; window.game.player.pitch = -0.08; window.game.player.yaw = Math.PI; });
