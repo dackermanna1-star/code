@@ -15,7 +15,8 @@
 //            'start' when a run begins (wave 0, before the first break); 'over' when it
 //            ends (survived = waves cleared, kills = the local player's kills)
 //  wave      { phase: 'start' | 'cleared', wave, t, boss (a boss wave), count (zombies in
-//            the wave), bonus ($ paid for clearing it), heal (HP given for clearing it) }
+//            the wave), bonus ($ paid for clearing it), heal (HP given for clearing it),
+//            mod (start: the wave type, director.js MODS id, or null) }
 //  hit       { attacker, victim, damage (health taken off), armor (armour taken off),
 //            raw (damage before armour), hitgroup, head, weapon, blast, fire, acid, explode,
 //            lethal (took the victim to 0 HP), shot (the trigger pull's id for bullets and tesla
@@ -23,7 +24,8 @@
 //            every damage dealt by or to the squad (not to god-mode players); lethal hits
 //            are followed by a kill (or, with downed, a down)
 //  kill      { attacker, victim, weapon, head, zombie (a zombie / boss died), special (its
-//            kind or null), boss, extra (a summoned zombie outside the wave count), squad
+//            kind or null), variant (a common's COMMONS id, else null), boss, extra (a
+//            summoned zombie outside the wave count), squad
 //            (the attacker is in the squad), local (the attacker is you), wave, t }
 //            every death in the mode: zombies (whoever killed them) and squad members
 //  shot      { shooter, weapon, shot (id), pellets, t } a trigger pull by the squad: one per
@@ -39,6 +41,17 @@
 //            revive { player, by (null: on his own), t }, bleedout { player, t },
 //            respawn { player, wave, t }, wipe { wave, t }
 //  feedback: streak { player, n, label, t }
+// Milestone 2 (m2-contracts; the wave event's start also carries mod: the wave type or null,
+// and kill carries variant: a common's COMMONS id, or null):
+//  stagger:  stagger { zombie, by (who did it), kind: 'flinch' | 'stagger' | 'knockdown' |
+//            'stun', src (weapon id, 'shove', ...), amount, until (game time), t }
+//  shove:    shove { player, hits (zombies shoved), freed (the teammate pulled free, or
+//            null), tired (that was the last pip), t }
+//  director: front { phase: 'open' | 'close', id, name, pos ([x,y,z] for the arrow / roar), t },
+//            pace { phase: 'trickle' | 'surge' | 'push' | 'calm', front (id or null),
+//            by: 'director' | 'screamer', t }
+//  specialsux: save { player (pulled free), by (null: on his own), kind (the special), t },
+//            combo { kinds ([first, second]), front, t }
 import { TEAM_CT } from './player.js';
 
 export const EVENT_TYPES = new Set([
@@ -49,6 +62,8 @@ export const EVENT_TYPES = new Set([
   'down', 'revive', 'bleedout', 'respawn', 'wipe',
   // feedback
   'streak',
+  // Milestone 2: stagger, shove, director, specialsux
+  'stagger', 'shove', 'front', 'pace', 'save', 'combo',
 ]);
 
 /** In the squad: you or a bot teammate (the CT side; zombies and spectators aren't). */
@@ -129,6 +144,7 @@ export class RunEvents {
     e.attacker = attacker || null; e.victim = victim;
     e.weapon = weapon || 'world'; e.head = !!head;
     e.zombie = !!victim.isZombie; e.special = victim.special || null; e.boss = !!victim.isBoss;
+    e.variant = victim.isZombie && !victim.special && !victim.isBoss ? victim.variant || null : null;
     e.extra = !!victim.extra;
     e.squad = inSquad(attacker) && attacker !== victim;
     e.local = !!attacker && attacker === this.game.local && attacker !== victim;

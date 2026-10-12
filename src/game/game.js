@@ -646,6 +646,7 @@ export class Game {
     if (victim.isHostage) { this.hostages.damage(victim, attacker, damage, hitgroup, weaponId, dir, point, opts); return; }
     if (!victim.alive || damage <= 0) return;
     if (victim.boss) { damage = this.bosses.adjust(victim, attacker, damage, hitgroup, weaponId, opts); if (damage <= 0) return; }
+    if (victim.variant) { damage = this.zombies.roster.adjust(victim, attacker, damage, hitgroup, weaponId, dir, opts); if (damage <= 0) return; } // zombie survival commons (riot armour...: zroster.js)
     if (attacker?.boss && attacker !== victim) damage *= BOSS_NERF * (attacker.boss.def.k ?? 1); // every boss attack (claws, acid, fire, blasts)
     if (victim.downed) damage *= this.zombies.downed.hurtScale; // zombie survival: on the floor the bleed-out goes slower than health would
     const teammate = !!(attacker && attacker !== victim && attacker.team === victim.team);
@@ -1084,6 +1085,8 @@ export class Game {
     this.effects.update(this.paused ? 0 : dt);
     this.arcs.update(this.paused ? 0 : dt);
     if (this.zombies.enabled) { this.gore.updateStatics(); this.zombies.specials.render(); } // bodies / gibs / brass added this frame; smokers' tongues
+
+    if (this.zombies.enabled) this.zombies.frame(this.paused ? 0 : dt); // (Milestone 2 features' visuals)
     this.fire.render(this.paused ? 0 : dt);
     this.updateCamera(cine || stop ? realDt : dt, alpha);
     this.updateSoundListener();

@@ -81,7 +81,7 @@ export class Specials {
   /**
    * Bring a special in (a sprinter pack: several). Returns how many came.
    * o: { max (no more than this many), near ([x,y,z]: close to there), extra (outside the
-   * wave's count, like a boss's summons) }
+   * wave's count, like a boss's summons), front (a director.js front id: come in there) }
    */
   spawn(kind, o = {}) {
     const def = SPECIALS[kind];
@@ -90,7 +90,7 @@ export class Specials {
     let made = 0, near = o.near || null, first = null;
     for (let i = 0; i < n; i++) {
       const z = this.body(kind);
-      if (!z || !this.Z.spawnZombie({ use: z, near, special: true })) break;
+      if (!z || !this.Z.spawnZombie({ use: z, near, special: true, front: o.front })) break;
       near = near || z.pm.origin.slice(); // the pack comes together
       this.setup(z, def);
       z.extra = !!o.extra;
@@ -169,6 +169,7 @@ export class Specials {
       case 'sprinter': return this.sprinter(z, target, cmd, t);
       case 'hunter': return this.hunter(z, target, cmd, t);
       case 'smoker': return this.smoker(z, target, cmd, t);
+      case 'screamer': return this.Z.roster.screamer(z, target, cmd, t); // (zroster.js)
       default: return false;
     }
   }
@@ -498,6 +499,40 @@ export class Specials {
       p.pm.velocity[0] = dx / l * sp; p.pm.velocity[1] = dy / l * sp;
     }
     void t;
+  }
+
+  /** A hunter / smoker lets go of whoever it holds (a shove, a save, a despawn); by: who freed him (sp.freedBy, for the 'save' event). */
+  letGo(z, by = null) {
+    if (!z?.sp?.victim) return;
+    z.sp.freedBy = by;
+    if (z.special === 'hunter') this.unpin(z); else if (z.special === 'smoker') this.release(z);
+  }
+
+  /**
+   * Telegraphs (zthreats.js draws them): every special winding up, mid-trick or holding
+   * somebody, as reused records { z, kind, phase: 'windup' | 'attack' | 'hold', target, left
+   * (s until it lands; 0 once it has), pos (its eyes) }. Read them now, don't keep them.
+   */
+  threats() {
+    const t = this.game.time, out = this.threatList || (this.threatList = []), pool = this.threatPool || (this.threatPool = []);
+    out.length = 0;
+    for (const z of this.Z.pool) {
+      const S = z.sp;
+      if (!z.alive || !S || S.state === 'chase' || S.state === 'recover') continue;
+      let phase = null, left = 0, target = S.victim || z.target || null;
+      switch (S.state) {
+        case 'wind': phase = 'windup'; left = Math.max(0, S.until - t); break;
+        case 'vomit': if (t < S.from) { phase = 'windup'; left = S.from - t; } else phase = 'attack'; break;
+        case 'air': case 'charge': case 'fly': phase = 'attack'; break;
+        case 'pin': case 'pull': phase = 'hold'; break;
+        default: continue;
+      }
+      const r = pool[out.length] || (pool[out.length] = { z: null, kind: null, phase: null, target: null, left: 0, pos: [0, 0, 0] });
+      r.z = z; r.kind = z.special; r.phase = phase; r.target = target; r.left = left;
+      z.eyePos(r.pos);
+      out.push(r);
+    }
+    return out;
   }
 
   /** Zombies go for someone covered in bile first (distance weight). */

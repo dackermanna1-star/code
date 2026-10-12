@@ -1,5 +1,6 @@
 // Zombie survival difficulty: one table every tuning knob of the mode reads.
-// A preset = { id, label, blurb, sandbox, breakLen, firstBreak, econ, horde, specials, squad }.
+// A preset = { id, label, blurb, sandbox, breakLen, firstBreak, econ, horde, specials, squad,
+// and from Milestone 2 stagger, shove, ai, director, roster, combo }.
 // The groups are kept as separate tables below, one per owner, so each can be tuned on its
 // own: econ (money and buying), horde (waveStats), specials (how often and how many),
 // squad (downed / revive). NORMAL's horde and specials are the mode's tuned curve, sized
@@ -84,6 +85,81 @@ const SQUAD = {
   nightmare: { bleedOut: 20, bleedOutStep: 7, bleedOutMin: 6, reviveTime: 4, reviveHealth: 25 },
 };
 
+// ---------------------------------------------------------------- Milestone 2 ("a horde worth fighting")
+// One table per builder (m2-contracts): only the owner edits it, one preset per line. The new
+// pressure lives mostly in Hard and Nightmare; Normal stays challenging, not overkill. Sandbox
+// plays Normal's rows.
+
+/**
+ * Stagger and stopping power (zstagger.js): resist (x the poise a hit must build before a
+ * common staggers: higher = harder to stop), decay (poise lost a second, fraction of full),
+ * cooldown (s after a stagger ends before the next can start: no stun-lock), knockdown (x the
+ * chance a leg hit drops it to its knees).
+ */
+const STAGGER = {
+  casual: { resist: 0.8, decay: 1.2, cooldown: 0.35, knockdown: 1.2 },
+  normal: { resist: 1, decay: 1, cooldown: 0.5, knockdown: 1 },
+  hard: { resist: 1.2, decay: 0.9, cooldown: 0.7, knockdown: 0.85 },
+  nightmare: { resist: 1.4, decay: 0.8, cooldown: 0.9, knockdown: 0.7 },
+};
+
+/** Melee shove (shove.js): pips (shoves before you're tired), regen (s to get one back), tired (s of a weak shove once out). */
+const SHOVE = {
+  casual: { pips: 5, regen: 1.1, tired: 0.8 },
+  normal: { pips: 4, regen: 1.4, tired: 1 },
+  hard: { pips: 4, regen: 1.7, tired: 1.2 },
+  nightmare: { pips: 3, regen: 2, tired: 1.4 },
+};
+
+/**
+ * Horde AI (zhorde.js): flank (share of commons that keep a side flow field for life), fields
+ * (side fields built besides the main one), surround (u: within this a zombie takes a ring slot
+ * around its target instead of queueing; 0 = off), slots (ring slots per target).
+ */
+const AI = {
+  casual: { flank: 0.15, fields: 1, surround: 260, slots: 6 },
+  normal: { flank: 0.25, fields: 2, surround: 260, slots: 8 },
+  hard: { flank: 0.3, fields: 2, surround: 260, slots: 8 },
+  nightmare: { flank: 0.35, fields: 2, surround: 280, slots: 10 },
+};
+
+/**
+ * Wave director (director.js): fronts [min, max] open a wave; modsFrom (first wave with a wave
+ * type) and modChance (a non-boss wave from there gets one); surge (share of a wave that comes
+ * in surges), surgeAlive (x maxAlive while one is on), calm (s of quiet after one); radar
+ * ('full': every zombie a blip; 'pings': only seen, heard or within pingRange u).
+ */
+const DIRECTOR = {
+  casual: { fronts: [1, 1], modsFrom: 4, modChance: 0.3, surge: 0.2, surgeAlive: 1.15, calm: 6, radar: 'full', pingRange: 400 },
+  normal: { fronts: [1, 2], modsFrom: 3, modChance: 0.4, surge: 0.3, surgeAlive: 1.25, calm: 5, radar: 'pings', pingRange: 400 },
+  hard: { fronts: [1, 2], modsFrom: 3, modChance: 0.5, surge: 0.35, surgeAlive: 1.35, calm: 4, radar: 'pings', pingRange: 400 },
+  nightmare: { fronts: [2, 2], modsFrom: 2, modChance: 0.6, surge: 0.4, surgeAlive: 1.5, calm: 3, radar: 'pings', pingRange: 400 },
+};
+
+/**
+ * Common roster (zroster.js, COMMONS): mix (x the weights of the commons other than walkers and
+ * runners), shift (waves added to each variant's first wave: + later, - earlier), riotCap
+ * (share of a wave's commons that may be riot zombies).
+ */
+const ROSTER = {
+  casual: { mix: 0.7, shift: 2, riotCap: 0.06 },
+  normal: { mix: 1, shift: 0, riotCap: 0.08 },
+  hard: { mix: 1.2, shift: -1, riotCap: 0.12 },
+  nightmare: { mix: 1.4, shift: -2, riotCap: 0.16 },
+};
+
+/**
+ * Readable specials and combos (zthreats.js, Specials.pick): from (first wave with planned
+ * pairs), chance (a special pick becomes a pair), gap [min, max] (s between the two), arcs
+ * (telegraph arcs on the crosshair ring: casual shows them earlier, x the warning lead).
+ */
+const COMBO = {
+  casual: { from: 8, chance: 0.15, gap: [4, 6], arcs: 1.3 },
+  normal: { from: 6, chance: 0.25, gap: [3, 5], arcs: 1 },
+  hard: { from: 5, chance: 0.35, gap: [2.5, 4], arcs: 1 },
+  nightmare: { from: 4, chance: 0.45, gap: [2, 3.5], arcs: 0.9 },
+};
+
 /**
  * The tuned base curve (before multipliers), wave n: count = c0 + c1 (n - 1); maxAlive = a0 + n;
  * health h0 + h1 a wave to lateFrom, then + h2, x open[n - 1] in the opening waves (a
@@ -94,12 +170,16 @@ const WAVE = { c0: 6, c1: 3, a0: 4, h0: 100, h1: 10, h2: 4, open: [0.8, 0.9], s0
 /** Never more zombies up at once than this (zombies.js keeps 32 common bodies), nor commons faster, nor more specials. */
 export const MAX_ALIVE = 28, SPEED_MAX = 245, SPECIAL_MAX = 0.3;
 
+/** The Milestone 2 groups by field name (diff.stagger, diff.shove, ...). */
+const M2 = { stagger: STAGGER, shove: SHOVE, ai: AI, director: DIRECTOR, roster: ROSTER, combo: COMBO };
+
 const deepFreeze = (o) => { for (const v of Object.values(o)) if (v && typeof v === 'object') deepFreeze(v); return Object.freeze(o); };
 
 /** Every preset, assembled: ZDIFF.normal etc. (frozen; a group a preset doesn't list is Normal's). */
 export const ZDIFF = deepFreeze(Object.fromEntries(ZDIFF_ORDER.map((id) => [id, {
   id, sandbox: false, ...META[id],
   econ: ECON[id], horde: HORDE[id] || HORDE.normal, specials: SPECIALS[id] || SPECIALS.normal, squad: SQUAD[id] || SQUAD.normal,
+  ...Object.fromEntries(Object.entries(M2).map(([k, T]) => [k, T[id] || T.normal])),
 }])));
 
 /** A preset by id (unknown ids: Normal). */
@@ -133,6 +213,7 @@ export function resolveDiff(o = zombieOptions()) {
   const r = {
     ...d,
     econ: { ...d.econ }, horde: { ...d.horde }, specials: { ...d.specials }, squad: { ...d.squad },
+    ...Object.fromEntries(Object.keys(M2).map((k) => [k, { ...d[k] }])),
     hardcore: !!o.hardcore, squadScaling: o.squadScaling !== false,
     breakLen: o.breakLen > 0 ? o.breakLen : d.breakLen,
   };
@@ -166,6 +247,7 @@ export function waveStats(n, { diff = ZDIFF[DEFAULT_ZDIFF], crowd = 1 } = {}) {
     bonus: E.waveBonus[0] + E.waveBonus[1] * n,
     special: specialChance(n, diff, crowd),
     perKind: diff.specials.perKind + Math.floor(c / diff.specials.perKindCrowd + 1e-9),
+    mod: null, // the wave type (director.js MODS id; WaveDirector.plan sets it)
   };
 }
 

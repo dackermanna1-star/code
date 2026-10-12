@@ -14,6 +14,10 @@
 //    the kill feed work as for players) that walk through each other but not through
 //    people; they hunt along a flow field over the bots' nav graph toward the nearest
 //    survivor and claw whoever they reach
+//  - Milestone 2 (m2-contracts): the wave director (director.js) says what spawns where and
+//    when; the roster (zroster.js) what each common is (z.variant); stagger (zstagger.js)
+//    holds a zombie that took a hit (z.staggerUntil); the horde AI (zhorde.js) its flow
+//    field and surround slot; shove.js and zthreats.js hook in like the others
 // game.js / rounds.js hand the mode its ticks, kills and buy / spawn rules.
 import { Player, TEAM_T, TEAM_CT } from './player.js';
 import { createPlayerModel } from '../assets/playermodels.js';
@@ -28,6 +32,12 @@ import { recordKey, readRecord, writeRecord } from './zrecords.js';
 import { ZEconomy } from './zeconomy.js';
 import { ZDowned } from './zdowned.js';
 import { ZFeedback } from './zfeedback.js';
+import { ZStagger } from './zstagger.js';
+import { Shove } from './shove.js';
+import { ZHorde } from './zhorde.js';
+import { WaveDirector } from './director.js';
+import { ZRoster } from './zroster.js';
+import { ZThreats } from './zthreats.js';
 
 export { waveStats };
 
@@ -69,6 +79,13 @@ export class ZombieMode {
     this.economy = new ZEconomy(game);
     this.downed = new ZDowned(game);
     this.feedback = new ZFeedback(game);
+    // Milestone 2 features (m2-contracts): each also gets tick / hud / frame / command
+    this.staggers = new ZStagger(game);
+    this.shove = new Shove(game);
+    this.horde = new ZHorde(game);
+    this.director = new WaveDirector(game);
+    this.roster = new ZRoster(game);
+    this.threats = new ZThreats(game);
     this.configure({});
     this.best = this.bestBefore = this.loadBest();
   }
@@ -139,6 +156,7 @@ export class ZombieMode {
     // every 5th wave: a boss (and half the usual crowd)
     this.bossWave = n % 5 === 0;
     if (this.bossWave) { this.stats = { ...this.stats, count: Math.ceil(this.stats.count * 0.5) }; this.bossAt = g.time + 3; }
+    this.stats = this.director.plan(n, this.stats, this.bossWave); // (its type, fronts and pacing: director.js)
     // the squad's dead (bots, and you if you bled out) come back for the next wave
     for (const p of g.players) {
       if (p.team === TEAM_CT && !p.isZombie && !p.alive) {
@@ -152,7 +170,7 @@ export class ZombieMode {
     g.hud?.centerPrint?.(this.bossWave ? `WAVE ${n}\nSomething big is coming...` : `WAVE ${n}`, 3);
     g.sound?.play('zombie_wave', { volume: 1, attenuation: 'none' });
     g.announce?.(`Wave ${n}`);
-    this.events.mode('wave', { phase: 'start', wave: n, boss: this.bossWave, count: this.stats.count });
+    this.events.mode('wave', { phase: 'start', wave: n, boss: this.bossWave, count: this.stats.count, mod: this.stats.mod ?? null });
   }
 
   waveCleared() {
@@ -231,6 +249,8 @@ export class ZombieMode {
     this.economy.tick(t);
     this.downed.tick(t);
     this.feedback.tick(t);
+    this.staggers.tick(t); this.shove.tick(t); this.horde.tick(t); this.roster.tick(t); this.threats.tick(t);
+    this.director.tick(t); // (last: just before the spawn step)
     if (this.state === 'break' && t >= this.nextWaveAt) this.startWave(this.wave + 1);
     if (this.wave === 0) this.syncRecord(); // (the squad fills up before the first wave)
     if (this.state !== 'wave') return;
@@ -238,14 +258,15 @@ export class ZombieMode {
     if (this.bossAt && t >= this.bossAt) { if (this.game.bosses.spawn(this.wave)) this.bossAt = 0; else this.bossAt = t + 1; }
     let alive = 0;
     for (const z of this.pool) if (z.alive) alive++;
-    if (this.spawned < S.count && alive < S.maxAlive && t >= this.nextSpawn) {
+    // what comes next, from where, and how soon: the director (director.js)
+    if (this.spawned < S.count && alive < this.director.maxAlive(S, t) && t >= this.nextSpawn) {
       const n0 = this.spawned;
-      const kind = this.specials.pick(this.wave);
+      const o = this.director.next(t, S.count - this.spawned); // { kind (a special or null), variant, front }
       // (a sprinter pack never takes the wave past its count)
-      if (kind) this.spawned += this.specials.spawn(kind, { max: S.count - this.spawned }) || (this.spawnZombie() ? 1 : 0);
-      else if (this.spawnZombie()) this.spawned++;
+      if (o.kind) this.spawned += this.specials.spawn(o.kind, { max: S.count - this.spawned, front: o.front }) || (this.spawnZombie(o) ? 1 : 0);
+      else if (this.spawnZombie(o)) this.spawned++;
       alive += this.spawned - n0; // (the last of the wave just came up: not cleared yet)
-      this.nextSpawn = t + S.interval * rand(0.6, 1.4);
+      this.nextSpawn = t + this.director.interval(S, t);
     }
     if (this.spawned >= S.count && alive === 0 && !this.bossAt && !this.game.bosses.alive()) this.waveCleared();
   }
@@ -267,6 +288,7 @@ export class ZombieMode {
         this.specials.onDeath(victim, attacker);
         this.events.mode('special', { phase: 'death', kind: victim.special, zombie: victim, attacker: attacker || null });
       }
+      else if (victim.variant) this.roster.onDeath(victim, attacker); // (a bloater bursts...: zroster.js)
       if (!victim.extra) this.killed++;
       return;
     }
@@ -281,8 +303,28 @@ export class ZombieMode {
    * Returns true when one of them took it.
    */
   command(p, cmd, args = []) {
-    return this.economy.command(p, cmd, args) || this.downed.command(p, cmd, args) || this.feedback.command(p, cmd, args);
+    return this.economy.command(p, cmd, args) || this.downed.command(p, cmd, args) || this.feedback.command(p, cmd, args)
+      || this.shove.command(p, cmd, args) || this.staggers.command(p, cmd, args) || this.director.command(p, cmd, args)
+      || this.horde.command(p, cmd, args) || this.roster.command(p, cmd, args) || this.threats.command(p, cmd, args);
   }
+
+  /** The Milestone 2 features' HUD state (buildHudState, after economy / downed / feedback). */
+  hud(s) {
+    this.staggers.hud(s); this.shove.hud(s); this.horde.hud(s); this.roster.hud(s); this.threats.hud(s);
+    this.director.hud(s); // (last: the radar policy sees every blip)
+  }
+
+  /** Per frame (game.frame, while the mode runs): the Milestone 2 features' visuals. */
+  frame(dt) {
+    this.staggers.frame(dt); this.shove.frame(dt); this.horde.frame(dt); this.roster.frame(dt); this.threats.frame(dt); this.director.frame(dt);
+  }
+
+  /**
+   * Stagger zombie z (zstagger.js, the one API for it): amount = stopping power (1 = a full
+   * stagger), dir = the push [x,y,z] or null, src = what did it ('m3', 'shove', 'tesla', ...),
+   * by = the Player responsible. Returns the seconds it is held (0: shrugged off).
+   */
+  stagger(z, amount, dir = null, src = null, by = null) { return this.staggers.apply(z, amount, dir, src, by); }
 
   hudInfo() {
     const S = this.stats || waveStats(1, this.waveOpts());
@@ -313,7 +355,7 @@ export class ZombieMode {
 
   despawn(z) {
     const S = z.sp;
-    if (S?.victim) { if (z.special === 'hunter') this.specials.unpin(z); else if (z.special === 'smoker') this.specials.release(z); }
+    if (S?.victim) this.specials.letGo(z);
     this.game.stopWeaponLoops(z);
     z.alive = false;
     z.health = 0;
@@ -324,13 +366,13 @@ export class ZombieMode {
   }
 
   // ---------------------------------------------------------------- zombies
-  makeZombie() {
+  makeZombie(skin = 'zombie') {
     const g = this.game;
-    const z = new Player({ name: 'Zombie', team: TEAM_T, skin: 'zombie', isBot: true });
+    const z = new Player({ name: 'Zombie', team: TEAM_T, skin, isBot: true });
     z.isZombie = true;
     g.addPlayer(z);
     z.box.contents = CONTENTS_ZOMBIE;
-    z.model = createPlayerModel('zombie');
+    z.model = createPlayerModel(skin);
     z.model.object3D.visible = false;
     g.renderer.world.add(z.model.object3D);
     this.pool.push(z);
@@ -339,20 +381,28 @@ export class ZombieMode {
 
   /**
    * Bring a zombie in. o: { at: [x,y,z] origin, near: [x,y,z] (a nav spot close by),
-   * health, speed, crawler (small and fast), risen (climbs out of the ground) }. Zombies
-   * placed with at / near are extras (summoned by bosses): not counted in the wave.
+   * health, speed, crawler (small and fast), risen (climbs out of the ground), variant (a
+   * COMMONS id, zroster.js; default: the roster picks), front (a director.js front id: come
+   * in there), extra (override: counted in the wave or not) }. Zombies placed with at / near
+   * are extras (summoned by bosses): not counted in the wave, unless extra: false (then the
+   * caller adds to this.spawned). Specials come through here too (use: their body, special: true).
    */
   spawnZombie(o = {}) {
     const g = this.game, t = g.time;
-    let z = o.use || this.pool.find((q) => !q.special && !q.alive && (!q.deathTime || q.baked || q.gibbed || t - q.deathTime > CORPSE_TIME));
+    const variant = o.special ? null : o.variant || this.roster.pick(this.wave, o);
+    const skin = o.special ? null : this.roster.skin(variant);
+    const free = (q) => !q.special && !q.alive && (!q.deathTime || q.baked || q.gibbed || t - q.deathTime > CORPSE_TIME);
+    let z = o.use || this.pool.find((q) => free(q) && q.skin === skin);
     if (!z) {
-      if (this.pool.filter((q) => !q.special).length >= POOL) return false;
-      z = this.makeZombie();
+      // all POOL bodies made: one of another look, if the roster can make it fit
+      if (this.pool.filter((q) => !q.special).length >= POOL) z = this.roster.reskin(this.pool.find(free), skin);
+      else z = this.makeZombie(skin);
+      if (!z) return false;
     }
     let pos;
     if (o.at) pos = o.at.slice();
     else {
-      const n = o.near ? this.pickNear(o.near) : this.pickSpawn();
+      const n = o.near ? this.pickNear(o.near) : this.pickSpawn(o.front);
       if (!n) return false;
       pos = [n.x, n.y, n.z + 37];
     }
@@ -361,7 +411,7 @@ export class ZombieMode {
     z.baked = z.gibbed = false;
     z.char = 0;
     z.burn = null;
-    z.extra = !o.special && !!(o.at || o.near);
+    z.extra = o.extra ?? (!o.special && !!(o.at || o.near));
     z.sp = null; z.visualCrouch = false; z.pm.speedCap = null; z.speedNow = null;
     const humans = this.humans();
     const h = humans[0];
@@ -374,8 +424,12 @@ export class ZombieMode {
     z.active = null;
     z.deathTime = 0;
     z.lastHurt = 0;
-    z.zSpeed = o.speed ?? (Math.random() < S.runners ? rand(262, 280) : S.speed * rand(0.9, 1.06));
     z.zDamage = S.damage;
+    z.variant = null; z.front = o.front || null; // (the director's front it came in by)
+    if (!o.special) this.roster.setup(z, variant, o); // its speed and the rest of its variant (zroster.js)
+    else z.zSpeed = o.speed ?? S.speed; // (Specials.setup sets its own)
+    z.poise = 0; z.staggerUntil = 0; z.staggerKind = null; z.staggerN = 0; // (zstagger.js)
+    z.field = 0; z.slot = -1; // (zhorde.js: its flow field and surround slot)
     z.target = null; z.targetT = 0;
     z.node = null; z.nodeT = 0;
     z.goal = null; z.goalT = 0;
@@ -393,6 +447,7 @@ export class ZombieMode {
     z.deadBodyVisible = false;
     z.box.active = true;
     setDynamicBox(z.box, z.pm.origin, z.hull().mins, z.hull().maxs);
+    this.horde.spawned(z);
     return true;
   }
 
@@ -416,9 +471,9 @@ export class ZombieMode {
     return ring.length ? ring[Math.floor(Math.random() * ring.length)].node : start;
   }
 
-  /** Out of sight of every survivor, 700+ units away, and with a way to them. */
-  pickSpawn() {
-    const g = this.game, cands = this.spawnCandidates();
+  /** Out of sight of every survivor, 700+ units away, and with a way to them (front: in that front if it can, director.js). */
+  pickSpawn(front = null) {
+    const g = this.game, cands = (front && this.director.candidates(front)) || this.spawnCandidates();
     if (!cands.length) return null;
     const humans = this.humans();
     const eyes = humans.map((h) => h.eyePos());
@@ -437,6 +492,7 @@ export class ZombieMode {
       if (score > bestScore) { bestScore = score; best = n; }
       if (score > -400) break;
     }
+    if (!best && front) return this.pickSpawn(null); // (nothing there right now: anywhere)
     return best;
   }
 
@@ -469,11 +525,12 @@ export class ZombieMode {
         if (nd < dist[r.from]) { dist[r.from] = nd; heap.push(r.from, nd); }
       }
     }
+    this.horde.flow(g.time); // (side fields: zhorde.js)
   }
 
-  /** The neighbour of n on the shortest way to a survivor (and the edge to it). */
-  nextHop(n) {
-    const nodes = this.game.nav.nodes, dist = this.dist;
+  /** The neighbour of n on the shortest way to a survivor (and the edge to it), down field dist. */
+  nextHop(n, dist = this.dist) {
+    const nodes = this.game.nav.nodes;
     let best = null, bd = Infinity, be = null;
     for (const e of n.edges) {
       if (!(dist[e.to] < dist[n.id])) continue; // only ever downhill
@@ -501,6 +558,7 @@ export class ZombieMode {
       this.growl(z, t);
       const target = this.pickTarget(z, humans, t);
       if (!target) { z.pm.angles[0] = 0; continue; }
+      if (z.staggerUntil > t && this.staggers.hold(z, target, cmd, t)) continue; // staggered: no step, no swing (zstagger.js)
       if (z.special && this.specials.think(z, target, cmd, t)) continue; // its own trick this tick
       this.chase(z, target, cmd, t);
       this.separate(z, cmd);
@@ -601,7 +659,7 @@ export class ZombieMode {
     if (!z.goal || t >= z.goalT || Math.hypot(z.goal[0] - feet[0], z.goal[1] - feet[1]) < 20) {
       z.goalT = t + 0.3;
       z.jumpGoal = false;
-      if (dxy < 420 && Math.abs(dz) < 48 && nav.canWalk(feet, tf)) z.goal = tf.slice();
+      if (dxy < 420 && Math.abs(dz) < 48 && nav.canWalk(feet, tf)) z.goal = this.horde.approach(z, target, tf, feet, t) || tf.slice(); // (a surround slot: zhorde.js)
       else z.goal = this.flowGoal(z, feet, t) || tf.slice();
     }
     const goal = z.goal;
@@ -636,9 +694,10 @@ export class ZombieMode {
     }
     if (!z.node) return null;
     const chain = [];
+    const field = this.horde.field(z) || this.dist; // (the main field, or its side one: zhorde.js)
     let n = z.node, jump = false;
     for (let i = 0; i < 7; i++) {
-      const h = this.nextHop(n);
+      const h = this.nextHop(n, field);
       if (!h) break;
       chain.push(h.node);
       if (i === 0 && h.edge.kind === 'jump') jump = true;
@@ -707,6 +766,7 @@ export class ZombieMode {
         const dir = [(chest[0] - eye[0]) / d, (chest[1] - eye[1]) / d, (chest[2] - eye[2]) / d];
         const point = [chest[0] - dir[0] * 12, chest[1] - dir[1] * 12, chest[2] - dir[2] * 12];
         g.damagePlayer(target, z, z.zDamage, CR.HITGROUP.CHEST, 'zombie', dir, point);
+        if (z.variant) this.roster.onClaw(z, target); // (a burning one sets you alight: zroster.js)
         // a claw staggers less than a bullet's "tagging" (you can still run for it)
         target.pm.velocityModifier = Math.max(target.pm.velocityModifier ?? 1, 0.8);
         if (dz > 40 && dxy < 40) { const a = dxy > 1 ? Math.atan2(to[1] - o[1], to[0] - o[0]) : y; target.pm.velocity[0] += Math.cos(a) * 220; target.pm.velocity[1] += Math.sin(a) * 220; target.pm.velocity[2] += 120; }
