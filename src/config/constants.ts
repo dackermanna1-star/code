@@ -9,17 +9,23 @@
 // Conversion from original pixels follows a 32-degree camera pitch (see
 // docs/RESEARCH.md section 4).
 
+import { CAMERA_PITCH_DEG, rowToZ, visibleHalfWidth } from './view';
+
+export { CAMERA_PITCH_DEG };
+
 export const TICK_RATE = 50;
 export const TICK = 1 / TICK_RATE;
 
-export const CAMERA_PITCH_DEG = 32;
 const PITCH = (CAMERA_PITCH_DEG * Math.PI) / 180;
 export const TAN_PITCH = Math.tan(PITCH);
 
 /** Metres per original pixel along x. 640 px == 40 m. */
 export const PX_X = 40 / 640;
-/** Metres per original pixel of screen-y when it represents depth (ground). */
-export const PX_Z = PX_X / Math.sin(PITCH);
+/**
+ * Metres per original pixel of screen-y when it represents depth (ground),
+ * averaged over the play band through the real (slightly perspective) camera.
+ */
+export const PX_Z = (rowToZ(426) - rowToZ(184)) / (426 - 184);
 /** Metres per original pixel of screen-y when it represents height. */
 export const PX_H = PX_X / Math.cos(PITCH);
 
@@ -35,15 +41,24 @@ export const ACC_Z = PX_Z * TICK_RATE * TICK_RATE;
 
 /** Convert original screen-x (0..640) to world x. */
 export const pxToX = (px: number) => (px - 320) * PX_X;
-/** Convert original screen-y on the ice (lanes ~181..428) to world depth z. */
-export const pxToZ = (py: number) => (py - 304.5) * PX_Z;
+/** Convert original screen-y on the ice (lanes ~181..428) to world depth z through the camera. */
+export const pxToZ = (py: number) => rowToZ(py);
 
 /** Visible field: x from -FIELD_HALF_W to +FIELD_HALF_W. */
 export const FIELD_HALF_W = 20;
-/** Enemies escaping past this x end the game. */
+/** Enemies escaping past this x end the game (at the frame centre depth). */
 export const ESCAPE_X = FIELD_HALF_W + 0.6;
 /** Enemies spawn just beyond the left edge. */
 export const SPAWN_X = -FIELD_HALF_W - 1.2;
+
+/** The frame's left/right edge at ground depth z (the view is slightly perspective). */
+export const edgeX = (z: number) => visibleHalfWidth(z);
+/** x where a creature of half length `hl` at depth z has fully left the frame on the right. */
+export const escapeX = (z: number, hl: number) => visibleHalfWidth(z) + hl + 0.3;
+/** x just beyond the left frame edge for a creature of half length `hl`. */
+export const spawnX = (z: number, hl: number) => -visibleHalfWidth(z) - hl - 0.5;
+/** Hunter x limit at depth z (stays fully on screen). */
+export const playerXLimit = (z: number) => visibleHalfWidth(z) - 0.45;
 
 /** Player movement limits in depth (original FLIMIT_HEIGHT 181..428). */
 export const PLAYER_Z_MIN = pxToZ(184);

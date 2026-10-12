@@ -3,8 +3,7 @@
 import {
   GAME_GRAVITY,
   PLAYER,
-  PLAYER_X_MAX,
-  PLAYER_X_MIN,
+  playerXLimit,
   PLAYER_Z_MAX,
   PLAYER_Z_MIN,
   SPD_H,
@@ -196,12 +195,13 @@ export class Player {
     }
 
     // --- field bounds
-    if (this.x > PLAYER_X_MAX) {
-      this.x = PLAYER_X_MAX;
+    const xl = playerXLimit(this.z);
+    if (this.x > xl) {
+      this.x = xl;
       this.vx = Math.min(0, this.vx);
     }
-    if (this.x < PLAYER_X_MIN) {
-      this.x = PLAYER_X_MIN;
+    if (this.x < -xl) {
+      this.x = -xl;
       this.vx = Math.max(0, this.vx);
     }
     if (this.z > PLAYER_Z_MAX) {

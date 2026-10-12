@@ -36,8 +36,8 @@ const SH_Y = 0.29;
 const SH_Z = 0.23;
 /** Front-back squash of the parka (x = depth of the body). */
 const BODY_SX = 0.97;
-const UPPER = 0.245;
-const FORE = 0.24;
+const UPPER = 0.255;
+const FORE = 0.25;
 const HIP_Z = 0.11;
 const THIGH = 0.2;
 const GETUP_TIME = 0.5;
@@ -81,6 +81,14 @@ const parkaShade = (y0: number) => (p: THREE.Vector3) => {
   c.offsetHSL(0, 0, (hash3(p.x * 50, p.y * 50, p.z * 50) - 0.5) * 0.035);
   return c;
 };
+/** Snap positions so closing seams (sin 2pi != 0) are bit-identical: no hairline cracks. */
+function weld<T extends THREE.BufferGeometry>(g: T): T {
+  const a = g.attributes.position.array as Float32Array;
+  for (let i = 0; i < a.length; i++) a[i] = Math.round(a[i] * 1e5) / 1e5;
+  g.attributes.position.needsUpdate = true;
+  return g;
+}
+
 const furShade = (p: THREE.Vector3) => mix(COL.fur, COL.furShade, hash3(p.x * 70, p.y * 70, p.z * 70) * 0.55);
 
 // ------------------------------------------------------------------ hold table
@@ -95,16 +103,16 @@ interface HoldDef {
   z2?: number;
 }
 const HOLD: Record<WeaponId, HoldDef> = {
-  pistol: { x: -0.38, z: 0.04, yaw: 0.3 },
-  magnum: { x: -0.36, z: 0.04, yaw: 0.3 },
-  mp5: { x: -0.2, z: 0.17, yaw: 0.35 },
+  pistol: { x: -0.355, z: 0.04, yaw: 0.32 },
+  magnum: { x: -0.345, z: 0.04, yaw: 0.32 },
+  mp5: { x: -0.2, z: 0.15, yaw: 0.72 },
   grenades: { x: -0.25, z: 0.2, yaw: 0.3 },
-  shotgun: { x: -0.25, z: 0.17, yaw: 0.35 },
+  shotgun: { x: -0.23, z: 0.15, yaw: 0.78 },
   mac10: { x: -0.37, z: 0.2, yaw: 0.12, x2: -0.31, z2: -0.17 },
-  flunk: { x: -0.26, z: 0.17, yaw: 0.35 },
-  m4: { x: -0.27, z: 0.17, yaw: 0.35 },
-  awp: { x: -0.31, z: 0.17, yaw: 0.35 },
-  vintage: { x: -0.2, z: 0.2, yaw: 0.25 },
+  flunk: { x: -0.26, z: 0.15, yaw: 0.72 },
+  m4: { x: -0.27, z: 0.15, yaw: 0.72 },
+  awp: { x: -0.27, z: 0.15, yaw: 0.78 },
+  vintage: { x: -0.2, z: 0.16, yaw: 0.75 },
   minigun: { x: -0.04, z: 0.24, yaw: 0.25 },
 };
 
@@ -250,11 +258,15 @@ function buildBody(bones: Record<string, THREE.Object3D>) {
   // lower parka (skirt) — pelvis space
   const P = new PartBuilder();
   const skirt = lathe([[0.0, -0.29], [0.3, -0.29], [0.33, -0.255], [0.334, -0.15], [0.324, -0.04], [0.306, 0.07], [0.286, 0.14], [0.262, 0.2], [0.18, 0.24], [0.0, 0.25]], 28);
+  skirt.rotateY(Math.PI);
   skirt.scale(BODY_SX, 1, 1);
+  weld(skirt);
   P.addShaded(skirt, parkaShade(HIP_Y), 'cloth');
   const hem = torus(0.322, 0.07, 8, 32);
   hem.rotateX(Math.PI / 2);
+  hem.rotateY(Math.PI / 2);
   hem.scale(BODY_SX, 1, 1);
+  weld(hem);
   P.addShaded(hem, furShade, 'fur', { p: [0, -0.268, 0] });
   for (let i = 0; i < 22; i++) {
     const a = (i / 22) * Math.PI * 2;
@@ -268,7 +280,9 @@ function buildBody(bones: Record<string, THREE.Object3D>) {
   // upper parka — chest space
   const Ch = new PartBuilder();
   const torso = lathe([[0.0, -0.12], [0.292, -0.12], [0.288, 0.0], [0.274, 0.1], [0.252, 0.19], [0.218, 0.265], [0.16, 0.325], [0.085, 0.365], [0.0, 0.375]], 28);
+  torso.rotateY(Math.PI);
   torso.scale(BODY_SX, 1, 1);
+  weld(torso);
   Ch.addShaded(torso, parkaShade(HIP_Y + CHEST_Y), 'cloth');
   Ch.buildInto(chest);
 
@@ -283,6 +297,7 @@ function buildBody(bones: Record<string, THREE.Object3D>) {
   H.add(ellipsoid(FR, 0.158, 0.145, 18, 14), COL.skin, 'skin', { p: [FX, FY, 0] });
   const ring = torus(0.148, 0.062, 10, 32);
   ring.rotateY(Math.PI / 2);
+  weld(ring);
   H.addShaded(ring, furShade, 'fur', { p: [FX - 0.078, FY, 0], s: [1, 1.08, 1] });
   for (let i = 0; i < 22; i++) {
     const a = (i / 22) * Math.PI * 2;
@@ -726,7 +741,7 @@ export function createHunterRig(): HunterRig {
       }
       _G2.premultiply(root.matrixWorld);
       _tgt.setFromMatrixPosition(_G2);
-      solveArm(upperArmR, lowerArmR, _tgt, _poleR, UPPER, FORE);
+      reach = Math.max(reach, solveArm(upperArmR, lowerArmR, _tgt, _poleR, UPPER, FORE));
       lowerArmR.updateMatrixWorld(true);
       _F.copy(lowerArmR.matrixWorld).invert().multiply(_G2);
       _F.decompose(hand2.position, hand2.quaternion, _s);
@@ -742,7 +757,7 @@ export function createHunterRig(): HunterRig {
       } else {
         supportTarget(id, reloadT, _tgt);
       }
-      solveArm(upperArmR, lowerArmR, _tgt, _poleR, UPPER, FORE);
+      reach = Math.max(reach, solveArm(upperArmR, lowerArmR, _tgt, _poleR, UPPER, FORE));
     }
     first = false;
   }

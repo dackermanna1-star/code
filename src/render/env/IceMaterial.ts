@@ -161,7 +161,7 @@ export function createIceMaterial(u: IceUniforms, opts: { reflections: boolean }
         {
           float clean = 1.0 - wet;
           // Wet sheen: a faint overcast-sky reflection on blood pools.
-          outgoingLight += wet * vec3(0.022, 0.024, 0.032) * (0.6 + 0.8 * iceN1.x);
+          outgoingLight += wet * vec3(0.005, 0.0055, 0.007) * (0.4 + 1.2 * iceN1.x);
           // Iceberg reflection: backdrop mirrored about the back edge line.
           float edgeY = iceMirrorLine(iceScr.x);
           float dEdge = max(edgeY - iceScr.y, 0.0);

@@ -8,7 +8,7 @@
 //
 // World units: metres, x right, z towards the camera, y up, ice top at y = 0.
 import { CAMERA_PITCH_DEG } from './constants';
-import { CAMERA_DISTANCE, CAMERA_FOV, CAMERA_TARGET, DESIGN_H, DESIGN_W } from '../render/Stage';
+import { CAMERA_DISTANCE, CAMERA_FOV, CAMERA_TARGET, DESIGN_H, DESIGN_W } from './view';
 
 export type XZ = [number, number];
 export type UV = [number, number];

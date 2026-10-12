@@ -6,7 +6,8 @@
 // visually crosses that creature on screen: h + (z - z0) * tan(pitch).
 // See docs/RESEARCH.md section 4.
 import { ENEMIES } from '../config/enemies';
-import { FIELD_HALF_W, GAME_GRAVITY, TAN_PITCH, TICK } from '../config/constants';
+import { FIELD_HALF_W, GAME_GRAVITY, TICK } from '../config/constants';
+import { viewHeightAt } from '../config/view';
 import { FLUNK_ROUND, GRENADE_THROW, spreadToYaw } from '../config/weapons';
 import type { Enemy } from './Enemy';
 import type { BulletPath, HitPart, V3 } from './Events';
@@ -155,7 +156,7 @@ export class Combat {
       const run = Math.max(0, o.x - e.x);
       const zRay = o.z + run * tz;
       const yRay = o.y + run * slope;
-      const yEff = yRay + (e.z - zRay) * TAN_PITCH;
+      const yEff = viewHeightAt(yRay, zRay, e.z);
       const sil = e.silhouetteAt(yEff);
       if (!sil) continue;
       const hx = Math.min(sil.right + EDGE, o.x);
@@ -223,7 +224,7 @@ export class Combat {
     let bx = -Infinity;
     for (const e of this.world.enemies) {
       if (!e.alive || e.left > o.x) continue;
-      const yEff = o.y + (e.z - o.z) * TAN_PITCH;
+      const yEff = viewHeightAt(o.y, o.z, e.z);
       const sil = e.silhouetteAt(yEff);
       if (sil && sil.right > bx) {
         bx = sil.right;

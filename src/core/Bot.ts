@@ -1,7 +1,7 @@
 // A simple automatic hunter, used for balance simulations and the title-screen
 // attract mode. Like the original's AIPlayer it lines up with the most urgent
 // creature and fires, and buys weapons from an auto-buy list.
-import { PLAYER, TAN_PITCH } from '../config/constants';
+import { PLAYER, TAN_PITCH, playerXLimit } from '../config/constants';
 import { WEAPONS, type WeaponId } from '../config/weapons';
 import type { Enemy } from './Enemy';
 import type { Player } from './Player';
@@ -27,7 +27,7 @@ export class Bot {
   constructor(private player: Player, opts: BotOptions = {}) {
     this.skill = opts.skill ?? 0.85;
     this.buyList = opts.buyList ?? ['magnum', 'mp5', 'mac10', 'm4', 'minigun'];
-    this.homeX = opts.homeX ?? 18.4;
+    this.homeX = opts.homeX ?? -1.1;
   }
 
   /** Seconds until the creature reaches the hunter (smaller = more urgent). */
@@ -109,11 +109,12 @@ export class Bot {
     }
 
     // Horizontal position: hold home near the right edge.
-    let wantX = this.homeX;
+    // homeX <= 0 means: this far inside the right frame edge at our depth.
+    let wantX = this.homeX > 0 ? this.homeX : playerXLimit(p.z) + this.homeX;
     for (const e of world.enemies) {
       if (!e.alive || !e.def.canPress) continue;
       if (Math.abs(e.z - p.z) < e.def.halfDepth + 0.8 && e.x < p.x && p.x - e.x < e.def.halfLength + 2.5) {
-        wantX = Math.min(19.4, p.x + 3);
+        wantX = Math.min(playerXLimit(p.z), p.x + 3);
       }
     }
     if (p.x < wantX - 0.6) inp.right = true;

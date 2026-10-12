@@ -5,20 +5,15 @@
 // the composition matches the reference frames.
 import * as THREE from 'three';
 import { CAMERA_PITCH_DEG } from '../config/constants';
+import { CAMERA_DISTANCE, CAMERA_FOV, CAMERA_TARGET as TARGET, DESIGN_H, DESIGN_W } from '../config/view';
+
+export { CAMERA_DISTANCE, CAMERA_FOV, DESIGN_H, DESIGN_W };
 
 /** Layer enabled on meshes that should mirror in the ice (characters, corpses, effects). */
 export const REFLECT_LAYER = 2;
 
-/** Logical design size of the 4:3 frame (original resolution). */
-export const DESIGN_W = 640;
-export const DESIGN_H = 480;
-
-/** Vertical field of view of the gameplay camera (degrees). */
-export const CAMERA_FOV = 11;
 /** Ground point under the centre of the frame. */
-export const CAMERA_TARGET = new THREE.Vector3(0, 0, -7.4);
-/** Distance from target, chosen so the visible width at the target is 40 m. */
-export const CAMERA_DISTANCE = 20 / ((4 / 3) * Math.tan(((CAMERA_FOV / 2) * Math.PI) / 180));
+export const CAMERA_TARGET = new THREE.Vector3(TARGET.x, TARGET.y, TARGET.z);
 
 export type FrameHook = (dt: number, time: number) => void;
 

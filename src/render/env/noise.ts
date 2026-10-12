@@ -68,38 +68,3 @@ export function ridged(x: number, y: number, octaves = 4, seed = 0): number {
   }
   return s / norm;
 }
-
-/**
- * Cellular (Voronoi) lookup: returns the nearest feature point's random id in
- * [0,1) plus F1/F2 distances. Feature points are jittered on a unit grid.
- */
-export function cellular(x: number, y: number, seed = 0): { id: number; f1: number; f2: number; cx: number; cy: number } {
-  const ix = Math.floor(x);
-  const iy = Math.floor(y);
-  let f1 = Infinity;
-  let f2 = Infinity;
-  let id = 0;
-  let cx = 0;
-  let cy = 0;
-  for (let j = -1; j <= 1; j++) {
-    for (let i = -1; i <= 1; i++) {
-      const gx = ix + i;
-      const gy = iy + j;
-      const px = gx + 0.15 + 0.7 * hash2(gx, gy, seed);
-      const py = gy + 0.15 + 0.7 * hash2(gx, gy, seed + 101);
-      const dx = px - x;
-      const dy = py - y;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      if (d < f1) {
-        f2 = f1;
-        f1 = d;
-        id = hash2(gx, gy, seed + 202);
-        cx = px;
-        cy = py;
-      } else if (d < f2) {
-        f2 = d;
-      }
-    }
-  }
-  return { id, f1, f2, cx, cy };
-}

@@ -249,9 +249,10 @@ if (close) {
 function drawShapes(it: Item, shapes: Shape[]): void {
   const g = it.shapeGroup;
   while (g.children.length) {
-    const c = g.children.pop() as THREE.Line;
+    const c = g.children.pop() as THREE.Mesh;
     c.geometry.dispose();
   }
+  it.holder.updateMatrixWorld(true);
   for (const s of shapes) {
     const pts: THREE.Vector3[] = [];
     for (let i = 0; i < 48; i++) {
@@ -263,6 +264,18 @@ function drawShapes(it: Item, shapes: Shape[]): void {
     const line = new THREE.LineLoop(geo, mat);
     line.renderOrder = 999;
     g.add(line);
+  }
+  // spark point markers (walrus tusk tips)
+  for (const name of ['tusks', 'tuskTipL', 'tuskTipR']) {
+    const b = it.rig.bones.get(name);
+    if (!b) continue;
+    const p = b.getWorldPosition(new THREE.Vector3());
+    g.worldToLocal(p);
+    const geo = new THREE.SphereGeometry(name === 'tusks' ? 0.06 : 0.035, 8, 6);
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xff00ff, depthTest: false }));
+    m.position.copy(p);
+    m.renderOrder = 999;
+    g.add(m as unknown as THREE.Line);
   }
 }
 

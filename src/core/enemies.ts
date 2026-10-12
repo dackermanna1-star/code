@@ -1,6 +1,7 @@
 // The eight creature types, ported from the original behaviour
 // (py-sealhunter enemies.py), converted to metres and 50 Hz ticks.
-import { ENEMY_Z_MAX, ENEMY_Z_MIN, FIELD_HALF_W, GAME_GRAVITY, PLAYER, SPD_X, TAN_PITCH, TICK } from '../config/constants';
+import { ENEMY_Z_MAX, ENEMY_Z_MIN, FIELD_HALF_W, GAME_GRAVITY, PLAYER, SPD_X, TICK } from '../config/constants';
+import { viewHeightAt } from '../config/view';
 import type { EnemyType } from '../config/enemies';
 import { Enemy, type DamageInfo, type HitShape } from './Enemy';
 import type { DeathKind, HitPart, V3 } from './Events';
@@ -443,7 +444,7 @@ export class Turtle extends Enemy {
   private aimedAt(): boolean {
     return this.world.players.some((p) => {
       if (!p.alive || p.x < this.x) return false;
-      const yEff = p.y + PLAYER.muzzleHeight + (this.z - p.z) * TAN_PITCH;
+      const yEff = viewHeightAt(p.y + PLAYER.muzzleHeight, p.z, this.z);
       return yEff > 0 && yEff < 1.8;
     });
   }

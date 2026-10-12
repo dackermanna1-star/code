@@ -1,5 +1,5 @@
 import { ENEMIES, type EnemyDef, type EnemyType } from '../config/enemies';
-import { ENEMY_Z_MAX, ENEMY_Z_MIN, ESCAPE_X, SPAWN_X, SPD_X, SPD_Z, TICK } from '../config/constants';
+import { ENEMY_Z_MAX, ENEMY_Z_MIN, SPD_X, SPD_Z, TICK, escapeX, spawnX } from '../config/constants';
 import type { DeathKind, HitPart, V3 } from './Events';
 import type { World } from './World';
 import type { Player } from './Player';
@@ -30,7 +30,7 @@ export abstract class Enemy {
   readonly id = NEXT_ID++;
   readonly def: EnemyDef;
   readonly type: EnemyType;
-  x = SPAWN_X;
+  x = 0;
   y = 0;
   z = 0;
   vx = 0;
@@ -72,7 +72,7 @@ export abstract class Enemy {
     this.bounty = this.def.bounty + (this.isBoss ? this.def.bossBonus : 0);
     this.headshotBonus = this.def.headshotBonus;
     this.z = opts.z ?? world.rng.range(ENEMY_Z_MIN, ENEMY_Z_MAX);
-    this.x = opts.x ?? SPAWN_X - this.def.halfLength;
+    this.x = opts.x ?? spawnX(this.z, this.def.halfLength);
   }
 
   get alive(): boolean {
@@ -109,7 +109,7 @@ export abstract class Enemy {
     this.z += dz;
     this.distance += Math.hypot(dx, dz);
     this.pressPlayers();
-    if (this.x - this.def.halfLength > ESCAPE_X) this.escape();
+    if (this.x > escapeX(this.z, this.def.halfLength)) this.escape();
   }
 
   protected escape(): void {

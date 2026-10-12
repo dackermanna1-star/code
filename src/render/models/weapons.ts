@@ -442,7 +442,7 @@ function buildMP5(): WeaponModel {
 
   const muzzle = marker('muzzle', group, [-0.414, B, 0]);
   const ejector = marker('ejector', group, [-0.03, 0.075, 0.021], [0.4, 0.8, 0.6]);
-  const support = marker('support', group, [-0.3, -0.012, -0.004]);
+  const support = marker('support', group, [-0.27, -0.012, -0.004]);
   return finish({
     id: 'mp5',
     group,
@@ -576,7 +576,7 @@ function buildShotgun(): WeaponModel {
   Pp.add(roundBox(0.17, 0.042, 0.044, 0.016), C.polymer, 'plastic', { p: [-0.37, 0.031, 0] });
   for (let i = 0; i < 7; i++) Pp.add(box(0.006, 0.044, 0.0455), C.bluedDark, 'plastic', { p: [-0.31 - i * 0.02, 0.031, 0] });
   Pp.buildInto(pump);
-  const support = marker('support', pump, [-0.37, -0.012, -0.004]);
+  const support = marker('support', pump, [-0.3, -0.012, -0.004]);
 
   const muzzle = marker('muzzle', group, [-0.733, B, 0]);
   const ejector = marker('ejector', group, [-0.1, 0.07, 0.02], [0.4, 0.8, 0.6]);
@@ -788,7 +788,7 @@ function buildM4(): WeaponModel {
 
   const muzzle = marker('muzzle', group, [-0.557, B, 0]);
   const ejector = marker('ejector', group, [0.0, 0.07, 0.02], [0.4, 0.8, 0.6]);
-  const support = marker('support', group, [-0.23, -0.004, -0.006]);
+  const support = marker('support', group, [-0.19, -0.004, -0.006]);
   return finish({
     id: 'm4',
     group,
@@ -867,7 +867,7 @@ function buildAWP(): WeaponModel {
   const muzzle = marker('muzzle', group, [-0.802, B, 0]);
   const laser = marker('laser', group, [-0.635, B - 0.03, 0]);
   const ejector = marker('ejector', group, [-0.08, B + 0.015, 0.024], [0.4, 0.8, 0.6]);
-  const support = marker('support', group, [-0.32, -0.04, -0.006]);
+  const support = marker('support', group, [-0.25, -0.04, -0.006]);
   return finish({
     id: 'awp',
     group,
@@ -954,7 +954,7 @@ function buildVintage(): WeaponModel {
   }
 
   const ejector = marker('ejector', group, [-0.13, B, 0.0], [0.5, 1, 0.2]);
-  const support = marker('support', barrels, [-0.18, -0.06, -0.008]);
+  const support = marker('support', barrels, [-0.12, -0.06, -0.008]);
   let fall = 1;
   return finish({
     id: 'vintage',
