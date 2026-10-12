@@ -18,7 +18,14 @@ public enum RampProfile {
 	/** Curved launch ramp (kicker), 0.6 blocks tall with a ~46 degree lip. */
 	KICKER(1, 0.6F, true),
 	/** Steep BMX dirt lip, 0.85 blocks tall with a ~60 degree face. */
-	DIRT_LIP(1, 0.85F, true);
+	DIRT_LIP(1, 0.85F, true),
+	/**
+	 * Two-block-tall quarter pipe spread over a 2x2 cross-section: part 0 is the low toe block, part 1 the block
+	 * behind it and part 2 sits on top of part 1 and ends in the coping. Parts 1 and 2 describe one continuous
+	 * surface, so their heights are not clamped to the block (part 2 is negative where the curve is still inside
+	 * part 1, part 1 exceeds 1 where the curve has already risen into part 2).
+	 */
+	VERT(3, 1.0F, true);
 
 	private static final float QP_K = 0.97F;
 	private static final float QP_NORM = 1.0F - Mth.sqrt(1.0F - QP_K * QP_K);
@@ -38,17 +45,36 @@ public enum RampProfile {
 	public double height(int part, double u) {
 		u = Mth.clamp(u, 0.0, 1.0);
 		return switch (this) {
-			case QUARTER_PIPE -> (1.0 - Math.sqrt(1.0 - QP_K * QP_K * u * u)) / QP_NORM;
+			case QUARTER_PIPE -> quarter(u);
 			case STEEP -> u;
 			case RAMP, SLOPE -> (part + u) / parts;
 			case KICKER -> 0.6 * Math.pow(u, 1.7);
 			case DIRT_LIP -> 0.85 * u * u;
+			case VERT -> switch (part) {
+				case 0 -> 2.0 * quarter(u * 0.5);
+				case 1 -> 2.0 * quarter((1.0 + u) * 0.5);
+				default -> 2.0 * quarter((1.0 + u) * 0.5) - 1.0;
+			};
 		};
+	}
+
+	private static double quarter(double u) {
+		return (1.0 - Math.sqrt(1.0 - QP_K * QP_K * u * u)) / QP_NORM;
+	}
+
+	/** True when the last part is stacked on top of the one before it instead of continuing behind it. */
+	public boolean stacksTopPart() {
+		return this == VERT;
+	}
+
+	/** The part that ends at the top edge (and carries coping on coping ramps). */
+	public int topPart() {
+		return parts - 1;
 	}
 
 	/** Steepness at the top edge in degrees. */
 	public float lipAngle() {
-		double slope = (height(0, 1.0) - height(0, 0.98)) / 0.02;
+		double slope = (height(topPart(), 1.0) - height(topPart(), 0.98)) / 0.02;
 		return (float) Math.toDegrees(Math.atan(slope));
 	}
 }

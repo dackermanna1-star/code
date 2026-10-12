@@ -28,6 +28,7 @@ public final class ModBlocks {
 	public static final List<RampBlock> RAMPS = new ArrayList<>();
 
 	public static final RampBlock QUARTER_PIPE = ramp("quarter_pipe", RampProfile.QUARTER_PIPE, SurfaceType.WOOD, true, wood());
+	public static final RampBlock VERT_RAMP = ramp("vert_ramp", RampProfile.VERT, SurfaceType.WOOD, true, wood());
 	public static final RampBlock BOWL_WALL = ramp("bowl_wall", RampProfile.QUARTER_PIPE, SurfaceType.SMOOTH, true, concrete());
 	public static final RampBlock STEEP_RAMP = ramp("steep_ramp", RampProfile.STEEP, SurfaceType.WOOD, false, wood());
 	public static final RampBlock RAMP = ramp("ramp", RampProfile.RAMP, SurfaceType.WOOD, false, wood());

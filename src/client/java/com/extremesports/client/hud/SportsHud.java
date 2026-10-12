@@ -113,7 +113,7 @@ public final class SportsHud {
 			return;
 		}
 		int cx = width / 2;
-		int y = height - 58;
+		int y = stackTop(height) + 64;
 		int half = 50;
 		panel(graphics, cx - half - 4, y - 12, cx + half + 4, y + 8, 1.0F);
 		graphics.drawCenteredString(font, label, cx, y - 10, GREY);
@@ -130,11 +130,11 @@ public final class SportsHud {
 
 	/** Top of the trick/landing/combo stack: below the challenge panel and above the rider in third person. */
 	private static int stackTop(int height) {
-		return Math.max(54, (int) (height * 0.2F));
+		return Math.max(46, (int) (height * 0.16F));
 	}
 
 	private static void combo(GuiGraphics graphics, Font font, int width, int height, long now, float partial) {
-		int baseY = stackTop(height) + 50;
+		int baseY = stackTop(height) + 34;
 		List<ComboEntry> live = ClientSportsState.combo;
 		if (!live.isEmpty()) {
 			drawCombo(graphics, font, width, baseY, live, ClientSportsState.comboPrediction.basePoints(),
@@ -160,7 +160,8 @@ public final class SportsHud {
 		if (ClientSportsState.trickLabel != null && now - ClientSportsState.trickTime < 25 && !landingShown) {
 			float age = now - ClientSportsState.trickTime + partial;
 			float alpha = age < 18 ? 1.0F : 1.0F - (age - 18) / 7.0F;
-			graphics.drawCenteredString(font, ClientSportsState.trickLabel, width / 2, stackTop(height) + 22, alpha(0x9EE7FF, alpha));
+			// Shares the landing text's slot: the two never show at the same time
+			graphics.drawCenteredString(font, ClientSportsState.trickLabel, width / 2, stackTop(height) + 4, alpha(0x9EE7FF, alpha));
 		}
 	}
 
@@ -204,7 +205,7 @@ public final class SportsHud {
 		graphics.drawCenteredString(font, Component.translatable(quality.translationKey()), 0, 0, alpha(quality.color, alpha));
 		graphics.pose().popMatrix();
 		if (quality == LandingQuality.BAIL && ClientSportsState.bail != null) {
-			graphics.drawCenteredString(font, Component.translatable(ClientSportsState.bail.translationKey()), width / 2, stackTop(height) + 22,
+			graphics.drawCenteredString(font, Component.translatable(ClientSportsState.bail.translationKey()), width / 2, stackTop(height) + 62,
 				alpha(0xFFB0B0, alpha));
 		}
 	}

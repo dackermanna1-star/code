@@ -8,13 +8,13 @@ import com.extremesports.sport.HandlingProfile.DriveType;
 public enum EquipmentKind {
 	//                                       drive            impulse driveMax stroke top   rr       drag   turnS turnF grip  pop   spin  brake   rough wheelR backward
 	STREET_BOARD("skateboard", SportType.SKATEBOARD,
-		new HandlingProfile(DriveType.PUSH, 0.095F, 0.36F, 11, 1.10F, 0.0022F, 0.010F, 9.0F, 3.4F, 0.85F, 0.30F, 26.0F, 0.011F, 1.00F, 0.027F, false),
+		new HandlingProfile(DriveType.PUSH, 0.11F, 0.36F, 11, 1.10F, 0.0022F, 0.010F, 9.0F, 3.4F, 0.85F, 0.30F, 26.0F, 0.011F, 1.00F, 0.027F, false),
 		new int[]{5, 6, 5, 6, 8}, 0.62F, 1.04F),
 	CRUISER("cruiser", SportType.SKATEBOARD,
-		new HandlingProfile(DriveType.PUSH, 0.098F, 0.40F, 12, 1.15F, 0.0018F, 0.010F, 10.0F, 3.8F, 0.90F, 0.26F, 22.0F, 0.011F, 0.70F, 0.031F, false),
+		new HandlingProfile(DriveType.PUSH, 0.112F, 0.40F, 12, 1.15F, 0.0018F, 0.010F, 10.0F, 3.8F, 0.90F, 0.26F, 22.0F, 0.011F, 0.70F, 0.031F, false),
 		new int[]{6, 6, 6, 7, 5}, 0.66F, 0.95F),
 	LONGBOARD("longboard", SportType.SKATEBOARD,
-		new HandlingProfile(DriveType.PUSH, 0.088F, 0.42F, 13, 1.35F, 0.0016F, 0.0085F, 6.5F, 2.8F, 0.95F, 0.22F, 16.0F, 0.012F, 0.75F, 0.035F, false),
+		new HandlingProfile(DriveType.PUSH, 0.10F, 0.42F, 13, 1.35F, 0.0016F, 0.0085F, 6.5F, 2.8F, 0.95F, 0.22F, 16.0F, 0.012F, 0.75F, 0.035F, false),
 		new int[]{8, 5, 8, 4, 3}, 0.70F, 1.32F),
 	BMX("bmx_bike", SportType.BMX,
 		new HandlingProfile(DriveType.PEDAL, 0.020F, 0.48F, 16, 1.20F, 0.0020F, 0.011F, 12.0F, 4.5F, 0.95F, 0.34F, 22.0F, 0.020F, 0.50F, 0.254F, false),

@@ -44,6 +44,7 @@ public class RampBlock extends Block implements SurfaceProvider, ParkSurface {
 	public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
 	public static final EnumProperty<StairsShape> SHAPE = BlockStateProperties.STAIRS_SHAPE;
 	public static final IntegerProperty PART_2 = IntegerProperty.create("part", 0, 1);
+	public static final IntegerProperty PART_3 = IntegerProperty.create("part", 0, 2);
 	public static final IntegerProperty PART_4 = IntegerProperty.create("part", 0, 3);
 
 	private final RampProfile profile;
@@ -72,7 +73,12 @@ public class RampBlock extends Block implements SurfaceProvider, ParkSurface {
 	}
 
 	public @Nullable IntegerProperty partProperty() {
-		return profileParts() == 2 ? PART_2 : profileParts() == 4 ? PART_4 : null;
+		return switch (profileParts()) {
+			case 2 -> PART_2;
+			case 3 -> PART_3;
+			case 4 -> PART_4;
+			default -> null;
+		};
 	}
 
 	// The profile is not yet assigned while the state definition is built, so read parts from a thread-local.
@@ -95,11 +101,9 @@ public class RampBlock extends Block implements SurfaceProvider, ParkSurface {
 	@Override
 	protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
 		builder.add(FACING, SHAPE);
-		int parts = profileParts();
-		if (parts == 2) {
-			builder.add(PART_2);
-		} else if (parts == 4) {
-			builder.add(PART_4);
+		IntegerProperty part = partProperty();
+		if (part != null) {
+			builder.add(part);
 		}
 	}
 
@@ -169,7 +173,7 @@ public class RampBlock extends Block implements SurfaceProvider, ParkSurface {
 
 	@Override
 	public void addGrindSegments(BlockGetter level, BlockState state, BlockPos pos, List<GrindSegment> out) {
-		if (!coping) {
+		if (!coping || part(state) != profile.topPart()) {
 			return;
 		}
 		Direction facing = state.getValue(FACING);
@@ -235,6 +239,10 @@ public class RampBlock extends Block implements SurfaceProvider, ParkSurface {
 				h = Math.max(h, height(state, x1, z0));
 				h = Math.max(h, height(state, x0, z1));
 				h = Math.max(h, height(state, x1, z1));
+				if (h < 0.0) {
+					// Upper piece of a stacked ramp where the curve is still inside the block below
+					continue;
+				}
 				h = Math.max(1.0 / 16.0, Math.ceil(h * 16.0) / 16.0);
 				shape = Shapes.or(shape, Shapes.box(x0, 0.0, z0, x1, Math.min(1.0, h), z1));
 			}
@@ -252,8 +260,13 @@ public class RampBlock extends Block implements SurfaceProvider, ParkSurface {
 		IntegerProperty partProperty = partProperty();
 		if (partProperty != null) {
 			BlockState behind = context.getLevel().getBlockState(pos.relative(facing.getOpposite()));
+			BlockState below = context.getLevel().getBlockState(pos.below());
+			int lastBehind = profile.stacksTopPart() ? profile.topPart() - 1 : profile.topPart();
 			int part = 0;
-			if (behind.is(this) && behind.getValue(FACING) == facing && behind.getValue(partProperty) < profileParts() - 1) {
+			if (profile.stacksTopPart() && below.is(this) && below.getValue(FACING) == facing
+				&& below.getValue(partProperty) == profile.topPart() - 1) {
+				part = profile.topPart();
+			} else if (behind.is(this) && behind.getValue(FACING) == facing && behind.getValue(partProperty) < lastBehind) {
 				part = behind.getValue(partProperty) + 1;
 			}
 			state = state.setValue(partProperty, part);

@@ -119,6 +119,11 @@ public final class RampModels {
 				float x1 = (float) (i + 1) / nx;
 				float z0 = (float) k / nz;
 				float z1 = (float) (k + 1) / nz;
+				if (raw(block, state, x0, z0) < 0.0F && raw(block, state, x0, z1) < 0.0F
+					&& raw(block, state, x1, z1) < 0.0F && raw(block, state, x1, z0) < 0.0F) {
+					// Stacked upper piece: the curve is still inside the block below here
+					continue;
+				}
 				Vector3f[] v = {
 					new Vector3f(x0, h(block, state, x0, z0), z0),
 					new Vector3f(x0, h(block, state, x0, z1), z1),
@@ -152,11 +157,15 @@ public final class RampModels {
 				quad(emitter, side, v, uv, new Vector3f(dir.getStepX(), 0, dir.getStepZ()), dir, null);
 			}
 		}
-		// Base
+		// Base (an upper stacked piece sits on the block below and has no visible underside)
+		boolean upperPiece = raw(block, state, 0.0F, 0.0F) < 0.0F || raw(block, state, 1.0F, 0.0F) < 0.0F
+			|| raw(block, state, 0.0F, 1.0F) < 0.0F || raw(block, state, 1.0F, 1.0F) < 0.0F;
 		Vector3f[] base = {new Vector3f(0, 0, 0), new Vector3f(1, 0, 0), new Vector3f(1, 0, 1), new Vector3f(0, 0, 1)};
-		quad(emitter, side, base, new float[][]{{0, 0}, {1, 0}, {1, 1}, {0, 1}}, new Vector3f(0, -1, 0), Direction.DOWN, Direction.DOWN);
+		if (!upperPiece) {
+			quad(emitter, side, base, new float[][]{{0, 0}, {1, 0}, {1, 1}, {0, 1}}, new Vector3f(0, -1, 0), Direction.DOWN, Direction.DOWN);
+		}
 		// Coping along lips
-		if (block.hasCoping() && shape != StairsShape.OUTER_LEFT && shape != StairsShape.OUTER_RIGHT) {
+		if (block.hasCoping() && block.part(state) == profile.topPart() && shape != StairsShape.OUTER_LEFT && shape != StairsShape.OUTER_RIGHT) {
 			float topY = (float) profile.height(block.part(state), 1.0);
 			copingTube(emitter, coping, facing, topY);
 			Direction second = RampBlock.cornerDirection(facing, shape);
@@ -165,6 +174,10 @@ public final class RampModels {
 			}
 		}
 		return mesh.immutableCopy();
+	}
+
+	private static float raw(RampBlock block, BlockState state, float x, float z) {
+		return (float) block.height(state, x, z);
 	}
 
 	private static float h(RampBlock block, BlockState state, float x, float z) {

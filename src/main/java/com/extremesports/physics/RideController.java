@@ -94,6 +94,10 @@ public final class RideController {
 	public int groundTicks;
 	private boolean wasRampLip;
 	private float lastLipAngle;
+	/** Flip/whip presses made on the ground (e.g. together with the pop) that fire on takeoff. */
+	private int flipBuffer;
+	private int whipBuffer;
+	private static final int TRICK_BUFFER_TICKS = 4;
 	private Vec3 lastRampNormal = UP;
 
 	// Heading / spin
@@ -517,8 +521,13 @@ public final class RideController {
 	private void handleGroundTricks(boolean ridden, HandlingProfile h) {
 		if (!ridden || bailed) {
 			charging = false;
+			flipBuffer = 0;
+			whipBuffer = 0;
 			return;
 		}
+		// Trick keys pressed just before or together with the pop are buffered for the takeoff
+		flipBuffer = pressed(input.flip(), prev.flip()) ? TRICK_BUFFER_TICKS : Math.max(0, flipBuffer - 1);
+		whipBuffer = pressed(input.whip(), prev.whip()) ? TRICK_BUFFER_TICKS : Math.max(0, whipBuffer - 1);
 		// Manual
 		if (manual != null) {
 			tickManual();
@@ -613,11 +622,18 @@ public final class RideController {
 		if (activeTrick != null && !activeTrick.done()) {
 			activeTrick.progress = Math.min(activeTrick.multiple, activeTrick.progress + activeTrick.speed);
 		}
-		if (pressed(input.flip(), prev.flip())) {
+		boolean bufferedTakeoff = popped && airTicks <= 2;
+		if (pressed(input.flip(), prev.flip()) || flipBuffer > 0 && bufferedTakeoff) {
+			flipBuffer = 0;
 			startTrick(TrickCategory.FLIP, dir);
 		}
-		if (pressed(input.whip(), prev.whip())) {
+		if (pressed(input.whip(), prev.whip()) || whipBuffer > 0 && bufferedTakeoff) {
+			whipBuffer = 0;
 			startTrick(TrickCategory.WHIP, dir);
+		}
+		if (!bufferedTakeoff) {
+			flipBuffer = 0;
+			whipBuffer = 0;
 		}
 		if (input.grab()) {
 			if (grab == null && (activeTrick == null || activeTrick.progress / activeTrick.multiple > 0.7F)) {
@@ -874,8 +890,13 @@ public final class RideController {
 		if (toward <= 0.0) {
 			return v;
 		}
-		double remove = toward * preset().vertAssist;
-		return new Vec3(v.x - uphill.x * remove, v.y, v.z - uphill.z * remove);
+		// Steer the outward drift toward a re-entry about a third of a block inside the coping. The preset decides how
+		// much of that guidance is applied: Arcade always comes back in, Realistic needs a clean, vertical launch.
+		double flight = v.y > 0.02 ? 2.0 * v.y / gravity() : 0.0;
+		double target = flight > 1.0 ? -0.35 / flight : 0.0;
+		double newToward = Mth.lerp(preset().vertAssist, toward, target);
+		double change = newToward - toward;
+		return new Vec3(v.x + uphill.x * change, v.y, v.z + uphill.z * change);
 	}
 
 	private Vec3 handleWall(Vec3 v, Vec3 blockedVelocity, Contact before) {

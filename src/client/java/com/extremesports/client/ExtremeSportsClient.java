@@ -186,7 +186,7 @@ public class ExtremeSportsClient implements ClientModInitializer {
 				}
 			}
 		});
-		ClientPlayNetworking.registerGlobalReceiver(Payloads.OpenWorkshop.TYPE, (payload, context) -> context.client().setScreen(new WorkshopScreen()));
+		ClientPlayNetworking.registerGlobalReceiver(Payloads.OpenWorkshop.TYPE, (payload, context) -> context.client().setScreen(new WorkshopScreen(payload.pos(), null)));
 		ClientPlayNetworking.registerGlobalReceiver(Payloads.ChallengeState.TYPE, (payload, context) -> {
 			ClientSportsState.challenge = payload;
 			if (context.client().level != null) {

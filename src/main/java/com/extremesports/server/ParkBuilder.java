@@ -24,6 +24,7 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 public final class ParkBuilder {
 	public enum Prefab {
 		HALF_PIPE("half_pipe"),
+		MINI_RAMP("mini_ramp"),
 		BOWL("bowl"),
 		STREET("street"),
 		DIRT_JUMPS("dirt_jumps"),
@@ -69,6 +70,7 @@ public final class ParkBuilder {
 		ParkBuilder builder = new ParkBuilder(level, origin, forward);
 		switch (prefab) {
 			case HALF_PIPE -> builder.halfPipe(0, 0);
+			case MINI_RAMP -> builder.miniRamp(0, 0);
 			case BOWL -> builder.bowl(0, 0);
 			case STREET -> builder.street(0, 0);
 			case DIRT_JUMPS -> builder.dirtJumps(0, 0);
@@ -151,7 +153,28 @@ public final class ParkBuilder {
 
 	// ------------------------------------------------------------------ prefabs
 
+	/** Two-block vert half-pipe: decks on both ends, 2x2 transitions with coping and a flat bottom. */
 	private void halfPipe(int ox, int oz) {
+		BlockState concrete = ModBlocks.PARK_CONCRETE.defaultBlockState();
+		BlockState deck = ModBlocks.RAMP_DECK.defaultBlockState();
+		int flat = 7;
+		int far = oz + 3 + flat + 2;
+		site(ox - 3, oz - 1, ox + 3, far + 2, 6, concrete);
+		for (int x = ox - 3; x <= ox + 3; x++) {
+			// Near side: platform, back piece with the top piece above it, toe piece
+			fill(x, 0, oz - 1, x, 1, oz, deck);
+			ramp(x, 0, oz + 1, ModBlocks.VERT_RAMP, Direction.SOUTH, 1);
+			ramp(x, 1, oz + 1, ModBlocks.VERT_RAMP, Direction.SOUTH, 2);
+			ramp(x, 0, oz + 2, ModBlocks.VERT_RAMP, Direction.SOUTH, 0);
+			// Far side, mirrored
+			ramp(x, 0, far - 1, ModBlocks.VERT_RAMP, Direction.NORTH, 0);
+			ramp(x, 0, far, ModBlocks.VERT_RAMP, Direction.NORTH, 1);
+			ramp(x, 1, far, ModBlocks.VERT_RAMP, Direction.NORTH, 2);
+			fill(x, 0, far + 1, x, 1, far + 2, deck);
+		}
+	}
+
+	private void miniRamp(int ox, int oz) {
 		BlockState concrete = ModBlocks.PARK_CONCRETE.defaultBlockState();
 		BlockState deck = ModBlocks.RAMP_DECK.defaultBlockState();
 		site(ox - 3, oz, ox + 3, oz + 12, 5, concrete);

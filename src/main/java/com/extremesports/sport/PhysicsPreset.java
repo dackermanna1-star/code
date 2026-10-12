@@ -6,8 +6,8 @@ package com.extremesports.sport;
 public enum PhysicsPreset {
 	//          gravity pop   landTol balance spin  wallBail step  autoGrind vert  prep   speed snap  score  bigDrop
 	ARCADE("arcade", 0.040F, 1.10F, 1.60F, 0.45F, 1.20F, 0.62F, 0.60F, true, 1.00F, false, 1.08F, 0.60F, 1.00F, 99.0F),
-	BALANCED("balanced", 0.046F, 1.00F, 1.00F, 1.00F, 1.00F, 0.44F, 0.55F, false, 0.80F, true, 1.00F, 0.46F, 1.10F, 1.25F),
-	REALISTIC("realistic", 0.054F, 0.95F, 0.70F, 1.50F, 0.85F, 0.32F, 0.30F, false, 0.55F, true, 0.95F, 0.36F, 1.25F, 1.05F);
+	BALANCED("balanced", 0.046F, 1.00F, 1.00F, 1.00F, 1.00F, 0.44F, 0.55F, false, 0.92F, true, 1.00F, 0.46F, 1.10F, 1.25F),
+	REALISTIC("realistic", 0.054F, 0.95F, 0.70F, 1.50F, 0.85F, 0.32F, 0.30F, false, 0.75F, true, 0.95F, 0.36F, 1.25F, 1.05F);
 
 	private final String id;
 	/** Gravity in blocks/tick^2. */

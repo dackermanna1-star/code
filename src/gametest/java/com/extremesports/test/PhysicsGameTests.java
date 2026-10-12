@@ -337,9 +337,14 @@ public class PhysicsGameTests {
 		double[] maxY = new double[1];
 		double[] maxZ = new double[1];
 		StringBuilder trace = new StringBuilder();
+		boolean[] returned = new boolean[1];
 		script(helper, entity, tick -> {
 			maxY[0] = Math.max(maxY[0], relY(helper, entity));
 			maxZ[0] = Math.max(maxZ[0], relZ(helper, entity));
+			// Back on the flat, rolling toward the start after the air
+			if (maxY[0] > 2.0 && relZ(helper, entity) < 18.0 && entity.getDeltaMovement().z < -0.1 && entity.ride.grounded()) {
+				returned[0] = true;
+			}
 			if (tick > 8 && tick < 50) {
 				Vec3 v = entity.getDeltaMovement();
 				trace.append(String.format("[%d z=%.2f y=%.2f v=(%.2f,%.2f) %s] ", tick, relZ(helper, entity), relY(helper, entity), v.z, v.y, entity.ride.contact));
@@ -349,8 +354,72 @@ public class PhysicsGameTests {
 		helper.runAtTickTime(110, () -> {
 			helper.assertTrue(maxY[0] > 2.4, String.format("should launch above the coping (max y %.2f) trace %s", maxY[0], trace));
 			helper.assertTrue(maxZ[0] < 21.05, String.format("vert assist should keep the rider over the ramp (max z %.2f)", maxZ[0]));
-			helper.assertTrue(relZ(helper, entity) < 18.0, String.format("should roll back down the ramp, now at z=%.2f", relZ(helper, entity)));
-			helper.assertTrue(entity.getDeltaMovement().z < 0.0, "should be rolling back toward the start");
+			helper.assertTrue(returned[0], String.format("should roll back down the ramp and across the flat, trace %s", trace));
+			helper.succeed();
+		});
+	}
+
+	/** Builds a full-width vert ramp: toe at z=19, back piece at z=20 with the top piece above it, deck behind. */
+	private static void buildVert(GameTestHelper helper) {
+		BlockState vert = ModBlocks.VERT_RAMP.defaultBlockState().setValue(RampBlock.FACING, Direction.SOUTH);
+		for (int x = 0; x < 9; x++) {
+			helper.setBlock(new BlockPos(x, 1, 19), vert.setValue(RampBlock.PART_3, 0));
+			helper.setBlock(new BlockPos(x, 1, 20), vert.setValue(RampBlock.PART_3, 1));
+			helper.setBlock(new BlockPos(x, 2, 20), vert.setValue(RampBlock.PART_3, 2));
+			helper.setBlock(new BlockPos(x, 1, 21), Blocks.STONE);
+			helper.setBlock(new BlockPos(x, 2, 21), Blocks.STONE);
+		}
+	}
+
+	@GameTest(structure = TRACK, maxTicks = 20)
+	public void vertRampSurfaceIsContinuous(GameTestHelper helper) {
+		buildVert(helper);
+		Vec3 origin = helper.absoluteVec(Vec3.ZERO);
+		double previous = Double.NaN;
+		double floor = origin.y + 1.0;
+		for (double z = 19.0; z <= 20.999; z += 0.02) {
+			// Probe from just above the surface so the sampler finds whichever piece holds it
+			var hit = com.extremesports.physics.SurfaceSampler.sample(helper.getLevel(), origin.x + 4.5, floor + 2.5, origin.z + z, 0.0, 3.0);
+			helper.assertTrue(hit != null, String.format("no surface at z=%.2f", z));
+			double h = hit.height() - floor;
+			if (!Double.isNaN(previous)) {
+				helper.assertTrue(h >= previous - 1.0E-6, String.format("surface goes down at z=%.2f (%.3f -> %.3f)", z, previous, h));
+				helper.assertTrue(h - previous < 0.25, String.format("surface jumps at z=%.2f (%.3f -> %.3f)", z, previous, h));
+			}
+			previous = h;
+		}
+		helper.assertTrue(previous > 1.85, String.format("vert should reach the coping at 2 blocks, got %.2f", previous));
+		helper.succeed();
+	}
+
+	@GameTest(structure = TRACK, maxTicks = 140)
+	public void vertRampLaunchesAboveCopingAndReturns(GameTestHelper helper) {
+		buildVert(helper);
+		Recorder recorder = new Recorder();
+		SportEquipmentEntity entity = board(helper, EquipmentKind.STREET_BOARD, 4.5, 1.0, 11.5, 0.0F, recorder);
+		entity.setDeltaMovement(0.0, 0.0, 0.62);
+		double[] maxY = new double[1];
+		double[] maxZ = new double[1];
+		StringBuilder trace = new StringBuilder();
+		boolean[] returned = new boolean[1];
+		script(helper, entity, tick -> {
+			maxY[0] = Math.max(maxY[0], relY(helper, entity));
+			maxZ[0] = Math.max(maxZ[0], relZ(helper, entity));
+			// Back on the flat, rolling toward the start after the air
+			if (maxY[0] > 2.0 && relZ(helper, entity) < 18.0 && entity.getDeltaMovement().z < -0.1 && entity.ride.grounded()) {
+				returned[0] = true;
+			}
+			if (tick > 8 && tick < 60) {
+				Vec3 v = entity.getDeltaMovement();
+				trace.append(String.format("[%d z=%.2f y=%.2f v=(%.2f,%.2f) %s] ", tick, relZ(helper, entity), relY(helper, entity), v.z, v.y, entity.ride.contact));
+			}
+			return RideInput.NONE;
+		});
+		helper.runAtTickTime(130, () -> {
+			helper.assertTrue(maxY[0] > 3.3, String.format("should launch above the 2-block coping (max y %.2f) trace %s", maxY[0], trace));
+			helper.assertTrue(maxZ[0] < 21.05, String.format("vert assist should keep the rider over the ramp (max z %.2f) trace %s", maxZ[0], trace));
+			helper.assertTrue(recorder.bail == null, "should not bail on a straight vert air: " + recorder.bail);
+			helper.assertTrue(returned[0], String.format("should come back in and roll across the flat, trace %s", trace));
 			helper.succeed();
 		});
 	}

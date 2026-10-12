@@ -5,6 +5,7 @@ import com.extremesports.client.anim.RideAnimator;
 import com.extremesports.client.anim.RideFrame;
 import com.extremesports.client.anim.Skeleton;
 import com.extremesports.entity.SportEquipmentEntity;
+import com.extremesports.sport.EquipmentKind;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.fabricmc.fabric.api.client.rendering.v1.RenderStateDataKey;
@@ -33,8 +34,10 @@ public final class RiderRenderHooks {
 		if (avatar instanceof Player player && player.getVehicle() instanceof SportEquipmentEntity entity) {
 			RideFrame frame = RideAnimator.frame(entity, partialTick);
 			state.setData(KEY, new RiderData(frame, frame.blend, null));
+			state.setData(SkatesLayer.SKATE_CONFIG, entity.kind() == EquipmentKind.SKATES ? entity.config() : null);
 			return;
 		}
+		state.setData(SkatesLayer.SKATE_CONFIG, null);
 		BailAnimations.Pose bail = BailAnimations.pose(avatar, partialTick);
 		state.setData(KEY, bail != null ? new RiderData(null, 1.0F, bail) : null);
 	}

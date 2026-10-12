@@ -1,5 +1,6 @@
 package com.extremesports.block;
 
+import com.extremesports.network.ModNetworking;
 import com.extremesports.network.Payloads;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.BlockPos;
@@ -50,6 +51,7 @@ public class WorkshopBlock extends Block {
 	@Override
 	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
 		if (player instanceof ServerPlayer serverPlayer) {
+			ModNetworking.openedWorkshop(serverPlayer, pos);
 			ServerPlayNetworking.send(serverPlayer, new Payloads.OpenWorkshop(pos));
 		}
 		return InteractionResult.SUCCESS;

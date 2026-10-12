@@ -23,6 +23,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import org.jspecify.annotations.Nullable;
 
@@ -52,7 +53,7 @@ public class SportsMenuScreen extends Screen {
 	private int contentBottom;
 	private final List<Line> lines = new ArrayList<>();
 
-	private record Line(Component text, int color, int indent) {
+	private record Line(FormattedCharSequence text, int color, int indent) {
 	}
 
 	public SportsMenuScreen(@Nullable Screen parent) {
@@ -86,8 +87,12 @@ public class SportsMenuScreen extends Screen {
 		}
 		contentTop = 50;
 		contentBottom = height - 30;
+		addRenderableWidget(Button.builder(Component.translatable("screen.extremesports.open_workshop"), b -> {
+			click();
+			minecraft.setScreen(new WorkshopScreen(null, this));
+		}).bounds(width / 2 - 102, height - 26, 100, 20).build());
 		addRenderableWidget(Button.builder(Component.translatable("screen.extremesports.done"), b -> onClose())
-			.bounds(width / 2 - 50, height - 26, 100, 20).build());
+			.bounds(width / 2 + 2, height - 26, 100, 20).build());
 		lines.clear();
 		switch (tab) {
 			case CHALLENGES -> initChallenges();
@@ -246,8 +251,13 @@ public class SportsMenuScreen extends Screen {
 		addLine(Component.translatable("stats.extremesports." + key).append(": ").append(Component.literal(value).withStyle(ChatFormatting.AQUA)), 0xFFDDDDDD, 8);
 	}
 
+	/** Adds a line of text, wrapping it (with a hanging indent) to the panel width. */
 	private void addLine(Component text, int color, int indent) {
-		lines.add(new Line(text, color, indent));
+		int width = panelRight() - panelLeft() - indent - 4;
+		List<FormattedCharSequence> wrapped = font.split(text, width);
+		for (int i = 0; i < wrapped.size(); i++) {
+			lines.add(new Line(wrapped.get(i), color, i == 0 ? indent : indent + 10));
+		}
 	}
 
 	// ------------------------------------------------------------------ unlocks

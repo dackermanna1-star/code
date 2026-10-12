@@ -1,6 +1,7 @@
 package com.extremesports.server;
 
 import com.extremesports.entity.SportEquipmentEntity;
+import com.extremesports.network.ModNetworking;
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -26,6 +27,7 @@ public final class ServerEvents {
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			ServerRideTracker.remove(handler.getPlayer().getUUID());
 			ChallengeManager.remove(handler.getPlayer().getUUID());
+			ModNetworking.forget(handler.getPlayer());
 		});
 		ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) -> ChallengeManager.stop(player));
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {

@@ -2,6 +2,7 @@ package com.extremesports.network;
 
 import com.extremesports.entity.SportEquipmentEntity;
 import com.extremesports.item.EquipmentItem;
+import com.extremesports.registry.ModBlocks;
 import com.extremesports.registry.ModDataComponents;
 import com.extremesports.server.ChallengeManager;
 import com.extremesports.server.PlayerSportData;
@@ -13,13 +14,18 @@ import com.extremesports.sport.PartCatalog;
 import com.extremesports.sport.PhysicsPreset;
 import com.extremesports.trick.Tricks;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 public final class ModNetworking {
 	private ModNetworking() {
@@ -59,6 +65,23 @@ public final class ModNetworking {
 		entity.applyAnimState(payload.flags(), payload.pack(), payload.trick(), payload.held(), payload.landing());
 	}
 
+	/** Workshop each player last opened; survival players must still be standing at it to apply changes. */
+	private static final Map<UUID, BlockPos> OPEN_WORKSHOPS = new ConcurrentHashMap<>();
+
+	public static void openedWorkshop(ServerPlayer player, BlockPos pos) {
+		OPEN_WORKSHOPS.put(player.getUUID(), pos.immutable());
+	}
+
+	public static void forget(ServerPlayer player) {
+		OPEN_WORKSHOPS.remove(player.getUUID());
+	}
+
+	private static boolean nearWorkshop(ServerPlayer player) {
+		BlockPos pos = OPEN_WORKSHOPS.get(player.getUUID());
+		return pos != null && player.level().getBlockState(pos).is(ModBlocks.SKATE_WORKSHOP)
+			&& player.distanceToSqr(Vec3.atCenterOf(pos)) <= 8.0 * 8.0;
+	}
+
 	private static void handleWorkshop(ServerPlayer player, Payloads.WorkshopApply payload) {
 		int slot = payload.slot();
 		if (slot < 0 || slot >= player.getInventory().getContainerSize()) {
@@ -72,6 +95,10 @@ public final class ModNetworking {
 		EquipmentConfig config = payload.config().sanitized(kind);
 		PlayerSportData data = PlayerSportData.get(player);
 		boolean creative = player.isCreative();
+		if (!creative && !nearWorkshop(player)) {
+			player.displayClientMessage(Component.translatable("screen.extremesports.need_workshop"), true);
+			return;
+		}
 		// Refuse locked parts
 		for (var entry : PartCatalog.slots(kind.sport()).entrySet()) {
 			PartCatalog.Option option = entry.getValue().option(config.part(kind.sport(), entry.getKey()));
