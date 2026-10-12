@@ -1,0 +1,32 @@
+{
+  "display": {
+    "icon": {
+      "id": "extremesports:skateboard"
+    },
+    "title": {
+      "translate": "advancement.extremesports.first_pop.title"
+    },
+    "description": {
+      "translate": "advancement.extremesports.first_pop.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "done": {
+      "trigger": "extremesports:sport_event",
+      "conditions": {
+        "event": "trick:skateboard.ollie",
+        "min": 1
+      }
+    }
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ],
+  "parent": "extremesports:root"
+}

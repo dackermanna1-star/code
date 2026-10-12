@@ -1,0 +1,253 @@
+{
+  "skate.roll_concrete": {
+    "sounds": [
+      {
+        "name": "extremesports:skate_roll_concrete"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.skate.roll_concrete"
+  },
+  "skate.roll_wood": {
+    "sounds": [
+      {
+        "name": "extremesports:skate_roll_wood"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.skate.roll_wood"
+  },
+  "skate.roll_rough": {
+    "sounds": [
+      {
+        "name": "extremesports:skate_roll_rough"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.skate.roll_rough"
+  },
+  "skate.push": {
+    "sounds": [
+      {
+        "name": "extremesports:skate_push"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.skate.push"
+  },
+  "skate.pop": {
+    "sounds": [
+      {
+        "name": "extremesports:skate_pop"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.skate.pop"
+  },
+  "skate.flip": {
+    "sounds": [
+      {
+        "name": "extremesports:skate_flip"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.skate.flip"
+  },
+  "skate.land": {
+    "sounds": [
+      {
+        "name": "extremesports:skate_land"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.skate.land"
+  },
+  "skate.land_hard": {
+    "sounds": [
+      {
+        "name": "extremesports:skate_land_hard"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.skate.land_hard"
+  },
+  "skate.brake": {
+    "sounds": [
+      {
+        "name": "extremesports:skate_brake"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.skate.brake"
+  },
+  "grind.metal": {
+    "sounds": [
+      {
+        "name": "extremesports:grind_metal"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.grind.metal"
+  },
+  "grind.concrete": {
+    "sounds": [
+      {
+        "name": "extremesports:grind_concrete"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.grind.concrete"
+  },
+  "bail": {
+    "sounds": [
+      {
+        "name": "extremesports:bail"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.bail"
+  },
+  "bmx.freewheel": {
+    "sounds": [
+      {
+        "name": "extremesports:bmx_freewheel"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.bmx.freewheel"
+  },
+  "bmx.pedal": {
+    "sounds": [
+      {
+        "name": "extremesports:bmx_pedal"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.bmx.pedal"
+  },
+  "bmx.land": {
+    "sounds": [
+      {
+        "name": "extremesports:bmx_land"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.bmx.land"
+  },
+  "bmx.brake": {
+    "sounds": [
+      {
+        "name": "extremesports:bmx_brake"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.bmx.brake"
+  },
+  "bmx.spin": {
+    "sounds": [
+      {
+        "name": "extremesports:bmx_spin"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.bmx.spin"
+  },
+  "scooter.kick": {
+    "sounds": [
+      {
+        "name": "extremesports:scooter_kick"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.scooter.kick"
+  },
+  "scooter.land": {
+    "sounds": [
+      {
+        "name": "extremesports:scooter_land"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.scooter.land"
+  },
+  "skates.stride": {
+    "sounds": [
+      {
+        "name": "extremesports:skates_stride"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.skates.stride"
+  },
+  "skates.land": {
+    "sounds": [
+      {
+        "name": "extremesports:skates_land"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.skates.land"
+  },
+  "wind": {
+    "sounds": [
+      {
+        "name": "extremesports:wind"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.wind"
+  },
+  "ui.trick": {
+    "sounds": [
+      {
+        "name": "extremesports:ui_trick"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.ui.trick"
+  },
+  "ui.perfect": {
+    "sounds": [
+      {
+        "name": "extremesports:ui_perfect"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.ui.perfect"
+  },
+  "ui.fail": {
+    "sounds": [
+      {
+        "name": "extremesports:ui_fail",
+        "volume": 0.5
+      }
+    ],
+    "subtitle": "subtitles.extremesports.ui.fail"
+  },
+  "ui.checkpoint": {
+    "sounds": [
+      {
+        "name": "extremesports:ui_checkpoint"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.ui.checkpoint"
+  },
+  "ui.countdown": {
+    "sounds": [
+      {
+        "name": "extremesports:ui_countdown",
+        "volume": 0.5
+      }
+    ],
+    "subtitle": "subtitles.extremesports.ui.countdown"
+  },
+  "ui.go": {
+    "sounds": [
+      {
+        "name": "extremesports:ui_go",
+        "volume": 0.5
+      }
+    ],
+    "subtitle": "subtitles.extremesports.ui.go"
+  },
+  "ui.finish": {
+    "sounds": [
+      {
+        "name": "extremesports:ui_finish"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.ui.finish"
+  },
+  "ui.click": {
+    "sounds": [
+      {
+        "name": "extremesports:ui_click"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.ui.click"
+  },
+  "ui.unlock": {
+    "sounds": [
+      {
+        "name": "extremesports:ui_unlock"
+      }
+    ],
+    "subtitle": "subtitles.extremesports.ui.unlock"
+  }
+}

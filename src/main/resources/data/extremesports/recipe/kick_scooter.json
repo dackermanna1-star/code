@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "  I",
+    "  I",
+    "TIT"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "T": "minecraft:slime_ball"
+  },
+  "result": {
+    "id": "extremesports:kick_scooter",
+    "count": 1
+  }
+}

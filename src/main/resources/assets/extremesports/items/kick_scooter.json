@@ -1,0 +1,16 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "extremesports:item/kick_scooter",
+    "tints": [
+      {
+        "type": "minecraft:constant",
+        "value": 16777215
+      },
+      {
+        "type": "extremesports:equipment_color",
+        "slot": "deck"
+      }
+    ]
+  }
+}

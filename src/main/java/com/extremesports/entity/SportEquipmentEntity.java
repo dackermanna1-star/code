@@ -339,6 +339,8 @@ public class SportEquipmentEntity extends Entity {
 				owner = player.getUUID();
 			}
 			ServerRideTracker.get(player).onMount(this);
+			com.extremesports.registry.ModCriteria.SPORT.trigger(player, "ride", 1);
+			com.extremesports.registry.ModCriteria.SPORT.trigger(player, "ride:" + sport().id(), 1);
 		}
 		if (passenger instanceof Player player) {
 			setYRot(player.getYRot());

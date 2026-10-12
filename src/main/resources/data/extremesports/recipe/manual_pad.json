@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "SSS"
+  ],
+  "key": {
+    "S": "minecraft:smooth_stone"
+  },
+  "result": {
+    "id": "extremesports:manual_pad",
+    "count": 6
+  }
+}

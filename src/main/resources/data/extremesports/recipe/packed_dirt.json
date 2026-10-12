@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "ingredients": [
+    "minecraft:dirt",
+    "minecraft:dirt",
+    "minecraft:clay_ball"
+  ],
+  "result": {
+    "id": "extremesports:packed_dirt",
+    "count": 2
+  }
+}

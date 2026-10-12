@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:item/handheld",
+  "textures": {
+    "layer0": "extremesports:item/skateboard",
+    "layer1": "extremesports:item/skateboard_deck"
+  }
+}

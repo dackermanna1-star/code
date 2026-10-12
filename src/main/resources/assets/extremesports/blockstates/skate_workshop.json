@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "extremesports:block/skate_workshop"
+    },
+    "facing=east": {
+      "model": "extremesports:block/skate_workshop",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "extremesports:block/skate_workshop",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "extremesports:block/skate_workshop",
+      "y": 270
+    }
+  }
+}

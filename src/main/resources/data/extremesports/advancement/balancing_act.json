@@ -1,0 +1,32 @@
+{
+  "display": {
+    "icon": {
+      "id": "extremesports:manual_pad"
+    },
+    "title": {
+      "translate": "advancement.extremesports.balancing_act.title"
+    },
+    "description": {
+      "translate": "advancement.extremesports.balancing_act.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "done": {
+      "trigger": "extremesports:sport_event",
+      "conditions": {
+        "event": "manual",
+        "min": 100
+      }
+    }
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ],
+  "parent": "extremesports:first_pop"
+}

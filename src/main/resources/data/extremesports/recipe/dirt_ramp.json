@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "DD ",
+    "DDD"
+  ],
+  "key": {
+    "D": "minecraft:coarse_dirt"
+  },
+  "result": {
+    "id": "extremesports:dirt_ramp",
+    "count": 6
+  }
+}

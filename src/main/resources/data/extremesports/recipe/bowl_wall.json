@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "S  ",
+    "SS ",
+    "SSI"
+  ],
+  "key": {
+    "S": "minecraft:smooth_stone",
+    "I": "minecraft:iron_ingot"
+  },
+  "result": {
+    "id": "extremesports:bowl_wall",
+    "count": 4
+  }
+}

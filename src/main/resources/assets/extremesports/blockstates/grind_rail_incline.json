@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "extremesports:block/grind_rail_incline"
+    },
+    "facing=east": {
+      "model": "extremesports:block/grind_rail_incline",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "extremesports:block/grind_rail_incline",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "extremesports:block/grind_rail_incline",
+      "y": 270
+    }
+  }
+}

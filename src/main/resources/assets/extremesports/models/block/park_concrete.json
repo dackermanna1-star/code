@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "extremesports:block/park_concrete",
+    "side": "extremesports:block/park_concrete",
+    "bottom": "extremesports:block/park_concrete"
+  }
+}

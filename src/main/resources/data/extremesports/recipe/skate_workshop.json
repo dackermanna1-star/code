@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "III",
+    "PCP"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "P": "#minecraft:planks",
+    "C": "minecraft:crafting_table"
+  },
+  "result": {
+    "id": "extremesports:skate_workshop",
+    "count": 1
+  }
+}

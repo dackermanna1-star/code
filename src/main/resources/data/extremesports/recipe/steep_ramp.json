@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "P  ",
+    "PP ",
+    "PPP"
+  ],
+  "key": {
+    "P": "#minecraft:planks"
+  },
+  "result": {
+    "id": "extremesports:steep_ramp",
+    "count": 6
+  }
+}

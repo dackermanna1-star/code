@@ -1,0 +1,32 @@
+{
+  "display": {
+    "icon": {
+      "id": "minecraft:diamond"
+    },
+    "title": {
+      "translate": "advancement.extremesports.perfect_ten.title"
+    },
+    "description": {
+      "translate": "advancement.extremesports.perfect_ten.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "done": {
+      "trigger": "extremesports:sport_event",
+      "conditions": {
+        "event": "perfect",
+        "min": 10
+      }
+    }
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ],
+  "parent": "extremesports:first_pop"
+}

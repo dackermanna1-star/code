@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "W",
+    "S",
+    "S"
+  ],
+  "key": {
+    "W": "minecraft:lime_wool",
+    "S": "minecraft:stick"
+  },
+  "result": {
+    "id": "extremesports:start_gate",
+    "count": 2
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "display": {
+    "icon": {
+      "id": "extremesports:bmx_bike"
+    },
+    "title": {
+      "translate": "advancement.extremesports.tailwhip.title"
+    },
+    "description": {
+      "translate": "advancement.extremesports.tailwhip.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "done": {
+      "trigger": "extremesports:sport_event",
+      "conditions": {
+        "event": "trick:bmx.tailwhip",
+        "min": 1
+      }
+    }
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ],
+  "parent": "extremesports:root"
+}

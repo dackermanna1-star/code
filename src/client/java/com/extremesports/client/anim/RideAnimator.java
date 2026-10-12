@@ -169,7 +169,7 @@ public final class RideAnimator {
 		float headRel = Mth.wrapDegrees(in.headYaw - f.riderYaw - Mth.RAD_TO_DEG * f.skeleton.twist());
 		float headYaw = Mth.clamp(headRel, -80.0F, 80.0F) * Mth.DEG_TO_RAD;
 		float headPitch = Mth.clamp(in.headPitch, -60.0F, 60.0F) * Mth.DEG_TO_RAD - f.skeleton.lean() * 0.85F;
-		f.skeleton.look(-headYaw + f.skeleton.twist(), headPitch);
+		f.skeleton.look(headYaw + f.skeleton.twist(), headPitch);
 	}
 
 	private static boolean isFlip(@Nullable TrickDef def) {

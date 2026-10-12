@@ -71,6 +71,7 @@ public class ExtremeSportsClient implements ClientModInitializer {
 			}
 		});
 		RampModels.register();
+		com.extremesports.client.render.EquipmentColorTint.register();
 		net.fabricmc.fabric.api.client.rendering.v1.BlockRenderLayerMap.putBlocks(net.minecraft.client.renderer.chunk.ChunkSectionLayer.CUTOUT,
 			ModBlocks.GRIND_RAIL, ModBlocks.GRIND_RAIL_INCLINE, ModBlocks.START_GATE, ModBlocks.CHECKPOINT_GATE, ModBlocks.FINISH_GATE);
 
@@ -144,6 +145,9 @@ public class ExtremeSportsClient implements ClientModInitializer {
 			mc.options.setCameraType(cameraBeforeRiding);
 		}
 		wasRiding = riding;
+		if (!riding) {
+			ClientRideInput.discardTaps();
+		}
 
 		while (Keybinds.MENU.consumeClick()) {
 			mc.setScreen(new SportsMenuScreen(null));

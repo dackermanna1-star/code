@@ -1,0 +1,11 @@
+{
+  "variants": {
+    "axis=z": {
+      "model": "extremesports:block/ledge"
+    },
+    "axis=x": {
+      "model": "extremesports:block/ledge",
+      "y": 90
+    }
+  }
+}

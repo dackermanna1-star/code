@@ -1,0 +1,32 @@
+{
+  "display": {
+    "icon": {
+      "id": "extremesports:quarter_pipe"
+    },
+    "title": {
+      "translate": "advancement.extremesports.spin_cycle.title"
+    },
+    "description": {
+      "translate": "advancement.extremesports.spin_cycle.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "done": {
+      "trigger": "extremesports:sport_event",
+      "conditions": {
+        "event": "spin",
+        "min": 540
+      }
+    }
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ],
+  "parent": "extremesports:root"
+}

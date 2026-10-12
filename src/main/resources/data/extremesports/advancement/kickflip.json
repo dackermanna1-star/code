@@ -1,0 +1,32 @@
+{
+  "display": {
+    "icon": {
+      "id": "extremesports:skateboard"
+    },
+    "title": {
+      "translate": "advancement.extremesports.kickflip.title"
+    },
+    "description": {
+      "translate": "advancement.extremesports.kickflip.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "done": {
+      "trigger": "extremesports:sport_event",
+      "conditions": {
+        "event": "trick:skateboard.kickflip",
+        "min": 1
+      }
+    }
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ],
+  "parent": "extremesports:first_pop"
+}

@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "SSS",
+    "N N"
+  ],
+  "key": {
+    "S": "#minecraft:wooden_slabs",
+    "N": "minecraft:iron_nugget"
+  },
+  "result": {
+    "id": "extremesports:skateboard",
+    "count": 1
+  }
+}

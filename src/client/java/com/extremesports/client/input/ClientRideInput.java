@@ -4,6 +4,7 @@ import com.extremesports.client.ClientConfig;
 import com.extremesports.client.anim.BailAnimations;
 import com.extremesports.entity.SportEquipmentEntity;
 import com.extremesports.physics.RideInput;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.player.Input;
@@ -27,12 +28,30 @@ public final class ClientRideInput {
 			keys.left(),
 			keys.right(),
 			keys.jump(),
-			Keybinds.FLIP.isDown(),
-			Keybinds.GRAB.isDown(),
-			Keybinds.GRIND.isDown(),
-			Keybinds.WHIP.isDown(),
+			held(Keybinds.FLIP),
+			held(Keybinds.GRAB),
+			held(Keybinds.GRIND),
+			held(Keybinds.WHIP),
 			player.getYRot(),
 			mouse
 		);
+	}
+
+	/** Drops taps made while not riding so they don't fire a trick on the next mount. */
+	public static void discardTaps() {
+		for (KeyMapping key : new KeyMapping[]{Keybinds.FLIP, Keybinds.GRAB, Keybinds.GRIND, Keybinds.WHIP}) {
+			while (key.consumeClick()) {
+				// discard
+			}
+		}
+	}
+
+	/** Held now, or tapped since the last tick (a tap shorter than one tick would otherwise be missed). */
+	private static boolean held(KeyMapping key) {
+		boolean tapped = false;
+		while (key.consumeClick()) {
+			tapped = true;
+		}
+		return key.isDown() || tapped;
 	}
 }

@@ -1,0 +1,12 @@
+{
+  "replace": false,
+  "values": [
+    "extremesports:bowl_wall",
+    "extremesports:slope",
+    "extremesports:grind_rail",
+    "extremesports:grind_rail_incline",
+    "extremesports:ledge",
+    "extremesports:manual_pad",
+    "extremesports:park_concrete"
+  ]
+}

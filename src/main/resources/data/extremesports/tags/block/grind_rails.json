@@ -1,0 +1,21 @@
+{
+  "replace": false,
+  "values": [
+    "#minecraft:fences",
+    "#minecraft:walls",
+    "minecraft:iron_bars",
+    {
+      "id": "#c:glass_panes",
+      "required": false
+    },
+    "minecraft:glass_pane",
+    {
+      "id": "minecraft:iron_chain",
+      "required": false
+    },
+    {
+      "id": "#minecraft:bars",
+      "required": false
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:iron_block",
+    "minecraft:gold_block",
+    "minecraft:netherite_block",
+    "minecraft:copper_block",
+    "minecraft:cut_copper",
+    "minecraft:waxed_copper_block",
+    "minecraft:waxed_cut_copper",
+    "minecraft:heavy_core"
+  ]
+}

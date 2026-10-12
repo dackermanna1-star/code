@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "extremesports:block/ramp_plywood",
+    "side": "extremesports:block/ramp_plywood_side",
+    "bottom": "extremesports:block/ramp_plywood_side"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "replace": false,
+  "values": [
+    "extremesports:quarter_pipe",
+    "extremesports:steep_ramp",
+    "extremesports:ramp",
+    "extremesports:launch_ramp",
+    "extremesports:grind_box",
+    "extremesports:ramp_deck",
+    "extremesports:skate_workshop",
+    "extremesports:start_gate",
+    "extremesports:checkpoint_gate",
+    "extremesports:finish_gate"
+  ]
+}

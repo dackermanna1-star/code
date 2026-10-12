@@ -1,0 +1,11 @@
+{
+  "variants": {
+    "axis=z": {
+      "model": "extremesports:block/grind_box"
+    },
+    "axis=x": {
+      "model": "extremesports:block/grind_box",
+      "y": 90
+    }
+  }
+}

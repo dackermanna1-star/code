@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "extremesports:block/dirt_jump",
+    "side": "extremesports:block/dirt_jump_side",
+    "bottom": "extremesports:block/dirt_jump_side"
+  }
+}

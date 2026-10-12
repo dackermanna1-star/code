@@ -1,0 +1,11 @@
+{
+  "variants": {
+    "axis=z": {
+      "model": "extremesports:block/manual_pad"
+    },
+    "axis=x": {
+      "model": "extremesports:block/manual_pad",
+      "y": 90
+    }
+  }
+}

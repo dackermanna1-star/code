@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "top": "extremesports:block/workshop_top",
+    "front": "extremesports:block/workshop_front",
+    "side": "extremesports:block/workshop_side"
+  }
+}

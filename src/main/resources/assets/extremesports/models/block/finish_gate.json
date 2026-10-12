@@ -1,0 +1,173 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "extremesports:block/gate_post",
+    "post": "extremesports:block/gate_post",
+    "flag": "extremesports:block/finish_line"
+  },
+  "elements": [
+    {
+      "from": [
+        7,
+        0,
+        7
+      ],
+      "to": [
+        9,
+        16,
+        9
+      ],
+      "faces": {
+        "north": {
+          "texture": "#post"
+        },
+        "south": {
+          "texture": "#post"
+        },
+        "east": {
+          "texture": "#post"
+        },
+        "west": {
+          "texture": "#post"
+        },
+        "up": {
+          "texture": "#post",
+          "uv": [
+            7,
+            7,
+            9,
+            9
+          ]
+        },
+        "down": {
+          "texture": "#post",
+          "uv": [
+            7,
+            7,
+            9,
+            9
+          ],
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "from": [
+        9,
+        8,
+        7.5
+      ],
+      "to": [
+        16,
+        15,
+        8.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#flag",
+          "uv": [
+            0,
+            2,
+            14,
+            16
+          ]
+        },
+        "south": {
+          "texture": "#flag",
+          "uv": [
+            0,
+            2,
+            14,
+            16
+          ]
+        },
+        "up": {
+          "texture": "#flag",
+          "uv": [
+            0,
+            0,
+            14,
+            2
+          ]
+        },
+        "down": {
+          "texture": "#flag",
+          "uv": [
+            0,
+            0,
+            14,
+            2
+          ]
+        },
+        "east": {
+          "texture": "#flag",
+          "uv": [
+            0,
+            0,
+            2,
+            14
+          ]
+        }
+      }
+    },
+    {
+      "from": [
+        -0.01,
+        8,
+        7.5
+      ],
+      "to": [
+        7,
+        15,
+        8.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#flag",
+          "uv": [
+            2,
+            2,
+            16,
+            16
+          ]
+        },
+        "south": {
+          "texture": "#flag",
+          "uv": [
+            2,
+            2,
+            16,
+            16
+          ]
+        },
+        "up": {
+          "texture": "#flag",
+          "uv": [
+            2,
+            0,
+            16,
+            2
+          ]
+        },
+        "down": {
+          "texture": "#flag",
+          "uv": [
+            2,
+            0,
+            16,
+            2
+          ]
+        },
+        "west": {
+          "texture": "#flag",
+          "uv": [
+            0,
+            0,
+            2,
+            14
+          ]
+        }
+      }
+    }
+  ]
+}

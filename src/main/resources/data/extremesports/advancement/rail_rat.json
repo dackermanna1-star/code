@@ -1,0 +1,32 @@
+{
+  "display": {
+    "icon": {
+      "id": "extremesports:grind_rail"
+    },
+    "title": {
+      "translate": "advancement.extremesports.rail_rat.title"
+    },
+    "description": {
+      "translate": "advancement.extremesports.rail_rat.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "done": {
+      "trigger": "extremesports:sport_event",
+      "conditions": {
+        "event": "grind",
+        "min": 10
+      }
+    }
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ],
+  "parent": "extremesports:first_pop"
+}
