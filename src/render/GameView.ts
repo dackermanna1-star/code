@@ -306,10 +306,13 @@ export class GameView {
     }
     // Walrus scraping its tusks before the rush.
     if (e.type === 'walrus' && e.state === 'charge') {
-      const tusk = v.rig.bones.get('tusks');
-      const p = tusk ? tusk.getWorldPosition(_v) : _v.set(x + 1.6 * e.facing, 0.1, z);
-      if (Math.random() < 0.8) this.effects.sparks({ x: p.x, y: Math.max(0.05, p.y), z: p.z }, 3, -e.facing, 5);
-      if (Math.random() < 0.3) this.effects.snowPuff({ x: p.x, y: 0, z: p.z }, 1, 0.2);
+      // Tusk tips scrape the ice before the rush: sparks and ice dust.
+      for (const name of ['tuskTipL', 'tuskTipR']) {
+        const tip = v.rig.bones.get(name) ?? v.rig.bones.get('tusks');
+        const p = tip ? tip.getWorldPosition(_v) : _v.set(x + 1.6 * e.facing, 0.1, z);
+        if (Math.random() < 0.6) this.effects.sparks({ x: p.x, y: Math.max(0.04, p.y), z: p.z }, 2, -e.facing, 5);
+        if (Math.random() < 0.15) this.effects.snowPuff({ x: p.x, y: 0, z: p.z }, 1, 0.2);
+      }
     }
     if (e.type === 'walrus' && e.state === 'rush' && Math.random() < 0.5) {
       this.effects.snowPuff({ x: x - e.facing * 1.4, y: 0, z: z + (Math.random() - 0.5) * 1.5 }, 1, 0.35, 1.5);
