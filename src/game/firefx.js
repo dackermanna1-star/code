@@ -45,9 +45,10 @@ const RAMPS = {
   mist: [[0, 0.06, 0.06, 0.1, 0], [0.2, 0.08, 0.08, 0.14, 0.7], [1, 0.12, 0.12, 0.18, 0]],
   dust: [[0, 0.55, 0.48, 0.38, 0], [0.12, 0.5, 0.44, 0.35, 0.55], [1, 0.6, 0.55, 0.45, 0]],
   trail: [[0, 0.75, 0.73, 0.7, 0.6], [1, 0.55, 0.54, 0.53, 0]],
+  gas: [[0, 0.42, 0.5, 0.14, 0], [0.15, 0.38, 0.46, 0.12, 0.5], [0.7, 0.3, 0.36, 0.1, 0.35], [1, 0.26, 0.3, 0.1, 0]], // a bloater's cloud (zroster.js)
 };
 const ADDITIVE = new Set(['fire', 'acid', 'spark', 'ember']);
-const FRAME = { fire: [0, 1], acid: [0, 1], spark: [3, 3], ember: [3, 3], smoke: [2, 2], mist: [2, 2], dust: [2, 2], trail: [2, 2] };
+const FRAME = { fire: [0, 1], acid: [0, 1], spark: [3, 3], ember: [3, 3], smoke: [2, 2], mist: [2, 2], dust: [2, 2], trail: [2, 2], gas: [2, 2] };
 const KIND_IDS = Object.keys(RAMPS);
 
 function sampleRamp(r, t, out) {

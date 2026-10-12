@@ -174,7 +174,7 @@
       const play0 = g.sound.play;
       g.sound.play = function (name, o = {}) { calls.push({ name, pos: o.pos ? o.pos.slice() : null, volume: o.volume, attn: o.attenuation, t: g.time }); return play0.call(this, name, o); };
       try {
-        const idle = { boomer: 'boomer_idle', smoker: 'smoker_cough', hunter: 'hunter_scream', sprinter: 'sprinter_shriek', charger: 'boss_growl' };
+        const idle = { boomer: 'boomer_idle', smoker: 'smoker_cough', hunter: 'hunter_scream', sprinter: 'sprinter_shriek', charger: 'boss_growl', screamer: 'screamer_wail' }; // (the screamer: Milestone 2.5, zroster.js)
         check('warning sounds exist', Object.values(idle).every((n) => g.sound.bank?.get(n)), Object.values(idle).filter((n) => !g.sound.bank?.get(n)).join());
         tp(me(), home);
         ticks(50);

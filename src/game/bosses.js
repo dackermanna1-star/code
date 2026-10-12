@@ -15,6 +15,7 @@ import { Player, TEAM_T, TEAM_CT } from './player.js';
 import { createPlayerModel } from '../assets/playermodels.js';
 import { setDynamicBox, CONTENTS_ZOMBIE, TraceResult, MASK_WORLD_PLAYER } from '../engine/collision.js';
 import * as CR from './combatrules.js';
+import { COMMON_SKINS } from './zroster.js';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const DEG = Math.PI / 180;
@@ -601,7 +602,7 @@ export class BossDirector {
     const g = this.game, Z = this.Z, o = b.pm.origin;
     const want = 6 + b.boss.cycle * 2;
     let n = 0;
-    const recs = (g.gore?.records || []).filter((r) => r.skin === 'zombie' && dist2(r.center, o) < 900).sort((a, c) => dist2(a.center, o) - dist2(c.center, o));
+    const recs = (g.gore?.records || []).filter((r) => COMMON_SKINS.has(r.skin) && dist2(r.center, o) < 900).sort((a, c) => dist2(a.center, o) - dist2(c.center, o));
     // they claw their way up out of the floor beside the bodies (which stay where they are)
     for (const r of recs) {
       if (n >= want) break;

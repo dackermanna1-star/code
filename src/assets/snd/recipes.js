@@ -46,6 +46,7 @@ export const SOUND_GROUPS = {
   'Special infected': ['boomer_idle', 'boomer_vomit', 'boomer_burst', 'charger_roar', 'hunter_scream', 'hunter_pounce', 'smoker_cough',
     'tongue_shot', 'sprinter_shriek'],
   'Hit confirmation': ['hit_tick', 'hit_head', 'hit_kill'], // zombie survival (zfeedback.js)
+  'Common roster': ['screamer_wail', 'screamer_shriek', 'bloater_pop'], // zombie survival (zroster.js)
   'Title screen': ['title_theme', 'title_start'],
 };
 
@@ -69,6 +70,7 @@ const JITTER = {
   knife_hitwall: 0.03, knife_slash: 0.03, knife_stab: 0.02, die: 0.03, pain: 0.03, ambience_bird: 0.06,
   zombie_idle: 0.07, zombie_attack: 0.05, zombie_pain: 0.05, zombie_die: 0.04,
   boomer_idle: 0.06, charger_roar: 0.04, hunter_scream: 0.05, smoker_cough: 0.06, sprinter_shriek: 0.06, tesla_hit: 0.05, chainsaw_cut: 0.04,
+  screamer_wail: 0.05,
 };
 
 export const DEFS = {};

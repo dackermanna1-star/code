@@ -139,13 +139,17 @@ const DIRECTOR = {
 /**
  * Common roster (zroster.js, COMMONS): mix (x the weights of the commons other than walkers and
  * runners), shift (waves added to each variant's first wave: + later, - earlier), riotCap
- * (share of a wave's commons that may be riot zombies).
+ * (share of a wave's commons that may be riot zombies); the screamer calls every screamEvery
+ * [min, max] s, screamMax times (then it comes for you; when the director takes no surge, a
+ * call brings screamCall extra commons itself);
+ * a bloater's gas cloud hurts the squad gasHurt a second and zombies gasZombie of their health
+ * a second.
  */
 const ROSTER = {
-  casual: { mix: 0.7, shift: 2, riotCap: 0.06 },
-  normal: { mix: 1, shift: 0, riotCap: 0.08 },
-  hard: { mix: 1.2, shift: -1, riotCap: 0.12 },
-  nightmare: { mix: 1.4, shift: -2, riotCap: 0.16 },
+  casual: { mix: 0.7, shift: 2, riotCap: 0.06, screamEvery: [16, 20], screamMax: 2, screamCall: 2, gasHurt: 4, gasZombie: 0.2 },
+  normal: { mix: 1, shift: 0, riotCap: 0.08, screamEvery: [13, 17], screamMax: 3, screamCall: 3, gasHurt: 6, gasZombie: 0.18 },
+  hard: { mix: 1.2, shift: -1, riotCap: 0.12, screamEvery: [11, 14], screamMax: 4, screamCall: 4, gasHurt: 8, gasZombie: 0.16 },
+  nightmare: { mix: 1.4, shift: -2, riotCap: 0.16, screamEvery: [9, 12], screamMax: 5, screamCall: 5, gasHurt: 10, gasZombie: 0.15 },
 };
 
 /**

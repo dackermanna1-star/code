@@ -677,7 +677,7 @@ export class Game {
     const bleedDir = dir || (weaponId === 'knife' && attacker && attacker !== victim ? this.effects.dirFrom(attacker.eyePos(), pos) : null);
     // every flesh hit shows blood, kevlar or not (the server-side bShouldBleed only drove
     // TraceBleed; the 1.6 client drew the blood spray on any player hit)
-    const flesh = !(teammate && !this.rounds.friendlyFire);
+    const flesh = !(teammate && !this.rounds.friendlyFire) && !(victim.variant && res.damageToArmor > 0); // (zombie survival: a riot vest sparks, zroster.js)
     if (dir && head && res.helmetHit) this.effects.sprite({ tex: 'spr_spark', pos: pos.slice(), size: 4, life: 0.2, additive: true });
     if (bleedDir && flesh) {
       const dmg = res.damageToHealth || damage;
@@ -692,7 +692,7 @@ export class Game {
     if (victim.isBot) this.bots.onHurt(victim, attacker);
     if (this.zombies.enabled) this.zombies.events.hit(victim, attacker, hp0 - Math.max(0, victim.health), ar0 - victim.armor, damage, res.hitgroup ?? hitgroup, head, weaponId, dir, point, opts);
     if (victim.health <= 0 && !(this.zombies.enabled && this.zombies.downed.onLethal(victim, attacker, weaponId))) this.killPlayer(victim, attacker, weaponId, head && !opts.blast); // (zombie survival: down first)
-    else if (!opts.blast && Math.random() < (victim.isZombie ? 0.35 : 0.25)) this.sound.play(victim.isZombie ? 'zombie_pain' : 'pain', { pos, volume: 0.6, channel: victim.isZombie ? `${victim.id}:voice` : null });
+    else if (!opts.blast && Math.random() < (victim.isZombie ? 0.35 : 0.25)) this.sound.play(victim.isZombie ? 'zombie_pain' : 'pain', { pos, volume: 0.6, pitch: victim.voice || 1, channel: victim.isZombie ? `${victim.id}:voice` : null });
   }
 
   // velocity "tagging" recovery: +0.01 per on-ground frame (CBasePlayer::PreThink)
@@ -746,7 +746,7 @@ export class Game {
     victim.weapons = { 1: null, 2: null, 3: null, 4: [], 5: null };
     victim.active = null;
     victim.armor = 0; victim.helmet = false; victim.defuser = false;
-    this.sound.play(victim.isZombie ? 'zombie_die' : 'die', { pos, volume: 1, channel: victim.isZombie ? `${victim.id}:voice` : null });
+    this.sound.play(victim.isZombie ? 'zombie_die' : 'die', { pos, volume: 1, pitch: victim.voice || 1, channel: victim.isZombie ? `${victim.id}:voice` : null });
     this.effects.bloodPuddle(victim); // after ~0.5 s, follows the settling body
     if (victim.model) {
       victim.model.object3D.visible = true;

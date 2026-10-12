@@ -41,8 +41,10 @@ export const SPECIALS = {
   hunter: { name: 'Hunter', from: 4, weight: 3, hp: 1.6, speed: 235, dmg: 0.8, scale: [1, 1, 1] },
   charger: { name: 'Charger', from: 5, weight: 2, hp: 3.0, speed: 200, dmg: 1.4, scale: [1.1, 1.1, 1.08] },
   smoker: { name: 'Smoker', from: 6, weight: 2, hp: 1.4, speed: 190, dmg: 0.8, scale: [0.94, 0.94, 1.12] },
+  screamer: { name: 'Screamer', from: 7, weight: 1.5, hp: 0.9, speed: 205, dmg: 0.5, scale: [0.96, 0.96, 1.04] }, // (hangs back, calls the horde: zroster.js)
 };
-const IDLE = { boomer: 'boomer_idle', smoker: 'smoker_cough', hunter: 'hunter_scream', sprinter: 'sprinter_shriek', charger: 'boss_growl' };
+const IDLE = { boomer: 'boomer_idle', smoker: 'smoker_cough', hunter: 'hunter_scream', sprinter: 'sprinter_shriek', charger: 'boss_growl',
+  screamer: 'screamer_wail' };
 const BILE_TIME = 7, PIN_TIME = 3, TONGUE_TIME = 5;
 
 export class Specials {
