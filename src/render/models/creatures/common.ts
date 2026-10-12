@@ -1,7 +1,8 @@
 // Shared helpers for the procedural creature models: lofted bodies, rig
 // assembly, colour shading functions, pose reset/blending and small maths.
 import * as THREE from 'three';
-import { PartBuilder, hash3, type MatClass, type Xf } from '../kit';
+import { MATERIALS, PartBuilder, hash3, type MatClass, type Xf } from '../kit';
+import { REFLECT_LAYER } from '../../Stage';
 import type { AnimInput, BoneSpec, CreatureRig } from '../types';
 
 // ---------------------------------------------------------------- maths
@@ -418,13 +419,26 @@ export function eye(
 }
 
 // ---------------------------------------------------------------- rig builder
+type PartRecord = Array<{ geo: THREE.BufferGeometry; mat: MatClass }>;
+/**
+ * Built geometry per rig name, in part() order. The first rig of a kind
+ * generates its geometry; later rigs of the same kind share it (bones, specs
+ * and animation state are per instance). Shared geometry must not be mutated.
+ */
+const GEO_CACHE = new Map<string, PartRecord[]>();
+
 export class RigBuilder {
   readonly root = new THREE.Group();
   readonly bones = new Map<string, THREE.Object3D>();
   readonly spec: Record<string, BoneSpec> = {};
+  private readonly cached: PartRecord[] | null;
+  private readonly record: PartRecord[] = [];
+  private partIdx = 0;
 
-  constructor(name: string) {
+  /** `name` doubles as the geometry cache key: use a distinct name per geometry variant. */
+  constructor(private readonly name: string) {
     this.root.name = name;
+    this.cached = GEO_CACHE.get(name) ?? null;
   }
 
   bone(name: string, parent: THREE.Object3D | string | null, p: [number, number, number] = [0, 0, 0]): THREE.Object3D {
@@ -443,15 +457,29 @@ export class RigBuilder {
     return b;
   }
 
-  /** Build geometry for a bone. */
+  /** Build geometry for a bone (or reuse this rig kind's cached geometry). */
   part(b: THREE.Object3D | string, build: (pb: PartBuilder) => void): void {
     const target = typeof b === 'string' ? this.get(b) : b;
+    if (this.cached) {
+      const rec = this.cached[this.partIdx++];
+      for (const { geo, mat } of rec) {
+        const mesh = new THREE.Mesh(geo, MATERIALS[mat]);
+        mesh.castShadow = true;
+        mesh.receiveShadow = false;
+        mesh.layers.enable(REFLECT_LAYER);
+        mesh.userData.matClass = mat;
+        target.add(mesh);
+      }
+      return;
+    }
     const pb = new PartBuilder();
     build(pb);
-    pb.buildInto(target);
+    const meshes = pb.buildInto(target);
+    this.record.push(meshes.map((m) => ({ geo: m.geometry, mat: m.userData.matClass as MatClass })));
   }
 
   finish(head: string, animate: (a: AnimInput) => void, extra: Partial<CreatureRig> = {}): CreatureRig {
+    if (!this.cached) GEO_CACHE.set(this.name, this.record);
     return { root: this.root, bones: this.bones, spec: this.spec, head, animate, ...extra };
   }
 }

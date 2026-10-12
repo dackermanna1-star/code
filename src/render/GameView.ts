@@ -297,9 +297,11 @@ export class GameView {
         this.blood.splat('smear', x - 0.35, z + (Math.random() - 0.5) * 0.15, 0.09 + Math.random() * 0.05, { angle: 0, stretch: 2.5 });
         if (Math.random() < 0.3) this.blood.splat('drop', x - 0.2, z + (Math.random() - 0.5) * 0.3, 0.03);
       } else if (e instanceof Activist && (e.state === 'panic' || e.state === 'flee')) {
-        v.bleedT = 0.05;
+        // Original: bleeds every tick for half a second, then on 1 tick in 10.
+        const early = e.state === 'panic' && e.stateTicks < 25;
+        v.bleedT = early ? 0.04 : 0.2 + Math.random() * 0.25;
         const chest = { x: x + 0.25, y: 1.15, z };
-        this.blood.spray(chest, e.stateTicks < 25 ? 3 : 1, { dirX: 0.4, speed: [0.5, 2.5], up: [0, 2], spread: 1.2 });
+        this.blood.spray(chest, early ? 4 : 1, { dirX: 0.4, speed: [0.5, 2.5], up: [0, 2], spread: 1.2 });
       }
     }
     // Walrus scraping its tusks before the rush.
@@ -396,9 +398,9 @@ export class GameView {
     }
 
     // Blood from the killing blow.
-    const n = ev.kind === 'gib' ? 0 : Math.min(45, 10 + ev.force / 12);
+    const n = ev.kind === 'gib' ? 0 : Math.min(110, 30 + ev.force / 6);
     if (n > 0) {
-      this.blood.spray(pt, n, { dirX: ev.dirX, dirZ: ev.dirZ, speed: [2, 9], up: [-0.5, 3.5], spread: 0.6 });
+      this.blood.spray(pt, n, { dirX: ev.dirX, dirZ: ev.dirZ, speed: [1.5, 11], up: [-0.5, 4], spread: 0.8, jitter: 2, size: [0.025, 0.09] });
       this.effects.bloodPuff(pt, ev.dirX, 1);
     }
   }
@@ -406,7 +408,7 @@ export class GameView {
   /** Big bloody burst for gibs. */
   private gore(pt: THREE.Vector3, e: Enemy, k: number): void {
     const size = e.def.halfLength;
-    this.blood.spray(pt, 70 * k * (0.6 + size), { dirX: -1, speed: [1, 11], up: [0.5, 6], spread: Math.PI, size: [0.02, 0.07] });
+    this.blood.spray(pt, 160 * k * (0.6 + size), { dirX: -1, speed: [1, 12], up: [0.5, 6], spread: Math.PI, size: [0.025, 0.09], jitter: 3 });
     this.blood.pool(e.x, e.z, 0.4 + size * 0.6);
     for (let i = 0; i < 4; i++) this.effects.bloodPuff({ x: pt.x, y: pt.y + Math.random() * 0.4, z: pt.z }, -1, 2.5);
   }
@@ -464,8 +466,18 @@ export class GameView {
     const strength = Math.min(1.5, e.damage / 60);
     if (e.bullet) {
       // Original: 15 blobs per bullet hit, thrown 3-6 px/tick away from the gun.
-      const n = Math.min(48, 16 + e.damage / 8) * (e.part === 'head' ? 1.4 : 1);
-      this.blood.spray(e.point, n, { dirX: e.dirX, dirZ: e.dirZ, speed: [4, 15], up: [-2, 2.5], spread: 0.22, size: [0.018, 0.07] });
+      // The original floods the ice: by the end of level 2 the lanes are
+      // wide, dense red bands (reference frame 2).
+      const n = Math.min(80, 34 + e.damage / 4) * (e.part === 'head' ? 1.4 : 1);
+      this.blood.spray(e.point, n, {
+        dirX: e.dirX,
+        dirZ: e.dirZ,
+        speed: [2.5, 15],
+        up: [-2, 3],
+        spread: 0.4,
+        size: [0.02, 0.085],
+        jitter: 1.6,
+      });
       this.effects.bloodPuff(e.point, e.dirX, strength);
     } else {
       this.blood.spray(e.point, 12 + e.damage / 15, { dirX: e.dirX, dirZ: e.dirZ, speed: [1, 6], up: [0.5, 4], spread: 1.5 });

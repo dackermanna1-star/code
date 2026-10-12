@@ -8,7 +8,7 @@
 //   chest > flipperL / flipperR
 import * as THREE from 'three';
 import {
-  RigBuilder, addRoot, animator, blinker, blob, clamp, easeOut, eye, jointFiller, lerp, loft, loftSplit, secAt, shade, smooth, wobble, TAU,
+  RigBuilder, addRoot, animator, blinker, blob, clamp, eye, jointFiller, lerp, loft, loftSplit, secAt, shade, smooth, wobble, TAU,
   type Sec,
 } from './common';
 import type { AnimInput, CreatureRig } from '../types';
@@ -116,17 +116,17 @@ export function createSeal(): CreatureRig {
 
   // ---- front flippers: from the lower chest down to the ice
   for (const [name, s] of [['flipperL', 1], ['flipperR', -1]] as const) {
-    const f = rb.bone(name, chest, [0.13, -0.06, s * 0.19]);
+    const f = rb.bone(name, chest, [0.14, -0.1, s * 0.18]);
     rb.part(f, (pb) => {
       pb.addShaded(
         loft(
           [
-            { x: 0, y: 0.03, w: 0.045, h: 0.06 },
-            { x: 0.02, y: -0.1, w: 0.026, h: 0.065 },
-            { x: 0.05, y: -0.22, w: 0.015, h: 0.075 },
-            { x: 0.08, y: -0.3, w: 0.01, h: 0.065 },
+            { x: 0, y: 0.04, w: 0.05, h: 0.07 },
+            { x: 0.03, y: -0.09, w: 0.028, h: 0.08 },
+            { x: 0.07, y: -0.19, w: 0.017, h: 0.09 },
+            { x: 0.13, y: -0.25, w: 0.012, h: 0.075 },
           ],
-          { radial: 8, sub: 2, cap0: 0.02, cap1: 0.03 },
+          { radial: 8, sub: 2, cap0: 0.03, cap1: 0.04 },
         ),
         shade(0x3c1e0b, 0x5a331b, { noise: 0.05 }),
         'fur',
@@ -150,7 +150,7 @@ export function createSeal(): CreatureRig {
   };
   for (const n of ['flipperL', 'flipperR']) {
     rb.spec[n] = {
-      shape: 'capsule', size: [0.035, 0.11], axis: 'y', offset: [0.04, -0.13, 0], mass: 2,
+      shape: 'capsule', size: [0.04, 0.09], axis: 'y', offset: [0.05, -0.11, 0], mass: 2,
       joint: { kind: 'cone', axis: [0, -1, 0], cone: 0.9, twist: 0.3 }, gib: true,
     };
   }
@@ -220,7 +220,7 @@ export function createSeal(): CreatureRig {
     if (a.state === 'startcrawl') {
       // Flinch from the hit, then slump forward onto the belly over ~0.8 s.
       const t = clamp(a.stateTime / 0.8, 0, 1);
-      const k = smooth(easeOut(t));
+      const k = smooth(t);
       const flinch = Math.sin(Math.min(1, a.stateTime / 0.22) * Math.PI) * 0.16;
       walk(0, 0, time);
       const A = snap();

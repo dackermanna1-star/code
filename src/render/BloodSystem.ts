@@ -304,7 +304,16 @@ export class BloodSystem {
   spray(
     p: { x: number; y: number; z: number },
     n: number,
-    o: { dirX?: number; dirZ?: number; speed?: [number, number]; up?: [number, number]; spread?: number; size?: [number, number] } = {},
+    o: {
+      dirX?: number;
+      dirZ?: number;
+      speed?: [number, number];
+      up?: [number, number];
+      spread?: number;
+      size?: [number, number];
+      /** Random sideways (depth) speed, m/s. */
+      jitter?: number;
+    } = {},
   ): void {
     n = Math.round(n * this.amount);
     const dirX = o.dirX ?? -1;
@@ -313,6 +322,7 @@ export class BloodSystem {
     const [u0, u1] = o.up ?? [-0.5, 3];
     const spread = o.spread ?? 0.35;
     const [z0, z1] = o.size ?? [0.03, 0.085];
+    const jitter = o.jitter ?? 0.8;
     for (let i = 0; i < n; i++) {
       if (this.drops.length >= MAX_DROPS) this.drops.shift();
       const sp = s0 + Math.random() * (s1 - s0);
@@ -327,7 +337,7 @@ export class BloodSystem {
         z: p.z + (Math.random() - 0.5) * 0.08,
         vx: dx * sp,
         vy: u0 + Math.random() * (u1 - u0),
-        vz: dz * sp * 0.6 + (Math.random() - 0.5) * 0.8,
+        vz: dz * sp * 0.6 + (Math.random() - 0.5) * 2 * jitter,
         size: z0 + Math.random() * (z1 - z0),
         shade: 0.75 + Math.random() * 0.5,
         life: 3,

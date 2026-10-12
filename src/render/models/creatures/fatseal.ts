@@ -95,7 +95,7 @@ export function createFatSeal(): CreatureRig {
   });
   const eyes = rb.bone('eyes', head, [0.39, 0.2, 0]);
   rb.part(eyes, (pb) => {
-    for (const s of [-1, 1]) eye(pb, [0, 0, s * 0.27], 0.058, 0x2a6fbe, true, 0x153a66);
+    for (const s of [-1, 1]) eye(pb, [0, 0, s * 0.265], 0.072, 0x2f7ad0, true, 0x123460);
   });
 
   // ---- front flippers
