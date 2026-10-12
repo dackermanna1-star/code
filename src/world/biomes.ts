@@ -53,7 +53,7 @@ export const BIOMES: BiomeDef[] = [
     pools: [['water', 6], ['oil', 1.5], ['toxic', 1], ['blood', 0.3]], poolChance: 0.35,
     gasPockets: [['flamgas', 1]],
     structure: 'mines',
-    enemies: [['hamis', 4], ['hound_weak', 4], ['shotgunner_weak', 3], ['miner_weak', 2], ['slime_weak', 2], ['stendari', 0.5], ['liekkio', 0.5], ['acidslime', 0.4]],
+    enemies: [['hamis', 4], ['hound_weak', 4], ['shotgunner_weak', 3], ['miner_weak', 2], ['slime_weak', 2], ['stendari', 0.5], ['liekkio', 0.5], ['acidslime', 0.4], ['motherslime', 0.25]],
     enemyDensity: 1.0, lootTier: 1,
     ambient: '#5a4632', ambientStrength: 0.5, fog: '#0a0806', fogDensity: 0.012, music: 'mines',
   },
@@ -65,7 +65,7 @@ export const BIOMES: BiomeDef[] = [
     pools: [['oil', 4], ['water', 3], ['toxic', 1.5], ['lava', 0.25]], poolChance: 0.45,
     gasPockets: [['flamgas', 2], ['toxicgas', 0.5]],
     structure: 'coalpits',
-    enemies: [['bat', 3], ['miner', 2], ['shotgunner', 2.5], ['firefly', 3], ['slimeshooter', 1.5], ['liekkio', 1], ['stendari', 0.8], ['hound', 1]],
+    enemies: [['bat', 3], ['miner', 2], ['shotgunner', 2.5], ['firefly', 3], ['slimeshooter', 1.5], ['liekkio', 1], ['stendari', 0.8], ['hound', 1], ['motherslime', 0.6]],
     enemyDensity: 1.15, lootTier: 2,
     ambient: '#5a4a3e', ambientStrength: 0.56, fog: '#060505', fogDensity: 0.014, music: 'coal',
   },
@@ -121,7 +121,7 @@ export const BIOMES: BiomeDef[] = [
 export const NUM_LAYERS = BIOMES.length;
 
 /** Enemy types that spawn in mid-air rather than on floors. */
-export const FLYING_ENEMIES = new Set(['bat', 'firefly', 'slime_weak', 'slimeshooter', 'acidslime', 'liekkio', 'grenadier', 'gunner', 'iceskull', 'ukko']);
+export const FLYING_ENEMIES = new Set(['motherslime', 'bat', 'firefly', 'slime_weak', 'slimeshooter', 'acidslime', 'liekkio', 'grenadier', 'gunner', 'iceskull', 'ukko']);
 /** Depth at which the final chamber (the Work) begins. */
 export const FINAL_DEPTH = NUM_LAYERS * LAYER_HEIGHT;
 
