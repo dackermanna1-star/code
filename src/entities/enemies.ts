@@ -45,6 +45,12 @@ export class Enemy extends Creature {
   sleeping = false;
   laser: THREE.Line | null = null;
   trick = false;
+  /** progress tracking for getting unstuck while chasing */
+  progT = 0;
+  progX = 0;
+  progZ = 0;
+  detour = new THREE.Vector3();
+  detourT = 0;
   /** When polymorphed into a sheep: what to turn back into, and when. */
   morphFrom: { type: string; hpFrac: number; until: number } | null = null;
 
@@ -278,7 +284,23 @@ export class EnemySystem {
         if (melee && !ranged) want = 1;
         else if (pref) want = dist > pref + 6 ? 1 : dist < pref - 8 ? -1 : 0;
         if (!e.hasLos) want = 1;
-        this.moveToward(e, goal, want, dt);
+        // stuck detection: no progress for a while -> take a detour around the obstacle
+        e.progT += dt;
+        if (e.progT > 2.5) {
+          const moved = Math.hypot(b.x - e.progX, b.z - e.progZ);
+          if (moved < 2 && want !== 0 && !def.flying) {
+            const a = e.rng.range(0, Math.PI * 2);
+            e.detour.set(b.x + Math.cos(a) * 14, b.y, b.z + Math.sin(a) * 14);
+            e.detourT = 2;
+          }
+          e.progT = 0;
+          e.progX = b.x;
+          e.progZ = b.z;
+        }
+        if (e.detourT > 0) {
+          e.detourT -= dt;
+          this.moveToward(e, e.detour, 1, dt);
+        } else this.moveToward(e, goal, want, dt);
         break;
       }
       case 'windup': {
