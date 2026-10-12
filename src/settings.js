@@ -20,6 +20,7 @@ const DEFAULTS = {
   violence_hblood: 1, // human blood: particles, splats, puddles
   cl_bulletcam: 1, // slow-motion bullet camera on sniper headshot kills
   cl_damagenumbers: 0, // zombie survival: damage numbers float off what you hit
+  shoveKey: 'KeyT', // zombie survival: the key that shoves (as well as Mouse 4; 'none': Mouse 4 only). T is CS's spray key, unused here; F stays the flashlight
   newgame: { perTeam: 5, difficulty: 'normal', roundTime: 2.5, freezeTime: 6, c4Timer: 45, startMoney: 800, buyTime: 1.5 },
 };
 

@@ -1200,6 +1200,7 @@ export class Game {
         const near = 1 + 5.5 * this.vm.ads;
         if (r.vmCamera.near !== near) { r.vmCamera.near = near; r.vmCamera.updateProjectionMatrix(); }
         this.vm.update(this.paused ? 0 : dt, { bobX: 0, bobY: bob * 0.4, swayYaw: -bob * 0.5, swayPitch: -bob * 0.3 });
+        if (this.zombies.enabled) this.zombies.shove.bash(this.vm, p); // (zombie survival: the melee shove's bash, shove.js)
         this.updateLaser(p, eye, p.pm.angles[0] + pu[0] + sh[0], p.pm.angles[1] + pu[1] + sh[1]);
         // GoldSrc runs model light through the lightgamma table, which lifts shadowed
         // view models well above the raw light value

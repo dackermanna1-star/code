@@ -1500,6 +1500,7 @@ class Bot {
     if (!reacted) { if (cls === 'bolt' && this.isHolding()) it.stop = true; return; }
     if (cls === 'knife') { it.move = e.feet(); it.tol = 8; if (d < 70) it.attack = Math.random() < 0.5; return; }
     it.fire = true;
+    if (e.isZombie && this.game.zombies.shove.bot(this, e, d)) return; // zombie survival: shove them off / free a pinned teammate (shove.js)
     // zombie survival: they can only claw, so keep them at arm's length - back off while
     // shooting (sideways if there's no room behind)
     if (e.isZombie && d < (e.boss ? 380 : 280)) {

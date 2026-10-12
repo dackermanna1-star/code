@@ -213,7 +213,7 @@
     }
     specials = Z().pool.filter((z) => z.special).length;
     check('zombies still find you', close > 0 && Z().spawned > 5, `spawned ${Z().spawned}, ticks with one close ${close}, special bodies ${specials}`);
-    check('no stagger events with nothing calling it', of('stagger').length === 0);
+    check('no stagger events but the bots\' shoves (shove.js)', of('stagger', (e) => e.src !== 'shove').length === 0);
     check('the wave plays out', Z().state === 'wave' || Z().state === 'break', Z().state);
     return true;
   });

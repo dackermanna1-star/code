@@ -8,6 +8,7 @@ import { MISC } from './misc.js';
 import { ZOMBIE_FX } from './zombie.js';
 import { HIT_FX } from './hitfx.js';
 import { TITLE_FX } from './title.js';
+import { SHOVE_FX } from './shove.js';
 
 // ------------------------------------------------------------- catalogue ---
 
@@ -46,6 +47,7 @@ export const SOUND_GROUPS = {
   'Special infected': ['boomer_idle', 'boomer_vomit', 'boomer_burst', 'charger_roar', 'hunter_scream', 'hunter_pounce', 'smoker_cough',
     'tongue_shot', 'sprinter_shriek'],
   'Hit confirmation': ['hit_tick', 'hit_head', 'hit_kill'], // zombie survival (zfeedback.js)
+  'Melee shove': ['shove_swing', 'shove_hit'], // zombie survival (shove.js)
   'Title screen': ['title_theme', 'title_start'],
 };
 
@@ -77,6 +79,7 @@ for (const [name, g] of Object.entries(SUPPRESSED)) DEFS[name] = { ...g, fn: (P)
 for (const [name, d] of Object.entries({ ...HANDLING, ...FOLEY, ...MISC, ...ZOMBIE_FX, ...TITLE_FX })) DEFS[name] = { ...d };
 DEFS.buy = { alias: 'ammo_pickup' };
 for (const [name, d] of Object.entries(HIT_FX)) DEFS[name] = { ...d };
+for (const [name, d] of Object.entries(SHOVE_FX)) DEFS[name] = { ...d };
 // a recipe nobody listed above still gets made (the bank only renders catalogued names)
 {
   const listed = new Set(Object.values(SOUND_GROUPS).flat());
