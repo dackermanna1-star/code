@@ -249,7 +249,7 @@ export class Game {
     const amb = new THREE.Color(b ? b.ambient : '#4a3a2e').lerp(new THREE.Color(1, 1, 1), 0.45).multiplyScalar(b ? b.ambientStrength : 0.45);
     const surfaceAmb = new THREE.Color(0.36, 0.3, 0.36);
     u.uAmbient.value.copy(amb).lerp(surfaceAmb, surf);
-    if (hmBandOf(cam.y) >= 0) u.uAmbient.value.setRGB(0.62, 0.5, 0.42); // holy mountains are warmly lit sanctuaries
+    if (hmBandOf(cam.y) >= 0) u.uAmbient.value.setRGB(0.95, 0.78, 0.62); // holy mountains are warmly lit sanctuaries
     u.uSkyAmbient.value.setRGB(0.42, 0.33, 0.42);
     u.uSunCol.value.setRGB(0.62, 0.42, 0.4);
     const fog = new THREE.Color(b ? b.fog : '#0a0806');
@@ -265,7 +265,7 @@ export class Game {
     void depth;
     // lights: player's faint glow + glowing materials + dynamic lights from systems
     const p = this.player;
-    this.lights.add(p.body.x, p.eyeY + 1, p.body.z, [1.0, 0.86, 0.7], 64, 0.95);
+    this.lights.add(p.body.x, p.eyeY + 1, p.body.z, [1.0, 0.9, 0.78], 64, 0.85);
     this.lights.addEmitters(this.chunks.emitters.values(), cam, 120);
     this.lights.upload(u, cam);
     this.chunks.update(cam, 5);

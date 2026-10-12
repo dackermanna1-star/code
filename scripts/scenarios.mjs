@@ -27,6 +27,34 @@ async function key(run, wait, code, ms = 60) {
 }
 
 export default {
+  async walk({ shot, wait, run }) {
+    await wait(1500);
+    // steer along the generator's route: aim at the next route point and hold W (jump when blocked)
+    const route = await run(() => window.game.streamer.gen.routePoints[0].map((p) => [p.x, p.y, p.z]));
+    let idx = 0;
+    const log = [];
+    for (let t = 0; t < (Number(process.env.STEPS) || 70); t++) {
+      const st = await run((route) => {
+        const g = window.game, p = g.player, b = p.body;
+        // advance to the closest route point ahead
+        let best = 0, bd = 1e9;
+        route.forEach((q, i) => { const d = Math.hypot(q[0] - b.x, q[1] - b.y, q[2] - b.z); if (d < bd) { bd = d; best = i; } });
+        const tgt = route[Math.min(route.length - 1, best + 2)];
+        p.yaw = Math.atan2(-(tgt[0] - b.x), -(tgt[2] - b.z));
+        p.pitch = -0.15;
+        g.input.simulateKey('KeyW', true);
+        const blocked = b.hitWallX || b.hitWallZ;
+        g.input.simulateKey('Space', blocked || tgt[1] > b.y + 3);
+        return { x: b.x, y: b.y, z: b.z, best, ground: b.onGround, lev: p.levitation };
+      }, route);
+      log.push(st);
+      await wait(500);
+      if (t % 14 === 0) await shot('t' + t);
+    }
+    await run(() => { window.game.input.simulateKey('KeyW', false); window.game.input.simulateKey('Space', false); });
+    const last = log[log.length - 1];
+    console.log('walk', JSON.stringify({ start: log[0], end: last, maxRouteIdx: Math.max(...log.map((l) => l.best)), routeLen: route.length }));
+  },
   async stress({ shot, wait, run }) {
     const pts = await run(() => window.game.streamer.gen.routePoints[0]);
     const p = pts[Math.floor(pts.length * 0.5)];

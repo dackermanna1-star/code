@@ -98,7 +98,7 @@ const M: Record<string, MaterialDef> = {
   },
   soil: {
     name: 'soil', display: 'Soil', kind: Kind.SOLID, density: 6, hardness: 2, durability: 10,
-    colors: ['#5d4d2b', '#6b5a32', '#4c3f24', '#7a6a3a', '#3e3420', '#857442'], pattern: 'blotch', conductivity: 0.15,
+    colors: ['#4f4427', '#5c4f2c', '#43391f', '#6a5d33', '#2f2818', '#78693a'], pattern: 'blotch', conductivity: 0.15,
   },
   denserock: {
     name: 'denserock', display: 'Dense rock', kind: Kind.SOLID, density: 10, hardness: 200, durability: 10,
@@ -150,7 +150,7 @@ const M: Record<string, MaterialDef> = {
   grass: {
     name: 'grass', display: 'Grass', kind: Kind.SOLID, density: 6, hardness: 1, durability: 6,
     colors: ['#5b7a28', '#6e8f2e', '#48631e', '#86a63a', '#3d5419'], pattern: 'noise',
-    flammability: 0.5, burnHp: 30, burnDecay: 0.5, ignitionTemp: 200, conductivity: 0.1,
+    flammability: 0.28, burnHp: 30, burnDecay: 0.5, ignitionTemp: 200, conductivity: 0.1,
   },
   fungus: {
     name: 'fungus', display: 'Fungus', kind: Kind.SOLID, density: 6, hardness: 2, durability: 6,

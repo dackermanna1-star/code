@@ -125,12 +125,12 @@ export class WorldGenerator {
           const x = cr(p0.x, p1.x, p2.x, p3.x, u);
           const y = cr(p0.y, p1.y, p2.y, p3.y, u);
           const z = cr(p0.z, p1.z, p2.z, p3.z, u);
-          const r = 7.2 + 2.2 * this.nTunA.noise3(x / 23, y / 23, z / 23);
+          const r = 9 + 2 * this.nTunA.noise3(x / 23, y / 23, z / 23);
           pts.push({ x, y, z, r });
         }
       }
       const last = ctrl[ctrl.length - 1];
-      pts.push({ x: last.x, y: last.y, z: last.z, r: 7 });
+      pts.push({ x: last.x, y: last.y, z: last.z, r: 8 });
       this.routePoints.push(pts);
       for (let s = 0; s < pts.length - 1; s++) {
         const a = pts[s],
@@ -165,7 +165,7 @@ export class WorldGenerator {
       const bb = bx * bx + by * by + bz * bz;
       let t = bb > 0 ? (px * bx + py * by + pz * bz) / bb : 0;
       t = t < 0 ? 0 : t > 1 ? 1 : t;
-      const dx = px - bx * t, dy = (py - by * t) * 1.15, dz = pz - bz * t;
+      const dx = px - bx * t, dy = (py - by * t) * 0.9, dz = pz - bz * t;
       const r = s.a.r + (s.b.r - s.a.r) * t;
       const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
       const o = (r - d) / r;

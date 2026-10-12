@@ -47,7 +47,7 @@ export interface BiomeDef {
 export const BIOMES: BiomeDef[] = [
   {
     id: 'mines', name: 'Kaivos', display: 'Mines',
-    base: 'soil', lump: 'rock', lumpThreshold: 0.32, dense: 'denserock', vein: 'goldore', veinThreshold: 0.86,
+    base: 'soil', lump: 'rock', lumpThreshold: 0.3, dense: 'denserock', vein: 'goldore', veinThreshold: 0.93,
     cover: 'grass', coverChance: 0.22, ceilingCover: 'vine', ceilingChance: 0.03, powderFloor: 'gravel', powderChance: 0.02,
     cheese: 0.18, cheeseScale: 54, tunnelWidth: 0.11, flatten: 1.5,
     pools: [['water', 6], ['oil', 1.5], ['toxic', 1], ['blood', 0.3]], poolChance: 0.35,

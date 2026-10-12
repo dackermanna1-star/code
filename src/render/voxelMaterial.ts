@@ -164,6 +164,8 @@ void main() {
   light += vSky * (uSkyAmbient * ao + uSunCol * max(dot(n, uSunDir), 0.0));
   light += dynLight(fc, n, true) * (0.55 + 0.45 * ao);
   light += vec3(uFlash);
+  // soft shoulder so bright lights do not wash the pixel palette out
+  light = (1.0 - exp(-light * 1.25)) * 1.12;
   vec3 c = col * shade * light;
   float glow = inf.g;
   if (glow > 0.0) {
