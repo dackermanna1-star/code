@@ -159,7 +159,7 @@ The original is a 2.5D composition: the floe is viewed from ~35–40° above whi
 
 * **Walrus life.** The port's value (1500) is flagged by its author as invalid. We use 6000 so the final boss survives several minigun magazines; documented in `src/config/enemies.ts`.
 * **Walrus devouring.** Sources agree it eats the nearest player. We implement: rush along the hunter's lane; contact during the rush kills the hunter (game over).
-* **Explosion damage to the hunter** (team-kill option in the port) — enabled at 35 % strength so careless grenade use near yourself hurts; the hunter has 1000 HP and regenerates slowly. No health bar existed in the original HUD, so we show damage via a red vignette and screen flash only.
+* **Explosion damage to the hunter** (team-kill option in the port) — enabled at full strength like the port; the hunter has 1000 HP. Because the original HUD has no health bar, we add slow regeneration (20 HP/s after 3 s without damage) and show damage only as a red vignette.
 * **Money text colour** above the hunter: the frames show dark grey; the port uses the player colour. We follow the frames.
 * **Exact crosshair offset** per weapon: from the port (`cross_xoffset` 40/60/80 px ⇒ 2.5/3.75/5 m).
 * **Music:** the original shipped none (user folder only); we add only wind/sea ambience.

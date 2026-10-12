@@ -57,7 +57,9 @@ export class Bot {
     }
     if (e instanceof Activist && e.hasCub) best = shapes.find((s) => s.part === 'body') ?? best;
     if (e.type === 'turtle') best = shapes.find((s) => s.part === 'head') ?? best;
-    return e.z - (best.cy - (this.player.y + PLAYER.muzzleHeight)) / TAN_PITCH;
+    const lane = e.z - (best.cy - (this.player.y + PLAYER.muzzleHeight)) / TAN_PITCH;
+    // Lead targets that change lanes (zig-zaggers, gliding penguins).
+    return lane + (e.type === 'penguin' ? e.vz * 0.15 : 0);
   }
 
   think(world: World): void {

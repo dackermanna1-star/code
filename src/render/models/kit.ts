@@ -49,6 +49,32 @@ export function xfMatrix(x: Xf = {}): THREE.Matrix4 {
   return _m.compose(_p, _q, _s);
 }
 
+// Identical merged geometries (every seal builds the same seal) are shared, so
+// hundreds of corpses can be batched without duplicating vertex data.
+const GEO_CACHE = new Map<string, THREE.BufferGeometry>();
+function geometryKey(g: THREE.BufferGeometry): string {
+  const pos = g.attributes.position.array as ArrayLike<number>;
+  const col = g.attributes.color?.array as ArrayLike<number> | undefined;
+  let h1 = 0;
+  let h2 = 0;
+  const step = Math.max(1, Math.floor(pos.length / 997));
+  for (let i = 0; i < pos.length; i += step) {
+    h1 = (h1 * 31 + Math.round(pos[i] * 1e4)) | 0;
+    if (col) h2 = (h2 * 17 + Math.round(col[i] * 1e3)) | 0;
+  }
+  return `${pos.length}:${h1}:${h2}`;
+}
+export function shareGeometry(g: THREE.BufferGeometry): THREE.BufferGeometry {
+  const k = geometryKey(g);
+  const hit = GEO_CACHE.get(k);
+  if (hit) {
+    g.dispose();
+    return hit;
+  }
+  GEO_CACHE.set(k, g);
+  return g;
+}
+
 /** Collects primitives for one bone, grouped by material class. */
 export class PartBuilder {
   private items = new Map<MatClass, THREE.BufferGeometry[]>();
@@ -110,8 +136,10 @@ export class PartBuilder {
   buildInto(parent: THREE.Object3D, opts: { castShadow?: boolean; reflect?: boolean } = {}): THREE.Mesh[] {
     const out: THREE.Mesh[] = [];
     for (const [mat, geos] of this.items) {
-      const merged = geos.length === 1 ? geos[0] : mergeGeometries(geos, false);
-      if (!merged) continue;
+      const built = geos.length === 1 ? geos[0] : mergeGeometries(geos, false);
+      if (!built) continue;
+      for (const g of geos) if (g !== built) g.dispose();
+      const merged = shareGeometry(built);
       merged.computeBoundingSphere();
       const mesh = new THREE.Mesh(merged, MATERIALS[mat]);
       mesh.castShadow = opts.castShadow ?? true;
@@ -120,7 +148,6 @@ export class PartBuilder {
       mesh.userData.matClass = mat;
       parent.add(mesh);
       out.push(mesh);
-      for (const g of geos) if (g !== merged) g.dispose();
     }
     this.items.clear();
     return out;

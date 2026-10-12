@@ -141,13 +141,20 @@ export class Stage {
   }
 
   /** Advance one frame (also used by tests to step deterministically). */
-  frame(dt: number): void {
+  frame(dt: number, render = true): void {
     this.time += dt;
     for (const f of this.update) f(dt, this.time);
+    if (!render) return;
     for (const f of this.preRender) f(dt, this.time);
     if (this.renderFn) this.renderFn();
     else this.renderer.render(this.scene, this.camera);
     for (const f of this.postRender) f(dt, this.time);
+  }
+
+  /** Fast-forward `seconds` of game time without drawing (testing aid). */
+  fastForward(seconds: number, step = 1 / 30): void {
+    const n = Math.ceil(seconds / step);
+    for (let i = 0; i < n; i++) this.frame(step, i % 10 === 9);
   }
 }
 
