@@ -1281,6 +1281,7 @@ class Bot {
     const c4 = p.weapons[5];
     const keepPlant = this.planting && c4 && c4.startedArming && c4.armedTime - this.time < 1.2;
     if (this.nade && fighting && this.nade.phase !== 'pull') this.nade = null;
+    if (g.zombies?.enabled && !this.revive && !this.heal && !this.nade) this.considerRevive(fighting); // a teammate down (zdowned.js)
     if (g.zombies?.enabled && !this.heal && !this.nade) this.considerHeal(fighting);
     if (keepPlant) {
       this.mode = 'plant';
@@ -1289,7 +1290,8 @@ class Bot {
       this.mode = 'defuse';
       it.use = true; it.duck = true; it.stop = true;
       it.look = [bomb.pos[0], bomb.pos[1], bomb.pos[2]];
-    } else if (this.heal) this.runHeal(it);
+    } else if (this.revive) this.runRevive(it, fighting);
+    else if (this.heal) this.runHeal(it);
     else if (this.nade) this.runGrenade(it);
     else if (fighting) this.combat(it);
     else {
@@ -1376,7 +1378,7 @@ class Bot {
       if (!m || this.time - m.t > 3) this.mgr.intel(p.team, e, e.pm.origin, 'seen');
       this.memory.set(e, { t: this.time, pos: e.feet(), first: m && this.time - m.t < 3 ? m.first : this.time });
       const aimingAtMe = this.aimedAtBy(e, eye);
-      let score = d * (known ? 0.55 : 1) * (aimingAtMe ? 0.6 : 1) * (e.weapons[5] || e.defusing || e.planting ? 0.7 : 1);
+      let score = d * (known ? 0.55 : 1) * (aimingAtMe ? 0.6 : 1) * (e.weapons[5] || e.defusing || e.planting ? 0.7 : 1) * (e.target?.downed ? 0.5 : 1); // (zombie survival: the ones on a downed teammate first)
       if (score < bestScore) { bestScore = score; best = e; bestParts = { vh, vc, vb, cos, d }; }
     }
     if (best) {
@@ -1715,6 +1717,7 @@ class Bot {
 
   manageWeapon(cmd, it) {
     const g = this.game, p = this.p, w = p.active;
+    if (p.downed) { if (w && isGun(w) && !w.inReload && w.ammo > 0 && (w.clip === 0 || (w.clip < WS.clipSize(w) * 0.5 && !this.zombieNear(260)))) cmd.wbuttons |= BTN_RELOAD; return; } // down: the pistol only
     if (this.nade || this.planting || this.heal) return;
     const best = this.bestGun();
     if (!w) { if (best) g.selectWeapon(p, best); return; }
@@ -1798,13 +1801,13 @@ class Bot {
    */
   considerHeal(fighting) {
     const p = this.p, g = this.game;
-    if (this.time < (this.healClock || 0)) return;
+    if (this.time < (this.healClock || 0) || p.downed || this.revive) return; // (down: pistol only; picking somebody up first)
     this.healClock = this.time + 0.5;
     const kit = p.weapons[4].find((x) => x.id === 'medkit' && (x.count ?? 1) > 0);
     if (!kit) return;
     // the human about to go down close by: run over and save him unless something is right on us
     const me = g.local;
-    if (me && me !== p && me.alive && me.team === p.team && me.health < 35 && dist3(p.pm.origin, me.pm.origin) < 350 && !this.zombieNear(140, 0)) {
+    if (me && me !== p && me.alive && !me.downed && me.team === p.team && me.health < 35 && dist3(p.pm.origin, me.pm.origin) < 350 && !this.zombieNear(140, 0)) {
       this.heal = { kit, target: me, phase: 'select', t: this.time, urgent: true };
       return;
     }
@@ -1814,7 +1817,7 @@ class Bot {
     if (fighting || this.time - this.targetSeen < 1.5) return;
     let best = null, bs = Infinity;
     for (const q of g.players) {
-      if (q === p || !q.alive || q.team !== p.team || q.isZombie || q.health >= 55) continue;
+      if (q === p || !q.alive || q.downed || q.team !== p.team || q.isZombie || q.health >= 55) continue;
       const d = dist3(p.pm.origin, q.pm.origin);
       if (d > 450) continue;
       const sc = d + q.health * 4 - (q.isBot ? 0 : 400);
@@ -1832,7 +1835,7 @@ class Bot {
       const best = this.bestGun();
       if (best && p.active !== best) g.selectWeapon(p, best);
     };
-    if (!p.weapons[4].includes(kit) || !q.alive || this.time - h.t > 8) { done(); return; }
+    if (!p.weapons[4].includes(kit) || !q.alive || q.downed || this.time - h.t > 8) { done(); return; }
     const chest = [q.pm.origin[0], q.pm.origin[1], q.pm.origin[2] + 10];
     if (h.phase === 'using') {
       if (q !== p) { it.look = chest; it.stop = true; }
@@ -1858,11 +1861,61 @@ class Bot {
     if (ready && Math.abs(angDiff(yaw, p.pm.angles[1])) < 15 && Math.abs(pitch - p.pm.angles[0]) < 20) { it.attack2 = true; h.phase = 'using'; }
   }
 
+  // ------------------------------------------------------------------ revives (zombie survival)
+  /**
+   * A teammate is down: go and pick him up (the human first), never with a zombie right on
+   * us (a revive is seconds of holding still with no gun). Down myself with a Second Wind:
+   * use it when it's quiet, or before I bleed out.
+   */
+  considerRevive(fighting) {
+    const p = this.p, g = this.game, D = g.zombies.downed;
+    if (this.time < (this.reviveClock || 0)) return;
+    this.reviveClock = this.time + 0.4;
+    if (p.downed) {
+      if (p.secondWind && !p.downed.by && (!this.zombieNear(220, 320) || D.left(p) < 8)) this.revive = { target: p, t: this.time };
+      return;
+    }
+    const q = D.reviveTarget(p, fighting ? 900 : 1800);
+    if (!q || this.zombieNear(q.isBot ? 160 : 110, q.isBot ? 400 : 320)) return;
+    this.revive = { target: q, t: this.time };
+    if (!q.isBot) this.mgr.radio(this, Math.random() < 0.5 ? "Hang on, I'm coming!" : "I've got you, stay down!");
+  }
+
+  runRevive(it, fighting) {
+    const r = this.revive, p = this.p, q = r.target, g = this.game;
+    const done = (wait = 1) => { this.revive = null; this.reviveClock = this.time + wait; };
+    const D = q.downed;
+    if (!q.alive || !D || (D.by && D.by !== p) || this.time - r.t > 20 || (p.downed && q !== p)) { done(0.5); return; }
+    if (q === p) {
+      // my own Second Wind: hold use (shooting back instead while one's on top of me and there's time)
+      if (this.zombieNear(110, 200) && g.zombies.downed.left(p) > 5 && !D.by) { done(1.5); return; }
+      this.mode = 'revive';
+      it.use = true; it.stop = true; it.fire = false;
+      return;
+    }
+    D.claim = p; D.claimT = this.time; // (the other bots leave him to me and cover)
+    const d = Math.hypot(q.pm.origin[0] - p.pm.origin[0], q.pm.origin[1] - p.pm.origin[1]);
+    if (d > 56 || Math.abs(q.pm.origin[2] - p.pm.origin[2]) > 60) {
+      // on the way: shoot what's in the way and keep going, but zombies on him get shot off
+      // him from where we are first (walking into that is how the reviver goes down too)
+      if (fighting) this.combat(it);
+      this.mode = 'revive';
+      if (fighting && d < 600 && g.zombies.downed.danger(q, 220, 420)) return;
+      it.move = q.feet(); it.tol = 24; it.walk = false; it.duck = false; it.stop = false; it.strafe = 0;
+      return;
+    }
+    this.mode = 'revive';
+    // a zombie about to claw us (their reach is ~80) early on: guns first, then try again
+    if (this.zombieNear(D.prog > 0 ? 120 : 150, 220) && D.prog < 0.7) { if (fighting) this.combat(it); done(1); return; }
+    it.use = true; it.stop = true; it.fire = false;
+    it.look = [q.pm.origin[0], q.pm.origin[1], q.pm.origin[2]];
+  }
+
   // ------------------------------------------------------------------ grenades
   // Plan a throw of `type` at `target`; false when we don't have one or can't reach it.
   startGrenade(type, target, { tol = 220, after = null } = {}) {
     const p = this.p;
-    if (this.nade || p.planting || p.defusing) return false;
+    if (this.nade || p.planting || p.defusing || p.downed) return false;
     const w = p.weapons[4].find((x) => x.id === type && (x.count ?? 1) > 0);
     if (!w) return false;
     const sol = this.K.throwSolution(p.eyePos(), target, type);

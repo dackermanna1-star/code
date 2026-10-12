@@ -252,8 +252,8 @@
     steps.push(async () => {
       const Zm = Z();
       check('feature modules', ['economy', 'downed', 'feedback'].every((k) => typeof Zm[k]?.tick === 'function' && typeof Zm[k]?.hud === 'function'));
+      const { buildHudState } = await import('/src/game/hudstate.js'); // (before counting: an await lets frames run)
       let ticked = 0, hudded = 0;
-      const { buildHudState } = await import('/src/game/hudstate.js'); // (before the swap: the page's own frames run while it loads)
       const t0 = Zm.economy.tick, h0 = Zm.downed.hud;
       Zm.economy.tick = () => ticked++;
       Zm.downed.hud = (s) => { hudded++; s.zmTest = !!s.radar; };

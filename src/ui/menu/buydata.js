@@ -1,6 +1,7 @@
 // CS 1.6 buy menu contents: categories, per-team item order (number keys),
 // prices and the info-panel text shown next to the weapon picture.
 import { ATTACHMENTS, ATTACHMENT_IDS, SKINS, SKIN_IDS } from '../../game/attachments.js';
+import { SECOND_WIND } from '../../game/zdowned.js';
 
 export const CATEGORIES = [
   { key: 1, id: 'pistol', label: 'Handgun' },
@@ -30,7 +31,7 @@ export const MENU = {
     CT: ['vest', 'vesthelm', 'flashbang', 'hegrenade', 'smokegrenade', 'defuser', 'nvgs'],
     ALL: ['vest', 'vesthelm', 'flashbang', 'hegrenade', 'smokegrenade', 'molotov', 'medkit', 'claymore', 'remotec4'],
   },
-  upgrade: { ALL: [...ATTACHMENT_IDS.map((a) => 'att_' + a), 'skins'] },
+  upgrade: { ALL: [...ATTACHMENT_IDS.map((a) => 'att_' + a), SECOND_WIND.id, 'skins'] },
   skins: { ALL: SKIN_IDS.map((k) => 'skin_' + k) },
 };
 
@@ -86,6 +87,7 @@ export const ITEMS = {
   ...Object.fromEntries(ATTACHMENT_IDS.map((a) => ['att_' + a, { name: ATTACHMENTS[a].name, price: ATTACHMENTS[a].price, text: ATTACHMENTS[a].text, upgrade: true }])),
   ...Object.fromEntries(SKIN_IDS.map((k) => ['skin_' + k, { name: SKINS[k].name, price: SKINS[k].price, text: SKINS[k].text, skin: k, upgrade: true }])),
   skins: { name: 'Weapon Skins...', price: null, page: 'skins', text: 'Paint jobs for the weapon in your hands.' },
+  [SECOND_WIND.id]: { name: SECOND_WIND.name, price: SECOND_WIND.price, text: SECOND_WIND.text, upgrade: true }, // a perk (zdowned.js; "owned" from attachments.js menuState)
 };
 
 // equipment pictures in the info panel reuse the HUD / kill icons

@@ -143,6 +143,7 @@ export function menuState(p, item) {
     if ((w.skin || 'factory') === id) return { off: true, note: 'current' };
     return { off: false, note: null };
   }
+  if (kind === 'perk') return p.secondWind ? { off: true, note: 'owned' } : { off: false, note: null }; // (Second Wind, zdowned.js)
   return { off: false, note: null };
 }
 
