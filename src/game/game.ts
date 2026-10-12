@@ -51,6 +51,11 @@ export class Game {
   private fpsAcc = 0;
   private fpsN = 0;
   frameMs = 0;
+  /** Exponential moving averages of per-system costs in ms (debug overlay). */
+  readonly timings = { tick: 0, sim: 0, hooks: 0, mesh: 0, render: 0, frameHooks: 0 };
+  private ema(k: keyof Game['timings'], v: number): void {
+    this.timings[k] = this.timings[k] * 0.9 + v * 0.1;
+  }
   simMsFrame = 0;
   shake = 0;
   flash = 0;
@@ -194,12 +199,16 @@ export class Game {
     }
     if (this.state === 'playing') {
       this.player.look(this.input);
+      const tf = performance.now();
       for (const h of this.frameHooks) h(dt);
+      this.ema('frameHooks', performance.now() - tf);
       this.acc += dt;
       let steps = 0;
       this.simMsFrame = 0;
       while (this.acc >= DT && steps < 4) {
+        const tt = performance.now();
         this.tick();
+        this.ema('tick', performance.now() - tt);
         this.acc -= DT;
         steps++;
       }
@@ -217,7 +226,9 @@ export class Game {
     this.time += DT;
     const p = this.player;
     p.update(this.world, this.input, DT, this.moveEvents);
+    const th = performance.now();
     for (const h of this.tickHooks) h(DT);
+    this.ema('hooks', performance.now() - th);
     if (this.tickCount % 8 === 0) this.streamer.update(p.body.x, p.body.y, p.body.z, this.opts.useWorkers ? 0 : 6);
     // cellular simulation with a per-frame budget: the world slows down before the frame rate does
     if (this.simMsFrame < 11) {
@@ -226,6 +237,7 @@ export class Game {
       this.sim.focusZ = p.body.z;
       this.sim.step();
       this.simMsFrame += this.sim.stats.tickMs;
+      this.ema('sim', this.sim.stats.tickMs);
     }
     this.particles.update(DT);
   }
@@ -274,12 +286,16 @@ export class Game {
     this.lights.add(p.body.x, p.eyeY + 1, p.body.z, [1.0, 0.9, 0.78], 64, 0.85);
     this.lights.addEmitters(this.chunks.emitters.values(), cam, 120);
     this.lights.upload(u, cam);
+    const tm = performance.now();
     this.chunks.update(cam, 5);
+    this.ema('mesh', performance.now() - tm);
     if (this.tickCount % 30 === 0) this.chunks.cull(cam);
     this.particles.sync();
     this.renderer.info.reset();
     this.renderer.autoClear = true;
+    const tr = performance.now();
     this.renderer.render(this.scene, this.camera);
+    this.ema('render', performance.now() - tr);
     this.renderer.autoClear = false;
     for (const h of this.renderHooks) h(this.renderer);
     this.renderer.autoClear = true;

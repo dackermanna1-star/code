@@ -27,6 +27,16 @@ async function key(run, wait, code, ms = 60) {
 }
 
 export default {
+  async timing({ wait, run }) {
+    const pts = await run(() => window.game.streamer.gen.routePoints[0]);
+    const p = pts[Math.floor(pts.length * 0.5)];
+    await teleport(run, wait, p.x, p.y - 3, p.z, 0.5, -0.1);
+    await wait(4000);
+    for (let i = 0; i < 3; i++) {
+      await wait(2000);
+      console.log('timings', JSON.stringify(await run(() => Object.fromEntries(Object.entries(window.game.timings).map(([k, v]) => [k, +v.toFixed(2)])))), 'enemies', await run(() => window.run.enemies.list.filter((e) => !e.sleeping).length));
+    }
+  },
   async win({ shot, wait, run }) {
     await wait(1000);
     // final chamber lies in the last holy mountain band: floor = band.bottom + 10

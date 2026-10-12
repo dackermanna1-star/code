@@ -158,6 +158,7 @@ export class DebugTools {
     const extra = this.extraStats();
     const lines = [
       `FPS ${g.fps.toFixed(0)}  frame ${g.frameMs.toFixed(1)} ms  sim ${s.tickMs.toFixed(2)} ms/tick`,
+      `ms: tick ${g.timings.tick.toFixed(2)} (sim ${g.timings.sim.toFixed(2)}, gameplay ${g.timings.hooks.toFixed(2)})  ui/frame ${g.timings.frameHooks.toFixed(2)}  mesh ${g.timings.mesh.toFixed(2)}  render ${g.timings.render.toFixed(2)}`,
       `sim: active chunks ${s.activeChunks}  visited ${s.cellsVisited}  moved ${s.cellsMoved}  reactions ${s.reactions}  ignitions ${s.ignitions}  deferred ${s.deferredChunks}`,
       `world: loaded ${g.world.loadedCount}  meshes ${g.chunks.stats.meshes}  tris ${(g.chunks.stats.triangles / 1000).toFixed(0)}k  rebuilt ${g.chunks.stats.rebuilt} (${g.chunks.stats.lastRebuildMs.toFixed(1)} ms)  dirty ${g.world.meshDirty.size}  gen ${g.streamer.stats.generated} inflight ${g.streamer.stats.inflight} retained ${g.streamer.stats.retained}`,
       `particles ${g.particles.count} (material ${g.particles.materialCount})  lights ${g.lights.count}  draw calls ${g.renderer.info.render.calls}`,
