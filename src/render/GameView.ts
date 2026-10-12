@@ -342,7 +342,7 @@ export class GameView {
     if (e instanceof Penguin && ev.kind === 'glide') vel.multiplyScalar(1.1);
     opts.velocity = vel;
     // Bullet momentum, scaled like the original's death animations.
-    const dv = Math.min(9, 0.8 + ev.force / (mass * 0.35));
+    const dv = Math.min(5, 0.6 + ev.force / (mass * 0.6));
     opts.impulse = { point: pt, dir, speed: dv };
 
     const gibBones = new Set(Object.entries(rig.spec).filter(([, s]) => s.gib).map(([k]) => k));
@@ -355,7 +355,7 @@ export class GameView {
       case 'headoff':
         opts.detach = new Set([rig.head]);
         opts.detachSpeed = 3.5;
-        opts.impulse = { point: pt, dir: new THREE.Vector3(ev.dirX, 0.8, ev.dirZ).normalize(), speed: 4, bone: rig.head };
+        opts.impulse = { point: pt, dir: new THREE.Vector3(ev.dirX, 0.8, ev.dirZ).normalize(), speed: 3.5, bone: rig.head };
         break;
       case 'headshot':
         opts.impulse = { point: pt, dir: new THREE.Vector3(ev.dirX, 0.35, ev.dirZ).normalize(), speed: dv * 1.2, bone: rig.head };
@@ -370,7 +370,7 @@ export class GameView {
         break;
       case 'blast': {
         const ex = ev.explosion ?? ev.point;
-        opts.blast = { point: new THREE.Vector3(ex.x, ex.y, ex.z), speed: Math.min(10, 2.5 + ev.force / 80) };
+        opts.blast = { point: new THREE.Vector3(ex.x, ex.y, ex.z), speed: Math.min(7, 2 + ev.force / 150) };
         if (ev.force > 350) {
           opts.detach = gibBones;
           opts.detachSpeed = 7;
@@ -439,7 +439,8 @@ export class GameView {
       animate: () => {},
     };
     const rag = new Ragdoll(this.physics, fake, {
-      velocity: new THREE.Vector3(dir.x * (blast ? 5 : 3), blast ? 5 : 1.5, dir.z * 2),
+      velocity: new THREE.Vector3(dir.x * (blast ? 4 : 2.5), blast ? 3.5 : 1.2, dir.z * 2),
+      groundOnly: true,
     });
     rag.parts[0].body.angularVelocity.set((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 10);
     rag.onFrozen = () => {
