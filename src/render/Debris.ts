@@ -141,7 +141,7 @@ export class Debris {
       ['awp', 0xf0c040, 200],
       ['shotgun', 0xc02828, 400],
     ];
-    if (shellGeometry) SHELL_SCALE = 1;
+    if (shellGeometry) SHELL_SCALE = 1.5;
     for (const [k, color, cap] of kinds) {
       const geo = shellGeometry?.(k) ?? defaultShellGeometry(k);
       const pool = new ShellPool(geo, shellGeometry ? 0xffffff : color, cap, k !== 'shotgun');

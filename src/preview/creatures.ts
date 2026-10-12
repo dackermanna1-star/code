@@ -11,6 +11,8 @@
 //   pitch=<deg>, view=<deg>  close-up camera pitch / orbit angle
 //   zoom=<k>        lineup: zoom the gameplay camera in
 //   speed=<m/s>, rage=<0..3>, hasCub=0|1  override params
+//   colliders=1     overlay ragdoll colliders (capsule halfLength = half the
+//                   straight segment, excluding the caps) and joint pivots
 import * as THREE from 'three';
 import { Stage, CAMERA_TARGET } from '../render/Stage';
 import { createCreatureRig } from '../render/models/creatures';
@@ -215,8 +217,38 @@ function countTris(o: THREE.Object3D): number {
   return n;
 }
 
+function addColliders(rig: CreatureRig): void {
+  const colors = [0x00ffff, 0xff00ff, 0xffff00, 0x00ff00, 0xff8000, 0x8080ff];
+  let i = 0;
+  for (const [name, sp] of Object.entries(rig.spec)) {
+    const bone = rig.bones.get(name);
+    if (!bone) {
+      console.warn('spec without bone', name);
+      continue;
+    }
+    let geo: THREE.BufferGeometry;
+    if (sp.shape === 'sphere') geo = new THREE.SphereGeometry(sp.size[0], 12, 8);
+    else if (sp.shape === 'box') geo = new THREE.BoxGeometry(sp.size[0] * 2, sp.size[1] * 2, sp.size[2] * 2);
+    else {
+      geo = new THREE.CapsuleGeometry(sp.size[0], sp.size[1] * 2, 4, 10);
+      if (sp.axis === 'x') geo.rotateZ(Math.PI / 2);
+      if (sp.axis === 'z') geo.rotateX(Math.PI / 2);
+    }
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: colors[i++ % colors.length], wireframe: true, depthTest: false, transparent: true, opacity: 0.6 }));
+    m.position.set(...sp.offset);
+    m.renderOrder = 998;
+    bone.add(m);
+    if (sp.joint) {
+      const j = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 4), new THREE.MeshBasicMaterial({ color: sp.joint.kind === 'hinge' ? 0xff0000 : 0xffffff, depthTest: false }));
+      j.renderOrder = 999;
+      bone.add(j);
+    }
+  }
+}
+
 function makeItem(type: EnemyType, x: number, z: number): Item {
   const rig = createCreatureRig(type);
+  if (q.get('colliders') === '1') addColliders(rig);
   const holder = new THREE.Group();
   holder.position.set(x, 0, z);
   scene.add(holder);

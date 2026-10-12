@@ -159,7 +159,7 @@ export class GameView {
       }
     });
     on('money', (e) => {
-      if (e.amount > 0) this.popups.push({ pos: new THREE.Vector3(e.pos.x, e.pos.y, e.pos.z), text: `${e.amount}$`, age: 0 });
+      if (e.amount > 0) this.popups.push({ pos: new THREE.Vector3(e.pos.x, e.pos.y + 0.3, e.pos.z), text: `${e.amount}$`, age: 0 });
     });
     on('playerLand', (e) => {
       const p = world.players[e.playerId];
@@ -464,8 +464,8 @@ export class GameView {
     const strength = Math.min(1.5, e.damage / 60);
     if (e.bullet) {
       // Original: 15 blobs per bullet hit, thrown 3-6 px/tick away from the gun.
-      const n = Math.min(32, 10 + e.damage / 10) * (e.part === 'head' ? 1.4 : 1);
-      this.blood.spray(e.point, n, { dirX: e.dirX, dirZ: e.dirZ, speed: [5, 15], up: [-2, 2.5], spread: 0.2 });
+      const n = Math.min(48, 16 + e.damage / 8) * (e.part === 'head' ? 1.4 : 1);
+      this.blood.spray(e.point, n, { dirX: e.dirX, dirZ: e.dirZ, speed: [4, 15], up: [-2, 2.5], spread: 0.22, size: [0.018, 0.07] });
       this.effects.bloodPuff(e.point, e.dirX, strength);
     } else {
       this.blood.spray(e.point, 12 + e.damage / 15, { dirX: e.dirX, dirZ: e.dirZ, speed: [1, 6], up: [0.5, 4], spread: 1.5 });

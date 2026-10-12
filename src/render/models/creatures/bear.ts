@@ -219,6 +219,11 @@ export function createBear(): CreatureRig {
   const seed = Math.random() * 10;
   let runK = 0;
   let rageK = 0;
+  let phase = 0;
+  let lastDist = NaN;
+  const WALK_OFF = { RL: 0, FL: 0.25, RR: 0.5, FR: 0.75 };
+  const RUN_OFF = { RL: 0, FL: 0.55, RR: 0.1, FR: 0.45 };
+  const rot = (x: number, y: number, t: number): [number, number] => [x * Math.cos(t) - y * Math.sin(t), x * Math.sin(t) + y * Math.cos(t)];
   const restUp = legs.map((l) => l.up.position.clone());
 
   const pose = (a: AnimInput) => {
@@ -232,7 +237,12 @@ export function createBear(): CreatureRig {
 
     // gait parameters blended walk -> gallop
     const cycle = lerp(1.75, 3.93, runK);
-    const ph = (a.distance / cycle) * TAU;
+    // integrate the phase so changing the cycle length does not make feet jump
+    const dd = Number.isNaN(lastDist) ? a.distance : a.distance - lastDist;
+    lastDist = a.distance;
+    phase += (Math.abs(dd) < 5 ? dd : 0) / cycle;
+    if (Number.isNaN(phase)) phase = 0;
+    const ph = phase * TAU;
     const duty = lerp(0.62, 0.32, runK);
     const stride = cycle * duty * lerp(0.92, 1.25, runK);
     const lift = lerp(0.2, 0.24, runK);
@@ -254,12 +264,11 @@ export function createBear(): CreatureRig {
     jaw.rotation.z = -snarl;
 
     // legs: IK so planted paws do not slide
-    const offs = runK > 0.5 ? { RL: 0, RR: 0.1, FR: 0.45, FL: 0.55 } : { RL: 0, FL: 0.25, RR: 0.5, FR: 0.75 };
-    const rot = (x: number, y: number, t: number): [number, number] => [x * Math.cos(t) - y * Math.sin(t), x * Math.sin(t) + y * Math.cos(t)];
     for (let i = 0; i < legs.length; i++) {
       const l = legs[i];
       const key = (l.front ? 'F' : 'R') + (l.side > 0 ? 'L' : 'R');
-      const off = offs[key as keyof typeof offs];
+      const k2 = key as keyof typeof WALK_OFF;
+      const off = lerp(WALK_OFF[k2], RUN_OFF[k2], runK);
       const [dx, ly] = footPath(ph / TAU + off, duty, stride * moving, lift * moving);
       // actual hip/shoulder position in root space after the spine pose
       let hp: [number, number];

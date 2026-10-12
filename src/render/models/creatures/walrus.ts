@@ -218,9 +218,9 @@ export function createWalrus(): CreatureRig {
       body.position.y += 0.05 * Math.abs(s) - 0.05;
       body.rotation.z = 0.05 * s;
       chest.rotation.z = -0.32 + 0.07 * Math.sin(ph + 0.8);
-      head.rotation.z = 0.12 - 0.05 * c;
+      head.rotation.z = 0.2 - 0.05 * c;
       head.position.x += 0.08;
-      jaw.rotation.z = -0.65 - 0.08 * s;
+      jaw.rotation.z = -0.85 - 0.08 * s;
       tail.rotation.z = 0.25 * Math.sin(ph + 2);
       fl.rotation.z = fr.rotation.z = 0.5 * c - 0.3;
       return;

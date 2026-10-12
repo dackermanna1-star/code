@@ -43,9 +43,9 @@ export function createActivist(): CreatureRig {
     pb.addShaded(
       loft(
         [
-          { x: 0, y: -0.17, w: 0.205, h: 0.15, hb: 0.16 },
-          { x: 0, y: -0.06, w: 0.2, h: 0.145, hb: 0.155 },
-          { x: 0, y: 0.0, w: 0.195, h: 0.14, hb: 0.15 },
+          { x: 0, y: -0.17, w: 0.2, h: 0.145, hb: 0.155 },
+          { x: 0, y: -0.06, w: 0.188, h: 0.133, hb: 0.143 },
+          { x: 0, y: 0.0, w: 0.18, h: 0.128, hb: 0.138 },
         ],
         { radial: 14, sub: 1 },
       ),
@@ -108,30 +108,31 @@ export function createActivist(): CreatureRig {
     for (const s of [-1, 1]) pb.add(new THREE.BoxGeometry(0.012, 0.012, 0.04), 0xb4470f, 'skin', { p: [0.105, 0.205, s * 0.042], r: [s * 0.25, 0, 0] });
     // messy orange hair: a cap plus tufts
     const hairFn = shade(0xff8a2c, 0xb5420c, { mid: HAIR, bias: -0.3, noise: 0.12, freq: 30 });
-    pb.addShaded(blob(0.118, 0.085, 0.11, 12, 8), hairFn, 'fur', { p: [-0.01, 0.225, 0] });
-    pb.addShaded(blob(0.08, 0.1, 0.1, 8, 6), hairFn, 'fur', { p: [-0.06, 0.15, 0] });
-    // clumps: x, y, z, rotZ, rotX, length
+    pb.addShaded(blob(0.128, 0.1, 0.118, 12, 8), hairFn, 'fur', { p: [-0.015, 0.215, 0] });
+    pb.addShaded(blob(0.09, 0.115, 0.108, 8, 6), hairFn, 'fur', { p: [-0.06, 0.14, 0] });
+    // messy lumps over the mop: x, y, z, rotZ, rotX, size
     const tufts: Array<[number, number, number, number, number, number]> = [
-      [0.08, 0.25, 0.0, -1.0, 0, 0.09],
-      [0.05, 0.28, 0.05, -0.55, 0.45, 0.1],
-      [0.05, 0.28, -0.05, -0.55, -0.45, 0.1],
-      [-0.01, 0.29, 0.0, 0.05, 0, 0.11],
-      [-0.05, 0.27, 0.06, 0.6, 0.6, 0.1],
-      [-0.05, 0.27, -0.06, 0.6, -0.6, 0.1],
-      [-0.09, 0.22, 0.0, 1.15, 0, 0.11],
-      [-0.1, 0.15, 0.06, 1.7, 0.5, 0.09],
-      [-0.1, 0.15, -0.06, 1.7, -0.5, 0.09],
-      [0.02, 0.24, 0.09, 0.1, 1.15, 0.08],
-      [0.02, 0.24, -0.09, 0.1, -1.15, 0.08],
+      [0.08, 0.24, 0.0, -1.1, 0, 0.07],
+      [0.06, 0.27, 0.06, -0.7, 0.5, 0.07],
+      [0.06, 0.27, -0.06, -0.7, -0.5, 0.07],
+      [0.0, 0.3, 0.03, -0.1, 0.3, 0.08],
+      [-0.02, 0.3, -0.04, 0.2, -0.3, 0.08],
+      [-0.07, 0.27, 0.06, 0.7, 0.6, 0.08],
+      [-0.07, 0.27, -0.06, 0.7, -0.6, 0.08],
+      [-0.11, 0.2, 0.0, 1.3, 0, 0.08],
+      [-0.11, 0.13, 0.06, 1.7, 0.5, 0.07],
+      [-0.11, 0.13, -0.06, 1.7, -0.5, 0.07],
+      [0.03, 0.24, 0.1, 0.1, 1.2, 0.06],
+      [0.03, 0.24, -0.1, 0.1, -1.2, 0.06],
     ];
     for (const [x, y, z, rz, rx, len] of tufts) {
-      const g = blob(0.036, len * 0.6, 0.032, 6, 4);
-      g.translate(0, len * 0.42, 0);
+      const g = blob(0.042, len * 0.55, 0.038, 6, 4);
+      g.translate(0, len * 0.25, 0);
       pb.addShaded(g, hairFn, 'fur', { p: [x, y, z], r: [rx, 0, rz] });
     }
-    for (const [x, y, z, rz, rx] of [[0.06, 0.27, 0.02, -0.7, 0.2], [-0.04, 0.29, -0.03, 0.4, -0.3], [-0.08, 0.25, 0.04, 0.9, 0.4]]) {
-      const g = cone(0.022, 0.08, 5);
-      g.translate(0, 0.07, 0);
+    for (const [x, y, z, rz, rx] of [[0.05, 0.29, 0.02, -0.6, 0.2], [-0.03, 0.31, -0.03, 0.3, -0.3], [-0.09, 0.26, 0.04, 0.9, 0.4], [0.09, 0.25, -0.05, -1.2, -0.4]]) {
+      const g = cone(0.022, 0.075, 5);
+      g.translate(0, 0.06, 0);
       pb.addShaded(g, hairFn, 'fur', { p: [x, y, z], r: [rx, 0, rz] });
     }
   });
@@ -158,7 +159,7 @@ export function createActivist(): CreatureRig {
             { x: 0, y: -0.14, w: 0.068, h: 0.07 },
             { x: 0, y: -UPPER, w: 0.06, h: 0.062 },
           ],
-          { radial: 10, sub: 2, cap0: 0.05, cap1: 0.04 },
+          { radial: 9, sub: 2, cap0: 0.05, cap1: 0.04 },
         ),
         sleeveFn,
         'cloth',
@@ -195,7 +196,7 @@ export function createActivist(): CreatureRig {
             { x: 0, y: -0.2, w: 0.08, h: 0.083 },
             { x: 0, y: -THIGH, w: 0.065, h: 0.068 },
           ],
-          { radial: 12, sub: 2, cap0: 0.05 },
+          { radial: 10, sub: 2, cap0: 0.05 },
         ),
         jeansFn,
         'cloth',
@@ -211,7 +212,7 @@ export function createActivist(): CreatureRig {
             { x: 0, y: -0.2, w: 0.058, h: 0.058 },
             { x: 0, y: -0.3, w: 0.062, h: 0.062 },
           ],
-          { radial: 12, sub: 2 },
+          { radial: 10, sub: 1 },
         ),
         jeansFn,
         'cloth',
@@ -225,7 +226,7 @@ export function createActivist(): CreatureRig {
             { x: 0, y: -0.36, w: 0.064, h: 0.07 },
             { x: 0.0, y: -SHIN + 0.02, w: 0.065, h: 0.075 },
           ],
-          { radial: 12, sub: 1 },
+          { radial: 10, sub: 1 },
         ),
         bootFn,
         'rubber',
@@ -241,7 +242,8 @@ export function createActivist(): CreatureRig {
   cub.name = 'heldCub';
   cub.scale.setScalar(0.85);
   chest.add(cub);
-  const cubRest = new THREE.Vector3(0.3, -0.07, 0);
+  const cubRest = new THREE.Vector3(0.34, -0.07, 0);
+  const heldInput: AnimInput = { state: 'held', stateTime: 0, time: 0, distance: 0, speed: 0, dt: 0, params: {} };
   cub.position.copy(cubRest);
   cub.rotation.z = 0.12;
 
@@ -376,7 +378,9 @@ export function createActivist(): CreatureRig {
     if (hasCub && cub.parent === chest) {
       cub.position.copy(cubRest);
       cub.position.y += 0.015 * Math.abs(Math.cos(ph));
-      cubRig.animate({ ...a, state: 'held', distance: time * 0.35, speed: 0.6 });
+      heldInput.time = time;
+      heldInput.dt = a.dt;
+      cubRig.animate(heldInput);
     }
   };
 

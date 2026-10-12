@@ -633,6 +633,8 @@ export class Screens {
 
   /** Store the result once per stats object; returns its rank among the shown scores or -1. */
   private record(s: GameStats, victory: boolean): number {
+    // A hunt without a single kill is not worth remembering.
+    if (s.kills <= 0 && !victory) return -1;
     let date = this.recorded.get(s);
     if (date === undefined) {
       date = Date.now() + Math.random();

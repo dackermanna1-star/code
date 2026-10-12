@@ -132,6 +132,18 @@ function build(name: string, lod = false): CubBuild {
       eyes.scale.y = 1.15;
       return;
     }
+    if (a.state === 'held') {
+      // Carried in an activist's arms: rear droops, head looks about.
+      const t = time;
+      rear.rotation.z = 0.55 + 0.08 * Math.sin(t * 3.1 + seed);
+      body.rotation.z = 0.05;
+      head.rotation.z = 0.12 + 0.08 * Math.sin(t * 2.3 + seed);
+      head.rotation.y = 0.45 * wobble(t * 0.6, seed);
+      fl.rotation.z = fr.rotation.z = 0.5 + 0.25 * Math.sin(t * 4.7);
+      fl.rotation.x = -0.5;
+      fr.rotation.x = 0.5;
+      return;
+    }
     if (a.state === 'sniff') {
       // Raise the head (hit shape lift: 0.06 * max(0, sin(ticks * 0.12))),
       // twitch the nose and look around (towards the viewer and back).

@@ -255,7 +255,7 @@ export function createTurtle(): CreatureRig {
   rb.part(tail, (pb) => pb.addShaded(cone(0.08, 0.22, 8), legFn, 'skin', { r: [0, 0, 2.0], p: [-0.06, -0.04, 0] }));
 
   // ---------------------------------------------------------------- ragdoll
-  rb.spec.shell = { shape: 'box', size: [1.42, 0.62, 1.0], offset: [0, -0.06, 0], mass: 250 };
+  rb.spec.shell = { shape: 'box', size: [1.28, 0.7, 0.9], offset: [0, 0.08, 0], mass: 250 };
   rb.spec.neck = {
     shape: 'capsule', size: [0.18, 0.14], axis: 'x', offset: [0.05, 0.04, 0], mass: 8,
     joint: { kind: 'cone', axis: [1, 0, 0], cone: 0.6, twist: 0.3 },
@@ -286,7 +286,9 @@ export function createTurtle(): CreatureRig {
     head.rotation.z -= 0.25 * e;
     eyes.scale.y = Math.min(eyes.scale.y, 1 - 0.85 * e);
     for (const lg of legs) {
-      lg.position.y += 0.3 * e;
+      lg.position.y += 0.4 * e;
+      lg.position.z *= 1 - 0.4 * e;
+      lg.position.x *= 1 - 0.12 * e;
       lg.rotation.x *= 1 - e;
       lg.rotation.z *= 1 - e;
     }

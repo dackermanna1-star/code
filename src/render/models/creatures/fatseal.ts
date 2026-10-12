@@ -88,8 +88,6 @@ export function createFatSeal(): CreatureRig {
     }
     // pink nose
     addRoot(pb, head, blob(0.07, 0.05, 0.085, 10, 8).translate(hx + 0.6, hy + 0.05, 0), shade(0xf6a4b0, 0xd9707f, { noise: 0.02 }), 'skin');
-    // brow bumps above the eyes
-    for (const s of [-1, 1]) addRoot(pb, head, blob(0.1, 0.06, 0.09, 8, 6).translate(hx + 0.33, hy + 0.27, s * 0.22), headFn);
   });
   const jaw = rb.bone('jaw', head, [0.38, -0.12, 0]);
   rb.part(jaw, (pb) => {
@@ -107,12 +105,12 @@ export function createFatSeal(): CreatureRig {
       pb.addShaded(
         loft(
           [
-            { x: -0.04, y: 0.05, w: 0.1, h: 0.13 },
-            { x: 0.02, y: -0.15, w: 0.065, h: 0.13 },
-            { x: 0.12, y: -0.3, w: 0.045, h: 0.15 },
-            { x: 0.26, y: -0.4, w: 0.03, h: 0.13 },
+            { x: -0.06, y: 0.06, w: 0.11, h: 0.15 },
+            { x: 0.02, y: -0.16, w: 0.07, h: 0.16 },
+            { x: 0.16, y: -0.33, w: 0.05, h: 0.17 },
+            { x: 0.36, y: -0.41, w: 0.035, h: 0.13 },
           ],
-          { radial: 10, sub: 2, cap0: 0.04, cap1: 0.06 },
+          { radial: 10, sub: 2, cap0: 0.05, cap1: 0.07 },
         ),
         shade(0xeef0f3, 0xaab1bb, { noise: 0.03 }),
         'fur',
@@ -121,7 +119,7 @@ export function createFatSeal(): CreatureRig {
   }
 
   // ---------------------------------------------------------------- ragdoll
-  rb.spec.body = { shape: 'sphere', size: [0.72], offset: [-0.05, 0, 0], mass: 220 };
+  rb.spec.body = { shape: 'capsule', size: [0.68, 0.32], axis: 'x', offset: [-0.2, -0.05, 0], mass: 220 };
   rb.spec.rear = {
     shape: 'capsule', size: [0.3, 0.3], axis: 'x', offset: [-0.28, -0.15, 0], mass: 70,
     joint: { kind: 'cone', axis: [-1, 0, 0], cone: 0.5, twist: 0.2 },
