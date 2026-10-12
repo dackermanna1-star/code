@@ -1,0 +1,12 @@
+{
+	"required": true,
+	"package": "com.chaosunleashed.client.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"GameRendererMixin",
+		"SkyRenderingMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

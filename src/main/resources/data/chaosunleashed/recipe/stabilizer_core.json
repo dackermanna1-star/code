@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "IRI",
+    "RCR",
+    "IRI"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "R": "minecraft:redstone",
+    "C": "#chaosunleashed:stabilizer_catalysts"
+  },
+  "result": {
+    "id": "chaosunleashed:stabilizer_core",
+    "count": 2
+  }
+}

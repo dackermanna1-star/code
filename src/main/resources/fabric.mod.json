@@ -1,0 +1,29 @@
+{
+	"schemaVersion": 1,
+	"id": "chaosunleashed",
+	"version": "${version}",
+	"name": "Chaos Unleashed",
+	"description": "Large, dramatic world events: alien invasions, blood moons, kaiju, black holes, solar flares, gravity flips, eclipses, dimension rifts and herd stampedes. Toggle and trigger them from chat or the Chaos Control Panel.",
+	"authors": ["Chaos Unleashed contributors"],
+	"contact": {},
+	"license": "MIT",
+	"icon": "assets/chaosunleashed/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": ["com.chaosunleashed.ChaosUnleashed"],
+		"client": ["com.chaosunleashed.client.ChaosUnleashedClient"]
+	},
+	"mixins": [
+		"chaosunleashed.mixins.json",
+		{
+			"config": "chaosunleashed.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.2",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

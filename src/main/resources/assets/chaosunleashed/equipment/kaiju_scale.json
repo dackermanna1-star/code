@@ -1,0 +1,6 @@
+{
+  "layers": {
+    "humanoid": [{ "texture": "chaosunleashed:kaiju_scale" }],
+    "humanoid_leggings": [{ "texture": "chaosunleashed:kaiju_scale" }]
+  }
+}

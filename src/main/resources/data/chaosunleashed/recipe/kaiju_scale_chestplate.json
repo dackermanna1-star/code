@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "K K",
+    "KKK",
+    "KKK"
+  ],
+  "key": {
+    "K": "chaosunleashed:kaiju_scale"
+  },
+  "result": {
+    "id": "chaosunleashed:kaiju_scale_chestplate",
+    "count": 1
+  }
+}

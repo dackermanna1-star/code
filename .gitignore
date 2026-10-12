@@ -1,0 +1,26 @@
+# Gradle / Loom
+.gradle/
+build/
+out/
+classes/
+remappedSrc/
+
+# Dev run directory (worlds, logs, test config)
+run/
+
+# IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+bin/
+
+# OS / tooling
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc

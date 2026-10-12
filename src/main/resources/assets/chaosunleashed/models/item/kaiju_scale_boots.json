@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "chaosunleashed:item/kaiju_scale_boots"
+  }
+}

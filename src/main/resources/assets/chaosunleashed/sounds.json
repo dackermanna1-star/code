@@ -1,0 +1,53 @@
+{
+  "event.alien_invasion.warning": {"subtitle": "subtitles.chaosunleashed.alien_warning", "sounds": [{"name": "minecraft:block/beacon/power1", "pitch": 0.5}, {"name": "minecraft:note/bit", "pitch": 0.6}]},
+  "entity.ufo.hum": {"subtitle": "subtitles.chaosunleashed.ufo_hum", "sounds": [{"name": "minecraft:block/beacon/ambient", "pitch": 0.6, "attenuation_distance": 48}]},
+  "entity.ufo.beam": {"subtitle": "subtitles.chaosunleashed.ufo_beam", "sounds": [{"name": "minecraft:mob/guardian/attack_loop", "pitch": 1.6}]},
+  "entity.ufo.crash": {"subtitle": "subtitles.chaosunleashed.ufo_crash", "sounds": [{"name": "minecraft:random/explode1", "pitch": 0.7, "volume": 1.0, "attenuation_distance": 64}, {"name": "minecraft:random/explode3", "pitch": 0.6, "attenuation_distance": 64}]},
+  "entity.plasma.shoot": {"subtitle": "subtitles.chaosunleashed.plasma_shoot", "sounds": [{"name": "minecraft:mob/breeze/charge1", "pitch": 1.8}, {"name": "minecraft:mob/breeze/charge2", "pitch": 1.8}]},
+  "entity.plasma.hit": {"subtitle": "subtitles.chaosunleashed.plasma_hit", "sounds": [{"name": "minecraft:random/fizz", "pitch": 1.4}]},
+  "entity.alien_soldier.ambient": {"subtitle": "subtitles.chaosunleashed.alien_ambient", "sounds": [{"name": "minecraft:mob/allay/idle_with_item1", "pitch": 0.5}, {"name": "minecraft:mob/allay/idle_with_item2", "pitch": 0.5}]},
+  "entity.alien_soldier.hurt": {"subtitle": "subtitles.chaosunleashed.alien_hurt", "sounds": [{"name": "minecraft:mob/allay/hurt1", "pitch": 0.6}, {"name": "minecraft:mob/allay/hurt2", "pitch": 0.6}]},
+  "entity.alien_soldier.death": {"subtitle": "subtitles.chaosunleashed.alien_death", "sounds": [{"name": "minecraft:mob/allay/death1", "pitch": 0.5}, {"name": "minecraft:mob/allay/death2", "pitch": 0.5}]},
+
+  "event.blood_moon.warning": {"subtitle": "subtitles.chaosunleashed.blood_moon_warning", "sounds": [{"name": "minecraft:mob/wither/spawn", "pitch": 0.5, "volume": 0.7}]},
+  "entity.zombie.scream": {"subtitle": "subtitles.chaosunleashed.zombie_scream", "sounds": [{"name": "minecraft:mob/ghast/scream1", "pitch": 0.7, "attenuation_distance": 48}, {"name": "minecraft:mob/ghast/scream3", "pitch": 0.65, "attenuation_distance": 48}]},
+  "event.blood_moon.dawn": {"subtitle": "subtitles.chaosunleashed.blood_moon_dawn", "sounds": [{"name": "minecraft:ui/toast/challenge_complete", "pitch": 0.8}]},
+
+  "event.kaiju_attack.warning": {"subtitle": "subtitles.chaosunleashed.kaiju_warning", "sounds": [{"name": "minecraft:mob/warden/heartbeat_1", "pitch": 0.5, "volume": 1.0}, {"name": "minecraft:mob/enderdragon/growl1", "pitch": 0.4}]},
+  "entity.kaiju.step": {"subtitle": "subtitles.chaosunleashed.kaiju_step", "sounds": [{"name": "minecraft:random/explode2", "pitch": 0.45, "attenuation_distance": 160}, {"name": "minecraft:mob/ravager/step3", "pitch": 0.4, "attenuation_distance": 160}]},
+  "entity.kaiju.roar": {"subtitle": "subtitles.chaosunleashed.kaiju_roar", "sounds": [{"name": "minecraft:mob/enderdragon/growl2", "pitch": 0.45, "attenuation_distance": 256}, {"name": "minecraft:mob/ravager/roar1", "pitch": 0.4, "attenuation_distance": 256}]},
+  "entity.kaiju.beam": {"subtitle": "subtitles.chaosunleashed.kaiju_beam", "sounds": [{"name": "minecraft:mob/warden/sonic_boom1", "pitch": 0.5, "attenuation_distance": 128}]},
+  "entity.kaiju.hurt": {"subtitle": "subtitles.chaosunleashed.kaiju_hurt", "sounds": [{"name": "minecraft:mob/ravager/hurt1", "pitch": 0.4, "attenuation_distance": 96}, {"name": "minecraft:mob/ravager/hurt2", "pitch": 0.4, "attenuation_distance": 96}]},
+  "entity.kaiju.death": {"subtitle": "subtitles.chaosunleashed.kaiju_death", "sounds": [{"name": "minecraft:mob/wither/death", "pitch": 0.4, "attenuation_distance": 256}]},
+
+  "event.black_hole.warning": {"subtitle": "subtitles.chaosunleashed.black_hole_warning", "sounds": [{"name": "minecraft:block/respawn_anchor/charge1", "pitch": 0.5}]},
+  "entity.black_hole.hum": {"subtitle": "subtitles.chaosunleashed.black_hole_hum", "sounds": [{"name": "minecraft:block/conduit/ambient", "pitch": 0.5, "attenuation_distance": 64}]},
+  "entity.black_hole.collapse": {"subtitle": "subtitles.chaosunleashed.black_hole_collapse", "sounds": [{"name": "minecraft:mob/warden/sonic_boom2", "pitch": 0.5, "attenuation_distance": 128}, {"name": "minecraft:random/explode4", "pitch": 0.5, "attenuation_distance": 128}]},
+  "entity.black_hole.stabilize": {"subtitle": "subtitles.chaosunleashed.black_hole_stabilize", "sounds": [{"name": "minecraft:block/beacon/deactivate", "pitch": 0.6, "attenuation_distance": 64}]},
+
+  "event.solar_flare.warning": {"subtitle": "subtitles.chaosunleashed.solar_flare_warning", "sounds": [{"name": "minecraft:mob/blaze/breathe1", "pitch": 0.5}, {"name": "minecraft:block/beacon/power2", "pitch": 1.4}]},
+  "event.solar_flare.burn": {"subtitle": "subtitles.chaosunleashed.solar_flare_burn", "sounds": [{"name": "minecraft:random/fizz", "pitch": 0.8}]},
+
+  "event.gravity_flip.warning": {"subtitle": "subtitles.chaosunleashed.gravity_warning", "sounds": [{"name": "minecraft:block/amethyst/shimmer", "pitch": 0.5}, {"name": "minecraft:mob/evocation_illager/prepare_wololo", "pitch": 1.5}]},
+  "event.gravity_flip.start": {"subtitle": "subtitles.chaosunleashed.gravity_start", "sounds": [{"name": "minecraft:mob/phantom/swoop1", "pitch": 0.5}]},
+  "event.gravity_flip.end": {"subtitle": "subtitles.chaosunleashed.gravity_end", "sounds": [{"name": "minecraft:random/anvil_land", "pitch": 0.5}]},
+
+  "event.eclipse.warning": {"subtitle": "subtitles.chaosunleashed.eclipse_warning", "sounds": [{"name": "minecraft:ambient/cave/cave13", "pitch": 0.7}, {"name": "minecraft:ambient/cave/cave14", "pitch": 0.7}]},
+  "event.eclipse.totality": {"subtitle": "subtitles.chaosunleashed.eclipse_totality", "sounds": [{"name": "minecraft:block/sculk_shrieker/shriek1", "pitch": 0.5}]},
+  "entity.shade_stalker.ambient": {"subtitle": "subtitles.chaosunleashed.shade_ambient", "sounds": [{"name": "minecraft:mob/warden/agitated_1", "pitch": 1.6, "volume": 0.6}, {"name": "minecraft:mob/warden/agitated_2", "pitch": 1.6, "volume": 0.6}]},
+  "entity.shade_stalker.hurt": {"subtitle": "subtitles.chaosunleashed.shade_hurt", "sounds": [{"name": "minecraft:mob/vex/charge1", "pitch": 0.6}]},
+  "entity.shade_stalker.death": {"subtitle": "subtitles.chaosunleashed.shade_death", "sounds": [{"name": "minecraft:mob/ghast/moan1", "pitch": 1.4}]},
+
+  "event.dimension_rift.warning": {"subtitle": "subtitles.chaosunleashed.rift_warning", "sounds": [{"name": "minecraft:block/end_portal/endportal", "pitch": 0.6}]},
+  "entity.rift.tear": {"subtitle": "subtitles.chaosunleashed.rift_tear", "sounds": [{"name": "minecraft:item/trident/thunder1", "pitch": 0.7, "attenuation_distance": 128}, {"name": "minecraft:item/trident/thunder2", "pitch": 0.6, "attenuation_distance": 128}]},
+  "entity.rift.close": {"subtitle": "subtitles.chaosunleashed.rift_close", "sounds": [{"name": "minecraft:mob/endermen/portal2", "pitch": 0.5, "attenuation_distance": 96}]},
+
+  "event.herd_stampede.warning": {"subtitle": "subtitles.chaosunleashed.stampede_warning", "sounds": [{"name": "minecraft:ambient/weather/thunder1", "pitch": 0.5, "volume": 0.6}]},
+  "event.herd_stampede.rumble": {"subtitle": "subtitles.chaosunleashed.stampede_rumble", "sounds": [{"name": "minecraft:mob/horse/gallop1", "pitch": 0.5, "attenuation_distance": 96}, {"name": "minecraft:mob/horse/gallop2", "pitch": 0.45, "attenuation_distance": 96}, {"name": "minecraft:mob/ravager/step1", "pitch": 0.5, "attenuation_distance": 96}]},
+  "entity.bison.ambient": {"subtitle": "subtitles.chaosunleashed.bison_ambient", "sounds": [{"name": "minecraft:mob/cow/say1", "pitch": 0.6}, {"name": "minecraft:mob/cow/say2", "pitch": 0.6}]},
+  "entity.bison.hurt": {"subtitle": "subtitles.chaosunleashed.bison_hurt", "sounds": [{"name": "minecraft:mob/cow/hurt1", "pitch": 0.6}, {"name": "minecraft:mob/cow/hurt2", "pitch": 0.6}]},
+  "entity.bison.death": {"subtitle": "subtitles.chaosunleashed.bison_death", "sounds": [{"name": "minecraft:mob/cow/hurt3", "pitch": 0.5}]},
+
+  "event.end": {"subtitle": "subtitles.chaosunleashed.event_end", "sounds": [{"name": "minecraft:random/levelup", "pitch": 0.7}]},
+  "block.chaos_control_panel.click": {"subtitle": "subtitles.chaosunleashed.panel_click", "sounds": [{"name": "minecraft:note/pling", "pitch": 0.8}]}
+}

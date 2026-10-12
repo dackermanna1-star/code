@@ -1,0 +1,25 @@
+{
+  "fabric:load_conditions": [
+    {
+      "condition": "chaosunleashed:panel_recipe",
+      "variant": "diamond"
+    }
+  ],
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "IGI",
+    "RXR",
+    "IRI"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "G": "minecraft:glass",
+    "R": "minecraft:redstone",
+    "X": "minecraft:diamond"
+  },
+  "result": {
+    "id": "chaosunleashed:chaos_control_panel",
+    "count": 1
+  }
+}

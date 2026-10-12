@@ -1,0 +1,49 @@
+{
+  "variants": {
+    "facing=north,status=idle": {
+      "model": "chaosunleashed:block/chaos_control_panel_idle"
+    },
+    "facing=north,status=warning": {
+      "model": "chaosunleashed:block/chaos_control_panel_warning"
+    },
+    "facing=north,status=active": {
+      "model": "chaosunleashed:block/chaos_control_panel_active"
+    },
+    "facing=east,status=idle": {
+      "model": "chaosunleashed:block/chaos_control_panel_idle",
+      "y": 90
+    },
+    "facing=east,status=warning": {
+      "model": "chaosunleashed:block/chaos_control_panel_warning",
+      "y": 90
+    },
+    "facing=east,status=active": {
+      "model": "chaosunleashed:block/chaos_control_panel_active",
+      "y": 90
+    },
+    "facing=south,status=idle": {
+      "model": "chaosunleashed:block/chaos_control_panel_idle",
+      "y": 180
+    },
+    "facing=south,status=warning": {
+      "model": "chaosunleashed:block/chaos_control_panel_warning",
+      "y": 180
+    },
+    "facing=south,status=active": {
+      "model": "chaosunleashed:block/chaos_control_panel_active",
+      "y": 180
+    },
+    "facing=west,status=idle": {
+      "model": "chaosunleashed:block/chaos_control_panel_idle",
+      "y": 270
+    },
+    "facing=west,status=warning": {
+      "model": "chaosunleashed:block/chaos_control_panel_warning",
+      "y": 270
+    },
+    "facing=west,status=active": {
+      "model": "chaosunleashed:block/chaos_control_panel_active",
+      "y": 270
+    }
+  }
+}

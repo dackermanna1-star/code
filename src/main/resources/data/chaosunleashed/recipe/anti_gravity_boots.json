@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "A A",
+    "AFA"
+  ],
+  "key": {
+    "A": "chaosunleashed:alien_alloy",
+    "F": "minecraft:feather"
+  },
+  "result": {
+    "id": "chaosunleashed:anti_gravity_boots",
+    "count": 1
+  }
+}

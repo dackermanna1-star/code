@@ -1,0 +1,22 @@
+{
+  "values": [
+    "minecraft:sand",
+    "minecraft:red_sand",
+    "minecraft:gravel",
+    "minecraft:dirt",
+    "minecraft:coarse_dirt",
+    "minecraft:rooted_dirt",
+    "minecraft:grass_block",
+    "minecraft:podzol",
+    "minecraft:mud",
+    "minecraft:clay",
+    "minecraft:snow_block",
+    "minecraft:moss_block",
+    "minecraft:hay_block",
+    "minecraft:pumpkin",
+    "minecraft:melon",
+    "#minecraft:logs",
+    "#minecraft:leaves",
+    "#minecraft:wool"
+  ]
+}

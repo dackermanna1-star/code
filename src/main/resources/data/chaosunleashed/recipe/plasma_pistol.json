@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "AAG",
+    "RA ",
+    "A  "
+  ],
+  "key": {
+    "A": "chaosunleashed:alien_alloy",
+    "G": "minecraft:glowstone",
+    "R": "minecraft:redstone_block"
+  },
+  "result": {
+    "id": "chaosunleashed:plasma_pistol",
+    "count": 1
+  }
+}

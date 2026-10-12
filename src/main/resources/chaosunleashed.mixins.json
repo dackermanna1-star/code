@@ -1,0 +1,13 @@
+{
+	"required": true,
+	"package": "com.chaosunleashed.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"AbstractBlockStateMixin",
+		"ServerCommonNetworkHandlerMixin",
+		"WorldEnvironmentAttributeAccessMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
