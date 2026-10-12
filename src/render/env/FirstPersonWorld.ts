@@ -4,8 +4,9 @@
 // open sea, so first person swaps in / adds:
 //  * an extended floe outline: the left end continues ~40 m past the classic
 //    x = -30 cut into a jagged tongue, so the spawn area (x ~ -22) is not right
-//    in front of a hard edge and creatures come out of the misty distance
-//    (gameplay limits are unchanged: they live in config/constants),
+//    in front of a hard edge and creatures come out of the misty distance, and
+//    the straight x = +30 cut becomes broken ice (gameplay limits are
+//    unchanged: they live in config/constants),
 //  * a signed distance map of that outline (foam line on the sea, snowy lip on
 //    the ice),
 //  * a sea plane at WATER_LEVEL out to the horizon: fresnel reflection of the
@@ -42,8 +43,24 @@ const LEFT_TONGUE: XZ[] = [
   [-34.4, 13.3],
 ];
 
+/**
+ * The right end, from the classic front-right corner (30, 16.09) to the
+ * back-right corner (30, -19.79): broken ice instead of the straight x = 30 cut.
+ */
+const RIGHT_CAP: XZ[] = [
+  [33.2, 15.1],
+  [35.6, 11.6],
+  [34.4, 7.2],
+  [37.1, 2.6],
+  [36.2, -2.9],
+  [38.3, -8.1],
+  [35.7, -12.6],
+  [36.4, -16.2],
+  [33.1, -18.9],
+];
+
 /** Closed outline of the first-person floe top (CCW from above, like FLOE_OUTLINE). */
-export const FP_FLOE_OUTLINE: XZ[] = [...FLOE_FRONT, ...FLOE_BACK.slice().reverse(), ...LEFT_TONGUE];
+export const FP_FLOE_OUTLINE: XZ[] = [...FLOE_FRONT, ...RIGHT_CAP, ...FLOE_BACK.slice().reverse(), ...LEFT_TONGUE];
 
 /** World rect covered by the distance map (minX, minZ, sizeX, sizeZ). */
 export const SDF_RECT = new THREE.Vector4(-80, -28, 120, 52);
@@ -246,31 +263,44 @@ const SMALL_FLOES: Array<[number, number, number, number]> = [
 export function createSmallFloes(): THREE.Mesh {
   const pos: number[] = [];
   const col: number[] = [];
-  const top = new THREE.Color(0.66, 0.71, 0.8);
-  const side = new THREE.Color(0.34, 0.48, 0.68);
+  const top = new THREE.Color(0.6, 0.65, 0.74);
+  const rim = new THREE.Color(0.5, 0.6, 0.76);
+  const foot = new THREE.Color(0.16, 0.3, 0.46);
   const rnd = mulberry32(4242);
+  const push = (c: THREE.Color, k = 1) => col.push(c.r * k, c.g * k, c.b * k);
   for (const [cx, cz, r, h] of SMALL_FLOES) {
-    const n = 9 + Math.floor(rnd() * 5);
+    const n = 16 + Math.floor(rnd() * 6);
     const ring: Array<[number, number]> = [];
     const phase = rnd() * Math.PI * 2;
+    const ax = 0.9 + 0.5 * rnd();
+    const az = 0.6 + 0.4 * rnd();
+    let rr = r;
     for (let i = 0; i < n; i++) {
-      const a = phase + (i / n) * Math.PI * 2 + (rnd() - 0.5) * 0.35;
-      const rr = r * (0.7 + 0.45 * rnd());
-      ring.push([cx + Math.cos(a) * rr * 1.25, cz + Math.sin(a) * rr * 0.85]);
+      const a = phase + (i / n) * Math.PI * 2;
+      // Random walk of the radius: broken, angular floe edges.
+      rr = Math.min(r * 1.25, Math.max(r * 0.6, rr + r * (rnd() - 0.5) * 0.35));
+      ring.push([cx + Math.cos(a) * rr * ax, cz + Math.sin(a) * rr * az]);
     }
     const yTop = WATER_LEVEL + h;
     const yBot = WATER_LEVEL - 1.2;
-    // Top: fan around the centre (counter-clockwise from above = up-facing).
     for (let i = 0; i < n; i++) {
       const a = ring[i];
       const b = ring[(i + 1) % n];
-      // Ring runs with increasing angle in x/z, which is clockwise seen from +y: emit (c, b, a).
+      // Ring angles increase from +x towards +z (clockwise from above): emit (centre, b, a) for an up-facing top.
       pos.push(cx, yTop, cz, b[0], yTop, b[1], a[0], yTop, a[1]);
-      for (let k = 0; k < 3; k++) col.push(top.r, top.g, top.b);
-      // Wall a -> b, outward facing.
+      const k = 0.95 + 0.1 * rnd();
+      push(top, 1.04 * k);
+      push(top, k);
+      push(top, k);
+      // Wall a -> b, outward facing; pale under the rim, deep blue at the waterline.
       pos.push(a[0], yTop, a[1], b[0], yTop, b[1], a[0], yBot, a[1]);
       pos.push(b[0], yTop, b[1], b[0], yBot, b[1], a[0], yBot, a[1]);
-      for (let k = 0; k < 6; k++) col.push(side.r, side.g, side.b);
+      push(rim, k);
+      push(rim, k);
+      push(foot, k);
+      push(rim, k);
+      push(foot, k);
+      push(foot, k);
     }
   }
   const g = new THREE.BufferGeometry();
@@ -278,10 +308,9 @@ export function createSmallFloes(): THREE.Mesh {
   g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   g.computeVertexNormals();
   g.computeBoundingSphere();
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0, flatShading: true });
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, metalness: 0, flatShading: true });
   mat.name = 'SmallFloes';
   const m = new THREE.Mesh(g, mat);
   m.name = 'SmallFloes';
-  m.receiveShadow = false;
   return m;
 }

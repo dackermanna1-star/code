@@ -13,6 +13,7 @@ interface Body {
   spin: THREE.Vector3;
   bounces: number;
   rest: boolean;
+  scale: number;
 }
 
 /** Default casings are exaggerated so they read at gameplay scale (model casings come pre-scaled). */
@@ -56,7 +57,7 @@ class ShellPool {
     this.mesh.layers.enable(REFLECT_LAYER);
   }
 
-  spawn(pos: THREE.Vector3, vel: THREE.Vector3): Body {
+  spawn(pos: THREE.Vector3, vel: THREE.Vector3, scale = 1): Body {
     const idx = this.next;
     this.next = (this.next + 1) % this.cap;
     this.count = Math.max(this.count, idx + 1);
@@ -71,6 +72,7 @@ class ShellPool {
       spin: new THREE.Vector3((Math.random() - 0.5) * 40, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 40),
       bounces: 0,
       rest: false,
+      scale: SHELL_SCALE * scale,
     };
     this.active.push(b);
     this.write(b);
@@ -80,7 +82,7 @@ class ShellPool {
   private write(b: Body): void {
     this.tmp.position.copy(b.pos);
     this.tmp.rotation.copy(b.rot);
-    this.tmp.scale.setScalar(SHELL_SCALE);
+    this.tmp.scale.setScalar(b.scale);
     this.tmp.updateMatrix();
     this.mesh.setMatrixAt(b.idx, this.tmp.matrix);
     this.mesh.instanceMatrix.needsUpdate = true;
@@ -159,8 +161,9 @@ export class Debris {
   /**
    * Eject a casing from `pos` toward +X (the hunter faces -X, ejection port on
    * his right), or along the horizontal unit vector `dir` (first person).
+   * `scale` multiplies the (gameplay-exaggerated) casing size.
    */
-  shell(kind: ShellKind, pos: THREE.Vector3, carrier: THREE.Vector3, power = 1, dir?: THREE.Vector3): void {
+  shell(kind: ShellKind, pos: THREE.Vector3, carrier: THREE.Vector3, power = 1, dir?: THREE.Vector3, scale = 1): void {
     const pool = this.shells.get(kind === 'none' ? 'small' : kind);
     if (!pool) return;
     const out = (1.6 + Math.random() * 1.6) * power;
@@ -173,7 +176,7 @@ export class Debris {
       (1.6 + Math.random() * 1.8) * power,
       dz * out + dx * side + carrier.z * 0.5,
     );
-    pool.spawn(pos, v);
+    pool.spawn(pos, v, scale);
   }
 
   clip(kind: ClipKind, pos: THREE.Vector3, carrier: THREE.Vector3): void {

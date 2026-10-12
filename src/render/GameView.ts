@@ -825,7 +825,9 @@ export class GameView {
         dir.normalize();
         const carrier = new THREE.Vector3(h.player.vx, 0, h.player.vz);
         const power = e.weapon === 'magnum' ? 0.25 : kind === 'minigun' || kind === 'awp' ? 1.3 : 1;
-        for (let i = 0; i < e.count; i++) this.debris.shell(kind, pos, carrier, power, dir);
+        // Start just right of the gun (the port itself is under the viewmodel), at true size.
+        pos.addScaledVector(_right, 0.12);
+        for (let i = 0; i < e.count; i++) this.debris.shell(kind, pos, carrier, power * 0.8, dir, 0.6);
         return;
       }
     }

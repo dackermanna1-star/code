@@ -149,6 +149,39 @@ export function createIceMaterial(u: IceUniforms, opts: { reflections: boolean }
           int i = int(min(floor(f), float(${MIRROR_SAMPLES - 2})));
           return mix(uMirrorLine[i], uMirrorLine[i + 1], f - float(i));
         }
+        #ifdef ICE_FP
+        // Decal lookup for first person. Seen up close the decal texels are
+        // large: a B-spline bicubic (4 bilinear taps) rounds off the bilinear
+        // staircase and the alpha is re-sharpened so splats keep crisp, wet
+        // edges. Further away it is a plain lookup (mipmapped / anisotropic if
+        // the texture has them).
+        vec4 iceDecalFP(vec2 uv) {
+          vec2 ts = vec2(textureSize(uDecalMap, 0));
+          vec2 fw = fwidth(uv) * ts;
+          float mag = max(fw.x, fw.y);
+          vec4 far_ = texture2D(uDecalMap, uv);
+          // Thin spray seen at grazing angles would only read as pink: boost its coverage a little.
+          far_ *= (1.0 - pow(1.0 - clamp(far_.a, 0.0, 1.0), 1.8)) / max(far_.a, 1e-3);
+          if (mag > 0.8) return far_;
+          vec2 st = uv * ts - 0.5;
+          vec2 i = floor(st);
+          vec2 f = st - i;
+          vec2 f2 = f * f, f3 = f2 * f;
+          vec2 w0 = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0;
+          vec2 w1 = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0;
+          vec2 w2 = (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0;
+          vec2 w3 = f3 / 6.0;
+          vec2 g0 = w0 + w1, g1 = w2 + w3;
+          vec2 h0 = (i - 0.5 + w1 / g0) / ts;
+          vec2 h1 = (i + 1.5 + w3 / g1) / ts;
+          vec4 c = (textureLod(uDecalMap, vec2(h0.x, h0.y), 0.0) * g0.x + textureLod(uDecalMap, vec2(h1.x, h0.y), 0.0) * g1.x) * g0.y
+                 + (textureLod(uDecalMap, vec2(h0.x, h1.y), 0.0) * g0.x + textureLod(uDecalMap, vec2(h1.x, h1.y), 0.0) * g1.x) * g1.y;
+          // Sharpen the coverage edge (premultiplied: scale the colour with it).
+          float a2 = smoothstep(0.12, 0.62, c.a);
+          c *= mix(1.0, a2 / max(c.a, 1e-3), smoothstep(0.8, 0.3, mag) * step(1e-3, c.a));
+          return mix(c, far_, smoothstep(0.5, 0.8, mag));
+        }
+        #endif
         // Painted haze field in design-frame coordinates (u right, v down).
         vec3 iceHaze(vec2 sv, out float hazeAmt) {
           float u = sv.x, v = sv.y;
@@ -173,9 +206,13 @@ export function createIceMaterial(u: IceUniforms, opts: { reflections: boolean }
         /* glsl */ `#include <color_fragment>
         #ifdef ICE_FP
         // World-anchored mist: large soft bright patches over the pale base.
-        float iceMist = smoothstep(0.32, 0.72, envFbm3(vIceWorld.xz * vec2(0.022, 0.04) + 7.0));
-        float iceBlot = envFbm3(vIceWorld.xz * 0.11 + 3.0);
-        vec3 iceCol = mix(uIceBase, uIceHaze, 0.1 + 0.42 * iceMist + 0.16 * (iceBlot - 0.5));
+        float iceMist = smoothstep(0.3, 0.7, envFbm3(vIceWorld.xz * vec2(0.045, 0.07) + 7.0));
+        float iceBlot = envFbm3(vIceWorld.xz * 0.16 + 3.0);
+        // Wind-drawn frost streaks along the floe.
+        float iceStreak = envFbm3(vIceWorld.xz * vec2(0.12, 1.1) + 21.0);
+        float iceGrain = envNoise(vIceWorld.xz * vec2(2.2, 3.1));
+        vec3 iceCol = mix(uIceBase, uIceHaze, 0.08 + 0.4 * iceMist + 0.3 * (iceBlot - 0.5) + 0.22 * (iceStreak - 0.5));
+        iceCol *= 0.96 + 0.08 * iceGrain;
         #else
         vec4 iceClip = uDesignVP * vec4(vIceWorld, 1.0);
         vec2 iceScr = iceClip.xy / iceClip.w * 0.5 + 0.5; // GL uv (y up)
@@ -190,7 +227,7 @@ export function createIceMaterial(u: IceUniforms, opts: { reflections: boolean }
         vec2 dUv = (vIceWorld.xz - uDecalRect.xy) / uDecalRect.zw;
         vec2 dIn = step(vec2(0.0), dUv) * step(dUv, vec2(1.0));
         #ifdef ICE_FP
-        vec4 dec = texture2D(uDecalMap, clamp(dUv, 0.0, 1.0)) * (dIn.x * dIn.y);
+        vec4 dec = iceDecalFP(clamp(dUv, 0.0, 1.0)) * (dIn.x * dIn.y);
         #else
         vec4 dec = textureLod(uDecalMap, clamp(dUv, 0.0, 1.0), 0.0) * (dIn.x * dIn.y);
         #endif
@@ -221,8 +258,8 @@ export function createIceMaterial(u: IceUniforms, opts: { reflections: boolean }
           // Snowy lip along the floe edge (replaces the classic outline stroke).
           vec2 sUv = (vIceWorld.xz - uFloeSdfRect.xy) / uFloeSdfRect.zw;
           float edgeD = (texture2D(uFloeSdf, sUv).r - 0.5) * 16.0;
-          float lip = smoothstep(0.45, 0.04, edgeD) * clean;
-          outgoingLight *= 1.0 + 0.16 * lip;
+          float lip = smoothstep(0.9, 0.05, edgeD) * clean;
+          outgoingLight *= 1.0 + 0.14 * lip * lip;
           // Sky / berg reflection along the reflected view ray (misty, fresnel weighted).
           vec3 V = normalize(cameraPosition - vIceWorld);
           vec3 Nw = normalize(vec3(-iceGrad.x, 1.0, -iceGrad.y));
@@ -232,7 +269,7 @@ export function createIceMaterial(u: IceUniforms, opts: { reflections: boolean }
           R.y = max(R.y, 0.0);
           vec3 sky = textureLod(uEnvCube, R, uEnvLod + mix(3.2, 1.2, wet)).rgb;
           sky = mix(sky, outgoingLight, 0.3 * clean);
-          float mk = fres * mix(uFpMirror, 0.6, wet) * (1.0 - 0.3 * iceMist * clean);
+          float mk = fres * mix(uFpMirror, 0.12, wet) * (1.0 - 0.3 * iceMist * clean);
           outgoingLight = mix(outgoingLight, sky, clamp(mk, 0.0, 1.0));
           #ifdef ICE_REFL
           // Planar reflection of characters: faint from above, stronger at grazing angles.

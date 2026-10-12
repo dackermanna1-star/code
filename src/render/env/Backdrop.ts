@@ -197,6 +197,8 @@ const DISTANT_BERGS: DistantBergSpec[] = [
 ];
 
 const CUBE_FACES = 6;
+/** Largest cloud time step between two refresh cycles of the cube, s. */
+const MAX_CYCLE_STEP = 0.5;
 
 /** First-person backdrop: sky, bergs and horizon haze in a cube map around the eye. */
 export class FirstPersonBackdrop {
@@ -254,7 +256,7 @@ export class FirstPersonBackdrop {
     return this.target.texture;
   }
 
-  /** Render all six faces now. */
+  /** Render all six faces now (at cloud time `time`). */
   renderAll(renderer: THREE.WebGLRenderer, time: number): void {
     this.cycleTime = time;
     this.withScene(renderer, () => this.cubeCamera.update(renderer, this.scene));
@@ -266,7 +268,9 @@ export class FirstPersonBackdrop {
    * time so neighbouring faces always match; mipmaps update with the last.
    */
   refreshFace(renderer: THREE.WebGLRenderer, time: number): void {
-    if (this.face === 0) this.cycleTime = time;
+    // The faces of the cube are refreshed over several frames, so a cycle's
+    // clouds may only drift a tiny step from the previous one (no seams).
+    if (this.face === 0) this.cycleTime += Math.max(0, Math.min(MAX_CYCLE_STEP, time - this.cycleTime));
     const f = this.face;
     const cam = this.cubeCamera.children[f] as THREE.PerspectiveCamera;
     const tex = this.target.texture;

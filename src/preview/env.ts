@@ -89,6 +89,7 @@ if (params.get('decal') !== '0') {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.flipY = false; // canvas row 0 = minZ
   tex.premultiplyAlpha = true;
+  tex.anisotropy = stage.renderer.capabilities.getMaxAnisotropy();
   env.setDecalMap(tex, rect);
 }
 

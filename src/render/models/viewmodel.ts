@@ -14,7 +14,7 @@
 // the hunter's reload keyframes (RELOAD_KEYS), so reloads read the same in
 // both views.
 import * as THREE from 'three';
-import { PartBuilder, capsule, ellipsoid, torus } from './kit';
+import { MATERIALS, PartBuilder, capsule, ellipsoid, torus } from './kit';
 import { createWeaponModel, kickCurve, type WeaponModel } from './weapons';
 import { HUNTER_COLORS as COL, RELOAD_KEYS, furShade, parkaShade, type KeyPos } from './hunter';
 import type { WeaponId } from '../../config/weapons';
@@ -60,17 +60,17 @@ interface Hold {
 }
 
 const HOLD: Record<WeaponId, Hold> = {
-  pistol: { p: [0.13, -0.2, -0.36], r: [0.02, 0.05, 0] },
-  magnum: { p: [0.13, -0.205, -0.36], r: [0.02, 0.05, 0] },
-  mp5: { p: [0.14, -0.215, -0.28], r: [0.01, 0.04, 0] },
-  grenades: { p: [0.2, -0.22, -0.34] },
-  shotgun: { p: [0.14, -0.215, -0.27], r: [0.01, 0.04, 0] },
-  mac10: { p: [0.17, -0.2, -0.34], p2: [-0.17, -0.2, -0.34], r: [0.02, 0.06, 0] },
-  flunk: { p: [0.15, -0.235, -0.27], r: [0.02, 0.05, 0] },
-  m4: { p: [0.14, -0.21, -0.27], r: [0.01, 0.04, 0] },
-  awp: { p: [0.14, -0.205, -0.27], r: [0.01, 0.035, 0] },
-  vintage: { p: [0.2, -0.32, -0.12], r: [0.04, 0.08, 0.04] },
-  minigun: { p: [0.17, -0.38, -0.25], r: [0.07, 0.06, 0.02] },
+  pistol: { p: [0.12, -0.19, -0.5], r: [0.03, 0.06, 0] },
+  magnum: { p: [0.12, -0.19, -0.48], r: [0.03, 0.06, 0] },
+  mp5: { p: [0.13, -0.24, -0.4], r: [0.02, 0.04, 0] },
+  grenades: { p: [0.19, -0.21, -0.5], r: [0.1, 0, 0.15] },
+  shotgun: { p: [0.13, -0.24, -0.42], r: [0.02, 0.04, 0] },
+  mac10: { p: [0.17, -0.22, -0.56], p2: [-0.17, -0.22, -0.56], r: [0.03, 0.06, 0] },
+  flunk: { p: [0.14, -0.27, -0.4], r: [0.03, 0.05, 0] },
+  m4: { p: [0.13, -0.25, -0.42], r: [0.02, 0.04, 0] },
+  awp: { p: [0.13, -0.24, -0.42], r: [0.02, 0.035, 0] },
+  vintage: { p: [0.2, -0.36, -0.3], r: [0.05, 0.08, 0.04] },
+  minigun: { p: [0.22, -0.44, -0.6], r: [0.08, 0.05, 0.02] },
 };
 
 /** Per-shot kick: back (m), muzzle climb (rad), roll (rad), up / down times (s). */
@@ -106,8 +106,8 @@ const RELOAD_TILT: Record<WeaponId, { d: [number, number, number]; r: [number, n
 // Arms ----------------------------------------------------------------------
 const UPPER = 0.34;
 const FORE = 0.33;
-const SHOULDER_R = new THREE.Vector3(0.21, -0.3, 0.16);
-const SHOULDER_L = new THREE.Vector3(-0.21, -0.3, 0.16);
+const SHOULDER_R = new THREE.Vector3(0.24, -0.42, 0.08);
+const SHOULDER_L = new THREE.Vector3(-0.42, -0.55, 0.0);
 const POLE_R = new THREE.Vector3(0.75, -1, 0.15).normalize();
 const POLE_L = new THREE.Vector3(-0.75, -1, 0.15).normalize();
 /** Thumb direction of each mitten (camera space, before the hand turns with the gun). */
@@ -137,6 +137,7 @@ const _z = new THREE.Vector3();
 const _m = new THREE.Matrix4();
 const _e = new THREE.Euler(0, 0, 0, 'YXZ');
 const _inv = new THREE.Matrix4();
+const SHARED = new Set<THREE.Material>(Object.values(MATERIALS));
 const BASE_ROT = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, -Math.PI / 2, 0));
 
 interface Arm {
@@ -289,6 +290,8 @@ export class Viewmodel {
 
   /** Viewmodel copy of a shared material (the viewmodel scene has its own lights). */
   private material(m: THREE.Material): THREE.Material {
+    // Only the shared kit materials are copied; per-model ones (minigun glow) animate in place.
+    if (!SHARED.has(m)) return m;
     let c = this.mats.get(m);
     if (!c) {
       c = m.clone();
@@ -313,14 +316,14 @@ export class Viewmodel {
     const upper = new THREE.Object3D();
     const lower = new THREE.Object3D();
     const U = new PartBuilder();
-    U.addShaded(capsule(0.085, UPPER + 0.08, 6, 14), parkaShade(0.85), 'cloth', { p: [0, -UPPER / 2, 0] });
+    U.addShaded(capsule(0.078, UPPER + 0.08, 6, 14), parkaShade(0.85), 'cloth', { p: [0, -UPPER / 2, 0] });
     U.buildInto(upper);
     const L = new PartBuilder();
     // sleeve widens a little toward the cuff like a parka sleeve
-    L.addShaded(capsule(0.074, FORE - 0.02, 6, 16), parkaShade(0.75), 'cloth', { p: [0, -(FORE - 0.02) / 2 + 0.02, 0], s: [1, 1, 1] });
-    const cuff = torus(0.066, 0.034, 8, 20);
+    L.addShaded(capsule(0.066, FORE - 0.02, 6, 16), parkaShade(0.75), 'cloth', { p: [0, -(FORE - 0.02) / 2 + 0.02, 0], s: [1, 1, 1] });
+    const cuff = torus(0.06, 0.016, 8, 20);
     cuff.rotateX(Math.PI / 2);
-    L.addShaded(cuff, furShade, 'fur', { p: [0, -FORE + 0.085, 0] });
+    L.addShaded(cuff, furShade, 'fur', { p: [0, -FORE + 0.075, 0] });
     // mitten: palm + thumb (thumb toward local -X)
     L.add(ellipsoid(0.05, 0.068, 0.054, 16, 12), COL.mitten, 'cloth', { p: [0, -FORE + 0.005, 0] });
     L.add(ellipsoid(0.022, 0.04, 0.024, 10, 8), COL.mittenDark, 'cloth', { p: [-0.042, -FORE + 0.02, 0], r: [0, 0, -0.35] });
@@ -337,6 +340,12 @@ export class Viewmodel {
       m = createWeaponModel(id);
       this.adopt(m.group);
       if (m.group2) this.adopt(m.group2);
+      if (id === 'minigun') {
+        // The carry strap runs over the shoulder: from the eye it would sweep across the view.
+        m.group.traverse((o) => {
+          if (o.userData.matClass === 'cloth' && o.parent === m!.group) o.visible = false;
+        });
+      }
       this.models.set(id, m);
     }
     return m;
@@ -589,7 +598,7 @@ export class Viewmodel {
     } else if (id === 'grenades') {
       const th = a.throwT >= 0 ? smooth(0, 0.25, a.throwT) * (1 - smooth(0.7, 1, a.throwT)) : 0;
       // free hand points ahead while throwing, rests low otherwise
-      tL.copy(REST_L).lerp(_b.set(-0.16, -0.12, -0.5), th);
+      tL.copy(REST_L).lerp(_b.set(-0.24, -0.26, -0.5), th);
     } else {
       this.supportTarget(m, r, tL);
     }
@@ -616,10 +625,10 @@ export class Viewmodel {
     if (throwT >= 0) {
       const K: Array<[number, number, number, number]> = [
         [0, P.x, P.y, P.z],
-        [0.3, 0.3, 0.02, -0.08],
-        [0.45, 0.24, 0.12, -0.2],
-        [0.58, 0.06, -0.02, -0.62],
-        [1.0, 0.12, -0.5, -0.4],
+        [0.3, 0.32, -0.02, -0.2],
+        [0.45, 0.26, 0.06, -0.3],
+        [0.58, 0.1, -0.06, -0.72],
+        [1.0, 0.16, -0.5, -0.5],
       ];
       let i = 0;
       while (i < K.length - 2 && throwT >= K[i + 1][0]) i++;
