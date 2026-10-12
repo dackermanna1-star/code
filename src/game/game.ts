@@ -167,6 +167,12 @@ export class Game {
     this.stop();
     window.removeEventListener('resize', this.onResize);
     this.chunks.clear();
+    this.particles.points.geometry.dispose();
+    this.particles.glowPoints.geometry.dispose();
+    this.sky.mesh.geometry.dispose();
+    this.uniforms.uAtlas.value.dispose();
+    this.uniforms.uInfo.value.dispose();
+    for (const m of Object.values(this.voxelMats)) m.dispose();
     this.scene.clear();
     this.tickHooks.length = 0;
     this.frameHooks.length = 0;

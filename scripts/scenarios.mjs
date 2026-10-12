@@ -27,6 +27,38 @@ async function key(run, wait, code, ms = 60) {
 }
 
 export default {
+  async longsession({ wait, run, page }) {
+    const mem = async (label) => {
+      await run(() => { if (window.gc) { window.gc(); window.gc(); } });
+      await wait(300);
+      const m = await run(() => ({
+        heap: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : -1,
+        geos: window.game.renderer.info.memory.geometries,
+        tex: window.game.renderer.info.memory.textures,
+        progs: window.game.renderer.info.programs?.length ?? -1,
+      }));
+      console.log(label, JSON.stringify(m));
+    };
+    for (let cycle = 0; cycle < 4; cycle++) {
+      await wait(1500);
+      // fight: spawn and kill enemies, explode terrain, then die and restart
+      await run(() => {
+        const g = window.game, r = window.run, b = g.player.body;
+        for (let i = 0; i < 25; i++) {
+          const e = r.enemies.spawn(['hamis', 'shotgunner_weak', 'slime_weak', 'stendari'][i % 4], b.x + (Math.random() - 0.5) * 30, b.y + 4, b.z + 10 + Math.random() * 20, 0, { next: Math.random, range: (a, c) => a + (c - a) * Math.random(), chance: (q) => Math.random() < q, int: (a, c) => a + Math.floor(Math.random() * (c - a + 1)) });
+          if (e) r.damage.apply({ target: e, amount: 999, type: 'explosion', source: g.player, x: 0, y: 0, z: 0 });
+        }
+        for (let i = 0; i < 8; i++) g.destruction.explode(b.x + (Math.random() - 0.5) * 40, b.y - 2, b.z + 15 + Math.random() * 20, { radius: 8, durability: 11, rayEnergy: 1500, fire: true });
+      });
+      await wait(3000);
+      await mem(`cycle${cycle}-play`);
+      await run(() => { const p = window.game.player; window.run.damage.apply({ target: p, amount: 999, type: 'explosion', source: null, x: 0, y: 0, z: 0 }); });
+      await wait(2000);
+      await page.click('text=Start a new run');
+      await page.waitForFunction(() => window.game && window.game.state === 'playing', null, { timeout: 120000 });
+      await mem(`cycle${cycle}-restarted`);
+    }
+  },
   async pickup({ shot, wait, run }) {
     await wait(1500);
     await run(() => {

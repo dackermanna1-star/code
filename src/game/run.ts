@@ -575,6 +575,8 @@ export class Run {
         const sx = h.hit ? h.px - t.vx * 0.01 : nx, sy = h.hit ? h.py - t.vy * 0.01 : ny, sz = h.hit ? h.pz - t.vz * 0.01 : nz;
         this.shatter(t.potion, sx, sy, sz);
         g.scene.remove(t.mesh);
+        (t.mesh as THREE.Mesh).geometry.dispose();
+        ((t.mesh as THREE.Mesh).material as THREE.Material).dispose();
         t.age = -1;
         continue;
       }
@@ -871,10 +873,15 @@ export class Run {
 
   dispose(): void {
     const g = this.game;
+    this.enemies.clear();
+    this.pickups.clear();
+    this.viewmodel.setEmpty();
     g.scene.remove(this.projectiles.glowPoints, this.projectiles.solidPoints, this.pickups.group, this.enemies.group);
+    this.projectiles.glowPoints.geometry.dispose();
+    this.projectiles.solidPoints.geometry.dispose();
     for (const t of this.thrown) g.scene.remove(t.mesh);
     this.hud.root.remove();
-    this.invUI.root.remove();
+    this.invUI.dispose();
     void UNLOADED;
     void DT;
   }

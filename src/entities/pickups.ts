@@ -139,6 +139,15 @@ export class PickupSystem {
   remove(p: Pickup): void {
     p.dead = true;
     this.group.remove(p.mesh);
+    this.disposeMesh(p.mesh);
+  }
+
+  /** Dispose geometry that is unique to this pickup (cached geometries are shared). */
+  private disposeMesh(o: THREE.Object3D): void {
+    const m = o as THREE.Mesh;
+    if (!m.geometry) return;
+    for (const g of this.geoCache.values()) if (g === m.geometry) return;
+    if (m.geometry !== GOLD_GEO) m.geometry.dispose();
   }
 
   update(dt: number, time: number): void {
@@ -199,7 +208,10 @@ export class PickupSystem {
   }
 
   clear(): void {
-    for (const p of this.list) this.group.remove(p.mesh);
+    for (const p of this.list) {
+      this.group.remove(p.mesh);
+      this.disposeMesh(p.mesh);
+    }
     this.list.length = 0;
   }
 }

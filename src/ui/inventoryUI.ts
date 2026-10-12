@@ -32,17 +32,28 @@ export class InventoryUI {
     this.tooltip = document.createElement('div');
     this.tooltip.className = 'tooltip noita-panel hidden';
     parent.appendChild(this.tooltip);
-    window.addEventListener('mousemove', (e) => {
-      if (this.drag) {
-        this.drag.ghost.style.left = `${e.clientX - 18}px`;
-        this.drag.ghost.style.top = `${e.clientY - 18}px`;
-      }
-      if (!this.tooltip.classList.contains('hidden')) {
-        this.tooltip.style.left = `${Math.min(window.innerWidth - 300, e.clientX + 16)}px`;
-        this.tooltip.style.top = `${Math.min(window.innerHeight - 220, e.clientY + 16)}px`;
-      }
-    });
-    window.addEventListener('mouseup', (e) => this.endDrag(e));
+    window.addEventListener('mousemove', this.onMove);
+    window.addEventListener('mouseup', this.onUp);
+  }
+
+  private onMove = (e: MouseEvent) => {
+    if (this.drag) {
+      this.drag.ghost.style.left = `${e.clientX - 18}px`;
+      this.drag.ghost.style.top = `${e.clientY - 18}px`;
+    }
+    if (!this.tooltip.classList.contains('hidden')) {
+      this.tooltip.style.left = `${Math.min(window.innerWidth - 300, e.clientX + 16)}px`;
+      this.tooltip.style.top = `${Math.min(window.innerHeight - 220, e.clientY + 16)}px`;
+    }
+  };
+
+  private onUp = (e: MouseEvent) => this.endDrag(e);
+
+  dispose(): void {
+    window.removeEventListener('mousemove', this.onMove);
+    window.removeEventListener('mouseup', this.onUp);
+    this.root.remove();
+    this.tooltip.remove();
   }
 
   toggle(force?: boolean): void {

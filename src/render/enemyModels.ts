@@ -29,13 +29,27 @@ function shade(hex: string, f: number): string {
   return '#' + c.getHexString();
 }
 
-/** Noisy single-colour box (slight per-voxel variation like Noita sprites). */
+const GEO_CACHE = new Map<string, THREE.BufferGeometry>();
+
+/** Noisy single-colour box (slight per-voxel variation like Noita sprites). Geometry is shared. */
 function box(w: number, h: number, d: number, color: string, alt?: string, seed = 1): THREE.BufferGeometry {
-  return voxelBox(w, h, d, S, (x, y, z) => {
-    const r = ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ seed) >>> 0;
-    if (alt && r % 5 === 0) return alt;
-    return color;
-  });
+  const key = `${w},${h},${d},${color},${alt},${seed}`;
+  let g = GEO_CACHE.get(key);
+  if (!g) {
+    g = voxelBox(w, h, d, S, (x, y, z) => {
+      const r = ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791) ^ seed) >>> 0;
+      if (alt && r % 5 === 0) return alt;
+      return color;
+    });
+    GEO_CACHE.set(key, g);
+  }
+  return g;
+}
+
+/** Release per-creature GPU resources (geometries are shared and kept). */
+export function disposeEnemyModel(m: EnemyModel): void {
+  m.material.dispose();
+  m.glow.dispose();
 }
 
 function part(parent: THREE.Object3D, geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, name?: string, parts?: Record<string, THREE.Object3D>): THREE.Mesh {
@@ -204,7 +218,13 @@ export function buildEnemyModel(kind: string, tint = '#808080'): EnemyModel {
       break;
     }
     case 'barrel': {
-      part(body, voxelBox(4, 6, 4, S, (x, y, z) => ((x === 0 || x === 3) && (z === 0 || z === 3) ? null : y === 1 || y === 4 ? '#3a3a3a' : (x + y + z) % 3 ? T : shade(T, 0.8))), material, 0, 3, 0, 'torso', parts);
+      const bk = 'barrel' + T;
+      let bg = GEO_CACHE.get(bk);
+      if (!bg) {
+        bg = voxelBox(4, 6, 4, S, (x, y, z) => ((x === 0 || x === 3) && (z === 0 || z === 3) ? null : y === 1 || y === 4 ? '#3a3a3a' : (x + y + z) % 3 ? T : shade(T, 0.8)));
+        GEO_CACHE.set(bk, bg);
+      }
+      part(body, bg, material, 0, 3, 0, 'torso', parts);
       if (T === '#7a4ab0') part(body, box(1.4, 1, 1.4, '#c0c0c8'), material, 0, 6.4, 0);
       break;
     }

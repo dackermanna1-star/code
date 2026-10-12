@@ -10,7 +10,7 @@ const exe = ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-brow
 
 const browser = await chromium.launch({
   executablePath: exe,
-  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-gpu-sandbox'],
+  args: ['--js-flags=--expose-gc', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-gpu-sandbox'],
 });
 const page = await browser.newPage({ viewport: { width: Number(process.env.W ?? 1280), height: Number(process.env.H ?? 720) } });
 const errors = [];

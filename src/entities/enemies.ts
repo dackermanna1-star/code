@@ -6,7 +6,7 @@ import { Creature, DamageType } from './creature';
 import { moveBody, depenetrate } from './physics';
 import { ENEMIES, ENEMY_PROJECTILES, EnemyDef } from './enemyDefs';
 import { registerProjectiles } from './projectiles';
-import { buildEnemyModel, EnemyModel } from '../render/enemyModels';
+import { buildEnemyModel, EnemyModel, disposeEnemyModel } from '../render/enemyModels';
 import { defaultShotState } from '../magic/shotState';
 import type { Shot } from '../magic/types';
 import { matId, AIR, FIRE, KIND, Kind, FLAMMABILITY } from '../world/materials';
@@ -88,6 +88,7 @@ export class EnemySystem {
     for (let i = 0; i < 24; i++) g.particles.spawn(e.cx, e.cy, e.cz, (Math.random() - 0.5) * 10, Math.random() * 8, (Math.random() - 0.5) * 10, [0.85, 0.5, 1], 0.6, 0.45, 0.2, true, 2);
     e.alive = false;
     this.group.remove(e.model.root);
+    disposeEnemyModel(e.model);
     const n = this.spawn(type, e.body.x, e.body.y, e.body.z, 0, e.rng);
     if (!n) return;
     n.morphFrom = from;
@@ -474,6 +475,7 @@ export class EnemySystem {
     const g = run.game;
     this.hideLaser(e);
     this.group.remove(e.model.root);
+    disposeEnemyModel(e.model);
     const def = e.def;
     if (def.explodeOnDeath) {
       const x = def.explodeOnDeath;
@@ -568,6 +570,7 @@ export class EnemySystem {
   clear(): void {
     for (const e of this.list) {
       this.group.remove(e.model.root);
+      disposeEnemyModel(e.model);
       this.hideLaser(e);
     }
     this.list.length = 0;
