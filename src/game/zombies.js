@@ -438,6 +438,7 @@ export class ZombieMode {
     z.nextGrowl = t + rand(0.5, 4);
     z.model.reset();
     z.model.object3D.scale.setScalar(o.crawler ? 0.8 : 1);
+    if (!o.special) this.roster.dress(z, o); // (its look: size, the crawl, a burning one's char: zroster.js)
     z.model.object3D.visible = true;
     if (o.at || o.near) {
       // climbing out of the ground / out of the pack
@@ -633,7 +634,7 @@ export class ZombieMode {
     z.nextGrowl = t + rand(3, 8);
     const cam = this.game.camPos;
     if (cam && Math.hypot(z.pm.origin[0] - cam[0], z.pm.origin[1] - cam[1]) > 1800) return;
-    this.game.sound?.play((z.special && this.specials.idleSound(z)) || 'zombie_idle', { pos: z.eyePos(), volume: 0.85, channel: `${z.id}:voice` });
+    this.game.sound?.play((z.special && this.specials.idleSound(z)) || 'zombie_idle', { pos: z.eyePos(), volume: 0.85, pitch: z.voice || 1, channel: `${z.id}:voice` });
   }
 
   pickTarget(z, humans, t) {
@@ -751,7 +752,7 @@ export class ZombieMode {
       if (!z.windup && t >= z.nextAttack && this.state !== 'over') {
         z.windup = t + WINDUP;
         z.lastShot = t; // the model's swipe
-        g.sound?.play('zombie_attack', { pos: eye, volume: 0.9, channel: `${z.id}:voice` });
+        g.sound?.play('zombie_attack', { pos: eye, volume: 0.9, pitch: z.voice || 1, channel: `${z.id}:voice` });
       }
     }
     if (z.windup && t >= z.windup) {

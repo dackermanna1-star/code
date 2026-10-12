@@ -25,7 +25,8 @@ import { createWorldWeapon, weaponHoldType } from './worldweapons.js';
 
 export const PLAYER_SKINS = { t: ['terror', 'leet', 'arctic', 'guerilla'], ct: ['urban', 'gsg9', 'sas', 'gign'] };
 /** Zombie survival: the common zombie and the five bosses. */
-export const ZOMBIE_SKINS = ['zombie', 'butcher', 'spitter', 'banshee', 'inferno', 'abomination', 'boomer', 'charger', 'sprinter', 'hunter', 'smoker'];
+export const ZOMBIE_SKINS = ['zombie', 'butcher', 'spitter', 'banshee', 'inferno', 'abomination', 'boomer', 'charger', 'sprinter', 'hunter', 'smoker',
+  'zct', 'zterror', 'zsci', 'zfat', 'zthin', 'zriot', 'zbloat', 'screamer']; // (the commons' other looks and the screamer: zroster.js)
 /** Bone scales that make a body (the Charger's one huge arm). */
 const BONE_SCALE = { charger: { upperarm_r: 1.55, upperarm_l: 0.85 } };
 
@@ -100,6 +101,11 @@ const HITBOXES = [
   ['shin_r', 7, [0.2, 0, -8.3], [7.2, 7.0, 17.0]],
   ['foot_r', 7, [2.9, -0.2, -1.6], [13.8, 5.4, 4.2]],
 ];
+// bodies too big for the standard boxes (a gut out front): bone -> [centre x, size x, size y]
+const HITBOX_FIT = {
+  zfat: { pelvis: [1.6, 15, 19], spine: [3.7, 18, 20], chest: [2.6, 16, 19] },
+  zbloat: { pelvis: [3, 19, 24], spine: [7.5, 27, 27], chest: [6.5, 25, 28] },
+};
 const HIT_COLORS = [0xffffff, 0xff3030, 0xffa020, 0xffff30, 0x30a0ff, 0x30ffff, 0x30ff60, 0xc060ff];
 const unitBox = new THREE.BoxGeometry(1, 1, 1);
 
@@ -249,11 +255,13 @@ class PlayerModel {
 
     // hitboxes
     this.hitMats = HIT_COLORS.map((c) => new THREE.MeshBasicMaterial({ color: c, wireframe: true, visible: false, depthTest: false }));
+    const fit = HITBOX_FIT[skin];
     this.hitboxes = HITBOXES.map(([bone, group, c, s]) => {
       const m = new THREE.Mesh(unitBox, this.hitMats[group]);
       m.name = 'hitbox_' + bone;
-      m.position.set(c[0], c[1], c[2]);
-      m.scale.set(s[0], s[1], s[2]);
+      const f = fit?.[bone];
+      m.position.set(f ? f[0] : c[0], c[1], c[2]);
+      m.scale.set(f ? f[1] : s[0], f ? f[2] : s[1], s[2]);
       m.userData.hitgroup = group;
       m.userData.playerModel = this;
       m.renderOrder = 10;
@@ -283,6 +291,8 @@ class PlayerModel {
     this.holdType = this.zombie ? 'zombie' : 'none';
     this.swipeT = -1; // zombie claw swipe progress (s), -1 = none
     this.swipeSide = 1;
+    this.crawl = false; // zombie survival crawler: flat on its belly (zroster.js sets it; reset() clears it)
+    this.crawlPh = 0;
     this.gripR = gripFrame(GRIP_R.grip, false);
     this.gripL = null;
     this.leftPoint = null;
@@ -390,6 +400,7 @@ class PlayerModel {
     if (this.weaponHolderL) this.weaponHolderL.visible = true;
     this.spd = 0; this.crouchW = 0; this.airW = 0; this.plantW = 0; this.reloadW = 0; this.recoil = 0;
     this.clearHits();
+    this.crawl = false;
     this._started = false;
   }
 
@@ -536,6 +547,7 @@ class PlayerModel {
     if (this.swipeT >= 0) { this.swipeT += dt; if (this.swipeT > SWIPE_TIME) this.swipeT = -1; }
     const pitch = clamp(st.pitch || 0, -89, 89);
     this.pitch = pitch;
+    if (this.crawl) { this._crawl(dt); return; }
 
     const spd = this.spd;
     const cw = this.crouchW, aw = this.airW, pw = this.plantW;
@@ -803,6 +815,50 @@ class PlayerModel {
         rig.ik(B.upperarm_l, B.forearm_l, B.hand_l, target, H.poleL, 'arm');
         rig.setRot(B.hand_l, q);
       }
+    }
+  }
+
+  /**
+   * A crawler (zombie survival, zroster.js): flat on its belly, hauling itself along hand over
+   * hand, the legs dragging; the head (and its hitbox) is down at knee height, out in front.
+   */
+  _crawl(dt) {
+    const rig = this.rig, B = rig.b, TAU = Math.PI * 2;
+    const C = this._crawlTmp || (this._crawlTmp = { p: new THREE.Vector3(), q: new THREE.Quaternion(), f: new THREE.Vector3(), d: new THREE.Vector3(0, 0, -1),
+      poleR: V(-0.4, -0.9, 0.5), poleL: V(-0.4, 0.9, 0.5), knee: [V(0, -0.3, -1), V(0, 0.3, -1)] });
+    const move = smooth(4, 40, this.spd);
+    this.crawlPh = (this.crawlPh + this.spd * dt / 34) % 1; // a haul every ~17 u
+    const ph = this.crawlPh, sw = Math.sin(TAU * ph) * move, heave = Math.abs(Math.sin(TAU * ph)) * move;
+    rig.setPos(B.pelvis, C.p.set(-12, 0, 8.6 + heave * 0.8));
+    rig.setRot(B.pelvis, qZYX(3 * sw, 80, 5 * sw, C.q));
+    rig.setRot(B.spine, qZYX(-2 * sw, 74, 0, C.q));
+    rig.setRot(B.chest, qZYX(-5 * sw, 64 - 4 * heave, -3 * sw, C.q));
+    rig.setRot(B.neck, qZYX(0, 30, 0, C.q));
+    rig.setRot(B.head, qZYX(5 * Math.sin(this.time * 1.3), -6 + clamp(this.pitch, -30, 30) * 0.4, 12, C.q));
+    // arms: one planted and pulling back while the other reaches out; a claw rears up and rakes
+    for (const side of [1, -1]) { // 1 = the right hand (-y)
+      const k = (ph + (side > 0 ? 0 : 0.5)) % 1;
+      let x, z;
+      if (k < 0.5) { x = lerp(28, 13, k / 0.5); z = 1.4; }
+      else { const u = (k - 0.5) / 0.5; x = lerp(13, 28, u); z = 1.4 + 6 * Math.sin(Math.PI * u); }
+      const tgt = C.p.set(lerp(22, x, move), -9 * side, lerp(1.4, z, move));
+      C.f.set(1, 0, -0.5);
+      if (this.swipeT >= 0 && this.swipeSide === side) {
+        const s = this.swipeT / SWIPE_TIME;
+        if (s < 0.55) tgt.lerp(V(16, -7 * side, 19), smooth(0, 0.55, s));
+        else if (s < 0.75) tgt.set(16, -7 * side, 19).lerp(V(34, -1 * side, 4), smooth(0.55, 0.75, s));
+        else tgt.set(34, -1 * side, 4).lerp(V(22, -9 * side, 1.4), smooth(0.75, 1, s));
+        C.f.set(1, 0, 0.3);
+      }
+      if (side > 0) rig.ik(B.upperarm_r, B.forearm_r, B.hand_r, tgt, C.poleR, 'arm');
+      else rig.ik(B.upperarm_l, B.forearm_l, B.hand_l, tgt, C.poleL, 'arm');
+      rig.setRot(side > 0 ? B.hand_r : B.hand_l, handQuat(C.f, C.d, side < 0, C.q));
+    }
+    // legs dragging straight out behind, scuffing side to side
+    for (const [side, s] of [['r', -1], ['l', 1]]) {
+      const k = (ph + (s > 0 ? 0.25 : 0.75)) % 1;
+      rig.ik(B['thigh_' + side], B['shin_' + side], B['foot_' + side], C.p.set(-46 + 2.5 * Math.sin(TAU * k) * move, s * (8 + 1.5 * move * Math.cos(TAU * k)), 3.5), C.knee[s > 0 ? 1 : 0], 'leg');
+      rig.setRot(B['foot_' + side], qZYX(s * 10, 125, 0, C.q));
     }
   }
 

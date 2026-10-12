@@ -79,15 +79,16 @@
     check('hooks reached', n.tick >= 300 && n.frame > 0 && n.hud > 0 && n.flow > 0 && n.plan === 1 && n.next > 0 && n.next === n.interval && n.max >= n.next && n.spawned > 0, JSON.stringify(n));
     check('hud state still built', !!s.radar && s.radar.blips.some((b) => b.kind === 'enemy'));
     check('wave start carries mod (none yet)', of('wave', (e) => e.phase === 'start').length === 1 && of('wave', (e) => e.phase === 'start')[0].mod === null && Z().stats.mod === null);
-    // the commons: today's crowd, with a variant
+    // the commons: a variant each (the roster, zroster.js: walkers and runners as before, and its subtypes)
     const c = commons(), S = Z().stats;
-    const bad = c.filter((z) => !(z.variant === 'walker' || z.variant === 'runner'));
+    const RM = await import('/src/game/zroster.js');
+    const bad = c.filter((z) => !RM.COMMONS[z.variant]);
     // (stagger, 2.1: staggered zombies are easier for the bots to finish, fewer are up at 3 s)
-    check('commons carry z.variant (walker / runner)', c.length > 1 && !bad.length, `${c.length} up, ${bad.map((z) => z.variant)}`);
-    const runOk = c.every((z) => z.variant === 'runner' ? z.zSpeed >= 262 && z.zSpeed <= 280 : z.zSpeed >= S.speed * 0.9 - 1e-6 && z.zSpeed <= S.speed * 1.06 + 1e-6);
+    check('commons carry a COMMONS z.variant', c.length > 1 && !bad.length, `${c.length} up, ${c.map((z) => z.variant)}`);
+    const runOk = c.every((z) => z.variant === 'runner' ? z.zSpeed >= 262 && z.zSpeed <= 280 : z.variant !== 'walker' || (z.zSpeed >= S.speed * 0.9 - 1e-6 && z.zSpeed <= S.speed * 1.06 + 1e-6));
     check('runner / walker speeds as before', runOk, c.map((z) => `${z.variant[0]}${z.zSpeed | 0}`).join(' '));
     // (stagger, 2.1: the bots' fire staggers some of them by now; the rest still show the reset)
-    check('per-zombie M2 fields reset', c.every((z) => z.front === null && (z.staggerN > 0 || (z.staggerUntil === 0 && z.staggerKind === null)) && z.poise >= 0 && z.poise <= 1 && z.field === 0 && z.slot === -1 && z.skin === 'zombie'));
+    check('per-zombie M2 fields reset', c.every((z) => z.front === null && (z.staggerN > 0 || (z.staggerUntil === 0 && z.staggerKind === null)) && z.poise >= 0 && z.poise <= 1 && z.field === 0 && z.slot === -1 && RM.COMMONS[z.variant].skins.includes(z.skin)));
     check('horde.field is the main field', c.every((z) => Z().horde.field(z) === Z().dist));
     // kill payload: the variant
     const z0 = c[0], v0 = z0.variant;

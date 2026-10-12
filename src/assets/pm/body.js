@@ -292,6 +292,15 @@ export const SKIN_BODY = {
   gign: { bulk: 1.0, baggy: 0.3, helmet: true, helmetBig: 0.15, visor: true },
   scientist: { bulk: 0.35, hem: 0.9, baggy: 0.5 }, // hostage
   zombie: { bulk: 0.3, hem: 0.5, baggy: 0.7 }, // zombie survival
+  // the commons' other looks (src/game/zroster.js): a build each (a body's build is its skin's)
+  zct: { bulk: 1.0, baggy: 0.4, pouches: true, pack: true },
+  zterror: { bulk: 0.4, hem: 0.5, baggy: 0.3 },
+  zsci: { bulk: 0.35, hem: 0.9, baggy: 0.5 },
+  zfat: { bulk: 1.0, hem: 1.0, baggy: 0.9, belly: 1.3, muscle: 0.2 },
+  zthin: { bulk: 0, hem: 0.1, baggy: 0.15, thin: 0.75 },
+  zriot: { bulk: 1.7, hem: 0.3, baggy: 0.5, helmet: true, helmetBig: 0.35, visor: true },
+  zbloat: { bulk: 1.8, hem: 2.0, baggy: 1.2, belly: 2.6, muscle: 0.3 },
+  screamer: { bulk: 0, hem: 0.2, baggy: 0, thin: 0.6, skirt: 0.75, longHair: true }, // (a special: specials.js)
   // zombie bosses (src/game/bosses.js)
   butcher: { bulk: 1.2, hem: 1.2, baggy: 0.9, belly: 1.0, muscle: 0.9 },
   spitter: { bulk: 1.4, hem: 1.6, baggy: 1.0, belly: 1.6, muscle: 0.3 },

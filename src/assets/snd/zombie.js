@@ -104,6 +104,24 @@ export const ZOMBIE_FX = {
     const f = v ? 700 : 820;
     addGrunt(x, sr, r, 0, 1, { dur: 0.6, f0: vib(f, f * 0.8, 0.6, 0.07, 15), env: [[0, 0], [0.02, 1], [0.6, 0]], vowels: [[0, V.ae], [0.6, V.a]], breath: 0.7, grit: 4 });
   }, 0.12) },
+  // ---- the common roster (zroster.js): the screamer's wail and its call, the bloater bursting
+  screamer_wail: { rate: 22050, dur: 2.0, variants: 2, peak: 0.55, fn: (P, v) => foley(P, (x, sr, r) => {
+    const f = v ? 520 : 440;
+    addGrunt(x, sr, r, 0.02, 1, { dur: 1.6, f0: vib(f, f * 1.35, 1.6, 0.06, 6), env: [[0, 0], [0.3, 1], [1.1, 0.8], [1.6, 0]], vowels: [[0, V.u], [0.7, V.a], [1.6, V.ae]], breath: 0.7, grit: 3 });
+    addGrunt(x, sr, r, 0.25, 0.4, { dur: 1.2, f0: vib(f * 1.5, f * 1.2, 1.2, 0.08, 9), env: [[0, 0], [0.2, 1], [1.2, 0]], vowels: [[0, V.a], [1.2, V.u]], breath: 0.8, grit: 4 });
+  }, 0.4, { len: 1.2, tau: 0.5, lp: 3500, lpEnd: 900, slaps: [[0.2, 0.4], [0.5, 0.2]] }) },
+  screamer_shriek: { rate: 22050, dur: 2.8, peak: 0.95, fn: (P) => foley(P, (x, sr, r) => {
+    addGrunt(x, sr, r, 0.01, 1, { dur: 2.2, f0: vib(700, 980, 2.2, 0.07, 13), env: [[0, 0], [0.05, 1], [1.6, 0.95], [2.2, 0]], vowels: [[0, V.ae], [1.0, V.a], [2.2, V.ae]], breath: 0.6, grit: 6 });
+    addGrunt(x, sr, r, 0.03, 0.7, { dur: 2.1, f0: vib(1040, 1400, 2.1, 0.09, 17), env: [[0, 0], [0.08, 1], [2.1, 0]], vowels: [[0, V.ae], [2.1, V.a]], breath: 0.7, grit: 5 });
+    addBurst(x, sr, r, 0, 0.4, { len: 2.2, color: 'white', env: (t) => Math.min(1, t / 0.05) * Math.exp(-t / 1.2), filters: [['highpass', 2200, 0.7]] });
+  }, 0.4, { len: 1.6, tau: 0.6, lp: 4000, lpEnd: 1000, slaps: [[0.15, 0.5], [0.4, 0.3], [0.7, 0.2]] }) },
+  bloater_pop: { rate: 22050, dur: 2.6, peak: 0.95, fn: (P) => foley(P, (x, sr, r) => {
+    squelch(x, sr, r, 0, 1.5);
+    addTone(x, sr, 0, { f: 70, f1: 30, glide: 0.15, tau: 0.3, amp: 1.2 });
+    addBurst(x, sr, r, 0.01, 0.9, { a: 0.002, tau: 0.2, color: 'pink', filters: [['lowpass', 1400, 0.7]] });
+    addBurst(x, sr, r, 0.08, 0.55, { len: 2.3, color: 'white', env: (t) => Math.min(1, t / 0.1) * Math.exp(-t / 0.9), filters: [['bandpass', 2600, 0.6]] }); // the gas hissing out
+    addGrains(x, sr, r, { t0: 0.05, span: 1.0, count: 60, f: [300, 2400], amp: [0.1, 0.5], decay: 0.4, dur: [0.002, 0.01], q: [1, 3] });
+  }, 0.25) },
   // ---- medkit
   medkit_use: { rate: 22050, dur: 1.5, peak: 0.55, fn: (P) => foley(P, (x, sr, r) => {
     addScrape(x, sr, r, 0.02, 0.22, { f0: 2400, f1: 4200, q: 3, amp: 0.55, grit: 1 }); // zip

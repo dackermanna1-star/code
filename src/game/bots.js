@@ -1349,6 +1349,7 @@ class Bot {
 
   // head / chest points of a player (from the hitbox layout: head 60..72 above the feet)
   bodyPoints(e) {
+    if (e.model?.crawl) return this.game.zombies.roster.bodyPoints(e); // (a crawler: knee height, zroster.js)
     const o = e.pm.origin, duck = e.pm.ducking;
     const feet = o[2] + (duck ? -18 : -36);
     const fwd = e.pm.angles[1] * DEG;
