@@ -95,14 +95,12 @@ export class World {
       p.prevViewz = p.viewz;
     }
     if (p && p.mo && p.playerstate !== 'reborn') playerThink(this, p);
-    // Run thinkers; new thinkers added during the loop run next tic like vanilla.
+    // Run thinkers; like vanilla's linked list, thinkers added during the
+    // loop are appended and still run this tic.
     const list = this.thinkers;
-    const n = list.length;
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < list.length; i++) {
       const t = list[i];
-      if (t.removed) continue;
-      if (t === (p && p.mo)) { t.think(this); continue; }
-      t.think(this);
+      if (!t.removed) t.think(this);
     }
     if (list.some((t) => t.removed)) this.thinkers = list.filter((t) => !t.removed);
     this.specials.updateSpecials();

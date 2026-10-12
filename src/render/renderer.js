@@ -442,6 +442,7 @@ export class Renderer {
       d[p++] = s.flags || 0;
       d[p++] = s.alpha == null ? 1 : s.alpha;
       d[p++] = s.x; d[p++] = s.y; d[p++] = s.cz == null ? s.z : s.cz;
+      d[p++] = s.clipZ == null ? 1e9 : s.clipZ;
     }
   }
 
@@ -468,6 +469,7 @@ export class Renderer {
       d[p++] = flags | SPR_SOLID;
       d[p++] = alpha;
       d[p++] = x; d[p++] = y; d[p++] = z;
+      d[p++] = 1e9;
     }
   }
 
@@ -482,6 +484,7 @@ export class Renderer {
       d[p++] = q[0]; d[p++] = q[1]; d[p++] = q[2]; d[p++] = q[3]; d[p++] = q[4];
       d[p++] = image; d[p++] = light; d[p++] = 0; d[p++] = flags; d[p++] = 1;
       d[p++] = c[0]; d[p++] = c[1]; d[p++] = c[2];
+      d[p++] = 1e9;
     }
   }
 

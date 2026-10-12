@@ -127,8 +127,9 @@ export function xyMovement(w, mo) {
         if (w.fx) w.fx.missileHitWall(mo, mapState.blockline);
         explodeMissile(w, mo);
       } else {
-        if (w.fx && w.fx.blocked) w.fx.blocked(mo);
-        mo.momx = mo.momy = 0;
+        // The effects layer may bounce physics corpses/gibs off the wall.
+        if (!(w.fx && w.fx.blocked && w.fx.blocked(mo))) mo.momx = mo.momy = 0;
+        xmove = ymove = 0;
       }
       if (mo.removed) return;
     }
@@ -223,7 +224,6 @@ function nightmareRespawn(w, mobj) {
 }
 
 export function mobjThinker(w, mo) {
-  if (mo.ext && mo.ext.preThink) mo.ext.preThink(w, mo);
   if (mo.momx || mo.momy || (mo.flags & MF.SKULLFLY)) {
     xyMovement(w, mo);
     if (mo.removed) return;
@@ -234,7 +234,7 @@ export function mobjThinker(w, mo) {
   }
   if (mo.tics !== -1) {
     mo.tics--;
-    if (mo.ext && mo.ext.holdState && mo.ext.holdState(w, mo)) mo.tics = Math.max(mo.tics, 1);
+    if (!mo.tics && (mo.flags & MF.CORPSE) && w.fx && w.fx.holdFrame && w.fx.holdFrame(mo)) mo.tics = 1;
     if (!mo.tics) setMobjState(w, mo, stateNext[mo.state]);
   } else {
     if (!(mo.flags & MF.COUNTKILL)) return;

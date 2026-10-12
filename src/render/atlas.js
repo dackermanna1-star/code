@@ -20,6 +20,7 @@ export class Atlas {
     this.tableData = null;
     this.uploadedPages = 0;
     this.dirtyPages = new Set();
+    this.dirtyRects = [];
     this.tableDirty = true;
   }
 
@@ -74,7 +75,9 @@ export class Atlas {
     const entry = { page: pos.page, x: pos.x, y: pos.y, w, h };
     this.entries.push(entry);
     this.writeTableEntry(this.entries.length - 1, entry);
-    this.dirtyPages.add(pos.page);
+    // After the first upload, new images go up as small sub-rectangles.
+    if (this.texture && pos.page < this.uploadedPages) this.dirtyRects.push(entry);
+    else this.dirtyPages.add(pos.page);
     return this.entries.length - 1;
   }
 
@@ -129,6 +132,16 @@ export class Atlas {
       gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, p, PAGE_SIZE, PAGE_SIZE, 1, gl.RG, gl.UNSIGNED_BYTE, this.pages[p].data);
     }
     this.dirtyPages.clear();
+    for (const e of this.dirtyRects) {
+      const page = this.pages[e.page];
+      const sub = new Uint8Array(e.w * e.h * 2);
+      for (let y = 0; y < e.h; y++) {
+        const src = ((e.y + y) * PAGE_SIZE + e.x) * 2;
+        sub.set(page.data.subarray(src, src + e.w * 2), y * e.w * 2);
+      }
+      gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, e.x, e.y, e.page, e.w, e.h, 1, gl.RG, gl.UNSIGNED_BYTE, sub);
+    }
+    this.dirtyRects.length = 0;
     this.uploadTable();
   }
 
@@ -154,7 +167,7 @@ export class Atlas {
 
   // Called once per frame by the renderer.
   sync() {
-    if (this.dirtyPages.size || this.uploadedPages !== this.pages.length) this.upload();
+    if (this.dirtyPages.size || this.dirtyRects.length || this.uploadedPages !== this.pages.length) this.upload();
     else if (this.tableDirty) this.uploadTable();
   }
 }

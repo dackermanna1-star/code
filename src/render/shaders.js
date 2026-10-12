@@ -102,7 +102,10 @@ void main() {
   int si = int(a_info.x + 0.5);
   vec4 surf = texelFetch(u_surfaces, ivec2(si % 256, si / 256), 0);
   float flags = a_info.w;
-  if (mod(flags, 2.0) >= 1.0) {
+  if (mod(floor(flags / 64.0), 2.0) >= 1.0) {
+    // Decal: explicit texel coordinates.
+    v_uv = vec2(a_tex.x, a_tex.w);
+  } else if (mod(flags, 2.0) >= 1.0) {
     // Flat: world aligned 64x64 tiles.
     v_uv = vec2(a_pos.x, -a_pos.y) + surf.yz;
   } else {
@@ -137,7 +140,7 @@ bool bit(float flags, float b) { return mod(floor(flags / b), 2.0) >= 1.0; }
 void main() {
   vec2 size = v_rect.zw;
   if (size.x < 1.0) discard;
-  bool isFlat = bit(v_flags, 1.0);
+  bool isFlat = bit(v_flags, 1.0) || bit(v_flags, 128.0);
   bool masked = bit(v_flags, 2.0);
   bool noVWrap = bit(v_flags, 4.0);
   bool decal = bit(v_flags, 16.0);
@@ -187,12 +190,13 @@ void main() {
 `;
 
 // --- Sprites & particles (world space billboards) -------------------------
-// a_pos(3) a_uv(2) a_image(1) a_light(1) a_color(1) a_flags(1) a_alpha(1) a_center(3) = 13
+// a_pos(3) a_uv(2) a_image(1) a_light(1) a_color(1) a_flags(1) a_alpha(1) a_center(3) a_clip(1) = 14
 // a_center is the sprite origin: the whole billboard takes its depth, like
 // the original renderer's single per-sprite scale, so sprites near walls
 // aren't sliced by the geometry behind them.
-export const SPRITE_LAYOUT = [['a_pos', 3], ['a_uv', 2], ['a_image', 1], ['a_light', 1], ['a_color', 1], ['a_flags', 1], ['a_alpha', 1], ['a_center', 3]];
-export const SPRITE_FLOATS = 13;
+// a_clip discards pixels above a world height (dismemberment).
+export const SPRITE_LAYOUT = [['a_pos', 3], ['a_uv', 2], ['a_image', 1], ['a_light', 1], ['a_color', 1], ['a_flags', 1], ['a_alpha', 1], ['a_center', 3], ['a_clip', 1]];
+export const SPRITE_FLOATS = 14;
 
 export const SPRITE_VS = HEADER + COMMON + `
 in vec3 a_pos;
@@ -203,6 +207,7 @@ in float a_color;
 in float a_flags;
 in float a_alpha;
 in vec3 a_center;
+in float a_clip;
 uniform mat4 u_view;
 uniform mat4 u_proj;
 out vec2 v_uv;
@@ -213,6 +218,7 @@ flat out float v_light;
 flat out float v_color;
 flat out float v_flags;
 flat out float v_alpha;
+flat out float v_clip;
 void main() {
   v_uv = a_uv;
   v_rect = a_image >= 0.0 ? imageRect(a_image) : vec4(0.0);
@@ -220,6 +226,7 @@ void main() {
   v_color = a_color;
   v_flags = a_flags;
   v_alpha = a_alpha;
+  v_clip = a_clip;
   vec4 viewPos = u_view * vec4(a_pos.x, a_pos.z, -a_pos.y, 1.0);
   vec4 centerView = u_view * vec4(a_center.x, a_center.z, -a_center.y, 1.0);
   v_depth = max(-centerView.z, 1.0);
@@ -241,6 +248,7 @@ flat in float v_light;
 flat in float v_color;
 flat in float v_flags;
 flat in float v_alpha;
+flat in float v_clip;
 uniform sampler2D u_scene;
 uniform float u_fuzzPhase;
 uniform float u_pixelScale;
@@ -248,6 +256,7 @@ out vec4 o_color;
 bool bit(float flags, float b) { return mod(floor(flags / b), 2.0) >= 1.0; }
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 void main() {
+  if (v_world.z > v_clip) discard;
   bool fullbright = bit(v_flags, 1.0);
   bool fuzz = bit(v_flags, 2.0);
   bool solid = bit(v_flags, 4.0);

@@ -2,10 +2,10 @@
 // draws the first-person weapon (psprites) with modern handling transforms.
 
 import { stateSprite, stateFrame, FULLBRIGHT, FRAMEMASK } from '../game/tables.js';
-import { SPR_FULLBRIGHT, SPR_FUZZ } from './renderer.js';
+import { SPR_FULLBRIGHT, SPR_FUZZ, SPR_DITHER } from './renderer.js';
 import { MF, PW, WP, normAngle } from '../game/defs.js';
 import { PS_WEAPON, PS_FLASH, weaponCfg, weaponFrameOverride } from '../game/weapons.js';
-import { SPR } from '../game/tables.js';
+import { SPR, WEAPONINFO } from '../game/tables.js';
 
 const lerp = (a, b, t) => a + (b - a) * t;
 
@@ -96,11 +96,14 @@ export class ViewRenderer {
         z += Math.min(mo.floorz - bottom, 8);
       }
       const ext = mo.ext;
+      let alpha;
+      if (ext && ext.fade !== undefined) { flags |= SPR_DITHER; alpha = Math.max(0, ext.fade); }
       r.addSprite({
-        image, x, y, z, flip: fr.flip[rot], light: sector.lightlevel, flags,
+        image, x, y, z, flip: fr.flip[rot], light: sector.lightlevel, flags, alpha,
         roll: ext && ext.roll ? ext.roll : 0,
         cz: z + info.topOffset - info.height / 2,
         scale: ext && ext.scale ? ext.scale : 1,
+        clipZ: ext && ext.clipRel !== undefined ? z + ext.clipRel : undefined,
       });
       if (ext && ext.afterSprite) ext.afterSprite(r, mo, x, y, z, image, rot, cam);
     }
@@ -182,18 +185,21 @@ export class ViewRenderer {
       const p = m.melee.t / m.melee.total;
       dy += 70 * Math.sin(Math.min(1, p * 1.2) * Math.PI);
     }
-    // Aim down sights: move toward centre, lower to sight line, enlarge.
+    // Aim down sights: the weapon's front sight (top-most opaque pixel of
+    // its ready frame) is brought to the view centre and the sprite enlarged.
+    let adsE = 0;
+    let adsT = null;
     if (cfg.ads && ads > 0) {
-      const e = ads * ads * (3 - 2 * ads);
-      dx = lerp(dx, cfg.ads.x - (sx - 1), e);
-      dy = lerp(dy, dy * 0.3 + cfg.ads.y, e);
-      scale *= lerp(1, cfg.ads.scale, e);
-      rot *= 1 - e;
-      sy = lerp(sy, 32, e);
+      adsE = ads * ads * (3 - 2 * ads);
+      const sight = this.sightPoint(player.readyweapon);
+      if (sight) {
+        const cy = viewH200 / 2 + 1 + cfg.ads.y * 0.15 + kick * 0.5 + this.sway.y * 0.25;
+        // Big enough that the bottom of the art still reaches the view edge.
+        const S = Math.max(cfg.ads.scale, (viewH200 - cy + 3) / Math.max(8, sight.h - sight.y));
+        const cx = 160 + this.sway.x * 0.25;
+        adsT = { S, cx, cy, sx0: 1 - sight.leftOffset + sight.x, sy0: 32 - sight.topOffset + sight.y };
+      }
     }
-    // Landing dip
-    dy += player.landDip || 0;
-
     const override = weaponFrameOverride(player);
     const draw = (stateIdx, isFlash) => {
       let sprite = stateSprite[stateIdx];
@@ -229,6 +235,15 @@ export class ViewRenderer {
           X = px + cx * c - cy * s;
           Y = py + cx * s + cy * c;
         }
+        if (adsT) {
+          // Same point in the sight-aligned pose (no bob), then blend.
+          const ax = (vx - (sx - 1)) - adsT.sx0;
+          const ay = (vy - (sy - 32) - yShift) - adsT.sy0;
+          const AX = r.vLeft + (adsT.cx + ax * adsT.S) * sxv;
+          const AY = (adsT.cy + ay * adsT.S) * syv;
+          X += (AX - X) * adsE;
+          Y += (AY - Y) * adsE;
+        }
         return [X, Y];
       });
       r.drawImageQuad(id, corners, { level: bright ? (player.fixedcolormap || 0) : level, fuzz });
@@ -237,6 +252,27 @@ export class ViewRenderer {
     const flash = player.psprites[PS_FLASH];
     if (flash.state && !override) draw(flash.state, true);
     if (m.reload && this.settings.get('shellCasings') !== false) this.drawReloadProp(player, frac, dx, dy, yShift);
+  }
+
+  // Top-most opaque pixel of a weapon's ready frame (its front sight).
+  sightPoint(weapon) {
+    this.sights ||= new Map();
+    if (this.sights.has(weapon)) return this.sights.get(weapon);
+    let out = null;
+    const st = WEAPONINFO[weapon] && WEAPONINFO[weapon].readystate;
+    const frames = st ? this.res.sprites[stateSprite[st]] : null;
+    const fr = frames && frames[stateFrame[st] & FRAMEMASK];
+    const info = fr ? this.res.images[fr.images[0]] : null;
+    if (info && info.img) {
+      const img = info.img;
+      for (let y = 0; y < img.height && !out; y++) {
+        let x0 = -1, x1 = -1;
+        for (let x = 0; x < img.width; x++) if (img.mask[y * img.width + x]) { if (x0 < 0) x0 = x; x1 = x; }
+        if (x0 >= 0) out = { x: (x0 + x1 + 1) / 2, y, h: img.height, leftOffset: info.leftOffset, topOffset: info.topOffset };
+      }
+    }
+    this.sights.set(weapon, out);
+    return out;
   }
 
   // Small palette-art props for reloads: magazine or shotgun shell.
