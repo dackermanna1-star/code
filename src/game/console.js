@@ -78,9 +78,9 @@ export class Console {
         break;
       }
       case 'bot_difficulty': g.bots.difficulty = ['easy', 'normal', 'hard', 'expert'][num(1)] || 'normal'; break;
-      case 'god': if (this.cheats && g.local) { g.local.god = !g.local.god; this.print(`godmode ${g.local.god ? 'ON' : 'OFF'}`); } break;
+      case 'god': if (this.cheats && g.local) { g.local.god = !g.local.god; g.zombies.taint(); this.print(`godmode ${g.local.god ? 'ON' : 'OFF'}`); } break;
       case 'impulse':
-        if (arg === '101' && this.cheats && g.local) { g.local.money = 16000; this.print('$16000'); }
+        if (arg === '101' && this.cheats && g.local) { g.local.money = 16000; g.zombies.taint(); this.print('$16000'); }
         break;
       case 'noclip': if (this.cheats) this.print('noclip is not supported'); break;
       case 'kill': if (g.local?.alive) g.killPlayer(g.local, null, 'world', false); break;

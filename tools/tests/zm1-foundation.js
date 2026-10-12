@@ -291,7 +291,12 @@
       listen();
       con('sv_cheats 1');
       con('zm_wave 6');
+      check('a cheat taints the run', Z().cheated === true);
       con('zm_skip'); // wave 6 cleared: a break
+      check('a cheated run sets no record', Z().best === 5 && JSON.parse(localStorage.getItem(KEY))[rk] === 5, `best ${Z().best}`);
+      // (the record logic itself, as a clean run would reach wave 6: the taint lifted for the test)
+      Z().cheated = false;
+      Z().saveBest(Z().wave);
       check('best saved when a wave is cleared', Z().best === 6 && JSON.parse(localStorage.getItem(KEY))[rk] === 6 && Z().bestBefore === 5);
       rec = [];
       wipe();
@@ -300,7 +305,9 @@
       check('run over event', of('run', (e) => e.phase === 'over' && e.survived === 6).length === 1 && of('kill', (e) => !e.zombie).length === 2);
       // equal to the best before the run: not a new best (it used to say so)
       newRun({ allies: 1 });
+      check('a new run starts clean', Z().cheated === false);
       con('zm_wave 7');
+      Z().cheated = false;
       wipe();
       check('dying mid-wave counts the waves before it', Z().survived === 6, `survived ${Z().survived}`);
       check('tying the best is not a new best', Z().isNewBest() === false && Z().best === 6);

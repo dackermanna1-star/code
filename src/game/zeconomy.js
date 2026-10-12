@@ -6,12 +6,15 @@
 //    standing, half of it to those who fell in the wave; every payout goes out as an 'earn'
 //  - the shop: in the break everything is for sale; mid-wave only ammo, armour and medkits,
 //    at +combatPremium (Sandbox: anything, any time, no markup); someone just back from a
-//    respawn has REARM seconds of the whole shop. rounds.buyItem asks buyGate() first and
+//    respawn has REARM seconds of the whole shop (not on hardcore: guns, upgrades and perks
+//    in the breaks only, whoever you are). rounds.buyItem asks buyGate() first and
 //    says why when it's no; the buy menu greys out what can't be bought now (menuState)
 //  - ready-up: F1 ('autobuy') or a typed zm_ready; once every human in the squad is ready
 //    the break drops to READY_BREAK seconds ('ready' event); the HUD shows who is ready
 //  - bots shop on a budget in the breaks (Bot.buy hands them over: shop): a better pistol,
-//    armour, then a primary, ammo, then medkits and attachments; mid-wave only ammo when dry;
+//    armour, then a primary, ammo, then medkits and a couple of attachments; they back the
+//    squad up rather than carry it, so only MG_CAP of them carry a machine gun and the rest
+//    stay on rifles (Sandbox, money to burn: as bots always bought); mid-wave only ammo when dry;
 //    a bot back from the dead picks its own gun up again if it's still where it fell
 // Scaffold: ZombieMode builds it and calls tick(t) first thing every tick (before a break
 // ends); buildHudState calls hud(s) every frame. Run resets: the 'run' event.
@@ -31,6 +34,8 @@ const STARTERS = new Set(['usp', 'glock']); // the pistols you spawn with
 // that beats what they carry (no buying a gun a step up every break)
 const BOT_GUNS = [['mp5', 1], ['ump45', 1], ['p90', 1], ['galil', 2], ['famas', 2], ['ak47', 2], ['m4a1', 2], ['m249', 3]];
 const BOT_ATTS = ['extmag', 'foregrip', 'compensator', 'laser', 'reddot'];
+const BOT_ATT_MAX = 2; // attachments a bot puts on a gun (Sandbox: all it can)
+const MG_CAP = (bots) => (bots <= 4 ? 1 : 2); // bots in the squad that may carry a machine gun (tier 3)
 const KEEP = 200; // $ a bot keeps back for ammo while it shops
 const FALLEN_BONUS = 0.5; // share of a cleared wave's bonus for those who died in it
 const HUD_GREEN = [90, 230, 90], HUD_AMBER = [255, 176, 0], HUD_DIM = [150, 130, 90], HUD_RED = [255, 70, 50];
@@ -41,6 +46,7 @@ const tierOf = (w) => {
   return k === 'sniper' ? 0 : k === 'smg' || k === 'shotgun' ? 1 : k === 'mg' ? 3 : 2;
 };
 const loaded = (w) => !!w && (w.clip > 0 || w.ammo > 0);
+const attCount = (w) => { let n = 0; for (const k in w.att || {}) if (w.att[k]) n++; return n; };
 
 export class ZEconomy {
   constructor(game) {
@@ -225,8 +231,9 @@ export class ZEconomy {
     return Z.state !== 'wave' || Z.diff.econ.buyAnytime || this.rearm(p) > 0;
   }
 
-  /** Seconds left of p's re-arm window (back from a respawn mid-wave), else 0. */
+  /** Seconds left of p's re-arm window (back from a respawn mid-wave), else 0 (always on hardcore). */
   rearm(p) {
+    if (this.Z.diff.hardcore) return 0; // (hardcore: guns in the breaks only, back from the dead or not)
     const s = this.ps.get(p);
     return s && s.spawnT ? Math.max(0, s.spawnT + REARM - this.game.time) : 0;
   }
@@ -339,16 +346,19 @@ export class ZEconomy {
     // 2. armour: a helmet once, the vest topped up when it's worn through
     if (!p.helmet && p.money >= cost('vesthelm') + KEEP) b('vesthelm');
     else if (p.armor < 50 && p.money >= cost('vest') + KEEP) b('vest');
-    // 3. a primary: the best tier it can afford, if that beats what it has
+    // 3. a primary: the best tier it can afford, if that beats what it has (a machine gun
+    // only while the squad's few MG slots aren't taken: the rest stay on rifles)
+    const sandbox = !!this.Z.diff.sandbox;
     const have = tierOf(p.weapons[1]);
+    const maxTier = sandbox || this.mgSlots(p) > 0 ? 3 : 2;
     let top = 0;
-    for (const [id, tier] of BOT_GUNS) if (tier > have && tier > top && p.money >= cost(id) + KEEP) top = tier;
+    for (const [id, tier] of BOT_GUNS) if (tier > have && tier > top && tier <= maxTier && p.money >= cost(id) + KEEP) top = tier;
     if (top) {
       // the dearest it can afford in that tier (now and then the next one down, for variety);
       // with money to burn (Sandbox) a mix of rifles and the M249, as bots always bought
       let a = null, b2 = null;
       for (const [id, tier] of BOT_GUNS) if (tier === top && p.money >= cost(id) + KEEP) { b2 = a; a = id; }
-      if (p.money >= 8000 && have < 2) { const r = Math.random(); a = r < 0.25 ? 'm249' : r < 0.62 ? 'ak47' : 'm4a1'; b2 = null; }
+      if (sandbox && p.money >= 8000 && have < 2) { const r = Math.random(); a = r < 0.25 ? 'm249' : r < 0.62 ? 'ak47' : 'm4a1'; b2 = null; }
       if (p.weapons[1] && tierOf(p.weapons[1]) === 0) g.dropWeapon(p, p.weapons[1]); // (no bolt-actions against a horde)
       b(b2 && Math.random() < 0.35 ? b2 : a);
     }
@@ -361,13 +371,25 @@ export class ZEconomy {
     const gun = p.weapons[1] || p.weapons[2];
     if (gun && p.money >= 4000) {
       if (p.active !== gun) g.selectWeapon(p, gun, true); // (upgrades go on the gun in hand)
+      const max = sandbox ? BOT_ATTS.length : BOT_ATT_MAX;
       for (const a of BOT_ATTS) {
-        if (p.money < ATT.ATTACHMENTS[a].price + 3000) break;
+        if (p.money < ATT.ATTACHMENTS[a].price + 3000 || attCount(gun) >= max) break;
         if (!ATT.whyNot(gun, a) && !gun.att?.[ATT.ATTACHMENTS[a].slot]) b('att_' + a);
       }
     }
     const best = p.weapons[1] || p.weapons[2];
     if (best && p.active !== best) g.selectWeapon(p, best);
+  }
+
+  /** How many more of the squad's bots may carry a machine gun, besides p (MG_CAP). */
+  mgSlots(p) {
+    let bots = 0, mgs = 0;
+    for (const q of this.game.players) {
+      if (!q.isBot || !inSquad(q)) continue;
+      bots++;
+      if (q !== p && tierOf(q.weapons[1]) === 3) mgs++;
+    }
+    return MG_CAP(bots) - mgs;
   }
 
   /**

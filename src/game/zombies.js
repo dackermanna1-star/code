@@ -56,6 +56,7 @@ export class ZombieMode {
     this.enabled = false;
     this.state = 'idle'; // idle | break | wave | over
     this.wave = 0;
+    this.cheated = false;
     this.pool = [];
     this.dist = null;
     this.rev = null;
@@ -100,6 +101,7 @@ export class ZombieMode {
     this.killed = 0; // of this wave's count
     this.spawned = 0;
     this.survived = 0;
+    this.cheated = false; // a cheat was used (zcheats.js, god, impulse 101): no record for this run
     this.state = 'break';
     this.nextWaveAt = g.time + this.diff.firstBreak;
     this.flowAt = 0;
@@ -146,6 +148,7 @@ export class ZombieMode {
       }
     }
     if (n > 1) g.bots.onRoundStart();
+    g.hud?.centerPrint?.('', 0, 'alert'); // (the break's prints - the greeting, "Wave cleared, next in 15 s" - are stale now: a ready-up cuts it short)
     g.hud?.centerPrint?.(this.bossWave ? `WAVE ${n}\nSomething big is coming...` : `WAVE ${n}`, 3);
     g.sound?.play('zombie_wave', { volume: 1, attenuation: 'none' });
     g.announce?.(`Wave ${n}`);
@@ -185,15 +188,21 @@ export class ZombieMode {
    * Records (zrecords.js): the most waves survived on this map, at this difficulty, with a
    * squad this size. A new best beats bestBefore (the best when the run began).
    */
-  isNewBest() { return this.survived > this.bestBefore; }
+  isNewBest() { return !this.cheated && this.survived > this.bestBefore; }
 
   loadBest() { return readRecord(this.recordKey()); }
 
   saveBest(waves) {
-    if (waves <= this.best) return;
+    if (this.cheated || waves <= this.best) return; // (a cheated run sets no record)
     this.best = waves;
     writeRecord(this.recordKey(), waves);
   }
+
+  /** A cheat was used in this run (console god / impulse 101, the zm_* cheats): it can't set a record. */
+  taint() {
+    if (this.enabled && this.state !== 'idle') this.cheated = true;
+  }
+
 
   /** This run's record key (zrecords.js): map, difficulty, and how many guns the squad has. */
   recordKey() {

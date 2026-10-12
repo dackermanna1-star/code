@@ -730,7 +730,7 @@ export class Game {
         if (this.zombies.enabled) this.zombies.economy.killPay(attacker, victim, headshot); // (graded by wave, headshots: zeconomy.js)
         else this.rounds.addMoney(attacker, CR.RULES.killReward ?? 300);
       }
-    } else if (!suicide) {
+    } else if (!suicide && !this.zombies.enabled) { // (zombie survival: bleeding out, a fall or your own blast cost no kill)
       victim.kills--;
     }
     const aName = attacker ? attacker.name : victim.name;
@@ -1451,17 +1451,35 @@ export class Game {
     if (!e) return;
     const k = Math.max(0, 1 - Math.hypot(pos[0] - e[0], pos[1] - e[1], pos[2] - e[2]) / range);
     if (k <= 0.02) return;
-    this.shaker.add(amp * k, 0.45 + 0.8 * k); // (a trauma knock: camshake.js)
+    if (this.zombies.enabled) { this.shaker.add(amp * k, 0.45 + 0.8 * k); return; } // (a trauma knock: camshake.js)
+    // classic CS: the stock jitter, the strongest running shake wins
+    const s = this.shake, a = amp * k;
+    if (!s || this.time > s.until || a > s.amp) this.shake = { until: this.time + 0.35 + 0.6 * k, amp: a, start: this.time };
   }
 
   /** Shake the view wherever you are (amp on shakeAt's scale, gone after dur s). */
-  addShake(amp, dur = 1) { this.shaker.add(amp, dur); }
+  addShake(amp, dur = 1) {
+    if (this.zombies.enabled) this.shaker.add(amp, dur);
+    else this.shake = { until: this.time + dur, amp }; // (classic: full strength to the end, as the C4 always shook)
+  }
 
-  /** The view's shake offset [pitch, yaw, roll] this frame (camshake.js: smooth, eases out). */
+  /**
+   * The view's shake offset [pitch, yaw, roll] this frame. Zombie survival: camshake.js
+   * (smooth, eases out; an old-style this.shake write is handed to it). Classic CS: the stock
+   * random jitter, fading from start to until.
+   */
   shakeOffset(dt = 0) {
     const s = this.shake;
-    if (s) { this.shake = null; if (this.time < s.until) this.shaker.add(s.amp, s.until - this.time); } // (an old-style write)
-    return this.shaker.offset(this.paused ? 0 : dt);
+    if (this.zombies.enabled) {
+      if (s) { this.shake = null; if (this.time < s.until) this.shaker.add(s.amp, s.until - this.time); } // (an old-style write)
+      return this.shaker.offset(this.paused ? 0 : dt);
+    }
+    const o = this._shk || (this._shk = [0, 0, 0]);
+    if (!s || this.time > s.until) { o[0] = o[1] = o[2] = 0; return o; }
+    const k = (s.until - this.time) / Math.max(0.1, s.until - (s.start ?? this.time));
+    const a = s.amp * Math.min(1, k) * 0.35;
+    o[0] = (Math.random() - 0.5) * a; o[1] = (Math.random() - 0.5) * a; o[2] = (Math.random() - 0.5) * a * 0.6;
+    return o;
   }
 
   inZone(p, zone) {

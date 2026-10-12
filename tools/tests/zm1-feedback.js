@@ -427,9 +427,13 @@
     check('classic: pain direction', g.damageIndicators.map((d) => d.dir).join() === 'back', g.damageIndicators.map((d) => d.dir).join());
     p.god = true;
     g.shaker.clear();
+    g.shake = null;
     g.camPos = p.eyePos();
     g.shakeAt(p.eyePos(), 6);
-    check('classic: grenades still shake the view', g.shaker.trauma > 0.4 && Math.abs(g.shakeOffset(1 / 60)[0]) >= 0);
+    // (classic CS keeps the stock shake: a random jitter from { until, amp }, not the trauma shaker)
+    const so = g.shakeOffset(1 / 60);
+    check('classic: grenades still shake the view (the stock jitter)', g.shaker.trauma === 0 && g.shake && g.shake.amp === 6 && Math.abs(so[0]) + Math.abs(so[1]) > 0, JSON.stringify(g.shake));
+    g.shake = null;
     g.shaker.clear();
     h.centerPrint('Terrorists Win!', 5);
     return { shot: true };

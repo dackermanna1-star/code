@@ -24,6 +24,8 @@ import * as ATT from './game/attachments.js';
 import { TitleScene } from './ui/titlescene.js';
 import { ZTips } from './ui/ztips.js';
 import { SquadTally } from './ui/front/zscore.js';
+import { zombieOptions, resolveDiff } from './game/zdiff.js';
+import { recordKey, readRecord } from './game/zrecords.js';
 
 const params = new URLSearchParams(location.search);
 
@@ -112,13 +114,14 @@ async function boot() {
     try { ambience.handle = sound.loop('ambience_wind', { volume: 0.35 }); } catch { /* ignore */ }
   }
 
-  /** What the main menu shows: the best run and the setup Quick start would use. */
+  /** What the main menu shows: the setup Quick start would use, and the best run with it. */
   function frontInfo() {
-    const Z = game.zombies, o = zombieDefaults();
-    const diff = Z?.diff?.label || 'Normal';
-    const label = { casual: 'Casual', normal: 'Normal', hard: 'Hard', nightmare: 'Nightmare', sandbox: 'Sandbox' }[o.zdiff] || 'Normal';
-    const squad = o.allies ? `${o.allies} bot${o.allies === 1 ? '' : 's'}` : 'solo';
-    return { best: Z?.best || 0, bestDiff: diff, map: W.mapDef?.id || 'de_dust2', quick: `${label}${o.hardcore ? ' hardcore' : ''} \u00b7 ${squad} \u00b7 ${W.mapDef?.id || 'de_dust2'}` };
+    const o = zombieDefaults(), d = resolveDiff(zombieOptions(o)), map = W.mapDef?.id || 'de_dust2';
+    const allies = Math.max(0, Math.min(10, o.allies | 0)); // (as chooseClass fills the squad)
+    const squad = allies ? `${allies} bot${allies === 1 ? '' : 's'}` : 'solo';
+    const setup = `${d.label}${d.hardcore ? ' hardcore' : ''} \u00b7 ${squad}`;
+    // (records are per map, difficulty and squad size: zrecords.js; the quick setup's own)
+    return { best: readRecord(recordKey(map, d, 1 + allies)), bestDiff: setup, map, quick: `${setup} \u00b7 ${map}` };
   }
 
   /** The last zombie setup (settings.newgame is shared with classic: fill in the zombie defaults). */
@@ -157,6 +160,14 @@ async function boot() {
     menus.showMain?.({ inGame });
   }
 
+  /** Out of the game and back to the title screen (Leave game, or out of a finished run). */
+  function leaveGame() {
+    inGame = false;
+    game.started = false;
+    input.exitLock();
+    menus.showMain?.({ inGame: false });
+  }
+
   function newGame(opts) {
     settings.set('newgame', opts);
     if (opts.mode === 'zombies' && opts.tips != null) tips.setEnabled(opts.tips);
@@ -185,7 +196,8 @@ async function boot() {
     zombieOverShown = true;
     input.exitLock();
     // (a new best: more than the best before this run, Z.isNewBest)
-    menus.showZombieOver?.({ waves: Z.survived, kills: Z.kills, best: Z.best, newBest: Z.isNewBest(), diff: Z.diff.label, hardcore: Z.diff.hardcore, stats: Z.runStats }, () => newGame(settings.get('newgame')), () => openMain());
+    // (out of it - Main menu, Change setup, Esc - the run is done: the title screen, no Resume)
+    menus.showZombieOver?.({ waves: Z.survived, kills: Z.kills, best: Z.best, newBest: Z.isNewBest(), cheated: Z.cheated, diff: Z.diff.label, hardcore: Z.diff.hardcore, stats: Z.runStats }, () => newGame(settings.get('newgame')), () => leaveGame());
   }
 
   function chooseTeam(team) {
@@ -242,9 +254,7 @@ async function boot() {
         menus.showOptions?.(settings.all(), (k, v) => applySetting(k, v));
         break;
       case 'quit':
-        inGame = false;
-        game.started = false;
-        menus.showMain?.({ inGame: false });
+        leaveGame();
         break;
       case 'jointeam': {
         const n = +arg;

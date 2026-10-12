@@ -80,7 +80,7 @@ export function buildMainMenu({ inGame = false, info = {}, onCommand, sound } = 
   }
   root.appendChild(menu);
 
-  // what's new (or a pill to bring it back)
+  // what's new (or a pill to bring it back): the title screen only
   const news = el('div', 'fe-news');
   news.append(el('div', 'fe-kicker', "What's new"), el('h3', null, WHATS_NEW.title));
   const ul = el('ul');
@@ -94,7 +94,7 @@ export function buildMainMenu({ inGame = false, info = {}, onCommand, sound } = 
   x.addEventListener('click', () => { click(); lsSet(NEWS_KEY, UPDATE_ID); showNews(false); });
   pill.addEventListener('click', () => { click(); showNews(true); });
   showNews(!inGame && lsGet(NEWS_KEY) !== UPDATE_ID);
-  root.append(news, pill);
+  if (!inGame) root.append(news, pill); // (the title screen's: in game the HUD's kill feed is up there)
 
   // best run
   if (info.best > 0) {

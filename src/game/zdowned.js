@@ -315,8 +315,8 @@ export class ZDowned {
       const D = p.downed;
       if (!D) continue;
       if (!p.alive) { p.downed = null; continue; }
-      // the fight's over: everybody gets up for the break
-      if (Z.state === 'break') { this.revive(p, null, Z.diff.squad.reviveHealth + Z.diff.econ.waveHeal); continue; }
+      // the fight's over: everybody gets up for the break (a Second Wind under way isn't used: D.self off)
+      if (Z.state === 'break') { D.self = false; this.revive(p, null, Z.diff.squad.reviveHealth + Z.diff.econ.waveHeal); continue; }
       // a revive nobody's holding any more (the reviver let go, died, or went down)
       if (D.by && (t - D.byT > 0.05 || !D.by.alive || (D.by !== p && D.by.downed))) {
         if (D.by.reviving === p) D.by.reviving = null;
@@ -336,12 +336,17 @@ export class ZDowned {
   }
 
   // ---------------------------------------------------------------- HUD
-  /** HUD state (buildHudState, zombie survival only): s.downed / s.reviving / s.revivePrompt, and downed teammates flash on the radar. */
+  /**
+   * HUD state (buildHudState, zombie survival only): s.downed / s.reviving / s.revivePrompt
+   * (in a wave or a break only: not under GAME OVER), downed teammates flash on the radar.
+   * While you're down your health reads 0 (p.health is the bleed pool: the bar shows it).
+   */
   hud(s) {
-    const g = this.game, me = g.local, H = this.hs;
+    const g = this.game, me = g.local, H = this.hs, st = this.Z.state;
     s.downed = null; s.reviving = null; s.revivePrompt = null;
     if (!me) return;
-    const D = me.alive ? me.downed : null;
+    if (me.alive && me.downed) s.health = 0;
+    const D = me.alive && (st === 'wave' || st === 'break') ? me.downed : null;
     if (D) {
       const o = H.down;
       o.left = this.left(me);
@@ -354,6 +359,8 @@ export class ZDowned {
       o.helper = ''; o.helperDist = 0;
       if (!D.by && D.claim && D.claim.alive && !D.claim.downed && g.time - D.claimT < 0.6) { o.helper = D.claim.name; o.helperDist = dist2(me.pm.origin, D.claim.pm.origin); }
       s.downed = o;
+    } else if (st !== 'wave' && st !== 'break') {
+      // (the run is over: no prompts)
     } else if (me.alive && me.reviving?.downed) {
       H.reviving.name = me.reviving.name;
       H.reviving.prog = Math.min(1, me.reviving.downed.prog);
@@ -373,7 +380,12 @@ export class ZDowned {
     }
   }
 
-  /** GS point -> HUD pixels in out[0..1]; out[2] = 1 in front of the camera, 0 behind / off screen (then clamped to the edge). */
+  /**
+   * GS point -> HUD pixels in out[0..1]; out[2] = 1 in front of the camera, 0 behind / off
+   * screen: then pinned to the edge in its direction, inside a safe rectangle clear of the
+   * radar (top left), the health / armour / money / ammo rows along the bottom and the chat
+   * lines, with room under the marker for its name and bar.
+   */
   toScreen(hud, pos, out) {
     const cam = this.game.renderer?.camera;
     if (!cam) return false;
@@ -390,8 +402,18 @@ export class ZDowned {
       x /= l; y /= l;
       if (behind && y > -0.2) y = -1;
     }
-    out[0] = Math.max(m, Math.min(W - m, (x + 1) / 2 * W));
-    out[1] = Math.max(m, Math.min(Hh - m, (1 - y) / 2 * Hh));
+    let px = (x + 1) / 2 * W, py = (1 - y) / 2 * Hh;
+    if (on) {
+      px = Math.max(m, Math.min(W - m, px));
+      py = Math.max(m, Math.min(Hh - m, py));
+    } else {
+      const k = hud.k, mx = 36 * k; // (half the name / bar's width from the side)
+      const top = 150 * k; // (under the radar, the wave readout and the kill feed)
+      const bottom = Hh - 80 * k - 8 * hud.lineH; // (the marker, its name and bar above the chat's 5 lines - hud.drawChat - and the HUD rows under them)
+      px = Math.max(mx, Math.min(W - mx, px));
+      py = Math.max(top, Math.min(Math.max(top, bottom), py));
+    }
+    out[0] = px; out[1] = py;
     out[2] = on ? 1 : 0;
     return true;
   }

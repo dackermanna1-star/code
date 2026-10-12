@@ -3,7 +3,7 @@
 // Keys: Enter plays again (Esc closes it: Menus._key, then the main menu).
 //
 //   const o = buildRunOver(r, { onAgain, onSetup, onMenu });  r as Menus.showZombieOver gets it:
-//   { waves, kills, best, newBest, diff (label), stats (runStats), hardcore? }
+//   { waves, kills, best, newBest, diff (label), stats (runStats), hardcore?, cheated? (no record) }
 import { escapeHtml } from './mainmenu.js';
 
 function el(tag, cls, html) {
@@ -24,7 +24,8 @@ export function buildRunOver(r = {}, { onAgain, onSetup, onMenu, sound } = {}) {
   f.appendChild(el('div', 'fe-kicker', 'The squad has fallen'));
   f.appendChild(el('div', 'fe-big', `<div class="n">${waves}</div><div class="l">wave${waves === 1 ? '' : 's'}<br>survived</div>`));
   const badges = el('div', 'fe-badges');
-  if (r.newBest) badges.appendChild(el('span', 'fe-badge hot', 'New best'));
+  if (r.cheated) badges.appendChild(el('span', 'fe-badge', 'Cheats used: no record'));
+  else if (r.newBest) badges.appendChild(el('span', 'fe-badge hot', 'New best'));
   else badges.appendChild(el('span', 'fe-badge', `Best: ${r.best | 0} wave${r.best === 1 ? '' : 's'}`));
   if (r.diff) badges.appendChild(el('span', 'fe-badge red', escapeHtml(r.diff)));
   if (r.hardcore) badges.appendChild(el('span', 'fe-badge red', 'Hardcore'));

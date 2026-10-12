@@ -14,6 +14,8 @@
   const info = (s) => out.push(`[sim] INFO ${s}`);
   const ticks = (n) => { for (let i = 0; i < n; i++) g.tick(); };
   const con = (line) => { const lines = []; const pr = g.console.menus.print; g.console.menus.print = (t) => lines.push(String(t)); try { g.console.exec(line); } finally { g.console.menus.print = pr; } return lines.join(' | '); };
+  // a cheat as if it weren't one (cheats taint a run and set no record: here the records themselves are under test)
+  const clean = (line) => { Z().taint = () => {}; try { return con(line); } finally { delete Z().taint; } };
   const Z = () => g.zombies;
   const squad = () => g.players.filter((p) => p.team === 'CT' && !p.isZombie);
   const KEY = 'cs16-zombies-best';
@@ -219,8 +221,8 @@
     check('record key', Z().recordKey() === `${map}|normal|2-3` && R.squadBucket(1) === '1' && R.squadBucket(4) === '4-6' && R.squadBucket(11) === '7+', Z().recordKey());
     check('other difficulties start from nothing', Z().best === 0 && Z().bestBefore === 0);
     con('sv_cheats 1');
-    con('zm_wave 4');
-    con('zm_skip');
+    clean('zm_wave 4');
+    clean('zm_skip');
     const recs = stored();
     check('a cleared wave saves the record for this setup', Z().best === 4 && recs[`${map}|normal|2-3`] === 4 && recs.legacy === 7, JSON.stringify(recs));
     newRun({ allies: 5 });
@@ -235,7 +237,7 @@
     newRun({ allies: 2 });
     check('the record comes back', Z().best === 4 && Z().bestBefore === 4);
     con('sv_cheats 1');
-    con('zm_wave 4');
+    clean('zm_wave 4');
     wipe();
     check('3 waves is not a new best', Z().state === 'over' && Z().survived === 3 && !Z().isNewBest() && Z().best === 4);
     // the squad fills up after the run is set up (the menu adds the bots after New Game): the record follows until wave 1
@@ -250,8 +252,8 @@
     // Sandbox: beating the old record keeps the new one there; the old one stays for other squads
     newRun({ allies: 2, zdiff: 'sandbox' });
     con('sv_cheats 1');
-    con('zm_wave 8');
-    con('zm_skip');
+    clean('zm_wave 8');
+    clean('zm_skip');
     newRun({ allies: 5, zdiff: 'sandbox' });
     const sb = stored();
     check('beating the old record on Sandbox', sb[`${map}|sandbox|2-3`] === 8 && sb.legacy === 7 && Z().best === 7, JSON.stringify(sb));

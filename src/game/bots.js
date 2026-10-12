@@ -280,6 +280,11 @@ function angleTo(from, to) {
   return [-Math.atan2(dz, Math.hypot(dx, dy)) / DEG, Math.atan2(dy, dx) / DEG];
 }
 const HEAL_SAFE = 330; // bots take a medkit out only with no zombie this close
+// a revive is safe with no zombie this close to the reviver: bolder for you (the human) than
+// for a bot, and once under way a little closer still. Taking one on (considerRevive) and
+// giving it up (runRevive) use the same numbers, or a zombie in between would have the bot
+// take it and drop it every second
+const reviveClear = (q, prog) => (q.isBot ? 160 : 110) - (prog > 0 ? 30 : 0);
 function angDiff(a, b) { return ((a - b) % 360 + 540) % 360 - 180; }
 function dist2(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
 function dist3(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]); }
@@ -1876,8 +1881,12 @@ class Bot {
       return;
     }
     const q = D.reviveTarget(p, fighting ? 900 : 1800);
-    if (!q || this.zombieNear(q.isBot ? 160 : 110, q.isBot ? 400 : 320)) return;
-    this.revive = { target: q, t: this.time };
+    if (!q || this.zombieNear(reviveClear(q, 0), q.isBot ? 400 : 320)) return;
+    this.takeRevive(q);
+  }
+
+  takeRevive(q) {
+    this.revive = { target: q, t: this.time, check: this.time + 0.4 };
     if (!q.isBot) this.mgr.radio(this, Math.random() < 0.5 ? "Hang on, I'm coming!" : "I've got you, stay down!");
   }
 
@@ -1893,6 +1902,18 @@ class Bot {
       it.use = true; it.stop = true; it.fire = false;
       return;
     }
+    // on my way to a bot and the human goes down (you first: reviveTarget): him instead,
+    // unless I'm well into picking this one up
+    if (q.isBot && this.time >= r.check && !(D.by === p && D.prog > 0.5)) {
+      r.check = this.time + 0.4;
+      const h = g.zombies.downed.reviveTarget(p, fighting ? 900 : 1800);
+      if (h && !h.isBot && !this.zombieNear(reviveClear(h, 0), 320)) {
+        if (D.by === p) g.zombies.downed.stopRevive(p);
+        if (D.claim === p) D.claim = null; // (free for the others again)
+        this.takeRevive(h);
+        return;
+      }
+    }
     D.claim = p; D.claimT = this.time; // (the other bots leave him to me and cover)
     const d = Math.hypot(q.pm.origin[0] - p.pm.origin[0], q.pm.origin[1] - p.pm.origin[1]);
     if (d > 56 || Math.abs(q.pm.origin[2] - p.pm.origin[2]) > 60) {
@@ -1906,7 +1927,8 @@ class Bot {
     }
     this.mode = 'revive';
     // a zombie about to claw us (their reach is ~80) early on: guns first, then try again
-    if (this.zombieNear(D.prog > 0 ? 120 : 150, 220) && D.prog < 0.7) { if (fighting) this.combat(it); done(1); return; }
+    // (no closer than considerRevive took it on at, or it'd be taken and dropped every second)
+    if (this.zombieNear(reviveClear(q, D.prog), 220) && D.prog < 0.7) { if (fighting) this.combat(it); done(1); return; }
     it.use = true; it.stop = true; it.fire = false;
     it.look = [q.pm.origin[0], q.pm.origin[1], q.pm.origin[2]];
   }

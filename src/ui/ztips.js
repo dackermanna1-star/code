@@ -9,6 +9,7 @@
 const KEY = 'cs16-zm-tips';
 export const TIP_RUNS = 3; // tips run during this many runs
 const SHOW = 9; // s on screen
+const BREAK_TIPS = new Set(['buy', 'ready']); // about the break: gone once it's over (not 'buySandbox': Sandbox buys any time)
 
 export const TIPS = {
   buy: 'Press <kbd>B</kbd> to buy. Shop in the break between waves: cash is scarce, so earn your guns one kill at a time.',
@@ -107,9 +108,15 @@ export class ZTips {
     const g = this.game, Z = g.zombies;
     if (!this.live || !Z?.enabled) { if (this.cur) this.hide(); return; }
     this.runT += dt;
-    // the first break: buying, then ready-up
-    if (Z.state === 'break' && Z.wave === 0 && this.runT > 2.5) this.want(Z.diff?.sandbox ? 'buySandbox' : 'buy');
-    if (Z.state === 'break' && (this.s.seen.buy || this.s.seen.buySandbox) && (Z.nextWaveAt - g.time) > 5) this.want('ready');
+    // the first break: buying, then ready-up (with time left in the break to act on them)
+    const left = Z.state === 'break' ? Z.nextWaveAt - g.time : 0;
+    if (Z.wave === 0 && this.runT > 2.5 && left > 5) this.want(Z.diff?.sandbox ? 'buySandbox' : 'buy');
+    if ((this.s.seen.buy || this.s.seen.buySandbox) && left > 5) this.want('ready');
+    // the break is over (a ready-up can cut it short): its tips go, to come back another run
+    if (Z.state !== 'break') {
+      for (let i = this.queue.length - 1; i >= 0; i--) if (BREAK_TIPS.has(this.queue[i].id)) this.queue.splice(i, 1);
+      if (this.cur && BREAK_TIPS.has(this.cur.id)) this.hide();
+    }
     if (!this.cur && this.queue.length && !g.menus?.isOpen?.()) this.show(this.queue.shift());
     if (!this.cur) return;
     this.cur.t += dt;

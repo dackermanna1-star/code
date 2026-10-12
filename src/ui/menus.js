@@ -19,7 +19,7 @@
 //   showOptions(s, onChange) onChange(key, value) for every changed key on OK / Apply
 //   showZombieSetup(d, onStart)  onStart({ ...d, mode: 'zombies', map, allies, difficulty, skin, zdiff,
 //                           squadScaling, breakLen, hardcore, tips })  (ui/front/zsetup.js)
-//   showZombieOver(r, onAgain, onMenu)  r = { waves, kills, best, newBest, diff, hardcore, stats }
+//   showZombieOver(r, onAgain, onMenu)  r = { waves, kills, best, newBest, diff, hardcore, cheated, stats }
 //   showChatInput(team, cb) cb(text)
 // Without a callback the equivalent onCommand string is sent instead
 // ('jointeam 1', 'joinclass 3', 'buy ak47', 'buyequip vesthelm', 'buyammo1', 'say:…').
@@ -173,6 +173,7 @@ export class Menus {
   _closeDlg() {
     if (this.dlg) this.dlg.remove();
     this.dlg = null;
+    this.dlgEsc = null;
   }
 
   _row(label, control, extra) {
@@ -358,6 +359,7 @@ export class Menus {
     });
     this.root.appendChild(o.el);
     this.dlg = o.el;
+    this.dlgEsc = () => onMenu?.(); // (Esc: out to the main menu, as Main menu does)
     return o;
   }
 
@@ -935,7 +937,7 @@ export class Menus {
     if (e.code !== 'Escape') return;
     if (this.chat) { consume(); this._closeChat(); this.onCommand('menu_close'); return; }
     if (this.conOpen) { consume(); this.toggleConsole(); return; }
-    if (this.dlg) { consume(); this._closeDlg(); return; }
+    if (this.dlg) { consume(); const esc = this.dlgEsc; this._closeDlg(); esc?.(); return; }
     if (this.main) {
       consume();
       if (this.main.inGame) this.onCommand('resume');

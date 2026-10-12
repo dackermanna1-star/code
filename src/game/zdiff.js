@@ -109,7 +109,7 @@ export function getDiff(id) { return ZDIFF[id] || ZDIFF[DEFAULT_ZDIFF]; }
  * The zombie part of the New Game options, normalised (missing / bad values: defaults).
  *  zdiff: preset id ('normal'); squadScaling: the horde grows with the squad (true);
  *  breakLen: seconds between waves, 0 / missing = the preset's; hardcore: no wave heal,
- *  buying only in the breaks, radar pings only (false).
+ *  guns only in the breaks (no re-arm window after a respawn), radar pings only (false).
  */
 export function zombieOptions(opts = {}) {
   const b = +opts.breakLen;
@@ -124,7 +124,9 @@ export function zombieOptions(opts = {}) {
 /**
  * The difficulty a run plays at (g.zombies.diff): the preset with the options folded in, so
  * readers never look at the options themselves. Adds hardcore, squadScaling, and the
- * effective breakLen. Hardcore: no wave heal, no buying mid-wave (even on Sandbox).
+ * effective breakLen. Hardcore: no wave heal; guns, upgrades and perks in the breaks only
+ * (even on Sandbox; no re-arm window: zeconomy.js rearm), mid-wave still ammo, armour and
+ * medkits at the combat premium.
  */
 export function resolveDiff(o = zombieOptions()) {
   const d = getDiff(o.zdiff);
