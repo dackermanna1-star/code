@@ -103,8 +103,6 @@ export class Environment {
   readonly ice: THREE.Mesh;
   readonly iceUniforms: IceUniforms;
   readonly quality: EnvQuality;
-  /** Current view mode (follows stage.onViewMode; see setViewMode). */
-  viewMode: ViewMode = 'third';
   private envTarget: THREE.WebGLRenderTarget | null = null;
   private emptyDecal: THREE.DataTexture;
   private disposed = false;
@@ -112,6 +110,7 @@ export class Environment {
   private readonly walls: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
   private readonly classicOnly: THREE.Object3D[] = [];
   private fp: FirstPersonParts | null = null;
+  private mode: ViewMode = 'third';
   /** The classic floe geometry/material while first-person ones are swapped in. */
   private classic: { iceGeometry: THREE.BufferGeometry; wallGeometry: THREE.BufferGeometry; cliffMaterial: THREE.ShaderMaterial } | null = null;
 
@@ -207,8 +206,8 @@ export class Environment {
    * automatically from stage.onViewMode; safe to call directly (idempotent).
    */
   setViewMode(mode: ViewMode): void {
-    if (mode === this.viewMode || this.disposed) return;
-    this.viewMode = mode;
+    if (mode === this.mode || this.disposed) return;
+    this.mode = mode;
     const first = mode === 'first';
     const fp = first ? this.ensureFirstPerson() : this.fp;
     if (!fp) return;
@@ -235,6 +234,11 @@ export class Environment {
     for (const o of this.classicOnly) o.visible = !first;
     fp.group.visible = first;
     this.fitShadowCamera(first ? SHADOW_BOX_FP : SHADOW_BOX);
+  }
+
+  /** Current view mode (follows stage.onViewMode). */
+  get viewMode(): ViewMode {
+    return this.mode;
   }
 
   /** Linear horizon/haze colour seen in a world direction (first-person fog colour). */
@@ -295,9 +299,13 @@ export class Environment {
     this.iceUniforms.uDecalRect.value.set(rect.minX, rect.minZ, rect.sizeX, rect.sizeZ);
   }
 
-  /** True if (x,z) is on the floe top surface (inside the outline). */
+  /**
+   * True if (x,z) is on the floe top surface (inside the outline). In first
+   * person this is the extended first-person floe, so grenades, debris and
+   * corpses rest on the ice that is drawn there.
+   */
   isOnFloe(x: number, z: number): boolean {
-    return pointInFloe(x, z, this.outline as XZ[]);
+    return pointInFloe(x, z, this.viewMode === 'first' ? FP_FLOE_OUTLINE : (this.outline as XZ[]));
   }
 
   /** Per-frame update (animations). Offscreen passes run from stage.onPreRender. */

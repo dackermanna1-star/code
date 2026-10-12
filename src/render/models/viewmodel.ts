@@ -57,20 +57,23 @@ interface Hold {
   p2?: [number, number, number];
   /** Model scale (very long guns are shortened a touch so they fit on screen). */
   s?: number;
+  /** Support-hand grip in model space, overriding the model's support marker. */
+  support?: [number, number, number];
 }
 
 const HOLD: Record<WeaponId, Hold> = {
-  pistol: { p: [0.12, -0.19, -0.5], r: [0.03, 0.06, 0] },
-  magnum: { p: [0.12, -0.19, -0.48], r: [0.03, 0.06, 0] },
-  mp5: { p: [0.13, -0.24, -0.4], r: [0.02, 0.04, 0] },
-  grenades: { p: [0.19, -0.21, -0.5], r: [0.1, 0, 0.15] },
-  shotgun: { p: [0.13, -0.24, -0.42], r: [0.02, 0.04, 0] },
-  mac10: { p: [0.17, -0.22, -0.56], p2: [-0.17, -0.22, -0.56], r: [0.03, 0.06, 0] },
-  flunk: { p: [0.14, -0.27, -0.4], r: [0.03, 0.05, 0] },
-  m4: { p: [0.13, -0.25, -0.42], r: [0.02, 0.04, 0] },
-  awp: { p: [0.13, -0.24, -0.42], r: [0.02, 0.035, 0] },
-  vintage: { p: [0.2, -0.36, -0.3], r: [0.05, 0.08, 0.04] },
-  minigun: { p: [0.22, -0.44, -0.6], r: [0.08, 0.05, 0.02] },
+  pistol: { p: [0.12, -0.185, -0.46], r: [-0.02, 0.05, 0.07] },
+  magnum: { p: [0.12, -0.185, -0.45], r: [-0.02, 0.05, 0.07] },
+  mp5: { p: [0.12, -0.225, -0.42], r: [0.03, 0.09, 0.06] },
+  grenades: { p: [0.17, -0.2, -0.5], r: [0.1, 0.1, 0.2] },
+  shotgun: { p: [0.12, -0.225, -0.44], r: [0.03, 0.09, 0.06] },
+  mac10: { p: [0.16, -0.21, -0.56], p2: [-0.16, -0.21, -0.56], r: [0.04, 0.14, 0.1] },
+  flunk: { p: [0.13, -0.25, -0.42], r: [0.04, 0.09, 0.06] },
+  m4: { p: [0.12, -0.23, -0.44], r: [0.03, 0.09, 0.06] },
+  awp: { p: [0.12, -0.225, -0.44], r: [0.03, 0.08, 0.05] },
+  vintage: { p: [0.19, -0.34, -0.32], r: [0.05, 0.1, 0.06] },
+  // left hand on the side of the barrel housing (the top handle would put the arm across the view)
+  minigun: { p: [0.22, -0.43, -0.6], r: [0.08, 0.07, 0.03], support: [-0.3, 0.0, 0.1] },
 };
 
 /** Per-shot kick: back (m), muzzle climb (rad), roll (rad), up / down times (s). */
@@ -106,8 +109,8 @@ const RELOAD_TILT: Record<WeaponId, { d: [number, number, number]; r: [number, n
 // Arms ----------------------------------------------------------------------
 const UPPER = 0.34;
 const FORE = 0.33;
-const SHOULDER_R = new THREE.Vector3(0.24, -0.42, 0.08);
-const SHOULDER_L = new THREE.Vector3(-0.42, -0.55, 0.0);
+const SHOULDER_R = new THREE.Vector3(0.22, -0.58, 0.1);
+const SHOULDER_L = new THREE.Vector3(-0.42, -0.62, 0.06);
 const POLE_R = new THREE.Vector3(0.75, -1, 0.15).normalize();
 const POLE_L = new THREE.Vector3(-0.75, -1, 0.15).normalize();
 /** Thumb direction of each mitten (camera space, before the hand turns with the gun). */
@@ -316,12 +319,12 @@ export class Viewmodel {
     const upper = new THREE.Object3D();
     const lower = new THREE.Object3D();
     const U = new PartBuilder();
-    U.addShaded(capsule(0.078, UPPER + 0.08, 6, 14), parkaShade(0.85), 'cloth', { p: [0, -UPPER / 2, 0] });
+    U.addShaded(capsule(0.07, UPPER + 0.08, 6, 14), parkaShade(0.85), 'cloth', { p: [0, -UPPER / 2, 0] });
     U.buildInto(upper);
     const L = new PartBuilder();
     // sleeve widens a little toward the cuff like a parka sleeve
-    L.addShaded(capsule(0.066, FORE - 0.02, 6, 16), parkaShade(0.75), 'cloth', { p: [0, -(FORE - 0.02) / 2 + 0.02, 0], s: [1, 1, 1] });
-    const cuff = torus(0.06, 0.016, 8, 20);
+    L.addShaded(capsule(0.058, FORE - 0.02, 6, 16), parkaShade(0.75), 'cloth', { p: [0, -(FORE - 0.02) / 2 + 0.02, 0], s: [1, 1, 1] });
+    const cuff = torus(0.054, 0.015, 8, 20);
     cuff.rotateX(Math.PI / 2);
     L.addShaded(cuff, furShade, 'fur', { p: [0, -FORE + 0.075, 0] });
     // mitten: palm + thumb (thumb toward local -X)
@@ -400,7 +403,7 @@ export class Viewmodel {
   /** Copy the scene's key lights (direction, colour) and environment so the hands match the world. */
   syncLights(world: THREE.Scene, sun: THREE.DirectionalLight | null, hemi: THREE.HemisphereLight | null): void {
     this.scene.environment = world.environment;
-    this.scene.environmentIntensity = world.environmentIntensity;
+    this.scene.environmentIntensity = world.environmentIntensity * 1.3;
     if (sun) {
       this.sun.color.copy(sun.color);
       this.sun.intensity = sun.intensity;
@@ -654,6 +657,8 @@ export class Viewmodel {
 
   /** Support grip in camera space; markers on the far side of the gun are mirrored to the near (left) side. */
   private supportPoint(m: WeaponModel, out: THREE.Vector3): THREE.Vector3 {
+    const o = HOLD[m.id].support;
+    if (o) return this.local(out.set(o[0], o[1], o[2]).applyMatrix4(m.group.matrixWorld));
     if (!m.support) return out.copy(REST_L);
     m.support.getWorldPosition(out);
     _inv.copy(m.group.matrixWorld).invert();
