@@ -75,7 +75,7 @@ material (pour, throw, drink, fill); procedural world with a guaranteed descent 
 player walks from the spawn into the first Holy Mountain); Holy Mountains with shop, perks, reroll,
 refresher, heart, collapse and angry gods; death → new run; victory at the Sampo; save & quit /
 continue (terrain changes, creatures, pickups, inventory and perks survive a reload); contextual
-tutorial hints; no GPU resource growth across restarts.
+tutorial hints; roomy caves with big halls along the main path, lantern posts and a way-down guide marker; no GPU resource growth across restarts.
 
 **Known limitations**
 * Performance has been profiled for CPU cost only (≈2.5 ms simulation + gameplay, ≈0.6 ms UI per frame in

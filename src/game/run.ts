@@ -24,7 +24,7 @@ import type { SoundName } from '../audio/audio';
 import { MATERIALS, matId, KIND, Kind, GOLDORE, GOLDSAND, AIR, UNLOADED, WATER } from '../world/materials';
 import { RAY_SOLID, RAY_LIQUID } from '../world/world';
 import { Spawn } from '../world/generator';
-import { biomeAt, hmBandOf, BIOMES } from '../world/biomes';
+import { biomeAt, hmBandOf, BIOMES, HM, NUM_LAYERS, hmFloorY, layerOf } from '../world/biomes';
 import { unpackCell } from '../sim/simulation';
 import { Creature } from '../entities/creature';
 import { depenetrate } from '../entities/physics';
@@ -92,6 +92,11 @@ export class Run {
   private lastLookDX = 0;
   private lastLookDY = 0;
   tutorialShown = false;
+  /** Show the way-down guide marker (Options). */
+  showGuide = true;
+  private guideAt = 0;
+  private guideTarget: { x: number; z: number } | null = null;
+  private guideText = '';
 
   constructor(game: Game, ui: HTMLElement, firstRun = true) {
     this.game = game;
@@ -432,8 +437,9 @@ export class Run {
       delay: w && w.castDelayTimer > 0 ? Math.min(1, w.castDelayTimer / Math.max(1, w.stats.castDelay + 10)) : 0,
       gold: p.gold, orbs: this.orbs, status: p.status, breath: this.breathT, prompt: this.prompt, canEdit: this.progression.canEditWands(),
     };
-    this.hud.darkness = THREE.MathUtils.clamp((1930 - p.body.y) / 40, 0.15, 0.65) * (hmBandOf(p.body.y) >= 0 ? 0.5 : 1);
+    this.hud.darkness = THREE.MathUtils.clamp((1930 - p.body.y) / 40, 0.15, 0.4) * (hmBandOf(p.body.y) >= 0 ? 0.5 : 1);
     this.hud.update(dt, hs, this.inv, g.camera);
+    this.updateGuide();
     this.inspect.update(this.promptTarget, this.inv.wands[this.inv.selected < 4 ? this.inv.selected : 0]);
     if (this.hintT > 0) {
       this.hintT -= dt;
@@ -441,6 +447,7 @@ export class Run {
     }
     // contextual tutorial
     if (g.time > 1.5) this.hint('move', `${g.input.key('forward')}${g.input.key('left')}${g.input.key('back')}${g.input.key('right')} to move, mouse to look, ${g.input.key('jump')} to jump. The way down is through the mountain.`);
+    if (g.time > 9 && this.showGuide) this.hint('guide', 'The marker at the top of the screen points the way down to the next Holy Mountain. Lanterns light the main path.');
     if (g.time > 4) this.hint('cast', 'Left mouse casts your wand. Wands hold spells: cast delay, recharge and mana decide how they fire.');
     if (g.time > 14 && hm < 0) this.hint('levitate', 'Hold Space in the air to levitate. The orange bar refills when you stand on the ground.');
     if (g.time > 40 && hm < 0 && p.body.y < SURFACE_Y - 40) this.hint('experiment', 'Everything down here is simulated material. Mix liquids, set things alight, dig, and watch what happens.');
@@ -741,6 +748,62 @@ export class Run {
         audio.play('pickup_heart', { volume: 0.8 });
       }
     }
+  }
+
+  /**
+   * Way-down guide (a deviation from Noita for 3D readability): points along the generator's route
+   * towards the next Holy Mountain, then to its exit shaft, and finally to the Sampo.
+   */
+  private updateGuide(): void {
+    const g = this.game, b = g.player.body;
+    if (!this.showGuide) {
+      this.hud.guide(null);
+      return;
+    }
+    if (g.time >= this.guideAt) {
+      this.guideAt = g.time + 0.25;
+      const hm = hmBandOf(b.y);
+      if (hm >= 0) {
+        const floor = hmFloorY(hm);
+        if (hm === NUM_LAYERS - 1) {
+          this.guideTarget = { x: HM.cx + 0.5, z: HM.cz + 0.5 };
+          this.guideText = 'The Sampo';
+        } else if (b.y >= floor - 2) {
+          this.guideTarget = { x: HM.exitX + 0.5, z: HM.exitZ + 0.5 };
+          this.guideText = this.progression.collapsed.has(hm) ? 'The way down' : 'The way down (the mountain closes behind you)';
+        } else {
+          this.guideTarget = null;
+          this.guideText = BIOMES[hm + 1]?.display ?? '';
+        }
+      } else {
+        const layer = Math.max(0, Math.min(NUM_LAYERS - 1, layerOf(b.y)));
+        const pts = g.streamer.gen.routePoints[layer];
+        let best = 0, bd = Infinity;
+        for (let i = 0; i < pts.length; i++) {
+          const q = pts[i];
+          const d = (q.x - b.x) ** 2 + (q.y - b.y) ** 2 + (q.z - b.z) ** 2;
+          if (d < bd) {
+            bd = d;
+            best = i;
+          }
+        }
+        // aim a little way ahead along the path; if the player strayed far, aim back at the path first
+        const t = Math.sqrt(bd) > 40 ? pts[best] : pts[Math.min(pts.length - 1, best + 6)];
+        const dy = t.y - b.y;
+        this.guideTarget = Math.hypot(t.x - b.x, t.z - b.z) < 6 && dy < -4 ? null : { x: t.x, z: t.z };
+        const left = Math.max(0, Math.round(b.y - hmFloorY(layer)));
+        this.guideText = b.y > SURFACE_Y ? 'Into the mountain' : layer === NUM_LAYERS - 1 ? `The Work · ${left} m below` : `Holy Mountain · ${left} m below`;
+      }
+    }
+    let bearing: number | null = null;
+    if (this.guideTarget) {
+      const f = g.lookDir();
+      const fl = Math.hypot(f.x, f.z) || 1;
+      const fx = f.x / fl, fz = f.z / fl;
+      const tx = this.guideTarget.x - b.x, tz = this.guideTarget.z - b.z;
+      bearing = Math.atan2(tx * -fz + tz * fx, tx * fx + tz * fz);
+    }
+    this.hud.guide({ bearing, text: this.guideText });
   }
 
   private updatePrompt(): void {

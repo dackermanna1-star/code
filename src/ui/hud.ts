@@ -81,6 +81,7 @@ export class Hud {
       </div>
       <div class="crosshair"></div>
       <div class="hud-prompt"></div>
+      <div class="hud-guide"><div class="g-strip"><div class="g-tick"></div><div class="g-mark">▼</div></div><div class="g-txt"></div></div>
       <div class="hud-log"></div>
       <div class="hud-title"></div>
       <div class="hud-dark"></div>
@@ -106,6 +107,48 @@ export class Hud {
     this.breathEl = r.querySelector('.breath')!;
     this.darkEl = r.querySelector('.hud-dark')!;
     this.spellBar = r.querySelector('.hud-spells')!;
+    this.guideEl = r.querySelector('.hud-guide')!;
+    this.guideMark = r.querySelector('.g-mark')!;
+    this.guideTxt = r.querySelector('.g-txt')!;
+  }
+
+  private guideEl: HTMLDivElement;
+  private guideMark: HTMLDivElement;
+  private guideTxt: HTMLDivElement;
+  private guideKey = '';
+
+  /**
+   * Way-down guide at the top of the screen. `bearing` is the target's horizontal angle relative to
+   * the view (radians, + = right), or null when the way is straight down.
+   */
+  guide(g: { bearing: number | null; text: string } | null): void {
+    if (!g) {
+      this.guideEl.style.display = 'none';
+      return;
+    }
+    this.guideEl.style.display = '';
+    const strip = 160; // half width in px, covering ±90°
+    let glyph = '▼', x = 0;
+    if (g.bearing !== null) {
+      const b = Math.atan2(Math.sin(g.bearing), Math.cos(g.bearing));
+      if (b > Math.PI / 2) {
+        glyph = '▶';
+        x = strip;
+      } else if (b < -Math.PI / 2) {
+        glyph = '◀';
+        x = -strip;
+      } else {
+        glyph = '◆';
+        x = (b / (Math.PI / 2)) * strip;
+      }
+    }
+    this.guideMark.style.transform = `translateX(${x.toFixed(0)}px)`;
+    const key = glyph + g.text;
+    if (key !== this.guideKey) {
+      this.guideKey = key;
+      this.guideMark.textContent = glyph;
+      this.guideTxt.textContent = g.text;
+    }
   }
 
   setVisible(v: boolean): void {

@@ -166,7 +166,12 @@ Biome stack below a surface valley with the mountain entrance (moss stone pillar
 stone head statue): Mines, Coal Pits, Snowy Depths, Hiisi Base, Underground Jungle, The Vault, then the
 final chamber with the Sampo. Each biome is 256 voxels deep and followed by a 64-voxel Holy Mountain band.
 Caves: coarse-grid 3D noise (chambers) + paired-noise "spaghetti" tunnels + a **guaranteed descent
-route** (spline tunnel from the previous Holy Mountain's exit to the next one's entrance), structures
+route** (a wide spline gallery, radius ≈15, from the previous Holy Mountain's exit to the next one's
+entrance, narrowing only into the entrance shaft) that opens into a **large hall** at each of its four
+waypoints, plus three side caverns per biome on branch tunnels. Cave noise is large-scale and smooth
+so that most open space is room to move and fight rather than crawlspace (`scripts/openness.mjs`
+measures it: in the Mines ≈52 % of voxels are open and ≈58 % of the open space has an 8-voxel bubble
+of room, up from 28 % / 15 %). Lantern posts stand along the route every ~30 voxels. Structures
 placed by region (mine platforms and frames, brick ruins, ice pillars, Hiisi bunkers and catwalks,
 jungle vines and mushrooms, vault glass pipes full of liquid), liquid pools and gas pockets that then
 settle physically. Every voxel is a pure function of the seed, so a seed reproduces a world exactly.
@@ -178,6 +183,11 @@ items around. Holy Mountains (built from Noita's durability-14 brickwork): entra
 Mountain** (or with Tinker with Wands Everywhere). Leaving down the exit collapses it behind you.
 Damaging the brickwork angers the gods and summons Stevari (here and in every later mountain).
 30 perks are implemented (`game/perks.ts`).
+
+**Way-down guide.** A marker strip at the top of the HUD points along the route to the next Holy
+Mountain (then to its exit shaft, and finally to the Sampo) with the depth still to go. Noita needs
+no such aid because its 2D side view always shows "down"; in first person, caves hide the way, so
+this is a deliberate deviation (it can be switched off in Options).
 
 **Deviations.** Noita's Holy Mountains are entered through Teleportatium-powered portals and exits;
 here they are physical shafts (the world is one continuous 3D column). The perk reroll machine

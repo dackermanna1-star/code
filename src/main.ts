@@ -92,6 +92,7 @@ function applySettings(s: Settings): void {
   input.invertY = s.invertY;
   audio.setVolumes(s.master, s.sfx, s.music);
   if (session) {
+    session.run.showGuide = s.guide;
     session.game.setFov(s.fov);
     session.game.setPixelScale(s.pixelScale);
     session.game.chunks.renderDistance = s.renderDistance;

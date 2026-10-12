@@ -72,6 +72,11 @@ select, input { font-family: inherit; background: #1a1411; color: var(--ui-text)
 .hud-prompt { position: absolute; left: 50%; top: calc(50% + 46px); transform: translateX(-50%); color: #f0e6d0; font-size: 16px; text-shadow: 1px 1px 0 #000, 0 0 6px #000; white-space: nowrap; }
 .hud-log { position: absolute; left: 16px; bottom: 18px; display: flex; flex-direction: column; gap: 2px; font-size: 15px; text-shadow: 1px 1px 0 #000; }
 .hud-log .fade { opacity: 0; transition: opacity 1s; }
+.hud-guide { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); text-align: center; color: #e8d8b0; text-shadow: 1px 1px 0 #000, 0 0 4px #000; }
+.hud-guide .g-strip { position: relative; width: 340px; height: 18px; border-bottom: 1px solid rgba(232, 216, 176, 0.35); background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.35) 20%, rgba(0, 0, 0, 0.35) 80%, transparent); }
+.hud-guide .g-tick { position: absolute; left: 50%; bottom: 0; width: 1px; height: 7px; background: rgba(232, 216, 176, 0.6); }
+.hud-guide .g-mark { position: absolute; left: 50%; top: 0; width: 20px; margin-left: -10px; font-size: 14px; line-height: 18px; color: #f0c870; transition: transform 0.12s linear; }
+.hud-guide .g-txt { font-size: 13px; margin-top: 2px; color: #c8bca0; }
 .hud-title { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); text-align: center; text-shadow: 2px 2px 0 #000; opacity: 0; }
 .hud-title .big { font-family: 'Jacquard 12', serif; font-size: 64px; color: #f0c870; letter-spacing: 2px; }
 .hud-title .sub { font-size: 18px; color: #d8ccb8; }

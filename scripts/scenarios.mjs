@@ -234,6 +234,21 @@ export default {
     }).catch((e) => console.log('storm skipped', String(e).slice(0, 80)));
     await sample('projectiles');
   },
+  async mines({ shot, wait, run }) {
+    // views along the Mines route (cave openness, lanterns, guide marker)
+    await wait(1000);
+    const pts = await run(() => window.game.streamer.gen.routePoints[0]);
+    for (const f of [0.22, 0.4, 0.62]) {
+      const i = Math.floor(pts.length * f);
+      const p = pts[i], q = pts[Math.min(pts.length - 1, i + 4)];
+      await teleport(run, wait, p.x, p.y - 3, p.z, Math.atan2(-(q.x - p.x), -(q.z - p.z)) + 0.6, -0.05);
+      await run(() => { window.debug.godMode = true; if (window.debug.showOverlay) window.debug.toggleOverlay(); });
+      await wait(2500);
+      const info = await run(() => ({ guide: document.querySelector('.hud-guide')?.textContent, mark: document.querySelector('.g-mark')?.style.transform, frame: window.game.frameMs.toFixed(1), enemies: window.run.enemies.list.length, stuck: window.run.damage.creatures.filter((c) => c.body.stuck).map((c) => (c.def?.id ?? 'player') + (c.sleeping ? ':sleep' : '')).join(',') }));
+      console.log('view', f, JSON.stringify(info));
+      await shot('route' + Math.round(f * 100));
+    }
+  },
   async saveload({ shot, wait, run }) {
     // change the world and the player, Save & quit, Continue, and compare
     await wait(1500);

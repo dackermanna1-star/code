@@ -42,6 +42,8 @@ interface RegionFeatures {
 }
 
 interface RoutePoint { x: number; y: number; z: number; r: number }
+/** A large cavern carved along (or branching off) a biome's route: an ellipsoid with a flattened floor. */
+interface Hall { x: number; y: number; z: number; rx: number; ry: number; rz: number }
 interface RouteSeg { a: RoutePoint; b: RoutePoint; minX: number; minY: number; minZ: number; maxX: number; maxY: number; maxZ: number }
 
 const REGION = 32;
@@ -59,6 +61,8 @@ export class WorldGenerator {
   private regionCache = new Map<number, RegionFeatures>();
   readonly routeSegs: RouteSeg[] = [];
   readonly routePoints: RoutePoint[][] = [];
+  /** Big caverns per biome layer. */
+  readonly halls: Hall[][] = [];
 
   constructor(seed: number) {
     this.seed = seed >>> 0;
@@ -104,10 +108,15 @@ export class WorldGenerator {
         ctrl.push({ x: HM.exitX, y: top - 10, z: HM.exitZ });
       }
       const k = 4;
+      const halls: Hall[] = [];
       for (let j = 1; j <= k; j++) {
         const y = top - 20 - (j / (k + 1)) * (BIOME_HEIGHT - 40);
-        ctrl.push({ x: rng.range(52, 204), y, z: rng.range(52, 204) });
+        const c = { x: rng.range(60, 196), y, z: rng.range(60, 196) };
+        ctrl.push(c);
+        // every waypoint of the descent opens into a large hall
+        halls.push({ x: c.x, y: c.y, z: c.z, rx: rng.range(26, 36), ry: rng.range(16, 22), rz: rng.range(26, 36) });
       }
+      this.halls.push(halls);
       ctrl.push({ x: HM.cx, y: bottom + 34, z: HM.cz });
       ctrl.push({ x: HM.cx, y: bottom + 14, z: HM.cz });
       ctrl.push({ x: HM.cx, y: bottom - 2, z: HM.cz });
@@ -125,13 +134,35 @@ export class WorldGenerator {
           const x = cr(p0.x, p1.x, p2.x, p3.x, u);
           const y = cr(p0.y, p1.y, p2.y, p3.y, u);
           const z = cr(p0.z, p1.z, p2.z, p3.z, u);
-          const r = 9 + 2 * this.nTunA.noise3(x / 23, y / 23, z / 23);
+          // wide galleries, narrowing to the Holy Mountain entrance shaft at the end
+          const taper = Math.min(1, Math.max(0, (y - (bottom + 8)) / 36));
+          const r = 7 + (8 + 3 * this.nTunA.noise3(x / 23, y / 23, z / 23)) * taper;
           pts.push({ x, y, z, r });
         }
       }
       const last = ctrl[ctrl.length - 1];
       pts.push({ x: last.x, y: last.y, z: last.z, r: 8 });
       this.routePoints.push(pts);
+      // side caverns branching off the route (loot, enemies, places to explore)
+      const branches: RoutePoint[][] = [];
+      for (let j = 0; j < 3; j++) {
+        const from = pts[Math.floor(pts.length * (0.15 + 0.25 * j + rng.range(0, 0.1)))];
+        const ang = rng.range(0, Math.PI * 2), dist = rng.range(45, 70);
+        const hx = Math.min(200, Math.max(56, from.x + Math.cos(ang) * dist));
+        const hz = Math.min(200, Math.max(56, from.z + Math.sin(ang) * dist));
+        const hy = Math.min(top - 40, Math.max(bottom + 50, from.y + rng.range(-25, 10)));
+        halls.push({ x: hx, y: hy, z: hz, rx: rng.range(20, 30), ry: rng.range(13, 18), rz: rng.range(20, 30) });
+        branches.push([{ ...from, r: 9 }, { x: hx, y: hy, z: hz, r: 9 }]);
+      }
+      for (const br of branches) {
+        const [a, b] = br;
+        const pad = 10;
+        this.routeSegs.push({
+          a, b,
+          minX: Math.min(a.x, b.x) - pad, minY: Math.min(a.y, b.y) - pad, minZ: Math.min(a.z, b.z) - pad,
+          maxX: Math.max(a.x, b.x) + pad, maxY: Math.max(a.y, b.y) + pad, maxZ: Math.max(a.z, b.z) + pad,
+        });
+      }
       for (let s = 0; s < pts.length - 1; s++) {
         const a = pts[s],
           b = pts[s + 1];
@@ -195,12 +226,21 @@ export class WorldGenerator {
     if (ld >= BIOME_HEIGHT) return -1; // holy mountain band: solid (temple carved separately)
     const b = BIOMES[layer];
     const s = b.cheeseScale;
-    const ch = this.nCave.fbm3(x / s, (y * b.flatten) / s, z / s, 3);
+    const ch = this.nCave.fbm3(x / s, (y * b.flatten) / s, z / s, 2);
     let open = (ch - b.cheese) * 2.2;
-    const ta = this.nTunA.noise3(x / 52, y / 34, z / 52);
-    const tb = this.nTunB.noise3(x / 52, y / 34, z / 52);
+    const ta = this.nTunA.noise3(x / 70, y / 44, z / 70);
+    const tb = this.nTunB.noise3(x / 70, y / 44, z / 70);
     const tun = (b.tunnelWidth - Math.sqrt(ta * ta + tb * tb)) * 4.5;
     if (tun > open) open = tun;
+    // big halls (flatter floors: the lower half of each ellipsoid is squashed)
+    for (const h of this.halls[layer]) {
+      const dx = (x - h.x) / h.rx, dz = (z - h.z) / h.rz;
+      const dy = (y - h.y) / (y < h.y ? h.ry * 0.6 : h.ry);
+      const q = dx * dx + dy * dy + dz * dz;
+      if (q > 1.6) continue;
+      const o = (1 - Math.sqrt(q)) * 3 + 0.35 * this.nCave.noise3(x / 17, y / 17, z / 17);
+      if (o > open) open = o;
+    }
     // close caves towards band edges and world walls
     const fadeTop = ld < 14 ? (14 - ld) / 14 : 0;
     const fadeBot = BIOME_HEIGHT - ld < 14 ? (14 - (BIOME_HEIGHT - ld)) / 14 : 0;
@@ -361,9 +401,11 @@ export class WorldGenerator {
     }
     // structures
     this.structureFeatures(b, rng, x0, y0, z0, out);
+    this.routeLanterns(layer, x0, y0, z0, out);
 
     // enemies
-    const attempts = Math.round(b.enemyDensity * 1.1 + rng.next() * 0.8);
+    // (caves are roomy, so most attempts find a spot: keep the count near what cramped caves produced)
+    const attempts = Math.round(b.enemyDensity * 0.7 + rng.next() * 0.6);
     for (let a = 0; a < attempts; a++) {
       const px = x0 + rng.int(2, REGION - 3), py = y0 + rng.int(2, REGION - 3), pz = z0 + rng.int(2, REGION - 3);
       const type = rng.weighted(b.enemies, (e) => e[1])[0];
@@ -502,13 +544,47 @@ export class WorldGenerator {
     return false;
   }
 
+  /**
+   * Lantern posts along the main path, alternating sides about every 30 voxels: in the dark they
+   * mark the way down to the next Holy Mountain.
+   */
+  private routeLanterns(layer: number, x0: number, y0: number, z0: number, out: RegionFeatures): void {
+    const pts = this.routePoints[layer];
+    const wood = this.lanternWood ?? (this.lanternWood = matId('wood'));
+    for (let i = 3; i < pts.length - 8; i += 6) {
+      const p = pts[i], q = pts[i + 1];
+      let dx = q.x - p.x, dz = q.z - p.z;
+      const len = Math.hypot(dx, dz);
+      if (len < 0.5) {
+        dx = 1;
+        dz = 0;
+      } else {
+        dx /= len;
+        dz /= len;
+      }
+      const side = (i / 6) % 2 < 1 ? 1 : -1;
+      const off = Math.max(4, p.r * 0.7);
+      const lx = Math.floor(p.x - dz * side * off), lz = Math.floor(p.z + dx * side * off);
+      if (lx < x0 || lx >= x0 + REGION || lz < z0 || lz >= z0 + REGION) continue;
+      if (!this.isOpen(lx, Math.floor(p.y), lz)) continue;
+      const fy = this.floorBelow(lx, Math.floor(p.y), lz, 30);
+      if (fy === null || fy + 1 < y0 || fy + 1 >= y0 + REGION) continue;
+      if (!this.isOpen(lx, fy + 9, lz)) continue;
+      // a post with a lantern on top and a little crossbar
+      out.boxes.push({ x0: lx, y0: fy + 1, z0: lz, x1: lx + 1, y1: fy + 8, z1: lz + 1, mat: wood, mode: 'air' });
+      out.boxes.push({ x0: lx, y0: fy + 8, z0: lz, x1: lx + 1, y1: fy + 9, z1: lz + 1, mat: LAMP, mode: 'air' });
+    }
+  }
+
+  private lanternWood: number | undefined;
+
   private structureFeatures(b: BiomeDef, rng: Rng, x0: number, y0: number, z0: number, out: RegionFeatures): void {
     const tries = 3;
     for (let t = 0; t < tries; t++) {
       const px = x0 + rng.int(3, REGION - 4), py = y0 + rng.int(3, REGION - 4), pz = z0 + rng.int(3, REGION - 4);
       if (!this.isOpen(px, py, pz)) continue;
-      // never obstruct the guaranteed descent route
-      if (this.nearRoute(px, py, pz, 20)) {
+      // never obstruct the guaranteed descent route (its core; the edges of the big halls are fine)
+      if (this.nearRoute(px, py, pz, 4)) {
         rng.next();
         continue;
       }

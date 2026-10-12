@@ -5,6 +5,8 @@ import { audio } from '../audio/audio';
 
 export interface Settings {
   sensitivity: number;
+  /** way-down guide marker */
+  guide: boolean;
   invertY: boolean;
   master: number;
   sfx: number;
@@ -14,7 +16,7 @@ export interface Settings {
   renderDistance: number;
 }
 
-const DEFAULT_SETTINGS: Settings = { sensitivity: 0.0022, invertY: false, master: 0.8, sfx: 1, music: 0.7, pixelScale: 2, fov: 75, renderDistance: 7 };
+const DEFAULT_SETTINGS: Settings = { guide: true, sensitivity: 0.0022, invertY: false, master: 0.8, sfx: 1, music: 0.7, pixelScale: 2, fov: 75, renderDistance: 7 };
 
 export function loadSettings(): Settings {
   try {
@@ -127,6 +129,7 @@ export class Menus {
         html = `<div class="mode-title">Options</div><div class="opts noita-panel">
           ${range('o-sens', 'Mouse sensitivity', 0.0005, 0.006, 0.0001, s.sensitivity)}
           <label class="opt"><span>Invert mouse Y</span><input type="checkbox" id="o-inv" ${s.invertY ? 'checked' : ''}></label>
+          <label class="opt"><span>Way-down guide marker</span><input type="checkbox" id="o-guide" ${s.guide ? 'checked' : ''}></label>
           ${range('o-fov', 'Field of view', 60, 100, 1, s.fov)}
           ${range('o-pix', 'Pixel size (render scale divisor)', 1, 4, 0.5, s.pixelScale)}
           ${range('o-rd', 'Render distance (chunks)', 4, 10, 1, s.renderDistance)}
@@ -246,6 +249,11 @@ export class Menus {
           /* ignore */
         }
         hints.textContent = 'will show next run';
+      });
+      (this.panel.querySelector('#o-guide') as HTMLInputElement).addEventListener('change', (e) => {
+        s.guide = (e.target as HTMLInputElement).checked;
+        saveSettings(s);
+        this.cb.settingsChanged(s);
       });
       (this.panel.querySelector('#o-inv') as HTMLInputElement).addEventListener('change', (e) => {
         s.invertY = (e.target as HTMLInputElement).checked;
