@@ -2,6 +2,7 @@ package com.mineception.block;
 
 import com.mineception.dream.LaptopData;
 import com.mineception.dream.MiniBlock;
+import com.mineception.dream.MiniWorld;
 import com.mineception.dream.Theme;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -65,12 +66,22 @@ public final class LaptopDataCodecs {
 			int count = Math.min(level.indices().length, level.blocks().length);
 			for (int j = 0; j < count; j++) {
 				int id = level.blocks()[j] & 0xFF;
-				if (MiniBlock.isValidId(id)) {
-					data.putEdit(i + 1, level.indices()[j], MiniBlock.byId(id));
+				int index = level.indices()[j];
+				if (MiniBlock.isValidId(id) && plausible(index, MiniBlock.byId(id))) {
+					data.putEdit(i + 1, index, MiniBlock.byId(id));
 				}
 			}
 		}
 		return data;
+	}
+
+	/**
+	 * Only edits a player could have made survive decoding: breaking (air) or placing a hotbar block, never on the
+	 * bedrock floor. Item components can come from creative-mode clients, so stray laptops or bedrock holes are dropped.
+	 */
+	private static boolean plausible(int index, MiniBlock block) {
+		return index >= 0 && index < MiniWorld.VOLUME && MiniWorld.indexY(index) > 0
+			&& (block == MiniBlock.AIR || block.placeable());
 	}
 
 	private static void write(ByteBuf buf, LaptopData data) {

@@ -203,6 +203,20 @@ public class LaptopGameTests {
 		}
 		helper.assertTrue(refused, "oversized edit list accepted");
 
+		// Edits no player could make (extra laptops, bedrock, holes in the bedrock floor) are dropped when decoding
+		LaptopData crafted = new LaptopData(5L);
+		crafted.putEdit(1, MiniWorld.index(4, 8, 4), MiniBlock.LAPTOP);
+		crafted.putEdit(1, MiniWorld.index(5, 8, 4), MiniBlock.BEDROCK);
+		crafted.putEdit(1, MiniWorld.index(6, 0, 4), MiniBlock.AIR);
+		crafted.putEdit(1, MiniWorld.index(7, 8, 4), MiniBlock.GLASS);
+		LaptopData expected = new LaptopData(5L);
+		expected.putEdit(1, MiniWorld.index(7, 8, 4), MiniBlock.GLASS);
+		ByteBuf craftedBuf = Unpooled.buffer();
+		LaptopDataCodecs.STREAM_CODEC.encode(craftedBuf, crafted);
+		helper.assertValueEqual(expected, LaptopDataCodecs.STREAM_CODEC.decode(craftedBuf), "sanitized network data");
+		Tag craftedNbt = LaptopDataCodecs.CODEC.encodeStart(NbtOps.INSTANCE, crafted).getOrThrow();
+		helper.assertValueEqual(expected, LaptopDataCodecs.CODEC.parse(NbtOps.INSTANCE, craftedNbt).getOrThrow(), "sanitized saved data");
+
 		// As an item component, through the item stack codecs
 		ItemStack stack = new ItemStack(ModContent.LAPTOP_ITEM);
 		stack.set(ModContent.LAPTOP_DATA, data);
