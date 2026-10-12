@@ -123,6 +123,7 @@ export class GameView {
       this.soundRandom?.(prefix, x, 0.35 + s * 0.4);
     };
     this.corpses = new Corpses(scene);
+    this.blood.onLand = (x, z, size) => this.corpses.soak(x, z, size * 0.15);
     stage.onPreRender(() => this.blood.flush());
   }
 
@@ -461,7 +462,7 @@ export class GameView {
   private onFrozen(r: Ragdoll, type: EnemyType): void {
     const c = r.centre(_v2);
     if (c.y > -1) this.blood.pool(c.x, c.z, Math.min(1.4, 0.25 + DEATH_MASS[type] / 500));
-    this.corpses.bake(r.rig.root, new THREE.Color(1, 0.92, 0.92));
+    this.corpses.bake(r.rig.root);
   }
 
   // ------------------------------------------------------------------ hits
@@ -739,6 +740,7 @@ export class GameView {
     }
     this.popups = this.popups.filter((pp) => pp.age < 1);
     this.blood.update(dt);
+    this.corpses.flushTints();
     this.effects.update(dt);
     this.debris.update(dt);
   }

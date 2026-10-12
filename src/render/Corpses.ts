@@ -15,6 +15,13 @@ export class Corpses {
   /** Fallback when a batch is full: keep plain meshes. */
   private overflow: THREE.Object3D[] = [];
   count = 0;
+  /** Baked corpses (for blood soaking). */
+  private bodies: Array<{ x: number; z: number; r: number; blood: number; shown: number; inst: Array<[THREE.BatchedMesh, number]> }> = [];
+  /** 1 m grid of corpse indices. */
+  private grid = new Map<number, number[]>();
+  private dirty = new Set<number>();
+  private static readonly BASE = new THREE.Color(1, 0.94, 0.94);
+  private static readonly SOAKED = new THREE.Color(0.62, 0.07, 0.05);
 
   constructor(scene: THREE.Scene) {
     this.group.name = 'Corpses';
@@ -49,6 +56,7 @@ export class Corpses {
     });
     let ok = true;
     const loose: THREE.Mesh[] = [];
+    const inst: Array<[THREE.BatchedMesh, number]> = [];
     for (const m of meshes) {
       if (!this.visibleInHierarchy(m, root)) continue;
       const cls = (m.userData.matClass as MatClass | undefined) ?? null;
@@ -66,7 +74,8 @@ export class Corpses {
         }
         const iid = b.addInstance(gid);
         b.setMatrixAt(iid, m.matrixWorld);
-        if (tint) b.setColorAt(iid, tint);
+        b.setColorAt(iid, tint ?? Corpses.BASE);
+        inst.push([b, iid]);
       } catch {
         ok = false;
         break;
@@ -87,8 +96,48 @@ export class Corpses {
       this.group.add(c);
       this.overflow.push(c);
     }
+    if (inst.length) {
+      const box = new THREE.Box3().setFromObject(root);
+      const c = box.getCenter(new THREE.Vector3());
+      const r = Math.max(0.3, Math.max(box.max.x - box.min.x, box.max.z - box.min.z) * 0.5);
+      const idx = this.bodies.length;
+      this.bodies.push({ x: c.x, z: c.z, r, blood: 0, shown: 0, inst });
+      for (let gx = Math.floor(c.x - r); gx <= Math.floor(c.x + r); gx++) {
+        for (let gz = Math.floor(c.z - r); gz <= Math.floor(c.z + r); gz++) {
+          const k = gx * 1000 + gz;
+          const list = this.grid.get(k);
+          if (list) list.push(idx);
+          else this.grid.set(k, [idx]);
+        }
+      }
+    }
     root.removeFromParent();
     this.count++;
+  }
+
+  /** A blood droplet landed at (x, z): corpses there get a little bloodier. */
+  soak(x: number, z: number, amount: number): void {
+    const list = this.grid.get(Math.floor(x) * 1000 + Math.floor(z));
+    if (!list) return;
+    for (const i of list) {
+      const b = this.bodies[i];
+      if ((x - b.x) ** 2 + (z - b.z) ** 2 > b.r * b.r) continue;
+      b.blood = Math.min(1, b.blood + amount / (b.r * b.r));
+      if (b.blood - b.shown > 0.04) this.dirty.add(i);
+    }
+  }
+
+  /** Apply pending blood tints (call once per frame). */
+  flushTints(): void {
+    if (!this.dirty.size) return;
+    const c = new THREE.Color();
+    for (const i of this.dirty) {
+      const b = this.bodies[i];
+      b.shown = b.blood;
+      c.copy(Corpses.BASE).lerp(Corpses.SOAKED, b.blood * 0.85);
+      for (const [mesh, iid] of b.inst) mesh.setColorAt(iid, c);
+    }
+    this.dirty.clear();
   }
 
   private visibleInHierarchy(o: THREE.Object3D, root: THREE.Object3D): boolean {
@@ -106,5 +155,8 @@ export class Corpses {
     for (const o of this.overflow) o.removeFromParent();
     this.overflow.length = 0;
     this.count = 0;
+    this.bodies.length = 0;
+    this.grid.clear();
+    this.dirty.clear();
   }
 }

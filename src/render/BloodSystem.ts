@@ -155,6 +155,8 @@ export class BloodSystem {
   /** Tells whether (x,z) is on the ice (droplets landing elsewhere sink). */
   isOnFloe: (x: number, z: number) => boolean = () => true;
   gravity = 42;
+  /** Called for every droplet that lands on the ice (corpses soak up blood). */
+  onLand: ((x: number, z: number, size: number) => void) | null = null;
 
   constructor(private renderer: THREE.WebGLRenderer, scene: THREE.Scene, resolution = 2048) {
     const w = resolution;
@@ -237,15 +239,15 @@ export class BloodSystem {
     let style = 0;
     switch (kind) {
       case 'drop':
-        r = 0.36 * shade;
-        g = 0.008 * shade;
-        b = 0.01 * shade;
+        r = 0.48 * shade;
+        g = 0.016 * shade;
+        b = 0.008 * shade;
         a *= 0.92;
         break;
       case 'pool':
-        r = 0.3 * shade;
-        g = 0.005;
-        b = 0.008;
+        r = 0.36 * shade;
+        g = 0.008;
+        b = 0.006;
         style = 1;
         break;
       case 'smear':
@@ -364,6 +366,7 @@ export class BloodSystem {
           // horizontal blood bands).
           const stretch = 1 + Math.min(2.8, sp * 0.16);
           this.splat('drop', d.x, d.z, d.size * (1.1 + Math.random() * 0.7), { angle: Math.atan2(d.vz, d.vx), stretch, shade: d.shade });
+          this.onLand?.(d.x, d.z, d.size);
           continue;
         } else if (d.y < -4) continue;
       }
