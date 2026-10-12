@@ -101,7 +101,7 @@ export class Game {
     const world = new World({ seed: (Math.random() * 1e9) >>> 0, ...(attract ? {} : this.worldOptions) });
     this.world = world;
     // The demo hunter stands mid-right like the player in the reference frames.
-    this.bot = attract || this.autoplay ? new Bot(world.player, { skill: attract ? 0.8 : 0.95, homeX: 10 }) : null;
+    this.bot = attract || this.autoplay ? new Bot(world.player, { skill: attract ? 0.8 : 0.95, homeX: 10, maxRange: 22 }) : null;
     this.view.attach(world);
     this.acc = 0;
     this.endTimer = -1;

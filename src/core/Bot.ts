@@ -13,6 +13,8 @@ export interface BotOptions {
   skill?: number;
   buyList?: WeaponId[];
   homeX?: number;
+  /** Only engage creatures within this distance (a human doesn't snipe at the far edge). */
+  maxRange?: number;
 }
 
 export class Bot {
@@ -23,8 +25,10 @@ export class Bot {
   private readonly skill: number;
   private readonly buyList: WeaponId[];
   private readonly homeX: number;
+  private readonly maxRange: number;
 
   constructor(private player: Player, opts: BotOptions = {}) {
+    this.maxRange = opts.maxRange ?? Infinity;
     this.skill = opts.skill ?? 0.85;
     this.buyList = opts.buyList ?? ['magnum', 'mp5', 'mac10', 'm4', 'minigun'];
     this.homeX = opts.homeX ?? -1.1;
@@ -34,6 +38,8 @@ export class Bot {
   private eta(e: Enemy): number {
     const p = this.player;
     if (!e.alive || e.x > p.x + 0.3) return Infinity;
+    // Out of engagement range — unless it is about to get past us.
+    if (p.x - e.x > this.maxRange && e.x < p.x - 6) return Infinity;
     if (e.canLeave && e.type !== 'walrus') return Infinity; // fleeing activist, let him go
     if (e instanceof Seal && e.crawling) return Infinity; // comes to us and gets kicked
     const v = Math.max(0.4, e.vx);
@@ -122,7 +128,12 @@ export class Bot {
 
     // Fire whenever the gun line crosses a creature worth shooting.
     const line = world.combat.lineTarget(p);
-    if (line && !(line.canLeave && line.type !== 'walrus') && !(line instanceof Seal && line.crawling && line.x > p.x - 3)) {
+    if (
+      line &&
+      p.x - line.x <= this.maxRange &&
+      !(line.canLeave && line.type !== 'walrus') &&
+      !(line instanceof Seal && line.crawling && line.x > p.x - 3)
+    ) {
       inp.fire = true;
     }
 
