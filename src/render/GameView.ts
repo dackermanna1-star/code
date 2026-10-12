@@ -402,7 +402,7 @@ export class GameView {
     }
 
     // Blood from the killing blow.
-    const n = ev.kind === 'gib' ? 0 : Math.min(110, 30 + ev.force / 6);
+    const n = ev.kind === 'gib' ? 0 : Math.min(150, 45 + ev.force / 5);
     if (n > 0) {
       this.blood.spray(pt, n, { dirX: ev.dirX, dirZ: ev.dirZ, speed: [1.5, 11], up: [-0.5, 4], spread: 0.8, jitter: 2, size: [0.025, 0.09] });
       this.effects.bloodPuff(pt, ev.dirX, 1);
@@ -461,7 +461,16 @@ export class GameView {
 
   private onFrozen(r: Ragdoll, type: EnemyType): void {
     const c = r.centre(_v2);
-    if (c.y > -1) this.blood.pool(c.x, c.z, Math.min(1.4, 0.25 + DEATH_MASS[type] / 500));
+    if (c.y > -1) {
+      const r = Math.min(1.8, 0.35 + DEATH_MASS[type] / 400);
+      this.blood.pool(c.x, c.z, r);
+      // Spatter around the body.
+      for (let i = 0; i < 10; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const d = r * (0.7 + Math.random() * 0.9);
+        this.blood.splat('drop', c.x + Math.cos(a) * d, c.z + Math.sin(a) * d * 0.8, 0.03 + Math.random() * 0.05);
+      }
+    }
     this.corpses.bake(r.rig.root);
   }
 
