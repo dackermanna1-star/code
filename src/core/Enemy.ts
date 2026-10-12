@@ -13,6 +13,52 @@ export interface HitShape {
   part: HitPart;
 }
 
+/**
+ * Axis-aligned ellipsoid in world space, the 3D counterpart of a HitShape used
+ * by first-person shots: the side-plane ellipse (facing applied) given a depth
+ * half-thickness. Semi-axes include the hit tolerance.
+ */
+export interface HitVolume {
+  x: number;
+  y: number;
+  z: number;
+  rx: number;
+  ry: number;
+  rz: number;
+  part: HitPart;
+}
+
+/** Where a ray enters a creature's hit volumes. */
+export interface RayContact {
+  /** Distance along the (unit) ray to the entry point; 0 when the origin is inside. */
+  t: number;
+  part: HitPart;
+  /** The volume that was entered (for surface normals). */
+  volume: HitVolume;
+}
+
+/**
+ * Entry distance of the unit ray o + t*d into an ellipsoid, or -1 when it
+ * misses or lies entirely behind the origin.
+ */
+export function rayEllipsoid(o: V3, d: V3, v: HitVolume): number {
+  const ox = (o.x - v.x) / v.rx;
+  const oy = (o.y - v.y) / v.ry;
+  const oz = (o.z - v.z) / v.rz;
+  const dx = d.x / v.rx;
+  const dy = d.y / v.ry;
+  const dz = d.z / v.rz;
+  const a = dx * dx + dy * dy + dz * dz;
+  const b = ox * dx + oy * dy + oz * dz;
+  const c = ox * ox + oy * oy + oz * oz - 1;
+  const disc = b * b - a * c;
+  if (disc < 0) return -1;
+  const s = Math.sqrt(disc);
+  const t1 = (-b + s) / a;
+  if (t1 < 0) return -1;
+  return Math.max(0, (-b - s) / a);
+}
+
 export interface DamageInfo {
   damage: number;
   part: HitPart;
@@ -220,6 +266,44 @@ export abstract class Enemy {
       const w = s.a * Math.sqrt(1 - dy * dy);
       const right = this.x + (this.facing >= 0 ? s.cx + w : -s.cx + w);
       if (!best || right > best.right) best = { right, part: s.part };
+    }
+    return best;
+  }
+
+  /**
+   * 3D hit volumes for first-person shots, derived from the side-plane shapes
+   * exactly as silhouetteAt places them (facing applied). Each ellipse gets a
+   * depth half-thickness of max(a, b) capped at 90% of the creature's
+   * footprint half depth (about the models' half width): round parts (heads,
+   * cub bundles, necks) come out roughly spherical, long bodies as wide as the
+   * creature. `edge` pads every axis.
+   */
+  hitVolumes(edge = 0): HitVolume[] {
+    const hd = this.def.halfDepth * 0.9;
+    return this.shapes().map((s) => ({
+      x: this.x + (this.facing >= 0 ? s.cx : -s.cx),
+      y: s.cy,
+      z: this.z,
+      rx: s.a + edge,
+      ry: s.b + edge,
+      rz: Math.min(hd, Math.max(s.a, s.b)) + edge,
+      part: s.part,
+    }));
+  }
+
+  /**
+   * First contact of the unit ray o + t*d (0 <= t <= maxT) with this
+   * creature's hit volumes, or null. When the origin is inside a volume (a
+   * creature right on top of the hunter) it counts as a contact at t = 0 only
+   * if the creature's centre lies ahead, so nothing behind the eye is hit.
+   */
+  rayContact(o: V3, d: V3, maxT: number, edge = 0): RayContact | null {
+    let best: RayContact | null = null;
+    for (const v of this.hitVolumes(edge)) {
+      const t = rayEllipsoid(o, d, v);
+      if (t < 0 || t > maxT) continue;
+      if (t === 0 && (this.x - o.x) * d.x + (this.def.height * 0.5 - o.y) * d.y + (this.z - o.z) * d.z <= 0) continue;
+      if (!best || t < best.t) best = { t, part: v.part, volume: v };
     }
     return best;
   }

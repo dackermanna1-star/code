@@ -2,6 +2,7 @@
 // (py-sealhunter enemies.py), converted to metres and 50 Hz ticks.
 import { ENEMY_Z_MAX, ENEMY_Z_MIN, FIELD_HALF_W, GAME_GRAVITY, PLAYER, SPD_X, TICK } from '../config/constants';
 import { viewHeightAt } from '../config/view';
+import { FP, aimDir } from '../config/firstPerson';
 import type { EnemyType } from '../config/enemies';
 import { Enemy, type DamageInfo, type HitShape } from './Enemy';
 import type { DeathKind, HitPart, V3 } from './Events';
@@ -426,9 +427,16 @@ export class Turtle extends Enemy {
     return 'damage';
   }
 
-  /** Push from a deflected bullet while hiding. */
-  shove(damage: number): void {
-    if (this.hidden && this.vx > -2 * SPD_X) this.vx -= (damage / 150) * SPD_X;
+  /**
+   * Push from a deflected bullet while hiding, along the bullet's horizontal
+   * direction (classic bullets always travel along -x).
+   */
+  shove(damage: number, dirX = -1, dirZ = 0): void {
+    if (this.hidden && this.vx * dirX + this.vz * dirZ < 2 * SPD_X) {
+      const k = (damage / 150) * SPD_X;
+      this.vx += dirX * k;
+      this.vz += dirZ * k;
+    }
   }
 
   protected onDamaged(): void {
@@ -443,7 +451,10 @@ export class Turtle extends Enemy {
   /** Is any player's gun line crossing the turtle? */
   private aimedAt(): boolean {
     return this.world.players.some((p) => {
-      if (!p.alive || p.x < this.x) return false;
+      if (!p.alive) return false;
+      // First person: the aim ray passes over the shell (with some margin).
+      if (p.aim) return this.rayContact(p.eye(), aimDir(p.aim), FP.range, 0.3) !== null;
+      if (p.x < this.x) return false;
       const yEff = viewHeightAt(p.y + PLAYER.muzzleHeight, p.z, this.z);
       return yEff > 0 && yEff < 1.8;
     });
@@ -454,12 +465,17 @@ export class Turtle extends Enemy {
       const f = 2.5 * 0.06 * SPD_X * 50 * TICK; // x_fric 2.5 on ice
       if (this.vx > 0) this.vx = Math.max(0, this.vx - f);
       else if (this.vx < 0) this.vx = Math.min(0, this.vx + f);
+      // Sideways slide from first-person ricochets (classic shots never push in depth).
+      if (this.vz !== 0) {
+        this.vz = this.vz > 0 ? Math.max(0, this.vz - f) : Math.min(0, this.vz + f);
+        this.clampLane();
+      }
       if (this.ticks >= this.unhideAt) {
         if (this.aimedAt()) this.unhideAt += Turtle.HIDE_TICKS;
         else this.setState('emerge');
       }
     } else if (this.state === 'emerge') {
-      this.vx = 0;
+      this.vx = this.vz = 0;
       if (this.stateTicks >= 16) {
         this.setState('walk');
         this.vx = this.speed;

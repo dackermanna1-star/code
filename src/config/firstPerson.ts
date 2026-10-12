@@ -31,7 +31,42 @@ export const FP = {
   /** Camera near / far planes. */
   near: 0.05,
   far: 4000,
+  /** Hitscan range from the eye, m (the whole floe plus the spawn margin). */
+  range: 60,
+  /**
+   * Vertical spread as a fraction of the weapon's horizontal spread: pellets
+   * land in a flattened disc (the original only ever spread within the lane).
+   */
+  spreadPitch: 0.5,
+  /**
+   * Where the first-person gun's muzzle sits relative to the eye, along the aim
+   * (forward), to the right of it and below it, m. Used for the 'shot' event's
+   * muzzle and as the launch point of launcher rounds; the viewmodel matches it.
+   */
+  gun: { forward: 0.62, right: 0.17, down: 0.2 },
+  /** Height of the throwing hand above the feet, and how far in front of the eye it releases, m. */
+  throwHeight: 1.3,
+  throwForward: 0.35,
 } as const;
+
+/** Unit horizontal heading (x, z) of a yaw. */
+export function headingDir(yaw: number, out = { x: 0, z: 0 }): { x: number; z: number } {
+  out.x = -Math.cos(yaw);
+  out.z = Math.sin(yaw);
+  return out;
+}
+
+/** Unit horizontal vector pointing to the right of a yaw (screen right in first person). */
+export function rightDir(yaw: number, out = { x: 0, z: 0 }): { x: number; z: number } {
+  out.x = -Math.sin(yaw);
+  out.z = -Math.cos(yaw);
+  return out;
+}
+
+/** Yaw (aim convention) of a horizontal direction (x, z). */
+export function yawOf(x: number, z: number): number {
+  return Math.atan2(z, -x);
+}
 
 /** Unit aim direction for the convention above. */
 export function aimDir(aim: Aim, out = { x: 0, y: 0, z: 0 }): { x: number; y: number; z: number } {

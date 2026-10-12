@@ -16,6 +16,11 @@ export interface BulletPath {
   to: V3;
   /** True when the path is a ricochet. */
   ric: boolean;
+  /**
+   * First person only: the bullet ended in the ice (or, past the floe's edge,
+   * the sea) at `to` rather than in a creature or at the end of its range.
+   */
+  ground?: 'ice' | 'water';
 }
 
 export type DeathKind =

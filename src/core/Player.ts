@@ -15,7 +15,7 @@ import type { Enemy } from './Enemy';
 import { Seal } from './enemies';
 import { Weapon, MUZZLE_FORWARD, MUZZLE_Z } from './Weapon';
 import type { World } from './World';
-import type { Aim } from '../config/firstPerson';
+import { FP, aimDir, headingDir, rightDir, type Aim } from '../config/firstPerson';
 
 export type PlayerState = 'stand' | 'walk' | 'jump' | 'fall' | 'sit' | 'getup' | 'kick' | 'air' | 'dead';
 
@@ -48,6 +48,11 @@ export interface PlayerStats {
 }
 
 const WITH_WEAPON: PlayerState[] = ['stand', 'walk', 'air'];
+
+/** Stick deflection below which a first-person move input counts as no movement. */
+const MOVE_DEADZONE = 0.05;
+/** A move axis counts as pushed (no friction on it) above this share of the input. */
+const MOVE_AXIS_MIN = 0.1;
 
 export class Player {
   readonly id: number;
@@ -109,6 +114,33 @@ export class Player {
     return { x: this.x - MUZZLE_FORWARD[id], y: this.y + PLAYER.muzzleHeight, z: this.z + MUZZLE_Z[id] };
   }
 
+  /** First person: the eye (camera and bullet origin), FP.eyeHeight above the feet. */
+  eye(): { x: number; y: number; z: number } {
+    return { x: this.x, y: this.y + FP.eyeHeight, z: this.z };
+  }
+
+  /**
+   * First person: world position of the viewmodel's muzzle (FP.gun offsets
+   * from the eye along the aim). Falls back to muzzle() in classic mode.
+   */
+  aimMuzzle(): { x: number; y: number; z: number } {
+    if (!this.aim) return this.muzzle();
+    const g = FP.gun;
+    const d = aimDir(this.aim);
+    const r = rightDir(this.aim.yaw);
+    // The view's up vector: (-sin(pitch) * heading, cos(pitch)).
+    const h = headingDir(this.aim.yaw);
+    const sp = Math.sin(this.aim.pitch);
+    const ux = -sp * h.x;
+    const uy = Math.cos(this.aim.pitch);
+    const uz = -sp * h.z;
+    return {
+      x: this.x + d.x * g.forward + r.x * g.right - ux * g.down,
+      y: this.y + FP.eyeHeight + d.y * g.forward - uy * g.down,
+      z: this.z + d.z * g.forward + r.z * g.right - uz * g.down,
+    };
+  }
+
   /** Crosshair position in front of the hunter (original cross_xoffset). */
   crosshair(): { x: number; y: number; z: number } {
     const id = this.weapon.id;
@@ -129,7 +161,8 @@ export class Player {
     if (!this.alive) return;
     this.stateTicks++;
     const inp = this.input;
-    const moving = inp.left || inp.right || inp.up || inp.down;
+    const mv = inp.move;
+    const moving = mv ? Math.hypot(mv.x, mv.z) > MOVE_DEADZONE : inp.left || inp.right || inp.up || inp.down;
     const onGround = this.y <= 0;
 
     // --- state machine (Stopped/Walking/Jump/JumpFall/Sitting/GetUp/InAir)
@@ -137,7 +170,7 @@ export class Player {
       case 'stand':
       case 'walk':
         this.setState(moving ? 'walk' : 'stand');
-        if (this.y > 0.6 && Math.abs(this.vx) > 3.2) this.setState('air');
+        if (this.y > 0.6 && (this.aim ? Math.hypot(this.vx, this.vz) : Math.abs(this.vx)) > 3.2) this.setState('air');
         break;
       case 'air':
         if (onGround) this.setState(moving ? 'walk' : 'stand');
@@ -173,8 +206,31 @@ export class Player {
     }
     this.jumpLatch = inp.jump;
 
+    // --- first-person movement: a world-space direction instead of the four keys
+    let pushX = false;
+    let pushZ = false;
+    if (mv) {
+      const l = Math.hypot(mv.x, mv.z);
+      if (l > MOVE_DEADZONE) {
+        const ux = mv.x / l;
+        const uz = mv.z / l;
+        const k = Math.min(1, l);
+        pushX = Math.abs(ux) * k > MOVE_AXIS_MIN;
+        pushZ = Math.abs(uz) * k > MOVE_AXIS_MIN;
+        if (onGround && this.state === 'walk') {
+          // Top speed along the direction lies on the ellipse spanned by the
+          // per-axis maxima, so straight runs match the classic keys and any
+          // heading or strafe keeps its direction; each axis accelerates with
+          // its own classic rate (scaled by its share of the direction).
+          const vmax = k / Math.hypot(ux / PLAYER.maxSpeedX, uz / PLAYER.maxSpeedZ);
+          if (pushX) this.vx = drive(this.vx, ux * vmax, PLAYER.accX * TICK * Math.abs(ux), PLAYER.fricX * TICK);
+          if (pushZ) this.vz = drive(this.vz, uz * vmax, PLAYER.accZ * TICK * Math.abs(uz), PLAYER.fricZ * TICK);
+        }
+      }
+    }
+
     // --- acceleration (only walking on the ice)
-    if (onGround && this.state === 'walk') {
+    if (!mv && onGround && this.state === 'walk') {
       const ax = PLAYER.accX * TICK;
       const az = PLAYER.accZ * TICK;
       if (inp.left && this.vx > -PLAYER.maxSpeedX) this.vx -= ax;
@@ -203,8 +259,10 @@ export class Player {
 
     // --- ice friction when not pushing on that axis
     if (this.y <= 0) {
-      if (!(inp.left || inp.right) || this.state !== 'walk') this.vx = approach0(this.vx, PLAYER.fricX * TICK);
-      if (!(inp.up || inp.down) || this.state !== 'walk') this.vz = approach0(this.vz, PLAYER.fricZ * TICK);
+      const pushingX = mv ? pushX : inp.left || inp.right;
+      const pushingZ = mv ? pushZ : inp.up || inp.down;
+      if (!pushingX || this.state !== 'walk') this.vx = approach0(this.vx, PLAYER.fricX * TICK);
+      if (!pushingZ || this.state !== 'walk') this.vz = approach0(this.vz, PLAYER.fricZ * TICK);
     }
 
     // --- field bounds
@@ -240,18 +298,32 @@ export class Player {
     }
   }
 
+  /** Recoil slide: away from where the gun points (classic: always to the right, +x). */
   applyRecoil(x: number, up: number): void {
-    this.vx += x;
+    if (this.aim) {
+      const h = headingDir(this.aim.yaw);
+      this.vx -= h.x * x;
+      this.vz -= h.z * x;
+    } else {
+      this.vx += x;
+    }
     if (up > 0) this.vy += up;
   }
 
   /** Kick or stomp wounded, crawling seals (original HeadKick / KrossatHuvud). */
   private crawlerContacts(): void {
     const falling = this.vy < 0 && this.y < 0.35;
+    // First person: "in front" follows the heading (classic: the hunter faces -x).
+    const h = this.aim ? headingDir(this.aim.yaw) : null;
     for (const e of this.world.enemies) {
       if (!(e instanceof Seal) || !e.alive || !e.crawling) continue;
-      if (Math.abs(e.z - this.z) > 0.55) continue;
-      const dx = this.x - e.x;
+      let dx = this.x - e.x;
+      if (h) {
+        const rx = e.x - this.x;
+        const rz = e.z - this.z;
+        if (Math.abs(rz * h.x - rx * h.z) > 0.55) continue;
+        dx = rx * h.x + rz * h.z;
+      } else if (Math.abs(e.z - this.z) > 0.55) continue;
       if (falling && Math.abs(dx) < 0.8) {
         e.special = 'stomp';
         this.finishCrawler(e);
@@ -270,8 +342,8 @@ export class Player {
       damage: e.life,
       part: 'head',
       point: { x: e.x + 0.5, y: 0.25, z: e.z },
-      dirX: -1,
-      dirZ: 0,
+      dirX: this.aim ? -Math.cos(this.aim.yaw) : -1,
+      dirZ: this.aim ? Math.sin(this.aim.yaw) : 0,
       bullet: false,
       player: this,
     };
@@ -397,6 +469,16 @@ export class Player {
     if (!this.canAct) return false;
     return this.weapon.reload();
   }
+}
+
+/**
+ * Accelerate one velocity axis toward `target` by `acc`; beyond the target
+ * speed in its direction, ice friction bleeds off the excess (recoil, turns).
+ */
+function drive(v: number, target: number, acc: number, fric: number): number {
+  if (target > 0) return v < target ? Math.min(target, v + acc) : Math.max(target, v - fric);
+  if (target < 0) return v > target ? Math.max(target, v - acc) : Math.min(target, v + fric);
+  return approach0(v, fric);
 }
 
 function approach0(v: number, step: number): number {
