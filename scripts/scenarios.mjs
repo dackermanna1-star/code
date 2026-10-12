@@ -27,6 +27,12 @@ async function key(run, wait, code, ms = 60) {
 }
 
 export default {
+  async start({ shot, wait, run }) {
+    await wait(2500);
+    await run(() => { const p = window.game.player; p.yaw = 2.09; p.pitch = 0.22; window.debug.toggleOverlay(); });
+    await wait(800);
+    await shot('pillar');
+  },
   async timing({ wait, run }) {
     const pts = await run(() => window.game.streamer.gen.routePoints[0]);
     const p = pts[Math.floor(pts.length * 0.5)];

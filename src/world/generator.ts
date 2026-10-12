@@ -396,9 +396,29 @@ export class WorldGenerator {
     if (rx === 3 && rz === 1) {
       const h = this.surfaceHeight(112, 56);
       if (h >= y0 - 40 && h < y0 + REGION) {
-        out.boxes.push({ x0: 108, y0: h - 2, z0: 54, x1: 115, y1: h + 22, z1: 60, mat: ROCK, mode: 'all' });
-        out.boxes.push({ x0: 108, y0: h + 22, z0: 54, x1: 115, y1: h + 23, z1: 60, mat: GRASS, mode: 'all' });
-        out.spawns.push({ kind: 'tutorial', x: 111.5, y: h + 10, z: 53.6, seed: 1 });
+        // moss-covered stone pillar with the movement keys carved into its face (like Noita's start)
+        out.boxes.push({ x0: 104, y0: h - 2, z0: 54, x1: 120, y1: h + 26, z1: 61, mat: ROCK, mode: 'all' });
+        out.boxes.push({ x0: 104, y0: h + 26, z0: 54, x1: 120, y1: h + 28, z1: 61, mat: GRASS, mode: 'all' });
+        for (let i = 0; i < 9; i++) {
+          const mx = 104 + rng.int(0, 15), my = h + rng.int(4, 26);
+          out.boxes.push({ x0: mx, y0: my, z0: 53, x1: mx + rng.int(1, 3), y1: my + 1, z1: 54, mat: GRASS, mode: 'air' });
+        }
+        const glyph: Record<string, string[]> = {
+          W: ['1...1', '1...1', '1.1.1', '1.1.1', '.1.1.'],
+          A: ['.1.', '1.1', '111', '1.1', '1.1'],
+          S: ['111', '1..', '111', '..1', '111'],
+          D: ['11.', '1.1', '1.1', '1.1', '11.'],
+        };
+        const carve = (ch: string, gx: number, gy: number) => {
+          glyph[ch].forEach((row, r) => [...row].forEach((c, k) => {
+            if (c === '1') out.boxes.push({ x0: gx + k, y0: gy + 4 - r, z0: 54, x1: gx + k + 1, y1: gy + 5 - r, z1: 55, mat: AIR, mode: 'all' });
+          }));
+        };
+        carve('W', 109, h + 18);
+        carve('A', 106, h + 11);
+        carve('S', 110, h + 11);
+        carve('D', 114, h + 11);
+        out.spawns.push({ kind: 'tutorial', x: 112, y: h + 10, z: 53.6, seed: 1 });
       }
     }
     if (rx === 4 && rz === 2) {
