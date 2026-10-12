@@ -137,21 +137,21 @@ The original is a 2.5D composition: the floe is viewed from ~35–40° above whi
 
 | Element | Implementation |
 |---|---|
-| 4:3 framing, fixed camera, near-ortho view | `src/render/Stage.ts` (viewport fitting, cameras) |
-| Sky, iceberg, far sea | `src/render/Backdrop.ts` |
-| Floe outline (back edge + notch, front cliffs), black outline | `src/render/IceFloe.ts`, shape data in `src/config/field.ts` |
-| Misty ice surface, iceberg reflection, character reflections | `src/render/IceMaterial.ts` |
+| 4:3 framing, fixed camera, near-ortho view | `src/render/Stage.ts` (viewport fitting), `src/config/view.ts` (camera maths shared with the logic) |
+| Sky, iceberg, far sea | `src/render/env/Backdrop.ts`, `Sky.ts`, `Iceberg.ts` |
+| Floe outline (back edge + notch, front cliffs), black outline | `src/render/env/Floe.ts`, `Lines.ts`, shape data in `src/config/field.ts` |
+| Misty ice surface, iceberg reflection, character reflections | `src/render/env/IceMaterial.ts`, `PlanarReflection.ts` |
 | Permanent blood accumulation (lane streaks) | `src/render/BloodSystem.ts` (droplets → painted blood map) |
-| Permanent corpses | `src/render/Corpses.ts` (ragdolls freeze & bake) |
+| Permanent corpses, ragdolls | `src/render/Ragdoll.ts` (cannon-es), `src/render/Corpses.ts` (settled bodies baked into BatchedMeshes) |
 | Brass casings, dropped magazines | `src/render/Debris.ts` |
-| Hunter model (blue parka, fur hood) + 11 weapons | `src/render/models/*` |
-| Seal, fat seal, cub, activist, penguin, bear, turtle, walrus | `src/render/models/*`, animation in `src/render/CreatureView.ts` |
+| Hunter model (blue parka, fur hood) + 11 weapons, HUD icons | `src/render/models/hunter.ts`, `weapons.ts`, `weaponIcons.ts` |
+| Seal, fat seal, cub, activist, penguin, bear, turtle, walrus | `src/render/models/creatures/*` (models + procedural animation), bound in `src/render/GameView.ts` |
 | Level/Boss bar, weapon slots, `$`/Kills box, slot captions `$price` / `xN` | `src/ui/Hud.ts` |
 | Crosshair + ammo/reload %, money above hunter, money popups | `src/ui/WorldOverlay.ts` |
 | Weapon stats, enemy stats, level table | `src/config/*.ts` |
 | Movement, recoil slide on ice, knock-downs, jump/stomp/kick | `src/core/Player.ts` |
 | Hit rule, pierce, headshots, explosions, ricochet | `src/core/Combat.ts` |
-| Enemy AI (zig-zag, crawl, glide, enrage, hide, charge) | `src/core/enemies/*.ts` |
+| Enemy AI (zig-zag, crawl, glide, enrage, hide, charge) | `src/core/enemies.ts` |
 | Game over on escape, boss flow, epilogue | `src/core/World.ts`, `src/core/Level.ts` |
 | Original sound effects | `public/audio/*`, `src/audio/AudioSystem.ts` |
 
