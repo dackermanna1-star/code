@@ -317,6 +317,29 @@
     return false;
   });
 
+  // ---------------------------------------------------------------- the real keys (main.js binds)
+  steps.push(async () => {
+    newRun();
+    g.menus.hideAll?.();
+    const Zm = Z(), end0 = Zm.nextWaveAt;
+    const key = (code) => { g.input._fire(code, true); g.input._fire(code, false); };
+    const banner = () => [...document.querySelectorAll('.vg-panel .vg-money')].map((e) => e.textContent).join(' | ');
+    key('F1');
+    check('the F1 key readies', Math.abs(Zm.nextWaveAt - g.time - 3) < 0.02, `${(Zm.nextWaveAt - g.time).toFixed(2)}s`);
+    key('F1');
+    check('the F1 key un-readies', Math.abs(Zm.nextWaveAt - end0) < 0.02);
+    key('KeyB');
+    check('B: the buy menu, the break banner', g.menus.vg?.kind === 'buy' && /BREAK/.test(banner()), banner());
+    g.menus.hideAll?.();
+    con('zm_skip');
+    key('KeyB');
+    g.menus.buyCategory(4);
+    const off = [...document.querySelectorAll('.vg-panel .vg-btn')].filter((b) => !b.classList.contains('cancel'));
+    check('B mid-wave: rifles greyed, the mid-wave banner', off.length >= 6 && off.every((b) => b.classList.contains('off')) && /MID-WAVE/.test(banner()), banner());
+    g.menus.hideAll?.();
+    return false;
+  });
+
   // ---------------------------------------------------------------- the HUD in a break (screenshot)
   steps.push(async () => {
     newRun({ allies: 3 });

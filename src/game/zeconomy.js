@@ -414,7 +414,8 @@ export class ZEconomy {
       Z.nextWaveAt = Math.max(Z.nextWaveAt, this.cutFrom);
       this.cutFrom = 0;
     }
-    if (p.isLocal && !(s.ready && all)) g.sound?.play(s.ready ? 'zm_ready' : 'menu_click', { volume: 0.7, attenuation: 'none' }); // (the last one in: tick plays zm_allready)
+    const cuts = s.ready && all && !this.cutFrom && Z.nextWaveAt > g.time + READY_BREAK; // (then tick plays zm_allready)
+    if (p.isLocal && !cuts) g.sound?.play(s.ready ? 'zm_ready' : 'menu_click', { volume: 0.7, attenuation: 'none' });
     this.Z.events.mode('ready', { player: p, ready: s.ready, all: s.ready && all });
     this.tick(g.time); // (the break is cut short right away when that was the last one)
     return s.ready;
