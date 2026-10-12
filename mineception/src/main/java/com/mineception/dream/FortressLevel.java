@@ -27,6 +27,8 @@ import static com.mineception.dream.MiniBlock.WHITE_WOOL;
 final class FortressLevel {
 	/** Camp level: first air layer above the snow at the camp. */
 	private static final int G = 9;
+	/** The camp is a flat stretch of snow this many blocks either side of the laptop. */
+	private static final int CAMP_HALF_WIDTH = 5;
 	/** Ice layer of the frozen lake (its top is one block below the camp). */
 	private static final int ICE_Y = G - 2;
 
@@ -98,7 +100,7 @@ final class FortressLevel {
 				double dx = (x + 0.5 - lakeCx) / lakeRx;
 				double dz = (z + 0.5 - lakeCz) / lakeRz;
 				double d = dx * dx + dz * dz + (noise.value(x, z, 4.0) - 0.5) * 0.35;
-				boolean camp = Math.abs(x - lx) <= 3 && z >= lz - 1;
+				boolean camp = Math.abs(x - lx) <= CAMP_HALF_WIDTH && z >= lz - 1;
 				if (camp) {
 					h = G - 1;
 				} else if (d < 1.0 && fd > 2) {
@@ -310,7 +312,7 @@ final class FortressLevel {
 		if (Math.max(Math.abs(x - fx), Math.abs(z - fz)) <= half + 3) {
 			return false;
 		}
-		if (Math.abs(x - lx) <= 4 && z >= lz - 4) {
+		if (Math.abs(x - lx) <= CAMP_HALF_WIDTH + 1 && z >= lz - 4) {
 			return false;
 		}
 		if (Math.abs(x - lx) <= 6 && z > fz + half) {
@@ -356,29 +358,28 @@ final class FortressLevel {
 		}
 	}
 
-	/** Clears the air over the camp, and pitches a white tent with a lantern post off to one side of the spawn. */
+	/** Clears the air over the camp, and pitches a red tent with a lantern post off to one side of the spawn. */
 	private void camp() {
 		for (int z = lz - 1; z <= 39; z++) {
-			for (int x = lx - 3; x <= lx + 3; x++) {
+			for (int x = lx - CAMP_HALF_WIDTH; x <= lx + CAMP_HALF_WIDTH; x++) {
 				Build.fill(w, x, G, z, x, MiniWorld.SY - 1, z, AIR);
 			}
 		}
 		int side = r.sign();
-		int tx = lx + side * 5;
+		int tx = lx + side * (CAMP_HALF_WIDTH - 1);
 		int tz = lz + distance - 1;
-		if (heightAt(tx, tz) != G - 1) {
-			return;
-		}
+		// A red expedition tent, easy to spot in the snow
 		for (int z = tz; z <= tz + 2; z++) {
-			Build.setIfAir(w, tx - 1, G, z, WHITE_WOOL);
-			Build.setIfAir(w, tx + 1, G, z, WHITE_WOOL);
-			Build.setIfAir(w, tx, G + 1, z, WHITE_WOOL);
+			Build.setIfAir(w, tx - 1, G, z, RED_WOOL);
+			Build.setIfAir(w, tx + 1, G, z, RED_WOOL);
+			Build.setIfAir(w, tx, G + 1, z, RED_WOOL);
 		}
 		Build.setIfAir(w, tx, G, tz + 2, WHITE_WOOL);
-		int px = tx - side * 2;
-		if (w.get(px, G, tz - 1) == AIR && w.get(px, G - 1, tz - 1).solid()) {
-			w.set(px, G, tz - 1, SPRUCE_LOG);
-			w.set(px, G + 1, tz - 1, GLOWSTONE);
+		// The lantern post stands behind the tent, out of the spawn's view
+		int pz = tz + 3;
+		if (pz < MiniWorld.SZ && w.get(tx, G, pz) == AIR && w.get(tx, G - 1, pz).solid()) {
+			w.set(tx, G, pz, SPRUCE_LOG);
+			w.set(tx, G + 1, pz, GLOWSTONE);
 		}
 	}
 }

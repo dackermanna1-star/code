@@ -60,7 +60,9 @@ final class LimboLevel {
 		for (int z = 0; z < 40; z++) {
 			for (int x = 0; x < 40; x++) {
 				int h = surface(x, z);
-				Build.column(w, x, 1, h - 3, z, STONE);
+				// Sand over sandstone, with the odd rocky patch on the sea floor
+				Build.column(w, x, 1, h - 5, z, STONE);
+				Build.column(w, x, Math.max(1, h - 4), h - 3, z, SANDSTONE);
 				Build.column(w, x, Math.max(1, h - 2), h, z, h <= W && noise.value(x, z, 5.0) > 0.7 ? STONE : SAND);
 				if (h > W + 1 && noise.value(x + 50, z, 3.0) > 0.72) {
 					// Wind-carved sandstone showing through the dunes
@@ -85,9 +87,12 @@ final class LimboLevel {
 			// The sea floor drops away from the beach
 			return Build.clamp((int) Math.round(W - 0.6 + edge * 0.45 + wobble * 0.5), 2, W);
 		}
-		// Dunes rise inland
+		// Dunes rise inland, sloping gently up from the flattened camp instead of walling it in
 		double dune = noise.fbm(x, z, 9.0, 2);
 		int h = (int) Math.round(W + edge * 0.35 + (dune - 0.4) * Math.min(1.0, edge / 6.0) * 7.0);
+		int dx = Math.max(0, Math.abs(x - lx) - 3);
+		int dz = Math.max(0, Math.max(lz - z, z - (lz + distance + 1)));
+		h = Math.min(h, G - 1 + Math.max(dx, dz));
 		return Build.clamp(h, W, W + 9);
 	}
 
