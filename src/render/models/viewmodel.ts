@@ -610,10 +610,7 @@ export class Viewmodel {
     // ---- muzzle flash
     const flashOn = this.flashT > 0;
     this.flashT -= dt;
-    m.muzzles.forEach((_, i) => {
-      const f = this.flashes[i];
-      if (f) f.group.visible = flashOn;
-    });
+    for (let i = 0; i < m.muzzles.length && i < this.flashes.length; i++) this.flashes[i].group.visible = flashOn;
     if (flashOn) {
       const mz = m.muzzles[0];
       this.flashLight.position.copy(this.local(mz.getWorldPosition(_b)));

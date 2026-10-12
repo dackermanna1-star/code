@@ -113,7 +113,17 @@ export interface OverlayState {
     /** First person: weapon spread, degrees. */
     spreadDeg?: number;
   }>;
-  texts: Array<{ x: number; y: number; text: string; color: string; alpha: number; size?: number; bold?: boolean }>;
+  texts: Array<{
+    x: number;
+    y: number;
+    text: string;
+    color: string;
+    alpha: number;
+    size?: number;
+    bold?: boolean;
+    /** What the text is (the modern overlay styles each differently). */
+    role?: 'money' | 'popup' | 'label';
+  }>;
   vignette: number;
   /** First person: 0..1 hit-marker intensity and whether that hit killed. */
   hitMarker?: number;
@@ -1225,12 +1235,12 @@ export class GameView {
       }
       if (p.canAct) out.crosshairs.push({ x: sc.x, y: sc.y, text, textColor: color });
       const ms = this.stage.project(_v.set(ix + 0.05, iy + PLAYER.height + 0.42, iz));
-      out.texts.push({ x: ms.x, y: ms.y, text: `$${p.money}`, color: 'rgba(40, 40, 48, 0.8)', alpha: 1, size: 9 });
+      out.texts.push({ x: ms.x, y: ms.y, text: `$${p.money}`, color: 'rgba(40, 40, 48, 0.8)', alpha: 1, size: 9, role: 'money' });
       out.vignette = Math.max(out.vignette, Math.min(1, (PLAYER.life - p.life) / PLAYER.life) * 0.8);
     }
     for (const pp of this.popups) {
       const s = this.stage.project(pp.pos);
-      out.texts.push({ x: s.x, y: s.y, text: pp.text, color: 'rgb(200, 20, 20)', alpha: 0.5 * (1 - pp.age), size: 10 });
+      out.texts.push({ x: s.x, y: s.y, text: pp.text, color: 'rgb(200, 20, 20)', alpha: 0.5 * (1 - pp.age), size: 10, role: 'popup' });
     }
     return out;
   }
@@ -1275,7 +1285,7 @@ export class GameView {
         x = vw / 2 + 34 * k;
         y = vh / 2 + (14 - pp.age * 22) * k;
       }
-      out.texts.push({ x, y, text: `+${pp.text}`, color: 'rgb(220, 30, 25)', alpha: 0.85 * (1 - pp.age * pp.age), size, bold: true });
+      out.texts.push({ x, y, text: `+${pp.text}`, color: 'rgb(220, 30, 25)', alpha: 0.85 * (1 - pp.age * pp.age), size, bold: true, role: 'popup' });
     }
     return out;
   }

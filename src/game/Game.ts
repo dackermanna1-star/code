@@ -289,7 +289,7 @@ export class Game {
       this.hud.update(this.snapshot(w));
       const ov = this.view.overlay();
       if (this.fp && this.mode === 'playing' && this.lockHint && this.input.pointerLookMode && !this.input.locked) {
-        ov.texts.push({ x: this.stage.viewW / 2, y: this.stage.viewH / 2 + 46 * this.stage.scale, text: 'Click to aim', color: 'rgba(255,255,255,0.9)', alpha: 0.75 + 0.25 * Math.sin(performance.now() / 300), size: 11, bold: true });
+        ov.texts.push({ x: this.stage.viewW / 2, y: this.stage.viewH / 2 + 46 * this.stage.scale, text: 'Click to aim', color: 'rgba(255,255,255,0.9)', alpha: 0.75 + 0.25 * Math.sin(performance.now() / 300), size: 11, bold: true, role: 'label' });
       }
       this.overlay.render({
         crosshairs: ov.crosshairs,
