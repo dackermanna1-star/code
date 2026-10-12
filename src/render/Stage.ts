@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { CAMERA_PITCH_DEG } from '../config/constants';
 import { CAMERA_DISTANCE, CAMERA_FOV, CAMERA_TARGET as TARGET, DESIGN_H, DESIGN_W } from '../config/view';
+import type { ViewMode } from '../config/firstPerson';
 
 export { CAMERA_DISTANCE, CAMERA_FOV, DESIGN_H, DESIGN_W };
 
@@ -41,6 +42,9 @@ export class Stage {
   renderFn: (() => void) | null = null;
   /** Upper bound on device pixel ratio (quality setting). */
   maxPixelRatio = 2;
+  /** 'third' = the classic fixed 4:3 camera; 'first' = first-person (fills the window). */
+  viewMode: ViewMode = 'third';
+  private viewModeHooks: Array<(mode: ViewMode) => void> = [];
 
   constructor(host: HTMLElement) {
     this.view = document.createElement('div');
@@ -90,6 +94,18 @@ export class Stage {
     this.renderer.setSize(this.viewW, this.viewH);
     this.view.style.setProperty('--k', String(this.scale));
     for (const h of this.resizeHooks) h(this.viewW, this.viewH);
+  }
+
+  /** Switch camera mode. Listeners (environment, game view) are notified. */
+  setViewMode(mode: ViewMode): void {
+    if (mode === this.viewMode) return;
+    this.viewMode = mode;
+    for (const h of this.viewModeHooks) h(mode);
+  }
+
+  /** Called whenever the view mode changes (not called for the initial 'third'). */
+  onViewMode(fn: (mode: ViewMode) => void): void {
+    this.viewModeHooks.push(fn);
   }
 
   onResize(fn: (w: number, h: number) => void): void {

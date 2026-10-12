@@ -6,6 +6,8 @@
 // (blueHUD.png, blueBox_1.png, HUDSelected.png). The layer is scaled by --k.
 import { HUD_WEAPONS, WEAPONS, type WeaponId } from '../config/weapons';
 import { designLayer, h } from './dom';
+import type { ViewMode } from '../config/firstPerson';
+import type { EnemyType } from '../config/enemies';
 
 export interface HudWeaponSlot {
   id: WeaponId;
@@ -27,6 +29,36 @@ export interface HudSnapshot {
   kills: number;
   /** 10 slots (HUD_WEAPONS order). */
   slots: HudWeaponSlot[];
+  /** Camera mode; the HUD may adapt (e.g. show the radar only in first person). */
+  view?: ViewMode;
+  /** 0..1 hunter health (regenerates; 0 = dead). */
+  health?: number;
+  /** Active weapon. */
+  weapon?: HudWeapon;
+  /** Top-down radar data (first person: creatures can be behind you). */
+  radar?: HudRadar;
+}
+
+export interface HudWeapon {
+  id: WeaponId;
+  name: string;
+  /** Rounds in the magazine. */
+  bullets: number;
+  clip: number;
+  /** 0..1 reload progress, null when not reloading. */
+  reload: number | null;
+}
+
+export interface HudRadar {
+  /** World-space bounds of the play field (x left..right, z back..front). */
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+  /** Creatures crossing this x escape (game over). */
+  escapeX: number;
+  player: { x: number; z: number; /** first-person yaw (config/firstPerson.ts convention) */ yaw: number };
+  enemies: Array<{ x: number; z: number; type: EnemyType; boss: boolean }>;
 }
 
 /** Slot geometry inside the panel (design px). */

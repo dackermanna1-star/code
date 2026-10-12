@@ -16,7 +16,7 @@ import { Input } from './Input';
 
 type Mode = 'title' | 'playing' | 'paused' | 'ended';
 
-const BLOOD_AMOUNT = { low: 0.4, normal: 1, max: 1.8 } as const;
+const BLOOD_AMOUNT = { low: 0.5, normal: 1.35, max: 2.2 } as const;
 
 export class Game {
   readonly view: GameView;

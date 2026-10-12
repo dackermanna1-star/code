@@ -466,9 +466,9 @@ export class GameView {
       const r = Math.min(1.8, 0.35 + DEATH_MASS[type] / 400);
       this.blood.pool(c.x, c.z, r);
       // Spatter around the body.
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 16; i++) {
         const a = Math.random() * Math.PI * 2;
-        const d = r * (0.7 + Math.random() * 0.9);
+        const d = r * (0.6 + Math.random() * 1.1);
         this.blood.splat('drop', c.x + Math.cos(a) * d, c.z + Math.sin(a) * d * 0.8, 0.03 + Math.random() * 0.05);
       }
     }

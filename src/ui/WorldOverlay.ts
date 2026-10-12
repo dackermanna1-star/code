@@ -11,6 +11,12 @@ export interface OverlayCrosshair {
   textColor: string;
   /** Default: the original player-1 crosshair blue #3b6bcb. */
   color?: string;
+  /** 'world' (default): classic crosshair in front of the hunter; 'center': first-person screen-centre reticle. */
+  kind?: 'world' | 'center';
+  /** First person: 0..1 reload progress (null when not reloading). */
+  reload?: number | null;
+  /** First person: current weapon spread in degrees (reticle gap). */
+  spreadDeg?: number;
 }
 
 export interface OverlayText {
@@ -41,6 +47,10 @@ export interface OverlayItems {
   lines?: OverlayLine[];
   /** 0..1 red damage vignette. */
   vignette?: number;
+  /** 0..1 hit-marker intensity (first person; fades after a bullet hits a creature). */
+  hitMarker?: number;
+  /** True when the hit that set hitMarker was a kill (draw it emphasised). */
+  hitMarkerKill?: boolean;
 }
 
 const FONT_FAMILY = "'SH Trebuchet', 'Trebuchet MS', sans-serif";

@@ -11,7 +11,7 @@ import { REFLECT_LAYER } from './Stage';
 export const DECAL_RECT = { minX: -28, minZ: -20, sizeX: 56, sizeZ: 39 };
 
 const MAX_SPLATS_PER_FRAME = 4096;
-const MAX_DROPS = 6000;
+const MAX_DROPS = 8000;
 
 export type SplatKind = 'drop' | 'pool' | 'smear' | 'scorch' | 'soot';
 
@@ -290,7 +290,8 @@ export class BloodSystem {
 
   /** A pool of blood that spreads under a body (several overlapping lobes). */
   pool(x: number, z: number, radius: number): void {
-    const n = 3 + Math.floor(radius * 3);
+    radius *= 1.2;
+    const n = 4 + Math.floor(radius * 3.5);
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
       const d = Math.random() * radius * 0.55;

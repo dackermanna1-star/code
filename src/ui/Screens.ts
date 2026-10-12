@@ -9,6 +9,7 @@
 import { ENEMIES, type EnemyType } from '../config/enemies';
 import { WEAPONS, type WeaponId } from '../config/weapons';
 import { designLayer, h, storageGet, storageSet } from './dom';
+import type { ViewMode } from '../config/firstPerson';
 
 export interface GameStats {
   timeSec: number;
@@ -34,6 +35,13 @@ export interface Options {
   blood: 'low' | 'normal' | 'max';
   quality: 'low' | 'medium' | 'high';
   showFps: boolean;
+  /** Camera: classic fixed view or first person. */
+  view: ViewMode;
+  /** HUD look: the new minimal style or the original 2005 HUD. */
+  hudStyle: 'modern' | 'classic';
+  /** First-person mouse/stick sensitivity multiplier (0.25..3). */
+  mouseSensitivity: number;
+  invertY: boolean;
 }
 
 export interface HighScore {
@@ -53,6 +61,10 @@ export const DEFAULT_OPTIONS: Readonly<Options> = {
   blood: 'normal',
   quality: 'high',
   showFps: false,
+  view: 'third',
+  hudStyle: 'modern',
+  mouseSensitivity: 1,
+  invertY: false,
 };
 
 const OPTIONS_KEY = 'sealhunter3d.options';
@@ -159,7 +171,7 @@ export class Screens {
 
   // ------------------------------------------------------------ public API
 
-  showTitle(hd: { onStart(): void }): void {
+  showTitle(hd: { onStart(view?: ViewMode): void }): void {
     const reopen = () => this.showTitle(hd);
     const root = h('div', 'sh-screen sh-title');
     root.appendChild(h('div', 'sh-vignette'));

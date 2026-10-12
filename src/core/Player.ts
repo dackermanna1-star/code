@@ -15,6 +15,7 @@ import type { Enemy } from './Enemy';
 import { Seal } from './enemies';
 import { Weapon, MUZZLE_FORWARD, MUZZLE_Z } from './Weapon';
 import type { World } from './World';
+import type { Aim } from '../config/firstPerson';
 
 export type PlayerState = 'stand' | 'walk' | 'jump' | 'fall' | 'sit' | 'getup' | 'kick' | 'air' | 'dead';
 
@@ -25,6 +26,11 @@ export interface PlayerInput {
   down: boolean;
   fire: boolean;
   jump: boolean;
+  /**
+   * First-person movement: desired world-space direction on the ice
+   * (x, z; length <= 1). When present it replaces left/right/up/down.
+   */
+  move?: { x: number; z: number };
 }
 
 export interface PlayerStats {
@@ -56,6 +62,11 @@ export class Player {
   state: PlayerState = 'stand';
   stateTicks = 0;
   input: PlayerInput = { left: false, right: false, up: false, down: false, fire: false, jump: false };
+  /**
+   * First-person aim (see config/firstPerson.ts). null = classic mode: the gun
+   * line runs left along the lane with the view-consistent hit rule.
+   */
+  aim: Aim | null = null;
   private jumpLatch = false;
   money = 0;
   readonly weapons = new Map<WeaponId, Weapon>();
