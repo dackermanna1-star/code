@@ -1,5 +1,6 @@
 // Zombie survival: you (and any bot teammates) start with a pistol and the difficulty's
-// money, and hold out against endless, growing waves of zombies until you die.
+// money, and hold out against endless, growing waves of zombies until the whole squad is
+// down (zdowned.js: down at 0 HP, a teammate picks you up; the dead are back next wave).
 //  - waves: a 12 s break to buy before the first, 15 s between waves (the difficulty's);
 //    the economy (zeconomy.js) pays for kills, sells guns in the breaks (ammo, armour and
 //    medkits mid-wave) and cuts a break short once everyone is ready; a cleared wave pays a

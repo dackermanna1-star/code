@@ -325,7 +325,7 @@ async function boot() {
             itemState: (id) => (game.zombies?.enabled ? game.zombies.economy.menuState(game.local, id) : ATT.menuState(game.local, id)), // (what the phase sells: zeconomy.js)
             banner: game.zombies?.enabled ? game.zombies.economy.menuBanner(game.local) : null, upgradeTarget: (skins) => ATT.targetName(game.local, skins),
           });
-        }
+        } else if (game.local.alive && game.local.downed) hud.centerPrint?.(game.zombies.economy.refusal(game.local, 'medkit'), 2); // (zombie survival: no shop from the floor - say so)
         return true;
       case 'chooseteam':
         if (game.zombies?.enabled) { hud.centerPrint?.("You can't change teams in zombie survival.", 2); return true; }

@@ -465,7 +465,7 @@ export class Game {
       // pickup by walking over (after a short delay)
       if (this.time - d.time < 0.5) continue;
       for (const p of this.players) {
-        if (!p.alive) continue;
+        if (!p.alive || p.isZombie) continue; // (zombies don't carry guns: one walking over a fallen bot's gun took it for good)
         const o = p.pm.origin;
         if (Math.abs(o[0] - d.pos[0]) > 28 || Math.abs(o[1] - d.pos[1]) > 28 || Math.abs(o[2] + p.hull().mins[2] - d.pos[2]) > 48) continue;
         if (this.tryPickup(p, d)) break;

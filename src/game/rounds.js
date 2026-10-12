@@ -235,11 +235,12 @@ export class RoundManager {
     const g = this.game;
     const say = (t) => { if (p.isLocal) g.hud?.centerPrint?.(t, 2); };
     if (!p.alive) return false;
-    if (!g.inBuyZone(p)) return false;
-    if (!this.buyTimeLeft()) { say(`${Math.round(this.buyTime)} seconds have passed.\nYou can't buy anything now.`); return false; }
-    // zombie survival: what the phase allows (guns in the break; mid-wave ammo, armour and medkits at a markup) - zeconomy.js
+    // zombie survival: what the phase allows (guns in the break; mid-wave ammo, armour and medkits at a markup;
+    // nothing from the floor) - zeconomy.js. Asked first: it says why (inBuyZone is false for one who's down)
     const k = g.zombies?.enabled ? g.zombies.economy.buyGate(p, item, say) : 1;
     if (!k) return false;
+    if (!g.inBuyZone(p)) return false;
+    if (!this.buyTimeLeft()) { say(`${Math.round(this.buyTime)} seconds have passed.\nYou can't buy anything now.`); return false; }
     const pay = (cost) => {
       if (k !== 1) cost = Math.round(cost * k / 5) * 5;
       if (p.money < cost) { say('You have insufficient funds!'); return false; }

@@ -20,6 +20,7 @@ import * as WS from './weaponsys.js';
 import * as ATT from './attachments.js';
 import * as CR from './combatrules.js';
 import { inSquad } from './runstats.js';
+import { SECOND_WIND } from './zdowned.js';
 
 const COMBAT_ITEMS = new Set(['primammo', 'secammo', 'vest', 'vesthelm', 'medkit']); // all a wave lets you buy
 const READY_BREAK = 3; // s left of the break once everyone is ready
@@ -261,6 +262,7 @@ export class ZEconomy {
     const [kind, k] = id.split('_');
     if (kind === 'att') return ATT.ATTACHMENTS[k]?.price ?? null;
     if (kind === 'skin') return ATT.SKINS[k]?.price ?? null;
+    if (kind === 'perk') return id === SECOND_WIND.id ? SECOND_WIND.price : null; // (perks: zdowned.js)
     return WS.WEAPON_DEFS[id]?.price ?? null;
   }
 
@@ -272,7 +274,7 @@ export class ZEconomy {
 
   /** Why item would be refused whatever the phase (already have it, full...): { off, note }. */
   owned(p, id) {
-    if (/^(att|skin)_/.test(id)) return ATT.menuState(p, id);
+    if (/^(att|skin|perk)_/.test(id)) return ATT.menuState(p, id); // (a perk: "owned" once bought)
     if (id === 'primammo' || id === 'secammo') {
       const w = p.weapons[id === 'primammo' ? 1 : 2];
       if (!w || !w.def.ammoBuy) return { off: true, note: 'no gun' };

@@ -1,8 +1,8 @@
 // Zombie survival hit confirmation and combat readability (Milestone 1.5): hit markers and
 // hit sounds (from the 'hit' / 'kill' events), a quieter kill feed with streaks, short
 // hit-stops on big moments, a low-HP vignette and heartbeat, pain direction toward fire and
-// acid, optional damage numbers (cl_damagenumbers). The centre-message queue lives in hud.js
-// (centerPrint channels) and the smooth camera shake in camshake.js.
+// acid, optional damage numbers (cl_damagenumbers), hardcore's radar pings. The centre-
+// message queue lives in hud.js (centerPrint channels) and the smooth camera shake in camshake.js.
 // Scaffold: ZombieMode builds it and calls tick(t) first thing every tick; buildHudState
 // calls hud(s) every frame. Run resets: the 'run' event. Drawing: hud.js draws s.hits,
 // s.streak and s.killTally; the vignette and damage numbers are layers of this module.
@@ -29,6 +29,8 @@ const LOW_HP = 40, BEAT_HP = 30;
 // damage numbers (optional): how long one floats, how many can be up
 const NUM_LIFE = 0.75, NUM_MAX = 24;
 const GOLD = [255, 200, 40], WHITE = [255, 255, 255], RED = [255, 60, 40];
+// hardcore: the radar only pings - a sweep every PING_GAP s shows where the horde was, for PING_SHOW s
+const PING_GAP = 2.5, PING_SHOW = 0.9, PING_MAX = 40;
 
 const _v = new Vector3();
 
@@ -46,6 +48,8 @@ export class ZFeedback {
     this.nums = [];
     for (let i = 0; i < NUM_MAX; i++) this.nums.push({ t: -9, victim: null, dmg: 0, kind: 0, x: 0, y: 0, z: 0, dx: 0 });
     this.hz = [0, 0, 0];
+    this.ping = { t: -9, n: 0, pos: new Float32Array(PING_MAX * 3), blips: [] }; // (hardcore radar: the last sweep)
+    for (let i = 0; i < PING_MAX; i++) this.ping.blips.push({ x: 0, y: 0, z: 0, kind: 'enemy', alive: true });
     this.vig = null; // cached red vignette
     this.reset();
     // (built inside ZombieMode's constructor, before game.zombies is set: subscribe right after)
@@ -260,6 +264,31 @@ export class ZFeedback {
     if (t - S.t < STREAK_LIFE && S.label) { so.label = S.label; so.age = t - S.t; so.n = S.n; s.streak = so; } else s.streak = null;
     const T = this.tally, to = this.tallyOut;
     if (T.n > 0 && t - T.t < TALLY_HOLD) { to.n = T.n; to.mine = T.mine; to.age = t - T.t; s.killTally = to; } else s.killTally = null;
+    if (this.Z.hardcore && s.radar) this.radarPings(s.radar.blips, t);
+  }
+
+  /** Hardcore: no live zombie blips, only where a sweep every PING_GAP s found them (shown briefly). */
+  radarPings(bl, t) {
+    let n = 0;
+    for (let i = 0; i < bl.length; i++) if (bl[i].kind !== 'enemy') bl[n++] = bl[i];
+    bl.length = n;
+    const P = this.ping;
+    if (t - P.t >= PING_GAP || t < P.t) {
+      P.t = t; P.n = 0;
+      const B = this.game.bosses?.boss;
+      for (const z of this.Z.pool) {
+        if (!z.alive || P.n >= PING_MAX) continue;
+        const o = z.pm.origin, k = P.n++ * 3;
+        P.pos[k] = o[0]; P.pos[k + 1] = o[1]; P.pos[k + 2] = o[2];
+      }
+      if (B?.alive && P.n < PING_MAX) { const k = P.n++ * 3; P.pos[k] = B.pm.origin[0]; P.pos[k + 1] = B.pm.origin[1]; P.pos[k + 2] = B.pm.origin[2]; }
+    }
+    if (t - P.t > PING_SHOW) return;
+    for (let i = 0; i < P.n; i++) {
+      const b = P.blips[i], k = i * 3;
+      b.x = P.pos[k]; b.y = P.pos[k + 1]; b.z = P.pos[k + 2];
+      bl.push(b);
+    }
   }
 
   /** Under the stock HUD: red closing in at low health, pulsing with the heartbeat; a red flash when hit. */

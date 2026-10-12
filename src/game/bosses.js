@@ -165,7 +165,7 @@ export class BossDirector {
     }
     const cut = this.Z.economy.bossPay(); // the bounty, shared out by damage dealt (zeconomy.js): your cut
     for (const p of g.players) {
-      if (p.team !== TEAM_CT || !p.alive) continue;
+      if (p.team !== TEAM_CT || !p.alive || p.downed) continue; // (one who's down is bleeding out, not hurt: a revive gets him up)
       p.health = 100;
       p.armor = 100; p.helmet = true;
     }

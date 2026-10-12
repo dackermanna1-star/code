@@ -149,9 +149,9 @@
       for (let i = 0; i < 300; i++) { g.frame(1 / 60); if (i % 30 === 0) for (const z of Z().pool) if (z.alive) z.health = Math.max(z.health, 1e5); }
       return (performance.now() - t0) / 300;
     };
-    const a = [time(false), time(true), time(false), time(true)];
+    const a = [time(false), time(true), time(true), time(false)]; // (off-on-on-off: frames get dearer as the horde closes in; this cancels the drift)
     Z().lod = true;
-    info(`28 up, 4 bots: ${((a[0] + a[2]) / 2).toFixed(2)} ms a 60 Hz frame (simulation + models) with the LOD off, ${((a[1] + a[3]) / 2).toFixed(2)} on`);
+    info(`28 up, 4 bots: ${((a[0] + a[3]) / 2).toFixed(2)} ms a 60 Hz frame (simulation + models) with the LOD off, ${((a[1] + a[2]) / 2).toFixed(2)} on`);
     return false;
   });
 
