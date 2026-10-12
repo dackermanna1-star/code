@@ -27,6 +27,42 @@ async function key(run, wait, code, ms = 60) {
 }
 
 export default {
+  async allspells({ shot, wait, run }) {
+    await wait(1500);
+    const pts = await run(() => window.game.streamer.gen.routePoints[0]);
+    const p = pts[Math.floor(pts.length * 0.45)];
+    await teleport(run, wait, p.x, p.y - 3, p.z, 0.3, -0.1);
+    await run(() => { window.debug.godMode = true; window.__errs = []; window.addEventListener('error', (e) => window.__errs.push(String(e.message))); });
+    const ids = await run(() => Object.keys(window.run.constructor ? {} : {}).concat(Object.keys(window.__SPELLS || {})));
+    const all = await run(() => {
+      const mod = window.run;
+      return Object.keys(mod.__spells || {});
+    });
+    void ids; void all;
+    const list = await run(() => window.__spellIds);
+    const results = [];
+    for (const id of list) {
+      const r = await run((id) => {
+        try {
+          const run = window.run, g = window.game;
+          const w = window.__makeWand(id);
+          run.inv.wands[2] = w;
+          run.inv.select(2);
+          w.mana = w.stats.manaMax;
+          run.tryCast(w);
+          for (let i = 0; i < 40; i++) run.projectiles.update(1 / 60);
+          return { id, ok: true, proj: run.projectiles.list.length };
+        } catch (e) {
+          return { id, ok: false, err: String(e && e.stack || e).slice(0, 300) };
+        }
+      }, id);
+      results.push(r);
+      await wait(60);
+    }
+    const bad = results.filter((r) => !r.ok);
+    console.log('spells', results.length, 'failed', bad.length, JSON.stringify(bad.slice(0, 5)), 'pageErrors', JSON.stringify(await run(() => window.__errs.slice(0, 5))));
+    await shot('end');
+  },
   async walk({ shot, wait, run }) {
     await wait(1500);
     // steer along the generator's route: aim at the next route point and hold W (jump when blocked)

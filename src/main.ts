@@ -11,6 +11,8 @@ import { Menus, Settings } from './ui/menus';
 import { audio } from './audio/audio';
 import { ENEMIES } from './entities/enemyDefs';
 import { Rng } from './core/rng';
+import { SPELLS } from './magic/spells';
+import { Wand } from './magic/casting';
 
 // Colours are authored in sRGB and the renderer outputs them unconverted (pixel-art palette fidelity).
 THREE.ColorManagement.enabled = false;
@@ -98,6 +100,14 @@ async function startGame(seed: number, sandbox: boolean): Promise<void> {
   (window as unknown as Record<string, unknown>).game = game;
   (window as unknown as Record<string, unknown>).run = run;
   (window as unknown as Record<string, unknown>).debug = debug;
+  // test hooks for automated scenarios
+  (window as unknown as Record<string, unknown>).__spellIds = Object.keys(SPELLS);
+  (window as unknown as Record<string, unknown>).__makeWand = (id: string) => {
+    const def = SPELLS[id];
+    const spells = [{ id, uses: def.maxUses }];
+    if (def.type === 'modifier' || def.type === 'multicast' || def.type === 'other') spells.push({ id: 'LIGHT_BULLET', uses: -1 }, { id: 'LIGHT_BULLET', uses: -1 });
+    return new Wand({ name: 'Test', shuffle: false, actionsPerRound: 1, castDelay: 5, rechargeTime: 10, manaMax: 2000, manaChargeSpeed: 500, capacity: 4, spread: 0, speedMult: 1, spriteSeed: 7 }, spells);
+  };
   applySettings(s);
   await game.preload((f) => {
     const bar = loading?.querySelector('.bar > div') as HTMLDivElement | null;
