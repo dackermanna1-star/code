@@ -88,8 +88,9 @@
     const runOk = c.every((z) => z.variant === 'runner' ? z.zSpeed >= 262 && z.zSpeed <= 280 : z.variant !== 'walker' || (z.zSpeed >= S.speed * 0.9 - 1e-6 && z.zSpeed <= S.speed * 1.06 + 1e-6));
     check('runner / walker speeds as before', runOk, c.map((z) => `${z.variant[0]}${z.zSpeed | 0}`).join(' '));
     // (stagger, 2.1: the bots' fire staggers some of them by now; the rest still show the reset)
-    check('per-zombie M2 fields reset', c.every((z) => z.front === null && (z.staggerN > 0 || (z.staggerUntil === 0 && z.staggerKind === null)) && z.poise >= 0 && z.poise <= 1 && z.field === 0 && z.slot === -1 && RM.COMMONS[z.variant].skins.includes(z.skin)));
-    check('horde.field is the main field', c.every((z) => Z().horde.field(z) === Z().dist));
+    // (hordeai: a flanker keeps a side field, z.field 1..fields; close ones hold a ring slot)
+    check('per-zombie M2 fields reset', c.every((z) => z.front === null && (z.staggerN > 0 || (z.staggerUntil === 0 && z.staggerKind === null)) && z.poise >= 0 && z.poise <= 1 && z.field >= 0 && z.field <= Z().diff.ai.fields && z.slot >= -1 && RM.COMMONS[z.variant].skins.includes(z.skin)));
+    check('horde.field: the main field, or a flanker\'s side field', c.every((z) => { const f = Z().horde.field(z); return f === Z().dist || (z.field > 0 && f === Z().horde.side[z.field - 1]); }));
     // kill payload: the variant
     const z0 = c[0], v0 = z0.variant;
     const R = Z().roster, adj0 = R.adjust, die0 = R.onDeath;

@@ -59,6 +59,7 @@ const THINK_FAR = 800, LOD_STEP = 0.05, LOD_SEEN = 0.25, POSE_FAR = 1500, POSE_S
 const rand = (a, b) => a + Math.random() * (b - a);
 const _head = [0, 0, 0];
 const angDiff = (a, b) => ((a - b) % 360 + 540) % 360 - 180;
+const FLOW_PICKS = [-1, 3]; // flowGoal tries the last hop of its chain, then the 4th (-1: the last)
 
 export class ZombieMode {
   constructor(game) {
@@ -498,18 +499,23 @@ export class ZombieMode {
   }
 
   // ---------------------------------------------------------------- flow field
-  /** Path distance from every nav node to the nearest survivor (Dijkstra on the reversed graph). */
+  /**
+   * Path distance from every nav node to the nearest survivor (Dijkstra on the reversed graph).
+   * Its seeds (seedIds / seedD, seedN of them) and heap are kept: the side fields reuse them (zhorde.js).
+   */
   buildFlow() {
     const g = this.game, nav = g.nav, nodes = nav.nodes, N = nodes.length;
     if (!N) return;
-    if (!this.rev) {
+    if (!this.rev || this.rev.length !== N) {
       this.rev = nodes.map(() => []);
       for (const n of nodes) for (const e of n.edges) this.rev[e.to].push({ from: n.id, cost: e.cost + nodes[e.to].wallPenalty });
       this.dist = new Float32Array(N).fill(Infinity);
+      this.heap = new MinHeap();
+      this.seedIds = new Int32Array(64); this.seedD = new Float32Array(64);
     }
-    const dist = this.dist;
+    const dist = this.dist, heap = this.heap;
     dist.fill(Infinity);
-    const heap = new MinHeap();
+    this.seedN = 0;
     for (const h of this.humans()) {
       const f = h.feet();
       const n = nav.nearest(f, 160) || nav.nearestXY(f, 260, 120);
@@ -517,10 +523,12 @@ export class ZombieMode {
       if (!n || d0 >= dist[n.id]) continue;
       dist[n.id] = d0;
       heap.push(n.id, d0);
+      if (this.seedN < 64) { this.seedIds[this.seedN] = n.id; this.seedD[this.seedN++] = d0; }
     }
     while (heap.size) {
-      const id = heap.pop();
+      const k = heap.ks[0], id = heap.pop();
       const d = dist[id];
+      if (k > d + 0.01) continue; // (a stale entry: already settled shorter; dist is float32, k a double)
       for (const r of this.rev[id]) {
         const nd = d + r.cost;
         if (nd < dist[r.from]) { dist[r.from] = nd; heap.push(r.from, nd); }
@@ -529,7 +537,10 @@ export class ZombieMode {
     this.horde.flow(g.time); // (side fields: zhorde.js)
   }
 
-  /** The neighbour of n on the shortest way to a survivor (and the edge to it), down field dist. */
+  /**
+   * The neighbour of n on the shortest way to a survivor (and the edge to it), down field dist.
+   * The result ({ node, edge }) is reused: read it before the next call.
+   */
   nextHop(n, dist = this.dist) {
     const nodes = this.game.nav.nodes;
     let best = null, bd = Infinity, be = null;
@@ -538,7 +549,10 @@ export class ZombieMode {
       const d = e.cost + nodes[e.to].wallPenalty + dist[e.to];
       if (d < bd) { bd = d; best = nodes[e.to]; be = e; }
     }
-    return best ? { node: best, edge: be } : null;
+    if (!best) return null;
+    const h = this._hop || (this._hop = { node: null, edge: null });
+    h.node = best; h.edge = be;
+    return h;
   }
 
   // ---------------------------------------------------------------- AI
@@ -651,17 +665,25 @@ export class ZombieMode {
     return best;
   }
 
+  /**
+   * Walk z at its target: down its flow field (zhorde.js: the main one or its side one), and
+   * close with a clear walk, to its ring slot round him (zhorde.js approach) or straight at him.
+   * Bosses use it too (no field, no slot). Its goal is a per-zombie array, rewritten in place.
+   */
   chase(z, target, cmd, t) {
     const g = this.game, nav = g.nav;
-    const feet = z.feet(), tf = target.feet();
+    const feet = z.feet(z._feet || (z._feet = [0, 0, 0])), tf = target.feet(this._tf || (this._tf = [0, 0, 0]));
     const dx = tf[0] - feet[0], dy = tf[1] - feet[1], dz = tf[2] - feet[2];
     const dxy = Math.hypot(dx, dy);
-    // close and nothing in between: straight at him; otherwise down the flow field
+    // close and nothing in between: to its slot round him, or straight at him; otherwise down the flow field
     if (!z.goal || t >= z.goalT || Math.hypot(z.goal[0] - feet[0], z.goal[1] - feet[1]) < 20) {
       z.goalT = t + 0.3;
       z.jumpGoal = false;
-      if (dxy < 420 && Math.abs(dz) < 48 && nav.canWalk(feet, tf)) z.goal = this.horde.approach(z, target, tf, feet, t) || tf.slice(); // (a surround slot: zhorde.js)
-      else z.goal = this.flowGoal(z, feet, t) || tf.slice();
+      let goal = null;
+      if (dxy < 420 && Math.abs(dz) < 48 && nav.canWalk(feet, tf)) goal = this.horde.approach(z, target, tf, feet, t); // (a surround slot: zhorde.js)
+      else goal = this.flowGoal(z, feet, t);
+      if (!goal) { goal = z._goal || (z._goal = [0, 0, 0]); goal[0] = tf[0]; goal[1] = tf[1]; goal[2] = tf[2]; }
+      z.goal = goal;
     }
     const goal = z.goal;
     const yaw = Math.atan2(goal[1] - feet[1], goal[0] - feet[0]) * 180 / Math.PI;
@@ -671,9 +693,10 @@ export class ZombieMode {
     z.pm.angles[0] = 0;
     cmd.forwardmove = Math.abs(turn) > 100 ? 60 : 400;
     if (z.jumpGoal && goal[2] - feet[2] > 12 && z.pm.onground) cmd.buttons |= IN_JUMP;
-    // stuck: hop, then give up and come back somewhere else (out of sight)
-    if (Math.hypot(z.pm.origin[0] - z.progPos[0], z.pm.origin[1] - z.progPos[1]) > 24) {
-      z.progPos = z.pm.origin.slice(); z.progT = t; z.stuckSince = 0;
+    // stuck: hop, then give up and come back somewhere else (out of sight); it keeps its field
+    const o = z.pm.origin, pp = z.progPos;
+    if (Math.hypot(o[0] - pp[0], o[1] - pp[1]) > 24) {
+      pp[0] = o[0]; pp[1] = o[1]; pp[2] = o[2]; z.progT = t; z.stuckSince = 0;
     } else if (t - z.progT > 1.0 && dxy > REACH + 20) {
       if (z.pm.onground) cmd.buttons |= IN_JUMP;
       z.progT = t;
@@ -681,11 +704,11 @@ export class ZombieMode {
       z.careful = t + 2.5; // node by node for a while (ledges, drops, tight corners)
       z.stuckSince = z.stuckSince || t;
       if (z.isBoss) { if (t - z.stuckSince > 4) this.nudge(z, t); }
-      else if (t - z.stuckSince > 6 && !this.humans().some((h) => g.visible(h.eyePos(), z.eyePos()))) this.recycle(z);
+      else if (t - z.stuckSince > 6 && !this.humans().some((h) => g.visible(h.eyePos(), z.eyePos()))) { this.horde.counts.recycled++; this.recycle(z); }
     }
   }
 
-  /** A point a few hops down the flow field that can be walked to in a straight line. */
+  /** A point a few hops down z's flow field that can be walked to in a straight line (z's own array, or null). */
   flowGoal(z, feet, t) {
     const nav = this.game.nav;
     if (!this.dist) return null;
@@ -694,7 +717,8 @@ export class ZombieMode {
       z.nodeT = t + 0.25;
     }
     if (!z.node) return null;
-    const chain = [];
+    const chain = this._chain || (this._chain = []);
+    chain.length = 0;
     const field = this.horde.field(z) || this.dist; // (the main field, or its side one: zhorde.js)
     let n = z.node, jump = false;
     for (let i = 0; i < 7; i++) {
@@ -707,14 +731,18 @@ export class ZombieMode {
     }
     if (!chain.length) return null;
     z.jumpGoal = jump;
-    if (t < (z.careful || 0)) { const q = chain[0]; return [q.x, q.y, q.z]; }
-    for (const k of [chain.length - 1, Math.min(chain.length - 1, 3)]) {
-      if (k <= 0) break;
-      const q = chain[k];
-      if (nav.canWalk(feet, [q.x, q.y, q.z])) return [q.x, q.y, q.z];
-    }
+    const out = z._fg || (z._fg = [0, 0, 0]);
     const q = chain[0];
-    return [q.x, q.y, q.z];
+    if (t >= (z.careful || 0)) {
+      for (const k of FLOW_PICKS) {
+        const j = k < 0 ? chain.length - 1 : Math.min(chain.length - 1, k);
+        if (j <= 0) break;
+        out[0] = chain[j].x; out[1] = chain[j].y; out[2] = chain[j].z;
+        if (nav.canWalk(feet, out)) return out;
+      }
+    }
+    out[0] = q.x; out[1] = q.y; out[2] = q.z;
+    return out;
   }
 
   /** Zombies walk through each other: spread them out sideways so they don't merge. */

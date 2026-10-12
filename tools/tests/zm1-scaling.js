@@ -42,9 +42,9 @@
     const ids = ['casual', 'normal', 'hard', 'nightmare'];
     const s = W('normal', 1);
     check('waveStats fields', ['count', 'maxAlive', 'health', 'speed', 'runners', 'damage', 'interval', 'bonus', 'special', 'perKind'].every((k) => Number.isFinite(s[k])), JSON.stringify(s));
-    // Normal's new curve, solo and with 8 bots (crowd 5)
+    // Normal's new curve, solo and with 8 bots (crowd 5); up at once with a squad raised in M2.3 (zhorde.js: was 14 / 16 / 18)
     const snap = (n, c) => { const w = W('normal', n, c); return `${w.count}/${w.maxAlive}/${w.health}/${w.damage}`; };
-    const want = { '1,1': '4/5/80/12', '3,1': '8/7/120/15', '10,1': '23/9/190/22', '20,1': '44/10/230/24', '10,5': '30/14/190/22', '20,5': '58/16/230/24', '30,6': '91/18/270/26' };
+    const want = { '1,1': '4/5/80/12', '3,1': '8/7/120/15', '10,1': '23/9/190/22', '20,1': '44/10/230/24', '10,5': '30/20/190/22', '20,5': '58/21/230/24', '30,6': '91/26/270/26' };
     const got = Object.keys(want).map((k) => `${k}=${snap(...k.split(',').map(Number))}`);
     check('normal curve (solo and squads)', Object.keys(want).every((k) => snap(...k.split(',').map(Number)) === want[k]), got.join(' '));
     // the squad: more of them, more up at once, coming faster; each one no tougher
