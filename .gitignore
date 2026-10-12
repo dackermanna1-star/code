@@ -10,3 +10,6 @@ usermaps/
 
 # your own game files bundled into a local build (tools/packmap.mjs)
 /public/gamedata/
+
+# agent worktrees (temporary)
+.claude/
