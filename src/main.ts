@@ -53,6 +53,9 @@ async function boot(): Promise<void> {
   setTimeout(() => loading.remove(), 600);
 
   if (params.has('autoplay')) game.autoplay = true;
+  if (params.has('god')) game.worldOptions.god = true;
+  if (params.has('level')) game.worldOptions.startLevel = Number(params.get('level')) || 1;
+  if (params.has('money')) game.worldOptions.money = Number(params.get('money')) || 0;
   if (params.has('speed')) game.timeScale = Number(params.get('speed')) || 1;
   if (params.has('play') || params.has('autoplay')) game.newGame();
   else game.showTitle();

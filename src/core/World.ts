@@ -24,6 +24,8 @@ export interface WorldOptions {
   startLevel?: number;
   /** Starting money (debug / testing). */
   money?: number;
+  /** Testing aid: escapes and deaths don't end the game. */
+  god?: boolean;
 }
 
 export class World {
@@ -38,11 +40,14 @@ export class World {
   level!: Level;
   levelNum = 1;
   gameOverReason: { reason: 'escape' | 'dead'; enemyType?: string; enemyId?: number } | null = null;
+  /** Testing aid: escapes and deaths don't end the game. */
+  god = false;
   /** Floe surface test, replaced by the presentation with the real outline. */
   isOnFloe: (x: number, z: number) => boolean = (x, z) => Math.abs(x) < FIELD_HALF_W + 6 && z > -17 && z < 16.5;
 
   constructor(opts: WorldOptions = {}) {
     this.rng = new Rng(opts.seed);
+    this.god = !!opts.god;
     this.combat = new Combat(this);
     const n = Math.max(1, Math.min(2, opts.players ?? 1));
     // Original start positions: P1 (620,220), P2 (200,220) in screen px.
@@ -142,7 +147,7 @@ export class World {
   }
 
   gameOver(reason: 'escape' | 'dead', enemy?: Enemy): void {
-    if (this.gameEnded) return;
+    if (this.gameEnded || this.god) return;
     this.phase = 'gameover';
     this.gameOverReason = { reason, enemyType: enemy?.type, enemyId: enemy?.id };
     this.events.emit('gameOver', { reason, enemyId: enemy?.id });

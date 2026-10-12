@@ -310,6 +310,10 @@ export class Player {
   }
 
   private kill(by: 'walrus' | 'explosion'): void {
+    if (this.world.god) {
+      this.life = PLAYER.life;
+      return;
+    }
     this.life = 0;
     this.setState('dead');
     this.vx = this.vy = this.vz = 0;

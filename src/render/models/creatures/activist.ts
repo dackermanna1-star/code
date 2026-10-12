@@ -231,8 +231,14 @@ export function createActivist(): CreatureRig {
         bootFn,
         'rubber',
       );
-      pb.addShaded(blob(0.12, 0.055, 0.068, 12, 8), bootFn, 'rubber', { p: [0.05, -SHIN + 0.035, 0] });
-      pb.add(new THREE.BoxGeometry(0.25, 0.022, 0.13), 0x0c0908, 'rubber', { p: [0.04, -SHIN - 0.008, 0] });
+    });
+    // foot (kept level on the ice by the animation; rides with the shin in ragdolls)
+    const ft = rb.bone(`foot${side}`, sh, [0, -SHIN + 0.035, 0]);
+    rb.part(ft, (pb) => {
+      const bootFn = shade(0x3a2e25, 0x120d0a, { mid: BOOT, noise: 0.05 });
+      pb.addShaded(blob(0.07, 0.07, 0.066, 8, 6), bootFn, 'rubber', { p: [0, 0.02, 0] });
+      pb.addShaded(blob(0.12, 0.055, 0.068, 12, 8), bootFn, 'rubber', { p: [0.05, 0, 0] });
+      pb.add(new THREE.BoxGeometry(0.25, 0.022, 0.13), 0x0c0908, 'rubber', { p: [0.04, -0.043, 0] });
     });
   }
 
@@ -288,6 +294,8 @@ export function createActivist(): CreatureRig {
   const uaR = B('upperArmR');
   const faL = B('foreArmL');
   const faR = B('foreArmR');
+  const ftL = B('footL');
+  const ftR = B('footR');
   let panicK = 0;
 
   /** Running legs + pelvis bob; returns the gait phase. */
@@ -306,7 +314,7 @@ export function createActivist(): CreatureRig {
     const hx = pelvis.position.x + 0.05 * Math.sin(pr);
     const hy = pelvis.position.y - 0.05 * Math.cos(pr);
     const off = duty / 2;
-    for (const [th, sh, ph0] of [[thL, shL, 0], [thR, shR, 0.5]] as const) {
+    for (const [th, sh, ft, ph0] of [[thL, shL, ftL, 0], [thR, shR, ftR, 0.5]] as const) {
       const p = ph / TAU + off + ph0;
       const [fx, lift] = footPath(p, duty, stride * moving, 0.28 * moving + 0.01);
       // IK effector = shin end + 0.04 (just under the boot sole)
@@ -317,6 +325,8 @@ export function createActivist(): CreatureRig {
       const [a1, a2] = ik2(THIGH, SHIN + 0.04, lx, ly, -1);
       th.rotation.z = a1;
       sh.rotation.z = a2;
+      // level boot; toes point down a little while the foot is in the air
+      ft.rotation.z = -(pr + a1 + a2) - Math.min(0.6, lift * 3) * moving;
     }
     return ph;
   };

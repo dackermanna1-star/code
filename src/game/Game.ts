@@ -35,6 +35,8 @@ export class Game {
   /** Debug/testing: time scale and auto-play. */
   timeScale = 1;
   autoplay = false;
+  /** Testing: options for new worlds (god mode, start level, money). */
+  worldOptions: { god?: boolean; startLevel?: number; money?: number } = {};
 
   constructor(
     private stage: Stage,
@@ -96,7 +98,7 @@ export class Game {
   private startWorld(attract: boolean): void {
     this.unbindAudio?.();
     this.unbindAudio = null;
-    const world = new World({ seed: (Math.random() * 1e9) >>> 0 });
+    const world = new World({ seed: (Math.random() * 1e9) >>> 0, ...(attract ? {} : this.worldOptions) });
     this.world = world;
     this.bot = attract || this.autoplay ? new Bot(world.player, { skill: attract ? 0.8 : 0.95 }) : null;
     this.view.attach(world);
