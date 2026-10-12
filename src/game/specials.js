@@ -29,6 +29,9 @@ const dist2 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 const angDiff = (a, b) => ((a - b) % 360 + 540) % 360 - 180;
 const _tr = new TraceResult();
 const _d = new THREE.Vector3(), _Z = new THREE.Vector3(0, 0, 1);
+// The warning call (IDLE below), from the special itself: as it comes in, and again once it
+// is this close to its target, a moment (WARN_LEAD s) before it can use its trick.
+const WARN_R = 900, WARN_LEAD = 0.9, WARN_VOL = 0.9;
 
 /** name, first wave, pick weight, health / speed / damage (x the wave's), size. */
 export const SPECIALS = {
@@ -91,9 +94,10 @@ export class Specials {
       this.setup(z, def);
       z.extra = !!o.extra;
       first = first || z;
+      z.sp.pack = first; // (a pack calls as one)
       made++;
     }
-    if (made && kind !== 'sprinter') this.game.sound?.play(IDLE[kind], { volume: 0.5 }); // a warning, from wherever
+    if (made) this.warn(first, true); // a warning, from where it came in
     if (made) this.Z.events.mode('special', { phase: 'spawn', kind, zombie: first, count: made });
     return made;
   }
@@ -132,10 +136,31 @@ export class Specials {
 
   idleSound(z) { return IDLE[z.special]; }
 
+  /**
+   * The warning call, from the special (or its pack) itself, carrying far ('loud'). Once it
+   * is close (WARN_R; or on coming in that close) it counts: its tricks wait WARN_LEAD s more.
+   */
+  warn(z, arrival = false) {
+    const g = this.game, t = g.time, S = z.sp;
+    g.sound?.play(IDLE[z.special], { pos: z.eyePos(), volume: WARN_VOL, attenuation: 'loud', channel: `${z.id}:voice` });
+    z.nextGrowl = Math.max(z.nextGrowl || 0, t + 3); // (no idle growl right on top of it)
+    if (arrival) {
+      let near = false;
+      for (const h of this.Z.humans()) if (dist2(h.pm.origin, z.pm.origin) < WARN_R) near = true;
+      if (!near) return;
+    }
+    for (const q of this.Z.pool) {
+      if (q !== z && !(q.alive && q.sp && q.sp.pack === S.pack)) continue;
+      q.sp.warned = true;
+      for (const k in q.sp.cd) if (q.sp.cd[k] < t + WARN_LEAD) q.sp.cd[k] = t + WARN_LEAD;
+    }
+  }
+
   // ---------------------------------------------------------------- AI
   /** The special's own move this tick; false: chase / claw like a common zombie. */
   think(z, target, cmd, t) {
     if (!z.sp) return false;
+    if (!z.sp.warned && dist2(z.pm.origin, target.pm.origin) < WARN_R) this.warn(z); // it gives itself away first
     if (z.special === 'charger') { z.speedNow = null; z.pm.speedCap = null; }
     switch (z.special) {
       case 'boomer': return this.boomer(z, target, cmd, t);

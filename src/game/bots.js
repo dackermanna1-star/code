@@ -18,6 +18,7 @@
 
 import { TEAM_T, TEAM_CT } from './player.js';
 import { initGenericKnowledge, planGeneric, genericObjective } from './botsgeneric.js';
+import { zombieRadio, zombieFallBack, zombieOrderInFight, zombieMayStepTo } from './zorders.js';
 import { Player } from './player.js';
 import { IN_JUMP, IN_DUCK, IN_WALK } from '../engine/pmove.js';
 import { angleVectors, DEG } from '../engine/coords.js';
@@ -597,6 +598,7 @@ export class BotManager {
     if (!p || (p.team !== TEAM_T && p.team !== TEAM_CT)) return;
     const mates = this.bots.filter((b) => b.p.alive && b.p.team === p.team && b.p !== p);
     if (!mates.length) return;
+    if (this.game.zombies?.enabled && !fromBot && zombieRadio(this, p, text, mates)) return; // zombie survival: the squad's orders (zorders.js)
     const near = (r) => mates.filter((b) => dist3(b.p.pm.origin, p.pm.origin) < r);
     const reply = (list, txt) => { const b = list.sort((a, c) => dist3(a.p.pm.origin, p.pm.origin) - dist3(c.p.pm.origin, p.pm.origin))[0]; if (b) b.queueRadio(txt, rand(0.6, 1.4)); };
     switch (text) {
@@ -1519,6 +1521,7 @@ class Bot {
       if (this.time >= (this.backAt || 0)) { this.backTo = this.backOff(e); this.backAt = this.time + 0.25; }
       if (this.backTo) { it.move = this.backTo; it.tol = 12; return; }
     }
+    if (e.isZombie && zombieOrderInFight(this, it)) return; // radio orders hold in a fight too (zorders.js)
     if (it.move) return;
     // movement while shooting
     const precise = cls === 'rifle' || cls === 'mg' || cls === 'autosniper' ? d > 380 : cls === 'bolt' ? true : cls === 'pistol' ? d > 220 : cls === 'smg' ? d > 600 : false;
@@ -1546,7 +1549,7 @@ class Bot {
       const c = Math.cos(a), sn = Math.sin(a);
       const ux = (dx * c - dy * sn) / l, uy = (dx * sn + dy * c) / l;
       const to = [f[0] + ux * 120, f[1] + uy * 120, f[2]];
-      if (!g.nav.canWalk(f, to)) continue;
+      if (!g.nav.canWalk(f, to) || !zombieMayStepTo(this, to)) continue; // (radio orders: not off a held spot, nor away from the human - zorders.js)
       if (g.zombies.pool.some((z) => z.alive && z !== e && Math.hypot(z.pm.origin[0] - to[0], z.pm.origin[1] - to[1]) < 100)) continue;
       return to;
     }
@@ -1970,8 +1973,8 @@ class Bot {
     const g = this.game, p = this.p, R = g.rounds;
     // the carrier plants whenever he is in a bomb zone, whatever a teammate radioed
     if (p.team === TEAM_T && p.weapons[5] && R.state === 'live' && !R.bomb && this.tryPlant(it)) return;
-    // zombie survival: stick with the human
-    if (g.zombies?.enabled && g.zombies.allyObjective(this, it)) { this.watchDanger(it); return; }
+    // zombie survival: "fall back" is back to the one who called it (zorders.js)
+    if (g.zombies?.enabled && this.fallback && zombieFallBack(this, it)) { this.watchDanger(it); return; }
     // radio-driven behaviour (human teammates)
     if (this.fallback && this.time < this.fallback.until) {
       it.move = p.team === TEAM_T ? (this.K.generic ? this.K.tSpawn : this.K.routes.long.pts[1].p) : this.K.ctSpawn;
@@ -1989,6 +1992,8 @@ class Bot {
       this.hold(it, { pos: this.holdHere.pos, watch: [], n: 'here' });
       return;
     }
+    // zombie survival: stick with the human (once his radio orders above have run out)
+    if (g.zombies?.enabled && g.zombies.allyObjective(this, it)) { this.watchDanger(it); return; }
     // pick up a primary lying close by
     if (!p.weapons[1] && !this.isCommitted()) {
       const dw = g.dropped.find((d) => d.weapon.def.slot === 1 && d.rest && dist2(d.pos, p.pm.origin) < 450 && Math.abs(d.pos[2] - p.pm.origin[2]) < 100 && !this.skipPickup.has(d));

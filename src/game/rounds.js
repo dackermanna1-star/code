@@ -267,7 +267,7 @@ export class RoundManager {
       g.sound.play('defuser_on', { pos: p.isLocal ? null : p.eyePos(), volume: 0.7 });
       return true;
     }
-    if (item === 'nvgs') { return pay(1250); }
+    if (item === 'nvgs') { return !g.zombies?.enabled && pay(1250); } // (zombie survival: none for now - nothing to see them with yet)
     if (/^(att|skin)_/.test(item)) return g.zombies?.enabled ? ATT.buyUpgrade(g, p, item, pay, say) : false; // zombie survival upgrades
     const def = WS.WEAPON_DEFS[item];
     if (!def) return false;
