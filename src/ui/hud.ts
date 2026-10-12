@@ -53,6 +53,9 @@ export class Hud {
   private hurt = 0;
   private lastHp = -1;
   private breathEl: HTMLDivElement;
+  private darkEl: HTMLDivElement;
+  /** 0..1 strength of the dark cave vignette */
+  darkness = 0.6;
   private spellBar: HTMLDivElement;
   private spellBarKey = '';
   private v = new THREE.Vector3();
@@ -80,6 +83,7 @@ export class Hud {
       <div class="hud-prompt"></div>
       <div class="hud-log"></div>
       <div class="hud-title"></div>
+      <div class="hud-dark"></div>
       <div class="hud-vignette"></div>
       <div class="hud-floaters"></div>`;
     parent.appendChild(r);
@@ -100,6 +104,7 @@ export class Hud {
     this.vignette = r.querySelector('.hud-vignette')!;
     this.floatersEl = r.querySelector('.hud-floaters')!;
     this.breathEl = r.querySelector('.breath')!;
+    this.darkEl = r.querySelector('.hud-dark')!;
     this.spellBar = r.querySelector('.hud-spells')!;
   }
 
@@ -216,6 +221,7 @@ export class Hud {
       this.titleT -= dt;
       this.titleEl.style.opacity = String(Math.min(1, this.titleT));
     }
+    this.darkEl.style.opacity = this.darkness.toFixed(2);
     // hurt vignette
     if (this.lastHp >= 0 && s.hp < this.lastHp - 0.05) this.hurt = Math.min(1, this.hurt + 0.35 + (this.lastHp - s.hp) / 30);
     this.lastHp = s.hp;

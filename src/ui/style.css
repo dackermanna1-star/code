@@ -75,6 +75,7 @@ select, input { font-family: inherit; background: #1a1411; color: var(--ui-text)
 .hud-title { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); text-align: center; text-shadow: 2px 2px 0 #000; opacity: 0; }
 .hud-title .big { font-family: 'Jacquard 12', serif; font-size: 64px; color: #f0c870; letter-spacing: 2px; }
 .hud-title .sub { font-size: 18px; color: #d8ccb8; }
+.hud-dark { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.75) 100%); }
 .hud-vignette { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(170, 0, 0, 0.55) 100%); }
 .hud-floaters { position: absolute; inset: 0; overflow: hidden; }
 .floater { position: absolute; left: 0; top: 0; font-size: 15px; font-weight: 600; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000; white-space: nowrap; }

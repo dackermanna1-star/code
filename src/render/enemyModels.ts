@@ -2,12 +2,23 @@
 // (legs, arms, wings, head, body) that the EnemySystem animates.
 import * as THREE from 'three';
 import { voxelBox } from './spriteMesh';
+import { createMeshMaterial, SharedUniforms } from './voxelMaterial';
+
+let SHARED: SharedUniforms | null = null;
+/** Provide the world's shared lighting uniforms so creatures are lit like the voxels. */
+export function setCreatureUniforms(u: SharedUniforms): void {
+  SHARED = u;
+}
+
+export interface CreatureMaterial {
+  emissive: THREE.Color;
+}
 
 export interface EnemyModel {
   root: THREE.Group;
   parts: Record<string, THREE.Object3D>;
-  material: THREE.MeshLambertMaterial;
-  glow: THREE.MeshBasicMaterial;
+  material: THREE.Material & CreatureMaterial;
+  glow: THREE.Material;
 }
 
 const S = 0.55; // voxels per model pixel
@@ -45,8 +56,16 @@ function pivot(parent: THREE.Object3D, x: number, y: number, z: number, name: st
 }
 
 export function buildEnemyModel(kind: string, tint = '#808080'): EnemyModel {
-  const material = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: new THREE.Color(0, 0, 0) });
-  const glow = new THREE.MeshBasicMaterial({ vertexColors: true });
+  let material: THREE.Material & CreatureMaterial;
+  let glow: THREE.Material;
+  if (SHARED) {
+    const m = createMeshMaterial(SHARED);
+    material = Object.assign(m, { emissive: m.uniforms.uEmissive.value as THREE.Color });
+    glow = createMeshMaterial(SHARED, true);
+  } else {
+    material = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: new THREE.Color(0, 0, 0) });
+    glow = new THREE.MeshBasicMaterial({ vertexColors: true });
+  }
   const root = new THREE.Group();
   const parts: Record<string, THREE.Object3D> = {};
   const body = new THREE.Group();

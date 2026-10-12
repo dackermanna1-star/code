@@ -273,3 +273,46 @@ export function createVoxelMaterials(u: SharedUniforms) {
 
 export type VoxelMaterials = ReturnType<typeof createVoxelMaterials>;
 export { COMMON as VOXEL_SHADER_COMMON };
+
+// ------------------------------------------------------------------ meshes (creatures, pickups)
+const MESH_VS = /* glsl */ `
+in vec3 color;
+out vec3 vColor;
+out vec3 vWorld;
+out vec3 vNormalW;
+void main() {
+  vec4 wp = modelMatrix * vec4(position, 1.0);
+  vWorld = wp.xyz;
+  vNormalW = normalize(mat3(modelMatrix) * normal);
+  vColor = color;
+  gl_Position = projectionMatrix * viewMatrix * wp;
+}
+`;
+
+const MESH_FS = /* glsl */ `
+${COMMON}
+in vec3 vColor;
+in vec3 vWorld;
+in vec3 vNormalW;
+uniform vec3 uEmissive;
+uniform float uUnlit;
+out vec4 outColor;
+void main() {
+  vec3 n = normalize(vNormalW);
+  float shade = 0.75 + 0.25 * max(n.y, 0.0) - 0.15 * max(-n.y, 0.0);
+  vec3 light = uAmbient * 1.15 + dynLight(vWorld, n, true) + vec3(uFlash);
+  light = (1.0 - exp(-light * 1.25)) * 1.12;
+  vec3 c = mix(vColor * shade * light, vColor, uUnlit) + uEmissive;
+  outColor = vec4(applyFog(c, vWorld), 1.0);
+}
+`;
+
+/** Lit material for creature/pickup meshes, sharing the voxel world's lights and fog. */
+export function createMeshMaterial(u: SharedUniforms, unlit = false): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    glslVersion: THREE.GLSL3,
+    uniforms: { ...u, uEmissive: { value: new THREE.Color(0, 0, 0) }, uUnlit: { value: unlit ? 1 : 0 } },
+    vertexShader: MESH_VS,
+    fragmentShader: MESH_FS,
+  });
+}

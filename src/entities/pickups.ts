@@ -44,12 +44,17 @@ const GOLD_GEO = voxelBox(2, 2, 2, 0.32, (x, y, z) => ((x + y + z) % 2 ? '#f0c84
 export class PickupSystem {
   readonly list: Pickup[] = [];
   readonly group = new THREE.Group();
-  private mat = new THREE.MeshLambertMaterial({ vertexColors: true });
-  private glowMat = new THREE.MeshBasicMaterial({ vertexColors: true });
+  private mat: THREE.Material = new THREE.MeshLambertMaterial({ vertexColors: true });
+  private glowMat: THREE.Material = new THREE.MeshBasicMaterial({ vertexColors: true });
   private geoCache = new Map<string, THREE.BufferGeometry>();
   goldIsForever = false;
 
-  constructor(private world: VoxelWorld) {}
+  constructor(private world: VoxelWorld, mats?: { lit: THREE.Material; glow: THREE.Material }) {
+    if (mats) {
+      this.mat = mats.lit;
+      this.glowMat = mats.glow;
+    }
+  }
 
   private geo(key: string, make: () => THREE.BufferGeometry): THREE.BufferGeometry {
     let g = this.geoCache.get(key);

@@ -14,6 +14,8 @@ import { Wand } from '../magic/casting';
 import { generateWand, starterWand, starterBombWand, randomSpell } from '../magic/wandGen';
 import type { SpellInstance } from '../magic/types';
 import { ViewModel } from '../render/viewmodel';
+import { setCreatureUniforms } from '../render/enemyModels';
+import { createMeshMaterial } from '../render/voxelMaterial';
 import { Hud, HudState } from '../ui/hud';
 import { InventoryUI } from '../ui/inventoryUI';
 import { audio } from '../audio/audio';
@@ -84,7 +86,8 @@ export class Run {
     this.damage.creatures.push(g.player);
     this.projectiles = new ProjectileSystem(g.world, g.sim, g.destruction, this.damage, g.particles, g.uniforms.uPointScale);
     g.scene.add(this.projectiles.glowPoints, this.projectiles.solidPoints);
-    this.pickups = new PickupSystem(g.world);
+    setCreatureUniforms(g.uniforms);
+    this.pickups = new PickupSystem(g.world, { lit: createMeshMaterial(g.uniforms), glow: createMeshMaterial(g.uniforms, true) });
     g.scene.add(this.pickups.group);
     this.enemies = new EnemySystem(this);
     g.scene.add(this.enemies.group);
@@ -382,6 +385,7 @@ export class Run {
       delay: w && w.castDelayTimer > 0 ? Math.min(1, w.castDelayTimer / Math.max(1, w.stats.castDelay + 10)) : 0,
       gold: p.gold, orbs: this.orbs, status: p.status, breath: this.breathT, prompt: this.prompt, canEdit: this.progression.canEditWands(),
     };
+    this.hud.darkness = THREE.MathUtils.clamp((1930 - p.body.y) / 40, 0.15, 0.65) * (hmBandOf(p.body.y) >= 0 ? 0.5 : 1);
     this.hud.update(dt, hs, this.inv, g.camera);
     audio.setListener(g.camera.position.x, g.camera.position.y, g.camera.position.z, p.yaw, p.pitch);
     audio.setLoop('levitate', p.levitating ? 0.5 : 0);
