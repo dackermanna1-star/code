@@ -161,6 +161,56 @@ class WorldGenTest {
 	}
 
 	@Test
+	void theCityFoldsUpIntoTheSkyInMostDreams() {
+		int folded = 0;
+		for (int i = 0; i < 100; i++) {
+			MiniWorld w = WorldGen.generate(seed(i), 1);
+			// Asphalt (or its centre line) high above the street can only be the far avenue bent upward
+			boolean vertical = false;
+			for (int idx = 0; idx < MiniWorld.VOLUME && !vertical; idx++) {
+				MiniBlock b = w.get(idx);
+				vertical = (b == MiniBlock.GRAY_CONCRETE || b == MiniBlock.YELLOW_CONCRETE) && MiniWorld.indexY(idx) >= 16
+					&& isStreet(w, idx);
+			}
+			if (vertical) {
+				folded++;
+			}
+		}
+		assertTrue(folded >= 40 && folded <= 80, folded + " of 100 cities folded");
+	}
+
+	/** A street block stands in a run of street blocks, unlike a dark building facade cell. */
+	private static boolean isStreet(MiniWorld w, int idx) {
+		int x = MiniWorld.indexX(idx);
+		int y = MiniWorld.indexY(idx);
+		int z = MiniWorld.indexZ(idx);
+		int run = 0;
+		for (int dx = -3; dx <= 3; dx++) {
+			MiniBlock b = w.get(x + dx, y, z);
+			if (b == MiniBlock.GRAY_CONCRETE || b == MiniBlock.YELLOW_CONCRETE || b == MiniBlock.WATER || b == MiniBlock.QUARTZ_BLOCK) {
+				run++;
+			}
+		}
+		return run >= 6;
+	}
+
+	@Test
+	void limboHasADrownedCity() {
+		for (int i = 0; i < 50; i++) {
+			MiniWorld w = WorldGen.generate(seed(i), 4);
+			int high = 0;
+			for (int idx = 0; idx < MiniWorld.VOLUME; idx++) {
+				MiniBlock b = w.get(idx);
+				boolean ruin = b == MiniBlock.STONE_BRICKS || b == MiniBlock.CRACKED_STONE_BRICKS || b == MiniBlock.MOSSY_STONE_BRICKS;
+				if (ruin && MiniWorld.indexY(idx) >= 16) {
+					high++;
+				}
+			}
+			assertTrue(high >= 15, "ruined towers too low for seed " + seed(i) + ": " + high);
+		}
+	}
+
+	@Test
 	void fortressLakeIsIceOverWater() {
 		for (int i = 0; i < 50; i++) {
 			MiniWorld w = WorldGen.generate(seed(i), 3);

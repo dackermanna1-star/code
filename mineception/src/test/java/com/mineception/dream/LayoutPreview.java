@@ -72,6 +72,9 @@ public final class LayoutPreview {
 			writeSheet(dir, seeds[0], depth);
 			writeSheet(dir, seeds[1], depth);
 			writeSeedGrid(dir, seeds, depth);
+			writeSurroundings(dir, seeds[0], depth);
+			writeSurroundings(dir, seeds[1], depth);
+			writeWalk(dir, seeds[0], depth);
 		}
 	}
 
@@ -91,6 +94,69 @@ public final class LayoutPreview {
 		write(sheet, new File(dir, "level" + depth + "_seed" + seed + ".png"));
 		write(scaled(topDown(world, world.laptopY + 2), 40, 40, 8), new File(dir, "level" + depth + "_seed" + seed + "_cutaway.png"));
 	}
+
+	/**
+	 * The whole diorama: the spawn view turned to all four sides, and two elevated overviews from opposite corners
+	 * (rendered without fog so the full layout is visible).
+	 */
+	public static void writeSurroundings(File dir, long seed, int depth) throws IOException {
+		MiniWorld world = WorldGen.generate(seed, depth);
+		int vw = 320;
+		int vh = 200;
+		BufferedImage sheet = new BufferedImage(vw * 3, vh * 2, BufferedImage.TYPE_INT_RGB);
+		double ex = world.spawnX;
+		double ey = world.spawnY + MiniPlayer.EYE_HEIGHT;
+		double ez = world.spawnZ;
+		for (int i = 0; i < 4; i++) {
+			Camera camera = new Camera(ex, ey, ez, world.spawnYaw + 90.0F * i, 5.0F, 70.0F);
+			blit(sheet, render(world, camera, vw, vh, null, 0, 0), vw, vh, (i % 3) * vw, (i / 3) * vh, 1);
+		}
+		boolean indoor = world.theme.indoor;
+		for (int i = 0; i < 2; i++) {
+			double angle = Math.toRadians(world.spawnYaw + 180.0 + 45.0 + 180.0 * i);
+			double cx = 20.0 - Math.sin(angle) * -30.0;
+			double cz = 20.0 + Math.cos(angle) * -30.0;
+			float yaw = (float) Math.toDegrees(Math.atan2(-(20.0 - cx), 20.0 - cz));
+			Camera camera = new Camera(cx, 36.0, cz, yaw, 38.0F, 70.0F);
+			MiniWorld view = indoor ? cutaway(world, world.laptopY + 3) : world;
+			blit(sheet, renderNoFog(view, camera, vw, vh), vw, vh, ((i + 4) % 3) * vw, ((i + 4) / 3) * vh, 1);
+		}
+		write(sheet, new File(dir, "level" + depth + "_seed" + seed + "_around.png"));
+	}
+
+	/** Walking away from the spawn past the laptop: views 6, 11 and 16 blocks further on, looking slightly up. */
+	public static void writeWalk(File dir, long seed, int depth) throws IOException {
+		MiniWorld world = WorldGen.generate(seed, depth);
+		int vw = 320;
+		int vh = 200;
+		BufferedImage sheet = new BufferedImage(vw * 3, vh, BufferedImage.TYPE_INT_RGB);
+		double[] f = new Camera(0, 0, 0, world.spawnYaw, 0.0F, 70.0F).forward();
+		for (int i = 0; i < 3; i++) {
+			double d = 6 + 5 * i;
+			Camera camera = new Camera(world.spawnX + f[0] * d, world.spawnY + MiniPlayer.EYE_HEIGHT + (depth == 1 ? 0.0 : 1.0),
+				world.spawnZ + f[2] * d, world.spawnYaw, -18.0F, 70.0F);
+			blit(sheet, render(world, camera, vw, vh, null, 0, 0), vw, vh, i * vw, 0, 1);
+		}
+		write(sheet, new File(dir, "level" + depth + "_seed" + seed + "_walk.png"));
+	}
+
+	/** A copy of an indoor level with everything at or above {@code y} removed (to look inside). */
+	private static MiniWorld cutaway(MiniWorld world, int y) {
+		MiniWorld copy = world.copy();
+		Build.fill(copy, 0, y, 0, MiniWorld.SX - 1, MiniWorld.SY - 1, MiniWorld.SZ - 1, MiniBlock.AIR);
+		return copy;
+	}
+
+	private static int[] renderNoFog(MiniWorld world, Camera camera, int width, int height) {
+		noFog = true;
+		try {
+			return render(world, camera, width, height, null, 0, 0);
+		} finally {
+			noFog = false;
+		}
+	}
+
+	private static boolean noFog;
 
 	/** First-person views of several seeds side by side, to judge variety. */
 	public static void writeSeedGrid(File dir, long[] seeds, int depth) throws IOException {
@@ -160,7 +226,7 @@ public final class LayoutPreview {
 
 	private static int trace(MiniWorld w, double ox, double oy, double oz, double dx, double dy, double dz, int[] child, int cw, int ch) {
 		Theme theme = w.theme;
-		double maxDist = theme.fogDistance + 4.0;
+		double maxDist = noFog ? 140.0 : theme.fogDistance + 4.0;
 		int x = (int) Math.floor(ox);
 		int y = (int) Math.floor(oy);
 		int z = (int) Math.floor(oz);
@@ -247,6 +313,9 @@ public final class LayoutPreview {
 	}
 
 	private static int fog(Theme theme, int c, double dist) {
+		if (noFog) {
+			return c;
+		}
 		double t = Math.max(0.0, Math.min(1.0, dist / theme.fogDistance));
 		return lerp(c, theme.fogColor, t * t) & 0xFFFFFF;
 	}

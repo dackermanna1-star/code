@@ -37,6 +37,8 @@ final class CityLevel {
 	private static final int MAX_Y = MiniWorld.SY - 1;
 	/** First row of the low buildings that close the square behind the spawn. */
 	private static final int BACK_Z = 37;
+	/** How often the far end of the avenue folds up into the sky. */
+	private static final double FOLD_CHANCE = 0.6;
 
 	private enum Style {
 		BRICK, STONE, OFFICE, DARK
@@ -49,30 +51,94 @@ final class CityLevel {
 	private final int crossZ;
 	private final int squareZ;
 
-	private CityLevel(MiniWorld w, DreamRandom r) {
+	private CityLevel(MiniWorld w, DreamRandom r, int ac, int crossZ, int squareZ) {
 		this.w = w;
 		this.r = r;
-		this.ac = r.range(18, 21);
-		this.crossZ = r.range(11, 15);
-		this.squareZ = r.range(26, 27);
+		this.ac = ac;
+		this.crossZ = crossZ;
+		this.squareZ = squareZ;
 	}
 
 	static WorldGen.Stage build(MiniWorld w, DreamRandom random) {
-		return new CityLevel(w, random).build();
+		int ac = random.range(18, 21);
+		int squareZ = random.range(26, 27);
+		if (random.chance(FOLD_CHANCE)) {
+			return new CityLevel(w, random, ac, -100, squareZ).buildFolded();
+		}
+		return new CityLevel(w, random, ac, random.range(11, 15), squareZ).build();
 	}
 
 	private WorldGen.Stage build() {
 		ground();
+		street(0, crossZ - 4);
+		street(crossZ + 8, BACK_Z - 1);
+		return finish();
+	}
+
+	/** The square, the café, street furniture and the laptop's place, shared by both layouts. */
+	private WorldGen.Stage finish() {
 		int cafeSide = r.sign();
 		int laptopX = ac + cafeSide * r.range(0, 2);
 		int laptopZ = squareZ + r.range(1, 2);
 		int distance = r.range(WorldGen.MIN_SPAWN_DISTANCE, WorldGen.MAX_SPAWN_DISTANCE);
-		street(0, crossZ - 4);
-		street(crossZ + 8, BACK_Z - 1);
 		backRow();
 		cafe(cafeSide, laptopX, laptopZ);
 		furniture(laptopX);
 		return new WorldGen.Stage(laptopX, G, laptopZ, distance, OAK_PLANKS, SMOOTH_STONE, r.nextInt(4));
+	}
+
+	/**
+	 * The dream folds: past the near blocks the avenue bends up into the sky, carrying its buildings, cabs and lamps
+	 * with it, until the far end of the street stands vertical and its towers hang out over the avenue.
+	 */
+	private WorldGen.Stage buildFolded() {
+		int foldZ = squareZ - r.range(9, 11);
+		int radius = r.range(7, 9);
+		// The far stretch of the avenue (with its own cross street) is built flat on a separate canvas, then bent
+		MiniWorld far = new MiniWorld(w.depth, w.seed);
+		CityLevel farCity = new CityLevel(far, r.fork(0xF01D), ac, r.range(24, 30), MiniWorld.SZ);
+		farCity.ground();
+		farCity.street(0, farCity.crossZ - 4);
+		farCity.street(farCity.crossZ + 8, MiniWorld.SZ - 1);
+		farCity.furniture(-100);
+		ground();
+		street(foldZ, BACK_Z - 1);
+		WorldGen.Stage stage = finish();
+		fold(far, foldZ, radius);
+		return stage;
+	}
+
+	/**
+	 * Replaces everything north of {@code foldZ} with the far canvas bent upward around a horizontal axis: a quarter
+	 * circle of {@code radius} blocks, then straight up. Each cell looks up where it would have been before bending.
+	 */
+	private void fold(MiniWorld far, int foldZ, int radius) {
+		double street = SURFACE + 1.0;
+		double axisY = street + radius;
+		double wallZ = foldZ - radius;
+		for (int z = 0; z < foldZ; z++) {
+			for (int y = 1; y < MiniWorld.SY; y++) {
+				double pz = z + 0.5;
+				double py = y + 0.5;
+				double along;
+				double height;
+				if (py <= axisY) {
+					double dz = foldZ - pz;
+					double dy = axisY - py;
+					along = radius * StrictMath.atan2(dz, dy);
+					height = radius - Math.sqrt(dz * dz + dy * dy);
+				} else {
+					along = radius * StrictMath.PI / 2.0 + (py - axisY);
+					height = pz - wallZ;
+				}
+				int fy = (int) Math.floor(street + height);
+				int fz = MiniWorld.SZ - 1 - (int) Math.floor(along);
+				for (int x = 0; x < MiniWorld.SX; x++) {
+					MiniBlock block = fy >= 1 && fz >= 0 ? far.get(x, fy, fz) : AIR;
+					w.set(x, y, z, block);
+				}
+			}
+		}
 	}
 
 	// ------------------------------------------------------------------ ground
@@ -95,7 +161,9 @@ final class CityLevel {
 				w.set(x, SURFACE, crossZ + 5, SMOOTH_STONE);
 			}
 		}
-		Build.fill(w, ac - 3, SURFACE, squareZ - 1, ac + 3, SURFACE, squareZ - 1, SMOOTH_STONE);
+		if (squareZ < MiniWorld.SZ) {
+			Build.fill(w, ac - 3, SURFACE, squareZ - 1, ac + 3, SURFACE, squareZ - 1, SMOOTH_STONE);
+		}
 		for (int z = 0; z < squareZ - 2; z++) {
 			boolean nearCrossing = z >= crossZ - 3 && z <= crossZ + 7;
 			if (!nearCrossing && Math.floorMod(z, 4) < 2) {

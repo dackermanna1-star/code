@@ -5,7 +5,7 @@ package com.mineception.dream;
  * runs, until Limbo where the sun never moves.
  */
 public enum Theme {
-	CITY(1, "city", 0xFF7FA5D6, 0xFFC6D6E8, 0xFF0B1020, 0xFF1C2638, 0xFF8FA0B5, 30.0F, 0xFF79C05A, 0xFF59AE30, 0xFF3F76E4,
+	CITY(1, "city", 0xFF7FA5D6, 0xFFC6D6E8, 0xFF0B1020, 0xFF1C2638, 0xFF8FA0B5, 34.0F, 0xFF79C05A, 0xFF59AE30, 0xFF3F76E4,
 		1, 24000, -1.0F, Weather.RAIN, false),
 	HOTEL(2, "hotel", 0xFF6C8CC0, 0xFFE8D2B0, 0xFF0B1020, 0xFF2A2030, 0xFFE0C9A6, 40.0F, 0xFF79C05A, 0xFF59AE30, 0xFF3F76E4,
 		20, 1200, -1.0F, Weather.NONE, true),

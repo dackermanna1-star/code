@@ -50,7 +50,7 @@ final class LimboLevel {
 	private WorldGen.Stage build() {
 		terrain();
 		arch();
-		tower();
+		towers();
 		columns();
 		rubble();
 		return new WorldGen.Stage(lx, G, lz, distance, DARK_OAK_PLANKS, SAND, TURN_TO_WEST);
@@ -119,36 +119,62 @@ final class LimboLevel {
 		w.set(ax, top + 1, az, ruin());
 	}
 
-	/** The shell of a collapsing tower on one side, its seaward end already sinking into the water. */
-	private void tower() {
+	/**
+	 * The drowned city: hollow tower shells standing in the sea on both sides of the view, eroded at the top, their
+	 * empty windows letting the sunset through, some leaning as they topple into the water.
+	 */
+	private void towers() {
 		int side = r.sign();
-		int x0 = side < 0 ? r.range(1, 4) : r.range(28, 31);
-		int x1 = x0 + r.range(6, 8);
-		int z0 = shore - r.range(9, 12);
-		int z1 = z0 + r.range(7, 9);
-		int peak = W + r.range(13, 18);
-		for (int z = z0; z <= z1; z++) {
-			for (int x = x0; x <= x1; x++) {
-				boolean wall = x == x0 || x == x1 || z == z0 || z == z1;
-				if (!wall) {
-					continue;
-				}
-				// Walls crumble toward the sea and toward the open side
-				double decay = (z1 - z) / (double) (z1 - z0) * 0.6 + noise.value(x * 3, z * 3, 2.0) * 0.5;
-				int top = (int) Math.round(peak - decay * (peak - W));
-				for (int y = floor(x, z); y <= top; y++) {
-					boolean window = (y - W) % 4 == 2 && (x + z) % 3 == 1;
-					w.set(x, y, z, window ? AIR : ruin());
-				}
-			}
+		// A tall one close by on one side, a lower one further out on the other, sometimes a third far away
+		tower(lx + side * r.range(8, 11), shore - r.range(6, 9), r.range(5, 7), r.range(5, 7), r.range(15, 21), side);
+		tower(lx - side * r.range(7, 12), shore - r.range(12, 16), r.range(5, 8), r.range(5, 7), r.range(10, 16), -side);
+		if (r.chance(0.6)) {
+			tower(lx + side * r.range(-3, 3), r.range(1, 4), r.range(4, 6), r.range(4, 6), r.range(8, 13), r.sign());
 		}
-		// Floors of the tower survive in places
-		for (int y = W + 4; y < peak - 2; y += 4) {
-			for (int z = z0 + 1; z < z1; z++) {
-				for (int x = x0 + 1; x < x1; x++) {
-					if (noise.value(x * 5 + y, z * 5, 2.0) > 0.45) {
-						w.set(x, y, z, ruin());
+	}
+
+	/**
+	 * One ruined tower centred on (cx, cz), {@code sx} by {@code sz} blocks, rising {@code height} blocks above the sea.
+	 * Leaning towers shift one block toward {@code leanX} every few storeys.
+	 */
+	private void tower(int cx, int cz, int sx, int sz, int height, int leanX) {
+		int x0 = cx - sx / 2;
+		int z0 = cz - sz / 2;
+		int leanEvery = r.chance(0.55) ? r.range(4, 6) : 0;
+		long erosion = r.nextLong();
+		int top = W + height;
+		for (int y = 1; y <= top && y < MiniWorld.SY - 1; y++) {
+			int level = y - W;
+			int shift = leanEvery > 0 && level > 0 ? level / leanEvery * leanX : 0;
+			boolean floor = level > 0 && level % 4 == 0;
+			for (int dz = 0; dz < sz; dz++) {
+				for (int dx = 0; dx < sx; dx++) {
+					int x = x0 + dx + shift;
+					int z = z0 + dz;
+					boolean wall = dx == 0 || dz == 0 || dx == sx - 1 || dz == sz - 1;
+					if (!wall && !floor) {
+						continue;
 					}
+					// The jagged top: each column of the wall ends at its own height
+					double crumble = DreamRandom.hash01(erosion, dx + dz * 7, 0, 0);
+					int columnTop = top - (int) (crumble * crumble * height * 0.7);
+					if (y > columnTop) {
+						continue;
+					}
+					double decay = Math.max(0.0, level / (double) height);
+					if (y > W && DreamRandom.hash01(erosion, x, y, z) < decay * 0.3) {
+						continue;
+					}
+					if (floor && !wall) {
+						if (DreamRandom.hash01(erosion + 1, x, y, z) < 0.45) {
+							w.set(x, y, z, ruin());
+						}
+						continue;
+					}
+					int along = dx == 0 || dx == sx - 1 ? dz : dx;
+					boolean corner = (dx == 0 || dx == sx - 1) && (dz == 0 || dz == sz - 1);
+					boolean window = level > 1 && !corner && (level % 4 == 2 || level % 4 == 3) && along % 2 == 1;
+					w.set(x, y, z, window ? AIR : ruin());
 				}
 			}
 		}
