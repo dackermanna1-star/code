@@ -294,20 +294,22 @@ export function createActivist(): CreatureRig {
     const ph = a.distance * 2.6; // stride cycle 2.42 m; |sin| bob like the hit shapes
     const duty = 0.38;
     const stride = (TAU / 2.6) * duty * strideK;
-    const hipH = HIP_Y - crouch;
     pelvis.position.y += -crouch + Math.abs(Math.sin(ph)) * 0.05 * moving;
     pelvis.rotation.z = -lean * 0.35;
     pelvis.rotation.y = 0.12 * Math.sin(ph) * moving;
     chest.rotation.z = -lean * 0.65;
     chest.rotation.y = -0.18 * Math.sin(ph) * moving;
+    const pr = pelvis.rotation.z;
+    // hip joint (pelvis-local (0, -0.05)) in root space
+    const hx = pelvis.position.x + 0.05 * Math.sin(pr);
+    const hy = pelvis.position.y - 0.05 * Math.cos(pr);
     const off = duty / 2;
     for (const [th, sh, ph0] of [[thL, shL, 0], [thR, shR, 0.5]] as const) {
       const p = ph / TAU + off + ph0;
-      const [fx, lift] = footPath(p, duty, stride, 0.28 * moving + 0.02);
-      // foot target relative to the hip, in pelvis space (pelvis is leaning)
-      const tx = fx * moving + 0.05;
-      const ty = -hipH + lift + 0.06;
-      const pr = pelvis.rotation.z;
+      const [fx, lift] = footPath(p, duty, stride * moving, 0.28 * moving + 0.01);
+      // IK effector = shin end + 0.04 (just under the boot sole)
+      const tx = fx + 0.04 - hx;
+      const ty = -0.02 + lift - hy;
       const lx = tx * Math.cos(-pr) - ty * Math.sin(-pr);
       const ly = tx * Math.sin(-pr) + ty * Math.cos(-pr);
       const [a1, a2] = ik2(THIGH, SHIN + 0.04, lx, ly, -1);
@@ -320,6 +322,7 @@ export function createActivist(): CreatureRig {
   const pose = (a: AnimInput) => {
     const time = a.time;
     const hasCub = a.params.hasCub !== false;
+    if (cub.parent === chest) cub.visible = hasCub;
     eyes.scale.y = Math.max(0.1, blink(time));
     head.rotation.z = 0.25;
     const panic = a.state === 'panic';

@@ -5,19 +5,34 @@ import type { Player } from './Player';
 
 export type WeaponState = 'idle' | 'fire' | 'reload';
 
-/** Distance of the muzzle in front of the hunter (metres, toward -x) in the hold pose. */
+/** Distance of the muzzle in front of the hunter (metres, toward -x) in the hold pose (from the model). */
 export const MUZZLE_FORWARD: Record<WeaponId, number> = {
-  pistol: 0.55,
-  magnum: 0.62,
-  mp5: 0.72,
-  grenades: 0.3,
-  shotgun: 1.02,
-  mac10: 0.6,
-  flunk: 0.78,
-  m4: 0.98,
-  awp: 1.35,
-  vintage: 1.65,
-  minigun: 1.25,
+  pistol: 0.513,
+  magnum: 0.595,
+  mp5: 0.614,
+  grenades: 0.25,
+  shotgun: 0.963,
+  mac10: 0.627,
+  flunk: 0.687,
+  m4: 0.827,
+  awp: 1.072,
+  vintage: 1.984,
+  minigun: 0.995,
+};
+
+/** Depth offset of the gun (toward the camera) — guns are carried on the camera side. */
+export const MUZZLE_Z: Record<WeaponId, number> = {
+  pistol: 0.04,
+  magnum: 0.04,
+  mp5: 0.15,
+  grenades: 0.2,
+  shotgun: 0.15,
+  mac10: 0.02,
+  flunk: 0.15,
+  m4: 0.15,
+  awp: 0.15,
+  vintage: 0.16,
+  minigun: 0.24,
 };
 
 export class Weapon {

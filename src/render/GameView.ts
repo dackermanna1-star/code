@@ -22,6 +22,7 @@ import { createCreatureRig } from './models/creatures';
 import { createHunterRig, type HunterRig } from './models/hunter';
 import {
   createClipModel,
+  createShellModel,
   createGrenadeModel,
   createLauncherRoundModel,
   createWeaponModel,
@@ -115,7 +116,7 @@ export class GameView {
     scene.add(this.root);
     this.blood = new BloodSystem(stage.renderer, scene, opts.decalResolution ?? 2048);
     this.effects = new Effects(scene);
-    this.debris = new Debris(scene);
+    this.debris = new Debris(scene, (k) => createShellModel(k));
     this.debris.clipFactory = (k) => createClipModel(k);
     this.debris.onShellBounce = (kind, x, s) => {
       const prefix = kind === 'shotgun' ? 'weapons/shshell' : kind === 'small' ? 'weapons/sshell' : 'weapons/shell';
@@ -623,7 +624,6 @@ export class GameView {
     });
     const m = h.current ? h.models.get(h.current) : undefined;
     if (m) {
-      m.animate({ fireT, reloadT: w.reloadProgress, heat: w.heat / 20, spin: w.spin, cock: Math.max(0, cock), dt });
       if (m.magazine) m.magazine.visible = !(w.state === 'reload' && w.reloadProgress < 0.55);
       // AWP laser sight (hidden while firing/reloading, like the original).
       if (m.laser && w.state === 'idle' && p.canAct) {

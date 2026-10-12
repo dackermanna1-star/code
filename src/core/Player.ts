@@ -13,7 +13,7 @@ import { WEAPONS, WEAPON_ORDER, type WeaponId } from '../config/weapons';
 import type { EnemyType } from '../config/enemies';
 import type { Enemy } from './Enemy';
 import { Seal } from './enemies';
-import { Weapon, MUZZLE_FORWARD } from './Weapon';
+import { Weapon, MUZZLE_FORWARD, MUZZLE_Z } from './Weapon';
 import type { World } from './World';
 
 export type PlayerState = 'stand' | 'walk' | 'jump' | 'fall' | 'sit' | 'getup' | 'kick' | 'air' | 'dead';
@@ -94,12 +94,14 @@ export class Player {
 
   /** World position of the active weapon's muzzle (gun line). */
   muzzle(): { x: number; y: number; z: number } {
-    return { x: this.x - MUZZLE_FORWARD[this.weapon.id], y: this.y + PLAYER.muzzleHeight, z: this.z };
+    const id = this.weapon.id;
+    return { x: this.x - MUZZLE_FORWARD[id], y: this.y + PLAYER.muzzleHeight, z: this.z + MUZZLE_Z[id] };
   }
 
   /** Crosshair position in front of the hunter (original cross_xoffset). */
   crosshair(): { x: number; y: number; z: number } {
-    return { x: this.x - MUZZLE_FORWARD[this.weapon.id] - this.weapon.def.crossOffset, y: this.y + PLAYER.muzzleHeight, z: this.z };
+    const id = this.weapon.id;
+    return { x: this.x - MUZZLE_FORWARD[id] - this.weapon.def.crossOffset, y: this.y + PLAYER.muzzleHeight, z: this.z + MUZZLE_Z[id] };
   }
 
   private setState(s: PlayerState): void {

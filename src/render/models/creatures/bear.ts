@@ -147,8 +147,8 @@ export function createBear(): CreatureRig {
       rb.part(up, (pb) => {
         const secs: Sec[] = front
           ? [
-              { x: 0.0, y: 0.28, w: 0.2, h: 0.28, hb: 0.24 },
-              { x: 0.02, y: 0.02, w: 0.23, h: 0.27, hb: 0.25 },
+              { x: 0.0, y: 0.24, w: 0.17, h: 0.22, hb: 0.2 },
+              { x: 0.02, y: 0.0, w: 0.22, h: 0.26, hb: 0.24 },
               { x: 0.0, y: -0.28, w: 0.2, h: 0.2, hb: 0.2 },
               { x: 0.0, y: -l1, w: 0.145, h: 0.145, hb: 0.145 },
             ]
@@ -158,7 +158,7 @@ export function createBear(): CreatureRig {
               { x: 0.06, y: -0.3, w: 0.21, h: 0.24, hb: 0.22 },
               { x: 0.0, y: -l1, w: 0.145, h: 0.145, hb: 0.145 },
             ];
-        pb.addShaded(loft(secs, { radial: 12, sub: 2, cap0: 0.12, cap1: 0.06, bump: 0.03, bumpFreq: 9 }), legFn, 'fur');
+        pb.addShaded(loft(secs, { radial: 12, sub: 2, cap0: 0.16, cap1: 0.06 }), legFn, 'fur');
       });
       const low = rb.bone(`lower${k}${sd}`, up, [0, -l1, 0]);
       rb.part(low, (pb) => {
@@ -170,7 +170,7 @@ export function createBear(): CreatureRig {
               { x: 0, y: -l2 * 0.6, w: 0.135, h: 0.135 },
               { x: 0, y: -l2, w: 0.14, h: 0.14 },
             ],
-            { radial: 12, sub: 2, bump: 0.03, bumpFreq: 9 },
+            { radial: 12, sub: 2 },
           ),
           legFn,
           'fur',

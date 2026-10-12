@@ -15,8 +15,8 @@ interface Body {
   rest: boolean;
 }
 
-/** Casings are exaggerated so they read at gameplay scale (~3 px at 1280x960). */
-const SHELL_SCALE = 2.2;
+/** Default casings are exaggerated so they read at gameplay scale (model casings come pre-scaled). */
+let SHELL_SCALE = 2.2;
 
 function defaultShellGeometry(kind: ShellKind): THREE.BufferGeometry {
   const dims: Record<string, [number, number]> = {
@@ -141,6 +141,7 @@ export class Debris {
       ['awp', 0xf0c040, 200],
       ['shotgun', 0xc02828, 400],
     ];
+    if (shellGeometry) SHELL_SCALE = 1;
     for (const [k, color, cap] of kinds) {
       const geo = shellGeometry?.(k) ?? defaultShellGeometry(k);
       const pool = new ShellPool(geo, shellGeometry ? 0xffffff : color, cap, k !== 'shotgun');

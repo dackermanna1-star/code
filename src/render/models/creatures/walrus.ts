@@ -27,11 +27,12 @@ const SPINE: Sec[] = [
   { x: 0.52, y: 1.56, w: 0.98, h: 0.78, hb: 0.84 },
   { x: 0.76, y: 1.9, w: 0.8, h: 0.64, hb: 0.68 },
   { x: 0.86, y: 2.12, w: 0.64, h: 0.52, hb: 0.54 },
-  { x: 0.9, y: 2.3, w: 0.55, h: 0.44, hb: 0.46 },
+  { x: 0.92, y: 2.3, w: 0.48, h: 0.36, hb: 0.4 },
 ];
 const CUT_CHEST = 4;
 const HEAD_AT = 7;
-const TUSK_TIP: [number, number, number] = [1.56, 0.86, 0];
+const TUSK_TIP: [number, number, number] = [1.56, 0.8, 0];
+const TUSK_LEN = 1.14;
 
 export function createWalrus(): CreatureRig {
   const rb = new RigBuilder('walrus');
@@ -49,11 +50,14 @@ export function createWalrus(): CreatureRig {
   const head = rb.bone('head', chest, rel(secAt(SPINE, HEAD_AT), secAt(SPINE, CUT_CHEST)));
   const tail = rb.bone('tail', body, rel([-1.62, 0.22, 0], secAt(SPINE, 3)));
 
-  const [gBody, gChest] = loftSplit(SPINE, [CUT_CHEST], { radial: 20, sub: 3, cap0: 0.12, cap1: 0, bump: 0.025, bumpFreq: 7, overlap: 0 });
+  const [gBody, gChest, gNeck] = loftSplit(SPINE, [CUT_CHEST, HEAD_AT], {
+    radial: 20, sub: 3, cap0: 0.12, cap1: 0.1, bump: 0.025, bumpFreq: 7, overlap: 0,
+  });
   rb.part(body, (pb) => addRoot(pb, body, gBody, hide));
   rb.part(chest, (pb) => {
     addRoot(pb, chest, gChest, hide);
     addRoot(pb, chest, jointFiller(SPINE, CUT_CHEST, 0.96, 14, 10), hide);
+    addRoot(pb, chest, jointFiller(SPINE, HEAD_AT, 0.95, 14, 10), hide);
   });
   rb.part(tail, (pb) => {
     for (const s of [-1, 1]) {
@@ -77,8 +81,8 @@ export function createWalrus(): CreatureRig {
   const hy = SPINE[HEAD_AT].y;
   rb.part(head, (pb) => {
     const headFn = shade(0x9d6b40, 0x4a2e16, { mid: 0x7b5030, bias: -0.15, sharp: 1.2, noise: 0.07, freq: 8 });
-    addRoot(pb, head, jointFiller(SPINE, HEAD_AT, 0.97, 14, 10), hide);
-    addRoot(pb, head, blob(0.56, 0.5, 0.6, 16, 12, 0.02, 7).translate(hx + 0.12, hy + 0.2, 0), headFn);
+    addRoot(pb, head, gNeck, hide);
+    addRoot(pb, head, blob(0.6, 0.5, 0.6, 18, 13, 0.02, 7).translate(hx + 0.08, hy + 0.2, 0), hide);
     addRoot(pb, head, blob(0.44, 0.38, 0.52, 14, 10).translate(hx + 0.42, hy + 0.04, 0), headFn);
     // whisker pad: two big lobes, lighter, with bristles
     const padFn = shade(0xb88d60, 0x765232, { bias: -0.05, noise: 0.05, freq: 14 });
@@ -120,8 +124,8 @@ export function createWalrus(): CreatureRig {
     const tuskFn = shade(0xfffcf2, 0xc9c0a8, { bias: -0.1, noise: 0.03 });
     for (const s of [-1, 1]) {
       // horn(): root at the origin, tip at (bend, -len); place the tip at TUSK_TIP
-      const g = horn(1.08, 0.075, -0.1, 7, 10);
-      g.translate(TUSK_TIP[0] + 0.1, TUSK_TIP[1] + 1.08, s * 0.14);
+      const g = horn(TUSK_LEN, 0.075, -0.1, 7, 10);
+      g.translate(TUSK_TIP[0] + 0.1, TUSK_TIP[1] + TUSK_LEN, s * 0.14);
       addRoot(pb, tusks, g, tuskFn, 'plastic');
     }
   });
@@ -194,12 +198,12 @@ export function createWalrus(): CreatureRig {
       const t = smooth(a.stateTime / 0.35);
       const rock = Math.sin(a.stateTime * 9);
       const scrape = Math.sin(a.stateTime * 18);
-      body.position.y -= 0.12 * t;
-      body.rotation.x = 0.05 * rock * t;
-      body.rotation.z = -0.03 * t;
-      chest.rotation.z = (-0.3 + 0.04 * rock) * t;
+      body.position.y -= 0.04 * t;
+      body.rotation.x = 0.04 * rock * t;
+      body.rotation.z = (-0.1 + 0.02 * rock) * t;
+      chest.rotation.z = (-0.37 + 0.05 * scrape) * t;
       chest.rotation.x = 0.05 * rock * t;
-      head.rotation.z = (-0.42 + 0.06 * scrape) * t;
+      head.rotation.z = (0.1 + 0.04 * rock) * t;
       head.rotation.y = 0.1 * Math.sin(a.stateTime * 4.5) * t;
       jaw.rotation.z = -0.1 * t;
       fl.rotation.z = fr.rotation.z = (0.35 + 0.12 * rock) * t;

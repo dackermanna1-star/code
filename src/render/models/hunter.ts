@@ -200,6 +200,7 @@ function lerpPose(a: Pose, b: Pose, t: number, out: Pose): Pose {
   for (const k of Object.keys(out) as Array<keyof Pose>) out[k] = lerp(a[k], b[k], t);
   return out;
 }
+const NEUTRAL: Readonly<Pose> = newPose();
 const SIT: Pose = { px: 0.06, py: 0.27, prx: 0, prz: -0.38, cy: 0, crz: -0.06, tl: -1.15, tr: -1.05, sl: 0.15, sr: 0.28, spread: 0.12 };
 const KNEEL: Pose = { px: 0.02, py: 0.36, prx: 0, prz: 0.3, cy: 0, crz: 0.08, tl: -1.45, tr: -0.25, sl: 1.65, sr: 1.35, spread: 0.08 };
 
@@ -479,7 +480,7 @@ export function createHunterRig(): HunterRig {
   function bodyPose(a: AnimInput, out: Pose): Pose {
     const st = a.stateTime;
     const t = a.time;
-    Object.assign(out, newPose());
+    Object.assign(out, NEUTRAL);
     // idle breathing
     out.py += 0.004 * Math.sin(t * 2.1);
     out.crz += 0.012 * Math.sin(t * 2.1 + 0.6);
@@ -524,14 +525,14 @@ export function createHunterRig(): HunterRig {
       case 'getup': {
         const u = clamp01(st / GETUP_TIME);
         if (u < 0.5) lerpPose(SIT, KNEEL, smooth(0, 0.5, u), out);
-        else lerpPose(KNEEL, newPose(), smooth(0.5, 1, u), out);
+        else lerpPose(KNEEL, NEUTRAL, smooth(0.5, 1, u), out);
         break;
       }
       case 'kick': {
         const u = clamp01(st / KICK_TIME);
         const sw = Math.sin(Math.PI * Math.min(1, u * 1.15));
         out.tl = -1.05 * sw;
-        out.sl = u < 0.35 ? lerp(0.05, 1.3, smooth(0, 0.35, u)) : u < 0.6 ? lerp(1.3, 0.05, smooth(0.35, 0.6, u)) : lerp(0.05, 0.05, u);
+        out.sl = u < 0.35 ? lerp(0.05, 1.3, smooth(0, 0.35, u)) : lerp(1.3, 0.05, smooth(0.35, 0.6, u));
         out.tr = 0.12 * sw;
         out.sr = 0.15 * sw;
         out.prz = -0.22 * sw;
