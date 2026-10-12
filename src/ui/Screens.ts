@@ -135,6 +135,13 @@ export class Screens {
   readonly options: Options;
   onOptionsChange: ((o: Options) => void) | null = null;
 
+  /** Change one option from outside the options screen (e.g. the V key): persists and notifies. */
+  setOption<K extends keyof Options>(key: K, value: Options[K]): void {
+    this.options[key] = value;
+    storageSet(OPTIONS_KEY, this.options);
+    this.onOptionsChange?.({ ...this.options });
+  }
+
   private readonly root: HTMLDivElement;
   private readonly splash: HTMLDivElement;
   private readonly msgs: HTMLDivElement;

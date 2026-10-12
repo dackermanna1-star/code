@@ -105,6 +105,11 @@ export class WorldOverlay {
     this.dirty = true;
   }
 
+  /** Overlay look (Options.hudStyle). */
+  setStyle(_style: 'modern' | 'classic'): void {
+    // implemented by the UI redesign
+  }
+
   render(items: OverlayItems): void {
     if (this.view.clientWidth !== this.cssW || this.view.clientHeight !== this.cssH) this.resize();
     const { ctx } = this;

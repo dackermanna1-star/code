@@ -177,6 +177,11 @@ export class Hud {
     for (const s of this.slots) this.applyIcon(s);
   }
 
+  /** HUD look (Options.hudStyle). */
+  setStyle(_style: 'modern' | 'classic'): void {
+    // implemented by the UI redesign
+  }
+
   setVisible(v: boolean): void {
     if (v === this.visible) return;
     this.visible = v;
