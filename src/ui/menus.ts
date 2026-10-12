@@ -1,6 +1,6 @@
 // Main menu, game mode selection, options, pause, death and victory screens.
 import { drawMenuBackdrop } from '../render/art/logo';
-import { Input, Action, DEFAULT_BINDINGS } from '../core/input';
+import { Input, Action, DEFAULT_BINDINGS, keyLabel } from '../core/input';
 import { audio } from '../audio/audio';
 
 export interface Settings {
@@ -129,6 +129,7 @@ export class Menus {
           ${range('o-master', 'Master volume', 0, 1.2, 0.05, s.master)}
           ${range('o-sfx', 'Effects volume', 0, 1.2, 0.05, s.sfx)}
           ${range('o-music', 'Ambience volume', 0, 1.2, 0.05, s.music)}
+          <label class="opt"><span>Tutorial hints</span><b class="rebind" id="o-hints">show again</b></label>
         </div>${btn('back', 'Return')}`;
         break;
       }
@@ -137,7 +138,7 @@ export class Menus {
         html = `<div class="mode-title">Controls</div><div class="opts noita-panel controls">
           <div class="crow"><span>Cast / pour</span><b>Left mouse</b></div><div class="crow"><span>Throw flask</span><b>Right mouse</b></div>
           <div class="crow"><span>Select wand / item</span><b>Mouse wheel</b></div>
-          ${actions.map((a) => `<div class="crow"><span>${a}</span><b class="rebind" data-act="${a}">${this.rebinding === a ? 'press a key…' : this.input.bindings[a].join(', ')}</b></div>`).join('')}
+          ${actions.map((a) => `<div class="crow"><span>${a}</span><b class="rebind" data-act="${a}">${this.rebinding === a ? 'press a key…' : this.input.bindings[a].map(keyLabel).join(', ')}</b></div>`).join('')}
           <div class="crow small">Click a binding to change it.</div>
         </div>${btn('reset', 'Reset to defaults')}${btn('back', 'Return')}`;
         break;
@@ -225,6 +226,15 @@ export class Menus {
       bind('o-master', 'master');
       bind('o-sfx', 'sfx');
       bind('o-music', 'music');
+      const hints = this.panel.querySelector('#o-hints') as HTMLElement;
+      hints.addEventListener('click', () => {
+        try {
+          localStorage.removeItem('noita3d.hints');
+        } catch {
+          /* ignore */
+        }
+        hints.textContent = 'will show next run';
+      });
       (this.panel.querySelector('#o-inv') as HTMLInputElement).addEventListener('change', (e) => {
         s.invertY = (e.target as HTMLInputElement).checked;
         saveSettings(s);

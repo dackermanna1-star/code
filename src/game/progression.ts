@@ -1,6 +1,7 @@
 // ProgressionSystem: Holy Mountains (shop, perks, refresher, healing, collapse, angry gods), perks,
 // the start-area tutorial stone, and the Sampo at the bottom of the world.
 import { Rng, hash3 } from '../core/rng';
+import type { Action } from '../core/input';
 import { Spawn } from '../world/generator';
 import { HM, hmBandY, hmFloorY, NUM_LAYERS, BIOMES } from '../world/biomes';
 import { DENSEROCK, GRAVEL } from '../world/materials';
@@ -61,7 +62,8 @@ export class Progression {
   nearbyText(): string {
     const p = this.run.game.player.body;
     if (this.tutorial && Math.hypot(p.x - this.tutorial.x, p.z - this.tutorial.z) < 26 && Math.abs(p.y - this.tutorial.y) < 30) {
-      return 'WASD move · Space jump, hold to levitate · LMB cast · 1-4 wands, 5-8 flasks · E pick up · Tab inventory · F kick';
+      const k = (a: Action) => this.run.game.input.key(a);
+      return `${k('forward')}${k('left')}${k('back')}${k('right')} move · ${k('jump')} jump, hold to levitate · LMB cast · 1-4 wands, 5-8 flasks · ${k('interact')} pick up · ${k('inventory')} inventory · ${k('kick')} kick`;
     }
     const room = this.hmRoomAt(p.x, p.y, p.z);
     if (room >= 0 && !this.collapsed.has(room) && Math.hypot(p.x - HM.exitX, p.z - HM.exitZ) < 9) return 'The way down. The mountain will close behind you.';

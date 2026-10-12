@@ -32,6 +32,17 @@ export const DEFAULT_BINDINGS: Record<Action, string[]> = {
 
 const STORE_KEY = 'noita3d.bindings';
 
+/** Human-readable name of a KeyboardEvent.code ('KeyE' -> 'E', 'ShiftLeft' -> 'Shift'). */
+export function keyLabel(code: string): string {
+  if (code.startsWith('Key')) return code.slice(3);
+  if (code.startsWith('Digit')) return code.slice(5);
+  if (code.startsWith('Arrow')) return code.slice(5) + ' arrow';
+  const m = /^(Shift|Control|Alt|Meta)(Left|Right)$/.exec(code);
+  if (m) return m[1] === 'Control' ? 'Ctrl' : m[1];
+  if (code === 'Backquote') return '`';
+  return code;
+}
+
 export class Input {
   bindings: Record<Action, string[]>;
   private down = new Set<string>();
@@ -96,6 +107,12 @@ export class Input {
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === this.el;
     });
+  }
+
+  /** Label of the primary key bound to an action, for prompts and hints. */
+  key(a: Action): string {
+    const b = this.bindings[a];
+    return b && b.length ? keyLabel(b[0]) : '?';
   }
 
   saveBindings(): void {

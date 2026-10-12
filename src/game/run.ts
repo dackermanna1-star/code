@@ -1,7 +1,7 @@
 // Run: one life of the roguelite. Wires the player, inventory, wands, projectiles, pickups, enemies,
 // holy mountains, HUD and audio onto the engine (Game).
 import * as THREE from 'three';
-import { DT } from '../config';
+import { DT, SURFACE_Y } from '../config';
 import { Rng, FastRng } from '../core/rng';
 import { Game } from './game';
 import { Inventory, makePotion, potionTakeOne, potionTotal, potionAdd, potionMain, canStore, POTION_CAPACITY, Potion } from './inventory';
@@ -44,6 +44,18 @@ interface Thrown {
 
 const STARTER_POTIONS: [string, number][] = [['water', 45], ['oil', 14], ['blood', 8], ['whiskey', 10], ['slime', 7], ['toxic', 7], ['teleportatium', 4], ['polymorphine', 2], ['mana', 3]];
 
+const HINT_STORE = 'noita3d.hints';
+/** Tutorial hints already seen (persisted so a new run does not repeat them). */
+function loadHints(): Set<string> {
+  try {
+    const raw = localStorage.getItem(HINT_STORE);
+    if (raw) return new Set(JSON.parse(raw) as string[]);
+  } catch {
+    /* storage unavailable */
+  }
+  return new Set();
+}
+
 export class Run {
   readonly game: Game;
   readonly inv = new Inventory();
@@ -57,7 +69,7 @@ export class Run {
   readonly invUI: InventoryUI;
   readonly inspect: InspectPanel;
   private hintEl: HTMLDivElement;
-  private hintsShown = new Set<string>();
+  private hintsShown = loadHints();
   private hintT = 0;
   readonly rng = new FastRng(Date.now() >>> 0);
   private timedLights: TimedLight[] = [];
@@ -198,6 +210,11 @@ export class Run {
   hint(id: string, text: string): void {
     if (this.hintsShown.has(id)) return;
     this.hintsShown.add(id);
+    try {
+      localStorage.setItem(HINT_STORE, JSON.stringify([...this.hintsShown]));
+    } catch {
+      /* storage unavailable */
+    }
     this.hintEl.textContent = text;
     this.hintEl.style.display = '';
     this.hintT = 7;
@@ -423,10 +440,12 @@ export class Run {
       if (this.hintT <= 0) this.hintEl.style.display = 'none';
     }
     // contextual tutorial
+    if (g.time > 1.5) this.hint('move', `${g.input.key('forward')}${g.input.key('left')}${g.input.key('back')}${g.input.key('right')} to move, mouse to look, ${g.input.key('jump')} to jump. The way down is through the mountain.`);
     if (g.time > 4) this.hint('cast', 'Left mouse casts your wand. Wands hold spells: cast delay, recharge and mana decide how they fire.');
     if (g.time > 14 && hm < 0) this.hint('levitate', 'Hold Space in the air to levitate. The orange bar refills when you stand on the ground.');
+    if (g.time > 40 && hm < 0 && p.body.y < SURFACE_Y - 40) this.hint('experiment', 'Everything down here is simulated material. Mix liquids, set things alight, dig, and watch what happens.');
     if (this.inv.activeItem()) this.hint('flask', 'Flasks hold real liquid: left mouse pours, right mouse throws, R drinks, hold E on a pool to fill.');
-    if (this.progression.canEditWands() && hm >= 0) this.hint('hm', 'A Holy Mountain. Press Tab to rearrange the spells in your wands — this is the only place you can.');
+    if (this.progression.canEditWands() && hm >= 0) this.hint('hm', `A Holy Mountain. Press ${g.input.key('inventory')} to rearrange the spells in your wands — this is the only place you can. Spells cast left to right; modifiers change the spells after them.`);
     audio.setListener(g.camera.position.x, g.camera.position.y, g.camera.position.z, p.yaw, p.pitch);
     audio.setLoop('levitate', p.levitating ? 0.5 : 0);
     // ambient loops driven by the simulation: nearby fires crackle, moving liquids gurgle
@@ -731,24 +750,25 @@ export class Run {
     const pk = this.pickups.pick(cam.x, cam.y, cam.z, d.x, d.y, d.z, 14);
     this.promptTarget = pk;
     let txt = '';
+    const E = g.input.key('interact');
     if (pk) {
       const price = pk.price > 0 ? ` — ${pk.price} gold` : '';
       switch (pk.kind) {
-        case 'wand': txt = `[E] Pick up wand: ${pk.label}${price}`; break;
-        case 'spell': txt = `[E] Pick up spell: ${pk.label}${price}`; break;
-        case 'potion': txt = `[E] Pick up ${pk.label}`; break;
-        case 'chest': txt = '[E] Open chest'; break;
-        case 'perk': txt = `[E] Take perk: ${pk.label}`; break;
-        case 'refresher': txt = '[E] Use Spell Refresher'; break;
-        case 'reroll': txt = `[E] Reroll perks — ${this.progression.rerollCost} gold`; break;
-        case 'sampo': txt = '[E] Claim the Sampo'; break;
+        case 'wand': txt = `[${E}] Pick up wand: ${pk.label}${price}`; break;
+        case 'spell': txt = `[${E}] Pick up spell: ${pk.label}${price}`; break;
+        case 'potion': txt = `[${E}] Pick up ${pk.label}`; break;
+        case 'chest': txt = `[${E}] Open chest`; break;
+        case 'perk': txt = `[${E}] Take perk: ${pk.label}`; break;
+        case 'refresher': txt = `[${E}] Use Spell Refresher`; break;
+        case 'reroll': txt = `[${E}] Reroll perks — ${this.progression.rerollCost} gold`; break;
+        case 'sampo': txt = `[${E}] Claim the Sampo`; break;
         default: txt = pk.label;
       }
     } else {
       const it = this.inv.activeItem();
       if (it) {
         const h = g.world.raycast(cam.x, cam.y, cam.z, d.x, d.y, d.z, 12, RAY_SOLID | RAY_LIQUID);
-        if (h.hit && KIND[h.mat] === Kind.LIQUID) txt = `[Hold E] Fill flask with ${MATERIALS[h.mat].display}`;
+        if (h.hit && KIND[h.mat] === Kind.LIQUID) txt = `[Hold ${E}] Fill flask with ${MATERIALS[h.mat].display}`;
       }
       const t = this.progression.nearbyText();
       if (!txt && t) txt = t;
@@ -786,7 +806,7 @@ export class Run {
         break;
       }
       case 'spell': {
-        this.hint('spell', 'Spells go into your bag (Tab). You can place them into wands only inside a Holy Mountain.');
+        this.hint('spell', `Spells go into your bag (${this.game.input.key('inventory')}). You can place them into wands only inside a Holy Mountain.`);
         if (this.inv.addSpell({ id: pk.spell!.id, uses: pk.spell!.uses }) < 0) {
           this.hud.log('Spell inventory is full', '#ff8060');
           return;
