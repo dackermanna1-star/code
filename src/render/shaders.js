@@ -198,7 +198,7 @@ void main() {
     ivec2 tc = ivec2(mod(floor(col), rect.z), clamp(floor(r), 0.0, rect.w - 1.0));
     idx = floor(atlasTexel(rect, tc).r * 255.0 + 0.5);
   }
-  if (u_fixedColormap > 31.5) idx = shade(idx, u_fixedColormap) * 255.0;
+  // As in r_plane.c the sky is always drawn with colormap 0 (no invulnerability inversion).
   o_color = vec4(idx / 255.0, 0.0, 0.0, 1.0);
 }
 `;

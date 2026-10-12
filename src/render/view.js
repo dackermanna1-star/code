@@ -4,7 +4,9 @@
 import { stateSprite, stateFrame, FULLBRIGHT, FRAMEMASK } from '../game/tables.js';
 import { SPR_FULLBRIGHT, SPR_FUZZ, SPR_DITHER } from './renderer.js';
 import { MF, PW, normAngle } from '../game/defs.js';
-import { PS_WEAPON, PS_FLASH, weaponCfg, weaponFrameOverride } from '../game/weapons.js';
+import {
+  PS_WEAPON, PS_FLASH, weaponCfg, weaponFrameOverride, MELEE_OUT, MELEE_BACK, MELEE_TICS,
+} from '../game/weapons.js';
 import { SPR, WEAPONINFO } from '../game/tables.js';
 
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -193,8 +195,11 @@ export class ViewRenderer {
       }
     }
     if (m.melee) {
-      const p = m.melee.t / m.melee.total;
-      dy += 70 * Math.sin(Math.min(1, p * 1.2) * Math.PI);
+      // Gun dips out before the punch and rises after; the fist itself
+      // swings at the normal weapon height.
+      const t = m.melee.t + frac;
+      if (t < MELEE_OUT) dy += 60 * (t / MELEE_OUT);
+      else if (t >= MELEE_BACK) dy += 60 * Math.max(0, 1 - (t - MELEE_BACK) / (MELEE_TICS - MELEE_BACK));
     }
     // Aim down sights: the weapon's front sight (top-most opaque pixel of
     // its ready frame) is brought to the view centre and the sprite enlarged.

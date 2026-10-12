@@ -417,7 +417,8 @@ export class Renderer {
     const w = info.width, h = info.height;
     let left = -info.leftOffset * scale;
     let right = (w - info.leftOffset) * scale;
-    if (s.flip) { const l = left; left = -right; right = -l; }
+    // Like R_ProjectSprite, a mirrored frame keeps its screen extent and
+    // only reverses its columns.
     const top = s.z + info.topOffset * scale;
     const bot = top - h * scale;
     const u0 = s.flip ? w : 0, u1 = s.flip ? 0 : w;

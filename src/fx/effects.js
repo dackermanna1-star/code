@@ -358,8 +358,8 @@ class Effects {
     const z0 = mo.z;
     for (const c of chunks) {
       if (this.gibs.length >= cap) this.gibs.shift();
-      // A mirrored frame shows its columns (and offsets) reversed.
-      const ox = this.visibleFlip ? -c.ox : c.ox, oz = c.oy;
+      // A mirrored frame keeps its extent and reverses its columns.
+      const ox = this.visibleFlip ? this.flipOffset(image, c.ox) : c.ox, oz = c.oy;
       const x = mo.x + rx * ox, y = mo.y + ry * ox, z = z0 + oz;
       const out = Math.atan2(ry * ox, rx * ox);
       const sp = power * (0.4 + Math.random() * 0.8);
@@ -395,7 +395,7 @@ class Effects {
     const cam = this.lastCam;
     const camAng = cam ? Math.atan2(mo.y - cam.y, mo.x - cam.x) : ang;
     const rx = Math.sin(camAng), ry = -Math.cos(camAng);
-    const hox = this.visibleFlip ? -head.ox : head.ox;
+    const hox = this.visibleFlip ? this.flipOffset(image, head.ox) : head.ox;
     const x = mo.x + rx * hox, y = mo.y + ry * hox, z = mo.z + head.oy;
     const sp = 4 + Math.random() * 3;
     this.gibs.push(new Gib(x, y, z, Math.cos(ang) * sp, Math.sin(ang) * sp, 5 + Math.random() * 3, head.id, blood, { isHead: true, trail: 30, radius: 5 }));
@@ -403,6 +403,12 @@ class Effects {
     e.fountain = 30;
     this.spray(x, y, z, ang, 0.3, 26, 5, blood);
     this.w.sound({ x, y, z }, 'x_splat', { channel: 'gib', volume: 0.7 });
+  }
+
+  // Screen offset of a column position once the frame is drawn mirrored.
+  flipOffset(image, ox) {
+    const info = this.w.res.images[image];
+    return info ? info.width - 2 * info.leftOffset - ox : -ox;
   }
 
   // The sprite image the player currently sees for a mobj.
@@ -466,6 +472,11 @@ class Effects {
       if (player.damageDirs.length > 6) player.damageDirs.shift();
     }
     player.mods.shake = Math.min(8, player.mods.shake + damage * 0.06);
+    // Armor takes part of the hit: a metallic clank under the pain grunt.
+    if (player.armorpoints > 0 && damage >= 3 && this.soundBudget > 0) {
+      this.soundBudget--;
+      this.w.sound(player.mo, 'x_impact_metal', { channel: 'armor', volume: Math.min(0.6, 0.25 + damage / 60) });
+    }
     player.mods.kick += Math.min(10, damage * 0.25);
   }
 

@@ -19,6 +19,12 @@ export const PS_FLASH = 1;
 const WEAPONBOTTOM = 128;
 const WEAPONTOP = 32;
 const BFGCELLS = 40;
+// Quick melee timeline (tics): gun out by MELEE_OUT, hit at MELEE_HIT,
+// fist gone at MELEE_BACK, gun back up at MELEE_TICS.
+export const MELEE_OUT = 3;
+export const MELEE_HIT = 6;
+export const MELEE_BACK = 12;
+export const MELEE_TICS = 16;
 const DEG = Math.PI / 180;
 
 export function weaponCfg(weapon) { return WEAPON_CFG[weapon] || WEAPON_CFG[WP.FIST]; }
@@ -227,8 +233,11 @@ function tickReload(w, player) {
 export function weaponFrameOverride(player) {
   const m = player.mods;
   if (m.melee) {
+    // The gun dips away, the fist punches (PUNG B-C-D-C-B), the gun returns.
+    const t = m.melee.t;
+    if (t < MELEE_OUT || t >= MELEE_BACK) return null;
     const seq = [1, 2, 3, 3, 2, 1];
-    const i = Math.min(seq.length - 1, Math.floor((m.melee.t / m.melee.total) * seq.length));
+    const i = Math.min(seq.length - 1, Math.floor(((t - MELEE_OUT) / (MELEE_BACK - MELEE_OUT)) * seq.length));
     return { sprite: 'PUNG', frame: seq[i] };
   }
   const r = m.reload;
@@ -285,7 +294,7 @@ export function A_WeaponReady(w, player, psp) {
   }
   if (cmd.melee && !player.meleedown && w.settings.quickMelee !== false) {
     player.meleedown = true;
-    m.melee = { t: 0, total: 14, done: false };
+    m.melee = { t: 0, total: MELEE_TICS, done: false };
     m.adsTarget = 0;
     w.sound(mo, 'x_whoosh', { channel: 'mech' });
     weaponBob(w, player, psp);
@@ -310,7 +319,7 @@ export function A_WeaponReady(w, player, psp) {
 function tickMelee(w, player) {
   const m = player.mods.melee;
   m.t++;
-  if (!m.done && m.t >= 4) {
+  if (!m.done && m.t >= MELEE_HIT) {
     m.done = true;
     let damage = (w.rng.P() % 10 + 1) << 1;
     if (player.powers[PW.STRENGTH]) damage *= 10;
