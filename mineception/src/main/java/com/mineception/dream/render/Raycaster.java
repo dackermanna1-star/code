@@ -1,7 +1,6 @@
 package com.mineception.dream.render;
 
 import com.mineception.dream.Face;
-import com.mineception.dream.LaptopGeometry;
 import com.mineception.dream.MiniBlock;
 import com.mineception.dream.MiniHit;
 import com.mineception.dream.MiniWorld;
@@ -92,6 +91,14 @@ public final class Raycaster {
 
 	public TextureSource textures() {
 		return textures;
+	}
+
+	/**
+	 * Loads and caches the face textures of a theme now. The client calls this on the render thread so that renders
+	 * on background threads never have to read resources.
+	 */
+	public void prepareTextures(Theme theme) {
+		textureTable(theme);
 	}
 
 	/** Forgets the cached face textures, e.g. after the resource packs changed. */

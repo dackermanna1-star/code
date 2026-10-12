@@ -7,12 +7,10 @@ import static com.mineception.dream.render.Raycaster.FACE_SHADE;
 import static com.mineception.dream.render.Raycaster.GLASS;
 import static com.mineception.dream.render.Raycaster.KIND;
 import static com.mineception.dream.render.Raycaster.K_CUTOUT;
-import static com.mineception.dream.render.Raycaster.K_LIQUID;
 import static com.mineception.dream.render.Raycaster.K_OPAQUE;
 import static com.mineception.dream.render.Raycaster.K_SPECIAL;
 import static com.mineception.dream.render.Raycaster.K_TRANSLUCENT;
 import static com.mineception.dream.render.Raycaster.NORTH;
-import static com.mineception.dream.render.Raycaster.OCCLUDES;
 import static com.mineception.dream.render.Raycaster.SOUTH;
 import static com.mineception.dream.render.Raycaster.UP;
 import static com.mineception.dream.render.Raycaster.VARIANT;
@@ -798,10 +796,16 @@ final class RayFrame {
 		if (hasHighlight && cx == hx && cy == hy && cz == hz) {
 			double edge = Math.min(Math.min(s, 1.0 - s), Math.min(tt, 1.0 - tt));
 			if (edge < lineWidth(t)) {
-				rgb = Raycaster.lerpColor(rgb, 0xFF000000, 0.62F);
+				rgb = outline(rgb);
 			}
 		}
 		return rgb;
+	}
+
+	/** The highlight outline over a surface colour: vanilla's dark line, or a light one where the surface is too dark. */
+	private static int outline(int rgb) {
+		int brightness = (rgb >> 16 & 0xFF) + (rgb >> 8 & 0xFF) + (rgb & 0xFF);
+		return brightness < 120 ? Raycaster.lerpColor(rgb, 0xFFFFFFFF, 0.45F) : Raycaster.lerpColor(rgb, 0xFF000000, 0.62F);
 	}
 
 	private double lineWidth(double distance) {
@@ -997,7 +1001,7 @@ final class RayFrame {
 				double[] b = bestBox == 0 ? LaptopGeometry.BASE : LaptopGeometry.LID;
 				double edge = boxFaceEdgeDistance(b, bestFace, qx, qy, qz);
 				if (edge < lineWidth(best)) {
-					rgb = Raycaster.lerpColor(rgb, 0xFF000000, 0.62F);
+					rgb = outline(rgb);
 				}
 			}
 		}
@@ -1097,7 +1101,7 @@ final class RayFrame {
 		// Celestial coordinates: S toward the sun, T along its path, Z along the north-south rotation axis
 		double ds = dx * sunX + dy * sunY;
 		double dt = -dx * sunY + dy * sunX;
-		if (starBrightness > 0.01F && dy > -0.05) {
+		if (starBrightness > 0.06F && dy > -0.05) {
 			color = stars(color, ds, dt, dz);
 		}
 		if (celestial > 0.01F) {
@@ -1220,7 +1224,14 @@ final class RayFrame {
 			return color;
 		}
 		float fade = (float) (1.0 - smooth((distance - 70.0) / 170.0));
-		return Raycaster.lerpColor(color, cloudColor, cloudAlpha * fade);
+		int cloud = cloudColor;
+		if (glowAmount > 0.01F) {
+			// Clouds toward the low sun catch the sunrise and sunset colours
+			double horizontal = Math.sqrt(dx * dx + dz * dz);
+			double side = horizontal > 1e-6 ? Math.max(0.0, dx * glowSide / horizontal) : 0.0;
+			cloud = Raycaster.lerpColor(cloud, 0xFFFFB27A, (float) (glowAmount * side * 0.55));
+		}
+		return Raycaster.lerpColor(color, cloud, cloudAlpha * fade);
 	}
 
 	private static final double CLOUD_Y_D = Raycaster.CLOUD_Y;

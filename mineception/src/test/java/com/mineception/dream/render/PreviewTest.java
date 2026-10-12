@@ -143,6 +143,28 @@ class PreviewTest {
 	}
 
 	@Test
+	void skies() {
+		assumeTrue(textures != null, "Minecraft client jar not found");
+		MiniWorld[] worlds = showcase();
+		// The Hotel's showcase stand-in is open air without weather: good for looking at the sky itself
+		Theme theme = Theme.HOTEL;
+		Camera sunset = new Camera(30.0, 9.0, 30.0, Face.WEST.yaw(), -8.0F, 70.0F);
+		Previews.write("sky_sunset_west", render(worlds, 2, sunset, Previews.gameTimeFor(theme, 0.49), null, 320, 200), 320, 200, 2);
+		Camera sunrise = new Camera(10.0, 9.0, 30.0, Face.EAST.yaw(), -8.0F, 70.0F);
+		Previews.write("sky_sunrise_east", render(worlds, 2, sunrise, Previews.gameTimeFor(theme, 0.015), null, 320, 200), 320, 200, 2);
+		Camera noon = new Camera(20.0, 9.0, 30.0, 180.0F, -75.0F, 70.0F);
+		Previews.write("sky_noon_up", render(worlds, 2, noon, Previews.gameTimeFor(theme, 0.25), null, 320, 200), 320, 200, 2);
+		Camera night = new Camera(20.0, 9.0, 30.0, Face.EAST.yaw(), -35.0F, 70.0F);
+		Previews.write("sky_night_moon", render(worlds, 2, night, Previews.gameTimeFor(theme, 0.85), null, 320, 200), 320, 200, 2);
+		Camera west = new Camera(30.0, 7.0, 25.0, Face.WEST.yaw(), -4.0F, 70.0F);
+		Previews.write("sky_limbo_west", render(worlds, 4, west, 0L, null, 320, 200), 320, 200, 2);
+		Camera snowNight = new Camera(20.5, 6.62, 26.0, 180.0F, -5.0F, 70.0F);
+		Previews.write("sky_fortress_night", render(worlds, 3, snowNight, Previews.gameTimeFor(Theme.FORTRESS, 0.8), null, 320, 200), 320, 200, 2);
+		Camera tree = new Camera(25.0, 9.5, 23.0, 135.0F, 10.0F, 70.0F);
+		Previews.write("view_trees", render(worlds, 2, tree, Previews.gameTimeFor(theme, 0.3), null, 320, 200), 320, 200, 2);
+	}
+
+	@Test
 	void laptopCloseUps() {
 		assumeTrue(textures != null, "Minecraft client jar not found");
 		MiniWorld[] worlds = showcase();
