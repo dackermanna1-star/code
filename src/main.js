@@ -21,6 +21,9 @@ import { DUST2_LIGHTING } from './map/lighting.js';
 import { setLightCurve } from './map/meshbuilder.js';
 import { MAPS, mapDef as lookupMap, mapAvailability, storeUserFiles, listUserFiles, bundledMaps } from './game/maps.js';
 import * as ATT from './game/attachments.js';
+import { TitleScene } from './ui/titlescene.js';
+import { ZTips } from './ui/ztips.js';
+import { SquadTally } from './ui/front/zscore.js';
 
 const params = new URLSearchParams(location.search);
 
@@ -87,6 +90,13 @@ async function boot() {
   });
   const con = new Console(game, menus, settings, renderer, input, hud);
   game.console = con;
+  // the front end: the title backdrop, first-run tips, the zombie scoreboard's downs / revives
+  const title = new TitleScene({ game, renderer, sound, container: app });
+  const tips = new ZTips(game, { root: menus.root, input, viewport: () => renderer.viewport });
+  const tally = new SquadTally(game.zombies?.events);
+  menus.front.info = () => frontInfo();
+  menus.front.sound = (n) => sound.play(n, { volume: 0.6 });
+  window.__front = { title, tips, tally };
   menus.hideLoading?.();
   menus.mapInfo = { name: W.map.name || 'de_dust2', mode: W.mapDef?.mode || 'bomb', credit: W.mapDef?.credit };
 
@@ -102,17 +112,19 @@ async function boot() {
     try { ambience.handle = sound.loop('ambience_wind', { volume: 0.35 }); } catch { /* ignore */ }
   }
 
-  function menuBackgroundView() {
-    const t = performance.now() / 1000;
-    if (W.map.source === 'bsp') {
-      // a slow look around from a CT spawn
-      const s = game.spawns.CT[0] || game.spawns.T[0];
-      const o = s ? s.origin : [0, 0, 0];
-      renderer.setView([o[0], o[1], o[2] + 28], 4, (s?.angle || 0) + Math.sin(t * 0.05) * 25, 0);
-      return;
-    }
-    // a slow look across T spawn toward mid, like a 1.6 menu backdrop
-    renderer.setView([-1350, -960, 128 + 64], 4, 70 + Math.sin(t * 0.05) * 12, 0);
+  /** What the main menu shows: the best run and the setup Quick start would use. */
+  function frontInfo() {
+    const Z = game.zombies, o = zombieDefaults();
+    const diff = Z?.diff?.label || 'Normal';
+    const label = { casual: 'Casual', normal: 'Normal', hard: 'Hard', nightmare: 'Nightmare', sandbox: 'Sandbox' }[o.zdiff] || 'Normal';
+    const squad = o.allies ? `${o.allies} bot${o.allies === 1 ? '' : 's'}` : 'solo';
+    return { best: Z?.best || 0, bestDiff: diff, map: W.mapDef?.id || 'de_dust2', quick: `${label}${o.hardcore ? ' hardcore' : ''} \u00b7 ${squad} \u00b7 ${W.mapDef?.id || 'de_dust2'}` };
+  }
+
+  /** The last zombie setup (settings.newgame is shared with classic: fill in the zombie defaults). */
+  function zombieDefaults() {
+    const o = settings.get('newgame') || {};
+    return { ...o, mode: 'zombies', allies: o.allies ?? 3, zdiff: o.zdiff || 'normal', skin: o.skin || 'auto', tips: tips.enabled };
   }
 
   // ---------------------------------------------------------------- maps
@@ -147,6 +159,8 @@ async function boot() {
 
   function newGame(opts) {
     settings.set('newgame', opts);
+    if (opts.mode === 'zombies' && opts.tips != null) tips.setEnabled(opts.tips);
+    title.stop();
     game.newGame({ ...opts, playerName: settings.get('name') });
     inGame = true;
     zombieOverShown = false;
@@ -155,6 +169,8 @@ async function boot() {
     // zombie survival: everybody alive is a Counter-Terrorist, pick a skin
     if (opts.mode === 'zombies') {
       pendingTeam = TEAM_CT;
+      // from the setup screen (a look picked there): straight in
+      if (opts.skin) { sound.play('title_start', { volume: 0.8 }); chooseClass(opts.skin === 'auto' ? null : opts.skin); return; }
       menus.showClassSelect?.(TEAM_CT, (cls) => onMenuCommand('joinclass ' + cls));
       return;
     }
@@ -169,7 +185,7 @@ async function boot() {
     zombieOverShown = true;
     input.exitLock();
     // (a new best: more than the best before this run, Z.isNewBest)
-    menus.showZombieOver?.({ waves: Z.survived, kills: Z.kills, best: Z.best, newBest: Z.isNewBest(), diff: Z.diff.label, stats: Z.runStats }, () => newGame(settings.get('newgame')), () => openMain());
+    menus.showZombieOver?.({ waves: Z.survived, kills: Z.kills, best: Z.best, newBest: Z.isNewBest(), diff: Z.diff.label, hardcore: Z.diff.hardcore, stats: Z.runStats }, () => newGame(settings.get('newgame')), () => openMain());
   }
 
   function chooseTeam(team) {
@@ -197,9 +213,21 @@ async function boot() {
     const [cmd, ...rest] = c.split(' ');
     const arg = rest.join(' ');
     switch (cmd) {
+      case 'zsetup':
+        mapIds().then((ids) => {
+          const d = { ...zombieDefaults(), map: W.mapDef?.id || 'de_dust2', maps: ids.map((id) => [id, id]), mapInfo, addFiles };
+          menus.showZombieSetup?.(d, (opts) => {
+            if ((opts.map || 'de_dust2') !== (W.mapDef?.id || 'de_dust2')) switchMap(opts.map, opts);
+            else newGame(opts);
+          });
+        });
+        break;
+      case 'zquick':
+        newGame({ ...zombieDefaults(), tips: undefined });
+        break;
       case 'newgame':
         mapIds().then((ids) => {
-          const d = { ...settings.get('newgame'), map: W.mapDef?.id || 'de_dust2', maps: ids.map((id) => [id, id]), mapInfo, addFiles };
+          const d = { ...settings.get('newgame'), ...(arg === 'classic' ? { mode: 'classic' } : {}), map: W.mapDef?.id || 'de_dust2', maps: ids.map((id) => [id, id]), mapInfo, addFiles };
           menus.showNewGame?.(d, (opts) => {
             const { maps, mapInfo: _a, addFiles: _b, ...rest } = opts;
             if ((rest.map || 'de_dust2') !== (W.mapDef?.id || 'de_dust2')) switchMap(rest.map, rest);
@@ -326,13 +354,15 @@ async function boot() {
     W.update?.(dt);
     if (inGame) {
       game.frame(dt);
+      tips.frame(dt);
       checkZombieOver();
       W.skybox?.userData.follow(renderer.eye);
       renderer.render(game.drawVm);
       hud.draw?.(game.bulletCam?.active ? { hidden: true } : buildHudState(game, { fps: settings.get('cl_showfps') ? fps : null, netgraph: settings.get('net_graph') ? { fps } : null, settings }), dt);
       if (showScores) menus.showScoreboard?.(scoreData());
     } else {
-      menuBackgroundView();
+      if (!title.active) title.start();
+      title.update(dt);
       W.skybox?.userData.follow(renderer.eye);
       renderer.render(false);
       hud.draw?.({ alive: false, team: TEAM_SPEC, hidden: true }, dt);
@@ -343,6 +373,19 @@ async function boot() {
   let readyFrames = 0;
 
   function scoreData() {
+    const Z = game.zombies;
+    if (Z?.enabled) {
+      // zombie survival: the squad only, no teams (ui/front/zscore.js)
+      const h = Z.hudInfo();
+      return { zombie: {
+        wave: h.wave, state: h.state, left: h.left, next: Math.ceil(h.next ?? 0), time: Math.floor((Z.state === 'over' ? Z.runStats.endT || game.time : game.time) - Z.runStats.startT),
+        diff: h.diff, hardcore: h.hardcore, squadKills: h.squadKills, kills: h.kills, best: h.best, map: W.mapDef?.id || 'de_dust2',
+        players: game.players.filter((p) => p.team === TEAM_CT && !p.isZombie).map((p) => ({
+          name: p.name, kills: p.kills, deaths: p.deaths, downs: tally.downs(p), revives: tally.revives(p), money: p.money | 0,
+          status: !p.alive ? 'dead' : p.downed ? 'down' : 'alive', isLocal: p.isLocal, isBot: !!p.isBot,
+        })),
+      } };
+    }
     return {
       tScore: game.rounds.tScore, ctScore: game.rounds.ctScore,
       players: game.players.filter((p) => !p.isZombie).map((p) => ({ name: p.name, team: p.team, kills: p.kills, deaths: p.deaths, ping: p.isBot ? 0 : p.ping, alive: p.alive, bomb: !!p.weapons[5] && (game.local?.team === TEAM_T || game.local?.team === TEAM_SPEC), isLocal: p.isLocal })),
@@ -374,7 +417,7 @@ async function boot() {
     if (params.has('hardcore')) zo.hardcore = params.get('hardcore') !== '0';
     if (params.has('squad')) zo.squadScaling = params.get('squad') !== '0';
     if (params.has('breaklen')) zo.breakLen = +params.get('breaklen');
-    newGame({ ...settings.get('newgame'), mode, allies: +(params.get('allies') ?? 0), perTeam: +(params.get('bots') ?? 5), freezeTime: +(params.get('freeze') ?? 6), ...zo });
+    newGame({ ...settings.get('newgame'), skin: undefined, mode, allies: +(params.get('allies') ?? 0), perTeam: +(params.get('bots') ?? 5), freezeTime: +(params.get('freeze') ?? 6), ...zo });
     pendingTeam = mode === 'zombies' ? TEAM_CT : team;
     chooseClass(null);
   } else {

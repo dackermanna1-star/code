@@ -6,6 +6,7 @@ import { GUNS, SUPPRESSED, HANDLING, gunshot, suppressed } from './weapons.js';
 import { FOLEY } from './foley.js';
 import { MISC } from './misc.js';
 import { ZOMBIE_FX } from './zombie.js';
+import { TITLE_FX } from './title.js';
 
 // ------------------------------------------------------------- catalogue ---
 
@@ -41,6 +42,7 @@ export const SOUND_GROUPS = {
     'tesla_fire', 'tesla_hit', 'medkit_use', 'medkit_heal', 'sup_pistol', 'sup_smg', 'sup_rifle', 'sup_heavy', 'attach_fit'],
   'Special infected': ['boomer_idle', 'boomer_vomit', 'boomer_burst', 'charger_roar', 'hunter_scream', 'hunter_pounce', 'smoker_cough',
     'tongue_shot', 'sprinter_shriek'],
+  'Title screen': ['title_theme', 'title_start'],
 };
 
 // Default GoldSrc-style attenuation and per-play pitch jitter for each sound.
@@ -54,6 +56,7 @@ const ATTN_DEFAULTS = {
   step_sand: 'static', step_stone: 'static', step_wood: 'static', step_metal: 'static', land: 'static', jump: 'idle',
   shell: 'idle', shotgun_shell: 'idle', impact_sand: 'static', impact_wood: 'static', impact_metal: 'static',
   c4_beep: 'normal', ambience_bird: 'none', ambience_wind: 'none', distant_fly: 'idle',
+  title_theme: 'none', title_start: 'none',
 };
 const JITTER = {
   step_sand: 0.03, step_stone: 0.03, step_wood: 0.03, step_metal: 0.03, land: 0.03, jump: 0.03,
@@ -67,7 +70,7 @@ const JITTER = {
 export const DEFS = {};
 for (const [name, g] of Object.entries(GUNS)) DEFS[name] = { ...g, fn: (P) => gunshot(P, g.p), attn: 'loud', jitter: 0.015 };
 for (const [name, g] of Object.entries(SUPPRESSED)) DEFS[name] = { ...g, fn: (P) => suppressed(P, g.p), attn: 'normal', jitter: 0.015 };
-for (const [name, d] of Object.entries({ ...HANDLING, ...FOLEY, ...MISC, ...ZOMBIE_FX })) DEFS[name] = { ...d };
+for (const [name, d] of Object.entries({ ...HANDLING, ...FOLEY, ...MISC, ...ZOMBIE_FX, ...TITLE_FX })) DEFS[name] = { ...d };
 DEFS.buy = { alias: 'ammo_pickup' };
 // a recipe nobody listed above still gets made (the bank only renders catalogued names)
 {
