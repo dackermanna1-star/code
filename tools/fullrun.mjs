@@ -40,7 +40,8 @@ const checkpoints = [
 
 let next = 0;
 const t0 = Date.now();
-while (next < checkpoints.length && (Date.now() - t0) / 1000 < 60 * 60) {
+while (next < checkpoints.length && (Date.now() - t0) / 1000 < 150 * 60) {
+  page.setDefaultTimeout(600000);
   const s = await page.evaluate(() => {
     const { stage, game } = window.__game;
     stage.fastForward(1.5);
@@ -64,7 +65,7 @@ while (next < checkpoints.length && (Date.now() - t0) / 1000 < 60 * 60) {
   });
   while (next < checkpoints.length && checkpoints[next].when(s)) {
     await page.evaluate(() => window.__game.stage.frame(1 / 60));
-    await page.screenshot({ path: `${out}/${checkpoints[next].name}.png` });
+    await page.screenshot({ path: `${out}/${checkpoints[next].name}.png`, timeout: 240000 });
     console.log(checkpoints[next].name, JSON.stringify(s));
     next++;
   }
