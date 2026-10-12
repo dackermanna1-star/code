@@ -422,7 +422,7 @@ export class Hud {
   drawMoney(s, dt) {
     if (s.money == null) return;
     const k = this.k;
-    const m = clamp(Math.round(s.money), 0, 99999);
+    const m = clamp(Math.round(s.money), 0, 999999);
     if (this.prev.money !== m) {
       if (this.prev.money !== null) this.fade.money = 5;
       this.prev.money = m;
@@ -431,7 +431,8 @@ export class Hud {
     const interp = (5 - this.fade.money) / 5;
     const alpha = 128 - interp * (128 - MIN_ALPHA);
     const y = Math.round(this.vh - 3 * DIGIT_H * k);
-    const xd = this.vw - 134 * k, xn = this.vw - 116 * k;
+    const wide = m > 99999 ? 20 * k : 0; // (zombie survival's cap is $100000: a sixth digit)
+    const xd = this.vw - 134 * k - wide, xn = this.vw - 116 * k - wide;
     const dollar = hudSprite('dollar', k);
     let colors = [[RGB_YELLOWISH, 1]];
     if (this.blink.count > 0) {
@@ -458,7 +459,7 @@ export class Hud {
     for (const [rgb, w] of colors) {
       if (w <= 0.001) continue;
       this.spr(dollar, xd, y, rgb, alpha * w);
-      this.number(m, xn, y, 5, rgb, alpha * w);
+      this.number(m, xn, y, wide ? 6 : 5, rgb, alpha * w);
     }
   }
 

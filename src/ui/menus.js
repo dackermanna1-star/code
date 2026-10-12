@@ -559,14 +559,18 @@ export class Menus {
     show(list[0]);
   }
 
-  // itemState(id) -> { off, note } for the zombie survival upgrades (what fits the gun in
-  // hand, what's fitted already); upgradeTarget(skins) -> name of the weapon they go on
-  showBuyMenu(player = {}, { onBuy, allWeapons = false, itemState = null, upgradeTarget = null } = {}) {
+  // itemState(id) -> { off, note, why, price, closed } for any item: zombie survival greys out
+  // what can't be bought right now (the upgrades that don't fit the gun in hand, what you
+  // already carry, what the phase doesn't sell: closed) with a short note on the button and
+  // the reason (why) in the info panel, and gives today's price (the mid-wave markup);
+  // upgradeTarget(skins) -> name of the weapon they go on; banner: a line along the bottom
+  showBuyMenu(player = {}, { onBuy, allWeapons = false, itemState = null, upgradeTarget = null, banner = null } = {}) {
     const team = allWeapons ? 'ALL' : player.team === 'CT' ? 'CT' : 'T';
     const money = Math.max(0, Math.round(player.money ?? 0));
     const cats = CATEGORIES.filter((c) => !c.zombieOnly || team === 'ALL');
-    const stateOf = (id) => (ITEMS[id]?.upgrade && itemState ? itemState(id) : null) || {};
-    const canBuy = (id) => !!ITEMS[id] && !stateOf(id).off && (ITEMS[id].price ?? 0) <= money;
+    const stateOf = (id) => (itemState ? itemState(id) : null) || {};
+    const priceOf = (id) => stateOf(id).price ?? ITEMS[id]?.price;
+    const canBuy = (id) => !!ITEMS[id] && !stateOf(id).off && (priceOf(id) ?? 0) <= money;
     // an entry that opens another page (Weapon Skins...) or buys
     const press = (id) => { const it = ITEMS[id]; if (it?.page) openCat(SUBPAGES[it.page]); else if (canBuy(id)) buy(id); };
     const buy = (item) => {
@@ -594,6 +598,11 @@ export class Menus {
     const info = el('div', 'vg-info');
     const cash = el('div', 'vg-money', '$' + money);
     p.append(col, info, cash);
+    if (banner) {
+      const bn = el('div', 'vg-money', banner);
+      Object.assign(bn.style, { left: '240px', right: '18px', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', font: 'bold 11px Arial, "Liberation Sans", sans-serif' });
+      p.appendChild(bn);
+    }
 
     const showItem = (id) => {
       info.textContent = '';
@@ -621,7 +630,7 @@ export class Menus {
       if (it.stats) {
         const s = it.stats;
         const lines = [
-          ['Price', '$' + it.price], ['Country of origin', s.origin], ['Caliber', s.caliber], ['Clip capacity', s.clip],
+          ['Price', '$' + priceOf(id)], ['Country of origin', s.origin], ['Caliber', s.caliber], ['Clip capacity', s.clip],
           ['Rate of fire', s.rate], ['Weight (loaded)', s.weight], ['Projectile weight', s.proj], ['Muzzle velocity', s.vel], ['Muzzle energy', s.energy],
         ];
         const st = el('div', 'stats');
@@ -631,9 +640,10 @@ export class Menus {
           st.appendChild(line);
         }
         info.appendChild(st);
+        if (stateOf(id).why) info.appendChild(el('p', null, stateOf(id).why));
       } else {
-        const note = stateOf(id).note;
-        info.appendChild(el('p', null, `${it.price != null ? `Price: $${it.price}\n\n` : ''}${it.text}${note ? `\n\n(${note})` : ''}`));
+        const { note, why } = stateOf(id), price = priceOf(id);
+        info.appendChild(el('p', null, `${price != null ? `Price: $${price}\n\n` : ''}${it.text}${why || note ? `\n\n(${why || note})` : ''}`));
       }
     };
 
@@ -643,7 +653,12 @@ export class Menus {
       col.textContent = '';
       info.textContent = '';
       for (const c of cats) {
-        col.appendChild(this._vgButton(c.key, c.label, () => (c.direct ? buy(c.id) : openCat(c))));
+        // ammo is bought from here: its state and price; a page whose every item the phase
+        // keeps shut is dimmed (it still opens, to look)
+        const st = c.direct ? stateOf(c.id) : {};
+        const shut = !c.direct && itemState && itemsFor(c.id, team).every((id) => ITEMS[id]?.page || stateOf(id).closed);
+        const label = st.note ? `${c.label} (${st.note})` : c.label;
+        col.appendChild(this._vgButton(c.key, label, () => (c.direct ? buy(c.id) : openCat(c)), { price: st.price ?? null, cls: st.off || shut ? 'off' : '' }));
       }
       col.appendChild(this._vgButton(0, 'Exit', () => this._closeVg(true), { cls: 'cancel' }));
     };
@@ -656,8 +671,8 @@ export class Menus {
       ids.forEach((id, i) => {
         const it = ITEMS[id];
         const st = stateOf(id);
-        const off = !it.page && (st.off || (it.price ?? 0) > money);
-        const b = this._vgButton(i + 1, st.note ? `${it.name} (${st.note})` : it.name, () => press(id), { price: it.page ? null : it.price, off });
+        const off = !it.page && (st.off || (priceOf(id) ?? 0) > money);
+        const b = this._vgButton(i + 1, st.note ? `${it.name} (${st.note})` : it.name, () => press(id), { price: it.page ? null : priceOf(id), off });
         b.addEventListener('mouseenter', () => showItem(id));
         col.appendChild(b);
       });

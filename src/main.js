@@ -294,7 +294,8 @@ async function boot() {
           input.exitLock();
           menus.showBuyMenu?.(game.local, {
             onBuy: (item) => game.rounds.buy(game.local, item), allWeapons: !!game.zombies?.enabled,
-            itemState: (id) => ATT.menuState(game.local, id), upgradeTarget: (skins) => ATT.targetName(game.local, skins),
+            itemState: (id) => (game.zombies?.enabled ? game.zombies.economy.menuState(game.local, id) : ATT.menuState(game.local, id)), // (what the phase sells: zeconomy.js)
+            banner: game.zombies?.enabled ? game.zombies.economy.menuBanner(game.local) : null, upgradeTarget: (skins) => ATT.targetName(game.local, skins),
           });
         }
         return true;

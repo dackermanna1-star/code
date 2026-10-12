@@ -44,7 +44,6 @@ export const SPECIALS = {
 };
 const IDLE = { boomer: 'boomer_idle', smoker: 'smoker_cough', hunter: 'hunter_scream', sprinter: 'sprinter_shriek', charger: 'boss_growl' };
 const BILE_TIME = 7, PIN_TIME = 3, TONGUE_TIME = 5;
-const BOUNTY = 300; // $ for killing one
 
 export class Specials {
   constructor(game) {
@@ -463,7 +462,7 @@ export class Specials {
   onDeath(z, attacker) {
     const g = this.game, S = z.sp;
     if (S?.victim) { if (z.special === 'hunter') this.unpin(z); else if (z.special === 'smoker') this.release(z); }
-    if (attacker && !attacker.isZombie && attacker.team !== z.team) g.rounds.addMoney(attacker, BOUNTY);
+    this.Z.economy.specialPay(attacker, z);
     const o = z.pm.origin;
     if (z.special === 'boomer') {
       const c = [o[0], o[1], o[2] + 10];

@@ -253,20 +253,21 @@
       const Zm = Z();
       check('feature modules', ['economy', 'downed', 'feedback'].every((k) => typeof Zm[k]?.tick === 'function' && typeof Zm[k]?.hud === 'function'));
       let ticked = 0, hudded = 0;
+      const { buildHudState } = await import('/src/game/hudstate.js'); // (before the swap: the page's own frames run while it loads)
       const t0 = Zm.economy.tick, h0 = Zm.downed.hud;
       Zm.economy.tick = () => ticked++;
       Zm.downed.hud = (s) => { hudded++; s.zmTest = !!s.radar; };
       ticks(5);
-      const { buildHudState } = await import('/src/game/hudstate.js');
       const s = buildHudState(g, {});
       Zm.economy.tick = t0; Zm.downed.hud = h0;
       check('feature hooks called', ticked === 5 && hudded === 1 && s.zmTest === true, `tick ${ticked} hud ${hudded}`);
       let over = 0, under = 0;
+      const nLayers = g.hud.layers.length; // (the features' own layers stay)
       const off1 = g.hud.addLayer(() => over++), off2 = g.hud.addLayer(() => under++, -1);
       g.hud.draw(s, 0.016);
       off1(); off2();
       g.hud.draw(s, 0.016);
-      check('hud layers', over === 1 && under === 1 && g.hud.layers.length === 0);
+      check('hud layers', over === 1 && under === 1 && g.hud.layers.length === nLayers);
       // commands nothing else takes reach the features (F1 'autobuy', a typed 'zm_ready')
       const got = [], c0 = Zm.economy.command;
       Zm.economy.command = (q, cmd, args) => { got.push(`${q === g.local}:${cmd}:${args.join(',')}`); return cmd === 'zm_ready' || cmd === 'autobuy'; };

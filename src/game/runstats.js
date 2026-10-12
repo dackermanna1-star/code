@@ -34,7 +34,7 @@
 //  boss      { phase: 'spawn' | 'death', id, name, boss (the Player), attacker (death), wave, t }
 // Reserved for the builders (defined and emitted by them; listed so subscriptions don't warn):
 //  economy:  earn { player, amount, reason: 'kill' | 'special' | 'boss' | 'wave', t },
-//            ready { player, all (every human is ready), t }
+//            ready { player, ready (on / off), all (every human is ready), t }
 //  downed:   down { player, attacker, bleedOut (s), downs (this wave), t },
 //            revive { player, by (null: on his own), t }, bleedout { player, t },
 //            respawn { player, wave, t }, wipe { wave, t }

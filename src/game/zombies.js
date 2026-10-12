@@ -1,7 +1,9 @@
-// Zombie survival: you (and any bot teammates) start with $16000 and hold out
-// against endless, growing waves of zombies until you die.
+// Zombie survival: you (and any bot teammates) start with a pistol and the difficulty's
+// money, and hold out against endless, growing waves of zombies until you die.
 //  - waves: a 12 s break to buy before the first, 15 s between waves (the difficulty's);
-//    buying works anywhere, any time; a cleared wave pays a bonus and patches you up a little
+//    the economy (zeconomy.js) pays for kills, sells guns in the breaks (ammo, armour and
+//    medkits mid-wave) and cuts a break short once everyone is ready; a cleared wave pays a
+//    bonus and patches you up a little
 //  - each wave brings more zombies, with more health, more damage and, from wave 3,
 //    runners faster than a knife; more of them, more up at once, the bigger the squad
 //    (zdiff.js waveStats); far off and out of sight they think less often (lodSkip)
@@ -114,7 +116,7 @@ export class ZombieMode {
     g.explosives?.clear();
     this.bossAt = 0;
     g.spectate = { mode: 'free', angles: [20, 90, 0] };
-    g.hud?.centerPrint?.(`Zombie survival (${this.diff.label})\nBuy anything, anywhere. The first wave comes in ${this.diff.firstBreak} seconds.`, 6);
+    g.hud?.centerPrint?.(this.economy.greeting(), 7);
     g.bots.onRoundStart();
     this.events.mode('run', { phase: 'start', wave: 0, diff: this.diff.id });
   }

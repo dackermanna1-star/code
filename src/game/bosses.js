@@ -163,14 +163,13 @@ export class BossDirector {
       B.boomAt = g.time + 1.4;
       this.pendingBoom = { pos: o.slice(), at: g.time + 1.4, owner: b };
     }
-    const bonus = 5000;
+    const cut = this.Z.economy.bossPay(); // the bounty, shared out by damage dealt (zeconomy.js): your cut
     for (const p of g.players) {
       if (p.team !== TEAM_CT || !p.alive) continue;
-      g.rounds.addMoney(p, bonus);
       p.health = 100;
       p.armor = 100; p.helmet = true;
     }
-    g.hud?.centerPrint?.(`${def.name} IS DEAD!\n+$${bonus}, full health and armour.`, 5);
+    g.hud?.centerPrint?.(`${def.name} IS DEAD!\n${cut}full health and armour.`, 5);
     void attacker;
   }
 

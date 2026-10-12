@@ -173,6 +173,24 @@ export const MISC = {
     addTone(x, sr, 0.07, { f: 1480, tau: 0.1, amp: 0.8, a: 0.003 });
     addTone(x, sr, 0.07, { f: 2960, tau: 0.04, amp: 0.12, a: 0.003 });
   }, 0.1) },
+  // zombie survival ready-up (zeconomy.js): you're ready (a rising fourth, bell-ish), and
+  // everyone is (a rising triad that rings on: the wave is seconds away)
+  zm_ready: { dur: 0.45, peak: 0.3, fn: (P) => foley(P, (x, sr) => {
+    addTone(x, sr, 0, { f: 784, tau: 0.07, amp: 0.7, a: 0.002 });
+    addTone(x, sr, 0, { f: 1568, tau: 0.03, amp: 0.12, a: 0.002 });
+    addTone(x, sr, 0.085, { f: 1047, tau: 0.14, amp: 0.8, a: 0.002 });
+    addTone(x, sr, 0.085, { f: 2094, tau: 0.05, amp: 0.14, a: 0.002 });
+    addTone(x, sr, 0.085, { f: 3141, tau: 0.025, amp: 0.05, a: 0.002 });
+  }, 0.08) },
+  zm_allready: { dur: 1.1, peak: 0.32, fn: (P) => foley(P, (x, sr) => {
+    const notes = [523, 659, 784, 1047];
+    notes.forEach((f, i) => {
+      const t = i * 0.09, last = i === notes.length - 1;
+      addTone(x, sr, t, { f, tau: last ? 0.32 : 0.08, amp: last ? 0.85 : 0.6, a: 0.003, vib: last ? 0.004 : 0, vibF: 5.5 });
+      addTone(x, sr, t, { f: f * 2, tau: last ? 0.12 : 0.04, amp: 0.15, a: 0.003 });
+      addTone(x, sr, t, { f: f * 3.01, tau: 0.03, amp: 0.05, a: 0.002 });
+    });
+  }, 0.15) },
   nvg_on: { dur: 0.5, peak: 0.3, fn: (P) => foley(P, (x, sr, r) => {
     addMetal(x, sr, r, 0, { f: 2800, amp: 0.7, tau: 0.008, body: 0.4, bodyF: 1000 });
     addTone(x, sr, 0.01, { f: 1800, f1: 6500, glide: 0.2, tau: 0.6, len: 0.45, amp: 0.35, a: 0.03, rel: 0.12 });

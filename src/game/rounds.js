@@ -4,7 +4,6 @@ import { TEAM_T, TEAM_CT, TEAM_SPEC } from './player.js';
 import * as WS from './weaponsys.js';
 import * as ATT from './attachments.js';
 import * as CR from './combatrules.js';
-import { ZOMBIE_START_MONEY } from './zombies.js';
 import { createPlantedC4, createDefuseKit } from '../assets/worldweapons.js';
 import { TraceResult, MASK_WORLD_PLAYER } from '../engine/collision.js';
 
@@ -37,7 +36,7 @@ export class RoundManager {
     this.restartDelay = 5;
     const Z = this.game.zombies;
     Z?.configure(o);
-    if (Z?.enabled) { this.startMoney = ZOMBIE_START_MONEY; this.friendlyFire = false; }
+    if (Z?.enabled) { this.startMoney = Z.diff.econ.startMoney; this.friendlyFire = false; }
     const H = this.game.hostages;
     if (H) H.enabled = H.spots.length > 0 && !Z?.enabled;
   }
@@ -213,7 +212,8 @@ export class RoundManager {
 
   addMoney(p, amount, quiet = false) {
     const before = p.money;
-    p.money = Math.max(0, Math.min(CR.RULES?.maxMoney ?? 16000, p.money + amount));
+    const cap = this.game.zombies?.enabled ? this.game.zombies.diff.econ.moneyCap : CR.RULES?.maxMoney ?? 16000;
+    p.money = Math.max(0, Math.min(cap, p.money + amount));
     if (p.isLocal && p.money !== before) this.game.hud?.moneyDelta?.(p.money - before);
   }
 
@@ -237,7 +237,11 @@ export class RoundManager {
     if (!p.alive) return false;
     if (!g.inBuyZone(p)) return false;
     if (!this.buyTimeLeft()) { say(`${Math.round(this.buyTime)} seconds have passed.\nYou can't buy anything now.`); return false; }
+    // zombie survival: what the phase allows (guns in the break; mid-wave ammo, armour and medkits at a markup) - zeconomy.js
+    const k = g.zombies?.enabled ? g.zombies.economy.buyGate(p, item, say) : 1;
+    if (!k) return false;
     const pay = (cost) => {
+      if (k !== 1) cost = Math.round(cost * k / 5) * 5;
       if (p.money < cost) { say('You have insufficient funds!'); return false; }
       this.addMoney(p, -cost);
       return true;

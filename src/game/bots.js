@@ -26,7 +26,6 @@ import { TraceResult, MASK_SHOT } from '../engine/collision.js';
 import { PLAYER_SKINS } from '../assets/playermodels.js';
 import * as WS from './weaponsys.js';
 import * as CR from './combatrules.js';
-import { ATTACHMENTS, whyNot } from './attachments.js';
 
 const BTN_ATTACK = 1, BTN_ATTACK2 = 2, BTN_RELOAD = 4, BTN_USE = 8;
 
@@ -1177,6 +1176,7 @@ class Bot {
   // ------------------------------------------------------------------ buying
   buy() {
     const g = this.game, p = this.p, R = g.rounds;
+    if (g.zombies?.enabled) { g.zombies.economy.botBuy(this); return; } // zombie survival: on a budget, in the breaks (zeconomy.js)
     if (!g.inBuyZone(p) || !R.buyTimeLeft()) return;
     const T = p.team === TEAM_T;
     const mode = this.mgr.econ[teamKey(p.team)] || 'full';
@@ -1196,14 +1196,6 @@ class Bot {
       for (const n of want) if (p.money - price(n) >= budget) b(n);
     };
     let prim = p.weapons[1];
-    // zombie survival: something that sprays (no AWPs against a horde)
-    if (g.zombies?.enabled && (!prim || isBolt(prim))) {
-      if (prim) g.dropWeapon(p, prim);
-      const pickGun = Math.random();
-      const want = pickGun < 0.25 ? 'm249' : pickGun < 0.62 ? 'ak47' : 'm4a1';
-      if (!b(want)) b(rifle);
-      prim = p.weapons[1];
-    }
     if (mode === 'pistol') {
       const r = Math.random();
       if (T) {
@@ -1241,20 +1233,6 @@ class Bot {
       } else { // eco: save, maybe a cheap upgrade
         if (!prim && p.money >= 1700 && Math.random() < 0.3) { b(Math.random() < 0.5 ? 'deagle' : (T ? 'p228' : 'fiveseven')); }
         if (p.weapons[1] && p.armor < 50 && p.money >= 650) b('vest');
-      }
-    }
-    // zombie survival: keep a couple of medkits on hand
-    if (g.zombies?.enabled) {
-      const kits = () => p.weapons[4].find((x) => x.id === 'medkit')?.count ?? 0;
-      for (let i = 0; i < 3 && kits() < 2 && p.money >= price('medkit') + 1500; i++) if (!b('medkit')) break;
-      // and soup up the main gun when there's money to spare (attachments.js)
-      const gun = p.weapons[1] || p.weapons[2];
-      if (gun && p.money >= 4000) {
-        if (p.active !== gun) g.selectWeapon(p, gun, true);
-        for (const a of ['extmag', 'foregrip', 'compensator', 'laser', 'reddot']) {
-          if (p.money < ATTACHMENTS[a].price + 3000) break;
-          if (!whyNot(gun, a) && !gun.att?.[ATTACHMENTS[a].slot]) b('att_' + a);
-        }
       }
     }
     prim = p.weapons[1];

@@ -21,19 +21,21 @@ const META = {
 };
 
 /**
- * Money and buying. startMoney / moneyCap ($); buyAnywhere (no buy zones); buyAnytime (guns
- * and upgrades mid-wave too, else only ammo, medkits and armour, at +combatPremium);
- * killPay: a common kill pays base + perWave x wave up to max, +headBonus (fraction) on a
- * headshot; specialPay / bossPay ($, the boss's split by damage share); waveBonus [base,
- * perWave] for a cleared wave; waveHeal (HP back for a cleared wave).
+ * Money and buying (zeconomy.js). startMoney / moneyCap ($); buyAnywhere (no buy zones);
+ * buyAnytime (guns and upgrades mid-wave too, else only ammo, medkits and armour, at
+ * +combatPremium); killPay: a common kill pays base + perWave x wave up to max, +headBonus
+ * (fraction) on a headshot; specialPay ($ for a special, on top of the kill); bossPay ($ for
+ * a boss: bossSplit = shared out by the squad's damage share, else to everyone standing);
+ * waveBonus [base, perWave] for a cleared wave; waveHeal (HP back for a cleared wave: small,
+ * so the damage you take carries over).
  * sandbox = how the mode played before the economy: $16000 cap, $300 a kill, buy anything.
  */
 const ECON = {
-  casual: { startMoney: 3000, moneyCap: 100000, buyAnywhere: true, buyAnytime: false, combatPremium: 0.25, killPay: { base: 70, perWave: 6, max: 130, headBonus: 0.5 }, specialPay: 350, bossPay: 3500, waveBonus: [600, 250], waveHeal: 35 },
-  normal: { startMoney: 2000, moneyCap: 100000, buyAnywhere: true, buyAnytime: false, combatPremium: 0.5, killPay: { base: 50, perWave: 5, max: 100, headBonus: 0.5 }, specialPay: 300, bossPay: 3000, waveBonus: [500, 250], waveHeal: 25 },
-  hard: { startMoney: 1500, moneyCap: 100000, buyAnywhere: true, buyAnytime: false, combatPremium: 0.5, killPay: { base: 50, perWave: 4, max: 90, headBonus: 0.5 }, specialPay: 300, bossPay: 3000, waveBonus: [400, 200], waveHeal: 15 },
-  nightmare: { startMoney: 1000, moneyCap: 100000, buyAnywhere: true, buyAnytime: false, combatPremium: 0.75, killPay: { base: 40, perWave: 4, max: 80, headBonus: 0.5 }, specialPay: 250, bossPay: 2500, waveBonus: [300, 150], waveHeal: 10 },
-  sandbox: { startMoney: 16000, moneyCap: 16000, buyAnywhere: true, buyAnytime: true, combatPremium: 0, killPay: { base: 300, perWave: 0, max: 300, headBonus: 0 }, specialPay: 300, bossPay: 5000, waveBonus: [500, 250], waveHeal: 25 },
+  casual: { startMoney: 3000, moneyCap: 100000, buyAnywhere: true, buyAnytime: false, combatPremium: 0.25, killPay: { base: 70, perWave: 6, max: 130, headBonus: 0.5 }, specialPay: 350, bossPay: 3500, bossSplit: true, waveBonus: [600, 250], waveHeal: 30 },
+  normal: { startMoney: 2000, moneyCap: 100000, buyAnywhere: true, buyAnytime: false, combatPremium: 0.5, killPay: { base: 50, perWave: 5, max: 100, headBonus: 0.5 }, specialPay: 300, bossPay: 3000, bossSplit: true, waveBonus: [500, 250], waveHeal: 15 },
+  hard: { startMoney: 1500, moneyCap: 100000, buyAnywhere: true, buyAnytime: false, combatPremium: 0.5, killPay: { base: 50, perWave: 4, max: 90, headBonus: 0.5 }, specialPay: 300, bossPay: 3000, bossSplit: true, waveBonus: [400, 200], waveHeal: 10 },
+  nightmare: { startMoney: 1000, moneyCap: 100000, buyAnywhere: true, buyAnytime: false, combatPremium: 0.75, killPay: { base: 40, perWave: 4, max: 80, headBonus: 0.5 }, specialPay: 250, bossPay: 2500, bossSplit: true, waveBonus: [300, 150], waveHeal: 5 },
+  sandbox: { startMoney: 16000, moneyCap: 16000, buyAnywhere: true, buyAnytime: true, combatPremium: 0, killPay: { base: 300, perWave: 0, max: 300, headBonus: 0 }, specialPay: 300, bossPay: 5000, bossSplit: false, waveBonus: [500, 250], waveHeal: 25 },
 };
 
 /**
