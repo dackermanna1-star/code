@@ -150,25 +150,25 @@ export function createBear(): CreatureRig {
               { x: 0.0, y: 0.24, w: 0.17, h: 0.22, hb: 0.2 },
               { x: 0.02, y: 0.0, w: 0.22, h: 0.26, hb: 0.24 },
               { x: 0.0, y: -0.28, w: 0.2, h: 0.2, hb: 0.2 },
-              { x: 0.0, y: -l1, w: 0.145, h: 0.145, hb: 0.145 },
+              { x: 0.0, y: -l1, w: 0.135, h: 0.135, hb: 0.135 },
             ]
           : [
               { x: 0.0, y: 0.3, w: 0.24, h: 0.36, hb: 0.3 },
               { x: 0.04, y: 0.0, w: 0.27, h: 0.36, hb: 0.32 },
               { x: 0.06, y: -0.3, w: 0.21, h: 0.24, hb: 0.22 },
-              { x: 0.0, y: -l1, w: 0.145, h: 0.145, hb: 0.145 },
+              { x: 0.0, y: -l1, w: 0.135, h: 0.135, hb: 0.135 },
             ];
-        pb.addShaded(loft(secs, { radial: 12, sub: 2, cap0: 0.16, cap1: 0.06 }), legFn, 'fur');
+        pb.addShaded(loft(secs, { radial: 12, sub: 2, cap0: 0.16, cap1: 0.04 }), legFn, 'fur');
       });
       const low = rb.bone(`lower${k}${sd}`, up, [0, -l1, 0]);
       rb.part(low, (pb) => {
-        pb.addShaded(blob(0.16, 0.16, 0.16, 10, 7), legFn, 'fur');
+        pb.addShaded(blob(0.168, 0.168, 0.168, 12, 8), legFn, 'fur');
         pb.addShaded(
           loft(
             [
-              { x: 0, y: 0, w: 0.155, h: 0.16 },
-              { x: 0, y: -l2 * 0.6, w: 0.135, h: 0.135 },
-              { x: 0, y: -l2, w: 0.14, h: 0.14 },
+              { x: 0, y: 0, w: 0.135, h: 0.14 },
+              { x: 0, y: -l2 * 0.6, w: 0.13, h: 0.13 },
+              { x: 0, y: -l2, w: 0.125, h: 0.125 },
             ],
             { radial: 12, sub: 2 },
           ),
@@ -178,7 +178,7 @@ export function createBear(): CreatureRig {
       });
       const paw = rb.bone(`paw${k}${sd}`, low, [0, -l2, 0]);
       rb.part(paw, (pb) => {
-        pb.addShaded(blob(0.15, 0.13, 0.15, 10, 7), legFn, 'fur', { p: [0.0, -0.02, 0] });
+        pb.addShaded(blob(0.16, 0.14, 0.16, 12, 8), legFn, 'fur', { p: [0.0, -0.02, 0] });
         pb.addShaded(blob(0.2, 0.08, 0.16, 12, 7), legFn, 'fur', { p: [0.06, -PAW_H + 0.075, 0] });
         for (const t of [-1.5, -0.5, 0.5, 1.5]) {
           pb.addShaded(horn(0.05, 0.012, 0.02, 2, 5), () => new THREE.Color(0x3b3833), 'plastic', {
