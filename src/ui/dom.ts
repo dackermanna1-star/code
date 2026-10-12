@@ -5,6 +5,7 @@
 // browser rasterises text and borders at the final size, so everything stays
 // crisp at any window size.
 import './ui.css';
+import { embeddedDataUrl } from '../core/embedded';
 
 export const DESIGN_W = 640;
 export const DESIGN_H = 480;
@@ -25,7 +26,7 @@ export function ensureFonts(): void {
   const css = faces
     .map(
       ([family, file]) =>
-        `@font-face{font-family:'${family}';src:url('${base}fonts/${file}') format('truetype');font-display:swap;}`,
+        `@font-face{font-family:'${family}';src:url('${embeddedDataUrl(`fonts/${file}`, 'font/ttf') ?? `${base}fonts/${file}`}') format('truetype');font-display:swap;}`,
     )
     .join('\n');
   const style = document.createElement('style');

@@ -10,6 +10,7 @@ import { WEAPONS, type WeaponId } from '../config/weapons';
 import type { EventBus } from '../core/Events';
 import { Ambience } from './Ambience';
 import { SOUND_FILES } from './manifest';
+import { embeddedBytes } from '../core/embedded';
 import {
   ENEMY_SOUNDS,
   RULES,
@@ -254,9 +255,12 @@ export class AudioSystem {
     let done = 0;
     const one = async (name: string) => {
       try {
-        const res = await fetch(`${this.baseUrl}${name}.wav`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.arrayBuffer();
+        let data = embeddedBytes(`audio/${name}.wav`);
+        if (!data) {
+          const res = await fetch(`${this.baseUrl}${name}.wav`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          data = await res.arrayBuffer();
+        }
         const buf = await new Promise<AudioBuffer>((resolve, reject) => {
           const p = ctx.decodeAudioData(data, resolve, reject);
           if (p && typeof p.then === 'function') p.then(resolve, reject);

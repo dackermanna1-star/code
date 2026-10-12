@@ -23,6 +23,14 @@ npm run build        # type-checks, then bundles into dist/
 npm run preview      # serves dist/ at http://127.0.0.1:4173
 ```
 
+Single self-contained HTML file (no server or Node needed — double-click to play):
+
+```bash
+npm run build:single # writes release/SealHunter.html (~9 MB, sounds and fonts embedded)
+```
+
+A prebuilt copy is committed at `release/SealHunter.html`.
+
 URL options (handy for testing): `?play` (skip the title), `?autoplay` (bot plays),
 `?speed=2` (time scale), `?quality=low|medium|high`, `?nosound`.
 
