@@ -36,4 +36,14 @@ public final class EditRateLimiter {
 	public void forget(UUID player) {
 		buckets.remove(player);
 	}
+
+	/** Forgets every player (the server stopped). */
+	public void clear() {
+		buckets.clear();
+	}
+
+	/** Whether the limiter currently holds an allowance for the player. */
+	public boolean tracks(UUID player) {
+		return buckets.containsKey(player);
+	}
 }
