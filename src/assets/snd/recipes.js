@@ -29,6 +29,7 @@ export const SOUND_GROUPS = {
   World: ['ric', 'impact_sand', 'impact_wood', 'impact_metal', 'glass', 'shell', 'shotgun_shell'],
   Bomb: ['c4_beep', 'c4_plant_press', 'c4_planted', 'c4_disarm', 'c4_disarmed', 'c4_explode', 'defuser_on'],
   'UI / misc': ['menu_click', 'menu_select', 'radio_beep', 'hint', 'nvg_on', 'heartbeat'],
+  'Zombie survival UI': ['zm_ready', 'zm_allready'],
   Ambience: ['ambience_wind', 'ambience_bird', 'distant_fly'],
   Map: ['door_move', 'door_stop', 'button', 'hostage_use'],
   Zombies: ['zombie_idle', 'zombie_attack', 'zombie_pain', 'zombie_die', 'zombie_wave', 'gib', 'gib_land', 'headpop'],

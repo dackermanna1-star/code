@@ -721,7 +721,8 @@ export class Game {
         this.rounds.addMoney(attacker, CR.RULES.teamKillPenalty ? -CR.RULES.teamKillPenalty : -3300);
       } else {
         attacker.kills++;
-        this.rounds.addMoney(attacker, CR.RULES.killReward ?? 300);
+        if (this.zombies.enabled) this.zombies.economy.killPay(attacker, victim, headshot); // (graded by wave, headshots: zeconomy.js)
+        else this.rounds.addMoney(attacker, CR.RULES.killReward ?? 300);
       }
     } else if (!suicide) {
       victim.kills--;
