@@ -20,6 +20,7 @@ body {
   height: 100%;
 }
 
+/* Loading screen (markup in main.ts): quiet, modern — wordmark, hairline bar, status. */
 .loading {
   position: fixed;
   inset: 0;
@@ -28,40 +29,63 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
-  background: radial-gradient(ellipse at center, #3a4656 0%, #11161d 75%);
-  color: #dfe6ee;
-  font-family: 'SH Trebuchet', 'Trebuchet MS', sans-serif;
-  transition: opacity 0.5s;
+  gap: 22px;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 42%, #22303f 0%, #121a24 55%, #0a0f16 100%);
+  color: #e8eff6;
+  font-family: system-ui, -apple-system, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: opacity 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 .loading.done {
   opacity: 0;
   pointer-events: none;
 }
+/* The markup says "SealHunter"; show the wordmark spelled out instead. */
 .loading-title {
-  font-family: 'SH Kinifed', serif;
-  font-style: italic;
-  font-size: 72px;
-  color: #6e0000;
-  text-shadow: 1px 1px 0 #141414, 2px 2px 0 #141414;
+  font-size: 0;
+  line-height: 1;
+}
+.loading-title::before {
+  content: 'Seal Hunter';
+  display: block;
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  margin-right: -0.14em;
+  text-transform: uppercase;
+  color: #f4f8fc;
+}
+.loading-title::after {
+  content: '';
+  display: block;
+  width: 26px;
+  height: 2px;
+  margin: 14px auto 0;
+  border-radius: 1px;
+  background: #c8102e;
 }
 .loading-bar {
-  width: 280px;
-  height: 10px;
-  border: 1px solid #8a96a6;
-  border-radius: 6px;
+  position: relative;
+  width: 220px;
+  height: 2px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.14);
   overflow: hidden;
 }
 .loading-bar i {
   display: block;
   height: 100%;
   width: 0;
-  background: #c8d2de;
-  transition: width 0.2s;
+  background: #8fe0ff;
+  transition: width 0.2s linear;
 }
 .loading-text {
-  font-size: 14px;
-  opacity: 0.8;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(228, 238, 248, 0.55);
 }
 .fatal {
   position: fixed;

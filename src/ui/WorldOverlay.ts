@@ -379,8 +379,11 @@ export class WorldOverlay {
       if (role === 'popup') {
         // Classic pop-ups fade from 0.5; lift them so they stay legible.
         this.pill(`+$${t.text.replace(/[^\d]/g, '')}`, t.x, t.y, size * 0.72, Math.min(1, t.alpha * 2));
+      } else if (t.bold) {
+        // Bold labels are prompts ("Click to aim"): a chip reads on any background.
+        this.pill(t.text, t.x, t.y, size * 0.72, Math.min(1, t.alpha));
       } else {
-        this.label(t.text, t.x, t.y, size * 0.85, t.color, t.alpha, t.bold ? 700 : 600);
+        this.label(t.text, t.x, t.y, size * 0.85, t.color, t.alpha);
       }
     }
   }

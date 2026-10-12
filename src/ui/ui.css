@@ -321,6 +321,9 @@
 
 .sh-dim {
   background: rgba(6, 10, 20, 0.5);
+  /* In a view wider than 4:3 (first person) also dim outside the centred box;
+     clipped away by the view in 4:3. */
+  box-shadow: 0 0 0 4000px rgba(6, 10, 20, 0.5);
 }
 
 .sh-vignette {
