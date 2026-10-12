@@ -28,7 +28,7 @@ public final class DiveCamera {
 	 * Vertical field of view of the pictures shown on dream laptop screens, which the monitor must use too for the dive
 	 * to be seamless. It mirrors the renderer's {@code DreamCameras.FOV}; {@code DiveCameraTest} checks that they agree.
 	 */
-	public static final float FOV = 70.0F;
+	public static final float FOV = com.mineception.dream.render.DreamCameras.FOV;
 
 	/** An eye at least this far in front of the screen plane can fly straight in. */
 	static final double FRONT_MARGIN = 0.15;

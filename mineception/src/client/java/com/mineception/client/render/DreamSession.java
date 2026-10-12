@@ -199,7 +199,7 @@ public final class DreamSession {
 		}
 		int index = MiniWorld.index(x, y, z);
 		LaptopData data = laptop.data();
-		if (!data.edits(depth).containsKey(index) && data.editCount(depth) >= LaptopData.MAX_EDITS_PER_DEPTH) {
+		if (!com.mineception.dream.EditBudget.allows(data, depth, index)) {
 			return false;
 		}
 		LocalPlayer player = Minecraft.getInstance().player;
