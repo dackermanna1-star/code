@@ -9,6 +9,7 @@ import { pointOnLineSide } from '../game/maputl.js';
 
 const PLANE_FLOOR = 0;
 const PLANE_CEIL = 1;
+const PLANE_ABS = 2;
 const F_DECAL = 16 | 64;
 const F_FLATLIGHT = 128;
 const QUAD_ORDER = [0, 1, 2, 0, 2, 3];
@@ -61,7 +62,9 @@ export class Decals {
     // Vertical extent of the wall part hit.
     let lo, hi, anchorSec, anchorPlane;
     if (!back || !(line.flags & ML.TWOSIDED)) {
-      lo = front.floorheight; hi = front.ceilingheight; anchorSec = front; anchorPlane = PLANE_FLOOR;
+      // Solid walls never move: pin to world height, not a floor that may
+      // be a lift or crusher.
+      lo = front.floorheight; hi = front.ceilingheight; anchorSec = front; anchorPlane = PLANE_ABS;
     } else if (part === 'upper') {
       lo = back.ceilingheight; hi = front.ceilingheight; anchorSec = back; anchorPlane = PLANE_CEIL;
     } else if (part === 'lower') {
@@ -72,7 +75,7 @@ export class Decals {
     if (z1 > hi) { v0 += (z1 - hi) / scale; z1 = hi; }
     if (z0 < lo) { v1 -= (lo - z0) / scale; z0 = lo; }
     if (z1 - z0 < 1) return false;
-    const base = anchorPlane === PLANE_FLOOR ? anchorSec.floorheight : anchorSec.ceilingheight;
+    const base = anchorPlane === PLANE_ABS ? 0 : anchorPlane === PLANE_FLOOR ? anchorSec.floorheight : anchorSec.ceilingheight;
     // Nudge off the wall toward the viewer side.
     const nx = side === 0 ? uy : -uy;
     const ny = side === 0 ? -ux : ux;

@@ -275,11 +275,11 @@ export class Renderer {
       const n = this.lights.length;
       gl.uniform1i(u.u_numLights, n);
       if (n) {
-        const pos = new Float32Array(32);
-        const pow = new Float32Array(8);
+        const pos = this.lightPos || (this.lightPos = new Float32Array(32));
+        const pow = this.lightPow || (this.lightPow = new Float32Array(8));
         for (let i = 0; i < n; i++) {
           const L = this.lights[i];
-          pos.set([L[0], L[1], L[2], L[3]], i * 4);
+          pos[i * 4] = L[0]; pos[i * 4 + 1] = L[1]; pos[i * 4 + 2] = L[2]; pos[i * 4 + 3] = L[3];
           pow[i] = L[4];
         }
         gl.uniform4fv(u.u_lights, pos);

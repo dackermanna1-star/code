@@ -358,7 +358,8 @@ class Effects {
     const z0 = mo.z;
     for (const c of chunks) {
       if (this.gibs.length >= cap) this.gibs.shift();
-      const ox = c.ox, oz = c.oy;
+      // A mirrored frame shows its columns (and offsets) reversed.
+      const ox = this.visibleFlip ? -c.ox : c.ox, oz = c.oy;
       const x = mo.x + rx * ox, y = mo.y + ry * ox, z = z0 + oz;
       const out = Math.atan2(ry * ox, rx * ox);
       const sp = power * (0.4 + Math.random() * 0.8);
@@ -394,7 +395,8 @@ class Effects {
     const cam = this.lastCam;
     const camAng = cam ? Math.atan2(mo.y - cam.y, mo.x - cam.x) : ang;
     const rx = Math.sin(camAng), ry = -Math.cos(camAng);
-    const x = mo.x + rx * head.ox, y = mo.y + ry * head.ox, z = mo.z + head.oy;
+    const hox = this.visibleFlip ? -head.ox : head.ox;
+    const x = mo.x + rx * hox, y = mo.y + ry * hox, z = mo.z + head.oy;
     const sp = 4 + Math.random() * 3;
     this.gibs.push(new Gib(x, y, z, Math.cos(ang) * sp, Math.sin(ang) * sp, 5 + Math.random() * 3, head.id, blood, { isHead: true, trail: 30, radius: 5 }));
     e.clipRel = head.neck;
@@ -415,6 +417,7 @@ class Effects {
       const ang = Math.atan2(mo.y - cam.y, mo.x - cam.x);
       rot = Math.floor((((ang - mo.angle + (Math.PI / 8) * 9) % TAU) + TAU) % TAU / (Math.PI / 4)) & 7;
     }
+    this.visibleFlip = fr.flip[rot];
     return fr.images[rot];
   }
 

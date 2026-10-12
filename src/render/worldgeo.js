@@ -119,15 +119,21 @@ export class WorldGeometry {
         }
         const bs = back.index;
         const bothSky = this.isSky(front.ceilingpic) && this.isSky(back.ceilingpic);
+        // Opening planes: the upper wall starts at the lower of the two
+        // ceilings and the lower wall ends at the higher floor, so a part
+        // this side should not draw collapses instead of turning inside out
+        // (an inverted quad faces the other side and z-fights its walls).
+        const openFloor = [fs, PLANE_OPEN_FLOOR + 2 * bs, 0];
+        const openCeil = [fs, PLANE_OPEN_FLOOR + 1 + 2 * bs, 0];
         // Upper wall (visible when back ceiling is below front ceiling).
         if (bothSky) {
-          quad(sky, ax, ay, bx, by, 0, 0, [bs, PLANE_CEIL, 0], [fs, PLANE_CEIL, 0], [0, 0, 0], 0, fs, 0, 0);
+          quad(sky, ax, ay, bx, by, 0, 0, openCeil, [fs, PLANE_CEIL, 0], [0, 0, 0], 0, fs, 0, 0);
         } else if (side.toptexture) {
           const t = tex(side.toptexture);
           const vA = (line.flags & ML.DONTPEGTOP)
             ? [fs, PLANE_CEIL, 0]
             : [bs, PLANE_CEIL, t ? t.height : 0];
-          quad(verts, ax, ay, bx, by, u1, u2, [bs, PLANE_CEIL, 0], [fs, PLANE_CEIL, 0], vA, sb, fs, contrast, 0);
+          quad(verts, ax, ay, bx, by, u1, u2, openCeil, [fs, PLANE_CEIL, 0], vA, sb, fs, contrast, 0);
         }
         // Lower wall (visible when back floor is above front floor).
         if (side.bottomtexture) {
@@ -136,20 +142,18 @@ export class WorldGeometry {
           const vA = (line.flags & ML.DONTPEGBOTTOM)
             ? [bothSky ? bs : fs, PLANE_CEIL, 0]
             : [bs, PLANE_FLOOR, 0];
-          quad(verts, ax, ay, bx, by, u1, u2, [fs, PLANE_FLOOR, 0], [bs, PLANE_FLOOR, 0], vA, sb + 2, fs, contrast, 0);
+          quad(verts, ax, ay, bx, by, u1, u2, [fs, PLANE_FLOOR, 0], openFloor, vA, sb + 2, fs, contrast, 0);
         } else if (this.isSky(front.floorpic) && this.isSky(back.floorpic)) {
-          quad(sky, ax, ay, bx, by, 0, 0, [fs, PLANE_FLOOR, 0], [bs, PLANE_FLOOR, 0], [0, 0, 0], 0, fs, 0, 0);
+          quad(sky, ax, ay, bx, by, 0, 0, [fs, PLANE_FLOOR, 0], openFloor, [0, 0, 0], 0, fs, 0, 0);
         }
         // Masked middle texture spans the opening and does not tile vertically.
         // The opening is resolved per frame so lifts and doors re-anchor it.
         if (side.midtexture) {
           const t = tex(side.midtexture);
-          const hiFloor = PLANE_OPEN_FLOOR + 2 * bs;
-          const loCeil = PLANE_OPEN_FLOOR + 1 + 2 * bs;
           const vA = (line.flags & ML.DONTPEGBOTTOM)
-            ? [fs, hiFloor, t ? t.height : 0]
-            : [fs, loCeil, 0];
-          quad(verts, ax, ay, bx, by, u1, u2, [fs, hiFloor, 0], [fs, loCeil, 0], vA,
+            ? [fs, openFloor[1], t ? t.height : 0]
+            : openCeil;
+          quad(verts, ax, ay, bx, by, u1, u2, openFloor, openCeil, vA,
             sb + 1, fs, contrast, F_MASKED | F_NOVWRAP);
         }
       }
