@@ -13,20 +13,20 @@ export function buildLineGeometry(segments: Segment[]): THREE.BufferGeometry {
   const n = segments.length;
   const pos = new Float32Array(n * 4 * 3);
   const other = new Float32Array(n * 4 * 3);
-  const side = new Float32Array(n * 4 * 2);
+  const side = new Float32Array(n * 4);
   const index: number[] = [];
   segments.forEach(([a, b], s) => {
-    const corners: Array<[THREE.Vector3, THREE.Vector3, number, number]> = [
-      [a, b, -1, -1],
-      [a, b, 1, -1],
-      [b, a, -1, 1],
-      [b, a, 1, 1],
+    const corners: Array<[THREE.Vector3, THREE.Vector3, number]> = [
+      [a, b, -1],
+      [a, b, 1],
+      [b, a, -1],
+      [b, a, 1],
     ];
-    corners.forEach(([p, o, sd, end], k) => {
+    corners.forEach(([p, o, sd], k) => {
       const i = s * 4 + k;
       pos.set([p.x, p.y, p.z], i * 3);
       other.set([o.x, o.y, o.z], i * 3);
-      side.set([sd, end], i * 2);
+      side[i] = sd;
     });
     const o = s * 4;
     // Corners: a-n, a+n, b+n (b's normal is flipped), b-n.
@@ -35,7 +35,7 @@ export function buildLineGeometry(segments: Segment[]): THREE.BufferGeometry {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   g.setAttribute('aOther', new THREE.BufferAttribute(other, 3));
-  g.setAttribute('aSide', new THREE.BufferAttribute(side, 2));
+  g.setAttribute('aSide', new THREE.BufferAttribute(side, 1));
   g.setIndex(index);
   g.computeBoundingSphere();
   return g;
@@ -50,7 +50,7 @@ export function createLineMaterial(widthFrac: number, color = 0x000000, depthBia
     },
     vertexShader: /* glsl */ `
       attribute vec3 aOther;
-      attribute vec2 aSide;
+      attribute float aSide;
       uniform float uWidth;
       uniform float uBias;
       void main() {
@@ -71,7 +71,7 @@ export function createLineMaterial(widthFrac: number, color = 0x000000, depthBia
         vec2 nrm = vec2(-dir.y, dir.x);
         // NDC height is 2, so half-width in NDC = width fraction of the frame height.
         // Square cap: extend away from the other end by half the width.
-        vec2 off = nrm * aSide.x * uWidth - dir * uWidth;
+        vec2 off = nrm * aSide * uWidth - dir * uWidth;
         off.x /= aspect;
         gl_Position = ca;
         gl_Position.xy += off * ca.w;

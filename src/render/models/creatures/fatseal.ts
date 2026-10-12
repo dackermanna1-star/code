@@ -7,7 +7,7 @@
 //   chest > flipperL / flipperR
 import * as THREE from 'three';
 import {
-  RigBuilder, addRoot, animator, blinker, blob, clamp, eye, loft, loftSplit, secAt, shade, wobble, type Sec,
+  RigBuilder, addRoot, animator, blinker, blob, clamp, eye, jointFiller, loft, loftSplit, secAt, shade, wobble, type Sec,
 } from './common';
 import type { AnimInput, CreatureRig } from '../types';
 
@@ -43,11 +43,7 @@ export function createFatSeal(): CreatureRig {
   const [gRear, gBody, gChest] = loftSplit(SPINE, [CUT_REAR, CUT_CHEST], {
     radial: 18, sub: 3, cap0: 0.06, cap1: 0, bump: 0.012, bumpFreq: 4, overlap: 0,
   });
-  const filler = (i: number) => {
-    const c = SPINE[i];
-    const r = (c.h + (c.hb ?? c.h)) * 0.46;
-    return blob(r, r, c.w * 0.94, 12, 8).translate(c.x, c.y, 0);
-  };
+  const filler = (i: number) => jointFiller(SPINE, i, 0.95, 12, 8);
   rb.part(rear, (pb) => {
     addRoot(pb, rear, gRear, furFn);
     for (const s of [-1, 1]) {

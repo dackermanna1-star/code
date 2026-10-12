@@ -271,7 +271,7 @@ function modeGame() {
 
   const main = createHunterRig();
   scene.add(main.root);
-  const mainZ = grid ? 0 : 0;
+  const mainZ = zoom !== 1 ? CAMERA_TARGET.z : 0;
   const extras: Array<{ rig: HunterRig; id: WeaponId; state: string; x: number; z: number; reload?: number; throwT?: number }> = [];
   if (grid) {
     WEAPON_ORDER.forEach((id, i) => extras.push({ rig: createHunterRig(), id, state: 'stand', x: -17 + i * 3.4, z: -9 }));
@@ -430,7 +430,7 @@ function modeWeapons() {
     const g = new THREE.Group();
     const kinds = ['small', 'normal', 'shotgun', 'awp', 'minigun'] as const;
     kinds.forEach((k, i) => {
-      const mesh = new THREE.Mesh(createShellModel(k), MATERIALS.metal);
+      const mesh = new THREE.Mesh(createShellModel(k), MATERIALS.plastic);
       mesh.position.set(i * 0.06, 0.12, 0);
       mesh.rotation.y = 0.5;
       g.add(mesh);

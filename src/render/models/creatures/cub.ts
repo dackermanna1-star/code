@@ -5,7 +5,7 @@
 // body > flipperL / flipperR.
 import * as THREE from 'three';
 import {
-  RigBuilder, addRoot, animator, blinker, blob, clamp, eye, loft, loftSplit, secAt, shade, wobble, TAU, type Sec,
+  RigBuilder, addRoot, animator, blinker, blob, clamp, eye, jointFiller, loft, loftSplit, secAt, shade, wobble, TAU, type Sec,
 } from './common';
 import type { AnimInput, CreatureRig } from '../types';
 
@@ -58,9 +58,7 @@ function build(name: string, lod = false): CubBuild {
   });
   rb.part(body, (pb) => {
     addRoot(pb, body, gBody, furFn);
-    const c = SPINE[CUT_REAR];
-    const r = (c.h + (c.hb ?? c.h)) * 0.48;
-    addRoot(pb, body, blob(r, r, c.w * 0.97, 12, 9).translate(c.x, c.y, 0), furFn);
+    addRoot(pb, body, jointFiller(SPINE, CUT_REAR), furFn);
   });
 
   // ---- head: round, big black eyes, black nose

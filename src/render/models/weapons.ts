@@ -268,12 +268,12 @@ function buildPistol(): WeaponModel {
   // frame: dust cover + grip
   F.add(roundBox(0.125, 0.024, 0.032, 0.006), C.polymer, 'plastic', { p: [-0.088, 0.037, 0] });
   F.add(
-    extrude([[-0.027, 0.046], [0.034, 0.046], [0.047, -0.058], [0.041, -0.074], [-0.005, -0.074], [-0.015, -0.063], [-0.029, 0.012]], 0.033, 0.004),
+    extrude([[-0.026, 0.046], [0.03, 0.046], [0.045, -0.052], [0.04, -0.066], [-0.002, -0.066], [-0.012, -0.056], [-0.027, 0.012]], 0.033, 0.004),
     C.polymer,
     'plastic',
   );
   // stippled grip panel
-  F.add(extrude([[-0.02, 0.018], [0.028, 0.018], [0.036, -0.052], [-0.008, -0.052]], 0.0345, 0.001), 0x2a2d31, 'plastic');
+  F.add(extrude([[-0.018, 0.016], [0.024, 0.016], [0.034, -0.046], [-0.004, -0.046]], 0.0345, 0.001), 0x2a2d31, 'plastic');
   guard(F, -0.057, 0.03, 0.025, 0.0045, C.polymer, 'plastic', 1.1);
   F.add(box(0.006, 0.02, 0.006), C.bluedDark, 'darkmetal', { p: [-0.047, 0.018, 0], r: [0, 0, 0.25] });
   // slide stop / decocker levers (left side)
@@ -294,8 +294,8 @@ function buildPistol(): WeaponModel {
   const mag = part('magazine', group, [0.01, -0.02, 0]);
   mag.rotation.z = 0.12;
   const Mg = new GunBuilder();
-  Mg.add(box(0.034, 0.1, 0.026), C.bluedDark, 'darkmetal', { p: [0, -0.005, 0] });
-  Mg.add(roundBox(0.044, 0.012, 0.036, 0.004), C.polymer, 'plastic', { p: [0, -0.058, 0] });
+  Mg.add(box(0.034, 0.09, 0.026), C.bluedDark, 'darkmetal', { p: [0, -0.002, 0] });
+  Mg.add(roundBox(0.044, 0.012, 0.036, 0.004), C.polymer, 'plastic', { p: [0, -0.05, 0] });
   Mg.buildInto(mag);
   const magBase = mag.position.clone();
   const magAxis = new THREE.Vector3(Math.sin(0.12), -Math.cos(0.12), 0);
@@ -1019,10 +1019,10 @@ function buildMinigun(): WeaponModel {
   // blue carry strap: from the front of the carry handle up over the shoulder
   const strap = new THREE.CatmullRomCurve3([
     new THREE.Vector3(-0.25, B + 0.15, 0.0),
-    new THREE.Vector3(-0.17, B + 0.25, 0.0),
-    new THREE.Vector3(-0.02, B + 0.31, -0.02),
-    new THREE.Vector3(0.12, B + 0.27, -0.08),
-    new THREE.Vector3(0.2, B + 0.1, -0.16),
+    new THREE.Vector3(-0.16, B + 0.21, 0.0),
+    new THREE.Vector3(0.0, B + 0.225, -0.04),
+    new THREE.Vector3(0.12, B + 0.17, -0.12),
+    new THREE.Vector3(0.17, B + 0.02, -0.19),
   ]);
   M.add(ribbon(strap, 0.006, 0.036, 32), C.strap, 'cloth');
   M.buildInto(group);
@@ -1063,8 +1063,8 @@ function buildMinigun(): WeaponModel {
       angle = (angle + s.spin * 28 * s.dt) % (PI * 2);
       cluster.rotation.x = angle;
       const h = clamp01(s.heat);
-      const k = h * h * 2.2;
-      glow.emissive.setRGB(1.0 * k, 0.28 * k * h, 0.04 * k * h);
+      const k = h * h * 1.6;
+      glow.emissive.setRGB(1.0 * k, 0.2 * k * h, 0.02 * k * h);
     },
   });
 }

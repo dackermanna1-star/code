@@ -40,7 +40,14 @@ class ShellPool {
   count = 0;
 
   constructor(geo: THREE.BufferGeometry, color: THREE.ColorRepresentation, readonly cap: number, metal = true) {
-    const mat = new THREE.MeshStandardMaterial({ color, metalness: metal ? 0.85 : 0.1, roughness: metal ? 0.32 : 0.55 });
+    // Kept bright (low metalness + a little emissive) so casings read as the
+    // gold specks of the reference frames regardless of the environment map.
+    const mat = new THREE.MeshStandardMaterial({
+      color,
+      metalness: metal ? 0.35 : 0.05,
+      roughness: metal ? 0.35 : 0.55,
+      emissive: metal ? 0x3a2a08 : 0x200404,
+    });
     this.mesh = new THREE.InstancedMesh(geo, mat, cap);
     this.mesh.count = 0;
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -128,11 +135,11 @@ export class Debris {
 
   constructor(private scene: THREE.Scene, shellGeometry?: (k: ShellKind) => THREE.BufferGeometry) {
     const kinds: Array<[ShellKind, number, number]> = [
-      ['small', 0xd8a840, 1500],
-      ['normal', 0xd8a840, 1500],
-      ['minigun', 0xe0b048, 3000],
-      ['awp', 0xd8a840, 200],
-      ['shotgun', 0xb02020, 400],
+      ['small', 0xf0c040, 1500],
+      ['normal', 0xf0c040, 1500],
+      ['minigun', 0xf6c848, 3000],
+      ['awp', 0xf0c040, 200],
+      ['shotgun', 0xc02828, 400],
     ];
     for (const [k, color, cap] of kinds) {
       const geo = shellGeometry?.(k) ?? defaultShellGeometry(k);

@@ -84,7 +84,8 @@ export class Backdrop {
   }
 
   setSize(w: number, h: number): void {
-    const s = this.opts.scale;
+    // Cap the target (high-DPR screens): the backdrop is soft photo-like content.
+    const s = Math.min(this.opts.scale, 1600 / Math.max(1, h));
     const tw = Math.max(4, Math.round(w * s));
     const th = Math.max(4, Math.round(h * s));
     if (tw !== this.target.width || th !== this.target.height) {

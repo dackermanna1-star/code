@@ -154,7 +154,7 @@ export class BloodSystem {
   amount = 1;
   /** Tells whether (x,z) is on the ice (droplets landing elsewhere sink). */
   isOnFloe: (x: number, z: number) => boolean = () => true;
-  gravity = 30;
+  gravity = 42;
 
   constructor(private renderer: THREE.WebGLRenderer, scene: THREE.Scene, resolution = 2048) {
     const w = resolution;
@@ -312,7 +312,7 @@ export class BloodSystem {
     const [s0, s1] = o.speed ?? [3, 10];
     const [u0, u1] = o.up ?? [-0.5, 3];
     const spread = o.spread ?? 0.35;
-    const [z0, z1] = o.size ?? [0.018, 0.045];
+    const [z0, z1] = o.size ?? [0.03, 0.085];
     for (let i = 0; i < n; i++) {
       if (this.drops.length >= MAX_DROPS) this.drops.shift();
       const sp = s0 + Math.random() * (s1 - s0);
@@ -350,8 +350,10 @@ export class BloodSystem {
       if (d.y <= 0) {
         if (this.isOnFloe(d.x, d.z)) {
           const sp = Math.hypot(d.vx, d.vz);
-          const stretch = 1 + Math.min(3.5, sp * 0.22);
-          this.splat('drop', d.x, d.z, d.size * (1.1 + Math.random() * 0.6), { angle: Math.atan2(d.vz, d.vx), stretch, shade: d.shade });
+          // Fast droplets smear into streaks along their travel (the original's
+          // horizontal blood bands).
+          const stretch = 1 + Math.min(2.8, sp * 0.16);
+          this.splat('drop', d.x, d.z, d.size * (1.1 + Math.random() * 0.7), { angle: Math.atan2(d.vz, d.vx), stretch, shade: d.shade });
           continue;
         } else if (d.y < -4) continue;
       }

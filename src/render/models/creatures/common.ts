@@ -292,6 +292,24 @@ export function restPos(bone: THREE.Object3D): THREE.Vector3 {
   return v.applyMatrix4(new THREE.Matrix4().copy(r.matrixWorld).invert());
 }
 
+/**
+ * Ellipsoid filling the joint at spine section `i` (root space), shaped like
+ * that cross-section (dorsal/ventral radii), slightly inside the surface.
+ */
+export function jointFiller(spine: Sec[], i: number, k = 0.96, w = 12, h = 9): THREE.BufferGeometry {
+  const s = spine[i];
+  const a = spine[Math.max(0, i - 1)];
+  const b = spine[Math.min(spine.length - 1, i + 1)];
+  const t = new THREE.Vector2(b.x - a.x, b.y - a.y).normalize();
+  const u = new THREE.Vector2(-t.y, t.x);
+  const hb = s.hb ?? s.h;
+  const r = ((s.h + hb) / 2) * k;
+  const g = blob(r, r, s.w * k, w, h);
+  g.rotateZ(Math.atan2(t.y, t.x));
+  g.translate(s.x + (u.x * (s.h - hb)) / 2, s.y + (u.y * (s.h - hb)) / 2, s.z ?? 0);
+  return g;
+}
+
 /** Ellipsoid with smooth normals and optional bump noise. */
 export function blob(rx: number, ry: number, rz: number, w = 18, h = 12, bump = 0, bf = 9): THREE.BufferGeometry {
   const g = new THREE.SphereGeometry(1, w, h);

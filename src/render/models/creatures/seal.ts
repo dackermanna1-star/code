@@ -8,7 +8,7 @@
 //   chest > flipperL / flipperR
 import * as THREE from 'three';
 import {
-  RigBuilder, addRoot, animator, blinker, blob, clamp, easeOut, eye, lerp, loft, loftSplit, secAt, shade, smooth, wobble, TAU,
+  RigBuilder, addRoot, animator, blinker, blob, clamp, easeOut, eye, jointFiller, lerp, loft, loftSplit, secAt, shade, smooth, wobble, TAU,
   type Sec,
 } from './common';
 import type { AnimInput, CreatureRig } from '../types';
@@ -67,13 +67,11 @@ export function createSeal(): CreatureRig {
   rb.part(body, (pb) => {
     addRoot(pb, body, gBody, furFn);
     // joint fillers (only visible when the crawl pose straightens the spine)
-    const r = SPINE[CUT_REAR];
-    addRoot(pb, body, blob((r.h + (r.hb ?? r.h)) * 0.48, (r.h + (r.hb ?? r.h)) * 0.48, r.w * 0.97, 12, 9).translate(r.x, r.y, 0), furFn);
+    addRoot(pb, body, jointFiller(SPINE, CUT_REAR), furFn);
   });
   rb.part(chest, (pb) => {
     addRoot(pb, chest, gChest, furFn);
-    const c = SPINE[CUT_CHEST];
-    addRoot(pb, chest, blob((c.h + (c.hb ?? c.h)) * 0.48, (c.h + (c.hb ?? c.h)) * 0.48, c.w * 0.97, 12, 9).translate(c.x, c.y, 0), furFn);
+    addRoot(pb, chest, jointFiller(SPINE, CUT_CHEST), furFn);
   });
 
   // ---- head (authored facing +X, skull centre ~ (0.36, 0.95))

@@ -134,6 +134,8 @@ export function createCliffMaterial(): THREE.ShaderMaterial {
       void main() {
         vec3 n = normalize(vNormal);
         float k = smoothstep(0.12, -0.16, n.x);
+        // Walls on the far side (the notch) catch the bright sky over the berg.
+        k = max(k, 0.65 * smoothstep(-10.0, -13.0, vWorld.z));
         // Along-face coordinate.
         vec2 t = normalize(vec2(-n.z, n.x));
         float s = dot(vWorld.xz, t);

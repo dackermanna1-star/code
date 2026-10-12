@@ -8,6 +8,7 @@ import { createWeaponModel } from './weapons';
 import { WEAPON_ORDER, type WeaponId } from '../../config/weapons';
 
 const SHARED = new Set<THREE.Material>(Object.values(MATERIALS));
+const EXPOSURE = 0.8;
 
 // three.js ACESFilmic tone mapping (same curve the game renderer uses), then sRGB.
 function aces(r: number, g: number, b: number, exposure: number, out: number[]): void {
@@ -55,12 +56,12 @@ export function renderWeaponIcons(renderer: THREE.WebGLRenderer, w = 160, h = 80
   const room = new RoomEnvironment();
   const env = pmrem.fromScene(room, 0.04);
   scene.environment = env.texture;
-  scene.environmentIntensity = 0.85;
-  scene.add(new THREE.HemisphereLight(0xf2f5fa, 0x5a6270, 0.9));
-  const key = new THREE.DirectionalLight(0xffffff, 2.6);
-  key.position.set(-2, 4, 5);
+  scene.environmentIntensity = 0.3;
+  scene.add(new THREE.HemisphereLight(0xf2f5fa, 0x3a4250, 0.35));
+  const key = new THREE.DirectionalLight(0xffffff, 1.9);
+  key.position.set(-1.5, 5, 3);
   scene.add(key);
-  const rim = new THREE.DirectionalLight(0xdfe8ff, 1.2);
+  const rim = new THREE.DirectionalLight(0xdfe8ff, 0.6);
   rim.position.set(3, 2, -4);
   scene.add(rim);
   const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 50);
@@ -124,7 +125,7 @@ export function renderWeaponIcons(renderer: THREE.WebGLRenderer, w = 160, h = 80
           continue;
         }
         // stored values are linear and premultiplied by coverage
-        aces(pixels[src + x] / 255 / a, pixels[src + x + 1] / 255 / a, pixels[src + x + 2] / 255 / a, 1.0, col);
+        aces(pixels[src + x] / 255 / a, pixels[src + x + 1] / 255 / a, pixels[src + x + 2] / 255 / a, EXPOSURE, col);
         d[dst + x] = Math.round(toSRGB(col[0]) * 255);
         d[dst + x + 1] = Math.round(toSRGB(col[1]) * 255);
         d[dst + x + 2] = Math.round(toSRGB(col[2]) * 255);

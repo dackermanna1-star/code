@@ -38,7 +38,8 @@ export class PlanarReflection {
   }
 
   setSize(w: number, h: number): void {
-    this.target.setSize(Math.max(4, Math.round(w * this.scale)), Math.max(4, Math.round(h * this.scale)));
+    const s = Math.min(this.scale, 720 / Math.max(1, h));
+    this.target.setSize(Math.max(4, Math.round(w * s)), Math.max(4, Math.round(h * s)));
   }
 
   render(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera): void {

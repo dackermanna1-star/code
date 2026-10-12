@@ -44,7 +44,7 @@ const GETUP_TIME = 0.5;
 const KICK_TIME = 0.3;
 const STRIDE = 1.05; // metres per full gait cycle
 /** Total head yaw toward the camera so the face reads in 3/4 view. */
-const HEAD_YAW = 0.9;
+const HEAD_YAW = 1.0;
 /** Face tilted up toward the elevated camera (negative z = look up when facing -X). */
 const HEAD_UP = -0.16;
 
@@ -249,10 +249,10 @@ function buildBody(bones: Record<string, THREE.Object3D>) {
 
   // lower parka (skirt) — pelvis space
   const P = new PartBuilder();
-  const skirt = lathe([[0.0, -0.29], [0.3, -0.29], [0.33, -0.255], [0.334, -0.15], [0.324, -0.04], [0.306, 0.07], [0.285, 0.15], [0.0, 0.16]], 28);
+  const skirt = lathe([[0.0, -0.29], [0.3, -0.29], [0.33, -0.255], [0.334, -0.15], [0.324, -0.04], [0.306, 0.07], [0.286, 0.14], [0.262, 0.2], [0.18, 0.24], [0.0, 0.25]], 28);
   skirt.scale(BODY_SX, 1, 1);
   P.addShaded(skirt, parkaShade(HIP_Y), 'cloth');
-  const hem = torus(0.322, 0.06, 8, 32);
+  const hem = torus(0.322, 0.07, 8, 32);
   hem.rotateX(Math.PI / 2);
   hem.scale(BODY_SX, 1, 1);
   P.addShaded(hem, furShade, 'fur', { p: [0, -0.268, 0] });
@@ -274,32 +274,33 @@ function buildBody(bones: Record<string, THREE.Object3D>) {
 
   // hood + face — head space
   const H = new PartBuilder();
-  H.addShaded(ellipsoid(0.255, 0.27, 0.255, 26, 18), parkaShade(HIP_Y + CHEST_Y + NECK_Y), 'cloth', { p: [0.035, 0.2, 0] });
-  H.addShaded(ellipsoid(0.13, 0.18, 0.12, 14, 10), parkaShade(HIP_Y + CHEST_Y + NECK_Y), 'cloth', { p: [0.15, 0.35, 0], r: [0, 0, -0.75] });
-  // face: centre FX, front surface at FX - 0.105
+  H.addShaded(ellipsoid(0.27, 0.28, 0.27, 26, 18), parkaShade(HIP_Y + CHEST_Y + NECK_Y), 'cloth', { p: [0.04, 0.2, 0] });
+  H.addShaded(ellipsoid(0.13, 0.18, 0.12, 14, 10), parkaShade(HIP_Y + CHEST_Y + NECK_Y), 'cloth', { p: [0.16, 0.36, 0], r: [0, 0, -0.75] });
+  // face: centre FX, front surface at FX - FR
   const FX = -0.125;
   const FY = 0.2;
-  H.add(ellipsoid(0.105, 0.145, 0.13, 18, 14), COL.skin, 'skin', { p: [FX, FY, 0] });
-  const ring = torus(0.13, 0.056, 10, 30);
+  const FR = 0.115;
+  H.add(ellipsoid(FR, 0.158, 0.145, 18, 14), COL.skin, 'skin', { p: [FX, FY, 0] });
+  const ring = torus(0.148, 0.062, 10, 32);
   ring.rotateY(Math.PI / 2);
-  H.addShaded(ring, furShade, 'fur', { p: [FX - 0.07, FY, 0], s: [1, 1.1, 1] });
-  for (let i = 0; i < 20; i++) {
-    const a = (i / 20) * Math.PI * 2;
+  H.addShaded(ring, furShade, 'fur', { p: [FX - 0.078, FY, 0], s: [1, 1.08, 1] });
+  for (let i = 0; i < 22; i++) {
+    const a = (i / 22) * Math.PI * 2;
     const j = hash3(i, 7, 3);
-    const rr = 0.158 + j * 0.014;
-    H.addShaded(sphere(0.036 + j * 0.012, 8, 6), furShade, 'fur', {
-      p: [FX - 0.066 + (j - 0.5) * 0.02, FY + Math.cos(a) * rr * 1.1, Math.sin(a) * rr],
+    const rr = 0.18 + j * 0.014;
+    H.addShaded(sphere(0.038 + j * 0.012, 8, 6), furShade, 'fur', {
+      p: [FX - 0.07 + (j - 0.5) * 0.02, FY + Math.cos(a) * rr * 1.08, Math.sin(a) * rr],
     });
   }
-  const fz = FX - 0.105;
+  const fz = FX - FR;
   for (const s of [1, -1]) {
-    H.add(ellipsoid(0.014, 0.026, 0.016, 10, 8), COL.eye, 'eye', { p: [fz + 0.012, FY + 0.022, 0.042 * s] });
-    H.add(sphere(0.005, 6, 4), 0xffffff, 'eye', { p: [fz - 0.001, FY + 0.032, 0.038 * s] });
-    H.add(ellipsoid(0.007, 0.022, 0.028, 10, 8), COL.cheek, 'skin', { p: [fz + 0.012, FY - 0.03, 0.066 * s] });
+    H.add(ellipsoid(0.016, 0.03, 0.018, 10, 8), COL.eye, 'eye', { p: [fz + 0.014, FY + 0.024, 0.047 * s] });
+    H.add(sphere(0.0055, 6, 4), 0xffffff, 'eye', { p: [fz + 0.0, FY + 0.036, 0.043 * s] });
+    H.add(ellipsoid(0.008, 0.024, 0.03, 10, 8), COL.cheek, 'skin', { p: [fz + 0.014, FY - 0.032, 0.074 * s] });
   }
-  H.add(sphere(0.021, 10, 8), COL.skinDark, 'skin', { p: [fz - 0.003, FY - 0.006, 0] });
-  H.add(box(0.008, 0.008, 0.04), COL.mouth, 'skin', { p: [fz + 0.006, FY - 0.056, 0] });
-  H.add(ellipsoid(0.04, 0.036, 0.1, 12, 8), COL.hair, 'fur', { p: [fz + 0.03, FY + 0.075, 0] });
+  H.add(sphere(0.023, 10, 8), COL.skinDark, 'skin', { p: [fz - 0.003, FY - 0.006, 0] });
+  H.add(box(0.009, 0.009, 0.046), COL.mouth, 'skin', { p: [fz + 0.007, FY - 0.062, 0] });
+  H.add(ellipsoid(0.045, 0.045, 0.118, 12, 8), COL.hair, 'fur', { p: [fz + 0.034, FY + 0.088, 0] });
   H.buildInto(head);
 
   // arms
@@ -770,5 +771,5 @@ export function createHunterRig(): HunterRig {
 export function holdMuzzleOffset(id: WeaponId, model?: WeaponModel): THREE.Vector3 {
   const m = model ?? createWeaponModel(id);
   const def = HOLD[id];
-  return new THREE.Vector3(def.x + m.muzzleRest.x, GUN_Y - m.muzzleRest.y + m.muzzleRest.y, def.z + m.muzzleRest.z);
+  return new THREE.Vector3(def.x + m.muzzleRest.x, GUN_Y, def.z + m.muzzleRest.z);
 }

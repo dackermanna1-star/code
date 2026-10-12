@@ -462,8 +462,9 @@ export class GameView {
     if (e.type === 'turtle' && e.part === 'shell') return;
     const strength = Math.min(1.5, e.damage / 60);
     if (e.bullet) {
-      const n = Math.min(30, 4 + e.damage / 6) * (e.part === 'head' ? 1.5 : 1);
-      this.blood.spray(e.point, n, { dirX: e.dirX, dirZ: e.dirZ, speed: [3, 10], up: [-1, 2.5], spread: 0.35 });
+      // Original: 15 blobs per bullet hit, thrown 3-6 px/tick away from the gun.
+      const n = Math.min(32, 10 + e.damage / 10) * (e.part === 'head' ? 1.4 : 1);
+      this.blood.spray(e.point, n, { dirX: e.dirX, dirZ: e.dirZ, speed: [5, 15], up: [-2, 2.5], spread: 0.2 });
       this.effects.bloodPuff(e.point, e.dirX, strength);
     } else {
       this.blood.spray(e.point, 12 + e.damage / 15, { dirX: e.dirX, dirZ: e.dirZ, speed: [1, 6], up: [0.5, 4], spread: 1.5 });
