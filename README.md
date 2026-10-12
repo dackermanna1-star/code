@@ -149,8 +149,9 @@ Motion** turns them all off. HUD scale and speed units are configurable.
   slopes, combo anti-farming, server rejection of impossible combos, and bowl corner joining.
 - `./gradlew runClientGameTest` starts the real client (it needs a display; use `xvfb-run` on a headless machine),
   rides every sport with real key presses, rides the half-pipe and a rail in the demo park, opens the workshop
-  and menu, checks that a tapped flip or whip key performs the trick and that a flat-ground BMX backflip bails,
-  and saves screenshots to `build/run/clientGameTest/screenshots`.
+  and menu, starts a Score Attack from the menu, checks that a tapped flip or whip key performs the trick, that a
+  flat-ground BMX backflip bails and that the challenge counts the score, and saves screenshots to
+  `build/run/clientGameTest/screenshots`.
 
 ## Known limitations
 

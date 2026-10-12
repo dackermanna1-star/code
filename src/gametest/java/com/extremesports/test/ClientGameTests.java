@@ -47,6 +47,7 @@ public class ClientGameTests implements FabricClientGameTest {
 			scooterAndSkates(context, world);
 			park(context, world);
 			screens(context);
+			challenge(context, world);
 		}
 		if (!failures.isEmpty()) {
 			throw new AssertionError("Client gametest checks failed: " + failures);
@@ -289,6 +290,8 @@ public class ClientGameTests implements FabricClientGameTest {
 
 		context.setScreen(() -> new SportsMenuScreen(null));
 		context.waitTicks(5);
+		context.clickScreenButton("screen.extremesports.tab.challenges");
+		context.waitTicks(3);
 		context.takeScreenshot("menu_challenges");
 		for (String tab : List.of("stats", "unlocks", "settings", "controls")) {
 			context.clickScreenButton("screen.extremesports.tab." + tab);
@@ -296,6 +299,41 @@ public class ClientGameTests implements FabricClientGameTest {
 			context.takeScreenshot("menu_" + tab);
 		}
 		context.setScreen(() -> null);
+	}
+
+	// ------------------------------------------------------------------ challenge
+
+	private void challenge(ClientGameTestContext context, TestSingleplayerContext world) {
+		mount(context, world, EquipmentKind.STREET_BOARD, -20.5, 0.5, 0.0F);
+		view(context, CameraType.THIRD_PERSON_BACK, 0.0F, 15.0F);
+		context.setScreen(() -> new SportsMenuScreen(null));
+		context.waitTicks(5);
+		context.clickScreenButton("screen.extremesports.tab.challenges");
+		context.waitTicks(3);
+		// The first Start button is Score Attack
+		context.clickScreenButton("screen.extremesports.start");
+		context.waitTicks(20);
+		shot(context, "challenge_countdown", true);
+		int phase = context.computeOnClient(client -> ClientSportsState.challenge.phase());
+		if (phase != com.extremesports.server.ChallengeManager.PHASE_COUNTDOWN) {
+			failures.add("score attack should be counting down, phase=" + phase);
+		}
+		context.waitTicks(45);
+		context.getInput().holdKey(options -> options.keyUp);
+		context.waitTicks(20);
+		context.getInput().releaseKey(options -> options.keyUp);
+		popAndTap(context, Keybinds.FLIP);
+		context.waitTicks(30);
+		shot(context, "challenge_running", true);
+		String state = context.computeOnClient(client -> ClientSportsState.challenge.challenge() + " phase="
+			+ ClientSportsState.challenge.phase() + " progress=" + ClientSportsState.challenge.progress());
+		System.out.println("[ES-TEST] challenge: " + state);
+		if (!state.startsWith("score_attack phase=" + com.extremesports.server.ChallengeManager.PHASE_RUNNING) || state.endsWith("progress=0")) {
+			failures.add("score attack should be running and have counted the kickflip: " + state);
+		}
+		world.getServer().runCommand("execute as @p run extremesports challenge stop");
+		context.waitTicks(5);
+		dismount(context, world);
 	}
 
 	// ------------------------------------------------------------------ helpers
