@@ -453,9 +453,10 @@ export class Specials {
     if (h === g.local) g.hud?.centerPrint?.('A Hunter has you pinned! Shoot it off!', 2.5);
   }
 
-  unpin(z) {
+  /** The hunter gets off him (quiet: no 'save' - he went down, or it despawned). */
+  unpin(z, quiet = false) {
     const S = z.sp, v = S.victim;
-    if (v && v.pinnedBy === z) { v.pinnedBy = null; this.saved(z, v, 45); }
+    if (v && v.pinnedBy === z) { v.pinnedBy = null; if (!quiet) this.saved(z, v, 45); }
     S.victim = null;
     S.state = 'recover'; S.until = this.game.time + 0.8; S.cd.pounce = this.game.time + 6;
     z.speedNow = null;
@@ -490,7 +491,7 @@ export class Specials {
           S.state = 'pull'; S.grab = t; S.tookAt = S.took; S.nextHurt = t + 0.5; S.hidden = 0; S.freedBy = null;
           v.tonguedBy = z;
           g.sound?.play('hit_flesh', { pos: chest, volume: 0.8 });
-          if (v === g.local) g.hud?.centerPrint?.('A Smoker has you! Shoot it to snap the tongue!', 2.5);
+          if (v === g.local) g.hud?.centerPrint?.('A Smoker has you! Shoot it, or shove it once it reels you in!', 2.5);
         } else {
           S.tip = [S.tip[0] + dx / l * step, S.tip[1] + dy / l * step, S.tip[2] + dz / l * step];
           g.collision.trace(m, S.tip, [0, 0, 0], [0, 0, 0], MASK_SHOT, _tr);
@@ -522,9 +523,10 @@ export class Specials {
     return false;
   }
 
-  release(z) {
+  /** The tongue lets go (quiet: as unpin). */
+  release(z, quiet = false) {
     const S = z.sp, v = S.victim;
-    if (v && v.tonguedBy === z) { v.tonguedBy = null; this.saved(z, v, 40); }
+    if (v && v.tonguedBy === z) { v.tonguedBy = null; if (!quiet) this.saved(z, v, 40); }
     S.victim = null; S.tip = null;
     S.state = 'recover'; S.until = this.game.time + 0.8; S.cd.tongue = this.game.time + 7;
   }
@@ -587,11 +589,11 @@ export class Specials {
     void t;
   }
 
-  /** A hunter / smoker lets go of whoever it holds (a shove, a save, a despawn); by: who freed him (sp.freedBy, for the 'save' event). */
-  letGo(z, by = null) {
+  /** A hunter / smoker lets go of whoever it holds (a shove, a save, a despawn); by: who freed him (sp.freedBy, for the 'save' event; quiet: none). */
+  letGo(z, by = null, quiet = false) {
     if (!z?.sp?.victim) return;
     z.sp.freedBy = by;
-    if (z.special === 'hunter') this.unpin(z); else if (z.special === 'smoker') this.release(z);
+    if (z.special === 'hunter') this.unpin(z, quiet); else if (z.special === 'smoker') this.release(z, quiet);
   }
 
   /**

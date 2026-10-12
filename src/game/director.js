@@ -50,6 +50,7 @@ const USE_NEAR = 700, USE_FAR = 3400, REACH_OK = 2600;
 const SURGE_GAP = 12; // s between two surges at least (a screamer can't chain them)
 const ROAR_MAX = 1400; // the roar plays toward the front, at most this far from you (audible)
 const ARROW_TIME = 6, BANNER_TIME = 4.5, CALL_TIME = 4;
+const TIP_COL = 0.32; // (x / screen width: the left column ztips' card sits in)
 // the radar's pings: a zombie seen / heard stays on it this long; looked for every SEEK s
 const PING_HOLD = 1.5, SEEK = 0.2, SEE_FAR = 2600, MATE_SEE = 1000, HEAR_GROWL = 1200, HEAR_RUN = 650;
 const ARROW_RGB = [255, 110, 40], BANNER_RGB = [255, 96, 32], SUB_RGB = [235, 215, 180], TAG_RGB = [255, 150, 60], SURGE_RGB = [255, 60, 40];
@@ -101,7 +102,7 @@ const MOD_PLAN = {
 const ELITE_KINDS = ['hunter', 'charger', 'smoker', 'boomer'];
 const COMPASS = ['EAST', 'NORTH-EAST', 'NORTH', 'NORTH-WEST', 'WEST', 'SOUTH-WEST', 'SOUTH', 'SOUTH-EAST'];
 
-const _eye = [0, 0, 0], _head = [0, 0, 0], _roar = [0, 0, 0];
+const _eye = [0, 0, 0], _mate = [0, 0, 0], _head = [0, 0, 0], _roar = [0, 0, 0];
 
 export class WaveDirector {
   constructor(game) {
@@ -146,7 +147,7 @@ export class WaveDirector {
     this.calmUntil = 0; this.pushAt = 0; this.pushed = false;
     this.X = { interval: 1, surge: 1, variant: null, share: 0, rise: 0, elites: 0, eliteHp: 1 };
     this.riseLeft = 0; this.riseNext = 0; this.risenCalled = false;
-    this.bannerT = -99;
+    this.bannerT = -99; this.leftArrowT = -99;
     for (const a of this.arrows) { a.f = null; a.t0 = -99; }
   }
 
@@ -154,7 +155,6 @@ export class WaveDirector {
   /** startWave: the stats to play wave n with (see the header). */
   plan(n, stats, boss) {
     const g = this.game, Z = this.Z, D = Z.diff.director, k = D.power ?? 1, t = g.time;
-    this.lastOpen = this.open.slice();
     this.reset();
     this.boss = !!boss;
     const S = { ...stats };
@@ -221,7 +221,7 @@ export class WaveDirector {
     const M = MODS[id];
     if (!M) return false;
     if (M.needs && !(COMMONS[M.needs]?.weight > 0)) return false;
-    if (id === 'risen') return this.riseCandidates(null) >= 8;
+    if (id === 'risen') return this.riseCandidates(this.Z.humans()) >= 8; // (rise()'s own window: bodies 500-2400 u from the squad)
     return true;
   }
 
@@ -390,8 +390,10 @@ export class WaveDirector {
   }
 
   closeFronts() {
-    if (!this.open) return;
-    for (const f of this.open) this.emitFront('close', f);
+    if (!this.open?.length) return;
+    // (the next wave's openFronts weighs these down: never the same fronts twice running)
+    this.lastOpen.length = 0;
+    for (const f of this.open) { this.emitFront('close', f); this.lastOpen.push(f); }
     this.open.length = 0;
   }
 
@@ -491,7 +493,7 @@ export class WaveDirector {
   /** Ask for a surge now (a screamer: src = it, o.by = 'screamer'). True when one started. */
   surge(src, o = {}) {
     const Z = this.Z, t = this.game.time;
-    if (!Z.enabled || Z.state !== 'wave' || this.phase === 'surge' || t - this.lastSurge < SURGE_GAP) return false;
+    if (!Z.enabled || Z.state !== 'wave' || this.boss || this.phase === 'surge' || t - this.lastSurge < SURGE_GAP) return false; // (none on a boss wave: plan)
     // from the open front nearest the screamer (they answer its call)
     let f = null;
     if (src?.pm && this.open.length) {
@@ -657,10 +659,13 @@ export class WaveDirector {
       if (p === g.local || !p.alive || p.team !== TEAM_CT || p.isZombie || p.downed) continue;
       const q = p.pm.origin;
       if ((q[0] - o[0]) ** 2 + (q[1] - o[1]) ** 2 > MATE_SEE * MATE_SEE) continue;
-      if (g.visible(p.eyePos(_eye), _head)) return true;
+      if (g.visible(p.eyePos(_mate), _head)) return true; // (not _eye: that's hud()'s eye, for the zombies after this one)
     }
     return false;
   }
+
+  /** Was a front's arrow drawn in the tip card's column just now (ztips.js hides its card meanwhile)? */
+  arrowLeft() { const d = this.game.time - this.leftArrowT; return d >= 0 && d < 0.2; }
 
   /** Is the wave type's banner up right now (ztips.js keeps its tip card off it)? */
   bannerOn() { const bt = this.game.time - this.bannerT; return !!this.mod && this.Z.state === 'wave' && bt >= 0 && bt < BANNER_TIME; }
@@ -699,7 +704,10 @@ export class WaveDirector {
     const yaw = me.pm.angles[1], o = me.pm.origin;
     // (the edges: under the banner at the top - clear of its band while it's up - and above the
     // health / money / ammo numbers at the bottom)
+    // On the left the bottom stops over the chat lines (hud.drawChat paints after this layer); the
+    // tip card (ztips.js) steps aside while an arrow sits in its column (leftArrowT).
     const cx = vw / 2, cyy = vh / 2, rx = cx - 22 * k, rBot = vh - cyy - 96 * k;
+    const rBotL = Math.min(rBot, (hud.chatTop ? hud.chatTop() : vh) - 20 * k - cyy);
     let rTop = cyy - Math.round(vh * 0.3);
     if (M && t - this.bannerT < BANNER_TIME) rTop = Math.min(rTop, cyy - Math.round(vh * 0.19) - Math.round(hud.fontPx * 3.6) - 14 * k);
     for (const A of this.arrows) {
@@ -708,8 +716,10 @@ export class WaveDirector {
       const p = A.f.exit || A.f.pos;
       const rel = (Math.atan2(p[1] - o[1], p[0] - o[0]) * 180 / Math.PI - yaw) * Math.PI / 180;
       const ux = -Math.sin(rel), uy = -Math.cos(rel); // (screen: x right, y down; rel > 0 is to your left)
-      const sc = Math.min(Math.abs(ux) > 1e-3 ? rx / Math.abs(ux) : 1e9, uy < 0 ? rTop / -uy : uy > 1e-3 ? rBot / uy : 1e9);
+      const rb = rBot + (rBotL - rBot) * Math.min(1, Math.max(0, (-ux - 0.2) / 0.3)); // (eased in toward the left: no jump turning past 180)
+      const sc = Math.min(Math.abs(ux) > 1e-3 ? rx / Math.abs(ux) : 1e9, uy < 0 ? rTop / -uy : uy > 1e-3 ? rb / uy : 1e9);
       const x = cx + ux * sc, y = cyy + uy * sc;
+      if (x < vw * TIP_COL) this.leftArrowT = t;
       const a = Math.min(1, at / 0.2, (ARROW_TIME - at) / 0.8) * (0.7 + 0.3 * Math.sin(at * 9));
       this.drawArrow(hud, x, y, ux, uy, 13 * k, a);
       // the front's name beside it, toward the middle of the screen (beside it at the top and bottom)

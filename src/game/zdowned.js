@@ -108,9 +108,9 @@ export class ZDowned {
     if (p.downWave !== Z.wave) { p.downWave = Z.wave; p.downCount = 0; }
     p.downCount++;
     const bleed = Math.max(S.bleedOutMin, S.bleedOut - S.bleedOutStep * (p.downCount - 1));
-    // a hunter / smoker lets go, a revive he was doing stops
-    if (p.pinnedBy) Z.specials.unpin(p.pinnedBy);
-    if (p.tonguedBy) Z.specials.release(p.tonguedBy);
+    // a hunter / smoker lets go (quietly: going down is no save), a revive he was doing stops
+    if (p.pinnedBy) Z.specials.unpin(p.pinnedBy, true);
+    if (p.tonguedBy) Z.specials.release(p.tonguedBy, true);
     if (p.reviving) this.stopRevive(p);
     if (p.ads) g.setAds(p, false);
     if (p.bot) { p.bot.nade = null; p.bot.heal = null; p.bot.revive = null; } // (a bot drops whatever it was doing)

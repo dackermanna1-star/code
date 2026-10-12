@@ -12,6 +12,7 @@ export const LOADING_TIPS = [
   'Remote C4 sticks to whatever it hits, zombies included. Press V to set it off.',
   'Ready early? Press F1 in the break and the next wave comes sooner.',
   'Bots follow radio orders: Z, X and C open the radio menus.',
+  'Too close? Press T or Mouse 4 to shove them back. It frees a grabbed teammate too.',
   'Sandbox keeps the old way to play: $16000, buy anything, anywhere.',
 ];
 

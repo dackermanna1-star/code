@@ -100,6 +100,12 @@ export class Hud {
     this.chatScroll = 0;
     this.center = null;
     this.centerQ = { alert: [], info: [] }; // zombie survival's centre channels
+    // per frame, for the layers: the crosshair's reach (px from the middle to an arm's end, 0 when
+    // none: zthreats / shove keep clear of it), a y the centre alerts stay above (a layer sets it:
+    // zthreats' ring), and the band the centre text took last frame ([top, bottom], empty: top = bottom)
+    this.crossR = 0;
+    this.centerAvoid = Infinity;
+    this.centerBand = [0, 0];
     this.centerQueued = false; // (on while the HUD shows zombie survival)
     this.delta = null;
     this.blink = { count: 0, t: 0 };
@@ -276,6 +282,7 @@ export class Hud {
     U.clearRect(0, 0, vw, vh);
     A.clearRect(0, 0, vw, vh);
     T.clearRect(0, 0, vw, vh);
+    this.crossR = 0; this.centerAvoid = Infinity;
     if (!this.visible || !s || s.hidden) return;
     this.centerQueued = !!s.zombie;
     if (this.centerQueued && this.center) { const c = this.center; this.center = null; this.centerPrint(c.lines.join('\n'), c.until - this.time); } // (printed before the HUD knew)
@@ -637,6 +644,7 @@ export class Hud {
       bar = Math.floor((vw * bar) / base);
     }
     dist = Math.floor(dist);
+    this.crossR = dist + bar;
     const color = ch.color || [50, 250, 50];
     const a = clamp(ch.alpha ?? 255, 0, 255);
     const cx = Math.floor(vw / 2), cy = Math.floor(vh / 2);
@@ -835,6 +843,9 @@ export class Hud {
     if (this.chatScroll <= this.time) this.chatScroll = this.time + SAYTEXT_TIME;
   }
 
+  /** The top of the chat lines (director.js keeps its arrows above them). */
+  chatTop() { return this.vh - 60 * this.k - this.lineH * (MAX_CHAT_LINES + 2); }
+
   drawChat() {
     if (!this.chatLines.length) return;
     if (this.chatScroll <= this.time) {
@@ -843,7 +854,7 @@ export class Hud {
       if (!this.chatLines.length) return;
     }
     const lh = this.lineH;
-    let y = this.vh - 60 * this.k - lh * (MAX_CHAT_LINES + 2);
+    let y = this.chatTop();
     const x0 = 10 * this.k;
     for (const line of this.chatLines) {
       let x = x0;
@@ -854,6 +865,12 @@ export class Hud {
 
   drawCenter(dt = 0) {
     let y = Math.round(this.vh * 0.35);
+    // a layer's keep-out line this frame (zthreats' ring of arcs): the stack moves up clear of it
+    if (this.centerAvoid < Infinity) {
+      const h = (this.center && this.time <= this.center.until ? this.center.lines.length * this.lineH : 0) + this.queueHeight(this.centerQ.alert);
+      if (y + h > this.centerAvoid) y = Math.max(Math.round(this.vh * 0.2), Math.round(this.centerAvoid - h));
+    }
+    const y0 = y;
     if (this.center) {
       if (this.time > this.center.until) this.center = null;
       else {
@@ -867,9 +884,19 @@ export class Hud {
     // instead when the stack runs down toward the crosshair)
     const top = y, info = this.centerQ.info;
     y = this.drawCenterQueue(this.centerQ.alert, y, dt, CENTER_COLOR);
-    const ih = info.length ? info[0].lines.length * this.lineH : 0;
-    if (ih && y + ih > this.vh * 0.5 - this.lineH) y = top - ih - Math.round(this.lineH * 0.5);
-    this.drawCenterQueue(info, y, dt, INFO_COLOR);
+    const alertEnd = y, ih = info.length ? info[0].lines.length * this.lineH : 0;
+    if (ih && y + ih > Math.min(this.vh * 0.5 - this.lineH, this.centerAvoid)) y = top - ih - Math.round(this.lineH * 0.5);
+    const iy = y, yEnd = this.drawCenterQueue(info, y, dt, INFO_COLOR);
+    const B = this.centerBand;
+    B[0] = Math.min(y0, iy); B[1] = Math.max(B[0], alertEnd, yEnd);
+  }
+
+  /** The height the live messages of a centre channel take (drawCenterQueue's layout). */
+  queueHeight(q) {
+    const lh = this.lineH;
+    let h = 0;
+    for (const e of q) if (this.time <= e.until) h += e.lines.length * lh + Math.round(lh * 0.5);
+    return h ? h - Math.round(lh * 0.5) : 0;
   }
 
   /** One centre channel from y down (each message slides into its place and fades in / out). Returns the y under it. */

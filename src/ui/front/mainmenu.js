@@ -8,17 +8,17 @@
 //   info: { best, bestDiff, quick (text: the last setup) | null, map } (all optional)
 import { titleSVG } from './titleart.js';
 
-export const UPDATE_ID = 'zm1'; // bump to show the What's new panel again
+export const UPDATE_ID = 'zm2'; // bump to show the What's new panel again
 const NEWS_KEY = 'cs16-whatsnew-seen';
 
 export const WHATS_NEW = {
-  title: 'The Dead of Dust update',
+  title: 'A horde worth fighting',
   items: [
-    ['Every dollar counts', 'Start with a pistol and earn your arsenal. Buy between waves; Sandbox keeps the old $16000 buy-anything run.'],
-    ['Down, not out', 'At zero health you go down. Teammates and bots hold E to pick you up. The run ends when the whole squad falls.'],
-    ['Five difficulties, squad scaling', 'Casual to Nightmare. The horde grows with your squad, and late waves keep climbing.'],
-    ['Feel every hit', 'Hit markers, headshot pings, kill streaks, and a kill feed that only shows what matters.'],
-    ['Bots that follow orders', 'Radio commands work in zombie mode: hold, follow me, fall back.'],
+    ['Shove them back', 'Press T or Mouse 4 to shove: it knocks zombies back, breaks a pounce and pulls a grabbed teammate free. Spam it and you tire.'],
+    ['Waves with a plan', 'The horde comes through named fronts, in surges and a final push, and some waves have a twist: Crawler Swarm, Iron Rain, The Dead Rise and more.'],
+    ['A meaner crowd', 'Runners, crawlers, riot armour, bloaters, burning zombies and the Screamer, and they flank and surround you.'],
+    ['Read the threat', 'Arcs round the crosshair warn of a special winding up, and HELP marks a teammate who has been grabbed.'],
+    ['The Dead of Dust basics', 'Earn your guns between waves, pick downed teammates up with E, and the run ends only when the whole squad falls.'],
   ],
 };
 

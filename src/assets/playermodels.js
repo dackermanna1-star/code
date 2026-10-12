@@ -903,6 +903,16 @@ export function createPlayerModel(skin) {
   return new PlayerModel(skin);
 }
 
+/**
+ * Warm one skin ahead of its first model (a cold one costs its first createPlayerModel 15-55 ms):
+ * paints its texture and glow map, builds its mesh, and given the WebGLRenderer uploads the textures.
+ */
+export function warmPlayerModel(skin, gl = null) {
+  const tex = getSkinTexture(skin), glow = getGlowTexture(skin);
+  bodyGeometry(skin);
+  if (gl?.initTexture) { gl.initTexture(tex); if (glow) gl.initTexture(glow); }
+}
+
 /** Optional warm-up: paints all eight skins and builds their meshes (~0.5 s total) ahead of time. */
 export function preloadPlayerModels() {
   for (const skin of [...PLAYER_SKINS.t, ...PLAYER_SKINS.ct]) { getSkinTexture(skin); bodyGeometry(skin); }

@@ -81,7 +81,8 @@ const PICKED = ['riot', 'crawler', 'bloater', 'burning']; // (the weighted ones,
 // if it can see him), claws only when cornered; a shriek roots it SHRIEK s
 const HOLD = 520, HOLD_MAX = 950, CORNERED = 130, SHRIEK = 1.6;
 // a bloater's cloud: radius (u), how long (s)
-const GAS_R = 140, GAS_TIME = 6;
+export const GAS_R = 140; // (bots.js steers clear of it)
+const GAS_TIME = 6;
 const FLAMES = 60; // flames a second on a burning common
 
 const _v = [0, 0, 0], _w = [0, 0, 0], _feet = [0, 0, 0];

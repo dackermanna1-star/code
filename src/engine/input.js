@@ -29,12 +29,19 @@ export class Input {
     this.handlers = []; // (cmd, pressed) => consumed?
     this.textCapture = null; // (event) => void when typing (chat/console)
     this.enabled = true;
+    this.guardBack = false; // in a game (main.js): the mouse's side buttons never navigate the page
 
     window.addEventListener('keydown', (e) => this._key(e, true));
     window.addEventListener('keyup', (e) => this._key(e, false));
     window.addEventListener('blur', () => this.releaseAll());
     element.addEventListener('mousedown', (e) => this._mouse(e, true));
     window.addEventListener('mouseup', (e) => this._mouse(e, false));
+    // the side buttons are the browser's Back / Forward: not while a game is on, menus up or not
+    // (Mouse 4 is the shove: a press while shopping would leave the page)
+    const side = (e) => { if (this.guardBack && (e.button === 3 || e.button === 4)) e.preventDefault(); };
+    window.addEventListener('mousedown', side, true);
+    window.addEventListener('mouseup', side, true);
+    window.addEventListener('auxclick', side, true);
     element.addEventListener('contextmenu', (e) => e.preventDefault());
     element.addEventListener('wheel', (e) => {
       if (!this.locked) return;
@@ -86,7 +93,7 @@ export class Input {
     if (!this.locked && pressed) return;
     const name = e.button === 0 ? 'MOUSE1' : e.button === 2 ? 'MOUSE2' : e.button === 1 ? 'MOUSE3' : e.button === 3 ? 'MOUSE4' : null;
     if (!name) return;
-    if (e.button === 3 && this.locked) e.preventDefault(); // (the side button is the browser's Back otherwise)
+    if (e.button === 3 && this.locked) e.preventDefault(); // (the side button is the browser's Back otherwise; and guardBack)
     if (this.textCapture) return;
     this._fire(name, pressed);
   }

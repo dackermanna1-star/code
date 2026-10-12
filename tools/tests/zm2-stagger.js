@@ -454,7 +454,8 @@
     const build = g.buildLocalCmd;
     g.buildLocalCmd = () => ({ forwardmove: 0, sidemove: 0, upmove: 0, buttons: 0, wbuttons: 1 });
     let t0 = -1, h = 0;
-    for (let i = 0; i < 60 && t0 < 0; i++) {
+    // (up to two blasts: the pellets' spread can leave the first one just short - poise ~0.97)
+    for (let i = 0; i < 150 && t0 < 0; i++) {
       aim(p, chest(z));
       g.frame(0.01);
       if (z.staggerUntil > g.time) { t0 = g.time; h = held(z); }

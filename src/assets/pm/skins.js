@@ -1291,18 +1291,19 @@ SKINS.zriot = function zriot(p, m) {
   pouchTex(p, m, '#1c1e22');
 };
 
-// The bloater: a swollen, mottled purple-green corpse stretched past its clothes, studded
-// with gas sacs that glow faintly (it bursts into a choking cloud)
+// The bloater: a swollen, waterlogged grey-violet corpse stretched past its clothes, studded
+// with dark plum gas sacs (it bursts into a choking cloud). A common: no glow, and nothing of
+// the Boomer's yellow-green (a special: specials.js) - it must not read as one
 SKINS.zbloat = function zbloat(p, m) {
-  const skin = '#7c8466', shorts = '#3a3428', sac = '#9aa848', vein = 'rgba(70,40,80,0.5)';
+  const skin = '#86808e', shorts = '#3a3428', sac = '#6a4660', vein = 'rgba(46,28,66,0.55)';
   const K = zombieKit(p, skin);
-  const mottle = (mm, n) => { for (let i = 0; i < n; i++) p.ell(mm, p.r(0, 1), p.r(-10, 80), p.r(0.02, 0.08), p.r(0.5, 2), `rgba(${Math.round(p.r(80, 110))},${Math.round(p.r(50, 70))},${Math.round(p.r(80, 110))},${p.r(0.15, 0.35).toFixed(2)})`); };
-  const sacs = (mm, list) => { for (const [u, z, r] of list) { p.ell(mm, u, z, r * 0.03, r * 0.8, sh(sac, 0.55)); p.ell(mm, u, z + 0.1, r * 0.022, r * 0.6, sac); p.ell(mm, u - 0.006, z + 0.3, r * 0.008, r * 0.22, '#e8f0a0'); } };
-  paintSkinHead(p, m, { skin, noHair: true, iris: '#e0e070', browCol: '#3a3a28' });
-  K.face(m.head, { gash: false, iris: '#e8e890' });
+  const mottle = (mm, n) => { for (let i = 0; i < n; i++) p.ell(mm, p.r(0, 1), p.r(-10, 80), p.r(0.02, 0.08), p.r(0.5, 2), `rgba(${Math.round(p.r(60, 90))},${Math.round(p.r(40, 60))},${Math.round(p.r(90, 120))},${p.r(0.2, 0.4).toFixed(2)})`); };
+  const sacs = (mm, list) => { for (const [u, z, r] of list) { p.ell(mm, u, z, r * 0.03, r * 0.8, sh(sac, 0.55)); p.ell(mm, u, z + 0.1, r * 0.022, r * 0.6, sac); p.ell(mm, u - 0.006, z + 0.3, r * 0.008, r * 0.22, '#c8a4b8'); } };
+  paintSkinHead(p, m, { skin, noHair: true, iris: '#d8d0c8', browCol: '#3a3440' });
+  K.face(m.head, { gash: false, iris: '#e0d8d0' });
   mottle(m.head, 20);
-  for (const s of [-1, 1]) p.ell(m.head, 0.5 + s * EYE_U, EYE_Z + 0.15, 0.034, 0.5, 'rgba(100,90,40,0.6)'); // swollen lids
-  p.poly(m.head, [[0.46, 63.7], [0.54, 63.7], [0.53, 61.8], [0.5, 61.4], [0.47, 61.8]], 'rgba(130,160,40,0.8)'); // drool
+  for (const s of [-1, 1]) p.ell(m.head, 0.5 + s * EYE_U, EYE_Z + 0.15, 0.034, 0.5, 'rgba(70,40,80,0.6)'); // swollen lids
+  p.poly(m.head, [[0.46, 63.7], [0.54, 63.7], [0.53, 61.8], [0.5, 61.4], [0.47, 61.8]], 'rgba(90,60,70,0.8)'); // drool
   K.bare(m.torso, 30);
   mottle(m.torso, 40);
   for (let i = 0; i < 70; i++) { const u = p.r(0, 1), z = p.r(36, 60); p.line(m.torso, [[u, z], [u + p.r(-0.03, 0.03), z + p.r(-1.2, 1.2)], [u + p.r(-0.05, 0.05), z + p.r(-2, 2)]], vein, 1.2); }
@@ -1311,14 +1312,14 @@ SKINS.zbloat = function zbloat(p, m) {
   // what's left of a shirt: shreds on the shoulders
   p.band(m.torso, 57, 61, '#6a7a8a', 0.0, 0.3); p.band(m.torso, 57, 61, '#6a7a8a', 0.7, 1.0);
   p.band(m.torso, 34.2, 39.0, shorts);
-  K.stains(m.torso, 20, 0.2, 0.8, 38, 60, 'rgba(110,140,30,0.45)');
+  K.stains(m.torso, 20, 0.2, 0.8, 38, 60, 'rgba(60,36,62,0.45)');
   p.wrapShade(REG.torso, 0.2);
   for (const mm of [m.armR, m.armL]) { K.bare(mm, 20); mottle(mm, 14); sacs(mm, [[p.r(0.2, 0.8), p.r(40, 56), 1.2], [p.r(0.2, 0.8), p.r(40, 56), 0.9]]); }
   K.hands(m);
   for (const mm of [m.legR, m.legL]) { K.bare(mm, 20); mottle(mm, 14); p.band(mm, 30, 41.2, shorts); sacs(mm, [[p.r(0.3, 0.7), p.r(12, 26), 1.1]]); }
   for (const mm of [m.footR, m.footL]) { p.fill(mm.reg, sh(skin, 0.7)); p.noise(mm.reg, 0.1); }
 };
-// the bloater's gas sacs on the torso (u, z, size): painted, and lit in its glow map
+// the bloater's gas sacs on the torso (u, z, size)
 export const BLOAT_SACS = [[0.42, 47, 1.6], [0.58, 44, 2.0], [0.5, 52, 1.3], [0.66, 50, 1.2], [0.34, 42, 1.4], [0.1, 49, 1.5], [0.88, 46, 1.7], [0.02, 54, 1.1], [0.72, 41, 1.0]];
 
 // The Screamer (a special that calls the horde): a gaunt woman in a hospital gown, wild grey
@@ -1715,14 +1716,13 @@ const GLOWS = {
   },
   sprinter(p, m) { for (const s of [-1, 1]) { p.ell(m.head, 0.5 + s * EYE_U, EYE_Z, 0.018, 0.24, '#ff2010'); p.ell(m.head, 0.5 + s * EYE_U, EYE_Z, 0.03, 0.4, 'rgba(255,30,10,0.35)'); } },
   hunter(p, m) { for (const s of [-1, 1]) p.ell(m.head, 0.5 + s * EYE_U, EYE_Z, 0.012, 0.16, '#e8ecd0'); },
-  zbloat(p, m) { for (const [u, z, r] of BLOAT_SACS) p.ell(m.torso, u, z + 0.1, r * 0.016, r * 0.42, 'rgba(170,220,60,0.55)'); }, // (a faint sickly glow in the gas sacs)
   abomination(p, m) {
     for (const s of [-1, 1]) p.ell(m.head, 0.5 + s * EYE_U, EYE_Z, 0.02, 0.26, '#ff2010');
     for (const mm of [m.armR, m.armL]) for (let i = 0; i < 8; i++) { const u = p.r(0, 1), z = p.r(36, 58); p.line(mm, [[u, z], [u + p.r(-0.05, 0.05), z + p.r(-3, 3)]], 'rgba(255,40,20,0.45)', 1.2); }
   },
 };
 /** Default glow strength / tint per boss skin (rgb multiplier for the glow map). */
-export const GLOW_TINT = { butcher: [1, 1, 1], spitter: [0.9, 1, 0.8], banshee: [1, 1, 1], inferno: [1.1, 1, 1], abomination: [1, 1, 1], sprinter: [1, 1, 1], hunter: [0.8, 0.8, 0.8], zbloat: [0.7, 0.8, 0.5] };
+export const GLOW_TINT = { butcher: [1, 1, 1], spitter: [0.9, 1, 0.8], banshee: [1, 1, 1], inferno: [1.1, 1, 1], abomination: [1, 1, 1], sprinter: [1, 1, 1], hunter: [0.8, 0.8, 0.8] };
 
 const glowCache = new Map();
 /** The glow map of a boss skin (black where nothing glows), or null. */

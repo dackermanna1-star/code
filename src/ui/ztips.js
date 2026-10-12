@@ -1,5 +1,5 @@
 // Zombie survival first-run tips: short contextual hints during a player's first runs
-// (buying in the break, F1 ready, E to revive, the upgrades page, V for C4, specials).
+// (buying in the break, F1 ready, E to revive, the upgrades page, V for C4, specials, the shove).
 // Each tip shows once, the whole thing stops after TIP_RUNS runs, H dismisses the one on
 // screen, and the setup screen's "First-run tips" toggle turns them off (or back on, from
 // the start). Remembered in localStorage. A DOM card on the left of the game view.
@@ -21,7 +21,9 @@ export const TIPS = {
   attach: 'Wave cleared. Buy menu page <kbd>9</kbd>, Upgrades &amp; Skins: scopes, bigger mags and more for the gun in your hands.',
   c4: 'Remote C4: throw it (it sticks to zombies too), then press <kbd>V</kbd> to set it off. Stand clear.',
   medkit: 'Medkit: <kbd>5</kbd> takes it out, fire heals you, right-click heals the teammate in front of you.',
+  shove: 'Too close? Press <kbd>{shove}</kbd> or Mouse 4 to shove: it knocks them back and pulls a grabbed teammate free. Spamming it tires you.',
 };
+const SHOVE_NEAR = 90; // u: a zombie this close in a wave brings up the shove tip
 
 const load = () => {
   try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if (v && typeof v === 'object') return { runs: v.runs | 0, seen: v.seen || {}, off: !!v.off }; } catch { /* ignore */ }
@@ -32,6 +34,7 @@ export class ZTips {
   constructor(game, { root, input, viewport } = {}) {
     this.game = game;
     this.viewport = viewport || (() => null);
+    this.input = input || null;
     this.s = load();
     this.live = false; // tips are running this run
     this.queue = [];
@@ -112,6 +115,18 @@ export class ZTips {
     const left = Z.state === 'break' ? Z.nextWaveAt - g.time : 0;
     if (Z.wave === 0 && this.runT > 2.5 && left > 5) this.want(Z.diff?.sandbox ? 'buySandbox' : 'buy');
     if ((this.s.seen.buy || this.s.seen.buySandbox) && left > 5) this.want('ready');
+    // the shove: a teammate grabbed (or you, on a smoker's tongue: pinned flat you can't), or the
+    // first zombie in your face
+    if (Z.state === 'wave' && !this.s.seen.shove && (this.nearT = (this.nearT || 0) + dt) > 0.25) {
+      this.nearT = 0;
+      const me = g.local;
+      if (me?.alive && !me.downed) {
+        let grab = false, near = false;
+        for (const p of g.players) if (p.alive && !p.isZombie && p.team === me.team && (p.tonguedBy || (p.pinnedBy && p !== me))) { grab = true; break; }
+        if (!grab) for (const z of Z.pool) if (z.alive && Math.hypot(z.pm.origin[0] - me.pm.origin[0], z.pm.origin[1] - me.pm.origin[1]) < SHOVE_NEAR) { near = true; break; }
+        if (grab || near) this.want('shove', null, grab);
+      }
+    }
     // the break is over (a ready-up can cut it short): its tips go, to come back another run
     if (Z.state !== 'break') {
       for (let i = this.queue.length - 1; i >= 0; i--) if (BREAK_TIPS.has(this.queue[i].id)) this.queue.splice(i, 1);
@@ -119,17 +134,25 @@ export class ZTips {
     }
     if (!this.cur && this.queue.length && !g.menus?.isOpen?.()) this.show(this.queue.shift());
     if (!this.cur) return;
-    // (not over menus or the scoreboard, nor over a wave type's banner: director.js; its clock waits meanwhile)
-    this.el.hidden = !!g.menus?.isOpen?.() || !!g.menus?.score || !!g.bulletCam?.active || !!Z.director?.bannerOn?.();
+    // (not over menus or the scoreboard, nor over a wave type's banner or a front's arrow on the
+    // left: director.js; its clock waits meanwhile)
+    this.el.hidden = !!g.menus?.isOpen?.() || !!g.menus?.score || !!g.bulletCam?.active || !!Z.director?.bannerOn?.() || !!Z.director?.arrowLeft?.();
     if (!this.el.hidden) this.cur.t += dt;
     this.bar.style.width = Math.max(0, 100 - (100 * this.cur.t) / SHOW).toFixed(1) + '%';
     if (this.cur.t > SHOW) this.hide(true);
   }
 
+  /** The key bound to the shove besides Mouse 4 (the Options shove key), for the tip. */
+  shoveKey() {
+    const b = this.input?.binds || {};
+    for (const code in b) if (b[code] === 'shove' && code !== 'MOUSE4') return code.replace(/^Key|^Digit/, '');
+    return 'T';
+  }
+
   show(q) {
     this.cur = { id: q.id, t: 0 };
     const name = q.arg ? String(q.arg).replace(/[&<>"']/g, '') : 'A teammate';
-    this.body.innerHTML = TIPS[q.id].replace('{name}', name);
+    this.body.innerHTML = TIPS[q.id].replace('{name}', name).replace('{shove}', this.shoveKey());
     const vp = this.viewport();
     if (vp) Object.assign(this.el.style, { left: vp.x + Math.round(vp.w * 0.02) + 'px', top: vp.y + Math.round(vp.h * 0.21) + 'px' });
     this.el.hidden = false;

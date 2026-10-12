@@ -20,7 +20,7 @@
 //    field and surround slot; shove.js and zthreats.js hook in like the others
 // game.js / rounds.js hand the mode its ticks, kills and buy / spawn rules.
 import { Player, TEAM_T, TEAM_CT } from './player.js';
-import { createPlayerModel } from '../assets/playermodels.js';
+import { createPlayerModel, warmPlayerModel, ZOMBIE_SKINS } from '../assets/playermodels.js';
 import { setDynamicBox, CONTENTS_SOLID, CONTENTS_PLAYERCLIP, CONTENTS_PLAYER, CONTENTS_ZOMBIE } from '../engine/collision.js';
 import { IN_JUMP } from '../engine/pmove.js';
 import { MinHeap } from './nav.js';
@@ -47,6 +47,7 @@ export const MASK_HUMAN_MOVE = MASK_ZOMBIE_MOVE | CONTENTS_ZOMBIE;
 
 export const ZOMBIE_START_MONEY = 16000;
 const POOL = 32; // zombie bodies reused wave after wave (a model each; up to 28 up at once)
+const WARMED = new Set(); // the zombie looks painted and built already (this page)
 const CORPSE_TIME = 4; // a body lies at least this long before its zombie comes back
 const REACH = 46; // start a swipe within this (horizontal, hull edge to hull edge ~14)
 const HIT_RANGE = 72; // the swipe lands if still within this when it comes down
@@ -113,6 +114,8 @@ export class ZombieMode {
   start() {
     const g = this.game;
     this.pool = [];
+    // every zombie look warmed in the first break, ahead of its first spawn (tick)
+    this.warmQ = ZOMBIE_SKINS.filter((s) => !WARMED.has(s)); this.warmN = 0;
     this.wave = 0;
     this.kills = 0; // yours
     this.squadKills = 0; // everybody's on your side
@@ -157,8 +160,8 @@ export class ZombieMode {
     // every 5th wave: a boss (and half the usual crowd)
     this.bossWave = n % 5 === 0;
     if (this.bossWave) { this.stats = { ...this.stats, count: Math.ceil(this.stats.count * 0.5) }; this.bossAt = g.time + 3; }
-    this.stats = this.director.plan(n, this.stats, this.bossWave); // (its type, fronts and pacing: director.js)
     // the squad's dead (bots, and you if you bled out) come back for the next wave
+    // (before the director plans it: its fronts keep clear of where they stand)
     for (const p of g.players) {
       if (p.team === TEAM_CT && !p.isZombie && !p.alive) {
         p.weapons = { 1: null, 2: null, 3: null, 4: [], 5: null };
@@ -166,6 +169,7 @@ export class ZombieMode {
         this.downed.respawned(p, n);
       }
     }
+    this.stats = this.director.plan(n, this.stats, this.bossWave); // (its type, fronts and pacing: director.js)
     if (n > 1) g.bots.onRoundStart();
     g.hud?.centerPrint?.('', 0, 'alert'); // (the break's prints - the greeting, "Wave cleared, next in 15 s" - are stale now: a ready-up cuts it short)
     g.hud?.centerPrint?.(this.bossWave ? `WAVE ${n}\nSomething big is coming...` : `WAVE ${n}`, 3);
@@ -247,6 +251,7 @@ export class ZombieMode {
   /** Per tick, after everyone moved (RoundManager.tick). */
   tick() {
     const g = this.game, t = g.time;
+    if (this.warmQ?.length && ++this.warmN % 4 === 0) { const s = this.warmQ.pop(); WARMED.add(s); warmPlayerModel(s, g.renderer?.renderer); } // (one look every 4 ticks)
     this.economy.tick(t);
     this.downed.tick(t);
     this.feedback.tick(t);
@@ -356,7 +361,7 @@ export class ZombieMode {
 
   despawn(z) {
     const S = z.sp;
-    if (S?.victim) this.specials.letGo(z);
+    if (S?.victim) this.specials.letGo(z, null, true); // (taken off the map: nobody saved anyone)
     this.game.stopWeaponLoops(z);
     z.alive = false;
     z.health = 0;
@@ -390,7 +395,10 @@ export class ZombieMode {
    */
   spawnZombie(o = {}) {
     const g = this.game, t = g.time;
-    const variant = o.special ? null : o.variant || this.roster.pick(this.wave, o);
+    const extra = o.extra ?? (!o.special && !!(o.at || o.near));
+    // (a summoned extra - an Abomination's raise, a boomer's bile - is a plain walker, or a runner
+    // by the wave's share: the roster's riot / bloater / burning / crawler are the wave's own)
+    const variant = o.special ? null : o.variant || (extra ? (o.speed == null && Math.random() < (this.stats?.runners || 0) ? 'runner' : 'walker') : this.roster.pick(this.wave, o));
     const skin = o.special ? null : this.roster.skin(variant);
     const free = (q) => !q.special && !q.alive && (!q.deathTime || q.baked || q.gibbed || t - q.deathTime > CORPSE_TIME);
     let z = o.use || this.pool.find((q) => free(q) && q.skin === skin);
@@ -412,7 +420,7 @@ export class ZombieMode {
     z.baked = z.gibbed = false;
     z.char = 0;
     z.burn = null;
-    z.extra = o.extra ?? (!o.special && !!(o.at || o.near));
+    z.extra = extra;
     z.sp = null; z.visualCrouch = false; z.pm.speedCap = null; z.speedNow = null;
     const humans = this.humans();
     const h = humans[0];

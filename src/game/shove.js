@@ -301,17 +301,23 @@ export class Shove {
     const k = hud.k || 1;
     const w = Math.max(3, Math.round(6 * k)), ht = Math.max(2, Math.round(3 * k)), gap = Math.max(2, Math.round(3 * k));
     const total = h.max * w + (h.max - 1) * gap;
-    const x0 = Math.round(hud.vw / 2 - total / 2), y = Math.round(hud.vh / 2 + 26 * k);
-    const a = 255 * h.alpha;
-    const on = h.weak ? RED : AMBER;
+    // (below the crosshair's bottom arm however far it's spread: hud.crossR)
+    const x0 = Math.round(hud.vw / 2 - total / 2), y = Math.round(hud.vh / 2 + Math.max(26 * k, hud.crossR + 5 * k));
+    const G = hud.gTop, al = h.alpha;
+    const on = h.weak ? RED_CSS : AMBER_CSS;
+    // on a dark plate, painted normally (not additive: it has to read on bright sand)
+    G.globalAlpha = al * 0.55; G.fillStyle = '#000';
+    G.fillRect(x0 - 2, y - 2, total + 4, ht + 4);
+    G.fillStyle = on;
     for (let i = 0; i < h.max; i++) {
       const x = x0 + i * (w + gap);
-      if (i < h.pips) hud.fillAdd(x, y, w, ht, on, a * 0.85);
+      if (i < h.pips) { G.globalAlpha = al * 0.95; G.fillRect(x, y, w, ht); }
       else {
-        hud.fillAdd(x, y, w, ht, on, a * 0.18);
-        if (i === h.pips && h.frac > 0) hud.fillAdd(x, y, Math.max(1, Math.round(w * h.frac)), ht, on, a * 0.45);
+        G.globalAlpha = al * 0.22; G.fillRect(x, y, w, ht);
+        if (i === h.pips && h.frac > 0) { G.globalAlpha = al * 0.6; G.fillRect(x, y, Math.max(1, Math.round(w * h.frac)), ht); }
       }
     }
+    G.globalAlpha = 1;
   }
 
   /**
@@ -342,4 +348,4 @@ export class Shove {
   }
 }
 
-const AMBER = [255, 160, 0], RED = [255, 40, 16];
+const AMBER_CSS = 'rgb(255,160,0)', RED_CSS = 'rgb(255,40,16)';

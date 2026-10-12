@@ -37,6 +37,7 @@
 // rank. A slot not claimed for SLOT_HOLD s is free again (dead, recycled, retargeted).
 const NOISE_CELL = 448, NOISE_AMP = 1.6, CROWD_COST = 70, CROWD_MAX = 6, ROUTE_HOPS = 28;
 const REBUILD = [0.8, 1.2], STALE = 3, NEAR_MAIN = 450;
+const BOUND_PAST = 600; // a bounded side field (tick) settles this much cost past its farthest flanker, then stops
 const SLOT_HOLD = 1, SLOT_CHECK = 0.5, SWING = 55 * Math.PI / 180;
 const RING_R = (slots) => Math.max(52, 7 * slots);
 const TAU = Math.PI * 2;
@@ -55,6 +56,7 @@ export class ZHorde {
     this.game = game;
     this.subscribed = false;
     this.side = []; // side fields (Float32Array per nav node), side[k - 1] for z.field k
+    this.cut = []; // each one's last build stopped short (bounded)
     this.mul = []; // their noise (x the cost of walking into a node)
     this.builtT = []; // when each was last built (-1: never this run)
     this.nextT = []; // when each is due
@@ -93,13 +95,14 @@ export class ZHorde {
     const N = this.game.nav?.nodes?.length || 0;
     if (N === this.N) return N;
     this.N = N;
-    this.side = []; this.mul = []; this.builtT = []; this.nextT = []; this.noiseKey = [];
+    this.side = []; this.mul = []; this.builtT = []; this.nextT = []; this.noiseKey = []; this.cut = [false, false];
     for (let k = 0; k < 2; k++) {
       this.side.push(new Float32Array(N).fill(Infinity));
       this.mul.push(new Float32Array(N).fill(1));
       this.builtT.push(-1); this.nextT.push(0); this.noiseKey.push(-1);
     }
     this.traffic = new Float32Array(N);
+    this.want = new Int32Array(N); this.wantStamp = 0; // (build: the flankers' nodes, stamped)
     return N;
   }
 
@@ -116,7 +119,7 @@ export class ZHorde {
       if (t < this.nextT[k]) continue;
       // nobody on it: keep it cheap (built again when a flanker comes up)
       if (!this.anyOn(k + 1)) { this.nextT[k] = t + 0.4; continue; }
-      this.build(k, t);
+      this.build(k, t, true);
       this.nextT[k] = t + REBUILD[0] + Math.random() * (REBUILD[1] - REBUILD[0]);
       return; // (one a tick)
     }
@@ -165,18 +168,37 @@ export class ZHorde {
     return tr;
   }
 
-  /** Dijkstra for side field k (k = 0 .. fields - 1) from the main field's seeds. */
-  build(k, t) {
+  /**
+   * Dijkstra for side field k (k = 0 .. fields - 1) from the main field's seeds. bounded (tick):
+   * only as far out as its flankers stand (+ BOUND_PAST) - they walk downhill, toward nodes
+   * already settled; past that it's unsettled or Infinity (field() falls back to the main field
+   * on an Infinity and asks for a rebuild). A flanker not on the graph yet: the whole graph.
+   */
+  build(k, t, bounded = false) {
     const Z = this.Z, dist = this.side[k], mul = this.noise(k), tr = this.crowd(k), rev = Z.rev, heap = Z.heap;
     dist.fill(Infinity);
+    let need = 0, limit = Infinity;
+    this.cut[k] = false;
+    const want = this.want, stamp = ++this.wantStamp;
+    if (bounded) {
+      for (const z of Z.pool) {
+        if (!z.alive || z.field !== k + 1) continue;
+        if (!z.node) { need = -1; break; }
+        if (want[z.node.id] !== stamp) { want[z.node.id] = stamp; need++; }
+      }
+    }
+    if (need <= 0) need = -1; // (unbounded)
     for (let i = 0; i < Z.seedN; i++) {
       const id = Z.seedIds[i], d0 = Z.seedD[i];
       if (d0 < dist[id]) { dist[id] = d0; heap.push(id, d0); }
     }
     while (heap.size) {
-      const key = heap.ks[0], id = heap.pop();
+      const key = heap.ks[0];
+      if (key > limit) { heap.ids.length = 0; heap.ks.length = 0; this.cut[k] = true; break; } // (far enough: the heap is shared, left empty)
+      const id = heap.pop();
       const d = dist[id];
       if (key > d + 0.01) continue; // (a stale entry; dist is float32, key a double)
+      if (need > 0 && want[id] === stamp && --need === 0) limit = d + BOUND_PAST; // (the last flanker's node settled)
       // walking into node id: its noise, and the crowd heading through it
       const m = mul[id], p = CROWD_COST * Math.min(CROWD_MAX, tr[id]);
       for (const r of rev[id]) {
@@ -193,7 +215,8 @@ export class ZHorde {
     const Z = this.Z, k = z.field;
     if (!k || !this.on || z.isBoss || z.special || k > this.side.length) return Z.dist;
     const f = this.side[k - 1], n = z.node;
-    if (!n || this.builtT[k - 1] < 0 || this.game.time - this.builtT[k - 1] > STALE || !(f[n.id] < Infinity)) return Z.dist;
+    if (!n || this.builtT[k - 1] < 0 || this.game.time - this.builtT[k - 1] > STALE) return Z.dist;
+    if (!(f[n.id] < Infinity)) { if (this.cut[k - 1]) this.nextT[k - 1] = 0; return Z.dist; } // (past a bounded build's reach: built again next)
     // the last stretch: the main field (fresh every 0.4 s), with a margin so it doesn't flip
     const dm = Z.dist[n.id];
     if (z.hordeNear ? dm < NEAR_MAIN + 250 : dm < NEAR_MAIN) { z.hordeNear = true; return Z.dist; }

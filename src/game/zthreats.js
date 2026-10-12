@@ -298,6 +298,13 @@ export class ZThreats {
     const g = hud.gTop, k = hud.k, t = hud.time;
     const cx = Math.floor(hud.vw / 2) + 0.5, cy = Math.floor(hud.vh / 2) + 0.5, R = Math.round(Math.min(hud.vh * 0.12, 58 * k));
     g.lineCap = 'butt';
+    // the centre alerts (hud.drawCenter, painted after this layer) stay above the ring and its labels
+    let top = cy - R - 8 * k;
+    for (const a of H.arcs) {
+      const uy = Math.sin((-a.bearing - 90) / DEG); // (its label's place: as below)
+      if (a.phase !== 'pre' && Math.abs(a.bearing) > 35 && uy < -0.3) top = Math.min(top, cy + uy * (R + (a.kind === 'smoker' ? 30 : 12) * k) - hud.lineH * 0.9 - 4 * k);
+    }
+    hud.centerAvoid = Math.min(hud.centerAvoid, Math.round(top));
     for (const a of H.arcs) {
       // screen angle: 0 up, clockwise; a bearing on your left (+) is counter-clockwise
       const th0 = (-(a.bearing + a.hi) - 90) / DEG, th1 = (-(a.bearing + a.lo) - 90) / DEG, mid = (-a.bearing - 90) / DEG;
@@ -334,10 +341,11 @@ export class ZThreats {
   }
 
   drawAim(hud, A) {
-    const k = hud.k, cx = hud.vw / 2, cy = hud.vh / 2;
-    const y = Math.round(cy - 16 * k - hud.lineH); // (inside the arcs' ring)
+    const k = hud.k, cx = hud.vw / 2, cy = hud.vh / 2, bh = Math.max(2, Math.round(2 * k));
+    // (inside the arcs' ring, over the crosshair's top arm however far it's spread)
+    const y = Math.round(cy - Math.max(16 * k, hud.crossR + 3 * k + bh) - hud.lineH);
     hud.text(A.name.toUpperCase(), cx, y, A.rgb, { align: 'center', font: this.font(hud, false), alpha: 0.95 });
-    const g = hud.gTop, bw = Math.round(36 * k), bh = Math.max(2, Math.round(2 * k)), by = y + hud.lineH;
+    const g = hud.gTop, bw = Math.round(36 * k), by = y + hud.lineH;
     g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(cx - bw / 2 - 1, by - 1, bw + 2, bh + 2);
     g.fillStyle = `rgb(${A.rgb[0]},${A.rgb[1]},${A.rgb[2]})`; g.fillRect(cx - bw / 2, by, Math.round(bw * A.hp), bh);
   }
@@ -348,11 +356,19 @@ export class ZThreats {
       const o = e.p.pm.origin;
       scr[0] = o[0]; scr[1] = o[1]; scr[2] = o[2] + 44;
       if (!this.Z.downed.toScreen(hud, scr, scr)) continue;
-      const x = scr[0], y = scr[1], on = scr[2] === 1, pulse = 0.5 + 0.5 * Math.sin(hud.time * 10);
+      const x = scr[0], on = scr[2] === 1, pulse = 0.5 + 0.5 * Math.sin(hud.time * 10);
       const c = THREAT_RGB[e.by.special] || WHITE;
       const big = this.font(hud, true);
       T.font = big;
       const tw = T.measureText('HELP!').width, bh = hud.fontPx * 1.5;
+      // clear of the centre text (hud.drawCenter paints after this layer; its band last frame):
+      // up or down out of it, whichever is nearer
+      let y = scr[1];
+      const B = hud.centerBand, top = y - bh / 2 - 2 * k, bot = y + bh / 2 + 6 * k + hud.lineH;
+      if (B[1] > B[0] && bot > B[0] && top < B[1] && Math.abs(x - hud.vw / 2) < hud.vw * 0.35) {
+        const up = B[0] - 2 * k - bot, down = B[1] + 2 * k - top;
+        y += -up < down ? up : down;
+      }
       T.fillStyle = `rgba(0,0,0,${on ? 0.6 : 0.5})`;
       T.fillRect(x - tw / 2 - 4 * k, y - bh / 2 - 2 * k, tw + 8 * k, bh + 4 * k);
       T.strokeStyle = `rgba(${c[0]},${c[1]},${c[2]},${(0.6 + 0.4 * pulse).toFixed(3)})`; T.lineWidth = Math.max(1, 1.5 * k);

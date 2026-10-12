@@ -164,6 +164,7 @@ async function boot() {
   /** Out of the game and back to the title screen (Leave game, or out of a finished run). */
   function leaveGame() {
     inGame = false;
+    input.guardBack = false;
     game.started = false;
     input.exitLock();
     menus.showMain?.({ inGame: false });
@@ -175,6 +176,7 @@ async function boot() {
     title.stop();
     game.newGame({ ...opts, playerName: settings.get('name') });
     inGame = true;
+    input.guardBack = true;
     zombieOverShown = false;
     startAmbience();
     menus.hideAll?.();

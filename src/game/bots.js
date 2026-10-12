@@ -26,6 +26,7 @@ import { TraceResult, MASK_SHOT } from '../engine/collision.js';
 import { PLAYER_SKINS } from '../assets/playermodels.js';
 import * as WS from './weaponsys.js';
 import * as CR from './combatrules.js';
+import { GAS_R } from './zroster.js';
 
 const BTN_ATTACK = 1, BTN_ATTACK2 = 2, BTN_RELOAD = 4, BTN_USE = 8;
 
@@ -1765,7 +1766,7 @@ class Bot {
   }
 
   // ------------------------------------------------------------------ acid (zombie survival)
-  /** Get clear of acid: where a glob is about to land, and out of a pool already burning. */
+  /** Get clear of acid: where a glob is about to land, out of a pool already burning or a gas cloud. */
   dodgeGoo(it) {
     const g = this.game, p = this.p, o = p.pm.origin;
     if (p.pinnedBy || p.tonguedBy) return;
@@ -1787,6 +1788,8 @@ class Bot {
       flee([pr.pos[0] + pr.vel[0] * T, pr.pos[1] + pr.vel[1] * T, feetZ], 190);
     }
     for (const pa of g.fire?.patches || []) if (pa.kind === 'acid' && g.time < pa.end) flee(pa.center, pa.radius + 50);
+    // and out of a bloater's gas cloud
+    for (const c of g.zombies.roster?.clouds || []) if (g.time < c.until) flee(c.pos, GAS_R + 50);
     if (!away) return;
     // straight out of it (sideways if it's right on us), shooting all the while
     let dx = o[0] - away[0], dy = o[1] - away[1], l = Math.hypot(dx, dy);

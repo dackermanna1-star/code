@@ -132,6 +132,14 @@
     // coverage and different routes, from far spawn spots
     const dist = Z().dist, cands = Z().spawnCandidates().filter((n) => dist[n.id] > 1600 && dist[n.id] < 6000);
     for (let k = 0; k < F; k++) {
+      // (the live fields are bounded - tick: they reach the flankers on them and stop; built whole for the route checks)
+      H().build(k, g.time, true);
+      const fb = H().side[k];
+      let fl = 0, cov = 0, reached = 0;
+      for (const z of Z().pool) if (z.alive && z.field === k + 1 && z.node) { fl++; if (fb[z.node.id] < Infinity) cov++; }
+      for (let i = 0; i < fb.length; i++) if (fb[i] < Infinity) reached++;
+      check(`side field ${k + 1} (bounded) reaches every flanker on it`, cov === fl, `${cov}/${fl} flankers, ${reached} of ${fb.length} nodes reached`);
+      H().build(k, g.time);
       const f = H().side[k];
       let fin = 0, both = 0;
       for (let i = 0; i < dist.length; i++) if (dist[i] < Infinity) { both++; if (f[i] < Infinity) fin++; }
@@ -385,7 +393,10 @@
     b0 = performance.now();
     for (let i = 0; i < 20; i++) H().build(i & 1, g.time);
     const sideMs = (performance.now() - b0) / 20;
-    info(`one main field build ${mainMs.toFixed(2)} ms (every 0.4 s), one side field build with its crowd ${sideMs.toFixed(2)} ms (one every ~0.5 s, never on a main build's tick)`);
+    b0 = performance.now();
+    for (let i = 0; i < 20; i++) H().build(i & 1, g.time, true);
+    const boundMs = (performance.now() - b0) / 20;
+    info(`one main field build ${mainMs.toFixed(2)} ms (every 0.4 s), one side field build with its crowd ${sideMs.toFixed(2)} ms whole / ${boundMs.toFixed(2)} ms bounded as tick builds it (one every ~0.5 s, never on a main build's tick)`);
     D.maxAlive = dmax; D.interval = dint;
     check('28 up', up === 28, `${up}`);
     // (timings are machine dependent and noisy: only a gross regression fails)

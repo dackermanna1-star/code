@@ -71,6 +71,7 @@
     const undo = [spy(Z().threats, 'tick', 'tick'), spy(Z().director, 'frame', 'frame'), spy(Z().director, 'hud', 'hud'), spy(Z().horde, 'flow', 'flow'),
       spy(Z().director, 'next', 'next'), spy(Z().director, 'maxAlive', 'max'), spy(Z().director, 'interval', 'interval'), spy(Z().director, 'plan', 'plan'), spy(Z().horde, 'spawned', 'spawned')];
     con('sv_cheats 1');
+    con('zm_mod none'); // (a plain wave: Twin Elites would leave its elites queued for the pending check below)
     con('zm_wave 6');
     for (let i = 0; i < 300; i++) { g.tick(); if (i % 10 === 0) g.frame(0.1); }
     const HS = await import('/src/game/hudstate.js');
