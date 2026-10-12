@@ -77,15 +77,19 @@
     const s = HS.buildHudState(g);
     undo.forEach((f) => f());
     check('hooks reached', n.tick >= 300 && n.frame > 0 && n.hud > 0 && n.flow > 0 && n.plan === 1 && n.next > 0 && n.next === n.interval && n.max >= n.next && n.spawned > 0, JSON.stringify(n));
-    check('hud state still built', !!s.radar && s.radar.blips.some((b) => b.kind === 'enemy'));
-    check('wave start carries mod (none yet)', of('wave', (e) => e.phase === 'start').length === 1 && of('wave', (e) => e.phase === 'start')[0].mod === null && Z().stats.mod === null);
+    // (director: the radar pings - a zombie shows only seen, heard or close on Normal - tools/tests/zm2-director.js)
+    check('hud state still built', !!s.radar && s.radar.blips.filter((b) => b.kind === 'enemy').length <= Z().pool.filter((z) => z.alive).length);
+    // (director: wave 6 may have a type - MODS id - or none)
+    const DM = await import('/src/game/director.js');
+    const ws = of('wave', (e) => e.phase === 'start');
+    check('wave start carries mod (the director\'s)', ws.length === 1 && ws[0].mod === Z().stats.mod && (ws[0].mod === null || !!DM.MODS[ws[0].mod]), String(ws[0]?.mod));
     // the commons: today's crowd, with a variant
     const c = commons(), S = Z().stats;
     const bad = c.filter((z) => !(z.variant === 'walker' || z.variant === 'runner'));
     check('commons carry z.variant (walker / runner)', c.length > 3 && !bad.length, `${c.length} up, ${bad.map((z) => z.variant)}`);
     const runOk = c.every((z) => z.variant === 'runner' ? z.zSpeed >= 262 && z.zSpeed <= 280 : z.zSpeed >= S.speed * 0.9 - 1e-6 && z.zSpeed <= S.speed * 1.06 + 1e-6);
     check('runner / walker speeds as before', runOk, c.map((z) => `${z.variant[0]}${z.zSpeed | 0}`).join(' '));
-    check('per-zombie M2 fields reset', c.every((z) => z.front === null && z.staggerUntil === 0 && z.staggerKind === null && z.poise === 0 && z.field === 0 && z.slot === -1 && z.skin === 'zombie'));
+    check('per-zombie M2 fields reset', c.every((z) => (z.front === null || !!Z().director.front(z.front)) && z.staggerUntil === 0 && z.staggerKind === null && z.poise === 0 && z.field === 0 && z.slot === -1 && z.skin === 'zombie'));
     check('horde.field is the main field', c.every((z) => Z().horde.field(z) === Z().dist));
     // kill payload: the variant
     const z0 = c[0], v0 = z0.variant;

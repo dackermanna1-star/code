@@ -335,4 +335,14 @@ export const ZOMBIE_FX = {
     }
     addBurst(x, sr, r, 0, 0.4, { len: 2.4, color: 'brown', env: (t) => Math.sin(Math.PI * Math.min(1, t / 2.4)), filters: [['lowpass', 200, 0.7]] });
   }, 0.4) },
+  // ---- the wave director: a horde opening a front, heard from far off (a dozen throats, a low swell of feet)
+  horde_roar: { rate: 22050, dur: 3.4, variants: 2, peak: 0.85, fn: (P, v) => foley(P, (x, sr, r) => {
+    const n = v ? 11 : 9;
+    for (let i = 0; i < n; i++) {
+      const t0 = r.range(0, 0.9), d = r.range(1.3, 2.2), f = r.range(68, 150);
+      addGrunt(x, sr, r, t0, r.range(0.35, 0.7), { dur: d, f0: vib(f * 0.9, f * r.range(0.6, 0.8), d, r.range(0.04, 0.1), r.range(4, 8)), env: [[0, 0], [d * 0.2, 1], [d * 0.7, 0.8], [d, 0]], vowels: [[0, V.uh], [d * 0.35, i % 2 ? V.a : V.ae], [d, V.o]], breath: 0.7, grit: 7 });
+    }
+    addBurst(x, sr, r, 0, 0.7, { len: 3.2, color: 'brown', env: (t) => Math.min(1, t / 0.6) * Math.exp(-Math.max(0, t - 1.2) / 0.8), filters: [['lowpass', 180, 0.7]] }); // the swell
+    addGrains(x, sr, r, { t0: 0.2, span: 2.4, count: 120, f: [150, 700], amp: [0.05, 0.2], decay: 0.04, dur: [0.004, 0.012], q: [1, 2] }); // feet on stone
+  }, 0.45) },
 };

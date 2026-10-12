@@ -35,7 +35,7 @@ export const SOUND_GROUPS = {
   Ambience: ['ambience_wind', 'ambience_bird', 'distant_fly'],
   Squad: ['downed', 'downed_breath', 'revive_up', 'second_wind'], // zombie survival downed / revive (zdowned.js)
   Map: ['door_move', 'door_stop', 'button', 'hostage_use'],
-  Zombies: ['zombie_idle', 'zombie_attack', 'zombie_pain', 'zombie_die', 'zombie_wave', 'gib', 'gib_land', 'headpop'],
+  Zombies: ['zombie_idle', 'zombie_attack', 'zombie_pain', 'zombie_die', 'zombie_wave', 'gib', 'gib_land', 'headpop', 'horde_roar'],
   'Fire & launchers': ['fire_loop', 'fire_ignite', 'lighter', 'molotov_break', 'acid_loop', 'acid_splash', 'flame_loop', 'flame_start', 'flame_stop', 'fuel_in',
     'rpg_fire', 'm32_fire', 'rocket_fly', 'rocket_explode', 'rocket_load'],
   Bosses: ['boss_intro', 'boss_roar', 'boss_growl', 'boss_attack', 'boss_die', 'cleaver_swing', 'charge_go', 'charge_hit', 'charge_wall',
@@ -53,7 +53,7 @@ export const SOUND_GROUPS = {
 // `play()` uses these when the caller passes no `attenuation`.
 const ATTN_DEFAULTS = {
   he_explode: 'loud', flashbang_explode: 'loud', c4_explode: 'loud', smoke_explode: 'normal',
-  rocket_explode: 'loud', slam: 'loud', boss_roar: 'loud', banshee_scream: 'loud', rpg_fire: 'loud', boss_die: 'loud', fire_loop: 'static', acid_loop: 'static',
+  rocket_explode: 'loud', slam: 'loud', boss_roar: 'loud', horde_roar: 'loud', banshee_scream: 'loud', rpg_fire: 'loud', boss_die: 'loud', fire_loop: 'static', acid_loop: 'static',
   m4a1_silenced: 'normal', usp_silenced: 'normal', tmp: 'normal',
   minigun: 'loud', aa12: 'loud', barrett: 'loud', tesla_fire: 'loud', boomer_burst: 'loud', charger_roar: 'loud', hunter_scream: 'loud',
   chainsaw_idle: 'normal', chainsaw_rev: 'loud', attach_fit: 'idle', medkit_use: 'idle', medkit_heal: 'idle',
