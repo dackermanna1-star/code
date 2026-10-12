@@ -90,6 +90,7 @@ export const DEFAULTS = {
   messages: true,
   secretMessages: true,
   showFps: false,
+  reduceFlashes: false,
   // Effects
   gore: 2,
   dismemberment: true,
@@ -148,7 +149,10 @@ export class Settings {
   }
 
   reset() {
-    this.values = structuredClone(DEFAULTS);
+    // Mutate in place: the running world holds a reference to `values`.
+    const fresh = structuredClone(DEFAULTS);
+    for (const k of Object.keys(this.values)) delete this.values[k];
+    Object.assign(this.values, fresh);
     this.save();
     for (const fn of this.listeners) fn('*', null);
   }

@@ -140,6 +140,13 @@ export class Input {
     };
     this.padPrevState = this.padState;
     this.padState = state;
+    // Menu navigation: rising edges of face buttons / d-pad become key presses.
+    const prev = this.padMenuPrev || [];
+    const menuMap = { 12: 'ArrowUp', 13: 'ArrowDown', 14: 'ArrowLeft', 15: 'ArrowRight', 0: 'Enter', 1: 'Backspace', 9: 'Escape' };
+    for (const [i, code] of Object.entries(menuMap)) {
+      if (state.buttons[i] && !prev[i] && this.onPress) this.onPress(code, { pad: true, key: '' });
+    }
+    this.padMenuPrev = state.buttons.slice();
   }
 
   static PAD_MAP = {
@@ -168,8 +175,8 @@ export class Input {
   consumeLook(dt) {
     const s = this.settings;
     const sens = s.get('mouseSensitivity');
-    // ~DOOM's default mouse feel: 0.022 deg per count scaled.
-    const k = 0.0022 * sens;
+    // About 0.075 degrees per mouse count at sensitivity 1.
+    const k = 0.0013 * sens;
     let yaw = -this.mouseDX * k;
     let pitch = -this.mouseDY * k * (s.get('invertY') ? -1 : 1);
     this.mouseDX = 0;
@@ -208,19 +215,21 @@ export class Input {
     if (len > 1) { f /= len; sd /= len; }
     cmd.forwardmove = f * fwdSpeed;
     cmd.sidemove = sd * sideSpeed;
-    cmd.attack = this.isDown('fire');
-    cmd.use = this.isDown('use');
+    // Presses shorter than a tic still count (latched since the last tic).
+    const held = (a) => this.isDown(a) || this.wasPressed(a);
+    cmd.attack = held('fire');
+    cmd.use = held('use');
     if (s.get('adsToggle')) {
       if (this.wasPressed('ads')) this.adsToggled = !this.adsToggled;
       cmd.ads = this.adsToggled;
     } else {
       cmd.ads = this.isDown('ads');
     }
-    cmd.reload = this.isDown('reload');
-    cmd.jump = this.isDown('jump');
-    cmd.crouch = this.isDown('crouch');
+    cmd.reload = held('reload');
+    cmd.jump = held('jump');
+    cmd.crouch = held('crouch');
     cmd.sprint = this.isDown('sprint') || (this.padState && this.padState.buttons[10]);
-    cmd.melee = this.isDown('melee');
+    cmd.melee = held('melee');
     for (let i = 0; i < WEAPON_ACTIONS.length; i++) {
       if (this.wasPressed(WEAPON_ACTIONS[i])) {
         // Slot 1 = fist/chainsaw, 2 pistol, 3 shotgun, 4 chaingun, 5 rocket, 6 plasma, 7 bfg

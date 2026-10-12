@@ -14,6 +14,7 @@ import { Cheats } from './ui/cheats.js';
 import { AudioSystem } from './audio/audio.js';
 import { createEffects } from './fx/effects.js';
 import { storeIwad, clearStoredIwad } from './wadstore.js';
+import { writeSlot, readSlot } from './game/savegame.js';
 
 const TIC_SEC = 1 / TICRATE;
 
@@ -104,7 +105,15 @@ export class App {
       this.menu.open();
       return;
     }
+    // Original function-key shortcuts.
+    const fkeys = { F1: 'help', F2: 'save', F3: 'load', F4: 'options' };
+    if (fkeys[code]) { this.menu.openTo(fkeys[code]); return; }
+    if (code === 'Pause' && this.game.state === 'level') {
+      this.game.paused = !this.game.paused;
+      return;
+    }
     const st = this.game.state;
+    if (st !== 'level' && this.input.bindsFor('quickLoad').includes(code)) { this.quickLoad(); return; }
     if (st === 'title') { this.title.responder(code, e); return; }
     if (st === 'intermission') { this.intermission.responder(code, e); return; }
     if (st === 'finale') { this.finale.responder(code, e); return; }
@@ -112,10 +121,50 @@ export class App {
       if (e && e.key && e.key.length === 1) this.cheats.key(e.key);
       if (this.input.bindsFor('automap').includes(code)) { this.automap.toggle(); return; }
       if (this.automap.active && this.automap.responder(code, e)) return;
-      if (this.input.bindsFor('quickSave').includes(code)) { this.hud.message('quick save is not supported'); return; }
+      if (this.input.bindsFor('quickSave').includes(code)) { this.quickSave(); return; }
+      if (this.input.bindsFor('quickLoad').includes(code)) { this.quickLoad(); return; }
       if (!this.input.locked) this.input.requestLock();
     }
   }
+
+  saveToSlot(slot, description) {
+    const data = this.game.save(description);
+    if (!data) return false;
+    const ok = writeSlot(slot, data);
+    this.hud.message(ok ? 'game saved.' : 'could not save (storage full?)');
+    return ok;
+  }
+
+  loadFromSlot(slot) {
+    const data = readSlot(slot);
+    if (!data) { this.hud.message('no saved game in that slot.'); return false; }
+    if (data.gamemode && data.gamemode !== this.game.gamemode && !this.stack.mapLumps(data.mapName)) {
+      this.hud.message('that save needs a different wad.');
+      return false;
+    }
+    try {
+      this.menu.close();
+      this.game.restore(data);
+      this.hud.message('game loaded.');
+      this.input.wantLock = true;
+      this.input.requestLock();
+      return true;
+    } catch (e) {
+      console.error(e);
+      this.hud.message('failed to load the saved game.');
+      return false;
+    }
+  }
+
+  quickSave() {
+    if (this.game.state !== 'level' || !this.game.player || this.game.player.playerstate !== 'live') {
+      this.hud.message("you can't save if you aren't playing!");
+      return;
+    }
+    this.saveToSlot('quick', `quicksave ${this.game.mapName()}`);
+  }
+
+  quickLoad() { this.loadFromSlot('quick'); }
 
   startNewGame(episode, skill) {
     this.menu.close();
@@ -145,13 +194,13 @@ export class App {
     this.input.pollPad();
     const g = this.game;
     const menuOpen = this.menu.active;
-    const playing = g.state === 'level' && !menuOpen;
+    const playing = g.state === 'level' && !menuOpen && !g.paused;
 
     // Per-frame look for responsiveness.
     if (playing && g.player && g.player.mo && g.player.playerstate === 'live') {
       const look = this.input.consumeLook(dt);
       const p = g.player;
-      const sens = 1 - 0.35 * p.mods.ads;
+      const sens = (1 - 0.35 * p.mods.ads) * this.aimAssist(p, look, dt);
       p.mo.angle = normAngle(p.mo.angle + look.yaw * sens);
       p.pitch = Math.max(-1.4, Math.min(1.4, p.pitch + look.pitch * sens));
       this.view.updateSway(p, look, dt);
@@ -183,6 +232,30 @@ export class App {
     }
   }
 
+  // Gamepad aim assist: slows the stick over a target and gently pulls
+  // toward it. Mouse aim is never touched.
+  aimAssist(p, look, dt) {
+    const strength = this.settings.get('aimAssist') || 0;
+    const pad = this.input.padState;
+    if (!strength || !pad || (Math.abs(pad.rx) < 0.05 && Math.abs(pad.ry) < 0.05) || !this.game.world) return 1;
+    const w = this.game.world;
+    const mo = p.mo;
+    let best = null, bestErr = 0.12;
+    for (const m of w.mobjs) {
+      if (!(m.flags & 0x4) || m.health <= 0 || m === mo || !(m.flags & 0x400000)) continue;
+      const dx = m.x - mo.x, dy = m.y - mo.y;
+      const d = Math.hypot(dx, dy);
+      if (d > 1500 || d < 1) continue;
+      const err = Math.abs(((Math.atan2(dy, dx) - mo.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+      if (err < bestErr && w.checkSight(mo, m)) { bestErr = err; best = { m, d }; }
+    }
+    if (!best) return 1;
+    const target = Math.atan2(best.m.y - mo.y, best.m.x - mo.x);
+    const diff = ((target - mo.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    look.yaw += diff * Math.min(1, dt * 6) * strength;
+    return 1 - 0.45 * strength;
+  }
+
   tic(playing) {
     const g = this.game;
     this.menu.tick();
@@ -211,8 +284,9 @@ export class App {
       const bzc = 12 - (p.powers[PW.STRENGTH] >> 6);
       if (bzc > cnt) cnt = bzc;
     }
-    if (cnt) return 1 + Math.min(7, (cnt + 7) >> 3);
-    if (p.bonuscount) return 9 + Math.min(3, (p.bonuscount + 7) >> 3);
+    const reduce = this.settings.get('reduceFlashes');
+    if (cnt) return 1 + Math.min(reduce ? 2 : 7, (cnt + 7) >> 3);
+    if (p.bonuscount) return 9 + Math.min(reduce ? 0 : 3, (p.bonuscount + 7) >> 3);
     if (p.powers[PW.IRONFEET] > 4 * 32 || (p.powers[PW.IRONFEET] & 8)) return 13;
     return 0;
   }
@@ -248,6 +322,7 @@ export class App {
         if (this.automap.active) this.automap.draw(r, rect, frac);
       }
       this.hud.draw(r, rect, frac);
+      if (g.paused && !this.menu.active) r.drawPatch('M_PAUSE', 92, 4);
       palette = this.paletteRow(p);
     } else if (g.state === 'intermission') {
       this.intermission.draw(r);

@@ -46,7 +46,7 @@ export class Game {
 
   musicFor(episode, map) {
     let name;
-    if (this.commercial) name = MUSIC_NAMES[42 + map - 1];
+    if (this.commercial) name = MUSIC_NAMES[MUSIC_NAMES.indexOf('runnin') + map - 1];
     else if (episode === 4) name = E4_MUSIC[map - 1];
     else name = `e${episode}m${map}`;
     return name ? `D_${name.toUpperCase()}` : null;

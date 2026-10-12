@@ -30,7 +30,9 @@ Handy URL parameters for testing: `?map=E1M3&skill=4` starts a map directly (ski
 | Reload / quick melee | R / V |
 | Weapons | 1–7, mouse wheel, Q = last weapon |
 | Automap | Tab |
-| Menu | Esc |
+| Menu / pause | Esc / Pause |
+| Help, save, load, options | F1, F2, F3, F4 |
+| Quick save / quick load | F6 / F9 |
 
 Every action can be rebound in Options → Key Bindings. Gamepads with the standard mapping work as well: left stick moves, right stick looks, RT fires, LT aims, A jumps, B crouches, X reloads/uses, Y / LB switch weapons, RB is quick melee, L3 sprints and Back opens the automap.
 
@@ -100,8 +102,9 @@ tools/       dev server, extras WAD builder, data validation, offline music rend
 
 Map-specific movement rules (for example disabling jumping in boss arenas) live in `src/game/compat.js`.
 
+Saved games (six slots plus a quick-save slot) are kept in the browser's local storage. A save restores the level exactly, including monsters' AI state and every moving door and lift. Cosmetic effects such as decals and gibs are not saved.
+
 ## Known limitations
 
-- Saving and loading games is not implemented.
 - Demos (`.lmp`) aren't played back; the title screen cycles the title, credit and help pages.
 - Multiplayer and deathmatch aren't supported.

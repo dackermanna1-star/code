@@ -45,7 +45,8 @@ export class DoomFont {
       for (const ch of line) {
         const g = ch === ' ' ? null : this.glyph(ch);
         if (!g) { x += this.spaceWidth * scale; continue; }
-        r.drawPatch(g, x, vy + li * lh, { noOffset: true, scale, trans: opts.trans || 0, level: opts.level });
+        // Glyph offsets matter for punctuation sitting on the baseline.
+        r.drawPatch(g, x - g.leftOffset * scale, vy + li * lh - g.topOffset * scale, { noOffset: true, scale, trans: opts.trans || 0, level: opts.level });
         x += g.width * scale;
       }
     });

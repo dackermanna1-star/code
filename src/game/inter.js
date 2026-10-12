@@ -198,6 +198,7 @@ export function killMobj(w, source, target, hit) {
   if (target.player) {
     target.flags &= ~MF.SOLID;
     target.player.playerstate = 'dead';
+    target.player.deathTic = w.leveltime;
     target.player.dropWeapon(w);
     if (w.onPlayerDeath) w.onPlayerDeath(target.player, source);
   }
