@@ -2,11 +2,14 @@ package com.mineception.test;
 
 import com.mineception.block.LaptopBlockEntity;
 import com.mineception.client.render.DreamSession;
+import com.mineception.client.screen.DiveCamera;
 import com.mineception.client.screen.LaptopScreen;
+import com.mineception.dream.Face;
 import com.mineception.dream.MiniBlock;
 import com.mineception.dream.MiniHit;
 import com.mineception.dream.MiniPlayer;
 import com.mineception.dream.MiniWorld;
+import com.mineception.dream.render.Camera;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
@@ -224,15 +227,31 @@ public class ClientGameTests implements FabricClientGameTest {
 		guiShot(context, "gui_level1_broke_block");
 	}
 
-	/** Level 1 -> 2 (programmatic, the avatar walked away), 2 -> 3 with a real right click on the laptop, 3 -> 4. */
+	/**
+	 * Level 1 -> 2 with a real right click on the back of the laptop (or programmatically from where the avatar walked
+	 * to, if this level has no spot behind its laptop), 2 -> 3 with a real right click from the spawn, 3 -> 4. Each
+	 * first visit starts at the level's spawn.
+	 */
 	private void diveToLimbo(ClientGameTestContext context) {
-		check(screenValue(context, LaptopScreen::diveIn, false), "diving from Level 1 should start");
+		boolean fromBehind = moveBehindLaptop(context);
+		if (fromBehind) {
+			guiShot(context, "level1_behind_laptop");
+			context.getInput().pressMouse(GLFW.GLFW_MOUSE_BUTTON_RIGHT);
+			check(screenValue(context, LaptopScreen::isTransitioning, false), "right click on the back of the Level 1 laptop should dive");
+		} else {
+			check(screenValue(context, LaptopScreen::diveIn, false), "diving from Level 1 should start");
+		}
 		check(screenValue(context, LaptopScreen::isTransitioning, false), "a dive should be a transition");
-		context.waitTicks(LaptopScreen.DIVE_TICKS / 2);
+		MiniWorld level1 = context.computeOnClient(client -> session(client).world(1));
+		// Screenshots take ticks of their own, so the frames are checked in the stretches between them
+		List<List<Camera>> flight = new ArrayList<>();
+		flight.add(followFlight(context, LaptopScreen.DIVE_TICKS / 2));
 		guiShot(context, "dive_1_to_2_mid");
-		context.waitTicks(LaptopScreen.DIVE_TICKS / 2 - 4);
+		flight.add(followFlight(context, LaptopScreen.DIVE_TICKS / 2 - 4));
 		guiShot(context, "dive_1_to_2_end");
+		checkFlight(flight, level1, true, fromBehind ? "dive from behind the Level 1 laptop" : "dive into the Level 1 laptop");
 		finishTransition(context, 2, "dive to Level 2");
+		checkAtSpawn(context, 2);
 		guiShot(context, "level2_arrival");
 		context.waitTicks(25);
 		guiShot(context, "level2_hotel");
@@ -249,6 +268,7 @@ public class ClientGameTests implements FabricClientGameTest {
 		context.waitTicks(LaptopScreen.DIVE_TICKS * 2 / 3);
 		guiShot(context, "dive_2_to_3_mid");
 		finishTransition(context, 3, "dive to Level 3");
+		checkAtSpawn(context, 3);
 		context.waitTicks(25);
 		guiShot(context, "level3_fortress");
 
@@ -256,6 +276,7 @@ public class ClientGameTests implements FabricClientGameTest {
 		context.waitTicks(LaptopScreen.DIVE_TICKS * 3 / 4);
 		guiShot(context, "dive_3_to_4_late");
 		finishTransition(context, 4, "dive to Limbo");
+		checkAtSpawn(context, 4);
 		context.waitTicks(25);
 		guiShot(context, "level4_limbo");
 
@@ -278,10 +299,14 @@ public class ClientGameTests implements FabricClientGameTest {
 	private void backUp(ClientGameTestContext context) {
 		context.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
 		check(screenValue(context, s -> s.isTransitioning() && s.depth() == 3, false), "Esc in Limbo should pull back out to Level 3");
-		context.waitTicks(LaptopScreen.EXIT_TICKS / 3);
+		MiniWorld level3 = context.computeOnClient(client -> session(client).world(3));
+		List<List<Camera>> flight = new ArrayList<>();
+		flight.add(followFlight(context, LaptopScreen.EXIT_TICKS / 3));
 		guiShot(context, "exit_4_to_3_early");
-		context.waitTicks(LaptopScreen.EXIT_TICKS / 3);
+		flight.add(followFlight(context, LaptopScreen.EXIT_TICKS / 3));
 		guiShot(context, "exit_4_to_3_mid");
+		flight.add(followFlight(context, LaptopScreen.EXIT_TICKS));
+		checkFlight(flight, level3, false, "pulling out of the Level 3 laptop");
 		finishTransition(context, 3, "pull out to Level 3");
 
 		// The kick: drop the Level 3 avatar out of the world
@@ -331,6 +356,155 @@ public class ClientGameTests implements FabricClientGameTest {
 		boolean closedEmpty = waitUntil(context, client -> client.screen == null, 60);
 		check(closedEmpty, "a laptop screen without a laptop should close");
 		context.setScreen(() -> null);
+	}
+
+	// ------------------------------------------------------------------------------------------------------------
+	// Dive checks
+
+	/**
+	 * Puts the Level 1 avatar on a free spot behind its laptop's screen from which it can reach the laptop, looking at
+	 * it. False if the level has no such spot (the avatar stays where it is).
+	 */
+	private boolean moveBehindLaptop(ClientGameTestContext context) {
+		boolean moved = context.computeOnClient(client -> {
+			MiniWorld world = session(client).world(1);
+			MiniPlayer avatar = session(client).avatar(1);
+			double[] center = DiveCamera.screenCenter(world);
+			Face facing = world.laptopFacing;
+			for (int radius = 1; radius <= 4; radius++) {
+				for (int dx = -radius; dx <= radius; dx++) {
+					for (int dz = -radius; dz <= radius; dz++) {
+						for (int dy = -2; dy <= 1; dy++) {
+							int x = world.laptopX + dx;
+							int y = world.laptopY + dy;
+							int z = world.laptopZ + dz;
+							double front = (x + 0.5 - center[0]) * facing.dx + (z + 0.5 - center[2]) * facing.dz;
+							if (front > -0.6 || !world.get(x, y - 1, z).solid() || world.get(x, y, z) != MiniBlock.AIR
+								|| world.get(x, y + 1, z) != MiniBlock.AIR) {
+								continue;
+							}
+							float[] look = DiveCamera.lookAt(x + 0.5, y + MiniPlayer.EYE_HEIGHT, z + 0.5,
+								world.laptopX + 0.5, world.laptopY + 0.3, world.laptopZ + 0.5);
+							avatar.x = avatar.xo = x + 0.5;
+							avatar.y = avatar.yo = y;
+							avatar.z = avatar.zo = z + 0.5;
+							avatar.vx = avatar.vy = avatar.vz = 0.0;
+							((LaptopScreen) client.screen).look(look[0], look[1]);
+							avatar.yawO = avatar.yaw;
+							avatar.pitchO = avatar.pitch;
+							MiniHit hit = ((LaptopScreen) client.screen).lookingAt();
+							if (hit != null && hit.isLaptop()) {
+								return true;
+							}
+						}
+					}
+				}
+			}
+			return false;
+		});
+		if (!moved) {
+			// Not a failure: a level may simply have its laptop against a wall
+			System.out.println("[mineception] Level 1 has no free spot behind its laptop; diving from the front instead");
+			return false;
+		}
+		context.waitTick();
+		MiniHit hit = screenValue(context, LaptopScreen::lookingAt, null);
+		if (hit == null || !hit.isLaptop()) {
+			failures.add("behind the Level 1 laptop the avatar should still look at it after a tick, got " + hit);
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * The monitor's camera at four points of each of the next {@code ticks} ticks (about 80 frames per second), while
+	 * the transition lasts.
+	 */
+	private static List<Camera> followFlight(ClientGameTestContext context, int ticks) {
+		List<Camera> cameras = new ArrayList<>();
+		for (int i = 0; i < ticks; i++) {
+			context.runOnClient(client -> {
+				if (client.screen instanceof LaptopScreen screen && screen.isTransitioning()) {
+					for (int quarter = 0; quarter < 4; quarter++) {
+						Camera camera = screen.viewCamera(quarter / 4.0F);
+						if (camera != null) {
+							cameras.add(camera);
+						}
+					}
+				}
+			});
+			context.waitTick();
+		}
+		return cameras;
+	}
+
+	/**
+	 * A dive or exit flies steadily: no jumps or snaps between frames and never through the laptop of {@code world},
+	 * and close in front of its screen at the dive's end or the exit's start.
+	 */
+	private void checkFlight(List<List<Camera>> stretches, MiniWorld world, boolean dive, String what) {
+		List<Camera> all = stretches.stream().flatMap(List::stream).toList();
+		if (all.size() < 8) {
+			failures.add(what + ": only " + all.size() + " flight frames were seen");
+			return;
+		}
+		double[] center = DiveCamera.screenCenter(world);
+		double[][] laptop = DiveCamera.laptopBoxes(world);
+		double maxMove = 0.0;
+		double maxTurn = 0.0;
+		for (List<Camera> cameras : stretches) {
+			for (int i = 0; i < cameras.size(); i++) {
+				Camera camera = cameras.get(i);
+				if (DiveCamera.insideAny(laptop, new double[]{camera.x(), camera.y(), camera.z()}, 0.0)) {
+					failures.add(what + ": a frame is inside the laptop at " + camera);
+					return;
+				}
+				if (i == 0) {
+					continue;
+				}
+				Camera previous = cameras.get(i - 1);
+				maxMove = Math.max(maxMove, Math.sqrt(square(camera.x() - previous.x()) + square(camera.y() - previous.y())
+					+ square(camera.z() - previous.z())));
+				double[] a = previous.forward();
+				double[] b = camera.forward();
+				double dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+				maxTurn = Math.max(maxTurn, Math.toDegrees(Math.acos(Math.max(-1.0, Math.min(1.0, dot)))));
+			}
+		}
+		// A flight covers a few blocks in 26-34 ticks: at 80 frames per second no frame moves far or turns sharply
+		check(maxMove < 0.45, what + ": the camera jumped " + maxMove + " blocks in one frame");
+		check(maxTurn < 20.0, what + ": the view snapped " + maxTurn + " degrees in one frame");
+		Camera atScreen = dive ? all.get(all.size() - 1) : all.get(0);
+		Camera atEyes = dive ? all.get(0) : all.get(all.size() - 1);
+		double screenDistance = Math.sqrt(square(atScreen.x() - center[0]) + square(atScreen.y() - center[1]) + square(atScreen.z() - center[2]));
+		double eyeDistance = Math.sqrt(square(atEyes.x() - center[0]) + square(atEyes.y() - center[1]) + square(atEyes.z() - center[2]));
+		double front = (atScreen.x() - center[0]) * world.laptopFacing.dx + (atScreen.z() - center[2]) * world.laptopFacing.dz;
+		check(screenDistance < Math.max(0.6, eyeDistance * 0.5) && front > 0.0, what + ": near the screen end of the flight the camera should be close in "
+			+ "front of the screen (" + screenDistance + " from its centre vs " + eyeDistance + " at the eyes, in front by " + front + ")");
+	}
+
+	/** On a first visit the avatar starts at the level's spawn, looking at its laptop. */
+	private void checkAtSpawn(ClientGameTestContext context, int depth) {
+		String problem = context.computeOnClient(client -> {
+			MiniWorld world = session(client).world(depth);
+			MiniPlayer avatar = session(client).avatar(depth);
+			double off = Math.sqrt(square(avatar.x - world.spawnX) + square(avatar.y - world.spawnY) + square(avatar.z - world.spawnZ));
+			float yawOff = Math.abs(MiniPlayer.wrapDegrees(avatar.yaw - world.spawnYaw));
+			float pitchOff = Math.abs(avatar.pitch - world.spawnPitch);
+			// Idle avatars sway their view by a degree or two while they watch their laptop
+			if (off > 0.1 || yawOff > 4.0F || pitchOff > 4.0F) {
+				return String.format("feet %.2f,%.2f,%.2f yaw %.1f pitch %.1f vs spawn %.2f,%.2f,%.2f yaw %.1f pitch %.1f", avatar.x, avatar.y,
+					avatar.z, avatar.yaw, avatar.pitch, world.spawnX, world.spawnY, world.spawnZ, world.spawnYaw, world.spawnPitch);
+			}
+			return null;
+		});
+		if (problem != null) {
+			failures.add("on the first visit to Level " + depth + " the avatar should start at the spawn: " + problem);
+		}
+	}
+
+	private static double square(double value) {
+		return value * value;
 	}
 
 	// ------------------------------------------------------------------------------------------------------------

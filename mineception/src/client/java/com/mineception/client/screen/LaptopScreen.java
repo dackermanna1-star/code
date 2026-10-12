@@ -55,7 +55,7 @@ import org.lwjgl.glfw.GLFW;
  */
 public class LaptopScreen extends Screen {
 	/** Vertical field of view of the monitor, the same as the pictures on the dream laptops so a dive is seamless. */
-	public static final float FOV = 70.0F;
+	public static final float FOV = DiveCamera.FOV;
 	/** Ticks the camera takes to fly into a laptop screen. */
 	public static final int DIVE_TICKS = 34;
 	/** Ticks the camera takes to pull back out of a laptop screen. */
@@ -96,16 +96,16 @@ public class LaptopScreen extends Screen {
 		final int from;
 		final int to;
 		final int duration;
-		/** Dive: the camera when the dive started. */
-		final @Nullable Camera start;
+		/** The route, planned when the transition starts: from the avatar's eyes into the screen of the level it is in. */
+		final DiveCamera.Flight flight;
 		int ticks;
 
-		Transition(Kind kind, int from, int to, int duration, @Nullable Camera start) {
+		Transition(Kind kind, int from, int to, int duration, DiveCamera.Flight flight) {
 			this.kind = kind;
 			this.from = from;
 			this.to = to;
 			this.duration = duration;
-			this.start = start;
+			this.flight = flight;
 		}
 
 		float progress(float partialTick) {
@@ -362,7 +362,7 @@ public class LaptopScreen extends Screen {
 		MiniPlayer avatar = current.avatar(depth);
 		Camera start = lastCamera != null && lastCameraDepth == depth ? lastCamera : eyeCamera(avatar, 1.0F);
 		freeze(avatar);
-		transition = new Transition(Kind.DIVE, depth, depth + 1, DIVE_TICKS, start);
+		transition = new Transition(Kind.DIVE, depth, depth + 1, DIVE_TICKS, DiveCamera.plan(start, current.world(depth), FOV));
 		attackHeld = false;
 		useHeld = false;
 		play(SoundEvents.ENDERMAN_TELEPORT, 0.5F, 0.35F);
@@ -386,13 +386,17 @@ public class LaptopScreen extends Screen {
 		int from = depth;
 		int to = depth - 1;
 		depth = to;
-		freeze(current.avatar(to));
+		MiniPlayer avatar = current.avatar(to);
+		freeze(avatar);
 		current.setControlledDepth(to);
-		transition = new Transition(kind, from, to, kind == Kind.KICK ? KICK_TICKS : EXIT_TICKS, null);
 		attackHeld = false;
 		useHeld = false;
+		// The flight ends on the avatar's plain view: no bobbing or sprint field of view to jump from afterwards
 		sprinting = false;
 		bob = bobO = 0.0F;
+		fovModifier = fovModifierO = 1.0F;
+		DiveCamera.Flight flight = DiveCamera.plan(eyeCamera(avatar, 1.0F), current.world(to), FOV);
+		transition = new Transition(kind, from, to, kind == Kind.KICK ? KICK_TICKS : EXIT_TICKS, flight);
 		titleDepth = to;
 		titleTicks = TITLE_TICKS;
 		if (kind == Kind.KICK) {
@@ -835,10 +839,7 @@ public class LaptopScreen extends Screen {
 		Transition t = transition;
 		if (t != null) {
 			float progress = t.progress(partialTick);
-			if (t.kind == Kind.DIVE) {
-				return DiveCamera.dive(t.start, current.world(t.from), FOV, progress);
-			}
-			return DiveCamera.exit(eyeCamera(current.avatar(t.to), 1.0F), current.world(t.to), FOV, progress);
+			return t.kind == Kind.DIVE ? t.flight.dive(progress) : t.flight.exit(progress);
 		}
 		return eyeCamera(current.avatar(depth), partialTick);
 	}
@@ -1275,6 +1276,15 @@ public class LaptopScreen extends Screen {
 			return null;
 		}
 		return message.getContents() instanceof TranslatableContents translatable ? translatable.getKey() : message.getString();
+	}
+
+	/**
+	 * The camera the monitor shows at {@code partialTick} into the current tick: the controlled avatar's eyes, or the
+	 * point of the flight during a transition. Null without a signal.
+	 */
+	public @Nullable Camera viewCamera(float partialTick) {
+		DreamSession current = session;
+		return current == null ? null : currentCamera(current, partialTick);
 	}
 
 	/** Points the controlled avatar's view (yaw/pitch in Minecraft's convention). */
