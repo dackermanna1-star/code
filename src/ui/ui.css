@@ -1,0 +1,739 @@
+/* Seal Hunter 3D — 2D UI.
+ * Every layer is laid out in the original 640x480 design pixels and scaled by
+ * --k (CSS px per design px), which Stage sets on #game-view. */
+
+.sh-view {
+  overflow: hidden;
+}
+
+.sh-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 640px;
+  height: 480px;
+  transform-origin: 0 0;
+  transform: scale(var(--k, 1));
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  font-family: 'SH Trebuchet', 'Trebuchet MS', 'Segoe UI', sans-serif;
+  color: #fff;
+  line-height: 1.162;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+}
+
+.sh-overlay-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* ------------------------------------------------------------------ HUD */
+
+.sh-hud {
+  z-index: 10;
+}
+
+.sh-hud-strip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 640px;
+  height: 17.5px;
+  background: #0a0200;
+  display: flex;
+  align-items: flex-start;
+  overflow: hidden;
+}
+
+.sh-hud-label {
+  flex: 0 0 auto;
+  min-width: 73px;
+  box-sizing: border-box;
+  padding-left: 3px;
+  padding-right: 0.85px;
+  margin-top: -3.43px;
+  text-align: right;
+  font-size: 17.5px;
+  letter-spacing: 0.15px;
+  font-style: italic;
+  -webkit-text-stroke: 0.25px #fff;
+  line-height: 1.162;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.sh-hud-bar {
+  position: relative;
+  flex: 1 1 auto;
+  margin: 0.6px 6px 0 2.8px;
+  height: 13.2px;
+}
+
+.sh-hud-fill {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  transform-origin: 0 0;
+  transform: scaleX(0);
+}
+
+.sh-hud-panel {
+  position: absolute;
+  left: 0;
+  top: 17.5px;
+  width: 640px;
+  height: 48px;
+  background:
+    linear-gradient(to bottom, #a9b7c9 0, #8aa0bd 1.5px, #6d7f98 4px, rgba(0, 0, 0, 0) 4px,
+      rgba(0, 0, 0, 0) 44px, #95a5bc 44px, #7d93ae 45.5px, #5e6f83 48px),
+    linear-gradient(to right, rgba(0, 0, 0, 0) 540px, #69809e 541px, #546d8d 549px, rgba(0, 0, 0, 0) 549px,
+      rgba(0, 0, 0, 0) 638px, #6f84a0 638px, #4f6683 640px),
+    repeating-linear-gradient(to right, #90a2b9 0, #71859f 4.5px, #7b8fab 4.5px, #7b8fab 54.5px);
+  background-position: 0 0, 0 0, -3.3px 0;
+  box-shadow: 0 0.6px 0 rgba(0, 0, 0, 0.25);
+}
+
+.sh-slot {
+  position: absolute;
+  top: 4px;
+  width: 50px;
+  height: 40px;
+  box-sizing: border-box;
+  border-radius: 5.5px;
+  background-color: #7f8b99;
+  background-image: linear-gradient(160deg, rgba(255, 255, 255, 0.035) 0%, rgba(0, 0, 0, 0.03) 45%,
+      rgba(255, 255, 255, 0.025) 70%, rgba(0, 0, 0, 0.02) 100%);
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.13),
+    inset 2px 2px 0 rgba(255, 255, 255, 0.05),
+    inset -1px -1px 0 rgba(12, 28, 52, 0.32),
+    inset -2px -2px 0 rgba(12, 28, 52, 0.12);
+  pointer-events: auto;
+  cursor: pointer;
+  overflow: visible;
+}
+
+.sh-slot.sh-owned {
+  background-color: #718aa8;
+  box-shadow:
+    inset 1px 1px 0 rgba(200, 215, 235, 0.32),
+    inset 2px 2px 0 rgba(200, 215, 235, 0.1),
+    inset -1px -1px 0 rgba(20, 50, 95, 0.45),
+    inset -2px -2px 0 rgba(20, 50, 95, 0.15);
+}
+
+.sh-slot.sh-afford {
+  background-color: #84909e;
+}
+
+.sh-slot:hover {
+  filter: brightness(1.07);
+}
+
+.sh-slot-icon {
+  position: absolute;
+  left: 1px;
+  top: 0;
+  width: 48px;
+  height: 29px;
+  object-fit: contain;
+  object-position: 50% 50%;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+.sh-slot.sh-locked .sh-slot-icon {
+  opacity: 0.84;
+}
+
+.sh-slot-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 8px;
+  text-align: center;
+  font-size: 8.5px;
+  font-weight: bold;
+  line-height: 1;
+  color: #e4ebf4;
+  text-shadow: 0 0.6px 0 rgba(20, 30, 50, 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+}
+
+.sh-slot.sh-locked .sh-slot-name {
+  color: #c3cad4;
+}
+
+.sh-slot-cap {
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  top: 26.7px;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.162;
+  color: #b2bac7;
+  white-space: nowrap;
+}
+
+.sh-slot.sh-afford .sh-slot-cap {
+  color: #c3cad6;
+}
+
+.sh-slot.sh-owned .sh-slot-cap {
+  color: #f2f8ff;
+}
+
+.sh-hud-ring {
+  position: absolute;
+  top: 4px;
+  width: 50px;
+  height: 40px;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  border-radius: 6.5px;
+  box-shadow: inset 0 0 0 0.6px rgba(150, 170, 200, 0.75), 0 0 0 0.4px rgba(150, 170, 200, 0.5);
+  pointer-events: none;
+}
+
+.sh-hud-box {
+  position: absolute;
+  left: 550.5px;
+  top: 4px;
+  width: 87.5px;
+  height: 40px;
+  background: #080000;
+  border-radius: 6px;
+  font-size: 18px;
+  font-weight: bold;
+  color: #f2f2f2;
+  line-height: 1.162;
+}
+
+.sh-hud-lbl,
+.sh-hud-num {
+  position: absolute;
+  white-space: nowrap;
+}
+
+/* Trebuchet Bold is wider than the synthesised bold of the regular face. */
+.sh-hud-lbl {
+  left: 4.6px;
+  letter-spacing: 0.2px;
+}
+
+.sh-hud-num {
+  right: 2.6px;
+  margin-right: -1.8px;
+  letter-spacing: 1.8px;
+  text-align: right;
+}
+
+.sh-hud-l1 {
+  top: 1.6px;
+}
+
+.sh-hud-l2 {
+  top: 19.9px;
+}
+
+/* -------------------------------------------------------------- Screens */
+
+.sh-screens {
+  z-index: 20;
+}
+
+.sh-msgs {
+  position: absolute;
+  left: 3px;
+  top: 66px;
+  width: 600px;
+  height: 163px;
+  overflow: hidden;
+  font-family: 'SH Default', 'DejaVu Sans Mono', monospace;
+  font-size: 14px;
+  line-height: 16.3px;
+  color: rgb(80, 0, 0);
+}
+
+.sh-msgs-list {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+}
+
+.sh-msg {
+  height: 16.3px;
+  white-space: nowrap;
+  text-shadow: 0 0 1.5px rgba(255, 255, 255, 0.45);
+}
+
+.sh-fps {
+  position: absolute;
+  left: 2px;
+  top: 464px;
+  font-family: 'SH Default', 'DejaVu Sans Mono', monospace;
+  font-size: 12px;
+  line-height: 14px;
+  color: #000;
+  text-shadow: 0 0 2px rgba(255, 255, 255, 0.7);
+}
+
+/* Level splash (levels.py LevelSplash): white copies at (0,0),(0,2),(2,0),(2,2)
+ * and the (60,60,120) text at (1,1) — dark blue-grey text with a white rim. */
+.sh-splash {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 81.4px;
+  text-align: center;
+  font-size: 32px;
+  font-weight: bold;
+  line-height: 1.162;
+  white-space: nowrap;
+  color: rgb(60, 60, 120);
+  text-shadow:
+    -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff,
+    0 -1px 0 #fff, 0 1px 0 #fff, -1px 0 0 #fff, 1px 0 0 #fff;
+  opacity: 0;
+}
+
+.sh-screen {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  cursor: default;
+}
+
+.sh-dim {
+  background: rgba(6, 10, 20, 0.5);
+}
+
+.sh-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 75% 70% at 50% 48%, rgba(0, 0, 0, 0) 55%, rgba(10, 14, 30, 0.38) 100%);
+  pointer-events: none;
+}
+
+/* Title logo: menu.py draws "SealHunter" three times with a (20,20,20) shadow. */
+.sh-logo {
+  position: absolute;
+  left: 20px;
+  top: 4px;
+  font-family: 'SH Kinifed', 'SH Trebuchet', serif;
+  font-size: 80px;
+  font-style: italic;
+  line-height: 1.118;
+  color: rgb(110, 0, 0);
+  text-shadow: 1px 1px 0 #141414, 2px 2px 0 #141414, 3px 3px 0 #141414;
+  white-space: nowrap;
+}
+
+.sh-logo-sub {
+  position: absolute;
+  left: 348px;
+  top: 64px;
+  font-family: 'SH Default', monospace;
+  font-size: 12px;
+  color: #000;
+  text-shadow: 0 0 2px rgba(255, 255, 255, 0.8);
+  white-space: nowrap;
+}
+
+.sh-menu {
+  position: absolute;
+}
+
+.sh-menu-cap {
+  position: absolute;
+  left: 0;
+  top: -20px;
+  font-size: 20px;
+  line-height: 1;
+  color: #000;
+  white-space: nowrap;
+  text-shadow: 0 0 3px rgba(255, 255, 255, 0.6);
+}
+
+.sh-menu-pane {
+  position: relative;
+  margin-left: -10px;
+  padding: 10px 10px 10px 10px;
+  background: rgba(232, 238, 246, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.28);
+  border-radius: 3px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(1.5px);
+  -webkit-backdrop-filter: blur(1.5px);
+}
+
+.sh-mi {
+  position: relative;
+  height: 40px;
+  font-family: 'SH Kroftsmann', 'SH Trebuchet', sans-serif;
+  font-size: 40px;
+  line-height: 40px;
+  white-space: nowrap;
+  color: rgb(50, 50, 50);
+  text-shadow: 1px 1px 0 rgb(20, 20, 20), 1px 1px 3px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+
+.sh-mi.sh-active {
+  color: rgb(0, 100, 0);
+}
+
+.sh-mi.sh-active::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  right: -6px;
+  top: 3px;
+  bottom: 3px;
+  background: rgba(255, 255, 255, 0.32);
+  border-radius: 2px;
+  z-index: -1;
+}
+
+.sh-mi-row {
+  display: flex;
+  gap: 18px;
+}
+
+.sh-mi-row .sh-mi {
+  padding: 0 4px;
+}
+
+.sh-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 8px;
+  text-align: center;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  white-space: nowrap;
+}
+
+.sh-best {
+  position: absolute;
+  font-size: 12px;
+  color: #10202e;
+  text-shadow: 0 0 3px rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+}
+
+/* Generic dark panel used by help / options / stats. */
+.sh-panel {
+  position: absolute;
+  box-sizing: border-box;
+  background: rgba(8, 12, 22, 0.74);
+  border: 1px solid rgba(160, 180, 210, 0.35);
+  border-radius: 4px;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.35);
+  color: #eef2f8;
+}
+
+.sh-h1 {
+  font-family: 'SH Kroftsmann', 'SH Trebuchet', sans-serif;
+  font-size: 32px;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 1px 1px 0 #141414;
+  white-space: nowrap;
+}
+
+.sh-h2 {
+  font-size: 12.5px;
+  font-weight: bold;
+  color: #a8c4ec;
+  margin: 7px 0 3px;
+  letter-spacing: 0.2px;
+}
+
+.sh-p {
+  font-size: 11.5px;
+  line-height: 1.32;
+  color: #e6ebf3;
+  margin: 0;
+}
+
+.sh-kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 12px;
+  row-gap: 1.5px;
+  font-size: 11.5px;
+  line-height: 1.28;
+}
+
+.sh-kv .k {
+  color: #fff;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.sh-kv .v {
+  color: #d8dfea;
+}
+
+.sh-key {
+  display: inline-block;
+  padding: 0 3px;
+  margin: 0 0.5px;
+  border: 0.8px solid rgba(220, 230, 245, 0.55);
+  border-bottom-width: 1.4px;
+  border-radius: 2.5px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 10px;
+  line-height: 12px;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.sh-foes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 14px;
+  row-gap: 2px;
+  font-size: 10.5px;
+  line-height: 1.25;
+  color: #d8dfea;
+}
+
+.sh-foes b {
+  color: #fff;
+}
+
+.sh-btn {
+  display: inline-block;
+  font-family: 'SH Kroftsmann', 'SH Trebuchet', sans-serif;
+  font-size: 26px;
+  line-height: 30px;
+  padding: 0 12px;
+  color: rgb(205, 210, 220);
+  text-shadow: 1px 1px 0 rgb(20, 20, 20);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sh-btn.sh-active {
+  color: #9be29b;
+  border-color: rgba(155, 226, 155, 0.7);
+  background: rgba(60, 140, 60, 0.22);
+}
+
+/* Options rows */
+.sh-opt {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 3px;
+  font-size: 15px;
+  color: #dfe5ee;
+  cursor: pointer;
+}
+
+.sh-opt.sh-active {
+  background: rgba(120, 170, 120, 0.2);
+  color: #fff;
+  box-shadow: inset 2px 0 0 #7fd07f;
+}
+
+.sh-opt-label {
+  flex: 1 1 auto;
+}
+
+.sh-opt-ctl {
+  flex: 0 0 172px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.sh-slider {
+  position: relative;
+  width: 120px;
+  height: 14px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.sh-slider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 5px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.sh-slider-fill {
+  position: absolute;
+  left: 0;
+  top: 5px;
+  height: 4px;
+  border-radius: 2px;
+  background: #8fc48f;
+}
+
+.sh-slider-knob {
+  position: absolute;
+  top: 2px;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.sh-opt-val {
+  width: 40px;
+  text-align: right;
+  font-size: 13px;
+  color: #fff;
+}
+
+.sh-choice {
+  min-width: 110px;
+  text-align: center;
+  font-size: 14px;
+  color: #fff;
+}
+
+.sh-choice::before {
+  content: '\25C2\00a0\00a0';
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.sh-choice::after {
+  content: '\00a0\00a0\25B8';
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* Game over / victory */
+.sh-go-title {
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: 'SH Kinifed', 'SH Trebuchet', serif;
+  font-style: italic;
+  font-size: 58px;
+  line-height: 1.118;
+  color: rgb(110, 0, 0);
+  text-shadow: 1px 1px 0 #141414, 2px 2px 0 #141414, 3px 3px 0 #141414, 0 0 12px rgba(255, 255, 255, 0.25);
+  white-space: nowrap;
+}
+
+.sh-go-head {
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 25px;
+  font-weight: bold;
+  line-height: 1.162;
+  color: rgb(60, 60, 120);
+  text-shadow:
+    -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff,
+    0 -1px 0 #fff, 0 1px 0 #fff, -1px 0 0 #fff, 1px 0 0 #fff;
+  white-space: nowrap;
+}
+
+.sh-go-reason {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  text-align: center;
+  font-size: 14px;
+  font-style: italic;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.6);
+}
+
+.sh-stats {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 10px;
+  row-gap: 2px;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.sh-stats .k {
+  color: #a9bad3;
+  white-space: nowrap;
+}
+
+.sh-stats .v {
+  color: #fff;
+  font-weight: bold;
+  text-align: right;
+}
+
+.sh-stats .sub {
+  grid-column: 1 / span 2;
+  font-size: 10px;
+  line-height: 1.3;
+  color: #c4cfde;
+  font-weight: normal;
+  text-align: left;
+  margin: -1px 0 2px 8px;
+}
+
+.sh-hs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.sh-hs td {
+  padding: 0 3px;
+  color: #dfe6f0;
+  white-space: nowrap;
+}
+
+.sh-hs td.r {
+  text-align: right;
+}
+
+.sh-hs tr.sh-new td {
+  color: #ffe58a;
+  font-weight: bold;
+}
+
+.sh-hs tr.sh-empty td {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.sh-go-btns {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 22px;
+}
