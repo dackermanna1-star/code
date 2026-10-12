@@ -156,14 +156,22 @@ export class Debris {
     }
   }
 
-  /** Eject a casing from `pos` toward +X (the hunter faces -X, ejection port on his right). */
-  shell(kind: ShellKind, pos: THREE.Vector3, carrier: THREE.Vector3, power = 1): void {
+  /**
+   * Eject a casing from `pos` toward +X (the hunter faces -X, ejection port on
+   * his right), or along the horizontal unit vector `dir` (first person).
+   */
+  shell(kind: ShellKind, pos: THREE.Vector3, carrier: THREE.Vector3, power = 1, dir?: THREE.Vector3): void {
     const pool = this.shells.get(kind === 'none' ? 'small' : kind);
     if (!pool) return;
+    const out = (1.6 + Math.random() * 1.6) * power;
+    const side = (Math.random() - 0.35) * 1.4 * power;
+    const dx = dir ? dir.x : 1;
+    const dz = dir ? dir.z : 0;
+    // `side` spreads along the horizontal perpendicular (classic: +z, toward the camera).
     const v = new THREE.Vector3(
-      (1.6 + Math.random() * 1.6) * power + carrier.x * 0.5,
+      dx * out - dz * side + carrier.x * 0.5,
       (1.6 + Math.random() * 1.8) * power,
-      (Math.random() - 0.35) * 1.4 * power + carrier.z * 0.5,
+      dz * out + dx * side + carrier.z * 0.5,
     );
     pool.spawn(pos, v);
   }

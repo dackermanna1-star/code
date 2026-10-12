@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { fbm, mulberry32, ridged, vnoise } from './noise';
 import { NOISE_GLSL } from './glsl';
+import { HAZE_GLSL } from './Haze';
 
 /** Backdrop framing, shared by the berg builder and the backdrop camera. */
 export interface BackdropFrame {
@@ -267,7 +268,13 @@ export function buildIcebergGeometry(f: BackdropFrame): THREE.BufferGeometry {
   return g;
 }
 
-export function createIcebergMaterial(lightDir: THREE.Vector3): THREE.ShaderMaterial {
+/**
+ * Berg shading. `firstPerson` adds the first-person mist: the berg's lower
+ * slopes fade into the shared horizon haze (it rises out of the mist at sea
+ * level) and the whole berg takes a little more aerial perspective.
+ */
+export function createIcebergMaterial(lightDir: THREE.Vector3, opts: { firstPerson?: boolean } = {}): THREE.ShaderMaterial {
+  const fp = !!opts.firstPerson;
   return new THREE.ShaderMaterial({
     uniforms: {
       uLightDir: { value: lightDir.clone().normalize() },
@@ -300,6 +307,7 @@ export function createIcebergMaterial(lightDir: THREE.Vector3): THREE.ShaderMate
       varying vec3 vSmoothN;
       varying float vCrev;
       ${NOISE_GLSL}
+      ${fp ? HAZE_GLSL : ''}
       void main() {
         vec3 Nf = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
         vec3 V = normalize(cameraPosition - vWorld);
@@ -325,9 +333,113 @@ export function createIcebergMaterial(lightDir: THREE.Vector3): THREE.ShaderMate
         float fr = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 5.0);
         c = mix(c, uSky, fr * 0.3);
         // Aerial perspective.
-        c = mix(c, uHaze, 0.06);
+        c = mix(c, uHaze, 0.06);${fp ? FP_BERG_MIST : ''}
         gl_FragColor = vec4(c, 1.0);
       }
     `,
   });
+}
+
+const FP_BERG_MIST = /* glsl */ `
+        {
+          vec3 toP = vWorld - cameraPosition;
+          vec3 hz = envHorizon(toP);
+          float mist = 0.16 + 0.1 * smoothstep(1200.0, 3500.0, length(toP.xz));
+          mist = max(mist, 0.85 * exp(-max(vWorld.y, 0.0) / 22.0));
+          c = mix(c, hz, mist);
+        }`;
+
+/** A smaller berg for the first-person horizon (local frame: centred on x/z, sea at y = 0). */
+export interface DistantBergSpec {
+  x: number;
+  z: number;
+  /** Footprint (m) along local x / z, and peak height above the sea. */
+  w: number;
+  d: number;
+  h: number;
+  /** Rotation about y, radians. */
+  rot: number;
+  seed: number;
+  /** Flat-topped (tabular) berg instead of a peaked one. */
+  tabular?: boolean;
+}
+
+/**
+ * Heightfield berg for the first-person horizon: a rounded footprint with
+ * steep sides, either a tilted table top or a few peaks, broken into blocks
+ * by ridged noise. Same vertex attributes as the main berg, so it shares its
+ * material. All specs are merged into one geometry.
+ */
+export function buildDistantBergsGeometry(specs: DistantBergSpec[]): THREE.BufferGeometry {
+  const pos: number[] = [];
+  const cv: number[] = [];
+  const sn: number[] = [];
+  for (const s of specs) {
+    const n = 44;
+    const rnd = mulberry32(s.seed);
+    const peaks: Array<[number, number, number]> = [];
+    for (let i = 0; i < 4; i++) peaks.push([(rnd() - 0.5) * 0.9, (rnd() - 0.5) * 0.7, 0.55 + 0.45 * rnd()]);
+    const tilt = (rnd() - 0.5) * 0.25;
+    // Height over normalised local coords (-0.5..0.5 spans the footprint plus a margin).
+    const height = (u: number, v: number) => {
+      const ang = Math.atan2(v, u);
+      const rim = 0.36 + 0.06 * (fbm(Math.cos(ang) * 1.5 + s.seed, Math.sin(ang) * 1.5, 3, s.seed) - 0.5) * 2;
+      const r = Math.hypot(u, v * (s.w / s.d)) / rim;
+      let h: number;
+      if (s.tabular) {
+        h = s.h * (1 + tilt * u) * (1 - 0.06 * r * r) - s.h * 1.6 * Math.max(0, r - 0.9) * 10;
+        h -= s.h * 0.12 * (1 - ridged(u * 9 + s.seed, v * 3, 3, s.seed + 5));
+      } else {
+        h = 0;
+        for (const [pu, pv, ph] of peaks) {
+          const d2 = ((u - pu * rim) ** 2 + (v - pv * rim) ** 2) / (rim * rim);
+          h = Math.max(h, s.h * ph * (1 - 1.6 * Math.sqrt(d2)));
+        }
+        h = Math.min(h, s.h * (1.15 - 1.4 * Math.max(0, r - 0.6)));
+        h -= s.h * 0.25 * (1 - ridged(u * 7 + s.seed, v * 5, 3, s.seed + 5)) ** 2;
+      }
+      h += s.h * 0.1 * (fbm(u * 6, v * 6, 3, s.seed + 9) - 0.5);
+      // Edges of the patch sink well below the sea.
+      const edge = Math.max(Math.abs(u), Math.abs(v));
+      if (edge > 0.44) h = Math.min(h, -40 * (edge - 0.44) / 0.06);
+      return Math.max(h, -12);
+    };
+    const H: number[] = [];
+    for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) H.push(height(i / n - 0.5, j / n - 0.5));
+    const at = (i: number, j: number) => H[Math.min(n, Math.max(0, j)) * (n + 1) + Math.min(n, Math.max(0, i))];
+    const c = Math.cos(s.rot);
+    const sr = Math.sin(s.rot);
+    const vert = (i: number, j: number) => {
+      const lx = (i / n - 0.5) * s.w;
+      const lz = (j / n - 0.5) * s.d;
+      const gx = (at(i + 1, j) - at(i - 1, j)) / (2 * s.w / n);
+      const gz = (at(i, j + 1) - at(i, j - 1)) / (2 * s.d / n);
+      const inv = 1 / Math.hypot(gx, 1, gz);
+      let mean = 0;
+      for (let dj = -2; dj <= 2; dj++) for (let di = -2; di <= 2; di++) mean += at(i + di, j + dj);
+      const crev = Math.max(0, Math.min(1, (mean / 25 - at(i, j)) / (0.06 * s.h)));
+      const nx = -gx * inv;
+      const nz = -gz * inv;
+      return [s.x + lx * c + lz * sr, at(i, j), s.z - lx * sr + lz * c, crev, nx * c + nz * sr, inv, -nx * sr + nz * c];
+    };
+    for (let j = 0; j < n; j++) {
+      for (let i = 0; i < n; i++) {
+        const q = [vert(i, j), vert(i + 1, j), vert(i, j + 1), vert(i + 1, j + 1)];
+        if (Math.max(q[0][1], q[1][1], q[2][1], q[3][1]) < -1) continue;
+        const [a, b, cc, d] = q;
+        const tris = (i + j) % 2 === 0 ? [a, cc, b, b, cc, d] : [a, cc, d, a, d, b];
+        for (const p of tris) {
+          pos.push(p[0], p[1], p[2]);
+          cv.push(p[3]);
+          sn.push(p[4], p[5], p[6]);
+        }
+      }
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('aCrevice', new THREE.Float32BufferAttribute(cv, 1));
+  g.setAttribute('aSmoothN', new THREE.Float32BufferAttribute(sn, 3));
+  g.computeBoundingSphere();
+  return g;
 }

@@ -2,10 +2,14 @@
 // characters (capsules on REFLECT_LAYER, casting shadows) and a test decal map.
 //
 // URL params: q=low|medium|high, decal=0, caps=0, frames=N (stop after N frames),
-// anim=1 (move the capsules).
+// anim=1 (move the capsules),
+// fp=1 (first person from the hunter's eye; x, z, yaw, pitch in the
+// config/firstPerson.ts convention, degrees for the angles). window.poseEye(x, z,
+// yawDeg, pitchDeg) re-poses it, window.setView('first' | 'third') switches.
 import * as THREE from 'three';
 import { Stage, REFLECT_LAYER } from '../render/Stage';
 import { Environment } from '../render/env/Environment';
+import { FP, type ViewMode } from '../config/firstPerson';
 
 const params = new URLSearchParams(location.search);
 const quality = (params.get('q') as 'low' | 'medium' | 'high' | null) ?? 'high';
@@ -99,6 +103,38 @@ stage.onUpdate((dt, time) => {
   if (anim) caps.forEach((c, i) => (c.position.x += Math.sin(time * 0.7 + i) * dt * 2));
 });
 
+// ---- First person ---------------------------------------------------------
+const eye = {
+  x: Number(params.get('x') ?? 0),
+  z: Number(params.get('z') ?? 0),
+  yaw: Number(params.get('yaw') ?? 0),
+  pitch: Number(params.get('pitch') ?? 0),
+};
+const DEG = Math.PI / 180;
+/** Pose the first-person camera (works with or without Stage.poseFirstPerson). */
+function poseEye(x = eye.x, z = eye.z, yawDeg = eye.yaw, pitchDeg = eye.pitch): void {
+  Object.assign(eye, { x, z, yaw: yawDeg, pitch: pitchDeg });
+  if (stage.viewMode !== 'first') return;
+  const cam = stage.camera;
+  cam.fov = FP.fovDeg;
+  cam.near = FP.near;
+  cam.far = FP.far;
+  cam.aspect = stage.viewW / Math.max(1, stage.viewH);
+  cam.updateProjectionMatrix();
+  const s = stage as unknown as { poseFirstPerson?: (x: number, y: number, z: number, yaw: number, pitch: number) => void };
+  if (s.poseFirstPerson) s.poseFirstPerson(x, FP.eyeHeight, z, yawDeg * DEG, pitchDeg * DEG);
+  else {
+    cam.position.set(x, FP.eyeHeight, z);
+    cam.rotation.set(pitchDeg * DEG, yawDeg * DEG + Math.PI / 2, 0, 'YXZ');
+    cam.updateMatrixWorld();
+  }
+}
+function setView(mode: ViewMode): void {
+  stage.setViewMode(mode);
+  poseEye();
+}
+if (params.get('fp') === '1') setView('first');
+
 const maxFrames = Number(params.get('frames') ?? 0);
 if (maxFrames > 0) {
   for (let i = 0; i < maxFrames; i++) stage.frame(1 / 60);
@@ -108,5 +144,4 @@ if (maxFrames > 0) {
 
 const info = document.getElementById('info');
 if (info) info.textContent = `quality=${quality}`;
-(window as unknown as { env: Environment; stage: Stage }).env = env;
-(window as unknown as { env: Environment; stage: Stage }).stage = stage;
+Object.assign(window as unknown as Record<string, unknown>, { env, stage, poseEye, setView, THREE });

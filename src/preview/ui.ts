@@ -1,18 +1,25 @@
-// UI preview: mounts a fake 4:3 #game-view (same sizing as Stage) over a grey
-// gradient and demonstrates the HUD, the world overlay and every screen.
+// UI preview: mounts a fake #game-view (same sizing as Stage: 4:3 classic, or
+// the whole window with &view=first) over a gradient and demonstrates the HUD,
+// the world overlay and every screen, in either look.
 //
 //   preview/ui.html?screen=hud            animated HUD + overlay (default)
 //   preview/ui.html?screen=hud&fake=ref2  frozen HUD matching docs/reference/ref2.jpg (also ref1, ref5)
-//   preview/ui.html?screen=title|pause|gameover|victory|splash|options|help
+//   preview/ui.html?screen=hud&fake=fp    frozen first-person HUD (radar, reticle, reload, hurt)
+//   preview/ui.html?screen=title|pause|gameover|victory|splash|options|help|message
+//   &style=modern|classic                 UI look (default: modern)
+//   &view=first                           first-person framing (fills the window, radar, centre reticle)
+//   &bg=ice                               bright first-person ice/sky backdrop instead of the grey frame
 import { HUD_WEAPONS, WEAPONS, type WeaponId } from '../config/weapons';
 import type { EnemyType } from '../config/enemies';
-import { Hud, type HudSnapshot, type HudWeaponSlot } from '../ui/Hud';
-import { WorldOverlay, type OverlayText } from '../ui/WorldOverlay';
+import { Hud, type HudRadar, type HudSnapshot, type HudWeaponSlot } from '../ui/Hud';
+import { WorldOverlay, type OverlayCrosshair, type OverlayText } from '../ui/WorldOverlay';
 import { Screens, type GameStats } from '../ui/Screens';
 
 const params = new URLSearchParams(location.search);
 const screen = params.get('screen') ?? 'hud';
 const fake = params.get('fake');
+const style = params.get('style') === 'classic' ? 'classic' : 'modern';
+const firstPerson = params.get('view') === 'first' || fake === 'fp';
 
 // --- fake game view (Stage.resize logic) ----------------------------------
 const host = document.getElementById('app') ?? document.body;
@@ -21,19 +28,23 @@ view.id = 'game-view';
 host.appendChild(view);
 Object.assign(view.style, {
   background:
-    'linear-gradient(to bottom, #c3c4d2 0%, #b4b9cb 22%, #cfd5e2 30%, #9aa3b5 31%, #dfe4ec 34%, #d4dae4 62%, #c6ced9 92%, #5d6b80 93%, #8796ab 100%)',
+    firstPerson || params.get('bg') === 'ice'
+      ? 'linear-gradient(to bottom, #8fa3c0 0%, #b9c6d8 30%, #dfe6ef 43%, #7f93ad 44%, #a9b9cc 45.5%, #f1f4f8 47%, #fbfcfd 70%, #e4eaf2 100%)'
+      : 'linear-gradient(to bottom, #c3c4d2 0%, #b4b9cb 22%, #cfd5e2 30%, #9aa3b5 31%, #dfe4ec 34%, #d4dae4 62%, #c6ced9 92%, #5d6b80 93%, #8796ab 100%)',
 });
 const fit = () => {
   const k = Math.min(window.innerWidth / 640, window.innerHeight / 480);
-  const w = Math.floor(640 * k);
-  const h = Math.floor(480 * k);
+  const w = firstPerson ? window.innerWidth : Math.floor(640 * k);
+  const h = firstPerson ? window.innerHeight : Math.floor(480 * k);
   Object.assign(view.style, {
     width: `${w}px`,
     height: `${h}px`,
     left: `${Math.floor((window.innerWidth - w) / 2)}px`,
     top: `${Math.floor((window.innerHeight - h) / 2)}px`,
   });
-  view.style.setProperty('--k', String(w / 640));
+  view.style.setProperty('--k', String(Math.min(w / 640, h / 480)));
+  view.style.setProperty('--vw', `${w}px`);
+  view.style.setProperty('--vh', `${h}px`);
 };
 window.addEventListener('resize', fit);
 fit();
@@ -132,10 +143,45 @@ const FAKES: Record<string, HudSnapshot> = {
   },
 };
 
+const radar = (t: number, yaw: number): HudRadar => ({
+  minX: -20,
+  maxX: 20,
+  minZ: -14.5,
+  maxZ: 0.5,
+  escapeX: 20.6,
+  player: { x: 6 + 2 * Math.sin(t * 0.3), z: -6.5, yaw },
+  enemies: [
+    { x: -18, z: -11, type: 'seal', boss: false },
+    { x: -12.5, z: -4, type: 'seal', boss: false },
+    { x: -9, z: -8.5, type: 'activist', boss: false },
+    { x: -3 + ((t * 0.8) % 8), z: -2, type: 'penguin', boss: false },
+    { x: 2, z: -12, type: 'seal', boss: false },
+    { x: 13.5, z: -3, type: 'cub', boss: false },
+    { x: -15, z: -6, type: 'bear', boss: true },
+  ],
+});
+
+FAKES.fp = {
+  mode: 'level',
+  label: 'Level 3:',
+  progress: 0.42,
+  money: 12840,
+  kills: 131,
+  slots: slots(12840, { magnum: 4, mp5: 22, shotgun: 6, m4: 30 }, 'm4'),
+  view: 'first',
+  health: 0.55,
+  weapon: { id: 'm4', name: WEAPONS.m4.name, bullets: 4, clip: WEAPONS.m4.clip, reload: 0.62 },
+  radar: radar(0, 0.5),
+};
+if (firstPerson && fake && FAKES[fake] && fake !== 'fp') Object.assign(FAKES[fake], { view: 'first', radar: radar(0, -0.3) });
+
 const hud = new Hud(view, icons);
 if (fake || params.get('tint') === '0') hud.levelBarTint = false;
 const overlay = new WorldOverlay(view);
 const screens = new Screens(view);
+hud.setStyle(style);
+overlay.setStyle(style);
+if (screens.options.hudStyle !== style) screens.setOption('hudStyle', style);
 screens.onOptionsChange = (o) => console.log('[options]', JSON.stringify(o));
 hud.onSlotClick = (id) => {
   screens.message(`Clicked ${WEAPONS[id].name}`);
@@ -173,6 +219,10 @@ switch (screen) {
   case 'help':
     screens.showHelp(noop);
     break;
+  case 'message':
+    screens.message('Nice shot!');
+    screens.message('Massacre!');
+    break;
   default:
     break;
 }
@@ -191,6 +241,7 @@ const popups: Array<{ x: number; y: number; t: number; amount: number }> = [];
 let last = performance.now();
 let t = 0;
 let nextKill = 0.6;
+let lastKill = -9;
 let fpsAcc = 0;
 let fpsFrames = 0;
 
@@ -218,9 +269,36 @@ function frame(now: number) {
   if (fake && FAKES[fake]) {
     hud.update(FAKES[fake]);
     const f = FAKES[fake];
+    if (firstPerson) {
+      const fw = f.weapon;
+      overlay.render({
+        crosshairs: [
+          {
+            x: W / 2,
+            y: H / 2,
+            kind: 'center',
+            text: fw && fw.reload !== null ? `${Math.floor(fw.reload * 10) * 10}%` : String(fw?.bullets ?? 12),
+            textColor: 'rgba(40, 40, 48, 0.85)',
+            reload: fw?.reload ?? null,
+            spreadDeg: 1.5,
+          },
+        ],
+        texts: [
+          { x: 0.36 * W, y: 0.52 * H, text: '50$', color: 'rgb(200, 20, 20)', alpha: 0.4, size: 10 },
+          { x: 0.3 * W, y: 0.57 * H, text: '100$', color: 'rgb(200, 20, 20)', alpha: 0.25, size: 10 },
+        ],
+        vignette: f.health !== undefined ? (1 - f.health) * 0.8 : 0,
+        hitMarker: 0.9,
+        hitMarkerKill: params.get('kill') === '1',
+      });
+      return;
+    }
     overlay.render({
       crosshairs: [{ x: 0.19 * W, y: 0.67 * H, text: f.money ? '90%' : '12', textColor: f.money ? 'rgba(255,80,80,0.75)' : 'rgba(0,255,0,0.55)' }],
-      texts: [{ x: 0.285 * W, y: 0.6 * H, text: `$${f.money}`, color: '#33363c', alpha: 1, size: 10 }],
+      texts: [
+        { x: 0.285 * W, y: 0.6 * H, text: `$${f.money}`, color: '#33363c', alpha: 1, size: 10 },
+        { x: 0.12 * W, y: 0.62 * H, text: '50$', color: 'rgb(200, 20, 20)', alpha: 0.4, size: 10 },
+      ],
     });
     return;
   }
@@ -231,6 +309,7 @@ function frame(now: number) {
     const amount = Math.random() < 0.2 ? 60 : 50;
     money += amount;
     kills++;
+    lastKill = t;
     popups.push({ x: (0.05 + Math.random() * 0.12) * W, y: (0.45 + Math.random() * 0.4) * H, t: 0, amount });
   }
   // Auto-buy and select to show owned / selected slots.
@@ -249,6 +328,9 @@ function frame(now: number) {
 
   const cycle = t % 24;
   const boss = cycle > 16;
+  const reload = (t % 5) / 5;
+  const reloading = reload > 0.7;
+  const yaw = 0.9 * Math.sin(t * 0.4);
   const snap: HudSnapshot = {
     mode: boss ? 'boss' : 'level',
     label: boss ? 'Boss:' : `Level ${1 + Math.floor(t / 24)}:`,
@@ -256,14 +338,18 @@ function frame(now: number) {
     money,
     kills,
     slots: slots(money, owned, sel),
+    view: firstPerson ? 'first' : 'third',
+    health: t % 10 > 8 ? 1 - Math.sin(((t % 10) - 8) * Math.PI * 0.5) * 0.7 : 1,
+    weapon: sel && owned[sel] !== undefined
+      ? { id: sel, name: WEAPONS[sel].name, bullets: owned[sel]!, clip: WEAPONS[sel].clip, reload: reloading ? (reload - 0.7) / 0.3 : null }
+      : { id: 'pistol', name: WEAPONS.pistol.name, bullets: 12, clip: 12, reload: reloading ? (reload - 0.7) / 0.3 : null },
+    radar: radar(t, yaw),
   };
   hud.update(snap);
 
   // Overlay: crosshair with ammo / reload, money above the hunter, popups.
   const hx = (0.28 + 0.04 * Math.sin(t * 0.7)) * W;
   const hy = (0.67 + 0.05 * Math.sin(t * 0.45)) * H;
-  const reload = (t % 5) / 5;
-  const reloading = reload > 0.7;
   const pct = Math.floor(((reload - 0.7) / 0.3) * 10) * 10;
   const texts: OverlayText[] = [{ x: hx + 2 * k, y: hy - 27 * k, text: `$${money}`, color: '#33363c', alpha: 1 }];
   for (let i = popups.length - 1; i >= 0; i--) {
@@ -277,8 +363,20 @@ function frame(now: number) {
   }
   const ammo = sel && owned[sel] !== undefined ? owned[sel]! : 12;
   const frac = ammo / (sel ? WEAPONS[sel].clip : 12);
+  const center: OverlayCrosshair = {
+    x: W / 2,
+    y: H / 2,
+    kind: 'center',
+    text: reloading ? `${pct}%` : String(ammo),
+    textColor: 'rgba(40, 40, 48, 0.85)',
+    reload: reloading ? (reload - 0.7) / 0.3 : null,
+    spreadDeg: sel ? (WEAPONS[sel].spreadDeg ?? 0.5) : 0.5,
+  };
+  const sinceKill = nextKill - t;
   overlay.render({
-    crosshairs: [
+    hitMarker: firstPerson ? Math.max(0, 1 - (t - lastKill) * 3) : 0,
+    hitMarkerKill: firstPerson && sinceKill > 0.5,
+    crosshairs: firstPerson ? [center] : [
       {
         x: hx - 48 * k,
         y: hy,

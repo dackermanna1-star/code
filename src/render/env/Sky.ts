@@ -6,8 +6,15 @@
 // right. The same shader with ENV_MODE renders a cloudless gradient sphere for
 // the PMREM environment map. All colours are linear, pre-tone-mapping (the
 // main pass applies ACES).
+//
+// First person sees the sky in every direction, so it has its own variant
+// (createFirstPersonSkyMaterial): the same overcast palette, but the stratus
+// layer is projected onto a cloud plane (no azimuth seam, no pinch at the
+// zenith, natural perspective towards the horizon) and the horizon melts into
+// the shared haze colour (Haze.ts), which is also the fog colour.
 import * as THREE from 'three';
 import { NOISE_GLSL } from './glsl';
+import { HAZE_GLSL } from './Haze';
 
 const SKY_VERT = /* glsl */ `
   varying vec3 vWorld;
@@ -87,6 +94,67 @@ export function createSkyMaterial(envMode = false): THREE.ShaderMaterial {
     defines: envMode ? { ENV_MODE: '' } : {},
     side: THREE.BackSide,
     depthWrite: false,
+  });
+}
+
+const SKY_FP_FRAG = /* glsl */ `
+  uniform float uTime;
+  uniform vec3 uTop, uDark, uLight;
+  varying vec3 vWorld;
+  ${NOISE_GLSL}
+  ${HAZE_GLSL}
+  void main() {
+    vec3 d = normalize(vWorld - cameraPosition);
+    float el = d.y;
+    vec3 hz = envHorizon(d);
+    vec3 base = mix(hz, uTop, smoothstep(0.0, 0.5, el) * 0.92);
+    // Cloud plane: perspective-projected stratus, gently stretched along x.
+    float e = max(el, 0.0);
+    vec2 p = d.xz / (e + 0.12);
+    vec2 q = p * 0.9 + vec2(uTime * 0.01, 0.0);
+    vec2 w = vec2(envFbm3(q * vec2(0.3, 0.45) + 3.7), envFbm3(q * vec2(0.3, 0.45) + 9.1));
+    q += (w - 0.5) * vec2(1.6, 1.2);
+    float n = envFbm(q * vec2(0.45, 0.75));
+    // Fine detail fades out towards the horizon (it would only alias there).
+    float detail = smoothstep(0.02, 0.2, e);
+    float fine = mix(0.5, envFbm(q * vec2(1.3, 2.4) + 5.0), detail);
+    float streak = mix(0.5, envFbm3(q * vec2(2.4, 6.5) + 11.0), detail);
+    float cloud = n + (fine - 0.5) * 0.7 + (streak - 0.5) * 0.25;
+    float dark = smoothstep(0.46, 0.64, cloud);
+    float light = smoothstep(0.42, 0.26, cloud);
+    dark *= 1.0 - 0.75 * (1.0 - smoothstep(0.0, 0.12, e));
+    vec3 c = base;
+    c = mix(c, uLight * (0.85 + 0.3 * streak), light * 0.5);
+    c = mix(c, uDark * (0.75 + 0.5 * streak), dark * 0.7);
+    // Misty horizon: everything fades into the haze colour (also below it).
+    c = mix(hz, c, smoothstep(0.0, 0.09, el));
+    gl_FragColor = vec4(c, 1.0);
+  }
+`;
+
+/** First-person sky dome (rendered into the first-person backdrop cube map). */
+export function createFirstPersonSkyMaterial(): THREE.ShaderMaterial {
+  const u = skyUniforms();
+  return new THREE.ShaderMaterial({
+    uniforms: { uTime: u.uTime, uTop: u.uTop, uDark: u.uDark, uLight: u.uLight },
+    vertexShader: SKY_VERT,
+    fragmentShader: SKY_FP_FRAG,
+    side: THREE.BackSide,
+    depthWrite: false,
+  });
+}
+
+/** First-person backdrop sea: only seen right at the horizon, so it is pure haze. */
+export function createFirstPersonSeaMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    vertexShader: SKY_VERT,
+    fragmentShader: /* glsl */ `
+      varying vec3 vWorld;
+      ${HAZE_GLSL}
+      void main() {
+        gl_FragColor = vec4(envHorizon(vWorld - cameraPosition), 1.0);
+      }
+    `,
   });
 }
 

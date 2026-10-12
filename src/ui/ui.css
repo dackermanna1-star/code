@@ -1,6 +1,8 @@
-/* Seal Hunter 3D — 2D UI.
+/* Seal Hunter 3D — classic 2D UI (Options.hudStyle 'classic').
  * Every layer is laid out in the original 640x480 design pixels and scaled by
- * --k (CSS px per design px), which Stage sets on #game-view. */
+ * --k (CSS px per design px), which Stage sets on #game-view. In a view wider
+ * (or taller) than 4:3 the 640x480 box is centred; in 4:3 the offsets are 0.
+ * The modern UI lives in modern.css. */
 
 .sh-view {
   overflow: hidden;
@@ -8,7 +10,7 @@
 
 .sh-layer {
   position: absolute;
-  left: 0;
+  left: calc((100% - 640px * var(--k, 1)) / 2);
   top: 0;
   width: 640px;
   height: 480px;
@@ -250,6 +252,7 @@
 /* -------------------------------------------------------------- Screens */
 
 .sh-screens {
+  top: calc((100% - 480px * var(--k, 1)) / 2);
   z-index: 20;
 }
 

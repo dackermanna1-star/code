@@ -153,10 +153,11 @@ const RELOAD_POSE: Record<WeaponId, { d: [number, number, number]; r: [number, n
 };
 
 /** Support-hand keyframes during a reload. 'S' = support grip; w = weapon-local; r = root-local. */
-type KeyPos = 'S' | ['w' | 'r', number, number, number];
+export type KeyPos = 'S' | ['w' | 'r', number, number, number];
 type Key = [number, KeyPos];
 const POUCH: KeyPos = ['r', 0.02, 0.56, 0.3];
-const RELOAD_KEYS: Partial<Record<WeaponId, Key[]>> = {
+/** Also used by the first-person viewmodel ('r' keys there mean the belt pouch). */
+export const RELOAD_KEYS: Partial<Record<WeaponId, Key[]>> = {
   pistol: [[0, 'S'], [0.12, 'S'], [0.28, POUCH], [0.42, ['w', 0.02, -0.15, 0.0]], [0.62, ['w', 0.02, -0.1, 0.0]], [0.74, ['w', 0.02, 0.07, 0.05]], [0.84, ['w', -0.02, 0.07, 0.05]], [1, 'S']],
   magnum: [[0, 'S'], [0.1, ['w', -0.04, 0.0, 0.07]], [0.32, ['w', -0.04, 0.0, 0.07]], [0.46, POUCH], [0.62, ['w', 0.02, 0.05, 0.09]], [0.78, ['w', -0.03, 0.02, 0.07]], [0.9, 'S'], [1, 'S']],
   mp5: [[0, 'S'], [0.1, ['w', -0.11, -0.08, 0.0]], [0.2, ['w', -0.12, -0.12, 0.0]], [0.36, POUCH], [0.52, ['w', -0.12, -0.15, 0.0]], [0.66, ['w', -0.11, -0.08, 0.0]], [0.78, ['w', -0.3, 0.09, 0.03]], [0.86, ['w', -0.26, 0.09, 0.03]], [1, 'S']],
@@ -791,3 +792,7 @@ export function holdMuzzleOffset(id: WeaponId, model?: WeaponModel): THREE.Vecto
   const def = HOLD[id];
   return new THREE.Vector3(def.x + m.muzzleRest.x, GUN_Y, def.z + m.muzzleRest.z);
 }
+
+/** The hunter's palette and fabric shading, shared with the first-person viewmodel. */
+export const HUNTER_COLORS = COL;
+export { parkaShade, furShade };

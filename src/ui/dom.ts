@@ -4,7 +4,14 @@
 // is scaled by `--k` (CSS px per design px, set on #game-view by Stage). The
 // browser rasterises text and borders at the final size, so everything stays
 // crisp at any window size.
+//
+// --k is min(viewW / 640, viewH / 480): in the classic 4:3 frame both are
+// equal; a wider (first-person) view keeps the design scale of its height.
+// Classic layers stay a 640x480 box (centred in a wider view); "fluid" layers
+// (the modern UI) cover the whole view, viewW/k x viewH/k design px, so their
+// content can anchor to the real view edges.
 import './ui.css';
+import './modern.css';
 import { embeddedDataUrl } from '../core/embedded';
 
 export const DESIGN_W = 640;
@@ -43,7 +50,12 @@ export function ensureFonts(): void {
 
 const tracked = new WeakSet<HTMLElement>();
 
-/** Make sure `view` is a positioned container and keeps `--k` in sync with its width. */
+/** Design scale of a view: CSS px per design px. */
+export function viewScale(w: number, h: number): number {
+  return w > 0 && h > 0 ? Math.min(w / DESIGN_W, h / DESIGN_H) : 1;
+}
+
+/** Make sure `view` is a positioned container and keeps `--k` in sync with its size. */
 export function prepareView(view: HTMLElement): void {
   if (tracked.has(view)) return;
   tracked.add(view);
@@ -52,8 +64,9 @@ export function prepareView(view: HTMLElement): void {
   view.classList.add('sh-view');
   const apply = () => {
     const w = view.clientWidth;
-    if (w > 0) {
-      const k = String(w / DESIGN_W);
+    const hgt = view.clientHeight;
+    if (w > 0 && hgt > 0) {
+      const k = String(viewScale(w, hgt));
       if (view.style.getPropertyValue('--k') !== k) view.style.setProperty('--k', k);
     }
   };
@@ -66,6 +79,14 @@ export function designLayer(view: HTMLElement, className: string): HTMLDivElemen
   ensureFonts();
   prepareView(view);
   const layer = h('div', `sh-layer ${className}`);
+  view.appendChild(layer);
+  return layer;
+}
+
+/** Create a layer covering the whole view in design px (modern UI). */
+export function fluidLayer(view: HTMLElement, className: string): HTMLDivElement {
+  prepareView(view);
+  const layer = h('div', `shm-layer ${className}`);
   view.appendChild(layer);
   return layer;
 }

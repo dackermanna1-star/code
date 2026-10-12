@@ -10,6 +10,21 @@
 //  * the planar character reflection (blurred, low opacity),
 //  * a premultiplied-alpha decal map (blood, scorch) composited onto the
 //    albedo, wet (glossier, darker) where its alpha is high.
+//
+// First person (define ICE_FP, toggled by setIceFirstPerson; both programs stay
+// cached on the material): the screen-space haze painting and backdrop mirror
+// only make sense for the fixed classic camera, so instead
+//  * the haze is a world-anchored field of misty patches,
+//  * the sky/berg reflection samples the first-person backdrop cube along the
+//    reflected view ray (fresnel weighted, blurred through its mipmaps, washed
+//    towards the ice colour so it stays misty),
+//  * the planar character reflection gets stronger at grazing angles,
+//  * the decal map is sampled with derivatives (mipmaps / anisotropy when the
+//    texture has them; the classic path reads level 0 explicitly so it never
+//    changes),
+//  * the very edge of the floe gets a faint snowy lip (signed distance map)
+//    instead of the classic black outline.
+// Fog comes from the scene (Haze.ts).
 import * as THREE from 'three';
 import { NOISE_GLSL } from './glsl';
 
@@ -33,6 +48,14 @@ export interface IceUniforms {
   uIceHaze: { value: THREE.Vector3 };
   uIceTop: { value: THREE.Vector3 };
   uTime: { value: number };
+  /** First person: backdrop cube (sky/bergs), its base mip level, mirror strengths. */
+  uEnvCube: { value: THREE.CubeTexture | null };
+  uEnvLod: { value: number };
+  uFpMirror: { value: number };
+  uFpReflStrength: { value: number };
+  /** First person: floe signed distance map (see FirstPersonWorld) and its world rect (minX, minZ, sizeX, sizeZ). */
+  uFloeSdf: { value: THREE.Texture | null };
+  uFloeSdfRect: { value: THREE.Vector4 };
 }
 
 export function createIceUniforms(): IceUniforms {
@@ -55,7 +78,23 @@ export function createIceUniforms(): IceUniforms {
     uIceHaze: { value: new THREE.Vector3(0.9, 1.0, 1.11) }, // #dfe2e5
     uIceTop: { value: new THREE.Vector3(0.5, 0.53, 0.62) }, // #c5c8cf
     uTime: { value: 0 },
+    uEnvCube: { value: null },
+    uEnvLod: { value: 2 },
+    uFpMirror: { value: 0.4 },
+    uFpReflStrength: { value: 0.5 },
+    uFloeSdf: { value: null },
+    uFloeSdfRect: { value: new THREE.Vector4(-80, -26, 122, 50) },
   };
+}
+
+/** Switch the ice material between the classic and the first-person shading. */
+export function setIceFirstPerson(mat: THREE.MeshStandardMaterial, on: boolean): void {
+  const defines = (mat.defines ?? {}) as Record<string, string>;
+  if (on === 'ICE_FP' in defines) return;
+  if (on) defines.ICE_FP = '';
+  else delete defines.ICE_FP;
+  mat.defines = defines;
+  mat.needsUpdate = true;
 }
 
 export function createIceMaterial(u: IceUniforms, opts: { reflections: boolean }): THREE.MeshStandardMaterial {
@@ -98,6 +137,12 @@ export function createIceMaterial(u: IceUniforms, opts: { reflections: boolean }
         uniform vec4 uDecalRect;
         uniform vec3 uAlbedoNorm, uIceBase, uIceHaze, uIceTop;
         uniform float uTime;
+        #ifdef ICE_FP
+        uniform samplerCube uEnvCube;
+        uniform float uEnvLod, uFpMirror, uFpReflStrength;
+        uniform sampler2D uFloeSdf;
+        uniform vec4 uFloeSdfRect;
+        #endif
         ${NOISE_GLSL}
         float iceMirrorLine(float u) {
           float f = clamp(u, 0.0, 1.0) * float(${MIRROR_SAMPLES - 1});
@@ -126,18 +171,29 @@ export function createIceMaterial(u: IceUniforms, opts: { reflections: boolean }
       .replace(
         '#include <color_fragment>',
         /* glsl */ `#include <color_fragment>
+        #ifdef ICE_FP
+        // World-anchored mist: large soft bright patches over the pale base.
+        float iceMist = smoothstep(0.32, 0.72, envFbm3(vIceWorld.xz * vec2(0.022, 0.04) + 7.0));
+        float iceBlot = envFbm3(vIceWorld.xz * 0.11 + 3.0);
+        vec3 iceCol = mix(uIceBase, uIceHaze, 0.1 + 0.42 * iceMist + 0.16 * (iceBlot - 0.5));
+        #else
         vec4 iceClip = uDesignVP * vec4(vIceWorld, 1.0);
         vec2 iceScr = iceClip.xy / iceClip.w * 0.5 + 0.5; // GL uv (y up)
         vec2 iceSv = vec2(iceScr.x, 1.0 - iceScr.y);
         float iceMist;
         vec3 iceCol = iceHaze(iceSv, iceMist);
+        #endif
         // Fine frost variation.
         float frost = envNoise(vIceWorld.xz * vec2(0.9, 1.6));
         iceCol *= 0.975 + 0.05 * frost;
         // Decal (premultiplied alpha): albedo = ice * (1 - a) + rgb.
         vec2 dUv = (vIceWorld.xz - uDecalRect.xy) / uDecalRect.zw;
         vec2 dIn = step(vec2(0.0), dUv) * step(dUv, vec2(1.0));
+        #ifdef ICE_FP
         vec4 dec = texture2D(uDecalMap, clamp(dUv, 0.0, 1.0)) * (dIn.x * dIn.y);
+        #else
+        vec4 dec = textureLod(uDecalMap, clamp(dUv, 0.0, 1.0), 0.0) * (dIn.x * dIn.y);
+        #endif
         float wet = clamp(dec.a, 0.0, 1.0);
         // Procedural micro-relief (world-space height gradient).
         vec3 iceN1 = envNoiseD(vIceWorld.xz * 0.8);
@@ -158,6 +214,41 @@ export function createIceMaterial(u: IceUniforms, opts: { reflections: boolean }
       .replace(
         '#include <opaque_fragment>',
         /* glsl */ `
+        #ifdef ICE_FP
+        {
+          float clean = 1.0 - wet;
+          outgoingLight += wet * vec3(0.005, 0.0055, 0.007) * (0.4 + 1.2 * iceN1.x);
+          // Snowy lip along the floe edge (replaces the classic outline stroke).
+          vec2 sUv = (vIceWorld.xz - uFloeSdfRect.xy) / uFloeSdfRect.zw;
+          float edgeD = (texture2D(uFloeSdf, sUv).r - 0.5) * 16.0;
+          float lip = smoothstep(0.45, 0.04, edgeD) * clean;
+          outgoingLight *= 1.0 + 0.16 * lip;
+          // Sky / berg reflection along the reflected view ray (misty, fresnel weighted).
+          vec3 V = normalize(cameraPosition - vIceWorld);
+          vec3 Nw = normalize(vec3(-iceGrad.x, 1.0, -iceGrad.y));
+          float ndv = clamp(dot(Nw, V), 0.0, 1.0);
+          float fres = 0.03 + 0.97 * pow(1.0 - ndv, 5.0);
+          vec3 R = reflect(-V, Nw);
+          R.y = max(R.y, 0.0);
+          vec3 sky = textureLod(uEnvCube, R, uEnvLod + mix(3.2, 1.2, wet)).rgb;
+          sky = mix(sky, outgoingLight, 0.3 * clean);
+          float mk = fres * mix(uFpMirror, 0.6, wet) * (1.0 - 0.3 * iceMist * clean);
+          outgoingLight = mix(outgoingLight, sky, clamp(mk, 0.0, 1.0));
+          #ifdef ICE_REFL
+          // Planar reflection of characters: faint from above, stronger at grazing angles.
+          vec4 rc = uReflMatrix * vec4(vIceWorld, 1.0);
+          vec2 rUv = rc.xy / rc.w + iceGrad * 0.01;
+          vec2 tx = uReflTexel * 1.5;
+          vec4 r = texture2D(uReflMap, rUv) * 0.4
+            + texture2D(uReflMap, rUv + vec2(tx.x, tx.y)) * 0.15
+            + texture2D(uReflMap, rUv + vec2(-tx.x, tx.y)) * 0.15
+            + texture2D(uReflMap, rUv + vec2(tx.x, -tx.y)) * 0.15
+            + texture2D(uReflMap, rUv + vec2(-tx.x, -tx.y)) * 0.15;
+          float rk = uFpReflStrength * (0.25 + 0.75 * fres) * (1.0 + 0.6 * wet);
+          outgoingLight = mix(outgoingLight, r.rgb / max(r.a, 1e-3), clamp(r.a * rk, 0.0, 1.0));
+          #endif
+        }
+        #else
         {
           float clean = 1.0 - wet;
           // Wet sheen: a faint overcast-sky reflection on blood pools.
@@ -194,9 +285,10 @@ export function createIceMaterial(u: IceUniforms, opts: { reflections: boolean }
           outgoingLight = mix(outgoingLight, r.rgb / max(r.a, 1e-3), clamp(r.a * rk, 0.0, 1.0));
           #endif
         }
+        #endif
         #include <opaque_fragment>`,
       );
   };
-  mat.customProgramCacheKey = () => `ice-top-v1-${opts.reflections ? 1 : 0}`;
+  mat.customProgramCacheKey = () => `ice-top-v2-${opts.reflections ? 1 : 0}`;
   return mat;
 }

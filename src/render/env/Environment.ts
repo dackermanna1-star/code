@@ -10,6 +10,15 @@
 //     gameplay camera. The ice shader samples the backdrop target mirrored
 //     about the floe's back edge (iceberg reflection) and a half-resolution
 //     planar mirror pass of REFLECT_LAYER objects (character reflections).
+//
+// First person (stage.onViewMode -> setViewMode('first')) swaps in a world
+// that works from the ice in every direction (FirstPersonWorld.ts): the
+// backdrop becomes a cube map around the eye (sky, the same berg, distant
+// bergs, horizon haze) used as background and reflection source, the floe gets
+// an extended outline with closed fogged cliffs and no outline strokes, a sea
+// plane reaches the horizon, the ice shader switches to its first-person path
+// and the scene gets the arctic haze fog (Haze.ts). Switching back restores
+// every object, material program, uniform and the shadow camera exactly.
 import * as THREE from 'three';
 import type { Stage } from '../Stage';
 import {
@@ -19,9 +28,19 @@ import {
   pointInFloe,
   type XZ,
 } from '../../config/field';
-import { Backdrop } from './Backdrop';
+import { FP, type ViewMode } from '../../config/firstPerson';
+import { Backdrop, type FirstPersonBackdrop } from './Backdrop';
 import { buildFloeTopGeometry, buildFloeWallGeometry, createCliffMaterial, createFrontSea, createOutlineMeshes } from './Floe';
-import { createIceMaterial, createIceUniforms, MIRROR_SAMPLES, type IceUniforms } from './IceMaterial';
+import {
+  FP_FLOE_OUTLINE,
+  SDF_RECT,
+  buildFloeSdfTexture,
+  createFirstPersonCliffMaterial,
+  createFirstPersonSea,
+  createSmallFloes,
+} from './FirstPersonWorld';
+import { createHazeFog, horizonColor, installHazeFog } from './Haze';
+import { createIceMaterial, createIceUniforms, MIRROR_SAMPLES, setIceFirstPerson, type IceUniforms } from './IceMaterial';
 import { PlanarReflection } from './PlanarReflection';
 import { createSkyMaterial } from './Sky';
 
@@ -41,18 +60,36 @@ interface QualitySettings {
   reflectionScale: number;
   shadowMapSize: number;
   shadowRadius: number;
+  /** First person: backdrop cube face size, and frames between face refreshes (0 = never). */
+  cubeSize: number;
+  cubeRefreshFrames: number;
 }
 
 const QUALITY: Record<EnvQuality, QualitySettings> = {
-  low: { backdropScale: 0.5, backdropStrips: 0, reflections: false, reflectionScale: 0.5, shadowMapSize: 1024, shadowRadius: 2 },
-  medium: { backdropScale: 0.75, backdropStrips: 24, reflections: true, reflectionScale: 0.5, shadowMapSize: 1536, shadowRadius: 3 },
-  high: { backdropScale: 1, backdropStrips: 16, reflections: true, reflectionScale: 0.5, shadowMapSize: 2048, shadowRadius: 3 },
+  low: { backdropScale: 0.5, backdropStrips: 0, reflections: false, reflectionScale: 0.5, shadowMapSize: 1024, shadowRadius: 2, cubeSize: 512, cubeRefreshFrames: 0 },
+  medium: { backdropScale: 0.75, backdropStrips: 24, reflections: true, reflectionScale: 0.5, shadowMapSize: 1536, shadowRadius: 3, cubeSize: 768, cubeRefreshFrames: 8 },
+  high: { backdropScale: 1, backdropStrips: 16, reflections: true, reflectionScale: 0.5, shadowMapSize: 2048, shadowRadius: 3, cubeSize: 1024, cubeRefreshFrames: 4 },
 };
 
 /** Direction towards the key light: upper left, slightly behind the floe. */
 const SUN_DIR = new THREE.Vector3(-0.5, 0.8, -0.35).normalize();
 /** Region the sun's shadow map covers (world XZ) and the height range of casters. */
 const SHADOW_BOX = new THREE.Box3(new THREE.Vector3(-24, -0.5, -18), new THREE.Vector3(24, 4, 18));
+/** First person: a little wider on the left so creatures entering at the spawn edge cast shadows too. */
+const SHADOW_BOX_FP = new THREE.Box3(new THREE.Vector3(-29, -0.5, -18), new THREE.Vector3(24, 4, 18));
+
+/** First-person resources, created on the first switch. */
+interface FirstPersonParts {
+  backdrop: FirstPersonBackdrop;
+  fog: THREE.FogExp2;
+  group: THREE.Group;
+  sea: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
+  iceGeometry: THREE.BufferGeometry;
+  wallGeometry: THREE.BufferGeometry;
+  cliffMaterial: THREE.ShaderMaterial;
+  sdf: THREE.DataTexture;
+  frame: number;
+}
 
 export class Environment {
   readonly waterLevel = WATER_LEVEL;
@@ -66,10 +103,17 @@ export class Environment {
   readonly ice: THREE.Mesh;
   readonly iceUniforms: IceUniforms;
   readonly quality: EnvQuality;
+  /** Current view mode (follows stage.onViewMode; see setViewMode). */
+  viewMode: ViewMode = 'third';
   private envTarget: THREE.WebGLRenderTarget | null = null;
   private emptyDecal: THREE.DataTexture;
   private disposed = false;
   private readonly settings: QualitySettings;
+  private readonly walls: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
+  private readonly classicOnly: THREE.Object3D[] = [];
+  private fp: FirstPersonParts | null = null;
+  /** The classic floe geometry/material while first-person ones are swapped in. */
+  private classic: { iceGeometry: THREE.BufferGeometry; wallGeometry: THREE.BufferGeometry; cliffMaterial: THREE.ShaderMaterial } | null = null;
 
   constructor(
     private stage: Stage,
@@ -130,21 +174,119 @@ export class Environment {
     this.ice.receiveShadow = true;
     this.group.add(this.ice);
 
-    const walls = new THREE.Mesh(buildFloeWallGeometry(), createCliffMaterial());
-    walls.name = 'FloeWalls';
-    this.group.add(walls);
+    this.walls = new THREE.Mesh(buildFloeWallGeometry(), createCliffMaterial());
+    this.walls.name = 'FloeWalls';
+    this.group.add(this.walls);
 
     const camPos = new THREE.Vector3().setFromMatrixPosition(camera.matrixWorld);
-    for (const m of createOutlineMeshes(camPos)) this.group.add(m);
-    this.group.add(createFrontSea());
+    for (const m of createOutlineMeshes(camPos)) {
+      this.group.add(m);
+      this.classicOnly.push(m);
+    }
+    const frontSea = createFrontSea();
+    this.group.add(frontSea);
+    this.classicOnly.push(frontSea);
 
     // ---- Offscreen passes -----------------------------------------------
     stage.onResize(() => this.resize());
     stage.onPreRender((_dt, time) => {
       if (this.disposed) return;
-      this.backdrop.update(renderer, time);
+      if (this.fp && this.viewMode === 'first') this.preRenderFirstPerson(time);
+      else this.backdrop.update(renderer, time);
       if (this.reflection) this.reflection.render(renderer, scene, camera);
     });
+
+    // ---- View mode ------------------------------------------------------
+    installHazeFog();
+    stage.onViewMode((mode) => this.setViewMode(mode));
+    if (stage.viewMode === 'first') this.setViewMode('first');
+  }
+
+  /**
+   * Switch between the classic environment and the first-person one. Called
+   * automatically from stage.onViewMode; safe to call directly (idempotent).
+   */
+  setViewMode(mode: ViewMode): void {
+    if (mode === this.viewMode || this.disposed) return;
+    this.viewMode = mode;
+    const first = mode === 'first';
+    const fp = first ? this.ensureFirstPerson() : this.fp;
+    if (!fp) return;
+    const scene = this.stage.scene;
+    const u = this.iceUniforms;
+    if (first) {
+      scene.background = fp.backdrop.texture;
+      scene.fog = fp.fog;
+      this.ice.geometry = fp.iceGeometry;
+      this.walls.geometry = fp.wallGeometry;
+      this.walls.material = fp.cliffMaterial;
+      u.uEnvCube.value = fp.backdrop.texture;
+      u.uFloeSdf.value = fp.sdf;
+      u.uFloeSdfRect.value.copy(SDF_RECT);
+    } else {
+      const c = this.classic!;
+      scene.background = this.backdrop.texture;
+      scene.fog = null;
+      this.ice.geometry = c.iceGeometry;
+      this.walls.geometry = c.wallGeometry;
+      this.walls.material = c.cliffMaterial;
+    }
+    setIceFirstPerson(this.ice.material as THREE.MeshStandardMaterial, first);
+    for (const o of this.classicOnly) o.visible = !first;
+    fp.group.visible = first;
+    this.fitShadowCamera(first ? SHADOW_BOX_FP : SHADOW_BOX);
+  }
+
+  /** Linear horizon/haze colour seen in a world direction (first-person fog colour). */
+  horizonColor(dir: { x: number; z: number }, out = new THREE.Color()): THREE.Color {
+    return horizonColor(dir, out);
+  }
+
+  /** First-person fog amount (0..1) at a distance from the eye, m (0 in the classic view). */
+  hazeAt(distance: number): number {
+    if (this.viewMode !== 'first' || !this.fp) return 0;
+    const k = this.fp.fog.density * distance;
+    return 1 - Math.exp(-k * k);
+  }
+
+  private ensureFirstPerson(): FirstPersonParts {
+    if (this.fp) return this.fp;
+    const renderer = this.stage.renderer;
+    this.classic = { iceGeometry: this.ice.geometry, wallGeometry: this.walls.geometry, cliffMaterial: this.walls.material };
+    const size = this.settings.cubeSize;
+    const backdrop = this.backdrop.firstPerson(renderer, size, FP.eyeHeight - WATER_LEVEL);
+    const envLod = Math.log2(size) - 8;
+    this.iceUniforms.uEnvLod.value = envLod;
+    const sdf = buildFloeSdfTexture();
+    const group = new THREE.Group();
+    group.name = 'FirstPersonWorld';
+    const sea = createFirstPersonSea(backdrop.texture, envLod, sdf) as THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
+    group.add(sea);
+    group.add(createSmallFloes());
+    group.visible = false;
+    this.group.add(group);
+    this.fp = {
+      backdrop,
+      fog: createHazeFog(),
+      group,
+      sea,
+      iceGeometry: buildFloeTopGeometry(FP_FLOE_OUTLINE),
+      wallGeometry: buildFloeWallGeometry(FP_FLOE_OUTLINE),
+      cliffMaterial: createFirstPersonCliffMaterial(),
+      sdf,
+      frame: 0,
+    };
+    return this.fp;
+  }
+
+  private preRenderFirstPerson(time: number): void {
+    const fp = this.fp!;
+    const cam = this.stage.camera;
+    fp.sea.position.x = cam.position.x;
+    fp.sea.position.z = cam.position.z;
+    fp.sea.material.uniforms.uTime.value = time;
+    const n = this.settings.cubeRefreshFrames;
+    if (n > 0 && ++fp.frame % n === 0) fp.backdrop.refreshFace(this.stage.renderer, time);
   }
 
   /** Blood/scorch decal texture (RGBA, premultiplied alpha) covering `rect` of the ice top (world XZ). */
@@ -166,6 +308,16 @@ export class Environment {
   dispose(): void {
     this.disposed = true;
     const scene = this.stage.scene;
+    if (this.fp && this.classic) {
+      if (scene.background === this.fp.backdrop.texture) scene.background = null;
+      if (scene.fog === this.fp.fog) scene.fog = null;
+      // The meshes' current geometry/material are disposed with the group below; dispose the other set.
+      const first = this.viewMode === 'first';
+      (first ? this.classic.iceGeometry : this.fp.iceGeometry).dispose();
+      (first ? this.classic.wallGeometry : this.fp.wallGeometry).dispose();
+      (first ? this.classic.cliffMaterial : this.fp.cliffMaterial).dispose();
+      this.fp.sdf.dispose();
+    }
     if (scene.background === this.backdrop.texture) scene.background = null;
     if (this.envTarget && scene.environment === this.envTarget.texture) scene.environment = null;
     scene.remove(this.group);
@@ -194,8 +346,8 @@ export class Environment {
     }
   }
 
-  /** Fit the sun's orthographic shadow camera tightly around SHADOW_BOX. */
-  private fitShadowCamera(): void {
+  /** Fit the sun's orthographic shadow camera tightly around a box (default SHADOW_BOX). */
+  private fitShadowCamera(box: THREE.Box3 = SHADOW_BOX): void {
     const cam = this.sun.shadow.camera;
     const view = new THREE.Matrix4().lookAt(this.sun.position, this.sun.target.position, new THREE.Vector3(0, 1, 0));
     view.setPosition(this.sun.position);
@@ -204,7 +356,7 @@ export class Environment {
     const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
     const p = new THREE.Vector3();
     for (let i = 0; i < 8; i++) {
-      p.set(i & 1 ? SHADOW_BOX.max.x : SHADOW_BOX.min.x, i & 2 ? SHADOW_BOX.max.y : SHADOW_BOX.min.y, i & 4 ? SHADOW_BOX.max.z : SHADOW_BOX.min.z);
+      p.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z);
       p.applyMatrix4(inv);
       min.min(p);
       max.max(p);

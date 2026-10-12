@@ -1,7 +1,14 @@
 // Presentation of a World: creature rigs, the hunter, projectiles, corpses,
 // blood and effects. Listens to logic events; reads entity state each frame.
+//
+// First person (stage.viewMode 'first'): the camera rides at the hunter's eyes
+// along Player.aim, the hunter's body is hidden from the main pass (it still
+// casts its shadow and shows in the ice mirror), and a viewmodel (arms + the
+// current gun) is drawn over the world; flashes, tracers, casings and the
+// laser start at the viewmodel's gun.
 import * as THREE from 'three';
 import { TICK, TICK_RATE, PLAYER } from '../config/constants';
+import { FP, aimDir, type Aim, type ViewMode } from '../config/firstPerson';
 import { WEAPONS, WEAPON_ORDER, type ShellKind, type WeaponId } from '../config/weapons';
 import type { EnemyType } from '../config/enemies';
 import type { World } from '../core/World';
@@ -16,7 +23,7 @@ import { Debris } from './Debris';
 import { Effects } from './Effects';
 import { Physics } from './Physics';
 import { Ragdoll, type RagdollOptions } from './Ragdoll';
-import type { Stage } from './Stage';
+import type { ProjectedPoint, Stage } from './Stage';
 import type { CreatureRig, AnimInput } from './models/types';
 import { createCreatureRig } from './models/creatures';
 import { createHunterRig, type HunterRig } from './models/hunter';
@@ -28,9 +35,36 @@ import {
   createWeaponModel,
   type WeaponModel,
 } from './models/weapons';
+import { Viewmodel } from './models/viewmodel';
 
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
+const _v3 = new THREE.Vector3();
+const _right = new THREE.Vector3();
+const _up = new THREE.Vector3();
+const _fwd = new THREE.Vector3();
+const _dir = { x: 0, y: 0, z: 0 };
+const _proj: ProjectedPoint = { x: 0, y: 0 };
+/** Invisible stand-in for the hunter's materials in the first-person main pass (depth/shadow still drawn). */
+const HIDDEN = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+/** Aim used by the camera when the player has none (autoplay bot in first person): left, slightly down. */
+const DEFAULT_AIM: Aim = { yaw: 0, pitch: -0.1 };
+/** Creature pop-in when it appears in view (first person), s. */
+const POP_TIME = 0.32;
+/** Presentation-only view kick per shot (rad of pitch), first person. */
+const VIEW_KICK: Record<WeaponId, number> = {
+  pistol: 0.012,
+  magnum: 0.04,
+  mp5: 0.006,
+  grenades: 0,
+  shotgun: 0.05,
+  mac10: 0.006,
+  flunk: 0.035,
+  m4: 0.007,
+  awp: 0.07,
+  vintage: 0.1,
+  minigun: 0.004,
+};
 
 interface CreatureView {
   enemy: Enemy;
@@ -43,6 +77,8 @@ interface CreatureView {
   stateStart: number;
   bleedT: number;
   cubHidden: boolean;
+  /** 0..1 first-person pop-in progress (1 = done). */
+  pop: number;
 }
 
 interface HunterView {
@@ -65,15 +101,33 @@ interface LooseBody {
 
 /** Overlay data handed to the 2D overlay each frame (CSS px in the view). */
 export interface OverlayState {
-  crosshairs: Array<{ x: number; y: number; text: string; textColor: string }>;
+  crosshairs: Array<{
+    x: number;
+    y: number;
+    text: string;
+    textColor: string;
+    /** 'center': first-person reticle at the screen centre. */
+    kind?: 'world' | 'center';
+    /** First person: 0..1 reload progress, null when not reloading. */
+    reload?: number | null;
+    /** First person: weapon spread, degrees. */
+    spreadDeg?: number;
+  }>;
   texts: Array<{ x: number; y: number; text: string; color: string; alpha: number; size?: number; bold?: boolean }>;
   vignette: number;
+  /** First person: 0..1 hit-marker intensity and whether that hit killed. */
+  hitMarker?: number;
+  hitMarkerKill?: boolean;
 }
 
 interface Popup {
   pos: THREE.Vector3;
   text: string;
   age: number;
+  /** World tick it was created (first person anchors bounties to the kill). */
+  tick: number;
+  /** First person: anchored to the creature that paid it. */
+  anchored: boolean;
 }
 
 const DEATH_MASS: Record<EnemyType, number> = {
@@ -105,6 +159,29 @@ export class GameView {
   private popups: Popup[] = [];
   private time = 0;
   private alpha = 0;
+  /** Camera mode (mirrors stage.viewMode). */
+  private fp = false;
+  readonly viewmodel = new Viewmodel();
+  private lights: { sun: THREE.DirectionalLight | null; hemi: THREE.HemisphereLight | null } | null = null;
+  private hidden: THREE.Mesh[] = [];
+  private hiddenMats: Array<THREE.Material | THREE.Material[]> = [];
+  // first-person camera state
+  private kick = 0;
+  private kickVel = 0;
+  private kickYaw = 0;
+  private shake = 0;
+  private eyeDrop = 0;
+  private camRoll = 0;
+  private lastYaw = 0;
+  private lastPitch = 0;
+  private deathT = -1;
+  private deathYaw = 0;
+  private deathPitch = 0;
+  private hitMarker = 0;
+  private hitKill = false;
+  private hitTick = -1;
+  /** Camera aim used last frame (yaw, pitch incl. kick) — for audio panning and tests. */
+  readonly camAim: Aim = { yaw: 0, pitch: 0 };
   /** Called for sound effects that come from presentation (shell bounces, splashes). */
   sound: ((name: string, x: number, volume?: number) => void) | null = null;
   soundRandom: ((prefix: string, x: number, volume?: number) => void) | null = null;
@@ -125,6 +202,60 @@ export class GameView {
     this.corpses = new Corpses(scene);
     this.blood.onLand = (x, z, size) => this.corpses.soak(x, z, size * 0.15);
     stage.onPreRender(() => this.blood.flush());
+    // First person: the hunter is hidden from the main pass only (the ice
+    // mirror and shadow map still see him), then the viewmodel draws on top.
+    stage.onBeforeMainRender(() => this.hideHunters());
+    stage.onAfterMainRender(() => {
+      this.restoreHunters();
+      if (this.fp) this.viewmodel.render(stage.renderer);
+    });
+    stage.onViewMode((m) => this.setViewMode(m));
+    this.setViewMode(stage.viewMode);
+  }
+
+  /** First person on/off (driven by stage.onViewMode). */
+  private setViewMode(mode: ViewMode): void {
+    const fp = mode === 'first';
+    if (fp === this.fp) return;
+    this.fp = fp;
+    this.viewmodel.reset();
+    this.kick = this.kickVel = this.kickYaw = this.shake = 0;
+    this.camRoll = 0;
+    for (const h of this.hunters.values()) {
+      if (!fp) h.rig.root.rotation.y = 0;
+    }
+    if (!fp) {
+      for (const v of this.creatures.values()) {
+        v.pop = 1;
+        v.rig.root.scale.setScalar(1);
+      }
+    }
+  }
+
+  get firstPerson(): boolean {
+    return this.fp;
+  }
+
+  private collectHidden = (o: THREE.Object3D): void => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh) return;
+    this.hidden.push(m);
+    this.hiddenMats.push(m.material);
+    m.material = HIDDEN;
+  };
+
+  private hideHunters(): void {
+    if (!this.fp) return;
+    for (const h of this.hunters.values()) {
+      if (h.player.id !== 0 || !h.rig.root.parent) continue;
+      h.rig.root.traverse(this.collectHidden);
+    }
+  }
+
+  private restoreHunters(): void {
+    for (let i = 0; i < this.hidden.length; i++) this.hidden[i].material = this.hiddenMats[i];
+    this.hidden.length = 0;
+    this.hiddenMats.length = 0;
   }
 
   setFloeTest(f: (x: number, z: number) => boolean): void {
@@ -142,7 +273,14 @@ export class GameView {
     const on = <K extends keyof GameEvents>(k: K, f: (e: GameEvents[K]) => void) => this.unsub.push(world.events.on(k, f));
     on('enemySpawn', (e) => this.onSpawn(e.enemyId));
     on('enemyDeath', (e) => this.onDeath(e));
-    on('hit', (e) => this.onHit(e));
+    on('hit', (e) => {
+      this.onHit(e);
+      if (e.part !== 'shell') {
+        this.hitMarker = Math.max(this.hitMarker, e.bullet ? 1 : 0.75);
+        if (this.hitTick !== world.tick) this.hitKill = false;
+        this.hitTick = world.tick;
+      }
+    });
     on('ricochet', (e) => {
       this.effects.sparks(e.point, 8, 1, 6);
     });
@@ -160,7 +298,18 @@ export class GameView {
       }
     });
     on('money', (e) => {
-      if (e.amount > 0) this.popups.push({ pos: new THREE.Vector3(e.pos.x, e.pos.y + 0.3, e.pos.z), text: `${e.amount}$`, age: 0 });
+      if (e.amount > 0) {
+        this.popups.push({ pos: new THREE.Vector3(e.pos.x, e.pos.y + 0.3, e.pos.z), text: `${e.amount}$`, age: 0, tick: world.tick, anchored: false });
+      }
+    });
+    on('playerHurt', (e) => {
+      if (e.playerId === 0) this.shake = Math.min(1, this.shake + 0.25 + e.damage / 400);
+    });
+    on('playerKnocked', (e) => {
+      if (e.playerId === 0) this.shake = Math.min(1, this.shake + 0.45);
+    });
+    on('playerLaunched', (e) => {
+      if (e.playerId === 0) this.shake = Math.min(1, this.shake + 0.6);
     });
     on('playerLand', (e) => {
       const p = world.players[e.playerId];
@@ -171,6 +320,9 @@ export class GameView {
       if (p) this.effects.snowPuff({ x: p.x - 0.5, y: 0, z: p.z }, 3, 0.15);
     });
     on('playerDeath', (e) => this.onPlayerDeath(e.playerId, e.by));
+    on('walrusDevour', () => {
+      this.shake = 1;
+    });
     on('weaponSwitch', (e) => this.mountWeapon(e.playerId, e.weapon));
     on('buy', (e) => this.mountWeapon(e.playerId, e.weapon));
     on('walrusDevour', (e) => {
@@ -202,6 +354,9 @@ export class GameView {
     this.projectiles.clear();
     this.fountains.length = 0;
     this.popups.length = 0;
+    this.hitMarker = 0;
+    this.deathT = -1;
+    this.viewmodel.reset();
     this.corpses.clear();
     this.debris.clear();
     this.effects.clear();
@@ -243,7 +398,15 @@ export class GameView {
       stateStart: this.time,
       bleedT: 0,
       cubHidden: false,
+      pop: this.fp && this.inView(e.x, e.y + 0.5, e.z) ? 0 : 1,
     });
+    if (this.fp && this.creatures.get(id)!.pop < 1) rig.root.scale.setScalar(0.01);
+  }
+
+  /** Is the world point on screen (first person)? */
+  private inView(x: number, y: number, z: number): boolean {
+    const s = this.stage.project(_v3.set(x, y, z), _proj);
+    return !s.behind && s.x > -40 && s.x < this.stage.viewW + 40 && s.y > -40 && s.y < this.stage.viewH + 40;
   }
 
   private animState(e: Enemy): string {
@@ -258,6 +421,14 @@ export class GameView {
     const y = v.py + (e.y - v.py) * a;
     const z = v.pz + (e.z - v.pz) * a;
     v.rig.root.position.set(x, y, z);
+    if (v.pop < 1) {
+      // First person: creatures that spawn in view grow and rise out of the haze.
+      v.pop = Math.min(1, v.pop + dt / POP_TIME);
+      const t = v.pop;
+      const back = 1 + 2.2 * (t - 1) ** 3 + 1.2 * (t - 1) ** 2; // ease-out-back
+      v.rig.root.scale.setScalar(Math.max(0.01, 0.3 + 0.7 * back));
+      v.rig.root.position.y = y - 0.35 * (1 - t) * (1 - t);
+    }
     const speed = Math.hypot(e.vx, e.vz);
     // Face the direction of travel (they mostly walk right; small yaw only).
     let target = e.facing < 0 ? Math.PI : 0;
@@ -326,8 +497,23 @@ export class GameView {
 
   // ------------------------------------------------------------------ deaths
   private onDeath(ev: GameEvents['enemyDeath']): void {
+    const w = this.world;
+    if (w && this.hitTick === w.tick) this.hitKill = true;
     const v = this.creatures.get(ev.enemyId);
+    if (w && v) {
+      // Bounties are paid just before the death event: first person shows them over the body.
+      for (const pp of this.popups) {
+        if (pp.tick === w.tick && !pp.anchored) {
+          pp.anchored = true;
+          pp.pos.set(v.enemy.x, v.enemy.y + 0.6 + v.enemy.def.halfLength * 0.6, v.enemy.z);
+        }
+      }
+    }
     if (!v) return;
+    if (v.pop < 1) {
+      v.pop = 1;
+      v.rig.root.scale.setScalar(1);
+    }
     this.creatures.delete(ev.enemyId);
     const e = v.enemy;
     const rig = v.rig;
@@ -537,7 +723,16 @@ export class GameView {
     return h && h.current ? h.models.get(h.current) : undefined;
   }
 
+  /** First person: is this player's gun the viewmodel? */
+  private fpGun(playerId: number): boolean {
+    return this.fp && playerId === 0 && this.viewmodel.visible && this.viewmodel.current?.id === this.world?.players[0]?.weapon.id;
+  }
+
   private onShot(e: GameEvents['shot']): void {
+    if (this.fpGun(e.playerId)) {
+      this.onShotFP(e);
+      return;
+    }
     const h = this.hunters.get(e.playerId);
     const m = this.weaponModel(e.playerId);
     const def = WEAPONS[e.weapon];
@@ -563,11 +758,77 @@ export class GameView {
     });
   }
 
+  /** First-person shot: flash on the viewmodel, tracers from its muzzle(s), smoke and impacts in the world. */
+  private onShotFP(e: GameEvents['shot']): void {
+    const vm = this.viewmodel;
+    const def = WEAPONS[e.weapon];
+    const n = Math.max(1, vm.muzzleCount);
+    const muzzles: THREE.Vector3[] = [];
+    for (let i = 0; i < n; i++) {
+      const p = vm.muzzleWorld(i, new THREE.Vector3());
+      if (p) muzzles.push(p);
+    }
+    if (!muzzles.length) muzzles.push(new THREE.Vector3(e.muzzle.x, e.muzzle.y, e.muzzle.z));
+    vm.basis(_right, _up, _fwd);
+    if (def.muzzle !== 'none') {
+      vm.fire(def.muzzle as 'small' | 'big' | 'shotgun');
+      const big = def.muzzle !== 'small';
+      for (const mp of muzzles) {
+        this.effects.flash(mp.x + _fwd.x * 0.4, mp.y + 0.15, mp.z + _fwd.z * 0.4, 0xffc070, big ? 9 : 5, 0.06, 7);
+        // smoke drifting off the muzzle
+        this.effects.emit(false, mp.x + _fwd.x * 0.12, mp.y + 0.01, mp.z + _fwd.z * 0.12, {
+          vel: [_fwd.x * 0.6 + (Math.random() - 0.5) * 0.2, 0.25 + Math.random() * 0.2, _fwd.z * 0.6 + (Math.random() - 0.5) * 0.2],
+          drag: 2.5,
+          size: [0.04, big ? 0.32 : 0.2],
+          life: 0.5 + Math.random() * 0.3,
+          color: 0xd8d8d8,
+          alpha: [0.18, 0],
+          frame: 1,
+          vr: (Math.random() - 0.5) * 2,
+        });
+      }
+    }
+    const kickK = VIEW_KICK[e.weapon] ?? 0;
+    this.kickVel += kickK * 28;
+    this.kickYaw += (Math.random() - 0.5) * kickK * 0.6;
+    e.paths.forEach((path, i) => {
+      const from = path.ric ? _v2.set(path.from.x, path.from.y, path.from.z) : muzzles[i % muzzles.length];
+      const to = _v.set(path.to.x, path.to.y, path.to.z);
+      const len = from.distanceTo(to);
+      this.effects.beam(from, to, path.ric ? 0.008 : 0.005, path.ric ? 0xffe0a0 : 0xffee66, 0.16, 0.05);
+      // bright segment, kept a little away from the eye so it reads as a streak, not a bar
+      const skip = Math.min(0.5, 1.2 / Math.max(1, len));
+      const t0 = skip + Math.random() * Math.max(0, 0.7 - skip);
+      const t1 = Math.min(1, t0 + Math.min(0.45, 4 / Math.max(1, len)));
+      this.effects.beam(_v3.copy(from).lerp(to, t0), from.clone().lerp(to, t1), 0.016, 0xfff3a0, 0.8, 0.035);
+      if (path.ground === 'ice' && !path.ric) {
+        this.effects.snowPuff({ x: to.x, y: 0, z: to.z }, 1, 0.14, 0.4);
+        this.effects.sparks({ x: to.x, y: 0.02, z: to.z }, 2, Math.sign(to.x - from.x) || 1, 3);
+      } else if (path.ground === 'water' && !path.ric) {
+        this.effects.splash({ x: to.x, y: Math.min(to.y, -2.4), z: to.z }, 0.25);
+      }
+    });
+  }
+
   private onShell(e: GameEvents['shellEject']): void {
     const h = this.hunters.get(e.playerId);
     const m = this.weaponModel(e.playerId);
     if (!h) return;
     const kind: ShellKind = e.weapon === 'magnum' ? 'small' : WEAPONS[e.weapon].shell === 'none' ? 'small' : WEAPONS[e.weapon].shell;
+    if (this.fpGun(e.playerId)) {
+      const pos = this.viewmodel.ejectorWorld(new THREE.Vector3());
+      if (pos) {
+        // Out to the right of the view, a little back and up; the hunter's own drift carries them.
+        this.viewmodel.basis(_right, _up, _fwd);
+        const dir = new THREE.Vector3().copy(_right).addScaledVector(_fwd, -0.25);
+        dir.y = 0;
+        dir.normalize();
+        const carrier = new THREE.Vector3(h.player.vx, 0, h.player.vz);
+        const power = e.weapon === 'magnum' ? 0.25 : kind === 'minigun' || kind === 'awp' ? 1.3 : 1;
+        for (let i = 0; i < e.count; i++) this.debris.shell(kind, pos, carrier, power, dir);
+        return;
+      }
+    }
     h.rig.root.updateMatrixWorld(true);
     const pos = m ? m.ejector.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(h.player.x, PLAYER.muzzleHeight, h.player.z);
     const carrier = new THREE.Vector3(h.player.vx, 0, h.player.vz);
@@ -581,7 +842,8 @@ export class GameView {
     if (!h) return;
     const kind = WEAPONS[e.weapon].clipKind;
     h.rig.root.updateMatrixWorld(true);
-    const pos = m?.magazine ? m.magazine.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(h.player.x - 0.3, 0.6, h.player.z);
+    let pos = m?.magazine ? m.magazine.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(h.player.x - 0.3, 0.6, h.player.z);
+    if (this.fpGun(e.playerId)) pos = this.viewmodel.magazineWorld(new THREE.Vector3()) ?? pos;
     const n = e.weapon === 'mac10' ? 2 : 1;
     for (let i = 0; i < n; i++) this.debris.clip(kind, pos.clone().add(new THREE.Vector3(0, 0, i * 0.2 - 0.1)), new THREE.Vector3(h.player.vx, 0, h.player.vz));
   }
@@ -604,6 +866,11 @@ export class GameView {
     if (!h) return;
     h.dead = true;
     const p = h.player;
+    if (id === 0) {
+      this.deathT = 0;
+      this.deathYaw = this.camAim.yaw;
+      this.deathPitch = this.camAim.pitch;
+    }
     if (by === 'walrus') {
       h.rig.root.visible = false;
       return;
@@ -622,6 +889,9 @@ export class GameView {
     if (h.dead) return;
     const a = this.alpha;
     h.rig.root.position.set(h.px + (p.x - h.px) * a, h.py + (p.y - h.py) * a, h.pz + (p.z - h.pz) * a);
+    // First person: the (hidden) body turns with the view so its shadow and mirror image match.
+    if (this.fp && p.aim) h.rig.root.rotation.y = p.aim.yaw;
+    else if (!this.fp) h.rig.root.rotation.y = 0;
     if (p.state !== h.stateKey) {
       h.stateKey = p.state;
       h.stateStart = this.time - p.stateTicks * TICK;
@@ -653,7 +923,9 @@ export class GameView {
     if (m) {
       if (m.magazine) m.magazine.visible = !(w.state === 'reload' && w.reloadProgress < 0.55);
       // AWP laser sight (hidden while firing/reloading, like the original).
-      if (m.laser && w.state === 'idle' && p.canAct) {
+      if (m.laser && w.state === 'idle' && p.canAct && this.fpGun(p.id)) {
+        this.fpLaser(p);
+      } else if (m.laser && w.state === 'idle' && p.canAct) {
         h.rig.root.updateMatrixWorld(true);
         const s = m.laser.getWorldPosition(new THREE.Vector3());
         const end = new THREE.Vector3(-30, s.y, s.z);
@@ -661,6 +933,164 @@ export class GameView {
         this.effects.beam(s.clone().add(new THREE.Vector3(0, -0.02, 0)), end.clone().add(new THREE.Vector3(0, -0.02, 0)), 0.012, 0xff6400, 0.4, 0.0001);
       }
     }
+  }
+
+  /** First-person AWP laser: from the viewmodel's emitter to where the aim meets the ice / range. */
+  private fpLaser(p: Player): void {
+    const vm = this.viewmodel;
+    const lz = vm.current?.laser;
+    if (!lz) return;
+    const s = vm.toWorld(lz.getWorldPosition(_v2), new THREE.Vector3());
+    // Converge on what is under the reticle: a creature, the ice, or far ahead.
+    const tr = this.world?.combat.aimTrace(p);
+    let end: THREE.Vector3;
+    let dot = false;
+    if (tr) {
+      end = new THREE.Vector3(tr.point.x, tr.point.y, tr.point.z);
+      dot = !!tr.enemy || tr.ground === 'ice';
+    } else {
+      aimDir(this.camAim, _dir);
+      const eye = this.stage.camera.position;
+      end = new THREE.Vector3(eye.x + _dir.x * 45, eye.y + _dir.y * 45, eye.z + _dir.z * 45);
+    }
+    this.effects.beam(s, end, 0.004, 0xff2010, 0.6, 0.0001);
+    this.effects.beam(s, end, 0.0025, 0xff6400, 0.45, 0.0001);
+    if (dot) this.effects.emit(true, end.x, end.y + 0.01, end.z, { size: [0.07, 0.06], life: 0.03, color: 0xff3020, alpha: [0.9, 0.5], frame: 0 });
+  }
+
+  // ------------------------------------------------------------------ first-person camera
+  /**
+   * Pose the first-person camera at the hunter's eyes and animate the
+   * viewmodel. Presentation only: view kick, shake, knock-down dips and the
+   * death fall never feed back into the logic aim.
+   */
+  private updateFirstPerson(dt: number): void {
+    const w = this.world;
+    const h = this.hunters.get(0);
+    const vm = this.viewmodel;
+    if (!w || !h) {
+      vm.visible = false;
+      return;
+    }
+    const p = h.player;
+    const a = this.alpha;
+    const ix = h.px + (p.x - h.px) * a;
+    const iy = h.py + (p.y - h.py) * a;
+    const iz = h.pz + (p.z - h.pz) * a;
+    const aim = p.aim ?? DEFAULT_AIM;
+
+    // View kick: a damped spring that snaps up and settles back.
+    this.kickVel += (-this.kick * 260 - this.kickVel * 24) * dt;
+    this.kick = Math.max(-0.05, this.kick + this.kickVel * dt);
+    this.kickYaw *= Math.exp(-dt * 10);
+    this.shake = Math.max(0, this.shake - dt * 1.6);
+
+    // Body state: sitting after a knock-down / landing, getting up, tumbling.
+    const st = p.state;
+    const stT = this.time - h.stateStart;
+    let drop = 0;
+    let tilt = 0;
+    let rollT = 0;
+    if (st === 'sit') {
+      drop = -0.62;
+      tilt = 0.12;
+    } else if (st === 'getup') {
+      const u = Math.min(1, stT / 0.5);
+      drop = -0.62 * (1 - u * u * (3 - 2 * u));
+      tilt = 0.12 * (1 - u);
+    } else if (st === 'kick') {
+      drop = -0.05 * Math.sin(Math.min(1, stT / 0.3) * Math.PI);
+      tilt = -0.15 * Math.sin(Math.min(1, stT / 0.3) * Math.PI);
+    } else if (st === 'air') {
+      rollT = 0.35 * Math.sin(stT * 7);
+      tilt = 0.15 * Math.sin(stT * 5);
+    }
+    this.eyeDrop += (drop - this.eyeDrop) * (1 - Math.exp(-dt * (drop < this.eyeDrop ? 16 : 9)));
+
+    // Walk bob (gentle) and a hint of roll when strafing.
+    const speed = Math.hypot(p.vx, p.vz);
+    const onIce = p.y <= 0.001;
+    const bobW = onIce && st === 'walk' ? Math.min(1, speed / 3.2) : 0;
+    const ph = (p.distance / 1.05) * Math.PI * 2;
+    const bob = (Math.abs(Math.cos(ph)) - 0.6) * 0.022 * bobW;
+    const rx = -Math.sin(aim.yaw);
+    const rz = -Math.cos(aim.yaw);
+    const strafe = (p.vx * rx + p.vz * rz) / 4;
+    const rollGoal = -Math.max(-1, Math.min(1, strafe)) * 0.02 + rollT;
+    this.camRoll += (rollGoal - this.camRoll) * (1 - Math.exp(-dt * 6));
+
+    let yaw = aim.yaw + this.kickYaw;
+    let pitch = aim.pitch + this.kick + tilt;
+    let roll = this.camRoll;
+    let ex = ix;
+    let ey = iy + FP.eyeHeight + this.eyeDrop + bob;
+    let ez = iz;
+    if (this.shake > 0) {
+      const s = this.shake * this.shake;
+      const t = this.time;
+      yaw += s * 0.03 * Math.sin(t * 37.1);
+      pitch += s * 0.03 * Math.sin(t * 41.7 + 1);
+      roll += s * 0.04 * Math.sin(t * 29.3 + 2);
+    }
+    if (!p.alive) {
+      // Death: the view slumps to the ice and rolls over.
+      if (this.deathT < 0) {
+        this.deathT = 0;
+        this.deathYaw = this.camAim.yaw;
+        this.deathPitch = this.camAim.pitch;
+      }
+      this.deathT += dt;
+      const u = Math.min(1, this.deathT / 0.9);
+      const e = 1 - (1 - u) * (1 - u);
+      const head = h.rig.bones.get('head');
+      if (head && h.rig.root.parent && h.rig.root.visible) {
+        head.getWorldPosition(_v2);
+        ex = _v2.x;
+        ez = _v2.z;
+        ey = Math.max(0.18, _v2.y + 0.1);
+      } else {
+        ey = lerp(iy + FP.eyeHeight, 0.25, e);
+      }
+      yaw = this.deathYaw + 0.4 * e;
+      pitch = lerp(this.deathPitch, -0.35, e);
+      roll = 1.2 * e;
+    }
+    this.stage.poseFirstPerson(ex, ey, ez, yaw, pitch, roll);
+
+    // Viewmodel
+    vm.visible = p.alive;
+    const dyaw = yaw - this.lastYaw;
+    const dpitch = pitch - this.lastPitch;
+    this.lastYaw = yaw;
+    this.lastPitch = pitch;
+    this.camAim.yaw = yaw;
+    this.camAim.pitch = pitch;
+    if (!vm.visible) return;
+    if (!this.lights) this.lights = findLights(this.stage.scene);
+    vm.syncCamera(this.stage.camera);
+    vm.syncLights(this.stage.scene, this.lights.sun, this.lights.hemi);
+    const wp = p.weapon;
+    const fireT = (w.tick - wp.lastShotTick + a) / TICK_RATE;
+    let cock = -1;
+    if (wp.id === 'shotgun' && wp.state === 'fire') cock = Math.min(1, wp.ticks / wp.def.fireTicks);
+    if (wp.id === 'vintage' && wp.state === 'fire') cock = Math.min(1, wp.ticks / 35);
+    vm.update({
+      weapon: wp.id,
+      fireT,
+      reloadT: wp.reloadProgress,
+      heat: wp.heat / 20,
+      cock,
+      throwT: wp.id === 'grenades' && wp.state === 'fire' ? Math.min(1, (wp.ticks + a) / wp.fireTicks) : -1,
+      ready: p.canAct,
+      speed: onIce && st === 'walk' ? speed : 0,
+      distance: p.distance,
+      height: iy,
+      vy: p.vy,
+      lookYaw: Math.abs(dyaw) > 1 ? 0 : dyaw,
+      lookPitch: Math.abs(dpitch) > 1 ? 0 : dpitch,
+      dt,
+      time: this.time,
+    });
   }
 
   // ------------------------------------------------------------------ projectiles
@@ -677,10 +1107,16 @@ export class GameView {
         this.projectiles.set(p.id, o);
       }
       o.position.set(p.x, p.y, p.z);
-      o.rotation.z = p.rot;
+      // First-person throws/launches carry a heading: turn the model to it, tumble about its own axis.
+      if (p.heading !== undefined) o.rotation.set(0, p.heading, p.rot, 'YXZ');
+      else o.rotation.z = p.rot;
       if (p.kind === 'round' && Math.random() < 0.7) {
-        this.effects.emit(false, p.x + 0.15, p.y, p.z, {
-          vel: [0.5, 0.4, 0],
+        // smoke trails behind the round (classic: it always flies left)
+        const sp = Math.hypot(p.vx, p.vz);
+        const tx = p.heading !== undefined && sp > 0.1 ? -p.vx / sp : 1;
+        const tz = p.heading !== undefined && sp > 0.1 ? -p.vz / sp : 0;
+        this.effects.emit(false, p.x + 0.15 * tx, p.y, p.z + 0.15 * tz, {
+          vel: [0.5 * tx, 0.4, 0.5 * tz],
           drag: 2,
           size: [0.08, 0.35],
           life: 0.5,
@@ -716,7 +1152,11 @@ export class GameView {
       }
       for (const h of this.hunters.values()) this.updateHunter(h, dt);
       this.updateProjectiles(dt);
+      if (this.fp) this.updateFirstPerson(dt);
+    } else {
+      this.viewmodel.visible = false;
     }
+    this.hitMarker = Math.max(0, this.hitMarker - dt / 0.25);
     this.physics.update(dt);
     let wr = 0;
     for (const r of this.ragdolls) {
@@ -746,7 +1186,7 @@ export class GameView {
     this.fountains.length = wf;
     for (const pp of this.popups) {
       pp.age += dt;
-      pp.pos.y += dt * 1.2;
+      pp.pos.y += dt * (this.fp ? 0.7 : 1.2);
     }
     this.popups = this.popups.filter((pp) => pp.age < 1);
     this.blood.update(dt);
@@ -760,6 +1200,7 @@ export class GameView {
     const out: OverlayState = { crosshairs: [], texts: [], vignette: 0 };
     const w = this.world;
     if (!w) return out;
+    if (this.fp) return this.overlayFP(w, out);
     for (const h of this.hunters.values()) {
       const p = h.player;
       if (!p.alive) continue;
@@ -792,7 +1233,67 @@ export class GameView {
     return out;
   }
 
+  /** First person: centre reticle, hit marker, money over the bodies, damage vignette. */
+  private overlayFP(w: World, out: OverlayState): OverlayState {
+    const p = w.player;
+    const vw = this.stage.viewW;
+    const vh = this.stage.viewH;
+    const k = this.stage.scale;
+    if (p.alive) {
+      const wpn = p.weapon;
+      const reloading = wpn.state === 'reload';
+      const text = reloading ? `${Math.floor(wpn.reloadProgress * 10) * 10}%` : `${wpn.bullets}`;
+      out.crosshairs.push({
+        x: vw / 2,
+        y: vh / 2,
+        text,
+        textColor: reloading ? 'rgba(235, 70, 70, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+        kind: 'center',
+        reload: reloading ? wpn.reloadProgress : null,
+        spreadDeg: wpn.def.spreadDeg,
+      });
+    }
+    out.vignette = Math.min(1, (PLAYER.life - p.life) / PLAYER.life) * 0.8;
+    if (!p.alive) out.vignette = 0.85;
+    out.hitMarker = this.hitMarker;
+    out.hitMarkerKill = this.hitKill;
+    for (const pp of this.popups) {
+      let x: number;
+      let y: number;
+      let size = 11;
+      if (pp.anchored) {
+        const s = this.stage.project(pp.pos, _proj);
+        if (s.behind || s.x < -50 || s.x > vw + 50 || s.y < -50 || s.y > vh + 50) continue;
+        x = s.x;
+        y = s.y;
+        // Text shrinks with distance but stays legible.
+        size = Math.max(8, Math.min(16, 11 * (9 / Math.max(1, s.depth ?? 9))));
+      } else {
+        // Not tied to a body (nice-shot bonus, headshot bonus on a survivor): rises under the reticle.
+        x = vw / 2 + 34 * k;
+        y = vh / 2 + (14 - pp.age * 22) * k;
+      }
+      out.texts.push({ x, y, text: `+${pp.text}`, color: 'rgb(220, 30, 25)', alpha: 0.85 * (1 - pp.age * pp.age), size, bold: true });
+    }
+    return out;
+  }
+
   get stats(): { ragdolls: number; corpses: number; drops: number; creatures: number } {
     return { ragdolls: this.ragdolls.length, corpses: this.corpses.count, drops: this.blood.activeDrops, creatures: this.creatures.size };
   }
+}
+
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+/** The scene's key light and sky light (the viewmodel copies them). */
+function findLights(scene: THREE.Scene): { sun: THREE.DirectionalLight | null; hemi: THREE.HemisphereLight | null } {
+  let sun: THREE.DirectionalLight | null = null;
+  let hemi: THREE.HemisphereLight | null = null;
+  scene.traverse((o) => {
+    const d = o as THREE.DirectionalLight;
+    if (d.isDirectionalLight && (!sun || (d.castShadow && !sun.castShadow))) sun = d;
+    const hl = o as THREE.HemisphereLight;
+    if (hl.isHemisphereLight && !hemi) hemi = hl;
+  });
+  return { sun, hemi };
 }

@@ -10,6 +10,7 @@ import { Bot } from './core/Bot';
 import { ensureFonts } from './ui/dom';
 import { createEnemy } from './core/enemies';
 import type { EnemyType } from './config/enemies';
+import { FP, wrapAngle, type ViewMode } from './config/firstPerson';
 
 const params = new URLSearchParams(location.search);
 
@@ -63,6 +64,21 @@ async function boot(): Promise<void> {
       w.addEnemy(e, false);
       return e;
     },
+    /** Debug: switch the running game's view ('third' | 'first'), like the V key. */
+    setView(mode: ViewMode) {
+      game.screens.setOption('view', mode);
+    },
+    /** Debug: aim the first-person view (yaw/pitch in the config/firstPerson.ts convention; sets player.aim). */
+    setAim(yaw: number, pitch = 0) {
+      const p = game.world?.player;
+      if (!p) return null;
+      p.aim = { yaw: wrapAngle(yaw), pitch: Math.max(FP.pitchMin, Math.min(FP.pitchMax, pitch)) };
+      return p.aim;
+    },
+    /** Debug: step `n` frames of `dt` seconds deterministically (call stage.stop() first), rendering the last. */
+    step(n = 1, dt = 1 / 60) {
+      for (let i = 0; i < n; i++) stage.frame(dt, i === n - 1);
+    },
   };
   setProgress(1);
   loading.classList.add('done');
@@ -73,6 +89,8 @@ async function boot(): Promise<void> {
   if (params.has('level')) game.worldOptions.startLevel = Number(params.get('level')) || 1;
   if (params.has('money')) game.worldOptions.money = Number(params.get('money')) || 0;
   if (params.has('speed')) game.timeScale = Number(params.get('speed')) || 1;
+  // ?fp: play in first person (not persisted to the saved options).
+  if (params.has('fp')) game.screens.options.view = 'first';
   if (params.has('play') || params.has('autoplay')) game.newGame();
   else game.showTitle();
   stage.start();

@@ -30,6 +30,8 @@ import {
 export interface PlayOpts {
   /** World x for stereo pan, -20..20. */
   x?: number;
+  /** World depth; only used with a first-person listener (defaults to the listener's z). */
+  z?: number;
   volume?: number;
   /** Playback rate (pitch). Defaults to a small random variation for game sounds. */
   rate?: number;
@@ -169,6 +171,8 @@ export class AudioSystem {
   private readonly groups = new Map<string, string[]>();
   private readonly lastPick = new Map<string, string>();
   private voices: Voice[] = [];
+  private listener: { x: number; z: number; yaw: number } | null = null;
+  private zOf: ((enemyId: number) => number | undefined) | null = null;
   private readonly loops = new Map<string, Voice>();
   private readonly tracks = new Map<number, WeaponTrack>();
   private loadPromise: Promise<void> | null = null;
@@ -366,6 +370,34 @@ export class AudioSystem {
 
   // ------------------------------------------------------------- playback
 
+  /**
+   * First person: pan by direction relative to the view heading (left of the
+   * view -> left ear) instead of by world x. null = classic panning.
+   */
+  setListener(l: { x: number; z: number; yaw: number } | null): void {
+    if (!l) {
+      this.listener = null;
+      return;
+    }
+    const cur = this.listener ?? (this.listener = { x: 0, z: 0, yaw: 0 });
+    cur.x = l.x;
+    cur.z = l.z;
+    cur.yaw = l.yaw;
+  }
+
+  /** Stereo pan and level factor for a world position. */
+  private panFor(x: number, z: number | undefined): [number, number] {
+    const l = this.listener;
+    if (!l) return [clamp(x / 22, -1, 1), edgeGain(x)];
+    const dx = x - l.x;
+    const dz = (z ?? l.z) - l.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 0.5) return [0, 1];
+    // right of the view = (-sin yaw, -cos yaw) (config/firstPerson.ts rightDir)
+    const side = (dx * -Math.sin(l.yaw) + dz * -Math.cos(l.yaw)) / d;
+    return [clamp(side * 0.85, -1, 1), 1 - 0.3 * clamp((d - 8) / 30, 0, 1)];
+  }
+
   play(name: string, opts?: PlayOpts): void {
     this.voice(name, opts ?? {});
   }
@@ -382,9 +414,9 @@ export class AudioSystem {
     const cur = this.loops.get(key);
     if (cur && cur.name === name) {
       const now = ctx.currentTime;
-      if (opts.x !== undefined && cur.pan) cur.pan.pan.setTargetAtTime(clamp(opts.x / 22, -1, 1), now, 0.03);
+      if (opts.x !== undefined && cur.pan) cur.pan.pan.setTargetAtTime(this.panFor(opts.x, opts.z)[0], now, 0.03);
       if (opts.volume !== undefined) {
-        const lvl = baseGain(name) * opts.volume * (opts.x !== undefined ? edgeGain(opts.x) : 1);
+        const lvl = baseGain(name) * opts.volume * (opts.x !== undefined ? this.panFor(opts.x, opts.z)[1] : 1);
         if (Math.abs(lvl - cur.level) > 1e-3) {
           cur.level = lvl;
           cur.gain.gain.setTargetAtTime(lvl, now, 0.03);
@@ -495,8 +527,9 @@ export class AudioSystem {
     if (together) level *= Math.pow(0.72, Math.min(together, 3));
     let pan = 0;
     if (o.x !== undefined && Number.isFinite(o.x)) {
-      pan = clamp(o.x / 22, -1, 1);
-      level *= edgeGain(o.x);
+      const [pn, g] = this.panFor(o.x, o.z);
+      pan = pn;
+      level *= g;
     }
     const rate = o.rate ?? (ui ? 1 : 1 + (Math.random() * 2 - 1) * PITCH_VARIATION);
 
@@ -646,7 +679,7 @@ export class AudioSystem {
     const last = this.lastPain.get(enemyId);
     if (last !== undefined && now - last < 120) return;
     this.lastPain.set(enemyId, now);
-    this.ref(ref, { x });
+    this.ref(ref, { x, z: this.zOf?.(enemyId) });
   }
 
   // ------------------------------------------------------------- events
@@ -660,10 +693,12 @@ export class AudioSystem {
     bus: EventBus,
     getX: (enemyId: number) => number | undefined,
     getPlayerX: (playerId: number) => number,
-    opts: { shellEject?: boolean } = {},
+    opts: { shellEject?: boolean; getZ?: (enemyId: number) => number | undefined } = {},
   ): () => void {
     const offs: (() => void)[] = [];
     const ex = (id: number, fallback?: number) => getX(id) ?? fallback;
+    const ez = (id: number) => opts.getZ?.(id);
+    this.zOf = opts.getZ ?? null;
 
     offs.push(
       bus.on('shot', (e) => {
@@ -675,7 +710,7 @@ export class AudioSystem {
         const es = ENEMY_SOUNDS[e.type];
         if (e.bullet && e.part !== 'shell') {
           const ref = e.part === 'head' ? SFX.headshot : es.bodyHit && e.part !== 'cub' ? es.bodyHit : SFX.genhit;
-          this.ref(ref, { x: e.point.x });
+          this.ref(ref, { x: e.point.x, z: e.point.z });
         }
         if (es.painOnHitAbove !== undefined && e.damage > es.painOnHitAbove) {
           this.pain(e.enemyId, es.pain, e.point.x);
@@ -697,7 +732,7 @@ export class AudioSystem {
         }
       }),
 
-      bus.on('ricochet', (e) => this.ref(SFX.ricochet, { x: e.point.x })),
+      bus.on('ricochet', (e) => this.ref(SFX.ricochet, { x: e.point.x, z: e.point.z })),
 
       bus.on('enemyDeath', (e) => {
         this.recentDead.add(e.enemyId);
@@ -705,19 +740,20 @@ export class AudioSystem {
         this.cancelPending(e.enemyId);
         this.lastPain.delete(e.enemyId);
         const x = e.point.x;
+        const z = e.point.z;
         const es = ENEMY_SOUNDS[e.type];
         switch (e.kind) {
           case 'gib':
-            this.ref(SFX.gib, { x });
+            this.ref(SFX.gib, { x, z });
             return;
           case 'stomp':
-            this.ref(SFX.meat, { x });
+            this.ref(SFX.meat, { x, z });
             return;
           case 'kick':
-            if (this.once('kick', 150)) this.ref(SFX.kick, { x });
+            if (this.once('kick', 150)) this.ref(SFX.kick, { x, z });
             break;
         }
-        if (es.death) this.ref(es.death, { x });
+        if (es.death) this.ref(es.death, { x, z });
       }),
 
       bus.on('enemySpawn', (e) => {
@@ -727,10 +763,10 @@ export class AudioSystem {
         if (es.spawnTicks) {
           for (const [a, b] of es.spawnTicks) {
             const ticks = a + Math.floor(Math.random() * (b - a + 1));
-            this.ref(es.spawn, { x, delay: ticks * TICK_SEC });
+            this.ref(es.spawn, { x, z: ez(e.enemyId), delay: ticks * TICK_SEC });
           }
         } else {
-          this.ref(es.spawn, { x });
+          this.ref(es.spawn, { x, z: ez(e.enemyId) });
         }
       }),
 
@@ -749,14 +785,14 @@ export class AudioSystem {
       }),
 
       bus.on('explosion', (e) => {
-        this.ref(SFX.explosion, { x: e.pos.x });
+        this.ref(SFX.explosion, { x: e.pos.x, z: e.pos.z });
         this.duckAmbience(0.3);
       }),
 
       bus.on('grenadeBounce', (e) => {
         // strength: normalised 0..1, or an impact speed in m/s.
         const s = e.strength > 1.5 ? e.strength / 6 : e.strength;
-        this.ref(SFX.grenadeBounce, { x: e.pos.x, volume: clamp(0.3 + 0.7 * s, 0.3, 1) });
+        this.ref(SFX.grenadeBounce, { x: e.pos.x, z: e.pos.z, volume: clamp(0.3 + 0.7 * s, 0.3, 1) });
       }),
 
       bus.on('shellEject', (e) => {
@@ -801,10 +837,10 @@ export class AudioSystem {
         this.ref(SFX.screamDeath, { x: getPlayerX(e.playerId), restart: true });
       }),
 
-      bus.on('walrusCharge', (e) => this.ref(SFX.walrusCharge, { x: ex(e.enemyId) })),
-      bus.on('walrusRush', (e) => this.ref(SFX.walrusRush, { x: ex(e.enemyId), volume: 0.85 })),
+      bus.on('walrusCharge', (e) => this.ref(SFX.walrusCharge, { x: ex(e.enemyId), z: ez(e.enemyId) })),
+      bus.on('walrusRush', (e) => this.ref(SFX.walrusRush, { x: ex(e.enemyId), z: ez(e.enemyId), volume: 0.85 })),
       bus.on('walrusDevour', (e) => this.ref(SFX.walrusDevour, { x: ex(e.enemyId, getPlayerX(e.playerId)) })),
-      bus.on('turtleHide', (e) => this.ref(SFX.turtleHide, { x: ex(e.enemyId), volume: 0.35, rate: 0.72 })),
+      bus.on('turtleHide', (e) => this.ref(SFX.turtleHide, { x: ex(e.enemyId), z: ez(e.enemyId), volume: 0.35, rate: 0.72 })),
 
       bus.on('levelSplash', (e) => {
         this.levelNum = Math.max(1, e.num);
