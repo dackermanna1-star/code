@@ -82,10 +82,12 @@
     // the commons: today's crowd, with a variant
     const c = commons(), S = Z().stats;
     const bad = c.filter((z) => !(z.variant === 'walker' || z.variant === 'runner'));
-    check('commons carry z.variant (walker / runner)', c.length > 3 && !bad.length, `${c.length} up, ${bad.map((z) => z.variant)}`);
+    // (stagger, 2.1: staggered zombies are easier for the bots to finish, fewer are up at 3 s)
+    check('commons carry z.variant (walker / runner)', c.length > 1 && !bad.length, `${c.length} up, ${bad.map((z) => z.variant)}`);
     const runOk = c.every((z) => z.variant === 'runner' ? z.zSpeed >= 262 && z.zSpeed <= 280 : z.zSpeed >= S.speed * 0.9 - 1e-6 && z.zSpeed <= S.speed * 1.06 + 1e-6);
     check('runner / walker speeds as before', runOk, c.map((z) => `${z.variant[0]}${z.zSpeed | 0}`).join(' '));
-    check('per-zombie M2 fields reset', c.every((z) => z.front === null && z.staggerUntil === 0 && z.staggerKind === null && z.poise === 0 && z.field === 0 && z.slot === -1 && z.skin === 'zombie'));
+    // (stagger, 2.1: the bots' fire staggers some of them by now; the rest still show the reset)
+    check('per-zombie M2 fields reset', c.every((z) => z.front === null && (z.staggerN > 0 || (z.staggerUntil === 0 && z.staggerKind === null)) && z.poise >= 0 && z.poise <= 1 && z.field === 0 && z.slot === -1 && z.skin === 'zombie'));
     check('horde.field is the main field', c.every((z) => Z().horde.field(z) === Z().dist));
     // kill payload: the variant
     const z0 = c[0], v0 = z0.variant;
@@ -143,6 +145,8 @@
   steps.push(async () => {
     Z().clearHorde();
     rec = [];
+    const think0 = g.bots.think;
+    g.bots.think = () => {}; // (stagger, 2.1: the bots' fire would stagger it too - they hold it here)
     const o = me().pm.origin;
     Z().spawnZombie({ variant: 'walker', near: o });
     const z = commons()[0];
@@ -158,7 +162,7 @@
     for (let i = 0; i < 35; i++) { g.tick(); if (z.cmd && (z.cmd.forwardmove || z.cmd.sidemove)) moved++; if (z.windup) swung++; }
     check('no step, no swing while held', moved === 0 && swung === 0, `moved ${moved} swung ${swung}`);
     ticks(Math.ceil((z.staggerUntil - g.time) / 0.01) + 30);
-    check('then it comes on again', z.alive && z.cmd && (z.cmd.forwardmove !== 0 || flat(z.pm.origin, o) < 80), `fm ${z.cmd?.forwardmove}`);
+    check('then it comes on again', z.alive && z.cmd && (z.cmd.forwardmove !== 0 || flat(z.pm.origin, o) < 80 || (z.target && flat(z.pm.origin, z.target.pm.origin) < 80)), `fm ${z.cmd?.forwardmove}`); // (or it reached its target: a bot, maybe)
     const u0 = z.staggerUntil;
     check('a flinch holds nothing', Z().stagger(z, 0.2, dir, 'glock18', me()) === 0 && z.staggerUntil === u0 && z.staggerKind === 'flinch');
     rec = [];
@@ -168,6 +172,7 @@
     const boss = g.bosses.boss;
     check('bosses never stagger', !!boss && Z().stagger(boss, 3, dir, 'm3', me()) === 0 && !boss.staggerUntil);
     g.bosses.despawn();
+    g.bots.think = think0;
     return false;
   });
 
@@ -213,7 +218,9 @@
     }
     specials = Z().pool.filter((z) => z.special).length;
     check('zombies still find you', close > 0 && Z().spawned > 5, `spawned ${Z().spawned}, ticks with one close ${close}, special bodies ${specials}`);
-    check('no stagger events with nothing calling it', of('stagger').length === 0);
+    // (stagger, 2.1: the squad's guns stagger zombies now; every event names a squad member)
+    const squadNames = new Set(g.players.filter((p) => p.team === 'CT' && !p.isZombie).map((p) => p.name));
+    check('stagger events only from the squad', of('stagger').every((e) => squadNames.has(e.by)), `${of('stagger').length} events`);
     check('the wave plays out', Z().state === 'wave' || Z().state === 'break', Z().state);
     return true;
   });

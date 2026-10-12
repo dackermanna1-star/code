@@ -1321,6 +1321,7 @@ export class Game {
       const k = Math.min(dist - 8, d.reach);
       const pt = [e[0] + _f[0] * k, e[1] + _f[1] * k, e[2] + _f[2] * k - 6];
       this.damagePlayer(q, p, d.damage, CR.HITGROUP.CHEST, 'chainsaw', _f.slice(), pt);
+      if (this.zombies.enabled && q.alive) this.zombies.stagger(q, 1, null, 'chainsaw', p); // held while it cuts (zstagger.js)
       this.effects.blood?.(pt, [_f[0], _f[1], 0.4], 45, {});
       cut = pt;
     }
@@ -1383,6 +1384,7 @@ export class Game {
       const l = Math.hypot(c[0] - from[0], c[1] - from[1], c[2] - from[2]) || 1;
       this.damagePlayer(cur, p, dmg, CR.HITGROUP.CHEST, 'tesla', [(c[0] - from[0]) / l, (c[1] - from[1]) / l, (c[2] - from[2]) / l], c, { blast: true, shot });
       cur.pm.velocityModifier = Math.min(cur.pm.velocityModifier ?? 1, 0.45); // jolted
+      if (this.zombies.enabled && cur.alive) this.zombies.stagger(cur, 1, null, 'tesla', p); // the chain stunned a moment (zstagger.js)
       for (let k = 0; k < 6; k++) this.fire.emit('spark', c, [(Math.random() - 0.5) * 260, (Math.random() - 0.5) * 260, Math.random() * 220], { life: 0.35, size: 2, size1: 0.5, drag: 1, buoy: -500 });
       from = c;
       dmg *= 0.8;

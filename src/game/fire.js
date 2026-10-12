@@ -225,6 +225,7 @@ export class FireSystem {
         if (Math.random() < 0.1) this.emit('smoke', [o[0], o[1], o[2] + 40 * sc], [0, 0, 40], { life: 1.6, size: 18, size1: 60, buoy: 20 });
       }
       if (q.model && !q.boss) { q.char = Math.min(0.85, (q.char || 0) + dt * 0.3); q.model.setChar(q.char); }
+      if (q.isZombie && !q.boss) this.game.zombies?.staggers.burning(q, b, t); // it panics, and passes the fire on (capped: zstagger.js)
       if (t >= b.next) { b.next = t + 0.25; this.hurt(q, b.by, b.dps * 0.25, b.weapon, 'fire'); }
     }
     for (const p of this.streamers) if (!p.alive || t - (p.flameLast ?? -9) > 0.12) this.stopStream(p);
