@@ -473,15 +473,15 @@ export class GameView {
       // Original: 15 blobs per bullet hit, thrown 3-6 px/tick away from the gun.
       // The original floods the ice: by the end of level 2 the lanes are
       // wide, dense red bands (reference frame 2).
-      const n = Math.min(80, 34 + e.damage / 4) * (e.part === 'head' ? 1.4 : 1);
+      const n = Math.min(110, 46 + e.damage / 3) * (e.part === 'head' ? 1.4 : 1);
       this.blood.spray(e.point, n, {
         dirX: e.dirX,
         dirZ: e.dirZ,
-        speed: [2.5, 15],
+        speed: [2, 15],
         up: [-2, 3],
-        spread: 0.4,
-        size: [0.02, 0.085],
-        jitter: 1.6,
+        spread: 0.45,
+        size: [0.015, 0.07],
+        jitter: 1.8,
       });
       this.effects.bloodPuff(e.point, e.dirX, strength);
     } else {

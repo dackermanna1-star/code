@@ -364,7 +364,7 @@ export class BloodSystem {
           const sp = Math.hypot(d.vx, d.vz);
           // Fast droplets smear into streaks along their travel (the original's
           // horizontal blood bands).
-          const stretch = 1 + Math.min(2.8, sp * 0.16);
+          const stretch = 1 + Math.min(1.6, sp * 0.1);
           this.splat('drop', d.x, d.z, d.size * (1.1 + Math.random() * 0.7), { angle: Math.atan2(d.vz, d.vx), stretch, shade: d.shade });
           this.onLand?.(d.x, d.z, d.size);
           continue;
