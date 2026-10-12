@@ -3,6 +3,7 @@ import { Game } from '../game/game';
 import { MATERIALS, matId, KIND, Kind, BASE_TEMP } from '../world/materials';
 import { RAY_SOLID, RAY_LIQUID } from '../world/world';
 import { biomeAt, depthOf } from '../world/biomes';
+import { collisionStats } from '../entities/physics';
 
 export type DevTool = 'none' | 'dig' | 'material' | 'explode' | 'ignite' | 'heat' | 'freeze' | 'spawn';
 
@@ -162,6 +163,7 @@ export class DebugTools {
       `sim: active chunks ${s.activeChunks}  visited ${s.cellsVisited}  moved ${s.cellsMoved}  reactions ${s.reactions}  ignitions ${s.ignitions}  deferred ${s.deferredChunks}`,
       `world: loaded ${g.world.loadedCount}  meshes ${g.chunks.stats.meshes}  tris ${(g.chunks.stats.triangles / 1000).toFixed(0)}k  rebuilt ${g.chunks.stats.rebuilt} (${g.chunks.stats.lastRebuildMs.toFixed(1)} ms)  dirty ${g.world.meshDirty.size}  gen ${g.streamer.stats.generated} inflight ${g.streamer.stats.inflight} retained ${g.streamer.stats.retained}`,
       `particles ${g.particles.count} (material ${g.particles.materialCount})  lights ${g.lights.count}  draw calls ${g.renderer.info.render.calls}`,
+      `collision: depenetrations ${collisionStats.depenetrations}  stuck-ticks ${collisionStats.stuck}${g.player.body.stuck ? '  PLAYER STUCK' : ''}`,
       ...Object.entries(extra).map(([k, v]) => `${k}: ${v}`),
       `pos ${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)}  depth ${depthOf(p.y).toFixed(0)}  biome ${b?.display ?? 'Surface'}  ground ${p.onGround}  liquid ${(p.liquid * 100).toFixed(0)}%`,
       `inspect: ${insp}`,

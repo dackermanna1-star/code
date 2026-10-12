@@ -34,6 +34,9 @@ export function makeBody(x: number, y: number, z: number, hw: number, h: number,
 
 const EPS = 1e-4;
 
+/** Diagnostics: how often bodies had to be pushed out of terrain, and how often that failed. */
+export const collisionStats = { depenetrations: 0, stuck: 0 };
+
 export function boxCollides(world: VoxelWorld, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): boolean {
   const ix0 = Math.floor(x0), iy0 = Math.floor(y0), iz0 = Math.floor(z0);
   const ix1 = Math.floor(x1 - EPS), iy1 = Math.floor(y1 - EPS), iz1 = Math.floor(z1 - EPS);
@@ -60,6 +63,7 @@ export function depenetrate(world: VoxelWorld, b: Body): boolean {
     ];
     for (const [dx, dy, dz] of cand) {
       if (!collidesAt(world, b, b.x + dx * 0.5, b.y + dy * 0.5, b.z + dz * 0.5)) {
+        collisionStats.depenetrations++;
         b.x += dx * 0.5;
         b.y += dy * 0.5;
         b.z += dz * 0.5;
@@ -69,6 +73,7 @@ export function depenetrate(world: VoxelWorld, b: Body): boolean {
     }
   }
   b.stuck = true;
+  collisionStats.stuck++;
   return false;
 }
 
