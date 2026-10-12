@@ -6,7 +6,8 @@
 // (with &zdiff= only the option plumbing is checked). Prints "[sim] PASS ..." / "[sim] FAIL ...".
 // The event / cheat checks run on Sandbox (buy anything, any time) and the records checks wipe
 // the whole squad, so they hold whatever the economy and downed rules become; the one check
-// tied to today's numbers is "normal plays the tuned curve" (retuning Normal replaces it).
+// tied to today's numbers is "normal plays the tuned curve" (retuning Normal replaces it; M2.3
+// raised a squad's up at once: 58/16 became 58/21).
 /* global location, localStorage, URLSearchParams */
 (() => {
   const g = window.__game;
@@ -76,7 +77,7 @@
       for (let n = 1; n <= 60; n++) for (const crowd of [1, 3, 6]) { const a = ZD.waveStats(n, { diff: ZD.ZDIFF.normal, crowd }), b = ZD.waveStats(n, { diff: ZD.ZDIFF.sandbox, crowd }); for (const k in a) if (a[k] !== b[k]) diffs++; }
       const nw = (n, crowd = 1) => ZD.waveStats(n, { diff: ZD.ZDIFF.normal, crowd });
       const tuned = [nw(1), nw(10), nw(20, 5)].map((w) => `${w.count}/${w.maxAlive}/${w.health}/${w.damage}`).join(' ');
-      check('normal plays the tuned curve', diffs === 0 && tuned === '4/5/80/12 23/9/190/22 58/16/230/24' && nw(10, 5).count > nw(10).count && nw(30).damage > nw(12).damage, `${diffs} sandbox differences; ${tuned}`);
+      check('normal plays the tuned curve', diffs === 0 && tuned === '4/5/80/12 23/9/190/22 58/21/230/24' && nw(10, 5).count > nw(10).count && nw(30).damage > nw(12).damage, `${diffs} sandbox differences; ${tuned}`);
       const h = (id, n) => ZD.waveStats(n, { diff: ZD.ZDIFF[id] });
       check('presets scale', h('casual', 10).health < h('normal', 10).health && h('normal', 10).health < h('hard', 10).health && h('hard', 10).health < h('nightmare', 10).health && h('nightmare', 25).damage > h('nightmare', 12).damage, `w10 hp ${['casual', 'normal', 'hard', 'nightmare'].map((id) => h(id, 10).health).join('/')}`);
       const o = ZD.zombieOptions({ zdiff: 'bogus', breakLen: '999', hardcore: 1, squadScaling: false });

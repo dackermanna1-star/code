@@ -51,12 +51,14 @@ const ECON = {
  * once (the cap too, never past MAX_ALIVE), and they come faster: the spawn interval / (more
  * zombies)^crowdPace. count / maxAlive / caps
  * here are a solo player's: fewer commons than a squad faces, and more specials (SPECIALS).
+ * Up at once (Milestone 2, zhorde.js): solo it stays as it was on Normal; a squad gets more
+ * up (crowdAlive), up to MAX_ALIVE late with a full one; Hard and Nightmare more again.
  */
 const HORDE = {
   casual: { count: 0.6, health: 0.75, damage: 0.7, damageCap: 16, speed: 0.96, speedCap: 212, speedLate: 0, runners: 0.75, runnerCap: 0.12, runnersFrom: 5, maxAlive: 0.9, maxAliveCap: 8, interval: 1.1, lateFrom: 10, lateGrowth: 0.004, botCrowd: 0.4, crowdCount: 0.05, crowdAlive: 0.08, crowdPace: 0.3 },
-  normal: { count: 0.7, health: 1, damage: 1, damageCap: 22, speed: 1, speedCap: 222, speedLate: 0, runners: 1, runnerCap: 0.2, runnersFrom: 4, maxAlive: 1, maxAliveCap: 9, interval: 1, lateFrom: 10, lateGrowth: 0.008, botCrowd: 0.5, crowdCount: 0.08, crowdAlive: 0.15, crowdPace: 0.3 },
-  hard: { count: 0.8, health: 1.2, damage: 1.25, damageCap: 26, speed: 1.03, speedCap: 228, speedLate: 0.4, runners: 1.25, runnerCap: 0.26, runnersFrom: 3, maxAlive: 1.1, maxAliveCap: 10, interval: 0.9, lateFrom: 10, lateGrowth: 0.015, botCrowd: 0.5, crowdCount: 0.09, crowdAlive: 0.2, crowdPace: 0.3 },
-  nightmare: { count: 0.9, health: 1.45, damage: 1.5, damageCap: 30, speed: 1.06, speedCap: 236, speedLate: 0.6, runners: 1.5, runnerCap: 0.32, runnersFrom: 2, maxAlive: 1.2, maxAliveCap: 12, interval: 0.8, lateFrom: 10, lateGrowth: 0.022, botCrowd: 0.6, crowdCount: 0.1, crowdAlive: 0.25, crowdPace: 0.3 },
+  normal: { count: 0.7, health: 1, damage: 1, damageCap: 22, speed: 1, speedCap: 222, speedLate: 0, runners: 1, runnerCap: 0.2, runnersFrom: 4, maxAlive: 1, maxAliveCap: 9, interval: 1, lateFrom: 10, lateGrowth: 0.008, botCrowd: 0.5, crowdCount: 0.08, crowdAlive: 0.3, crowdPace: 0.3 },
+  hard: { count: 0.8, health: 1.2, damage: 1.25, damageCap: 26, speed: 1.03, speedCap: 228, speedLate: 0.4, runners: 1.25, runnerCap: 0.26, runnersFrom: 3, maxAlive: 1.1, maxAliveCap: 11, interval: 0.9, lateFrom: 10, lateGrowth: 0.015, botCrowd: 0.5, crowdCount: 0.09, crowdAlive: 0.35, crowdPace: 0.3 },
+  nightmare: { count: 0.9, health: 1.45, damage: 1.5, damageCap: 30, speed: 1.06, speedCap: 236, speedLate: 0.6, runners: 1.5, runnerCap: 0.32, runnersFrom: 2, maxAlive: 1.3, maxAliveCap: 14, interval: 0.8, lateFrom: 10, lateGrowth: 0.022, botCrowd: 0.6, crowdCount: 0.1, crowdAlive: 0.4, crowdPace: 0.3 },
 };
 
 /**
@@ -118,7 +120,7 @@ const SHOVE = {
  */
 const AI = {
   casual: { flank: 0.15, fields: 1, surround: 260, slots: 6 },
-  normal: { flank: 0.25, fields: 2, surround: 260, slots: 8 },
+  normal: { flank: 0.3, fields: 2, surround: 260, slots: 8 },
   hard: { flank: 0.3, fields: 2, surround: 260, slots: 8 },
   nightmare: { flank: 0.35, fields: 2, surround: 280, slots: 10 },
 };
@@ -228,7 +230,8 @@ export function resolveDiff(o = zombieOptions()) {
  * claw, runner, specials and up-at-once caps keep rising by 0.8% a wave. Solo on Normal the
  * commons top out at 222 units/s, slower than you with any rifle (only the runners, up to
  * 20% of a wave, outpace you), a claw does at most 22, up to 9 are up at once; you and 8
- * bots face a third more zombies, 14 to 18 up at once. special / perKind: Specials.pick.
+ * bots face a third more zombies, about 20 up at once, and with 10 bots up to 28 late (the
+ * horde AI spreads them round you: zhorde.js). special / perKind: Specials.pick.
  */
 export function waveStats(n, { diff = ZDIFF[DEFAULT_ZDIFF], crowd = 1 } = {}) {
   const H = diff.horde, E = diff.econ, B = WAVE;
