@@ -18,6 +18,7 @@ tools), `&debug` (stats overlay), `&pixel=1` (full resolution).
 ```bash
 npm test             # unit tests (simulation, physics, generation, casting, combat, art, audio)
 npm run build        # production build into dist/
+npm run build:html   # the whole game as one self-contained file: dist/noita3d.html
 npm run smoke -- walk 1234   # headless Chromium scenario (needs the dev server running)
 ```
 

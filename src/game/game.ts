@@ -229,7 +229,7 @@ export class Game {
     const th = performance.now();
     for (const h of this.tickHooks) h(DT);
     this.ema('hooks', performance.now() - th);
-    if (this.tickCount % 8 === 0) this.streamer.update(p.body.x, p.body.y, p.body.z, this.opts.useWorkers ? 0 : 6);
+    if (this.tickCount % 8 === 0) this.streamer.update(p.body.x, p.body.y, p.body.z, this.streamer.hasWorkers ? 0 : 6);
     // cellular simulation with a per-frame budget: the world slows down before the frame rate does
     if (this.simMsFrame < 11) {
       this.sim.focusX = p.body.x;

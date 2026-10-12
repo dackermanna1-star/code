@@ -29,14 +29,30 @@ export class ChunkStreamer {
     this.gen = new WorldGenerator(seed);
     if (opts.useWorkers && typeof Worker !== 'undefined') {
       const n = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
-      for (let i = 0; i < n; i++) {
-        const w = new Worker(new URL('./genWorker.ts', import.meta.url), { type: 'module' });
-        w.postMessage({ type: 'init', seed });
-        w.onmessage = (e) => this.onWorkerMessage(e.data);
-        this.workers.push(w);
+      try {
+        for (let i = 0; i < n; i++) {
+          const w = new Worker(new URL('./genWorker.ts', import.meta.url), { type: 'module' });
+          w.postMessage({ type: 'init', seed });
+          w.onmessage = (e) => this.onWorkerMessage(e.data);
+          // e.g. module workers blocked when the game is opened from a local file: generate on the main thread
+          w.onerror = () => this.dropWorkers();
+          this.workers.push(w);
+        }
+      } catch {
+        this.dropWorkers();
       }
-      this.maxInflight = n * 4;
+      this.maxInflight = Math.max(1, this.workers.length) * 4;
     }
+  }
+
+  get hasWorkers(): boolean {
+    return this.workers.length > 0;
+  }
+
+  private dropWorkers(): void {
+    for (const w of this.workers) w.terminate();
+    this.workers = [];
+    this.inflight.clear();
   }
 
   dispose(): void {
