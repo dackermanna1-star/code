@@ -123,11 +123,12 @@ export class ZombieMode {
     // every 5th wave: a boss (and half the usual crowd)
     this.bossWave = n % 5 === 0;
     if (this.bossWave) { this.stats = { ...this.stats, count: Math.ceil(this.stats.count * 0.5) }; this.bossAt = g.time + 3; }
-    // bot teammates who fell come back for the next wave
+    // the squad's dead (bots, and you if you bled out) come back for the next wave
     for (const p of g.players) {
-      if (p.team === TEAM_CT && p.isBot && !p.alive) {
+      if (p.team === TEAM_CT && !p.isZombie && !p.alive) {
         p.weapons = { 1: null, 2: null, 3: null, 4: [], 5: null };
         g.spawnPlayer(p);
+        this.downed.respawned(p, n);
       }
     }
     if (n > 1) g.bots.onRoundStart();
@@ -223,7 +224,7 @@ export class ZombieMode {
       if (!victim.extra) this.killed++;
       return;
     }
-    if (victim === this.game.local) this.gameOver();
+    this.downed.checkWipe(); // (the run ends when the whole squad is down or dead)
   }
 
   humans() { return this.game.players.filter((p) => p.alive && p.team === TEAM_CT); }
@@ -409,9 +410,10 @@ export class ZombieMode {
     for (const h of this.humans()) {
       const f = h.feet();
       const n = nav.nearest(f, 160) || nav.nearestXY(f, 260, 120);
-      if (!n) continue;
-      dist[n.id] = 0;
-      heap.push(n.id, 0);
+      const d0 = this.downed.cost(null, h); // (somebody down draws only the ones close to him)
+      if (!n || d0 >= dist[n.id]) continue;
+      dist[n.id] = d0;
+      heap.push(n.id, d0);
     }
     while (heap.size) {
       const id = heap.pop();
@@ -466,12 +468,12 @@ export class ZombieMode {
   }
 
   pickTarget(z, humans, t) {
-    if (z.target && z.target.alive && t < z.targetT) return z.target;
+    if (z.target && z.target.alive && t < z.targetT && !(z.target.downed && this.downed.cost(z, z.target) === Infinity)) return z.target;
     let best = null, bd = Infinity;
     for (const h of humans) {
-      // loud guns draw them (a suppressor doesn't)
+      // loud guns draw them (a suppressor doesn't); one who's down matters less (zdowned.js cost)
       const loud = t - (h.lastLoud ?? -99) < 2 ? 0.8 : 1;
-      const d = Math.hypot(h.pm.origin[0] - z.pm.origin[0], h.pm.origin[1] - z.pm.origin[1], (h.pm.origin[2] - z.pm.origin[2]) * 1.5) * this.specials.lure(h, t) * loud;
+      const d = Math.hypot(h.pm.origin[0] - z.pm.origin[0], h.pm.origin[1] - z.pm.origin[1], (h.pm.origin[2] - z.pm.origin[2]) * 1.5) * this.specials.lure(h, t) * loud + this.downed.cost(z, h);
       if (d < bd) { bd = d; best = h; }
     }
     z.target = best;

@@ -303,7 +303,7 @@ export class Specials {
       cmd.forwardmove = 0;
       for (const h of this.Z.humans()) {
         const ho = h.pm.origin;
-        if (dist2(o, ho) < 52 && Math.abs(ho[2] - o[2]) < 64 && !h.pinnedBy) { this.pin(z, h); return true; }
+        if (dist2(o, ho) < 52 && Math.abs(ho[2] - o[2]) < 64 && !h.pinnedBy && !h.downed) { this.pin(z, h); return true; } // (not one who's down)
       }
       if ((z.pm.onground && t - S.start > 0.15) || t - S.start > 2) { S.state = 'recover'; S.until = t + 0.7; S.cd.pounce = t + 3; z.pm.speedCap = null; }
       return true;
@@ -381,7 +381,7 @@ export class Specials {
       const chest = [v.pm.origin[0], v.pm.origin[1], v.pm.origin[2] + 8];
       this.face(z, v.pm.origin, 10);
       const blocked = () => { g.collision.trace(m, chest, [0, 0, 0], [0, 0, 0], MASK_SHOT, _tr); return _tr.fraction < 0.97; };
-      if (!v.alive || !z.alive) { this.release(z); return true; }
+      if (!v.alive || v.downed || !z.alive) { this.release(z); return true; } // (lets go of one who went down)
       if (S.state === 'fly') {
         const dx = chest[0] - S.tip[0], dy = chest[1] - S.tip[1], dz = chest[2] - S.tip[2], l = Math.hypot(dx, dy, dz);
         const step = 1500 * 0.01;
@@ -454,6 +454,7 @@ export class Specials {
 
   /** People held by a special: pinned flat, or dragged along a tongue (before they move). */
   constrain(p, cmd) {
+    if (this.Z.downed.constrain(p, cmd)) return; // down (a crawl) or picking somebody up (zdowned.js)
     const t = this.game.time;
     if (p.pinnedBy) {
       const h = p.pinnedBy;

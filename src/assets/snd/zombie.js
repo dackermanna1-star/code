@@ -117,6 +117,32 @@ export const ZOMBIE_FX = {
     [523, 659, 784].forEach((f, i) => addTone(x, sr, i * 0.07, { f, tau: 0.22, amp: 0.5, a: 0.01 }));
     addBurst(x, sr, r, 0.05, 0.25, { a: 0.08, tau: 0.3, color: 'pink', filters: [['bandpass', 900, 0.6]] }); // breath out
   }, 0.1) },
+  // ---- downed / revive (zdowned.js)
+  downed: { rate: 22050, dur: 1.3, peak: 0.75, fn: (P) => foley(P, (x, sr, r) => {
+    addTone(x, sr, 0, { f: 85, f1: 45, glide: 0.04, tau: 0.08, amp: 1, a: 0.002 }); // the body hits the floor
+    addBurst(x, sr, r, 0, 0.9, { a: 0.002, tau: 0.05, color: 'pink', filters: [['lowpass', 500, 0.7]] });
+    addGrains(x, sr, r, { t0: 0.01, span: 0.12, count: 16, f: [1500, 5000], amp: [0.05, 0.25], decay: 0.06 }); // gear rattling
+    addGrunt(x, sr, r, 0.12, 0.85, { dur: 0.9, f0: [[0, 150], [0.08, 175], [0.4, 130], [0.9, 85]], env: [[0, 0], [0.04, 1], [0.45, 0.7], [0.9, 0]], vowels: [[0, V.uh], [0.3, V.a], [0.6, V.o], [0.9, V.u]], breath: 0.35, grit: 2 });
+  }, 0.1) },
+  downed_breath: { rate: 22050, dur: 1.1, variants: 2, peak: 0.4, fn: (P, v) => foley(P, (x, sr, r) => {
+    const t1 = v ? 0.42 : 0.5; // ragged breathing on the floor: in, out with a catch in it
+    addBurst(x, sr, r, 0, 0.6, { len: 0.38, color: 'pink', env: (t) => Math.sin(Math.PI * Math.min(1, t / 0.38)) ** 2, filters: [['bandpass', 1100, 0.9]] });
+    addBurst(x, sr, r, t1, 0.8, { len: 0.5, color: 'pink', env: (t) => Math.sin(Math.PI * Math.min(1, t / 0.5)) ** 1.5 * (1 - 0.3 * Math.sin(t * 40)), filters: [['bandpass', 750, 0.8]] });
+    addGrunt(x, sr, r, t1 + 0.03, 0.35, { dur: 0.3, f0: [[0, 120], [0.3, 95]], env: [[0, 0], [0.05, 1], [0.3, 0]], vowels: [[0, V.uh], [0.3, V.u]], breath: 0.8, grit: 1 });
+  }) },
+  revive_up: { rate: 22050, dur: 1.2, peak: 0.6, fn: (P) => foley(P, (x, sr, r) => {
+    addScrape(x, sr, r, 0, 0.3, { f0: 900, f1: 2200, q: 1.2, amp: 0.35, grit: 0.6, color: 'pink' }); // hauled up by the vest
+    addGrunt(x, sr, r, 0.12, 0.8, { dur: 0.35, f0: [[0, 140], [0.1, 190], [0.35, 150]], env: [[0, 0], [0.03, 1], [0.2, 0.8], [0.35, 0]], vowels: [[0, V.uh], [0.35, V.a]], breath: 0.3 });
+    addBurst(x, sr, r, 0.5, 0.35, { a: 0.05, tau: 0.25, color: 'pink', filters: [['bandpass', 900, 0.6]] }); // breath out
+    [392, 523, 659].forEach((f, i) => addTone(x, sr, 0.45 + i * 0.08, { f, tau: 0.25, amp: 0.3, a: 0.01 }));
+  }, 0.1) },
+  second_wind: { rate: 22050, dur: 1.8, peak: 0.75, fn: (P) => foley(P, (x, sr, r) => {
+    addMetal(x, sr, r, 0, { f: 2400, amp: 0.7, tau: 0.01, body: 0.5, bodyF: 600 }); // the injector
+    addBurst(x, sr, r, 0.01, 0.35, { a: 0.01, tau: 0.2, color: 'white', filters: [['highpass', 4000, 0.7]] });
+    for (const t0 of [0.25, 0.47, 0.8, 0.98]) addTone(x, sr, t0, { f: 95, f1: 55, glide: 0.03, tau: 0.05, amp: 0.8, a: 0.004 }); // two hard heartbeats
+    addBurst(x, sr, r, 0.55, 0.6, { len: 0.35, color: 'pink', env: (t) => Math.sin(Math.PI * Math.min(1, t / 0.35)), filters: [['bandpass', 1300, 0.9]] }); // a gasp
+    addTone(x, sr, 0.3, { f: 180, f1: 720, glide: 0.5, tau: 0.6, len: 1.3, amp: 0.22, a: 0.3, rel: 0.25 }); // the rush
+  }, 0.12) },
   // ---- fire
   fire_loop: { rate: 22050, dur: 4, loop: 0.8, rms: 0.1, fn: (P) => foley(P, (x, sr, r) => {
     roar(x, sr, r, 0, 4.8, 0.7, 700);

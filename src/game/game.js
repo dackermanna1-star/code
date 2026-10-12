@@ -320,6 +320,7 @@ export class Game {
 
   selectWeapon(p, w, instant = false) {
     if (!w || (p.active === w && !instant)) return;
+    if (p.downed && w !== p.downed.gun) return; // zombie survival: down, pistol only
     if (p.active && p.active !== w) {
       WS.weaponHolster(p.active, this.weaponCtx(p));
       p.lastWeapon = p.active;
@@ -642,6 +643,7 @@ export class Game {
     if (!victim.alive || damage <= 0) return;
     if (victim.boss) { damage = this.bosses.adjust(victim, attacker, damage, hitgroup, weaponId, opts); if (damage <= 0) return; }
     if (attacker?.boss && attacker !== victim) damage *= BOSS_NERF * (attacker.boss.def.k ?? 1); // every boss attack (claws, acid, fire, blasts)
+    if (victim.downed) damage *= this.zombies.downed.hurtScale; // zombie survival: on the floor the bleed-out goes slower than health would
     const teammate = !!(attacker && attacker !== victim && attacker.team === victim.team);
     const res = CR.computeDamage({ health: victim.health, armor: victim.armor, helmet: victim.helmet, ducking: victim.pm.ducking, speed: Math.hypot(victim.pm.velocity[0], victim.pm.velocity[1]) },
       damage, hitgroup, { attackerWeapon: weaponId, teammate, self: attacker === victim, friendlyFire: this.rounds.friendlyFire, blast: opts.blast });
@@ -684,7 +686,7 @@ export class Game {
     if (victim === this.local && attacker && attacker !== victim) this.hudDamage(attacker);
     if (victim.isBot) this.bots.onHurt(victim, attacker);
     if (this.zombies.enabled) this.zombies.events.hit(victim, attacker, hp0 - Math.max(0, victim.health), ar0 - victim.armor, damage, res.hitgroup ?? hitgroup, head, weaponId, dir, point, opts);
-    if (victim.health <= 0) this.killPlayer(victim, attacker, weaponId, head && !opts.blast);
+    if (victim.health <= 0 && !(this.zombies.enabled && this.zombies.downed.onLethal(victim, attacker, weaponId))) this.killPlayer(victim, attacker, weaponId, head && !opts.blast); // (zombie survival: down first)
     else if (!opts.blast && Math.random() < (victim.isZombie ? 0.35 : 0.25)) this.sound.play(victim.isZombie ? 'zombie_pain' : 'pain', { pos, volume: 0.6, channel: victim.isZombie ? `${victim.id}:voice` : null });
   }
 
@@ -780,7 +782,7 @@ export class Game {
       case 'lastinv': this.lastInv(p); break;
       case 'invnext': this.cycleWeapon(p, 1); break;
       case 'invprev': this.cycleWeapon(p, -1); break;
-      case 'drop': if (p.alive && p.active) this.dropWeapon(p, p.active); break;
+      case 'drop': if (p.alive && p.active && !p.downed) this.dropWeapon(p, p.active); break;
       case 'detonate': if (p.alive && this.zombies.enabled) this.explosives.detonate(p); break;
       case 'buyammo1': this.rounds.buy(p, 'primammo'); break;
       case 'buyammo2': this.rounds.buy(p, 'secammo'); break;
@@ -900,6 +902,7 @@ export class Game {
     if (p.sawIdle || p.sawRev || p.active?.id === 'chainsaw') this.sawSounds(p);
     this.processWeaponSounds(p);
     p.prevWButtons = wb;
+    if (this.zombies.enabled && this.zombies.downed.use(p, (wb & BTN_USE) !== 0)) wb &= ~BTN_USE; // holding use over a downed teammate: a revive
     if ((wb & BTN_USE) && !p.prevUse && !this.rounds.bomb?.defuser) {
       if (!this.hostages.use(p)) this.mapEnts.use(p);
     }
@@ -910,7 +913,7 @@ export class Game {
   // ------------------------------------------------------------------ medkit
   /** Who a medkit use would patch up: p itself, or (other) the hurt teammate p is facing. */
   healTarget(p, other) {
-    const hurt = (q) => q.alive && q.health < (q.maxHealth || 100);
+    const hurt = (q) => q.alive && !q.downed && q.health < (q.maxHealth || 100); // (a downed one needs a revive)
     if (!other) return hurt(p) ? p : null;
     const e = p.eyePos();
     angleVectors(p.pm.angles[0], p.pm.angles[1], _f, null, null);
@@ -928,7 +931,7 @@ export class Game {
 
   /** A medkit use lands (the patient must still be alive and, for someone else, in reach). */
   heal(p, q, amount) {
-    if (!q || !q.alive) return false;
+    if (!q || !q.alive || q.downed) return false;
     if (q !== p && dist3(p.pm.origin, q.pm.origin) > MEDKIT_REACH + 40) {
       if (p.isLocal) this.hud?.centerPrint?.(`${q.name} moved out of reach`, 2);
       return false;
@@ -1038,7 +1041,7 @@ export class Game {
         const dmg = (fv - PLAYER_MAX_SAFE_FALL_SPEED) * (100 / (PLAYER_FATAL_FALL_SPEED - PLAYER_MAX_SAFE_FALL_SPEED)) * 1.25;
         this.sound.play('fall_damage', { pos: local ? null : p.feet() });
         p.health -= Math.round(dmg);
-        if (p.health <= 0) this.killPlayer(p, null, 'world', false);
+        if (p.health <= 0 && !(this.zombies.enabled && this.zombies.downed.onLethal(p, null, 'world'))) this.killPlayer(p, null, 'world', false);
       }
     } else if (e.type === 'softland') {
       this.sound.play('land', { pos: local ? null : p.feet(), volume: 0.35 });
@@ -1458,7 +1461,7 @@ export class Game {
   }
 
   inBuyZone(p) {
-    if (this.zombies.enabled) return p.team === TEAM_CT; // buy anywhere
+    if (this.zombies.enabled) return p.team === TEAM_CT && !p.downed; // buy anywhere (not from the floor)
     // maps without func_buyzone: within 200 units of one of your team's spawn points (OLD_CheckBuyZone)
     if (!this.buyZones.length) {
       const o = p.pm.origin;

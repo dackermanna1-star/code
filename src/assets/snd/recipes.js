@@ -30,6 +30,7 @@ export const SOUND_GROUPS = {
   Bomb: ['c4_beep', 'c4_plant_press', 'c4_planted', 'c4_disarm', 'c4_disarmed', 'c4_explode', 'defuser_on'],
   'UI / misc': ['menu_click', 'menu_select', 'radio_beep', 'hint', 'nvg_on', 'heartbeat'],
   Ambience: ['ambience_wind', 'ambience_bird', 'distant_fly'],
+  Squad: ['downed', 'downed_breath', 'revive_up', 'second_wind'], // zombie survival downed / revive (zdowned.js)
   Map: ['door_move', 'door_stop', 'button', 'hostage_use'],
   Zombies: ['zombie_idle', 'zombie_attack', 'zombie_pain', 'zombie_die', 'zombie_wave', 'gib', 'gib_land', 'headpop'],
   'Fire & launchers': ['fire_loop', 'fire_ignite', 'lighter', 'molotov_break', 'acid_loop', 'acid_splash', 'flame_loop', 'flame_start', 'flame_stop', 'fuel_in',

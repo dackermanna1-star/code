@@ -97,5 +97,7 @@ export class Player {
     this.blind = 0;
     this.fov = 90;
     this.hasMovedSinceSpawn = false;
+    this.downed = null; // zombie survival: on the floor (zdowned.js)
+    this.reviving = null;
   }
 }
