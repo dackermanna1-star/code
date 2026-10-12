@@ -61,3 +61,24 @@ Wands can only be modified inside a Holy Mountain — just like the original.
 
 Design notes, every mechanic's original behaviour vs. this implementation, and deviations:
 [`docs/DESIGN.md`](docs/DESIGN.md). Research with sources: [`docs/research-notes.md`](docs/research-notes.md).
+
+## Status
+
+**Verified working** (unit tests + automated browser scenarios in headless Chromium):
+cellular material simulation (powders, liquids with density layering, gases, fire/burning, heat
+transitions, reactions, electricity) with conservation and termination tests; terrain destruction with
+Noita's durability/ray-energy model; first-person movement with levitation, swimming and voxel collision;
+the full wand casting engine (79 spells, every one cast in the live game without errors); projectiles,
+triggers and explosions; 23 enemy types with AI, resistances and trick-kill gold; potions with real
+material (pour, throw, drink, fill); procedural world with a guaranteed descent route (an automated
+player walks from the spawn into the first Holy Mountain); Holy Mountains with shop, perks, reroll,
+refresher, heart, collapse and angry gods; death → new run; victory at the Sampo; no GPU resource growth
+across restarts.
+
+**Known limitations**
+* Performance has been profiled for CPU cost only (≈2.5 ms simulation + gameplay, ≈0.6 ms UI per frame in
+  a busy Mines scene); GPU cost on real hardware is untested here (tests ran on a software renderer).
+* Enemies steer and jump rather than path-find, so they can get stuck in complex caves.
+* Holy Mountains are physical shafts rather than Noita's portals; formation spells fan out horizontally.
+* No save/continue between browser sessions (use seeds to replay worlds).
+* About 3–4 MB of JS heap is retained per restart (bounded caches); GPU memory stays flat.
