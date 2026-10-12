@@ -19,8 +19,8 @@ export const SPLASH_TICKS = 104;
 /** Pause after a level's bosses die before the next splash. */
 const BETWEEN_TICKS = 60;
 
-/** Bot teammates' names: the original AIPlayer's ("Kiddie", "Zombie", "Urod"), then two more. */
-export const BOT_NAMES = ['Kiddie', 'Zombie', 'Urod', 'Husky', 'Frosty'];
+/** Bot teammates' names: the original AIPlayer's ("Kiddie", "Zombie", "Urod"), then four more. */
+export const BOT_NAMES = ['Kiddie', 'Zombie', 'Urod', 'Husky', 'Frosty', 'Blubber', 'Mukluk'];
 
 
 export interface WorldOptions {
@@ -28,7 +28,7 @@ export interface WorldOptions {
   /** Human players (only one is supported by the app). */
   players?: number;
   /**
-   * Computer-controlled teammates (0..5). Like the original's AI players they
+   * Computer-controlled teammates (0..7). Like the original's AI players they
    * count as players: more creatures (up to the 3rd bot), wider lanes, two bears/turtles.
    */
   teammates?: number;
@@ -74,6 +74,8 @@ export class World {
       [pxToX(600), pxToZ(260)],
       [pxToX(480), pxToZ(300)],
       [pxToX(600), pxToZ(345)],
+      [pxToX(470), pxToZ(215)],
+      [pxToX(470), pxToZ(390)],
     ];
     for (let i = 0; i < humans + bots; i++) {
       const p = new Player(this, i, starts[i][0], starts[i][1]);

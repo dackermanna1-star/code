@@ -31,7 +31,7 @@ npm run build:single # writes release/SealHunter.html (~9 MB, sounds and fonts e
 
 A prebuilt copy is committed at `release/SealHunter.html`.
 
-URL options (handy for testing): `?play` (skip the title), `?fp` (first person), `?team=5` (bot teammates),
+URL options (handy for testing): `?play` (skip the title), `?fp` (first person), `?team=7` (bot teammates),
 `?autoplay` (bot plays), `?speed=2` (time scale), `?quality=low|medium|high`, `?nosound`.
 
 ## How to play
@@ -57,12 +57,12 @@ Gamepads work too (stick/d-pad move, A/RT fire, X reload, Y/LB cycle, RB buy, B 
 
 ### Bot teammates and laser sight
 
-**Options → Teammates** adds up to five computer hunters to the next game (Kiddie,
-Zombie and Urod after the original's AI players, then Husky and Frosty). Each wears
+**Options → Teammates** adds up to seven computer hunters to the next game (Kiddie,
+Zombie and Urod after the original's AI players, then Husky, Frosty, Blubber and Mukluk). Each wears
 its own parka colour, keeps a side of the field, buys its own guns, and greets the
 team in a speech balloon. As in the original's multiplayer, more hunters means more
 creatures (+85% per extra hunter), wider lanes, and two bears / two turtles as
-bosses. The creatures stop scaling after the 3rd bot, so the 4th and 5th are pure
+bosses. The creatures stop scaling after the 3rd bot, so bots 4 to 7 are pure
 extra firepower. If you
 die while teammates are still standing, the game goes on and you watch from the
 classic camera. Their kills and weapons are listed under your money, and in first
@@ -135,7 +135,7 @@ docs/           research notes, reference screenshots
   spin), the hunter's body still casting its shadow and reflection, a full 360°
   arctic world (sky, sea to the horizon, distant icebergs and floes, haze),
   directional audio and a radar.
-- Up to five bot teammates with the original's co-op rules (scaling capped at three), colours, speech
+- Up to seven bot teammates with the original's co-op rules (scaling capped at three), colours, speech
   balloons, a team list and radar dots; a classic-view laser sight along the gun line.
 - Modern minimal UI by default (glass HUD, weapon bar, radar, clean menus that work at
   any aspect ratio), with the original 2005 HUD one option away (Options → Interface).
@@ -147,7 +147,7 @@ docs/           research notes, reference screenshots
 
 ## Known limitations
 
-- Only one human player (the original supported up to 4 local players); up to five
+- Only one human player (the original supported up to 4 local players); up to seven
   bot teammates can join instead.
 - Corpses are presentation only: like the original's static corpse images they do
   not block bullets or creatures, and settled corpses no longer react to later
