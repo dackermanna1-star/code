@@ -429,6 +429,20 @@ export class Run {
     if (this.progression.canEditWands() && hm >= 0) this.hint('hm', 'A Holy Mountain. Press Tab to rearrange the spells in your wands — this is the only place you can.');
     audio.setListener(g.camera.position.x, g.camera.position.y, g.camera.position.z, p.yaw, p.pitch);
     audio.setLoop('levitate', p.levitating ? 0.5 : 0);
+    // ambient loops driven by the simulation: nearby fires crackle, moving liquids gurgle
+    let fire = 0, fx = 0, fy = 0, fz = 0;
+    for (const e of g.chunks.emitters.values()) {
+      if (e.r < 0.8 || e.b > 0.5) continue; // orange/red emitters only (fire, lava, burning)
+      const d = Math.hypot(e.x - p.body.x, e.y - p.body.y, e.z - p.body.z);
+      if (d > 60) continue;
+      const w = Math.sqrt(e.strength) / (1 + d * 0.08);
+      if (w > fire) {
+        fx = e.x; fy = e.y; fz = e.z;
+      }
+      fire += w;
+    }
+    audio.setLoop('fire', Math.min(1, fire * 0.25), fx, fy, fz);
+    audio.setLoop('liquid', Math.min(0.8, g.sim.stats.cellsMoved / 2500));
     audio.update(dt);
   }
 
