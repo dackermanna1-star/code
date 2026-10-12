@@ -13,6 +13,9 @@ import { ENEMIES } from './entities/enemyDefs';
 import { Rng } from './core/rng';
 import { SPELLS } from './magic/spells';
 import { Wand } from './magic/casting';
+import { generateWand } from './magic/wandGen';
+import { makePotion } from './game/inventory';
+import { HM, hmFloorY } from './world/biomes';
 
 // Colours are authored in sRGB and the renderer outputs them unconverted (pixel-art palette fidelity).
 THREE.ColorManagement.enabled = false;
@@ -92,6 +95,32 @@ async function startGame(seed: number, sandbox: boolean): Promise<void> {
   debug.enemyTypes = Object.keys(ENEMIES);
   debug.godMode = false;
   debug.onSpawnEnemy = (type, x, y, z) => run.enemies.spawn(type, x, y, z, 0, new Rng((Math.random() * 1e9) >>> 0));
+  debug.spellIds = Object.keys(SPELLS);
+  debug.giveSpell = (id) => {
+    run.inv.addSpell({ id, uses: SPELLS[id].maxUses });
+    run.hud.log(`Spell added: ${SPELLS[id].name}`);
+  };
+  debug.giveWand = (tier) => {
+    const gw = generateWand(() => Math.random(), tier);
+    const w = new Wand(gw.stats, gw.spells, gw.alwaysCast);
+    if (run.inv.addWand(w) < 0) run.dropWand(w);
+    run.hud.log(`Wand added: ${gw.stats.name}`);
+  };
+  debug.givePotion = (m) => {
+    if (run.inv.addItem(makePotion(m)) < 0) run.hud.log('Item slots full');
+  };
+  debug.teleportDepth = (layer) => {
+    const p = game.player;
+    if (layer < 0) {
+      p.body.x = HM.cx + 0.5; p.body.y = hmFloorY(0) + 0.1; p.body.z = HM.cz - 6;
+    } else {
+      const pts = game.streamer.gen.routePoints[layer];
+      const q = pts[Math.floor(pts.length * 0.3)];
+      p.body.x = q.x; p.body.y = q.y - 3; p.body.z = q.z;
+    }
+    p.body.vx = p.body.vy = p.body.vz = 0;
+    p.eyeY = p.body.y + p.eyeHeight();
+  };
   debug.extraStats = () => ({
     entities: `enemies ${run.enemies.list.length} (awake ${run.enemies.list.filter((e) => !e.sleeping).length})  projectiles ${run.projectiles.list.length}  pickups ${run.pickups.list.length}`,
     audio: `voices ${audio.stats.voices} dropped ${audio.stats.dropped}`,

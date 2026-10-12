@@ -19,6 +19,11 @@ export class DebugTools {
   godMode = false;
   enemyTypes: string[] = [];
   onSpawnEnemy: (type: string, x: number, y: number, z: number) => void = () => {};
+  spellIds: string[] = [];
+  giveSpell: (id: string) => void = () => {};
+  giveWand: (tier: number) => void = () => {};
+  givePotion: (mat: number) => void = () => {};
+  teleportDepth: (layer: number) => void = () => {};
   extraStats: () => Record<string, string | number> = () => ({});
   private acc = 0;
   private reactionLog: string[] = [];
@@ -48,6 +53,9 @@ export class DebugTools {
       <div class="row">Material <select id="dbg-mat">${mats}</select> radius <input id="dbg-rad" type="number" min="1" max="12" value="${this.brushRadius}" style="width:3em"></div>
       <div class="row">Explosion radius <input id="dbg-exr" type="number" min="1" max="30" value="${this.explodeRadius}" style="width:3em"></div>
       <div class="row">Enemy <select id="dbg-enemy">${this.enemyTypes.map((e) => `<option ${e === this.spawnType ? 'selected' : ''}>${e}</option>`).join('')}</select></div>
+      <div class="row">Give spell <select id="dbg-spell">${this.spellIds.map((id) => `<option>${id}</option>`).join('')}</select><button id="dbg-give">give</button></div>
+      <div class="row"><button id="dbg-wand1">random wand T1</button><button id="dbg-wand4">T4</button><button id="dbg-wand6">T6</button><button id="dbg-potion">flask of brush material</button></div>
+      <div class="row">Go to: ${[0, 1, 2, 3, 4, 5].map((i) => `<button data-layer="${i}">L${i + 1}</button>`).join('')}<button data-layer="-1">HM1</button></div>
       <div class="row"><label><input type="checkbox" id="dbg-noclip" ${this.game.player.noclip ? 'checked' : ''}> noclip</label>
       <label><input type="checkbox" id="dbg-god" ${this.godMode ? 'checked' : ''}> god mode</label></div>
       <div class="row small">Seed ${this.game.opts.seed}. Tools apply where the crosshair points.</div>`;
@@ -60,6 +68,13 @@ export class DebugTools {
     (this.panel.querySelector('#dbg-mat') as HTMLSelectElement).onchange = (e) => (this.brushMat = parseInt((e.target as HTMLSelectElement).value));
     (this.panel.querySelector('#dbg-rad') as HTMLInputElement).onchange = (e) => (this.brushRadius = parseFloat((e.target as HTMLInputElement).value));
     (this.panel.querySelector('#dbg-exr') as HTMLInputElement).onchange = (e) => (this.explodeRadius = parseFloat((e.target as HTMLInputElement).value));
+    const sp = this.panel.querySelector('#dbg-spell') as HTMLSelectElement;
+    (this.panel.querySelector('#dbg-give') as HTMLButtonElement).onclick = () => this.giveSpell(sp.value);
+    (this.panel.querySelector('#dbg-wand1') as HTMLButtonElement).onclick = () => this.giveWand(1);
+    (this.panel.querySelector('#dbg-wand4') as HTMLButtonElement).onclick = () => this.giveWand(4);
+    (this.panel.querySelector('#dbg-wand6') as HTMLButtonElement).onclick = () => this.giveWand(6);
+    (this.panel.querySelector('#dbg-potion') as HTMLButtonElement).onclick = () => this.givePotion(this.brushMat);
+    this.panel.querySelectorAll('button[data-layer]').forEach((b) => b.addEventListener('click', () => this.teleportDepth(parseInt((b as HTMLElement).dataset.layer!)))); 
     const en = this.panel.querySelector('#dbg-enemy') as HTMLSelectElement;
     en.onchange = () => (this.spawnType = en.value);
     (this.panel.querySelector('#dbg-noclip') as HTMLInputElement).onchange = (e) => (this.game.player.noclip = (e.target as HTMLInputElement).checked);
