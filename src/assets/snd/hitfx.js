@@ -23,4 +23,11 @@ export const HIT_FX = {
     addMetal(x, sr, r, 0.045, { f: 3200, amp: 0.55, tau: 0.03, n: 3, noise: 0.2 }); // ...clack
     addTone(x, sr, 0.045, { f: 1300, tau: 0.02, amp: 0.3 });
   }) },
+  // you pulled a teammate free (zthreats.js "SAVED Bravo"): a bright rising two-note chime
+  save_sting: { dur: 0.5, peak: 0.42, attn: 'none', jitter: 0, fn: (P) => foley(P, (x, sr) => {
+    addTone(x, sr, 0, { f: 660, tau: 0.09, amp: 0.6, a: 0.002 });
+    addTone(x, sr, 0, { f: 1320, tau: 0.05, amp: 0.2, a: 0.002 });
+    addTone(x, sr, 0.09, { f: 990, tau: 0.16, amp: 0.7, a: 0.002 });
+    addTone(x, sr, 0.09, { f: 1980, tau: 0.08, amp: 0.22, a: 0.002 });
+  }) },
 };

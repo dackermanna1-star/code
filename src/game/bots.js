@@ -1451,6 +1451,7 @@ class Bot {
     this.burst = 0;
     this.nextFire = Math.max(this.nextFire, this.time);
     this.fight = null;
+    if (e.special && this.game.zombies?.enabled && this.game.zombies.threats.spotted(this, e)) return; // a special: called out by name (zthreats.js)
     if (first && Math.random() < 0.35 && this.time - (this.mgr.lastSpot?.[teamKey(this.p.team)] || -99) > 10) {
       (this.mgr.lastSpot || (this.mgr.lastSpot = {}))[teamKey(this.p.team)] = this.time;
       this.mgr.radio(this, RADIO.spotted);
