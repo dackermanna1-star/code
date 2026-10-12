@@ -177,11 +177,13 @@ void main() {
   float elev = atan(d.z, length(d.xy));
   float row = 100.0 - 160.0 * tan(clamp(elev, -1.3, 1.3));
   float idx;
-  float fade = clamp(-row / 48.0, 0.0, 1.0);
+  float fade = clamp(-row / 56.0, 0.0, 1.0);
   if (fade > bayer4(gl_FragCoord.xy)) {
     idx = u_skyTop;
   } else {
-    ivec2 tc = ivec2(mod(floor(col), rect.z), clamp(floor(row), 0.0, rect.w - 1.0));
+    // Above the texture, mirror it upward while fading to its top colour.
+    float r = row < 0.0 ? -row : row;
+    ivec2 tc = ivec2(mod(floor(col), rect.z), clamp(floor(r), 0.0, rect.w - 1.0));
     idx = floor(atlasTexel(rect, tc).r * 255.0 + 0.5);
   }
   if (u_fixedColormap > 31.5) idx = shade(idx, u_fixedColormap) * 255.0;

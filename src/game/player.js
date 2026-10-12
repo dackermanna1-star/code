@@ -3,12 +3,12 @@
 // momentum model so the original speed and feel are preserved.
 
 import {
-  MF, WP, AM, PW, VIEWHEIGHT, MAXBOB, TAU, ANG90, ANG180, normAngle, pointToAngle, angleDiff,
+  MF, WP, AM, PW, VIEWHEIGHT, MAXBOB, TAU, ANG90, ANG180, normAngle, pointToAngle,
 } from './defs.js';
 import { S, WEAPONINFO } from './tables.js';
 import { MAX_AMMO } from './info.js';
 import { setMobjState } from './mobj.js';
-import { tryMove, useLines } from './map.js';
+import { useLines } from './map.js';
 import {
   setupPsprites, movePsprites, dropWeapon, tickHandling, weaponCfg, PS_WEAPON,
 } from './weapons.js';

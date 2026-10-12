@@ -7,6 +7,7 @@ import { SKILL, TICRATE } from './defs.js';
 import { MUSIC_NAMES } from './info.js';
 import { LEVEL_NAMES, PAR_TIMES, FINALE } from './data.js';
 import { MAP_COMPAT } from './compat.js';
+import { saveGame, loadGame } from './savegame.js';
 
 const E4_MUSIC = ['e3m4', 'e3m2', 'e3m3', 'e1m5', 'e2m7', 'e2m4', 'e2m6', 'e2m5', 'e1m9'];
 
@@ -148,7 +149,15 @@ export class Game {
     p.fixedcolormap = 0;
     p.damagecount = 0;
     p.bonuscount = 0;
+    if (secret) p.didsecret = true;
+    stats.didSecret = secret || p.didsecret;
+    stats.secretExit = secret;
     this.lastStats = stats;
+    // Like G_DoCompleted: DOOM 1 episode ends go straight to the finale.
+    if (!this.commercial && this.map === 8) {
+      this.advance();
+      return;
+    }
     this.state = 'intermission';
     this.emit('intermission', stats);
   }
@@ -198,12 +207,14 @@ export class Game {
     if (this.commercial) {
       const m = stats.map;
       const table = FINALE.doom2 || {};
+      // G_WorldDone: c5/c6 follow the secret exits of MAP15/MAP31, the
+      // others follow the normal exits of MAP06/11/20/30.
+      const secretExit = !!stats.secretExit;
       for (const key of Object.keys(table)) {
         const f = table[key];
-        if (f.afterMap === m && (!f.secretOnly || stats.didSecret)) return { ...f, key };
+        const needsSecret = key === 'c5' || key === 'c6';
+        if (f.afterMap === m && needsSecret === secretExit) return { ...f, key };
       }
-      if (m === 15 && stats.didSecret) return table.c5 ? { ...table.c5, key: 'c5' } : null;
-      if (m === 31 && stats.didSecret) return table.c6 ? { ...table.c6, key: 'c6' } : null;
       return null;
     }
     if (stats.map === 8) {
@@ -225,6 +236,23 @@ export class Game {
     }
     this.state = 'title';
     this.emit('title');
+  }
+
+  save(description) {
+    return saveGame(this, description);
+  }
+
+  // Restores a saved level (see savegame.js).
+  restore(data) {
+    const w = loadGame(this, data);
+    w.compat = MAP_COMPAT[w.mapName] || null;
+    if (this.fxFactory) w.fx = this.fxFactory(w);
+    this.world = w;
+    this.state = 'level';
+    this.paused = false;
+    this.emit('levelStart', w);
+    const music = this.musicFor(this.episode, this.map);
+    if (music) this.emit('music', music);
   }
 
   warp(episode, map) {

@@ -3,7 +3,7 @@
 
 import { stateSprite, stateFrame, FULLBRIGHT, FRAMEMASK } from '../game/tables.js';
 import { SPR_FULLBRIGHT, SPR_FUZZ, SPR_DITHER } from './renderer.js';
-import { MF, PW, WP, normAngle } from '../game/defs.js';
+import { MF, PW, normAngle } from '../game/defs.js';
 import { PS_WEAPON, PS_FLASH, weaponCfg, weaponFrameOverride } from '../game/weapons.js';
 import { SPR, WEAPONINFO } from '../game/tables.js';
 
@@ -160,25 +160,32 @@ export class ViewRenderer {
     rot += -0.22 * sprint;
     // Crouch nudge
     dy += 4 * player.crouchFrac;
-    // Reload choreography
+    // Reload choreography: the gun tilts and dips but stays in view; the
+    // magazine seat gives a small jolt and empty reloads end on a rack.
     const rl = m.reload;
     if (rl) {
-      let p;
       if (rl.tube) {
-        if (rl.phase === 'start') p = Math.min(1, rl.t / 8) * 0.5;
-        else if (rl.phase === 'load') p = 0.5;
-        else p = 0.5 * (1 - Math.min(1, rl.t / 8));
-        const pumpOnly = rl.phase === 'end' && rl.pump;
-        dy += 30 * Math.sin(p * Math.PI) + (rl.phase === 'load' ? Math.sin((rl.t / 11) * Math.PI) * 4 : 0);
-        dx += 18 * Math.sin(p * Math.PI);
-        rot += -0.28 * Math.sin(p * Math.PI);
-        if (pumpOnly) rot *= 0.5;
+        let p;
+        if (rl.phase === 'start') p = Math.min(1, (rl.t + frac) / 8);
+        else if (rl.phase === 'load') p = 1;
+        else p = 1 - Math.min(1, (rl.t + frac) / 8);
+        const e = p * p * (3 - 2 * p);
+        const bounce = rl.phase === 'load' ? Math.max(0, Math.sin(((rl.t + frac) / 11) * Math.PI * 2 - 1.2)) * 3 : 0;
+        dy += 14 * e + bounce;
+        dx += 10 * e;
+        rot += -0.2 * e + bounce * 0.01;
       } else {
         const p = Math.min(1, (rl.t + frac) / rl.total);
-        const e = Math.sin(Math.min(1, p * 1.15) * Math.PI);
-        dy += 44 * e;
-        dx += 14 * e;
-        rot += -0.35 * e;
+        const into = Math.min(1, p / 0.18);
+        const out = Math.max(0, Math.min(1, (p - 0.82) / 0.18));
+        const e = (into * into * (3 - 2 * into)) * (1 - out * out * (3 - 2 * out));
+        dy += 18 * e;
+        dx += 10 * e;
+        rot += -0.3 * e;
+        // Seat jolt as the new magazine goes in.
+        const j = Math.max(0, 1 - Math.abs(p - 0.57) / 0.05);
+        dy -= 5 * j;
+        rot += 0.05 * j;
       }
     }
     if (m.melee) {
@@ -251,7 +258,6 @@ export class ViewRenderer {
     draw(psp.state, false);
     const flash = player.psprites[PS_FLASH];
     if (flash.state && !override) draw(flash.state, true);
-    if (m.reload && this.settings.get('shellCasings') !== false) this.drawReloadProp(player, frac, dx, dy, yShift);
   }
 
   // Top-most opaque pixel of a weapon's ready frame (its front sight).
@@ -273,32 +279,6 @@ export class ViewRenderer {
     }
     this.sights.set(weapon, out);
     return out;
-  }
-
-  // Small palette-art props for reloads: magazine or shotgun shell.
-  drawReloadProp(player, frac, dx, dy, yShift) {
-    const r = this.r;
-    const rl = player.mods.reload;
-    const sx = r.vScaleX, sy = r.vScaleY;
-    const baseX = r.vLeft + (176 + dx * 0.6) * sx;
-    if (rl.tube) {
-      if (rl.phase !== 'load') return;
-      const p = (rl.t + frac) / 11;
-      const yy = (200 + yShift - 20 * Math.sin(p * Math.PI) + 4) * sy;
-      const x = baseX - 10 * sx;
-      r.fillRect(x, yy, 3 * sx, 6 * sy, 183);
-      r.fillRect(x, yy + 6 * sy, 3 * sx, 2 * sy, 231);
-      return;
-    }
-    const p = Math.min(1, (rl.t + frac) / rl.total);
-    let yy;
-    if (p < 0.22) return;
-    if (p < 0.4) yy = 200 + yShift + (p - 0.22) * 200;
-    else if (p < 0.55) yy = 200 + yShift + (0.55 - p) * 260 - 10;
-    else return;
-    const x = baseX - 6 * sx;
-    r.fillRect(x, yy * sy, 5 * sx, 12 * sy, 100);
-    r.fillRect(x, yy * sy, 5 * sx, 2 * sy, 96);
   }
 
   drawCrosshair(player, rect) {

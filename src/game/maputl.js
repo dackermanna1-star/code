@@ -1,7 +1,7 @@
 // Port of p_maputl.c: geometry predicates, line openings, blockmap
 // iteration and intercept-based path traversal.
 
-import { ST_HORIZONTAL, ST_VERTICAL, ST_POSITIVE, ST_NEGATIVE, pointInSubsector } from './mapdata.js';
+import { ST_HORIZONTAL, ST_VERTICAL, ST_POSITIVE, pointInSubsector } from './mapdata.js';
 import { MF } from './defs.js';
 
 export function pointOnLineSide(x, y, line) {

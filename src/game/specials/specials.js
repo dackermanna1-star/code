@@ -35,10 +35,17 @@ export class Specials {
 
   // --- Level setup (P_SpawnSpecials, P_InitPicAnims, P_InitSwitchList) ------
 
-  spawnSpecials() {
+  // Tables that don't depend on game state (also used when loading a save).
+  initStatic() {
     const w = this.w;
     this.anims = initPicAnims(w.res);
     this.switchlist = initSwitchList(w);
+    this.linespecials = w.level.lines.filter((line) => line.special === 48);
+  }
+
+  spawnSpecials() {
+    const w = this.w;
+    this.initStatic();
     this.activeplats = [];
     this.activeceilings = [];
     this.buttons = [];

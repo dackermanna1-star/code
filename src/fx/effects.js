@@ -4,13 +4,11 @@
 // dynamic lights. The simulation calls these hooks; with gore set to 0 the
 // game plays and looks exactly like vanilla.
 
-import { MF, pointToAngle, aproxDistance, WP, TAU } from '../game/defs.js';
-import { MT, S, SPR, stateNext, FRAMEMASK } from '../game/tables.js';
+import { MF, pointToAngle, WP, TAU } from '../game/defs.js';
+import { MT, S, stateNext, FRAMEMASK } from '../game/tables.js';
 import { SPRNAMES } from '../game/info.js';
-import { ML } from '../game/mapdata.js';
 import { pointOnLineSide } from '../game/maputl.js';
 import { mapState } from '../game/map.js';
-import { SPR_FULLBRIGHT } from '../render/renderer.js';
 import {
   Particles, P_GRAVITY, P_BOUNCE, P_FULLBRIGHT, P_FADE, P_SMOKE, P_BLOOD, P_CASING, P_FLOATY, P_NOCOLLIDE,
 } from './particles.js';
@@ -24,7 +22,6 @@ const NO_BLOOD_FIRE = new Set(['SKUL']);
 const METAL_PARTS = new Set(['CYBR', 'SPID', 'BSPI']);
 const HAS_HEAD = new Set(['POSS', 'SPOS', 'CPOS', 'SSWV', 'TROO', 'PLAY', 'BOSS', 'BOS2', 'SKEL', 'VILE']);
 const METAL_TEX = /METAL|SUPPORT|DOOR|COMP|PIPE|PLAT|STEEL|TEK|BRONZE|SHAWN|LITE|EXIT|SW[12]|STEP|SILVER|GRAY|PANEL|MIDGRAT|MIDBARS|SPCDOOR|BIGDOOR|CRATE|TEKWALL/;
-const WOOD_TEX = /WOOD|PANEL/;
 const LIQUID_FLAT = /NUKAGE|FWATER|SWATER|LAVA|BLOOD|SLIME/;
 
 const PARTICLE_CAPS = [900, 2400, 5200];
@@ -153,7 +150,7 @@ class Effects {
       }
       return false;
     }
-    if ((p.flags[i] & P_BLOOD) && this.decalBudget > 0 && Math.random() < 0.18 && !LIQUID_FLAT.test(this.flatName(hit.sector.floorpic))) {
+    if ((p.flags[i] & P_BLOOD) && this.decalBudget > 0 && Math.random() < 0.1 && !LIQUID_FLAT.test(this.flatName(hit.sector.floorpic))) {
       this.decalBudget--;
       const blood = p.kind[i] === 1 ? 'green' : p.kind[i] === 2 ? 'blue' : 'red';
       const list = this.img.small[blood];
@@ -252,7 +249,7 @@ class Effects {
     const hx = hit && hit.x !== undefined ? hit.x : target.x;
     const hy = hit && hit.y !== undefined ? hit.y : target.y;
     const hz = hit && hit.z !== undefined ? hit.z : target.z + target.height * 0.6;
-    const amount = Math.min(28, 4 + damage * 0.6);
+    const amount = Math.min(22, 3 + damage * 0.45);
     // Exit spray in the shot direction, a little back-spatter toward the shooter.
     this.spray(hx, hy, hz, ang, 0.15, amount, 3 + Math.min(4, damage / 8), blood);
     this.spray(hx, hy, hz, ang + Math.PI, 0.3, amount * 0.3, 2, blood, { mist: false });
@@ -264,11 +261,10 @@ class Effects {
       }
     }
     // Blood on the wall behind.
-    if (this.gore >= 2 && damage >= 10 && Math.random() < 0.5) this.wallBloodBehind(hx, hy, hz, ang, blood, damage);
+    if (this.gore >= 2 && damage >= 10 && Math.random() < 0.35) this.wallBloodBehind(hx, hy, hz, ang, blood, damage);
   }
 
   wallBloodBehind(x, y, z, ang, blood, damage) {
-    const w = this.w;
     const dist = 64 + Math.min(96, damage * 2);
     const res = this.collide(x, y, x + Math.cos(ang) * dist, y + Math.sin(ang) * dist, z);
     if (res.wall && this.decalBudget > 0) {
@@ -276,7 +272,6 @@ class Effects {
       const list = this.img.wallSplat[blood] || this.img.wallSplat.red;
       this.decals.addWall(res.line, res.side, res.hx, res.hy, z - 4, list[(Math.random() * list.length) | 0], this.partAt(res.line, res.side, z), 0.7 + Math.min(0.6, damage / 60));
     }
-    return w;
   }
 
   stagger(target, damage) {
@@ -339,7 +334,7 @@ class Effects {
     }
     // Pool of blood once settled is handled in tick().
     e.bloodPool = blood;
-    if (hit && hit.x !== undefined) this.spray(hit.x, hit.y, hit.z, ang, 0.2, 16, 4, blood);
+    if (hit && hit.x !== undefined) this.spray(hit.x, hit.y, hit.z, ang, 0.2, 12, 4, blood);
   }
 
   // Tear a mobj into chunks of its current sprite art.
@@ -374,8 +369,8 @@ class Effects {
       this.gibs.push(new Gib(mo.x, mo.y, z0 + 10 + Math.random() * 30, Math.cos(a) * sp, Math.sin(a) * sp, 3 + Math.random() * 7,
         meat[(Math.random() * meat.length) | 0], blood, { radius: 2, trail: 10 }));
     }
-    this.spray(mo.x, mo.y, z0 + 28, ang, 0.6, 40, 6, blood, { cone: 3.5, vcone: 1.2 });
-    this.decals.addFlat(mo.x, mo.y, this.img.splat[blood === 'fire' ? 'red' : blood][(Math.random() * 6) | 0], false, 1.2 + Math.random() * 0.5);
+    this.spray(mo.x, mo.y, z0 + 28, ang, 0.6, 30, 6, blood, { cone: 3.5, vcone: 1.2 });
+    this.decals.addFlat(mo.x, mo.y, this.img.splat[blood === 'fire' ? 'red' : blood][(Math.random() * 6) | 0], false, 0.9 + Math.random() * 0.3);
     w.sound({ x: mo.x, y: mo.y, z: mo.z }, 'x_splat', { channel: 'gib', volume: 0.9 });
     w.sound({ x: mo.x, y: mo.y, z: mo.z }, 'x_bone', { channel: 'gib2', volume: 0.6 });
     e.gibbed = true;
@@ -470,7 +465,6 @@ class Effects {
   missileHitThing(missile, thing) { this.ext(missile).hitThing = thing; }
 
   missileExplode(mo) {
-    const w = this.w;
     const t = mo.type;
     const e = mo.ext || {};
     const x = mo.x, y = mo.y, z = mo.z;
@@ -1013,4 +1007,3 @@ class Effects {
   }
 }
 
-export { SPR_FULLBRIGHT, SPR, stateNext, aproxDistance, ML };

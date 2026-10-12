@@ -1,0 +1,13 @@
+{
+  "name": "doom-modern",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A faithful browser recreation of DOOM (1993) with modern FPS mechanics, physics and gore.",
+  "type": "module",
+  "scripts": {
+    "start": "node tools/serve.mjs 8080",
+    "check": "node tools/check-info.mjs",
+    "music": "node tools/render-music.mjs assets/wads/doom1.wad D_E1M1 30 e1m1.wav"
+  },
+  "license": "UNLICENSED"
+}
