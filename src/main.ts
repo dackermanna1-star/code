@@ -8,6 +8,8 @@ import { Game } from './game/Game';
 import { World } from './core/World';
 import { Bot } from './core/Bot';
 import { ensureFonts } from './ui/dom';
+import { createEnemy } from './core/enemies';
+import type { EnemyType } from './config/enemies';
 
 const params = new URLSearchParams(location.search);
 
@@ -47,7 +49,21 @@ async function boot(): Promise<void> {
   const icons = renderWeaponIcons(stage.renderer);
 
   const game = new Game(stage, env, audio, icons);
-  (window as unknown as { __game: unknown }).__game = { game, stage, env, World, Bot };
+  (window as unknown as { __game: unknown }).__game = {
+    game,
+    stage,
+    env,
+    World,
+    Bot,
+    /** Debug: spawn a creature in the running world. */
+    spawn(type: EnemyType, x: number, z: number, boss = false) {
+      const w = game.world;
+      if (!w) return null;
+      const e = createEnemy(w, type, { x, z, boss });
+      w.addEnemy(e, false);
+      return e;
+    },
+  };
   setProgress(1);
   loading.classList.add('done');
   setTimeout(() => loading.remove(), 600);
