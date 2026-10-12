@@ -194,7 +194,7 @@ export class Projectiles {
         for (const q of g.players) {
           if (!q.alive || (pr.owner && q.team === pr.owner.team)) continue;
           const d = Math.hypot(q.pm.origin[0] - point[0], q.pm.origin[1] - point[1], q.pm.origin[2] - point[2]);
-          if (d < 100 || q === victim) g.fire?.hurt(q, pr.owner, (pr.damage ?? 22) * (q === victim ? 1 : 1 - d / 140), 'acid', 'acid');
+          if (d < 100 || q === victim) g.fire?.hurt(q, pr.owner, (pr.damage ?? 22) * (q === victim ? 1 : 1 - d / 140), 'acid', 'acid', point);
         }
         for (let i = 0; i < 16; i++) g.fire?.emit('acid', point, [rnd(-150, 150), rnd(-150, 150), rnd(30, 200)], { life: rnd(0.3, 0.6), size: rnd(5, 10), size1: 3, drag: 1, buoy: -300 });
         g.fire?.ignite(point, pr.owner, { kind: 'acid', radius: 85, duration: 6, dps: 22, weapon: 'acid', burn: 0, quiet: true });
