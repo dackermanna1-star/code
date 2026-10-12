@@ -18,6 +18,8 @@ Then open http://localhost:8080/ in a WebGL 2 browser (Chrome, Edge, Firefox or 
 
 Handy URL parameters for testing: `?map=E1M3&skill=4` starts a map directly (skill 1–5), `&god` enables god mode, `?shareware` ignores a stored IWAD.
 
+`npm test` runs every map headlessly with a scripted player and the full effects layer. It also checks that a game saved mid-level and reloaded stays in exact lock-step with the original. `npm run check` validates the game data tables against the WAD.
+
 ## Default controls
 
 | Action | Keys |
