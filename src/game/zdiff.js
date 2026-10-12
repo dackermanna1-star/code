@@ -2,8 +2,8 @@
 // A preset = { id, label, blurb, sandbox, breakLen, firstBreak, econ, horde, specials, squad }.
 // The groups are kept as separate tables below, one per owner, so each can be tuned on its
 // own: econ (money and buying), horde (waveStats), specials (how often and how many),
-// squad (downed / revive). NORMAL's horde and specials reproduce the curve the mode was
-// tuned to before difficulty existed; the other presets scale from it. Sandbox plays
+// squad (downed / revive). NORMAL's horde and specials are the mode's tuned curve, sized
+// to the squad (waveStats); the other presets scale from it. Sandbox plays
 // Normal's horde, specials and squad rules (only its economy differs).
 // The New Game options (zombieOptions) pick a preset and adjust it (resolveDiff): the result
 // is g.zombies.diff, read-only for everyone (copy before changing anything).
@@ -41,27 +41,33 @@ const ECON = {
  * count / health / damage / speed / maxAlive / interval: x the base; damageCap (a claw),
  * speedCap (units/s, the commons), runnerCap (share of runners) with runnersFrom (first
  * wave with runners) and runners (x their growth), maxAliveCap (up at once). Past lateFrom
- * the caps (damage, runners, maxAlive) keep rising by lateGrowth (fraction) a wave.
- * botCrowd: what a bot teammate counts for when the horde scales with the squad
- * (crowd = humans + botCrowd x bots; used when squad scaling is on).
+ * the caps (damage, runners, maxAlive, specials) keep rising by lateGrowth (fraction) a
+ * wave, and the commons' top speed by speedLate (units/s a wave, never past SPEED_MAX).
+ * Squad scaling: crowd = humans + botCrowd x bots (1 with squad scaling off); every crowd
+ * past the first brings crowdCount (fraction) more zombies a wave and crowdAlive more up at
+ * once (the cap too, never past MAX_ALIVE), and they come faster: the spawn interval / (more
+ * zombies)^crowdPace. count / maxAlive / caps
+ * here are a solo player's: fewer commons than a squad faces, and more specials (SPECIALS).
  */
 const HORDE = {
-  casual: { count: 0.85, health: 0.8, damage: 0.7, damageCap: 16, speed: 0.96, speedCap: 212, runners: 0.75, runnerCap: 0.12, runnersFrom: 4, maxAlive: 1, maxAliveCap: 10, interval: 1.1, lateFrom: 10, lateGrowth: 0, botCrowd: 0.4 },
-  normal: { count: 1, health: 1, damage: 1, damageCap: 22, speed: 1, speedCap: 222, runners: 1, runnerCap: 0.2, runnersFrom: 3, maxAlive: 1, maxAliveCap: 12, interval: 1, lateFrom: 10, lateGrowth: 0, botCrowd: 0.5 },
-  hard: { count: 1.15, health: 1.2, damage: 1.25, damageCap: 26, speed: 1.03, speedCap: 228, runners: 1.25, runnerCap: 0.26, runnersFrom: 3, maxAlive: 1.1, maxAliveCap: 14, interval: 0.9, lateFrom: 10, lateGrowth: 0.015, botCrowd: 0.5 },
-  nightmare: { count: 1.3, health: 1.45, damage: 1.5, damageCap: 30, speed: 1.06, speedCap: 236, runners: 1.5, runnerCap: 0.32, runnersFrom: 2, maxAlive: 1.2, maxAliveCap: 16, interval: 0.8, lateFrom: 10, lateGrowth: 0.025, botCrowd: 0.6 },
+  casual: { count: 0.6, health: 0.75, damage: 0.7, damageCap: 16, speed: 0.96, speedCap: 212, speedLate: 0, runners: 0.75, runnerCap: 0.12, runnersFrom: 5, maxAlive: 0.9, maxAliveCap: 8, interval: 1.1, lateFrom: 10, lateGrowth: 0.004, botCrowd: 0.4, crowdCount: 0.05, crowdAlive: 0.08, crowdPace: 0.3 },
+  normal: { count: 0.7, health: 1, damage: 1, damageCap: 22, speed: 1, speedCap: 222, speedLate: 0, runners: 1, runnerCap: 0.2, runnersFrom: 4, maxAlive: 1, maxAliveCap: 9, interval: 1, lateFrom: 10, lateGrowth: 0.008, botCrowd: 0.5, crowdCount: 0.08, crowdAlive: 0.15, crowdPace: 0.3 },
+  hard: { count: 0.8, health: 1.2, damage: 1.25, damageCap: 26, speed: 1.03, speedCap: 228, speedLate: 0.4, runners: 1.25, runnerCap: 0.26, runnersFrom: 3, maxAlive: 1.1, maxAliveCap: 10, interval: 0.9, lateFrom: 10, lateGrowth: 0.015, botCrowd: 0.5, crowdCount: 0.09, crowdAlive: 0.2, crowdPace: 0.3 },
+  nightmare: { count: 0.9, health: 1.45, damage: 1.5, damageCap: 30, speed: 1.06, speedCap: 236, speedLate: 0.6, runners: 1.5, runnerCap: 0.32, runnersFrom: 2, maxAlive: 1.2, maxAliveCap: 12, interval: 0.8, lateFrom: 10, lateGrowth: 0.022, botCrowd: 0.6, crowdCount: 0.1, crowdAlive: 0.25, crowdPace: 0.3 },
 };
 
 /**
  * Special infected (Specials.pick): the chance a spawn is a special is
- * min(cap, base + perWave x wave) x rate; perKind: how many of one kind may be up at once
- * (a sprinter pack counts as one).
+ * min(cap, base + perWave x wave) x rate (the cap rises past lateFrom like the horde's),
+ * x (1 + solo) for a solo player (fading out by a crowd of 2: fewer commons, a few more
+ * specials); perKind: how many of one kind may be up at once (a sprinter pack counts as
+ * one), +1 for every perKindCrowd of crowd past the first.
  */
 const SPECIALS = {
-  casual: { base: 0.02, perWave: 0.005, cap: 0.08, rate: 0.8, perKind: 1 },
-  normal: { base: 0.02, perWave: 0.007, cap: 0.1, rate: 1, perKind: 1 },
-  hard: { base: 0.025, perWave: 0.008, cap: 0.13, rate: 1, perKind: 1 },
-  nightmare: { base: 0.03, perWave: 0.009, cap: 0.16, rate: 1, perKind: 2 },
+  casual: { base: 0.02, perWave: 0.005, cap: 0.08, rate: 0.8, solo: 0.2, perKind: 1, perKindCrowd: 5 },
+  normal: { base: 0.02, perWave: 0.007, cap: 0.1, rate: 1, solo: 0.3, perKind: 1, perKindCrowd: 5 },
+  hard: { base: 0.025, perWave: 0.008, cap: 0.13, rate: 1, solo: 0.3, perKind: 1, perKindCrowd: 3.5 },
+  nightmare: { base: 0.03, perWave: 0.009, cap: 0.16, rate: 1, solo: 0.35, perKind: 2, perKindCrowd: 3 },
 };
 
 /**
@@ -78,10 +84,13 @@ const SQUAD = {
 
 /**
  * The tuned base curve (before multipliers), wave n: count = c0 + c1 (n - 1); maxAlive = a0 + n;
- * health h0 + h1 a wave to lateFrom, then + h2; speed s0 + s1 n; runners r1 a wave from
- * runnersFrom; damage d0 + d1 n; spawn interval max(i2, i0 - i1 n).
+ * health h0 + h1 a wave to lateFrom, then + h2, x open[n - 1] in the opening waves (a
+ * starting pistol); speed s0 + s1 n; runners r1 a wave from runnersFrom; damage d0 + d1 n;
+ * spawn interval max(i2, i0 - i1 n).
  */
-const WAVE = { c0: 6, c1: 3, a0: 4, h0: 100, h1: 10, h2: 4, s0: 186, s1: 4, r1: 0.04, d0: 10, d1: 1.6, i0: 1.6, i1: 0.08, i2: 0.5 };
+const WAVE = { c0: 6, c1: 3, a0: 4, h0: 100, h1: 10, h2: 4, open: [0.8, 0.9], s0: 186, s1: 4, r1: 0.04, d0: 10, d1: 1.6, i0: 1.6, i1: 0.08, i2: 0.5 };
+/** Never more zombies up at once than this (zombies.js keeps 32 common bodies), nor commons faster, nor more specials. */
+export const MAX_ALIVE = 28, SPEED_MAX = 245, SPECIAL_MAX = 0.3;
 
 const deepFreeze = (o) => { for (const v of Object.values(o)) if (v && typeof v === 'object') deepFreeze(v); return Object.freeze(o); };
 
@@ -128,31 +137,37 @@ export function resolveDiff(o = zombieOptions()) {
 }
 
 /**
- * What wave n brings at difficulty diff (default Normal). It keeps getting harder for good,
- * but gently past wave 10: on Normal health +10 a wave to wave 10, then +4; the commons top
- * out at 222 units/s, slower than you with any rifle (only the runners, up to 20% of a
- * wave, outpace you); a claw does at most 22; up to 12 up at once.
- * crowd (humans + botCrowd x bots) is for squad scaling and not applied yet.
+ * What wave n brings at difficulty diff (default Normal) for a squad worth crowd guns
+ * (humans + botCrowd x bots, ZombieMode.waveOpts; 1 = solo or squad scaling off). It keeps
+ * getting harder for good: on Normal health +10 a wave to wave 10, then +4; past wave 10 the
+ * claw, runner, specials and up-at-once caps keep rising by 0.8% a wave. Solo on Normal the
+ * commons top out at 222 units/s, slower than you with any rifle (only the runners, up to
+ * 20% of a wave, outpace you), a claw does at most 22, up to 9 are up at once; you and 8
+ * bots face a third more zombies, 14 to 18 up at once. special / perKind: Specials.pick.
  */
 export function waveStats(n, { diff = ZDIFF[DEFAULT_ZDIFF], crowd = 1 } = {}) {
   const H = diff.horde, E = diff.econ, B = WAVE;
   const early = Math.min(n, H.lateFrom) - 1, late = Math.max(0, n - H.lateFrom);
-  const L = 1 + H.lateGrowth * late; // (Normal: 1)
-  void crowd;
+  const L = 1 + H.lateGrowth * late; // the caps, past lateFrom
+  const c = Math.max(0, crowd - 1); // the squad past the first gun
+  const many = 1 + H.crowdCount * c, up = 1 + H.crowdAlive * c;
   return {
-    count: Math.round((B.c0 + B.c1 * (n - 1)) * H.count),
-    maxAlive: Math.min(Math.round(H.maxAliveCap * L), Math.round((B.a0 + n) * H.maxAlive)),
-    health: Math.round((B.h0 + B.h1 * early + B.h2 * late) * H.health),
-    speed: Math.min(H.speedCap, (B.s0 + B.s1 * n) * H.speed),
+    count: Math.max(1, Math.round((B.c0 + B.c1 * (n - 1)) * H.count * many)),
+    maxAlive: Math.min(MAX_ALIVE, Math.round(H.maxAliveCap * L * up), Math.round((B.a0 + n) * H.maxAlive * up)),
+    health: Math.round((B.h0 + B.h1 * early + B.h2 * late) * H.health * (B.open[n - 1] ?? 1)),
+    speed: Math.min(SPEED_MAX, H.speedCap + H.speedLate * late, (B.s0 + B.s1 * n) * H.speed),
     runners: n < H.runnersFrom ? 0 : Math.min(0.45, H.runnerCap * L, B.r1 * H.runners * (n - H.runnersFrom + 1)),
     damage: Math.round(Math.min(H.damageCap * L, (B.d0 + B.d1 * n) * H.damage)),
-    interval: Math.max(B.i2, B.i0 - B.i1 * n) * H.interval,
+    interval: Math.max(B.i2, B.i0 - B.i1 * n) * H.interval / many ** H.crowdPace, // (more of them: they come faster)
     bonus: E.waveBonus[0] + E.waveBonus[1] * n,
+    special: specialChance(n, diff, crowd),
+    perKind: diff.specials.perKind + Math.floor(c / diff.specials.perKindCrowd + 1e-9),
   };
 }
 
-/** The chance a spawn in wave n is a special (Specials.pick). */
-export function specialChance(n, diff = ZDIFF[DEFAULT_ZDIFF]) {
-  const S = diff.specials;
-  return Math.min(S.cap, S.base + S.perWave * n) * S.rate;
+/** The chance a spawn in wave n is a special (Specials.pick), for a squad worth crowd guns. */
+export function specialChance(n, diff = ZDIFF[DEFAULT_ZDIFF], crowd = 1) {
+  const S = diff.specials, late = Math.max(0, n - diff.horde.lateFrom);
+  const solo = 1 + S.solo * Math.max(0, Math.min(1, 2 - crowd)); // fewer commons solo: a few more specials
+  return Math.min(SPECIAL_MAX, Math.min(S.cap * (1 + diff.horde.lateGrowth * late), S.base + S.perWave * n) * S.rate * solo);
 }

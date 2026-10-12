@@ -6,7 +6,7 @@
 // (with &zdiff= only the option plumbing is checked). Prints "[sim] PASS ..." / "[sim] FAIL ...".
 // The event / cheat checks run on Sandbox (buy anything, any time) and the records checks wipe
 // the whole squad, so they hold whatever the economy and downed rules become; the one check
-// tied to today's numbers is "normal reproduces the tuned curve" (retuning Normal replaces it).
+// tied to today's numbers is "normal plays the tuned curve" (retuning Normal replaces it).
 /* global location, localStorage, URLSearchParams */
 (() => {
   const g = window.__game;
@@ -71,14 +71,12 @@
       for (const id of ZD.ZDIFF_ORDER) for (const f of fields) if (typeof f.split('.').reduce((o, k) => o?.[k], ZD.ZDIFF[id]) !== 'number') missing.push(`${id}.${f}`);
       check('table fields', !missing.length, missing.join(' '));
       check('table frozen', Object.isFrozen(ZD.ZDIFF.normal.horde) && Object.isFrozen(Z().diff.econ));
-      // Normal (and Sandbox) = the curve the mode was tuned to (until Normal is retuned on purpose)
-      const legacy = (n) => {
-        const early = Math.min(n, 10) - 1, late = Math.max(0, n - 10);
-        return { count: 6 + 3 * (n - 1), maxAlive: Math.min(12, 4 + n), health: 100 + 10 * early + 4 * late, speed: Math.min(222, 186 + 4 * n), runners: n < 3 ? 0 : Math.min(0.2, 0.04 * (n - 2)), damage: Math.min(22, Math.round(10 + 1.6 * n)), interval: Math.max(0.5, 1.6 - 0.08 * n), bonus: 500 + 250 * n };
-      };
+      // Normal (and Sandbox) = the curve as tuned with squad scaling (1.4; tools/tests/zm1-scaling.js checks it in detail)
       let diffs = 0;
-      for (const id of ['normal', 'sandbox']) for (let n = 1; n <= 60; n++) { const a = legacy(n), b = ZD.waveStats(n, { diff: ZD.ZDIFF[id] }); for (const k in a) if (a[k] !== b[k]) diffs++; if (ZD.specialChance(n, ZD.ZDIFF[id]) !== Math.min(0.1, 0.02 + 0.007 * n)) diffs++; }
-      check('normal reproduces the tuned curve', diffs === 0, `${diffs} differences`);
+      for (let n = 1; n <= 60; n++) for (const crowd of [1, 3, 6]) { const a = ZD.waveStats(n, { diff: ZD.ZDIFF.normal, crowd }), b = ZD.waveStats(n, { diff: ZD.ZDIFF.sandbox, crowd }); for (const k in a) if (a[k] !== b[k]) diffs++; }
+      const nw = (n, crowd = 1) => ZD.waveStats(n, { diff: ZD.ZDIFF.normal, crowd });
+      const tuned = [nw(1), nw(10), nw(20, 5)].map((w) => `${w.count}/${w.maxAlive}/${w.health}/${w.damage}`).join(' ');
+      check('normal plays the tuned curve', diffs === 0 && tuned === '4/5/80/12 23/9/190/22 58/16/230/24' && nw(10, 5).count > nw(10).count && nw(30).damage > nw(12).damage, `${diffs} sandbox differences; ${tuned}`);
       const h = (id, n) => ZD.waveStats(n, { diff: ZD.ZDIFF[id] });
       check('presets scale', h('casual', 10).health < h('normal', 10).health && h('normal', 10).health < h('hard', 10).health && h('hard', 10).health < h('nightmare', 10).health && h('nightmare', 25).damage > h('nightmare', 12).damage, `w10 hp ${['casual', 'normal', 'hard', 'nightmare'].map((id) => h(id, 10).health).join('/')}`);
       const o = ZD.zombieOptions({ zdiff: 'bogus', breakLen: '999', hardcore: 1, squadScaling: false });
@@ -282,14 +280,18 @@
 
     // records: dying in a break counts the cleared wave; a new best beats the best before the run
     steps.push(async () => {
+      // (records are per map, difficulty and squad size: zrecords.js; one JSON object under KEY)
       const KEY = 'cs16-zombies-best';
-      localStorage.setItem(KEY, '5');
+      const saved = localStorage.getItem(KEY);
+      newRun({ allies: 1 });
+      const rk = Z().recordKey();
+      localStorage.setItem(KEY, JSON.stringify({ [rk]: 5 }));
       newRun({ allies: 1 });
       listen();
       con('sv_cheats 1');
       con('zm_wave 6');
       con('zm_skip'); // wave 6 cleared: a break
-      check('best saved when a wave is cleared', Z().best === 6 && localStorage.getItem(KEY) === '6' && Z().bestBefore === 5);
+      check('best saved when a wave is cleared', Z().best === 6 && JSON.parse(localStorage.getItem(KEY))[rk] === 6 && Z().bestBefore === 5);
       rec = [];
       wipe();
       check('dying in a break counts the cleared wave', Z().state === 'over' && Z().survived === 6, `survived ${Z().survived}`);
@@ -301,7 +303,7 @@
       wipe();
       check('dying mid-wave counts the waves before it', Z().survived === 6, `survived ${Z().survived}`);
       check('tying the best is not a new best', Z().isNewBest() === false && Z().best === 6);
-      localStorage.removeItem(KEY);
+      if (saved == null) localStorage.removeItem(KEY); else localStorage.setItem(KEY, saved);
       return false;
     });
 
