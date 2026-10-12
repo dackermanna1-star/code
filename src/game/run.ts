@@ -624,18 +624,19 @@ export class Run {
       it.contents.set(m, v - take);
       if (v - take <= 0) it.contents.delete(m);
       const name = MATERIALS[m].name;
-      const f = take / 100;
+      // Noita ingestion effects: durations per full sip (scaled down for small remainders)
+      const f = Math.min(1, take / 100);
       switch (name) {
         case 'water': s.wet = Math.min(1, s.wet + 0.3); s.onFire = 0; break;
-        case 'whiskey': s.drunk = Math.min(1, s.drunk + 0.4 * f * 3); this.hud.log('You feel tipsy.'); break;
-        case 'healthium': s.regen = Math.max(s.regen, 7.5 * f * 10); break;
-        case 'mana': s.manaRegen = Math.max(s.manaRegen, 20 * f * 10); break;
-        case 'teleportatium': s.teleportitis = Math.max(s.teleportitis, 5 * f * 10); break;
-        case 'polymorphine': s.polymorph = Math.max(s.polymorph, 6 * f * 10); this.hud.log('You feel woolly…', '#e0a0ff'); break;
-        case 'berserkium': s.berserk = Math.max(s.berserk, 15 * f * 10); this.hud.log('Berserk!', '#ff8060'); break;
-        case 'toxic': s.poisoned = Math.max(s.poisoned, 10 * f * 10); break;
-        case 'acid': s.poisoned = Math.max(s.poisoned, 30 * f * 10); this.damage.apply({ target: p, amount: 5, type: 'acid', source: null, x: p.cx, y: p.cy, z: p.cz }); break;
-        case 'oil': case 'slime': s.poisoned = Math.max(s.poisoned, 5 * f * 10); break;
+        case 'whiskey': s.drunk = Math.min(1, s.drunk + 0.5 * f); this.hud.log('You feel tipsy.'); break;
+        case 'healthium': s.regen = Math.max(s.regen, 7.5 * f); break;
+        case 'mana': s.manaRegen = Math.max(s.manaRegen, 20 * f); break;
+        case 'teleportatium': s.teleportitis = Math.max(s.teleportitis, 5 * f); break;
+        case 'polymorphine': s.polymorph = Math.max(s.polymorph, 20 * f); this.hud.log('You feel woolly… (no casting while polymorphed)', '#e0a0ff'); break;
+        case 'berserkium': s.berserk = Math.max(s.berserk, 15 * f); this.hud.log('Berserk!', '#ff8060'); break;
+        case 'toxic': s.poisoned = Math.max(s.poisoned, 10 * f); break;
+        case 'acid': s.poisoned = Math.max(s.poisoned, 30 * f); this.damage.apply({ target: p, amount: 5, type: 'acid', source: null, x: p.cx, y: p.cy, z: p.cz }); break;
+        case 'oil': case 'slime': s.poisoned = Math.max(s.poisoned, 5 * f); break;
         case 'lava': this.damage.setOnFire(p, 10); break;
         case 'blood': if (this.progression.hasPerk('VAMPIRISM')) this.damage.apply({ target: p, amount: 4 * (take / 100), type: 'healing', source: null, x: 0, y: 0, z: 0 }); break;
         default: break;
