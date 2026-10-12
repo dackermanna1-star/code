@@ -481,7 +481,6 @@ export class Turtle extends Enemy {
 
 // ---------------------------------------------------------------- Walrus (final boss)
 export class Walrus extends Enemy {
-  private targetZ = 0;
   private eatTicks = 0;
   /** One bite per player per rush. */
   private bitten = new Set<unknown>();
@@ -537,9 +536,9 @@ export class Walrus extends Enemy {
         break;
       }
       case 'charge': {
-        this.targetZ = this.nearestPlayerZ();
-        const dz = this.targetZ - this.z;
-        this.vz = Math.max(-2.6, Math.min(2.6, dz * 3));
+        // The lane is locked while it scrapes its tusks: the charge is the
+        // warning to get out of the way (the original rushed along its row).
+        this.vz = 0;
         this.vx = 0;
         if (this.stateTicks >= 60) {
           this.setState('rush');

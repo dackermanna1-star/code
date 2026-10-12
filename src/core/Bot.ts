@@ -38,8 +38,8 @@ export class Bot {
   private eta(e: Enemy): number {
     const p = this.player;
     if (!e.alive || e.x > p.x + 0.3) return Infinity;
-    // Out of engagement range — unless it is about to get past us.
-    if (p.x - e.x > this.maxRange && e.x < p.x - 6) return Infinity;
+    // Out of engagement range — unless it is about to get past us, or a boss.
+    if (!e.isBoss && p.x - e.x > this.maxRange && e.x < p.x - 6) return Infinity;
     if (e.canLeave && e.type !== 'walrus') return Infinity; // fleeing activist, let him go
     if (e instanceof Seal && e.crawling) return Infinity; // comes to us and gets kicked
     const v = Math.max(0.4, e.vx);
@@ -63,6 +63,12 @@ export class Bot {
     }
     if (e instanceof Activist && e.hasCub) best = shapes.find((s) => s.part === 'body') ?? best;
     if (e.type === 'turtle') best = shapes.find((s) => s.part === 'head') ?? best;
+    if (e.type === 'walrus') {
+      // Stand ~2 m off its lane: out of reach of the bite, but the tall body
+      // still crosses our gun line (view-consistent hit band).
+      const side = e.z > 0 ? -1 : 1;
+      return e.z + side * 2.1;
+    }
     const lane = e.z - (best.cy - (this.player.y + PLAYER.muzzleHeight)) / TAN_PITCH;
     // Lead targets that change lanes (zig-zaggers, gliding penguins).
     return lane + (e.type === 'penguin' ? e.vz * 0.15 : 0);
@@ -130,7 +136,7 @@ export class Bot {
     const line = world.combat.lineTarget(p);
     if (
       line &&
-      p.x - line.x <= this.maxRange &&
+      (line.isBoss || p.x - line.x <= this.maxRange) &&
       !(line.canLeave && line.type !== 'walrus') &&
       !(line instanceof Seal && line.crawling && line.x > p.x - 3)
     ) {

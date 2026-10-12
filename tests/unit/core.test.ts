@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { World } from '../../src/core/World';
-import { Activist, Bear, FatSeal, Seal, Turtle } from '../../src/core/enemies';
+import { Activist, Bear, FatSeal, Seal, Turtle, createEnemy } from '../../src/core/enemies';
 import { PLAYER, TAN_PITCH } from '../../src/config/constants';
 import { WEAPONS } from '../../src/config/weapons';
 import { SPLASH_TICKS } from '../../src/core/World';
@@ -201,6 +201,40 @@ describe('enemies', () => {
     for (let i = 0; i < 280 + 100; i++) w.step();
     expect(f.state).toBe('stopped');
     expect(f.life).toBeGreaterThan(hurt);
+  });
+});
+
+describe('walrus', () => {
+  it('locks its lane during the charge and devours a hunter who stays in it', () => {
+    const w = quietWorld();
+    const p = w.player;
+    p.x = 10;
+    p.z = 1;
+    const wal = createEnemy(w, 'walrus', { boss: true, z: 1 });
+    w.enemies.push(wal);
+    let zAtCharge: number | null = null;
+    for (let i = 0; i < 50 * 12 && p.alive; i++) {
+      w.step();
+      if (wal.state === 'charge' && zAtCharge === null) zAtCharge = wal.z;
+      if (wal.state === 'charge') expect(wal.z).toBeCloseTo(zAtCharge!, 5);
+    }
+    expect(p.alive).toBe(false);
+    expect(w.phase).toBe('gameover');
+  });
+
+  it('misses a hunter who steps out of the lane during the charge', () => {
+    const w = quietWorld();
+    const p = w.player;
+    p.x = 10;
+    p.z = 1;
+    const wal = createEnemy(w, 'walrus', { boss: true, z: 1 });
+    w.enemies.push(wal);
+    for (let i = 0; i < 50 * 8; i++) {
+      p.input.down = wal.state === 'charge' && wal.stateTicks > 25;
+      w.step();
+      if (wal.state === 'walk' && wal.facing < 0) break;
+    }
+    expect(p.alive).toBe(true);
   });
 });
 
