@@ -18,6 +18,7 @@ import { setCreatureUniforms } from '../render/enemyModels';
 import { createMeshMaterial } from '../render/voxelMaterial';
 import { Hud, HudState } from '../ui/hud';
 import { InventoryUI } from '../ui/inventoryUI';
+import { InspectPanel } from '../ui/inspect';
 import { audio } from '../audio/audio';
 import type { SoundName } from '../audio/audio';
 import { MATERIALS, matId, KIND, Kind, GOLDORE, GOLDSAND, AIR, UNLOADED, WATER } from '../world/materials';
@@ -54,6 +55,10 @@ export class Run {
   readonly viewmodel: ViewModel;
   readonly hud: Hud;
   readonly invUI: InventoryUI;
+  readonly inspect: InspectPanel;
+  private hintEl: HTMLDivElement;
+  private hintsShown = new Set<string>();
+  private hintT = 0;
   readonly rng = new FastRng(Date.now() >>> 0);
   private timedLights: TimedLight[] = [];
   private thrown: Thrown[] = [];
@@ -94,6 +99,11 @@ export class Run {
     this.progression = new Progression(this);
     this.viewmodel = new ViewModel(g.camera.fov);
     this.hud = new Hud(ui);
+    this.inspect = new InspectPanel(this.hud.root);
+    this.hintEl = document.createElement('div');
+    this.hintEl.className = 'hint noita-panel';
+    this.hintEl.style.display = 'none';
+    this.hud.root.appendChild(this.hintEl);
     this.invUI = new InventoryUI(ui, this.inv, {
       canEdit: () => this.progression.canEditWands(),
       dropWand: (w) => this.dropWand(w),
@@ -182,6 +192,15 @@ export class Run {
     const pm = seedRng.weighted(STARTER_POTIONS, (p) => p[1])[0];
     this.inv.items[0] = makePotion(matId(pm));
     this.startTime = performance.now();
+  }
+
+  /** One-time contextual tutorial hints. */
+  hint(id: string, text: string): void {
+    if (this.hintsShown.has(id)) return;
+    this.hintsShown.add(id);
+    this.hintEl.textContent = text;
+    this.hintEl.style.display = '';
+    this.hintT = 7;
   }
 
   // ------------------------------------------------------------------ helpers
@@ -387,6 +406,16 @@ export class Run {
     };
     this.hud.darkness = THREE.MathUtils.clamp((1930 - p.body.y) / 40, 0.15, 0.65) * (hmBandOf(p.body.y) >= 0 ? 0.5 : 1);
     this.hud.update(dt, hs, this.inv, g.camera);
+    this.inspect.update(this.promptTarget, this.inv.wands[this.inv.selected < 4 ? this.inv.selected : 0]);
+    if (this.hintT > 0) {
+      this.hintT -= dt;
+      if (this.hintT <= 0) this.hintEl.style.display = 'none';
+    }
+    // contextual tutorial
+    if (g.time > 4) this.hint('cast', 'Left mouse casts your wand. Wands hold spells: cast delay, recharge and mana decide how they fire.');
+    if (g.time > 14 && hm < 0) this.hint('levitate', 'Hold Space in the air to levitate. The orange bar refills when you stand on the ground.');
+    if (this.inv.activeItem()) this.hint('flask', 'Flasks hold real liquid: left mouse pours, right mouse throws, R drinks, hold E on a pool to fill.');
+    if (this.progression.canEditWands() && hm >= 0) this.hint('hm', 'A Holy Mountain. Press Tab to rearrange the spells in your wands — this is the only place you can.');
     audio.setListener(g.camera.position.x, g.camera.position.y, g.camera.position.z, p.yaw, p.pitch);
     audio.setLoop('levitate', p.levitating ? 0.5 : 0);
     audio.update(dt);
@@ -722,10 +751,12 @@ export class Run {
           this.inv.select(slot);
         }
         this.hud.log(`Picked up ${pk.label}`);
+        this.hint('wand', 'New wand! Switch with 1-4 or the mouse wheel. Compare wands by looking at them before picking up.');
         audio.play('pickup_item', { volume: 0.6 });
         break;
       }
       case 'spell': {
+        this.hint('spell', 'Spells go into your bag (Tab). You can place them into wands only inside a Holy Mountain.');
         if (this.inv.addSpell({ id: pk.spell!.id, uses: pk.spell!.uses }) < 0) {
           this.hud.log('Spell inventory is full', '#ff8060');
           return;

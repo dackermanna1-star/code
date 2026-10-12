@@ -67,7 +67,7 @@ export const BIOMES: BiomeDef[] = [
     structure: 'coalpits',
     enemies: [['bat', 3], ['miner', 2], ['shotgunner', 2.5], ['firefly', 3], ['slimeshooter', 1.5], ['liekkio', 1], ['stendari', 0.8], ['hound', 1]],
     enemyDensity: 1.15, lootTier: 2,
-    ambient: '#4a3a30', ambientStrength: 0.42, fog: '#060505', fogDensity: 0.014, music: 'coal',
+    ambient: '#5a4a3e', ambientStrength: 0.56, fog: '#060505', fogDensity: 0.014, music: 'coal',
   },
   {
     id: 'snow', name: 'Lumikaivos', display: 'Snowy Depths',
@@ -90,7 +90,7 @@ export const BIOMES: BiomeDef[] = [
     structure: 'hiisi',
     enemies: [['shotgunner', 3], ['sniper', 3], ['grenadier', 2.5], ['gunner', 2.5], ['miner', 2], ['tank', 1], ['turret', 1]],
     enemyDensity: 1.35, lootTier: 4,
-    ambient: '#5a5048', ambientStrength: 0.48, fog: '#080707', fogDensity: 0.011, music: 'hiisi',
+    ambient: '#6a6058', ambientStrength: 0.58, fog: '#080707', fogDensity: 0.011, music: 'hiisi',
   },
   {
     id: 'jungle', name: 'Maanalainen viidakko', display: 'Underground Jungle',

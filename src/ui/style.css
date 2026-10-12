@@ -146,3 +146,9 @@ select, input { font-family: inherit; background: #1a1411; color: var(--ui-text)
 .death.won .dt { color: #f0c870; }
 .death .ds { color: #d8ccb8; margin: 10px 0 24px; line-height: 1.6; font-size: 17px; }
 .click-hint { position: fixed; left: 50%; top: 60%; transform: translateX(-50%); color: #e8dcc8; font-size: 18px; text-shadow: 2px 2px 0 #000; pointer-events: none !important; }
+.inspect { position: absolute; left: calc(50% + 30px); top: calc(50% + 72px); max-width: 330px; padding: 6px 9px; font-size: 13px; display: none; }
+.inspect .tt-title { font-size: 15px; }
+.inspect .cmp-up { color: #8ad04a; } .inspect .cmp-down { color: #e05a3a; }
+.inspect .sp { display: flex; gap: 2px; margin-top: 4px; flex-wrap: wrap; }
+.inspect .sp img { width: 22px; height: 22px; image-rendering: pixelated; }
+.hint { position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%); max-width: 640px; text-align: center; padding: 6px 12px; font-size: 15px; color: #f0e6d0; }

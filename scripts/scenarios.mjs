@@ -27,6 +27,37 @@ async function key(run, wait, code, ms = 60) {
 }
 
 export default {
+  async pickup({ shot, wait, run }) {
+    await wait(1500);
+    await run(() => {
+      const g = window.game, r = window.run, p = g.player;
+      p.yaw = Math.PI; p.pitch = -0.72;
+      const w = window.__makeWand('LIGHT_BULLET_TRIGGER');
+      w.stats.name = 'Bolt staff'; w.stats.capacity = 6; w.stats.castDelay = 4; w.stats.manaMax = 300; w.stats.spriteSeed = 99;
+      r.pickups.add('wand', p.body.x, p.body.y + 0.5, p.body.z + 7, { wand: w });
+    });
+    await wait(1200);
+    await shot('wand');
+    await run(() => window.run.interact());
+    await wait(500);
+    await shot('taken');
+    console.log('wands', JSON.stringify(await run(() => window.run.inv.wands.map((w) => w && w.stats.name))));
+  },
+  async tour({ shot, wait, run }) {
+    await run(() => { window.game.player.noclip = true; window.debug.godMode = true; });
+    const pts = await run(() => window.game.streamer.gen.routePoints.map((r) => [r[0], r[Math.floor(r.length * 0.35)], r[Math.floor(r.length * 0.7)]]));
+    await teleport(run, wait, 128.5, 1950, 70, Math.PI, -0.15);
+    await shot('entrance');
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i][1];
+      await teleport(run, wait, p.x, p.y - 4, p.z, i * 1.3, -0.1);
+      await wait(800);
+      await shot(`layer${i}`);
+    }
+    const hm = 1920 - 256 - 64 + 18;
+    await teleport(run, wait, 112, hm + 2, 128, -Math.PI / 2 - 0.3, -0.1);
+    await shot('holymountain');
+  },
   async allspells({ shot, wait, run }) {
     await wait(1500);
     const pts = await run(() => window.game.streamer.gen.routePoints[0]);

@@ -45,6 +45,8 @@ export class Enemy extends Creature {
   sleeping = false;
   laser: THREE.Line | null = null;
   trick = false;
+  /** When polymorphed into a sheep: what to turn back into, and when. */
+  morphFrom: { type: string; hpFrac: number; until: number } | null = null;
 
   constructor(def: EnemyDef, x: number, y: number, z: number, hpMult: number, rng: Rng) {
     super(x, y, z, def.hw, def.h, def.hp * hpMult, def.faction, def.stepUp ?? 0);
@@ -80,6 +82,20 @@ export class EnemySystem {
     return e;
   }
 
+  /** Replace a creature with another type in place (polymorph). */
+  private morph(e: Enemy, type: string, from: Enemy['morphFrom'], hpFrac = 1): void {
+    const g = this.run.game;
+    for (let i = 0; i < 24; i++) g.particles.spawn(e.cx, e.cy, e.cz, (Math.random() - 0.5) * 10, Math.random() * 8, (Math.random() - 0.5) * 10, [0.85, 0.5, 1], 0.6, 0.45, 0.2, true, 2);
+    e.alive = false;
+    this.group.remove(e.model.root);
+    const n = this.spawn(type, e.body.x, e.body.y, e.body.z, 0, e.rng);
+    if (!n) return;
+    n.morphFrom = from;
+    n.hp = Math.max(1, n.maxHp * hpFrac);
+    n.yaw = e.yaw;
+    this.sound('teleport', n, 0.5);
+  }
+
   private sound(name: string, e: Creature, v = 0.7): void {
     this.run.sound(name as SoundName, e, v);
   }
@@ -100,6 +116,16 @@ export class EnemySystem {
       if (e.sleeping) continue;
       run.damage.updateCreature(e, dt);
       if (!e.alive) continue;
+      // polymorphine: creatures become sheep for a while (Noita's Polymorph)
+      if (e.status.polymorph > 0 && !e.morphFrom && e.def.behaviour !== 'prop' && e.def.id !== 'stevari') {
+        this.morph(e, 'sheep', { type: e.def.id, hpFrac: e.hp / e.maxHp, until: g.time + 15 });
+        continue;
+      }
+      if (e.morphFrom && g.time > e.morphFrom.until) {
+        const f = e.morphFrom;
+        this.morph(e, f.type, null, f.hpFrac);
+        continue;
+      }
       this.think(e, dt, dP);
       // physics
       const def = e.def;
