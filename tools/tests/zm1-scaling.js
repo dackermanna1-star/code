@@ -89,6 +89,7 @@
     const o = Z().waveOpts();
     check('crowd = you + botCrowd x bots', o.crowd === 1 + 4 * Z().diff.horde.botCrowd && squad().length === 5, `crowd ${o.crowd} squad ${squad().length}`);
     con('sv_cheats 1');
+    con('zm_mod none'); // (no wave type: it would change the count - director.js)
     con('zm_wave 6');
     const want = ZD.waveStats(6, o);
     check('the wave follows the squad', Z().stats.count === want.count && Z().stats.maxAlive === want.maxAlive && Z().stats.count > ZD.waveStats(6, { diff: Z().diff }).count, `count ${Z().stats.count} up ${Z().stats.maxAlive}`);
@@ -131,6 +132,8 @@
     con('zm_god_squad');
     con('zm_wave 12');
     Z().stats = { ...Z().stats, count: 500, maxAlive: 28, interval: 0.02, special: 0 };
+    const D = Z().director, dmax = D.maxAlive;
+    D.maxAlive = (S) => S.maxAlive; // (the engine's ceiling, without the director's pacing under it)
     let most = 0;
     for (let i = 0; i < 1200; i++) {
       g.tick();
@@ -141,6 +144,7 @@
         if (up >= 28 && i > 300) break;
       }
     }
+    D.maxAlive = dmax;
     const commons = Z().pool.filter((z) => !z.special).length;
     check('28 up at once', most === 28, `most ${most}`);
     check('pool of 32 common bodies', commons >= 28 && commons <= 32, `${commons} bodies`);

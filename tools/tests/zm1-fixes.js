@@ -154,7 +154,8 @@
       for (let i = 0; i < 400 && Z().state !== 'wave'; i++) { g.tick(); if (i % 10 === 0) tips.frame(0.1); }
       ticks(5); tips.frame(0.1);
       const al = g.hud.centerQ?.alert?.map((e) => e.text.split('\n')[0]) || [];
-      check('wave 1 after ready-up: only WAVE 1 in the alerts', al.length === 1 && al[0] === 'WAVE 1', JSON.stringify(al));
+      // (and the director's callout of where they come from: director.js)
+      check('wave 1 after ready-up: only WAVE 1 in the alerts', al[0] === 'WAVE 1' && al.slice(1).every((x) => /^They're coming/.test(x)) && al.length <= 2, JSON.stringify(al));
       check('break tips gone in the wave', had === 'buy' && tips.cur?.id !== 'buy' && !tips.queue.some((q) => q.id === 'buy' || q.id === 'ready'), `had ${had} cur ${tips.cur?.id} q ${tips.queue.map((q) => q.id)}`);
       step = 6;
       return { log: out.join('\n'), shot: true };

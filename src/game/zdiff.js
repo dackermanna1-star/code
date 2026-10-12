@@ -129,13 +129,17 @@ const AI = {
  * Wave director (director.js): fronts [min, max] open a wave; modsFrom (first wave with a wave
  * type) and modChance (a non-boss wave from there gets one); surge (share of a wave that comes
  * in surges), surgeAlive (x maxAlive while one is on), calm (s of quiet after one); radar
- * ('full': every zombie a blip; 'pings': only seen, heard or within pingRange u).
+ * ('full': every zombie a blip; 'pings': only seen, heard or within pingRange u). trickle (x
+ * maxAlive between surges: the quiet stretches pay for the bursts), push (x maxAlive in the
+ * final push, the last pushAt of the wave), power (how hard a wave type bites: x its extra
+ * zombies, its share of crawlers / riot / risen, an elite's health), spread (share of the
+ * trickle that still comes from anywhere: one long stream from a single front is harder).
  */
 const DIRECTOR = {
-  casual: { fronts: [1, 1], modsFrom: 4, modChance: 0.3, surge: 0.2, surgeAlive: 1.15, calm: 6, radar: 'full', pingRange: 400 },
-  normal: { fronts: [1, 2], modsFrom: 3, modChance: 0.4, surge: 0.3, surgeAlive: 1.25, calm: 5, radar: 'pings', pingRange: 400 },
-  hard: { fronts: [1, 2], modsFrom: 3, modChance: 0.5, surge: 0.35, surgeAlive: 1.35, calm: 4, radar: 'pings', pingRange: 400 },
-  nightmare: { fronts: [2, 2], modsFrom: 2, modChance: 0.6, surge: 0.4, surgeAlive: 1.5, calm: 3, radar: 'pings', pingRange: 400 },
+  casual: { fronts: [1, 1], modsFrom: 4, modChance: 0.3, surge: 0.2, surgeAlive: 1.1, calm: 6, radar: 'full', pingRange: 400, trickle: 0.8, push: 1, pushAt: 0.15, power: 0.75, spread: 0.45 },
+  normal: { fronts: [1, 2], modsFrom: 3, modChance: 0.4, surge: 0.25, surgeAlive: 1.15, calm: 6, radar: 'pings', pingRange: 400, trickle: 0.8, push: 1, pushAt: 0.2, power: 0.9, spread: 0.35 },
+  hard: { fronts: [1, 2], modsFrom: 3, modChance: 0.5, surge: 0.35, surgeAlive: 1.35, calm: 4, radar: 'pings', pingRange: 400, trickle: 0.9, push: 1.2, pushAt: 0.2, power: 1.15, spread: 0.2 },
+  nightmare: { fronts: [2, 2], modsFrom: 2, modChance: 0.6, surge: 0.4, surgeAlive: 1.5, calm: 3, radar: 'pings', pingRange: 400, trickle: 0.95, push: 1.3, pushAt: 0.25, power: 1.3, spread: 0.1 },
 };
 
 /**

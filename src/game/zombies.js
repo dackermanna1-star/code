@@ -264,7 +264,7 @@ export class ZombieMode {
       const n0 = this.spawned;
       const o = this.director.next(t, S.count - this.spawned); // { kind (a special or null), variant, front }
       // (a sprinter pack never takes the wave past its count)
-      if (o.kind) this.spawned += this.specials.spawn(o.kind, { max: S.count - this.spawned, front: o.front }) || (this.spawnZombie(o) ? 1 : 0);
+      if (o.kind) this.spawned += this.specials.spawn(o.kind, { max: S.count - this.spawned, front: o.front, elite: o.elite }) || (this.spawnZombie(o) ? 1 : 0);
       else if (this.spawnZombie(o)) this.spawned++;
       alive += this.spawned - n0; // (the last of the wave just came up: not cleared yet)
       this.nextSpawn = t + this.director.interval(S, t);
@@ -648,6 +648,7 @@ export class ZombieMode {
     z.nextGrowl = t + rand(3, 8);
     const cam = this.game.camPos;
     if (cam && Math.hypot(z.pm.origin[0] - cam[0], z.pm.origin[1] - cam[1]) > 1800) return;
+    z.growlT = t; // (heard: the radar pings it, director.js)
     this.game.sound?.play((z.special && this.specials.idleSound(z)) || 'zombie_idle', { pos: z.eyePos(), volume: 0.85, pitch: z.voice || 1, channel: `${z.id}:voice` });
   }
 

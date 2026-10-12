@@ -95,6 +95,7 @@ export class Specials {
       if (!z || !this.Z.spawnZombie({ use: z, near, special: true, front: o.front })) break;
       near = near || z.pm.origin.slice(); // the pack comes together
       this.setup(z, def);
+      z.elite = !!o.elite && this.Z.director.elite(z, def, o.elite); // (o.elite: a Twin Elite, x that health: director.js)
       z.extra = !!o.extra;
       first = first || z;
       z.sp.pack = first; // (a pack calls as one)
