@@ -97,10 +97,10 @@ const SQUAD = {
  * chance a leg hit drops it to its knees).
  */
 const STAGGER = {
-  casual: { resist: 0.8, decay: 1.2, cooldown: 0.35, knockdown: 1.2 },
-  normal: { resist: 1, decay: 1, cooldown: 0.5, knockdown: 1 },
-  hard: { resist: 1.2, decay: 0.9, cooldown: 0.7, knockdown: 0.85 },
-  nightmare: { resist: 1.4, decay: 0.8, cooldown: 0.9, knockdown: 0.7 },
+  casual: { resist: 0.8, decay: 0.3, cooldown: 0.25, knockdown: 1.2 },
+  normal: { resist: 1, decay: 0.4, cooldown: 0.3, knockdown: 1 },
+  hard: { resist: 1.2, decay: 0.5, cooldown: 0.45, knockdown: 0.85 },
+  nightmare: { resist: 1.4, decay: 0.6, cooldown: 0.6, knockdown: 0.7 },
 };
 
 /** Melee shove (shove.js): pips (shoves before you're tired), regen (s to get one back), tired (s of a weak shove once out). */

@@ -35,6 +35,7 @@ const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const SWIPE_TIME = 0.55;
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const lerpV = (out, a, b, t) => out.set(lerp(a.x, b.x, t), lerp(a.y, b.y, t), lerp(a.z, b.z, t));
+const jit = (w, t, f, a) => (w > 0.01 ? Math.sin(t * f + a) * w : 0); // (hit reactions: the tesla's shakes)
 
 const geomCache = new Map();
 function bodyGeometry(skin) {
@@ -270,6 +271,7 @@ class PlayerModel {
     this.reloadW = 0;
     this.reloadT = 0;
     this.recoil = 0;
+    this.clearHits(); // hit reactions (zombie survival, src/game/zstagger.js): see hit()
     this.pitch = 0;
     this.dead = null;
     this.ragdoll = null; // external physics pose (src/game/ragdoll.js) while dead
@@ -387,7 +389,74 @@ class PlayerModel {
     if (this.weaponHolder) this.weaponHolder.visible = true;
     if (this.weaponHolderL) this.weaponHolderL.visible = true;
     this.spd = 0; this.crouchW = 0; this.airW = 0; this.plantW = 0; this.reloadW = 0; this.recoil = 0;
+    this.clearHits();
     this._started = false;
+  }
+
+  // ---------------------------------------------------------------- hit reactions
+  // (zombie survival, driven by src/game/zstagger.js) decaying impulses added as extra bone
+  // rotations on top of the pose, like recoil: the head snaps back, the shoulders twist, a gut
+  // shot folds it, a leg buckles. And weights (0..1) the stagger module aims each frame with
+  // reelT / kneelT / stunT / flailT: reeling (staggered), on its hands and knees (a knockdown,
+  // or crawl = true for good), shaking (the tesla), arms flailing (on fire, panicking).
+  clearHits() {
+    this.hHeadP = 0; this.hHeadR = 0; this.hTwist = 0; this.hBend = 0; this.hFold = 0;
+    this.hDip = 0; this.hRoll = 0; this.hLegL = 0; this.hLegR = 0; this.hArmL = 0; this.hArmR = 0;
+    this.reelT = this.reelW = 0; this.kneelT = this.kneelW = 0; this.stunT = this.stunW = 0; this.flailT = this.flailW = 0;
+    this.crawl = false;
+  }
+
+  /**
+   * Took a hit: hitgroup (1 head .. 7 right leg), dir (GoldSrc [x,y,z] the round travelled, or
+   * null: from the front), point (where it landed, or null), k (strength, ~1 = a rifle round).
+   */
+  hit(hitgroup, dir, point, k = 1) {
+    if (this.dead || this.ragdoll || !(k > 0)) return;
+    const yaw = this.object3D.rotation.z, c = Math.cos(yaw), s = Math.sin(yaw);
+    // into the model's frame: fx along its facing (-1: from the front), fy to its left
+    let fx = -1, fy = 0;
+    if (dir) { fx = dir[0] * c + dir[1] * s; fy = -dir[0] * s + dir[1] * c; }
+    let ly = 0; // where across the body it landed (+ = its left)
+    if (point) { const px = point[0] - this.object3D.position.x, py = point[1] - this.object3D.position.y; ly = -px * s + py * c; }
+    switch (hitgroup) {
+      case 1: // head: snaps back (away from the shot), rolls with a side-on one
+        this.hHeadP = clamp(this.hHeadP + fx * 22 * k, -40, 40);
+        this.hHeadR = clamp(this.hHeadR - fy * 16 * k, -30, 30);
+        this.hBend = clamp(this.hBend + fx * 4 * k, -14, 14);
+        break;
+      case 4: case 5: { // an arm: that shoulder is knocked back (the chest twists), the arm flung
+        const side = hitgroup === 4 ? 1 : -1;
+        this.hTwist = clamp(this.hTwist - side * fx * 20 * k, -32, 32);
+        if (side > 0) this.hArmL = Math.min(1.4, this.hArmL + k); else this.hArmR = Math.min(1.4, this.hArmR + k);
+        break;
+      }
+      case 6: case 7: { // a leg buckles: the hip dips to that side
+        const side = hitgroup === 6 ? 1 : -1;
+        if (side > 0) this.hLegL = Math.min(1.4, this.hLegL + k); else this.hLegR = Math.min(1.4, this.hLegR + k);
+        this.hDip = Math.min(5, this.hDip + 2.2 * k);
+        this.hRoll = clamp(this.hRoll + side * 7 * k, -14, 14);
+        break;
+      }
+      case 3: // the gut: doubles over
+        this.hFold = Math.min(24, this.hFold + 11 * k);
+        this.hTwist = clamp(this.hTwist + clamp(-ly / 6, -1, 1) * fx * 8 * k, -32, 32);
+        break;
+      default: // the chest: rocked back, a shoulder twisted round by an off-centre hit
+        this.hBend = clamp(this.hBend + fx * 10 * k, -18, 18);
+        this.hTwist = clamp(this.hTwist + (clamp(-ly / 6, -1, 1) * fx * 16 + fy * 4) * k, -32, 32);
+        this.hHeadP = clamp(this.hHeadP + fx * 6 * k, -40, 40);
+    }
+  }
+
+  /** hit()'s impulses die away; the stagger weights follow their targets. */
+  _hitDecay(dt, k) {
+    const d = Math.exp(-dt * 7), d2 = Math.exp(-dt * 5);
+    this.hHeadP *= d; this.hHeadR *= d; this.hTwist *= d; this.hBend *= d; this.hFold *= d2;
+    this.hDip *= d; this.hRoll *= d; this.hLegL *= d2; this.hLegR *= d2; this.hArmL *= d; this.hArmR *= d;
+    this.reelW += (this.reelT - this.reelW) * k(9);
+    this.kneelW += ((this.kneelT || (this.crawl ? 1 : 0)) - this.kneelW) * k(this.kneelT ? 9 : 5);
+    this.stunW += (this.stunT - this.stunW) * k(16);
+    this.flailW += (this.flailT - this.flailW) * k(8);
   }
 
   /** Body proportions done with bone scales (the Charger's arm). */
@@ -463,6 +532,7 @@ class PlayerModel {
     if (st.firing && this.zombie) { this.swipeT = 0; this.swipeSide = -this.swipeSide; }
     else if (st.firing) this.recoil = 1;
     this.recoil *= Math.exp(-dt * 13);
+    this._hitDecay(dt, k);
     if (this.swipeT >= 0) { this.swipeT += dt; if (this.swipeT > SWIPE_TIME) this.swipeT = -1; }
     const pitch = clamp(st.pitch || 0, -89, 89);
     this.pitch = pitch;
@@ -497,8 +567,12 @@ class PlayerModel {
     pz = lerp(pz, lerp(37.6, 26.0, cw), aw);
     const gaitYaw = move * lerp(7, 10, run) * Math.cos(TAU * ph);
     const pelvisYaw = H.pelvis * (1 - 0.7 * move) * (1 - pw) + gaitYaw + gd * 0.8;
-    const pelvisPitch = lerp(6 * run * move, 10, cw) + 10 * pw + 4 * aw;
-    const pelvisRoll = move * 2.5 * Math.sin(TAU * ph) * (1 - cw);
+    let pelvisPitch = lerp(6 * run * move, 10, cw) + 10 * pw + 4 * aw;
+    let pelvisRoll = move * 2.5 * Math.sin(TAU * ph) * (1 - cw);
+    // hit reactions: a leg buckles, reeling back, down on its hands and knees
+    const kw = this.kneelW, rlw = this.reelW, jw = this.stunW, tm = this.time;
+    pz = lerp(pz - this.hDip - 2 * rlw, 21, kw); px = lerp(px - 2.5 * rlw, -1, kw);
+    pelvisPitch = lerp(pelvisPitch - 6 * rlw, 52, kw); pelvisRoll += this.hRoll + jit(jw, tm, 53, 0) * 4;
     rig.setPos(B.pelvis, this._tmp.a.set(px, 0, pz));
     rig.setRot(B.pelvis, qZYX(pelvisYaw, pelvisPitch, pelvisRoll, this._tmp.q));
 
@@ -508,12 +582,13 @@ class PlayerModel {
     const aimP = pitch * (1 - pw) + 35 * pw;
     const down = Math.max(0, aimP), up = Math.min(0, aimP);
     const chestP = lean + up * 0.3 + down * 0.42;
-    rig.setRot(B.spine, qZYX(lerp(pelvisYaw, chestYaw, 0.5), pelvisPitch * 0.5 + lean * 0.5 + up * 0.12 + down * 0.2, 0, this._tmp.q));
-    rig.setRot(B.chest, qZYX(chestYaw, chestP - breathe * 0.6 - this.recoil * 1.5, 0, this._tmp.q));
-    const headRoll = H.headRoll * (1 - 0.5 * move);
-    const headP = up * 0.9 + down * 0.72;
-    rig.setRot(B.neck, qZYX(chestYaw * 0.4, lerp(chestP, headP, 0.5), headRoll * 0.4, this._tmp.q));
-    rig.setRot(B.head, qZYX(0, headP, headRoll, this._tmp.q));
+    const twist = this.hTwist + jit(jw, tm, 47, 1) * 7, bend = this.hBend + this.hFold - 14 * rlw + jit(jw, tm, 61, 2) * 6; // (hits)
+    rig.setRot(B.spine, qZYX(lerp(pelvisYaw, chestYaw, 0.5) + twist * 0.4, lerp(pelvisPitch * 0.5 + lean * 0.5 + up * 0.12 + down * 0.2 + this.hFold * 0.6, 70, kw), 0, this._tmp.q));
+    rig.setRot(B.chest, qZYX(chestYaw + twist, lerp(chestP - breathe * 0.6 - this.recoil * 1.5 + bend, 84, kw), jit(jw, tm, 71, 3) * 5, this._tmp.q));
+    const headRoll = H.headRoll * (1 - 0.5 * move) + this.hHeadR + jit(jw, tm, 83, 4) * 12 + this.flailW * 14 * Math.sin(tm * 9);
+    const headP = lerp(up * 0.9 + down * 0.72 + this.hHeadP - 10 * rlw - 18 * this.flailW, 18, kw);
+    rig.setRot(B.neck, qZYX(chestYaw * 0.4 + twist * 0.6, lerp(lerp(chestP + bend, headP, 0.5), 60, kw), headRoll * 0.4, this._tmp.q));
+    rig.setRot(B.head, qZYX(twist * 0.3, headP, headRoll, this._tmp.q));
 
     // ---------------------------------------------------------- legs
     const legs = [['r', 0, -1], ['l', 0.5, 1]];
@@ -560,6 +635,15 @@ class PlayerModel {
       fp = lerp(fp, lerp(kneelP, gp, move), cw);
       fp = lerp(fp, kneelP, pw);
       fp = lerp(fp, side === 'r' ? 35 : -5, aw);
+      // hit reactions: the leg hit buckles (foot up, knee in); knocked down: knees on the floor, shins back (dragged along when it crawls)
+      const buckle = side === 'l' ? this.hLegL : this.hLegR;
+      if (buckle > 0.01) { target.z += 4.5 * buckle; target.x -= 3 * buckle; }
+      if (kw > 0.001) {
+        target.x = lerp(target.x, -15 + 5 * move * Math.sin(TAU * (ph + off)), kw);
+        target.y = lerp(target.y, s * 5.5, kw);
+        target.z = lerp(target.z, 6, kw);
+        fp = lerp(fp, 72, kw);
+      }
       const fyaw = lerp(lerp(st.yaw * holdK, s * 5 + gd, move), s * 8, cw * (1 - move)) + pelvisYaw * 0.3;
       // knee pole: forward, a little outward
       const kp = ((pelvisYaw * 0.5 + gd * 0.5) * Math.PI) / 180;
@@ -697,7 +781,20 @@ class PlayerModel {
           p.copy(strike).lerp(rest, smooth(0.75, 1, s));
         }
       }
+      // hit reactions: the arm hit flung back; reeling, arms up and back; on fire, waving over its head;
+      // knocked down / crawling, hands on the floor (pawing forward when it moves); the tesla, rigid and shaking
+      const ah = side > 0 ? this.hArmR : this.hArmL;
+      if (ah > 0.01) { p.x -= 9 * ah; p.z += 4 * ah; }
+      if (this.reelW > 0.01) { p.x -= 7 * this.reelW; p.y -= 3 * side * this.reelW; p.z += 7 * this.reelW; }
+      if (this.flailW > 0.01) p.lerp(this._tmp.a.set(5 + 5 * Math.sin(t * 11 + side * 2), -11 * side, 24 + 6 * Math.sin(t * 14 + side)), this.flailW);
+      if (this.stunW > 0.01) { p.z += Math.sin(t * 67 + side) * 2.5 * this.stunW; p.y -= 3 * side * this.stunW; }
       const target = rig.point(B.chest, p);
+      if (this.kneelW > 0.001) {
+        const sh = rig.point(B.chest, this._tmp.a.set(0, -8 * side, 7), this._tmp.b);
+        const paw = move * Math.sin(TAU * ph + (side > 0 ? Math.PI : 0));
+        target.lerp(this._tmp.a.set(sh.x + 4 + 6 * paw, sh.y - 1.5 * side, 1.5 + 2.5 * Math.max(0, paw)), this.kneelW);
+        fingers.lerp(fwd, this.kneelW).normalize(); palm.multiplyScalar(1 - this.kneelW).addScaledVector(up, -this.kneelW).normalize();
+      }
       const q = handQuat(fingers, palm, side < 0, new THREE.Quaternion());
       if (side > 0) {
         rig.ik(B.upperarm_r, B.forearm_r, B.hand_r, target, H.poleR, 'arm');
