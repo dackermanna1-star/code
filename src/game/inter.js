@@ -4,7 +4,7 @@
 
 import {
   MF, SKILL, MAXHEALTH, WP, AM, PW, CARDS, INVULNTICS, INVISTICS, INFRATICS, IRONTICS,
-  ONFLOORZ, pointToAngle, ANG180,
+  ONFLOORZ, pointToAngle, ANG180, modRandom,
 } from './defs.js';
 import { MT, S, SPR, WEAPONINFO } from './tables.js';
 import { MAX_AMMO, CLIP_AMMO } from './info.js';
@@ -222,8 +222,8 @@ export function killMobj(w, source, target, hit) {
   mo.flags |= MF.DROPPED;
   // Toss the dropped item a little (modern touch, keeps it reachable).
   if (w.settings.physics) {
-    mo.momx = (Math.random() - 0.5) * 3;
-    mo.momy = (Math.random() - 0.5) * 3;
+    mo.momx = (modRandom(w) - 0.5) * 3;
+    mo.momy = (modRandom(w) - 0.5) * 3;
     mo.momz = 3;
     mo.z = target.z + 16;
   }

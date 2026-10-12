@@ -3,7 +3,7 @@
 // written as plain JSON with references encoded by index/id, then restored
 // onto a freshly loaded copy of the same map.
 
-import { Mobj } from './mobj.js';
+import { Mobj, reserveMobjIds } from './mobj.js';
 import { MOBJINFO } from './tables.js';
 import { setThingPosition } from './maputl.js';
 import { World } from './world.js';
@@ -66,6 +66,13 @@ class Encoder {
   }
 }
 
+// Plain numeric/boolean fields of an object (world counters, RNG seeds...).
+function scalars(o) {
+  const out = {};
+  for (const [k, v] of Object.entries(o)) if (typeof v === 'number' || typeof v === 'boolean') out[k] = v;
+  return out;
+}
+
 export function saveGame(game, description = '') {
   const w = game.world;
   const p = game.player;
@@ -93,12 +100,20 @@ export function saveGame(game, description = '') {
       prndindex: w.rng.prndindex,
       rndindex: w.rng.rndindex,
       aiSeed: w.aiSeed || 0,
+      modSeed: w.modSeed || 0,
       totalkills: w.totalkills,
       totalitems: w.totalitems,
       totalsecret: w.totalsecret,
       brainTargets: w.brainTargets ? enc.ref(w.brainTargets) : null,
       brainTargetOn: w.brainTargetOn || 0,
+      // Every other scalar field (e.g. extra RNG seeds) generically.
+      scalars: scalars(w),
+      rng: scalars(w.rng),
     },
+    // Texture/flat numbers are WAD-specific: keep the name tables so a save
+    // can be loaded with a different IWAD that has the same map.
+    textureNames: game.res.textures.map((t) => t.name),
+    flatNames: game.res.flats.map((f) => f.name),
     sectors: w.level.sectors.map((s) => {
       const o = {};
       for (const f of SECTOR_FIELDS) o[f] = s[f];
@@ -155,39 +170,66 @@ class Decoder {
   }
 }
 
+// World fields that come from the loaded WAD rather than the game state.
+const RESOURCE_SCALARS = new Set(['skyFlatIndex']);
+
+// Maps a saved texture/flat number to this WAD's number via the saved names.
+function remapper(names, current, lookup) {
+  if (!Array.isArray(names) || (names.length === current.length && names.every((n, i) => current[i].name === n))) {
+    return (i) => i;
+  }
+  return (i) => (typeof i === 'number' && typeof names[i] === 'string' ? lookup(names[i]) : i);
+}
+
 // Builds a World from save data. `game` provides the WAD stack/resources.
 export function loadGame(game, data) {
   if (!data || data.version !== SAVE_VERSION) throw new Error('incompatible save');
   const lumps = game.stack.mapLumps(data.mapName);
   if (!lumps) throw new Error(`map ${data.mapName} missing`);
-  game.skill = data.skill;
-  game.episode = data.episode;
-  game.map = data.map;
+  // `game` is only updated once the save has been restored, so a failed load
+  // leaves the running game untouched.
   const player = new Player();
-  game.player = player;
   const w = new World({
     game, res: game.res, settings: game.settings.values, mapName: data.mapName, episode: data.episode, map: data.map,
     commercial: game.commercial, gamemode: game.gamemode, skill: data.skill, player, lumps, audio: game.audio,
   });
+  const L = w.level;
+  if (data.sectors.length !== L.sectors.length || data.lines.length !== L.lines.length
+    || data.sides.length !== L.sides.length) {
+    throw new Error(`save does not match ${data.mapName} in this wad`);
+  }
   const ws = data.world;
+  if (ws.scalars) {
+    for (const [k, v] of Object.entries(ws.scalars)) {
+      if (!RESOURCE_SCALARS.has(k) && (w[k] === undefined || typeof w[k] === typeof v)) w[k] = v;
+    }
+  }
+  if (ws.rng) Object.assign(w.rng, ws.rng);
   w.leveltime = ws.leveltime;
   w.gametic = ws.gametic;
   w.rng.prndindex = ws.prndindex;
   w.rng.rndindex = ws.rndindex;
   w.aiSeed = ws.aiSeed;
+  w.modSeed = ws.modSeed || 0;
   w.totalkills = ws.totalkills;
   w.totalitems = ws.totalitems;
   w.totalsecret = ws.totalsecret;
   w.specials.initStatic();
-  const L = w.level;
+  const tex = remapper(data.textureNames, game.res.textures, (n) => game.res.textureNum(n));
+  const flat = remapper(data.flatNames, game.res.flats, (n) => game.res.flatNum(n));
   data.sectors.forEach((o, i) => {
     const s = L.sectors[i];
     for (const f of SECTOR_FIELDS) s[f] = o[f];
+    s.floorpic = flat(s.floorpic);
+    s.ceilingpic = flat(s.ceilingpic);
     s.prevFloor = s.floorheight;
     s.prevCeil = s.ceilingheight;
   });
   data.lines.forEach((o, i) => { for (const f of LINE_FIELDS) L.lines[i][f] = o[f]; });
-  data.sides.forEach((o, i) => { for (const f of SIDE_FIELDS) L.sides[i][f] = o[f]; });
+  data.sides.forEach((o, i) => {
+    for (const f of SIDE_FIELDS) L.sides[i][f] = o[f];
+    for (const f of ['toptexture', 'bottomtexture', 'midtexture']) L.sides[i][f] = tex(L.sides[i][f]);
+  });
 
   // Objects first (unresolved), then thinkers, then resolve references.
   const mobjsById = new Map();
@@ -207,7 +249,12 @@ export function loadGame(game, data) {
     setThingPosition(w, mo);
     w.mobjs.add(mo);
   }
+  // Restored objects keep their saved ids: new spawns must not reuse them.
+  let maxId = 0;
+  for (const id of mobjsById.keys()) if (id > maxId) maxId = id;
+  reserveMobjIds(maxId);
   data.thinkers.forEach((t, i) => Object.assign(thinkers[i], dec.deref(t.f), { removed: false }));
+  for (const t of thinkers) if (t instanceof FloorMove && typeof t.texture === 'number') t.texture = flat(t.texture);
   w.thinkers = data.thinkerOrder.map((o) => ('m' in o ? mobjsById.get(o.m) : thinkers[o.t])).filter(Boolean);
   data.sectors.forEach((o, i) => {
     L.sectors[i].soundtarget = dec.deref(o.soundtarget);
@@ -217,6 +264,7 @@ export function loadGame(game, data) {
   w.specials.activeplats = dec.deref(data.specials.activeplats) || [];
   w.specials.activeceilings = dec.deref(data.specials.activeceilings) || [];
   w.specials.buttons = dec.deref(data.specials.buttons) || [];
+  for (const b of w.specials.buttons) if (b && typeof b.btexture === 'number') b.btexture = tex(b.btexture);
   if (ws.brainTargets) { w.brainTargets = dec.deref(ws.brainTargets); w.brainTargetOn = ws.brainTargetOn; }
 
   // Player
@@ -225,6 +273,10 @@ export function loadGame(game, data) {
   player.damageDirs = [];
   if (player.mo) player.mo.player = player;
   player.mods.reload = player.mods.reload || null;
+  game.skill = data.skill;
+  game.episode = data.episode;
+  game.map = data.map;
+  game.player = player;
   return w;
 }
 

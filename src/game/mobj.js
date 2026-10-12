@@ -12,6 +12,11 @@ import { tryMove, slideMove, aimLineAttack, mapState } from './map.js';
 
 let nextId = 1;
 
+// After loading a save, keep new ids clear of the restored mobjs' ids.
+export function reserveMobjIds(maxId) {
+  if (nextId <= maxId) nextId = maxId + 1;
+}
+
 export class Mobj {
   constructor(type) {
     this.id = nextId++;

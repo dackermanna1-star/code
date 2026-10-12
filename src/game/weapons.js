@@ -5,6 +5,7 @@
 
 import {
   MF, WP, AM, PW, MISSILERANGE, MELEERANGE, SPREAD_UNIT, ANG90, ANG180, TAU, normAngle, pointToAngle,
+  modRandom,
 } from './defs.js';
 import { S, MT, stateTics, stateNext, stateAction, WEAPONINFO, registerActions } from './tables.js';
 import { setMobjState, spawnMobj, spawnPlayerMissile } from './mobj.js';
@@ -364,7 +365,7 @@ function applyRecoil(w, player, scale = 1) {
   let pitch = r.pitch * DEG * k;
   if (r.climb && player.refire > 0) pitch *= 1 + Math.min(player.refire, 12) * 0.06;
   m.recoilPitch += pitch;
-  m.recoilYaw += (Math.random() * 2 - 1) * r.yaw * DEG * k;
+  m.recoilYaw += (modRandom(w) * 2 - 1) * r.yaw * DEG * k;
   m.kick += r.kick * (1 - 0.3 * m.ads);
   m.shake = Math.min(8, m.shake + r.shake * k);
   m.recoverRate = r.recover || 0.85;

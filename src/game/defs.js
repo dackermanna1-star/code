@@ -83,6 +83,14 @@ export class Random {
   }
 }
 
+// Deterministic [0,1) generator for gameplay-affecting modern extensions
+// (recoil yaw, dropped item tosses). Separate from P_Random so vanilla's
+// sequence is untouched; its state lives in w.modSeed (persisted by saves).
+export function modRandom(w) {
+  w.modSeed = (Math.imul(w.modSeed || 7654321, 1103515245) + 12345) >>> 0;
+  return (w.modSeed >>> 8) / 16777216;
+}
+
 // Cosmetic randomness (not part of the deterministic sim).
 export function frand(min = 0, max = 1) {
   return min + Math.random() * (max - min);

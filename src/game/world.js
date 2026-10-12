@@ -30,6 +30,7 @@ export class World {
     this.respawnmonsters = opts.skill === SKILL.NIGHTMARE || !!opts.respawn;
     this.nomonsters = !!opts.nomonsters;
     this.rng = new Random();
+    this.modSeed = 0; // state of modRandom() (defs.js), separate from P_Random
     this.leveltime = 0;
     this.gametic = 0;
     this.validcount = 1;
