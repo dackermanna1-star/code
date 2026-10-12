@@ -26,27 +26,52 @@ public final class LevelChecks {
 
 	/**
 	 * Whether every cell crossed by the segment from {@code from} to {@code to} is AIR, apart from the laptop's own cell
-	 * (the segment is allowed to end on the screen inside it).
+	 * (the segment is allowed to end on the screen inside it). Walks the exact sequence of cells the segment passes
+	 * through (Amanatides-Woo).
 	 */
 	public static boolean clearLineOfSight(MiniWorld w, double[] from, double[] to) {
 		double dx = to[0] - from[0];
 		double dy = to[1] - from[1];
 		double dz = to[2] - from[2];
-		double length = Math.sqrt(dx * dx + dy * dy + dz * dz);
-		int steps = Math.max(1, (int) Math.ceil(length * 64.0));
-		for (int i = 0; i <= steps; i++) {
-			double t = (double) i / steps;
-			int x = (int) Math.floor(from[0] + dx * t);
-			int y = (int) Math.floor(from[1] + dy * t);
-			int z = (int) Math.floor(from[2] + dz * t);
-			if (x == w.laptopX && y == w.laptopY && z == w.laptopZ) {
-				continue;
-			}
-			if (w.get(x, y, z) != MiniBlock.AIR) {
+		int x = (int) Math.floor(from[0]);
+		int y = (int) Math.floor(from[1]);
+		int z = (int) Math.floor(from[2]);
+		int endX = (int) Math.floor(to[0]);
+		int endY = (int) Math.floor(to[1]);
+		int endZ = (int) Math.floor(to[2]);
+		int stepX = dx > 0 ? 1 : -1;
+		int stepY = dy > 0 ? 1 : -1;
+		int stepZ = dz > 0 ? 1 : -1;
+		double deltaX = dx == 0 ? Double.POSITIVE_INFINITY : Math.abs(1.0 / dx);
+		double deltaY = dy == 0 ? Double.POSITIVE_INFINITY : Math.abs(1.0 / dy);
+		double deltaZ = dz == 0 ? Double.POSITIVE_INFINITY : Math.abs(1.0 / dz);
+		double maxX = dx == 0 ? Double.POSITIVE_INFINITY : (dx > 0 ? x + 1 - from[0] : from[0] - x) * deltaX;
+		double maxY = dy == 0 ? Double.POSITIVE_INFINITY : (dy > 0 ? y + 1 - from[1] : from[1] - y) * deltaY;
+		double maxZ = dz == 0 ? Double.POSITIVE_INFINITY : (dz > 0 ? z + 1 - from[2] : from[2] - z) * deltaZ;
+		// t runs from 0 at the start to 1 at the end of the segment
+		while (true) {
+			boolean laptop = x == w.laptopX && y == w.laptopY && z == w.laptopZ;
+			if (!laptop && w.get(x, y, z) != MiniBlock.AIR) {
 				return false;
 			}
+			if (x == endX && y == endY && z == endZ) {
+				return true;
+			}
+			double next = Math.min(maxX, Math.min(maxY, maxZ));
+			if (next > 1.0) {
+				return true;
+			}
+			if (maxX <= maxY && maxX <= maxZ) {
+				x += stepX;
+				maxX += deltaX;
+			} else if (maxY <= maxZ) {
+				y += stepY;
+				maxY += deltaY;
+			} else {
+				z += stepZ;
+				maxZ += deltaZ;
+			}
 		}
-		return true;
 	}
 
 	/** True if the spawn eye sees the laptop screen centre with nothing in between. */

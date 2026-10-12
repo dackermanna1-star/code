@@ -27,8 +27,9 @@ import static com.mineception.dream.MiniBlock.YELLOW_CONCRETE;
 
 /**
  * Level 1, The City: a rainy avenue between brick, stone and glass towers. The laptop waits on a café table in the
- * pedestrian square where the avenue begins; from the spawn the street runs away from you past the laptop, through a
- * zebra-striped intersection, into the rain. Built in the canonical frame (looking north up the avenue).
+ * pedestrian square where the avenue begins; from the spawn the street runs away from you past the laptop, either
+ * through a zebra-striped intersection into the rain or, in most dreams, up into the sky where the city folds over
+ * itself. Built in the canonical frame (looking north up the avenue).
  */
 final class CityLevel {
 	/** First air layer above the street. */
@@ -39,6 +40,8 @@ final class CityLevel {
 	private static final int BACK_Z = 37;
 	/** How often the far end of the avenue folds up into the sky. */
 	private static final double FOLD_CHANCE = 0.6;
+	/** Cross street row for layouts without one (far outside the level, so nothing is drawn). */
+	private static final int NO_CROSS_STREET = -100;
 
 	private enum Style {
 		BRICK, STONE, OFFICE, DARK
@@ -63,7 +66,7 @@ final class CityLevel {
 		int ac = random.range(18, 21);
 		int squareZ = random.range(26, 27);
 		if (random.chance(FOLD_CHANCE)) {
-			return new CityLevel(w, random, ac, -100, squareZ).buildFolded();
+			return new CityLevel(w, random, ac, NO_CROSS_STREET, squareZ).buildFolded();
 		}
 		return new CityLevel(w, random, ac, random.range(11, 15), squareZ).build();
 	}

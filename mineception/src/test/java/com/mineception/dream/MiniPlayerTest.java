@@ -308,6 +308,22 @@ class MiniPlayerTest {
 	}
 
 	@Test
+	void underwaterWallsCannotBeClimbedByBumpingThem() {
+		MiniWorld w = new MiniWorld(1, 0L);
+		Build.fill(w, 0, 0, 0, 39, 0, 39, MiniBlock.STONE);
+		Build.fill(w, 0, 1, 0, 39, 20, 39, MiniBlock.WATER);
+		Build.fill(w, 15, 1, 0, 15, 20, 39, MiniBlock.STONE);
+		MiniPlayer p = at(13.5, 5.0, 10.5, 270.0F);
+		double fastestUp = 0;
+		for (int i = 0; i < 40; i++) {
+			p.tick(w, FORWARD);
+			fastestUp = Math.max(fastestUp, p.vy);
+		}
+		assertTrue(fastestUp < 0.1, "launched up an underwater wall: vy " + fastestUp);
+		assertTrue(p.y < 5.0, "sinks slowly while pushing against the wall");
+	}
+
+	@Test
 	void interpolationFieldsTrackThePreviousTick() {
 		MiniWorld w = flat();
 		MiniPlayer p = at(10.5, 4.0, 10.5, 270.0F);

@@ -122,6 +122,7 @@ BODY_LO = (56, 59, 66)
 BODY_DARK = (38, 40, 45)
 KEY = (22, 23, 27)
 KEY_TOP = (44, 46, 52)
+KEY_ROW = (30, 31, 36)
 BEZEL = (17, 18, 21)
 BEZEL_HI = (30, 32, 36)
 SCREEN_TOP = (10, 14, 24)
@@ -164,9 +165,12 @@ def keyboard(rng, g):
 		img.putpixel((x, z0), jitter(rng, BODY_DARK, 2))
 	rows = [z0 + 1 + i for i in range(4)]
 	for i, v in enumerate(rows):
+		# Staggered rows of two-pixel keys with dark separators, alternating shade so the rows read apart
+		offset = i % 2
 		for x in range(x0 + 1, x1 - 1):
-			on_key = (x + i) % 2 == 0
-			img.putpixel((x, v), jitter(rng, KEY if on_key else BODY_LO, 2))
+			separator = (x + offset) % 3 == 0
+			shade = KEY if i % 2 == 0 else KEY_ROW
+			img.putpixel((x, v), jitter(rng, BODY_DARK if separator else shade, 2))
 	space = z0 + 5
 	for x in range(x0 + 1, x1 - 1):
 		mid = x0 + 4 <= x < x1 - 4
@@ -179,11 +183,6 @@ def keyboard(rng, g):
 			img.putpixel((x, v), jitter(rng, BODY_LO if border else BODY_HI, 2))
 	for x in range(x0, x1):
 		img.putpixel((x, z1 - 1), jitter(rng, BODY_HI, 2))
-	# Key tops catch a little light
-	for i, v in enumerate(rows[:1]):
-		for x in range(x0 + 1, x1 - 1):
-			if (x + i) % 2 == 0 and rng.random() < 0.25:
-				img.putpixel((x, v), jitter(rng, KEY_TOP, 2))
 	return img
 
 

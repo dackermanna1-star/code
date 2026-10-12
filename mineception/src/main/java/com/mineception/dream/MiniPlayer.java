@@ -129,16 +129,12 @@ public final class MiniPlayer {
 		double forward = (input.forward() ? 1 : 0) - (input.back() ? 1 : 0);
 		double length = Math.sqrt(strafe * strafe + forward * forward);
 		if (length > 0.0) {
-			double scale = INPUT_SCALE * (sneaking ? SNEAK_SPEED : 1.0) / length;
+			// Diagonal input is stretched toward the unit square (capped at 1), so it is slightly faster than straight
+			double magnitude = INPUT_SCALE * (sneaking ? SNEAK_SPEED : 1.0);
+			double ratio = Math.min(Math.abs(strafe), Math.abs(forward)) / Math.max(Math.abs(strafe), Math.abs(forward));
+			double scale = Math.min(magnitude * Math.sqrt(1.0 + ratio * ratio), 1.0) / length;
 			strafe *= scale;
 			forward *= scale;
-			double nx = Math.abs(strafe) / Math.hypot(strafe, forward);
-			double nz = Math.abs(forward) / Math.hypot(strafe, forward);
-			double ratio = nz > nx ? nx / nz : nz / nx;
-			double magnitude = Math.hypot(strafe, forward);
-			double square = Math.min(magnitude * Math.sqrt(1.0 + ratio * ratio), 1.0) / magnitude;
-			strafe *= square;
-			forward *= square;
 		}
 
 		if (input.sprint() && input.forward() && !input.back() && !sneaking) {
@@ -178,8 +174,9 @@ public final class MiniPlayer {
 			if (!sprinting) {
 				vy -= GRAVITY / 16.0;
 			}
-			// Swimming into a ledge with room above it lets the player climb out, like vanilla
-			if (horizontalCollision && !collides(world, x + vx, startY + 0.6 + vy, z + vz)) {
+			// Swimming into a ledge with dry room above it lets the player climb out, like vanilla
+			double outY = startY + 0.6 + vy;
+			if (horizontalCollision && !collides(world, x + vx, outY, z + vz) && !touchesWater(world, x + vx, outY, z + vz)) {
 				vy = 0.3;
 			}
 		} else {
