@@ -29,6 +29,7 @@ import { Grenades } from './grenades.js';
 import { RagdollSystem } from './ragdoll.js';
 import { surfaceOfBrush } from './surfaces.js';
 import { lightCurve } from '../map/meshbuilder.js';
+import { CamShake } from './camshake.js';
 
 export const TICK = 0.01;
 
@@ -54,6 +55,7 @@ const tmpTr = new TraceResult();
 const _f = [0, 0, 0], _r = [0, 0, 0], _u = [0, 0, 0];
 const MEDKIT_REACH = 96; // patching up a teammate: this close, and facing him
 const dist3 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+const HIT_STOP_SCALE = 0.05; // the world's speed during a hit-stop (zombie survival, zfeedback.js)
 
 export class Game {
   constructor(env) {
@@ -104,7 +106,9 @@ export class Game {
     this.arcs = new Arcs(this.effects.group); // the tesla gun's lightning
     this.explosives = new Explosives(this); // claymores, remote C4
     this.gore = new Gore(this); // gibs, permanent bodies
-    this.shake = null;
+    this.shake = null; // (an old-style { until, amp } written here still works: shakeOffset hands it to the shaker)
+    this.shaker = new CamShake(); // smooth, decaying camera shake (camshake.js)
+    this.hitStop = 0; // s of real time the world still holds still (zombie survival hit-stop)
     this.shotSeq = 0; // trigger pulls fired (a bullet shot's id: its pellets share it)
     this.rounds = new RoundManager(this);
     this.bots = new BotManager(this);
@@ -681,7 +685,7 @@ export class Game {
     else if (head) this.sound.play(res.helmetHit ? 'hit_kevlar' : 'headshot', { pos, volume: 1 });
     else if (!res.bleed) this.sound.play('hit_kevlar', { pos, volume: 0.8 });
     else this.sound.play('hit_flesh', { pos, volume: 0.9 });
-    if (victim === this.local && attacker && attacker !== victim) this.hudDamage(attacker);
+    if (victim === this.local && attacker && attacker !== victim) { const from = opts.fire || opts.acid ? this.zombies.feedback.hazard(victim, dir, opts) : attacker.pm.origin; if (from) this.hudDamage(attacker, from); } // (fire / acid: toward the hazard, not the thrower)
     if (victim.isBot) this.bots.onHurt(victim, attacker);
     if (this.zombies.enabled) this.zombies.events.hit(victim, attacker, hp0 - Math.max(0, victim.health), ar0 - victim.armor, damage, res.hitgroup ?? hitgroup, head, weaponId, dir, point, opts);
     if (victim.health <= 0) this.killPlayer(victim, attacker, weaponId, head && !opts.blast);
@@ -694,9 +698,9 @@ export class Game {
     if (pm.velocityModifier < 1 && pm.onground) pm.velocityModifier = Math.min(1, pm.velocityModifier + 0.01);
   }
 
-  hudDamage(attacker) {
+  hudDamage(attacker, from = attacker.pm.origin) {
     const a = this.local;
-    const dx = attacker.pm.origin[0] - a.pm.origin[0], dy = attacker.pm.origin[1] - a.pm.origin[1];
+    const dx = from[0] - a.pm.origin[0], dy = from[1] - a.pm.origin[1];
     const ang = Math.atan2(dy, dx) / DEG - a.pm.angles[1];
     const n = ((ang % 360) + 540) % 360 - 180;
     const d = Math.abs(n) < 45 ? 'front' : Math.abs(n) > 135 ? 'back' : n > 0 ? 'left' : 'right';
@@ -727,7 +731,7 @@ export class Game {
       victim.kills--;
     }
     const aName = attacker ? attacker.name : victim.name;
-    this.hud?.addKill({ attacker: attacker && attacker !== victim ? aName : '', attackerTeam: attacker?.team, victim: victim.name, victimTeam: victim.team, weapon: weaponId === 'world' ? 'world' : weaponId, headshot });
+    if (!(this.zombies.enabled && this.zombies.feedback.quietKill(victim, attacker))) this.hud?.addKill({ attacker: attacker && attacker !== victim ? aName : '', attackerTeam: attacker?.team, victim: victim.name, victimTeam: victim.team, weapon: weaponId === 'world' ? 'world' : weaponId, headshot }); // (zombie survival: common kills go to a quiet counter)
     if (this.local) this.menus?.print?.(`${attacker && attacker !== victim ? aName + ' killed ' + victim.name : victim.name + ' died'}${weaponId && weaponId !== 'world' ? ' with ' + weaponId : ''}`);
     // drop primary (or pistol) and the bomb
     const pos = victim.eyePos();
@@ -1052,6 +1056,9 @@ export class Game {
     // bullet cam: the world runs frozen / in slow motion while it plays
     const cine = this.bulletCam.active && !this.paused;
     if (cine) { this.bulletCam.update(dt); dt *= this.bulletCam.worldScale; }
+    // hit-stop (zombie survival, zfeedback.js): the world all but stops for a few ms; the camera runs on
+    const stop = this.hitStop > 0 && !this.paused;
+    if (stop) { const held = Math.min(this.hitStop, realDt); this.hitStop -= held; dt -= held * (1 - HIT_STOP_SCALE); }
     if (this.started && !this.paused) {
       if (cine) this.input.consumeMouse();
       else this.applyMouse();
@@ -1074,7 +1081,7 @@ export class Game {
     this.arcs.update(this.paused ? 0 : dt);
     if (this.zombies.enabled) { this.gore.updateStatics(); this.zombies.specials.render(); } // bodies / gibs / brass added this frame; smokers' tongues
     this.fire.render(this.paused ? 0 : dt);
-    this.updateCamera(cine ? realDt : dt, alpha);
+    this.updateCamera(cine || stop ? realDt : dt, alpha);
     this.updateSoundListener();
   }
 
@@ -1198,6 +1205,7 @@ export class Game {
     } else {
       this.drawVm = false;
       if (this.laserDot) this.laserDot.visible = false;
+      this.shakeOffset(dt); // (a shake still runs out while you're not behind your own eyes)
       this.updateSpectatorCamera(dt, alpha);
     }
   }
@@ -1437,18 +1445,17 @@ export class Game {
     if (!e) return;
     const k = Math.max(0, 1 - Math.hypot(pos[0] - e[0], pos[1] - e[1], pos[2] - e[2]) / range);
     if (k <= 0.02) return;
-    const s = this.shake;
-    const a = amp * k;
-    if (!s || this.time > s.until || a > s.amp) this.shake = { until: this.time + 0.35 + 0.6 * k, amp: a, start: this.time };
+    this.shaker.add(amp * k, 0.45 + 0.8 * k); // (a trauma knock: camshake.js)
   }
 
-  shakeOffset() {
-    const s = this.shake, o = this._shk || (this._shk = [0, 0, 0]);
-    if (!s || this.time > s.until) { o[0] = o[1] = o[2] = 0; return o; }
-    const k = (s.until - this.time) / Math.max(0.1, s.until - (s.start ?? this.time));
-    const a = s.amp * Math.min(1, k) * 0.35;
-    o[0] = (Math.random() - 0.5) * a; o[1] = (Math.random() - 0.5) * a; o[2] = (Math.random() - 0.5) * a * 0.6;
-    return o;
+  /** Shake the view wherever you are (amp on shakeAt's scale, gone after dur s). */
+  addShake(amp, dur = 1) { this.shaker.add(amp, dur); }
+
+  /** The view's shake offset [pitch, yaw, roll] this frame (camshake.js: smooth, eases out). */
+  shakeOffset(dt = 0) {
+    const s = this.shake;
+    if (s) { this.shake = null; if (this.time < s.until) this.shaker.add(s.amp, s.until - this.time); } // (an old-style write)
+    return this.shaker.offset(this.paused ? 0 : dt);
   }
 
   inZone(p, zone) {

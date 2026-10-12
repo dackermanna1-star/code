@@ -156,7 +156,7 @@ export class BossDirector {
     BF?.puddle([o[0], o[1], o[2] - 36], { delay: 0.6, radius: 60 });
     if (def.id === 'spitter') {
       g.fire?.ignite(o, b, { kind: 'acid', radius: 170, duration: 8, dps: 25, weapon: 'acid', burn: 0 });
-      for (const q of this.Z.humans()) if (dist2(q.pm.origin, o) < 200) g.fire?.hurt(q, b, 30, 'acid', 'acid');
+      for (const q of this.Z.humans()) if (dist2(q.pm.origin, o) < 200) g.fire?.hurt(q, b, 30, 'acid', 'acid', o);
     }
     if (def.id === 'inferno') {
       // he goes up a moment later
@@ -434,7 +434,7 @@ export class BossDirector {
       g.damagePlayer(q, b, (10 + 22 * k) * B.dmgK, CR.HITGROUP.GENERIC, 'scream', null, null, { blast: true });
       q.pm.velocityModifier = 0.35;
       if (q.isLocal) {
-        g.shake = { until: g.time + 1.4, amp: 6 + 8 * k };
+        g.addShake?.(6 + 8 * k, 1.4);
         q.flashStart = g.time; q.flashFull = g.time + 0.1; q.flashUntil = g.time + 0.9; q.flashMax = 0.35 + 0.3 * k;
       }
     }
@@ -490,7 +490,7 @@ export class BossDirector {
       }
       if (t >= B.auraT) {
         B.auraT = t + 0.25;
-        for (const q of this.Z.humans()) if (Math.hypot(q.pm.origin[0] - o[0], q.pm.origin[1] - o[1], q.pm.origin[2] - o[2]) < 120) { F.hurt(q, b, 4, 'fireball', 'fire'); F.burn(q, b, 1.5, 12, 'fireball'); }
+        for (const q of this.Z.humans()) if (Math.hypot(q.pm.origin[0] - o[0], q.pm.origin[1] - o[1], q.pm.origin[2] - o[2]) < 120) { F.hurt(q, b, 4, 'fireball', 'fire', o); F.burn(q, b, 1.5, 12, 'fireball'); }
       }
     }
     if (B.state === 'fire_up') {

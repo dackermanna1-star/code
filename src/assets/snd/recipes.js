@@ -6,6 +6,7 @@ import { GUNS, SUPPRESSED, HANDLING, gunshot, suppressed } from './weapons.js';
 import { FOLEY } from './foley.js';
 import { MISC } from './misc.js';
 import { ZOMBIE_FX } from './zombie.js';
+import { HIT_FX } from './hitfx.js';
 
 // ------------------------------------------------------------- catalogue ---
 
@@ -41,6 +42,7 @@ export const SOUND_GROUPS = {
     'tesla_fire', 'tesla_hit', 'medkit_use', 'medkit_heal', 'sup_pistol', 'sup_smg', 'sup_rifle', 'sup_heavy', 'attach_fit'],
   'Special infected': ['boomer_idle', 'boomer_vomit', 'boomer_burst', 'charger_roar', 'hunter_scream', 'hunter_pounce', 'smoker_cough',
     'tongue_shot', 'sprinter_shriek'],
+  'Hit confirmation': ['hit_tick', 'hit_head', 'hit_kill'], // zombie survival (zfeedback.js)
 };
 
 // Default GoldSrc-style attenuation and per-play pitch jitter for each sound.
@@ -69,6 +71,7 @@ for (const [name, g] of Object.entries(GUNS)) DEFS[name] = { ...g, fn: (P) => gu
 for (const [name, g] of Object.entries(SUPPRESSED)) DEFS[name] = { ...g, fn: (P) => suppressed(P, g.p), attn: 'normal', jitter: 0.015 };
 for (const [name, d] of Object.entries({ ...HANDLING, ...FOLEY, ...MISC, ...ZOMBIE_FX })) DEFS[name] = { ...d };
 DEFS.buy = { alias: 'ammo_pickup' };
+for (const [name, d] of Object.entries(HIT_FX)) DEFS[name] = { ...d };
 // a recipe nobody listed above still gets made (the bank only renders catalogued names)
 {
   const listed = new Set(Object.values(SOUND_GROUPS).flat());

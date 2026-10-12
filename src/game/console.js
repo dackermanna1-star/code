@@ -31,6 +31,10 @@ export class Console {
         setv('cl_bulletcam', num(1) ? 1 : 0);
         if (!s.get('cl_bulletcam')) g.bulletCam?.stop();
         break;
+      case 'cl_damagenumbers':
+        if (arg === '') { this.print(`"cl_damagenumbers" is "${s.get('cl_damagenumbers') ? 1 : 0}"`); break; }
+        setv('cl_damagenumbers', num(1) ? 1 : 0);
+        break;
       case 'violence_hblood':
         if (arg === '') { this.print(`"violence_hblood" is "${s.get('violence_hblood') ?? 1}"`); break; }
         setv('violence_hblood', num(1) ? 1 : 0);

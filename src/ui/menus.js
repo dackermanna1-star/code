@@ -417,6 +417,11 @@ export class Menus {
       mp.appendChild(bc);
       controls.push(['cl_bulletcam', () => bool('cl_bulletcam', bc.input.checked)]);
     }
+    if ('cl_damagenumbers' in cur) {
+      const dn = this._check('Damage numbers in zombie survival (cl_damagenumbers)', cur.cl_damagenumbers);
+      mp.appendChild(dn);
+      controls.push(['cl_damagenumbers', () => bool('cl_damagenumbers', dn.input.checked)]);
+    }
     if ('hud_fastswitch' in cur) {
       const fsw = this._check('Fast weapon switch (hud_fastswitch)', cur.hud_fastswitch);
       mp.appendChild(fsw);

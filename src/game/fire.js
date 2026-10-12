@@ -106,13 +106,13 @@ export class FireSystem {
 
   immune(q, kind) { return kind === 'fire' && !!q.boss?.def.fireImmune; }
 
-  /** Fire / acid damage (the blast path: no hitgroups, no blood; armour absorbs some). */
-  hurt(q, attacker, dmg, weapon, kind) {
+  /** Fire / acid damage (the blast path: no hitgroups, no blood; armour absorbs some). from: where it is (the pain direction). */
+  hurt(q, attacker, dmg, weapon, kind, from = null) {
     if (!q.alive || this.immune(q, kind)) return;
     const g = this.game;
     if (attacker && q !== attacker && attacker.team === q.team && !g.rounds.friendlyFire) return;
     if (q === attacker) dmg *= 0.35; // your own fire hurts, less
-    g.damagePlayer(q, attacker, dmg, 0, weapon, null, null, { blast: true, fire: kind !== 'acid', acid: kind === 'acid' });
+    g.damagePlayer(q, attacker, dmg, 0, weapon, null, null, { blast: true, fire: kind !== 'acid', acid: kind === 'acid', from });
   }
 
   inPatch(q, patch, t) {
@@ -210,7 +210,7 @@ export class FireSystem {
         pa.nextDmg = t + 0.2;
         for (const q of g.players) {
           if (!q.alive || !this.inPatch(q, pa, t)) continue;
-          this.hurt(q, pa.owner, pa.dps * 0.2, pa.weapon, pa.kind);
+          this.hurt(q, pa.owner, pa.dps * 0.2, pa.weapon, pa.kind, pa.center);
           if (pa.burnFor) this.burn(q, pa.owner, pa.burnFor, 15, pa.weapon);
         }
       }

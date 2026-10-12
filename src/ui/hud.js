@@ -26,6 +26,7 @@ export const RGB_GREENISH = [0, 160, 0];
 export const TEAM_COLORS = { T: [255, 63, 63], CT: [153, 204, 255], SPEC: [204, 204, 204] };
 export const CON_COLOR = [255, 180, 30]; // con_color: default HUD text (chat, radio)
 const CENTER_COLOR = [255, 255, 255];
+const INFO_COLOR = [255, 236, 200];
 const KILL_ICON = [255, 80, 0];
 const TEAMKILL_ICON = [10, 240, 10];
 const MIN_ALPHA = 100;
@@ -34,6 +35,16 @@ const MAX_DEATHNOTICES = 4;
 const DEATHNOTICE_TIME = 6;
 const MAX_CHAT_LINES = 5;
 const SAYTEXT_TIME = 5; // hud_saytext_time: one line scrolls away every 5 s
+// zombie survival centre prints go on channels, so a quick confirmation never wipes an announcement:
+//   alert  announcements (waves, bosses, game over): up to 3 stacked, the oldest goes when a 4th comes
+//   info   confirmations and hints (bought, fitted, patched up): one slot under the alerts, the latest wins
+// Without a channel, a print of 3 s or more is an alert. Classic CS keeps GoldSrc's one slot.
+const CENTER_ALERTS = 3;
+const CENTER_FADE = 0.35;
+// zombie survival hit markers (s.hits from zfeedback.js): body, head, kill
+const HIT_RGB = [[255, 255, 255], [255, 200, 40], [235, 30, 20]];
+const STREAK_RGB = [255, 200, 40];
+const DOWN_RGB = [255, 70, 50];
 
 const css = (c, a = 1) => (a >= 1 ? `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})` : `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`);
 const teamColor = (t) => TEAM_COLORS[t] || TEAM_COLORS.SPEC;
@@ -88,6 +99,8 @@ export class Hud {
     this.chatLines = [];
     this.chatScroll = 0;
     this.center = null;
+    this.centerQ = { alert: [], info: [] }; // zombie survival's centre channels
+    this.centerQueued = false; // (on while the HUD shows zombie survival)
     this.delta = null;
     this.blink = { count: 0, t: 0 };
     this.prev = { health: null, armor: null, money: null, weaponId: null };
@@ -124,6 +137,7 @@ export class Hud {
     this.fontPx = engineFontPx(VH);
     this.lineH = engineLineHeight(VH);
     this.font = fontString(this.fontPx);
+    this.fontBold = null; // (the streak popup's, made on first use)
     this.digits = digitSprites(this.k);
     this.radarDisc = null;
     this.sized = true;
@@ -139,11 +153,14 @@ export class Hud {
     this.kills.length = 0;
     this.chatLines.length = 0;
     this.center = null;
+    this.centerQ.alert.length = 0;
+    this.centerQ.info.length = 0;
     this.delta = null;
   }
 
-  addKill({ attacker = '', attackerTeam = null, victim = '', victimTeam = null, weapon = 'world', headshot = false } = {}) {
-    this.kills.push({ attacker: attacker || '', attackerTeam, victim: victim || '', victimTeam, weapon: weapon || 'world', headshot: !!headshot, time: this.time });
+  /** A death notice. Zombie survival extras: label (a streak callout after the name instead of an icon and victim), suffix ("DOWN" after the victim). */
+  addKill({ attacker = '', attackerTeam = null, victim = '', victimTeam = null, weapon = 'world', headshot = false, label = '', suffix = '' } = {}) {
+    this.kills.push({ attacker: attacker || '', attackerTeam, victim: victim || '', victimTeam, weapon: weapon || 'world', headshot: !!headshot, label, suffix, time: this.time });
     while (this.kills.length > MAX_DEATHNOTICES) this.kills.shift();
   }
 
@@ -169,8 +186,26 @@ export class Hud {
   /** A short green wash over the screen: you were patched up (medkit). */
   healFlash() { this.healAt = this.time; }
 
-  centerPrint(text, seconds = 4) {
-    this.center = text ? { lines: String(text).split('\n'), until: this.time + seconds } : null;
+  /**
+   * Centre print. channel ('alert' | 'info', zombie survival): see CENTER_ALERTS. An empty text
+   * clears the channel (every channel without one).
+   */
+  centerPrint(text, seconds = 4, channel = null) {
+    if (!this.centerQueued && !channel) { this.center = text ? { lines: String(text).split('\n'), until: this.time + seconds } : null; return; }
+    const Q = this.centerQ;
+    if (!text) {
+      if (channel !== 'info') Q.alert.length = 0;
+      if (channel !== 'alert') { Q.info.length = 0; this.center = null; }
+      return;
+    }
+    const ch = channel === 'alert' || channel === 'info' ? channel : seconds >= 3 ? 'alert' : 'info';
+    const q = Q[ch], str = String(text), until = this.time + seconds;
+    const same = q.find((e) => e.text === str);
+    if (same) { same.until = until; return; } // (the same again: it just stays up longer)
+    const e = { text: str, lines: str.split('\n'), t0: this.time, until, y: null };
+    if (ch === 'info') { if (q[0]) e.y = q[0].y; q.length = 0; } // (the latest replaces it in place)
+    else if (q.length >= CENTER_ALERTS) q.shift();
+    q.push(e);
   }
 
   chat(name, team, text, { dead = false, teamOnly = false } = {}) {
@@ -242,6 +277,8 @@ export class Hud {
     A.clearRect(0, 0, vw, vh);
     T.clearRect(0, 0, vw, vh);
     if (!this.visible || !s || s.hidden) return;
+    this.centerQueued = !!s.zombie;
+    if (this.centerQueued && this.center) { const c = this.center; this.center = null; this.centerPrint(c.lines.join('\n'), c.until - this.time); } // (printed before the HUD knew)
     A.globalCompositeOperation = 'lighter';
     A.globalAlpha = 1;
     T.globalAlpha = 1;
@@ -253,6 +290,7 @@ export class Hud {
     if (alive) {
       this.drawRadar(s);
       if (!s.scope) this.drawCrosshair(s);
+      if (s.hits || s.streak) this.drawHitMarkers(s);
       this.drawPain(s, dt);
       this.drawHealth(s, dt);
       this.drawArmor(s, dt);
@@ -267,9 +305,9 @@ export class Hud {
     }
     if (s.zombie) this.drawZombie(s);
     if (this.layers.length) this.drawLayers(s, dt, false);
-    this.drawKills();
+    this.drawKills(s);
     this.drawChat();
-    this.drawCenter();
+    this.drawCenter(dt);
     this.drawFps(s);
     if (s.flash > 0) {
       T.fillStyle = css([255, 255, 255], clamp(s.flash, 0, 1));
@@ -667,18 +705,29 @@ export class Hud {
     }
   }
 
-  drawKills() {
+  drawKills(s) {
     const now = this.time;
     while (this.kills.length && now - this.kills[0].time > DEATHNOTICE_TIME) this.kills.shift();
-    if (!this.kills.length) return;
+    const tally = s?.killTally;
+    if (!this.kills.length && !tally) return;
     const k = this.k;
     const step = Math.max(20 * k, this.lineH + 2);
     const margin = Math.round(this.fontPx);
     let y = Math.round((32 * this.vh) / 480) + 2;
     for (const e of this.kills) {
+      if (e.label) {
+        // a streak callout (zombie survival): "Player  TRIPLE"
+        const lw = this.textWidth(e.label), aw = e.attacker ? this.textWidth(e.attacker) : 0, gap = Math.round(5 * k + this.fontPx * 0.5);
+        const x = this.vw - margin - lw;
+        if (e.attacker) this.text(e.attacker, x - gap - aw, y, teamColor(e.attackerTeam));
+        this.text(e.label, x, y, STREAK_RGB);
+        y += step;
+        continue;
+      }
       const icon = weaponIcon(e.weapon, k);
       const hs = e.headshot ? weaponIcon('headshot', k) : null;
-      const vwid = this.textWidth(e.victim);
+      const sfx = e.suffix ? ' ' + e.suffix : '';
+      const vwid = this.textWidth(e.victim) + (sfx ? this.textWidth(sfx) : 0);
       let x = this.vw - margin - vwid - icon.width - (hs ? hs.width : 0);
       const iy = y + Math.round((this.lineH - icon.height) / 2);
       if (e.attacker) {
@@ -695,8 +744,62 @@ export class Hud {
         this.spr(hs, x, iy, KILL_ICON, 255);
         x += hs.width;
       }
-      this.text(e.victim, x, y, teamColor(e.victimTeam));
+      x = this.text(e.victim, x, y, teamColor(e.victimTeam));
+      if (sfx) this.text(sfx, x, y, DOWN_RGB);
       y += step;
+    }
+    // zombie survival's quiet counter: the common kills of the current burst (zfeedback.js)
+    if (tally) {
+      const t = tally.age, a = (t < 0.25 ? 1 : 0.55) * (t > tally.hold - 0.6 ? Math.max(0, (tally.hold - t) / 0.6) : 1);
+      const icon = weaponIcon('skull', k);
+      const str = tally.mine && tally.mine < tally.n ? `x${tally.n}  (you ${tally.mine})` : `x${tally.n}`;
+      const x = this.vw - margin - this.textWidth(str);
+      this.spr(icon, x - icon.width - 3 * k, y + Math.round((this.lineH - icon.height) / 2), KILL_ICON, 255 * a);
+      this.text(str, x, y, [255, 210, 160], { alpha: a });
+    }
+  }
+
+  /** Zombie survival hit markers around the crosshair (s.hits) and the streak popup under it (s.streak). */
+  drawHitMarkers(s) {
+    const g = this.gTop, k = this.k;
+    const cx = Math.floor(this.vw / 2) + 0.5, cy = Math.floor(this.vh / 2) + 0.5;
+    const D = Math.SQRT1_2;
+    if (s.hits) for (let i = 0; i < s.hits.length; i++) {
+      const h = s.hits[i];
+      const u = h.age / h.life;
+      if (u >= 1) continue;
+      const kill = h.kind === 2, heavy = 1 + 0.3 * h.heavy;
+      const pop = 1 + 0.5 * Math.max(0, 1 - h.age / 0.08); // punches out, then settles
+      // (the kill X sits outside the hit ticks, so a hit right after a kill still reads)
+      const gap = (kill ? 7.5 : 4.5) * k * pop * heavy, len = (kill ? 8 : 5) * k * heavy * pop;
+      const w = Math.max(1, (kill ? 2.2 : 1.4) * k * heavy);
+      const a = u < 0.55 ? 1 : 1 - (u - 0.55) / 0.45;
+      g.lineCap = 'round';
+      for (let pass = 0; pass < 2; pass++) {
+        g.beginPath();
+        for (let q = 0; q < 4; q++) {
+          const dx = (q & 1 ? D : -D), dy = (q & 2 ? D : -D);
+          g.moveTo(cx + dx * gap, cy + dy * gap);
+          g.lineTo(cx + dx * (gap + len), cy + dy * (gap + len));
+        }
+        if (pass === 0) { g.strokeStyle = `rgba(0,0,0,${(0.55 * a).toFixed(3)})`; g.lineWidth = w + 2 * Math.max(1, k * 0.75); }
+        else { g.strokeStyle = css(HIT_RGB[h.kind] || HIT_RGB[0], a); g.lineWidth = w; }
+        g.stroke();
+      }
+      // a special's or a boss's kill: a white flash at the heart of the X
+      if (kill && h.heavy && h.age < 0.1) {
+        g.fillStyle = `rgba(255,255,255,${(0.9 * (1 - h.age / 0.1)).toFixed(3)})`;
+        g.beginPath();
+        g.arc(cx, cy, (2 + 1.5 * h.heavy) * k, 0, Math.PI * 2);
+        g.fill();
+      }
+      g.lineCap = 'butt';
+    }
+    const st = s.streak;
+    if (st && st.age < st.life) {
+      const a = st.age > st.life - 0.4 ? (st.life - st.age) / 0.4 : 1;
+      const rise = Math.min(1, st.age / 0.12);
+      this.text(st.label, cx, cy + Math.round((40 - 8 * rise) * k), STREAK_RGB, { align: 'center', alpha: a * (0.4 + 0.6 * rise), font: this.fontBold || (this.fontBold = fontString(Math.round(this.fontPx * 1.25), true)) });
     }
   }
 
@@ -748,17 +851,42 @@ export class Hud {
     }
   }
 
-  drawCenter() {
-    if (!this.center) return;
-    if (this.time > this.center.until) {
-      this.center = null;
-      return;
-    }
+  drawCenter(dt = 0) {
     let y = Math.round(this.vh * 0.35);
-    for (const line of this.center.lines) {
-      this.text(line, this.vw / 2, y, CENTER_COLOR, { align: 'center' });
-      y += this.lineH;
+    if (this.center) {
+      if (this.time > this.center.until) this.center = null;
+      else {
+        for (const line of this.center.lines) {
+          this.text(line, this.vw / 2, y, CENTER_COLOR, { align: 'center' });
+          y += this.lineH;
+        }
+      }
     }
+    // zombie survival's channels: the alerts stacked, then the latest confirmation (above them
+    // instead when the stack runs down toward the crosshair)
+    const top = y, info = this.centerQ.info;
+    y = this.drawCenterQueue(this.centerQ.alert, y, dt, CENTER_COLOR);
+    const ih = info.length ? info[0].lines.length * this.lineH : 0;
+    if (ih && y + ih > this.vh * 0.5 - this.lineH) y = top - ih - Math.round(this.lineH * 0.5);
+    this.drawCenterQueue(info, y, dt, INFO_COLOR);
+  }
+
+  /** One centre channel from y down (each message slides into its place and fades in / out). Returns the y under it. */
+  drawCenterQueue(q, y, dt, rgb) {
+    const lh = this.lineH;
+    for (let i = 0; i < q.length; i++) {
+      const e = q[i];
+      if (this.time > e.until) { q.splice(i--, 1); continue; }
+      e.y = e.y == null ? y : e.y + (y - e.y) * Math.min(1, dt * 14);
+      const a = Math.max(0, Math.min(1, (this.time - e.t0) / 0.12, (e.until - this.time) / CENTER_FADE));
+      let ly = e.y;
+      for (const line of e.lines) {
+        this.text(line, this.vw / 2, ly, rgb, { align: 'center', alpha: a });
+        ly += lh;
+      }
+      y += e.lines.length * lh + Math.round(lh * 0.5);
+    }
+    return y;
   }
 
   /** Zombie survival: wave number, zombies left / next-wave countdown, kills and best. */

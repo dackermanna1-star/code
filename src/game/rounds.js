@@ -358,7 +358,7 @@ export class RoundManager {
       g.damagePlayer(target.player, b.planter && b.planter.alive ? b.planter : null, damage, 0, 'c4', null, null, { blast: true });
     }
     if (b.planter) b.planter.kills += CR.RULES.frags?.bombExploded ?? 3;
-    g.shake = { until: g.time + 1.5, amp: 12 };
+    g.addShake(12, 1.5);
     this.endRound(TEAM_T, 'bomb', 'Target Successfully Bombed!');
   }
 
