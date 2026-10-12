@@ -41,7 +41,8 @@ export class TitleScreen {
       case 0:
         this.pagetic = this.commercial ? 35 * 11 : 170;
         this.pagename = 'TITLEPIC';
-        this.app.audio.playMusic(this.commercial ? 'D_DM2TTL' : 'D_INTRO');
+        // The title tune plays once, like D_StartTitle.
+        this.app.audio.playMusic(this.commercial ? 'D_DM2TTL' : 'D_INTRO', false);
         break;
       case 2:
         this.pagetic = 200;
@@ -51,7 +52,7 @@ export class TitleScreen {
         if (this.commercial) {
           this.pagetic = 35 * 11;
           this.pagename = 'TITLEPIC';
-          this.app.audio.playMusic('D_DM2TTL');
+          this.app.audio.playMusic('D_DM2TTL', false);
         } else {
           this.pagetic = 200;
           this.pagename = mode === 'retail' ? 'CREDIT' : 'HELP2';

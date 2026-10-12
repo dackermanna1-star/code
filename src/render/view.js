@@ -68,6 +68,9 @@ export class ViewRenderer {
     const self = w.player && w.player.mo;
     for (const mo of w.mobjs) {
       if (mo === self) continue;
+      // Not in any sector's thing list, so never drawn by R_AddSprites
+      // (teleport destinations spawn in S_NULL, i.e. TROO frame A).
+      if (mo.flags & MF.NOSECTOR) continue;
       if (mo.ext && mo.ext.hidden) continue;
       const frames = res.sprites[mo.sprite];
       if (!frames) continue;

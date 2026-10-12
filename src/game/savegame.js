@@ -7,6 +7,7 @@ import { Mobj, reserveMobjIds } from './mobj.js';
 import { MOBJINFO } from './tables.js';
 import { setThingPosition } from './maputl.js';
 import { World } from './world.js';
+import { loadMapData } from './mapdata.js';
 import { Player } from './player.js';
 import { VerticalDoor } from './specials/doors.js';
 import { Plat } from './specials/plats.js';
@@ -73,6 +74,19 @@ function scalars(o) {
   return out;
 }
 
+// Geometry rows that differ from the map as stored in the WAD, tagged with
+// their index ($i). Loading starts from a fresh copy of the map, so the rest
+// need not be stored; this keeps big maps' saves within localStorage quota.
+function changedRows(list, pristine, fields, extra) {
+  const out = [];
+  list.forEach((x, i) => {
+    const o = extra(x);
+    for (const f of fields) if (x[f] !== pristine[i][f]) o[f] = x[f];
+    if (Object.keys(o).length) { o.$i = i; out.push(o); }
+  });
+  return out;
+}
+
 export function saveGame(game, description = '') {
   const w = game.world;
   const p = game.player;
@@ -85,6 +99,8 @@ export function saveGame(game, description = '') {
     enc.thinkerIndex.set(t, thinkers.length);
     thinkers.push(t);
   }
+  const L = w.level;
+  const pristine = loadMapData(game.stack.mapLumps(w.mapName), game.res);
   const data = {
     version: SAVE_VERSION,
     description,
@@ -114,24 +130,15 @@ export function saveGame(game, description = '') {
     // can be loaded with a different IWAD that has the same map.
     textureNames: game.res.textures.map((t) => t.name),
     flatNames: game.res.flats.map((f) => f.name),
-    sectors: w.level.sectors.map((s) => {
+    counts: { sectors: L.sectors.length, lines: L.lines.length, sides: L.sides.length },
+    sectorRows: changedRows(L.sectors, pristine.sectors, SECTOR_FIELDS, (s) => {
       const o = {};
-      for (const f of SECTOR_FIELDS) o[f] = s[f];
-      o.soundtarget = enc.ref(s.soundtarget);
-      o.specialdata = enc.ref(s.specialdata);
+      if (s.soundtarget) o.soundtarget = enc.ref(s.soundtarget);
+      if (s.specialdata) o.specialdata = enc.ref(s.specialdata);
       return o;
     }),
-    lines: w.level.lines.map((l) => {
-      const o = {};
-      for (const f of LINE_FIELDS) o[f] = l[f];
-      o.specialdata = enc.ref(l.specialdata);
-      return o;
-    }),
-    sides: w.level.sides.map((s) => {
-      const o = {};
-      for (const f of SIDE_FIELDS) o[f] = s[f];
-      return o;
-    }),
+    lineRows: changedRows(L.lines, pristine.lines, LINE_FIELDS, (l) => (l.specialdata ? { specialdata: enc.ref(l.specialdata) } : {})),
+    sideRows: changedRows(L.sides, pristine.sides, SIDE_FIELDS, () => ({})),
     mobjs: [...w.mobjs].map((mo) => enc.plainFields(mo, MOBJ_SKIP)),
     thinkerOrder: w.thinkers.filter((t) => !t.removed).map((t) => (t.isMobj ? { m: t.id } : { t: enc.thinkerIndex.get(t) })),
     thinkers: thinkers.map((t) => ({ cls: t.constructor.name, f: enc.plainFields(t, new Set(['removed'])) })),
@@ -194,10 +201,15 @@ export function loadGame(game, data) {
     commercial: game.commercial, gamemode: game.gamemode, skill: data.skill, player, lumps, audio: game.audio,
   });
   const L = w.level;
-  if (data.sectors.length !== L.sectors.length || data.lines.length !== L.lines.length
-    || data.sides.length !== L.sides.length) {
+  // Older saves hold every sector/line/side; newer ones only changed rows.
+  const rows = (full, changed) => changed || full.map((o, i) => ({ ...o, $i: i }));
+  const counts = data.counts || { sectors: data.sectors.length, lines: data.lines.length, sides: data.sides.length };
+  if (counts.sectors !== L.sectors.length || counts.lines !== L.lines.length || counts.sides !== L.sides.length) {
     throw new Error(`save does not match ${data.mapName} in this wad`);
   }
+  const sectorRows = rows(data.sectors, data.sectorRows);
+  const lineRows = rows(data.lines, data.lineRows);
+  const sideRows = rows(data.sides, data.sideRows);
   const ws = data.world;
   if (ws.scalars) {
     for (const [k, v] of Object.entries(ws.scalars)) {
@@ -214,22 +226,21 @@ export function loadGame(game, data) {
   w.totalkills = ws.totalkills;
   w.totalitems = ws.totalitems;
   w.totalsecret = ws.totalsecret;
-  w.specials.initStatic();
+  // Saved texture/flat numbers are remapped; untouched rows already use this WAD's.
   const tex = remapper(data.textureNames, game.res.textures, (n) => game.res.textureNum(n));
   const flat = remapper(data.flatNames, game.res.flats, (n) => game.res.flatNum(n));
-  data.sectors.forEach((o, i) => {
-    const s = L.sectors[i];
-    for (const f of SECTOR_FIELDS) s[f] = o[f];
-    s.floorpic = flat(s.floorpic);
-    s.ceilingpic = flat(s.ceilingpic);
+  const PICS = { floorpic: flat, ceilingpic: flat, toptexture: tex, bottomtexture: tex, midtexture: tex };
+  const apply = (target, o, fields) => {
+    for (const f of fields) if (f in o) target[f] = PICS[f] ? PICS[f](o[f]) : o[f];
+  };
+  for (const o of sectorRows) apply(L.sectors[o.$i], o, SECTOR_FIELDS);
+  for (const s of L.sectors) {
     s.prevFloor = s.floorheight;
     s.prevCeil = s.ceilingheight;
-  });
-  data.lines.forEach((o, i) => { for (const f of LINE_FIELDS) L.lines[i][f] = o[f]; });
-  data.sides.forEach((o, i) => {
-    for (const f of SIDE_FIELDS) L.sides[i][f] = o[f];
-    for (const f of ['toptexture', 'bottomtexture', 'midtexture']) L.sides[i][f] = tex(L.sides[i][f]);
-  });
+  }
+  for (const o of lineRows) apply(L.lines[o.$i], o, LINE_FIELDS);
+  for (const o of sideRows) apply(L.sides[o.$i], o, SIDE_FIELDS);
+  w.specials.initStatic();
 
   // Objects first (unresolved), then thinkers, then resolve references.
   const mobjsById = new Map();
@@ -256,11 +267,11 @@ export function loadGame(game, data) {
   data.thinkers.forEach((t, i) => Object.assign(thinkers[i], dec.deref(t.f), { removed: false }));
   for (const t of thinkers) if (t instanceof FloorMove && typeof t.texture === 'number') t.texture = flat(t.texture);
   w.thinkers = data.thinkerOrder.map((o) => ('m' in o ? mobjsById.get(o.m) : thinkers[o.t])).filter(Boolean);
-  data.sectors.forEach((o, i) => {
-    L.sectors[i].soundtarget = dec.deref(o.soundtarget);
-    L.sectors[i].specialdata = dec.deref(o.specialdata);
-  });
-  data.lines.forEach((o, i) => { L.lines[i].specialdata = dec.deref(o.specialdata); });
+  for (const o of sectorRows) {
+    if (o.soundtarget) L.sectors[o.$i].soundtarget = dec.deref(o.soundtarget);
+    if (o.specialdata) L.sectors[o.$i].specialdata = dec.deref(o.specialdata);
+  }
+  for (const o of lineRows) if (o.specialdata) L.lines[o.$i].specialdata = dec.deref(o.specialdata);
   w.specials.activeplats = dec.deref(data.specials.activeplats) || [];
   w.specials.activeceilings = dec.deref(data.specials.activeceilings) || [];
   w.specials.buttons = dec.deref(data.specials.buttons) || [];

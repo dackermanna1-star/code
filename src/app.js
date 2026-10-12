@@ -82,6 +82,7 @@ export class App {
       if (em) { ep = +em[1]; map = +em[2]; } else if (mm) map = +mm[1];
       this.game.newGame(ep, skill, map);
       if (p.has('god')) this.game.player.cheats |= 2;
+      this.input.wantLock = true; // like startNewGame: the first click grabs the mouse
     } else {
       this.title.start();
     }

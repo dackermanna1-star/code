@@ -18,6 +18,10 @@ export const SPR_DITHER = 8;
 export const SPR_ROUND = 16;
 export const UI_SHADEBG = 32;
 
+// Two-triangle corner orders, hoisted out of the per-sprite/particle paths.
+const QUAD_ORDER = [0, 1, 2, 0, 2, 3];
+const PARTICLE_CORNERS = [[-1, -1, 0, 0], [1, -1, 1, 0], [1, 1, 1, 1], [-1, -1, 0, 0], [1, 1, 1, 1], [-1, 1, 0, 1]];
+
 export class Renderer {
   constructor(canvas, res, settings) {
     this.canvas = canvas;
@@ -433,8 +437,7 @@ export class Renderer {
     const o = batch.reserve(6);
     const d = batch.data;
     let p = o;
-    const order = [0, 1, 2, 0, 2, 3];
-    for (const idx of order) {
+    for (const idx of QUAD_ORDER) {
       const k = corners[idx];
       d[p++] = s.x + rx * k[0];
       d[p++] = s.y + ry * k[0];
@@ -461,8 +464,7 @@ export class Renderer {
     const o = this.spriteBatch.reserve(6);
     const d = this.spriteBatch.data;
     let p = o;
-    const cs = [[-1, -1, 0, 0], [1, -1, 1, 0], [1, 1, 1, 1], [-1, -1, 0, 0], [1, 1, 1, 1], [-1, 1, 0, 1]];
-    for (const c of cs) {
+    for (const c of PARTICLE_CORNERS) {
       d[p++] = x + (rx * c[0] + ux * c[1]) * hs;
       d[p++] = y + (ry * c[0] + uy * c[1]) * hs;
       d[p++] = z + (rz * c[0] + uz * c[1]) * hs;
@@ -484,7 +486,7 @@ export class Renderer {
     const d = this.spriteBatch.data;
     let p = o;
     const c = center || [(pts[0][0] + pts[2][0]) / 2, (pts[0][1] + pts[2][1]) / 2, (pts[0][2] + pts[2][2]) / 2];
-    for (const i of [0, 1, 2, 0, 2, 3]) {
+    for (const i of QUAD_ORDER) {
       const q = pts[i];
       d[p++] = q[0]; d[p++] = q[1]; d[p++] = q[2]; d[p++] = q[3]; d[p++] = q[4];
       d[p++] = image; d[p++] = light; d[p++] = 0; d[p++] = flags; d[p++] = 1;

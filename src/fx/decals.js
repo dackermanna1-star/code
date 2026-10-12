@@ -11,6 +11,7 @@ const PLANE_FLOOR = 0;
 const PLANE_CEIL = 1;
 const F_DECAL = 16 | 64;
 const F_FLATLIGHT = 128;
+const QUAD_ORDER = [0, 1, 2, 0, 2, 3];
 
 export class Decals {
   constructor(w, max) {
@@ -142,7 +143,7 @@ export class Decals {
       const a = batch.data;
       let p = o;
       const flags = F_DECAL | (d.flat ? F_FLATLIGHT : 0);
-      for (const k of [0, 1, 2, 0, 2, 3]) {
+      for (const k of QUAD_ORDER) {
         const v = d.verts[k];
         a[p++] = v[0]; a[p++] = v[1];
         a[p++] = v[2]; a[p++] = v[3]; a[p++] = v[4];

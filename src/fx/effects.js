@@ -110,8 +110,11 @@ class Effects {
         out.hy = y0 + ry * t;
       }
     };
-    test(bx1, by1);
-    if (bx0 !== bx1 || by0 !== by1) test(bx0, by0);
+    // Every cell the segment's box touches: a diagonal step or a long probe
+    // (wall blood) can cross cells that hold neither endpoint.
+    for (let by = Math.min(by0, by1); by <= Math.max(by0, by1); by++) {
+      for (let bx = Math.min(bx0, bx1); bx <= Math.max(bx0, bx1); bx++) test(bx, by);
+    }
     if (out.line) {
       out.wall = true;
       const l = out.line;

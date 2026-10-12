@@ -258,11 +258,8 @@ export class Game {
     if (music) this.emit('music', music);
   }
 
+  // IDCLEV: like G_DeferedInitNew, a fresh pistol start on the chosen map.
   warp(episode, map) {
-    this.episode = episode;
-    this.map = map;
-    this.paused = false;
-    if (!this.player) this.player = newGamePlayer();
-    this.startLevel();
+    this.newGame(episode, this.skill, map);
   }
 }

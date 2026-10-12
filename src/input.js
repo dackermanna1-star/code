@@ -24,6 +24,8 @@ export class Input {
     this.gamepadIndex = -1;
     this.padPrev = [];
     this.padLook = { x: 0, y: 0 };
+    this.lockUnavailable = !canvas.requestPointerLock;
+    this.lockFromClick = false;
     this.attach();
   }
 
@@ -33,9 +35,15 @@ export class Input {
     on(window, 'keyup', (e) => this.onKey(e, false));
     on(window, 'blur', () => this.down.clear());
     on(this.canvas, 'mousedown', (e) => {
-      if (!this.locked && this.wantLock) this.requestLock();
-      this.press(`Mouse${e.button}`, true);
       e.preventDefault();
+      if (!this.locked && this.wantLock && !this.captureNext) {
+        // Browsers only re-lock on a click after Esc, so this click just grabs
+        // the mouse back: don't also fire with it (unless locking is broken).
+        this.lockFromClick = true;
+        this.requestLock();
+        if (!this.lockUnavailable) return;
+      }
+      this.press(`Mouse${e.button}`, true);
     });
     on(window, 'mouseup', (e) => this.press(`Mouse${e.button}`, false));
     on(this.canvas, 'contextmenu', (e) => e.preventDefault());
@@ -53,7 +61,13 @@ export class Input {
     }, { passive: false });
     on(document, 'pointerlockchange', () => {
       this.locked = document.pointerLockElement === this.canvas;
+      if (this.locked) this.lockUnavailable = this.lockFromClick = false;
       if (this.onLockChange) this.onLockChange(this.locked);
+    });
+    on(document, 'pointerlockerror', () => {
+      // Refused even for a click (e.g. a sandboxed iframe): clicks must fire.
+      if (this.lockFromClick) this.lockUnavailable = true;
+      this.lockFromClick = false;
     });
     on(window, 'gamepadconnected', (e) => { this.gamepadIndex = e.gamepad.index; });
     on(window, 'gamepaddisconnected', () => { this.gamepadIndex = -1; });
@@ -74,7 +88,7 @@ export class Input {
       const p = this.canvas.requestPointerLock();
       if (p && p.catch) p.catch(() => {});
     } catch {
-      // ignore
+      this.lockUnavailable = true; // no pointer lock support
     }
   }
 

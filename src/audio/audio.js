@@ -370,9 +370,11 @@ export class AudioSystem {
 
   // --- Music ------------------------------------------------------------------
 
+  // A one-shot tune (title) restarts when requested again, like the title
+  // page coming back around after a demo in the original.
   playMusic(lumpName, loop = true) {
     if (!this.music) return;
-    if (this.musicName === lumpName) return;
+    if (this.musicName === lumpName && loop) return;
     const data = this.stack.data(lumpName);
     this.musicName = lumpName;
     if (!data) { this.music.stop(); return; }
