@@ -224,7 +224,7 @@
     }
     specials = Z().pool.filter((z) => z.special).length;
     check('zombies still find you', close > 0 && Z().spawned > 5, `spawned ${Z().spawned}, ticks with one close ${close}, special bodies ${specials}`);
-    // (stagger, 2.1: the squad's guns stagger zombies now; every event names a squad member)
+    // (stagger, 2.1: the squad's guns stagger zombies now; shove.js: and the bots' shoves; every event names a squad member)
     const squadNames = new Set(g.players.filter((p) => p.team === 'CT' && !p.isZombie).map((p) => p.name));
     check('stagger events only from the squad', of('stagger').every((e) => squadNames.has(e.by)), `${of('stagger').length} events`);
     check('the wave plays out', Z().state === 'wave' || Z().state === 'break', Z().state);

@@ -53,6 +53,8 @@ const digitOf = (code) => {
 };
 
 const RES_MODES = [['native', 'Native (window)'], ['640x480', '640 x 480'], ['800x600', '800 x 600'], ['1024x768', '1024 x 768'], ['1280x960', '1280 x 960']];
+// zombie survival shove key choices (Options, Mouse tab): keys CS 1.6 leaves free here (T is the spray key, unused; H dismisses tips)
+const SHOVE_KEYS = [['KeyT', 'T'], ['KeyJ', 'J'], ['KeyK', 'K'], ['KeyL', 'L'], ['KeyP', 'P'], ['none', 'Mouse 4 only']];
 const XHAIR_COLORS = [['Green', [50, 250, 50]], ['Red', [250, 50, 50]], ['Blue', [50, 50, 250]], ['Yellow', [250, 250, 50]], ['Light Blue', [50, 250, 250]]];
 const sameColor = (a, b) => Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => +v === +b[i]);
 
@@ -440,6 +442,12 @@ export class Menus {
     const inv = this._check('Reverse mouse', cur.invertY);
     mo.appendChild(inv);
     controls.push(['invertY', () => bool('invertY', inv.input.checked)]);
+    if ('shoveKey' in cur) {
+      // zombie survival melee shove: Mouse 4 always, plus a key (F stays the flashlight)
+      const sk = this._select(SHOVE_KEYS, SHOVE_KEYS.some(([c]) => c === cur.shoveKey) ? cur.shoveKey : 'KeyT');
+      mo.appendChild(this._row('Shove key (zombie survival, also Mouse 4)', sk));
+      controls.push(['shoveKey', () => sk.value]);
+    }
     // Audio
     const au = mkPage('Audio');
     const vol = this._slider(0, 1, 0.05, cur.volume ?? 0.8, (v) => Math.round(v * 100) + '%');

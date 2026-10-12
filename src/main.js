@@ -37,6 +37,7 @@ async function boot() {
   setLightCurve(settings.get('gamma'), settings.get('brightness'));
   const input = new Input(renderer.canvas);
   input.sensitivity = settings.get('sensitivity');
+  input.bindOnly('shove', settings.get('shoveKey')); // (zombie survival shove: Mouse 4 and this key)
   input.invertY = settings.get('invertY');
   const hud = new Hud(app);
   const menus = new Menus(app, { onCommand: (c) => onMenuCommand(c) });
@@ -300,6 +301,7 @@ async function boot() {
   function applySetting(k, v) {
     settings.set(k, v);
     if (k === 'sensitivity') input.sensitivity = +v;
+    if (k === 'shoveKey') input.bindOnly('shove', v);
     if (k === 'invertY') input.invertY = !!v;
     if (k === 'volume') sound.setMasterVolume(+v);
     if (['mode', 'aspect', 'fov'].includes(k)) renderer.configure(settings.video());

@@ -13,6 +13,7 @@ export const DEFAULT_BINDS = {
   Numpad6: 'slot6', Numpad7: 'slot7', Numpad8: 'slot8', Numpad9: 'slot9', Numpad0: 'slot10',
   F5: 'snapshot', KeyV: 'detonate',
   MOUSE1: '+attack', MOUSE2: '+attack2', MOUSE3: '+attack3', MWHEELUP: 'invprev', MWHEELDOWN: 'invnext',
+  MOUSE4: 'shove', // zombie survival melee shove (shove.js; the Options shove key binds a key to it too)
 };
 
 export class Input {
@@ -83,8 +84,9 @@ export class Input {
 
   _mouse(e, pressed) {
     if (!this.locked && pressed) return;
-    const name = e.button === 0 ? 'MOUSE1' : e.button === 2 ? 'MOUSE2' : e.button === 1 ? 'MOUSE3' : null;
+    const name = e.button === 0 ? 'MOUSE1' : e.button === 2 ? 'MOUSE2' : e.button === 1 ? 'MOUSE3' : e.button === 3 ? 'MOUSE4' : null;
     if (!name) return;
+    if (e.button === 3 && this.locked) e.preventDefault(); // (the side button is the browser's Back otherwise)
     if (this.textCapture) return;
     this._fire(name, pressed);
   }
@@ -102,6 +104,18 @@ export class Input {
     } else if (pressed) {
       for (const h of this.handlers) if (h(cmd, true, code)) return;
     }
+  }
+
+  /**
+   * Bind cmd to key code alone (the Options shove key): a key that had cmd before goes back to
+   * its default bind. code null / 'none': cmd keeps only its default binds (Mouse 4).
+   */
+  bindOnly(cmd, code) {
+    for (const k of Object.keys(this.binds)) {
+      if (this.binds[k] !== cmd || DEFAULT_BINDS[k] === cmd) continue;
+      if (DEFAULT_BINDS[k]) this.binds[k] = DEFAULT_BINDS[k]; else delete this.binds[k];
+    }
+    if (code && code !== 'none') this.binds[code] = cmd;
   }
 
   is(name) { return this.enabled && this.down.has(name); }
