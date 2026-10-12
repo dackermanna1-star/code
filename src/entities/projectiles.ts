@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { GRAVITY } from '../config';
 import { FastRng } from '../core/rng';
 import { VoxelWorld, RAY_SOLID, RayHit } from '../world/world';
-import { AIR, KIND, Kind, matId, FIRE, UNLOADED, MATERIALS } from '../world/materials';
+import { AIR, KIND, Kind, matId, FIRE, UNLOADED, MATERIALS, SOLID_COLLIDE } from '../world/materials';
 import { MaterialSimulation } from '../sim/simulation';
 import { TerrainDestructionSystem } from '../sim/destruction';
 import { ParticleSystem } from '../render/particles';
@@ -49,6 +49,8 @@ export interface Projectile {
   triggerFired: boolean;
   hitSet: Set<number>;
   alive: boolean;
+  /** fused projectile (explodes on death only) lying still on the ground */
+  resting: boolean;
   color: [number, number, number];
   size: number;
   glow: boolean;
@@ -224,6 +226,7 @@ export class ProjectileSystem {
       triggerFired: false,
       hitSet: new Set(),
       alive: true,
+      resting: false,
       color: [col[0] / 255, col[1] / 255, col[2] / 255],
       size: def.visual.size,
       glow: def.visual.style !== 'bomb' && def.visual.style !== 'dynamite' && def.visual.style !== 'arrow' && def.visual.style !== 'none',
@@ -271,6 +274,11 @@ export class ProjectileSystem {
     }
     // homing: steer towards nearest hostile creature in front
     if (p.homing > 0) this.steer(p, dt);
+    // a resting fused projectile stays put until the ground under it disappears
+    if (p.resting) {
+      if (!SOLID_COLLIDE[this.world.get(Math.floor(p.x), Math.floor(p.y - 0.6), Math.floor(p.z))]) p.resting = false;
+      else return;
+    }
     // gravity
     if (!def.stationary) p.vy -= p.gravity * dt;
     // continuous material behaviours
@@ -322,7 +330,13 @@ export class ProjectileSystem {
       }
       if (hitTerrain) {
         const hx = tmpHit.px, hy = tmpHit.py, hz = tmpHit.pz;
+        if (tmpHit.mat === UNLOADED) {
+          // flew into a part of the world that is not loaded: vanish quietly
+          this.die(p, false);
+          return;
+        }
         p.lastHitX = hx; p.lastHitY = hy; p.lastHitZ = hz;
+        if (def.explodeOn === 'death' && this.settle(p, hx, hy, hz)) return;
         if (p.bounces > 0 && def.special !== 'teleport_caster') {
           p.bounces--;
           const e = def.bounceEnergy || 0.8;
@@ -434,12 +448,40 @@ export class ProjectileSystem {
       if (p.trigger && p.trigger.kind === 'hit') this.firePayload(p, true, true);
       return;
     }
+    if (p.def.explodeOn === 'death') {
+      // fused projectiles knock against creatures and keep ticking
+      p.hitSet.add(c.id);
+      p.vx *= -0.3;
+      p.vz *= -0.3;
+      return;
+    }
     p.x = x; p.y = y; p.z = z;
     if (p.trigger && p.trigger.kind === 'hit' && !p.triggerFired) this.firePayload(p, true);
     if (p.explosion) this.detonate(p, x, y, z, true);
     if (p.def.special === 'teleport_caster' && p.owner) this.events.teleport?.(p.owner, p.lastFreeX, p.lastFreeY, p.lastFreeZ);
     this.releaseMaterial(p, 'onHit');
     this.die(p, false);
+  }
+
+  /**
+   * Fused projectiles (bombs) bounce until they run out of bounces or energy and then lie on the
+   * ground until their fuse runs out. Returns true when the projectile came to rest.
+   */
+  private settle(p: Projectile, hx: number, hy: number, hz: number): boolean {
+    const slow = Math.hypot(p.vx, p.vy, p.vz) < 6;
+    if (p.bounces > 0 && !slow) return false;
+    p.x = hx + tmpHit.nx * 0.05;
+    p.y = hy + tmpHit.ny * 0.05;
+    p.z = hz + tmpHit.nz * 0.05;
+    if (tmpHit.ny > 0) {
+      p.vx = p.vy = p.vz = 0;
+      p.resting = true;
+    } else {
+      // hit a wall or ceiling: drop straight down
+      p.vx = p.vz = 0;
+      p.vy = Math.min(p.vy, 0);
+    }
+    return true;
   }
 
   private impactTerrain(p: Projectile, x: number, y: number, z: number, vx: number, vy: number, vz: number, mat: number): void {
@@ -452,7 +494,7 @@ export class ProjectileSystem {
     if (!def.dig && !p.explosion && (p.dmg.projectile ?? 0) > 0 && def.explosion === undefined) {
       // nothing: non-explosive projectiles without dig do not alter terrain
     }
-    if (p.explosion) this.detonate(p, x, y, z, true);
+    if (p.explosion && p.def.explodeOn !== 'death') this.detonate(p, x, y, z, true);
     if ((p.dmg.fire ?? 0) > 0 || p.extra.has('burn')) {
       this.sim.ignite(vx, vy, vz);
       this.placeAt(p.lastFreeX, p.lastFreeY, p.lastFreeZ, FIRE);

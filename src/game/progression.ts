@@ -281,12 +281,16 @@ export class Progression {
     this.collapsed.add(layer);
     const g = this.run.game;
     const floor = hmFloorY(layer);
-    // seal the exit shaft behind the player and drop rubble over the altar
+    // seal the exit shaft behind the player and drop rubble over the altar; never inside a creature
+    const bodies = this.run.damage.creatures.map((c) => c.body);
+    const inBody = (x: number, y: number, z: number) =>
+      bodies.some((b) => x + 1 > b.x - b.hw && x < b.x + b.hw && y + 1 > b.y && y < b.y + b.h && z + 1 > b.z - b.hw && z < b.z + b.hw);
     for (let y = floor - 6; y < floor - 2; y++)
       for (let dz = -6; dz <= 6; dz++)
         for (let dx = -6; dx <= 6; dx++) {
           if (Math.hypot(dx, dz) > 6.5) continue;
-          g.world.set(HM.exitX + dx, y, HM.exitZ + dz, DENSEROCK);
+          const x = HM.exitX + dx, z = HM.exitZ + dz;
+          if (!inBody(x, y, z)) g.world.set(x, y, z, DENSEROCK);
         }
     for (let i = 0; i < 300; i++) {
       const x = HM.cx + Math.floor((Math.random() - 0.5) * 22), z = HM.roomZ1 - 4 - Math.floor(Math.random() * 6);
@@ -317,7 +321,8 @@ export class Progression {
       if (this.collapsed.has(i)) continue;
       const band = hmBandY(i);
       const floor = hmFloorY(i);
-      if (b.y < floor - 8 && b.y > band.bottom - 30 && Math.hypot(b.x - HM.exitX, b.z - HM.exitZ) < 8) this.collapse(i);
+      // only once the whole body is below the seal rows (floor-6 .. floor-3)
+      if (b.y + b.h < floor - 7 && b.y > band.bottom - 30 && Math.hypot(b.x - HM.exitX, b.z - HM.exitZ) < 8) this.collapse(i);
     }
     // freeze field perk
     if (this.hasPerk('FREEZE_FIELD') && Math.random() < dt * 20) {

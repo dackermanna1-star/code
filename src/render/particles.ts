@@ -15,6 +15,8 @@ const MAT_RGB: [number, number, number][] = MATERIALS.map((m) => {
   return [c[0] / 255, c[1] / 255, c[2] / 255];
 });
 
+const UNKNOWN_RGB: [number, number, number] = [0.5, 0.5, 0.5];
+
 export class ParticleSystem {
   // structure of arrays
   private px = new Float32Array(MAX);
@@ -138,7 +140,7 @@ export class ParticleSystem {
   }
 
   matColor(m: number): [number, number, number] {
-    return MAT_RGB[m];
+    return MAT_RGB[m] ?? UNKNOWN_RGB;
   }
 
   /** Put material m at or near (x,y,z), searching back along the incoming direction. */
