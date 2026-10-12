@@ -67,6 +67,43 @@ tests/unit/     vitest unit tests for the logic
 docs/           research notes, reference screenshots
 ```
 
+## Features
+
+- All 5 levels plus the epilogue, with the original spawn tables, bosses (fat seal,
+  penguin wave, enraging polar bear, shell-hiding turtle, charging walrus) and
+  game-over / victory flow.
+- All 11 original weapons with their exact prices, damage, magazine size, fire and
+  reload timing, spread, pierce and recoil (incl. minigun spin-up, punt-gun cocking,
+  pump-action timing, AWP laser sight, bouncing grenades, launcher rounds).
+- View-consistent hit detection that reproduces the original's on-screen hit band,
+  headshots, pierce, turtle-shell ricochets, splash damage, nice-shot bonuses.
+- Procedural 3D models and animation for the hunter, 8 creatures and 11 weapons;
+  articulated cannon-es ragdolls (head-off, gib, blast, slide and kick/stomp deaths).
+- Permanent blood painted into a GPU decal map, blood soaking into corpses,
+  permanent corpses (batched), casings and magazines that stay on the ice.
+- Two-layer 3D staging: a 3D iceberg/sky/sea backdrop and the near-orthographic
+  32° gameplay camera, ice with iceberg + planar character reflections, shadows.
+- Original HUD, crosshair with ammo / reload %, money pop-ups, title screen with a
+  live attract-mode game, pause, options (volume, blood, quality, FPS), how-to-play,
+  game over / victory statistics and local high scores.
+- The original sound effects through Web Audio with stereo panning, voice limiting,
+  and synthesised arctic ambience.
+
+## Known limitations
+
+- Only single-player is implemented (the original supported up to 4 local players);
+  the logic supports two players but there is no second input/HUD binding.
+- Corpses are presentation only: like the original's static corpse images they do
+  not block bullets or creatures, and settled corpses no longer react to later
+  explosions.
+- The turtle hides while any gun line crosses it (as in the original); explosives
+  are the practical way to kill it.
+- Performance was verified only under software WebGL in CI-like conditions (no GPU
+  available while developing); draw calls stay around 100–500 thanks to batching,
+  which should be comfortable on any discrete or modern integrated GPU. Use
+  `?quality=low` (or Options → quality) on weak machines.
+- The walrus's life (6000) is a documented guess; the original value is unknown.
+
 ## Tests and tools
 
 ```bash
